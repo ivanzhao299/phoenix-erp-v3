@@ -1,0 +1,26 @@
+-- Counts and organization bindings only; no tokens, amounts or financial payloads.
+SELECT json_build_object(
+  'generatedAt', NOW(),
+  'books', (SELECT COALESCE(json_agg(json_build_object('bookId', b.book_id, 'companyCode', b.company_code, 'enabled', b.enabled, 'updatedAt', b.updated_at) ORDER BY b.book_id), '[]'::json) FROM chanjet_account_books b),
+  'mappings', (SELECT COALESCE(json_agg(json_build_object('bookId', m.bookid, 'companyCode', m.company_code, 'syncEnabled', m.sync_enabled, 'companyActive', EXISTS(SELECT 1 FROM sys_organizations o WHERE o.org_type='COMPANY' AND o.status='ACTIVE' AND COALESCE(NULLIF(o.company_code,''),o.org_code)=m.company_code)) ORDER BY m.bookid), '[]'::json) FROM chanjet_book_company_map m),
+  'runningJobs', (SELECT COUNT(*) FROM chanjet_sync_jobs WHERE status='RUNNING'),
+  'queuedJobs', (SELECT COUNT(*) FROM chanjet_sync_jobs WHERE request_scope->>'lifecycleState'='QUEUED' AND status='RUNNING'),
+  'recoveryCandidates', (SELECT COUNT(*) FROM chanjet_sync_jobs WHERE status='RUNNING' AND request_scope ? 'orchestrationRunId'),
+  'legacyRunningJobs', (SELECT COUNT(*) FROM chanjet_sync_jobs WHERE status='RUNNING' AND NOT COALESCE(request_scope ? 'orchestrationRunId',false)),
+  'mirrorLatest', (SELECT MAX(pulled_at) FROM chanjet_read_snapshots),
+  'mirrorRows', (SELECT COUNT(*) FROM chanjet_read_snapshots),
+  'entityLatest', (SELECT MAX(last_seen_at) FROM chanjet_entity_snapshots),
+  'entityRows', (SELECT COUNT(*) FROM chanjet_entity_snapshots),
+  'arSnapshotRows', (SELECT COUNT(*) FROM chanjet_ar_snapshot),
+  'reconciliation', (SELECT COALESCE(json_agg(row_to_json(t)), '[]'::json) FROM (SELECT status, resolved, COUNT(*) AS count FROM chanjet_reconciliation_results GROUP BY status,resolved) t),
+  'mappingConflicts', (SELECT COUNT(*) FROM chanjet_master_mapping WHERE match_status='CONFLICT'),
+  'pendingMappings', (SELECT COUNT(*) FROM chanjet_master_mapping WHERE review_status='PENDING'),
+  'writebackPending', (SELECT COUNT(*) FROM chanjet_writeback_outbox WHERE state NOT IN ('SUCCEEDED','CANCELLED','REJECTED')),
+  'wmsWritebackPending', (SELECT COUNT(*) FROM chanjet_wms_writeback_outbox WHERE state NOT IN ('SUCCEEDED','CANCELLED','REJECTED')),
+  'inboundRuns', (SELECT COUNT(*) FROM chanjet_erp_inbound_sync_runs),
+  'financeLedgerRows', (SELECT COUNT(*) FROM fin_ar_ledger),
+  'financeInvoiceRows', (SELECT COUNT(*) FROM fin_ar_invoices),
+  'budget', (SELECT COALESCE(json_agg(json_build_object('key',budget_key,'requests',request_count,'updatedAt',updated_at)), '[]'::json) FROM sys_chanjet_api_budget WHERE updated_at >= date_trunc('month',NOW())),
+  'tokenRecordPresent', (SELECT EXISTS(SELECT 1 FROM sys_chanjet_state WHERE tokens IS NOT NULL)),
+  'tokenStateUpdatedAt', (SELECT MAX(updated_at) FROM sys_chanjet_state)
+);
