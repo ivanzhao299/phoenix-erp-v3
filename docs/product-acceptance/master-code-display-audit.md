@@ -81,3 +81,14 @@ Shared policy: requested locale name -> canonical name -> code. Farm/house use r
 | breeding/med-stock | legacy house_code free text | historical house labels such as 2号舍/全场 | legacy value is not a master code and cannot be matched reliably | historical original text | SEPARATE_MASTER_DATA_GAP | matched codes fixed; no data rewrite |
 | sales2/inventory | sku_code in loss-by-batch ranking | code-only badge | scoped business inventory-items lookup | canonical/current locale when projected | FIXED_THIS_PR | bulk SKU map for ranking only; main named lists retained |
 | breeding/device-alerts | farm_code | ownership code only | existing scoped lookup/farms; deny/empty remains fail-closed for device-only scopes | canonical + future locale fields | FIXED_THIS_PR | one bulk lookup, current scope respected; no IoT row scope changed |
+
+
+## Post-deploy production record exception — 2026-10-08
+
+The original63 static page/field audit records and26 fixed pages remain unchanged. A new real-data exception was independently verified during authorized readonly acceptance:
+
+| PAGE | FIELD | CURRENT_DISPLAY | NAME_SOURCE | LOCALIZATION_SOURCE | DECISION | FIX |
+|---|---|---|---|---|---|---|
+| breeding/flock, historical FK-DEBUG-001 | F-DEBUG / H-DEBUG-A01 association | house code once | lookup house H-DEBUG-A01 belongs to LPH_MENGSAI and has name X; no matching F-DEBUG+H-DEBUG-A01 master | no authoritative name for this association | SEPARATE_MASTER_DATA_GAP | safe fallback retained; no incorrect cross-farm label, scope broadening or data repair |
+
+Legal GET lookup/houses and CRUD brd_flocks both returned200 and confirmed different farm codes. `flockMasterLabels` uses the composite farm/house identity; matching solely by house code would mislabel this row. Independent readonly review agreed. This adds an observed record-level data-quality exception, not another code-only page defect or a claim that production uniqueness constraints were checked. [Closeout evidence](c3-production-transition-closeout.md) records final production scope and empty-branch limitations.

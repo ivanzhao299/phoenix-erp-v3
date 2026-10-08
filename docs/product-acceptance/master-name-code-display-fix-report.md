@@ -1,5 +1,47 @@
 # Product acceptance: master name/code display
 
+## Current production closeout — 2026-10-08
+
+The reported defect is deployed and passed real readonly acceptance. [Full C3/deployment/acceptance evidence](c3-production-transition-closeout.md) records the exact authorization, Actions runs, storage/Chanjet checks, smoke limits and remaining data-quality exception.
+
+```text
+LATEST_MAIN_AT_DEPLOY=23c7af86dd122379d01248a3b9542b8165f31498
+DEPLOYED_API_REVISION=23c7af86dd122379d01248a3b9542b8165f31498
+DEPLOYED_WEB_REVISION=23c7af86dd122379d01248a3b9542b8165f31498
+C3_ACTIONS_RUN_ID=37738116329
+DEPLOY_RUN_ID=37738270604
+POST_DEPLOY_READONLY_RUN_ID=37738964572
+CONFIG_FLOOR_VERSION=2
+PRODUCTION_DEPLOY=PASS
+PRODUCTION_UI_ACCEPTANCE=PASS (reported real farm/house/name/code/search contract)
+USER_FEEDBACK_FIX=PASS
+FLOCK_FARM_DISPLAY=PASS
+FLOCK_HOUSE_DISPLAY=PASS
+ZH_DISPLAY=PASS
+EN_DISPLAY=PASS
+LO_DISPLAY=PASS
+SEARCH_BY_NAME=PASS
+SEARCH_BY_CODE=PASS
+PRICE_ANOMALY_API=PASS
+SAME_CLASS_PRODUCTION_SMOKE=PASS (27 routes,81 locale views; empty record-label branches UNVERIFIED)
+MIGRATION_BASELINE_SOURCE=RUNNING_API_REVISION
+MIGRATION_PATH_DIFF=0
+RUN_MIG=false
+DATABASE_MIGRATION=NO
+PRODUCTION_DATA_MUTATION=NO
+CHANJET_CHANGE=NO
+CHANJET_READONLY_SYNC_ENABLED=false
+CHANJET_ERP_INBOUND_SYNC_ENABLED=false
+PRODUCT_ACCEPTANCE_FEEDBACK_STATUS=CLOSED (reported defect; bounded smoke)
+NEXT_ACTION=RETURN_TO_HUMAN_PRODUCT_ACCEPTANCE
+```
+
+Real `LPH_MS_F02` shows 孟赛蛋鸡场 / LPH_MENGSAI and 2号鸡舍 / HOUSE_MS_02 in zh/en/lo. Names are canonical brd_farms.farm_name / brd_houses.house_name; these lookup records have no locale-name fields. Code remains visible and all four name/code searches pass. DB/API/Web health and the /data storage guard pass; DB container identity/start time are unchanged; live .env is byte-identical. No task-directed migration/business DML ran; this is not a claim that every running database value was unchanged. Existing historical UID1002 archive is untouched, exact backup is preserved outside checkout, and main is clean at the deployed SHA.
+
+Named-label production cases were observed in flock/henhouse/henreport/pricing. Other sampled empty or unexercised business-record branches remain UNVERIFIED; no data was created to manufacture proof. Historical debug flock FK-DEBUG-001 uses farm F-DEBUG while H-DEBUG-A01 belongs to LPH_MENGSAI; independent review confirmed its code fallback protects the correct farm-house association. This is a separate master-data gap, not a display regression. Human acceptance and any later data-quality action remain separate scope.
+
+## Earlier investigation and deployment blockers — historical, superseded
+
 USER_FEEDBACK=鸡群档案养殖场/鸡舍只显示编码
 BASE_MAIN=063ec1bc5d7d1cd6e10c398cb8178a8c96abc0ad
 LATEST_ORIGIN_MAIN=063ec1bc5d7d1cd6e10c398cb8178a8c96abc0ad
