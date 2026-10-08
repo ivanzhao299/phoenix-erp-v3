@@ -176,3 +176,5 @@ AR镜像刷新使用公司/账套/期间advisory transaction lock及单事务替
 ACTIVE验收后覆盖至少下一次00:15/06:15/12:15/18:15正式调度及完整6小时周期。使用正式Actions的audit操作复测，不把历史R3或本次启用前现场计数复用为上线后证据。取证SQL输出24小时scheduled/completed/failed/rate-limit计数、逐账套/endpoint覆盖及最近刷新、pending/conflict、未解决对账分组、inbound runs及两类remote attempt累计数；每次与启用基线比较。财务差异留审核，正式入账有独立审批证据，不能用同步SUCCESS代替。
 
 发生权限/映射/限流失败时durable FAIL阻断同审批的后续运行；发现跨公司混入、禁止事实变化或远端写attempt增长，立即通过正式HOLD配置事务停用并保全job、floor过渡及受限证据，不删除镜像、不重写账务、不强制恢复旧API。当前尚未ACTIVE，完整周期观察为NOT_RUN。
+
+独立逐文件边界与安全审查完成后，PR登记仓库既有`reviewed-frozen-boundary`和`reviewed-security-touch`标签并重新运行静态门禁；不修改scanner或降低规则。首轮未登记标签的security失败保留。标签表示本次已审代码边界，不代替精确merged SHA的生产floor批准。
