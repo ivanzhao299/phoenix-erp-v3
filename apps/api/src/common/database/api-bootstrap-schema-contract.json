@@ -34,5 +34,13 @@
     "mon_device_realtime_snapshot_property_code_fkey",
     "mon_device_property_history_property_code_fkey",
     "mon_device_alert_event_property_code_fkey"
-  ]
+  ],
+  "prePromotionTables": {
+    "brd_farms": [
+      "mapped_site_code"
+    ],
+    "brd_flocks": [
+      "farm_name"
+    ]
+  }
 }

@@ -38,6 +38,7 @@ CREATE TABLE IF NOT EXISTS brd_houses (
 );
 CREATE TABLE IF NOT EXISTS brd_flocks (
   flock_no VARCHAR(50) PRIMARY KEY,
+  farm_name VARCHAR(100),
   house_code VARCHAR(50),
   farm_code VARCHAR(50),
   strain VARCHAR(50),

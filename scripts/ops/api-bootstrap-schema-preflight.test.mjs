@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { bootstrapSchemaSql, assertBootstrapSchemaEvidence, readBootstrapSchemaEvidence } from './api-bootstrap-schema-preflight.mjs';
+import { bootstrapSchemaRequirements, bootstrapSchemaSql, assertBootstrapSchemaEvidence, readBootstrapSchemaEvidence } from './api-bootstrap-schema-preflight.mjs';
 const contract=JSON.parse(fs.readFileSync('apps/api/src/common/database/api-bootstrap-schema-contract.json','utf8'));
-const columns=Object.entries(contract.tables).flatMap(([table,names])=>names.map(column=>({table,column})));
+const columns=Object.entries(bootstrapSchemaRequirements(contract)).flatMap(([table,names])=>names.map(column=>({table,column})));
 const evidence={columns,extensions:contract.extensions,retiredConstraints:[]};
 test('runtime and promotion consume the same frozen requirements and reject real gaps',()=>{
  assert.equal(assertBootstrapSchemaEvidence(contract,evidence).status,'PASS');
@@ -22,4 +22,13 @@ test('promotion verifies approved requirement bytes and production metadata befo
  assert.match(s,/api-bootstrap-schema-contract.json/);assert.match(s,/STAGED_HELPER_MISMATCH/);assert.match(s,/bootstrapSchema, marker/);
  const w=fs.readFileSync('.github/workflows/deploy.yml','utf8');assert.match(w,/git show "\$TARGET_SHA:apps\/api\/src\/common\/database\/api-bootstrap-schema-contract.json"/);
  assert.match(w,/always\(\) && steps.bootstrap_sql.outcome/);assert.doesNotMatch(w.slice(w.indexOf('Preserve sanitized API bootstrap proof'),w.indexOf('Check entity ↔ DB schema sync')),/private-runtime/);
+});
+
+test('promotion refuses known UI columns before floor mutation without expanding startup SQL',()=>{
+ const missing=columns.filter(x=>!(x.table==='brd_flocks'&&x.column==='farm_name'));
+ assert.throws(()=>assertBootstrapSchemaEvidence(contract,{...evidence,columns:missing}),/BOOTSTRAP_SCHEMA_GAP/);
+ const farmMissing=columns.filter(x=>!(x.table==='brd_farms'&&x.column==='mapped_site_code'));
+ assert.throws(()=>assertBootstrapSchemaEvidence(contract,{...evidence,columns:farmMissing}),/BOOTSTRAP_SCHEMA_GAP/);
+ assert(!Object.hasOwn(contract.tables,'brd_flocks'));
+ assert.throws(()=>bootstrapSchemaSql({...contract,prePromotionTables:{sys_settings:[]}}),/BOOTSTRAP_SCHEMA_CONTRACT/);
 });
