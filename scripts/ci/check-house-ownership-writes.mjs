@@ -16,7 +16,6 @@ const servicePath = 'apps/api/src/modules/generic-crud/generic-crud.service.ts';
 const service = readFileSync(new URL(`../../${servicePath}`, import.meta.url), 'utf8');
 const serviceRequired = [
   "brd_houses: new Set(['company_code', 'site_code', 'store_code'])",
-  'this.assertColumnsAllowed(table, [column]);',
   'this.assertColumnsAllowed(table, fields);',
   'this.assertColumnsAllowed(table, [key]);',
 ];
@@ -27,6 +26,11 @@ for (const needle of required) {
 }
 for (const needle of serviceRequired) {
   if (!service.includes(needle)) failures.push(`${servicePath}: missing retired-column contract: ${needle}`);
+}
+
+// The online DDL recovery method is retired; field/key guards remain mandatory.
+if (/\bensureColumn\s*\(/.test(service) || /\bALTER\s+TABLE\b/i.test(service)) {
+  failures.push(`${servicePath}: implicit schema repair must remain disabled`);
 }
 
 function walk(dir, files = []) {

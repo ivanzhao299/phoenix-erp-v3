@@ -128,7 +128,7 @@ Root trusted paths, permissions/ACL/mount checks, FD9 lock, clean checkout, exac
 | API changed-file ESLint | PASS: zero errors, 47 warnings from existing any/unused-variable debt |
 | Migration down/no-data-DML and nullable/constraint drift | PASS; 88 migrations unchanged, zero new drift |
 | Actionlint / fixture shell syntax / git diff check | PASS |
-| Required GitHub CI | PENDING |
+| Required GitHub CI | PENDING; obsolete ensureColumn guard assertion replaced by an explicit prohibition on online schema repair; retirement field/key guards retained |
 | Independent security review | PASS conditional on final actual five-profile proof and required CI; final proof now PASS |
 
 Independent reviewer first identified incomplete session coverage, failed-run evidence loss, a floor-before-schema hazard and client-clock log cutoff risk. All were repaired and reviewed again. Final review found no remaining P0/P1 code blocker. The reviewer performed read-only source review, not the runtime tests. The primary agent executed the test evidence above.
