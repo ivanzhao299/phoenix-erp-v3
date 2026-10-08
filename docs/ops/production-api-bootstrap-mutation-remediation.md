@@ -67,7 +67,7 @@ Brand GET still returns existing configuration or the previous default response 
 
 No migration file was added or modified. Migration paths have zero diff from BASE_MAIN.
 
-1. sys_settings and sys_cron_heartbeat were historically created by runtime code and are missing from the canonical migration chain. This PR provides **isolated CI schema fixtures only**, explicitly constrained to test/CI databases. A separate approved schema track must establish canonical migration coverage and validate existing production structure. The new application and promotion preflight HOLD on missing requirements.
+1. sys_settings and sys_cron_heartbeat were historically created by runtime code and are missing from the canonical migration chain. This PR provides **isolated CI schema fixtures only**, explicitly constrained to test/CI databases. The same backlog includes six breeding tables and three packaging audit/label/QC tables required by existing CI regressions; their empty final schema is now prepared explicitly by that test-only fixture, with no seed/backfill/sequence reset. A separate approved schema track must establish canonical migration coverage and validate existing production structure. The new application and promotion preflight HOLD on missing requirements.
 2. IoT property_code FK retirement has an existing controlled migration path. Any environment retaining those three old constraints requires separately approved migration/drift remediation, not automatic startup DROP.
 3. Every removed GenericCrud repair/seed site remains in the baseline inventory for independent schema/data governance. Its presence there is not authorization to execute it. Any absent migration replacement, organization/role/dictionary initialization or historical business backfill requires its own reviewed operation. No replacement startup provider was created.
 4. Workflow's dormant schema/seed helpers are outside startup reachability; any future explicit administrative use requires the existing administrative/controlled governance boundary. They were not activated or broadly refactored here.
@@ -89,16 +89,16 @@ HOLD remains policy=HOLD, readonly=false, inbound=false. No historical sync reco
 
 ## Actual isolated PostgreSQL proof
 
-The full frozen SQL baseline and 88 TypeORM migrations initialize an owned PostgreSQL 18 fixture **before** the audited window. CI-only metadata fixtures supply the two historical runtime-created tables. The proof launches compiled main.js and the entire AppModule under Node 20 with NODE_ENV/APP_ENV=production and HOLD false/false; it does not mock the database, Nest or services.
+The full frozen SQL baseline and 88 TypeORM migrations initialize an owned PostgreSQL 18 fixture **before** the audited window. CI-only metadata fixtures supply the eleven historical runtime-created tables. The proof launches compiled main.js and the entire AppModule under Node 20 with NODE_ENV/APP_ENV=production and HOLD false/false; it does not mock the database, Nest or services.
 
 Synthetic retained rows include a historical invoice direction=NULL, transaction txn_no=NULL, an existing customer and an interrupted RUNNING Chanjet job. This detects the previously automatic backfill and job recovery. All public tables and sequences are fingerprinted before/after. The companion `production-api-bootstrap-isolated-evidence.json` contains only counts, SQL hashes and schema/data/sequence hashes.
 
 | Profile | Actual SQL | Structure/data/sequence change | Remote effect |
 | --- | --- | --- | --- |
-| writer-restored-auth | 11 reads | 0 / 0 / 0 across 237 tables and 207 sequences | None |
+| writer-restored-auth | 11 reads | 0 / 0 / 0 across 246 tables and 213 sequences | None |
 | readonly-restored-auth | 11 reads | 0 / 0 / 0 | None; SELECT-only role, default_transaction_read_only=on |
 | writer-auth-maintenance | 11 reads | 0 / 0 / 0 | One synthetic appTicket resend, no business API |
-| missing-schema-hold | 5 reads | 0 / 0 / 0; 236 existing tables | Expected startup refusal, no CREATE |
+| missing-schema-hold | 5 reads | 0 / 0 / 0; 245 existing tables | Expected startup refusal, no CREATE |
 | retired-iot-fk-hold | 7 reads | 0 / 0 / 0 | Expected startup refusal, no DROP |
 
 Capture enables PostgreSQL log_statement=all. Unique **server-side SQL BEGIN/END markers** delimit startup across every database/session. The application process is stopped and database client sessions drained before END; Docker logs must contain both markers. Unmarked/foreign database sessions, unknown executable SQL or any mutation fail the gate. Captured LOG statement/execute and ERROR STATEMENT entries include denied attempts. Readiness is only a bootstrap completion signal, never the SQL proof. Three intentional DDL/DML/setval attempts using the readonly role were denied and detected, with zero actual mutation; six log records reflect statement plus error entries, not six attempts.
@@ -121,7 +121,7 @@ Root trusted paths, permissions/ACL/mount checks, FD9 lock, clean checkout, exac
 | Node 20 API build / complete unit suite | PASS: 114 suites, 1009 tests; 171 opt-in tests skipped and separately identified |
 | Real PostgreSQL CRUD integration | PASS: 4 tests (included among opt-in suite skips above, executed separately) |
 | Full AppModule PostgreSQL startup and readonly detector canaries | PASS: five profiles, three denied canaries |
-| Lifecycle/static + all ops/config/deployment/rollback tests | PASS: 238 passed, 2 environment/optional cases skipped |
+| Lifecycle/static + all ops/config/deployment/rollback tests | PASS: 239 passed, 2 environment/optional cases skipped |
 | Root atomic environment transaction test | PASS separately under root Node 20; no production files touched |
 | Real isolated schema-promotion metadata adapter | PASS: five tables, 40 metadata columns, uuid-ossp, zero retired constraints |
 | Focused scope/RBAC/retirement regression | Existing GenericCrudController/DataScope suites passed in full API suite; warehouse/company isolation and view-only write rejection retained |

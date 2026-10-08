@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { createRequire } from 'node:module';
+import { spawnSync } from 'node:child_process';
 import { classifySql, capturedStatements, capturedDatabaseStatements, sliceCapturedWindow, verifyBootstrap } from './api-bootstrap-mutations.mjs';
 const { auditBootstrap }=createRequire(import.meta.url)('./check-api-bootstrap-side-effects.cjs');
 
@@ -53,4 +54,15 @@ test('failed preparation preserves a sanitized failure summary',async()=>{
   await assert.rejects(verifyBootstrap(),/BOOTSTRAP_FIXTURE_OPERATION_FAILED/);
   const evidence=JSON.parse(fs.readFileSync(path.join(dir,'summary.json'),'utf8'));assert.equal(evidence.outcome,'FAIL');assert.equal(evidence.failureCode,'BOOTSTRAP_FIXTURE_OPERATION_FAILED');assert.equal(fs.statSync(path.join(dir,'summary.json')).mode&0o777,0o600);assert(!JSON.stringify(evidence).includes('password'));
  } finally {for(const key of Object.keys(process.env))if(!(key in saved))delete process.env[key];Object.assign(process.env,saved);fs.rmSync(dir,{recursive:true,force:true});}
+});
+
+test('legacy regression schema fixture refuses production or remote context and contains no business seed',()=>{
+ const script='scripts/ci/api-bootstrap-schema-fixture.sh';
+ const base={PATH:process.env.PATH,NODE_ENV:'test',MIG_MODE:'ci',PGHOST:'127.0.0.1',PGDATABASE:'api_bootstrap_fixture',PGUSER:'bootstrap_fixture'};
+ for(const override of [{NODE_ENV:'production'},{PGHOST:'production.invalid'},{PGDATABASE:'production_erp'},{MIG_MODE:'production'}]){
+  const result=spawnSync('bash',[script],{env:{...base,...override},encoding:'utf8'});assert.equal(result.status,1);assert.equal(result.stdout,'');
+ }
+ const sql=fs.readFileSync('scripts/ci/api-bootstrap-schema-fixture.sql','utf8').replace(/--[^\n]*/g,'');
+ assert.doesNotMatch(sql,/\b(?:INSERT|UPDATE|DELETE|TRUNCATE|setval|nextval|ALTER|DROP)\b/i);
+ assert(!fs.readFileSync('apps/api/src/app.module.ts','utf8').includes('schema-fixture'));
 });
