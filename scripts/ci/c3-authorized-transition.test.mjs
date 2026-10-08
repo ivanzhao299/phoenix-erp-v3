@@ -108,3 +108,16 @@ test('actual local post-merge and fsmonitor hooks cannot run during reconciliati
   assert.equal(fs.existsSync(path.join(root,'fsmonitor-executed')), false);
   assert.equal(git(['rev-parse','HEAD']).trim(),target);
 });
+test('post-deployment branch is read-only and proves actual success and original evidence', () => {
+  const block=source.slice(source.indexOf('if (readonlyCloseout) {'),source.indexOf("} else if (phase === 'initialize')"));
+  assert.doesNotMatch(block,/atomicState|writeExclusive|createDirectory|unlinkSync|writeFileSync|\['fetch'|\['merge'|\['restore'/);
+  assert.match(block,/actual.api.revision === TARGET && actual.web.revision === TARGET/);
+  assert.match(block,/guard.guardProduction/);
+  assert.match(block,/active.outcome === 'SUCCESS'/);
+  assert.match(block,/DB_RESTARTED/);
+  assert.match(block,/logs.stdout \+ logs.stderr/);
+  assert.match(block,/LIVE_ENV_CHANGED/);
+  assert.match(workflow,/readonly_closeout\) run_c3 post-preflight/);
+  assert.match(workflow,/readonly_closeout\) run_c3 post-deploy/);
+  assert.match(workflow,/export GIT_OPTIONAL_LOCKS=0/);
+});

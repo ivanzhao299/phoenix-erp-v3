@@ -2,6 +2,12 @@ name: Exact authorized C3 initialization (temporary reviewed entrance)
 on:
   workflow_dispatch:
     inputs:
+      operation:
+        description: 'Authorized stage (post-deploy is read-only)'
+        required: true
+        type: choice
+        default: readonly_closeout
+        options: [c3, readonly_closeout]
       confirm_c3:
         description: 'Exact authorization: EXECUTE_EXACT_23C7_C3'
         required: true
@@ -26,6 +32,7 @@ jobs:
     timeout-minutes: 10
     environment: production
     env:
+      C3_OPERATION: ${{ inputs.operation }}
       C3_APPROVAL: ${{ inputs.confirm_c3 }}
       REVIEWED_COMMIT: ${{ inputs.reviewed_entrypoint_commit }}
       C3_PROGRAM_SHA256: ${{ inputs.reviewed_program_sha256 }}
@@ -75,7 +82,7 @@ jobs:
           proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
           proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
           proxy_port: 22
-          envs: DEPLOY_PATH,DEPLOY_RUN_ID,C3_APPROVAL,C3_PROGRAM_SHA256,C3_PROGRAM_B64,C3_PACKAGE_B64,C3_PACKAGE_SHA256
+          envs: DEPLOY_PATH,DEPLOY_RUN_ID,C3_OPERATION,C3_APPROVAL,C3_PROGRAM_SHA256,C3_PROGRAM_B64,C3_PACKAGE_B64,C3_PACKAGE_SHA256
           timeout: 30s
           proxy_timeout: 30s
           command_timeout: 5m
@@ -83,6 +90,7 @@ jobs:
             set -Eeuo pipefail
             set +x
             umask 077
+            export GIT_OPTIONAL_LOCKS=0
             test "$(id -u)" = 0
             test "$DEPLOY_PATH" = /data/phoenix-erp
             cd -- "$DEPLOY_PATH"
@@ -96,8 +104,15 @@ jobs:
                 catch(e) { console.error(/^C3_HOLD=[A-Z_]+$/.test(e.message)?e.message:"C3_HOLD=VALIDATION_OR_OPERATION_FAILED"); process.exit(1); }
               ' "$1"
             }
-            run_c3 initialize
+            case "$C3_OPERATION" in
+              c3) run_c3 initialize ;;
+              readonly_closeout) run_c3 post-preflight ;;
+              *) exit 91 ;;
+            esac
             # Merged v2 initializer has authenticated/validated this root-owned 0600 file and all ancestors.
             exec 9<>/var/lib/phoenix-erp/production-deployment-state/mutation.lock
             flock -n 9
-            run_c3 transition
+            case "$C3_OPERATION" in
+              c3) run_c3 transition ;;
+              readonly_closeout) run_c3 post-deploy ;;
+            esac

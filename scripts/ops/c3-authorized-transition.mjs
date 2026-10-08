@@ -2,7 +2,7 @@
 // Policy, state writing, validators and runtime capture are loaded from that merged release.
 import fs from 'node:fs';
 import path from 'node:path';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { gunzipSync } from 'node:zlib';
 import { pathToFileURL } from 'node:url';
@@ -153,10 +153,54 @@ export async function execute(phase) {
   const root = fs.realpathSync(process.cwd()); requireGate(root === contract.repository, 'REPOSITORY_CONTEXT');
   const git = gitCommand(root, trust);
   const runId = process.env.DEPLOY_RUN_ID;
-  const packageRoot = path.join(contract.archiveDirectory, `c3-${runId}`, 'merged-source');
+  const readonlyCloseout = ['post-preflight', 'post-deploy'].includes(phase);
+  const sourceRunId = readonlyCloseout ? '37738116329-1' : runId;
+  const packageRoot = path.join(contract.archiveDirectory, `c3-${sourceRunId}`, 'merged-source');
   const archiveRoot = path.dirname(packageRoot);
   const original = path.join(root, BACKUP);
-  if (phase === 'initialize') {
+  if (readonlyCloseout) {
+    for (const file of FILES) requireGate(trust.readPinnedFile(path.join(packageRoot, file), { contract }).equals(bytes[file]), 'STAGED_MERGED_PACKAGE_CHANGED');
+    trust.bootstrapPreflight(contract);
+    if (phase === 'post-preflight') { console.log('POST_DEPLOY_TRUSTED_PREFLIGHT=PASS'); return; }
+    const guard = await import(pathToFileURL(path.join(packageRoot, 'scripts/ops/production-config-guard.mjs')));
+    guard.verifyContext(root, contract.stateDirectory);
+    requireGate(absent(path.join(contract.stateDirectory, 'transaction.json')), 'UNFINISHED_TRANSACTION');
+    requireGate(git(['rev-parse', 'HEAD']).trim() === TARGET, 'POST_DEPLOY_HEAD');
+    const actual = capture.captureRuntime();
+    requireGate(actual.api.revision === TARGET && actual.web.revision === TARGET, 'POST_DEPLOY_RUNTIME_REVISION');
+    const active = guard.secureJson(path.join(contract.stateDirectory, 'active.json'));
+    requireGate(active.outcome === 'SUCCESS' && active.configSha === TARGET && active.floorSha === TARGET, 'ACTIVE_STATE_NOT_SUCCESS');
+    guard.assertRuntimePins(actual, active.active);
+    guard.guardProduction(root, contract.stateDirectory, actual);
+    const deployState = guard.secureJson(path.join(contract.stateDirectory, 'deploy-37738270604-1.json'));
+    requireGate(deployState.outcome === 'SUCCESS' && deployState.target === TARGET && deployState.migrationBaseline === OLD_API
+      && deployState.migrationPaths.length === 0, 'DEPLOY_STATE_EVIDENCE');
+    const inputs = guard.secureJson(path.join(contract.stateDirectory, `c3-inputs-${sourceRunId}.json`));
+    const statuses = {};
+    for (const service of ['db', 'api', 'web']) {
+      const record = JSON.parse(run('docker', ['inspect', `phoenix-v3-${service}`], { env: capture.executionEnv() }))[0];
+      requireGate(record.State.Running && record.State.Health?.Status === 'healthy', 'POST_DEPLOY_SERVICE_HEALTH');
+      statuses[service] = { id: record.Id, image: record.Image, startedAt: record.State.StartedAt, health: record.State.Health.Status };
+      if (service === 'db') requireGate(record.Id === inputs.snapshot.services.db.id && record.State.StartedAt === inputs.snapshot.services.db.startedAt, 'DB_RESTARTED');
+    }
+    requireGate(hash(trust.readPinnedFile(path.join(root, '.env'), { uid: 1002, trustedParent: false })) === inputs.snapshot.envSha256, 'LIVE_ENV_CHANGED');
+    requireGate(absent(original) && JSON.stringify(metadata(OLD_ARCHIVE)) === JSON.stringify(inputs.historicalMetadata)
+      && hash(trust.readPinnedFile(OLD_ARCHIVE, { uid: 1002, trustedParent: false })) === BACKUP_SHA, 'OLD_EVIDENCE_CHANGED');
+    const health = {};
+    for (const [key, url] of Object.entries({ api: 'http://127.0.0.1:3100/api/health', readiness: 'http://127.0.0.1:3100/api/readiness', web: 'http://127.0.0.1:3000/' })) {
+      health[key] = run('curl', ['-sS', '-L', '--max-time', '15', '-o', '/dev/null', '-w', '%{http_code}', url], { env: capture.executionEnv() }).trim();
+      requireGate(health[key] === '200', 'POST_DEPLOY_HTTP_HEALTH');
+    }
+    const logs = spawnSync('docker', ['logs', '--since', statuses.api.startedAt, 'phoenix-v3-api'], { env: capture.executionEnv(), encoding: 'utf8', timeout: 60000, stdio: ['ignore','pipe','pipe'] });
+    requireGate(logs.status === 0 && !logs.error, 'STARTUP_LOG_INSPECTION');
+    const startup = logs.stdout + logs.stderr;
+    const critical = (startup.match(/42703|QueryFailedError|startup crash|password authentication failed|foreign key constraint/gi) || []).length;
+    requireGate(critical === 0, 'CRITICAL_STARTUP_ERRORS');
+    console.log(JSON.stringify({ POST_DEPLOY_CONFIG_GUARD: 'PASS', target: TARGET, actual, health, statuses,
+      worktreeClean: true, configFloorVersion: 2, migrationBaseline: deployState.migrationBaseline, migrationPaths: [],
+      dbUnchanged: true, envUnchanged: true, historicalEvidenceUnchanged: true, criticalStartupErrors: critical,
+      operationalTuple: tuple }));
+  } else if (phase === 'initialize') {
     trust.inspectTrustedDirectory('/var/lib', contract);
     requireGate(absent(contract.controlRoot), 'EXISTING_CONTROL_TREE_REQUIRES_RECONCILIATION');
     checkRemote(git); checkDirty(git);
