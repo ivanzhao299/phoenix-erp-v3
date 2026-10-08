@@ -111,13 +111,14 @@ jobs:
               echo SSH_TEST_STRICT_HOST_KEY_CHECKING=yes
               diagnostic=$(timeout 25 ssh -vT -oBatchMode=yes -oStrictHostKeyChecking=yes -oUpdateHostKeys=no -oControlMaster=no -oControlPath=none -oConnectTimeout=10 git@github.com 2>&1)
               printf '%s\n' "$diagnostic" | awk '/identity file |Offering public key:|Server accepts key:|signing failed|No more authentication methods|is known and matches/ {print "SSH_DIAGNOSTIC " $0}'
+              printf '%s\n' "$diagnostic" | sed -nE 's/^Hi ([A-Za-z0-9._-]+(\/[A-Za-z0-9._-]+)?)!.*$/GITHUB_PUBLIC_AUTH_IDENTITY=\1/p'
               case "$diagnostic" in
                 *'successfully authenticated'*) echo GITHUB_OUTBOUND_AUTH=PASS ;;
                 *'Host key verification failed'*) echo GITHUB_OUTBOUND_AUTH=FAIL_HOST_TRUST ;;
                 *'Permission denied (publickey)'*) echo GITHUB_OUTBOUND_AUTH=FAIL_PUBLICKEY ;;
                 *) echo GITHUB_OUTBOUND_AUTH=UNKNOWN ;;
               esac
-              refs=$(timeout 25 git ls-remote origin refs/heads/main 2>/dev/null)
+              refs=$(timeout 25 git ls-remote origin refs/heads/main 2>&1)
               rc=$?
               if test "$rc" = 0; then
                 sha=$(printf '%s\n' "$refs" | awk '$2=="refs/heads/main" {print $1}')
@@ -126,6 +127,15 @@ jobs:
                 test "$sha" = 8d76b551fccae60ebadfec5c85896007e1e0ce51 && echo TARGET_SHA_MATCH=YES || { echo TARGET_SHA_MATCH=NO; precheck_result=1; }
               else
                 echo GIT_LS_REMOTE=FAIL
+                echo "GIT_LS_REMOTE_EXIT=$rc"
+                case "$refs" in
+                  *'Repository not found'*|*'does not exist or you do not have access'*) echo GIT_READ_FAILURE_CLASS=REPOSITORY_AUTHORIZATION ;;
+                  *'Permission denied (publickey)'*) echo GIT_READ_FAILURE_CLASS=SSH_PUBLICKEY ;;
+                  *'Host key verification failed'*) echo GIT_READ_FAILURE_CLASS=HOST_TRUST ;;
+                  *'Could not resolve hostname'*) echo GIT_READ_FAILURE_CLASS=DNS ;;
+                  *'Connection timed out'*|*'Connection refused'*) echo GIT_READ_FAILURE_CLASS=NETWORK ;;
+                  *) test "$rc" = 124 && echo GIT_READ_FAILURE_CLASS=TIMEOUT || echo GIT_READ_FAILURE_CLASS=UNKNOWN ;;
+                esac
                 echo TARGET_SHA_MATCH=UNVERIFIED
                 precheck_result=1
               fi
