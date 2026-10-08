@@ -107,9 +107,21 @@ jobs:
             echo "INVARIANTS_B64=$(base64 -w0 scripts/ci/phase1-production-invariants.mjs)"
             echo "WRAPPER_B64=$(base64 -w0 scripts/phase1-controlled-production-execution.sh)"
           } >> "$GITHUB_ENV"
+      - name: Prepare reviewed production control payload
+        run: |
+          set -euo pipefail
+          {
+            echo "PRODUCTION_CONTRACT_B64=$(base64 -w0 scripts/ops/production-config-contract.json)"
+            echo "PRODUCTION_PATH_HELPER_B64=$(base64 -w0 scripts/ops/production-trusted-paths.mjs)"
+            echo "PRODUCTION_CONTROL_BOOTSTRAP_B64=$(base64 -w0 scripts/ops/production-control-bootstrap.sh)"
+          } >> "$GITHUB_ENV"
+
       - name: Production execution over read-only preflight and controlled schema switch
         uses: appleboy/ssh-action@v1.2.2
         env:
+          PRODUCTION_CONTRACT_B64: ${{ env.PRODUCTION_CONTRACT_B64 }}
+          PRODUCTION_PATH_HELPER_B64: ${{ env.PRODUCTION_PATH_HELPER_B64 }}
+          PRODUCTION_CONTROL_BOOTSTRAP_B64: ${{ env.PRODUCTION_CONTROL_BOOTSTRAP_B64 }}
           TARGET_SHA: ${{ github.sha }}
           EXPECTED_PRODUCTION_SHA: 129fdb85c81ab0c201044daf021caf778b37b40b
           EXECUTION_RUN_ID: ${{ github.run_id }}
@@ -138,7 +150,7 @@ jobs:
           proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
           proxy_port: 22
           command_timeout: 30m
-          envs: TARGET_SHA,EXPECTED_PRODUCTION_SHA,EXECUTION_RUN_ID,GHCR_USER,GHCR_TOKEN,API_IMAGE,WEB_IMAGE,API_IMAGE_DIGEST,WEB_IMAGE_DIGEST,API_IMAGE_REF,WEB_IMAGE_REF,INVENTORY_B64,MANIFEST_B64,PREFLIGHT_B64,GATE_B64,INVARIANTS_B64,WRAPPER_B64,COMPOSE_B64
+          envs: TARGET_SHA,EXPECTED_PRODUCTION_SHA,EXECUTION_RUN_ID,GHCR_USER,GHCR_TOKEN,API_IMAGE,WEB_IMAGE,API_IMAGE_DIGEST,WEB_IMAGE_DIGEST,API_IMAGE_REF,WEB_IMAGE_REF,INVENTORY_B64,MANIFEST_B64,PREFLIGHT_B64,GATE_B64,INVARIANTS_B64,WRAPPER_B64,COMPOSE_B64,PRODUCTION_CONTRACT_B64,PRODUCTION_PATH_HELPER_B64,PRODUCTION_CONTROL_BOOTSTRAP_B64
           script: |
             set -Eeuo pipefail
             umask 077
@@ -147,12 +159,8 @@ jobs:
             git() {
               command git -c "safe.directory=$DEPLOY_REPO_ROOT" "$@"
             }
-            STATE_DIR=/home/phoenix-codex-deploy/production-deployment-state
-            test -d "$STATE_DIR" && test ! -L "$STATE_DIR"
-            test "$(stat -c %a "$STATE_DIR")" = 700
-            test "$(stat -c %u "$STATE_DIR")" = "$(id -u)"
-            exec 9>"$STATE_DIR/mutation.lock"
-            flock -n 9 || { echo "PRODUCTION_MUTATION=HOLD_LOCK_BUSY"; exit 24; }
+            # Validate all control ancestors before opening FD9; contract/helper come from this reviewed runner revision.
+            eval "$(printf '%s' "$PRODUCTION_CONTROL_BOOTSTRAP_B64" | base64 -d)"
             docker() {
               if [ "${1:-}" = compose ]; then
                 shift

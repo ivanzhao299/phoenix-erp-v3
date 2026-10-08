@@ -3,14 +3,38 @@ import path from 'node:path';
 import { randomUUID, createHash } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 import { execFileSync } from 'node:child_process';
-import { CONTRACT, secureJson, verifyContext, guardProduction, migrationScope, git, rollbackEligibility, assertTransactionOwnership } from './production-config-guard.mjs';
+import { CONTRACT, secureJson, assertStateVersion, verifyContext, guardProduction, migrationScope, git, rollbackEligibility, assertTransactionOwnership } from './production-config-guard.mjs';
+import { inspectTrustedDirectory, assertSameDirectory, assertRegularFile, assertContained, readPinnedFile } from './production-trusted-paths.mjs';
 import { captureRuntime, executionEnv, IMAGE_ID, REVISION } from './capture-production-runtime.mjs';
-export function atomicState(file, value) {
+export function atomicState(file, value, dependencies = {}) {
+  const io = dependencies.fs || fs;
+  assertContained(file, (dependencies.contract || CONTRACT).stateDirectory);
+  const inspect = dependencies.inspectDirectory || (directory => inspectTrustedDirectory(directory, CONTRACT));
+  const directory = path.dirname(file); const before = inspect(directory);
+  const original = io.existsSync(file) ? io.lstatSync(file) : undefined;
+  if (original) assertRegularFile(original);
   const temporary = `${file}.${randomUUID()}.tmp`;
-  const fd = fs.openSync(temporary, 'wx', 0o600);
-  try { fs.writeFileSync(fd, JSON.stringify(value) + '\n'); fs.fsyncSync(fd); } finally { fs.closeSync(fd); }
-  fs.renameSync(temporary, file);
-  const directory = fs.openSync(path.dirname(file), 'r'); try { fs.fsyncSync(directory); } finally { fs.closeSync(directory); }
+  let fd; let temporaryIdentity;
+  try {
+    fd = io.openSync(temporary, fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_EXCL | fs.constants.O_NOFOLLOW, 0o600);
+    temporaryIdentity = io.fstatSync(fd); assertRegularFile(temporaryIdentity);
+    io.writeFileSync(fd, JSON.stringify(value) + '\n'); io.fsyncSync(fd);
+    const written = io.fstatSync(fd);
+    io.closeSync(fd); fd = undefined;
+    assertSameDirectory(before, inspect(directory));
+    const named = io.lstatSync(temporary); assertRegularFile(named);
+    if (named.ino !== written.ino || named.dev !== written.dev || named.size !== written.size) throw new Error('STATE_HOLD=TEMPORARY_FILE_CHANGED');
+    const current = io.existsSync(file) ? io.lstatSync(file) : undefined;
+    if (current) assertRegularFile(current);
+    if (JSON.stringify(current && [current.dev,current.ino,current.size,current.mtimeMs]) !== JSON.stringify(original && [original.dev,original.ino,original.size,original.mtimeMs])) throw new Error('STATE_HOLD=DESTINATION_CHANGED');
+    io.renameSync(temporary, file);
+    const parent = io.openSync(directory, fs.constants.O_RDONLY | fs.constants.O_DIRECTORY | fs.constants.O_NOFOLLOW);
+    try { io.fsyncSync(parent); } finally { io.closeSync(parent); }
+    assertSameDirectory(before, inspect(directory));
+  } finally {
+    if (fd !== undefined) io.closeSync(fd);
+    if (io.existsSync(temporary)) { const remaining = io.lstatSync(temporary); assertRegularFile(remaining); if (!temporaryIdentity || remaining.dev !== temporaryIdentity.dev || remaining.ino !== temporaryIdentity.ino) throw new Error('STATE_HOLD=FOREIGN_TEMPORARY_RETAINED'); io.unlinkSync(temporary); }
+  }
 }
 export function beginState({ previous, configSha, target, scope, floor }) {
   if (configSha !== target || !REVISION.test(configSha) || !REVISION.test(target) || scope.baseline !== previous.api.revision || scope.target !== target) throw new Error('STATE_HOLD=BASELINE');
@@ -30,6 +54,7 @@ export function rollbackPlan(state, eligible) {
 export function requireFirstTransition({ legacyApi, floor, proof, composeBytes, mode, buildApi, buildWeb, authorized, rotateCredentials }) {
   if (!legacyApi) return;
   if (!authorized || mode !== 'full' || !buildApi || !buildWeb || rotateCredentials || !proof
+    || proof.version !== CONTRACT.version || proof.executionUid !== CONTRACT.executionUid || proof.archiveDirectory !== CONTRACT.archiveDirectory
     || proof.target !== floor.floorSha || proof.compositionEquivalent !== true || proof.archiveVerified !== true
     || proof.composeDuringIntermediateStateAllowed !== false || !/^[a-f0-9]{64}$/.test(proof.backupSha256 || '')
     || proof.composeSha256 !== createHash('sha256').update(composeBytes).digest('hex')) throw new Error('STATE_HOLD=ONE_TIME_TRANSITION_AUTHORIZATION_AND_C3_PROOF_REQUIRED');
@@ -53,24 +78,28 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       if (fs.existsSync(file) || fs.existsSync(path.join(directory, 'transaction.json'))) throw new Error('STATE_HOLD=RUN_ALREADY_EXISTS_OR_UNFINISHED');
       const previous = secureJson(input); const actual = captureRuntime();
       if (JSON.stringify(previous) !== JSON.stringify(actual)) throw new Error('STATE_HOLD=RUNTIME_CHANGED');
-      const active = secureJson(path.join(directory, 'active.json'));
+      const active = assertStateVersion(secureJson(path.join(directory, 'active.json')));
       if (JSON.stringify(active.active) !== JSON.stringify(actual)) throw new Error('STATE_HOLD=ACTIVE_PINS_DRIFT');
       const floor = guardProduction(root, directory, previous);
       const target = process.env.TARGET_SHA;
       const legacyApi = !rollbackEligibility(root, floor, previous.api).allowed;
-      const proof = legacyApi ? secureJson(path.join(directory, 'transition-proof.json')) : undefined;
+      const proof = legacyApi ? assertStateVersion(secureJson(path.join(directory, 'transition-proof.json'))) : undefined;
+      if (proof) {
+        assertContained(proof.archiveBackup, CONTRACT.archiveDirectory);
+        if (createHash('sha256').update(readPinnedFile(proof.archiveBackup, { contract: CONTRACT })).digest('hex') !== proof.backupSha256) throw new Error('STATE_HOLD=C3_ARCHIVE_CHANGED');
+      }
       requireFirstTransition({ legacyApi, floor, proof, composeBytes: fs.readFileSync(path.join(root, 'docker-compose.yml')),
         mode: process.env.DEPLOY_MODE, buildApi: process.env.BUILD_API === 'true', buildWeb: process.env.BUILD_WEB === 'true',
         authorized: process.env.ONE_TIME_CONFIG_FLOOR_TRANSITION === 'true', rotateCredentials: process.env.ROTATE_CHANJET_CREDENTIALS === 'true' });
       const scope = migrationScope(root, previous.api.revision, target);
       state = beginState({ previous, configSha: git(root, ['rev-parse', 'HEAD']), target, scope, floor });
       atomicState(file, state);
-      atomicState(path.join(directory, 'transaction.json'), { runId: process.env.DEPLOY_RUN_ID, phase: 'IN_PROGRESS', target, configSha: state.configSha });
+      atomicState(path.join(directory, 'transaction.json'), { version: CONTRACT.version, runId: process.env.DEPLOY_RUN_ID, phase: 'IN_PROGRESS', target, configSha: state.configSha });
       if (scope.changed.length) throw new Error('MIGRATION_SCOPE=HOLD:CONTROLLED_SCHEMA_RELEASE_REQUIRED');
       console.log(`PREV_API_REVISION=${previous.api.revision}\nPREV_WEB_REVISION=${previous.web.revision}\nRUN_MIG=false`);
     } else {
       if (!assertTransactionOwnership(directory, process.env.DEPLOY_RUN_ID)) throw new Error('STATE_HOLD=TRANSACTION_MARKER_REQUIRED');
-      state = secureJson(file); const floor = guardProduction(root, directory, state.active);
+      state = assertStateVersion(secureJson(file)); const floor = guardProduction(root, directory, state.active);
       if (operation === 'candidate') {
         if (!['api', 'web'].includes(input) || value !== `ghcr.io/ivanzhao299/phoenix-erp-v3/${input}:sha-${state.target}`) throw new Error('STATE_HOLD=CANDIDATE_REF');
         state.candidates[input] = inspectCandidate(value, state.target);

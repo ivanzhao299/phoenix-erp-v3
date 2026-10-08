@@ -4,12 +4,13 @@ import { createHash } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 import { git, CONTRACT } from './production-config-guard.mjs';
 import { envRecords } from './update-managed-chanjet-env.mjs';
+import { assertRootIdentity, assertContained, readPinnedFile, assertNoLegacyState } from './production-trusted-paths.mjs';
 import { REVISION } from './capture-production-runtime.mjs';
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
-export function verifyTransition({ root, target, archiveBackup, operationalTuple }) {
+export function verifyTransition({ root, target, archiveBackup, operationalTuple, expectedBackupSha256 }, dependencies = {}) {
   if (!REVISION.test(target) || git(root, ['rev-parse', 'origin/main']) !== target || git(root, ['branch', '--show-current']) !== 'main') throw new Error('TRANSITION_HOLD=TARGET');
   const declared = JSON.parse(git(root, ['show', `${target}:scripts/ops/production-config-contract.json`]));
-  if (declared.version !== CONTRACT.version || declared.legacyApiRollback !== 'HOLD' || JSON.stringify(declared.criticalFiles) !== JSON.stringify(CONTRACT.criticalFiles)) throw new Error('TRANSITION_HOLD=TARGET_CONTRACT');
+  if (JSON.stringify(declared) !== JSON.stringify(CONTRACT)) throw new Error('TRANSITION_HOLD=TARGET_CONTRACT');
   for (const file of CONTRACT.criticalFiles) git(root, ['cat-file', '-e', `${target}:${file}`]);
   const previous = git(root, ['rev-parse', 'HEAD']); git(root, ['merge-base', '--is-ancestor', previous, target]);
   const backupName = '.env.pre-verification-20261005T114700+08:00';
@@ -28,19 +29,28 @@ export function verifyTransition({ root, target, archiveBackup, operationalTuple
   if (JSON.stringify(Object.keys(operationalTuple).sort()) !== JSON.stringify(keys.sort())) throw new Error('TRANSITION_HOLD=TUPLE');
   for (const key of keys) if (records.find(record => record.key === key)?.raw.trimEnd() !== `${key}=${operationalTuple[key]}`) throw new Error('TRANSITION_HOLD=ENV_TUPLE');
   if (operationalTuple.PHOENIX_DATA_MOUNT_GUARD !== 'true' || operationalTuple.CHANJET_READONLY_SYNC_ENABLED !== 'false' || operationalTuple.CHANJET_ERP_INBOUND_SYNC_ENABLED !== 'false' || !operationalTuple.PHOENIX_PG_DATA_DIR.startsWith('/data/') || !operationalTuple.PHOENIX_UPLOADS_DIR.startsWith('/data/')) throw new Error('TRANSITION_HOLD=REQUIRED_HOLD_STORAGE');
-  const source = path.join(root, backupName); const sourceMetadata = fs.lstatSync(source); const archiveMetadata = fs.lstatSync(archiveBackup);
-  const archiveReal = fs.realpathSync(archiveBackup);
-  if (archiveReal.startsWith(root + path.sep) || sourceMetadata.isSymbolicLink() || archiveMetadata.isSymbolicLink() || !sourceMetadata.isFile() || (sourceMetadata.mode & 0o777) !== 0o600 || !archiveMetadata.isFile() || (archiveMetadata.mode & 0o777) !== 0o600 || archiveMetadata.uid !== process.getuid()) throw new Error('TRANSITION_HOLD=ARCHIVE_METADATA');
-  const digest = hash(fs.readFileSync(source));
-  if (digest !== hash(fs.readFileSync(archiveBackup))) throw new Error('TRANSITION_HOLD=BACKUP_HASH');
-  return { target, previous, composeSha256: hash(current), backupSha256: digest, backupInode: sourceMetadata.ino, backupSize: sourceMetadata.size, compositionEquivalent: true, archiveVerified: true,
+  if (!/^[a-f0-9]{64}$/.test(expectedBackupSha256 || '')) throw new Error('TRANSITION_HOLD=APPROVED_BACKUP_HASH_REQUIRED');
+  const source = path.join(root, backupName); const sourceMetadata = fs.lstatSync(source);
+  // Original UID1002 evidence is read via a pinned no-follow FD, never rewritten/chowned.
+  const sourceBytes = readPinnedFile(source, { uid: sourceMetadata.uid, trustedParent: false });
+  const archiveBytes = (dependencies.readArchive || (file => {
+    assertRootIdentity(CONTRACT); assertNoLegacyState(CONTRACT); assertContained(file, CONTRACT.archiveDirectory);
+    return readPinnedFile(file, { contract: CONTRACT });
+  }))(archiveBackup);
+  const sourceAfter = fs.lstatSync(source);
+  if ([sourceMetadata.dev,sourceMetadata.ino,sourceMetadata.size,sourceMetadata.mtimeMs].join(':') !== [sourceAfter.dev,sourceAfter.ino,sourceAfter.size,sourceAfter.mtimeMs].join(':')) throw new Error('TRANSITION_HOLD=SOURCE_CHANGED');
+  const digest = hash(sourceBytes);
+  if (digest !== expectedBackupSha256 || digest !== hash(archiveBytes)) throw new Error('TRANSITION_HOLD=BACKUP_HASH');
+  return { version: CONTRACT.version, executionUid: CONTRACT.executionUid, archiveDirectory: CONTRACT.archiveDirectory, archiveBackup,
+    target, previous, composeSha256: hash(current), backupSha256: digest, backupInode: sourceMetadata.ino, backupSize: sourceMetadata.size, compositionEquivalent: true, archiveVerified: true,
     recoveryAuthorized: false, composeDuringIntermediateStateAllowed: false };
+
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   try {
     const root = fs.realpathSync(process.cwd()); if (root !== CONTRACT.repository) throw new Error('TRANSITION_HOLD=CONTEXT');
-    if (!process.argv[3]?.startsWith('/home/phoenix-codex-deploy/production-checkout-recovery/')) throw new Error('TRANSITION_HOLD=ARCHIVE_CONTEXT');
+    assertRootIdentity(CONTRACT); assertContained(process.argv[3], CONTRACT.archiveDirectory);
     const tuple = JSON.parse(fs.readFileSync(process.argv[4], 'utf8'));
-    console.log(JSON.stringify(verifyTransition({ root, target: process.argv[2], archiveBackup: process.argv[3], operationalTuple: tuple })));
+    console.log(JSON.stringify(verifyTransition({ root, target: process.argv[2], archiveBackup: process.argv[3], operationalTuple: tuple, expectedBackupSha256: process.argv[5] })));
   } catch { console.error('TRANSITION_ELIGIBILITY=HOLD'); process.exitCode = 1; }
 }

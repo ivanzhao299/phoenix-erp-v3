@@ -13,6 +13,12 @@ import { composeArguments, runCompose } from './phoenix-production-compose.mjs';
 const id = char => `sha256:${char.repeat(64)}`;
 const revision = char => char.repeat(40);
 const previous = { api: { imageId: id('a'), revision: revision('a') }, web: { imageId: id('b'), revision: revision('b') } };
+
+function stateIO(dir) {
+  const rootStat = stat => Object.assign(Object.create(stat), { uid: 0 });
+  return { contract: { ...CONTRACT, stateDirectory: dir }, inspectDirectory: () => [{ path: dir }],
+    fs: { ...fs, fstatSync: fd => rootStat(fs.fstatSync(fd)), lstatSync: (...args) => rootStat(fs.lstatSync(...args)) } };
+}
 function fixture(run) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'phoenix-rollback-'));
   const git = (...args) => execFileSync('git', args, { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
@@ -96,7 +102,7 @@ test('production config validates simultaneous bind paths and explicit independe
 });
 test('state replacement persists active image identity at 0600 outside checkout', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'phoenix-state-')); try {
-    const file = path.join(dir, 'active.json'); atomicState(file, { configSha: revision('c'), active: previous });
+    const file = path.join(dir, 'active.json'); atomicState(file, { configSha: revision('c'), active: previous }, stateIO(dir));
     assert.equal(fs.statSync(file).mode & 0o777, 0o600); assert.deepEqual(JSON.parse(fs.readFileSync(file)).active, previous);
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
@@ -104,7 +110,7 @@ test('state replacement persists active image identity at 0600 outside checkout'
 test('actual wrapper execution uses exact captured image IDs and strips all inherited overrides', () => {
   let command;
   runCompose(['up', '-d', '--no-deps', '--wait', 'api'], {
-    root: '/data/phoenix-erp', directory: '/fixture', readState: () => ({ active: previous }), guard: () => ({ project: 'phoenix-fixture' }), capture: () => previous,
+    root: '/data/phoenix-erp', directory: '/fixture', readState: () => ({ version: CONTRACT.version, active: previous }), guard: () => ({ project: 'phoenix-fixture' }), capture: () => previous,
     inspect: (id, revision) => ({ imageId: id, revision }), eligibility: () => ({ allowed: true }),
     execute: (binary, args, options) => { command = { binary, args, options }; return Buffer.from('not-forwarded'); },
   });
@@ -115,7 +121,7 @@ test('legacy API refuses DB or Web restart too, before any Docker mutation can i
   for (const service of ['api', 'db', 'web']) {
     let mutated = false;
     assert.throws(() => runCompose(['restart', service], {
-      root: '/data/phoenix-erp', directory: '/fixture', readState: () => ({ active: previous }), guard: () => ({ project: 'phoenix-fixture' }), capture: () => previous,
+      root: '/data/phoenix-erp', directory: '/fixture', readState: () => ({ version: CONTRACT.version, active: previous }), guard: () => ({ project: 'phoenix-fixture' }), capture: () => previous,
       inspect: (id, revision) => ({ imageId: id, revision }), eligibility: () => ({ allowed: false }), execute: () => { mutated = true; },
     }), /PRE_FLOOR_API_RECOVERY_HOLD/);
     assert.equal(mutated, false);
@@ -145,21 +151,27 @@ test('one-time transition verifier proves exact two-line drift and archived back
     const backup = path.join(root, '.env.pre-verification-20261005T114700+08:00'); const archive = path.join(parent, 'archive.env');
     fs.writeFileSync(backup, 'synthetic backup', { mode: 0o600 }); fs.writeFileSync(archive, 'synthetic backup', { mode: 0o600 });
     const statusBefore = git('status', '--porcelain', '--untracked-files=all');
-    const result = verifyTransition({ root, target, archiveBackup: archive, operationalTuple: tuple });
+    const expectedBackupSha256 = createHash('sha256').update('synthetic backup').digest('hex');
+    const args = { root, target, archiveBackup: archive, operationalTuple: tuple, expectedBackupSha256 };
+    const dependencies = { readArchive: file => fs.readFileSync(file) };
+    const result = verifyTransition(args, dependencies);
     assert.equal(result.compositionEquivalent, true); assert.equal(result.archiveVerified, true); assert.equal(result.recoveryAuthorized, false); assert.equal(result.composeDuringIntermediateStateAllowed, false);
     assert.equal(git('rev-parse', 'HEAD'), previous); assert.equal(git('status', '--porcelain', '--untracked-files=all'), statusBefore);
-    fs.writeFileSync(archive, 'different'); assert.throws(()=>verifyTransition({ root, target, archiveBackup: archive, operationalTuple: tuple }), /BACKUP_HASH/);
-    fs.writeFileSync(archive, 'synthetic backup'); write('unknown.env', 'unknown'); assert.throws(()=>verifyTransition({ root, target, archiveBackup: archive, operationalTuple: tuple }), /UNKNOWN_DIRT/);
+    fs.writeFileSync(archive, 'different'); assert.throws(()=>verifyTransition(args, dependencies), /BACKUP_HASH/);
+    fs.writeFileSync(backup, 'altered historical evidence'); fs.writeFileSync(archive, 'altered historical evidence');
+    assert.throws(() => verifyTransition(args, dependencies), /BACKUP_HASH/); // even matching new copies cannot replace the pinned history
+    fs.writeFileSync(backup, 'synthetic backup');
+    fs.writeFileSync(archive, 'synthetic backup'); write('unknown.env', 'unknown'); assert.throws(()=>verifyTransition(args, dependencies), /UNKNOWN_DIRT/);
   } finally { fs.rmSync(parent, { recursive: true, force: true }); }
 });
 
 test('an interrupted deployment marker blocks a new run and every nontransaction maintenance caller', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'phoenix-pending-')); try {
     assert.equal(assertTransactionOwnership(dir, '1'), false);
-    atomicState(path.join(dir, 'transaction.json'), { runId: '1', phase: 'IN_PROGRESS' });
-    assert.equal(assertTransactionOwnership(dir, '1'), true);
-    assert.throws(() => assertTransactionOwnership(dir, undefined), /UNFINISHED_TRANSACTION/);
-    assert.throws(() => assertTransactionOwnership(dir, '2'), /UNFINISHED_TRANSACTION/);
+    atomicState(path.join(dir, 'transaction.json'), { version: CONTRACT.version, runId: '1', phase: 'IN_PROGRESS' }, stateIO(dir));
+    assert.equal(assertTransactionOwnership(dir, '1', { readState: file => JSON.parse(fs.readFileSync(file)) }), true);
+    assert.throws(() => assertTransactionOwnership(dir, undefined, { readState: file => JSON.parse(fs.readFileSync(file)) }), /UNFINISHED_TRANSACTION/);
+    assert.throws(() => assertTransactionOwnership(dir, '2', { readState: file => JSON.parse(fs.readFileSync(file)) }), /UNFINISHED_TRANSACTION/);
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 test('actual container identity drift cannot be judged by stale active pins', () => {
@@ -168,7 +180,7 @@ test('actual container identity drift cannot be judged by stale active pins', ()
   assert.throws(() => assertRuntimePins(changed, previous), /ACTIVE_RUNTIME_DRIFT/);
   let mutated = false;
   assert.throws(() => runCompose(['restart', 'api'], {
-    root: '/data/phoenix-erp', directory: '/fixture', readState: () => ({ active: previous }), guard: () => ({ project: 'phoenix-fixture' }), capture: () => changed,
+    root: '/data/phoenix-erp', directory: '/fixture', readState: () => ({ version: CONTRACT.version, active: previous }), guard: () => ({ project: 'phoenix-fixture' }), capture: () => changed,
     inspect: (id, revision) => ({ imageId: id, revision }), eligibility: () => ({ allowed: true }), execute: () => { mutated = true; },
   }), /ACTIVE_RUNTIME_DRIFT/);
   assert.equal(mutated, false);
@@ -176,8 +188,8 @@ test('actual container identity drift cannot be judged by stale active pins', ()
 
 test('first pre-floor forward deployment requires separate opt-in, full mode and exact C3 certificate', () => {
   const bytes = Buffer.from('fixture Compose'); const floor = { floorSha: revision('c') };
-  const proof = { target: floor.floorSha, compositionEquivalent: true, archiveVerified: true, composeDuringIntermediateStateAllowed: false, backupSha256: 'a'.repeat(64), composeSha256: createHash('sha256').update(bytes).digest('hex') };
+  const proof = { version: CONTRACT.version, executionUid: 0, archiveDirectory: CONTRACT.archiveDirectory, target: floor.floorSha, compositionEquivalent: true, archiveVerified: true, composeDuringIntermediateStateAllowed: false, backupSha256: 'a'.repeat(64), composeSha256: createHash('sha256').update(bytes).digest('hex') };
   const args = { legacyApi: true, floor, proof, composeBytes: bytes, mode: 'full', buildApi: true, buildWeb: true, authorized: true, rotateCredentials: false };
   requireFirstTransition(args);
-  for (const change of [{ authorized: false }, { mode: 'web' }, { buildApi: false }, { buildWeb: false }, { rotateCredentials: true }, { proof: undefined }, { composeBytes: Buffer.from('different') }]) assert.throws(() => requireFirstTransition({ ...args, ...change }), /C3_PROOF_REQUIRED/);
+  for (const change of [{ authorized: false }, { mode: 'web' }, { buildApi: false }, { buildWeb: false }, { rotateCredentials: true }, { proof: undefined }, { proof: { ...proof, version: 1 } }, { proof: { ...proof, executionUid: 1002 } }, { proof: { ...proof, archiveDirectory: '/legacy' } }, { composeBytes: Buffer.from('different') }]) assert.throws(() => requireFirstTransition({ ...args, ...change }), /C3_PROOF_REQUIRED/);
 });

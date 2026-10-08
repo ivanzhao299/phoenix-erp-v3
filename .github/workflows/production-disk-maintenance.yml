@@ -28,9 +28,25 @@ jobs:
     timeout-minutes: 15
     environment: production
     steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Prepare reviewed production control payload
+        run: |
+          set -euo pipefail
+          {
+            echo "PRODUCTION_CONTRACT_B64=$(base64 -w0 scripts/ops/production-config-contract.json)"
+            echo "PRODUCTION_PATH_HELPER_B64=$(base64 -w0 scripts/ops/production-trusted-paths.mjs)"
+            echo "PRODUCTION_CONTROL_BOOTSTRAP_B64=$(base64 -w0 scripts/ops/production-control-bootstrap.sh)"
+          } >> "$GITHUB_ENV"
+
       - name: Audit or clean only regenerable production artifacts
         uses: appleboy/ssh-action@v1
         env:
+          PRODUCTION_CONTRACT_B64: ${{ env.PRODUCTION_CONTRACT_B64 }}
+          PRODUCTION_PATH_HELPER_B64: ${{ env.PRODUCTION_PATH_HELPER_B64 }}
+          PRODUCTION_CONTROL_BOOTSTRAP_B64: ${{ env.PRODUCTION_CONTROL_BOOTSTRAP_B64 }}
           ACTION: ${{ inputs.action }}
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
           MAINTENANCE_RUN_ID: ${{ github.run_id }}
@@ -43,7 +59,7 @@ jobs:
           proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
           proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
           proxy_port: 22
-          envs: ACTION,DEPLOY_PATH,MAINTENANCE_RUN_ID
+          envs: ACTION,DEPLOY_PATH,MAINTENANCE_RUN_ID,PRODUCTION_CONTRACT_B64,PRODUCTION_PATH_HELPER_B64,PRODUCTION_CONTROL_BOOTSTRAP_B64
           script: |
             set -Eeuo pipefail
 
@@ -55,12 +71,8 @@ jobs:
             git() {
               command git -c "safe.directory=$DEPLOY_REPO_ROOT" "$@"
             }
-            STATE_DIR=/home/phoenix-codex-deploy/production-deployment-state
-            test -d "$STATE_DIR" && test ! -L "$STATE_DIR"
-            test "$(stat -c %a "$STATE_DIR")" = 700
-            test "$(stat -c %u "$STATE_DIR")" = "$(id -u)"
-            exec 9>"$STATE_DIR/mutation.lock"
-            flock -n 9 || { echo "PRODUCTION_MUTATION=HOLD_LOCK_BUSY"; exit 24; }
+            # Validate all control ancestors before opening FD9; contract/helper come from this reviewed runner revision.
+            eval "$(printf '%s' "$PRODUCTION_CONTROL_BOOTSTRAP_B64" | base64 -d)"
             docker() {
               if [ "${1:-}" = compose ]; then
                 shift

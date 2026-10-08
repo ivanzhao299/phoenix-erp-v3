@@ -4,9 +4,15 @@ import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { REVISION, IMAGE_ID, executionEnv, captureRuntime } from './capture-production-runtime.mjs';
 import { envRecords } from './update-managed-chanjet-env.mjs';
+import { assertRootIdentity, inspectTrustedDirectory, readPinnedFile, assertRegularFile, assertContained, assertNoLegacyState, strictSshCommand } from './production-trusted-paths.mjs';
 export const CONTRACT = JSON.parse(fs.readFileSync(new URL('./production-config-contract.json', import.meta.url)));
 export const MIGRATION_PATHS = ['apps/api/src/database/migrations', 'apps/api/migrations', 'apps/api/ddl', 'migrations', 'scripts/db-migrate.sh', 'scripts/deploy-schema-first.sh'];
-export function git(root, args) { return execFileSync('git', ['-c', `safe.directory=${root}`, ...args], { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim(); }
+export function git(root, args) {
+  let configured = '';
+  try { configured = execFileSync('git', ['-c', `safe.directory=${root}`, 'config', '--get', 'core.sshCommand'], { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim(); } catch {}
+  const env = { ...process.env, GIT_SSH_COMMAND: strictSshCommand(process.env.GIT_SSH_COMMAND || configured, process.env.GIT_SSH) };
+  return execFileSync('git', ['-c', `safe.directory=${root}`, ...args], { cwd: root, env, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+}
 export function requireCleanMain(root, target) {
   if (git(root, ['branch', '--show-current']) !== 'main' || git(root, ['status', '--porcelain', '--untracked-files=all'])) throw new Error('CONFIG_HOLD=WORKTREE_NOT_CLEAN_MAIN');
   if (target && git(root, ['rev-parse', 'HEAD']) !== target) throw new Error('CONFIG_HOLD=TARGET_MISMATCH');
@@ -47,30 +53,37 @@ export function rollbackEligibility(root, floor, image) {
     return { allowed: true, reason: 'VERIFIED_FLOOR_GATES' };
   } catch { return { allowed: false, reason: 'PRE_FLOOR_API_RECOVERY_HOLD' }; }
 }
-export function secureJson(file) {
-  const metadata = fs.lstatSync(file);
-  if (!metadata.isFile() || metadata.isSymbolicLink() || metadata.uid !== process.getuid() || (metadata.mode & 0o777) !== 0o600) throw new Error('CONFIG_HOLD=STATE_PERMISSIONS');
-  return JSON.parse(fs.readFileSync(file, 'utf8'));
+export function secureJson(file, dependencies = {}) {
+  assertContained(file, CONTRACT.stateDirectory);
+  return JSON.parse(readPinnedFile(file, { contract: CONTRACT }, dependencies).toString('utf8'));
+}
+export function assertStateVersion(record) {
+  if (record.version !== CONTRACT.version) throw new Error('CONFIG_HOLD=STATE_VERSION_RECONCILIATION_REQUIRED');
+  return record;
 }
 export function assertRuntimePins(actual, expected) {
   for (const service of ['api', 'web']) {
     if (actual[service]?.imageId !== expected[service]?.imageId || actual[service]?.revision !== expected[service]?.revision) throw new Error('CONFIG_HOLD=ACTIVE_RUNTIME_DRIFT');
   }
 }
-export function assertTransactionOwnership(directory, runId) {
+export function assertTransactionOwnership(directory, runId, dependencies = {}) {
   const marker = path.join(directory, 'transaction.json');
   if (!fs.existsSync(marker)) return false;
-  const transaction = secureJson(marker);
+  const transaction = assertStateVersion((dependencies.readState || secureJson)(marker));
   if (!runId || transaction.runId !== runId || transaction.phase !== 'IN_PROGRESS') throw new Error('CONFIG_HOLD=UNFINISHED_TRANSACTION');
   return true;
 }
 export function verifyContext(root, stateDirectory) {
+  assertRootIdentity(CONTRACT); assertNoLegacyState(CONTRACT);
+  inspectTrustedDirectory(stateDirectory, CONTRACT);
   if (fs.realpathSync(root) !== CONTRACT.repository || fs.realpathSync(stateDirectory) !== CONTRACT.stateDirectory) throw new Error('CONFIG_HOLD=UNAPPROVED_CONTEXT');
   const state = fs.lstatSync(stateDirectory);
   if (!state.isDirectory() || state.isSymbolicLink() || state.uid !== process.getuid() || (state.mode & 0o777) !== 0o700) throw new Error('CONFIG_HOLD=STATE_DIRECTORY');
   // Lock is held by the workflow shell for the whole Git/config/container transaction.
-  const lock = fs.statSync(path.join(stateDirectory, 'mutation.lock'));
-  const inherited = fs.statSync(`/proc/${process.ppid}/fd/9`);
+  readPinnedFile(path.join(stateDirectory, 'mutation.lock'), { contract: CONTRACT });
+  const lock = fs.lstatSync(path.join(stateDirectory, 'mutation.lock'));
+  assertRegularFile(lock);
+  const inherited = fs.statSync(`/proc/${process.ppid}/fd/9`); assertRegularFile(inherited);
   if (lock.dev !== inherited.dev || lock.ino !== inherited.ino) throw new Error('CONFIG_HOLD=HOST_LOCK_REQUIRED');
   try { execFileSync('flock', ['-n', path.join(stateDirectory, 'mutation.lock'), 'true'], { stdio: 'ignore' }); }
   catch { return; }
@@ -88,9 +101,9 @@ export function validateEffectiveConfig(config, tuple) {
 export function guardProduction(root, stateDirectory, images) {
   verifyContext(root, stateDirectory); requireCleanMain(root);
   const owningTransaction = assertTransactionOwnership(stateDirectory, process.env.DEPLOY_RUN_ID);
-  if (!owningTransaction) assertRuntimePins(captureRuntime(), secureJson(path.join(stateDirectory, 'active.json')).active);
+  if (!owningTransaction) assertRuntimePins(captureRuntime(), assertStateVersion(secureJson(path.join(stateDirectory, 'active.json'))).active);
   const floor = secureJson(path.join(stateDirectory, 'floor.json'));
-  const priorFloor = secureJson(path.join(stateDirectory, 'active.json')).floorSha;
+  const priorFloor = assertStateVersion(secureJson(path.join(stateDirectory, 'active.json'))).floorSha;
   assertFloorMonotonic(root, priorFloor, floor.floorSha);
   assertFloor(root, floor);
   const envFile = path.join(root, '.env'); const metadata = fs.lstatSync(envFile);
