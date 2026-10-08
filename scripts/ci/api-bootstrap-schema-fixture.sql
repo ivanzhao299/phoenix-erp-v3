@@ -21,7 +21,8 @@ CREATE TABLE IF NOT EXISTS brd_farms (
   capacity INT DEFAULT 0,
   updated_at TIMESTAMP,
   store_code VARCHAR(64) DEFAULT 'ALL',
-  company_code VARCHAR(64)
+  company_code VARCHAR(64),
+  mapped_site_code VARCHAR(64)
 );
 CREATE TABLE IF NOT EXISTS brd_houses (
   house_code VARCHAR(50) PRIMARY KEY,
@@ -139,3 +140,78 @@ CREATE TABLE IF NOT EXISTS pkg_qc_inspections (
            inspected_at              TIMESTAMP,
            created_at                TIMESTAMP DEFAULT NOW()
          );
+
+CREATE TABLE IF NOT EXISTS wms_zones (
+           id         SERIAL PRIMARY KEY,
+           zone_code  VARCHAR(30) UNIQUE,
+           zone_name  VARCHAR(100),
+           warehouse  VARCHAR(50),
+           status     VARCHAR(20) DEFAULT 'ACTIVE',
+           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+           warehouse_code VARCHAR(50)
+         );
+
+CREATE TABLE IF NOT EXISTS wms_inbound_items (
+           id              SERIAL PRIMARY KEY,
+           task_no         VARCHAR(64),
+           batch_no        VARCHAR(64),
+           product_code    VARCHAR(64),
+           qty             INT DEFAULT 0,
+           expected_qty    INT DEFAULT 0,
+           actual_qty      INT DEFAULT 0,
+           broken_qty      INT DEFAULT 0,
+           warehouse_code  VARCHAR(64),
+           location_code   VARCHAR(64),
+           created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+         );
+
+-- Quality regression legacy tables: empty controlled test schema, no data repair.
+CREATE TABLE IF NOT EXISTS qa_inspections (
+  id           SERIAL PRIMARY KEY,
+  inspect_no   VARCHAR(50) UNIQUE,
+  house_code   VARCHAR(50),
+  inspect_date DATE,
+  inspector    VARCHAR(100),
+  result       VARCHAR(20),
+  score        DECIMAL(5,2),
+  status       VARCHAR(20) DEFAULT 'PENDING',
+  created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  batch_no VARCHAR(64),
+  sku_code VARCHAR(64),
+  sample_qty INTEGER DEFAULT 0,
+  issues TEXT,
+  check_shell BOOLEAN DEFAULT false,
+  check_weight BOOLEAN DEFAULT false,
+  check_cleanness BOOLEAN DEFAULT false,
+  check_grade BOOLEAN DEFAULT false,
+  check_pack BOOLEAN DEFAULT false,
+  check_label BOOLEAN DEFAULT false,
+  insp_no VARCHAR(64),
+  henhouse VARCHAR(64),
+  "checkType" VARCHAR(32),
+  "checkTime" VARCHAR(32),
+  items INTEGER DEFAULT 0,
+  "failItems" INTEGER DEFAULT 0,
+  remark TEXT,
+  env_snapshot_json TEXT,
+  items_json TEXT,
+  fail_items_json TEXT
+);
+CREATE TABLE IF NOT EXISTS qa_non_conformance (
+  id           SERIAL PRIMARY KEY,
+  ncr_no       VARCHAR(50) UNIQUE,
+  source       VARCHAR(100),
+  description  TEXT,
+  severity     VARCHAR(20) DEFAULT 'LOW',
+  status       VARCHAR(20) DEFAULT 'OPEN',
+  assignee     VARCHAR(100),
+  created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  nc_no VARCHAR(50),
+  issue_type VARCHAR(50),
+  batch_no VARCHAR(64),
+  store_code VARCHAR(30),
+  action_taken TEXT
+);
