@@ -57,6 +57,27 @@ jobs:
             test "$(id -u)" = 0
             echo "ACTIONS_DEPLOY_UID=$(id -u)"
             echo "ACTIONS_DEPLOY_USER=$(id -un)"
+            for p in / /var /var/lib /var/lib/phoenix-erp /var/lib/phoenix-erp/production-deployment-state /var/lib/phoenix-erp/production-checkout-recovery; do
+              if test -e "$p" || test -L "$p"; then
+                stat -c 'CANDIDATE_PATH=%n uid=%u mode=%a type=%F' "$p"
+                echo "CANDIDATE_REAL=$(realpath -e "$p")"
+              else
+                echo "CANDIDATE_ABSENT=$p"
+              fi
+            done
+            findmnt -n -T /var/lib -o TARGET,SOURCE,FSTYPE,FSROOT
+            python3 - <<'PYACL'
+            import os,errno,json
+            for p in ['/', '/var', '/var/lib']:
+                result={'path':p}
+                for attr in ['system.posix_acl_access','system.posix_acl_default']:
+                    try:
+                        os.getxattr(p,attr,follow_symlinks=False)
+                        result[attr]='PRESENT'
+                    except OSError as e:
+                        result[attr]='ABSENT' if e.errno==errno.ENODATA else 'HOLD_ERRNO_'+str(e.errno)
+                print('CANDIDATE_ACL='+json.dumps(result))
+            PYACL
             case "$DEPLOY_PATH" in '~/'*) DEPLOY_PATH="$HOME/${DEPLOY_PATH#\~/}" ;; esac
             cd "$DEPLOY_PATH"
             repo=$(pwd -P)
