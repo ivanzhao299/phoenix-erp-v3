@@ -170,3 +170,9 @@ AR镜像刷新使用公司/账套/期间advisory transaction lock及单事务替
 | required CI / 独立安全审查 | 合并前必须完成；不以本地测试代替CI或精确SHA审批 |
 
 本地验证：Node20 API全套114 suites / 1006 tests通过，161项既有opt-in测试跳过；本次真实隔离PostgreSQL并发、幂等、快照原子性用例全部执行。API/Web typecheck通过；API修改文件lint零错误（28项已有any警告）；运维契约95项通过及一项root专用用例在独立root容器验证通过；7张禁止事实表各1000行的真实PostgreSQL摘要测试识别同计数覆写。actionlint、shell语法、nullable unique及constraint drift检查通过。独立安全审查未发现新的阻断级代码问题，生产认证、精确SHA批准及真实首次同步仍待验收。实际生产启用和远端读取未执行，不能记录RESTORED或全面PASS。
+
+## 启用后的完整周期观察
+
+ACTIVE验收后覆盖至少下一次00:15/06:15/12:15/18:15正式调度及完整6小时周期。使用正式Actions的audit操作复测，不把历史R3或本次启用前现场计数复用为上线后证据。取证SQL输出24小时scheduled/completed/failed/rate-limit计数、逐账套/endpoint覆盖及最近刷新、pending/conflict、未解决对账分组、inbound runs及两类remote attempt累计数；每次与启用基线比较。财务差异留审核，正式入账有独立审批证据，不能用同步SUCCESS代替。
+
+发生权限/映射/限流失败时durable FAIL阻断同审批的后续运行；发现跨公司混入、禁止事实变化或远端写attempt增长，立即通过正式HOLD配置事务停用并保全job、floor过渡及受限证据，不删除镜像、不重写账务、不强制恢复旧API。当前尚未ACTIVE，完整周期观察为NOT_RUN。
