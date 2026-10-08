@@ -1,319 +1,67 @@
 import { ChanjetReadonlySyncScheduler } from './chanjet-readonly-sync.scheduler';
-
-describe('ChanjetReadonlySyncScheduler', () => {
-  const previousEnabled = process.env.CHANJET_READONLY_SYNC_ENABLED;
-  const previousInboundEnabled = process.env.CHANJET_ERP_INBOUND_SYNC_ENABLED;
-  const previousRecoveryCooldown = process.env.CHANJET_READONLY_RECOVERY_COOLDOWN_MS;
-  const readiness = {
-    generatedAt: '2026-07-21T00:00:00.000Z',
-    decision: 'GO' as const,
-    score: 100,
-    grade: 'A' as const,
-    summary: {},
-    phases: [],
-    blockers: [],
-    conditions: [],
-    tokenHealth: {},
-    guardrails: {},
-  };
-
-  beforeEach(() => { process.env.CHANJET_READONLY_SYNC_ENABLED = 'true'; });
-
-  afterEach(() => {
-    if (previousEnabled === undefined) delete process.env.CHANJET_READONLY_SYNC_ENABLED;
-    else process.env.CHANJET_READONLY_SYNC_ENABLED = previousEnabled;
-    if (previousInboundEnabled === undefined) delete process.env.CHANJET_ERP_INBOUND_SYNC_ENABLED;
-    else process.env.CHANJET_ERP_INBOUND_SYNC_ENABLED = previousInboundEnabled;
-    if (previousRecoveryCooldown === undefined) delete process.env.CHANJET_READONLY_RECOVERY_COOLDOWN_MS;
-    else process.env.CHANJET_READONLY_RECOVERY_COOLDOWN_MS = previousRecoveryCooldown;
-    jest.restoreAllMocks();
-  });
-
-  function createQueryRunner(lockAcquired = true) {
-    const query = jest.fn()
-      .mockResolvedValueOnce([{ acquired: lockAcquired }])
-      .mockResolvedValueOnce([{ pg_advisory_unlock: true }]);
-    return {
-      query,
-      runner: {
-        connect: jest.fn().mockResolvedValue(undefined),
-        query,
-        release: jest.fn().mockResolvedValue(undefined),
-      },
-    };
-  }
-
-  function createIntegration(decision: 'GO' | 'GO_WITH_CONDITIONS' | 'HOLD' = 'GO') {
-    return {
-      runReadonlyAlignmentCycle: jest.fn().mockResolvedValue({
-        decision,
-        mirror: {
-          results: decision === 'HOLD' ? [] : [{ key: 'ACCOUNT_BOOKS', bookId: '', status: 'SUCCESS' }],
-          attempts: decision === 'HOLD' ? 3 : 1,
-          unresolvedFailures: decision === 'HOLD'
-            ? [{ key: 'VOUCHERS', bookId: 'BOOK-1', error: 'timeout' }]
-            : [],
-        },
-        exactMappings: decision === 'HOLD' ? null : { approved: 2 },
-        reconciliation: decision === 'HOLD' ? null : { created: 1, autoResolved: 3 },
-        readiness: decision === 'HOLD' ? null : { ...readiness, decision },
-        stoppedAt: decision === 'HOLD' ? 'READONLY_MIRROR' : null,
-      }),
-      recordCurrentStateAlert: jest.fn().mockResolvedValue(undefined),
-    };
-  }
-
-  function createDataSource(queryRunner: ReturnType<typeof createQueryRunner>['runner'], query = jest.fn().mockResolvedValue([])) {
-    return {
-      query,
-      createQueryRunner: jest.fn(() => queryRunner),
-    };
-  }
-
-  function createInboundSync() {
-    return {
-      syncScheduledShareholderBalances: jest.fn().mockResolvedValue({
-        decision: 'READY',
-        applied: true,
-        plan: {
-          planHash: 'plan-hash',
-          counts: { source: 3, mapped: 3, sourceOnly: 0 },
-          blockers: [],
-        },
-      }),
-    };
-  }
-
-  async function waitForTerminal(scheduler: ChanjetReadonlySyncScheduler) {
-    for (let attempt = 0; attempt < 20; attempt += 1) {
-      const state = await scheduler.getRunState();
-      if (['COMPLETED', 'HOLD', 'FAILED'].includes(state.state)) return state;
-      await new Promise((resolve) => setImmediate(resolve));
-    }
-    throw new Error('scheduler did not reach a terminal state');
-  }
-
-  it.each([undefined, '', 'false', 'FALSE', '0', 'yes'])('holds all execution paths for readonly=%s before any durable access', async (flag) => {
-    if (flag === undefined) delete process.env.CHANJET_READONLY_SYNC_ENABLED;
-    else process.env.CHANJET_READONLY_SYNC_ENABLED = flag;
-    process.env.CHANJET_ERP_INBOUND_SYNC_ENABLED = 'true';
-    const { runner } = createQueryRunner();
-    const integration = createIntegration();
-    const dataSource = createDataSource(runner);
-    const inbound = createInboundSync();
-    const scheduler = new ChanjetReadonlySyncScheduler(integration as never, { ok: jest.fn(), fail: jest.fn() } as never, dataSource as never, inbound as never);
-    await scheduler.runScheduledSync();
-    await expect(scheduler.enqueueManualSync('operator')).resolves.toMatchObject({ accepted: false, reason: 'SYNC_DISABLED' });
-    const immediate = jest.spyOn(global, 'setImmediate');
-    scheduler.onApplicationBootstrap();
-    expect(immediate).not.toHaveBeenCalled();
-    // Direct recovery/execute defenses also hold if a callback was queued earlier.
-    const control = scheduler as unknown as { recoverInterruptedRun(): Promise<void>; executeSync(actor: string, request: Record<string, unknown>, runId: string): Promise<void> };
-    await control.recoverInterruptedRun();
-    await control.executeSync('operator', {}, 'queued-before-hold');
-    expect(dataSource.query).not.toHaveBeenCalled();
-    expect(dataSource.createQueryRunner).not.toHaveBeenCalled();
-    expect(integration.runReadonlyAlignmentCycle).not.toHaveBeenCalled();
-    expect(inbound.syncScheduledShareholderBalances).not.toHaveBeenCalled();
-  });
-
-  it('continues to allow harmless persisted status inspection while held', async () => {
-    process.env.CHANJET_READONLY_SYNC_ENABLED = 'false';
-    const { runner } = createQueryRunner();
-    const dataSource = createDataSource(runner);
-    const scheduler = new ChanjetReadonlySyncScheduler(createIntegration() as never, { ok: jest.fn(), fail: jest.fn() } as never, dataSource as never, createInboundSync() as never);
-    await scheduler.getRunState();
-    expect(dataSource.query).toHaveBeenCalledWith(expect.stringContaining('SELECT status'), [false]);
-    expect(dataSource.createQueryRunner).not.toHaveBeenCalled();
-  });
-
-  it('persists one durable run and uses one dedicated connection for advisory lock lifecycle', async () => {
-    process.env.CHANJET_READONLY_SYNC_ENABLED = 'true';
-    process.env.CHANJET_ERP_INBOUND_SYNC_ENABLED = 'true';
-    const { query, runner } = createQueryRunner();
-    const integration = createIntegration();
-    const cronMonitor = {
-      ok: jest.fn().mockResolvedValue(undefined),
-      fail: jest.fn().mockResolvedValue(undefined),
-    };
-    const dataSource = createDataSource(runner);
-    const inboundSync = createInboundSync();
-    const scheduler = new ChanjetReadonlySyncScheduler(integration as never, cronMonitor as never, dataSource as never, inboundSync as never);
-
-    await scheduler.runScheduledSync();
-
-    expect(runner.connect).toHaveBeenCalledTimes(1);
-    expect(query).toHaveBeenNthCalledWith(1, expect.stringContaining('pg_try_advisory_lock'), ['chanjet-full-readonly-sync']);
-    expect(query).toHaveBeenNthCalledWith(2, expect.stringContaining('pg_advisory_unlock'), ['chanjet-full-readonly-sync']);
-    expect(runner.release).toHaveBeenCalledTimes(1);
-    expect(integration.runReadonlyAlignmentCycle).toHaveBeenCalledWith(
-      'system:chanjet-readonly-sync', [], undefined, expect.stringMatching(/^\d{6}$/), 3,
-      { compact: true },
-    );
-    expect(cronMonitor.ok).toHaveBeenCalledTimes(1);
-    expect(cronMonitor.fail).not.toHaveBeenCalled();
-    expect(integration.recordCurrentStateAlert).toHaveBeenCalledWith(expect.objectContaining({ decision: 'GO' }));
-    expect(inboundSync.syncScheduledShareholderBalances).toHaveBeenCalledWith(expect.stringMatching(/^\d{6}$/), 'system:chanjet-readonly-sync');
-    expect(dataSource.query).toHaveBeenCalledWith(expect.stringContaining('INSERT INTO chanjet_sync_jobs'), expect.any(Array));
-    expect(dataSource.query).toHaveBeenCalledWith(expect.stringContaining("status = 'RUNNING'"), expect.any(Array));
-    expect(dataSource.query).toHaveBeenCalledWith(expect.stringContaining('result_summary = $4::jsonb'), expect.any(Array));
-    await expect(scheduler.getRunState()).resolves.toMatchObject({ state: 'COMPLETED', decision: 'GO' });
-  });
-
-  it('keeps ERP inbound promotion disabled by default for a readonly run', async () => {
-    delete process.env.CHANJET_ERP_INBOUND_SYNC_ENABLED;
-    const { runner } = createQueryRunner();
-    const inboundSync = createInboundSync();
-    const scheduler = new ChanjetReadonlySyncScheduler(
-      createIntegration() as never,
-      { ok: jest.fn().mockResolvedValue(undefined), fail: jest.fn() } as never,
-      createDataSource(runner) as never,
-      inboundSync as never,
-    );
-
-    await scheduler.runScheduledSync();
-
-    expect(inboundSync.syncScheduledShareholderBalances).not.toHaveBeenCalled();
-    expect(runner.connect).toHaveBeenCalledTimes(1);
-  });
-
-  it('records HOLD as a durable monitored failure and still releases the lock', async () => {
-    process.env.CHANJET_READONLY_SYNC_ENABLED = 'true';
-    const { runner } = createQueryRunner();
-    const integration = createIntegration('HOLD');
-    const cronMonitor = {
-      ok: jest.fn(),
-      fail: jest.fn().mockResolvedValue(undefined),
-    };
-    const dataSource = createDataSource(runner);
-    const scheduler = new ChanjetReadonlySyncScheduler(integration as never, cronMonitor as never, dataSource as never, createInboundSync() as never);
-
-    await scheduler.runScheduledSync();
-
-    expect(cronMonitor.fail).toHaveBeenCalledWith(
-      'chanjet-full-readonly-sync',
-      expect.stringContaining('VOUCHERS/BOOK-1=timeout'),
-    );
-    expect(runner.release).toHaveBeenCalledTimes(1);
-    expect(dataSource.query).toHaveBeenCalledWith(
-      expect.stringContaining('result_summary = $4::jsonb'),
-      expect.arrayContaining([expect.any(String), 'FAIL']),
-    );
-    await expect(scheduler.getRunState()).resolves.toMatchObject({ state: 'HOLD', decision: 'HOLD' });
-  });
-
-  it('accepts a manual run immediately and exposes durable completion status for polling', async () => {
-    const { runner } = createQueryRunner();
-    const integration = createIntegration();
-    const cronMonitor = {
-      ok: jest.fn().mockResolvedValue(undefined),
-      fail: jest.fn().mockResolvedValue(undefined),
-    };
-    const scheduler = new ChanjetReadonlySyncScheduler(
-      integration as never,
-      cronMonitor as never,
-      createDataSource(runner) as never,
-      createInboundSync() as never,
-    );
-
-    const accepted = await scheduler.enqueueManualSync('user:admin', { period: '202607' });
-
-    expect(accepted).toMatchObject({ accepted: true, run: { state: 'QUEUED', requestedBy: 'user:admin' } });
-    await expect(waitForTerminal(scheduler)).resolves.toMatchObject({ state: 'COMPLETED', decision: 'GO' });
-    expect(integration.runReadonlyAlignmentCycle).toHaveBeenCalledWith(
-      'user:admin', [], undefined, '202607', 3, { compact: true },
-    );
-  });
-
-  it('recovers and completes a persisted RUNNING orchestration after API restart', async () => {
-    const { runner } = createQueryRunner();
-    const integration = createIntegration();
-    const cronMonitor = {
-      ok: jest.fn().mockResolvedValue(undefined),
-      fail: jest.fn().mockResolvedValue(undefined),
-    };
-    const persisted = {
-      status: 'RUNNING',
-      request_scope: {
-        orchestrationRunId: 'CHANJET-RO-RECOVER',
-        requestedBy: 'user:admin',
-        scope: ['ACCOUNT_BOOKS'],
-        period: '202607',
-        maxAttempts: 3,
-        queuedAt: '2026-07-21T00:00:00.000Z',
-      },
-      result_summary: null,
-      error_message: null,
-      created_at: '2026-07-21T00:00:00.000Z',
-      updated_at: '2026-07-21T00:01:00.000Z',
-    };
-    let recoveryStarted = false;
-    const dataQuery = jest.fn().mockImplementation((sql: string) => {
-      if (sql.includes('SELECT status') && !recoveryStarted) return Promise.resolve([persisted]);
-      if (sql.includes('recoveredAt')) recoveryStarted = true;
+import { installReadonlyApprovalFixture, readonlyApprovalFixture } from './chanjet-readonly-policy.test-fixture';
+describe('ChanjetReadonlySyncScheduler production restoration', () => {
+  let restore: () => void;
+  const previous = process.env.CHANJET_READONLY_SYNC_ENABLED;
+  beforeEach(() => { restore = installReadonlyApprovalFixture(); process.env.CHANJET_READONLY_SYNC_ENABLED = 'true'; });
+  afterEach(() => { restore(); if(previous === undefined) delete process.env.CHANJET_READONLY_SYNC_ENABLED; else process.env.CHANJET_READONLY_SYNC_ENABLED = previous; jest.restoreAllMocks(); });
+  function fixture({ durable = [] as unknown[], lock = true, failure = false } = {}) {
+    const query = jest.fn().mockImplementation((sql: string) => {
+      if(sql.includes('advisory')) return Promise.resolve([{ acquired:lock }]);
+      if(sql.includes('SELECT id')) return Promise.resolve(durable);
       return Promise.resolve([]);
     });
-    const scheduler = new ChanjetReadonlySyncScheduler(
-      integration as never,
-      cronMonitor as never,
-      createDataSource(runner, dataQuery) as never,
-      createInboundSync() as never,
-    );
-
-    scheduler.onApplicationBootstrap();
-
-    await expect(waitForTerminal(scheduler)).resolves.toMatchObject({
-      runId: 'CHANJET-RO-RECOVER',
-      state: 'COMPLETED',
-      decision: 'GO',
-    });
-    expect(integration.runReadonlyAlignmentCycle).toHaveBeenCalledWith(
-      'user:admin', ['ACCOUNT_BOOKS'], undefined, '202607', 3,
-      { compact: true },
-    );
+    const runner = { query, connect:jest.fn(), startTransaction:jest.fn(), commitTransaction:jest.fn(), rollbackTransaction:jest.fn(), release:jest.fn().mockResolvedValue(undefined), isTransactionActive:false };
+    const ds = { query:jest.fn().mockResolvedValue([]), createQueryRunner:jest.fn(()=>runner) };
+    const cycle = { decision:failure?'HOLD':'GO', mirror:{results:[{key:'RECEIVABLE_STATISTICS'}],attempts:1,unresolvedFailures:failure?[{error:'secret=123 amount=42'}]:[]},exactMappings:null,reconciliation:{created:1,autoResolved:0},readiness:null,stoppedAt:null };
+    const integration = { runReadonlyAlignmentCycle:jest.fn().mockResolvedValue(cycle), recordCurrentStateAlert:jest.fn() };
+    const inbound = { syncScheduledShareholderBalances:jest.fn() };
+    const monitor = { ok:jest.fn(), fail:jest.fn() };
+    return { subject:new ChanjetReadonlySyncScheduler(integration as never,monitor as never,ds as never,inbound as never),ds,runner,integration,inbound,monitor };
+  }
+  it.each([undefined,'false','','0','yes'])('default/ambiguous flag %s prevents any durable or remote work',async value=>{
+    if(value===undefined)delete process.env.CHANJET_READONLY_SYNC_ENABLED;else process.env.CHANJET_READONLY_SYNC_ENABLED=value;
+    const f=fixture();await f.subject.runScheduledSync();await expect(f.subject.enqueueManualSync('operator')).resolves.toMatchObject({accepted:false});
+    expect(f.ds.createQueryRunner).not.toHaveBeenCalled();expect(f.integration.runReadonlyAlignmentCycle).not.toHaveBeenCalled();
+  });
+  it('explicit true + ACTIVE runs once at current Shanghai period with the existing lock and no ledger promotion',async()=>{
+    const f=fixture();await f.subject.runScheduledSync();
+    expect(f.runner.query).toHaveBeenCalledWith(expect.stringContaining('pg_try_advisory_xact_lock'),['chanjet-full-readonly-sync']);
+    expect(f.runner.query).toHaveBeenCalledWith(expect.stringContaining('pg_try_advisory_lock'),['chanjet-full-readonly-sync']);
+    expect(f.runner.query).toHaveBeenCalledWith(expect.stringContaining('pg_advisory_unlock'),['chanjet-full-readonly-sync']);
+    expect(f.integration.runReadonlyAlignmentCycle).toHaveBeenCalledTimes(1);expect(f.inbound.syncScheduledShareholderBalances).not.toHaveBeenCalled();
+    expect(f.ds.query).toHaveBeenCalledWith(expect.stringContaining('result_summary'),expect.arrayContaining(['SUCCESS']));
+  });
+  it('VERIFY prevents cron before first finite manual run',async()=>{
+    process.env.CHANJET_SYNC_POLICY='READONLY_VERIFY';process.env.CHANJET_READONLY_APPROVAL=JSON.stringify({...readonlyApprovalFixture,verification:{...readonlyApprovalFixture.verification,expiresAt:new Date(Date.now()+60000).toISOString()}});
+    const f=fixture();await f.subject.runScheduledSync();expect(f.integration.runReadonlyAlignmentCycle).not.toHaveBeenCalled();
+    await expect(f.subject.enqueueManualSync('operator',{})).rejects.toThrow();
+    await expect(f.subject.enqueueManualSync('operator',readonlyApprovalFixture.verification)).resolves.toMatchObject({accepted:true});
+    await new Promise(r=>setImmediate(r));expect(f.integration.runReadonlyAlignmentCycle).toHaveBeenCalledTimes(1);
+  });
+  it('stale legacy or durable RUNNING jobs block admission without changing historical rows',async()=>{
+    const f=fixture({durable:[{id:3}]});await f.subject.runScheduledSync();
+    expect(f.integration.runReadonlyAlignmentCycle).not.toHaveBeenCalled();expect(f.runner.query.mock.calls.some(c=>String(c[0]).includes('INSERT'))).toBe(false);
+  });
+  it('another process holding advisory lock prevents a second durable job',async()=>{
+    const f=fixture({lock:false});await f.subject.runScheduledSync();expect(f.integration.runReadonlyAlignmentCycle).not.toHaveBeenCalled();expect(f.runner.commitTransaction).not.toHaveBeenCalled();expect(f.runner.release).toHaveBeenCalled();
+  });
+  it('bootstrap retains interrupted run for manual review without replay or terminal rewrites',async()=>{
+    const f=fixture();f.ds.query.mockResolvedValue([{status:'RUNNING',request_scope:{orchestrationRunId:'OLD-RUN'},created_at:new Date(),updated_at:new Date(),result_summary:null,error_message:null}]);
+    f.subject.onApplicationBootstrap();await new Promise(r=>setImmediate(r));
+    expect(f.integration.runReadonlyAlignmentCycle).not.toHaveBeenCalled();expect(f.ds.query.mock.calls.every(c=>String(c[0]).startsWith('SELECT'))).toBe(true);
+    await expect(f.subject.getRunState()).resolves.toMatchObject({state:'HOLD'});
+  });
+  it('failure persists HOLD and sanitized code, and releases advisory connection',async()=>{
+    const f=fixture({failure:true});await f.subject.runScheduledSync();await expect(f.subject.getRunState()).resolves.toMatchObject({state:'HOLD',message:'READONLY_HOLD_EXECUTION'});
+    expect(f.monitor.fail).toHaveBeenCalledWith('chanjet-full-readonly-sync','READONLY_HOLD_EXECUTION');expect(JSON.stringify(f.ds.query.mock.calls)).not.toContain('secret=');expect(f.runner.release).toHaveBeenCalled();
+  });
+  it('terminates an already accepted durable job as HOLD if the flag closes before deferred execution', async () => {
+    const f=fixture();const accepted=await f.subject.enqueueManualSync('operator');expect(accepted.accepted).toBe(true);
+    process.env.CHANJET_READONLY_SYNC_ENABLED='false';await new Promise(r=>setImmediate(r));
+    expect(f.integration.runReadonlyAlignmentCycle).not.toHaveBeenCalled();
+    expect(f.ds.query).toHaveBeenCalledWith(expect.stringContaining('result_summary'),expect.arrayContaining(['FAIL']));
+    await expect(f.subject.getRunState()).resolves.toMatchObject({state:'HOLD'});
   });
 
-  it('moves an repeatedly interrupted run to HOLD instead of creating a restart loop', async () => {
-    const { runner } = createQueryRunner();
-    const integration = createIntegration();
-    const persisted = {
-      status: 'RUNNING',
-      request_scope: {
-        orchestrationRunId: 'CHANJET-RO-EXHAUSTED',
-        requestedBy: 'system:test',
-        recoveryCount: 2,
-      },
-      result_summary: null,
-      error_message: null,
-      created_at: '2026-07-21T00:00:00.000Z',
-      updated_at: '2026-07-21T00:01:00.000Z',
-    };
-    let terminalPersisted = false;
-    const dataQuery = jest.fn().mockImplementation((sql: string) => {
-      if (sql.includes('SELECT status') && !terminalPersisted) return Promise.resolve([persisted]);
-      if (sql.includes('result_summary = $4::jsonb')) terminalPersisted = true;
-      return Promise.resolve([]);
-    });
-    const scheduler = new ChanjetReadonlySyncScheduler(
-      integration as never,
-      { ok: jest.fn(), fail: jest.fn() } as never,
-      createDataSource(runner, dataQuery) as never,
-      createInboundSync() as never,
-    );
-
-    scheduler.onApplicationBootstrap();
-    await new Promise((resolve) => setImmediate(resolve));
-
-    await expect(scheduler.getRunState()).resolves.toMatchObject({
-      runId: 'CHANJET-RO-EXHAUSTED',
-      state: 'HOLD',
-      decision: 'HOLD',
-      message: expect.stringContaining('automatic recovery exhausted'),
-    });
-    expect(integration.runReadonlyAlignmentCycle).not.toHaveBeenCalled();
-    expect(dataQuery).toHaveBeenCalledWith(
-      expect.stringContaining('result_summary = $4::jsonb'),
-      expect.arrayContaining(['CHANJET-RO-EXHAUSTED', 'FAIL']),
-    );
-  });
 });

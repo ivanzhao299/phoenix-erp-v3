@@ -24,8 +24,8 @@ function stateIO(dir, inspectDirectory = () => [{ path: dir }]) {
     fs: { ...fs, fstatSync: fd => rootStat(fs.fstatSync(fd)), lstatSync: (...args) => rootStat(fs.lstatSync(...args)) } };
 }
 
-test('v2 root-controlled complete ancestor chain and exact control directory modes pass', () => {
-  assert.equal(CONTRACT.version, 2); assert.equal(CONTRACT.executionUid, 0);
+test('v3 root-controlled complete ancestor chain and exact control directory modes pass', () => {
+  assert.equal(CONTRACT.version, 3); assert.equal(CONTRACT.executionUid, 0);
   assert.equal(validate(model()).length, ancestors(CONTRACT.stateDirectory).length);
   assert.equal(validate(model(CONTRACT.archiveDirectory)).length, ancestors(CONTRACT.archiveDirectory).length);
 });

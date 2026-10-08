@@ -1,3 +1,4 @@
+import { assertChanjetProxyReadonly } from './chanjet-remote-readonly';
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Cron, CronExpression } from '@nestjs/schedule';
@@ -154,7 +155,7 @@ export class ChanjetAuthService implements OnModuleInit {
       this.log.warn(`从 PG load chanjet state 失败: ${(err as Error).message}`);
     }
 
-    this.log.log(`畅捷通对接就绪 appKey=${this.appKey} orgId=${this.orgId}`);
+    this.log.log(`CHANJET_AUTH_CONFIGURED appKeyPresent=${!!this.appKey} orgIdPresent=${!!this.orgId}`);
 
     // 容器启动自愈:仍无 appTicket → 主动让平台 resend(异步,不阻塞 onModuleInit)
     setImmediate(() => this.bootstrapAppTicket());
@@ -259,6 +260,7 @@ export class ChanjetAuthService implements OnModuleInit {
     };
     this.log.log(`POST ${url} (authCode)`);
     const res = await fetch(url, {
+      signal: AbortSignal.timeout(30_000),
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
@@ -311,6 +313,7 @@ export class ChanjetAuthService implements OnModuleInit {
     this.log.log(`POST ${url}`);
 
     const res = await fetch(url, {
+      signal: AbortSignal.timeout(30_000),
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
@@ -345,6 +348,7 @@ export class ChanjetAuthService implements OnModuleInit {
     this.log.log(`POST ${url}`);
 
     const res = await fetch(url, {
+      signal: AbortSignal.timeout(30_000),
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -371,14 +375,14 @@ export class ChanjetAuthService implements OnModuleInit {
         void this.triggerAppTicket().catch((e) => this.log.warn(`4041 自愈 resend 失败: ${(e as Error).message}`));
         throw new Error('好业财 appTicket 已过期,已自动向平台请求重新推送授权票据,请约 10 秒后重试同步。(code=4041)');
       }
-      throw new Error(`获取 openToken 失败: code=${err?.code} msg=${err?.msg} hint=${err?.hint}`);
+      throw new Error(`CHANJET_AUTH_TOKEN_FAILED code=${String(err?.code || 'UNKNOWN').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 32)}`);
     }
 
     this.tokenCache.set(targetOrg, {
       openToken: accessToken,
       expiresAt: Date.now() + expiresIn * 1000,
     });
-    this.log.log(`openToken 已缓存 orgId=${targetOrg}，有效 ${expiresIn}s`);
+    this.log.log(`openToken 已缓存，有效 ${expiresIn}s`);
     void this.persistState();
     return accessToken;
   }
@@ -388,6 +392,7 @@ export class ChanjetAuthService implements OnModuleInit {
     const url = 'https://openapi.chanjet.com/auth/appTicket/resend';
     this.log.log(`POST ${url}`);
     const res = await fetch(url, {
+      signal: AbortSignal.timeout(30_000),
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -411,6 +416,10 @@ export class ChanjetAuthService implements OnModuleInit {
     opts: ChanjetCallOptions = {},
     _isRetry = false,
   ): Promise<T> {
+    if (['READONLY_VERIFY', 'READONLY_ACTIVE'].includes(process.env.CHANJET_SYNC_POLICY || '')) {
+      assertChanjetProxyReadonly(opts.method || 'POST', path);
+      if (opts.kind === 'WRITE') throw new Error('CHANJET_EXTERNAL_WRITE_DISABLED');
+    }
     const kind = opts.kind || this.inferCallKind(path);
     if (kind === 'READ' && !_isRetry) {
       const cacheKey = this.readCacheKey(path, opts);
@@ -442,6 +451,10 @@ export class ChanjetAuthService implements OnModuleInit {
     opts: ChanjetCallOptions,
     isRetry: boolean,
   ): Promise<T> {
+    if (['READONLY_VERIFY', 'READONLY_ACTIVE'].includes(process.env.CHANJET_SYNC_POLICY || '')) {
+      assertChanjetProxyReadonly(opts.method || 'POST', path);
+      if (opts.kind === 'WRITE') throw new Error('CHANJET_EXTERNAL_WRITE_DISABLED');
+    }
     const kind = opts.kind || this.inferCallKind(path);
     await this.reserveTrafficBudget(kind, path);
     await this.waitForTrafficSlot();
@@ -454,6 +467,7 @@ export class ChanjetAuthService implements OnModuleInit {
     this.log.debug(`${method} ${url}`);
 
     const res = await fetch(url, {
+      signal: AbortSignal.timeout(30_000),
       method,
       headers: {
         'Content-Type': 'application/json',
@@ -481,8 +495,7 @@ export class ChanjetAuthService implements OnModuleInit {
         requestId: String(json.requestId || json.request_id || ''),
       };
       throw new Error(
-        `好业财 API 失败 path=${path} http=${res.status} code=${failure.code}`
-        + ` requestId=${failure.requestId || '-'} msg=${failure.message}`,
+        `好业财 API 失败 path=${path} http=${res.status} code=${String(failure.code).replace(/[^A-Za-z0-9_-]/g, '').slice(0, 32)}`,
       );
     }
 

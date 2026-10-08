@@ -1,3 +1,4 @@
+import { readonlyEnvironment } from './chanjet-readonly-policy.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
@@ -29,6 +30,7 @@ export function runCompose(args, dependencies = {}) {
     if (inspected.imageId !== images[service].imageId) throw new Error('COMPOSE_HOLD=PIN_DRIFT');
   }
   const service = args.at(-1);
+  if (fs.existsSync(path.join(directory, 'policy-transition.json')) && args[0] !== 'ps' && !(service === 'api' && ['up', 'pull'].includes(args[0]))) throw new Error('COMPOSE_HOLD=POLICY_TRANSITION_API_ONLY');
   if (['up', 'restart'].includes(args[0])) {
     const actual = (dependencies.capture || captureRuntime)();
     // restart acts on actual containers; DB/Web operations can indirectly affect API.
@@ -43,7 +45,7 @@ export function runCompose(args, dependencies = {}) {
     const ref = `ghcr.io/ivanzhao299/phoenix-erp-v3/${service}:sha-${state.target}`;
     if (service === 'api') apiImage = ref; else webImage = ref;
   }
-  return (dependencies.execute || execFileSync)('docker', command, { cwd: root, env: { ...executionEnv(), API_IMAGE: apiImage, WEB_IMAGE: webImage }, stdio: ['ignore', 'pipe', 'pipe'] });
+  return (dependencies.execute || execFileSync)('docker', command, { cwd: root, env: { ...executionEnv(), ...readonlyEnvironment(floor), API_IMAGE: apiImage, WEB_IMAGE: webImage }, stdio: ['ignore', 'pipe', 'pipe'] });
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   try {

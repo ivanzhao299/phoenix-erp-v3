@@ -98,7 +98,7 @@ test('production config validates simultaneous bind paths and explicit independe
   const tuple = { PHOENIX_DATA_MOUNT_GUARD: 'true', PHOENIX_PG_DATA_DIR: '/data/test/postgres', PHOENIX_UPLOADS_DIR: '/data/test/uploads', CHANJET_READONLY_SYNC_ENABLED: 'false', CHANJET_ERP_INBOUND_SYNC_ENABLED: 'false' };
   const config = { services: { db: { volumes: [{ type: 'bind', source: tuple.PHOENIX_PG_DATA_DIR, target: '/var/lib/postgresql/data' }] }, api: { environment: { CHANJET_READONLY_SYNC_ENABLED: 'false', CHANJET_ERP_INBOUND_SYNC_ENABLED: 'false' }, volumes: [{ type: 'bind', source: tuple.PHOENIX_UPLOADS_DIR, target: '/app/uploads' }] } } };
   validateEffectiveConfig(config, tuple);
-  config.services.api.environment.CHANJET_READONLY_SYNC_ENABLED = 'true'; assert.throws(() => validateEffectiveConfig(config, tuple), /CHANJET_HOLD_REQUIRED/);
+  config.services.api.environment.CHANJET_READONLY_SYNC_ENABLED = 'true'; assert.throws(() => validateEffectiveConfig(config, tuple), /CHANJET_POLICY_FLAGS/);
 });
 test('state replacement persists active image identity at 0600 outside checkout', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'phoenix-state-')); try {
@@ -110,7 +110,7 @@ test('state replacement persists active image identity at 0600 outside checkout'
 test('actual wrapper execution uses exact captured image IDs and strips all inherited overrides', () => {
   let command;
   runCompose(['up', '-d', '--no-deps', '--wait', 'api'], {
-    root: '/data/phoenix-erp', directory: '/fixture', readState: () => ({ version: CONTRACT.version, active: previous }), guard: () => ({ project: 'phoenix-fixture' }), capture: () => previous,
+    root: '/data/phoenix-erp', directory: '/fixture', readState: () => ({ version: CONTRACT.version, active: previous }), guard: () => ({ project: 'phoenix-fixture', operationalTuple: { CHANJET_READONLY_SYNC_ENABLED: 'false', CHANJET_ERP_INBOUND_SYNC_ENABLED: 'false' } }), capture: () => previous,
     inspect: (id, revision) => ({ imageId: id, revision }), eligibility: () => ({ allowed: true }),
     execute: (binary, args, options) => { command = { binary, args, options }; return Buffer.from('not-forwarded'); },
   });
@@ -121,7 +121,7 @@ test('legacy API refuses DB or Web restart too, before any Docker mutation can i
   for (const service of ['api', 'db', 'web']) {
     let mutated = false;
     assert.throws(() => runCompose(['restart', service], {
-      root: '/data/phoenix-erp', directory: '/fixture', readState: () => ({ version: CONTRACT.version, active: previous }), guard: () => ({ project: 'phoenix-fixture' }), capture: () => previous,
+      root: '/data/phoenix-erp', directory: '/fixture', readState: () => ({ version: CONTRACT.version, active: previous }), guard: () => ({ project: 'phoenix-fixture', operationalTuple: { CHANJET_READONLY_SYNC_ENABLED: 'false', CHANJET_ERP_INBOUND_SYNC_ENABLED: 'false' } }), capture: () => previous,
       inspect: (id, revision) => ({ imageId: id, revision }), eligibility: () => ({ allowed: false }), execute: () => { mutated = true; },
     }), /PRE_FLOOR_API_RECOVERY_HOLD/);
     assert.equal(mutated, false);
@@ -180,7 +180,7 @@ test('actual container identity drift cannot be judged by stale active pins', ()
   assert.throws(() => assertRuntimePins(changed, previous), /ACTIVE_RUNTIME_DRIFT/);
   let mutated = false;
   assert.throws(() => runCompose(['restart', 'api'], {
-    root: '/data/phoenix-erp', directory: '/fixture', readState: () => ({ version: CONTRACT.version, active: previous }), guard: () => ({ project: 'phoenix-fixture' }), capture: () => changed,
+    root: '/data/phoenix-erp', directory: '/fixture', readState: () => ({ version: CONTRACT.version, active: previous }), guard: () => ({ project: 'phoenix-fixture', operationalTuple: { CHANJET_READONLY_SYNC_ENABLED: 'false', CHANJET_ERP_INBOUND_SYNC_ENABLED: 'false' } }), capture: () => changed,
     inspect: (id, revision) => ({ imageId: id, revision }), eligibility: () => ({ allowed: true }), execute: () => { mutated = true; },
   }), /ACTIVE_RUNTIME_DRIFT/);
   assert.equal(mutated, false);
