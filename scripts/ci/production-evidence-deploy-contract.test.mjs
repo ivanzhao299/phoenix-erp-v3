@@ -10,6 +10,7 @@ test('API-only deployment binds PRE before floor promotion and POST before SUCCE
   assert(contract.criticalFiles.includes('scripts/ops/production-deployment-evidence.mjs'));
   assert(at('EVIDENCE_PHASE=PRE_SNAPSHOT') < at('node "$FLOOR_STAGE/promote-production-config-floor.mjs"'));
   assert(at('node "$EVIDENCE_HELPER" capture "$POST_EVIDENCE_FILE"') < at('node scripts/ops/production-deployment-state.mjs complete'));
+  assert.match(workflow, /EVIDENCE_PHASE=POST_SNAPSHOT node "\$EVIDENCE_HELPER" capture/);
   assert(at('node "$EVIDENCE_HELPER" verify "$PRE_EVIDENCE_FILE" "$POST_EVIDENCE_FILE" "$LOG_EVIDENCE_FILE"') < at('node scripts/ops/production-deployment-state.mjs complete'));
   assert.match(workflow, /DEPLOY_RUN_ATTEMPT/);
 });

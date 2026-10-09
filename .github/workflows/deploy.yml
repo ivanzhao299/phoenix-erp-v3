@@ -1051,7 +1051,7 @@ jobs:
             echo "✅ API/Web smoke test passed"
             export PRODUCTION_READINESS_VERIFIED=true
             EVIDENCE_HELPER="${EVIDENCE_HELPER:-scripts/ops/production-deployment-evidence.mjs}"
-            node "$EVIDENCE_HELPER" capture "$POST_EVIDENCE_FILE"
+            EVIDENCE_PHASE=POST_SNAPSHOT node "$EVIDENCE_HELPER" capture "$POST_EVIDENCE_FILE"
             node "$EVIDENCE_HELPER" logs "$POST_EVIDENCE_FILE" "$LOG_EVIDENCE_FILE"
             node "$EVIDENCE_HELPER" verify "$PRE_EVIDENCE_FILE" "$POST_EVIDENCE_FILE" "$LOG_EVIDENCE_FILE"
 

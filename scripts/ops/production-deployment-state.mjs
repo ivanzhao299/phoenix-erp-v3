@@ -135,7 +135,9 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
         if (operation === 'complete') {
           const evidence = await import('./production-deployment-evidence.mjs');
           const post = JSON.parse(fs.readFileSync(state.evidence.post, 'utf8'));
-          evidence.verifyLiveSnapshot(post, { runId: process.env.DEPLOY_RUN_ID, targetSha: state.target });
+          const binding = { runId: process.env.DEPLOY_RUN_ID, runAttempt: process.env.DEPLOY_RUN_ATTEMPT || String(process.env.GITHUB_RUN_ATTEMPT || '1'), targetSha: state.target, configFloorSha: state.floorSha };
+          evidence.verifyEvidenceFiles(state.evidence.pre, state.evidence.post, state.evidence.log, binding);
+          evidence.verifyLiveSnapshot(post, binding);
         }
         state.outcome = operation === 'complete' ? 'SUCCESS' : 'ROLLED_BACK';
         atomicState(path.join(directory, 'active.json'), { version: CONTRACT.version, configSha: state.configSha, floorSha: state.floorSha, active: state.active, protectedImages: state.protectedImages, outcome: state.outcome, migrationBaseline: state.active.api.revision });
