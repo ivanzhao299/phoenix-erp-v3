@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { captureSnapshot, compareSnapshots, summarizeStartupLogs, verifyEvidenceFiles } from './production-deployment-evidence.mjs';
+import { readFormalDeploymentEvidence } from './chanjet-readonly-production-audit.mjs';
 
 const sha = c => ({ t: 'a', x: 'b', p: 'c' }[c] || c).repeat(40);
 const image = c => `sha256:${({ t: 'a', x: 'b', p: 'c' }[c] || c).repeat(64)}`;
@@ -57,5 +58,18 @@ test('evidence file verifier requires same run and API log identity', () => {
     fs.writeFileSync(files.pre, JSON.stringify(pre)); fs.writeFileSync(files.post, JSON.stringify(post)); fs.writeFileSync(files.log, JSON.stringify(log));
     assert.equal(verifyEvidenceFiles(files.pre, files.post, files.log, { runId: '100-1', runAttempt: '1', targetSha: sha('t'), configFloorSha: sha('t') }).startup, 'PASS_REDACTED_SUMMARY');
     const wrong = { ...post, deployRunId: '999-1' }; fs.writeFileSync(files.post, JSON.stringify(wrong)); assert.throws(() => verifyEvidenceFiles(files.pre, files.post, files.log, { runId: '100-1', runAttempt: '1', targetSha: sha('t'), configFloorSha: sha('t') }), /RUN_BINDING/);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+test('formal audit rejects target SHA drift across deployment evidence', () => {
+  const pre = snapshot('PRE_SNAPSHOT'); const post = snapshot('POST_SNAPSHOT');
+  const log = summarizeStartupLogs({ text: '2026-10-09T00:00:01.000Z [Nest] boot\n2026-10-09T00:00:02.000Z API_BOOTSTRAP_SCHEMA_COMPATIBILITY=PASS', containerId: post.containers.api.id, startedAt: post.containers.api.startedAt, capturedAt: '2026-10-09T00:01:00.000Z', runId: '100-1', runAttempt: '1', targetSha: sha('t'), floorSha: sha('t'), readinessVerified: true });
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'phoenix-audit-evidence-'));
+  try {
+    fs.writeFileSync(path.join(dir, 'deploy-100-1-pre-evidence.json'), JSON.stringify(pre));
+    fs.writeFileSync(path.join(dir, 'deploy-100-1-post-evidence.json'), JSON.stringify(post));
+    fs.writeFileSync(path.join(dir, 'deploy-100-1-startup-evidence.json'), JSON.stringify(log));
+    assert.equal(readFormalDeploymentEvidence(dir, { api: { revision: sha('t') } }, sha('t')).status, 'PASS');
+    fs.writeFileSync(path.join(dir, 'deploy-100-1-startup-evidence.json'), JSON.stringify({ ...log, targetSha: sha('x') }));
+    assert.equal(readFormalDeploymentEvidence(dir, { api: { revision: sha('t') } }, sha('t')).status, 'HOLD');
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
