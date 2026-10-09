@@ -22,3 +22,14 @@ test('evidence failure has no recovery Compose path and API mode cannot recreate
   assert.match(deploySection, /test "\$BUILD_WEB" = false/);
   assert.match(deploySection, /RUN_MIG=false/);
 });
+
+test('startup evidence contract captures both Docker streams and preserves fail-closed limits', () => {
+  const helper = fs.readFileSync('scripts/ops/production-deployment-evidence.mjs', 'utf8');
+  assert.match(helper, /spawnSync\('docker'/);
+  assert.match(helper, /stdout/); assert.match(helper, /stderr/);
+  assert.match(helper, /MAX_LOG_BYTES/); assert.match(helper, /combinedBytes/);
+  assert.match(helper, /DOCKER_LOG_COMMAND_FAILED/);
+  assert.match(helper, /stdoutLineCount/); assert.match(helper, /stderrLineCount/);
+  assert.match(helper, /sensitiveLineCount/); assert.match(helper, /rawOutput: false/);
+  assert.match(helper, /schemaWriteSignalCount/); assert.match(helper, /errorSignalCount/);
+});

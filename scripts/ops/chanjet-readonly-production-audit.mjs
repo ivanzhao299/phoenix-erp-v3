@@ -30,12 +30,14 @@ export function readFormalDeploymentEvidence(stateDirectory, actual, floorSha) {
     const candidate = [...groups.entries()].sort(([left], [right]) => right.localeCompare(left, undefined, { numeric: true })).map(([, group]) => group).find(group => group.pre && group.post && group.startup);
     if (!candidate) return { status: 'UNAVAILABLE' };
     const pre = JSON.parse(fs.readFileSync(candidate.pre, 'utf8')); const post = JSON.parse(fs.readFileSync(candidate.post, 'utf8')); const startup = JSON.parse(fs.readFileSync(candidate.startup, 'utf8'));
-    if (pre.schema !== 'phoenix.production-deployment-evidence/v1' || post.schema !== pre.schema || startup.schema !== pre.schema
+    if (pre.schema !== 'phoenix.production-deployment-evidence/v2' || post.schema !== pre.schema || startup.schema !== pre.schema
       || pre.phase !== 'PRE_SNAPSHOT' || post.phase !== 'POST_SNAPSHOT' || startup.phase !== 'API_STARTUP_LOG' || pre.deployRunId !== post.deployRunId
       || pre.deployRunAttempt !== post.deployRunAttempt || pre.targetSha !== post.targetSha || startup.targetSha !== post.targetSha
       || post.configFloorSha !== floorSha || startup.deployRunAttempt !== post.deployRunAttempt || startup.configFloorSha !== post.configFloorSha
       || post.containers.api.ociRevision !== actual.api.revision
-      || post.containers.api.id !== startup.containerId || post.containers.api.startedAt !== startup.startedAt || startup.rawOutput !== false) return { status: 'HOLD', reason: 'BINDING_OR_IDENTITY' };
+      || post.containers.api.id !== startup.containerId || post.containers.api.startedAt !== startup.startedAt || startup.rawOutput !== false
+      || !Number.isInteger(startup.stdoutLineCount) || !Number.isInteger(startup.stderrLineCount) || !Number.isInteger(startup.errorSignalCount)
+      || !Number.isInteger(startup.schemaWriteSignalCount) || !Number.isInteger(startup.sensitiveLineCount) || !/^[a-f0-9]{64}$/.test(startup.combinedDigest || '')) return { status: 'HOLD', reason: 'BINDING_OR_IDENTITY' };
     const unchanged = ['db', 'web'].every(service => pre.containers[service].id === post.containers[service].id && pre.containers[service].startedAt === post.containers[service].startedAt && pre.containers[service].image === post.containers[service].image);
     return { status: unchanged && startup.result === 'PASS_REDACTED_SUMMARY' ? 'PASS' : 'HOLD', runId: post.deployRunId, runAttempt: post.deployRunAttempt, configFloorSha: post.configFloorSha, targetSha: post.targetSha, web: 'ID_STARTED_IMAGE_UNCHANGED', db: 'ID_STARTED_IMAGE_UNCHANGED', startup: startup.result, rawOutput: false };
   } catch { return { status: 'HOLD', reason: 'EVIDENCE_UNREADABLE' }; }

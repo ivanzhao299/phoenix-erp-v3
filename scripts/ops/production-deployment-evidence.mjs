@@ -1,19 +1,20 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { atomicState } from './production-deployment-state.mjs';
 import { CONTRACT, verifyContext } from './production-config-guard.mjs';
 import { executionEnv } from './capture-production-runtime.mjs';
 
-export const EVIDENCE_SCHEMA = 'phoenix.production-deployment-evidence/v1';
+export const EVIDENCE_SCHEMA = 'phoenix.production-deployment-evidence/v2';
 const SERVICES = ['db', 'api', 'web'];
 const CONTAINERS = { db: 'phoenix-v3-db', api: 'phoenix-v3-api', web: 'phoenix-v3-web' };
 const SHA = /^[a-f0-9]{40}$/;
 const IMAGE = /^sha256:[a-f0-9]{64}$/;
 const ID = /^[a-f0-9]{12,64}$/;
 const ISO = value => typeof value === 'string' && !Number.isNaN(Date.parse(value));
+export const MAX_LOG_BYTES = 2 * 1024 * 1024;
 const safeRun = (args, run) => (run || (x => execFileSync('docker', x, { env: executionEnv(), encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })))(args).trim();
 
 export function metadataFor(service, run) {
@@ -58,23 +59,63 @@ export function compareSnapshots(pre, post) {
   return { web: 'UNCHANGED', db: 'UNCHANGED', apiRevision: api.ociRevision };
 }
 
-const secretPattern = /(password|secret|token|certificate|appticket|opentoken|authorization|cookie|private.?key|jwt)/i;
-const classify = line => secretPattern.test(line) ? 'SENSITIVE_REDACTED' : /API_BOOTSTRAP_SCHEMA_COMPATIBILITY=PASS/i.test(line) ? 'BOOTSTRAP_SIGNAL' : /ddl|seed|insert|update|alter|drop|sequence/i.test(line) ? 'SCHEMA_OR_WRITE_SIGNAL' : /error|exception|fatal|econn|mismatch/i.test(line) ? 'ERROR_SIGNAL' : /nest|bootstrap|listen|readiness|started|production/i.test(line) ? 'BOOTSTRAP_SIGNAL' : 'OTHER';
+const secretPattern = /\b(?:password|passwd|secret|token|certificate|appticket|opentoken|authorization|cookie|private[ _-]?key|jwt(?:_secret)?|client_secret)\b/i;
+const schemaWritePattern = /\b(?:alter\s+table|create\s+(?:table|index|sequence)|drop\s+(?:table|index|constraint)|truncate|insert|update|delete|upsert|setval|nextval|migration|seed|ddl|schema\s+(?:repair|write|mutation))\b/i;
+const errorPattern = /\b(?:fatal|panic|exception|uncaught|unhandled|econn(?:refused|reset)|mismatch|failed|failure)\b|\b(?:error|err)\b/i;
+const warningPattern = /\b(?:warn|warning|deprecated|retry(?:ing)?)\b/i;
+const bootstrapPattern = /API_BOOTSTRAP_SCHEMA_COMPATIBILITY=PASS|\b(?:nest|bootstrap|listen(?:ing)?|readiness|started|production)\b/i;
 
-export function summarizeStartupLogs({ text, containerId, startedAt, capturedAt = new Date().toISOString(), runId, runAttempt, targetSha, floorSha, readinessVerified = false }) {
-  if (!ID.test(containerId || '') || !ISO(startedAt) || !ISO(capturedAt) || Date.parse(capturedAt) < Date.parse(startedAt) || !/^\d+(?:-\d+)?$/.test(runId || '') || !/^\d+$/.test(String(runAttempt)) || !SHA.test(targetSha || '') || !SHA.test(floorSha || '')) throw new Error('DEPLOY_EVIDENCE_HOLD=LOG_BINDING');
-  if (typeof text !== 'string' || !text.trim() || text.length > 2_000_000) throw new Error('DEPLOY_EVIDENCE_HOLD=LOG_WINDOW_INCOMPLETE');
-  const counts = {}; let lines = 0; const startMs = Date.parse(startedAt); const endMs = Date.parse(capturedAt);
-  for (const line of text.split(/\r?\n/).filter(Boolean)) {
+export function classifyStartupLine(line) {
+  const sensitive = secretPattern.test(line);
+  const schemaWrite = schemaWritePattern.test(line);
+  const error = errorPattern.test(line) || schemaWrite;
+  const warning = !error && warningPattern.test(line);
+  const kind = schemaWrite ? 'SCHEMA_OR_WRITE_SIGNAL' : error ? 'ERROR_SIGNAL' : sensitive ? 'SENSITIVE_REDACTED' : warning ? 'WARNING_SIGNAL' : bootstrapPattern.test(line) ? 'BOOTSTRAP_SIGNAL' : 'INFO_SIGNAL';
+  return { kind, sensitive, schemaWrite, error };
+}
+
+function validateLogLines(text, stream, startMs, endMs) {
+  if (typeof text !== 'string') throw new Error('DEPLOY_EVIDENCE_HOLD=LOG_STREAM_INVALID');
+  const lines = text.split(/\r?\n/).filter(Boolean);
+  for (const line of lines) {
     const timestamp = line.match(/^(\d{4}-\d{2}-\d{2}T[^ ]+Z)\s/);
-    if (!timestamp || Number.isNaN(Date.parse(timestamp[1])) || Date.parse(timestamp[1]) < startMs || Date.parse(timestamp[1]) > endMs) throw new Error('DEPLOY_EVIDENCE_HOLD=LOG_WINDOW_INCOMPLETE');
-    lines++; const kind = classify(line); counts[kind] = (counts[kind] || 0) + 1;
+    if (!timestamp || Number.isNaN(Date.parse(timestamp[1])) || Date.parse(timestamp[1]) < startMs || Date.parse(timestamp[1]) > endMs) throw new Error(`DEPLOY_EVIDENCE_HOLD=LOG_WINDOW_INCOMPLETE_${stream.toUpperCase()}`);
   }
-  if (!lines) throw new Error('DEPLOY_EVIDENCE_HOLD=LOG_WINDOW_INCOMPLETE');
-  const digest = createHash('sha256').update(text).digest('hex');
-  const schemaPass = counts.BOOTSTRAP_SIGNAL && /API_BOOTSTRAP_SCHEMA_COMPATIBILITY=PASS/i.test(text);
-  const result = counts.SCHEMA_OR_WRITE_SIGNAL ? 'HOLD_SCHEMA_OR_WRITE_SIGNAL' : counts.ERROR_SIGNAL ? 'HOLD_STARTUP_ERROR' : !schemaPass || !readinessVerified ? 'UNVERIFIED_STARTUP_EVIDENCE' : 'PASS_REDACTED_SUMMARY';
-  return { schema: EVIDENCE_SCHEMA, phase: 'API_STARTUP_LOG', source: 'docker logs --timestamps --since container.StartedAt --until capturedAt', containerId, startedAt, capturedAt, deployRunId: runId, deployRunAttempt: Number(runAttempt), targetSha, configFloorSha: floorSha, lineCount: lines, eventCounts: { ...counts, SCHEMA_COMPATIBILITY_PASS: schemaPass ? 1 : 0, READINESS_HTTP_PASS: readinessVerified ? 1 : 0 }, digest, rawOutput: false, result };
+  return lines;
+}
+
+export function captureDockerLogStreams({ containerId, startedAt, capturedAt = new Date().toISOString() }, run = undefined) {
+  if (!ID.test(containerId || '') || !ISO(startedAt) || !ISO(capturedAt) || Date.parse(capturedAt) < Date.parse(startedAt)) throw new Error('DEPLOY_EVIDENCE_HOLD=LOG_BINDING');
+  const args = ['logs', '--timestamps', '--since', startedAt, '--until', capturedAt, containerId];
+  const result = run ? run(args) : spawnSync('docker', args, { env: executionEnv(), encoding: 'utf8', maxBuffer: MAX_LOG_BYTES, stdio: ['ignore', 'pipe', 'pipe'] });
+  const stdout = Buffer.isBuffer(result?.stdout) ? result.stdout.toString('utf8') : String(result?.stdout || '');
+  const stderr = Buffer.isBuffer(result?.stderr) ? result.stderr.toString('utf8') : String(result?.stderr || '');
+  const combinedBytes = Buffer.byteLength(stdout) + Buffer.byteLength(stderr);
+  if (result?.error?.code === 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER' || combinedBytes > MAX_LOG_BYTES) throw new Error('DEPLOY_EVIDENCE_HOLD=LOG_OUTPUT_LIMIT');
+  if (result?.error || result?.signal || result?.status !== 0) throw new Error('DEPLOY_EVIDENCE_HOLD=DOCKER_LOG_COMMAND_FAILED');
+  return { stdout, stderr, combinedBytes };
+}
+
+export function summarizeStartupLogs({ text, stdout = text || '', stderr = '', containerId, startedAt, capturedAt = new Date().toISOString(), runId, runAttempt, targetSha, floorSha, readinessVerified = false, commandFailure = false }) {
+  if (!ID.test(containerId || '') || !ISO(startedAt) || !ISO(capturedAt) || Date.parse(capturedAt) < Date.parse(startedAt) || !/^\d+(?:-\d+)?$/.test(runId || '') || !/^\d+$/.test(String(runAttempt)) || !SHA.test(targetSha || '') || !SHA.test(floorSha || '')) throw new Error('DEPLOY_EVIDENCE_HOLD=LOG_BINDING');
+  const combinedBytes = Buffer.byteLength(stdout) + Buffer.byteLength(stderr);
+  if (combinedBytes > MAX_LOG_BYTES) throw new Error('DEPLOY_EVIDENCE_HOLD=LOG_OUTPUT_LIMIT');
+  if (commandFailure) throw new Error('DEPLOY_EVIDENCE_HOLD=DOCKER_LOG_COMMAND_FAILED');
+  const startMs = Date.parse(startedAt); const endMs = Date.parse(capturedAt);
+  const stdoutLines = validateLogLines(stdout, 'stdout', startMs, endMs); const stderrLines = validateLogLines(stderr, 'stderr', startMs, endMs);
+  const allLines = [...stdoutLines.map(line => ['stdout', line]), ...stderrLines.map(line => ['stderr', line])];
+  if (!allLines.length) throw new Error('DEPLOY_EVIDENCE_HOLD=LOG_WINDOW_INCOMPLETE');
+  const counts = {}; let errorSignalCount = 0; let schemaWriteSignalCount = 0; let sensitiveLineCount = 0;
+  for (const [, line] of allLines) {
+    const classification = classifyStartupLine(line); counts[classification.kind] = (counts[classification.kind] || 0) + 1;
+    if (classification.error) { errorSignalCount++; if (classification.kind !== 'ERROR_SIGNAL') counts.ERROR_SIGNAL = (counts.ERROR_SIGNAL || 0) + 1; }
+    if (classification.schemaWrite) { schemaWriteSignalCount++; if (classification.kind !== 'SCHEMA_OR_WRITE_SIGNAL') counts.SCHEMA_OR_WRITE_SIGNAL = (counts.SCHEMA_OR_WRITE_SIGNAL || 0) + 1; }
+    if (classification.sensitive) { sensitiveLineCount++; if (classification.kind !== 'SENSITIVE_REDACTED') counts.SENSITIVE_REDACTED = (counts.SENSITIVE_REDACTED || 0) + 1; }
+  }
+  const combinedDigest = createHash('sha256').update(Buffer.from(stdout)).update(Buffer.from([0])).update(Buffer.from(stderr)).digest('hex');
+  const schemaPass = /API_BOOTSTRAP_SCHEMA_COMPATIBILITY=PASS/i.test(`${stdout}\n${stderr}`);
+  const result = schemaWriteSignalCount ? 'HOLD_SCHEMA_OR_WRITE_SIGNAL' : errorSignalCount ? 'HOLD_STARTUP_ERROR' : !schemaPass || !readinessVerified ? 'UNVERIFIED_STARTUP_EVIDENCE' : 'PASS_REDACTED_SUMMARY';
+  return { schema: EVIDENCE_SCHEMA, phase: 'API_STARTUP_LOG', source: 'docker logs --timestamps --since container.StartedAt --until capturedAt', containerId, startedAt, capturedAt, deployRunId: runId, deployRunAttempt: Number(runAttempt), targetSha, configFloorSha: floorSha, stdoutLineCount: stdoutLines.length, stderrLineCount: stderrLines.length, errorSignalCount, schemaWriteSignalCount, sensitiveLineCount, combinedDigest, lineCount: allLines.length, eventCounts: { ...counts, SCHEMA_COMPATIBILITY_PASS: schemaPass ? 1 : 0, READINESS_HTTP_PASS: readinessVerified ? 1 : 0 }, digest: combinedDigest, rawOutput: false, result };
 }
 
 export function verifyLiveSnapshot(post, binding, run) {
@@ -105,8 +146,9 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     if (operation === 'capture') { if (fs.existsSync(file)) throw new Error('DEPLOY_EVIDENCE_HOLD=EVIDENCE_REUSED'); const snapshot = captureSnapshot({ phase: process.env.EVIDENCE_PHASE, runId, runAttempt: attempt, targetSha: target, floorSha: floor }, undefined); persistSnapshot(file, snapshot); console.log(`DEPLOY_EVIDENCE=${snapshot.phase}`); }
     else if (operation === 'logs') {
       const post = JSON.parse(fs.readFileSync(file, 'utf8')); const api = post.containers?.api; if (!api) throw new Error('DEPLOY_EVIDENCE_HOLD=API_LOG_BINDING');
-      let output; try { output = execFileSync('docker', ['logs', '--timestamps', '--since', api.startedAt, '--until', new Date().toISOString(), api.id], { encoding: 'utf8', maxBuffer: 2_000_000, stdio: ['ignore', 'pipe', 'pipe'] }); } catch { throw new Error('DEPLOY_EVIDENCE_HOLD=LOG_CAPTURE_FAILED'); }
-      const summary = summarizeStartupLogs({ text: output, containerId: api.id, startedAt: api.startedAt, runId, runAttempt: attempt, targetSha: target, floorSha: floor, readinessVerified: process.env.PRODUCTION_READINESS_VERIFIED === 'true' });
+      const capturedAt = new Date().toISOString();
+      const streams = captureDockerLogStreams({ containerId: api.id, startedAt: api.startedAt, capturedAt });
+      const summary = summarizeStartupLogs({ stdout: streams.stdout, stderr: streams.stderr, containerId: api.id, startedAt: api.startedAt, capturedAt, runId, runAttempt: attempt, targetSha: target, floorSha: floor, readinessVerified: process.env.PRODUCTION_READINESS_VERIFIED === 'true' });
       persistSnapshot(other, summary); console.log(`DEPLOY_EVIDENCE_LOG=${summary.result}`);
     }
     else if (operation === 'verify') { console.log(JSON.stringify(verifyEvidenceFiles(file, other, logFile, { runId, runAttempt: attempt, targetSha: target, configFloorSha: floor }))); }
