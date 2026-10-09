@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { captureSnapshot, compareSnapshots, summarizeStartupLogs, verifyEvidenceFiles } from './production-deployment-evidence.mjs';
+import { execFileSync } from 'node:child_process';
+import { captureSnapshot, compareSnapshots, summarizeStartupLogs, verifyEvidenceFiles, captureDockerLogStreams, MAX_LOG_BYTES } from './production-deployment-evidence.mjs';
 import { readFormalDeploymentEvidence } from './chanjet-readonly-production-audit.mjs';
 
 const sha = c => ({ t: 'a', x: 'b', p: 'c' }[c] || c).repeat(40);
@@ -23,11 +24,11 @@ function runner(changes = {}) {
 }
 const binding = { phase: 'PRE_SNAPSHOT', runId: '100-1', runAttempt: '1', targetSha: sha('t'), floorSha: sha('t'), configFloorSha: sha('t') };
 function normalized(service, id) { const raw = inspect(service, id); return { service, container: `phoenix-v3-${service}`, id: raw.Id, created: raw.Created, startedAt: raw.State.StartedAt, running: raw.State.Running, health: raw.State.Health.Status, restartCount: raw.RestartCount, image: raw.Image, ociRevision: sha(service === 'api' ? 't' : 'p'), mounts: raw.Mounts.map(m => ({ type: m.Type, source: m.Source, destination: m.Destination, readOnly: m.RW === false })) }; }
-function snapshot(phase, overrides = {}) { return { ...binding, ...overrides, deployRunId: binding.runId, deployRunAttempt: 1, phase, schema: 'phoenix.production-deployment-evidence/v1', capturedAt: '2026-10-09T00:01:00.000Z', containers: { db: normalized('db', 'd'.repeat(64)), api: normalized('api', 'a'.repeat(64)), web: normalized('web', 'f'.repeat(64)) } }; }
+function snapshot(phase, overrides = {}) { return { ...binding, ...overrides, deployRunId: binding.runId, deployRunAttempt: 1, phase, schema: 'phoenix.production-deployment-evidence/v2', capturedAt: '2026-10-09T00:01:00.000Z', containers: { db: normalized('db', 'd'.repeat(64)), api: normalized('api', 'a'.repeat(64)), web: normalized('web', 'f'.repeat(64)) } }; }
 
 test('captures only allowlisted container metadata and binds run/attempt/SHA', () => {
   const calls = []; const actual = captureSnapshot(binding, args => { calls.push(args); return runner()(args); });
-  assert.equal(actual.schema, 'phoenix.production-deployment-evidence/v1'); assert.equal(Object.keys(actual.containers).length, 3); assert.equal(calls.length, 6);
+  assert.equal(actual.schema, 'phoenix.production-deployment-evidence/v2'); assert.equal(Object.keys(actual.containers).length, 3); assert.equal(calls.length, 6);
   assert.equal(Object.hasOwn(actual.containers.api, 'env'), false); assert.equal(actual.containers.api.ociRevision, sha('t'));
 });
 test('Web and DB identity/start/image/mount changes fail closed', () => {
@@ -72,4 +73,48 @@ test('formal audit rejects target SHA drift across deployment evidence', () => {
     fs.writeFileSync(path.join(dir, 'deploy-100-1-startup-evidence.json'), JSON.stringify({ ...log, targetSha: sha('x') }));
     assert.equal(readFormalDeploymentEvidence(dir, { api: { revision: sha('t') } }, sha('t')).status, 'HOLD');
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+test('stdout-only startup passes while an empty stderr stream is allowed', () => {
+  const summary = summarizeStartupLogs({
+    stdout: '2026-10-09T00:00:01.000Z [Nest] bootstrap started\n2026-10-09T00:00:02.000Z API_BOOTSTRAP_SCHEMA_COMPATIBILITY=PASS',
+    stderr: '', containerId: 'a'.repeat(64), startedAt: '2026-10-09T00:00:00.000Z', runId: '100-1', runAttempt: '1', targetSha: sha('t'), floorSha: sha('t'), readinessVerified: true,
+  });
+  assert.equal(summary.result, 'PASS_REDACTED_SUMMARY'); assert.equal(summary.stdoutLineCount, 2); assert.equal(summary.stderrLineCount, 0); assert.equal(summary.errorSignalCount, 0);
+});
+test('stderr application errors retain severity and sensitive lines remain redacted', () => {
+  const base = { stdout: '2026-10-09T00:00:01.000Z API_BOOTSTRAP_SCHEMA_COMPATIBILITY=PASS', containerId: 'a'.repeat(64), startedAt: '2026-10-09T00:00:00.000Z', runId: '100-1', runAttempt: '1', targetSha: sha('t'), floorSha: sha('t'), readinessVerified: true };
+  const error = summarizeStartupLogs({ ...base, stderr: '2026-10-09T00:00:02.000Z ERROR database connection failed' });
+  assert.equal(error.result, 'HOLD_STARTUP_ERROR'); assert.equal(error.stderrLineCount, 1); assert.equal(error.errorSignalCount, 1);
+  const sensitiveInfo = summarizeStartupLogs({ ...base, stderr: '2026-10-09T00:00:02.000Z JWT_SECRET loaded' });
+  assert.equal(sensitiveInfo.result, 'PASS_REDACTED_SUMMARY'); assert.equal(sensitiveInfo.sensitiveLineCount, 1); assert.doesNotMatch(JSON.stringify(sensitiveInfo), /JWT_SECRET loaded/);
+  const sensitiveFatal = summarizeStartupLogs({ ...base, stderr: '2026-10-09T00:00:02.000Z JWT_SECRET initialization FATAL' });
+  assert.equal(sensitiveFatal.result, 'HOLD_STARTUP_ERROR'); assert.equal(sensitiveFatal.sensitiveLineCount, 1); assert.equal(sensitiveFatal.errorSignalCount, 1); assert.equal(sensitiveFatal.eventCounts.SENSITIVE_REDACTED, 1); assert.equal(sensitiveFatal.eventCounts.ERROR_SIGNAL, 1); assert.doesNotMatch(JSON.stringify(sensitiveFatal), /JWT_SECRET initialization/);
+});
+test('schema writes, output overflow, and incomplete stream timestamps fail closed', () => {
+  const base = { stdout: '2026-10-09T00:00:01.000Z API_BOOTSTRAP_SCHEMA_COMPATIBILITY=PASS', stderr: '', containerId: 'a'.repeat(64), startedAt: '2026-10-09T00:00:00.000Z', runId: '100-1', runAttempt: '1', targetSha: sha('t'), floorSha: sha('t'), readinessVerified: true };
+  assert.equal(summarizeStartupLogs({ ...base, stderr: '2026-10-09T00:00:02.000Z migration attempted ALTER TABLE x' }).result, 'HOLD_SCHEMA_OR_WRITE_SIGNAL');
+  assert.throws(() => summarizeStartupLogs({ ...base, stdout: '2026-10-09T00:00:01.000Z ' + 'x'.repeat(MAX_LOG_BYTES), stderr: '' }), /LOG_OUTPUT_LIMIT/);
+  assert.throws(() => summarizeStartupLogs({ ...base, stderr: 'ERROR without docker timestamp' }), /LOG_WINDOW_INCOMPLETE_STDERR/);
+});
+test('docker command failures are distinct from application stderr and combined output is bounded', () => {
+  const args = { containerId: 'a'.repeat(64), startedAt: '2026-10-09T00:00:00.000Z', capturedAt: '2026-10-09T00:00:05.000Z' };
+  assert.throws(() => captureDockerLogStreams(args, () => ({ status: 1, stdout: '', stderr: 'docker: container missing' })), /DOCKER_LOG_COMMAND_FAILED/);
+  assert.throws(() => captureDockerLogStreams(args, () => ({ status: 0, stdout: 'x'.repeat(MAX_LOG_BYTES), stderr: 'y' })), /LOG_OUTPUT_LIMIT/);
+  assert.throws(() => captureDockerLogStreams(args, () => ({ status: 0, error: { code: 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER' }, stdout: '', stderr: '' })), /LOG_OUTPUT_LIMIT/);
+});
+const dockerStreamFixture = (() => {
+  try { execFileSync('docker', ['info'], { stdio: 'ignore' }); execFileSync('docker', ['image', 'inspect', 'node:20-alpine'], { stdio: 'ignore' }); return true; } catch { return false; }
+})();
+test('real isolated Docker container preserves stdout and stderr streams', { skip: !dockerStreamFixture }, () => {
+  const name = `phoenix-evidence-stream-${process.pid}-${Date.now()}`;
+  try {
+    execFileSync('docker', ['run', '-d', '--name', name, 'node:20-alpine', 'sh', '-c', 'printf "stdout boot\\n"; printf "stderr boot\\n" >&2; sleep 3'], { encoding: 'utf8' });
+    const id = execFileSync('docker', ['inspect', '--format', '{{.Id}}', name], { encoding: 'utf8' }).trim();
+    const startedAt = execFileSync('docker', ['inspect', '--format', '{{.State.StartedAt}}', name], { encoding: 'utf8' }).trim();
+    const capturedAt = new Date(Date.now() + 1000).toISOString();
+    const streams = captureDockerLogStreams({ containerId: id, startedAt, capturedAt });
+    assert.match(streams.stdout, /stdout boot/); assert.match(streams.stderr, /stderr boot/); assert.ok(streams.combinedBytes > 0);
+  } finally {
+    try { execFileSync('docker', ['rm', '-f', name], { stdio: 'ignore' }); } catch {}
+  }
 });
