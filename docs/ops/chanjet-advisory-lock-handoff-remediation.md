@@ -6,7 +6,7 @@
 BASE_MAIN=a2f4edba43bc6cd16247382e0306885a4ae6486d
 BRANCH=codex/fix-chanjet-advisory-lock-handoff
 FAILED_ACTIONS_RUN=37855594138
-REMEDIATION_PR=PENDING
+REMEDIATION_PR=https://github.com/ivanzhao299/phoenix-erp-v3/pull/368
 MERGED_MAIN_SHA=PENDING_MERGE_RECEIPT
 PRODUCTION_CONFIG_FLOOR_VERSION=2
 PRODUCTION_API_SHA=23c7af86dd122379d01248a3b9542b8165f31498
@@ -99,7 +99,7 @@ AsyncLocalStorage 在同步业务网络调用前、token 获取后、响应后�
 
 本地 Node20 隔离 PG16.14 与 PG18 均执行两份真实集成测试和三个相关单元测试，共 5 suites / 70 tests PASS，其中真实 PostgreSQL 25 项。没有扩大 Jest timeout、sleep 修复、盲重试、忽略 lock failure、删 RUNNING、禁用并发测试或移除 advisory lock。
 
-API/Web typecheck PASS。API 全量单元测试 114 suites / 1010 tests PASS，190 项 opt-in 测试跳过，数据库要求由显式集成运行覆盖；非 opt-in 数据库套件的 skip 与显式运行的 PostgreSQL 套件分开记账。相关 config floor、trusted paths、FD9、environment、rollback、workflow、bootstrap 静态契约 106 PASS，root atomic env 写入 fixture 另单独 PASS，实际数据库指纹检测也单独运行。迁移 down/no-business-DML、nullable unique、constraint drift、actionlint PASS。修改文件 ESLint 零 error，八项既有 any warning。
+API/Web typecheck PASS。API 全量单元测试 114 suites / 1010 tests PASS，190 项 opt-in 测试跳过，数据库要求由显式集成运行覆盖；非 opt-in 数据库套件的 skip 与显式运行的 PostgreSQL 套件分开记账。相关 config floor、trusted paths、FD9、environment、rollback、workflow、bootstrap 静态契约 107 PASS（含实际数据库指纹检测），root atomic env 写入 fixture 另单独 PASS。迁移 down/no-business-DML、nullable unique、constraint drift、actionlint PASS。修改文件 ESLint 零 error，八项既有 any warning。
 
 额外扩大至全部 `scripts/ops/*.test.mjs` 与 `scripts/ci/*.test.mjs`：363 PASS、2 FAIL、3 SKIP。两项失败是旧 `deploy-secret-transport.test.mjs` 仍要求已经移出 workflow 的内联 env writer 文本，以及 `r4-3-uat-manifest.test.mjs` 的历史设计态 artifact 假设；在未修改的 BASE_MAIN 工作树同样失败，未以删测试或改基线掩盖。这两项不属于本轮正式发布的 required test 清单。
 
@@ -125,9 +125,9 @@ PG16_INTEGRATION=PASS
 PG18_INTEGRATION=PASS
 CONCURRENCY_TESTS=PASS
 API_TESTS=PASS_114_SUITES_1010_TESTS
-BOOTSTRAP_NO_WRITE_REGRESSION=PENDING_FINAL_SQL_PROOF
+BOOTSTRAP_NO_WRITE_REGRESSION=PASS_5_PROFILES_ZERO_UNAUTHORIZED_WRITES
 CONFIG_FLOOR_TESTS=PASS
-REQUIRED_CI=PENDING_PR
+REQUIRED_CI=PENDING_EXACT_PR_HEAD_CHECKS
 SECURITY_REVIEW=PASS_NO_OPEN_P0_P1
 PRODUCTION_CONFIG_FLOOR_VERSION=2
 PRODUCTION_API_SHA=23c7af86dd122379d01248a3b9542b8165f31498
@@ -138,3 +138,5 @@ NEXT_ACTION=REQUEST_NEW_SHA_V3_FLOOR_API_ONLY_HOLD_APPROVAL
 ```
 
 只在 required CI 全部通过后合并。合并本轮不构成新 SHA 的 floor 晋升或部署批准，完成后停止。
+
+生产等效完整 AppModule SQL 证明：五种场景 PASS（writer/readonly 恢复认证、独立认证维护、缺 schema HOLD、退役 IoT 约束 HOLD），每种未授权 DDL/DML/序列修改为零、schema/data/sequence 指纹一致；三个故意违规尝试均由只读角色拒绝且检测器识别。已有 schema 的 CRUD 集成 4 PASS；在线缺列保留明确 schema mismatch、没有自动 ALTER。脱敏摘要见 [bootstrap SQL evidence](evidence/chanjet-advisory-lock-bootstrap.json)。
