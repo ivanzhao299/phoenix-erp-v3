@@ -42,7 +42,7 @@ NEXT_ACTION=REQUEST_NEW_SHA_V3_FLOOR_API_ONLY_HOLD_APPROVAL
 
 | 同样的两连接顺序 | 实际连接证据 | 远端模拟业务 GET | durable 结果 |
 |---|---|---:|---|
-| 旧源码 | 两个不同 `pg_backend_pid()`；B 持有真实事务锁 | 0 | FAIL，复现缺陷 |
+| 旧源码 | A/B/执行阶段三个不同 `pg_backend_pid()`；B 持有真实事务锁 | 0 | FAIL，复现缺陷 |
 | 修复源码 | 两个不同 PID；A 准入到执行使用同一 QueryRunner/PID | 1 | SUCCESS |
 
 GET 是隔离 Node HTTP provider 的真实 loopback 网络请求；没有访问好业财生产。具体 PID 在运行日志中输出，不把 PID 当作跨运行稳定值。测试同时要求 public enqueue response 没有 lease、可 JSON 序列化，避免数据库连接、socket 或凭据进入 HTTP 响应。
@@ -97,7 +97,7 @@ AsyncLocalStorage 在同步业务网络调用前、token 获取后、响应后�
 | 不同 backend PID 互斥、相同/不同审批全局锁 | 显式 PID 与全局 held-owner 测试 |
 | VERIFY 不启动 cron、ACTIVE 四次、HOLD false/false 无工作 | 实际 scheduler 行为、Cron metadata、既有 flag 默认停用单元测试 |
 
-本地 Node20 隔离 PG16.14 与 PG18 均执行两份真实集成测试和三个相关单元测试，共 5 suites / 70 tests PASS，其中真实 PostgreSQL 25 项。没有扩大 Jest timeout、sleep 修复、盲重试、忽略 lock failure、删 RUNNING、禁用并发测试或移除 advisory lock。
+本地 Node20 隔离 PG16.14 与 PG18 均执行两份真实集成测试和三个相关单元测试，共 5 suites / 71 tests PASS，其中真实 PostgreSQL 26 项。没有扩大 Jest timeout、sleep 修复、盲重试、忽略 lock failure、删 RUNNING、禁用并发测试或移除 advisory lock。
 
 API/Web typecheck PASS。API 全量单元测试 114 suites / 1010 tests PASS，190 项 opt-in 测试跳过，数据库要求由显式集成运行覆盖；非 opt-in 数据库套件的 skip 与显式运行的 PostgreSQL 套件分开记账。相关 config floor、trusted paths、FD9、environment、rollback、workflow、bootstrap 静态契约 107 PASS（含实际数据库指纹检测），root atomic env 写入 fixture 另单独 PASS。迁移 down/no-business-DML、nullable unique、constraint drift、actionlint PASS。修改文件 ESLint 零 error，八项既有 any warning。
 
@@ -140,3 +140,5 @@ NEXT_ACTION=REQUEST_NEW_SHA_V3_FLOOR_API_ONLY_HOLD_APPROVAL
 只在 required CI 全部通过后合并。合并本轮不构成新 SHA 的 floor 晋升或部署批准，完成后停止。
 
 生产等效完整 AppModule SQL 证明：五种场景 PASS（writer/readonly 恢复认证、独立认证维护、缺 schema HOLD、退役 IoT 约束 HOLD），每种未授权 DDL/DML/序列修改为零、schema/data/sequence 指纹一致；三个故意违规尝试均由只读角色拒绝且检测器识别。已有 schema 的 CRUD 集成 4 PASS；在线缺列保留明确 schema mismatch、没有自动 ALTER。脱敏摘要见 [bootstrap SQL evidence](evidence/chanjet-advisory-lock-bootstrap.json)。
+
+最终连接取证：旧准备 A、竞争 B、执行 EXEC 的 backend PID 三者不同且 scheduler 创建两个专用 runner；新准备/执行 PID 相同且仅一个专用 runner。解锁前另一个 backend 能读到已提交 SUCCESS，同时 pg_locks 仍显示原 owner 持有该锁。PG16.14 与 PG18.6 最终相关套件各 71 PASS。隔离 entity drift 运行门禁 267 / baseline 300 PASS，没有执行生成的差异 DDL。

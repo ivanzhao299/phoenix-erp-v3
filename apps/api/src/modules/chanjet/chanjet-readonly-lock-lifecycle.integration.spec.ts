@@ -89,6 +89,10 @@ integration('real PostgreSQL continuous readonly lock ownership', () => {
     const a = await runner(), b = await runner();
     const [ap] = await a.query('SELECT pg_backend_pid() AS pid'), [bp] = await b.query('SELECT pg_backend_pid() AS pid');
     expect(ap.pid).not.toBe(bp.pid);
+    // Force the old execution onto a third backend instead of relying on pool reuse.
+    const executionRunner = legacy ? await runner() : a;
+    const [executionIdentity] = await executionRunner.query('SELECT pg_backend_pid() AS pid');
+    if (legacy) expect([ap.pid, bp.pid]).not.toContain(executionIdentity.pid);
     const committed = barrier(), allowA = barrier(), bChecking = barrier(), allowB = barrier();
     const commit = a.commitTransaction.bind(a);
     a.commitTransaction = async () => { await commit(); committed.resolve(); await allowA.promise; };
@@ -99,7 +103,10 @@ integration('real PostgreSQL continuous readonly lock ownership', () => {
       return answer;
     };
     const sourceA = Object.create(ds) as DataSource, sourceB = Object.create(ds) as DataSource;
-    sourceA.createQueryRunner = jest.fn().mockReturnValueOnce(a).mockImplementation(() => ds.createQueryRunner());
+    // The old scheduler also uses DataSource.query for job updates. Preserve its
+    // independent short-lived runners instead of reusing the forced execution runner.
+    sourceA.query = ds.query.bind(ds); sourceB.query = ds.query.bind(ds);
+    sourceA.createQueryRunner = jest.fn().mockReturnValueOnce(a).mockReturnValue(executionRunner);
     sourceB.createQueryRunner = jest.fn().mockReturnValue(b);
     const ctor = legacy ? baselineScheduler() : ChanjetReadonlySyncScheduler;
     const x = subject(remote, ctor, sourceA), y = subject(remote, ctor, sourceB);
@@ -118,16 +125,34 @@ integration('real PostgreSQL continuous readonly lock ownership', () => {
       await bounded(x.done.promise);
       expect(reads).toBe(legacy ? 0 : 1);
       expect(await statuses()).toEqual([{ status: legacy ? 'FAIL' : 'SUCCESS' }]);
+      if (legacy) expect(sourceA.createQueryRunner).toHaveBeenCalledTimes(2);
       if (!legacy) {
         expect(sourceA.createQueryRunner).toHaveBeenCalledTimes(1);
         const [row] = await ds.query('SELECT request_scope FROM chanjet_sync_jobs');
         expect(row.request_scope.lockBackendPid).toBe(ap.pid);
       }
-      console.info(`HANDOFF_${legacy ? 'BEFORE' : 'AFTER'} A_PID=${ap.pid} B_PID=${bp.pid} READS=${reads} STATUS=${legacy ? 'FAIL' : 'SUCCESS'}`);
+      console.info(`HANDOFF_${legacy ? 'BEFORE' : 'AFTER'} A_PID=${ap.pid} B_PID=${bp.pid} EXEC_PID=${executionIdentity.pid} READS=${reads} STATUS=${legacy ? 'FAIL' : 'SUCCESS'}`);
     } finally { allowA.resolve(); allowB.resolve(); await admitted; if (rejected) await rejected; }
   }
   it('reproduces the pinned old protocol deterministically: a competing transaction makes an admitted job FAIL with zero reads', () => handoff(true));
   it('passes the identical interleaving with continuous ownership on one backend', () => handoff(false));
+  it('confirms the terminal row is committed and visible to another backend before unlock', async () => {
+    const qr = await runner(), query = qr.query.bind(qr);
+    const [identity] = await query('SELECT pg_backend_pid() AS pid');
+    let observed = false;
+    qr.query = async (...args: Parameters<QueryRunner['query']>) => {
+      if (String(args[0]).includes('pg_advisory_unlock')) {
+        expect(await statuses()).toEqual([{ status: 'SUCCESS' }]);
+        expect(await ds.query("SELECT pid FROM pg_locks WHERE locktype='advisory' AND pid=$1 AND granted AND objid=(hashtext($2)::bigint & 4294967295)::oid", [identity.pid, key])).toEqual([{ pid: identity.pid }]);
+        observed = true;
+      }
+      return query(...args);
+    };
+    const source = Object.create(ds) as DataSource; source.createQueryRunner = () => qr;
+    const s = subject(remote, ChanjetReadonlySyncScheduler, source);
+    await s.service.enqueueManualSync('terminal-order'); await bounded(s.done.promise);
+    expect(observed).toBe(true); expect(qr.isReleased).toBe(true);
+  });
 
   it('runs bounded concurrent rounds: one admission, one actual HTTP GET and one SUCCESS; completed schedule slot is deduplicated', async () => {
     for (let round = 0; round < 4; round++) {
