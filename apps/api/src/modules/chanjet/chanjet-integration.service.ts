@@ -1,4 +1,4 @@
-import { requireReadonlyOrchestration } from './chanjet-readonly-execution';
+import { requireReadonlyOrchestration, assertReadonlyOrchestrationOwnerIfPresent } from './chanjet-readonly-execution';
 import { approvedReadonlyPolicy, requireApprovedReadonlyRequest, readonlyFailureCode } from './chanjet-readonly-policy';
 import { requireReadonlySync } from './chanjet-sync-control';
 import { Injectable, Logger } from '@nestjs/common';
@@ -7256,6 +7256,7 @@ export class ChanjetIntegrationService {
     for (const ep of endpoints) {
       const targets = ep.requiresBook ? books : [''];
       for (const targetBookId of targets) {
+        assertReadonlyOrchestrationOwnerIfPresent();
         const path = ep.requiresBook ? ep.path.replace('{bookid}', encodeURIComponent(targetBookId)) : ep.path;
         const request = this.buildProbeRequest(ep, period);
         const effectivePeriod = request.period;
@@ -7268,6 +7269,7 @@ export class ChanjetIntegrationService {
         });
         try {
           const resp = await this.fetchProbePayload(ep, path, request);
+          assertReadonlyOrchestrationOwnerIfPresent();
           if (ep.key === 'ACCOUNT_BOOKS') {
             await this.persistAccountBooks(resp);
           }
@@ -8170,6 +8172,7 @@ export class ChanjetIntegrationService {
           resolvedBy: null,
           resolvedAt: null,
         });
+        assertReadonlyOrchestrationOwnerIfPresent();
         const saved = await this.reconciliationRepo.save(result);
         created += 1;
         statusCounts[saved.status] = (statusCounts[saved.status] || 0) + 1;
@@ -8663,6 +8666,7 @@ export class ChanjetIntegrationService {
         rawData: book.rawData,
         lastProbeAt: new Date(),
       });
+      assertReadonlyOrchestrationOwnerIfPresent();
       savedBooks.push(await this.accountBookRepo.save(entity));
       if (mapped) {
         await this.upsertMasterMapping({
@@ -8705,6 +8709,7 @@ export class ChanjetIntegrationService {
     for (const ep of endpoints) {
       const targets = ep.requiresBook ? books : [''];
       for (const targetBookId of targets) {
+        assertReadonlyOrchestrationOwnerIfPresent();
         const path = ep.requiresBook ? ep.path.replace('{bookid}', encodeURIComponent(targetBookId)) : ep.path;
         const job = await this.createJob('PROBE', targetBookId, '', {
           key: ep.key,
@@ -8890,6 +8895,7 @@ export class ChanjetIntegrationService {
       rowCount: rows.length,
       rawPayload: this.maskSensitivePayload(normalizedPayload),
     });
+    assertReadonlyOrchestrationOwnerIfPresent();
     await this.readSnapshotRepo.upsert(entity as any, {
       conflictPaths: ['bookId', 'endpointKey', 'payloadHash'],
       skipUpdateIfNoValuesChanged: false,
@@ -8906,6 +8912,7 @@ export class ChanjetIntegrationService {
     const entityType = ep.entityType || ep.key;
     const rows = this.extractRows(payload);
     if (this.isAggregateStatisticsEndpoint(ep.key, entityType)) {
+      assertReadonlyOrchestrationOwnerIfPresent();
       await this.entitySnapshotRepo.delete({ bookId, endpointKey: ep.key, entityType });
     }
     let count = 0;
@@ -8914,6 +8921,7 @@ export class ChanjetIntegrationService {
       const normalized = this.normalizeExternalEntity(row, entityType, index, ep.key);
       if (!normalized.externalId && !normalized.externalCode && !normalized.externalName) continue;
       const externalId = normalized.externalId || normalized.externalCode || `${ep.key}-${index + 1}`;
+      assertReadonlyOrchestrationOwnerIfPresent();
       await this.entitySnapshotRepo.upsert(
         {
           bookId,
@@ -9255,6 +9263,7 @@ export class ChanjetIntegrationService {
     period: string,
     requestScope: Record<string, unknown>,
   ): Promise<ChanjetSyncJobEntity> {
+    assertReadonlyOrchestrationOwnerIfPresent();
     return this.jobRepo.save(this.jobRepo.create({
       jobType,
       bookId,
@@ -9273,6 +9282,7 @@ export class ChanjetIntegrationService {
     job.status = status;
     job.resultSummary = resultSummary;
     job.errorMessage = errorMessage ? readonlyFailureCode(errorMessage) : null;
+    assertReadonlyOrchestrationOwnerIfPresent();
     await this.jobRepo.save(job);
   }
 
@@ -9642,11 +9652,13 @@ export class ChanjetIntegrationService {
           preferred.reviewedBy = input.reviewedBy ?? preferred.reviewedBy;
           preferred.reviewedAt = input.reviewedAt ?? preferred.reviewedAt;
         }
+        assertReadonlyOrchestrationOwnerIfPresent();
         await this.mappingRepo.save(preferred);
         return;
       }
     }
 
+    assertReadonlyOrchestrationOwnerIfPresent();
     await this.mappingRepo.upsert(
       {
         mappingType,
@@ -9689,6 +9701,7 @@ export class ChanjetIntegrationService {
   private async recordApiSample(apiDomain: string, apiPath: string, method: HttpMethod, sample: unknown): Promise<number> {
     const fields = this.flattenFields(sample);
     for (const field of fields) {
+      assertReadonlyOrchestrationOwnerIfPresent();
       await this.fieldCatalogRepo.manager.query(
         `INSERT INTO chanjet_api_field_catalog
           (api_domain, api_path, method, field_path, sample_type, sample_value_masked, observed_count, first_seen_at, last_seen_at)

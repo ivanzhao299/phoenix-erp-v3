@@ -359,7 +359,7 @@ jobs:
         run: |
           createdb chanjet_restore_fixture
           cd apps/api
-          pnpm exec jest --runInBand --runTestsByPath src/modules/chanjet/chanjet-readonly-restoration.integration.spec.ts
+          pnpm exec jest --runInBand --runTestsByPath src/modules/chanjet/chanjet-readonly-restoration.integration.spec.ts src/modules/chanjet/chanjet-readonly-lock-lifecycle.integration.spec.ts
 
       - name: Production config floor, environment and rollback contracts
         env:
