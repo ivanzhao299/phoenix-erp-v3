@@ -37,9 +37,9 @@ export function atomicState(file, value, dependencies = {}) {
     if (io.existsSync(temporary)) { const remaining = io.lstatSync(temporary); assertRegularFile(remaining); if (!temporaryIdentity || remaining.dev !== temporaryIdentity.dev || remaining.ino !== temporaryIdentity.ino) throw new Error('STATE_HOLD=FOREIGN_TEMPORARY_RETAINED'); io.unlinkSync(temporary); }
   }
 }
-export function beginState({ previous, configSha, target, scope, floor }) {
+export function beginState({ previous, configSha, target, scope, floor, evidence }) {
   if (configSha !== target || !REVISION.test(configSha) || !REVISION.test(target) || scope.baseline !== previous.api.revision || scope.target !== target) throw new Error('STATE_HOLD=BASELINE');
-  return { expiresAt: new Date(Date.now() + CONTRACT.maximumTransitionMs).toISOString(), version: CONTRACT.version, configSha, target, floorSha: floor.floorSha, previous, active: previous, candidates: {}, switched: { api: false, web: false }, outcome: 'PREPARED', migrationBaseline: previous.api.revision, migrationPaths: scope.changed, protectedImages: [previous.api.imageId, previous.web.imageId] };
+  return { expiresAt: new Date(Date.now() + CONTRACT.maximumTransitionMs).toISOString(), version: CONTRACT.version, configSha, target, floorSha: floor.floorSha, previous, active: previous, candidates: {}, switched: { api: false, web: false }, outcome: 'PREPARED', migrationBaseline: previous.api.revision, migrationPaths: scope.changed, protectedImages: [previous.api.imageId, previous.web.imageId], evidence };
 }
 export function rollbackPlan(state, eligible) {
   // DB/schema-changing releases use the separate controlled migration authority.
@@ -99,7 +99,10 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
         mode: process.env.DEPLOY_MODE, buildApi: process.env.BUILD_API === 'true', buildWeb: process.env.BUILD_WEB === 'true',
         authorized: process.env.ONE_TIME_CONFIG_FLOOR_TRANSITION === 'true', rotateCredentials: process.env.ROTATE_CHANJET_CREDENTIALS === 'true' });
       const scope = migrationScope(root, previous.api.revision, target);
-      state = beginState({ previous, configSha: git(root, ['rev-parse', 'HEAD']), target, scope, floor });
+      const evidence = process.env.DEPLOYMENT_EVIDENCE_PRE && process.env.DEPLOYMENT_EVIDENCE_POST && process.env.DEPLOYMENT_EVIDENCE_LOG
+        ? { pre: process.env.DEPLOYMENT_EVIDENCE_PRE, post: process.env.DEPLOYMENT_EVIDENCE_POST, log: process.env.DEPLOYMENT_EVIDENCE_LOG } : undefined;
+      if (!evidence) throw new Error('STATE_HOLD=DEPLOYMENT_EVIDENCE_BINDING');
+      state = beginState({ previous, configSha: git(root, ['rev-parse', 'HEAD']), target, scope, floor, evidence });
       atomicState(file, state);
       atomicState(path.join(directory, 'transaction.json'), { version: CONTRACT.version, runId: process.env.DEPLOY_RUN_ID, phase: 'IN_PROGRESS', target, configSha: state.configSha });
       if (scope.changed.length) throw new Error('MIGRATION_SCOPE=HOLD:CONTROLLED_SCHEMA_RELEASE_REQUIRED');
@@ -126,8 +129,14 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
         rollbackPlan(state, rollbackEligibility(root, floor, state.previous.api));
         state.active[input] = state.previous[input]; state.outcome = 'ROLLING_BACK';
       } else if (operation === 'complete' || operation === 'rolled-back') {
+        if (operation === 'complete' && (!state.evidence?.pre || !state.evidence?.post || !state.evidence?.log)) throw new Error('STATE_HOLD=DEPLOYMENT_EVIDENCE_REQUIRED');
         const actual = captureRuntime();
         if (JSON.stringify(actual) !== JSON.stringify(state.active)) throw new Error('STATE_HOLD=POST_SWITCH_IDENTITY');
+        if (operation === 'complete') {
+          const evidence = await import('./production-deployment-evidence.mjs');
+          const post = JSON.parse(fs.readFileSync(state.evidence.post, 'utf8'));
+          evidence.verifyLiveSnapshot(post, { runId: process.env.DEPLOY_RUN_ID, targetSha: state.target });
+        }
         state.outcome = operation === 'complete' ? 'SUCCESS' : 'ROLLED_BACK';
         atomicState(path.join(directory, 'active.json'), { version: CONTRACT.version, configSha: state.configSha, floorSha: state.floorSha, active: state.active, protectedImages: state.protectedImages, outcome: state.outcome, migrationBaseline: state.active.api.revision });
       } else throw new Error('STATE_HOLD=OPERATION');

@@ -16,6 +16,7 @@
     "apps/api/src/modules/chanjet/chanjet-erp-inbound-sync.service.ts",
     "scripts/ops/require-phoenix-data-mount.sh",
     "scripts/ops/capture-production-runtime.mjs",
+    "scripts/ops/production-deployment-evidence.mjs",
     "scripts/ops/production-config-guard.mjs",
     "scripts/ops/production-deployment-state.mjs",
     "scripts/ops/phoenix-production-compose.mjs",
