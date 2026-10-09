@@ -13,5 +13,8 @@ export class ApiBootstrapSchemaCheck implements OnModuleInit {
     for (const name of API_BOOTSTRAP_SCHEMA_CONTRACT.extensions) {
       if (!rows.some((row: { extname: string }) => row.extname === name)) throw schemaMismatch('pg_extension', name);
     }
+    // Stable, non-sensitive marker consumed by the deployment evidence summary.
+    // It records the completed compatibility check; it does not claim SQL write absence.
+    console.log('API_BOOTSTRAP_SCHEMA_COMPATIBILITY=PASS');
   }
 }

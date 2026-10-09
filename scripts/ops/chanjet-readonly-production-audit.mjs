@@ -22,6 +22,24 @@ export function readDatabaseEvidence(sql) {
   const line=output.split('\n').find(line=>line.startsWith('{')); if(!line) throw new Error('RESTORATION_HOLD=DB_EVIDENCE');
   return JSON.parse(line);
 }
+export function readFormalDeploymentEvidence(stateDirectory, actual, floorSha) {
+  try {
+    const names = fs.readdirSync(stateDirectory).filter(name => /^deploy-\d+(?:-\d+)?-(?:pre|post|startup)-evidence\.json$/.test(name));
+    const groups = new Map();
+    for (const name of names) { const match = name.match(/^(deploy-\d+(?:-\d+)?)-(pre|post|startup)-evidence\.json$/); const group = groups.get(match[1]) || {}; group[match[2]] = path.join(stateDirectory, name); groups.set(match[1], group); }
+    const candidate = [...groups.entries()].sort(([left], [right]) => right.localeCompare(left, undefined, { numeric: true })).map(([, group]) => group).find(group => group.pre && group.post && group.startup);
+    if (!candidate) return { status: 'UNAVAILABLE' };
+    const pre = JSON.parse(fs.readFileSync(candidate.pre, 'utf8')); const post = JSON.parse(fs.readFileSync(candidate.post, 'utf8')); const startup = JSON.parse(fs.readFileSync(candidate.startup, 'utf8'));
+    if (pre.schema !== 'phoenix.production-deployment-evidence/v1' || post.schema !== pre.schema || startup.schema !== pre.schema
+      || pre.phase !== 'PRE_SNAPSHOT' || post.phase !== 'POST_SNAPSHOT' || startup.phase !== 'API_STARTUP_LOG' || pre.deployRunId !== post.deployRunId
+      || pre.deployRunAttempt !== post.deployRunAttempt || pre.targetSha !== post.targetSha || startup.targetSha !== post.targetSha
+      || post.configFloorSha !== floorSha || startup.deployRunAttempt !== post.deployRunAttempt || startup.configFloorSha !== post.configFloorSha
+      || post.containers.api.ociRevision !== actual.api.revision
+      || post.containers.api.id !== startup.containerId || post.containers.api.startedAt !== startup.startedAt || startup.rawOutput !== false) return { status: 'HOLD', reason: 'BINDING_OR_IDENTITY' };
+    const unchanged = ['db', 'web'].every(service => pre.containers[service].id === post.containers[service].id && pre.containers[service].startedAt === post.containers[service].startedAt && pre.containers[service].image === post.containers[service].image);
+    return { status: unchanged && startup.result === 'PASS_REDACTED_SUMMARY' ? 'PASS' : 'HOLD', runId: post.deployRunId, runAttempt: post.deployRunAttempt, configFloorSha: post.configFloorSha, targetSha: post.targetSha, web: 'ID_STARTED_IMAGE_UNCHANGED', db: 'ID_STARTED_IMAGE_UNCHANGED', startup: startup.result, rawOutput: false };
+  } catch { return { status: 'HOLD', reason: 'EVIDENCE_UNREADABLE' }; }
+}
 export async function productionAudit(root, sql) {
   const installed=await import(pathToFileURL(path.join(root,'scripts/ops/production-config-guard.mjs')).href);
   const { captureRuntime, executionEnv }=await import(pathToFileURL(path.join(root,'scripts/ops/capture-production-runtime.mjs')).href);
@@ -31,7 +49,7 @@ export async function productionAudit(root, sql) {
   const flags=Object.fromEntries(raw.filter(x=>/^(CHANJET_READONLY_SYNC_ENABLED|CHANJET_ERP_INBOUND_SYNC_ENABLED|CHANJET_SYNC_POLICY)=/.test(x)).map(x=>[x.slice(0,x.indexOf('=')),x.slice(x.indexOf('=')+1)]));
   const health=Object.fromEntries(['db','api','web'].map(service=>[service,run('docker',['inspect',`phoenix-v3-${service}`,'--format','{{.State.Health.Status}}'],{env:executionEnv()}).trim()]));
   const apiHttp=run('curl',['-sS','--max-time','15','-o','/dev/null','-w','%{http_code}','http://127.0.0.1:3100/api/readiness']).trim();
-  return { schema:'phoenix.chanjet-restoration-audit/v1', checkoutSha:installed.git(root,['rev-parse','HEAD']), floorVersion:floor.version,floorSha:floor.floorSha,chanjetPolicy:floor.chanjetPolicy||'HOLD',runtime:actual,flags,health,apiHttp,
+  return { schema:'phoenix.chanjet-restoration-audit/v1', checkoutSha:installed.git(root,['rev-parse','HEAD']), floorVersion:floor.version,floorSha:floor.floorSha,chanjetPolicy:floor.chanjetPolicy||'HOLD',runtime:actual,flags,health,apiHttp, deploymentEvidence: readFormalDeploymentEvidence(installed.CONTRACT.stateDirectory, actual, floor.floorSha),
     storageGuard:'PASS',worktreeClean:true, ...evidence, remoteReadAuth:'NOT_CHECKED',providerRemainingQuota:'NOT_AVAILABLE_LOCAL_COUNTERS_ONLY' };
 }
 if(process.argv[1] && import.meta.url===pathToFileURL(process.argv[1]).href) {

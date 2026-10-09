@@ -366,7 +366,7 @@ jobs:
           CHANJET_HASH_FIXTURE_CONTAINER: ${{ job.services.postgres.id }}
         run: |
           docker run --rm -v "$PWD:/workspace:ro" -w /workspace node:20-alpine node --test --test-name-pattern="real atomic env" scripts/ops/chanjet-readonly-restoration.test.mjs
-          node --test scripts/ops/production-trusted-paths.test.mjs scripts/ops/production-env-update.test.mjs scripts/ops/production-rollback-state.test.mjs scripts/ops/chanjet-readonly-restoration.test.mjs scripts/ci/deploy-production-config.test.mjs scripts/ci/phoenix-storage-migration.test.mjs
+          node --test scripts/ops/production-trusted-paths.test.mjs scripts/ops/production-env-update.test.mjs scripts/ops/production-rollback-state.test.mjs scripts/ops/chanjet-readonly-restoration.test.mjs scripts/ci/deploy-production-config.test.mjs scripts/ci/production-evidence-deploy-contract.test.mjs scripts/ci/phoenix-storage-migration.test.mjs
           pnpm --filter phoenix-erp-v3-nest test -- --runInBand src/modules/chanjet
 
       - name: Test migration ledger preflight (read-only fixtures)
@@ -719,6 +719,7 @@ jobs:
           RUN_MIG:     ${{ needs.detect-changes.outputs.run_mig }}
           NGINX_CONF:  ${{ steps.nginx.outputs.conf }}
           DEPLOY_RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}
+          DEPLOY_RUN_ATTEMPT: ${{ github.run_attempt }}
           TARGET_SHA: ${{ github.sha }}
           PRESERVE_ARTIFACTS: ${{ inputs.preserve_artifacts }}
           ROTATE_CHANJET_CREDENTIALS: ${{ inputs.rotate_chanjet_credentials }}
@@ -740,7 +741,7 @@ jobs:
           proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
           proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
           proxy_port: 22
-          envs: APPROVED_CONFIG_FLOOR_SHA,DEPLOY_MODE,BUILD_WEB,BUILD_API,RUN_MIG,NGINX_CONF,DEPLOY_RUN_ID,TARGET_SHA,PRESERVE_ARTIFACTS,ROTATE_CHANJET_CREDENTIALS,ONE_TIME_CONFIG_FLOOR_TRANSITION,GHCR_LOGIN_TOKEN,GHCR_LOGIN_USER,CHANJET_APP_KEY,CHANJET_APP_SECRET,CHANJET_ORG_ID,CHANJET_CERT,CHANJET_MSG_SECRET,PRODUCTION_CONTRACT_B64,PRODUCTION_PATH_HELPER_B64,PRODUCTION_CONTROL_BOOTSTRAP_B64
+          envs: APPROVED_CONFIG_FLOOR_SHA,DEPLOY_MODE,BUILD_WEB,BUILD_API,RUN_MIG,NGINX_CONF,DEPLOY_RUN_ID,DEPLOY_RUN_ATTEMPT,TARGET_SHA,PRESERVE_ARTIFACTS,ROTATE_CHANJET_CREDENTIALS,ONE_TIME_CONFIG_FLOOR_TRANSITION,GHCR_LOGIN_TOKEN,GHCR_LOGIN_USER,CHANJET_APP_KEY,CHANJET_APP_SECRET,CHANJET_ORG_ID,CHANJET_CERT,CHANJET_MSG_SECRET,PRODUCTION_CONTRACT_B64,PRODUCTION_PATH_HELPER_B64,PRODUCTION_CONTROL_BOOTSTRAP_B64
           script: |
             set -Eeuo pipefail
             umask 077
@@ -819,6 +820,10 @@ jobs:
             git fetch origin main
             test "$(git rev-parse origin/main)" = "$TARGET_SHA"
             git merge-base --is-ancestor "$PREV_GIT_SHA" "$TARGET_SHA"
+            PRE_EVIDENCE_FILE="$STATE_DIR/deploy-${DEPLOY_RUN_ID}-pre-evidence.json"
+            POST_EVIDENCE_FILE="$STATE_DIR/deploy-${DEPLOY_RUN_ID}-post-evidence.json"
+            LOG_EVIDENCE_FILE="$STATE_DIR/deploy-${DEPLOY_RUN_ID}-startup-evidence.json"
+            export DEPLOYMENT_EVIDENCE_PRE="$PRE_EVIDENCE_FILE" DEPLOYMENT_EVIDENCE_POST="$POST_EVIDENCE_FILE" DEPLOYMENT_EVIDENCE_LOG="$LOG_EVIDENCE_FILE"
             # Validate target tree BEFORE replacing the current safe config.
             # C3 must first install the approved floor; legacy checkout is not auto-reconciled.
             if [ -n "${APPROVED_CONFIG_FLOOR_SHA:-}" ]; then
@@ -835,11 +840,18 @@ jobs:
                 git show "$TARGET_SHA:scripts/ops/$helper" > "$FLOOR_STAGE/$helper"
                 chmod 600 "$FLOOR_STAGE/$helper"
               done
+              git show "$TARGET_SHA:scripts/ops/production-deployment-evidence.mjs" > "$FLOOR_STAGE/production-deployment-evidence.mjs"
+              chmod 600 "$FLOOR_STAGE/production-deployment-evidence.mjs"
               git show "$TARGET_SHA:apps/api/src/common/database/api-bootstrap-schema-contract.json" > "$FLOOR_STAGE/api-bootstrap-schema-contract.json"
               chmod 600 "$FLOOR_STAGE/api-bootstrap-schema-contract.json"
+              EVIDENCE_PHASE=PRE_SNAPSHOT node "$FLOOR_STAGE/production-deployment-evidence.mjs" capture "$PRE_EVIDENCE_FILE"
               node "$FLOOR_STAGE/promote-production-config-floor.mjs"
             else
               node scripts/ops/production-config-guard.mjs --target "$TARGET_SHA"
+              git show "$TARGET_SHA:scripts/ops/production-deployment-evidence.mjs" > "$STATE_DIR/deploy-${DEPLOY_RUN_ID}-evidence.mjs"
+              chmod 600 "$STATE_DIR/deploy-${DEPLOY_RUN_ID}-evidence.mjs"
+              EVIDENCE_HELPER="$STATE_DIR/deploy-${DEPLOY_RUN_ID}-evidence.mjs"
+              EVIDENCE_PHASE=PRE_SNAPSHOT node "$EVIDENCE_HELPER" capture "$PRE_EVIDENCE_FILE"
             fi
             test ! -e "$STATE_DIR/run-${DEPLOY_RUN_ID}"
             mkdir -m 700 "$STATE_DIR/run-${DEPLOY_RUN_ID}"
@@ -1037,6 +1049,11 @@ jobs:
             curl -fsSL --max-time 20 http://127.0.0.1:3100/api/readiness -o /dev/null
             curl -fsSL --max-time 20 http://127.0.0.1:3000/ -o /dev/null
             echo "✅ API/Web smoke test passed"
+            export PRODUCTION_READINESS_VERIFIED=true
+            EVIDENCE_HELPER="${EVIDENCE_HELPER:-scripts/ops/production-deployment-evidence.mjs}"
+            EVIDENCE_PHASE=POST_SNAPSHOT node "$EVIDENCE_HELPER" capture "$POST_EVIDENCE_FILE"
+            node "$EVIDENCE_HELPER" logs "$POST_EVIDENCE_FILE" "$LOG_EVIDENCE_FILE"
+            node "$EVIDENCE_HELPER" verify "$PRE_EVIDENCE_FILE" "$POST_EVIDENCE_FILE" "$LOG_EVIDENCE_FILE"
 
             # ── 磁盘用量报告 ─────────────────────────────────────────
             echo "📦 Docker 镜像占用:"
