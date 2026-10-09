@@ -10,6 +10,7 @@
     "apps/web/Dockerfile",
     "apps/api/src/modules/chanjet/chanjet-sync-control.ts",
     "apps/api/src/modules/chanjet/chanjet-readonly-sync.scheduler.ts",
+    "apps/api/src/modules/chanjet/chanjet-readonly-lock-lease.ts",
     "apps/api/src/modules/chanjet/chanjet-integration.service.ts",
     "apps/api/src/modules/chanjet/chanjet-ar-sync.service.ts",
     "apps/api/src/modules/chanjet/chanjet-erp-inbound-sync.service.ts",

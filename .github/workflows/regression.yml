@@ -162,6 +162,17 @@ jobs:
           echo "PG16_VERSION_NUM=$(psql -X -At -c "SELECT current_setting('server_version_num');")"
           echo "POSTGRES16_SCHEMA_FINGERPRINT=PASS"
 
+      - name: Chanjet continuous lock ownership on PostgreSQL 18 and 16.14
+        run: |
+          set -Eeuo pipefail
+          for fixture_port in 5432 5433; do
+            PGPORT="$fixture_port" createdb chanjet_restore_fixture
+            (
+              cd apps/api
+              CHANJET_READONLY_FIXTURE_URL="postgresql://phoenix_v3:phoenix_v3_pass@127.0.0.1:${fixture_port}/chanjet_restore_fixture" pnpm exec jest --runInBand --runTestsByPath src/modules/chanjet/chanjet-readonly-restoration.integration.spec.ts src/modules/chanjet/chanjet-readonly-lock-lifecycle.integration.spec.ts
+            )
+          done
+
       - name: Assert WMS migration end state
         run: |
           psql -v ON_ERROR_STOP=1 <<'SQL'

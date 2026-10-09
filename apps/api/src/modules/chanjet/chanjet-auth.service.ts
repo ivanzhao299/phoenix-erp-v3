@@ -1,4 +1,5 @@
 import { assertChanjetProxyReadonly } from './chanjet-remote-readonly';
+import { assertReadonlyOrchestrationOwnerIfPresent } from './chanjet-readonly-execution';
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Cron, CronExpression } from '@nestjs/schedule';
@@ -416,6 +417,7 @@ export class ChanjetAuthService implements OnModuleInit {
     opts: ChanjetCallOptions = {},
     _isRetry = false,
   ): Promise<T> {
+    assertReadonlyOrchestrationOwnerIfPresent();
     if (['READONLY_VERIFY', 'READONLY_ACTIVE'].includes(process.env.CHANJET_SYNC_POLICY || '')) {
       assertChanjetProxyReadonly(opts.method || 'POST', path);
       if (opts.kind === 'WRITE') throw new Error('CHANJET_EXTERNAL_WRITE_DISABLED');
@@ -428,12 +430,17 @@ export class ChanjetAuthService implements OnModuleInit {
       if (cached) this.readCache.delete(cacheKey);
 
       const active = this.readInFlight.get(cacheKey);
-      if (active) return active as Promise<T>;
+      if (active) {
+        const value = await active as T;
+        assertReadonlyOrchestrationOwnerIfPresent();
+        return value;
+      }
 
       const request = this.executeCallApi<T>(path, opts, false);
       this.readInFlight.set(cacheKey, request);
       try {
         const value = await request;
+        assertReadonlyOrchestrationOwnerIfPresent();
         this.storeReadCache(cacheKey, value);
         return value;
       } finally {
@@ -442,6 +449,7 @@ export class ChanjetAuthService implements OnModuleInit {
     }
 
     const result = await this.executeCallApi<T>(path, opts, _isRetry);
+    assertReadonlyOrchestrationOwnerIfPresent();
     if (kind === 'WRITE') this.readCache.clear();
     return result;
   }
@@ -459,6 +467,7 @@ export class ChanjetAuthService implements OnModuleInit {
     await this.reserveTrafficBudget(kind, path);
     await this.waitForTrafficSlot();
     const token = await this.getOpenToken(opts.orgId);
+    assertReadonlyOrchestrationOwnerIfPresent();
     let url = `https://openapi.chanjet.com${path}`;
     if (opts.query && Object.keys(opts.query).length) {
       url += `?${new URLSearchParams(opts.query).toString()}`;

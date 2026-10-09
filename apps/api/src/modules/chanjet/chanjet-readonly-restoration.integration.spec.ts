@@ -24,18 +24,21 @@ integration('isolated PostgreSQL Chanjet restoration', () => {
   afterEach(() => { restore?.(); if(previousFlag === undefined) delete process.env.CHANJET_READONLY_SYNC_ENABLED; else process.env.CHANJET_READONLY_SYNC_ENABLED = previousFlag; });
   afterAll(async () => { if(ds?.isInitialized) await ds.destroy(); });
   const cycle = { decision:'GO',mirror:{results:[{key:'RECEIVABLE_STATISTICS'}],attempts:1,unresolvedFailures:[]},exactMappings:null,reconciliation:{created:0,autoResolved:0},readiness:null };
-  const scheduler = (call=jest.fn().mockResolvedValue(cycle)) => ({ call,subject:new ChanjetReadonlySyncScheduler({runReadonlyAlignmentCycle:call} as never,{ok:jest.fn(),fail:jest.fn()} as never,ds,{} as never) });
+  const scheduler = (call=jest.fn().mockResolvedValue(cycle)) => {
+    const subject=new ChanjetReadonlySyncScheduler({runReadonlyAlignmentCycle:call} as never,{ok:jest.fn(),fail:jest.fn()} as never,ds,{} as never);
+    let complete!: () => void;
+    const done=new Promise<void>(resolve=>{complete=resolve;});
+    const internal=subject as unknown as {executeSync:(...args:unknown[])=>Promise<void>};
+    const execute=internal.executeSync.bind(subject);
+    internal.executeSync=async(...args)=>{try{await execute(...args);}finally{complete();}};
+    return {call,subject,done};
+  };
   it('serializes competing processes before durable insertion and executes only one orchestration',async()=>{
     const a=scheduler(),b=scheduler();
     const responses=await Promise.all([a.subject.enqueueManualSync('operator'),b.subject.enqueueManualSync('operator')]);
     expect(responses.filter(x=>x.accepted)).toHaveLength(1);
-    // enqueue returns before the queued setImmediate begins; absence of RUNNING is not completion.
-    const deadline=Date.now()+5000;
-    while(Date.now()<deadline){
-      const rows=await ds.query('SELECT status FROM chanjet_sync_jobs');
-      if(rows.length===1&&rows[0].status==='SUCCESS')break;
-      await new Promise(r=>setTimeout(r,10));
-    }
+    // Observe the admitted execution's completion, including terminal persistence and cleanup.
+    await (responses[0].accepted?a.done:b.done);
     expect(a.call.mock.calls.length+b.call.mock.calls.length).toBe(1);
     expect(await ds.query('SELECT status FROM chanjet_sync_jobs')).toEqual([{status:'SUCCESS'}]);
   });

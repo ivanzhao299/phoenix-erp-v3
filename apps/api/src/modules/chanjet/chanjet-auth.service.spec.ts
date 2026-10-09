@@ -3,6 +3,7 @@ import {
   getChanjetBusinessFailure,
   isHealthyAccountBookResponse,
 } from './chanjet-auth.service';
+import { withReadonlyOrchestration } from './chanjet-readonly-execution';
 
 function createService(options: {
   envCertificate?: string;
@@ -42,6 +43,14 @@ function createService(options: {
 }
 
 describe('Chanjet business response guard', () => {
+  it('rejects a new business call after orchestration ownership is lost without touching authentication or fetch', async () => {
+    const { service } = createService();
+    const transport = jest.spyOn(global, 'fetch');
+    try {
+      await expect(withReadonlyOrchestration('fixture-run', () => service.callApi('/accounting/gl/statistics/receive'), () => { throw Error('READONLY_HOLD_SESSION_LOST'); })).rejects.toThrow('READONLY_HOLD_SESSION_LOST');
+      expect(transport).not.toHaveBeenCalled();
+    } finally { transport.mockRestore(); }
+  });
   it('rejects HTTP-200 business failure envelopes', () => {
     expect(getChanjetBusinessFailure({
       success: 'false',
