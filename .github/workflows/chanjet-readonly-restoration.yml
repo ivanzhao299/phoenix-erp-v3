@@ -8,9 +8,14 @@ on:
         options: [audit, READONLY_VERIFY, first-sync, READONLY_ACTIVE, HOLD]
         default: audit
       approved_main_sha:
-        description: 'Separately approved exact merged main and v3 floor SHA (audit: expected checkout SHA)'
+        description: 'Separately approved exact merged main and v3 floor SHA; audit records it as candidate metadata'
         required: true
         type: string
+      expected_production_sha:
+        description: 'Audit only: expected deployed API OCI revision; never used to update the production checkout'
+        required: false
+        type: string
+        default: ''
       approval_json:
         description: 'Reviewed non-secret book/company/scope/first-period approval; no credentials or payloads'
         type: string
@@ -38,6 +43,7 @@ jobs:
         env:
           OPERATION: ${{ inputs.operation }}
           APPROVED_SHA: ${{ inputs.approved_main_sha }}
+          EXPECTED_PRODUCTION_SHA: ${{ inputs.expected_production_sha }}
           CONFIRMATION: ${{ inputs.confirmation }}
           APPROVAL_JSON: ${{ inputs.approval_json }}
         run: |
@@ -47,6 +53,8 @@ jobs:
           case "$OPERATION" in audit|READONLY_VERIFY|first-sync|READONLY_ACTIVE|HOLD) ;; *) exit 1 ;; esac
           if [ "$OPERATION" = audit ]; then
             test "$CONFIRMATION" = AUDIT_CHANJET_READONLY
+            [[ "$APPROVED_SHA" = "$GITHUB_SHA" ]]
+            [[ "$EXPECTED_PRODUCTION_SHA" =~ ^[a-f0-9]{40}$ ]]
           else
             test "$GITHUB_REF" = refs/heads/main
             test "$APPROVED_SHA" = "$GITHUB_SHA"
@@ -61,6 +69,8 @@ jobs:
             echo "AUDIT_PROGRAM_SHA256=$(sha256sum scripts/ops/chanjet-readonly-production-audit.mjs | cut -d' ' -f1)"
             echo "AUDIT_SQL_B64=$(base64 -w0 scripts/ops/readonly-audits/chanjet-restoration-preflight.sql)"
             echo "AUDIT_SQL_SHA256=$(sha256sum scripts/ops/readonly-audits/chanjet-restoration-preflight.sql | cut -d' ' -f1)"
+            echo "CANDIDATE_MAIN_SHA=$APPROVED_SHA"
+            echo "EXPECTED_PRODUCTION_SHA=$EXPECTED_PRODUCTION_SHA"
           } >> "$GITHUB_ENV"
       - name: Formal production configuration transaction or read-only audit
         uses: appleboy/ssh-action@v1
@@ -76,6 +86,8 @@ jobs:
           CHANJET_APPROVAL_B64: ${{ env.CHANJET_APPROVAL_B64 }}
           APPROVED_CONFIG_FLOOR_SHA: ${{ inputs.approved_main_sha }}
           TARGET_SHA: ${{ inputs.approved_main_sha }}
+          CANDIDATE_MAIN_SHA: ${{ inputs.approved_main_sha }}
+          EXPECTED_PRODUCTION_SHA: ${{ inputs.expected_production_sha }}
           DEPLOY_RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}
           CHANJET_SYNC_OPERATOR_TOKEN: ${{ secrets.CHANJET_SYNC_OPERATOR_TOKEN }}
         with:
@@ -87,34 +99,43 @@ jobs:
           proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
           proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
           proxy_port: 22
-          envs: PRODUCTION_CONTRACT_B64,PRODUCTION_PATH_HELPER_B64,PRODUCTION_CONTROL_BOOTSTRAP_B64,AUDIT_PROGRAM_B64,AUDIT_PROGRAM_SHA256,AUDIT_SQL_B64,AUDIT_SQL_SHA256,CHANJET_CONFIG_OPERATION,CHANJET_APPROVAL_B64,APPROVED_CONFIG_FLOOR_SHA,TARGET_SHA,DEPLOY_RUN_ID,CHANJET_SYNC_OPERATOR_TOKEN
+          envs: PRODUCTION_CONTRACT_B64,PRODUCTION_PATH_HELPER_B64,PRODUCTION_CONTROL_BOOTSTRAP_B64,AUDIT_PROGRAM_B64,AUDIT_PROGRAM_SHA256,AUDIT_SQL_B64,AUDIT_SQL_SHA256,CHANJET_CONFIG_OPERATION,CHANJET_APPROVAL_B64,APPROVED_CONFIG_FLOOR_SHA,TARGET_SHA,CANDIDATE_MAIN_SHA,EXPECTED_PRODUCTION_SHA,DEPLOY_RUN_ID,CHANJET_SYNC_OPERATOR_TOKEN
           command_timeout: 12m
           script: |
             set -Eeuo pipefail
             set +x
+            AUDIT_STAGE=SSH_CONNECTED
+            audit_failure() { rc=$?; printf 'AUDIT_STAGE=%s class=COMMAND_FAILED exit=%s\n' "$AUDIT_STAGE" "$rc" >&2; exit "$rc"; }
+            trap audit_failure ERR
             CHANJET_APPROVAL_JSON="$(printf '%s' "$CHANJET_APPROVAL_B64" | base64 -d)"
             export CHANJET_APPROVAL_JSON
             umask 077
             cd ${{ secrets.DEPLOY_PATH || '/data/phoenix-erp' }}
             DEPLOY_REPO_ROOT="$(pwd -P)"
             eval "$(printf '%s' "$PRODUCTION_CONTROL_BOOTSTRAP_B64" | base64 -d)"
+            AUDIT_STAGE=CONTROL_BOOTSTRAP
+            AUDIT_STAGE=LOCK_ACQUIRED
             export GIT_OPTIONAL_LOCKS=0
             git() { command git -c "safe.directory=$DEPLOY_REPO_ROOT" -c core.hooksPath=/dev/null -c core.fsmonitor=false "$@"; }
             test "$(git branch --show-current)" = main
             test -z "$(git status --porcelain --untracked-files=all)"
-            test "$(git rev-parse HEAD)" = "$TARGET_SHA"
+            AUDIT_STAGE=TRUSTED_PATHS
             if [ "$CHANJET_CONFIG_OPERATION" = audit ]; then
               # Uses installed guard/identity; the reviewed audit bundle is never deployed.
-              AUDIT_STAGE="$STATE_DIR/readonly-audit-${DEPLOY_RUN_ID}"
-              test ! -e "$AUDIT_STAGE"
-              mkdir -m 700 "$AUDIT_STAGE"
-              printf '%s' "$AUDIT_PROGRAM_B64" | base64 -d > "$AUDIT_STAGE/audit.mjs"
-              printf '%s' "$AUDIT_SQL_B64" | base64 -d > "$AUDIT_STAGE/preflight.sql"
-              chmod 600 "$AUDIT_STAGE/audit.mjs" "$AUDIT_STAGE/preflight.sql"
-              test "$(sha256sum "$AUDIT_STAGE/audit.mjs" | cut -d' ' -f1)" = "$AUDIT_PROGRAM_SHA256"
-              test "$(sha256sum "$AUDIT_STAGE/preflight.sql" | cut -d' ' -f1)" = "$AUDIT_SQL_SHA256"
-              node "$AUDIT_STAGE/audit.mjs" "$AUDIT_STAGE/preflight.sql"
+              AUDIT_BUNDLE_STAGE="$STATE_DIR/readonly-audit-${DEPLOY_RUN_ID}"
+              test ! -e "$AUDIT_BUNDLE_STAGE"
+              mkdir -m 700 "$AUDIT_BUNDLE_STAGE"
+              printf '%s' "$AUDIT_PROGRAM_B64" | base64 -d > "$AUDIT_BUNDLE_STAGE/audit.mjs"
+              printf '%s' "$AUDIT_SQL_B64" | base64 -d > "$AUDIT_BUNDLE_STAGE/preflight.sql"
+              chmod 600 "$AUDIT_BUNDLE_STAGE/audit.mjs" "$AUDIT_BUNDLE_STAGE/preflight.sql"
+              test "$(sha256sum "$AUDIT_BUNDLE_STAGE/audit.mjs" | cut -d' ' -f1)" = "$AUDIT_PROGRAM_SHA256"
+              test "$(sha256sum "$AUDIT_BUNDLE_STAGE/preflight.sql" | cut -d' ' -f1)" = "$AUDIT_SQL_SHA256"
+              export EXPECTED_PRODUCTION_SHA CANDIDATE_MAIN_SHA
+              node "$AUDIT_BUNDLE_STAGE/audit.mjs" "$AUDIT_BUNDLE_STAGE/preflight.sql"
+              AUDIT_STAGE=COMPLETE
             else
+              AUDIT_STAGE=CHECKOUT_IDENTITY
+              test "$(git rev-parse HEAD)" = "$TARGET_SHA"
               test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$TARGET_SHA"
               if [ "$CHANJET_CONFIG_OPERATION" = first-sync ]; then
                 node scripts/ops/chanjet-readonly-first-sync.mjs
