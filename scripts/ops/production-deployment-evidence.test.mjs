@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { captureSnapshot, compareSnapshots, summarizeStartupLogs, verifyEvidenceFiles, captureDockerLogStreams, MAX_LOG_BYTES } from './production-deployment-evidence.mjs';
+import { captureSnapshot, compareSnapshots, summarizeStartupLogs, verifyEvidenceFiles, captureDockerLogStreams, MAX_LOG_BYTES, metadataFor, classifyEvidenceFailure } from './production-deployment-evidence.mjs';
 import { readFormalDeploymentEvidence } from './chanjet-readonly-production-audit.mjs';
 
 const sha = c => ({ t: 'a', x: 'b', p: 'c' }[c] || c).repeat(40);
@@ -14,10 +14,11 @@ const inspect = (service, id, startedAt = '2026-10-09T00:00:00.000Z', imageId = 
   State: { StartedAt: startedAt, Running: true, Health: { Status: 'healthy' } }, RestartCount: 0,
   Mounts: [{ Type: 'bind', Source: `/data/${service}`, Destination: service === 'db' ? '/var/lib/postgresql/data' : service === 'api' ? '/app/uploads' : '/app/public', RW: true }],
 });
-function runner(changes = {}) {
+function runner(changes = {}, labelOverrides = {}) {
   return args => {
-    const container = args[1]; const imageArg = args[2] || ''; const service = imageArg.includes('bbbb') ? 'api' : container.endsWith('db') ? 'db' : container.endsWith('api') ? 'api' : container.endsWith('web') ? 'web' : 'web';
-    if (args[0] === 'image' && args.at(-1)?.includes('.Config.Labels')) return JSON.stringify({ 'org.opencontainers.image.revision': sha(service === 'api' ? 't' : 'p') });
+    const container = args[1]; const imageArg = args[2] || '';
+    const service = container?.startsWith('phoenix-v3-') ? container.slice('phoenix-v3-'.length) : imageArg.includes('bbbb') ? 'api' : imageArg.includes('aaaa') ? 'db' : 'web';
+    if (args[0] === 'image' && args.at(-1)?.includes('.Config.Labels')) return JSON.stringify(Object.hasOwn(labelOverrides, service) ? labelOverrides[service] : { 'org.opencontainers.image.revision': sha(service === 'api' ? 't' : 'p') });
     const item = changes[service] || inspect(service, service === 'db' ? 'd'.repeat(64) : service === 'api' ? 'a'.repeat(64) : 'f'.repeat(64));
     return [item.Id, item.Created, item.Image, item.State, item.RestartCount, item.Mounts].map(JSON.stringify).join('\t');
   };
@@ -30,6 +31,20 @@ test('captures only allowlisted container metadata and binds run/attempt/SHA', (
   const calls = []; const actual = captureSnapshot(binding, args => { calls.push(args); return runner()(args); });
   assert.equal(actual.schema, 'phoenix.production-deployment-evidence/v2'); assert.equal(Object.keys(actual.containers).length, 3); assert.equal(calls.length, 6);
   assert.equal(Object.hasOwn(actual.containers.api, 'env'), false); assert.equal(actual.containers.api.ociRevision, sha('t'));
+});
+test('third-party DB images may omit OCI revision while API and Web remain pinned', () => {
+  const actual = captureSnapshot(binding, runner({}, { db: null }));
+  assert.equal(actual.containers.db.ociRevision, null);
+  assert.equal(actual.containers.db.image, image('a'));
+  assert.equal(metadataFor('db', runner({}, { db: {} })).ociRevision, null);
+  assert.throws(() => metadataFor('api', runner({}, { api: null })), /IMAGE_REVISION_MISSING/);
+  assert.throws(() => metadataFor('web', runner({}, { web: { 'org.opencontainers.image.revision': 'not-a-sha' } })), /IMAGE_REVISION_INVALID/);
+});
+test('metadata inspection and snapshot persistence failures are classified without raw errors', () => {
+  assert.throws(() => metadataFor('db', () => { throw new Error('private docker socket path'); }), /DOCKER_INSPECT_FAILED/);
+  assert.throws(() => metadataFor('db', runner({ db: { Id: 'd'.repeat(64), Created: '2026-10-08T00:00:00.000Z', Image: image('a'), State: null, RestartCount: 0, Mounts: [] } })), /METADATA_MISSING/);
+  assert.equal(classifyEvidenceFailure(new Error('CONFIG_HOLD=UNAPPROVED_CONTEXT')), 'CONTEXT_VALIDATION');
+  assert.equal(classifyEvidenceFailure(new Error('unexpected private error')), 'UNEXPECTED_FAILURE');
 });
 test('Web and DB identity/start/image/mount changes fail closed', () => {
   const pre = snapshot('PRE_SNAPSHOT'); const post = snapshot('POST_SNAPSHOT'); assert.deepEqual(compareSnapshots(pre, post).web, 'UNCHANGED');
@@ -105,6 +120,9 @@ test('docker command failures are distinct from application stderr and combined 
 const dockerStreamFixture = (() => {
   try { execFileSync('docker', ['info'], { stdio: 'ignore' }); execFileSync('docker', ['image', 'inspect', 'node:20-alpine'], { stdio: 'ignore' }); return true; } catch { return false; }
 })();
+const postgresDockerFixture = (() => {
+  try { execFileSync('docker', ['info'], { stdio: 'ignore' }); execFileSync('docker', ['image', 'inspect', 'postgres:16-alpine'], { stdio: 'ignore' }); return true; } catch { return false; }
+})();
 test('real isolated Docker container preserves stdout and stderr streams', { skip: !dockerStreamFixture }, () => {
   const name = `phoenix-evidence-stream-${process.pid}-${Date.now()}`;
   try {
@@ -114,6 +132,24 @@ test('real isolated Docker container preserves stdout and stderr streams', { ski
     const capturedAt = new Date(Date.now() + 1000).toISOString();
     const streams = captureDockerLogStreams({ containerId: id, startedAt, capturedAt });
     assert.match(streams.stdout, /stdout boot/); assert.match(streams.stderr, /stderr boot/); assert.ok(streams.combinedBytes > 0);
+  } finally {
+    try { execFileSync('docker', ['rm', '-f', name], { stdio: 'ignore' }); } catch {}
+  }
+});
+test('real postgres:16-alpine PRE metadata accepts missing OCI revision and keeps digest identity', { skip: !postgresDockerFixture }, () => {
+  const name = `phoenix-evidence-postgres-${process.pid}-${Date.now()}`;
+  try {
+    execFileSync('docker', ['run', '-d', '--name', name, '-e', 'POSTGRES_PASSWORD=phoenix-test', '--health-cmd', 'pg_isready -U postgres', '--health-interval', '100ms', '--health-timeout', '1s', '--health-retries', '30', 'postgres:16-alpine'], { encoding: 'utf8' });
+    execFileSync('sh', ['-c', `for i in $(seq 1 40); do [ "$(docker inspect --format '{{.State.Health.Status}}' ${name})" = healthy ] && exit 0; sleep 0.1; done; exit 1`], { stdio: 'ignore' });
+    const remap = args => {
+      const mapped = [...args];
+      if (mapped[0] === 'inspect' && mapped[1] === 'phoenix-v3-db') mapped[1] = name;
+      return execFileSync('docker', mapped, { encoding: 'utf8' });
+    };
+    const actual = metadataFor('db', remap);
+    assert.match(actual.image, /^sha256:[a-f0-9]{64}$/);
+    assert.equal(actual.ociRevision, null);
+    assert.equal(actual.health, 'healthy');
   } finally {
     try { execFileSync('docker', ['rm', '-f', name], { stdio: 'ignore' }); } catch {}
   }

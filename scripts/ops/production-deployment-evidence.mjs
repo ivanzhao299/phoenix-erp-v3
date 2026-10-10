@@ -17,25 +17,53 @@ const ISO = value => typeof value === 'string' && !Number.isNaN(Date.parse(value
 export const MAX_LOG_BYTES = 2 * 1024 * 1024;
 const safeRun = (args, run) => (run || (x => execFileSync('docker', x, { env: executionEnv(), encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })))(args).trim();
 
+function hold(code, cause) {
+  const error = new Error(`DEPLOY_EVIDENCE_HOLD=${code}`);
+  // Retain the original exception for restricted local diagnostics. The CLI
+  // emits only the stable code, so Docker output never reaches Actions logs.
+  if (cause) error.cause = cause;
+  return error;
+}
+
+function inspectDocker(args, run) {
+  try { return safeRun(args, run); }
+  catch (error) { throw hold('DOCKER_INSPECT_FAILED', error); }
+}
+
 export function metadataFor(service, run) {
   const container = CONTAINERS[service];
-  const fields = safeRun(['inspect', container, '--format', '{{json .Id}}\t{{json .Created}}\t{{json .Image}}\t{{json .State}}\t{{json .RestartCount}}\t{{json .Mounts}}'], run).split('\t').map(JSON.parse);
+  let fields;
+  try {
+    fields = inspectDocker(['inspect', container, '--format', '{{json .Id}}\t{{json .Created}}\t{{json .Image}}\t{{json .State}}\t{{json .RestartCount}}\t{{json .Mounts}}'], run).split('\t').map(JSON.parse);
+  } catch (error) {
+    if (error.message.startsWith('DEPLOY_EVIDENCE_HOLD=')) throw error;
+    throw hold('METADATA_MISSING', error);
+  }
   const [id, created, image, state, restartCount, mountsValue] = fields;
   const inspect = { Id: id, Created: created, Image: image, State: state, RestartCount: restartCount, Mounts: mountsValue };
-  const labels = JSON.parse(safeRun(['image', 'inspect', image, '--format', '{{json .Config.Labels}}'], run));
-  const mounts = (inspect.Mounts || []).map(mount => ({
+  let labels;
+  try { labels = JSON.parse(inspectDocker(['image', 'inspect', image, '--format', '{{json .Config.Labels}}'], run)); }
+  catch (error) { throw error.message.startsWith('DEPLOY_EVIDENCE_HOLD=') ? error : hold('DOCKER_INSPECT_FAILED', error); }
+  if (!labels || typeof labels !== 'object' || Array.isArray(labels)) labels = {};
+  const rawMounts = Array.isArray(inspect.Mounts) ? inspect.Mounts : [];
+  const mounts = rawMounts.map(mount => ({
     type: String(mount.Type || ''), source: String(mount.Source || ''), destination: String(mount.Destination || ''),
     readOnly: Boolean(mount.RW === false),
   })).sort((a, b) => a.destination.localeCompare(b.destination));
   const containerState = inspect.State || {};
   const health = containerState.Health?.Status;
   if (!ID.test(String(inspect.Id || '')) || !ISO(inspect.Created) || !ISO(containerState.StartedAt)
-    || typeof state.Running !== 'boolean' || !Number.isInteger(inspect.RestartCount) || !IMAGE.test(image)
-    || !SHA.test(String(labels['org.opencontainers.image.revision'] || ''))
+    || typeof containerState.Running !== 'boolean' || !Number.isInteger(inspect.RestartCount) || !IMAGE.test(image)
     || !health || !['healthy', 'unhealthy', 'starting'].includes(health)
-    || mounts.some(m => !m.type || !m.destination || (m.type === 'bind' && !m.source))) throw new Error('DEPLOY_EVIDENCE_HOLD=INCOMPLETE_CONTAINER_METADATA');
+    || !Array.isArray(inspect.Mounts) || mounts.some(m => !m.type || !m.destination || (m.type === 'bind' && !m.source))) throw hold('METADATA_MISSING');
+  const ociRevision = labels['org.opencontainers.image.revision'];
+  // postgres:16-alpine is a third-party image and has no application Git
+  // revision label. Its immutable image digest remains mandatory. API and Web
+  // images stay tied to a 40-character application revision.
+  if (service !== 'db' && !ociRevision) throw hold('IMAGE_REVISION_MISSING');
+  if (service !== 'db' && !SHA.test(String(ociRevision))) throw hold('IMAGE_REVISION_INVALID');
   return { service, container, id: inspect.Id, created: inspect.Created, startedAt: containerState.StartedAt, running: containerState.Running,
-    health, restartCount: inspect.RestartCount, image, ociRevision: String(labels['org.opencontainers.image.revision']), mounts };
+    health, restartCount: inspect.RestartCount, image, ociRevision: service === 'db' ? null : String(ociRevision), mounts };
 }
 
 export function captureSnapshot({ phase, runId, runAttempt, targetSha, floorSha, capturedAt = new Date().toISOString() }, run) {
@@ -137,7 +165,18 @@ export function verifyEvidenceFiles(preFile, postFile, logFile, binding) {
   return { schema: EVIDENCE_SCHEMA, comparison, startup: log.result, preCapturedAt: pre.capturedAt, postCapturedAt: post.capturedAt };
 }
 
-export function persistSnapshot(file, snapshot) { atomicState(file, snapshot); return file; }
+export function persistSnapshot(file, snapshot) {
+  try { atomicState(file, snapshot); return file; }
+  catch (error) { throw hold('SNAPSHOT_PERSISTENCE', error); }
+}
+
+export function classifyEvidenceFailure(error) {
+  const message = String(error?.message || '');
+  const match = message.match(/^DEPLOY_EVIDENCE_HOLD=([A-Z0-9_]+)$/);
+  if (match) return match[1];
+  if (/^(?:CONFIG_HOLD|RUNTIME_HOLD|MIGRATION_SCOPE)=/.test(message)) return 'CONTEXT_VALIDATION';
+  return 'UNEXPECTED_FAILURE';
+}
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   try {
@@ -153,5 +192,9 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     }
     else if (operation === 'verify') { console.log(JSON.stringify(verifyEvidenceFiles(file, other, logFile, { runId, runAttempt: attempt, targetSha: target, configFloorSha: floor }))); }
     else throw new Error('DEPLOY_EVIDENCE_HOLD=OPERATION');
-  } catch (error) { console.error(error.message.startsWith('DEPLOY_EVIDENCE_HOLD=') ? error.message : 'DEPLOY_EVIDENCE_HOLD=FAILED'); process.exitCode = 1; }
+  } catch (error) {
+    console.error(`DEPLOY_EVIDENCE_STAGE=${process.env.EVIDENCE_PHASE || 'EVIDENCE_OPERATION'}`);
+    console.error(`DEPLOY_EVIDENCE_HOLD=${classifyEvidenceFailure(error)}`);
+    process.exitCode = 1;
+  }
 }

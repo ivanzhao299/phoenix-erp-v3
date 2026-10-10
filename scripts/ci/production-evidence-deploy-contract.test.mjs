@@ -23,6 +23,17 @@ test('evidence failure has no recovery Compose path and API mode cannot recreate
   assert.match(deploySection, /RUN_MIG=false/);
 });
 
+test('approved floor promotion is API-only and fail-closed before PRE on migration flags', () => {
+  assert.match(workflow, /APPROVED_CONFIG_FLOOR_SHA: \$\{\{ inputs\.approved_config_floor_sha \|\| '' \}\}/);
+  assert.match(workflow, /approved_config_floor_sha 只允许 api 模式/);
+  const guard = workflow.indexOf('test "$RUN_MIG" = false');
+  const pre = workflow.indexOf('EVIDENCE_PHASE=PRE_SNAPSHOT');
+  assert.ok(guard >= 0 && guard < pre, 'floor migration guard must precede PRE capture');
+  const apiDecision = workflow.slice(workflow.indexOf('            api)'), workflow.indexOf('            full|*'));
+  assert.match(apiDecision, /APPROVED_CONFIG_FLOOR_SHA/);
+  assert.match(apiDecision, /run_mig=false/);
+});
+
 test('startup evidence contract captures both Docker streams and preserves fail-closed limits', () => {
   const helper = fs.readFileSync('scripts/ops/production-deployment-evidence.mjs', 'utf8');
   assert.match(helper, /spawnSync\('docker'/);

@@ -171,6 +171,7 @@ jobs:
           WEB_DEPS:    ${{ steps.changes.outputs.web_deps }}
           API_OR_DB:   ${{ steps.changes.outputs.api_or_db }}
           MIGRATION_CHANGED: ${{ github.event_name == 'workflow_dispatch' && 'true' || steps.changes.outputs.migration || 'false' }}
+          APPROVED_CONFIG_FLOOR_SHA: ${{ inputs.approved_config_floor_sha || '' }}
           INFRA:       ${{ steps.changes.outputs.infra }}
           OPS_ONLY:    ${{ steps.scope.outputs.ops_only }}
         run: |
@@ -216,6 +217,11 @@ jobs:
             echo "::notice::自动判定: $MODE  (runtime_css=$RUNTIME_CSS web_only=$WEB_ONLY web_deps=$WEB_DEPS api_or_db=$API_OR_DB infra=$INFRA)"
           fi
 
+          if [ -n "$APPROVED_CONFIG_FLOOR_SHA" ] && [ "$MODE" != "api" ]; then
+            echo "::error::approved_config_floor_sha 只允许 api 模式"
+            exit 23
+          fi
+
           # 输出衍生开关
           case "$MODE" in
             ops-only)
@@ -240,7 +246,14 @@ jobs:
               echo "build_web=false" >> $GITHUB_OUTPUT
               echo "build_api=true"  >> $GITHUB_OUTPUT
               echo "run_test=true"   >> $GITHUB_OUTPUT
-              echo "run_mig=$MIGRATION_CHANGED" >> $GITHUB_OUTPUT
+              # A floor promotion is an API-only code release. Its migration
+              # path is independently checked from the running API revision;
+              # never derive RUN_MIG=true merely because this is dispatch.
+              if [ -n "$APPROVED_CONFIG_FLOOR_SHA" ]; then
+                echo "run_mig=false" >> $GITHUB_OUTPUT
+              else
+                echo "run_mig=$MIGRATION_CHANGED" >> $GITHUB_OUTPUT
+              fi
               ;;
             full|*)
               echo "build_web=true"  >> $GITHUB_OUTPUT
@@ -762,6 +775,16 @@ jobs:
             echo "  Deploy mode: $DEPLOY_MODE"
             echo "  build_web=$BUILD_WEB  build_api=$BUILD_API  run_mig=$RUN_MIG"
             echo "════════════════════════════════════════════════"
+
+            # Floor promotions are API-only and must never inherit the
+            # workflow-dispatch migration default. Check this before PRE,
+            # floor state changes, or any database operation.
+            if [ -n "${APPROVED_CONFIG_FLOOR_SHA:-}" ]; then
+              test "$DEPLOY_MODE" = api || { echo "DEPLOY_EVIDENCE_HOLD=FLOOR_SCOPE"; exit 23; }
+              test "$BUILD_API" = true || { echo "DEPLOY_EVIDENCE_HOLD=FLOOR_SCOPE"; exit 23; }
+              test "$BUILD_WEB" = false || { echo "DEPLOY_EVIDENCE_HOLD=FLOOR_SCOPE"; exit 23; }
+              test "$RUN_MIG" = false || { echo "DEPLOY_EVIDENCE_HOLD=MIGRATION_FLAG"; exit 24; }
+            fi
 
             # API schema changes must retain evidence/DB and never clean backups.
             if [ "$BUILD_API" = "true" ]; then export PRESERVE_ARTIFACTS=true; fi
