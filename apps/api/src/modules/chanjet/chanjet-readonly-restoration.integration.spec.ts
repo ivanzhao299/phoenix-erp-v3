@@ -24,6 +24,12 @@ integration('isolated PostgreSQL Chanjet restoration', () => {
   afterEach(() => { restore?.(); if(previousFlag === undefined) delete process.env.CHANJET_READONLY_SYNC_ENABLED; else process.env.CHANJET_READONLY_SYNC_ENABLED = previousFlag; });
   afterAll(async () => { if(ds?.isInitialized) await ds.destroy(); });
   const cycle = { decision:'GO',mirror:{results:[{key:'RECEIVABLE_STATISTICS'}],attempts:1,unresolvedFailures:[]},exactMappings:null,reconciliation:{created:0,autoResolved:0},readiness:null };
+  function barrier() { let resolve!: () => void; const promise = new Promise<void>(r => { resolve = r; }); return { promise, resolve }; }
+  async function bounded<T>(promise: Promise<T>): Promise<T> {
+    let timer: NodeJS.Timeout;
+    try { return await Promise.race([promise, new Promise<never>((_, reject) => { timer = setTimeout(() => reject(Error('fixture barrier deadline')), 8000); })]); }
+    finally { clearTimeout(timer!); }
+  }
   const scheduler = (call=jest.fn().mockResolvedValue(cycle)) => {
     const subject=new ChanjetReadonlySyncScheduler({runReadonlyAlignmentCycle:call} as never,{ok:jest.fn(),fail:jest.fn()} as never,ds,{} as never);
     let complete!: () => void;
@@ -34,13 +40,36 @@ integration('isolated PostgreSQL Chanjet restoration', () => {
     return {call,subject,done};
   };
   it('serializes competing processes before durable insertion and executes only one orchestration',async()=>{
-    const a=scheduler(),b=scheduler();
-    const responses=await Promise.all([a.subject.enqueueManualSync('operator'),b.subject.enqueueManualSync('operator')]);
-    expect(responses.filter(x=>x.accepted)).toHaveLength(1);
-    // Observe the admitted execution's completion, including terminal persistence and cleanup.
-    await (responses[0].accepted?a.done:b.done);
+    const entered = barrier(), release = barrier();
+    const a = scheduler(jest.fn(async () => { entered.resolve(); await release.promise; return cycle; }));
+    const b = scheduler();
+    const firstAdmission = a.subject.enqueueManualSync('operator');
+    let secondAdmission: Awaited<ReturnType<typeof b.subject.enqueueManualSync>> | undefined;
+    try {
+      await bounded(entered.promise);
+      expect((await bounded(firstAdmission)).accepted).toBe(true);
+      secondAdmission = await bounded(b.subject.enqueueManualSync('operator'));
+      expect(secondAdmission.accepted).toBe(false);
+      expect(secondAdmission.reason).toBe('SYNC_ALREADY_ACTIVE');
+    } finally {
+      release.resolve();
+      await firstAdmission.catch(() => undefined);
+      await a.done.catch(() => undefined);
+    }
     expect(a.call.mock.calls.length+b.call.mock.calls.length).toBe(1);
     expect(await ds.query('SELECT status FROM chanjet_sync_jobs')).toEqual([{status:'SUCCESS'}]);
+    expect(await ds.query("SELECT pid FROM pg_locks WHERE locktype='advisory' AND objid=(hashtext($1)::bigint & 4294967295)::oid", ['chanjet-full-readonly-sync'])).toEqual([]);
+  });
+  it('allows sequential manual requests after the first execution fully releases its lease', async () => {
+    const a = scheduler(), b = scheduler();
+    const first = await a.subject.enqueueManualSync('operator');
+    expect(first.accepted).toBe(true);
+    await a.done;
+    const second = await b.subject.enqueueManualSync('operator');
+    expect(second.accepted).toBe(true);
+    await b.done;
+    expect(a.call).toHaveBeenCalledTimes(1); expect(b.call).toHaveBeenCalledTimes(1);
+    expect(await ds.query('SELECT status FROM chanjet_sync_jobs ORDER BY id')).toEqual([{status:'SUCCESS'},{status:'SUCCESS'}]);
   });
   it('deduplicates the same scheduled slot even when the earlier process has already completed', async () => {
     const a=scheduler(),b=scheduler();await a.subject.runScheduledSync();await b.subject.runScheduledSync();
