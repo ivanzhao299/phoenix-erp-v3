@@ -84,10 +84,16 @@ test('resolved compose must match approved policy and unchanged data binds',()=>
 });
 test('formal workflow separates audit, code-floor deployment, bounded first sync and activation',()=>{
   const w=fs.readFileSync('.github/workflows/chanjet-readonly-restoration.yml','utf8');
-  assert.match(w,/environment: production/);assert.match(w,/test "\$GITHUB_REF" = refs\/heads\/main/);assert.match(w,/APPROVED_SHA.*GITHUB_SHA/);assert.match(w,/production-control-bootstrap/);
+  assert.match(w,/environment: production/);assert.match(w,/test "\$GITHUB_REF" = refs\/heads\/main/);assert.match(w,/APPROVED_SHA.*GITHUB_SHA/);assert.match(w,/expected_production_sha/);assert.match(w,/EXPECTED_PRODUCTION_SHA/);assert.match(w,/CANDIDATE_MAIN_SHA/);assert.match(w,/AUDIT_STAGE=SSH_CONNECTED/);assert.match(w,/production-control-bootstrap/);
   assert.doesNotMatch(w,/docker compose (?:up|down)|migration:run|git reset|git clean|git stash/);
   const deploy=fs.readFileSync('.github/workflows/deploy.yml','utf8');assert.match(deploy,/approved_config_floor_sha/);assert.match(deploy,/test "\$BUILD_WEB" = false/);
   assert.ok(CONTRACT.criticalFiles.includes('scripts/ops/chanjet-readonly-policy.mjs'));
+});
+
+test('readonly audit separates deployed API identity from candidate main metadata',()=>{
+  const audit=fs.readFileSync('scripts/ops/chanjet-readonly-production-audit.mjs','utf8');
+  assert.match(audit,/expectedProductionSha/); assert.match(audit,/candidateSha/); assert.match(audit,/actual\.api\?\.revision !== expectedProductionSha/);
+  assert.match(audit,/deployedSha:actual\.api\.revision/); assert.match(audit,/candidateSha/);
 });
 
 test('real isolated PostgreSQL fingerprints detect same-count fact overwrite within the query deadline', {skip:!process.env.CHANJET_HASH_FIXTURE_CONTAINER}, () => {
