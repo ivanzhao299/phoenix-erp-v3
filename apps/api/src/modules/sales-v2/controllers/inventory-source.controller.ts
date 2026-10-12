@@ -66,7 +66,7 @@ export class InventorySourceController {
   productionInbound(@Body() body: {
     companyCode?: string; siteCode?: string; houseCode?: string; warehouseCode?: string; locationCode?: string;
     eggDate: string; items: Array<{ grade: string; qty: number; spec?: string }>;
-    operator?: string; remark?: string;
+    operator?: string; remark?: string; idempotencyKey?: string;
   }) {
     return this.prodInbound.recordProductionInbound(body);
   }
