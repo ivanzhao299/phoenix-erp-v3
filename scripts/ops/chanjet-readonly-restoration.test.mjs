@@ -55,6 +55,33 @@ test('floor promotion binds exact separately approved SHA and actual running API
   assert.equal(plan.marker.operation,'CODE_HOLD');assert.equal(plan.active.outcome,'CONFIG_READY_HOLD');
   for(const change of [{approvedSha:'b'.repeat(40)},{scope:{...args.scope,changed:['migrations/x.sql']}},{actual:{...actual,api:pin('c')}},{previousActive:{...previousActive,outcome:'ROLLED_BACK'}}])assert.throws(()=>promotionPlan({...args,...change}));
 });
+test('v3 floor re-anchor binds old floor, new main, runtime identity and the criticalFiles delta',()=>{
+  const previousFloor={...floor};
+  const previousActive={version:3,floorSha:sha,configSha:sha,outcome:'SUCCESS',active:actual,protectedImages:[],migrationBaseline:actual.api.revision};
+  const target='b'.repeat(40);
+  const args={previousFloor,previousActive,actual,target,approvedSha:target,runId:'13-1',scope:{baseline:actual.api.revision,target,changed:[]},criticalFilesChanged:true,expectedPreviousFloorSha:sha,now};
+  const plan=promotionPlan(args);
+  assert.equal(plan.floor.version,3);assert.equal(plan.floor.floorSha,target);assert.equal(plan.floor.chanjetPolicy,'HOLD');assert.equal(plan.floor.readonlyApproval,null);
+  assert.deepEqual(plan.floor.operationalTuple,tuple);
+  assert.equal(plan.active.version,3);assert.equal(plan.active.outcome,'CONFIG_READY_HOLD');assert.equal(plan.active.floorSha,target);assert.equal(plan.active.configSha,target);
+  assert.equal(plan.marker.operation,'CODE_HOLD');assert.equal(plan.marker.previousFloorSha,sha);assert.equal(plan.marker.target,target);
+  const sameShaScope={baseline:actual.api.revision,target:sha,changed:[]};
+  for(const [change,re] of [
+    [{criticalFilesChanged:false},/FLOOR_REANCHOR_WITHOUT_CONTRACT_CHANGE/],
+    [{expectedPreviousFloorSha:'c'.repeat(40)},/FLOOR_REANCHOR_PREVIOUS_FLOOR_MISMATCH/],
+    [{expectedPreviousFloorSha:''},/FLOOR_REANCHOR_PREVIOUS_FLOOR_REQUIRED/],
+    [{previousFloor:{...floor,chanjetPolicy:'READONLY_VERIFY',readonlyApproval:approval}},/FLOOR_REANCHOR_POLICY_ACTIVE/],
+    [{target:sha,approvedSha:sha,scope:sameShaScope},/FLOOR_REANCHOR_SAME_SHA/],
+    [{previousFloor:{...floor,phase:'PROMOTING'}},/FLOOR_PROMOTION_APPROVAL/],
+    [{previousFloor:{...floor,version:4},previousActive:{version:4,floorSha:sha,outcome:'SUCCESS',active:actual}},/FLOOR_PROMOTION_APPROVAL/],
+    [{previousActive:{version:2,floorSha:sha,outcome:'SUCCESS',active:actual}},/FLOOR_PROMOTION_APPROVAL/],
+    [{scope:{baseline:actual.api.revision,target,changed:['apps/api/src/database/migrations/x.ts']}},/FLOOR_PROMOTION_APPROVAL/],
+    [{actual:{api:pin('c'),web:pin('b')}},/FLOOR_PROMOTION_APPROVAL/],
+    [{previousActive:{...previousActive,outcome:'ROLLED_BACK'}},/FLOOR_PROMOTION_APPROVAL/],
+    [{approvedSha:'d'.repeat(40)},/FLOOR_PROMOTION_APPROVAL/],
+    [{previousFloor:{...floor,operationalTuple:{...tuple,CHANJET_READONLY_SYNC_ENABLED:'true'}}},/FLOOR_PROMOTION_APPROVAL/],
+  ])assert.throws(()=>promotionPlan({...args,...change}),re,JSON.stringify(change));
+});
 test('transition accepts only exact old/new API, unchanged Web, owning run and short deadline',()=>{
   const marker={version:3,operation:'CODE_HOLD',phase:'IN_PROGRESS',runId:'12-1',target:sha,previous:actual,candidateApi:pin('c'),startedAt:new Date(now).toISOString(),expiresAt:new Date(now+60000).toISOString()};
   validatePolicyTransition(marker,{runId:'12-1',target:sha,actual,now});

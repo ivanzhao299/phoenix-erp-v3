@@ -7,14 +7,25 @@ import { atomicState } from './production-deployment-state.mjs';
 import { captureRuntime } from './capture-production-runtime.mjs';
 import { assertBootstrapSchemaEvidence, readBootstrapSchemaEvidence } from './api-bootstrap-schema-preflight.mjs';
 import { readonlyEnvironment } from './chanjet-readonly-policy.mjs';
-export function promotionPlan({ previousFloor, previousActive, actual, target, approvedSha, runId, scope, now = Date.now() }) {
-  if (CONTRACT.version !== 3 || previousFloor.version !== 2 || previousActive.version !== 2 || previousFloor.phase !== 'READY'
+export function promotionPlan({ previousFloor, previousActive, actual, target, approvedSha, runId, scope, criticalFilesChanged = false, expectedPreviousFloorSha = '', now = Date.now() }) {
+  if (CONTRACT.version !== 3 || ![2, 3].includes(previousFloor.version) || previousActive.version !== previousFloor.version || previousFloor.phase !== 'READY'
     || !/^[a-f0-9]{40}$/.test(target || '') || approvedSha !== target || !/^\d+-\d+$/.test(runId || '')
     || previousFloor.floorSha !== previousActive.floorSha || previousActive.outcome !== 'SUCCESS'
     || JSON.stringify(previousActive.active) !== JSON.stringify(actual)
     || scope.baseline !== actual.api.revision || scope.target !== target || scope.changed.length
     || previousFloor.operationalTuple.CHANJET_READONLY_SYNC_ENABLED !== 'false'
     || previousFloor.operationalTuple.CHANJET_ERP_INBOUND_SYNC_ENABLED !== 'false') throw new Error('CONFIG_HOLD=FLOOR_PROMOTION_APPROVAL');
+  if (previousFloor.version === 3) {
+    // v3 → v3' re-anchor: the ONLY legitimate reason to move an established v3
+    // floor is a reviewed criticalFiles change on merged main (otherwise a
+    // normal deploy suffices and the floor must not move). The old floor must
+    // be quiescent (HOLD, no approval) and is bound explicitly by SHA.
+    if (previousFloor.chanjetPolicy !== 'HOLD' || previousFloor.readonlyApproval !== null) throw new Error('CONFIG_HOLD=FLOOR_REANCHOR_POLICY_ACTIVE');
+    if (previousFloor.floorSha === target) throw new Error('CONFIG_HOLD=FLOOR_REANCHOR_SAME_SHA');
+    if (criticalFilesChanged !== true) throw new Error('CONFIG_HOLD=FLOOR_REANCHOR_WITHOUT_CONTRACT_CHANGE');
+    if (!/^[a-f0-9]{40}$/.test(expectedPreviousFloorSha || '')) throw new Error('CONFIG_HOLD=FLOOR_REANCHOR_PREVIOUS_FLOOR_REQUIRED');
+    if (expectedPreviousFloorSha !== previousFloor.floorSha) throw new Error('CONFIG_HOLD=FLOOR_REANCHOR_PREVIOUS_FLOOR_MISMATCH');
+  }
   const floor = { ...previousFloor, version: 3, floorSha: target, chanjetPolicy: 'HOLD', readonlyApproval: null };
   const flags = { ...readonlyEnvironment(floor), CHANJET_READONLY_SYNC_ENABLED: 'false', CHANJET_ERP_INBOUND_SYNC_ENABLED: 'false' };
   return { floor, active: { ...previousActive, version: 3, floorSha: target, configSha: target, outcome: 'CONFIG_READY_HOLD' },
@@ -29,7 +40,9 @@ export async function promoteFloor(root) {
     || process.env.ROTATE_CHANJET_CREDENTIALS === 'true' || process.env.ONE_TIME_CONFIG_FLOOR_TRANSITION === 'true') throw new Error('CONFIG_HOLD=FLOOR_PROMOTION_SCOPE');
   // Installed v2 validator remains the authority for the pre-promotion state.
   const installed = await import(pathToFileURL(path.join(root, 'scripts/ops/production-config-guard.mjs')).href);
-  if (installed.CONTRACT.version !== 2) throw new Error('CONFIG_HOLD=V2_PROMOTION_REQUIRED');
+  // v2 → v3 is the one-time legacy promotion; v3 → v3' is the re-anchor path
+  // for reviewed criticalFiles changes on merged main. Anything else is a HOLD.
+  if (![2, 3].includes(installed.CONTRACT.version)) throw new Error('CONFIG_HOLD=V2_PROMOTION_REQUIRED');
   for (const key of ['repository', 'controlRoot', 'stateDirectory', 'archiveDirectory', 'executionUid', 'controlMounts']) {
     if (JSON.stringify(installed.CONTRACT[key]) !== JSON.stringify(CONTRACT[key])) throw new Error('CONFIG_HOLD=PROMOTION_CONTEXT_CHANGE');
   }
@@ -49,7 +62,11 @@ export async function promoteFloor(root) {
   const previousActive = installed.secureJson(path.join(directory, 'active.json'));
   assertFloorMonotonic(root, previousFloor.floorSha, target);
   const scope = migrationScope(root, actual.api.revision, target);
-  const plan = promotionPlan({ previousFloor, previousActive, actual, target, approvedSha: process.env.APPROVED_CONFIG_FLOOR_SHA, runId: process.env.DEPLOY_RUN_ID, scope });
+  // Re-anchor justification: the approved target must actually change at least
+  // one critical file relative to the current floor (a no-op re-anchor would
+  // silently re-bless an unchanged contract). Empty diff → dedicated HOLD.
+  const criticalFilesChanged = git(root, ['diff', '--name-only', previousFloor.floorSha, target, '--', ...CONTRACT.criticalFiles]).split('\n').filter(Boolean).length > 0;
+  const plan = promotionPlan({ previousFloor, previousActive, actual, target, approvedSha: process.env.APPROVED_CONFIG_FLOOR_SHA, runId: process.env.DEPLOY_RUN_ID, scope, criticalFilesChanged, expectedPreviousFloorSha: process.env.APPROVED_PREVIOUS_FLOOR_SHA || '' });
   assertFloor(root, plan.floor, target, { targetTree: true });
   const record = path.join(directory, `floor-promotion-${process.env.DEPLOY_RUN_ID}.json`);
   if (fs.existsSync(record)) throw new Error('CONFIG_HOLD=PROMOTION_RUN_REUSED');

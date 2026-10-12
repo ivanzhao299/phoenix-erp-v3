@@ -44,3 +44,21 @@ test('startup evidence contract captures both Docker streams and preserves fail-
   assert.match(helper, /sensitiveLineCount/); assert.match(helper, /rawOutput: false/);
   assert.match(helper, /schemaWriteSignalCount/); assert.match(helper, /errorSignalCount/);
 });
+
+test('v3 floor re-anchor entrance threads the previous-floor binding and justification checks', () => {
+  const deploy = fs.readFileSync('.github/workflows/deploy.yml', 'utf8');
+  assert.match(deploy, /approved_previous_floor_sha:/);
+  assert.match(deploy, /APPROVED_PREVIOUS_FLOOR_SHA: \$\{\{ inputs\.approved_previous_floor_sha \}\}/);
+  assert.match(deploy, /envs: APPROVED_CONFIG_FLOOR_SHA,APPROVED_PREVIOUS_FLOOR_SHA,/);
+  const promote = fs.readFileSync('scripts/ops/promote-production-config-floor.mjs', 'utf8');
+  // re-anchor only from a quiescent v3 floor, with a real criticalFiles delta,
+  // and with the old floor bound by exact SHA
+  assert.match(promote, /!\[2, 3\]\.includes\(installed\.CONTRACT\.version\)/);
+  assert.match(promote, /FLOOR_REANCHOR_POLICY_ACTIVE/);
+  assert.match(promote, /FLOOR_REANCHOR_SAME_SHA/);
+  assert.match(promote, /FLOOR_REANCHOR_WITHOUT_CONTRACT_CHANGE/);
+  assert.match(promote, /FLOOR_REANCHOR_PREVIOUS_FLOOR_REQUIRED/);
+  assert.match(promote, /FLOOR_REANCHOR_PREVIOUS_FLOOR_MISMATCH/);
+  assert.match(promote, /criticalFilesChanged/);
+  assert.match(promote, /CONTRACT\.criticalFiles\]/);
+});
