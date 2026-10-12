@@ -44,7 +44,11 @@ on:
         type: boolean
         default: false
       approved_config_floor_sha:
-        description: "单独获批的 v2→v3 floor 精确 merged main SHA；只允许 api/HOLD，无 Web/DB 重建"
+        description: "单独获批的 v2→v3 或 v3→v3' floor 精确 merged main SHA；只允许 api/HOLD，无 Web/DB 重建"
+        type: string
+        default: ''
+      approved_previous_floor_sha:
+        description: "v3→v3' floor 重锚定必填：当前 floor 的精确 SHA（重锚定前后双向绑定）"
         type: string
         default: ''
       rotate_chanjet_credentials:
@@ -738,6 +742,7 @@ jobs:
           ROTATE_CHANJET_CREDENTIALS: ${{ inputs.rotate_chanjet_credentials }}
           ONE_TIME_CONFIG_FLOOR_TRANSITION: ${{ inputs.one_time_config_floor_transition }}
           APPROVED_CONFIG_FLOOR_SHA: ${{ inputs.approved_config_floor_sha }}
+          APPROVED_PREVIOUS_FLOOR_SHA: ${{ inputs.approved_previous_floor_sha }}
           GHCR_LOGIN_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GHCR_LOGIN_USER: ${{ github.repository_owner }}
           CHANJET_APP_KEY: ${{ secrets.CHANJET_APP_KEY }}
@@ -754,7 +759,7 @@ jobs:
           proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
           proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
           proxy_port: 22
-          envs: APPROVED_CONFIG_FLOOR_SHA,DEPLOY_MODE,BUILD_WEB,BUILD_API,RUN_MIG,NGINX_CONF,DEPLOY_RUN_ID,DEPLOY_RUN_ATTEMPT,TARGET_SHA,PRESERVE_ARTIFACTS,ROTATE_CHANJET_CREDENTIALS,ONE_TIME_CONFIG_FLOOR_TRANSITION,GHCR_LOGIN_TOKEN,GHCR_LOGIN_USER,CHANJET_APP_KEY,CHANJET_APP_SECRET,CHANJET_ORG_ID,CHANJET_CERT,CHANJET_MSG_SECRET,PRODUCTION_CONTRACT_B64,PRODUCTION_PATH_HELPER_B64,PRODUCTION_CONTROL_BOOTSTRAP_B64
+          envs: APPROVED_CONFIG_FLOOR_SHA,APPROVED_PREVIOUS_FLOOR_SHA,DEPLOY_MODE,BUILD_WEB,BUILD_API,RUN_MIG,NGINX_CONF,DEPLOY_RUN_ID,DEPLOY_RUN_ATTEMPT,TARGET_SHA,PRESERVE_ARTIFACTS,ROTATE_CHANJET_CREDENTIALS,ONE_TIME_CONFIG_FLOOR_TRANSITION,GHCR_LOGIN_TOKEN,GHCR_LOGIN_USER,CHANJET_APP_KEY,CHANJET_APP_SECRET,CHANJET_ORG_ID,CHANJET_CERT,CHANJET_MSG_SECRET,PRODUCTION_CONTRACT_B64,PRODUCTION_PATH_HELPER_B64,PRODUCTION_CONTROL_BOOTSTRAP_B64
           script: |
             set -Eeuo pipefail
             umask 077
