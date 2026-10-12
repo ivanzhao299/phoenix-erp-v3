@@ -11,7 +11,15 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { Plus } from "lucide-react";
 import apiRequest from "@/lib/api-client";
-import { OUTBOUND_DESTINATIONS, validateOutboundItem, validateOutboundQuantity } from "@/lib/warehouse-outbound";
+import {
+  OUTBOUND_DESTINATIONS,
+  ISSUE_OUTBOUND_TYPES,
+  canCreateOutboundType,
+  isStandaloneOutboundType,
+  validateOutboundDestination,
+  validateOutboundItem,
+  validateOutboundQuantity,
+} from "@/lib/warehouse-outbound";
 import { formatMasterData } from "@/lib/business-display";
 import { masterNameWithCode } from "@/lib/localized-master-data";
 import { invalidateBatchLookups } from "@/lib/request-cache";
@@ -49,15 +57,7 @@ const OUT_TYPES = [
   "RETURN",
 ] as const;
 
-const ISSUE_TYPES = new Set([
-  "PRODUCTION_USE",
-  "FEED_DISTRIBUTION",
-  "MEDICINE_DISTRIBUTION",
-  "LOGISTICS_USE",
-  "SPARE_PART_USE",
-  "OFFICE_USE",
-  "MAINTENANCE_USE",
-]);
+const ISSUE_TYPES = new Set<string>(ISSUE_OUTBOUND_TYPES);
 
 type Row = Record<string, unknown>;
 
@@ -124,10 +124,18 @@ export default function OutboundPage() {
     { key: "outbound_no",    label: t("ui.出库单号", "出库单号"), type: "text",   placeholder: t("ui.留空自动生成WO", "留空自动生成 WO-XXXXXX") },
     { key: "date",           label: t("ui.出库日期", "出库日期"), type: "date",   required: true },
     { key: "type",           label: t("ui.出库类型", "出库类型"), type: "select", required: true,
-      options: (issueOnly
-        ? OUT_TYPES.filter(type => ISSUE_TYPES.has(type))
-        : OUT_TYPES.filter(type => ["SALE", "SCRAP", "RETURN"].includes(type))
-      ).map(type => ({ value: type, label: TYPE_LABEL[type]?.label ?? type })) },
+      // 普通页面可创建所有允许独立出库的类型；领用类型仍受 MENU_WMS_ISSUE
+      // 控制，调拨/盘亏等专用事务类型不会进入独立出库表单。
+      options: OUT_TYPES
+        .filter(type => canCreateOutboundType(type, {
+          inout: canCreateInout,
+          issue: canCreateIssue,
+          issueOnly,
+        }))
+        .map(type => ({ value: type, label: TYPE_LABEL[type]?.label ?? type })),
+      validate: value => isStandaloneOutboundType(value)
+        ? undefined
+        : t("ui.该类型必须通过专用业务流程", "该出库类型必须通过专用业务流程") },
     { key: "warehouse_code", label: t("ui.出库仓库", "出库仓库"), type: "warehouse", required: true,
       ...(siteCode ? { filterBy: { siteCode } } : {}) } as any,
     { key: "item",           label: t("ui.库存物料/SKU", "库存物料/SKU"), type: "inventory-item", required: true,
@@ -151,7 +159,8 @@ export default function OutboundPage() {
     { key: "qty",            label: t("ui.出库数量", "出库数量"), type: "number", required: true,
       validate: validateOutboundQuantity },
     { key: "destination_type",          label: t("ui.去向类型", "去向类型"), type: "dict", dictType: "INV_OUTBOUND_DEST_TYPE", required: true,
-      allowedValuesByField: { field: "type", values: OUTBOUND_DESTINATIONS } },
+      allowedValuesByField: { field: "type", values: OUTBOUND_DESTINATIONS },
+      validate: (value, values) => validateOutboundDestination(values.type, value) },
     { key: "destination_house_code",    label: t("ui.领用鸡舍", "领用鸡舍"), type: "house",
       required: true,
       visibleWhen: { field: "destination_type", values: ["HOUSE"] },
