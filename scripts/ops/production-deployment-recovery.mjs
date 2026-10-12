@@ -48,7 +48,20 @@ export function assessRecovery(bundle, context) {
   const phase = archive?.phase ?? null;
   if (phase && !RECOVERY_PHASES.includes(phase)) reasons.push('ARCHIVE_PHASE_INVALID');
   if (phase === 'COMPLETE') reasons.push('ALREADY_COMPLETE');
-  const resumed = phase !== null && phase !== 'ARCHIVED';
+  // Resume binding: an existing archive must belong to this exact recovery —
+  // same schema, transaction run, approved SHA — and its recorded plan must
+  // still target this context. Any mismatch is a HOLD, never a silent resume.
+  if (archive) {
+    if (archive.schema !== RECOVERY_SCHEMA) reasons.push('ARCHIVE_SCHEMA_MISMATCH');
+    if (archive.targetRunId !== context.targetRunId || archive.approvedSha !== context.approvedSha) reasons.push('ARCHIVE_BINDING_MISMATCH');
+    const plan = archive.plan;
+    if (!plan?.active || !plan?.deployRecord) reasons.push('ARCHIVE_PLAN_MISSING');
+    else if (plan.active.floorSha !== context.approvedSha || plan.active.configSha !== context.approvedSha
+      || plan.active.active?.api?.revision !== context.approvedSha
+      || plan.deployRecord.target !== context.approvedSha || plan.deployRecord.floorSha !== context.approvedSha
+      || plan.deployRecord.candidates?.api?.revision !== context.approvedSha
+      || plan.deployRecord.outcome !== 'SUCCESS' || plan.deployRecord.recovery?.schema !== RECOVERY_SCHEMA) reasons.push('ARCHIVE_PLAN_CONTEXT_MISMATCH');
+  }
   if (bundle.checkout && (bundle.checkout.head !== context.approvedSha || bundle.checkout.clean !== true)) reasons.push('CHECKOUT_NOT_CLEAN_TARGET');
   if (!transaction || transaction.version !== 3 || transaction.runId !== context.targetRunId || transaction.phase !== 'IN_PROGRESS' || transaction.target !== context.approvedSha || transaction.configSha !== context.approvedSha) {
     // A missing transaction.json is only tolerable when the marker-clearing

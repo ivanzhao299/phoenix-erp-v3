@@ -1,5 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { execFileSync } from 'node:child_process';
+import { pathToFileURL } from 'node:url';
 import { assessRecovery, planRecoveredState, executeRecoveryStages, RECOVERY_SCHEMA, CASE_A_STARTUP_RESULT, RECOVERY_PHASES } from './production-deployment-recovery.mjs';
 
 const sha = c => c.repeat(40);
@@ -100,16 +105,17 @@ test('completed archives are terminal and invalid phases are rejected', () => {
 test('resume after ACTIVE_WRITTEN verifies the recorded plan instead of the promotion state', () => {
   const bundle = validBundle();
   const plan = planFor(bundle);
-  const assessment = assessRecovery({ ...bundle, archive: { phase: 'ACTIVE_WRITTEN', plan }, active: plan.active }, context);
+  const boundArchive = { schema: RECOVERY_SCHEMA, phase: 'ACTIVE_WRITTEN', targetRunId: context.targetRunId, approvedSha: context.approvedSha, recoveryRunId: context.recoveryRunId, plan };
+  const assessment = assessRecovery({ ...bundle, archive: boundArchive, active: plan.active }, context);
   assert.deepEqual(assessment, { eligible: true, reasons: [], resumeFrom: 'ACTIVE_WRITTEN' });
-  assert.equal(assessRecovery({ ...bundle, archive: { phase: 'ACTIVE_WRITTEN', plan }, active: bundle.active }, context).reasons.includes('ACTIVE_NOT_RECOVERED_PLAN'), true);
+  assert.equal(assessRecovery({ ...bundle, archive: boundArchive, active: bundle.active }, context).reasons.includes('ACTIVE_NOT_RECOVERED_PLAN'), true);
 });
 test('resume after DEPLOY_WRITTEN tolerates partially cleared markers', () => {
   const bundle = validBundle();
   const plan = planFor(bundle);
-  const resumed = assessRecovery({ ...bundle, transaction: null, marker: bundle.marker, deployRecord: plan.deployRecord, active: plan.active, archive: { phase: 'DEPLOY_WRITTEN', plan } }, context);
+  const resumed = assessRecovery({ ...bundle, transaction: null, marker: bundle.marker, deployRecord: plan.deployRecord, active: plan.active, archive: { schema: RECOVERY_SCHEMA, phase: 'DEPLOY_WRITTEN', targetRunId: context.targetRunId, approvedSha: context.approvedSha, recoveryRunId: context.recoveryRunId, plan } }, context);
   assert.deepEqual(resumed, { eligible: true, reasons: [], resumeFrom: 'DEPLOY_WRITTEN' });
-  const fullyCleared = assessRecovery({ ...bundle, transaction: null, marker: null, deployRecord: plan.deployRecord, active: plan.active, archive: { phase: 'DEPLOY_WRITTEN', plan } }, context);
+  const fullyCleared = assessRecovery({ ...bundle, transaction: null, marker: null, deployRecord: plan.deployRecord, active: plan.active, archive: { schema: RECOVERY_SCHEMA, phase: 'DEPLOY_WRITTEN', targetRunId: context.targetRunId, approvedSha: context.approvedSha, recoveryRunId: context.recoveryRunId, plan } }, context);
   assert.equal(fullyCleared.eligible, true);
 });
 
@@ -199,4 +205,75 @@ test('CLI refuses without explicit execution authorization', async () => {
   const result = spawnSync('node', ['scripts/ops/production-deployment-recovery.mjs'], { encoding: 'utf8', cwd: new URL('../..', import.meta.url).pathname.replace(/\/$/, '') });
   assert.equal(result.status, 1);
   assert.match(result.stdout, /DEPLOYMENT_RECOVERY=HOLD_EXECUTION_NOT_AUTHORIZED/);
+});
+
+// ── workflow bundle: manifest must cover the full import closure and unpack cleanly ──
+function recoveryBundleManifest() {
+  const workflow = fs.readFileSync('.github/workflows/chanjet-readonly-restoration.yml', 'utf8');
+  const match = workflow.match(/tar -czf "\$RECOVERY_TAR" -C scripts\/ops ([^\n]+)/);
+  assert.ok(match, 'recovery bundle tar manifest must exist in the workflow');
+  return match[1].trim().split(/\s+/);
+}
+test('recovery bundle manifest covers the full relative-import closure of every bundled module', () => {
+  const manifest = recoveryBundleManifest();
+  assert.ok(manifest.includes('production-deployment-recovery.mjs'));
+  assert.ok(manifest.includes('production-deployment-evidence.mjs'), 'recovery CLI dynamically imports the evidence module');
+  const imported = new Set();
+  const visit = name => {
+    if (imported.has(name)) return;
+    imported.add(name);
+    if (!name.endsWith('.mjs')) return;
+    const source = fs.readFileSync(path.join('scripts/ops', name), 'utf8');
+    for (const pattern of [/(?:from\s+|import\()\s*['"]\.\/([^'"]+)['"]/g, /new URL\(\s*['"]\.\/([^'"]+)['"]/g]) {
+      for (const match of source.matchAll(pattern)) visit(match[1]);
+    }
+  };
+  for (const name of manifest) visit(name);
+  const missing = [...imported].filter(name => !manifest.includes(name));
+  assert.deepEqual(missing, [], `bundle is missing relatively-imported modules: ${missing.join(', ')} (real recovery entrance would fail with ERR_MODULE_NOT_FOUND)`);
+});
+test('recovery bundle unpacks and every bundled module imports without ERR_MODULE_NOT_FOUND', async () => {
+  const manifest = recoveryBundleManifest();
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'recovery-bundle-'));
+  try {
+    execFileSync('tar', ['-czf', path.join(dir, 'bundle.tgz'), '-C', 'scripts/ops', ...manifest]);
+    execFileSync('tar', ['-xzf', path.join(dir, 'bundle.tgz'), '-C', dir]);
+    for (const name of manifest.filter(entry => entry.endsWith('.mjs'))) {
+      const mod = await import(pathToFileURL(path.join(dir, name)).href);
+      assert.notEqual(mod, undefined, name);
+    }
+    const recovery = await import(pathToFileURL(path.join(dir, 'production-deployment-recovery.mjs')).href);
+    assert.equal(typeof recovery.assessRecovery, 'function');
+    assert.equal(typeof recovery.executeRecoveryStages, 'function');
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+// ── resume binding: an existing archive must match this exact recovery context ──
+test('resume requires archive schema, run id, approved SHA and plan targets to match the context', () => {
+  const bundle = validBundle();
+  const plan = planFor(bundle);
+  const makeArchive = () => ({ schema: RECOVERY_SCHEMA, phase: 'ACTIVE_WRITTEN', targetRunId: context.targetRunId, approvedSha: context.approvedSha, recoveryRunId: context.recoveryRunId, plan: JSON.parse(JSON.stringify(plan)) });
+  const control = assessRecovery({ ...bundle, archive: makeArchive(), active: plan.active }, context);
+  assert.deepEqual(control, { eligible: true, reasons: [], resumeFrom: 'ACTIVE_WRITTEN' });
+  const mutations = [
+    [archive => { archive.schema = 'phoenix.other/9'; }, 'ARCHIVE_SCHEMA_MISMATCH'],
+    [archive => { archive.targetRunId = '999-9'; }, 'ARCHIVE_BINDING_MISMATCH'],
+    [archive => { archive.approvedSha = 'b'.repeat(40); }, 'ARCHIVE_BINDING_MISMATCH'],
+    [archive => { archive.plan.active.floorSha = 'b'.repeat(40); }, 'ARCHIVE_PLAN_CONTEXT_MISMATCH'],
+    [archive => { archive.plan.active.configSha = 'b'.repeat(40); }, 'ARCHIVE_PLAN_CONTEXT_MISMATCH'],
+    [archive => { archive.plan.active.active.api.revision = 'b'.repeat(40); }, 'ARCHIVE_PLAN_CONTEXT_MISMATCH'],
+    [archive => { archive.plan.deployRecord.target = 'b'.repeat(40); }, 'ARCHIVE_PLAN_CONTEXT_MISMATCH'],
+    [archive => { archive.plan.deployRecord.floorSha = 'b'.repeat(40); }, 'ARCHIVE_PLAN_CONTEXT_MISMATCH'],
+    [archive => { archive.plan.deployRecord.candidates.api.revision = 'b'.repeat(40); }, 'ARCHIVE_PLAN_CONTEXT_MISMATCH'],
+    [archive => { archive.plan.deployRecord.outcome = 'SWITCHING'; }, 'ARCHIVE_PLAN_CONTEXT_MISMATCH'],
+    [archive => { delete archive.plan; }, 'ARCHIVE_PLAN_MISSING'],
+  ];
+  for (const [mutate, reason] of mutations) {
+    const archive = makeArchive();
+    mutate(archive);
+    const assessment = assessRecovery({ ...bundle, archive, active: plan.active }, context);
+    assert.equal(assessment.eligible, false, reason);
+    assert.ok(assessment.reasons.includes(reason), `${reason} in ${assessment.reasons}`);
+  }
 });
