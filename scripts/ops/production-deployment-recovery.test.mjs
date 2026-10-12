@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
-import { assessRecovery, planRecoveredState, executeRecoveryStages, replayStartupWindow, RECOVERY_SCHEMA, CASE_A_STARTUP_RESULT, RECOVERY_PHASES, CASE_A_ERROR_RECEIPT_SCHEMA, BENIGN_STARTUP_ERROR_TRANSACTION, BENIGN_STARTUP_ERROR_ATTRIBUTION, BENIGN_STARTUP_ERROR_WORD_SET } from './production-deployment-recovery.mjs';
+import { assessRecovery, planRecoveredState, executeRecoveryStages, replayStartupWindow, RECOVERY_SCHEMA, CASE_A_STARTUP_RESULT, RECOVERY_PHASES, CASE_A_ERROR_RECEIPT_SCHEMA, BENIGN_STARTUP_ERROR_TRANSACTION, BENIGN_STARTUP_ERROR_ATTRIBUTION, BENIGN_STARTUP_ERROR_WORD_SET, VERIFIED_ABORT_RECEIPT_SCHEMA, VERIFIED_ABORT_TRANSACTION, VERIFIED_ABORT_POINT } from './production-deployment-recovery.mjs';
 
 const sha = c => c.repeat(40);
 const image = c => `sha256:${c.repeat(64)}`;
@@ -443,4 +443,131 @@ test('DB baseline validation requires complete integer field sets on both sides'
     assert.equal(assessment.eligible, false, reason);
     assert.ok(assessment.reasons.includes(reason), `${reason} in ${assessment.reasons}`);
   }
+});
+
+// ── verified-abort recovery: run 38217361863-1 @ M4, PASS evidence, script died in the disk report ──
+const M4 = 'f46f651dcebeb11210c8e577f3c0caed87f356c2';
+const verifiedWindow = [
+  '[Nest] LOG [NestFactory] Starting Nest application...',
+  '[Nest] LOG [RouterExplorer] Mapped {/api/v2/finance/cash/transactions/bulk-delete, POST} route',
+  '[Nest] LOG [RoutesResolver] \u001b[36mSysErrorLogsController\u001b[39m, {/api/system/error-logs}: \u001b[32m+12ms\u001b[39m',
+  'API_BOOTSTRAP_SCHEMA_COMPATIBILITY=PASS',
+];
+const verifiedStreams = { stdout: verifiedWindow.map((l, i) => `2026-10-12T07:29:1${i}.000000000Z ${l}`).join('\n') + '\n', stderr: '' };
+
+async function verifiedParts() {
+  const replay = await replayStartupWindow({ post: { containers: { api: { id: 'c'.repeat(64) } } }, startup: { startedAt: '2026-10-12T07:29:01.000000000Z', capturedAt: '2026-10-12T07:29:26.200000000Z' } }, () => verifiedStreams);
+  const dbBaseline = { mirrorRows: 17717, entityRows: 41577, arSnapshotRows: 150, runningJobs: 0, queuedJobs: 0, writebackPending: 0, wmsWritebackPending: 0, remoteWriteAttempts: 0, wmsRemoteWriteAttempts: 0, inboundRuns: 0 };
+  const receipt = {
+    schema: VERIFIED_ABORT_RECEIPT_SCHEMA, runId: VERIFIED_ABORT_TRANSACTION.runId, targetSha: VERIFIED_ABORT_TRANSACTION.targetSha,
+    startup: { result: 'PASS_REDACTED_SUMMARY', combinedDigest: replay.combinedDigest },
+    abortPoint: VERIFIED_ABORT_POINT,
+    readinessHttp: 200, dbBaseline,
+  };
+  const startup = { schema: 'phoenix.production-deployment-evidence/v2', phase: 'API_STARTUP_LOG', deployRunId: VERIFIED_ABORT_TRANSACTION.runId, deployRunAttempt: 1, targetSha: M4, configFloorSha: M4, containerId: 'c'.repeat(64), startedAt: '2026-10-12T07:29:01.000000000Z', capturedAt: '2026-10-12T07:29:26.200000000Z', result: 'PASS_REDACTED_SUMMARY', schemaWriteSignalCount: 0, errorSignalCount: 0, sensitiveLineCount: 0, eventCounts: { SCHEMA_COMPATIBILITY_PASS: 1, READINESS_HTTP_PASS: 1 }, combinedDigest: replay.combinedDigest };
+  const evidence = {
+    pre: { schema: 'phoenix.production-deployment-evidence/v2', phase: 'PRE_SNAPSHOT', deployRunId: VERIFIED_ABORT_TRANSACTION.runId, deployRunAttempt: 1, targetSha: M4, configFloorSha: M4, capturedAt: '2026-10-12T07:28:53.686Z', containers: { db: { id: 'd'.repeat(64), startedAt: '2026-10-05T04:03:03.533292753Z', image: image('d'), running: true, health: 'healthy', restartCount: 0, mounts: [] }, web: { id: 'e'.repeat(64), startedAt: '2026-10-08T06:39:19.544652894Z', image: image('e'), ociRevision: sha(previous), running: true, health: 'healthy', restartCount: 0, mounts: [] }, api: { id: 'a'.repeat(64), startedAt: '2026-10-12T05:38:41.000000000Z', image: image('x'), running: true, health: 'healthy', restartCount: 0, mounts: [] } } },
+    post: { schema: 'phoenix.production-deployment-evidence/v2', phase: 'POST_SNAPSHOT', deployRunId: VERIFIED_ABORT_TRANSACTION.runId, deployRunAttempt: 1, targetSha: M4, configFloorSha: M4, capturedAt: '2026-10-12T07:29:26.231Z', containers: { db: { id: 'd'.repeat(64), startedAt: '2026-10-05T04:03:03.533292753Z', image: image('d') }, web: { id: 'e'.repeat(64), startedAt: '2026-10-08T06:39:19.544652894Z', image: image('e'), ociRevision: sha(previous), running: true, health: 'healthy', restartCount: 0, mounts: [] }, api: { id: 'c'.repeat(64), startedAt: '2026-10-12T07:29:01.000000000Z', image: image('c'), ociRevision: M4, running: true, health: 'healthy', restartCount: 0, mounts: [] }, db: { id: 'd'.repeat(64), startedAt: '2026-10-05T04:03:03.533292753Z', image: image('d'), running: true, health: 'healthy', restartCount: 0, mounts: [] } } },
+    startup,
+  };
+  return { replay, receipt, evidence, dbBaseline };
+}
+async function verifiedBundle(overrides = {}) {
+  const { replay, receipt, evidence, dbBaseline } = await verifiedParts();
+  const previousPin = { api: { imageId: image('x'), revision: 'c9383d5043191213165e237bbdb7b984f7603345' }, web: pin(previous, 'b') };
+  const candidateApi = { imageId: image('c'), revision: M4 };
+  return {
+    transaction: { version: 3, runId: '38217361863-1', phase: 'IN_PROGRESS', target: M4, configSha: M4 },
+    deployRecord: { version: 3, outcome: 'SWITCHING', switched: { api: true, web: false }, target: M4, configSha: M4, floorSha: M4, previous: previousPin, active: { api: candidateApi, web: previousPin.web }, candidates: { api: candidateApi }, migrationPaths: [], protectedImages: [], expiresAt: '2026-10-12T07:58:59.192Z', migrationBaseline: 'c9383d5043191213165e237bbdb7b984f7603345', evidence: { pre: '/state/pre.json', post: '/state/post.json', log: '/state/log.json' } },
+    marker: { version: 3, operation: 'CODE_HOLD', phase: 'IN_PROGRESS', runId: '38217361863-1', target: M4, startedAt: '2026-10-12T07:28:58.000Z', expiresAt: '2026-10-12T07:58:58.000Z' },
+    floor: { version: 3, floorSha: M4, chanjetPolicy: 'HOLD', readonlyApproval: null },
+    active: { version: 3, configSha: M4, floorSha: M4, active: previousPin, outcome: 'CONFIG_READY_HOLD', migrationBaseline: 'c9383d5043191213165e237bbdb7b984f7603345' },
+    runtime: { api: candidateApi, web: previousPin.web },
+    containers: { db: { id: 'd'.repeat(64), image: image('d'), startedAt: '2026-10-05T04:03:03.533292753Z', ociRevision: null }, api: { id: 'c'.repeat(64), image: image('c'), startedAt: '2026-10-12T07:29:01.000000000Z', ociRevision: M4 }, web: { id: 'e'.repeat(64), image: image('e'), startedAt: '2026-10-08T06:39:19.544652894Z', ociRevision: sha(previous) } },
+    readinessHttp: '200',
+    liveEnv: { CHANJET_SYNC_POLICY: 'HOLD', CHANJET_READONLY_SYNC_ENABLED: 'false', CHANJET_ERP_INBOUND_SYNC_ENABLED: 'false' },
+    evidence, receipt, replay, dbEvidence: dbBaseline,
+    evidenceFiles: null, // pure validation skips file-based verify recompute; CLI supplies real paths
+    checkout: { head: M4, clean: true },
+    ...overrides,
+  };
+}
+const verifiedContext = { targetRunId: '38217361863-1', approvedSha: M4, recoveryRunId: '38300000123-1', now: Date.parse('2026-10-12T09:00:00.000Z') };
+
+test('the verified-abort transaction is eligible only with the frozen receipt and a clean recomputed state', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'verified-abort-happy-'));
+  try {
+  const { evidence } = await verifiedParts();
+  const files = { pre: path.join(dir, 'pre.json'), post: path.join(dir, 'post.json'), log: path.join(dir, 'log.json') };
+  fs.writeFileSync(files.pre, JSON.stringify(evidence.pre));
+  fs.writeFileSync(files.post, JSON.stringify(evidence.post));
+  fs.writeFileSync(files.log, JSON.stringify(evidence.startup));
+  const bundle = await verifiedBundle({ evidenceFiles: files });
+  const assessment = assessRecovery(bundle, verifiedContext);
+  assert.equal(assessment.eligible, true, JSON.stringify(assessment.reasons));
+  const plan = planRecoveredState(bundle.deployRecord, bundle.marker, { recoveryRunId: verifiedContext.recoveryRunId, recoveredAt: '2026-10-12T09:30:00.000Z', startupResult: 'PASS_REDACTED_SUMMARY', classification: 'EVIDENCE_VERIFIED_SCRIPT_ABORTED_AFTER_VERIFY', receiptSha256: 'b'.repeat(64) });
+  assert.equal(plan.deployRecord.recovery.startupResult, 'PASS_REDACTED_SUMMARY');
+  assert.equal(plan.deployRecord.recovery.classification, 'EVIDENCE_VERIFIED_SCRIPT_ABORTED_AFTER_VERIFY');
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+test('every verified-abort rejection path holds individually', async () => {
+  const base = await verifiedBundle();
+  // wrong run / wrong SHA fail closed before the receipt path (EVIDENCE_BINDING)
+  assert.equal(assessRecovery(base, { ...verifiedContext, targetRunId: '999-1' }).reasons.includes('EVIDENCE_BINDING'), true);
+  assert.equal(assessRecovery(base, { ...verifiedContext, approvedSha: 'b'.repeat(40) }).reasons.includes('EVIDENCE_BINDING'), true);
+  const mutations = [
+    [b => { delete b.receipt; }, 'RECEIPT_MISSING'],
+    [b => { b.receipt.schema = 'phoenix.other/1'; }, 'RECEIPT_SCHEMA'],
+    [b => { b.receipt.runId = '999-9'; }, 'RECEIPT_TRANSACTION_NOT_ELIGIBLE'],
+    [b => { b.receipt.startup.combinedDigest = 'f'.repeat(64); }, 'RECEIPT_DIGEST_MISMATCH'],
+    [b => { b.receipt.abortPoint = 'SOMETHING_ELSE'; }, 'RECEIPT_ABORT_POINT_MISMATCH'],
+    [b => { b.replay.combinedDigest = 'f'.repeat(64); }, 'REPLAY_DIGEST_MISMATCH'],
+    [b => { b.replay.schemaWriteCount = 1; }, 'REPLAY_SCHEMAWRITE_NONZERO'],
+    [b => { b.replay.sqlShapeCount = 1; }, 'REPLAY_SQL_SHAPE_PRESENT'],
+    [b => { b.replay.errorLineCount = 1; }, 'REPLAY_ERROR_NONZERO'],
+    [b => { b.replay.available = false; }, 'REPLAY_UNAVAILABLE'],
+    [b => { b.receipt.readinessHttp = 503; }, 'RECEIPT_READINESS_MISMATCH'],
+    [b => { b.dbEvidence.mirrorRows = 17718; }, 'RECEIPT_DB_BASELINE_MISMATCH'],
+    [b => { b.dbEvidence = { error: 'psql failed' }; }, 'RECEIPT_DB_EVIDENCE_ERROR'],
+    [b => { b.containers.api.id = '7'.repeat(64); }, 'LIVE_API_DRIFTED_FROM_POST'],
+    [b => { b.liveEnv.CHANJET_READONLY_SYNC_ENABLED = 'true'; }, 'LIVE_POLICY_FLAGS'],
+    [b => { b.evidence.startup.result = 'HOLD_STARTUP_ERROR'; }, 'RECEIPT_STARTUP_RESULT'],
+  ];
+  for (const [mutate, reason] of mutations) {
+    const bundle = JSON.parse(JSON.stringify(base));
+    mutate(bundle);
+    const assessment = assessRecovery(bundle, verifiedContext);
+    assert.equal(assessment.eligible, false, reason);
+    assert.ok(assessment.reasons.includes(reason), `${reason} in ${assessment.reasons}`);
+  }
+});
+test('verify recompute runs against real evidence files and fails closed on tampering', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'verified-abort-'));
+  try {
+    const { receipt, evidence } = await verifiedParts();
+    const files = { pre: path.join(dir, 'pre.json'), post: path.join(dir, 'post.json'), log: path.join(dir, 'log.json') };
+    fs.writeFileSync(files.pre, JSON.stringify(evidence.pre));
+    fs.writeFileSync(files.post, JSON.stringify(evidence.post));
+    fs.writeFileSync(files.log, JSON.stringify(evidence.startup));
+    const bundle = await verifiedBundle({ evidenceFiles: files, receipt });
+    assert.equal(assessRecovery(bundle, verifiedContext).eligible, true, JSON.stringify(assessRecovery(bundle, verifiedContext).reasons));
+    // tamper a field only the recomputed file-verify checks: the startup log
+    // loses its API_STARTUP_LOG phase, so verifyEvidenceFiles rejects while
+    // every generic pre-check still passes
+    const tampered = JSON.parse(JSON.stringify(evidence.startup));
+    tampered.phase = 'TAMPERED';
+    fs.writeFileSync(files.log, JSON.stringify(tampered));
+    const assessment = assessRecovery({ ...bundle, evidence: { ...bundle.evidence, startup: tampered } }, verifiedContext);
+    assert.equal(assessment.eligible, false);
+    assert.ok(assessment.reasons.includes('VERIFY_RECOMPUTE_FAILED'), `${assessment.reasons}`);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+test('PASS evidence outside the frozen verified-abort transaction never becomes recoverable', async () => {
+  const bundle = await verifiedBundle();
+  const other = JSON.parse(JSON.stringify(bundle));
+  other.transaction.runId = '88888888888-1';
+  other.evidence.startup.deployRunId = '88888888888-1';
+  const assessment = assessRecovery(other, { ...verifiedContext, targetRunId: '88888888888-1' });
+  assert.equal(assessment.eligible, false);
+  assert.ok(assessment.reasons.includes('RECEIPT_TRANSACTION_NOT_ELIGIBLE') || assessment.reasons.includes('EVIDENCE_BINDING'));
 });

@@ -85,7 +85,7 @@ jobs:
             [[ "$APPROVED_SHA" =~ ^[a-f0-9]{40}$ ]]
             [[ "$BOUND_RUN_ID" =~ ^[0-9]+-[0-9]+$ ]]
             if [ -n "$STARTUP_ERROR_RECEIPT" ]; then
-              printf '%s' "$STARTUP_ERROR_RECEIPT" | node -e 'let d="";process.stdin.on("data",c=>d+=c);process.stdin.on("end",()=>{try{const r=JSON.parse(d);if(r.schema!=="phoenix.case-a-benign-startup-error-receipt/1")process.exit(1);console.log("RECEIPT_SCHEMA_OK="+r.runId)}catch{process.exit(1)}})' >/dev/null || { echo '::error::startup_error_receipt is not a valid sanitized receipt'; exit 26; }
+              printf '%s' "$STARTUP_ERROR_RECEIPT" | node -e 'let d="";process.stdin.on("data",c=>d+=c);process.stdin.on("end",()=>{try{const r=JSON.parse(d);if(r.schema!=="phoenix.case-a-benign-startup-error-receipt/1"&&r.schema!=="phoenix.verified-abort-recovery-receipt/1")process.exit(1);console.log("RECEIPT_SCHEMA_OK="+r.runId)}catch{process.exit(1)}})' >/dev/null || { echo '::error::startup_error_receipt is not a valid sanitized receipt'; exit 26; }
             fi
           else
             test "$GITHUB_REF" = refs/heads/main
