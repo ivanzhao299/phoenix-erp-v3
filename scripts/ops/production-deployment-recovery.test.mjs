@@ -373,6 +373,7 @@ test('every benign-startup-error rejection path holds individually', async () =>
     [b => { b.evidence.startup.schemaWriteSignalCount = 1; }, 'RECEIPT_SCHEMAWRITE_NONZERO'],
     [b => { b.evidence.startup.eventCounts.SCHEMA_COMPATIBILITY_PASS = 0; }, 'RECEIPT_COMPAT_MISMATCH'],
     [b => { b.replay.sqlShapeCount = 1; }, 'REPLAY_SQL_SHAPE_PRESENT'],
+    [b => { b.replay.errorLineCount = 1; }, 'REPLAY_ERROR_NONZERO'],
     [b => { b.replay.schemaWriteCount = 1; }, 'REPLAY_SCHEMAWRITE_NONZERO'],
     [b => { delete b.replay.linesByTs[THE_TS]; }, 'RECEIPT_LINE_NOT_IN_WINDOW'],
     [b => { b.replay.linesByTs[THE_TS].sqlStatementShape = 'insert into'; }, 'REPLAY_LINE_SQL_SHAPE'],
@@ -406,4 +407,40 @@ test('HOLD_STARTUP_ERROR outside the frozen transaction never becomes recoverabl
   const assessment = assessRecovery(other, { ...benignContext, targetRunId: '99999999999-1' });
   assert.equal(assessment.eligible, false);
   assert.ok(assessment.reasons.includes('EVIDENCE_BINDING'));
+});
+
+test('replay with the benign route line plus an additional real error line holds', async () => {
+  const poisonedStreams = { stdout: benignStreams.stdout + '2026-10-12T05:39:06.000000000Z Error: connect ECONNREFUSED 127.0.0.1:5432\n', stderr: '' };
+  const replay = await replayStartupWindow({ post: { containers: { api: { id: '9'.repeat(64) } } }, startup: { startedAt: '2026-10-12T05:38:41.000000000Z', capturedAt: '2026-10-12T05:39:10.400000000Z' } }, () => poisonedStreams);
+  assert.equal(replay.errorLineCount, 1);
+  assert.equal(replay.sqlShapeCount, 0);
+  assert.equal(replay.linesByTs[THE_TS].routesResolverLine, true, 'the known-benign line is still identified as a route registration');
+  const bundle = await benignBundle({ replay });
+  const assessment = assessRecovery(bundle, benignContext);
+  assert.equal(assessment.eligible, false);
+  assert.ok(assessment.reasons.includes('REPLAY_ERROR_NONZERO'), `${assessment.reasons}`);
+  assert.ok(assessment.reasons.includes('REPLAY_DIGEST_MISMATCH'), 'window changed, digest must also mismatch');
+});
+test('DB baseline validation requires complete integer field sets on both sides', async () => {
+  const base = await benignBundle();
+  const cases = [
+    [b => { b.dbEvidence = { error: 'psql: connection refused' }; }, 'RECEIPT_DB_EVIDENCE_ERROR'],
+    [b => { b.dbEvidence = undefined; }, 'RECEIPT_DB_EVIDENCE_ERROR'],
+    [b => { b.receipt.dbBaseline = undefined; }, 'RECEIPT_DB_BASELINE_MISSING'],
+    [b => { b.receipt.dbBaseline = {}; b.dbEvidence = {}; }, 'RECEIPT_DB_BASELINE_INVALID'],
+    [b => { delete b.receipt.dbBaseline.mirrorRows; }, 'RECEIPT_DB_BASELINE_INVALID'],
+    [b => { b.receipt.dbBaseline.mirrorRows = '17717'; }, 'RECEIPT_DB_BASELINE_INVALID'],
+    [b => { b.receipt.dbBaseline.runningJobs = 1.5; }, 'RECEIPT_DB_BASELINE_INVALID'],
+    [b => { delete b.dbEvidence.entityRows; }, 'RECEIPT_DB_EVIDENCE_INVALID'],
+    [b => { b.dbEvidence.inboundRuns = null; }, 'RECEIPT_DB_EVIDENCE_INVALID'],
+    [b => { b.dbEvidence.remoteWriteAttempts = '0'; }, 'RECEIPT_DB_EVIDENCE_INVALID'],
+    [b => { b.dbEvidence.mirrorRows = 17718; }, 'RECEIPT_DB_BASELINE_MISMATCH'],
+  ];
+  for (const [mutate, reason] of cases) {
+    const bundle = JSON.parse(JSON.stringify(base));
+    mutate(bundle);
+    const assessment = assessRecovery(bundle, benignContext);
+    assert.equal(assessment.eligible, false, reason);
+    assert.ok(assessment.reasons.includes(reason), `${reason} in ${assessment.reasons}`);
+  }
 });

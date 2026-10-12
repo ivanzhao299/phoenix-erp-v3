@@ -83,6 +83,22 @@ export async function replayStartupWindow(evidence, dockerLogs) {
   };
 }
 
+// The receipt's DB baseline is compared field-by-field with the live READ ONLY
+// counters. Both sides must carry the complete field set as explicit integers:
+// a missing field, a query error, or a non-numeric value is a HOLD, never an
+// undefined===undefined pass.
+const RECEIPT_DB_FIELDS = ['mirrorRows', 'entityRows', 'arSnapshotRows', 'runningJobs', 'queuedJobs', 'writebackPending', 'wmsWritebackPending', 'remoteWriteAttempts', 'wmsRemoteWriteAttempts', 'inboundRuns'];
+function validateDbBaseline(receipt, dbEvidence, reasons) {
+  if (!dbEvidence || typeof dbEvidence !== 'object' || dbEvidence.error !== undefined) { reasons.push('RECEIPT_DB_EVIDENCE_ERROR'); return; }
+  const baseline = receipt?.dbBaseline;
+  if (!baseline || typeof baseline !== 'object') { reasons.push('RECEIPT_DB_BASELINE_MISSING'); return; }
+  for (const key of RECEIPT_DB_FIELDS) {
+    const expected = baseline[key]; const actual = dbEvidence[key];
+    if (!Number.isInteger(expected)) { reasons.push('RECEIPT_DB_BASELINE_INVALID'); return; }
+    if (!Number.isInteger(actual)) { reasons.push('RECEIPT_DB_EVIDENCE_INVALID'); return; }
+    if (expected !== actual) { reasons.push('RECEIPT_DB_BASELINE_MISMATCH'); return; }
+  }
+}
 // Receipt-gated validation for the benign single-line startup-error path.
 // Every claim is re-verified against the on-disk evidence, a fresh sanitized
 // replay, live readiness and the DB read-only counters — the receipt binds
@@ -106,6 +122,9 @@ function validateBenignStartupError(bundle, context, reasons) {
     if (replay.combinedDigest !== startup?.combinedDigest) reasons.push('REPLAY_DIGEST_MISMATCH');
     if (replay.schemaWriteCount !== 0) reasons.push('REPLAY_SCHEMAWRITE_NONZERO');
     if (replay.sqlShapeCount !== 0) reasons.push('REPLAY_SQL_SHAPE_PRESENT');
+    // Under the FIXED classifier the known-benign line is exempt, so any
+    // error-classified line in the replay is a real additional error.
+    if (replay.errorLineCount !== 0) reasons.push('REPLAY_ERROR_NONZERO');
     const claimed = receipt.errorLine;
     const line = claimed && replay.linesByTs?.[claimed.ts];
     if (!line) reasons.push('RECEIPT_LINE_NOT_IN_WINDOW');
@@ -118,11 +137,7 @@ function validateBenignStartupError(bundle, context, reasons) {
     }
   }
   if (receipt.readinessHttp !== 200) reasons.push('RECEIPT_READINESS_MISMATCH');
-  const baseline = receipt.dbBaseline ?? {};
-  const live = dbEvidence ?? {};
-  for (const key of ['mirrorRows', 'entityRows', 'arSnapshotRows', 'runningJobs', 'queuedJobs', 'writebackPending', 'wmsWritebackPending', 'remoteWriteAttempts', 'wmsRemoteWriteAttempts', 'inboundRuns']) {
-    if (baseline[key] !== live[key]) { reasons.push('RECEIPT_DB_BASELINE_MISMATCH'); break; }
-  }
+  validateDbBaseline(receipt, dbEvidence, reasons);
 }
 
 // Pure eligibility assessment over an already-collected state bundle. Every
