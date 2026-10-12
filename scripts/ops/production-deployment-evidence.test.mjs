@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { captureSnapshot, compareSnapshots, summarizeStartupLogs, verifyEvidenceFiles, captureDockerLogStreams, MAX_LOG_BYTES, metadataFor, classifyEvidenceFailure } from './production-deployment-evidence.mjs';
+import { captureSnapshot, compareSnapshots, summarizeStartupLogs, verifyEvidenceFiles, captureDockerLogStreams, MAX_LOG_BYTES, metadataFor, classifyEvidenceFailure, classifyStartupLine } from './production-deployment-evidence.mjs';
 import { readFormalDeploymentEvidence } from './chanjet-readonly-production-audit.mjs';
 
 const sha = c => ({ t: 'a', x: 'b', p: 'c' }[c] || c).repeat(40);
@@ -110,6 +110,116 @@ test('schema writes, output overflow, and incomplete stream timestamps fail clos
   assert.equal(summarizeStartupLogs({ ...base, stderr: '2026-10-09T00:00:02.000Z migration attempted ALTER TABLE x' }).result, 'HOLD_SCHEMA_OR_WRITE_SIGNAL');
   assert.throws(() => summarizeStartupLogs({ ...base, stdout: '2026-10-09T00:00:01.000Z ' + 'x'.repeat(MAX_LOG_BYTES), stderr: '' }), /LOG_OUTPUT_LIMIT/);
   assert.throws(() => summarizeStartupLogs({ ...base, stderr: 'ERROR without docker timestamp' }), /LOG_WINDOW_INCOMPLETE_STDERR/);
+});
+// ── Run 38031441639-1 Case A regression: the 23+7 false-positive classes ──
+test('NestJS route registration lines are never schema/write or error evidence', () => {
+  // Every path below is a real route of this codebase; methods/path segments
+  // carry delete/exception/failure/error words that previously tripped both
+  // detectors (fin-cash bulk-delete, delivery exception sign, chanjet canary
+  // latest-failure, SysErrorLogsController, generic @Delete).
+  const routeLines = [
+    '[Nest] LOG [RouterExplorer] Mapped {/api/v2/finance/cash/transactions/bulk-delete, POST} route',
+    '[Nest] LOG [RouterExplorer] Mapped {/api/v2/sales/delivery/:id/receipts/exception, POST} route',
+    '[Nest] LOG [RouterExplorer] Mapped {/api/chanjet/integration/product-name-canary/latest-failure, GET} route',
+    '[Nest] LOG [RoutesResolver] SysErrorLogsController {/api/system/error-logs}:',
+    '[Nest] LOG [RouterExplorer] Mapped {/api/system/error-logs/summary, GET} route',
+    '[Nest] LOG [RouterExplorer] Mapped {/api/system/error-logs/:id, DELETE} route',
+    '[Nest] LOG [RouterExplorer] Mapped {/api/master-data/:type/:id, DELETE} route',
+    '[Nest] LOG [RouterExplorer] Mapped {/api/master-data/:type/:id, DELETE}',
+    '[Nest] LOG [RouterExplorer] Mapped {/api/v2/bi/reports/:code/refresh, POST} +12ms',
+    '[Nest] LOG [RoutesResolver] DualPrefixController {/api/v2/a, /api/v2/b}:',
+    '[Nest] LOG [RoutesResolver] EmptyPrefixController {}:',
+  ];
+  for (const line of routeLines) {
+    const verdict = classifyStartupLine(`2026-10-10T06:43:19.000000000Z ${line}`);
+    assert.equal(verdict.schemaWrite, false, line);
+    assert.equal(verdict.error, false, line);
+  }
+});
+test('colorized production stdout still matches the route exemption after ANSI stripping', () => {
+  const colored = '2026-10-10T06:43:18.896791691Z [Nest] LOG [RouterExplorer] \x1b[32mMapped {/api/v2/finance/cash/transactions/bulk-delete, POST}\x1b[39m route';
+  const verdict = classifyStartupLine(colored);
+  assert.equal(verdict.schemaWrite, false);
+  assert.equal(verdict.error, false);
+  // ANSI must equally fail to hide a real signal inside a colored payload.
+  const coloredSql = '2026-10-10T06:43:19.000000000Z [Nest] LOG \x1b[32mquery: INSERT\x1b[39m INTO chanjet_sync_jobs(status) VALUES ($1)';
+  assert.equal(classifyStartupLine(coloredSql).schemaWrite, true);
+});
+test('pseudo-route lines carrying SQL or exception payloads still hold', () => {
+  const pseudoRoutes = [
+    '[RouterExplorer] Mapped {/api/x, DELETE} INSERT INTO secrets VALUES (1)',
+    '[RouterExplorer] Mapped {/api/x, POST} DELETE FROM audit_log WHERE true',
+    '[RouterExplorer] Mapped {INSERT INTO logs SELECT 1, DELETE}',
+    '[RouterExplorer] Mapped {/api/x, GET} Error: connect ECONNREFUSED 127.0.0.1:5432',
+    '[RouterExplorer] Mapped {/api/x, PUT} [ExceptionHandler] dependency injection failed',
+    '[RoutesResolver] SysErrorLogsController {/api/system/error-logs} DROP TABLE audit_log',
+    '[RoutesResolver] Attacker {/api/x}: UPDATE settings SET flag = true WHERE id = 1',
+    '[RouterExplorer] Mapped {/api/x, DELETE} route TRUNCATE TABLE inv_batches',
+  ];
+  for (const line of pseudoRoutes) {
+    const verdict = classifyStartupLine(`2026-10-10T06:43:19.000000000Z ${line}`);
+    assert.equal(verdict.schemaWrite || verdict.error, true, line);
+  }
+  assert.equal(classifyStartupLine('2026-10-10T06:43:19.000000000Z [RouterExplorer] Mapped {/api/x, DELETE} INSERT INTO secrets VALUES (1)').schemaWrite, true);
+  assert.equal(classifyStartupLine('2026-10-10T06:43:19.000000000Z [RouterExplorer] Mapped {/api/x, GET} Error: connect ECONNREFUSED 127.0.0.1:5432').error, true);
+});
+test('informational prose is not a migration write; executed migrations still are', () => {
+  const informational = '[Nest] LOG [WorkflowService] WorkflowService initialized. Schema managed by migration file.';
+  assert.equal(classifyStartupLine(`2026-10-10T06:43:19.211549529Z ${informational}`).schemaWrite, false);
+  assert.equal(classifyStartupLine(`2026-10-10T06:43:19.211549529Z ${informational}`).error, false);
+  for (const executed of [
+    'Migration RestoreFinanceSourceTypeChecks1787304000000 has been executed successfully.',
+    'executing migration RestoreFinanceSourceTypeChecks1787304000000',
+    'run migrations against the production schema',
+    'TypeORM migrationsRun=true synchronize=false',
+    'seed data completed for dict fixtures',
+    'running seed script for menu registry',
+  ]) assert.equal(classifyStartupLine(`2026-10-10T06:43:19.300000000Z ${executed}`).schemaWrite, true, executed);
+});
+test('SQL write statement shapes remain fail-closed', () => {
+  for (const sql of [
+    'query: INSERT INTO chanjet_sync_jobs(status) VALUES ($1)',
+    'QUERY: ALTER TABLE wf_form_definition ADD COLUMN biz_type VARCHAR(64)',
+    'UPDATE "fin_cash_accounts" SET balance = balance - 100 WHERE id = 1',
+    'UPDATE public.sal_customers SET status = $1 WHERE code = $2',
+    'DELETE FROM wf_form_version WHERE form_id = 1 RETURNING id',
+    'upsert into chanjet_ar_snapshot(book_id, period) values ($1, $2)',
+    "SELECT setval('wf_form_definition_id_seq', 42, false)",
+    'SELECT nextval(pg_get_serial_sequence(\'x\', \'id\'))',
+    'TRUNCATE TABLE inv_batches RESTART IDENTITY',
+    'DROP INDEX IF EXISTS idx_legacy_runtime_seed',
+  ]) assert.equal(classifyStartupLine(`2026-10-10T06:43:19.400000000Z ${sql}`).schemaWrite, true, sql);
+});
+test('real startup failures stay fail-closed including Nest exception handler and TypeError', () => {
+  for (const failure of [
+    '[ExceptionHandler] Nest cannot create a new instance of AppModule because it is already constructed',
+    'Error: connect ECONNREFUSED 127.0.0.1:5432',
+    'FATAL: password authentication failed for user "phoenix"',
+    'TypeError: Cannot read properties of undefined (reading "id")',
+    'UnhandledPromiseRejection: query failed with timeout',
+    'combined digest mismatch after capture',
+  ]) assert.equal(classifyStartupLine(`2026-10-10T06:43:19.500000000Z ${failure}`).error, true, failure);
+});
+test('realistic full startup window passes; one SQL line or one error line still holds', () => {
+  const window = [
+    '[Nest] LOG [NestFactory] Starting Nest application...',
+    '[Nest] LOG [InstanceLoader] AppModule dependencies initialized',
+    '[Nest] LOG [RoutesResolver] FinCashController {/api/v2/finance/cash}:',
+    '[Nest] LOG [RouterExplorer] Mapped {/api/v2/finance/cash/transactions/bulk-delete, POST} route',
+    '[Nest] LOG [RouterExplorer] Mapped {/api/master-data/:type/:id, DELETE} route',
+    '[Nest] LOG [RouterExplorer] Mapped {/api/sales/delivery/:id/receipts/exception, POST} route',
+    '[Nest] LOG [RoutesResolver] SysErrorLogsController {/api/system/error-logs}:',
+    '[Nest] LOG [WorkflowService] WorkflowService initialized. Schema managed by migration file.',
+    '[Nest] LOG [ChanjetReadonlySyncScheduler] READONLY_HOLD_BOOTSTRAP',
+    'API_BOOTSTRAP_SCHEMA_COMPATIBILITY=PASS',
+    '🚀 PRODUCTION | Phoenix ERP V3 Backend → http://0.0.0.0:3100',
+  ].map((line, index) => `2026-10-09T00:00:${String(index).padStart(2, '0')}.000Z ${line}`).join('\n');
+  const base = { stdout: window, stderr: '', containerId: 'a'.repeat(64), startedAt: '2026-10-09T00:00:00.000Z', runId: '100-1', runAttempt: '1', targetSha: sha('t'), floorSha: sha('t'), readinessVerified: true };
+  assert.equal(summarizeStartupLogs(base).result, 'PASS_REDACTED_SUMMARY');
+  assert.equal(summarizeStartupLogs(base).schemaWriteSignalCount, 0);
+  assert.equal(summarizeStartupLogs(base).errorSignalCount, 0);
+  assert.equal(summarizeStartupLogs({ ...base, stdout: `${window}\n2026-10-09T00:12:00.000Z query: INSERT INTO chanjet_sync_jobs(status) VALUES ($1)` }).result, 'HOLD_SCHEMA_OR_WRITE_SIGNAL');
+  assert.equal(summarizeStartupLogs({ ...base, stdout: `${window}\n2026-10-09T00:12:00.000Z Error: connect ECONNREFUSED 127.0.0.1:5432` }).result, 'HOLD_STARTUP_ERROR');
 });
 test('docker command failures are distinct from application stderr and combined output is bounded', () => {
   const args = { containerId: 'a'.repeat(64), startedAt: '2026-10-09T00:00:00.000Z', capturedAt: '2026-10-09T00:00:05.000Z' };

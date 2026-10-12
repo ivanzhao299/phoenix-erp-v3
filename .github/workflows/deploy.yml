@@ -379,7 +379,7 @@ jobs:
           CHANJET_HASH_FIXTURE_CONTAINER: ${{ job.services.postgres.id }}
         run: |
           docker run --rm -v "$PWD:/workspace:ro" -w /workspace node:20-alpine node --test --test-name-pattern="real atomic env" scripts/ops/chanjet-readonly-restoration.test.mjs
-          node --test scripts/ops/production-trusted-paths.test.mjs scripts/ops/production-env-update.test.mjs scripts/ops/production-rollback-state.test.mjs scripts/ops/chanjet-readonly-restoration.test.mjs scripts/ci/deploy-production-config.test.mjs scripts/ci/production-evidence-deploy-contract.test.mjs scripts/ci/phoenix-storage-migration.test.mjs
+          node --test scripts/ops/production-trusted-paths.test.mjs scripts/ops/production-env-update.test.mjs scripts/ops/production-rollback-state.test.mjs scripts/ops/production-deployment-evidence.test.mjs scripts/ops/production-deployment-recovery.test.mjs scripts/ops/chanjet-readonly-restoration.test.mjs scripts/ci/deploy-production-config.test.mjs scripts/ci/production-evidence-deploy-contract.test.mjs scripts/ci/phoenix-storage-migration.test.mjs
           pnpm --filter phoenix-erp-v3-nest test -- --runInBand src/modules/chanjet
 
       - name: Test migration ledger preflight (read-only fixtures)
