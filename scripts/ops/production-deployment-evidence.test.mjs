@@ -129,6 +129,11 @@ test('NestJS route registration lines are never schema/write or error evidence',
     '[Nest] LOG [RouterExplorer] Mapped {/api/v2/bi/reports/:code/refresh, POST} +12ms',
     '[Nest] LOG [RoutesResolver] DualPrefixController {/api/v2/a, /api/v2/b}:',
     '[Nest] LOG [RoutesResolver] EmptyPrefixController {}:',
+    // run 38208343072-1 root cause: real Nest variants that previously escaped
+    '[Nest] LOG [RoutesResolver] SysErrorLogsController {/api/system/error-logs}: +12ms',
+    '[Nest] LOG [RoutesResolver] SysErrorLogsController, {/api/system/error-logs}:',
+    '[Nest] LOG [RoutesResolver] \u001b[36mSysErrorLogsController\u001b[39m {/api/system/error-logs}: \u001b[32m+12ms\u001b[39m',
+    '[Nest] LOG [RoutesResolver] DualPrefixController, {/api/v2/a, /api/v2/b}: +7ms',
   ];
   for (const line of routeLines) {
     const verdict = classifyStartupLine(`2026-10-10T06:43:19.000000000Z ${line}`);
@@ -155,6 +160,9 @@ test('pseudo-route lines carrying SQL or exception payloads still hold', () => {
     '[RoutesResolver] SysErrorLogsController {/api/system/error-logs} DROP TABLE audit_log',
     '[RoutesResolver] Attacker {/api/x}: UPDATE settings SET flag = true WHERE id = 1',
     '[RouterExplorer] Mapped {/api/x, DELETE} route TRUNCATE TABLE inv_batches',
+    '[RoutesResolver] SysErrorLogsController, {/api/system/error-logs}: DROP TABLE audit_log',
+    '[RoutesResolver] SysErrorLogsController {/api/system/error-logs}: +12ms DELETE FROM sessions',
+    '[RoutesResolver] Attacker, {/api/x}: +1ms [ExceptionHandler] injection failed',
   ];
   for (const line of pseudoRoutes) {
     const verdict = classifyStartupLine(`2026-10-10T06:43:19.000000000Z ${line}`);

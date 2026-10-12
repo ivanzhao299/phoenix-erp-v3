@@ -144,6 +144,9 @@ attempt('STARTUP_LOG_REPLAY', () => {
     errorSignalCount: startup.errorSignalCount, schemaWriteSignalCount: startup.schemaWriteSignalCount,
     sensitiveLineCount: startup.sensitiveLineCount, result: startup.result,
     eventCounts: startup.eventCounts, combinedDigest: startup.combinedDigest,
+    // Split halves so a sanitized Actions log can still carry the full digest:
+    // GitHub secret masking corrupts long hex substrings, never split lines.
+    digestA: String(startup.combinedDigest ?? '').slice(0, 32), digestB: String(startup.combinedDigest ?? '').slice(32),
     containerIdMatchesPostApi: startup.containerId === api.id, startedAtMatchesPostApi: startup.startedAt === api.startedAt,
   };
   out.startupReplay.persisted = persisted;

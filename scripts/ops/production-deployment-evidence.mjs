@@ -100,7 +100,11 @@ const ansiPattern = /\x1b\[[0-9;]*[A-Za-z]/g;
 // exception text or any other payload does not match and is classified
 // normally — the exemption can never swallow a real signal (fail-closed).
 const routerExplorerPattern = /\[RouterExplorer\][^{}\n]*Mapped\s*\{\/[^\s{},]*,\s*(?:GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS|ALL)\}(?:\s+route)?(?:\s*\+\d+ms)?\s*$/i;
-const routesResolverPattern = /\[RoutesResolver\]\s*\w+\s*\{\s*(?:\/[^\s{},]*)?(?:\s*,\s*\/[^\s{},]*)*\s*\}\s*:?\s*$/i;
+// RoutesResolver emits `<Controller>[,] {/prefix[, /prefix]}: [+Nms]` — the
+// optional comma after the controller name and the colored elapsed suffix
+// are both real Nest formats (run 38208343072-1 root cause); the path
+// charset and end anchor stay strict so appended payloads still classify.
+const routesResolverPattern = /\[RoutesResolver\]\s*\w+\s*,?\s*\{\s*(?:\/[^\s{},]*)?(?:\s*,\s*\/[^\s{},]*)*\s*\}\s*:?(?:\s*\+\d+ms)?\s*$/i;
 // Write detection is anchored to SQL/DDL statement shapes and migration/seed
 // execution signatures instead of bare verbs: prose such as "Schema managed by
 // migration file." must not read as a write, while executed migrations, INSERT/
@@ -114,10 +118,15 @@ const errorPattern = /\b(?:fatal|panic|exception(?:handler)?|\w*error|uncaught|u
 const warningPattern = /\b(?:warn|warning|deprecated|retry(?:ing)?)\b/i;
 const bootstrapPattern = /API_BOOTSTRAP_SCHEMA_COMPATIBILITY=PASS|\b(?:nest|bootstrap|listen(?:ing)?|readiness|started|production)\b/i;
 
+export function isRouteRegistrationLine(line) {
+  const clean = typeof line === 'string' ? line.replace(ansiPattern, '') : String(line ?? '');
+  return routerExplorerPattern.test(clean) || routesResolverPattern.test(clean);
+}
+
 export function classifyStartupLine(line) {
   const clean = typeof line === 'string' ? line.replace(ansiPattern, '') : String(line ?? '');
   const sensitive = secretPattern.test(clean);
-  const routeRegistration = routerExplorerPattern.test(clean) || routesResolverPattern.test(clean);
+  const routeRegistration = isRouteRegistrationLine(clean);
   const schemaWrite = !routeRegistration && schemaWritePattern.test(clean);
   const error = !routeRegistration && (errorPattern.test(clean) || schemaWrite);
   const warning = !error && warningPattern.test(clean);

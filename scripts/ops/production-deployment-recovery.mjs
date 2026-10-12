@@ -31,9 +31,114 @@ import { pathToFileURL } from 'node:url';
 export const RECOVERY_SCHEMA = 'phoenix.production-deployment-recovery/1';
 export const CASE_A_STARTUP_RESULT = 'HOLD_SCHEMA_OR_WRITE_SIGNAL';
 export const RECOVERY_PHASES = ['ARCHIVED', 'ACTIVE_WRITTEN', 'DEPLOY_WRITTEN', 'COMPLETE'];
+// Case A benign-startup-ERROR extension: HOLD_STARTUP_ERROR is NOT globally
+// recoverable. Exactly one transaction may close through this path — the R3.c
+// re-anchor deploy whose single startup error line was the known RoutesResolver
+// format gap, root-caused by an independent read-only evidence run and bound
+// below by run id + SHA. Every other HOLD_STARTUP_ERROR stays a hard HOLD.
+export const CASE_A_ERROR_RECEIPT_SCHEMA = 'phoenix.case-a-benign-startup-error-receipt/1';
+export const BENIGN_STARTUP_ERROR_TRANSACTION = Object.freeze({ runId: '38208343072-1', targetSha: 'c9383d5043191213165e237bbdb7b984f7603345' });
+export const BENIGN_STARTUP_ERROR_ATTRIBUTION = 'ROUTES_RESOLVER_REGISTRATION';
+export const BENIGN_STARTUP_ERROR_WORD_SET = Object.freeze(['Nest', 'LOG', 'RoutesResolver', 'mSysErrorLogsController', 'api', 'system', 'error', 'logs']);
 
 const sha256 = value => createHash('sha256').update(value).digest('hex');
 const deepEqual = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+const wordSetOf = line => [...new Set(line.match(/[A-Za-z]{3,}/g) ?? [])].filter(word => !/^[a-fA-F0-9]{8,}$/.test(word));
+const sqlShapePattern = /\b(insert\s+into|update\s+\S+\s+set|delete\s+from|alter\s+table|create\s+(?:table|index|unique|sequence)|drop\s+(?:table|index|constraint)|truncate\s+table?|grant\s+|revoke\s+)\b/i;
+
+// Replays the bounded startup window of the bound deploy and returns only
+// sanitized per-line identity (same word-set rules as the R0 collector; raw
+// line content is never returned). The replay runs the CURRENT classifier:
+// for the benign single-line transaction the flagged line is expected to be
+// a full-format route registration under the fixed patterns, while the whole
+// window must carry zero SQL statement shapes and an unchanged digest.
+// dockerLogs is injectable for tests.
+export async function replayStartupWindow(evidence, dockerLogs) {
+  const evidenceModule = await import('./production-deployment-evidence.mjs');
+  const api = evidence?.post?.containers?.api;
+  const startup = evidence?.startup;
+  if (!api || !startup || !dockerLogs) return { available: false };
+  const streams = dockerLogs(['logs', '--timestamps', '--since', startup.startedAt, '--until', startup.capturedAt, api.id]);
+  const stdout = streams.stdout ?? ''; const stderr = streams.stderr ?? '';
+  let schemaWriteCount = 0; let sqlShapeCount = 0; let errorLineCount = 0;
+  const linesByTs = {};
+  for (const [stream, text] of [['stdout', stdout], ['stderr', stderr]]) {
+    for (const line of text.split(/\r?\n/).filter(Boolean)) {
+      const ts = line.match(/^(\d{4}-\d{2}-\d{2}T[^ ]+Z)\s/)?.[1] ?? null;
+      const clean = line.replace(/\x1b\[[0-9;]*[A-Za-z]/g, '');
+      const shape = sqlShapePattern.exec(clean);
+      const verdict = evidenceModule.classifyStartupLine(line);
+      if (verdict.schemaWrite) schemaWriteCount++;
+      if (verdict.error) errorLineCount++;
+      if (shape) sqlShapeCount++;
+      const identity = { stream, sensitive: verdict.sensitive, sqlStatementShape: shape ? shape[1].toLowerCase() : null, routesResolverLine: evidenceModule.isRouteRegistrationLine(line), wordSet: wordSetOf(line) };
+      if (ts) linesByTs[ts] = identity;
+    }
+  }
+  return {
+    available: true,
+    combinedDigest: createHash('sha256').update(Buffer.from(stdout)).update(Buffer.from([0])).update(Buffer.from(stderr)).digest('hex'),
+    schemaWriteCount, sqlShapeCount, errorLineCount, linesByTs,
+    schemaCompatibilityPass: /API_BOOTSTRAP_SCHEMA_COMPATIBILITY=PASS/i.test(`${stdout}\n${stderr}`),
+  };
+}
+
+// The receipt's DB baseline is compared field-by-field with the live READ ONLY
+// counters. Both sides must carry the complete field set as explicit integers:
+// a missing field, a query error, or a non-numeric value is a HOLD, never an
+// undefined===undefined pass.
+const RECEIPT_DB_FIELDS = ['mirrorRows', 'entityRows', 'arSnapshotRows', 'runningJobs', 'queuedJobs', 'writebackPending', 'wmsWritebackPending', 'remoteWriteAttempts', 'wmsRemoteWriteAttempts', 'inboundRuns'];
+function validateDbBaseline(receipt, dbEvidence, reasons) {
+  if (!dbEvidence || typeof dbEvidence !== 'object' || dbEvidence.error !== undefined) { reasons.push('RECEIPT_DB_EVIDENCE_ERROR'); return; }
+  const baseline = receipt?.dbBaseline;
+  if (!baseline || typeof baseline !== 'object') { reasons.push('RECEIPT_DB_BASELINE_MISSING'); return; }
+  for (const key of RECEIPT_DB_FIELDS) {
+    const expected = baseline[key]; const actual = dbEvidence[key];
+    if (!Number.isInteger(expected)) { reasons.push('RECEIPT_DB_BASELINE_INVALID'); return; }
+    if (!Number.isInteger(actual)) { reasons.push('RECEIPT_DB_EVIDENCE_INVALID'); return; }
+    if (expected !== actual) { reasons.push('RECEIPT_DB_BASELINE_MISMATCH'); return; }
+  }
+}
+// Receipt-gated validation for the benign single-line startup-error path.
+// Every claim is re-verified against the on-disk evidence, a fresh sanitized
+// replay, live readiness and the DB read-only counters — the receipt binds
+// identity, nothing is trusted on its own.
+function validateBenignStartupError(bundle, context, reasons) {
+  const { receipt, replay, evidence, dbEvidence } = bundle;
+  if (!receipt) { reasons.push('RECEIPT_MISSING'); return; }
+  if (receipt.schema !== CASE_A_ERROR_RECEIPT_SCHEMA) reasons.push('RECEIPT_SCHEMA');
+  if (receipt.runId !== BENIGN_STARTUP_ERROR_TRANSACTION.runId || receipt.targetSha !== BENIGN_STARTUP_ERROR_TRANSACTION.targetSha
+    || context.targetRunId !== BENIGN_STARTUP_ERROR_TRANSACTION.runId || context.approvedSha !== BENIGN_STARTUP_ERROR_TRANSACTION.targetSha) reasons.push('RECEIPT_TRANSACTION_NOT_ELIGIBLE');
+  const startup = evidence?.startup;
+  if (!receipt.startup || receipt.startup.result !== 'HOLD_STARTUP_ERROR') reasons.push('RECEIPT_STARTUP_RESULT');
+  else {
+    if (receipt.startup.combinedDigest !== startup?.combinedDigest) reasons.push('RECEIPT_DIGEST_MISMATCH');
+    if (receipt.startup.schemaWriteSignalCount !== 0 || startup?.schemaWriteSignalCount !== 0) reasons.push('RECEIPT_SCHEMAWRITE_NONZERO');
+    if (receipt.startup.errorSignalCount !== 1 || startup?.errorSignalCount !== 1) reasons.push('RECEIPT_COUNTS_MISMATCH');
+    if (receipt.startup.schemaCompatibilityPass !== true || startup?.eventCounts?.SCHEMA_COMPATIBILITY_PASS !== 1) reasons.push('RECEIPT_COMPAT_MISMATCH');
+  }
+  if (!replay?.available) reasons.push('REPLAY_UNAVAILABLE');
+  else {
+    if (replay.combinedDigest !== startup?.combinedDigest) reasons.push('REPLAY_DIGEST_MISMATCH');
+    if (replay.schemaWriteCount !== 0) reasons.push('REPLAY_SCHEMAWRITE_NONZERO');
+    if (replay.sqlShapeCount !== 0) reasons.push('REPLAY_SQL_SHAPE_PRESENT');
+    // Under the FIXED classifier the known-benign line is exempt, so any
+    // error-classified line in the replay is a real additional error.
+    if (replay.errorLineCount !== 0) reasons.push('REPLAY_ERROR_NONZERO');
+    const claimed = receipt.errorLine;
+    const line = claimed && replay.linesByTs?.[claimed.ts];
+    if (!line) reasons.push('RECEIPT_LINE_NOT_IN_WINDOW');
+    else {
+      if (line.sensitive !== false) reasons.push('REPLAY_LINE_SENSITIVE');
+      if (line.sqlStatementShape !== null) reasons.push('REPLAY_LINE_SQL_SHAPE');
+      if (line.routesResolverLine !== true) reasons.push('REPLAY_LINE_ATTRIBUTION');
+      if (claimed.stream !== line.stream || claimed.attribution !== BENIGN_STARTUP_ERROR_ATTRIBUTION
+        || !deepEqual(claimed.wordSet, BENIGN_STARTUP_ERROR_WORD_SET) || !deepEqual(line.wordSet, BENIGN_STARTUP_ERROR_WORD_SET)) reasons.push('RECEIPT_LINE_IDENTITY_MISMATCH');
+    }
+  }
+  if (receipt.readinessHttp !== 200) reasons.push('RECEIPT_READINESS_MISMATCH');
+  validateDbBaseline(receipt, dbEvidence, reasons);
+}
 
 // Pure eligibility assessment over an already-collected state bundle. Every
 // check must pass for the current phase; failures are reported individually.
@@ -95,9 +200,12 @@ export function assessRecovery(bundle, context) {
   if (!runtime?.web?.revision || !active?.active?.web?.revision || (phase === 'ARCHIVED' || phase === null ? runtime.web.revision !== active.active.web.revision : runtime.web.revision !== archive?.plan?.active?.active?.web?.revision)) reasons.push('RUNTIME_WEB_DRIFTED');
   if (readinessHttp !== 200 && readinessHttp !== '200') reasons.push('READINESS');
   if (!liveEnv || liveEnv.CHANJET_SYNC_POLICY !== 'HOLD' || liveEnv.CHANJET_READONLY_SYNC_ENABLED !== 'false' || liveEnv.CHANJET_ERP_INBOUND_SYNC_ENABLED !== 'false') reasons.push('LIVE_POLICY_FLAGS');
-  if (!evidence?.startup || evidence.startup.result !== CASE_A_STARTUP_RESULT || evidence.startup.deployRunId !== context.targetRunId || evidence.startup.targetSha !== context.approvedSha
+  if (!evidence?.startup || evidence.startup.deployRunId !== context.targetRunId || evidence.startup.targetSha !== context.approvedSha
     || !evidence.pre || evidence.pre.deployRunId !== context.targetRunId || !evidence.post || evidence.post.deployRunId !== context.targetRunId
     || evidence.post.containers?.api?.ociRevision !== context.approvedSha || evidence.startup.containerId !== evidence.post.containers?.api?.id) reasons.push('EVIDENCE_BINDING');
+  else if (evidence.startup.result === CASE_A_STARTUP_RESULT) { /* original Case A class: unchanged */ }
+  else if (evidence.startup.result === 'HOLD_STARTUP_ERROR') validateBenignStartupError(bundle, context, reasons);
+  else reasons.push('EVIDENCE_BINDING');
   if (evidence?.pre && evidence?.post) {
     for (const service of ['db', 'web']) {
       const before = evidence.pre.containers?.[service]; const after = evidence.post.containers?.[service];
@@ -122,7 +230,7 @@ export function assessRecovery(bundle, context) {
 // The forward-finalized state: the switched candidate becomes the pinned
 // active API; the untouched web pin carries over; the deploy record marks the
 // recovery outcome with full provenance instead of pretending `complete` ran.
-export function planRecoveredState(deployRecord, marker, { recoveryRunId, recoveredAt }) {
+export function planRecoveredState(deployRecord, marker, { recoveryRunId, recoveredAt, startupResult = CASE_A_STARTUP_RESULT, classification = 'CASE_A_BENIGN_STARTUP_LOG_SIGNALS', receiptSha256 = null }) {
   return {
     active: {
       version: 3, configSha: deployRecord.configSha, floorSha: deployRecord.floorSha,
@@ -135,7 +243,7 @@ export function planRecoveredState(deployRecord, marker, { recoveryRunId, recove
       recovery: {
         schema: RECOVERY_SCHEMA, recoveryRunId, recoveredAt,
         originalOutcome: 'SWITCHING', markerStartedAt: marker.startedAt, markerExpiresAt: marker.expiresAt,
-        startupResult: CASE_A_STARTUP_RESULT, classification: 'CASE_A_BENIGN_STARTUP_LOG_SIGNALS',
+        startupResult, classification, receiptSha256,
         forwardFinalized: true, imageRollback: 'INELIGIBLE_PRE_FLOOR_API',
       },
     },
@@ -199,7 +307,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
         try { containers[service] = evidenceModule.metadataFor(service); }
         catch (error) { containers[service] = { error: String(error?.message || error).slice(0, 200) }; }
       }
-      const { execFileSync } = await import('node:child_process');
+      const { execFileSync, spawnSync } = await import('node:child_process');
       let readinessHttp = '000';
       try { readinessHttp = execFileSync('curl', ['-sS', '--max-time', '15', '-o', '/dev/null', '-w', '%{http_code}', 'http://127.0.0.1:3100/api/readiness'], { encoding: 'utf8' }).trim(); } catch { /* reported via READINESS */ }
       const rawEnv = JSON.parse(execFileSync('docker', ['inspect', 'phoenix-v3-api', '--format', '{{json .Config.Env}}'], { encoding: 'utf8' }));
@@ -209,14 +317,39 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
         post: JSON.parse(fs.readFileSync(deployRecord.evidence.post, 'utf8')),
         startup: JSON.parse(fs.readFileSync(deployRecord.evidence.log, 'utf8')),
       } : null;
-      const assessment = assessRecovery({ transaction, deployRecord, marker, floor, active, runtime, containers, readinessHttp, liveEnv, evidence, archive, checkout }, context);
+      // Sanitized receipt (base64 payload; sha256 over the decoded bytes) gates
+      // the single benign-startup-error transaction. Transport hash mismatch is
+      // an immediate HOLD — the receipt is identity, never trusted content.
+      let receipt = null;
+      if (process.env.RECOVERY_STARTUP_RECEIPT_B64) {
+        const bytes = Buffer.from(process.env.RECOVERY_STARTUP_RECEIPT_B64, 'base64');
+        if (sha256(bytes) !== (process.env.RECOVERY_STARTUP_RECEIPT_SHA256 || '')) throw Object.assign(new Error('receipt transport hash'), { code: 'DEPLOYMENT_RECOVERY=HOLD_RECEIPT_TRANSPORT_HASH' });
+        receipt = JSON.parse(bytes.toString('utf8'));
+      }
+      let dbEvidence = null;
+      try {
+        const { readDatabaseEvidence } = await import('./chanjet-readonly-production-audit.mjs');
+        dbEvidence = readDatabaseEvidence(fs.readFileSync(path.join(root, 'scripts/ops/readonly-audits/chanjet-restoration-preflight.sql'), 'utf8'));
+      } catch (error) { dbEvidence = { error: String(error?.message || error).slice(0, 200) }; }
+      const replay = evidence ? await replayStartupWindow(evidence, args => {
+        const result = spawnSync('docker', args, { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 });
+        if (result.error || result.status !== 0) return null;
+        return { stdout: result.stdout || '', stderr: result.stderr || '' };
+      }) : { available: false };
+      const assessment = assessRecovery({ transaction, deployRecord, marker, floor, active, runtime, containers, readinessHttp, liveEnv, evidence, archive, checkout, receipt, replay, dbEvidence }, context);
       if (!assessment.eligible) { write('DEPLOYMENT_RECOVERY', `HOLD_${assessment.reasons.join(',')}`); process.exitCode = 1; }
       else if (!rollbackEligibility(root, floor, runtime.api).allowed) { write('DEPLOYMENT_RECOVERY', 'HOLD_RUNTIME_NOT_FLOOR_ELIGIBLE'); process.exitCode = 1; }
       else {
         let record = archive;
         if (!record) {
           const recoveredAt = new Date().toISOString();
-          const plan = planRecoveredState(deployRecord, marker, { recoveryRunId: context.recoveryRunId, recoveredAt });
+          const benignError = evidence?.startup?.result === 'HOLD_STARTUP_ERROR';
+          const plan = planRecoveredState(deployRecord, marker, {
+            recoveryRunId: context.recoveryRunId, recoveredAt,
+            startupResult: benignError ? 'HOLD_STARTUP_ERROR' : CASE_A_STARTUP_RESULT,
+            classification: benignError ? 'CASE_A_BENIGN_STARTUP_ERROR_SINGLE_ROUTES_RESOLVER_LINE' : 'CASE_A_BENIGN_STARTUP_LOG_SIGNALS',
+            receiptSha256: benignError ? (process.env.RECOVERY_STARTUP_RECEIPT_SHA256 || null) : null,
+          });
           const snapshotOf = (name, value) => ({ name, sha256: sha256(JSON.stringify(value)), value });
           record = { schema: RECOVERY_SCHEMA, phase: 'ARCHIVED', recoveryRunId: context.recoveryRunId, recoveredAt, targetRunId: context.targetRunId, approvedSha: context.approvedSha, assessment,
             archived: [snapshotOf('transaction.json', transaction), snapshotOf('policy-transition.json', marker), snapshotOf('floor.json', floor), snapshotOf('active.json', active), snapshotOf(`deploy-${context.targetRunId}.json`, deployRecord)], plan };
