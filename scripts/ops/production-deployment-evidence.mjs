@@ -88,15 +88,30 @@ export function compareSnapshots(pre, post) {
 }
 
 const secretPattern = /\b(?:password|passwd|secret|token|certificate|appticket|opentoken|authorization|cookie|private[ _-]?key|jwt(?:_secret)?|client_secret)\b/i;
-const schemaWritePattern = /\b(?:alter\s+table|create\s+(?:table|index|sequence)|drop\s+(?:table|index|constraint)|truncate|insert|update|delete|upsert|setval|nextval|migration|seed|ddl|schema\s+(?:repair|write|mutation))\b/i;
-const errorPattern = /\b(?:fatal|panic|exception|uncaught|unhandled|econn(?:refused|reset)|mismatch|failed|failure)\b|\b(?:error|err)\b/i;
+// NestJS route registration lines declare HTTP URL routing; their HTTP methods
+// and path segments routinely contain delete/error/exception/failure words.
+// Run 38031441639-1 root-caused all 23 schema/write and all 7 standalone error
+// signals to exactly these lines plus one informational message (Case A), so
+// they are exempt from word matching — they can never be SQL or error evidence.
+const routeRegistrationPattern = /\b(?:RoutesResolver|RouterExplorer)\b|\bMapped\s*\{/i;
+// Write detection is anchored to SQL/DDL statement shapes and migration/seed
+// execution signatures instead of bare verbs: prose such as "Schema managed by
+// migration file." must not read as a write, while executed migrations, INSERT/
+// UPDATE/DELETE statements, DDL and sequence operations remain fail-closed.
+const schemaWritePattern = /\b(?:alter\s+table|create\s+(?:table|index|sequence|unique)|drop\s+(?:table|index|constraint)|truncate|insert\s+into|update\s+[\w."]+\s+set|delete\s+from|upsert\s+into|setval|nextval|ddl|schema\s+(?:repair|write|mutation)|(?:execut\w*|run(?:ning)?)\s+(?:of\s+)?migrations?\b|migrations?\s+[\w."']+\s+has\s+been\s+(?:successfully\s+)?executed|migrationsRun\b|runMigrations\b|(?:execut\w*|run(?:ning)?)\s+(?:of\s+)?seeds?\b|seed(?:ing)?\s+(?:data|script)?\s*(?:executed|completed|inserted|applied))\b/i;
+// Real startup failures: fatal/panic, Nest [ExceptionHandler], *Error:/TypeError
+// stacks, uncaught/unhandled, connection resets, checksum mismatches. Bare
+// URL-segment hits were the run 38031441639-1 false-positive class and are now
+// excluded via the route-registration exemption above.
+const errorPattern = /\b(?:fatal|panic|exception(?:handler)?|\w*error|uncaught|unhandled|econn(?:refused|reset)|mismatch|failed|failure|err)\b/i;
 const warningPattern = /\b(?:warn|warning|deprecated|retry(?:ing)?)\b/i;
 const bootstrapPattern = /API_BOOTSTRAP_SCHEMA_COMPATIBILITY=PASS|\b(?:nest|bootstrap|listen(?:ing)?|readiness|started|production)\b/i;
 
 export function classifyStartupLine(line) {
   const sensitive = secretPattern.test(line);
-  const schemaWrite = schemaWritePattern.test(line);
-  const error = errorPattern.test(line) || schemaWrite;
+  const routeRegistration = routeRegistrationPattern.test(line);
+  const schemaWrite = !routeRegistration && schemaWritePattern.test(line);
+  const error = !routeRegistration && (errorPattern.test(line) || schemaWrite);
   const warning = !error && warningPattern.test(line);
   const kind = schemaWrite ? 'SCHEMA_OR_WRITE_SIGNAL' : error ? 'ERROR_SIGNAL' : sensitive ? 'SENSITIVE_REDACTED' : warning ? 'WARNING_SIGNAL' : bootstrapPattern.test(line) ? 'BOOTSTRAP_SIGNAL' : 'INFO_SIGNAL';
   return { kind, sensitive, schemaWrite, error };

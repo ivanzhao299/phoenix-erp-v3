@@ -42,9 +42,9 @@ const gitRun = args => execFileSync('git', ['-c', `safe.directory=${ROOT}`, ...a
 
 const out = { schema: 'phoenix.r0-readonly-evidence/1', collectedAt: new Date().toISOString(), binding: { runId: RUN_ID, targetSha: TARGET_SHA }, execution: { uid: process.getuid(), euid: process.geteuid() }, errors };
 
-// Mirrors schemaWritePattern alternations in production-deployment-evidence.mjs
+// Mirrors the schemaWritePattern alternations in production-deployment-evidence.mjs
 // so per-line token attribution uses the same match surface as the classifier.
-const tokenPattern = /\b(alter\s+table|create\s+(?:table|index|sequence)|drop\s+(?:table|index|constraint)|truncate|insert|update|delete|upsert|setval|nextval|migration|seed|ddl|schema\s+(?:repair|write|mutation))\b/gi;
+const tokenPattern = /\b(alter\s+table|create\s+(?:table|index|sequence|unique)|drop\s+(?:table|index|constraint)|truncate|insert\s+into|update\s+[\w."]+\s+set|delete\s+from|upsert\s+into|setval|nextval|ddl|schema\s+(?:repair|write|mutation)|(?:execut\w*|run(?:ning)?)\s+(?:of\s+)?migrations?|migrations?\s+[\w."']+\s+has\s+been\s+(?:successfully\s+)?executed|migrationsRun|runMigrations|(?:execut\w*|run(?:ning)?)\s+(?:of\s+)?seeds?|seed(?:ing)?\s+(?:data|script)?\s*(?:executed|completed|inserted|applied))\b/gi;
 
 const attempt = (name, fn) => { try { stage(name); return fn(); } catch (error) { errors.push({ stage: name, error: String(error?.message || error).slice(0, 300) }); return null; } };
 
