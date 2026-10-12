@@ -168,6 +168,11 @@ attempt('STARTUP_LOG_REPLAY', () => {
       // word set at all. Raw line content is never emitted.
       entry.sensitive = verdict.sensitive;
       if (!entry.mappedRouteLine && !verdict.sensitive) entry.wordSet = [...new Set(line.match(/[A-Za-z]{3,}/g) ?? [])].filter(word => !/^[a-fA-F0-9]{8,}$/.test(word));
+    } else if (verdict.error) {
+      // R0.1: same sanitized word-set attribution for standalone ERROR_SIGNAL
+      // lines (schema/write lines already covered above).
+      entry.sensitive = verdict.sensitive;
+      if (!verdict.sensitive) entry.wordSet = [...new Set(line.match(/[A-Za-z]{3,}/g) ?? [])].filter(word => !/^[a-fA-F0-9]{8,}$/.test(word));
     }
     return entry;
   };
@@ -240,7 +245,7 @@ const compact = {
   containers: Object.fromEntries(Object.entries(out.containers ?? {}).map(([service, value]) => [service, value?.error ? { error: value.error } : { id: value.id, image: value.image, ociRevision: value.ociRevision, health: value.health, restartCount: value.restartCount, startedAt: value.startedAt }])),
   dbEvidence: out.dbEvidence,
   startupPersisted: out.startupReplay?.persisted,
-  startupReplayVerdict: out.startupReplay?.replay && { available: out.startupReplay.replay.available, status: out.startupReplay.replay.status, error: out.startupReplay.replay.error, lineCountsMatchPersisted: out.startupReplay.replay.lineCountsMatchPersisted, digestMatchesPersisted: out.startupReplay.replay.digestMatchesPersisted, schemaWriteSignalCountReplayed: out.startupReplay.replay.schemaWriteSignalCountReplayed, schemaWriteCountMatchesPersisted: out.startupReplay.replay.schemaWriteCountMatchesPersisted, schemaWriteLines: out.startupReplay.replay.schemaWriteLines, schemaCompatibilityPassInReplay: out.startupReplay.replay.schemaCompatibilityPassInReplay, kindCounts: out.startupReplay.replay.kindCounts },
+  startupReplayVerdict: out.startupReplay?.replay && { available: out.startupReplay.replay.available, status: out.startupReplay.replay.status, error: out.startupReplay.replay.error, lineCountsMatchPersisted: out.startupReplay.replay.lineCountsMatchPersisted, digestMatchesPersisted: out.startupReplay.replay.digestMatchesPersisted, schemaWriteSignalCountReplayed: out.startupReplay.replay.schemaWriteSignalCountReplayed, schemaWriteCountMatchesPersisted: out.startupReplay.replay.schemaWriteCountMatchesPersisted, schemaWriteLines: out.startupReplay.replay.schemaWriteLines, errorLines: (out.startupReplay.replay.lines ?? []).filter(line => line.kind === 'ERROR_SIGNAL'), schemaCompatibilityPassInReplay: out.startupReplay.replay.schemaCompatibilityPassInReplay, kindCounts: out.startupReplay.replay.kindCounts },
   errors: out.errors,
 };
 console.log(`R0_SUMMARY=${JSON.stringify(compact)}`);
