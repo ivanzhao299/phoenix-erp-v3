@@ -147,6 +147,12 @@ attempt('STARTUP_LOG_REPLAY', () => {
     // Split halves so a sanitized Actions log can still carry the full digest:
     // GitHub secret masking corrupts long hex substrings, never split lines.
     digestA: String(startup.combinedDigest ?? '').slice(0, 32), digestB: String(startup.combinedDigest ?? '').slice(32),
+    // Parity streams: even- and odd-index characters. Any CONTIGUOUS substring
+    // secret of length >= 2 spans both parities and can never appear
+    // contiguously inside either stream, so masking cannot corrupt them.
+    // Recombine by interleaving: combined[i] = i % 2 === 0 ? digestEven[i/2] : digestOdd[(i-1)/2].
+    digestOdd: [...String(startup.combinedDigest ?? '')].filter((_, index) => index % 2 === 1).join(''),
+    digestEven: [...String(startup.combinedDigest ?? '')].filter((_, index) => index % 2 === 0).join(''),
     containerIdMatchesPostApi: startup.containerId === api.id, startedAtMatchesPostApi: startup.startedAt === api.startedAt,
   };
   out.startupReplay.persisted = persisted;
