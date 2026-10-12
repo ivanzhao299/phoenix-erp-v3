@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import { execFileSync } from 'node:child_process';
 
 const workflow = fs.readFileSync('.github/workflows/deploy.yml', 'utf8');
 const contract = JSON.parse(fs.readFileSync('scripts/ops/production-config-contract.json', 'utf8'));
@@ -61,4 +62,23 @@ test('v3 floor re-anchor entrance threads the previous-floor binding and justifi
   assert.match(promote, /FLOOR_REANCHOR_PREVIOUS_FLOOR_MISMATCH/);
   assert.match(promote, /criticalFilesChanged/);
   assert.match(promote, /CONTRACT\.criticalFiles\]/);
+});
+
+test('disk report never dies of SIGPIPE under pipefail and stays fail-closed on real docker failures', () => {
+  const deploy = fs.readFileSync('.github/workflows/deploy.yml', 'utf8');
+  // the old early-exiting consumer must be gone from the docker images feed
+  assert.doesNotMatch(deploy, /docker images --format[^\n]*\| sed -n '1,20p'/);
+  assert.match(deploy, /IMAGE_REPORT="\$\(docker images --format/);
+  assert.match(deploy, /printf '%s\\n' "\$IMAGE_REPORT" \| sed -n '1,20p'/);
+  // real shell regression under the exact script discipline
+  const script = (dockerExit, lines) => `set -euo pipefail; docker() { ${dockerExit ? 'return 13' : `printf 'img-%s\\n' $(seq 1 ${lines})`}; }; IMAGE_REPORT="$(docker images --format x)"; printf '%s\\n' "$IMAGE_REPORT" | sed -n '1,20p' > /dev/null; echo SURVIVED`;
+  const run = body => execFileSync('bash', ['-c', body], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+  // >20 images: the 38217361863-1 shape must not trip the ERR trap
+  assert.equal(run(script(false, 31)), 'SURVIVED');
+  // <=20 images: unchanged behavior
+  assert.equal(run(script(false, 7)), 'SURVIVED');
+  // a REAL docker failure stays fatal (fail-closed preserved)
+  let failed = false;
+  try { execFileSync('bash', ['-c', script(true, 31)], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }); } catch { failed = true; }
+  assert.equal(failed, true, 'docker images failure must abort the deploy');
 });

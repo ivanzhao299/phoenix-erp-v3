@@ -27,6 +27,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
+import * as evidenceModule from './production-deployment-evidence.mjs';
 
 export const RECOVERY_SCHEMA = 'phoenix.production-deployment-recovery/1';
 export const CASE_A_STARTUP_RESULT = 'HOLD_SCHEMA_OR_WRITE_SIGNAL';
@@ -40,6 +41,16 @@ export const CASE_A_ERROR_RECEIPT_SCHEMA = 'phoenix.case-a-benign-startup-error-
 export const BENIGN_STARTUP_ERROR_TRANSACTION = Object.freeze({ runId: '38208343072-1', targetSha: 'c9383d5043191213165e237bbdb7b984f7603345' });
 export const BENIGN_STARTUP_ERROR_ATTRIBUTION = 'ROUTES_RESOLVER_REGISTRATION';
 export const BENIGN_STARTUP_ERROR_WORD_SET = Object.freeze(['Nest', 'LOG', 'RoutesResolver', 'mSysErrorLogsController', 'api', 'system', 'error', 'logs']);
+// Verified-abort recovery: run 38217361863-1 deployed, switched and PASSED
+// both startup evidence and file verification, then the deploy script was
+// killed AFTER verify by the disk-report SIGPIPE pipe bug (root-caused in the
+// Actions log; fixed for future deploys in the same PR). PASS_REDACTED_SUMMARY
+// is NOT globally recoverable — this frozen transaction is the only one that
+// may close through this path, with the verify verdict recomputed from the
+// on-disk evidence rather than trusted from the receipt.
+export const VERIFIED_ABORT_RECEIPT_SCHEMA = 'phoenix.verified-abort-recovery-receipt/1';
+export const VERIFIED_ABORT_TRANSACTION = Object.freeze({ runId: '38217361863-1', targetSha: 'f46f651dcebeb11210c8e577f3c0caed87f356c2' });
+export const VERIFIED_ABORT_POINT = 'DISK_REPORT_SIGPIPE';
 
 const sha256 = value => createHash('sha256').update(value).digest('hex');
 const deepEqual = (a, b) => JSON.stringify(a) === JSON.stringify(b);
@@ -54,7 +65,6 @@ const sqlShapePattern = /\b(insert\s+into|update\s+\S+\s+set|delete\s+from|alter
 // window must carry zero SQL statement shapes and an unchanged digest.
 // dockerLogs is injectable for tests.
 export async function replayStartupWindow(evidence, dockerLogs) {
-  const evidenceModule = await import('./production-deployment-evidence.mjs');
   const api = evidence?.post?.containers?.api;
   const startup = evidence?.startup;
   if (!api || !startup || !dockerLogs) return { available: false };
@@ -140,6 +150,39 @@ function validateBenignStartupError(bundle, context, reasons) {
   validateDbBaseline(receipt, dbEvidence, reasons);
 }
 
+// Receipt-gated validation for the verified-abort transaction: the deploy
+// passed startup evidence AND file verification before the script died in the
+// disk report. The verify verdict is RECOMPUTED from the on-disk evidence
+// files (deterministic function of pre/post/startup + binding); the receipt
+// only binds identity, digest and the reviewed abort point.
+function validateVerifiedAbortRecovery(bundle, context, reasons) {
+  const { receipt, replay, evidence, evidenceFiles, dbEvidence } = bundle;
+  if (!receipt) { reasons.push('RECEIPT_MISSING'); return; }
+  if (receipt.schema !== VERIFIED_ABORT_RECEIPT_SCHEMA) reasons.push('RECEIPT_SCHEMA');
+  if (receipt.runId !== VERIFIED_ABORT_TRANSACTION.runId || receipt.targetSha !== VERIFIED_ABORT_TRANSACTION.targetSha
+    || context.targetRunId !== VERIFIED_ABORT_TRANSACTION.runId || context.approvedSha !== VERIFIED_ABORT_TRANSACTION.targetSha) reasons.push('RECEIPT_TRANSACTION_NOT_ELIGIBLE');
+  const startup = evidence?.startup;
+  if (!receipt.startup || receipt.startup.result !== 'PASS_REDACTED_SUMMARY') reasons.push('RECEIPT_STARTUP_RESULT');
+  else if (receipt.startup.combinedDigest !== startup?.combinedDigest) reasons.push('RECEIPT_DIGEST_MISMATCH');
+  if (receipt.abortPoint !== VERIFIED_ABORT_POINT) reasons.push('RECEIPT_ABORT_POINT_MISMATCH');
+  if (!evidenceFiles?.pre || !evidenceFiles.post || !evidenceFiles.log) reasons.push('VERIFY_FILES_UNAVAILABLE');
+  else {
+    try {
+      evidenceModule.verifyEvidenceFiles(evidenceFiles.pre, evidenceFiles.post, evidenceFiles.log,
+        { runId: context.targetRunId, runAttempt: String(startup.deployRunAttempt ?? 1), targetSha: context.approvedSha, configFloorSha: bundle.floor?.floorSha });
+    } catch (error) { reasons.push('VERIFY_RECOMPUTE_FAILED'); }
+  }
+  if (!replay?.available) reasons.push('REPLAY_UNAVAILABLE');
+  else {
+    if (replay.combinedDigest !== startup?.combinedDigest) reasons.push('REPLAY_DIGEST_MISMATCH');
+    if (replay.schemaWriteCount !== 0) reasons.push('REPLAY_SCHEMAWRITE_NONZERO');
+    if (replay.sqlShapeCount !== 0) reasons.push('REPLAY_SQL_SHAPE_PRESENT');
+    if (replay.errorLineCount !== 0) reasons.push('REPLAY_ERROR_NONZERO');
+  }
+  if (receipt.readinessHttp !== 200) reasons.push('RECEIPT_READINESS_MISMATCH');
+  validateDbBaseline(receipt, dbEvidence, reasons);
+}
+
 // Pure eligibility assessment over an already-collected state bundle. Every
 // check must pass for the current phase; failures are reported individually.
 export function assessRecovery(bundle, context) {
@@ -205,6 +248,7 @@ export function assessRecovery(bundle, context) {
     || evidence.post.containers?.api?.ociRevision !== context.approvedSha || evidence.startup.containerId !== evidence.post.containers?.api?.id) reasons.push('EVIDENCE_BINDING');
   else if (evidence.startup.result === CASE_A_STARTUP_RESULT) { /* original Case A class: unchanged */ }
   else if (evidence.startup.result === 'HOLD_STARTUP_ERROR') validateBenignStartupError(bundle, context, reasons);
+  else if (evidence.startup.result === 'PASS_REDACTED_SUMMARY') validateVerifiedAbortRecovery(bundle, context, reasons);
   else reasons.push('EVIDENCE_BINDING');
   if (evidence?.pre && evidence?.post) {
     for (const service of ['db', 'web']) {
@@ -336,19 +380,29 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
         if (result.error || result.status !== 0) return null;
         return { stdout: result.stdout || '', stderr: result.stderr || '' };
       }) : { available: false };
-      const assessment = assessRecovery({ transaction, deployRecord, marker, floor, active, runtime, containers, readinessHttp, liveEnv, evidence, archive, checkout, receipt, replay, dbEvidence }, context);
+      const evidenceFiles = deployRecord?.evidence ?? null;
+      const assessment = assessRecovery({ transaction, deployRecord, marker, floor, active, runtime, containers, readinessHttp, liveEnv, evidence, evidenceFiles, archive, checkout, receipt, replay, dbEvidence }, context);
       if (!assessment.eligible) { write('DEPLOYMENT_RECOVERY', `HOLD_${assessment.reasons.join(',')}`); process.exitCode = 1; }
       else if (!rollbackEligibility(root, floor, runtime.api).allowed) { write('DEPLOYMENT_RECOVERY', 'HOLD_RUNTIME_NOT_FLOOR_ELIGIBLE'); process.exitCode = 1; }
+      else if (evidence?.startup?.result === 'PASS_REDACTED_SUMMARY') {
+        // Verified-abort path only: re-run the live TOCTOU snapshot check the
+        // original deploy's `complete` would have performed.
+        try {
+          const evidenceModule = await import('./production-deployment-evidence.mjs');
+          evidenceModule.verifyLiveSnapshot(evidence.post, { runId: context.targetRunId, runAttempt: String(evidence.startup.deployRunAttempt ?? 1), targetSha: context.approvedSha, configFloorSha: floor.floorSha });
+        } catch (error) { throw Object.assign(new Error('verify live snapshot'), { code: 'DEPLOYMENT_RECOVERY=HOLD_VERIFY_LIVE_SNAPSHOT' }); }
+      }
       else {
         let record = archive;
         if (!record) {
           const recoveredAt = new Date().toISOString();
           const benignError = evidence?.startup?.result === 'HOLD_STARTUP_ERROR';
+          const verifiedAbort = evidence?.startup?.result === 'PASS_REDACTED_SUMMARY';
           const plan = planRecoveredState(deployRecord, marker, {
             recoveryRunId: context.recoveryRunId, recoveredAt,
-            startupResult: benignError ? 'HOLD_STARTUP_ERROR' : CASE_A_STARTUP_RESULT,
-            classification: benignError ? 'CASE_A_BENIGN_STARTUP_ERROR_SINGLE_ROUTES_RESOLVER_LINE' : 'CASE_A_BENIGN_STARTUP_LOG_SIGNALS',
-            receiptSha256: benignError ? (process.env.RECOVERY_STARTUP_RECEIPT_SHA256 || null) : null,
+            startupResult: verifiedAbort ? 'PASS_REDACTED_SUMMARY' : benignError ? 'HOLD_STARTUP_ERROR' : CASE_A_STARTUP_RESULT,
+            classification: verifiedAbort ? 'EVIDENCE_VERIFIED_SCRIPT_ABORTED_AFTER_VERIFY' : benignError ? 'CASE_A_BENIGN_STARTUP_ERROR_SINGLE_ROUTES_RESOLVER_LINE' : 'CASE_A_BENIGN_STARTUP_LOG_SIGNALS',
+            receiptSha256: (benignError || verifiedAbort) ? (process.env.RECOVERY_STARTUP_RECEIPT_SHA256 || null) : null,
           });
           const snapshotOf = (name, value) => ({ name, sha256: sha256(JSON.stringify(value)), value });
           record = { schema: RECOVERY_SCHEMA, phase: 'ARCHIVED', recoveryRunId: context.recoveryRunId, recoveredAt, targetRunId: context.targetRunId, approvedSha: context.approvedSha, assessment,
