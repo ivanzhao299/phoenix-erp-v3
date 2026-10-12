@@ -225,4 +225,23 @@ attempt('CONSISTENCY', () => {
   };
 });
 
-console.log(JSON.stringify(out));
+// Compact verdict-first summary (single bounded line), then the full payload in
+// digest-checked chunks: single-line Actions log limits must not lose evidence.
+const compact = {
+  schema: out.schema, collectedAt: out.collectedAt, binding: out.binding,
+  checkout: out.checkout, consistency: out.consistency, readiness: out.readiness, liveChanjetEnv: out.liveChanjetEnv,
+  snapshotModuleVerdict: out.snapshotComparison?.moduleVerdict,
+  snapshotContainers: out.snapshotComparison?.containers,
+  containers: Object.fromEntries(Object.entries(out.containers ?? {}).map(([service, value]) => [service, value?.error ? { error: value.error } : { id: value.id, image: value.image, ociRevision: value.ociRevision, health: value.health, restartCount: value.restartCount, startedAt: value.startedAt }])),
+  dbEvidence: out.dbEvidence,
+  startupPersisted: out.startupReplay?.persisted,
+  startupReplayVerdict: out.startupReplay?.replay && { available: out.startupReplay.replay.available, status: out.startupReplay.replay.status, error: out.startupReplay.replay.error, lineCountsMatchPersisted: out.startupReplay.replay.lineCountsMatchPersisted, digestMatchesPersisted: out.startupReplay.replay.digestMatchesPersisted, schemaWriteSignalCountReplayed: out.startupReplay.replay.schemaWriteSignalCountReplayed, schemaWriteCountMatchesPersisted: out.startupReplay.replay.schemaWriteCountMatchesPersisted, schemaWriteLines: out.startupReplay.replay.schemaWriteLines, schemaCompatibilityPassInReplay: out.startupReplay.replay.schemaCompatibilityPassInReplay, kindCounts: out.startupReplay.replay.kindCounts },
+  errors: out.errors,
+};
+console.log(`R0_SUMMARY=${JSON.stringify(compact)}`);
+const payload = JSON.stringify(out);
+const payloadDigest = createHash('sha256').update(payload).digest('hex');
+const chunks = payload.match(/.{1,60000}/g) ?? [];
+console.log(`R0_OUTPUT_BEGIN bytes=${Buffer.byteLength(payload)} sha256=${payloadDigest} chunks=${chunks.length}`);
+for (let index = 0; index < chunks.length; index++) console.log(`R0_CHUNK_${index + 1}_${chunks.length}=${chunks[index]}`);
+console.log('R0_OUTPUT_END');
