@@ -163,6 +163,11 @@ attempt('STARTUP_LOG_REPLAY', () => {
       const shape = line.match(/\b(insert\s+into|update\s+\S+\s+set|delete\s+from|alter\s+table|create\s+(?:table|index|unique|sequence)|drop\s+(?:table|index|constraint)|truncate\s+table?|grant\s+|revoke\s+)\b/i);
       entry.sqlStatementShape = shape ? shape[1].toLowerCase() : null;
       entry.lineLength = line.length;
+      // Minimal sanitized identity for unattributed signal lines: word set only
+      // (alpha tokens, hex-like tokens dropped); sensitive-flagged lines get no
+      // word set at all. Raw line content is never emitted.
+      entry.sensitive = verdict.sensitive;
+      if (!entry.mappedRouteLine && !verdict.sensitive) entry.wordSet = [...new Set(line.match(/[A-Za-z]{3,}/g) ?? [])].filter(word => !/^[a-fA-F0-9]{8,}$/.test(word));
     }
     return entry;
   };
