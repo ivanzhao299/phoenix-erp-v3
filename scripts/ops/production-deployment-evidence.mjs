@@ -88,12 +88,19 @@ export function compareSnapshots(pre, post) {
 }
 
 const secretPattern = /\b(?:password|passwd|secret|token|certificate|appticket|opentoken|authorization|cookie|private[ _-]?key|jwt(?:_secret)?|client_secret)\b/i;
-// NestJS route registration lines declare HTTP URL routing; their HTTP methods
-// and path segments routinely contain delete/error/exception/failure words.
-// Run 38031441639-1 root-caused all 23 schema/write and all 7 standalone error
-// signals to exactly these lines plus one informational message (Case A), so
-// they are exempt from word matching — they can never be SQL or error evidence.
-const routeRegistrationPattern = /\b(?:RoutesResolver|RouterExplorer)\b|\bMapped\s*\{/i;
+// ANSI color sequences are control characters, not content. Strip them before
+// every pattern test so neither detection nor exemption can be split or glued
+// by escape codes (production stdout is colorized: R0.1 word sets showed
+// ANSI-glued tokens like "mMapped").
+const ansiPattern = /\x1b\[[0-9;]*[A-Za-z]/g;
+// NestJS route registration lines are exempt ONLY in their complete logged
+// formats: RouterExplorer emits `Mapped {<path>, <METHOD>} [route] [+Nms]`
+// and RoutesResolver emits `<Controller> {/prefix[, /prefix]}:`. Paths are
+// whitespace-free URL segments. A route-shaped prefix with appended SQL,
+// exception text or any other payload does not match and is classified
+// normally — the exemption can never swallow a real signal (fail-closed).
+const routerExplorerPattern = /\[RouterExplorer\][^{}\n]*Mapped\s*\{\/[^\s{},]*,\s*(?:GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS|ALL)\}(?:\s+route)?(?:\s*\+\d+ms)?\s*$/i;
+const routesResolverPattern = /\[RoutesResolver\]\s*\w+\s*\{\s*(?:\/[^\s{},]*)?(?:\s*,\s*\/[^\s{},]*)*\s*\}\s*:?\s*$/i;
 // Write detection is anchored to SQL/DDL statement shapes and migration/seed
 // execution signatures instead of bare verbs: prose such as "Schema managed by
 // migration file." must not read as a write, while executed migrations, INSERT/
@@ -102,18 +109,19 @@ const schemaWritePattern = /\b(?:alter\s+table|create\s+(?:table|index|sequence|
 // Real startup failures: fatal/panic, Nest [ExceptionHandler], *Error:/TypeError
 // stacks, uncaught/unhandled, connection resets, checksum mismatches. Bare
 // URL-segment hits were the run 38031441639-1 false-positive class and are now
-// excluded via the route-registration exemption above.
+// excluded via the full-format route-registration exemption above.
 const errorPattern = /\b(?:fatal|panic|exception(?:handler)?|\w*error|uncaught|unhandled|econn(?:refused|reset)|mismatch|failed|failure|err)\b/i;
 const warningPattern = /\b(?:warn|warning|deprecated|retry(?:ing)?)\b/i;
 const bootstrapPattern = /API_BOOTSTRAP_SCHEMA_COMPATIBILITY=PASS|\b(?:nest|bootstrap|listen(?:ing)?|readiness|started|production)\b/i;
 
 export function classifyStartupLine(line) {
-  const sensitive = secretPattern.test(line);
-  const routeRegistration = routeRegistrationPattern.test(line);
-  const schemaWrite = !routeRegistration && schemaWritePattern.test(line);
-  const error = !routeRegistration && (errorPattern.test(line) || schemaWrite);
-  const warning = !error && warningPattern.test(line);
-  const kind = schemaWrite ? 'SCHEMA_OR_WRITE_SIGNAL' : error ? 'ERROR_SIGNAL' : sensitive ? 'SENSITIVE_REDACTED' : warning ? 'WARNING_SIGNAL' : bootstrapPattern.test(line) ? 'BOOTSTRAP_SIGNAL' : 'INFO_SIGNAL';
+  const clean = typeof line === 'string' ? line.replace(ansiPattern, '') : String(line ?? '');
+  const sensitive = secretPattern.test(clean);
+  const routeRegistration = routerExplorerPattern.test(clean) || routesResolverPattern.test(clean);
+  const schemaWrite = !routeRegistration && schemaWritePattern.test(clean);
+  const error = !routeRegistration && (errorPattern.test(clean) || schemaWrite);
+  const warning = !error && warningPattern.test(clean);
+  const kind = schemaWrite ? 'SCHEMA_OR_WRITE_SIGNAL' : error ? 'ERROR_SIGNAL' : sensitive ? 'SENSITIVE_REDACTED' : warning ? 'WARNING_SIGNAL' : bootstrapPattern.test(clean) ? 'BOOTSTRAP_SIGNAL' : 'INFO_SIGNAL';
   return { kind, sensitive, schemaWrite, error };
 }
 

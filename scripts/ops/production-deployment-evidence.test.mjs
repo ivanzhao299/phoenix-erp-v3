@@ -125,12 +125,43 @@ test('NestJS route registration lines are never schema/write or error evidence',
     '[Nest] LOG [RouterExplorer] Mapped {/api/system/error-logs/summary, GET} route',
     '[Nest] LOG [RouterExplorer] Mapped {/api/system/error-logs/:id, DELETE} route',
     '[Nest] LOG [RouterExplorer] Mapped {/api/master-data/:type/:id, DELETE} route',
+    '[Nest] LOG [RouterExplorer] Mapped {/api/master-data/:type/:id, DELETE}',
+    '[Nest] LOG [RouterExplorer] Mapped {/api/v2/bi/reports/:code/refresh, POST} +12ms',
+    '[Nest] LOG [RoutesResolver] DualPrefixController {/api/v2/a, /api/v2/b}:',
+    '[Nest] LOG [RoutesResolver] EmptyPrefixController {}:',
   ];
   for (const line of routeLines) {
     const verdict = classifyStartupLine(`2026-10-10T06:43:19.000000000Z ${line}`);
     assert.equal(verdict.schemaWrite, false, line);
     assert.equal(verdict.error, false, line);
   }
+});
+test('colorized production stdout still matches the route exemption after ANSI stripping', () => {
+  const colored = '2026-10-10T06:43:18.896791691Z [Nest] LOG [RouterExplorer] \x1b[32mMapped {/api/v2/finance/cash/transactions/bulk-delete, POST}\x1b[39m route';
+  const verdict = classifyStartupLine(colored);
+  assert.equal(verdict.schemaWrite, false);
+  assert.equal(verdict.error, false);
+  // ANSI must equally fail to hide a real signal inside a colored payload.
+  const coloredSql = '2026-10-10T06:43:19.000000000Z [Nest] LOG \x1b[32mquery: INSERT\x1b[39m INTO chanjet_sync_jobs(status) VALUES ($1)';
+  assert.equal(classifyStartupLine(coloredSql).schemaWrite, true);
+});
+test('pseudo-route lines carrying SQL or exception payloads still hold', () => {
+  const pseudoRoutes = [
+    '[RouterExplorer] Mapped {/api/x, DELETE} INSERT INTO secrets VALUES (1)',
+    '[RouterExplorer] Mapped {/api/x, POST} DELETE FROM audit_log WHERE true',
+    '[RouterExplorer] Mapped {INSERT INTO logs SELECT 1, DELETE}',
+    '[RouterExplorer] Mapped {/api/x, GET} Error: connect ECONNREFUSED 127.0.0.1:5432',
+    '[RouterExplorer] Mapped {/api/x, PUT} [ExceptionHandler] dependency injection failed',
+    '[RoutesResolver] SysErrorLogsController {/api/system/error-logs} DROP TABLE audit_log',
+    '[RoutesResolver] Attacker {/api/x}: UPDATE settings SET flag = true WHERE id = 1',
+    '[RouterExplorer] Mapped {/api/x, DELETE} route TRUNCATE TABLE inv_batches',
+  ];
+  for (const line of pseudoRoutes) {
+    const verdict = classifyStartupLine(`2026-10-10T06:43:19.000000000Z ${line}`);
+    assert.equal(verdict.schemaWrite || verdict.error, true, line);
+  }
+  assert.equal(classifyStartupLine('2026-10-10T06:43:19.000000000Z [RouterExplorer] Mapped {/api/x, DELETE} INSERT INTO secrets VALUES (1)').schemaWrite, true);
+  assert.equal(classifyStartupLine('2026-10-10T06:43:19.000000000Z [RouterExplorer] Mapped {/api/x, GET} Error: connect ECONNREFUSED 127.0.0.1:5432').error, true);
 });
 test('informational prose is not a migration write; executed migrations still are', () => {
   const informational = '[Nest] LOG [WorkflowService] WorkflowService initialized. Schema managed by migration file.';
