@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
-import { assessRecovery, planRecoveredState, executeRecoveryStages, RECOVERY_SCHEMA, CASE_A_STARTUP_RESULT, RECOVERY_PHASES } from './production-deployment-recovery.mjs';
+import { assessRecovery, planRecoveredState, executeRecoveryStages, replayStartupWindow, RECOVERY_SCHEMA, CASE_A_STARTUP_RESULT, RECOVERY_PHASES, CASE_A_ERROR_RECEIPT_SCHEMA, BENIGN_STARTUP_ERROR_TRANSACTION, BENIGN_STARTUP_ERROR_ATTRIBUTION, BENIGN_STARTUP_ERROR_WORD_SET } from './production-deployment-recovery.mjs';
 
 const sha = c => c.repeat(40);
 const image = c => `sha256:${c.repeat(64)}`;
@@ -88,7 +88,7 @@ test('every base precondition violation is reported individually', () => {
     [{ runtime: { ...validBundle().runtime, web: pin(approved, 'x') } }, 'RUNTIME_WEB_DRIFTED'],
     [{ readinessHttp: '503' }, 'READINESS'],
     [{ liveEnv: { ...validBundle().liveEnv, CHANJET_READONLY_SYNC_ENABLED: 'true' } }, 'LIVE_POLICY_FLAGS'],
-    [{ evidence: { ...validBundle().evidence, startup: { ...validBundle().evidence.startup, result: 'HOLD_STARTUP_ERROR' } } }, 'EVIDENCE_BINDING'],
+    [{ evidence: { ...validBundle().evidence, startup: { ...validBundle().evidence.startup, result: 'HOLD_STARTUP_ERROR' } } }, 'RECEIPT_MISSING'],
     [{ evidence: (() => { const bundle = validBundle(); const post = JSON.parse(JSON.stringify(bundle.evidence.post)); post.containers.web.id = '9'.repeat(64); return { ...bundle.evidence, post }; })() }, 'EVIDENCE_WEB_CHANGED'],
     [{ checkout: { head: sha(approved), clean: false } }, 'CHECKOUT_NOT_CLEAN_TARGET'],
   ];
@@ -276,4 +276,134 @@ test('resume requires archive schema, run id, approved SHA and plan targets to m
     assert.equal(assessment.eligible, false, reason);
     assert.ok(assessment.reasons.includes(reason), `${reason} in ${assessment.reasons}`);
   }
+});
+
+// ── Case A benign startup-ERROR extension: exactly one transaction, receipt-gated ──
+const C9383D50 = 'c9383d5043191213165e237bbdb7b984f7603345';
+const THE_TS = '2026-10-12T05:39:03.720270742Z';
+const benignWindow = [
+  '[Nest] LOG [NestFactory] Starting Nest application...',
+  '[Nest] LOG [RouterExplorer] Mapped {/api/v2/finance/cash/transactions/bulk-delete, POST} route',
+  `[Nest] LOG [RoutesResolver] \u001b[36mSysErrorLogsController\u001b[39m {/api/system/error-logs}: \u001b[32m+12ms\u001b[39m`,
+  'API_BOOTSTRAP_SCHEMA_COMPATIBILITY=PASS',
+];
+const benignStreams = { stdout: benignWindow.map((l, i) => `2026-10-12T05:39:0${i}.000000000Z ${l}`).join('\n') + `\n${THE_TS} ` + '[Nest] LOG [RoutesResolver] \u001b[36mSysErrorLogsController\u001b[39m {/api/system/error-logs}: \u001b[32m+12ms\u001b[39m\n', stderr: '' };
+const benignDockerLogs = () => benignStreams;
+
+async function benignParts() {
+  const evidenceShell = {
+    post: { deployRunId: BENIGN_STARTUP_ERROR_TRANSACTION.runId, containers: { db: { id: 'd'.repeat(64), startedAt: '2026-10-05T04:03:03.533292753Z', image: image('d') }, web: { id: 'e'.repeat(64), startedAt: '2026-10-08T06:39:19.544652894Z', image: image('e'), ociRevision: sha(previous) }, api: { id: '9'.repeat(64), startedAt: '2026-10-12T05:38:41.000000000Z', image: image('c'), ociRevision: C9383D50 } } },
+    startup: { deployRunId: BENIGN_STARTUP_ERROR_TRANSACTION.runId, targetSha: C9383D50, containerId: '9'.repeat(64), startedAt: '2026-10-12T05:38:41.000000000Z', capturedAt: '2026-10-12T05:39:10.400000000Z' },
+  };
+  const replay = await replayStartupWindow(evidenceShell, benignDockerLogs);
+  const dbBaseline = { mirrorRows: 17717, entityRows: 41577, arSnapshotRows: 150, runningJobs: 0, queuedJobs: 0, writebackPending: 0, wmsWritebackPending: 0, remoteWriteAttempts: 0, wmsRemoteWriteAttempts: 0, inboundRuns: 0 };
+  const receipt = {
+    schema: CASE_A_ERROR_RECEIPT_SCHEMA, runId: BENIGN_STARTUP_ERROR_TRANSACTION.runId, targetSha: BENIGN_STARTUP_ERROR_TRANSACTION.targetSha,
+    startup: { result: 'HOLD_STARTUP_ERROR', combinedDigest: replay.combinedDigest, schemaWriteSignalCount: 0, errorSignalCount: 1, schemaCompatibilityPass: true },
+    errorLine: { ts: THE_TS, stream: 'stdout', attribution: BENIGN_STARTUP_ERROR_ATTRIBUTION, wordSet: [...BENIGN_STARTUP_ERROR_WORD_SET] },
+    readinessHttp: 200, dbBaseline,
+  };
+  const evidence = {
+    ...evidenceShell,
+    pre: { deployRunId: BENIGN_STARTUP_ERROR_TRANSACTION.runId, containers: { db: evidenceShell.post.containers.db, web: evidenceShell.post.containers.web } },
+    startup: { ...evidenceShell.startup, result: 'HOLD_STARTUP_ERROR', schemaWriteSignalCount: 0, errorSignalCount: 1, sensitiveLineCount: 4, eventCounts: { SCHEMA_COMPATIBILITY_PASS: 1, READINESS_HTTP_PASS: 1 }, combinedDigest: replay.combinedDigest },
+  };
+  return { replay, receipt, evidence, dbBaseline };
+}
+async function benignBundle(overrides = {}) {
+  const { replay, receipt, evidence, dbBaseline } = await benignParts();
+  const previousPin = { api: pin(previous, 'a'), web: pin(previous, 'b') };
+  const candidateApi = { imageId: image('c'), revision: C9383D50 };
+  return {
+    transaction: { version: 3, runId: '38208343072-1', phase: 'IN_PROGRESS', target: C9383D50, configSha: C9383D50 },
+    deployRecord: { version: 3, outcome: 'SWITCHING', switched: { api: true, web: false }, target: C9383D50, configSha: C9383D50, floorSha: C9383D50, previous: previousPin, active: { api: candidateApi, web: previousPin.web }, candidates: { api: candidateApi }, migrationPaths: [], protectedImages: [], expiresAt: '2026-10-12T06:08:41.555Z', migrationBaseline: sha(previous), evidence: { pre: '/p', post: '/q', log: '/l' } },
+    marker: { version: 3, operation: 'CODE_HOLD', phase: 'IN_PROGRESS', runId: '38208343072-1', target: C9383D50, startedAt: '2026-10-12T05:38:41.555Z', expiresAt: '2026-10-12T06:08:41.555Z' },
+    floor: { version: 3, floorSha: C9383D50, chanjetPolicy: 'HOLD', readonlyApproval: null },
+    active: { version: 3, configSha: C9383D50, floorSha: C9383D50, active: previousPin, outcome: 'CONFIG_READY_HOLD', migrationBaseline: sha(previous) },
+    runtime: { api: candidateApi, web: previousPin.web },
+    containers: { db: { id: 'd'.repeat(64), image: image('d'), startedAt: '2026-10-05T04:03:03.533292753Z', ociRevision: null }, api: { id: '9'.repeat(64), image: image('c'), startedAt: '2026-10-12T05:38:41.000000000Z', ociRevision: C9383D50 }, web: { id: 'e'.repeat(64), image: image('e'), startedAt: '2026-10-08T06:39:19.544652894Z', ociRevision: sha(previous) } },
+    readinessHttp: '200',
+    liveEnv: { CHANJET_SYNC_POLICY: 'HOLD', CHANJET_READONLY_SYNC_ENABLED: 'false', CHANJET_ERP_INBOUND_SYNC_ENABLED: 'false' },
+    evidence, receipt, replay, dbEvidence: dbBaseline,
+    checkout: { head: C9383D50, clean: true },
+    ...overrides,
+  };
+}
+const benignContext = { targetRunId: '38208343072-1', approvedSha: C9383D50, recoveryRunId: '38300000099-1', now: Date.parse('2026-10-12T07:00:00.000Z') };
+
+test('replayStartupWindow returns sanitized identity, digest and shape counts', async () => {
+  const { replay } = await benignParts();
+  assert.equal(replay.available, true);
+  assert.equal(replay.schemaWriteCount, 0);
+  assert.equal(replay.sqlShapeCount, 0);
+  assert.match(replay.combinedDigest, /^[a-f0-9]{64}$/);
+  const line = replay.linesByTs[THE_TS];
+  assert.equal(line.routesResolverLine, true);
+  assert.equal(line.sensitive, false);
+  assert.equal(line.sqlStatementShape, null);
+  assert.deepEqual(line.wordSet, [...BENIGN_STARTUP_ERROR_WORD_SET]);
+  const poisoned = await replayStartupWindow({ post: { containers: { api: { id: '9'.repeat(64) } } }, startup: { startedAt: '2026-10-12T05:38:41.000000000Z', capturedAt: '2026-10-12T05:39:10.400000000Z' } }, () => ({ stdout: `2026-10-12T05:39:05.000000000Z query: INSERT INTO x VALUES (1)\n`, stderr: '' }));
+  assert.equal(poisoned.sqlShapeCount, 1);
+  assert.equal((await replayStartupWindow({}, null)).available, false);
+});
+test('the benign single-line startup-error transaction is recovery-eligible only with a fully bound receipt', async () => {
+  const bundle = await benignBundle();
+  assert.deepEqual(assessRecovery(bundle, benignContext), { eligible: true, reasons: [], resumeFrom: null });
+  const plan = planRecoveredState(bundle.deployRecord, bundle.marker, { recoveryRunId: benignContext.recoveryRunId, recoveredAt: '2026-10-12T07:00:00.000Z', startupResult: 'HOLD_STARTUP_ERROR', classification: 'CASE_A_BENIGN_STARTUP_ERROR_SINGLE_ROUTES_RESOLVER_LINE', receiptSha256: 'a'.repeat(64) });
+  assert.equal(plan.deployRecord.recovery.startupResult, 'HOLD_STARTUP_ERROR');
+  assert.equal(plan.deployRecord.recovery.classification, 'CASE_A_BENIGN_STARTUP_ERROR_SINGLE_ROUTES_RESOLVER_LINE');
+  assert.equal(plan.deployRecord.recovery.receiptSha256, 'a'.repeat(64));
+});
+test('every benign-startup-error rejection path holds individually', async () => {
+  const base = await benignBundle();
+  const cases = [
+    [b => ({ ...b, receipt: undefined }), 'RECEIPT_MISSING'],
+    [b => ({ ...b, receipt: { ...b.receipt, schema: 'phoenix.other/1' } }), 'RECEIPT_SCHEMA'],
+    [b => ({ ...b, receipt: { ...b.receipt, runId: '999-9' } }), 'RECEIPT_TRANSACTION_NOT_ELIGIBLE'],
+    [() => ({ ...base, receipt: { ...base.receipt } }), null], // control placeholder
+  ];
+  // wrong binding context (run / SHA) fails closed at evidence binding before
+  // the receipt path is even consulted
+  assert.equal(assessRecovery(base, { ...benignContext, targetRunId: '38031441639-1' }).reasons.includes('EVIDENCE_BINDING'), true);
+  assert.equal(assessRecovery(base, { ...benignContext, approvedSha: 'b'.repeat(40) }).reasons.includes('EVIDENCE_BINDING'), true);
+  const mutations = [
+    [b => { b.receipt.startup.combinedDigest = 'f'.repeat(64); }, 'RECEIPT_DIGEST_MISMATCH'],
+    [b => { b.replay.combinedDigest = 'f'.repeat(64); }, 'REPLAY_DIGEST_MISMATCH'],
+    [b => { b.evidence.startup.errorSignalCount = 2; }, 'RECEIPT_COUNTS_MISMATCH'],
+    [b => { b.evidence.startup.schemaWriteSignalCount = 1; }, 'RECEIPT_SCHEMAWRITE_NONZERO'],
+    [b => { b.evidence.startup.eventCounts.SCHEMA_COMPATIBILITY_PASS = 0; }, 'RECEIPT_COMPAT_MISMATCH'],
+    [b => { b.replay.sqlShapeCount = 1; }, 'REPLAY_SQL_SHAPE_PRESENT'],
+    [b => { b.replay.schemaWriteCount = 1; }, 'REPLAY_SCHEMAWRITE_NONZERO'],
+    [b => { delete b.replay.linesByTs[THE_TS]; }, 'RECEIPT_LINE_NOT_IN_WINDOW'],
+    [b => { b.replay.linesByTs[THE_TS].sqlStatementShape = 'insert into'; }, 'REPLAY_LINE_SQL_SHAPE'],
+    [b => { b.replay.linesByTs[THE_TS].routesResolverLine = false; }, 'REPLAY_LINE_ATTRIBUTION'],
+    [b => { b.replay.linesByTs[THE_TS].sensitive = true; }, 'REPLAY_LINE_SENSITIVE'],
+    [b => { b.receipt.errorLine.wordSet = ['Nest', 'LOG', 'Injected']; }, 'RECEIPT_LINE_IDENTITY_MISMATCH'],
+    [b => { b.receipt.readinessHttp = 503; }, 'RECEIPT_READINESS_MISMATCH'],
+    [b => { b.dbBaselineBad = (b.dbEvidence.mirrorRows = 99999); }, 'RECEIPT_DB_BASELINE_MISMATCH'],
+    [b => { b.replay.available = false; }, 'REPLAY_UNAVAILABLE'],
+    [b => { b.containers.api.id = '7'.repeat(64); }, 'LIVE_API_DRIFTED_FROM_POST'],
+    [b => { b.liveEnv.CHANJET_READONLY_SYNC_ENABLED = 'true'; }, 'LIVE_POLICY_FLAGS'],
+  ];
+  for (const [mutate, reason] of mutations) {
+    const bundle = JSON.parse(JSON.stringify(base));
+    bundle.receipt.errorLine.wordSet = bundle.receipt.errorLine.wordSet; // no-op keep
+    mutate(bundle);
+    const assessment = assessRecovery(bundle, benignContext);
+    assert.equal(assessment.eligible, false, reason);
+    assert.ok(assessment.reasons.includes(reason), `${reason} in ${assessment.reasons}`);
+  }
+  for (const [builder] of cases.filter(c => c[1])) {
+    const assessment = assessRecovery(builder(base), benignContext);
+    assert.equal(assessment.eligible, false);
+  }
+});
+test('HOLD_STARTUP_ERROR outside the frozen transaction never becomes recoverable', async () => {
+  const bundle = await benignBundle();
+  const other = JSON.parse(JSON.stringify(bundle));
+  other.transaction.runId = '99999999999-1';
+  other.deployRecord = { ...other.deployRecord };
+  const assessment = assessRecovery(other, { ...benignContext, targetRunId: '99999999999-1' });
+  assert.equal(assessment.eligible, false);
+  assert.ok(assessment.reasons.includes('EVIDENCE_BINDING'));
 });
