@@ -321,6 +321,16 @@ export function executeRecoveryStages(archive, io, { resumedBy } = {}) {
   return { executed, complete: true };
 }
 
+// Shared completion seam for the CLI and isolated regression tests. The
+// verified-abort path performs its live TOCTOU check before calling this
+// function; all staged writes and the externally visible COMPLETE result stay
+// in one tested path.
+export function completeRecovery(record, io, { resumedBy, write = () => {} } = {}) {
+  const result = executeRecoveryStages(record, io, { resumedBy });
+  write('DEPLOYMENT_RECOVERY', 'COMPLETE');
+  return result;
+}
+
 // CLI entry: only ever runs against the real trusted control plane, guarded by
 // RECOVERY_EXECUTE plus explicit run/SHA binding. Local tests never reach it.
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
@@ -384,15 +394,15 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       const assessment = assessRecovery({ transaction, deployRecord, marker, floor, active, runtime, containers, readinessHttp, liveEnv, evidence, evidenceFiles, archive, checkout, receipt, replay, dbEvidence }, context);
       if (!assessment.eligible) { write('DEPLOYMENT_RECOVERY', `HOLD_${assessment.reasons.join(',')}`); process.exitCode = 1; }
       else if (!rollbackEligibility(root, floor, runtime.api).allowed) { write('DEPLOYMENT_RECOVERY', 'HOLD_RUNTIME_NOT_FLOOR_ELIGIBLE'); process.exitCode = 1; }
-      else if (evidence?.startup?.result === 'PASS_REDACTED_SUMMARY') {
-        // Verified-abort path only: re-run the live TOCTOU snapshot check the
-        // original deploy's `complete` would have performed.
-        try {
-          const evidenceModule = await import('./production-deployment-evidence.mjs');
-          evidenceModule.verifyLiveSnapshot(evidence.post, { runId: context.targetRunId, runAttempt: String(evidence.startup.deployRunAttempt ?? 1), targetSha: context.approvedSha, configFloorSha: floor.floorSha });
-        } catch (error) { throw Object.assign(new Error('verify live snapshot'), { code: 'DEPLOYMENT_RECOVERY=HOLD_VERIFY_LIVE_SNAPSHOT' }); }
-      }
       else {
+        if (evidence?.startup?.result === 'PASS_REDACTED_SUMMARY') {
+          // Verified-abort path only: re-run the live TOCTOU snapshot check the
+          // original deploy's `complete` would have performed.
+          try {
+            const evidenceModule = await import('./production-deployment-evidence.mjs');
+            evidenceModule.verifyLiveSnapshot(evidence.post, { runId: context.targetRunId, runAttempt: String(evidence.startup.deployRunAttempt ?? 1), targetSha: context.approvedSha, configFloorSha: floor.floorSha });
+          } catch (error) { throw Object.assign(new Error('verify live snapshot'), { code: 'DEPLOYMENT_RECOVERY=HOLD_VERIFY_LIVE_SNAPSHOT' }); }
+        }
         let record = archive;
         if (!record) {
           const recoveredAt = new Date().toISOString();
@@ -409,15 +419,14 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
             archived: [snapshotOf('transaction.json', transaction), snapshotOf('policy-transition.json', marker), snapshotOf('floor.json', floor), snapshotOf('active.json', active), snapshotOf(`deploy-${context.targetRunId}.json`, deployRecord)], plan };
           atomicState(stateFile(`recovery-${context.targetRunId}.json`), record);
         }
-        executeRecoveryStages(record, {
+        completeRecovery(record, {
           writeActive: value => atomicState(stateFile('active.json'), value),
           writeDeployRecord: value => atomicState(stateFile(`deploy-${context.targetRunId}.json`), value),
           writeArchive: value => atomicState(stateFile(`recovery-${context.targetRunId}.json`), value),
           exists: name => fs.existsSync(stateFile(name)),
           unlink: name => fs.unlinkSync(stateFile(name)),
           now: () => new Date().toISOString(),
-        }, { resumedBy: context.recoveryRunId });
-        write('DEPLOYMENT_RECOVERY', 'COMPLETE');
+        }, { resumedBy: context.recoveryRunId, write });
       }
     }
   } catch (error) {
