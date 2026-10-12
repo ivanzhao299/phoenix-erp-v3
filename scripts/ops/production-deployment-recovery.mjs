@@ -50,12 +50,18 @@ export const BENIGN_STARTUP_ERROR_WORD_SET = Object.freeze(['Nest', 'LOG', 'Rout
 // on-disk evidence rather than trusted from the receipt.
 export const VERIFIED_ABORT_RECEIPT_SCHEMA = 'phoenix.verified-abort-recovery-receipt/1';
 export const VERIFIED_ABORT_TRANSACTION = Object.freeze({ runId: '38217361863-1', targetSha: 'f46f651dcebeb11210c8e577f3c0caed87f356c2' });
+// M7 floor re-anchor transaction that reached API M7 and passed evidence but
+// aborted in the disk-report section before `complete`. It is independently
+// frozen: the previous floor must remain M6 while the candidate/target is M7.
+export const VERIFIED_ABORT_REANCHOR_TRANSACTION = Object.freeze({ runId: '38321168296-1', targetSha: '5c4355fe32b4fe357cf5dc919a85e7aef7f59070', previousFloorSha: '797eeca1db229f5e4d288da88d83888ad92b35c5' });
 export const VERIFIED_ABORT_POINT = 'DISK_REPORT_SIGPIPE';
 
 const sha256 = value => createHash('sha256').update(value).digest('hex');
 const deepEqual = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 const wordSetOf = line => [...new Set(line.match(/[A-Za-z]{3,}/g) ?? [])].filter(word => !/^[a-fA-F0-9]{8,}$/.test(word));
 const sqlShapePattern = /\b(insert\s+into|update\s+\S+\s+set|delete\s+from|alter\s+table|create\s+(?:table|index|unique|sequence)|drop\s+(?:table|index|constraint)|truncate\s+table?|grant\s+|revoke\s+)\b/i;
+const isVerifiedAbortReanchor = context => context?.targetRunId === VERIFIED_ABORT_REANCHOR_TRANSACTION.runId
+  && context?.approvedSha === VERIFIED_ABORT_REANCHOR_TRANSACTION.targetSha;
 
 // Replays the bounded startup window of the bound deploy and returns only
 // sanitized per-line identity (same word-set rules as the R0 collector; raw
@@ -159,8 +165,9 @@ function validateVerifiedAbortRecovery(bundle, context, reasons) {
   const { receipt, replay, evidence, evidenceFiles, dbEvidence } = bundle;
   if (!receipt) { reasons.push('RECEIPT_MISSING'); return; }
   if (receipt.schema !== VERIFIED_ABORT_RECEIPT_SCHEMA) reasons.push('RECEIPT_SCHEMA');
-  if (receipt.runId !== VERIFIED_ABORT_TRANSACTION.runId || receipt.targetSha !== VERIFIED_ABORT_TRANSACTION.targetSha
-    || context.targetRunId !== VERIFIED_ABORT_TRANSACTION.runId || context.approvedSha !== VERIFIED_ABORT_TRANSACTION.targetSha) reasons.push('RECEIPT_TRANSACTION_NOT_ELIGIBLE');
+  const frozen = isVerifiedAbortReanchor(context) ? VERIFIED_ABORT_REANCHOR_TRANSACTION : VERIFIED_ABORT_TRANSACTION;
+  if (receipt.runId !== frozen.runId || receipt.targetSha !== frozen.targetSha
+    || context.targetRunId !== frozen.runId || context.approvedSha !== frozen.targetSha) reasons.push('RECEIPT_TRANSACTION_NOT_ELIGIBLE');
   const startup = evidence?.startup;
   if (!receipt.startup || receipt.startup.result !== 'PASS_REDACTED_SUMMARY') reasons.push('RECEIPT_STARTUP_RESULT');
   else if (receipt.startup.combinedDigest !== startup?.combinedDigest) reasons.push('RECEIPT_DIGEST_MISMATCH');
@@ -231,10 +238,12 @@ export function assessRecovery(bundle, context) {
     || marker.target !== context.approvedSha || !expired(marker)) reasons.push('POLICY_MARKER_SHAPE');
   if (marker && Number.isFinite(Date.parse(marker.startedAt)) && Number.isFinite(Date.parse(marker.expiresAt))
     && (Date.parse(marker.expiresAt) - Date.parse(marker.startedAt) > 30 * 60 * 1000)) reasons.push('POLICY_MARKER_WINDOW');
-  if (!floor || floor.version !== 3 || floor.floorSha !== context.approvedSha || floor.chanjetPolicy !== 'HOLD' || floor.readonlyApproval !== null) reasons.push('FLOOR_SHAPE');
+  const reanchor = isVerifiedAbortReanchor(context);
+  const expectedFloorSha = reanchor ? VERIFIED_ABORT_REANCHOR_TRANSACTION.previousFloorSha : context.approvedSha;
+  if (!floor || floor.version !== 3 || floor.floorSha !== expectedFloorSha || floor.chanjetPolicy !== 'HOLD' || floor.readonlyApproval !== null) reasons.push('FLOOR_SHAPE');
   if (active) {
     if (phase === 'ARCHIVED' || phase === null) {
-      if (active.version !== 3 || active.outcome !== 'CONFIG_READY_HOLD' || active.floorSha !== context.approvedSha || active.configSha !== context.approvedSha
+      if (active.version !== 3 || active.outcome !== 'CONFIG_READY_HOLD' || active.floorSha !== expectedFloorSha || active.configSha !== expectedFloorSha
         || active.active?.api?.revision === context.approvedSha
         || !deepEqual(active.active, deployRecord?.previous)) reasons.push('ACTIVE_STILL_PROMOTION_STATE');
     } else if (!deepEqual(active, archive?.plan?.active)) reasons.push('ACTIVE_NOT_RECOVERED_PLAN');
