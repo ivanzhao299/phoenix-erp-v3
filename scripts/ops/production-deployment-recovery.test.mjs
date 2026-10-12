@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
-import { assessRecovery, planRecoveredState, executeRecoveryStages, replayStartupWindow, RECOVERY_SCHEMA, CASE_A_STARTUP_RESULT, RECOVERY_PHASES, CASE_A_ERROR_RECEIPT_SCHEMA, BENIGN_STARTUP_ERROR_TRANSACTION, BENIGN_STARTUP_ERROR_ATTRIBUTION, BENIGN_STARTUP_ERROR_WORD_SET, VERIFIED_ABORT_RECEIPT_SCHEMA, VERIFIED_ABORT_TRANSACTION, VERIFIED_ABORT_POINT } from './production-deployment-recovery.mjs';
+import { assessRecovery, planRecoveredState, executeRecoveryStages, completeRecovery, replayStartupWindow, RECOVERY_SCHEMA, CASE_A_STARTUP_RESULT, RECOVERY_PHASES, CASE_A_ERROR_RECEIPT_SCHEMA, BENIGN_STARTUP_ERROR_TRANSACTION, BENIGN_STARTUP_ERROR_ATTRIBUTION, BENIGN_STARTUP_ERROR_WORD_SET, VERIFIED_ABORT_RECEIPT_SCHEMA, VERIFIED_ABORT_TRANSACTION, VERIFIED_ABORT_POINT } from './production-deployment-recovery.mjs';
 
 const sha = c => c.repeat(40);
 const image = c => `sha256:${c.repeat(64)}`;
@@ -508,6 +508,26 @@ test('the verified-abort transaction is eligible only with the frozen receipt an
   const plan = planRecoveredState(bundle.deployRecord, bundle.marker, { recoveryRunId: verifiedContext.recoveryRunId, recoveredAt: '2026-10-12T09:30:00.000Z', startupResult: 'PASS_REDACTED_SUMMARY', classification: 'EVIDENCE_VERIFIED_SCRIPT_ABORTED_AFTER_VERIFY', receiptSha256: 'b'.repeat(64) });
   assert.equal(plan.deployRecord.recovery.startupResult, 'PASS_REDACTED_SUMMARY');
   assert.equal(plan.deployRecord.recovery.classification, 'EVIDENCE_VERIFIED_SCRIPT_ABORTED_AFTER_VERIFY');
+  // The CLI must continue into the shared staged executor after the live
+  // snapshot check. This source-level guard prevents the verified branch from
+  // becoming a silent successful no-op again.
+  const source = fs.readFileSync('scripts/ops/production-deployment-recovery.mjs', 'utf8');
+  const verifiedBranch = source.indexOf("if (evidence?.startup?.result === 'PASS_REDACTED_SUMMARY')");
+  const sharedStages = source.indexOf('let record = archive;', verifiedBranch);
+  assert.ok(verifiedBranch >= 0 && sharedStages > verifiedBranch, 'verified-abort must fall through to shared recovery stages');
+
+  // Exercise the same isolated staged IO used by the CLI and assert the
+  // externally visible completion/state contract without touching production.
+  const harness = ioHarness();
+  const archived = harness.makeArchive(plan);
+  const output = [];
+  const staged = completeRecovery(archived, harness.io, { write: (label, value) => output.push(`${label}=${value}`) });
+  assert.equal(staged.complete, true);
+  assert.deepEqual(output, ['DEPLOYMENT_RECOVERY=COMPLETE']);
+  assert.equal(harness.state.archive.phase, 'COMPLETE');
+  assert.equal(harness.state.active.outcome, 'SUCCESS');
+  assert.equal(harness.state.deployRecord.outcome, 'SUCCESS');
+  assert.deepEqual(harness.state.unlinked.sort(), ['policy-transition.json', 'transaction.json']);
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 test('every verified-abort rejection path holds individually', async () => {
@@ -560,6 +580,27 @@ test('verify recompute runs against real evidence files and fails closed on tamp
     const assessment = assessRecovery({ ...bundle, evidence: { ...bundle.evidence, startup: tampered } }, verifiedContext);
     assert.equal(assessment.eligible, false);
     assert.ok(assessment.reasons.includes('VERIFY_RECOMPUTE_FAILED'), `${assessment.reasons}`);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('verified-abort verify failure never enters the staged writer', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'verified-abort-hold-'));
+  try {
+    const { receipt, evidence } = await verifiedParts();
+    const files = { pre: path.join(dir, 'pre.json'), post: path.join(dir, 'post.json'), log: path.join(dir, 'log.json') };
+    fs.writeFileSync(files.pre, JSON.stringify(evidence.pre));
+    fs.writeFileSync(files.post, JSON.stringify(evidence.post));
+    const tampered = { ...evidence.startup, phase: 'TAMPERED' };
+    fs.writeFileSync(files.log, JSON.stringify(tampered));
+    const bundle = await verifiedBundle({ evidenceFiles: files, receipt, evidence: { ...evidence, startup: tampered } });
+    const assessment = assessRecovery(bundle, verifiedContext);
+    assert.equal(assessment.eligible, false);
+    assert.ok(assessment.reasons.includes('VERIFY_RECOMPUTE_FAILED'));
+    const harness = ioHarness();
+    assert.equal(harness.state.activeWrites, 0);
+    assert.equal(harness.state.deployWrites, 0);
+    assert.equal(harness.state.archiveWrites, 0);
+    assert.deepEqual(harness.state.unlinked, []);
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 test('PASS evidence outside the frozen verified-abort transaction never becomes recoverable', async () => {
