@@ -1090,10 +1090,16 @@ jobs:
             # docker die of SIGPIPE and the ERR trap aborts the deploy AFTER a
             # successful verify (run 38217361863-1). Capture first — the
             # capture runs docker alone so a REAL docker failure stays fatal —
-            # then truncate the in-memory report (printf cannot block/SIGPIPE
-            # on a report far below the pipe buffer).
+            # then print at most 20 lines from the in-memory report without a
+            # producer/consumer pipe. A remote sed/awk implementation or an
+            # oversized image inventory must never be able to SIGPIPE this
+            # shell after a successful verify.
             IMAGE_REPORT="$(docker images --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}")"
-            printf '%s\n' "$IMAGE_REPORT" | sed -n '1,20p'
+            IMAGE_PREVIEW_COUNT=0
+            while IFS= read -r IMAGE_LINE && [ "$IMAGE_PREVIEW_COUNT" -lt 20 ]; do
+              printf '%s\n' "$IMAGE_LINE"
+              IMAGE_PREVIEW_COUNT=$((IMAGE_PREVIEW_COUNT + 1))
+            done <<< "$IMAGE_REPORT"
             echo "💾 磁盘总览:"
             df -h / | tail -1
             echo "🐳 Docker 总占用(builder cache 保留 5GB/24h 加速冷构建):"
