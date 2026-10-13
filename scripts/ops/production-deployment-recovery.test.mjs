@@ -249,6 +249,16 @@ test('recovery bundle unpacks and every bundled module imports without ERR_MODUL
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+test('recovery workflow separates runner SHA from frozen target and previous floor', () => {
+  const workflow = fs.readFileSync('.github/workflows/chanjet-readonly-restoration.yml', 'utf8');
+  assert.match(workflow, /recovery_target_sha:/);
+  assert.match(workflow, /recovery_previous_floor_sha:/);
+  assert.match(workflow, /RECOVERY_TARGET_SHA: \$\{\{ inputs\.recovery_target_sha \}\}/);
+  assert.match(workflow, /RECOVERY_PREVIOUS_FLOOR_SHA: \$\{\{ inputs\.recovery_previous_floor_sha \}\}/);
+  assert.match(workflow, /RECOVERY_APPROVED_SHA="\$RECOVERY_TARGET_SHA"/);
+  assert.match(workflow, /RECOVERY_PREVIOUS_FLOOR_SHA="\$RECOVERY_PREVIOUS_FLOOR_SHA"/);
+  assert.match(workflow, /APPROVED_CONFIG_FLOOR_SHA: \$\{\{ inputs\.operation == 'recovery' && inputs\.recovery_target_sha \|\| inputs\.approved_main_sha \}\}/);
+});
 // ── resume binding: an existing archive must match this exact recovery context ──
 test('resume requires archive schema, run id, approved SHA and plan targets to match the context', () => {
   const bundle = validBundle();
@@ -512,7 +522,7 @@ async function verifiedReanchorBundle() {
     post: { ...bundle.evidence.post, deployRunId: runId, targetSha: M6, configFloorSha: M4, containers: { ...bundle.evidence.post.containers, api: { ...bundle.evidence.post.containers.api, image: image('6'), ociRevision: M6 } } },
     startup: { ...bundle.evidence.startup, deployRunId: runId, targetSha: M6, configFloorSha: M4 },
   };
-  bundle.receipt = { ...bundle.receipt, runId, targetSha: M6 };
+  bundle.receipt = { ...bundle.receipt, runId, targetSha: M6, previousFloorSha: M4 };
   bundle.checkout = { head: M6, clean: true };
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'verified-reanchor-'));
   const files = { pre: path.join(dir, 'pre.json'), post: path.join(dir, 'post.json'), log: path.join(dir, 'log.json') };
@@ -521,7 +531,7 @@ async function verifiedReanchorBundle() {
   fs.writeFileSync(files.log, JSON.stringify(bundle.evidence.startup));
   bundle.evidenceFiles = files;
   bundle.deployRecord.evidence = files;
-  return { bundle, dir, context: { targetRunId: runId, approvedSha: M6, recoveryRunId: '38330000001-1', now: Date.parse('2026-10-13T00:00:00.000Z') } };
+  return { bundle, dir, context: { targetRunId: runId, approvedSha: M6, previousFloorSha: M4, recoveryRunId: '38330000001-1', now: Date.parse('2026-10-13T00:00:00.000Z') } };
 }
 
 test('the M6 re-anchor verified-abort transaction is frozen to its M4 floor and eligible after evidence recompute', async () => {
@@ -549,6 +559,17 @@ test('M7 target or M6 previous-floor substitutions fail closed for the frozen M6
     const floorAssessment = assessRecovery(wrongPreviousFloor, context);
     assert.equal(floorAssessment.eligible, false);
     assert.ok(floorAssessment.reasons.includes('FLOOR_SHAPE'));
+
+    const missingPreviousFloor = { ...context };
+    delete missingPreviousFloor.previousFloorSha;
+    const missingAssessment = assessRecovery(bundle, missingPreviousFloor);
+    assert.equal(missingAssessment.eligible, false);
+
+    const wrongReceiptFloor = JSON.parse(JSON.stringify(bundle));
+    wrongReceiptFloor.receipt.previousFloorSha = '797eeca1db229f5e4d288da88d83888ad92b35c5';
+    const receiptAssessment = assessRecovery(wrongReceiptFloor, context);
+    assert.equal(receiptAssessment.eligible, false);
+    assert.ok(receiptAssessment.reasons.includes('RECEIPT_PREVIOUS_FLOOR_MISMATCH'));
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 

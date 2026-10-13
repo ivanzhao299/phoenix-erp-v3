@@ -61,7 +61,8 @@ const deepEqual = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 const wordSetOf = line => [...new Set(line.match(/[A-Za-z]{3,}/g) ?? [])].filter(word => !/^[a-fA-F0-9]{8,}$/.test(word));
 const sqlShapePattern = /\b(insert\s+into|update\s+\S+\s+set|delete\s+from|alter\s+table|create\s+(?:table|index|unique|sequence)|drop\s+(?:table|index|constraint)|truncate\s+table?|grant\s+|revoke\s+)\b/i;
 const isVerifiedAbortReanchor = context => context?.targetRunId === VERIFIED_ABORT_REANCHOR_TRANSACTION.runId
-  && context?.approvedSha === VERIFIED_ABORT_REANCHOR_TRANSACTION.targetSha;
+  && context?.approvedSha === VERIFIED_ABORT_REANCHOR_TRANSACTION.targetSha
+  && context?.previousFloorSha === VERIFIED_ABORT_REANCHOR_TRANSACTION.previousFloorSha;
 
 // Replays the bounded startup window of the bound deploy and returns only
 // sanitized per-line identity (same word-set rules as the R0 collector; raw
@@ -166,6 +167,7 @@ function validateVerifiedAbortRecovery(bundle, context, reasons) {
   if (!receipt) { reasons.push('RECEIPT_MISSING'); return; }
   if (receipt.schema !== VERIFIED_ABORT_RECEIPT_SCHEMA) reasons.push('RECEIPT_SCHEMA');
   const frozen = isVerifiedAbortReanchor(context) ? VERIFIED_ABORT_REANCHOR_TRANSACTION : VERIFIED_ABORT_TRANSACTION;
+  if (context.targetRunId === VERIFIED_ABORT_REANCHOR_TRANSACTION.runId && receipt.previousFloorSha !== VERIFIED_ABORT_REANCHOR_TRANSACTION.previousFloorSha) reasons.push('RECEIPT_PREVIOUS_FLOOR_MISMATCH');
   if (receipt.runId !== frozen.runId || receipt.targetSha !== frozen.targetSha
     || context.targetRunId !== frozen.runId || context.approvedSha !== frozen.targetSha) reasons.push('RECEIPT_TRANSACTION_NOT_ELIGIBLE');
   const startup = evidence?.startup;
@@ -345,7 +347,7 @@ export function completeRecovery(record, io, { resumedBy, write = () => {} } = {
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const write = (label, value) => { console.log(`${label}=${value}`); };
   try {
-    const context = { targetRunId: process.env.RECOVERY_TARGET_RUN_ID, approvedSha: process.env.RECOVERY_APPROVED_SHA, recoveryRunId: process.env.RECOVERY_RUN_ID };
+    const context = { targetRunId: process.env.RECOVERY_TARGET_RUN_ID, approvedSha: process.env.RECOVERY_APPROVED_SHA, previousFloorSha: process.env.RECOVERY_PREVIOUS_FLOOR_SHA, recoveryRunId: process.env.RECOVERY_RUN_ID };
     if (process.env.RECOVERY_EXECUTE !== 'true' || !/^\d+(?:-\d+)?$/.test(context.targetRunId || '') || !/^[a-f0-9]{40}$/.test(context.approvedSha || '') || !/^\d+-\d+$/.test(context.recoveryRunId || '')) {
       write('DEPLOYMENT_RECOVERY', 'HOLD_EXECUTION_NOT_AUTHORIZED'); process.exitCode = 1;
     } else {
