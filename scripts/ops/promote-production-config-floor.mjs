@@ -3,7 +3,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { createHash } from 'node:crypto';
 import { CONTRACT, git, requireCleanMain, assertFloorMonotonic, migrationScope, assertFloor, secureJson } from './production-config-guard.mjs';
-import { atomicState } from './production-deployment-state.mjs';
+import { atomicState } from './production-atomic-state.mjs';
 import { captureRuntime } from './capture-production-runtime.mjs';
 import { assertBootstrapSchemaEvidence, readBootstrapSchemaEvidence } from './api-bootstrap-schema-preflight.mjs';
 import { readonlyEnvironment } from './chanjet-readonly-policy.mjs';
@@ -54,7 +54,7 @@ export async function promoteFloor(root) {
   git(root, ['merge-base', '--is-ancestor', git(root, ['rev-parse', 'HEAD']), target]);
   // Every executed staged helper must be identical to the exact approved merged tree.
   const base = path.dirname(new URL(import.meta.url).pathname);
-  for (const file of ['production-config-contract.json', 'production-config-guard.mjs', 'production-deployment-state.mjs', 'production-trusted-paths.mjs', 'capture-production-runtime.mjs', 'update-managed-chanjet-env.mjs', 'chanjet-readonly-policy.mjs', 'api-bootstrap-schema-preflight.mjs', 'api-bootstrap-schema-contract.json', 'promote-production-config-floor.mjs']) {
+  for (const file of ['production-config-contract.json', 'production-config-guard.mjs', 'production-deployment-state.mjs', 'production-atomic-state.mjs', 'production-deployment-evidence.mjs', 'production-trusted-paths.mjs', 'capture-production-runtime.mjs', 'update-managed-chanjet-env.mjs', 'chanjet-readonly-policy.mjs', 'api-bootstrap-schema-preflight.mjs', 'api-bootstrap-schema-contract.json', 'promote-production-config-floor.mjs']) {
     const source = file === 'api-bootstrap-schema-contract.json' ? `apps/api/src/common/database/${file}` : `scripts/ops/${file}`;
     if (!fs.readFileSync(path.join(base, file)).equals(Buffer.from(git(root, ['show', `${target}:${source}`]) + '\n'))) throw new Error('CONFIG_HOLD=STAGED_HELPER_MISMATCH');
   }

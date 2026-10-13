@@ -43,8 +43,9 @@ export const BENIGN_STARTUP_ERROR_ATTRIBUTION = 'ROUTES_RESOLVER_REGISTRATION';
 export const BENIGN_STARTUP_ERROR_WORD_SET = Object.freeze(['Nest', 'LOG', 'RoutesResolver', 'mSysErrorLogsController', 'api', 'system', 'error', 'logs']);
 // Verified-abort recovery: run 38217361863-1 deployed, switched and PASSED
 // both startup evidence and file verification, then the deploy script was
-// killed AFTER verify by the disk-report SIGPIPE pipe bug (root-caused in the
-// Actions log; fixed for future deploys in the same PR). PASS_REDACTED_SUMMARY
+// aborted AFTER verify; the original SIGPIPE attribution was a hypothesis.
+// Node 20 CLI reproduction later confirmed the complete/evidence TLA cycle
+// (see docs/ops/r3c-complete-module-cycle.md). PASS_REDACTED_SUMMARY
 // is NOT globally recoverable — this frozen transaction is the only one that
 // may close through this path, with the verify verdict recomputed from the
 // on-disk evidence rather than trusted from the receipt.
@@ -54,6 +55,7 @@ export const VERIFIED_ABORT_TRANSACTION = Object.freeze({ runId: '38217361863-1'
 // aborted in the disk-report section before `complete`. It is independently
 // frozen: the previous floor must remain M4 while the candidate/target is M6.
 export const VERIFIED_ABORT_REANCHOR_TRANSACTION = Object.freeze({ runId: '38321168296-1', targetSha: '797eeca1db229f5e4d288da88d83888ad92b35c5', previousFloorSha: 'f46f651dcebeb11210c8e577f3c0caed87f356c2' });
+// Historical receipt wire label: retain byte compatibility, not a root-cause claim.
 export const VERIFIED_ABORT_POINT = 'DISK_REPORT_SIGPIPE';
 
 const sha256 = value => createHash('sha256').update(value).digest('hex');
