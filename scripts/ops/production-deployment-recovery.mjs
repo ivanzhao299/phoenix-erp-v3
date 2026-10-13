@@ -530,10 +530,15 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       try { readinessHttp = execFileSync('curl', ['-sS', '--max-time', '15', '-o', '/dev/null', '-w', '%{http_code}', 'http://127.0.0.1:3100/api/readiness'], { encoding: 'utf8' }).trim(); } catch { /* reported via READINESS */ }
       const rawEnv = JSON.parse(execFileSync('docker', ['inspect', 'phoenix-v3-api', '--format', '{{json .Config.Env}}'], { encoding: 'utf8' }));
       const liveEnv = Object.fromEntries(rawEnv.filter(line => /^(CHANJET_READONLY_SYNC_ENABLED|CHANJET_ERP_INBOUND_SYNC_ENABLED|CHANJET_SYNC_POLICY)=/.test(line)).map(line => [line.slice(0, line.indexOf('=')), line.slice(line.indexOf('=') + 1)]));
+      // New frozen path reads evidence through the trusted control-plane file
+      // reader (containment, ownership/mode, no symlinks and pinned identity).
+      // Legacy paths retain their existing receipt/file validation behavior.
+      const readEvidence = context.targetRunId === COMPLETE_ABORT_TRANSACTION.runId
+        ? secureJson : file => JSON.parse(fs.readFileSync(file, 'utf8'));
       const evidence = deployRecord?.evidence ? {
-        pre: JSON.parse(fs.readFileSync(deployRecord.evidence.pre, 'utf8')),
-        post: JSON.parse(fs.readFileSync(deployRecord.evidence.post, 'utf8')),
-        startup: JSON.parse(fs.readFileSync(deployRecord.evidence.log, 'utf8')),
+        pre: readEvidence(deployRecord.evidence.pre),
+        post: readEvidence(deployRecord.evidence.post),
+        startup: readEvidence(deployRecord.evidence.log),
       } : null;
       // Sanitized receipt (base64 payload; sha256 over the decoded bytes) gates
       // the single benign-startup-error transaction. Transport hash mismatch is

@@ -156,3 +156,17 @@ for(const [name,mutate,options]of [['missing receipt',()=>{},{missingReceipt:tru
   const x=await fixture(t);mutate(x);const {result,before}=x.runCli(options);assert.equal(result.status,1,result.stdout+result.stderr);assert.doesNotMatch(result.stdout,/=COMPLETE/);
   assert.deepEqual(fs.readdirSync(x.dir).sort(),Object.keys(before).sort());for(const[n,bytes]of Object.entries(before))assert.equal(fs.readFileSync(path.join(x.dir,n),'utf8'),bytes);
 });
+
+
+test('real workflow recovery admission keeps runner SHA separate and admits the new schema',()=>{
+  const workflow=fs.readFileSync(new URL('../../.github/workflows/chanjet-readonly-restoration.yml',import.meta.url),'utf8');
+  const fragment=workflow.match(/elif \[ "\$OPERATION" = recovery \]; then([\s\S]*?)\n          else/)[1];
+  const runner='c'.repeat(40);
+  const base={PATH:`${path.dirname(process.execPath)}:/usr/bin:/bin`,GITHUB_REF:'refs/heads/main',GITHUB_SHA:runner,APPROVED_SHA:runner,
+    CONFIRMATION:'APPROVE_EXACT_RECOVERY_TRANSACTION',RECOVERY_TARGET_SHA:f.targetSha,RECOVERY_PREVIOUS_FLOOR_SHA:f.previousFloorSha,BOUND_RUN_ID:f.runId,STARTUP_ERROR_RECEIPT:JSON.stringify(template)};
+  const invoke=env=>spawnSync('bash',['-c',`set -Eeuo pipefail\n${fragment}`],{encoding:'utf8',env:{...base,...env}});
+  assert.equal(invoke({}).status,0);
+  assert.notEqual(invoke({APPROVED_SHA:f.targetSha}).status,0);
+  assert.notEqual(invoke({RECOVERY_PREVIOUS_FLOOR_SHA:''}).status,0);
+  assert.notEqual(invoke({STARTUP_ERROR_RECEIPT:JSON.stringify({...template,schema:'unknown'})}).status,0);
+});

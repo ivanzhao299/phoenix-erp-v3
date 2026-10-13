@@ -99,11 +99,11 @@ production environment 规则需在另审时照实披露，不能把文字 confi
 
 ## 本地核验
 
-Node 20 新路径 30 项已通过，包含真实 recovery CLI COMPLETE、archive COMPLETE、active/deploy SUCCESS、
+Node 20 新路径 31 项已通过，包含真实 recovery CLI COMPLETE、archive COMPLETE、active/deploy SUCCESS、
 双 marker 删除；中断 resume、terminal 二次拒绝与真实 CLI 负例逐文件 byte 不变。
 另有纯函数拒绝矩阵与 template placeholder 拒绝，bundle 闭包/解包及旧 recovery 回归在完整 suite 中执行。
 fixture 只替代生产 host admission、Docker/curl 命令及只读 SQL 的结果；真实恢复入口、evidence/replay、
 原子状态写入与阶段协议执行，未知 Docker 命令即失败。测试不替代生产 host admission 核验。
-Node 20 完整 ops/契约/bundle/preflight：204 tests，202 pass，0 fail，2 skip
-（本地 Docker owner/group 与 PG fingerprint fixture 条件未满足）。Node 24 新路径30/30。
+Node 20 完整 ops/契约/bundle/preflight：205 tests，203 pass，0 fail，2 skip
+（本地 Docker owner/group 与 PG fingerprint fixture 条件未满足）。Node 24 新路径31/31。
 YAML parse、node syntax 与 diff check 通过；独立只读复核已关闭发现的缺口。
