@@ -513,14 +513,14 @@ async function verifiedReanchorBundle() {
   bundle.transaction = { ...bundle.transaction, runId, target: M6, configSha: M6 };
   bundle.deployRecord = { ...bundle.deployRecord, target: M6, configSha: M6, floorSha: M6, candidates: { api: candidateApi }, active: { api: candidateApi, web: bundle.deployRecord.previous.web }, evidence: { pre: '', post: '', log: '' } };
   bundle.marker = { ...bundle.marker, runId, target: M6 };
-  bundle.floor = { ...bundle.floor, floorSha: M4 };
-  bundle.active = { ...bundle.active, configSha: M4, floorSha: M4 };
+  bundle.floor = { ...bundle.floor, floorSha: M6 };
+  bundle.active = { ...bundle.active, configSha: M6, floorSha: M6 };
   bundle.runtime = { ...bundle.runtime, api: candidateApi };
   bundle.containers = { ...bundle.containers, api: { ...bundle.containers.api, image: image('6'), ociRevision: M6 } };
   bundle.evidence = {
-    pre: { ...bundle.evidence.pre, deployRunId: runId, targetSha: M6, configFloorSha: M4 },
-    post: { ...bundle.evidence.post, deployRunId: runId, targetSha: M6, configFloorSha: M4, containers: { ...bundle.evidence.post.containers, api: { ...bundle.evidence.post.containers.api, image: image('6'), ociRevision: M6 } } },
-    startup: { ...bundle.evidence.startup, deployRunId: runId, targetSha: M6, configFloorSha: M4 },
+    pre: { ...bundle.evidence.pre, deployRunId: runId, targetSha: M6, configFloorSha: M6 },
+    post: { ...bundle.evidence.post, deployRunId: runId, targetSha: M6, configFloorSha: M6, containers: { ...bundle.evidence.post.containers, api: { ...bundle.evidence.post.containers.api, image: image('6'), ociRevision: M6 } } },
+    startup: { ...bundle.evidence.startup, deployRunId: runId, targetSha: M6, configFloorSha: M6 },
   };
   bundle.receipt = { ...bundle.receipt, runId, targetSha: M6, previousFloorSha: M4 };
   bundle.checkout = { head: M6, clean: true };
@@ -555,7 +555,7 @@ test('M7 target or M6 previous-floor substitutions fail closed for the frozen M6
     assert.ok(assessRecovery(wrongTarget, context).reasons.includes('RECEIPT_TRANSACTION_NOT_ELIGIBLE'));
 
     const wrongPreviousFloor = JSON.parse(JSON.stringify(bundle));
-    wrongPreviousFloor.floor.floorSha = '797eeca1db229f5e4d288da88d83888ad92b35c5';
+    wrongPreviousFloor.floor.floorSha = 'f46f651dcebeb11210c8e577f3c0caed87f356c2';
     const floorAssessment = assessRecovery(wrongPreviousFloor, context);
     assert.equal(floorAssessment.eligible, false);
     assert.ok(floorAssessment.reasons.includes('FLOOR_SHAPE'));

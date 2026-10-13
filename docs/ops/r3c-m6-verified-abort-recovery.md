@@ -18,8 +18,10 @@ confirmation=APPROVE_EXACT_RECOVERY_TRANSACTION
 startup_error_receipt=<phoenix.verified-abort-recovery-receipt/1 for 38321168296-1>
 ```
 
-The M6 path requires the on-disk floor to remain M4 while the candidate API,
-startup evidence and live runtime are M6. It then rechecks the receipt, replay
+The M6 path binds the prior floor as M4 in the receipt, while the failed
+re-anchor may already have promoted the on-disk floor and CONFIG_READY_HOLD
+config state to M6. The candidate API, startup evidence and live runtime must
+also be M6. It then rechecks the receipt, replay
 digest, `verifyEvidenceFiles`, live TOCTOU identity, readiness, flags, expiry and
 all ten integer DB baseline fields before archive-first staged finalization.
 
