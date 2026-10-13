@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process';
+import { readonlyCliFixture } from './chanjet-readonly-cli.fixture.mjs';
 import { businessFingerprints } from './chanjet-readonly-first-sync.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -152,4 +153,54 @@ test('expired VERIFY can only close through an exact fresh HOLD operation',()=>{
   for(const change of [{remoteWrite:true},{erpInbound:true},{sourceClassification:'UAT'}])assert.throws(()=>expiredVerifyHoldEnvironment({...verify,readonlyApproval:{...approval,...change}},context,expiredNow));
   assert.throws(()=>expiredVerifyHoldEnvironment({...verify,operationalTuple:{...verify.operationalTuple,CHANJET_ERP_INBOUND_SYNC_ENABLED:'true'}},context,expiredNow),/POLICY_FLAGS/);
   const next=switchPlan(verify,'HOLD',null,expiredNow);assert.equal(next.operationalTuple.CHANJET_READONLY_SYNC_ENABLED,'false');assert.equal(readonlyEnvironment(next,expiredNow).CHANJET_SYNC_POLICY,'HOLD');
+});
+
+// These run the real Node CLI, policy, logical production guard, atomic state,
+// env CAS writer and Compose wrapper. UID/mount/lock/Git admission and external
+// Docker/SQL/HTTP responses are isolated fixture shims, never production proof.
+const cliSafe=f=>{assert.equal(f.result.signal,null);assert.notEqual(f.result.status,13);assert.deepEqual(f.trace.filter(x=>x.kind==='unexpectedCommand'),[]);assert.doesNotMatch(f.result.stdout+f.result.stderr,/SYNTHETIC_TOKEN_NOT_SECRET/);assert.ok(f.trace.filter(x=>x.kind==='dbReadOnly').length>0);};
+test('Node20 real M16 config CLI reproduces missing deployment state after floor/env write, preserving HOLD evidence',t=>{
+  const f=readonlyCliFixture(t,{baselineConfig:true});cliSafe(f);assert.equal(f.result.status,1);assert.match(f.result.stderr,/CHANJET_CONFIG_TRANSACTION=HOLD;EVIDENCE_RETAINED/);
+  assert.equal(f.read('floor.json').chanjetPolicy,'READONLY_VERIFY');assert.equal(f.env,f.source.replace('READONLY_SYNC_ENABLED=false','READONLY_SYNC_ENABLED=true'));
+  assert.ok(f.names.includes('policy-transition.json'));assert.ok(f.names.includes(`chanjet-config-${f.runId}.json`));assert.ok(f.trace.some(x=>x.kind==='pinnedRead'&&x.name===`deploy-${f.runId}.json`));assert.equal(f.trace.filter(x=>x.kind==='composeApi').length,0);
+});
+test('real VERIFY CLI uses committed active pins, recreates only API and completes its config record',t=>{
+  const f=readonlyCliFixture(t);cliSafe(f);assert.equal(f.result.status,0,f.result.stderr);assert.match(f.result.stdout,/CHANJET_CONFIG_TRANSACTION=PASS;POLICY=READONLY_VERIFY;ERP_INBOUND=false/);
+  const record=f.read(`chanjet-config-${f.runId}.json`);assert.equal(record.outcome,'SUCCESS');assert.equal(record.remoteWrite,false);assert.equal(record.erpInbound,false);assert.equal(fs.readFileSync(record.envBackup,'utf8'),f.source);
+  assert.equal(f.read('floor.json').chanjetPolicy,'READONLY_VERIFY');assert.equal(f.live.CHANJET_SYNC_POLICY,'READONLY_VERIFY');assert.equal(f.live.CHANJET_ERP_INBOUND_SYNC_ENABLED,'false');assert.equal(f.env,f.source.replace('READONLY_SYNC_ENABLED=false','READONLY_SYNC_ENABLED=true'));
+  assert.equal(fs.statSync(path.join(f.root,'.env')).mode&0o777,0o600);assert.deepEqual(f.read('active.json').active,f.pins);
+  assert.deepEqual(f.trace.filter(x=>x.kind==='composeApi').map(x=>[x.apiPinExact,x.webPinExact]),[[true,true]]);assert.equal(f.trace.filter(x=>x.kind==='localHttp').length,1);assert.deepEqual(f.trace.filter(x=>x.kind==='localHttpTimeoutMs').map(x=>x.ms),[30000]);
+  assert.equal(f.names.includes('policy-transition.json'),false);assert.equal(f.names.includes('transaction.json'),false);assert.equal(f.names.some(n=>n.startsWith('deploy-')),false);
+});
+test('real exact HOLD CLI closes expired VERIFY via active pins without a remote read or deployment state',t=>{
+  const f=readonlyCliFixture(t,{mode:'HOLD',expired:true});cliSafe(f);assert.equal(f.result.status,0,f.result.stderr);assert.match(f.result.stdout,/POLICY=HOLD/);
+  assert.equal(f.read('floor.json').chanjetPolicy,'HOLD');assert.equal(f.read('floor.json').readonlyApproval,null);assert.equal(f.live.CHANJET_SYNC_POLICY,'HOLD');assert.equal(f.live.CHANJET_READONLY_SYNC_ENABLED,'false');
+  assert.equal(f.env,f.source.replace('READONLY_SYNC_ENABLED=true','READONLY_SYNC_ENABLED=false'));assert.equal(f.trace.filter(x=>x.kind==='localHttp').length,0);assert.equal(f.trace.filter(x=>x.kind==='composeApi').length,1);assert.equal(f.names.includes('policy-transition.json'),false);
+});
+for(const failure of ['compose','readiness','liveFlags'])test(`real config CLI ${failure} failure retains marker/config evidence and does not retry or roll back`,t=>{
+  const f=readonlyCliFixture(t,{failure});cliSafe(f);assert.equal(f.result.status,1);assert.match(f.result.stderr,/CHANJET_CONFIG_TRANSACTION=HOLD;EVIDENCE_RETAINED/);
+  assert.equal(f.read('floor.json').chanjetPolicy,'READONLY_VERIFY');assert.ok(f.names.includes('policy-transition.json'));assert.notEqual(f.read(`chanjet-config-${f.runId}.json`).outcome,'SUCCESS');assert.equal(f.trace.filter(x=>x.kind==='composeApi').length,1);
+  assert.equal(f.names.some(n=>n.startsWith('deploy-')),false);assert.equal(f.read('active.json').outcome,'SUCCESS');
+});
+test('real VERIFY CLI failed auth probe stops before env/floor/marker writes',t=>{
+  const f=readonlyCliFixture(t,{failure:'http'});cliSafe(f);assert.equal(f.result.status,1);assert.equal(f.env,f.source);assert.equal(f.read('floor.json').chanjetPolicy,'HOLD');assert.equal(f.names.includes('policy-transition.json'),false);assert.equal(f.trace.filter(x=>x.kind==='composeApi').length,0);assert.equal(f.trace.filter(x=>x.kind==='localHttp').length,1);
+});
+test('real first-sync CLI enqueues exact scope once and writes VERIFIED proof after unchanged protected facts',t=>{
+  const f=readonlyCliFixture(t,{firstSync:true});cliSafe(f);assert.equal(f.result.status,0,f.result.stderr);assert.match(f.result.stdout,/FIRST_CONTROLLED_SYNC=PASS;RUN_ID=CHANJET-RO-FIXTURE;SCHEDULER=HOLD/);
+  const proof=f.read(`first-sync-${f.runId}.json`);assert.equal(proof.phase,'VERIFIED');assert.equal(proof.orchestrationRunId,'CHANJET-RO-FIXTURE');assert.equal(proof.remoteWrite,false);assert.equal(proof.erpInbound,false);assert.deepEqual(proof.protectedBefore,proof.protectedAfter);
+  const http=f.trace.filter(x=>x.kind==='localHttp');assert.deepEqual(http.map(x=>x.path),['/api/chanjet/integration/alignment/enqueue','/api/chanjet/integration/alignment/status']);assert.deepEqual(http[0].body,{bookId:'BOOK-1',period:'202610',scope:['RECEIVABLE_STATISTICS'],maxAttempts:1});assert.ok(http.every(x=>x.authenticated));assert.deepEqual(f.trace.filter(x=>x.kind==='localHttpTimeoutMs').map(x=>x.ms),[20000,20000]);
+  assert.equal(f.trace.filter(x=>x.kind==='composeApi').length,0);assert.equal(f.env,f.source);assert.equal(f.read('floor.json').chanjetPolicy,'READONLY_VERIFY');assert.equal(f.trace.filter(x=>x.kind==='dbReadOnly'&&x.fingerprint).length,2);
+});
+for(const failure of ['syncHold','inbound','fingerprint'])test(`real first-sync CLI ${failure} rejection retains PREPARED proof and VERIFY policy`,t=>{
+  const f=readonlyCliFixture(t,{firstSync:true,failure});cliSafe(f);assert.equal(f.result.status,1);assert.match(f.result.stderr,/FIRST_CONTROLLED_SYNC=HOLD;EVIDENCE_RETAINED/);assert.equal(f.read(`first-sync-${f.runId}.json`).phase,'PREPARED');assert.equal(f.read('floor.json').chanjetPolicy,'READONLY_VERIFY');assert.equal(f.env,f.source);assert.equal(f.trace.filter(x=>x.kind==='composeApi').length,0);
+});
+test('real first-sync CLI exhausts 90 local status polls, leaves PREPARED evidence and does not claim API cancellation',t=>{
+  const f=readonlyCliFixture(t,{firstSync:true,failure:'pollTimeout'});cliSafe(f);assert.equal(f.result.status,1);assert.equal(f.trace.filter(x=>x.kind==='localHttp'&&x.path.endsWith('/enqueue')).length,1);assert.equal(f.trace.filter(x=>x.kind==='localHttp'&&x.path.endsWith('/status')).length,90);assert.equal(f.read(`first-sync-${f.runId}.json`).phase,'PREPARED');
+});
+test('real first-sync CLI expired VERIFY is rejected before enqueue or proof write',t=>{
+  const f=readonlyCliFixture(t,{firstSync:true,expired:true});assert.equal(f.result.status,1);assert.equal(f.result.signal,null);assert.match(f.result.stderr,/FIRST_CONTROLLED_SYNC=HOLD/);assert.equal(f.trace.filter(x=>x.kind==='localHttp').length,0);assert.equal(f.names.some(n=>n.startsWith('first-sync-')),false);assert.equal(f.env,f.source);
+});
+test('real baseline marker exceeds30min with advancing clock; corrected CLI derives deadline from the same start',t=>{
+  const before=readonlyCliFixture(t,{baselineConfig:true,clockStep:1});assert.equal(before.result.status,1);const marker=before.read('policy-transition.json');assert.ok(Date.parse(marker.expiresAt)-Date.parse(marker.startedAt)>30*60*1000);assert.equal(before.trace.filter(x=>x.kind==='composeApi').length,0);
+  const after=readonlyCliFixture(t,{clockStep:1});cliSafe(after);assert.equal(after.result.status,0,after.result.stderr);assert.equal(after.names.includes('policy-transition.json'),false);assert.equal(after.read(`chanjet-config-${after.runId}.json`).outcome,'SUCCESS');
 });

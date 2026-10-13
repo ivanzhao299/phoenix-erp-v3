@@ -1,0 +1,207 @@
+{
+  "schema": "phoenix.r41-cli-validation-and-admission-design/1",
+  "baselineMain": "eae5fd758aab8a4fdd779a217e51e98b230ea9dc",
+  "productionExecution": "NONE; production stays clean M16 HOLD; no VERIFY/first-sync/ACTIVE or auth probe executed",
+  "confirmedBlockingBugs": [
+    {
+      "trigger": "Restoration workflow always supplies DEPLOY_RUN_ID for config transitions",
+      "before": "Config writes its own chanjet-config record/marker/.env/floor, then Compose tries missing deploy-run state and holds before API recreate",
+      "fix": "Config caller explicitly reads committed trusted active.json via secureJson; original Compose guard/pin/eligibility/API-only checks remain",
+      "evidence": [
+        ".github/workflows/chanjet-readonly-restoration.yml:163",
+        "scripts/ops/chanjet-readonly-config-transaction.mjs:103",
+        "scripts/ops/phoenix-production-compose.mjs:23",
+        "scripts/ops/production-deployment-state.mjs:35"
+      ]
+    },
+    {
+      "trigger": "Clock advances between marker startedAt and later Date.now expiry computation",
+      "before": "Marker duration can exceed contractual30min by milliseconds; real guard rejects after env/floor writes",
+      "fix": "Compute expiry from the same persisted startedAt plus maximumTransitionMs",
+      "evidence": [
+        "scripts/ops/chanjet-readonly-config-transaction.mjs:94",
+        "scripts/ops/chanjet-readonly-policy.mjs:29"
+      ]
+    }
+  ],
+  "minimalRuntimeDelta": "Only chanjet-readonly-config-transaction.mjs; critical file. No approval schema/budget/config activation behavior expanded",
+  "fixture": {
+    "nodeVersion": "v20.20.2",
+    "entrypoints": [
+      "READONLY_VERIFY config CLI",
+      "Expired VERIFY\u2192HOLD config CLI",
+      "firstSync CLI"
+    ],
+    "realComponents": [
+      "CLI main/import closure",
+      "policy and logical production guard",
+      "trusted regular-file checks with fixture UID",
+      "atomic rename/fsync",
+      "actual env CAS writer",
+      "Compose wrapper state/pin selection",
+      "before/after first-sync proof transitions"
+    ],
+    "simulated": [
+      "Host root/mount/ACL/FD9 admission",
+      "Staging directory root UID",
+      "Git ancestor/tree results and fixture critical subset",
+      "Docker/compose commands",
+      "Read-only DB replies and business fingerprints",
+      "Local protected HTTP replies",
+      "Clock and 4000ms poll sleeps"
+    ],
+    "zeroExternalContact": true,
+    "baselineNegativeSource": "Two fixes reversed in copied CLI; SHA256 must exactly equal M16 source d5cf700117fcaa17c68e3617794be234c6d6d99f057ad4fe97b9ca596a08beaf before fixture path substitution; no shallow-Git history dependency",
+    "checks": [
+      "Missing deploy state reproduction with retained marker/config/env/floor",
+      "Advancing clock reproduces oversized marker; new same-start expiry succeeds",
+      "VERIFY/HOLD success use exact active pins/API only and clear own marker",
+      "Compose/readiness/live flags failure retain own marker/record, no retry/rollback",
+      "Failed remote probe changes no env/floor/marker",
+      "First-sync one enqueue exact book/period/scope/maxAttempts1, one status, VERIFIED proof and unchanged protected facts",
+      "HOLD/inbound/fingerprint failures retain PREPARED proof/VERIFY, no business action",
+      "90 local polls exhausted: retained PREPARED; no claim of cancelling background API",
+      "Expired VERIFY rejected before enqueue/proof",
+      "Observed local request timeout signals config30000ms and firstSync20000ms"
+    ],
+    "uncoveredProductionDependencies": [
+      "Actual root/ACL/mount/FD9/lock/ancestry and full criticalFiles admission",
+      "Live Docker API recreation/readiness",
+      "Real provider authorization/token/cache/pagination/quota",
+      "Actual production SQL/fingerprint timings; existing isolated PG fixture remains conditional"
+    ]
+  },
+  "providerCallAnalysis": {
+    "scope": "Candidate single explicit book+period+RECEIVABLE_STATISTICS, maxAttempts1",
+    "normalBusinessGets": 2,
+    "breakdown": [
+      "VERIFY config auth probe\u2192receive GET",
+      "First-sync enqueue\u2192scheduler\u2192alignment\u2192mirror\u2192receive GET"
+    ],
+    "optionalDiscoveryGets": 1,
+    "discoveryReason": "accountBookRepo.count()==0; explicit bookId makes second no-books branch unreachable",
+    "scopePaginated": false,
+    "auth50107RetriesPerBusinessCall": 1,
+    "maximumBudgetedBusinessGetsIncludingDiscovery": 6,
+    "allProviderHttpHardMaximum": "NOT_ESTABLISHED;6 excludes certificate/token/resend direct fetch",
+    "cachingMayReduceCalls": true,
+    "authBypassExamples": [
+      "certificate retrieval",
+      "generateToken",
+      "4041 asynchronous resend"
+    ],
+    "globalBudgetManagerMissing": "Current reserveTrafficBudget silently returns; candidate hard admission must fail closed",
+    "sources": [
+      "scripts/ops/chanjet-readonly-config-transaction.mjs:80",
+      "scripts/ops/chanjet-readonly-first-sync.mjs:26",
+      "apps/api/src/modules/chanjet/chanjet-readonly-sync.scheduler.ts:82",
+      "apps/api/src/modules/chanjet/chanjet-readonly-sync.scheduler.ts:220",
+      "apps/api/src/modules/chanjet/chanjet-integration.service.ts:1238",
+      "apps/api/src/modules/chanjet/chanjet-integration.service.ts:7222",
+      "apps/api/src/modules/chanjet/chanjet-integration.service.ts:7338",
+      "apps/api/src/modules/chanjet/chanjet-integration.service.ts:7432",
+      "apps/api/src/modules/chanjet/chanjet-integration.service.ts:8778",
+      "apps/api/src/modules/chanjet/chanjet-auth.service.ts:300",
+      "apps/api/src/modules/chanjet/chanjet-auth.service.ts:335",
+      "apps/api/src/modules/chanjet/chanjet-auth.service.ts:371",
+      "apps/api/src/modules/chanjet/chanjet-auth.service.ts:467",
+      "apps/api/src/modules/chanjet/chanjet-auth.service.ts:491"
+    ]
+  },
+  "currentEnforcedBounds": [
+    {
+      "kind": "Provider business/auth request",
+      "bound": "30s each",
+      "isTotalDeadline": false
+    },
+    {
+      "kind": "VERIFY local protected auth probe",
+      "bound": "30s",
+      "isTotalDeadline": false
+    },
+    {
+      "kind": "First-sync local enqueue/status",
+      "bound": "20s each",
+      "isTotalDeadline": false
+    },
+    {
+      "kind": "Mirror attempts",
+      "bound": 1,
+      "coversAuth50107Retry": false
+    },
+    {
+      "kind": "Local status poll loop",
+      "bound": "90 polls,4s each sleep; theoretical90*(20+4)=2160s excluding other stages",
+      "isTotalDeadline": false
+    },
+    {
+      "kind": "SSH/job",
+      "bound": "12min/15min",
+      "cancelsAsynchronousApiJob": false
+    },
+    {
+      "kind": "Global durable request counters",
+      "bound": "month/day/read defaults20000/650/620; effective live configs unknown until reviewed collector runs",
+      "perApprovalOrRunBound": false
+    },
+    {
+      "kind": "Per-run request budget/API deadline",
+      "bound": "ABSENT"
+    }
+  ],
+  "hardAdmissionDesignOnly": {
+    "notImplemented": true,
+    "noUnknownPolicyJsonFieldsAdded": true,
+    "identity": "One explicit approvalId+executionId spanning VERIFY probe and first-sync; bind immutable book/period/scope,cap and deadline through separately reviewed admission contract",
+    "requestCap": "B positive integer must be selected by user; before every associated provider fetch atomically reserve across business,50107 retry,discovery,certificate,token,resend. Reject B+1 before fetch. Do not treat6 as all-provider cap",
+    "deadlineCandidateSeconds": 360,
+    "deadlineCandidateStatus": "Proposal only; nominal polling window6min is not current enforcement. User must approve total runtime; implementation must bound actual API job and auth paths, not SSH wait",
+    "implementation": "API admission store validates immutable limits/context, fails closed without transaction manager; shared signal/deadline propagated through all provider/auth fetch and phases. Check deadline before enqueue, every fetch, DB phase and proof. On expiry abort API-owned execution and persist durable HOLD/evidence; monitor disconnect cannot extend it",
+    "schemaDecision": "Choose reviewed durable admission storage/manifest/API transport separately; existing policy rejects extra fields. No schema or runtime limit change in this PR",
+    "rejectTestPlan": [
+      "B+1 blocked before network for every business/auth/discovery/retry path",
+      "Concurrent reservations cannot overspend same execution cap",
+      "Missing manager/context or mismatched approval/book/period/scope rejects before fetch",
+      "Cache hit consumes no network count; retries consume counts",
+      "Deadline expires after enqueue/in auth/mirror/poll; no later provider call",
+      "SSH disconnect does not disable API-owned deadline/abort",
+      "Resend async task retains same cap/deadline context",
+      "Failed/expired job keeps evidence; no activation/automatic retry/marker cleanup"
+    ]
+  },
+  "r4CandidateParameters": {
+    "status": "NOT_APPROVAL",
+    "firstVerification": "AGRI historical/current visible3533914511118750;period202610;RECEIVABLE_STATISTICS, all pending new decision",
+    "policyBooks": "Must match all3 enabled mappings; XINGCHI exact current ID remains unproven until approved collector equality reads",
+    "activeScopes": "Choose before VERIFY: conservative RECEIVABLE_STATISTICS or explicit28 book scopes plus optional global ACCOUNT_BOOKS. ACTIVE cannot broaden existing approval",
+    "activePeriod": "Shanghai current month per6h scheduler, not fixed202610",
+    "expiresAt": "Generate immediately before new approval execution, future\u226430min; no expiry generated here",
+    "proof": "Real VERIFIED first-sync file and matching SUCCESS/COMPLETED durable job; exactscope/fingerprint no-write invariants and actual run IDs",
+    "userMustConfirm": [
+      "All3 exact company/book pairs after trusted equality evidence",
+      "Verification book/period/scope",
+      "Formal ACTIVE scope and whether ACTIVE/current-month6h scheduling is authorized",
+      "All-provider per-execution request cap B",
+      "API-owned total deadline (360s candidate or another explicit value)",
+      "Whether to implement hard admission first; current code has genuine cap/deadline gaps"
+    ]
+  },
+  "verification": {
+    "node20Restoration": {
+      "tests": 40,
+      "pass": 38,
+      "fail": 0,
+      "skip": 2
+    },
+    "node20FullOps": {
+      "tests": 227,
+      "pass": 225,
+      "fail": 0,
+      "skip": 2,
+      "skips": "Actual root owner/group writer and isolated PostgreSQL fingerprints depend on local environment"
+    },
+    "syntaxAndDiff": "PASS",
+    "independentReadOnlyReview": "No new blocking defect in two fixes; production/fixture admission limits explicitly disclosed"
+  },
+  "mergeAndDeployGate": "Open separate critical-module fix PR, stop for main-chat review; no merge/deploy here. If accepted, future exact merged SHA must re-anchor floor/API before config execution."
+}
