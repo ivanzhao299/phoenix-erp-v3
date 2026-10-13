@@ -42,6 +42,69 @@ const validContainer = c => record(c) && typeof c.id === 'string' && typeof c.im
 const matchingPins = (a, b) => validPins(a) && validPins(b) && isDeepStrictEqual(a, b);
 const matchingPin = (a, b) => validPin(a) && validPin(b) && isDeepStrictEqual(a, b);
 
+// Historical candidates, not a business approval. Compare on the host before
+// display masking; emit booleans rather than reconstructing masked book IDs.
+export const R41_BOOK_CANDIDATES = Object.freeze([
+  Object.freeze({ bookId: '3533914511118750', companyCode: 'COMP-LAO-AGRI' }),
+  Object.freeze({ bookId: '3537748712226818', companyCode: 'COMP-LAO-XINGCHI' }),
+  Object.freeze({ bookId: '3539743721526654', companyCode: 'COMP-LAO-FOOD' }),
+]);
+const budgetDefaults = Object.freeze({ CHANJET_MONTHLY_LOCAL_BUDGET: 20000, CHANJET_DAILY_LOCAL_BUDGET: 650, CHANJET_DAILY_READ_BUDGET: 620 });
+export function readonlyBudgetConfiguration(environment) {
+  const result = {};
+  for (const [key, fallback] of Object.entries(budgetDefaults)) {
+    const entries = Array.isArray(environment) ? environment.filter(line => typeof line === 'string' && line.startsWith(`${key}=`)) : [];
+    const configured = entries.length === 1;
+    const parsed = configured ? Number(entries[0].slice(key.length + 1)) : fallback;
+    // Match ChanjetAuthService.positiveInt; never echo malformed/raw values.
+    const effective = Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+    const available = Array.isArray(environment) && entries.length <= 1 && Number.isSafeInteger(effective);
+    result[key] = { available, effective: available ? effective : null,
+      source: entries.length > 1 ? 'DUPLICATE_UNAVAILABLE' : !Array.isArray(environment) ? 'ENV_UNAVAILABLE' : !configured ? 'DEFAULT' : effective === parsed ? 'CONFIGURED' : 'INVALID_FALLBACK' };
+  }
+  return result;
+}
+export function r41ReadonlyAdmission(db, configuration, counters, observedAt = Date.now()) {
+  const candidates = R41_BOOK_CANDIDATES;
+  const booksAvailable = Array.isArray(db?.books) && db.books.every(b => record(b) && typeof b.bookId === 'string' && b.bookId.length > 0 && typeof b.companyCode === 'string' && b.companyCode.length > 0 && typeof b.enabled === 'boolean');
+  const mapsAvailable = Array.isArray(db?.mappings) && db.mappings.every(m => record(m) && typeof m.bookId === 'string' && m.bookId.length > 0 && typeof m.companyCode === 'string' && m.companyCode.length > 0 && typeof m.syncEnabled === 'boolean' && typeof m.companyActive === 'boolean');
+  const books = booksAvailable ? db.books.filter(b => b.enabled) : [];
+  const maps = mapsAvailable ? db.mappings.filter(m => m.syncEnabled) : [];
+  const unique = list => new Set(list.map(b => b.bookId)).size === list.length && new Set(list.map(b => b.companyCode)).size === list.length;
+  const samePair = (a, b) => a.bookId === b.bookId && a.companyCode === b.companyCode;
+  const companies = Object.fromEntries(candidates.map(c => [c.companyCode, {
+    enabledBookExactlyMatches: booksAvailable && books.filter(b => samePair(b, c)).length === 1,
+    enabledActiveMappingExactlyMatches: mapsAvailable && maps.filter(m => samePair(m, c) && m.companyActive).length === 1,
+  }]));
+  const mapping = { available: booksAvailable && mapsAvailable, enabledBookCount: booksAvailable ? books.length : null, enabledMappingCount: mapsAvailable ? maps.length : null,
+    allBookIdsUnique: booksAvailable && new Set(db.books.map(b => b.bookId)).size === db.books.length,
+    auditBookBindingsPass: booksAvailable && mapsAvailable && maps.every(m => { const b = db.books.find(b => b.bookId === m.bookId); return m.companyActive && b?.enabled === true && b.companyCode === m.companyCode; }),
+    enabledBooksUnique: booksAvailable && unique(books), enabledMappingsUnique: mapsAvailable && unique(maps), companies };
+  mapping.exactCandidateSetMatches = mapping.available && books.length === candidates.length && maps.length === candidates.length
+    && mapping.allBookIdsUnique && mapping.auditBookBindingsPass && mapping.enabledBooksUnique && mapping.enabledMappingsUnique && Object.values(companies).every(c => c.enabledBookExactlyMatches && c.enabledActiveMappingExactlyMatches);
+  const shifted = new Date(Date.parse(counters?.generatedAt) + 8 * 60 * 60 * 1000);
+  const date = Number.isFinite(shifted.getTime()) ? shifted.toISOString().slice(0, 10) : null;
+  const definitions = [['month', `M:${date?.slice(0, 7)}`, 'CHANJET_MONTHLY_LOCAL_BUDGET'], ['day', `D:${date}`, 'CHANJET_DAILY_LOCAL_BUDGET'], ['readDay', `R:${date}`, 'CHANJET_DAILY_READ_BUDGET']];
+  const fresh = typeof counters?.generatedAt === 'string' && /^\d{4}-\d{2}-\d{2}T.+(?:Z|[+-]\d{2}:\d{2})$/.test(counters.generatedAt)
+    && Number.isFinite(observedAt) && Math.abs(observedAt - Date.parse(counters.generatedAt)) <= 5 * 60 * 1000;
+  const countersAvailable = fresh && counters?.schema === 'phoenix.r41-local-budget-counters/1' && counters.timeZone === 'Asia/Shanghai' && date !== null
+    && Array.isArray(counters.entries) && counters.entries.length === 3 && new Set(counters.entries.map(e => e?.key)).size === 3;
+  const budgets = {};
+  for (const [label, key, configKey] of definitions) {
+    const entry = countersAvailable ? counters.entries.find(e => e?.key === key) : null;
+    const configured = configuration?.[configKey];
+    const limit = label === 'readDay' && configuration?.CHANJET_DAILY_LOCAL_BUDGET?.available === true
+      ? Math.min(configured?.effective, configuration.CHANJET_DAILY_LOCAL_BUDGET.effective) : configured?.effective;
+    const available = countersAvailable && configured?.available === true && (label !== 'readDay' || configuration?.CHANJET_DAILY_LOCAL_BUDGET?.available === true)
+      && Number.isSafeInteger(limit) && limit > 0 && Number.isSafeInteger(entry?.requests) && entry.requests >= 0;
+    budgets[label] = { available, key: date ? key : null, configuredSource: configured?.source ?? 'UNAVAILABLE', effectiveLimit: available ? limit : null,
+      localRequests: available ? entry.requests : null, localRemaining: available ? Math.max(0, limit - entry.requests) : null };
+  }
+  return { schema: 'phoenix.r41-readonly-admission/1', diagnosticOnly: true, businessApproval: false, mapping,
+    budget: { fresh, maximumClockSkewOrAgeSeconds: 300, capturedAt: countersAvailable ? counters.generatedAt : null, timeZone: 'Asia/Shanghai', available: Object.values(budgets).every(b => b.available),
+      budgets, providerRemainingQuota: 'NOT_AVAILABLE', perApprovalOrRunCapEnforced: false, snapshotIsNotAtomicReservation: true } };
+}
+
 // Diagnostics only: these host-side comparisons survive display-value masking.
 // They do not authorize recovery, whose CLI independently rechecks raw state.
 export function frozenM12Identity(out) {
@@ -201,6 +264,7 @@ attempt('HEALTH', () => {
   try { out.readiness = { apiHttp: run('curl', ['-sS', '--max-time', '15', '-o', '/dev/null', '-w', '%{http_code}', 'http://127.0.0.1:3100/api/readiness']) }; }
   catch (error) { out.readiness = { apiHttp: 'ERROR', error: String(error?.message || error).slice(0, 200) }; }
   const flagsEnv = JSON.parse(run('docker', ['inspect', 'phoenix-v3-api', '--format', '{{json .Config.Env}}']));
+  out.readonlyBudgetConfiguration = readonlyBudgetConfiguration(flagsEnv);
   const live = Object.fromEntries(flagsEnv.filter(line => /^(CHANJET_READONLY_SYNC_ENABLED|CHANJET_ERP_INBOUND_SYNC_ENABLED|CHANJET_SYNC_POLICY|CHANJET_READONLY_APPROVAL)=/.test(line)).map(line => [line.slice(0, line.indexOf('=')), line.slice(line.indexOf('=') + 1)]));
   if (typeof live.CHANJET_READONLY_APPROVAL === 'string' && live.CHANJET_READONLY_APPROVAL.length > 300) live.CHANJET_READONLY_APPROVAL = `${live.CHANJET_READONLY_APPROVAL.slice(0, 300)}…`;
   out.liveChanjetEnv = live;
@@ -320,6 +384,21 @@ attempt('DB_READONLY', () => {
   }
 });
 
+attempt('LOCAL_BUDGET_READONLY', () => {
+  // Query exact China month/day keys, not the old UTC updated_at month filter.
+  // Missing PK rows are measured zero; command/query failure stays unavailable.
+  const sql = `SELECT json_build_object('schema','phoenix.r41-local-budget-counters/1','generatedAt',NOW(),'timeZone','Asia/Shanghai','entries',
+    (SELECT json_agg(json_build_object('key',k,'requests',COALESCE(b.request_count,0))) FROM
+      (VALUES ('M:' || to_char(NOW() AT TIME ZONE 'Asia/Shanghai','YYYY-MM')),
+              ('D:' || to_char(NOW() AT TIME ZONE 'Asia/Shanghai','YYYY-MM-DD')),
+              ('R:' || to_char(NOW() AT TIME ZONE 'Asia/Shanghai','YYYY-MM-DD'))) AS wanted(k)
+      LEFT JOIN sys_chanjet_api_budget b ON b.budget_key=wanted.k));`;
+  const output = run('docker', ['exec', '-i', '-e', 'PGOPTIONS=-c default_transaction_read_only=on', 'phoenix-v3-db', 'sh', '-c', 'exec psql -X -At -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "${POSTGRES_DB:-$POSTGRES_USER}"'],
+    { stdio: ['pipe', 'pipe', 'pipe'], input: `BEGIN READ ONLY;\nSET LOCAL statement_timeout='20s';\nSET LOCAL lock_timeout='3s';\n${sql}\nROLLBACK;\n` });
+  const line = output.split('\n').find(candidate => candidate.startsWith('{'));
+  out.localBudgetCounters = line ? JSON.parse(line) : null;
+});
+
 attempt('CONSISTENCY', () => {
   const floor = out.stateFiles?.['floor.json']?.pinned ? out.stateFiles['floor.json'].content : null;
   const active = out.stateFiles?.['active.json']?.pinned ? out.stateFiles['active.json'].content : null;
@@ -344,9 +423,11 @@ attempt('CONSISTENCY', () => {
 // Compact verdict-first summary (single bounded line), then the full payload in
 // digest-checked chunks: single-line Actions log limits must not lose evidence.
 out.m12FrozenIdentity = frozenM12Identity(out);
+out.r41ReadonlyAdmission = r41ReadonlyAdmission(out.dbEvidence?.result, out.readonlyBudgetConfiguration, out.localBudgetCounters);
 const compact = {
   schema: out.schema, collectedAt: out.collectedAt, binding: out.binding,
   m12FrozenIdentity: out.m12FrozenIdentity,
+  r41ReadonlyAdmission: out.r41ReadonlyAdmission,
   checkout: out.checkout, consistency: out.consistency, readiness: out.readiness, liveChanjetEnv: out.liveChanjetEnv,
   snapshotModuleVerdict: out.snapshotComparison?.moduleVerdict,
   snapshotContainers: out.snapshotComparison?.containers,
