@@ -8,7 +8,7 @@ on:
         options: [audit, evidence, recovery, READONLY_VERIFY, first-sync, READONLY_ACTIVE, HOLD]
         default: audit
       approved_main_sha:
-        description: 'Separately approved exact merged main and v3 floor SHA; audit records it as candidate metadata'
+        description: 'Recovery: exact reviewed main runner SHA; audit/evidence: candidate/target metadata'
         required: true
         type: string
       recovery_target_sha:
@@ -27,12 +27,12 @@ on:
         type: string
         default: ''
       bound_run_id:
-        description: 'Evidence only: original deploy transaction run id this collection is bound to (e.g. 38031441639-1)'
+        description: 'Evidence/recovery: exact original deployment transaction run id (including attempt)'
         required: false
         type: string
         default: ''
       startup_error_receipt:
-        description: 'Recovery only: sanitized Case A benign-startup-error receipt JSON (no raw logs/payloads); gates the single eligible HOLD_STARTUP_ERROR transaction'
+        description: 'Recovery only: sanitized frozen-transaction receipt JSON; no raw logs, credentials or business payloads'
         required: false
         type: string
         default: ''
@@ -94,12 +94,12 @@ jobs:
             # required reviewers there before first use.
             test "$GITHUB_REF" = refs/heads/main
             test "$CONFIRMATION" = APPROVE_EXACT_RECOVERY_TRANSACTION
-            [[ "$APPROVED_SHA" =~ ^[a-f0-9]{40}$ ]]
+            test "$APPROVED_SHA" = "$GITHUB_SHA"
             [[ "$RECOVERY_TARGET_SHA" =~ ^[a-f0-9]{40}$ ]]
             [[ "$RECOVERY_PREVIOUS_FLOOR_SHA" =~ ^[a-f0-9]{40}$ ]]
             [[ "$BOUND_RUN_ID" =~ ^[0-9]+-[0-9]+$ ]]
             if [ -n "$STARTUP_ERROR_RECEIPT" ]; then
-              printf '%s' "$STARTUP_ERROR_RECEIPT" | node -e 'let d="";process.stdin.on("data",c=>d+=c);process.stdin.on("end",()=>{try{const r=JSON.parse(d);if(r.schema!=="phoenix.case-a-benign-startup-error-receipt/1"&&r.schema!=="phoenix.verified-abort-recovery-receipt/1")process.exit(1);console.log("RECEIPT_SCHEMA_OK="+r.runId)}catch{process.exit(1)}})' >/dev/null || { echo '::error::startup_error_receipt is not a valid sanitized receipt'; exit 26; }
+              printf '%s' "$STARTUP_ERROR_RECEIPT" | node -e 'let d="";process.stdin.on("data",c=>d+=c);process.stdin.on("end",()=>{try{const r=JSON.parse(d);if(r.schema!=="phoenix.case-a-benign-startup-error-receipt/1"&&r.schema!=="phoenix.verified-abort-recovery-receipt/1"&&r.schema!=="phoenix.complete-module-abort-recovery-receipt/1")process.exit(1);console.log("RECEIPT_SCHEMA_OK="+r.runId)}catch{process.exit(1)}})' >/dev/null || { echo '::error::startup_error_receipt is not a valid sanitized receipt'; exit 26; }
             fi
           else
             test "$GITHUB_REF" = refs/heads/main

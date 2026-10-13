@@ -1,0 +1,30 @@
+{
+  "schema": "phoenix.complete-module-abort-recovery-receipt/1",
+  "runId": "38333221687-1",
+  "runAttempt": 1,
+  "targetSha": "2e713d44b9697796ec903927bb5dd5e6fb9e4cb4",
+  "previousFloorSha": "797eeca1db229f5e4d288da88d83888ad92b35c5",
+  "abortPoint": "COMPLETE_MODULE_EVALUATION_ABORT",
+  "startup": {
+    "result": "PASS_REDACTED_SUMMARY",
+    "combinedDigest": "<measured persisted-and-replayed 64-hex digest>",
+    "schemaWriteSignalCount": 0,
+    "errorSignalCount": 0,
+    "schemaCompatibilityPass": true,
+    "stdoutLineCount": "<measured persisted-and-replayed integer>",
+    "stderrLineCount": "<measured persisted-and-replayed integer>"
+  },
+  "readinessHttp": 200,
+  "dbBaseline": {
+    "mirrorRows": "<measured integer>",
+    "entityRows": "<measured integer>",
+    "arSnapshotRows": "<measured integer>",
+    "runningJobs": "<measured integer>",
+    "queuedJobs": "<measured integer>",
+    "writebackPending": "<measured integer>",
+    "wmsWritebackPending": "<measured integer>",
+    "remoteWriteAttempts": "<measured integer>",
+    "wmsRemoteWriteAttempts": "<measured integer>",
+    "inboundRuns": "<measured integer>"
+  }
+}
