@@ -354,7 +354,8 @@
       "legacyPolicyTests": 22,
       "skipped": 0,
       "reality": "TypeORM transactions, migration up/down, actual PG18 constraints/triggers/clock/row locks, two Node20 reservation processes, separate exited checkpoint/new resumed process. No HTTP/provider/API/Compose execution.",
-      "faultInjection": "Rollback and lost commit acknowledgement are synthetic wrappers around real PG transactions, not physical network failure injection."
+      "faultInjection": "Rollback and lost commit acknowledgement are synthetic wrappers around real PG transactions, not physical network failure injection.",
+      "ciLimit": "Real PG cases require CHANJET_ADMISSION_FIXTURE_URL and are skipped without it; the 41-pass result is the explicitly configured local PG18 run, not a claim of automatic CI database coverage."
     },
     "schemaEntityDrift": "Actual isolated PG migration and entity schema builder returned zero up queries",
     "constraintDrift": "PASS_ZERO_NEW_DRIFT",
@@ -367,7 +368,14 @@
       "initialShimIssue": "Default pnpm shim resolved pnpm11 requiring node:sqlite; used existing pnpm9 shell shim without global version changes."
     },
     "productionAndProviderTests": "NOT_RUN_NOT_AUTHORIZED",
-    "changeScope": "Storage/schema/types/standalone validation/tests/design only; no HTTP controller, Nest module, existing scheduler, auth service, runtime policy, Compose or production workflow changes."
+    "changeScope": "Storage/schema/types/standalone validation/tests/design only; no HTTP controller, Nest module, existing scheduler, auth service, runtime policy, Compose or production workflow changes.",
+    "w5ReviewedScope": {
+      "result": "PASS",
+      "checks": 21,
+      "allowFreezeTouch": true,
+      "allowSecurityTouch": true,
+      "meaning": "Explicit reviewed-scope flags; freeze/security probes remain WARN under authorized touch, not zero findings. No gate implementation was modified."
+    }
   },
   "stop": "Store foundation exact-head review. Do not merge/deploy/re-anchor/apply production schema/register production admission/run config/VERIFY/first-sync/ACTIVE/provider calls. Human business limits remain unset.",
   "foundationImplementation": {
@@ -396,5 +404,20 @@
     "conclusion": "success",
     "assertionsChanged": false,
     "currentFoundationHeadCi": "Not the same head; will be reported separately."
+  },
+  "reviewAuthorizationTrail": {
+    "implementationHead": "72bc2f7ed545bafbb1338db4fdd7ba760786e5da",
+    "firstSecurityRun": "38378021250",
+    "firstSecurityVerdict": "FAIL_REVIEW_ADMISSION",
+    "findings": "Authorized application/entity/migration paths touched the existing freeze rules; whole-file Chanjet/callback text rules flagged safe HOLD strings, synthetic callbacks and loopback fixture guard. No callback/signature/auth bypass change.",
+    "authority": "Main chat explicitly selected A and authorized this local schema/store implementation; independent r42a_schema_review completed STORE_FOUNDATION_PASS. This does not approve production DDL, business parameters, transport wiring or merge.",
+    "labelsRegistered": [
+      "reviewed-frozen-boundary",
+      "reviewed-security-touch"
+    ],
+    "workflowEvidence": ".github/workflows/ci-security.yml:41,48,80,81",
+    "gateImplementationChanges": false,
+    "firstRedRunRetained": true,
+    "nextEvent": "This documentation follow-up synchronizes the PR after label registration so CI can consume existing review metadata. Latest-head CI outcome remains separate from local verification."
   }
 }
