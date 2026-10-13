@@ -135,7 +135,7 @@ export default function OutboundPage() {
         .map(type => ({ value: type, label: TYPE_LABEL[type]?.label ?? type })),
       validate: value => isStandaloneOutboundType(value)
         ? undefined
-        : t("ui.该类型必须通过专用业务流程", "该出库类型必须通过专用业务流程") },
+        : t("ui.该类型必须通过专用业务流程", "该类型必须通过专用业务流程") },
     { key: "warehouse_code", label: t("ui.出库仓库", "出库仓库"), type: "warehouse", required: true,
       ...(siteCode ? { filterBy: { siteCode } } : {}) } as any,
     { key: "item",           label: t("ui.库存物料/SKU", "库存物料/SKU"), type: "inventory-item", required: true,
