@@ -19,9 +19,107 @@ import path from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
+import { isDeepStrictEqual } from 'node:util';
 
-// Imported modules gate their CLI main() on process.argv[1]; stdin execution
-// sets it to '-'. Normalize so imports stay library-only.
+// Kept local because the stdin collector runs against the installed M12 tree,
+// whose recovery module predates this transaction. Contract tests bind this
+// tuple and SQL regex exactly to PR395's recovery constants/definition.
+export const M12_MATERIAL_TRANSACTION = Object.freeze({
+  runId: '38333221687-1', runAttempt: 1,
+  targetSha: '2e713d44b9697796ec903927bb5dd5e6fb9e4cb4',
+  previousFloorSha: '797eeca1db229f5e4d288da88d83888ad92b35c5',
+});
+export const REPLAY_SQL_SHAPE_PATTERN = /\b(insert\s+into|update\s+\S+\s+set|delete\s+from|alter\s+table|create\s+(?:table|index|unique|sequence)|drop\s+(?:table|index|constraint)|truncate\s+table?|grant\s+|revoke\s+)\b/i;
+const ansiPattern = /\x1b\[[0-9;]*[A-Za-z]/g;
+const record = value => value !== null && typeof value === 'object' && !Array.isArray(value);
+const validPin = pin => record(pin) && typeof pin.imageId === 'string' && typeof pin.revision === 'string' && /^sha256:[a-f0-9]{64}$/.test(pin.imageId || '') && /^[a-f0-9]{40}$/.test(pin.revision || '')
+  && isDeepStrictEqual(Object.keys(pin).sort(), ['imageId', 'revision']);
+const validPins = pins => record(pins) && validPin(pins.api) && validPin(pins.web)
+  && isDeepStrictEqual(Object.keys(pins).sort(), ['api', 'web']);
+const validContainer = c => record(c) && typeof c.id === 'string' && typeof c.image === 'string' && typeof c.ociRevision === 'string' && typeof c.startedAt === 'string' && /^[a-f0-9]{12,64}$/.test(c.id || '') && /^sha256:[a-f0-9]{64}$/.test(c.image || '')
+  && /^[a-f0-9]{40}$/.test(c.ociRevision || '') && Number.isFinite(Date.parse(c.startedAt)) && c.running === true && c.health === 'healthy'
+  && Number.isSafeInteger(c.restartCount) && c.restartCount >= 0 && Array.isArray(c.mounts);
+const matchingPins = (a, b) => validPins(a) && validPins(b) && isDeepStrictEqual(a, b);
+const matchingPin = (a, b) => validPin(a) && validPin(b) && isDeepStrictEqual(a, b);
+
+// Diagnostics only: these host-side comparisons survive display-value masking.
+// They do not authorize recovery, whose CLI independently rechecks raw state.
+export function frozenM12Identity(out) {
+  const f = M12_MATERIAL_TRANSACTION;
+  const read = name => out.stateFiles?.[name]?.pinned === true && record(out.stateFiles[name].content) ? out.stateFiles[name].content : null;
+  const floor = read('floor.json'), active = read('active.json'), txn = read('transaction.json'), marker = read('policy-transition.json');
+  const deploy = read(`deploy-${f.runId}.json`), pre = read(`deploy-${f.runId}-pre-evidence.json`);
+  const post = read(`deploy-${f.runId}-post-evidence.json`), startup = read(`deploy-${f.runId}-startup-evidence.json`);
+  const before = pre?.containers?.api, after = post?.containers?.api, live = out.containers?.api;
+  const applicable = out.binding?.runId === f.runId && out.binding?.targetSha === f.targetSha;
+  const available = applicable && [floor, active, txn, marker, deploy, pre, post, startup].every(record)
+    && validPins(marker.previous) && validPins(deploy.previous) && validPins(active.active)
+    && validPin(marker.candidateApi) && validPin(deploy.candidates?.api) && validPins(deploy.active)
+    && [before, after, live].every(validContainer);
+  const snapshotBinding = (item, phase) => item?.schema === 'phoenix.production-deployment-evidence/v2' && item.phase === phase
+    && item.deployRunId === f.runId && item.deployRunAttempt === f.runAttempt && item.targetSha === f.targetSha && item.configFloorSha === f.targetSha;
+  const checks = {
+    bindingMatchesFrozen: applicable,
+    markerPreviousFloorMatchesM6: marker?.previousFloorSha === f.previousFloorSha,
+    markerPreviousApiMatchesM6: marker?.previous?.api?.revision === f.previousFloorSha,
+    deployPreviousApiMatchesM6: deploy?.previous?.api?.revision === f.previousFloorSha,
+    deployMigrationBaselineMatchesM6: deploy?.migrationBaseline === f.previousFloorSha,
+    activePreviousApiMatchesM6: active?.active?.api?.revision === f.previousFloorSha,
+    activeMigrationBaselineMatchesM6: active?.migrationBaseline === f.previousFloorSha,
+    preApiMatchesPreviousM6: before?.ociRevision === f.previousFloorSha && before.image === deploy?.previous?.api?.imageId
+      && before.running === true && before.health === 'healthy',
+    markerPreviousMatchesDeployPrevious: matchingPins(marker?.previous, deploy?.previous),
+    markerCandidateMatchesDeployCandidate: matchingPin(marker?.candidateApi, deploy?.candidates?.api),
+    activePinsMatchDeployPrevious: matchingPins(active?.active, deploy?.previous),
+    deployActiveMatchesCandidateAndPreviousWeb: matchingPins(deploy?.active, { api: deploy?.candidates?.api, web: deploy?.previous?.web }),
+    floorMatchesM12: floor?.version === 3 && floor.phase === 'READY' && floor.floorSha === f.targetSha,
+    activeConfigAndFloorMatchesM12: active?.version === 3 && active.outcome === 'CONFIG_READY_HOLD' && active.configSha === f.targetSha && active.floorSha === f.targetSha,
+    transactionMatchesFrozenM12: txn?.version === 3 && txn.runId === f.runId && txn.phase === 'IN_PROGRESS' && txn.target === f.targetSha && txn.configSha === f.targetSha,
+    deployMatchesFrozenM12: deploy?.version === 3 && deploy.outcome === 'SWITCHING' && deploy.target === f.targetSha && deploy.configSha === f.targetSha && deploy.floorSha === f.targetSha
+      && deploy.candidates?.api?.revision === f.targetSha && deploy.switched?.api === true && deploy.switched?.web === false
+      && Array.isArray(deploy.migrationPaths) && deploy.migrationPaths.length === 0,
+    markerMatchesFrozenM12: marker?.version === 3 && marker.runId === f.runId && marker.operation === 'CODE_HOLD' && marker.phase === 'IN_PROGRESS' && marker.target === f.targetSha,
+    preBindingMatchesFrozen: snapshotBinding(pre, 'PRE_SNAPSHOT'),
+    postBindingMatchesFrozen: snapshotBinding(post, 'POST_SNAPSHOT'),
+    startupBindingMatchesFrozen: snapshotBinding(startup, 'API_STARTUP_LOG'),
+    postApiMatchesM12Candidate: after?.ociRevision === f.targetSha && after.image === deploy?.candidates?.api?.imageId && after.running === true && after.health === 'healthy',
+    liveApiMatchesPostM12: live?.ociRevision === f.targetSha && matchingPin({ imageId: live?.image, revision: live?.ociRevision }, { imageId: after?.image, revision: after?.ociRevision })
+      && typeof live?.id === 'string' && live.id === after?.id && typeof live.startedAt === 'string' && live.startedAt === after?.startedAt
+      && live.running === true && live.health === 'healthy',
+    checkoutMatchesM12: out.checkout?.head === f.targetSha && out.checkout.branch === 'main' && out.checkout.clean === true,
+  };
+  return { schema: 'phoenix.r0-m12-frozen-identity/1', diagnosticOnly: true, scope: 'FROZEN_TRANSACTION_IDENTITY_ONLY', applicable, available,
+    checks, allIdentityChecksPass: available && Object.values(checks).every(value => value === true) };
+}
+
+export function replayWindowDiagnostics({ stdout, stderr, startup, post, binding, readinessVerified }, evidence) {
+  const stdoutLines = stdout.split(/\r?\n/).filter(Boolean), stderrLines = stderr.split(/\r?\n/).filter(Boolean);
+  const sqlShapeCount = [...stdoutLines, ...stderrLines].filter(line => REPLAY_SQL_SHAPE_PATTERN.test(line.replace(ansiPattern, ''))).length;
+  const digestRecomputed = createHash('sha256').update(Buffer.from(stdout)).update(Buffer.from([0])).update(Buffer.from(stderr)).digest('hex');
+  const attempt = binding?.runId?.match(/-(\d+)$/)?.[1];
+  const bindingVerified = typeof binding?.targetSha === 'string' && /^[a-f0-9]{40}$/.test(binding.targetSha) && !!attempt && Number.isSafeInteger(Number(attempt)) && Number(attempt) > 0
+    && startup?.schema === evidence.EVIDENCE_SCHEMA && startup.phase === 'API_STARTUP_LOG' && post?.schema === evidence.EVIDENCE_SCHEMA && post.phase === 'POST_SNAPSHOT'
+    && startup.deployRunId === binding.runId && post.deployRunId === binding.runId && startup.deployRunAttempt === Number(attempt) && post.deployRunAttempt === Number(attempt)
+    && startup.targetSha === binding.targetSha && post.targetSha === binding.targetSha && startup.configFloorSha === binding.targetSha && post.configFloorSha === binding.targetSha
+    && typeof startup.containerId === 'string' && startup.containerId === post.containers?.api?.id && typeof startup.startedAt === 'string' && startup.startedAt === post.containers?.api?.startedAt;
+  let summary = null;
+  try {
+    summary = evidence.summarizeStartupLogs({ stdout, stderr, containerId: startup?.containerId, startedAt: startup?.startedAt, capturedAt: startup?.capturedAt,
+      runId: startup?.deployRunId, runAttempt: startup?.deployRunAttempt, targetSha: startup?.targetSha, floorSha: startup?.configFloorSha,
+      readinessVerified: readinessVerified === true && startup?.eventCounts?.READINESS_HTTP_PASS === 1 });
+  } catch { /* return unavailable/false without raw validation text */ }
+  const windowVerified = bindingVerified && summary !== null;
+  return { bindingVerified, windowVerified, sqlShapeCount, sqlShapeCheckedLineCount: stdoutLines.length + stderrLines.length,
+    sqlShapeZero: windowVerified && sqlShapeCount === 0, stdoutLineCount: stdoutLines.length, stderrLineCount: stderrLines.length, digestRecomputed,
+    digestMatchesPersisted: /^[a-f0-9]{64}$/.test(startup?.combinedDigest || '') && digestRecomputed === startup.combinedDigest,
+    lineCountsMatchPersisted: Number.isSafeInteger(startup?.stdoutLineCount) && Number.isSafeInteger(startup?.stderrLineCount)
+      && stdoutLines.length === startup.stdoutLineCount && stderrLines.length === startup.stderrLineCount,
+    replaySummaryVerified: summary?.result === 'PASS_REDACTED_SUMMARY',
+  };
+}
+
+export async function collectReadOnlyEvidence() {
+// Imported helper CLIs must stay library-only during reviewed stdin execution.
 if (!process.argv[1] || process.argv[1] === '-') process.argv[1] = '/r0-evidence-stdin';
 
 const ROOT = process.env.R0_ROOT || '/data/phoenix-erp';
@@ -135,7 +233,7 @@ attempt('SNAPSHOT_COMPARE', () => {
 });
 
 attempt('STARTUP_LOG_REPLAY', () => {
-  out.startupReplay = { available: Boolean(startup && post) };
+  out.startupReplay = { available: Boolean(startup && post), replay: { available: false, bindingVerified: false, windowVerified: false, replaySummaryVerified: false, sqlShapeCount: null, sqlShapeCheckedLineCount: null, sqlShapeZero: false, stdoutLineCount: null, stderrLineCount: null, digestRecomputed: null, digestMatchesPersisted: false, lineCountsMatchPersisted: false } };
   if (!startup || !post) return;
   const api = post.containers.api;
   const persisted = {
@@ -158,7 +256,7 @@ attempt('STARTUP_LOG_REPLAY', () => {
   out.startupReplay.persisted = persisted;
   const result = spawnSync('docker', ['logs', '--timestamps', '--since', persisted.startedAt, '--until', persisted.capturedAt, api.id], { env: cleanEnv, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 });
   if (result.error || result.status !== 0) {
-    out.startupReplay.replay = { available: false, status: result.status, error: String(result.error?.message || result.stderr || 'DOCKER_LOG_FAILED').slice(0, 300) };
+    out.startupReplay.replay = { ...out.startupReplay.replay, available: false, status: result.status, error: String(result.error?.message || result.stderr || 'DOCKER_LOG_FAILED').slice(0, 300) };
     return;
   }
   const stdout = result.stdout || ''; const stderr = result.stderr || '';
@@ -169,7 +267,7 @@ attempt('STARTUP_LOG_REPLAY', () => {
     if (verdict.schemaWrite) {
       entry.tokens = [...line.matchAll(tokenPattern)].map(match => match[0].toLowerCase());
       entry.mappedRouteLine = /Mapped\s*\{/.test(line);
-      const shape = line.match(/\b(insert\s+into|update\s+\S+\s+set|delete\s+from|alter\s+table|create\s+(?:table|index|unique|sequence)|drop\s+(?:table|index|constraint)|truncate\s+table?|grant\s+|revoke\s+)\b/i);
+      const shape = line.replace(ansiPattern, '').match(REPLAY_SQL_SHAPE_PATTERN);
       entry.sqlStatementShape = shape ? shape[1].toLowerCase() : null;
       entry.lineLength = line.length;
       // Minimal sanitized identity for unattributed signal lines: word set only
@@ -185,21 +283,20 @@ attempt('STARTUP_LOG_REPLAY', () => {
     }
     return entry;
   };
+  const diagnostics = replayWindowDiagnostics({ stdout, stderr, startup, post, binding: out.binding, readinessVerified: out.readiness?.apiHttp === '200' }, evidence);
   const stdoutLines = stdout.split(/\r?\n/).filter(Boolean);
   const stderrLines = stderr.split(/\r?\n/).filter(Boolean);
   const lines = [
     ...stdoutLines.map(line => ({ stream: 'stdout', ...classifyLine(line) })),
     ...stderrLines.map(line => ({ stream: 'stderr', ...classifyLine(line) })),
   ];
-  const digestRecomputed = createHash('sha256').update(Buffer.from(stdout)).update(Buffer.from([0])).update(Buffer.from(stderr)).digest('hex');
   const kindCounts = {};
   for (const line of lines) kindCounts[line.kind] = (kindCounts[line.kind] || 0) + 1;
   out.startupReplay.replay = {
     available: true,
+    ...diagnostics,
     stdoutLineCount: stdoutLines.length, stderrLineCount: stderrLines.length,
-    lineCountsMatchPersisted: stdoutLines.length === persisted.stdoutLineCount && stderrLines.length === persisted.stderrLineCount,
     combinedBytes: Buffer.byteLength(stdout) + Buffer.byteLength(stderr),
-    digestRecomputed, digestMatchesPersisted: digestRecomputed === persisted.combinedDigest,
     schemaWriteSignalCountReplayed: kindCounts.SCHEMA_OR_WRITE_SIGNAL || 0,
     schemaWriteCountMatchesPersisted: (kindCounts.SCHEMA_OR_WRITE_SIGNAL || 0) === persisted.schemaWriteSignalCount,
     errorSignalCountReplayed: lines.filter(l => l.kind === 'ERROR_SIGNAL' || l.kind === 'SCHEMA_OR_WRITE_SIGNAL').length,
@@ -246,15 +343,17 @@ attempt('CONSISTENCY', () => {
 
 // Compact verdict-first summary (single bounded line), then the full payload in
 // digest-checked chunks: single-line Actions log limits must not lose evidence.
+out.m12FrozenIdentity = frozenM12Identity(out);
 const compact = {
   schema: out.schema, collectedAt: out.collectedAt, binding: out.binding,
+  m12FrozenIdentity: out.m12FrozenIdentity,
   checkout: out.checkout, consistency: out.consistency, readiness: out.readiness, liveChanjetEnv: out.liveChanjetEnv,
   snapshotModuleVerdict: out.snapshotComparison?.moduleVerdict,
   snapshotContainers: out.snapshotComparison?.containers,
   containers: Object.fromEntries(Object.entries(out.containers ?? {}).map(([service, value]) => [service, value?.error ? { error: value.error } : { id: value.id, image: value.image, ociRevision: value.ociRevision, health: value.health, restartCount: value.restartCount, startedAt: value.startedAt }])),
   dbEvidence: out.dbEvidence,
   startupPersisted: out.startupReplay?.persisted,
-  startupReplayVerdict: out.startupReplay?.replay && { available: out.startupReplay.replay.available, status: out.startupReplay.replay.status, error: out.startupReplay.replay.error, lineCountsMatchPersisted: out.startupReplay.replay.lineCountsMatchPersisted, digestMatchesPersisted: out.startupReplay.replay.digestMatchesPersisted, schemaWriteSignalCountReplayed: out.startupReplay.replay.schemaWriteSignalCountReplayed, schemaWriteCountMatchesPersisted: out.startupReplay.replay.schemaWriteCountMatchesPersisted, schemaWriteLines: out.startupReplay.replay.schemaWriteLines, errorLines: (out.startupReplay.replay.lines ?? []).filter(line => line.kind === 'ERROR_SIGNAL'), schemaCompatibilityPassInReplay: out.startupReplay.replay.schemaCompatibilityPassInReplay, kindCounts: out.startupReplay.replay.kindCounts },
+  startupReplayVerdict: out.startupReplay?.replay && { available: out.startupReplay.replay.available, bindingVerified: out.startupReplay.replay.bindingVerified, windowVerified: out.startupReplay.replay.windowVerified, replaySummaryVerified: out.startupReplay.replay.replaySummaryVerified, sqlShapeCount: out.startupReplay.replay.sqlShapeCount, sqlShapeCheckedLineCount: out.startupReplay.replay.sqlShapeCheckedLineCount, sqlShapeZero: out.startupReplay.replay.sqlShapeZero, stdoutLineCount: out.startupReplay.replay.stdoutLineCount, stderrLineCount: out.startupReplay.replay.stderrLineCount, digestRecomputed: out.startupReplay.replay.digestRecomputed, status: out.startupReplay.replay.status, error: out.startupReplay.replay.error, lineCountsMatchPersisted: out.startupReplay.replay.lineCountsMatchPersisted, digestMatchesPersisted: out.startupReplay.replay.digestMatchesPersisted, schemaWriteSignalCountReplayed: out.startupReplay.replay.schemaWriteSignalCountReplayed, schemaWriteCountMatchesPersisted: out.startupReplay.replay.schemaWriteCountMatchesPersisted, schemaWriteLines: out.startupReplay.replay.schemaWriteLines, errorLines: (out.startupReplay.replay.lines ?? []).filter(line => line.kind === 'ERROR_SIGNAL'), schemaCompatibilityPassInReplay: out.startupReplay.replay.schemaCompatibilityPassInReplay, kindCounts: out.startupReplay.replay.kindCounts },
   errors: out.errors,
 };
 console.log(`R0_SUMMARY=${JSON.stringify(compact)}`);
@@ -264,3 +363,8 @@ const chunks = payload.match(/.{1,60000}/g) ?? [];
 console.log(`R0_OUTPUT_BEGIN bytes=${Buffer.byteLength(payload)} sha256=${payloadDigest} chunks=${chunks.length}`);
 for (let index = 0; index < chunks.length; index++) console.log(`R0_CHUNK_${index + 1}_${chunks.length}=${chunks[index]}`);
 console.log('R0_OUTPUT_END');
+
+return out;
+}
+
+if (!process.argv[1] || process.argv[1] === '-' || import.meta.url === pathToFileURL(process.argv[1]).href) await collectReadOnlyEvidence();
