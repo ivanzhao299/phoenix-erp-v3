@@ -31,3 +31,9 @@ implicitly treated as the transaction target. Ordinary `PASS_REDACTED_SUMMARY`
 evidence remains unrecoverable.
 No recovery execution is implied by this document; production mutation still
 requires a separately approved workflow dispatch.
+
+Root-cause correction (2026-10-13): the historical receipt label
+`DISK_REPORT_SIGPIPE` is retained unchanged. Exit status 13 alone did not prove
+SIGPIPE; the state/evidence top-level-await cycle is independently reproduced
+under Node 20. See [the CLI investigation](r3c-complete-module-cycle.md).
+Existing frozen receipts and recovery records are not rewritten.

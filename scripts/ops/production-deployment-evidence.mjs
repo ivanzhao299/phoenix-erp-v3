@@ -3,7 +3,7 @@ import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
-import { atomicState } from './production-deployment-state.mjs';
+import { atomicState } from './production-atomic-state.mjs';
 import { CONTRACT, verifyContext } from './production-config-guard.mjs';
 import { executionEnv } from './capture-production-runtime.mjs';
 

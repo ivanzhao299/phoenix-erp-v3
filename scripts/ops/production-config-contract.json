@@ -19,6 +19,7 @@
     "scripts/ops/production-deployment-evidence.mjs",
     "scripts/ops/production-config-guard.mjs",
     "scripts/ops/production-deployment-state.mjs",
+    "scripts/ops/production-atomic-state.mjs",
     "scripts/ops/phoenix-production-compose.mjs",
     "scripts/ops/update-managed-chanjet-env.mjs",
     "scripts/ops/production-config-contract.json",

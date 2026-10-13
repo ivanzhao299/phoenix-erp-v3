@@ -1,12 +1,17 @@
-# R3.c 收尾修复 — SIGPIPE 管道 + verified-abort 恢复路径（2026-10-12，M5 分支）
+# R3.c 收尾修复 — 历史管道归因与 verified-abort 恢复记录（2026-10-12，M5 分支）
 
 ## 背景
 
-Run `38217361863-1`（R3.c 第二次）：重锚定 `c9383d50→M4` 成功、API 切换至 M4、startup
-`PASS_REDACTED_SUMMARY`、文件 verify 通过（web/db UNCHANGED、apiRevision=M4）——随后部署脚本在
-磁盘报告段被误杀：`docker images | sed -n '1,20p'`，宿主机 31 个镜像 > sed 的 20 行上限 → sed
-提前退出 → docker死于 SIGPIPE(13) → `set -o pipefail` 判败 → ERR trap 在 `complete` 之前中止。
-该行为 2026-09-29 引入（`d88619d4`），pipefail 框架下首次有部署抵达此处。
+**2026-10-13 更正**：当时仅依据 SSH status 13 把失败归为 SIGPIPE，证据不足。
+`sed -n '1,20p'` 未使用 `q`，通常读取至 EOF；`tail -1` 同样读取全部输入。
+M12 发布 `38333221687-1` 的磁盘报告完整输出后，`complete` 才退出 13。
+独立 Node 20 真实 CLI fixture 复现了 `state → await evidence → static state` 的
+顶层 await 循环（exit 13、signal=null、stderr 为空），修复后 exit 0。
+详见 [根因核验与修复](r3c-complete-module-cycle.md)。
+
+Run `38217361863-1` 的切换、startup PASS、verify PASS 与历史恢复记录仍保留。
+此前磁盘报告修改为防御性改动，不能视为这些历史失败的已证实根因。
+receipt 的 `DISK_REPORT_SIGPIPE` 是已有协议标签，保留原字节，不重新伪造证据。
 
 ## 修复 1：deploy.yml 磁盘报告管道（criticalFile）
 
@@ -57,7 +62,7 @@ Run `38217361863-1`（R3.c 第二次）：重锚定 `c9383d50→M4` 成功、API
 
 recovery 套件 27/27（verified-abort happy path 用真实临时文件跑 verify 重算；篡改
 `log.phase` 单独触发 VERIFY_RECOMPUTE_FAILED；16 项拒绝矩阵；冻结事务外不可恢复）；
-deploy 契约 6/6（SIGPIPE 回归）。
+deploy 契约 6/6（报告 shell 回归，未覆盖真实 complete CLI）。
 
 ## 合并后执行顺序（各需单独批准）
 
@@ -69,4 +74,4 @@ B. recovery（绑定 M4）：只读 evidence（M5 入口，bound 38217361863-1�
 C. 以 M5 重锚定发布：`mode=api`、`approved_config_floor_sha=<M5>`、
    `approved_previous_floor_sha=f46f651d…`、`approve_production=true`、`skip_deploy=false`、
    `preserve_artifacts=true`、`one_time_config_floor_transition=false`、`rotate_chanjet_credentials=false`
-   ——此时磁盘报告已修复，预期 startup PASS → verify → 磁盘报告 → **complete → SUCCESS**
+   ——这是当时的执行计划；磁盘报告修改不足以修复 complete 的模块循环。后续生产操作仍须另审。
