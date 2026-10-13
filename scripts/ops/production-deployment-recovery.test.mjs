@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
-import { assessRecovery, planRecoveredState, executeRecoveryStages, completeRecovery, replayStartupWindow, RECOVERY_SCHEMA, CASE_A_STARTUP_RESULT, RECOVERY_PHASES, CASE_A_ERROR_RECEIPT_SCHEMA, BENIGN_STARTUP_ERROR_TRANSACTION, BENIGN_STARTUP_ERROR_ATTRIBUTION, BENIGN_STARTUP_ERROR_WORD_SET, VERIFIED_ABORT_RECEIPT_SCHEMA, VERIFIED_ABORT_TRANSACTION, VERIFIED_ABORT_POINT } from './production-deployment-recovery.mjs';
+import { assessRecovery, planRecoveredState, executeRecoveryStages, completeRecovery, replayStartupWindow, RECOVERY_SCHEMA, CASE_A_STARTUP_RESULT, RECOVERY_PHASES, CASE_A_ERROR_RECEIPT_SCHEMA, BENIGN_STARTUP_ERROR_TRANSACTION, BENIGN_STARTUP_ERROR_ATTRIBUTION, BENIGN_STARTUP_ERROR_WORD_SET, VERIFIED_ABORT_RECEIPT_SCHEMA, VERIFIED_ABORT_TRANSACTION, VERIFIED_ABORT_REANCHOR_TRANSACTION, VERIFIED_ABORT_POINT } from './production-deployment-recovery.mjs';
 
 const sha = c => c.repeat(40);
 const image = c => `sha256:${c.repeat(64)}`;
@@ -493,6 +493,48 @@ async function verifiedBundle(overrides = {}) {
   };
 }
 const verifiedContext = { targetRunId: '38217361863-1', approvedSha: M4, recoveryRunId: '38300000123-1', now: Date.parse('2026-10-12T09:00:00.000Z') };
+
+async function verifiedReanchorBundle() {
+  const M7 = VERIFIED_ABORT_REANCHOR_TRANSACTION.targetSha;
+  const M6 = VERIFIED_ABORT_REANCHOR_TRANSACTION.previousFloorSha;
+  const bundle = await verifiedBundle();
+  const runId = VERIFIED_ABORT_REANCHOR_TRANSACTION.runId;
+  const candidateApi = { imageId: image('7'), revision: M7 };
+  bundle.transaction = { ...bundle.transaction, runId, target: M7, configSha: M7 };
+  bundle.deployRecord = { ...bundle.deployRecord, target: M7, configSha: M7, floorSha: M7, candidates: { api: candidateApi }, active: { api: candidateApi, web: bundle.deployRecord.previous.web }, evidence: { pre: '', post: '', log: '' } };
+  bundle.marker = { ...bundle.marker, runId, target: M7 };
+  bundle.floor = { ...bundle.floor, floorSha: M6 };
+  bundle.active = { ...bundle.active, configSha: M6, floorSha: M6 };
+  bundle.runtime = { ...bundle.runtime, api: candidateApi };
+  bundle.containers = { ...bundle.containers, api: { ...bundle.containers.api, image: image('7'), ociRevision: M7 } };
+  bundle.evidence = {
+    pre: { ...bundle.evidence.pre, deployRunId: runId, targetSha: M7, configFloorSha: M6 },
+    post: { ...bundle.evidence.post, deployRunId: runId, targetSha: M7, configFloorSha: M6, containers: { ...bundle.evidence.post.containers, api: { ...bundle.evidence.post.containers.api, image: image('7'), ociRevision: M7 } } },
+    startup: { ...bundle.evidence.startup, deployRunId: runId, targetSha: M7, configFloorSha: M6 },
+  };
+  bundle.receipt = { ...bundle.receipt, runId, targetSha: M7 };
+  bundle.checkout = { head: M7, clean: true };
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'verified-reanchor-'));
+  const files = { pre: path.join(dir, 'pre.json'), post: path.join(dir, 'post.json'), log: path.join(dir, 'log.json') };
+  fs.writeFileSync(files.pre, JSON.stringify(bundle.evidence.pre));
+  fs.writeFileSync(files.post, JSON.stringify(bundle.evidence.post));
+  fs.writeFileSync(files.log, JSON.stringify(bundle.evidence.startup));
+  bundle.evidenceFiles = files;
+  bundle.deployRecord.evidence = files;
+  return { bundle, dir, context: { targetRunId: runId, approvedSha: M7, recoveryRunId: '38330000001-1', now: Date.parse('2026-10-13T00:00:00.000Z') } };
+}
+
+test('the M7 re-anchor verified-abort transaction is frozen to its prior floor and eligible after evidence recompute', async () => {
+  const { bundle, dir, context } = await verifiedReanchorBundle();
+  try {
+    const assessment = assessRecovery(bundle, context);
+    assert.equal(assessment.eligible, true, JSON.stringify(assessment.reasons));
+    const plan = planRecoveredState(bundle.deployRecord, bundle.marker, { recoveryRunId: context.recoveryRunId, recoveredAt: '2026-10-13T00:10:00.000Z', startupResult: 'PASS_REDACTED_SUMMARY', classification: 'EVIDENCE_VERIFIED_SCRIPT_ABORTED_AFTER_VERIFY', receiptSha256: 'c'.repeat(64) });
+    assert.equal(plan.active.floorSha, context.approvedSha);
+    assert.equal(plan.active.active.api.revision, context.approvedSha);
+    assert.equal(plan.deployRecord.recovery.classification, 'EVIDENCE_VERIFIED_SCRIPT_ABORTED_AFTER_VERIFY');
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
 
 test('the verified-abort transaction is eligible only with the frozen receipt and a clean recomputed state', async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'verified-abort-happy-'));
