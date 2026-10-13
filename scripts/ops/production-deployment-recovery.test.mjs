@@ -495,25 +495,25 @@ async function verifiedBundle(overrides = {}) {
 const verifiedContext = { targetRunId: '38217361863-1', approvedSha: M4, recoveryRunId: '38300000123-1', now: Date.parse('2026-10-12T09:00:00.000Z') };
 
 async function verifiedReanchorBundle() {
-  const M7 = VERIFIED_ABORT_REANCHOR_TRANSACTION.targetSha;
-  const M6 = VERIFIED_ABORT_REANCHOR_TRANSACTION.previousFloorSha;
+  const M6 = VERIFIED_ABORT_REANCHOR_TRANSACTION.targetSha;
+  const M4 = VERIFIED_ABORT_REANCHOR_TRANSACTION.previousFloorSha;
   const bundle = await verifiedBundle();
   const runId = VERIFIED_ABORT_REANCHOR_TRANSACTION.runId;
-  const candidateApi = { imageId: image('7'), revision: M7 };
-  bundle.transaction = { ...bundle.transaction, runId, target: M7, configSha: M7 };
-  bundle.deployRecord = { ...bundle.deployRecord, target: M7, configSha: M7, floorSha: M7, candidates: { api: candidateApi }, active: { api: candidateApi, web: bundle.deployRecord.previous.web }, evidence: { pre: '', post: '', log: '' } };
-  bundle.marker = { ...bundle.marker, runId, target: M7 };
-  bundle.floor = { ...bundle.floor, floorSha: M6 };
-  bundle.active = { ...bundle.active, configSha: M6, floorSha: M6 };
+  const candidateApi = { imageId: image('6'), revision: M6 };
+  bundle.transaction = { ...bundle.transaction, runId, target: M6, configSha: M6 };
+  bundle.deployRecord = { ...bundle.deployRecord, target: M6, configSha: M6, floorSha: M6, candidates: { api: candidateApi }, active: { api: candidateApi, web: bundle.deployRecord.previous.web }, evidence: { pre: '', post: '', log: '' } };
+  bundle.marker = { ...bundle.marker, runId, target: M6 };
+  bundle.floor = { ...bundle.floor, floorSha: M4 };
+  bundle.active = { ...bundle.active, configSha: M4, floorSha: M4 };
   bundle.runtime = { ...bundle.runtime, api: candidateApi };
-  bundle.containers = { ...bundle.containers, api: { ...bundle.containers.api, image: image('7'), ociRevision: M7 } };
+  bundle.containers = { ...bundle.containers, api: { ...bundle.containers.api, image: image('6'), ociRevision: M6 } };
   bundle.evidence = {
-    pre: { ...bundle.evidence.pre, deployRunId: runId, targetSha: M7, configFloorSha: M6 },
-    post: { ...bundle.evidence.post, deployRunId: runId, targetSha: M7, configFloorSha: M6, containers: { ...bundle.evidence.post.containers, api: { ...bundle.evidence.post.containers.api, image: image('7'), ociRevision: M7 } } },
-    startup: { ...bundle.evidence.startup, deployRunId: runId, targetSha: M7, configFloorSha: M6 },
+    pre: { ...bundle.evidence.pre, deployRunId: runId, targetSha: M6, configFloorSha: M4 },
+    post: { ...bundle.evidence.post, deployRunId: runId, targetSha: M6, configFloorSha: M4, containers: { ...bundle.evidence.post.containers, api: { ...bundle.evidence.post.containers.api, image: image('6'), ociRevision: M6 } } },
+    startup: { ...bundle.evidence.startup, deployRunId: runId, targetSha: M6, configFloorSha: M4 },
   };
-  bundle.receipt = { ...bundle.receipt, runId, targetSha: M7 };
-  bundle.checkout = { head: M7, clean: true };
+  bundle.receipt = { ...bundle.receipt, runId, targetSha: M6 };
+  bundle.checkout = { head: M6, clean: true };
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'verified-reanchor-'));
   const files = { pre: path.join(dir, 'pre.json'), post: path.join(dir, 'post.json'), log: path.join(dir, 'log.json') };
   fs.writeFileSync(files.pre, JSON.stringify(bundle.evidence.pre));
@@ -521,10 +521,10 @@ async function verifiedReanchorBundle() {
   fs.writeFileSync(files.log, JSON.stringify(bundle.evidence.startup));
   bundle.evidenceFiles = files;
   bundle.deployRecord.evidence = files;
-  return { bundle, dir, context: { targetRunId: runId, approvedSha: M7, recoveryRunId: '38330000001-1', now: Date.parse('2026-10-13T00:00:00.000Z') } };
+  return { bundle, dir, context: { targetRunId: runId, approvedSha: M6, recoveryRunId: '38330000001-1', now: Date.parse('2026-10-13T00:00:00.000Z') } };
 }
 
-test('the M7 re-anchor verified-abort transaction is frozen to its prior floor and eligible after evidence recompute', async () => {
+test('the M6 re-anchor verified-abort transaction is frozen to its M4 floor and eligible after evidence recompute', async () => {
   const { bundle, dir, context } = await verifiedReanchorBundle();
   try {
     const assessment = assessRecovery(bundle, context);
@@ -533,6 +533,22 @@ test('the M7 re-anchor verified-abort transaction is frozen to its prior floor a
     assert.equal(plan.active.floorSha, context.approvedSha);
     assert.equal(plan.active.active.api.revision, context.approvedSha);
     assert.equal(plan.deployRecord.recovery.classification, 'EVIDENCE_VERIFIED_SCRIPT_ABORTED_AFTER_VERIFY');
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('M7 target or M6 previous-floor substitutions fail closed for the frozen M6 transaction', async () => {
+  const { bundle, dir, context } = await verifiedReanchorBundle();
+  try {
+    const wrongTarget = JSON.parse(JSON.stringify(bundle));
+    wrongTarget.receipt.targetSha = '5c4355fe32b4fe357cf5dc919a85e7aef7f59070';
+    assert.equal(assessRecovery(wrongTarget, context).eligible, false);
+    assert.ok(assessRecovery(wrongTarget, context).reasons.includes('RECEIPT_TRANSACTION_NOT_ELIGIBLE'));
+
+    const wrongPreviousFloor = JSON.parse(JSON.stringify(bundle));
+    wrongPreviousFloor.floor.floorSha = '797eeca1db229f5e4d288da88d83888ad92b35c5';
+    const floorAssessment = assessRecovery(wrongPreviousFloor, context);
+    assert.equal(floorAssessment.eligible, false);
+    assert.ok(floorAssessment.reasons.includes('FLOOR_SHAPE'));
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 

@@ -50,10 +50,10 @@ export const BENIGN_STARTUP_ERROR_WORD_SET = Object.freeze(['Nest', 'LOG', 'Rout
 // on-disk evidence rather than trusted from the receipt.
 export const VERIFIED_ABORT_RECEIPT_SCHEMA = 'phoenix.verified-abort-recovery-receipt/1';
 export const VERIFIED_ABORT_TRANSACTION = Object.freeze({ runId: '38217361863-1', targetSha: 'f46f651dcebeb11210c8e577f3c0caed87f356c2' });
-// M7 floor re-anchor transaction that reached API M7 and passed evidence but
+// M6 floor re-anchor transaction that reached API M6 and passed evidence but
 // aborted in the disk-report section before `complete`. It is independently
-// frozen: the previous floor must remain M6 while the candidate/target is M7.
-export const VERIFIED_ABORT_REANCHOR_TRANSACTION = Object.freeze({ runId: '38321168296-1', targetSha: '5c4355fe32b4fe357cf5dc919a85e7aef7f59070', previousFloorSha: '797eeca1db229f5e4d288da88d83888ad92b35c5' });
+// frozen: the previous floor must remain M4 while the candidate/target is M6.
+export const VERIFIED_ABORT_REANCHOR_TRANSACTION = Object.freeze({ runId: '38321168296-1', targetSha: '797eeca1db229f5e4d288da88d83888ad92b35c5', previousFloorSha: 'f46f651dcebeb11210c8e577f3c0caed87f356c2' });
 export const VERIFIED_ABORT_POINT = 'DISK_REPORT_SIGPIPE';
 
 const sha256 = value => createHash('sha256').update(value).digest('hex');
