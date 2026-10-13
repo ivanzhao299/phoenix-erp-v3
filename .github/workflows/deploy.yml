@@ -1101,9 +1101,13 @@ jobs:
               IMAGE_PREVIEW_COUNT=$((IMAGE_PREVIEW_COUNT + 1))
             done <<< "$IMAGE_REPORT"
             echo "💾 磁盘总览:"
-            df -h / | tail -1
+            # Keep the report free of producer/consumer pipelines: with pipefail,
+            # even a harmless formatting consumer can SIGPIPE the deploy shell
+            # after verification and leave the transaction in SWITCHING.
+            df -h /
             echo "🐳 Docker 总占用(builder cache 保留 5GB/24h 加速冷构建):"
-            docker system df 2>/dev/null || true
+            DOCKER_DISK_REPORT="$(docker system df 2>/dev/null || true)"
+            printf '%s\n' "$DOCKER_DISK_REPORT"
 
             node scripts/ops/production-deployment-state.mjs complete
             trap - ERR
