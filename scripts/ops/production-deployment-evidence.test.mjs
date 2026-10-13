@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { captureSnapshot, compareSnapshots, summarizeStartupLogs, verifyEvidenceFiles, captureDockerLogStreams, MAX_LOG_BYTES, metadataFor, classifyEvidenceFailure, classifyStartupLine } from './production-deployment-evidence.mjs';
-import { M12_MATERIAL_TRANSACTION, REPLAY_SQL_SHAPE_PATTERN, frozenM12Identity, replayWindowDiagnostics } from './readonly-production-evidence.mjs';
+import { M12_MATERIAL_TRANSACTION, REPLAY_SQL_SHAPE_PATTERN, frozenM12Identity, replayWindowDiagnostics, R41_BOOK_CANDIDATES, readonlyBudgetConfiguration, r41ReadonlyAdmission } from './readonly-production-evidence.mjs';
 import { COMPLETE_ABORT_TRANSACTION, replayStartupWindow } from './production-deployment-recovery.mjs';
 import * as evidenceLibrary from './production-deployment-evidence.mjs';
 import { readFormalDeploymentEvidence } from './chanjet-readonly-production-audit.mjs';
@@ -405,7 +405,7 @@ test('replay window, digest, counts and binding diagnostics reject malformed or 
   const large=structuredClone(x);large.streams.stdout='x'.repeat(MAX_LOG_BYTES+1);assert.equal(diagnosticReplay(large).windowVerified,false);
 });
 
-function collectorSubprocess(t, { sqlOnly=false, missingState=false }={}) {
+function collectorSubprocess(t, { sqlOnly=false, missingState=false, badR41Mapping=false }={}) {
   const dir=fs.mkdtempSync(path.join(os.tmpdir(),'readonly-collector-fixture-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
   const ops=path.join(dir,'scripts/ops'),state=path.join(dir,'state'),bin=path.join(dir,'bin');for(const d of [ops,state,bin])fs.mkdirSync(d,{recursive:true});
   const fixture=materialFixture();
@@ -421,14 +421,18 @@ function collectorSubprocess(t, { sqlOnly=false, missingState=false }={}) {
   fs.writeFileSync(path.join(ops,'production-trusted-paths.mjs'),`export * from './real-trusted.mjs'; import fs from 'node:fs';export const assertRootIdentity=()=>{};export const inspectTrustedDirectory=()=>[];export const readPinnedFile=f=>fs.readFileSync(f);`);
   const contract=JSON.parse(fs.readFileSync('scripts/ops/production-config-contract.json'));contract.stateDirectory=state;fs.writeFileSync(path.join(ops,'production-config-contract.json'),JSON.stringify(contract));
   fs.mkdirSync(path.join(ops,'readonly-audits'));fs.writeFileSync(path.join(ops,'readonly-audits/chanjet-restoration-preflight.sql'),'SELECT fixture;');
-  fs.writeFileSync(path.join(bin,'data.json'),JSON.stringify({fixture,db:{mirrorRows:11,entityRows:22,arSnapshotRows:3,runningJobs:0,queuedJobs:0,writebackPending:0,wmsWritebackPending:0,remoteWriteAttempts:0,wmsRemoteWriteAttempts:0,inboundRuns:0}}));
-  fs.writeFileSync(path.join(bin,'shim.mjs'),`import fs from 'node:fs';const x=JSON.parse(fs.readFileSync(new URL('./data.json',import.meta.url)));const [tool,...a]=process.argv.slice(2);if(tool==='git'){if(a.includes('rev-parse'))console.log(x.fixture.out.checkout.head);else if(a.includes('branch'))console.log('main');else if(a.includes('status'))console.log('');else process.exit(99);}else if(tool==='curl')console.log('200');else if(a[0]==='inspect'){if(a[3]==='{{json .Config.Env}}')console.log(JSON.stringify(['CHANJET_SYNC_POLICY=HOLD','CHANJET_READONLY_SYNC_ENABLED=false','CHANJET_ERP_INBOUND_SYNC_ENABLED=false','CHANJET_READONLY_APPROVAL=']));else {const m=x.fixture.out.containers[a[1].replace('phoenix-v3-','')];console.log([m.id,m.created,m.image,{StartedAt:m.startedAt,Running:m.running,Health:{Status:m.health}},m.restartCount,m.mounts].map(JSON.stringify).join('\\t'));}}else if(a[0]==='image'&&a[1]==='inspect'){const m=Object.values(x.fixture.out.containers).find(v=>v.image===a[2]);console.log(JSON.stringify(m.ociRevision?{'org.opencontainers.image.revision':m.ociRevision}:{}));}else if(a[0]==='logs'){process.stdout.write(x.fixture.streams.stdout);process.stderr.write(x.fixture.streams.stderr);}else if(a[0]==='exec'&&a.includes('PGOPTIONS=-c default_transaction_read_only=on')){const s=fs.readFileSync(0,'utf8');if(!s.startsWith('BEGIN READ ONLY;')||!s.trim().endsWith('ROLLBACK;'))process.exit(98);console.log(JSON.stringify(x.db));}else process.exit(99);`);
+  const books=R41_BOOK_CANDIDATES.map(b=>({...b,enabled:true})),mappings=R41_BOOK_CANDIDATES.map(b=>({...b,syncEnabled:true,companyActive:true}));
+  if(badR41Mapping)mappings[1].bookId='WRONG';
+  const generatedAt=new Date().toISOString(),day=new Date(Date.parse(generatedAt)+8*3600000).toISOString().slice(0,10);
+  const budgetCounters={schema:'phoenix.r41-local-budget-counters/1',generatedAt,timeZone:'Asia/Shanghai',entries:[{key:`M:${day.slice(0,7)}`,requests:1741},{key:`D:${day}`,requests:10},{key:`R:${day}`,requests:8}]};
+  fs.writeFileSync(path.join(bin,'data.json'),JSON.stringify({fixture,budgetCounters,db:{books,mappings,mirrorRows:11,entityRows:22,arSnapshotRows:3,runningJobs:0,queuedJobs:0,writebackPending:0,wmsWritebackPending:0,remoteWriteAttempts:0,wmsRemoteWriteAttempts:0,inboundRuns:0}}));
+  fs.writeFileSync(path.join(bin,'shim.mjs'),`import fs from 'node:fs';const x=JSON.parse(fs.readFileSync(new URL('./data.json',import.meta.url)));const [tool,...a]=process.argv.slice(2);if(tool==='git'){if(a.includes('rev-parse'))console.log(x.fixture.out.checkout.head);else if(a.includes('branch'))console.log('main');else if(a.includes('status'))console.log('');else process.exit(99);}else if(tool==='curl')console.log('200');else if(a[0]==='inspect'){if(a[3]==='{{json .Config.Env}}')console.log(JSON.stringify(['CHANJET_SYNC_POLICY=HOLD','CHANJET_READONLY_SYNC_ENABLED=false','CHANJET_ERP_INBOUND_SYNC_ENABLED=false','CHANJET_READONLY_APPROVAL=','CHANJET_MONTHLY_LOCAL_BUDGET=10000','CHANJET_DAILY_LOCAL_BUDGET=100','CHANJET_DAILY_READ_BUDGET=150','UNRELATED_PRIVATE_VALUE=ENV_SENTINEL_NEVER_OUTPUT']));else {const m=x.fixture.out.containers[a[1].replace('phoenix-v3-','')];console.log([m.id,m.created,m.image,{StartedAt:m.startedAt,Running:m.running,Health:{Status:m.health}},m.restartCount,m.mounts].map(JSON.stringify).join('\\t'));}}else if(a[0]==='image'&&a[1]==='inspect'){const m=Object.values(x.fixture.out.containers).find(v=>v.image===a[2]);console.log(JSON.stringify(m.ociRevision?{'org.opencontainers.image.revision':m.ociRevision}:{}));}else if(a[0]==='logs'){process.stdout.write(x.fixture.streams.stdout);process.stderr.write(x.fixture.streams.stderr);}else if(a[0]==='exec'&&a.includes('PGOPTIONS=-c default_transaction_read_only=on')){const s=fs.readFileSync(0,'utf8');if(!s.startsWith('BEGIN READ ONLY;')||!s.trim().endsWith('ROLLBACK;'))process.exit(98);console.log(JSON.stringify(s.includes('phoenix.r41-local-budget-counters/1')?x.budgetCounters:x.db));}else process.exit(99);`);
   for(const name of ['git','docker','curl'])fs.writeFileSync(path.join(bin,name),`#!/bin/sh\nexec '${process.execPath}' '${path.join(bin,'shim.mjs')}' '${name}' "$@"\n`,{mode:0o700});
   const before=Object.fromEntries(fs.readdirSync(state).map(n=>[n,fs.readFileSync(path.join(state,n),'utf8')]));
   const source=fs.readFileSync('scripts/ops/readonly-production-evidence.mjs','utf8').replace("PATH: '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'",`PATH: ${JSON.stringify(bin)}`);
   const result=spawnSync(process.execPath,['--input-type=module','-'],{cwd:dir,input:source,encoding:'utf8',timeout:10000,maxBuffer:4*1024*1024,env:{PATH:`${bin}:/usr/bin:/bin`,R0_ROOT:dir,R0_DEPLOY_RUN_ID:frozen.runId,R0_TARGET_SHA:frozen.targetSha}});
   assert.equal(result.status,0,result.stderr);assert.deepEqual(fs.readdirSync(state).sort(),Object.keys(before).sort());for(const[n,bytes]of Object.entries(before))assert.equal(fs.readFileSync(path.join(state,n),'utf8'),bytes);
-  assert.doesNotMatch(result.stdout,/SENSITIVE_FIXTURE_NEVER_OUTPUT/);
+  assert.doesNotMatch(result.stdout,/SENSITIVE_FIXTURE_NEVER_OUTPUT|ENV_SENTINEL_NEVER_OUTPUT|UNRELATED_PRIVATE_VALUE/);
   const summaryLine=result.stdout.split('\n').find(l=>l.startsWith('R0_SUMMARY='));assert.ok(summaryLine);const summary=JSON.parse(summaryLine.slice(11));
   return summary;
 }
@@ -440,4 +444,38 @@ test('stdin collector summary detects SQL-only signals despite legacy schema/err
 });
 test('stdin collector missing pinned state cannot produce a passing identity verdict',t=>{
   const s=collectorSubprocess(t,{missingState:true});assert.equal(s.m12FrozenIdentity.available,false);assert.equal(s.m12FrozenIdentity.allIdentityChecksPass,false);
+});
+
+const r41Admission=(db,config,counters)=>r41ReadonlyAdmission(db,config,counters,Date.parse('2026-10-31T16:00:01Z'));
+const r41Db = () => ({ books: R41_BOOK_CANDIDATES.map(b => ({ ...b, enabled: true })), mappings: R41_BOOK_CANDIDATES.map(b => ({ ...b, syncEnabled: true, companyActive: true })) });
+const r41Counters = () => ({ schema: 'phoenix.r41-local-budget-counters/1', generatedAt: '2026-10-31T16:00:01Z', timeZone: 'Asia/Shanghai', entries: [{ key: 'M:2026-11', requests: 1741 }, { key: 'D:2026-11-01', requests: 10 }, { key: 'R:2026-11-01', requests: 8 }] });
+test('R41 exact enabled set compares all three historical candidates before masking, without granting approval', () => {
+  const d=r41Admission(r41Db(),readonlyBudgetConfiguration([]),r41Counters());
+  assert.equal(d.mapping.exactCandidateSetMatches,true);assert.equal(d.businessApproval,false);assert.equal(d.diagnosticOnly,true);
+  assert.equal(Object.keys(d.mapping.companies).length,3);assert.doesNotMatch(JSON.stringify(d),/3537748712226818/);
+  for(const mutate of [x=>delete x.books,x=>x.books.unshift({...x.books[0],enabled:false}),x=>x.mappings[1].bookId='WRONG',x=>x.mappings[1].companyActive=false,x=>x.books.pop(),x=>x.mappings.push({...x.mappings[0]}),x=>x.books.push({...x.books[0],bookId:'EXTRA',companyCode:'EXTRA'}),x=>x.books[0].enabled='true',x=>delete x.mappings[0].syncEnabled,x=>{delete x.books[0].bookId;delete x.mappings[0].bookId;}]){
+    const db=r41Db();mutate(db);assert.equal(r41Admission(db,readonlyBudgetConfiguration([]),r41Counters()).mapping.exactCandidateSetMatches,false);
+  }
+});
+test('R41 whitelist budget defaults/fallback match auth code; no raw env values emitted', () => {
+  const auth=fs.readFileSync('apps/api/src/modules/chanjet/chanjet-auth.service.ts','utf8');
+  for(const[key,n]of [['CHANJET_MONTHLY_LOCAL_BUDGET','20_000'],['CHANJET_DAILY_LOCAL_BUDGET','650'],['CHANJET_DAILY_READ_BUDGET','620']])assert.ok(auth.includes(`positiveInt('${key}', ${n})`));
+  const c=readonlyBudgetConfiguration(['CHANJET_MONTHLY_LOCAL_BUDGET=10000','CHANJET_DAILY_LOCAL_BUDGET=100','CHANJET_DAILY_READ_BUDGET=150','TOKEN=ENV_SENTINEL_NEVER_OUTPUT']);
+  const d=r41Admission(r41Db(),c,r41Counters());assert.equal(d.budget.available,true);assert.equal(d.budget.budgets.readDay.effectiveLimit,100);assert.equal(d.budget.budgets.readDay.localRemaining,92);assert.equal(d.budget.budgets.month.localRemaining,8259);
+  assert.equal(d.budget.perApprovalOrRunCapEnforced,false);assert.equal(d.budget.providerRemainingQuota,'NOT_AVAILABLE');assert.doesNotMatch(JSON.stringify(c),/TOKEN|ENV_SENTINEL_NEVER_OUTPUT/);
+  const invalid=readonlyBudgetConfiguration(['CHANJET_MONTHLY_LOCAL_BUDGET=NON_NUMERIC_PRIVATE','CHANJET_DAILY_LOCAL_BUDGET=0','CHANJET_DAILY_READ_BUDGET=-3']);assert.equal(invalid.CHANJET_MONTHLY_LOCAL_BUDGET.effective,20000);assert.equal(invalid.CHANJET_DAILY_LOCAL_BUDGET.effective,650);assert.equal(invalid.CHANJET_DAILY_READ_BUDGET.effective,620);assert.doesNotMatch(JSON.stringify(invalid),/NON_NUMERIC_PRIVATE/);
+  assert.equal(readonlyBudgetConfiguration(['CHANJET_DAILY_LOCAL_BUDGET=1','CHANJET_DAILY_LOCAL_BUDGET=2']).CHANJET_DAILY_LOCAL_BUDGET.available,false);
+  assert.equal(readonlyBudgetConfiguration(null).CHANJET_DAILY_LOCAL_BUDGET.available,false);
+  assert.equal(readonlyBudgetConfiguration(['CHANJET_DAILY_LOCAL_BUDGET=1e30']).CHANJET_DAILY_LOCAL_BUDGET.available,false);
+});
+test('R41 counters use China month/day rollover and reject incomplete, wrong-date, duplicate and noninteger evidence', () => {
+  const good=r41Admission(r41Db(),readonlyBudgetConfiguration([]),r41Counters());assert.equal(good.budget.available,true);assert.equal(good.budget.budgets.day.key,'D:2026-11-01');
+  for(const mutate of [x=>delete x.generatedAt,x=>x.generatedAt='2026-10-31',x=>x.generatedAt='2026-10-31T15:50:00Z',x=>x.generatedAt='2026-10-31T16:10:00Z',x=>x.generatedAt=1,x=>x.timeZone='UTC',x=>x.schema='WRONG',x=>x.entries.pop(),x=>x.entries[0].key='M:2026-10',x=>x.entries[0].requests=-1,x=>x.entries[0].requests='1741',x=>x.entries[0].requests=1.2,x=>x.entries[0].key=x.entries[1].key]){const e=r41Counters();mutate(e);assert.equal(r41Admission(r41Db(),readonlyBudgetConfiguration([]),e).budget.available,false);}
+  const e=r41Counters();e.entries[2].requests=900;assert.equal(r41Admission(r41Db(),readonlyBudgetConfiguration([]),e).budget.budgets.readDay.localRemaining,0);
+});
+test('R41 stdin summary wires exact-set booleans and configured counters with zero writes/secret output', t => {
+  const s=collectorSubprocess(t);assert.equal(s.r41ReadonlyAdmission.mapping.exactCandidateSetMatches,true);assert.equal(s.r41ReadonlyAdmission.budget.available,true);assert.equal(s.r41ReadonlyAdmission.budget.budgets.readDay.effectiveLimit,100);
+});
+test('R41 stdin wrong candidate mapping cannot pass despite matching raw/display histories', t => {
+  assert.equal(collectorSubprocess(t,{badR41Mapping:true}).r41ReadonlyAdmission.mapping.exactCandidateSetMatches,false);
 });

@@ -1,0 +1,52 @@
+{
+  "schema": "phoenix.r41-readonly-admission-design/1",
+  "baseline": "eae5fd758aab8a4fdd779a217e51e98b230ea9dc",
+  "scope": "Collector diagnostics only; no production execution, approval or sync",
+  "candidateSet": "Historical3 company/book pairs, compared host-side against enabled books and ACTIVE enabled mappings; booleans only, not business approval",
+  "configurationWhitelist": [
+    "CHANJET_MONTHLY_LOCAL_BUDGET",
+    "CHANJET_DAILY_LOCAL_BUDGET",
+    "CHANJET_DAILY_READ_BUDGET"
+  ],
+  "effectiveSemantics": "Match ChanjetAuthService.positiveInt defaults20000/650/620; READ=min(day,read). Duplicates, absent Docker env, unsafe integers are unavailable; invalid numeric strings fall back without printing raw value",
+  "counters": "Separate BEGIN READ ONLY/ROLLBACK SQL, exact current Asia/Shanghai M/D/R PK keys, missing PK row measured as0; query failure unavailable, statement20s/lock3s; timestamp explicitly zoned and within5min of collection clock",
+  "quotaLimits": "Reported remaining is local cap minus current durable counter, clamped0; diagnostic snapshot not reservation, not provider quota, not per-approval/run cap",
+  "runtimeDependencies": "No new relative module import; reviewed stdin can run against installedM16 helpers",
+  "tests": {
+    "node20Evidence": {
+      "tests": 37,
+      "pass": 37,
+      "fail": 0
+    },
+    "fullSuite": {
+      "tests": 218,
+      "pass": 216,
+      "fail": 0,
+      "skip": 2,
+      "skips": "Environment-dependent real root owner/group and isolated PostgreSQL fingerprints"
+    },
+    "newCases": 5,
+    "cases": [
+      "Exact 3 candidate set vs missing/wrong/duplicate/malformed enabled state",
+      "Whitelist/fallback/source/read min budget and no raw env leak",
+      "China month rollover and incomplete/malformed/duplicate counters",
+      "Real stdin summary wiring, readonly SQL and byte-preserving collector",
+      "Real stdin mismatched XINGCHI mapping is false"
+    ]
+  },
+  "criticalFilesChanged": [],
+  "unexecuted": [
+    "Production collector dispatch",
+    "READONLY_VERIFY",
+    "first-sync",
+    "ACTIVE",
+    "Deployment"
+  ],
+  "reviewGate": "Open minimal PR; wait for independent main-chat review before merge/execution",
+  "separateConfirmedCliIssue": {
+    "caller": "chanjet-readonly-config-transaction.mjs:103",
+    "callee": "phoenix-production-compose.mjs:23",
+    "reason": "DEPLOY_RUN_ID causes compose to read missing deploy-run state during config transition; config only creates chanjet-config record. Separate reproduction/fix PR, not collector scope."
+  },
+  "review": "Independent read-only review completed; whole-book ID uniqueness/formal find semantics and timestamp freshness corrections verified"
+}
