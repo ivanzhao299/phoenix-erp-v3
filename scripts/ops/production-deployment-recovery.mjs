@@ -241,7 +241,10 @@ export function assessRecovery(bundle, context) {
   if (marker && Number.isFinite(Date.parse(marker.startedAt)) && Number.isFinite(Date.parse(marker.expiresAt))
     && (Date.parse(marker.expiresAt) - Date.parse(marker.startedAt) > 30 * 60 * 1000)) reasons.push('POLICY_MARKER_WINDOW');
   const reanchor = isVerifiedAbortReanchor(context);
-  const expectedFloorSha = reanchor ? VERIFIED_ABORT_REANCHOR_TRANSACTION.previousFloorSha : context.approvedSha;
+  // The failed re-anchor may already have promoted floor.json to the target
+  // before the post-verify abort. The receipt still binds the prior floor, but
+  // the live floor and CONFIG_READY_HOLD active config must be the target.
+  const expectedFloorSha = context.approvedSha;
   if (!floor || floor.version !== 3 || floor.floorSha !== expectedFloorSha || floor.chanjetPolicy !== 'HOLD' || floor.readonlyApproval !== null) reasons.push('FLOOR_SHAPE');
   if (active) {
     if (phase === 'ARCHIVED' || phase === null) {
