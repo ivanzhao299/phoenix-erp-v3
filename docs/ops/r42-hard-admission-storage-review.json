@@ -1,6 +1,6 @@
 {
-  "schema": "phoenix.r42-hard-admission-storage-review/1",
-  "status": "DESIGN_ONLY_STORAGE_AND_TRUST_PROTOCOL_REVIEW_REQUIRED",
+  "schema": "phoenix.r42-hard-admission-storage-review/2",
+  "status": "STORE_FOUNDATION_PASS_NOT_TRANSPORT_ENFORCEMENT",
   "sourceMainSha": "22b47aebb50d2253afb465a25abc66ded26e873f",
   "productionExpectedSha": "eae5fd758aab8a4fdd779a217e51e98b230ea9dc",
   "businessApproval": false,
@@ -19,11 +19,11 @@
     "note": "No candidate, recommendation, historical mapping, or synthetic test value constitutes approval. This document creates no executable approval JSON."
   },
   "decision": {
-    "reason": "Existing JSONB can physically store execution metadata. No current protocol was found that preserves all existing admission guards while sharing immutable, non-resettable state between the pre-VERIFY probe and first-sync across API recreation. Reusing a RUNNING job conflicts with the current all-RUNNING preflight; marking it SUCCESS early changes terminal semantics. This is a protocol conflict, not proof that a no-schema design is mathematically impossible.",
-    "authorizationBranchUsed": "Delegated R4.2 instruction: if durable non-resettable binding cannot be implemented in existing structures, first deliver definite source evidence and candidate tradeoffs for main-chat review; do not implicitly introduce migrations.",
-    "completedNow": "Read-only source investigation, independently cross-checked storage/HTTP findings, concrete candidate protocol and acceptance matrix.",
-    "nextGate": "Main-chat review must select and authorize the storage/trust protocol before implementation. Human execution parameters remain separate and pending.",
-    "noGuardWeakening": "No preflight exclusions, fake SUCCESS row, terminal reopening, new schema, policy fields, runtime imports, or transport changes are included."
+    "storageSelected": "A_DEDICATED_ADMISSION",
+    "selectionAuthority": "Main chat selected A and authorized schema file creation and isolated local verification; production DDL remains unapproved.",
+    "completedNow": "Dedicated control schema, matching entities, strict ops/API manifest validation, atomic reservation receipts and explicit recovery foundation. No runtime provider/CLI/scheduler wiring.",
+    "nextGate": "Independent main-chat review of exact PR head before transport/root-control wiring. Human execution parameters remain unset.",
+    "noGuardWeakening": "Existing RUNNING preflight/scheduler, generic CRUD namespace allowlist, v3 policy and production workflow files are unchanged."
   },
   "sourceFacts": [
     {
@@ -132,10 +132,10 @@
   "storageCandidates": [
     {
       "id": "A_DEDICATED_ADMISSION",
-      "status": "RECOMMENDED_FOR_REVIEW_NOT_AUTHORIZED",
+      "status": "SELECTED_FOUNDATION_IMPLEMENTED_SCHEMA_NOT_APPLIED_TO_PRODUCTION",
       "proposal": "A dedicated durable admission record with unique executionId and a unique first-verification binding per approvalId; immutable canonical tuple; server-created startedAt/deadlineAt; atomic provider request count; monotonic phase and HOLD evidence. Keep chanjet_sync_jobs as actual jobs and preserve all-RUNNING preflight unchanged.",
       "benefit": "Separates pending admission from job lifecycle and allows enforceable uniqueness/identity without pretending an active job is completed.",
-      "costAndGate": "Requires reviewed TS migration/schema and API compatibility design. No migration is created or run by this PR. New schema would require the main-chat authorization specified by this delegation.",
+      "costAndGate": "TS up/down migration exists and was applied/reverted only in the isolated PostgreSQL 18 fixture. Production schema application, deployment and registration require separate authorization.",
       "remainingWork": "Dedicated record still needs protected provenance, complete transport gating, commit-boundary cancellation and restart reconciliation. A new table alone does not enforce a cap."
     },
     {
@@ -155,7 +155,7 @@
     }
   ],
   "proposedExecutionContract": {
-    "status": "SPECIFICATION_ONLY_NO_RUNTIME_TYPES_OR_VALIDATORS_ADDED",
+    "status": "STRICT_MANIFEST_AND_STORE_FOUNDATION_IMPLEMENTED_ONLY",
     "relationshipToPolicy": "A separately versioned execution envelope binds to the complete existing approved policy and exact floor SHA. It does not widen that policy or add unknown fields to v3. A future versioned integration must be explicit and independently reviewed in ops and TypeScript together.",
     "identity": "executionId + approvalId + floorSha + canonical exact books/company bindings + one verification book/period/scope + canonical approval digest. First verification cannot mint a new executionId for the same approval to reset allowance. Canonical digest uses explicit sorted keys and normalized unique arrays; every field is compared in addition to digest.",
     "strictTypes": [
@@ -172,7 +172,8 @@
       "Only this narrowly authorized entry can execute the exact approved readonly probe under HOLD. Generic proxy, scheduler and other legacy paths remain governed by existing policy; do not globally relax HOLD.",
       "The protected pre-VERIFY business probe must bypass completed READ response cache and reject in-flight response reuse; require its own actual provider HTTP response under this execution after atomic reservation. Cached certificate/token credentials may still be used without HTTP. Only one probe owner may transition admission; duplicate concurrent probe commands reject rather than borrow another response or repeat an ambiguous request.",
       "Successful probe returns only safe execution identity/count/deadline/phase evidence. CLI requires it before changing floor. First-sync loads that same identity after API recreation and verifies the exact envelope against the floor approval; no caller-supplied reset or extension.",
-      "Restart during an ambiguous active provider request is HOLD and requires review. Clean completed probe awaiting first-sync can be a specifically defined resumable phase if authorized; it must preserve count/start/deadline. Resume never automatically repeats an uncertain request."
+      "Restart during an ambiguous active provider request is HOLD and requires review. Clean completed probe awaiting first-sync can be a specifically defined resumable phase if authorized; it must preserve count/start/deadline. Resume never automatically repeats an uncertain request.",
+      "For this first-verification foundation, both PROBED and VERIFIED require an ACKNOWLEDGED BUSINESS receipt owned by that phase lease. Auth-only or zero-request completion rejects. Ordinary future mirror cache hits remain zero-cost; they cannot alone satisfy this first-verification receipt prerequisite. Receipt ACK still does not prove actual provider network or mirror success until the controlled transport is wired."
     ]
   },
   "allProviderHttpProtocol": {
@@ -228,7 +229,7 @@
     "No production migrations or provider/config/deploy operations in this phase"
   ],
   "futureAcceptanceMatrix": {
-    "executionStatus": "NOT_EXECUTED_IMPLEMENTATION_BLOCKED_BY_STORAGE_AND_TRUST_REVIEW",
+    "executionStatus": "FULL_TRANSPORT_CLI_DEADLINE_MATRIX_NOT_EXECUTED; STORAGE_SUBSET_PASSED_ONLY",
     "fixturePolicy": "Use synthetic IDs/integers/timestamps labelled SYNTHETIC_NOT_APPROVAL. No real books, provider credentials or approved limits are inferred. Test outcomes cannot constitute business approval.",
     "cases": [
       {
@@ -292,7 +293,16 @@
         "expectation": "Lost SUCCESS acknowledgement or failed HOLD persistence retains ambiguous durable evidence, no second SUCCESS or silently cleared markers; no future provider request after loss."
       }
     ],
-    "localCommandsNotYetAcceptance": "JSON/source-reference checks and independent design review validate this document only. Existing CLI tests, tsc or CI cannot prove a hard cap/deadline that has not been implemented."
+    "localCommandsNotYetAcceptance": "41 focused tests prove 19 storage/manifest invariants and 22 unchanged policy checks only. They do not prove provider request counting, root registration authority, true probe/mirror success, API cancellation, real socket-disconnect recovery or CLI integration.",
+    "storageSubsetExecuted": [
+      "STRICT_PARITY",
+      "CAP_CONCURRENT reservation only, 5 accepted/11 rejected across two real Node20 processes",
+      "MANAGER_AND_CONTEXT store only",
+      "RECREATE_PROBE_TO_SYNC storage checkpoint/resume in two sequential exited/new Node20 processes",
+      "DB-time expiry and terminal/phase/auth-only refusal",
+      "real PG rollback + synthetic lost commit acknowledgement wrapper",
+      "migration/entity zero schema diff and up/down"
+    ]
   },
   "searchEvidence": {
     "storageScope": [
@@ -318,27 +328,73 @@
   "verification": {
     "sourceScouts": [
       "r42_durable_scout",
-      "r42_auth_scout"
+      "r42_auth_scout",
+      "r42a_ci_scout"
     ],
-    "independentDesignReview": {
-      "reviewer": "r42_design_review",
-      "initialVerdict": "ONE_REQUIRED_CORRECTION",
-      "correction": "Dedicated fresh pre-VERIFY probe now explicitly excludes business response cache and in-flight reuse; added PROBE_MUST_FETCH future case. No runtime change.",
-      "finalVerdict": "PASS_DESIGN_DOCUMENT_ONLY",
-      "limits": "No runtime implementation, rejection test execution, live database schema proof or production approval."
+    "independentDesignReview": "PASS_DESIGN_DOCUMENT_ONLY",
+    "independentStoreReview": {
+      "reviewer": "r42a_schema_review",
+      "verdict": "STORE_FOUNDATION_PASS",
+      "limits": "No provider transport, root provenance enforcement, automatic restart reconciliation or physical DB-role split verified."
     },
+    "node": "20.20.2",
+    "postgres": "18 isolated fixture",
     "jsonAndSourceReferences": {
       "result": "PASS",
       "referenceCount": 31,
-      "sourceMainSha": "22b47aebb50d2253afb465a25abc66ded26e873f",
-      "humanParametersAllUnset": true,
-      "scope": "JSON syntax, existing referenced source rows, whitespace and design-only invariants; does not validate a cap implementation"
+      "sourceMainSha": "22b47aebb50d2253afb465a25abc66ded26e873f"
     },
-    "apiTypecheck": "NOT_RUN_LOCAL_WORKTREE_HAS_NO_API_NODE_MODULES",
-    "webTypecheck": "NOT_RUN_LOCAL_WORKTREE_HAS_NO_WEB_NODE_MODULES",
-    "newAdmissionRejectTests": "NOT_RUN_NO_ADMISSION_IMPLEMENTATION",
+    "apiTypecheck": "PASS_NODE20",
+    "webTypecheck": "PASS_NODE20",
+    "changedApiLint": "PASS_ZERO_ERRORS_ZERO_WARNINGS",
+    "focusedTests": {
+      "suites": 2,
+      "passed": 41,
+      "admissionTests": 19,
+      "legacyPolicyTests": 22,
+      "skipped": 0,
+      "reality": "TypeORM transactions, migration up/down, actual PG18 constraints/triggers/clock/row locks, two Node20 reservation processes, separate exited checkpoint/new resumed process. No HTTP/provider/API/Compose execution.",
+      "faultInjection": "Rollback and lost commit acknowledgement are synthetic wrappers around real PG transactions, not physical network failure injection."
+    },
+    "schemaEntityDrift": "Actual isolated PG migration and entity schema builder returned zero up queries",
+    "constraintDrift": "PASS_ZERO_NEW_DRIFT",
+    "nullableUnique": "PASS_ZERO_VIOLATIONS",
+    "migrationDown": "PASS",
+    "migrationNoBusinessDml": "PASS_DDL_ONLY_TRIGGER_EVENT_REGEX_EXEMPTION_DOCUMENTED",
+    "dependencyInstall": {
+      "command": "pnpm 9.12.0 install --frozen-lockfile --ignore-scripts under Node20",
+      "writes": "ignored workspace node_modules and TypeScript build cache only; no lockfile/package/version changes",
+      "initialShimIssue": "Default pnpm shim resolved pnpm11 requiring node:sqlite; used existing pnpm9 shell shim without global version changes."
+    },
     "productionAndProviderTests": "NOT_RUN_NOT_AUTHORIZED",
-    "changeScope": "One structured design document; no runtime source, workflow, Compose, policy, entity, migration or generated output changes."
+    "changeScope": "Storage/schema/types/standalone validation/tests/design only; no HTTP controller, Nest module, existing scheduler, auth service, runtime policy, Compose or production workflow changes."
   },
-  "stop": "Design-only review. Do not merge, deploy, re-anchor, migrate, dispatch production, run config/VERIFY/first-sync/ACTIVE or invoke real provider. Main chat decides storage/trust protocol and separately resolves human parameters."
+  "stop": "Store foundation exact-head review. Do not merge/deploy/re-anchor/apply production schema/register production admission/run config/VERIFY/first-sync/ACTIVE/provider calls. Human business limits remain unset.",
+  "foundationImplementation": {
+    "schemaMigration": "apps/api/src/database/migrations/1791878400000-CreateChanjetExecutionAdmissions.ts",
+    "tables": [
+      "chanjet_execution_admissions",
+      "chanjet_execution_requests"
+    ],
+    "binding": "UNIQUE NOT NULL approval_id and PK execution_id; canonical full manifest plus SHA256 verified at INSERT, immutable tuple/digest/owner/limits/server time at ordinary UPDATE; DELETE/TRUNCATE and terminal reopening reject. No root/API privilege separation asserted.",
+    "deadline": "DB clock once at INSERT: min(server start + required positive int duration, verification expiry), expiry > now and <= now+30 minutes. DB time resampled after lock acquisition. Future transport still must clamp required HTTP timeout to this absolute deadline.",
+    "atomicity": "SELECT FOR UPDATE exact canonical binding + receipt count/max ordinal reconciliation; count<cap and DB deadline; count increment and UUID ordinal receipt inserted in one committed transaction. Return ticket only after commit acknowledgement. B+1 persists CAP HOLD and returns no ticket.",
+    "requestEvidence": "Immutable RESERVED receipt -> one ACKNOWLEDGED transition; per-phase BUSINESS receipt required to finish; all outstanding RESERVED receipts block phase completion. ACK is caller assertion, not proof of HTTP dispatch.",
+    "restart": "Clean PROBED checkpoint can load exact tuple/count/start/deadline and use a new SYNC lease. PROBING/SYNCING recovery is INTERRUPTED HOLD; no automatic replay. recoverInterrupted is explicit and not wired to application bootstrap.",
+    "corruption": "Malformed binding or count/receipt mismatch fails closed; may remain durable nonterminal evidence. load is a diagnostic read and can return an expired row; never permission to fetch. begin/reserve/finish/recover enforce deadlines.",
+    "commitBoundary": "Successful store transaction reserves before a caller could fetch. A lost commit acknowledgement throws and may leave RESERVED evidence; explicit recovery marks HOLD. DB errors are sanitized, not silently accepted. Deadline crossing during a statement may leave retained nonterminal evidence until reconciliation; no ticket/success is returned.",
+    "registration": "registerFromReviewedRootManifest is an unwired store method, not a provenance verifier or public API. Future root CLI must run existing FD9/exact-SHA/production/mapping/tuple guards before registration; existing API bearer endpoints cannot register this namespace. No new role or secret created.",
+    "namespace": "New tables are absent from explicit generic CRUD allowlist; no new controller or module registration. Entity metadata is for schema alignment only.",
+    "firstVerificationOnly": "Unique approval binding represents the first-verification execution. Future ACTIVE recurring execution admission is outside this stage and needs a separately reviewed lifecycle; cannot mint another first-verification execution ID for the same approval."
+  },
+  "originalDraftCi": {
+    "runId": "38373820945",
+    "headSha": "44eb803f94782e685903a4333087bbc1f3d48625",
+    "firstFailure": "BOOTSTRAP_WRITE_DETECTOR_CANARY_FAILED: aggregate rejected-probe count / SQL-kind detection / fingerprint equality assertion; failed summary omits which subcondition. Exact root cause not established.",
+    "rerunsPerformed": 1,
+    "runAttempt": 2,
+    "conclusion": "success",
+    "assertionsChanged": false,
+    "currentFoundationHeadCi": "Not the same head; will be reported separately."
+  }
 }
