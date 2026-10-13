@@ -66,7 +66,7 @@ export function validateOutboundDestination(type: unknown, destinationType: unkn
   const normalizedType = String(type ?? '').trim().toUpperCase();
   const normalizedDestination = String(destinationType ?? '').trim().toUpperCase();
   const allowed = OUTBOUND_DESTINATIONS[normalizedType];
-  if (!allowed) return `不支持的出库类型：${normalizedType || '(空)'}`;
+  if (!allowed) return `不支持的出库类型：${normalizedType || '(empty)'}`;
   if (!allowed.includes(normalizedDestination)) {
     return `${normalizedType} 的去向类型必须是 ${allowed.join(' / ')}`;
   }
