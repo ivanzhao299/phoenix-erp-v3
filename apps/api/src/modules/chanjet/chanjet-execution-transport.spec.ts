@@ -1317,10 +1317,14 @@ database('execution transport wiring (real PG18 admission + local HTTP fixture, 
     const m = await registered(3);
     const context = await beginProbe(m);
     const proxy = await startPgProxy(Number(new URL(fixtureUrl!).port), 'hold-after-ready');
+    // the proxied URL inherits the fixture's credentials and database name
+    const proxiedUrl = new URL(fixtureUrl!);
+    proxiedUrl.hostname = '127.0.0.1';
+    proxiedUrl.port = String(proxy.port);
     const storeDs = new DataSource({ type: 'postgres', url: fixtureUrl, poolSize: 1, logging: false });
     await storeDs.initialize();
     const localStore = new ChanjetExecutionAdmissionStore(storeDs.manager);
-    const guard = createBoundedGuardExecutor(`postgres://postgres:indep_pw@127.0.0.1:${proxy.port}/chanjet_admission_fixture`, {
+    const guard = createBoundedGuardExecutor(proxiedUrl.toString(), {
       statementMs: 300, clientWaitMs: 500, acquireMs: 2_000, releaseMs: 500,
     });
     localStore.setStandaloneExecutor(guard);
@@ -1359,10 +1363,14 @@ database('execution transport wiring (real PG18 admission + local HTTP fixture, 
     const m = await registered(3);
     const context = await beginProbe(m);
     const proxy = await startPgProxy(Number(new URL(fixtureUrl!).port), 'commit-only');
+    // the proxied URL inherits the fixture's credentials and database name
+    const proxiedUrl = new URL(fixtureUrl!);
+    proxiedUrl.hostname = '127.0.0.1';
+    proxiedUrl.port = String(proxy.port);
     const storeDs = new DataSource({ type: 'postgres', url: fixtureUrl, poolSize: 1, logging: false });
     await storeDs.initialize();
     const localStore = new ChanjetExecutionAdmissionStore(storeDs.manager);
-    const guard = createBoundedGuardExecutor(`postgres://postgres:indep_pw@127.0.0.1:${proxy.port}/chanjet_admission_fixture`, {
+    const guard = createBoundedGuardExecutor(proxiedUrl.toString(), {
       statementMs: 300, clientWaitMs: 500, acquireMs: 2_000, releaseMs: 500,
     });
     localStore.setStandaloneExecutor(guard);
