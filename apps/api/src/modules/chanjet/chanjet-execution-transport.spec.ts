@@ -1,4 +1,5 @@
 import { createServer, Server } from 'node:http';
+import * as net from 'node:net';
 import assert from 'node:assert/strict';
 import * as fsns from 'node:fs';
 import * as pathns from 'node:path';
@@ -10,7 +11,7 @@ import { CreateChanjetExecutionAdmissions1791878400000 } from '../../database/mi
 import { ChanjetExecutionAdmissionStore, ExecutionContext } from './chanjet-execution-admission.store';
 import { ChanjetExecutionHttpGateway, ChanjetBusinessFailureError, providerFetch } from './chanjet-execution-transport';
 import { ChanjetExecutionAdmissionEntity } from './chanjet-execution-admission.entity';
-import { createBoundedGuardExecutor } from './chanjet-execution-guard-executor';
+import { createBoundedGuardExecutor, type BoundedGuardExecutor } from './chanjet-execution-guard-executor';
 import { ExecutionManifest } from './chanjet-execution-manifest';
 import { ChanjetAuthService } from './chanjet-auth.service';
 import { withExecutionScope, beginExecutionPhase, requireExecutionScope, ExecutionScopeState } from './chanjet-execution-scope';
@@ -1224,6 +1225,238 @@ database('execution transport wiring (real PG18 admission + local HTTP fixture, 
       expect(row.hold_reason).toBe('');
       expect(await receipts(m.executionId)).toHaveLength(0);
     } finally {
+      await storeDs.destroy().catch(() => undefined);
+    }
+  });
+
+  /** Loopback PostgreSQL proxy for guard transport-fault injection. Frames
+   *  are parsed from the wire protocol (type byte + int32 length; the first
+   *  client packet is the untyped startup message). Modes:
+   *  - hold-after-ready: hold ALL client frames from the first ReadyForQuery
+   *    onward — deterministic, the client cannot have sent BEGIN before it;
+   *  - commit-only: hold only COMMIT simple-query frames.
+   *  Held frames are NEVER forwarded; when the client disappears the
+   *  upstream is destroyed so the server terminates the backend and rolls
+   *  its open transaction back. */
+  async function startPgProxy(targetPort: number, mode: 'hold-after-ready' | 'commit-only') {
+    let heldCount = 0;
+    let forwardedCommit = false;
+    let forwardedQuery = false;
+    let armed = false;
+    let startupDone = false;
+    const server = net.createServer((clientSocket) => {
+      const upstream = net.connect(targetPort, '127.0.0.1');
+      let clientBuffer = Buffer.alloc(0);
+      let upstreamBuffer = Buffer.alloc(0);
+      clientSocket.on('data', (chunk) => {
+        clientBuffer = Buffer.concat([clientBuffer, chunk]);
+        // the first client packet is the untyped startup message
+        if (!startupDone) {
+          if (clientBuffer.length < 4) return;
+          const total = clientBuffer.readUInt32BE(0);
+          if (clientBuffer.length < total) return;
+          upstream.write(clientBuffer.subarray(0, total));
+          clientBuffer = clientBuffer.subarray(total);
+          startupDone = true;
+        }
+        let offset = 0;
+        while (offset + 5 <= clientBuffer.length) {
+          const type = clientBuffer[offset];
+          const length = clientBuffer.readUInt32BE(offset + 1);
+          if (offset + 1 + length > clientBuffer.length) break; // partial frame
+          const frame = clientBuffer.subarray(offset, offset + 1 + length);
+          const isQuery = type === 0x51; // 'Q'
+          const isCommit = isQuery && frame.toString('latin1', 5, 11) === 'COMMIT';
+          const held = (mode === 'hold-after-ready' && armed) || (mode === 'commit-only' && isCommit);
+          if (held) heldCount += 1;
+          else {
+            upstream.write(frame);
+            if (isQuery) {
+              forwardedQuery = true;
+              if (isCommit) forwardedCommit = true;
+            }
+          }
+          offset += 1 + length;
+        }
+        clientBuffer = clientBuffer.subarray(offset);
+      });
+      upstream.on('data', (chunk) => {
+        if (!clientSocket.destroyed) clientSocket.write(chunk);
+        if (mode === 'hold-after-ready' && !armed) {
+          upstreamBuffer = Buffer.concat([upstreamBuffer, chunk]);
+          let offset = 0;
+          while (offset + 5 <= upstreamBuffer.length) {
+            const type = upstreamBuffer[offset];
+            const length = upstreamBuffer.readUInt32BE(offset + 1);
+            if (type === 0x5a) { armed = true; break; } // 'Z' ReadyForQuery
+            if (offset + 1 + length > upstreamBuffer.length) break; // partial frame
+            offset += 1 + length;
+          }
+          if (!armed) upstreamBuffer = upstreamBuffer.subarray(offset);
+          else upstreamBuffer = Buffer.alloc(0);
+        }
+      });
+      clientSocket.on('close', () => upstream.destroy());
+      upstream.on('close', () => { if (!clientSocket.destroyed) clientSocket.destroy(); });
+      clientSocket.on('error', () => clientSocket.destroy());
+      upstream.on('error', () => upstream.destroy());
+    });
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const port = (server.address() as net.AddressInfo).port;
+    return {
+      port,
+      get heldCount() { return heldCount; },
+      get forwardedCommit() { return forwardedCommit; },
+      get forwardedQuery() { return forwardedQuery; },
+      close: () => new Promise<void>((resolve) => server.close(() => resolve())),
+    };
+  }
+
+  it('paused BEGIN transport: the original job ends bounded, the connection is killed and nothing executes afterwards', async () => {
+    resetHits();
+    const m = await registered(3);
+    const context = await beginProbe(m);
+    const proxy = await startPgProxy(Number(new URL(fixtureUrl!).port), 'hold-after-ready');
+    const storeDs = new DataSource({ type: 'postgres', url: fixtureUrl, poolSize: 1, logging: false });
+    await storeDs.initialize();
+    const localStore = new ChanjetExecutionAdmissionStore(storeDs.manager);
+    const guard = createBoundedGuardExecutor(`postgres://postgres:indep_pw@127.0.0.1:${proxy.port}/chanjet_admission_fixture`, {
+      statementMs: 300, clientWaitMs: 500, acquireMs: 2_000, releaseMs: 500,
+    });
+    localStore.setStandaloneExecutor(guard);
+    let fresh: BoundedGuardExecutor | undefined;
+    try {
+      const started = Date.now();
+      // BEGIN is held by the proxy: the server-side statement/lock timeouts
+      // can never fire — only the client-wait bound terminates the job
+      await expect(localStore.holdExecution(context, 'DEADLINE')).rejects.toThrow('CHANJET_GUARD_STATEMENT_TIMEOUT');
+      const elapsed = Date.now() - started;
+      expect(elapsed).toBeLessThan(2_000);
+      // the bound destroyed the connection: the executor is unusable
+      expect(guard.isDisposed).toBe(true);
+      // the BEGIN was demonstrably held and never reached the server
+      expect(proxy.heldCount).toBeGreaterThanOrEqual(1);
+      expect(proxy.forwardedQuery).toBe(false);
+      await proxy.close();
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      // after resuming (proxy closed): no queued job continued — the row is
+      // untouched and a FRESH guard on the healthy fixture persists the hold
+      const row = await storeDs.query('SELECT phase, hold_reason FROM chanjet_execution_admissions WHERE execution_id=$1', [m.executionId]);
+      expect(row[0].phase).toBe('PROBING');
+      fresh = createBoundedGuardExecutor(fixtureUrl!, { statementMs: 300, clientWaitMs: 500, acquireMs: 2_000, releaseMs: 500 });
+      localStore.setStandaloneExecutor(fresh);
+      expect(await localStore.holdExecution(context, 'DEADLINE')).toBe('CONFIRMED');
+    } finally {
+      await guard.dispose();
+      await fresh?.dispose();
+      await storeDs.destroy().catch(() => undefined);
+      await proxy.close().catch(() => undefined);
+    }
+  });
+
+  it('paused COMMIT transport: the outcome is reported unknown, never claimed committed or rolled back, and nothing commits late', async () => {
+    resetHits();
+    const m = await registered(3);
+    const context = await beginProbe(m);
+    const proxy = await startPgProxy(Number(new URL(fixtureUrl!).port), 'commit-only');
+    const storeDs = new DataSource({ type: 'postgres', url: fixtureUrl, poolSize: 1, logging: false });
+    await storeDs.initialize();
+    const localStore = new ChanjetExecutionAdmissionStore(storeDs.manager);
+    const guard = createBoundedGuardExecutor(`postgres://postgres:indep_pw@127.0.0.1:${proxy.port}/chanjet_admission_fixture`, {
+      statementMs: 300, clientWaitMs: 500, acquireMs: 2_000, releaseMs: 500,
+    });
+    localStore.setStandaloneExecutor(guard);
+    let fresh: BoundedGuardExecutor | undefined;
+    try {
+      const started = Date.now();
+      // BEGIN/SETs/UPDATE reach the server; COMMIT alone is held — its
+      // outcome is genuinely unknown and must be reported that way
+      await expect(localStore.holdExecution(context, 'DEADLINE')).rejects.toThrow('CHANJET_GUARD_COMMIT_UNKNOWN');
+      const elapsed = Date.now() - started;
+      expect(elapsed).toBeLessThan(2_500);
+      expect(guard.isDisposed).toBe(true);
+      expect(proxy.heldCount).toBeGreaterThanOrEqual(1);
+      expect(proxy.forwardedCommit).toBe(false);
+      expect(proxy.forwardedQuery).toBe(true);
+      await proxy.close();
+      // killing the client closed the upstream: the server terminated the
+      // backend and rolled the open transaction back — no late commit
+      await new Promise((resolve) => setTimeout(resolve, 400));
+      const row = await storeDs.query('SELECT phase, hold_reason FROM chanjet_execution_admissions WHERE execution_id=$1', [m.executionId]);
+      expect(row[0].phase).toBe('PROBING');
+      expect(row[0].hold_reason).toBe('');
+      // the healthy fixture takes a fresh hold normally
+      fresh = createBoundedGuardExecutor(fixtureUrl!, { statementMs: 300, clientWaitMs: 500, acquireMs: 2_000, releaseMs: 500 });
+      localStore.setStandaloneExecutor(fresh);
+      expect(await localStore.holdExecution(context, 'DEADLINE')).toBe('CONFIRMED');
+    } finally {
+      await guard.dispose();
+      await fresh?.dispose();
+      await storeDs.destroy().catch(() => undefined);
+      await proxy.close().catch(() => undefined);
+    }
+  });
+
+  it('an idle backend loss is received controlled: executor unusable, resources released, process alive', async () => {
+    const m = await registered(3);
+    const context = await beginProbe(m);
+    const { storeDs, localStore, guard } = await standaloneGuardSandbox();
+    let fresh: BoundedGuardExecutor | undefined;
+    try {
+      await guard.query('SELECT 1 AS ok');
+      const pid = guard.backendPid;
+      expect(pid).toBeGreaterThan(0);
+      // terminate the guard's own backend while the connection is IDLE —
+      // pg surfaces this as an out-of-band 'error' event
+      await ds.query('SELECT pg_terminate_backend($1)', [pid]);
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      // controlled reception: unusable and released (this test process
+      // surviving IS the no-unhandled-error assertion)
+      expect(guard.isDisposed).toBe(true);
+      await expect(guard.query('SELECT 1 AS ok')).rejects.toThrow('CHANJET_GUARD_EXECUTOR_DISPOSED');
+      // the row was never touched
+      const row = await ds.query('SELECT phase, hold_reason FROM chanjet_execution_admissions WHERE execution_id=$1', [m.executionId]);
+      expect(row[0].phase).toBe('PROBING');
+      // a fresh executor on the healthy store still works
+      fresh = createBoundedGuardExecutor(fixtureUrl!);
+      localStore.setStandaloneExecutor(fresh);
+      expect(await localStore.holdExecution(context, 'DEADLINE')).toBe('CONFIRMED');
+    } finally {
+      await guard.dispose();
+      await fresh?.dispose();
+      await storeDs.destroy().catch(() => undefined);
+    }
+  });
+
+  it('an in-flight backend loss ends the job bounded and refuses later calls', async () => {
+    const m = await registered(3);
+    const ctx = await beginProbe(m);
+    const { storeDs, localStore, guard } = await standaloneGuardSandbox();
+    let fresh: BoundedGuardExecutor | undefined;
+    try {
+      await guard.query('SELECT 1 AS ok');
+      const pid = guard.backendPid;
+      const started = Date.now();
+      // a long-running guard statement is IN FLIGHT when the backend dies
+      const slow = guard.query('SELECT pg_sleep(5) AS slept');
+      await new Promise((resolve) => setTimeout(resolve, 150));
+      await ds.query('SELECT pg_terminate_backend($1)', [pid]);
+      await expect(slow).rejects.toThrow();
+      // the job ended immediately with the backend, not after the 5s sleep
+      expect(Date.now() - started).toBeLessThan(2_000);
+      expect(guard.isDisposed).toBe(true);
+      await expect(guard.query('SELECT 1 AS ok')).rejects.toThrow('CHANJET_GUARD_EXECUTOR_DISPOSED');
+      // the admission row was never touched: the executor's death is not a
+      // state change
+      const row = await ds.query('SELECT phase, hold_reason FROM chanjet_execution_admissions WHERE execution_id=$1', [m.executionId]);
+      expect(row[0].phase).toBe('PROBING');
+      // a fresh executor still works
+      fresh = createBoundedGuardExecutor(fixtureUrl!);
+      localStore.setStandaloneExecutor(fresh);
+      expect(await localStore.holdExecution(ctx, 'DEADLINE')).toBe('CONFIRMED');
+    } finally {
+      await guard.dispose();
+      await fresh?.dispose();
       await storeDs.destroy().catch(() => undefined);
     }
   });

@@ -20,6 +20,9 @@ declare module 'pg' {
     processID?: number;
     /** Driver internals: the live socket wrapper (teardown terminator). */
     connection?: { stream?: { destroy?: () => void } };
+    /** Out-of-band connection failures (backend exit, network reset) are
+     *  delivered here — handlers must receive them controlledly. */
+    on(event: string, listener: (...args: unknown[]) => void): this;
     end(): Promise<void>;
   }
 }
