@@ -1,10 +1,14 @@
 import { createServer, Server } from 'node:http';
+import assert from 'node:assert/strict';
+import * as fsns from 'node:fs';
+import * as pathns from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { AddressInfo } from 'node:net';
+import path from 'node:path';
 import { DataSource } from 'typeorm';
 import { CreateChanjetExecutionAdmissions1791878400000 } from '../../database/migrations/1791878400000-CreateChanjetExecutionAdmissions';
 import { ChanjetExecutionAdmissionStore } from './chanjet-execution-admission.store';
-import { ChanjetExecutionHttpGateway } from './chanjet-execution-transport';
+import { ChanjetExecutionHttpGateway, ChanjetBusinessFailureError, providerFetch } from './chanjet-execution-transport';
 import { ChanjetExecutionAdmissionEntity } from './chanjet-execution-admission.entity';
 import { ExecutionManifest } from './chanjet-execution-manifest';
 import { ChanjetAuthService } from './chanjet-auth.service';
@@ -115,6 +119,9 @@ database('execution transport wiring (real PG18 admission + local HTTP fixture, 
   const fixture = httpFixture();
 
   beforeAll(async () => {
+    const parsed = new URL(fixtureUrl!);
+    if (!['127.0.0.1', 'localhost', '::1'].includes(parsed.hostname)) throw Error('LOOPBACK_FIXTURE_REQUIRED');
+    if (!/^\/chanjet_(admission|transport)_fixture$/.test(parsed.pathname)) throw Error('DEDICATED_DISPOSABLE_FIXTURE_DB_REQUIRED');
     await fixture.start();
     process.env.CHANJET_PROVIDER_BASE_URL = fixture.endpoint();
     process.env.CHANJET_MIN_REQUEST_INTERVAL_MS = '100';
@@ -152,6 +159,8 @@ database('execution transport wiring (real PG18 admission + local HTTP fixture, 
     return { manifest: m, leaseId, phase: 'PROBING' as const };
   }
   const gatewayFor = (m: ExecutionManifest) => new ChanjetExecutionHttpGateway(store, m);
+  /** Disposable loopback fixture guard: evaluated BEFORE any connection or DDL. */
+  const scopeDeadlineAt = () => new Date(Date.now() + 20 * 60_000);
   const transportOps = () => ({
     resend: async (signal: AbortSignal) => {
       const res = await fetch(`${fixture.endpoint()}/auth/appTicket/resend`, { signal, method: 'POST' });
@@ -159,7 +168,7 @@ database('execution transport wiring (real PG18 admission + local HTTP fixture, 
     },
   });
   const receipts = async (executionId: string) => ds.query(
-    'SELECT ordinal, phase, lease_id, kind, status FROM chanjet_execution_requests WHERE execution_id=$1 ORDER BY ordinal',
+    'SELECT ordinal, phase, lease_id, kind, status, result FROM chanjet_execution_requests WHERE execution_id=$1 ORDER BY ordinal',
     [executionId],
   );
   const hitsByUrl = (suffix: string) => fixture.hits.filter((h) => h.path.endsWith(suffix));
@@ -178,7 +187,7 @@ database('execution transport wiring (real PG18 admission + local HTTP fixture, 
     expect(result.outcome).toBe('OK');
     expect(result.effectiveDeadlineMs).toBeLessThanOrEqual(30_000);
     expect(await receipts(m.executionId)).toEqual([
-      { ordinal: 1, phase: 'PROBING', lease_id: context.leaseId, kind: 'BUSINESS', status: 'ACKNOWLEDGED' },
+      { ordinal: 1, phase: 'PROBING', lease_id: context.leaseId, kind: 'BUSINESS', status: 'ACKNOWLEDGED', result: 'OK' },
     ]);
     expect(hitsByUrl('/accounting/gl/statistics/receive/3533914511118750')).toHaveLength(1);
   });
@@ -261,7 +270,7 @@ database('execution transport wiring (real PG18 admission + local HTTP fixture, 
       .rejects.toThrow('CHANJET_ADMISSION_HOLD');
     expect(hitsByUrl('/business')).toHaveLength(0);
     expect(await receipts(m.executionId)).toEqual([
-      { ordinal: 1, phase: 'PROBING', lease_id: context.leaseId, kind: 'BUSINESS', status: 'RESERVED' },
+      { ordinal: 1, phase: 'PROBING', lease_id: context.leaseId, kind: 'BUSINESS', status: 'RESERVED', result: 'UNSET' },
     ]);
     await expect(store.finish(context, 'PROBED')).rejects.toThrow();
   });
@@ -298,7 +307,7 @@ database('execution transport wiring (real PG18 admission + local HTTP fixture, 
     });
     const service = createService(fixture.endpoint());
     const context = await beginProbe(m);
-    const scopeState: ExecutionScopeState = { manifest: m, store, gateway: gatewayFor(m), transport: transportOps(), current: context };
+    const scopeState: ExecutionScopeState = { manifest: m, store, gateway: gatewayFor(m), transport: transportOps(), current: context, deadlineAt: scopeDeadlineAt() };
     await withExecutionScope(scopeState, async () => {
       expect(await service.callApi('/accounting/gl/statistics/receive/3533914511118750', { method: 'POST', body: {} })).toMatchObject({ code: '200' });
       expect(await service.callApi('/accounting/gl/statistics/receive/3533914511118750', { method: 'POST', body: {} })).toMatchObject({ code: '200' });
@@ -330,7 +339,7 @@ database('execution transport wiring (real PG18 admission + local HTTP fixture, 
     });
     const service = createService(fixture.endpoint());
     const context = await beginProbe(m);
-    const scopeState: ExecutionScopeState = { manifest: m, store, gateway: gatewayFor(m), transport: transportOps(), current: context };
+    const scopeState: ExecutionScopeState = { manifest: m, store, gateway: gatewayFor(m), transport: transportOps(), current: context, deadlineAt: scopeDeadlineAt() };
     await withExecutionScope(scopeState, () => service.callApi('/retry/path', { method: 'POST', body: {} }));
     const rows = await receipts(m.executionId);
     // scope semantics: each executeCallApi (initial + 50107 retry) performs its
@@ -349,7 +358,7 @@ database('execution transport wiring (real PG18 admission + local HTTP fixture, 
     });
     const service = createService(fixture.endpoint());
     const context = await beginProbe(m);
-    const scopeState: ExecutionScopeState = { manifest: m, store, gateway: gatewayFor(m), transport: transportOps(), current: context };
+    const scopeState: ExecutionScopeState = { manifest: m, store, gateway: gatewayFor(m), transport: transportOps(), current: context, deadlineAt: scopeDeadlineAt() };
     await withExecutionScope(scopeState, async () => {
       await expect(service.callApi('/any/path', { method: 'POST', body: {} })).rejects.toThrow('appTicket 已过期');
       // an explicit operator retry of triggerAppTicket under the scope IS
@@ -370,7 +379,7 @@ database('execution transport wiring (real PG18 admission + local HTTP fixture, 
       '/sync': { body: { code: '200', value: [{ synced: true }] } },
     });
     const service = createService(fixture.endpoint());
-    const scopeState: ExecutionScopeState = { manifest: m, store, gateway: gatewayFor(m), transport: transportOps(), current: await beginProbe(m) };
+    const scopeState: ExecutionScopeState = { manifest: m, store, gateway: gatewayFor(m), transport: transportOps(), current: await beginProbe(m), deadlineAt: scopeDeadlineAt() };
     await withExecutionScope(scopeState, () => service.callApi('/probe', { method: 'POST', body: {} }));
     await store.finish(scopeState.current, 'PROBED');
     await beginExecutionPhase(scopeState, 'SYNCING', `SYNC_${randomUUID().slice(0, 8)}`);
@@ -385,5 +394,160 @@ database('execution transport wiring (real PG18 admission + local HTTP fixture, 
     await withExecutionScope(scopeState, async () => {
       await expect(scopeState.gateway.send(scopeState.current, 'BUSINESS', businessSend('/sync'))).rejects.toThrow();
     });
+  });
+
+  // ── review-round hardening: redirects, OK-proof phase gates, persistent stops, queue deadline ──
+  it('provider redirects are never followed: one counted HTTP, transport failure, persistent stop', async () => {
+    resetHits();
+    const m = await registered(1);
+    fixture.setRoutes({ '/redirect': { status: 302, body: {} }, '/final': { body: { code: '200' } } });
+    const context = await beginProbe(m);
+    const gateway = gatewayFor(m);
+    const result = await gateway.send(context, 'BUSINESS', async (signal: AbortSignal) => {
+      const res = await providerFetch(`${fixture.endpoint()}/redirect`, { signal, method: 'POST' });
+      return res.json();
+    });
+    expect(result.outcome).toBe('TRANSPORT_FAILURE');
+    expect(hitsByUrl('/redirect')).toHaveLength(1);
+    expect(hitsByUrl('/final')).toHaveLength(0);
+    expect((await receipts(m.executionId))[0]).toMatchObject({ status: 'ACKNOWLEDGED', result: 'TRANSPORT_FAILURE' });
+    const row = await store.load(m);
+    expect(row.phase).toBe('HOLD');
+    expect(row.hold_reason).toBe('TRANSPORT_FAILURE');
+    const secondDs = new DataSource({ type: 'postgres', url: fixtureUrl, logging: false });
+    await secondDs.initialize();
+    try {
+      const fresh = new ChanjetExecutionHttpGateway(new ChanjetExecutionAdmissionStore(secondDs.manager), m);
+      await expect(fresh.send(context, 'BUSINESS', businessSend('/final'))).rejects.toThrow('CHANJET_ADMISSION_HOLD');
+      expect(hitsByUrl('/final')).toHaveLength(0);
+    } finally { await secondDs.destroy(); }
+  });
+
+  it('failed business receipts are recorded but can never complete PROBED or VERIFIED', async () => {
+    resetHits();
+    const m = await registered(6);
+    fixture.setRoutes({ '/failure': { status: 503, body: { code: 'FIXTURE_FAILURE', msg: 'synthetic' } }, '/ok': { body: { code: '200', value: [] } } });
+    const context = await beginProbe(m);
+    const gateway = gatewayFor(m);
+        const failed = await gateway.send(context, 'BUSINESS', async (signal: AbortSignal) => {
+      const res = await providerFetch(`${fixture.endpoint()}/failure`, { signal, method: 'POST' });
+      const payload = await res.json() as Record<string, unknown>;
+      if (!res.ok) throw new ChanjetBusinessFailureError(payload, `fixture failure http=${res.status}`);
+      return payload;
+    });
+    expect(failed.outcome).toBe('BUSINESS_FAILURE');
+    expect((await receipts(m.executionId))[0]).toMatchObject({ status: 'ACKNOWLEDGED', result: 'BUSINESS_FAILURE' });
+    // the transaction wrapper masks the trigger raise behind the admission hold
+    await expect(store.finish(context, 'PROBED')).rejects.toThrow(/CHANJET_ADMISSION/);
+    const ok = await gateway.send(context, 'BUSINESS', businessSend('/ok'));
+    expect(ok.outcome).toBe('OK');
+    await store.finish(context, 'PROBED');
+    const syncState: ExecutionScopeState = { manifest: m, store, gateway, transport: transportOps(), current: context, deadlineAt: scopeDeadlineAt() };
+    await beginExecutionPhase(syncState, 'SYNCING', `SYNC_${randomUUID().slice(0, 8)}`);
+    const failedSync = await gateway.send(syncState.current, 'BUSINESS', async (signal: AbortSignal) => {
+      const res = await providerFetch(`${fixture.endpoint()}/failure`, { signal, method: 'POST' });
+      const payload = await res.json() as Record<string, unknown>;
+      if (!res.ok) throw new ChanjetBusinessFailureError(payload, `fixture failure http=${res.status}`);
+      return payload;
+    });
+    expect(failedSync.outcome).toBe('BUSINESS_FAILURE');
+    await expect(store.finish(syncState.current, 'VERIFIED')).rejects.toThrow(/CHANJET_ADMISSION/);
+    const okSync = await gateway.send(syncState.current, 'BUSINESS', businessSend('/ok'));
+    expect(okSync.outcome).toBe('OK');
+    await store.finish(syncState.current, 'VERIFIED');
+    const results = (await receipts(m.executionId)).map((r: { result: string }) => r.result);
+    expect(results).toEqual(['BUSINESS_FAILURE', 'OK', 'BUSINESS_FAILURE', 'OK']);
+  });
+
+  it('transport failure persists a stop across gateways and connections; queued sends are refused', async () => {
+    resetHits();
+    const m = await registered(5);
+    fixture.setRoutes({ '/reset': { body: {}, delayMs: 2_000 }, '/final': { body: { code: '200' } } });
+    const context = await beginProbe(m);
+    const gateway = gatewayFor(m);
+    const inFlight = gateway.send(context, 'BUSINESS', async (signal: AbortSignal) => (await fetch(`${fixture.endpoint()}/reset`, { signal })).json());
+    const stopDs = new DataSource({ type: 'postgres', url: fixtureUrl, logging: false });
+    await stopDs.initialize();
+    try {
+      // a second connection stops the execution while the first send is in flight
+      await new ChanjetExecutionAdmissionStore(stopDs.manager).holdExecution(context, 'CANCELLED');
+      await expect(inFlight).rejects.toThrow();
+      const row = await store.load(m);
+      expect(row.phase).toBe('HOLD');
+      expect(['CANCELLED', 'TRANSPORT_FAILURE']).toContain(row.hold_reason);
+      // a queued (not yet sent) attempt on a fresh gateway/process is refused pre-reserve
+      const fresh = new ChanjetExecutionHttpGateway(new ChanjetExecutionAdmissionStore(stopDs.manager), m);
+      await expect(fresh.send(context, 'BUSINESS', businessSend('/final'))).rejects.toThrow('CHANJET_ADMISSION_HOLD');
+      expect(hitsByUrl('/final')).toHaveLength(0);
+      expect(hitsByUrl('/reset')).toHaveLength(1);
+    } finally { await stopDs.destroy(); }
+  });
+
+  it('queued beyond the API-owned total deadline ends timely with zero sends', async () => {
+    resetHits();
+    const m = await registered(5, 30_000, 150);
+    fixture.setRoutes({
+      '/v1/common/auth/selfBuiltApp/generateToken': { body: { value: { accessToken: 'tok', expiresIn: 7200 } }, delayMs: 0 },
+      '/blocked': { body: { code: '200' } },
+    });
+    const service = createService(fixture.endpoint());
+    process.env.CHANJET_MIN_REQUEST_INTERVAL_MS = '1000';
+    try {
+      const context = await beginProbe(m, `PROBE_${randomUUID().slice(0, 8)}`);
+      const scopeState: ExecutionScopeState = { manifest: m, store, gateway: gatewayFor(m), transport: transportOps(), current: context, deadlineAt: new Date(Date.now() + 150) };
+      const started = Date.now();
+      await withExecutionScope(scopeState, async () => {
+        await expect(service.callApi('/blocked', { method: 'POST', body: {} })).rejects.toThrow('CHANJET_EXECUTION_DEADLINE');
+      });
+      expect(Date.now() - started).toBeLessThan(1_000);
+      expect(hitsByUrl('/blocked')).toHaveLength(0);
+      expect(hitsByUrl('/v1/common/auth/selfBuiltApp/generateToken')).toHaveLength(0);
+    } finally { delete process.env.CHANJET_MIN_REQUEST_INTERVAL_MS; }
+  });
+
+  it('50107 envelope shapes each reach the single controlled retry, counted per HTTP', async () => {
+    resetHits();
+    const m = await registered(12);
+    fixture.setRoutes({
+      '/v1/common/auth/selfBuiltApp/generateToken': { body: { value: { accessToken: `tok-${randomUUID().slice(0, 6)}`, expiresIn: 7200 } } },
+      '/retry-bare': { body: (nth: number) => (nth === 0 ? { code: '50107' } : { code: '200', value: [] }) },
+      '/retry-nested': { body: (nth: number) => (nth === 0 ? { error: { code: '50107', message: 'expired' } } : { code: '200', value: [] }) },
+      '/retry-envelope': { body: (nth: number) => (nth === 0 ? { success: false, error: { code: '50107' }, msg: 'token expired', requestId: 'REQ-50107' } : { code: '200', value: [] }) },
+      '/retry-plain-failure': { body: { success: false, code: 'pub.e9002', msg: '参数不合法', requestId: 'REQ-E9002' } },
+    });
+    const service = createService(fixture.endpoint());
+    const businessResults = async (executionId: string) => (await receipts(executionId)).filter((r: { kind: string }) => r.kind === 'BUSINESS').map((r: { result: string }) => r.result);
+    // each run gets its own execution so receipts never mix
+    const run = async (path: string) => {
+      const fresh = await registered(10);
+      const context = await beginProbe(fresh, `PROBE_${randomUUID().slice(0, 8)}`);
+      const scopeState: ExecutionScopeState = { manifest: fresh, store, gateway: gatewayFor(fresh), transport: transportOps(), current: context, deadlineAt: scopeDeadlineAt() };
+      await withExecutionScope(scopeState, () => service.callApi(path, { method: 'POST', body: {} }));
+      return businessResults(fresh.executionId);
+    };
+    expect(await run('/retry-bare')).toEqual(['BUSINESS_FAILURE', 'OK']);
+    expect(await run('/retry-nested')).toEqual(['BUSINESS_FAILURE', 'OK']);
+    expect(await run('/retry-envelope')).toEqual(['BUSINESS_FAILURE', 'OK']);
+    // non-50107 business failure: no retry, one documented failure receipt
+    const plain = await registered(10);
+    const context = await beginProbe(plain, `PROBE_${randomUUID().slice(0, 8)}`);
+    const scopeState: ExecutionScopeState = { manifest: plain, store, gateway: gatewayFor(plain), transport: transportOps(), current: context, deadlineAt: scopeDeadlineAt() };
+    await withExecutionScope(scopeState, async () => {
+      await expect(service.callApi('/retry-plain-failure', { method: 'POST', body: {} })).rejects.toThrow(/pube9002/);
+    });
+    expect(await businessResults(plain.executionId)).toEqual(['BUSINESS_FAILURE']);
+  });
+
+  it('every provider fetch in the auth service forbids redirect following', async () => {
+    // the spec lives next to the service; __dirname is reliable under ts-jest CJS
+    const source = fsns.readFileSync(pathns.join(__dirname, 'chanjet-auth.service.ts'), 'utf8');
+    const fail = (message: string): never => { throw new Error(`CONTRACT:${message}`); };
+    if (source.length < 1000) fail('auth service source readable');
+    const fetchCalls = source.match(/await (?:providerFetch|fetch)\(/g) ?? [];
+    if (fetchCalls.length < 5) fail(`provider fetch call sites expected, found ${fetchCalls.length}`);
+    const providerFetchSites = (source.match(/await providerFetch\(/g) ?? []).length;
+    if (providerFetchSites < 3) fail(`providerFetch required at execution send sites, found ${providerFetchSites}`);
+    if (!/redirect: 'manual'/.test(source)) fail('legacy literal fetch must keep redirect manual');
+    if (/redirect: 'follow'/.test(source)) fail('redirect following must never appear');
   });
 });

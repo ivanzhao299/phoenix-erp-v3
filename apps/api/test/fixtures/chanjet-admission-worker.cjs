@@ -13,14 +13,14 @@ process.on('message', async message => {
       process.send({ state:'READY', pid:process.pid });
     } else if (message.operation === 'checkpoint') {
       const ticket=await store.reserve(context,'BUSINESS');
-      await store.acknowledge(context,ticket.ticket);
+      await store.acknowledge(context,ticket.ticket,'OK');
       const row=await store.finish(context,'PROBED');
       process.send({state:'CHECKPOINT',pid:process.pid,count:row.request_count,startedAt:row.started_at.toISOString(),deadlineAt:row.deadline_at.toISOString()});
       await source.destroy();process.disconnect();
     } else if (message.operation === 'resume') {
       const prior=await store.recoverInterrupted(context.manifest);
       await store.begin(context.manifest,'SYNCING',context.leaseId);
-      const ticket=await store.reserve(context,'BUSINESS');await store.acknowledge(context,ticket.ticket);
+      const ticket=await store.reserve(context,'BUSINESS');await store.acknowledge(context,ticket.ticket,'OK');
       await store.finish(context,'VERIFIED');
       process.send({state:'RESUMED',pid:process.pid,countBefore:prior.request_count,phaseBefore:prior.phase,startedAt:prior.started_at.toISOString(),deadlineAt:prior.deadline_at.toISOString()});
       await source.destroy();process.disconnect();

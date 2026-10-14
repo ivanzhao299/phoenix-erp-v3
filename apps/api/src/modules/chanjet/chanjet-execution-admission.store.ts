@@ -5,6 +5,8 @@ type Tx = { query(sql: string, parameters?: unknown[]): Promise<AdmissionRow[]> 
 export type AdmissionManager = { transaction<T>(callback: (tx: Tx) => Promise<T>): Promise<T> };
 export type AdmissionPhase = 'REGISTERED' | 'PROBING' | 'PROBED' | 'SYNCING' | 'VERIFIED' | 'HOLD';
 export type RequestPhase = 'PROBING' | 'SYNCING';
+export type RequestResult = 'OK' | 'BUSINESS_FAILURE' | 'TRANSPORT_FAILURE';
+const REQUEST_RESULTS: readonly RequestResult[] = ['OK', 'BUSINESS_FAILURE', 'TRANSPORT_FAILURE'];
 export type RequestKind = 'BUSINESS' | 'DISCOVERY' | 'CERTIFICATE' | 'TOKEN' | 'RESEND';
 export type AdmissionRow = {
   execution_id: string; approval_id: string; owner_id: string; manifest: ExecutionManifest;
@@ -25,6 +27,12 @@ export class ChanjetExecutionAdmissionStore {
   private async transaction<T>(callback: (tx: Tx) => Promise<T>): Promise<T> {
     if (!this.manager || typeof this.manager.transaction !== 'function') return admissionHold();
     try { return await this.manager.transaction(callback); } catch { return admissionHold(); }
+  }
+  /** A persisted stop (hold_reason <> '') is recorded with phase=HOLD; the phase
+   *  checks below already fail every further mutation — this guard makes the
+   *  reason explicit at each entry point. */
+  private static stopped(row: AdmissionRow): boolean {
+    return typeof row.hold_reason === 'string' && row.hold_reason !== '';
   }
   private async lock(tx: Tx, value: unknown): Promise<AdmissionRow> {
     const b = validateExecutionManifest(value);
@@ -76,7 +84,7 @@ export class ChanjetExecutionAdmissionStore {
     if (!['PROBING','SYNCING'].includes(phase) || typeof leaseId !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/.test(leaseId)) return admissionHold();
     const row = await this.transaction(async tx => {
       const r = await this.lock(tx,value);
-      if (r.phase !== (phase === 'PROBING' ? 'REGISTERED' : 'PROBED')) return admissionHold();
+      if (ChanjetExecutionAdmissionStore.stopped(r) || r.phase !== (phase === 'PROBING' ? 'REGISTERED' : 'PROBED')) return admissionHold();
       if (this.expired(r)) { await this.held(tx,r,'DEADLINE'); return null; }
       if (phase === 'SYNCING') {
         const used = await tx.query('SELECT execution_id FROM chanjet_execution_requests WHERE execution_id=$1 AND lease_id=$2 LIMIT 1', [r.execution_id,leaseId]);
@@ -94,6 +102,7 @@ export class ChanjetExecutionAdmissionStore {
     const ticket = randomUUID();
     const result = await this.transaction(async tx => {
       const r = await this.lock(tx,context.manifest); this.context(r,context);
+      if (ChanjetExecutionAdmissionStore.stopped(r)) return admissionHold();
       if (this.expired(r)) { await this.held(tx,r,'DEADLINE'); return null; }
       if (r.request_count >= r.request_cap) { await this.held(tx,r,'CAP'); return null; }
       const [next] = await tx.query(`WITH changed AS (UPDATE chanjet_execution_admissions SET request_count=request_count+1
@@ -104,23 +113,42 @@ export class ChanjetExecutionAdmissionStore {
     });
     return result || admissionHold();
   }
-  async acknowledge(context: ExecutionContext, ticket: string): Promise<void> {
+  async acknowledge(context: ExecutionContext, ticket: string, result: RequestResult): Promise<void> {
     if (!context || typeof ticket !== 'string' || !/^[a-f0-9-]{36}$/.test(ticket)) return admissionHold();
+    if (!REQUEST_RESULTS.includes(result)) admissionHold();
     const accepted = await this.transaction(async tx => {
       const r = await this.lock(tx,context.manifest); this.context(r,context);
+      if (ChanjetExecutionAdmissionStore.stopped(r)) return admissionHold();
       if (this.expired(r)) { await this.held(tx,r,'DEADLINE'); return false; }
-      const rows = await tx.query(`WITH changed AS (UPDATE chanjet_execution_requests SET status='ACKNOWLEDGED'
+      const rows = await tx.query(`WITH changed AS (UPDATE chanjet_execution_requests SET status='ACKNOWLEDGED',result=$5
         WHERE ticket=$1 AND execution_id=$2 AND lease_id=$3 AND phase=$4 AND status='RESERVED' RETURNING execution_id) SELECT execution_id FROM changed`,
-      [ticket,r.execution_id,context.leaseId,context.phase]);
+      [ticket,r.execution_id,context.leaseId,context.phase,result]);
       if (rows.length !== 1) return admissionHold();
       return true;
     });
     if (!accepted) admissionHold();
   }
+
+  /**
+   * Persist a terminal stop for the whole execution (transport failure,
+   * cancellation, unverifiable commit/acknowledgement) via the same HOLD
+   * transition the CAP/DEADLINE holds use — the stop survives process and
+   * connection boundaries and every later mutation fails closed. Successful
+   * business exchanges never call this.
+   */
+  async holdExecution(context: ExecutionContext, reason: 'TRANSPORT_FAILURE' | 'CANCELLED' | 'ACK_UNVERIFIED' | 'RESERVE_UNVERIFIED'): Promise<void> {
+    if (!/^[A-Z][A-Z0-9_]{0,47}$/.test(reason)) admissionHold();
+    await this.transaction(async tx => {
+      const r = await this.lock(tx,context.manifest);
+      if (r.phase === 'HOLD' || r.phase === 'VERIFIED') return;
+      await tx.query(`UPDATE chanjet_execution_admissions SET phase='HOLD',lease_id='',hold_reason=$2 WHERE execution_id=$1`, [r.execution_id,reason]);
+    });
+  }
   async finish(context: ExecutionContext, phase: 'PROBED' | 'VERIFIED'): Promise<AdmissionRow> {
     if (!context || !['PROBED','VERIFIED'].includes(phase)) return admissionHold();
     const next = await this.transaction(async tx => {
       const r = await this.lock(tx,context.manifest); this.context(r,context);
+      if (ChanjetExecutionAdmissionStore.stopped(r)) return admissionHold();
       if (r.phase !== (phase === 'PROBED' ? 'PROBING' : 'SYNCING')) return admissionHold();
       if (this.expired(r)) { await this.held(tx,r,'DEADLINE'); return null; }
       // Trigger independently rejects outstanding RESERVED tickets and phase regression.

@@ -115,14 +115,14 @@ database('real PostgreSQL admission invariants (no provider wiring)',()=>{
     expect((await store.load(m)).request_count).toBe(0);
   });
   it('clean probe checkpoint reloads in a second real connection without resetting count/deadline',async()=>{
-    const context=await start();const ticket=await store.reserve(context,'BUSINESS');await store.acknowledge(context,ticket.ticket);
+    const context=await start();const ticket=await store.reserve(context,'BUSINESS');await store.acknowledge(context,ticket.ticket,'OK');
     const checkpoint=await store.finish(context,'PROBED');
     const second=new DataSource({type:'postgres',url:fixtureUrl,synchronize:false});await second.initialize();
     try {
       const next=new ChanjetExecutionAdmissionStore(second.manager);const loaded=await next.recoverInterrupted(context.manifest);
       expect(loaded.phase).toBe('PROBED');expect(loaded.request_count).toBe(1);expect(loaded.deadline_at).toEqual(checkpoint.deadline_at);expect(loaded.started_at).toEqual(checkpoint.started_at);
       const leaseId='SYNTHETIC_SECOND_PROCESS';await next.begin(context.manifest,'SYNCING',leaseId);
-      const request=await next.reserve({...context,leaseId,phase:'SYNCING' as const},'BUSINESS');await next.acknowledge({...context,leaseId,phase:'SYNCING' as const},request.ticket);await next.finish({...context,leaseId,phase:'SYNCING' as const},'VERIFIED');await expect(next.begin(context.manifest,'SYNCING','ANOTHER')).rejects.toThrow();
+      const request=await next.reserve({...context,leaseId,phase:'SYNCING' as const},'BUSINESS');await next.acknowledge({...context,leaseId,phase:'SYNCING' as const},request.ticket,'OK');await next.finish({...context,leaseId,phase:'SYNCING' as const},'VERIFIED');await expect(next.begin(context.manifest,'SYNCING','ANOTHER')).rejects.toThrow();
     }finally{await second.destroy();}
   });
   it('outstanding request, phase regression and interrupted restart cannot reopen or auto repeat',async()=>{
@@ -139,14 +139,14 @@ database('real PostgreSQL admission invariants (no provider wiring)',()=>{
   });
   it('each verification phase requires its own acknowledged BUSINESS receipt, not an auth-only receipt',async()=>{
     const context=await start(5);await expect(store.finish(context,'PROBED')).rejects.toThrow();
-    const token=await store.reserve(context,'TOKEN');await store.acknowledge(context,token.ticket);
+    const token=await store.reserve(context,'TOKEN');await store.acknowledge(context,token.ticket,'OK');
     await expect(store.finish(context,'PROBED')).rejects.toThrow();
-    const probe=await store.reserve(context,'BUSINESS');await store.acknowledge(context,probe.ticket);await store.finish(context,'PROBED');
+    const probe=await store.reserve(context,'BUSINESS');await store.acknowledge(context,probe.ticket,'OK');await store.finish(context,'PROBED');
     const next={...context,leaseId:'SYNTHETIC_SYNC_LEASE',phase:'SYNCING' as const};await store.begin(context.manifest,'SYNCING',next.leaseId);
     await expect(store.finish(next,'VERIFIED')).rejects.toThrow();
-    const syncToken=await store.reserve(next,'TOKEN');await store.acknowledge(next,syncToken.ticket);await expect(store.finish(next,'VERIFIED')).rejects.toThrow();
-    const sync=await store.reserve(next,'BUSINESS');await store.acknowledge(next,sync.ticket);
-    await expect(store.acknowledge(next,sync.ticket)).rejects.toThrow();await store.finish(next,'VERIFIED');
+    const syncToken=await store.reserve(next,'TOKEN');await store.acknowledge(next,syncToken.ticket,'OK');await expect(store.finish(next,'VERIFIED')).rejects.toThrow();
+    const sync=await store.reserve(next,'BUSINESS');await store.acknowledge(next,sync.ticket,'OK');
+    await expect(store.acknowledge(next,sync.ticket,'OK')).rejects.toThrow();await store.finish(next,'VERIFIED');
     await expect(ds.query("UPDATE chanjet_execution_admissions SET phase='PROBED' WHERE execution_id=$1",[(context.manifest as ExecutionManifest).executionId])).rejects.toThrow();
   });
   it('ordinary DML cannot mutate/remove evidence and count without a receipt fails closed on load',async()=>{
@@ -157,25 +157,25 @@ database('real PostgreSQL admission invariants (no provider wiring)',()=>{
     await expect(store.load(m)).rejects.toThrow();await expect(store.reserve(context,'BUSINESS')).rejects.toThrow();
   });
   it('rejects the actual cap=1 probe-ACK/reused-lease bypass at store and SQL boundaries',async()=>{
-    const context=await start(1);const ticket=await store.reserve(context,'BUSINESS');await store.acknowledge(context,ticket.ticket);await store.finish(context,'PROBED');
+    const context=await start(1);const ticket=await store.reserve(context,'BUSINESS');await store.acknowledge(context,ticket.ticket,'OK');await store.finish(context,'PROBED');
     const id=(context.manifest as ExecutionManifest).executionId;
     await expect(store.begin(context.manifest,'SYNCING',context.leaseId)).rejects.toThrow();
     await expect(ds.query("UPDATE chanjet_execution_admissions SET phase='SYNCING',lease_id=$2 WHERE execution_id=$1",[id,context.leaseId])).rejects.toThrow();
     expect((await store.load(context.manifest)).phase).toBe('PROBED');
     const sync={...context,phase:'SYNCING' as const,leaseId:'SYNTHETIC_DISTINCT_SYNC_LEASE'};
     await store.begin(context.manifest,'SYNCING',sync.leaseId);
-    await expect(store.acknowledge(sync,ticket.ticket)).rejects.toThrow();
+    await expect(store.acknowledge(sync,ticket.ticket,'OK')).rejects.toThrow();
     await expect(store.finish(sync,'VERIFIED')).rejects.toThrow();
     await expect(ds.query("UPDATE chanjet_execution_admissions SET phase='VERIFIED',lease_id='' WHERE execution_id=$1",[id])).rejects.toThrow();
     await expect(store.reserve(sync,'BUSINESS')).rejects.toThrow();
     const row=await store.load(context.manifest);expect(row.phase).toBe('HOLD');expect(row.request_count).toBe(1);expect(row.hold_reason).toBe('CAP');
   });
   it('receipt phase is immutable and a probing context cannot spend a syncing allowance',async()=>{
-    const context=await start(3);const probe=await store.reserve(context,'BUSINESS');await store.acknowledge(context,probe.ticket);await store.finish(context,'PROBED');
+    const context=await start(3);const probe=await store.reserve(context,'BUSINESS');await store.acknowledge(context,probe.ticket,'OK');await store.finish(context,'PROBED');
     const sync={...context,phase:'SYNCING' as const,leaseId:'SYNTHETIC_FRESH_SYNC'};await store.begin(context.manifest,'SYNCING',sync.leaseId);
     await expect(store.reserve({...sync,phase:'PROBING'},'BUSINESS')).rejects.toThrow();
     await expect(ds.query("UPDATE chanjet_execution_requests SET phase='SYNCING',lease_id=$2 WHERE ticket=$1",[probe.ticket,sync.leaseId])).rejects.toThrow();
-    const own=await store.reserve(sync,'BUSINESS');await store.acknowledge(sync,own.ticket);
+    const own=await store.reserve(sync,'BUSINESS');await store.acknowledge(sync,own.ticket,'OK');
     const receipts=await ds.query('SELECT phase FROM chanjet_execution_requests WHERE execution_id=$1 ORDER BY ordinal',[(context.manifest as ExecutionManifest).executionId]);
     expect(receipts.map((r:{phase:string})=>r.phase)).toEqual(['PROBING','SYNCING']);await store.finish(sync,'VERIFIED');
   });

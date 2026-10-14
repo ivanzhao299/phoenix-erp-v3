@@ -116,6 +116,42 @@ database('registration CLI runs as a real subprocess against real PostgreSQL', (
     void fs.rmSync(path.dirname(invalidFile), { recursive: true, force: true });
   });
 
+  test('same approvalId with a new executionId is a duplicate, including under concurrency', async () => withSchema(async () => {
+    const first = manifestFile();
+    const registerArgs = (f) => ['--manifest', f, '--expected-floor-sha', first.manifest.approval.floorSha, '--pg-url', fixtureUrl, '--register'];
+    const ok = run(registerArgs(first.file));
+    assert.equal(ok.status, 0, ok.stderr);
+    // same approval, fresh executionId
+    const secondManifest = JSON.parse(fs.readFileSync(first.file, 'utf8'));
+    secondManifest.executionId = `EXEC_${randomId()}`;
+    const secondFile = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'cli-manifest-')), 'manifest.json');
+    fs.writeFileSync(secondFile, JSON.stringify(secondManifest));
+    const sameApproval = run(registerArgs(secondFile));
+    assert.equal(sameApproval.status, 3);
+    assert.match(sameApproval.stderr, /REGISTRATION_DUPLICATE/);
+    // concurrent duplicates of one manifest: exactly one wins, the DB rules
+    const third = manifestFile();
+    const racers = Array.from({ length: 3 }, () => spawnSync(process.execPath, [cli, ...registerArgs(third.file)], { encoding: 'utf8' }));
+    const succeeded = racers.filter((r) => r.status === 0);
+    const duplicated = racers.filter((r) => r.status === 3 && /REGISTRATION_DUPLICATE/.test(r.stderr));
+    assert.equal(succeeded.length, 1);
+    assert.equal(succeeded.length + duplicated.length, racers.length);
+  }));
+
+  test('non-loopback or non-disposable PG URLs are refused before any connection attempt', () => {
+    const { file } = manifestFile();
+    for (const [url, reason] of [
+      ['postgresql://postgres:pw@10.0.0.8:5432/chanjet_admission_fixture', 'LOOPBACK_DISPOSABLE_FIXTURE_URL_REQUIRED'],
+      ['postgresql://postgres:pw@127.0.0.1:5432/phoenix_erp', 'LOOPBACK_DISPOSABLE_FIXTURE_URL_REQUIRED'],
+      // unparseable URLs are refused pre-connection under their own label
+      ['not-a-url', 'PG_URL_UNPARSEABLE'],
+    ]) {
+      const result = run(['--manifest', file, '--expected-floor-sha', 'e'.repeat(40), '--pg-url', url, '--register']);
+      assert.equal(result.status, 2, `${url}`);
+      assert.match(result.stderr, new RegExp(reason));
+    }
+  });
+
   test('compiled admission store is the registration path (no inline SQL re-implementation)', () => {
     const source = fs.readFileSync(cli, 'utf8');
     assert.match(source, /chanjet-execution-admission\.store\.js/);

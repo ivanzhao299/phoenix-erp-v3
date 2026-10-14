@@ -19,6 +19,15 @@
 //
 // Exit codes: 0 registered/dry-run · 2 usage · 3 duplicate · 4 floor mismatch
 //             5 invalid manifest · 6 registration rejected (e.g. expiry window)
+//
+// Trust boundary (explicit): this CLI validates the manifest, binds the
+// CALLER-SUPPLIED reviewed floor SHA and performs the INSERT. It does NOT
+// carry the root identity/FD9/deployed-SHA/mapping/operator-provenance guard
+// stack — those live in the separately approved exact-SHA control workflow
+// that is the only sanctioned production caller. Floor equality here is an
+// input binding check, not a complete trust verification. The database
+// (UNIQUE(approval_id), PRIMARY KEY(execution_id)), not this file, is what
+// makes duplicate registrations impossible.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -40,6 +49,15 @@ const fail = (code, message) => { console.error(`CHANJET_ADMISSION_REGISTER=${me
 
 if (!manifestFile || !/^[a-f0-9]{40}$/.test(expectedFloorSha)) fail(2, 'USAGE_MANIFEST_AND_FLOOR_SHA_REQUIRED');
 if (register && !pgUrl) fail(2, 'PG_URL_REQUIRED');
+// Connection-target guard, evaluated BEFORE any connection is opened: only
+// loopback hosts serving a dedicated disposable fixture database are accepted.
+if (pgUrl) {
+  try {
+    const parsed = new URL(pgUrl);
+    const disposable = /^(chanjet_admission_fixture|chanjet_transport_fixture.*|root_admission_review)$/.test(parsed.pathname.slice(1));
+    if (!['127.0.0.1', 'localhost', '::1'].includes(parsed.hostname) || !disposable) fail(2, 'LOOPBACK_DISPOSABLE_FIXTURE_URL_REQUIRED');
+  } catch { fail(2, 'PG_URL_UNPARSEABLE'); }
+}
 
 let parsed;
 try { parsed = JSON.parse(fs.readFileSync(manifestFile, 'utf8')); } catch { fail(5, 'MANIFEST_UNREADABLE'); }
@@ -78,6 +96,8 @@ try {
   // duplicate case is detected explicitly before the INSERT.
   const existing = await dataSource.query('SELECT execution_id FROM chanjet_execution_admissions WHERE execution_id=$1', [binding.manifest.executionId]);
   if (existing.length) fail(3, 'REGISTRATION_DUPLICATE');
+  const sameApproval = await dataSource.query('SELECT execution_id FROM chanjet_execution_admissions WHERE approval_id=$1', [binding.manifest.approval.approvalId]);
+  if (sameApproval.length) fail(3, 'REGISTRATION_DUPLICATE');
   const store = new ChanjetExecutionAdmissionStore(dataSource.manager);
   const row = await store.registerFromReviewedRootManifest(parsed);
   console.log(`CHANJET_ADMISSION_REGISTER=REGISTERED;${JSON.stringify({
@@ -88,6 +108,12 @@ try {
   })}`);
 } catch (error) {
   const text = String(error?.message || error);
+  // The store masks driver errors behind CHANJET_ADMISSION_HOLD; classify by
+  // re-querying which binding already exists (also covers the concurrent
+  // pre-check/INSERT race — the DB constraint is the authority).
+  const byExecution = await dataSource.query('SELECT execution_id FROM chanjet_execution_admissions WHERE execution_id=$1', [binding.manifest.executionId]).catch(() => []);
+  const byApproval = await dataSource.query('SELECT approval_id FROM chanjet_execution_admissions WHERE approval_id=$1', [binding.manifest.approval.approvalId]).catch(() => []);
+  if (byExecution.length || byApproval.length) fail(3, 'REGISTRATION_DUPLICATE');
   if (error?.code === '23505' || /duplicate key/i.test(text)) fail(3, 'REGISTRATION_DUPLICATE');
   if (/CHANJET_ADMISSION_REGISTRATION/.test(text)) fail(6, 'REGISTRATION_REJECTED');
   // Sanitized diagnostics only: error class/shape, never credentials or payload.

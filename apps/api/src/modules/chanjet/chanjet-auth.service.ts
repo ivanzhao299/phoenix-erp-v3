@@ -1,7 +1,7 @@
 import { assertChanjetProxyReadonly } from './chanjet-remote-readonly';
 import { assertReadonlyOrchestrationOwnerIfPresent } from './chanjet-readonly-execution';
-import { activeExecutionScope } from './chanjet-execution-scope';
-import { ChanjetBusinessFailureError, ProviderSendOperation, RequestKind as ExecutionRequestKind } from './chanjet-execution-transport';
+import { activeExecutionScope, resolveExecutionDeadline } from './chanjet-execution-scope';
+import { ChanjetBusinessFailureError, ChanjetTokenInvalidError, ProviderSendOperation, providerFetch, RequestKind as ExecutionRequestKind } from './chanjet-execution-transport';
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Cron, CronExpression } from '@nestjs/schedule';
@@ -296,7 +296,7 @@ export class ChanjetAuthService implements OnModuleInit {
   async fetchCertificateByAuthCode(authCode: string): Promise<string> {
     this.log.log('POST /auth/certificate (authCode)');
     const json = await this.executionSend('CERTIFICATE', async (signal, _deadlineMs, base) => {
-      const res = await fetch(`${base}/auth/certificate`, {
+      const res = await providerFetch(`${base}/auth/certificate`, {
         signal,
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -348,7 +348,7 @@ export class ChanjetAuthService implements OnModuleInit {
 
     this.log.log('POST /auth/certificate');
     const json = await this.executionSend('CERTIFICATE', async (signal, _deadlineMs, base) => {
-      const res = await fetch(`${base}/auth/certificate`, {
+      const res = await providerFetch(`${base}/auth/certificate`, {
         signal,
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -393,7 +393,7 @@ export class ChanjetAuthService implements OnModuleInit {
     this.log.log('POST generateToken');
 
     const json = await this.executionSend('TOKEN', async (signal, _deadlineMs, base) => {
-      const res = await fetch(`${base}/v1/common/auth/selfBuiltApp/generateToken`, {
+      const res = await providerFetch(`${base}/v1/common/auth/selfBuiltApp/generateToken`, {
         signal,
         method: 'POST',
         headers: {
@@ -454,6 +454,7 @@ export class ChanjetAuthService implements OnModuleInit {
     const res = await fetch(url, {
       signal: AbortSignal.timeout(30_000),
       method: 'POST',
+      redirect: 'manual',
       headers: {
         'Content-Type': 'application/json',
         appKey: this.appKey,
@@ -527,9 +528,17 @@ export class ChanjetAuthService implements OnModuleInit {
       if (opts.kind === 'WRITE') throw new Error('CHANJET_EXTERNAL_WRITE_DISABLED');
     }
     const kind = opts.kind || this.inferCallKind(path);
+    // Inside an execution scope the API-owned total deadline covers budget
+    // reservation, queue waiting, authentication and the business exchange:
+    // an expired execution neither waits nor sends.
+    const execution = activeExecutionScope();
+    const deadlineAt = execution ? await resolveExecutionDeadline(execution) : undefined;
+    if (deadlineAt && Date.now() >= deadlineAt.getTime()) throw new Error('CHANJET_EXECUTION_DEADLINE');
     await this.reserveTrafficBudget(kind, path);
-    await this.waitForTrafficSlot();
+    await this.waitForTrafficSlot(deadlineAt);
+    if (deadlineAt && Date.now() >= deadlineAt.getTime()) throw new Error('CHANJET_EXECUTION_DEADLINE');
     const token = await this.getOpenToken(opts.orgId);
+    if (deadlineAt && Date.now() >= deadlineAt.getTime()) throw new Error('CHANJET_EXECUTION_DEADLINE');
     assertReadonlyOrchestrationOwnerIfPresent();
     const method = opts.method ?? 'POST';
     // The provider exchange itself is the counted unit: under an execution
@@ -538,13 +547,15 @@ export class ChanjetAuthService implements OnModuleInit {
     // the legacy fixed 30s timeout. A documented business rejection is still a
     // completed exchange — typed so the gateway records BUSINESS_FAILURE
     // without poisoning the execution, while transport failures stop it.
-    const json = await this.executionSend<Record<string, unknown>>(opts.executionKind ?? 'BUSINESS', async (signal, _deadlineMs, base) => {
+    let json: Record<string, unknown>;
+    try {
+      json = await this.executionSend<Record<string, unknown>>(opts.executionKind ?? 'BUSINESS', async (signal, _deadlineMs, base) => {
       let url = `${base}${path}`;
       if (opts.query && Object.keys(opts.query).length) {
         url += `?${new URLSearchParams(opts.query).toString()}`;
       }
       this.log.debug(`${method} ${url}`);
-      const res = await fetch(url, {
+      const res = await providerFetch(url, {
         signal,
         method,
         headers: {
@@ -556,6 +567,12 @@ export class ChanjetAuthService implements OnModuleInit {
         ...(method === 'POST' ? { body: JSON.stringify(opts.body ?? {}) } : {}),
       });
       const payload = await res.json() as Record<string, unknown>;
+      // 50107 = openToken invalid. Classified BEFORE the generic business
+      // failure detection so every envelope shape (bare code, nested error
+      // code, full failure envelope with message/requestId) reaches the single
+      // controlled retry — each retry is its own admission-counted send.
+      const tokenCode = String(payload.code ?? (payload.error as Record<string, unknown> | undefined)?.code ?? '');
+      if (tokenCode === '50107') throw new ChanjetTokenInvalidError(payload);
       const businessFailure = getChanjetBusinessFailure(payload);
       if (!res.ok || businessFailure) {
         const failure = businessFailure || {
@@ -569,16 +586,16 @@ export class ChanjetAuthService implements OnModuleInit {
         );
       }
       return payload;
-    });
-
-    // 50107 = openToken 已失效(被 resend 作废 / 过期),清缓存重换重试一次。
-    // Inside an execution scope the retry is a NEW admission-counted send and
-    // stays within the same cap and deadline.
-    const code = (json.code ?? (json.error as Record<string, unknown>)?.code) as string | undefined;
-    if (!isRetry && code === '50107') {
-      this.log.warn(`callApi 50107 token 失效,清缓存重试 path=${path}`);
-      this.tokenCache.delete(opts.orgId || this.orgId);
-      return this.executeCallApi<T>(path, opts, true);
+      });
+    } catch (error) {
+      // 50107 retry: exactly one controlled re-send, itself admission-counted
+      // and bound by the same cap and total deadline. Legacy behaviour kept.
+      if (error instanceof ChanjetTokenInvalidError && !isRetry) {
+        this.log.warn('callApi 50107 token 失效,清缓存重试');
+        this.tokenCache.delete(opts.orgId || this.orgId);
+        return this.executeCallApi<T>(path, opts, true);
+      }
+      throw error;
     }
 
     return json as T;
@@ -616,19 +633,39 @@ export class ChanjetAuthService implements OnModuleInit {
    * process-wide queue so scheduled sync, manual probes and writeback cannot
    * create a burst against the same appKey.
    */
-  private async waitForTrafficSlot(): Promise<void> {
+  private async waitForTrafficSlot(deadlineAt?: Date): Promise<void> {
     const configured = Number(this.cfg.get('CHANJET_MIN_REQUEST_INTERVAL_MS', '250'));
     const intervalMs = Number.isFinite(configured) ? Math.max(configured, 100) : 250;
     const previous = this.trafficQueue;
     let release!: () => void;
     this.trafficQueue = new Promise<void>((resolve) => { release = resolve; });
-    await previous;
-    try {
+    const slot = (async () => {
+      await previous;
       await new Promise<void>((resolve) => {
         setTimeout(resolve, intervalMs);
       });
+    })();
+    if (!deadlineAt) {
+      try { await slot; } finally { release(); }
+      return;
+    }
+    // Cancellable queue wait: past the API-owned total deadline the queued
+    // caller stops waiting AND never sends. The queue chain itself still
+    // releases (spacing preserved for other callers).
+    const remaining = deadlineAt.getTime() - Date.now();
+    if (remaining <= 0) throw new Error('CHANJET_EXECUTION_DEADLINE');
+    let timer: NodeJS.Timeout | undefined;
+    try {
+      await Promise.race([
+        slot.then((v) => { release(); return v; }),
+        new Promise<never>((_, reject) => {
+          timer = setTimeout(() => reject(new Error('CHANJET_EXECUTION_DEADLINE')), remaining);
+        }),
+      ]);
+    } catch (error) {
+      throw error;
     } finally {
-      release();
+      if (timer) clearTimeout(timer);
     }
   }
 

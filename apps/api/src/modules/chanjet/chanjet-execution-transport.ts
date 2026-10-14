@@ -1,4 +1,4 @@
-import { ChanjetExecutionAdmissionStore, ExecutionContext, RequestKind } from './chanjet-execution-admission.store';
+import { ChanjetExecutionAdmissionStore, ExecutionContext, RequestKind, RequestResult } from './chanjet-execution-admission.store';
 import { validateExecutionManifest } from './chanjet-execution-manifest';
 
 export type { RequestKind };
@@ -42,11 +42,69 @@ export class ChanjetBusinessFailureError extends Error {
   }
 }
 
+/** Raised for the provider token-invalid envelope (code 50107): a completed,
+ *  documented exchange classified before generic business-failure handling so
+ *  the single controlled retry is reachable for every envelope shape.
+ *  Business-classified on purpose: the retry stays reachable, the failed
+ *  receipt is durable evidence, and it can never prove phase completion. */
+export class ChanjetTokenInvalidError extends ChanjetBusinessFailureError {
+  constructor(readonly payload: Record<string, unknown>) {
+    super(payload, 'CHANJET_TOKEN_INVALID_50107');
+  }
+}
+
+/**
+ * The ONLY sanctioned provider fetch for execution send operations:
+ * redirects are never followed (each hop would be an uncounted provider HTTP
+ * attempt to an unreviewed target) and any 3xx raises ChanjetRedirectError,
+ * which poisons the execution. Callers classify non-2xx responses themselves
+ * (ChanjetBusinessFailureError / ChanjetTokenInvalidError).
+ */
+export async function providerFetch(url: string, init: RequestInit & { signal: AbortSignal }): Promise<Response> {
+  const res = await fetch(url, { ...init, redirect: 'manual' });
+  if (res.status >= 300 && res.status < 400) throw new ChanjetRedirectError(res.status);
+  return res;
+}
+
+/** Raised when a provider responds with a redirect: redirects are never
+ *  followed — each hop would be a provider HTTP attempt outside the counted
+ *  reservation, and the redirect target is unreviewed. Poisons the execution. */
+export class ChanjetRedirectError extends Error {
+  constructor(readonly status: number) {
+    super(`CHANJET_REDIRECT_NOT_FOLLOWED:${status}`);
+  }
+}
+
+// Process-level redirect guard for provider targets. Installed once by the
+// first gateway construction and kept for the process lifetime: provider
+// HTTP (openapi.chanjet.com) and loopback fixtures must never auto-follow a
+// redirect — each followed hop would be an uncounted provider HTTP attempt to
+// an unreviewed target. Non-provider targets pass through untouched. This
+// also disables redirect following for the legacy token cron (fail-closed).
+let redirectGuardInstalled = false;
+export function installProviderRedirectGuard(): void {
+  if (redirectGuardInstalled) return;
+  redirectGuardInstalled = true;
+  const original = globalThis.fetch;
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+    let host = '';
+    try { host = new URL(url).hostname; } catch { return original(input, init); }
+    const providerTarget = host === 'openapi.chanjet.com' || ['127.0.0.1', 'localhost', '::1'].includes(host);
+    if (!providerTarget) return original(input, init);
+    const res = await original(input, { ...(init ?? {}), redirect: 'manual' });
+    if (res.status >= 300 && res.status < 400) throw new ChanjetRedirectError(res.status);
+    return res;
+  }) as typeof globalThis.fetch;
+}
+
 export class ChanjetExecutionHttpGateway {
   private stopped = false;
   private stopReason = 'UNKNOWN';
 
-  constructor(private readonly store: ChanjetExecutionAdmissionStore, private readonly manifest: unknown) {}
+  constructor(private readonly store: ChanjetExecutionAdmissionStore, private readonly manifest: unknown) {
+    installProviderRedirectGuard();
+  }
 
   /** Effective single-request budget from the registered manifest. */
   httpTimeoutMs(): number {
@@ -75,9 +133,11 @@ export class ChanjetExecutionHttpGateway {
     try {
       reservation = await this.store.reserve(context, kind);
     } catch (error) {
-      // Any reserve hold (cap, deadline, identity, drift) poisons this gateway:
-      // the DB has ruled and this process must not send again for the run.
+      // Any reserve failure poisons this gateway; when the commit outcome is
+      // unknown the receipt may exist — persist the stop so no process can
+      // build on an unverifiable state.
       this.stop('RESERVE_HOLD');
+      await this.store.holdExecution(context, 'RESERVE_UNVERIFIED').catch(() => undefined);
       throw error;
     }
     if (!reservation || typeof reservation.ticket !== 'string' || !(reservation.deadlineAt instanceof Date)) {
@@ -102,7 +162,12 @@ export class ChanjetExecutionHttpGateway {
     try {
       value = await op(controller.signal, effectiveDeadlineMs);
     } catch (caught) {
-      if (controller.signal.aborted) {
+      if (caught instanceof ChanjetRedirectError) {
+        // A redirect would be another provider HTTP hop to an unreviewed
+        // target — treated as a transport-level execution failure.
+        cancelled = controller.signal.aborted;
+        outcome = 'TRANSPORT_FAILURE';
+      } else if (controller.signal.aborted) {
         cancelled = true;
         outcome = 'TRANSPORT_FAILURE';
       } else if (caught instanceof ChanjetBusinessFailureError) {
@@ -114,14 +179,23 @@ export class ChanjetExecutionHttpGateway {
     } finally {
       clearTimeout(timer);
     }
+    // The acknowledgement result is the durable evidence: OK marks a usable
+    // exchange; BUSINESS_FAILURE/TRANSPORT_FAILURE are recorded attempts that
+    // can never satisfy a phase-completion proof.
+    const result: RequestResult = outcome === 'OK' ? 'OK' : outcome;
     try {
-      await this.store.acknowledge(context, reservation.ticket);
+      await this.store.acknowledge(context, reservation.ticket, result);
     } catch (ackError) {
       this.stop('ACK_UNVERIFIED');
+      await this.store.holdExecution(context, 'ACK_UNVERIFIED').catch(() => undefined);
       throw Object.assign(new Error('CHANJET_EXECUTION_ACK_UNVERIFIED'), { cause: ackError });
     }
-    if (cancelled) this.stop('TRANSPORT_CANCELLED');
-    else if (outcome === 'TRANSPORT_FAILURE') this.stop('TRANSPORT_FAILURE');
+    if (cancelled || outcome === 'TRANSPORT_FAILURE') {
+      // Persist the stop beyond this process: every later send, in any
+      // gateway, connection or process, fails closed against the DB.
+      this.stop(cancelled ? 'TRANSPORT_CANCELLED' : 'TRANSPORT_FAILURE');
+      await this.store.holdExecution(context, cancelled ? 'CANCELLED' : 'TRANSPORT_FAILURE').catch(() => undefined);
+    }
     return { outcome, value, error, ticket: reservation.ticket, ordinal: reservation.ordinal, effectiveDeadlineMs, cancelled };
   }
 }
