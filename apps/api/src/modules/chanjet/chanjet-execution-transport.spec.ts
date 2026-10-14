@@ -10,6 +10,7 @@ import { CreateChanjetExecutionAdmissions1791878400000 } from '../../database/mi
 import { ChanjetExecutionAdmissionStore, ExecutionContext } from './chanjet-execution-admission.store';
 import { ChanjetExecutionHttpGateway, ChanjetBusinessFailureError, providerFetch } from './chanjet-execution-transport';
 import { ChanjetExecutionAdmissionEntity } from './chanjet-execution-admission.entity';
+import { createBoundedGuardExecutor } from './chanjet-execution-guard-executor';
 import { ExecutionManifest } from './chanjet-execution-manifest';
 import { ChanjetAuthService } from './chanjet-auth.service';
 import { withExecutionScope, beginExecutionPhase, requireExecutionScope, ExecutionScopeState } from './chanjet-execution-scope';
@@ -919,18 +920,18 @@ database('execution transport wiring (real PG18 admission + local HTTP fixture, 
     await guardDs.initialize();
     try {
       const localStore = new ChanjetExecutionAdmissionStore(storeDs.manager);
-      // the standalone guard write runs on its OWN pool (never the business
-      // pool) and is deliberately slowed so settled() stays pending past the
-      // deadline — proving no early return and no grace window
-      const context = { ...await beginProbe(m), deadlineAt: deadlineIn(150) };
-      const gateway = new ChanjetExecutionHttpGateway(localStore, m, {
-        standaloneExecutor: {
-          query: async (sql: string, params?: unknown[]) => {
-            await guardDs.query('SELECT pg_sleep(0.4) AS guard_prep');
-            return storeDs.query(sql, params);
-          },
+      // the standalone guard write is registered on the STORE (the single
+      // registration point) and deliberately slowed so settled() stays
+      // pending past the deadline — proving no early return and no grace
+      // window; it runs on its own pool, never the business pool
+      localStore.setStandaloneExecutor({
+        query: async (sql: string, params?: unknown[]) => {
+          await guardDs.query('SELECT pg_sleep(0.4) AS guard_prep');
+          return storeDs.query(sql, params);
         },
       });
+      const context = { ...await beginProbe(m), deadlineAt: deadlineIn(150) };
+      const gateway = new ChanjetExecutionHttpGateway(localStore, m);
       let httpAttempts = 0;
       const started = Date.now();
       // the gateway aborts the op at the min(httpTimeout 250ms, remaining)
@@ -970,14 +971,16 @@ database('execution transport wiring (real PG18 admission + local HTTP fixture, 
     fixture.setRoutes({ '/final': { body: { code: '200' } } });
     const storeDs = new DataSource({ type: 'postgres', url: fixtureUrl, poolSize: 1, logging: false });
     await storeDs.initialize();
+    // the guard write runs on its own bounded executor over an INDEPENDENT
+    // connection — the ack hold persists even while the business pool is
+    // saturated
+    const guard = createBoundedGuardExecutor(fixtureUrl!);
     try {
       const localStore = new ChanjetExecutionAdmissionStore(storeDs.manager);
-      localStore.setStandaloneExecutor({ query: (sql, params) => storeDs.query(sql, params) });
+      localStore.setStandaloneExecutor(guard);
       const context = { ...await beginProbeOn(m, localStore), deadlineAt: deadlineIn(150) };
       const reserved = await localStore.reserve(context, 'BUSINESS');
-      const gateway = new ChanjetExecutionHttpGateway(localStore, m, {
-        standaloneExecutor: { query: (sql, params) => storeDs.query(sql, params) },
-      });
+      const gateway = new ChanjetExecutionHttpGateway(localStore, m);
       let httpAttempts = 0;
       let occupier: Promise<unknown> | undefined;
       const started = Date.now();
@@ -991,9 +994,11 @@ database('execution transport wiring (real PG18 admission + local HTTP fixture, 
       // the public call REJECTS with the accurate unverifiable-ack error: the
       // exchange was counted but the ack could not be confirmed by the
       // absolute deadline
+      await expect(sendPromise).rejects.toThrow('CHANJET_EXECUTION_ACK_UNVERIFIED');
+      // elapsed is measured AFTER the public call actually returns: the whole
+      // call — HTTP + ack race + hold finalization — must end by the deadline
       const elapsed = Date.now() - started;
       expect(elapsed).toBeLessThan(400);
-      await expect(sendPromise).rejects.toThrow('CHANJET_EXECUTION_ACK_UNVERIFIED');
       expect(httpAttempts).toBe(1);
       // the ack raced the deadline and rolled back: the receipt stays
       // RESERVED/UNSET — no late ack commit
@@ -1025,79 +1030,201 @@ database('execution transport wiring (real PG18 admission + local HTTP fixture, 
       const recoveredGateway = new ChanjetExecutionHttpGateway(localStore, recovered);
       const recoveredResult = await recoveredGateway.send(recoveredContext, 'BUSINESS', async (signal: AbortSignal) => (await fetch(`${fixture.endpoint()}/final`, { signal })).json());
       expect(recoveredResult.outcome).toBe('OK');
-    } finally { await storeDs.destroy(); }
+    } finally {
+      await guard.dispose();
+      await storeDs.destroy().catch(() => undefined);
+    }
   });
+
+  /** Truly standalone guard sandbox: its own business pool plus the bounded
+   *  guard executor on its own DEDICATED connection, registered on the store. */
+  async function standaloneGuardSandbox(bounds?: Parameters<typeof createBoundedGuardExecutor>[1]) {
+    const storeDs = new DataSource({ type: 'postgres', url: fixtureUrl, poolSize: 1, logging: false });
+    await storeDs.initialize();
+    const localStore = new ChanjetExecutionAdmissionStore(storeDs.manager);
+    const guard = createBoundedGuardExecutor(fixtureUrl!, bounds);
+    localStore.setStandaloneExecutor(guard);
+    return { storeDs, localStore, guard };
+  }
 
   it('standalone guard write persists HOLD for a fully-bound execution', async () => {
     resetHits();
     const m = await registered(3);
     const context = await beginProbe(m);
-    const result = await store.holdExecution(context, 'DEADLINE');
-    expect(result).toBe('CONFIRMED');
-    const rows = await receipts(m.executionId);
-    expect(rows).toHaveLength(0);
-    const row = await store.load(m);
-    expect(row.phase).toBe('HOLD');
-    expect(row.hold_reason).toBe('DEADLINE');
+    const { storeDs, localStore, guard } = await standaloneGuardSandbox();
+    try {
+      const result = await localStore.holdExecution(context, 'DEADLINE');
+      expect(result).toBe('CONFIRMED');
+      const rows = await receipts(m.executionId);
+      expect(rows).toHaveLength(0);
+      const row = await store.load(m);
+      expect(row.phase).toBe('HOLD');
+      expect(row.hold_reason).toBe('DEADLINE');
+    } finally {
+      await guard.dispose();
+      await storeDs.destroy().catch(() => undefined);
+    }
   });
 
   it('standalone guard refuses wrong owner, approval, floor, canonical/digest and unregistered ids with zero state change', async () => {
     const m = await registered(3);
     const base = await beginProbe(m);
-    const tampered = (field: string, value: string) => {
-      const copy: ExecutionManifest = JSON.parse(JSON.stringify(m));
-      if (field === 'owner') copy.ownerId = value;
-      else if (field === 'approvalId') copy.approval.approvalId = value;
-      else if (field === 'floorSha') copy.approval.floorSha = value;
-      else if (field === 'scope') copy.approval.scopes = [value];
-      return copy;
-    };
-    for (const [field, value] of [
-      ['owner', 'ROGUE_OPERATOR'],
-      ['approvalId', 'ROGUE_APPROVAL'],
-      ['floorSha', 'b'.repeat(40)],
-      ['scope', 'ROGUE_SCOPE'],
-    ] as Array<[string, string]>) {
-      const bad = tampered(field, value);
-      const badContext = { ...base, manifest: bad };
-      await expect(store.holdExecution(badContext, 'DEADLINE')).rejects.toThrow(/CHANJET_ADMISSION/);
-      // zero state change on the VALID row
+    const { storeDs, localStore, guard } = await standaloneGuardSandbox();
+    try {
+      const tampered = (field: string, value: string) => {
+        const copy: ExecutionManifest = JSON.parse(JSON.stringify(m));
+        if (field === 'owner') copy.ownerId = value;
+        else if (field === 'approvalId') copy.approval.approvalId = value;
+        else if (field === 'floorSha') copy.approval.floorSha = value;
+        else if (field === 'scope') copy.approval.scopes = [value];
+        return copy;
+      };
+      for (const [field, value] of [
+        ['owner', 'ROGUE_OPERATOR'],
+        ['approvalId', 'ROGUE_APPROVAL'],
+        ['floorSha', 'b'.repeat(40)],
+        ['scope', 'ROGUE_SCOPE'],
+      ] as Array<[string, string]>) {
+        const bad = tampered(field, value);
+        const badContext = { ...base, manifest: bad };
+        await expect(localStore.holdExecution(badContext, 'DEADLINE')).rejects.toThrow(/CHANJET_ADMISSION/);
+        // zero state change on the VALID row
+        const row = await store.load(m);
+        expect(row.owner_id ?? row.hold_reason).toBeDefined();
+        expect(row.phase).toBe('PROBING');
+        expect(row.hold_reason).toBe('');
+      }
+      // unregistered id
+      const unregistered = manifest();
+      await expect(localStore.holdExecution({ manifest: unregistered, leaseId: 'NO', phase: 'PROBING' }, 'DEADLINE')).rejects.toThrow(/CHANJET_ADMISSION/);
       const row = await store.load(m);
-      expect(row.owner_id ?? row.hold_reason).toBeDefined();
       expect(row.phase).toBe('PROBING');
       expect(row.hold_reason).toBe('');
+    } finally {
+      await guard.dispose();
+      await storeDs.destroy().catch(() => undefined);
     }
-    // unregistered id
-    const unregistered = manifest();
-    await expect(store.holdExecution({ manifest: unregistered, leaseId: 'NO', phase: 'PROBING' }, 'DEADLINE')).rejects.toThrow(/CHANJET_ADMISSION/);
-    const row = await store.load(m);
-    expect(row.phase).toBe('PROBING');
-    expect(row.hold_reason).toBe('');
   });
 
   it('the guard write through a dedicated connection keeps real caps and does not queue behind the business pool', async () => {
-    const storeDs = new DataSource({ type: 'postgres', url: fixtureUrl, poolSize: 1, connectTimeoutMS: 1_000, logging: false });
-    const guardDs = new DataSource({ type: 'postgres', url: fixtureUrl, poolSize: 1, connectTimeoutMS: 1_000, logging: false });
-    await storeDs.initialize();
-    await guardDs.initialize();
+    const m = await registered(3);
+    const context = await beginProbe(m);
+    const { storeDs, localStore, guard } = await standaloneGuardSandbox();
     try {
-      const m = await registered(3);
-      const context = await beginProbe(m);
-      // saturate the BUSINESS pool; the guard connection is a different pool
+      // connection identity: the bounded executor demonstrably runs on its
+      // own backend, not on the business pool
+      const guardPid = (await guard.query('SELECT pg_backend_pid() AS pid') as Array<{ pid: number }>)[0].pid;
+      const businessPid = (await storeDs.query('SELECT pg_backend_pid() AS pid') as Array<{ pid: number }>)[0].pid;
+      expect(guardPid).not.toBe(businessPid);
+      expect(guard.backendPid).toBe(guardPid);
+      // saturate the BUSINESS pool; the guard write still lands promptly
+      // through its own connection (a business-pool guard would queue for the
+      // whole sleep and miss the bound)
       const occupier = storeDs.query('SELECT pg_sleep(0.7) AS slept');
       const guardStarted = Date.now();
-      const result = await store.holdExecution(context, 'DEADLINE');
+      const result = await localStore.holdExecution(context, 'DEADLINE');
       const guardElapsed = Date.now() - guardStarted;
       expect(result).toBe('CONFIRMED');
       expect(guardElapsed).toBeLessThan(700);
       const row = await store.load(m);
       expect(row.phase).toBe('HOLD');
       expect(row.hold_reason).toBe('DEADLINE');
+      // the hold is a pure guard write: no receipt was created (caps intact)
+      expect(await receipts(m.executionId)).toHaveLength(0);
       void occupier;
       await occupier;
     } finally {
+      await guard.dispose();
       await storeDs.destroy().catch(() => undefined);
-      await guardDs.destroy().catch(() => undefined);
+    }
+  });
+
+  it('a row lock held beyond the guard bound ends the original job bounded with settled=UNCONFIRMED and no late HOLD after release', async () => {
+    resetHits();
+    const m = await registered(3);
+    const { storeDs, localStore, guard } = await standaloneGuardSandbox({ statementMs: 300, releaseMs: 500 });
+    const lockDs = new DataSource({ type: 'postgres', url: fixtureUrl, logging: false });
+    await lockDs.initialize();
+    try {
+      const context = { ...await beginProbeOn(m, localStore), deadlineAt: deadlineIn(30_000) };
+      const gateway = new ChanjetExecutionHttpGateway(localStore, m);
+      // hold the admission row FOR UPDATE beyond the 300ms guard bound: the
+      // reserve is refused (it validates the context under the same row lock)
+      // and the single hold job then blocks on the row lock inside the guard
+      // connection
+      const lockRunner = lockDs.createQueryRunner();
+      await lockRunner.connect();
+      await lockRunner.query('BEGIN');
+      await lockRunner.query('SELECT * FROM chanjet_execution_admissions WHERE execution_id=$1 FOR UPDATE', [m.executionId]);
+      let httpAttempts = 0;
+      const started = Date.now();
+      // zero HTTP: the op can never run because the reserve is refused first
+      await expect(gateway.send(context, 'BUSINESS', async () => { httpAttempts += 1; return {}; }))
+        .rejects.toThrow('CHANJET_ADMISSION_HOLD');
+      // the original job ended BOUNDED: the guard statement was aborted by
+      // lock_timeout (300ms), far before the 30s execution deadline
+      const elapsed = Date.now() - started;
+      expect(elapsed).toBeLessThan(2_500);
+      expect(httpAttempts).toBe(0);
+      expect(await gateway.settled()).toBe('UNCONFIRMED');
+      expect(gateway.holdAttempts).toBe(1);
+      // nothing was held while the lock was held (plain read: store.load
+      // takes FOR UPDATE, which this test's own lock holder must not block)
+      const during = await storeDs.query('SELECT phase, hold_reason FROM chanjet_execution_admissions WHERE execution_id=$1', [m.executionId]);
+      expect(during[0].phase).toBe('PROBING');
+      expect(during[0].hold_reason).toBe('');
+      // release the lock: the aborted statement must NOT commit late now
+      await lockRunner.query('COMMIT');
+      await lockRunner.release();
+      await new Promise((resolve) => setTimeout(resolve, 400));
+      const after = await storeDs.query('SELECT phase, hold_reason FROM chanjet_execution_admissions WHERE execution_id=$1', [m.executionId]);
+      expect(after[0].phase).toBe('PROBING');
+      expect(after[0].hold_reason).toBe('');
+      // no receipt was ever created: zero business evidence lost or added
+      expect(await receipts(m.executionId)).toHaveLength(0);
+      // a fresh hold through the same guard still works (executor not poisoned)
+      const retry = await localStore.holdExecution(context, 'DEADLINE');
+      expect(retry).toBe('CONFIRMED');
+    } finally {
+      await guard.dispose();
+      await storeDs.destroy().catch(() => undefined);
+      await lockDs.destroy().catch(() => undefined);
+    }
+  });
+
+  it('an occupied guard connection fails the acquisition bounded and releases the resources', async () => {
+    resetHits();
+    const m = await registered(3);
+    const context = await beginProbe(m);
+    // the guard has ONE connection; acquireMs bounds the wait to own it
+    const { storeDs, localStore, guard } = await standaloneGuardSandbox({ acquireMs: 250, releaseMs: 500 });
+    try {
+      // occupy the guard connection itself (no DataSource to queue on — the
+      // executor serializes on its dedicated client)
+      const occupierOutcome = await Promise.all([
+        guard.query('SELECT pg_sleep(10) AS slept').then(() => 'completed' as const, () => 'killed' as const),
+        (async () => {
+          await new Promise((resolve) => setTimeout(resolve, 20));
+          const started = Date.now();
+          await expect(localStore.holdExecution(context, 'DEADLINE')).rejects.toThrow('CHANJET_GUARD_ACQUIRE_TIMEOUT');
+          const elapsed = Date.now() - started;
+          expect(elapsed).toBeLessThan(1_000);
+          return 'bounded' as const;
+        })(),
+      ]);
+      expect(occupierOutcome[1]).toBe('bounded');
+      // the occupying job was TERMINATED by the bound (rejected, not completed):
+      // the socket teardown truly killed it — the 10s sleep never returned
+      expect(occupierOutcome[0]).toBe('killed');
+      // resources released: the acquisition timeout tore the guard down
+      expect(guard.isDisposed).toBe(true);
+      // the admission row is untouched: no partial hold, no receipt
+      const row = await store.load(m);
+      expect(row.phase).toBe('PROBING');
+      expect(row.hold_reason).toBe('');
+      expect(await receipts(m.executionId)).toHaveLength(0);
+    } finally {
+      await storeDs.destroy().catch(() => undefined);
     }
   });
 

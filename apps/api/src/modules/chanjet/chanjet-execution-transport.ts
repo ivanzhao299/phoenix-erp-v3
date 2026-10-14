@@ -89,13 +89,8 @@ export class ChanjetExecutionHttpGateway {
     private readonly manifest: unknown,
     private readonly options: {
       postReserveBarrier?: (reservation: { ticket: string; ordinal: number }, context: ExecutionContext) => Promise<void>;
-      /** Guard-write executor on a dedicated connection: the stop persists
-       *  promptly even when the business pool is saturated. */
-      standaloneExecutor?: { query(sql: string, parameters?: unknown[]): Promise<unknown[]> };
     } = {},
-  ) {
-    if (options.standaloneExecutor) store.setStandaloneExecutor(options.standaloneExecutor);
-  }
+  ) {}
 
   /** Effective single-request budget from the registered manifest. */
   httpTimeoutMs(): number {
