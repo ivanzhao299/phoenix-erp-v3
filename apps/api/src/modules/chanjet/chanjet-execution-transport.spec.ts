@@ -1,0 +1,379 @@
+import { createServer, Server } from 'node:http';
+import { randomUUID } from 'node:crypto';
+import { AddressInfo } from 'node:net';
+import { DataSource } from 'typeorm';
+import { CreateChanjetExecutionAdmissions1791878400000 } from '../../database/migrations/1791878400000-CreateChanjetExecutionAdmissions';
+import { ChanjetExecutionAdmissionStore } from './chanjet-execution-admission.store';
+import { ChanjetExecutionHttpGateway } from './chanjet-execution-transport';
+import { ChanjetExecutionAdmissionEntity } from './chanjet-execution-admission.entity';
+import { ExecutionManifest } from './chanjet-execution-manifest';
+import { ChanjetAuthService } from './chanjet-auth.service';
+import { withExecutionScope, beginExecutionPhase, ExecutionScopeState } from './chanjet-execution-scope';
+
+const fixtureUrl = process.env.CHANJET_ADMISSION_FIXTURE_URL;
+if (process.env.CHANJET_EXECUTION_TRANSPORT_REQUIRED === 'true' && !fixtureUrl) {
+  throw Error('REAL_EXECUTION_TRANSPORT_FIXTURE_URL_REQUIRED');
+}
+const database = fixtureUrl ? describe : describe.skip;
+
+// Human-approved first-verification shape; synthetic identifiers only.
+function manifest(cap = 10, httpTimeoutMs = 30_000, totalTimeoutMs = 360_000): ExecutionManifest {
+  const expiresAt = `${new Date(Date.now() + 20 * 60_000).toISOString().slice(0, 23)}Z`;
+  return {
+    version: 1,
+    executionId: `EXEC_${randomUUID().replace(/-/g, '').slice(0, 24)}`,
+    ownerId: 'ROOT_OPERATOR',
+    requestCap: cap,
+    totalTimeoutMs,
+    httpTimeoutMs,
+    approval: {
+      version: 3,
+      approvalId: `APPROVAL_${randomUUID().replace(/-/g, '').slice(0, 20)}`,
+      floorSha: 'f'.repeat(40),
+      sourceClassification: 'PRODUCTION_DATA',
+      remoteWrite: false,
+      erpInbound: false,
+      books: [
+        { bookId: '3533914511118750', companyCode: 'COMP-LAO-AGRI' },
+        { bookId: '3537748712226818', companyCode: 'COMP-LAO-XINGCHI' },
+        { bookId: '3539743721526654', companyCode: 'COMP-LAO-FOOD' },
+      ],
+      scopes: ['RECEIVABLE_STATISTICS'],
+      periodPolicy: 'REQUESTED_PERIOD_NO_BACKFILL',
+      verification: { bookId: '3533914511118750', period: '202610', scope: ['RECEIVABLE_STATISTICS'], expiresAt },
+    },
+  };
+}
+
+type FixtureRoute = { status?: number; body: unknown | ((nth: number) => unknown); delayMs?: number };
+function httpFixture() {
+  const hits: Array<{ method: string; path: string; aborted: boolean }> = [];
+  let routes: Record<string, FixtureRoute> = {};
+  let server: Server | undefined;
+  let endpoint = '';
+  return {
+    hits,
+    endpoint: () => endpoint,
+    setRoutes(next: Record<string, FixtureRoute>) { routes = next; },
+    async start() {
+      server = createServer((req, res) => {
+        const hit = { method: req.method || '', path: req.url || '', aborted: false };
+        hits.push(hit);
+        req.on('close', () => { hit.aborted = !res.writableEnded; });
+        const route = routes[req.url || ''] || { status: 200, body: { code: '200' } };
+        const nth = hits.filter((h) => h.path === (req.url || '')).length - 1;
+        const body = typeof route.body === 'function' ? route.body(nth) : route.body;
+        setTimeout(() => {
+          if (!res.writableEnded) {
+            res.writeHead(route.status ?? 200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(body));
+          }
+        }, route.delayMs ?? 0);
+      });
+      await new Promise<void>((resolve) => server!.listen(0, '127.0.0.1', resolve));
+      endpoint = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+    },
+    async stop() { await new Promise<void>((resolve) => server?.close(() => resolve())); },
+  };
+}
+
+function createService(fixtureBase: string) {
+  const values: Record<string, string> = {
+    CHANJET_APP_KEY: 'app-key',
+    CHANJET_APP_SECRET: 'app-secret',
+    CHANJET_ORG_ID: 'org-id',
+    CHANJET_MSG_SECRET: '',
+    CHANJET_CERT: 'env-cert',
+  };
+  const stateRepo = {
+    findOneBy: jest.fn().mockResolvedValue({ key: 'singleton', appTicket: 'persisted-ticket', certificate: null, tokens: null }),
+    save: jest.fn().mockResolvedValue(undefined),
+  };
+  process.env.CHANJET_PROVIDER_BASE_URL = fixtureBase;
+  process.env.CHANJET_MIN_REQUEST_INTERVAL_MS = '100';
+  const service = new ChanjetAuthService(
+    { get: jest.fn((key: string, fallback = '') => values[key] ?? fallback) } as never,
+    stateRepo as never,
+    { ok: jest.fn(), fail: jest.fn() } as never,
+  );
+  // onModuleInit would schedule background bootstrapping; seed the fields the
+  // request paths need directly instead (cert preset keeps the TOKEN exchange
+  // self-contained so receipts map 1:1 to the exchanges under test).
+  service['appKey'] = 'app-key';
+  service['appSecret'] = 'app-secret';
+  service['orgId'] = 'org-id';
+  service['cert'] = 'env-cert';
+  service['appTicket'] = 'persisted-ticket';
+  return service;
+}
+
+database('execution transport wiring (real PG18 admission + local HTTP fixture, no provider)', () => {
+  jest.setTimeout(120_000);
+  let ds: DataSource;
+  let store: ChanjetExecutionAdmissionStore;
+  let applied = false;
+  const fixture = httpFixture();
+
+  beforeAll(async () => {
+    await fixture.start();
+    process.env.CHANJET_PROVIDER_BASE_URL = fixture.endpoint();
+    process.env.CHANJET_MIN_REQUEST_INTERVAL_MS = '100';
+    ds = new DataSource({ type: 'postgres', url: fixtureUrl, entities: [ChanjetExecutionAdmissionEntity], logging: false });
+    await ds.initialize();
+    const runner = ds.createQueryRunner();
+    await runner.query('DROP SCHEMA public CASCADE');
+    await runner.query('CREATE SCHEMA public');
+    await runner.release();
+    const migration = new CreateChanjetExecutionAdmissions1791878400000();
+    const upRunner = ds.createQueryRunner();
+    await migration.up(upRunner);
+    await upRunner.release();
+    applied = true;
+    store = new ChanjetExecutionAdmissionStore(ds.manager);
+  });
+  afterAll(async () => {
+    if (ds?.isInitialized && applied) {
+      const runner = ds.createQueryRunner();
+      try { await new CreateChanjetExecutionAdmissions1791878400000().down(runner); } finally { await runner.release(); }
+    }
+    if (ds?.isInitialized) await ds.destroy();
+    delete process.env.CHANJET_PROVIDER_BASE_URL;
+    delete process.env.CHANJET_MIN_REQUEST_INTERVAL_MS;
+    await fixture.stop();
+  });
+
+  async function registered(cap = 10, httpTimeoutMs = 30_000, totalTimeoutMs = 360_000) {
+    const m = manifest(cap, httpTimeoutMs, totalTimeoutMs);
+    await store.registerFromReviewedRootManifest(m);
+    return m;
+  }
+  async function beginProbe(m: ExecutionManifest, leaseId = `PROBE_${randomUUID().slice(0, 8)}`) {
+    await store.begin(m, 'PROBING', leaseId);
+    return { manifest: m, leaseId, phase: 'PROBING' as const };
+  }
+  const gatewayFor = (m: ExecutionManifest) => new ChanjetExecutionHttpGateway(store, m);
+  const receipts = async (executionId: string) => ds.query(
+    'SELECT ordinal, phase, lease_id, kind, status FROM chanjet_execution_requests WHERE execution_id=$1 ORDER BY ordinal',
+    [executionId],
+  );
+  const hitsByUrl = (suffix: string) => fixture.hits.filter((h) => h.path.endsWith(suffix));
+  const resetHits = () => { fixture.hits.length = 0; };
+  const businessSend = (path: string) => async (signal: AbortSignal) => {
+    const res = await fetch(`${fixture.endpoint()}${path}`, { signal, method: 'POST' });
+    return res.json();
+  };
+
+  it('gateway counts exactly one reserve->send->acknowledge per provider HTTP attempt', async () => {
+    resetHits();
+    const m = await registered();
+    fixture.setRoutes({ '/accounting/gl/statistics/receive/3533914511118750': { body: { code: '200', value: [] } } });
+    const context = await beginProbe(m);
+    const result = await gatewayFor(m).send(context, 'BUSINESS', businessSend('/accounting/gl/statistics/receive/3533914511118750'));
+    expect(result.outcome).toBe('OK');
+    expect(result.effectiveDeadlineMs).toBeLessThanOrEqual(30_000);
+    expect(await receipts(m.executionId)).toEqual([
+      { ordinal: 1, phase: 'PROBING', lease_id: context.leaseId, kind: 'BUSINESS', status: 'ACKNOWLEDGED' },
+    ]);
+    expect(hitsByUrl('/accounting/gl/statistics/receive/3533914511118750')).toHaveLength(1);
+  });
+
+  it('gateway-deadline cancellation aborts the real HTTP and poisons further sends without touching the wire', async () => {
+    resetHits();
+    const m = await registered(10, 250);
+    fixture.setRoutes({ '/slow': { body: { late: true }, delayMs: 5_000 } });
+    const context = await beginProbe(m);
+    const gateway = gatewayFor(m);
+    const started = Date.now();
+    const result = await gateway.send(context, 'BUSINESS', async (signal: AbortSignal) => (await fetch(`${fixture.endpoint()}/slow`, { signal })).json());
+    expect(result.outcome).toBe('TRANSPORT_FAILURE');
+    expect(result.cancelled).toBe(true);
+    expect(String((result.error as Error)?.message ?? result.error)).toContain('CHANJET_EXECUTION_DEADLINE');
+    expect(Date.now() - started).toBeLessThan(2_000);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(hitsByUrl('/slow')[0]?.aborted).toBe(true);
+    await expect(gateway.send(context, 'BUSINESS', async () => ({}))).rejects.toThrow('CHANJET_EXECUTION_STOPPED');
+    expect(hitsByUrl('/slow')).toHaveLength(1);
+  });
+
+  it('cap exhaustion rejects the extra send before any HTTP and holds the execution', async () => {
+    resetHits();
+    const m = await registered(2);
+    fixture.setRoutes({ '/business': { body: { code: '200' } } });
+    const context = await beginProbe(m);
+    const gateway = gatewayFor(m);
+    for (let i = 0; i < 2; i++) await gateway.send(context, 'BUSINESS', businessSend('/business'));
+    await expect(gateway.send(context, 'BUSINESS', businessSend('/business'))).rejects.toThrow('CHANJET_ADMISSION_HOLD');
+    expect(hitsByUrl('/business')).toHaveLength(2);
+    const row = await store.load(m);
+    expect(row.phase).toBe('HOLD');
+    expect(row.hold_reason).toBe('CAP');
+    expect(row.request_count).toBe(2);
+  });
+
+  it('concurrent overshoot cannot push real sends past the cap', async () => {
+    resetHits();
+    const m = await registered(3);
+    fixture.setRoutes({ '/business': { body: { code: '200' } } });
+    const context = await beginProbe(m);
+    const gateway = gatewayFor(m);
+    const outcomes = await Promise.allSettled(Array.from({ length: 6 }, () =>
+      gateway.send(context, 'BUSINESS', businessSend('/business'))));
+    expect(hitsByUrl('/business').length).toBeLessThanOrEqual(3);
+    expect(outcomes.filter((o) => o.status === 'fulfilled').length).toBeLessThanOrEqual(3);
+    expect(outcomes.some((o) => o.status === 'rejected')).toBe(true);
+    expect((await store.load(m)).request_count).toBe(3);
+  });
+
+  it('a second connection shares the durable count and cannot exceed the cap', async () => {
+    resetHits();
+    const m = await registered(3);
+    fixture.setRoutes({ '/business': { body: { code: '200' } } });
+    const context = await beginProbe(m);
+    const first = gatewayFor(m);
+    await first.send(context, 'BUSINESS', businessSend('/business'));
+    await first.send(context, 'BUSINESS', businessSend('/business'));
+    const secondDs = new DataSource({ type: 'postgres', url: fixtureUrl, logging: false });
+    await secondDs.initialize();
+    try {
+      const secondGateway = new ChanjetExecutionHttpGateway(new ChanjetExecutionAdmissionStore(secondDs.manager), m);
+      await secondGateway.send(context, 'BUSINESS', businessSend('/business'));
+      await expect(secondGateway.send(context, 'BUSINESS', businessSend('/business'))).rejects.toThrow('CHANJET_ADMISSION_HOLD');
+      expect(hitsByUrl('/business')).toHaveLength(3);
+      expect((await store.load(m)).request_count).toBe(3);
+    } finally { await secondDs.destroy(); }
+  });
+
+  it('an ambiguous reservation commit spends the count, sends nothing and blocks phase completion', async () => {
+    resetHits();
+    const m = await registered(3);
+    fixture.setRoutes({ '/business': { body: { code: '200' } } });
+    const context = await beginProbe(m);
+    const ambiguous = new ChanjetExecutionAdmissionStore({
+      transaction: async (callback: (tx: { query: (sql: string, params?: unknown[]) => Promise<unknown[]> }) => Promise<unknown>) => { await ds.manager.transaction(callback); throw Error('commit outcome unknown'); },
+    } as never);
+    await expect(new ChanjetExecutionHttpGateway(ambiguous, m).send(context, 'BUSINESS', businessSend('/business')))
+      .rejects.toThrow('CHANJET_ADMISSION_HOLD');
+    expect(hitsByUrl('/business')).toHaveLength(0);
+    expect(await receipts(m.executionId)).toEqual([
+      { ordinal: 1, phase: 'PROBING', lease_id: context.leaseId, kind: 'BUSINESS', status: 'RESERVED' },
+    ]);
+    await expect(store.finish(context, 'PROBED')).rejects.toThrow();
+  });
+
+  it('unregistered identity and stale-manifest drift both fail closed with zero sends', async () => {
+    resetHits();
+    const unregistered = manifest();
+    fixture.setRoutes({ '/business': { body: { code: '200' } } });
+    await expect(gatewayFor(unregistered).send(
+      { manifest: unregistered, leaseId: 'NO_LEASE', phase: 'PROBING' },
+      'BUSINESS',
+      businessSend('/business'),
+    )).rejects.toThrow('CHANJET_ADMISSION_HOLD');
+    expect(hitsByUrl('/business')).toHaveLength(0);
+
+    const stale = await registered();
+    await beginProbe(stale);
+    const tampered: ExecutionManifest = { ...stale, requestCap: stale.requestCap + 1 };
+    await expect(gatewayFor(tampered).send(
+      { manifest: tampered, leaseId: 'ANY', phase: 'PROBING' },
+      'BUSINESS',
+      businessSend('/business'),
+    )).rejects.toThrow('CHANJET_ADMISSION_HOLD');
+    expect(hitsByUrl('/business')).toHaveLength(0);
+  });
+
+  it('auth service inside a scope counts TOKEN then BUSINESS per call and never reads the shared caches', async () => {
+    resetHits();
+    const m = await registered(10);
+    resetHits();
+    fixture.setRoutes({
+      '/v1/common/auth/selfBuiltApp/generateToken': { body: { value: { accessToken: `tok-${randomUUID().slice(0, 6)}`, expiresIn: 7200 } } },
+      '/accounting/gl/statistics/receive/3533914511118750': { body: { code: '200', value: [{ amount: 1 }] } },
+    });
+    const service = createService(fixture.endpoint());
+    const context = await beginProbe(m);
+    const scopeState: ExecutionScopeState = { manifest: m, store, gateway: gatewayFor(m), current: context };
+    await withExecutionScope(scopeState, async () => {
+      expect(await service.callApi('/accounting/gl/statistics/receive/3533914511118750', { method: 'POST', body: {} })).toMatchObject({ code: '200' });
+      expect(await service.callApi('/accounting/gl/statistics/receive/3533914511118750', { method: 'POST', body: {} })).toMatchObject({ code: '200' });
+    });
+    expect((await receipts(m.executionId)).map((r: { kind: string }) => r.kind)).toEqual(['TOKEN', 'BUSINESS', 'TOKEN', 'BUSINESS']);
+    expect(hitsByUrl('/v1/common/auth/selfBuiltApp/generateToken')).toHaveLength(2);
+    expect(hitsByUrl('/accounting/gl/statistics/receive/3533914511118750')).toHaveLength(2);
+  });
+
+  it('legacy path outside a scope keeps cache merging and unchanged timeout semantics', async () => {
+    resetHits();
+    fixture.setRoutes({
+      '/v1/common/auth/selfBuiltApp/generateToken': { body: { value: { accessToken: `tok-${randomUUID().slice(0, 6)}`, expiresIn: 7200 } } },
+      '/legacy/path': { body: { code: '200', value: [] } },
+    });
+    const service = createService(fixture.endpoint());
+    await service.callApi('/legacy/path', { method: 'POST', body: {} });
+    await service.callApi('/legacy/path', { method: 'POST', body: {} });
+    expect(hitsByUrl('/legacy/path')).toHaveLength(1);
+  });
+
+  it('50107 token-invalid retry is a new counted send within the same cap', async () => {
+    resetHits();
+    const m = await registered(10);
+    resetHits();
+    fixture.setRoutes({
+      '/v1/common/auth/selfBuiltApp/generateToken': { body: { value: { accessToken: `tok-${randomUUID().slice(0, 6)}`, expiresIn: 7200 } } },
+      '/retry/path': { body: (nth: number) => (nth === 0 ? { code: '50107' } : { code: '200', value: [] }) },
+    });
+    const service = createService(fixture.endpoint());
+    const context = await beginProbe(m);
+    const scopeState: ExecutionScopeState = { manifest: m, store, gateway: gatewayFor(m), current: context };
+    await withExecutionScope(scopeState, () => service.callApi('/retry/path', { method: 'POST', body: {} }));
+    const rows = await receipts(m.executionId);
+    // scope semantics: each executeCallApi (initial + 50107 retry) performs its
+    // own fresh counted TOKEN exchange before BUSINESS — 4 receipts total.
+    expect(rows.map((r: { kind: string }) => r.kind)).toEqual(['TOKEN', 'BUSINESS', 'TOKEN', 'BUSINESS']);
+    expect(rows.every((r: { status: string }) => r.status === 'ACKNOWLEDGED')).toBe(true);
+  });
+
+  it('4041 inside a scope never fires the background resend outside admission counting', async () => {
+    resetHits();
+    const m = await registered(10);
+    resetHits();
+    fixture.setRoutes({
+      '/v1/common/auth/selfBuiltApp/generateToken': { body: { error: { code: '4041' } } },
+      '/auth/appTicket/resend': { body: { success: true } },
+    });
+    const service = createService(fixture.endpoint());
+    const context = await beginProbe(m);
+    const scopeState: ExecutionScopeState = { manifest: m, store, gateway: gatewayFor(m), current: context };
+    await withExecutionScope(scopeState, async () => {
+      await expect(service.callApi('/any/path', { method: 'POST', body: {} })).rejects.toThrow('appTicket 已过期');
+    });
+    expect(hitsByUrl('/auth/appTicket/resend')).toHaveLength(0);
+    expect((await receipts(m.executionId)).map((r: { kind: string }) => r.kind)).toEqual(['TOKEN']);
+  });
+
+  it('probe and first sync share one execution, phase leases and the cumulative cap', async () => {
+    resetHits();
+    const m = await registered(4);
+    fixture.setRoutes({
+      '/v1/common/auth/selfBuiltApp/generateToken': { body: { value: { accessToken: `tok-${randomUUID().slice(0, 6)}`, expiresIn: 7200 } } },
+      '/probe': { body: { code: '200', value: [{ probe: true }] } },
+      '/sync': { body: { code: '200', value: [{ synced: true }] } },
+    });
+    const service = createService(fixture.endpoint());
+    const scopeState: ExecutionScopeState = { manifest: m, store, gateway: gatewayFor(m), current: await beginProbe(m) };
+    await withExecutionScope(scopeState, () => service.callApi('/probe', { method: 'POST', body: {} }));
+    await store.finish(scopeState.current, 'PROBED');
+    await beginExecutionPhase(scopeState, 'SYNCING', `SYNC_${randomUUID().slice(0, 8)}`);
+    await withExecutionScope(scopeState, () => service.callApi('/sync', { method: 'POST', body: {} }));
+    await store.finish(scopeState.current, 'VERIFIED');
+    const rows = await receipts(m.executionId);
+    expect(rows.map((r: { phase: string }) => r.phase)).toEqual(['PROBING', 'PROBING', 'SYNCING', 'SYNCING']);
+    expect(rows.map((r: { kind: string }) => r.kind)).toEqual(['TOKEN', 'BUSINESS', 'TOKEN', 'BUSINESS']);
+    const finalRow = await store.load(m);
+    expect(finalRow.phase).toBe('VERIFIED');
+    expect(finalRow.request_count).toBe(4);
+    await withExecutionScope(scopeState, async () => {
+      await expect(scopeState.gateway.send(scopeState.current, 'BUSINESS', businessSend('/sync'))).rejects.toThrow();
+    });
+  });
+});

@@ -1,5 +1,7 @@
 import { assertChanjetProxyReadonly } from './chanjet-remote-readonly';
 import { assertReadonlyOrchestrationOwnerIfPresent } from './chanjet-readonly-execution';
+import { activeExecutionScope } from './chanjet-execution-scope';
+import { ChanjetBusinessFailureError, ProviderSendOperation, RequestKind as ExecutionRequestKind } from './chanjet-execution-transport';
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Cron, CronExpression } from '@nestjs/schedule';
@@ -24,6 +26,8 @@ interface ChanjetCallOptions {
   body?: unknown;
   orgId?: string;
   kind?: ChanjetCallKind;
+  // Admission bucket when running inside an execution scope (defaults to BUSINESS).
+  executionKind?: ExecutionRequestKind;
 }
 
 const SINGLETON_KEY = 'singleton';
@@ -121,6 +125,43 @@ export class ChanjetAuthService implements OnModuleInit {
       }
     }
     return masked;
+  }
+
+  private providerBaseUrl(): string {
+    // Default production endpoint. An override is honored ONLY for loopback
+    // hosts so isolated tests can exercise the real fetch chain against a
+    // local fixture; any non-loopback value fails closed instead of silently
+    // re-routing provider traffic.
+    const override = process.env.CHANJET_PROVIDER_BASE_URL || '';
+    if (!override) return 'https://openapi.chanjet.com';
+    const parsed = new URL(override);
+    if (!['127.0.0.1', 'localhost', '::1'].includes(parsed.hostname)) {
+      throw new Error('CHANJET_PROVIDER_BASE_URL_LOOPBACK_ONLY');
+    }
+    return override.replace(/\/+$/, '');
+  }
+
+  /**
+   * Single provider send funnel. Outside an execution scope this keeps the
+   * legacy fixed 30s timeout and untouched semantics (token cron, callback
+   * flows, HOLD-policy traffic). Inside a scope every attempt is admission-
+   * counted: reserve -> real send under the execution AbortSignal ->
+   * acknowledge the receipt; cache/in-flight merging is bypassed there so one
+   * logical send maps to exactly one counted HTTP request.
+   */
+  private executionSend<T>(kind: ExecutionRequestKind, op: ProviderSendOperation<T>): Promise<T> {
+    const base = this.providerBaseUrl();
+    const active = activeExecutionScope();
+    if (!active) return op(AbortSignal.timeout(30_000), 30_000, base);
+    return active.gateway.send(active.current, kind, (signal, deadlineMs) => op(signal, deadlineMs, base)).then((result) => {
+      if (result.outcome === 'TRANSPORT_FAILURE') {
+        // The gateway already cancelled the HTTP and poisoned itself: every
+        // later send in this execution fails fast without touching the wire.
+        throw Object.assign(new Error(result.cancelled ? 'CHANJET_EXECUTION_DEADLINE_CANCELLED' : 'CHANJET_TRANSPORT_FAILURE'), { cause: result.error });
+      }
+      if (result.outcome === 'BUSINESS_FAILURE') throw result.error;
+      return result.value as T;
+    });
   }
 
   async onModuleInit() {
@@ -253,20 +294,20 @@ export class ChanjetAuthService implements OnModuleInit {
 
   /** 用 authCode 换 certificate（企业授权回调场景） */
   async fetchCertificateByAuthCode(authCode: string): Promise<string> {
-    const url = 'https://openapi.chanjet.com/auth/certificate';
-    const body = {
-      appKey: this.appKey,
-      appSecret: this.appSecret,
-      authCode,
-    };
-    this.log.log(`POST ${url} (authCode)`);
-    const res = await fetch(url, {
-      signal: AbortSignal.timeout(30_000),
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
+    this.log.log('POST /auth/certificate (authCode)');
+    const json = await this.executionSend('CERTIFICATE', async (signal, _deadlineMs, base) => {
+      const res = await fetch(`${base}/auth/certificate`, {
+        signal,
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          appKey: this.appKey,
+          appSecret: this.appSecret,
+          authCode,
+        }),
+      });
+      return await res.json() as Record<string, unknown>;
     });
-    const json = await res.json() as Record<string, unknown>;
     this.log.log(`certificate(authCode) 响应: ${JSON.stringify(this.maskSensitive(json)).slice(0, 500)}`);
 
     const result = json.result as Record<string, unknown> | undefined;
@@ -305,21 +346,20 @@ export class ChanjetAuthService implements OnModuleInit {
       throw new Error('无 appTicket 且无预置 CHANJET_CERT，无法获取证书');
     }
 
-    const url = 'https://openapi.chanjet.com/auth/certificate';
-    const body = {
-      appKey: this.appKey,
-      appSecret: this.appSecret,
-      appTicket: this.appTicket,
-    };
-    this.log.log(`POST ${url}`);
-
-    const res = await fetch(url, {
-      signal: AbortSignal.timeout(30_000),
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
+    this.log.log('POST /auth/certificate');
+    const json = await this.executionSend('CERTIFICATE', async (signal, _deadlineMs, base) => {
+      const res = await fetch(`${base}/auth/certificate`, {
+        signal,
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          appKey: this.appKey,
+          appSecret: this.appSecret,
+          appTicket: this.appTicket,
+        }),
+      });
+      return await res.json() as Record<string, unknown>;
     });
-    const json = await res.json() as Record<string, unknown>;
     this.log.log(`certificate 响应: ${JSON.stringify(this.maskSensitive(json)).slice(0, 300)}`);
 
     const result = json.result as Record<string, unknown> | undefined;
@@ -335,9 +375,14 @@ export class ChanjetAuthService implements OnModuleInit {
   /** 用 appTicket + certificate 换 openToken（accessToken） */
   async getOpenToken(orgId?: string): Promise<string> {
     const targetOrg = orgId || this.orgId;
-    const cached = this.tokenCache.get(targetOrg);
-    if (cached && Date.now() < cached.expiresAt - 60_000) {
-      return cached.openToken;
+    // Inside an execution scope a cached token must not silently substitute
+    // the auth exchange: the fetch (when needed) is an admission-counted TOKEN
+    // request, so the scope always performs its own fresh, counted fetch.
+    if (!activeExecutionScope()) {
+      const cached = this.tokenCache.get(targetOrg);
+      if (cached && Date.now() < cached.expiresAt - 60_000) {
+        return cached.openToken;
+      }
     }
 
     if (!this.appTicket) {
@@ -345,22 +390,21 @@ export class ChanjetAuthService implements OnModuleInit {
     }
 
     const certificate = await this.fetchCertificate();
-    const url = 'https://openapi.chanjet.com/v1/common/auth/selfBuiltApp/generateToken';
-    this.log.log(`POST ${url}`);
+    this.log.log('POST generateToken');
 
-    const res = await fetch(url, {
-      signal: AbortSignal.timeout(30_000),
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        appKey: this.appKey,
-        appSecret: this.appSecret,
-      },
-      body: JSON.stringify({ appTicket: this.appTicket, certificate }),
+    const json = await this.executionSend('TOKEN', async (signal, _deadlineMs, base) => {
+      const res = await fetch(`${base}/v1/common/auth/selfBuiltApp/generateToken`, {
+        signal,
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          appKey: this.appKey,
+          appSecret: this.appSecret,
+        },
+        body: JSON.stringify({ appTicket: this.appTicket, certificate }),
+      });
+      return await res.json() as Record<string, unknown>;
     });
-    const json = await res.json() as Record<string, unknown>;
-    this.log.log(`generateToken 响应: ${JSON.stringify(this.maskSensitive(json)).slice(0, 300)}`);
-
     const value = json.value as Record<string, unknown> | undefined;
     const accessToken = value?.accessToken as string | undefined;
     const expiresIn = Number(value?.expiresIn ?? 7200);
@@ -372,8 +416,13 @@ export class ChanjetAuthService implements OnModuleInit {
       //   setAppTicket),本次请求无法同步拿到新 ticket,给可读引导让用户稍后重试,实现自愈。
       //   修复前:appTicket 一旦过期,getOpenToken 永久 4041(bootstrap 只在内存无 ticket 时 resend,
       //   而过期 ticket 仍在内存/PG → 跳过 resend → 死锁)。
+      //   Inside an execution scope the fire-and-forget resend is suppressed:
+      //   background HTTP must stay inside the counted, cancellable execution,
+      //   and the caller retries explicitly (each retry is counted).
       if (code === '4041') {
-        void this.triggerAppTicket().catch((e) => this.log.warn(`4041 自愈 resend 失败: ${(e as Error).message}`));
+        if (!activeExecutionScope()) {
+          void this.triggerAppTicket().catch((e) => this.log.warn(`4041 自愈 resend 失败: ${(e as Error).message}`));
+        }
         throw new Error('好业财 appTicket 已过期,已自动向平台请求重新推送授权票据,请约 10 秒后重试同步。(code=4041)');
       }
       throw new Error(`CHANJET_AUTH_TOKEN_FAILED code=${String(err?.code || 'UNKNOWN').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 32)}`);
@@ -390,18 +439,18 @@ export class ChanjetAuthService implements OnModuleInit {
 
   /** 主动触发 appTicket 推送（需消息接收地址已配好） */
   async triggerAppTicket(): Promise<Record<string, unknown>> {
-    const url = 'https://openapi.chanjet.com/auth/appTicket/resend';
-    this.log.log(`POST ${url}`);
-    const res = await fetch(url, {
-      signal: AbortSignal.timeout(30_000),
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        appKey: this.appKey,
-        appSecret: this.appSecret,
-      },
+    const json = await this.executionSend('RESEND', async (signal, _deadlineMs, base) => {
+      const res = await fetch(`${base}/auth/appTicket/resend`, {
+        signal,
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          appKey: this.appKey,
+          appSecret: this.appSecret,
+        },
+      });
+      return await res.json() as Record<string, unknown>;
     });
-    const json = await res.json() as Record<string, unknown>;
     this.log.log(`triggerAppTicket 响应: ${JSON.stringify(this.maskSensitive(json)).slice(0, 300)}`);
     return json;
   }
@@ -423,7 +472,11 @@ export class ChanjetAuthService implements OnModuleInit {
       if (opts.kind === 'WRITE') throw new Error('CHANJET_EXTERNAL_WRITE_DISABLED');
     }
     const kind = opts.kind || this.inferCallKind(path);
-    if (kind === 'READ' && !_isRetry) {
+    // Execution scope bypasses readCache/readInFlight entirely: one logical
+    // send must map to exactly one admission-counted HTTP request, and cache
+    // or in-flight merging must never leak a response across execution
+    // identities.
+    if (kind === 'READ' && !_isRetry && !activeExecutionScope()) {
       const cacheKey = this.readCacheKey(path, opts);
       const cached = this.readCache.get(cacheKey);
       if (cached && cached.expiresAt > Date.now()) return cached.value as T;
@@ -468,44 +521,54 @@ export class ChanjetAuthService implements OnModuleInit {
     await this.waitForTrafficSlot();
     const token = await this.getOpenToken(opts.orgId);
     assertReadonlyOrchestrationOwnerIfPresent();
-    let url = `https://openapi.chanjet.com${path}`;
-    if (opts.query && Object.keys(opts.query).length) {
-      url += `?${new URLSearchParams(opts.query).toString()}`;
-    }
     const method = opts.method ?? 'POST';
-    this.log.debug(`${method} ${url}`);
-
-    const res = await fetch(url, {
-      signal: AbortSignal.timeout(30_000),
-      method,
-      headers: {
-        'Content-Type': 'application/json',
-        appKey: this.appKey,
-        appSecret: this.appSecret,
-        openToken: token,
-      },
-      ...(method === 'POST' ? { body: JSON.stringify(opts.body ?? {}) } : {}),
+    // The provider exchange itself is the counted unit: under an execution
+    // scope this funnels through the admission gateway (reserve -> send ->
+    // acknowledge; AbortSignal-owned cancellation); outside a scope it keeps
+    // the legacy fixed 30s timeout. A documented business rejection is still a
+    // completed exchange — typed so the gateway records BUSINESS_FAILURE
+    // without poisoning the execution, while transport failures stop it.
+    const json = await this.executionSend<Record<string, unknown>>(opts.executionKind ?? 'BUSINESS', async (signal, _deadlineMs, base) => {
+      let url = `${base}${path}`;
+      if (opts.query && Object.keys(opts.query).length) {
+        url += `?${new URLSearchParams(opts.query).toString()}`;
+      }
+      this.log.debug(`${method} ${url}`);
+      const res = await fetch(url, {
+        signal,
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          appKey: this.appKey,
+          appSecret: this.appSecret,
+          openToken: token,
+        },
+        ...(method === 'POST' ? { body: JSON.stringify(opts.body ?? {}) } : {}),
+      });
+      const payload = await res.json() as Record<string, unknown>;
+      const businessFailure = getChanjetBusinessFailure(payload);
+      if (!res.ok || businessFailure) {
+        const failure = businessFailure || {
+          code: `HTTP_${res.status}`,
+          message: res.statusText || '好业财 HTTP 请求失败',
+          requestId: String(payload.requestId || payload.request_id || ''),
+        };
+        throw new ChanjetBusinessFailureError(
+          { httpStatus: res.status, failure, payload },
+          `好业财 API 失败 path=${path} http=${res.status} code=${String(failure.code).replace(/[^A-Za-z0-9_-]/g, '').slice(0, 32)}`,
+        );
+      }
+      return payload;
     });
-    const json = await res.json() as Record<string, unknown>;
 
-    // 50107 = openToken 已失效(被 resend 作废 / 过期),清缓存重换重试一次
+    // 50107 = openToken 已失效(被 resend 作废 / 过期),清缓存重换重试一次。
+    // Inside an execution scope the retry is a NEW admission-counted send and
+    // stays within the same cap and deadline.
     const code = (json.code ?? (json.error as Record<string, unknown>)?.code) as string | undefined;
     if (!isRetry && code === '50107') {
       this.log.warn(`callApi 50107 token 失效,清缓存重试 path=${path}`);
       this.tokenCache.delete(opts.orgId || this.orgId);
       return this.executeCallApi<T>(path, opts, true);
-    }
-
-    const businessFailure = getChanjetBusinessFailure(json);
-    if (!res.ok || businessFailure) {
-      const failure = businessFailure || {
-        code: `HTTP_${res.status}`,
-        message: res.statusText || '好业财 HTTP 请求失败',
-        requestId: String(json.requestId || json.request_id || ''),
-      };
-      throw new Error(
-        `好业财 API 失败 path=${path} http=${res.status} code=${String(failure.code).replace(/[^A-Za-z0-9_-]/g, '').slice(0, 32)}`,
-      );
     }
 
     return json as T;

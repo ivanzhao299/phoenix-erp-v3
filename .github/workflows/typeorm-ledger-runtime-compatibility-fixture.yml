@@ -9,6 +9,8 @@ on:
       - 'scripts/ci/typeorm-ledger-runtime-compatibility.test.mjs'
       - 'scripts/ci/typeorm-ledger-rehearsal-*'
       - 'apps/api/src/modules/chanjet/chanjet-execution-*'
+      - 'scripts/ops/chanjet-execution-*'
+      - 'scripts/ci/chanjet-execution-admission-cli.test.mjs'
       - 'apps/api/test/fixtures/chanjet-admission-worker.cjs'
       - '.github/workflows/typeorm-ledger-runtime-compatibility-fixture.yml'
   workflow_dispatch:
@@ -55,7 +57,7 @@ jobs:
   admission-postgres:
     name: Real PostgreSQL18 Admission Invariants
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     services:
       postgres:
         image: postgres:18-alpine
@@ -78,6 +80,8 @@ jobs:
           node-version: 20
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Build compiled API (registration CLI consumes the real dist store)
+        run: pnpm --filter phoenix-erp-v3-nest build
       - name: Require real isolated PostgreSQL tests (no skip fallback)
         env:
           CHANJET_ADMISSION_FIXTURE_URL: postgresql://postgres:postgres@127.0.0.1:5432/chanjet_admission_fixture
@@ -90,3 +94,19 @@ jobs:
       - name: Assert real fixture tests ran and passed
         run: |
           node -e 'const r=require(process.argv[1]); if(!r.success || r.numPendingTests!==0 || !r.testResults.some(s=>s.assertionResults.some(t=>t.fullName.includes("rejects the actual cap=1") && t.status==="passed"))) throw Error("REAL_ADMISSION_MATRIX_REQUIRED"); console.log("REAL_PG18_ADMISSION_MATRIX=PASS;SKIPPED=0");' '${{ runner.temp }}/chanjet-admission-results.json'
+      - name: Execution transport wiring against the same isolated PostgreSQL18
+        env:
+          CHANJET_ADMISSION_FIXTURE_URL: postgresql://postgres:postgres@127.0.0.1:5432/chanjet_admission_fixture
+          CHANJET_EXECUTION_TRANSPORT_REQUIRED: 'true'
+        run: >-
+          pnpm --filter phoenix-erp-v3-nest exec jest --runInBand --runTestsByPath
+          src/modules/chanjet/chanjet-execution-transport.spec.ts
+          --json --outputFile=${{ runner.temp }}/chanjet-transport-results.json
+      - name: Assert transport wiring matrix ran and passed
+        run: |
+          node -e 'const r=require(process.argv[1]); if(!r.success || r.numPendingTests!==0 || !r.testResults.some(s=>s.assertionResults.some(t=>t.fullName.includes("gateway-deadline cancellation") && t.status==="passed"))) throw Error("REAL_EXECUTION_TRANSPORT_MATRIX_REQUIRED"); console.log("REAL_PG18_TRANSPORT_MATRIX=PASS;SKIPPED=0");' '${{ runner.temp }}/chanjet-transport-results.json'
+      - name: Registration CLI subprocess tests (real child process, real PostgreSQL18)
+        env:
+          CHANJET_ADMISSION_FIXTURE_URL: postgresql://postgres:postgres@127.0.0.1:5432/chanjet_admission_fixture
+          CHANJET_EXECUTION_CLI_REQUIRED: 'true'
+        run: node --test scripts/ci/chanjet-execution-admission-cli.test.mjs
