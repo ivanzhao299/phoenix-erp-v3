@@ -439,18 +439,28 @@ export class ChanjetAuthService implements OnModuleInit {
 
   /** 主动触发 appTicket 推送（需消息接收地址已配好） */
   async triggerAppTicket(): Promise<Record<string, unknown>> {
-    const json = await this.executionSend('RESEND', async (signal, _deadlineMs, base) => {
-      const res = await fetch(`${base}/auth/appTicket/resend`, {
-        signal,
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          appKey: this.appKey,
-          appSecret: this.appSecret,
-        },
-      });
-      return await res.json() as Record<string, unknown>;
+    const active = activeExecutionScope();
+    if (active) {
+      // Inside an execution scope the resend is an admission-counted,
+      // cancellation-controlled send using the scope-owned transport op (the
+      // provider endpoint was bound at scope construction).
+      return this.executionSend('RESEND', active.transport.resend);
+    }
+    // Legacy/startup-reachable path: this exact literal call shape is the
+    // reviewed startup remote call (onModuleInit -> bootstrapAppTicket -> here)
+    // and must keep its literal endpoint and POST method.
+    const url = 'https://openapi.chanjet.com/auth/appTicket/resend';
+    this.log.log(`POST ${url}`);
+    const res = await fetch(url, {
+      signal: AbortSignal.timeout(30_000),
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        appKey: this.appKey,
+        appSecret: this.appSecret,
+      },
     });
+    const json = await res.json() as Record<string, unknown>;
     this.log.log(`triggerAppTicket 响应: ${JSON.stringify(this.maskSensitive(json)).slice(0, 300)}`);
     return json;
   }

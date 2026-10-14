@@ -1,6 +1,6 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { ChanjetExecutionAdmissionStore, ExecutionContext, RequestPhase } from './chanjet-execution-admission.store';
-import { ChanjetExecutionHttpGateway } from './chanjet-execution-transport';
+import { ChanjetExecutionHttpGateway, ExecutionTransportOps } from './chanjet-execution-transport';
 
 /**
  * Execution-scoped transport identity. Everything provider-HTTP inside one
@@ -14,6 +14,8 @@ export type ExecutionScopeState = {
   manifest: unknown;
   store: ChanjetExecutionAdmissionStore;
   gateway: ChanjetExecutionHttpGateway;
+  /** Scope-owned provider send operations (e.g. appTicket resend). */
+  transport: ExecutionTransportOps;
   /** Mutated on phase transitions; the DB re-validates phase on every call. */
   current: ExecutionContext;
 };

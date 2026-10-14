@@ -28,6 +28,12 @@ export interface ExecutionSendResult<T> {
 export type ExecutionSendOperation<T> = (signal: AbortSignal, deadlineMs: number) => Promise<T>;
 /** Auth-service send operations additionally receive the provider base URL. */
 export type ProviderSendOperation<T> = (signal: AbortSignal, deadlineMs: number, baseUrl: string) => Promise<T>;
+/** Scope-owned transport operations: created by the orchestrator at scope
+ *  construction (provider endpoint closed over there), never referenced from
+ *  the service singleton's startup graph. */
+export type ExecutionTransportOps = {
+  resend: ExecutionSendOperation<Record<string, unknown>>;
+};
 
 /** Raised by send operations for documented business-level rejections (HTTP exchange completed). */
 export class ChanjetBusinessFailureError extends Error {

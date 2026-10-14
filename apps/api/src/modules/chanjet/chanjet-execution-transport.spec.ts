@@ -152,6 +152,12 @@ database('execution transport wiring (real PG18 admission + local HTTP fixture, 
     return { manifest: m, leaseId, phase: 'PROBING' as const };
   }
   const gatewayFor = (m: ExecutionManifest) => new ChanjetExecutionHttpGateway(store, m);
+  const transportOps = () => ({
+    resend: async (signal: AbortSignal) => {
+      const res = await fetch(`${fixture.endpoint()}/auth/appTicket/resend`, { signal, method: 'POST' });
+      return await res.json() as Record<string, unknown>;
+    },
+  });
   const receipts = async (executionId: string) => ds.query(
     'SELECT ordinal, phase, lease_id, kind, status FROM chanjet_execution_requests WHERE execution_id=$1 ORDER BY ordinal',
     [executionId],
@@ -292,7 +298,7 @@ database('execution transport wiring (real PG18 admission + local HTTP fixture, 
     });
     const service = createService(fixture.endpoint());
     const context = await beginProbe(m);
-    const scopeState: ExecutionScopeState = { manifest: m, store, gateway: gatewayFor(m), current: context };
+    const scopeState: ExecutionScopeState = { manifest: m, store, gateway: gatewayFor(m), transport: transportOps(), current: context };
     await withExecutionScope(scopeState, async () => {
       expect(await service.callApi('/accounting/gl/statistics/receive/3533914511118750', { method: 'POST', body: {} })).toMatchObject({ code: '200' });
       expect(await service.callApi('/accounting/gl/statistics/receive/3533914511118750', { method: 'POST', body: {} })).toMatchObject({ code: '200' });
@@ -324,7 +330,7 @@ database('execution transport wiring (real PG18 admission + local HTTP fixture, 
     });
     const service = createService(fixture.endpoint());
     const context = await beginProbe(m);
-    const scopeState: ExecutionScopeState = { manifest: m, store, gateway: gatewayFor(m), current: context };
+    const scopeState: ExecutionScopeState = { manifest: m, store, gateway: gatewayFor(m), transport: transportOps(), current: context };
     await withExecutionScope(scopeState, () => service.callApi('/retry/path', { method: 'POST', body: {} }));
     const rows = await receipts(m.executionId);
     // scope semantics: each executeCallApi (initial + 50107 retry) performs its
@@ -343,12 +349,16 @@ database('execution transport wiring (real PG18 admission + local HTTP fixture, 
     });
     const service = createService(fixture.endpoint());
     const context = await beginProbe(m);
-    const scopeState: ExecutionScopeState = { manifest: m, store, gateway: gatewayFor(m), current: context };
+    const scopeState: ExecutionScopeState = { manifest: m, store, gateway: gatewayFor(m), transport: transportOps(), current: context };
     await withExecutionScope(scopeState, async () => {
       await expect(service.callApi('/any/path', { method: 'POST', body: {} })).rejects.toThrow('appTicket 已过期');
+      // an explicit operator retry of triggerAppTicket under the scope IS
+      // counted as a RESEND send through the scope-owned transport op
+      await service.triggerAppTicket();
     });
-    expect(hitsByUrl('/auth/appTicket/resend')).toHaveLength(0);
-    expect((await receipts(m.executionId)).map((r: { kind: string }) => r.kind)).toEqual(['TOKEN']);
+    expect(hitsByUrl('/auth/appTicket/resend')).toHaveLength(1);
+    expect((await receipts(m.executionId)).map((r: { kind: string }) => r.kind)).toEqual(['TOKEN', 'RESEND']);
+    expect((await receipts(m.executionId)).every((r: { status: string }) => r.status === 'ACKNOWLEDGED')).toBe(true);
   });
 
   it('probe and first sync share one execution, phase leases and the cumulative cap', async () => {
@@ -360,7 +370,7 @@ database('execution transport wiring (real PG18 admission + local HTTP fixture, 
       '/sync': { body: { code: '200', value: [{ synced: true }] } },
     });
     const service = createService(fixture.endpoint());
-    const scopeState: ExecutionScopeState = { manifest: m, store, gateway: gatewayFor(m), current: await beginProbe(m) };
+    const scopeState: ExecutionScopeState = { manifest: m, store, gateway: gatewayFor(m), transport: transportOps(), current: await beginProbe(m) };
     await withExecutionScope(scopeState, () => service.callApi('/probe', { method: 'POST', body: {} }));
     await store.finish(scopeState.current, 'PROBED');
     await beginExecutionPhase(scopeState, 'SYNCING', `SYNC_${randomUUID().slice(0, 8)}`);
