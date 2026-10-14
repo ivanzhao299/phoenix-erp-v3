@@ -110,3 +110,8 @@ jobs:
           CHANJET_ADMISSION_FIXTURE_URL: postgresql://postgres:postgres@127.0.0.1:5432/chanjet_admission_fixture
           CHANJET_EXECUTION_CLI_REQUIRED: 'true'
         run: node --test scripts/ci/chanjet-execution-admission-cli.test.mjs
+      - name: Orchestration full-chain subprocess tests (real child process, real PostgreSQL18, local HTTP fixture)
+        env:
+          CHANJET_ADMISSION_FIXTURE_URL: postgresql://postgres:postgres@127.0.0.1:5432/chanjet_admission_fixture
+          CHANJET_EXECUTION_ORCHESTRATION_REQUIRED: 'true'
+        run: node --test scripts/ci/chanjet-execution-orchestrate.test.mjs
