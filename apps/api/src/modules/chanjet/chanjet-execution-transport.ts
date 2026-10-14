@@ -144,6 +144,11 @@ export class ChanjetExecutionHttpGateway {
     const startedJob = this.startHold(context, reason);
     const remaining = deadlineAt ? deadlineAt.getTime() - Date.now() : Number.POSITIVE_INFINITY;
     if (remaining <= 0) return 'UNCONFIRMED';
+    // Without a trusted deadline there is no race partner: awaiting the real
+    // job IS the bound (the guard write itself is bounded by the store's
+    // per-statement constant or the controlled guard executor). A
+    // setTimeout(Infinity) would overflow to 1ms and misreport the verdict.
+    if (!Number.isFinite(remaining)) return await startedJob;
     let timer: ReturnType<typeof setTimeout> | undefined;
     try {
       return await Promise.race([
