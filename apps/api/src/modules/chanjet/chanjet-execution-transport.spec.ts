@@ -835,12 +835,9 @@ database('execution transport wiring (real PG18 admission + local HTTP fixture, 
       let lastError: Error | undefined;
       await gateway.send(context, 'BUSINESS', async () => { httpAttempts += 1; return {}; }).catch((e) => { lastError = e; });
       const elapsed = Date.now() - started;
-      // deadline 150ms + 300ms scheduling tolerance (explicitly NOT a
-      // pool-release-point or 800ms acceptance)
-      // acceptance budget: deadline 150 + approved 300ms finalization window
-      // + 50ms scheduling slack — explicitly NOT a pool-release acceptance
-      // (the blocking pool connection frees at ~900ms, long after this)
-      expect(elapsed).toBeLessThan(500);
+      // the public call ends at the ORIGINAL absolute deadline — no runtime
+      // grace window, no pool-release-point acceptance
+      expect(elapsed).toBeLessThan(400);
       expect(httpAttempts).toBe(0);
       expect(String(lastError?.message ?? lastError)).toMatch(/CHANJET_EXECUTION_(DEADLINE|HOLD_UNCONFIRMED|RESERVE_UNAVAILABLE)/);
       void occupier;
@@ -946,9 +943,13 @@ database('execution transport wiring (real PG18 admission + local HTTP fixture, 
       // at throw time the hold was UNCONFIRMED (accurate for the caller);
       // the standalone guard write then persisted it late-but-bounded
       // (queued behind the 600ms occupier, well under the 2s statement cap)
+      // accurate post-state: the hold was UNCONFIRMED and the guard write
+      // itself expired-aborted (aborts before ANY statement once expired), so
+      // the row stays in its live phase — the execution is dead (deadline
+      // passed) and a later interaction records the DEADLINE hold; no late
+      // write occurred (receipt still RESERVED)
       const admissionRow = await storeDs.query('SELECT phase, hold_reason FROM chanjet_execution_admissions WHERE execution_id=$1', [m.executionId]);
-      expect(admissionRow[0].phase).toBe('HOLD');
-      expect(admissionRow[0].hold_reason).toBe('DEADLINE');
+      expect(admissionRow[0].phase).toBe('PROBING');
       // fresh execution recovers on the freed pool
       const recovered = await registered(3);
       const recoveredContext = { ...await beginProbeOn(recovered, localStore), deadlineAt: deadlineIn(5_000) };

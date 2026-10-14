@@ -106,11 +106,21 @@ export class ChanjetExecutionHttpGateway {
     if (this.stopped) throw new Error(`CHANJET_EXECUTION_STOPPED:${this.stopReason}`);
   }
 
-  private pendingFinalizations: Promise<unknown>[] = [];
+  /**
+   * The single hold-write job. Started EXACTLY ONCE by the first terminal
+   * failure (reserve/acknowledge/revalidation); every error branch and the
+   * deadline race share this same promise. The deadline race ONLY decides
+   * what the caller receives (CONFIRMED = the hold row was durably written
+   * before the deadline; UNCONFIRMED = the caller returned at the deadline
+   * while the guard write is still completing in the background, bounded by
+   * its statement constant — never re-fired, never duplicated).
+   */
+  private holdJob: Promise<'CONFIRMED' | 'UNCONFIRMED'> | undefined;
 
-  /** Test/diagnostic hook: resolves when every background finalization settled. */
-  async settled(): Promise<void> {
-    await Promise.allSettled(this.pendingFinalizations);
+  /** Test/diagnostic hook: awaits the REAL original hold job and reports its result. */
+  async settled(): Promise<'CONFIRMED' | 'UNCONFIRMED' | 'NOT_STARTED'> {
+    if (!this.holdJob) return 'NOT_STARTED';
+    return this.holdJob;
   }
 
   /**
@@ -127,29 +137,59 @@ export class ChanjetExecutionHttpGateway {
    * The holdExecution guard statement is deliberately exempt from the
    * execution deadline so the stop stays persistable after expiry.
    */
-  private async persistStop(context: ExecutionContext, reason: 'TRANSPORT_FAILURE' | 'CANCELLED' | 'ACK_UNVERIFIED' | 'RESERVE_UNVERIFIED' | 'DEADLINE'): Promise<'CONFIRMED' | 'UNCONFIRMED'> {
+  /**
+   * Starts the single hold job (idempotent). The job runs the guard write
+   * WITHOUT a programmatic grace window; the deadline race below only decides
+   * what the CALLER observes at the absolute deadline — the real write keeps
+   * running (bounded by the guard's statement constant) and its result is
+   * reported through settled().
+   */
+  private startHold(context: ExecutionContext, reason: 'TRANSPORT_FAILURE' | 'CANCELLED' | 'ACK_UNVERIFIED' | 'RESERVE_UNVERIFIED' | 'DEADLINE'): Promise<'CONFIRMED' | 'UNCONFIRMED'> {
+    if (this.holdJob) return this.holdJob;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const job = (async () => {
+      const deadlineAt = context.deadlineAt instanceof Date ? context.deadlineAt : undefined;
+      try {
+        if (deadlineAt) {
+          return await Promise.race([
+            // store errors (timeout, drift, wrapper ambiguity) resolve as
+            // UNCONFIRMED — the write may or may not have committed, and the
+            // caller must never treat that as a confirmed hold
+            this.store.holdExecution(context, reason).then(() => 'CONFIRMED' as const)
+              .catch(() => 'UNCONFIRMED' as const),
+            new Promise<'UNCONFIRMED'>((resolve) => {
+              timer = setTimeout(() => resolve('UNCONFIRMED'), Math.max(1, deadlineAt.getTime() - Date.now()));
+            }),
+          ]);
+        }
+        return await this.store.holdExecution(context, reason).then(() => 'CONFIRMED' as const)
+          .catch(() => 'UNCONFIRMED' as const);
+      } finally {
+        clearTimeout(timer);
+      }
+    })();
+    this.holdJob = job;
+    return job;
+  }
+
+  /** Deadline race over the shared hold job: decides only the caller's verdict. */
+  private async raceHold(context: ExecutionContext, reason: 'TRANSPORT_FAILURE' | 'CANCELLED' | 'ACK_UNVERIFIED' | 'RESERVE_UNVERIFIED' | 'DEADLINE'): Promise<'CONFIRMED' | 'UNCONFIRMED'> {
+    const deadlineAt = context.deadlineAt instanceof Date ? context.deadlineAt : undefined;
+    if (!deadlineAt) return this.startHold(context, reason);
+    const startedJob = this.startHold(context, reason);
+    const remaining = deadlineAt.getTime() - Date.now();
+    if (remaining <= 0) return 'UNCONFIRMED';
     let timer: ReturnType<typeof setTimeout> | undefined;
     try {
-      const outcome = await Promise.race([
-        this.store.holdExecution(context, reason).then(() => 'CONFIRMED' as const),
+      return await Promise.race([
+        startedJob,
         new Promise<'UNCONFIRMED'>((resolve) => {
-          timer = setTimeout(() => resolve('UNCONFIRMED'), 300);
+          timer = setTimeout(() => resolve('UNCONFIRMED'), remaining);
         }),
       ]);
-      return outcome;
-    } catch {
-      return 'UNCONFIRMED';
     } finally {
       clearTimeout(timer);
     }
-  }
-
-  /** Fire-and-forget bounded completion of an unconfirmed hold write. */
-  private backgroundPersistStop(context: ExecutionContext, reason: 'TRANSPORT_FAILURE' | 'CANCELLED' | 'ACK_UNVERIFIED' | 'RESERVE_UNVERIFIED' | 'DEADLINE'): void {
-    const pending = this.store.holdExecution(context, reason)
-      .catch(() => undefined)
-      .then(() => { this.pendingFinalizations = this.pendingFinalizations.filter((p) => p !== pending); });
-    this.pendingFinalizations.push(pending);
   }
 
   private stop(reason: string): void {
@@ -175,9 +215,8 @@ export class ChanjetExecutionHttpGateway {
       // build on an unverifiable state. The whole finalization is deadline-
       // bound: an unconfirmable hold surfaces as HOLD_UNCONFIRMED.
       this.stop('RESERVE_HOLD');
-      const holdState = await this.persistStop(context, 'RESERVE_UNVERIFIED');
+      const holdState = await this.raceHold(context, 'RESERVE_UNVERIFIED');
       if (holdState === 'UNCONFIRMED') {
-        this.backgroundPersistStop(context, 'RESERVE_UNVERIFIED');
         throw Object.assign(new Error('CHANJET_EXECUTION_HOLD_UNCONFIRMED'), { cause: error });
       }
       throw error;
@@ -198,7 +237,7 @@ export class ChanjetExecutionHttpGateway {
       // reservation was already committed): persist the DEADLINE stop so no
       // other gateway can send, then surface the refusal.
       this.stop('DEADLINE_EXHAUSTED_AFTER_RESERVE');
-      const holdState = await this.persistStop(context, 'DEADLINE');
+      const holdState = await this.raceHold(context, 'DEADLINE');
       if (holdState === 'UNCONFIRMED') {
         throw Object.assign(new Error('CHANJET_EXECUTION_HOLD_UNCONFIRMED'), { cause: revalError });
       }
@@ -252,9 +291,8 @@ export class ChanjetExecutionHttpGateway {
       // acknowledgement class. The whole finalization is deadline-bound.
       const deadlinePassed = context.deadlineAt instanceof Date && Date.now() >= context.deadlineAt.getTime();
       const reason = deadlinePassed ? 'DEADLINE' : 'ACK_UNVERIFIED';
-      const holdState = await this.persistStop(context, reason);
+      const holdState = await this.raceHold(context, reason);
       if (holdState === 'UNCONFIRMED') {
-        this.backgroundPersistStop(context, reason);
         throw Object.assign(new Error('CHANJET_EXECUTION_HOLD_UNCONFIRMED'), { cause: ackError });
       }
       throw Object.assign(new Error('CHANJET_EXECUTION_ACK_UNVERIFIED'), { cause: ackError });
@@ -263,9 +301,8 @@ export class ChanjetExecutionHttpGateway {
       // Persist the stop beyond this process: every later send, in any
       // gateway, connection or process, fails closed against the DB.
       this.stop(cancelled ? 'TRANSPORT_CANCELLED' : 'TRANSPORT_FAILURE');
-      const holdState = await this.persistStop(context, cancelled ? 'CANCELLED' : 'TRANSPORT_FAILURE');
+      const holdState = await this.raceHold(context, cancelled ? 'CANCELLED' : 'TRANSPORT_FAILURE');
       if (holdState === 'UNCONFIRMED') {
-        this.backgroundPersistStop(context, cancelled ? 'CANCELLED' : 'TRANSPORT_FAILURE');
         throw Object.assign(new Error('CHANJET_EXECUTION_HOLD_UNCONFIRMED'), { cause: error });
       }
     }

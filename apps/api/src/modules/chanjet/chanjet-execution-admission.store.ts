@@ -232,13 +232,34 @@ export class ChanjetExecutionAdmissionStore {
     // has passed — exactly the state an expired execution must be able to
     // record. No callback/business SQL is reachable here.
     if (this.standalone) {
-      // Guard write on the dedicated standalone executor: no business-pool
-      // queueing, no deadline binding (guard exemption), no other SQL reachable.
-      const executionId = validateExecutionManifest(context.manifest).manifest.executionId;
-      const existing = await this.standalone.query('SELECT phase FROM chanjet_execution_admissions WHERE execution_id=$1', [executionId]) as Array<{ phase: string }>;
-      if (existing[0]?.phase === 'HOLD' || existing[0]?.phase === 'VERIFIED') return;
-      await this.standalone.query(`UPDATE chanjet_execution_admissions SET phase='HOLD',lease_id='',hold_reason=$2 WHERE execution_id=$1`, [executionId,reason]);
-      return;
+      // Guard write on the dedicated standalone executor: ONE atomic
+      // statement whose WHERE clause carries the FULL registration binding
+      // (execution, owner, approval, floor, canonical manifest, digest) and
+      // excludes terminal phases. A wrong tuple updates zero rows and is
+      // classified by a follow-up read — a valid execution is never changed.
+      const binding = validateExecutionManifest(context.manifest);
+      const m = binding.manifest;
+      const updated = await this.standalone.query(
+        `UPDATE chanjet_execution_admissions
+         SET phase='HOLD', lease_id='', hold_reason=$6
+         WHERE execution_id=$1 AND owner_id=$2 AND approval_id=$3 AND floor_sha=$4
+           AND canonical_manifest=$5 AND manifest_digest=$6
+           AND phase IN ('REGISTERED','PROBING','PROBED','SYNCING')
+         RETURNING execution_id`,
+        [m.executionId, m.ownerId, m.approval.approvalId, m.approval.floorSha, binding.canonical, reason, binding.digest],
+      ) as Array<{ execution_id: string }>;
+      if (updated.length === 1) return; // confirmed: exactly one row changed
+      if (updated.length > 1) admissionHold(); // cannot happen (pkey)
+      // zero rows: classify atomically by reading the current row state
+      const existing = await this.standalone.query(
+        'SELECT phase, hold_reason, owner_id, approval_id, floor_sha, canonical_manifest, manifest_digest FROM chanjet_execution_admissions WHERE execution_id=$1',
+        [m.executionId],
+      ) as Array<{ phase: string; hold_reason: string; owner_id: string; approval_id: string; floor_sha: string; canonical_manifest: string; manifest_digest: string }>;
+      if (!existing.length) admissionHold(); // unregistered execution
+      const r0 = existing[0];
+      if (r0.phase === 'HOLD') return; // already stopped (by this or another attempt)
+      if (r0.phase === 'VERIFIED') return; // verified: no hold needed
+      admissionHold(); // live execution with mismatched binding/identity: must not be changed
     }
     await this.transaction(async tx => {
       const r = await this.lock(tx,context.manifest);
