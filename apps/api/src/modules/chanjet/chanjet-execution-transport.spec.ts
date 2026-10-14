@@ -88,7 +88,7 @@ function httpFixture() {
   };
 }
 
-function createService(fixtureBase: string) {
+function createService(fixtureBase: string, manager?: unknown) {
   const values: Record<string, string> = {
     CHANJET_APP_KEY: 'app-key',
     CHANJET_APP_SECRET: 'app-secret',
@@ -102,9 +102,10 @@ function createService(fixtureBase: string) {
   };
   process.env.CHANJET_PROVIDER_BASE_URL = fixtureBase;
   process.env.CHANJET_MIN_REQUEST_INTERVAL_MS = '100';
+  const stateRepoWithManager = manager ? { ...stateRepo, manager } : stateRepo;
   const service = new ChanjetAuthService(
     { get: jest.fn((key: string, fallback = '') => values[key] ?? fallback) } as never,
-    stateRepo as never,
+    stateRepoWithManager as never,
     { ok: jest.fn(), fail: jest.fn() } as never,
   );
   // onModuleInit would schedule background bootstrapping; seed the fields the
@@ -291,7 +292,7 @@ database('execution transport wiring (real PG18 admission + local HTTP fixture, 
       transaction: async (callback: (tx: { query: (sql: string, params?: unknown[]) => Promise<unknown[]> }) => Promise<unknown>) => { await ds.manager.transaction(callback); throw Error('commit outcome unknown'); },
     } as never);
     await expect(new ChanjetExecutionHttpGateway(ambiguous, m).send(context, 'BUSINESS', businessSend('/business')))
-      .rejects.toThrow('CHANJET_ADMISSION_HOLD');
+      .rejects.toThrow('CHANJET_EXECUTION_HOLD_UNCONFIRMED');
     expect(hitsByUrl('/business')).toHaveLength(0);
     expect(await receipts(m.executionId)).toEqual([
       { ordinal: 1, phase: 'PROBING', lease_id: context.leaseId, kind: 'BUSINESS', status: 'RESERVED', result: 'UNSET' },
@@ -307,7 +308,7 @@ database('execution transport wiring (real PG18 admission + local HTTP fixture, 
       { manifest: unregistered, leaseId: 'NO_LEASE', phase: 'PROBING' },
       'BUSINESS',
       businessSend('/business'),
-    )).rejects.toThrow('CHANJET_ADMISSION_HOLD');
+    )).rejects.toThrow('CHANJET_EXECUTION_HOLD_UNCONFIRMED');
     expect(hitsByUrl('/business')).toHaveLength(0);
 
     const stale = await registered();
@@ -317,7 +318,7 @@ database('execution transport wiring (real PG18 admission + local HTTP fixture, 
       { manifest: tampered, leaseId: 'ANY', phase: 'PROBING' },
       'BUSINESS',
       businessSend('/business'),
-    )).rejects.toThrow('CHANJET_ADMISSION_HOLD');
+    )).rejects.toThrow('CHANJET_EXECUTION_HOLD_UNCONFIRMED');
     expect(hitsByUrl('/business')).toHaveLength(0);
   });
 
@@ -805,6 +806,156 @@ database('execution transport wiring (real PG18 admission + local HTTP fixture, 
       await expect(service.callApi('/early', { method: 'POST', body: {} })).rejects.toThrow('CHANJET_EXECUTION_DEADLINE');
     });
     expect(hitsByUrl('/early')).toHaveLength(0);
+  });
+
+  // ── review round 3: max=1 pool occupation over the WHOLE public call ──
+  async function saturateAndCleanup(storeDs: DataSource, body: (localStore: ChanjetExecutionAdmissionStore) => Promise<void>) {
+    try {
+      const localStore = new ChanjetExecutionAdmissionStore(storeDs.manager);
+      await body(localStore);
+    } finally {
+      await new Promise((resolve) => setTimeout(resolve, 60));
+      await storeDs.destroy();
+    }
+  }
+  const deadlineIn = (ms: number) => new Date(Date.now() + ms);
+
+  it('pool-saturated full gateway.send ends by the deadline with zero HTTP and preserves the receipt', async () => {
+    resetHits();
+    const m = await registered(3);
+    fixture.setRoutes({ '/final': { body: { code: '200' } } });
+    const storeDs = new DataSource({ type: 'postgres', url: fixtureUrl, poolSize: 1, logging: false });
+    await storeDs.initialize();
+    await saturateAndCleanup(storeDs, async (localStore) => {
+      const context = { ...await beginProbeOn(m, localStore), deadlineAt: deadlineIn(150) };
+      let httpAttempts = 0;
+      const occupier = storeDs.query('SELECT pg_sleep(0.9) AS slept');
+      const gateway = new ChanjetExecutionHttpGateway(localStore, m);
+      const started = Date.now();
+      let lastError: Error | undefined;
+      await gateway.send(context, 'BUSINESS', async () => { httpAttempts += 1; return {}; }).catch((e) => { lastError = e; });
+      const elapsed = Date.now() - started;
+      // deadline 150ms + 300ms scheduling tolerance (explicitly NOT a
+      // pool-release-point or 800ms acceptance)
+      // acceptance budget: deadline 150 + approved 300ms finalization window
+      // + 50ms scheduling slack — explicitly NOT a pool-release acceptance
+      // (the blocking pool connection frees at ~900ms, long after this)
+      expect(elapsed).toBeLessThan(500);
+      expect(httpAttempts).toBe(0);
+      expect(String(lastError?.message ?? lastError)).toMatch(/CHANJET_EXECUTION_(DEADLINE|HOLD_UNCONFIRMED|RESERVE_UNAVAILABLE)/);
+      void occupier;
+      await occupier;
+      await new Promise((resolve) => setTimeout(resolve, 60));
+      // no late insert after the pool freed: reservation never committed
+      const rows = await storeDs.query('SELECT status, result FROM chanjet_execution_requests WHERE execution_id=$1', [m.executionId]);
+      expect(rows).toEqual([]);
+      // new execution recovers on the freed pool
+      const recovered = await registered(3);
+      const recoveredContext = { ...await beginProbeOn(recovered, localStore), deadlineAt: deadlineIn(5_000) };
+      const recoveredGateway = new ChanjetExecutionHttpGateway(localStore, recovered);
+      const ok = await recoveredGateway.send(recoveredContext, 'BUSINESS', async (signal: AbortSignal) => (await fetch(`${fixture.endpoint()}/final`, { signal })).json());
+      expect(ok.outcome).toBe('OK');
+    });
+  });
+
+  it('pool-saturated auth.callApi budget path ends by the deadline with zero HTTP and zero budget writes', async () => {
+    resetHits();
+    const m = await registered(3);
+    fixture.setRoutes({
+      '/v1/common/auth/selfBuiltApp/generateToken': { body: { value: { accessToken: `tok-${randomUUID().slice(0, 6)}`, expiresIn: 7200 } } },
+      '/budget-final': { body: { code: '200', value: [] } },
+    });
+    const storeDs = new DataSource({ type: 'postgres', url: fixtureUrl, poolSize: 1, logging: false });
+    await storeDs.initialize();
+    // disposable test-local budget table (same shape the service expects)
+    await storeDs.query(`CREATE TABLE IF NOT EXISTS sys_chanjet_api_budget (
+      budget_key varchar(64) PRIMARY KEY,
+      request_count integer NOT NULL DEFAULT 0,
+      updated_at timestamptz NOT NULL DEFAULT NOW())`);
+    await storeDs.query('DELETE FROM sys_chanjet_api_budget');
+    await saturateAndCleanup(storeDs, async (localStore) => {
+      const service = createService(fixture.endpoint(), storeDs.manager);
+      const context = { ...await beginProbeOn(m, localStore), deadlineAt: deadlineIn(150) };
+      const scopeState: ExecutionScopeState = { manifest: m, store: localStore, gateway: new ChanjetExecutionHttpGateway(localStore, m), transport: transportOps(), current: context, deadlineAt: deadlineIn(150) };
+      let httpAttempts = 0;
+      const occupier = storeDs.query('SELECT pg_sleep(0.9) AS slept');
+      const started = Date.now();
+      await withExecutionScope(scopeState, async () => {
+        await expect(service.callApi('/budget-final', { method: 'POST', body: {} })).rejects.toThrow(/CHANJET_EXECUTION_(DEADLINE|HOLD_UNCONFIRMED)/);
+      });
+      const elapsed = Date.now() - started;
+      // acceptance budget: deadline 150 + approved 300ms finalization window
+      // + 50ms scheduling slack — explicitly NOT a pool-release acceptance
+      // (the blocking pool connection frees at ~900ms, long after this)
+      expect(elapsed).toBeLessThan(500);
+      expect(httpAttempts).toBe(0);
+      void occupier;
+      await occupier;
+      await new Promise((resolve) => setTimeout(resolve, 60));
+      const budgetRows = await storeDs.query('SELECT count(*)::int AS n FROM sys_chanjet_api_budget');
+      expect(budgetRows[0].n).toBe(0);
+      // legacy (non-execution) path recovers once the pool frees
+      const legacy = await service.callApi('/budget-final', { method: 'POST', body: {} });
+      expect(legacy).toMatchObject({ code: '200' });
+    });
+  });
+
+  it('pool-saturated ack failure finalizes as HOLD_UNCONFIRMED by the deadline and stays stopped', async () => {
+    resetHits();
+    const m = await registered(3);
+    fixture.setRoutes({ '/final': { body: { code: '200' } } });
+    const storeDs = new DataSource({ type: 'postgres', url: fixtureUrl, poolSize: 1, logging: false });
+    await storeDs.initialize();
+    try {
+      const localStore = new ChanjetExecutionAdmissionStore(storeDs.manager);
+      localStore.setStandaloneExecutor({ query: (sql, params) => storeDs.query(sql, params) });
+      const context = { ...await beginProbeOn(m, localStore), deadlineAt: deadlineIn(150) };
+      const reserved = await localStore.reserve(context, 'BUSINESS');
+      const gateway = new ChanjetExecutionHttpGateway(localStore, m, {
+        standaloneExecutor: { query: (sql, params) => storeDs.query(sql, params) },
+      });
+      let httpAttempts = 0;
+      let occupier: Promise<unknown> | undefined;
+      const started = Date.now();
+      await expect(gateway.send(context, 'BUSINESS', async (signal: AbortSignal) => {
+        // deterministic ack-time saturation: hold the pool's only client from
+        // inside the op, so the exchange succeeds but the acknowledgement
+        // blocks on pool acquisition until past the deadline
+        occupier = storeDs.query('SELECT pg_sleep(0.6) AS slept');
+        httpAttempts += 1;
+        return (await fetch(`${fixture.endpoint()}/final`, { signal })).json();
+      }))
+        .rejects.toThrow(/CHANJET_EXECUTION_(HOLD_UNCONFIRMED|ACK_UNVERIFIED)/);
+      const elapsed = Date.now() - started;
+      // acceptance: deadline 150 + approved 300ms finalization window + slack —
+      // explicitly NOT a pool-release-point acceptance
+      expect(elapsed).toBeLessThan(500);
+      expect(httpAttempts).toBe(1);
+      // gateway stays stopped
+      await expect(gateway.send(context, 'BUSINESS', async () => { httpAttempts += 1; return {}; })).rejects.toThrow('CHANJET_EXECUTION_STOPPED');
+      expect(httpAttempts).toBe(1);
+      // the acknowledgement rolled back: no late commit — BOTH receipts (the
+      // setup reservation and the gateway's own counted send) stay
+      // RESERVED/UNSET as surviving evidence
+      await new Promise((resolve) => setTimeout(resolve, 80));
+      const rows = await storeDs.query('SELECT status, result FROM chanjet_execution_requests WHERE execution_id=$1', [m.executionId]);
+      expect(rows).toEqual([
+        { status: 'RESERVED', result: 'UNSET' },
+        { status: 'RESERVED', result: 'UNSET' },
+      ]);
+      // at throw time the hold was UNCONFIRMED (accurate for the caller);
+      // the standalone guard write then persisted it late-but-bounded
+      // (queued behind the 600ms occupier, well under the 2s statement cap)
+      const admissionRow = await storeDs.query('SELECT phase, hold_reason FROM chanjet_execution_admissions WHERE execution_id=$1', [m.executionId]);
+      expect(admissionRow[0].phase).toBe('HOLD');
+      expect(admissionRow[0].hold_reason).toBe('DEADLINE');
+      // fresh execution recovers on the freed pool
+      const recovered = await registered(3);
+      const recoveredContext = { ...await beginProbeOn(recovered, localStore), deadlineAt: deadlineIn(5_000) };
+      const recoveredGateway = new ChanjetExecutionHttpGateway(localStore, recovered);
+      const recoveredResult = await recoveredGateway.send(recoveredContext, 'BUSINESS', async (signal: AbortSignal) => (await fetch(`${fixture.endpoint()}/final`, { signal })).json());
+      expect(recoveredResult.outcome).toBe('OK');
+    } finally { await storeDs.destroy(); }
   });
 
   it('parallel scopes keep distinct identities and nested throws clean up', async () => {

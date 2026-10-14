@@ -22,7 +22,19 @@ export type ExecutionContext = { manifest: unknown; leaseId: string; phase: Requ
  * only to the exact-SHA root CLI after its FD9/production/mapping/tuple guards.
  * DB constraints preserve bindings under ordinary DML, not a hostile table owner.
  */
+/**
+ * Minimal raw executor for guard-only statements (the stop write). Deliberately
+ * NOT deadline-bound: the stop must stay persistable even after the execution
+ * deadline has passed, and it must not queue behind a saturated business pool.
+ */
+export type StandaloneExecutor = { query(sql: string, parameters?: unknown[]): Promise<unknown[]> };
+
 export class ChanjetExecutionAdmissionStore {
+  private standalone: StandaloneExecutor | undefined;
+  /** Controlled DB entry: registers the guard-write executor. */
+  setStandaloneExecutor(executor: StandaloneExecutor): void {
+    this.standalone = executor;
+  }
   /**
    * Absolute-deadline DB access. Three distinct bounds are maintained:
    *   1. per-SQL budget: recomputed as the REMAINING execution budget before
@@ -214,6 +226,20 @@ export class ChanjetExecutionAdmissionStore {
    */
   async holdExecution(context: ExecutionContext, reason: 'TRANSPORT_FAILURE' | 'CANCELLED' | 'ACK_UNVERIFIED' | 'RESERVE_UNVERIFIED' | 'DEADLINE'): Promise<void> {
     if (!/^[A-Z][A-Z0-9_]{0,47}$/.test(reason)) admissionHold();
+    // Guard-statement exemption: the hold UPDATE deliberately runs WITHOUT
+    // the execution-deadline binding (bounded only by the conservative
+    // statement constant) so a stop stays persistable even after the deadline
+    // has passed — exactly the state an expired execution must be able to
+    // record. No callback/business SQL is reachable here.
+    if (this.standalone) {
+      // Guard write on the dedicated standalone executor: no business-pool
+      // queueing, no deadline binding (guard exemption), no other SQL reachable.
+      const executionId = validateExecutionManifest(context.manifest).manifest.executionId;
+      const existing = await this.standalone.query('SELECT phase FROM chanjet_execution_admissions WHERE execution_id=$1', [executionId]) as Array<{ phase: string }>;
+      if (existing[0]?.phase === 'HOLD' || existing[0]?.phase === 'VERIFIED') return;
+      await this.standalone.query(`UPDATE chanjet_execution_admissions SET phase='HOLD',lease_id='',hold_reason=$2 WHERE execution_id=$1`, [executionId,reason]);
+      return;
+    }
     await this.transaction(async tx => {
       const r = await this.lock(tx,context.manifest);
       if (r.phase === 'HOLD' || r.phase === 'VERIFIED') return;

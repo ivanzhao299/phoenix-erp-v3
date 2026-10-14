@@ -737,15 +737,32 @@ export class ChanjetAuthService implements OnModuleInit {
       }
     };
 
-    await manager.transaction(async (tx) => {
-      await reserve(tx, monthKey, monthLimit);
-      await reserve(tx, dayKey, dayLimit);
-      if (kind === 'READ') {
-        await reserve(tx, readKey, readLimit);
-      } else {
-        await reserve(tx, writeKey, writeLimit);
-      }
-    });
+    // Absolute-deadline race over the WHOLE budget transaction (pool
+    // acquisition included): the caller returns on time; a late-acquired
+    // transaction hits the expired check as its FIRST statement and rolls
+    // back — no late budget write, no dangling client work.
+    let budgetTimer: NodeJS.Timeout | undefined;
+    try {
+      await Promise.race([
+        manager.transaction(async (tx) => {
+          if (deadlineAt && Date.now() >= deadlineAt.getTime()) throw new Error('CHANJET_EXECUTION_DEADLINE');
+          await reserve(tx, monthKey, monthLimit);
+          await reserve(tx, dayKey, dayLimit);
+          if (kind === 'READ') {
+            await reserve(tx, readKey, readLimit);
+          } else {
+            await reserve(tx, writeKey, writeLimit);
+          }
+        }),
+        ...(deadlineAt
+          ? [new Promise<never>((_, reject) => {
+              budgetTimer = setTimeout(() => reject(new Error('CHANJET_EXECUTION_DEADLINE')), Math.max(1, deadlineAt.getTime() - Date.now()));
+            })]
+          : []),
+      ]);
+    } finally {
+      if (budgetTimer) clearTimeout(budgetTimer);
+    }
   }
 
   private positiveInt(key: string, fallback: number): number {
