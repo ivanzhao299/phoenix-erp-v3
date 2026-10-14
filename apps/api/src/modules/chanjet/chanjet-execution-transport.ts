@@ -116,6 +116,8 @@ export class ChanjetExecutionHttpGateway {
    * its statement constant — never re-fired, never duplicated).
    */
   private holdJob: Promise<'CONFIRMED' | 'UNCONFIRMED'> | undefined;
+  /** Number of hold-write attempts actually started (always 0 or 1). */
+  holdAttempts = 0;
 
   /** Test/diagnostic hook: awaits the REAL original hold job and reports its result. */
   async settled(): Promise<'CONFIRMED' | 'UNCONFIRMED' | 'NOT_STARTED'> {
@@ -124,60 +126,28 @@ export class ChanjetExecutionHttpGateway {
   }
 
   /**
-   * Persist the terminal stop within a bounded finalization window (300ms on
-   * top of the execution deadline — the approved scheduling tolerance; no
-   * cleanup grace beyond it). Outcomes:
-   *   CONFIRMED   — the hold row is durably written.
-   *   UNCONFIRMED — the window closed first (e.g. pool saturated): the caller
-   *                 must surface HOLD_UNCONFIRMED. The write continues in the
-   *                 BACKGROUND with a bounded statement budget and, being a
-   *                 guard-only UPDATE (no business SQL), commits as soon as a
-   *                 connection frees; failures are swallowed and the in-memory
-   *                 stop already prevents any further send from this gateway.
-   * The holdExecution guard statement is deliberately exempt from the
-   * execution deadline so the stop stays persistable after expiry.
-   */
-  /**
-   * Starts the single hold job (idempotent). The job runs the guard write
-   * WITHOUT a programmatic grace window; the deadline race below only decides
-   * what the CALLER observes at the absolute deadline — the real write keeps
-   * running (bounded by the guard's statement constant) and its result is
-   * reported through settled().
+   * Starts the single hold-write job (idempotent; counted in holdAttempts).
+   * Contains NO deadline race: the job runs the guard write to its real
+   * completion and classifies the ACTUAL result — CONFIRMED only when the
+   * write really completed, UNCONFIRMED when it failed or was superseded.
    */
   private startHold(context: ExecutionContext, reason: 'TRANSPORT_FAILURE' | 'CANCELLED' | 'ACK_UNVERIFIED' | 'RESERVE_UNVERIFIED' | 'DEADLINE'): Promise<'CONFIRMED' | 'UNCONFIRMED'> {
     if (this.holdJob) return this.holdJob;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const job = (async () => {
-      const deadlineAt = context.deadlineAt instanceof Date ? context.deadlineAt : undefined;
-      try {
-        if (deadlineAt) {
-          return await Promise.race([
-            // store errors (timeout, drift, wrapper ambiguity) resolve as
-            // UNCONFIRMED — the write may or may not have committed, and the
-            // caller must never treat that as a confirmed hold
-            this.store.holdExecution(context, reason).then(() => 'CONFIRMED' as const)
-              .catch(() => 'UNCONFIRMED' as const),
-            new Promise<'UNCONFIRMED'>((resolve) => {
-              timer = setTimeout(() => resolve('UNCONFIRMED'), Math.max(1, deadlineAt.getTime() - Date.now()));
-            }),
-          ]);
-        }
-        return await this.store.holdExecution(context, reason).then(() => 'CONFIRMED' as const)
-          .catch(() => 'UNCONFIRMED' as const);
-      } finally {
-        clearTimeout(timer);
-      }
-    })();
-    this.holdJob = job;
-    return job;
+    this.holdAttempts += 1;
+    this.holdJob = this.store.holdExecution(context, reason)
+      .then((result) => (result === 'CONFIRMED' || result === 'ALREADY_STOPPED' || result === 'NO_HOLD_NEEDED' ? 'CONFIRMED' as const : 'UNCONFIRMED' as const))
+      .catch(() => 'UNCONFIRMED' as const);
+    return this.holdJob;
   }
 
   /** Deadline race over the shared hold job: decides only the caller's verdict. */
   private async raceHold(context: ExecutionContext, reason: 'TRANSPORT_FAILURE' | 'CANCELLED' | 'ACK_UNVERIFIED' | 'RESERVE_UNVERIFIED' | 'DEADLINE'): Promise<'CONFIRMED' | 'UNCONFIRMED'> {
     const deadlineAt = context.deadlineAt instanceof Date ? context.deadlineAt : undefined;
-    if (!deadlineAt) return this.startHold(context, reason);
+    // the write is started EXACTLY ONCE even when the deadline has already
+    // passed — the caller just gets UNCONFIRMED immediately while the real
+    // job keeps running to its actual completion
     const startedJob = this.startHold(context, reason);
-    const remaining = deadlineAt.getTime() - Date.now();
+    const remaining = deadlineAt ? deadlineAt.getTime() - Date.now() : Number.POSITIVE_INFINITY;
     if (remaining <= 0) return 'UNCONFIRMED';
     let timer: ReturnType<typeof setTimeout> | undefined;
     try {
@@ -215,10 +185,9 @@ export class ChanjetExecutionHttpGateway {
       // build on an unverifiable state. The whole finalization is deadline-
       // bound: an unconfirmable hold surfaces as HOLD_UNCONFIRMED.
       this.stop('RESERVE_HOLD');
-      const holdState = await this.raceHold(context, 'RESERVE_UNVERIFIED');
-      if (holdState === 'UNCONFIRMED') {
-        throw Object.assign(new Error('CHANJET_EXECUTION_HOLD_UNCONFIRMED'), { cause: error });
-      }
+      // The hold outcome (CONFIRMED/UNCONFIRMED) is reported through settled();
+      // the public call surfaces the original reserve refusal either way.
+      await this.raceHold(context, 'RESERVE_UNVERIFIED');
       throw error;
     }
     if (!reservation || typeof reservation.ticket !== 'string' || !(reservation.deadlineAt instanceof Date)) {
@@ -291,20 +260,18 @@ export class ChanjetExecutionHttpGateway {
       // acknowledgement class. The whole finalization is deadline-bound.
       const deadlinePassed = context.deadlineAt instanceof Date && Date.now() >= context.deadlineAt.getTime();
       const reason = deadlinePassed ? 'DEADLINE' : 'ACK_UNVERIFIED';
-      const holdState = await this.raceHold(context, reason);
-      if (holdState === 'UNCONFIRMED') {
-        throw Object.assign(new Error('CHANJET_EXECUTION_HOLD_UNCONFIRMED'), { cause: ackError });
-      }
+      // The hold outcome is reported through settled(); the public call
+      // surfaces the ack refusal (accurate at return time) either way.
+      await this.raceHold(context, reason);
       throw Object.assign(new Error('CHANJET_EXECUTION_ACK_UNVERIFIED'), { cause: ackError });
     }
     if (cancelled || outcome === 'TRANSPORT_FAILURE') {
       // Persist the stop beyond this process: every later send, in any
       // gateway, connection or process, fails closed against the DB.
       this.stop(cancelled ? 'TRANSPORT_CANCELLED' : 'TRANSPORT_FAILURE');
-      const holdState = await this.raceHold(context, cancelled ? 'CANCELLED' : 'TRANSPORT_FAILURE');
-      if (holdState === 'UNCONFIRMED') {
-        throw Object.assign(new Error('CHANJET_EXECUTION_HOLD_UNCONFIRMED'), { cause: error });
-      }
+      // The hold outcome is reported through settled(); the public call keeps
+      // the typed transport-failure result either way.
+      await this.raceHold(context, cancelled ? 'CANCELLED' : 'TRANSPORT_FAILURE');
     }
     return { outcome, value, error, ticket: reservation.ticket, ordinal: reservation.ordinal, effectiveDeadlineMs, cancelled };
   }

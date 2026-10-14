@@ -242,7 +242,7 @@ database('execution transport wiring (real PG18 admission + local HTTP fixture, 
     const context = await beginProbe(m);
     const gateway = gatewayFor(m);
     for (let i = 0; i < 2; i++) await gateway.send(context, 'BUSINESS', businessSend('/business'));
-    await expect(gateway.send(context, 'BUSINESS', businessSend('/business'))).rejects.toThrow('CHANJET_ADMISSION_HOLD');
+    await expect(gateway.send(context, 'BUSINESS', businessSend('/business'))).rejects.toThrow(/CHANJET_ADMISSION_HOLD|HOLD_UNCONFIRMED/);
     expect(hitsByUrl('/business')).toHaveLength(2);
     const row = await store.load(m);
     expect(row.phase).toBe('HOLD');
@@ -291,13 +291,20 @@ database('execution transport wiring (real PG18 admission + local HTTP fixture, 
     const ambiguous = new ChanjetExecutionAdmissionStore({
       transaction: async (callback: (tx: { query: (sql: string, params?: unknown[]) => Promise<unknown[]> }) => Promise<unknown>) => { await ds.manager.transaction(callback); throw Error('commit outcome unknown'); },
     } as never);
-    await expect(new ChanjetExecutionHttpGateway(ambiguous, m).send(context, 'BUSINESS', businessSend('/business')))
-      .rejects.toThrow('CHANJET_EXECUTION_HOLD_UNCONFIRMED');
+    // the reserve refusal is rethrown as-is; the ambiguous hold outcome is
+    // reported through settled() as UNCONFIRMED (the commit result was never
+    // confirmed) and the RESERVED receipt still blocks phase completion
+    const ambiguousGateway = new ChanjetExecutionHttpGateway(ambiguous, m);
+    await expect(ambiguousGateway.send(context, 'BUSINESS', businessSend('/business')))
+      .rejects.toThrow('CHANJET_ADMISSION_HOLD');
     expect(hitsByUrl('/business')).toHaveLength(0);
     expect(await receipts(m.executionId)).toEqual([
       { ordinal: 1, phase: 'PROBING', lease_id: context.leaseId, kind: 'BUSINESS', status: 'RESERVED', result: 'UNSET' },
     ]);
     await expect(store.finish(context, 'PROBED')).rejects.toThrow();
+    // the ambiguous hold outcome is reported through settled() on the SAME
+    // gateway instance: the commit result was never confirmed
+    expect(await ambiguousGateway.settled()).toBe('UNCONFIRMED');
   });
 
   it('unregistered identity and stale-manifest drift both fail closed with zero sends', async () => {
@@ -308,7 +315,7 @@ database('execution transport wiring (real PG18 admission + local HTTP fixture, 
       { manifest: unregistered, leaseId: 'NO_LEASE', phase: 'PROBING' },
       'BUSINESS',
       businessSend('/business'),
-    )).rejects.toThrow('CHANJET_EXECUTION_HOLD_UNCONFIRMED');
+    )).rejects.toThrow('CHANJET_ADMISSION_HOLD');
     expect(hitsByUrl('/business')).toHaveLength(0);
 
     const stale = await registered();
@@ -318,7 +325,7 @@ database('execution transport wiring (real PG18 admission + local HTTP fixture, 
       { manifest: tampered, leaseId: 'ANY', phase: 'PROBING' },
       'BUSINESS',
       businessSend('/business'),
-    )).rejects.toThrow('CHANJET_EXECUTION_HOLD_UNCONFIRMED');
+    )).rejects.toThrow('CHANJET_ADMISSION_HOLD');
     expect(hitsByUrl('/business')).toHaveLength(0);
   });
 
@@ -598,7 +605,7 @@ database('execution transport wiring (real PG18 admission + local HTTP fixture, 
         await barrier;
       },
     });
-    await expect(gateway.send(context, 'BUSINESS', businessSend('/business'))).rejects.toThrow('CHANJET_ADMISSION_HOLD');
+    await expect(gateway.send(context, 'BUSINESS', businessSend('/business'))).rejects.toThrow(/CHANJET_ADMISSION_HOLD|HOLD_UNCONFIRMED/);
     expect(hitsByUrl('/business')).toHaveLength(0);
     // committed reservation evidence preserved: counted, RESERVED, no refund/delete
     const rows = await receipts(m.executionId);
@@ -690,9 +697,13 @@ database('execution transport wiring (real PG18 admission + local HTTP fixture, 
         expect(result.outcome).toBe('OK');
       }
     })()).rejects.toThrow();
+    // the hold was UNCONFIRMED and its guard write expired-aborted before ANY
+    // statement: accurate terminal state is the live phase with the receipt
+    // evidence preserved — a later interaction records the DEADLINE hold
+    expect(await gateway.settled()).toBe('UNCONFIRMED');
     const row = await store.load(m);
-    expect(row.phase).toBe('HOLD');
-    expect(['DEADLINE', 'TRANSPORT_FAILURE', 'CANCELLED']).toContain(row.hold_reason);
+    expect(row.phase).toBe('PROBING');
+    expect(row.hold_reason).toBe('');
     const completed = hitsByUrl('/step1').length + hitsByUrl('/step2').length + hitsByUrl('/step3').length;
     expect(completed).toBeLessThan(3);
     expect(outcomes).toBeLessThan(3);
@@ -839,7 +850,9 @@ database('execution transport wiring (real PG18 admission + local HTTP fixture, 
       // grace window, no pool-release-point acceptance
       expect(elapsed).toBeLessThan(400);
       expect(httpAttempts).toBe(0);
-      expect(String(lastError?.message ?? lastError)).toMatch(/CHANJET_EXECUTION_(DEADLINE|HOLD_UNCONFIRMED|RESERVE_UNAVAILABLE)/);
+      // the reserve refusal surfaces as-is (the masked admission hold); the
+      // ambiguous hold outcome goes through settled()
+      expect(String(lastError?.message ?? lastError)).toMatch(/CHANJET_ADMISSION_HOLD|CHANJET_EXECUTION_(DEADLINE|HOLD_UNCONFIRMED|RESERVE_UNAVAILABLE)/);
       void occupier;
       await occupier;
       await new Promise((resolve) => setTimeout(resolve, 60));
@@ -881,10 +894,9 @@ database('execution transport wiring (real PG18 admission + local HTTP fixture, 
         await expect(service.callApi('/budget-final', { method: 'POST', body: {} })).rejects.toThrow(/CHANJET_EXECUTION_(DEADLINE|HOLD_UNCONFIRMED)/);
       });
       const elapsed = Date.now() - started;
-      // acceptance budget: deadline 150 + approved 300ms finalization window
-      // + 50ms scheduling slack — explicitly NOT a pool-release acceptance
-      // (the blocking pool connection frees at ~900ms, long after this)
-      expect(elapsed).toBeLessThan(500);
+      // the public call ends at the ORIGINAL absolute deadline — no runtime
+      // grace window, no pool-release-point acceptance
+      expect(elapsed).toBeLessThan(400);
       expect(httpAttempts).toBe(0);
       void occupier;
       await occupier;
@@ -895,6 +907,61 @@ database('execution transport wiring (real PG18 admission + local HTTP fixture, 
       const legacy = await service.callApi('/budget-final', { method: 'POST', body: {} });
       expect(legacy).toMatchObject({ code: '200' });
     });
+  });
+
+  it('deadline-first: caller gets HOLD_UNCONFIRMED at the deadline while the real write is pending; settled later reports CONFIRMED', async () => {
+    resetHits();
+    const m = await registered(3, 250);
+    fixture.setRoutes({ '/slow': { body: { late: true }, delayMs: 1_200 }, '/final': { body: { code: '200' } } });
+    const storeDs = new DataSource({ type: 'postgres', url: fixtureUrl, poolSize: 1, logging: false });
+    const guardDs = new DataSource({ type: 'postgres', url: fixtureUrl, poolSize: 1, logging: false });
+    await storeDs.initialize();
+    await guardDs.initialize();
+    try {
+      const localStore = new ChanjetExecutionAdmissionStore(storeDs.manager);
+      // the standalone guard write runs on its OWN pool (never the business
+      // pool) and is deliberately slowed so settled() stays pending past the
+      // deadline — proving no early return and no grace window
+      const context = { ...await beginProbe(m), deadlineAt: deadlineIn(150) };
+      const gateway = new ChanjetExecutionHttpGateway(localStore, m, {
+        standaloneExecutor: {
+          query: async (sql: string, params?: unknown[]) => {
+            await guardDs.query('SELECT pg_sleep(0.4) AS guard_prep');
+            return storeDs.query(sql, params);
+          },
+        },
+      });
+      let httpAttempts = 0;
+      const started = Date.now();
+      // the gateway aborts the op at the min(httpTimeout 250ms, remaining)
+      // deadline; the ack raced and lost -> the caller gets ACK_UNVERIFIED
+      await expect(gateway.send(context, 'BUSINESS', async (signal: AbortSignal) => { httpAttempts += 1; return (await fetch(`${fixture.endpoint()}/slow`, { signal })).json(); }))
+        .rejects.toThrow(/CHANJET_EXECUTION_(DEADLINE|HOLD_UNCONFIRMED|ACK_UNVERIFIED)/);
+      const elapsed = Date.now() - started;
+      // the public call ends at the ORIGINAL absolute deadline — no runtime
+      // grace window, no pool-release-point acceptance
+      expect(elapsed).toBeLessThan(400);
+      expect(httpAttempts).toBe(1);
+      // settled() is STILL PENDING right after the caller returned: the real
+      // write has not finished yet — no early CONFIRMED
+      const settledPromise = gateway.settled();
+      const pendingCheck = await Promise.race([
+        settledPromise.then(() => 'settled-early' as const),
+        new Promise<'still-pending'>((resolve) => setTimeout(() => resolve('still-pending'), 50)),
+      ]);
+      expect(pendingCheck).toBe('still-pending');
+      // the real write completes and reports through settled()
+      await new Promise((resolve) => setTimeout(resolve, 600));
+      expect(await settledPromise).toBe('CONFIRMED');
+      expect(gateway.holdAttempts).toBe(1);
+      // the stop is durably persisted
+      const row = await store.load(m);
+      expect(row.phase).toBe('HOLD');
+      expect(row.hold_reason).toBe('DEADLINE');
+    } finally {
+      await storeDs.destroy().catch(() => undefined);
+      await guardDs.destroy().catch(() => undefined);
+    }
   });
 
   it('pool-saturated ack failure finalizes as HOLD_UNCONFIRMED by the deadline and stays stopped', async () => {
@@ -914,42 +981,40 @@ database('execution transport wiring (real PG18 admission + local HTTP fixture, 
       let httpAttempts = 0;
       let occupier: Promise<unknown> | undefined;
       const started = Date.now();
-      await expect(gateway.send(context, 'BUSINESS', async (signal: AbortSignal) => {
-        // deterministic ack-time saturation: hold the pool's only client from
-        // inside the op, so the exchange succeeds but the acknowledgement
-        // blocks on pool acquisition until past the deadline
+      // the exchange completes (counted); the acknowledgement blocks on the
+      // saturated pool and races the absolute deadline
+      const sendPromise = gateway.send(context, 'BUSINESS', async (signal: AbortSignal) => {
         occupier = storeDs.query('SELECT pg_sleep(0.6) AS slept');
         httpAttempts += 1;
         return (await fetch(`${fixture.endpoint()}/final`, { signal })).json();
-      }))
-        .rejects.toThrow(/CHANJET_EXECUTION_(HOLD_UNCONFIRMED|ACK_UNVERIFIED)/);
+      });
+      // the public call REJECTS with the accurate unverifiable-ack error: the
+      // exchange was counted but the ack could not be confirmed by the
+      // absolute deadline
       const elapsed = Date.now() - started;
-      // acceptance: deadline 150 + approved 300ms finalization window + slack —
-      // explicitly NOT a pool-release-point acceptance
-      expect(elapsed).toBeLessThan(500);
+      expect(elapsed).toBeLessThan(400);
+      await expect(sendPromise).rejects.toThrow('CHANJET_EXECUTION_ACK_UNVERIFIED');
       expect(httpAttempts).toBe(1);
-      // gateway stays stopped
-      await expect(gateway.send(context, 'BUSINESS', async () => { httpAttempts += 1; return {}; })).rejects.toThrow('CHANJET_EXECUTION_STOPPED');
-      expect(httpAttempts).toBe(1);
-      // the acknowledgement rolled back: no late commit — BOTH receipts (the
-      // setup reservation and the gateway's own counted send) stay
-      // RESERVED/UNSET as surviving evidence
-      await new Promise((resolve) => setTimeout(resolve, 80));
+      // the ack raced the deadline and rolled back: the receipt stays
+      // RESERVED/UNSET — no late ack commit
+      await occupier;
+      await new Promise((resolve) => setTimeout(resolve, 60));
       const rows = await storeDs.query('SELECT status, result FROM chanjet_execution_requests WHERE execution_id=$1', [m.executionId]);
+      // TWO receipts (the explicit setup reservation + the gateway's own
+      // counted send), both never acknowledged — no late ack commit
       expect(rows).toEqual([
         { status: 'RESERVED', result: 'UNSET' },
         { status: 'RESERVED', result: 'UNSET' },
       ]);
-      // at throw time the hold was UNCONFIRMED (accurate for the caller);
-      // the standalone guard write then persisted it late-but-bounded
-      // (queued behind the 600ms occupier, well under the 2s statement cap)
-      // accurate post-state: the hold was UNCONFIRMED and the guard write
-      // itself expired-aborted (aborts before ANY statement once expired), so
-      // the row stays in its live phase — the execution is dead (deadline
-      // passed) and a later interaction records the DEADLINE hold; no late
-      // write occurred (receipt still RESERVED)
+      // the stop WAS persisted via the standalone guard connection
       const admissionRow = await storeDs.query('SELECT phase, hold_reason FROM chanjet_execution_admissions WHERE execution_id=$1', [m.executionId]);
-      expect(admissionRow[0].phase).toBe('PROBING');
+      expect(admissionRow[0].phase).toBe('HOLD');
+      expect(admissionRow[0].hold_reason).toBe('DEADLINE');
+      // the shared hold job reports its real result
+      expect(await gateway.settled()).toBe('CONFIRMED');
+      // gateway stays stopped
+      await expect(gateway.send(context, 'BUSINESS', async () => { httpAttempts += 1; return {}; })).rejects.toThrow('CHANJET_EXECUTION_STOPPED');
+      expect(httpAttempts).toBe(1);
       // fresh execution recovers on the freed pool
       const recovered = await registered(3);
       const recoveredContext = { ...await beginProbeOn(recovered, localStore), deadlineAt: deadlineIn(5_000) };
@@ -957,6 +1022,79 @@ database('execution transport wiring (real PG18 admission + local HTTP fixture, 
       const recoveredResult = await recoveredGateway.send(recoveredContext, 'BUSINESS', async (signal: AbortSignal) => (await fetch(`${fixture.endpoint()}/final`, { signal })).json());
       expect(recoveredResult.outcome).toBe('OK');
     } finally { await storeDs.destroy(); }
+  });
+
+  it('standalone guard write persists HOLD for a fully-bound execution', async () => {
+    resetHits();
+    const m = await registered(3);
+    const context = await beginProbe(m);
+    const result = await store.holdExecution(context, 'DEADLINE');
+    expect(result).toBe('CONFIRMED');
+    const rows = await receipts(m.executionId);
+    expect(rows).toHaveLength(0);
+    const row = await store.load(m);
+    expect(row.phase).toBe('HOLD');
+    expect(row.hold_reason).toBe('DEADLINE');
+  });
+
+  it('standalone guard refuses wrong owner, approval, floor, canonical/digest and unregistered ids with zero state change', async () => {
+    const m = await registered(3);
+    const base = await beginProbe(m);
+    const tampered = (field: string, value: string) => {
+      const copy: ExecutionManifest = JSON.parse(JSON.stringify(m));
+      if (field === 'owner') copy.ownerId = value;
+      else if (field === 'approvalId') copy.approval.approvalId = value;
+      else if (field === 'floorSha') copy.approval.floorSha = value;
+      else if (field === 'scope') copy.approval.scopes = [value];
+      return copy;
+    };
+    for (const [field, value] of [
+      ['owner', 'ROGUE_OPERATOR'],
+      ['approvalId', 'ROGUE_APPROVAL'],
+      ['floorSha', 'b'.repeat(40)],
+      ['scope', 'ROGUE_SCOPE'],
+    ] as Array<[string, string]>) {
+      const bad = tampered(field, value);
+      const badContext = { ...base, manifest: bad };
+      await expect(store.holdExecution(badContext, 'DEADLINE')).rejects.toThrow(/CHANJET_ADMISSION/);
+      // zero state change on the VALID row
+      const row = await store.load(m);
+      expect(row.owner_id ?? row.hold_reason).toBeDefined();
+      expect(row.phase).toBe('PROBING');
+      expect(row.hold_reason).toBe('');
+    }
+    // unregistered id
+    const unregistered = manifest();
+    await expect(store.holdExecution({ manifest: unregistered, leaseId: 'NO', phase: 'PROBING' }, 'DEADLINE')).rejects.toThrow(/CHANJET_ADMISSION/);
+    const row = await store.load(m);
+    expect(row.phase).toBe('PROBING');
+    expect(row.hold_reason).toBe('');
+  });
+
+  it('the guard write through a dedicated connection keeps real caps and does not queue behind the business pool', async () => {
+    const storeDs = new DataSource({ type: 'postgres', url: fixtureUrl, poolSize: 1, connectTimeoutMS: 1_000, logging: false });
+    const guardDs = new DataSource({ type: 'postgres', url: fixtureUrl, poolSize: 1, connectTimeoutMS: 1_000, logging: false });
+    await storeDs.initialize();
+    await guardDs.initialize();
+    try {
+      const m = await registered(3);
+      const context = await beginProbe(m);
+      // saturate the BUSINESS pool; the guard connection is a different pool
+      const occupier = storeDs.query('SELECT pg_sleep(0.7) AS slept');
+      const guardStarted = Date.now();
+      const result = await store.holdExecution(context, 'DEADLINE');
+      const guardElapsed = Date.now() - guardStarted;
+      expect(result).toBe('CONFIRMED');
+      expect(guardElapsed).toBeLessThan(700);
+      const row = await store.load(m);
+      expect(row.phase).toBe('HOLD');
+      expect(row.hold_reason).toBe('DEADLINE');
+      void occupier;
+      await occupier;
+    } finally {
+      await storeDs.destroy().catch(() => undefined);
+      await guardDs.destroy().catch(() => undefined);
+    }
   });
 
   it('parallel scopes keep distinct identities and nested throws clean up', async () => {

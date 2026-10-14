@@ -224,48 +224,57 @@ export class ChanjetExecutionAdmissionStore {
    * connection boundaries and every later mutation fails closed. Successful
    * business exchanges never call this.
    */
-  async holdExecution(context: ExecutionContext, reason: 'TRANSPORT_FAILURE' | 'CANCELLED' | 'ACK_UNVERIFIED' | 'RESERVE_UNVERIFIED' | 'DEADLINE'): Promise<void> {
+  async holdExecution(context: ExecutionContext, reason: 'TRANSPORT_FAILURE' | 'CANCELLED' | 'ACK_UNVERIFIED' | 'RESERVE_UNVERIFIED' | 'DEADLINE'): Promise<'CONFIRMED' | 'ALREADY_STOPPED' | 'NO_HOLD_NEEDED'> {
     if (!/^[A-Z][A-Z0-9_]{0,47}$/.test(reason)) admissionHold();
-    // Guard-statement exemption: the hold UPDATE deliberately runs WITHOUT
-    // the execution-deadline binding (bounded only by the conservative
-    // statement constant) so a stop stays persistable even after the deadline
-    // has passed — exactly the state an expired execution must be able to
-    // record. No callback/business SQL is reachable here.
     if (this.standalone) {
-      // Guard write on the dedicated standalone executor: ONE atomic
-      // statement whose WHERE clause carries the FULL registration binding
-      // (execution, owner, approval, floor, canonical manifest, digest) and
-      // excludes terminal phases. A wrong tuple updates zero rows and is
-      // classified by a follow-up read — a valid execution is never changed.
+      // ONE atomic UPDATE whose WHERE clause carries the FULL registration
+      // binding (execution, owner, approval, floor, canonical manifest,
+      // digest) and excludes terminal phases. A wrong tuple updates zero rows
+      // and is classified by a follow-up read — a valid execution is never
+      // changed. TypeORM wraps UPDATE..RETURNING as [rows, affectedCount], so
+      // the result is unwrapped before the count check. The guard statement
+      // deliberately runs WITHOUT the execution-deadline binding (guard
+      // exemption; bounded by the standalone executor's own caps).
       const binding = validateExecutionManifest(context.manifest);
       const m = binding.manifest;
-      const updated = await this.standalone.query(
+      const raw = await this.standalone.query(
         `UPDATE chanjet_execution_admissions
          SET phase='HOLD', lease_id='', hold_reason=$6
          WHERE execution_id=$1 AND owner_id=$2 AND approval_id=$3 AND floor_sha=$4
-           AND canonical_manifest=$5 AND manifest_digest=$6
+           AND canonical_manifest=$5 AND manifest_digest=$7
            AND phase IN ('REGISTERED','PROBING','PROBED','SYNCING')
          RETURNING execution_id`,
         [m.executionId, m.ownerId, m.approval.approvalId, m.approval.floorSha, binding.canonical, reason, binding.digest],
-      ) as Array<{ execution_id: string }>;
-      if (updated.length === 1) return; // confirmed: exactly one row changed
+      );
+      const updated = (Array.isArray(raw) && Array.isArray(raw[0]) ? raw[0] : raw) as Array<{ execution_id: string }>;
+      if (updated.length === 1) return 'CONFIRMED'; // exactly one row changed
       if (updated.length > 1) admissionHold(); // cannot happen (pkey)
-      // zero rows: classify atomically by reading the current row state
+      // zero rows: classify atomically by reading the current row state — the
+      // FULL registration binding must match before a terminal state is
+      // acknowledged; a wrong tuple never confirms a hold
       const existing = await this.standalone.query(
         'SELECT phase, hold_reason, owner_id, approval_id, floor_sha, canonical_manifest, manifest_digest FROM chanjet_execution_admissions WHERE execution_id=$1',
         [m.executionId],
       ) as Array<{ phase: string; hold_reason: string; owner_id: string; approval_id: string; floor_sha: string; canonical_manifest: string; manifest_digest: string }>;
       if (!existing.length) admissionHold(); // unregistered execution
       const r0 = existing[0];
-      if (r0.phase === 'HOLD') return; // already stopped (by this or another attempt)
-      if (r0.phase === 'VERIFIED') return; // verified: no hold needed
-      admissionHold(); // live execution with mismatched binding/identity: must not be changed
+      const bindingMatches = r0.owner_id === m.ownerId
+        && r0.approval_id === m.approval.approvalId
+        && r0.floor_sha === m.approval.floorSha
+        && r0.canonical_manifest === binding.canonical
+        && r0.manifest_digest === binding.digest;
+      if (!bindingMatches) admissionHold(); // row bound to a DIFFERENT registration
+      if (r0.phase === 'HOLD') return 'ALREADY_STOPPED'; // stop already persisted
+      if (r0.phase === 'VERIFIED') return 'NO_HOLD_NEEDED'; // verified: no hold applies
+      admissionHold(); // live execution with mismatched binding: must not be changed
     }
-    await this.transaction(async tx => {
+    const result = await this.transaction(async tx => {
       const r = await this.lock(tx,context.manifest);
-      if (r.phase === 'HOLD' || r.phase === 'VERIFIED') return;
+      if (r.phase === 'HOLD' || r.phase === 'VERIFIED') return 'ALREADY_STOPPED';
       await tx.query(`UPDATE chanjet_execution_admissions SET phase='HOLD',lease_id='',hold_reason=$2 WHERE execution_id=$1`, [r.execution_id,reason]);
-    });
+      return 'CONFIRMED';
+    }, context.deadlineAt);
+    return result ?? 'UNCONFIRMED';
   }
   async finish(context: ExecutionContext, phase: 'PROBED' | 'VERIFIED'): Promise<AdmissionRow> {
     if (!context || !['PROBED','VERIFIED'].includes(phase)) return admissionHold();
