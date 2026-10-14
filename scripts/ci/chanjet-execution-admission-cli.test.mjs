@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
@@ -19,7 +19,22 @@ const cli = path.resolve(process.cwd(), 'scripts/ops/chanjet-execution-admission
 import { pathToFileURL } from 'node:url';
 const database = fixtureUrl ? describe : describe.skip;
 
+// Parent-side guard: evaluated BEFORE this test process opens any connection
+// or runs any DDL. The child CLI has its own guard; neither substitutes for
+// the other.
+function assertOwnFixtureUrl(u) {
+  const parsed = new URL(u);
+  const disposable = /^(chanjet_admission_fixture|chanjet_transport_fixture.*|root_admission_review)$/.test(parsed.pathname.slice(1));
+  if (!['127.0.0.1', 'localhost', '::1'].includes(parsed.hostname) || !disposable) {
+    throw Error(`PARENT_FIXTURE_URL_REQUIRED (loopback + dedicated disposable db): ${u}`);
+  }
+  return parsed;
+}
+assert.equal(typeof fixtureUrl, 'string');
+assertOwnFixtureUrl(fixtureUrl);
+
 async function withSchema(callback) {
+  assertOwnFixtureUrl(fixtureUrl);
   const { DataSource } = require(path.resolve(process.cwd(), 'apps/api/node_modules/typeorm/index.js'));
   const ds = new DataSource({ type: 'postgres', url: fixtureUrl, logging: false });
   await ds.initialize();
@@ -129,13 +144,23 @@ database('registration CLI runs as a real subprocess against real PostgreSQL', (
     const sameApproval = run(registerArgs(secondFile));
     assert.equal(sameApproval.status, 3);
     assert.match(sameApproval.stderr, /REGISTRATION_DUPLICATE/);
-    // concurrent duplicates of one manifest: exactly one wins, the DB rules
+    // concurrent duplicates of one manifest: all children START together, the
+    // database rules — exactly one winner, the rest duplicate
     const third = manifestFile();
-    const racers = Array.from({ length: 3 }, () => spawnSync(process.execPath, [cli, ...registerArgs(third.file)], { encoding: 'utf8' }));
+    const children = Array.from({ length: 3 }, () => spawn(process.execPath, [cli, ...registerArgs(third.file)], { encoding: 'utf8' }));
+    const racers = await Promise.all(children.map((child) => new Promise((resolve) => {
+      let stdout = ''; let stderr = '';
+      child.stdout.on('data', (d) => { stdout += d; });
+      child.stderr.on('data', (d) => { stderr += d; });
+      child.on('close', (code) => resolve({ status: code, stdout, stderr }));
+    })));
     const succeeded = racers.filter((r) => r.status === 0);
     const duplicated = racers.filter((r) => r.status === 3 && /REGISTRATION_DUPLICATE/.test(r.stderr));
-    assert.equal(succeeded.length, 1);
+    assert.equal(succeeded.length, 1, JSON.stringify(racers.map((r) => [r.status, r.stderr.slice(0, 80)])));
     assert.equal(succeeded.length + duplicated.length, racers.length);
+    const finalRow = await row(third.manifest.executionId);
+    assert.equal(finalRow?.execution_id, third.manifest.executionId);
+    assert.equal(finalRow?.approval_id, third.manifest.approval.approvalId);
   }));
 
   test('non-loopback or non-disposable PG URLs are refused before any connection attempt', () => {

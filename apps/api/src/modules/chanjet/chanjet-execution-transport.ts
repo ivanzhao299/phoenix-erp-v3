@@ -75,36 +75,20 @@ export class ChanjetRedirectError extends Error {
   }
 }
 
-// Process-level redirect guard for provider targets. Installed once by the
-// first gateway construction and kept for the process lifetime: provider
-// HTTP (openapi.chanjet.com) and loopback fixtures must never auto-follow a
-// redirect — each followed hop would be an uncounted provider HTTP attempt to
-// an unreviewed target. Non-provider targets pass through untouched. This
-// also disables redirect following for the legacy token cron (fail-closed).
-let redirectGuardInstalled = false;
-export function installProviderRedirectGuard(): void {
-  if (redirectGuardInstalled) return;
-  redirectGuardInstalled = true;
-  const original = globalThis.fetch;
-  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
-    const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
-    let host = '';
-    try { host = new URL(url).hostname; } catch { return original(input, init); }
-    const providerTarget = host === 'openapi.chanjet.com' || ['127.0.0.1', 'localhost', '::1'].includes(host);
-    if (!providerTarget) return original(input, init);
-    const res = await original(input, { ...(init ?? {}), redirect: 'manual' });
-    if (res.status >= 300 && res.status < 400) throw new ChanjetRedirectError(res.status);
-    return res;
-  }) as typeof globalThis.fetch;
-}
-
 export class ChanjetExecutionHttpGateway {
   private stopped = false;
   private stopReason = 'UNKNOWN';
 
-  constructor(private readonly store: ChanjetExecutionAdmissionStore, private readonly manifest: unknown) {
-    installProviderRedirectGuard();
-  }
+  /**
+   * postReserveBarrier is a deterministic test seam: it runs AFTER the
+   * reservation is durably committed and BEFORE the revalidation/send, so a
+   * concurrent stop can be injected into exactly that window.
+   */
+  constructor(
+    private readonly store: ChanjetExecutionAdmissionStore,
+    private readonly manifest: unknown,
+    private readonly options: { postReserveBarrier?: (reservation: { ticket: string; ordinal: number }, context: ExecutionContext) => Promise<void> } = {},
+  ) {}
 
   /** Effective single-request budget from the registered manifest. */
   httpTimeoutMs(): number {
@@ -144,6 +128,12 @@ export class ChanjetExecutionHttpGateway {
       this.stop('RESERVE_UNAVAILABLE');
       throw new Error('CHANJET_EXECUTION_RESERVE_UNAVAILABLE');
     }
+    // Revalidate AFTER the reservation is durably committed and BEFORE any
+    // byte leaves: a concurrent persistent stop (from any connection) must
+    // yield zero HTTP. The committed receipt stays RESERVED as evidence —
+    // never refunded, never deleted.
+    if (this.options.postReserveBarrier) await this.options.postReserveBarrier(reservation, context);
+    await this.store.assertSendable(context);
     const remaining = reservation.deadlineAt.getTime() - Date.now();
     const effectiveDeadlineMs = Math.max(0, Math.min(this.httpTimeoutMs(), remaining));
     if (effectiveDeadlineMs <= 0) {

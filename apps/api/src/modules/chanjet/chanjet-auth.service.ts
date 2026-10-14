@@ -532,9 +532,13 @@ export class ChanjetAuthService implements OnModuleInit {
     // reservation, queue waiting, authentication and the business exchange:
     // an expired execution neither waits nor sends.
     const execution = activeExecutionScope();
+    // An active execution with an untrustworthy deadline (admission row unreadable)
+    // is an explicit rejection, never an unbounded wait.
     const deadlineAt = execution ? await resolveExecutionDeadline(execution) : undefined;
+    if (execution && !deadlineAt) throw new Error('CHANJET_EXECUTION_DEADLINE');
     if (deadlineAt && Date.now() >= deadlineAt.getTime()) throw new Error('CHANJET_EXECUTION_DEADLINE');
-    await this.reserveTrafficBudget(kind, path);
+    await this.reserveTrafficBudget(kind, path, deadlineAt ? new Date(deadlineAt) : undefined);
+    if (deadlineAt && Date.now() >= deadlineAt.getTime()) throw new Error('CHANJET_EXECUTION_DEADLINE');
     await this.waitForTrafficSlot(deadlineAt);
     if (deadlineAt && Date.now() >= deadlineAt.getTime()) throw new Error('CHANJET_EXECUTION_DEADLINE');
     const token = await this.getOpenToken(opts.orgId);
@@ -639,32 +643,33 @@ export class ChanjetAuthService implements OnModuleInit {
     const previous = this.trafficQueue;
     let release!: () => void;
     this.trafficQueue = new Promise<void>((resolve) => { release = resolve; });
+    // The chain release MUST happen on every path (slot won, deadline lost,
+    // already expired) — a missed release would wedge every later caller.
     const slot = (async () => {
       await previous;
       await new Promise<void>((resolve) => {
         setTimeout(resolve, intervalMs);
       });
     })();
-    if (!deadlineAt) {
-      try { await slot; } finally { release(); }
-      return;
-    }
-    // Cancellable queue wait: past the API-owned total deadline the queued
-    // caller stops waiting AND never sends. The queue chain itself still
-    // releases (spacing preserved for other callers).
-    const remaining = deadlineAt.getTime() - Date.now();
-    if (remaining <= 0) throw new Error('CHANJET_EXECUTION_DEADLINE');
     let timer: NodeJS.Timeout | undefined;
     try {
-      await Promise.race([
-        slot.then((v) => { release(); return v; }),
-        new Promise<never>((_, reject) => {
-          timer = setTimeout(() => reject(new Error('CHANJET_EXECUTION_DEADLINE')), remaining);
-        }),
-      ]);
-    } catch (error) {
-      throw error;
+      if (deadlineAt) {
+        const remaining = deadlineAt.getTime() - Date.now();
+        if (remaining <= 0) throw new Error('CHANJET_EXECUTION_DEADLINE');
+        await Promise.race([
+          slot,
+          new Promise<never>((_, reject) => {
+            timer = setTimeout(() => reject(new Error('CHANJET_EXECUTION_DEADLINE')), remaining);
+          }),
+        ]);
+      } else {
+        await slot;
+      }
     } finally {
+      // Removing this caller from the queue on EVERY path keeps the original
+      // request-interval semantics for whoever runs next (legacy, other
+      // executions); the aborted caller simply never sends.
+      release();
       if (timer) clearTimeout(timer);
     }
   }
@@ -674,11 +679,16 @@ export class ChanjetAuthService implements OnModuleInit {
    * provider's 30,000/month free allowance, leaving room for callbacks,
    * operator diagnostics and traffic recorded before this guard was deployed.
    */
-  private async reserveTrafficBudget(kind: ChanjetCallKind, path: string): Promise<void> {
+  private async reserveTrafficBudget(kind: ChanjetCallKind, path: string, deadlineAt?: Date): Promise<void> {
     const manager = (this.stateRepo as unknown as {
-      manager?: { transaction?: <T>(fn: (tx: { query: (sql: string, params?: unknown[]) => Promise<unknown[]> }) => Promise<T>) => Promise<T> };
+      manager?: { transaction?: <T>(fn: (tx: { query: (sql: string, params?: unknown[]) => Promise<unknown[]> }) => Promise<T>) => Promise<T> } & { transactionDeadlines?: (deadlineAt?: Date) => number };
     }).manager;
     if (!manager?.transaction) return;
+    // Budget waits are bounded like every other store transaction: by the
+    // execution deadline when present, otherwise by a conservative constant.
+    const bound = deadlineAt instanceof Date && Number.isFinite(deadlineAt.getTime())
+      ? Math.max(1, Math.min(deadlineAt.getTime() - Date.now(), 15_000))
+      : 2_000;
 
     // Provider quota is operated in China Standard Time. Build the durable
     // budget keys in the same timezone so midnight does not split one day.
@@ -700,6 +710,8 @@ export class ChanjetAuthService implements OnModuleInit {
       key: string,
       limit: number,
     ) => {
+      await tx.query(`SET LOCAL statement_timeout=${bound}`);
+      await tx.query(`SET LOCAL lock_timeout=${Math.min(bound, 1_000)}`);
       const rows = await tx.query(
         `INSERT INTO sys_chanjet_api_budget (budget_key, request_count, updated_at)
          VALUES ($1, 1, NOW())

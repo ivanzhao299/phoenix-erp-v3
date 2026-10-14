@@ -7,12 +7,12 @@ import { AddressInfo } from 'node:net';
 import path from 'node:path';
 import { DataSource } from 'typeorm';
 import { CreateChanjetExecutionAdmissions1791878400000 } from '../../database/migrations/1791878400000-CreateChanjetExecutionAdmissions';
-import { ChanjetExecutionAdmissionStore } from './chanjet-execution-admission.store';
+import { ChanjetExecutionAdmissionStore, ExecutionContext } from './chanjet-execution-admission.store';
 import { ChanjetExecutionHttpGateway, ChanjetBusinessFailureError, providerFetch } from './chanjet-execution-transport';
 import { ChanjetExecutionAdmissionEntity } from './chanjet-execution-admission.entity';
 import { ExecutionManifest } from './chanjet-execution-manifest';
 import { ChanjetAuthService } from './chanjet-auth.service';
-import { withExecutionScope, beginExecutionPhase, ExecutionScopeState } from './chanjet-execution-scope';
+import { withExecutionScope, beginExecutionPhase, requireExecutionScope, ExecutionScopeState } from './chanjet-execution-scope';
 
 const fixtureUrl = process.env.CHANJET_ADMISSION_FIXTURE_URL;
 if (process.env.CHANJET_EXECUTION_TRANSPORT_REQUIRED === 'true' && !fixtureUrl) {
@@ -49,7 +49,7 @@ function manifest(cap = 10, httpTimeoutMs = 30_000, totalTimeoutMs = 360_000): E
   };
 }
 
-type FixtureRoute = { status?: number; body: unknown | ((nth: number) => unknown); delayMs?: number };
+type FixtureRoute = { status?: number; body?: unknown | ((nth: number) => unknown); delayMs?: number; location?: string };
 function httpFixture() {
   const hits: Array<{ method: string; path: string; aborted: boolean }> = [];
   let routes: Record<string, FixtureRoute> = {};
@@ -69,8 +69,10 @@ function httpFixture() {
         const body = typeof route.body === 'function' ? route.body(nth) : route.body;
         setTimeout(() => {
           if (!res.writableEnded) {
-            res.writeHead(route.status ?? 200, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify(body));
+            const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+            if (route.location) headers.Location = route.location;
+            res.writeHead(route.status ?? 200, headers);
+            res.end(route.location ? undefined : JSON.stringify(body));
           }
         }, route.delayMs ?? 0);
       });
@@ -400,7 +402,7 @@ database('execution transport wiring (real PG18 admission + local HTTP fixture, 
   it('provider redirects are never followed: one counted HTTP, transport failure, persistent stop', async () => {
     resetHits();
     const m = await registered(1);
-    fixture.setRoutes({ '/redirect': { status: 302, body: {} }, '/final': { body: { code: '200' } } });
+    fixture.setRoutes({ '/redirect': { status: 302, location: '/final' }, '/final': { body: { code: '200' } } });
     const context = await beginProbe(m);
     const gateway = gatewayFor(m);
     const result = await gateway.send(context, 'BUSINESS', async (signal: AbortSignal) => {
@@ -549,5 +551,127 @@ database('execution transport wiring (real PG18 admission + local HTTP fixture, 
     if (providerFetchSites < 3) fail(`providerFetch required at execution send sites, found ${providerFetchSites}`);
     if (!/redirect: 'manual'/.test(source)) fail('legacy literal fetch must keep redirect manual');
     if (/redirect: 'follow'/.test(source)) fail('redirect following must never appear');
+  });
+
+  // ── review round 2: barrier revalidation, two-hop demo, scope hygiene ──
+  it('reservation committed then held at a barrier yields zero HTTP and keeps the receipt', async () => {
+    resetHits();
+    const m = await registered(3);
+    fixture.setRoutes({ '/business': { body: { code: '200' } } });
+    const context = await beginProbe(m);
+    let releaseBarrier!: () => void;
+    const barrier = new Promise<void>((resolve) => { releaseBarrier = resolve; });
+    const gateway = new ChanjetExecutionHttpGateway(store, m, {
+      postReserveBarrier: async () => {
+        // deterministic window: reservation committed, send not started;
+        // a second connection persists a stop into exactly that window
+        const stopDs = new DataSource({ type: 'postgres', url: fixtureUrl, logging: false });
+        try {
+          await stopDs.initialize();
+          await new ChanjetExecutionAdmissionStore(stopDs.manager).holdExecution(context, 'CANCELLED');
+        } finally { await stopDs.destroy(); }
+        releaseBarrier();
+        await barrier;
+      },
+    });
+    await expect(gateway.send(context, 'BUSINESS', businessSend('/business'))).rejects.toThrow('CHANJET_ADMISSION_HOLD');
+    expect(hitsByUrl('/business')).toHaveLength(0);
+    // committed reservation evidence preserved: counted, RESERVED, no refund/delete
+    const rows = await receipts(m.executionId);
+    expect(rows).toEqual([{ ordinal: 1, phase: 'PROBING', lease_id: context.leaseId, kind: 'BUSINESS', status: 'RESERVED', result: 'UNSET' }]);
+    expect((await store.load(m)).request_count).toBe(1);
+  });
+
+  it('ordinary fixture demonstrably produces a second hop; controlled provider path does not', async () => {
+    resetHits();
+    const m = await registered(3);
+    fixture.setRoutes({ '/redirect': { status: 302, location: '/final' }, '/final': { body: { code: '200' } } });
+    // plain stock fetch (no scope, no manual): undici follows the real
+    // Location header to /final — proves the fixture genuinely redirects
+    const plain = await fetch(`${fixture.endpoint()}/redirect`, { method: 'POST' });
+    expect(plain.status).toBe(200);
+    expect(hitsByUrl('/redirect')).toHaveLength(1);
+    expect(hitsByUrl('/final')).toHaveLength(1);
+    // controlled provider path: manual + 3xx error -> one HTTP, one counted receipt
+    resetHits();
+    const context = await beginProbe(m);
+    const gateway = gatewayFor(m);
+    const result = await gateway.send(context, 'BUSINESS', async (signal: AbortSignal) => {
+      const res = await providerFetch(`${fixture.endpoint()}/redirect`, { signal, method: 'POST' });
+      return res.json();
+    });
+    expect(result.outcome).toBe('TRANSPORT_FAILURE');
+    expect(hitsByUrl('/redirect')).toHaveLength(1);
+    expect(hitsByUrl('/final')).toHaveLength(0);
+    expect((await store.load(m)).request_count).toBe(1);
+  });
+
+  it('unrelated non-execution requests are untouched by execution transport', async () => {
+    resetHits();
+    fixture.setRoutes({ '/unrelated': { body: { code: '200' } } });
+    // no scope: stock fetch keeps default behavior on unrelated endpoints
+    const res = await fetch(`${fixture.endpoint()}/unrelated`, { method: 'POST' });
+    expect(res.status).toBe(200);
+    expect(hitsByUrl('/unrelated')).toHaveLength(1);
+  });
+
+  it('admission waits are bounded by real PostgreSQL timeouts and roll back cleanly', async () => {
+    resetHits();
+    const m = await registered(3);
+    fixture.setRoutes({ '/ok': { body: { code: '200' } } });
+    const context = await beginProbe(m);
+    const reserved = await store.reserve(context, 'BUSINESS');
+    // a second connection holds the admission row lock
+    const blocker = new DataSource({ type: 'postgres', url: fixtureUrl, logging: false });
+    await blocker.initialize();
+    const qr = blocker.createQueryRunner();
+    await qr.startTransaction();
+    try {
+      await qr.query('SELECT * FROM chanjet_execution_admissions WHERE execution_id=$1 FOR UPDATE', [m.executionId]);
+      const started = Date.now();
+      const bounded: ExecutionContext = { ...context, deadlineAt: new Date(Date.now() + 400) };
+      await expect(store.acknowledge(bounded, reserved.ticket, 'OK')).rejects.toThrow(/CHANJET_ADMISSION/);
+      expect(Date.now() - started).toBeLessThan(3_000);
+      // the timed-out transaction rolled back: nothing acknowledged, nothing poisoned
+      const rows = await receipts(m.executionId);
+      expect(rows.every((r: { status: string }) => r.status === 'RESERVED')).toBe(true);
+    } finally {
+      await qr.rollbackTransaction();
+      await qr.release();
+      await blocker.destroy();
+    }
+    // after the lock holder goes away, the normal path works again
+    await store.acknowledge(context, reserved.ticket, 'OK');
+    expect((await store.load(m)).phase).toBe('PROBING');
+  });
+
+  it('parallel scopes keep distinct identities and nested throws clean up', async () => {
+    const ma = await registered(3);
+    const mb = await registered(3);
+    const ca = await beginProbe(ma, `A_${randomUUID().slice(0, 6)}`);
+    const cb = await beginProbe(mb, `B_${randomUUID().slice(0, 6)}`);
+    const seen: string[] = [];
+    await Promise.all([
+      withExecutionScope({ manifest: ma, store, gateway: gatewayFor(ma), transport: transportOps(), current: ca, deadlineAt: scopeDeadlineAt() }, async () => {
+        seen.push(`A:${(requireExecutionScope().current as { leaseId: string }).leaseId}`);
+      }),
+      withExecutionScope({ manifest: mb, store, gateway: gatewayFor(mb), transport: transportOps(), current: cb, deadlineAt: scopeDeadlineAt() }, async () => {
+        seen.push(`B:${(requireExecutionScope().current as { leaseId: string }).leaseId}`);
+      }),
+    ]);
+    expect(seen).toHaveLength(2);
+    expect(seen[0].startsWith('A:')).toBe(true);
+    expect(seen[1].startsWith('B:')).toBe(true);
+    // scope exited: nothing visible outside
+    let outside = false;
+    try { requireExecutionScope(); outside = true; } catch { /* expected */ }
+    expect(outside).toBe(false);
+    // nested scope throw propagates and the outer scope still works
+    await withExecutionScope({ manifest: ma, store, gateway: gatewayFor(ma), transport: transportOps(), current: ca, deadlineAt: scopeDeadlineAt() }, async () => {
+      await expect(withExecutionScope({ manifest: mb, store, gateway: gatewayFor(mb), transport: transportOps(), current: cb, deadlineAt: scopeDeadlineAt() }, async () => {
+        throw new Error('nested boom');
+      })).rejects.toThrow('nested boom');
+      expect((requireExecutionScope().current as { leaseId: string }).leaseId).toBe(ca.leaseId);
+    });
   });
 });

@@ -14,7 +14,7 @@ export type AdmissionRow = {
   started_at: Date; deadline_at: Date; phase: AdmissionPhase; lease_id: string; hold_reason: string;
   db_now: Date;
 };
-export type ExecutionContext = { manifest: unknown; leaseId: string; phase: RequestPhase };
+export type ExecutionContext = { manifest: unknown; leaseId: string; phase: RequestPhase; deadlineAt?: Date };
 
 /**
  * Unwired control foundation, intentionally not Injectable or exported by a Nest module.
@@ -23,10 +23,29 @@ export type ExecutionContext = { manifest: unknown; leaseId: string; phase: Requ
  * DB constraints preserve bindings under ordinary DML, not a hostile table owner.
  */
 export class ChanjetExecutionAdmissionStore {
+  /**
+   * Every store transaction is DB-time bounded: with a trusted deadline the
+   * statement/lock timeouts equal the remaining execution budget; without one
+   * a conservative constant still prevents indefinite waits. Timeouts raise
+   * inside the transaction, which rolls back and surfaces as a hold — no
+   * background transaction survives the caller's failure.
+   */
+  private static timeoutBound(deadlineAt?: Date): number {
+    if (deadlineAt instanceof Date && Number.isFinite(deadlineAt.getTime())) {
+      return Math.max(1, Math.min(deadlineAt.getTime() - Date.now(), 15_000));
+    }
+    return 2_000;
+  }
   constructor(private readonly manager: AdmissionManager | undefined) {}
-  private async transaction<T>(callback: (tx: Tx) => Promise<T>): Promise<T> {
+  private async transaction<T>(callback: (tx: Tx) => Promise<T>, deadlineAt?: Date): Promise<T> {
     if (!this.manager || typeof this.manager.transaction !== 'function') return admissionHold();
-    try { return await this.manager.transaction(callback); } catch { return admissionHold(); }
+    const bound = ChanjetExecutionAdmissionStore.timeoutBound(deadlineAt);
+    const timed = async (tx: Tx): Promise<T> => {
+      await tx.query(`SET LOCAL statement_timeout=${bound}`);
+      await tx.query(`SET LOCAL lock_timeout=${Math.min(bound, 1_000)}`);
+      return callback(tx);
+    };
+    try { return await this.manager.transaction(timed); } catch { return admissionHold(); }
   }
   /** A persisted stop (hold_reason <> '') is recorded with phase=HOLD; the phase
    *  checks below already fail every further mutation — this guard makes the
@@ -110,7 +129,7 @@ export class ChanjetExecutionAdmissionStore {
       await tx.query(`INSERT INTO chanjet_execution_requests (ticket,execution_id,ordinal,lease_id,kind,phase)
         VALUES ($1,$2,$3,$4,$5,$6)`, [ticket,r.execution_id,next.request_count,context.leaseId,kind,r.phase]);
       return { ticket, ordinal:next.request_count, deadlineAt:next.deadline_at };
-    });
+    }, context.deadlineAt);
     return result || admissionHold();
   }
   async acknowledge(context: ExecutionContext, ticket: string, result: RequestResult): Promise<void> {
@@ -125,8 +144,24 @@ export class ChanjetExecutionAdmissionStore {
       [ticket,r.execution_id,context.leaseId,context.phase,result]);
       if (rows.length !== 1) return admissionHold();
       return true;
-    });
+    }, context.deadlineAt);
     if (!accepted) admissionHold();
+  }
+
+  /**
+   * Post-reserve revalidation executed BEFORE any HTTP leaves: re-reads the
+   * row under lock and rejects when the execution has been persistently held
+   * or drifted since the reservation committed. The already-committed receipt
+   * stays RESERVED — evidence, never refunded or deleted.
+   */
+  async assertSendable(context: ExecutionContext): Promise<AdmissionRow> {
+    const row = await this.transaction(async tx => {
+      const r = await this.lock(tx,context.manifest); this.context(r,context);
+      if (ChanjetExecutionAdmissionStore.stopped(r)) return admissionHold();
+      if (this.expired(r)) { await this.held(tx,r,'DEADLINE'); return admissionHold(); }
+      return r;
+    }, context.deadlineAt);
+    return row || admissionHold();
   }
 
   /**
@@ -155,7 +190,7 @@ export class ChanjetExecutionAdmissionStore {
       const [row] = await tx.query(`WITH changed AS (UPDATE chanjet_execution_admissions SET phase=$2,lease_id=''
         WHERE execution_id=$1 RETURNING *) SELECT *,clock_timestamp() AS db_now FROM changed`, [r.execution_id,phase]);
       return row;
-    });
+    }, context.deadlineAt);
     return next || admissionHold();
   }
   /** Called only by future restart reconciliation; active/ambiguous work is never resumed. */
