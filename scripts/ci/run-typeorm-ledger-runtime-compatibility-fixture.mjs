@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import os from 'node:os';
 import { execFileSync } from 'node:child_process';
 import { createRequire } from 'node:module';
+import { partitionRehearsalInventory } from './typeorm-ledger-rehearsal-inventory.mjs';
 
 const require = createRequire(import.meta.url);
 const { Client } = require('../../apps/api/node_modules/pg');
@@ -17,21 +19,22 @@ const pgEnv = {
 };
 const cli = path.join(root, 'apps/api/node_modules/.bin/typeorm');
 const dataSource = path.join(root, 'apps/api/dist/database/data-source.js');
+let rehearsalDataSource;
 const phase1Timestamps = new Set([1789600000000, 1789600100000, 1789600200000, 1789600300000]);
 const retired = { name: 'DropHouseOwnershipRedundantColumns1787647200000', timestamp: 1787647200000 };
 
 function inventory() {
   const output = execFileSync(process.execPath, ['scripts/ci/typeorm-migration-inventory.mjs', 'apps/api/dist/database/migrations'], { encoding: 'utf8' });
   const entries = JSON.parse(output);
-  assert.equal(entries.length, 88, `expected 88 canonical migrations, got ${entries.length}`);
-  const phase1 = entries.filter((entry) => phase1Timestamps.has(entry.timestamp));
+  const { history, admission } = partitionRehearsalInventory(entries);
+  const phase1 = history.filter((entry) => phase1Timestamps.has(entry.timestamp));
   assert.equal(phase1.length, 4, 'Phase 1 inventory must contain exactly four timestamps');
   assert.equal(new Set(phase1.map((entry) => entry.timestamp)).size, 4);
-  return { entries, phase1 };
+  return { entries: history, phase1, admission };
 }
 
 function runCli(args) {
-  return execFileSync(cli, ['-d', dataSource, ...args], {
+  return execFileSync(cli, ['-d', rehearsalDataSource, ...args], {
     cwd: path.join(root, 'apps/api'),
     env: { ...process.env, DB_HOST: pgEnv.host, DB_PORT: String(pgEnv.port), DB_USER: pgEnv.user, DB_PASSWORD: pgEnv.password, DB_NAME: pgEnv.database },
     encoding: 'utf8',
@@ -40,15 +43,24 @@ function runCli(args) {
 }
 
 async function main() {
+  assert.equal(pgEnv.host, '127.0.0.1', 'disposable loopback ledger fixture required');
+  assert.equal(pgEnv.database, 'phoenix_ledger_rehearsal', 'dedicated disposable ledger fixture database required');
   console.log(`TYPEORM_RUNTIME_VERSION=${typeormPackage.version}`);
-  const { entries, phase1 } = inventory();
-  const canonicalNames = new Set(entries.map((entry) => entry.effective_name));
+  const { entries, phase1, admission } = inventory();
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'phoenix-ledger-history-'));
+  rehearsalDataSource = path.join(directory, 'data-source.cjs');
+  // Explicit pinned historical classes only. Never seed or execute admission here.
+  fs.writeFileSync(rehearsalDataSource, `const { DataSource } = require(${JSON.stringify(path.join(root,'apps/api/node_modules/typeorm'))});
+    const { dataSourceOptions } = require(${JSON.stringify(dataSource)});
+    const entries = ${JSON.stringify(entries)};
+    module.exports.rehearsal = new DataSource({...dataSourceOptions, migrations: entries.map(e => require(${JSON.stringify(root)}+'/'+e.source_file)[e.class_name])});\n`, { mode:0o600 });
+  console.log('HISTORICAL_CANONICAL_INVENTORY=88;ADMISSION_EXCLUDED_FROM_LEDGER_REHEARSAL=YES');
   const legacyFiles = fs.readdirSync(path.join(root, 'apps/api/migrations')).filter((name) => /^2026.*\.sql$/.test(name)).sort();
   assert.equal(legacyFiles.length, 169, `expected 169 legacy SQL migrations, got ${legacyFiles.length}`);
   const client = new Client(pgEnv);
-  await client.connect();
   const q = (text, values) => client.query(text, values);
   try {
+    await client.connect();
     await q('DROP SCHEMA public CASCADE');
     await q('CREATE SCHEMA public');
     await q(`CREATE TABLE acc_ledger (id bigserial PRIMARY KEY, store_code varchar(32), ref_no varchar(128), ledger_type varchar(64), amount numeric)`);
@@ -88,6 +100,7 @@ async function main() {
     await q('INSERT INTO migrations(timestamp, name) VALUES ($1, $2)', [retired.timestamp, retired.name]);
     assert.equal((await q('SELECT count(*)::int AS n FROM schema_migrations')).rows[0].n, 169);
     assert.equal((await q('SELECT count(*)::int AS n FROM migrations')).rows[0].n, 85);
+    assert.equal((await q('SELECT count(*)::int AS n FROM migrations WHERE name=$1 OR timestamp=$2', [admission.effective_name,admission.timestamp])).rows[0].n, 0);
     console.log('INITIAL_LEDGER=PASS');
 
     const before = runCli(['migration:show']);
@@ -122,6 +135,9 @@ async function main() {
     for (const entry of phase1) assert.match(runOutput, new RegExp(entry.effective_name));
     assert.doesNotMatch(runOutput, new RegExp(retired.name));
     assert.equal((await q('SELECT count(*)::int AS n FROM migrations')).rows[0].n, 89);
+    assert.equal((await q('SELECT count(*)::int AS n FROM migrations WHERE name=$1 OR timestamp=$2', [admission.effective_name,admission.timestamp])).rows[0].n, 0);
+    assert.equal((await q("SELECT to_regclass('public.chanjet_execution_admissions') AS admission_table")).rows[0].admission_table, null);
+    console.log('ADMISSION_NOT_MARKED_APPLIED_OR_EXECUTED=PASS;REAL_ADMISSION_DDL_PROOF=SEPARATE_PG_JOB');
     assert.equal((await q('SELECT count(*)::int AS n FROM migrations WHERE name = $1', [retired.name])).rows[0].n, 1);
     console.log('MIGRATION_RUN_EXACTLY_FOUR=PASS');
     console.log('RETIRED_ROW_PRESERVED=PASS');
@@ -155,6 +171,7 @@ async function main() {
     console.log('LEDGER_PREFLIGHT_RUNTIME_SEMANTICS_DIVERGENCE=CONFIRMED');
   } finally {
     await client.end();
+    fs.rmSync(directory, { recursive:true, force:true });
   }
 }
 

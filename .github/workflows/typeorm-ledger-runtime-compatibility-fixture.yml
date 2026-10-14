@@ -7,6 +7,9 @@ on:
       - 'apps/api/src/database/data-source.ts'
       - 'scripts/ci/run-typeorm-ledger-runtime-compatibility-fixture.mjs'
       - 'scripts/ci/typeorm-ledger-runtime-compatibility.test.mjs'
+      - 'scripts/ci/typeorm-ledger-rehearsal-*'
+      - 'apps/api/src/modules/chanjet/chanjet-execution-*'
+      - 'apps/api/test/fixtures/chanjet-admission-worker.cjs'
       - '.github/workflows/typeorm-ledger-runtime-compatibility-fixture.yml'
   workflow_dispatch:
 
@@ -48,3 +51,42 @@ jobs:
           PGPASSWORD: postgres
           PGDATABASE: phoenix_ledger_rehearsal
         run: node scripts/ci/run-typeorm-ledger-runtime-compatibility-fixture.mjs
+
+  admission-postgres:
+    name: Real PostgreSQL18 Admission Invariants
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: chanjet_admission_fixture
+        ports:
+          - '127.0.0.1:5432:5432'
+        options: >-
+          --health-cmd "pg_isready -U postgres -d chanjet_admission_fixture"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Require real isolated PostgreSQL tests (no skip fallback)
+        env:
+          CHANJET_ADMISSION_FIXTURE_URL: postgresql://postgres:postgres@127.0.0.1:5432/chanjet_admission_fixture
+          CHANJET_ADMISSION_FIXTURE_REQUIRED: 'true'
+        run: >-
+          pnpm --filter phoenix-erp-v3-nest exec jest --runInBand --runTestsByPath
+          src/modules/chanjet/chanjet-execution-admission.spec.ts
+          src/modules/chanjet/chanjet-readonly-policy.spec.ts
+          --json --outputFile=${{ runner.temp }}/chanjet-admission-results.json
+      - name: Assert real fixture tests ran and passed
+        run: |
+          node -e 'const r=require(process.argv[1]); if(!r.success || r.numPendingTests!==0 || !r.testResults.some(s=>s.assertionResults.some(t=>t.fullName.includes("rejects the actual cap=1") && t.status==="passed"))) throw Error("REAL_ADMISSION_MATRIX_REQUIRED"); console.log("REAL_PG18_ADMISSION_MATRIX=PASS;SKIPPED=0");' '${{ runner.temp }}/chanjet-admission-results.json'

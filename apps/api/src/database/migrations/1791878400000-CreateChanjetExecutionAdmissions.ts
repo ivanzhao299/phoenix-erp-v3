@@ -36,6 +36,7 @@ export class CreateChanjetExecutionAdmissions1791878400000 implements MigrationI
       ticket uuid PRIMARY KEY,
       execution_id varchar(128) NOT NULL REFERENCES chanjet_execution_admissions(execution_id),
       ordinal integer NOT NULL,
+      phase varchar(24) NOT NULL,
       lease_id varchar(128) NOT NULL,
       kind varchar(24) NOT NULL,
       status varchar(24) NOT NULL DEFAULT 'RESERVED',
@@ -43,6 +44,7 @@ export class CreateChanjetExecutionAdmissions1791878400000 implements MigrationI
       acknowledged_at timestamptz,
       CONSTRAINT uq_chanjet_request_ordinal UNIQUE (execution_id, ordinal),
       CONSTRAINT ck_chanjet_request_ordinal CHECK (ordinal > 0),
+      CONSTRAINT ck_chanjet_request_phase CHECK (phase IN ('PROBING','SYNCING')),
       CONSTRAINT ck_chanjet_request_kind CHECK (kind IN ('BUSINESS','DISCOVERY','CERTIFICATE','TOKEN','RESEND')),
       CONSTRAINT ck_chanjet_request_status CHECK ((status = 'RESERVED' AND acknowledged_at IS NULL) OR (status = 'ACKNOWLEDGED' AND acknowledged_at IS NOT NULL))
     )`);
@@ -88,8 +90,11 @@ export class CreateChanjetExecutionAdmissions1791878400000 implements MigrationI
             (OLD.phase = 'PROBED' AND NEW.phase = 'SYNCING') OR
             (OLD.phase = 'SYNCING' AND NEW.phase = 'VERIFIED'))
             THEN RAISE EXCEPTION 'CHANJET_ADMISSION_PHASE'; END IF;
+          IF NEW.phase = 'SYNCING' AND EXISTS (SELECT 1 FROM chanjet_execution_requests
+            WHERE execution_id = OLD.execution_id AND lease_id = NEW.lease_id)
+            THEN RAISE EXCEPTION 'CHANJET_ADMISSION_LEASE_REUSED'; END IF;
           IF (NEW.phase IN ('PROBED','VERIFIED') AND NOT EXISTS (SELECT 1 FROM chanjet_execution_requests
-            WHERE execution_id = OLD.execution_id AND lease_id = OLD.lease_id AND kind = 'BUSINESS' AND status = 'ACKNOWLEDGED')) OR EXISTS (SELECT 1 FROM chanjet_execution_requests WHERE execution_id = OLD.execution_id AND status = 'RESERVED')
+            WHERE execution_id = OLD.execution_id AND phase = OLD.phase AND lease_id = OLD.lease_id AND kind = 'BUSINESS' AND status = 'ACKNOWLEDGED')) OR EXISTS (SELECT 1 FROM chanjet_execution_requests WHERE execution_id = OLD.execution_id AND status = 'RESERVED')
             THEN RAISE EXCEPTION 'CHANJET_ADMISSION_AMBIGUOUS_REQUEST'; END IF;
         END IF;
         RETURN NEW;
@@ -102,15 +107,15 @@ export class CreateChanjetExecutionAdmissions1791878400000 implements MigrationI
         IF TG_OP IN ('DELETE','TRUNCATE') THEN RAISE EXCEPTION 'CHANJET_REQUEST_IMMUTABLE'; END IF;
         SELECT * INTO STRICT a FROM chanjet_execution_admissions WHERE execution_id = NEW.execution_id FOR UPDATE;
         t := clock_timestamp();
-        IF a.phase NOT IN ('PROBING','SYNCING') OR a.lease_id <> NEW.lease_id OR t >= a.deadline_at
+        IF a.phase NOT IN ('PROBING','SYNCING') OR NEW.phase <> a.phase OR a.lease_id <> NEW.lease_id OR t >= a.deadline_at
           THEN RAISE EXCEPTION 'CHANJET_REQUEST_CONTEXT'; END IF;
         IF TG_OP = 'INSERT' THEN
           IF NEW.status <> 'RESERVED' OR NEW.ordinal <> a.request_count OR NEW.acknowledged_at IS NOT NULL
             THEN RAISE EXCEPTION 'CHANJET_REQUEST_RESERVATION'; END IF;
           NEW.reserved_at := t;
         ELSE
-          IF ROW(NEW.ticket,NEW.execution_id,NEW.ordinal,NEW.lease_id,NEW.kind,NEW.reserved_at)
-             IS DISTINCT FROM ROW(OLD.ticket,OLD.execution_id,OLD.ordinal,OLD.lease_id,OLD.kind,OLD.reserved_at)
+          IF ROW(NEW.ticket,NEW.execution_id,NEW.ordinal,NEW.phase,NEW.lease_id,NEW.kind,NEW.reserved_at)
+             IS DISTINCT FROM ROW(OLD.ticket,OLD.execution_id,OLD.ordinal,OLD.phase,OLD.lease_id,OLD.kind,OLD.reserved_at)
              OR OLD.status <> 'RESERVED' OR NEW.status <> 'ACKNOWLEDGED'
             THEN RAISE EXCEPTION 'CHANJET_REQUEST_IMMUTABLE'; END IF;
           NEW.acknowledged_at := t;

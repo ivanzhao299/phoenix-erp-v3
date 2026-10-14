@@ -4,6 +4,7 @@ import { admissionHold, validateExecutionManifest, ExecutionManifest } from './c
 type Tx = { query(sql: string, parameters?: unknown[]): Promise<AdmissionRow[]> };
 export type AdmissionManager = { transaction<T>(callback: (tx: Tx) => Promise<T>): Promise<T> };
 export type AdmissionPhase = 'REGISTERED' | 'PROBING' | 'PROBED' | 'SYNCING' | 'VERIFIED' | 'HOLD';
+export type RequestPhase = 'PROBING' | 'SYNCING';
 export type RequestKind = 'BUSINESS' | 'DISCOVERY' | 'CERTIFICATE' | 'TOKEN' | 'RESEND';
 export type AdmissionRow = {
   execution_id: string; approval_id: string; owner_id: string; manifest: ExecutionManifest;
@@ -11,7 +12,7 @@ export type AdmissionRow = {
   started_at: Date; deadline_at: Date; phase: AdmissionPhase; lease_id: string; hold_reason: string;
   db_now: Date;
 };
-export type ExecutionContext = { manifest: unknown; leaseId: string };
+export type ExecutionContext = { manifest: unknown; leaseId: string; phase: RequestPhase };
 
 /**
  * Unwired control foundation, intentionally not Injectable or exported by a Nest module.
@@ -51,7 +52,7 @@ export class ChanjetExecutionAdmissionStore {
   }
   private context(row: AdmissionRow, context: ExecutionContext): void {
     if (typeof context.leaseId !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/.test(context.leaseId)
-      || context.leaseId !== row.lease_id || !['PROBING','SYNCING'].includes(row.phase)) admissionHold();
+      || context.leaseId !== row.lease_id || context.phase !== row.phase || !['PROBING','SYNCING'].includes(context.phase)) admissionHold();
   }
   /** INSERT-only: exact duplicates and a new executionId for the same approval both reject. */
   async registerFromReviewedRootManifest(value: unknown): Promise<AdmissionRow> {
@@ -77,6 +78,10 @@ export class ChanjetExecutionAdmissionStore {
       const r = await this.lock(tx,value);
       if (r.phase !== (phase === 'PROBING' ? 'REGISTERED' : 'PROBED')) return admissionHold();
       if (this.expired(r)) { await this.held(tx,r,'DEADLINE'); return null; }
+      if (phase === 'SYNCING') {
+        const used = await tx.query('SELECT execution_id FROM chanjet_execution_requests WHERE execution_id=$1 AND lease_id=$2 LIMIT 1', [r.execution_id,leaseId]);
+        if (used.length) return admissionHold();
+      }
       const [next] = await tx.query(`WITH changed AS (UPDATE chanjet_execution_admissions SET phase=$2,lease_id=$3
         WHERE execution_id=$1 RETURNING *) SELECT *,clock_timestamp() AS db_now FROM changed`, [r.execution_id,phase,leaseId]);
       return next;
@@ -93,8 +98,8 @@ export class ChanjetExecutionAdmissionStore {
       if (r.request_count >= r.request_cap) { await this.held(tx,r,'CAP'); return null; }
       const [next] = await tx.query(`WITH changed AS (UPDATE chanjet_execution_admissions SET request_count=request_count+1
         WHERE execution_id=$1 RETURNING *) SELECT *,clock_timestamp() AS db_now FROM changed`, [r.execution_id]);
-      await tx.query(`INSERT INTO chanjet_execution_requests (ticket,execution_id,ordinal,lease_id,kind)
-        VALUES ($1,$2,$3,$4,$5)`, [ticket,r.execution_id,next.request_count,context.leaseId,kind]);
+      await tx.query(`INSERT INTO chanjet_execution_requests (ticket,execution_id,ordinal,lease_id,kind,phase)
+        VALUES ($1,$2,$3,$4,$5,$6)`, [ticket,r.execution_id,next.request_count,context.leaseId,kind,r.phase]);
       return { ticket, ordinal:next.request_count, deadlineAt:next.deadline_at };
     });
     return result || admissionHold();
@@ -105,8 +110,8 @@ export class ChanjetExecutionAdmissionStore {
       const r = await this.lock(tx,context.manifest); this.context(r,context);
       if (this.expired(r)) { await this.held(tx,r,'DEADLINE'); return false; }
       const rows = await tx.query(`WITH changed AS (UPDATE chanjet_execution_requests SET status='ACKNOWLEDGED'
-        WHERE ticket=$1 AND execution_id=$2 AND lease_id=$3 AND status='RESERVED' RETURNING execution_id) SELECT execution_id FROM changed`,
-      [ticket,r.execution_id,context.leaseId]);
+        WHERE ticket=$1 AND execution_id=$2 AND lease_id=$3 AND phase=$4 AND status='RESERVED' RETURNING execution_id) SELECT execution_id FROM changed`,
+      [ticket,r.execution_id,context.leaseId,context.phase]);
       if (rows.length !== 1) return admissionHold();
       return true;
     });

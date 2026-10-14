@@ -1,6 +1,6 @@
 import { Entity, Column, PrimaryColumn, Unique, Check, ManyToOne, JoinColumn } from 'typeorm';
 import { ExecutionManifest } from './chanjet-execution-manifest';
-import { AdmissionPhase, RequestKind } from './chanjet-execution-admission.store';
+import { AdmissionPhase, RequestKind, RequestPhase } from './chanjet-execution-admission.store';
 
 /** Schema metadata only; not registered in a Nest module or any HTTP/CRUD path. */
 @Entity('chanjet_execution_admissions')
@@ -33,12 +33,14 @@ export class ChanjetExecutionAdmissionEntity {
 @Entity('chanjet_execution_requests')
 @Unique('uq_chanjet_request_ordinal', ['executionId','ordinal'])
 @Check('ck_chanjet_request_ordinal', 'ordinal > 0')
+@Check('ck_chanjet_request_phase', "phase IN ('PROBING','SYNCING')")
 @Check('ck_chanjet_request_kind', "kind IN ('BUSINESS','DISCOVERY','CERTIFICATE','TOKEN','RESEND')")
 @Check('ck_chanjet_request_status', "(status = 'RESERVED' AND acknowledged_at IS NULL) OR (status = 'ACKNOWLEDGED' AND acknowledged_at IS NOT NULL)")
 export class ChanjetExecutionRequestEntity {
   @PrimaryColumn({type:'uuid',primaryKeyConstraintName:'chanjet_execution_requests_pkey'}) ticket: string;
   @Column({name:'execution_id',type:'varchar',length:128}) executionId: string;
   @Column({type:'integer'}) ordinal: number;
+  @Column({type:'varchar',length:24}) phase: RequestPhase;
   @Column({name:'lease_id',type:'varchar',length:128}) leaseId: string;
   @Column({type:'varchar',length:24}) kind: RequestKind;
   @Column({type:'varchar',length:24,default:'RESERVED'}) status: 'RESERVED' | 'ACKNOWLEDGED';
