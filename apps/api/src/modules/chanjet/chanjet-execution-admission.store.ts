@@ -24,28 +24,69 @@ export type ExecutionContext = { manifest: unknown; leaseId: string; phase: Requ
  */
 export class ChanjetExecutionAdmissionStore {
   /**
-   * Every store transaction is DB-time bounded: with a trusted deadline the
-   * statement/lock timeouts equal the remaining execution budget; without one
-   * a conservative constant still prevents indefinite waits. Timeouts raise
-   * inside the transaction, which rolls back and surfaces as a hold — no
-   * background transaction survives the caller's failure.
+   * Absolute-deadline DB access. Three distinct bounds are maintained:
+   *   1. per-SQL budget: recomputed as the REMAINING execution budget before
+   *      every statement (a transaction of several short statements cannot
+   *      silently outlive the execution deadline);
+   *   2. pool/transaction acquisition: bounded by the absolute-deadline race
+   *      below — the caller returns on time; a late-acquired transaction runs
+   *      only its guard statement (remaining<=1ms aborts immediately), so no
+   *      callback SQL executes and nothing commits late. Pool acquisition
+   *      itself cannot be per-call cancelled through the TypeORM manager
+   *      interface — documented limitation; self-created sources set
+   *      connectionTimeoutMillis instead;
+   *   3. without a trusted deadline a conservative per-statement constant
+   *      still prevents unbounded waits (scope callers reject instead).
    */
-  private static timeoutBound(deadlineAt?: Date): number {
+  private static timeoutBound(deadlineAt: Date | undefined, now = Date.now()): number {
     if (deadlineAt instanceof Date && Number.isFinite(deadlineAt.getTime())) {
-      return Math.max(1, Math.min(deadlineAt.getTime() - Date.now(), 15_000));
+      return Math.max(1, Math.min(deadlineAt.getTime() - now, 15_000));
     }
     return 2_000;
   }
   constructor(private readonly manager: AdmissionManager | undefined) {}
   private async transaction<T>(callback: (tx: Tx) => Promise<T>, deadlineAt?: Date): Promise<T> {
     if (!this.manager || typeof this.manager.transaction !== 'function') return admissionHold();
-    const bound = ChanjetExecutionAdmissionStore.timeoutBound(deadlineAt);
     const timed = async (tx: Tx): Promise<T> => {
-      await tx.query(`SET LOCAL statement_timeout=${bound}`);
-      await tx.query(`SET LOCAL lock_timeout=${Math.min(bound, 1_000)}`);
-      return callback(tx);
+      // Per-statement remaining budget: every SQL re-derives its own timeout
+      // from the absolute deadline, so cumulative execution cannot exceed it.
+      const boundedTx: Tx = {
+        query: async (sql: string, parameters?: unknown[]) => {
+          // Expired: abort before executing ANY statement (including the
+          // timeout guards) so a late-acquired transaction cannot even start
+          // callback work, let alone commit it.
+          if (deadlineAt instanceof Date && Date.now() >= deadlineAt.getTime()) {
+            throw new Error('CHANJET_EXECUTION_DEADLINE');
+          }
+          const budget = ChanjetExecutionAdmissionStore.timeoutBound(deadlineAt);
+          await tx.query(`SET LOCAL statement_timeout=${budget}`);
+          await tx.query(`SET LOCAL lock_timeout=${Math.min(budget, 1_000)}`);
+          return tx.query(sql, parameters);
+        },
+      };
+      return callback(boundedTx);
     };
-    try { return await this.manager.transaction(timed); } catch { return admissionHold(); }
+    if (!(deadlineAt instanceof Date) || !Number.isFinite(deadlineAt.getTime())) {
+      // No trusted deadline: still bounded per statement by the constant.
+      try { return await this.manager.transaction(timed); } catch { return admissionHold(); }
+    }
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      // Absolute race: the caller returns on time; if the transaction was
+      // queued behind the pool it can only run its guard statement afterwards
+      // (per-statement budget hits 1ms) and rolls back — no delayed callback
+      // execution and no late commit.
+      return await Promise.race([
+        this.manager.transaction(timed),
+        new Promise<never>((_, reject) => {
+          timer = setTimeout(() => reject(new Error('CHANJET_EXECUTION_DEADLINE')), Math.max(1, deadlineAt.getTime() - Date.now()));
+        }),
+      ]);
+    } catch {
+      return admissionHold();
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
   }
   /** A persisted stop (hold_reason <> '') is recorded with phase=HOLD; the phase
    *  checks below already fail every further mutation — this guard makes the
@@ -171,7 +212,7 @@ export class ChanjetExecutionAdmissionStore {
    * connection boundaries and every later mutation fails closed. Successful
    * business exchanges never call this.
    */
-  async holdExecution(context: ExecutionContext, reason: 'TRANSPORT_FAILURE' | 'CANCELLED' | 'ACK_UNVERIFIED' | 'RESERVE_UNVERIFIED'): Promise<void> {
+  async holdExecution(context: ExecutionContext, reason: 'TRANSPORT_FAILURE' | 'CANCELLED' | 'ACK_UNVERIFIED' | 'RESERVE_UNVERIFIED' | 'DEADLINE'): Promise<void> {
     if (!/^[A-Z][A-Z0-9_]{0,47}$/.test(reason)) admissionHold();
     await this.transaction(async tx => {
       const r = await this.lock(tx,context.manifest);

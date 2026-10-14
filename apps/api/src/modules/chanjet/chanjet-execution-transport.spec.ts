@@ -49,7 +49,7 @@ function manifest(cap = 10, httpTimeoutMs = 30_000, totalTimeoutMs = 360_000): E
   };
 }
 
-type FixtureRoute = { status?: number; body?: unknown | ((nth: number) => unknown); delayMs?: number; location?: string };
+type FixtureRoute = { status?: number; body?: unknown | ((nth: number) => unknown); delayMs?: number; location?: string; destroySocket?: boolean };
 function httpFixture() {
   const hits: Array<{ method: string; path: string; aborted: boolean }> = [];
   let routes: Record<string, FixtureRoute> = {};
@@ -66,6 +66,11 @@ function httpFixture() {
         req.on('close', () => { hit.aborted = !res.writableEnded; });
         const route = routes[req.url || ''] || { status: 200, body: { code: '200' } };
         const nth = hits.filter((h) => h.path === (req.url || '')).length - 1;
+        if (route.destroySocket) {
+          // real transport failure: kill the socket without any response
+          req.socket.destroy();
+          return;
+        }
         const body = typeof route.body === 'function' ? route.body(nth) : route.body;
         setTimeout(() => {
           if (!res.writableEnded) {
@@ -161,6 +166,23 @@ database('execution transport wiring (real PG18 admission + local HTTP fixture, 
     return { manifest: m, leaseId, phase: 'PROBING' as const };
   }
   const gatewayFor = (m: ExecutionManifest) => new ChanjetExecutionHttpGateway(store, m);
+  /** begin an execution through a SPECIFIC store (isolated-pool tests). */
+  const beginProbeOn = async (m: ExecutionManifest, target: ChanjetExecutionAdmissionStore, leaseId = `PROBE_${randomUUID().slice(0, 8)}`) => {
+    await target.begin(m, 'PROBING', leaseId);
+    return { manifest: m, leaseId, phase: 'PROBING' as const };
+  };
+  const receiptsOn = async (executionId: string, target: DataSource) => target.query(
+    'SELECT ordinal, phase, lease_id, kind, status, result FROM chanjet_execution_requests WHERE execution_id=$1 ORDER BY ordinal',
+    [executionId],
+  );
+  // isolated FIFO sandbox: its own pool + store + gateway + receipts
+  const fifoDs = new DataSource({ type: 'postgres', url: fixtureUrl, logging: false });
+  const fifoStore = new ChanjetExecutionAdmissionStore(fifoDs.manager);
+  const fifoGateway = (manifest: ExecutionManifest) => new ChanjetExecutionHttpGateway(fifoStore, manifest);
+  const fifoReceipts = async (executionId: string) => fifoDs.query(
+    'SELECT ordinal, phase, kind, status, result FROM chanjet_execution_requests WHERE execution_id=$1 ORDER BY ordinal',
+    [executionId],
+  );
   /** Disposable loopback fixture guard: evaluated BEFORE any connection or DDL. */
   const scopeDeadlineAt = () => new Date(Date.now() + 20 * 60_000);
   const transportOps = () => ({
@@ -464,20 +486,21 @@ database('execution transport wiring (real PG18 admission + local HTTP fixture, 
   it('transport failure persists a stop across gateways and connections; queued sends are refused', async () => {
     resetHits();
     const m = await registered(5);
-    fixture.setRoutes({ '/reset': { body: {}, delayMs: 2_000 }, '/final': { body: { code: '200' } } });
+    fixture.setRoutes({ '/reset': { destroySocket: true }, '/final': { body: { code: '200' } } });
     const context = await beginProbe(m);
     const gateway = gatewayFor(m);
-    const inFlight = gateway.send(context, 'BUSINESS', async (signal: AbortSignal) => (await fetch(`${fixture.endpoint()}/reset`, { signal })).json());
+    // the fixture destroys the socket mid-exchange -> real transport failure
+    // (gateway layer resolves with a typed result; executionSend throws)
+    const result = await gateway.send(context, 'BUSINESS', async (signal: AbortSignal) => (await fetch(`${fixture.endpoint()}/reset`, { signal })).json());
+    expect(result.outcome).toBe('TRANSPORT_FAILURE');
+    const row = await store.load(m);
+    expect(row.phase).toBe('HOLD');
+    expect(['TRANSPORT_FAILURE', 'CANCELLED', 'ACK_UNVERIFIED']).toContain(row.hold_reason);
+    // the stop is durable: a brand-new gateway on a brand-new connection is
+    // refused pre-reserve with zero further HTTP
     const stopDs = new DataSource({ type: 'postgres', url: fixtureUrl, logging: false });
     await stopDs.initialize();
     try {
-      // a second connection stops the execution while the first send is in flight
-      await new ChanjetExecutionAdmissionStore(stopDs.manager).holdExecution(context, 'CANCELLED');
-      await expect(inFlight).rejects.toThrow();
-      const row = await store.load(m);
-      expect(row.phase).toBe('HOLD');
-      expect(['CANCELLED', 'TRANSPORT_FAILURE']).toContain(row.hold_reason);
-      // a queued (not yet sent) attempt on a fresh gateway/process is refused pre-reserve
       const fresh = new ChanjetExecutionHttpGateway(new ChanjetExecutionAdmissionStore(stopDs.manager), m);
       await expect(fresh.send(context, 'BUSINESS', businessSend('/final'))).rejects.toThrow('CHANJET_ADMISSION_HOLD');
       expect(hitsByUrl('/final')).toHaveLength(0);
@@ -643,6 +666,145 @@ database('execution transport wiring (real PG18 admission + local HTTP fixture, 
     // after the lock holder goes away, the normal path works again
     await store.acknowledge(context, reserved.ticket, 'OK');
     expect((await store.load(m)).phase).toBe('PROBING');
+  });
+
+  it('several short SQL statements cannot cumulatively outlive the execution deadline', async () => {
+    resetHits();
+    const m = await registered(6);
+    fixture.setRoutes({
+      '/step1': { body: { code: '200' }, delayMs: 150 },
+      '/step2': { body: { code: '200' }, delayMs: 150 },
+      '/step3': { body: { code: '200' }, delayMs: 150 },
+    });
+    const context = await beginProbe(m);
+    // single-statement budget (5s) exceeds each step; the ABSOLUTE execution
+    // deadline (300ms) is what must stop the cumulative sequence
+    const bounded: ExecutionContext = { ...context, deadlineAt: new Date(Date.now() + 300) };
+    const gateway = gatewayFor(m);
+    let outcomes = 0;
+    await expect((async () => {
+      for (const path of ['/step1', '/step2', '/step3']) {
+        const result = await gateway.send(bounded, 'BUSINESS', async (signal: AbortSignal) => (await fetch(`${fixture.endpoint()}${path}`, { signal })).json());
+        outcomes += 1;
+        expect(result.outcome).toBe('OK');
+      }
+    })()).rejects.toThrow();
+    const row = await store.load(m);
+    expect(row.phase).toBe('HOLD');
+    expect(['DEADLINE', 'TRANSPORT_FAILURE', 'CANCELLED']).toContain(row.hold_reason);
+    const completed = hitsByUrl('/step1').length + hitsByUrl('/step2').length + hitsByUrl('/step3').length;
+    expect(completed).toBeLessThan(3);
+    expect(outcomes).toBeLessThan(3);
+  });
+
+  it('a saturated single-connection pool cannot delay the caller past the deadline or commit late', async () => {
+    resetHits();
+    const m = await registered(3);
+    fixture.setRoutes({ '/ok': { body: { code: '200' } } });
+    const storeDs = new DataSource({ type: 'postgres', url: fixtureUrl, poolSize: 1, logging: false });
+    await storeDs.initialize();
+    try {
+      // THE saturated pool is the store's own pool: its single client is the
+      // only DB access this execution's store can get.
+      const localStore = new ChanjetExecutionAdmissionStore(storeDs.manager);
+      const context = await beginProbeOn(m, localStore);
+      // a real committed reservation, taken BEFORE the pool is saturated
+      const reserved = await localStore.reserve(context, 'BUSINESS');
+      const bounded: ExecutionContext = { ...context, deadlineAt: new Date(Date.now() + 150) };
+      // occupy the only pool connection past the total deadline
+      const occupier = storeDs.query('SELECT pg_sleep(0.9) AS slept');
+      const started = Date.now();
+      // the caller returns on time; the late-acquired background transaction
+      // finds the deadline expired at its guard statement (the proxy aborts
+      // before ANY statement), rolls back — no late execution, no late commit
+      const ackResult = await Promise.race([
+        localStore.acknowledge(bounded, reserved.ticket, 'OK').then(() => 'committed' as const).catch(() => 'rolled-back-or-held' as const),
+        new Promise((resolve) => setTimeout(() => resolve('late' as const), 1_200)),
+      ]);
+      expect(Date.now() - started).toBeLessThan(800);
+      expect(ackResult).not.toBe('committed');
+      void occupier;
+      await occupier;
+      // give any raced background transaction a beat to die before teardown
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      // after the pool frees: no late commit happened — the receipt is untouched
+      const rows = await storeDs.query('SELECT status, result FROM chanjet_execution_requests WHERE execution_id=$1', [m.executionId]);
+      expect(rows.every((r: { status: string; result: string }) => r.status === 'RESERVED' && r.result === 'UNSET')).toBe(true);
+      // and a normal send still recovers on a fresh execution
+      const recovered = await registered(3);
+      const recoveredContext = await beginProbe(recovered);
+      const recoveredResult = await gatewayFor(recovered).send(recoveredContext, 'BUSINESS', businessSend('/ok'));
+      expect(recoveredResult.outcome).toBe('OK');
+    } finally { await storeDs.destroy(); }
+  });
+
+  it('queue FIFO: cancelling a middle caller preserves intervals for the next caller', async () => {
+    resetHits();
+    const m = await registered(10);
+    fixture.setRoutes({
+      '/v1/common/auth/selfBuiltApp/generateToken': { body: { value: { accessToken: `tok-${randomUUID().slice(0, 6)}`, expiresIn: 7200 } } },
+      '/a': { body: { code: '200', delayMs: 0 } },
+      '/b': { body: { code: '200', delayMs: 0 } },
+      '/c': { body: { code: '200', delayMs: 0 } },
+    });
+    const service = createService(fixture.endpoint());
+    process.env.CHANJET_MIN_REQUEST_INTERVAL_MS = '200';
+    if (!fifoDs.isInitialized) await fifoDs.initialize();
+    try {
+      const times: Record<string, number> = {};
+      const timedCall = (scopeState: ExecutionScopeState, path: string) => withExecutionScope(scopeState, async () => {
+        await service.callApi(path, { method: 'POST', body: {} });
+        times[path] = Date.now();
+      });
+      // A: healthy scope; B: expires while queued; C: healthy scope.
+      // Three independent executions share only the service traffic queue.
+      const makeScope = async (prefix: string, deadlineInMs: number) => {
+        const manifest = await registered(10);
+        const current = await beginProbe(manifest, `${prefix}_${randomUUID().slice(0, 6)}`);
+        return { manifest, current, state: { manifest, store, gateway: gatewayFor(manifest), transport: transportOps(), current, deadlineAt: new Date(Date.now() + deadlineInMs) } as ExecutionScopeState };
+      };
+      const scopeA = await makeScope('A', 5_000);
+      const scopeB = await makeScope('B', 260);
+      const scopeC = await makeScope('C', 5_000);
+      const t0 = Date.now();
+      const a = timedCall(scopeA.state, '/a');
+      await new Promise((r) => setTimeout(r, 30));
+      const b = timedCall(scopeB.state, '/b').catch((error) => { times.b = Date.now(); throw error; });
+      await new Promise((r) => setTimeout(r, 30));
+      const c = timedCall(scopeC.state, '/c');
+      await expect(b).rejects.toThrow('CHANJET_EXECUTION_DEADLINE');
+      await Promise.all([a, c]);
+      const elapsedA = times['/a'] - t0;
+      const elapsedC = times['/c'] - t0;
+      // C must NOT jump ahead of A's remaining interval (the round-2 bug:
+      // C released at ~260ms while A waited until ~400ms)
+      expect(elapsedC - elapsedA).toBeGreaterThanOrEqual(180);
+      // ...and the queue is not wedged: C completes promptly after A's slot
+      expect(elapsedC).toBeLessThan(1_500);
+      expect(hitsByUrl('/b')).toHaveLength(0);
+      // B expired before its queue slot: zero sends for B; receipts preserved
+      const fifoRows = await fifoReceipts((scopeB.manifest as ExecutionManifest).executionId);
+      expect(fifoRows.every((r: { status: string }) => r.status === 'RESERVED' || r.status === 'ACKNOWLEDGED')).toBe(true);
+      void a; void c;
+    } finally {
+      delete process.env.CHANJET_MIN_REQUEST_INTERVAL_MS;
+    }
+  });
+  afterAll(async () => {
+    await fifoDs.destroy().catch(() => undefined);
+  });
+
+  it('B expired before enqueue is rejected at the entry check without touching the queue', async () => {
+    resetHits();
+    const m = await registered(10);
+    fixture.setRoutes({ '/early': { body: { code: '200' } } });
+    const service = createService(fixture.endpoint());
+    const context = await beginProbe(m, `E_${randomUUID().slice(0, 6)}`);
+    const expired: ExecutionScopeState = { manifest: m, store, gateway: gatewayFor(m), transport: transportOps(), current: context, deadlineAt: new Date(Date.now() - 1) };
+    await withExecutionScope(expired, async () => {
+      await expect(service.callApi('/early', { method: 'POST', body: {} })).rejects.toThrow('CHANJET_EXECUTION_DEADLINE');
+    });
+    expect(hitsByUrl('/early')).toHaveLength(0);
   });
 
   it('parallel scopes keep distinct identities and nested throws clean up', async () => {

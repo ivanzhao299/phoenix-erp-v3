@@ -23,10 +23,11 @@ const database = fixtureUrl ? describe : describe.skip;
 // or runs any DDL. The child CLI has its own guard; neither substitutes for
 // the other.
 function assertOwnFixtureUrl(u) {
+  // Fixed sanitized rejection only — never echo the URL (it may embed a password).
   const parsed = new URL(u);
   const disposable = /^(chanjet_admission_fixture|chanjet_transport_fixture.*|root_admission_review)$/.test(parsed.pathname.slice(1));
   if (!['127.0.0.1', 'localhost', '::1'].includes(parsed.hostname) || !disposable) {
-    throw Error(`PARENT_FIXTURE_URL_REQUIRED (loopback + dedicated disposable db): ${u}`);
+    throw Error('PARENT_FIXTURE_URL_REQUIRED: loopback host and dedicated disposable database name required');
   }
   return parsed;
 }
@@ -172,8 +173,10 @@ database('registration CLI runs as a real subprocess against real PostgreSQL', (
       ['not-a-url', 'PG_URL_UNPARSEABLE'],
     ]) {
       const result = run(['--manifest', file, '--expected-floor-sha', 'e'.repeat(40), '--pg-url', url, '--register']);
-      assert.equal(result.status, 2, `${url}`);
+      // fixed sanitized refusal: the child never echoes the URL
+      assert.equal(result.status, 2, `rejection label: ${reason}`);
       assert.match(result.stderr, new RegExp(reason));
+      assert.doesNotMatch(result.stdout + result.stderr, /postgres:pw|10\.0\.0\.8/);
     }
   });
 

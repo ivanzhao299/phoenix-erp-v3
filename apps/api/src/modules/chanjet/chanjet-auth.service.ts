@@ -643,14 +643,19 @@ export class ChanjetAuthService implements OnModuleInit {
     const previous = this.trafficQueue;
     let release!: () => void;
     this.trafficQueue = new Promise<void>((resolve) => { release = resolve; });
-    // The chain release MUST happen on every path (slot won, deadline lost,
-    // already expired) — a missed release would wedge every later caller.
+    // Strict FIFO: the slot completes only after the previous caller's slot
+    // PLUS the configured interval. A caller that loses its deadline race
+    // abandons only its own wait — its slot still resolves on schedule so a
+    // later caller's wait starts exactly where it would have (no interval
+    // collapse, no permanent hang). Release therefore happens ONLY on slot
+    // completion, never on cancellation.
     const slot = (async () => {
       await previous;
       await new Promise<void>((resolve) => {
         setTimeout(resolve, intervalMs);
       });
     })();
+    slot.then(() => release(), () => release());
     let timer: NodeJS.Timeout | undefined;
     try {
       if (deadlineAt) {
@@ -666,10 +671,6 @@ export class ChanjetAuthService implements OnModuleInit {
         await slot;
       }
     } finally {
-      // Removing this caller from the queue on EVERY path keeps the original
-      // request-interval semantics for whoever runs next (legacy, other
-      // executions); the aborted caller simply never sends.
-      release();
       if (timer) clearTimeout(timer);
     }
   }
@@ -705,23 +706,30 @@ export class ChanjetAuthService implements OnModuleInit {
     );
     const writeLimit = this.positiveInt('CHANJET_DAILY_WRITE_BUDGET', 20);
 
+    // Per-statement remaining budget: every SQL (including the timeout guards)
+    // re-derives its own bound from the absolute execution deadline, and an
+    // expired execution aborts before executing anything — a budget
+    // transaction can neither run late nor commit late.
+    const boundedQuery = async (tx: { query: (sql: string, params?: unknown[]) => Promise<unknown[]> }, sql: string, params?: unknown[]) => {
+      const remaining = deadlineAt ? deadlineAt.getTime() - Date.now() : bound;
+      if (deadlineAt && remaining <= 1) throw new Error('CHANJET_EXECUTION_DEADLINE');
+      const budget = deadlineAt ? Math.max(1, Math.min(remaining, 15_000)) : bound;
+      await tx.query(`SET LOCAL statement_timeout=${budget}`);
+      await tx.query(`SET LOCAL lock_timeout=${Math.min(budget, 1_000)}`);
+      return tx.query(sql, params);
+    };
     const reserve = async (
       tx: { query: (sql: string, params?: unknown[]) => Promise<unknown[]> },
       key: string,
       limit: number,
     ) => {
-      await tx.query(`SET LOCAL statement_timeout=${bound}`);
-      await tx.query(`SET LOCAL lock_timeout=${Math.min(bound, 1_000)}`);
-      const rows = await tx.query(
-        `INSERT INTO sys_chanjet_api_budget (budget_key, request_count, updated_at)
+      const rows = await boundedQuery(tx, `INSERT INTO sys_chanjet_api_budget (budget_key, request_count, updated_at)
          VALUES ($1, 1, NOW())
          ON CONFLICT (budget_key) DO UPDATE
            SET request_count = sys_chanjet_api_budget.request_count + 1,
                updated_at = NOW()
          WHERE sys_chanjet_api_budget.request_count < $2
-         RETURNING request_count`,
-        [key, limit],
-      );
+         RETURNING request_count`, [key, limit]);
       if (!rows.length) {
         throw new Error(
           `CHANJET_LOCAL_BUDGET_EXHAUSTED key=${key} limit=${limit} kind=${kind} path=${path}`,

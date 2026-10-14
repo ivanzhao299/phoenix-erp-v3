@@ -177,7 +177,12 @@ export class ChanjetExecutionHttpGateway {
       await this.store.acknowledge(context, reservation.ticket, result);
     } catch (ackError) {
       this.stop('ACK_UNVERIFIED');
-      await this.store.holdExecution(context, 'ACK_UNVERIFIED').catch(() => undefined);
+      // An ack that fails because the deadline already passed is recorded as
+      // the DEADLINE stop it actually is; anything else is the unverifiable
+      // acknowledgement class.
+      const deadlinePassed = context.deadlineAt instanceof Date && Date.now() >= context.deadlineAt.getTime();
+      const reason = deadlinePassed ? 'DEADLINE' : 'ACK_UNVERIFIED';
+      await this.store.holdExecution(context, reason).catch(() => undefined);
       throw Object.assign(new Error('CHANJET_EXECUTION_ACK_UNVERIFIED'), { cause: ackError });
     }
     if (cancelled || outcome === 'TRANSPORT_FAILURE') {
