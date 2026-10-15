@@ -1,4 +1,5 @@
 import { requireReadonlyOrchestration, assertReadonlyOrchestrationOwnerIfPresent } from './chanjet-readonly-execution';
+import { executionWriteGate } from './chanjet-execution-scope';
 import { approvedReadonlyPolicy, requireApprovedReadonlyRequest, readonlyFailureCode } from './chanjet-readonly-policy';
 import { requireReadonlySync } from './chanjet-sync-control';
 import { Injectable, Logger } from '@nestjs/common';
@@ -7257,6 +7258,10 @@ export class ChanjetIntegrationService {
       const targets = ep.requiresBook ? books : [''];
       for (const targetBookId of targets) {
         assertReadonlyOrchestrationOwnerIfPresent();
+        // execution-bound write gate: a held/expired admission refuses before
+        // this target's snapshot upsert / aggregate delete+upsert / mapping
+        // candidate writes (legacy non-execution paths pass through)
+        await executionWriteGate();
         const path = ep.requiresBook ? ep.path.replace('{bookid}', encodeURIComponent(targetBookId)) : ep.path;
         const request = this.buildProbeRequest(ep, period);
         const effectivePeriod = request.period;
@@ -8105,6 +8110,9 @@ export class ChanjetIntegrationService {
     results: ChanjetReconciliationResultEntity[];
   }> {
     requireReadonlySync();
+    // execution-bound write gate: reconciliation candidate/resolution writes
+    // refuse for a held/expired execution (legacy paths pass through)
+    await executionWriteGate();
     const job = await this.createJob('RECONCILE', '', '', {
       scope: 'MASTER_MAPPING',
       mode: 'middle-layer-only',
@@ -8710,6 +8718,10 @@ export class ChanjetIntegrationService {
       const targets = ep.requiresBook ? books : [''];
       for (const targetBookId of targets) {
         assertReadonlyOrchestrationOwnerIfPresent();
+        // execution-bound write gate: a held/expired admission refuses before
+        // this target's snapshot upsert / aggregate delete+upsert / mapping
+        // candidate writes (legacy non-execution paths pass through)
+        await executionWriteGate();
         const path = ep.requiresBook ? ep.path.replace('{bookid}', encodeURIComponent(targetBookId)) : ep.path;
         const job = await this.createJob('PROBE', targetBookId, '', {
           key: ep.key,

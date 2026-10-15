@@ -119,8 +119,9 @@ jobs:
         env:
           CHANJET_ADMISSION_FIXTURE_URL: postgresql://postgres:postgres@127.0.0.1:5432/chanjet_admission_fixture
           CHANJET_EXECUTION_WORKER_REQUIRED: 'true'
-        # --forceExit: the loopback provider fixture's keep-alive client sockets
-        # hold the event loop after the suite; all cleanup hooks run first.
+        # no --forceExit: the scheduler's guard executor is disposed in
+        # onModuleDestroy and the fixture connections are closed — a natural
+        # process exit IS the resource-release assertion.
         run: >-
-          pnpm --filter phoenix-erp-v3-nest exec jest --runInBand --forceExit --runTestsByPath
+          pnpm --filter phoenix-erp-v3-nest exec jest --runInBand --runTestsByPath
           src/modules/chanjet/chanjet-execution-worker.integration.spec.ts

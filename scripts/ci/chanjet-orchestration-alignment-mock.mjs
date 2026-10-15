@@ -56,7 +56,27 @@ const server = http.createServer(async (req, res) => {
     let body = {};
     for await (const chunk of req) { try { body = JSON.parse(chunk); } catch { /* ignore */ } }
     const runId = `SYNTHETIC_RUN_${randomUUID().replace(/-/g, '').slice(0, 16)}`;
+    const execId = body.execution?.executionId || 'EXEC_UNSET';
+    const leaseId = body.execution?.leaseId || 'LEASE_UNSET';
     try {
+      // real terminal contract part 1: the run's worker-receipt ordinals are
+      // read from the receipts table (this topology's worker exchange is the
+      // caller's counted rehearsal send under the SYNCING lease)
+      const [ord] = await dataSource.query(
+        `SELECT COALESCE(max(ordinal),0)::int AS n FROM chanjet_execution_requests
+          WHERE execution_id=$1 AND lease_id=$2 AND kind='BUSINESS' AND result='OK'`,
+        [execId, leaseId]);
+      // real terminal contract part 2: the scheduler's SUCCESS gate commits
+      // VERIFIED with the reviewed finish transition (lease cleared) — and
+      // ONLY on the clean path: a HOLD decision or any proof violation leaves
+      // the execution in SYNCING (never VERIFIED)
+      const cleanPath = !decisionHold && !scopeMismatch && !leaseMismatch && !omitInbound && !sendsMismatch;
+      if (cleanPath) {
+        await dataSource.query(
+          `UPDATE chanjet_execution_admissions SET phase='VERIFIED', lease_id=''
+            WHERE execution_id=$1 AND phase='SYNCING'`,
+          [execId]);
+      }
       await dataSource.query(
         `INSERT INTO chanjet_sync_jobs (orchestration_run_id, status, request_scope, result_summary)
          VALUES ($1,'SUCCESS',$2,$3)`,
@@ -69,8 +89,8 @@ const server = http.createServer(async (req, res) => {
           // the REAL scheduler persists this binding read back from the
           // admission row; the mock mirrors that persisted shape
           execution: {
-            executionId: body.execution?.executionId || 'EXEC_UNSET',
-            leaseId: leaseMismatch ? 'LEASE_OTHER' : (body.execution?.leaseId || 'LEASE_UNSET'),
+            executionId: execId,
+            leaseId: leaseMismatch ? 'LEASE_OTHER' : leaseId,
             phase: 'SYNCING',
             approvalId: scopeMismatch ? 'APPROVAL_OTHER' : (expectedApprovalId || 'APPROVAL_UNSET'),
             floorSha,
@@ -81,14 +101,15 @@ const server = http.createServer(async (req, res) => {
           decision: decisionHold ? 'HOLD' : 'EXECUTED',
           ...(omitInbound ? {} : { erpInbound: { enabled: false, applied: false } }),
           externalWriteEnabled: false,
-          // the mock topology's "worker" exchange is the caller's counted
-          // rehearsal receipt under the SYNCING lease
           executionSends: sendsMismatch ? 2 : 1,
+          executionReceiptOrdinals: [Number(ord?.n || 0)],
         })],
       );
       res.end(JSON.stringify({ accepted: true, run: { runId } }));
       globalThis.lastRunId = runId;
     } catch (error) {
+      // sanitized class only — never payloads or credentials
+      console.error('MOCK_ENQUEUE_ERROR', String(error instanceof Error ? error.message : error).replace(/[^\x20-\x7e]/g, ' ').slice(0, 160));
       res.statusCode = 500;
       res.end(JSON.stringify({ success: false }));
     }

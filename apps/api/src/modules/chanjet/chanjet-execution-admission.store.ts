@@ -202,6 +202,24 @@ export class ChanjetExecutionAdmissionStore {
   }
 
   /**
+   * Mirror-write boundary gate for execution-bound workers: re-reads the row
+   * under lock (bounded by the execution deadline) and refuses when the
+   * execution has been durably held or drifted. Called at the REAL mirror
+   * write boundaries (snapshot upsert, aggregate delete/upsert,
+   * reconciliation) — the terminal SUCCESS gate does NOT replace this.
+   */
+  async assertWritable(context: ExecutionContext): Promise<AdmissionRow> {
+    const row = await this.transaction(async tx => {
+      const r = await this.lock(tx, context.manifest);
+      this.context(r, context);
+      if (ChanjetExecutionAdmissionStore.stopped(r)) return admissionHold();
+      if (this.expired(r)) { await this.held(tx, r, 'DEADLINE'); return admissionHold(); }
+      return r;
+    }, context.deadlineAt);
+    return row || admissionHold();
+  }
+
+  /**
    * Post-reserve revalidation executed BEFORE any HTTP leaves: re-reads the
    * row under lock and rejects when the execution has been persistently held
    * or drifted since the reservation committed. The already-committed receipt

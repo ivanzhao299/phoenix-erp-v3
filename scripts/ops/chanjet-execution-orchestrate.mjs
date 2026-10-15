@@ -372,26 +372,40 @@ await (async () => {
         && inbound.applied === false;
       const sends = summary?.executionSends;
       const workerSendsDeclared = typeof sends === 'number' && Number.isInteger(sends) && sends >= 1;
-      // the worker's own counted receipts under the SYNCING lease must exist
-      const [workerReceipts] = await dataSource.query(
-        `SELECT count(*)::integer AS n FROM chanjet_execution_requests
-          WHERE execution_id=$1 AND phase='SYNCING' AND lease_id=$2
-            AND kind='BUSINESS' AND status='ACKNOWLEDGED' AND result='OK'`,
-        [binding.manifest.executionId, leases.sync]);
-      // the admission row must still be a live SYNCING execution at proof time
+      // the persisted ordinals identify EXACTLY this run's worker sends: the
+      // rehearsal ACK (lower ordinals) can never satisfy them
+      const ordinals = summary?.executionReceiptOrdinals;
+      const ordinalsDeclared = Array.isArray(ordinals) && ordinals.length >= 1
+        && ordinals.every((o) => typeof o === 'number' && Number.isInteger(o) && o > 0)
+        && ordinals.length === sends;
+      let ordinalsVerified = ordinalsDeclared;
+      if (ordinalsDeclared) {
+        // independent verification: EVERY persisted ordinal must be a real
+        // counted SYNCING BUSINESS OK receipt under this execution and lease
+        const [counted] = await dataSource.query(
+          `SELECT count(*)::integer AS n FROM chanjet_execution_requests
+            WHERE execution_id=$1 AND phase='SYNCING' AND lease_id=$2
+              AND kind='BUSINESS' AND status='ACKNOWLEDGED' AND result='OK'
+              AND ordinal = ANY($3::int[])`,
+          [binding.manifest.executionId, leases.sync, ordinals]);
+        ordinalsVerified = Number(counted?.n || 0) === ordinals.length;
+      }
+      // VERIFIED is committed by the scheduler's SUCCESS gate inside its
+      // deadline-bounded terminal transaction — the CLI never finishes
       const admissionRows = await dataSource.query(
-        'SELECT phase, hold_reason FROM chanjet_execution_admissions WHERE execution_id=$1', [binding.manifest.executionId]);
-      const live = admissionRows[0]?.phase === 'SYNCING' && admissionRows[0]?.hold_reason === '';
+        'SELECT phase, hold_reason, lease_id FROM chanjet_execution_admissions WHERE execution_id=$1', [binding.manifest.executionId]);
+      const verified = admissionRows[0]?.phase === 'VERIFIED'
+        && admissionRows[0]?.hold_reason === ''
+        && admissionRows[0]?.lease_id === '';
       return run.status === 'SUCCESS'
         && summary?.state === 'COMPLETED'
         && typeof summary.decision === 'string' && summary.decision !== 'HOLD'
         && typeof summary.externalWriteEnabled === 'boolean' && summary.externalWriteEnabled === false
         && inboundForbidden
         && workerSendsDeclared
-        && Number(workerReceipts?.n || 0) >= 1
-        && Number(workerReceipts?.n || 0) === sends
-        && bindingMatches
-        && live;
+        && ordinalsDeclared
+        && ordinalsVerified
+        && verified;
     };
     const runAlignmentFirstSync = async () => {
       const accepted = await alignmentFetch('enqueue', {
@@ -449,11 +463,14 @@ await (async () => {
       if (phase === 'all' || phase === 'sync') {
         leases.sync = `SYNC_${randomUUID().slice(0, 8)}`;
         const syncContext = await runPhase('SYNCING', leases.sync, derivedEndpoint);
-        // the provider exchange above is the REHEARSAL receipt only: the
-        // first sync itself is the alignment flow, and VERIFIED requires it
+        // the provider exchange above is the REHEARSAL receipt only. The
+        // VERIFIED commit belongs exclusively to the scheduler's SUCCESS
+        // gate (inside its deadline-bounded terminal transaction) — the CLI
+        // never finishes the execution itself; it only VERIFIES the outcome
+        // through the strict first-sync proof below.
         const orchestrationRunId = await runAlignmentFirstSync();
-        await store.finish(syncContext, 'VERIFIED');
         summary.firstSync = { orchestrationRunId, proof: 'FIRST_CONTROLLED_SYNC_PROOF' };
+        void syncContext;
       }
     } catch (error) {
       // HOLD path: a transport failure, an unconfirmed hold or any non-OK
@@ -466,10 +483,14 @@ await (async () => {
       const stopContext = lastPhaseContext?.phase
         ? lastPhaseContext
         : { manifest: binding.manifest, leaseId: '', phase: 'PROBING' };
-      // the durable stop is reported ACCURATELY: a failed stop is surfaced as
-      // UNCONFIRMED, never swallowed into a claim that the stop persisted
-      const stopPersisted = await store.holdExecution(stopContext, reasonClass)
-        .then(() => true, () => false);
+      // the durable stop is reported ACCURATELY by its REAL outcome:
+      // CONFIRMED / ALREADY_STOPPED mean the stop stands; NO_HOLD_NEEDED
+      // means the row was VERIFIED (nothing to stop); anything else —
+      // including a thrown refusal — is UNCONFIRMED, never swallowed into a
+      // persisted claim
+      const stopOutcome = await store.holdExecution(stopContext, reasonClass)
+        .then((result) => String(result), () => 'UNCONFIRMED');
+      const stopPersisted = stopOutcome === 'CONFIRMED' || stopOutcome === 'ALREADY_STOPPED';
       const settled = await gateway.settled().catch(() => 'UNKNOWN');
       let holdRow = null;
       try { holdRow = await store.load(binding.manifest); } catch { /* already reported */ }
@@ -477,7 +498,7 @@ await (async () => {
         ...summary,
         reason: reasonText.slice(0, 120),
         stopPersisted,
-        ...(stopPersisted ? {} : { stopState: 'UNCONFIRMED' }),
+        stopOutcome,
         settled,
         phase: holdRow?.phase ?? null,
         holdReason: holdRow?.hold_reason ?? null,

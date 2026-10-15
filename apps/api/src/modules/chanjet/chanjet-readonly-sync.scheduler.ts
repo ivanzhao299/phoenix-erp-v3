@@ -275,6 +275,7 @@ export class ChanjetReadonlySyncScheduler implements OnApplicationBootstrap, OnM
       );
       let result;
       let preWorkerSends = 0;
+      let preWorkerMaxOrdinal = 0;
       if (executionBinding) {
         const current = await this.rebuildExecutionScopeContext(executionBinding);
         const store = this.executionSupport().store;
@@ -287,6 +288,7 @@ export class ChanjetReadonlySyncScheduler implements OnApplicationBootstrap, OnM
         // worker send evidence is scoped to THIS run: pre-existing ACKs under
         // the lease (the orchestration rehearsal) are excluded by the delta
         preWorkerSends = await this.countWorkerBusinessOk(executionBinding);
+        preWorkerMaxOrdinal = await this.maxWorkerReceiptOrdinal(executionBinding);
         result = await withExecutionScope(
           { manifest: current.manifest, store, gateway, transport: { resend: async () => { throw new Error('CHANJET_EXECUTION_RESEND_FORBIDDEN'); } }, deadlineAt: current.deadlineAt as Date, current },
           () => withReadonlyOrchestration(runId, runCycle, () => lease.assertAlive()),
@@ -329,11 +331,16 @@ export class ChanjetReadonlySyncScheduler implements OnApplicationBootstrap, OnM
       const executionDetails: Record<string, unknown> = {};
       if (executionBinding && executionScope) {
         // worker receipt evidence: ONLY the exchanges THIS run made (delta
-        // over the pre-cycle count — the rehearsal ACK is not worker evidence)
+        // over the pre-cycle count — the rehearsal ACK is not worker
+        // evidence). The receipt ORDINALS of exactly those sends are
+        // persisted so the orchestration proof can verify them
+        // independently against the receipts table.
         const sends = (await this.countWorkerBusinessOk(executionBinding)) - preWorkerSends;
         if (sends < 1) throw new Error('READONLY_HOLD_EXECUTION_NO_WORKER_SENDS');
+        const ordinals = await this.workerReceiptOrdinalsAbove(executionBinding, preWorkerMaxOrdinal);
         executionDetails.execution = executionBinding;
         executionDetails.executionSends = sends;
+        executionDetails.executionReceiptOrdinals = ordinals;
       }
       await this.persistTerminalState(lease, runId, 'SUCCESS', 'COMPLETED', decision, message, {
         targetCount, attempts, exactApproved, reconciliationCreated, reconciliationResolved, erpInbound, ...executionDetails,
@@ -447,12 +454,19 @@ export class ChanjetReadonlySyncScheduler implements OnApplicationBootstrap, OnM
     // Execution-bound SUCCESS commit gate: the admission row is locked and
     // checked INSIDE the same transaction as the terminal write, so a stop or
     // expiry occurring after the last ACK still blocks the success from
-    // landing. The gate is bounded (conservative statement/lock timeouts) and
-    // rolls back on any refusal.
+    // landing. Every SQL, the lock wait and the COMMIT are bounded by the
+    // SAME absolute execution deadline — no extra grace: on expiry the
+    // backend is terminated so the commit cannot land late, and the outcome
+    // is reported as UNKNOWN (never claimed committed or rolled back).
+    const deadlineAt = new Date(executionBinding.deadlineAt).getTime();
+    const remainingMs = (): number => deadlineAt - Date.now();
+    if (remainingMs() <= 1) throw executionGateRefusal();
     await lease.runner.query('BEGIN');
+    let commitUnknown = false;
+    let commitTimer: ReturnType<typeof setTimeout> | undefined;
     try {
-      await lease.runner.query('SET LOCAL statement_timeout=2000');
-      await lease.runner.query('SET LOCAL lock_timeout=1000');
+      await lease.runner.query(`SET LOCAL statement_timeout=${remainingMs()}`);
+      await lease.runner.query(`SET LOCAL lock_timeout=${Math.min(remainingMs(), 1_000)}`);
       const [gate] = await lease.runner.query(
         `SELECT phase, hold_reason, deadline_at FROM chanjet_execution_admissions
           WHERE execution_id=$1 FOR UPDATE`, [executionBinding.executionId]);
@@ -470,10 +484,35 @@ export class ChanjetReadonlySyncScheduler implements OnApplicationBootstrap, OnM
         if (!verified.length) throw executionGateRefusal();
       }
       await terminalUpdate();
-      await lease.runner.query('COMMIT');
+      const remaining = remainingMs();
+      if (remaining <= 1) {
+        // the deadline arrived between the last statement and the COMMIT:
+        // terminate the lease backend — an in-flight commit cannot land late
+        await this.ds.query('SELECT pg_terminate_backend($1)', [lease.backendPid]).catch(() => undefined);
+        commitUnknown = true;
+        throw Object.assign(new Error('READONLY_HOLD_EXECUTION_TERMINAL_UNKNOWN'), { terminalUnknown: true });
+      }
+      const committed = await Promise.race([
+        lease.runner.query('COMMIT').then(() => true as const),
+        new Promise<false>((resolve) => { commitTimer = setTimeout(() => resolve(false), remaining); }),
+      ]).catch(() => false as const);
+      if (committed !== true) {
+        await this.ds.query('SELECT pg_terminate_backend($1)', [lease.backendPid]).catch(() => undefined);
+        commitUnknown = true;
+        throw Object.assign(new Error('READONLY_HOLD_EXECUTION_TERMINAL_UNKNOWN'), { terminalUnknown: true });
+      }
     } catch (error) {
+      if (commitUnknown) {
+        // the COMMIT outcome is genuinely unknown: the backend was terminated
+        // so nothing can land late — the job keeps its durable RUNNING row for
+        // operator review and the UNKNOWN outcome propagates accurately.
+        this.log.error('READONLY_HOLD_TERMINAL_COMMIT_UNKNOWN');
+        throw error;
+      }
       await lease.runner.query('ROLLBACK').catch(() => undefined);
       throw error;
+    } finally {
+      if (commitTimer) clearTimeout(commitTimer);
     }
   }
 
@@ -641,6 +680,24 @@ export class ChanjetReadonlySyncScheduler implements OnApplicationBootstrap, OnM
       [binding.executionId, binding.leaseId],
     ).catch(() => [{ n: 0 }]);
     return Number(row?.n || 0);
+  }
+  private async maxWorkerReceiptOrdinal(binding: ExecutionBinding): Promise<number> {
+    const [row] = await this.ds.query(
+      `SELECT COALESCE(max(ordinal),0)::integer AS n FROM chanjet_execution_requests
+        WHERE execution_id=$1 AND phase='SYNCING' AND lease_id=$2`,
+      [binding.executionId, binding.leaseId],
+    ).catch(() => [{ n: 0 }]);
+    return Number(row?.n || 0);
+  }
+  /** THIS run's worker BUSINESS-OK receipt ordinals (strictly above the
+   *  pre-cycle watermark — rehearsal ACKs are excluded by construction). */
+  private async workerReceiptOrdinalsAbove(binding: ExecutionBinding, watermark: number): Promise<number[]> {
+    const rows = await this.ds.query(
+      `SELECT ordinal FROM chanjet_execution_requests
+        WHERE execution_id=$1 AND phase='SYNCING' AND lease_id=$2
+          AND kind='BUSINESS' AND status='ACKNOWLEDGED' AND result='OK' AND ordinal > $3
+        ORDER BY ordinal`, [binding.executionId, binding.leaseId, watermark]).catch(() => []);
+    return rows.map((r: { ordinal: number }) => Number(r.ordinal));
   }
 
   private idleState(): SyncRunState {

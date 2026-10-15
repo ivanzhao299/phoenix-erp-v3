@@ -9,12 +9,18 @@
 import { DataSource } from 'typeorm';
 import { randomUUID } from 'node:crypto';
 import { createServer, Server } from 'node:http';
+import { spawn, spawnSync } from 'node:child_process';
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { ChanjetSyncJobEntity } from './chanjet-sync-job.entity';
 import { ChanjetReadonlySyncScheduler } from './chanjet-readonly-sync.scheduler';
 import { ChanjetExecutionAdmissionStore } from './chanjet-execution-admission.store';
 import { createBoundedGuardExecutor, resolveGuardClientConfig } from './chanjet-execution-guard-executor';
 import { ChanjetExecutionHttpGateway } from './chanjet-execution-transport';
 import { ChanjetAuthService } from './chanjet-auth.service';
+import { executionWriteGate, withExecutionScope } from './chanjet-execution-scope';
+import * as scopeModule from './chanjet-execution-scope';
 import { CreateChanjetExecutionAdmissions1791878400000 } from '../../database/migrations/1791878400000-CreateChanjetExecutionAdmissions';
 import { installReadonlyApprovalFixture, readonlyApprovalFixture } from './chanjet-readonly-policy.test-fixture';
 
@@ -46,6 +52,39 @@ worker('execution-bound scheduler worker (real PostgreSQL18, real auth, local pr
   let slowMs = 20;
   let restorePolicy: (() => void) | undefined;
   let previousEnabled: string | undefined;
+  let tmpDir = '';
+  const workDir = (): string => {
+    if (!tmpDir) { tmpDir = mkdtempSync(join(tmpdir(), 'worker-combined-')); writeFileSync(join(tmpDir, 'mutation.lock'), ''); }
+    return tmpDir;
+  };
+  const lockFile = (): string => join(workDir(), 'mutation.lock');
+
+  /** Policy-consistent synthetic manifest for the combined CLI+scheduler run:
+   *  the approval identity matches the CURRENT approved policy and the
+   *  verification matches its book/period/scope (synthetic expiry). */
+  function syntheticWorkerManifest() {
+    const id = randomUUID().replace(/-/g, '');
+    return {
+      version: 1,
+      executionId: `EXEC_${id.slice(0, 24)}`,
+      ownerId: OWNER,
+      requestCap: 10,
+      totalTimeoutMs: 360_000,
+      httpTimeoutMs: 30_000,
+      approval: {
+        version: 3,
+        approvalId: POLICY_APPROVAL,
+        floorSha: POLICY_FLOOR,
+        sourceClassification: 'PRODUCTION_DATA',
+        remoteWrite: false,
+        erpInbound: false,
+        books: [{ bookId: VERIFY_BOOK, companyCode: 'COMP-LAO-AGRI' }],
+        scopes: ['RECEIVABLE_STATISTICS'],
+        periodPolicy: 'REQUESTED_PERIOD_NO_BACKFILL',
+        verification: { bookId: VERIFY_BOOK, period: VERIFY_PERIOD, scope: ['RECEIVABLE_STATISTICS'], expiresAt: `${new Date(Date.now() + 20 * 60_000).toISOString().slice(0, 23)}Z` },
+      },
+    } as const;
+  }
 
   const tokenSeq = { n: 0 };
   beforeAll(async () => {
@@ -171,8 +210,14 @@ worker('execution-bound scheduler worker (real PostgreSQL18, real auth, local pr
   function schedulerWithWorker(manifest: unknown, cycleHooks: { afterWorkerSend?: () => Promise<void> } = {}) {
     const integration = {
       runReadonlyAlignmentCycle: async () => {
+        // eslint-disable-next-line no-console
+        console.log('STUB_ENTERED');
         await auth.callApi(`/accounting/gl/statistics/receive/${(manifest as { approval: { verification: { bookId: string } } }).approval.verification.bookId}`, { method: 'GET', query: { period: VERIFY_PERIOD }, kind: 'READ' });
+        // eslint-disable-next-line no-console
+        console.log('STUB_SENT');
         await cycleHooks.afterWorkerSend?.();
+        // eslint-disable-next-line no-console
+        console.log('STUB_HOOK_DONE');
         return {
           decision: 'GO',
           mirror: { results: [{ key: 'RECEIVABLE_STATISTICS' }], attempts: 1, unresolvedFailures: [] },
@@ -332,7 +377,8 @@ worker('execution-bound scheduler worker (real PostgreSQL18, real auth, local pr
       afterWorkerSend: async () => {
         // the execution is durably stopped AFTER the worker's last ACK but
         // BEFORE the cycle returns and SUCCESS is committed
-        await store.holdExecution({ manifest, leaseId: syncLease, phase: 'SYNCING', deadlineAt }, 'CANCELLED');
+        const outcome = await store.holdExecution({ manifest, leaseId: syncLease, phase: 'SYNCING', deadlineAt }, 'CANCELLED').then((r) => String(r), (e: Error) => `THREW:${e.message}`);
+        try { writeFileSync('/tmp/hold-diag.txt', `hook outcome=${outcome}\n`); } catch { /* diag only */ }
       },
     });
     const accepted = await subject.enqueueManualSync('root', {
@@ -380,6 +426,166 @@ worker('execution-bound scheduler worker (real PostgreSQL18, real auth, local pr
     const ok = await gateway.send({ manifest, leaseId: syncLease, phase: 'SYNCING', deadlineAt }, 'BUSINESS', async (signal: AbortSignal) => (await fetch(`${providerBase}/accounting/gl/statistics/receive/${VERIFY_BOOK}`, { signal })).json());
     expect(ok.outcome).toBe('OK');
   });
+
+  /** Sibling long-lived child: resolves with the port it prints and a kill
+   *  handle (sibling-owned listeners are reachable from orchestrator
+   *  children; parent-owned listeners are not). */
+  function spawnSibling(execPath: string, args: string[], options: { env?: Record<string, string | undefined> }) {
+    const child = spawn(execPath, args, { stdio: ['ignore', 'pipe', 'inherit'], env: { ...process.env, ...options.env } });
+    return new Promise<{ child: import('node:child_process').ChildProcess; base: string; kill: () => Promise<void> }>((resolve, reject) => {
+      const timer = setTimeout(() => reject(Error('SIBLING_HOST_START_TIMEOUT')), 15_000);
+      child.stdout!.on('data', function onData(d: Buffer) {
+        const port = String(d).match(/PORT (\d+)/)?.[1];
+        if (!port) return;
+        clearTimeout(timer);
+        child.stdout!.off('data', onData);
+        resolve({
+          child,
+          base: `http://127.0.0.1:${port}`,
+          kill: () => { child.kill(); return new Promise<void>((done2) => { child.on('exit', () => done2()); }); },
+        });
+      });
+      child.on('exit', (code: number | null) => { clearTimeout(timer); reject(Error(`SIBLING_HOST_EXITED:${code}`)); });
+    });
+  }
+
+  it('mirror-write boundary gate: after a durable HOLD the real reconciliation/repo writes refuse and the run lands FAIL', async () => {
+    const { manifest, syncLease, deadlineAt } = await registeredInSyncing({ cap: 10, verifyMode: true });
+    const repo = ds.getRepository(ChanjetSyncJobEntity);
+    // the hook holds the execution right after the worker's last ACK and
+    // then attempts a REAL repository write through the boundary gate: the
+    // gate refuses before the write reaches the table
+    const { subject, done } = schedulerWithWorker(manifest, {
+      afterWorkerSend: async () => {
+        await store.holdExecution({ manifest, leaseId: syncLease, phase: 'SYNCING', deadlineAt }, 'CANCELLED');
+        const current = { manifest, leaseId: syncLease, phase: 'SYNCING' as const, deadlineAt };
+        await expect(scopeModule.withExecutionScope(
+          { manifest, store, gateway: new ChanjetExecutionHttpGateway(store, manifest), transport: { resend: async () => { throw new Error('FORBIDDEN'); } }, deadlineAt, current },
+          async () => {
+            await executionWriteGate(); // mirror/reconciliation write boundary
+            await repo.save(repo.create({ jobType: 'SNAPSHOT', bookId: VERIFY_BOOK, status: 'RUNNING' }));
+          },
+        )).rejects.toThrow('CHANJET_ADMISSION_HOLD');
+        // zero writes landed past the gate
+        expect((await jobRows()).length).toBe(0);
+      },
+    });
+    const accepted = await subject.enqueueManualSync('root', {
+      scope: ['RECEIVABLE_STATISTICS'], bookId: VERIFY_BOOK, period: VERIFY_PERIOD, maxAttempts: 1,
+      execution: { executionId: manifest.executionId, leaseId: syncLease },
+    }, { authPrincipal: OWNER });
+    expect(accepted.accepted).toBe(true);
+    await done;
+    // the reconciliation phase hit the same gate on the held execution: the
+    // cycle failed and the run can never report SUCCESS
+    const [job] = await jobRows();
+    expect(job.status).toBe('FAIL');
+    expect(job.result_summary?.state).toBe('HOLD');
+    const [admission] = await ds.query('SELECT phase, hold_reason FROM chanjet_execution_admissions WHERE execution_id=$1', [manifest.executionId]);
+    expect(admission.phase).toBe('HOLD');
+    expect(admission.hold_reason).toBe('CANCELLED');
+    // the worker's own ACK receipt is preserved evidence; the mirror/reconcile
+    // writes after the HOLD are zero
+    const receipts = await ds.query('SELECT phase, kind, status, result FROM chanjet_execution_requests WHERE execution_id=$1', [manifest.executionId]);
+    expect(receipts.some((r: { phase: string; kind: string; status: string; result: string }) => r.phase === 'SYNCING' && r.kind === 'BUSINESS' && r.status === 'ACKNOWLEDGED' && r.result === 'OK')).toBe(true);
+    await subject.onModuleDestroy();
+  });
+
+  it('combined real CLI + real scheduler: full chain to VERIFIED through the protected-API contract', async () => {
+    const manifest = syntheticWorkerManifest();
+    const combinedHits = join(workDir(), `combined-hits-${randomUUID().slice(0, 8)}.jsonl`);
+    const floorFile = join(workDir(), `floor-${randomUUID().slice(0, 8)}.json`);
+    const manifestFile = join(workDir(), `manifest-${randomUUID().slice(0, 8)}.json`);
+    writeFileSync(floorFile, JSON.stringify({
+      version: 1, floorSha: manifest.approval.floorSha, deployedSha: manifest.approval.floorSha,
+      chanjetPolicy: 'READONLY_VERIFY',
+      readonlyApproval: { approvalId: manifest.approval.approvalId, books: manifest.approval.books, verification: manifest.approval.verification },
+      operationalTuple: { CHANJET_READONLY_SYNC_ENABLED: 'false' },
+    }));
+    writeFileSync(manifestFile, JSON.stringify(manifest));
+    // mapping/book tables the orchestration entry verifies
+    await ds.query(`CREATE TABLE IF NOT EXISTS chanjet_book_company_map (
+      bookid varchar(64) PRIMARY KEY, book_name varchar(256), company_code varchar(64) UNIQUE,
+      company_name varchar(256), sync_enabled boolean DEFAULT true,
+      created_at timestamptz DEFAULT now(), updated_at timestamptz DEFAULT now())`);
+    await ds.query(`CREATE TABLE IF NOT EXISTS chanjet_account_books (
+      book_id varchar(64) PRIMARY KEY, book_name varchar(256), company_code varchar(64),
+      company_name varchar(256), enabled boolean DEFAULT false, raw_data jsonb, last_probe_at timestamptz,
+      created_at timestamptz DEFAULT now(), updated_at timestamptz DEFAULT now())`);
+    await ds.query(`INSERT INTO chanjet_book_company_map (bookid, book_name, company_code, company_name) VALUES ($1,'B',$2,'C') ON CONFLICT DO NOTHING`, [manifest.approval.books[0].bookId, manifest.approval.books[0].companyCode]);
+    await ds.query(`INSERT INTO chanjet_account_books (book_id, book_name, company_code, company_name, enabled) VALUES ($1,'B',$2,'C',true) ON CONFLICT DO NOTHING`, [manifest.approval.books[0].bookId, manifest.approval.books[0].companyCode]);
+    // the protected-API contract runs in a SIBLING process hosting the REAL
+    // scheduler (own lease, own durable job rows, real execution-bound worker
+    // scope) — matching the production topology where the controller process
+    // and the scheduler are separate
+    const approvalFile = join(workDir(), `approval-${randomUUID().slice(0, 8)}.json`);
+    writeFileSync(approvalFile, JSON.stringify(readonlyApprovalFixture));
+    // the provider fixture AND the scheduler host are SIBLING processes: a
+    // listener owned by this jest process is not reachable from the CLI child
+    const providerSibling = await spawnSibling(process.execPath, [
+      join(process.cwd().replace(/\/apps\/api$/, ''), 'scripts/ci/chanjet-orchestration-provider-fixture.mjs'),
+      '--hits-file', combinedHits,
+    ], {});
+    const providerBaseForCli = providerSibling.base;
+    const adapter = await spawnSibling(process.execPath, [
+      join(process.cwd().replace(/\/apps\/api$/, ''), 'scripts/ci/chanjet-orchestration-scheduler-host.mjs'),
+      '--pg-url', fixtureUrl!,
+      '--provider-base', providerSibling.base,
+      '--auth-token', 'SYNTHETIC_OP_TOKEN',
+      '--sync-policy', 'READONLY_VERIFY',
+      '--readonly-approval', approvalFile,
+    ], {
+      env: { ...process.env, CHANJET_READONLY_SYNC_ENABLED: 'true', CHANJET_APP_KEY: 'SYNTHETIC_KEY', CHANJET_APP_SECRET: 'SYNTHETIC_SECRET', CHANJET_ORG_ID: 'SYNTHETIC_ORG', CHANJET_CERT: 'SYNTHETIC_CERT' },
+    });
+    const adapterBase = adapter.base;
+    try {
+      // the REAL orchestrator CLI: registers (fd9 held), probes, begins
+      // SYNCING, enqueues through the adapter to the REAL scheduler, whose
+      // worker HTTP shares the execution and whose SUCCESS gate commits
+      // VERIFIED — the CLI only proves it
+      const inner = [
+        `'${process.execPath}'`, `'${process.cwd().replace(/\/apps\/api$/, '')}/scripts/ops/chanjet-execution-orchestrate.mjs'`,
+        '--manifest', `'${manifestFile}'`, '--expected-floor-sha', `'${manifest.approval.floorSha}'`,
+        '--floor-state', `'${floorFile}'`, '--pg-url', `'${fixtureUrl}'`,
+        '--provider-base', `'${providerBaseForCli}'`, '--alignment-base', `'${adapterBase}'`,
+        '--alignment-token-env', 'CHANJET_ORCH_TOKEN', '--phase', `'all'`,
+        '--register', '--fd9-lock', `'${lockFile()}'`,
+      ].join(' ');
+      const result = spawnSync('bash', ['-c', `exec 9>>'${lockFile()}'; flock -n 9; ${inner}`], {
+        encoding: 'utf8', timeout: 60_000,
+        // the CLI resolves repo-root-relative compiled modules
+        cwd: process.cwd().replace(/\/apps\/api$/, ''),
+        env: { ...process.env, CHANJET_ORCH_TOKEN: 'SYNTHETIC_OP_TOKEN', CHANJET_APP_KEY: 'SYNTHETIC_KEY', CHANJET_APP_SECRET: 'SYNTHETIC_SECRET', CHANJET_ORG_ID: 'SYNTHETIC_ORG', CHANJET_CERT: 'SYNTHETIC_CERT' },
+      });
+      const mismatch2 = (condition: boolean, what: string): void => { if (!condition) throw Error(`${what}: status=${result.status} ${String(result.stdout).slice(0, 1800)} ${String(result.stderr).slice(0, 200)}`); };
+      mismatch2(result.status === 0, 'cli exit');
+      const line = String(result.stdout).split('\n').find((l) => l.startsWith('CHANJET_EXECUTION_ORCHESTRATE=PASS'));
+      mismatch2(Boolean(line), 'PASS verdict');
+      const summary = JSON.parse(String(line).split(';')[1]);
+      expect(summary.verified).toBe(true);
+      expect(summary.phase).toBe('VERIFIED');
+      // the worker's OWN receipt evidence, persisted by the scheduler and
+      // independently verified by the CLI against the receipts table
+      expect(summary.firstSync.proof).toBe('FIRST_CONTROLLED_SYNC_PROOF');
+      const [job] = await jobRows();
+      expect(job.status).toBe('SUCCESS');
+      expect(job.result_summary.executionSends).toBe(1);
+      expect(job.result_summary.execution.executionId).toBe(manifest.executionId);
+      const workerOrdinal = job.result_summary.executionReceiptOrdinals[0];
+      const receipts = await ds.query('SELECT ordinal, phase, kind, status, result FROM chanjet_execution_requests WHERE execution_id=$1 ORDER BY ordinal', [manifest.executionId]);
+      expect(receipts.some((r: { ordinal: number; phase: string; kind: string; status: string; result: string }) => r.ordinal === workerOrdinal && r.phase === 'SYNCING' && r.kind === 'BUSINESS' && r.status === 'ACKNOWLEDGED' && r.result === 'OK')).toBe(true);
+      const [admission] = await ds.query('SELECT phase, lease_id FROM chanjet_execution_admissions WHERE execution_id=$1', [manifest.executionId]);
+      expect(admission.phase).toBe('VERIFIED');
+      expect(admission.lease_id).toBe('');
+      // the worker's token + business exchanges hit the SIBLING provider
+      // fixture (the probe's own HTTP went to it as well)
+      const siblingHits = readFileSync(combinedHits, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l).url);
+      expect(siblingHits.length).toBeGreaterThanOrEqual(3);
+    } finally {
+      await adapter.kill();
+      await providerSibling.kill();
+    }
+  }, 60_000);
 
   it('guard executor release: teardown disposes support idempotently', async () => {
     const { manifest, syncLease } = await registeredInSyncing({ cap: 10, verifyMode: true });

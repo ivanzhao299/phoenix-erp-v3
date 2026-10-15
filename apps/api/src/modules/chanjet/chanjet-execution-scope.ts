@@ -57,6 +57,18 @@ export async function resolveExecutionDeadline(state: ExecutionScopeState): Prom
   return undefined;
 }
 
+/**
+ * Mirror-write boundary gate for the ambient execution: legacy paths (no
+ * active scope — token cron, scheduled runs) pass through untouched; inside a
+ * scope the admission row is re-checked under lock (bounded by the DB-owned
+ * deadline) and a held/expired execution refuses before any mirror write.
+ */
+export async function executionWriteGate(): Promise<void> {
+  const state = storage.getStore();
+  if (!state) return;
+  await state.store.assertWritable(state.current);
+}
+
 /** Move the scoped execution to the next phase (PROBING→PROBED→SYNCING) after store.begin accepted it. */
 export function beginExecutionPhase(state: ExecutionScopeState, phase: RequestPhase, leaseId: string): Promise<void> {
   return state.store.begin(state.manifest, phase, leaseId).then(row => {
