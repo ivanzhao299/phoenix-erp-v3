@@ -15,7 +15,7 @@ import { ChanjetExecutionAdmissionStore, ExecutionContext } from './chanjet-exec
 import { createBoundedGuardExecutor, resolveGuardClientConfig, GuardConnectionConfig } from './chanjet-execution-guard-executor';
 import { validateExecutionManifest } from './chanjet-execution-manifest';
 import { ChanjetExecutionHttpGateway } from './chanjet-execution-transport';
-import { withExecutionScope } from './chanjet-execution-scope';
+import { isPgServerRejection, withExecutionScope } from './chanjet-execution-scope';
 
 const JOB_NAME = 'chanjet-full-readonly-sync';
 
@@ -495,7 +495,12 @@ export class ChanjetReadonlySyncScheduler implements OnApplicationBootstrap, OnM
           await new Promise((resolve) => setTimeout(resolve, 100));
         }
       } catch { /* auth/permission failures cannot undo the discard above */ }
-      finally { await cancelClient.end().catch(() => undefined); }
+      finally {
+        // even the close is bounded and force-released: teardown can never
+        // hang on an unresponsive cancellation connection
+        await withBound(cancelClient.end(), 500, 'CHANJET_CANCEL_END_TIMEOUT')
+          .catch(() => { try { (cancelClient as unknown as { connection?: { stream?: import('node:net').Socket } }).connection?.stream?.destroy(new Error('CHANJET_CANCEL_FORCE_CLOSED')); } catch { /* gone */ } });
+      }
       if (!pgConfirmed) this.log.error('READONLY_HOLD_EXECUTION_TERMINAL_CLEANUP_UNCONFIRMED');
     };
     // EVERY statement — BEGIN, the SET LOCAL budgets, the liveness SELECT FOR
@@ -584,21 +589,28 @@ export class ChanjetReadonlySyncScheduler implements OnApplicationBootstrap, OnM
       const commitOutcome = await Promise.race([
         lease.runner.query('COMMIT').then(() => 'committed' as const),
         new Promise<'timeout'>((resolve) => { commitTimer = setTimeout(() => resolve('timeout'), remaining); }),
-      ]).catch(() => 'error' as const);
+      ]).catch((commitError: unknown) => ({ commitError } as { commitError: unknown }));
       if (commitTimer) clearTimeout(commitTimer);
       if (commitOutcome === 'timeout') {
-        // the COMMIT outcome is genuinely unknown: cancel through the
+        // no server verdict within the budget: cancel through the
         // independent channel, confirm the discard, and report UNKNOWN —
         // never claimed committed or rolled back
         await abort();
         commitUnknown = true;
         throw Object.assign(new Error('READONLY_HOLD_EXECUTION_TERMINAL_UNKNOWN'), { terminalUnknown: true });
       }
-      if (commitOutcome !== 'committed') {
-        // COMMIT errored: nothing was durably committed — the session is
-        // discarded (fail-closed) and the failure propagates
+      if (typeof commitOutcome === 'object') {
+        if (isPgServerRejection(commitOutcome.commitError)) {
+          // EXPLICIT server rejection (SQLSTATE present): the transaction
+          // did NOT commit — fail-closed discard and a verbatim failure
+          await abort();
+          throw Object.assign(new Error('READONLY_HOLD_EXECUTION_TERMINAL_COMMIT_FAILED'), { commitFailed: true });
+        }
+        // COMMIT response LOST / connection error: the verdict is genuinely
+        // unknown — the commit may have landed server-side
         await abort();
-        throw Object.assign(new Error('READONLY_HOLD_EXECUTION_TERMINAL_COMMIT_FAILED'), { commitFailed: true });
+        commitUnknown = true;
+        throw Object.assign(new Error('READONLY_HOLD_EXECUTION_TERMINAL_UNKNOWN'), { terminalUnknown: true });
       }
     } catch (error) {
       if (commitUnknown) {

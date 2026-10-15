@@ -94,8 +94,16 @@ export class ChanjetReadonlyLockLease {
     try { ending = this.endClient(); }
     catch { ending = Promise.reject(new Error('READONLY_HOLD_LOCK_DISCARD')); }
     socket.destroy(new Error('READONLY_HOLD_LOCK_SESSION_DISCARDED'));
-    await disconnected.catch(() => undefined);
-    await ending.catch(() => undefined);
+    // the close acknowledgement and the end() are each raced — a hung end()
+    // must never delay the discard teardown; the destroy above is the
+    // enforced release and the runner is released best-effort regardless
+    const withCeiling = (work: Promise<void>): Promise<void> => new Promise<void>((resolve) => {
+      const ceiling = setTimeout(resolve, 500);
+      ceiling.unref?.();
+      work.then(() => { clearTimeout(ceiling); resolve(); }, () => { clearTimeout(ceiling); resolve(); });
+    });
+    await withCeiling(disconnected.catch(() => undefined));
+    await withCeiling(ending);
     if (!this.runner.isReleased) {
       try { await this.runner.release(); } catch { /* destroyed */ }
     }

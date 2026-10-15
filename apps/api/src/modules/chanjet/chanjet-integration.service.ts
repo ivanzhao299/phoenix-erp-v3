@@ -1,12 +1,12 @@
 import { requireReadonlyOrchestration, assertReadonlyOrchestrationOwnerIfPresent } from './chanjet-readonly-execution';
-import { activeExecutionScope, executionWriteGate, executionWriteGateTx } from './chanjet-execution-scope';
+import { activeExecutionScope, executionWriteGate, executionWriteGateTx, ExecutionScopeState, isPgServerRejection } from './chanjet-execution-scope';
 import { resolveGuardClientConfig, GuardConnectionConfig } from './chanjet-execution-guard-executor';
 import { Client } from 'pg';
 import { approvedReadonlyPolicy, requireApprovedReadonlyRequest, readonlyFailureCode } from './chanjet-readonly-policy';
 import { requireReadonlySync } from './chanjet-sync-control';
 import { Injectable, Logger, Optional } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
-import { DataSource, EntityManager, In, Not, Repository } from 'typeorm';
+import { DataSource, EntityManager, In, Not, QueryRunner, Repository } from 'typeorm';
 import { ChanjetAuthService, getChanjetBusinessFailure } from './chanjet-auth.service';
 import { ChanjetAccountBookEntity } from './chanjet-account-book.entity';
 import { ChanjetApiFieldCatalogEntity } from './chanjet-api-field-catalog.entity';
@@ -7201,6 +7201,218 @@ export class ChanjetIntegrationService {
     return new Date(left).getTime() >= new Date(right).getTime() ? left : right;
   }
 
+  /** Shared execution-bound write transaction: EVERY step — connection
+   *  acquisition (pool wait included), the backend PID query, BEGIN, the SET
+   *  LOCAL budgets, the liveness gate, the business writes and the COMMIT —
+   *  is raced against the REAL-TIME remaining budget derived from the SAME
+   *  absolute execution deadline. A late acquisition aborts and releases
+   *  before any business SQL runs. A lost race PHYSICALLY DISCARDS the
+   *  session socket first (every cleanup step bounded, the close forced if
+   *  it will not confirm; a tainted session is never returned to the pool
+   *  carrying a raw BEGIN), then terminates the backend via the bounded
+   *  INDEPENDENT cancellation channel and confirms the discard. The COMMIT
+   *  verdict is classified: an explicit pg server rejection (SQLSTATE
+   *  present) never committed — fail-closed; a LOST response or connection
+   *  error is genuinely UNKNOWN (the commit may have landed) and is
+   *  reported as CHANJET_EXECUTION_TERMINAL_UNKNOWN, never claimed
+   *  committed or rolled back. */
+  private async runExecutionBoundWriteTx<T>(
+    scope: ExecutionScopeState,
+    logTag: string,
+    work: (runner: QueryRunner) => Promise<T>,
+  ): Promise<T> {
+    const deadline = scope.deadlineAt instanceof Date ? scope.deadlineAt.getTime() : Number.NaN;
+    if (!Number.isFinite(deadline) || deadline - Date.now() <= 1) throw new Error('CHANJET_EXECUTION_DEADLINE');
+    const remainingMs = (): number => deadline - Date.now();
+    const cancellationConfig = this.executionCancellationConfig
+      ?? resolveGuardClientConfig((this.ds.options ?? {}) as GuardConnectionConfig);
+    if (!cancellationConfig) throw new Error('CHANJET_EXECUTION_CANCEL_CHANNEL_UNAVAILABLE');
+    const withBound = async <T2>(boundedWork: Promise<T2>, ms: number, code: string): Promise<T2> => {
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      return Promise.race([
+        boundedWork,
+        new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error(code)), ms); }),
+      ]).finally(() => clearTimeout(timer));
+    };
+    const forceClose = (client: { connection?: { stream?: import('node:net').Socket } } | null | undefined): void => {
+      try { client?.connection?.stream?.destroy(new Error('CHANJET_EXECUTION_SESSION_FORCE_CLOSED')); } catch { /* already gone */ }
+    };
+    const queryRunner = this.ds.createQueryRunner();
+    let session: { connection?: { stream?: import('node:net').Socket }; end?: () => Promise<void> } | null | undefined;
+    let beginSeen = false;
+    let commitUnknown = false;
+    let errorEscaped = false;
+    let beginTimer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      // LATE ACQUISITION MUST ABORT: the pool wait and the backend PID query
+      // are raced against the same budget — no business SQL can run past the
+      // deadline, and a failed acquisition releases the runner cleanly.
+      // A LATE pool grant (the queued acquire resolving after the deadline
+      // race gave up) is returned immediately so the pool never leaks a
+      // checked-out slot.
+      let connectLost = false;
+      const connectPromise = queryRunner.connect().then(async () => {
+        if (connectLost) {
+          // a LATE pool grant after the deadline race gave up: the runner is
+          // already torn down, so the granted pg client is released DIRECTLY
+          // (the runner's own release short-circuits when already released) —
+          // it must never sit checked out on a dead runner
+          const granted = (queryRunner as unknown as { databaseConnection?: { release?: () => unknown; connection?: { stream?: import('node:net').Socket } } }).databaseConnection;
+          try { granted?.release?.(); } catch { forceClose(granted ?? null); }
+          return null;
+        }
+        return (queryRunner as unknown as { databaseConnection?: { connection?: { stream?: import('node:net').Socket }; end?: () => Promise<void> } }).databaseConnection ?? null;
+      }) as unknown as Promise<{ connection?: { stream?: import('node:net').Socket }; end?: () => Promise<void> } | null>;
+      try {
+        session = await withBound(connectPromise, remainingMs(), 'CHANJET_EXECUTION_DEADLINE');
+      } catch (acquireError) {
+        connectLost = true;
+        throw acquireError;
+      }
+      if (!session) throw new Error('CHANJET_EXECUTION_DEADLINE');
+      const [pidRow] = await withBound(
+        queryRunner.query('SELECT pg_backend_pid() AS pid'),
+        remainingMs(), 'CHANJET_EXECUTION_DEADLINE',
+      ) as Array<{ pid: number | string }>;
+      const selfPid = Number(pidRow?.pid);
+      // physical discard of the ORIGINAL session socket FIRST — the
+      // cancel/confirm steps below are each bounded and can never delay it
+      const discardSession = async (): Promise<void> => {
+        forceClose(session);
+        if (typeof session?.end === 'function') {
+          await withBound(session.end(), 500, 'CHANJET_EXECUTION_SESSION_END_TIMEOUT').catch(() => forceClose(session));
+        }
+        if (!queryRunner.isReleased) {
+          await withBound(queryRunner.release(), 500, 'CHANJET_EXECUTION_SESSION_RELEASE_TIMEOUT').catch(() => forceClose(session));
+        }
+      };
+      const abortViaIndependentChannel = async (): Promise<void> => {
+        await discardSession();
+        const cancelClient = new Client(cancellationConfig as never);
+        let pgConfirmed = false;
+        try {
+          await withBound(cancelClient.connect(), 1_000, 'CHANJET_EXECUTION_CANCEL_CONNECT_TIMEOUT');
+          await withBound(cancelClient.query('SELECT pg_terminate_backend($1)', [selfPid]), 1_000, 'CHANJET_EXECUTION_CANCEL_TERMINATE_TIMEOUT');
+          const confirmDeadline = Date.now() + 2_000;
+          while (Date.now() < confirmDeadline) {
+            const rows = await withBound(
+              cancelClient.query('SELECT 1 FROM pg_stat_activity WHERE pid=$1', [selfPid]),
+              500, 'CHANJET_EXECUTION_CANCEL_CONFIRM_TIMEOUT',
+            ) as { rows?: unknown[] };
+            if (!rows.rows?.length) { pgConfirmed = true; break; }
+            await new Promise((resolve) => setTimeout(resolve, 100));
+          }
+        } catch { /* bounded best-effort: the session socket is already discarded */ }
+        finally {
+          // even the close is bounded and force-released: teardown can never
+          // hang on an unresponsive cancellation connection
+          await withBound(cancelClient.end(), 500, 'CHANJET_EXECUTION_CANCEL_END_TIMEOUT')
+            .catch(() => forceClose(cancelClient as unknown as { connection?: { stream?: import('node:net').Socket } }));
+        }
+        if (!pgConfirmed) this.log.error(`READONLY_HOLD_${logTag}_CLEANUP_UNCONFIRMED`);
+      };
+      // BEGIN raced against the same absolute deadline
+      const began = await Promise.race([
+        queryRunner.query('BEGIN').then(() => 'ok' as const),
+        new Promise<'timeout'>((resolve) => { beginTimer = setTimeout(() => resolve('timeout'), remainingMs()); }),
+      ]).catch(() => 'error' as const);
+      try {
+        if (began === 'timeout') {
+          commitUnknown = true;
+          await abortViaIndependentChannel();
+          throw new Error('CHANJET_EXECUTION_TERMINAL_UNKNOWN');
+        }
+        if (began !== 'ok') {
+          // BEGIN itself failed: no transaction started — discard (fail-closed)
+          await abortViaIndependentChannel();
+          throw new Error('CHANJET_EXECUTION_TX_BEGIN_FAILED');
+        }
+        beginSeen = true;
+        await withBound(queryRunner.query(`SET LOCAL statement_timeout=${remainingMs()}`), remainingMs(), 'CHANJET_EXECUTION_DEADLINE');
+        await withBound(queryRunner.query(`SET LOCAL lock_timeout=${Math.min(remainingMs(), 1_000)}`), remainingMs(), 'CHANJET_EXECUTION_DEADLINE');
+        const writesPromise = work(queryRunner);
+        // a race loser's rejection is owned by the abort path — never an
+        // unhandled rejection
+        writesPromise.catch(() => undefined);
+        const written = await withBound(writesPromise, remainingMs(), 'CHANJET_EXECUTION_DEADLINE');
+        const remaining = remainingMs();
+        if (remaining <= 1) {
+          commitUnknown = true;
+          await abortViaIndependentChannel();
+          throw new Error('CHANJET_EXECUTION_TERMINAL_UNKNOWN');
+        }
+        let commitTimer: ReturnType<typeof setTimeout> | undefined;
+        const commitOutcome = await Promise.race([
+          queryRunner.query('COMMIT').then(() => 'committed' as const),
+          new Promise<'timeout'>((resolve) => { commitTimer = setTimeout(() => resolve('timeout'), remaining); }),
+        ]).catch((commitError: unknown) => ({ commitError } as { commitError: unknown }));
+        if (commitTimer) clearTimeout(commitTimer);
+        if (commitOutcome === 'timeout') {
+          // no server verdict within the budget: cancel, confirm, UNKNOWN
+          commitUnknown = true;
+          await abortViaIndependentChannel();
+          throw new Error('CHANJET_EXECUTION_TERMINAL_UNKNOWN');
+        }
+        if (typeof commitOutcome === 'object') {
+          if (isPgServerRejection(commitOutcome.commitError)) {
+            // EXPLICIT server rejection: the transaction did NOT commit —
+            // fail-closed discard and a verbatim failure
+            await abortViaIndependentChannel();
+            throw new Error('CHANJET_EXECUTION_TX_COMMIT_FAILED');
+          }
+          // COMMIT response LOST / connection error: the verdict is genuinely
+          // unknown — the commit may have landed server-side
+          commitUnknown = true;
+          await abortViaIndependentChannel();
+          throw new Error('CHANJET_EXECUTION_TERMINAL_UNKNOWN');
+        }
+        return written;
+      } catch (error) {
+        errorEscaped = true;
+        if (commitUnknown) {
+          // the session was discarded and the backend terminated — the
+          // UNKNOWN outcome propagates accurately
+          this.log.error(`READONLY_HOLD_${logTag}_COMMIT_UNKNOWN;sessionDiscarded=true`);
+          throw error;
+        }
+        // bounded ROLLBACK on the same session; if it cannot be confirmed
+        // the session is physically discarded and the backend terminated —
+        // the session never returns to the pool carrying a raw BEGIN
+        let rolled = false;
+        if (beginSeen) {
+          let rollbackTimer: ReturnType<typeof setTimeout> | undefined;
+          try {
+            rolled = await Promise.race([
+              queryRunner.query('ROLLBACK').then(() => true as const),
+              new Promise<false>((resolve) => { rollbackTimer = setTimeout(() => resolve(false), 1_000); }),
+            ]).catch(() => false as const);
+          } catch { rolled = false; }
+          if (rollbackTimer) clearTimeout(rollbackTimer);
+        }
+        if (rolled !== true) await abortViaIndependentChannel();
+        throw error;
+      }
+    } catch (error) {
+      // EVERY escape (including a raced connection/PID acquisition loss
+      // before BEGIN) taints the session — the finally below then force-
+      // closes its socket so the pool can never hand out a connection with
+      // unresolved pending state
+      errorEscaped = true;
+      throw error;
+    } finally {
+      if (beginTimer) clearTimeout(beginTimer);
+      // reliable release: on ANY escaped error the session socket is
+      // force-closed FIRST — a tainted session (hung acquisition, suspended
+      // PID query, lost rollback) can never be borrowed from the pool
+      // carrying unresolved state — and the release itself is raced with the
+      // same forced close as its fallback
+      if (errorEscaped) forceClose(session);
+      if (!queryRunner.isReleased) {
+        await withBound(queryRunner.release(), 500, 'CHANJET_EXECUTION_SESSION_RELEASE_TIMEOUT').catch(() => forceClose(session));
+      }
+    }
+  }
+
   async syncReadOnlyMirror(scope: string[] = [], bookId?: string, period?: string): Promise<{
     requestedScope: string[];
     books: string[];
@@ -7301,153 +7513,10 @@ export class ChanjetIntegrationService {
           };
           let written!: { rawSnapshotId: string; rowCount: number; entityRows: number };
           if (scopeState) {
-            // execution-bound: the liveness gate is the FIRST statement on the
-            // SAME queryRunner transaction as the snapshot upsert, aggregate
-            // delete+upsert and mapping-candidate writes; EVERY statement —
-            // BEGIN, the SET LOCAL budgets, the liveness gate, the writes and
-            // the COMMIT — is raced against the REAL-TIME remaining budget
-            // derived from the SAME absolute execution deadline. A lost race
-            // PHYSICALLY DISCARDS the original session socket first (never
-            // blocked by the cancel/confirm channels and never returned to
-            // the pool carrying a raw BEGIN), then terminates the backend via
-            // the INDEPENDENT cancellation channel (derived from the
-            // DataSource configuration, never the possibly exhausted business
-            // pool) and confirms the backend is gone.
-            const deadline = scopeState.deadlineAt instanceof Date ? scopeState.deadlineAt.getTime() : Number.NaN;
-            if (!Number.isFinite(deadline) || deadline - Date.now() <= 1) throw new Error('CHANJET_EXECUTION_DEADLINE');
-            const remainingMs = (): number => deadline - Date.now();
-            const cancellationConfig = this.executionCancellationConfig
-              ?? resolveGuardClientConfig((this.ds.options ?? {}) as GuardConnectionConfig);
-            if (!cancellationConfig) throw new Error('CHANJET_EXECUTION_CANCEL_CHANNEL_UNAVAILABLE');
-            const withBound = async <T>(work: Promise<T>, ms: number, code: string): Promise<T> => {
-              let timer: ReturnType<typeof setTimeout> | undefined;
-              return Promise.race([
-                work,
-                new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error(code)), ms); }),
-              ]).finally(() => clearTimeout(timer));
-            };
-            const queryRunner = this.ds.createQueryRunner();
-            const mirrorClient = await queryRunner.connect() as unknown as {
-              connection?: { stream?: import('node:net').Socket };
-              end?: () => Promise<void>;
-            };
-            // PID + socket captured BEFORE BEGIN — cancellation must never
-            // depend on a query against the possibly blocked session
-            const [pidRow] = await queryRunner.query('SELECT pg_backend_pid() AS pid') as Array<{ pid: number | string }>;
-            const selfPid = Number(pidRow?.pid);
-            const discardSession = async (): Promise<void> => {
-              try {
-                mirrorClient?.connection?.stream?.destroy(new Error('CHANJET_EXECUTION_MIRROR_SESSION_DISCARDED'));
-                if (typeof mirrorClient?.end === 'function') await mirrorClient.end();
-              } catch { /* already destroyed */ }
-              if (!queryRunner.isReleased) await queryRunner.release().catch(() => undefined);
-            };
-            const abortViaIndependentChannel = async (): Promise<void> => {
-              // the physical discard is FIRST — the cancel/confirm channels
-              // below are each bounded and can never delay it
-              await discardSession();
-              const cancelClient = new Client(cancellationConfig as never);
-              let pgConfirmed = false;
-              try {
-                await withBound(cancelClient.connect(), 1_000, 'CHANJET_EXECUTION_CANCEL_CONNECT_TIMEOUT');
-                await withBound(cancelClient.query('SELECT pg_terminate_backend($1)', [selfPid]), 1_000, 'CHANJET_EXECUTION_CANCEL_TERMINATE_TIMEOUT');
-                const confirmDeadline = Date.now() + 2_000;
-                while (Date.now() < confirmDeadline) {
-                  const rows = await withBound(
-                    cancelClient.query('SELECT 1 FROM pg_stat_activity WHERE pid=$1', [selfPid]),
-                    500, 'CHANJET_EXECUTION_CANCEL_CONFIRM_TIMEOUT',
-                  ) as { rows?: unknown[] };
-                  if (!rows.rows?.length) { pgConfirmed = true; break; }
-                  await new Promise((resolve) => setTimeout(resolve, 100));
-                }
-              } catch { /* bounded best-effort: the session socket is already discarded */ }
-              finally { await cancelClient.end().catch(() => undefined); }
-              if (!pgConfirmed) this.log.error('READONLY_HOLD_MIRROR_TX_CLEANUP_UNCONFIRMED');
-            };
-            let beginSeen = false;
-            let commitUnknown = false;
-            let beginTimer: ReturnType<typeof setTimeout> | undefined;
-            // BEGIN is inside the protected try's reach: raced against the
-            // same absolute deadline
-            const began = await Promise.race([
-              queryRunner.query('BEGIN').then(() => 'ok' as const),
-              new Promise<'timeout'>((resolve) => { beginTimer = setTimeout(() => resolve('timeout'), remainingMs()); }),
-            ]).catch(() => 'error' as const);
-            try {
-              if (began === 'timeout') {
-                commitUnknown = true;
-                await abortViaIndependentChannel();
-                throw new Error('CHANJET_EXECUTION_TERMINAL_UNKNOWN');
-              }
-              if (began !== 'ok') {
-                // BEGIN itself failed: no transaction started — discard the
-                // session (fail-closed) and propagate the failure
-                await abortViaIndependentChannel();
-                throw new Error('CHANJET_EXECUTION_TX_BEGIN_FAILED');
-              }
-              beginSeen = true;
-              await withBound(queryRunner.query(`SET LOCAL statement_timeout=${remainingMs()}`), remainingMs(), 'CHANJET_EXECUTION_DEADLINE');
-              await withBound(queryRunner.query(`SET LOCAL lock_timeout=${Math.min(remainingMs(), 1_000)}`), remainingMs(), 'CHANJET_EXECUTION_DEADLINE');
-              await withBound(executionWriteGateTx(queryRunner.manager, scopeState.current, { forUpdate: true }), remainingMs(), 'CHANJET_EXECUTION_DEADLINE');
-              const writesPromise = persistWrites(queryRunner.manager);
-              // a race loser's rejection is owned by the abort path — never
-              // reported as an unhandled rejection
-              writesPromise.catch(() => undefined);
-              written = await withBound(writesPromise, remainingMs(), 'CHANJET_EXECUTION_DEADLINE');
-              const remaining = remainingMs();
-              if (remaining <= 1) {
-                commitUnknown = true;
-                await abortViaIndependentChannel();
-                throw new Error('CHANJET_EXECUTION_TERMINAL_UNKNOWN');
-              }
-              let commitTimer: ReturnType<typeof setTimeout> | undefined;
-              const commitOutcome = await Promise.race([
-                queryRunner.query('COMMIT').then(() => 'committed' as const),
-                new Promise<'timeout'>((resolve) => { commitTimer = setTimeout(() => resolve('timeout'), remaining); }),
-              ]).catch(() => 'error' as const);
-              if (commitTimer) clearTimeout(commitTimer);
-              if (commitOutcome === 'timeout') {
-                // the COMMIT outcome is genuinely unknown: discard, terminate,
-                // confirm — never claimed committed or rolled back
-                commitUnknown = true;
-                await abortViaIndependentChannel();
-                throw new Error('CHANJET_EXECUTION_TERMINAL_UNKNOWN');
-              }
-              if (commitOutcome !== 'committed') {
-                // COMMIT errored: nothing was durably committed — discard the
-                // session (fail-closed) and propagate the failure
-                await abortViaIndependentChannel();
-                throw new Error('CHANJET_EXECUTION_TX_COMMIT_FAILED');
-              }
-            } catch (error) {
-              if (commitUnknown) {
-                // the backend was terminated and the discard confirmed — the
-                // UNKNOWN outcome propagates accurately (never mapped to a
-                // plain FAIL that would imply a clean rollback)
-                this.log.error('READONLY_HOLD_MIRROR_TX_COMMIT_UNKNOWN;sessionDiscarded=true');
-                throw error;
-              }
-              // bounded ROLLBACK on the same session; if it cannot be
-              // confirmed the session is PHYSICALLY DISCARDED and the backend
-              // terminated via the INDEPENDENT channel (confirmed) — the
-              // session never returns carrying a raw BEGIN
-              let rolled = false;
-              if (beginSeen) {
-                let rollbackTimer: ReturnType<typeof setTimeout> | undefined;
-                try {
-                  rolled = await Promise.race([
-                    queryRunner.query('ROLLBACK').then(() => true as const),
-                    new Promise<false>((resolve) => { rollbackTimer = setTimeout(() => resolve(false), 1_000); }),
-                  ]).catch(() => false as const);
-                } catch { rolled = false; }
-                if (rollbackTimer) clearTimeout(rollbackTimer);
-              }
-              if (rolled !== true) await abortViaIndependentChannel();
-              throw error;
-            } finally {
-              if (beginTimer) clearTimeout(beginTimer);
-              if (!queryRunner.isReleased) await queryRunner.release().catch(() => undefined);
-            }
+            written = await this.runExecutionBoundWriteTx(scopeState, 'MIRROR_TX', async (runner) => {
+              await executionWriteGateTx(runner.manager, scopeState.current, { forUpdate: true });
+              return persistWrites(runner.manager);
+            });
           } else {
             written = await persistWrites();
           }
@@ -8350,13 +8419,15 @@ export class ChanjetIntegrationService {
           resolvedAt: null,
         });
         assertReadonlyOrchestrationOwnerIfPresent();
-        // execution-bound: each reconciliation save shares a transaction with
-        // its own liveness gate — a HOLD/deadline after the worker's last ACK
-        // rolls back this save (zero late writes)
+        // execution-bound: each reconciliation save shares the FULL bounded
+        // transaction mechanism — connection acquisition, PID query, BEGIN,
+        // SET LOCAL budgets, the liveness gate, the write and the COMMIT are
+        // all raced against the same absolute deadline; a lost race discards
+        // the session and reports UNKNOWN/failure accurately (zero late writes)
         const saved = scopeState
-          ? await this.ds.transaction(async manager => {
-              await executionWriteGateTx(manager.queryRunner!, scopeState.current, { forUpdate: true });
-              return manager.getRepository(ChanjetReconciliationResultEntity).save(result);
+          ? await this.runExecutionBoundWriteTx(scopeState, 'RECONCILE_TX', async (runner) => {
+              await executionWriteGateTx(runner.manager, scopeState.current, { forUpdate: true });
+              return runner.manager.getRepository(ChanjetReconciliationResultEntity).save(result);
             })
           : await this.reconciliationRepo.save(result);
         created += 1;

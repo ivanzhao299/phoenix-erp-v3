@@ -65,6 +65,12 @@ mirror('mirror-write liveness inside the gated write transaction (real integrati
   let limitedIntegration: ChanjetIntegrationService;
   const LIMITED_ROLE = 'chanjet_limited_mirror_cancel';
   const limitedCancelConfig = { host: '127.0.0.1', user: LIMITED_ROLE, password: 'limited_pw_1', database: '' };
+  const mirrorEntities = [
+    ChanjetAccountBookEntity, ChanjetApiFieldCatalogEntity, ChanjetBookCompanyMapEntity,
+    ChanjetErpFieldMappingEntity, ChanjetEntitySnapshotEntity, ChanjetMasterMappingEntity,
+    ChanjetReadSnapshotEntity, ChanjetReconciliationResultEntity, ChanjetSyncJobEntity,
+    ChanjetVoucherDraftEntity, ChanjetWritebackOutboxEntity,
+  ];
 
   beforeAll(async () => {
     const url = new URL(fixtureUrl!);
@@ -150,12 +156,6 @@ mirror('mirror-write liveness inside the gated write transaction (real integrati
     proxyUrl = `postgres://${encodeURIComponent(url.username)}:${encodeURIComponent(url.password)}@127.0.0.1:${proxy.port}/${dbName}`;
     // the suspend tests build the service on the proxy DataSource (same
     // tables; the direct `ds` remains the seeding/assertion control plane)
-    const mirrorEntities = [
-      ChanjetAccountBookEntity, ChanjetApiFieldCatalogEntity, ChanjetBookCompanyMapEntity,
-      ChanjetErpFieldMappingEntity, ChanjetEntitySnapshotEntity, ChanjetMasterMappingEntity,
-      ChanjetReadSnapshotEntity, ChanjetReconciliationResultEntity, ChanjetSyncJobEntity,
-      ChanjetVoucherDraftEntity, ChanjetWritebackOutboxEntity,
-    ];
     proxyDs = new DataSource({ type: 'postgres', url: proxyUrl, logging: false, entities: mirrorEntities });
     await proxyDs.initialize();
     proxyIntegration = new ChanjetIntegrationService(
@@ -430,6 +430,233 @@ mirror('mirror-write liveness inside the gated write transaction (real integrati
     const gone = await ds.query('SELECT 1 FROM pg_stat_activity WHERE pid=$1', [pid]);
     expect(gone.length).toBe(0);
     expect(proxy!.closedSessions()).toBeGreaterThanOrEqual(1); // the mirror session socket was destroyed
+  }, 30_000);
+
+  it('suspended PID query: the mirror tx aborts before any business SQL, releases the session and nothing lands', async () => {
+    process.env.CHANJET_READONLY_SYNC_ENABLED = 'true';
+    process.env.CHANJET_SYNC_POLICY = 'READONLY_VERIFY';
+    await liveSyncingExecution(4_000);
+    const before = await mirrorCounts();
+    // hold the REAL PID-query frame: the transaction identity never arrives
+    proxy!.armHold('SELECT pg_backend_pid() AS pid');
+    const state = {
+      manifest: current.manifest, store,
+      gateway: new ChanjetExecutionHttpGateway(store, current.manifest),
+      transport: { resend: async () => { throw new Error('FORBIDDEN'); } },
+      deadlineAt: current.deadlineAt, current,
+    };
+    const started = Date.now();
+    const outcome = await withExecutionScope(state, () => withReadonlyOrchestration('SYNTHETIC_MIRROR_RUN', () => proxyIntegration.syncReadOnlyMirror(['RECEIVABLE_STATISTICS'], BOOK, PERIOD)));
+    expect(outcome.results[0]).toMatchObject({ key: 'RECEIVABLE_STATISTICS', bookId: BOOK, status: 'FAIL' });
+    expect(Date.now() - started).toBeLessThan(10_000); // late acquisition aborts — it never hangs
+    proxy!.armHold('');
+    expect(proxy!.heldFrames().some((f) => f.includes('pg_backend_pid'))).toBe(true);
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    // NO business SQL ran after the late acquisition
+    const after = await mirrorCounts();
+    expect(after).toEqual(before);
+    const [jobRow] = await ds.query(
+      `SELECT status FROM chanjet_sync_jobs
+         WHERE job_type='SNAPSHOT' AND book_id=$1 AND period=$2 ORDER BY id DESC LIMIT 1`, [BOOK, PERIOD]);
+    expect(jobRow?.status).toBe('FAIL');
+    // the suspended session was force-released: its backend is gone
+    const pid = proxy!.heldPids().pop();
+    expect(pid).toBeTruthy();
+    const gone = await ds.query('SELECT 1 FROM pg_stat_activity WHERE pid=$1', [pid]);
+    expect(gone.length).toBe(0);
+  }, 30_000);
+
+  it('exhausted pool: the late mirror session acquisition aborts and releases before any business SQL, and the pool recovers', async () => {
+    process.env.CHANJET_READONLY_SYNC_ENABLED = 'true';
+    process.env.CHANJET_SYNC_POLICY = 'READONLY_VERIFY';
+    await liveSyncingExecution(4_000);
+    const before = await mirrorCounts();
+    // a DEDICATED single-slot pool whose ONLY client is pinned by a real
+    // in-flight query: the helper's acquisition genuinely waits on the pool
+    const poolDs = new DataSource({ type: 'postgres', url: proxyUrl, logging: false, poolSize: 1, entities: mirrorEntities });
+    await poolDs.initialize();
+    let businessSqlRan = false;
+    let pin: import('typeorm').QueryRunner | undefined;
+    try {
+      pin = poolDs.createQueryRunner();
+      await pin.connect();
+      void pin.query('SELECT pg_sleep(30)').catch(() => undefined); // pins the only slot
+      await new Promise((resolve) => setTimeout(resolve, 200)); // let the sleep take the client
+      const poolIntegration = new ChanjetIntegrationService(
+        auth, poolDs,
+        poolDs.getRepository(ChanjetAccountBookEntity),
+        poolDs.getRepository(ChanjetApiFieldCatalogEntity),
+        poolDs.getRepository(ChanjetMasterMappingEntity),
+        poolDs.getRepository(ChanjetSyncJobEntity),
+        poolDs.getRepository(ChanjetBookCompanyMapEntity),
+        poolDs.getRepository(ChanjetVoucherDraftEntity),
+        poolDs.getRepository(ChanjetReconciliationResultEntity),
+        poolDs.getRepository(ChanjetReadSnapshotEntity),
+        poolDs.getRepository(ChanjetEntitySnapshotEntity),
+        poolDs.getRepository(ChanjetErpFieldMappingEntity),
+        poolDs.getRepository(ChanjetWritebackOutboxEntity),
+      );
+      const boundTx = poolIntegration as unknown as {
+        runExecutionBoundWriteTx: <T>(scope: unknown, logTag: string, work: (runner: unknown) => Promise<T>) => Promise<T>;
+      };
+      const started = Date.now();
+      await expect(boundTx.runExecutionBoundWriteTx(current, 'POOL_WAIT_SPEC', async () => {
+        businessSqlRan = true;
+        return {};
+      })).rejects.toThrow('CHANJET_EXECUTION_DEADLINE');
+      expect(Date.now() - started).toBeLessThan(10_000); // the pool wait aborts in time
+      expect(businessSqlRan).toBe(false); // the late acquisition never reached the business write
+      const after = await mirrorCounts();
+      expect(after).toEqual(before);
+    } finally {
+      // release the pinned slot: terminate the sleeper's backend, then tear down
+      await ds.query(
+        `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname=$1 AND query LIKE '%pg_sleep%' AND pid <> pg_backend_pid()`,
+        [dbName],
+      ).catch(() => undefined);
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      // the terminated sleeper leaves a DEAD client: physically destroy its
+      // socket BEFORE handing it back — a graceful end() would hang forever
+      const pinClient = (pin as unknown as { client?: { release?: () => unknown; connection?: { stream?: import('node:net').Socket } } }).client;
+      try { pinClient?.connection?.stream?.destroy(new Error('POOL_PIN_DISCARDED')); } catch { /* gone */ }
+      try { pinClient?.release?.(); } catch { /* the pool discards a dead client */ }
+      // the terminated sleeper's client can never answer a graceful end()
+      // (the backend was killed server-side): stub every remaining pool
+      // client's end() to a hard socket destroy so the teardown cannot hang
+      // the terminated sleeper's client can never answer a graceful end()
+      // (the backend was killed server-side): the throwaway DataSource is
+      // hard-closed — its only socket is already dead and holds nothing
+      const pgPool = (poolDs.driver as unknown as { master?: { end?: () => Promise<void> } }).master;
+      try { pgPool?.end?.(); } catch { /* sockets are already dead */ }
+      (poolDs as unknown as { isInitialized?: boolean }).isInitialized = false;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    // the shared pool recovered: a later borrower connects and queries normally
+    const probe = proxyDs.createQueryRunner();
+    const [row] = await probe.query('SELECT 1 AS ok') as Array<{ ok: number }>;
+    expect(row?.ok).toBe(1);
+    await probe.release();
+  }, 30_000);
+
+  it('COMMIT forwarded and durably landed with only the response lost: UNKNOWN, the committed rows are present', async () => {
+    process.env.CHANJET_READONLY_SYNC_ENABLED = 'true';
+    process.env.CHANJET_SYNC_POLICY = 'READONLY_VERIFY';
+    await liveSyncingExecution(4_000);
+    // the REAL COMMIT frame REACHES the server (it commits) but the verdict
+    // never comes back — the genuinely unknown commit outcome
+    proxy!.armResponseWithhold('COMMIT');
+    const state = {
+      manifest: current.manifest, store,
+      gateway: new ChanjetExecutionHttpGateway(store, current.manifest),
+      transport: { resend: async () => { throw new Error('FORBIDDEN'); } },
+      deadlineAt: current.deadlineAt, current,
+    };
+    const started = Date.now();
+    const outcome = await withExecutionScope(state, () => withReadonlyOrchestration('SYNTHETIC_MIRROR_RUN', () => proxyIntegration.syncReadOnlyMirror(['RECEIVABLE_STATISTICS'], BOOK, PERIOD)));
+    expect(outcome.results[0]).toMatchObject({ key: 'RECEIVABLE_STATISTICS', bookId: BOOK, status: 'FAIL', error: 'CHANJET_EXECUTION_TERMINAL_UNKNOWN' });
+    expect(Date.now() - started).toBeLessThan(10_000);
+    proxy!.armResponseWithhold('');
+    expect(proxy!.withheldResponseFrames()).toBeGreaterThan(0);
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    // THE COMMIT LANDED: the aggregate upsert refreshes last_seen_at on every
+    // committed write — the fixture customers' rows carry a freshness from
+    // THIS run although the code reported UNKNOWN (accurate uncertainty,
+    // never a false rollback); the read snapshot is an idempotent upsert, so
+    // ROW COUNTS do not move across executions
+    const landed = await ds.query(
+      `SELECT external_id, last_seen_at FROM chanjet_entity_snapshots
+         WHERE book_id=$1 AND endpoint_key=$2 AND period=$3 ORDER BY external_id`,
+      [BOOK, 'RECEIVABLE_STATISTICS', PERIOD]);
+    expect(landed.map((r: { external_id: string }) => r.external_id).sort()).toEqual(['E1', 'E2']);
+    for (const row of landed) {
+      expect(new Date(row.last_seen_at).getTime()).toBeGreaterThan(started);
+    }
+    // the durable evidence keeps the UNKNOWN verdict for operator review
+    const [jobRow] = await ds.query(
+      `SELECT status, error_message FROM chanjet_sync_jobs
+         WHERE job_type='SNAPSHOT' AND book_id=$1 AND period=$2 ORDER BY id DESC LIMIT 1`, [BOOK, PERIOD]);
+    expect(jobRow?.status).toBe('FAIL');
+    expect(String(jobRow?.error_message || '')).toBe('CHANJET_EXECUTION_TERMINAL_UNKNOWN');
+    // the aborted session's backend is gone (terminate succeeded post-commit)
+    const pid = proxy!.responseWithheldPids().pop();
+    expect(pid).toBeTruthy();
+    const gone = await ds.query('SELECT 1 FROM pg_stat_activity WHERE pid=$1', [pid]);
+    expect(gone.length).toBe(0);
+  }, 30_000);
+
+  it('reconciliation real lock wait past the budget: zero commits and a FAIL job', async () => {
+    process.env.CHANJET_READONLY_SYNC_ENABLED = 'true';
+    process.env.CHANJET_SYNC_POLICY = 'READONLY_VERIFY';
+    await liveSyncingExecution(4_000);
+    // a mapping with an issue so the reconciliation loop has a write to make
+    await ds.getRepository(ChanjetMasterMappingEntity).save({
+      bookId: BOOK, mappingType: 'CUSTOMER', erpCode: 'C1', erpName: 'N1',
+      chanjetId: 'E1', chanjetCode: 'C1', chanjetName: 'N1', matchStatus: 'AUTO', reviewStatus: 'REJECTED',
+    } as never);
+    const [before] = await ds.query('SELECT count(*)::int AS n FROM chanjet_reconciliation_results');
+    // an EXTERNAL uncommitted transaction holds the admission row lock: the
+    // execution-bound write path blocks on a REAL lock wait
+    const external = ds.createQueryRunner();
+    await external.connect();
+    await external.query('BEGIN');
+    await external.query(`SELECT phase FROM chanjet_execution_admissions WHERE execution_id=$1 FOR UPDATE`, [(current.manifest as { executionId: string }).executionId]);
+    try {
+      const state = {
+        manifest: current.manifest, store,
+        gateway: new ChanjetExecutionHttpGateway(store, current.manifest),
+        transport: { resend: async () => { throw new Error('FORBIDDEN'); } },
+        deadlineAt: current.deadlineAt, current,
+      };
+      const started = Date.now();
+      await expect(withExecutionScope(state, () => withReadonlyOrchestration('SYNTHETIC_MIRROR_RUN', () => proxyIntegration.runMappingReconciliation({ compact: true }))))
+        .rejects.toThrow();
+      expect(Date.now() - started).toBeLessThan(10_000); // the lock wait is terminated in time
+      const [after] = await ds.query('SELECT count(*)::int AS n FROM chanjet_reconciliation_results');
+      expect(after.n).toBe(before.n); // ZERO commits past the deadline
+      // the lock was held at the entry gate — the refusal precedes the job
+      // row (no job evidence exists for a refused entry)
+      const [jobRow] = await ds.query(`SELECT status FROM chanjet_sync_jobs WHERE job_type='RECONCILE' ORDER BY id DESC LIMIT 1`);
+      expect(jobRow ?? undefined).toBeUndefined();
+    } finally {
+      await external.query('ROLLBACK').catch(() => undefined);
+      await external.release().catch(() => undefined);
+    }
+  }, 30_000);
+
+  it('reconciliation save latency past the budget: the pending save is rolled back and zero commits land', async () => {
+    process.env.CHANJET_READONLY_SYNC_ENABLED = 'true';
+    process.env.CHANJET_SYNC_POLICY = 'READONLY_VERIFY';
+    await liveSyncingExecution(4_000);
+    await ds.getRepository(ChanjetMasterMappingEntity).save({
+      bookId: BOOK, mappingType: 'CUSTOMER', erpCode: 'C2', erpName: 'N2',
+      chanjetId: 'E2', chanjetCode: 'C2', chanjetName: 'N2', matchStatus: 'AUTO', reviewStatus: 'REJECTED',
+    } as never);
+    const [before] = await ds.query('SELECT count(*)::int AS n FROM chanjet_reconciliation_results');
+    // the save's statement REACHES the server but its verdict is withheld:
+    // a REAL save latency inside the bounded transaction
+    proxy!.armResponseWithhold('INSERT INTO "chanjet_reconciliation_results"');
+    const state = {
+      manifest: current.manifest, store,
+      gateway: new ChanjetExecutionHttpGateway(store, current.manifest),
+      transport: { resend: async () => { throw new Error('FORBIDDEN'); } },
+      deadlineAt: current.deadlineAt, current,
+    };
+    const started = Date.now();
+    await expect(withExecutionScope(state, () => withReadonlyOrchestration('SYNTHETIC_MIRROR_RUN', () => proxyIntegration.runMappingReconciliation({ compact: true }))))
+      .rejects.toThrow();
+    expect(Date.now() - started).toBeLessThan(10_000);
+    proxy!.armResponseWithhold('');
+    expect(proxy!.withheldResponseFrames()).toBeGreaterThan(0);
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    // the pending save never committed: the backend was terminated first
+    const [after] = await ds.query('SELECT count(*)::int AS n FROM chanjet_reconciliation_results');
+    expect(after.n).toBe(before.n);
+    const [jobRow] = await ds.query(`SELECT status FROM chanjet_sync_jobs WHERE job_type='RECONCILE' ORDER BY id DESC LIMIT 1`);
+    expect(jobRow?.status).toBe('FAIL');
+    const pid = proxy!.responseWithheldPids().pop();
+    expect(pid).toBeTruthy();
+    const gone = await ds.query('SELECT 1 FROM pg_stat_activity WHERE pid=$1', [pid]);
+    expect(gone.length).toBe(0);
   }, 30_000);
 });
 

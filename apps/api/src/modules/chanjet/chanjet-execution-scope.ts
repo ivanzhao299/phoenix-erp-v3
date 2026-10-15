@@ -40,6 +40,14 @@ export function activeExecutionScope(): ExecutionScopeState | undefined {
   return storage.getStore();
 }
 
+/** An explicit pg server rejection carries a 5-character SQLSTATE code; a
+ *  lost COMMIT response or connection error does not — its verdict is
+ *  genuinely unknown (the commit may have landed server-side). */
+export function isPgServerRejection(error: unknown): boolean {
+  const code = (error as { code?: unknown } | null | undefined)?.code;
+  return typeof code === 'string' && /^[0-9A-Z]{5}$/.test(code);
+}
+
 export function requireExecutionScope(): ExecutionScopeState {
   const state = storage.getStore();
   if (!state) throw new Error('CHANJET_EXECUTION_SCOPE_REQUIRED');
