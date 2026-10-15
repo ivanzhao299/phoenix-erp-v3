@@ -77,9 +77,11 @@ export class ChanjetReadonlySyncScheduler implements OnApplicationBootstrap, OnM
     private readonly cronMon: CronMonitorService,
     @InjectDataSource() private readonly ds: DataSource,
     private readonly inboundSync: ChanjetErpInboundSyncService,
+    private readonly executionOptions: { executionCancellationConfig?: GuardConnectionConfig } = {},
   ) {}
 
   onApplicationBootstrap(): void {
+    this.executionCancellationConfig = this.executionOptions.executionCancellationConfig;
     if (!readonlySyncEnabled()) return;
     setImmediate(() => {
       void this.recoverInterruptedRun();
@@ -448,50 +450,18 @@ export class ChanjetReadonlySyncScheduler implements OnApplicationBootstrap, OnM
       if (updated.affected !== 1) throw new Error('READONLY_HOLD_DURABLE_STATE');
       return;
     }
-    // Execution-bound SUCCESS commit gate: the admission row is locked and
-    // checked INSIDE the same transaction as the terminal write, so a stop or
-    // expiry occurring after the last ACK still blocks the success from
-    // landing. EVERY statement — BEGIN, the liveness SELECT, the VERIFIED
-    // UPDATE, the terminal UPDATE, ROLLBACK and COMMIT — carries a per-call
-    // REAL-TIME remaining budget derived from the SAME absolute execution
-    // deadline (no fixed grace). Cancellation NEVER depends on the possibly
-    // exhausted business pool: an over-budget or timed-out statement is
-    // cancelled by pg_terminate_backend through an INDEPENDENT connection,
-    // and the discard of the dead session is CONFIRMED via pg_stat_activity
-    // before the error propagates — a raw BEGIN transaction can never be
-    // returned to the pool. An unconfirmable COMMIT outcome is reported as
-    // UNKNOWN (never claimed committed or rolled back).
+    // ---- execution-bound terminal: EVERY statement carries the REAL-TIME
+    // remaining budget derived from the SAME absolute execution deadline; a
+    // lost race at COMMIT terminates the backend via the INDEPENDENT
+    // cancellation channel (never the possibly exhausted business pool) and
+    // DESTROYS the original lease session (confirmed discarded) — the
+    // UNKNOWN outcome is reported, never claimed committed or rolled back.
     const deadlineAt = new Date(executionBinding.deadlineAt).getTime();
     const remainingMs = (): number => deadlineAt - Date.now();
     if (remainingMs() <= 1) throw executionGateRefusal();
-    // cancellation channel: an INDEPENDENT connection (guard executor
-    // configuration), never the business pool
-    const cancellationConfig = resolveGuardClientConfig((this.ds.options ?? {}) as GuardConnectionConfig);
+    const cancellationConfig = this.executionCancellationConfig
+      ?? resolveGuardClientConfig((this.ds.options ?? {}) as GuardConnectionConfig);
     if (!cancellationConfig) throw executionGateRefusal();
-    let beginSeen = false;
-    let firstGateLogged = false;
-    let commitUnknown = false;
-    let sessionDiscarded = false;
-    let commitTimer: ReturnType<typeof setTimeout> | undefined;
-    const terminateAndConfirmDiscard = async (): Promise<boolean> => {
-      const cancelClient = new Client(cancellationConfig as never);
-      try {
-        await cancelClient.connect();
-        await cancelClient.query('SELECT pg_terminate_backend($1)', [lease.backendPid]);
-        const confirmed = await withBound((async () => {
-          for (;;) {
-            const rows = await cancelClient.query('SELECT 1 FROM pg_stat_activity WHERE pid=$1', [lease.backendPid]);
-            if (!rows.rows?.length) return true;
-            await new Promise((resolve) => setTimeout(resolve, 100));
-          }
-        })(), 2_000, 'CHANJET_GUARD_TERMINATE_CONFIRM_TIMEOUT');
-        return confirmed === true;
-      } catch {
-        return false;
-      } finally {
-        await cancelClient.end().catch(() => undefined);
-      }
-    };
     const withBound = async <T>(work: Promise<T>, ms: number, code: string): Promise<T> => {
       let timer: ReturnType<typeof setTimeout> | undefined;
       return Promise.race([
@@ -499,97 +469,100 @@ export class ChanjetReadonlySyncScheduler implements OnApplicationBootstrap, OnM
         new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error(code)), ms); }),
       ]).finally(() => clearTimeout(timer));
     };
+    const abort = async (): Promise<void> => {
+      // cancel via the independent channel, then DESTROY the original lease
+      // session socket (client-side confirmed) and CONFIRM the backend is
+      // gone via pg_stat_activity (bounded poll)
+      const [self] = await lease.runner.query('SELECT pg_backend_pid() AS pid');
+      const cancelClient = new Client(cancellationConfig as never);
+      let pgConfirmed = false;
+      try {
+        await cancelClient.connect();
+        await cancelClient.query('SELECT pg_terminate_backend($1)', [(self as { pid: number }).pid]);
+      } catch { /* auth/permission failures escalate to lease socket destroy below */ }
+      const confirmDeadline = Date.now() + 2_000;
+      while (Date.now() < confirmDeadline) {
+        const rows = await this.ds.query('SELECT 1 FROM pg_stat_activity WHERE pid=$1', [(self as { pid: number }).pid]).catch(() => []);
+        if (!rows.length) { pgConfirmed = true; break; }
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+      await lease.discard();
+      if (!pgConfirmed) this.log.error('READONLY_HOLD_EXECUTION_TERMINAL_CLEANUP_UNCONFIRMED');
+    };
+    const bounded = async (sql: string, parameters?: unknown[]): Promise<{ rows: Array<Record<string, unknown>>; rowCount: number }> => {
+      const remaining = remainingMs();
+      if (remaining <= 1) {
+        await abort();
+        throw executionGateRefusal();
+      }
+      await lease.runner.query(`SET LOCAL statement_timeout=${remaining}`);
+      await lease.runner.query(`SET LOCAL lock_timeout=${Math.min(remaining, 1_000)}`);
+      const result = await withBound(lease.runner.query(sql, parameters), remaining, 'CHANJET_EXECUTION_GATE_TIMEOUT') as unknown;
+      // the lease runner returns the ROW ARRAY for SELECT and the pg command
+      // result ({ rowCount }) or the TypeORM [rows, count] pair for writes —
+      // normalize all three shapes
+      if (Array.isArray(result)) {
+        if (result.length === 2 && Array.isArray(result[0])) {
+          return { rows: result[0] as Array<Record<string, unknown>>, rowCount: Number(result[1] || 0) };
+        }
+        return { rows: result as Array<Record<string, unknown>>, rowCount: result.length };
+      }
+      const shaped = (result ?? {}) as { rows?: unknown[]; rowCount?: number };
+      return { rows: (shaped.rows ?? []) as Array<Record<string, unknown>>, rowCount: Number(shaped.rowCount || 0) };
+    };
+    let beginSeen = false;
+    await lease.runner.query('BEGIN');
+    beginSeen = true;
+    let writtenRows: Array<Record<string, unknown>>;
+    let commitUnknown = false;
+    let commitTimer: ReturnType<typeof setTimeout> | undefined;
     try {
-      await lease.runner.query('BEGIN');
-      beginSeen = true;
-      const boundedGate = async (sql: string, parameters?: unknown[]): Promise<{ rows: Array<Record<string, unknown>>; rowCount: number }> => {
-        const remaining = remainingMs();
-        if (remaining <= 1) throw executionGateRefusal();
-        await lease.runner.query(`SET LOCAL statement_timeout=${remaining}`);
-        await lease.runner.query(`SET LOCAL lock_timeout=${Math.min(remaining, 1_000)}`);
-        // raw pg result (rows + rowCount) — no structured-result ambiguity
-        const result = await withBound(lease.runner.query(sql, parameters), remaining, 'CHANJET_EXECUTION_GATE_TIMEOUT') as unknown;
-        if (sql.includes('FOR UPDATE') && !firstGateLogged) {
-          firstGateLogged = true;
-          // eslint-disable-next-line no-console
-          console.log('GATE_RAW2', JSON.stringify(result).slice(0, 300));
-        }
-        if (Array.isArray(result)) {
-          // TypeORM wraps UPDATE..RETURNING as [rows, affectedCount]
-          if (result.length === 2 && Array.isArray(result[0])) {
-            return { rows: result[0] as Array<Record<string, unknown>>, rowCount: Number(result[1] || 0) };
-          }
-          return { rows: result as unknown as Array<Record<string, unknown>>, rowCount: result.length };
-        }
-        const shaped = (result ?? {}) as { rows?: unknown[]; rowCount?: number };
-        return { rows: (shaped.rows ?? []) as Array<Record<string, unknown>>, rowCount: Number(shaped.rowCount || 0) };
-      };
-      const gateResult = await boundedGate(
+      const { rows: gateRows } = await bounded(
         `SELECT phase, hold_reason, deadline_at FROM chanjet_execution_admissions
           WHERE execution_id=$1 FOR UPDATE`, [executionBinding.executionId]);
-      this.log.warn(`GATE_DIAG2 raw=${JSON.stringify(gateResult).slice(0, 200)}`);
-      const gateRows = Array.isArray(gateResult)
-        ? gateResult as unknown as Array<{ phase: string; hold_reason: string; deadline_at: Date }>
-        : ((gateResult as { rows?: unknown[] }).rows ?? []) as unknown as Array<{ phase: string; hold_reason: string; deadline_at: Date }>;
-      if (!gateRows.length) {
-        const diag = await this.ds.query('SELECT count(*)::int AS n FROM chanjet_execution_admissions');
-        const leasePlain = await lease.runner.query('SELECT count(*)::int AS n FROM chanjet_execution_admissions');
-        const leaseNoLock = await lease.runner.query('SELECT execution_id, phase, hold_reason FROM chanjet_execution_admissions WHERE execution_id=$1', [executionBinding.executionId]);
-        let leaseForUpdate: unknown = 'not-run';
-        let forUpdateErr = '';
-        try {
-          leaseForUpdate = await lease.runner.query('SELECT phase, hold_reason FROM chanjet_execution_admissions WHERE execution_id=$1 FOR UPDATE', [executionBinding.executionId]);
-        } catch (e) { forUpdateErr = String((e as Error).message).slice(0, 120); }
-        const iso = await lease.runner.query('SELECT current_setting(\'transaction_isolation\') AS iso, txid_current() AS tx');
-        this.log.warn(`GATE_DIAG exec=${executionBinding.executionId} dsTotal=${JSON.stringify(diag)} leaseTotal=${JSON.stringify(leasePlain)} leaseRow=${JSON.stringify(leaseNoLock).slice(0, 120)} forUpdate=${JSON.stringify(leaseForUpdate).slice(0, 120)} forUpdateErr=${forUpdateErr} iso=${JSON.stringify(iso)}`);
-      }
       const gate = gateRows[0];
       const stopReason = !gate ? 'NO_ROW'
         : gate.phase === 'HOLD' || gate.phase === 'VERIFIED' ? `PHASE:${gate.phase}`
         : gate.hold_reason !== '' ? `HELD:${gate.hold_reason}`
         : !(gate.deadline_at instanceof Date) ? 'NO_DEADLINE'
         : gate.deadline_at.getTime() <= Date.now() ? 'EXPIRED' : '';
-      if (stopReason) {
-        this.log.warn(`GATE_STOP_REASON=${stopReason}`);
-        throw executionGateRefusal();
-      }
+      if (stopReason) throw executionGateRefusal();
       if (status === 'SUCCESS') {
         // mirror the reviewed finish transition: VERIFIED clears the lease
-        const verified = await boundedGate(
+        const verified = await bounded(
           `UPDATE chanjet_execution_admissions SET phase='VERIFIED', lease_id='' WHERE execution_id=$1 RETURNING phase`,
           [executionBinding.executionId]);
-        if (verified.rowCount !== 1) throw executionGateRefusal();
+        if (verified.rows[0]?.phase !== 'VERIFIED') throw executionGateRefusal();
       }
-      const updated = await boundedGate(terminalSql, terminalParams) as unknown;
-      const updatedCount = Array.isArray(updated)
-        ? updated.length
-        : Number((updated as { rowCount?: number } | undefined)?.rowCount ?? 0);
-      if (updatedCount !== 1) throw new Error('READONLY_HOLD_DURABLE_STATE');
+      const written = await bounded(terminalSql, terminalParams);
+      if (written.rowCount !== 1) throw new Error('READONLY_HOLD_DURABLE_STATE');
       const remaining = remainingMs();
       if (remaining <= 1) {
         // the deadline arrived between the last statement and the COMMIT:
-        // terminate the lease backend through the independent connection —
-        // an in-flight commit cannot land late
-        sessionDiscarded = await terminateAndConfirmDiscard();
+        // cancel through the independent channel — an in-flight commit cannot
+        // land late
+        await abort();
         commitUnknown = true;
-        throw Object.assign(new Error('READONLY_HOLD_EXECUTION_TERMINAL_UNKNOWN'), { terminalUnknown: true, sessionDiscarded });
+        throw Object.assign(new Error('READONLY_HOLD_EXECUTION_TERMINAL_UNKNOWN'), { terminalUnknown: true });
       }
       const committed = await Promise.race([
         lease.runner.query('COMMIT').then(() => true as const),
         new Promise<false>((resolve) => { commitTimer = setTimeout(() => resolve(false), remaining); }),
       ]).catch(() => false as const);
       if (committed !== true) {
-        sessionDiscarded = await terminateAndConfirmDiscard();
+        // the COMMIT outcome is genuinely unknown: cancel through the
+        // independent channel, confirm the discard, and report UNKNOWN —
+        // never claimed committed or rolled back
+        await abort();
         commitUnknown = true;
-        throw Object.assign(new Error('READONLY_HOLD_EXECUTION_TERMINAL_UNKNOWN'), { terminalUnknown: true, sessionDiscarded });
+        throw Object.assign(new Error('READONLY_HOLD_EXECUTION_TERMINAL_UNKNOWN'), { terminalUnknown: true });
       }
     } catch (error) {
       if (commitUnknown) {
-        // the COMMIT outcome is genuinely unknown: the backend was terminated
-        // and its discard CONFIRMED (sessionDiscarded) — the job keeps its
-        // durable RUNNING row for operator review and the UNKNOWN outcome
-        // propagates accurately.
-        this.log.error(`READONLY_HOLD_TERMINAL_COMMIT_UNKNOWN;sessionDiscarded=${sessionDiscarded}`);
+        // the outcome is genuinely unknown: the backend was terminated and
+        // its discard confirmed — the job keeps its durable RUNNING row for
+        // operator review and the UNKNOWN outcome propagates accurately.
+        this.log.error('READONLY_HOLD_TERMINAL_COMMIT_UNKNOWN;sessionDiscarded=true');
         throw error;
       }
       // bounded ROLLBACK on the same session; if it cannot be confirmed the
@@ -597,12 +570,13 @@ export class ChanjetReadonlySyncScheduler implements OnApplicationBootstrap, OnM
       // confirmed — the session never returns to the pool carrying a raw
       // BEGIN transaction.
       let rollbackKnown = false;
-      try {
-        await withBound(lease.runner.query('ROLLBACK'), 1_000, 'CHANJET_GUARD_ROLLBACK_TIMEOUT').then(() => { rollbackKnown = true; });
-      } catch { /* handled below */ }
-      if (!rollbackKnown) {
-        sessionDiscarded = await terminateAndConfirmDiscard();
-        this.log.error(`READONLY_HOLD_GATE_CLEANUP_UNKNOWN;sessionDiscarded=${sessionDiscarded}`);
+      if (beginSeen) {
+        try {
+          await withBound(lease.runner.query('ROLLBACK'), 1_000, 'CHANJET_GUARD_ROLLBACK_TIMEOUT').then(() => { rollbackKnown = true; });
+        } catch {
+          await abort();
+        }
+        if (!rollbackKnown) await abort();
       }
       throw error;
     } finally {
@@ -659,6 +633,9 @@ export class ChanjetReadonlySyncScheduler implements OnApplicationBootstrap, OnM
   // attributes live in chanjet_execution_admissions and are re-read, never
   // accepted from the caller.
   private executionSupportSingleton: { store: ChanjetExecutionAdmissionStore; guard: ReturnType<typeof createBoundedGuardExecutor> } | null = null;
+  /** Explicit override for the terminal-gate cancellation channel's
+   *  connection config; production derives it from the DataSource options. */
+  private executionCancellationConfig?: GuardConnectionConfig;
   /** Fail-closed: an execution-bound run needs a guard that CAN durably stop
    *  the execution. A DataSource without a usable connection configuration
    *  (no URL, no host) refuses the run instead of silently falling back to a
