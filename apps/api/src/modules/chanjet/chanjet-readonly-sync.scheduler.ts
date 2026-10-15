@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { withReadonlyOrchestration } from './chanjet-readonly-execution';
 import { approvedReadonlyPolicy, requireApprovedReadonlyRequest, readonlyScheduleEnabled, readonlyFailureCode } from './chanjet-readonly-policy';
 import { readonlySyncEnabled } from './chanjet-sync-control';
-import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
+import { Injectable, Logger, OnApplicationBootstrap, OnModuleDestroy } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
@@ -11,12 +11,16 @@ import { CronMonitorService } from '../system-monitor/services/cron-monitor.serv
 import { ChanjetIntegrationService } from './chanjet-integration.service';
 import { ChanjetErpInboundSyncService } from './chanjet-erp-inbound-sync.service';
 import { ChanjetExecutionAdmissionStore, ExecutionContext } from './chanjet-execution-admission.store';
-import { createBoundedGuardExecutor } from './chanjet-execution-guard-executor';
+import { createBoundedGuardExecutor, resolveGuardClientConfig, GuardConnectionConfig } from './chanjet-execution-guard-executor';
 import { validateExecutionManifest } from './chanjet-execution-manifest';
 import { ChanjetExecutionHttpGateway } from './chanjet-execution-transport';
 import { withExecutionScope } from './chanjet-execution-scope';
 
 const JOB_NAME = 'chanjet-full-readonly-sync';
+
+/** Terminal-persistence refusal raised by the execution liveness gate BEFORE
+ *  any terminal write — the FAIL terminal that follows is unambiguous. */
+const executionGateRefusal = (): Error => Object.assign(new Error('READONLY_HOLD_EXECUTION_STOPPED'), { executionGateRefusal: true });
 
 type ManualSyncRequest = {
   scope?: string[];
@@ -61,7 +65,7 @@ type PersistedRunRow = {
 };
 
 @Injectable()
-export class ChanjetReadonlySyncScheduler implements OnApplicationBootstrap {
+export class ChanjetReadonlySyncScheduler implements OnApplicationBootstrap, OnModuleDestroy {
   private readonly log = new Logger(ChanjetReadonlySyncScheduler.name);
   private running = false;
   private queued = false;
@@ -99,9 +103,9 @@ export class ChanjetReadonlySyncScheduler implements OnApplicationBootstrap {
     await this.executeSync('system:chanjet-readonly-sync', request, prepared.run.runId, prepared.lease, undefined);
   }
 
-  async enqueueManualSync(requestedBy: string, request: ManualSyncRequest = {}) {
+  async enqueueManualSync(requestedBy: string, request: ManualSyncRequest = {}, options: { authPrincipal?: string } = {}) {
     if (!readonlySyncEnabled()) return this.disabledRun();
-    const prepared = await this.prepareRun(requestedBy, request);
+    const prepared = await this.prepareRun(requestedBy, request, options);
     const response = { accepted: prepared.accepted, reason: prepared.reason, run: prepared.run };
     if (!prepared.accepted || !prepared.lease || !prepared.run.runId) return response;
     const { lease } = prepared;
@@ -130,18 +134,27 @@ export class ChanjetReadonlySyncScheduler implements OnApplicationBootstrap {
     return { accepted: false, reason: 'SYNC_DISABLED', run: { ...this.lastRun } };
   }
 
-  private async prepareRun(requestedBy: string, request: ManualSyncRequest): Promise<{
+  private async prepareRun(requestedBy: string, request: ManualSyncRequest, options: { authPrincipal?: string } = {}): Promise<{
     accepted: boolean; reason?: string; run: SyncRunState; lease?: ChanjetReadonlyLockLease; executionBinding?: ExecutionBinding;
   }> {
     if (!readonlySyncEnabled()) return this.disabledRun();
     if (this.running || this.queued) {
       return { accepted: false, reason: 'SYNC_ALREADY_ACTIVE', run: await this.getRunState() };
     }
+    // READONLY_VERIFY is the first-sync window: it REQUIRES a durable
+    // execution — a request without one refuses before anything durable and
+    // with zero provider HTTP.
+    if (process.env.CHANJET_SYNC_POLICY === 'READONLY_VERIFY' && !request.execution) {
+      return { accepted: false, reason: 'SYNC_EXECUTION_REQUIRED', run: await this.getRunState() };
+    }
     // Execution-bound runs verify the binding against the ADMISSION ROW before
     // anything durable happens: the caller may only name executionId+leaseId;
-    // phase, approval, floor and deadline are read back from the trusted row
-    // and a mismatch (or a stopped/expired execution) refuses the request.
-    const executionBinding = request.execution ? await this.verifyExecutionBinding(request.execution) : undefined;
+    // phase, approval, floor and deadline are read back from the trusted row,
+    // the row's approval/floor must match the CURRENT approved policy, the
+    // row's verification must match the request, and the row's owner must be
+    // the authenticated caller. A mismatch (or a stopped/expired execution)
+    // refuses the request.
+    const executionBinding = request.execution ? await this.verifyExecutionBinding(request.execution, requestedBy, options.authPrincipal, request) : undefined;
     if (request.execution && !executionBinding) {
       return { accepted: false, reason: 'SYNC_EXECUTION_CONTEXT', run: await this.getRunState() };
     }
@@ -261,15 +274,19 @@ export class ChanjetReadonlySyncScheduler implements OnApplicationBootstrap {
         { compact: true },
       );
       let result;
+      let preWorkerSends = 0;
       if (executionBinding) {
         const current = await this.rebuildExecutionScopeContext(executionBinding);
-        const store = this.executionStore();
+        const store = this.executionSupport().store;
         const gateway = new ChanjetExecutionHttpGateway(store, current.manifest);
         executionScope = { current, gateway };
         if (Date.now() >= (current.deadlineAt as Date).getTime()) {
           await this.holdExecutionSafely(current, 'DEADLINE');
           throw new Error('READONLY_HOLD_EXECUTION_DEADLINE');
         }
+        // worker send evidence is scoped to THIS run: pre-existing ACKs under
+        // the lease (the orchestration rehearsal) are excluded by the delta
+        preWorkerSends = await this.countWorkerBusinessOk(executionBinding);
         result = await withExecutionScope(
           { manifest: current.manifest, store, gateway, transport: { resend: async () => { throw new Error('CHANJET_EXECUTION_RESEND_FORBIDDEN'); } }, deadlineAt: current.deadlineAt as Date, current },
           () => withReadonlyOrchestration(runId, runCycle, () => lease.assertAlive()),
@@ -311,17 +328,16 @@ export class ChanjetReadonlySyncScheduler implements OnApplicationBootstrap {
       terminalAttempted = true;
       const executionDetails: Record<string, unknown> = {};
       if (executionBinding && executionScope) {
-        // worker receipt evidence: the REAL provider exchanges this worker
-        // made under the execution (counted receipts, trigger-guaranteed) —
-        // the orchestration proof cross-checks this against the receipts.
-        const sends = await this.countWorkerBusinessOk(executionBinding);
+        // worker receipt evidence: ONLY the exchanges THIS run made (delta
+        // over the pre-cycle count — the rehearsal ACK is not worker evidence)
+        const sends = (await this.countWorkerBusinessOk(executionBinding)) - preWorkerSends;
         if (sends < 1) throw new Error('READONLY_HOLD_EXECUTION_NO_WORKER_SENDS');
         executionDetails.execution = executionBinding;
         executionDetails.executionSends = sends;
       }
       await this.persistTerminalState(lease, runId, 'SUCCESS', 'COMPLETED', decision, message, {
         targetCount, attempts, exactApproved, reconciliationCreated, reconciliationResolved, erpInbound, ...executionDetails,
-      });
+      }, executionBinding);
       this.lastRun = {
         ...this.lastRun,
         state: 'COMPLETED',
@@ -340,7 +356,10 @@ export class ChanjetReadonlySyncScheduler implements OnApplicationBootstrap {
       if (executionScope) {
         await this.holdExecutionSafely(executionScope.current, this.executionHoldReason(error));
       }
-      if (!terminalAttempted) {
+      // a gate refusal happens BEFORE any terminal write: the FAIL terminal is
+      // unambiguous and must land; a genuine post-write ambiguity never is
+      const gateRefused = Boolean((error as { executionGateRefusal?: boolean })?.executionGateRefusal);
+      if (!terminalAttempted || gateRefused) {
         try { await this.persistTerminalState(lease, runId, 'FAIL', 'HOLD', 'HOLD', message); }
         catch {
           this.lastRun.message = 'READONLY_HOLD_TERMINAL_PERSISTENCE';
@@ -397,27 +416,65 @@ export class ChanjetReadonlySyncScheduler implements OnApplicationBootstrap {
     decision: string,
     message: string,
     details: Record<string, unknown> = {},
+    executionBinding?: ExecutionBinding,
   ): Promise<void> {
     const completedAt = new Date().toISOString();
     await lease.assertOwnership();
-    const updated = await lease.runner.query(
-      `UPDATE chanjet_sync_jobs
-          SET status = $2,
-              request_scope = COALESCE(request_scope, '{}'::jsonb) || $3::jsonb,
-              result_summary = $4::jsonb,
-              error_message = $5,
-              updated_at = NOW()
-        WHERE request_scope->>'orchestrationRunId' = $1 AND status = 'RUNNING'`,
-      [
-        runId,
-        status,
-        JSON.stringify({ lifecycleState: state, completedAt }),
-        JSON.stringify({ state, decision, message, completedAt, ...details, externalWriteEnabled: false }),
-        status === 'FAIL' ? message : null,
-      ],
-      true,
-    );
-    if (updated.affected !== 1) throw new Error('READONLY_HOLD_DURABLE_STATE');
+    const terminalUpdate = async (): Promise<void> => {
+      const updated = await lease.runner.query(
+        `UPDATE chanjet_sync_jobs
+            SET status = $2,
+                request_scope = COALESCE(request_scope, '{}'::jsonb) || $3::jsonb,
+                result_summary = $4::jsonb,
+                error_message = $5,
+                updated_at = NOW()
+          WHERE request_scope->>'orchestrationRunId' = $1 AND status = 'RUNNING'`,
+        [
+          runId,
+          status,
+          JSON.stringify({ lifecycleState: state, completedAt }),
+          JSON.stringify({ state, decision, message, completedAt, ...details, externalWriteEnabled: false }),
+          status === 'FAIL' ? message : null,
+        ],
+        true,
+      );
+      if (updated.affected !== 1) throw new Error('READONLY_HOLD_DURABLE_STATE');
+    };
+    if (!executionBinding) {
+      await terminalUpdate();
+      return;
+    }
+    // Execution-bound SUCCESS commit gate: the admission row is locked and
+    // checked INSIDE the same transaction as the terminal write, so a stop or
+    // expiry occurring after the last ACK still blocks the success from
+    // landing. The gate is bounded (conservative statement/lock timeouts) and
+    // rolls back on any refusal.
+    await lease.runner.query('BEGIN');
+    try {
+      await lease.runner.query('SET LOCAL statement_timeout=2000');
+      await lease.runner.query('SET LOCAL lock_timeout=1000');
+      const [gate] = await lease.runner.query(
+        `SELECT phase, hold_reason, deadline_at FROM chanjet_execution_admissions
+          WHERE execution_id=$1 FOR UPDATE`, [executionBinding.executionId]);
+      const stopped = !gate
+        || gate.phase === 'HOLD' || gate.phase === 'VERIFIED'
+        || gate.hold_reason !== ''
+        || !(gate.deadline_at instanceof Date)
+        || gate.deadline_at.getTime() <= Date.now();
+      if (stopped) throw executionGateRefusal();
+      if (status === 'SUCCESS') {
+        // mirror the reviewed finish transition: VERIFIED clears the lease
+        const verified = await lease.runner.query(
+          `UPDATE chanjet_execution_admissions SET phase='VERIFIED', lease_id='' WHERE execution_id=$1 RETURNING phase`,
+          [executionBinding.executionId]);
+        if (!verified.length) throw executionGateRefusal();
+      }
+      await terminalUpdate();
+      await lease.runner.query('COMMIT');
+    } catch (error) {
+      await lease.runner.query('ROLLBACK').catch(() => undefined);
+      throw error;
+    }
   }
 
   private async loadLatestPersistedRun(activeOnly: boolean): Promise<PersistedRunRow | null> {
@@ -468,30 +525,65 @@ export class ChanjetReadonlySyncScheduler implements OnApplicationBootstrap {
   // No new schema: the binding rides request_scope.execution; the trusted
   // attributes live in chanjet_execution_admissions and are re-read, never
   // accepted from the caller.
-  private executionSupportSingleton: { store: ChanjetExecutionAdmissionStore } | null = null;
-  private executionStore(): ChanjetExecutionAdmissionStore {
+  private executionSupportSingleton: { store: ChanjetExecutionAdmissionStore; guard: ReturnType<typeof createBoundedGuardExecutor> } | null = null;
+  /** Fail-closed: an execution-bound run needs a guard that CAN durably stop
+   *  the execution. A DataSource without a usable connection configuration
+   *  (no URL, no host) refuses the run instead of silently falling back to a
+   *  path that could not persist a stop. */
+  private executionSupport(): { store: ChanjetExecutionAdmissionStore; guard: ReturnType<typeof createBoundedGuardExecutor> } {
     if (!this.executionSupportSingleton) {
+      const connectionConfig = resolveGuardClientConfig((this.ds.options ?? {}) as GuardConnectionConfig);
+      if (!connectionConfig) throw new Error('READONLY_HOLD_EXECUTION_GUARD_UNCONFIGURED');
+      const guard = createBoundedGuardExecutor(connectionConfig);
       const store = new ChanjetExecutionAdmissionStore(this.ds.manager);
-      const url = (this.ds.options as { url?: string }).url || '';
-      if (url) store.setStandaloneExecutor(createBoundedGuardExecutor(url));
-      this.executionSupportSingleton = { store };
+      store.setStandaloneExecutor(guard);
+      this.executionSupportSingleton = { store, guard };
     }
-    return this.executionSupportSingleton.store;
+    return this.executionSupportSingleton;
+  }
+  async onModuleDestroy(): Promise<void> {
+    // hold AND release the scheduler-created guard executor: its dedicated
+    // connection must not outlive the application (or a test suite)
+    const support = this.executionSupportSingleton;
+    this.executionSupportSingleton = null;
+    await support?.guard.dispose().catch(() => undefined);
   }
 
   /** Row-sourced binding check: the caller names executionId+leaseId only;
-   *  phase/approval/floor/deadline come from the admission row. */
-  private async verifyExecutionBinding(execution: { executionId: string; leaseId: string }): Promise<ExecutionBinding | null> {
+   *  phase/approval/floor/deadline come from the admission row. The row's
+   *  approval/floor must match the CURRENT approved policy, the row's
+   *  verification must match the request, and the row's owner must be the
+   *  authenticated caller — the row merely existing is never enough. */
+  private async verifyExecutionBinding(
+    execution: { executionId: string; leaseId: string },
+    requestedBy: string,
+    authPrincipal: string | undefined,
+    request: ManualSyncRequest,
+  ): Promise<ExecutionBinding | null> {
     if (typeof execution?.executionId !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/.test(execution.executionId)
       || typeof execution.leaseId !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/.test(execution.leaseId)) return null;
     const rows = await this.ds.query(
-      `SELECT execution_id, approval_id, floor_sha, manifest, phase, lease_id, hold_reason, deadline_at
+      `SELECT execution_id, owner_id, approval_id, floor_sha, manifest, phase, lease_id, hold_reason, deadline_at
          FROM chanjet_execution_admissions WHERE execution_id=$1`, [execution.executionId]).catch(() => []);
     const row = rows[0];
     if (!row) return null;
     try {
       validateExecutionManifest(row.manifest);
     } catch { return null; }
+    // owner <-> authenticated caller authorization: the executing principal
+    // (authenticated username) must BE the registered owner
+    const principal = authPrincipal || requestedBy;
+    if (!principal || String(row.owner_id) !== principal) return null;
+    // registered approval/floor must be the CURRENT approved policy
+    try {
+      const policy = approvedReadonlyPolicy();
+      if (String(row.approval_id) !== policy.approvalId || String(row.floor_sha) !== policy.floorSha) return null;
+    } catch { return null; }
+    // the row's verification must be consistent with the request
+    const verification = (validateExecutionManifest(row.manifest).manifest.approval.verification);
+    if (request.bookId !== undefined && request.bookId !== verification.bookId) return null;
+    if (request.period !== undefined && request.period !== verification.period) return null;
+    if (request.scope !== undefined && JSON.stringify([...request.scope].sort()) !== JSON.stringify([...verification.scope].sort())) return null;
     if (row.phase !== 'SYNCING' || row.lease_id !== execution.leaseId || row.hold_reason !== '') return null;
     if (!(row.deadline_at instanceof Date) || !(row.deadline_at.getTime() > Date.now())) return null;
     return {
@@ -520,10 +612,17 @@ export class ChanjetReadonlySyncScheduler implements OnApplicationBootstrap {
     return { manifest, leaseId: row.lease_id, phase: 'SYNCING', deadlineAt: row.deadline_at };
   }
 
-  /** Persist the durable stop through the reviewed bounded guard mechanism. */
-  private async holdExecutionSafely(current: ExecutionContext, reason: 'TRANSPORT_FAILURE' | 'CANCELLED' | 'ACK_UNVERIFIED' | 'RESERVE_UNVERIFIED' | 'DEADLINE'): Promise<void> {
-    try { await this.executionStore().holdExecution(current, reason); }
-    catch { /* already held or unreadable: the durable stop stands */ }
+  /** Persist the durable stop through the reviewed bounded guard mechanism.
+   *  A failed stop is NEVER claimed as persisted — it is reported as
+   *  UNCONFIRMED for the operator instead of being swallowed. */
+  private async holdExecutionSafely(current: ExecutionContext, reason: 'TRANSPORT_FAILURE' | 'CANCELLED' | 'ACK_UNVERIFIED' | 'RESERVE_UNVERIFIED' | 'DEADLINE'): Promise<boolean> {
+    try {
+      await this.executionSupport().store.holdExecution(current, reason);
+      return true;
+    } catch {
+      this.log.error('READONLY_HOLD_EXECUTION_STOP_UNCONFIRMED');
+      return false;
+    }
   }
 
   private executionHoldReason(error: unknown): 'TRANSPORT_FAILURE' | 'CANCELLED' | 'DEADLINE' {

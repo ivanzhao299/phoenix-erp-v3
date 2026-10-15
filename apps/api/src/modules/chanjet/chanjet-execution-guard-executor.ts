@@ -1,6 +1,45 @@
 import { Client } from 'pg';
 import type { StandaloneExecutor } from './chanjet-execution-admission.store';
 
+/** Connection source for a guard executor: a URL, or the field set a
+ *  TypeORM Postgres DataSource carries (host/port/user/password/database/
+ *  ssl — the API's actual configuration shape, TLS included). */
+export type GuardConnectionConfig =
+  | string
+  | {
+      connectionString?: string;
+      /** TypeORM Postgres options spell it `url` — accepted as an alias. */
+      url?: string;
+      host?: string;
+      port?: number;
+      user?: string;
+      username?: string;
+      password?: string;
+      database?: string;
+      ssl?: unknown;
+    };
+
+/** Resolve a guard pg config, or null when the source carries NEITHER a URL
+ *  NOR a host — a silently unconnectable guard could never durably stop an
+ *  execution, so the caller must fail closed instead. */
+export function resolveGuardClientConfig(connection: GuardConnectionConfig): { connectionString?: string; host?: string; port?: number; user?: string; password?: string; database?: string; ssl?: unknown } | null {
+  if (typeof connection === 'string') return { connectionString: connection };
+  const asUrl = connection.connectionString ?? connection.url;
+  if (asUrl) return { connectionString: asUrl };
+  const host = connection.host;
+  if (!host) return null;
+  return {
+    host,
+    port: connection.port,
+    user: connection.user ?? connection.username,
+    password: connection.password,
+    database: connection.database,
+    // the DataSource's TLS configuration passes through unchanged (boolean
+    // or pg-compatible options object)
+    ssl: connection.ssl as never,
+  };
+}
+
 /**
  * Bounds for the controlled guard executor. Defaults mirror the store's
  * conservative per-statement constant (2s) — the guard is exempt from the
@@ -73,14 +112,16 @@ interface ResolvedBounds { acquireMs: number; statementMs: number; clientWaitMs:
  * is NEVER the termination mechanism: every abort is enforced by PostgreSQL
  * or by destroying the guard socket itself.
  */
-export function createBoundedGuardExecutor(connection: string | { connectionString: string }, bounds: GuardExecutorBounds = {}): BoundedGuardExecutor {
+export function createBoundedGuardExecutor(connection: GuardConnectionConfig, bounds: GuardExecutorBounds = {}): BoundedGuardExecutor {
   const resolved: ResolvedBounds = {
     acquireMs: bounds.acquireMs ?? GUARD_ACQUIRE_BOUND_MS,
     statementMs: bounds.statementMs ?? GUARD_STATEMENT_BOUND_MS,
     clientWaitMs: bounds.clientWaitMs ?? (bounds.statementMs ?? GUARD_STATEMENT_BOUND_MS) + GUARD_CLIENT_WAIT_SLACK_MS,
     releaseMs: bounds.releaseMs ?? GUARD_RELEASE_BOUND_MS,
   };
-  const config = typeof connection === 'string' ? { connectionString: connection } : connection;
+  const resolvedConfig = resolveGuardClientConfig(connection);
+  if (!resolvedConfig) throw new Error('CHANJET_GUARD_CONNECTION_CONFIG_REQUIRED');
+  const config = resolvedConfig;
   let client: Client | undefined;
   let disposed = false;
   let tail: Promise<unknown> = Promise.resolve();

@@ -694,7 +694,7 @@ export class ChanjetCallbackController {
       const binding = gate.mappings.find(m => m.bookId === body.bookId && m.status === 'VALID' && m.syncEnabled);
       if (!binding || !(scope.allowedCompanyCodes || []).includes(binding.companyCode)) throw new ForbiddenException('CHANJET_SYNC_COMPANY_SCOPE_DENIED');
     }
-    const enqueueResult = await this.readonlySyncScheduler.enqueueManualSync(`user:${requestedBy}`, body);
+    const enqueueResult = await this.readonlySyncScheduler.enqueueManualSync(`user:${requestedBy}`, body, { authPrincipal: requestedBy });
     return {
       success: enqueueResult.accepted || ['QUEUED', 'RUNNING'].includes(enqueueResult.run.state),
       writeChanjet: false,

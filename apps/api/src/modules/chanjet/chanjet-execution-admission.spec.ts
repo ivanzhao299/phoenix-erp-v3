@@ -62,7 +62,11 @@ database('real PostgreSQL admission invariants (no provider wiring)',()=>{
     const url=new URL(fixtureUrl!);
     if(url.hostname!=='127.0.0.1'||url.pathname!=='/chanjet_admission_fixture')throw Error('isolated loopback fixture database required');
     ds=new DataSource({type:'postgres',url:fixtureUrl,entities:[ChanjetExecutionAdmissionEntity,ChanjetExecutionRequestEntity],synchronize:false,extra:{max:24}});
-    await ds.initialize();const runner=ds.createQueryRunner();
+    await ds.initialize();
+    // own the fixture schema: other suites in the same database may have left
+    // tables behind (the migration is not IF NOT EXISTS)
+    await ds.query('DROP SCHEMA public CASCADE');await ds.query('CREATE SCHEMA public');
+    const runner=ds.createQueryRunner();
     try {await runner.startTransaction();await migration.up(runner);await runner.commitTransaction();applied=true;}catch(error){if(runner.isTransactionActive)await runner.rollbackTransaction();throw error;}finally{await runner.release();}
     store=new ChanjetExecutionAdmissionStore(ds.manager);
     directory=mkdtempSync(join(tmpdir(),'chanjet-admission-synthetic-'));

@@ -466,13 +466,18 @@ await (async () => {
       const stopContext = lastPhaseContext?.phase
         ? lastPhaseContext
         : { manifest: binding.manifest, leaseId: '', phase: 'PROBING' };
-      await store.holdExecution(stopContext, reasonClass).catch(() => undefined);
+      // the durable stop is reported ACCURATELY: a failed stop is surfaced as
+      // UNCONFIRMED, never swallowed into a claim that the stop persisted
+      const stopPersisted = await store.holdExecution(stopContext, reasonClass)
+        .then(() => true, () => false);
       const settled = await gateway.settled().catch(() => 'UNKNOWN');
       let holdRow = null;
       try { holdRow = await store.load(binding.manifest); } catch { /* already reported */ }
       hold({
         ...summary,
         reason: reasonText.slice(0, 120),
+        stopPersisted,
+        ...(stopPersisted ? {} : { stopState: 'UNCONFIRMED' }),
         settled,
         phase: holdRow?.phase ?? null,
         holdReason: holdRow?.hold_reason ?? null,
