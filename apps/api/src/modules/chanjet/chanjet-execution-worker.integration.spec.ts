@@ -42,7 +42,7 @@ worker('execution-bound scheduler worker (real PostgreSQL18, real auth, local pr
   const tokenSeq = { n: 0 };
   beforeAll(async () => {
     const url = new URL(fixtureUrl!);
-    if (!['127.0.0.1', 'localhost'].includes(url.hostname) || !/^\/root_admission_review$/.test(url.pathname)) {
+    if (!['127.0.0.1', 'localhost'].includes(url.hostname) || !/^\/(root_admission_review|chanjet_admission_fixture)$/.test(url.pathname)) {
       throw Error('Only the isolated loopback fixture database is permitted');
     }
     ds = new DataSource({ type: 'postgres', url: fixtureUrl, entities: [ChanjetSyncJobEntity], logging: false });
@@ -95,7 +95,7 @@ worker('execution-bound scheduler worker (real PostgreSQL18, real auth, local pr
   });
   afterAll(async () => {
     delete process.env.CHANJET_PROVIDER_BASE_URL;
-    provider.close();
+    provider?.close();
     if (ds?.isInitialized) await ds.destroy();
   });
 
