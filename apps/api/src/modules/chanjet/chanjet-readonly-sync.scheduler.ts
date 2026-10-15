@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { withReadonlyOrchestration } from './chanjet-readonly-execution';
 import { approvedReadonlyPolicy, requireApprovedReadonlyRequest, readonlyScheduleEnabled, readonlyFailureCode } from './chanjet-readonly-policy';
 import { readonlySyncEnabled } from './chanjet-sync-control';
-import { Injectable, Logger, OnApplicationBootstrap, OnModuleDestroy } from '@nestjs/common';
+import { Injectable, Logger, OnApplicationBootstrap, OnModuleDestroy, Optional } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
@@ -77,7 +77,7 @@ export class ChanjetReadonlySyncScheduler implements OnApplicationBootstrap, OnM
     private readonly cronMon: CronMonitorService,
     @InjectDataSource() private readonly ds: DataSource,
     private readonly inboundSync: ChanjetErpInboundSyncService,
-    private readonly executionOptions: { executionCancellationConfig?: GuardConnectionConfig } = {},
+    @Optional() private readonly executionOptions: { executionCancellationConfig?: GuardConnectionConfig } = {},
   ) {}
 
   onApplicationBootstrap(): void {
