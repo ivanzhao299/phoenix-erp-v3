@@ -30,6 +30,7 @@ const PERIOD = '202610';
 worker('execution-bound scheduler worker (real PostgreSQL18, real auth, local provider)', () => {
   let ds: DataSource;
   let store: ChanjetExecutionAdmissionStore;
+  let guardExecutor: ReturnType<typeof createBoundedGuardExecutor>;
   let auth: ChanjetAuthService;
   let provider: Server;
   let providerBase = '';
@@ -56,7 +57,8 @@ worker('execution-bound scheduler worker (real PostgreSQL18, real auth, local pr
       period varchar(8), status varchar(16), request_scope jsonb, result_summary jsonb,
       error_message text, created_at timestamptz DEFAULT now(), updated_at timestamptz DEFAULT now())`);
     store = new ChanjetExecutionAdmissionStore(ds.manager);
-    store.setStandaloneExecutor(createBoundedGuardExecutor(fixtureUrl!));
+    guardExecutor = createBoundedGuardExecutor(fixtureUrl!);
+    store.setStandaloneExecutor(guardExecutor);
     provider = createServer((req, res) => {
       hits.push(req.url || '');
       if (destroyNext) { req.socket.destroy(); return; }
@@ -95,6 +97,12 @@ worker('execution-bound scheduler worker (real PostgreSQL18, real auth, local pr
   });
   afterAll(async () => {
     delete process.env.CHANJET_PROVIDER_BASE_URL;
+    // release the guard's dedicated connection: its lazily-connected client
+    // would otherwise keep the jest process alive after the suite
+    await guardExecutor?.dispose().catch(() => undefined);
+    // the fixture's fetch-side agent keeps keep-alive sockets open; close()
+    // alone would wait on them and keep the jest process alive
+    provider?.closeAllConnections();
     provider?.close();
     if (ds?.isInitialized) await ds.destroy();
   });
