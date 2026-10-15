@@ -14,11 +14,22 @@ import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ChanjetSyncJobEntity } from './chanjet-sync-job.entity';
+import { ChanjetMasterMappingEntity } from './chanjet-master-mapping.entity';
+import { ChanjetReconciliationResultEntity } from './chanjet-reconciliation-result.entity';
+import { ChanjetAccountBookEntity } from './chanjet-account-book.entity';
+import { ChanjetApiFieldCatalogEntity } from './chanjet-api-field-catalog.entity';
+import { ChanjetBookCompanyMapEntity } from './chanjet-book-company-map.entity';
+import { ChanjetVoucherDraftEntity } from './chanjet-voucher-draft.entity';
+import { ChanjetReadSnapshotEntity } from './chanjet-read-snapshot.entity';
+import { ChanjetEntitySnapshotEntity } from './chanjet-entity-snapshot.entity';
+import { ChanjetErpFieldMappingEntity } from './chanjet-erp-field-mapping.entity';
+import { ChanjetWritebackOutboxEntity } from './chanjet-writeback-outbox.entity';
 import { ChanjetReadonlySyncScheduler } from './chanjet-readonly-sync.scheduler';
 import { ChanjetExecutionAdmissionStore } from './chanjet-execution-admission.store';
 import { createBoundedGuardExecutor, resolveGuardClientConfig } from './chanjet-execution-guard-executor';
 import { ChanjetExecutionHttpGateway } from './chanjet-execution-transport';
 import { ChanjetAuthService } from './chanjet-auth.service';
+import { ChanjetIntegrationService } from './chanjet-integration.service';
 import { executionWriteGate, withExecutionScope } from './chanjet-execution-scope';
 import * as scopeModule from './chanjet-execution-scope';
 import { CreateChanjetExecutionAdmissions1791878400000 } from '../../database/migrations/1791878400000-CreateChanjetExecutionAdmissions';
@@ -92,7 +103,7 @@ worker('execution-bound scheduler worker (real PostgreSQL18, real auth, local pr
     if (!['127.0.0.1', 'localhost'].includes(url.hostname) || !/^\/(root_admission_review|chanjet_admission_fixture)$/.test(url.pathname)) {
       throw Error('Only the isolated loopback fixture database is permitted');
     }
-    ds = new DataSource({ type: 'postgres', url: fixtureUrl, entities: [ChanjetSyncJobEntity], logging: false });
+    ds = new DataSource({ type: 'postgres', url: fixtureUrl, entities: [ChanjetSyncJobEntity, ChanjetMasterMappingEntity, ChanjetReconciliationResultEntity], logging: false });
     await ds.initialize();
     store = new ChanjetExecutionAdmissionStore(ds.manager);
     guardExecutor = createBoundedGuardExecutor(fixtureUrl!);
@@ -132,6 +143,20 @@ worker('execution-bound scheduler worker (real PostgreSQL18, real auth, local pr
       id serial PRIMARY KEY, job_type varchar(32), book_id varchar(64), company_code varchar(64),
       period varchar(8), status varchar(16), request_scope jsonb, result_summary jsonb,
       error_message text, created_at timestamptz DEFAULT now(), updated_at timestamptz DEFAULT now())`);
+    await ds.query(`CREATE TABLE chanjet_master_mapping (
+      id bigserial PRIMARY KEY, mapping_type varchar(40), book_id varchar(64) DEFAULT '',
+      erp_code varchar(128) DEFAULT '', erp_name varchar(256) DEFAULT '', erp_entity_type varchar(32) DEFAULT '',
+      chanjet_id varchar(128) DEFAULT '', chanjet_code varchar(128) DEFAULT '', chanjet_name varchar(256) DEFAULT '',
+      match_status varchar(32) DEFAULT 'PENDING', confidence numeric(5,2) DEFAULT 0,
+      review_status varchar(32) DEFAULT 'PENDING', reviewed_by varchar(128), reviewed_at timestamptz,
+      raw_data jsonb, created_at timestamptz DEFAULT now(), updated_at timestamptz DEFAULT now())`);
+    await ds.query(`CREATE TABLE chanjet_reconciliation_results (
+      id bigserial PRIMARY KEY, reconciliation_type varchar(64), company_code varchar(64) DEFAULT '',
+      book_id varchar(64) DEFAULT '', period varchar(16) DEFAULT '', status varchar(32) DEFAULT 'WARN',
+      severity varchar(32) DEFAULT 'MEDIUM', subject_type varchar(64) DEFAULT '', subject_key varchar(128) DEFAULT '',
+      subject_name varchar(256) DEFAULT '', erp_value jsonb, chanjet_value jsonb, diff_summary text DEFAULT '',
+      action_required text DEFAULT '', resolved boolean DEFAULT false, resolved_by varchar(128), resolved_at timestamptz,
+      created_at timestamptz DEFAULT now(), updated_at timestamptz DEFAULT now())`);
     // the auth service's state adapter is stubbed in this spec — the
     // sys_chanjet_state table is not needed here
   }
@@ -586,6 +611,109 @@ worker('execution-bound scheduler worker (real PostgreSQL18, real auth, local pr
       await providerSibling.kill();
     }
   }, 60_000);
+
+  it('pool saturation: the terminal gate cleanup leaves no raw transaction and later borrowers see FAIL, never the hidden SUCCESS', async () => {
+    process.env.CHANJET_SYNC_POLICY = 'READONLY_VERIFY';
+    const { manifest, syncLease, deadlineAt } = await registeredInSyncing({ cap: 10, verifyMode: true });
+    // a foreign transaction holds the admission row lock past the SUCCESS gate
+    const { Client } = require('pg');
+    const foreign = new Client({ connectionString: fixtureUrl });
+    await foreign.connect();
+    await foreign.query('BEGIN');
+    await foreign.query('SELECT * FROM chanjet_execution_admissions WHERE execution_id=$1 FOR UPDATE', [manifest.executionId]);
+    // saturate the fixture DataSource pool: every client but the lease session
+    // is checked out while the gate runs (the gate cancellation must NOT
+    // depend on borrowing from this exhausted pool)
+    const holders: Array<{ release: () => Promise<void> }> = [];
+    const { subject, done } = schedulerWithWorker(manifest);
+    try {
+      for (let i = 0; i < 8; i += 1) {
+        const runner = ds.createQueryRunner();
+        await runner.connect();
+        holders.push({ release: () => runner.release() });
+      }
+      const accepted = await subject.enqueueManualSync('root', {
+        scope: ['RECEIVABLE_STATISTICS'], bookId: VERIFY_BOOK, period: VERIFY_PERIOD, maxAttempts: 1,
+        execution: { executionId: manifest.executionId, leaseId: syncLease },
+      }, { authPrincipal: OWNER });
+      expect(accepted.accepted).toBe(true);
+      await done;
+      // the gate aborted through its bounded lock budget: the run lands FAIL
+      const [job] = await jobRows();
+      expect(job.status).toBe('FAIL');
+      // release everything, then a LATER borrower cannot commit the hidden
+      // SUCCESS: the job stays FAIL and the execution stays HOLD/CANCELLED
+      for (const holder of holders) await holder.release();
+      await foreign.query('COMMIT').catch(() => undefined);
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      // cleanup assertion AFTER release: NO session carries a raw BEGIN
+      // transaction back to the pool
+      const idle = await ds.query("SELECT count(*)::int AS n FROM pg_stat_activity WHERE datname=current_database() AND state='idle in transaction'");
+      expect(idle[0].n).toBe(0);
+      const [jobAfter] = await jobRows();
+      expect(jobAfter.status).toBe('FAIL');
+      const [admissionAfter] = await ds.query('SELECT phase, hold_reason FROM chanjet_execution_admissions WHERE execution_id=$1', [manifest.executionId]);
+      // the SUCCESS is blocked: the admission can never be VERIFIED (the hold
+      // may land HOLD, or remain SYNCING while the foreign lock delays it)
+      expect(['SYNCING', 'HOLD']).toContain(admissionAfter.phase);
+      // a fresh borrower sees the FAIL — the hidden SUCCESS can never surface
+      const borrowed = await ds.query('SELECT status FROM chanjet_sync_jobs');
+      expect(borrowed.every((r: { status: string }) => r.status === 'FAIL')).toBe(true);
+    } finally {
+      await foreign.query('COMMIT').catch(() => undefined);
+      await foreign.end().catch(() => undefined);
+      await subject.onModuleDestroy();
+    }
+    // after the foreign lock released, the admission is NOT VERIFIED (the
+    // concurrent hold attempt was unconfirmed — reported as such — and the
+    // durable gate refusal already blocked the SUCCESS), and a fresh borrow
+    // still sees the FAIL: the hidden SUCCESS can never surface
+    const [admissionFinal] = await ds.query('SELECT phase, hold_reason FROM chanjet_execution_admissions WHERE execution_id=$1', [manifest.executionId]);
+    expect(['SYNCING', 'HOLD']).toContain(admissionFinal.phase);
+    const jobsFinal = await jobRows();
+    expect(jobsFinal.every((r: { status: string }) => r.status === 'FAIL')).toBe(true);
+  }, 30_000);
+
+  it('same-transaction liveness: real runMappingReconciliation writes are zero after a HOLD', async () => {
+    process.env.CHANJET_SYNC_POLICY = 'READONLY_VERIFY';
+    const { manifest, syncLease, deadlineAt } = await registeredInSyncing({ cap: 10, verifyMode: true });
+    // REAL integration service over REAL repositories (mirror tables created
+    // for this test; the ERP-mirror internals ARE the repositories)
+    const current = { manifest, leaseId: syncLease, phase: 'SYNCING' as const, deadlineAt };
+    // seed a mapping issue the reconciliation would normally write a result for
+    await ds.query(`INSERT INTO chanjet_master_mapping (mapping_type, book_id, review_status, match_status) VALUES ('CUSTOMER', $1, 'PENDING', 'PENDING')`, [manifest.approval.books[0].bookId]);
+    const integration = new ChanjetIntegrationService(
+      auth,
+      ds,
+      ds.getRepository(ChanjetAccountBookEntity),
+      ds.getRepository(ChanjetApiFieldCatalogEntity),
+      ds.getRepository(ChanjetMasterMappingEntity),
+      ds.getRepository(ChanjetSyncJobEntity),
+      ds.getRepository(ChanjetBookCompanyMapEntity),
+      ds.getRepository(ChanjetVoucherDraftEntity),
+      ds.getRepository(ChanjetReconciliationResultEntity),
+      ds.getRepository(ChanjetReadSnapshotEntity),
+      ds.getRepository(ChanjetEntitySnapshotEntity),
+      ds.getRepository(ChanjetErpFieldMappingEntity),
+      ds.getRepository(ChanjetWritebackOutboxEntity),
+    );
+    const state = { manifest, store, gateway: new ChanjetExecutionHttpGateway(store, manifest), transport: { resend: async () => { throw new Error('FORBIDDEN'); } }, deadlineAt, current };
+    // positive control: live execution -> the reconciliation writes land
+    await scopeModule.withExecutionScope(state, () => integration.runMappingReconciliation({ compact: true }));
+    const [liveCount] = await ds.query('SELECT count(*)::int AS n FROM chanjet_reconciliation_results');
+    expect(liveCount.n).toBeGreaterThanOrEqual(1);
+    // now HOLD the execution and reset the written rows
+    await store.holdExecution(current, 'CANCELLED');
+    await ds.query('DELETE FROM chanjet_reconciliation_results');
+    // after the HOLD: the same-transaction liveness gate refuses and ZERO
+    // late writes land
+    await expect(scopeModule.withExecutionScope(state, () => integration.runMappingReconciliation({ compact: true })))
+      .rejects.toThrow('CHANJET_ADMISSION_HOLD');
+    const [afterCount] = await ds.query('SELECT count(*)::int AS n FROM chanjet_reconciliation_results');
+    expect(afterCount.n).toBe(0);
+    const [admission] = await ds.query('SELECT phase, hold_reason FROM chanjet_execution_admissions WHERE execution_id=$1', [manifest.executionId]);
+    expect(admission.phase).toBe('HOLD');
+  }, 30_000);
 
   it('guard executor release: teardown disposes support idempotently', async () => {
     const { manifest, syncLease } = await registeredInSyncing({ cap: 10, verifyMode: true });

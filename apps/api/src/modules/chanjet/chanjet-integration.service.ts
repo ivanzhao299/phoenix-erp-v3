@@ -1,10 +1,10 @@
 import { requireReadonlyOrchestration, assertReadonlyOrchestrationOwnerIfPresent } from './chanjet-readonly-execution';
-import { executionWriteGate } from './chanjet-execution-scope';
+import { activeExecutionScope, executionWriteGate, executionWriteGateTx } from './chanjet-execution-scope';
 import { approvedReadonlyPolicy, requireApprovedReadonlyRequest, readonlyFailureCode } from './chanjet-readonly-policy';
 import { requireReadonlySync } from './chanjet-sync-control';
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
-import { DataSource, In, Not, Repository } from 'typeorm';
+import { DataSource, EntityManager, In, Not, Repository } from 'typeorm';
 import { ChanjetAuthService, getChanjetBusinessFailure } from './chanjet-auth.service';
 import { ChanjetAccountBookEntity } from './chanjet-account-book.entity';
 import { ChanjetApiFieldCatalogEntity } from './chanjet-api-field-catalog.entity';
@@ -7279,16 +7279,37 @@ export class ChanjetIntegrationService {
             await this.persistAccountBooks(resp);
           }
           const fields = await this.recordApiSample(ep.apiDomain, path, ep.method, resp);
-          const rawSnapshot = await this.recordReadSnapshot(ep, targetBookId, path, ep.method, effectivePeriod, resp);
-          const entityRows = await this.recordEntitySnapshots(ep, targetBookId, effectivePeriod, resp);
-          if (ep.mappingType && ep.key !== 'CUSTOMER_SUPPLIER') {
-            await this.createMappingCandidates(ep.mappingType, targetBookId, resp);
-          }
+          // execution-bound: the snapshot upsert, aggregate delete+upsert and
+          // mapping-candidate writes share ONE transaction whose FIRST
+          // statement is the admission liveness gate — a HOLD/deadline after
+          // the gate rolls the whole batch back to zero writes (legacy
+          // non-execution paths keep their existing behavior).
+          const scopeState = activeExecutionScope();
+          const persistWrites = async (manager?: EntityManager): Promise<{ rawSnapshotId: string; rowCount: number; entityRows: number }> => {
+            const rawSnapshot = await this.recordReadSnapshot(ep, targetBookId, path, ep.method, effectivePeriod, resp, manager);
+            const entityRows = await this.recordEntitySnapshots(ep, targetBookId, effectivePeriod, resp, manager);
+            if (ep.mappingType && ep.key !== 'CUSTOMER_SUPPLIER') {
+              await this.createMappingCandidates(ep.mappingType, targetBookId, resp, manager);
+            }
+            return { rawSnapshotId: rawSnapshot.id, rowCount: rawSnapshot.rowCount, entityRows };
+          };
+          const written = scopeState
+            ? await this.ds.transaction(async manager => {
+                // execution-bound: the liveness gate is the FIRST statement on
+                // the SAME transaction connection as the snapshot upsert,
+                // aggregate delete+upsert and mapping-candidate writes — a
+                // HOLD/deadline rolls the whole batch back to zero writes
+                const queryRunner = manager.queryRunner!;
+                await executionWriteGateTx(queryRunner, scopeState.current, { forUpdate: true });
+                return persistWrites(manager);
+              })
+            : await persistWrites();
+          const { rawSnapshotId, rowCount, entityRows } = written;
           await this.finishJob(job, 'SUCCESS', {
             key: ep.key,
             fields,
-            rows: rawSnapshot.rowCount,
-            rawSnapshotId: rawSnapshot.id,
+            rows: rowCount,
+            rawSnapshotId,
             entityRows,
           });
           results.push({
@@ -7296,8 +7317,8 @@ export class ChanjetIntegrationService {
             bookId: targetBookId,
             status: 'SUCCESS',
             fields,
-            rows: rawSnapshot.rowCount,
-            rawSnapshotId: rawSnapshot.id,
+            rows: rowCount,
+            rawSnapshotId,
             entityRows,
           });
         } catch (err) {
@@ -8117,6 +8138,7 @@ export class ChanjetIntegrationService {
       scope: 'MASTER_MAPPING',
       mode: 'middle-layer-only',
     });
+    const scopeState = activeExecutionScope();
 
     try {
       const approval = approvedReadonlyPolicy();
@@ -8181,7 +8203,15 @@ export class ChanjetIntegrationService {
           resolvedAt: null,
         });
         assertReadonlyOrchestrationOwnerIfPresent();
-        const saved = await this.reconciliationRepo.save(result);
+        // execution-bound: each reconciliation save shares a transaction with
+        // its own liveness gate — a HOLD/deadline after the worker's last ACK
+        // rolls back this save (zero late writes)
+        const saved = scopeState
+          ? await this.ds.transaction(async manager => {
+              await executionWriteGateTx(manager.queryRunner!, scopeState.current, { forUpdate: true });
+              return manager.getRepository(ChanjetReconciliationResultEntity).save(result);
+            })
+          : await this.reconciliationRepo.save(result);
         created += 1;
         statusCounts[saved.status] = (statusCounts[saved.status] || 0) + 1;
         if (!options.compact) results.push(saved);
@@ -8884,6 +8914,7 @@ export class ChanjetIntegrationService {
     method: HttpMethod,
     period: string,
     payload: unknown,
+    tx?: EntityManager,
   ): Promise<ChanjetReadSnapshotEntity> {
     const failure = getChanjetBusinessFailure(payload);
     if (failure) {
@@ -8908,24 +8939,27 @@ export class ChanjetIntegrationService {
       rawPayload: this.maskSensitivePayload(normalizedPayload),
     });
     assertReadonlyOrchestrationOwnerIfPresent();
-    await this.readSnapshotRepo.upsert(entity as any, {
+    // within an execution-bound write transaction the SAME connection is used
+    const repo = (tx ?? this.readSnapshotRepo) as Repository<ChanjetReadSnapshotEntity>;
+    await repo.upsert(entity as any, {
       conflictPaths: ['bookId', 'endpointKey', 'payloadHash'],
       skipUpdateIfNoValuesChanged: false,
     });
-    const saved = await this.readSnapshotRepo.findOneBy({ bookId, endpointKey: ep.key, payloadHash });
+    const saved = await repo.findOneBy({ bookId, endpointKey: ep.key, payloadHash });
     return saved || entity;
   }
 
-  private async recordEntitySnapshots(ep: ProbeEndpoint, bookId: string, period: string, payload: unknown): Promise<number> {
+  private async recordEntitySnapshots(ep: ProbeEndpoint, bookId: string, period: string, payload: unknown, tx?: EntityManager): Promise<number> {
     const failure = getChanjetBusinessFailure(payload);
     if (failure) {
       throw new Error(`拒绝生成好业财实体快照 code=${failure.code} requestId=${failure.requestId || '-'} msg=${failure.message}`);
     }
     const entityType = ep.entityType || ep.key;
     const rows = this.extractRows(payload);
+    const repo = (tx ?? this.entitySnapshotRepo) as Repository<ChanjetEntitySnapshotEntity>;
     if (this.isAggregateStatisticsEndpoint(ep.key, entityType)) {
       assertReadonlyOrchestrationOwnerIfPresent();
-      await this.entitySnapshotRepo.delete({ bookId, endpointKey: ep.key, entityType });
+      await repo.delete({ bookId, endpointKey: ep.key, entityType });
     }
     let count = 0;
     for (let index = 0; index < rows.length; index += 1) {
@@ -8934,7 +8968,10 @@ export class ChanjetIntegrationService {
       if (!normalized.externalId && !normalized.externalCode && !normalized.externalName) continue;
       const externalId = normalized.externalId || normalized.externalCode || `${ep.key}-${index + 1}`;
       assertReadonlyOrchestrationOwnerIfPresent();
-      await this.entitySnapshotRepo.upsert(
+      // aggregate delete/upsert liveness re-check on the SAME transaction: a
+      // HOLD/deadline landing mid-loop rolls the whole batch back to zero
+      if (tx) await executionWriteGateTx(tx, activeExecutionScope()!.current, { forUpdate: false });
+      await repo.upsert(
         {
           bookId,
           endpointKey: ep.key,
@@ -9565,8 +9602,9 @@ export class ChanjetIntegrationService {
     return Object.keys(snapshot.rawData).length > 0;
   }
 
-  private async createMappingCandidates(mappingType: ChanjetMappingType, bookId: string, resp: unknown): Promise<void> {
+  private async createMappingCandidates(mappingType: ChanjetMappingType, bookId: string, resp: unknown, tx?: EntityManager): Promise<void> {
     const rows = this.extractRows(resp).slice(0, 1000);
+    const mappingRepo = (tx ?? this.mappingRepo) as Repository<ChanjetMasterMappingEntity>;
     for (const row of rows) {
       if (getChanjetBusinessFailure(row)) continue;
       const id = String(
@@ -9611,18 +9649,19 @@ export class ChanjetIntegrationService {
         reviewedBy: readonlySubjectReference ? 'system:chanjet-readonly-subject-reference' : null,
         reviewedAt: readonlySubjectReference ? new Date() : null,
         rawData: row,
-      });
+      }, tx);
     }
   }
 
-  private async upsertMasterMapping(input: Partial<ChanjetMasterMappingEntity>) {
+  private async upsertMasterMapping(input: Partial<ChanjetMasterMappingEntity>, tx?: EntityManager) {
+    const mappingRepo = (tx ?? this.mappingRepo) as Repository<ChanjetMasterMappingEntity>;
     const mappingType = input.mappingType;
     const bookId = input.bookId ?? '';
     const chanjetId = input.chanjetId ?? '';
     const incomingReviewStatus = input.reviewStatus ?? 'PENDING';
 
     if (mappingType && chanjetId) {
-      const sourceRows = await this.mappingRepo.find({
+      const sourceRows = await mappingRepo.find({
         where: { mappingType, bookId, chanjetId },
         order: { updatedAt: 'DESC' },
       });
@@ -9665,13 +9704,13 @@ export class ChanjetIntegrationService {
           preferred.reviewedAt = input.reviewedAt ?? preferred.reviewedAt;
         }
         assertReadonlyOrchestrationOwnerIfPresent();
-        await this.mappingRepo.save(preferred);
+        await mappingRepo.save(preferred);
         return;
       }
     }
 
     assertReadonlyOrchestrationOwnerIfPresent();
-    await this.mappingRepo.upsert(
+    await mappingRepo.upsert(
       {
         mappingType,
         bookId,

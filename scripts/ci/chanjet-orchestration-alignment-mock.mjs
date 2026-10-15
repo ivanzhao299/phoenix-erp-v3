@@ -32,6 +32,9 @@ const scopeMismatch = args.includes('--scope-mismatch');
 const omitInbound = args.includes('--omit-inbound');
 const leaseMismatch = args.includes('--lease-mismatch');
 const sendsMismatch = args.includes('--sends-mismatch');
+// SUCCESS-job binding corruptions: the job is persisted SUCCESS with a
+// WRONG binding field — the CLI proof must catch each one
+const bindingCorruption = args.find((a) => a.startsWith('--binding-corrupt='))?.split('=')[1] || '';
 const expectedApprovalId = getArg('--approval-id') || '';
 const authToken = getArg('--auth-token') || '';
 const floorSha = getArg('--floor-sha') || 'f'.repeat(40);
@@ -83,18 +86,21 @@ const server = http.createServer(async (req, res) => {
         [runId, JSON.stringify({
           orchestrationRunId: runId,
           approvalId: scopeMismatch ? 'APPROVAL_OTHER' : (expectedApprovalId || 'APPROVAL_UNSET'),
+          // the REAL scheduler persists the policy floor SHA here; the mock
+          // mirrors it with the registered floor from the enqueue context
+          floorSha: floorSha,
           bookId: body.bookId,
           period: body.period,
           scope: body.scope,
           // the REAL scheduler persists this binding read back from the
           // admission row; the mock mirrors that persisted shape
           execution: {
-            executionId: execId,
-            leaseId: leaseMismatch ? 'LEASE_OTHER' : leaseId,
+            executionId: bindingCorruption === 'execution' ? 'EXEC_WRONG' : execId,
+            leaseId: leaseMismatch ? 'LEASE_OTHER' : (bindingCorruption === 'lease' ? 'LEASE_WRONG' : leaseId),
             phase: 'SYNCING',
-            approvalId: scopeMismatch ? 'APPROVAL_OTHER' : (expectedApprovalId || 'APPROVAL_UNSET'),
-            floorSha,
-            deadlineAt,
+            approvalId: scopeMismatch ? 'APPROVAL_OTHER' : (bindingCorruption === 'approval' ? 'APPROVAL_WRONG' : (expectedApprovalId || 'APPROVAL_UNSET')),
+            floorSha: bindingCorruption === 'floor' ? 'b'.repeat(40) : floorSha,
+            deadlineAt: bindingCorruption === 'deadline' ? '2099-01-01T00:00:00.000Z' : deadlineAt,
           },
         }), JSON.stringify({
           state: 'COMPLETED',

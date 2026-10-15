@@ -1,5 +1,6 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { ChanjetExecutionAdmissionStore, ExecutionContext, RequestPhase } from './chanjet-execution-admission.store';
+import { validateExecutionManifest } from './chanjet-execution-manifest';
 import { ChanjetExecutionHttpGateway, ExecutionTransportOps } from './chanjet-execution-transport';
 
 /**
@@ -67,6 +68,39 @@ export async function executionWriteGate(): Promise<void> {
   const state = storage.getStore();
   if (!state) return;
   await state.store.assertWritable(state.current);
+}
+
+/**
+ * SAME-TRANSACTION mirror-write gate: runs the admission liveness check on
+ * the GIVEN transaction connection so the check and the mirror writes it
+ * guards share one transaction boundary. With forUpdate the admission row is
+ * locked until that transaction commits (a concurrent HOLD waits behind the
+ * gated writes); without it a plain bounded check is performed (usable per
+ * row inside long write loops — a landed HOLD refuses and the whole
+ * transaction rolls back to zero writes). Outside an active scope this is a
+ * no-op (legacy paths unchanged).
+ */
+export async function executionWriteGateTx(
+  tx: { query(sql: string, parameters?: unknown[]): Promise<unknown[]> },
+  current: ExecutionContext,
+  options: { forUpdate?: boolean } = {},
+): Promise<void> {
+  if (!storage.getStore()) return;
+  const { manifest } = validateExecutionManifest(current.manifest);
+  const deadlineAt = current.deadlineAt instanceof Date ? current.deadlineAt.getTime() : Number.NaN;
+  const remaining = Number.isFinite(deadlineAt) ? deadlineAt - Date.now() : Number.NaN;
+  if (!Number.isFinite(remaining) || remaining <= 1) throw new Error('CHANJET_EXECUTION_DEADLINE');
+  await tx.query(`SET LOCAL statement_timeout=${Math.min(remaining, 15_000)}`);
+  await tx.query(`SET LOCAL lock_timeout=${Math.min(remaining, 1_000)}`);
+  const rows = await tx.query(
+    `SELECT phase, hold_reason, lease_id FROM chanjet_execution_admissions
+      WHERE execution_id=$1${options.forUpdate ? ' FOR UPDATE' : ''}`,
+    [manifest.executionId],
+  ) as Array<{ phase: string; hold_reason: string; lease_id: string }>;
+  const row = rows[0];
+  if (!row || row.phase !== 'SYNCING' || row.hold_reason !== '' || row.lease_id !== current.leaseId) {
+    throw new Error('CHANJET_ADMISSION_HOLD');
+  }
 }
 
 /** Move the scoped execution to the next phase (PROBING→PROBED→SYNCING) after store.begin accepted it. */

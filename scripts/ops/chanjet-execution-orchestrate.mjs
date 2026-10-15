@@ -367,6 +367,13 @@ await (async () => {
           floorSha: expectedFloorSha,
           deadlineAt: deadlineAt.toISOString(),
         });
+      // FULL execution binding: the job's own scope fields must match the
+      // reviewed approval and the registered floor as well
+      const scopeBindingMatches = run.request_scope?.approvalId === approval.approvalId
+        && run.request_scope?.floorSha === expectedFloorSha
+        && run.request_scope?.bookId === approval.verification.bookId
+        && run.request_scope?.period === approval.verification.period
+        && canonicalJson(run.request_scope?.scope) === canonicalJson(approval.verification.scope);
       const inbound = summary?.erpInbound;
       const inboundForbidden = !!inbound && typeof inbound === 'object' && !Array.isArray(inbound)
         && inbound.applied === false;
@@ -405,6 +412,8 @@ await (async () => {
         && workerSendsDeclared
         && ordinalsDeclared
         && ordinalsVerified
+        && bindingMatches
+        && scopeBindingMatches
         && verified;
     };
     const runAlignmentFirstSync = async () => {
