@@ -99,6 +99,8 @@ export async function executionWriteGateTx(
   ) as Array<{ phase: string; hold_reason: string; lease_id: string }>;
   const row = rows[0];
   if (!row || row.phase !== 'SYNCING' || row.hold_reason !== '' || row.lease_id !== current.leaseId) {
+    // eslint-disable-next-line no-console
+    console.log('WGT_DIAG', JSON.stringify({ row, wantLease: current.leaseId, wantPhase: current.phase }));
     throw new Error('CHANJET_ADMISSION_HOLD');
   }
 }

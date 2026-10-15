@@ -7293,17 +7293,80 @@ export class ChanjetIntegrationService {
             }
             return { rawSnapshotId: rawSnapshot.id, rowCount: rawSnapshot.rowCount, entityRows };
           };
-          const written = scopeState
-            ? await this.ds.transaction(async manager => {
-                // execution-bound: the liveness gate is the FIRST statement on
-                // the SAME transaction connection as the snapshot upsert,
-                // aggregate delete+upsert and mapping-candidate writes — a
-                // HOLD/deadline rolls the whole batch back to zero writes
-                const queryRunner = manager.queryRunner!;
-                await executionWriteGateTx(queryRunner, scopeState.current, { forUpdate: true });
-                return persistWrites(manager);
-              })
-            : await persistWrites();
+          let written!: { rawSnapshotId: string; rowCount: number; entityRows: number };
+          if (scopeState) {
+            // execution-bound: the liveness gate is the FIRST statement on the
+            // SAME queryRunner transaction as the snapshot upsert, aggregate
+            // delete+upsert and mapping-candidate writes; SET LOCAL budgets
+            // every statement in the transaction; the COMMIT is raced against
+            // the same absolute deadline and a lost race terminates the
+            // backend so nothing can land late
+            const deadline = scopeState.deadlineAt instanceof Date ? scopeState.deadlineAt.getTime() : Number.NaN;
+            if (!Number.isFinite(deadline) || deadline - Date.now() <= 1) throw new Error('CHANJET_EXECUTION_DEADLINE');
+            const queryRunner = this.ds.createQueryRunner();
+            await queryRunner.connect();
+            let commitTimer: ReturnType<typeof setTimeout> | undefined;
+            let commitUnknown = false;
+            await queryRunner.query('BEGIN');
+            try {
+              await queryRunner.query(`SET LOCAL statement_timeout=${deadline - Date.now()}`);
+              await queryRunner.query(`SET LOCAL lock_timeout=${Math.min(deadline - Date.now(), 1_000)}`);
+              await executionWriteGateTx(queryRunner.manager, scopeState.current, { forUpdate: true });
+              const written = await persistWrites(queryRunner.manager);
+              const remaining = deadline - Date.now();
+              if (remaining <= 1) {
+                commitUnknown = true;
+                throw new Error('CHANJET_EXECUTION_TERMINAL_UNKNOWN');
+              }
+              const committed = await Promise.race([
+                queryRunner.query('COMMIT').then(() => true as const),
+                new Promise<false>((resolve) => { commitTimer = setTimeout(() => resolve(false), remaining); }),
+              ]).catch(() => false as const);
+              if (committed !== true) {
+                commitUnknown = true;
+                throw new Error('CHANJET_EXECUTION_TERMINAL_UNKNOWN');
+              }
+            } catch (error) {
+              // bounded ROLLBACK on the same session; if it cannot be
+              // confirmed the backend is terminated via the INDEPENDENT
+              // cancellation channel (never this pool) and the discard is
+              // confirmed — the session never returns carrying a raw BEGIN
+              let rolled = false;
+              try {
+                rolled = await Promise.race([
+                  queryRunner.query('ROLLBACK').then(() => true as const),
+                  new Promise<false>((resolve) => { commitTimer = setTimeout(() => resolve(false), 1_000); }),
+                ]).catch(() => false as const);
+              } catch { /* handled below */ }
+              if (rolled !== true) {
+                // the rollback could not be confirmed on this session:
+                // terminate the backend via the INDEPENDENT cancellation
+                // channel (a fresh connection, never this pool) so the
+                // transaction can never land late, then confirm the session
+                // is gone. The UNKNOWN outcome propagates accurately.
+                commitUnknown = true;
+                const [self] = await queryRunner.query('SELECT pg_backend_pid() AS pid');
+                const cancelClient = new (await import('pg')).Client({ connectionString: process.env.CHANJET_ADMISSION_FIXTURE_URL } as never);
+                try {
+                  await cancelClient.connect();
+                  await cancelClient.query('SELECT pg_terminate_backend($1)', [(self as { pid: number }).pid]);
+                } catch { /* best effort */ }
+                let gone = false;
+                for (let i = 0; i < 20 && !gone; i += 1) {
+                  const rows = await cancelClient.query('SELECT 1 FROM pg_stat_activity WHERE pid=$1', [(self as { pid: number }).pid]).catch(() => []);
+                  gone = !(rows as unknown[]).length;
+                  if (!gone) await new Promise((resolve) => setTimeout(resolve, 100));
+                }
+                this.log.error(`READONLY_HOLD_MIRROR_TX_CLEANUP_UNKNOWN;sessionDiscarded=${gone}`);
+              }
+              throw error;
+            } finally {
+              if (commitTimer) clearTimeout(commitTimer);
+              await queryRunner.release().catch(() => undefined);
+            }
+          } else {
+            written = await persistWrites();
+          }
           const { rawSnapshotId, rowCount, entityRows } = written;
           await this.finishJob(job, 'SUCCESS', {
             key: ep.key,
@@ -8940,7 +9003,7 @@ export class ChanjetIntegrationService {
     });
     assertReadonlyOrchestrationOwnerIfPresent();
     // within an execution-bound write transaction the SAME connection is used
-    const repo = (tx ?? this.readSnapshotRepo) as Repository<ChanjetReadSnapshotEntity>;
+    const repo = tx ? tx.getRepository(ChanjetReadSnapshotEntity) : this.readSnapshotRepo;
     await repo.upsert(entity as any, {
       conflictPaths: ['bookId', 'endpointKey', 'payloadHash'],
       skipUpdateIfNoValuesChanged: false,
@@ -8956,7 +9019,7 @@ export class ChanjetIntegrationService {
     }
     const entityType = ep.entityType || ep.key;
     const rows = this.extractRows(payload);
-    const repo = (tx ?? this.entitySnapshotRepo) as Repository<ChanjetEntitySnapshotEntity>;
+    const repo = tx ? tx.getRepository(ChanjetEntitySnapshotEntity) : this.entitySnapshotRepo;
     if (this.isAggregateStatisticsEndpoint(ep.key, entityType)) {
       assertReadonlyOrchestrationOwnerIfPresent();
       await repo.delete({ bookId, endpointKey: ep.key, entityType });
@@ -9604,7 +9667,7 @@ export class ChanjetIntegrationService {
 
   private async createMappingCandidates(mappingType: ChanjetMappingType, bookId: string, resp: unknown, tx?: EntityManager): Promise<void> {
     const rows = this.extractRows(resp).slice(0, 1000);
-    const mappingRepo = (tx ?? this.mappingRepo) as Repository<ChanjetMasterMappingEntity>;
+    const mappingRepo = tx ? tx.getRepository(ChanjetMasterMappingEntity) : this.mappingRepo;
     for (const row of rows) {
       if (getChanjetBusinessFailure(row)) continue;
       const id = String(
@@ -9654,7 +9717,7 @@ export class ChanjetIntegrationService {
   }
 
   private async upsertMasterMapping(input: Partial<ChanjetMasterMappingEntity>, tx?: EntityManager) {
-    const mappingRepo = (tx ?? this.mappingRepo) as Repository<ChanjetMasterMappingEntity>;
+    const mappingRepo = tx ? tx.getRepository(ChanjetMasterMappingEntity) : this.mappingRepo;
     const mappingType = input.mappingType;
     const bookId = input.bookId ?? '';
     const chanjetId = input.chanjetId ?? '';
