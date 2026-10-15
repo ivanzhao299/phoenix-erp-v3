@@ -1,13 +1,17 @@
 #!/usr/bin/env node
 // Local mock of the protected alignment first-sync API for the orchestration
-// full-chain tests. Sibling process: accepts the reviewed enqueue, writes the
-// sync-job row into the SAME isolated PostgreSQL18 (the real alignment flow
-// records its durable job there), and reports COMPLETED status.
+// contract tests. Sibling process: accepts the reviewed enqueue (including
+// the execution name binding), writes the sync-job row into the SAME isolated
+// PostgreSQL18 in the shape the REAL scheduler persists (request_scope.execution
+// + result_summary with explicit inbound/external-write flags and worker send
+// count), and reports COMPLETED status. Contract tests only — the REAL
+// scheduler/worker wiring is proven by chanjet-execution-worker.integration.spec.ts.
 //
 // Usage:
 //   node scripts/ci/chanjet-orchestration-alignment-mock.mjs \
-//     --pg-url <url> --hits-file <path> [--decision-hold] [--scope-mismatch] \
-//     [--approval-id <expected>] [--auth-token <expected>]
+//     --pg-url <url> --hits-file <path> --approval-id <id> --auth-token <t> \
+//     --floor-sha <40hex> --deadline-at <iso> [--lease-id <lease>] \
+//     [--decision-hold] [--scope-mismatch] [--omit-inbound] [--lease-mismatch] [--sends-mismatch]
 // Prints "PORT <port>" once listening.
 import http from 'node:http';
 import fs from 'node:fs';
@@ -25,8 +29,14 @@ const pgUrl = getArg('--pg-url');
 const hitsFile = getArg('--hits-file');
 const decisionHold = args.includes('--decision-hold');
 const scopeMismatch = args.includes('--scope-mismatch');
+const omitInbound = args.includes('--omit-inbound');
+const leaseMismatch = args.includes('--lease-mismatch');
+const sendsMismatch = args.includes('--sends-mismatch');
 const expectedApprovalId = getArg('--approval-id') || '';
 const authToken = getArg('--auth-token') || '';
+const floorSha = getArg('--floor-sha') || 'f'.repeat(40);
+const deadlineAt = getArg('--deadline-at') || new Date().toISOString();
+const leaseId = getArg('--lease-id') || '';
 if (!pgUrl || !hitsFile) { console.error('PG_URL_AND_HITS_FILE_REQUIRED'); process.exit(2); }
 fs.writeFileSync(hitsFile, '');
 
@@ -52,15 +62,28 @@ const server = http.createServer(async (req, res) => {
          VALUES ($1,'SUCCESS',$2,$3)`,
         [runId, JSON.stringify({
           orchestrationRunId: runId,
-          approvalId: scopeMismatch ? 'APPROVAL_OTHER' : (expectedApprovalId || body.approvalId || 'APPROVAL_UNSET'),
+          approvalId: scopeMismatch ? 'APPROVAL_OTHER' : (expectedApprovalId || 'APPROVAL_UNSET'),
           bookId: body.bookId,
           period: body.period,
           scope: body.scope,
+          // the REAL scheduler persists this binding read back from the
+          // admission row; the mock mirrors that persisted shape
+          execution: {
+            executionId: body.execution?.executionId || 'EXEC_UNSET',
+            leaseId: leaseMismatch ? 'LEASE_OTHER' : (body.execution?.leaseId || 'LEASE_UNSET'),
+            phase: 'SYNCING',
+            approvalId: scopeMismatch ? 'APPROVAL_OTHER' : (expectedApprovalId || 'APPROVAL_UNSET'),
+            floorSha,
+            deadlineAt,
+          },
         }), JSON.stringify({
           state: 'COMPLETED',
           decision: decisionHold ? 'HOLD' : 'EXECUTED',
-          erpInbound: { applied: false },
+          ...(omitInbound ? {} : { erpInbound: { enabled: false, applied: false } }),
           externalWriteEnabled: false,
+          // the mock topology's "worker" exchange is the caller's counted
+          // rehearsal receipt under the SYNCING lease
+          executionSends: sendsMismatch ? 2 : 1,
         })],
       );
       res.end(JSON.stringify({ accepted: true, run: { runId } }));

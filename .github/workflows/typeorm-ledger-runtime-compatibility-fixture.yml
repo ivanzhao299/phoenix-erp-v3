@@ -115,3 +115,10 @@ jobs:
           CHANJET_ADMISSION_FIXTURE_URL: postgresql://postgres:postgres@127.0.0.1:5432/chanjet_admission_fixture
           CHANJET_EXECUTION_ORCHESTRATION_REQUIRED: 'true'
         run: node --test scripts/ci/chanjet-execution-orchestrate.test.mjs
+      - name: Execution-bound worker integration (real scheduler, real PostgreSQL18, local provider)
+        env:
+          CHANJET_ADMISSION_FIXTURE_URL: postgresql://postgres:postgres@127.0.0.1:5432/chanjet_admission_fixture
+          CHANJET_EXECUTION_WORKER_REQUIRED: 'true'
+        run: >-
+          pnpm --filter phoenix-erp-v3-nest exec jest --runInBand --runTestsByPath
+          src/modules/chanjet/chanjet-execution-worker.integration.spec.ts

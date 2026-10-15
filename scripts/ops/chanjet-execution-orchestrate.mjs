@@ -320,47 +320,89 @@ await (async () => {
       const begun = await store.begin(binding.manifest, requestPhase, leaseId);
       if (!(begun?.deadline_at instanceof Date)) throw Object.assign(new Error('CHANJET_EXECUTION_SCOPE_PHASE'), { orchestrationRefusal: 'PHASE_BEGIN' });
       const current = { manifest: binding.manifest, leaseId, phase: requestPhase, deadlineAt: begun.deadline_at };
+      lastPhaseContext = current;
       const state = { manifest: binding.manifest, store, gateway, transport: { resend: async () => { throw new Error('CHANJET_EXECUTION_RESEND_FORBIDDEN'); } }, deadlineAt: begun.deadline_at, current };
       await scope.withExecutionScope(state, () => auth.callApi(sendPath, { method: 'GET', query: { period: derivedPeriod }, kind: 'READ' }));
       return current;
     };
 
     // the existing alignment first-sync flow, wired through the protected
-    // API contract: enqueue the reviewed run, poll to COMPLETED (never
-    // HOLD), then require the database sync-job proof bound to THIS
-    // approval (the FIRST_CONTROLLED_SYNC_PROOF semantics)
+    // API contract: the enqueue NAMES the execution (executionId + the
+    // SYNCING lease); the scheduler re-reads every bound attribute from the
+    // admission row and the worker's provider HTTP runs inside the same
+    // durable execution (cumulative cap, absolute deadline). All waits here
+    // are bounded by the SAME deadline — the CLI returning never means the
+    // background job stopped.
+    const alignmentDeadlineMs = () => Math.max(1, Math.min(20_000, deadlineAt.getTime() - Date.now()));
     const alignmentFetch = async (suffix, options = {}) => {
+      if (Date.now() >= deadlineAt.getTime()) {
+        throw Object.assign(new Error('CHANJET_EXECUTION_DEADLINE'), { orchestrationRefusal: 'FIRST_SYNC' });
+      }
       const url = `${alignmentBase.replace(/\/+$/, '')}/chanjet/integration/alignment/${suffix}`;
       const response = await fetch(url, {
         ...options,
         headers: { Authorization: `Bearer ${process.env[alignmentTokenEnv]}`, 'Content-Type': 'application/json' },
-        signal: AbortSignal.timeout(20_000),
+        signal: AbortSignal.timeout(alignmentDeadlineMs()),
       });
       const body = await response.json().catch(() => ({}));
       if (!response.ok || body.success === false) throw Object.assign(new Error('CHANJET_ALIGNMENT_API'), { detail: suffix });
       return body;
     };
+    // strict proof: every field required, explicit types, explicit false —
+    // a missing field or a wrong type never passes as "not applied"
     const syncJobProof = async (orchestrationRunId) => {
       const runs = await dataSource.query(
         `SELECT status, request_scope, result_summary FROM chanjet_sync_jobs
          WHERE request_scope->>'orchestrationRunId' = $1 ORDER BY id DESC LIMIT 1`, [orchestrationRunId]);
       const run = runs[0];
-      const v = approval.verification;
-      return !!run
-        && run.status === 'SUCCESS'
-        && run.result_summary?.state === 'COMPLETED'
-        && run.result_summary?.decision !== 'HOLD'
-        && run.request_scope?.approvalId === approval.approvalId
-        && run.request_scope?.bookId === v.bookId
-        && run.request_scope?.period === v.period
-        && canonicalJson(run.request_scope?.scope) === canonicalJson(v.scope)
-        && run.result_summary?.erpInbound?.applied !== true
-        && run.result_summary?.externalWriteEnabled === false;
+      if (!run) return false;
+      const summary = run.result_summary;
+      const execution = run.request_scope?.execution;
+      const bindingMatches = !!execution && typeof execution === 'object' && !Array.isArray(execution)
+        && canonicalJson(execution) === canonicalJson({
+          executionId: binding.manifest.executionId,
+          leaseId: leases.sync,
+          phase: 'SYNCING',
+          approvalId: approval.approvalId,
+          floorSha: expectedFloorSha,
+          deadlineAt: deadlineAt.toISOString(),
+        });
+      const inbound = summary?.erpInbound;
+      const inboundForbidden = !!inbound && typeof inbound === 'object' && !Array.isArray(inbound)
+        && inbound.applied === false;
+      const sends = summary?.executionSends;
+      const workerSendsDeclared = typeof sends === 'number' && Number.isInteger(sends) && sends >= 1;
+      // the worker's own counted receipts under the SYNCING lease must exist
+      const [workerReceipts] = await dataSource.query(
+        `SELECT count(*)::integer AS n FROM chanjet_execution_requests
+          WHERE execution_id=$1 AND phase='SYNCING' AND lease_id=$2
+            AND kind='BUSINESS' AND status='ACKNOWLEDGED' AND result='OK'`,
+        [binding.manifest.executionId, leases.sync]);
+      // the admission row must still be a live SYNCING execution at proof time
+      const admissionRows = await dataSource.query(
+        'SELECT phase, hold_reason FROM chanjet_execution_admissions WHERE execution_id=$1', [binding.manifest.executionId]);
+      const live = admissionRows[0]?.phase === 'SYNCING' && admissionRows[0]?.hold_reason === '';
+      return run.status === 'SUCCESS'
+        && summary?.state === 'COMPLETED'
+        && typeof summary.decision === 'string' && summary.decision !== 'HOLD'
+        && typeof summary.externalWriteEnabled === 'boolean' && summary.externalWriteEnabled === false
+        && inboundForbidden
+        && workerSendsDeclared
+        && Number(workerReceipts?.n || 0) >= 1
+        && Number(workerReceipts?.n || 0) === sends
+        && bindingMatches
+        && live;
     };
     const runAlignmentFirstSync = async () => {
       const accepted = await alignmentFetch('enqueue', {
         method: 'POST',
-        body: JSON.stringify({ bookId: approval.verification.bookId, period: approval.verification.period, scope: approval.verification.scope, maxAttempts: 1 }),
+        body: JSON.stringify({
+          bookId: approval.verification.bookId,
+          period: approval.verification.period,
+          scope: approval.verification.scope,
+          maxAttempts: 1,
+          execution: { executionId: binding.manifest.executionId, leaseId: leases.sync },
+        }),
       });
       const orchestrationRunId = accepted?.run?.runId;
       if (!accepted?.accepted || typeof orchestrationRunId !== 'string') {
@@ -368,12 +410,13 @@ await (async () => {
       }
       let terminal;
       for (let attempt = 0; attempt < 25; attempt += 1) {
+        if (Date.now() >= deadlineAt.getTime()) break; // alignmentFetch re-checks too
         const status = await alignmentFetch('status');
         if (status?.run?.runId !== orchestrationRunId) {
           throw Object.assign(new Error('CHANJET_ALIGNMENT_RUN_DRIFT'), { orchestrationRefusal: 'FIRST_SYNC' });
         }
         if (['COMPLETED', 'HOLD', 'FAILED', 'SKIPPED'].includes(status.run.state)) { terminal = status.run; break; }
-        await new Promise((resolve) => setTimeout(resolve, 200));
+        await new Promise((resolve) => setTimeout(resolve, Math.max(1, Math.min(200, deadlineAt.getTime() - Date.now()))));
       }
       if (!terminal || terminal.state !== 'COMPLETED' || terminal.decision === 'HOLD') {
         throw Object.assign(new Error('CHANJET_ALIGNMENT_FAILURE_OR_TIMEOUT'), { orchestrationRefusal: 'FIRST_SYNC', state: terminal?.state ?? null });
@@ -385,6 +428,7 @@ await (async () => {
     };
 
     const leases = {};
+    let lastPhaseContext;
     const summary = {
       executionId: binding.manifest.executionId,
       approvalId: approval.approvalId,
@@ -414,13 +458,21 @@ await (async () => {
     } catch (error) {
       // HOLD path: a transport failure, an unconfirmed hold or any non-OK
       // outcome is reported with its real state and never converted into
-      // success, retried, or resumed.
+      // success, retried, or resumed. A first-sync failure or a deadline hit
+      // DURABLY STOPS the execution through the bounded guard mechanism (the
+      // CLI returning never assumes the background job stopped).
+      const reasonText = String(error?.message || error);
+      const reasonClass = /DEADLINE/.test(reasonText) ? 'DEADLINE' : 'CANCELLED';
+      const stopContext = lastPhaseContext?.phase
+        ? lastPhaseContext
+        : { manifest: binding.manifest, leaseId: '', phase: 'PROBING' };
+      await store.holdExecution(stopContext, reasonClass).catch(() => undefined);
       const settled = await gateway.settled().catch(() => 'UNKNOWN');
       let holdRow = null;
       try { holdRow = await store.load(binding.manifest); } catch { /* already reported */ }
       hold({
         ...summary,
-        reason: String(error?.message || error).slice(0, 120),
+        reason: reasonText.slice(0, 120),
         settled,
         phase: holdRow?.phase ?? null,
         holdReason: holdRow?.hold_reason ?? null,

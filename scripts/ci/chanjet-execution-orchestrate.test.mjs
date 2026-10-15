@@ -127,13 +127,18 @@ async function startProviderFixture({ destroySyncPath } = {}) {
     close: () => { child.kill(); return new Promise((done) => { child.on('exit', () => done()); }); },
   };
 }
-async function startAlignmentMock({ decisionHold = false, scopeMismatch = false, approvalId } = {}) {
+async function startAlignmentMock({ decisionHold = false, scopeMismatch = false, approvalId, omitInbound = false, leaseMismatch = false, sendsMismatch = false, floorSha = FLOOR_SHA, deadlineAt } = {}) {
   const hitsFile = path.join(workDir, `alignment-${randomUUID().slice(0, 8)}.jsonl`);
   const { child, port } = await startSibling(ALIGNMENT_MOCK, [
     '--pg-url', fixtureUrl, '--hits-file', hitsFile,
     '--approval-id', approvalId || 'APPROVAL_UNSET', '--auth-token', 'SYNTHETIC_OP_TOKEN',
+    '--floor-sha', floorSha,
+    ...(deadlineAt ? ['--deadline-at', deadlineAt] : []),
     ...(decisionHold ? ['--decision-hold'] : []),
     ...(scopeMismatch ? ['--scope-mismatch'] : []),
+    ...(omitInbound ? ['--omit-inbound'] : []),
+    ...(leaseMismatch ? ['--lease-mismatch'] : []),
+    ...(sendsMismatch ? ['--sends-mismatch'] : []),
   ]);
   return {
     base: `http://127.0.0.1:${port}`,
@@ -348,30 +353,44 @@ database('execution orchestration full chain (real CLI child, real PostgreSQL18,
 
   test('full chain: registration, probe, first sync through the alignment flow, VERIFIED', async () => {
     const manifest = syntheticManifest();
-    const alignment = await startAlignmentMock({ approvalId: manifest.approval.approvalId });
+    const floorFile = writeJson('floor', floorStateFor(manifest));
+    const manifestFile = writeJson('manifest', manifest);
+    // stage 1: register + probe (the rehearsal-less phase); the DB now owns
+    // the absolute deadline the mock must mirror in its persisted binding
+    const probeRun = runOrchestrator({ manifestFile, floorStateFile: floorFile, register: true, fd9: 'flock', phase: 'probe' });
+    assert.equal(probeRun.status, 0, probeRun.stdout + probeRun.stderr);
+    const probeSummary = parseResult(probeRun.stdout).summary;
+    const admissionRow = await stateRepo.admission(manifest.executionId);
+    const deadlineIso = new Date(admissionRow.deadline_at).toISOString();
+    const alignment = await startAlignmentMock({
+      approvalId: manifest.approval.approvalId,
+      floorSha: FLOOR_SHA,
+      deadlineAt: deadlineIso,
+    });
     const before = fixture.hits().length;
     try {
-      const result = runOrchestrator({
-        manifestFile: writeJson('manifest', manifest),
-        floorStateFile: writeJson('floor', floorStateFor(manifest)),
-        register: true, fd9: 'flock', phase: 'all',
+      // stage 2: the SYNCING rehearsal + the alignment first-sync; the
+      // enqueue NAMES the execution, the scheduler reads the binding back
+      // from the admission row and the worker's HTTP shares this execution
+      const syncRun = runOrchestrator({
+        manifestFile, floorStateFile: floorFile, skipRegistration: true, phase: 'sync',
         alignmentBase: alignment.base,
       });
-      assert.equal(result.status, 0, result.stdout + result.stderr);
-      const { verdict, summary } = parseResult(result.stdout);
+      assert.equal(syncRun.status, 0, syncRun.stdout + syncRun.stderr);
+      const { verdict, summary } = parseResult(syncRun.stdout);
       assert.equal(verdict, 'PASS');
       assert.equal(summary.verified, true);
       assert.equal(summary.phase, 'VERIFIED');
       assert.equal(summary.executionId, manifest.executionId);
-      assert.ok(summary.leases.probe.startsWith('PROBE_'));
+      assert.ok(probeSummary.leases.probe.startsWith('PROBE_'));
       assert.ok(summary.leases.sync.startsWith('SYNC_'));
-      assert.notEqual(summary.leases.probe, summary.leases.sync);
       // VERIFIED required the REAL first sync: the alignment run id plus the
       // database sync-job proof are part of the PASS evidence
       assert.ok(String(summary.firstSync.orchestrationRunId).startsWith('SYNTHETIC_RUN_'));
       assert.equal(summary.firstSync.proof, 'FIRST_CONTROLLED_SYNC_PROOF');
       assert.deepEqual(summary.derivedRequest, { endpoint: `/accounting/gl/statistics/receive/${VERIFY_BOOK}`, period: PERIOD });
-      assert.equal(summary.provenance.fd9, 'HELD_BY_ENTRY');
+      // the FD9 lock was verified by the registering (probe) entry
+      assert.equal(probeSummary.provenance.fd9, 'HELD_BY_ENTRY');
       // probe + first sync shared the SAME execution: one cumulative cap and
       // one DB-owned deadline (both phase leases advanced the same row)
       assert.equal(summary.requestCount, 4); // 2 TOKEN + 2 BUSINESS, cap 10
@@ -381,7 +400,7 @@ database('execution orchestration full chain (real CLI child, real PostgreSQL18,
       assert.ok(receipts.some((r) => r.phase === 'PROBING' && r.kind === 'BUSINESS' && r.result === 'OK'));
       assert.ok(receipts.some((r) => r.phase === 'SYNCING' && r.kind === 'BUSINESS' && r.result === 'OK'));
       assert.ok(receipts.every((r) => r.status === 'ACKNOWLEDGED' && r.result === 'OK'));
-      assert.equal(fixture.hits().length - before, 4);
+      assert.equal(fixture.hits().length - before, 2);
       // the alignment flow was actually exercised through the protected API
       assert.equal(alignment.hits().filter((u) => u.endsWith('/enqueue')).length, 1);
     } finally { await alignment.close(); }
@@ -464,7 +483,8 @@ database('execution orchestration full chain (real CLI child, real PostgreSQL18,
     const probeRun = runOrchestrator({ manifestFile, floorStateFile: floorFile, register: true, fd9: 'flock', phase: 'probe' });
     assert.equal(probeRun.status, 0, probeRun.stdout + probeRun.stderr);
     assert.equal(parseResult(probeRun.stdout).summary.phase, 'PROBED');
-    const alignment = await startAlignmentMock({ approvalId: manifest.approval.approvalId });
+    const deadlineIso = new Date((await stateRepo.admission(manifest.executionId)).deadline_at).toISOString();
+    const alignment = await startAlignmentMock({ approvalId: manifest.approval.approvalId, floorSha: FLOOR_SHA, deadlineAt: deadlineIso });
     const killFixture = await startProviderFixture({ destroySyncPath: `/accounting/gl/statistics/receive/${VERIFY_BOOK}` });
     try {
       const syncRun = runOrchestrator({
@@ -494,13 +514,14 @@ database('execution orchestration full chain (real CLI child, real PostgreSQL18,
     assert.ok(receipts.some((r) => r.phase === 'SYNCING' && r.status === 'ACKNOWLEDGED' && r.result === 'TRANSPORT_FAILURE'));
   });
 
-  test('alignment HOLD decision blocks VERIFIED: the row stays SYNCING, never success', async () => {
+  test('alignment HOLD decision blocks VERIFIED and durably stops the execution', async () => {
     const manifest = syntheticManifest();
     const floorFile = writeJson('floor', floorStateFor(manifest));
     const manifestFile = writeJson('manifest', manifest);
     const probeRun = runOrchestrator({ manifestFile, floorStateFile: floorFile, register: true, fd9: 'flock', phase: 'probe' });
     assert.equal(probeRun.status, 0, probeRun.stdout + probeRun.stderr);
-    const alignment = await startAlignmentMock({ approvalId: manifest.approval.approvalId, decisionHold: true });
+    const deadlineIso = new Date((await stateRepo.admission(manifest.executionId)).deadline_at).toISOString();
+    const alignment = await startAlignmentMock({ approvalId: manifest.approval.approvalId, decisionHold: true, floorSha: FLOOR_SHA, deadlineAt: deadlineIso });
     try {
       const result = runOrchestrator({
         manifestFile, floorStateFile: floorFile, skipRegistration: true, phase: 'sync',
@@ -512,17 +533,21 @@ database('execution orchestration full chain (real CLI child, real PostgreSQL18,
       assert.equal(summary.reason, 'CHANJET_ALIGNMENT_FAILURE_OR_TIMEOUT');
       assert.ok(!result.stdout.includes('CHANJET_EXECUTION_ORCHESTRATE=PASS'));
     } finally { await alignment.close(); }
+    // the failed first sync durably stops the execution: no later send and no
+    // late sync success can build on it
     const row = await stateRepo.admission(manifest.executionId);
-    assert.equal(row.phase, 'SYNCING');
+    assert.equal(row.phase, 'HOLD');
+    assert.equal(row.hold_reason, 'CANCELLED');
   });
 
-  test('sync-job proof bound to another approval blocks VERIFIED', async () => {
+  test('sync-job proof bound to another approval blocks VERIFIED and stops the execution', async () => {
     const manifest = syntheticManifest();
     const floorFile = writeJson('floor', floorStateFor(manifest));
     const manifestFile = writeJson('manifest', manifest);
     const probeRun = runOrchestrator({ manifestFile, floorStateFile: floorFile, register: true, fd9: 'flock', phase: 'probe' });
     assert.equal(probeRun.status, 0, probeRun.stdout + probeRun.stderr);
-    const alignment = await startAlignmentMock({ approvalId: manifest.approval.approvalId, scopeMismatch: true });
+    const deadlineIso = new Date((await stateRepo.admission(manifest.executionId)).deadline_at).toISOString();
+    const alignment = await startAlignmentMock({ approvalId: manifest.approval.approvalId, scopeMismatch: true, floorSha: FLOOR_SHA, deadlineAt: deadlineIso });
     try {
       const result = runOrchestrator({
         manifestFile, floorStateFile: floorFile, skipRegistration: true, phase: 'sync',
@@ -534,6 +559,37 @@ database('execution orchestration full chain (real CLI child, real PostgreSQL18,
       assert.equal(summary.reason, 'CHANJET_ALIGNMENT_FIRST_SYNC_PROOF');
     } finally { await alignment.close(); }
     const row = await stateRepo.admission(manifest.executionId);
-    assert.equal(row.phase, 'SYNCING');
+    assert.equal(row.phase, 'HOLD');
+    assert.equal(row.hold_reason, 'CANCELLED');
+  });
+
+  test('proof strictness: missing erpInbound, mismatched lease and wrong send count each block VERIFIED', async () => {
+    for (const [label, flag] of [
+      ['missing erpInbound', '--omit-inbound'],
+      ['mismatched lease binding', '--lease-mismatch'],
+      ['wrong worker send count', '--sends-mismatch'],
+    ]) {
+      const manifest = syntheticManifest();
+      const floorFile = writeJson('floor', floorStateFor(manifest));
+      const manifestFile = writeJson('manifest', manifest);
+      const probeRun = runOrchestrator({ manifestFile, floorStateFile: floorFile, register: true, fd9: 'flock', phase: 'probe' });
+      assert.equal(probeRun.status, 0, probeRun.stdout + probeRun.stderr);
+      const deadlineIso = new Date((await stateRepo.admission(manifest.executionId)).deadline_at).toISOString();
+      const alignment = await startAlignmentMock({
+        approvalId: manifest.approval.approvalId, floorSha: FLOOR_SHA, deadlineAt: deadlineIso,
+        omitInbound: flag === '--omit-inbound', leaseMismatch: flag === '--lease-mismatch', sendsMismatch: flag === '--sends-mismatch',
+      });
+      try {
+        const result = runOrchestrator({
+          manifestFile, floorStateFile: floorFile, skipRegistration: true, phase: 'sync',
+          alignmentBase: alignment.base,
+        });
+        assert.equal(result.status, 4, `${label}: ${result.stdout} ${result.stderr}`);
+        const parsed = parseResult(result.stdout);
+        assert.equal(parsed.verdict, 'HOLD', label);
+        assert.equal(parsed.summary.reason, 'CHANJET_ALIGNMENT_FIRST_SYNC_PROOF', label);
+        assert.equal((await stateRepo.admission(manifest.executionId)).phase, 'HOLD', label);
+      } finally { await alignment.close(); }
+    }
   });
 });

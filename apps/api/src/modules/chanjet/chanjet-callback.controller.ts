@@ -683,7 +683,7 @@ export class ChanjetCallbackController {
   @HttpCode(HttpStatus.ACCEPTED)
   @RequireMenu(CHANJET_PROXY_MENU, 'E')
   async enqueueIntegrationAlignmentCycle(
-    @Body() body: { scope?: string[]; bookId?: string; period?: string; maxAttempts?: number },
+    @Body() body: { scope?: string[]; bookId?: string; period?: string; maxAttempts?: number; execution?: { executionId: string; leaseId: string } },
     @Req() req: { user?: { username?: string; userId?: string } },
   ) {
     const requestedBy = String(req?.user?.username || req?.user?.userId || 'unknown');
