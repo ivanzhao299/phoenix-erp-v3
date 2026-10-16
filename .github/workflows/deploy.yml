@@ -1117,10 +1117,24 @@ jobs:
             DOCKER_DISK_REPORT="$(docker system df 2>/dev/null || true)"
             printf '%s\n' "$DOCKER_DISK_REPORT"
 
-            # R4.2d probe: the chain body is being relocated to a reviewed
-            # helper script; this placeholder keeps the approved-floor gate
+            # ── R4.2d 受控首次同步链: prepare -> handover -> first-sync ──
+            # 链体在受审脚本 chanjet-readonly-production-chain.sh 中（与工作流
+            # 其余 helper 同源自 TARGET_SHA 交付）；manifest 与操作员令牌来自
+            # workflow 审批输入；失败 → 回滚 + 证据保留。
             if [ -n "${APPROVED_CONFIG_FLOOR_SHA:-}" ]; then
-              echo "DEPLOY_EVIDENCE_HOLD=R42D_CHAIN_RELOCATING"
+              test -n "${APPROVED_EXECUTION_MANIFEST_B64:-}" || { echo "DEPLOY_EVIDENCE_HOLD=EXECUTION_MANIFEST"; exit 25; }
+              test -n "${CHANJET_SYNC_OPERATOR_TOKEN:-}" || { echo "DEPLOY_EVIDENCE_HOLD=OPERATOR_TOKEN"; exit 25; }
+              R42D_STAGE="$STATE_DIR/run-${DEPLOY_RUN_ID}/r42d"
+              test ! -e "$R42D_STAGE"
+              mkdir -m 700 -p "$R42D_STAGE"
+              printf '%s' "$APPROVED_EXECUTION_MANIFEST_B64" | base64 -d > "$R42D_STAGE/approval-manifest.json"
+              chmod 600 "$R42D_STAGE/approval-manifest.json"
+              git show "$TARGET_SHA:scripts/ops/chanjet-readonly-production-chain.sh" > "$R42D_STAGE/chain.sh"
+              chmod 700 "$R42D_STAGE/chain.sh"
+              R42D_MANIFEST_FILE="$R42D_STAGE/approval-manifest.json" \
+              CHANJET_SYNC_OPERATOR_TOKEN="$CHANJET_SYNC_OPERATOR_TOKEN" \
+              API_IMAGE="$API_IMAGE" \
+              bash "$R42D_STAGE/chain.sh"
             fi
 
             node scripts/ops/production-deployment-state.mjs complete
