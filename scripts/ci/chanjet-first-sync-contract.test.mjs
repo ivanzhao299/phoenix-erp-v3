@@ -67,6 +67,34 @@ assertOwnFixtureUrl(fixtureUrl);
 
 const require2 = createRequire(import.meta.url);
 const { DataSource } = require2(path.join(apiDir, 'node_modules/typeorm/index.js'));
+const distGuard = path.join(apiDir, 'dist/modules/chanjet/chanjet-execution-guard-executor.js');
+
+// the REAL bounded-guard stop the production entry uses: the registered
+// manifest + the guard executor over the SAME database
+function makeDurableStop({ manifestFile, executionId, leaseId, deadlineAt } = {}) {
+  return async (classification) => {
+    try {
+      const manifest = JSON.parse(fs.readFileSync(manifestFile, 'utf8'));
+      require(path.join(apiDir, 'node_modules/reflect-metadata'));
+      const { ChanjetExecutionAdmissionStore } = await import(pathToFileURL(distStore).href);
+      const { createBoundedGuardExecutor } = await import(pathToFileURL(distGuard).href);
+      const stopDs = new DataSource({ type: 'postgres', url: fixtureUrl, logging: false });
+      await stopDs.initialize();
+      const guardExecutor = createBoundedGuardExecutor(fixtureUrl);
+      try {
+        const store = new ChanjetExecutionAdmissionStore(stopDs.manager);
+        store.setStandaloneExecutor(guardExecutor);
+        return await store.holdExecution({ manifest, leaseId, phase: 'SYNCING', deadlineAt }, classification);
+      } finally {
+        await guardExecutor.dispose().catch(() => undefined);
+        await stopDs.destroy().catch(() => undefined);
+      }
+    } catch (stopError) {
+      try { fs.appendFileSync('/tmp/fs-trace.log', `DURABLE_STOP_THREW: ${String(stopError?.message || stopError).slice(0, 200)}\n`); } catch { /* */ }
+      throw stopError;
+    }
+  };
+}
 
 let dataSource;
 let provider;
@@ -182,7 +210,7 @@ function writeJson(name, value) {
   return file;
 }
 
-function registerExecution({ cap = 10, totalTimeoutMs = 360_000 } = {}) {
+async function registerExecution({ cap = 10, totalTimeoutMs = 360_000 } = {}) {
   const manifest = syntheticManifest(cap);
   manifest.totalTimeoutMs = totalTimeoutMs;
   const manifestFile = writeJson('manifest', manifest);
@@ -199,7 +227,10 @@ function registerExecution({ cap = 10, totalTimeoutMs = 360_000 } = {}) {
     registerCli, '--manifest', manifestFile, '--expected-floor-sha', FLOOR_SHA, '--pg-url', fixtureUrl, '--register',
   ], { encoding: 'utf8', env: { ...process.env } });
   assert.equal(registered.status, 0, `registration refused: ${registered.stdout} ${registered.stderr}`);
-  return { manifest, manifestFile, floorStateFile, approvalFile, executionId: manifest.executionId, execution: { executionId: manifest.executionId, floorStateFile } };
+  // the DB-OWNED deadline is read back from the trusted admission row
+  const [row] = await dataSource.query('SELECT deadline_at FROM chanjet_execution_admissions WHERE execution_id=$1', [manifest.executionId]);
+  assert.ok(row?.deadline_at, 'registered deadline missing');
+  return { manifest, manifestFile, floorStateFile, approvalFile, executionId: manifest.executionId, execution: { executionId: manifest.executionId, floorStateFile, deadlineAt: new Date(row.deadline_at), manifestFile } };
 }
 
 // the controlled root workflow handover: registers (fd 9 held by this
@@ -270,7 +301,7 @@ const readEvidence = async (sql) => {
   return keys.length ? row[keys[0]] : {};
 };
 
-function coreDeps({ execution, runId, leaseId, endpoint, identityOverride } = {}) {
+function coreDeps({ execution, runId, leaseId, endpoint, identityOverride, durableStop } = {}) {
   const approval = identityOverride
     ?? JSON.parse(fs.readFileSync(execution.floorStateFile, 'utf8')).readonlyApproval;
   return firstSyncDeps({
@@ -279,9 +310,9 @@ function coreDeps({ execution, runId, leaseId, endpoint, identityOverride } = {}
       APPROVED_CONFIG_FLOOR_SHA: FLOOR_SHA,
       CHANJET_SYNC_OPERATOR_TOKEN: 'SYNTHETIC_OP_TOKEN',
       DEPLOY_RUN_ID: runId,
-      CHANJET_FIRST_SYNC_EXECUTION_ID: execution.executionId,
-      CHANJET_FIRST_SYNC_LEASE_ID: leaseId,
     },
+    handover: { executionId: execution.executionId, leaseId, deadlineAt: execution.deadlineAt },
+    durableStop,
     fetchImpl: fetch,
     sleep: (ms) => new Promise((resolve) => setTimeout(resolve, Math.min(ms, 400))),
     readDatabaseEvidence: readEvidence,
@@ -334,7 +365,7 @@ database('first-sync protected-entry acceptance (real entry, real scheduler host
   });
 
   test('positive chain: prepare-sync handover -> first-sync entry -> real scheduler -> VERIFIED with unchanged business facts and a real monitor record', async () => {
-    const execution = registerExecution({ cap: 10 });
+    const execution = await registerExecution({ cap: 10 });
     const prepared = runPrepareSync(execution);
     assert.equal(prepared.verdict, 'PASS', prepared.stderr);
     assert.equal(prepared.summary.prepareSync?.handover, 'FIRST_SYNC_ENTRY');
@@ -376,8 +407,8 @@ database('first-sync protected-entry acceptance (real entry, real scheduler host
     // a SOURCE mismatch — the trusted admission row wins and the entry
     // refuses before any protected call (the admissions row itself is
     // immutable; the guard trigger forbids tampering with it)
-    const foreign = registerExecution({ cap: 10 });
-    const execution = registerExecution({ cap: 10 });
+    const foreign = await registerExecution({ cap: 10 });
+    const execution = await registerExecution({ cap: 10 });
     const prepared = runPrepareSync(execution);
     assert.equal(prepared.verdict, 'PASS');
     const hitsBefore = providerHits();
@@ -410,7 +441,7 @@ database('first-sync protected-entry acceptance (real entry, real scheduler host
     await new Promise((resolve) => stub.listen(0, '127.0.0.1', resolve));
     const stubBase = `http://127.0.0.1:${stub.address().port}`;
     try {
-      const execution = registerExecution({ cap: 10 });
+      const execution = await registerExecution({ cap: 10 });
       const prepared = runPrepareSync(execution);
       assert.equal(prepared.verdict, 'PASS');
       const deps = coreDeps({
@@ -426,7 +457,7 @@ database('first-sync protected-entry acceptance (real entry, real scheduler host
   });
 
   test('budget exhaustion: the worker send refuses, the run lands HOLD and nothing is retried or reported successful', async () => {
-    const execution = registerExecution({ cap: 5 }); // the handover consumes 4; the worker's next send refuses
+    const execution = await registerExecution({ cap: 5 }); // the handover consumes 4; the worker's next send refuses
     const prepared = runPrepareSync(execution);
     assert.equal(prepared.verdict, 'PASS');
     const host = await startHost({ approvalFile: execution.approvalFile });
@@ -437,8 +468,15 @@ database('first-sync protected-entry acceptance (real entry, real scheduler host
         execution,
         leaseId: prepared.summary.leases.sync,
         endpoint: `${host.base}/chanjet/integration/alignment/`,
+        durableStop: makeDurableStop({
+          manifestFile: execution.manifestFile, executionId: execution.executionId,
+          leaseId: prepared.summary.leases.sync, deadlineAt: execution.execution.deadlineAt,
+        }),
       });
-      await assert.rejects(firstSyncCore(deps), /FIRST_SYNC_HOLD=FAILURE_OR_TIMEOUT/);
+      const budgetError = await firstSyncCore(deps).then(() => null, (e) => e);
+      assert.ok(budgetError, 'expected a rejection');
+      assert.match(budgetError.message, /FIRST_SYNC_HOLD=FAILURE_OR_TIMEOUT/);
+      assert.equal(budgetError.stopOutcome, 'ALREADY_STOPPED'); // the scheduler's own durable stop stands
       // the run durably HOLDS: exactly one run — never retried, never successful
       const jobs = await dataSource.query(`SELECT status FROM chanjet_sync_jobs WHERE request_scope->'execution'->>'executionId' = $1`, [execution.executionId]);
       assert.equal(jobs.length, 1);
@@ -456,7 +494,7 @@ database('first-sync protected-entry acceptance (real entry, real scheduler host
   test('overdue deadline: the expired execution refuses BEFORE the enqueue with zero provider HTTP', async () => {
     // a SHORT natural deadline: the admission expires on its own (the
     // admissions row is IMMUTABLE — the guard trigger forbids mutation)
-    const execution = registerExecution({ cap: 10, totalTimeoutMs: 5_000 });
+    const execution = await registerExecution({ cap: 10, totalTimeoutMs: 5_000 });
     const prepared = runPrepareSync(execution);
     assert.equal(prepared.verdict, 'PASS');
     const [row] = await dataSource.query('SELECT deadline_at FROM chanjet_execution_admissions WHERE execution_id=$1', [execution.executionId]);
@@ -474,7 +512,7 @@ database('first-sync protected-entry acceptance (real entry, real scheduler host
   });
 
   test('business facts changed: the run refuses, the PREPARED evidence is retained and the run id is never reusable', async () => {
-    const execution = registerExecution({ cap: 10 });
+    const execution = await registerExecution({ cap: 10 });
     const prepared = runPrepareSync(execution);
     assert.equal(prepared.verdict, 'PASS');
     const host = await startHost({ approvalFile: execution.approvalFile });
@@ -505,7 +543,7 @@ database('first-sync protected-entry acceptance (real entry, real scheduler host
       // the run id is never reusable: a FRESH valid execution with the SAME
       // run id still refuses on the retained evidence file (before any
       // protected call)
-      const fresh = registerExecution({ cap: 10 });
+      const fresh = await registerExecution({ cap: 10 });
       const freshPrepared = runPrepareSync(fresh);
       assert.equal(freshPrepared.verdict, 'PASS');
       const retryDeps = coreDeps({

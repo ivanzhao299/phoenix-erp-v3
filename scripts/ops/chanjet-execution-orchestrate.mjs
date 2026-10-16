@@ -486,8 +486,22 @@ await (async () => {
           // prepare-sync handover: the execution stays SYNCING under its
           // lease — the protected first-sync entry (chanjet-readonly-first-sync)
           // owns the enqueue against the SAME execution, cumulative budget
-          // and DB-owned deadline.
-          summary.prepareSync = { handover: 'FIRST_SYNC_ENTRY', leaseId: leases.sync };
+          // and DB-owned deadline. The handover is persisted ATOMICALLY next
+          // to the reviewed floor state: the first-sync entry reads its
+          // binding from THERE (never from env or the request).
+          const handoverFile = path.join(path.dirname(floorStateFile), 'prepare-sync-handover.json');
+          const handoverTmp = `${handoverFile}.tmp`;
+          fs.writeFileSync(handoverTmp, JSON.stringify({
+            version: 1,
+            target: expectedFloorSha,
+            executionId: binding.manifest.executionId,
+            leaseId: leases.sync,
+            deadlineAt: deadlineAt.toISOString(),
+            approvalId: approval.approvalId,
+            floorSha: expectedFloorSha,
+          }));
+          fs.renameSync(handoverTmp, handoverFile);
+          summary.prepareSync = { handover: 'FIRST_SYNC_ENTRY', leaseId: leases.sync, handoverFile };
         }
         void syncContext;
       }
