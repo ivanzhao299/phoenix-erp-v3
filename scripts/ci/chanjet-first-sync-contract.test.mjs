@@ -38,7 +38,7 @@ const registerCli = path.join(repoRoot, 'scripts/ops/chanjet-execution-admission
 const hostScript = path.join(repoRoot, 'scripts/ci/chanjet-orchestration-scheduler-host.mjs');
 const providerScript = path.join(repoRoot, 'scripts/ci/chanjet-orchestration-provider-fixture.mjs');
 const firstSyncModuleUrl = pathToFileURL(path.join(repoRoot, 'scripts/ops/chanjet-readonly-first-sync.mjs')).href;
-const { firstSyncCore, firstSyncDeps, businessFingerprints } = await import(firstSyncModuleUrl);
+const { firstSyncCore, firstSyncDeps, businessFingerprints, makeDurableStop } = await import(firstSyncModuleUrl);
 
 const database = fixtureUrl ? describe : describe.skip;
 
@@ -71,30 +71,6 @@ const distGuard = path.join(apiDir, 'dist/modules/chanjet/chanjet-execution-guar
 
 // the REAL bounded-guard stop the production entry uses: the registered
 // manifest + the guard executor over the SAME database
-function makeDurableStop({ manifestFile, executionId, leaseId, deadlineAt } = {}) {
-  return async (classification) => {
-    try {
-      const manifest = JSON.parse(fs.readFileSync(manifestFile, 'utf8'));
-      require(path.join(apiDir, 'node_modules/reflect-metadata'));
-      const { ChanjetExecutionAdmissionStore } = await import(pathToFileURL(distStore).href);
-      const { createBoundedGuardExecutor } = await import(pathToFileURL(distGuard).href);
-      const stopDs = new DataSource({ type: 'postgres', url: fixtureUrl, logging: false });
-      await stopDs.initialize();
-      const guardExecutor = createBoundedGuardExecutor(fixtureUrl);
-      try {
-        const store = new ChanjetExecutionAdmissionStore(stopDs.manager);
-        store.setStandaloneExecutor(guardExecutor);
-        return await store.holdExecution({ manifest, leaseId, phase: 'SYNCING', deadlineAt }, classification);
-      } finally {
-        await guardExecutor.dispose().catch(() => undefined);
-        await stopDs.destroy().catch(() => undefined);
-      }
-    } catch (stopError) {
-      try { fs.appendFileSync('/tmp/fs-trace.log', `DURABLE_STOP_THREW: ${String(stopError?.message || stopError).slice(0, 200)}\n`); } catch { /* */ }
-      throw stopError;
-    }
-  };
-}
 
 let dataSource;
 let provider;
@@ -449,12 +425,154 @@ database('first-sync protected-entry acceptance (real entry, real scheduler host
         execution,
         leaseId: prepared.summary.leases.sync,
         endpoint: `${stubBase}/chanjet/integration/alignment/`,
+        durableStop: async (classification) => {
+          try {
+            return await makeDurableStop({
+              repoRoot,
+              pgUrl: fixtureUrl,
+              readEvidence,
+              handover: { executionId: execution.executionId, leaseId: prepared.summary.leases.sync, deadlineAt: execution.execution.deadlineAt.toISOString() },
+            })(classification);
+          } catch (stopError) {
+            console.log('STOP_ERR', String(stopError?.message || stopError).slice(0, 200));
+            throw stopError;
+          }
+        },
       });
-      await assert.rejects(firstSyncCore(deps), /FIRST_SYNC_HOLD=OWNER_SOURCE/);
+      const ownerError = await firstSyncCore(deps).then(() => null, (e) => e);
+      assert.ok(ownerError, 'expected a rejection');
+      assert.match(ownerError.message, /FIRST_SYNC_HOLD=OWNER_SOURCE/);
+      // the source drift was durably stopped through the REAL bounded guard
+      assert.equal(ownerError.stopOutcome, 'CONFIRMED');
+      const [held] = await dataSource.query('SELECT phase, hold_reason FROM chanjet_execution_admissions WHERE execution_id=$1', [execution.executionId]);
+      assert.equal(held.phase, 'HOLD');
+      assert.equal(held.hold_reason, 'CANCELLED');
     } finally {
       await new Promise((resolve) => stub.close(resolve));
     }
   });
+
+  test('stop channel initialization is bounded: an unreachable stop database reports UNCONFIRMED in bounded time', async () => {
+    const execution = await registerExecution({ cap: 10 });
+    const prepared = runPrepareSync(execution);
+    assert.equal(prepared.verdict, 'PASS');
+    // an unreachable NON-ROUTABLE stop database: the stop channel's
+    // initialization and connection acquisition hang until the hard ceiling
+    // bounds them — the hold reports UNCONFIRMED in bounded time
+    const started = Date.now();
+    const stop = await makeDurableStop({
+      repoRoot,
+      pgUrl: 'postgresql://postgres:postgres@10.255.255.1:5432/chanjet_admission_fixture',
+      readEvidence,
+      handover: { executionId: execution.executionId, leaseId: prepared.summary.leases.sync, deadlineAt: execution.execution.deadlineAt.toISOString() },
+      ceilingMs: 2_000,
+    })('CANCELLED').then(() => 'CONFIRMED', (e) => `THREW:${String(e?.message).slice(0, 80)}`);
+    const elapsed = Date.now() - started;
+    assert.match(stop, /THREW:CHANJET_EXECUTION_STOP_CHANNEL_TIMEOUT:initialize/); // the hung init is bounded
+    assert.ok(elapsed < 15_000, `bounded init took ${elapsed}ms`);
+  });
+
+  test('post-enqueue deadline: the DEADLINE-classified stop persists and the VERIFIED evidence is never written past the deadline', async () => {
+    const execution = await registerExecution({ cap: 10, totalTimeoutMs: 5_000 });
+    const prepared = runPrepareSync(execution);
+    assert.equal(prepared.verdict, 'PASS');
+    // a stub alignment API that stays RUNNING: the poll rides to the absolute
+    // deadline, the stop classifies DEADLINE and persists it
+    let acceptedRunId = '';
+    const stub = http.createServer((req, res) => {
+      res.setHeader('Content-Type', 'application/json');
+      if ((req.url || '').endsWith('/enqueue')) {
+        acceptedRunId = `RUN_${randomUUID().slice(0, 8)}`;
+        res.end(JSON.stringify({ success: true, accepted: true, run: { runId: acceptedRunId } }));
+        return;
+      }
+      res.end(JSON.stringify({ success: true, run: { runId: acceptedRunId, state: 'RUNNING', requestedBy: `user:${OPERATOR}` } }));
+    });
+    await new Promise((resolve) => stub.listen(0, '127.0.0.1', resolve));
+    const stubBase = `http://127.0.0.1:${stub.address().port}`;
+    try {
+      const runId = `${Date.now()}-6`;
+      const deps = coreDeps({
+        runId,
+        execution,
+        leaseId: prepared.summary.leases.sync,
+        endpoint: `${stubBase}/chanjet/integration/alignment/`,
+        durableStop: makeDurableStop({
+          repoRoot,
+          pgUrl: fixtureUrl,
+          readEvidence,
+          handover: { executionId: execution.executionId, leaseId: prepared.summary.leases.sync, deadlineAt: execution.execution.deadlineAt.toISOString() },
+        }),
+      });
+      const deadlineError = await firstSyncCore(deps).then(() => null, (e) => e);
+      assert.ok(deadlineError, 'expected a rejection');
+      assert.match(deadlineError.message, /FIRST_SYNC_HOLD=FAILURE_OR_TIMEOUT/);
+      assert.equal(deadlineError.classification, 'DEADLINE');
+      assert.equal(deadlineError.stopOutcome, 'CONFIRMED');
+      const [held] = await dataSource.query('SELECT phase, hold_reason FROM chanjet_execution_admissions WHERE execution_id=$1', [execution.executionId]);
+      assert.equal(held.phase, 'HOLD');
+      assert.equal(held.hold_reason, 'DEADLINE');
+      // the VERIFIED evidence is NEVER written past the deadline: the
+      // retained file stays at PREPARED
+      assert.equal(evidenceState(runId).phase, 'PREPARED');
+    } finally {
+      await new Promise((resolve) => stub.close(resolve));
+    }
+  }, 30_000);
+
+  test('strict proof negative: a COMPLETED run without the receipt ordinals refuses with FIRST_SYNC_PROOF and NO_HOLD_NEEDED', async () => {
+    const execution = await registerExecution({ cap: 10 });
+    const prepared = runPrepareSync(execution);
+    assert.equal(prepared.verdict, 'PASS');
+    // a stub alignment API that completes the run but with NO job proof at
+    // all — the strict proof refuses a COMPLETED run alone
+    let acceptedRunId = '';
+    let statusCalls = 0;
+    let verifiedFlipped = false;
+    const { ChanjetExecutionAdmissionStore } = await import(pathToFileURL(distStore).href);
+    require(path.join(apiDir, 'node_modules/reflect-metadata'));
+    const proofStore = new ChanjetExecutionAdmissionStore(dataSource.manager);
+    const stub = http.createServer(async (req, res) => {
+      res.setHeader('Content-Type', 'application/json');
+      if ((req.url || '').endsWith('/enqueue')) {
+        acceptedRunId = `RUN_${randomUUID().slice(0, 8)}`;
+        res.end(JSON.stringify({ success: true, accepted: true, run: { runId: acceptedRunId } }));
+        return;
+      }
+      // on the FIRST status poll the scheduler's own gate commits VERIFIED
+      // (the reviewed transition; the rehearsal receipt is its evidence) —
+      // AFTER the entry's binding stage, BEFORE the strict proof
+      statusCalls += 1;
+      if (statusCalls === 1 && !verifiedFlipped) {
+        verifiedFlipped = true;
+        try { await proofStore.finish({ manifest: execution.manifest, leaseId: prepared.summary.leases.sync, phase: 'SYNCING', deadlineAt: execution.execution.deadlineAt }, 'VERIFIED'); } catch { /* already terminal */ }
+      }
+      res.end(JSON.stringify({ success: true, run: { runId: acceptedRunId, state: statusCalls >= 2 ? 'COMPLETED' : 'RUNNING', decision: 'GO', requestedBy: `user:${OPERATOR}` } }));
+    });
+    await new Promise((resolve) => stub.listen(0, '127.0.0.1', resolve));
+    const stubBase = `http://127.0.0.1:${stub.address().port}`;
+    try {
+      const deps = coreDeps({
+        runId: `${Date.now()}-7`,
+        execution,
+        leaseId: prepared.summary.leases.sync,
+        endpoint: `${stubBase}/chanjet/integration/alignment/`,
+        durableStop: makeDurableStop({
+          repoRoot,
+          pgUrl: fixtureUrl,
+          readEvidence,
+          handover: { executionId: execution.executionId, leaseId: prepared.summary.leases.sync, deadlineAt: execution.execution.deadlineAt.toISOString() },
+        }),
+      });
+      const proofError = await firstSyncCore(deps).then(() => null, (e) => e);
+      assert.ok(proofError, 'expected a rejection');
+      assert.match(proofError.message, /FIRST_SYNC_HOLD=FIRST_SYNC_PROOF/);
+      // the execution is VERIFIED by the scheduler's own gate: no hold applies
+      assert.equal(proofError.stopOutcome, 'NO_HOLD_NEEDED');
+    } finally {
+      await new Promise((resolve) => stub.close(resolve));
+    }
+  }, 30_000);
 
   test('budget exhaustion: the worker send refuses, the run lands HOLD and nothing is retried or reported successful', async () => {
     const execution = await registerExecution({ cap: 5 }); // the handover consumes 4; the worker's next send refuses
@@ -469,8 +587,10 @@ database('first-sync protected-entry acceptance (real entry, real scheduler host
         leaseId: prepared.summary.leases.sync,
         endpoint: `${host.base}/chanjet/integration/alignment/`,
         durableStop: makeDurableStop({
-          manifestFile: execution.manifestFile, executionId: execution.executionId,
-          leaseId: prepared.summary.leases.sync, deadlineAt: execution.execution.deadlineAt,
+          repoRoot,
+          pgUrl: fixtureUrl,
+          readEvidence,
+          handover: { executionId: execution.executionId, leaseId: prepared.summary.leases.sync, deadlineAt: execution.execution.deadlineAt.toISOString() },
         }),
       });
       const budgetError = await firstSyncCore(deps).then(() => null, (e) => e);
