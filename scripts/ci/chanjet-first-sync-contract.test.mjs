@@ -533,11 +533,15 @@ database('first-sync protected-entry acceptance (real entry, real scheduler host
     const execution = await registerExecution({ cap: 10 });
     const prepared = runPrepareSync(execution);
     assert.equal(prepared.verdict, 'PASS');
+    // the DB container is discovered from the runner's docker state (the
+    // fixture workflow's postgres service container)
+    const containers = execFileSync('docker', ['ps', '--format', '{{.Names}}'], { encoding: 'utf8' }).split('\n').filter(Boolean);
+    const dbContainer = containers.find((n) => n.includes('postgres')) || 'phoenix-r42a-admission-fixture';
     const executor = makeProductionStopExecutor({
-      dbContainer: process.env.CHANJET_STOP_DB_CONTAINER || 'phoenix-r42a-admission-fixture',
+      dbContainer,
       timeoutMs: 30_000,
       // the docker-exec psql reads the DB name from the container env; the
-      // fixture container name is the CI default
+      // container's POSTGRES_USER defaults to postgres inside the shell
     });
     const { ChanjetExecutionAdmissionStore } = await import(pathToFileURL(distStore).href);
     require(path.join(apiDir, 'node_modules/reflect-metadata'));
