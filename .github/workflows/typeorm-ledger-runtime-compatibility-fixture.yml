@@ -132,3 +132,8 @@ jobs:
         run: >-
           pnpm --filter phoenix-erp-v3-nest exec jest --runInBand --runTestsByPath
           src/modules/chanjet/chanjet-mirror-write-gate.integration.spec.ts
+      - name: First-sync protected-entry acceptance (real entry, real scheduler host, real PostgreSQL18)
+        env:
+          CHANJET_ADMISSION_FIXTURE_URL: postgresql://postgres:postgres@127.0.0.1:5432/chanjet_admission_fixture
+          CHANJET_FIRST_SYNC_REQUIRED: 'true'
+        run: node --test scripts/ci/chanjet-first-sync-contract.test.mjs

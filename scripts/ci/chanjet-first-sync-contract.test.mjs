@@ -1,0 +1,523 @@
+// R4.2d production controlled-entry acceptance: the REAL first-sync entry
+// (chanjet-readonly-first-sync firstSyncCore) through the REAL protected
+// alignment API contract (bearer auth, server-derived owner, REAL scheduler,
+// REAL execution-bound alignment worker, REAL cron-monitor records) on an
+// isolated PostgreSQL18 with a local loopback provider fixture and a
+// SYNTHETIC approval/floor. No real provider, no production identifiers
+// beyond the agreed book scope, no production workflow dispatch.
+//
+// Covered: the positive chain (controlled root workflow prepare-sync
+// handover -> first-sync entry -> scheduler SUCCESS gate -> VERIFIED) and
+// the rejection paths — origin mismatch (tampered admission identity, owner
+// not server-derived), budget exhaustion, overdue deadline, business facts
+// changed — each keeping its non-overwritable failure evidence.
+import test, { describe, before, after } from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import http from 'node:http';
+import { spawn, spawnSync } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
+import { createRequire } from 'node:module';
+import { pathToFileURL } from 'node:url';
+
+const require = createRequire(import.meta.url);
+const fixtureUrl = process.env.CHANJET_ADMISSION_FIXTURE_URL;
+if (process.env.CHANJET_FIRST_SYNC_REQUIRED === 'true' && !fixtureUrl) {
+  throw Error('REAL_FIRST_SYNC_FIXTURE_URL_REQUIRED');
+}
+const repoRoot = process.cwd().replace(/\/apps\/api$/, '');
+const apiDir = path.join(repoRoot, 'apps', 'api');
+const distStore = path.join(apiDir, 'dist/modules/chanjet/chanjet-execution-admission.store.js');
+if (process.env.CHANJET_FIRST_SYNC_REQUIRED === 'true' && !fs.existsSync(distStore)) {
+  throw Error('COMPILED_ADMISSION_STORE_REQUIRED');
+}
+const orchestrator = path.join(repoRoot, 'scripts/ops/chanjet-execution-orchestrate.mjs');
+const registerCli = path.join(repoRoot, 'scripts/ops/chanjet-execution-admission-register.mjs');
+const hostScript = path.join(repoRoot, 'scripts/ci/chanjet-orchestration-scheduler-host.mjs');
+const providerScript = path.join(repoRoot, 'scripts/ci/chanjet-orchestration-provider-fixture.mjs');
+const firstSyncModuleUrl = pathToFileURL(path.join(repoRoot, 'scripts/ops/chanjet-readonly-first-sync.mjs')).href;
+const { firstSyncCore, firstSyncDeps, businessFingerprints } = await import(firstSyncModuleUrl);
+
+const database = fixtureUrl ? describe : describe.skip;
+
+// Agreed business scope under review — the only identifiers that mirror the
+// real book landscape; approval/execution/expiry values stay synthetic.
+const FLOOR_SHA = 'f'.repeat(40);
+const VERIFY_BOOK = '3533914511118750';
+const BOOKS = [
+  { bookId: '3533914511118750', companyCode: 'COMP-LAO-AGRI' },
+  { bookId: '3537748712226818', companyCode: 'COMP-LAO-XINGCHI' },
+  { bookId: '3539743721526654', companyCode: 'COMP-LAO-FOOD' },
+];
+const PERIOD = '202610';
+const OPERATOR = 'ROOT_OPERATOR';
+
+function assertOwnFixtureUrl(u) {
+  const parsed = new URL(u);
+  const disposable = /^(chanjet_admission_fixture|chanjet_transport_fixture.*|root_admission_review)$/.test(parsed.pathname.slice(1));
+  if (!['127.0.0.1', 'localhost', '::1'].includes(parsed.hostname) || !disposable) {
+    throw Error('PARENT_FIXTURE_URL_REQUIRED: loopback host and dedicated disposable database name required');
+  }
+  return parsed;
+}
+assert.equal(typeof fixtureUrl, 'string');
+assertOwnFixtureUrl(fixtureUrl);
+
+const require2 = createRequire(import.meta.url);
+const { DataSource } = require2(path.join(apiDir, 'node_modules/typeorm/index.js'));
+
+let dataSource;
+let provider;
+let workDir;
+let lockFile;
+const providerHitsFile = path.join(repoRoot, `first-sync-hits-${randomUUID().slice(0, 8)}.jsonl`);
+
+async function withSchema() {
+  assertOwnFixtureUrl(fixtureUrl);
+  dataSource = new DataSource({ type: 'postgres', url: fixtureUrl, logging: false });
+  await dataSource.initialize();
+  await dataSource.query('DROP SCHEMA public CASCADE');
+  await dataSource.query('CREATE SCHEMA public');
+  const migrationModule = await import(pathToFileURL(path.join(apiDir, 'dist/database/migrations/1791878400000-CreateChanjetExecutionAdmissions.js')).href);
+  const migration = new migrationModule.CreateChanjetExecutionAdmissions1791878400000();
+  const runner = dataSource.createQueryRunner();
+  try { await migration.up(runner); } finally { await runner.release(); }
+  // production-shaped tables (existing production schema, NOT a new design)
+  await dataSource.query(`CREATE TABLE chanjet_book_company_map (
+    bookid varchar(64) PRIMARY KEY, book_name varchar(256), company_code varchar(64) UNIQUE,
+    company_name varchar(256), sync_enabled boolean DEFAULT true,
+    created_at timestamptz DEFAULT now(), updated_at timestamptz DEFAULT now())`);
+  await dataSource.query(`CREATE TABLE chanjet_account_books (
+    book_id varchar(64) PRIMARY KEY, book_name varchar(256), company_code varchar(64),
+    company_name varchar(256), enabled boolean DEFAULT false, raw_data jsonb, last_probe_at timestamptz,
+    created_at timestamptz DEFAULT now(), updated_at timestamptz DEFAULT now())`);
+  await dataSource.query(`CREATE TABLE sys_chanjet_state (
+    key varchar(16) PRIMARY KEY, app_ticket text, certificate text, tokens jsonb,
+    updated_at timestamptz DEFAULT now())`);
+  await dataSource.query(`CREATE TABLE chanjet_sync_jobs (
+    id serial PRIMARY KEY, job_type varchar(32) NOT NULL, book_id varchar(64) DEFAULT '',
+    company_code varchar(64) DEFAULT '', period varchar(16) DEFAULT '', status varchar(24) DEFAULT 'RUNNING',
+    orchestration_run_id varchar(64), error_message text, request_scope jsonb, result_summary jsonb,
+    created_at timestamptz DEFAULT now(), updated_at timestamptz DEFAULT now())`);
+  await dataSource.query(`CREATE TABLE sys_organizations (
+    id bigserial PRIMARY KEY, org_code varchar(64), org_name varchar(256), org_type varchar(32),
+    status varchar(16), company_code varchar(64))`);
+  for (const book of BOOKS) {
+    await dataSource.query('INSERT INTO chanjet_book_company_map (bookid, book_name, company_code, company_name) VALUES ($1,$2,$3,$4)', [book.bookId, `BOOK_${book.bookId}`, book.companyCode, book.companyCode]);
+    await dataSource.query('INSERT INTO chanjet_account_books (book_id, book_name, company_code, company_name, enabled) VALUES ($1,$2,$3,$4,true)', [book.bookId, `BOOK_${book.bookId}`, book.companyCode, book.companyCode]);
+    await dataSource.query(`INSERT INTO sys_organizations (org_code, org_name, org_type, status, company_code) VALUES ($1,$2,'COMPANY','ACTIVE',$3)`, [book.companyCode, book.companyCode, book.companyCode]);
+  }
+  await dataSource.query("INSERT INTO sys_chanjet_state (key, app_ticket) VALUES ('singleton', 'SYNTHETIC_TICKET')");
+  // the REAL restoration preflight SQL runs verbatim in the acceptance —
+  // synthesize the tables it counts (counts and bindings only)
+  await dataSource.query(`CREATE TABLE chanjet_entity_snapshots (
+    id bigserial PRIMARY KEY, book_id varchar(64), endpoint_key varchar(64), entity_type varchar(64),
+    external_id varchar(128), period varchar(16), last_seen_at timestamptz)`);
+  await dataSource.query(`CREATE TABLE chanjet_read_snapshots (id bigserial PRIMARY KEY, pulled_at timestamptz DEFAULT now())`);
+  await dataSource.query(`CREATE TABLE chanjet_ar_snapshot (id bigserial PRIMARY KEY)`);
+  await dataSource.query(`CREATE TABLE chanjet_reconciliation_results (
+    id bigserial PRIMARY KEY, status varchar(32), resolved boolean DEFAULT false)`);
+  await dataSource.query(`CREATE TABLE chanjet_master_mapping (
+    id bigserial PRIMARY KEY, match_status varchar(32), review_status varchar(32))`);
+  await dataSource.query(`CREATE TABLE chanjet_writeback_outbox (
+    id bigserial PRIMARY KEY, state varchar(32), attempt_count integer DEFAULT 0)`);
+  await dataSource.query(`CREATE TABLE chanjet_wms_writeback_outbox (
+    id bigserial PRIMARY KEY, state varchar(32), attempt_count integer DEFAULT 0)`);
+  await dataSource.query(`CREATE TABLE chanjet_erp_inbound_sync_runs (id bigserial PRIMARY KEY)`);
+  for (const table of ['fin_ar_ledger', 'fin_ar_invoices', 'fin_ap_invoices', 'fin_cash_transactions', 'inv_batches', 'inv_ledger', 'sal_sales_orders']) {
+    await dataSource.query(`CREATE TABLE ${table} (id bigserial PRIMARY KEY, marker text)`);
+  }
+  await dataSource.query(`CREATE TABLE sys_chanjet_api_budget (
+    budget_key varchar(64) PRIMARY KEY, request_count integer DEFAULT 0, updated_at timestamptz DEFAULT now())`);
+}
+
+function syntheticManifest(cap = 10) {
+  const id = randomUUID().replace(/-/g, '');
+  return {
+    version: 1,
+    executionId: `EXEC_${id.slice(0, 24)}`,
+    ownerId: OPERATOR,
+    requestCap: cap,
+    totalTimeoutMs: 360_000,
+    httpTimeoutMs: 30_000,
+    approval: {
+      version: 3,
+      approvalId: `APPROVAL_${id.slice(0, 20)}`,
+      floorSha: FLOOR_SHA,
+      sourceClassification: 'PRODUCTION_DATA',
+      remoteWrite: false,
+      erpInbound: false,
+      books: BOOKS.map((b) => ({ ...b })),
+      scopes: ['RECEIVABLE_STATISTICS'],
+      periodPolicy: 'REQUESTED_PERIOD_NO_BACKFILL',
+      verification: { bookId: VERIFY_BOOK, period: PERIOD, scope: ['RECEIVABLE_STATISTICS'], expiresAt: `${new Date(Date.now() + 20 * 60_000).toISOString().slice(0, 23)}Z` },
+    },
+  };
+}
+
+function approvedPolicyFileValue(manifest) {
+  // EXACT key set the API's approvedReadonlyPolicy accepts (no extras)
+  const a = manifest.approval;
+  return {
+    version: a.version,
+    approvalId: a.approvalId,
+    floorSha: a.floorSha,
+    sourceClassification: a.sourceClassification,
+    remoteWrite: a.remoteWrite,
+    erpInbound: a.erpInbound,
+    books: a.books,
+    scopes: a.scopes,
+    periodPolicy: a.periodPolicy,
+    verification: a.verification,
+    verifiedRunId: '',
+    verifiedEvidenceRunId: '',
+  };
+}
+
+function writeJson(name, value) {
+  const file = path.join(workDir, `${name}-${randomUUID().slice(0, 8)}.json`);
+  fs.writeFileSync(file, JSON.stringify(value));
+  return file;
+}
+
+function registerExecution({ cap = 10, totalTimeoutMs = 360_000 } = {}) {
+  const manifest = syntheticManifest(cap);
+  manifest.totalTimeoutMs = totalTimeoutMs;
+  const manifestFile = writeJson('manifest', manifest);
+  const floorStateFile = writeJson('floor-state', {
+    version: 1,
+    floorSha: FLOOR_SHA,
+    deployedSha: FLOOR_SHA,
+    chanjetPolicy: 'READONLY_VERIFY',
+    readonlyApproval: { approvalId: manifest.approval.approvalId, books: manifest.approval.books, verification: manifest.approval.verification },
+    operationalTuple: { CHANJET_READONLY_SYNC_ENABLED: 'false', CHANJET_ERP_INBOUND_SYNC_ENABLED: 'false' },
+  });
+  const approvalFile = writeJson('approval', approvedPolicyFileValue(manifest));
+  const registered = spawnSync(process.execPath, [
+    registerCli, '--manifest', manifestFile, '--expected-floor-sha', FLOOR_SHA, '--pg-url', fixtureUrl, '--register',
+  ], { encoding: 'utf8', env: { ...process.env } });
+  assert.equal(registered.status, 0, `registration refused: ${registered.stdout} ${registered.stderr}`);
+  return { manifest, manifestFile, floorStateFile, approvalFile, executionId: manifest.executionId, execution: { executionId: manifest.executionId, floorStateFile } };
+}
+
+// the controlled root workflow handover: registers (fd 9 held by this
+// process), probes, begins SYNCING and STOPS — the first-sync entry owns the
+// enqueue from there
+function runPrepareSync({ manifestFile, floorStateFile }) {
+  const inner = [
+    `'${process.execPath}'`, `'${orchestrator}'`,
+    '--manifest', `'${manifestFile}'`,
+    '--expected-floor-sha', `'${FLOOR_SHA}'`,
+    '--floor-state', `'${floorStateFile}'`,
+    '--pg-url', `'${fixtureUrl}'`,
+    '--provider-base', `'${provider.base}'`,
+    '--phase', `'prepare-sync'`,
+    '--skip-registration', '--fd9-lock', `'${lockFile}'`,
+  ].join(' ');
+  const command = `exec 9>>'${lockFile}'; flock -n 9; ${inner}`;
+  const run = spawnSync('bash', ['-c', command], {
+    encoding: 'utf8',
+    timeout: 120_000,
+    env: {
+      ...process.env,
+      CHANJET_APP_KEY: 'SYNTHETIC_KEY',
+      CHANJET_APP_SECRET: 'SYNTHETIC_SECRET',
+      CHANJET_ORG_ID: 'SYNTHETIC_ORG',
+      CHANJET_CERT: 'SYNTHETIC_CERT',
+    },
+  });
+  const line = String(run.stdout).split('\n').find((l) => l.startsWith('CHANJET_EXECUTION_ORCHESTRATE='));
+  assert.ok(line, `no orchestrator verdict line:\n${run.stdout}\n${run.stderr}`);
+  if (!line.includes(';PASS')) { try { require('fs').appendFileSync('/tmp/fs-trace.log', `ORCHESTRATOR ${line}\n`); } catch { /* */ } }
+  const [verdict, json] = line.split(';');
+  return { verdict: verdict.split('=')[1], summary: json ? JSON.parse(json) : {}, stdout: run.stdout, stderr: run.stderr };
+}
+
+function startHost({ approvalFile }) {
+  const child = spawn(process.execPath, [
+    hostScript,
+    '--pg-url', fixtureUrl,
+    '--provider-base', provider.base,
+    '--auth-token', 'SYNTHETIC_OP_TOKEN',
+    '--sync-policy', 'READONLY_VERIFY',
+    '--readonly-approval', approvalFile,
+  ], {
+    stdio: ['ignore', 'pipe', 'ignore'],
+    env: { ...process.env, CHANJET_READONLY_SYNC_ENABLED: 'true', CHANJET_APP_KEY: 'SYNTHETIC_KEY', CHANJET_APP_SECRET: 'SYNTHETIC_SECRET', CHANJET_ORG_ID: 'SYNTHETIC_ORG', CHANJET_CERT: 'SYNTHETIC_CERT' },
+  });
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(Error('HOST_START_TIMEOUT')), 10_000);
+    child.stdout.on('data', function onData(d) {
+      const port = String(d).match(/PORT (\d+)/)?.[1];
+      if (!port) return;
+      clearTimeout(timer);
+      child.stdout.off('data', onData);
+      resolve({ child, base: `http://127.0.0.1:${port}` });
+    });
+    child.on('exit', (code) => { clearTimeout(timer); reject(Error(`HOST_EXITED:${code}`)); });
+  });
+}
+
+// isolated evidence adapter: the SAME preflight/fingerprint/binding SQL runs
+// against the fixture database
+const readEvidence = async (sql) => {
+  const result = await dataSource.query(sql);
+  const rows = Array.isArray(result) ? result : [result];
+  const row = (Array.isArray(rows[0]) ? rows[0][0] : rows[0]) ?? {};
+  const keys = Object.keys(row);
+  return keys.length ? row[keys[0]] : {};
+};
+
+function coreDeps({ execution, runId, leaseId, endpoint, identityOverride } = {}) {
+  const approval = identityOverride
+    ?? JSON.parse(fs.readFileSync(execution.floorStateFile, 'utf8')).readonlyApproval;
+  return firstSyncDeps({
+    env: {
+      TARGET_SHA: FLOOR_SHA,
+      APPROVED_CONFIG_FLOOR_SHA: FLOOR_SHA,
+      CHANJET_SYNC_OPERATOR_TOKEN: 'SYNTHETIC_OP_TOKEN',
+      DEPLOY_RUN_ID: runId,
+      CHANJET_FIRST_SYNC_EXECUTION_ID: execution.executionId,
+      CHANJET_FIRST_SYNC_LEASE_ID: leaseId,
+    },
+    fetchImpl: fetch,
+    sleep: (ms) => new Promise((resolve) => setTimeout(resolve, Math.min(ms, 400))),
+    readDatabaseEvidence: readEvidence,
+    businessFingerprints: () => businessFingerprints(readEvidence),
+    captureRuntime: async () => ({ api: { revision: FLOOR_SHA } }),
+    guardProduction: () => ({ chanjetPolicy: 'READONLY_VERIFY', floorSha: FLOOR_SHA, readonlyApproval: approval }),
+    requireCleanMain: () => { /* isolated acceptance: the production clean-main
+      guard runs only in the approved root control workflow; asserted there */ },
+    stateDirectory: workDir,
+    fileExists: (file) => fs.existsSync(file),
+    // the production atomicState enforces the APPROVED production state
+    // directory (production-trusted-paths) — in the isolated acceptance the
+    // evidence lives in the fixture work directory with the same
+    // write-then-rename atomicity
+    atomicState: (file, value) => {
+      const tmp = `${file}.tmp-${randomUUID().slice(0, 8)}`;
+      fs.writeFileSync(tmp, JSON.stringify(value));
+      fs.renameSync(tmp, file);
+    },
+    endpoint: endpoint ?? `${host.base}/chanjet/integration/alignment/`,
+  });
+}
+
+const evidenceState = (runId) => JSON.parse(fs.readFileSync(path.join(workDir, `first-sync-${runId}.json`), 'utf8'));
+
+const providerHits = () => fs.readFileSync(providerHitsFile, 'utf8').split('\n').filter(Boolean).length;
+
+database('first-sync protected-entry acceptance (real entry, real scheduler host, real PostgreSQL18, local provider)', () => {
+  before(async () => {
+    workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'first-sync-'));
+    lockFile = path.join(workDir, 'mutation.lock');
+    fs.writeFileSync(lockFile, '');
+    await withSchema();
+    const child = spawn(process.execPath, [providerScript, '--hits-file', providerHitsFile], { stdio: ['ignore', 'pipe', 'ignore'] });
+    provider = await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(Error('PROVIDER_START_TIMEOUT')), 10_000);
+      child.stdout.on('data', function onData(d) {
+        const port = String(d).match(/PORT (\d+)/)?.[1];
+        if (!port) return;
+        clearTimeout(timer);
+        child.stdout.off('data', onData);
+        resolve({ child, base: `http://127.0.0.1:${port}` });
+      });
+      child.on('exit', () => { clearTimeout(timer); reject(Error('PROVIDER_EXITED')); });
+    });
+  });
+  after(async () => {
+    provider?.child?.kill();
+    if (dataSource?.isInitialized) await dataSource.destroy().catch(() => undefined);
+  });
+
+  test('positive chain: prepare-sync handover -> first-sync entry -> real scheduler -> VERIFIED with unchanged business facts and a real monitor record', async () => {
+    const execution = registerExecution({ cap: 10 });
+    const prepared = runPrepareSync(execution);
+    assert.equal(prepared.verdict, 'PASS', prepared.stderr);
+    assert.equal(prepared.summary.prepareSync?.handover, 'FIRST_SYNC_ENTRY');
+    const host = await startHost({ approvalFile: execution.approvalFile });
+    try {
+      const runId = `${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+      const result = await firstSyncCore(coreDeps({
+        runId,
+        execution,
+        leaseId: prepared.summary.leases.sync,
+        endpoint: `${host.base}/chanjet/integration/alignment/`,
+      }));
+      assert.equal(result.phase, 'VERIFIED');
+      // non-overwritable VERIFIED evidence, bound to the execution
+      const state = evidenceState(runId);
+      assert.equal(state.phase, 'VERIFIED');
+      assert.equal(state.execution?.executionId, execution.executionId);
+      assert.equal(state.remoteWrite, false);
+      assert.equal(state.erpInbound, false);
+      // REAL monitor record: the scheduler's ok() heartbeat landed in the DB
+      const [heartbeat] = await dataSource.query(`SELECT last_status, success_count FROM sys_cron_heartbeat WHERE job_name='chanjet-full-readonly-sync'`);
+      assert.equal(heartbeat?.last_status, 'SUCCESS');
+      assert(Number(heartbeat?.success_count) >= 1);
+      // admission terminal state: VERIFIED by the scheduler's SUCCESS gate
+      const [admission] = await dataSource.query('SELECT phase, hold_reason FROM chanjet_execution_admissions WHERE execution_id=$1', [execution.executionId]);
+      assert.equal(admission.phase, 'VERIFIED');
+      assert.equal(admission.hold_reason, '');
+      // the business fingerprint tables were never touched
+      const [ledger] = await dataSource.query('SELECT count(*)::int AS n FROM fin_ar_ledger');
+      assert.equal(ledger.n, 0);
+    } finally {
+      host.child.kill();
+    }
+  });
+
+  test('origin mismatch: a foreign approval identity refuses BEFORE the enqueue with zero provider HTTP', async () => {
+    // two executions under TWO different approvals: running the entry for
+    // execution A while presenting execution B's reviewed floor identity is
+    // a SOURCE mismatch — the trusted admission row wins and the entry
+    // refuses before any protected call (the admissions row itself is
+    // immutable; the guard trigger forbids tampering with it)
+    const foreign = registerExecution({ cap: 10 });
+    const execution = registerExecution({ cap: 10 });
+    const prepared = runPrepareSync(execution);
+    assert.equal(prepared.verdict, 'PASS');
+    const hitsBefore = providerHits();
+    const deps = coreDeps({
+      runId: `${Date.now()}-1`,
+      execution,
+      leaseId: prepared.summary.leases.sync,
+      endpoint: 'http://127.0.0.1:9/chanjet/integration/alignment/',
+      identityOverride: approvedPolicyFileValue(foreign.manifest), // the WRONG reviewed identity
+    });
+    await assert.rejects(firstSyncCore(deps), /FIRST_SYNC_HOLD=EXECUTION_BINDING/);
+    assert.equal(providerHits(), hitsBefore); // zero provider HTTP
+    const [admission] = await dataSource.query('SELECT phase FROM chanjet_execution_admissions WHERE execution_id=$1', [execution.executionId]);
+    assert.equal(admission.phase, 'SYNCING'); // the execution itself is untouched
+  });
+
+  test('owner source mismatch: a run owned by something other than the server-derived principal refuses', async () => {
+    // a stub alignment API whose status reports a client-passed style owner
+    // (no user: prefix) — the entry must refuse the OWNER_SOURCE mismatch
+    let acceptedRunId = '';
+    const stub = http.createServer((req, res) => {
+      res.setHeader('Content-Type', 'application/json');
+      if ((req.url || '').endsWith('/enqueue')) {
+        acceptedRunId = `RUN_${randomUUID().slice(0, 8)}`;
+        res.end(JSON.stringify({ success: true, accepted: true, run: { runId: acceptedRunId } }));
+        return;
+      }
+      res.end(JSON.stringify({ success: true, run: { runId: acceptedRunId, state: 'RUNNING', requestedBy: 'ROOT_OPERATOR' } }));
+    });
+    await new Promise((resolve) => stub.listen(0, '127.0.0.1', resolve));
+    const stubBase = `http://127.0.0.1:${stub.address().port}`;
+    try {
+      const execution = registerExecution({ cap: 10 });
+      const prepared = runPrepareSync(execution);
+      assert.equal(prepared.verdict, 'PASS');
+      const deps = coreDeps({
+        runId: `${Date.now()}-2`,
+        execution,
+        leaseId: prepared.summary.leases.sync,
+        endpoint: `${stubBase}/chanjet/integration/alignment/`,
+      });
+      await assert.rejects(firstSyncCore(deps), /FIRST_SYNC_HOLD=OWNER_SOURCE/);
+    } finally {
+      await new Promise((resolve) => stub.close(resolve));
+    }
+  });
+
+  test('budget exhaustion: the worker send refuses, the run lands HOLD and nothing is retried or reported successful', async () => {
+    const execution = registerExecution({ cap: 5 }); // the handover consumes 4; the worker's next send refuses
+    const prepared = runPrepareSync(execution);
+    assert.equal(prepared.verdict, 'PASS');
+    const host = await startHost({ approvalFile: execution.approvalFile });
+    try {
+      const runId = `${Date.now()}-3`;
+      const deps = coreDeps({
+        runId,
+        execution,
+        leaseId: prepared.summary.leases.sync,
+        endpoint: `${host.base}/chanjet/integration/alignment/`,
+      });
+      await assert.rejects(firstSyncCore(deps), /FIRST_SYNC_HOLD=FAILURE_OR_TIMEOUT/);
+      // the run durably HOLDS: exactly one run — never retried, never successful
+      const jobs = await dataSource.query(`SELECT status FROM chanjet_sync_jobs WHERE request_scope->'execution'->>'executionId' = $1`, [execution.executionId]);
+      assert.equal(jobs.length, 1);
+      assert.equal(jobs[0].status, 'FAIL');
+      const [admission] = await dataSource.query('SELECT phase, hold_reason FROM chanjet_execution_admissions WHERE execution_id=$1', [execution.executionId]);
+      assert.equal(admission.phase, 'HOLD');
+      assert.equal(admission.hold_reason, 'CAP'); // the budget refusal is the durable stop reason
+      const state = evidenceState(runId);
+      assert.equal(state.phase, 'PREPARED'); // the failure evidence is retained, never overwritten
+    } finally {
+      host.child.kill();
+    }
+  });
+
+  test('overdue deadline: the expired execution refuses BEFORE the enqueue with zero provider HTTP', async () => {
+    // a SHORT natural deadline: the admission expires on its own (the
+    // admissions row is IMMUTABLE — the guard trigger forbids mutation)
+    const execution = registerExecution({ cap: 10, totalTimeoutMs: 5_000 });
+    const prepared = runPrepareSync(execution);
+    assert.equal(prepared.verdict, 'PASS');
+    const [row] = await dataSource.query('SELECT deadline_at FROM chanjet_execution_admissions WHERE execution_id=$1', [execution.executionId]);
+    const remaining = new Date(row.deadline_at).getTime() - Date.now();
+    await new Promise((resolve) => setTimeout(resolve, Math.max(200, remaining + 400)));
+    const hitsBefore = providerHits();
+    const deps = coreDeps({
+      runId: `${Date.now()}-4`,
+      execution,
+      leaseId: prepared.summary.leases.sync,
+      endpoint: 'http://127.0.0.1:9/chanjet/integration/alignment/',
+    });
+    await assert.rejects(firstSyncCore(deps), /FIRST_SYNC_HOLD=EXECUTION_BINDING/);
+    assert.equal(providerHits(), hitsBefore); // zero provider HTTP
+  });
+
+  test('business facts changed: the run refuses, the PREPARED evidence is retained and the run id is never reusable', async () => {
+    const execution = registerExecution({ cap: 10 });
+    const prepared = runPrepareSync(execution);
+    assert.equal(prepared.verdict, 'PASS');
+    const host = await startHost({ approvalFile: execution.approvalFile });
+    try {
+      const runId = `${Date.now()}-5`;
+      // mutate a fingerprinted business table (inv_batches — counted by the
+      // business fingerprints, NOT by the preflight side-effect keys) exactly
+      // before the AFTER fingerprints read: deterministic, mid-verification
+      const deps = coreDeps({
+        runId,
+        execution,
+        leaseId: prepared.summary.leases.sync,
+        endpoint: `${host.base}/chanjet/integration/alignment/`,
+      });
+      let evidenceCalls = 0;
+      deps.readDatabaseEvidence = async (sql) => {
+        evidenceCalls += 1;
+        if (evidenceCalls === 4) {
+          await dataSource.query(`INSERT INTO inv_batches (marker) VALUES ('R4_2D_ACCEPTANCE_MUTATION')`);
+        }
+        return readEvidence(sql);
+      };
+      deps.businessFingerprints = () => businessFingerprints(deps.readDatabaseEvidence);
+      await assert.rejects(firstSyncCore(deps), /FIRST_SYNC_HOLD=BUSINESS_FACT_CHANGED/);
+      // the failure evidence is retained, never overwritten
+      const state = evidenceState(runId);
+      assert.equal(state.phase, 'PREPARED');
+      // the run id is never reusable: a FRESH valid execution with the SAME
+      // run id still refuses on the retained evidence file (before any
+      // protected call)
+      const fresh = registerExecution({ cap: 10 });
+      const freshPrepared = runPrepareSync(fresh);
+      assert.equal(freshPrepared.verdict, 'PASS');
+      const retryDeps = coreDeps({
+        runId,
+        execution: fresh.execution,
+        leaseId: freshPrepared.summary.leases.sync,
+        endpoint: `${host.base}/chanjet/integration/alignment/`,
+      });
+      await assert.rejects(firstSyncCore(retryDeps), /FIRST_SYNC_HOLD=RUN_REUSED/);
+      assert.equal(evidenceState(runId).phase, 'PREPARED'); // still untouched
+    } finally {
+      host.child.kill();
+    }
+  });
+});

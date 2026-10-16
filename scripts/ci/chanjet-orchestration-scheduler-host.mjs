@@ -40,10 +40,21 @@ process.env.CHANJET_ERP_INBOUND_SYNC_ENABLED = 'false';
 require(path.join(repoRoot, 'apps/api/node_modules/reflect-metadata'));
 const { ChanjetReadonlySyncScheduler } = await import(pathToFileURL(path.join(repoRoot, 'apps/api/dist/modules/chanjet/chanjet-readonly-sync.scheduler.js')).href);
 const { ChanjetAuthService } = await import(pathToFileURL(path.join(repoRoot, 'apps/api/dist/modules/chanjet/chanjet-auth.service.js')));
+const { CronMonitorService } = await import(pathToFileURL(path.join(repoRoot, 'apps/api/dist/modules/system-monitor/services/cron-monitor.service.js')).href);
 const { DataSource } = require(path.join(repoRoot, 'apps/api/node_modules/typeorm'));
 
 const dataSource = new DataSource({ type: 'postgres', url: pgUrl, logging: false });
 await dataSource.initialize();
+
+// the REAL monitor records: sys_cron_heartbeat (production shape) + the
+// real CronMonitorService — the scheduler's ok()/fail() reports land in the
+// database, not in a stub. The alerts side stays a stub (its own coverage is
+// separate); CRITICAL alert records are therefore NOT part of the evidence.
+await dataSource.query(`CREATE TABLE IF NOT EXISTS sys_cron_heartbeat (
+  job_name varchar(128) PRIMARY KEY, last_run_at timestamptz, last_status varchar(16),
+  last_detail text, last_success_at timestamptz, success_count integer DEFAULT 0,
+  last_failure_at timestamptz, fail_count integer DEFAULT 0, updated_at timestamptz DEFAULT now())`);
+const cronMonitor = new CronMonitorService(dataSource, { createAlert: async () => ({ success: true }) });
 
 const auth = new ChanjetAuthService(
   { get: (key, fallback) => process.env[key] ?? fallback },
@@ -74,7 +85,7 @@ const integration = {
   },
 };
 
-const scheduler = new ChanjetReadonlySyncScheduler(integration, { ok: async () => {}, fail: async () => {} }, dataSource, {});
+const scheduler = new ChanjetReadonlySyncScheduler(integration, cronMonitor, dataSource, {});
 
 const server = http.createServer(async (req, res) => {
   const url = req.url || '';
@@ -84,18 +95,28 @@ const server = http.createServer(async (req, res) => {
     return;
   }
   if (url.endsWith('/alignment/enqueue') && req.method === 'POST') {
-    let body = {};
-    for await (const chunk of req) { try { body = JSON.parse(chunk); } catch { /* ignore */ } }
-    const result = await scheduler.enqueueManualSync('user:ROOT_OPERATOR', {
-      scope: body.scope, bookId: body.bookId, period: body.period, maxAttempts: body.maxAttempts,
-      execution: body.execution,
-    }, { authPrincipal: 'ROOT_OPERATOR' });
-    res.end(JSON.stringify({ success: true, ...result }));
+    try {
+      let body = {};
+      for await (const chunk of req) { try { body = JSON.parse(chunk); } catch { /* ignore */ } }
+      const result = await scheduler.enqueueManualSync('user:ROOT_OPERATOR', {
+        scope: body.scope, bookId: body.bookId, period: body.period, maxAttempts: body.maxAttempts,
+        execution: body.execution,
+      }, { authPrincipal: 'ROOT_OPERATOR' });
+      res.end(JSON.stringify({ success: true, ...result }));
+    } catch (error) {
+      res.statusCode = 500;
+      res.end(JSON.stringify({ success: false, error: String(error?.message || error).slice(0, 300) }));
+    }
     return;
   }
   if (url.endsWith('/alignment/status')) {
-    const run = await scheduler.getRunState();
-    res.end(JSON.stringify({ success: true, run }));
+    try {
+      const run = await scheduler.getRunState();
+      res.end(JSON.stringify({ success: true, run }));
+    } catch (error) {
+      res.statusCode = 500;
+      res.end(JSON.stringify({ success: false, error: String(error?.message || error).slice(0, 300) }));
+    }
     return;
   }
   res.statusCode = 404;

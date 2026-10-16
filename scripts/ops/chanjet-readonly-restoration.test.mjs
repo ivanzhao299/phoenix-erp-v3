@@ -186,9 +186,14 @@ test('real VERIFY CLI failed auth probe stops before env/floor/marker writes',t=
   const f=readonlyCliFixture(t,{failure:'http'});cliSafe(f);assert.equal(f.result.status,1);assert.equal(f.env,f.source);assert.equal(f.read('floor.json').chanjetPolicy,'HOLD');assert.equal(f.names.includes('policy-transition.json'),false);assert.equal(f.trace.filter(x=>x.kind==='composeApi').length,0);assert.equal(f.trace.filter(x=>x.kind==='localHttp').length,1);
 });
 test('real first-sync CLI enqueues exact scope once and writes VERIFIED proof after unchanged protected facts',t=>{
-  const f=readonlyCliFixture(t,{firstSync:true});cliSafe(f);assert.equal(f.result.status,0,f.result.stderr);assert.match(f.result.stdout,/FIRST_CONTROLLED_SYNC=PASS;RUN_ID=CHANJET-RO-FIXTURE;SCHEDULER=HOLD/);
+  const f=readonlyCliFixture(t,{firstSync:true});cliSafe(f);assert.equal(f.result.status,0,f.result.stderr);assert.match(f.result.stdout,/FIRST_CONTROLLED_SYNC=PASS;RUN_ID=CHANJET-RO-FIXTURE;ADMISSION=VERIFIED/);
+  const enqueue=f.trace.find(t2=>t2.kind==='localHttp'&&t2.path.endsWith('/alignment/enqueue'));
+  assert.equal(enqueue.authenticated,true);
+  assert.equal(enqueue.body.execution.executionId,'EXEC_FIXTURE_1');
+  assert.equal(enqueue.body.execution.leaseId,'SYNC_FIXTURE_1');
+  assert.ok(f.trace.some(t2=>t2.kind==='admissionBinding'&&t2.executionId==='EXEC_FIXTURE_1'));
   const proof=f.read(`first-sync-${f.runId}.json`);assert.equal(proof.phase,'VERIFIED');assert.equal(proof.orchestrationRunId,'CHANJET-RO-FIXTURE');assert.equal(proof.remoteWrite,false);assert.equal(proof.erpInbound,false);assert.deepEqual(proof.protectedBefore,proof.protectedAfter);
-  const http=f.trace.filter(x=>x.kind==='localHttp');assert.deepEqual(http.map(x=>x.path),['/api/chanjet/integration/alignment/enqueue','/api/chanjet/integration/alignment/status']);assert.deepEqual(http[0].body,{bookId:'BOOK-1',period:'202610',scope:['RECEIVABLE_STATISTICS'],maxAttempts:1});assert.ok(http.every(x=>x.authenticated));assert.deepEqual(f.trace.filter(x=>x.kind==='localHttpTimeoutMs').map(x=>x.ms),[20000,20000]);
+  const http=f.trace.filter(x=>x.kind==='localHttp');assert.deepEqual(http.map(x=>x.path),['/api/chanjet/integration/alignment/enqueue','/api/chanjet/integration/alignment/status']);assert.deepEqual(http[0].body,{bookId:'BOOK-1',period:'202610',scope:['RECEIVABLE_STATISTICS'],maxAttempts:1,execution:{executionId:'EXEC_FIXTURE_1',leaseId:'SYNC_FIXTURE_1'}});assert.ok(http.every(x=>x.authenticated));assert.deepEqual(f.trace.filter(x=>x.kind==='localHttpTimeoutMs').map(x=>x.ms),[20000,20000]);
   assert.equal(f.trace.filter(x=>x.kind==='composeApi').length,0);assert.equal(f.env,f.source);assert.equal(f.read('floor.json').chanjetPolicy,'READONLY_VERIFY');assert.equal(f.trace.filter(x=>x.kind==='dbReadOnly'&&x.fingerprint).length,2);
 });
 for(const failure of ['syncHold','inbound','fingerprint'])test(`real first-sync CLI ${failure} rejection retains PREPARED proof and VERIFY policy`,t=>{

@@ -58,7 +58,7 @@
 //     --floor-state <json-file> --pg-url <loopback-fixture-url> \
 //     --provider-base <http://127.0.0.1:port> \
 //     [--register --fd9-lock <path>] [--skip-registration] \
-//     [--phase all|probe|sync] \
+//     [--phase all|probe|sync|prepare-sync] \
 //     [--alignment-base <http://127.0.0.1[:port][/api]> \
 //      --alignment-token-env <ENV_VAR_NAME>]
 //
@@ -102,7 +102,7 @@ const root = path.resolve(process.cwd());
 // derived from approval.verification alone.
 if (getArg('--probe-path') || getArg('--sync-path') || getArg('--period')) fail(2, 'OVERRIDE_NOT_ALLOWED');
 if (!manifestFile || !/^[a-f0-9]{40}$/.test(expectedFloorSha) || !floorStateFile) fail(2, 'USAGE');
-if (!['all', 'probe', 'sync'].includes(phase)) fail(2, 'USAGE_PHASE');
+if (!['all', 'probe', 'sync', 'prepare-sync'].includes(phase)) fail(2, 'USAGE_PHASE');
 if (register && skipRegistration) fail(2, 'USAGE_REGISTRATION');
 if (!pgUrl) fail(2, 'PG_URL_REQUIRED');
 // Connection-target guard, evaluated BEFORE any connection: only loopback
@@ -120,9 +120,11 @@ try {
   const parsed = new URL(providerBase);
   if (parsed.protocol !== 'http:' || !['127.0.0.1', 'localhost', '::1'].includes(parsed.hostname)) fail(2, 'PROVIDER_BASE_LOOPBACK_HTTP_REQUIRED');
 } catch { fail(2, 'PROVIDER_BASE_UNPARSEABLE'); }
-if (phase !== 'probe') {
+if (phase === 'sync') {
   // VERIFIED depends on the real alignment first-sync flow: without its base
-  // (and the operator token) the sync phases cannot even start.
+  // (and the operator token) the sync phase cannot even start. prepare-sync
+  // deliberately stops at the SYNCING handover — the protected first-sync
+  // entry owns the enqueue.
   if (!alignmentBase) fail(2, 'ALIGNMENT_BASE_REQUIRED');
   try {
     const parsed = new URL(alignmentBase);
@@ -464,12 +466,12 @@ await (async () => {
       provenance: { fd9: register ? 'HELD_BY_ENTRY' : 'NOT_CHECKED', fixtureConsistency: 'PASS' },
     };
     try {
-      if (phase === 'all' || phase === 'probe') {
+      if (phase === 'all' || phase === 'probe' || phase === 'prepare-sync') {
         leases.probe = `PROBE_${randomUUID().slice(0, 8)}`;
         const probeContext = await runPhase('PROBING', leases.probe, derivedEndpoint);
         await store.finish(probeContext, 'PROBED');
       }
-      if (phase === 'all' || phase === 'sync') {
+      if (phase === 'all' || phase === 'sync' || phase === 'prepare-sync') {
         leases.sync = `SYNC_${randomUUID().slice(0, 8)}`;
         const syncContext = await runPhase('SYNCING', leases.sync, derivedEndpoint);
         // the provider exchange above is the REHEARSAL receipt only. The
@@ -477,8 +479,16 @@ await (async () => {
         // gate (inside its deadline-bounded terminal transaction) — the CLI
         // never finishes the execution itself; it only VERIFIES the outcome
         // through the strict first-sync proof below.
-        const orchestrationRunId = await runAlignmentFirstSync();
-        summary.firstSync = { orchestrationRunId, proof: 'FIRST_CONTROLLED_SYNC_PROOF' };
+        if (phase === 'all' || phase === 'sync') {
+          const orchestrationRunId = await runAlignmentFirstSync();
+          summary.firstSync = { orchestrationRunId, proof: 'FIRST_CONTROLLED_SYNC_PROOF' };
+        } else {
+          // prepare-sync handover: the execution stays SYNCING under its
+          // lease — the protected first-sync entry (chanjet-readonly-first-sync)
+          // owns the enqueue against the SAME execution, cumulative budget
+          // and DB-owned deadline.
+          summary.prepareSync = { handover: 'FIRST_SYNC_ENTRY', leaseId: leases.sync };
+        }
         void syncContext;
       }
     } catch (error) {
