@@ -46,9 +46,19 @@ export function activeExecutionScope(): ExecutionScopeState | undefined {
  *  statement_completion_unknown (40003) and lost responses (no SQLSTATE at
  *  all) can never prove a rollback — their verdict is genuinely UNKNOWN. */
 export function isCommitVerdictUnknown(error: unknown): boolean {
-  const code = (error as { code?: unknown } | null | undefined)?.code;
-  if (typeof code !== 'string' || !/^[0-9A-Z]{5}$/.test(code)) return true;
-  if (code === '40003' || code.startsWith('08')) return true;
+  // Unwrap TypeORM's wrapper FIRST and identify the error's SOURCE before
+  // any SQLSTATE reading: a five-character code alone proves nothing —
+  // client/network failures carry errno-style codes (EPIPE is five letters)
+  // that would otherwise be mistaken for a PostgreSQL ErrorResponse. Only a
+  // CONFIRMED server error (the ErrorResponse severity field together with a
+  // SQLSTATE-shaped code on the raw driver error) may be classified by its
+  // SQLSTATE; client, network and unknown-origin errors can never prove a
+  // rollback and stay UNKNOWN.
+  const raw = (error as { driverError?: unknown } | null | undefined)?.driverError ?? error;
+  const source = raw as { severity?: unknown; code?: unknown } | null | undefined;
+  if (typeof source?.severity !== 'string') return true;
+  if (typeof source?.code !== 'string' || !/^[0-9A-Z]{5}$/.test(source.code)) return true;
+  if (source.code === '40003' || source.code.startsWith('08')) return true;
   return false;
 }
 

@@ -7,14 +7,14 @@
 // HOLD, the same methods write ZERO rows (the same-transaction liveness gate
 // refuses and the batch rolls back). The ERP-side writes are limited to the
 // integration middle-layer tables by design.
-import { DataSource } from 'typeorm';
+import { DataSource, QueryFailedError } from 'typeorm';
 import { randomUUID } from 'node:crypto';
 import { createServer, Server } from 'node:http';
 import { ChanjetAuthService } from './chanjet-auth.service';
 import { ChanjetIntegrationService } from './chanjet-integration.service';
 import { ChanjetExecutionAdmissionStore } from './chanjet-execution-admission.store';
 import { ChanjetExecutionHttpGateway } from './chanjet-execution-transport';
-import { executionWriteGateTx, withExecutionScope } from './chanjet-execution-scope';
+import { executionWriteGateTx, isCommitVerdictUnknown, withExecutionScope } from './chanjet-execution-scope';
 import { withReadonlyOrchestration } from './chanjet-readonly-execution';
 import { startPgSuspendProxy } from './chanjet-pg-suspend-proxy';
 import { installReadonlyApprovalFixture, readonlyApprovalFixture } from './chanjet-readonly-policy.test-fixture';
@@ -44,6 +44,38 @@ if (process.env.CHANJET_EXECUTION_WORKER_REQUIRED === 'true' && !fixtureUrl) {
 const BOOK = readonlyApprovalFixture.verification.bookId;
 const PERIOD = readonlyApprovalFixture.verification.period;
 const OWNER = 'ROOT_OPERATOR';
+
+// COMMIT verdict SOURCE identification (pure classification — these are
+// driver-level fault objects, NOT wire evidence of any server outcome):
+// client/network failures (EPIPE/ECONNRESET, errno-style five-letter codes)
+// must stay UNKNOWN even though their code is five characters; only a
+// confirmed PostgreSQL ErrorResponse (severity + SQLSTATE on the raw driver
+// error) may be classified by SQLSTATE semantics.
+describe('COMMIT verdict source identification', () => {
+  const epipe = Object.assign(new Error('write EPIPE'), { code: 'EPIPE', errno: -32, syscall: 'write' });
+  const econnreset = Object.assign(new Error('read ECONNRESET'), { code: 'ECONNRESET', errno: -104, syscall: 'read' });
+  const serverError = (code: string): Record<string, unknown> => ({ severity: 'ERROR', code, routine: 'exec_simple_query', message: `server said ${code}` });
+
+  it('a raw EPIPE (five-letter errno code) stays UNKNOWN', () => {
+    expect(isCommitVerdictUnknown(epipe)).toBe(true);
+  });
+  it('a TypeORM QueryFailedError wrapping EPIPE stays UNKNOWN', () => {
+    expect(isCommitVerdictUnknown(new QueryFailedError('COMMIT', [], epipe))).toBe(true);
+  });
+  it('ECONNRESET stays UNKNOWN', () => {
+    expect(isCommitVerdictUnknown(econnreset)).toBe(true);
+  });
+  it('a SQLSTATE-shaped code WITHOUT the ErrorResponse severity stays UNKNOWN', () => {
+    expect(isCommitVerdictUnknown({ code: '23505' })).toBe(true);
+  });
+  it('a confirmed server 23505 is an explicit rejection (fail-closed, not UNKNOWN)', () => {
+    expect(isCommitVerdictUnknown(serverError('23505'))).toBe(false);
+  });
+  it('confirmed server 40003 and connection-class 08007 stay UNKNOWN', () => {
+    expect(isCommitVerdictUnknown(serverError('40003'))).toBe(true);
+    expect(isCommitVerdictUnknown(serverError('08007'))).toBe(true);
+  });
+});
 
 mirror('mirror-write liveness inside the gated write transaction (real integration methods, real repositories)', () => {
   let ds: DataSource;
@@ -713,6 +745,36 @@ mirror('mirror-write liveness inside the gated write transaction (real integrati
       expect(gone.length).toBe(0);
     }
   }, 60_000);
+
+  it('COMMIT wire fault (real connection break, no verdict content): outcome is UNKNOWN and zero rows land', async () => {
+    process.env.CHANJET_READONLY_SYNC_ENABLED = 'true';
+    process.env.CHANJET_SYNC_POLICY = 'READONLY_VERIFY';
+    await liveSyncingExecution(4_000);
+    const before = await mirrorCounts();
+    // a REAL wire fault: the COMMIT frame is withheld and the session's
+    // sockets are destroyed — the pending commit fails with a genuine
+    // client/network error carrying NO server verdict at all
+    proxy!.armCommitConnectionBreak();
+    const state = {
+      manifest: current.manifest, store,
+      gateway: new ChanjetExecutionHttpGateway(store, current.manifest),
+      transport: { resend: async () => { throw new Error('FORBIDDEN'); } },
+      deadlineAt: current.deadlineAt, current,
+    };
+    const started = Date.now();
+    const outcome = await withExecutionScope(state, () => withReadonlyOrchestration('SYNTHETIC_MIRROR_RUN', () => proxyIntegration.syncReadOnlyMirror(['RECEIVABLE_STATISTICS'], BOOK, PERIOD)));
+    expect(outcome.results[0]).toMatchObject({ key: 'RECEIVABLE_STATISTICS', bookId: BOOK, status: 'FAIL', error: 'CHANJET_EXECUTION_TERMINAL_UNKNOWN' });
+    expect(Date.now() - started).toBeLessThan(10_000);
+    proxy!.armCommitConnectionBreak();
+    expect(proxy!.brokenCommitPids().length).toBeGreaterThan(0);
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    const after = await mirrorCounts();
+    expect(after).toEqual(before); // the frame never reached the server: zero rows
+    const pid = proxy!.brokenCommitPids().pop();
+    expect(pid).toBeTruthy();
+    const gone = await ds.query('SELECT 1 FROM pg_stat_activity WHERE pid=$1', [pid]);
+    expect(gone.length).toBe(0); // the broken session was discarded and its backend terminated
+  }, 30_000);
 
   it('reconciliation real lock wait past the budget: zero commits and a FAIL job', async () => {
     process.env.CHANJET_READONLY_SYNC_ENABLED = 'true';

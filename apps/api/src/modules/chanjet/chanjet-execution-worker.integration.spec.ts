@@ -940,6 +940,54 @@ worker('execution-bound scheduler worker (real PostgreSQL18, real auth, local pr
     }
   }, 30_000);
 
+  it('terminal gate: a real COMMIT wire fault (connection break, no verdict content) is UNKNOWN, never COMMIT_FAILED', async () => {
+    const { manifest, syncLease, deadlineAt: rowDeadlineAt } = await registeredInSyncing({ cap: 10, verifyMode: true });
+    const fixturePg = new URL(fixtureUrl!);
+    const proxy = await startPgSuspendProxy(fixturePg.hostname, Number(fixturePg.port) || 5432);
+    let gateDs: DataSource | undefined;
+    try {
+      ({ subject: schedulerSubject, gateDs } = await gateSubjectFor(proxy));
+      const runner = gateDs!.createQueryRunner();
+      const lease = await ChanjetReadonlyLockLease.acquire(runner, 'chanjet-full-readonly-sync');
+      const runId = `RUN_${randomUUID().replace(/-/g, '').slice(0, 12)}`;
+      await ds.query(`INSERT INTO chanjet_sync_jobs (job_type, status, request_scope) VALUES ('SNAPSHOT', 'RUNNING', jsonb_build_object('orchestrationRunId', $1::text))`, [runId]);
+      const gateContext = { manifest, leaseId: syncLease, phase: 'SYNCING' as const, deadlineAt: rowDeadlineAt };
+      const reserved = await store.reserve(gateContext, 'BUSINESS');
+      await store.acknowledge(gateContext, reserved.ticket, 'OK');
+      const binding = {
+        executionId: manifest.executionId, leaseId: syncLease, phase: 'SYNCING' as const,
+        approvalId: POLICY_APPROVAL, floorSha: POLICY_FLOOR,
+        deadlineAt: new Date(Date.now() + 2_500).toISOString(),
+      };
+      // a REAL wire fault at the scheduler's COMMIT boundary: the frame is
+      // withheld and the session's sockets are destroyed — the pending
+      // commit fails with a genuine client/network error carrying NO server
+      // verdict. The outcome MUST be UNKNOWN, never a fail-closed
+      // COMMIT_FAILED (a network break cannot prove a rollback).
+      proxy.armCommitConnectionBreak();
+      const started = Date.now();
+      await expect((schedulerSubject as unknown as { persistTerminalState: (...a: unknown[]) => Promise<void> })
+        .persistTerminalState(lease, runId, 'SUCCESS', 'COMPLETED', 'COMPLETED', 'ok', {}, binding))
+        .rejects.toThrow('READONLY_HOLD_EXECUTION_TERMINAL_UNKNOWN');
+      expect(Date.now() - started).toBeLessThan(10_000);
+      proxy.armCommitConnectionBreak();
+      expect(proxy.brokenCommitPids().length).toBeGreaterThan(0);
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      // nothing landed and the lease backend is gone
+      const [jobRow] = await ds.query(`SELECT status FROM chanjet_sync_jobs WHERE request_scope->>'orchestrationRunId' = $1`, [runId]);
+      expect(jobRow?.status).toBe('RUNNING');
+      const [admission] = await ds.query('SELECT phase FROM chanjet_execution_admissions WHERE execution_id=$1', [manifest.executionId]);
+      expect(admission.phase).toBe('SYNCING');
+      const pid = proxy.brokenCommitPids().pop();
+      expect(pid).toBeTruthy();
+      const gone = await ds.query('SELECT 1 FROM pg_stat_activity WHERE pid=$1', [pid]);
+      expect(gone.length).toBe(0);
+    } finally {
+      if (gateDs?.isInitialized) await gateDs.destroy().catch(() => undefined);
+      await proxy.close();
+    }
+  }, 30_000);
+
   it('terminal gate: cancellation auth failure escalates to the socket destroy and the discard is still confirmed', async () => {
     const { manifest, syncLease, deadlineAt: rowDeadlineAt } = await registeredInSyncing({ cap: 10, verifyMode: true });
     const fixturePg = new URL(fixtureUrl!);

@@ -30,6 +30,15 @@ export type PgSuspendProxy = {
   armCommitVerdict(sqlstate: string): void;
   /** backend PID of the session each injected verdict belonged to */
   verdictInjectedPids(): number[];
+  /** arm a one-shot REAL WIRE FAULT: the next qualifying COMMIT is withheld
+   *  (never forwarded — nothing commits server-side) and the session's
+   *  sockets are destroyed, so the pending commit fails with a genuine
+   *  client/network error carrying NO server verdict at all. Unlike
+   *  armCommitVerdict (a synthetic server ErrorResponse), this injects no
+   *  verdict content whatsoever. */
+  armCommitConnectionBreak(): void;
+  /** backend PID of the session each connection break belonged to */
+  brokenCommitPids(): number[];
   /** immediately withhold (true) or release (false) backend→frontend frames
    *  on every session */
   withholdBackendResponses(active: boolean): void;
@@ -57,10 +66,12 @@ export function startPgSuspendProxy(targetHost: string, targetPort: number): Pro
   const pids: number[] = [];
   const heldPids: number[] = [];
   const verdictInjectedPids: number[] = [];
+  const brokenCommitPids: number[] = [];
   const responseWithheldPids: number[] = [];
   let armed = '';
   let responseWithholdArmed = '';
   let verdictArmed = '';
+  let connectionBreakArmed = false;
   let withholdingBackendGlobally = false;
   let withheldResponseFrames = 0;
   let closedSessions = 0;
@@ -146,6 +157,17 @@ export function startPgSuspendProxy(targetHost: string, targetPort: number): Pro
           })();
           // verdictArmed carries a SQLSTATE, not SQL: the latch is the next
           // qualifying COMMIT on a shared-tx session
+          const breakEligible = connectionBreakArmed && normalized === 'COMMIT' && sawSetLocal;
+          if (breakEligible) {
+            // REAL wire fault: no verdict content is injected — the frame is
+            // withheld and the session's sockets are destroyed, exactly like
+            // a mid-commit network failure
+            connectionBreakArmed = false;
+            if (sessionPid) brokenCommitPids.push(sessionPid);
+            buf = buf.subarray(1 + len);
+            teardown();
+            continue;
+          }
           const verdictEligible = verdictArmed !== '' && normalized === 'COMMIT' && sawSetLocal;
           if (verdictEligible) {
             // the COMMIT frame is WITHHELD (nothing commits server-side) and
@@ -227,6 +249,8 @@ export function startPgSuspendProxy(targetHost: string, targetPort: number): Pro
         armResponseWithhold: (match: string) => { responseWithholdArmed = match; },
         armCommitVerdict: (sqlstate: string) => { verdictArmed = sqlstate; },
         verdictInjectedPids: () => [...verdictInjectedPids],
+        armCommitConnectionBreak: () => { connectionBreakArmed = true; },
+        brokenCommitPids: () => [...brokenCommitPids],
         withholdBackendResponses: (active: boolean) => { withholdingBackendGlobally = active; },
         heldFrames: () => [...held],
         backendPids: () => [...pids],
