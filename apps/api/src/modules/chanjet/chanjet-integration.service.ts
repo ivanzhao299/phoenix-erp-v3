@@ -1,5 +1,5 @@
 import { requireReadonlyOrchestration, assertReadonlyOrchestrationOwnerIfPresent } from './chanjet-readonly-execution';
-import { activeExecutionScope, executionWriteGate, executionWriteGateTx, ExecutionScopeState, isPgServerRejection } from './chanjet-execution-scope';
+import { activeExecutionScope, executionWriteGate, executionWriteGateTx, ExecutionScopeState, isCommitVerdictUnknown } from './chanjet-execution-scope';
 import { resolveGuardClientConfig, GuardConnectionConfig } from './chanjet-execution-guard-executor';
 import { Client } from 'pg';
 import { approvedReadonlyPolicy, requireApprovedReadonlyRequest, readonlyFailureCode } from './chanjet-readonly-policy';
@@ -7253,12 +7253,19 @@ export class ChanjetIntegrationService {
       let connectLost = false;
       const connectPromise = queryRunner.connect().then(async () => {
         if (connectLost) {
-          // a LATE pool grant after the deadline race gave up: the runner is
-          // already torn down, so the granted pg client is released DIRECTLY
-          // (the runner's own release short-circuits when already released) —
-          // it must never sit checked out on a dead runner
-          const granted = (queryRunner as unknown as { databaseConnection?: { release?: () => unknown; connection?: { stream?: import('node:net').Socket } } }).databaseConnection;
-          try { granted?.release?.(); } catch { forceClose(granted ?? null); }
+          // a LATE pool grant after the deadline race gave up: complete the
+          // runner's FULL release lifecycle — TypeORM pushed the runner onto
+          // driver.connectedQueryRunners when the grant landed, and its own
+          // release hook clears that tracking AND hands the pg client back
+          // through the pool's own callback. The isReleased guard would skip
+          // the hook (the deadline path already released the runner), so the
+          // flag is cleared first; the DataSource itself recovers normally.
+          const runnerLifecycle = queryRunner as unknown as {
+            releasePostgresConnection?: (err?: unknown) => void;
+            isReleased?: boolean;
+          };
+          runnerLifecycle.isReleased = false;
+          runnerLifecycle.releasePostgresConnection?.();
           return null;
         }
         return (queryRunner as unknown as { databaseConnection?: { connection?: { stream?: import('node:net').Socket }; end?: () => Promise<void> } }).databaseConnection ?? null;
@@ -7289,16 +7296,27 @@ export class ChanjetIntegrationService {
       const abortViaIndependentChannel = async (): Promise<void> => {
         await discardSession();
         const cancelClient = new Client(cancellationConfig as never);
+        // controlled error handling: a failing cancellation connection emits
+        // 'error' OUTSIDE any pending query — unhandled, that event would
+        // escape and take the process down. It is captured, stops the
+        // remaining steps, and is reported verbatim.
+        let cancelError = '';
+        cancelClient.on('error', (...args: unknown[]) => {
+          const err = args[0] as Error | undefined;
+          if (!cancelError) cancelError = `${err?.name ?? 'Error'}:${err?.message ?? 'unknown'}`;
+        });
         let pgConfirmed = false;
         try {
           await withBound(cancelClient.connect(), 1_000, 'CHANJET_EXECUTION_CANCEL_CONNECT_TIMEOUT');
+          if (cancelError) throw new Error(cancelError);
           await withBound(cancelClient.query('SELECT pg_terminate_backend($1)', [selfPid]), 1_000, 'CHANJET_EXECUTION_CANCEL_TERMINATE_TIMEOUT');
           const confirmDeadline = Date.now() + 2_000;
-          while (Date.now() < confirmDeadline) {
+          while (Date.now() < confirmDeadline && !cancelError) {
             const rows = await withBound(
               cancelClient.query('SELECT 1 FROM pg_stat_activity WHERE pid=$1', [selfPid]),
               500, 'CHANJET_EXECUTION_CANCEL_CONFIRM_TIMEOUT',
             ) as { rows?: unknown[] };
+            if (cancelError) break;
             if (!rows.rows?.length) { pgConfirmed = true; break; }
             await new Promise((resolve) => setTimeout(resolve, 100));
           }
@@ -7309,11 +7327,16 @@ export class ChanjetIntegrationService {
           await withBound(cancelClient.end(), 500, 'CHANJET_EXECUTION_CANCEL_END_TIMEOUT')
             .catch(() => forceClose(cancelClient as unknown as { connection?: { stream?: import('node:net').Socket } }));
         }
-        if (!pgConfirmed) this.log.error(`READONLY_HOLD_${logTag}_CLEANUP_UNCONFIRMED`);
+        if (!pgConfirmed) this.log.error(`READONLY_HOLD_${logTag}_CLEANUP_UNCONFIRMED${cancelError ? `;cancelError=${cancelError}` : ''}`);
       };
-      // BEGIN raced against the same absolute deadline
+      // The transaction is owned by THIS mechanism through TypeORM's own
+      // transaction API: startTransaction keeps isTransactionActive
+      // consistent, so the repository saves inside `work` never open or
+      // commit a transaction of their own — a raw BEGIN would let the first
+      // save() commit the whole batch early, unguarded by the deadline race.
+      // START TRANSACTION is still raced against the same absolute deadline.
       const began = await Promise.race([
-        queryRunner.query('BEGIN').then(() => 'ok' as const),
+        queryRunner.startTransaction().then(() => 'ok' as const),
         new Promise<'timeout'>((resolve) => { beginTimer = setTimeout(() => resolve('timeout'), remainingMs()); }),
       ]).catch(() => 'error' as const);
       try {
@@ -7343,7 +7366,7 @@ export class ChanjetIntegrationService {
         }
         let commitTimer: ReturnType<typeof setTimeout> | undefined;
         const commitOutcome = await Promise.race([
-          queryRunner.query('COMMIT').then(() => 'committed' as const),
+          queryRunner.commitTransaction().then(() => 'committed' as const),
           new Promise<'timeout'>((resolve) => { commitTimer = setTimeout(() => resolve('timeout'), remaining); }),
         ]).catch((commitError: unknown) => ({ commitError } as { commitError: unknown }));
         if (commitTimer) clearTimeout(commitTimer);
@@ -7354,17 +7377,18 @@ export class ChanjetIntegrationService {
           throw new Error('CHANJET_EXECUTION_TERMINAL_UNKNOWN');
         }
         if (typeof commitOutcome === 'object') {
-          if (isPgServerRejection(commitOutcome.commitError)) {
-            // EXPLICIT server rejection: the transaction did NOT commit —
-            // fail-closed discard and a verbatim failure
+          if (isCommitVerdictUnknown(commitOutcome.commitError)) {
+            // connection-class or completion-unknown verdict (or a lost
+            // response): the commit may have landed server-side — genuinely
+            // UNKNOWN, never claimed committed or rolled back
+            commitUnknown = true;
             await abortViaIndependentChannel();
-            throw new Error('CHANJET_EXECUTION_TX_COMMIT_FAILED');
+            throw new Error('CHANJET_EXECUTION_TERMINAL_UNKNOWN');
           }
-          // COMMIT response LOST / connection error: the verdict is genuinely
-          // unknown — the commit may have landed server-side
-          commitUnknown = true;
+          // EXPLICIT server rejection with a proven rollback: fail-closed
+          // discard and a verbatim failure
           await abortViaIndependentChannel();
-          throw new Error('CHANJET_EXECUTION_TERMINAL_UNKNOWN');
+          throw new Error('CHANJET_EXECUTION_TX_COMMIT_FAILED');
         }
         return written;
       } catch (error) {
@@ -7383,7 +7407,7 @@ export class ChanjetIntegrationService {
           let rollbackTimer: ReturnType<typeof setTimeout> | undefined;
           try {
             rolled = await Promise.race([
-              queryRunner.query('ROLLBACK').then(() => true as const),
+              queryRunner.rollbackTransaction().then(() => true as const),
               new Promise<false>((resolve) => { rollbackTimer = setTimeout(() => resolve(false), 1_000); }),
             ]).catch(() => false as const);
           } catch { rolled = false; }

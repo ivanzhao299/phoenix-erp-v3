@@ -331,7 +331,10 @@ mirror('mirror-write liveness inside the gated write transaction (real integrati
     const before = await mirrorCounts();
     // hold the REAL BEGIN protocol frame: the transaction genuinely never
     // reaches the server
-    proxy!.armHold('BEGIN');
+    // hold the REAL transaction-start frame: the transaction genuinely never
+    // reaches the server (the shared tx opens through TypeORM's
+    // startTransaction; the pid query on the same session is its marker)
+    proxy!.armHold('START TRANSACTION');
     const state = {
       manifest: current.manifest, store,
       gateway: new ChanjetExecutionHttpGateway(store, current.manifest),
@@ -345,7 +348,7 @@ mirror('mirror-write liveness inside the gated write transaction (real integrati
     expect(outcome.results[0]).toMatchObject({ key: 'RECEIVABLE_STATISTICS', bookId: BOOK, status: 'FAIL', error: 'CHANJET_EXECUTION_TERMINAL_UNKNOWN' });
     expect(Date.now() - started).toBeLessThan(10_000); // timely termination, not a hang
     proxy!.armHold(''); // disarm: the connection recovers
-    expect(proxy!.heldFrames().some((f) => f.trim().toUpperCase() === 'BEGIN')).toBe(true);
+    expect(proxy!.heldFrames().some((f) => f.trim().toUpperCase() === 'START TRANSACTION')).toBe(true);
     await new Promise((resolve) => setTimeout(resolve, 500));
     // no late commit after the connection recovers
     const after = await mirrorCounts();
@@ -466,13 +469,15 @@ mirror('mirror-write liveness inside the gated write transaction (real integrati
     expect(gone.length).toBe(0);
   }, 30_000);
 
-  it('exhausted pool: the late mirror session acquisition aborts and releases before any business SQL, and the pool recovers', async () => {
+  it('exhausted pool: the late acquisition aborts before any business SQL, the late grant completes the full release lifecycle and the SAME DataSource recovers and destroys normally', async () => {
     process.env.CHANJET_READONLY_SYNC_ENABLED = 'true';
     process.env.CHANJET_SYNC_POLICY = 'READONLY_VERIFY';
     await liveSyncingExecution(4_000);
     const before = await mirrorCounts();
-    // a DEDICATED single-slot pool whose ONLY client is pinned by a real
-    // in-flight query: the helper's acquisition genuinely waits on the pool
+    // a DEDICATED single-slot pool whose ONLY client is pinned by an
+    // in-flight query that completes GRACEFULLY: the helper's acquisition
+    // genuinely waits on the pool and the late grant can be observed end to
+    // end without killing any backend
     const poolDs = new DataSource({ type: 'postgres', url: proxyUrl, logging: false, poolSize: 1, entities: mirrorEntities });
     await poolDs.initialize();
     let businessSqlRan = false;
@@ -480,7 +485,7 @@ mirror('mirror-write liveness inside the gated write transaction (real integrati
     try {
       pin = poolDs.createQueryRunner();
       await pin.connect();
-      void pin.query('SELECT pg_sleep(30)').catch(() => undefined); // pins the only slot
+      void pin.query('SELECT pg_sleep(5)').catch(() => undefined); // pins the only slot
       await new Promise((resolve) => setTimeout(resolve, 200)); // let the sleep take the client
       const poolIntegration = new ChanjetIntegrationService(
         auth, poolDs,
@@ -508,35 +513,30 @@ mirror('mirror-write liveness inside the gated write transaction (real integrati
       expect(businessSqlRan).toBe(false); // the late acquisition never reached the business write
       const after = await mirrorCounts();
       expect(after).toEqual(before);
+      // the sleep completes GRACEFULLY at ~T0+5s: the LATE grant lands and
+      // the helper completes the runner's FULL release lifecycle — TypeORM's
+      // connectedQueryRunners tracking is cleaned (only the PIN's own runner
+      // remains tracked) and the client returns to the pool through the
+      // pool's own callback
+      await new Promise((resolve) => setTimeout(resolve, 1_800));
+      const tracking = (poolDs.driver as unknown as { connectedQueryRunners?: unknown[] }).connectedQueryRunners;
+      expect(tracking?.length ?? 0).toBe(1); // ONLY the pin's own runner remains tracked
     } finally {
-      // release the pinned slot: terminate the sleeper's backend, then tear down
-      await ds.query(
-        `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname=$1 AND query LIKE '%pg_sleep%' AND pid <> pg_backend_pid()`,
-        [dbName],
-      ).catch(() => undefined);
-      await new Promise((resolve) => setTimeout(resolve, 300));
-      // the terminated sleeper leaves a DEAD client: physically destroy its
-      // socket BEFORE handing it back — a graceful end() would hang forever
-      const pinClient = (pin as unknown as { client?: { release?: () => unknown; connection?: { stream?: import('node:net').Socket } } }).client;
-      try { pinClient?.connection?.stream?.destroy(new Error('POOL_PIN_DISCARDED')); } catch { /* gone */ }
-      try { pinClient?.release?.(); } catch { /* the pool discards a dead client */ }
-      // the terminated sleeper's client can never answer a graceful end()
-      // (the backend was killed server-side): stub every remaining pool
-      // client's end() to a hard socket destroy so the teardown cannot hang
-      // the terminated sleeper's client can never answer a graceful end()
-      // (the backend was killed server-side): the throwaway DataSource is
-      // hard-closed — its only socket is already dead and holds nothing
-      const pgPool = (poolDs.driver as unknown as { master?: { end?: () => Promise<void> } }).master;
-      try { pgPool?.end?.(); } catch { /* sockets are already dead */ }
-      (poolDs as unknown as { isInitialized?: boolean }).isInitialized = false;
+      await pin?.release().catch(() => undefined);
     }
-    await new Promise((resolve) => setTimeout(resolve, 200));
-    // the shared pool recovered: a later borrower connects and queries normally
-    const probe = proxyDs.createQueryRunner();
-    const [row] = await probe.query('SELECT 1 AS ok') as Array<{ ok: number }>;
+    // the SAME DataSource recovered: queries work and the destroy settles
+    // NORMALLY (no isInitialized mutation, no skipped close, no stubs)
+    const [row] = await poolDs.query('SELECT 1 AS ok') as Array<{ ok: number }>;
     expect(row?.ok).toBe(1);
-    await probe.release();
-  }, 30_000);
+    expect(poolDs.isInitialized).toBe(true);
+    // a queued late grant may land while the pin releases: its full release
+    // lifecycle (tracking splice included) settles within this window
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    const tracked = (poolDs.driver as unknown as { connectedQueryRunners?: unknown[] }).connectedQueryRunners ?? [];
+    expect(tracked.length).toBe(0); // TypeORM's tracking is fully cleaned
+    await poolDs.destroy();
+    expect(poolDs.isInitialized).toBe(false);
+  }, 45_000);
 
   it('COMMIT forwarded and durably landed with only the response lost: UNKNOWN, the committed rows are present', async () => {
     process.env.CHANJET_READONLY_SYNC_ENABLED = 'true';
@@ -583,6 +583,136 @@ mirror('mirror-write liveness inside the gated write transaction (real integrati
     const gone = await ds.query('SELECT 1 FROM pg_stat_activity WHERE pid=$1', [pid]);
     expect(gone.length).toBe(0);
   }, 30_000);
+
+  it('shared tx ownership: a save succeeding before an explicit throw leaves ZERO rows (no early commit)', async () => {
+    process.env.CHANJET_READONLY_SYNC_ENABLED = 'true';
+    process.env.CHANJET_SYNC_POLICY = 'READONLY_VERIFY';
+    await liveSyncingExecution(4_000);
+    const tag = randomUUID().replace(/-/g, '').slice(0, 8);
+    const boundTx = proxyIntegration as unknown as {
+      runExecutionBoundWriteTx: <T>(scope: unknown, logTag: string, work: (runner: unknown) => Promise<T>) => Promise<T>;
+    };
+    const state = {
+      manifest: current.manifest, store,
+      gateway: new ChanjetExecutionHttpGateway(store, current.manifest),
+      transport: { resend: async () => { throw new Error('FORBIDDEN'); } },
+      deadlineAt: current.deadlineAt, current,
+    };
+    // two repository saves share the shared tx's transaction: when the work
+    // throws AFTER both saves succeeded, the batch must roll back to ZERO
+    // rows. If save() managed its own transaction (isTransactionActive
+    // inconsistent), the first save would have committed early and survived.
+    await expect(boundTx.runExecutionBoundWriteTx(state, 'OWNERSHIP_SPEC', async (runner) => {
+      const runnerTyped = runner as import('typeorm').QueryRunner;
+      const repo = runnerTyped.manager.getRepository(ChanjetReconciliationResultEntity);
+      for (const n of [1, 2]) {
+        await repo.save(repo.create({
+          reconciliationType: 'MASTER_MAPPING', companyCode: '', bookId: BOOK, period: '',
+          status: 'WARN', severity: 'MEDIUM', subjectType: 'CUSTOMER',
+          subjectKey: `${tag}-${n}`, subjectName: '', erpValue: {}, chanjetValue: {},
+          diffSummary: 'ownership probe', actionRequired: 'none', resolved: false,
+          resolvedBy: null, resolvedAt: null,
+        } as never));
+      }
+      throw new Error('AFTER_SAVE');
+    })).rejects.toThrow('AFTER_SAVE');
+    const [after] = await ds.query('SELECT count(*)::int AS n FROM chanjet_reconciliation_results WHERE subject_key LIKE $1', [`${tag}-%`]);
+    expect(after.n).toBe(0); // the whole batch rolled back — no early commit
+  }, 30_000);
+
+  it('shared tx ownership: a LATER save failing rolls the earlier save back', async () => {
+    process.env.CHANJET_READONLY_SYNC_ENABLED = 'true';
+    process.env.CHANJET_SYNC_POLICY = 'READONLY_VERIFY';
+    await liveSyncingExecution(4_000);
+    const tag = randomUUID().replace(/-/g, '').slice(0, 8);
+    const boundTx = proxyIntegration as unknown as {
+      runExecutionBoundWriteTx: <T>(scope: unknown, logTag: string, work: (runner: unknown) => Promise<T>) => Promise<T>;
+    };
+    const state = {
+      manifest: current.manifest, store,
+      gateway: new ChanjetExecutionHttpGateway(store, current.manifest),
+      transport: { resend: async () => { throw new Error('FORBIDDEN'); } },
+      deadlineAt: current.deadlineAt, current,
+    };
+    // the second save violates a column limit: the earlier save in the SAME
+    // shared tx must roll back with it (one owner, one atomic batch)
+    await expect(boundTx.runExecutionBoundWriteTx(state, 'OWNERSHIP_SPEC', async (runner) => {
+      const runnerTyped = runner as import('typeorm').QueryRunner;
+      const repo = runnerTyped.manager.getRepository(ChanjetReconciliationResultEntity);
+      await repo.save(repo.create({
+        reconciliationType: 'MASTER_MAPPING', companyCode: '', bookId: BOOK, period: '',
+        status: 'WARN', severity: 'MEDIUM', subjectType: 'CUSTOMER',
+        subjectKey: `${tag}-ok`, subjectName: '', erpValue: {}, chanjetValue: {},
+        diffSummary: 'ownership probe', actionRequired: 'none', resolved: false,
+        resolvedBy: null, resolvedAt: null,
+      } as never));
+      await repo.save(repo.create({
+        reconciliationType: 'MASTER_MAPPING', companyCode: '', bookId: BOOK, period: '',
+        status: 'WARN', severity: 'MEDIUM', subjectType: 'CUSTOMER',
+        subjectKey: `${tag}-overflow`, subjectName: 'x'.repeat(400), erpValue: {}, chanjetValue: {},
+        diffSummary: 'ownership probe', actionRequired: 'none', resolved: false,
+        resolvedBy: null, resolvedAt: null,
+      } as never));
+      return {};
+    })).rejects.toThrow();
+    const [after] = await ds.query('SELECT count(*)::int AS n FROM chanjet_reconciliation_results WHERE subject_key LIKE $1', [`${tag}-%`]);
+    expect(after.n).toBe(0); // the earlier save rolled back with the failing one
+  }, 30_000);
+
+  it('COMMIT verdict classification: an explicit server rejection (23505) is fail-closed and lands ZERO rows', async () => {
+    process.env.CHANJET_READONLY_SYNC_ENABLED = 'true';
+    process.env.CHANJET_SYNC_POLICY = 'READONLY_VERIFY';
+    await liveSyncingExecution(4_000);
+    const before = await mirrorCounts();
+    // the COMMIT frame is withheld (nothing commits server-side) and the
+    // client receives a REAL wire-format ErrorResponse with SQLSTATE 23505 —
+    // a proven rollback: fail-closed, never UNKNOWN
+    proxy!.armCommitVerdict('23505');
+    const state = {
+      manifest: current.manifest, store,
+      gateway: new ChanjetExecutionHttpGateway(store, current.manifest),
+      transport: { resend: async () => { throw new Error('FORBIDDEN'); } },
+      deadlineAt: current.deadlineAt, current,
+    };
+    const started = Date.now();
+    const outcome = await withExecutionScope(state, () => withReadonlyOrchestration('SYNTHETIC_MIRROR_RUN', () => proxyIntegration.syncReadOnlyMirror(['RECEIVABLE_STATISTICS'], BOOK, PERIOD)));
+    expect(outcome.results[0]).toMatchObject({ key: 'RECEIVABLE_STATISTICS', bookId: BOOK, status: 'FAIL', error: 'CHANJET_EXECUTION_TX_COMMIT_FAILED' });
+    expect(Date.now() - started).toBeLessThan(10_000);
+    proxy!.armCommitVerdict('');
+    const after = await mirrorCounts();
+    expect(after).toEqual(before); // the frame never reached the server: zero rows
+    const pid = proxy!.verdictInjectedPids().pop();
+    expect(pid).toBeTruthy();
+    const gone = await ds.query('SELECT 1 FROM pg_stat_activity WHERE pid=$1', [pid]);
+    expect(gone.length).toBe(0); // the session was discarded
+  }, 30_000);
+
+  it('COMMIT verdict classification: connection-class 08007 and completion-unknown 40003 are UNKNOWN', async () => {
+    process.env.CHANJET_READONLY_SYNC_ENABLED = 'true';
+    process.env.CHANJET_SYNC_POLICY = 'READONLY_VERIFY';
+    for (const sqlstate of ['08007', '40003']) {
+      await liveSyncingExecution(4_000);
+      const before = await mirrorCounts();
+      proxy!.armCommitVerdict(sqlstate);
+      const state = {
+        manifest: current.manifest, store,
+        gateway: new ChanjetExecutionHttpGateway(store, current.manifest),
+        transport: { resend: async () => { throw new Error('FORBIDDEN'); } },
+        deadlineAt: current.deadlineAt, current,
+      };
+      const started = Date.now();
+      const outcome = await withExecutionScope(state, () => withReadonlyOrchestration('SYNTHETIC_MIRROR_RUN', () => proxyIntegration.syncReadOnlyMirror(['RECEIVABLE_STATISTICS'], BOOK, PERIOD)));
+      expect(outcome.results[0]).toMatchObject({ key: 'RECEIVABLE_STATISTICS', bookId: BOOK, status: 'FAIL', error: 'CHANJET_EXECUTION_TERMINAL_UNKNOWN' });
+      expect(Date.now() - started).toBeLessThan(10_000);
+      proxy!.armCommitVerdict('');
+      const after = await mirrorCounts();
+      expect(after).toEqual(before); // the frame never reached the server
+      const pid = proxy!.verdictInjectedPids().pop();
+      expect(pid).toBeTruthy();
+      const gone = await ds.query('SELECT 1 FROM pg_stat_activity WHERE pid=$1', [pid]);
+      expect(gone.length).toBe(0);
+    }
+  }, 60_000);
 
   it('reconciliation real lock wait past the budget: zero commits and a FAIL job', async () => {
     process.env.CHANJET_READONLY_SYNC_ENABLED = 'true';

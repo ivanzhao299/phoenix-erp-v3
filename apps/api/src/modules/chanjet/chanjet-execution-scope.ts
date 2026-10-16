@@ -40,12 +40,16 @@ export function activeExecutionScope(): ExecutionScopeState | undefined {
   return storage.getStore();
 }
 
-/** An explicit pg server rejection carries a 5-character SQLSTATE code; a
- *  lost COMMIT response or connection error does not — its verdict is
- *  genuinely unknown (the commit may have landed server-side). */
-export function isPgServerRejection(error: unknown): boolean {
+/** COMMIT verdict semantics by SQLSTATE. An explicit server rejection whose
+ *  class proves a rolled-back transaction is fail-closed; connection-class
+ *  results (SQLSTATE class 08, incl. 08007 transaction_resolution_unknown),
+ *  statement_completion_unknown (40003) and lost responses (no SQLSTATE at
+ *  all) can never prove a rollback — their verdict is genuinely UNKNOWN. */
+export function isCommitVerdictUnknown(error: unknown): boolean {
   const code = (error as { code?: unknown } | null | undefined)?.code;
-  return typeof code === 'string' && /^[0-9A-Z]{5}$/.test(code);
+  if (typeof code !== 'string' || !/^[0-9A-Z]{5}$/.test(code)) return true;
+  if (code === '40003' || code.startsWith('08')) return true;
+  return false;
 }
 
 export function requireExecutionScope(): ExecutionScopeState {

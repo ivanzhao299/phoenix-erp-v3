@@ -21,6 +21,15 @@ export type PgSuspendProxy = {
    *  exact / 'P' Parse substring) is FORWARDED, then backend responses are
    *  withheld until cleared with '' */
   armResponseWithhold(match: string): void;
+  /** arm a one-shot SYNTHETIC COMMIT verdict: the next qualifying COMMIT is
+   *  withheld (never forwarded — nothing commits server-side) and the client
+   *  instead receives a real wire-format ErrorResponse carrying `sqlstate`
+   *  followed by ReadyForQuery. Exercises the COMMIT verdict classification
+   *  end to end: explicit rejections (proven rollback) vs connection-class /
+   *  completion-unknown (08xxxx, 40003). */
+  armCommitVerdict(sqlstate: string): void;
+  /** backend PID of the session each injected verdict belonged to */
+  verdictInjectedPids(): number[];
   /** immediately withhold (true) or release (false) backend→frontend frames
    *  on every session */
   withholdBackendResponses(active: boolean): void;
@@ -47,9 +56,11 @@ export function startPgSuspendProxy(targetHost: string, targetPort: number): Pro
   const held: string[] = [];
   const pids: number[] = [];
   const heldPids: number[] = [];
+  const verdictInjectedPids: number[] = [];
   const responseWithheldPids: number[] = [];
   let armed = '';
   let responseWithholdArmed = '';
+  let verdictArmed = '';
   let withholdingBackendGlobally = false;
   let withheldResponseFrames = 0;
   let closedSessions = 0;
@@ -58,7 +69,13 @@ export function startPgSuspendProxy(targetHost: string, targetPort: number): Pro
     const backend: Socket = new Socket();
     liveBackends.add(backend);
     let sessionPid = 0;
-    let sawLiteralBegin = false;
+    // per-session discriminators: the shared execution tx is the only
+    // session that queries its backend PID before starting a transaction and
+    // the only one that sets SET LOCAL budgets — TypeORM's implicit save()
+    // transactions (START TRANSACTION ... COMMIT with neither) can never be
+    // captured by a BEGIN-class or COMMIT-class arm
+    let sawPidQuery = false;
+    let sawSetLocal = false;
     // per-session withholding: ONLY the session whose armed frame matched
     // loses its verdict — unrelated sessions keep flowing
     let sessionWithhold = false;
@@ -118,12 +135,39 @@ export function startPgSuspendProxy(targetHost: string, targetPort: number): Pro
         if (type === 0x51 /* Q */) {
           const sql = bodyText(frame);
           const normalized = normalizeSql(sql);
-          // a literal BEGIN marks THIS session as the raw transaction under
-          // test — TypeORM's implicit save() transactions use START
-          // TRANSACTION, so a COMMIT hold can never capture one of those
-          if (normalized === 'BEGIN') sawLiteralBegin = true;
-          if (armed && normalizeSql(armed) === normalized
-            && (normalizeSql(armed) !== 'COMMIT' || sawLiteralBegin)) {
+          // the helper's session is marked by its backend-PID identity query
+          if (normalized.startsWith('SELECT PG_BACKEND_PID')) sawPidQuery = true;
+          if (normalized.startsWith('SET LOCAL')) sawSetLocal = true;
+          const holdEligible = (() => {
+            const target = normalizeSql(armed);
+            if (target === 'COMMIT') return sawSetLocal;
+            if (target === 'BEGIN' || target === 'START TRANSACTION') return sawPidQuery;
+            return true;
+          })();
+          // verdictArmed carries a SQLSTATE, not SQL: the latch is the next
+          // qualifying COMMIT on a shared-tx session
+          const verdictEligible = verdictArmed !== '' && normalized === 'COMMIT' && sawSetLocal;
+          if (verdictEligible) {
+            // the COMMIT frame is WITHHELD (nothing commits server-side) and
+            // the client receives a real wire-format ErrorResponse carrying
+            // the armed SQLSTATE, followed by ReadyForQuery(idle)
+            const sqlstate = verdictArmed.toUpperCase();
+            verdictArmed = '';
+            if (sessionPid) verdictInjectedPids.push(sessionPid);
+            const fields = Buffer.concat([
+              Buffer.from('SERROR\0VERROR\0', 'utf8'),
+              Buffer.from(`C${sqlstate}\0`, 'utf8'),
+              Buffer.from(`Msynthetic commit verdict ${sqlstate}\0`, 'utf8'),
+              Buffer.from([0]),
+            ]);
+            const errorResponse = Buffer.concat([Buffer.from([0x45]), Buffer.alloc(4), fields]);
+            errorResponse.writeInt32BE(fields.length + 4, 1);
+            const readyForQuery = Buffer.from([0x5a, 0x00, 0x00, 0x00, 0x05, 0x49, 0x00]);
+            buf = buf.subarray(1 + len);
+            if (!frontend.destroyed) { frontend.write(errorResponse); frontend.write(readyForQuery); }
+            continue;
+          }
+          if (armed && normalizeSql(armed) === normalized && holdEligible) {
             held.push(sql);
             if (sessionPid) heldPids.push(sessionPid);
             armed = ''; // one-shot: the frame is withheld, never forwarded
@@ -139,7 +183,7 @@ export function startPgSuspendProxy(targetHost: string, targetPort: number): Pro
 
           const matched = text !== ''
             && (type === 0x50 ? normalizeSql(text).includes(match) : normalizeSql(text) === match
-              && (match !== 'COMMIT' || sawLiteralBegin));
+              && (match !== 'COMMIT' || sawSetLocal));
           if (matched) {
             // the request REACHES the server; only the verdict is lost
             responseWithholdArmed = '';
@@ -181,6 +225,8 @@ export function startPgSuspendProxy(targetHost: string, targetPort: number): Pro
         port: address.port,
         armHold: (sql: string) => { armed = sql; },
         armResponseWithhold: (match: string) => { responseWithholdArmed = match; },
+        armCommitVerdict: (sqlstate: string) => { verdictArmed = sqlstate; },
+        verdictInjectedPids: () => [...verdictInjectedPids],
         withholdBackendResponses: (active: boolean) => { withholdingBackendGlobally = active; },
         heldFrames: () => [...held],
         backendPids: () => [...pids],

@@ -15,7 +15,7 @@ import { ChanjetExecutionAdmissionStore, ExecutionContext } from './chanjet-exec
 import { createBoundedGuardExecutor, resolveGuardClientConfig, GuardConnectionConfig } from './chanjet-execution-guard-executor';
 import { validateExecutionManifest } from './chanjet-execution-manifest';
 import { ChanjetExecutionHttpGateway } from './chanjet-execution-transport';
-import { isPgServerRejection, withExecutionScope } from './chanjet-execution-scope';
+import { isCommitVerdictUnknown, withExecutionScope } from './chanjet-execution-scope';
 
 const JOB_NAME = 'chanjet-full-readonly-sync';
 
@@ -481,16 +481,27 @@ export class ChanjetReadonlySyncScheduler implements OnApplicationBootstrap, OnM
     const abort = async (): Promise<void> => {
       await lease.discard();
       const cancelClient = new Client(cancellationConfig as never);
+      // controlled error handling: a failing cancellation connection emits
+      // 'error' OUTSIDE any pending query — unhandled, that event would
+      // escape and take the process down. It is captured, stops the
+      // remaining steps, and is reported verbatim.
+      let cancelError = '';
+      cancelClient.on('error', (...args: unknown[]) => {
+        const err = args[0] as Error | undefined;
+        if (!cancelError) cancelError = `${err?.name ?? 'Error'}:${err?.message ?? 'unknown'}`;
+      });
       let pgConfirmed = false;
       try {
         await withBound(cancelClient.connect(), 1_000, 'CHANJET_CANCEL_CONNECT_TIMEOUT');
+        if (cancelError) throw new Error(cancelError);
         await withBound(cancelClient.query('SELECT pg_terminate_backend($1)', [lease.backendPid]), 1_000, 'CHANJET_CANCEL_TERMINATE_TIMEOUT');
         const confirmDeadline = Date.now() + 2_000;
-        while (Date.now() < confirmDeadline) {
+        while (Date.now() < confirmDeadline && !cancelError) {
           const rows = await withBound(
             cancelClient.query('SELECT 1 FROM pg_stat_activity WHERE pid=$1', [lease.backendPid]),
             500, 'CHANJET_CANCEL_CONFIRM_TIMEOUT',
           ) as { rows?: unknown[] };
+          if (cancelError) break;
           if (!rows.rows?.length) { pgConfirmed = true; break; }
           await new Promise((resolve) => setTimeout(resolve, 100));
         }
@@ -501,7 +512,7 @@ export class ChanjetReadonlySyncScheduler implements OnApplicationBootstrap, OnM
         await withBound(cancelClient.end(), 500, 'CHANJET_CANCEL_END_TIMEOUT')
           .catch(() => { try { (cancelClient as unknown as { connection?: { stream?: import('node:net').Socket } }).connection?.stream?.destroy(new Error('CHANJET_CANCEL_FORCE_CLOSED')); } catch { /* gone */ } });
       }
-      if (!pgConfirmed) this.log.error('READONLY_HOLD_EXECUTION_TERMINAL_CLEANUP_UNCONFIRMED');
+      if (!pgConfirmed) this.log.error(`READONLY_HOLD_EXECUTION_TERMINAL_CLEANUP_UNCONFIRMED${cancelError ? `;cancelError=${cancelError}` : ''}`);
     };
     // EVERY statement — BEGIN, the SET LOCAL budgets, the liveness SELECT FOR
     // UPDATE, the VERIFIED update, the terminal UPDATE, ROLLBACK and COMMIT —
@@ -600,17 +611,18 @@ export class ChanjetReadonlySyncScheduler implements OnApplicationBootstrap, OnM
         throw Object.assign(new Error('READONLY_HOLD_EXECUTION_TERMINAL_UNKNOWN'), { terminalUnknown: true });
       }
       if (typeof commitOutcome === 'object') {
-        if (isPgServerRejection(commitOutcome.commitError)) {
-          // EXPLICIT server rejection (SQLSTATE present): the transaction
-          // did NOT commit — fail-closed discard and a verbatim failure
+        if (isCommitVerdictUnknown(commitOutcome.commitError)) {
+          // connection-class or completion-unknown verdict (or a lost
+          // response): the commit may have landed server-side — genuinely
+          // UNKNOWN, never claimed committed or rolled back
           await abort();
-          throw Object.assign(new Error('READONLY_HOLD_EXECUTION_TERMINAL_COMMIT_FAILED'), { commitFailed: true });
+          commitUnknown = true;
+          throw Object.assign(new Error('READONLY_HOLD_EXECUTION_TERMINAL_UNKNOWN'), { terminalUnknown: true });
         }
-        // COMMIT response LOST / connection error: the verdict is genuinely
-        // unknown — the commit may have landed server-side
+        // EXPLICIT server rejection with a proven rollback: fail-closed
+        // discard and a verbatim failure
         await abort();
-        commitUnknown = true;
-        throw Object.assign(new Error('READONLY_HOLD_EXECUTION_TERMINAL_UNKNOWN'), { terminalUnknown: true });
+        throw Object.assign(new Error('READONLY_HOLD_EXECUTION_TERMINAL_COMMIT_FAILED'), { commitFailed: true });
       }
     } catch (error) {
       if (commitUnknown) {
