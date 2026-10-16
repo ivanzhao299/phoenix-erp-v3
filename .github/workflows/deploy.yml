@@ -55,10 +55,6 @@ on:
         description: "R4.2d 单独获批的执行 manifest JSON(base64)；与 approved_config_floor_sha 成对交付，仅 VERIFY floor 首次同步使用"
         type: string
         default: ''
-      chanjet_sync_operator_token:
-        description: "R4.2d 受控首次同步的操作员令牌(既有受保护 API 契约凭证)"
-        type: string
-        default: ''
       rotate_chanjet_credentials:
         description: "显式批准五个受管理 Chanjet 凭据轮换；普通部署保持 .env 不写入"
         type: boolean
@@ -752,7 +748,7 @@ jobs:
           APPROVED_CONFIG_FLOOR_SHA: ${{ inputs.approved_config_floor_sha }}
           APPROVED_PREVIOUS_FLOOR_SHA: ${{ inputs.approved_previous_floor_sha }}
           APPROVED_EXECUTION_MANIFEST_B64: ${{ inputs.approved_execution_manifest_b64 }}
-          CHANJET_SYNC_OPERATOR_TOKEN: ${{ inputs.chanjet_sync_operator_token }}
+          CHANJET_SYNC_OPERATOR_TOKEN: ${{ secrets.CHANJET_SYNC_OPERATOR_TOKEN }}
           GHCR_LOGIN_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GHCR_LOGIN_USER: ${{ github.repository_owner }}
           CHANJET_APP_KEY: ${{ secrets.CHANJET_APP_KEY }}
