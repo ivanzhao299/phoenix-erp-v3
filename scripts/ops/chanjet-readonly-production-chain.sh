@@ -35,14 +35,13 @@ done
 mkdir -p "$R42D_STAGE/readonly-audits"
 git show "$EXPECTED_FLOOR_SHA:scripts/ops/readonly-audits/chanjet-restoration-preflight.sql" > "$R42D_STAGE/readonly-audits/chanjet-restoration-preflight.sql"
 
-# 编译执行模块与运行依赖：从【已部署的 API 镜像】交付（精确运行版本）
+# 编译执行模块与运行依赖：从【已部署的 API 容器】交付（精确运行版本，
+# docker cp 从容器直接复制；无需镜像提取，无新增挂载）
 EXEC_DIST="$STATE_DIR/run-${DEPLOY_RUN_ID}/execution-dist"
 test ! -e "$EXEC_DIST"
 mkdir -m 700 -p "$EXEC_DIST"
-docker create --name "r42d-extract-${DEPLOY_RUN_ID}" "$API_IMAGE" >/dev/null
-docker cp "r42d-extract-${DEPLOY_RUN_ID}:/app/dist" "$EXEC_DIST/dist"
-docker cp "r42d-extract-${DEPLOY_RUN_ID}:/app/node_modules" "$EXEC_DIST/node_modules"
-docker rm "r42d-extract-${DEPLOY_RUN_ID}" >/dev/null
+docker cp "phoenix-v3-api:/app/dist" "$EXEC_DIST/dist"
+docker cp "phoenix-v3-api:/app/node_modules" "$EXEC_DIST/node_modules"
 
 # 停止通道：既有 DB 容器配置
 CHANJET_EXECUTION_PG_URL="$(docker exec phoenix-v3-db sh -c 'printf "postgresql://%s:%s@127.0.0.1:5432/%s" "$POSTGRES_USER" "$POSTGRES_PASSWORD" "$POSTGRES_DB"')"
