@@ -69,6 +69,7 @@ jobs:
           node scripts/ops/chanjet-readonly-production-audit.mjs --target "$APPROVED_FLOOR_SHA" || true
 
       - name: Controlled first-sync chain (prepare -> handover -> first sync)
+        uses: appleboy/ssh-action@v1
         env:
           APPROVED_FLOOR_SHA: ${{ inputs.approved_config_floor_sha }}
           TARGET_SHA: ${{ inputs.target_sha || inputs.approved_config_floor_sha }}
