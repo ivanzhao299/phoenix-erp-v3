@@ -854,7 +854,7 @@ database('first-sync protected-entry acceptance (real entry, real scheduler host
     fs.writeFileSync(path.join(chainShimBin, 'node'), `#!/bin/sh\nexec '${process.execPath}' '${dispatchModule}' "$@"\n`, { mode: 0o755 });
   }
 
-  async function runProductionChain({ manifest, deployRunId, firstSyncRunId, hostBase, syncPolicy = 'READONLY_VERIFY', readonlySyncEnabled = 'true', fd9File = lockFile, lockFileArg = lockFile, digestOverride = null, runningJob = false, checkoutSha = null, readinessStatus = 200, deployState = 'success', failCpFromContainer = false, entryCrashExitCode = 0 } = {}) {
+  async function runProductionChain({ manifest, deployRunId, firstSyncRunId, hostBase, syncPolicy = 'READONLY_VERIFY', readonlySyncEnabled = 'true', fd9File = lockFile, lockFileArg = lockFile, digestOverride = null, runningJob = false, checkoutSha = null, readinessStatus = 200, deployState = 'success', failCpFromContainer = false, entryCrashExitCode = 0, clearAppTicket = false } = {}) {
     const manifestFile = writeJson('chain-manifest', manifest);
     const apiImageId = `sha256:${'a'.repeat(64)}`;
     const webImageId = `sha256:${'b'.repeat(64)}`;
@@ -883,6 +883,9 @@ database('first-sync protected-entry acceptance (real entry, real scheduler host
       operationalTuple: { CHANJET_READONLY_SYNC_ENABLED: readonlySyncEnabled, CHANJET_ERP_INBOUND_SYNC_ENABLED: 'false', PHOENIX_DATA_MOUNT_GUARD: 'true', PHOENIX_PG_DATA_DIR: '/data/pg', PHOENIX_UPLOADS_DIR: '/data/uploads' },
     }));
     if (runningJob) await dataSource.query(`INSERT INTO chanjet_sync_jobs (job_type, status) VALUES ('FULL_READONLY', 'RUNNING')`);
+    // fault injection: the container's persistent auth state is missing —
+    // prepare registers first and then fails on AUTH_STATE (a REGISTERED row)
+    if (clearAppTicket) await dataSource.query(`UPDATE sys_chanjet_state SET app_ticket = NULL WHERE key = 'singleton'`);
     const cfgFile = path.join(workDir, `chain-cfg-${randomUUID().slice(0, 8)}.json`);
     const traceFile = `${cfgFile}-trace.jsonl`;
     fs.writeFileSync(cfgFile, JSON.stringify({
@@ -1133,6 +1136,82 @@ database('first-sync protected-entry acceptance (real entry, real scheduler host
     // the crashed entry never enqueued: no alignment job exists for it
     const jobs = await dataSource.query(`SELECT count(*)::int AS n FROM chanjet_sync_jobs WHERE request_scope->'execution'->>'executionId' = $1`, [manifest.executionId]);
     assert.equal(jobs[0].n, 0);
+  }, 120_000);
+
+  test('full chain: a prepare failure AFTER registration (missing auth state) lands the REGISTERED execution in a durable HOLD', async () => {
+    writeChainShims();
+    const manifest = syntheticManifest(10);
+    const hitsBefore = providerHits();
+    const { run } = await runProductionChain({
+      manifest, deployRunId: `${Date.now()}-2300`, firstSyncRunId: `${Date.now()}-2400`,
+      hostBase: 'http://127.0.0.1:9', clearAppTicket: true,
+    });
+    try {
+      assert.equal(run.status, 26, `${run.status}\n${run.stdout}\n${run.stderr}`);
+      assert.match(run.stdout, /PREPARE=HOLD/); // the real prepare refused on AUTH_STATE
+      assert.match(run.stdout, /FIRST_SYNC_DURABLE_STOP=CONFIRMED/); // the REGISTERED row was held
+      // no non-terminal residue: the registered execution is durably HELD
+      const [admission] = await dataSource.query('SELECT phase, hold_reason FROM chanjet_execution_admissions WHERE execution_id=$1', [manifest.executionId]);
+      assert.equal(admission.phase, 'HOLD');
+      assert.equal(admission.hold_reason, 'CANCELLED');
+      assert.equal(providerHits(), hitsBefore); // the probe never ran
+    } finally {
+      // restore the container auth state for the remaining tests
+      await dataSource.query(`UPDATE sys_chanjet_state SET app_ticket = 'SYNTHETIC_TICKET' WHERE key = 'singleton'`);
+    }
+  }, 120_000);
+
+  test('full chain: the finalizer NEVER stops a foreign execution — same executionId with a different owner leaves the live row untouched', async () => {
+    writeChainShims();
+    // someone else\'s live execution, already SYNCING
+    const live = await registerExecution({ cap: 10 });
+    const livePrepared = runPrepareSync(live);
+    assert.equal(livePrepared.verdict, 'PASS');
+    const [before] = await dataSource.query('SELECT phase, hold_reason, lease_id FROM chanjet_execution_admissions WHERE execution_id=$1', [live.manifest.executionId]);
+    assert.equal(before.phase, 'SYNCING');
+    // a chain run presenting the SAME executionId with a DIFFERENT owner:
+    // registration is refused by the guard, and the finalizer must verify
+    // the approved binding first — zero modification
+    const hijack = syntheticManifest(10);
+    hijack.executionId = live.manifest.executionId;
+    hijack.ownerId = 'OTHER_OPERATOR';
+    const hitsBefore = providerHits();
+    const { run } = await runProductionChain({
+      manifest: hijack, deployRunId: `${Date.now()}-2500`, firstSyncRunId: `${Date.now()}-2600`,
+      hostBase: 'http://127.0.0.1:9',
+    });
+    assert.equal(run.status, 26, `${run.status}\n${run.stdout}\n${run.stderr}`);
+    assert.match(run.stdout, /PREPARE=HOLD/); // registration refused
+    assert.match(run.stdout, /FIRST_SYNC_DURABLE_STOP=IDENTITY_MISMATCH/);
+    // the original owner\'s live execution is UNTOUCHED
+    const [after] = await dataSource.query('SELECT phase, hold_reason, lease_id FROM chanjet_execution_admissions WHERE execution_id=$1', [live.manifest.executionId]);
+    assert.equal(after.phase, 'SYNCING');
+    assert.equal(after.hold_reason, '');
+    assert.equal(after.lease_id, before.lease_id);
+    assert.equal(providerHits(), hitsBefore);
+  }, 120_000);
+
+  test('full chain: the finalizer NEVER stops on a canonical manifest mismatch (same id, same owner, different content)', async () => {
+    writeChainShims();
+    const live = await registerExecution({ cap: 10 });
+    const livePrepared = runPrepareSync(live);
+    assert.equal(livePrepared.verdict, 'PASS');
+    const [before] = await dataSource.query('SELECT phase, hold_reason, lease_id FROM chanjet_execution_admissions WHERE execution_id=$1', [live.manifest.executionId]);
+    // same executionId and owner, but a different requestCap: the canonical
+    // manifest (and therefore the digest) differs from the registered row
+    const hijack = syntheticManifest(9);
+    hijack.executionId = live.manifest.executionId;
+    hijack.ownerId = live.manifest.ownerId;
+    const { run } = await runProductionChain({
+      manifest: hijack, deployRunId: `${Date.now()}-2700`, firstSyncRunId: `${Date.now()}-2800`,
+      hostBase: 'http://127.0.0.1:9',
+    });
+    assert.equal(run.status, 26, `${run.status}\n${run.stdout}\n${run.stderr}`);
+    assert.match(run.stdout, /FIRST_SYNC_DURABLE_STOP=IDENTITY_MISMATCH/);
+    const [after] = await dataSource.query('SELECT phase, hold_reason, lease_id FROM chanjet_execution_admissions WHERE execution_id=$1', [live.manifest.executionId]);
+    assert.equal(after.phase, 'SYNCING');
+    assert.equal(after.hold_reason, '');
+    assert.equal(after.lease_id, before.lease_id);
   }, 120_000);
 
   test('full chain: a host checkout at the wrong SHA refuses BEFORE the audit and prepare with zero registration', async () => {

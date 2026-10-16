@@ -137,7 +137,11 @@ database('real PostgreSQL admission invariants (no provider wiring)',()=>{
     await expect(store.reserve(context,'RESEND')).rejects.toThrow();
   });
   it('DB-time expiry persists HOLD and rejects work despite an unchanged caller manifest',async()=>{
-    const context=await start(3,100);await ds.query('SELECT pg_sleep(0.15)');
+    // the registration->begin pair runs inside a GENEROUS budget so begin
+    // itself can never race the deadline (a slow runner once made begin
+    // land past expiry); the pg_sleep then deterministically crosses the
+    // DB-owned deadline before the reserve is refused as DEADLINE
+    const context=await start(3,2000);await ds.query('SELECT pg_sleep(2.1)');
     await expect(store.reserve(context,'BUSINESS')).rejects.toThrow();
     const row=await store.load(context.manifest);expect(row.phase).toBe('HOLD');expect(row.hold_reason).toBe('DEADLINE');expect(row.request_count).toBe(0);
   });

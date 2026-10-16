@@ -140,11 +140,15 @@ CHAIN_HOLD_ARMED=1
 docker exec "$API_CONTAINER" mkdir -p /tmp/r42d-state /tmp/r42d/scripts/ops
 docker cp "$R42D_MANIFEST_FILE" "$API_CONTAINER:/tmp/r42d/approval-manifest.json"
 docker cp scripts/ops/chanjet-readonly-production-prepare.mjs "$API_CONTAINER:/tmp/r42d/scripts/ops/chanjet-readonly-production-prepare.mjs"
-PREPARE_OUT="$(docker exec \
+if ! PREPARE_OUT="$(docker exec \
   -e R42D_MANIFEST="$(cat "$R42D_STAGE/approval-manifest.json" 2>/dev/null || cat "$R42D_MANIFEST_FILE")" \
   -e EXPECTED_FLOOR_SHA="$APPROVED_CONFIG_FLOOR_SHA" \
   -e R42D_STATE=/tmp/r42d-state \
-  "$API_CONTAINER" node /tmp/r42d/scripts/ops/chanjet-readonly-production-prepare.mjs)"
+  "$API_CONTAINER" node /tmp/r42d/scripts/ops/chanjet-readonly-production-prepare.mjs 2>&1)"; then
+  echo "$PREPARE_OUT"
+  echo "FIRST_SYNC_HOLD=PREPARE"
+  exit 26
+fi
 echo "$PREPARE_OUT"
 HANDOVER_JSON="$(printf '%s\n' "$PREPARE_OUT" | sed -n 's/^PREPARE=PASS;//p')"
 test -n "$HANDOVER_JSON" || { echo "FIRST_SYNC_HOLD=PREPARE"; exit 26; }

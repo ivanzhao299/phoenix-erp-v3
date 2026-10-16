@@ -26,7 +26,9 @@ export const stopChannelStatementBounds = (timeoutMs) => {
   const statementMs = Math.max(1, Math.min(timeoutMs - 250, 20_000));
   return { statementMs, lockMs: Math.max(1, Math.min(statementMs, 3_000)) };
 };
-const canonicalJson = (value) => {
+// canonical JSON — exported for consumers that must compare approved vs
+// stored bindings byte-for-byte (the chain's bounded HOLD finalizer)
+export const canonicalJson = (value) => {
   if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`;
   if (value && typeof value === 'object') {
     return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`).join(',')}}`;
