@@ -38,7 +38,7 @@ const registerCli = path.join(repoRoot, 'scripts/ops/chanjet-execution-admission
 const hostScript = path.join(repoRoot, 'scripts/ci/chanjet-orchestration-scheduler-host.mjs');
 const providerScript = path.join(repoRoot, 'scripts/ci/chanjet-orchestration-provider-fixture.mjs');
 const firstSyncModuleUrl = pathToFileURL(path.join(repoRoot, 'scripts/ops/chanjet-readonly-first-sync.mjs')).href;
-const { firstSyncCore, firstSyncDeps, businessFingerprints, makeDurableStop } = await import(firstSyncModuleUrl);
+const { firstSyncCore, firstSyncDeps, businessFingerprints, makeDurableStop, makeProductionStopExecutor, bindPositionalParameters } = await import(firstSyncModuleUrl);
 
 const database = fixtureUrl ? describe : describe.skip;
 
@@ -401,6 +401,12 @@ database('first-sync protected-entry acceptance (real entry, real scheduler host
         CHANJET_APP_KEY: 'SYNTHETIC_KEY', CHANJET_APP_SECRET: 'SYNTHETIC_SECRET',
         CHANJET_ORG_ID: 'SYNTHETIC_ORG', CHANJET_CERT: 'SYNTHETIC_CERT',
         CHANJET_PROVIDER_BASE_URL: provider.base,
+        // the API container's OWN runtime tuple + deployed approval (the
+        // prepare verifies both against the manifest)
+        CHANJET_SYNC_POLICY: 'READONLY_VERIFY',
+        CHANJET_READONLY_SYNC_ENABLED: 'false',
+        CHANJET_ERP_INBOUND_SYNC_ENABLED: 'false',
+        CHANJET_READONLY_APPROVAL: JSON.stringify(approvedPolicyFileValue(execution.manifest)),
         R42D_SKIP_REGISTRATION: '1',
       },
     });
@@ -507,6 +513,46 @@ database('first-sync protected-entry acceptance (real entry, real scheduler host
     } finally {
       await new Promise((resolve) => stub.close(resolve));
     }
+  });
+
+  test('production stop executor: safe complete parameter binding (out-of-order and repeated placeholders)', () => {
+    // the REAL holdExecution statement shape: canonical manifest carries
+    // $-like text inside? never — but placeholders appear in ANY order and
+    // repeats must bind identically
+    const sql = 'UPDATE t SET a=$2, b=$1 WHERE c=$3 AND d=$2 AND canonical=$4';
+    const bound = bindPositionalParameters(sql, ['P1', 'P2', 'P3', 'P4']);
+    // dollar-quoted literals, tag-agnostic: repeats bind the SAME value
+    assert.match(bound, /a=\$r42d_[0-9a-f]+\$P2\$r42d_[0-9a-f]+\$/);
+    assert.match(bound, /b=\$r42d_[0-9a-f]+\$P1\$r42d_[0-9a-f]+\$/);
+    assert.match(bound, /c=\$r42d_[0-9a-f]+\$P3\$r42d_[0-9a-f]+\$/);
+    assert.match(bound, /d=\$r42d_[0-9a-f]+\$P2\$r42d_[0-9a-f]+\$/);
+    assert.equal(bound.split('$r42d_').length - 1, 10); // 5 placeholders x (open+close tag)
+  });
+
+  test('production stop executor: REAL holdExecution lands HOLD via the docker-exec channel', async () => {
+    const execution = await registerExecution({ cap: 10 });
+    const prepared = runPrepareSync(execution);
+    assert.equal(prepared.verdict, 'PASS');
+    const executor = makeProductionStopExecutor({
+      dbContainer: process.env.CHANJET_STOP_DB_CONTAINER || 'phoenix-r42a-admission-fixture',
+      timeoutMs: 30_000,
+      // the docker-exec psql reads the DB name from the container env; the
+      // fixture container name is the CI default
+    });
+    const { ChanjetExecutionAdmissionStore } = await import(pathToFileURL(distStore).href);
+    require(path.join(apiDir, 'node_modules/reflect-metadata'));
+    const store = new ChanjetExecutionAdmissionStore(null);
+    store.setStandaloneExecutor(executor);
+    const outcome = await store.holdExecution({
+      manifest: execution.manifest,
+      leaseId: prepared.summary.leases.sync,
+      phase: 'SYNCING',
+      deadlineAt: execution.execution.deadlineAt,
+    }, 'CANCELLED');
+    assert.equal(outcome, 'CONFIRMED'); // the REAL holdExecution landed
+    const [admission] = await dataSource.query('SELECT phase, hold_reason FROM chanjet_execution_admissions WHERE execution_id=$1', [execution.executionId]);
+    assert.equal(admission.phase, 'HOLD'); // the actual HOLD row in the database
+    assert.equal(admission.hold_reason, 'CANCELLED');
   });
 
   test('stop channel initialization is bounded: an unreachable stop database reports UNCONFIRMED in bounded time', async () => {

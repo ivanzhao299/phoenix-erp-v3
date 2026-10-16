@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { createRequire } from 'node:module';
+import { execFileSync } from 'node:child_process';
 import { CONTRACT,guardProduction,requireCleanMain,verifyContext } from './production-config-guard.mjs';
 import { captureRuntime } from './capture-production-runtime.mjs';
 import { atomicState as productionAtomicState } from './production-deployment-state.mjs';
@@ -128,7 +129,9 @@ export async function firstSyncCore(overrides = {}) {
   // lease, a LIVE deadline, the reviewed approval/floor identity, and the
   // registered owner whose SERVER-DERIVED principal is the only acceptable
   // run owner (exact binding — a prefix is not enough)
-  const admission=(await readEvidence(admissionOwnerColumnSql(executionId)))||{};
+  // the binding read is bounded by the HANDOVER's declared deadline — the
+  // same DB-owned absolute deadline, never expanded by a fixed floor
+  const admission=(await readEvidence(admissionOwnerColumnSql(executionId),{remainingMs:new Date(handover.deadlineAt).getTime()-Date.now()}))||{};
   const expectedOwner=`user:${admission.owner_id}`;
   if(admission.phase!=='SYNCING'||admission.hold_reason!==''||admission.lease_id!==leaseId
     ||!admission.deadline_at||new Date(admission.deadline_at).getTime()<=Date.now()
@@ -154,10 +157,14 @@ export async function firstSyncCore(overrides = {}) {
   // durable stop through the EXISTING bounded guard mechanism; without a
   // stop channel the outcome is reported UNCONFIRMED — never silently
   // converted into a claimed stop
+  let stopAttempted=false;let lastStopOutcome='NOT_ATTEMPTED';
   const stopExecution=async(classification)=>{
-    if(typeof durableStop!=='function')return 'UNCONFIRMED';
-    try{return String(await durableStop(classification));}
-    catch{return 'UNCONFIRMED';}
+    if(stopAttempted)return lastStopOutcome; // 幂等：同一次运行只停止一次
+    stopAttempted=true;
+    if(typeof durableStop!=='function'){lastStopOutcome='UNCONFIRMED';return lastStopOutcome;}
+    try{lastStopOutcome=String(await durableStop(classification));}
+    catch{lastStopOutcome='UNCONFIRMED';}
+    return lastStopOutcome;
   };
   const sql=fs.readFileSync(path.join(root,'scripts/ops/readonly-audits/chanjet-restoration-preflight.sql'),'utf8');
   const before=await boundedRead(sql);mappingScope(before,approval);
@@ -231,11 +238,10 @@ export async function firstSyncCore(overrides = {}) {
       &&verifiedRow?.phase==='VERIFIED'&&verifiedRow?.hold_reason===''&&verifiedRow?.lease_id==='';
     if(!proofHolds){
       // a COMPLETED run without the strict proof: the execution is already
-      // settled (typically VERIFIED by the scheduler's own gate) — the guard
-      // answers NO_HOLD_NEEDED for it and the mismatch is never converted
-      // into success
-      const stopOutcome=await stopExecution('CANCELLED');
-      throw Object.assign(Error('FIRST_SYNC_HOLD=FIRST_SYNC_PROOF'),{stopOutcome,orchestrationRunId:orchestration});
+      // settled (typically VERIFIED by the scheduler's own gate) — the
+      // unified catch's single stop answers NO_HOLD_NEEDED for it and the
+      // mismatch is never converted into success
+      throw Object.assign(Error('FIRST_SYNC_HOLD=FIRST_SYNC_PROOF'),{orchestrationRunId:orchestration});
     }
     // post-checks: side-effect counters, business fingerprints, mapping and
     // floor state — every read raced against the same absolute deadline
@@ -249,16 +255,17 @@ export async function firstSyncCore(overrides = {}) {
     // FINAL deadline gate: after ALL post-checks and immediately before the
     // VERIFIED write — the deadline can never be crossed by the write
     if(remainingMs()<=1){
-      const stopOutcome=await stopExecution('DEADLINE');
-      throw Object.assign(Error('FIRST_SYNC_HOLD=FAILURE_OR_TIMEOUT'),{stopOutcome,classification:'DEADLINE'});
+      // the deadline arrived during verification: the unified catch stops
+      // once — the VERIFIED evidence is never written past the deadline
+      throw Object.assign(Error('FIRST_SYNC_HOLD=FAILURE_OR_TIMEOUT'),{classification:'DEADLINE'});
     }
     atomicState(file,{version:3,target,approvalId:approval.approvalId,orchestrationRunId:orchestration,scope:v,phase:'VERIFIED',before,after,protectedBefore,protectedAfter,remoteWrite:false,erpInbound:false,execution:{executionId,leaseId,deadlineAt:new Date(deadlineAt).toISOString()}});
     console.log(`FIRST_CONTROLLED_SYNC=PASS;RUN_ID=${orchestration};ADMISSION=VERIFIED`);
     return { orchestrationRunId: orchestration, phase: 'VERIFIED' };
   } catch (error) {
     // enqueue后的失败/漂移/超期/证明/指纹/最终核验失败：经既有有界守卫持久
-    // 停止执行，并准确报告 CONFIRMED / ALREADY_STOPPED / NO_HOLD_NEEDED /
-    // UNCONFIRMED（一次停止——catch 不重复入队停止）
+    // 停止执行一次（幂等——同一次运行绝不重复停止），并准确报告
+    // CONFIRMED / ALREADY_STOPPED / NO_HOLD_NEEDED / UNCONFIRMED
     const classification=remainingMs()<=1&&/FAILURE_OR_TIMEOUT|DEADLINE/.test(String(error?.message))?'DEADLINE':'CANCELLED';
     const stopOutcome=await stopExecution(classification);
     throw Object.assign(error,{stopOutcome,classification});
@@ -287,23 +294,40 @@ export function buildProductionWrapperEnv(root) {
 // phoenix-v3-db psql, READ WRITE) with a hard subprocess timeout. Parameters
 // are dollar-quoted literals from the store itself (execution ids, canonical
 // manifest, digest, reason) — no free-text SQL composition.
-export function makeProductionStopExecutor({ dbContainer = 'phoenix-v3-db', timeoutMs = 30_000 } = {}) {
-  const dollar = (value) => `$r42d$${String(value)}$r42d$`;
+// The production stop channel executor: the EXISTING DB container access
+// (docker exec phoenix-v3-db psql, READ WRITE). Safe and COMPLETE positional
+// parameter binding (any order, repeats, multi-line canonical manifest) via
+// bindPositionalParameters; the bound statement runs inside a CTE whose JSON
+// row aggregate is parsed back as the store's rows array.
+export function bindPositionalParameters(sql, parameters, { tag = `$r42d_${Math.floor(Math.random() * 0xffffffff).toString(16)}$` } = {}) {
+  return String(sql).replace(/\$(\d+)/g, (match, n) => {
+    const value = parameters[Number(n) - 1];
+    if (value === undefined) return match;
+    return `${tag}${String(value)}${tag}`;
+  });
+}
+export const stopChannelStatementBounds = (timeoutMs) => {
+  const statementMs = Math.min(Math.max(timeoutMs - 1_000, 1_000), 20_000);
+  return { statementMs, lockMs: Math.min(statementMs, 3_000) };
+};
+export const buildStopChannelInput = (boundSql, timeoutMs) => {
+  const { statementMs, lockMs } = stopChannelStatementBounds(timeoutMs);
+  return `BEGIN;\nSET LOCAL statement_timeout='${statementMs}ms';\nSET LOCAL lock_timeout='${lockMs}ms';\nWITH r42d_q AS (\n${boundSql}\n) SELECT COALESCE(json_agg(row_to_json(r42d_q)),'[]'::json)::text FROM r42d_q;\nCOMMIT;\n`;
+};
+export const parseStopChannelRows = (output) => {
+  const line = String(output).split('\n').find((l) => l.startsWith('[') || l === '[]');
+  return line ? JSON.parse(line) : [];
+};
+export function makeProductionStopExecutor({ dbContainer = 'phoenix-v3-db', timeoutMs = 30_000, runSubprocess = execFileSync } = {}) {
   return {
     dispose: async () => undefined,
     query: async (sql, parameters = []) => {
-      let index = 0;
-      const inlined = String(sql).replace(/\$(\d+)/g, (match, n) => {
-        const position = Number(n);
-        if (position !== index + 1) return match;
-        index += 1;
-        return dollar(parameters[position - 1]);
-      });
-      const output = require('node:child_process').execFileSync('docker',
-        ['exec', '-i', dbContainer, 'sh', '-c', 'exec psql -X -At -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "${POSTGRES_DB:-$POSTGRES_USER}"'],
-        { input: `BEGIN;\nSET LOCAL statement_timeout='10s';\nSET LOCAL lock_timeout='3s';\nWITH r42d_q AS (\n${inlined}\n) SELECT COALESCE(json_agg(row_to_json(r42d_q)),'[]'::json)::text FROM r42d_q;\nCOMMIT;\n`, timeout: timeoutMs, killSignal: 'SIGKILL', encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 });
-      const line = output.split('\n').find((l) => l.startsWith('[') || l === '[]');
-      return line ? JSON.parse(line) : [];
+      const bound = bindPositionalParameters(sql, parameters);
+      const input = buildStopChannelInput(bound, timeoutMs);
+      const output = runSubprocess('docker',
+        ['exec', '-i', dbContainer, 'sh', '-c', 'exec psql -X -At -v ON_ERROR_STOP=1 -U "${POSTGRES_USER:-postgres}" -d "${POSTGRES_DB:-$POSTGRES_USER}"'],
+        { input, timeout: timeoutMs, killSignal: 'SIGKILL', encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 });
+      return parseStopChannelRows(output);
     },
   };
 }
@@ -318,7 +342,7 @@ export async function firstSync(root) {
     const handover=JSON.parse(fs.readFileSync(handoverFile,'utf8'));
     if(handover?.target!==process.env.APPROVED_CONFIG_FLOOR_SHA)throw Error('FIRST_SYNC_HOLD=EXECUTION_BINDING');
     // evidence reads carry the LIVE remaining budget into the subprocess
-    const readEvidence=(sql,budget)=>readDatabaseEvidence(sql,{timeoutMs:Math.min(Math.max(budget?.remainingMs??30_000,1_000),60_000)});
+    const readEvidence=(sql,budget)=>readDatabaseEvidence(sql,{timeoutMs:budget?.remainingMs??30_000});
     const durableStop=makeDurableStop({
       distRoot:wrapperEnv.distRoot,
       executor:makeProductionStopExecutor({ dbContainer:process.env.CHANJET_DB_CONTAINER||'phoenix-v3-db' }),

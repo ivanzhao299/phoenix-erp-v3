@@ -51,10 +51,6 @@ on:
         description: "v3→v3' floor 重锚定必填：当前 floor 的精确 SHA（重锚定前后双向绑定）"
         type: string
         default: ''
-      approved_execution_manifest_b64:
-        description: "R4.2d 单独获批的执行 manifest JSON(base64)；与 approved_config_floor_sha 成对交付，仅 VERIFY floor 首次同步使用"
-        type: string
-        default: ''
       rotate_chanjet_credentials:
         description: "显式批准五个受管理 Chanjet 凭据轮换；普通部署保持 .env 不写入"
         type: boolean
@@ -747,8 +743,6 @@ jobs:
           ONE_TIME_CONFIG_FLOOR_TRANSITION: ${{ inputs.one_time_config_floor_transition }}
           APPROVED_CONFIG_FLOOR_SHA: ${{ inputs.approved_config_floor_sha }}
           APPROVED_PREVIOUS_FLOOR_SHA: ${{ inputs.approved_previous_floor_sha }}
-          APPROVED_EXECUTION_MANIFEST_B64: ${{ inputs.approved_execution_manifest_b64 }}
-          CHANJET_SYNC_OPERATOR_TOKEN: ${{ secrets.CHANJET_SYNC_OPERATOR_TOKEN }}
           GHCR_LOGIN_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GHCR_LOGIN_USER: ${{ github.repository_owner }}
           CHANJET_APP_KEY: ${{ secrets.CHANJET_APP_KEY }}
@@ -765,7 +759,7 @@ jobs:
           proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
           proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
           proxy_port: 22
-          envs: APPROVED_CONFIG_FLOOR_SHA,APPROVED_PREVIOUS_FLOOR_SHA,DEPLOY_MODE,BUILD_WEB,BUILD_API,RUN_MIG,NGINX_CONF,DEPLOY_RUN_ID,DEPLOY_RUN_ATTEMPT,TARGET_SHA,PRESERVE_ARTIFACTS,ROTATE_CHANJET_CREDENTIALS,ONE_TIME_CONFIG_FLOOR_TRANSITION,GHCR_LOGIN_TOKEN,GHCR_LOGIN_USER,CHANJET_APP_KEY,CHANJET_APP_SECRET,CHANJET_ORG_ID,CHANJET_CERT,CHANJET_MSG_SECRET,PRODUCTION_CONTRACT_B64,PRODUCTION_PATH_HELPER_B64,PRODUCTION_CONTROL_BOOTSTRAP_B64,APPROVED_EXECUTION_MANIFEST_B64,CHANJET_SYNC_OPERATOR_TOKEN
+          envs: APPROVED_CONFIG_FLOOR_SHA,APPROVED_PREVIOUS_FLOOR_SHA,DEPLOY_MODE,BUILD_WEB,BUILD_API,RUN_MIG,NGINX_CONF,DEPLOY_RUN_ID,DEPLOY_RUN_ATTEMPT,TARGET_SHA,PRESERVE_ARTIFACTS,ROTATE_CHANJET_CREDENTIALS,ONE_TIME_CONFIG_FLOOR_TRANSITION,GHCR_LOGIN_TOKEN,GHCR_LOGIN_USER,CHANJET_APP_KEY,CHANJET_APP_SECRET,CHANJET_ORG_ID,CHANJET_CERT,CHANJET_MSG_SECRET,PRODUCTION_CONTRACT_B64,PRODUCTION_PATH_HELPER_B64,PRODUCTION_CONTROL_BOOTSTRAP_B64
           script: |
             set -Eeuo pipefail
             umask 077
@@ -1116,26 +1110,6 @@ jobs:
             echo "🐳 Docker 总占用(builder cache 保留 5GB/24h 加速冷构建):"
             DOCKER_DISK_REPORT="$(docker system df 2>/dev/null || true)"
             printf '%s\n' "$DOCKER_DISK_REPORT"
-
-            # ── R4.2d 受控首次同步链: prepare -> handover -> first-sync ──
-            # 链体在受审脚本 chanjet-readonly-production-chain.sh 中（与工作流
-            # 其余 helper 同源自 TARGET_SHA 交付）；manifest 与操作员令牌来自
-            # workflow 审批输入；失败 → 回滚 + 证据保留。
-            if [ -n "${APPROVED_CONFIG_FLOOR_SHA:-}" ]; then
-              test -n "${APPROVED_EXECUTION_MANIFEST_B64:-}" || { echo "DEPLOY_EVIDENCE_HOLD=EXECUTION_MANIFEST"; exit 25; }
-              test -n "${CHANJET_SYNC_OPERATOR_TOKEN:-}" || { echo "DEPLOY_EVIDENCE_HOLD=OPERATOR_TOKEN"; exit 25; }
-              R42D_STAGE="$STATE_DIR/run-${DEPLOY_RUN_ID}/r42d"
-              test ! -e "$R42D_STAGE"
-              mkdir -m 700 -p "$R42D_STAGE"
-              printf '%s' "$APPROVED_EXECUTION_MANIFEST_B64" | base64 -d > "$R42D_STAGE/approval-manifest.json"
-              chmod 600 "$R42D_STAGE/approval-manifest.json"
-              git show "$TARGET_SHA:scripts/ops/chanjet-readonly-production-chain.sh" > "$R42D_STAGE/chain.sh"
-              chmod 700 "$R42D_STAGE/chain.sh"
-              R42D_MANIFEST_FILE="$R42D_STAGE/approval-manifest.json" \
-              CHANJET_SYNC_OPERATOR_TOKEN="$CHANJET_SYNC_OPERATOR_TOKEN" \
-              API_IMAGE="$API_IMAGE" \
-              bash "$R42D_STAGE/chain.sh"
-            fi
 
             node scripts/ops/production-deployment-state.mjs complete
             trap - ERR

@@ -20,6 +20,13 @@ import { createRequire } from 'node:module';
 // Deploy layout (production): /app/dist + /app/node_modules. The isolated
 // acceptance stages the SAME layout shape via R42D_DIST_ROOT/R42D_MODULES —
 // the reviewed code path is identical either way.
+const canonicalJson = (value) => {
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`;
+  if (value && typeof value === 'object') {
+    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`).join(',')}}`;
+  }
+  return JSON.stringify(value);
+};
 const distRoot = process.env.R42D_DIST_ROOT || '/app/dist';
 const modulesRoot = process.env.R42D_MODULES || '/app/node_modules';
 const entryRequire = createRequire(pathToFileURL(path.join(distRoot, 'modules/chanjet/chanjet-execution-admission.store.js')));
@@ -55,6 +62,36 @@ await (async () => {
     logging: false,
   });
   await dataSource.initialize();
+  // R4.2d: 登记与 provider HTTP 之前的来源核验 —— 真实 VERIFY 运行元组
+  // （容器自身配置）、当前审批（规范 JSON 逐字段）、映射对、exact-SHA floor
+  const distPolicy = await import(pathToFileURL(path.join(distRoot, 'modules/chanjet/chanjet-readonly-policy.js')).href);
+  if (process.env.CHANJET_SYNC_POLICY !== 'READONLY_VERIFY'
+    || process.env.CHANJET_READONLY_SYNC_ENABLED !== 'false'
+    || process.env.CHANJET_ERP_INBOUND_SYNC_ENABLED !== 'false') fail('VERIFY_TUPLE', { syncPolicy: process.env.CHANJET_SYNC_POLICY ?? null });
+  // 当前审批：容器自身的 CHANJET_READONLY_APPROVAL 环境（部署下发的真实
+  // 审批）经受审 policy 校验器核验；审批身份（approvalId/floorSha/books/
+  // scopes/verification）必须与 manifest.approval 规范等价
+  const currentApproval = distPolicy.approvedReadonlyPolicy();
+  const approvalIdentity = (a) => canonicalJson({
+    approvalId: a.approvalId, floorSha: a.floorSha, books: a.books,
+    scopes: a.scopes, verification: a.verification,
+  });
+  if (approvalIdentity(currentApproval) !== approvalIdentity(manifest.approval)) fail('APPROVAL_SCOPE_CHANGED', { executionId: manifest.executionId });
+  const requestCheck = distPolicy.requireApprovedReadonlyRequest({
+    bookId: manifest.approval.verification.bookId,
+    period: manifest.approval.verification.period,
+    scope: manifest.approval.verification.scope,
+  });
+  if (canonicalJson(requestCheck.verification) !== canonicalJson(manifest.approval.verification)) fail('REQUEST_SCOPE', { executionId: manifest.executionId });
+  const mappingEvidence = (await dataSource.query(`SELECT json_build_object(
+    'mappings', (SELECT COALESCE(json_agg(json_build_object('bookId', bookid, 'companyCode', company_code)), '[]'::json) FROM chanjet_book_company_map WHERE sync_enabled = true),
+    'books', (SELECT COALESCE(json_agg(json_build_object('bookId', book_id, 'companyCode', company_code)), '[]'::json) FROM chanjet_account_books WHERE enabled = true)
+  ) AS e`))[0].e;
+  const enabledPairs = (mappingEvidence.mappings || []).map((m) => `${m.bookId}/${m.companyCode}`).sort();
+  const approvedPairs = manifest.approval.books.map((b) => `${b.bookId}/${b.companyCode}`).sort();
+  const bookFor = (pair) => (mappingEvidence.books || []).some((b) => `${b.bookId}/${b.companyCode}` === pair);
+  if (JSON.stringify(enabledPairs) !== JSON.stringify(approvedPairs)
+    || !approvedPairs.every((pair) => bookFor(pair))) fail('MAPPING_SCOPE', { enabledPairs, approvedPairs });
   const store = new ChanjetExecutionAdmissionStore(dataSource.manager);
   // registration (fresh run) or skip for an already-registered execution —
   // the store/guard validate the manifest identity on EVERY statement
@@ -75,13 +112,18 @@ await (async () => {
     },
     { ok: async () => {}, fail: async () => {} },
   );
+  // R4.2d: 生产使用真实持久鉴权状态 —— appTicket/certificate/tokens 来自
+  // sys_chanjet_state（容器自身数据库配置的真实持久状态），禁止 SYNTHETIC_TICKET。
+  // 手动构造不注册 Nest 生命周期 → 无启动期未计数的后台 HTTP。
+  const stateRow = (await dataSource.query('SELECT app_ticket AS "appTicket", certificate, tokens FROM sys_chanjet_state WHERE key=$1', ['singleton']))[0] || null;
+  if (!stateRow?.appTicket) fail('AUTH_STATE', { key: 'singleton' });
   Object.assign(auth, {
     appKey: process.env.CHANJET_APP_KEY || '',
     appSecret: process.env.CHANJET_APP_SECRET || '',
     orgId: process.env.CHANJET_ORG_ID || '',
-    msgSecret: process.env.CHANJET_MSG_SECRET || '',
-    cert: process.env.CHANJET_CERT || '',
-    appTicket: process.env.CHANJET_APP_TICKET || 'SYNTHETIC_TICKET',
+    cert: stateRow.certificate || process.env.CHANJET_CERT || '',
+    appTicket: stateRow.appTicket,
+    tokens: stateRow.tokens ?? null,
   });
   const verification = manifest.approval.verification;
   const derivedEndpoint = `/accounting/gl/statistics/receive/${verification.bookId}`;
