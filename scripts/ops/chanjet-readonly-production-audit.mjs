@@ -80,7 +80,18 @@ export async function productionAudit(root, sql, { expectedProductionSha = proce
   const flags=Object.fromEntries(raw.filter(x=>/^(CHANJET_READONLY_SYNC_ENABLED|CHANJET_ERP_INBOUND_SYNC_ENABLED|CHANJET_SYNC_POLICY)=/.test(x)).map(x=>[x.slice(0,x.indexOf('=')),x.slice(x.indexOf('=')+1)]));
   const health=Object.fromEntries(['db','api','web'].map(service=>[service,run('docker',['inspect',`phoenix-v3-${service}`,'--format','{{.State.Health.Status}}'],{env:probeEnv}).trim()]));
   const apiHttp=run('curl',['-sS','--max-time','15','-o','/dev/null','-w','%{http_code}','http://127.0.0.1:3100/api/readiness']).trim();
-  return { schema:'phoenix.chanjet-restoration-audit/v1', checkoutSha:installed.git(root,['rev-parse','HEAD']), deployedSha:actual.api.revision, expectedProductionSha, candidateSha, floorVersion:floor.version,floorSha:floor.floorSha,chanjetPolicy:floor.chanjetPolicy||'HOLD',runtime:actual,flags,health,apiHttp, deploymentEvidence: readFormalDeploymentEvidence(installed.CONTRACT.stateDirectory, actual, floor.floorSha),
+  const deploymentEvidence=readFormalDeploymentEvidence(hostContext?.stateDirectory || installed.CONTRACT.stateDirectory, actual, floor.floorSha);
+  // the audit REFUSES instead of reporting: a live runtime whose flags drift
+  // from the floor's expected policy tuple, an unhealthy runtime or a formal
+  // deployment evidence that is not PASS each block the audit itself
+  // (fail-closed, before any consumer can act on a collected-but-unrejected
+  // verdict)
+  const policy = floor.chanjetPolicy || 'HOLD';
+  const expectedTuple = { CHANJET_SYNC_POLICY: policy, CHANJET_READONLY_SYNC_ENABLED: policy === 'HOLD' ? 'false' : 'true', CHANJET_ERP_INBOUND_SYNC_ENABLED: 'false' };
+  if (Object.entries(expectedTuple).some(([key, value]) => flags[key] !== value)) throw new Error('AUDIT_HOLD=LIVE_POLICY_TUPLE');
+  if (Object.values(health).some(status => status !== 'healthy') || apiHttp !== '200') throw new Error('AUDIT_HOLD=RUNTIME_HEALTH');
+  if (deploymentEvidence.status !== 'PASS') throw new Error(`AUDIT_HOLD=DEPLOYMENT_EVIDENCE_${deploymentEvidence.status}${deploymentEvidence.reason ? `_${deploymentEvidence.reason}` : ''}`);
+  return { schema:'phoenix.chanjet-restoration-audit/v1', checkoutSha:installed.git(root,['rev-parse','HEAD']), deployedSha:actual.api.revision, expectedProductionSha, candidateSha, floorVersion:floor.version,floorSha:floor.floorSha,chanjetPolicy:floor.chanjetPolicy||'HOLD',runtime:actual,flags,health,apiHttp, deploymentEvidence,
     storageGuard:'PASS',worktreeClean:true, ...evidence, remoteReadAuth:'NOT_CHECKED',providerRemainingQuota:'NOT_AVAILABLE_LOCAL_COUNTERS_ONLY' };
 }
 if(process.argv[1] && import.meta.url===pathToFileURL(process.argv[1]).href) {

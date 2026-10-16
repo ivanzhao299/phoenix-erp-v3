@@ -20,6 +20,13 @@ const cfg = JSON.parse(fs.readFileSync(process.env.R42D_SHIM_CONFIG, 'utf8'));
 try {
   const firstSync = await import(pathToFileURL(path.join(cfg.repoRoot, 'scripts/ops/chanjet-readonly-first-sync.mjs')).href);
   const audit = await import(pathToFileURL(path.join(cfg.repoRoot, 'scripts/ops/chanjet-readonly-production-audit.mjs')).href);
+  // the stop channel's compiled modules come from the CHAIN-DELIVERED copy of
+  // the deployed image's dist (CHANJET_EXECUTION_DIST_ROOT) — never a dev
+  // tree; a missing delivery refuses before anything runs
+  const distRoot = process.env.CHANJET_EXECUTION_DIST_ROOT || '';
+  if (!distRoot || !fs.existsSync(path.join(distRoot, 'modules/chanjet/chanjet-execution-admission.store.js'))) {
+    throw Error('FIRST_SYNC_HOLD=STOP_DELIVERY_MISSING');
+  }
   // the handover lives ONLY in the chain-delivered state file
   const handoverFile = path.join(cfg.stateDir, 'prepare-sync-handover.json');
   if (!fs.existsSync(handoverFile)) throw Error('FIRST_SYNC_HOLD=HANDOVER_MISSING');
@@ -31,12 +38,14 @@ try {
     env: { ...process.env, FIRST_SYNC_ROOT: cfg.repoRoot },
     handover,
     durableStop: firstSync.makeDurableStop({
-      distRoot: cfg.distRoot,
+      distRoot,
       executor: firstSync.makeProductionStopExecutor({ dbContainer: cfg.dbContainerName }),
       readEvidence,
       handover,
     }),
-    readEvidence: firstSync.makeProductionReadEvidence({ dbContainer: cfg.dbContainerName }),
+    // the SAME factory the production wrapper hands to the core, under the
+    // dep key the core destructures
+    readDatabaseEvidence: firstSync.productionCoreReadEvidence({ CHANJET_DB_CONTAINER: cfg.dbContainerName }),
     captureRuntime: async () => ({
       api: { revision: cfg.targetSha, imageId: cfg.apiImageId },
       web: { revision: cfg.targetSha, imageId: cfg.webImageId },

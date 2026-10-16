@@ -34,17 +34,26 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Verify the deploy transaction completed for the exact target SHA
+      - name: Verify THE GIVEN deploy run/attempt completed for the exact target SHA
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
           TARGET_SHA: ${{ inputs.target_sha || inputs.approved_config_floor_sha }}
+          DEPLOY_RUN_ID: ${{ inputs.deploy_run_id }}
         run: |
           set -Eeuo pipefail
           [[ "$TARGET_SHA" =~ ^[a-f0-9]{40}$ ]]
-          STATE="$(gh api "repos/$REPO/actions/runs?event=push&head_sha=$TARGET_SHA" \
-            --jq '[.workflow_runs[] | select(.name == "CI/CD — Build & Deploy")] | sort_by(.id) | reverse | .[0].conclusion // "none"')"
-          case "$STATE" in success) echo "DEPLOY_COMPLETE=$TARGET_SHA";; *) echo "FIRST_SYNC_HOLD=DEPLOY_NOT_COMPLETE;$STATE"; exit 1;; esac
+          [[ "$DEPLOY_RUN_ID" =~ ^[0-9]+-[0-9]+$ ]]
+          RUN_ID="${DEPLOY_RUN_ID%%-*}"; ATTEMPT="${DEPLOY_RUN_ID##*-}"
+          RUN="$(gh api "repos/$REPO/actions/runs/$RUN_ID" --jq '{name, event, head_sha, status, conclusion, run_attempt}')"
+          echo "$RUN"
+          case "$(echo "$RUN" | jq -r .name)" in "CI/CD — Build & Deploy") ;; *) echo "FIRST_SYNC_HOLD=DEPLOY_RUN_NOT_BUILD_DEPLOY"; exit 1;; esac
+          test "$(echo "$RUN" | jq -r .event)" = "push"
+          test "$(echo "$RUN" | jq -r .head_sha)" = "$TARGET_SHA"
+          test "$(echo "$RUN" | jq -r .run_attempt)" = "$ATTEMPT"
+          test "$(echo "$RUN" | jq -r .status)" = "completed"
+          test "$(echo "$RUN" | jq -r .conclusion)" = "success"
+          echo "DEPLOY_COMPLETE=run:$RUN_ID;attempt:$ATTEMPT;sha:$TARGET_SHA"
 
   audit:
     if: github.event_name == 'workflow_dispatch'
@@ -79,10 +88,14 @@ jobs:
           ref: ${{ inputs.target_sha || inputs.approved_config_floor_sha }}
           fetch-depth: 1
 
-      - name: Deliver the reviewed control bootstrap (the same script the deploy workflow delivers)
+      - name: Deliver the reviewed control payload (the same set the deploy workflow delivers)
         run: |
           set -Eeuo pipefail
-          echo "PRODUCTION_CONTROL_BOOTSTRAP_B64=$(base64 -w0 scripts/ops/production-control-bootstrap.sh)" >> "$GITHUB_ENV"
+          {
+            echo "PRODUCTION_CONTRACT_B64=$(base64 -w0 scripts/ops/production-config-contract.json)"
+            echo "PRODUCTION_PATH_HELPER_B64=$(base64 -w0 scripts/ops/production-trusted-paths.mjs)"
+            echo "PRODUCTION_CONTROL_BOOTSTRAP_B64=$(base64 -w0 scripts/ops/production-control-bootstrap.sh)"
+          } >> "$GITHUB_ENV"
 
       - name: Compute manifest digest for provenance
         env:
@@ -102,6 +115,8 @@ jobs:
           DEPLOY_RUN_ID: ${{ inputs.deploy_run_id }}
           FIRST_SYNC_RUN_ID: ${{ inputs.first_sync_run_id }}
           CHANJET_SYNC_OPERATOR_TOKEN: ${{ secrets.CHANJET_SYNC_OPERATOR_TOKEN }}
+          PRODUCTION_CONTRACT_B64: ${{ env.PRODUCTION_CONTRACT_B64 }}
+          PRODUCTION_PATH_HELPER_B64: ${{ env.PRODUCTION_PATH_HELPER_B64 }}
           PRODUCTION_CONTROL_BOOTSTRAP_B64: ${{ env.PRODUCTION_CONTROL_BOOTSTRAP_B64 }}
         with:
           host: ${{ secrets.DEPLOY_HOST }}
@@ -112,7 +127,7 @@ jobs:
           proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
           proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
           proxy_port: 22
-          envs: APPROVED_EXECUTION_MANIFEST_B64,APPROVED_EXECUTION_MANIFEST_SHA256,APPROVED_CONFIG_FLOOR_SHA,TARGET_SHA,DEPLOY_RUN_ID,FIRST_SYNC_RUN_ID,CHANJET_SYNC_OPERATOR_TOKEN,PRODUCTION_CONTROL_BOOTSTRAP_B64
+          envs: APPROVED_EXECUTION_MANIFEST_B64,APPROVED_EXECUTION_MANIFEST_SHA256,APPROVED_CONFIG_FLOOR_SHA,TARGET_SHA,DEPLOY_RUN_ID,FIRST_SYNC_RUN_ID,CHANJET_SYNC_OPERATOR_TOKEN,PRODUCTION_CONTRACT_B64,PRODUCTION_PATH_HELPER_B64,PRODUCTION_CONTROL_BOOTSTRAP_B64
           command_timeout: 20m
           script: |
             set -Eeuo pipefail

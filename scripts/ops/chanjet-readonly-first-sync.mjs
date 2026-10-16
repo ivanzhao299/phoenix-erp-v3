@@ -111,10 +111,11 @@ export function makeDurableStop({ distRoot, pgUrl, executor, readEvidence, hando
 // The production budget read adapter: the LIVE remaining budget travels into
 // the actual subprocess (execFileSync kill timeout AND the server-side
 // statement/lock timeouts are derived from it — never expanded by a fixed
-// floor). The wrapper passes THIS adapter into the core as readEvidence.
-export const makeProductionReadEvidence = ({ dbContainer = 'phoenix-v3-db' } = {}) => {
-  const run = (file, args, options) => execFileSync(file, args, options);
-  return async (sql, budget = {}) => {
+// floor). The wrapper passes THIS adapter into the core under the
+// `readDatabaseEvidence` dep key — the key the core actually destructures.
+export const makeProductionReadEvidence = ({ dbContainer = 'phoenix-v3-db', runSubprocess = execFileSync } = {}) => {
+  const run = (file, args, options) => runSubprocess(file, args, options);
+  const adapter = async (sql, budget = {}) => {
     const timeoutMs = Math.max(1, budget.remainingMs ?? 30_000);
     const { statementMs, lockMs } = stopChannelStatementBounds(timeoutMs);
     const input = `BEGIN READ ONLY;\nSET LOCAL statement_timeout='${statementMs}ms';\nSET LOCAL lock_timeout='${lockMs}ms';\n${sql}\nROLLBACK;\n`;
@@ -124,7 +125,14 @@ export const makeProductionReadEvidence = ({ dbContainer = 'phoenix-v3-db' } = {
     const line = String(output).split('\n').find((l) => l.startsWith('{'));
     return line ? JSON.parse(line) : {};
   };
+  adapter.marker = 'R42D_BUDGET_READ_ADAPTER';
+  return adapter;
 };
+// the EXACT adapter instance the production wrapper hands to the core —
+// exported so acceptance can assert the identity and the budget propagation
+// (the wrapper's dep key MUST be `readDatabaseEvidence`)
+export const productionCoreReadEvidence = (env = process.env) =>
+  makeProductionReadEvidence({ dbContainer: env.CHANJET_DB_CONTAINER || 'phoenix-v3-db' });
 export function firstSyncDeps(overrides = {}) {
   return {
     env: process.env,
@@ -377,9 +385,10 @@ export async function firstSync(root) {
       env:{...process.env,FIRST_SYNC_ROOT:root},
       handover,
       durableStop,
-      // the budget read adapter is PASSED INTO the core: every evidence read
+      // the budget read adapter is PASSED INTO the core under the dep key the
+      // core destructures (`readDatabaseEvidence`): every evidence read
       // carries its live remaining budget into the actual subprocess
-      readEvidence: makeProductionReadEvidence({ dbContainer: process.env.CHANJET_DB_CONTAINER || 'phoenix-v3-db' }),
+      readDatabaseEvidence: productionCoreReadEvidence(process.env),
     });
   }catch(error){
     const reason=String(error?.message||error).replace(/[^\x20-\x7e]/g,' ').slice(0,160);

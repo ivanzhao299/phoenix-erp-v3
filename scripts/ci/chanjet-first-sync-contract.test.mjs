@@ -38,7 +38,7 @@ const registerCli = path.join(repoRoot, 'scripts/ops/chanjet-execution-admission
 const hostScript = path.join(repoRoot, 'scripts/ci/chanjet-orchestration-scheduler-host.mjs');
 const providerScript = path.join(repoRoot, 'scripts/ci/chanjet-orchestration-provider-fixture.mjs');
 const firstSyncModuleUrl = pathToFileURL(path.join(repoRoot, 'scripts/ops/chanjet-readonly-first-sync.mjs')).href;
-const { firstSyncCore, firstSyncDeps, businessFingerprints, makeDurableStop, makeProductionStopExecutor, bindPositionalParameters } = await import(firstSyncModuleUrl);
+const { firstSyncCore, firstSyncDeps, businessFingerprints, makeDurableStop, makeProductionStopExecutor, makeProductionReadEvidence, productionCoreReadEvidence, bindPositionalParameters } = await import(firstSyncModuleUrl);
 
 const database = fixtureUrl ? describe : describe.skip;
 
@@ -818,6 +818,25 @@ database('first-sync protected-entry acceptance (real entry, real scheduler host
 
   let chainShimBin = '';
 
+  // the formal deployment-evidence group (pre/post/startup) exactly as the
+  // audit's REAL reader (readFormalDeploymentEvidence) accepts as PASS
+  function stageFormalDeploymentEvidence(deployRunId, { apiImageId, webImageId }) {
+    const attempt = deployRunId.includes('-') ? String(deployRunId).split('-')[1] : '1';
+    const startedAt = new Date(Date.now() - 60_000).toISOString();
+    const schema = 'phoenix.production-deployment-evidence/v2';
+    const api = { id: `c-api-${deployRunId}`, startedAt, image: apiImageId, ociRevision: FLOOR_SHA };
+    const web = { id: `c-web-${deployRunId}`, startedAt, image: webImageId };
+    const db = { id: `c-db-${deployRunId}`, startedAt, image: 'postgres:18' };
+    const files = {
+      pre: { schema, phase: 'PRE_SNAPSHOT', deployRunId, deployRunAttempt: attempt, targetSha: FLOOR_SHA, containers: { api: { id: api.id, startedAt, image: api.image }, web, db } },
+      post: { schema, phase: 'POST_SNAPSHOT', deployRunId, deployRunAttempt: attempt, targetSha: FLOOR_SHA, configFloorSha: FLOOR_SHA, containers: { api, web, db } },
+      startup: { schema, phase: 'API_STARTUP_LOG', deployRunId, deployRunAttempt: attempt, targetSha: FLOOR_SHA, configFloorSha: FLOOR_SHA, containerId: api.id, startedAt, rawOutput: false, stdoutLineCount: 3, stderrLineCount: 0, errorSignalCount: 0, schemaWriteSignalCount: 0, sensitiveLineCount: 0, combinedDigest: 'd'.repeat(64), result: 'PASS_REDACTED_SUMMARY' },
+    };
+    for (const [phase, value] of Object.entries(files)) {
+      fs.writeFileSync(path.join(workDir, `deploy-${deployRunId}-${phase}-evidence.json`), JSON.stringify(value));
+    }
+  }
+
   function writeChainShims() {
     chainShimBin = path.join(workDir, 'chain-bin');
     fs.rmSync(chainShimBin, { recursive: true, force: true });
@@ -835,13 +854,27 @@ database('first-sync protected-entry acceptance (real entry, real scheduler host
     fs.writeFileSync(path.join(chainShimBin, 'node'), `#!/bin/sh\nexec '${process.execPath}' '${dispatchModule}' "$@"\n`, { mode: 0o755 });
   }
 
-  async function runProductionChain({ manifest, deployRunId, firstSyncRunId, hostBase, syncPolicy = 'READONLY_VERIFY', readonlySyncEnabled = 'true', fd9File = lockFile, lockFileArg = lockFile, digestOverride = null, runningJob = false } = {}) {
+  async function runProductionChain({ manifest, deployRunId, firstSyncRunId, hostBase, syncPolicy = 'READONLY_VERIFY', readonlySyncEnabled = 'true', fd9File = lockFile, lockFileArg = lockFile, digestOverride = null, runningJob = false, checkoutSha = null, readinessStatus = 200, deployState = 'success' } = {}) {
     const manifestFile = writeJson('chain-manifest', manifest);
-    // the deploy-complete evidence gate input (the deploy workflow's output)
-    fs.writeFileSync(path.join(workDir, `deploy-${deployRunId}.json`), JSON.stringify({
-      version: 3, runId: deployRunId, phase: 'IN_PROGRESS', configSha: FLOOR_SHA,
-      expiresAt: new Date(Date.now() + 15 * 60_000).toISOString(),
-    }));
+    const apiImageId = `sha256:${'a'.repeat(64)}`;
+    const webImageId = `sha256:${'b'.repeat(64)}`;
+    // the deploy transaction state file: the chain's completion gate parses
+    // the REAL completed shape (outcome SUCCESS + exact configSha/target +
+    // active api pin; deployState knobs model the refusal cases)
+    if (deployState !== 'absent') {
+      fs.writeFileSync(path.join(workDir, `deploy-${deployRunId}.json`), JSON.stringify({
+        version: 3,
+        outcome: deployState === 'success' ? 'SUCCESS' : 'PREPARED',
+        configSha: deployState === 'wrong_run' ? '9'.repeat(40) : FLOOR_SHA,
+        target: FLOOR_SHA,
+        floorSha: FLOOR_SHA,
+        expiresAt: new Date(Date.now() + 15 * 60_000).toISOString(),
+        active: { api: { imageId: apiImageId, revision: FLOOR_SHA }, web: { imageId: webImageId, revision: FLOOR_SHA } },
+      }));
+    }
+    // the formal deployment evidence group (pre/post/startup) the audit's
+    // fail-closed deployment-evidence gate reads — the REAL reader applies
+    stageFormalDeploymentEvidence(deployRunId, { apiImageId, webImageId });
     // the approved floor state both drivers verify against — the REAL
     // READONLY_VERIFY tuple keeps the sync window open
     fs.writeFileSync(path.join(workDir, 'floor.json'), JSON.stringify({
@@ -855,7 +888,10 @@ database('first-sync protected-entry acceptance (real entry, real scheduler host
     fs.writeFileSync(cfgFile, JSON.stringify({
       repoRoot, stateDir: workDir, r42dRoot: path.join(workDir, `r42d-stage-${deployRunId}`),
       targetSha: FLOOR_SHA, floorSha: FLOOR_SHA, project: 'phoenix',
-      apiImageId: `sha256:${'a'.repeat(64)}`, webImageId: `sha256:${'b'.repeat(64)}`,
+      appApiRoot: apiDir,
+      checkoutSha: checkoutSha || FLOOR_SHA,
+      readinessStatus,
+      apiImageId, webImageId,
       syncPolicy, readonlySyncEnabled, erpInboundEnabled: 'false',
       approvalJson: JSON.stringify(approvedPolicyFileValue(manifest)),
       providerBase: provider.base, endpoint: `${hostBase}/chanjet/integration/alignment/`,
@@ -925,8 +961,16 @@ database('first-sync protected-entry acceptance (real entry, real scheduler host
       assert.equal(evidence.execution.executionId, manifest.executionId);
       assert.ok(!fs.existsSync(path.join(workDir, `first-sync-${deployRunId}.json`)));
       // the shim surface saw no unmapped command
-      const unexpected = fs.readFileSync(traceFile, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l)).filter((e) => e.kind === 'unexpectedCommand');
-      assert.deepEqual(unexpected, []);
+      const events = fs.readFileSync(traceFile, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l));
+      assert.deepEqual(events.filter((e) => e.kind === 'unexpectedCommand'), []);
+      // the stop-channel delivery actually happened through the real chain
+      // steps: dist + node_modules copied from the container and the dist
+      // provenance digest compared
+      assert.ok(events.some((e) => e.kind === 'cpFromContainer' && e.remote === '/app/dist'));
+      assert.ok(events.some((e) => e.kind === 'cpFromContainer' && e.remote === '/app/node_modules'));
+      assert.ok(events.some((e) => e.kind === 'apiSh'), 'dist provenance digest did not run');
+      // the entry driver consumed the DELIVERED dist root
+      assert.ok(fs.existsSync(path.join(workDir, `run-${deployRunId}`, 'stop-channel-delivery', 'dist', 'modules', 'chanjet', 'chanjet-execution-admission.store.js')));
       // the business fingerprint tables were never touched
       const [ledger] = await dataSource.query('SELECT count(*)::int AS n FROM fin_ar_ledger');
       assert.equal(ledger.n, 0);
@@ -989,7 +1033,7 @@ database('first-sync protected-entry acceptance (real entry, real scheduler host
     assert.equal(providerHits(), hitsBefore);
   }, 120_000);
 
-  test('full chain: the container without the real VERIFY tuple (sync window closed) refuses registration in the real prepare', async () => {
+  test('full chain: the container without the real VERIFY tuple (sync window closed) is refused by the real tuple gates with zero registration', async () => {
     writeChainShims();
     const manifest = syntheticManifest(10);
     const hitsBefore = providerHits();
@@ -998,7 +1042,103 @@ database('first-sync protected-entry acceptance (real entry, real scheduler host
       hostBase: 'http://127.0.0.1:9', readonlySyncEnabled: 'false',
     });
     assert.notEqual(run.status, 0);
-    assert.equal(await admissionsFor(manifest.executionId), 0); // the tuple gate precedes registration
-    assert.equal(providerHits(), hitsBefore); // and precedes any provider HTTP
+    // the real audit refuses the LIVE tuple drift (and the prepare's own gate
+    // is the second layer)
+    assert.match(run.stderr, /AUDIT_HOLD=LIVE_POLICY_TUPLE|VERIFY_TUPLE/);
+    assert.equal(await admissionsFor(manifest.executionId), 0); // zero registration
+    assert.equal(providerHits(), hitsBefore); // and zero provider HTTP
   }, 120_000);
+
+  test('full chain: an unhealthy runtime (readiness 500) refuses in the real audit with zero registration and zero provider HTTP', async () => {
+    writeChainShims();
+    const manifest = syntheticManifest(10);
+    const hitsBefore = providerHits();
+    const handoverFile = path.join(workDir, 'prepare-sync-handover.json');
+    const handoverMtimeBefore = fs.existsSync(handoverFile) ? fs.statSync(handoverFile).mtimeMs : -1;
+    const { run } = await runProductionChain({
+      manifest, deployRunId: `${Date.now()}-1100`, firstSyncRunId: `${Date.now()}-1200`,
+      hostBase: 'http://127.0.0.1:9', readinessStatus: 500,
+    });
+    assert.notEqual(run.status, 0);
+    assert.match(run.stderr, /AUDIT_HOLD=RUNTIME_HEALTH/); // the audit REFUSES, not reports
+    assert.ok(!run.stdout.includes('PREPARE=PASS'), run.stdout);
+    assert.equal(await admissionsFor(manifest.executionId), 0);
+    assert.equal(providerHits(), hitsBefore); // zero provider HTTP past the audit
+    assert.equal(fs.existsSync(handoverFile) ? fs.statSync(handoverFile).mtimeMs : -1, handoverMtimeBefore);
+  }, 120_000);
+
+  test('full chain: a deploy transaction that never completed (no state file) refuses at the chain gate with zero registration', async () => {
+    writeChainShims();
+    const manifest = syntheticManifest(10);
+    const hitsBefore = providerHits();
+    const { run } = await runProductionChain({
+      manifest, deployRunId: `${Date.now()}-1300`, firstSyncRunId: `${Date.now()}-1400`,
+      hostBase: 'http://127.0.0.1:9', deployState: 'absent',
+    });
+    assert.equal(run.status, 29, `${run.status}\n${run.stdout}\n${run.stderr}`);
+    assert.match(run.stdout, /FIRST_SYNC_HOLD=DEPLOY_NOT_COMPLETE/);
+    assert.equal(await admissionsFor(manifest.executionId), 0);
+    assert.equal(providerHits(), hitsBefore);
+  }, 120_000);
+
+  test('full chain: a deploy state from the WRONG run/config refuses at the chain gate with zero registration', async () => {
+    writeChainShims();
+    const manifest = syntheticManifest(10);
+    const hitsBefore = providerHits();
+    const { run } = await runProductionChain({
+      manifest, deployRunId: `${Date.now()}-1500`, firstSyncRunId: `${Date.now()}-1600`,
+      hostBase: 'http://127.0.0.1:9', deployState: 'wrong_run',
+    });
+    assert.equal(run.status, 29, `${run.status}\n${run.stdout}\n${run.stderr}`);
+    assert.match(run.stdout, /FIRST_SYNC_HOLD=DEPLOY_NOT_COMPLETE/);
+    assert.equal(await admissionsFor(manifest.executionId), 0);
+    assert.equal(providerHits(), hitsBefore);
+  }, 120_000);
+
+  test('full chain: a host checkout at the wrong SHA refuses BEFORE the audit and prepare with zero registration', async () => {
+    writeChainShims();
+    const manifest = syntheticManifest(10);
+    const hitsBefore = providerHits();
+    const { run } = await runProductionChain({
+      manifest, deployRunId: `${Date.now()}-1700`, firstSyncRunId: `${Date.now()}-1800`,
+      hostBase: 'http://127.0.0.1:9', checkoutSha: '7'.repeat(40),
+    });
+    assert.equal(run.status, 30, `${run.status}\n${run.stdout}\n${run.stderr}`);
+    assert.match(run.stdout, /FIRST_SYNC_HOLD=CHECKOUT_SHA/);
+    assert.equal(await admissionsFor(manifest.executionId), 0);
+    assert.equal(providerHits(), hitsBefore);
+  }, 120_000);
+});
+
+// ── the production budget read adapter wiring (no database required) ──────
+test('production budget read adapter: the wrapper hands the core the factory product under the readDatabaseEvidence dep key', async () => {
+  // the EXACT factory instance the production wrapper passes — a wrong dep
+  // key would silently fall back to the default reader (the regression this
+  // identity + source guard closes)
+  const adapter = productionCoreReadEvidence({});
+  assert.equal(adapter.marker, 'R42D_BUDGET_READ_ADAPTER');
+  const source = fs.readFileSync(path.join(repoRoot, 'scripts/ops/chanjet-readonly-first-sync.mjs'), 'utf8');
+  assert.match(source, /readDatabaseEvidence: productionCoreReadEvidence\(/);
+  assert.doesNotMatch(source, /readEvidence: makeProductionReadEvidence\(/);
+});
+
+test('production budget read adapter: the LIVE remaining budget reaches the actual subprocess unexpanded', async () => {
+  let captured;
+  const adapter = makeProductionReadEvidence({
+    dbContainer: 'fixture-db',
+    runSubprocess: (file, args, options) => { captured = { file, args, options }; return '{"n":1}\n'; },
+  });
+  const result = await adapter('SELECT 1;', { remainingMs: 1500 });
+  assert.equal(result.n, 1);
+  assert.equal(captured.file, 'docker');
+  assert.ok(captured.args.includes('fixture-db'));
+  assert.equal(captured.options.timeout, 1500); // exactly the remaining budget — never a fixed floor
+  assert.match(captured.options.input, /statement_timeout='1250ms'/); // 1500-250
+  assert.match(captured.options.input, /lock_timeout='1250ms'/);
+  assert.match(captured.options.input, /^BEGIN READ ONLY;/);
+  assert.match(captured.options.input, /ROLLBACK;\n$/);
+  // a sub-millisecond budget clamps to 1, never expands
+  await adapter('SELECT 1;', { remainingMs: 0 });
+  assert.equal(captured.options.timeout, 1);
+  assert.match(captured.options.input, /statement_timeout='1ms'/);
 });

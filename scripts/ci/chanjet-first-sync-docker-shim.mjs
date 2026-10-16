@@ -69,6 +69,30 @@ if (CMD === 'docker') {
   }
 
   if (SUB === 'cp') {
+    const containerSide = args.find((a) => a.includes(':/'));
+    if (!containerSide) fail();
+    if (containerSide.includes(':/app/') && args.indexOf(containerSide) === args.length - 2) {
+      // container -> host delivery (the chain's stop-channel delivery): the
+      // deployed dist is copied IN FULL from the repository's compiled tree;
+      // node_modules is staged as a resolvable tree (symlinks into the
+      // repo's real packages) — docker cp semantics: a non-existent dst
+      // BECOMES the copied directory
+      const remote = containerSide.slice(containerSide.indexOf(':') + 1);
+      const dst = args[args.length - 1];
+      if (remote === '/app/dist') {
+        fs.cpSync(path.join(cfg.appApiRoot, 'dist'), dst, { recursive: true });
+      } else if (remote === '/app/node_modules') {
+        fs.mkdirSync(dst, { recursive: true });
+        for (const dep of ['reflect-metadata', 'typeorm', 'pg']) {
+          const from = path.join(cfg.appApiRoot, 'node_modules', dep);
+          if (!fs.existsSync(from)) fail();
+          fs.symlinkSync(from, path.join(dst, dep), 'dir');
+        }
+      } else fail();
+      trace({ kind: 'cpFromContainer', remote, dst });
+      process.exit(0);
+    }
+    // host -> container (manifest / prepare script into /tmp/r42d)
     const dst = args[args.length - 1];
     const src = args[args.length - 2];
     const marker = dst.indexOf(':');
@@ -129,6 +153,15 @@ if (CMD === 'docker') {
         }
         process.exit(0);
       }
+      if (cmdArgs[0] === 'sh' && cmdArgs[1] === '-c' && typeof cmdArgs[2] === 'string') {
+        // the chain's dist provenance digest runs against the repository's
+        // compiled tree (the /app equivalent in the controlled context) — the
+        // SAME shell pipeline, real files, real digest
+        const command = cmdArgs[2].replace(/cd \/app\b/g, `cd '${cfg.appApiRoot}'`);
+        trace({ kind: 'apiSh' });
+        const child = spawnSync('sh', ['-c', command], { stdio: 'inherit', cwd: cfg.appApiRoot, env: realEnv() });
+        process.exit(child.status ?? 1);
+      }
       if (cmdArgs[0] === 'node' && String(cmdArgs[1] || '').startsWith('/tmp/r42d/')) {
         const script = path.join(cfg.r42dRoot, String(cmdArgs[1]).replace(/^\/tmp\/r42d\//, ''));
         const containerEnv = {
@@ -161,7 +194,7 @@ if (CMD === 'git') {
   if (args.includes('config')) process.exit(0);
   if (args.includes('branch')) { console.log('main'); process.exit(0); }
   if (args.includes('status')) process.exit(0);
-  if (args.includes('rev-parse')) { console.log(cfg.targetSha); process.exit(0); }
+  if (args.includes('rev-parse')) { console.log(cfg.checkoutSha || cfg.targetSha); process.exit(0); }
   if (args.includes('show')) {
     const ref = args[args.indexOf('show') + 1];
     const file = ref.slice(ref.indexOf(':') + 1);
@@ -173,7 +206,7 @@ if (CMD === 'git') {
 
 if (CMD === 'curl') {
   trace({ kind: 'readiness', url: args.find((a) => a.startsWith('http')) || '' });
-  process.stdout.write('200');
+  process.stdout.write(String(cfg.readinessStatus ?? 200));
   process.exit(0);
 }
 
