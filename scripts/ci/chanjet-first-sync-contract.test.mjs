@@ -277,7 +277,7 @@ const readEvidence = async (sql) => {
   return keys.length ? row[keys[0]] : {};
 };
 
-function coreDeps({ execution, runId, leaseId, endpoint, identityOverride, durableStop } = {}) {
+function coreDeps({ execution, runId, leaseId, endpoint, identityOverride, durableStop, handoverOverride } = {}) {
   const approval = identityOverride
     ?? JSON.parse(fs.readFileSync(execution.floorStateFile, 'utf8')).readonlyApproval;
   return firstSyncDeps({
@@ -287,7 +287,7 @@ function coreDeps({ execution, runId, leaseId, endpoint, identityOverride, durab
       CHANJET_SYNC_OPERATOR_TOKEN: 'SYNTHETIC_OP_TOKEN',
       DEPLOY_RUN_ID: runId,
     },
-    handover: { executionId: execution.executionId, leaseId, deadlineAt: execution.deadlineAt },
+    handover: handoverOverride ?? { executionId: execution.executionId, leaseId, deadlineAt: execution.execution.deadlineAt },
     durableStop,
     fetchImpl: fetch,
     sleep: (ms) => new Promise((resolve) => setTimeout(resolve, Math.min(ms, 400))),
@@ -377,6 +377,61 @@ database('first-sync protected-entry acceptance (real entry, real scheduler host
     }
   });
 
+  test('production call chain: the REAL prepare script (deploy workflow delivery) registers, probes, hands over — then the first-sync entry completes to VERIFIED', async () => {
+    const execution = await registerExecution({ cap: 10 });
+    // prepare-sync handover through the REAL production prepare script — the
+    // SAME script the deploy workflow runs inside the API container — staged
+    // with the delivered compiled modules layout; the execution is already
+    // registered (R42D_SKIP_REGISTRATION), matching the root workflow's
+    // register-then-prepare sequencing
+    const prepareScript = path.join(repoRoot, 'scripts/ops/chanjet-readonly-production-prepare.mjs');
+    const prepare = spawnSync(process.execPath, [prepareScript], {
+      encoding: 'utf8',
+      timeout: 120_000,
+      env: {
+        ...process.env,
+        R42D_MANIFEST: JSON.stringify(execution.manifest),
+        EXPECTED_FLOOR_SHA: FLOOR_SHA,
+        R42D_STATE: workDir,
+        R42D_DIST_ROOT: path.join(apiDir, 'dist'),
+        R42D_MODULES: path.join(apiDir, 'node_modules'),
+        DB_HOST: '127.0.0.1', DB_PORT: String(new URL(fixtureUrl).port || 5432),
+        DB_USER: new URL(fixtureUrl).username, DB_PASSWORD: decodeURIComponent(new URL(fixtureUrl).password),
+        DB_NAME: new URL(fixtureUrl).pathname.slice(1),
+        CHANJET_APP_KEY: 'SYNTHETIC_KEY', CHANJET_APP_SECRET: 'SYNTHETIC_SECRET',
+        CHANJET_ORG_ID: 'SYNTHETIC_ORG', CHANJET_CERT: 'SYNTHETIC_CERT',
+        CHANJET_PROVIDER_BASE_URL: provider.base,
+        R42D_SKIP_REGISTRATION: '1',
+      },
+    });
+    const prepareLine = String(prepare.stdout).split('\n').find((l) => l.startsWith('PREPARE='));
+    assert.equal(prepareLine?.split(';')[0], 'PREPARE=PASS', `${prepare.stdout} ${prepare.stderr}`);
+    const handover = JSON.parse(prepareLine.split(';')[1]);
+    assert.equal(handover.executionId, execution.executionId);
+    assert.equal(handover.floorSha, FLOOR_SHA);
+    // the handover file the entry reads
+    const hostHandover = path.join(workDir, `prepare-sync-handover-${execution.executionId}.json`);
+    fs.writeFileSync(hostHandover, JSON.stringify(handover));
+    const host = await startHost({ approvalFile: execution.approvalFile });
+    try {
+      const runId = `${Date.now()}-0`;
+      const deps = await coreDeps({
+        runId,
+        execution,
+        leaseId: handover.leaseId,
+        endpoint: `${host.base}/chanjet/integration/alignment/`,
+        floorStateFile: execution.floorStateFile,
+        handoverOverride: { executionId: handover.executionId, leaseId: handover.leaseId },
+      });
+      const result = await firstSyncCore(deps);
+      assert.equal(result.phase, 'VERIFIED');
+      const [admission] = await dataSource.query('SELECT phase FROM chanjet_execution_admissions WHERE execution_id=$1', [execution.executionId]);
+      assert.equal(admission.phase, 'VERIFIED');
+    } finally {
+      host.child.kill();
+    }
+  }, 60_000);
+
   test('origin mismatch: a foreign approval identity refuses BEFORE the enqueue with zero provider HTTP', async () => {
     // two executions under TWO different approvals: running the entry for
     // execution A while presenting execution B's reviewed floor identity is
@@ -427,12 +482,14 @@ database('first-sync protected-entry acceptance (real entry, real scheduler host
         endpoint: `${stubBase}/chanjet/integration/alignment/`,
         durableStop: async (classification) => {
           try {
-            return await makeDurableStop({
-              repoRoot,
+            const outcome = await makeDurableStop({
+              distRoot: path.join(apiDir, 'dist'),
               pgUrl: fixtureUrl,
               readEvidence,
               handover: { executionId: execution.executionId, leaseId: prepared.summary.leases.sync, deadlineAt: execution.execution.deadlineAt.toISOString() },
             })(classification);
+            console.log('STOP_OUTCOME', outcome);
+            return outcome;
           } catch (stopError) {
             console.log('STOP_ERR', String(stopError?.message || stopError).slice(0, 200));
             throw stopError;
@@ -461,14 +518,16 @@ database('first-sync protected-entry acceptance (real entry, real scheduler host
     // bounds them — the hold reports UNCONFIRMED in bounded time
     const started = Date.now();
     const stop = await makeDurableStop({
-      repoRoot,
+      distRoot: path.join(apiDir, 'dist'),
       pgUrl: 'postgresql://postgres:postgres@10.255.255.1:5432/chanjet_admission_fixture',
       readEvidence,
       handover: { executionId: execution.executionId, leaseId: prepared.summary.leases.sync, deadlineAt: execution.execution.deadlineAt.toISOString() },
       ceilingMs: 2_000,
     })('CANCELLED').then(() => 'CONFIRMED', (e) => `THREW:${String(e?.message).slice(0, 80)}`);
     const elapsed = Date.now() - started;
-    assert.match(stop, /THREW:CHANJET_EXECUTION_STOP_CHANNEL_TIMEOUT:initialize/); // the hung init is bounded
+    // either bound terminates the hung acquisition: our ceiling or pg's own
+    // connectionTimeoutMillis — both destroy the underlying connection
+    assert.match(stop, /THREW:(CHANJET_EXECUTION_STOP_CHANNEL_TIMEOUT:initialize|timeout expired)/);
     assert.ok(elapsed < 15_000, `bounded init took ${elapsed}ms`);
   });
 
@@ -498,7 +557,7 @@ database('first-sync protected-entry acceptance (real entry, real scheduler host
         leaseId: prepared.summary.leases.sync,
         endpoint: `${stubBase}/chanjet/integration/alignment/`,
         durableStop: makeDurableStop({
-          repoRoot,
+          distRoot: path.join(apiDir, 'dist'),
           pgUrl: fixtureUrl,
           readEvidence,
           handover: { executionId: execution.executionId, leaseId: prepared.summary.leases.sync, deadlineAt: execution.execution.deadlineAt.toISOString() },
@@ -558,7 +617,7 @@ database('first-sync protected-entry acceptance (real entry, real scheduler host
         leaseId: prepared.summary.leases.sync,
         endpoint: `${stubBase}/chanjet/integration/alignment/`,
         durableStop: makeDurableStop({
-          repoRoot,
+          distRoot: path.join(apiDir, 'dist'),
           pgUrl: fixtureUrl,
           readEvidence,
           handover: { executionId: execution.executionId, leaseId: prepared.summary.leases.sync, deadlineAt: execution.execution.deadlineAt.toISOString() },
@@ -587,7 +646,7 @@ database('first-sync protected-entry acceptance (real entry, real scheduler host
         leaseId: prepared.summary.leases.sync,
         endpoint: `${host.base}/chanjet/integration/alignment/`,
         durableStop: makeDurableStop({
-          repoRoot,
+          distRoot: path.join(apiDir, 'dist'),
           pgUrl: fixtureUrl,
           readEvidence,
           handover: { executionId: execution.executionId, leaseId: prepared.summary.leases.sync, deadlineAt: execution.execution.deadlineAt.toISOString() },
@@ -668,7 +727,7 @@ database('first-sync protected-entry acceptance (real entry, real scheduler host
       assert.equal(freshPrepared.verdict, 'PASS');
       const retryDeps = coreDeps({
         runId,
-        execution: fresh.execution,
+        execution: fresh,
         leaseId: freshPrepared.summary.leases.sync,
         endpoint: `${host.base}/chanjet/integration/alignment/`,
       });

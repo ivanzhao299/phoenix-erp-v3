@@ -50,36 +50,51 @@ const admissionOwnerColumnSql = (executionId) => `SELECT json_build_object(
 // (PGHOST/PGUSER/PGPASSWORD/PGPORT/PGDATABASE). Initialization and connection
 // acquisition are bounded by a hard ceiling; holdExecution is awaited to
 // completion BEFORE the executor and connection are disposed.
-export function makeDurableStop({ repoRoot, pgUrl, readEvidence, handover, ceilingMs = 10_000 } = {}) {
+export function makeDurableStop({ distRoot, pgUrl, executor, readEvidence, handover, ceilingMs = 10_000 } = {}) {
   return async (classification) => {
-    if (!pgUrl) return 'UNCONFIRMED'; // no stop channel configured: accurately unconfirmed
-    const bounded = async (stage, work) => {
-      let timer;
-      return Promise.race([
-        work,
-        new Promise((_, reject) => { timer = setTimeout(() => reject(Error(`CHANJET_EXECUTION_STOP_CHANNEL_TIMEOUT:${stage}`)), ceilingMs); }),
-      ]).finally(() => clearTimeout(timer));
-    };
-    const manifestRow = await readEvidence(admissionManifestEvidenceSql(handover.executionId));
-    const manifest = manifestRow?.manifest ?? manifestRow?.e?.manifest ?? manifestRow;
-    // runtime dependencies resolve from the REVIEWED checkout's api workspace
-    const entryRequire = createRequire(pathToFileURL(path.join(repoRoot, 'apps/api/package.json')));
-    entryRequire(path.join(repoRoot, 'apps/api/node_modules/reflect-metadata'));
-    const { ChanjetExecutionAdmissionStore } = await import(pathToFileURL(path.join(repoRoot, 'apps/api/dist/modules/chanjet/chanjet-execution-admission.store.js')).href);
-    const { createBoundedGuardExecutor } = await import(pathToFileURL(path.join(repoRoot, 'apps/api/dist/modules/chanjet/chanjet-execution-guard-executor.js')).href);
-    const { DataSource } = entryRequire(path.join(repoRoot, 'apps/api/node_modules/typeorm/index.js'));
-    const stopDs = new DataSource({ type: 'postgres', url: pgUrl, logging: false });
-    const guardExecutor = createBoundedGuardExecutor(pgUrl);
+    if (!executor && !pgUrl) return 'UNCONFIRMED'; // no stop channel configured: accurately unconfirmed
+    // the compiled reviewed modules are delivered from distRoot (the
+    // deployment delivers them from the DEPLOYED API IMAGE; the wrapper
+    // delivers them from the reviewed checkout) — runtime dependencies
+    // resolve by walking up to the sibling node_modules
+    let entryRequire;
+    let store;
+    let guardExecutor;
+    let settled = false;
+    let timer;
     try {
-      await bounded('initialize', stopDs.initialize());
-      const store = new ChanjetExecutionAdmissionStore(stopDs.manager);
-      store.setStandaloneExecutor(guardExecutor);
-      // holdExecution is awaited to COMPLETION before the executor and the
-      // connection are disposed in the finally below
-      return await store.holdExecution({ manifest, leaseId: handover.leaseId, phase: 'SYNCING', deadlineAt: new Date(handover.deadlineAt) }, classification);
+      // bare specifiers resolve by walking up from distRoot to the sibling
+      // node_modules (production: /app/dist + /app/node_modules siblings)
+      entryRequire = createRequire(pathToFileURL(path.join(distRoot, 'modules/chanjet/chanjet-execution-admission.store.js')));
+      entryRequire('reflect-metadata');
+      const { ChanjetExecutionAdmissionStore } = await import(pathToFileURL(path.join(distRoot, 'modules/chanjet/chanjet-execution-admission.store.js')).href);
+      store = new ChanjetExecutionAdmissionStore(null);
+      if (executor) {
+        store.setStandaloneExecutor(executor);
+      } else {
+        // the reviewed bounded guard executor IS the stop channel: its own
+        // acquire/statement/client-wait/release bounds TERMINATE the
+        // connection and any pending work on expiry — initialization and
+        // connection acquisition can never run unbounded
+        const { createBoundedGuardExecutor } = await import(pathToFileURL(path.join(distRoot, 'modules/chanjet/chanjet-execution-guard-executor.js')).href);
+        guardExecutor = createBoundedGuardExecutor(pgUrl, { acquireMs: ceilingMs, statementMs: ceilingMs, clientWaitMs: ceilingMs + 1_000, releaseMs: ceilingMs });
+        store.setStandaloneExecutor(guardExecutor);
+      }
+      const manifestRowLocal = await Promise.race([
+        Promise.resolve(readEvidence(admissionManifestEvidenceSql(handover.executionId))),
+        new Promise((_, reject) => { timer = setTimeout(() => reject(Error('CHANJET_EXECUTION_STOP_CHANNEL_TIMEOUT:manifest')), ceilingMs); }),
+      ]);
+      const manifest = manifestRowLocal?.manifest ?? manifestRowLocal?.e?.manifest ?? manifestRowLocal;
+      if (!manifest || typeof manifest !== 'object' || !manifest.executionId) throw Error('CHANJET_EXECUTION_STOP_CHANNEL_TIMEOUT:manifest');
+      settled = true;
+      // holdExecution is awaited to COMPLETION before the executor is
+      // disposed in the finally below
+      return String(await store.holdExecution({ manifest, leaseId: handover.leaseId, phase: 'SYNCING', deadlineAt: new Date(handover.deadlineAt) }, classification));
     } finally {
-      await guardExecutor.dispose().catch(() => undefined);
-      await stopDs.destroy().catch(() => undefined);
+      settled = true;
+      if (timer) clearTimeout(timer);
+      if (guardExecutor) await guardExecutor.dispose().catch(() => undefined);
+      if (executor) { try { await executor.dispose?.(); } catch { /* bounded by its own timeout */ } }
     }
   };
 }
@@ -126,9 +141,13 @@ export async function firstSyncCore(overrides = {}) {
   const boundedSignal=()=>AbortSignal.timeout(Math.max(1,Math.min(20_000,remainingMs())));
   const boundedRead=async(boundedSql)=>{
     if(remainingMs()<=1)throw Error('FIRST_SYNC_HOLD=FAILURE_OR_TIMEOUT');
+    // the LIVE remaining budget travels WITH the read: the production
+    // subprocess read passes it to the actual child process (execFileSync
+    // timeout AND the server-side statement/lock timeouts) — Promise.race
+    // alone could never bound a synchronous subprocess read
     let timer;
     return Promise.race([
-      readEvidence(boundedSql),
+      Promise.resolve(readEvidence(boundedSql,{remainingMs:remainingMs()})),
       new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error('FIRST_SYNC_HOLD=FAILURE_OR_TIMEOUT')),Math.max(1,remainingMs()));}),
     ]).finally(()=>clearTimeout(timer));
   };
@@ -146,7 +165,7 @@ export async function firstSyncCore(overrides = {}) {
     if(remainingMs()<=1)throw Error('FIRST_SYNC_HOLD=FAILURE_OR_TIMEOUT');
     let timer;
     return Promise.race([
-      fingerprints(),
+      Promise.resolve(fingerprints(boundedRead)),
       new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error('FIRST_SYNC_HOLD=FAILURE_OR_TIMEOUT')),Math.max(1,remainingMs()));}),
     ]).finally(()=>clearTimeout(timer));
   };
@@ -178,85 +197,115 @@ export async function firstSyncCore(overrides = {}) {
       await sleep(Math.min(4000,Math.max(1,remainingMs())));
     }
     if(!result||result.state!=='COMPLETED'||result.decision==='HOLD')throw Error('FIRST_SYNC_HOLD=FAILURE_OR_TIMEOUT');
+
+    // STRICT DURABLE PROOF (the reviewed first-sync semantics): the final
+    // admission is VERIFIED and the SUCCESS job carries the FULL approval/
+    // execution/lease/floor/scope binding, the worker receipt ordinals
+    // (independently re-counted against the receipts table) and the explicit
+    // forbidden-write fields — a COMPLETED run alone proves nothing.
+    const job=(await boundedRead(jobProofEvidenceSql(orchestration)))||{};
+    const summary=job.summary||{};const jobScope=job.scope||{};
+    const inbound=summary.erpInbound;
+    const sends=summary.executionSends;const ordinals=summary.executionReceiptOrdinals;
+    let ordinalsVerified=false;
+    if(Array.isArray(ordinals)&&ordinals.length>=1&&ordinals.every((o)=>Number.isInteger(o)&&o>0)&&ordinals.length===sends){
+      const counted=await boundedRead(ordinalsProofEvidenceSql(executionId,leaseId,ordinals));
+      ordinalsVerified=Number(counted?.n||0)===ordinals.length;
+    }
+    const verifiedRow=await boundedRead(admissionVerifiedEvidenceSql(executionId));
+    const bindingMatches=canonicalJson(jobScope.execution||null)===canonicalJson({
+      executionId,leaseId,phase:'SYNCING',approvalId:approval.approvalId,floorSha:target,
+      deadlineAt:new Date(deadlineAt).toISOString(),
+    });
+    const scopeBindingMatches=jobScope.approvalId===approval.approvalId&&jobScope.floorSha===target
+      &&jobScope.bookId===v.bookId&&jobScope.period===v.period
+      &&canonicalJson(jobScope.scope||null)===canonicalJson(v.scope);
+    const proofHolds=job.status==='SUCCESS'
+      &&summary.state==='COMPLETED'
+      &&typeof summary.decision==='string'&&summary.decision!=='HOLD'
+      &&summary.externalWriteEnabled===false
+      &&!!inbound&&typeof inbound==='object'&&!Array.isArray(inbound)&&inbound.applied===false
+      &&typeof sends==='number'&&Number.isInteger(sends)&&sends>=1
+      &&ordinalsVerified
+      &&bindingMatches&&scopeBindingMatches
+      &&verifiedRow?.phase==='VERIFIED'&&verifiedRow?.hold_reason===''&&verifiedRow?.lease_id==='';
+    if(!proofHolds){
+      // a COMPLETED run without the strict proof: the execution is already
+      // settled (typically VERIFIED by the scheduler's own gate) — the guard
+      // answers NO_HOLD_NEEDED for it and the mismatch is never converted
+      // into success
+      const stopOutcome=await stopExecution('CANCELLED');
+      throw Object.assign(Error('FIRST_SYNC_HOLD=FIRST_SYNC_PROOF'),{stopOutcome,orchestrationRunId:orchestration});
+    }
+    // post-checks: side-effect counters, business fingerprints, mapping and
+    // floor state — every read raced against the same absolute deadline
+    const after=await boundedRead(sql);
+    for(const key of ['inboundRuns','financeLedgerRows','financeInvoiceRows','writebackPending','wmsWritebackPending','remoteWriteAttempts','wmsRemoteWriteAttempts'])if(after[key]!==before[key])throw Error('FIRST_SYNC_HOLD=FORBIDDEN_SIDE_EFFECT');
+    const protectedAfter=await boundedFingerprints();
+    if(JSON.stringify(protectedBefore)!==JSON.stringify(protectedAfter))throw Error('FIRST_SYNC_HOLD=BUSINESS_FACT_CHANGED');
+    mappingScope(after,approval);guardProduction(root,stateDirectory,actual);
+    // FINAL deadline gate: after ALL post-checks and immediately before the
+    // VERIFIED write — the deadline can never be crossed by the write
+    // FINAL deadline gate: after ALL post-checks and immediately before the
+    // VERIFIED write — the deadline can never be crossed by the write
+    if(remainingMs()<=1){
+      const stopOutcome=await stopExecution('DEADLINE');
+      throw Object.assign(Error('FIRST_SYNC_HOLD=FAILURE_OR_TIMEOUT'),{stopOutcome,classification:'DEADLINE'});
+    }
+    atomicState(file,{version:3,target,approvalId:approval.approvalId,orchestrationRunId:orchestration,scope:v,phase:'VERIFIED',before,after,protectedBefore,protectedAfter,remoteWrite:false,erpInbound:false,execution:{executionId,leaseId,deadlineAt:new Date(deadlineAt).toISOString()}});
+    console.log(`FIRST_CONTROLLED_SYNC=PASS;RUN_ID=${orchestration};ADMISSION=VERIFIED`);
+    return { orchestrationRunId: orchestration, phase: 'VERIFIED' };
   } catch (error) {
-    // enqueue后的失败/漂移/超期：经既有有界守卫持久停止执行，并准确报告
-    // CONFIRMED / ALREADY_STOPPED / NO_HOLD_NEEDED / UNCONFIRMED
+    // enqueue后的失败/漂移/超期/证明/指纹/最终核验失败：经既有有界守卫持久
+    // 停止执行，并准确报告 CONFIRMED / ALREADY_STOPPED / NO_HOLD_NEEDED /
+    // UNCONFIRMED（一次停止——catch 不重复入队停止）
     const classification=remainingMs()<=1&&/FAILURE_OR_TIMEOUT|DEADLINE/.test(String(error?.message))?'DEADLINE':'CANCELLED';
     const stopOutcome=await stopExecution(classification);
     throw Object.assign(error,{stopOutcome,classification});
   }
-  // STRICT DURABLE PROOF (the reviewed first-sync semantics): the final
-  // admission is VERIFIED and the SUCCESS job carries the FULL approval/
-  // execution/lease/floor/scope binding, the worker receipt ordinals
-  // (independently re-counted against the receipts table) and the explicit
-  // forbidden-write fields — a COMPLETED run alone proves nothing.
-  const job=(await boundedRead(jobProofEvidenceSql(orchestration)))||{};
-  const summary=job.summary||{};const jobScope=job.scope||{};
-  const inbound=summary.erpInbound;
-  const sends=summary.executionSends;const ordinals=summary.executionReceiptOrdinals;
-  let ordinalsVerified=false;
-  if(Array.isArray(ordinals)&&ordinals.length>=1&&ordinals.every((o)=>Number.isInteger(o)&&o>0)&&ordinals.length===sends){
-    const counted=await boundedRead(ordinalsProofEvidenceSql(executionId,leaseId,ordinals));
-    ordinalsVerified=Number(counted?.n||0)===ordinals.length;
-  }
-  const verifiedRow=await boundedRead(admissionVerifiedEvidenceSql(executionId));
-  const bindingMatches=canonicalJson(jobScope.execution||null)===canonicalJson({
-    executionId,leaseId,phase:'SYNCING',approvalId:approval.approvalId,floorSha:target,
-    deadlineAt:new Date(deadlineAt).toISOString(),
-  });
-  const scopeBindingMatches=jobScope.approvalId===approval.approvalId&&jobScope.floorSha===target
-    &&jobScope.bookId===v.bookId&&jobScope.period===v.period
-    &&canonicalJson(jobScope.scope||null)===canonicalJson(v.scope);
-  const proofHolds=job.status==='SUCCESS'
-    &&summary.state==='COMPLETED'
-    &&typeof summary.decision==='string'&&summary.decision!=='HOLD'
-    &&summary.externalWriteEnabled===false
-    &&!!inbound&&typeof inbound==='object'&&!Array.isArray(inbound)&&inbound.applied===false
-    &&typeof sends==='number'&&Number.isInteger(sends)&&sends>=1
-    &&ordinalsVerified
-    &&bindingMatches&&scopeBindingMatches
-    &&verifiedRow?.phase==='VERIFIED'&&verifiedRow?.hold_reason===''&&verifiedRow?.lease_id==='';
-  if(!proofHolds){
-    // a COMPLETED run without the strict proof: the execution is already
-    // settled (typically VERIFIED by the scheduler's own gate) — the guard
-    // answers NO_HOLD_NEEDED for it and the mismatch is never converted
-    // into success
-    const stopOutcome=await stopExecution('CANCELLED');
-    throw Object.assign(Error('FIRST_SYNC_HOLD=FIRST_SYNC_PROOF'),{stopOutcome,orchestrationRunId:orchestration});
-  }
-  if(remainingMs()<=1){
-    // the deadline arrived during verification: the VERIFIED evidence is
-    // NEVER written past the absolute deadline
-    const stopOutcome=await stopExecution('DEADLINE');
-    throw Object.assign(Error('FIRST_SYNC_HOLD=FAILURE_OR_TIMEOUT'),{stopOutcome,classification:'DEADLINE'});
-  }
-  const after=await boundedRead(sql);
-  for(const key of ['inboundRuns','financeLedgerRows','financeInvoiceRows','writebackPending','wmsWritebackPending','remoteWriteAttempts','wmsRemoteWriteAttempts'])if(after[key]!==before[key])throw Error('FIRST_SYNC_HOLD=FORBIDDEN_SIDE_EFFECT');
-  const protectedAfter=await boundedFingerprints();
-  if(JSON.stringify(protectedBefore)!==JSON.stringify(protectedAfter))throw Error('FIRST_SYNC_HOLD=BUSINESS_FACT_CHANGED');
-  mappingScope(after,approval);guardProduction(root,stateDirectory,actual);
-  atomicState(file,{version:3,target,approvalId:approval.approvalId,orchestrationRunId:orchestration,scope:v,phase:'VERIFIED',before,after,protectedBefore,protectedAfter,remoteWrite:false,erpInbound:false,execution:{executionId,leaseId,deadlineAt:new Date(deadlineAt).toISOString()}});
-  console.log(`FIRST_CONTROLLED_SYNC=PASS;RUN_ID=${orchestration};ADMISSION=VERIFIED`);
-  return { orchestrationRunId: orchestration, phase: 'VERIFIED' };
 }
 export function buildProductionWrapperEnv(root) {
   // TRUSTED DELIVERY LOCATIONS for the production controlled entry:
   //   reviewed checkout + compiled modules + runtime dependencies:
   //     CONTRACT.repository (verified by the REAL verifyContext below — the
   //     state directory must be the contract's approved directory and the
-  //     inherited FD9 the workflow's mutation lock)
+  //     inherited FD9 the workflow's mutation lock). The compiled execution
+  //     modules for the durable stop are delivered by the root workflow from
+  //     the DEPLOYED API IMAGE (CHANJET_EXECUTION_DIST_ROOT) — never
+  //     hand-placed.
   //   evidence / handover files:
   //     CONTRACT.stateDirectory (the same approved directory)
-  //   stop channel configuration:
-  //     the deployment's standard PostgreSQL access environment
-  //     (PGHOST/PGUSER/PGPASSWORD/PGPORT/PGDATABASE) — never a hand-placed
-  //     file and never new secrets
+  //   stop channel:
+  //     the EXISTING DB container access (docker exec phoenix-v3-db psql) —
+  //     the deployment's own database configuration, no new secrets
   const stateDirectory=CONTRACT.stateDirectory;
   verifyContext(fs.realpathSync(root),stateDirectory);
-  const pgParts=[process.env.PGHOST,process.env.PGUSER,process.env.PGDATABASE].every(Boolean)
-    ? `postgresql://${encodeURIComponent(process.env.PGUSER)}:${encodeURIComponent(process.env.PGPASSWORD||'')}@${process.env.PGHOST}:${process.env.PGPORT||'5432'}/${process.env.PGDATABASE}`
-    : undefined;
-  return { stateDirectory, pgUrl: pgParts };
+  const distRoot=process.env.CHANJET_EXECUTION_DIST_ROOT||path.join(root,'apps/api/dist');
+  return { stateDirectory, distRoot };
+}
+// The production stop executor: the EXISTING DB container access (docker exec
+// phoenix-v3-db psql, READ WRITE) with a hard subprocess timeout. Parameters
+// are dollar-quoted literals from the store itself (execution ids, canonical
+// manifest, digest, reason) — no free-text SQL composition.
+export function makeProductionStopExecutor({ dbContainer = 'phoenix-v3-db', timeoutMs = 30_000 } = {}) {
+  const dollar = (value) => `$r42d$${String(value)}$r42d$`;
+  return {
+    dispose: async () => undefined,
+    query: async (sql, parameters = []) => {
+      let index = 0;
+      const inlined = String(sql).replace(/\$(\d+)/g, (match, n) => {
+        const position = Number(n);
+        if (position !== index + 1) return match;
+        index += 1;
+        return dollar(parameters[position - 1]);
+      });
+      const output = require('node:child_process').execFileSync('docker',
+        ['exec', '-i', dbContainer, 'sh', '-c', 'exec psql -X -At -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "${POSTGRES_DB:-$POSTGRES_USER}"'],
+        { input: `BEGIN;\nSET LOCAL statement_timeout='10s';\nSET LOCAL lock_timeout='3s';\nWITH r42d_q AS (\n${inlined}\n) SELECT COALESCE(json_agg(row_to_json(r42d_q)),'[]'::json)::text FROM r42d_q;\nCOMMIT;\n`, timeout: timeoutMs, killSignal: 'SIGKILL', encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 });
+      const line = output.split('\n').find((l) => l.startsWith('[') || l === '[]');
+      return line ? JSON.parse(line) : [];
+    },
+  };
 }
 export async function firstSync(root) {
   try {
@@ -268,7 +317,14 @@ export async function firstSync(root) {
     if(!fs.existsSync(handoverFile))throw Error('FIRST_SYNC_HOLD=HANDOVER_MISSING');
     const handover=JSON.parse(fs.readFileSync(handoverFile,'utf8'));
     if(handover?.target!==process.env.APPROVED_CONFIG_FLOOR_SHA)throw Error('FIRST_SYNC_HOLD=EXECUTION_BINDING');
-    const durableStop=makeDurableStop({ repoRoot:CONTRACT.repository, pgUrl:wrapperEnv.pgUrl, readEvidence:readDatabaseEvidence, handover });
+    // evidence reads carry the LIVE remaining budget into the subprocess
+    const readEvidence=(sql,budget)=>readDatabaseEvidence(sql,{timeoutMs:Math.min(Math.max(budget?.remainingMs??30_000,1_000),60_000)});
+    const durableStop=makeDurableStop({
+      distRoot:wrapperEnv.distRoot,
+      executor:makeProductionStopExecutor({ dbContainer:process.env.CHANJET_DB_CONTAINER||'phoenix-v3-db' }),
+      readEvidence,
+      handover,
+    });
     await firstSyncCore({ env:{...process.env,FIRST_SYNC_ROOT:root}, handover, durableStop });
   }catch(error){
     const reason=String(error?.message||error).replace(/[^\x20-\x7e]/g,' ').slice(0,160);

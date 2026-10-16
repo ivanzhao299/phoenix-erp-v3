@@ -51,6 +51,14 @@ on:
         description: "v3→v3' floor 重锚定必填：当前 floor 的精确 SHA（重锚定前后双向绑定）"
         type: string
         default: ''
+      approved_execution_manifest_b64:
+        description: "R4.2d 单独获批的执行 manifest JSON(base64)；与 approved_config_floor_sha 成对交付，仅 VERIFY floor 首次同步使用"
+        type: string
+        default: ''
+      chanjet_sync_operator_token:
+        description: "R4.2d 受控首次同步的操作员令牌(既有受保护 API 契约凭证)"
+        type: string
+        default: ''
       rotate_chanjet_credentials:
         description: "显式批准五个受管理 Chanjet 凭据轮换；普通部署保持 .env 不写入"
         type: boolean
@@ -743,6 +751,8 @@ jobs:
           ONE_TIME_CONFIG_FLOOR_TRANSITION: ${{ inputs.one_time_config_floor_transition }}
           APPROVED_CONFIG_FLOOR_SHA: ${{ inputs.approved_config_floor_sha }}
           APPROVED_PREVIOUS_FLOOR_SHA: ${{ inputs.approved_previous_floor_sha }}
+          APPROVED_EXECUTION_MANIFEST_B64: ${{ inputs.approved_execution_manifest_b64 }}
+          CHANJET_SYNC_OPERATOR_TOKEN: ${{ inputs.chanjet_sync_operator_token }}
           GHCR_LOGIN_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GHCR_LOGIN_USER: ${{ github.repository_owner }}
           CHANJET_APP_KEY: ${{ secrets.CHANJET_APP_KEY }}
@@ -759,7 +769,7 @@ jobs:
           proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
           proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
           proxy_port: 22
-          envs: APPROVED_CONFIG_FLOOR_SHA,APPROVED_PREVIOUS_FLOOR_SHA,DEPLOY_MODE,BUILD_WEB,BUILD_API,RUN_MIG,NGINX_CONF,DEPLOY_RUN_ID,DEPLOY_RUN_ATTEMPT,TARGET_SHA,PRESERVE_ARTIFACTS,ROTATE_CHANJET_CREDENTIALS,ONE_TIME_CONFIG_FLOOR_TRANSITION,GHCR_LOGIN_TOKEN,GHCR_LOGIN_USER,CHANJET_APP_KEY,CHANJET_APP_SECRET,CHANJET_ORG_ID,CHANJET_CERT,CHANJET_MSG_SECRET,PRODUCTION_CONTRACT_B64,PRODUCTION_PATH_HELPER_B64,PRODUCTION_CONTROL_BOOTSTRAP_B64
+          envs: APPROVED_CONFIG_FLOOR_SHA,APPROVED_PREVIOUS_FLOOR_SHA,DEPLOY_MODE,BUILD_WEB,BUILD_API,RUN_MIG,NGINX_CONF,DEPLOY_RUN_ID,DEPLOY_RUN_ATTEMPT,TARGET_SHA,PRESERVE_ARTIFACTS,ROTATE_CHANJET_CREDENTIALS,ONE_TIME_CONFIG_FLOOR_TRANSITION,GHCR_LOGIN_TOKEN,GHCR_LOGIN_USER,CHANJET_APP_KEY,CHANJET_APP_SECRET,CHANJET_ORG_ID,CHANJET_CERT,CHANJET_MSG_SECRET,PRODUCTION_CONTRACT_B64,PRODUCTION_PATH_HELPER_B64,PRODUCTION_CONTROL_BOOTSTRAP_B64,APPROVED_EXECUTION_MANIFEST_B64,CHANJET_SYNC_OPERATOR_TOKEN
           script: |
             set -Eeuo pipefail
             umask 077
@@ -1110,6 +1120,52 @@ jobs:
             echo "🐳 Docker 总占用(builder cache 保留 5GB/24h 加速冷构建):"
             DOCKER_DISK_REPORT="$(docker system df 2>/dev/null || true)"
             printf '%s\n' "$DOCKER_DISK_REPORT"
+
+            # ── R4.2d 受控首次同步链: prepare -> handover -> first-sync ──
+            # 仅在单独获批的 VERIFY floor 部署时执行。交付位置（全部来自既有
+            # 受审来源，非手工预置）：编译执行模块与运行依赖来自【已部署的
+            # API 镜像】（精确运行版本）；停止通道使用【既有 DB 容器访问】
+            # （docker exec phoenix-v3-db psql，即现有 DB 配置来源）；manifest
+            # 与操作员令牌来自 workflow 审批输入。失败 → 回滚 + 证据保留。
+            if [ -n "${APPROVED_CONFIG_FLOOR_SHA:-}" ]; then
+              test -n "${APPROVED_EXECUTION_MANIFEST_B64:-}" || { echo "DEPLOY_EVIDENCE_HOLD=EXECUTION_MANIFEST"; exit 25; }
+              test -n "${CHANJET_SYNC_OPERATOR_TOKEN:-}" || { echo "DEPLOY_EVIDENCE_HOLD=OPERATOR_TOKEN"; exit 25; }
+              R42D_STAGE="$STATE_DIR/run-${DEPLOY_RUN_ID}/r42d"
+              test ! -e "$R42D_STAGE"
+              mkdir -m 700 -p "$R42D_STAGE"
+              printf '%s' "$APPROVED_EXECUTION_MANIFEST_B64" | base64 -d > "$R42D_STAGE/approval-manifest.json"
+              chmod 600 "$R42D_STAGE/approval-manifest.json"
+              for helper in chanjet-readonly-first-sync.mjs chanjet-readonly-production-prepare.mjs chanjet-execution-manifest.mjs production-config-guard.mjs production-config-contract.json production-trusted-paths.mjs production-atomic-state.mjs production-deployment-state.mjs capture-production-runtime.mjs chanjet-readonly-policy.mjs chanjet-readonly-production-audit.mjs; do
+                git show "$TARGET_SHA:scripts/ops/$helper" > "$R42D_STAGE/$helper"
+                chmod 600 "$R42D_STAGE/$helper"
+              done
+              mkdir -p "$R42D_STAGE/readonly-audits"
+              git show "$TARGET_SHA:scripts/ops/readonly-audits/chanjet-restoration-preflight.sql" > "$R42D_STAGE/readonly-audits/chanjet-restoration-preflight.sql"
+              # 编译执行模块与运行依赖：从【已部署的 API 镜像】交付（精确运行版本）
+              EXEC_DIST="$STATE_DIR/run-${DEPLOY_RUN_ID}/execution-dist"
+              test ! -e "$EXEC_DIST"
+              mkdir -m 700 -p "$EXEC_DIST"
+              docker create --name "r42d-extract-${DEPLOY_RUN_ID}" "$API_IMAGE" >/dev/null
+              docker cp "r42d-extract-${DEPLOY_RUN_ID}:/app/dist" "$EXEC_DIST/dist"
+              docker cp "r42d-extract-${DEPLOY_RUN_ID}:/app/node_modules" "$EXEC_DIST/node_modules"
+              docker rm "r42d-extract-${DEPLOY_RUN_ID}" >/dev/null
+              # 停止通道与证据读取：既有 DB 容器配置
+              CHANJET_EXECUTION_PG_URL="$(docker exec phoenix-v3-db sh -c 'printf "postgresql://%s:%s@127.0.0.1:5432/%s" "$POSTGRES_USER" "$POSTGRES_PASSWORD" "$POSTGRES_DB"')"
+              export CHANJET_EXECUTION_PG_URL CHANJET_EXECUTION_DIST_ROOT="$EXEC_DIST/dist"
+              # 容器内交付（workflow 驱动，非手工预置）：prepare 在 API 容器内运行，
+              # 使用容器自身的 /app/dist + /app/node_modules + DB_*/CHANJET_* 配置
+              docker exec phoenix-v3-api mkdir -p /tmp/r42d-state /tmp/r42d/scripts/ops/readonly-audits
+              docker cp "$R42D_STAGE/." "phoenix-v3-api:/tmp/r42d/scripts/ops/"
+              # prepare: 登记 + probe + SYNCING 起始 + handover（真实 provider READ 一次，admission 计数）
+              PREPARE_OUT="$(docker exec                 -e R42D_MANIFEST="$(cat "$R42D_STAGE/approval-manifest.json")"                 -e EXPECTED_FLOOR_SHA="$TARGET_SHA"                 -e R42D_STATE=/tmp/r42d-state                 phoenix-v3-api node /tmp/r42d/scripts/ops/chanjet-readonly-production-prepare.mjs)"
+              echo "$PREPARE_OUT"
+              HANDOVER_JSON="$(printf '%s\n' "$PREPARE_OUT" | sed -n 's/^PREPARE=PASS;//p')"
+              test -n "$HANDOVER_JSON" || { echo "DEPLOY_EVIDENCE_HOLD=PREPARE"; exit 26; }
+              node -e 'const fs=require("fs");const [,,file,json]=process.argv;const tmp=file+".tmp-"+Date.now();fs.writeFileSync(tmp,json);fs.renameSync(tmp,file);' "$STATE_DIR/prepare-sync-handover.json" "$HANDOVER_JSON"
+              chmod 600 "$STATE_DIR/prepare-sync-handover.json"
+              # first-sync: 受审入口（真实护栏 + handover + 有界守卫停止）
+              CHANJET_SYNC_OPERATOR_TOKEN="$CHANJET_SYNC_OPERATOR_TOKEN"               FIRST_SYNC_ROOT="$DEPLOY_REPO_ROOT"               node scripts/ops/chanjet-readonly-first-sync.mjs
+            fi
 
             node scripts/ops/production-deployment-state.mjs complete
             trap - ERR

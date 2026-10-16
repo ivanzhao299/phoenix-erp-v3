@@ -19,9 +19,13 @@ export function readDatabaseEvidence(sql,{timeoutMs=30000}={}) {
   // Actual production schema is authoritative; no fallback to historical zero counts.
   // The subprocess itself carries a hard timeout+SIGKILL: a synchronous
   // execFileSync cannot be bounded by Promise.race — the bound must live in
-  // the child process.
+  // the child process. The SERVER-side statement/lock timeouts are derived
+  // from the SAME caller budget so a server-side cancel always precedes the
+  // client-side kill.
+  const statementMs=Math.min(Math.max(timeoutMs-1000,1000),20000);
+  const lockMs=Math.min(statementMs,3000);
   const output=run('docker',['exec','-i','-e','PGOPTIONS=-c default_transaction_read_only=on','phoenix-v3-db','sh','-c','exec psql -X -At -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "${POSTGRES_DB:-$POSTGRES_USER}"'],
-    { input:`BEGIN READ ONLY;\nSET LOCAL statement_timeout='20s';\nSET LOCAL lock_timeout='3s';\n${sql}\nROLLBACK;\n`, timeout:timeoutMs, killSignal:'SIGKILL' });
+    { input:`BEGIN READ ONLY;\nSET LOCAL statement_timeout='${statementMs}ms';\nSET LOCAL lock_timeout='${lockMs}ms';\n${sql}\nROLLBACK;\n`, timeout:timeoutMs, killSignal:'SIGKILL' });
   const line=output.split('\n').find(line=>line.startsWith('{')); if(!line) throw new Error('RESTORATION_HOLD=DB_EVIDENCE');
   return JSON.parse(line);
 }
