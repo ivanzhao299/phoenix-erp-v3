@@ -31,10 +31,19 @@ test('the rehearsal invokes the preflight with the candidate ledger inventory an
   assert.match(source, /classifyPreflightOutput\(preflight\)/);
   assert.match(source, /stdout:\s*error\.stdout \?\? ''/);
   const classifier = fs.readFileSync('scripts/ci/ledger-preflight-output-classify.mjs', 'utf8');
-  assert.match(classifier, /JSON\.parse\(combined\)/);
-  // the divergence claim is evidence-based: an invocation crash can never
-  // assert semantics divergence
-  assert.doesNotMatch(source, /console\.log\('LEDGER_PREFLIGHT_RUNTIME_SEMANTICS_DIVERGENCE=CONFIRMED'\)/);
+  assert.match(classifier, /JSON\.parse\(stdoutText\)/); // stdout alone — stderr never mixed into the parse
+  assert.match(classifier, /evaluation\.pass === true/);
+  // a PASS needs BOTH the JSON verdict AND exit status 0 — a null status can
+  // never be coerced into a PASS
+  assert.match(classifier, /typeof status !== 'number' \|\| !Number\.isFinite\(status\)/);
+  assert.match(classifier, /status !== 0/);
+  assert.match(classifier, /STATUS_MISMATCH/);
+  // the divergence claim requires a REAL evaluation verdict: a crash, empty
+  // output or unparseable noise never formed an evaluation conclusion
+  const runnerSource = source;
+  assert.match(runnerSource, /verdict\.kind === 'EVALUATION'\s*\n\s*\? 'LEDGER_PREFLIGHT_RUNTIME_SEMANTICS_DIVERGENCE=CONFIRMED'/s);
+  assert.match(runnerSource, /LEDGER_PREFLIGHT_NO_EVALUATION_CONCLUSION/);
+  assert.doesNotMatch(runnerSource, /console\.log\('LEDGER_PREFLIGHT_RUNTIME_SEMANTICS_DIVERGENCE=CONFIRMED'\)/);
 });
 
 test('historical rehearsal accepts only its pinned 88 classes and the exact separate admission migration', () => {

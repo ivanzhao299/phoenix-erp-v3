@@ -183,12 +183,15 @@ async function main() {
     console.log('SCHEMA_INVARIANTS=PASS');
     console.log('DATA_INVARIANTS=PASS');
     console.log('LEDGER_RUNTIME_COMPATIBILITY=PASS');
-    // evidence-based semantics line: with a correct invocation the preflight
-    // evaluates the same ledger this rehearsal exercised; a divergence claim
-    // requires an actual non-PASS preflight verdict, never an invocation crash
+    // evidence-based semantics line: only a REAL evaluation verdict (BLOCK
+    // JSON) may claim a semantics divergence — a crash, empty output or
+    // unparseable noise never formed an evaluation conclusion and is
+    // reported as exactly that
     console.log(verdict.result === 'PASS'
       ? 'LEDGER_PREFLIGHT_RUNTIME_SEMANTICS=AGREE'
-      : `LEDGER_PREFLIGHT_RUNTIME_SEMANTICS_DIVERGENCE=CONFIRMED;KIND=${verdict.kind}`);
+      : verdict.kind === 'EVALUATION'
+        ? 'LEDGER_PREFLIGHT_RUNTIME_SEMANTICS_DIVERGENCE=CONFIRMED'
+        : `LEDGER_PREFLIGHT_NO_EVALUATION_CONCLUSION;KIND=${verdict.kind};REASONS=${JSON.stringify(verdict.reasons)}`);
   } finally {
     await client.end();
     fs.rmSync(directory, { recursive:true, force:true });
