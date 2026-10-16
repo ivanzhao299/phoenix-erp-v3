@@ -33,22 +33,25 @@ const canonicalJson = (value) => {
   }
   return JSON.stringify(value);
 };
-const admissionManifestEvidenceSql = (executionId) => `SELECT manifest AS e FROM chanjet_execution_admissions WHERE execution_id = '${executionId}'`;
+// Every statement is semicolon-terminated: the production read adapters wrap
+// the SQL in a BEGIN READ ONLY … ROLLBACK template — an unterminated
+// statement would swallow the ROLLBACK and fail the read.
+const admissionManifestEvidenceSql = (executionId) => `SELECT manifest AS e FROM chanjet_execution_admissions WHERE execution_id = '${executionId}';`;
 const jobProofEvidenceSql = (orchestrationRunId) => `SELECT json_build_object(
   'status', status, 'summary', result_summary, 'scope', request_scope
-) AS e FROM chanjet_sync_jobs WHERE request_scope->>'orchestrationRunId' = '${orchestrationRunId}' ORDER BY id DESC LIMIT 1`;
+) AS e FROM chanjet_sync_jobs WHERE request_scope->>'orchestrationRunId' = '${orchestrationRunId}' ORDER BY id DESC LIMIT 1;`;
 const ordinalsProofEvidenceSql = (executionId, leaseId, ordinals) => `SELECT json_build_object('n', count(*)) AS e FROM chanjet_execution_requests
   WHERE execution_id = '${executionId}' AND phase = 'SYNCING' AND lease_id = '${leaseId}'
     AND kind = 'BUSINESS' AND status = 'ACKNOWLEDGED' AND result = 'OK'
-    AND ordinal = ANY(ARRAY[${ordinals.map((o) => Number(o) | 0).join(',')}]::int[])`;
+    AND ordinal = ANY(ARRAY[${ordinals.map((o) => Number(o) | 0).join(',')}]::int[]);`;
 const admissionVerifiedEvidenceSql = (executionId) => `SELECT json_build_object(
   'phase', phase, 'hold_reason', hold_reason, 'lease_id', lease_id
-) AS e FROM chanjet_execution_admissions WHERE execution_id = '${executionId}' AND phase = 'VERIFIED'`;
+) AS e FROM chanjet_execution_admissions WHERE execution_id = '${executionId}' AND phase = 'VERIFIED';`;
 const admissionOwnerColumnSql = (executionId) => `SELECT json_build_object(
   'phase', phase, 'hold_reason', hold_reason, 'lease_id', lease_id,
   'deadline_at', deadline_at, 'approval_id', approval_id, 'floor_sha', floor_sha,
   'owner_id', owner_id
-) AS e FROM chanjet_execution_admissions WHERE execution_id = '${executionId}'`;
+) AS e FROM chanjet_execution_admissions WHERE execution_id = '${executionId}';`;
 // The REAL bounded-guard stop implementation — the production wrapper AND
 // every test execute THIS same function. Trusted delivery locations: the
 // compiled reviewed modules come from repoRoot/apps/api/dist (the reviewed
@@ -139,7 +142,9 @@ export function firstSyncDeps(overrides = {}) {
 export async function firstSyncCore(overrides = {}) {
   const { env, fetchImpl, sleep, readDatabaseEvidence: readEvidence, businessFingerprints: fingerprints, captureRuntime, guardProduction, requireCleanMain, auditMappingScope: mappingScope, atomicState, stateDirectory, fileExists, endpoint: alignmentEndpoint, handover, durableStop } = { ...firstSyncDeps(), ...overrides };
   const root=env.FIRST_SYNC_ROOT||process.cwd();
-  const target=env.TARGET_SHA,runId=env.DEPLOY_RUN_ID,token=env.CHANJET_SYNC_OPERATOR_TOKEN;
+  // 首同步证据 run id 与部署事务 run id 分开绑定
+  const runId=env.FIRST_SYNC_RUN_ID||env.DEPLOY_RUN_ID;
+  const target=env.TARGET_SHA,token=env.CHANJET_SYNC_OPERATOR_TOKEN;
   if(!token||!/^\d+-\d+$/.test(runId||'')||env.APPROVED_CONFIG_FLOOR_SHA!==target)throw Error('FIRST_SYNC_HOLD=AUTHORITY');
   // the durable execution binding comes ONLY from the controlled root
   // workflow's handover — never from env or the request

@@ -18,7 +18,7 @@ import os from 'node:os';
 import path from 'node:path';
 import http from 'node:http';
 import { execFileSync, spawn, spawnSync } from 'node:child_process';
-import { randomUUID } from 'node:crypto';
+import { randomUUID, createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
 
@@ -316,6 +316,22 @@ const evidenceState = (runId) => JSON.parse(fs.readFileSync(path.join(workDir, `
 
 const providerHits = () => fs.readFileSync(providerHitsFile, 'utf8').split('\n').filter(Boolean).length;
 
+// the fixture DB container: explicit override first; otherwise discovered
+// from the runner's docker state by matching the fixture database name (the
+// environment may carry several postgres containers)
+function resolveFixtureDbContainer() {
+  if (process.env.CHANJET_STOP_DB_CONTAINER) return process.env.CHANJET_STOP_DB_CONTAINER;
+  const fixtureDbName = new URL(fixtureUrl).pathname.slice(1);
+  const candidates = execFileSync('docker', ['ps', '--format', '{{.Names}}'], { encoding: 'utf8' })
+    .split('\n').filter(Boolean).filter((n) => n.includes('postgres'));
+  return candidates.find((n) => {
+    try {
+      const envJson = execFileSync('docker', ['exec', n, 'printenv', 'POSTGRES_DB'], { encoding: 'utf8' }).trim();
+      return envJson === fixtureDbName;
+    } catch { return false; }
+  }) || candidates[0] || 'phoenix-r42a-admission-fixture';
+}
+
 database('first-sync protected-entry acceptance (real entry, real scheduler host, real PostgreSQL18, local provider)', () => {
   before(async () => {
     workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'first-sync-'));
@@ -402,9 +418,11 @@ database('first-sync protected-entry acceptance (real entry, real scheduler host
         CHANJET_ORG_ID: 'SYNTHETIC_ORG', CHANJET_CERT: 'SYNTHETIC_CERT',
         CHANJET_PROVIDER_BASE_URL: provider.base,
         // the API container's OWN runtime tuple + deployed approval (the
-        // prepare verifies both against the manifest)
+        // prepare verifies both against the manifest); the REAL READONLY_VERIFY
+        // tuple keeps the sync window OPEN (readonlyEnvironment: non-HOLD ⇒
+        // CHANJET_READONLY_SYNC_ENABLED='true')
         CHANJET_SYNC_POLICY: 'READONLY_VERIFY',
-        CHANJET_READONLY_SYNC_ENABLED: 'false',
+        CHANJET_READONLY_SYNC_ENABLED: 'true',
         CHANJET_ERP_INBOUND_SYNC_ENABLED: 'false',
         CHANJET_READONLY_APPROVAL: JSON.stringify(approvedPolicyFileValue(execution.manifest)),
         R42D_SKIP_REGISTRATION: '1',
@@ -533,23 +551,8 @@ database('first-sync protected-entry acceptance (real entry, real scheduler host
     const execution = await registerExecution({ cap: 10 });
     const prepared = runPrepareSync(execution);
     assert.equal(prepared.verdict, 'PASS');
-    // the DB container: explicit override first; otherwise discovered from
-    // the runner's docker state by matching the fixture database name (the
-    // environment may carry several postgres containers)
-    const fixtureDbName = new URL(fixtureUrl).pathname.slice(1);
-    const candidates = execFileSync('docker', ['ps', '--format', '{{.Names}}'], { encoding: 'utf8' })
-      .split('\n').filter(Boolean).filter((n) => n.includes('postgres'));
-    const dbContainer = process.env.CHANJET_STOP_DB_CONTAINER
-      || candidates.find((n) => {
-        try {
-          const envJson = execFileSync('docker', ['exec', n, 'printenv', 'POSTGRES_DB'], { encoding: 'utf8' }).trim();
-          return envJson === fixtureDbName;
-        } catch { return false; }
-      })
-      || candidates[0]
-      || 'phoenix-r42a-admission-fixture';
     const executor = makeProductionStopExecutor({
-      dbContainer,
+      dbContainer: resolveFixtureDbContainer(),
       timeoutMs: 30_000,
       // the docker-exec psql reads the DB name from the container env; the
       // container's POSTGRES_USER defaults to postgres inside the shell
@@ -798,4 +801,204 @@ database('first-sync protected-entry acceptance (real entry, real scheduler host
       host.child.kill();
     }
   });
+
+  // ── the REAL production chain (chanjet-readonly-production-chain.sh) ──────
+  // The chain script itself executes for real under bash: FD9 identity on the
+  // inherited lock, stage sole ownership, manifest sha256 provenance, the
+  // deploy-complete gate, the REAL audit module (READ ONLY evidence on the
+  // fixture database, mapping-scope BLOCK semantics, fail-closed classification),
+  // the REAL prepare inside the container surface (VERIFY tuple + deployed
+  // approval + guard-triggered registration + probe + SYNCING handover) and
+  // the REAL first-sync entry (budget reads, scheduler enqueue, strict proof,
+  // durable stop). Only the host-trusted-path bindings are controlled (see
+  // the shim/dispatcher/drivers in scripts/ci/).
+  const chainScript = path.join(repoRoot, 'scripts/ops/chanjet-readonly-production-chain.sh');
+  const auditDriver = path.join(repoRoot, 'scripts/ci/chanjet-first-sync-chain-audit-driver.mjs');
+  const entryDriver = path.join(repoRoot, 'scripts/ci/chanjet-first-sync-chain-entry-driver.mjs');
+
+  let chainShimBin = '';
+
+  function writeChainShims() {
+    chainShimBin = path.join(workDir, 'chain-bin');
+    fs.rmSync(chainShimBin, { recursive: true, force: true });
+    fs.mkdirSync(chainShimBin, { recursive: true });
+    const shimModule = path.join(repoRoot, 'scripts/ci/chanjet-first-sync-docker-shim.mjs');
+    const dispatchModule = path.join(repoRoot, 'scripts/ci/chanjet-first-sync-chain-dispatch.mjs');
+    const wrapper = (name, invocation) => fs.writeFileSync(
+      path.join(chainShimBin, name),
+      `#!/bin/sh\nR42D_SHIM_BIN="$(dirname "$0")" exec '${process.execPath}' '${shimModule}' ${invocation} "$@"\n`,
+      { mode: 0o755 },
+    );
+    wrapper('docker', 'docker');
+    wrapper('git', 'git');
+    wrapper('curl', 'curl');
+    fs.writeFileSync(path.join(chainShimBin, 'node'), `#!/bin/sh\nexec '${process.execPath}' '${dispatchModule}' "$@"\n`, { mode: 0o755 });
+  }
+
+  async function runProductionChain({ manifest, deployRunId, firstSyncRunId, hostBase, syncPolicy = 'READONLY_VERIFY', readonlySyncEnabled = 'true', fd9File = lockFile, lockFileArg = lockFile, digestOverride = null, runningJob = false } = {}) {
+    const manifestFile = writeJson('chain-manifest', manifest);
+    // the deploy-complete evidence gate input (the deploy workflow's output)
+    fs.writeFileSync(path.join(workDir, `deploy-${deployRunId}.json`), JSON.stringify({
+      version: 3, runId: deployRunId, phase: 'IN_PROGRESS', configSha: FLOOR_SHA,
+      expiresAt: new Date(Date.now() + 15 * 60_000).toISOString(),
+    }));
+    // the approved floor state both drivers verify against — the REAL
+    // READONLY_VERIFY tuple keeps the sync window open
+    fs.writeFileSync(path.join(workDir, 'floor.json'), JSON.stringify({
+      version: 3, phase: 'READY', floorSha: FLOOR_SHA, chanjetPolicy: 'READONLY_VERIFY', project: 'phoenix',
+      readonlyApproval: { approvalId: manifest.approval.approvalId, books: manifest.approval.books, verification: manifest.approval.verification },
+      operationalTuple: { CHANJET_READONLY_SYNC_ENABLED: readonlySyncEnabled, CHANJET_ERP_INBOUND_SYNC_ENABLED: 'false', PHOENIX_DATA_MOUNT_GUARD: 'true', PHOENIX_PG_DATA_DIR: '/data/pg', PHOENIX_UPLOADS_DIR: '/data/uploads' },
+    }));
+    if (runningJob) await dataSource.query(`INSERT INTO chanjet_sync_jobs (job_type, status) VALUES ('FULL_READONLY', 'RUNNING')`);
+    const cfgFile = path.join(workDir, `chain-cfg-${randomUUID().slice(0, 8)}.json`);
+    const traceFile = `${cfgFile}-trace.jsonl`;
+    fs.writeFileSync(cfgFile, JSON.stringify({
+      repoRoot, stateDir: workDir, r42dRoot: path.join(workDir, `r42d-stage-${deployRunId}`),
+      targetSha: FLOOR_SHA, floorSha: FLOOR_SHA, project: 'phoenix',
+      apiImageId: `sha256:${'a'.repeat(64)}`, webImageId: `sha256:${'b'.repeat(64)}`,
+      syncPolicy, readonlySyncEnabled, erpInboundEnabled: 'false',
+      approvalJson: JSON.stringify(approvedPolicyFileValue(manifest)),
+      providerBase: provider.base, endpoint: `${hostBase}/chanjet/integration/alignment/`,
+      dbContainerName: resolveFixtureDbContainer(),
+      distRoot: path.join(apiDir, 'dist'), modulesRoot: path.join(apiDir, 'node_modules'),
+      auditDriver, entryDriver,
+      db: {
+        host: '127.0.0.1', port: Number(new URL(fixtureUrl).port || 5432),
+        user: decodeURIComponent(new URL(fixtureUrl).username || 'postgres'),
+        password: decodeURIComponent(new URL(fixtureUrl).password || ''),
+        name: new URL(fixtureUrl).pathname.slice(1),
+      },
+      traceFile,
+    }));
+    const command = `exec 9>>'${fd9File}'; flock -n 9 || exit 27; bash '${chainScript}'`;
+    const run = spawnSync('bash', ['-c', command], {
+      encoding: 'utf8', timeout: 240_000, cwd: repoRoot,
+      env: {
+        ...process.env,
+        PATH: `${chainShimBin}:${process.env.PATH}`,
+        R42D_SHIM_CONFIG: cfgFile,
+        R42D_MANIFEST_FILE: manifestFile,
+        R42D_MANIFEST_SHA256: digestOverride ?? createHash('sha256').update(fs.readFileSync(manifestFile)).digest('hex'),
+        APPROVED_CONFIG_FLOOR_SHA: FLOOR_SHA,
+        TARGET_SHA: FLOOR_SHA,
+        DEPLOY_RUN_ID: deployRunId,
+        FIRST_SYNC_RUN_ID: firstSyncRunId,
+        STATE_DIR: workDir,
+        CHANJET_SYNC_OPERATOR_TOKEN: 'SYNTHETIC_OP_TOKEN',
+        FIRST_SYNC_LOCK_FILE: lockFileArg,
+        API_CONTAINER: 'phoenix-v3-api',
+        DB_CONTAINER: 'phoenix-v3-db',
+      },
+    });
+    return { run, traceFile };
+  }
+
+  const admissionsFor = async (executionId) => (await dataSource.query(
+    'SELECT count(*)::int AS n FROM chanjet_execution_admissions WHERE execution_id=$1', [executionId],
+  ))[0].n;
+
+  test('full chain: the REAL production-chain.sh — FD9 lock, manifest provenance, real audit, real prepare registration, first-sync to VERIFIED with the run ids bound separately', async () => {
+    writeChainShims();
+    const manifest = syntheticManifest(10);
+    const deployRunId = `${Date.now()}-100`;
+    const firstSyncRunId = `${Date.now()}-200`;
+    const host = await startHost({ approvalFile: writeJson('chain-approval', approvedPolicyFileValue(manifest)) });
+    try {
+      const { run, traceFile } = await runProductionChain({ manifest, deployRunId, firstSyncRunId, hostBase: host.base });
+      assert.equal(run.status, 0, `chain failed (${run.status}):\n${run.stdout}\n${run.stderr}`);
+      // the real chain's stage verdicts on stdout, in order
+      const prepareAt = run.stdout.indexOf('PREPARE=PASS;');
+      const syncAt = run.stdout.indexOf('FIRST_CONTROLLED_SYNC=PASS;');
+      assert.ok(prepareAt >= 0, run.stdout);
+      assert.ok(syncAt > prepareAt, run.stdout);
+      // the admission reached VERIFIED through the REAL registration + gate
+      const [admission] = await dataSource.query('SELECT phase, hold_reason FROM chanjet_execution_admissions WHERE execution_id=$1', [manifest.executionId]);
+      assert.equal(admission.phase, 'VERIFIED');
+      assert.equal(admission.hold_reason, '');
+      // the chain-delivered handover on the host carries the reviewed identity
+      const handover = JSON.parse(fs.readFileSync(path.join(workDir, 'prepare-sync-handover.json'), 'utf8'));
+      assert.equal(handover.target, FLOOR_SHA);
+      assert.equal(handover.executionId, manifest.executionId);
+      // the first-sync evidence run is bound SEPARATELY from the deploy run
+      const evidence = JSON.parse(fs.readFileSync(path.join(workDir, `first-sync-${firstSyncRunId}.json`), 'utf8'));
+      assert.equal(evidence.phase, 'VERIFIED');
+      assert.equal(evidence.execution.executionId, manifest.executionId);
+      assert.ok(!fs.existsSync(path.join(workDir, `first-sync-${deployRunId}.json`)));
+      // the shim surface saw no unmapped command
+      const unexpected = fs.readFileSync(traceFile, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l)).filter((e) => e.kind === 'unexpectedCommand');
+      assert.deepEqual(unexpected, []);
+      // the business fingerprint tables were never touched
+      const [ledger] = await dataSource.query('SELECT count(*)::int AS n FROM fin_ar_ledger');
+      assert.equal(ledger.n, 0);
+    } finally {
+      host.child.kill();
+    }
+  }, 240_000);
+
+  test('full chain: an audit BLOCK (a real running job in the database) blocks before registration and before any provider HTTP', async () => {
+    writeChainShims();
+    const manifest = syntheticManifest(10);
+    const hitsBefore = providerHits();
+    const handoverFile = path.join(workDir, 'prepare-sync-handover.json');
+    const handoverMtimeBefore = fs.existsSync(handoverFile) ? fs.statSync(handoverFile).mtimeMs : -1;
+    const { run } = await runProductionChain({
+      manifest, deployRunId: `${Date.now()}-300`, firstSyncRunId: `${Date.now()}-400`,
+      hostBase: 'http://127.0.0.1:9', runningJob: true,
+    });
+    assert.notEqual(run.status, 0);
+    // the REAL audit's fail-closed classification surfaced through the chain
+    assert.match(run.stderr, /CHANJET_PRODUCTION_AUDIT=HOLD class=RESTORATION_HOLD=CURRENT_JOBS_OR_MAPPING/);
+    assert.ok(!run.stdout.includes('PREPARE=PASS'), run.stdout);
+    // zero registration, zero provider HTTP, no new handover, no first-sync evidence
+    assert.equal(await admissionsFor(manifest.executionId), 0);
+    assert.equal(providerHits(), hitsBefore);
+    assert.equal(fs.existsSync(handoverFile) ? fs.statSync(handoverFile).mtimeMs : -1, handoverMtimeBefore);
+    // unblock for the following tests
+    await dataSource.query(`DELETE FROM chanjet_sync_jobs WHERE job_type='FULL_READONLY' AND status='RUNNING'`);
+  }, 120_000);
+
+  test('full chain: FD9 not being the mutation lock refuses at the chain gate with zero registration', async () => {
+    writeChainShims();
+    const manifest = syntheticManifest(10);
+    const decoyLock = path.join(workDir, `decoy-${randomUUID().slice(0, 8)}.lock`);
+    fs.writeFileSync(decoyLock, '');
+    const hitsBefore = providerHits();
+    // FD9 is opened on the DECOY while the chain's declared mutation lock
+    // stays the real one: the identity check must refuse the mismatch
+    const { run } = await runProductionChain({
+      manifest, deployRunId: `${Date.now()}-500`, firstSyncRunId: `${Date.now()}-600`,
+      hostBase: 'http://127.0.0.1:9', fd9File: decoyLock, lockFileArg: lockFile,
+    });
+    assert.equal(run.status, 28, `FD9 gate: ${run.status}\n${run.stdout}\n${run.stderr}`);
+    assert.match(run.stdout, /FIRST_SYNC_HOLD=FD9_IDENTITY/);
+    assert.equal(await admissionsFor(manifest.executionId), 0);
+    assert.equal(providerHits(), hitsBefore);
+  }, 120_000);
+
+  test('full chain: a manifest digest mismatch refuses before anything runs', async () => {
+    writeChainShims();
+    const manifest = syntheticManifest(10);
+    const hitsBefore = providerHits();
+    const { run } = await runProductionChain({
+      manifest, deployRunId: `${Date.now()}-700`, firstSyncRunId: `${Date.now()}-800`,
+      hostBase: 'http://127.0.0.1:9', digestOverride: '0'.repeat(64),
+    });
+    assert.equal(run.status, 28);
+    assert.match(run.stdout, /FIRST_SYNC_HOLD=MANIFEST_DIGEST/);
+    assert.equal(await admissionsFor(manifest.executionId), 0);
+    assert.equal(providerHits(), hitsBefore);
+  }, 120_000);
+
+  test('full chain: the container without the real VERIFY tuple (sync window closed) refuses registration in the real prepare', async () => {
+    writeChainShims();
+    const manifest = syntheticManifest(10);
+    const hitsBefore = providerHits();
+    const { run } = await runProductionChain({
+      manifest, deployRunId: `${Date.now()}-900`, firstSyncRunId: `${Date.now()}-910`,
+      hostBase: 'http://127.0.0.1:9', readonlySyncEnabled: 'false',
+    });
+    assert.notEqual(run.status, 0);
+    assert.equal(await admissionsFor(manifest.executionId), 0); // the tuple gate precedes registration
+    assert.equal(providerHits(), hitsBefore); // and precedes any provider HTTP
+  }, 120_000);
 });

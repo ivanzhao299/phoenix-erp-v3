@@ -65,8 +65,10 @@ await (async () => {
   // R4.2d: 登记与 provider HTTP 之前的来源核验 —— 真实 VERIFY 运行元组
   // （容器自身配置）、当前审批（规范 JSON 逐字段）、映射对、exact-SHA floor
   const distPolicy = await import(pathToFileURL(path.join(distRoot, 'modules/chanjet/chanjet-readonly-policy.js')).href);
+  // 既有 READONLY_VERIFY 真实元组：同步窗口开启（READONLY_SYNC_ENABLED=true）、
+  // erpInbound 关闭、policy=READONLY_VERIFY
   if (process.env.CHANJET_SYNC_POLICY !== 'READONLY_VERIFY'
-    || process.env.CHANJET_READONLY_SYNC_ENABLED !== 'false'
+    || process.env.CHANJET_READONLY_SYNC_ENABLED !== 'true'
     || process.env.CHANJET_ERP_INBOUND_SYNC_ENABLED !== 'false') fail('VERIFY_TUPLE', { syncPolicy: process.env.CHANJET_SYNC_POLICY ?? null });
   // 当前审批：容器自身的 CHANJET_READONLY_APPROVAL 环境（部署下发的真实
   // 审批）经受审 policy 校验器核验；审批身份（approvalId/floorSha/books/
@@ -151,7 +153,7 @@ await (async () => {
   const tmp = `${handoverFile}.tmp`;
   fs.writeFileSync(tmp, JSON.stringify(handover));
   fs.renameSync(tmp, handoverFile);
-  console.log(`PREPARE=PASS;${JSON.stringify({ executionId: manifest.executionId, leaseId: syncLease, deadlineAt: deadlineAt.toISOString(), approvalId: manifest.approval.approvalId, floorSha: expectedFloorSha })}`);
+  console.log(`PREPARE=PASS;${JSON.stringify({ version: 1, target: expectedFloorSha, executionId: manifest.executionId, leaseId: syncLease, deadlineAt: deadlineAt.toISOString(), approvalId: manifest.approval.approvalId, floorSha: expectedFloorSha })}`);
   await dataSource.destroy().catch(() => undefined);
   process.exit(0);
 })().catch(async (error) => {

@@ -74,6 +74,16 @@ jobs:
     timeout-minutes: 20
     environment: production
     steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.target_sha || inputs.approved_config_floor_sha }}
+          fetch-depth: 1
+
+      - name: Deliver the reviewed control bootstrap (the same script the deploy workflow delivers)
+        run: |
+          set -Eeuo pipefail
+          echo "PRODUCTION_CONTROL_BOOTSTRAP_B64=$(base64 -w0 scripts/ops/production-control-bootstrap.sh)" >> "$GITHUB_ENV"
+
       - name: Compute manifest digest for provenance
         env:
           APPROVED_EXECUTION_MANIFEST_B64: ${{ inputs.approved_execution_manifest_b64 }}
@@ -113,5 +123,19 @@ jobs:
             eval "$(printf '%s' "$PRODUCTION_CONTROL_BOOTSTRAP_B64" | base64 -d)"
             export GIT_OPTIONAL_LOCKS=0
             git() { command git -c "safe.directory=$DEPLOY_REPO_ROOT" -c core.hooksPath=/dev/null -c core.fsmonitor=false "$@"; }
-            # 受审链体（audit -> prepare -> handover -> first-sync，fail-closed）
+            # 本次获批 manifest 在部署主机 STATE_DIR 内落盘（无手工预置文件），
+            # 并核验 runner 侧计算的溯源摘要一致后才进入链体
+            R42D_MANIFEST_FILE="$STATE_DIR/approval-manifest-${FIRST_SYNC_RUN_ID}.json"
+            printf '%s' "$APPROVED_EXECUTION_MANIFEST_B64" | base64 -d > "$R42D_MANIFEST_FILE"
+            chmod 600 "$R42D_MANIFEST_FILE"
+            COMPUTED_DIGEST="$(sha256sum "$R42D_MANIFEST_FILE" | cut -d' ' -f1)"
+            if [ "$COMPUTED_DIGEST" != "$APPROVED_EXECUTION_MANIFEST_SHA256" ]; then
+              echo "FIRST_SYNC_HOLD=MANIFEST_DIGEST"; rm -f "$R42D_MANIFEST_FILE"; exit 28
+            fi
+            export R42D_MANIFEST_FILE R42D_MANIFEST_SHA256="$APPROVED_EXECUTION_MANIFEST_SHA256" STATE_DIR
+            # FD9（mutation.lock）由本 operation 进程持有并随执行链交付
+            exec 9>>"$STATE_DIR/mutation.lock"
+            flock -n 9 || { echo "FIRST_SYNC_HOLD=MUTATION_LOCK_BUSY"; exit 27; }
+            # 受审链体（FD9 身份 → stage → manifest 溯源 → 发布完成核验 →
+            # audit → prepare → handover → first-sync，fail-closed）
             bash scripts/ops/chanjet-readonly-production-chain.sh
