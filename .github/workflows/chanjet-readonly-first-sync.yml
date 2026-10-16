@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
     inputs:
       approved_execution_manifest_b64:
-        description: "R4.2d 单独获批的执行 manifest JSON(base64)；与 approved_config_floor_sha 成对交付"
+        description: "R4.2d 单独获批的执行 manifest JSON(base64)；由根控制工作流 prepare 交付并全程溯源"
         required: true
         type: string
       approved_config_floor_sha:
@@ -16,11 +16,11 @@ on:
         type: string
         default: ''
       deploy_run_id:
-        description: "发布完成的部署事务 run id（含 attempt），用于部署完成校验与证据目录"
+        description: "发布完成的部署事务 run id（含 attempt），用于部署完成核验与证据目录"
         required: true
         type: string
       first_sync_run_id:
-        description: "首同步证据 run id（含 attempt），例如 <run>-<attempt>"
+        description: "首同步证据 run id（含 attempt）；与部署 run 分开绑定"
         required: true
         type: string
 permissions:
@@ -29,53 +29,70 @@ concurrency:
   group: cicd-refs/heads/main
   cancel-in-progress: false
 jobs:
+  deploy-complete:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verify the deploy transaction completed for the exact target SHA
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          TARGET_SHA: ${{ inputs.target_sha || inputs.approved_config_floor_sha }}
+        run: |
+          set -Eeuo pipefail
+          [[ "$TARGET_SHA" =~ ^[a-f0-9]{40}$ ]]
+          STATE="$(gh api "repos/$REPO/actions/runs?event=push&head_sha=$TARGET_SHA" \
+            --jq '[.workflow_runs[] | select(.name == "CI/CD — Build & Deploy")] | sort_by(.id) | reverse | .[0].conclusion // "none"')"
+          case "$STATE" in success) echo "DEPLOY_COMPLETE=$TARGET_SHA";; *) echo "FIRST_SYNC_HOLD=DEPLOY_NOT_COMPLETE;$STATE"; exit 1;; esac
+
+  audit:
+    if: github.event_name == 'workflow_dispatch'
+    needs: deploy-complete
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.target_sha || inputs.approved_config_floor_sha }}
+          fetch-depth: 0
+      - name: Bind the audit to the exact SHA, deploy run and floor
+        env:
+          TARGET_SHA: ${{ inputs.target_sha || inputs.approved_config_floor_sha }}
+          APPROVED_FLOOR_SHA: ${{ inputs.approved_config_floor_sha }}
+          DEPLOY_RUN_ID: ${{ inputs.deploy_run_id }}
+        run: |
+          set -Eeuo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_SHA"
+          test "$APPROVED_FLOOR_SHA" = "$TARGET_SHA"
+          echo "AUDIT_BOUND=TARGET:$TARGET_SHA;DEPLOY_RUN:$DEPLOY_RUN_ID;FLOOR:$APPROVED_FLOOR_SHA"
+
   first-sync:
     if: github.event_name == 'workflow_dispatch'
+    needs: [deploy-complete, audit]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: production
     steps:
-      - uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-      - name: Bind reviewed runner, deploy completion and audit
+      - name: Compute manifest digest for provenance
         env:
-          APPROVED_FLOOR_SHA: ${{ inputs.approved_config_floor_sha }}
+          APPROVED_EXECUTION_MANIFEST_B64: ${{ inputs.approved_execution_manifest_b64 }}
+        run: |
+          set -Eeuo pipefail
+          printf '%s' "$APPROVED_EXECUTION_MANIFEST_B64" | base64 -d > "$RUNNER_TEMP/approval-manifest.json"
+          echo "APPROVED_EXECUTION_MANIFEST_SHA256=$(sha256sum "$RUNNER_TEMP/approval-manifest.json" | cut -d' ' -f1)" >> "$GITHUB_ENV"
+
+      - name: Controlled first-sync chain (audit -> prepare -> handover -> first sync)
+        uses: appleboy/ssh-action@v1
+        env:
+          APPROVED_EXECUTION_MANIFEST_B64: ${{ inputs.approved_execution_manifest_b64 }}
+          APPROVED_EXECUTION_MANIFEST_SHA256: ${{ env.APPROVED_EXECUTION_MANIFEST_SHA256 }}
+          APPROVED_CONFIG_FLOOR_SHA: ${{ inputs.approved_config_floor_sha }}
           TARGET_SHA: ${{ inputs.target_sha || inputs.approved_config_floor_sha }}
           DEPLOY_RUN_ID: ${{ inputs.deploy_run_id }}
           FIRST_SYNC_RUN_ID: ${{ inputs.first_sync_run_id }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          REPO: ${{ github.repository }}
-        run: |
-          set -Eeuo pipefail
-          umask 077
-          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
-          [[ "$APPROVED_FLOOR_SHA" =~ ^[a-f0-9]{40}$ ]]
-          [[ "$TARGET_SHA" =~ ^[a-f0-9]{40}$ ]]
-          [[ "$DEPLOY_RUN_ID" =~ ^[0-9]+-[0-9]+$ ]]
-          # 顺序核验 1：发布完成 —— 部署事务对同一 TARGET_SHA 已成功完成
-          DEPLOY_STATE="$(gh api "repos/$REPO/actions/runs?event=push&head_sha=$TARGET_SHA" --jq '[.workflow_runs[] | select(.name == "CI/CD — Build & Deploy")] | sort_by(.id) | reverse | .[0].conclusion // "none')" || DEPLOY_STATE="api-error"
-          case "$DEPLOY_STATE" in success) ;; *) echo "FIRST_SYNC_HOLD=DEPLOY_NOT_COMPLETE;$DEPLOY_STATE"; exit 1 ;; esac
-          echo "DEPLOY_COMPLETE=$TARGET_SHA"
-
-      - name: Readonly audit (preflight findings reported verbatim)
-        env:
-          APPROVED_FLOOR_SHA: ${{ inputs.approved_config_floor_sha }}
-        run: |
-          set -Eeuo pipefail
-          # 只读审计：复用既有 production readonly audit 程序。生产 preflight
-          # 的 BLOCK/UNPARSEABLE 仍未解决 —— 此处原样输出并保留该发现，不作为
-          # PASS，也不在本工作流内绕过；其处置属单独审批步骤。
-          node scripts/ops/chanjet-readonly-production-audit.mjs --target "$APPROVED_FLOOR_SHA" || true
-
-      - name: Controlled first-sync chain (prepare -> handover -> first sync)
-        uses: appleboy/ssh-action@v1
-        env:
-          APPROVED_FLOOR_SHA: ${{ inputs.approved_config_floor_sha }}
-          TARGET_SHA: ${{ inputs.target_sha || inputs.approved_config_floor_sha }}
-          DEPLOY_RUN_ID: ${{ inputs.deploy_run_id }}
-          APPROVED_EXECUTION_MANIFEST_B64: ${{ inputs.approved_execution_manifest_b64 }}
           CHANJET_SYNC_OPERATOR_TOKEN: ${{ secrets.CHANJET_SYNC_OPERATOR_TOKEN }}
+          PRODUCTION_CONTROL_BOOTSTRAP_B64: ${{ env.PRODUCTION_CONTROL_BOOTSTRAP_B64 }}
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
@@ -85,26 +102,16 @@ jobs:
           proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
           proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
           proxy_port: 22
-          envs: APPROVED_FLOOR_SHA,TARGET_SHA,DEPLOY_RUN_ID,APPROVED_EXECUTION_MANIFEST_B64,CHANJET_SYNC_OPERATOR_TOKEN
-          command_timeout: 15m
+          envs: APPROVED_EXECUTION_MANIFEST_B64,APPROVED_EXECUTION_MANIFEST_SHA256,APPROVED_CONFIG_FLOOR_SHA,TARGET_SHA,DEPLOY_RUN_ID,FIRST_SYNC_RUN_ID,CHANJET_SYNC_OPERATOR_TOKEN,PRODUCTION_CONTROL_BOOTSTRAP_B64
+          command_timeout: 20m
           script: |
             set -Eeuo pipefail
             umask 077
             cd ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
             DEPLOY_REPO_ROOT="$(pwd -P)"
+            export FIRST_SYNC_ROOT="$DEPLOY_REPO_ROOT"
             eval "$(printf '%s' "$PRODUCTION_CONTROL_BOOTSTRAP_B64" | base64 -d)"
             export GIT_OPTIONAL_LOCKS=0
             git() { command git -c "safe.directory=$DEPLOY_REPO_ROOT" -c core.hooksPath=/dev/null -c core.fsmonitor=false "$@"; }
-            # 顺序核验：发布完成（部署事务证据） + 审计证据
-            test -e "$STATE_DIR/deploy-${DEPLOY_RUN_ID}.json" || { echo "FIRST_SYNC_HOLD=DEPLOY_NOT_COMPLETE"; exit 1; }
-            # FD9: 首同步互斥锁由本工作流进程持有
-            exec 9>>"$STATE_DIR/first-sync-${DEPLOY_RUN_ID}.lock"
-            flock -n 9 || { echo "FIRST_SYNC_HOLD=ALREADY_RUNNING"; exit 27; }
-            R42D_MANIFEST_FILE="$STATE_DIR/run-${DEPLOY_RUN_ID}/r42d/approval-manifest.json"
-            test -e "$R42D_MANIFEST_FILE" || { echo "FIRST_SYNC_HOLD=EXECUTION_MANIFEST"; exit 25; }
-            R42D_MANIFEST_FILE="$R42D_MANIFEST_FILE" \
-            EXPECTED_FLOOR_SHA="$APPROVED_FLOOR_SHA" \
-            DEPLOY_RUN_ID="$DEPLOY_RUN_ID" \
-            STATE_DIR="$STATE_DIR" \
-            CHANJET_SYNC_OPERATOR_TOKEN="$CHANJET_SYNC_OPERATOR_TOKEN" \
+            # 受审链体（audit -> prepare -> handover -> first-sync，fail-closed）
             bash scripts/ops/chanjet-readonly-production-chain.sh

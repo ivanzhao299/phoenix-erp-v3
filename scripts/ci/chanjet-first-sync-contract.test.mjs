@@ -534,11 +534,19 @@ database('first-sync protected-entry acceptance (real entry, real scheduler host
     const prepared = runPrepareSync(execution);
     assert.equal(prepared.verdict, 'PASS');
     // the DB container: explicit override first; otherwise discovered from
-    // the runner's docker state (the fixture workflow's postgres service
-    // container)
+    // the runner's docker state by matching the fixture database name (the
+    // environment may carry several postgres containers)
+    const fixtureDbName = new URL(fixtureUrl).pathname.slice(1);
+    const candidates = execFileSync('docker', ['ps', '--format', '{{.Names}}'], { encoding: 'utf8' })
+      .split('\n').filter(Boolean).filter((n) => n.includes('postgres'));
     const dbContainer = process.env.CHANJET_STOP_DB_CONTAINER
-      || execFileSync('docker', ['ps', '--format', '{{.Names}}'], { encoding: 'utf8' })
-        .split('\n').filter(Boolean).find((n) => n.includes('postgres'))
+      || candidates.find((n) => {
+        try {
+          const envJson = execFileSync('docker', ['exec', n, 'printenv', 'POSTGRES_DB'], { encoding: 'utf8' }).trim();
+          return envJson === fixtureDbName;
+        } catch { return false; }
+      })
+      || candidates[0]
       || 'phoenix-r42a-admission-fixture';
     const executor = makeProductionStopExecutor({
       dbContainer,

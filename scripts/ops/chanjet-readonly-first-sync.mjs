@@ -20,6 +20,12 @@ export function businessFingerprints(read = readDatabaseEvidence) {
 // protected enqueue (and therefore before any provider HTTP the worker could
 // make); every bound attribute except the name is read from the row.
 const EXECUTION_BINDING_RE = /^[A-Za-z0-9_-]{1,128}$/;
+// Server-side cancel points derived EXACTLY from the caller's budget — no
+// fixed floor expansion: the server always cancels before the client kill.
+export const stopChannelStatementBounds = (timeoutMs) => {
+  const statementMs = Math.max(1, Math.min(timeoutMs - 250, 20_000));
+  return { statementMs, lockMs: Math.max(1, Math.min(statementMs, 3_000)) };
+};
 const canonicalJson = (value) => {
   if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`;
   if (value && typeof value === 'object') {
@@ -99,6 +105,23 @@ export function makeDurableStop({ distRoot, pgUrl, executor, readEvidence, hando
     }
   };
 }
+// The production budget read adapter: the LIVE remaining budget travels into
+// the actual subprocess (execFileSync kill timeout AND the server-side
+// statement/lock timeouts are derived from it — never expanded by a fixed
+// floor). The wrapper passes THIS adapter into the core as readEvidence.
+export const makeProductionReadEvidence = ({ dbContainer = 'phoenix-v3-db' } = {}) => {
+  const run = (file, args, options) => execFileSync(file, args, options);
+  return async (sql, budget = {}) => {
+    const timeoutMs = Math.max(1, budget.remainingMs ?? 30_000);
+    const { statementMs, lockMs } = stopChannelStatementBounds(timeoutMs);
+    const input = `BEGIN READ ONLY;\nSET LOCAL statement_timeout='${statementMs}ms';\nSET LOCAL lock_timeout='${lockMs}ms';\n${sql}\nROLLBACK;\n`;
+    const output = run('docker',
+      ['exec', '-i', '-e', 'PGOPTIONS=-c default_transaction_read_only=on', dbContainer, 'sh', '-c', 'exec psql -X -At -v ON_ERROR_STOP=1 -U "${POSTGRES_USER:-postgres}" -d "${POSTGRES_DB:-$POSTGRES_USER}"'],
+      { input, timeout: timeoutMs, killSignal: 'SIGKILL', encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 });
+    const line = String(output).split('\n').find((l) => l.startsWith('{'));
+    return line ? JSON.parse(line) : {};
+  };
+};
 export function firstSyncDeps(overrides = {}) {
   return {
     env: process.env,
@@ -306,10 +329,6 @@ export function bindPositionalParameters(sql, parameters, { tag = `$r42d_${Math.
     return `${tag}${String(value)}${tag}`;
   });
 }
-export const stopChannelStatementBounds = (timeoutMs) => {
-  const statementMs = Math.min(Math.max(timeoutMs - 1_000, 1_000), 20_000);
-  return { statementMs, lockMs: Math.min(statementMs, 3_000) };
-};
 export const buildStopChannelInput = (boundSql, timeoutMs) => {
   const { statementMs, lockMs } = stopChannelStatementBounds(timeoutMs);
   return `BEGIN;\nSET LOCAL statement_timeout='${statementMs}ms';\nSET LOCAL lock_timeout='${lockMs}ms';\nWITH r42d_q AS (\n${boundSql}\n) SELECT COALESCE(json_agg(row_to_json(r42d_q)),'[]'::json)::text FROM r42d_q;\nCOMMIT;\n`;
@@ -349,7 +368,14 @@ export async function firstSync(root) {
       readEvidence,
       handover,
     });
-    await firstSyncCore({ env:{...process.env,FIRST_SYNC_ROOT:root}, handover, durableStop });
+    await firstSyncCore({
+      env:{...process.env,FIRST_SYNC_ROOT:root},
+      handover,
+      durableStop,
+      // the budget read adapter is PASSED INTO the core: every evidence read
+      // carries its live remaining budget into the actual subprocess
+      readEvidence: makeProductionReadEvidence({ dbContainer: process.env.CHANJET_DB_CONTAINER || 'phoenix-v3-db' }),
+    });
   }catch(error){
     const reason=String(error?.message||error).replace(/[^\x20-\x7e]/g,' ').slice(0,160);
     console.error(`FIRST_CONTROLLED_SYNC=HOLD;EVIDENCE_RETAINED;REASON=${reason};STOP=${error?.stopOutcome??'NOT_NEEDED'}`);
