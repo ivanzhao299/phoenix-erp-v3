@@ -5,6 +5,7 @@ import os from 'node:os';
 import { execFileSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { partitionRehearsalInventory } from './typeorm-ledger-rehearsal-inventory.mjs';
+import { classifyPreflightOutput } from './ledger-preflight-output-classify.mjs';
 
 const require = createRequire(import.meta.url);
 const { Client } = require('../../apps/api/node_modules/pg');
@@ -117,19 +118,33 @@ async function main() {
     console.log('PREEXISTING_PENDING_NEGATIVE_CONTROL=PASS');
     await q('INSERT INTO migrations(timestamp, name) VALUES ($1, $2)', [missing.timestamp, missing.effective_name]);
 
+    // The preflight runs its REAL evaluation against this fixture database.
+    // It requires the candidate ledger inventory (the same shape production
+    // builds: canonicalTypeorm + canonicalLegacy + retiredTypeorm) — without
+    // it the preflight deterministically crashes before evaluating
+    // ('BLOCK: canonical TypeORM inventory is required' on stderr), which is
+    // what historically surfaced as UNPARSEABLE_PREFLIGHT_OUTPUT. stdout and
+    // stderr are captured SEPARATELY and classified by the shared, tested
+    // classifier; business semantics are unchanged: any non-zero exit stays
+    // a BLOCK, only the reported reasons become truthful.
+    const inventoryFile = path.join(directory, 'candidate-ledger-inventory.json');
+    const retiredRegistry = JSON.parse(fs.readFileSync(path.join(root, 'scripts/ci/retired-typeorm-migrations.json'), 'utf8'));
+    fs.writeFileSync(inventoryFile, JSON.stringify({
+      canonicalTypeorm: entries.map((entry) => ({ effective_name: entry.effective_name, timestamp: String(entry.timestamp) })),
+      canonicalLegacy: legacyFiles,
+      retiredTypeorm: retiredRegistry,
+    }));
+    const preflightEnv = { ...process.env, MIG_MODE: 'ci', PGHOST: pgEnv.host, PGPORT: String(pgEnv.port), PGUSER: pgEnv.user, PGPASSWORD: pgEnv.password, PGDATABASE: pgEnv.database };
     const preflight = (() => {
-      try { return { status: 0, output: execFileSync(process.execPath, ['scripts/ledger-preflight.mjs', '--db-mode', 'ci', '--mode', 'pre-migration'], { cwd: root, env: { ...process.env, MIG_MODE: 'ci', PGHOST: pgEnv.host, PGPORT: String(pgEnv.port), PGUSER: pgEnv.user, PGPASSWORD: pgEnv.password, PGDATABASE: pgEnv.database }, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }) }; }
-      catch (error) { return { status: error.status ?? 1, output: `${error.stdout ?? ''}${error.stderr ?? ''}` }; }
-    })();
-    console.log(`CURRENT_LEDGER_PREFLIGHT_RESULT=${preflight.status === 0 ? 'PASS' : 'BLOCK'}`);
-    if (preflight.status !== 0) {
       try {
-        const diagnostics = JSON.parse(preflight.output);
-        console.log(`CURRENT_LEDGER_PREFLIGHT_BLOCK_REASONS=${JSON.stringify(diagnostics.failures ?? diagnostics.diagnostics ?? diagnostics)}`);
-      } catch {
-        console.log('CURRENT_LEDGER_PREFLIGHT_BLOCK_REASONS=UNPARSEABLE_PREFLIGHT_OUTPUT');
+        return { status: 0, stdout: execFileSync(process.execPath, ['scripts/ledger-preflight.mjs', '--db-mode', 'ci', '--mode', 'pre-migration', '--inventory', inventoryFile], { cwd: root, env: preflightEnv, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }), stderr: '' };
+      } catch (error) {
+        return { status: error.status ?? 1, stdout: error.stdout ?? '', stderr: error.stderr ?? '' };
       }
-    }
+    })();
+    const verdict = classifyPreflightOutput(preflight);
+    console.log(`CURRENT_LEDGER_PREFLIGHT_RESULT=${verdict.result}`);
+    console.log(`CURRENT_LEDGER_PREFLIGHT_BLOCK_REASONS=${JSON.stringify(verdict.reasons)}`);
 
     const runOutput = runCli(['migration:run', '--transaction', 'all']);
     for (const entry of phase1) assert.match(runOutput, new RegExp(entry.effective_name));
@@ -168,7 +183,12 @@ async function main() {
     console.log('SCHEMA_INVARIANTS=PASS');
     console.log('DATA_INVARIANTS=PASS');
     console.log('LEDGER_RUNTIME_COMPATIBILITY=PASS');
-    console.log('LEDGER_PREFLIGHT_RUNTIME_SEMANTICS_DIVERGENCE=CONFIRMED');
+    // evidence-based semantics line: with a correct invocation the preflight
+    // evaluates the same ledger this rehearsal exercised; a divergence claim
+    // requires an actual non-PASS preflight verdict, never an invocation crash
+    console.log(verdict.result === 'PASS'
+      ? 'LEDGER_PREFLIGHT_RUNTIME_SEMANTICS=AGREE'
+      : `LEDGER_PREFLIGHT_RUNTIME_SEMANTICS_DIVERGENCE=CONFIRMED;KIND=${verdict.kind}`);
   } finally {
     await client.end();
     fs.rmSync(directory, { recursive:true, force:true });

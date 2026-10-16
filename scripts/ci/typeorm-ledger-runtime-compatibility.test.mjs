@@ -13,6 +13,30 @@ test('runtime rehearsal is disposable and uses the real TypeORM CLI', () => {
   assert.doesNotMatch(source, /bridge-schema-migrations-to-typeorm\.sh\s+--apply/);
 });
 
+test('the rehearsal invokes the preflight with the candidate ledger inventory and classifies its output', () => {
+  // the historical UNPARSEABLE_PREFLIGHT_OUTPUT was a deterministic
+  // invocation crash: the preflight requires --inventory and the rehearsal
+  // did not pass one, so it crashed before evaluating and its human crash
+  // line failed the old JSON-parse fallback
+  const source = fs.readFileSync('scripts/ci/run-typeorm-ledger-runtime-compatibility-fixture.mjs', 'utf8');
+  assert.match(source, /'--db-mode',\s*'ci'/);
+  assert.match(source, /'--inventory',\s*inventoryFile/);
+  assert.match(source, /candidate-ledger-inventory\.json/);
+  // the inventory payload carries the production-identical shape
+  assert.match(source, /canonicalTypeorm:\s*entries\.map/);
+  assert.match(source, /canonicalLegacy:\s*legacyFiles/);
+  assert.match(source, /retiredTypeorm:\s*retiredRegistry/);
+  // stdout/stderr are captured separately and classified by the shared,
+  // tested classifier — never concatenated before a JSON.parse
+  assert.match(source, /classifyPreflightOutput\(preflight\)/);
+  assert.match(source, /stdout:\s*error\.stdout \?\? ''/);
+  const classifier = fs.readFileSync('scripts/ci/ledger-preflight-output-classify.mjs', 'utf8');
+  assert.match(classifier, /JSON\.parse\(combined\)/);
+  // the divergence claim is evidence-based: an invocation crash can never
+  // assert semantics divergence
+  assert.doesNotMatch(source, /console\.log\('LEDGER_PREFLIGHT_RUNTIME_SEMANTICS_DIVERGENCE=CONFIRMED'\)/);
+});
+
 test('historical rehearsal accepts only its pinned 88 classes and the exact separate admission migration', () => {
   const historical = JSON.parse(fs.readFileSync('scripts/ci/typeorm-ledger-rehearsal-historical-inventory.json','utf8')).entries;
   const current = [...historical, admissionMigration];
