@@ -22,5 +22,10 @@ const route = (driver, extraEnv = {}) => process.exit(
 // the chain stages the audit under its own name ($AUDIT_DIR/audit.mjs); the
 // first-sync entry runs under its reviewed name
 if (base === 'audit.mjs' || base === 'chanjet-readonly-production-audit.mjs') route(cfg.auditDriver, { R42D_AUDIT_SCRIPT: script });
-if (base === 'chanjet-readonly-first-sync.mjs') route(cfg.entryDriver);
+if (base === 'chanjet-readonly-first-sync.mjs') {
+  // fault injection: a crashed entry AFTER registration exercises the
+  // chain's bounded HOLD finalizer
+  if (cfg.entryCrashExitCode) process.exit(cfg.entryCrashExitCode);
+  route(cfg.entryDriver);
+}
 process.exit(spawnSync(realNode, argv, { stdio: 'inherit' }).status ?? 1);

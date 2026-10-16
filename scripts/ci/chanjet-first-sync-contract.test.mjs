@@ -854,7 +854,7 @@ database('first-sync protected-entry acceptance (real entry, real scheduler host
     fs.writeFileSync(path.join(chainShimBin, 'node'), `#!/bin/sh\nexec '${process.execPath}' '${dispatchModule}' "$@"\n`, { mode: 0o755 });
   }
 
-  async function runProductionChain({ manifest, deployRunId, firstSyncRunId, hostBase, syncPolicy = 'READONLY_VERIFY', readonlySyncEnabled = 'true', fd9File = lockFile, lockFileArg = lockFile, digestOverride = null, runningJob = false, checkoutSha = null, readinessStatus = 200, deployState = 'success' } = {}) {
+  async function runProductionChain({ manifest, deployRunId, firstSyncRunId, hostBase, syncPolicy = 'READONLY_VERIFY', readonlySyncEnabled = 'true', fd9File = lockFile, lockFileArg = lockFile, digestOverride = null, runningJob = false, checkoutSha = null, readinessStatus = 200, deployState = 'success', failCpFromContainer = false, entryCrashExitCode = 0 } = {}) {
     const manifestFile = writeJson('chain-manifest', manifest);
     const apiImageId = `sha256:${'a'.repeat(64)}`;
     const webImageId = `sha256:${'b'.repeat(64)}`;
@@ -898,6 +898,7 @@ database('first-sync protected-entry acceptance (real entry, real scheduler host
       dbContainerName: resolveFixtureDbContainer(),
       distRoot: path.join(apiDir, 'dist'), modulesRoot: path.join(apiDir, 'node_modules'),
       auditDriver, entryDriver,
+      failCpFromContainer, entryCrashExitCode,
       db: {
         host: '127.0.0.1', port: Number(new URL(fixtureUrl).port || 5432),
         user: decodeURIComponent(new URL(fixtureUrl).username || 'postgres'),
@@ -969,6 +970,11 @@ database('first-sync protected-entry acceptance (real entry, real scheduler host
       assert.ok(events.some((e) => e.kind === 'cpFromContainer' && e.remote === '/app/dist'));
       assert.ok(events.some((e) => e.kind === 'cpFromContainer' && e.remote === '/app/node_modules'));
       assert.ok(events.some((e) => e.kind === 'apiSh'), 'dist provenance digest did not run');
+      // the delivery completed BEFORE prepare ran: registration can never
+      // precede the stop-channel delivery + loadability proof
+      const firstPrepare = events.findIndex((e) => e.kind === 'prepareExec');
+      const lastDelivery = Math.max(...events.map((e, i) => (e.kind === 'cpFromContainer' || e.kind === 'apiSh' ? i : -1)));
+      assert.ok(firstPrepare >= 0 && lastDelivery >= 0 && lastDelivery < firstPrepare, `delivery must precede prepare (${lastDelivery} !< ${firstPrepare})`);
       // the entry driver consumed the DELIVERED dist root
       assert.ok(fs.existsSync(path.join(workDir, `run-${deployRunId}`, 'stop-channel-delivery', 'dist', 'modules', 'chanjet', 'chanjet-execution-admission.store.js')));
       // the business fingerprint tables were never touched
@@ -1095,6 +1101,40 @@ database('first-sync protected-entry acceptance (real entry, real scheduler host
     assert.equal(providerHits(), hitsBefore);
   }, 120_000);
 
+  test('full chain: a stop-channel DELIVERY failure refuses BEFORE registration with zero provider HTTP', async () => {
+    writeChainShims();
+    const manifest = syntheticManifest(10);
+    const hitsBefore = providerHits();
+    const { run } = await runProductionChain({
+      manifest, deployRunId: `${Date.now()}-1900`, firstSyncRunId: `${Date.now()}-2000`,
+      hostBase: 'http://127.0.0.1:9', failCpFromContainer: true,
+    });
+    assert.equal(run.status, 31, `${run.status}\n${run.stdout}\n${run.stderr}`);
+    assert.match(run.stdout, /FIRST_SYNC_HOLD=STOP_DELIVERY/);
+    assert.ok(!run.stdout.includes('PREPARE=PASS'), run.stdout); // prepare never ran
+    assert.equal(await admissionsFor(manifest.executionId), 0); // zero registration
+    assert.equal(providerHits(), hitsBefore); // zero provider HTTP
+  }, 120_000);
+
+  test('full chain: an entry crash AFTER registration lands the bounded HOLD finalizer (durable CANCELLED, no leak)', async () => {
+    writeChainShims();
+    const manifest = syntheticManifest(10);
+    const { run } = await runProductionChain({
+      manifest, deployRunId: `${Date.now()}-2100`, firstSyncRunId: `${Date.now()}-2200`,
+      hostBase: 'http://127.0.0.1:9', entryCrashExitCode: 97,
+    });
+    assert.notEqual(run.status, 0);
+    assert.ok(run.stdout.includes('PREPARE=PASS'), run.stdout); // registration happened
+    assert.match(run.stdout, /FIRST_SYNC_DURABLE_STOP=CONFIRMED/); // the bounded stop ran on the delivered store
+    // the leaked-live window is closed: the admission is durably HELD
+    const [admission] = await dataSource.query('SELECT phase, hold_reason FROM chanjet_execution_admissions WHERE execution_id=$1', [manifest.executionId]);
+    assert.equal(admission.phase, 'HOLD');
+    assert.equal(admission.hold_reason, 'CANCELLED');
+    // the crashed entry never enqueued: no alignment job exists for it
+    const jobs = await dataSource.query(`SELECT count(*)::int AS n FROM chanjet_sync_jobs WHERE request_scope->'execution'->>'executionId' = $1`, [manifest.executionId]);
+    assert.equal(jobs[0].n, 0);
+  }, 120_000);
+
   test('full chain: a host checkout at the wrong SHA refuses BEFORE the audit and prepare with zero registration', async () => {
     writeChainShims();
     const manifest = syntheticManifest(10);
@@ -1141,4 +1181,68 @@ test('production budget read adapter: the LIVE remaining budget reaches the actu
   await adapter('SELECT 1;', { remainingMs: 0 });
   assert.equal(captured.options.timeout, 1);
   assert.match(captured.options.input, /statement_timeout='1ms'/);
+});
+
+// ── the deploy-completion gate (no database required) ─────────────────────
+// Production deploys are workflow_dispatch-only (deploy.yml's deploy job),
+// so the gate binds THE GIVEN run/attempt, requires the dispatch event and
+// the production deploy JOB's success — a push-built run is a rejection.
+const { verifyDeployRunComplete } = await import(pathToFileURL(path.join(repoRoot, 'scripts/ops/verify-deploy-run-complete.mjs')).href);
+
+const gateRunJson = (overrides = {}) => ({
+  name: 'CI/CD — Build & Deploy', event: 'workflow_dispatch', head_sha: FLOOR_SHA,
+  run_attempt: 3, status: 'completed', conclusion: 'success', ...overrides,
+});
+const gateJobsJson = (jobOverrides = {}) => ({
+  jobs: [
+    { name: 'Detect changes / Build', conclusion: 'success' },
+    { name: 'Deploy · full', conclusion: 'success', ...jobOverrides },
+  ],
+});
+
+test('deploy-completion gate: a real production dispatch run with a successful Deploy job passes', () => {
+  const seen = [];
+  const result = verifyDeployRunComplete({
+    repo: 'org/repo', runId: '1234567890', attempt: '3', targetSha: FLOOR_SHA,
+    run: (apiPath) => { seen.push(apiPath); return apiPath.includes('/jobs') ? gateJobsJson() : gateRunJson(); },
+  });
+  assert.equal(result.runId, 1234567890);
+  assert.deepEqual(result.deployJobs, ['Deploy · full']);
+  assert.ok(seen.some((p) => p.includes('/actions/runs/1234567890/jobs'))); // the deploy JOB was checked
+});
+
+test('deploy-completion gate: a push-event build run is rejected (production deploys are dispatch-only)', () => {
+  assert.throws(() => verifyDeployRunComplete({
+    repo: 'org/repo', runId: '1234567890', attempt: '3', targetSha: FLOOR_SHA,
+    run: (p) => (p.includes('/jobs') ? gateJobsJson() : gateRunJson({ event: 'push' })),
+  }), /FIRST_SYNC_HOLD=DEPLOY_RUN_NOT_COMPLETE/);
+});
+
+test('deploy-completion gate: a workflow run without a successful production Deploy job is rejected', () => {
+  assert.throws(() => verifyDeployRunComplete({
+    repo: 'org/repo', runId: '1234567890', attempt: '3', targetSha: FLOOR_SHA,
+    run: (p) => (p.includes('/jobs') ? gateJobsJson({ conclusion: 'failure' }) : gateRunJson()),
+  }), /FIRST_SYNC_HOLD=DEPLOY_JOB_NOT_SUCCESS/);
+  assert.throws(() => verifyDeployRunComplete({
+    repo: 'org/repo', runId: '1234567890', attempt: '3', targetSha: FLOOR_SHA,
+    run: (p) => (p.includes('/jobs') ? { jobs: [{ name: 'Detect changes / Build', conclusion: 'success' }] } : gateRunJson()),
+  }), /FIRST_SYNC_HOLD=DEPLOY_JOB_NOT_SUCCESS/);
+});
+
+test('deploy-completion gate: attempt/sha/binding mismatches are rejected', () => {
+  assert.throws(() => verifyDeployRunComplete({
+    repo: 'org/repo', runId: '1234567890', attempt: '4', targetSha: FLOOR_SHA,
+    run: (p) => (p.includes('/jobs') ? gateJobsJson() : gateRunJson()),
+  }), /FIRST_SYNC_HOLD=DEPLOY_RUN_NOT_COMPLETE/);
+  assert.throws(() => verifyDeployRunComplete({
+    repo: 'org/repo', runId: '1234567890', attempt: '3', targetSha: '8'.repeat(40),
+    run: (p) => (p.includes('/jobs') ? gateJobsJson() : gateRunJson()),
+  }), /FIRST_SYNC_HOLD=DEPLOY_RUN_NOT_COMPLETE/);
+  assert.throws(() => verifyDeployRunComplete({
+    repo: 'org/repo', runId: 'abc', attempt: '3', targetSha: FLOOR_SHA, run: () => gateRunJson(),
+  }), /FIRST_SYNC_HOLD=DEPLOY_RUN_BINDING/);
+  assert.throws(() => verifyDeployRunComplete({
+    repo: 'org/repo', runId: '1234567890', attempt: '3', targetSha: FLOOR_SHA,
+    run: () => { throw Error('gh down'); },
+  }), /FIRST_SYNC_HOLD=DEPLOY_RUN_UNREADABLE/);
 });

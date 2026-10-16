@@ -79,6 +79,7 @@ if (CMD === 'docker') {
       // BECOMES the copied directory
       const remote = containerSide.slice(containerSide.indexOf(':') + 1);
       const dst = args[args.length - 1];
+      if (cfg.failCpFromContainer) { trace({ kind: 'cpFault', remote }); process.exit(65); }
       if (remote === '/app/dist') {
         fs.cpSync(path.join(cfg.appApiRoot, 'dist'), dst, { recursive: true });
       } else if (remote === '/app/node_modules') {

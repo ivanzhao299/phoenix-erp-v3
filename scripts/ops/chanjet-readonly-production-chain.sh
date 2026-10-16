@@ -96,9 +96,47 @@ const ok = a.schema === "phoenix.chanjet-restoration-audit/v1"
 process.exit(ok ? 0 : 1);
 ' "$AUDIT_DIR/audit.json" "$TARGET_SHA" || { echo "FIRST_SYNC_HOLD=AUDIT_VERDICT"; exit 25; }
 
+# ── 停止通道运行依赖交付（先于 prepare：登记之前完成并证明可加载）──────────
+# 首同步的有界停止通道在宿主运行受审编译模块（admission store）——模块必须
+# 来自 DEPLOYED API IMAGE 并逐字节溯源，运行依赖同源自镜像交付，绝不手工预置。
+# 交付失败发生在登记之前：零登记、零 provider HTTP。
+DELIVERY="$STATE_DIR/run-${DEPLOY_RUN_ID}/stop-channel-delivery"
+test ! -e "$DELIVERY"
+mkdir -m 700 -p "$DELIVERY"
+docker cp "$API_CONTAINER:/app/dist" "$DELIVERY/dist" || { echo "FIRST_SYNC_HOLD=STOP_DELIVERY"; exit 31; }
+docker cp "$API_CONTAINER:/app/node_modules" "$DELIVERY/node_modules" || { echo "FIRST_SYNC_HOLD=STOP_DELIVERY"; exit 31; }
+IMAGE_DIST_DIGEST="$(docker exec "$API_CONTAINER" sh -c 'cd /app && find dist -type f -print0 | sort -z | xargs -0 sha256sum | sha256sum' | cut -d' ' -f1)"
+LOCAL_DIST_DIGEST="$(cd "$DELIVERY" && find dist -type f -print0 | sort -z | xargs -0 sha256sum | sha256sum | cut -d' ' -f1)"
+test -n "$IMAGE_DIST_DIGEST" && test "$IMAGE_DIST_DIGEST" = "$LOCAL_DIST_DIGEST" || { echo "FIRST_SYNC_HOLD=STOP_DELIVERY_DIGEST"; exit 31; }
+test -e "$DELIVERY/node_modules/reflect-metadata" && test -e "$DELIVERY/node_modules/typeorm" && test -e "$DELIVERY/node_modules/pg" || { echo "FIRST_SYNC_HOLD=STOP_DELIVERY_DEPS"; exit 31; }
+export CHANJET_EXECUTION_DIST_ROOT="$DELIVERY/dist"
+# 交付物可加载性：受审编译模块 + 运行依赖在宿主真实解析加载（停止通道可用）
+node --input-type=module -e '
+const path = await import("node:path");
+const { pathToFileURL } = await import("node:url");
+const { createRequire } = await import("node:module");
+const store = path.join(process.env.CHANJET_EXECUTION_DIST_ROOT, "modules/chanjet/chanjet-execution-admission.store.js");
+const entryRequire = createRequire(pathToFileURL(store));
+entryRequire("reflect-metadata");
+const { ChanjetExecutionAdmissionStore } = await import(pathToFileURL(store).href);
+if (typeof ChanjetExecutionAdmissionStore !== "function") process.exit(1);
+' || { echo "FIRST_SYNC_HOLD=STOP_DELIVERY_UNLOADABLE"; exit 31; }
+
+# ── 登记（prepare）之后的任何失败 → 有界 HOLD 收尾 ────────────────────────
+# 幂等：仅当可信行仍处 SYNCING 时经交付的受审编译模块 + docker-exec 停止通道
+# 落 HOLD；已停止/未登记的执行原样报告，绝不重复停止、绝不改写退出码。
+CHAIN_HOLD_ARMED=0
+chain_hold_finalizer() {
+  [ "$CHAIN_HOLD_ARMED" = "1" ] || return 0
+  R42D_HOLD_CLASS="CANCELLED" node scripts/ops/chanjet-first-sync-hold-finalizer.mjs || echo "FIRST_SYNC_DURABLE_STOP=UNCONFIRMED"
+}
+trap chain_hold_finalizer EXIT
+
 # ── prepare：登记 + probe + SYNCING 起始 + handover（API 容器内）──────────
 # 容器内 /app/dist + /app/node_modules + DB_*/CHANJET_* 配置即为可信交付；
 # prepare 在登记与 provider HTTP 前核验 VERIFY 元组/当前审批/映射。
+# 登记后（含 prepare 自身失败于注册之后）的任何失败由 EXIT trap 收尾。
+CHAIN_HOLD_ARMED=1
 docker exec "$API_CONTAINER" mkdir -p /tmp/r42d-state /tmp/r42d/scripts/ops
 docker cp "$R42D_MANIFEST_FILE" "$API_CONTAINER:/tmp/r42d/approval-manifest.json"
 docker cp scripts/ops/chanjet-readonly-production-prepare.mjs "$API_CONTAINER:/tmp/r42d/scripts/ops/chanjet-readonly-production-prepare.mjs"
@@ -116,19 +154,10 @@ chmod 600 "$STATE_DIR/prepare-sync-handover.json"
 # ── 停止通道运行依赖交付（宿主侧，源自部署镜像）──────────────────────────
 # 首同步的有界停止通道在宿主运行受审编译模块（admission store）——模块必须
 # 来自 DEPLOYED API IMAGE 并逐字节溯源，运行依赖同源自镜像交付，绝不手工预置。
-DELIVERY="$STATE_DIR/run-${DEPLOY_RUN_ID}/stop-channel-delivery"
-test ! -e "$DELIVERY"
-mkdir -m 700 -p "$DELIVERY"
-docker cp "$API_CONTAINER:/app/dist" "$DELIVERY/dist"
-docker cp "$API_CONTAINER:/app/node_modules" "$DELIVERY/node_modules"
-IMAGE_DIST_DIGEST="$(docker exec "$API_CONTAINER" sh -c 'cd /app && find dist -type f -print0 | sort -z | xargs -0 sha256sum | sha256sum' | cut -d' ' -f1)"
-LOCAL_DIST_DIGEST="$(cd "$DELIVERY" && find dist -type f -print0 | sort -z | xargs -0 sha256sum | sha256sum | cut -d' ' -f1)"
-test -n "$IMAGE_DIST_DIGEST" && test "$IMAGE_DIST_DIGEST" = "$LOCAL_DIST_DIGEST" || { echo "FIRST_SYNC_HOLD=STOP_DELIVERY_DIGEST"; exit 31; }
-test -e "$DELIVERY/node_modules/reflect-metadata" && test -e "$DELIVERY/node_modules/typeorm" && test -e "$DELIVERY/node_modules/pg" || { echo "FIRST_SYNC_HOLD=STOP_DELIVERY_DEPS"; exit 31; }
-export CHANJET_EXECUTION_DIST_ROOT="$DELIVERY/dist"
-
 # ── first-sync：受审入口 ────────────────────────────────────────────────
 # 首同步证据 run id（FIRST_SYNC_RUN_ID）与部署事务 run（DEPLOY_RUN_ID）分开
 # 绑定；失败保持 HOLD 证据保留，绝不回滚部署。
 FIRST_SYNC_RUN_ID="$FIRST_SYNC_RUN_ID" \
 node scripts/ops/chanjet-readonly-first-sync.mjs
+# 入口成功（VERIFIED）：解除收尾器——trap 不再触碰已终止的执行
+CHAIN_HOLD_ARMED=0
