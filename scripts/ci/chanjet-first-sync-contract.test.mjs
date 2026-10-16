@@ -17,7 +17,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import http from 'node:http';
-import { spawn, spawnSync } from 'node:child_process';
+import { execFileSync, spawn, spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
@@ -533,10 +533,13 @@ database('first-sync protected-entry acceptance (real entry, real scheduler host
     const execution = await registerExecution({ cap: 10 });
     const prepared = runPrepareSync(execution);
     assert.equal(prepared.verdict, 'PASS');
-    // the DB container is discovered from the runner's docker state (the
-    // fixture workflow's postgres service container)
-    const containers = execFileSync('docker', ['ps', '--format', '{{.Names}}'], { encoding: 'utf8' }).split('\n').filter(Boolean);
-    const dbContainer = containers.find((n) => n.includes('postgres')) || 'phoenix-r42a-admission-fixture';
+    // the DB container: explicit override first; otherwise discovered from
+    // the runner's docker state (the fixture workflow's postgres service
+    // container)
+    const dbContainer = process.env.CHANJET_STOP_DB_CONTAINER
+      || execFileSync('docker', ['ps', '--format', '{{.Names}}'], { encoding: 'utf8' })
+        .split('\n').filter(Boolean).find((n) => n.includes('postgres'))
+      || 'phoenix-r42a-admission-fixture';
     const executor = makeProductionStopExecutor({
       dbContainer,
       timeoutMs: 30_000,
