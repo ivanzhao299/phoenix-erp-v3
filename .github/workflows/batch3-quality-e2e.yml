@@ -112,7 +112,7 @@ jobs:
 
       - name: Start Web
         run: |
-          nohup pnpm --filter web start > "$RUNNER_TEMP/web.log" 2>&1 &
+          nohup pnpm --filter web start --hostname 127.0.0.1 > "$RUNNER_TEMP/web.log" 2>&1 &
           echo $! > "$RUNNER_TEMP/web.pid"
           for i in $(seq 1 90); do
             if curl -fsS http://127.0.0.1:3000/ >/dev/null; then
