@@ -125,4 +125,51 @@ describe('ProductionInboundService master-data resolution', () => {
       eggDate: '2026-08-25', items: [{ grade: 'GRADE_1', qty: 1 }],
     })).rejects.toBeInstanceOf(BadRequestException);
   });
+
+  it.each([{ quantities: [3] }, { quantities: [11, 22] }])('returns each original batch once when retrying $quantities', async ({ quantities }) => {
+    const query = jest.fn().mockImplementation(async (sql: string) => {
+      if (!sql) return [{ farm_code: 'FARM-A', farm_company_code: 'COMP-A', farm_site_code: 'SITE-A' }];
+      if (sql.includes('sys_organizations')) return [{ '?column?': 1 }];
+      if (sql.includes('wms_warehouses')) return [{ warehouse_code: 'WH-A' }];
+      if (sql.includes('wms_locations')) return [{ location_code: 'LOC-A' }];
+      if (sql.includes('product_skus')) return [{ sku_code: 'SKU-1', product_code: 'PROD', grade_code: 'GRADE_1', spec_code: 'LOOSE' }];
+      return [];
+    });
+    const existing: any[] = [];
+    const managerQuery = jest.fn().mockImplementation(async (sql: string) => {
+      if (sql.includes('pg_advisory_xact_lock')) return [];
+      if (sql.includes('FROM inv_batches')) return existing;
+      return [];
+    });
+    const transaction = jest.fn(async (operation: (manager: any) => Promise<unknown>) => operation({ query: managerQuery }));
+    const createProductionBatch = jest.fn().mockImplementation(async () => ({ batch_no: `EGG-${createProductionBatch.mock.calls.length}` }));
+    const modeSvc = { resolveMode: jest.fn().mockResolvedValue('TEMP_PRODUCTION_INBOUND') };
+    const service = new ProductionInboundService(
+      { query, transaction } as never,
+      { get: jest.fn() } as never,
+      { createProductionBatch } as never,
+      modeSvc as never,
+      { resolveHouse: jest.fn(async (houseCode: string) => { const [row] = await query('', [houseCode]); return { houseCode, farmCode: row.farm_code, companyCode: row.farm_company_code, siteCode: row.farm_site_code }; }), resolveWarehouse: jest.fn(async (warehouseCode: string) => ({ warehouseCode, companyCode: 'COMP-A' })) } as never,
+    );
+    const dto = { houseCode: 'HOUSE-A', eggDate: '2026-08-25', items: quantities.map(qty => ({ grade: 'GRADE_1', qty })) };
+    const first = await service.recordProductionInbound(dto);
+    const totalInbound = quantities.reduce((sum, qty) => sum + qty, 0);
+    expect(first).toMatchObject({ totalInbound, idempotent: false });
+    expect(transaction).toHaveBeenCalledTimes(1);
+    expect(createProductionBatch).toHaveBeenCalledTimes(quantities.length);
+
+    existing.push(...first.batches.map(batch => ({ batch_no: batch.batchNo, quality_grade: batch.grade, qty: batch.qty, product_code: batch.productCode, sku_code: 'SKU-1', spec_code: 'LOOSE' })));
+    const second = await service.recordProductionInbound(dto);
+    expect(second).toMatchObject({ totalInbound, idempotent: true });
+    expect(second.batches).toEqual(first.batches);
+    expect(new Set(second.batches.map(batch => batch.batchNo)).size).toBe(quantities.length);
+    expect(createProductionBatch).toHaveBeenCalledTimes(quantities.length);
+    expect(managerQuery).toHaveBeenCalledWith(expect.stringContaining('pg_advisory_xact_lock'), expect.any(Array));
+  });
+
+  it('rejects a zero-quantity request before opening an inventory transaction', async () => {
+    const { service } = makeService(jest.fn());
+    await expect(service.recordProductionInbound({ eggDate: '2026-08-25', items: [{ grade: 'GRADE_1', qty: 0 }] }))
+      .rejects.toThrow('至少需要一个数量大于 0');
+  });
 });

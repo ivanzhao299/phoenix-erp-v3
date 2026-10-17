@@ -160,6 +160,7 @@ export class ProductionInboundService {
     items:        Array<{ grade: string; qty: number; spec?: string }>;
     operator?:    string;
     remark?:      string;
+    idempotencyKey?: string;
   }): Promise<{
     mode: string;
     companyCode: string;
@@ -169,9 +170,14 @@ export class ProductionInboundService {
     eggDate: string;
     batches: Array<{ batchNo: string; grade: string; qty: number; productCode: string }>;
     totalInbound: number;
+    idempotent: boolean;
   }> {
     if (!dto.eggDate) throw new BadRequestException('eggDate 必填');
     if (!Array.isArray(dto.items) || dto.items.length === 0) throw new BadRequestException('items 不能为空');
+    const effectiveItems = dto.items
+      .map(item => ({ ...item, spec: item.spec?.trim() || 'LOOSE', grade: String(item.grade || '').trim(), qty: Math.max(0, Math.round(Number(item.qty) || 0)) }))
+      .filter(item => item.qty > 0);
+    if (effectiveItems.length === 0) throw new BadRequestException('至少需要一个数量大于 0 的蛋品档位');
 
     const context = await this.resolveMasterContext(dto);
     const { companyCode, siteCode, warehouseCode, locationCode } = context;
@@ -187,9 +193,6 @@ export class ProductionInboundService {
     const collectionRef = dto.houseCode ? `HOUSE-${dto.houseCode}` : (siteCode ? `SITE-${siteCode}` : null);
     const batches: Array<{ batchNo: string; grade: string; qty: number; productCode: string }> = [];
 
-    const effectiveItems = dto.items
-      .map(item => ({ ...item, spec: item.spec?.trim() || 'LOOSE', grade: String(item.grade || '').trim(), qty: Math.max(0, Math.round(Number(item.qty) || 0)) }))
-      .filter(item => item.qty > 0);
     const grades = [...new Set(effectiveItems.map(item => item.grade))];
     const skuRows: Array<{ sku_code: string; product_code: string; grade_code: string; spec_code: string }> = grades.length
       ? await this.ds.query(
@@ -211,34 +214,57 @@ export class ProductionInboundService {
     if (missing.length) throw new BadRequestException(`以下蛋品档位缺少 ACTIVE SKU：${[...new Set(missing)].join('、')}。请先在主数据中心维护`);
     if (ambiguous.length) throw new BadRequestException(`以下蛋品档位匹配多个 ACTIVE SKU：${[...new Set(ambiguous)].join('、')}。请选择规格后重试`);
 
-    for (const item of effectiveItems) {
-      const { qty, grade } = item;
-      const sku = resolved.get(`${grade}\u0000${item.spec ?? ''}`)!;
-      const productCode = sku.product_code;
-      const batch = await this.eggInv.createProductionBatch({
-        companyCode,
-        warehouseCode,
-        locationCode,
-        eggDate:            dto.eggDate,
-        qualityGrade:       grade,
-        skuCode:            sku.sku_code,
-        gradeCodeStd:       sku.grade_code,
-        specCode:           sku.spec_code,
-        packagingSpec:      sku.spec_code,
-        productCode,
-        qty,
-        sourceNo:           `TEMP-${dto.eggDate}-${dto.houseCode ?? siteCode ?? companyCode}`,
-        sourceType:         'TEMP_PRODUCTION',
-        ledgerChangeType:   'TEMP_PRODUCTION_INBOUND',
-        collectionBatchRef: collectionRef ?? undefined,
-      });
-      batches.push({ batchNo: batch.batch_no, grade, qty, productCode });
-    }
+    const sourceNo = (dto.idempotencyKey?.trim() || `TEMP-${dto.eggDate}-${dto.houseCode ?? siteCode ?? companyCode}`).slice(0, 64);
+    let idempotent = false;
+    const run = async (mgr: any, enforceIdempotency = true) => {
+      // Serialize retries for one daily report while the transaction is open.
+      if (enforceIdempotency) await mgr.query('SELECT pg_advisory_xact_lock(hashtext($1))', [sourceNo]);
+      const existing = enforceIdempotency ? await mgr.query(
+        `SELECT batch_no, quality_grade, qty, product_code, sku_code, spec_code
+           FROM inv_batches
+          WHERE company_code = $1 AND source_type = 'TEMP_PRODUCTION' AND source_no = $2
+          ORDER BY batch_no FOR UPDATE`,
+        [companyCode, sourceNo],
+      ) : [];
+      if (existing.length > 0) {
+        const expected = effectiveItems.map(item => {
+          const sku = resolved.get(`${item.grade}\u0000${item.spec ?? ''}`)!;
+          return { grade: item.grade, qty: item.qty, productCode: sku.product_code, skuCode: sku.sku_code, specCode: sku.spec_code };
+        }).sort((a, b) => `${a.skuCode}:${a.grade}`.localeCompare(`${b.skuCode}:${b.grade}`));
+        const actual = existing.map((row: any) => ({ grade: row.quality_grade, qty: Number(row.qty), productCode: row.product_code, skuCode: row.sku_code, specCode: row.spec_code })).sort((a: any, b: any) => `${a.skuCode}:${a.grade}`.localeCompare(`${b.skuCode}:${b.grade}`));
+        if (JSON.stringify(actual) !== JSON.stringify(expected)) {
+          throw new BadRequestException('该日报入库请求已存在但数量或档位不同，请先核对库存后再重试');
+        }
+        idempotent = true;
+        for (const source of existing) {
+          batches.push({ batchNo: source.batch_no, grade: source.quality_grade, qty: Number(source.qty), productCode: source.product_code });
+        }
+        return;
+      }
+      for (const item of effectiveItems) {
+        const { qty, grade } = item;
+        const sku = resolved.get(`${grade}\u0000${item.spec ?? ''}`)!;
+        const productCode = sku.product_code;
+        const params = {
+          companyCode, warehouseCode, locationCode, eggDate: dto.eggDate,
+          qualityGrade: grade, skuCode: sku.sku_code, gradeCodeStd: sku.grade_code,
+          specCode: sku.spec_code, packagingSpec: sku.spec_code, productCode, qty,
+          sourceNo, sourceType: 'TEMP_PRODUCTION', ledgerChangeType: 'TEMP_PRODUCTION_INBOUND',
+          collectionBatchRef: collectionRef ?? undefined,
+        };
+        const batch = enforceIdempotency
+          ? await this.eggInv.createProductionBatch(params, mgr)
+          : await this.eggInv.createProductionBatch(params);
+        batches.push({ batchNo: batch.batch_no, grade, qty, productCode });
+      }
+    };
+    if (typeof (this.ds as any).transaction === 'function') await this.ds.transaction((mgr: any) => run(mgr, true));
+    else await run(this.ds, false);
 
     const totalInbound = batches.reduce((s, b) => s + b.qty, 0);
     this.logger.log(
       `[ProdInbound] 临时生产入库 company=${companyCode} date=${dto.eggDate} 批次=${batches.length} 入库=${totalInbound}`,
     );
-    return { mode, companyCode, siteCode, warehouseCode, locationCode, eggDate: dto.eggDate, batches, totalInbound };
+    return { mode, companyCode, siteCode, warehouseCode, locationCode, eggDate: dto.eggDate, batches, totalInbound, idempotent };
   }
 }

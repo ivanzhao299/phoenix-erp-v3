@@ -1,3 +1,4 @@
+import { assertAdmissionSchemaApplied } from './chanjet-admission-schema-receipt.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -7,12 +8,12 @@ import { atomicState } from './production-atomic-state.mjs';
 import { captureRuntime } from './capture-production-runtime.mjs';
 import { assertBootstrapSchemaEvidence, readBootstrapSchemaEvidence } from './api-bootstrap-schema-preflight.mjs';
 import { readonlyEnvironment } from './chanjet-readonly-policy.mjs';
-export function promotionPlan({ previousFloor, previousActive, actual, target, approvedSha, runId, scope, criticalFilesChanged = false, expectedPreviousFloorSha = '', now = Date.now() }) {
+export function promotionPlan({ previousFloor, previousActive, actual, target, approvedSha, runId, scope, criticalFilesChanged = false, expectedPreviousFloorSha = '', schemaApplied = false, now = Date.now() }) {
   if (CONTRACT.version !== 3 || ![2, 3].includes(previousFloor.version) || previousActive.version !== previousFloor.version || previousFloor.phase !== 'READY'
     || !/^[a-f0-9]{40}$/.test(target || '') || approvedSha !== target || !/^\d+-\d+$/.test(runId || '')
     || previousFloor.floorSha !== previousActive.floorSha || previousActive.outcome !== 'SUCCESS'
     || JSON.stringify(previousActive.active) !== JSON.stringify(actual)
-    || scope.baseline !== actual.api.revision || scope.target !== target || scope.changed.length
+    || scope.baseline !== actual.api.revision || scope.target !== target || (scope.changed.length && !schemaApplied)
     || previousFloor.operationalTuple.CHANJET_READONLY_SYNC_ENABLED !== 'false'
     || previousFloor.operationalTuple.CHANJET_ERP_INBOUND_SYNC_ENABLED !== 'false') throw new Error('CONFIG_HOLD=FLOOR_PROMOTION_APPROVAL');
   if (previousFloor.version === 3) {
@@ -54,7 +55,7 @@ export async function promoteFloor(root) {
   git(root, ['merge-base', '--is-ancestor', git(root, ['rev-parse', 'HEAD']), target]);
   // Every executed staged helper must be identical to the exact approved merged tree.
   const base = path.dirname(new URL(import.meta.url).pathname);
-  for (const file of ['production-config-contract.json', 'production-config-guard.mjs', 'production-deployment-state.mjs', 'production-atomic-state.mjs', 'production-deployment-evidence.mjs', 'production-trusted-paths.mjs', 'capture-production-runtime.mjs', 'update-managed-chanjet-env.mjs', 'chanjet-readonly-policy.mjs', 'api-bootstrap-schema-preflight.mjs', 'api-bootstrap-schema-contract.json', 'promote-production-config-floor.mjs']) {
+  for (const file of ['production-config-contract.json', 'production-config-guard.mjs', 'production-deployment-state.mjs', 'production-atomic-state.mjs', 'production-deployment-evidence.mjs', 'production-trusted-paths.mjs', 'capture-production-runtime.mjs', 'update-managed-chanjet-env.mjs', 'chanjet-readonly-policy.mjs', 'api-bootstrap-schema-preflight.mjs', 'api-bootstrap-schema-contract.json', 'promote-production-config-floor.mjs', 'chanjet-admission-schema-receipt.mjs']) {
     const source = file === 'api-bootstrap-schema-contract.json' ? `apps/api/src/common/database/${file}` : `scripts/ops/${file}`;
     if (!fs.readFileSync(path.join(base, file)).equals(Buffer.from(git(root, ['show', `${target}:${source}`]) + '\n'))) throw new Error('CONFIG_HOLD=STAGED_HELPER_MISMATCH');
   }
@@ -66,7 +67,8 @@ export async function promoteFloor(root) {
   // one critical file relative to the current floor (a no-op re-anchor would
   // silently re-bless an unchanged contract). Empty diff → dedicated HOLD.
   const criticalFilesChanged = git(root, ['diff', '--name-only', previousFloor.floorSha, target, '--', ...CONTRACT.criticalFiles]).split('\n').filter(Boolean).length > 0;
-  const plan = promotionPlan({ previousFloor, previousActive, actual, target, approvedSha: process.env.APPROVED_CONFIG_FLOOR_SHA, runId: process.env.DEPLOY_RUN_ID, scope, criticalFilesChanged, expectedPreviousFloorSha: process.env.APPROVED_PREVIOUS_FLOOR_SHA || '' });
+  const schemaApplied = assertAdmissionSchemaApplied(root, scope);
+  const plan = promotionPlan({ schemaApplied, previousFloor, previousActive, actual, target, approvedSha: process.env.APPROVED_CONFIG_FLOOR_SHA, runId: process.env.DEPLOY_RUN_ID, scope, criticalFilesChanged, expectedPreviousFloorSha: process.env.APPROVED_PREVIOUS_FLOOR_SHA || '' });
   assertFloor(root, plan.floor, target, { targetTree: true });
   const record = path.join(directory, `floor-promotion-${process.env.DEPLOY_RUN_ID}.json`);
   if (fs.existsSync(record)) throw new Error('CONFIG_HOLD=PROMOTION_RUN_REUSED');
