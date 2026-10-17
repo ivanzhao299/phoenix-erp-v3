@@ -63,6 +63,7 @@ fixture('Issue 381 real PostgreSQL inbound transactions and retries', () => {
   });
   afterAll(async () => { if (db?.isInitialized) await db.destroy(); });
   beforeEach(async () => {
+    await db.query('ALTER TABLE inv_ledger DROP CONSTRAINT IF EXISTS fixture_reject_second_item');
     await db.query('TRUNCATE inv_ledger, inv_batches RESTART IDENTITY');
     scope = { isGlobal: false, allowedCompanyCodes: ['COMP-A'], allowedWarehouseCodes: ['WH-A'] };
     service = new ProductionInboundService(db, cls as never, new EggInventoryService(db, cls as never),
