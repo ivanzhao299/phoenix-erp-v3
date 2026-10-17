@@ -36,6 +36,7 @@
     "apps/api/src/modules/chanjet/chanjet-auth.service.ts",
     "scripts/ops/chanjet-readonly-policy.mjs",
     "scripts/ops/promote-production-config-floor.mjs",
+    "scripts/ops/chanjet-admission-schema-receipt.mjs",
     "scripts/ops/chanjet-readonly-config-transaction.mjs",
     ".github/workflows/chanjet-readonly-restoration.yml",
     "apps/api/src/modules/chanjet/chanjet-remote-readonly.ts",

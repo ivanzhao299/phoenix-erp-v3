@@ -1,3 +1,4 @@
+import { assertAdmissionSchemaApplied } from './chanjet-admission-schema-receipt.mjs';
 import { validatePolicyTransition } from './chanjet-readonly-policy.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -74,10 +75,12 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       const evidence = process.env.DEPLOYMENT_EVIDENCE_PRE && process.env.DEPLOYMENT_EVIDENCE_POST && process.env.DEPLOYMENT_EVIDENCE_LOG
         ? { pre: process.env.DEPLOYMENT_EVIDENCE_PRE, post: process.env.DEPLOYMENT_EVIDENCE_POST, log: process.env.DEPLOYMENT_EVIDENCE_LOG } : undefined;
       if (!evidence) throw new Error('STATE_HOLD=DEPLOYMENT_EVIDENCE_BINDING');
+      const schemaApplied = scope.changed.length ? assertAdmissionSchemaApplied(root, scope) : false;
+      if (scope.changed.length && !schemaApplied) throw new Error('MIGRATION_SCOPE=HOLD:CONTROLLED_SCHEMA_RELEASE_REQUIRED');
       state = beginState({ previous, configSha: git(root, ['rev-parse', 'HEAD']), target, scope, floor, evidence });
       atomicState(file, state);
       atomicState(path.join(directory, 'transaction.json'), { version: CONTRACT.version, runId: process.env.DEPLOY_RUN_ID, phase: 'IN_PROGRESS', target, configSha: state.configSha });
-      if (scope.changed.length) throw new Error('MIGRATION_SCOPE=HOLD:CONTROLLED_SCHEMA_RELEASE_REQUIRED');
+      if (scope.changed.length) console.log('CONTROLLED_ADMISSION_SCHEMA=APPLIED;AUTOMATIC_ROLLBACK=HOLD');
       console.log(`PREV_API_REVISION=${previous.api.revision}\nPREV_WEB_REVISION=${previous.web.revision}\nRUN_MIG=false`);
     } else {
       if (!assertTransactionOwnership(directory, process.env.DEPLOY_RUN_ID)) throw new Error('STATE_HOLD=TRANSACTION_MARKER_REQUIRED');
