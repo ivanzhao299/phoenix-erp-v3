@@ -31,12 +31,13 @@
 - 保持 `PRD-EGG-%` 产品过滤、公司 DataScope、日期 WHERE、事件显示日期和排序不变。未扩大库存查询集合。
 - 补全接口已投影的名称字段类型。
 
-修改文件仅以下四个，无日报共享页面改动：
+修改文件以下五个，无日报共享页面改动：
 
 1. `apps/api/src/modules/farm/farm-egg.service.ts`
 2. `apps/api/src/modules/farm/farm-egg.pg.spec.ts`
 3. `apps/web/src/__tests__/daily-inbound-ledger.live.dom.test.tsx`
-4. 本报告。
+4. `apps/api/src/modules/analytics/services/production-localized-names.contract.spec.ts`（CI 旧静态契约维护，见下文）。
+5. 本报告。
 
 ## 验证
 
@@ -101,7 +102,7 @@ TARGETED_TESTS=PASS
 TYPECHECK=PASS
 RELEVANT_REGRESSION=PASS
 SECURITY_REVIEW=PASS_CHANGED_SCOPE_STATIC_AND_ISOLATED_SERVICE_CHECKS
-REQUIRED_CI=PENDING_PR_CREATION
+REQUIRED_CI=PENDING_RERUN_AFTER_STATIC_CONTRACT_FIX
 PRODUCTION_DATABASE_MUTATION=NO
 PRODUCTION_MIGRATION=NO
 PRODUCTION_DEPLOY=NO
@@ -109,3 +110,11 @@ CHANJET_RECOVERY_MUTATION=NO
 ```
 
 仅交付 Draft PR供审查。主线合并、生产部署、生产只读根因补证及任何生产数据处理均未获本轮授权。
+
+## CI 旧静态契约维护（PR #407，run 39015158770）
+
+远端 CI 的 `production-localized-names.contract.spec.ts` 使用 `toContain('l.house_code, h.house_name')` 检查整个 service 源文本。现在合法输出是计算表达式 `AS house_code, h.house_name`，真实 PG 与 DOM 输出字段未丢失，因此旧断言错误地拒绝了修复。
+
+本地先原样复现：该 suite **1 FAIL / 2 PASS**，失败点与 CI 相同。仅替换 ledger 的该用例：执行真实 `FarmEggService.getLedger()`，捕获发往 mocked datasource 的 SQL，检查 `grade`、`house_code` 输出别名、实际 `h.house_name` 及三语 `g.grade_name*` 投影、日期及公司范围绑定参数、公司过滤和结果行保留。未向源代码加凑断言的注释，也未修改等级、归属或其他业务逻辑。SQL 输出另由原有真实 PG 与真实页面测试验证。
+
+维护后执行完整 API 单元测试：`cd apps/api && ISSUE400_PG_PORT=15450 ./node_modules/.bin/jest --runInBand`。结果 **117 suites / 1027 tests PASS**，另 **13 suites / 281 tests SKIPPED**（原有其他隔离集成环境未启用，不计为 PASS），耗时 98.611s；其中已包含 #400 的真实 PG suite 及内嵌 4 项真实 API 页面 DOM 测试。修改的契约文件 lint 0 errors / 0 warnings，`git diff --check` PASS。等待 Orchestrator push 后重新执行远端 Required CI；本地完整通过不等同于远端已通过。
