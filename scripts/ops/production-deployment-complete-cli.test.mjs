@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { captureSnapshot, summarizeStartupLogs } from './production-deployment-evidence.mjs';
+import { captureSnapshot, summarizeStartupLogs, startupBundle } from './production-deployment-evidence.mjs';
 
 // Execute the unchanged CLI, evidence verification and atomic writes in a child
 // process. Only host admission (root/mount/git/lock) and Docker are local shims;
@@ -13,9 +13,11 @@ const ops = path.dirname(new URL(import.meta.url).pathname);
 const target = 'a'.repeat(40), previous = 'b'.repeat(40), runId = '123456-1';
 const image = c => `sha256:${c.repeat(64)}`;
 const pins = { api: { imageId: image('a'), revision: target }, web: { imageId: image('b'), revision: previous } };
-function fixture(t, { badEvidence = false, runtimeDrift = false, metadataDrift = false } = {}) {
+function fixture(t, { badEvidence = false, runtimeDrift = false, metadataDrift = false, deployMode, wrongMode, legacyEvidence = false } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'deployment-complete-cli-'));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const selected = deployMode === 'full' ? ['api', 'web'] : [deployMode || 'api'];
+  const pins = { api: { imageId: image('a'), revision: deployMode === 'web' ? previous : target }, web: { imageId: image('b'), revision: deployMode && deployMode !== 'api' ? target : previous } };
   const stateDir = path.join(dir, 'state'); fs.mkdirSync(stateDir, { mode: 0o700 });
   for (const name of fs.readdirSync(ops).filter(x => /\.(mjs|json)$/.test(x) && !x.endsWith('.test.mjs'))) {
     fs.copyFileSync(path.join(ops, name), path.join(dir, name));
@@ -31,10 +33,10 @@ function fixture(t, { badEvidence = false, runtimeDrift = false, metadataDrift =
   const metadata = Object.fromEntries(['db', 'api', 'web'].map((service, i) => [service, {
     id: String(i + 1).repeat(64), created: '2026-10-13T00:00:00Z', image: image(String(i + 1)),
     state: { Running: true, StartedAt: '2026-10-13T00:00:01Z', Health: { Status: 'healthy' } }, mounts: [],
-    revision: service === 'api' ? target : service === 'web' ? previous : null,
+    revision: service === 'db' ? null : pins[service].revision,
   }]));
   metadata.api.image = pins.api.imageId; metadata.web.image = pins.web.imageId;
-  const dockerResult = args => {
+  const dockerRunner = metadata => args => {
     if (args[0] === 'inspect') {
       const service = args[1].replace('phoenix-v3-', ''); const m = metadata[service];
       if (args[3] === '{{.Image}}') return m.image;
@@ -44,16 +46,36 @@ function fixture(t, { badEvidence = false, runtimeDrift = false, metadataDrift =
     if (args[4].includes('json')) return JSON.stringify(m.revision ? { 'org.opencontainers.image.revision': m.revision } : {});
     return m.revision;
   };
-  const binding = { runId, runAttempt: 1, targetSha: target, floorSha: target };
-  const pre = captureSnapshot({ ...binding, phase: 'PRE_SNAPSHOT' }, dockerResult);
-  const post = captureSnapshot({ ...binding, phase: 'POST_SNAPSHOT' }, dockerResult);
-  const log = summarizeStartupLogs({ ...binding, containerId: post.containers.api.id, startedAt: post.containers.api.startedAt,
-    capturedAt: '2026-10-13T00:00:03Z', stdout: '2026-10-13T00:00:02Z API_BOOTSTRAP_SCHEMA_COMPATIBILITY=PASS\n', readinessVerified: true });
-  if (badEvidence) log.result = 'HOLD_STARTUP_ERROR';
+  const dockerResult = dockerRunner(metadata);
+  const binding = { runId, runAttempt: 1, targetSha: target, floorSha: target, ...(deployMode ? { deployMode } : {}) };
+  let pre, post, log;
+  if (deployMode) {
+    const before = structuredClone(metadata);
+    for (const service of selected) {
+      before[service].id = (service === 'api' ? '4' : '5').repeat(64); before[service].image = image(service === 'api' ? '4' : '5'); before[service].revision = previous;
+      metadata[service].created = '2026-10-13T00:00:02Z'; metadata[service].state.StartedAt = '2026-10-13T00:00:03Z';
+    }
+    pre = captureSnapshot({ ...binding, phase: 'PRE_SNAPSHOT', capturedAt: '2026-10-13T00:00:02Z' }, dockerRunner(before));
+    post = captureSnapshot({ ...binding, phase: 'POST_SNAPSHOT', capturedAt: '2026-10-13T00:00:04Z' }, dockerResult);
+    const summaries = Object.fromEntries(selected.map(service => [service, summarizeStartupLogs({ ...binding, service,
+      containerId: post.containers[service].id, startedAt: post.containers[service].startedAt, capturedAt: '2026-10-13T00:00:05Z',
+      stdout: `2026-10-13T00:00:04Z ${service === 'api' ? 'API_BOOTSTRAP_SCHEMA_COMPATIBILITY=PASS' : 'Ready in 100ms'}\n`, readinessVerified: true, webHttpVerified: true })]));
+    log = startupBundle(post, summaries);
+  } else {
+    pre = captureSnapshot({ ...binding, phase: 'PRE_SNAPSHOT' }, dockerResult);
+    post = captureSnapshot({ ...binding, phase: 'POST_SNAPSHOT' }, dockerResult);
+    log = summarizeStartupLogs({ ...binding, containerId: post.containers.api.id, startedAt: post.containers.api.startedAt,
+      capturedAt: '2026-10-13T00:00:03Z', stdout: '2026-10-13T00:00:02Z API_BOOTSTRAP_SCHEMA_COMPATIBILITY=PASS\n', readinessVerified: true });
+  }
+  if (legacyEvidence) {
+    log = log.services.api;
+    for (const receipt of [pre, post, log]) { receipt.schema = 'phoenix.production-deployment-evidence/v2'; delete receipt.deployMode; }
+  }
+  if (badEvidence) { if (deployMode) log.services[selected[0]].result = 'HOLD_STARTUP_ERROR'; else log.result = 'HOLD_STARTUP_ERROR'; }
   const evidence = { pre: write('pre.json', pre), post: write('post.json', post), log: write('log.json', log) };
-  const state = { version: 3, outcome: 'SWITCHING', target, configSha: target, floorSha: target, active: pins,
+  const state = { version: 3, ...(deployMode ? { deployMode } : {}), outcome: 'SWITCHING', target, configSha: target, floorSha: target, active: pins,
     previous: { ...pins, api: { imageId: image('c'), revision: previous } }, candidates: { api: pins.api },
-    switched: { api: true, web: false }, protectedImages: [pins.api.imageId, pins.web.imageId], migrationPaths: [], evidence };
+    switched: { api: selected.includes('api'), web: selected.includes('web') }, protectedImages: [pins.api.imageId, pins.web.imageId], migrationPaths: [], evidence };
   write(`deploy-${runId}.json`, state);
   write('active.json', { version: 3, outcome: 'CONFIG_READY_HOLD', active: state.previous });
   write('floor.json', { version: 3, floorSha: target });
@@ -100,7 +122,7 @@ else process.exit(99);
   fs.writeFileSync(runtime, fs.readFileSync(runtime, 'utf8').replace("PATH: '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'", `PATH: ${JSON.stringify(dir)}`));
   const before = Object.fromEntries(['active.json', `deploy-${runId}.json`, 'transaction.json', 'policy-transition.json'].map(n => [n, fs.readFileSync(path.join(stateDir, n), 'utf8')]));
   const result = spawnSync(process.execPath, [path.join(dir, 'production-deployment-state.mjs'), 'complete'], {
-    cwd: dir, encoding: 'utf8', timeout: 15000, env: { PATH: dir, DEPLOY_RUN_ID: runId, DEPLOY_RUN_ATTEMPT: '1' },
+    cwd: dir, encoding: 'utf8', timeout: 15000, env: { PATH: dir, DEPLOY_RUN_ID: runId, DEPLOY_RUN_ATTEMPT: '1', ...(deployMode ? { DEPLOY_MODE: wrongMode || deployMode } : {}) },
   });
   return { dir, stateDir, before, result };
 }
@@ -141,4 +163,23 @@ test "\${PIPESTATUS[*]}" = '0 0'
 echo REPORT_RETURN
 `], { encoding: 'utf8', timeout: 5000 });
   assert.equal(result.status, 0, result.stderr); assert.match(result.stdout, /REPORT_RETURN/);
+});
+
+for (const deployMode of ['api', 'web', 'full']) {
+  test(`real v3 ${deployMode} complete CLI verifies mode-bound receipts and live pins`, t => {
+    const { stateDir, result } = fixture(t, { deployMode });
+    assert.equal(result.status, 0, result.stderr); assert.match(result.stdout, /DEPLOYMENT_STATE=SUCCESS/);
+    assert.equal(fs.existsSync(path.join(stateDir, 'transaction.json')), false);
+  });
+}
+test('real Web-only complete CLI holds a changed mode without clearing transaction markers', t => {
+  const { stateDir, before, result } = fixture(t, { deployMode: 'web', wrongMode: 'api' });
+  assert.equal(result.status, 1); assert.match(result.stderr, /DEPLOY_MODE/);
+  for (const [file, bytes] of Object.entries(before)) assert.equal(fs.readFileSync(path.join(stateDir, file), 'utf8'), bytes);
+});
+
+test('new mode-bound transaction refuses legacy v2 receipts in the real complete CLI', t => {
+  const { stateDir, before, result } = fixture(t, { deployMode: 'api', legacyEvidence: true });
+  assert.equal(result.status, 1); assert.doesNotMatch(result.stdout, /DEPLOYMENT_STATE=SUCCESS/);
+  for (const [file, bytes] of Object.entries(before)) assert.equal(fs.readFileSync(path.join(stateDir, file), 'utf8'), bytes);
 });

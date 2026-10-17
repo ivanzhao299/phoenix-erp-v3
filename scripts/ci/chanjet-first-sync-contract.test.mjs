@@ -19,6 +19,7 @@ import path from 'node:path';
 import http from 'node:http';
 import { execFileSync, spawn, spawnSync } from 'node:child_process';
 import { randomUUID, createHash } from 'node:crypto';
+import { requireOwnedPostgresFixture } from './owned-postgres-fixture.mjs';
 import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
 
@@ -316,21 +317,10 @@ const evidenceState = (runId) => JSON.parse(fs.readFileSync(path.join(workDir, `
 
 const providerHits = () => fs.readFileSync(providerHitsFile, 'utf8').split('\n').filter(Boolean).length;
 
-// the fixture DB container: explicit override first; otherwise discovered
-// from the runner's docker state by matching the fixture database name (the
-// environment may carry several postgres containers)
-function resolveFixtureDbContainer() {
-  if (process.env.CHANJET_STOP_DB_CONTAINER) return process.env.CHANJET_STOP_DB_CONTAINER;
-  const fixtureDbName = new URL(fixtureUrl).pathname.slice(1);
-  const candidates = execFileSync('docker', ['ps', '--format', '{{.Names}}'], { encoding: 'utf8' })
-    .split('\n').filter(Boolean).filter((n) => n.includes('postgres'));
-  return candidates.find((n) => {
-    try {
-      const envJson = execFileSync('docker', ['exec', n, 'printenv', 'POSTGRES_DB'], { encoding: 'utf8' }).trim();
-      return envJson === fixtureDbName;
-    } catch { return false; }
-  }) || candidates[0] || 'phoenix-r42a-admission-fixture';
-}
+// Resolve exactly one explicitly owned loopback fixture before ANY database
+// setup or mutation. Never discover or fall back to another local database.
+const ownedDbContainer = requireOwnedPostgresFixture({ url: fixtureUrl, container: process.env.CHANJET_STOP_DB_CONTAINER, owner: process.env.CHANJET_FIXTURE_OWNER });
+const resolveFixtureDbContainer = () => ownedDbContainer;
 
 database('first-sync protected-entry acceptance (real entry, real scheduler host, real PostgreSQL18, local provider)', () => {
   before(async () => {
@@ -821,20 +811,24 @@ database('first-sync protected-entry acceptance (real entry, real scheduler host
   // the formal deployment-evidence group (pre/post/startup) exactly as the
   // audit's REAL reader (readFormalDeploymentEvidence) accepts as PASS
   function stageFormalDeploymentEvidence(deployRunId, { apiImageId, webImageId }) {
-    const attempt = deployRunId.includes('-') ? String(deployRunId).split('-')[1] : '1';
+    const attempt = Number(deployRunId.includes('-') ? String(deployRunId).split('-')[1] : '1');
     const startedAt = new Date(Date.now() - 60_000).toISOString();
+    const created = new Date(Date.now() - 120_000).toISOString();
     const schema = 'phoenix.production-deployment-evidence/v2';
-    const api = { id: `c-api-${deployRunId}`, startedAt, image: apiImageId, ociRevision: FLOOR_SHA };
-    const web = { id: `c-web-${deployRunId}`, startedAt, image: webImageId };
-    const db = { id: `c-db-${deployRunId}`, startedAt, image: 'postgres:18' };
+    const metadata = (service, digit, image, revision) => ({ service, container: `phoenix-v3-${service}`, id: digit.repeat(64),
+      created, startedAt, image, ociRevision: revision, running: true, health: 'healthy', restartCount: 0, mounts: [] });
+    const api = metadata('api', 'a', apiImageId, FLOOR_SHA);
+    const web = metadata('web', 'b', webImageId, FLOOR_SHA);
+    const db = metadata('db', 'c', `sha256:${'c'.repeat(64)}`, null);
     const files = {
-      pre: { schema, phase: 'PRE_SNAPSHOT', deployRunId, deployRunAttempt: attempt, targetSha: FLOOR_SHA, containers: { api: { id: api.id, startedAt, image: api.image }, web, db } },
+      pre: { schema, phase: 'PRE_SNAPSHOT', deployRunId, deployRunAttempt: attempt, targetSha: FLOOR_SHA, configFloorSha: FLOOR_SHA, containers: { api, web, db } },
       post: { schema, phase: 'POST_SNAPSHOT', deployRunId, deployRunAttempt: attempt, targetSha: FLOOR_SHA, configFloorSha: FLOOR_SHA, containers: { api, web, db } },
       startup: { schema, phase: 'API_STARTUP_LOG', deployRunId, deployRunAttempt: attempt, targetSha: FLOOR_SHA, configFloorSha: FLOOR_SHA, containerId: api.id, startedAt, rawOutput: false, stdoutLineCount: 3, stderrLineCount: 0, errorSignalCount: 0, schemaWriteSignalCount: 0, sensitiveLineCount: 0, combinedDigest: 'd'.repeat(64), result: 'PASS_REDACTED_SUMMARY' },
     };
     for (const [phase, value] of Object.entries(files)) {
       fs.writeFileSync(path.join(workDir, `deploy-${deployRunId}-${phase}-evidence.json`), JSON.stringify(value));
     }
+    return { api, web, db };
   }
 
   function writeChainShims() {
@@ -874,7 +868,7 @@ database('first-sync protected-entry acceptance (real entry, real scheduler host
     }
     // the formal deployment evidence group (pre/post/startup) the audit's
     // fail-closed deployment-evidence gate reads — the REAL reader applies
-    stageFormalDeploymentEvidence(deployRunId, { apiImageId, webImageId });
+    const deploymentMetadata = stageFormalDeploymentEvidence(deployRunId, { apiImageId, webImageId });
     // the approved floor state both drivers verify against — the REAL
     // READONLY_VERIFY tuple keeps the sync window open
     fs.writeFileSync(path.join(workDir, 'floor.json'), JSON.stringify({
@@ -894,7 +888,7 @@ database('first-sync protected-entry acceptance (real entry, real scheduler host
       appApiRoot: apiDir,
       checkoutSha: checkoutSha || FLOOR_SHA,
       readinessStatus,
-      apiImageId, webImageId,
+      apiImageId, webImageId, deploymentMetadata,
       syncPolicy, readonlySyncEnabled, erpInboundEnabled: 'false',
       approvalJson: JSON.stringify(approvedPolicyFileValue(manifest)),
       providerBase: provider.base, endpoint: `${hostBase}/chanjet/integration/alignment/`,

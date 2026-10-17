@@ -27,7 +27,7 @@ function runner(changes = {}, labelOverrides = {}) {
   };
 }
 const binding = { phase: 'PRE_SNAPSHOT', runId: '100-1', runAttempt: '1', targetSha: sha('t'), floorSha: sha('t'), configFloorSha: sha('t') };
-function normalized(service, id) { const raw = inspect(service, id); return { service, container: `phoenix-v3-${service}`, id: raw.Id, created: raw.Created, startedAt: raw.State.StartedAt, running: raw.State.Running, health: raw.State.Health.Status, restartCount: raw.RestartCount, image: raw.Image, ociRevision: sha(service === 'api' ? 't' : 'p'), mounts: raw.Mounts.map(m => ({ type: m.Type, source: m.Source, destination: m.Destination, readOnly: m.RW === false })) }; }
+function normalized(service, id) { const raw = inspect(service, id); return { service, container: `phoenix-v3-${service}`, id: raw.Id, created: raw.Created, startedAt: raw.State.StartedAt, running: raw.State.Running, health: raw.State.Health.Status, restartCount: raw.RestartCount, image: raw.Image, ociRevision: service === 'db' ? null : sha(service === 'api' ? 't' : 'p'), mounts: raw.Mounts.map(m => ({ type: m.Type, source: m.Source, destination: m.Destination, readOnly: m.RW === false })) }; }
 function snapshot(phase, overrides = {}) { return { ...binding, ...overrides, deployRunId: binding.runId, deployRunAttempt: 1, phase, schema: 'phoenix.production-deployment-evidence/v2', capturedAt: '2026-10-09T00:01:00.000Z', containers: { db: normalized('db', 'd'.repeat(64)), api: normalized('api', 'a'.repeat(64)), web: normalized('web', 'f'.repeat(64)) } }; }
 
 test('captures only allowlisted container metadata and binds run/attempt/SHA', () => {
@@ -87,9 +87,9 @@ test('formal audit rejects target SHA drift across deployment evidence', () => {
     fs.writeFileSync(path.join(dir, 'deploy-100-1-pre-evidence.json'), JSON.stringify(pre));
     fs.writeFileSync(path.join(dir, 'deploy-100-1-post-evidence.json'), JSON.stringify(post));
     fs.writeFileSync(path.join(dir, 'deploy-100-1-startup-evidence.json'), JSON.stringify(log));
-    assert.equal(readFormalDeploymentEvidence(dir, { api: { revision: sha('t') } }, sha('t')).status, 'PASS');
+    assert.equal(readFormalDeploymentEvidence(dir, { api: { revision: sha('t'), imageId: image('b') }, web: { revision: sha('p'), imageId: image('c') } }, sha('t'), evidenceLibrary, runner({}, { db: null })).status, 'PASS');
     fs.writeFileSync(path.join(dir, 'deploy-100-1-startup-evidence.json'), JSON.stringify({ ...log, targetSha: sha('x') }));
-    assert.equal(readFormalDeploymentEvidence(dir, { api: { revision: sha('t') } }, sha('t')).status, 'HOLD');
+    assert.equal(readFormalDeploymentEvidence(dir, { api: { revision: sha('t'), imageId: image('b') }, web: { revision: sha('p'), imageId: image('c') } }, sha('t'), evidenceLibrary, runner({}, { db: null })).status, 'HOLD');
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 test('stdout-only startup passes while an empty stderr stream is allowed', () => {

@@ -45,6 +45,13 @@ if (CMD === 'docker') {
     const format = args.includes('--format') ? args[args.indexOf('--format') + 1] : '';
     const target = args.find((a) => a.startsWith('phoenix-v3-')) || '';
     trace({ kind: 'inspect', target, format });
+    if (format === '{{json .Id}}\t{{json .Created}}\t{{json .Image}}\t{{json .State}}\t{{json .RestartCount}}\t{{json .Mounts}}') {
+      const item = cfg.deploymentMetadata?.[target.replace('phoenix-v3-', '')];
+      if (!item) fail();
+      console.log([item.id, item.created, item.image, { StartedAt: item.startedAt, Running: item.running, Health: { Status: item.health } }, item.restartCount,
+        item.mounts.map(m => ({ Type: m.type, Source: m.source, Destination: m.destination, RW: !m.readOnly }))].map(JSON.stringify).join('\t'));
+      process.exit(0);
+    }
     if (format === '{{.State.Health.Status}}') { console.log('healthy'); process.exit(0); }
     if (format === '{{json .Config.Env}}') {
       console.log(JSON.stringify([
@@ -63,6 +70,11 @@ if (CMD === 'docker') {
   }
 
   if (SUB === 'image' && args[0] === 'inspect') {
+    if (args.includes('{{json .Config.Labels}}')) {
+      const item = Object.values(cfg.deploymentMetadata || {}).find(x => x.image === args[1]);
+      if (!item) fail();
+      console.log(JSON.stringify(item.ociRevision ? { 'org.opencontainers.image.revision': item.ociRevision } : {})); process.exit(0);
+    }
     if (args.includes('{{.Id}}')) { console.log(cfg.apiImageId); process.exit(0); }
     console.log(cfg.targetSha);
     process.exit(0);

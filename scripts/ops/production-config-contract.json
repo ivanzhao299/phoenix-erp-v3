@@ -64,7 +64,8 @@
     "apps/api/src/common/database/bootstrap-crud.integration.spec.ts",
     "apps/api/src/common/database/schema-compatibility.spec.ts",
     "scripts/test-db-bootstrap.sh",
-    "scripts/ops/api-bootstrap-schema-preflight.test.mjs"
+    "scripts/ops/api-bootstrap-schema-preflight.test.mjs",
+    "scripts/ops/chanjet-readonly-production-chain.sh"
   ],
   "executionUid": 0,
   "controlRoot": "/var/lib/phoenix-erp",

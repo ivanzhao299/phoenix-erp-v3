@@ -27,6 +27,8 @@ on:
       - 'scripts/ops/build-chanjet-admission-sql.mjs'
       - 'scripts/ops/chanjet-admission-sql-fixture.sh'
       - 'scripts/ci/chanjet-execution-admission-cli.test.mjs'
+      - 'scripts/ci/chanjet-first-sync-*'
+      - 'scripts/ci/owned-postgres-fixture*'
       - 'apps/api/test/fixtures/chanjet-admission-worker.cjs'
       - '.github/workflows/typeorm-ledger-runtime-compatibility-fixture.yml'
   workflow_dispatch:
@@ -198,6 +200,7 @@ jobs:
         ports:
           - '127.0.0.1:5432:5432'
         options: >-
+          --label phoenix.fixture.owner=github-${{ github.run_id }}-${{ github.run_attempt }}-admission
           --health-cmd "pg_isready -U postgres -d chanjet_admission_fixture"
           --health-interval 5s --health-timeout 5s --health-retries 20
     steps:
@@ -266,4 +269,6 @@ jobs:
         env:
           CHANJET_ADMISSION_FIXTURE_URL: postgresql://postgres:postgres@127.0.0.1:5432/chanjet_admission_fixture
           CHANJET_FIRST_SYNC_REQUIRED: 'true'
-        run: node --test scripts/ci/chanjet-first-sync-contract.test.mjs
+          CHANJET_STOP_DB_CONTAINER: ${{ job.services.postgres.id }}
+          CHANJET_FIXTURE_OWNER: github-${{ github.run_id }}-${{ github.run_attempt }}-admission
+        run: node --test scripts/ci/owned-postgres-fixture.test.mjs scripts/ci/chanjet-first-sync-contract.test.mjs

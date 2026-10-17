@@ -10,9 +10,14 @@ import { assertContained, readPinnedFile } from './production-trusted-paths.mjs'
 import { captureRuntime, executionEnv, IMAGE_ID, REVISION } from './capture-production-runtime.mjs';
 import { atomicState } from './production-atomic-state.mjs';
 export { atomicState } from './production-atomic-state.mjs';
-export function beginState({ previous, configSha, target, scope, floor, evidence }) {
+export function deploymentMode({ mode, buildApi, buildWeb }) {
+  if (!['api', 'web', 'full'].includes(mode) || buildApi !== ['api', 'full'].includes(mode) || buildWeb !== ['web', 'full'].includes(mode)) throw new Error('STATE_HOLD=DEPLOY_MODE');
+  return mode;
+}
+export function beginState({ previous, configSha, target, scope, floor, evidence, mode }) {
+  if (mode !== undefined && !['api', 'web', 'full'].includes(mode)) throw new Error('STATE_HOLD=DEPLOY_MODE');
   if (configSha !== target || !REVISION.test(configSha) || !REVISION.test(target) || scope.baseline !== previous.api.revision || scope.target !== target) throw new Error('STATE_HOLD=BASELINE');
-  return { expiresAt: new Date(Date.now() + CONTRACT.maximumTransitionMs).toISOString(), version: CONTRACT.version, configSha, target, floorSha: floor.floorSha, previous, active: previous, candidates: {}, switched: { api: false, web: false }, outcome: 'PREPARED', migrationBaseline: previous.api.revision, migrationPaths: scope.changed, protectedImages: [previous.api.imageId, previous.web.imageId], evidence };
+  return { ...(mode ? { deployMode: mode } : {}), expiresAt: new Date(Date.now() + CONTRACT.maximumTransitionMs).toISOString(), version: CONTRACT.version, configSha, target, floorSha: floor.floorSha, previous, active: previous, candidates: {}, switched: { api: false, web: false }, outcome: 'PREPARED', migrationBaseline: previous.api.revision, migrationPaths: scope.changed, protectedImages: [previous.api.imageId, previous.web.imageId], evidence };
 }
 export function rollbackPlan(state, eligible) {
   // DB/schema-changing releases use the separate controlled migration authority.
@@ -77,16 +82,21 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       if (!evidence) throw new Error('STATE_HOLD=DEPLOYMENT_EVIDENCE_BINDING');
       const schemaApplied = scope.changed.length ? assertAdmissionSchemaApplied(root, scope) : false;
       if (scope.changed.length && !schemaApplied) throw new Error('MIGRATION_SCOPE=HOLD:CONTROLLED_SCHEMA_RELEASE_REQUIRED');
-      state = beginState({ previous, configSha: git(root, ['rev-parse', 'HEAD']), target, scope, floor, evidence });
+      const mode = deploymentMode({ mode: process.env.DEPLOY_MODE, buildApi: process.env.BUILD_API === 'true', buildWeb: process.env.BUILD_WEB === 'true' });
+      state = beginState({ mode, previous, configSha: git(root, ['rev-parse', 'HEAD']), target, scope, floor, evidence });
       atomicState(file, state);
       atomicState(path.join(directory, 'transaction.json'), { version: CONTRACT.version, runId: process.env.DEPLOY_RUN_ID, phase: 'IN_PROGRESS', target, configSha: state.configSha });
       if (scope.changed.length) console.log('CONTROLLED_ADMISSION_SCHEMA=APPLIED;AUTOMATIC_ROLLBACK=HOLD');
       console.log(`PREV_API_REVISION=${previous.api.revision}\nPREV_WEB_REVISION=${previous.web.revision}\nRUN_MIG=false`);
     } else {
       if (!assertTransactionOwnership(directory, process.env.DEPLOY_RUN_ID)) throw new Error('STATE_HOLD=TRANSACTION_MARKER_REQUIRED');
-      state = assertStateVersion(secureJson(file)); const floor = guardProduction(root, directory, state.active);
+      state = assertStateVersion(secureJson(file));
+      // Historical transactions predate mode binding and remain API-only.
+      const mode = state.deployMode ?? 'api';
+      if (!['api', 'web', 'full'].includes(mode) || (process.env.DEPLOY_MODE && process.env.DEPLOY_MODE !== mode)) throw new Error('STATE_HOLD=DEPLOY_MODE');
+      const floor = guardProduction(root, directory, state.active);
       if (operation === 'candidate') {
-        if (!['api', 'web'].includes(input) || value !== `ghcr.io/ivanzhao299/phoenix-erp-v3/${input}:sha-${state.target}`) throw new Error('STATE_HOLD=CANDIDATE_REF');
+        if (!(mode === 'full' ? ['api', 'web'] : [mode]).includes(input) || value !== `ghcr.io/ivanzhao299/phoenix-erp-v3/${input}:sha-${state.target}`) throw new Error('STATE_HOLD=CANDIDATE_REF');
         state.candidates[input] = inspectCandidate(value, state.target);
         const promotionPath = path.join(directory, 'policy-transition.json');
         if (fs.existsSync(promotionPath)) {
@@ -95,7 +105,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
         }
         state.protectedImages = [...new Set([...state.protectedImages, state.candidates[input].imageId])];
       } else if (operation === 'switch') {
-        if (!['api', 'web'].includes(input) || !state.candidates[input]) throw new Error('STATE_HOLD=NO_CANDIDATE');
+        if (!(mode === 'full' ? ['api', 'web'] : [mode]).includes(input) || !state.candidates[input]) throw new Error('STATE_HOLD=NO_CANDIDATE');
         state.switched[input] = true; state.active[input] = state.candidates[input]; state.outcome = 'SWITCHING';
       } else if (operation === 'rollback-plan') {
         console.log(JSON.stringify(rollbackPlan(state, rollbackEligibility(root, floor, state.previous.api)))); process.exit(0);
@@ -110,7 +120,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
         if (operation === 'complete') {
           const evidence = await import('./production-deployment-evidence.mjs');
           const post = JSON.parse(fs.readFileSync(state.evidence.post, 'utf8'));
-          const binding = { runId: process.env.DEPLOY_RUN_ID, runAttempt: process.env.DEPLOY_RUN_ATTEMPT || String(process.env.GITHUB_RUN_ATTEMPT || '1'), targetSha: state.target, configFloorSha: state.floorSha };
+          const binding = { runId: process.env.DEPLOY_RUN_ID, runAttempt: process.env.DEPLOY_RUN_ATTEMPT || String(process.env.GITHUB_RUN_ATTEMPT || '1'), targetSha: state.target, configFloorSha: state.floorSha, deployMode: mode, evidenceSchema: state.deployMode ? evidence.MODE_EVIDENCE_SCHEMA : evidence.EVIDENCE_SCHEMA };
           evidence.verifyEvidenceFiles(state.evidence.pre, state.evidence.post, state.evidence.log, binding);
           evidence.verifyLiveSnapshot(post, binding);
         }

@@ -124,7 +124,7 @@ jobs:
             echo "PRODUCTION_EVIDENCE_PROGRAM_B64=$(base64 -w0 scripts/ops/readonly-production-evidence.mjs)" >> "$GITHUB_ENV"
             echo "PRODUCTION_EVIDENCE_PROGRAM_SHA256=$(sha256sum scripts/ops/readonly-production-evidence.mjs | cut -d' ' -f1)" >> "$GITHUB_ENV"
           fi
-          if [ "$OPERATION" = recovery ]; then
+          if [ "$OPERATION" = recovery ] || [ "$OPERATION" = audit ]; then
             RECOVERY_TAR="$(mktemp)"
             tar -czf "$RECOVERY_TAR" -C scripts/ops production-deployment-recovery.mjs production-deployment-evidence.mjs production-config-guard.mjs production-deployment-state.mjs production-atomic-state.mjs production-trusted-paths.mjs capture-production-runtime.mjs update-managed-chanjet-env.mjs chanjet-readonly-policy.mjs chanjet-readonly-production-audit.mjs production-config-contract.json chanjet-admission-schema-receipt.mjs
             echo "RECOVERY_BUNDLE_B64=$(base64 -w0 "$RECOVERY_TAR")" >> "$GITHUB_ENV"
@@ -197,6 +197,12 @@ jobs:
               AUDIT_BUNDLE_STAGE="$STATE_DIR/readonly-audit-${DEPLOY_RUN_ID}"
               test ! -e "$AUDIT_BUNDLE_STAGE"
               mkdir -m 700 "$AUDIT_BUNDLE_STAGE"
+              # The reviewed audit protocol must not depend on an older
+              # installed verifier. Hash-check the target import closure first.
+              printf '%s' "$RECOVERY_BUNDLE_B64" | base64 -d > "$AUDIT_BUNDLE_STAGE/verifier-bundle.tgz"
+              chmod 600 "$AUDIT_BUNDLE_STAGE/verifier-bundle.tgz"
+              test "$(sha256sum "$AUDIT_BUNDLE_STAGE/verifier-bundle.tgz" | cut -d' ' -f1)" = "$RECOVERY_BUNDLE_SHA256"
+              tar -xzf "$AUDIT_BUNDLE_STAGE/verifier-bundle.tgz" -C "$AUDIT_BUNDLE_STAGE" --no-same-owner --no-same-permissions
               printf '%s' "$AUDIT_PROGRAM_B64" | base64 -d > "$AUDIT_BUNDLE_STAGE/audit.mjs"
               printf '%s' "$AUDIT_SQL_B64" | base64 -d > "$AUDIT_BUNDLE_STAGE/preflight.sql"
               chmod 600 "$AUDIT_BUNDLE_STAGE/audit.mjs" "$AUDIT_BUNDLE_STAGE/preflight.sql"
