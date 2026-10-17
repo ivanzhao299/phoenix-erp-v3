@@ -181,6 +181,63 @@ test('stdout JSON polluted by stderr noise still surfaces the real crash line wh
   assert.match(String(verdict.reasons), /^PREFLIGHT_CRASH: BLOCK: canonical/);
 });
 
+// ── evaluation-document contract violations (review round boundaries) ──────
+
+test('an empty evaluation document ({}) is INVALID_CONTRACT, never EVALUATION', () => {
+  for (const status of [0, 1]) {
+    const verdict = classifyPreflightOutput({ status, stdout: '{}', stderr: '' });
+    assert.equal(verdict.result, 'BLOCK');
+    assert.equal(verdict.kind, 'INVALID_CONTRACT');
+    assert.match(String(verdict.reasons), /^INVALID_EVALUATION_CONTRACT: pass must be a boolean, got undefined$/);
+  }
+});
+
+test('a non-boolean pass ("false") is INVALID_CONTRACT, never EVALUATION', () => {
+  for (const pass of ['false', 0, null]) {
+    const verdict = classifyPreflightOutput({ status: 0, stdout: JSON.stringify({ pass, failures: [] }), stderr: '' });
+    assert.equal(verdict.result, 'BLOCK');
+    assert.equal(verdict.kind, 'INVALID_CONTRACT');
+    assert.match(String(verdict.reasons), /^INVALID_EVALUATION_CONTRACT: pass must be a boolean/);
+  }
+});
+
+test('pass:true with non-empty failures contradicts the contract — never a PASS', () => {
+  const verdict = classifyPreflightOutput({ status: 0, stdout: JSON.stringify({ pass: true, failures: ['legacy_missing'] }), stderr: '' });
+  assert.equal(verdict.result, 'BLOCK');
+  assert.equal(verdict.kind, 'INVALID_CONTRACT');
+  assert.match(String(verdict.reasons), /^INVALID_EVALUATION_CONTRACT: pass=true contradicts 1 failure/);
+});
+
+test('pass:false with an empty failures array contradicts the contract', () => {
+  const verdict = classifyPreflightOutput({ status: 1, stdout: JSON.stringify({ pass: false, failures: [] }), stderr: '' });
+  assert.equal(verdict.result, 'BLOCK');
+  assert.equal(verdict.kind, 'INVALID_CONTRACT');
+  assert.match(String(verdict.reasons), /^INVALID_EVALUATION_CONTRACT: pass=false requires at least one failure$/);
+});
+
+test('missing or non-string failures arrays violate the contract', () => {
+  for (const [doc, pattern] of [
+    [{ pass: false }, /failures must be an array, got undefined/],
+    [{ pass: true }, /failures must be an array, got undefined/],
+    [{ pass: false, failures: [1, 2] }, /failures must contain only strings/],
+    [{ pass: false, failures: 'legacy_missing' }, /failures must be an array, got string/],
+  ]) {
+    const verdict = classifyPreflightOutput({ status: 1, stdout: JSON.stringify(doc), stderr: '' });
+    assert.equal(verdict.result, 'BLOCK');
+    assert.equal(verdict.kind, 'INVALID_CONTRACT');
+    assert.match(String(verdict.reasons), pattern);
+  }
+});
+
+test('valid documents still classify exactly as before (PASS and EVALUATION intact)', () => {
+  assert.equal(classifyPreflightOutput({ status: 0, stdout: PASS_JSON, stderr: '' }).result, 'PASS');
+  const block = classifyPreflightOutput({ status: 1, stdout: BLOCK_JSON, stderr: '' });
+  assert.equal(block.result, 'BLOCK');
+  assert.equal(block.kind, 'EVALUATION');
+  assert.deepEqual(block.reasons, ['legacy_missing']);
+  assert.equal(block.stderr, ''); // stderr retention unchanged
+});
+
 // ── dynamic regressions: the REAL preflight binary produces the samples ────
 
 test('dynamic: the real preflight binary producing a clean evaluation classifies PASS', () => {

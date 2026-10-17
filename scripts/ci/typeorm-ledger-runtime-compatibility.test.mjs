@@ -38,8 +38,14 @@ test('the rehearsal invokes the preflight with the candidate ledger inventory an
   assert.match(classifier, /typeof status !== 'number' \|\| !Number\.isFinite\(status\)/);
   assert.match(classifier, /status !== 0/);
   assert.match(classifier, /STATUS_MISMATCH/);
+  // a stdout JSON that violates the evaluation contract (pass not boolean,
+  // failures not a string array, pass contradicting failures) is never an
+  // evaluation conclusion — INVALID_CONTRACT rides the non-EVALUATION branch
+  assert.match(classifier, /evaluationContractViolation/);
+  assert.match(classifier, /INVALID_CONTRACT/);
   // the divergence claim requires a REAL evaluation verdict: a crash, empty
-  // output or unparseable noise never formed an evaluation conclusion
+  // output, unparseable noise, an invalid contract or a status mismatch
+  // never formed an evaluation conclusion
   const runnerSource = source;
   assert.match(runnerSource, /verdict\.kind === 'EVALUATION'\s*\n\s*\? 'LEDGER_PREFLIGHT_RUNTIME_SEMANTICS_DIVERGENCE=CONFIRMED'/s);
   assert.match(runnerSource, /LEDGER_PREFLIGHT_NO_EVALUATION_CONCLUSION/);
