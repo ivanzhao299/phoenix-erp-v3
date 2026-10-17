@@ -24,6 +24,8 @@ export function ledgerSummary(inventory, actual) {
   const names = new Set(rows.map(x => x.name));
   return {
     canonicalCount: canonical.length, appliedCount: rows.length,
+    canonicalAppliedCount: canonical.filter(x => names.has(x.effective_name)).length,
+    retiredAppliedCount: rows.filter(x => !known.has(x.name) && retired.get(x.name) === Number(x.timestamp)).length,
     pendingCount: canonical.filter(x => !names.has(x.effective_name)).length,
     duplicateCount: rows.length - names.size,
     unknownCount: rows.filter(x => !known.has(x.name) && !retired.has(x.name)).length,
@@ -65,7 +67,8 @@ export async function diagnose() {
     try { return fn(); } catch (error) { const classification = safeClass(error); out.errors.push({ stage, classification }); return null; }
   };
   const git = args => guard.git(ROOT, args);
-  out.checkout = { sha: git(['rev-parse', 'HEAD']), branch: git(['branch', '--show-current']), clean: true };
+  out.checkout = { sha: git(['rev-parse', 'HEAD']), branch: git(['branch', '--show-current']), clean: true,
+    originMainSha: safeSha(git(['rev-parse', 'refs/remotes/origin/main'])) };
   const names = ['floor.json', 'active.json', 'transaction.json', 'policy-transition.json'];
   const captureRecord = name => {
     const file = path.join(STATE, name);
@@ -82,6 +85,7 @@ export async function diagnose() {
   const floor = records['floor.json'], active = records['active.json'];
   out.floor = floor && { version: Number.isInteger(floor.version) ? floor.version : null, floorSha: safeSha(floor.floorSha), phase: safeWord(floor.phase),
     chanjetPolicy: ['HOLD', 'READONLY_VERIFY', 'READONLY_ACTIVE'].includes(floor.chanjetPolicy) ? floor.chanjetPolicy : 'INVALID_OR_UNSET',
+    readonlyApprovalIsNull: floor.readonlyApproval === null,
     readonlyApprovalPresent: floor.readonlyApproval !== null && floor.readonlyApproval !== undefined };
   out.active = active && { version: Number.isInteger(active.version) ? active.version : null,
     floorSha: safeSha(active.floorSha), configSha: safeSha(active.configSha),
