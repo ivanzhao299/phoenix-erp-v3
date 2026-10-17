@@ -18,10 +18,11 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { execFileSync, spawnSync } from 'node:child_process';
+import { execFileSync, spawn, spawnSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { createRequire } from 'node:module';
-import { assertDedicatedLedgerFixture } from './ledger-fixture-guard.mjs';
+import { randomUUID } from 'node:crypto';
+import { assertDedicatedLedgerFixture, OWNER_MARKER_TABLE } from './ledger-fixture-guard.mjs';
 
 const require = createRequire(import.meta.url);
 const { Client } = require('../../apps/api/node_modules/pg');
@@ -44,6 +45,7 @@ const container = process.env.LEDGER_COLLECT_DB_CONTAINER || '';
 // suite gets its OWN dedicated database (the ^ledger_collect_ guard allows it)
 const stageDb = 'ledger_collect_staging';
 const stageEnv = fixtureUrl ? { ...pgEnv, PGDATABASE: stageDb } : null;
+let stageRunNonce = '';
 
 function realCollectionDocument(database) {
   // produce a REAL collection document from the fixture via the ci channel
@@ -79,12 +81,18 @@ staged('ledger collection staging (prod transport) + offline evaluation adapter'
     }
     const bootstrap = spawnSync('docker', ['exec', container, 'psql', '-X', '-v', 'ON_ERROR_STOP=1', '-U', pgEnv.PGUSER, '-d', 'postgres', '-c', `DROP DATABASE IF EXISTS ${stageDb}`, '-c', `CREATE DATABASE ${stageDb}`], { encoding: 'utf8' });
     assert.equal(bootstrap.status, 0, `stage database bootstrap failed: ${bootstrap.stderr}`);
+    // THIS-RUN OWNERSHIP on the staging database too: a per-run nonce is
+    // written through the CONTAINER channel and the guard then verifies it
+    // from BOTH views before any seeding or destructive operation
+    stageRunNonce = randomUUID();
+    const marker = spawnSync('docker', ['exec', container, 'psql', '-X', '-v', 'ON_ERROR_STOP=1', '-U', pgEnv.PGUSER, '-d', stageDb, '-c', `CREATE TABLE ${OWNER_MARKER_TABLE} (run_nonce text PRIMARY KEY)`, '-c', `INSERT INTO ${OWNER_MARKER_TABLE} (run_nonce) VALUES ('${stageRunNonce}')`], { encoding: 'utf8' });
+    assert.equal(marker.status, 0, `stage ownership marker write failed: ${marker.stderr}`);
     const stageUrl = new URL(fixtureUrl);
     stageUrl.pathname = `/${stageDb}`;
     const stageClient = new Client({ connectionString: stageUrl.toString() });
     await stageClient.connect();
     try {
-      await assertDedicatedLedgerFixture({ fixtureUrl: stageUrl.toString(), container, client: stageClient });
+      await assertDedicatedLedgerFixture({ fixtureUrl: stageUrl.toString(), container, client: stageClient, expectedRunNonce: stageRunNonce });
     } finally {
       await stageClient.end().catch(() => undefined);
     }
@@ -162,35 +170,93 @@ staged('ledger collection staging (prod transport) + offline evaluation adapter'
     stageBlockerUrl.pathname = `/${stageDb}`;
     const blocker = new Client({ connectionString: stageBlockerUrl.toString() });
     await blocker.connect();
+    const blockerPid = (await blocker.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
     try {
       await blocker.query('BEGIN');
       await blocker.query('LOCK TABLE migrations IN ACCESS EXCLUSIVE MODE');
       const stageDir = path.join(work, 'staging-teardown');
       fs.mkdirSync(stageDir, { recursive: true });
       fs.copyFileSync(collector, path.join(stageDir, 'ledger-readonly-collect.mjs'));
-      // lock 200ms + statement 500ms (both inside the 1s client bound) — the
-      // collector process is killed at ~1s while the in-container psql is
-      // still waiting on the lock; the container-side bounds then end it
-      const run = spawnSync(process.execPath, ['ledger-readonly-collect.mjs', '--db-mode', 'prod', '--lock-timeout-ms', '200', '--statement-timeout-ms', '500', '--client-timeout-ms', '1000'], {
-        cwd: stageDir, encoding: 'utf8', timeout: 30_000,
-        env: { ...process.env, MIG_MODE: 'prod', PATH: `${dockerShimBin}:${process.env.PATH}` },
+      // THE CLIENT-KILL PROOF. The transport shim forwards the collection
+      // statement to the REAL container psql IN THE BACKGROUND (so the query
+      // genuinely reaches the server and blocks on the blocker's lock) and
+      // then hangs in the foreground for 30s — the foreground hang can ONLY
+      // be ended by the collector's client-side kill. Bounds: lock 1000ms,
+      // statement 1000ms, client 2000ms (== sum — the collector's cross-check
+      // allows exactly this), so the SERVER bound ends the backend while the
+      // CLIENT bound ends the wedged transport.
+      const killShimBin = path.join(work, 'kill-shim');
+      fs.mkdirSync(killShimBin, { recursive: true });
+      const realDocker = execFileSync('sh', ['-c', 'command -v docker'], { encoding: 'utf8' }).trim();
+      fs.writeFileSync(path.join(killShimBin, 'docker'), [
+        '#!/bin/sh',
+        '[ "$1" = compose ] || { echo "UNEXPECTED_DOCKER_CALL: $*" >&2; exit 64; }',
+        'shift 4',
+        // preserve stdin across the async list (a non-interactive shell's
+        // background jobs default to /dev/null — fd3 carries the real pipe),
+        // background the REAL transport (the session reaches the server),
+        // then wedge the foreground so ONLY the client kill can end it
+        'exec 3<&0',
+        `"${realDocker}" exec -i ${container} psql -X -At -v ON_ERROR_STOP=1 -U '${pgEnv.PGUSER}' -d '${stageDb}' <&3 >/dev/null 2>&1 &`,
+        'sleep 30',
+        '',
+      ].join('\n'), { mode: 0o755 });
+      const startedAt = Date.now();
+      const child = spawn(process.execPath, ['ledger-readonly-collect.mjs', '--db-mode', 'prod', '--lock-timeout-ms', '1000', '--statement-timeout-ms', '1000', '--client-timeout-ms', '2000'], {
+        cwd: stageDir, stdio: ['ignore', 'pipe', 'pipe'],
+        env: { ...process.env, MIG_MODE: 'prod', PATH: `${killShimBin}:${process.env.PATH}` },
       });
-      assert.notEqual(run.status, 0, 'the bounded run must fail (lock wait + client kill)');
-      // the in-container psql is (possibly) still alive RIGHT NOW — poll
-      // until the SERVER-side bound ends it: the query must disappear within
-      // statement+lock bound plus scheduling slack
-      const deadline = Date.now() + 6_000;
-      let residue = [];
-      while (Date.now() < deadline) {
-        const activity = await blocker.query(`SELECT pid, state, left(query, 60) AS q FROM pg_stat_activity WHERE datname = current_database() AND pid <> pg_backend_pid() AND query ILIKE '%schema_migrations%'`);
-        residue = activity.rows;
-        if (!residue.length) break;
-        await new Promise((resolve) => setTimeout(resolve, 250));
+      let stderr = '';
+      child.stderr.on('data', (d) => { stderr += d; });
+      // (1) PROVE THE JOB STARTED: the collection backend is waiting on the
+      // blocker's lock on the server — capture its EXACT pid before anything
+      // is torn down
+      // poll through a DEDICATED OBSERVER connection (an idle-in-transaction
+      // lock holder's view of pg_stat_activity is not a reliable observer —
+      // the observer sees the active collection backend and its exact pid)
+      const observer = new Client({ connectionString: stageBlockerUrl.toString() });
+      await observer.connect();
+      let jobPid = 0;
+      let jobSeenActive = false;
+      try {
+        const startedDeadline = Date.now() + 4_000;
+        while (Date.now() < startedDeadline && !jobSeenActive) {
+          const waiting = await observer.query(`SELECT pid FROM pg_stat_activity WHERE datname = current_database() AND pid <> pg_backend_pid() AND pid <> ${blockerPid} AND query ILIKE '%json_agg%' AND query ILIKE '%migrations%' AND state = 'active'`);
+          if (waiting.rows.length) { jobPid = waiting.rows[0].pid; jobSeenActive = true; }
+          else await new Promise((resolve) => setTimeout(resolve, 50));
+        }
+      } finally {
+        await observer.end().catch(() => undefined);
       }
-      assert.deepEqual(residue, [], `the in-container collection query outlived the server bounds: ${JSON.stringify(residue)}`);
-      // and no aborted transaction lingers
-      const idle = await blocker.query(`SELECT count(*)::int AS n FROM pg_stat_activity WHERE datname = current_database() AND state = 'idle in transaction'`);
-      assert.equal(idle.rows[0].n, 0, 'an aborted transaction survived the teardown');
+      assert.ok(jobPid > 0, 'the collection job never started (no active collection backend observed)');
+      // (2) PROVE THE CLIENT TIMEOUT ACTUALLY FIRED: the wedged transport
+      // (sleep 30) can only end via the collector's 2s client kill — the
+      // exit must arrive at ≈2s (never near 30s) carrying the timeout error
+      const exitCode = await new Promise((resolve) => child.on('exit', resolve));
+      const elapsed = Date.now() - startedAt;
+      assert.notEqual(exitCode, 0, 'the client-killed run must fail');
+      assert.ok(elapsed < 4_500, `collector exited at ${elapsed}ms — the client timeout did not fire (transport wedge must be killed at ~2000ms)`);
+      assert.match(stderr, /LEDGER_COLLECT_ERROR/);
+      // (3) PROVE BOUNDED TEARDOWN BY THE EXACT BACKEND PID: the captured
+      // pid must vanish within the server-side lock bound plus slack — the
+      // pid is the identity, no query-text approximation
+      const teardownObserver = new Client({ connectionString: stageBlockerUrl.toString() });
+      await teardownObserver.connect();
+      try {
+        const teardownDeadline = startedAt + 1_000 + 3_000;
+        let survived = true;
+        while (Date.now() < teardownDeadline) {
+          const alive = await teardownObserver.query(`SELECT 1 FROM pg_stat_activity WHERE pid = ${jobPid}`);
+          survived = alive.rows.length > 0;
+          if (!survived) break;
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        }
+        assert.equal(survived, false, `backend pid ${jobPid} outlived the server-side teardown bound`);
+        const idle = await teardownObserver.query(`SELECT count(*)::int AS n FROM pg_stat_activity WHERE datname = current_database() AND state = 'idle in transaction' AND pid <> ${blockerPid}`);
+        assert.equal(idle.rows[0].n, 0, 'an aborted transaction survived the teardown');
+      } finally {
+        await teardownObserver.end().catch(() => undefined);
+      }
       await blocker.query('ROLLBACK');
     } finally {
       await blocker.end().catch(() => undefined);
@@ -218,27 +284,67 @@ staged('ledger collection staging (prod transport) + offline evaluation adapter'
     assert.ok(verdict.result.counts.canonical_typeorm_applied > 0, 'canonical applied must not be vacuous');
   });
 
-  test('offline adapter refuses missing inputs before any evaluation', () => {
-    const collectionFile = path.join(work, 'collection.json');
-    fs.writeFileSync(collectionFile, JSON.stringify(realCollectionDocument(stageDb)));
-    const base = ['--collection', collectionFile, '--inventory', path.join(repoRoot, 'docs/ops/evidence/inv-pr399.json'), '--legacy-dir', path.join(repoRoot, 'apps/api/migrations'), '--retired', path.join(repoRoot, 'scripts/ci/retired-typeorm-migrations.json')];
-    for (const [label, args] of [
-      ['no collection', base.slice(2)],
-      ['no inventory', [base[0], base[1]]],
-      ['no legacy dir', base.slice(0, 4)],
-      ['no retired registry', base.slice(0, 6)],
-      ['unreadable collection', ['--collection', path.join(work, 'absent.json'), ...base.slice(2)]],
-      ['wrong collection schema', (() => { const f = path.join(work, 'wrong-schema.json'); fs.writeFileSync(f, JSON.stringify({ schema: 'something/else' })); return ['--collection', f, ...base.slice(2)]; })()],
+  // ── the offline CLI contract — every counterexample is a REAL CLI run ────
+  // exit 0 = PASS evaluation, exit 1 = BLOCK evaluation (real verdict with
+  // the failure list), exit 2 = input refusal (never an evaluation)
+  function runAdapterCli(args) {
+    const run = spawnSync(process.execPath, [adapter, ...args], { cwd: repoRoot, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+    return { code: run.status ?? -1, stdout: run.stdout ?? '', stderr: run.stderr ?? '' };
+  }
+
+  test('offline CLI: a REAL evaluation BLOCK exits 1 with the true failure list', () => {
+    // a collection missing ONE applied legacy row → legacy_missing BLOCK
+    const collection = realCollectionDocument(stageDb);
+    collection.schema_migrations = collection.schema_migrations.filter((row) => row.filename !== collection.schema_migrations[0].filename);
+    const blockFile = path.join(work, 'collection-block.json');
+    fs.writeFileSync(blockFile, JSON.stringify(collection));
+    const run = runAdapterCli(['--collection', blockFile, '--inventory', path.join(repoRoot, 'docs/ops/evidence/inv-pr399.json'), '--legacy-dir', path.join(repoRoot, 'apps/api/migrations'), '--retired', path.join(repoRoot, 'scripts/ci/retired-typeorm-migrations.json'), '--mode', 'pre-migration']);
+    assert.equal(run.code, 1, `BLOCK must exit 1, got ${run.code}: ${run.stderr}`);
+    assert.match(run.stdout, /LEDGER_OFFLINE_EVALUATION=BLOCK/);
+    assert.match(run.stdout, /legacy_missing/);
+  });
+
+  test('offline CLI: every input counterexample is refused with exit 2 (a REAL CLI run each)', () => {
+    const goodCollection = path.join(work, 'collection.json');
+    fs.writeFileSync(goodCollection, JSON.stringify(realCollectionDocument(stageDb)));
+    const base = ['--collection', goodCollection, '--inventory', path.join(repoRoot, 'docs/ops/evidence/inv-pr399.json'), '--legacy-dir', path.join(repoRoot, 'apps/api/migrations'), '--retired', path.join(repoRoot, 'scripts/ci/retired-typeorm-migrations.json'), '--mode', 'pre-migration'];
+    // fixture files for the wrong-shape counterexamples
+    const nonJson = path.join(work, 'non-json.json');
+    fs.writeFileSync(nonJson, 'this is not json at all {{{');
+    const badTimestamp = path.join(work, 'inv-bad-ts.json');
+    fs.writeFileSync(badTimestamp, JSON.stringify({ canonicalTypeorm: [{ effective_name: 'X', timestamp: 'not-13-digits' }] }));
+    const emptyInventory = path.join(work, 'inv-empty.json');
+    fs.writeFileSync(emptyInventory, JSON.stringify({ canonicalTypeorm: [] }));
+    const emptyLegacyDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ledger-empty-legacy-'));
+    const rowsNoArrays = path.join(work, 'rows-not-arrays.json');
+    fs.writeFileSync(rowsNoArrays, JSON.stringify({ schema: 'phoenix.ledger-readonly-collection/v1', schema_migrations: 'nope', migrations: 7 }));
+    const noProvenance = path.join(work, 'no-provenance.json');
+    fs.writeFileSync(noProvenance, JSON.stringify({ schema: 'phoenix.ledger-readonly-collection/v1', schema_migrations: [], migrations: [] }));
+    const malformedRow = path.join(work, 'malformed-row.json');
+    fs.writeFileSync(malformedRow, JSON.stringify({ schema: 'phoenix.ledger-readonly-collection/v1', snapshot: 'x', server_version: '18', schema_migrations: [{ filename: 'a.sql' }], migrations: [{ name: 'n', timestamp: 'short' }] }));
+    const retiree = (() => { const f = path.join(work, 'collection.json'); return f; })();
+    void retiree;
+    for (const [label, args, pattern] of [
+      ['no collection arg', base.filter((_, i) => i > 1), /MISSING_INPUT: --collection is required/],
+      ['no inventory arg', [base[0], base[1], ...base.slice(4)], /MISSING_INPUT: --inventory is required/],
+      ['no legacy-dir arg', base.slice(0, 4), /MISSING_INPUT: --legacy-dir is required/],
+      ['no retired arg', base.slice(0, 6), /MISSING_INPUT: --retired is required/],
+      ['unreadable collection', ['--collection', path.join(work, 'absent-file.json'), ...base.slice(2)], /MISSING_INPUT: cannot read collection/],
+      ['non-JSON collection', ['--collection', nonJson, ...base.slice(2)], /INVALID_INPUT: collection .* is not valid JSON/],
+      ['wrong collection schema', ['--collection', (() => { const f = path.join(work, 'wrong-schema.json'); fs.writeFileSync(f, JSON.stringify({ schema: 'something/else' })); return f; })(), ...base.slice(2)], /INVALID_INPUT: collection schema mismatch/],
+      ['rows not arrays', ['--collection', rowsNoArrays, ...base.slice(2)], /INVALID_INPUT: collection document lacks the two ledger row arrays/],
+      ['missing snapshot provenance', ['--collection', noProvenance, ...base.slice(2)], /INVALID_INPUT: collection document lacks the single-snapshot provenance/],
+      ['malformed ledger rows', ['--collection', malformedRow, ...base.slice(2)], /INVALID_INPUT: migrations row malformed/],
+      ['inventory malformed entry', ['--collection', base[1], '--inventory', badTimestamp, ...base.slice(4)], /INVALID_INPUT: inventory entry malformed/],
+      ['inventory empty', ['--collection', base[1], '--inventory', emptyInventory, ...base.slice(4)], /INVALID_INPUT: inventory carries no canonicalTypeorm entries/],
+      ['legacy dir has no SQL', ['--collection', base[1], '--inventory', base[3], '--legacy-dir', emptyLegacyDir, ...base.slice(6)], /INVALID_INPUT: --legacy-dir contains no legacy SQL migrations/],
+      ['unknown argument', [...base, '--bogus'], /unknown argument: --bogus/],
     ]) {
-      let failed = false;
-      try {
-        execFileSync(process.execPath, [adapter, ...args, '--mode', 'pre-migration'], { cwd: repoRoot, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
-      } catch (error) {
-        failed = true;
-        assert.match(String(error.stderr), /MISSING_INPUT|INVALID_INPUT|unknown argument/);
-      }
-      assert.ok(failed, `adapter must refuse: ${label}`);
+      const run = runAdapterCli(args);
+      assert.equal(run.code, 2, `${label}: refusal must exit 2, got ${run.code} (stdout: ${run.stdout.slice(0, 120)})`);
+      assert.match(run.stderr, pattern, `${label}: refusal reason`);
     }
+    fs.rmSync(emptyLegacyDir, { recursive: true, force: true });
   });
 });
 

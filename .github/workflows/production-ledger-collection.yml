@@ -1,15 +1,14 @@
 name: Production Ledger Collection
 
-# ⚠️ 审阅用材料化入口（本轮交付，未 dispatch、未批准执行）。
-# 单次只读采集生产 ledger（schema_migrations / migrations + 连接元数据），
-# 结果回收后在本 workflow 内离线完成 main / collection-ref 双 inventory 评估
-# 并上传 artifact。红线：READ ONLY 单事务；无业务表、无环境变量、无凭据读取；
-# 任何失败严格失败；不合并、不部署、不做任何其它生产动作。
+# ⚠️ 审阅用材料化入口（随 PR 交付，未 dispatch、未批准执行）。
+# 单次只读采集生产 ledger；整个链体在 scripts/ci/ledger-collection-chain.mjs
+# （runner 侧）+ scripts/ops/ledger-collection-host.sh（主机侧）中材料化并经
+# scripts/ci/ledger-collection-chain.test.mjs 在无生产网络的夹具上完整验证：
+# 干净依赖→来源绑定→暂存→stdout 回收→原始摘要校验→两侧评估→异常归档。
+# 本 workflow 是薄包装：任何失败严格失败；失败也归档证据（if: always）。
 #
-# 执行前置（审阅批准后才允许 dispatch）：
-#   - collection_ref = 批准的采集源 exact SHA（包含受审采集器的 ref）
-#   - expected_collector_sha256 = 该 ref 上 scripts/ops/ledger-readonly-collect.mjs
-#     的 sha256（双重钉死：checkout 内容必须与批准摘要一致）
+# 红线：READ ONLY 单事务；无业务表、无环境变量、无凭据读取；不合并、
+# 不部署、不做任何其它生产动作。
 
 on:
   workflow_dispatch:
@@ -43,117 +42,71 @@ jobs:
     environment: production-readonly
     env:
       COLLECTION_REF: ${{ inputs.collection_ref }}
-      EXPECTED_SHA: ${{ inputs.collection_ref }}
-      CONFIRM_READONLY: ${{ inputs.confirm_readonly }}
       EXPECTED_COLLECTOR_SHA256: ${{ inputs.expected_collector_sha256 }}
+      CONFIRM_READONLY: ${{ inputs.confirm_readonly }}
 
     steps:
-      - name: Checkout the approved collection ref
+      - name: Checkout the approved collection ref (full history for the offline inventories)
         uses: actions/checkout@v5
         with:
           ref: ${{ inputs.collection_ref }}
           fetch-depth: 0
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
       - name: Setup Node 20
         uses: actions/setup-node@v5
         with:
           node-version: '20'
+          cache: pnpm
 
-      - name: Bind the exact ref, the confirmation string and the pinned digest
+      # CLEAN DEPENDENCIES: the chain's deps phase verifies the toolchain, and
+      # the inventory generator needs the workspace's typescript installed
+      - name: Install reviewed dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Authorize and bind (confirmation string + exact ref, before anything else)
         run: |
           set -euo pipefail
           test "$CONFIRM_READONLY" = RUN_PRODUCTION_LEDGER_COLLECT
-          test "$(git rev-parse HEAD)" = "$COLLECTOR_REF" || test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
-          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
-          COLLECTOR_SHA256="$(sha256sum scripts/ops/ledger-readonly-collect.mjs | cut -d' ' -f1)"
-          test "$COLLECTOR_SHA256" = "$EXPECTED_COLLECTOR_SHA256"
-          echo "COLLECTOR_SHA256=$COLLECTOR_SHA256" >> "$GITHUB_ENV"
-          echo "COLLECTOR_B64=$(base64 -w0 scripts/ops/ledger-readonly-collect.mjs)" >> "$GITHUB_ENV"
-          node --check scripts/ops/ledger-readonly-collect.mjs
-          node --check scripts/ops/ledger-offline-evaluate.mjs
-          echo "COLLECTION_BIND=ref:$COLLECTION_REF;collector_sha256:$COLLECTOR_SHA256"
+          test "$(git rev-parse HEAD)" = "$COLLECTION_REF"
+          echo "COLLECTION_AUTHORIZED=ref:$COLLECTION_REF"
 
-      - name: Offline dual inventory (main + collection ref)
-        run: |
-          set -euo pipefail
-          git fetch origin main --depth 1
-          node scripts/ci/ledger-source-inventory.mjs origin/main /tmp/inv-main.json
-          node scripts/ci/ledger-source-inventory.mjs "$COLLECTION_REF" /tmp/inv-collection.json
-          test -s /tmp/inv-main.json
-          test -s /tmp/inv-collection.json
-
-      - name: Single-shot read-only collection over SSH (strict, bounded)
-        id: collect
-        uses: appleboy/ssh-action@v1
+      - name: Materialize the SSH transport credentials (secrets to a private key file)
         env:
-          COLLECTOR_B64: ${{ env.COLLECTOR_B64 }}
-          COLLECTOR_SHA256: ${{ env.COLLECTOR_SHA256 }}
-          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
-        with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          port: ${{ secrets.DEPLOY_PORT || 22 }}
-          proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
-          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
-          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
-          proxy_port: 22
-          envs: COLLECTOR_B64,COLLECTOR_SHA256,DEPLOY_PATH
-          command_timeout: 8m
-          script: |
-            set -Eeuo pipefail
-            set +x
-            cd "$DEPLOY_PATH"
-            test -n "$COLLECTOR_B64"
-            test -n "$COLLECTOR_SHA256"
-            TMP_DIR="$(mktemp -d /tmp/phoenix-ledger-collect.XXXXXX)"
-            trap 'rm -rf "$TMP_DIR"' EXIT
-            printf '%s' "$COLLECTOR_B64" | base64 -d > "$TMP_DIR/ledger-readonly-collect.mjs"
-            test -s "$TMP_DIR/ledger-readonly-collect.mjs"
-            test "$(sha256sum "$TMP_DIR/ledger-readonly-collect.mjs" | cut -d' ' -f1)" = "$COLLECTOR_SHA256"
-            node --check "$TMP_DIR/ledger-readonly-collect.mjs"
-            echo "COLLECTION_STAGED=sha256:$COLLECTOR_SHA256"
-            # single-shot read-only collection: lock 2s / statement 10s server
-            # bounds, 30s client kill — defaults inside the collector
-            MIG_MODE=prod node "$TMP_DIR/ledger-readonly-collect.mjs" --db-mode prod > "$TMP_DIR/collection.json"
-            test -s "$TMP_DIR/collection.json"
-            node -e 'const d=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")); if (d.schema!=="phoenix.ledger-readonly-collection/v1" || !Array.isArray(d.schema_migrations) || !Array.isArray(d.migrations) || !d.snapshot) process.exit(1);' "$TMP_DIR/collection.json"
-            echo "COLLECTION_SHA256=$(sha256sum "$TMP_DIR/collection.json" | cut -d' ' -f1)"
-            echo "COLLECTION_RESULT_B64=$(base64 -w0 "$TMP_DIR/collection.json")"
-
-      - name: Recover and validate the collected document
-        env:
-          COLLECT_STDOUT: ${{ steps.collect.outputs.stdout }}
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          SSH_USER: ${{ secrets.DEPLOY_USER }}
+          SSH_HOST: ${{ secrets.DEPLOY_HOST }}
+          SSH_PORT: ${{ secrets.DEPLOY_PORT || 22 }}
+          SSH_PROXY: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_PROXY_HOST }}
         run: |
           set -euo pipefail
-          node -e '
-          const fs = require("node:fs");
-          // the host script prints the document base64 on the marked last line
-          const line = String(process.env.COLLECT_STDOUT ?? "").split("\n").reverse().find((l) => l.startsWith("COLLECTION_RESULT_B64="));
-          if (!line) throw new Error("RESULT_RETRIEVAL_FAILED: no COLLECTION_RESULT_B64 line in the SSH output");
-          const doc = JSON.parse(Buffer.from(line.slice("COLLECTION_RESULT_B64=".length), "base64").toString("utf8"));
-          if (doc.schema !== "phoenix.ledger-readonly-collection/v1" || !Array.isArray(doc.schema_migrations) || !Array.isArray(doc.migrations) || !doc.snapshot) throw new Error("COLLECTION_INVALID");
-          fs.writeFileSync("/tmp/collection.json", JSON.stringify(doc, null, 2));
-          console.log(`COLLECTION_RECOVERED=rows:${doc.schema_migrations.length}+${doc.migrations.length};snapshot:${doc.snapshot}`);
-          '
-          test -s /tmp/collection.json
+          test -n "$SSH_KEY" && test -n "$SSH_USER" && test -n "$SSH_HOST"
+          KEY_FILE="$RUNNER_TEMP/ledger_collection_ssh_key"
+          printf '%s' "$SSH_KEY" > "$KEY_FILE"
+          chmod 600 "$KEY_FILE"
+          echo "SSH_KEY_FILE=$KEY_FILE" >> "$GITHUB_ENV"
+          echo "SSH_DEST=$SSH_USER@$SSH_HOST" >> "$GITHUB_ENV"
+          echo "SSH_PORT=$SSH_PORT" >> "$GITHUB_ENV"
+          if [ -n "${{ secrets.DEPLOY_PROXY_HOST }}" ]; then echo "SSH_PROXY_DEST=$SSH_PROXY" >> "$GITHUB_ENV"; fi
+          echo "DEPLOY_PATH=${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}" >> "$GITHUB_ENV"
 
-      - name: Offline dual evaluation (main vs collection ref over ONE snapshot)
+      - name: Run the materialized collection chain (strict; every failure fails the job)
         run: |
           set -euo pipefail
-          node scripts/ops/ledger-offline-evaluate.mjs --collection /tmp/collection.json --inventory /tmp/inv-main.json --legacy-dir apps/api/migrations --retired scripts/ci/retired-typeorm-migrations.json --mode pre-migration --out /tmp/eval-main.json
-          node scripts/ops/ledger-offline-evaluate.mjs --collection /tmp/collection.json --inventory /tmp/inv-collection.json --legacy-dir apps/api/migrations --retired scripts/ci/retired-typeorm-migrations.json --mode pre-migration --out /tmp/eval-collection.json
-          echo "EVAL_MAIN=$(cat /tmp/eval-main.json | node -e 'const j=JSON.parse(require("fs").readFileSync(0,"utf8"));console.log(`pass:${j.result.pass};pending:${j.result.counts.canonical_typeorm_pending}`)')"
-          echo "EVAL_COLLECTION=$(cat /tmp/eval-collection.json | node -e 'const j=JSON.parse(require("fs").readFileSync(0,"utf8"));console.log(`pass:${j.result.pass};pending:${j.result.counts.canonical_typeorm_pending}`)')"
+          node scripts/ci/ledger-collection-chain.mjs \
+            --transport ssh \
+            --collection-ref "$COLLECTION_REF" \
+            --expected-collector-sha256 "$EXPECTED_COLLECTOR_SHA256" \
+            --evidence-dir "$RUNNER_TEMP/ledger-collection-evidence"
 
-      - name: Upload the collection evidence artifact
+      - name: Archive the evidence (ALWAYS — failures keep their evidence too)
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: ledger-collection-${{ inputs.collection_ref }}
-          path: |
-            /tmp/collection.json
-            /tmp/inv-main.json
-            /tmp/inv-collection.json
-            /tmp/eval-main.json
-            /tmp/eval-collection.json
+          path: ${{ runner.temp }}/ledger-collection-evidence
           if-no-files-found: error

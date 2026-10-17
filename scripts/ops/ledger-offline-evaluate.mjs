@@ -46,12 +46,12 @@ function parseArgs(argv) {
     else if (arg === '--retired') args.retired = argv[++i];
     else if (arg === '--mode') args.mode = argv[++i];
     else if (arg === '--out') args.out = argv[++i];
-    else throw new Error(`unknown argument: ${arg}`);
+    else throw new InputRefusal(`MISSING_INPUT: unknown argument: ${arg}`);
   }
   for (const key of ['collection', 'inventory', 'legacyDir', 'retired']) {
-    if (!args[key]) throw new Error(`MISSING_INPUT: --${key === 'legacyDir' ? 'legacy-dir' : key} is required`);
+    if (!args[key]) throw new InputRefusal(`MISSING_INPUT: --${key === 'legacyDir' ? 'legacy-dir' : key} is required`);
   }
-  if (!['pre-migration', 'post-migration'].includes(args.mode)) throw new Error(`invalid --mode: ${args.mode}`);
+  if (!['pre-migration', 'post-migration'].includes(args.mode)) throw new InputRefusal(`INVALID_INPUT: invalid --mode: ${args.mode}`);
   return args;
 }
 

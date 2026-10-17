@@ -8,9 +8,9 @@
   },
   "collector": {
     "path": "scripts/ops/ledger-readonly-collect.mjs",
-    "sha256": "dc81c4681b64417b39b0c62e96be4d3d42c1600e133577f4339a4366c156d7b1",
+    "sha256": "ee4b57937faa862939b722d2573a70913b121099c311ebcca561b0a4a0822f09",
     "self_contained": true,
-    "timeout_cross_check": "client timeout must exceed statement+lock bounds — refused otherwise"
+    "timeout_cross_check": "client > statement+lock enforced; INTEGER-ONLY timeouts (fractional values refused, never silently rounded)"
   },
   "cases": [
     {
@@ -62,6 +62,26 @@
       "name": "offline adapter exit contract",
       "outcome": "PASS",
       "detail": "exit 0 = PASS, exit 1 = real BLOCK verdict, exit 2 = input refusal (MISSING_INPUT/INVALID_INPUT) before any evaluation"
+    },
+    {
+      "name": "guard rejection zero-change",
+      "outcome": "PASS",
+      "detail": "foreign-nonce and marker-less dedicated databases are refused; rows, schemas and the instance database list are snapshotted identical BEFORE and AFTER the rejected guard calls (both sides unchanged)"
+    },
+    {
+      "name": "client-kill proof (prod transport)",
+      "outcome": "PASS",
+      "detail": "the wedged transport forwards the REAL statement to the container in the background (fd3 preserves stdin across the async list): the collection backend is captured by EXACT pid while waiting on the blocker lock; the collector exit at ≈2s proves the CLIENT timeout fired (the wedge can only be killed); the captured pid vanishes within the server-side bound (pid-precise, no query-text approximation); no aborted transaction survives"
+    },
+    {
+      "name": "offline CLI contract",
+      "outcome": "PASS",
+      "detail": "REAL CLI runs per counterexample: PASS=0; BLOCK=1 with the true failure list (legacy_missing); 14 refusal counterexamples each exit 2 with their specific MISSING_INPUT/INVALID_INPUT reason"
+    },
+    {
+      "name": "full-chain contract (no production network)",
+      "outcome": "PASS",
+      "detail": "the materialized chain runs end to end through the local transport against the fixture container: normal (exit 0, collection + both evaluations + summary + host evidence), BLOCK (exit 1, real verdict, evidence retained, no FAILURE marker), refusal (exit 2, FAILURE.txt stage=bind), crash (exit 3, FAILURE.txt + transport stdout/stderr archived)"
     }
   ],
   "boundaries": {
@@ -77,8 +97,8 @@
   },
   "shared_guard": {
     "path": "scripts/ci/ledger-fixture-guard.mjs",
-    "sha256": "893d95c04a7959caf7a4c74f4b696ef75d1c62e59eaf3961b241fc9d58993e94",
-    "note": "single-source fixture guard (identity/dedicated namespace/same-instance ownership) — BOTH fixture suites run it before anything destructive"
+    "sha256": "45b7269a9ac2323ee514c8e8b1dcf67e87566c73d125dd60253c67759ab4c9c0",
+    "note": "identity + dedicated namespace + same-instance ownership + THIS-RUN ownership nonce (ledger_fixture_owner.run_nonce verified through BOTH the container psql and the URL connection) — every fixture suite runs it before anything destructive; provisioning flows through the container channel only"
   },
   "rehearsal_gate": {
     "path": "scripts/ci/ledger-rehearsal-gate.test.mjs",
@@ -89,7 +109,23 @@
     ]
   },
   "claim_accuracy": {
-    "zero_residue": "RESIDUE CLAIMS ARE CHANNEL-SCOPED: the ci-channel lock-conflict residue assertion is measured (blocker/fixture backends excluded); the prod channel after a client kill relies on the SERVER-side bounds, now verified by the teardown test — a blanket zero-residue claim is not made",
-    "protection_claims": "static pins (workflow YAML shape) are labelled static; dynamic proofs (corruption makes the gate fail; guards refuse probes) are labelled dynamic"
+    "residue_claims": "CHANNEL-SCOPED AND MEASURED: ci-channel residue assertions exclude the blocker/fixture backends by pid; the prod channel after a client kill relies on the SERVER-side bounds — now verified by the client-kill proof with exact backend pid",
+    "static_vs_dynamic": "static pins (workflow YAML shape, tally assertions) are labelled static; every guard/gate/classifier/chain behavior listed here has a dynamic test"
+  },
+  "chain": {
+    "runner": {
+      "path": "scripts/ci/ledger-collection-chain.mjs",
+      "sha256": "c69c2f2d75b3d294fd58d767ce320d45cd0a912c41e14e6e940bb23cad87e588"
+    },
+    "host": {
+      "path": "scripts/ops/ledger-collection-host.sh",
+      "sha256": "64a33dc1b810c55d1822c6cfb6d873be4a38217023e0500783483a1eadbc29f7"
+    },
+    "contractTest": {
+      "path": "scripts/ci/ledger-collection-chain.test.mjs",
+      "sha256": "f2054cb60986fb3b6d385643d513017442dc330863c3188229f0177492eac081"
+    },
+    "stages": "clean deps → source binding → staging → stdout recovery → raw digest verification → both-side evaluation → exception archiving",
+    "outcomeClasses": "normal=0 / BLOCK=1 (real verdict) / input refusal=2 / remote crash=3 — each verified with step exit code AND evidence retention"
   }
 }

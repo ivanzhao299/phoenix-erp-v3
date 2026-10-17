@@ -12,9 +12,14 @@ on:
       - 'scripts/ci/ledger-readonly-collect.test.mjs'
       - 'scripts/ci/ledger-collection-staging.test.mjs'
       - 'scripts/ci/ledger-rehearsal-gate.test.mjs'
+      - 'scripts/ci/ledger-collection-chain.mjs'
+      - 'scripts/ci/ledger-collection-chain.test.mjs'
+      - 'scripts/ci/ledger-preflight-output-classify.mjs'
+      - 'scripts/ci/ledger-preflight-output-classify.test.mjs'
       - 'scripts/ci/ledger-source-inventory.mjs'
       - 'scripts/ops/ledger-readonly-collect.mjs'
       - 'scripts/ops/ledger-offline-evaluate.mjs'
+      - 'scripts/ops/ledger-collection-host.sh'
       - 'scripts/ledger-preflight.mjs'
       - 'apps/api/src/modules/chanjet/chanjet-execution-*'
       - 'scripts/ops/chanjet-execution-*'
@@ -89,7 +94,7 @@ jobs:
           echo "$OUT"
           test "${TEST_EXIT:-0}" = "0"
           echo "$OUT" | grep -q "# skipped 0"
-          echo "$OUT" | grep -q "# pass 6"
+          echo "$OUT" | grep -q "# pass 7"
           echo "COLLECTION_NO_SKIP_FALLBACK=VERIFIED"
 
       - name: Ledger collection staging + offline adapter (dedicated staging database, real prod transport)
@@ -105,7 +110,7 @@ jobs:
           echo "$OUT"
           test "${TEST_EXIT:-0}" = "0"
           echo "$OUT" | grep -q "# skipped 0"
-          echo "$OUT" | grep -q "# pass 4"
+          echo "$OUT" | grep -q "# pass 5"
           echo "STAGING_NO_SKIP_FALLBACK=VERIFIED"
 
       - name: Rehearsal preflight-gate dynamic regressions (clean + injected fault)
@@ -120,6 +125,32 @@ jobs:
           echo "$OUT" | grep -q "# skipped 0"
           echo "$OUT" | grep -q "# pass 2"
           echo "REHEARSAL_GATE_NO_SKIP_FALLBACK=VERIFIED"
+
+      - name: Full collection chain contract test (no production network, local transport, four outcome classes)
+        env:
+          LEDGER_COLLECT_VERIFY_URL: postgresql://postgres:postgres@127.0.0.1:5432/ledger_collect_verify
+          LEDGER_COLLECTION_CHAIN_REQUIRED: 'true'
+          LEDGER_COLLECT_DB_CONTAINER_DISCOVER: postgres:16.14-alpine
+        run: |
+          set -euo pipefail
+          CONTAINER="$(docker ps --filter ancestor="$LEDGER_COLLECT_DB_CONTAINER_DISCOVER" --format '{{.Names}}' | head -1)"
+          test -n "$CONTAINER"
+          OUT="$(LEDGER_COLLECT_DB_CONTAINER="$CONTAINER" node --test scripts/ci/ledger-collection-chain.test.mjs 2>&1)" || TEST_EXIT=$?
+          echo "$OUT"
+          test "${TEST_EXIT:-0}" = "0"
+          echo "$OUT" | grep -q "# skipped 0"
+          echo "$OUT" | grep -q "# pass 4"
+          echo "CHAIN_CONTRACT_NO_SKIP_FALLBACK=VERIFIED"
+
+      - name: Preflight output classifier regressions (boundary matrix + real binary dynamics)
+        run: |
+          set -euo pipefail
+          OUT="$(node --test scripts/ci/ledger-preflight-output-classify.test.mjs 2>&1)" || TEST_EXIT=$?
+          echo "$OUT"
+          test "${TEST_EXIT:-0}" = "0"
+          echo "$OUT" | grep -q "# skipped 0"
+          echo "$OUT" | grep -q "# pass 20"
+          echo "CLASSIFIER_NO_SKIP_FALLBACK=VERIFIED"
       - name: Run real TypeORM ledger rehearsal
         env:
           PGHOST: 127.0.0.1

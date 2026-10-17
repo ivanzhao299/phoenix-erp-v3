@@ -19,8 +19,9 @@ import os from 'node:os';
 import path from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
+import { randomUUID } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
-import { assertDedicatedLedgerFixture } from './ledger-fixture-guard.mjs';
+import { assertDedicatedLedgerFixture, OWNER_MARKER_TABLE } from './ledger-fixture-guard.mjs';
 
 const require = createRequire(import.meta.url);
 const { Client } = require('../../apps/api/node_modules/pg');
@@ -51,6 +52,7 @@ function resolveFixtureContainer() {
 }
 
 let shimBin = '';
+let runNonce = '';
 let dataSource;
 let container = '';
 let fixturePid = -1;
@@ -91,7 +93,23 @@ verify('ledger readonly collection (isolated PostgreSQL18, real psql)', () => {
     assert.ok(container, 'fixture DB container required for the real-psql shim');
     const bootstrap = spawnSync('docker', ['exec', container, 'psql', '-X', '-v', 'ON_ERROR_STOP=1', '-U', pgEnv.PGUSER, '-d', 'postgres', '-c', `DROP DATABASE IF EXISTS ${pgEnv.PGDATABASE}`, '-c', `CREATE DATABASE ${pgEnv.PGDATABASE}`], { encoding: 'utf8' });
     assert.equal(bootstrap.status, 0, `container instance unreachable: ${bootstrap.stderr}`);
-    await assertDedicatedLedgerFixture({ fixtureUrl, container });
+    // ALL provisioning flows through the CONTAINER channel only (a URL
+    // mismatch cannot be touched by it) and stamps THIS-RUN OWNERSHIP: the
+    // guard verifies the marker through BOTH the container and the URL
+    // connection before anything flows through the URL
+    runNonce = randomUUID();
+    const provisionSql = [
+      'DROP SCHEMA public CASCADE; CREATE SCHEMA public;',
+      `CREATE TABLE ${OWNER_MARKER_TABLE} (run_nonce text PRIMARY KEY);`,
+      `INSERT INTO ${OWNER_MARKER_TABLE} (run_nonce) VALUES ('${runNonce}');`,
+      'CREATE TABLE schema_migrations (filename text PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now());',
+      'CREATE TABLE migrations (id serial PRIMARY KEY, timestamp bigint NOT NULL, name varchar NOT NULL);',
+      "INSERT INTO schema_migrations(filename) VALUES ('20260101_one.sql'), ('20260102_two.sql');",
+      "INSERT INTO migrations(timestamp, name) VALUES (1781749821162, 'CreateTypeormMetadata1781749821162');",
+    ].join('\n');
+    const provision = spawnSync('docker', ['exec', '-i', container, 'psql', '-X', '-v', 'ON_ERROR_STOP=1', '-U', pgEnv.PGUSER, '-d', pgEnv.PGDATABASE], { input: provisionSql, encoding: 'utf8' });
+    assert.equal(provision.status, 0, `fixture provisioning failed: ${provision.stderr}`);
+    await assertDedicatedLedgerFixture({ fixtureUrl, container, expectedRunNonce: runNonce });
     // the psql shim: the collector's `psql` call resolves to the fixture
     // container's own client — a REAL psql on the REAL database
     shimBin = fs.mkdtempSync(path.join(os.tmpdir(), 'ledger-collect-shim-'));
@@ -108,17 +126,59 @@ verify('ledger readonly collection (isolated PostgreSQL18, real psql)', () => {
     ].join('\n'), { mode: 0o755 });
     dataSource = new Client({ connectionString: fixtureUrl });
     await dataSource.connect();
-    await dataSource.query('DROP SCHEMA IF EXISTS public CASCADE');
-    await dataSource.query('CREATE SCHEMA public');
-    await dataSource.query(`CREATE TABLE schema_migrations (filename text PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now())`);
-    await dataSource.query(`CREATE TABLE migrations (id serial PRIMARY KEY, timestamp bigint NOT NULL, name varchar NOT NULL)`);
-    await dataSource.query(`INSERT INTO schema_migrations(filename) VALUES ($1), ($2)`, ['20260101_one.sql', '20260102_two.sql']);
-    await dataSource.query(`INSERT INTO migrations(timestamp, name) VALUES (1781749821162, 'CreateTypeormMetadata1781749821162')`);
     fixturePid = (await dataSource.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
   });
   after(async () => {
     await dataSource?.end().catch(() => undefined);
     fs.rmSync(shimBin, { recursive: true, force: true });
+  });
+
+  test('guard rejection leaves BOTH databases unchanged (foreign nonce / missing marker)', async () => {
+    // a FOREIGN dedicated database carrying ANOTHER run's nonce, plus one
+    // with NO marker at all — both must be refused, and the refusal must
+    // change nothing on either side (rows, schemas, and the instance's
+    // database list are snapshotted before and after)
+    const foreignDb = `ledger_collect_foreign_${randomUUID().slice(0, 8)}`;
+    const noMarkerDb = `ledger_collect_nomarker_${randomUUID().slice(0, 8)}`;
+    const created = spawnSync('docker', ['exec', container, 'psql', '-X', '-v', 'ON_ERROR_STOP=1', '-U', pgEnv.PGUSER, '-d', 'postgres', '-c', `CREATE DATABASE ${foreignDb}`, '-c', `CREATE DATABASE ${noMarkerDb}`], { encoding: 'utf8' });
+    assert.equal(created.status, 0, created.stderr);
+    try {
+      const seedForeign = spawnSync('docker', ['exec', container, 'psql', '-X', '-v', 'ON_ERROR_STOP=1', '-U', pgEnv.PGUSER, '-d', foreignDb], {
+        input: [
+          `CREATE TABLE ${OWNER_MARKER_TABLE} (run_nonce text PRIMARY KEY);`,
+          "INSERT INTO ledger_fixture_owner (run_nonce) VALUES ('someone-elses-run');",
+          'CREATE TABLE sentinel (v text);',
+          "INSERT INTO sentinel VALUES ('untouched');",
+        ].join('\n'),
+        encoding: 'utf8',
+      });
+      assert.equal(seedForeign.status, 0, seedForeign.stderr);
+      const foreignUrl = new URL(fixtureUrl);
+      foreignUrl.pathname = `/${foreignDb}`;
+      const noMarkerUrl = new URL(fixtureUrl);
+      noMarkerUrl.pathname = `/${noMarkerDb}`;
+      const readSide = (db, sql) => spawnSync('docker', ['exec', container, 'psql', '-X', '-At', '-U', pgEnv.PGUSER, '-d', db, '-c', sql], { encoding: 'utf8' }).stdout.trim();
+      const foreignFingerprint = `SELECT (SELECT run_nonce FROM ${OWNER_MARKER_TABLE}) || '|' || (SELECT v FROM sentinel)`;
+      const dbList = "SELECT string_agg(datname, ',' ORDER BY datname) FROM pg_database WHERE datname LIKE 'ledger_collect_%'";
+      const beforeForeign = readSide(foreignDb, foreignFingerprint);
+      const beforeMine = (await dataSource.query(`SELECT run_nonce FROM ${OWNER_MARKER_TABLE}`)).rows;
+      const beforeDbs = readSide('postgres', dbList);
+      for (const [label, url] of [['foreign nonce', foreignUrl], ['missing marker', noMarkerUrl]]) {
+        await assert.rejects(
+          () => assertDedicatedLedgerFixture({ fixtureUrl: url.toString(), container, expectedRunNonce: runNonce }),
+          /ownership mismatch|marker missing|does not exist/,
+          `${label} database must be refused by the ownership guard`,
+        );
+      }
+      const afterForeign = readSide(foreignDb, foreignFingerprint);
+      assert.equal(afterForeign, beforeForeign, 'the foreign database changed during a REJECTED guard call');
+      const afterMine = (await dataSource.query(`SELECT run_nonce FROM ${OWNER_MARKER_TABLE}`)).rows;
+      assert.deepEqual(afterMine, beforeMine, "this suite's database changed during a REJECTED guard call");
+      const afterDbs = readSide('postgres', dbList);
+      assert.equal(afterDbs, beforeDbs, "the instance's database list changed during a REJECTED guard call");
+    } finally {
+      spawnSync('docker', ['exec', container, 'psql', '-X', '-U', pgEnv.PGUSER, '-d', 'postgres', '-c', `DROP DATABASE IF EXISTS ${foreignDb}`, '-c', `DROP DATABASE IF EXISTS ${noMarkerDb}`], { encoding: 'utf8' });
+    }
   });
 
   test('normal: one JSON document, both tables, one snapshot, schema marker', () => {

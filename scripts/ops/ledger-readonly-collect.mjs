@@ -68,7 +68,13 @@ function parseArgs(argv) {
     else throw new Error(`unknown argument: ${arg}`);
   }
   for (const [name, value] of Object.entries(args)) {
-    if (name !== 'dbMode' && (!Number.isFinite(value) || value <= 0)) throw new Error(`${name} must be a positive number`);
+    if (name !== 'dbMode') {
+      // INTEGER timeouts only: fractional values would be silently rounded
+      // into the SET LOCAL statements — a wrong bound is refused instead
+      if (typeof value !== 'number' || !Number.isInteger(value) || value <= 0) {
+        throw new Error(`${name} must be a positive integer (milliseconds), got: ${JSON.stringify(value)}`);
+      }
+    }
   }
   if (!['ci', 'prod'].includes(args.dbMode)) throw new Error(`invalid --db-mode: ${args.dbMode}`);
   // CROSS-CHECK: the client kill is the OUTER bound — it must never fire
