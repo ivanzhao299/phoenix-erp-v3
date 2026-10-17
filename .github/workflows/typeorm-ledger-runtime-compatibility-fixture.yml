@@ -49,10 +49,18 @@ jobs:
         env:
           LEDGER_COLLECT_VERIFY_URL: postgresql://postgres:postgres@127.0.0.1:5432/ledger_collect_verify
           LEDGER_COLLECT_VERIFY_REQUIRED: 'true'
+        env:
+          LEDGER_COLLECT_DB_CONTAINER_DISCOVER: postgres:16.14-alpine
         # the test bootstraps its dedicated ledger_collect_verify database
         # INSIDE the service container (same-instance guard) and verifies the
-        # URL/container identity before anything destructive runs
-        run: node --test scripts/ci/ledger-readonly-collect.test.mjs
+        # URL/container identity before anything destructive runs; the
+        # service container is discovered by its exact image
+        run: |
+          set -euo pipefail
+          CONTAINER="$(docker ps --filter ancestor="$LEDGER_COLLECT_DB_CONTAINER_DISCOVER" --format '{{.Names}}' | head -1)"
+          test -n "$CONTAINER"
+          echo "COLLECTION_FIXTURE_CONTAINER=$CONTAINER"
+          LEDGER_COLLECT_DB_CONTAINER="$CONTAINER" node --test scripts/ci/ledger-readonly-collect.test.mjs
       - name: Run real TypeORM ledger rehearsal
         env:
           PGHOST: 127.0.0.1

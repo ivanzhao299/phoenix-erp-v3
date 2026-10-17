@@ -45,7 +45,7 @@ function resolveFixtureContainer() {
   if (process.env.LEDGER_COLLECT_DB_CONTAINER) return process.env.LEDGER_COLLECT_DB_CONTAINER;
   const candidates = execFileSync('docker', ['ps', '--format', '{{.Names}}'], { encoding: 'utf8' }).split('\n').filter((n) => n.trim());
   return candidates.find((n) => {
-    try { return execFileSync('docker', ['exec', n, 'sh', '-c', 'printenv "$1"', '--', 'POSTGRES_DB'], { encoding: 'utf8' }).trim() === pgEnv.PGDATABASE; } catch { return false; }
+    try { return execFileSync('docker', ['exec', n, 'printenv', 'POSTGRES_DB'], { encoding: 'utf8' }).trim() === pgEnv.PGDATABASE; } catch { return false; }
   }) || '';
 }
 
