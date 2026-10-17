@@ -75,12 +75,12 @@ export async function configTransaction(root,operation,approval) {
       || run.request_scope?.bookId!==v.bookId || run.request_scope?.period!==v.period || JSON.stringify(run.request_scope?.scope)!==JSON.stringify(v.scope)
       ||run.result_summary?.erpInbound?.applied===true||run.result_summary?.externalWriteEnabled!==false)hold('FIRST_CONTROLLED_SYNC_PROOF');
   }
-  // Before VERIFY, the operator uses existing finance RBAC and a real readonly probe.
-  // A token or source response is never printed or persisted in the transaction.
+  // VERIFY configuration authenticates against the protected LOCAL status route.
+  // Provider authentication/probe runs only after admission registration in prepare,
+  // sharing the first sync execution cap and deadline. No pre-admission HTTP.
   if(operation==='READONLY_VERIFY') {
     const token=process.env.CHANJET_SYNC_OPERATOR_TOKEN;if(!token)hold('PROTECTED_REMOTE_READ_AUTH_REQUIRED');
-    const v=approval.verification;
-    const url=`http://127.0.0.1:3100/api/chanjet/call?path=${encodeURIComponent(`/accounting/gl/statistics/receive/${v.bookId}`)}&q=${encodeURIComponent(`period=${v.period}`)}`;
+    const url='http://127.0.0.1:3100/api/chanjet/integration/alignment/status';
     const response=await fetch(url,{headers:{Authorization:`Bearer ${token}`},signal:AbortSignal.timeout(30_000)});
     const body=await response.json();if(!response.ok||body.success===false)hold('REMOTE_READ_AUTH');
   }

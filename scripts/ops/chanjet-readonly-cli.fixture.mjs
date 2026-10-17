@@ -31,10 +31,8 @@ export function readonlyCliFixture(t,{mode='READONLY_VERIFY',firstSync=false,exp
   // root-owned staging admission is simulated; file CAS/mode/rename/fsync run.
   let config=fs.readFileSync(path.join(dir,'chanjet-readonly-config-transaction.mjs'),'utf8');
   if(baselineConfig) {
-    // Restore the two diagnosed expressions and verify exact M16 source bytes.
-    // No Git history/network dependency: CI uses a shallow checkout.
-    config=config.replace('new Date(Date.parse(startedAt)+CONTRACT.maximumTransitionMs)','new Date(Date.now()+CONTRACT.maximumTransitionMs)')
-      .replace("  // Configuration has its own record/marker and opens no deployment transaction.\n  // Recreate only the API using committed, trusted active pins; the general\n  // Compose caller otherwise selects deploy-<DEPLOY_RUN_ID>.json, which is absent.\n  runCompose(['up','-d','--no-deps','--wait','api'], {readState:()=>secureJson(path.join(directory,'active.json'))});","  runCompose(['up','-d','--no-deps','--wait','api']);");
+    // Pinned historical bytes, independent of current production implementation.
+    config=fs.readFileSync(new URL('./fixtures/chanjet-config-m16.fixture.txt',import.meta.url),'utf8');
     if(createHash('sha256').update(config).digest('hex')!=='d5cf700117fcaa17c68e3617794be234c6d6d99f057ad4fe97b9ca596a08beaf')throw Error('FIXTURE_M16_BASELINE_BYTES_CHANGED');
   }
   config=config.replace("const stage='/data/.phoenix-env-staging';",`const stage=${JSON.stringify(stage)};`);fs.writeFileSync(path.join(dir,'chanjet-readonly-config-transaction.mjs'),config);
