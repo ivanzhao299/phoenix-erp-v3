@@ -22,7 +22,15 @@ const ledgerSql=`SELECT jsonb_build_object('legacy',coalesce((SELECT jsonb_agg(j
 const readLedger=()=>JSON.parse(db('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY;\n'+ledgerSql+'\nCOMMIT;').split('\n').find(x=>x.startsWith('{')));
 const before=readLedger(); const beforeHash=hash(JSON.stringify(before));
 const objects=JSON.parse(db(`SELECT jsonb_build_object('admissions',to_regclass('public.chanjet_execution_admissions')::text,'requests',to_regclass('public.chanjet_execution_requests')::text,'triggers',(SELECT count(*) FROM pg_trigger WHERE NOT tgisinternal AND tgname LIKE 'chanjet_%guard'))::text;`).trim());
-const report={schema:'phoenix.chanjet-schema-inspection/v1',generatedAt:new Date().toISOString(),baseline:expected,sourceSha:target,beforeLedgerSha256:beforeHash,ledger:before,objects};
+let operator={authenticated:false};
+if(process.env.CHANJET_SYNC_OPERATOR_TOKEN){
+  try{
+    const me=JSON.parse(execFileSync('curl',['--silent','--show-error','--fail','--max-time','10','-H',`Authorization: Bearer ${process.env.CHANJET_SYNC_OPERATOR_TOKEN}`,'http://127.0.0.1:3100/api/auth/me'],{env,encoding:'utf8',timeout:12000,stdio:['ignore','pipe','pipe']}));
+    const user=(me.data||me).user;const ownerId=String(user?.username||user?.userId||'');
+    if(/^[A-Za-z0-9_-]{1,128}$/.test(ownerId))operator={authenticated:true,ownerId};
+  }catch{operator={authenticated:false,reason:'OPERATOR_TOKEN_UNUSABLE'};}
+}
+const report={schema:'phoenix.chanjet-schema-inspection/v1',generatedAt:new Date().toISOString(),baseline:expected,sourceSha:target,beforeLedgerSha256:beforeHash,ledger:before,objects,operator};
 console.log('SCHEMA_INSPECTION_B64='+Buffer.from(JSON.stringify(report)).toString('base64'));
 if(process.env.SCHEMA_OPERATION==='inspect')process.exit(0);
 if(process.env.SCHEMA_OPERATION!=='apply'||process.env.EXPECTED_LEDGER_SHA256!==beforeHash)throw Error('SCHEMA_HOLD=LEDGER_CHANGED');
