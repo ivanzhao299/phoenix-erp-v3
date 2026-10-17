@@ -45,11 +45,17 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter phoenix-erp-v3-nest build
       - run: node --test scripts/ci/typeorm-ledger-runtime-compatibility.test.mjs
-      - name: Ledger readonly collection verification (isolated fixture, real psql)
+      - name: Ledger readonly collection verification (dedicated disposable database, real psql)
         env:
-          LEDGER_COLLECT_VERIFY_URL: postgresql://postgres:postgres@127.0.0.1:5432/phoenix_ledger_rehearsal
+          LEDGER_COLLECT_VERIFY_URL: postgresql://postgres:postgres@127.0.0.1:5432/ledger_collect_verify
           LEDGER_COLLECT_VERIFY_REQUIRED: 'true'
-        run: node --test scripts/ci/ledger-readonly-collect.test.mjs
+        run: |
+          set -euo pipefail
+          # the fixture refuses any database outside the dedicated
+          # ledger_collect_* namespace — provision exactly that
+          psql 'postgresql://postgres:postgres@127.0.0.1:5432/postgres' -c 'DROP DATABASE IF EXISTS ledger_collect_verify' -c 'CREATE DATABASE ledger_collect_verify'
+          node --test scripts/ci/ledger-readonly-collect.test.mjs
+          psql 'postgresql://postgres:postgres@127.0.0.1:5432/postgres' -c 'DROP DATABASE IF EXISTS ledger_collect_verify'
       - name: Run real TypeORM ledger rehearsal
         env:
           PGHOST: 127.0.0.1
