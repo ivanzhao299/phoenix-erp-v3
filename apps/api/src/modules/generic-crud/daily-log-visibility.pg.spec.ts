@@ -41,7 +41,8 @@ pgDescribe('MANUAL-122 real PostgreSQL, HTTP, roles and organization scope', () 
     { id: 40108, username: 'fixture_site_and_own_company', role: 'ROLE_FARM_REPORTER', storeCode: 'SITE-A' },
     { id: 40109, username: 'fixture_extra_farm', role: 'ROLE_FARM_REPORTER', storeCode: '' },
   ];
-  const token = (id: number) => sign({ sub: id }, secret, { expiresIn: '5m' });
+  let tokenSequence = 0;
+  const token = (id: number) => sign({ sub: id, jti: `issue401-${++tokenSequence}` }, secret, { expiresIn: '5m' });
   const read = (id: number, query: Record<string, string | number> = {}) => request(app.getHttpServer())
     .get('/api/crud/brd_daily_logs').query(query).auth(token(id), { type: 'bearer' });
 

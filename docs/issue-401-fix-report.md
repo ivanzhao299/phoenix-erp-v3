@@ -69,7 +69,7 @@ cd ../web
 
 ## 独立审查与安全边界
 
-独立 reviewer 已核验并推动修复：scoped enrichment 缺失、SITE 父公司上卷、缺身份 legacyGlobal、历史稀疏/伪造归属，以及混合组织授权丢失风险；最终结论由 Orchestrator 汇总。新增定向测试覆盖各项边界。RBAC 原 GET 权限未放宽；没有“创建者 OR 条件”绕过 DataScope，没有更改账号为 admin。
+独立 reviewer 已核验并推动修复：scoped enrichment 缺失、SITE 父公司上卷、缺身份 legacyGlobal、历史稀疏/伪造归属，以及混合组织授权丢失风险；Orchestrator 已确认最终独立审查无阻断。新增定向测试覆盖各项边界。RBAC 原 GET 权限未放宽；没有“创建者 OR 条件”绕过 DataScope，没有更改账号为 admin。
 
 本改动触及 DataScope 和列入生产配置合同 criticalFiles 的 `generic-crud.service.ts`，属于需要独立安全/冻结边界审核的变更。未修改 floor/contract、工作流、审批标签或受控恢复记录；未来生产交付必须由恢复治理负责人重新审查配置 floor 兼容性。Required CI 与 reviewed-frozen-boundary 审批保留，由独立 Draft PR 的检查状态为准，不能以本地验证替代。
 
@@ -102,7 +102,7 @@ REPRODUCTION_AFTER=PASS
 TARGETED_TESTS=PASS
 TYPECHECK=PASS
 RELEVANT_REGRESSION=PASS
-SECURITY_REVIEW=INDEPENDENT_REVIEW_BY_ORCHESTRATOR
+SECURITY_REVIEW=PASS
 REQUIRED_CI=PENDING_DRAFT_PR
 PRODUCTION_DATABASE_MUTATION=NO
 PRODUCTION_MIGRATION=NO
