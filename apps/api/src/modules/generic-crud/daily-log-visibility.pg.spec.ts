@@ -11,6 +11,10 @@ import { GenericCrudController } from './generic-crud.controller';
 import { GenericCrudService } from './generic-crud.service';
 import { FarmController } from '../farm/farm.controller';
 import { FarmService } from '../farm/farm.service';
+import { InventorySourceController } from '../sales-v2/controllers/inventory-source.controller';
+import { ProductionInboundService } from '../sales-v2/services/production-inbound.service';
+import { EggInventoryService } from '../sales-v2/services/egg-inventory.service';
+import { InventorySourceModeService } from '../sales-v2/services/inventory-source-mode.service';
 import { WmsService } from '../wms/wms.service';
 import { DataScopeService } from '../org/services/data-scope.service';
 import { OrgOwnershipService } from '../org/services/org-ownership.service';
@@ -40,6 +44,7 @@ pgDescribe('MANUAL-122 real PostgreSQL, HTTP, roles and organization scope', () 
     { id: 40107, username: 'fixture_site_and_foreign_company', role: 'ROLE_FARM_REPORTER', storeCode: 'SITE-A' },
     { id: 40108, username: 'fixture_site_and_own_company', role: 'ROLE_FARM_REPORTER', storeCode: 'SITE-A' },
     { id: 40109, username: 'fixture_extra_farm', role: 'ROLE_FARM_REPORTER', storeCode: '' },
+    ...[40110, 40111, 40112, 40113, 40114].map(id => ({ id, username: `fixture_dept_${id}`, role: 'ROLE_FARM_REPORTER', storeCode: 'ALL' })),
   ];
   let tokenSequence = 0;
   const token = (id: number) => sign({ sub: id, jti: `issue401-${++tokenSequence}` }, secret, { expiresIn: '5m' });
@@ -48,13 +53,15 @@ pgDescribe('MANUAL-122 real PostgreSQL, HTTP, roles and organization scope', () 
 
   beforeAll(async () => {
     const url = new URL(pgUrl!);
-    if (!['127.0.0.1', 'localhost'].includes(url.hostname) || url.pathname !== '/issue401_fixture') {
+    if (!['127.0.0.1', 'localhost'].includes(url.hostname) || url.pathname !== '/issue401_fixture' || !process.env.ISSUE401_FIXTURE_OWNER) {
       throw new Error('Only loopback issue401_fixture is permitted');
     }
     db = await new DataSource({ type: 'postgres', url: pgUrl, synchronize: false,
       entities: [SysDataScopeEntity, SysOrganizationEntity, SysUserOrgEntity,
         SysUserProjectScopeEntity, SysUserWarehouseScopeEntity, SysUserFarmScopeEntity],
     }).initialize();
+    const owners: Array<{owner_key:string}> = await db.query('SELECT owner_key FROM issue401_fixture_owner');
+    if (owners.length !== 1 || owners[0].owner_key !== process.env.ISSUE401_FIXTURE_OWNER) throw new Error('Fixture ownership mismatch');
     // Fixture DDL is explicit: application schema synchronization and migrations remain disabled.
     await db.query(`
       CREATE TABLE IF NOT EXISTS sys_organizations (id bigint PRIMARY KEY, org_code text, org_name text,
@@ -67,22 +74,35 @@ pgDescribe('MANUAL-122 real PostgreSQL, HTTP, roles and organization scope', () 
       CREATE TABLE IF NOT EXISTS sys_user_project_scopes (id bigserial PRIMARY KEY,user_id bigint,project_code text,created_at timestamptz DEFAULT now());
       CREATE TABLE IF NOT EXISTS sys_user_warehouse_scopes (id bigserial PRIMARY KEY,user_id bigint,warehouse_code text,created_at timestamptz DEFAULT now());
       CREATE TABLE IF NOT EXISTS sys_user_farm_scopes (id bigserial PRIMARY KEY,user_id bigint,farm_code text,created_at timestamptz DEFAULT now());
-      CREATE TABLE IF NOT EXISTS wms_warehouses (warehouse_code text, company_code text, status text, domain text);
+      CREATE TABLE IF NOT EXISTS wms_warehouses (warehouse_code text PRIMARY KEY, company_code text, status text, domain text, site_code text, type text);
+      CREATE TABLE IF NOT EXISTS wms_locations (location_code text PRIMARY KEY, warehouse_code text, status text);
+      CREATE TABLE IF NOT EXISTS product_grades (grade_code text PRIMARY KEY, status text, sort_order int, is_saleable boolean DEFAULT true);
+      CREATE TABLE IF NOT EXISTS product_skus (sku_code text PRIMARY KEY, product_code text, grade_code text, spec_code text, status text);
       CREATE TABLE IF NOT EXISTS brd_farms (farm_code text PRIMARY KEY, company_code text, mapped_site_code text, status text);
       CREATE TABLE IF NOT EXISTS brd_houses (house_code text PRIMARY KEY, house_name text, farm_code text, status text);
       CREATE TABLE IF NOT EXISTS brd_flocks (flock_no text PRIMARY KEY, house_code text, current_qty int, initial_qty int, current_lay_rate numeric);
       CREATE TABLE IF NOT EXISTS brd_daily_logs (id serial PRIMARY KEY, house_code text, farm_code text,
         site_code text, company_code text, flock_no text, log_date date, business_date date,
-        shift text, eggs_produced int, mortality_qty int, elimination_qty int, feed_consumed numeric,
+        shift text, eggs_produced int, eggs_by_grade jsonb, dirty_eggs int, broken_eggs int, mortality_qty int, elimination_qty int, feed_consumed numeric,
         opening_qty int, closing_qty int, lay_rate numeric, operator text, note text,
         created_at timestamptz DEFAULT now(), UNIQUE(log_date, house_code, shift));
       CREATE TABLE IF NOT EXISTS fixture_users (id int PRIMARY KEY, username text, role text, store_code text);
       CREATE TABLE IF NOT EXISTS fixture_role_permissions (role text, permission text, PRIMARY KEY(role, permission));
-      CREATE TABLE IF NOT EXISTS inv_batches (batch_no text, product_code text, created_at timestamptz);
+      CREATE TABLE IF NOT EXISTS inv_batches (batch_no text UNIQUE, product_code text, company_code text, warehouse_code text, location_code text,
+        egg_date date, inbound_date date, expire_date date, quality_grade text, packaging_spec text, source_type text, source_no text,
+        qty numeric, qty_available numeric, status text, sku_code text, grade_code_std text, spec_code text,
+        packaging_batch_ref text, collection_batch_ref text, created_at timestamptz, updated_at timestamptz);
+      CREATE TABLE IF NOT EXISTS inv_ledger (id serial PRIMARY KEY, batch_no text REFERENCES inv_batches(batch_no), change_type text,
+        qty_change numeric, operator text, store_code text, ref_no text, note text, batch_expire_date date,
+        quality_grade text, company_code text, sku_code text, log_date date, warehouse_code text, location_code text);
+      INSERT INTO product_grades (grade_code,status,sort_order) VALUES ('GRADE_1','ACTIVE',1) ON CONFLICT DO NOTHING;
+      INSERT INTO product_skus VALUES ('SKU-1','PRD-EGG-RAW','GRADE_1','LOOSE','ACTIVE') ON CONFLICT DO NOTHING;
+      INSERT INTO wms_warehouses VALUES ('WH-A','COMP-A','ACTIVE','OPERATIONAL','SITE-A','EGG_FARM') ON CONFLICT DO NOTHING;
+      INSERT INTO wms_locations VALUES ('LOC-A','WH-A','ACTIVE') ON CONFLICT DO NOTHING;
       INSERT INTO brd_farms VALUES ('LPH_FARM_A','COMP-A','SITE-A','ACTIVE'),('LPH_FARM_B','COMP-B','SITE-B','ACTIVE'),('LPH_FARM_A2','COMP-A','SITE-A2','ACTIVE') ON CONFLICT DO NOTHING;
       INSERT INTO brd_houses VALUES ('HOUSE-A','Fixture House A','LPH_FARM_A','ACTIVE'),('HOUSE-B','Fixture House B','LPH_FARM_B','ACTIVE'),('HOUSE-A2','Fixture House A2','LPH_FARM_A2','ACTIVE') ON CONFLICT DO NOTHING;
       INSERT INTO brd_flocks VALUES ('FLOCK-A','HOUSE-A',100,100,0) ON CONFLICT DO NOTHING;
-      INSERT INTO fixture_role_permissions VALUES ('ROLE_FARM_REPORTER','MENU_FARM_DATA:V'),('ROLE_FARM_REPORTER','MENU_FARM_DAILY:E'),('ROLE_ADMIN','*') ON CONFLICT DO NOTHING;
+      INSERT INTO fixture_role_permissions VALUES ('ROLE_FARM_REPORTER','MENU_FARM_DATA:V'),('ROLE_FARM_REPORTER','MENU_FARM_DAILY:E'),('ROLE_FARM_REPORTER','MENU_PROD_INBOUND:C'),('ROLE_ADMIN','*') ON CONFLICT DO NOTHING;
     `);
     for (const user of users) await db.query('INSERT INTO fixture_users VALUES ($1,$2,$3,$4) ON CONFLICT DO NOTHING', [user.id, user.username, user.role, user.storeCode]);
     for (const [i, company] of ['COMP-A', 'COMP-B'].entries()) {
@@ -91,6 +111,17 @@ pgDescribe('MANUAL-122 real PostgreSQL, HTTP, roles and organization scope', () 
     }
     await db.query(`INSERT INTO sys_organizations(id,org_code,org_name,org_type,level,status,parent_id,sort_order)
       VALUES (40103,'SITE-A','Fixture Site A','SITE',3,'ACTIVE',40101,0) ON CONFLICT DO NOTHING`);
+    await db.query(`INSERT INTO sys_organizations(id,org_code,org_name,org_type,level,status,parent_id,company_code,site_code,sort_order)
+      VALUES (40104,'DEPT-EMPTY','Department without snapshots','DEPARTMENT',4,'ACTIVE',40103,NULL,NULL,0),
+        (40105,'DEPT-COMP','Department with company snapshot','DEPARTMENT',4,'ACTIVE',40103,'COMP-A',NULL,0),
+        (40106,'DEPT-SITE','Department with site snapshot','DEPARTMENT',4,'ACTIVE',40103,NULL,'SITE-A',0)
+      ON CONFLICT DO NOTHING`);
+    for (const [id, org] of [[40110,40104],[40111,40105],[40112,40106],[40113,40106],[40114,40105],[40114,40103]]) {
+      await db.query(`INSERT INTO sys_user_orgs(user_id,org_id,is_primary,data_scope_level,is_manager)
+        VALUES ($1,$2,true,'SELF',false) ON CONFLICT DO NOTHING`, [id,org]);
+    }
+    await db.query(`INSERT INTO sys_user_farm_scopes(user_id,farm_code) SELECT 40113,'LPH_FARM_B'
+      WHERE NOT EXISTS(SELECT 1 FROM sys_user_farm_scopes WHERE user_id=40113)`);
     for (const [id, org] of [[40107,40103],[40107,40102],[40108,40103],[40108,40101],[40106,40103],[40101,40101],[40102,40101],[40103,40102]]) {
       await db.query(`INSERT INTO sys_user_orgs (user_id,org_id,is_primary,data_scope_level,is_manager)
         VALUES ($1,$2,true,'COMPANY',false) ON CONFLICT DO NOTHING`, [id, org]);
@@ -111,8 +142,10 @@ pgDescribe('MANUAL-122 real PostgreSQL, HTTP, roles and organization scope', () 
     }
     const module = await Test.createTestingModule({
       imports: [PassportModule, ClsModule.forRoot({ global: true, middleware: { mount: true } })],
-      controllers: [GenericCrudController, FarmController],
-      providers: [FixtureJwtStrategy, GenericCrudService, FarmService, OrgOwnershipService,
+      controllers: [GenericCrudController, FarmController, InventorySourceController],
+      providers: [FixtureJwtStrategy, GenericCrudService, FarmService, OrgOwnershipService, ProductionInboundService, EggInventoryService,
+        { provide: DataSource, useValue: db },
+        { provide: InventorySourceModeService, useValue: { resolveMode: async () => 'TEMP_PRODUCTION_INBOUND' } },
         { provide: EntityManager, useValue: db.manager }, { provide: WmsService, useValue: {} },
         { provide: DataScopeService, inject: [ClsService, OrgOwnershipService], useFactory: (cls: ClsService, ownership: OrgOwnershipService) =>
           new DataScopeService(db.getRepository(SysDataScopeEntity), db.getRepository(SysUserOrgEntity),
@@ -127,7 +160,7 @@ pgDescribe('MANUAL-122 real PostgreSQL, HTTP, roles and organization scope', () 
 
   afterAll(async () => { await app?.close(); await db?.destroy(); });
   beforeEach(async () => {
-    await db.query('TRUNCATE brd_daily_logs RESTART IDENTITY');
+    await db.query('TRUNCATE brd_daily_logs, inv_ledger, inv_batches RESTART IDENTITY');
     await db.query("UPDATE fixture_users SET store_code='LPH_FARM_A' WHERE id=40101");
     users.forEach(user => scopes.invalidate(String(user.id)));
   });
@@ -141,11 +174,34 @@ pgDescribe('MANUAL-122 real PostgreSQL, HTTP, roles and organization scope', () 
     for (let i = 0; i < 3; i++) {
       scopes.invalidate('40101'); // Fresh resolution simulates session/login renewal.
       const response = await read(40101).expect(200);
-      expect(response.body.data).toEqual([expect.objectContaining({ house_code: 'HOUSE-A', farm_code: 'LPH_FARM_A', company_code: 'COMP-A', feed_consumed: '7' })]);
+      expect(response.body.data).toEqual([expect.objectContaining({ house_code: 'HOUSE-A', farm_code: 'LPH_FARM_A', company_code: 'COMP-A', feed_consumed: '7', log_date: '2026-10-17' })]);
     }
     expect((await read(40102).expect(200)).body.data).toHaveLength(1);
     expect((await read(40105).expect(200)).body.data).toHaveLength(1);
     expect((await read(40103).expect(200)).body.data).toEqual([]);
+  });
+
+  it('combines a saved report, scoped query, inventory inbound and idempotent retry over real HTTP/PG', async () => {
+    await request(app.getHttpServer()).post('/api/v3/farm/daily-logs').auth(token(40101),{type:'bearer'})
+      .send({house_code:'HOUSE-A',log_date:'2026-10-17',shift:'早班',eggs_produced:33,eggs_by_grade:{GRADE_1:33}})
+      .expect(201).expect(response=>expect(response.body.code).toBe(200));
+    const query = {house_code:'HOUSE-A',log_date:'2026-10-17'};
+    const saved = (await read(40101,query).expect(200)).body.data;
+    expect(saved).toEqual([expect.objectContaining({log_date:'2026-10-17',eggs_by_grade:{GRADE_1:33},eggs_produced:33})]);
+    const payload = {houseCode:'HOUSE-A',eggDate:'2026-10-17',items:[{grade:'GRADE_1',qty:11},{grade:'GRADE_1',qty:22}]};
+    const inbound = () => request(app.getHttpServer()).post('/api/v2/inventory/production-inbound').auth(token(40101),{type:'bearer'}).send(payload);
+    const first = (await inbound().expect(201)).body;
+    const retry = (await inbound().expect(201)).body;
+    expect(first).toMatchObject({idempotent:false,totalInbound:33});
+    expect(retry).toMatchObject({idempotent:true,totalInbound:33,batches:first.batches});
+    expect(new Set(retry.batches.map((row:{batchNo:string})=>row.batchNo)).size).toBe(2);
+    expect((await db.query('SELECT count(*)::int AS count FROM inv_batches'))[0].count).toBe(2);
+    expect((await db.query('SELECT count(*)::int AS count FROM inv_ledger'))[0].count).toBe(2);
+    expect((await read(40101,query).expect(200)).body.data).toEqual(saved);
+    expect((await read(40103,query).expect(200)).body.data).toEqual([]);
+    await request(app.getHttpServer()).post('/api/v2/inventory/production-inbound').auth(token(40101),{type:'bearer'})
+      .send({...payload,houseCode:'HOUSE-B'}).expect(403);
+    expect((await read(40105,query).expect(200)).body.data).toEqual(saved);
   });
 
   it('keeps the exact canonical authorized set with stale/missing storeCode, crafted filters, and unbound users', async () => {
@@ -191,6 +247,26 @@ pgDescribe('MANUAL-122 real PostgreSQL, HTTP, roles and organization scope', () 
     expect(farm.allowedFarmCodes).toEqual(['LPH_FARM_B']);
     expect(farm.allowedCompanyCodes).toEqual([]);
     expect((await read(40109).expect(200)).body.data.map((row:{house_code:string})=>row.house_code)).toEqual(['HOUSE-B']);
+  });
+
+  it('does not turn department snapshots or ancestor projections into daily report grants', async () => {
+    await db.query(`INSERT INTO brd_daily_logs(house_code,log_date,shift)
+      VALUES ('HOUSE-A','2026-10-17','早班'),('HOUSE-A2','2026-10-17','早班'),('HOUSE-B','2026-10-17','早班')`);
+    for (const id of [40110,40111,40112]) {
+      expect((await read(id).expect(200)).body.data).toEqual([]);
+      expect((await read(id,{house_code:'HOUSE-A'}).expect(200)).body.data).toEqual([]);
+    }
+    expect((await read(40113).expect(200)).body.data.map((row:{house_code:string})=>row.house_code)).toEqual(['HOUSE-B']);
+    expect((await read(40114).expect(200)).body.data.map((row:{house_code:string})=>row.house_code)).toEqual(['HOUSE-A']);
+  });
+
+  it('retains an explicit GROUP grant on a department binding', async () => {
+    await db.query(`INSERT INTO brd_daily_logs(house_code,log_date,shift)
+      VALUES ('HOUSE-A','2026-10-17','早班'),('HOUSE-B','2026-10-17','早班')`);
+    await db.query("UPDATE sys_user_orgs SET data_scope_level='GROUP' WHERE user_id=40110");
+    scopes.invalidate('40110');
+    try { expect((await read(40110).expect(200)).body.data).toHaveLength(2); }
+    finally { await db.query("UPDATE sys_user_orgs SET data_scope_level='SELF' WHERE user_id=40110"); scopes.invalidate('40110'); }
   });
 
   it('reads sparse historical rows by house ownership and rejects forged ownership snapshots', async () => {

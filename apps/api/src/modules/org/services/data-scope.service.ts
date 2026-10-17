@@ -23,6 +23,9 @@ export interface DataScopeContext {
   allowedCompanyCodes: string[];
   /** Explicit company/region grants for farm records; excludes SITE parent-company projection. */
   allowedBreedingCompanyCodes?: string[];
+  /** Explicit SITE projections and verified extra farms for daily reports only. */
+  allowedBreedingSiteCodes?: string[];
+  allowedBreedingFarmCodes?: string[];
   allowedProjectCodes: string[];
   allowedWarehouseCodes: string[];
   allowedFarmCodes: string[]; // G4-E: FarmScope（在 CompanyScope 之下，与 Warehouse 同层）
@@ -185,22 +188,26 @@ export class DataScopeService {
 
     const companyCodes = new Set<string>();
     const breedingCompanyCodes = new Set<string>();
+    const breedingSiteCodes = new Set<string>();
     const projectCodes = new Set<string>();
     const warehouseCodes = new Set<string>();
     const siteCodes = new Set<string>();  // G5-D
 
     if (userOrgRows.length > 0) {
       for (const row of userOrgRows) {
-        const siteBinding = row.org_type === 'SITE' || !!row.site_code;
+        const explicitCompany = row.org_type === 'COMPANY';
+        const companyTree = row.org_type === 'BU' || row.org_type === 'GROUP';
         if (row.company_code) {
           companyCodes.add(row.company_code);
-          if (!siteBinding || row.org_type === 'COMPANY') breedingCompanyCodes.add(row.company_code);
+          if (explicitCompany) breedingCompanyCodes.add(row.company_code);
         }
         if (row.project_code) projectCodes.add(row.project_code);
         if (row.warehouse_code) warehouseCodes.add(row.warehouse_code);
         // G5-D：SITE 类型组织绑定 → 用 org_code（如 'SITE-MENGSAI-LAYER'）作为 site_code
-        if (row.org_type === 'SITE') siteCodes.add(row.org_code);
-        else if (row.site_code) siteCodes.add(row.site_code); // 兼容 SITE 字段
+        if (row.org_type === 'SITE') {
+          siteCodes.add(row.org_code);
+          breedingSiteCodes.add(row.org_code);
+        } else if (row.site_code) siteCodes.add(row.site_code); // 兼容 SITE 字段
 
         // REGION 级别：展开同一父节点下所有子公司
         if (topLevel === 'REGION' && row.parent_id) {
@@ -210,7 +217,7 @@ export class DataScopeService {
           for (const s of siblings) {
             if (s.companyCode) {
               companyCodes.add(s.companyCode);
-              breedingCompanyCodes.add(s.companyCode);
+              if (explicitCompany && s.orgType === 'COMPANY') breedingCompanyCodes.add(s.companyCode);
             }
           }
         }
@@ -227,7 +234,7 @@ export class DataScopeService {
           for (const c of childCompanies) {
             if (c.company_code) {
               companyCodes.add(c.company_code);
-              if (!siteBinding) breedingCompanyCodes.add(c.company_code);
+              if (companyTree) breedingCompanyCodes.add(c.company_code);
             }
           }
           // 如果还是空（GROUP/HQ 节点），再向下一层
@@ -241,7 +248,7 @@ export class DataScopeService {
             for (const c of grandChildren) {
               if (c.company_code) {
                 companyCodes.add(c.company_code);
-                if (!siteBinding) breedingCompanyCodes.add(c.company_code);
+                if (companyTree) breedingCompanyCodes.add(c.company_code);
               }
             }
           }
@@ -267,7 +274,7 @@ export class DataScopeService {
           for (const c of ancestorCompany) {
             if (c.company_code) {
               companyCodes.add(c.company_code);
-              if (!siteBinding) breedingCompanyCodes.add(c.company_code);
+              // Ancestor company is a master-data projection, not a daily-report grant.
             }
           }
         }
@@ -317,6 +324,7 @@ export class DataScopeService {
 
     // G4-E：追加场站授权
     const farmCodes = new Set<string>();
+    const breedingFarmCodes = new Set<string>();
     const extraFarms = await this.userFarmRepo.find({ where: { userId: userIdNum } });
     const explicitlyGrantedFarmCodes = [...new Set(extraFarms.map((ef) => ef.farmCode).filter(Boolean))];
     if (explicitlyGrantedFarmCodes.length > 0) {
@@ -326,7 +334,7 @@ export class DataScopeService {
         WHERE farm_code = ANY($1)
           AND status = 'ACTIVE'
       `, [explicitlyGrantedFarmCodes]);
-      activeFarms.forEach((farm) => farmCodes.add(farm.farm_code));
+      activeFarms.forEach((farm) => { farmCodes.add(farm.farm_code); breedingFarmCodes.add(farm.farm_code); });
     }
 
     // 方案 A：SITE 仅是 FARM 的组织树投影。保留 allowedSiteCodes 给历史消费方，
@@ -334,6 +342,12 @@ export class DataScopeService {
     if (siteCodes.size > 0) {
       const projectedFarmCodes = await this.ownership.resolveFarmCodesBySiteCodes([...siteCodes]);
       projectedFarmCodes.forEach((farmCode) => farmCodes.add(farmCode));
+      if ([...siteCodes].every(code => breedingSiteCodes.has(code))) {
+        projectedFarmCodes.forEach(farmCode => breedingFarmCodes.add(farmCode));
+      } else if (breedingSiteCodes.size > 0) {
+        const explicitSiteFarms = await this.ownership.resolveFarmCodesBySiteCodes([...breedingSiteCodes]);
+        explicitSiteFarms.forEach(farmCode => breedingFarmCodes.add(farmCode));
+      }
     }
 
     const ctx: DataScopeContext = {
@@ -341,6 +355,8 @@ export class DataScopeService {
       scopeLevel: topLevel,
       allowedCompanyCodes: [...companyCodes],
       allowedBreedingCompanyCodes: [...breedingCompanyCodes],
+      allowedBreedingSiteCodes: [...breedingSiteCodes],
+      allowedBreedingFarmCodes: [...breedingFarmCodes],
       allowedProjectCodes: [...projectCodes],
       allowedWarehouseCodes: [...warehouseCodes],
       allowedFarmCodes: [...farmCodes], // G4-E

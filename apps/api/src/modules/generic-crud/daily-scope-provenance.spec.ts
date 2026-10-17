@@ -10,7 +10,7 @@ describe('daily report company-scope provenance', () => {
     const rules = repo();
     rules.find.mockResolvedValue([{enabled:true,moduleCode:'MENU_FARM_DATA',roleCode:'ROLE_REGION_REPORTER',scopeType}]);
     const organizations = repo();
-    organizations.find.mockResolvedValue([{companyCode:'COMP-A'},{companyCode:'COMP-B'}]);
+    organizations.find.mockResolvedValue([{companyCode:'COMP-A',orgType:'COMPANY'},{companyCode:'COMP-B',orgType:'COMPANY'}]);
     const args = [rules,repo(),repo(),repo(),repo(),organizations,{get:jest.fn()},{}] as unknown as ConstructorParameters<typeof DataScopeService>;
     return { service: new DataScopeService(...args), manager, organizations };
   };
@@ -31,4 +31,35 @@ describe('daily report company-scope provenance', () => {
     expect(scope.scopeLevel).toBe('GROUP');
     expect(manager.query).not.toHaveBeenCalled();
   });
+  it.each(['child', 'grandchild'])('retains an explicit BU %s company projection', async depth => {
+    const manager = { query: jest.fn(async (sql: string) => {
+      if (sql.includes('FROM sys_user_orgs')) return [{ org_id:41101,org_type:'BU',org_code:'BU-A',company_code:null,parent_id:null,site_code:null,data_scope_level:'SELF' }];
+      if (sql.includes("WHERE parent_id = $1 AND org_type = 'COMPANY'")) return depth === 'child' ? [{company_code:'COMP-A'}] : [];
+      if (sql.includes('JOIN sys_organizations o2')) return [{company_code:'COMP-A'}];
+      return [];
+    }) };
+    const repo = () => ({find:jest.fn().mockResolvedValue([]),manager});
+    const args = [repo(),repo(),repo(),repo(),repo(),repo(),{get:jest.fn()},{}] as unknown as ConstructorParameters<typeof DataScopeService>;
+    const scope = await new DataScopeService(...args).resolve(`411-bu-${depth}`,[],'MENU_FARM_DATA');
+    expect(scope.allowedCompanyCodes).toEqual(['COMP-A']);
+    expect(scope.allowedBreedingCompanyCodes).toEqual(['COMP-A']);
+  });
+
+  it.each([null, 'COMP-A', 'SITE-A'])('keeps legacy department projections separate from report grants (%s)', async snapshot => {
+    const manager = {query:jest.fn(async (sql:string) => {
+      if (sql.includes('FROM sys_user_orgs')) return [{org_id:41102,org_type:'DEPARTMENT',org_code:'DEPT-A',company_code:snapshot === 'COMP-A' ? snapshot : null,parent_id:41103,site_code:snapshot === 'SITE-A' ? snapshot : null,data_scope_level:'SELF'}];
+      if (sql.includes('WITH RECURSIVE')) return [{company_code:'COMP-A'}];
+      return [];
+    })};
+    const repo = () => ({find:jest.fn().mockResolvedValue([]),manager});
+    const args = [repo(),repo(),repo(),repo(),repo(),repo(),{get:jest.fn()},{resolveFarmCodesBySiteCodes:jest.fn().mockResolvedValue(['FARM-A'])}] as unknown as ConstructorParameters<typeof DataScopeService>;
+    const scope = await new DataScopeService(...args).resolve(`411-dept-${snapshot}`,[],'MENU_FARM_DATA');
+    expect(scope.allowedCompanyCodes).toEqual(['COMP-A']);
+    expect(scope.allowedSiteCodes).toEqual(snapshot === 'SITE-A' ? ['SITE-A'] : []);
+    expect(scope.allowedFarmCodes).toEqual(snapshot === 'SITE-A' ? ['FARM-A'] : []);
+    expect(scope.allowedBreedingCompanyCodes).toEqual([]);
+    expect(scope.allowedBreedingSiteCodes).toEqual([]);
+    expect(scope.allowedBreedingFarmCodes).toEqual([]);
+  });
+
 });

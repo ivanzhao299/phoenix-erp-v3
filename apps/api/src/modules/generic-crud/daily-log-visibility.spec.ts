@@ -3,6 +3,7 @@ import { GenericCrudController } from './generic-crud.controller';
 
 const resolvedScope = {
   isGlobal: false, allowedFarmCodes: ['FARM-A'], allowedSiteCodes: ['SITE-A'],
+  allowedBreedingFarmCodes: ['FARM-A'], allowedBreedingSiteCodes: ['SITE-A'], allowedBreedingCompanyCodes: [],
   allowedCompanyCodes: ['COMP-A'], allowedWarehouseCodes: [], allowedProjectCodes: [],
   userId: '40101', scopeLevel: 'COMPANY',
 };
@@ -32,6 +33,14 @@ describe('MANUAL-122 daily log scope routing', () => {
     scopeService.resolve.mockResolvedValueOnce({...resolvedScope, allowedBreedingCompanyCodes:['COMP-B']});
     await controller.findAll('brd_daily_logs', {}, request('SITE-A'));
     expect(service.findAllBreedingScoped).toHaveBeenCalledWith('brd_daily_logs', {}, {farmCodes:['FARM-A'],siteCodes:['SITE-A'],companyCodes:['COMP-B']});
+  });
+
+  it('does not fall back to legacy projections if breeding provenance is missing', async () => {
+    const legacy = {...resolvedScope};
+    for (const key of ['allowedBreedingFarmCodes','allowedBreedingSiteCodes','allowedBreedingCompanyCodes']) Reflect.deleteProperty(legacy,key);
+    scopeService.resolve.mockResolvedValueOnce(legacy);
+    await controller.findAll('brd_daily_logs', {}, request('ALL'));
+    expect(service.findAllBreedingScoped).toHaveBeenCalledWith('brd_daily_logs', {}, {farmCodes:[],siteCodes:[],companyCodes:[]});
   });
 
   it('fails closed when resolved identity is missing despite a legacy global store', async () => {

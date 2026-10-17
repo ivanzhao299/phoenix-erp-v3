@@ -521,12 +521,12 @@ export class GenericCrudController {
 
     if (BREEDING_SCOPED_TABLES.includes(table as BreedingScopedTable)) {
       const breedingScope = isGlobal ? null : {
-        farmCodes: tableScope?.allowedFarmCodes ?? [],
-        siteCodes: tableScope?.allowedSiteCodes ?? [],
+        farmCodes: table === 'brd_daily_logs'
+          ? (tableScope?.allowedBreedingFarmCodes ?? []) : (tableScope?.allowedFarmCodes ?? []),
+        siteCodes: table === 'brd_daily_logs'
+          ? (tableScope?.allowedBreedingSiteCodes ?? []) : (tableScope?.allowedSiteCodes ?? []),
         companyCodes: table === 'brd_daily_logs'
-          ? (tableScope?.allowedBreedingCompanyCodes
-            ?? ((tableScope?.allowedSiteCodes?.length ?? 0) > 0 ? [] : (tableScope?.allowedCompanyCodes ?? [])))
-          : (tableScope?.allowedCompanyCodes ?? []),
+          ? (tableScope?.allowedBreedingCompanyCodes ?? []) : (tableScope?.allowedCompanyCodes ?? []),
       };
       const data = await this.crudService.findAllBreedingScoped(table as BreedingScopedTable, query, breedingScope);
       return { code: 200, data };
