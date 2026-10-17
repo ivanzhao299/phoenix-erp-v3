@@ -171,7 +171,12 @@ chain('production ledger collection chain (no production network, local transpor
     // a SECOND REAL COMMIT (same tree as HEAD, different identity): resolves
     // in ANY checkout including shallow ones — main and candidate are pinned
     // to genuinely DIFFERENT valid SHAs
-    const secondSha = execFileSync('git', ['commit-tree', `HEAD^{tree}`, '-m', 'chain-test-main-pin'], { cwd: repoRoot, encoding: 'utf8' }).trim();
+    const secondSha = execFileSync('git', ['commit-tree', `HEAD^{tree}`, '-m', 'chain-test-main-pin'], {
+      cwd: repoRoot, encoding: 'utf8',
+      // a synthetic local identity for the test-only commit object (CI
+      // checkouts carry no author identity; this commit never leaves the job)
+      env: { ...process.env, GIT_AUTHOR_NAME: 'chain-test', GIT_AUTHOR_EMAIL: 'chain-test@invalid', GIT_COMMITTER_NAME: 'chain-test', GIT_COMMITTER_EMAIL: 'chain-test@invalid' },
+    }).trim();
     assert.match(secondSha, /^[a-f0-9]{40}$/);
     assert.notEqual(secondSha, headSha);
     const run = runChain(evidence, { mainRef: secondSha, expectedMainSha: secondSha });
