@@ -21,7 +21,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { randomUUID } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
-import { assertDedicatedLedgerFixture, OWNER_MARKER_TABLE } from './ledger-fixture-guard.mjs';
+import { assertDedicatedLedgerFixture, provisionDedicatedDatabase, OWNER_MARKER_TABLE } from './ledger-fixture-guard.mjs';
 
 const require = createRequire(import.meta.url);
 const { Client } = require('../../apps/api/node_modules/pg');
@@ -91,17 +91,16 @@ verify('ledger readonly collection (isolated PostgreSQL18, real psql)', () => {
     assert.match(pgEnv.PGDATABASE, /^ledger_collect_/, `dedicated disposable database required, got: ${pgEnv.PGDATABASE}`);
     container = resolveFixtureContainer();
     assert.ok(container, 'fixture DB container required for the real-psql shim');
-    const bootstrap = spawnSync('docker', ['exec', container, 'psql', '-X', '-v', 'ON_ERROR_STOP=1', '-U', pgEnv.PGUSER, '-d', 'postgres', '-c', `DROP DATABASE IF EXISTS ${pgEnv.PGDATABASE}`, '-c', `CREATE DATABASE ${pgEnv.PGDATABASE}`], { encoding: 'utf8' });
-    assert.equal(bootstrap.status, 0, `container instance unreachable: ${bootstrap.stderr}`);
-    // ALL provisioning flows through the CONTAINER channel only (a URL
-    // mismatch cannot be touched by it) and stamps THIS-RUN OWNERSHIP: the
-    // guard verifies the marker through BOTH the container and the URL
-    // connection before anything flows through the URL
+    // CONDITIONAL provisioning: an existing same-named database (another
+    // run's, or unmarked) is NEVER provisioned over — created fresh only when
+    // absent, stamped with THIS-RUN ownership by the shared helper
     runNonce = randomUUID();
+    const provisioned = provisionDedicatedDatabase({ container, user: pgEnv.PGUSER, database: pgEnv.PGDATABASE, runNonce });
+    assert.equal(provisioned.created, true, `conditional provisioning refused: ${provisioned.reason}`);
+    // ALL provisioning flows through the CONTAINER channel only (a URL
+    // mismatch cannot be touched by it); the guard verifies identity +
+    // same-instance + THIS-RUN ownership before anything flows through the URL
     const provisionSql = [
-      'DROP SCHEMA public CASCADE; CREATE SCHEMA public;',
-      `CREATE TABLE ${OWNER_MARKER_TABLE} (run_nonce text PRIMARY KEY);`,
-      `INSERT INTO ${OWNER_MARKER_TABLE} (run_nonce) VALUES ('${runNonce}');`,
       'CREATE TABLE schema_migrations (filename text PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now());',
       'CREATE TABLE migrations (id serial PRIMARY KEY, timestamp bigint NOT NULL, name varchar NOT NULL);',
       "INSERT INTO schema_migrations(filename) VALUES ('20260101_one.sql'), ('20260102_two.sql');",
@@ -131,6 +130,8 @@ verify('ledger readonly collection (isolated PostgreSQL18, real psql)', () => {
   after(async () => {
     await dataSource?.end().catch(() => undefined);
     fs.rmSync(shimBin, { recursive: true, force: true });
+    // scoped cleanup: only THIS suite's dedicated database
+    spawnSync('docker', ['exec', container, 'psql', '-X', '-U', pgEnv.PGUSER, '-d', 'postgres', '-c', `DROP DATABASE IF EXISTS ${pgEnv.PGDATABASE}`], { encoding: 'utf8' });
   });
 
   test('guard rejection leaves BOTH databases unchanged (foreign nonce / missing marker)', async () => {

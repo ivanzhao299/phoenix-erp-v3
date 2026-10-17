@@ -28,54 +28,76 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import { execFileSync, spawn, spawnSync } from 'node:child_process';
-
-// BOUNDED SUBPROCESS WITH UNIFIED CLEANUP: the command runs in its OWN
-// process group; on timeout the WHOLE GROUP is SIGKILLed (a plain child kill
-// leaves the command's own children — e.g. a wedged ssh's shell pipeline —
-// alive). Resolves { status, stdout, stderr, killed }.
-function runBoundedGroup(file, argv, { input, env, timeoutMs, maxBuffer = 64 * 1024 * 1024 } = {}) {
-  return new Promise((resolve) => {
-    const child = spawn(file, argv, { detached: true, stdio: ['pipe', 'pipe', 'pipe'], env });
-    let stdout = '';
-    let stderr = '';
-    let killed = false;
-    let settled = false;
-    const buffers = { stdout: [], stderr: [] };
-    const collect = (chunks, d) => {
-      chunks.push(d);
-      if (chunks.reduce((n, c) => n + c.length, 0) > maxBuffer) {
-        killed = true;
-        try { process.kill(-child.pid, 'SIGKILL'); } catch { /* already gone */ }
-      }
-    };
-    child.stdout.on('data', (d) => collect(buffers.stdout, d));
-    child.stderr.on('data', (d) => collect(buffers.stderr, d));
-    const finish = (status) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      resolve({ status, stdout: Buffer.concat(buffers.stdout).toString('utf8'), stderr: Buffer.concat(buffers.stderr).toString('utf8'), killed });
-    };
-    const timer = setTimeout(() => {
-      killed = true;
-      try { process.kill(-child.pid, 'SIGKILL'); } catch { /* already gone */ }
-    }, timeoutMs);
-    child.on('exit', (code, signal) => finish(killed ? null : (code ?? (signal ? -1 : 0))));
-    child.on('error', () => finish(null));
-    if (input !== undefined) {
-      child.stdin.write(input);
-      child.stdin.end();
-    }
-    void stdout; void stderr;
-  });
-}
 import { fileURLToPath } from 'node:url';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const collectorRel = 'scripts/ops/ledger-readonly-collect.mjs';
 const hostScriptRel = 'scripts/ops/ledger-collection-host.sh';
 const sha256 = (file) => crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
+
+// BOUNDED SUBPROCESS WITH UNIFIED CLEANUP: the command runs in its OWN
+// process group; the result settles on CLOSE (the process exited AND its
+// stdio pipes drained — descendants holding the pipes keep it open) so a
+// leader that exits early while its children still write is still bounded by
+// the timeout, which SIGKILLs the WHOLE GROUP. stdin write errors (EPIPE
+// against a fast-failing command) are recorded, never unhandled. Resolves
+// { status, stdout, stderr, killed, stdinError }.
+export function runBoundedGroup(file, argv, { input, env, timeoutMs, maxBuffer = 64 * 1024 * 1024 } = {}) {
+  return new Promise((resolve) => {
+    const child = spawn(file, argv, { detached: true, stdio: ['pipe', 'pipe', 'pipe'], env });
+    const out = [];
+    const err = [];
+    let outLen = 0;
+    let errLen = 0;
+    let killed = false;
+    let stdinError = null;
+    let settled = false;
+    const groupKill = () => {
+      if (killed) return;
+      killed = true;
+      try { process.kill(-child.pid, 'SIGKILL'); } catch { /* already gone */ }
+    };
+    const overLimit = () => {
+      if (outLen + errLen > maxBuffer) groupKill();
+    };
+    child.stdout.on('data', (d) => { out.push(d); outLen += d.length; overLimit(); });
+    child.stderr.on('data', (d) => { err.push(d); errLen += d.length; overLimit(); });
+    // EPIPE against a fast-exiting command: recorded, stdin destroyed; the
+    // outcome still settles on close (or the bound) — never an unhandled error
+    child.stdin.on('error', (e) => { stdinError = e; try { child.stdin.destroy(); } catch { /* gone */ } });
+    const timer = setTimeout(groupKill, timeoutMs);
+    child.on('error', (e) => { stdinError = stdinError ?? e; groupKill(); });
+    child.on('close', (code, signal) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve({
+        status: killed ? null : (code ?? (signal ? -1 : 0)),
+        stdout: Buffer.concat(out).toString('utf8'),
+        stderr: Buffer.concat(err).toString('utf8'),
+        killed,
+        stdinError,
+      });
+    });
+    if (input !== undefined) {
+      child.stdin.write(input, () => { /* written; EPIPE handled by the error listener */ });
+      child.stdin.end();
+    }
+  });
+}
+
+// shell-safe environment prefix: every value is a SINGLE-QUOTED shell literal
+// (the only character that matters, ', is escaped) — variable expansion,
+// command substitution and backticks inside values can never execute
+export function shellQuote(value) {
+  return `'${String(value).replace(/'/g, "'\\''")}'`;
+}
+
+export function buildRemoteCommand(exportedEnv) {
+  return `${Object.entries(exportedEnv).map(([k, v]) => `${k}=${shellQuote(v)}`).join(' ')} bash -s`;
+}
 
 export function parseChainArgs(argv) {
   const args = { collectionRef: process.env.COLLECTION_REF, expectedCollectorSha256: process.env.EXPECTED_COLLECTOR_SHA256, evidenceDir: process.env.CHAIN_EVIDENCE_DIR, mode: 'ssh', mainRef: 'origin/main', expectedMainSha: '', transportTimeoutMs: 0 };
@@ -100,20 +122,13 @@ export function parseChainArgs(argv) {
   return args;
 }
 
-// the PRODUCTION transport: a real ssh invocation (key materialized by the
-// workflow into a temp file; jump host via -J). The host script is piped on
-// stdin with the env prefix exported inline.
 export function sshRemoteShell(env = process.env, { timeoutMs = 10 * 60_000 } = {}) {
   const dest = env.SSH_DEST;
   const keyFile = env.SSH_KEY_FILE;
   if (!dest || !keyFile) throw new Error('MISSING_INPUT: SSH_DEST and SSH_KEY_FILE are required for the ssh transport');
   const port = env.SSH_PORT ? ['-p', env.SSH_PORT] : [];
   const jump = env.SSH_PROXY_DEST ? ['-J', env.SSH_PROXY_DEST] : [];
-  return (hostScriptBody, exportedEnv) => {
-    const envPrefix = Object.entries(exportedEnv).map(([k, v]) => `${k}=${JSON.stringify(v)}`).join(' ');
-    const command = `${envPrefix} bash -s`;
-    return runBoundedGroup('ssh', ['-i', keyFile, '-o', 'BatchMode=yes', '-o', 'StrictHostKeyChecking=accept-new', ...jump, ...port, dest, command], { input: hostScriptBody, env: process.env, timeoutMs });
-  };
+  return (hostScriptBody, exportedEnv) => runBoundedGroup('ssh', ['-i', keyFile, '-o', 'BatchMode=yes', '-o', 'StrictHostKeyChecking=accept-new', ...jump, ...port, dest, buildRemoteCommand(exportedEnv)], { input: hostScriptBody, env: process.env, timeoutMs });
 }
 
 // the TEST transport: run the host script locally (the fixture container
@@ -177,7 +192,10 @@ export async function runCollectionChain(args, deps = {}) {
   const invMain = path.join(evidenceDir, 'inv-main.json');
   const invCollection = path.join(evidenceDir, 'inv-collection.json');
   try {
-    exec('node', ['scripts/ci/ledger-source-inventory.mjs', args.mainRef, invMain]);
+    // inventories are generated FROM THE RESOLVED COMMITS ONLY (never the
+    // caller's mutable ref strings) — the immutable source is what both
+    // inventories record and what the adapter's source verification re-derives
+    exec('node', ['scripts/ci/ledger-source-inventory.mjs', mainSha, invMain]);
     exec('node', ['scripts/ci/ledger-source-inventory.mjs', args.collectionRef, invCollection]);
     // provenance: each generated inventory records its source ref — both must
     // be EXACTLY the bound refs (the dual fixed SHA, verified in the artifacts)
@@ -198,7 +216,9 @@ export async function runCollectionChain(args, deps = {}) {
   const deployPath = deps.deployPath || process.env.DEPLOY_PATH || repoRoot;
   // the host evidence directory is REMOTE-OWNED: on the deploy host it is a
   // remote path; the runner NEVER reads it — recovery is stdout-only
-  const remoteEvidenceDir = process.env.REMOTE_EVIDENCE_DIR || '/tmp/ledger-collection-evidence';
+  // a UNIQUE remote-owned evidence directory per run (mode 700 on the host
+  // side); the runner never reads it — recovery is stdout-only
+  const remoteEvidenceDir = process.env.REMOTE_EVIDENCE_DIR || `/tmp/ledger-collection-evidence-${randomUUID()}`;
   const run = await remoteShell(hostScriptBody, {
     COLLECTOR_B64: fs.readFileSync(path.join(repoRoot, collectorRel)).toString('base64'),
     COLLECTOR_SHA256: collectorSha256,
@@ -226,8 +246,14 @@ export async function runCollectionChain(args, deps = {}) {
     if (recoveredDigest !== hostDigest) return failure(3, 'verify', `recovered digest ${recoveredDigest} !== host digest ${hostDigest}`);
     const doc = JSON.parse(raw.toString('utf8'));
     if (doc.schema !== 'phoenix.ledger-readonly-collection/v1' || !Array.isArray(doc.schema_migrations) || !Array.isArray(doc.migrations) || !doc.snapshot) return failure(3, 'verify', 'recovered document is not a collection document');
-    fs.writeFileSync(path.join(evidenceDir, 'collection.json'), JSON.stringify(doc, null, 2));
-    fs.writeFileSync(path.join(evidenceDir, 'collection.sha256'), `${recoveredDigest}\n`);
+    // the archive keeps the RAW RECOVERED BYTES (never a re-serialization);
+    // the recorded digest is RECOMPUTED OVER THE ARCHIVED FILE so the two can
+    // never drift apart
+    const archivedCollection = path.join(evidenceDir, 'collection.json');
+    fs.writeFileSync(archivedCollection, raw);
+    const archivedDigest = crypto.createHash('sha256').update(fs.readFileSync(archivedCollection)).digest('hex');
+    if (archivedDigest !== hostDigest) return failure(3, 'verify', `archived file digest ${archivedDigest} !== host digest ${hostDigest}`);
+    fs.writeFileSync(path.join(evidenceDir, 'collection.sha256'), `${archivedDigest}\n`);
   } catch (error) {
     return failure(3, 'verify', String(error?.message || error));
   }

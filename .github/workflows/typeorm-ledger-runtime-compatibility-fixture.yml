@@ -139,8 +139,18 @@ jobs:
           echo "$OUT"
           test "${TEST_EXIT:-0}" = "0"
           echo "$OUT" | grep -q "# skipped 0"
-          echo "$OUT" | grep -q "# pass 7"
+          echo "$OUT" | grep -q "# pass 13"
           echo "CHAIN_CONTRACT_NO_SKIP_FALLBACK=VERIFIED"
+
+      - name: The coordinator's original offline counterexamples (six groups, verbatim shapes)
+        run: |
+          set -euo pipefail
+          OUT="$(node --test scripts/ci/ledger-offline-counterexamples.test.mjs 2>&1)" || TEST_EXIT=$?
+          echo "$OUT"
+          test "${TEST_EXIT:-0}" = "0"
+          echo "$OUT" | grep -q "# skipped 0"
+          echo "$OUT" | grep -q "# pass 10"
+          echo "ORIGINAL_COUNTEREXAMPLES_NO_SKIP_FALLBACK=VERIFIED"
 
       - name: Preflight output classifier regressions (boundary matrix + real binary dynamics)
         run: |

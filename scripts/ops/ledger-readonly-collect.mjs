@@ -141,11 +141,22 @@ export function collectLedger(argv = process.argv.slice(2)) {
   };
 }
 
+// UNIFIED STDERR SANITIZE: every diagnostic the collector prints goes through
+// this one path — non-printable bytes stripped (a raw psql/driver blob can
+// never leak control characters), whitespace collapsed, hard 300-char cap
+function sanitizeDiagnostic(value) {
+  return String(value ?? '')
+    .replace(/[^\x20-\x7e]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 300);
+}
+
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try {
     console.log(JSON.stringify(collectLedger(process.argv.slice(2)), null, 2));
   } catch (error) {
-    console.error(`LEDGER_COLLECT_ERROR: ${String(error?.message || error).replace(/\s+/g, ' ').slice(0, 300)}`);
+    console.error(`LEDGER_COLLECT_ERROR: ${sanitizeDiagnostic(error?.message || error)}`);
     process.exitCode = 1;
   }
 }

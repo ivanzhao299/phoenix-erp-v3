@@ -24,7 +24,8 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { randomUUID } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
-import { assertDedicatedLedgerFixture, OWNER_MARKER_TABLE } from './ledger-fixture-guard.mjs';
+import { assertDedicatedLedgerFixture, provisionDedicatedDatabase, OWNER_MARKER_TABLE } from './ledger-fixture-guard.mjs';
+const chainModule = await import(pathToFileURL(path.join(path.resolve(process.cwd()), 'scripts/ci/ledger-collection-chain.mjs')).href);
 
 const require = createRequire(import.meta.url);
 const { Client } = require('../../apps/api/node_modules/pg');
@@ -76,9 +77,11 @@ function seedChainDatabase({ dropLegacyRow = false, dropMigrationsTable = false 
 // The remote is an INDEPENDENT file system root (remoteRoot): DEPLOY_PATH and
 // the remote evidence directory live there — the runner recovers the result
 // ONLY from the transport's stdout and never reads the remote tree.
+const createdRemoteRoots = [];
 function runChain(evidenceDir, overrides = {}) {
   const dockerShimBin = makeDockerShim();
   const remoteRoot = overrides.remoteRoot ?? fs.mkdtempSync(path.join(os.tmpdir(), 'ledger-remote-fs-'));
+  createdRemoteRoots.push(remoteRoot);
   fs.mkdirSync(path.join(remoteRoot, 'deploy'), { recursive: true });
   const args = [
     'scripts/ci/ledger-collection-chain.mjs',
@@ -132,11 +135,12 @@ chain('production ledger collection chain (no production network, local transpor
     assert.ok(container, 'fixture DB container required');
     // provision the dedicated chain database (container channel) and verify
     // through the SHARED GUARD before anything runs
-    const bootstrap = spawnSync('docker', ['exec', container, 'psql', '-X', '-v', 'ON_ERROR_STOP=1', '-U', pgEnv.PGUSER, '-d', 'postgres', '-c', `DROP DATABASE IF EXISTS ${chainDb}`, '-c', `CREATE DATABASE ${chainDb}`], { encoding: 'utf8' });
-    assert.equal(bootstrap.status, 0, bootstrap.stderr);
+    // CONDITIONAL provisioning: an existing same-named database (another
+    // run's, or unmarked) is NEVER provisioned over — the entry refuses; the
+    // dedicated database is created fresh ONLY when absent, then stamped
     const nonce = randomUUID();
-    const marker = spawnSync('docker', ['exec', container, 'psql', '-X', '-v', 'ON_ERROR_STOP=1', '-U', pgEnv.PGUSER, '-d', chainDb, '-c', `CREATE TABLE ${OWNER_MARKER_TABLE} (run_nonce text PRIMARY KEY)`, '-c', `INSERT INTO ${OWNER_MARKER_TABLE} (run_nonce) VALUES ('${nonce}')`], { encoding: 'utf8' });
-    assert.equal(marker.status, 0, marker.stderr);
+    const provisioned = provisionDedicatedDatabase({ container, user: pgEnv.PGUSER, database: chainDb, runNonce: nonce });
+    assert.equal(provisioned.created, true, `conditional provisioning refused: ${provisioned.reason}`);
     const chainUrl = new URL(fixtureUrl);
     chainUrl.pathname = `/${chainDb}`;
     const probe = new Client({ connectionString: chainUrl.toString() });
@@ -148,18 +152,29 @@ chain('production ledger collection chain (no production network, local transpor
     }
     work = fs.mkdtempSync(path.join(os.tmpdir(), 'ledger-chain-'));
   });
+  // CLEANUP IS SCOPED TO WHAT THIS RUN CREATED: the two databases this suite
+  // provisioned (chainDb and the sentinel) and the remote roots tracked in
+  // createdRemoteRoots — never a global prefix scan of /tmp
   after(() => {
-    try { spawnSync('docker', ['exec', container, 'psql', '-X', '-U', pgEnv.PGUSER, '-d', 'postgres', '-c', `DROP DATABASE IF EXISTS ${chainDb}`, '-c', `DROP DATABASE IF EXISTS ${chainDb}_sentinel`], { encoding: 'utf8' }); } catch { /* best effort */ }
-    for (const dir of fs.readdirSync(os.tmpdir()).filter((n) => n.startsWith('ledger-remote-fs-'))) {
-      try { fs.rmSync(path.join(os.tmpdir(), dir), { recursive: true, force: true }); } catch { /* concurrently created */ }
+    for (const db of [chainDb, `${chainDb}_sentinel`]) {
+      try { spawnSync('docker', ['exec', container, 'psql', '-X', '-U', pgEnv.PGUSER, '-d', 'postgres', '-c', `DROP DATABASE IF EXISTS ${db}`], { encoding: 'utf8' }); } catch { /* best effort */ }
+    }
+    for (const dir of createdRemoteRoots) {
+      try { fs.rmSync(dir, { recursive: true, force: true }); } catch { /* best effort */ }
     }
     fs.rmSync(work, { recursive: true, force: true });
   });
 
-  test('normal: the full chain completes over an INDEPENDENT remote filesystem — exit 0, stdout-only recovery, BOTH evaluations', () => {
+  test('normal: full chain over an INDEPENDENT remote filesystem — exit 0, TWO DIFFERENT pinned SHAs, stdout-only recovery, archived-digest recompute', () => {
     seedDatabase(seedChainDatabase());
     const evidence = path.join(work, 'normal');
-    const run = runChain(evidence, { expectedMainSha: headSha });
+    // a SECOND REAL COMMIT (same tree as HEAD, different identity): resolves
+    // in ANY checkout including shallow ones — main and candidate are pinned
+    // to genuinely DIFFERENT valid SHAs
+    const secondSha = execFileSync('git', ['commit-tree', `HEAD^{tree}`, '-m', 'chain-test-main-pin'], { cwd: repoRoot, encoding: 'utf8' }).trim();
+    assert.match(secondSha, /^[a-f0-9]{40}$/);
+    assert.notEqual(secondSha, headSha);
+    const run = runChain(evidence, { mainRef: secondSha, expectedMainSha: secondSha });
     assert.equal(run.code, 0, `chain exit ${run.code}: ${run.stdout}\n${run.stderr}`);
     assert.match(run.stdout, /LEDGER_COLLECTION_CHAIN=code:0/);
     // RUNNER evidence: binding, the stdout-recovered document + digest, both
@@ -175,10 +190,19 @@ chain('production ledger collection chain (no production network, local transpor
     for (const file of ['staging.txt', 'collection.json', 'collection.sha256', 'validate.txt']) {
       assert.ok(fs.existsSync(path.join(remoteEvidence, file)), `missing remote evidence file: ${file}`);
     }
-    // RAW BYTE DIGEST: the recovered document's digest equals the digest the
-    // host computed over its own file bytes (byte-exact stdout round trip)
+    // RAW BYTE DIGEST, RECOMPUTED OVER THE ARCHIVED FILE: the runner's
+    // collection.json must be the RAW recovered bytes (no re-serialization) —
+    // its sha256, RECOMPUTED HERE from the archived file, equals the digest
+    // the host computed over its own file bytes
     const hostDigest = fs.readFileSync(path.join(remoteEvidence, 'collection.sha256'), 'utf8').trim();
-    assert.equal(fs.readFileSync(path.join(evidence, 'collection.sha256'), 'utf8').trim(), hostDigest);
+    const archived = fs.readFileSync(path.join(evidence, 'collection.json'));
+    const recomputed = execFileSync('sha256sum', [path.join(evidence, 'collection.json')], { encoding: 'utf8' }).split(' ')[0];
+    assert.equal(recomputed, hostDigest, 'the ARCHIVED file digest does not match the host digest — re-serialization or corruption');
+    assert.equal(fs.readFileSync(path.join(evidence, 'collection.sha256'), 'utf8').trim(), recomputed);
+    // the two inventories record the TWO DIFFERENT pinned SHAs
+    assert.equal(JSON.parse(fs.readFileSync(path.join(evidence, 'inv-main.json'), 'utf8')).source_ref, secondSha);
+    assert.equal(JSON.parse(fs.readFileSync(path.join(evidence, 'inv-collection.json'), 'utf8')).source_ref, headSha);
+    assert.match(fs.readFileSync(path.join(evidence, 'bind.txt'), 'utf8'), new RegExp(`main_sha=${secondSha}`));
     assert.match(fs.readFileSync(path.join(evidence, 'SUMMARY.txt'), 'utf8'), /eval_main=PASS/);
     assert.match(fs.readFileSync(path.join(evidence, 'SUMMARY.txt'), 'utf8'), /eval_collection=PASS/);
   }, 180_000);
@@ -282,6 +306,89 @@ chain('production ledger collection chain (no production network, local transpor
     assert.ok(afterDbs.split(',').includes(sentinel), 'the sentinel database disappeared');
     assert.equal(afterDbs, beforeDbsAdjusted.split(',').filter((d) => d !== chainDb).sort().join(','), 'the instance database set changed beyond the chain\'s own database');
   }, 300_000);
+
+  // ── transport lifecycle: the four classes the coordinator specified ─────
+  // (these exercise runBoundedGroup directly — the chain CLI-level foreground
+  // hang remains covered by the transport-timeout test above)
+  test('lifecycle 1 — leader exits early, descendants still alive: the result stays OPEN until the bound group-kills them', async () => {
+    const marker = path.join(work, 'lifecycle1-started');
+    const run = await chainModule.runBoundedGroup('sh', ['-c', `touch ${JSON.stringify(marker)}; sleep 30 & exit 0`], { timeoutMs: 1200 });
+    assert.ok(fs.existsSync(marker), 'the command never started');
+    assert.equal(run.killed, true, 'the bound must fire — the descendant holds the pipes open after the leader exited');
+    assert.equal(run.status, null, 'a group-killed run reports no exit status (it never completed on its own)');
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    const leftover = spawnSync('pgrep', ['-f', 'sleep 30'], { encoding: 'utf8' });
+    assert.notEqual(leftover.status, 0, 'the descendant survived the group kill');
+  }, 15_000);
+
+  test('lifecycle 2 — late stdout: output written by a descendant AFTER the leader exited is still fully captured', async () => {
+    const started = Date.now();
+    const run = await chainModule.runBoundedGroup('sh', ['-c', '(sleep 1; echo LATE_LINE) & exit 0'], { timeoutMs: 10_000 });
+    const elapsed = Date.now() - started;
+    assert.equal(run.status, 0, `status ${run.status}: ${run.stderr}`);
+    assert.equal(run.killed, false);
+    assert.match(run.stdout, /LATE_LINE/, 'the late output was lost');
+    assert.ok(elapsed >= 900, `settled at ${elapsed}ms — the close (not the leader exit) must gate the result`);
+  }, 15_000);
+
+  test('lifecycle 3 — stdin EPIPE against a fast-failing command: recorded, never unhandled, outcome still settles', async () => {
+    const run = await chainModule.runBoundedGroup('sh', ['-c', 'exec 0<&-; exit 7'], { input: 'x'.repeat(1 << 20), timeoutMs: 5_000 });
+    assert.equal(run.status, 7, `status ${run.status}: ${run.stderr}`);
+    // the EPIPE (if any) is captured as data, not thrown
+    assert.ok(run.stdinError === null || /EPIPE|pipe/i.test(String(run.stdinError?.message ?? run.stdinError)));
+  }, 15_000);
+
+  test('lifecycle 4 — foreground hang: the whole group dies at the bound (direct)', async () => {
+    const run = await chainModule.runBoundedGroup('sh', ['-c', 'sleep 30'], { timeoutMs: 800 });
+    assert.equal(run.killed, true);
+    assert.equal(run.status, null);
+  }, 15_000);
+
+  // ── SSH command-construction boundary (no network) ───────────────────────
+  test('SSH delivery boundary: env values are shell-literal — expansion payloads can never execute', () => {
+    // a hostile value carrying quote breaks, command substitution, backticks
+    // and variable expansion — assembled from char codes to keep THIS file
+    // parseable
+    const hostile = String.fromCharCode(39, 59, 32, 36, 40, 114, 109, 32, 45, 114, 102, 32, 47, 116, 109, 112, 47, 110, 101, 118, 101, 114, 41, 59, 32, 96, 101, 99, 104, 111, 32, 104, 105, 96, 59, 32, 36, 123, 72, 79, 77, 69, 125);
+    assert.ok(hostile.includes(String.fromCharCode(36, 40)), 'sanity: substitution payload present');
+    const command = chainModule.buildRemoteCommand({ COLLECTOR_B64: hostile, DEPLOY_PATH: '~/x $(boom)' });
+    // single-quoted literals: every expansion metacharacter stays inside the
+    // shell literal produced by the SAME quoting function the transport uses
+    assert.ok(command.includes(`COLLECTOR_B64=${chainModule.shellQuote(hostile)}`), command);
+    // the SAME shell must round-trip the hostile value verbatim: replace the
+    // trailing `bash -s` with a quoting probe subshell — the env prefix sets
+    // the variable for the subshell, and printf %s echoes it back UNEXPANDED
+    const probe = `sh -c ${chainModule.shellQuote('printf %s "$COLLECTOR_B64"')}`;
+    const echo = spawnSync('sh', ['-c', command.replace(/bash -s$/, probe)], { encoding: 'utf8' });
+    assert.equal(echo.stdout, hostile, `the shell did not round-trip the hostile value verbatim (got ${JSON.stringify(echo.stdout)}) — expansion happened`);
+  });
+
+  // ── same-named target with a FOREIGN nonce: the entry refuses, both sides unchanged ──
+  test('same-name foreign-nonce target: provisioning refuses and BOTH sides stay byte-identical', () => {
+    const victim = `ledger_collect_chain_victim_${randomUUID().slice(0, 8)}`;
+    const created = spawnSync('docker', ['exec', container, 'psql', '-X', '-v', 'ON_ERROR_STOP=1', '-U', pgEnv.PGUSER, '-d', 'postgres', '-c', `CREATE DATABASE ${victim}`], { encoding: 'utf8' });
+    assert.equal(created.status, 0, created.stderr);
+    try {
+      const seed = spawnSync('docker', ['exec', container, 'psql', '-X', '-v', 'ON_ERROR_STOP=1', '-U', pgEnv.PGUSER, '-d', victim], {
+        input: [`CREATE TABLE ${OWNER_MARKER_TABLE} (run_nonce text PRIMARY KEY);`, "INSERT INTO ledger_fixture_owner (run_nonce) VALUES ('someone-elses-run');", 'CREATE TABLE payload (v text);', "INSERT INTO payload VALUES ('do-not-touch');"].join('\n'),
+        encoding: 'utf8',
+      });
+      assert.equal(seed.status, 0, seed.stderr);
+      const readVictim = () => spawnSync('docker', ['exec', container, 'psql', '-X', '-At', '-U', pgEnv.PGUSER, '-d', victim, '-c', `SELECT (SELECT run_nonce FROM ${OWNER_MARKER_TABLE}) || '|' || (SELECT v FROM payload)`], { encoding: 'utf8' }).stdout.trim();
+      const listDbs = () => spawnSync('docker', ['exec', container, 'psql', '-X', '-At', '-U', pgEnv.PGUSER, '-d', 'postgres', '-c', "SELECT string_agg(datname, ',' ORDER BY datname) FROM pg_database WHERE datname LIKE 'ledger_collect_%'"], { encoding: 'utf8' }).stdout.trim();
+      const before = readVictim();
+      const beforeDbs = listDbs();
+      // THE ENTRY: conditional provisioning over the SAME-NAME database that
+      // carries another run's nonce — must refuse with zero modification
+      const attempt = provisionDedicatedDatabase({ container, user: pgEnv.PGUSER, database: victim, runNonce: 'this-run-nonce' });
+      assert.equal(attempt.created, false, 'provisioning must refuse an existing same-named database');
+      assert.match(attempt.reason, /already exists/);
+      assert.equal(readVictim(), before, 'the victim database was modified');
+      assert.equal(listDbs(), beforeDbs, 'the instance database list was modified');
+    } finally {
+      spawnSync('docker', ['exec', container, 'psql', '-X', '-U', pgEnv.PGUSER, '-d', 'postgres', '-c', `DROP DATABASE IF EXISTS ${victim}`], { encoding: 'utf8' });
+    }
+  });
 
   test('crash: the ledger table is missing on the host side → exit 3, failure + transport output retained', () => {
     seedDatabase(seedChainDatabase({ dropMigrationsTable: true }));

@@ -79,7 +79,8 @@
   },
   "offline_adapter": {
     "path": "scripts/ops/ledger-offline-evaluate.mjs",
-    "sha256": "6dacb2f362a2ba9fdc000c8478977f4c7f8b369323c9ce46bdb7c8fd3c388b4e",
-    "note": "the DOCUMENTED offline path — maps the collection document, loads the FULL inventory/legacy/retired inputs, refuses missing/malformed inputs; raw --fixture invocation is vacuous and is not the path"
-  }
+    "sha256": "f435c35c55443a831434b77a4ad07f0dbad912b8df3ffd8662eea1d2739b6290",
+    "note": "the DOCUMENTED offline path — maps the collection document, loads the FULL inventory/legacy/retired inputs, refuses missing/malformed/truncated/edited inputs (source verification regenerates from the declared source_ref and compares); raw --fixture invocation is vacuous and is not the path"
+  },
+  "note": "tracked inventories regenerated from RESOLVED commit SHAs (source_ref is a 40-hex sha, verifiable by regeneration)"
 }

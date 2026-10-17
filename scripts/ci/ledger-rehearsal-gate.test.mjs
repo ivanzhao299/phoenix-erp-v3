@@ -51,7 +51,8 @@ gate('rehearsal preflight gate (real runner, real fixture)', () => {
     assert.ok(container || process.env.CI, 'the fixture container (or the CI psql client) is required');
   });
   after(() => {
-    try { spawnSync('docker', ['exec', container, 'psql', '-X', '-U', pgEnv.PGUSER, '-d', 'postgres', '-c', `DROP DATABASE IF EXISTS ${pgEnv.PGDATABASE}`], { encoding: 'utf8' }); } catch { /* best effort cleanup */ }
+    // scoped cleanup: this suite creates NO database (the job's service
+    // provisioned it and the runner resets it per run) — nothing is dropped
   });
 
   test('clean fixture: the rehearsal passes and asserts the preflight PASS verdict', () => {

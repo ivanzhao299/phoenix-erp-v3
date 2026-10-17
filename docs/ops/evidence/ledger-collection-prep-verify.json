@@ -8,9 +8,10 @@
   },
   "collector": {
     "path": "scripts/ops/ledger-readonly-collect.mjs",
-    "sha256": "ee4b57937faa862939b722d2573a70913b121099c311ebcca561b0a4a0822f09",
+    "sha256": "67daee48159e350657897bec4ebfc25a291c4c7a986779f66d6017ac03460091",
     "self_contained": true,
-    "timeout_cross_check": "client > statement+lock enforced; INTEGER-ONLY timeouts (fractional values refused, never silently rounded)"
+    "stderr": "UNIFIED sanitize: control chars stripped, whitespace collapsed, 300-char cap — one path for every diagnostic",
+    "timeout_cross_check": "client > statement+lock enforced; INTEGER-ONLY timeouts (fractional values refused)"
   },
   "cases": [
     {
@@ -107,6 +108,36 @@
       "name": "retired-registry input refusals",
       "outcome": "PASS",
       "detail": "REAL CLI runs: not-an-array, malformed entry, duplicate identity — each exits 2 with INVALID_INPUT: retired registry reason"
+    },
+    {
+      "name": "original six offline counterexamples (verbatim)",
+      "outcome": "PASS",
+      "detail": "the coordinator script shapes formalized in scripts/ci/ledger-offline-counterexamples.test.mjs — confirmed FAILING first (all six exited 0), then fixed: duplicate legacy, invalid applied_at, duplicate inventory, name-vs-timestamp conflict, forged source_ref, truncated inventory (post-migration) each now exit 2; valid still 0; full-post still 1"
+    },
+    {
+      "name": "transport lifecycle four classes",
+      "outcome": "PASS",
+      "detail": "runBoundedGroup settles on CLOSE (pipes drained): leader-exits-early with a live descendant stays OPEN until the bound group-kills it; late descendant stdout fully captured (settle gated on close, not leader exit); stdin EPIPE recorded (never unhandled, outcome still settles); foreground hang group-killed at the bound"
+    },
+    {
+      "name": "same-name foreign-nonce provisioning refusal",
+      "outcome": "PASS",
+      "detail": "conditional provisioning refuses an EXISTING same-named dedicated database (another run nonce or unmarked) — both sides byte-identical before/after; all fixture suites use the conditional helper"
+    },
+    {
+      "name": "archived-digest recompute",
+      "outcome": "PASS",
+      "detail": "the runner archives the RAW recovered bytes (no re-serialization) and the test RECOMPUTES sha256 over the archived FILE, equal to the host digest"
+    },
+    {
+      "name": "dual DIFFERENT pinned SHAs",
+      "outcome": "PASS",
+      "detail": "main pinned to a second real commit (commit-tree, resolvable in any checkout), candidate to HEAD — the two inventories record the two different shas and bind.txt pins both"
+    },
+    {
+      "name": "SSH command-delivery boundary",
+      "outcome": "PASS",
+      "detail": "env values are single-quoted shell literals via shellQuote; a hostile value (quotes, $(...), backticks, ${...}) round-trips verbatim through sh -c — no expansion"
     }
   ],
   "boundaries": {
@@ -134,8 +165,8 @@
     ]
   },
   "claim_accuracy": {
-    "residue_claims": "CHANNEL-SCOPED AND MEASURED: ci-channel residue assertions exclude the blocker/fixture backends by pid; the prod channel after a client kill relies on the SERVER-side bounds — now verified by the client-kill proof with exact backend pid",
-    "static_vs_dynamic": "static pins (workflow YAML shape, tally assertions) are labelled static; every guard/gate/classifier/chain behavior listed here has a dynamic test"
+    "residue_claims": "CHANNEL-SCOPED AND MEASURED (pid-precise)",
+    "coverage_scope": "the independent-remote-FS coverage is a SEPARATE ROOT on the SAME machine with the LOCAL transport; the REAL ssh transport is covered by the command-construction boundary test only — no production network is ever touched"
   },
   "chain": {
     "runner": {

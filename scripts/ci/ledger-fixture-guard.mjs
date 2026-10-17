@@ -73,3 +73,28 @@ export function assertDedicatedLedgerFixture({ fixtureUrl, container, client, ex
     return { database, container, server_version: urlVersion };
   })();
 }
+
+// CONDITIONAL PROVISIONING (zero-modification on collision): create the
+// dedicated database and stamp THIS-RUN ownership ONLY when it does not yet
+// exist. An EXISTING database — whether it carries another run's nonce or no
+// marker at all — is never touched: the entry refuses, both sides unchanged.
+// Returns { created: true } or { created: false, reason } (no writes in the
+// refused case).
+export function provisionDedicatedDatabase({ container, user, database, runNonce, exec = containerPsql }) {
+  const exists = exec(container, user, 'postgres', `SELECT 1 FROM pg_database WHERE datname = '${database}'`);
+  if (exists.status !== 0) return { created: false, reason: `instance unreachable: ${exists.stderr}` };
+  if (exists.stdout.trim() === '1') {
+    return { created: false, reason: `database ${database} already exists on ${container} — a same-named target (another run's, or unmarked) is never provisioned over` };
+  }
+  const create = exec(container, user, 'postgres', `CREATE DATABASE ${database}`);
+  if (create.status !== 0) return { created: false, reason: create.stderr };
+  const createMarker = exec(container, user, database, `CREATE TABLE ${OWNER_MARKER_TABLE} (run_nonce text PRIMARY KEY)`);
+  const marker = createMarker.status === 0
+    ? exec(container, user, database, `INSERT INTO ${OWNER_MARKER_TABLE} (run_nonce) VALUES ('${runNonce}')`)
+    : createMarker;
+  if (marker.status !== 0) {
+    exec(container, user, 'postgres', `DROP DATABASE IF EXISTS ${database}`);
+    return { created: false, reason: `marker write failed: ${marker.stderr}` };
+  }
+  return { created: true };
+}

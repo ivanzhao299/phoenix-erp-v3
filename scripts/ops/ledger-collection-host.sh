@@ -23,11 +23,22 @@ set +x
 : "${DEPLOY_PATH:?DEPLOY_PATH required}"
 : "${EVIDENCE_DIR:?EVIDENCE_DIR required}"
 
+# the deploy path must be ABSOLUTE (a '~' in an env var never expands — a
+# relative or tilde path is a misconfigured delivery, refused outright)
+case "$DEPLOY_PATH" in
+  /*) ;;
+  *) echo "HOST_COLLECT_ERROR=DEPLOY_PATH_NOT_ABSOLUTE" >&2; exit 30 ;;
+esac
+# production runs as the deploy user, never root
+if [ "$(id -u)" -eq 0 ]; then
+  echo "HOST_COLLECT_ERROR=ROOT_REFUSED" >&2
+  exit 30
+fi
 cd "$DEPLOY_PATH"
 
 STAGE_DIR="$(mktemp -d /tmp/phoenix-ledger-collect.XXXXXX)"
 trap 'rm -rf "$STAGE_DIR"' EXIT
-mkdir -p "$EVIDENCE_DIR"
+mkdir -p -m 700 "$EVIDENCE_DIR"
 
 # ── stage: decode the pinned collector and verify it ──────────────────────
 printf '%s' "$COLLECTOR_B64" | base64 -d > "$STAGE_DIR/ledger-readonly-collect.mjs"
@@ -59,5 +70,6 @@ cat "$EVIDENCE_DIR/validate.txt"
 # ── emit: stdout recovery of the RAW document plus its digest ─────────────
 COLLECTION_SHA256="$(sha256sum "$EVIDENCE_DIR/collection.json" | cut -d' ' -f1)"
 echo "$COLLECTION_SHA256" > "$EVIDENCE_DIR/collection.sha256"
+echo "COLLECTION_EVIDENCE_DIR=$EVIDENCE_DIR"
 echo "COLLECTION_SHA256=$COLLECTION_SHA256"
 echo "COLLECTION_RESULT_B64=$(base64 -w0 "$EVIDENCE_DIR/collection.json")"

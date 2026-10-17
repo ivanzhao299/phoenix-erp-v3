@@ -22,7 +22,7 @@ import { execFileSync, spawn, spawnSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { createRequire } from 'node:module';
 import { randomUUID } from 'node:crypto';
-import { assertDedicatedLedgerFixture, OWNER_MARKER_TABLE } from './ledger-fixture-guard.mjs';
+import { assertDedicatedLedgerFixture, provisionDedicatedDatabase, OWNER_MARKER_TABLE } from './ledger-fixture-guard.mjs';
 
 const require = createRequire(import.meta.url);
 const { Client } = require('../../apps/api/node_modules/pg');
@@ -46,6 +46,18 @@ const container = process.env.LEDGER_COLLECT_DB_CONTAINER || '';
 const stageDb = 'ledger_collect_staging';
 const stageEnv = fixtureUrl ? { ...pgEnv, PGDATABASE: stageDb } : null;
 let stageRunNonce = '';
+
+// a RUNTIME-generated inventory whose source_ref is the RESOLVED HEAD sha
+// (resolvable in any checkout, including shallow CI) — the adapter's source
+// verification regenerates from that sha and must match
+let runtimeInventoryFile = '';
+function runtimeInventory() {
+  if (!runtimeInventoryFile) {
+    runtimeInventoryFile = path.join(os.tmpdir(), `ledger-inv-runtime-${process.pid}.json`);
+    execFileSync(process.execPath, [path.join(repoRoot, 'scripts/ci/ledger-source-inventory.mjs'), execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repoRoot, encoding: 'utf8' }).trim(), runtimeInventoryFile], { cwd: repoRoot, encoding: 'utf8' });
+  }
+  return runtimeInventoryFile;
+}
 
 function realCollectionDocument(database) {
   // produce a REAL collection document from the fixture via the ci channel
@@ -72,21 +84,29 @@ staged('ledger collection staging (prod transport) + offline evaluation adapter'
     // ownership over the SERVER fixture — before anything destructive. The
     // staging database is then bootstrapped and verified through the same
     // guard (its own dedicated name in the allowed namespace).
-    const serverProbe = new Client({ connectionString: fixtureUrl });
+    // the SERVER-level probe connects to the instance's 'postgres' database
+    // (this suite must not depend on another suite's database existing); the
+    // dedicated-namespace + same-instance checks run against it, and the
+    // STAGING database then gets its own conditional provisioning + guard
+    const serverUrl = new URL(fixtureUrl);
+    serverUrl.pathname = '/postgres';
+    const serverProbe = new Client({ connectionString: serverUrl.toString() });
     await serverProbe.connect();
     try {
-      await assertDedicatedLedgerFixture({ fixtureUrl, container, client: serverProbe });
+      const listed = await serverProbe.query(`SELECT 1 FROM pg_database WHERE datname = current_database()`);
+      assert.equal(listed.rows.length, 1, 'instance probe failed');
+      const serverVersion = (await serverProbe.query('SHOW server_version')).rows[0].server_version;
+      const containerVersion = spawnSync('docker', ['exec', container, 'psql', '-X', '-At', '-U', pgEnv.PGUSER, '-d', 'postgres', '-c', 'SHOW server_version'], { encoding: 'utf8' }).stdout.trim();
+      assert.equal(serverVersion.split(' ').pop(), containerVersion.split(' ').pop(), `server probe and container report different servers: ${serverVersion} vs ${containerVersion}`);
     } finally {
       await serverProbe.end().catch(() => undefined);
     }
-    const bootstrap = spawnSync('docker', ['exec', container, 'psql', '-X', '-v', 'ON_ERROR_STOP=1', '-U', pgEnv.PGUSER, '-d', 'postgres', '-c', `DROP DATABASE IF EXISTS ${stageDb}`, '-c', `CREATE DATABASE ${stageDb}`], { encoding: 'utf8' });
-    assert.equal(bootstrap.status, 0, `stage database bootstrap failed: ${bootstrap.stderr}`);
-    // THIS-RUN OWNERSHIP on the staging database too: a per-run nonce is
-    // written through the CONTAINER channel and the guard then verifies it
-    // from BOTH views before any seeding or destructive operation
+    // CONDITIONAL provisioning + THIS-RUN OWNERSHIP on the staging database:
+    // an existing same-named database is never provisioned over; the fresh
+    // database is stamped and guard-verified from BOTH views
     stageRunNonce = randomUUID();
-    const marker = spawnSync('docker', ['exec', container, 'psql', '-X', '-v', 'ON_ERROR_STOP=1', '-U', pgEnv.PGUSER, '-d', stageDb, '-c', `CREATE TABLE ${OWNER_MARKER_TABLE} (run_nonce text PRIMARY KEY)`, '-c', `INSERT INTO ${OWNER_MARKER_TABLE} (run_nonce) VALUES ('${stageRunNonce}')`], { encoding: 'utf8' });
-    assert.equal(marker.status, 0, `stage ownership marker write failed: ${marker.stderr}`);
+    const provisioned = provisionDedicatedDatabase({ container, user: pgEnv.PGUSER, database: stageDb, runNonce: stageRunNonce });
+    assert.equal(provisioned.created, true, `conditional staging provisioning refused: ${provisioned.reason}`);
     const stageUrl = new URL(fixtureUrl);
     stageUrl.pathname = `/${stageDb}`;
     const stageClient = new Client({ connectionString: stageUrl.toString() });
@@ -104,7 +124,7 @@ staged('ledger collection staging (prod transport) + offline evaluation adapter'
     const legacy = fs.readdirSync(path.join(repoRoot, 'apps/api/migrations')).filter((n) => /2026.*\.sql$/.test(n)).sort();
     assert.equal(legacy.length, 169);
     const retired = JSON.parse(fs.readFileSync(path.join(repoRoot, 'scripts/ci/retired-typeorm-migrations.json'), 'utf8'));
-    const inv = JSON.parse(fs.readFileSync(path.join(repoRoot, 'docs/ops/evidence/inv-pr399.json'), 'utf8')).canonicalTypeorm;
+    const inv = JSON.parse(fs.readFileSync(runtimeInventory(), 'utf8')).canonicalTypeorm;
     const applied = inv.filter((e) => e.timestamp !== 1791878400000n).slice(0, 84);
     const q = (v) => `'${String(v).replace(/'/g, "''")}'`;
     // the freshly created stage database is empty: create the two ledger
@@ -122,7 +142,11 @@ staged('ledger collection staging (prod transport) + offline evaluation adapter'
     assert.equal(seeded.status, 0, `seed failed: ${seeded.stderr}`);
     work = fs.mkdtempSync(path.join(os.tmpdir(), 'ledger-staging-'));
   });
-  after(() => fs.rmSync(work, { recursive: true, force: true }));
+  after(() => {
+    fs.rmSync(work, { recursive: true, force: true });
+    // scoped cleanup: only THIS suite's staging database
+    if (container) spawnSync('docker', ['exec', container, 'psql', '-X', '-U', pgEnv.PGUSER, '-d', 'postgres', '-c', `DROP DATABASE IF EXISTS ${stageDb}`], { encoding: 'utf8' });
+  });
 
   test('the staged SINGLE-file collector runs through its PROD transport (docker compose exec db)', () => {
     // exactly the documented staging: fresh temp dir, copy the one file,
@@ -270,7 +294,7 @@ staged('ledger collection staging (prod transport) + offline evaluation adapter'
     const outFile = path.join(work, 'evaluation.json');
     const stdout = execFileSync(process.execPath, [adapter,
       '--collection', collectionFile,
-      '--inventory', path.join(repoRoot, 'docs/ops/evidence/inv-pr399.json'),
+      '--inventory', runtimeInventory(),
       '--legacy-dir', path.join(repoRoot, 'apps/api/migrations'),
       '--retired', path.join(repoRoot, 'scripts/ci/retired-typeorm-migrations.json'),
       '--mode', 'pre-migration', '--out', outFile,
@@ -298,7 +322,7 @@ staged('ledger collection staging (prod transport) + offline evaluation adapter'
     collection.schema_migrations = collection.schema_migrations.filter((row) => row.filename !== collection.schema_migrations[0].filename);
     const blockFile = path.join(work, 'collection-block.json');
     fs.writeFileSync(blockFile, JSON.stringify(collection));
-    const run = runAdapterCli(['--collection', blockFile, '--inventory', path.join(repoRoot, 'docs/ops/evidence/inv-pr399.json'), '--legacy-dir', path.join(repoRoot, 'apps/api/migrations'), '--retired', path.join(repoRoot, 'scripts/ci/retired-typeorm-migrations.json'), '--mode', 'pre-migration']);
+    const run = runAdapterCli(['--collection', blockFile, '--inventory', runtimeInventory(), '--legacy-dir', path.join(repoRoot, 'apps/api/migrations'), '--retired', path.join(repoRoot, 'scripts/ci/retired-typeorm-migrations.json'), '--mode', 'pre-migration']);
     assert.equal(run.code, 1, `BLOCK must exit 1, got ${run.code}: ${run.stderr}`);
     assert.match(run.stdout, /LEDGER_OFFLINE_EVALUATION=BLOCK/);
     assert.match(run.stdout, /legacy_missing/);
@@ -307,7 +331,7 @@ staged('ledger collection staging (prod transport) + offline evaluation adapter'
   test('offline CLI: every input counterexample is refused with exit 2 (a REAL CLI run each)', () => {
     const goodCollection = path.join(work, 'collection.json');
     fs.writeFileSync(goodCollection, JSON.stringify(realCollectionDocument(stageDb)));
-    const base = ['--collection', goodCollection, '--inventory', path.join(repoRoot, 'docs/ops/evidence/inv-pr399.json'), '--legacy-dir', path.join(repoRoot, 'apps/api/migrations'), '--retired', path.join(repoRoot, 'scripts/ci/retired-typeorm-migrations.json'), '--mode', 'pre-migration'];
+    const base = ['--collection', goodCollection, '--inventory', runtimeInventory(), '--legacy-dir', path.join(repoRoot, 'apps/api/migrations'), '--retired', path.join(repoRoot, 'scripts/ci/retired-typeorm-migrations.json'), '--mode', 'pre-migration'];
     // fixture files for the wrong-shape counterexamples
     const nonJson = path.join(work, 'non-json.json');
     fs.writeFileSync(nonJson, 'this is not json at all {{{');
