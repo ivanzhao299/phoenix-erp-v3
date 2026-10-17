@@ -230,3 +230,12 @@ test('real baseline marker exceeds30min with advancing clock; corrected CLI deri
   const before=readonlyCliFixture(t,{baselineConfig:true,clockStep:1});assert.equal(before.result.status,1);const marker=before.read('policy-transition.json');assert.ok(Date.parse(marker.expiresAt)-Date.parse(marker.startedAt)>30*60*1000);assert.equal(before.trace.filter(x=>x.kind==='composeApi').length,0);
   const after=readonlyCliFixture(t,{clockStep:1});cliSafe(after);assert.equal(after.result.status,0,after.result.stderr);assert.equal(after.names.includes('policy-transition.json'),false);assert.equal(after.read(`chanjet-config-${after.runId}.json`).outcome,'SUCCESS');
 });
+test('real policy CLI refuses an active maintenance owner before DB, HTTP, env or container mutation',t=>{
+  const f=readonlyCliFixture(t,{maintenancePending:true});
+  assert.equal(f.result.status,1);assert.equal(f.result.signal,null);
+  assert.match(f.result.stderr,/CHANJET_CONFIG_TRANSACTION=HOLD/);
+  assert.equal(f.env,f.source);assert.equal(f.names.includes('policy-transition.json'),false);
+  assert.equal(f.names.some(name=>name.startsWith('chanjet-config-')),false);
+  assert.equal(f.trace.some(entry=>['localHttp','dbReadOnly','composeApi'].includes(entry.kind)),false);
+  assert.equal(f.read('floor.json').chanjetPolicy,'HOLD');
+});

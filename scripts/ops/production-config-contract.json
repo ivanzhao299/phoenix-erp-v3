@@ -90,7 +90,15 @@
     "scripts/ops/background-control-manifest.mjs",
     "apps/api/src/common/interceptors/operation-log.interceptor.ts",
     "scripts/ops/chanjet-readonly-production-chain.sh",
-    "scripts/ops/chanjet-readonly-production-prepare.mjs"
+    "scripts/ops/chanjet-readonly-production-prepare.mjs",
+    "scripts/ops/production-maintenance-admission.mjs",
+    "scripts/ops/production-maintenance-deployment-session.mjs",
+    "scripts/ops/production-maintenance-github-authority.mjs",
+    "scripts/ops/production-maintenance-public-control.mjs",
+    "scripts/ops/production-maintenance-receipts.mjs",
+    "scripts/ops/production-maintenance-replacement.mjs",
+    "scripts/ops/production-maintenance-runtime.mjs",
+    "scripts/ops/production-maintenance-transition.mjs"
   ],
   "executionUid": 0,
   "controlRoot": "/var/lib/phoenix-erp",

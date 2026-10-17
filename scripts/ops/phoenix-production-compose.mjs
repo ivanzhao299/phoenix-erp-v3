@@ -4,7 +4,8 @@ import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
-import { CONTRACT, guardProduction, secureJson, assertStateVersion, rollbackEligibility, assertRuntimePins } from './production-config-guard.mjs';
+import { CONTRACT, guardProduction, secureJson, assertStateVersion, rollbackEligibility, assertRuntimePins, verifyContext } from './production-config-guard.mjs';
+import { assertModernReleaseAdmission } from './production-maintenance-admission.mjs';
 import { executionEnv, IMAGE_ID, captureRuntime } from './capture-production-runtime.mjs';
 import { transactionFile, inspectCandidate } from './production-deployment-state.mjs';
 import { inspectPublicDirectory, readPublicManifest, PUBLIC_DIRECTORY } from './background-control-manifest.mjs';
@@ -68,6 +69,9 @@ export function runCompose(args, dependencies = {}) {
   const state = assertStateVersion((dependencies.readState || secureJson)(file)); const images = state.active;
   const floor = (dependencies.guard || guardProduction)(root, directory, images);
   const command = composeArguments(root, args, floor.project);
+  if (['pull', 'up', 'restart'].includes(args[0])) {
+    (dependencies.maintenanceAdmission || assertModernReleaseAdmission)({ directory }, { guard: () => verifyContext(root, directory) });
+  }
   for (const service of ['api', 'web']) {
     if (!IMAGE_ID.test(images[service]?.imageId)) throw new Error('COMPOSE_HOLD=PIN_REQUIRED');
     const inspected = (dependencies.inspect || inspectCandidate)(images[service].imageId, images[service].revision);

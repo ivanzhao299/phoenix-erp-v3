@@ -10,6 +10,10 @@ import { createHash } from 'node:crypto';
 import { discoverParticipants, executeFencedDeployment, exactReanchorBinding, spawnDeploymentBody, assertLatestMain } from './background-deployment-session.mjs';
 import { assertBackgroundMount, assertBackgroundFence, runCompose } from './phoenix-production-compose.mjs';
 import { validateEffectiveConfig, CONTRACT } from './production-config-guard.mjs';
+import { assertModernReleaseAdmission } from './production-maintenance-admission.mjs';
+import { promoteFloor } from './promote-production-config-floor.mjs';
+import { configTransaction } from './chanjet-readonly-config-transaction.mjs';
+import { executeRecoveryStages } from './production-deployment-recovery.mjs';
 
 const oldSha = 'a'.repeat(40); const targetSha = 'b'.repeat(40);
 const binding = { owner: '1234-1', previousFloorSha: oldSha, targetSha };
@@ -31,6 +35,40 @@ function fixture(overrides = {}) {
   return { events, coordinator, child, exit, disconnect: () => { connected = false; } };
 }
 const options = { binding, project: 'phoenix-fixture', participants: [participant], script: 'formal deployment body' };
+function activeMaintenance(t) {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'modern-maintenance-entry-'));
+  fs.chmodSync(directory, 0o700); t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  fs.writeFileSync(path.join(directory, 'maintenance-current.json'), JSON.stringify({ owner: '1234-1' }), { mode: 0o600 });
+  const inspectDirectory = () => { const s = fs.lstatSync(directory); return [s.dev, s.ino, s.uid, s.mode]; };
+  return () => assertModernReleaseAdmission({ directory }, { guard: () => {}, inspectDirectory, expectedUid: process.getuid() });
+}
+test('active maintenance prevents background fence publication and shell spawn', async t => {
+  const gate = activeMaintenance(t), f = fixture(); let spawned = 0;
+  await assert.rejects(executeFencedDeployment(options, { maintenanceAdmission: gate, coordinator: f.coordinator, spawnBody: () => { spawned++; } }), /MAINTENANCE_LIFECYCLE_ACTIVE/);
+  assert.deepEqual(f.events, []); assert.equal(spawned, 0);
+  assert.throws(() => spawnDeploymentBody('must not execute', { maintenanceAdmission: gate, spawn: () => { spawned++; } }), /MAINTENANCE_LIFECYCLE_ACTIVE/);
+  assert.equal(spawned, 0);
+});
+test('active maintenance blocks Compose mutations while ps remains read only', t => {
+  const gate = activeMaintenance(t), imageId = 'sha256:' + 'a'.repeat(64);
+  const images = { api: { imageId, revision: oldSha }, web: { imageId, revision: oldSha } };
+  const deps = { root: '/fixture', directory: '/fixture', readState: () => ({ version: CONTRACT.version, active: images }),
+    guard: () => ({ project: 'phoenix-fixture', operationalTuple: { CHANJET_READONLY_SYNC_ENABLED: 'false', CHANJET_ERP_INBOUND_SYNC_ENABLED: 'false' } }), inspect: (id, revision) => ({ imageId: id, revision }), maintenanceAdmission: gate };
+  for (const args of [['pull', 'api'], ['up', '-d', '--no-deps', '--wait', 'api'], ['restart', 'web'], ['restart', 'db']]) {
+    let writes = 0; assert.throws(() => runCompose(args, { ...deps, execute: () => { writes++; } }), /MAINTENANCE_LIFECYCLE_ACTIVE/); assert.equal(writes, 0);
+  }
+  let queries = 0;
+  runCompose(['ps'], { ...deps, maintenanceAdmission: () => assert.fail('ps cannot invoke mutation admission'), execute: (_binary, args) => { assert.ok(args.includes('ps')); queries++; } });
+  assert.equal(queries, 1);
+});
+test('active maintenance blocks floor, policy configuration and recovery before their first mutation', async t => {
+  const gate = activeMaintenance(t);
+  await assert.rejects(promoteFloor('/fixture', { maintenanceAdmission: gate }), /MAINTENANCE_LIFECYCLE_ACTIVE/);
+  await assert.rejects(configTransaction('/fixture', 'HOLD', null, { maintenanceAdmission: gate }), /MAINTENANCE_LIFECYCLE_ACTIVE/);
+  let writes = 0;
+  assert.throws(() => executeRecoveryStages({ phase: 'ARCHIVED', plan: {} }, { maintenanceAdmission: gate, writeActive: () => { writes++; }, writeArchive: () => { writes++; } }), /MAINTENANCE_LIFECYCLE_ACTIVE/);
+  assert.equal(writes, 0);
+});
 test('remote main check is exact and bounded, with network failure treated as HOLD', () => {
   let args;
   assertLatestMain(targetSha, { probe: (...call) => { args = call; return `${targetSha}\trefs/heads/main`; } });
@@ -40,7 +78,7 @@ test('remote main check is exact and bounded, with network failure treated as HO
 });
 test('main changes before fencing produce zero deploy body and zero OPEN', async () => {
   const f = fixture();
-  await assert.rejects(executeFencedDeployment(options, { coordinator: f.coordinator,
+  await assert.rejects(executeFencedDeployment(options, { maintenanceAdmission: () => {}, coordinator: f.coordinator,
     verifyMain: async () => { throw new Error('BACKGROUND_HOLD=LATEST_MAIN_CHANGED'); },
     spawnBody: () => assert.fail('body cannot run'), persistProof: async () => assert.fail('no drain proof'),
   }), /LATEST_MAIN_CHANGED/);
@@ -48,7 +86,7 @@ test('main changes before fencing produce zero deploy body and zero OPEN', async
 });
 test('main changes after body success still prevent OPEN', async () => {
   const f = fixture(); let probes = 0;
-  await assert.rejects(executeFencedDeployment(options, { coordinator: f.coordinator,
+  await assert.rejects(executeFencedDeployment(options, { maintenanceAdmission: () => {}, coordinator: f.coordinator,
     verifyMain: async () => { if (++probes === 3) throw new Error('BACKGROUND_HOLD=LATEST_MAIN_CHANGED'); },
     persistProof: async () => {}, spawnBody: () => { setImmediate(() => f.exit(0)); return f.child; }, discoverNew: async () => [next],
   }), /LATEST_MAIN_CHANGED/);
@@ -56,7 +94,7 @@ test('main changes after body success still prevent OPEN', async () => {
 });
 test('remote main loss during the body terminates it and never opens', async () => {
   const f = fixture(); let probes = 0;
-  await assert.rejects(executeFencedDeployment(options, { coordinator: f.coordinator,
+  await assert.rejects(executeFencedDeployment(options, { maintenanceAdmission: () => {}, coordinator: f.coordinator,
     verifyMain: async () => { if (++probes > 2) throw new Error('BACKGROUND_HOLD=LATEST_MAIN_UNVERIFIED'); },
     persistProof: async () => {}, pollMs: 1, mainPollMs: 0, spawnBody: () => f.child,
     killBody: sig => setImmediate(() => f.exit(null, sig)),
@@ -76,7 +114,7 @@ test('normal, full, migration and unbound floor releases are rejected before pub
 });
 test('deploy child retains FD9, uses a process group and keeps the conservative recovery marker', () => {
   let command; let body;
-  spawnDeploymentBody('approved body', { root: '/fixture', env: { SAFE_TEST: 'true' }, spawn: (binary, args, config) => {
+  spawnDeploymentBody('approved body', { maintenanceAdmission: () => {}, root: '/fixture', env: { SAFE_TEST: 'true' }, spawn: (binary, args, config) => {
     command = { binary, args, config }; return { stdin: { end: value => { body = value; } } };
   } });
   assert.equal(command.binary, '/bin/bash'); assert.deepEqual(command.args, ['-Eeuo', 'pipefail']);
@@ -96,7 +134,7 @@ if(spawnSync('flock',['-n',process.env.LOCK_FIXTURE,'true']).status!==1)process.
 console.log('FD9_CHAIN_PASS');`);
     fs.writeFileSync(runner, `import fs from 'node:fs';import {spawnDeploymentBody} from ${JSON.stringify(moduleUrl)};
 const a=fs.fstatSync(9),b=fs.statSync('/proc/'+process.ppid+'/fd/9');if(a.ino!==b.ino||a.dev!==b.dev)process.exit(9);
-const child=spawnDeploymentBody('"$NODE_EXEC" "$CHECK_SCRIPT"',{root:process.env.FIXTURE_ROOT});
+const child=spawnDeploymentBody('"$NODE_EXEC" "$CHECK_SCRIPT"',{root:process.env.FIXTURE_ROOT,maintenanceAdmission:()=>{}});
 child.on('exit',(code,signal)=>{process.exitCode=signal?10:code;});`);
     const result = spawnSync('/bin/bash', ['-Eeuo', 'pipefail', '-c', 'exec 9<>"$LOCK_FIXTURE"; flock -n 9; "$NODE_EXEC" "$RUNNER_SCRIPT"; status=$?; exit "$status"'], {
       env: { PATH: process.env.PATH, LOCK_FIXTURE: lock, NODE_EXEC: process.execPath, CHECK_SCRIPT: check, RUNNER_SCRIPT: runner, FIXTURE_ROOT: dir }, encoding: 'utf8', timeout: 10000,
@@ -127,7 +165,7 @@ test('API-only body checks main before each mutation boundary and does not initi
 });
 test('drain and proof precede body; only independently verified success can open', async () => {
   const f = fixture();
-  const result = await executeFencedDeployment(options, { coordinator: f.coordinator, verifyMain: async () => true,
+  const result = await executeFencedDeployment(options, { maintenanceAdmission: () => {}, coordinator: f.coordinator, verifyMain: async () => true,
     persistProof: async proof => { assert.equal(proof.outcome, 'DRAINED'); f.events.push('proof'); },
     spawnBody: () => { f.events.push('body'); setImmediate(() => f.exit(0)); return f.child; },
     discoverNew: async () => [next],
@@ -138,7 +176,7 @@ test('drain and proof precede body; only independently verified success can open
 });
 test('legacy runtime or failed drain never starts the deploy body', async () => {
   const f = fixture({ fenceAndDrain: async () => { throw new Error('BACKGROUND_HOLD=HOLD_NO_FENCE_OR_DRAIN_PROOF'); } });
-  await assert.rejects(executeFencedDeployment(options, { coordinator: f.coordinator, verifyMain: async () => true,
+  await assert.rejects(executeFencedDeployment(options, { maintenanceAdmission: () => {}, coordinator: f.coordinator, verifyMain: async () => true,
     spawnBody: () => { assert.fail('unsafe legacy deployment'); }, persistProof: async () => assert.fail('no proof'),
   }), /HOLD_NO_FENCE_OR_DRAIN_PROOF/);
   assert.deepEqual(f.events, ['hold', 'close']);
@@ -149,7 +187,7 @@ test('legacy runtime or failed drain never starts the deploy body', async () => 
 });
 test('body failure retains HOLD, never auto opens or retries', async () => {
   const f = fixture(); let attempts = 0;
-  await assert.rejects(executeFencedDeployment(options, { coordinator: f.coordinator, verifyMain: async () => true, persistProof: async () => {},
+  await assert.rejects(executeFencedDeployment(options, { maintenanceAdmission: () => {}, coordinator: f.coordinator, verifyMain: async () => true, persistProof: async () => {},
     spawnBody: () => { attempts++; setImmediate(() => f.exit(42)); return f.child; },
     discoverNew: async () => assert.fail('must not authorize after failure'),
   }), /DEPLOY_BODY_FAILED/);
@@ -157,7 +195,7 @@ test('body failure retains HOLD, never auto opens or retries', async () => {
 });
 test('control session loss terminates the body and preserves durable denial', async () => {
   const f = fixture(); const signals = [];
-  await assert.rejects(executeFencedDeployment(options, { coordinator: f.coordinator, verifyMain: async () => true, persistProof: async () => {}, pollMs: 1,
+  await assert.rejects(executeFencedDeployment(options, { maintenanceAdmission: () => {}, coordinator: f.coordinator, verifyMain: async () => true, persistProof: async () => {}, pollMs: 1,
     spawnBody: () => { setImmediate(f.disconnect); return f.child; },
     killBody: sig => { signals.push(sig); setImmediate(() => f.exit(null, sig)); },
   }), /CONTROL_SESSION_LOST/);
@@ -165,14 +203,14 @@ test('control session loss terminates the body and preserves durable denial', as
 });
 test('deadline escalates a nonresponsive deploy body without auto recovery', async () => {
   const f = fixture(); const signals = [];
-  await assert.rejects(executeFencedDeployment({ ...options, maximumMs: 5 }, { coordinator: f.coordinator, verifyMain: async () => true, persistProof: async () => {}, killGraceMs: 2,
+  await assert.rejects(executeFencedDeployment({ ...options, maximumMs: 5 }, { maintenanceAdmission: () => {}, coordinator: f.coordinator, verifyMain: async () => true, persistProof: async () => {}, killGraceMs: 2,
     spawnBody: () => f.child, killBody: sig => { signals.push(sig); if (sig === 'SIGKILL') setImmediate(() => f.exit(null, sig)); },
   }), /DEPLOY_SESSION_TIMEOUT/);
   assert.deepEqual(signals, ['SIGTERM', 'SIGKILL']); assert.ok(!f.events.includes('verified-open'));
 });
 test('missing formal SUCCESS receipt leaves deployment fenced despite body zero exit', async () => {
   const f = fixture({ openAfterSuccess: async () => { throw new Error('BACKGROUND_HOLD=DEPLOY_SUCCESS_BINDING'); } });
-  await assert.rejects(executeFencedDeployment(options, { coordinator: f.coordinator, verifyMain: async () => true, persistProof: async () => {},
+  await assert.rejects(executeFencedDeployment(options, { maintenanceAdmission: () => {}, coordinator: f.coordinator, verifyMain: async () => true, persistProof: async () => {},
     spawnBody: () => { setImmediate(() => f.exit(0)); return f.child; }, discoverNew: async () => [next],
   }), /DEPLOY_SUCCESS_BINDING/);
   assert.ok(f.events.includes('hold')); assert.ok(!f.events.includes('verified-open'));
@@ -219,7 +257,7 @@ test('API up/restart without drain proof performs zero Docker mutations; other A
   const imageId = 'sha256:' + 'a'.repeat(64); const images = { api: { imageId, revision: oldSha }, web: { imageId, revision: oldSha } };
   for (const args of [['up', '-d', '--no-deps', '--wait', 'api'], ['restart', 'api'], ['stop', 'api'], ['kill', 'api'], ['rm', 'api'], ['down'], ['up', '--force-recreate', 'api']]) {
     let writes = 0; const f = drainFixture(); f.deps.readState = () => { throw new Error('missing proof'); };
-    assert.throws(() => runCompose(args, { root: '/fixture', directory: '/fixture',
+    assert.throws(() => runCompose(args, { maintenanceAdmission: () => {}, root: '/fixture', directory: '/fixture',
       readState: () => ({ version: CONTRACT.version, active: images }), guard: () => ({ project: 'phoenix-fixture' }),
       inspect: (imageId, revision) => ({ imageId, revision }), capture: () => images, eligibility: () => ({ allowed: true }),
       backgroundMount: () => {}, backgroundFence: () => assertBackgroundFence('/fixture', f.deps), execute: () => { writes++; },

@@ -4,7 +4,7 @@ import os from 'node:os';
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 const ops=path.dirname(new URL(import.meta.url).pathname);
-export function readonlyCliFixture(t,{mode='READONLY_VERIFY',firstSync=false,expired=false,baselineConfig=false,failure=null,clockStep=0,handoverMissing=false,fingerprintDelayMs=0,shortDeadlineMs=0}={}) {
+export function readonlyCliFixture(t,{mode='READONLY_VERIFY',firstSync=false,expired=false,baselineConfig=false,failure=null,clockStep=0,handoverMissing=false,fingerprintDelayMs=0,shortDeadlineMs=0,maintenancePending=false}={}) {
   const root=fs.mkdtempSync(path.join(os.tmpdir(),'readonly-cli-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
   const dir=path.join(root,'scripts/ops'),state=path.join(root,'state'),bin=path.join(root,'bin'),stage=path.join(root,'env-stage');
   for(const d of [dir,state,bin,stage])fs.mkdirSync(d,{recursive:true,mode:0o700});
@@ -16,6 +16,7 @@ export function readonlyCliFixture(t,{mode='READONLY_VERIFY',firstSync=false,exp
   const floor={version:3,phase:'READY',floorSha:sha,project:'phoenix',chanjetPolicy:priorVerify?'READONLY_VERIFY':'HOLD',readonlyApproval:priorVerify?approval:null,operationalTuple:{...tuple,CHANJET_READONLY_SYNC_ENABLED:priorVerify?'true':'false'}};
   const write=(name,v)=>fs.writeFileSync(path.join(state,name),JSON.stringify(v),{mode:0o600});
   write('floor.json',floor);write('active.json',{version:3,configSha:sha,floorSha:sha,outcome:'SUCCESS',active:pins,protectedImages:[pins.api.imageId,pins.web.imageId],migrationBaseline:sha});
+  if(maintenancePending)write('maintenance-current.json',{owner:'999999-1'});
   // A synthetic modern fence is explicit fixture input. The real config and
   // maintenance workflows do not receive such a proof automatically.
   const backgroundParticipant={containerId:'c'.repeat(64),bootId:'00000000-0000-4000-8000-000000000001',revision:sha,startedAt:'2026-10-01T00:00:00.000Z',restartCount:0};

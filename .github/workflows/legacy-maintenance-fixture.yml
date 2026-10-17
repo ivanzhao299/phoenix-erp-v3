@@ -1,0 +1,72 @@
+name: Legacy Maintenance Transition Fixtures
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: legacy-maintenance-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  isolated-maintenance:
+    name: Legacy Maintenance PG16 PG18 And Real ERP
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Pure protocol, authority, failure and entrypoint contracts
+        run: >-
+          node --test scripts/ops/production-maintenance-*.test.mjs
+          scripts/ci/maintenance-erp-candidate.test.mjs
+      - name: Prepare isolated Docker bases
+        run: |
+          docker pull node:20-alpine
+          docker pull node:20-bookworm-slim
+          docker pull postgres:16-alpine
+          docker pull postgres:18-alpine
+          mkdir -p artifacts/maintenance-ci
+      # Keep Docker lifecycle tests serial: replacement observes daemon events
+      # and must reject unrelated lifecycle activity during its own interval.
+      - name: Actual PG16 PG18 ingress and legacy reconciliation mechanisms
+        env:
+          MAINTENANCE_DOCKER_FIXTURE: '1'
+          MAINTENANCE_FIXTURE_MANIFEST: ${{ github.workspace }}/artifacts/maintenance-ci/runtime-resources.json
+        run: node --test scripts/ops/production-maintenance-runtime.docker.test.mjs
+      - name: Actual Compose replacement and revival denial
+        env:
+          MAINTENANCE_REPLACEMENT_DOCKER_FIXTURE: '1'
+          MAINTENANCE_REPLACEMENT_MANIFEST: ${{ github.workspace }}/artifacts/maintenance-ci/replacement-resources.json
+        run: node --test scripts/ops/production-maintenance-replacement.docker.test.mjs
+      - name: Actual tracked ERP image startup and readonly mutation canaries
+        run: node scripts/ci/maintenance-erp-candidate.fixture.mjs
+      - name: Retain allowlisted isolated evidence only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: legacy-maintenance-fixture-evidence
+          if-no-files-found: warn
+          retention-days: 14
+          path: |
+            artifacts/maintenance-ci/runtime-resources.json
+            artifacts/maintenance-ci/replacement-resources.json
+            artifacts/maintenance-ci/replacement-resources.json.result.json
+            artifacts/maintenance-ci/replacement-resources.json.reviver.json
+            artifacts/maintenance-ci/replacement-resources.json.reviver.json.result.json
+            artifacts/maintenance-erp-candidate/*/summary.json
+            artifacts/maintenance-erp-candidate/*/resources.json
+            artifacts/maintenance-erp-candidate/*/capsule-build.json
+            artifacts/maintenance-erp-candidate/*/pg*-detector-canary.json

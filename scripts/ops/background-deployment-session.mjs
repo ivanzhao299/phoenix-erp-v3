@@ -11,6 +11,7 @@ import { atomicState } from './production-atomic-state.mjs';
 import { metadataFor } from './production-deployment-evidence.mjs';
 import { BackgroundFenceCoordinator, inventoryApiContainers, inspectApiParticipant, verifyParticipantStatus, verifyCompletedDeployment } from './background-control-coordinator.mjs';
 import { HOLD_KINDS, validateBinding, validateParticipants, fail } from './background-control-manifest.mjs';
+import { assertModernReleaseAdmission } from './production-maintenance-admission.mjs';
 
 export function assertLatestMain(target, { root = CONTRACT.repository, probe = git } = {}) {
   if (!/^[a-f0-9]{40}$/.test(target || '')) fail('TARGET_MAIN_BINDING');
@@ -39,6 +40,7 @@ export function exactReanchorBinding(env, floor, active) {
 }
 
 export function spawnDeploymentBody(body, dependencies = {}) {
+  (dependencies.maintenanceAdmission || assertModernReleaseAdmission)();
   // FD9 must survive both layers: verifyContext checks the invoking parent's
   // inherited descriptor, not an environment assertion of lock ownership.
   const stdio = ['pipe', 'inherit', 'inherit', 'ignore', 'ignore', 'ignore', 'ignore', 'ignore', 'ignore', 9];
@@ -70,6 +72,8 @@ export async function executeFencedDeployment({ binding, project, participants, 
   validateBinding(binding); validateParticipants(participants);
   if (typeof script !== 'string' || !script.trim() || Buffer.byteLength(script) > 1024 * 1024) fail('DEPLOY_BODY_REQUIRED');
   if (!Number.isSafeInteger(maximumMs) || maximumMs < 1 || maximumMs > 1800000) fail('SESSION_DEADLINE');
+  const maintenanceAdmission = dependencies.maintenanceAdmission || assertModernReleaseAdmission;
+  await maintenanceAdmission();
   const verifyMain = dependencies.verifyMain || (() => assertLatestMain(binding.targetSha));
   const coordinator = dependencies.coordinator || new BackgroundFenceCoordinator({ binding, project, participants, timeoutMs }, {
     verifySuccess: async b => { verifyCompletedDeployment(b, b.participants); await verifyMain(); return true; },
@@ -91,6 +95,7 @@ export async function executeFencedDeployment({ binding, project, participants, 
     await verifyMain();
     const proof = await coordinator.fenceAndDrain();
     if (failed) throw failed;
+    await maintenanceAdmission();
     await (dependencies.persistProof || (value => {
       const file = path.join(CONTRACT.stateDirectory, `background-drain-${binding.owner}.json`);
       if (fs.existsSync(file)) fail('DRAIN_RECEIPT_REUSED');
@@ -100,6 +105,7 @@ export async function executeFencedDeployment({ binding, project, participants, 
     await coordinator.verifyQuiescent();
     await verifyMain();
     if (failed) throw failed;
+    await maintenanceAdmission();
     child = spawnBody(script);
     let lastMainProbe = Date.now();
     monitor = setInterval(() => {
