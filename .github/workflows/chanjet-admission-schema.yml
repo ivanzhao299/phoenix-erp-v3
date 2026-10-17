@@ -52,7 +52,7 @@ jobs:
           pnpm install --frozen-lockfile
           node scripts/ops/build-chanjet-admission-sql.mjs > "$RUNNER_TEMP/admission.sql"
           node scripts/ci/ledger-source-inventory.mjs "$TARGET" "$RUNNER_TEMP/inventory.json"
-          find apps/api/migrations -maxdepth 1 -name '*.sql' -printf '%f\n' | sort | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.stringify(s.trim().split(/\n/))))' > "$RUNNER_TEMP/legacy.json"
+          find apps/api/migrations -maxdepth 1 -name '2026*.sql' -printf '%f\n' | sort | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.stringify(s.trim().split(/\n/))))' > "$RUNNER_TEMP/legacy.json"
           {
             echo "PRODUCTION_CONTRACT_B64=$(base64 -w0 scripts/ops/production-config-contract.json)"
             echo "PRODUCTION_PATH_HELPER_B64=$(base64 -w0 scripts/ops/production-trusted-paths.mjs)"
@@ -121,6 +121,8 @@ jobs:
             printf '%s' "$PHASE1_B64" | base64 -d > "$SCHEMA_STAGE/phase1.json"
             node --check "$SCHEMA_STAGE/operation.mjs"
             node "$SCHEMA_STAGE/operation.mjs"
+            # Keep the FD9-owning shell alive; the guard inspects its parent FD.
+            echo "SCHEMA_OPERATION_COMPLETE=$SCHEMA_OPERATION"
       - name: Preserve and evaluate production inspection
         if: always()
         env:
