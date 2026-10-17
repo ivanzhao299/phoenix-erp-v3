@@ -61,7 +61,12 @@ const fingerprint=()=>db(`BEGIN READ ONLY; SELECT jsonb_build_object('ar',(SELEC
 const facts=fingerprint();
 const backup=execFileSync('docker',['exec','phoenix-v3-db','sh','-c','exec pg_dump -U "$POSTGRES_USER" -d "${POSTGRES_DB:-$POSTGRES_USER}" --format=custom --compress=6 --no-owner --no-privileges'],{env,timeout:180000,killSignal:'SIGKILL',maxBuffer:512*1024*1024});
 const backupFile=path.join(dir,'database.dump');fs.writeFileSync(backupFile,backup,{mode:0o600});
-const toc=run(['exec','-i','phoenix-v3-db','pg_restore','--list'],backup,60000);
+// pg_restore --list reads only the TOC and may close stdin before consuming
+// the data blocks. A file FD avoids Node's pipe-writer EPIPE on large backups.
+const backupFd=fs.openSync(backupFile,'r');
+let toc;
+try { toc=execFileSync('docker',['exec','-i','phoenix-v3-db','pg_restore','--list'],{env,stdio:[backupFd,'pipe','pipe'],encoding:'utf8',timeout:60000,killSignal:'SIGKILL',maxBuffer:16*1024*1024}); }
+finally { fs.closeSync(backupFd); }
 if(!toc.split('\n').some(x=>/^\d+;/.test(x)))throw Error('SCHEMA_HOLD=BACKUP_INVALID');
 const sql=fs.readFileSync(path.join(stage,'admission.sql'),'utf8');
 if(hash(sql)!==process.env.ADMISSION_SQL_SHA256)throw Error('SCHEMA_HOLD=SQL_DIGEST');
