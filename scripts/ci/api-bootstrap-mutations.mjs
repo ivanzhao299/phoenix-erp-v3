@@ -59,36 +59,37 @@ export function classifySql(sql, controlParameters) {
   return /^(?:SET|RESET|BEGIN|START|COMMIT|ROLLBACK|SHOW)\b/i.test(clean)?'UNREVIEWED_SESSION_SQL':'UNKNOWN_SQL';
 }
 export function capturedDatabaseStatements(log, database) {
-  const records = [];let record;const sessions = new Map();
-  for (const line of log.split('\n')) {
-    if (/bootstrap-db=/.test(line)) {
-      const databaseName=line.match(/bootstrap-db=([^ ]+)/)?.[1];
-      const application=line.match(/ app=(.*?) pid=/)?.[1] ?? '';
-      const pid=line.match(/ pid=(\d+)/)?.[1];
+  const records=[];let record;const sessions=new Map();
+  for(const line of log.split('\n')) {
+    // The configured PostgreSQL prefix is a record header, never a token to
+    // search for inside SQL. In particular a SQL comment mentioning DETAIL
+    // cannot turn a LOG/STATEMENT mutation attempt into a parameter record.
+    const header=line.match(/^bootstrap-db=([^ ]*) user=([^ ]*) app=(.*?) pid=(\d+) ([A-Z][A-Z0-9]*):\s*(.*)$/);
+    if(header) {
+      const [,databaseName,,application,pid,level,payload]=header;
       const session=JSON.stringify([databaseName,application,pid]);
-      if (/DETAIL:\s+parameters:/.test(line)) {
-        // Never retain arbitrary business/secret parameters. Only two numeric
-        // control arguments can supplement a reviewed exact control statement.
+      if(level==='DETAIL'&&/^parameters:/i.test(payload)) {
+        // Only genuine DETAIL payloads may supply the bounded public control
+        // parameters. Do not retain arbitrary business/secret values.
         const previous=sessions.get(session);
-        const parameters=line.match(/DETAIL:\s+parameters:\s+\$1 = '(-?\d+)', \$2 = '(-?\d+)'\s*$/);
-        const nonce=line.match(/DETAIL:\s+parameters:\s+\$1 = '(phoenix-fence:[a-f0-9-]+)'\s*$/)?.[1];
+        const parameters=payload.match(/^parameters:\s+\$1 = '(-?\d+)', \$2 = '(-?\d+)'\s*$/i);
+        const nonce=payload.match(/^parameters:\s+\$1 = '(phoenix-fence:[a-f0-9-]+)'\s*$/i)?.[1];
         if(previous&&parameters&&(controlProbeSqls.has(normalizeControlSql(previous.sql))||controlLockSql.has(normalizeControlSql(previous.sql))))
           previous.controlParameters=[parameters[1],parameters[2]];
         if(previous&&normalizeControlSql(previous.sql)===controlIdentitySql&&isPublicControlNonce(nonce))previous.controlParameters=[nonce];
         continue;
       }
-      if (record) records.push(record);record=undefined;
-      if ((!database || line.includes(`bootstrap-db=${database} `)) && /(?:LOG:\s+(?:statement:|execute [^:]+:)|STATEMENT:)/.test(line)) {
-        const app=line.match(/ app=(.*?) pid=/)?.[1] ?? '';
-        record={app,database:databaseName,pid:Number(pid),sql:line.replace(/^.*?(?:LOG:\s+(?:statement:|execute [^:]+:)|STATEMENT:)\s*/, '')};sessions.set(session,record);
+      if(record)records.push(record);record=undefined;
+      const statement=level==='STATEMENT'?payload:level==='LOG'?payload.match(/^(?:statement:|execute [^:]+:)\s*(.*)$/)?.[1]:undefined;
+      if((!database||databaseName===database)&&statement!==undefined) {
+        record={app:application,database:databaseName,pid:Number(pid),sourceLevel:level,sql:statement};sessions.set(session,record);
       }
-    } else if (record !== undefined) record.sql+='\n'+line;
+    } else if(record!==undefined)record.sql+='\n'+line;
   }
   if(record)records.push(record);return records;
 }
 export function capturedStatements(log, app) {
-  const database=log.match(/bootstrap-db=([^ ]+)/)?.[1];
-  return capturedDatabaseStatements(log,database).filter(record=>record.app===app).map(record=>record.sql);
+  return capturedDatabaseStatements(log).filter(record=>record.app===app).map(record=>record.sql);
 }
 export function sliceCapturedWindow(log, begin, end, controlApp) {
   const records=capturedDatabaseStatements(log);
@@ -133,16 +134,36 @@ export function verifyCapturedControlIdentity(records,captureApp,identity,sample
   const controlRecords=records.filter(record=>classifySql(record.sql,record.controlParameters)==='CONTROL_SESSION');
   const bindings=controlRecords.filter(record=>normalizeControlSql(record.sql)===controlIdentitySql);
   const session=identity.controlSession;
-  if(bindings.length!==1||bindings[0].app!==captureApp||bindings[0].pid!==session.sessionPid||bindings[0].controlParameters[0]!==session.applicationName
-    ||bindings[0].database!==fixtureDatabase||controlRecords.some(record=>record.pid!==session.sessionPid||record.database!==fixtureDatabase
-      ||(record!==bindings[0]&&record.app!==session.applicationName))||samples.some(sample=>!sameControlIdentity(identity,sample)))
-    throw Error('BOOTSTRAP_CONTROL_SESSION_BINDING_REQUIRED');
+  const diagnostics={controlStatementCount:controlRecords.length,identityStatementCount:records.filter(record=>normalizeControlSql(record.sql)===controlIdentitySql).length,
+    boundIdentityCount:bindings.length,missingControlParameters:records.filter(record=>(normalizeControlSql(record.sql)===controlIdentitySql||controlProbeSqls.has(normalizeControlSql(record.sql))||controlLockSql.has(normalizeControlSql(record.sql)))&&!record.controlParameters).length,
+    sampledStatusCount:samples.length,
+    identityStatements:records.filter(record=>normalizeControlSql(record.sql)===controlIdentitySql).slice(0,4).map(record=>({
+      pidMatchesSample:record.pid===session.sessionPid,databaseMatchesFixture:record.database===fixtureDatabase,
+      appMatchesCapture:record.app===captureApp,appMatchesSampleNonce:record.app===session.applicationName,
+      parameterMatchesSampleNonce:record.controlParameters?.[0]===session.applicationName,statementHash:hash(record.sql)}))};
+  const fail=reason=>{const error=Error('BOOTSTRAP_CONTROL_SESSION_BINDING_REQUIRED_'+reason);error.bootstrapDiagnostics={...diagnostics,reason};throw error;};
+  if(bindings.length!==1)fail('IDENTITY_COUNT');
+  if(bindings[0].app!==captureApp)fail('CAPTURE_APP_MISMATCH');
+  if(bindings[0].pid!==session.sessionPid)fail('SETTER_PID_MISMATCH');
+  if(bindings[0].controlParameters[0]!==session.applicationName)fail('SETTER_NONCE_MISMATCH');
+  if(bindings[0].database!==fixtureDatabase)fail('SETTER_DATABASE_MISMATCH');
+  if(controlRecords.some(record=>record.pid!==session.sessionPid))fail('EXTRA_CONTROL_PID');
+  if(controlRecords.some(record=>record.database!==fixtureDatabase))fail('CONTROL_DATABASE_MISMATCH');
+  if(controlRecords.some(record=>record!==bindings[0]&&record.app!==session.applicationName))fail('CONTROL_APP_MISMATCH');
+  if(samples.some(sample=>!sameControlIdentity(identity,sample)))fail('SAMPLED_IDENTITY_MISMATCH');
   // Even SQL under the original captured application cannot introduce another
   // control PID/nonce; the only subsequent new app is this exact sampled boot.
   const unmarked=records.filter(record=>record.app!==captureApp&&!(record.app===session.applicationName&&controlRecords.includes(record)));
   if(unmarked.length)throw Error('BOOTSTRAP_UNMARKED_DATABASE_CONNECTION');
   return {bootId:identity.bootId,sessionPid:session.sessionPid,databaseOid:session.databaseOid,backendStartedAt:session.backendStartedAt,
     applicationName:session.applicationName,controlStatementCount:controlRecords.length,identityBindingCount:1};
+}
+export function summarizeBootstrapRuntime(output) {
+  return {outputSha256:hash(output),outputBytes:Buffer.byteLength(output),schemaHold:/SCHEMA_MISMATCH|数据库结构不兼容/.test(output),
+    startupMarkerCount:output.split(/\r?\n/).filter(line=>line.includes('BACKGROUND_CONTROL_BOOT=')).length,
+    applicationStarted:/Nest application successfully started/.test(output),
+    errorFlags:{addressInUse:/EADDRINUSE/.test(output),connectionRefused:/ECONNREFUSED/.test(output),dnsFailure:/ENOTFOUND/.test(output),
+      databaseAuthentication:/28P01|password authentication failed/i.test(output),backgroundSessionLost:/BACKGROUND_SESSION_LOST|BACKGROUND_SESSION_IDENTITY_LOST/.test(output)}};
 }
 export async function verifyBootstrap() {
   let evidenceDir, state;
@@ -228,18 +249,19 @@ export async function verifyBootstrap() {
     if (command==='docker') args.splice(1,0,'--name',runtimeContainer);
     const child = spawn(command, args, { cwd: process.cwd(), env: { PATH: process.env.PATH, ...fixtureEnv }, stdio: ['ignore','pipe','pipe'] });
     const backgroundSamples=[];
+    let lastReadinessStatus=null;
     let output = '';child.stdout.on('data', x => output += x);child.stderr.on('data', x => output += x);
     try {
       let ready = false;
       for (let i=0;i<40;i++) {
         if (child.exitCode !== null) break;
-        try { const response = await fetch(`http://127.0.0.1:${httpPort}/api/readiness`, {signal:AbortSignal.timeout(1000)});if(response.ok){ready=true;break;} } catch {}
+        try { const response = await fetch(`http://127.0.0.1:${httpPort}/api/readiness`, {signal:AbortSignal.timeout(1000)});lastReadinessStatus=response.status;if(response.ok){ready=true;break;} } catch {}
         await new Promise(r=>setTimeout(r,500));
       }
       const shouldHold = !!(profile.missingSchema || profile.retiredConstraint);
       if (shouldHold) {
         if (ready || !/SCHEMA_MISMATCH|数据库结构不兼容/.test(output)) throw Error('BOOTSTRAP_SCHEMA_HOLD_REQUIRED');
-      } else if (!ready) throw Error(`BOOTSTRAP_NOT_READY:${profile.name}`);
+      } else if (!ready) {const error=Error(`BOOTSTRAP_NOT_READY:${profile.name}`);error.bootstrapDiagnostics={lastReadinessStatus,...summarizeBootstrapRuntime(output)};throw error;}
       const readBackgroundStatus=async()=>{
         let status;
         if(command==='docker') {
@@ -264,7 +286,7 @@ export async function verifyBootstrap() {
       if (command==='docker') { try { run('docker',['stop','--time','1',runtimeContainer]); } catch {} }
       child.kill('SIGTERM');
       if (child.exitCode === null) await new Promise(resolve => { const timer=setTimeout(()=>{child.kill('SIGKILL');resolve();},5000);child.once('exit',()=>{clearTimeout(timer);resolve();}); });
-      fs.writeFileSync(path.join(evidenceDir,profile.name+'-runtime-summary.json'),JSON.stringify({outputSha256:hash(output),outputBytes:Buffer.byteLength(output),schemaHold:/SCHEMA_MISMATCH|数据库结构不兼容/.test(output)}),{mode:0o600});
+      fs.writeFileSync(path.join(evidenceDir,profile.name+'-runtime-summary.json'),JSON.stringify({...summarizeBootstrapRuntime(output),lastReadinessStatus,exitCode:child.exitCode,signalCode:child.signalCode}),{mode:0o600});
     }
     let drained=false;
     for(let i=0;i<20;i++) {
@@ -305,7 +327,8 @@ export async function verifyBootstrap() {
   const canaryApp='boot_detector_negative';
   const beforeCanary=fingerprint();
   const sequence=sql("SELECT sequencename FROM pg_sequences WHERE schemaname='public' ORDER BY sequencename LIMIT 1;").trim();
-  const probes=["CREATE TABLE bootstrap_detector_forbidden(id int)", "UPDATE sys_settings SET value='fixture-forbidden'", `SELECT setval('public.${quote(sequence)}', 9000)`];
+  const commentedDdl="/* DETAIL: Parameters: */ CREATE TABLE bootstrap_detector_comment_forbidden(id int)";
+  const probes=["CREATE TABLE bootstrap_detector_forbidden(id int)", "UPDATE sys_settings SET value='fixture-forbidden'", `SELECT setval('public.${quote(sequence)}', 9000)`,commentedDdl];
   const canaryStart=new Date().toISOString();
   let rejected=0;
   for(const probe of probes) {
@@ -313,16 +336,18 @@ export async function verifyBootstrap() {
     catch(e) {if(!/read-only|permission denied/.test(String(e.stderr)))throw Error('BOOTSTRAP_READONLY_CANARY_NOT_VALID');rejected++;}
   }
   const canaryEnd=new Date().toISOString();
-  const detected=capturedStatements(spawnSyncLogs(container,canaryStart,canaryEnd),canaryApp).map(classifySql);
-  if(rejected!==3||!['SCHEMA_MUTATION','BUSINESS_DATA_MUTATION','SEQUENCE_MUTATION'].every(kind=>detected.includes(kind))||JSON.stringify(beforeCanary)!==JSON.stringify(fingerprint()))throw Error('BOOTSTRAP_WRITE_DETECTOR_CANARY_FAILED');
-  const detectorCanary={rejectedAttempts:rejected,detectedKinds:detected,actualMutations:0};
+  const canaryRecords=capturedDatabaseStatements(spawnSyncLogs(container,canaryStart,canaryEnd)).filter(record=>record.app===canaryApp);
+  const detected=canaryRecords.map(record=>classifySql(record.sql));
+  const commentedDdlRecords=canaryRecords.filter(record=>record.sql.includes('/* DETAIL: Parameters: */')&&classifySql(record.sql)==='SCHEMA_MUTATION');
+  if(rejected!==4||!commentedDdlRecords.some(record=>record.sourceLevel==='LOG')||!commentedDdlRecords.some(record=>record.sourceLevel==='STATEMENT')||!['SCHEMA_MUTATION','BUSINESS_DATA_MUTATION','SEQUENCE_MUTATION'].every(kind=>detected.includes(kind))||JSON.stringify(beforeCanary)!==JSON.stringify(fingerprint()))throw Error('BOOTSTRAP_WRITE_DETECTOR_CANARY_FAILED');
+  const detectorCanary={rejectedAttempts:rejected,detectedKinds:detected,actualMutations:0,commentedRejectedDdl:{logRecords:commentedDdlRecords.filter(record=>record.sourceLevel==='LOG').length,statementRecords:commentedDdlRecords.filter(record=>record.sourceLevel==='STATEMENT').length,classification:'SCHEMA_MUTATION'}};
   const report={outcome:'PASS',detectorCanary,schema:'phoenix.api-bootstrap-mutation-evidence/v1',database:fixtureDatabase,profiles:results,productionMutation:false};
   fs.writeFileSync(path.join(evidenceDir,'summary.json'),JSON.stringify(report,null,2),{mode:0o600});
   console.log(JSON.stringify(report));
   return report;
   } catch(error) {
     const code=String(error.message).match(/^(?:BOOTSTRAP|CONFIG_HOLD)[A-Z0-9_=:]*/)?.[0]?.split(':')[0]||'BOOTSTRAP_FIXTURE_OPERATION_FAILED';
-    if(state){state.outcome='FAIL';state.failureCode=code;save();}
+    if(state){state.outcome='FAIL';state.failureCode=code;if(error.bootstrapDiagnostics)state.failureDetails=error.bootstrapDiagnostics;save();}
     throw Error(code);
   }
 }

@@ -77,3 +77,40 @@ GitHub APPROVE may be fabricated by this engineering change.
 The Web evidence remediation is prepared independently and must receive its own
 review and CI before integration. No production UAT or Chanjet restore outcome
 is inherited from isolated tests. Issue #407 remains HOLD.
+
+## CI compatibility repair checkpoint
+
+The initial PR run exposed three integration gaps; none was treated as an
+approval exemption.
+
+- PG18 emits `DETAIL: Parameters:` while PG16 emits `DETAIL: parameters:`.
+  Capture now parses the anchored PostgreSQL record header before handling the
+  fixed parameter field. SQL comments containing the same words remain SQL and
+  cannot suppress rejected-DDL evidence. Unique setter, boot nonce, PID, database,
+  backend start and advisory-lock namespace/key checks remain enforced.
+- Positive HTTP regression jobs start through an explicitly disposable,
+  GitHub-hosted fixture. Root creates the fixed read-only directory mount, the
+  real API starts FENCED, and OPEN requires its actual PostgreSQL control-session
+  binding. This is a CI host identity, not an OCI or production receipt. Unknown
+  residual mounts, metadata errors and a live process with a missing cwd HOLD.
+  No production reader or default-deny startup rule gains a test bypass.
+- Chanjet fixture constructors now provide the real background service using an
+  exact owned PostgreSQL container and loopback provider proof. The standalone
+  production prepare CLI instead fails closed **before imports, registration or
+  database initialization** with `BACKGROUND_CLI_PARTICIPANT_NOT_REGISTERED`.
+  A durable production CLI participant/journal is a separate unfinished task;
+  the isolated adapter is never substituted into the production entry point.
+
+Root independently reran the disposable adapters: 24 PASS, zero skips. Deployment,
+legacy and effective-compose contracts: 37 PASS, zero skips. The modified
+production prepare entry point is added to the formal critical-files contract.
+Official checks must rerun on the new commit; local evidence does not satisfy
+missing formal security or freeze approval.
+
+Final PG18 capture repair verification: 25 static tests PASS; five real startup
+profiles PASS with five unique boot/session proofs, zero provider requests and
+unchanged schema/data/sequence fingerprints. Four actual readonly mutation
+canaries were rejected without writes; the SQL-comment DDL was detected in both
+LOG and STATEMENT records. Two intermediate failed runs are retained: one startup
+NOT_READY remains unexplained, while the marker failure was traced to legitimate
+empty pre-authentication log fields and fixed without weakening SQL identity.

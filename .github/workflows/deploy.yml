@@ -304,6 +304,7 @@ jobs:
       JWT_SECRET: ci_test_secret_minlen_32_characters_xx
       JWT_SECRET_PREV: ""
       NODE_ENV: test
+      APP_ENV: test
       ENABLE_DEV_LOGIN: "true"
       PGHOST: 127.0.0.1
       PGPORT: 5432
@@ -462,22 +463,14 @@ jobs:
           path: ${{ runner.temp }}/phoenix-entity-evidence/
           if-no-files-found: error
 
-      - name: Start API
+      - name: Start API with protected disposable background fixture
         working-directory: apps/api
         env:
-          PORT: 3100
+          PORT: "3100"
+          BACKGROUND_FIXTURE_POSTGRES_ID: ${{ job.services.postgres.id }}
         run: |
-          nohup node dist/main > /tmp/api.log 2>&1 &
-          echo $! > /tmp/api.pid
-          for i in $(seq 1 60); do
-            if curl -sf http://127.0.0.1:3100/api/readiness >/dev/null; then
-              echo "✅ API ready after ${i}s"; exit 0
-            fi
-            sleep 1
-          done
-          echo "❌ API failed to start" >&2
-          tail -100 /tmp/api.log >&2
-          exit 1
+          node --test ../../scripts/ci/background-control-api-fixture.test.mjs
+          bash ../../scripts/ci/background-control-api-fixture.sh start
 
       - name: Regression — system
         working-directory: apps/api
@@ -503,11 +496,13 @@ jobs:
 
       - name: Dump API log on failure
         if: failure()
-        run: tail -200 /tmp/api.log || true
+        run: tail -200 "$RUNNER_TEMP/api.log" || true
 
-      - name: Stop API
+      - name: Close owned background API fixture
         if: always()
-        run: kill $(cat /tmp/api.pid 2>/dev/null) 2>/dev/null || true
+        env:
+          BACKGROUND_FIXTURE_POSTGRES_ID: ${{ job.services.postgres.id }}
+        run: bash scripts/ci/background-control-api-fixture.sh cleanup
 
   # ════════════════════════════════════════════════════════════════════════
   # Job 2: Build & Push 镜像 — matrix 按 detect 输出动态裁剪

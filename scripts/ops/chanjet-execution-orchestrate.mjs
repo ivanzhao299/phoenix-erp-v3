@@ -70,6 +70,7 @@ import { randomUUID } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { spawnSync } from 'node:child_process';
+import { requireChanjetBackgroundFixture, createChanjetBackgroundFixture } from '../ci/chanjet-background-fixture.mjs';
 
 const require = createRequire(import.meta.url);
 
@@ -182,6 +183,9 @@ const approvalBinding = {
 };
 if (Object.values(approvalBinding).some((ok) => !ok)) fail(3, 'APPROVAL_SCOPE_CHANGED', approvalBinding);
 
+const backgroundProof = requireChanjetBackgroundFixture({ pgUrl, providerBase, alignmentBase, manifest: binding.manifest,
+  container: process.env.CHANJET_STOP_DB_CONTAINER, owner: process.env.CHANJET_FIXTURE_OWNER });
+
 // ---- provenance: FD9 (production mutation lock held by the caller) --------
 // Three-case verification: (1) fd 9 must BE the declared lock file;
 // (2) a separate probe fd must FAIL to lock it — the lock is genuinely held
@@ -244,11 +248,13 @@ process.env.CHANJET_SYNC_POLICY = floorState.chanjetPolicy;
 
 const dataSource = new DataSource({ type: 'postgres', url: pgUrl, logging: false });
 const guard = createBoundedGuardExecutor(pgUrl);
+let background;
 const ok = (summary) => { console.log(`CHANJET_EXECUTION_ORCHESTRATE=PASS;${JSON.stringify(summary)}`); };
 const hold = (summary) => { console.log(`CHANJET_EXECUTION_ORCHESTRATE=HOLD;${JSON.stringify(summary)}`); process.exitCode = 4; };
 await (async () => {
   try {
     await dataSource.initialize();
+    background = await createChanjetBackgroundFixture(backgroundProof, dataSource);
     const store = new ChanjetExecutionAdmissionStore(dataSource.manager);
     store.setStandaloneExecutor(guard);
 
@@ -301,6 +307,7 @@ await (async () => {
         },
       },
       { ok: async () => {}, fail: async () => {} },
+      background,
     );
     Object.assign(auth, {
       appKey: process.env.CHANJET_APP_KEY || '',
@@ -561,6 +568,7 @@ await (async () => {
   } finally {
     // release lifecycle: the controlled guard connection and the data source
     // are always torn down, on every exit path
+    await background?.shutdown();
     await guard.dispose().catch(() => undefined);
     if (dataSource.isInitialized) await dataSource.destroy().catch(() => undefined);
   }

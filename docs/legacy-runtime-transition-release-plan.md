@@ -29,11 +29,11 @@ deployment executor. No production bootstrap has been performed.
 The operation must be named `STOP_AND_RECONCILE`, never `DRAIN_PASS`.
 Before implementation or execution of the production transition, the final
 reviewed target SHA, maintenance treatment and recovery protocol must be
-settled together. The existing old-floor guard requires a healthy old API;
-stopping it first cannot simply be inserted into the existing promotion flow.
-A separately reviewed maintenance receipt must preserve the original healthy
-PRE audit and authorize the stopped-old-runtime state without weakening the
-ordinary guard.
+settled together. The installed old-floor guard primarily validates configuration and image
+pins; it does not itself prove Running/Health. A separately reviewed maintenance
+receipt must preserve a genuinely healthy original PRE audit, explicitly prove
+the retained old runtime is stopped with no revival, and authorize that stopped
+state without pretending it is healthy or relaxing the ordinary guard.
 
 1. Obtain exact old/new SHA authority, a bounded maintenance window and the
    business treatment for notification uncertainty and partial IoT commits.

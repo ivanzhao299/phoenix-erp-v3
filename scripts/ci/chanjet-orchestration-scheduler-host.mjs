@@ -13,6 +13,7 @@
 //     --sync-policy READONLY_VERIFY --readonly-approval <json-file>
 // Prints "PORT <port>" once listening.
 import http from 'node:http';
+import { requireChanjetBackgroundFixture, createChanjetBackgroundFixture } from './chanjet-background-fixture.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
@@ -34,6 +35,8 @@ const approvalFile = getArg('--readonly-approval');
 if (!pgUrl || !providerBase || !approvalFile) { console.error('PG_URL_PROVIDER_BASE_APPROVAL_REQUIRED'); process.exit(2); }
 process.env.CHANJET_SYNC_POLICY = syncPolicy;
 process.env.CHANJET_READONLY_APPROVAL = fs.readFileSync(approvalFile, 'utf8');
+const backgroundProof = requireChanjetBackgroundFixture({ pgUrl, providerBase, approval: JSON.parse(process.env.CHANJET_READONLY_APPROVAL),
+  container: process.env.CHANJET_STOP_DB_CONTAINER, owner: process.env.CHANJET_FIXTURE_OWNER });
 process.env.CHANJET_PROVIDER_BASE_URL = providerBase.replace(/\/+$/, '');
 process.env.CHANJET_ERP_INBOUND_SYNC_ENABLED = 'false';
 
@@ -45,6 +48,7 @@ const { DataSource } = require(path.join(repoRoot, 'apps/api/node_modules/typeor
 
 const dataSource = new DataSource({ type: 'postgres', url: pgUrl, logging: false });
 await dataSource.initialize();
+const background = await createChanjetBackgroundFixture(backgroundProof, dataSource);
 
 // the REAL monitor records: sys_cron_heartbeat (production shape) + the
 // real CronMonitorService — the scheduler's ok()/fail() reports land in the
@@ -60,6 +64,7 @@ const auth = new ChanjetAuthService(
   { get: (key, fallback) => process.env[key] ?? fallback },
   { findOneBy: async () => ({ key: 'singleton', appTicket: 'SYNTHETIC_TICKET', certificate: null, tokens: null }), save: async (e) => e },
   { ok: async () => {}, fail: async () => {} },
+  background,
 );
 Object.assign(auth, {
   appKey: process.env.CHANJET_APP_KEY || 'SYNTHETIC_KEY',
@@ -85,7 +90,7 @@ const integration = {
   },
 };
 
-const scheduler = new ChanjetReadonlySyncScheduler(integration, cronMonitor, dataSource, {});
+const scheduler = new ChanjetReadonlySyncScheduler(integration, cronMonitor, dataSource, {}, background);
 
 const server = http.createServer(async (req, res) => {
   const url = req.url || '';
@@ -125,4 +130,14 @@ const server = http.createServer(async (req, res) => {
 server.listen(Number(getArg('--port') || 0), '127.0.0.1', () => {
   console.log(`PORT ${server.address().port}`);
 });
-setInterval(() => {}, 1e6);
+let shutdown;
+for (const signal of ['SIGTERM', 'SIGINT']) process.on(signal, () => {
+  if (shutdown) return;
+  shutdown = (async () => {
+    server.close();
+    await background.shutdown();
+    await scheduler.onModuleDestroy();
+    await dataSource.destroy();
+  })();
+  void shutdown.then(() => process.exit(0), () => { console.error('CHANJET_FIXTURE_DRAIN=HOLD'); process.exit(4); });
+});

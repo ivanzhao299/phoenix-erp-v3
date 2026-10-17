@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import { spawnSync } from 'node:child_process';
-import { classifySql, capturedStatements, capturedDatabaseStatements, sliceCapturedWindow, verifyBootstrap, assertDefaultBackgroundHold, parseBootControlIdentity, verifyCapturedControlIdentity } from './api-bootstrap-mutations.mjs';
+import { classifySql, capturedStatements, capturedDatabaseStatements, sliceCapturedWindow, verifyBootstrap, assertDefaultBackgroundHold, parseBootControlIdentity, verifyCapturedControlIdentity, summarizeBootstrapRuntime } from './api-bootstrap-mutations.mjs';
 const { auditBootstrap }=createRequire(import.meta.url)('./check-api-bootstrap-side-effects.cjs');
 
 test('SQL detector rejects attempted DDL, business writes and sequence changes even when idempotent',()=>{
@@ -285,4 +285,82 @@ test('startup control marker requires exactly one allowlisted identity and never
  assert.throws(()=>parseBootControlIdentity(marker+'\n'+marker),/BOOT_MARKER_REQUIRED/);
  assert.throws(()=>parseBootControlIdentity('BACKGROUND_CONTROL_BOOT='+JSON.stringify({...boot,unreviewed:'must-not-save'})),/BOOT_MARKER_FIELDS/);
  assert.throws(()=>parseBootControlIdentity('BACKGROUND_CONTROL_BOOT='+JSON.stringify({...boot,phase:'OPEN'})),/CONTROL_IDENTITY_REQUIRED/);
+});
+
+
+test('PG16 lowercase and PG18 capitalized Parameters retain identical strict session binding',()=>{
+ const boot={protocolVersion:1,bootId:'12345678-1234-4123-8123-123456789abc',phase:'HOLD',controlSession:{connected:true,broken:false,sessionPid:42,databaseOid:100,backendStartedAt:'2026-10-18T00:00:00.000Z',applicationName:'phoenix-fence:12345678-1234-4123-8123-123456789abc'}};
+ const app='capture_fixture',nonce=boot.controlSession.applicationName;
+ const prefix=(application,pid=42)=>`bootstrap-db=api_bootstrap_fixture user=runtime app=${application} pid=${pid} `;
+ for(const keyword of ['parameters','Parameters']) {
+  const log=prefix(app)+"LOG: execute <unnamed>: SELECT set_config('application_name', $1, false)\n"
+   +prefix(app)+`DETAIL: ${keyword}: $1 = '${nonce}'\n`
+   +prefix(nonce)+'LOG: execute <unnamed>: SELECT pg_backend_pid() AS pid, $1::int AS namespace, $2::int AS session_probe\n'
+   +prefix(nonce)+`DETAIL: ${keyword}: $1 = '17455', $2 = '0'\n`;
+  const records=capturedDatabaseStatements(log);
+  assert.equal(verifyCapturedControlIdentity(records,app,boot).controlStatementCount,2);
+  const wrongPid=log.replace(prefix(nonce)+`DETAIL: ${keyword}`,prefix(nonce,99)+`DETAIL: ${keyword}`);
+  assert.equal(classifySql(capturedDatabaseStatements(wrongPid)[1].sql,capturedDatabaseStatements(wrongPid)[1].controlParameters),'UNKNOWN_EXECUTABLE_SQL');
+  const wrongNamespace=log.replace("$1 = '17455'","$1 = '99999'");
+  assert.equal(classifySql(capturedDatabaseStatements(wrongNamespace)[1].sql,capturedDatabaseStatements(wrongNamespace)[1].controlParameters),'UNKNOWN_EXECUTABLE_SQL');
+ }
+});
+
+test('binding failures expose bounded safe classification instead of generic HOLD or raw captured SQL',()=>{
+ const boot={protocolVersion:1,bootId:'12345678-1234-4123-8123-123456789abc',phase:'HOLD',controlSession:{connected:true,broken:false,sessionPid:42,databaseOid:100,backendStartedAt:'2026-10-18T00:00:00.000Z',applicationName:'phoenix-fence:12345678-1234-4123-8123-123456789abc'}};
+ const record={app:'capture_fixture',pid:42,database:'api_bootstrap_fixture',sql:"SELECT set_config('application_name', $1, false)"};
+ assert.throws(()=>verifyCapturedControlIdentity([record],'capture_fixture',boot),error=>{
+  assert.equal(error.message,'BOOTSTRAP_CONTROL_SESSION_BINDING_REQUIRED_IDENTITY_COUNT');
+  assert.equal(error.bootstrapDiagnostics.identityStatementCount,1);assert.equal(error.bootstrapDiagnostics.missingControlParameters,1);
+  assert.equal(error.bootstrapDiagnostics.identityStatements[0].pidMatchesSample,true);
+  assert.equal(error.bootstrapDiagnostics.identityStatements[0].appMatchesCapture,true);
+  assert(!JSON.stringify(error.bootstrapDiagnostics).includes('set_config'));return true;
+ });
+});
+
+
+test('SQL comments and literals containing DETAIL Parameters never hide rejected DDL log records',()=>{
+ const ddl='/* DETAIL: Parameters: */ CREATE TABLE forbidden_fixture(id int)';
+ const prefix='bootstrap-db=api_bootstrap_fixture user=runtime app=target pid=42 ';
+ const log=prefix+'LOG: statement: '+ddl+'\n'+prefix+'ERROR: cannot execute CREATE TABLE in a read-only transaction\n'+prefix+'STATEMENT: '+ddl+'\n';
+ const records=capturedDatabaseStatements(log);
+ assert.equal(records.length,2);assert.deepEqual(records.map(record=>record.sourceLevel),['LOG','STATEMENT']);
+ assert(records.every(record=>record.sql.trim()===ddl&&classifySql(record.sql)==='SCHEMA_MUTATION'));
+ const lookalike=prefix+"LOG: statement: SELECT 'DETAIL: Parameters:' AS label\n";
+ assert.equal(capturedDatabaseStatements(lookalike).length,1);
+ assert.equal(classifySql(capturedDatabaseStatements(lookalike)[0].sql),'READ');
+});
+
+test('only the actual DETAIL header and payload beginning may attach control parameter evidence',()=>{
+ const prefix='bootstrap-db=api_bootstrap_fixture user=runtime app=target pid=42 ';
+ const probe='SELECT pg_backend_pid() AS pid, $1::int AS namespace, $2::int AS session_probe';
+ for(const forged of [
+  prefix+"LOG: statement: /* DETAIL: Parameters: $1 = '17455', $2 = '0' */ SELECT 1",
+  prefix+"DETAIL: unrelated context DETAIL: Parameters: $1 = '17455', $2 = '0'",
+  "not-a-header "+prefix+"DETAIL: Parameters: $1 = '17455', $2 = '0'",
+ ]) {
+  const records=capturedDatabaseStatements(prefix+'LOG: execute <unnamed>: '+probe+'\n'+forged+'\n');
+  assert.equal(records[0].controlParameters,undefined);
+ }
+ const valid=capturedDatabaseStatements(prefix+'LOG: execute <unnamed>: '+probe+'\n'+prefix+"DETAIL: Parameters: $1 = '17455', $2 = '0'\n");
+ assert.deepEqual(valid[0].controlParameters,['17455','0']);
+});
+
+
+test('startup failure diagnostics retain fixed flags and hashes without raw runtime text',()=>{
+ const raw='Nest application successfully started\nEADDRINUSE\nprivate-fixture-value-must-not-be-kept';
+ const summary=summarizeBootstrapRuntime(raw);
+ assert.equal(summary.applicationStarted,true);assert.equal(summary.errorFlags.addressInUse,true);
+ assert.equal(summary.startupMarkerCount,0);assert(!JSON.stringify(summary).includes('private-fixture-value'));
+});
+
+
+test('pre-auth PostgreSQL LOG with empty database/user terminates records without hiding empty-database SQL',()=>{
+ const prefix='bootstrap-db=api_bootstrap_fixture user=runtime app=control pid=42 ';
+ const log=prefix+"LOG: statement: SELECT 'BEGIN'\nbootstrap-db= user= app= pid=99 LOG: connection received: host=127.0.0.1\n"+prefix+"LOG: statement: SELECT 'END'\n";
+ const records=capturedDatabaseStatements(log);assert.equal(records.length,2);
+ assert.equal(records[0].sql.trim(),"SELECT 'BEGIN'");assert.equal(records[1].sql.trim(),"SELECT 'END'");
+ const malformedSessionSql=capturedDatabaseStatements('bootstrap-db= user= app= pid=99 STATEMENT: CREATE TABLE unknown_fixture(id int)\n');
+ assert.equal(malformedSessionSql.length,1);assert.equal(malformedSessionSql[0].database,'');
+ assert.equal(classifySql(malformedSessionSql[0].sql),'SCHEMA_MUTATION');
 });
