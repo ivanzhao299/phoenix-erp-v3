@@ -81,10 +81,21 @@ export class DataScopeService {
     };
   }
 
+  /** Role GROUP is independent authority, but only while the role is ACTIVE.
+   * Re-read before any cached global context; failures must never fall back to claims. */
+  private async activeGroupRoleCodes(rules: Array<{ roleCode: string; scopeType: string }>, roles: string[]): Promise<Set<string>> {
+    const candidates = [...new Set(rules.filter(rule => rule.scopeType === 'GROUP' && roles.includes(rule.roleCode)).map(rule => rule.roleCode))];
+    if (!candidates.length) return new Set();
+    const rows: Array<{ role_code: string }> = await this.dataScopeRepo.manager.query(
+      "SELECT role_code FROM sys_role WHERE role_code = ANY($1::text[]) AND status = 'ACTIVE'", [candidates],
+    );
+    return new Set(rows.map(row => row.role_code));
+  }
+
   /**
    * 解析用户在指定菜单下的数据范围
    * 1. ROLE_ADMIN → isGlobal=true（不查DB）
-   * 2. 每次查询当前 sys_data_scopes；仅独立角色 GROUP 可复用全局 context
+   * 2. 每次查询当前 sys_data_scopes；独立角色 GROUP 须实时为 ACTIVE 才可复用全局 context
    * 3. 组织授权每次重算，绑定及祖先必须处于 ACTIVE 根树中
    * 4. ACTIVE GROUP 绑定 → isGlobal=true；其余 → 展开 org codes
    * 5. 追加独立 project/warehouse/farm 授权；不从 storeCode 推导范围
@@ -119,9 +130,10 @@ export class DataScopeService {
       where: { enabled: true, moduleCode: menuCode },
     });
 
+    const activeGroups = await this.activeGroupRoleCodes(scopeRules, roles);
     let topLevel: ScopeLevel = 'SELF';
     for (const rule of scopeRules) {
-      if (roles.includes(rule.roleCode)) {
+      if (roles.includes(rule.roleCode) && (rule.scopeType !== 'GROUP' || activeGroups.has(rule.roleCode))) {
         if (SCOPE_RANK[rule.scopeType] > SCOPE_RANK[topLevel]) {
           topLevel = rule.scopeType;
         }
@@ -371,7 +383,7 @@ export class DataScopeService {
     return ctx;
   }
 
-  /** Bounded candidate projection of resolve(): company + warehouse only, five reads for the whole page.
+  /** Bounded candidate projection of resolve(): company + warehouse only, five reads for the whole page, plus one live role lookup when GROUP rules match.
    * No authorization cache: edits take effect on the next candidate request. Confirm still calls resolve(). */
   async eligibleWarehouseRecipients(users:Array<{code:string;roles:string[]}>,menuCode:string,company:string,warehouse:string):Promise<Set<string>> {
     if(!users.length)return new Set();
@@ -384,6 +396,7 @@ export class DataScopeService {
       db.query("SELECT warehouse_code,company_code,site_code FROM wms_warehouses WHERE COALESCE(status,'ACTIVE') NOT IN ('DISABLED','INACTIVE','DELETED') AND domain='OPERATIONAL'"),
       db.query('SELECT user_id,warehouse_code FROM sys_user_warehouse_scopes WHERE user_id=ANY($1::bigint[])',[ids]),
     ]);
+    const activeGroups = await this.activeGroupRoleCodes(rules, [...new Set(users.flatMap(user => user.roles))]);
     const byId=new Map(orgs.map((o:any)=>[String(o.id),o]));const allowed=new Set<string>();
     // Match resolve(): only ACTIVE paths rooted in an ACTIVE root grant organization access.
     // Orphans and cycles are never added; independently assigned role/farm grants stay separate.
@@ -401,7 +414,7 @@ export class DataScopeService {
 
     for(const user of users){
       const own=bindings.filter((b:any)=>String(b.user_id)===user.code && activeIds.has(String(b.org_id))),roles=user.roles;
-      let top:ScopeLevel='SELF';for(const rule of rules)if(roles.includes(rule.roleCode)&&SCOPE_RANK[rule.scopeType]>SCOPE_RANK[top])top=rule.scopeType;
+      let top:ScopeLevel='SELF';for(const rule of rules)if(roles.includes(rule.roleCode)&&(rule.scopeType!=='GROUP'||activeGroups.has(rule.roleCode))&&SCOPE_RANK[rule.scopeType]>SCOPE_RANK[top])top=rule.scopeType;
       if(roles.includes('ROLE_ADMIN')||top==='GROUP'||own.some((b:any)=>b.data_scope_level==='GROUP')){allowed.add(user.code);continue;}
       const companies=new Set<string>(),sites=new Set<string>(),wh=new Set<string>();
       for(const binding of own){const row:any=byId.get(String(binding.org_id));if(!row)continue;

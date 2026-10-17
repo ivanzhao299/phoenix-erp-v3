@@ -69,6 +69,7 @@ pgDescribe('MANUAL-122 real PostgreSQL, HTTP, roles and organization scope', () 
         parent_id bigint, site_code text, sort_order int);
       CREATE TABLE IF NOT EXISTS sys_user_orgs (id bigserial PRIMARY KEY, user_id bigint, org_id bigint,
         is_primary boolean, data_scope_level text, is_manager boolean, UNIQUE(user_id,org_id));
+      CREATE TABLE IF NOT EXISTS sys_role (role_code text PRIMARY KEY, status text);
       CREATE TABLE IF NOT EXISTS sys_data_scopes (id bigserial PRIMARY KEY, role_code text,module_code text,
         scope_type text,enabled boolean,created_at timestamptz DEFAULT now(),UNIQUE(role_code,module_code));
       CREATE TABLE IF NOT EXISTS sys_user_project_scopes (id bigserial PRIMARY KEY,user_id bigint,project_code text,created_at timestamptz DEFAULT now());
@@ -297,7 +298,8 @@ pgDescribe('MANUAL-122 real PostgreSQL, HTTP, roles and organization scope', () 
       VALUES ('HOUSE-A','2026-10-17','早班'),('HOUSE-B','2026-10-17','早班')`);
     await db.query(`INSERT INTO sys_organizations(id,org_code,org_type,status) VALUES (40107,'GROUP-FIXTURE','GROUP','INACTIVE') ON CONFLICT(id) DO UPDATE SET status='INACTIVE'`);
     await db.query(`INSERT INTO sys_user_orgs(user_id,org_id,data_scope_level) VALUES (40101,40107,'GROUP'),(40104,40107,'GROUP') ON CONFLICT DO NOTHING`);
-    await db.query(`INSERT INTO fixture_users VALUES(40115,'fixture_role_global','ROLE_GROUP_REPORTER','ALL') ON CONFLICT DO NOTHING;
+    await db.query(`INSERT INTO sys_role VALUES('ROLE_GROUP_REPORTER','ACTIVE') ON CONFLICT(role_code) DO UPDATE SET status='ACTIVE';
+      INSERT INTO fixture_users VALUES(40115,'fixture_role_global','ROLE_GROUP_REPORTER','ALL') ON CONFLICT DO NOTHING;
       INSERT INTO fixture_role_permissions VALUES('ROLE_GROUP_REPORTER','MENU_FARM_DATA:V') ON CONFLICT DO NOTHING;
       INSERT INTO sys_data_scopes(role_code,module_code,scope_type,enabled) VALUES('ROLE_GROUP_REPORTER','MENU_FARM_DATA','GROUP',true) ON CONFLICT(role_code,module_code) DO UPDATE SET enabled=true`);
     try {

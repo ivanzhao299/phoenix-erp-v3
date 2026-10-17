@@ -2,7 +2,7 @@ import { DataScopeService } from '../org/services/data-scope.service';
 
 describe('daily report company-scope provenance', () => {
   const build = (scopeType: string) => {
-    const manager = { query: jest.fn(async (sql: string) => sql.includes('FROM sys_user_orgs') ? [{
+    const manager = { query: jest.fn(async (sql: string) => sql.includes('FROM sys_role') ? [{ role_code: 'ROLE_REGION_REPORTER' }] : sql.includes('FROM sys_user_orgs') ? [{
       org_id: 40101, org_status: 'ACTIVE', org_type: 'COMPANY', org_code: 'COMP-A', company_code: 'COMP-A',
       parent_id: 40100, data_scope_level: 'COMPANY', site_code: null,
     }] : []) };
@@ -24,12 +24,13 @@ describe('daily report company-scope provenance', () => {
     expect(organizations.find).toHaveBeenCalledWith({where:{parentId:40100,status:'ACTIVE'}});
   });
 
-  it('preserves a GROUP rule as a resolved global scope before organization projection', async () => {
+  it('preserves an ACTIVE GROUP rule as a resolved global scope before organization projection', async () => {
     const {service,manager} = build('GROUP');
     const scope = await service.resolve('group-401', ['ROLE_REGION_REPORTER'], 'MENU_FARM_DATA', 401);
     expect(scope.isGlobal).toBe(true);
     expect(scope.scopeLevel).toBe('GROUP');
-    expect(manager.query).not.toHaveBeenCalled();
+    expect(manager.query).toHaveBeenCalledTimes(1);
+    expect(manager.query).toHaveBeenCalledWith(expect.stringContaining('FROM sys_role'), [['ROLE_REGION_REPORTER']]);
   });
   it.each(['child', 'grandchild'])('retains an explicit BU %s company projection', async depth => {
     const manager = { query: jest.fn(async (sql: string) => {
