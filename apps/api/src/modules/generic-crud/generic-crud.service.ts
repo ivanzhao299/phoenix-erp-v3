@@ -1,3 +1,4 @@
+import { DAILY_EXPORT_SNAPSHOT, DAILY_EXPORT_MAX_ROWS } from './daily-export-policy';
 import { Injectable, BadRequestException, ForbiddenException, InternalServerErrorException, Logger } from '@nestjs/common';
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
@@ -197,7 +198,8 @@ export class GenericCrudService {
 
   private toDateOnly(value: unknown): unknown {
     if (value instanceof Date && !Number.isNaN(value.getTime())) {
-      return value.toISOString().slice(0, 10);
+      // PostgreSQL DATE is parsed as local midnight: UTC conversion can shift the day.
+      return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`;
     }
     if (typeof value === 'string') {
       const match = value.match(/^(\d{4}-\d{2}-\d{2})/);
@@ -314,8 +316,9 @@ export class GenericCrudService {
   }
 
   private buildFindAllSql(table: string, query: any, extraWhere: string[] = [], extraValues: unknown[] = []) {
-    const limit = Math.min(Math.max(Number(query.limit) || 100, 1), 1000);
-    const offset = Math.max(Number(query.offset) || 0, 0);
+    const exportSnapshot = table === 'brd_daily_logs' && query[DAILY_EXPORT_SNAPSHOT] === true;
+    const limit = exportSnapshot ? DAILY_EXPORT_MAX_ROWS + 1 : Math.min(Math.max(Number(query.limit) || 100, 1), 1000);
+    const offset = exportSnapshot ? 0 : Math.max(Number(query.offset) || 0, 0);
 
     const whereClauses = [];
     if (['pkg_work_shifts','pkg_source_batches','pkg_grading_records','pkg_packing_records'].includes(table)) whereClauses.push('is_test = false');
