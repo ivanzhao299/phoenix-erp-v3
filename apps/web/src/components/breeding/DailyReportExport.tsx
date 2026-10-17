@@ -27,7 +27,7 @@ export function DailyReportExport({ grades }: { grades: ProductGrade[] }) {
   if (!canExport) return null;
 
   const exportReports = async () => {
-    if (!date || busy) return;
+    if (!date || busy || !grades.length) return;
     setBusy(true); setError(''); setCount(0);
     const abort = new AbortController();
     controller.current = abort;
@@ -68,10 +68,10 @@ export function DailyReportExport({ grades }: { grades: ProductGrade[] }) {
   };
 
   return <>
-    <button type="button" style={secondaryActionButton} onClick={() => { setError(''); setOpen(true); }}><Download size={14} />{t('ui.导出报表', '导出报表')}</button>
+    <button type="button" style={secondaryActionButton} disabled={!grades.length} onClick={() => { setError(''); setOpen(true); }}><Download size={14} />{t('ui.导出报表', '导出报表')}</button>
     <ModalV2 open={open} title={t('breeding.daily.exportTitle', '导出已保存的日报')} onClose={close} footer={<>
       <button type="button" style={secondaryActionButton} onClick={close}>{t('common.cancel', '取消')}</button>
-      <button type="button" style={primaryActionButton} disabled={busy || !date} onClick={exportReports}>{busy ? `${t('breeding.daily.exportLoading', '正在读取日报')} (${count})` : t('ui.导出报表', '导出报表')}</button>
+      <button type="button" style={primaryActionButton} disabled={busy || !date || !grades.length} onClick={exportReports}>{busy ? `${t('breeding.daily.exportLoading', '正在读取日报')} (${count})` : t('ui.导出报表', '导出报表')}</button>
     </>}>
       <p>{t('breeding.daily.exportScope', '导出所选日期所有有权查看的鸡舍日报（最多 20,000 条）；与录入表单的鸡舍选择无关。')}</p>
       <label>{t('common.date', '日期')}<input aria-label={t('common.date', '日期')} type="date" value={date} disabled={busy} required onChange={event => setDate(event.target.value)} /></label>
