@@ -91,8 +91,9 @@ staged('ledger collection staging (prod transport) + offline evaluation adapter'
     // seed the PRODUCTION-SHAPED ledger state (169 legacy applied + 84
     // canonical applied + the retired row) so the staged collection and the
     // adapter mapping run against realistic data, not another test's residue
-    const legacy = execFileSync('git', ['ls-tree', '--name-only', 'origin/main', 'apps/api/migrations/'], { cwd: repoRoot, encoding: 'utf8' })
-      .split('\n').filter((n) => /2026.*\.sql$/.test(n)).map((n) => n.split('/').pop()).sort();
+    // the legacy baseline from the CHECKED-OUT directory (never a git ref —
+    // a shallow CI checkout has no origin/main)
+    const legacy = fs.readdirSync(path.join(repoRoot, 'apps/api/migrations')).filter((n) => /2026.*\.sql$/.test(n)).sort();
     assert.equal(legacy.length, 169);
     const retired = JSON.parse(fs.readFileSync(path.join(repoRoot, 'scripts/ci/retired-typeorm-migrations.json'), 'utf8'));
     const inv = JSON.parse(fs.readFileSync(path.join(repoRoot, 'docs/ops/evidence/inv-pr399.json'), 'utf8')).canonicalTypeorm;

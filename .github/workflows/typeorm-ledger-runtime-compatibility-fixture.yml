@@ -85,8 +85,9 @@ jobs:
           CONTAINER="$(docker ps --filter ancestor="$LEDGER_COLLECT_DB_CONTAINER_DISCOVER" --format '{{.Names}}' | head -1)"
           test -n "$CONTAINER"
           echo "COLLECTION_FIXTURE_CONTAINER=$CONTAINER"
-          OUT="$(LEDGER_COLLECT_DB_CONTAINER="$CONTAINER" node --test scripts/ci/ledger-readonly-collect.test.mjs 2>&1)"
+          OUT="$(LEDGER_COLLECT_DB_CONTAINER="$CONTAINER" node --test scripts/ci/ledger-readonly-collect.test.mjs 2>&1)" || TEST_EXIT=$?
           echo "$OUT"
+          test "${TEST_EXIT:-0}" = "0"
           echo "$OUT" | grep -q "# skipped 0"
           echo "$OUT" | grep -q "# pass 6"
           echo "COLLECTION_NO_SKIP_FALLBACK=VERIFIED"
@@ -100,8 +101,9 @@ jobs:
           set -euo pipefail
           CONTAINER="$(docker ps --filter ancestor="$LEDGER_COLLECT_DB_CONTAINER_DISCOVER" --format '{{.Names}}' | head -1)"
           test -n "$CONTAINER"
-          OUT="$(LEDGER_COLLECT_DB_CONTAINER="$CONTAINER" node --test scripts/ci/ledger-collection-staging.test.mjs 2>&1)"
+          OUT="$(LEDGER_COLLECT_DB_CONTAINER="$CONTAINER" node --test scripts/ci/ledger-collection-staging.test.mjs 2>&1)" || TEST_EXIT=$?
           echo "$OUT"
+          test "${TEST_EXIT:-0}" = "0"
           echo "$OUT" | grep -q "# skipped 0"
           echo "$OUT" | grep -q "# pass 4"
           echo "STAGING_NO_SKIP_FALLBACK=VERIFIED"
@@ -112,8 +114,9 @@ jobs:
           LEDGER_REHEARSAL_GATE_REQUIRED: 'true'
         run: |
           set -euo pipefail
-          OUT="$(node --test scripts/ci/ledger-rehearsal-gate.test.mjs 2>&1)"
+          OUT="$(node --test scripts/ci/ledger-rehearsal-gate.test.mjs 2>&1)" || TEST_EXIT=$?
           echo "$OUT"
+          test "${TEST_EXIT:-0}" = "0"
           echo "$OUT" | grep -q "# skipped 0"
           echo "$OUT" | grep -q "# pass 2"
           echo "REHEARSAL_GATE_NO_SKIP_FALLBACK=VERIFIED"
