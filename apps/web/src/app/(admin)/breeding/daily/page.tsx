@@ -107,6 +107,18 @@ export default function DailyPage() {
     label: string;
   }[]>([]);
   const [selectedHouse, setSelectedHouse] = useState('');
+  // Entry defaults must not silently hide authorized historical records.
+  const [historyHouse, setHistoryHouse] = useState(() => sp.get('historyHouse') || '');
+  const [historyDate, setHistoryDate] = useState(() => sp.get('historyDate') || '');
+  useEffect(() => {
+    // Keep a saved/backdated report addressable across refresh and login return.
+    const url = new URL(window.location.href);
+    if (historyHouse) url.searchParams.set('historyHouse', historyHouse);
+    else url.searchParams.delete('historyHouse');
+    if (historyDate) url.searchParams.set('historyDate', historyDate);
+    else url.searchParams.delete('historyDate');
+    window.history.replaceState(window.history.state, '', url);
+  }, [historyHouse, historyDate]);
   const [flockByHouse, setFlockByHouse] = useState<Record<string, string>>({});
   const [farmCodeByHouse, setFarmCodeByHouse] = useState<Record<string, string>>({});
   const [formDate, setFormDate] = useState(today);
@@ -147,8 +159,16 @@ export default function DailyPage() {
   const [currentQty, setCurrentQty] = useState<number>(0);
   const [gradeModalRowId, setGradeModalRowId] = useState<number | null>(null);
   const { grades: productGrades } = useProductGrades();
+  const historyRequest = useRef(0);
   const loadData = useCallback(async () => {
-    const [data, allHouses] = await Promise.all([fetchRecords(), fetchHouses()]);
+    const generation = ++historyRequest.current;
+    // Filter before the API's page limit; another house cannot crowd this one out.
+    const [data, allHouses] = await Promise.all([fetchRecords({
+      ...(historyHouse ? { house_code: historyHouse } : {}),
+      ...(historyDate ? { log_date: historyDate } : {}),
+      limit: 30,
+    }), fetchHouses()]);
+    if (generation !== historyRequest.current) return;
     const houseNameMap: Record<string, string> = {};
     (allHouses || []).forEach((h: Record<string, unknown>) => {
       if (h.house_code) houseNameMap[h.house_code as string] = h.house_name as string || h.house_code as string;
@@ -173,7 +193,7 @@ export default function DailyPage() {
       humidity: d.humidity || 60,
       remark: d.note || ''
     })).reverse());
-  }, [fetchRecords, fetchHouses]);
+  }, [fetchRecords, fetchHouses, historyHouse, historyDate]);
   useEffect(() => {
     Promise.all([fetchHouses(), fetchFlocks()]).then(([houses, flocks]: [Record<string, unknown>[], Record<string, unknown>[]]) => {
       const fromHouses = (houses || []).filter((h: Record<string, unknown>) => h.house_code || h.house_no);
@@ -201,8 +221,10 @@ export default function DailyPage() {
       const isGlobalUser = userStore === 'ALL' || userStore.startsWith('ORG-GROUP');
       setSelectedHouse(isGlobalUser ? '' : (houseList[0]?.code || ''));
     }).catch(() => {});
-    loadData();
   }, []);
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
   // G14：拉当前选中舍的存栏数（brd_flocks.current_qty），供产蛋率实时计算
   useEffect(() => {
     if (!selectedHouse) { setCurrentQty(0); return; }
@@ -361,6 +383,10 @@ export default function DailyPage() {
       toast.error(`${t('ui.部分班次提交失败：', '部分班次提交失败：')}\n${failed}`);
     }
     if (fulfilled.length > 0) {
+      // Show the saved business date, including backdated reports outside the recent page.
+      setHistoryHouse(selectedHouse);
+      setHistoryDate(formDate);
+      if (historyHouse === selectedHouse && historyDate === formDate) loadData();
       setSubmitted(true);
       setApproved(false);
       setTimeout(() => setSubmitted(false), 3000);
@@ -414,7 +440,6 @@ export default function DailyPage() {
         const codes = shiftOptions.length > 0 ? shiftOptions.map(o => o.value) : ['BRD_SHIFT_MORNING', 'BRD_SHIFT_EVENING'];
         setRows(codes.map((c, i) => mkRow(i + 1, c)));
       }
-      loadData();
     }
   };
   const handleExport = () => {
@@ -490,7 +515,7 @@ export default function DailyPage() {
     deadCull: rows.reduce((sum, r) => sum + (Number(r.deaths) || 0) + (Number(r.elimination) || 0), 0),
     feedKg: rows.reduce((sum, r) => sum + (Number(r.feedKg) || 0), 0)
   };
-  const visibleReports = reports.filter(r => !selectedHouse || r.house === selectedHouse).slice(0, 30);
+  const visibleReports = reports;
   return <div className="animate-fade-in">
       <PageHeader title={t('ui.日生产日报录入', '日生产日报录入')} subtitle={t('ui.按班次录入当日生产数据', '按班次录入当日生产数据')} breadcrumb={[t('ui.养殖管理', '养殖管理'), t('ui.日生产日报', '日生产日报')]} actions={<div style={{
       display: 'flex',
@@ -790,7 +815,7 @@ export default function DailyPage() {
       gap: 8
     }}>
         {t('ui.近期日报记录', '近期日报记录')}
-        {selectedHouse && <span style={{
+        {historyHouse && <span style={{
         fontSize: 12,
         fontWeight: 500,
         color: 'var(--text-secondary)',
@@ -798,8 +823,18 @@ export default function DailyPage() {
         border: '1px solid var(--border)',
         borderRadius: 12,
         padding: '2px 10px'
-      }}>{houses.find(h => h.code === selectedHouse)?.label || selectedHouse}</span>}
+      }}>{houses.find(h => h.code === historyHouse)?.label || historyHouse}</span>}
       </h3>
+      <div style={{ display: 'flex', gap: 12, marginBottom: 12, flexWrap: 'wrap' }}>
+        <label>
+          {t('ui.鸡舍', '鸡舍')}
+          <HouseSelector value={historyHouse} onChange={setHistoryHouse} placeholder={t('common.all', '全部')} />
+        </label>
+        <label>
+          {t('common.date', '日期')}
+          <input type="date" value={historyDate} onChange={event => setHistoryDate(event.target.value)} />
+        </label>
+      </div>
       <div className={s.card} style={{
       overflow: 'hidden'
     }}>

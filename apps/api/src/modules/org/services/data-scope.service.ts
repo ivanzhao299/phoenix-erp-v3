@@ -3,7 +3,7 @@
  * RBAC-2 组织范围 + 数据范围解析
  * 2026-05-25
  */
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ClsService } from 'nestjs-cls';
@@ -21,6 +21,11 @@ export interface DataScopeContext {
   isGlobal: boolean;
   scopeLevel: ScopeLevel;
   allowedCompanyCodes: string[];
+  /** Explicit company/region grants for farm records; excludes SITE parent-company projection. */
+  allowedBreedingCompanyCodes?: string[];
+  /** Explicit SITE projections and verified extra farms for daily reports only. */
+  allowedBreedingSiteCodes?: string[];
+  allowedBreedingFarmCodes?: string[];
   allowedProjectCodes: string[];
   allowedWarehouseCodes: string[];
   allowedFarmCodes: string[]; // G4-E: FarmScope（在 CompanyScope 之下，与 Warehouse 同层）
@@ -37,7 +42,7 @@ const SCOPE_RANK: Record<ScopeLevel, number> = {
   GROUP: 4,
 };
 
-// 内存缓存：key = `${userId}:${sortedRoles}:${menuCode}`, TTL = 30s
+// Cache only independently granted role GROUP contexts, after re-reading current role rules.
 interface CacheEntry {
   context: DataScopeContext;
   expireAt: number;
@@ -76,14 +81,24 @@ export class DataScopeService {
     };
   }
 
+  /** Role GROUP is independent authority, but only while the role is ACTIVE.
+   * Re-read before any cached global context; failures must never fall back to claims. */
+  private async activeGroupRoleCodes(rules: Array<{ roleCode: string; scopeType: string }>, roles: string[]): Promise<Set<string>> {
+    const candidates = [...new Set(rules.filter(rule => rule.scopeType === 'GROUP' && roles.includes(rule.roleCode)).map(rule => rule.roleCode))];
+    if (!candidates.length) return new Set();
+    const rows: Array<{ role_code: string }> = await this.dataScopeRepo.manager.query(
+      "SELECT role_code FROM sys_role WHERE role_code = ANY($1::text[]) AND status = 'ACTIVE'", [candidates],
+    );
+    return new Set(rows.map(row => row.role_code));
+  }
+
   /**
    * 解析用户在指定菜单下的数据范围
    * 1. ROLE_ADMIN → isGlobal=true（不查DB）
-   * 2. 命中缓存 → 直接返回
-   * 3. 查 sys_data_scopes → 取最高 scope_type
-   * 4. GROUP → isGlobal=true；其余 → 展开 org codes
-   * 5. 追加额外 project/warehouse 授权
-   * 6. 兜底：无 sys_user_orgs → 用 storeCode
+   * 2. 每次查询当前 sys_data_scopes；独立角色 GROUP 须实时为 ACTIVE 才可复用全局 context
+   * 3. 组织授权每次重算，绑定及祖先必须处于 ACTIVE 根树中
+   * 4. ACTIVE GROUP 绑定 → isGlobal=true；其余 → 展开 org codes
+   * 5. 追加独立 project/warehouse/farm 授权；不从 storeCode 推导范围
    */
   async resolve(
     userId: string,
@@ -91,6 +106,7 @@ export class DataScopeService {
     menuCode: string,
     permsVersion?: number,
   ): Promise<DataScopeContext> {
+    if (!userId?.trim()) throw new ForbiddenException('DATA_SCOPE_IDENTITY_REQUIRED');
     // ROLE_ADMIN 直接全局
     if (roles.includes('ROLE_ADMIN')) {
       return {
@@ -105,23 +121,19 @@ export class DataScopeService {
       };
     }
 
-    // 缓存检查
-    // 权限版本进入缓存键：组织/角色范围变更 bump perms_version 后，新令牌绝不复用
-    // 旧版本解析出的范围。此举也覆盖多 API 实例（本地 invalidate 只能清当前进程）。
     const cacheKey = `${userId}:${[...roles].sort().join(',')}:${menuCode}:${permsVersion ?? 'legacy'}`;
-    const cached = cache.get(cacheKey);
-    if (cached && cached.expireAt > Date.now()) {
-      return cached.context;
-    }
+    // Re-read role rules and organization grants before reuse. A disabled organization
+    // must revoke access even for a versionless token or a different API process.
 
     // 查 sys_data_scopes：取当前角色集合中匹配该菜单的最高 scope_type
     const scopeRules = await this.dataScopeRepo.find({
       where: { enabled: true, moduleCode: menuCode },
     });
 
+    const activeGroups = await this.activeGroupRoleCodes(scopeRules, roles);
     let topLevel: ScopeLevel = 'SELF';
     for (const rule of scopeRules) {
-      if (roles.includes(rule.roleCode)) {
+      if (roles.includes(rule.roleCode) && (rule.scopeType !== 'GROUP' || activeGroups.has(rule.roleCode))) {
         if (SCOPE_RANK[rule.scopeType] > SCOPE_RANK[topLevel]) {
           topLevel = rule.scopeType;
         }
@@ -130,6 +142,8 @@ export class DataScopeService {
 
     // GROUP → 全局
     if (topLevel === 'GROUP') {
+      const cached = cache.get(cacheKey);
+      if (cached && cached.expireAt > Date.now()) return cached.context;
       const ctx: DataScopeContext = {
         isGlobal: true,
         scopeLevel: 'GROUP',
@@ -152,13 +166,21 @@ export class DataScopeService {
       org_id: number; is_primary: boolean; data_scope_level: string;
       company_code: string | null; project_code: string | null;
       warehouse_code: string | null; parent_id: number | null;
-      org_type: string | null; site_code: string | null; org_code: string;
+      org_status: string; org_type: string | null; site_code: string | null; org_code: string;
     }> = await this.orgRepo.manager.query(`
+      WITH RECURSIVE active_orgs AS (
+        SELECT id FROM sys_organizations WHERE status = 'ACTIVE' AND parent_id IS NULL
+        UNION
+        SELECT child.id FROM sys_organizations child
+        JOIN active_orgs parent ON child.parent_id = parent.id
+        WHERE child.status = 'ACTIVE'
+      )
       SELECT uo.org_id, uo.is_primary, uo.data_scope_level,
              o.company_code, o.project_code, o.warehouse_code, o.parent_id,
-             o.org_type, o.site_code, o.org_code
+             o.status AS org_status, o.org_type, o.site_code, o.org_code
       FROM sys_user_orgs uo
       JOIN sys_organizations o ON o.id = uo.org_id
+      JOIN active_orgs active ON active.id = o.id
       WHERE uo.user_id = $1
     `, [userIdNum]);
 
@@ -166,7 +188,7 @@ export class DataScopeService {
     //   data_scope_level。G114 给部门绑定(DEPT-HQ-*)显式授 GROUP 范围的用户(郭大鹏/刘杰/
     //   刘汉涛/王乐金/范镇豪)，因角色无 GROUP 规则 → 非全局 + 部门展开无公司 → 公司级主数据
     //   (客户/项目/资金账户)被 DENY 看空。绑定的 GROUP 范围是权威 per-user 授权 → 视为全局。
-    if (userOrgRows.some((r) => r.data_scope_level === 'GROUP')) {
+    if (userOrgRows.some((r) => r.org_status === 'ACTIVE' && r.data_scope_level === 'GROUP')) {
       const ctx: DataScopeContext = {
         isGlobal: true,
         scopeLevel: 'GROUP',
@@ -177,23 +199,32 @@ export class DataScopeService {
         allowedSiteCodes: [],
         userId,
       };
-      this._setCache(cacheKey, ctx);
       return ctx;
     }
 
     const companyCodes = new Set<string>();
+    const breedingCompanyCodes = new Set<string>();
+    const breedingSiteCodes = new Set<string>();
     const projectCodes = new Set<string>();
     const warehouseCodes = new Set<string>();
     const siteCodes = new Set<string>();  // G5-D
 
     if (userOrgRows.length > 0) {
       for (const row of userOrgRows) {
-        if (row.company_code) companyCodes.add(row.company_code);
+        const activeBinding = row.org_status === 'ACTIVE';
+        const explicitCompany = activeBinding && row.org_type === 'COMPANY';
+        const companyTree = activeBinding && (row.org_type === 'BU' || row.org_type === 'GROUP');
+        if (row.company_code) {
+          companyCodes.add(row.company_code);
+          if (explicitCompany) breedingCompanyCodes.add(row.company_code);
+        }
         if (row.project_code) projectCodes.add(row.project_code);
         if (row.warehouse_code) warehouseCodes.add(row.warehouse_code);
         // G5-D：SITE 类型组织绑定 → 用 org_code（如 'SITE-MENGSAI-LAYER'）作为 site_code
-        if (row.org_type === 'SITE') siteCodes.add(row.org_code);
-        else if (row.site_code) siteCodes.add(row.site_code); // 兼容 SITE 字段
+        if (row.org_type === 'SITE') {
+          siteCodes.add(row.org_code);
+          if (activeBinding) breedingSiteCodes.add(row.org_code);
+        } else if (row.site_code) siteCodes.add(row.site_code); // 兼容 SITE 字段
 
         // REGION 级别：展开同一父节点下所有子公司
         if (topLevel === 'REGION' && row.parent_id) {
@@ -201,7 +232,10 @@ export class DataScopeService {
             where: { parentId: row.parent_id, status: 'ACTIVE' },
           });
           for (const s of siblings) {
-            if (s.companyCode) companyCodes.add(s.companyCode);
+            if (s.companyCode) {
+              companyCodes.add(s.companyCode);
+              if (explicitCompany && s.orgType === 'COMPANY') breedingCompanyCodes.add(s.companyCode);
+            }
           }
         }
 
@@ -215,18 +249,24 @@ export class DataScopeService {
               AND company_code IS NOT NULL
           `, [row.org_id]);
           for (const c of childCompanies) {
-            if (c.company_code) companyCodes.add(c.company_code);
+            if (c.company_code) {
+              companyCodes.add(c.company_code);
+              if (companyTree) breedingCompanyCodes.add(c.company_code);
+            }
           }
           // 如果还是空（GROUP/HQ 节点），再向下一层
           if (childCompanies.length === 0) {
             const grandChildren = await this.orgRepo.manager.query(`
               SELECT o2.company_code FROM sys_organizations o1
               JOIN sys_organizations o2 ON o2.parent_id = o1.id
-              WHERE o1.parent_id = $1 AND o2.org_type = 'COMPANY'
+              WHERE o1.parent_id = $1 AND o1.status = 'ACTIVE' AND o2.org_type = 'COMPANY'
                 AND o2.status = 'ACTIVE' AND o2.company_code IS NOT NULL
             `, [row.org_id]);
             for (const c of grandChildren) {
-              if (c.company_code) companyCodes.add(c.company_code);
+              if (c.company_code) {
+                companyCodes.add(c.company_code);
+                if (companyTree) breedingCompanyCodes.add(c.company_code);
+              }
             }
           }
 
@@ -249,7 +289,10 @@ export class DataScopeService {
             LIMIT 1
           `, [row.org_id]);
           for (const c of ancestorCompany) {
-            if (c.company_code) companyCodes.add(c.company_code);
+            if (c.company_code) {
+              companyCodes.add(c.company_code);
+              // Ancestor company is a master-data projection, not a daily-report grant.
+            }
           }
         }
       }
@@ -298,6 +341,7 @@ export class DataScopeService {
 
     // G4-E：追加场站授权
     const farmCodes = new Set<string>();
+    const breedingFarmCodes = new Set<string>();
     const extraFarms = await this.userFarmRepo.find({ where: { userId: userIdNum } });
     const explicitlyGrantedFarmCodes = [...new Set(extraFarms.map((ef) => ef.farmCode).filter(Boolean))];
     if (explicitlyGrantedFarmCodes.length > 0) {
@@ -307,7 +351,7 @@ export class DataScopeService {
         WHERE farm_code = ANY($1)
           AND status = 'ACTIVE'
       `, [explicitlyGrantedFarmCodes]);
-      activeFarms.forEach((farm) => farmCodes.add(farm.farm_code));
+      activeFarms.forEach((farm) => { farmCodes.add(farm.farm_code); breedingFarmCodes.add(farm.farm_code); });
     }
 
     // 方案 A：SITE 仅是 FARM 的组织树投影。保留 allowedSiteCodes 给历史消费方，
@@ -315,23 +359,31 @@ export class DataScopeService {
     if (siteCodes.size > 0) {
       const projectedFarmCodes = await this.ownership.resolveFarmCodesBySiteCodes([...siteCodes]);
       projectedFarmCodes.forEach((farmCode) => farmCodes.add(farmCode));
+      if ([...siteCodes].every(code => breedingSiteCodes.has(code))) {
+        projectedFarmCodes.forEach(farmCode => breedingFarmCodes.add(farmCode));
+      } else if (breedingSiteCodes.size > 0) {
+        const explicitSiteFarms = await this.ownership.resolveFarmCodesBySiteCodes([...breedingSiteCodes]);
+        explicitSiteFarms.forEach(farmCode => breedingFarmCodes.add(farmCode));
+      }
     }
 
     const ctx: DataScopeContext = {
       isGlobal: false,
       scopeLevel: topLevel,
       allowedCompanyCodes: [...companyCodes],
+      allowedBreedingCompanyCodes: [...breedingCompanyCodes],
+      allowedBreedingSiteCodes: [...breedingSiteCodes],
+      allowedBreedingFarmCodes: [...breedingFarmCodes],
       allowedProjectCodes: [...projectCodes],
       allowedWarehouseCodes: [...warehouseCodes],
       allowedFarmCodes: [...farmCodes], // G4-E
       allowedSiteCodes: [...siteCodes], // G5-D
       userId,
     };
-    this._setCache(cacheKey, ctx);
     return ctx;
   }
 
-  /** Bounded candidate projection of resolve(): company + warehouse only, five reads for the whole page.
+  /** Bounded candidate projection of resolve(): company + warehouse only, five reads for the whole page, plus one live role lookup when GROUP rules match.
    * No authorization cache: edits take effect on the next candidate request. Confirm still calls resolve(). */
   async eligibleWarehouseRecipients(users:Array<{code:string;roles:string[]}>,menuCode:string,company:string,warehouse:string):Promise<Set<string>> {
     if(!users.length)return new Set();
@@ -344,20 +396,35 @@ export class DataScopeService {
       db.query("SELECT warehouse_code,company_code,site_code FROM wms_warehouses WHERE COALESCE(status,'ACTIVE') NOT IN ('DISABLED','INACTIVE','DELETED') AND domain='OPERATIONAL'"),
       db.query('SELECT user_id,warehouse_code FROM sys_user_warehouse_scopes WHERE user_id=ANY($1::bigint[])',[ids]),
     ]);
+    const activeGroups = await this.activeGroupRoleCodes(rules, [...new Set(users.flatMap(user => user.roles))]);
     const byId=new Map(orgs.map((o:any)=>[String(o.id),o]));const allowed=new Set<string>();
+    // Match resolve(): only ACTIVE paths rooted in an ACTIVE root grant organization access.
+    // Orphans and cycles are never added; independently assigned role/farm grants stay separate.
+    const activeIds = new Set<string>();
+    let changed = true;
+    while (changed) {
+      changed = false;
+      for (const org of orgs) {
+        if (org.status === 'ACTIVE' && !activeIds.has(String(org.id))
+          && (org.parent_id == null || activeIds.has(String(org.parent_id)))) {
+          activeIds.add(String(org.id)); changed = true;
+        }
+      }
+    }
+
     for(const user of users){
-      const own=bindings.filter((b:any)=>String(b.user_id)===user.code),roles=user.roles;
-      let top:ScopeLevel='SELF';for(const rule of rules)if(roles.includes(rule.roleCode)&&SCOPE_RANK[rule.scopeType]>SCOPE_RANK[top])top=rule.scopeType;
+      const own=bindings.filter((b:any)=>String(b.user_id)===user.code && activeIds.has(String(b.org_id))),roles=user.roles;
+      let top:ScopeLevel='SELF';for(const rule of rules)if(roles.includes(rule.roleCode)&&(rule.scopeType!=='GROUP'||activeGroups.has(rule.roleCode))&&SCOPE_RANK[rule.scopeType]>SCOPE_RANK[top])top=rule.scopeType;
       if(roles.includes('ROLE_ADMIN')||top==='GROUP'||own.some((b:any)=>b.data_scope_level==='GROUP')){allowed.add(user.code);continue;}
       const companies=new Set<string>(),sites=new Set<string>(),wh=new Set<string>();
       for(const binding of own){const row:any=byId.get(String(binding.org_id));if(!row)continue;
         if(row.company_code)companies.add(row.company_code);if(row.warehouse_code)wh.add(row.warehouse_code);
         if(row.org_type==='SITE')sites.add(row.org_code);else if(row.site_code)sites.add(row.site_code);
-        if(top==='REGION'&&row.parent_id)for(const o of orgs)if(String(o.parent_id)===String(row.parent_id)&&o.status==='ACTIVE'&&o.company_code)companies.add(o.company_code);
+        if(top==='REGION'&&row.parent_id)for(const o of orgs)if(String(o.parent_id)===String(row.parent_id)&&activeIds.has(String(o.id))&&o.company_code)companies.add(o.company_code);
         if(!row.company_code){
-          const children=orgs.filter((o:any)=>String(o.parent_id)===String(row.id)&&o.org_type==='COMPANY'&&o.status==='ACTIVE'&&o.company_code);
+          const children=orgs.filter((o:any)=>String(o.parent_id)===String(row.id)&&o.org_type==='COMPANY'&&activeIds.has(String(o.id))&&o.company_code);
           for(const o of children)companies.add(o.company_code);
-          if(!children.length)for(const o of orgs){const parent:any=byId.get(String(o.parent_id));if(parent&&String(parent.parent_id)===String(row.id)&&o.org_type==='COMPANY'&&o.status==='ACTIVE'&&o.company_code)companies.add(o.company_code);}
+          if(!children.length)for(const o of orgs){const parent:any=byId.get(String(o.parent_id));if(parent&&String(parent.parent_id)===String(row.id)&&o.org_type==='COMPANY'&&activeIds.has(String(o.id))&&o.company_code)companies.add(o.company_code);}
           let parent:any=row;const visited=new Set<string>();while(parent&&!visited.has(String(parent.id))){visited.add(String(parent.id));if(parent.org_type==='COMPANY'&&parent.company_code){companies.add(parent.company_code);break;}parent=byId.get(String(parent.parent_id));}
         }
       }
@@ -383,9 +450,8 @@ export class DataScopeService {
   }
 
   private _setCache(key: string, ctx: DataScopeContext): void {
-    // G89-P2：30s→120s。组织绑定/数据范围规则变更频率极低（admin 偶发操作），
-    //   延长 TTL 减少高并发下每请求 2-5 次 scope 展开 SQL 的抖动；变更最多 2 分钟生效。
-    //   注：perms_version（jwt.strategy）仍 30s——那是权限变更的安全探针，保持灵敏。
+    // Only independent role GROUP contexts are stored; live role rules are checked
+    // before lookup. Organization-derived access is deliberately never cached.
     cache.set(key, { context: ctx, expireAt: Date.now() + 120_000 });
   }
 }

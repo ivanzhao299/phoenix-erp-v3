@@ -463,7 +463,9 @@ export class GenericCrudController {
       (req.user?.permissions || []).includes('*') ||
       req.user?.username === 'admin' ||
       roles.some((r) => GLOBAL_ROLES.has(r));
-    const isGlobal = tableScope ? tableScope.isGlobal === true : legacyGlobal;
+    const isGlobal = table === 'brd_daily_logs'
+      ? tableScope?.isGlobal === true
+      : (tableScope ? tableScope.isGlobal === true : legacyGlobal);
 
     // 行级 scope 字段映射（2026-06-06 修）：
     // 历史上 brd_* 一律按 farm_code 过滤，但 userStoreCode 是 SITE 维度（如
@@ -472,7 +474,7 @@ export class GenericCrudController {
     // MDM-1 后 brd_daily_logs 有 site_code、brd_farms 有 mapped_site_code，
     // 改按这些列过滤即可与 userStoreCode 同维度对齐。
     const BRD_SCOPE_FIELD: Record<string, string | null> = {
-      brd_daily_logs:   'site_code',         // mdm1_05 已加 + 回填
+      brd_daily_logs:   null, // Authority is the resolved breeding scope below, never legacy storeCode.
       brd_farms:        'mapped_site_code',  // mdm1_03 已加 + 回填
       brd_medications:        'store_code',  // v3_schema 已有（主档表）
       brd_medication_records: 'site_code',   // G21-4 业务记录表按 site 隔离
@@ -519,9 +521,12 @@ export class GenericCrudController {
 
     if (BREEDING_SCOPED_TABLES.includes(table as BreedingScopedTable)) {
       const breedingScope = isGlobal ? null : {
-        farmCodes: tableScope?.allowedFarmCodes ?? [],
-        siteCodes: tableScope?.allowedSiteCodes ?? [],
-        companyCodes: tableScope?.allowedCompanyCodes ?? [],
+        farmCodes: table === 'brd_daily_logs'
+          ? (tableScope?.allowedBreedingFarmCodes ?? []) : (tableScope?.allowedFarmCodes ?? []),
+        siteCodes: table === 'brd_daily_logs'
+          ? (tableScope?.allowedBreedingSiteCodes ?? []) : (tableScope?.allowedSiteCodes ?? []),
+        companyCodes: table === 'brd_daily_logs'
+          ? (tableScope?.allowedBreedingCompanyCodes ?? []) : (tableScope?.allowedCompanyCodes ?? []),
       };
       const data = await this.crudService.findAllBreedingScoped(table as BreedingScopedTable, query, breedingScope);
       return { code: 200, data };

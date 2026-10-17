@@ -1,6 +1,6 @@
 import { DataScopeService } from './data-scope.service';
 
-describe('DataScopeService permission-version cache isolation', () => {
+describe('DataScopeService live authorization and role cache isolation', () => {
   it('does not reuse a cached global scope after a range change bumps perms_version', async () => {
     let bindingLevel = 'GROUP';
     const manager = {
@@ -14,7 +14,7 @@ describe('DataScopeService permission-version cache isolation', () => {
             project_code: null,
             warehouse_code: null,
             parent_id: 16,
-            org_type: 'SITE',
+            org_status: 'ACTIVE', org_type: 'SITE',
             site_code: 'SITE-DONGPENG-LAYER',
             org_code: 'SITE-DONGPENG-LAYER',
           }];
@@ -57,6 +57,12 @@ describe('DataScopeService permission-version cache isolation', () => {
       expect.stringContaining('FROM wms_warehouses'),
       [['COMP-LAO-XINGCHI']],
     );
+  });
+
+  it.each([['ROLE_ADMIN'], ['ROLE_FARM_REPORTER']])('rejects missing identity before role authorization (%s)', async role => {
+    const repo=()=>({find:jest.fn(),manager:{query:jest.fn()}});
+    const service=new DataScopeService(repo() as any,repo() as any,repo() as any,repo() as any,repo() as any,repo() as any,{get:jest.fn()} as any,{} as any);
+    await expect(service.resolve('',[role],'MENU_FARM_DATA')).rejects.toThrow('DATA_SCOPE_IDENTITY_REQUIRED');
   });
 
   it('keeps an unbound non-global user fail-closed without projecting farms', async () => {
@@ -116,7 +122,7 @@ describe('DataScopeService permission-version cache isolation', () => {
 
   it('intersects SITE grants with OPERATIONAL warehouses at that SITE', async () => {
     const manager = { query: jest.fn(async (sql: string) => {
-      if (sql.includes('FROM sys_user_orgs')) return [{ org_id: 21, is_primary: true, data_scope_level: 'COMPANY', company_code: null, project_code: null, warehouse_code: null, parent_id: 16, org_type: 'SITE', site_code: 'SITE-DONGPENG-LAYER', org_code: 'SITE-DONGPENG-LAYER' }];
+      if (sql.includes('FROM sys_user_orgs')) return [{ org_id: 21, is_primary: true, data_scope_level: 'COMPANY', company_code: null, project_code: null, warehouse_code: null, parent_id: 16, org_status: 'ACTIVE', org_type: 'SITE', site_code: 'SITE-DONGPENG-LAYER', org_code: 'SITE-DONGPENG-LAYER' }];
       if (sql.includes('WITH RECURSIVE up')) return [{ company_code: 'COMP-LAO-XINGCHI' }];
       if (sql.includes('FROM wms_warehouses')) return [{ warehouse_code: 'LPH_DP_EGG_FARM' }];
       return [];
@@ -138,7 +144,7 @@ describe('DataScopeService permission-version cache isolation', () => {
 
   it('keeps COMPANY operation warehouses and unions a cross-company explicit grant', async () => {
     const manager = { query: jest.fn(async (sql: string) => {
-      if (sql.includes('FROM sys_user_orgs')) return [{ org_id: 10, is_primary: true, data_scope_level: 'COMPANY', company_code: 'COMP-A', project_code: null, warehouse_code: null, parent_id: 1, org_type: 'COMPANY', site_code: null, org_code: 'COMP-A' }];
+      if (sql.includes('FROM sys_user_orgs')) return [{ org_id: 10, is_primary: true, data_scope_level: 'COMPANY', company_code: 'COMP-A', project_code: null, warehouse_code: null, parent_id: 1, org_status: 'ACTIVE', org_type: 'COMPANY', site_code: null, org_code: 'COMP-A' }];
       if (sql.includes('company_code = ANY')) return [{ warehouse_code: 'WH-A' }];
       if (sql.includes('warehouse_code = ANY')) return [{ warehouse_code: 'WH-B' }];
       return [];
