@@ -264,11 +264,13 @@ describe('EggInventoryService createProductionBatch SQL contract', () => {
   it('keeps inv_batches target columns, value expressions and parameters aligned', async () => {
     const query = jest.fn()
       .mockResolvedValueOnce([{ grade_code: 'GRADE_1' }])
-      .mockResolvedValueOnce([{ cnt: '0' }])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ max_suffix: null }])
       .mockResolvedValueOnce([{ batch_no: 'EGG-20260825-00001' }])
       .mockResolvedValueOnce([]);
     const cls = { get: jest.fn().mockReturnValue({ username: 'tester' }) };
-    const service = new EggInventoryService({ query } as never, cls as never);
+    const transaction = jest.fn(async (run: (manager: unknown) => Promise<unknown>) => run({ query }));
+    const service = new EggInventoryService({ query, transaction } as never, cls as never);
 
     await service.createProductionBatch({
       companyCode: 'COMP-A',
@@ -283,7 +285,8 @@ describe('EggInventoryService createProductionBatch SQL contract', () => {
       ledgerChangeType: 'TEMP_PRODUCTION_INBOUND',
     });
 
-    const [sql, params] = query.mock.calls[2] as [string, unknown[]];
+    expect(transaction).toHaveBeenCalledTimes(1);
+    const [sql, params] = query.mock.calls.find(([statement]) => statement.includes('INSERT INTO inv_batches'))! as [string, unknown[]];
     const insert = sql.match(/INSERT INTO inv_batches\s*\(([^)]*)\)\s*VALUES\s*\(([\s\S]*?)\)\s*RETURNING/);
     expect(insert).not.toBeNull();
     const columns = insert![1].split(',').map(value => value.trim());
