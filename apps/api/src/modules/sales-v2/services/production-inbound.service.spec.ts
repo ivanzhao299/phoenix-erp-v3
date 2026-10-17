@@ -126,7 +126,7 @@ describe('ProductionInboundService master-data resolution', () => {
     })).rejects.toBeInstanceOf(BadRequestException);
   });
 
-  it('uses one transaction and returns the existing batches for a repeated request', async () => {
+  it.each([{ quantities: [3] }, { quantities: [11, 22] }])('returns each original batch once when retrying $quantities', async ({ quantities }) => {
     const query = jest.fn().mockImplementation(async (sql: string) => {
       if (!sql) return [{ farm_code: 'FARM-A', farm_company_code: 'COMP-A', farm_site_code: 'SITE-A' }];
       if (sql.includes('sys_organizations')) return [{ '?column?': 1 }];
@@ -142,7 +142,7 @@ describe('ProductionInboundService master-data resolution', () => {
       return [];
     });
     const transaction = jest.fn(async (operation: (manager: any) => Promise<unknown>) => operation({ query: managerQuery }));
-    const createProductionBatch = jest.fn().mockResolvedValue({ batch_no: 'EGG-20260825-00001' });
+    const createProductionBatch = jest.fn().mockImplementation(async () => ({ batch_no: `EGG-${createProductionBatch.mock.calls.length}` }));
     const modeSvc = { resolveMode: jest.fn().mockResolvedValue('TEMP_PRODUCTION_INBOUND') };
     const service = new ProductionInboundService(
       { query, transaction } as never,
@@ -151,16 +151,19 @@ describe('ProductionInboundService master-data resolution', () => {
       modeSvc as never,
       { resolveHouse: jest.fn(async (houseCode: string) => { const [row] = await query('', [houseCode]); return { houseCode, farmCode: row.farm_code, companyCode: row.farm_company_code, siteCode: row.farm_site_code }; }), resolveWarehouse: jest.fn(async (warehouseCode: string) => ({ warehouseCode, companyCode: 'COMP-A' })) } as never,
     );
-    const dto = { houseCode: 'HOUSE-A', eggDate: '2026-08-25', items: [{ grade: 'GRADE_1', qty: 3 }] };
+    const dto = { houseCode: 'HOUSE-A', eggDate: '2026-08-25', items: quantities.map(qty => ({ grade: 'GRADE_1', qty })) };
     const first = await service.recordProductionInbound(dto);
-    expect(first).toMatchObject({ totalInbound: 3, idempotent: false });
+    const totalInbound = quantities.reduce((sum, qty) => sum + qty, 0);
+    expect(first).toMatchObject({ totalInbound, idempotent: false });
     expect(transaction).toHaveBeenCalledTimes(1);
-    expect(createProductionBatch).toHaveBeenCalledTimes(1);
+    expect(createProductionBatch).toHaveBeenCalledTimes(quantities.length);
 
-    existing.push({ batch_no: 'EGG-20260825-00001', quality_grade: 'GRADE_1', qty: 3, product_code: 'PROD', sku_code: 'SKU-1', spec_code: 'LOOSE' });
+    existing.push(...first.batches.map(batch => ({ batch_no: batch.batchNo, quality_grade: batch.grade, qty: batch.qty, product_code: batch.productCode, sku_code: 'SKU-1', spec_code: 'LOOSE' })));
     const second = await service.recordProductionInbound(dto);
-    expect(second).toMatchObject({ totalInbound: 3, idempotent: true });
-    expect(createProductionBatch).toHaveBeenCalledTimes(1);
+    expect(second).toMatchObject({ totalInbound, idempotent: true });
+    expect(second.batches).toEqual(first.batches);
+    expect(new Set(second.batches.map(batch => batch.batchNo)).size).toBe(quantities.length);
+    expect(createProductionBatch).toHaveBeenCalledTimes(quantities.length);
     expect(managerQuery).toHaveBeenCalledWith(expect.stringContaining('pg_advisory_xact_lock'), expect.any(Array));
   });
 
