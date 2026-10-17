@@ -87,10 +87,14 @@ verify('ledger readonly collection (isolated PostgreSQL18, real psql)', () => {
     assert.match(pgEnv.PGDATABASE, /^ledger_collect_/, `dedicated disposable database required, got: ${pgEnv.PGDATABASE}`);
     container = resolveFixtureContainer();
     assert.ok(container, 'fixture DB container required for the real-psql shim');
-    // SAME-INSTANCE GUARD: the URL's database must exist ON the specified
-    // container, and both views must report the identical server identity —
-    // a URL pointing at a different instance than the container is refused
-    // before anything connects
+    // the URL's database is provisioned ON the specified container (inside
+    // its own psql) — the SAME-INSTANCE GUARD then verifies from BOTH views:
+    // the container's pg_database must list it, and the URL connection and
+    // the container must report the identical server identity. A URL that
+    // points anywhere other than this container is refused before anything
+    // destructive runs.
+    const bootstrap = spawnSync('docker', ['exec', container, 'psql', '-X', '-v', 'ON_ERROR_STOP=1', '-U', pgEnv.PGUSER, '-d', 'postgres', '-c', `DROP DATABASE IF EXISTS ${pgEnv.PGDATABASE}`, '-c', `CREATE DATABASE ${pgEnv.PGDATABASE}`], { encoding: 'utf8' });
+    assert.equal(bootstrap.status, 0, `container instance unreachable: ${bootstrap.stderr}`);
     const containerHasDb = spawnSync('docker', ['exec', container, 'psql', '-X', '-At', '-v', 'ON_ERROR_STOP=1', '-U', pgEnv.PGUSER, '-d', 'postgres', '-c', `SELECT 1 FROM pg_database WHERE datname = '${pgEnv.PGDATABASE}'`], { encoding: 'utf8' });
     assert.equal(containerHasDb.status, 0, `container instance unreachable: ${containerHasDb.stderr}`);
     assert.equal(containerHasDb.stdout.trim(), '1', `database ${pgEnv.PGDATABASE} does not exist on container ${container} — URL/container instance mismatch`);

@@ -49,13 +49,10 @@ jobs:
         env:
           LEDGER_COLLECT_VERIFY_URL: postgresql://postgres:postgres@127.0.0.1:5432/ledger_collect_verify
           LEDGER_COLLECT_VERIFY_REQUIRED: 'true'
-        run: |
-          set -euo pipefail
-          # the fixture refuses any database outside the dedicated
-          # ledger_collect_* namespace — provision exactly that
-          psql 'postgresql://postgres:postgres@127.0.0.1:5432/postgres' -c 'DROP DATABASE IF EXISTS ledger_collect_verify' -c 'CREATE DATABASE ledger_collect_verify'
-          node --test scripts/ci/ledger-readonly-collect.test.mjs
-          psql 'postgresql://postgres:postgres@127.0.0.1:5432/postgres' -c 'DROP DATABASE IF EXISTS ledger_collect_verify'
+        # the test bootstraps its dedicated ledger_collect_verify database
+        # INSIDE the service container (same-instance guard) and verifies the
+        # URL/container identity before anything destructive runs
+        run: node --test scripts/ci/ledger-readonly-collect.test.mjs
       - name: Run real TypeORM ledger rehearsal
         env:
           PGHOST: 127.0.0.1
