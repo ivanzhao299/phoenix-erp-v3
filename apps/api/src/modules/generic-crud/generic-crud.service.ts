@@ -266,31 +266,46 @@ export class GenericCrudService {
     const extraValues: unknown[] = [];
     if (scope !== null) {
       const ors: string[] = [];
+      const isDailyLog = table === 'brd_daily_logs';
       const siteColumn = table === BREEDING_FARMS_TABLE ? 'mapped_site_code' : 'site_code';
       if (scope.farmCodes.length > 0) {
-        ors.push(`"farm_code" = ANY($${this.nextParamIndex(query, extraValues.length)})`);
+        const farmColumn = isDailyLog ? 'ownership_farm.farm_code' : '"farm_code"';
+        ors.push(`${farmColumn} = ANY($${this.nextParamIndex(query, extraValues.length)})`);
         extraValues.push(scope.farmCodes);
       }
       if (scope.siteCodes.length > 0) {
         const idx = this.nextParamIndex(query, extraValues.length);
-        ors.push(table === BREEDING_FARMS_TABLE
+        ors.push(isDailyLog
+          ? `NULLIF(to_jsonb(ownership_farm)->>'mapped_site_code', '') = ANY($${idx})`
+          : table === BREEDING_FARMS_TABLE
           ? `"${siteColumn}" = ANY($${idx})`
           : OrgOwnershipService.farmScopePredicate(table, 'site', `$${idx}`));
         extraValues.push(scope.siteCodes);
       }
       if (scope.companyCodes.length > 0) {
         const idx = this.nextParamIndex(query, extraValues.length);
-        ors.push(table === BREEDING_FARMS_TABLE
+        ors.push(isDailyLog
+          ? `ownership_farm.company_code = ANY($${idx})`
+          : table === BREEDING_FARMS_TABLE
           ? `"company_code" = ANY($${idx})`
           : OrgOwnershipService.farmScopePredicate(table, 'company', `$${idx}`));
         extraValues.push(scope.companyCodes);
       }
-      extraWhere.push(ors.length > 0 ? `(${ors.join(' OR ')})` : '1=0');
+      // Historical scope snapshots can be missing or stale. Resolve the report's
+      // house through the authoritative ACTIVE farm, as the write path does.
+      const predicate = ors.length > 0 ? `(${ors.join(' OR ')})` : '1=0';
+      extraWhere.push(isDailyLog ? `EXISTS (
+        SELECT 1 FROM brd_houses ownership_house
+        JOIN ${OrgOwnershipService.FARM_TABLE} ownership_farm
+          ON ownership_farm.farm_code = ownership_house.farm_code AND ownership_farm.status = 'ACTIVE'
+        WHERE ownership_house.house_code = "brd_daily_logs"."house_code" AND ${predicate}
+      )` : predicate);
     }
 
     const { sql, queryValues } = this.buildFindAllSql(table, query, extraWhere, extraValues);
     try {
-      return await this.entityManager.query(sql, queryValues);
+      const rows = await this.entityManager.query(sql, queryValues);
+      return table === 'brd_daily_logs' ? await this.enrichDailyLogRows(rows) : rows;
     } catch (e) {
       this.rejectSchemaMismatch(e, table);
       throw new InternalServerErrorException((e as Error).message);

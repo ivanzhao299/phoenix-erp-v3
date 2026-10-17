@@ -21,6 +21,8 @@ export interface DataScopeContext {
   isGlobal: boolean;
   scopeLevel: ScopeLevel;
   allowedCompanyCodes: string[];
+  /** Explicit company/region grants for farm records; excludes SITE parent-company projection. */
+  allowedBreedingCompanyCodes?: string[];
   allowedProjectCodes: string[];
   allowedWarehouseCodes: string[];
   allowedFarmCodes: string[]; // G4-E: FarmScope（在 CompanyScope 之下，与 Warehouse 同层）
@@ -182,13 +184,18 @@ export class DataScopeService {
     }
 
     const companyCodes = new Set<string>();
+    const breedingCompanyCodes = new Set<string>();
     const projectCodes = new Set<string>();
     const warehouseCodes = new Set<string>();
     const siteCodes = new Set<string>();  // G5-D
 
     if (userOrgRows.length > 0) {
       for (const row of userOrgRows) {
-        if (row.company_code) companyCodes.add(row.company_code);
+        const siteBinding = row.org_type === 'SITE' || !!row.site_code;
+        if (row.company_code) {
+          companyCodes.add(row.company_code);
+          if (!siteBinding || row.org_type === 'COMPANY') breedingCompanyCodes.add(row.company_code);
+        }
         if (row.project_code) projectCodes.add(row.project_code);
         if (row.warehouse_code) warehouseCodes.add(row.warehouse_code);
         // G5-D：SITE 类型组织绑定 → 用 org_code（如 'SITE-MENGSAI-LAYER'）作为 site_code
@@ -201,7 +208,10 @@ export class DataScopeService {
             where: { parentId: row.parent_id, status: 'ACTIVE' },
           });
           for (const s of siblings) {
-            if (s.companyCode) companyCodes.add(s.companyCode);
+            if (s.companyCode) {
+              companyCodes.add(s.companyCode);
+              breedingCompanyCodes.add(s.companyCode);
+            }
           }
         }
 
@@ -215,7 +225,10 @@ export class DataScopeService {
               AND company_code IS NOT NULL
           `, [row.org_id]);
           for (const c of childCompanies) {
-            if (c.company_code) companyCodes.add(c.company_code);
+            if (c.company_code) {
+              companyCodes.add(c.company_code);
+              if (!siteBinding) breedingCompanyCodes.add(c.company_code);
+            }
           }
           // 如果还是空（GROUP/HQ 节点），再向下一层
           if (childCompanies.length === 0) {
@@ -226,7 +239,10 @@ export class DataScopeService {
                 AND o2.status = 'ACTIVE' AND o2.company_code IS NOT NULL
             `, [row.org_id]);
             for (const c of grandChildren) {
-              if (c.company_code) companyCodes.add(c.company_code);
+              if (c.company_code) {
+                companyCodes.add(c.company_code);
+                if (!siteBinding) breedingCompanyCodes.add(c.company_code);
+              }
             }
           }
 
@@ -249,7 +265,10 @@ export class DataScopeService {
             LIMIT 1
           `, [row.org_id]);
           for (const c of ancestorCompany) {
-            if (c.company_code) companyCodes.add(c.company_code);
+            if (c.company_code) {
+              companyCodes.add(c.company_code);
+              if (!siteBinding) breedingCompanyCodes.add(c.company_code);
+            }
           }
         }
       }
@@ -321,6 +340,7 @@ export class DataScopeService {
       isGlobal: false,
       scopeLevel: topLevel,
       allowedCompanyCodes: [...companyCodes],
+      allowedBreedingCompanyCodes: [...breedingCompanyCodes],
       allowedProjectCodes: [...projectCodes],
       allowedWarehouseCodes: [...warehouseCodes],
       allowedFarmCodes: [...farmCodes], // G4-E
