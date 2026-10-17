@@ -121,6 +121,8 @@ jobs:
             printf '%s' "$PHASE1_B64" | base64 -d > "$SCHEMA_STAGE/phase1.json"
             node --check "$SCHEMA_STAGE/operation.mjs"
             node "$SCHEMA_STAGE/operation.mjs"
+            # Keep the FD9-owning shell alive; the guard inspects its parent FD.
+            echo "SCHEMA_OPERATION_COMPLETE=$SCHEMA_OPERATION"
       - name: Preserve and evaluate production inspection
         if: always()
         env:
