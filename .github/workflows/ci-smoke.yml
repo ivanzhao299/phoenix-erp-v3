@@ -1,4 +1,4 @@
-name: Read-only runner process ancestry diagnostic
+name: Read-only runner process and mount diagnostic
 
 on:
   workflow_dispatch:
@@ -65,4 +65,24 @@ jobs:
             process.stderr.write('RUNNER_PROC_DIAGNOSTIC=INCOMPLETE\n');
             process.exitCode = 1;
           }
+          NODE
+      - name: Observe audit source and destination device identity only
+        shell: bash --noprofile --norc -e {0}
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const source = fs.statSync(process.env.RUNNER_TEMP);
+          const destination = fs.statSync('/run');
+          process.stdout.write(JSON.stringify({
+            diagnostic: 'AUDIT_RENAME_DEVICE_IDENTITY',
+            sourceDevice: source.dev,
+            destinationDevice: destination.dev,
+            sameDevice: source.dev === destination.dev,
+            sourceDirectory: source.isDirectory(),
+            destinationDirectory: destination.isDirectory(),
+            sourceUid: source.uid,
+            destinationUid: destination.uid,
+            productionReceipt: false,
+            writesExecuted: false
+          }) + '\n');
           NODE
