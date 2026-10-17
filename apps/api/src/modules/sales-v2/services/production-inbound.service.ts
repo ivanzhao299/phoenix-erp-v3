@@ -2,7 +2,7 @@ import { Injectable, Logger, ForbiddenException, BadRequestException } from '@ne
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { ClsService } from 'nestjs-cls';
-import { EggInventoryService } from './egg-inventory.service';
+import { EggInventoryService, assertEggDate } from './egg-inventory.service';
 import { InventorySourceModeService } from './inventory-source-mode.service';
 import { DataScopeContext } from '../../org/services/data-scope.service';
 import { OrgOwnershipService } from '../../org/services/org-ownership.service';
@@ -172,7 +172,11 @@ export class ProductionInboundService {
     totalInbound: number;
     idempotent: boolean;
   }> {
-    if (!dto.eggDate) throw new BadRequestException('eggDate 必填');
+    assertEggDate(dto.eggDate);
+    if (dto.idempotencyKey !== undefined && (typeof dto.idempotencyKey !== 'string' || dto.idempotencyKey.trim().length > 64)) {
+      throw new BadRequestException('idempotencyKey 必须为不超过 64 字符的字符串');
+    }
+    dto = { ...dto, houseCode: dto.houseCode?.trim() || undefined };
     if (!Array.isArray(dto.items) || dto.items.length === 0) throw new BadRequestException('items 不能为空');
     const effectiveItems = dto.items
       .map(item => ({ ...item, spec: item.spec?.trim() || 'LOOSE', grade: String(item.grade || '').trim(), qty: Math.max(0, Math.round(Number(item.qty) || 0)) }))
@@ -220,13 +224,21 @@ export class ProductionInboundService {
       // Serialize retries for one daily report while the transaction is open.
       if (enforceIdempotency) await mgr.query('SELECT pg_advisory_xact_lock(hashtext($1))', [sourceNo]);
       const existing = enforceIdempotency ? await mgr.query(
-        `SELECT batch_no, quality_grade, qty, product_code, sku_code, spec_code
+        `SELECT batch_no, quality_grade, qty, product_code, sku_code, spec_code,
+                egg_date::text AS egg_date, collection_batch_ref, warehouse_code, location_code
            FROM inv_batches
           WHERE company_code = $1 AND source_type = 'TEMP_PRODUCTION' AND source_no = $2
           ORDER BY batch_no FOR UPDATE`,
         [companyCode, sourceNo],
       ) : [];
       if (existing.length > 0) {
+        // A source key identifies the complete inbound context. Never expose a batch
+        // from another date/house/location, including historic rows missing provenance.
+        if (existing.some((row: any) => row.egg_date !== dto.eggDate
+          || row.collection_batch_ref !== collectionRef
+          || row.warehouse_code !== warehouseCode || row.location_code !== locationCode)) {
+          throw new BadRequestException('该入库请求来源或库存归属不一致，请先核对库存后再重试');
+        }
         const expected = effectiveItems.map(item => {
           const sku = resolved.get(`${item.grade}\u0000${item.spec ?? ''}`)!;
           return { grade: item.grade, qty: item.qty, productCode: sku.product_code, skuCode: sku.sku_code, specCode: sku.spec_code };

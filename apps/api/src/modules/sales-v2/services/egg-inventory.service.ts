@@ -95,6 +95,15 @@ const DEFAULT_SHELF_DAYS = 30;
 /** 临期预警阈值：7 天 */
 const EXPIRING_WARN_DAYS = 7;
 
+/** Validate before deriving the shared date namespace or writing inventory. */
+export function assertEggDate(value: string): void {
+  if (typeof value !== 'string' || !/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(value)
+    || value.startsWith('0000-') || !Number.isFinite(Date.parse(value))
+    || new Date(value).toISOString().slice(0, 10) !== value) {
+    throw new BadRequestException('eggDate 必须是有效的 YYYY-MM-DD 日期');
+  }
+}
+
 @Injectable()
 export class EggInventoryService {
   private readonly logger = new Logger(EggInventoryService.name);
@@ -153,13 +162,21 @@ export class EggInventoryService {
     try { return (this.cls.get('user') as any)?.username ?? 'system'; } catch { return 'system'; }
   }
 
-  private async genBatchNo(eggDate: string, mgr?: EntityManager): Promise<string> {
-    const dateStr = eggDate.replace(/-/g, '');
-    const prefix  = `EGG-${dateStr}-`;
-    const [row]   = await (mgr ?? this.ds).query(
-      `SELECT COUNT(*) AS cnt FROM inv_batches WHERE batch_no LIKE $1`, [`${prefix}%`],
+  private async genBatchNo(eggDate: string, mgr: EntityManager): Promise<string> {
+    const prefix = `EGG-${eggDate.replace(/-/g, '')}-`;
+    // All automatic producers share this namespace, across sources and companies.
+    // Two-int advisory locks are separate from the user-controlled one-bigint source locks.
+    await mgr.query(
+      "SELECT pg_advisory_xact_lock(hashtext('phoenix:egg-batch-number'), hashtext($1))", [prefix],
     );
-    return `${prefix}${String(Number(row.cnt) + 1).padStart(5, '0')}`;
+    const [row] = await mgr.query(
+      `SELECT MAX(substring(batch_no FROM $2)::numeric) AS max_suffix
+         FROM inv_batches WHERE batch_no LIKE $1 AND batch_no ~ $2`,
+      [`${prefix}%`, `^${prefix}([0-9]+)$`],
+    );
+    const batchNo = `${prefix}${String(BigInt(row.max_suffix ?? '0') + 1n).padStart(5, '0')}`;
+    if (batchNo.length > 64) throw new BadRequestException('当日生产批号已超出允许范围，请核对库存');
+    return batchNo;
   }
 
   private calcExpireDate(eggDate: string, shelfDays = DEFAULT_SHELF_DAYS): string {
@@ -277,10 +294,14 @@ export class EggInventoryService {
     /** 生产链路收口 Phase 1：集蛋批次追溯引用 */
     collectionBatchRef?: string;
   }, mgr?: EntityManager): Promise<EggBatch> {
+    assertEggDate(params.eggDate);
     if (params.qty <= 0) throw new BadRequestException('入库数量必须大于 0');
     if (params.sourceType === 'TEMP_PRODUCTION' && (!params.warehouseCode || !params.locationCode)) {
       throw new BadRequestException('日产蛋入库必须解析到真实 ACTIVE 仓库和库位，禁止使用默认占位码');
     }
+
+    // Keep allocation, batch and ledger atomic even for callers without an existing transaction.
+    if (!mgr) return this.ds.transaction(tx => this.createProductionBatch(params, tx));
 
     // Phase H4 PATH A: 传入 sku_code → 校验并自动推导字段
     let productCode  = params.productCode;

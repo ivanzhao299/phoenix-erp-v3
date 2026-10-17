@@ -14,7 +14,7 @@ fixture('Issue 381 real PostgreSQL inbound transactions and retries', () => {
   let scope: { isGlobal: boolean; allowedCompanyCodes: string[]; allowedWarehouseCodes: string[] };
   const grades = ['GRADE_1', 'GRADE_2', 'GRADE_3', 'GRADE_4', 'GRADE_5', 'DIRTY', 'CRACKED', 'BROKEN', 'DAMAGED'];
   const cls = { get: (key: string) => key === 'dataScope' ? scope : { username: 'issue381-fixture' } };
-  const payload = () => ({ houseCode: 'HOUSE-A', eggDate: '2026-10-17', items: [
+  const payload = () => ({ houseCode: 'HOUSE-A', warehouseCode: 'WH-A', locationCode: 'LOC-A', eggDate: '2026-10-17', items: [
     { grade: 'GRADE_1', qty: 11 }, { grade: 'GRADE_1', qty: 22 },
   ] });
 
@@ -38,7 +38,7 @@ fixture('Issue 381 real PostgreSQL inbound transactions and retries', () => {
       CREATE TABLE IF NOT EXISTS brd_houses (house_code text PRIMARY KEY, farm_code text, status text);
       CREATE TABLE IF NOT EXISTS wms_warehouses (warehouse_code text PRIMARY KEY, company_code text, site_code text, status text, type text, domain text);
       CREATE TABLE IF NOT EXISTS wms_locations (location_code text PRIMARY KEY, warehouse_code text, status text);
-      CREATE TABLE IF NOT EXISTS inv_batches (id serial PRIMARY KEY, batch_no text UNIQUE, product_code text, company_code text,
+      CREATE TABLE IF NOT EXISTS inv_batches (id serial PRIMARY KEY, batch_no varchar(64) UNIQUE, product_code text, company_code text,
         warehouse_code text, location_code text, egg_date date, inbound_date date, expire_date date,
         quality_grade text, packaging_spec text, source_type text, source_no text, qty numeric, qty_available numeric,
         status text, sku_code text, grade_code_std text, spec_code text, packaging_batch_ref text,
@@ -60,6 +60,9 @@ fixture('Issue 381 real PostgreSQL inbound transactions and retries', () => {
       await db.query("INSERT INTO wms_warehouses VALUES ($1,$2,$3,'ACTIVE','EGG_FARM','OPERATIONAL')", [`WH-${company}`, `COMP-${company}`, `SITE-${company}`]);
       await db.query("INSERT INTO wms_locations VALUES ($1,$2,'ACTIVE')", [`LOC-${company}`, `WH-${company}`]);
     }
+    await db.query("INSERT INTO brd_houses VALUES ('HOUSE-A2','FARM-A','ACTIVE')");
+    await db.query("INSERT INTO wms_warehouses VALUES ('WH-A2','COMP-A','SITE-A','ACTIVE','EGG_FARM','OPERATIONAL')");
+    await db.query("INSERT INTO wms_locations VALUES ('LOC-A2','WH-A2','ACTIVE'), ('LOC-A-OTHER','WH-A','ACTIVE')");
   });
   afterAll(async () => { if (db?.isInitialized) await db.destroy(); });
   beforeEach(async () => {
@@ -117,9 +120,93 @@ fixture('Issue 381 real PostgreSQL inbound transactions and retries', () => {
     expect(await db.query('SELECT * FROM inv_batches WHERE batch_no=$1', [old.batches[0].batchNo])).toEqual(before);
     const rows = await db.query("SELECT grade_code_std, sku_code, warehouse_code, location_code FROM inv_batches WHERE egg_date='2026-10-17' ORDER BY id");
     rows.forEach((row: Record<string, string>, i: number) => expect(row).toMatchObject({ grade_code_std: grades[i], sku_code: `SKU-${grades[i]}`, warehouse_code: 'WH-A', location_code: 'LOC-A' }));
-    await expect(service.recordProductionInbound({ ...payload(), houseCode: 'HOUSE-B' })).rejects.toThrow('无权向公司');
+    await expect(service.recordProductionInbound({ ...payload(), houseCode: 'HOUSE-B', warehouseCode: 'WH-B', locationCode: 'LOC-B' })).rejects.toThrow('无权向公司');
     scope.allowedWarehouseCodes = [];
     await expect(service.recordProductionInbound({ ...payload(), eggDate: '2026-10-18' })).rejects.toThrow('无权向仓库');
     expect(await counts()).toEqual({ batches: 10, events: 10 });
   });
+
+  it.each([
+    { name: 'date', changed: { eggDate: '2026-10-18' } },
+    { name: 'house', changed: { houseCode: 'HOUSE-A2' } },
+    { name: 'warehouse', changed: { warehouseCode: 'WH-A2', locationCode: 'LOC-A2' } },
+    { name: 'location', changed: { locationCode: 'LOC-A-OTHER' } },
+  ])('rejects same-key replay across $name without leaking old batch identities', async ({ changed }) => {
+    const request = { ...payload(), idempotencyKey: 'CUSTOM-REPLAY' };
+    const original = await service.recordProductionInbound(request);
+    // Revoke the original warehouse, while the new requested warehouse is authorized.
+    scope.allowedWarehouseCodes = ['WH-A', 'WH-A2'];
+    if (changed.warehouseCode) scope.allowedWarehouseCodes = ['WH-A2'];
+    const error = await service.recordProductionInbound({ ...request, ...changed }).catch(e => e);
+    expect(error.getStatus()).toBe(400);
+    expect(error.message).toContain('来源或库存归属不一致');
+    original.batches.forEach(batch => expect(error.message).not.toContain(batch.batchNo));
+    expect(await counts()).toEqual({ batches: 2, events: 2 });
+  });
+
+  it('fails closed for historic replay rows without provenance, and preserves exact-context retries', async () => {
+    const request = { ...payload(), idempotencyKey: 'HISTORY' };
+    const first = await service.recordProductionInbound(request);
+    expect((await service.recordProductionInbound(request)).batches).toEqual(first.batches);
+    await db.query('UPDATE inv_batches SET collection_batch_ref=NULL');
+    await expect(service.recordProductionInbound(request)).rejects.toThrow('来源或库存归属不一致');
+    expect(await counts()).toEqual({ batches: 2, events: 2 });
+  });
+
+  it('rejects oversized keys and invalid dates without writing inventory', async () => {
+    await expect(service.recordProductionInbound({ ...payload(), idempotencyKey: 'a'.repeat(65) })).rejects.toThrow('64');
+    for (const eggDate of ['2026-02-30', '20261017', '0000-01-01']) {
+      await expect(service.recordProductionInbound({ ...payload(), eggDate })).rejects.toThrow('YYYY-MM-DD');
+    }
+    expect(await counts()).toEqual({ batches: 0, events: 0 });
+  });
+
+  it('serializes different keys on the same day without batch-number collisions', async () => {
+    const results = await Promise.all(Array.from({ length: 5 }, (_, i) => service.recordProductionInbound({
+      ...payload(), idempotencyKey: `INDEPENDENT-${i}`,
+    })));
+    expect(results.every(result => !result.idempotent)).toBe(true);
+    expect(new Set(results.flatMap(result => result.batches.map(batch => batch.batchNo))).size).toBe(10);
+    expect(await counts()).toEqual({ batches: 10, events: 10 });
+  });
+
+  it('shares numbering across companies, direct callers and callers supplying a transaction', async () => {
+    scope.isGlobal = true;
+    const core = new EggInventoryService(db, cls as never);
+    const direct = { companyCode: 'COMP-A', warehouseCode: 'WH-A', locationCode: 'LOC-A',
+      eggDate: '2026-10-17', productCode: 'PRD-EGG-RAW', qualityGrade: 'GRADE_1', qty: 3 };
+    const results = await Promise.all([
+      service.recordProductionInbound({ ...payload(), idempotencyKey: 'SHARED' }),
+      service.recordProductionInbound({ ...payload(), houseCode: 'HOUSE-B', warehouseCode: 'WH-B', locationCode: 'LOC-B', idempotencyKey: 'SHARED' }),
+      core.createProductionBatch(direct),
+      db.transaction(manager => core.createProductionBatch({ ...direct, sourceType: 'PACKAGING',
+        ledgerChangeType: 'PACKAGING_INBOUND', packagingBatchRef: 'FIXTURE-PKG' }, manager)),
+    ]);
+    expect(results).toHaveLength(4);
+    expect(await counts()).toEqual({ batches: 6, events: 6 });
+    expect((await db.query('SELECT count(DISTINCT batch_no)::int AS n FROM inv_batches'))[0].n).toBe(6);
+  });
+
+  it('rolls back a direct caller batch when its ledger write fails', async () => {
+    await db.query('ALTER TABLE inv_ledger ADD CONSTRAINT fixture_reject_second_item CHECK (qty_change <> 22)');
+    const core = new EggInventoryService(db, cls as never);
+    await expect(core.createProductionBatch({ companyCode: 'COMP-A', eggDate: '2026-10-17',
+      productCode: 'PRD-EGG-RAW', qualityGrade: 'GRADE_1', qty: 22 })).rejects.toThrow();
+    expect(await counts()).toEqual({ batches: 0, events: 0 });
+  });
+
+  it('allocates beyond numeric suffix gaps while excluding terminal custom batch formats', async () => {
+    await db.query(`INSERT INTO inv_batches(batch_no) VALUES
+      ('EGG-20261017-00001'), ('EGG-20261017-00003'), ('EGG-20261017-HOUSE-A-99999')`);
+    const result = await service.recordProductionInbound({ ...payload(), items: [{ grade: 'GRADE_1', qty: 1 }] });
+    expect(result.batches[0].batchNo).toBe('EGG-20261017-00004');
+    expect(await counts()).toEqual({ batches: 4, events: 1 });
+  });
+
+  it('rejects exhausted numeric suffix capacity without inserting a batch or event', async () => {
+    await db.query('INSERT INTO inv_batches(batch_no) VALUES ($1)', [`EGG-20261017-${'9'.repeat(51)}`]);
+    await expect(service.recordProductionInbound(payload())).rejects.toThrow('批号已超出允许范围');
+    expect(await counts()).toEqual({ batches: 1, events: 0 });
+  });
+
 });

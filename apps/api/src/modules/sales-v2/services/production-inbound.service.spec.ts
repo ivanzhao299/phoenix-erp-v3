@@ -158,7 +158,7 @@ describe('ProductionInboundService master-data resolution', () => {
     expect(transaction).toHaveBeenCalledTimes(1);
     expect(createProductionBatch).toHaveBeenCalledTimes(quantities.length);
 
-    existing.push(...first.batches.map(batch => ({ batch_no: batch.batchNo, quality_grade: batch.grade, qty: batch.qty, product_code: batch.productCode, sku_code: 'SKU-1', spec_code: 'LOOSE' })));
+    existing.push(...first.batches.map(batch => ({ batch_no: batch.batchNo, quality_grade: batch.grade, qty: batch.qty, product_code: batch.productCode, sku_code: 'SKU-1', spec_code: 'LOOSE', egg_date: dto.eggDate, collection_batch_ref: 'HOUSE-HOUSE-A', warehouse_code: 'WH-A', location_code: 'LOC-A' })));
     const second = await service.recordProductionInbound(dto);
     expect(second).toMatchObject({ totalInbound, idempotent: true });
     expect(second.batches).toEqual(first.batches);
