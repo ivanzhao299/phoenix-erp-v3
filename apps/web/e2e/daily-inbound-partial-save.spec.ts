@@ -25,7 +25,8 @@ test.beforeEach(async ({ page }) => {
   await expect(page.getByText('早班 · 9 档分级录入', { exact: true }).locator('../..').locator('input')).toHaveCount(9);
 });
 
-test('only successfully saved shifts enter the inbound request', async ({ page }) => {
+for (const statuses of [[201, 400], [400, 201], [201, 201], [400, 400]]) {
+  test(`only saved shifts enter inbound (${statuses.join('/')})`, async ({ page }) => {
   let saves = 0;
   let inboundItems: Array<{ grade: string; qty: number }> | undefined;
   await page.route('**/api/**', async route => {
@@ -33,7 +34,10 @@ test('only successfully saved shifts enter the inbound request', async ({ page }
     const path = new URL(route.request().url()).pathname;
     if (path === '/api/v3/farm/daily-logs') {
       saves++;
-      return route.fulfill({ status: saves === 1 ? 201 : 400, json: saves === 1 ? { code: 200 } : { message: 'fixture second shift rejected' } });
+      const qty = route.request().postDataJSON().eggs_produced;
+      if (![11, 22].includes(qty)) throw new Error('Unexpected fixture shift');
+      const status = statuses[qty === 11 ? 0 : 1];
+      return route.fulfill({ status, json: status === 201 ? { code: 200 } : { message: 'fixture shift rejected' } });
     }
     if (path === '/api/v2/inventory/production-inbound') {
       const body = route.request().postDataJSON();
@@ -53,7 +57,16 @@ test('only successfully saved shifts enter the inbound request', async ({ page }
   await secondDialog.getByRole('button', { name: '确定', exact: true }).click();
   await eggs.nth(1).fill('22');
   await page.getByRole('button', { name: '提交日报', exact: true }).first().click();
-  await page.getByRole('button', { name: '同步入销售库存', exact: true }).click();
-  await expect.poll(() => inboundItems).toEqual([{ grade: 'GRADE_1', qty: 11 }]);
+  const expected = [11, 22].filter((_, index) => statuses[index] === 201).map(qty => ({ grade: 'GRADE_1', qty }));
+  if (expected.length > 0) {
+    await page.getByRole('button', { name: '同步入销售库存', exact: true }).click();
+    await expect.poll(() => inboundItems).toEqual(expected);
+  } else {
+    await expect(page.getByText(/部分班次提交失败/).first()).toBeVisible();
+    await expect(page.getByRole('button', { name: '同步入销售库存', exact: true })).toHaveCount(0);
+    expect(inboundItems).toBeUndefined();
+  }
   expect(saves).toBe(2);
-});
+  });
+}
+
