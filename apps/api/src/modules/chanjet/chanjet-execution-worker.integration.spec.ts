@@ -1,3 +1,4 @@
+import { chanjetBackgroundFixture } from './chanjet-background.test-fixture';
 // Real scheduler -> worker execution-binding integration: the reviewed
 // ChanjetReadonlySyncScheduler drives an isolated PostgreSQL18 with a REAL
 // auth service whose provider HTTP goes to a local loopback fixture INSIDE
@@ -126,11 +127,7 @@ worker('execution-bound scheduler worker (real PostgreSQL18, real auth, local pr
     // hard requirement: the worker's provider traffic is bound to the LOCAL
     // fixture — the real provider endpoint must never be contacted
     process.env.CHANJET_PROVIDER_BASE_URL = providerBase;
-    auth = new ChanjetAuthService(
-      { get: (key: string, fallback?: string) => process.env[key] ?? fallback } as never,
-      { findOneBy: async () => ({ key: 'singleton', appTicket: 'SYNTHETIC_TICKET', certificate: null, tokens: null }), save: async (e: unknown) => e } as never,
-      { ok: async () => {}, fail: async () => {} } as never,
-    );
+    auth = new ChanjetAuthService({ get: (key: string, fallback?: string) => process.env[key] ?? fallback } as never, { findOneBy: async () => ({ key: 'singleton', appTicket: 'SYNTHETIC_TICKET', certificate: null, tokens: null }), save: async (e: unknown) => e } as never, { ok: async () => {}, fail: async () => {} } as never, chanjetBackgroundFixture().service);
     Object.assign(auth, { appKey: 'SYNTHETIC_KEY', appSecret: 'SYNTHETIC_SECRET', orgId: 'SYNTHETIC_ORG', cert: 'SYNTHETIC_CERT', appTicket: 'SYNTHETIC_TICKET' });
   });
   // disposable fixture: rebuild the schema from scratch — the admission
@@ -255,7 +252,7 @@ worker('execution-bound scheduler worker (real PostgreSQL18, real auth, local pr
         };
       },
     };
-    const subject = new ChanjetReadonlySyncScheduler(integration as never, { ok: async () => {}, fail: async () => {} } as never, ds, {} as never);
+    const subject = new ChanjetReadonlySyncScheduler(integration as never, { ok: async () => {}, fail: async () => {} } as never, ds, {} as never, chanjetBackgroundFixture().service);
     let complete!: () => void;
     const done = new Promise<void>((resolve) => { complete = resolve; });
     const internal = subject as unknown as { executeSync: (...args: unknown[]) => Promise<void>; onModuleDestroy: () => Promise<void> };
@@ -727,10 +724,7 @@ worker('execution-bound scheduler worker (real PostgreSQL18, real auth, local pr
     const proxyUrl = `postgres://${encodeURIComponent(fixturePg.username)}:${encodeURIComponent(fixturePg.password)}@127.0.0.1:${proxy.port}/${fixturePg.pathname.slice(1)}`;
     const gateDs = new DataSource({ type: 'postgres', url: proxyUrl, entities: [ChanjetSyncJobEntity], logging: false });
     await gateDs.initialize();
-    const subject = new ChanjetReadonlySyncScheduler(
-      {} as never, { ok: async () => {}, fail: async () => {} } as never, gateDs, {} as never,
-      options.executionCancellationConfig ? { executionCancellationConfig: options.executionCancellationConfig } : {},
-    );
+    const subject = new ChanjetReadonlySyncScheduler({} as never, { ok: async () => {}, fail: async () => {} } as never, gateDs, {} as never, chanjetBackgroundFixture().service, options.executionCancellationConfig ? { executionCancellationConfig: options.executionCancellationConfig } : {});
     return { subject, gateDs };
   }
 

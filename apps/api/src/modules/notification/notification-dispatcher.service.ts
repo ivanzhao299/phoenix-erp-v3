@@ -26,6 +26,7 @@
  */
 
 import { Injectable, Logger } from '@nestjs/common';
+import { BackgroundTaskService } from '../background-control/background-task.service';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { PushNotificationService } from './push-notification.service';
@@ -73,12 +74,17 @@ export class NotificationDispatcherService {
   constructor(
     @InjectDataSource() private readonly ds: DataSource,
     private readonly pushService: PushNotificationService,
+    private readonly background: BackgroundTaskService,
   ) {}
 
   /**
-   * 触发一条规则。失败不抛异常（避免影响业务事务）；详情写入 log。
+   * 触发一条规则。准入拒绝向调用方传播；已准入的发送失败保留原有日志语义。
    */
   async fire(ruleCode: string, ctx: DispatchContext): Promise<void> {
+    return this.background.run('notification.dispatch', 'NOTIFICATION', () => this.fireAdmitted(ruleCode, ctx));
+  }
+
+  private async fireAdmitted(ruleCode: string, ctx: DispatchContext): Promise<void> {
     try {
       const rule = await this.loadRule(ruleCode);
       if (!rule) {

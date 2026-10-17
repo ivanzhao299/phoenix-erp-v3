@@ -15,6 +15,7 @@ describe('EggInventorySchedulerService notifications', () => {
     const recipients = { resolve: jest.fn().mockRejectedValue(new Error('recipient lookup failed')) };
     const service = new EggInventorySchedulerService(
       ds as never, inventory as never, { ok: jest.fn(), fail: jest.fn() } as never, recipients as never,
+      { run: (_name: string, _kind: string, work: () => Promise<unknown>) => work() } as never,
     );
     await expect(service.runManually()).rejects.toThrow('recipient lookup failed');
   });

@@ -1,3 +1,4 @@
+import { BackgroundTaskService } from '../background-control/background-task.service';
 import 'reflect-metadata';
 import { randomUUID } from 'crypto';
 import { Test } from '@nestjs/testing';
@@ -40,6 +41,7 @@ describePg('SALES_ORDER ApprovalEngine + PostgreSQL integration', () => {
     const moduleRef = await Test.createTestingModule({
       providers: [
         ApprovalEngineService,
+        { provide: BackgroundTaskService, useValue: { spawn: jest.fn() } },
         { provide: getRepositoryToken(WfApprovalRuleEntity), useValue: ds.getRepository(WfApprovalRuleEntity) },
         { provide: getRepositoryToken(WfApprovalRuleStepEntity), useValue: ds.getRepository(WfApprovalRuleStepEntity) },
         { provide: getRepositoryToken(WfApprovalInstanceEntity), useValue: ds.getRepository(WfApprovalInstanceEntity) },

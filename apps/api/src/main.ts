@@ -2,6 +2,8 @@ import 'dotenv/config';            // 必须在 AppModule 之前 — 否则 auth
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { ValidationPipe, BadRequestException } from '@nestjs/common';
+import { BackgroundTaskService } from './modules/background-control/background-task.service';
+import { installBackgroundShutdown } from './background-shutdown';
 import { AppModule } from './app.module';
 import { friendlyValidationMessage } from './common/validation-message';   // G140：校验错误中文化
 import * as express from 'express';
@@ -21,6 +23,9 @@ async function bootstrap() {
   // ✅ bodyParser: false — 禁用 NestJS 内置的 100KB body-parser
   //    否则内置 parser 先于自定义中间件执行，logo base64 会触发 413
   const app = await NestFactory.create<NestExpressApplication>(AppModule, { bodyParser: false });
+
+  const background = app.get(BackgroundTaskService);
+  installBackgroundShutdown(app, background);
 
   // ── 静态文件：合同/单据上传目录 ───────────────────────────────────────────
   // 生产默认禁用 /uploads 裸目录暴露；历史兼容需显式 ENABLE_LEGACY_UPLOADS_STATIC=true。
@@ -94,7 +99,7 @@ async function bootstrap() {
     //   （根除 ar-ledger 那类"新菜单建好但内存注册表是启动快照→403"问题）。
     //   后台定时器，零请求热路径影响。
     setInterval(() => {
-      hydrateMenuRegistry(ds.manager).catch(() => { /* 静默：下次再试 */ });
+      background.spawn('menu-registry-reload', 'LOCAL', () => hydrateMenuRegistry(ds.manager));
     }, 5 * 60 * 1000).unref();
   } catch (e) {
     console.warn('[MenuRegistry] hydrate skipped:', (e as Error).message);

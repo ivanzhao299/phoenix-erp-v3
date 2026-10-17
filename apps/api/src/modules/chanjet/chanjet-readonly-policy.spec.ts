@@ -1,3 +1,4 @@
+import { chanjetBackgroundFixture } from './chanjet-background.test-fixture';
 import { classifyChanjetSyncFailure } from './chanjet-integration.service';
 import { ChanjetCallbackController } from './chanjet-callback.controller';
 import { ChanjetIntegrationService } from './chanjet-integration.service';
@@ -42,6 +43,7 @@ describe('approved Chanjet production readonly policy', () => {
   });
   it('stops remote mutation before token, budget, cache, or fetch access even when caller labels it READ', async () => {
     const subject = Object.create(ChanjetAuthService.prototype);
+    subject.background = chanjetBackgroundFixture().service;
     await expect(subject.callApi('/accounting/openapi/cc/party/custvendor/update/BOOK-1', { kind: 'READ', method: 'POST' })).rejects.toThrow('CHANJET_EXTERNAL_WRITE_DISABLED');
   });
   it('does not seed bindings on activation or on company list read', async () => {

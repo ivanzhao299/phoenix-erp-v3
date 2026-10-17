@@ -8,11 +8,11 @@ import { envRecords } from './update-managed-chanjet-env.mjs';
 import { assertRootIdentity, inspectTrustedDirectory, readPinnedFile, assertRegularFile, assertContained, assertNoLegacyState, strictSshCommand } from './production-trusted-paths.mjs';
 export const CONTRACT = JSON.parse(fs.readFileSync(new URL('./production-config-contract.json', import.meta.url)));
 export const MIGRATION_PATHS = ['apps/api/src/database/migrations', 'apps/api/migrations', 'apps/api/ddl', 'migrations', 'scripts/db-migrate.sh', 'scripts/deploy-schema-first.sh'];
-export function git(root, args) {
+export function git(root, args, { timeoutMs } = {}) {
   let configured = '';
-  try { configured = execFileSync('git', ['-c', `safe.directory=${root}`, 'config', '--get', 'core.sshCommand'], { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim(); } catch {}
+  try { configured = execFileSync('git', ['-c', `safe.directory=${root}`, 'config', '--get', 'core.sshCommand'], { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], ...(timeoutMs ? { timeout: timeoutMs } : {}) }).trim(); } catch {}
   const env = { ...process.env, GIT_SSH_COMMAND: strictSshCommand(process.env.GIT_SSH_COMMAND || configured, process.env.GIT_SSH) };
-  return execFileSync('git', ['-c', `safe.directory=${root}`, '-c', 'core.hooksPath=/dev/null', '-c', 'core.fsmonitor=false', '-c', 'gc.auto=0', '-c', 'maintenance.auto=false', ...args], { cwd: root, env, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+  return execFileSync('git', ['-c', `safe.directory=${root}`, '-c', 'core.hooksPath=/dev/null', '-c', 'core.fsmonitor=false', '-c', 'gc.auto=0', '-c', 'maintenance.auto=false', ...args], { cwd: root, env, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], ...(timeoutMs ? { timeout: timeoutMs } : {}) }).trim();
 }
 export function requireCleanMain(root, target) {
   if (git(root, ['branch', '--show-current']) !== 'main' || git(root, ['status', '--porcelain', '--untracked-files=all'])) throw new Error('CONFIG_HOLD=WORKTREE_NOT_CLEAN_MAIN');
@@ -100,6 +100,14 @@ export function validateEffectiveConfig(config, tuple, floor = { operationalTupl
     const source = tuple[key]; const mount = config.services[service].volumes.find(volume => volume.target === destination);
     if (!source?.startsWith('/data/') || path.normalize(source) !== source || !mount || mount.type !== 'bind' || mount.source !== source) throw new Error('CONFIG_HOLD=STORAGE_TUPLE');
   }
+  const control = config.services.api.volumes.filter(volume => volume.target === '/run/phoenix-background-control');
+  if (control.length !== 1 || control[0].type !== 'bind' || control[0].source !== '/var/lib/phoenix-background-control'
+    || control[0].read_only !== true || control[0].bind?.create_host_path !== false) throw new Error('CONFIG_HOLD=BACKGROUND_CONTROL_MOUNT');
+  // The API receives only the non-secret projection, never the private 0700
+  // state directory, its parent, or a writable alias of the public manifest.
+  if (config.services.api.volumes.some(volume => volume.type === 'bind' && (volume.source === CONTRACT.controlRoot || volume.source?.startsWith(CONTRACT.controlRoot + '/')
+    || volume.source === '/' || CONTRACT.controlRoot.startsWith(volume.source + '/')
+    || ((volume.source === '/var/lib/phoenix-background-control' || volume.source?.startsWith('/var/lib/phoenix-background-control/')) && volume !== control[0])))) throw new Error('CONFIG_HOLD=PRIVATE_CONTROL_EXPOSURE');
 }
 export function guardProduction(root, stateDirectory, images, expiredVerifyHold) {
   verifyContext(root, stateDirectory); requireCleanMain(root);

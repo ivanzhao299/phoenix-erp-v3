@@ -1,0 +1,73 @@
+name: Background Fence And Drain Fixtures
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: background-control-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  background-control:
+    name: PG16 PG18 Fence And Drain
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      pg16:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_USER: fence_fixture
+          POSTGRES_DB: fence_test
+        ports: ['127.0.0.1:56416:5432']
+        options: >-
+          --label phoenix.fixture=background-control
+          --health-cmd "pg_isready -U fence_fixture -d fence_test"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+      pg18:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_USER: fence_fixture
+          POSTGRES_DB: fence_test
+        ports: ['127.0.0.1:56418:5432']
+        options: >-
+          --label phoenix.fixture=background-control
+          --health-cmd "pg_isready -U fence_fixture -d fence_test"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Coordinator, failure and old-runtime contracts
+        run: >-
+          node --test scripts/ops/background-control-coordinator.test.mjs
+          scripts/ops/background-control-session.test.mjs
+          scripts/ops/background-control-legacy-transition.test.mjs
+          scripts/ops/background-deployment-session.test.mjs
+      - name: Coordinator actual multiprocess PostgreSQL
+        env:
+          BACKGROUND_COORDINATOR_PG_FIXTURE: '1'
+        run: node --test scripts/ops/background-control-pg.test.mjs
+      - name: API actual multiprocess PG16
+        working-directory: apps/api
+        env:
+          BACKGROUND_TEST_PG_URL: postgresql://fence_fixture@127.0.0.1:56416/fence_test
+        run: pnpm exec jest --runInBand src/modules/background-control
+      - name: API actual multiprocess PG18
+        working-directory: apps/api
+        env:
+          BACKGROUND_TEST_PG_URL: postgresql://fence_fixture@127.0.0.1:56418/fence_test
+        run: pnpm exec jest --runInBand src/modules/background-control
