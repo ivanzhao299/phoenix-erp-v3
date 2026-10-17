@@ -20,6 +20,34 @@ test('real Runner.Worker process ancestor is required, not an environment flag a
   assert.equal(findRunnerAncestor(5,p=>tree[p]).pid,2);
   assert.throws(()=>findRunnerAncestor(4,p=>({...tree[p],exe:'/bin/bash'})),/REAL_HOSTED_RUNNER_REQUIRED/);
 });
+test('only the observed hosted cached layout with a strict numeric version is admitted through real ancestry',()=>{
+  // Read-only hosted diagnostic run 39057912017, head e50c1baf0dfcbdc7f2c2029196df78caef5e414a.
+  const worker='/home/runner/actions-runner/cached/2.337.0/bin/Runner.Worker';
+  const tree={5:{pid:5,ppid:4,exe:'/usr/local/bin/node'},4:{pid:4,ppid:2,exe:'/usr/bin/bash'},2:{pid:2,ppid:1,start:'100',exe:worker}};
+  assert.deepEqual(findRunnerAncestor(5,p=>tree[p]),{pid:2,start:'100',exe:worker});
+  const patchedWorker='/home/runner/actions-runner/cached/2.337.1/bin/Runner.Worker';
+  assert.deepEqual(findRunnerAncestor(5,p=>({...tree[p],...(p===2?{exe:patchedWorker}:{})})),{pid:2,start:'100',exe:patchedWorker});
+  for(const exe of [
+    `${c.GITHUB_WORKSPACE}/actions-runner/cached/2.337.0/bin/Runner.Worker`,
+    `${c.GITHUB_WORKSPACE}${worker}`,
+    '/home/runner/actions-runner/cached/2.337.0/bin/Runner.Listener',
+    '/home/runner/actions-runner/cached/2.337.0/bin/Runner.Worker.fake',
+    '/home/runner/actions-runner/cached/2.337.0/bin/Runner.Worker (deleted)',
+    '/home/runner/actions-runner/cached/2.337/bin/Runner.Worker',
+    '/home/runner/actions-runner/cached/2.337.0.1/bin/Runner.Worker',
+    '/home/runner/actions-runner/cached/latest/bin/Runner.Worker',
+    '/home/runner/actions-runner/cached/v2.337.0/bin/Runner.Worker',
+    '/home/runner/actions-runner/cached/2.337.0-preview/bin/Runner.Worker',
+    '/home/runner/actions-runner/cached/2.337.0/../2.337.0/bin/Runner.Worker',
+    '/tmp/Runner.Worker',
+  ])assert.throws(()=>findRunnerAncestor(5,p=>({...tree[p],...(p===2?{exe}:{})})),/REAL_HOSTED_RUNNER_REQUIRED/);
+});
+test('a valid cached Worker outside the caller ancestor chain cannot satisfy admission',()=>{
+  const tree={5:{pid:5,ppid:4,exe:'/usr/local/bin/node'},4:{pid:4,ppid:1,exe:'/usr/bin/bash'},2:{pid:2,ppid:1,start:'100',exe:'/home/runner/actions-runner/cached/2.337.0/bin/Runner.Worker'}};
+  const visited=[];
+  assert.throws(()=>findRunnerAncestor(5,p=>{visited.push(p);return tree[p];}),/REAL_HOSTED_RUNNER_REQUIRED/);
+  assert.deepEqual(visited,[5,4]);
+});
 test('only the exact supplied healthy PostgreSQL service and local port may back a fixture',()=>{
   const inspect={Id:id,Config:{Image:'postgres:18-alpine'},State:{Running:true,Health:{Status:'healthy'}},NetworkSettings:{Ports:{'5432/tcp':[{HostIp:'0.0.0.0',HostPort:'5432'}]}},Mounts:[]};
   assert.equal(validateDatabaseContainer(c,inspect),true);assert.equal(validateDatabaseContainer(c,{...inspect,Config:{Image:'postgres:16.14-alpine'}}),true);

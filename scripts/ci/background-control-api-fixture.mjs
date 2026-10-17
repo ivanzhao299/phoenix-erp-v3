@@ -25,7 +25,10 @@ function processStat(pid) {
 export function findRunnerAncestor(pid = process.pid, read = processStat) {
   for (let i = 0; i < 32 && pid > 1; i++) {
     const p = read(pid);
-    if (/^\/home\/runner\/runners\/[^/]+\/bin\/Runner\.Worker$/.test(p.exe)) return { pid: p.pid, start: p.start, exe: p.exe };
+    // Hosted diagnostic run 39057912017 established this versioned cached layout.
+    // Keep the absolute directory, numeric version and Worker binary exact.
+    if (/^\/home\/runner\/runners\/[^/]+\/bin\/Runner\.Worker$/.test(p.exe)
+      || /^\/home\/runner\/actions-runner\/cached\/\d+\.\d+\.\d+\/bin\/Runner\.Worker$/.test(p.exe)) return { pid: p.pid, start: p.start, exe: p.exe };
     pid = p.ppid;
   }
   hold('REAL_HOSTED_RUNNER_REQUIRED');
