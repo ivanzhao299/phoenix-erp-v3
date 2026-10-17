@@ -49,7 +49,6 @@ jobs:
         env:
           LEDGER_COLLECT_VERIFY_URL: postgresql://postgres:postgres@127.0.0.1:5432/ledger_collect_verify
           LEDGER_COLLECT_VERIFY_REQUIRED: 'true'
-        env:
           LEDGER_COLLECT_DB_CONTAINER_DISCOVER: postgres:16.14-alpine
         # the test bootstraps its dedicated ledger_collect_verify database
         # INSIDE the service container (same-instance guard) and verifies the
