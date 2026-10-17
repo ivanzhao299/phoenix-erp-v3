@@ -22,7 +22,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: cicd-refs/heads/main
+  group: chanjet-admission-controlled-schema
   cancel-in-progress: false
 jobs:
   schema:

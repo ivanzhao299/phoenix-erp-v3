@@ -169,7 +169,7 @@ test('real VERIFY CLI uses committed active pins, recreates only API and complet
   const record=f.read(`chanjet-config-${f.runId}.json`);assert.equal(record.outcome,'SUCCESS');assert.equal(record.remoteWrite,false);assert.equal(record.erpInbound,false);assert.equal(fs.readFileSync(record.envBackup,'utf8'),f.source);
   assert.equal(f.read('floor.json').chanjetPolicy,'READONLY_VERIFY');assert.equal(f.live.CHANJET_SYNC_POLICY,'READONLY_VERIFY');assert.equal(f.live.CHANJET_ERP_INBOUND_SYNC_ENABLED,'false');assert.equal(f.env,f.source.replace('READONLY_SYNC_ENABLED=false','READONLY_SYNC_ENABLED=true'));
   assert.equal(fs.statSync(path.join(f.root,'.env')).mode&0o777,0o600);assert.deepEqual(f.read('active.json').active,f.pins);
-  assert.deepEqual(f.trace.filter(x=>x.kind==='composeApi').map(x=>[x.apiPinExact,x.webPinExact]),[[true,true]]);assert.equal(f.trace.filter(x=>x.kind==='localHttp').length,1);assert.deepEqual(f.trace.filter(x=>x.kind==='localHttpTimeoutMs').map(x=>x.ms),[30000]);
+  assert.deepEqual(f.trace.filter(x=>x.kind==='composeApi').map(x=>[x.apiPinExact,x.webPinExact]),[[true,true]]);assert.equal(f.trace.filter(x=>x.kind==='localHttp').length,1);assert.deepEqual(f.trace.filter(x=>x.kind==='localHttp').map(x=>x.path),['/api/chanjet/integration/alignment/status']);assert.deepEqual(f.trace.filter(x=>x.kind==='localHttpTimeoutMs').map(x=>x.ms),[30000]);
   assert.equal(f.names.includes('policy-transition.json'),false);assert.equal(f.names.includes('transaction.json'),false);assert.equal(f.names.some(n=>n.startsWith('deploy-')),false);
 });
 test('real exact HOLD CLI closes expired VERIFY via active pins without a remote read or deployment state',t=>{
