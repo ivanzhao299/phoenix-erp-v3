@@ -6,6 +6,7 @@ import path from 'node:path';
 import { randomBytes, createHash } from 'node:crypto';
 import { spawn, execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
+import networkFixture from './background-control-api-network-fixture.cjs';
 
 export const TARGET = '/run/phoenix-background-control';
 export const STATE = '/run/phoenix-background-ci-fixture';
@@ -64,7 +65,7 @@ export function validateDatabaseContainer(c, inspect) {
   const ports = inspect.NetworkSettings?.Ports?.['5432/tcp'];
   if (inspect.Id !== c.BACKGROUND_FIXTURE_POSTGRES_ID || !/^postgres:(?:16(?:\.\d+)*|18(?:\.\d+)*)-alpine$/.test(inspect.Config?.Image || '')
     || inspect.State?.Running !== true || inspect.State?.Health?.Status !== 'healthy' || !Array.isArray(ports) || ports.length < 1
-    || ports.some(p => p.HostPort !== '5432' || !['0.0.0.0','127.0.0.1','::'].includes(p.HostIp))
+    || ports.some(p => p.HostPort !== '5432' || p.HostIp !== '127.0.0.1')
     || !Array.isArray(inspect.Mounts) || inspect.Mounts.some(m => m.Type === 'bind' && (m.Source?.startsWith('/data/') || m.Source?.startsWith('/var/lib/phoenix')))) hold('JOB_POSTGRES_SERVICE_REQUIRED');
   return true;
 }
@@ -105,6 +106,40 @@ function privateRecord() {
 function writePrivate(record) {
   const file = path.join(STATE,'state.json'); const temporary = path.join(STATE,`state-${randomBytes(8).toString('hex')}.tmp`);
   fs.writeFileSync(temporary,JSON.stringify(record)+'\n',{ mode: 0o600, flag: 'wx' }); fs.renameSync(temporary,file);
+}
+function prepareNetworkAudit(c) {
+  const file=path.join(c.RUNNER_TEMP,`phoenix-background-network-${randomBytes(16).toString('hex')}.jsonl`);
+  const fd=fs.openSync(file,fs.constants.O_WRONLY|fs.constants.O_CREAT|fs.constants.O_EXCL|fs.constants.O_APPEND|fs.constants.O_NOFOLLOW,0o600);
+  fs.fchmodSync(fd,0o600);return {path:file,fd,close:()=>fs.closeSync(fd)};
+}
+function bindNetworkAudit(input,c,launcher) {
+  const a=input.networkAudit;const base=c.RUNNER_TEMP;
+  if(!Number.isSafeInteger(a?.fd)||a.fd<3||typeof a.path!=='string'||path.dirname(a.path)!==base
+    ||!/^phoenix-background-network-[a-f0-9]{32}\.jsonl$/.test(path.basename(a.path)))hold('NETWORK_AUDIT_REQUIRED');
+  const s=fs.lstatSync(a.path);const procFd=`/proc/${launcher.pid}/fd/${a.fd}`;const f=fs.statSync(procFd);
+  const flags=Number.parseInt(fs.readFileSync(`/proc/${launcher.pid}/fdinfo/${a.fd}`,'utf8').match(/^flags:\s+([0-7]+)$/m)?.[1]||'0',8);
+  if(!s.isFile()||s.isSymbolicLink()||s.nlink!==1||s.uid!==c.uid||(s.mode&0o777)!==0o600||s.size!==0
+    ||fs.realpathSync(procFd)!==a.path||f.dev!==s.dev||f.ino!==s.ino||!(flags&fs.constants.O_APPEND))hold('NETWORK_AUDIT_UNTRUSTED');
+  const file=path.join(STATE,'network.jsonl');
+  // Change ownership through an O_NOFOLLOW descriptor, never a user-writable
+  // pathname that could be exchanged for a symlink between checks.
+  const fd=fs.openSync(a.path,fs.constants.O_RDONLY|fs.constants.O_NOFOLLOW);
+  try {
+    const held=fs.fstatSync(fd);
+    if(held.dev!==s.dev||held.ino!==s.ino||!held.isFile()||held.nlink!==1||held.uid!==c.uid||(held.mode&0o777)!==0o600)hold('NETWORK_AUDIT_UNTRUSTED');
+    fs.fchownSync(fd,0,0);fs.renameSync(a.path,file);
+    const after=fs.lstatSync(file);const current=processStat(launcher.pid);const procAfter=fs.statSync(procFd);
+    if(after.dev!==held.dev||after.ino!==held.ino||after.nlink!==1||!after.isFile()||after.uid!==0||(after.mode&0o777)!==0o600
+      ||current.start!==launcher.start||current.uid!==launcher.uid||fs.realpathSync(procFd)!==file||procAfter.dev!==held.dev||procAfter.ino!==held.ino)hold('NETWORK_AUDIT_UNTRUSTED');
+    return {dev:after.dev,ino:after.ino};
+  }finally{fs.closeSync(fd);}
+}
+function verifyNetworkAudit(r) {
+  const file=path.join(STATE,'network.jsonl');const s=fs.lstatSync(file);
+  if(!r.networkAudit||!r.api||!s.isFile()||s.isSymbolicLink()||s.uid!==0||(s.mode&0o777)!==0o600||s.nlink!==1
+    ||s.dev!==r.networkAudit.dev||s.ino!==r.networkAudit.ino||s.size>16*1024*1024)hold('NETWORK_AUDIT_UNTRUSTED');
+  const text=fs.readFileSync(file,'utf8');
+  return {...networkFixture.readAudit(text,r.api.pid),sha256:createHash('sha256').update(text).digest('hex')};
 }
 function mountRows() { return fs.readFileSync('/proc/self/mountinfo','utf8').split('\n').filter(Boolean).map(line => line.split(' ')); }
 export function controlPathExists(file, stat = fs.lstatSync) {
@@ -168,6 +203,12 @@ function sameJob(r, c) {
   const b = approvedContext(c); if (r.owner !== b.owner || r.sha !== b.targetSha || r.uid !== c.uid || r.postgresId !== c.BACKGROUND_FIXTURE_POSTGRES_ID) hold('DIFFERENT_JOB_OWNER');
   const runner = findRunnerAncestor(); if (runner.pid !== r.runner.pid || runner.start !== r.runner.start) hold('RUNNER_IDENTITY_CHANGED');
 }
+export function validateApiListeners(rows,sockets) {
+  const listeners=rows.filter(p=>p[3]==='0A'&&p[1]?.split(':')[1]==='0C1C');
+  if(listeners.length!==1||!sockets.has(listeners[0][9])
+    ||!['0100007F','00000000000000000000000001000000'].includes(listeners[0][1].split(':')[0]))hold('API_LISTENER_NOT_OWNED_LOOPBACK');
+  return true;
+}
 function verifyApiProcess(r,c,pid,requireListener=false) {
   const proc=processStat(pid);const launcher=processStat(r.launcher.pid);
   if(proc.ppid!==r.launcher.pid||launcher.start!==r.launcher.start||launcher.uid!==r.uid||proc.uid!==r.uid
@@ -175,8 +216,7 @@ function verifyApiProcess(r,c,pid,requireListener=false) {
   if(requireListener){
     const sockets=new Set(fs.readdirSync(`/proc/${pid}/fd`).flatMap(name=>{try{const m=fs.readlinkSync(`/proc/${pid}/fd/${name}`).match(/^socket:\[(\d+)\]$/);return m?[m[1]]:[];}catch{return[];}}));
     const rows=['tcp','tcp6'].flatMap(name=>fs.readFileSync(`/proc/${pid}/net/${name}`,'utf8').trim().split('\n').slice(1).map(line=>line.trim().split(/\s+/)));
-    const listeners=rows.filter(p=>p[3]==='0A'&&p[1]?.split(':')[1]==='0C1C');
-    if(listeners.length!==1||!sockets.has(listeners[0][9]))hold('API_LISTENER_NOT_OWNED');
+    validateApiListeners(rows,sockets);
   }
   return proc;
 }
@@ -194,7 +234,8 @@ async function rootOperation(operation, input) {
     const source = path.join(c.RUNNER_TEMP,`phoenix-background-ci-${randomBytes(16).toString('hex')}`);
     fs.mkdirSync(STATE,{mode:0o700});
     let r = { schema:'phoenix.ci-host-background-fixture/v1',identityClass:'CI_HOST_FIXTURE_NOT_OCI',owner:binding.owner,sha:binding.targetSha,uid:c.uid,source,postgresId:c.BACKGROUND_FIXTURE_POSTGRES_ID,runner:findRunnerAncestor(),phase:'PREPARING',launcher:input.launcher };
-    writePrivate(r); fs.mkdirSync(source,{mode:0o555});fs.chmodSync(source,0o555); const stat = fs.lstatSync(source); r = { ...r,sourceDev:stat.dev,sourceIno:stat.ino };
+    writePrivate(r);r={...r,networkAudit:bindNetworkAudit(input,c,launcher)};writePrivate(r);
+    fs.mkdirSync(source,{mode:0o555});fs.chmodSync(source,0o555); const stat = fs.lstatSync(source); r = { ...r,sourceDev:stat.dev,sourceIno:stat.ino };
     writePrivate(r); fs.mkdirSync(TARGET,{mode:0o755});fs.chmodSync(TARGET,0o755);
     fs.writeFileSync(path.join(source,'manifest.json'),JSON.stringify({protocolVersion:1,phase:'FENCED',owner:r.owner,generation:1,targetSha:r.sha,participants:[]})+'\n',{mode:0o444,flag:'wx'});
     fs.chmodSync(path.join(source,'manifest.json'),0o444);
@@ -211,6 +252,7 @@ async function rootOperation(operation, input) {
     if (r.phase !== 'FENCED') hold('INITIAL_HOLD_REQUIRED'); assertOwnedSource(r);
     const proc=verifyApiProcess(r,c,input.pid,true);
     if(!r.api||r.api.pid!==proc.pid||r.api.start!==proc.start)hold('REGISTERED_PROCESS_REQUIRED');
+    const networkAudit=verifyNetworkAudit(r);
     const initial = validateStatus(await status(),{owner:r.owner,generation:1,phase:'FENCED',sha:r.sha});
     if (initial.inFlight || initial.pendingChildren || initial.taskGraphs) hold('STARTUP_NOT_QUIESCENT'); verifySession(c,initial);
     const fixtureId = createHash('sha256').update(`ci-host:${r.owner}:${input.pid}:${proc.start}:${initial.bootId}`).digest('hex');
@@ -218,7 +260,7 @@ async function rootOperation(operation, input) {
     // The root receipt commits expected OPEN before public admission. A crash
     // leaves reconciliation evidence, never a secret or production identity.
     writePrivate({...r,phase:'OPEN',api:proc,bootId:initial.bootId,fixtureId}); publish(r,manifest);
-    return {phase:'OPEN',initialPhase:'FENCED',initialGeneration:1,initialInFlight:0,identityClass:r.identityClass,owner:r.owner,bootId:initial.bootId,fixtureId,apiPid:proc.pid,apiProcessStart:proc.start,postgresServiceId:r.postgresId,controlSession:initial.controlSession,allowedKinds:KINDS,productionReceipt:false,chanjetKinds:[]};
+    return {phase:'OPEN',initialPhase:'FENCED',initialGeneration:1,initialInFlight:0,identityClass:r.identityClass,owner:r.owner,bootId:initial.bootId,fixtureId,apiPid:proc.pid,apiProcessStart:proc.start,postgresServiceId:r.postgresId,controlSession:initial.controlSession,allowedKinds:KINDS,productionReceipt:false,chanjetKinds:[],networkAudit:{...networkAudit,captureWindow:'STARTUP_ONLY_NOT_FINAL'}};
   }
   if (operation === 'root-cleanup') {
     assertOwnedSource(r);
@@ -238,10 +280,12 @@ async function rootOperation(operation, input) {
         await waitFixtureProcessExit(r.api);
       }
     }
+    const networkAudit=verifyNetworkAudit(r);
+    if(fs.readdirSync(STATE).sort().join(',')!=='network.jsonl,state.json')hold('UNKNOWN_ROOT_STATE_FILE');
     assertOwnedSource(r); exec('umount',[TARGET]);
     const file=path.join(r.source,'manifest.json');const s=fs.lstatSync(file);if(!s.isFile()||s.isSymbolicLink()||s.uid!==0||s.nlink!==1)hold('SOURCE_FILE_CHANGED');
-    fs.unlinkSync(file);fs.rmdirSync(r.source);fs.rmdirSync(TARGET);fs.unlinkSync(path.join(STATE,'state.json'));fs.rmdirSync(STATE);
-    return {phase:'CLOSED',owner:r.owner,identityClass:r.identityClass,productionReceipt:false};
+    fs.unlinkSync(file);fs.rmdirSync(r.source);fs.rmdirSync(TARGET);fs.unlinkSync(path.join(STATE,'network.jsonl'));fs.unlinkSync(path.join(STATE,'state.json'));fs.rmdirSync(STATE);
+    return {phase:'CLOSED',owner:r.owner,identityClass:r.identityClass,productionReceipt:false,networkAudit:{...networkAudit,captureWindow:'FULL_OWNED_API_LIFETIME'}};
   }
   hold('OPERATION');
 }
@@ -249,18 +293,28 @@ function rootCall(operation, context, other = {}) {
   const output = execFileSync('sudo',['-n',process.execPath,fs.realpathSync(new URL(import.meta.url)),operation],{ input:JSON.stringify({context,...other}),env:{...safeEnv()},encoding:'utf8',timeout:45000,maxBuffer:32768,stdio:['pipe','pipe','pipe'] });
   return JSON.parse(output);
 }
+function cleanupFailure(invoke,context,primary) {
+  try {invoke('root-cleanup',context);}
+  catch(error) {
+    const result=new Error('CI_BACKGROUND_HOLD=CLEANUP_INCOMPLETE');
+    const code=e=>/^CI_BACKGROUND_HOLD=([A-Z0-9_]+)$/.exec(e?.message||'')?.[1]||'UNVERIFIED';
+    result.primaryHold=code(primary);result.cleanupHold=code(error);throw result;
+  }
+  throw primary;
+}
 export async function runFixture(operation, context, dependencies = {}) {
   const approve = dependencies.approve || approvedContext; const invoke = dependencies.rootCall || rootCall;
   approve(context); // No sudo, writes or API process until all readonly checks succeed.
   if(operation==='cleanup')return invoke('root-cleanup',context);
   if(operation!=='start')hold('OPERATION');
   const launcher = (dependencies.processStat || processStat)(process.pid);
-  invoke('root-prepare',context,{launcher});
+  const audit=(dependencies.prepareNetworkAudit||prepareNetworkAudit)(context);
+  try {invoke('root-prepare',context,{launcher,networkAudit:{path:audit.path,fd:audit.fd}});}catch(error){audit.close();cleanupFailure(invoke,context,error);}
   const start = dependencies.start || (()=>{
     const log=fs.openSync(path.join(context.RUNNER_TEMP,'api.log'),'a',0o600);
-    try{return spawn(process.execPath,['dist/main.js'],{cwd:path.join(context.GITHUB_WORKSPACE,'apps/api'),env:process.env,stdio:['ignore',log,log],detached:true});}finally{fs.closeSync(log);}
+    try{return spawn(process.execPath,['--require',fs.realpathSync(new URL('./background-control-api-network-fixture.cjs',import.meta.url)),'dist/main.js'],{cwd:path.join(context.GITHUB_WORKSPACE,'apps/api'),env:{...process.env,NODE_OPTIONS:''},stdio:['ignore',log,log,audit.fd],detached:true});}finally{fs.closeSync(log);}
   });
-  const child=start(); child.on?.('error',()=>{}); child.unref?.();
+  let child;try{child=start();}catch(error){cleanupFailure(invoke,context,error);}finally{audit.close();}child.on?.('error',()=>{}); child.unref?.();
   try {
     invoke('root-register',context,{pid:child.pid});
     const now=dependencies.now||Date.now;const deadline=now()+90000;let ready=false;
@@ -273,7 +327,7 @@ export async function runFixture(operation, context, dependencies = {}) {
     const result=invoke('root-open',context,{pid:child.pid});
     (dependencies.persist||((value)=>fs.writeFileSync(path.join(context.RUNNER_TEMP,'background-control-api-fixture.json'),JSON.stringify(value)+'\n',{mode:0o600,flag:'wx'})))(result);
     return result;
-  } catch(error) { try{invoke('root-cleanup',context);}catch{/* retain root HOLD evidence */}throw error; }
+  } catch(error) {cleanupFailure(invoke,context,error);}
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
   try{
@@ -281,5 +335,9 @@ if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
     if(operation?.startsWith('root-')){const input=fs.readFileSync(0,'utf8');if(input.length>16384)hold('REQUEST_LIMIT');result=await rootOperation(operation,JSON.parse(input));}
     else {const context=Object.fromEntries(FIXTURE_KEYS.map(k=>[k,process.env[k]]));context.uid=process.getuid();result=await runFixture(operation,context);}
     console.log(JSON.stringify(result));
-  }catch(error){console.error(/^CI_BACKGROUND_HOLD=[A-Z0-9_]+$/.test(error.message)?error.message:'CI_BACKGROUND_HOLD=FIXTURE_UNVERIFIED');process.exitCode=1;}
+  }catch(error){
+    console.error(/^CI_BACKGROUND_HOLD=[A-Z0-9_]+$/.test(error.message)?error.message:'CI_BACKGROUND_HOLD=FIXTURE_UNVERIFIED');
+    if(/^[A-Z0-9_]+$/.test(error.primaryHold||'')&&/^[A-Z0-9_]+$/.test(error.cleanupHold||''))console.error(JSON.stringify({primaryHold:error.primaryHold,cleanupHold:error.cleanupHold}));
+    process.exitCode=1;
+  }
 }

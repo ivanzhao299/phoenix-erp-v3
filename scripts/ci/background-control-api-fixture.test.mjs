@@ -5,10 +5,11 @@ import { spawnSync,spawn } from 'node:child_process';
 import { once } from 'node:events';
 import os from 'node:os';
 import path from 'node:path';
-import { validateContext,validateDatabaseContainer,validateStatus,findRunnerAncestor,runFixture,KINDS,TARGET,STATE,controlPathExists,cleanupNotStarted,inspectCleanupProcess,waitFixtureProcessExit } from './background-control-api-fixture.mjs';
+import { validateContext,validateDatabaseContainer,validateStatus,findRunnerAncestor,runFixture,KINDS,TARGET,STATE,controlPathExists,cleanupNotStarted,inspectCleanupProcess,waitFixtureProcessExit,validateApiListeners } from './background-control-api-fixture.mjs';
 const sha='a'.repeat(40),id='c'.repeat(64),bootId='00000000-0000-4000-8000-000000000001';
 const c={GITHUB_ACTIONS:'true',CI:'true',RUNNER_ENVIRONMENT:'github-hosted',RUNNER_OS:'Linux',RUNNER_ARCH:'X64',GITHUB_REPOSITORY:'ivanzhao299/phoenix-erp-v3',GITHUB_RUN_ID:'1234',GITHUB_RUN_ATTEMPT:'1',GITHUB_JOB:'regression',GITHUB_SHA:sha,GITHUB_WORKSPACE:'/home/runner/work/phoenix-erp-v3/phoenix-erp-v3',RUNNER_TEMP:'/home/runner/work/_temp',NODE_ENV:'test',APP_ENV:'test',DB_HOST:'127.0.0.1',DB_PORT:'5432',DB_USER:'phoenix_v3',DB_NAME:'phoenix_erp',PORT:'3100',BACKGROUND_FIXTURE_POSTGRES_ID:id,uid:1001};
 const facts={workspace:c.GITHUB_WORKSPACE,temp:c.RUNNER_TEMP,workspaceUid:1001,tempUid:1001,production:false,runner:{pid:10,start:'50'},head:sha,originApproved:true,mainRegular:true};
+const prepareNetworkAudit=()=>({path:'/test-audit',fd:3,close:()=>{}});
 const status={protocolVersion:1,bootId,owner:'ci-1234-1-regression',generation:1,phase:'FENCED',poisoned:false,stopping:false,inFlight:0,pendingChildren:0,taskGraphs:0,controlSession:{connected:true,broken:false,sessionPid:50,databaseOid:15000,backendStartedAt:'2026-10-01T00:00:00.000Z',applicationName:`phoenix-fence:${bootId}`}};
 test('only exact disposable hosted test context is accepted; production and spoofed path inputs fail closed',()=>{
   assert.equal(validateContext(c,facts).targetSha,sha);
@@ -49,9 +50,17 @@ test('a valid cached Worker outside the caller ancestor chain cannot satisfy adm
   assert.deepEqual(visited,[5,4]);
 });
 test('only the exact supplied healthy PostgreSQL service and local port may back a fixture',()=>{
-  const inspect={Id:id,Config:{Image:'postgres:18-alpine'},State:{Running:true,Health:{Status:'healthy'}},NetworkSettings:{Ports:{'5432/tcp':[{HostIp:'0.0.0.0',HostPort:'5432'}]}},Mounts:[]};
+  const inspect={Id:id,Config:{Image:'postgres:18-alpine'},State:{Running:true,Health:{Status:'healthy'}},NetworkSettings:{Ports:{'5432/tcp':[{HostIp:'127.0.0.1',HostPort:'5432'}]}},Mounts:[]};
   assert.equal(validateDatabaseContainer(c,inspect),true);assert.equal(validateDatabaseContainer(c,{...inspect,Config:{Image:'postgres:16.14-alpine'}}),true);
   for(const x of [{...inspect,Id:'d'.repeat(64)},{...inspect,Config:{Image:'postgres:latest'}},{...inspect,State:{Running:false}},{...inspect,Mounts:[{Type:'bind',Source:'/data/phoenix-erp-data/postgres'}]},{...inspect,NetworkSettings:{Ports:{'5432/tcp':[{HostIp:'0.0.0.0',HostPort:'6432'}]}}}])assert.throws(()=>validateDatabaseContainer(c,x),/JOB_POSTGRES_SERVICE_REQUIRED/);
+  for(const HostIp of ['0.0.0.0','::','::1','127.0.0.2'])assert.throws(()=>validateDatabaseContainer(c,{...inspect,NetworkSettings:{Ports:{'5432/tcp':[{HostIp,HostPort:'5432'}]}}}),/JOB_POSTGRES_SERVICE_REQUIRED/);
+});
+test('kernel listener proof rejects wildcard, foreign address, unknown inode and duplicate API listeners',()=>{
+  const row=address=>['0:',`${address}:0C1C`,'00000000:0000','0A','0','0','0','0','0','55'];const owned=new Set(['55']);
+  for(const address of ['0100007F','00000000000000000000000001000000'])assert.equal(validateApiListeners([row(address)],owned),true);
+  for(const address of ['00000000','00000000000000000000000000000000','0200007F','010200C0'])assert.throws(()=>validateApiListeners([row(address)],owned),/API_LISTENER_NOT_OWNED_LOOPBACK/);
+  assert.throws(()=>validateApiListeners([row('0100007F')],new Set(['99'])),/API_LISTENER_NOT_OWNED_LOOPBACK/);
+  assert.throws(()=>validateApiListeners([row('0100007F'),row('0100007F')],owned),/API_LISTENER_NOT_OWNED_LOOPBACK/);
 });
 test('real boot UUID, exact fenced owner/generation and connected control identity are required',()=>{
   const binding={owner:status.owner,generation:1,phase:'FENCED',sha};assert.equal(validateStatus(status,binding),status);
@@ -65,17 +74,38 @@ test('invalid CI context causes zero sudo, writes, or API starts',async()=>{
 });
 test('positive fixture explicitly prepares root HOLD then owns process before requesting OPEN',async()=>{
   const trace=[];const child={pid:55,exitCode:null,on:()=>{},unref:()=>{}};
-  const result=await runFixture('start',c,{approve:()=>validateContext(c,facts),processStat:()=>({pid:54,start:'88'}),rootCall:op=>{trace.push(op);return{phase:op==='root-open'?'OPEN':'FENCED',identityClass:'CI_HOST_FIXTURE_NOT_OCI',productionReceipt:false};},start:()=>{trace.push('start');return child;},status:async()=>status,persist:()=>trace.push('evidence')});
+  const result=await runFixture('start',c,{prepareNetworkAudit,approve:()=>validateContext(c,facts),processStat:()=>({pid:54,start:'88'}),rootCall:op=>{trace.push(op);return{phase:op==='root-open'?'OPEN':'FENCED',identityClass:'CI_HOST_FIXTURE_NOT_OCI',productionReceipt:false};},start:()=>{trace.push('start');return child;},status:async()=>status,persist:()=>trace.push('evidence')});
   assert.deepEqual(trace,['root-prepare','start','root-register','root-open','evidence']);assert.equal(result.productionReceipt,false);
+});
+test('network journal setup follows readonly approval and closes the inherited capability after launch',async()=>{
+  const trace=[];let preparation;
+  await runFixture('start',c,{approve:()=>trace.push('readonly'),processStat:()=>({pid:54,start:'88'}),prepareNetworkAudit:()=>{trace.push('journal');return{path:'/test-audit',fd:9,close:()=>trace.push('close-fd')};},rootCall:(op,_c,input)=>{trace.push(op);if(op==='root-prepare')preparation=input;return{};},start:()=>{trace.push('start');return{pid:55,exitCode:null,on:()=>{},unref:()=>{}};},status:async()=>status,persist:()=>{}});
+  assert.deepEqual(preparation.networkAudit,{path:'/test-audit',fd:9});
+  assert.deepEqual(trace,['readonly','journal','root-prepare','start','close-fd','root-register','root-open']);
+  let created=0;
+  await assert.rejects(runFixture('start',c,{approve:()=>{throw Error('CI_BACKGROUND_HOLD=READONLY_REJECTED');},prepareNetworkAudit:()=>created++}),/READONLY_REJECTED/);assert.equal(created,0);
+});
+test('root preparation or audit rejection never starts or publishes a successful API fixture',async()=>{
+  let closed=0,started=0;
+  await assert.rejects(runFixture('start',c,{approve:()=>{},processStat:()=>({pid:54}),prepareNetworkAudit:()=>({path:'/test-audit',fd:3,close:()=>closed++}),rootCall:op=>{if(op==='root-prepare')throw Error('CI_BACKGROUND_HOLD=NETWORK_AUDIT_UNTRUSTED');return{phase:'NOT_STARTED'};},start:()=>started++}),/NETWORK_AUDIT_UNTRUSTED/);
+  assert.deepEqual([closed,started],[1,0]);
+  const trace=[];
+  await assert.rejects(runFixture('start',c,{prepareNetworkAudit,approve:()=>{},processStat:()=>({pid:54}),rootCall:op=>{trace.push(op);if(op==='root-open')throw Error('CI_BACKGROUND_HOLD=NETWORK_ATTEMPT_DENIED');return{};},start:()=>({pid:55,exitCode:null,on:()=>{},unref:()=>{}}),status:async()=>status,persist:()=>assert.fail('no success after network denial')}),/NETWORK_ATTEMPT_DENIED/);
+  assert.deepEqual(trace,['root-prepare','root-register','root-open','root-cleanup']);
+});
+test('partial prepare and failed cleanup are explicitly retained as HOLD with safe reason enums',async()=>{
+  let start=0;
+  await assert.rejects(runFixture('start',c,{prepareNetworkAudit,approve:()=>{},processStat:()=>({pid:54}),rootCall:op=>{throw Error(`CI_BACKGROUND_HOLD=${op==='root-prepare'?'NETWORK_AUDIT_UNTRUSTED':'SOURCE_IDENTITY_CHANGED'}`);},start:()=>start++}),error=>error.message==='CI_BACKGROUND_HOLD=CLEANUP_INCOMPLETE'&&error.primaryHold==='NETWORK_AUDIT_UNTRUSTED'&&error.cleanupHold==='SOURCE_IDENTITY_CHANGED');assert.equal(start,0);
+  await assert.rejects(runFixture('start',c,{prepareNetworkAudit,approve:()=>{},processStat:()=>({pid:54}),rootCall:op=>{if(op==='root-open')throw Error('CI_BACKGROUND_HOLD=NETWORK_ATTEMPT_DENIED');if(op==='root-cleanup')throw Error('CI_BACKGROUND_HOLD=NETWORK_ATTEMPT_DENIED');return{};},start:()=>({pid:55,exitCode:null,on:()=>{},unref:()=>{}}),status:async()=>status,persist:()=>assert.fail('no CLOSED or success')}),error=>error.message==='CI_BACKGROUND_HOLD=CLEANUP_INCOMPLETE'&&error.primaryHold==='NETWORK_ATTEMPT_DENIED'&&error.cleanupHold==='NETWORK_ATTEMPT_DENIED');
 });
 test('failed root verification performs no OPEN and cleanup is bounded to this fixture operation',async()=>{
   const trace=[];const child={pid:55,exitCode:null,on:()=>{},unref:()=>{}};
-  await assert.rejects(runFixture('start',c,{approve:()=>{},processStat:()=>({pid:54}),rootCall:op=>{trace.push(op);if(op==='root-register')throw Error('CI_BACKGROUND_HOLD=OWNED_API_PROCESS_REQUIRED');return{};},start:()=>child}),/OWNED_API_PROCESS_REQUIRED/);
+  await assert.rejects(runFixture('start',c,{prepareNetworkAudit,approve:()=>{},processStat:()=>({pid:54}),rootCall:op=>{trace.push(op);if(op==='root-register')throw Error('CI_BACKGROUND_HOLD=OWNED_API_PROCESS_REQUIRED');return{};},start:()=>child}),/OWNED_API_PROCESS_REQUIRED/);
   assert.deepEqual(trace,['root-prepare','root-register','root-cleanup']);
 });
 test('startup timeout never requests OPEN or writes success evidence',async()=>{
   let clock=0;const trace=[];
-  await assert.rejects(runFixture('start',c,{approve:()=>{},processStat:()=>({pid:54}),rootCall:op=>{trace.push(op);return{};},start:()=>({pid:55,exitCode:null,on:()=>{},unref:()=>{}}),now:()=>clock+=50000,status:async()=>({...status,phase:'HOLD'}),sleep:async()=>{},persist:()=>assert.fail('no success artifact')}),/API_STARTUP_TIMEOUT/);
+  await assert.rejects(runFixture('start',c,{prepareNetworkAudit,approve:()=>{},processStat:()=>({pid:54}),rootCall:op=>{trace.push(op);return{};},start:()=>({pid:55,exitCode:null,on:()=>{},unref:()=>{}}),now:()=>clock+=50000,status:async()=>({...status,phase:'HOLD'}),sleep:async()=>{},persist:()=>assert.fail('no success artifact')}),/API_STARTUP_TIMEOUT/);
   assert.deepEqual(trace,['root-prepare','root-register','root-cleanup']);
 });
 test('fixture helper has no production approvals, provider bypass, or production state mutation path',()=>{

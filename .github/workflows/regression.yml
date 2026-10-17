@@ -43,7 +43,7 @@ jobs:
           POSTGRES_PASSWORD: phoenix_v3_pass
           POSTGRES_DB: phoenix_erp
         ports:
-          - 5432:5432
+          - 127.0.0.1:5432:5432
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
@@ -220,7 +220,7 @@ jobs:
           PORT: "3100"
           BACKGROUND_FIXTURE_POSTGRES_ID: ${{ job.services.postgres.id }}
         run: |
-          node --test ../../scripts/ci/background-control-api-fixture.test.mjs
+          node --test ../../scripts/ci/background-control-api-fixture.test.mjs ../../scripts/ci/background-control-api-network-fixture.test.mjs
           bash ../../scripts/ci/background-control-api-fixture.sh start
 
       - name: Packaging VOID and test isolation — PostgreSQL concurrency
