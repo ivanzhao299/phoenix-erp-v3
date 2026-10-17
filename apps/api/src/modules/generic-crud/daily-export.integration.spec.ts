@@ -22,6 +22,11 @@ integration('Issue 403 daily export HTTP + PostgreSQL (isolated fixture)', () =>
     await db.initialize();
     await db.query('CREATE TABLE IF NOT EXISTS brd_daily_logs(id integer PRIMARY KEY, log_date date, created_at timestamptz, farm_code text, site_code text, house_code text, eggs_produced integer, eggs_by_grade jsonb, mortality_qty integer, elimination_qty integer, note text)');
     await db.query('TRUNCATE brd_daily_logs');
+    // Canonical ownership fixtures also exercise the #401 integrated scoped-read contract.
+    await db.query('CREATE TABLE IF NOT EXISTS brd_farms(farm_code text PRIMARY KEY, company_code text, mapped_site_code text, status text)');
+    await db.query('CREATE TABLE IF NOT EXISTS brd_houses(house_code text PRIMARY KEY, farm_code text)');
+    await db.query("INSERT INTO brd_farms VALUES ('FARM-A','COMP-A','SITE-A','ACTIVE'),('FARM-B','COMP-B','SITE-B','ACTIVE') ON CONFLICT(farm_code) DO UPDATE SET company_code=EXCLUDED.company_code,mapped_site_code=EXCLUDED.mapped_site_code,status=EXCLUDED.status");
+    await db.query("INSERT INTO brd_houses VALUES ('H-A1','FARM-A'),('H-A2','FARM-A'),('H-B','FARM-B') ON CONFLICT(house_code) DO UPDATE SET farm_code=EXCLUDED.farm_code");
     await db.query(`INSERT INTO brd_daily_logs SELECT n, '2026-10-16'::date, '2026-10-16T23:59:59+08'::timestamptz, 'FARM-A', 'SITE-A', CASE WHEN n % 2 = 0 THEN 'H-A1' ELSE 'H-A2' END, 195, $1::jsonb, 2, 3, 'saved report' FROM generate_series(1,1005) n`, [JSON.stringify(grades)]);
     await db.query(`INSERT INTO brd_daily_logs VALUES (2001,'2026-10-16','2026-10-16T00:00:00+08','FARM-B','SITE-B','H-B',195,$1,2,3,'private B'),(2002,'2026-10-15','2026-10-15T23:59:59+08','FARM-A','SITE-A','H-A1',195,$1,2,3,'previous date'),(2003,'2026-10-17','2026-10-17T00:00:00+08','FARM-A','SITE-A','H-A1',195,$1,2,3,'next date')`, [JSON.stringify(grades)]);
     const module = await Test.createTestingModule({
@@ -63,7 +68,7 @@ integration('Issue 403 daily export HTTP + PostgreSQL (isolated fixture)', () =>
   it('requires both daily export permission and original read permission', async () => {
     await get('2026-10-16', 'no-export').expect(403); await get('2026-10-16', 'no-view').expect(403);
   });
-  it('handles empty dates and validates real calendar dates and pagination', async () => {
+  it('handles empty dates and validates real calendar dates and house selectors', async () => {
     expect((await get('2026-10-01').expect(200)).body.data).toEqual([]);
     for (const date of ['2026-02-30', '2026-13-01', '2026-10-16T00:00:00Z', '']) await get(date).expect(400);
     for (const extra of ['&house_code[x]=y']) await get('2026-10-16', 'a', extra).expect(400);
