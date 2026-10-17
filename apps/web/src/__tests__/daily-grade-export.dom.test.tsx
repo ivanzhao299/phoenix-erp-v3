@@ -7,7 +7,7 @@ import { DailyReportExport } from '@/components/breeding/DailyReportExport';
 import request from '@/lib/api-client';
 import type { ProductGrade } from '@/hooks/useProductGrades';
 
-const fixtures = vi.hoisted(() => ({ allowed: true, reports: [{ id: 1, log_date: '2026-10-16', house_code: 'H-A', eggs_produced: 999, eggs_by_grade: { GRADE_1: 11, GRADE_2: 22, GRADE_3: 33, GRADE_4: 44, GRADE_5: 55, DIRTY: 6, CRACKED: 7, BROKEN: 8, DAMAGED: 9 }, mortality_qty: 2, elimination_qty: 3, note: 'saved record' }], error: vi.fn(), success: vi.fn() }));
+const fixtures = vi.hoisted(() => ({ allowed: true, reports: [{ id: 1, log_date: '2026-10-16', house_code: 'H-A', eggs_produced: 999, eggs_by_grade: { GRADE_1: 11, GRADE_2: 22, GRADE_3: 33, GRADE_4: 44, GRADE_5: 55, DIRTY: 6, CRACKED: 7, BROKEN: 8, DAMAGED: 9 }, mortality_qty: 2, elimination_qty: 3, note: 'saved record' }], error: vi.fn(), success: vi.fn(), fetchReports: vi.fn(), fetchEmpty: vi.fn() }));
 const grades = ['GRADE_1','GRADE_2','GRADE_3','GRADE_4','GRADE_5','DIRTY','CRACKED','BROKEN','DAMAGED'].map((grade_code, i) => ({ grade_code, grade_name: `Grade ${i + 1}`, sort_order: i })) as ProductGrade[];
 vi.mock('next/navigation', () => ({ useSearchParams: () => new URLSearchParams() }));
 vi.mock('@/contexts/LanguageContext', () => ({ useLanguage: () => ({ t: (_key: string, fallback: string) => fallback, lang: 'en' }) }));
@@ -16,7 +16,7 @@ vi.mock('@/contexts/DialogContext', () => ({ useDialog: () => ({ showConfirm: vi
 vi.mock('@/hooks/usePermission', () => ({ usePermission: () => ({ canExport: fixtures.allowed, canEdit: false, canCreate: false, can: () => false }) }));
 vi.mock('@/hooks/useDictOptions', () => ({ useDictOptions: () => ({ optionPairs: [], codeMap: {} }) }));
 vi.mock('@/hooks/useProductGrades', () => ({ useProductGrades: () => ({ grades }) }));
-vi.mock('@/hooks/useCrud', () => ({ useCrud: (table: string) => ({ fetchRecords: table === 'brd_daily_logs' ? async () => fixtures.reports : async () => [], createRecord: vi.fn() }) }));
+vi.mock('@/hooks/useCrud', () => ({ useCrud: (table: string) => ({ fetchRecords: table === 'brd_daily_logs' ? fixtures.fetchReports : fixtures.fetchEmpty, createRecord: vi.fn() }) }));
 vi.mock('@/components/PageHeader', () => ({ default: ({ actions }: { actions: React.ReactNode }) => <header>{actions}</header> }));
 vi.mock('@/components/shared-selectors/MasterDataSelectors', () => ({ HouseSelector: () => null }));
 vi.mock('@/components/shared-selectors/DictSelect', () => ({ default: () => null }));
@@ -26,7 +26,10 @@ let host: HTMLDivElement;
 const click = async (text: string) => act(async () => { const target = [...document.querySelectorAll('button')].find(b => b.textContent?.trim() === text); if (!target) throw Error(`Missing ${text}`); target.click(); });
 beforeEach(() => {
   vi.stubGlobal('React', React); vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
-  fixtures.allowed = true; vi.mocked(request).mockResolvedValue({ data: fixtures.reports });
+  fixtures.allowed = true;
+  fixtures.fetchReports.mockResolvedValue(fixtures.reports);
+  fixtures.fetchEmpty.mockResolvedValue([]);
+  vi.mocked(request).mockResolvedValue({ data: fixtures.reports });
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) }));
   vi.stubGlobal('URL', Object.assign(URL, { createObjectURL: vi.fn().mockReturnValue('blob:issue403'), revokeObjectURL: vi.fn() }));
   vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
