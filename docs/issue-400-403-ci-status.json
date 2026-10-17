@@ -1,0 +1,742 @@
+{
+  "reportDate": "2026-10-17 Asia/Singapore",
+  "baseMainSha": "5f51ec2bba6cbeaad96bd038af7244afcc22c0b3",
+  "integrationMainSha": "66164c30a614bca181a419a540b26ceac1b87f8f",
+  "latestMainObserved": "226878864f184d26f41a890e666ebed52547db14",
+  "testedIntegrationCodeHead": "f3ed1fcb",
+  "requiredCi": "BLOCKED_GOVERNANCE_APPROVAL",
+  "technicalChecks": "ALL_FOUR_HEADS_9_SUCCESS_NO_PENDING",
+  "approvalLabelsSelfApplied": false,
+  "local": {
+    "api": {
+      "passed": 1051,
+      "skipped": 281,
+      "suitesPassed": 121,
+      "suitesSkipped": 13
+    },
+    "web": {
+      "passed": 745,
+      "skipped": 4,
+      "filesPassed": 128
+    },
+    "chromiumPassed": 3,
+    "apiTypecheck": 0,
+    "webTypecheck": 0,
+    "changedLintDebtGate": "PASS"
+  },
+  "pullRequests": [
+    {
+      "number": 405,
+      "url": "https://github.com/ivanzhao299/phoenix-erp-v3/pull/405",
+      "head": "0b33d62a5b9f8ef4e475f34fbbe3ad01c269f2a3",
+      "draft": true,
+      "autoMerge": null,
+      "labels": [],
+      "checks": [
+        {
+          "name": "Static Security And Freeze Gates",
+          "workflow": "AI Delivery CI Security",
+          "status": "COMPLETED",
+          "conclusion": "FAILURE",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/39015024312/job/117345255463"
+        },
+        {
+          "name": "Typecheck, Build, Basic Tests",
+          "workflow": "AI Delivery CI Build",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/39015024252/job/117345255066"
+        },
+        {
+          "name": "Runtime Smoke",
+          "workflow": "AI Delivery CI Smoke",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/39015024220/job/117345255141"
+        },
+        {
+          "name": "Playwright Chromium (isolated PG16)",
+          "workflow": "Batch 3 Quality E2E",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/39015024234/job/117345255191"
+        },
+        {
+          "name": "Vitest (apps/web)",
+          "workflow": "CI Web Unit Tests",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/39015024211/job/117345255025"
+        },
+        {
+          "name": "Detect change scope",
+          "workflow": "CI/CD — Build & Deploy",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/39015024181/job/117345255067"
+        },
+        {
+          "name": "fixture",
+          "workflow": "Phase 1 Schema Remediation Fixture",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/39015024352/job/117345255706"
+        },
+        {
+          "name": "fixture",
+          "workflow": "Production Schema Data Safety Fixture",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/39015024323/job/117345255655"
+        },
+        {
+          "name": "regression",
+          "workflow": "V3 Regression Suite",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/39015024344/job/117345255535"
+        },
+        {
+          "name": "Type-check & Regression",
+          "workflow": "CI/CD — Build & Deploy",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/39015024181/job/117345291375"
+        },
+        {
+          "name": "Deploy · fast-css (CSS hot patch)",
+          "workflow": "CI/CD — Build & Deploy",
+          "status": "COMPLETED",
+          "conclusion": "SKIPPED",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/39015024181/job/117345292236"
+        },
+        {
+          "name": "Build & Push ${{ matrix.target }}",
+          "workflow": "CI/CD — Build & Deploy",
+          "status": "COMPLETED",
+          "conclusion": "SKIPPED",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/39015024181/job/117346478434"
+        },
+        {
+          "name": "Deploy · ${{ needs.detect-changes.outputs.mode }}",
+          "workflow": "CI/CD — Build & Deploy",
+          "status": "COMPLETED",
+          "conclusion": "SKIPPED",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/39015024181/job/117346479216"
+        }
+      ]
+    },
+    {
+      "number": 407,
+      "url": "https://github.com/ivanzhao299/phoenix-erp-v3/pull/407",
+      "head": "654b9141049bb74f6b67b3dfdad45dd61806485f",
+      "draft": true,
+      "autoMerge": null,
+      "labels": [],
+      "checks": [
+        {
+          "name": "Static Security And Freeze Gates",
+          "workflow": "AI Delivery CI Security",
+          "status": "COMPLETED",
+          "conclusion": "FAILURE",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/39015625073/job/117347040800"
+        },
+        {
+          "name": "Typecheck, Build, Basic Tests",
+          "workflow": "AI Delivery CI Build",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/39015625084/job/117347040804"
+        },
+        {
+          "name": "Runtime Smoke",
+          "workflow": "AI Delivery CI Smoke",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/39015625076/job/117347040758"
+        },
+        {
+          "name": "Playwright Chromium (isolated PG16)",
+          "workflow": "Batch 3 Quality E2E",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/39015625080/job/117347040841"
+        },
+        {
+          "name": "Vitest (apps/web)",
+          "workflow": "CI Web Unit Tests",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/39015625089/job/117347040986"
+        },
+        {
+          "name": "Detect change scope",
+          "workflow": "CI/CD — Build & Deploy",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/39015625121/job/117347041207"
+        },
+        {
+          "name": "fixture",
+          "workflow": "Phase 1 Schema Remediation Fixture",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/39015625273/job/117347041273"
+        },
+        {
+          "name": "fixture",
+          "workflow": "Production Schema Data Safety Fixture",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/39015625098/job/117347040783"
+        },
+        {
+          "name": "regression",
+          "workflow": "V3 Regression Suite",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/39015625115/job/117347040750"
+        },
+        {
+          "name": "Type-check & Regression",
+          "workflow": "CI/CD — Build & Deploy",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/39015625121/job/117347080631"
+        },
+        {
+          "name": "Deploy · fast-css (CSS hot patch)",
+          "workflow": "CI/CD — Build & Deploy",
+          "status": "COMPLETED",
+          "conclusion": "SKIPPED",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/39015625121/job/117347081410"
+        },
+        {
+          "name": "Build & Push ${{ matrix.target }}",
+          "workflow": "CI/CD — Build & Deploy",
+          "status": "COMPLETED",
+          "conclusion": "SKIPPED",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/39015625121/job/117348007846"
+        },
+        {
+          "name": "Deploy · ${{ needs.detect-changes.outputs.mode }}",
+          "workflow": "CI/CD — Build & Deploy",
+          "status": "COMPLETED",
+          "conclusion": "SKIPPED",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/39015625121/job/117348008382"
+        }
+      ]
+    },
+    {
+      "number": 408,
+      "url": "https://github.com/ivanzhao299/phoenix-erp-v3/pull/408",
+      "head": "4c707fac1ee316c29119b0a07fc0462278d30c5c",
+      "draft": true,
+      "autoMerge": null,
+      "labels": [],
+      "checks": [
+        {
+          "name": "Static Security And Freeze Gates",
+          "workflow": "AI Delivery CI Security",
+          "status": "COMPLETED",
+          "conclusion": "FAILURE",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/39015637268/job/117347077803"
+        },
+        {
+          "name": "Typecheck, Build, Basic Tests",
+          "workflow": "AI Delivery CI Build",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/39015637228/job/117347138749"
+        },
+        {
+          "name": "Runtime Smoke",
+          "workflow": "AI Delivery CI Smoke",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/39015637217/job/117347077660"
+        },
+        {
+          "name": "Playwright Chromium (isolated PG16)",
+          "workflow": "Batch 3 Quality E2E",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/39015637210/job/117347077600"
+        },
+        {
+          "name": "Vitest (apps/web)",
+          "workflow": "CI Web Unit Tests",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/39015637196/job/117347077573"
+        },
+        {
+          "name": "Detect change scope",
+          "workflow": "CI/CD — Build & Deploy",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/39015637239/job/117347974373"
+        },
+        {
+          "name": "fixture",
+          "workflow": "Phase 1 Schema Remediation Fixture",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/39015637240/job/117347077760"
+        },
+        {
+          "name": "fixture",
+          "workflow": "Production Schema Data Safety Fixture",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/39015637254/job/117347077530"
+        },
+        {
+          "name": "regression",
+          "workflow": "V3 Regression Suite",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/39015637252/job/117347077705"
+        },
+        {
+          "name": "Type-check & Regression",
+          "workflow": "CI/CD — Build & Deploy",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/39015637239/job/117348013884"
+        },
+        {
+          "name": "Deploy · fast-css (CSS hot patch)",
+          "workflow": "CI/CD — Build & Deploy",
+          "status": "COMPLETED",
+          "conclusion": "SKIPPED",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/39015637239/job/117348014728"
+        },
+        {
+          "name": "Build & Push ${{ matrix.target }}",
+          "workflow": "CI/CD — Build & Deploy",
+          "status": "COMPLETED",
+          "conclusion": "SKIPPED",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/39015637239/job/117348892671"
+        },
+        {
+          "name": "Deploy · ${{ needs.detect-changes.outputs.mode }}",
+          "workflow": "CI/CD — Build & Deploy",
+          "status": "COMPLETED",
+          "conclusion": "SKIPPED",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/39015637239/job/117348893262"
+        }
+      ]
+    },
+    {
+      "number": 411,
+      "url": "https://github.com/ivanzhao299/phoenix-erp-v3/pull/411",
+      "head": "3a6a3b504a28a7668f92832839c6ff250b8a2fc8",
+      "draft": true,
+      "autoMerge": null,
+      "labels": [],
+      "checks": [
+        {
+          "name": "Static Security And Freeze Gates",
+          "workflow": "AI Delivery CI Security",
+          "status": "COMPLETED",
+          "conclusion": "FAILURE",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/39015489031/job/117346637086"
+        },
+        {
+          "name": "Typecheck, Build, Basic Tests",
+          "workflow": "AI Delivery CI Build",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/39015489084/job/117346637343"
+        },
+        {
+          "name": "Runtime Smoke",
+          "workflow": "AI Delivery CI Smoke",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/39015489113/job/117346637379"
+        },
+        {
+          "name": "Playwright Chromium (isolated PG16)",
+          "workflow": "Batch 3 Quality E2E",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/39015489035/job/117346637264"
+        },
+        {
+          "name": "Vitest (apps/web)",
+          "workflow": "CI Web Unit Tests",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/39015489051/job/117346637102"
+        },
+        {
+          "name": "Detect change scope",
+          "workflow": "CI/CD — Build & Deploy",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/39015489073/job/117346637390"
+        },
+        {
+          "name": "fixture",
+          "workflow": "Phase 1 Schema Remediation Fixture",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/39015489055/job/117346637012"
+        },
+        {
+          "name": "fixture",
+          "workflow": "Production Schema Data Safety Fixture",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/39015489023/job/117346636910"
+        },
+        {
+          "name": "regression",
+          "workflow": "V3 Regression Suite",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/39015489027/job/117346637156"
+        },
+        {
+          "name": "Type-check & Regression",
+          "workflow": "CI/CD — Build & Deploy",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/39015489073/job/117346677101"
+        },
+        {
+          "name": "Deploy · fast-css (CSS hot patch)",
+          "workflow": "CI/CD — Build & Deploy",
+          "status": "COMPLETED",
+          "conclusion": "SKIPPED",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/39015489073/job/117346677971"
+        },
+        {
+          "name": "Build & Push ${{ matrix.target }}",
+          "workflow": "CI/CD — Build & Deploy",
+          "status": "COMPLETED",
+          "conclusion": "SKIPPED",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/39015489073/job/117347848622"
+        },
+        {
+          "name": "Deploy · ${{ needs.detect-changes.outputs.mode }}",
+          "workflow": "CI/CD — Build & Deploy",
+          "status": "COMPLETED",
+          "conclusion": "SKIPPED",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/39015489073/job/117347849250"
+        }
+      ]
+    },
+    {
+      "number": 384,
+      "url": "https://github.com/ivanzhao299/phoenix-erp-v3/pull/384",
+      "head": "4e3948dafeaf72499a25d3e88f42feae147d0bc2",
+      "draft": true,
+      "autoMerge": null,
+      "labels": [
+        "reviewed-frozen-boundary"
+      ],
+      "checks": [
+        {
+          "name": "Typecheck, Build, Basic Tests",
+          "workflow": "AI Delivery CI Build",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/38331703687/job/115082651654"
+        },
+        {
+          "name": "Static Security And Freeze Gates",
+          "workflow": "AI Delivery CI Security",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/38331703796/job/115082652097"
+        },
+        {
+          "name": "Runtime Smoke",
+          "workflow": "AI Delivery CI Smoke",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/38331703703/job/115082651915"
+        },
+        {
+          "name": "Playwright Chromium (isolated PG16)",
+          "workflow": "Batch 3 Quality E2E",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/38331703585/job/115082651298"
+        },
+        {
+          "name": "Vitest (apps/web)",
+          "workflow": "CI Web Unit Tests",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/38331703629/job/115082651611"
+        },
+        {
+          "name": "Detect change scope",
+          "workflow": "CI/CD — Build & Deploy",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/38331703733/job/115082651812"
+        },
+        {
+          "name": "fixture",
+          "workflow": "Phase 1 Schema Remediation Fixture",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/38331703754/job/115082651823"
+        },
+        {
+          "name": "fixture",
+          "workflow": "Production Schema Data Safety Fixture",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/38331703621/job/115082651657"
+        },
+        {
+          "name": "regression",
+          "workflow": "V3 Regression Suite",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/38331703709/job/115082651752"
+        },
+        {
+          "name": "Type-check & Regression",
+          "workflow": "CI/CD — Build & Deploy",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/38331703733/job/115082717127"
+        },
+        {
+          "name": "Deploy · fast-css (CSS hot patch)",
+          "workflow": "CI/CD — Build & Deploy",
+          "status": "COMPLETED",
+          "conclusion": "SKIPPED",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/38331703733/job/115082718878"
+        },
+        {
+          "name": "Build & Push ${{ matrix.target }}",
+          "workflow": "CI/CD — Build & Deploy",
+          "status": "COMPLETED",
+          "conclusion": "SKIPPED",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/38331703733/job/115083853657"
+        },
+        {
+          "name": "Deploy · ${{ needs.detect-changes.outputs.mode }}",
+          "workflow": "CI/CD — Build & Deploy",
+          "status": "COMPLETED",
+          "conclusion": "SKIPPED",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/38331703733/job/115083853771"
+        }
+      ]
+    },
+    {
+      "number": 385,
+      "url": "https://github.com/ivanzhao299/phoenix-erp-v3/pull/385",
+      "head": "c62721f10e3474c2d63826c1f72f4574b02a3698",
+      "draft": true,
+      "autoMerge": null,
+      "labels": [
+        "reviewed-frozen-boundary"
+      ],
+      "checks": [
+        {
+          "name": "Typecheck, Build, Basic Tests",
+          "workflow": "AI Delivery CI Build",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/38331720472/job/115082702867"
+        },
+        {
+          "name": "Static Security And Freeze Gates",
+          "workflow": "AI Delivery CI Security",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/38331720546/job/115082702973"
+        },
+        {
+          "name": "Runtime Smoke",
+          "workflow": "AI Delivery CI Smoke",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/38331720418/job/115082702519"
+        },
+        {
+          "name": "Playwright Chromium (isolated PG16)",
+          "workflow": "Batch 3 Quality E2E",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/38331720488/job/115082702613"
+        },
+        {
+          "name": "Vitest (apps/web)",
+          "workflow": "CI Web Unit Tests",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/38331720730/job/115082703869"
+        },
+        {
+          "name": "Detect change scope",
+          "workflow": "CI/CD — Build & Deploy",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/38331720519/job/115082702872"
+        },
+        {
+          "name": "fixture",
+          "workflow": "Phase 1 Schema Remediation Fixture",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/38331720402/job/115082701962"
+        },
+        {
+          "name": "fixture",
+          "workflow": "Production Schema Data Safety Fixture",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/38331720460/job/115082702524"
+        },
+        {
+          "name": "regression",
+          "workflow": "V3 Regression Suite",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/38331720506/job/115082702441"
+        },
+        {
+          "name": "Type-check & Regression",
+          "workflow": "CI/CD — Build & Deploy",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/38331720519/job/115082769025"
+        },
+        {
+          "name": "Deploy · fast-css (CSS hot patch)",
+          "workflow": "CI/CD — Build & Deploy",
+          "status": "COMPLETED",
+          "conclusion": "SKIPPED",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/38331720519/job/115082770917"
+        },
+        {
+          "name": "Build & Push ${{ matrix.target }}",
+          "workflow": "CI/CD — Build & Deploy",
+          "status": "COMPLETED",
+          "conclusion": "SKIPPED",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/38331720519/job/115083933156"
+        },
+        {
+          "name": "Deploy · ${{ needs.detect-changes.outputs.mode }}",
+          "workflow": "CI/CD — Build & Deploy",
+          "status": "COMPLETED",
+          "conclusion": "SKIPPED",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/38331720519/job/115083933311"
+        }
+      ]
+    },
+    {
+      "number": 386,
+      "url": "https://github.com/ivanzhao299/phoenix-erp-v3/pull/386",
+      "head": "42c9683b62a5f9d95a32899f1c2867d062ec3148",
+      "draft": true,
+      "autoMerge": null,
+      "labels": [
+        "reviewed-frozen-boundary"
+      ],
+      "checks": [
+        {
+          "name": "Typecheck, Build, Basic Tests",
+          "workflow": "AI Delivery CI Build",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/38332266040/job/115085360395"
+        },
+        {
+          "name": "Static Security And Freeze Gates",
+          "workflow": "AI Delivery CI Security",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/38332266162/job/115084451315"
+        },
+        {
+          "name": "Runtime Smoke",
+          "workflow": "AI Delivery CI Smoke",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/38332266266/job/115084453764"
+        },
+        {
+          "name": "Playwright Chromium (isolated PG16)",
+          "workflow": "Batch 3 Quality E2E",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/38332266230/job/115084451346"
+        },
+        {
+          "name": "Vitest (apps/web)",
+          "workflow": "CI Web Unit Tests",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/38332266077/job/115084450580"
+        },
+        {
+          "name": "Detect change scope",
+          "workflow": "CI/CD — Build & Deploy",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/38332266085/job/115084450834"
+        },
+        {
+          "name": "fixture",
+          "workflow": "Phase 1 Schema Remediation Fixture",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/38332266069/job/115084450436"
+        },
+        {
+          "name": "fixture",
+          "workflow": "Production Schema Data Safety Fixture",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/38332266032/job/115084450391"
+        },
+        {
+          "name": "regression",
+          "workflow": "V3 Regression Suite",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/38332266373/job/115084451832"
+        },
+        {
+          "name": "Type-check & Regression",
+          "workflow": "CI/CD — Build & Deploy",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/38332266085/job/115084513176"
+        },
+        {
+          "name": "Deploy · fast-css (CSS hot patch)",
+          "workflow": "CI/CD — Build & Deploy",
+          "status": "COMPLETED",
+          "conclusion": "SKIPPED",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/38332266085/job/115084514813"
+        },
+        {
+          "name": "Build & Push ${{ matrix.target }}",
+          "workflow": "CI/CD — Build & Deploy",
+          "status": "COMPLETED",
+          "conclusion": "SKIPPED",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/38332266085/job/115085690088"
+        },
+        {
+          "name": "Deploy · ${{ needs.detect-changes.outputs.mode }}",
+          "workflow": "CI/CD — Build & Deploy",
+          "status": "COMPLETED",
+          "conclusion": "SKIPPED",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/38332266085/job/115085690710"
+        }
+      ]
+    }
+  ]
+}
