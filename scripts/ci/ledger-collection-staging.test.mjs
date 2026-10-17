@@ -20,6 +20,11 @@ import os from 'node:os';
 import path from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
+import { createRequire } from 'node:module';
+import { assertDedicatedLedgerFixture } from './ledger-fixture-guard.mjs';
+
+const require = createRequire(import.meta.url);
+const { Client } = require('../../apps/api/node_modules/pg');
 
 const repoRoot = path.resolve(process.cwd());
 const collector = path.join(repoRoot, 'scripts/ops/ledger-readonly-collect.mjs');
@@ -59,12 +64,30 @@ function realCollectionDocument(database) {
 staged('ledger collection staging (prod transport) + offline evaluation adapter', () => {
   let work;
   let dockerShimBin;
-  before(() => {
-    assert.equal(parsedFixture.hostname, '127.0.0.1', 'isolated loopback fixture required');
-    assert.match(pgEnv.PGDATABASE, /^ledger_collect_/, 'dedicated disposable database required');
-    assert.ok(container, 'fixture DB container required for the prod-transport shim');
+  before(async () => {
+    // the SHARED GUARD (scripts/ci/ledger-fixture-guard.mjs) runs FIRST —
+    // identity (loopback), the dedicated namespace and same-instance
+    // ownership over the SERVER fixture — before anything destructive. The
+    // staging database is then bootstrapped and verified through the same
+    // guard (its own dedicated name in the allowed namespace).
+    const serverProbe = new Client({ connectionString: fixtureUrl });
+    await serverProbe.connect();
+    try {
+      await assertDedicatedLedgerFixture({ fixtureUrl, container, client: serverProbe });
+    } finally {
+      await serverProbe.end().catch(() => undefined);
+    }
     const bootstrap = spawnSync('docker', ['exec', container, 'psql', '-X', '-v', 'ON_ERROR_STOP=1', '-U', pgEnv.PGUSER, '-d', 'postgres', '-c', `DROP DATABASE IF EXISTS ${stageDb}`, '-c', `CREATE DATABASE ${stageDb}`], { encoding: 'utf8' });
     assert.equal(bootstrap.status, 0, `stage database bootstrap failed: ${bootstrap.stderr}`);
+    const stageUrl = new URL(fixtureUrl);
+    stageUrl.pathname = `/${stageDb}`;
+    const stageClient = new Client({ connectionString: stageUrl.toString() });
+    await stageClient.connect();
+    try {
+      await assertDedicatedLedgerFixture({ fixtureUrl: stageUrl.toString(), container, client: stageClient });
+    } finally {
+      await stageClient.end().catch(() => undefined);
+    }
     // seed the PRODUCTION-SHAPED ledger state (169 legacy applied + 84
     // canonical applied + the retired row) so the staged collection and the
     // adapter mapping run against realistic data, not another test's residue
@@ -122,6 +145,56 @@ staged('ledger collection staging (prod transport) + offline evaluation adapter'
     assert.equal(doc.db_mode, 'prod');
     assert.ok(Array.isArray(doc.schema_migrations) && Array.isArray(doc.migrations));
   });
+
+  test('prod-transport job teardown: a client kill leaves the server bound to clean up — the in-container query is gone within the statement_timeout', async () => {
+    // the REAL prod channel hazard: SIGKILL of the local docker CLI does NOT
+    // necessarily kill the exec'd psql inside the container. The collector's
+    // answer is the SERVER-side statement_timeout — this test proves the
+    // teardown end to end: a staged prod run whose read hangs on a lock is
+    // client-killed immediately; the in-container psql then dies at the
+    // statement_timeout/lock_timeout bound BY ITSELF, and no query, no
+    // transaction and no lock survive (asserted against pg_stat_activity,
+    // NOT against a mere child-process return value).
+    // the blocker must hold the lock in the SAME database the staged prod
+    // run reads (stageDb), not the sibling suite's fixture database
+    const stageBlockerUrl = new URL(fixtureUrl);
+    stageBlockerUrl.pathname = `/${stageDb}`;
+    const blocker = new Client({ connectionString: stageBlockerUrl.toString() });
+    await blocker.connect();
+    try {
+      await blocker.query('BEGIN');
+      await blocker.query('LOCK TABLE migrations IN ACCESS EXCLUSIVE MODE');
+      const stageDir = path.join(work, 'staging-teardown');
+      fs.mkdirSync(stageDir, { recursive: true });
+      fs.copyFileSync(collector, path.join(stageDir, 'ledger-readonly-collect.mjs'));
+      // lock 200ms + statement 500ms (both inside the 1s client bound) — the
+      // collector process is killed at ~1s while the in-container psql is
+      // still waiting on the lock; the container-side bounds then end it
+      const run = spawnSync(process.execPath, ['ledger-readonly-collect.mjs', '--db-mode', 'prod', '--lock-timeout-ms', '200', '--statement-timeout-ms', '500', '--client-timeout-ms', '1000'], {
+        cwd: stageDir, encoding: 'utf8', timeout: 30_000,
+        env: { ...process.env, MIG_MODE: 'prod', PATH: `${dockerShimBin}:${process.env.PATH}` },
+      });
+      assert.notEqual(run.status, 0, 'the bounded run must fail (lock wait + client kill)');
+      // the in-container psql is (possibly) still alive RIGHT NOW — poll
+      // until the SERVER-side bound ends it: the query must disappear within
+      // statement+lock bound plus scheduling slack
+      const deadline = Date.now() + 6_000;
+      let residue = [];
+      while (Date.now() < deadline) {
+        const activity = await blocker.query(`SELECT pid, state, left(query, 60) AS q FROM pg_stat_activity WHERE datname = current_database() AND pid <> pg_backend_pid() AND query ILIKE '%schema_migrations%'`);
+        residue = activity.rows;
+        if (!residue.length) break;
+        await new Promise((resolve) => setTimeout(resolve, 250));
+      }
+      assert.deepEqual(residue, [], `the in-container collection query outlived the server bounds: ${JSON.stringify(residue)}`);
+      // and no aborted transaction lingers
+      const idle = await blocker.query(`SELECT count(*)::int AS n FROM pg_stat_activity WHERE datname = current_database() AND state = 'idle in transaction'`);
+      assert.equal(idle.rows[0].n, 0, 'an aborted transaction survived the teardown');
+      await blocker.query('ROLLBACK');
+    } finally {
+      await blocker.end().catch(() => undefined);
+    }
+  }, 30_000);
 
   test('offline adapter maps the collection document and loads the FULL inventory/legacy/retired inputs', () => {
     const collection = realCollectionDocument(stageDb);

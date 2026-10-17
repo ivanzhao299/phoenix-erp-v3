@@ -8,6 +8,14 @@ on:
       - 'scripts/ci/run-typeorm-ledger-runtime-compatibility-fixture.mjs'
       - 'scripts/ci/typeorm-ledger-runtime-compatibility.test.mjs'
       - 'scripts/ci/typeorm-ledger-rehearsal-*'
+      - 'scripts/ci/ledger-fixture-guard.mjs'
+      - 'scripts/ci/ledger-readonly-collect.test.mjs'
+      - 'scripts/ci/ledger-collection-staging.test.mjs'
+      - 'scripts/ci/ledger-rehearsal-gate.test.mjs'
+      - 'scripts/ci/ledger-source-inventory.mjs'
+      - 'scripts/ops/ledger-readonly-collect.mjs'
+      - 'scripts/ops/ledger-offline-evaluate.mjs'
+      - 'scripts/ledger-preflight.mjs'
       - 'apps/api/src/modules/chanjet/chanjet-execution-*'
       - 'scripts/ops/chanjet-execution-*'
       - 'scripts/ci/chanjet-execution-admission-cli.test.mjs'
@@ -45,6 +53,22 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter phoenix-erp-v3-nest build
       - run: node --test scripts/ci/typeorm-ledger-runtime-compatibility.test.mjs
+      - name: Clean-checkout verification of the collection toolchain
+        run: |
+          set -euo pipefail
+          # the collection toolchain must work from a CLEAN checkout of this
+          # exact head — no build, no repository state dependencies
+          STAGE="$(mktemp -d /tmp/ledger-clean-checkout-XXXXXX)"
+          git archive HEAD scripts/ops/ledger-readonly-collect.mjs scripts/ops/ledger-offline-evaluate.mjs scripts/ledger-preflight.mjs | tar -x -C "$STAGE"
+          cd "$STAGE"
+          node --check scripts/ops/ledger-readonly-collect.mjs
+          node --check scripts/ops/ledger-offline-evaluate.mjs
+          node --check scripts/ledger-preflight.mjs
+          # the staged single file is self-contained: help exits 0 with no
+          # repository context at all
+          node scripts/ops/ledger-readonly-collect.mjs --help >/dev/null
+          echo "CLEAN_CHECKOUT_VERIFICATION=PASS"
+
       - name: Ledger readonly collection verification (dedicated disposable database, real psql)
         env:
           LEDGER_COLLECT_VERIFY_URL: postgresql://postgres:postgres@127.0.0.1:5432/ledger_collect_verify
@@ -53,13 +77,46 @@ jobs:
         # the test bootstraps its dedicated ledger_collect_verify database
         # INSIDE the service container (same-instance guard) and verifies the
         # URL/container identity before anything destructive runs; the
-        # service container is discovered by its exact image
+        # service container is discovered by its exact image. NO SKIP
+        # FALLBACK: REQUIRED=true makes a missing URL throw, and the output
+        # must report zero skipped tests.
         run: |
           set -euo pipefail
           CONTAINER="$(docker ps --filter ancestor="$LEDGER_COLLECT_DB_CONTAINER_DISCOVER" --format '{{.Names}}' | head -1)"
           test -n "$CONTAINER"
           echo "COLLECTION_FIXTURE_CONTAINER=$CONTAINER"
-          LEDGER_COLLECT_DB_CONTAINER="$CONTAINER" node --test scripts/ci/ledger-readonly-collect.test.mjs
+          OUT="$(LEDGER_COLLECT_DB_CONTAINER="$CONTAINER" node --test scripts/ci/ledger-readonly-collect.test.mjs 2>&1)"
+          echo "$OUT"
+          echo "$OUT" | grep -q "# skipped 0"
+          echo "$OUT" | grep -q "# pass 6"
+          echo "COLLECTION_NO_SKIP_FALLBACK=VERIFIED"
+
+      - name: Ledger collection staging + offline adapter (dedicated staging database, real prod transport)
+        env:
+          LEDGER_COLLECT_VERIFY_URL: postgresql://postgres:postgres@127.0.0.1:5432/ledger_collect_verify
+          LEDGER_COLLECT_VERIFY_REQUIRED: 'true'
+          LEDGER_COLLECT_DB_CONTAINER_DISCOVER: postgres:16.14-alpine
+        run: |
+          set -euo pipefail
+          CONTAINER="$(docker ps --filter ancestor="$LEDGER_COLLECT_DB_CONTAINER_DISCOVER" --format '{{.Names}}' | head -1)"
+          test -n "$CONTAINER"
+          OUT="$(LEDGER_COLLECT_DB_CONTAINER="$CONTAINER" node --test scripts/ci/ledger-collection-staging.test.mjs 2>&1)"
+          echo "$OUT"
+          echo "$OUT" | grep -q "# skipped 0"
+          echo "$OUT" | grep -q "# pass 4"
+          echo "STAGING_NO_SKIP_FALLBACK=VERIFIED"
+
+      - name: Rehearsal preflight-gate dynamic regressions (clean + injected fault)
+        env:
+          LEDGER_REHEARSAL_GATE_URL: postgresql://postgres:postgres@127.0.0.1:5432/phoenix_ledger_rehearsal
+          LEDGER_REHEARSAL_GATE_REQUIRED: 'true'
+        run: |
+          set -euo pipefail
+          OUT="$(node --test scripts/ci/ledger-rehearsal-gate.test.mjs 2>&1)"
+          echo "$OUT"
+          echo "$OUT" | grep -q "# skipped 0"
+          echo "$OUT" | grep -q "# pass 2"
+          echo "REHEARSAL_GATE_NO_SKIP_FALLBACK=VERIFIED"
       - name: Run real TypeORM ledger rehearsal
         env:
           PGHOST: 127.0.0.1

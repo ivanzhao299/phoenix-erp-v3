@@ -1,122 +1,101 @@
-# 生产 ledger 单次只读采集与离线双 inventory 评估包（执行前审阅 · v2）
+# 生产 ledger 单次只读采集与离线双 inventory 评估包（执行前审阅 · v3）
 
-> 状态：**准备完成，未执行**。本文档是执行前审阅包；生产侧任何动作（SSH、
-> dispatch、采集）均未发生，等待独立 review 批准后才可执行。
+> 状态：**准备完成，未执行**。生产侧任何动作均未发生。
 > 基线：PR399 分支 `codex/r42-hard-admission-design`，本轮提交的 exact SHA
-> 见交付报告；PR399 保持 draft、**无需提前合并**（见第 3 节交付路径）。
+> 见交付报告；PR399 保持 draft、**无需提前合并**（b64 交付，见第 3 节）。
 
 ## 0. 基线核对（已执行）
 
-| 项 | 结果 |
-|---|---|
-| worktree / 分支 | `/home/jinhuit/.codex/worktrees/3e7e/phoenix-erp-v3` / `codex/r42-hard-admission-design` |
-| 远端 main | `22b47aebb50d2253afb465a25abc66ded26e873f`（PR399 未合并；两 ref 迁移目录差异恰为 admission 迁移一个文件） |
-| 已派发 run | 前基线 `0e6b1ee2702a39d815391744ee95855294480969` CI 10/10；本轮提交后 CI 结果见交付报告 |
+worktree `/home/jinhuit/.codex/worktrees/3e7e/phoenix-erp-v3`、分支
+`codex/r42-hard-admission-design`、无未提交改动；远端 main
+`22b47aebb50d2253afb465a25abc66ded26e873f`（两 ref 迁移目录差异恰为
+admission 迁移一个文件）；前基线 `978652cf` CI 10/10。
 
-## 1. 既有生产 SSH 通道复核（只读复核，未修改）
+## 1. 完整审核清单整合状态（#1–#11，历史轮 + 本轮）
 
-复核对象：`.github/workflows/production-ledger-preflight.yml`（生产 ledger
-preflight 的既有只读通道）。采集执行的**交付机制**复用该通道已验证的模式：
-runner checkout 受审 ref → `base64 -w0` 受审单文件 → ssh-action `envs` 交付
-→ 主机侧 `base64 -d` 落盘 + `sha256sum` 比对 + `node --check` → 执行；
-`mktemp -d /tmp/...` 一次性目录 + `trap rm -rf` 清理。**不猜主机、账号或
-凭据**（全部由既有 secrets 提供）；**不修改该 workflow 的 main-only 护栏或
-任何既有 main workflow**。
+| # | 症状（历轮审核） | 根因 | 修复 | 验证 |
+|---|---|---|---|---|
+| 1 | 健康失败仍放行（收集不拒绝） | audit 只收集不裁决 | `productionAudit` fail-closed（元组/健康/部署证据）+ 链体 JSON 复核 | 动态（readiness 500 拒绝，CI） |
+| 2 | 部署完成未绑定 run/attempt | 门只查文件存在 | workflow 按 run id/attempt 直查 + 链解析 SUCCESS 状态 | 动态（absent/wrong-run 拒绝，CI） |
+| 3 | bootstrap 交付不完整 | 漏 contract/helper | 三件套完整交付进 envs | 静态+执行（workflow 步骤） |
+| 4 | 预算适配器未生效 | dep 键不匹配 | `readDatabaseEvidence` 键 + 工厂导出 | 动态（预算传播单测） |
+| 5 | 宿主来源/停止依赖缺失 | 检查滞后/未交付 | checkout SHA 前置 + 镜像交付溯源 + 可加载性 | 动态（错 SHA/交付失败零登记） |
+| 6 | 完成门拒真 dispatch | 事件过滤错 | `verify-deploy-run-complete.mjs`（dispatch+Deploy job） | 动态（4 门例，CI） |
+| 7 | 交付失败在登记后且无收尾 | 交付顺序+无 trap | 交付前移 + EXIT trap 有界 HOLD（幂等+身份门） | 动态（交付失败零登记；崩溃→HOLD；REGISTERED 收尾；身份冲突零修改） |
+| 8 | finalizer 相位覆盖缺 | 仅 SYNCING | 四非终态全覆盖 | 动态（REGISTERED 收尾，CI） |
+| 9 | finalizer 停别人执行 | 借用行内 manifest | 完整绑定身份门（零修改） | 动态（异 owner/canonical 拒绝，CI） |
+| 10 | 输出契约（误 PASS/拼接/崩溃称分歧/结构） | 分类器缺陷 | 交叉核验+分离流+三态语义行+结构校验 | 动态 20/20（CI） |
+| 11 | 采集准备包（fixture 保护/离线适配器/staging/来源闭合） | 本轮整合 | 见第 2–5 节 | 本轮动态 9+2 项 |
 
-## 2. 数据库只读范围（硬边界）
+## 2. 统一 fixture 守卫（单源）
 
-```sql
-BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY;
-SET LOCAL lock_timeout='2s';
-SET LOCAL statement_timeout='10s';
-SELECT … FROM schema_migrations;   -- filename, applied_at
-SELECT … FROM migrations;          -- name, timestamp
-SELECT json_build_object('server_version', …, 'snapshot', txid_current_snapshot()::text, 'transaction_timestamp', …);
-COMMIT;
-```
+`scripts/ci/ledger-fixture-guard.mjs`：identity（loopback）→ 专用命名空间
+（`^ledger_collect_`）→ 所有权（库存在于指定容器 + 两侧 server identity 一
+致）。**两个 fixture 套件在任何破坏操作之前执行同一守卫**；容器内自举专用
+库后由守卫复核所有权。探针：`phoenix_erp` 库名在连接前拒绝（实测）。
 
-- 单会话单事务：两表来自**同一只读一致性快照**（Repeatable Read；snapshot
-  身份写入采集文档佐证）。
-- **禁止**：业务表、环境变量、凭据——采集器自包含、不读取、输出不含
-  （隔离验证含输出内容的凭据/env 断言）。
-- READ ONLY 事务内不可能写入；两表同快照由事务隔离保证。
+## 3. 单源校验契约与离线 CLI 退出契约
 
-## 3. 交付路径（无需提前合并 PR399，可审计）
+`scripts/ops/ledger-offline-evaluate.mjs`：校验器单源导出
+（`validateCollectionDocument`/`validateInventory`/`validateLegacyDir`，
+retired registry 深校验仍单源自受审 preflight 的 `validateRetiredRegistry`
+并 re-export）。CLI 退出契约：**PASS→0；BLOCK→1（真实评估结论+failures）；
+输入拒绝→2（MISSING_INPUT/INVALID_INPUT，绝不形成评估）**。
 
-采集器是**自包含单文件**（`scripts/ops/ledger-readonly-collect.mjs`，无任何
-仓库内 import——staging 实测单文件 `node --check` 后直接运行，见第 5 节）。
-交付走既有模式的 b64-over-SSH：
+## 4. 超时交叉校验与 prod 通道作业收尾
 
-```text
-runner（checkout 批准的 PR399 exact ref，fetch-depth 1）：
-  test "$(git rev-parse HEAD)" = "<批准的 exact SHA>"
-  node --check scripts/ops/ledger-readonly-collect.mjs
-  COLLECTOR_B64="$(base64 -w0 scripts/ops/ledger-readonly-collect.mjs)"
-  COLLECTOR_SHA256="$(sha256sum scripts/ops/ledger-readonly-collect.mjs | cut -d' ' -f1)"
-SSH（appleboy/ssh-action@v1，既有 secrets；envs 交付两个值）：
-  TMP_DIR="$(mktemp -d /tmp/phoenix-ledger-collect.XXXXXX)"; trap 'rm -rf "$TMP_DIR"' EXIT
-  printf '%s' "$COLLECTOR_B64" | base64 -d > "$TMP_DIR/ledger-readonly-collect.mjs"
-  test "$(sha256sum "$TMP_DIR/ledger-readonly-collect.mjs" | cut -d' ' -f1)" = "$COLLECTOR_SHA256"
-  node --check "$TMP_DIR/ledger-readonly-collect.mjs"
-  MIG_MODE=prod node "$TMP_DIR/ledger-readonly-collect.mjs" --db-mode prod \
-    > "$TMP_DIR/collection.json"
-  sha256sum "$TMP_DIR/collection.json"; cat "$TMP_DIR/collection.json"   # 回传归档
-```
+- 采集器拒绝对话：`client < statement + lock` 即拒绝（服务端取消必须先于
+  客户端 kill）。
+- **prod 通道收尾实测**：客户端 SIGKILL 不必然终止容器内 exec 进程——由
+  服务端 bound 收尾。新测试经真实 prod 通道（`docker compose exec -T db`）
+  客户端 kill 后对 `pg_stat_activity` 轮询断言：容器内查询在
+  statement+lock bound 内消失、无遗留中止事务——不是子进程返回值断言。
 
-- 该交付以**批准的 exact SHA** 为源（runner checkout 该 ref），主机侧哈希
-  比对防交付损坏；无合并动作，PR399 保持 draft。
-- 材料化（将来把它落成一个 workflow 文件）是独立、可审阅的一步，须经
-  批准后另行提交；本轮不 dispatch 任何 workflow。
-- 临时文件范围：仅 `$TMP_DIR`（脚本副本 + collection.json），trap 清理。
+## 5. rehearsal 门禁与故障注入
 
-## 4. 工件 exact sha256（本轮提交字节）
+- runner **断言预期 preflight 结论**：fixture 构造下真实评估必须 PASS，
+  否则 rehearsal 失败（`EXPECTED_PREFLIGHT_VERDICT_UNMET`）。
+- 故障注入旋钮 `LEDGER_REHEARSAL_FAULT=drop-legacy-row`：preflight 前删一
+  行 → BLOCK(`legacy_missing`) → **rehearsal 非零退出**。动态回归实测：
+  clean exit 0/PASS/AGREE；fault exit 1/BLOCK/UNMET。
 
-| 工件 | sha256 |
-|---|---|
-| `scripts/ops/ledger-readonly-collect.mjs`（采集器，自包含单文件） | `37a01903b2422796a7809d4d91852bddf6a554ba04055a0838fb6c86acffecc8` |
-| `scripts/ops/ledger-offline-evaluate.mjs`（离线评估适配器） | `6dacb2f362a2ba9fdc000c8478977f4c7f8b369323c9ce46bdb7c8fd3c388b4e` |
-| `scripts/ci/ledger-source-inventory.mjs`（双 inventory 生成器） | `fb70156dce0a57c094b1622101de4dad0ad7053c9cf6d0524038330e230feb17` |
-| `docs/ops/evidence/inv-main.json` / `inv-pr399.json` | 见 `ledger-collection-prep-dual-eval.json` |
-| 采集样本 `docs/ops/evidence/ledger-collection-sample.json` | 见 dual-eval `sample.sha256` |
+## 6. 交付路径（材料化 workflow，无需提前合并 PR399）
 
-（提交 exact SHA 以交付报告为准；上表为文件内容哈希，与提交后字节一致。）
+新 workflow `.github/workflows/production-ledger-collection.yml`（**随本 PR
+交付审阅，未 dispatch**）：`workflow_dispatch` + 确认串
+`RUN_PRODUCTION_LEDGER_COLLECT` + main-only + `production-readonly`
+environment + `collection_ref`（批准的 exact SHA）+ `expected_collector_sha256`
+（双重钉死）→ 严格失败（`set -Eeuo pipefail`、每步 hash/check）→ 正确目录
+（`$DEPLOY_PATH`）+ 一次性 tmp + trap → 采集（默认边界 2s/10s/30s）→
+host 侧 JSON 校验 + `COLLECTION_RESULT_B64` 标记行回传 → runner 解码校验
+（schema/snapshot）→ **离线双评估**（main + collection ref）→ artifact 上
+传。既有 main-only workflow 零修改。
 
-## 5. 隔离验证与双评估结果（已执行，全部本地）
+## 7. CI 覆盖（禁 skip 兜底）
 
-- **采集器隔离验证（PG18，6/6 PASS，CI 实跑同绿）**：正常、锁冲突（有界
-  拒绝 + blocker 锁保留 + 采集连接/事务/查询零残留）、连接失败、异常输出、
-  客户端 bound（SIGKILL）、**服务端真终止**（statement_timeout 与
-  lock_timeout 各自真实 57014 取消并中止事务）。
-- **fixture 破坏性防护（本轮新增）**：测试在**任何连接之前**校验专用库名
-  （`^ledger_collect_`，`phoenix_erp` 探针实测拒绝）+ **同实例校验**（URL
-  的库必须存在于指定容器、且两侧 server identity 一致），之后才允许
-  DROP SCHEMA。
-- **暂存交付实测（本轮新增）**：文档化暂存（临时目录单文件 → `node
-  --check` → 运行）经 **prod 通道夹具**（`docker compose exec -T db …` 垫
-  片转发到真实 PG）实际运行成功——单文件自包含，无仓库依赖（既有 6 项
-  主验证 CI 通道，此项补齐 prod 通道）。
-- **离线评估适配器（本轮新增，正式路径）**：`ledger-offline-evaluate.mjs`
-  显式映射采集文档双表、加载完整 inventory/legacy 目录/retired registry，
-  **缺失或畸形输入在评估前拒绝**；空账本 PASS 陷阱（直接 `--fixture 采集
-  文档` 会忽略 inventory 且字段错配，实测全零 PASS）不复现。样本身份：
-  PR399 inventory → PASS、applied=84、pending=5（Phase1 四条 + admission）。
-- **双评估**：同一样本分别对 main(88)/PR399(89) inventory：main PASS
-  pending=4（恰 Phase1）、PR399 PASS pending=5；`failures=[]`；唯一差异 =
-  PR399 pending 单条 admission。语义保持：历史 88 / admission 独立（从不
-  标记 applied）/ 169 legacy / retired registry 原样。
+- paths 触发补齐全部新文件；
+- collection(6)/staging(4)/rehearsal-gate(2) 三套动态全部接线 CI，各自
+  断言 `# skipped 0` 与预期通过数（REQUIRED 缺失即 throw，无 skip 兜底）；
+- 新增干净 checkout 验证 step（`git archive HEAD` 提取 → `node --check`
+  三脚本 → 采集器 `--help` 零仓库上下文运行）。
 
-## 6. 证据索引（全部为新文件；历史 evidence 未改写）
+## 8. 工件 sha256（本轮提交字节；证据 JSON 同步）
 
-- `docs/ops/evidence/ledger-collection-sample.json`
-- `docs/ops/evidence/ledger-collection-prep-verify.json`（含新增防护与
-  staging 实测记录）
-- `docs/ops/evidence/ledger-collection-prep-dual-eval.json`（含离线适配器
-  记录）
-- `docs/ops/evidence/inv-main.json` / `inv-pr399.json` /
-  `eval-main.json` / `eval-pr399.json`
+采集器 `37a01903…`→本轮更新后以 evidence JSON 为准；适配器/生成器/共享守
+卫/测试文件的 sha256 全部记录于
+`docs/ops/evidence/ledger-collection-prep-{verify,dual-eval}.json`。
 
-## 7. 未执行清单（本轮红线）
+## 9. 表述精度修正
+
+"零残留/保护已生效"类表述已删除或限定：residue 断言标注**测量范围**
+（ci 通道、排除 blocker/fixture 后端）；prod 通道客户端 kill 后由服务端
+bound 收尾（本轮 teardown 实测）；静态钉死与动态证明分开标注
+（`docs/ops/evidence/ledger-collection-prep-verify.json` 的
+`claim_accuracy`）。
+
+## 10. 未执行清单（红线）
 
 生产 SSH/采集、生产 workflow dispatch、合并、部署、DDL、admission 登记、
 provider 调用、同步、ACTIVE——**均未执行**；PR399 保持 draft；既有
-main-only 护栏与 workflow 未修改。
+main-only workflow 零修改；bridge 诊断策略未改动（`bridge_missing` 等仍为
+信息性诊断，未升格为业务阻塞）。

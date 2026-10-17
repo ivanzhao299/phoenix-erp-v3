@@ -8,8 +8,9 @@
   },
   "collector": {
     "path": "scripts/ops/ledger-readonly-collect.mjs",
-    "sha256": "37a01903b2422796a7809d4d91852bddf6a554ba04055a0838fb6c86acffecc8",
-    "self_contained": true
+    "sha256": "dc81c4681b64417b39b0c62e96be4d3d42c1600e133577f4339a4366c156d7b1",
+    "self_contained": true,
+    "timeout_cross_check": "client timeout must exceed statement+lock bounds — refused otherwise"
   },
   "cases": [
     {
@@ -46,6 +47,21 @@
       "name": "server-side lock kill",
       "outcome": "PASS",
       "detail": "lock_timeout=400ms under ACCESS EXCLUSIVE: canceling statement due to lock timeout; blocker unaffected"
+    },
+    {
+      "name": "prod-transport job teardown",
+      "outcome": "PASS",
+      "detail": "SCOPE-PRECISE: the client kill may leave the exec-d psql inside the container alive; the SERVER-side bounds end it — asserted against pg_stat_activity that the in-container query disappears within statement+lock bound and no aborted transaction survives (real prod channel, not a child-process return assertion)"
+    },
+    {
+      "name": "staging prod-channel run",
+      "outcome": "PASS",
+      "detail": "the staged SINGLE-file collector (node --check + run, no repository context) actually executes through docker compose exec -T db against the fixture"
+    },
+    {
+      "name": "offline adapter exit contract",
+      "outcome": "PASS",
+      "detail": "exit 0 = PASS, exit 1 = real BLOCK verdict, exit 2 = input refusal (MISSING_INPUT/INVALID_INPUT) before any evaluation"
     }
   ],
   "boundaries": {
@@ -58,5 +74,22 @@
     "dedicated_database": "test refuses any database outside ^ledger_collect_ BEFORE connecting (phoenix_erp probe refused)",
     "same_instance": "the URL database must exist on the specified container AND both views must report the identical server identity before anything runs",
     "staging_prod_transport": "the staged SINGLE-file collector is actually RUN through its prod channel (docker compose exec db) against the fixture in scripts/ci/ledger-collection-staging.test.mjs"
+  },
+  "shared_guard": {
+    "path": "scripts/ci/ledger-fixture-guard.mjs",
+    "sha256": "893d95c04a7959caf7a4c74f4b696ef75d1c62e59eaf3961b241fc9d58993e94",
+    "note": "single-source fixture guard (identity/dedicated namespace/same-instance ownership) — BOTH fixture suites run it before anything destructive"
+  },
+  "rehearsal_gate": {
+    "path": "scripts/ci/ledger-rehearsal-gate.test.mjs",
+    "sha256": "0764f5c565ce406aa67a4a075fc310cd0110aaad0c07c6ea5f59ea1a95f20706",
+    "cases": [
+      "clean fixture: rehearsal exit 0 with PREFLIGHT_RESULT=PASS and SEMANTICS=AGREE",
+      "injected fault (LEDGER_REHEARSAL_FAULT=drop-legacy-row): rehearsal exit 1, PREFLIGHT_RESULT=BLOCK with legacy_missing, EXPECTED_PREFLIGHT_VERDICT_UNMET — the gate is live, not decorative"
+    ]
+  },
+  "claim_accuracy": {
+    "zero_residue": "RESIDUE CLAIMS ARE CHANNEL-SCOPED: the ci-channel lock-conflict residue assertion is measured (blocker/fixture backends excluded); the prod channel after a client kill relies on the SERVER-side bounds, now verified by the teardown test — a blanket zero-residue claim is not made",
+    "protection_claims": "static pins (workflow YAML shape) are labelled static; dynamic proofs (corruption makes the gate fail; guards refuse probes) are labelled dynamic"
   }
 }

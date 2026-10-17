@@ -16,8 +16,18 @@
 //                                   baseline, enumerated from the directory)
 //   --retired                    -> payload.retiredTypeorm (FULL registry,
 //                                   validated by the reviewed validator)
+// SINGLE-SOURCE VALIDATION CONTRACT: every input's validation lives HERE —
+// validateCollectionDocument / validateInventory / validateLegacyDir /
+// validateRetiredRegistry (the retired registry's deep validation stays in
+// the reviewed preflight's validateRetiredRegistry, re-exported) — and the
+// staging suite plus any future consumer import these same functions.
+//
+// Exit contract of the CLI:
+//   0  evaluation completed and PASSED
+//   1  evaluation completed and BLOCKED (LEDGER_OFFLINE_EVALUATION=BLOCK)
+//   2  input refusal (MISSING_INPUT / INVALID_INPUT) — never an evaluation
 // ALL inputs are REQUIRED; a missing, unreadable or wrong-shaped input is a
-// refusal (exit 1) before any evaluation. The evaluation itself is the
+// refusal (exit 2) before any evaluation. The evaluation itself is the
 // reviewed evaluateLedger — semantics untouched.
 import fs from 'node:fs';
 import path from 'node:path';
@@ -45,35 +55,54 @@ function parseArgs(argv) {
   return args;
 }
 
-function readJson(file, label, validate) {
+export class InputRefusal extends Error {}
+
+function readJson(file, label) {
   let raw;
   try { raw = fs.readFileSync(file, 'utf8'); } catch (error) {
-    throw new Error(`MISSING_INPUT: cannot read ${label} (${file}): ${error.message}`);
+    throw new InputRefusal(`MISSING_INPUT: cannot read ${label} (${file}): ${error.message}`);
   }
-  let value;
-  try { value = JSON.parse(raw); } catch (error) {
-    throw new Error(`INVALID_INPUT: ${label} (${file}) is not valid JSON: ${error.message}`);
+  try { return JSON.parse(raw); } catch (error) {
+    throw new InputRefusal(`INVALID_INPUT: ${label} (${file}) is not valid JSON: ${error.message}`);
   }
-  if (validate) validate(value);
-  return value;
+}
+
+// ── the single-source validators (exported contract) ───────────────────────
+export function validateCollectionDocument(doc) {
+  if (doc?.schema !== COLLECTION_SCHEMA) throw new InputRefusal(`INVALID_INPUT: collection schema mismatch, expected ${COLLECTION_SCHEMA}, got ${doc?.schema ?? String(doc?.schema)}`);
+  if (!Array.isArray(doc.schema_migrations) || !Array.isArray(doc.migrations)) throw new InputRefusal('INVALID_INPUT: collection document lacks the two ledger row arrays');
+  for (const row of doc.schema_migrations) {
+    if (!row?.filename) throw new InputRefusal(`INVALID_INPUT: schema_migrations row without filename: ${JSON.stringify(row)}`);
+  }
+  for (const row of doc.migrations) {
+    if (!row?.name || !/^\d{13}$/.test(String(row.timestamp))) throw new InputRefusal(`INVALID_INPUT: migrations row malformed: ${JSON.stringify(row)}`);
+  }
+  if (!doc.snapshot || !doc.server_version) throw new InputRefusal('INVALID_INPUT: collection document lacks the single-snapshot provenance (snapshot/server_version)');
+  return doc;
+}
+
+export function validateInventory(value) {
+  const inventory = Array.isArray(value) ? value : value?.canonicalTypeorm;
+  if (!Array.isArray(inventory) || !inventory.length) throw new InputRefusal(`INVALID_INPUT: inventory carries no canonicalTypeorm entries`);
+  for (const entry of inventory) {
+    if (!entry?.effective_name || !/^\d{13}$/.test(String(entry.timestamp))) throw new InputRefusal(`INVALID_INPUT: inventory entry malformed: ${JSON.stringify(entry)}`);
+  }
+  return inventory;
+}
+
+export function validateLegacyDir(dir) {
+  if (!dir || !fs.existsSync(dir) || !fs.statSync(dir).isDirectory()) {
+    throw new InputRefusal(`MISSING_INPUT: --legacy-dir does not exist: ${dir}`);
+  }
+  const canonicalLegacy = fs.readdirSync(dir).filter((name) => /^2026.*\.sql$/.test(name)).sort();
+  if (!canonicalLegacy.length) throw new InputRefusal(`INVALID_INPUT: --legacy-dir contains no legacy SQL migrations: ${dir}`);
+  return canonicalLegacy;
 }
 
 export function loadEvaluationInputs(args, deps = {}) {
-  const collection = readJson(args.collection, 'collection document', (doc) => {
-    if (doc?.schema !== COLLECTION_SCHEMA) throw new Error(`INVALID_INPUT: collection schema mismatch, expected ${COLLECTION_SCHEMA}, got ${doc?.schema ?? String(doc?.schema)}`);
-    if (!Array.isArray(doc.schema_migrations) || !Array.isArray(doc.migrations)) throw new Error('INVALID_INPUT: collection document lacks the two ledger row arrays');
-  });
-  let invRaw = readJson(args.inventory, 'inventory');
-  const inventory = Array.isArray(invRaw) ? invRaw : invRaw.canonicalTypeorm;
-  if (!Array.isArray(inventory) || !inventory.length) throw new Error(`INVALID_INPUT: inventory (${args.inventory}) carries no canonicalTypeorm entries`);
-  for (const entry of inventory) {
-    if (!entry?.effective_name || !/^\d{13}$/.test(String(entry.timestamp))) throw new Error(`INVALID_INPUT: inventory entry malformed: ${JSON.stringify(entry)}`);
-  }
-  if (!args.legacyDir || !fs.existsSync(args.legacyDir) || !fs.statSync(args.legacyDir).isDirectory()) {
-    throw new Error(`MISSING_INPUT: --legacy-dir does not exist: ${args.legacyDir}`);
-  }
-  const canonicalLegacy = fs.readdirSync(args.legacyDir).filter((name) => /^2026.*\.sql$/.test(name)).sort();
-  if (!canonicalLegacy.length) throw new Error(`INVALID_INPUT: --legacy-dir contains no legacy SQL migrations: ${args.legacyDir}`);
+  const collection = (deps.validateCollectionDocument || validateCollectionDocument)(readJson(args.collection, 'collection document'));
+  const inventory = (deps.validateInventory || validateInventory)(readJson(args.inventory, 'inventory'));
+  const canonicalLegacy = (deps.validateLegacyDir || validateLegacyDir)(args.legacyDir);
   const retiredTypeorm = validateRetiredRegistry(readJson(args.retired, 'retired registry'));
   return { collection, inventory, canonicalLegacy, retiredTypeorm };
 }
@@ -99,8 +128,12 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   try {
     const verdict = evaluateCollectionOffline(parseArgs(process.argv.slice(2)));
     console.log(`LEDGER_OFFLINE_EVALUATION=${verdict.result.pass ? 'PASS' : 'BLOCK'};applied=${verdict.result.counts.canonical_typeorm_applied};pending=${verdict.result.counts.canonical_typeorm_pending};failures=${JSON.stringify(verdict.result.failures)}`);
+    // exit contract: PASS 0 — BLOCK 1 (a real evaluation conclusion with the
+    // failure list) — refusals 2 (input problems, never an evaluation)
+    if (!verdict.result.pass) process.exitCode = 1;
   } catch (error) {
+    const refusal = error instanceof InputRefusal || /MISSING_INPUT|INVALID_INPUT/.test(String(error?.message));
     console.error(String(error?.message || error).replace(/\s+/g, ' ').slice(0, 300));
-    process.exitCode = 1;
+    process.exitCode = refusal ? 2 : 1;
   }
 }

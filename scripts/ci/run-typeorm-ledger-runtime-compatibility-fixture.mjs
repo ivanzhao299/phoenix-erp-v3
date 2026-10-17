@@ -127,6 +127,15 @@ async function main() {
     // stderr are captured SEPARATELY and classified by the shared, tested
     // classifier; business semantics are unchanged: any non-zero exit stays
     // a BLOCK, only the reported reasons become truthful.
+    // FAULT INJECTION (CI/test-only, env-gated): LEDGER_REHEARSAL_FAULT=
+    // drop-legacy-row deletes one applied legacy row right before the
+    // preflight — the gate must actually fail the rehearsal (the negative
+    // control proving the assertion above is live, not decorative)
+    if (process.env.LEDGER_REHEARSAL_FAULT === 'drop-legacy-row') {
+      const victim = legacyFiles[0];
+      await q('DELETE FROM schema_migrations WHERE filename = $1', [victim]);
+      console.log(`LEDGER_REHEARSAL_FAULT=drop-legacy-row;victim=${victim}`);
+    }
     const inventoryFile = path.join(directory, 'candidate-ledger-inventory.json');
     const retiredRegistry = JSON.parse(fs.readFileSync(path.join(root, 'scripts/ci/retired-typeorm-migrations.json'), 'utf8'));
     fs.writeFileSync(inventoryFile, JSON.stringify({
@@ -145,6 +154,11 @@ async function main() {
     const verdict = classifyPreflightOutput(preflight);
     console.log(`CURRENT_LEDGER_PREFLIGHT_RESULT=${verdict.result}`);
     console.log(`CURRENT_LEDGER_PREFLIGHT_BLOCK_REASONS=${JSON.stringify(verdict.reasons)}`);
+    // the rehearsal ASSERTS the expected preflight conclusion: this fixture
+    // is built (169 legacy + 85 rows, pre-migration) so the real evaluation
+    // MUST pass — a BLOCK (or a verdict that never formed) fails the
+    // rehearsal instead of being logged and skipped past
+    assert.equal(verdict.result, 'PASS', `EXPECTED_PREFLIGHT_VERDICT_UNMET: ${verdict.kind} ${JSON.stringify(verdict.reasons)}`);
 
     const runOutput = runCli(['migration:run', '--transaction', 'all']);
     for (const entry of phase1) assert.match(runOutput, new RegExp(entry.effective_name));

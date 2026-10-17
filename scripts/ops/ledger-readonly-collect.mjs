@@ -71,6 +71,13 @@ function parseArgs(argv) {
     if (name !== 'dbMode' && (!Number.isFinite(value) || value <= 0)) throw new Error(`${name} must be a positive number`);
   }
   if (!['ci', 'prod'].includes(args.dbMode)) throw new Error(`invalid --db-mode: ${args.dbMode}`);
+  // CROSS-CHECK: the client kill is the OUTER bound — it must never fire
+  // before the server-side statement_timeout had its chance to cancel the
+  // query cleanly. The client bound must exceed the statement bound by at
+  // least the lock margin (the lock phase precedes the read).
+  if (args.clientTimeoutMs < args.statementTimeoutMs + args.lockTimeoutMs) {
+    throw new Error(`client timeout (${args.clientTimeoutMs}ms) must exceed statement_timeout + lock_timeout (${args.statementTimeoutMs + args.lockTimeoutMs}ms) — the server-side cancel must always precede the client kill`);
+  }
   return args;
 }
 

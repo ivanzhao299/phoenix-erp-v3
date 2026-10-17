@@ -20,6 +20,7 @@ import path from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
+import { assertDedicatedLedgerFixture } from './ledger-fixture-guard.mjs';
 
 const require = createRequire(import.meta.url);
 const { Client } = require('../../apps/api/node_modules/pg');
@@ -81,29 +82,16 @@ async function pgStatSnapshot() {
 verify('ledger readonly collection (isolated PostgreSQL18, real psql)', () => {
   before(async () => {
     assert.equal(parsedFixture.hostname, '127.0.0.1', 'isolated loopback fixture required');
-    // DEDICATED-DATABASE GUARD (before ANY connection, let alone DROP):
-    // this fixture destroys schemas — it must only ever target the
-    // purpose-named disposable database, never a real one
+    // the SHARED GUARD (scripts/ci/ledger-fixture-guard.mjs) runs BEFORE any
+    // destructive operation: identity (loopback), dedicated namespace, and
+    // URL/container same-instance ownership. The dedicated database is
+    // bootstrapped first (the guard verifies it exists ON the container).
     assert.match(pgEnv.PGDATABASE, /^ledger_collect_/, `dedicated disposable database required, got: ${pgEnv.PGDATABASE}`);
     container = resolveFixtureContainer();
     assert.ok(container, 'fixture DB container required for the real-psql shim');
-    // the URL's database is provisioned ON the specified container (inside
-    // its own psql) — the SAME-INSTANCE GUARD then verifies from BOTH views:
-    // the container's pg_database must list it, and the URL connection and
-    // the container must report the identical server identity. A URL that
-    // points anywhere other than this container is refused before anything
-    // destructive runs.
     const bootstrap = spawnSync('docker', ['exec', container, 'psql', '-X', '-v', 'ON_ERROR_STOP=1', '-U', pgEnv.PGUSER, '-d', 'postgres', '-c', `DROP DATABASE IF EXISTS ${pgEnv.PGDATABASE}`, '-c', `CREATE DATABASE ${pgEnv.PGDATABASE}`], { encoding: 'utf8' });
     assert.equal(bootstrap.status, 0, `container instance unreachable: ${bootstrap.stderr}`);
-    const containerHasDb = spawnSync('docker', ['exec', container, 'psql', '-X', '-At', '-v', 'ON_ERROR_STOP=1', '-U', pgEnv.PGUSER, '-d', 'postgres', '-c', `SELECT 1 FROM pg_database WHERE datname = '${pgEnv.PGDATABASE}'`], { encoding: 'utf8' });
-    assert.equal(containerHasDb.status, 0, `container instance unreachable: ${containerHasDb.stderr}`);
-    assert.equal(containerHasDb.stdout.trim(), '1', `database ${pgEnv.PGDATABASE} does not exist on container ${container} — URL/container instance mismatch`);
-    const probe = new Client({ connectionString: fixtureUrl });
-    await probe.connect();
-    const urlVersion = (await probe.query('SHOW server_version')).rows[0].server_version;
-    await probe.end();
-    const containerVersion = spawnSync('docker', ['exec', container, 'psql', '-X', '-At', '-U', pgEnv.PGUSER, '-d', 'postgres', '-c', 'SHOW server_version'], { encoding: 'utf8' }).stdout.trim();
-    assert.equal(urlVersion.split(' ').pop(), containerVersion.split(' ').pop(), `URL and container report different servers: ${urlVersion} vs ${containerVersion}`);
+    await assertDedicatedLedgerFixture({ fixtureUrl, container });
     // the psql shim: the collector's `psql` call resolves to the fixture
     // container's own client — a REAL psql on the REAL database
     shimBin = fs.mkdtempSync(path.join(os.tmpdir(), 'ledger-collect-shim-'));
