@@ -23,6 +23,9 @@ on:
       - 'scripts/ledger-preflight.mjs'
       - 'apps/api/src/modules/chanjet/chanjet-execution-*'
       - 'scripts/ops/chanjet-execution-*'
+      - 'scripts/ops/chanjet-admission-schema-*'
+      - 'scripts/ops/build-chanjet-admission-sql.mjs'
+      - 'scripts/ops/chanjet-admission-sql-fixture.sh'
       - 'scripts/ci/chanjet-execution-admission-cli.test.mjs'
       - 'apps/api/test/fixtures/chanjet-admission-worker.cjs'
       - '.github/workflows/typeorm-ledger-runtime-compatibility-fixture.yml'
@@ -58,6 +61,17 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter phoenix-erp-v3-nest build
       - run: node --test scripts/ci/typeorm-ledger-runtime-compatibility.test.mjs
+      - name: Controlled admission schema receipt and PostgreSQL16 SQL transaction
+        env:
+          PGPASSWORD: postgres
+          PGHOST: 127.0.0.1
+          PGPORT: '5432'
+          PGUSER: postgres
+          PGDATABASE: ledger_collect_schema_release
+        run: |
+          set -euo pipefail
+          node --test scripts/ops/chanjet-admission-schema-receipt.test.mjs
+          bash scripts/ops/chanjet-admission-sql-fixture.sh
       - name: Clean-checkout verification of the collection toolchain
         run: |
           set -euo pipefail
