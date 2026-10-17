@@ -270,6 +270,93 @@ pgDescribe('MANUAL-122 real PostgreSQL, HTTP, roles and organization scope', () 
     }
   });
 
+  it('revokes a warm GROUP binding immediately when its organization becomes inactive', async () => {
+    await db.query(`INSERT INTO brd_daily_logs(house_code,log_date,shift)
+      VALUES ('HOUSE-A','2026-10-17','早班'),('HOUSE-B','2026-10-17','早班')`);
+    await db.query(`INSERT INTO sys_organizations(id,org_code,org_type,status) VALUES (40107,'GROUP-FIXTURE','GROUP','ACTIVE') ON CONFLICT DO NOTHING`);
+    await db.query(`INSERT INTO sys_user_orgs(user_id,org_id,data_scope_level) VALUES (40104,40107,'GROUP') ON CONFLICT DO NOTHING`);
+    const sameToken = token(40104);
+    const load = () => request(app.getHttpServer()).get('/api/crud/brd_daily_logs').auth(sameToken,{type:'bearer'});
+    try {
+      expect((await load().expect(200)).body.data).toHaveLength(2);
+      expect((await request(app.getHttpServer()).get('/api/crud/brd_flocks').auth(sameToken,{type:'bearer'}).expect(200)).body.data).toHaveLength(1);
+      await db.query("UPDATE sys_organizations SET status='INACTIVE' WHERE id=40107");
+      // Do not invalidate scope or renew the token: revocation must not wait for cache expiry.
+      expect((await load().expect(200)).body.data).toEqual([]);
+      expect((await request(app.getHttpServer()).get('/api/crud/brd_flocks').auth(sameToken,{type:'bearer'}).expect(200)).body.data).toEqual([]);
+      expect(await scopes.eligibleWarehouseRecipients([{code:'40104',roles:['ROLE_FARM_REPORTER']}],'MENU_FARM_DATA','COMP-A','WH-A')).toEqual(new Set());
+    } finally {
+      await db.query('DELETE FROM sys_user_orgs WHERE user_id=40104 AND org_id=40107');
+      await db.query("UPDATE sys_organizations SET status='ACTIVE' WHERE id=40107");
+      scopes.invalidate('40104');
+    }
+  });
+
+  it('retains independent roles and active company grants without inheriting an inactive GROUP', async () => {
+    await db.query(`INSERT INTO brd_daily_logs(house_code,log_date,shift)
+      VALUES ('HOUSE-A','2026-10-17','早班'),('HOUSE-B','2026-10-17','早班')`);
+    await db.query(`INSERT INTO sys_organizations(id,org_code,org_type,status) VALUES (40107,'GROUP-FIXTURE','GROUP','INACTIVE') ON CONFLICT(id) DO UPDATE SET status='INACTIVE'`);
+    await db.query(`INSERT INTO sys_user_orgs(user_id,org_id,data_scope_level) VALUES (40101,40107,'GROUP'),(40104,40107,'GROUP') ON CONFLICT DO NOTHING`);
+    await db.query(`INSERT INTO fixture_users VALUES(40115,'fixture_role_global','ROLE_GROUP_REPORTER','ALL') ON CONFLICT DO NOTHING;
+      INSERT INTO fixture_role_permissions VALUES('ROLE_GROUP_REPORTER','MENU_FARM_DATA:V') ON CONFLICT DO NOTHING;
+      INSERT INTO sys_data_scopes(role_code,module_code,scope_type,enabled) VALUES('ROLE_GROUP_REPORTER','MENU_FARM_DATA','GROUP',true) ON CONFLICT(role_code,module_code) DO UPDATE SET enabled=true`);
+    try {
+      expect((await read(40104).expect(200)).body.data).toEqual([]);
+      expect((await read(40101).expect(200)).body.data.map((r:{house_code:string})=>r.house_code)).toEqual(['HOUSE-A']);
+      expect((await read(40101,{house_code:'HOUSE-B'}).expect(200)).body.data).toEqual([]);
+      expect((await read(40115).expect(200)).body.data).toHaveLength(2);
+      expect((await read(40105).expect(200)).body.data).toHaveLength(2);
+      await db.query("UPDATE sys_data_scopes SET enabled=false WHERE role_code='ROLE_GROUP_REPORTER'");
+      // Even the independent role cache is unusable after its live rule is revoked.
+      expect((await read(40115).expect(200)).body.data).toEqual([]);
+    } finally {
+      await db.query('DELETE FROM sys_user_orgs WHERE org_id=40107');
+      await db.query("UPDATE sys_organizations SET status='ACTIVE' WHERE id=40107");
+      await db.query("DELETE FROM sys_data_scopes WHERE role_code='ROLE_GROUP_REPORTER'");
+      scopes.invalidate('40115');
+    }
+  });
+
+  it('denies an active SITE and child GROUP grant below an inactive ancestor', async () => {
+    await db.query(`INSERT INTO brd_daily_logs(house_code,log_date,shift) VALUES ('HOUSE-A','2026-10-17','早班')`);
+    await db.query(`INSERT INTO sys_organizations(id,org_code,org_type,status) VALUES (40107,'GROUP-FIXTURE','GROUP','ACTIVE') ON CONFLICT(id) DO UPDATE SET status='ACTIVE'`);
+    await db.query('UPDATE sys_organizations SET parent_id=40107 WHERE id=40101');
+    await db.query("UPDATE sys_user_orgs SET data_scope_level='GROUP' WHERE user_id=40106 AND org_id=40103");
+    try {
+      expect((await read(40106).expect(200)).body.data).toHaveLength(1);
+      await db.query("UPDATE sys_organizations SET status='INACTIVE' WHERE id=40107");
+      expect((await read(40106).expect(200)).body.data).toEqual([]);
+      expect((await read(40101).expect(200)).body.data).toEqual([]);
+      expect(await scopes.eligibleWarehouseRecipients([{code:'40106',roles:['ROLE_FARM_REPORTER']}],'MENU_FARM_DATA','COMP-A','WH-A')).toEqual(new Set());
+      await db.query("UPDATE sys_organizations SET status='ACTIVE' WHERE id=40107");
+      expect((await read(40106).expect(200)).body.data).toHaveLength(1);
+    } finally {
+      await db.query('UPDATE sys_organizations SET parent_id=NULL WHERE id=40101');
+      await db.query("UPDATE sys_organizations SET status='ACTIVE' WHERE id=40107");
+      await db.query("UPDATE sys_user_orgs SET data_scope_level='COMPANY' WHERE user_id=40106 AND org_id=40103");
+    }
+  });
+
+  it('fails closed for orphan and cyclic organization paths, then accepts a valid ACTIVE root', async () => {
+    await db.query(`INSERT INTO brd_daily_logs(house_code,log_date,shift) VALUES ('HOUSE-B','2026-10-17','早班')`);
+    await db.query(`INSERT INTO sys_organizations(id,org_code,org_type,status,parent_id) VALUES(40120,'GROUP-BROKEN','GROUP','ACTIVE',49999)`);
+    await db.query("INSERT INTO sys_user_orgs(user_id,org_id,data_scope_level) VALUES(40104,40120,'GROUP')");
+    const candidates=()=>scopes.eligibleWarehouseRecipients([{code:'40104',roles:['ROLE_FARM_REPORTER']}],'MENU_FARM_DATA','COMP-A','WH-A');
+    try {
+      expect((await read(40104).expect(200)).body.data).toEqual([]);
+      expect(await candidates()).toEqual(new Set());
+      await db.query('UPDATE sys_organizations SET parent_id=id WHERE id=40120');
+      expect((await read(40104).expect(200)).body.data).toEqual([]);
+      expect(await candidates()).toEqual(new Set());
+      await db.query('UPDATE sys_organizations SET parent_id=NULL WHERE id=40120');
+      expect((await read(40104).expect(200)).body.data).toHaveLength(1);
+      expect(await candidates()).toEqual(new Set(['40104']));
+    } finally {
+      await db.query('DELETE FROM sys_user_orgs WHERE org_id=40120');
+      await db.query('DELETE FROM sys_organizations WHERE id=40120');
+    }
+  });
+
   it('retains an explicit GROUP grant on a department binding', async () => {
     await db.query(`INSERT INTO brd_daily_logs(house_code,log_date,shift)
       VALUES ('HOUSE-A','2026-10-17','早班'),('HOUSE-B','2026-10-17','早班')`);
