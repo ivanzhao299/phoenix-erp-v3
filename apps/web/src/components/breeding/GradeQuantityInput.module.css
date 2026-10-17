@@ -1,0 +1,11 @@
+/* Keep the rule local and more specific than the shared input appearance. */
+input.quantity {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+.quantity::-webkit-inner-spin-button,
+.quantity::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
