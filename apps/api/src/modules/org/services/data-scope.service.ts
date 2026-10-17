@@ -157,11 +157,11 @@ export class DataScopeService {
       org_id: number; is_primary: boolean; data_scope_level: string;
       company_code: string | null; project_code: string | null;
       warehouse_code: string | null; parent_id: number | null;
-      org_type: string | null; site_code: string | null; org_code: string;
+      org_status: string; org_type: string | null; site_code: string | null; org_code: string;
     }> = await this.orgRepo.manager.query(`
       SELECT uo.org_id, uo.is_primary, uo.data_scope_level,
              o.company_code, o.project_code, o.warehouse_code, o.parent_id,
-             o.org_type, o.site_code, o.org_code
+             o.status AS org_status, o.org_type, o.site_code, o.org_code
       FROM sys_user_orgs uo
       JOIN sys_organizations o ON o.id = uo.org_id
       WHERE uo.user_id = $1
@@ -195,8 +195,9 @@ export class DataScopeService {
 
     if (userOrgRows.length > 0) {
       for (const row of userOrgRows) {
-        const explicitCompany = row.org_type === 'COMPANY';
-        const companyTree = row.org_type === 'BU' || row.org_type === 'GROUP';
+        const activeBinding = row.org_status === 'ACTIVE';
+        const explicitCompany = activeBinding && row.org_type === 'COMPANY';
+        const companyTree = activeBinding && (row.org_type === 'BU' || row.org_type === 'GROUP');
         if (row.company_code) {
           companyCodes.add(row.company_code);
           if (explicitCompany) breedingCompanyCodes.add(row.company_code);
@@ -206,7 +207,7 @@ export class DataScopeService {
         // G5-D：SITE 类型组织绑定 → 用 org_code（如 'SITE-MENGSAI-LAYER'）作为 site_code
         if (row.org_type === 'SITE') {
           siteCodes.add(row.org_code);
-          breedingSiteCodes.add(row.org_code);
+          if (activeBinding) breedingSiteCodes.add(row.org_code);
         } else if (row.site_code) siteCodes.add(row.site_code); // 兼容 SITE 字段
 
         // REGION 级别：展开同一父节点下所有子公司

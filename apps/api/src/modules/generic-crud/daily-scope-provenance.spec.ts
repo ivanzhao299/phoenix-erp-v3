@@ -3,7 +3,7 @@ import { DataScopeService } from '../org/services/data-scope.service';
 describe('daily report company-scope provenance', () => {
   const build = (scopeType: string) => {
     const manager = { query: jest.fn(async (sql: string) => sql.includes('FROM sys_user_orgs') ? [{
-      org_id: 40101, org_type: 'COMPANY', org_code: 'COMP-A', company_code: 'COMP-A',
+      org_id: 40101, org_status: 'ACTIVE', org_type: 'COMPANY', org_code: 'COMP-A', company_code: 'COMP-A',
       parent_id: 40100, data_scope_level: 'COMPANY', site_code: null,
     }] : []) };
     const repo = () => ({ find: jest.fn().mockResolvedValue([]), manager });
@@ -33,7 +33,7 @@ describe('daily report company-scope provenance', () => {
   });
   it.each(['child', 'grandchild'])('retains an explicit BU %s company projection', async depth => {
     const manager = { query: jest.fn(async (sql: string) => {
-      if (sql.includes('FROM sys_user_orgs')) return [{ org_id:41101,org_type:'BU',org_code:'BU-A',company_code:null,parent_id:null,site_code:null,data_scope_level:'SELF' }];
+      if (sql.includes('FROM sys_user_orgs')) return [{ org_id:41101,org_status:'ACTIVE',org_type:'BU',org_code:'BU-A',company_code:null,parent_id:null,site_code:null,data_scope_level:'SELF' }];
       if (sql.includes("WHERE parent_id = $1 AND org_type = 'COMPANY'")) return depth === 'child' ? [{company_code:'COMP-A'}] : [];
       if (sql.includes('JOIN sys_organizations o2')) return [{company_code:'COMP-A'}];
       return [];
@@ -47,7 +47,7 @@ describe('daily report company-scope provenance', () => {
 
   it.each([null, 'COMP-A', 'SITE-A'])('keeps legacy department projections separate from report grants (%s)', async snapshot => {
     const manager = {query:jest.fn(async (sql:string) => {
-      if (sql.includes('FROM sys_user_orgs')) return [{org_id:41102,org_type:'DEPARTMENT',org_code:'DEPT-A',company_code:snapshot === 'COMP-A' ? snapshot : null,parent_id:41103,site_code:snapshot === 'SITE-A' ? snapshot : null,data_scope_level:'SELF'}];
+      if (sql.includes('FROM sys_user_orgs')) return [{org_id:41102,org_status:'ACTIVE',org_type:'DEPARTMENT',org_code:'DEPT-A',company_code:snapshot === 'COMP-A' ? snapshot : null,parent_id:41103,site_code:snapshot === 'SITE-A' ? snapshot : null,data_scope_level:'SELF'}];
       if (sql.includes('WITH RECURSIVE')) return [{company_code:'COMP-A'}];
       return [];
     })};

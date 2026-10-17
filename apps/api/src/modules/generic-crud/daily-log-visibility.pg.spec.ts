@@ -260,6 +260,16 @@ pgDescribe('MANUAL-122 real PostgreSQL, HTTP, roles and organization scope', () 
     expect((await read(40114).expect(200)).body.data.map((row:{house_code:string})=>row.house_code)).toEqual(['HOUSE-A']);
   });
 
+  it('does not grant daily reads through inactive COMPANY or SITE bindings', async () => {
+    await db.query(`INSERT INTO brd_daily_logs(house_code,log_date,shift) VALUES ('HOUSE-A','2026-10-17','早班')`);
+    for (const [orgId,userId] of [[40101,40101],[40103,40106]]) {
+      await db.query("UPDATE sys_organizations SET status='INACTIVE' WHERE id=$1",[orgId]);
+      scopes.invalidate(String(userId));
+      try { expect((await read(userId).expect(200)).body.data).toEqual([]); }
+      finally { await db.query("UPDATE sys_organizations SET status='ACTIVE' WHERE id=$1",[orgId]); scopes.invalidate(String(userId)); }
+    }
+  });
+
   it('retains an explicit GROUP grant on a department binding', async () => {
     await db.query(`INSERT INTO brd_daily_logs(house_code,log_date,shift)
       VALUES ('HOUSE-A','2026-10-17','早班'),('HOUSE-B','2026-10-17','早班')`);
