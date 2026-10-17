@@ -49,7 +49,7 @@ jobs:
           POSTGRES_PASSWORD: phoenix_v3_pass
           POSTGRES_DB: phoenix_erp
         ports:
-          - 5432:5432
+          - 127.0.0.1:5432:5432
         options: >-
           --health-cmd "pg_isready -U phoenix_v3 -d phoenix_erp"
           --health-interval 5s --health-timeout 5s --health-retries 20
@@ -91,7 +91,7 @@ jobs:
           PORT: "3100"
           BACKGROUND_FIXTURE_POSTGRES_ID: ${{ job.services.postgres.id }}
         run: |
-          node --test ../../scripts/ci/background-control-api-fixture.test.mjs
+          node --test ../../scripts/ci/background-control-api-fixture.test.mjs ../../scripts/ci/background-control-api-network-fixture.test.mjs
           bash ../../scripts/ci/background-control-api-fixture.sh start
 
       - name: Seed disposable E2E fixture
@@ -112,7 +112,7 @@ jobs:
 
       - name: Start Web
         run: |
-          nohup pnpm --filter web start > "$RUNNER_TEMP/web.log" 2>&1 &
+          nohup pnpm --filter web start --hostname 127.0.0.1 > "$RUNNER_TEMP/web.log" 2>&1 &
           echo $! > "$RUNNER_TEMP/web.pid"
           for i in $(seq 1 90); do
             if curl -fsS http://127.0.0.1:3000/ >/dev/null; then
