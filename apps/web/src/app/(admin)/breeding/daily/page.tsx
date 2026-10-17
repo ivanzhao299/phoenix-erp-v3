@@ -396,7 +396,8 @@ export default function DailyPage() {
       setTimeout(() => setSubmitted(false), 3000);
       // G15：日报提交成功后，若任一班次填了 9 档 → 弹窗确认是否同步入销售库存
       // 仅 TEMP_PRODUCTION_INBOUND 模式可用；PACKAGING_INBOUND 模式提示前往包装中心
-      const rowsWithGrades = rowsToSubmit.filter(r => Object.values(r.gradeQty || {}).some(v => Number(v) > 0));
+      const rowsWithGrades = rowsToSubmit.filter((r, index) =>
+        results[index].status === 'fulfilled' && Object.values(r.gradeQty || {}).some(v => Number(v) > 0));
       if (rowsWithGrades.length > 0) {
         const totalSum = rowsWithGrades.reduce((s, r) => s + gradeSumOf(r.gradeQty), 0);
         const ok = await showConfirm({

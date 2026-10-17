@@ -236,9 +236,8 @@ export class ProductionInboundService {
           throw new BadRequestException('该日报入库请求已存在但数量或档位不同，请先核对库存后再重试');
         }
         idempotent = true;
-        for (const row of actual) {
-          const source = existing.find((x: any) => x.sku_code === row.skuCode && x.quality_grade === row.grade);
-          batches.push({ batchNo: source.batch_no, grade: row.grade, qty: row.qty, productCode: row.productCode });
+        for (const source of existing) {
+          batches.push({ batchNo: source.batch_no, grade: source.quality_grade, qty: Number(source.qty), productCode: source.product_code });
         }
         return;
       }

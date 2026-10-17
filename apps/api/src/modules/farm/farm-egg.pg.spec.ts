@@ -33,7 +33,7 @@ describePg('Issue 400 isolated PostgreSQL HTTP inventory chain', () => {
 
   beforeAll(async () => {
     const port = Number(process.env.ISSUE400_PG_PORT);
-    if (port !== 15450) throw new Error('Issue 400 fixture accepts only its dedicated localhost port 15450');
+    if (![15450, 51667].includes(port)) throw new Error('Issue 400 fixture accepts only dedicated issue/integration loopback ports');
     ds = new DataSource({ type: 'postgres', host: '127.0.0.1', port, username: 'issue400',
       password: 'issue400-local-fixture', database: 'issue400', entities: [], synchronize: false,
       extra: { options: '-c search_path=issue400' } });
@@ -160,4 +160,20 @@ describePg('Issue 400 isolated PostgreSQL HTTP inventory chain', () => {
     });
     expect(result.stdout).toContain('4 passed');
   }, 70000);
+
+  it('PR384 integration: returns each original batch once when multiple shifts share a grade', async () => {
+    const payload = { eggDate: '2026-10-17', houseCode: 'HOUSE-A', items: [
+      { grade: 'GRADE_1', qty: 11 }, { grade: 'GRADE_1', qty: 22 },
+    ] };
+    const first = await request(app.getHttpServer()).post('/api/v2/inventory/production-inbound').send(payload).expect(201);
+    const retry = await request(app.getHttpServer()).post('/api/v2/inventory/production-inbound').send(payload).expect(201);
+    expect(retry.body.idempotent).toBe(true);
+    expect(retry.body.totalInbound).toBe(33);
+    expect(retry.body.batches.map((row: { batchNo: string }) => row.batchNo).sort())
+      .toEqual(first.body.batches.map((row: { batchNo: string }) => row.batchNo).sort());
+    expect(await ds.query("SELECT qty FROM inv_batches WHERE egg_date='2026-10-17'"))
+      .toHaveLength(2);
+    expect(await ds.query("SELECT l.id FROM inv_ledger l JOIN inv_batches b USING (batch_no) WHERE b.egg_date='2026-10-17'"))
+      .toHaveLength(2);
+  });
 });

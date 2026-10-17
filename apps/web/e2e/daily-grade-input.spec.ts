@@ -80,3 +80,36 @@ test('manual editing, focus movement, zero and negative validation retain their 
   await dialog.getByRole('button', { name: '清空', exact: true }).click();
   for (const gradeInput of await dialog.locator('input').all()) await expect(gradeInput).toHaveValue('');
 });
+
+test('integration: only successfully saved shifts enter the inbound request', async ({ page }) => {
+  let saves = 0;
+  let inboundItems: Array<{ grade: string; qty: number }> | undefined;
+  await page.route('**/api/**', async route => {
+    if (route.request().method() === 'GET') return route.fallback();
+    const path = new URL(route.request().url()).pathname;
+    if (path === '/api/v3/farm/daily-logs') {
+      saves++;
+      return route.fulfill({ status: saves === 1 ? 201 : 400, json: saves === 1 ? { code: 200 } : { message: 'fixture second shift rejected' } });
+    }
+    if (path === '/api/v2/inventory/production-inbound') {
+      const body = route.request().postDataJSON();
+      inboundItems = body.items;
+      return route.fulfill({ json: { mode: 'TEMP_PRODUCTION_INBOUND', batches: body.items.map((item: { grade: string }, index: number) => ({ batchNo: `fixture-${index}`, grade: item.grade })), totalInbound: body.items.reduce((sum: number, item: { qty: number }) => sum + item.qty, 0) } });
+    }
+    throw new Error(`Unexpected mutation ${path}`);
+  });
+  const firstDialog = page.getByText('早班 · 9 档分级录入', { exact: true }).locator('../..');
+  await firstDialog.locator('input').first().fill('11');
+  await firstDialog.getByRole('button', { name: '确定', exact: true }).click();
+  const eggs = page.getByText('产蛋数(枚)', { exact: true }).locator('..').locator('input');
+  await eggs.nth(0).fill('11');
+  await page.getByRole('button', { name: '按 9 档分级', exact: true }).click();
+  const secondDialog = page.getByText(/ · 9 档分级录入$/, { exact: false }).locator('../..');
+  await secondDialog.locator('input').first().fill('22');
+  await secondDialog.getByRole('button', { name: '确定', exact: true }).click();
+  await eggs.nth(1).fill('22');
+  await page.getByRole('button', { name: '提交日报', exact: true }).first().click();
+  await page.getByRole('button', { name: '同步入销售库存', exact: true }).click();
+  await expect.poll(() => inboundItems).toEqual([{ grade: 'GRADE_1', qty: 11 }]);
+  expect(saves).toBe(2);
+});
