@@ -103,7 +103,15 @@ export function loadEvaluationInputs(args, deps = {}) {
   const collection = (deps.validateCollectionDocument || validateCollectionDocument)(readJson(args.collection, 'collection document'));
   const inventory = (deps.validateInventory || validateInventory)(readJson(args.inventory, 'inventory'));
   const canonicalLegacy = (deps.validateLegacyDir || validateLegacyDir)(args.legacyDir);
-  const retiredTypeorm = validateRetiredRegistry(readJson(args.retired, 'retired registry'));
+  // the retired registry is an INPUT: its deep-validation refusals (not an
+  // array, malformed entry, duplicate identity) are input refusals (exit 2),
+  // never a generic crash
+  let retiredTypeorm;
+  try {
+    retiredTypeorm = validateRetiredRegistry(readJson(args.retired, 'retired registry'));
+  } catch (error) {
+    throw new InputRefusal(`INVALID_INPUT: retired registry (${args.retired}): ${error?.message ?? error}`);
+  }
   return { collection, inventory, canonicalLegacy, retiredTypeorm };
 }
 

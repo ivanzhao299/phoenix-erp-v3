@@ -139,7 +139,7 @@ jobs:
           echo "$OUT"
           test "${TEST_EXIT:-0}" = "0"
           echo "$OUT" | grep -q "# skipped 0"
-          echo "$OUT" | grep -q "# pass 4"
+          echo "$OUT" | grep -q "# pass 7"
           echo "CHAIN_CONTRACT_NO_SKIP_FALLBACK=VERIFIED"
 
       - name: Preflight output classifier regressions (boundary matrix + real binary dynamics)

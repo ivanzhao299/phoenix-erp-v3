@@ -28,7 +28,48 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import crypto from 'node:crypto';
-import { execFileSync, spawnSync } from 'node:child_process';
+import { execFileSync, spawn, spawnSync } from 'node:child_process';
+
+// BOUNDED SUBPROCESS WITH UNIFIED CLEANUP: the command runs in its OWN
+// process group; on timeout the WHOLE GROUP is SIGKILLed (a plain child kill
+// leaves the command's own children — e.g. a wedged ssh's shell pipeline —
+// alive). Resolves { status, stdout, stderr, killed }.
+function runBoundedGroup(file, argv, { input, env, timeoutMs, maxBuffer = 64 * 1024 * 1024 } = {}) {
+  return new Promise((resolve) => {
+    const child = spawn(file, argv, { detached: true, stdio: ['pipe', 'pipe', 'pipe'], env });
+    let stdout = '';
+    let stderr = '';
+    let killed = false;
+    let settled = false;
+    const buffers = { stdout: [], stderr: [] };
+    const collect = (chunks, d) => {
+      chunks.push(d);
+      if (chunks.reduce((n, c) => n + c.length, 0) > maxBuffer) {
+        killed = true;
+        try { process.kill(-child.pid, 'SIGKILL'); } catch { /* already gone */ }
+      }
+    };
+    child.stdout.on('data', (d) => collect(buffers.stdout, d));
+    child.stderr.on('data', (d) => collect(buffers.stderr, d));
+    const finish = (status) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve({ status, stdout: Buffer.concat(buffers.stdout).toString('utf8'), stderr: Buffer.concat(buffers.stderr).toString('utf8'), killed });
+    };
+    const timer = setTimeout(() => {
+      killed = true;
+      try { process.kill(-child.pid, 'SIGKILL'); } catch { /* already gone */ }
+    }, timeoutMs);
+    child.on('exit', (code, signal) => finish(killed ? null : (code ?? (signal ? -1 : 0))));
+    child.on('error', () => finish(null));
+    if (input !== undefined) {
+      child.stdin.write(input);
+      child.stdin.end();
+    }
+    void stdout; void stderr;
+  });
+}
 import { fileURLToPath } from 'node:url';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -37,7 +78,7 @@ const hostScriptRel = 'scripts/ops/ledger-collection-host.sh';
 const sha256 = (file) => crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
 
 export function parseChainArgs(argv) {
-  const args = { collectionRef: process.env.COLLECTION_REF, expectedCollectorSha256: process.env.EXPECTED_COLLECTOR_SHA256, evidenceDir: process.env.CHAIN_EVIDENCE_DIR, mode: 'ssh', mainRef: 'origin/main' };
+  const args = { collectionRef: process.env.COLLECTION_REF, expectedCollectorSha256: process.env.EXPECTED_COLLECTOR_SHA256, evidenceDir: process.env.CHAIN_EVIDENCE_DIR, mode: 'ssh', mainRef: 'origin/main', expectedMainSha: '', transportTimeoutMs: 0 };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     if (arg === '--collection-ref') args.collectionRef = argv[++i];
@@ -45,7 +86,12 @@ export function parseChainArgs(argv) {
     else if (arg === '--evidence-dir') args.evidenceDir = argv[++i];
     else if (arg === '--transport') args.mode = argv[++i];
     else if (arg === '--main-ref') args.mainRef = argv[++i];
+    else if (arg === '--expected-main-sha') args.expectedMainSha = argv[++i];
+    else if (arg === '--transport-timeout-ms') args.transportTimeoutMs = Number(argv[++i]);
     else throw new Error(`unknown argument: ${arg}`);
+  }
+  if (args.transportTimeoutMs !== 0 && (!Number.isInteger(args.transportTimeoutMs) || args.transportTimeoutMs <= 0)) {
+    throw new Error('INVALID_INPUT: --transport-timeout-ms must be a positive integer');
   }
   for (const [key, value] of Object.entries({ collectionRef: args.collectionRef, expectedCollectorSha256: args.expectedCollectorSha256, evidenceDir: args.evidenceDir })) {
     if (!value) throw new Error(`MISSING_INPUT: --${key.replace(/[A-Z]/g, (c) => '-' + c.toLowerCase())} is required`);
@@ -57,7 +103,7 @@ export function parseChainArgs(argv) {
 // the PRODUCTION transport: a real ssh invocation (key materialized by the
 // workflow into a temp file; jump host via -J). The host script is piped on
 // stdin with the env prefix exported inline.
-export function sshRemoteShell(env = process.env) {
+export function sshRemoteShell(env = process.env, { timeoutMs = 10 * 60_000 } = {}) {
   const dest = env.SSH_DEST;
   const keyFile = env.SSH_KEY_FILE;
   if (!dest || !keyFile) throw new Error('MISSING_INPUT: SSH_DEST and SSH_KEY_FILE are required for the ssh transport');
@@ -66,22 +112,30 @@ export function sshRemoteShell(env = process.env) {
   return (hostScriptBody, exportedEnv) => {
     const envPrefix = Object.entries(exportedEnv).map(([k, v]) => `${k}=${JSON.stringify(v)}`).join(' ');
     const command = `${envPrefix} bash -s`;
-    return spawnSync('ssh', ['-i', keyFile, '-o', 'BatchMode=yes', '-o', 'StrictHostKeyChecking=accept-new', ...jump, ...port, dest, command], { input: hostScriptBody, encoding: 'utf8', timeout: 10 * 60_000, maxBuffer: 64 * 1024 * 1024 });
+    return runBoundedGroup('ssh', ['-i', keyFile, '-o', 'BatchMode=yes', '-o', 'StrictHostKeyChecking=accept-new', ...jump, ...port, dest, command], { input: hostScriptBody, env: process.env, timeoutMs });
   };
 }
 
 // the TEST transport: run the host script locally (the fixture container
-// plays the deploy host's database; DEPLOY_PATH points at a local directory)
-export function localRemoteShell() {
+// plays the deploy host's database; DEPLOY_PATH points at an INDEPENDENT
+// local directory tree playing the remote filesystem). TEST-ONLY HOOK:
+// CHAIN_TEST_TRANSPORT_COMMAND replaces the host script with an arbitrary
+// command (the hung-transport regression) — never set in production.
+export function localRemoteShell(env = process.env, { timeoutMs = 120_000 } = {}) {
+  const testCommand = env.CHAIN_TEST_TRANSPORT_COMMAND;
+  if (testCommand) {
+    return () => runBoundedGroup('sh', ['-c', testCommand], { env: process.env, timeoutMs });
+  }
   return (hostScriptBody, exportedEnv) => {
-    const env = { ...process.env, ...exportedEnv };
-    return spawnSync('bash', ['-s'], { input: hostScriptBody, encoding: 'utf8', env, timeout: 120_000, maxBuffer: 64 * 1024 * 1024 });
+    const childEnv = { ...process.env, ...exportedEnv };
+    return runBoundedGroup('bash', ['-s'], { input: hostScriptBody, env: childEnv, timeoutMs });
   };
 }
 
 export async function runCollectionChain(args, deps = {}) {
   const exec = deps.exec || ((file, argv, opts) => execFileSync(file, argv, { cwd: repoRoot, encoding: 'utf8', ...opts }));
-  const remoteShell = deps.remoteShell || (args.mode === 'local' ? localRemoteShell() : sshRemoteShell());
+  const transportTimeoutMs = args.transportTimeoutMs || undefined;
+  const remoteShell = deps.remoteShell || (args.mode === 'local' ? localRemoteShell(process.env, { timeoutMs: transportTimeoutMs }) : sshRemoteShell(process.env, { timeoutMs: transportTimeoutMs }));
   const evidenceDir = args.evidenceDir;
   fs.mkdirSync(evidenceDir, { recursive: true });
   const failure = (code, stage, detail) => {
@@ -102,12 +156,19 @@ export async function runCollectionChain(args, deps = {}) {
 
   // ── bind: the checkout IS the approved ref and the collector IS the digest ──
   let collectorSha256;
+  let mainSha;
   try {
     const head = exec('git', ['rev-parse', 'HEAD']).trim();
     if (head !== args.collectionRef) return failure(2, 'bind', `HEAD ${head} !== approved ref ${args.collectionRef}`);
     collectorSha256 = sha256(path.join(repoRoot, collectorRel));
     if (collectorSha256 !== args.expectedCollectorSha256) return failure(2, 'bind', `collector sha256 ${collectorSha256} !== approved ${args.expectedCollectorSha256}`);
-    fs.writeFileSync(path.join(evidenceDir, 'bind.txt'), `ref=${head}\ncollector_sha256=${collectorSha256}\nhost_script_sha256=${sha256(path.join(repoRoot, hostScriptRel))}\n`);
+    // the FIXED dual-SHA binding: when a main SHA is pinned, the main ref
+    // used for the first inventory must resolve to EXACTLY it
+    mainSha = exec('git', ['rev-parse', `${args.mainRef}^{commit}`]).trim();
+    if (args.expectedMainSha && mainSha !== args.expectedMainSha) {
+      return failure(2, 'bind', `main ref ${args.mainRef} resolves to ${mainSha} !== pinned ${args.expectedMainSha}`);
+    }
+    fs.writeFileSync(path.join(evidenceDir, 'bind.txt'), `ref=${head}\nmain_ref=${args.mainRef}\nmain_sha=${mainSha}\ncollector_sha256=${collectorSha256}\nhost_script_sha256=${sha256(path.join(repoRoot, hostScriptRel))}\n`);
   } catch (error) {
     return failure(2, 'bind', String(error?.message || error));
   }
@@ -118,6 +179,16 @@ export async function runCollectionChain(args, deps = {}) {
   try {
     exec('node', ['scripts/ci/ledger-source-inventory.mjs', args.mainRef, invMain]);
     exec('node', ['scripts/ci/ledger-source-inventory.mjs', args.collectionRef, invCollection]);
+    // provenance: each generated inventory records its source ref — both must
+    // be EXACTLY the bound refs (the dual fixed SHA, verified in the artifacts)
+    const invMainDoc = JSON.parse(fs.readFileSync(invMain, 'utf8'));
+    const invCollectionDoc = JSON.parse(fs.readFileSync(invCollection, 'utf8'));
+    if (invMainDoc.source_ref !== mainSha && invMainDoc.source_ref !== args.mainRef) {
+      return failure(2, 'inventory', `inv-main source_ref ${invMainDoc.source_ref} is neither the resolved main sha (${mainSha}) nor the requested ref`);
+    }
+    if (invCollectionDoc.source_ref !== args.collectionRef) {
+      return failure(2, 'inventory', `inv-collection source_ref ${invCollectionDoc.source_ref} !== the bound collection ref`);
+    }
   } catch (error) {
     return failure(2, 'inventory', String(error?.message || error));
   }
@@ -125,16 +196,19 @@ export async function runCollectionChain(args, deps = {}) {
   // ── collect: run the HOST script through the transport ───────────────────
   const hostScriptBody = fs.readFileSync(path.join(repoRoot, hostScriptRel), 'utf8');
   const deployPath = deps.deployPath || process.env.DEPLOY_PATH || repoRoot;
-  const run = remoteShell(hostScriptBody, {
+  // the host evidence directory is REMOTE-OWNED: on the deploy host it is a
+  // remote path; the runner NEVER reads it — recovery is stdout-only
+  const remoteEvidenceDir = process.env.REMOTE_EVIDENCE_DIR || '/tmp/ledger-collection-evidence';
+  const run = await remoteShell(hostScriptBody, {
     COLLECTOR_B64: fs.readFileSync(path.join(repoRoot, collectorRel)).toString('base64'),
     COLLECTOR_SHA256: collectorSha256,
     DEPLOY_PATH: deployPath,
-    EVIDENCE_DIR: path.join(evidenceDir, 'host'),
+    EVIDENCE_DIR: remoteEvidenceDir,
   });
   fs.writeFileSync(path.join(evidenceDir, 'transport-stdout.txt'), run.stdout ?? '');
   fs.writeFileSync(path.join(evidenceDir, 'transport-stderr.txt'), run.stderr ?? '');
   if (run.status !== 0) {
-    return failure(3, 'collect', `host exit=${run.status}`);
+    return failure(3, 'collect', run.killed ? 'transport timed out and was group-killed' : `host exit=${run.status}`);
   }
 
   // ── verify: stdout recovery + the RAW digest must match byte-exactly ────

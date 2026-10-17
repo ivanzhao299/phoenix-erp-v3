@@ -72,9 +72,14 @@ function seedChainDatabase({ dropLegacyRow = false, dropMigrationsTable = false 
   return seedRows();
 }
 
-// runs the REAL chain CLI with the LOCAL transport and the docker shim on PATH
+// runs the REAL chain CLI with the LOCAL transport and the docker shim on PATH.
+// The remote is an INDEPENDENT file system root (remoteRoot): DEPLOY_PATH and
+// the remote evidence directory live there — the runner recovers the result
+// ONLY from the transport's stdout and never reads the remote tree.
 function runChain(evidenceDir, overrides = {}) {
   const dockerShimBin = makeDockerShim();
+  const remoteRoot = overrides.remoteRoot ?? fs.mkdtempSync(path.join(os.tmpdir(), 'ledger-remote-fs-'));
+  fs.mkdirSync(path.join(remoteRoot, 'deploy'), { recursive: true });
   const args = [
     'scripts/ci/ledger-collection-chain.mjs',
     '--transport', 'local',
@@ -83,12 +88,21 @@ function runChain(evidenceDir, overrides = {}) {
     '--evidence-dir', evidenceDir,
     '--main-ref', overrides.mainRef ?? headSha,
   ];
+  if (overrides.expectedMainSha) args.push('--expected-main-sha', overrides.expectedMainSha);
+  if (overrides.transportTimeoutMs) args.push('--transport-timeout-ms', String(overrides.transportTimeoutMs));
   const run = spawnSync(process.execPath, args, {
-    cwd: repoRoot, encoding: 'utf8', timeout: 180_000,
-    env: { ...process.env, PATH: `${dockerShimBin}:${process.env.PATH}`, DEPLOY_PATH: repoRoot, MIG_MODE: 'prod' },
+    cwd: repoRoot, encoding: 'utf8', timeout: overrides.outerTimeoutMs ?? 180_000,
+    env: {
+      ...process.env,
+      PATH: `${dockerShimBin}:${process.env.PATH}`,
+      DEPLOY_PATH: path.join(remoteRoot, 'deploy'),
+      REMOTE_EVIDENCE_DIR: path.join(remoteRoot, 'evidence'),
+      MIG_MODE: 'prod',
+      ...(overrides.transportCommand ? { CHAIN_TEST_TRANSPORT_COMMAND: overrides.transportCommand } : {}),
+    },
   });
   fs.rmSync(dockerShimBin, { recursive: true, force: true });
-  return { code: run.status ?? -1, stdout: run.stdout ?? '', stderr: run.stderr ?? '' };
+  return { code: run.status ?? -1, stdout: run.stdout ?? '', stderr: run.stderr ?? '', remoteRoot };
 }
 
 function makeDockerShim() {
@@ -135,23 +149,35 @@ chain('production ledger collection chain (no production network, local transpor
     work = fs.mkdtempSync(path.join(os.tmpdir(), 'ledger-chain-'));
   });
   after(() => {
-    try { spawnSync('docker', ['exec', container, 'psql', '-X', '-U', pgEnv.PGUSER, '-d', 'postgres', '-c', `DROP DATABASE IF EXISTS ${chainDb}`], { encoding: 'utf8' }); } catch { /* best effort */ }
+    try { spawnSync('docker', ['exec', container, 'psql', '-X', '-U', pgEnv.PGUSER, '-d', 'postgres', '-c', `DROP DATABASE IF EXISTS ${chainDb}`, '-c', `DROP DATABASE IF EXISTS ${chainDb}_sentinel`], { encoding: 'utf8' }); } catch { /* best effort */ }
+    for (const dir of fs.readdirSync(os.tmpdir()).filter((n) => n.startsWith('ledger-remote-fs-'))) {
+      try { fs.rmSync(path.join(os.tmpdir(), dir), { recursive: true, force: true }); } catch { /* concurrently created */ }
+    }
     fs.rmSync(work, { recursive: true, force: true });
   });
 
-  test('normal: the full chain completes — exit 0, evidence has the collection, BOTH evaluations and the summary', () => {
+  test('normal: the full chain completes over an INDEPENDENT remote filesystem — exit 0, stdout-only recovery, BOTH evaluations', () => {
     seedDatabase(seedChainDatabase());
     const evidence = path.join(work, 'normal');
-    const run = runChain(evidence);
+    const run = runChain(evidence, { expectedMainSha: headSha });
     assert.equal(run.code, 0, `chain exit ${run.code}: ${run.stdout}\n${run.stderr}`);
     assert.match(run.stdout, /LEDGER_COLLECTION_CHAIN=code:0/);
-    // evidence retention: staging record, recovered document + digest, both
-    // evaluations, summary — every stage's artifact is present
-    for (const file of ['bind.txt', 'collection.json', 'collection.sha256', 'eval-main.json', 'eval-collection.json', 'SUMMARY.txt', 'host/staging.txt', 'host/collection.json', 'host/collection.sha256']) {
-      assert.ok(fs.existsSync(path.join(evidence, file)), `missing evidence file: ${file}`);
+    // RUNNER evidence: binding, the stdout-recovered document + digest, both
+    // evaluations, the summary, and the captured transport output — and NO
+    // host-side directory (the runner tree is stdout-recovery only; the host
+    // tree lives under the independent remote root and is never read)
+    for (const file of ['bind.txt', 'collection.json', 'collection.sha256', 'eval-main.json', 'eval-collection.json', 'SUMMARY.txt', 'transport-stdout.txt', 'transport-stderr.txt']) {
+      assert.ok(fs.existsSync(path.join(evidence, file)), `missing runner evidence file: ${file}`);
     }
-    // the recovered document's digest equals the host's RAW digest
-    const hostDigest = fs.readFileSync(path.join(evidence, 'host/collection.sha256'), 'utf8').trim();
+    assert.ok(!fs.existsSync(path.join(evidence, 'host')), 'the runner evidence tree must not contain host-side files — recovery is stdout-only');
+    // the HOST evidence lives under the independent remote root
+    const remoteEvidence = path.join(run.remoteRoot, 'evidence');
+    for (const file of ['staging.txt', 'collection.json', 'collection.sha256', 'validate.txt']) {
+      assert.ok(fs.existsSync(path.join(remoteEvidence, file)), `missing remote evidence file: ${file}`);
+    }
+    // RAW BYTE DIGEST: the recovered document's digest equals the digest the
+    // host computed over its own file bytes (byte-exact stdout round trip)
+    const hostDigest = fs.readFileSync(path.join(remoteEvidence, 'collection.sha256'), 'utf8').trim();
     assert.equal(fs.readFileSync(path.join(evidence, 'collection.sha256'), 'utf8').trim(), hostDigest);
     assert.match(fs.readFileSync(path.join(evidence, 'SUMMARY.txt'), 'utf8'), /eval_main=PASS/);
     assert.match(fs.readFileSync(path.join(evidence, 'SUMMARY.txt'), 'utf8'), /eval_collection=PASS/);
@@ -181,6 +207,81 @@ chain('production ledger collection chain (no production network, local transpor
     assert.match(failure, /stage=bind/);
     assert.match(failure, /collector sha256 .* !== approved/);
   }, 180_000);
+
+  test('dual SHA binding: a WRONG pinned main SHA is refused at bind (exit 2) with evidence', () => {
+    seedDatabase(seedChainDatabase());
+    const evidence = path.join(work, 'bind-main-sha');
+    const run = runChain(evidence, { expectedMainSha: 'e'.repeat(40) });
+    assert.equal(run.code, 2, `chain exit ${run.code}: ${run.stdout}\n${run.stderr}`);
+    assert.match(fs.readFileSync(path.join(evidence, 'FAILURE.txt'), 'utf8'), /stage=bind/);
+    assert.match(fs.readFileSync(path.join(evidence, 'FAILURE.txt'), 'utf8'), /main/);
+  }, 180_000);
+
+  test('transport timeout: a HUNG transport is killed at the injected bound — exit 3, failure evidence, no leftover process', async () => {
+    seedDatabase(seedChainDatabase());
+    const evidence = path.join(work, 'transport-timeout');
+    const marker = path.join(work, 'hang-still-running');
+    // the hung transport: a shell that sleeps far beyond the 1500ms bound and
+    // touches a marker so the test can verify it was actually started and
+    // then actually killed (unified cleanup leaves no survivor)
+    const hangScript = `#!/bin/sh\ntouch ${JSON.stringify(marker)}\nsleep 60\n`;
+    const hangBin = path.join(work, 'hang-bin');
+    fs.mkdirSync(hangBin, { recursive: true });
+    fs.writeFileSync(path.join(hangBin, 'ledger-hang-transport'), hangScript, { mode: 0o755 });
+    const started = Date.now();
+    const run = runChain(evidence, { transportTimeoutMs: 1500, transportCommand: path.join(hangBin, 'ledger-hang-transport'), outerTimeoutMs: 60_000 });
+    const elapsed = Date.now() - started;
+    assert.equal(run.code, 3, `chain exit ${run.code}: ${run.stdout}\n${run.stderr}`);
+    assert.ok(elapsed < 30_000, `the hung transport was not bounded (${elapsed}ms)`);
+    assert.match(run.stdout, /LEDGER_COLLECTION_CHAIN=code:3/);
+    assert.match(fs.readFileSync(path.join(evidence, 'FAILURE.txt'), 'utf8'), /stage=collect/);
+    // the marker proves the transport STARTED; its disappearance within a
+    // short window proves the kill actually reached it (spawnSync timeout +
+    // SIGKILL) — the chain never waits for the 60s sleep
+    assert.ok(fs.existsSync(marker), 'the hung transport never started');
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    const leftover = spawnSync('pgrep', ['-f', 'ledger-hang-transport'], { encoding: 'utf8' });
+    assert.notEqual(leftover.status, 0, 'the hung transport process survived the unified cleanup');
+  }, 120_000);
+
+  test('provisioning/failure-cleanup zero-modification: a SENTINEL database on the same instance is untouched across every chain entry', () => {
+    // the sentinel carries rows and lives on the SAME instance in the
+    // dedicated namespace — every provisioning, failure and cleanup path of
+    // the chain entry (all four classes) must leave it byte-identical
+    const sentinel = `${chainDb}_sentinel`;
+    const provision = spawnSync('docker', ['exec', container, 'psql', '-X', '-v', 'ON_ERROR_STOP=1', '-U', pgEnv.PGUSER, '-d', 'postgres', '-c', `DROP DATABASE IF EXISTS ${sentinel}`, '-c', `CREATE DATABASE ${sentinel}`], { encoding: 'utf8' });
+    assert.equal(provision.status, 0, provision.stderr);
+    const seedSentinel = spawnSync('docker', ['exec', container, 'psql', '-X', '-v', 'ON_ERROR_STOP=1', '-U', pgEnv.PGUSER, '-d', sentinel], {
+      input: [
+        `CREATE TABLE ${OWNER_MARKER_TABLE} (run_nonce text PRIMARY KEY);`,
+        "INSERT INTO ledger_fixture_owner (run_nonce) VALUES ('sentinel-own-run');",
+        'CREATE TABLE claims (v text);',
+        "INSERT INTO claims VALUES ('sentinel-payload');",
+      ].join('\n'),
+      encoding: 'utf8',
+    });
+    assert.equal(seedSentinel.status, 0, seedSentinel.stderr);
+    const readSentinel = () => spawnSync('docker', ['exec', container, 'psql', '-X', '-At', '-U', pgEnv.PGUSER, '-d', sentinel, '-c', `SELECT (SELECT run_nonce FROM ${OWNER_MARKER_TABLE}) || '|' || (SELECT v FROM claims)`], { encoding: 'utf8' }).stdout.trim();
+    const listDbs = () => spawnSync('docker', ['exec', container, 'psql', '-X', '-At', '-U', pgEnv.PGUSER, '-d', 'postgres', '-c', "SELECT string_agg(datname, ',' ORDER BY datname) FROM pg_database WHERE datname LIKE 'ledger_collect_%'"], { encoding: 'utf8' }).stdout.trim();
+    const before = readSentinel();
+    const beforeDbs = listDbs();
+    // EVERY entry: normal, BLOCK, refusal, crash — plus the fresh provisioning
+    // each one performs on chainDb
+    seedDatabase(seedChainDatabase());
+    assert.equal(runChain(path.join(work, 'sentinel-normal')).code, 0);
+    seedDatabase(seedChainDatabase({ dropLegacyRow: true }));
+    assert.equal(runChain(path.join(work, 'sentinel-block')).code, 1);
+    assert.equal(runChain(path.join(work, 'sentinel-refusal'), { expectedSha: '0'.repeat(64) }).code, 2);
+    seedDatabase(seedChainDatabase({ dropMigrationsTable: true }));
+    assert.equal(runChain(path.join(work, 'sentinel-crash')).code, 3);
+    // zero modification on BOTH dimensions: the sentinel's rows AND the
+    // instance's ledger_collect_* database set (only own dbs come and go)
+    assert.equal(readSentinel(), before, 'the sentinel database was modified by a chain entry');
+    const afterDbs = listDbs().split(',').filter((d) => d !== chainDb).sort().join(',');
+    const beforeDbsAdjusted = beforeDbs.split(',').sort().join(',');
+    assert.ok(afterDbs.split(',').includes(sentinel), 'the sentinel database disappeared');
+    assert.equal(afterDbs, beforeDbsAdjusted.split(',').filter((d) => d !== chainDb).sort().join(','), 'the instance database set changed beyond the chain\'s own database');
+  }, 300_000);
 
   test('crash: the ledger table is missing on the host side → exit 3, failure + transport output retained', () => {
     seedDatabase(seedChainDatabase({ dropMigrationsTable: true }));

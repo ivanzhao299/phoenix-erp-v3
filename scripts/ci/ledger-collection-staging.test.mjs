@@ -316,6 +316,14 @@ staged('ledger collection staging (prod transport) + offline evaluation adapter'
     const emptyInventory = path.join(work, 'inv-empty.json');
     fs.writeFileSync(emptyInventory, JSON.stringify({ canonicalTypeorm: [] }));
     const emptyLegacyDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ledger-empty-legacy-'));
+    // retired-registry counterexamples (the deep validator's own refusals)
+    const retiredNotArray = path.join(work, 'retired-not-array.json');
+    fs.writeFileSync(retiredNotArray, JSON.stringify({ nope: true }));
+    const retiredBadEntry = path.join(work, 'retired-bad-entry.json');
+    fs.writeFileSync(retiredBadEntry, JSON.stringify([{ name: 'X1787647200000', timestamp: '1787647200000', removal_commit: 'not-a-sha', classification: 'KNOWN_RETIRED_APPLIED' }]));
+    const retiredDuplicate = path.join(work, 'retired-duplicate.json');
+    const goodEntry = JSON.parse(fs.readFileSync(path.join(repoRoot, 'scripts/ci/retired-typeorm-migrations.json'), 'utf8'))[0];
+    fs.writeFileSync(retiredDuplicate, JSON.stringify([goodEntry, goodEntry]));
     const rowsNoArrays = path.join(work, 'rows-not-arrays.json');
     fs.writeFileSync(rowsNoArrays, JSON.stringify({ schema: 'phoenix.ledger-readonly-collection/v1', schema_migrations: 'nope', migrations: 7 }));
     const noProvenance = path.join(work, 'no-provenance.json');
@@ -339,6 +347,9 @@ staged('ledger collection staging (prod transport) + offline evaluation adapter'
       ['inventory empty', ['--collection', base[1], '--inventory', emptyInventory, ...base.slice(4)], /INVALID_INPUT: inventory carries no canonicalTypeorm entries/],
       ['legacy dir has no SQL', ['--collection', base[1], '--inventory', base[3], '--legacy-dir', emptyLegacyDir, ...base.slice(6)], /INVALID_INPUT: --legacy-dir contains no legacy SQL migrations/],
       ['unknown argument', [...base, '--bogus'], /unknown argument: --bogus/],
+      ['retired registry not an array', [...base.slice(0, 6), '--retired', retiredNotArray], /INVALID_INPUT: retired registry/],
+      ['retired registry malformed entry', [...base.slice(0, 6), '--retired', retiredBadEntry], /INVALID_INPUT: retired registry .*invalid retired registry entry/],
+      ['retired registry duplicate identity', [...base.slice(0, 6), '--retired', retiredDuplicate], /INVALID_INPUT: retired registry .*duplicate retired registry identity/],
     ]) {
       const run = runAdapterCli(args);
       assert.equal(run.code, 2, `${label}: refusal must exit 2, got ${run.code} (stdout: ${run.stdout.slice(0, 120)})`);

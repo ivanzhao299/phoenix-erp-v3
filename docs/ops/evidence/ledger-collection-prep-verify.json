@@ -82,6 +82,31 @@
       "name": "full-chain contract (no production network)",
       "outcome": "PASS",
       "detail": "the materialized chain runs end to end through the local transport against the fixture container: normal (exit 0, collection + both evaluations + summary + host evidence), BLOCK (exit 1, real verdict, evidence retained, no FAILURE marker), refusal (exit 2, FAILURE.txt stage=bind), crash (exit 3, FAILURE.txt + transport stdout/stderr archived)"
+    },
+    {
+      "name": "dual fixed-SHA binding",
+      "outcome": "PASS",
+      "detail": "wrong pinned main SHA refused at bind, exit 2, FAILURE.txt stage=bind; both inventories source_ref must equal the bound refs"
+    },
+    {
+      "name": "hung transport timeout + unified cleanup",
+      "outcome": "PASS",
+      "detail": "transport runs in its own process group; on the injected bound the WHOLE GROUP is SIGKILLed; chain exits 3 with failure evidence; pgrep proves no survivor"
+    },
+    {
+      "name": "sentinel zero-modification across all entries",
+      "outcome": "PASS",
+      "detail": "sentinel dedicated database byte-identical after normal/BLOCK/refusal/crash entries; instance database set changes only by the chain own database"
+    },
+    {
+      "name": "independent remote filesystem",
+      "outcome": "PASS",
+      "detail": "DEPLOY_PATH and host evidence under a separate root; runner evidence tree has NO host files, stdout-only recovery; remote evidence stays in the remote root"
+    },
+    {
+      "name": "retired-registry input refusals",
+      "outcome": "PASS",
+      "detail": "REAL CLI runs: not-an-array, malformed entry, duplicate identity — each exits 2 with INVALID_INPUT: retired registry reason"
     }
   ],
   "boundaries": {
@@ -115,7 +140,7 @@
   "chain": {
     "runner": {
       "path": "scripts/ci/ledger-collection-chain.mjs",
-      "sha256": "c69c2f2d75b3d294fd58d767ce320d45cd0a912c41e14e6e940bb23cad87e588"
+      "sha256": "9526a6c6e7f76fbebfb26016b8532afab27ecb521d47923405677a82985a104c"
     },
     "host": {
       "path": "scripts/ops/ledger-collection-host.sh",
@@ -123,9 +148,11 @@
     },
     "contractTest": {
       "path": "scripts/ci/ledger-collection-chain.test.mjs",
-      "sha256": "f2054cb60986fb3b6d385643d513017442dc330863c3188229f0177492eac081"
+      "sha256": "4619a95deb68ac372e4114e093a9d975d323e02abe7995d7edd3a35af3ca1049"
     },
-    "stages": "clean deps → source binding → staging → stdout recovery → raw digest verification → both-side evaluation → exception archiving",
-    "outcomeClasses": "normal=0 / BLOCK=1 (real verdict) / input refusal=2 / remote crash=3 — each verified with step exit code AND evidence retention"
+    "stages": "clean deps, source binding with dual fixed SHA (collector digest + pinned main SHA), staging, stdout recovery with a REMOTE-OWNED evidence dir the runner never reads, raw digest verification, both-side evaluation, exception archiving",
+    "outcomeClasses": "normal=0 / BLOCK=1 / refusal=2 / crash=3 / transport timeout=3 with process-GROUP kill and unified cleanup",
+    "independentRemote": "the contract test runs the host side under a SEPARATE filesystem root; the runner tree contains stdout-recovered artifacts only",
+    "zeroModification": "a sentinel database on the same instance is proven byte-identical across ALL four chain entries"
   }
 }

@@ -25,6 +25,10 @@ on:
         description: 'sha256 of scripts/ops/ledger-readonly-collect.mjs on collection_ref'
         required: true
         type: string
+      expected_main_sha:
+        description: 'Pinned main SHA for the first (main) inventory — the dual fixed-SHA binding'
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -43,6 +47,7 @@ jobs:
     env:
       COLLECTION_REF: ${{ inputs.collection_ref }}
       EXPECTED_COLLECTOR_SHA256: ${{ inputs.expected_collector_sha256 }}
+      EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha }}
       CONFIRM_READONLY: ${{ inputs.confirm_readonly }}
 
     steps:
@@ -73,7 +78,10 @@ jobs:
           set -euo pipefail
           test "$CONFIRM_READONLY" = RUN_PRODUCTION_LEDGER_COLLECT
           test "$(git rev-parse HEAD)" = "$COLLECTION_REF"
-          echo "COLLECTION_AUTHORIZED=ref:$COLLECTION_REF"
+          # the DUAL FIXED SHA: fetch main and verify it resolves to the pin
+          git fetch origin main --depth 1
+          test "$(git rev-parse origin/main)" = "$EXPECTED_MAIN_SHA"
+          echo "COLLECTION_AUTHORIZED=ref:$COLLECTION_REF;main:$EXPECTED_MAIN_SHA"
 
       - name: Materialize the SSH transport credentials (secrets to a private key file)
         env:
@@ -101,6 +109,7 @@ jobs:
             --transport ssh \
             --collection-ref "$COLLECTION_REF" \
             --expected-collector-sha256 "$EXPECTED_COLLECTOR_SHA256" \
+            --expected-main-sha "$EXPECTED_MAIN_SHA" \
             --evidence-dir "$RUNNER_TEMP/ledger-collection-evidence"
 
       - name: Archive the evidence (ALWAYS — failures keep their evidence too)
