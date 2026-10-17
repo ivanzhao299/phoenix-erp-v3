@@ -1,0 +1,1028 @@
+{
+  "schema": "phoenix.ledger-readonly-collection/v1",
+  "db_mode": "ci",
+  "collected_at": "2026-10-17T00:59:13.340Z",
+  "server_version": "18.6 (Debian 18.6-1.pgdg13+2)",
+  "snapshot": "80265:80265:",
+  "transaction_timestamp": "2026-10-17 00:59:13.327586+00",
+  "schema_migrations": [
+    {
+      "filename": "20260527_rbac_permission_fix.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260527_sales_v2_phase0_baseline.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260527_sales_v2_phase2_price_runtime.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260527_sales_v2_phase3_order_runtime.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260527_sales_v2_phase4_delivery_runtime.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260527_sales_v2_phase5_credit_control.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260527_sales_v2_phase6_return_runtime.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260527_sales_v2_phase7_egg_inventory.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260527_sales_v2_phase8_analytics.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260527_v2_menu_rbac_seed.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260529_customer_master_g1.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260529_mobile_delivery_phase1.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260529_mobile_delivery_phase2.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260530_config_governance_r2.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260530_create_missing_sys_tables.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260530_create_sys_data_scopes.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260530_pilot_run_1_execution_center.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260530_pilot_run_1_seed_data.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260530_product_master_h2.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260530_product_master_h3_price_sku.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260530_product_master_h4_inventory_sku.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260530_product_master_h5_sales_sku.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260531_fix_perms_version_hotfix.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260531_fix_user_passwords.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260531_migrate_and_drop_sys_orgs.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260531_org_runtime_phase1.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260531_phase_c1_datascope_constraint_fix.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260531_phase_c1_storecode_security.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260531_phase_c4_role_governance.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260531_role_runtime_phase_a.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260531_role_runtime_phase_c_org_scope_recovery.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260531_user_org_bindings.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260531_workflow_hardening_p0.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260601_finance_hardening_p2_menu_visibility.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260601_shareholder_runtime_phase1.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260601_shareholder_runtime_phase2a_paid_in.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260601_shareholder_runtime_phase2b_r2_mengsai_capital.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260601_shareholder_runtime_phase2b_r3_vte_capital.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260601_shareholder_runtime_phase2b_r4_dongpeng_beneficial.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260601_shareholder_runtime_phase2b_zhaoyongwei.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260601_shareholder_runtime_phase2c_name_correction.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260601_shareholder_runtime_phase3_capital_flow.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260601_shareholder_runtime_phase4_backfill_contributions.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260601_shareholder_runtime_phase5_fix_nominee_holding.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260602_finance_authority_phase1_a_org_roles.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260602_finance_authority_phase1_b_user_binding.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260602_finance_authority_phase1_c_menu_visibility.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260602_finance_authority_phase1_d_expense_approval.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260602_finance_authority_phase2_a_datascope_company.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260602_finance_authority_phase2_b_shareholder_scope.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260602_packaging_runtime_schema_recovery.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260602_production_chain_convergence_phase1_a_inv_columns.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260602_production_chain_convergence_phase1_b_menus.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260602_production_inventory_source_mode_phase_p1a_a_tables.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260602_production_inventory_source_mode_phase_p1a_b_menus.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260602_shareholder_ux_attachment_urls.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260602_workflow_form_definition_columns_fix.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260603_create_shareholder_accounts_chenyifei_xuegang.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260603_fix_shareholder_scope_dongpeng.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260603_g1_master_data_center.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260603_g2_dictionary_governance.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260603_g3b_master_data_approval_rules.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260603_r3_packaging_coupling_master_data.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260603_r5_traceability_indexes_menus.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260603_remove_egg_stock_legacy_inventory.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260605_g4e_user_farm_scopes_table.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260605_glp1a2_meng_sai_master_data.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260605_mdm1_01_biz_projects.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260605_mdm1_02_biz_site_aliases.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260605_mdm1_03_brd_farms_extend.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260605_mdm1_04_mst_stores_extend.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260605_mdm1_05_brd_daily_logs_extend.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260605_mengsai_production_data_lead_role.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260605_sys_user_role_visibility.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260606_brd_daily_logs_eggs_by_grade.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260606_brd_houses_site_mapping.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260606_brd_shift_dict_cleanup.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260606_brd_shift_dict_seed.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260606_cleanup_phase10e_ghost_data.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260606_cleanup_redundant_farms.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260606_g10_mengsai_medicine_initial.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260606_g11_inv_qty_numeric.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260606_g5_cleanup_pkg_egg_grade_deprecated.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260606_g5a_rbac_matrix_backfill.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260606_g7_assign_orphan_users_org.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260606_notify_v1_schema.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260606_product_grades_realign_mengsai.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260606_rbac_orphan_menus_backfill.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260607_g12_song_perm_extension.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260607_g15_warehouses_seed.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260607_g17_outbound_dict_seed.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260607_g19_brd_dict_seed.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260607_g19_daily_mortality_reason.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260608_g20_menu_granularity.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260608_g21_medication_records.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260608_g21_song_master_data_perm.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260608_g23_ar_ap_expense_menu_split.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260608_g24_lao_translations.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260608_g33_farm_master_menu.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260608_g34_2_wangweihua_password.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260608_g34_3_wangweihua_fix_perm.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260608_g34_5_wangweihua_view_perms.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260608_g34_wangweihua_treasurer_seed.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260608_g34_wangweihua_txns_excel.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260608_g35_fin_cash_menu_granularity.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260608_g37_finance_dict_reseed.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260608_g38_stranded_dict_reseed.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260608_g40_f5_stranded_backfill.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260608_g41_fin_ar_ledger.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260608_g41_fin_ar_ledger_seed.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260608_g42_liujie_cash_accounts.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260608_g43_liujie_master_data.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260608_g45_account_dedup_unify.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260608_g46_ar_cash_reconcile_view.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260609_g49_liujie_password.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260609_g50_fix_lay_rate_precision.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260609_g55_finance_uat_perm_tighten.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260609_g56b_masterdata_per_entity_perms.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260609_g57_wangweihua_cash_master_edit.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260609_g58_wangweihua_md_atomic.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260609_g59_f5_masterdata_schema_backfill.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260609_g62_liujie_cfo_role_tighten.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260609_g63_f5_missing_dict_seed.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260609_g64_archive_uat_test_grade.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260609_g67_egg_grade_unify_packaging.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260609_g68_sku_rebuild_egg_grade_1to5.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260610_g72_normalize_mengse_company_code.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260610_g74_songmingguang_role_refine.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260610_g75_tangzhiwen_three_roles.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260610_g81_stores_into_org_tree.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260611_g83_drawer_field_dict_seed.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260611_g83_sales2_price_menu_grant.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260611_g85a_prc_approval_rules_seed.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260612_g85a_prc_approval_chain_fix.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260612_g85c_order_item_sku_cols.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260612_g85d_supplier_rename_audit.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260612_g85e_cleanup_uat_test_data.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260612_g86_materials_master.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260612_g87_farm_company_scope.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260612_g87b_dongpeng_company_fix.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260612_g87c_xingchi_company_rename.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260613_g100_mobile_dict_alignment_seed.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260613_g102_shift_unify_morning_night.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260613_g103_cash_txn_edit_delete_perm.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260613_g87d_mengsai_farm_company.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260613_g91_materials_seed.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260613_g91b_material_perm_to_requesters.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260613_g92_md_field_change_governance.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260613_g97_farm_daily_view_to_shareholder_region.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260613_g98_shareholder_company_scope_region_revert.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260614_g109_brd_houses_dedup_cleanup.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260614_g110_bu_dimension_foundation.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260614_g111_org_tree_consolidation.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260614_g112_legal_tree_decouple_remove_bu.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260614_g113_stores_governance.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260614_g114_user_org_alignment.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260614_g115_user_role_refinement.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260614_g117_role_lifecycle.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260615_g118a_permission_sets_seed.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260615_g120_masterdata_role_grants.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260615_g121_product_master_production.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260615_g122_sync_user_store_code.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260615_g123_cleanup_debug_farm.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260615_g126_master_data_approver.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260615_g128_treasury_payment_perm.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260615_g135_drop_po_contract_no_unique.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260615_g136_add_construction_purchase_type.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260615_g137_admin_override_approval.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    },
+    {
+      "filename": "20260617_g189_wangweihua_cash_init_align_perm.sql",
+      "applied_at": "2026-10-17 00:59:13.182813+00"
+    }
+  ],
+  "migrations": [
+    {
+      "name": "CreateTypeormMetadata1781749821162",
+      "timestamp": 1781749821162
+    },
+    {
+      "name": "CreateSysChanjetState1781787856093",
+      "timestamp": 1781787856093
+    },
+    {
+      "name": "CreateChanjetArSnapshot1781791930631",
+      "timestamp": 1781791930631
+    },
+    {
+      "name": "CreateChanjetBookCompanyMapAndExtendArSnapshot1781793986478",
+      "timestamp": 1781793986478
+    },
+    {
+      "name": "FixChanjetArDeptCodeNotNull1781835697682",
+      "timestamp": 1781835697682
+    },
+    {
+      "name": "FixChanjetArSnapshotRemainingNullableUq1781837624060",
+      "timestamp": 1781837624060
+    },
+    {
+      "name": "FixPrc2ProjectsCompanyCodeNotNull1781837624061",
+      "timestamp": 1781837624061
+    },
+    {
+      "name": "W4MasterDataFoundation1782000000000",
+      "timestamp": 1782000000000
+    },
+    {
+      "name": "CreateStorePaymentTables1782041418112",
+      "timestamp": 1782041418112
+    },
+    {
+      "name": "CreateFileMetadata1782042418112",
+      "timestamp": 1782042418112
+    },
+    {
+      "name": "AddShareholderContributionDate1782043418112",
+      "timestamp": 1782043418112
+    },
+    {
+      "name": "SeedMaterialCodePrefix1782044418112",
+      "timestamp": 1782044418112
+    },
+    {
+      "name": "SeedWorkflowAtomicMenus1782045418112",
+      "timestamp": 1782045418112
+    },
+    {
+      "name": "SeedSettingsAtomicPermissionMenus1782046418112",
+      "timestamp": 1782046418112
+    },
+    {
+      "name": "SeedSettingsOperationalAtomicMenus1782047418112",
+      "timestamp": 1782047418112
+    },
+    {
+      "name": "SeedSettingsConfigAtomicMenus1782048418112",
+      "timestamp": 1782048418112
+    },
+    {
+      "name": "SeedOrgDataScopeAtomicMenus1782049418112",
+      "timestamp": 1782049418112
+    },
+    {
+      "name": "SeedQualityMobileAtomicMenus1782050418112",
+      "timestamp": 1782050418112
+    },
+    {
+      "name": "SeedOnlineUsersAtomicMenu1782051418112",
+      "timestamp": 1782051418112
+    },
+    {
+      "name": "RepairRolePermissionMatrixAtomicity1782052418112",
+      "timestamp": 1782052418112
+    },
+    {
+      "name": "SeedMasterDataCenterMenu1782053418112",
+      "timestamp": 1782053418112
+    },
+    {
+      "name": "GrantMasterDataProjectMenu1782054418112",
+      "timestamp": 1782054418112
+    },
+    {
+      "name": "GrantAllMasterDataAtomicMenus1782055418112",
+      "timestamp": 1782055418112
+    },
+    {
+      "name": "FixBizProjectsCompanyTrigger1782056418112",
+      "timestamp": 1782056418112
+    },
+    {
+      "name": "EnsureSysDictUpdatedAt1782057418112",
+      "timestamp": 1782057418112
+    },
+    {
+      "name": "AddMstStoresPosConfig1782058418112",
+      "timestamp": 1782058418112
+    },
+    {
+      "name": "AddSalStoreSalesCurrency1782060418112",
+      "timestamp": 1782060418112
+    },
+    {
+      "name": "AddSalStoreSalesReturn1782062418112",
+      "timestamp": 1782062418112
+    },
+    {
+      "name": "AddUatFeedbackAgentFields1782064418112",
+      "timestamp": 1782064418112
+    },
+    {
+      "name": "CreateBackupRecords1782066418112",
+      "timestamp": 1782066418112
+    },
+    {
+      "name": "GrantDeviceMonitorFactoryMgr1782633382333",
+      "timestamp": 1782633382333
+    },
+    {
+      "name": "AddSysNotificationsCompanyCode1782638092093",
+      "timestamp": 1782638092093
+    },
+    {
+      "name": "CleanupVestigialMenuGrants1782639127220",
+      "timestamp": 1782639127220
+    },
+    {
+      "name": "GrantWmsOpInoutEdit1782645332018",
+      "timestamp": 1782645332018
+    },
+    {
+      "name": "AddMasterDataMultilingualNames1782700000000",
+      "timestamp": 1782700000000
+    },
+    {
+      "name": "FixReimburseMenuAndSourceModeGrants1782710000000",
+      "timestamp": 1782710000000
+    },
+    {
+      "name": "SeedStorePaymentAndSales2DashboardMenus1782720000000",
+      "timestamp": 1782720000000
+    },
+    {
+      "name": "AddSysUserArchiveLifecycle1782730000000",
+      "timestamp": 1782730000000
+    },
+    {
+      "name": "CreateChanjetIntegrationFoundation1782740000000",
+      "timestamp": 1782740000000
+    },
+    {
+      "name": "CreateChanjetVoucherDraftAndReconciliation1782741000000",
+      "timestamp": 1782741000000
+    },
+    {
+      "name": "CreateChanjetReadonlyMirror1782742000000",
+      "timestamp": 1782742000000
+    },
+    {
+      "name": "CreateBugReports1782750500000",
+      "timestamp": 1782750500000
+    },
+    {
+      "name": "ExtendBugReportsWorkflow1782750600000",
+      "timestamp": 1782750600000
+    },
+    {
+      "name": "AllowChanjetSourceOnlyMatchStatus1784042679000",
+      "timestamp": 1784042679000
+    },
+    {
+      "name": "EnforceSingleVisiblePrimaryUserRole1784120000000",
+      "timestamp": 1784120000000
+    },
+    {
+      "name": "AddPackagingSourceBatchQuantities1784374615347",
+      "timestamp": 1784374615347
+    },
+    {
+      "name": "ScopeChanjetMasterMappingByBook1784552282000",
+      "timestamp": 1784552282000
+    },
+    {
+      "name": "AddChanjetWritebackPreparation1784600000000",
+      "timestamp": 1784600000000
+    },
+    {
+      "name": "AddChanjetShareholderEquityReconciliation1784660000000",
+      "timestamp": 1784660000000
+    },
+    {
+      "name": "AddChanjetErpInboundAccountingSync1784670000000",
+      "timestamp": 1784670000000
+    },
+    {
+      "name": "AddWmsIssueOutboundGovernance1785200000000",
+      "timestamp": 1785200000000
+    },
+    {
+      "name": "AddWmsChanjetEquivalentFields1785300000000",
+      "timestamp": 1785300000000
+    },
+    {
+      "name": "CompleteChanjetWmsBridge1785400000000",
+      "timestamp": 1785400000000
+    },
+    {
+      "name": "EnforceChanjetMappingSourceIdentity1785410000000",
+      "timestamp": 1785410000000
+    },
+    {
+      "name": "AddChanjetWmsMappingEntityType1785420000000",
+      "timestamp": 1785420000000
+    },
+    {
+      "name": "AddChanjetWmsDomainPolicies1785500000000",
+      "timestamp": 1785500000000
+    },
+    {
+      "name": "AddChanjetApiTrafficBudget1785900000000",
+      "timestamp": 1785900000000
+    },
+    {
+      "name": "AllowChanjetNotApplicableMatchStatus1786000000000",
+      "timestamp": 1786000000000
+    },
+    {
+      "name": "AddEggInventoryLedgerDimensions1786946700000",
+      "timestamp": 1786946700000
+    },
+    {
+      "name": "AllowNullSysUserStoreCode1787299200000",
+      "timestamp": 1787299200000
+    },
+    {
+      "name": "RestoreFinanceSourceTypeChecks1787304000000",
+      "timestamp": 1787304000000
+    },
+    {
+      "name": "AlignBrdFlockStatusDictionary1787551200000",
+      "timestamp": 1787551200000
+    },
+    {
+      "name": "AddWarehouseDomain1787724000000",
+      "timestamp": 1787724000000
+    },
+    {
+      "name": "AlignWmsTransactionForms1787731200000",
+      "timestamp": 1787731200000
+    },
+    {
+      "name": "CreateStoreWorkstationIdentity1787875200000",
+      "timestamp": 1787875200000
+    },
+    {
+      "name": "EnforceStorePosAtomicSettlement1787878800000",
+      "timestamp": 1787878800000
+    },
+    {
+      "name": "TightenStoreSiteAndWarehouseOwnership1787961600000",
+      "timestamp": 1787961600000
+    },
+    {
+      "name": "UpgradeWmsTransferLifecycle1787965200000",
+      "timestamp": 1787965200000
+    },
+    {
+      "name": "CreateStoreReplenishmentOrchestration1788134400000",
+      "timestamp": 1788134400000
+    },
+    {
+      "name": "ImplementStorePosV14TenderSettlement1788220800000",
+      "timestamp": 1788220800000
+    },
+    {
+      "name": "AddSalesOrderLifecycleEvents1788253200000",
+      "timestamp": 1788253200000
+    },
+    {
+      "name": "AddSalesOrderApprovalContext1788337017420",
+      "timestamp": 1788337017420
+    },
+    {
+      "name": "AddSalesOrderBatchAllocations1788408000000",
+      "timestamp": 1788408000000
+    },
+    {
+      "name": "AddSalesFulfillmentWarehouseAndPartialDelivery1788411600000",
+      "timestamp": 1788411600000
+    },
+    {
+      "name": "AddDeliveryExceptionAndReturnRestockTargets1788415200000",
+      "timestamp": 1788415200000
+    },
+    {
+      "name": "GovernSupplierWarehouseTypeDomains1788501600000",
+      "timestamp": 1788501600000
+    },
+    {
+      "name": "RejectNonFiniteCashBalances1788570000000",
+      "timestamp": 1788570000000
+    },
+    {
+      "name": "AddInventoryInboundDate1788943471000",
+      "timestamp": 1788943471000
+    },
+    {
+      "name": "GovernPackagingGradingSubmissions1789012800000",
+      "timestamp": 1789012800000
+    },
+    {
+      "name": "AddGradingVoidAudit1789099200000",
+      "timestamp": 1789099200000
+    },
+    {
+      "name": "ProtectPackagingVoidAndTestIsolation1789099201000",
+      "timestamp": 1789099201000
+    },
+    {
+      "name": "PackagingHistoryD1cEvidence1789353300496",
+      "timestamp": 1789353300496
+    },
+    {
+      "name": "PackagingHistoryReadIndexes1789362000000",
+      "timestamp": 1789362000000
+    },
+    {
+      "name": "SysDictConfigJsonJsonb1789520271000",
+      "timestamp": 1789520271000
+    },
+    {
+      "name": "DropHouseOwnershipRedundantColumns1787647200000",
+      "timestamp": 1787647200000
+    }
+  ]
+}

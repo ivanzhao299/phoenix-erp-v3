@@ -1,0 +1,539 @@
+{
+  "source_ref": "HEAD",
+  "canonicalTypeorm": [
+    {
+      "source_file": "transpiled/1781749821162-CreateTypeormMetadata.js",
+      "class_name": "CreateTypeormMetadata1781749821162",
+      "effective_name": "CreateTypeormMetadata1781749821162",
+      "timestamp": 1781749821162
+    },
+    {
+      "source_file": "transpiled/1781787856093-CreateSysChanjetState.js",
+      "class_name": "CreateSysChanjetState1781787856093",
+      "effective_name": "CreateSysChanjetState1781787856093",
+      "timestamp": 1781787856093
+    },
+    {
+      "source_file": "transpiled/1781791930631-CreateChanjetArSnapshot.js",
+      "class_name": "CreateChanjetArSnapshot1781791930631",
+      "effective_name": "CreateChanjetArSnapshot1781791930631",
+      "timestamp": 1781791930631
+    },
+    {
+      "source_file": "transpiled/1781793986478-CreateChanjetBookCompanyMapAndExtendArSnapshot.js",
+      "class_name": "CreateChanjetBookCompanyMapAndExtendArSnapshot1781793986478",
+      "effective_name": "CreateChanjetBookCompanyMapAndExtendArSnapshot1781793986478",
+      "timestamp": 1781793986478
+    },
+    {
+      "source_file": "transpiled/1781835697682-FixChanjetArDeptCodeNotNull.js",
+      "class_name": "FixChanjetArDeptCodeNotNull1781835697682",
+      "effective_name": "FixChanjetArDeptCodeNotNull1781835697682",
+      "timestamp": 1781835697682
+    },
+    {
+      "source_file": "transpiled/1781837624060-FixChanjetArSnapshotRemainingNullableUq.js",
+      "class_name": "FixChanjetArSnapshotRemainingNullableUq1781837624060",
+      "effective_name": "FixChanjetArSnapshotRemainingNullableUq1781837624060",
+      "timestamp": 1781837624060
+    },
+    {
+      "source_file": "transpiled/1781837624061-FixPrc2ProjectsCompanyCodeNotNull.js",
+      "class_name": "FixPrc2ProjectsCompanyCodeNotNull1781837624061",
+      "effective_name": "FixPrc2ProjectsCompanyCodeNotNull1781837624061",
+      "timestamp": 1781837624061
+    },
+    {
+      "source_file": "transpiled/1782000000000-W4MasterDataFoundation.js",
+      "class_name": "W4MasterDataFoundation1782000000000",
+      "effective_name": "W4MasterDataFoundation1782000000000",
+      "timestamp": 1782000000000
+    },
+    {
+      "source_file": "transpiled/1782041418112-CreateStorePaymentTables.js",
+      "class_name": "CreateStorePaymentTables1782041418112",
+      "effective_name": "CreateStorePaymentTables1782041418112",
+      "timestamp": 1782041418112
+    },
+    {
+      "source_file": "transpiled/1782042418112-CreateFileMetadata.js",
+      "class_name": "CreateFileMetadata1782042418112",
+      "effective_name": "CreateFileMetadata1782042418112",
+      "timestamp": 1782042418112
+    },
+    {
+      "source_file": "transpiled/1782043418112-AddShareholderContributionDate.js",
+      "class_name": "AddShareholderContributionDate1782043418112",
+      "effective_name": "AddShareholderContributionDate1782043418112",
+      "timestamp": 1782043418112
+    },
+    {
+      "source_file": "transpiled/1782044418112-SeedMaterialCodePrefix.js",
+      "class_name": "SeedMaterialCodePrefix1782044418112",
+      "effective_name": "SeedMaterialCodePrefix1782044418112",
+      "timestamp": 1782044418112
+    },
+    {
+      "source_file": "transpiled/1782045418112-SeedWorkflowAtomicMenus.js",
+      "class_name": "SeedWorkflowAtomicMenus1782045418112",
+      "effective_name": "SeedWorkflowAtomicMenus1782045418112",
+      "timestamp": 1782045418112
+    },
+    {
+      "source_file": "transpiled/1782046418112-SeedSettingsAtomicPermissionMenus.js",
+      "class_name": "SeedSettingsAtomicPermissionMenus1782046418112",
+      "effective_name": "SeedSettingsAtomicPermissionMenus1782046418112",
+      "timestamp": 1782046418112
+    },
+    {
+      "source_file": "transpiled/1782047418112-SeedSettingsOperationalAtomicMenus.js",
+      "class_name": "SeedSettingsOperationalAtomicMenus1782047418112",
+      "effective_name": "SeedSettingsOperationalAtomicMenus1782047418112",
+      "timestamp": 1782047418112
+    },
+    {
+      "source_file": "transpiled/1782048418112-SeedSettingsConfigAtomicMenus.js",
+      "class_name": "SeedSettingsConfigAtomicMenus1782048418112",
+      "effective_name": "SeedSettingsConfigAtomicMenus1782048418112",
+      "timestamp": 1782048418112
+    },
+    {
+      "source_file": "transpiled/1782049418112-SeedOrgDataScopeAtomicMenus.js",
+      "class_name": "SeedOrgDataScopeAtomicMenus1782049418112",
+      "effective_name": "SeedOrgDataScopeAtomicMenus1782049418112",
+      "timestamp": 1782049418112
+    },
+    {
+      "source_file": "transpiled/1782050418112-SeedQualityMobileAtomicMenus.js",
+      "class_name": "SeedQualityMobileAtomicMenus1782050418112",
+      "effective_name": "SeedQualityMobileAtomicMenus1782050418112",
+      "timestamp": 1782050418112
+    },
+    {
+      "source_file": "transpiled/1782051418112-SeedOnlineUsersAtomicMenu.js",
+      "class_name": "SeedOnlineUsersAtomicMenu1782051418112",
+      "effective_name": "SeedOnlineUsersAtomicMenu1782051418112",
+      "timestamp": 1782051418112
+    },
+    {
+      "source_file": "transpiled/1782052418112-RepairRolePermissionMatrixAtomicity.js",
+      "class_name": "RepairRolePermissionMatrixAtomicity1782052418112",
+      "effective_name": "RepairRolePermissionMatrixAtomicity1782052418112",
+      "timestamp": 1782052418112
+    },
+    {
+      "source_file": "transpiled/1782053418112-SeedMasterDataCenterMenu.js",
+      "class_name": "SeedMasterDataCenterMenu1782053418112",
+      "effective_name": "SeedMasterDataCenterMenu1782053418112",
+      "timestamp": 1782053418112
+    },
+    {
+      "source_file": "transpiled/1782054418112-GrantMasterDataProjectMenu.js",
+      "class_name": "GrantMasterDataProjectMenu1782054418112",
+      "effective_name": "GrantMasterDataProjectMenu1782054418112",
+      "timestamp": 1782054418112
+    },
+    {
+      "source_file": "transpiled/1782055418112-GrantAllMasterDataAtomicMenus.js",
+      "class_name": "GrantAllMasterDataAtomicMenus1782055418112",
+      "effective_name": "GrantAllMasterDataAtomicMenus1782055418112",
+      "timestamp": 1782055418112
+    },
+    {
+      "source_file": "transpiled/1782056418112-FixBizProjectsCompanyTrigger.js",
+      "class_name": "FixBizProjectsCompanyTrigger1782056418112",
+      "effective_name": "FixBizProjectsCompanyTrigger1782056418112",
+      "timestamp": 1782056418112
+    },
+    {
+      "source_file": "transpiled/1782057418112-EnsureSysDictUpdatedAt.js",
+      "class_name": "EnsureSysDictUpdatedAt1782057418112",
+      "effective_name": "EnsureSysDictUpdatedAt1782057418112",
+      "timestamp": 1782057418112
+    },
+    {
+      "source_file": "transpiled/1782058418112-AddMstStoresPosConfig.js",
+      "class_name": "AddMstStoresPosConfig1782058418112",
+      "effective_name": "AddMstStoresPosConfig1782058418112",
+      "timestamp": 1782058418112
+    },
+    {
+      "source_file": "transpiled/1782060418112-AddSalStoreSalesCurrency.js",
+      "class_name": "AddSalStoreSalesCurrency1782060418112",
+      "effective_name": "AddSalStoreSalesCurrency1782060418112",
+      "timestamp": 1782060418112
+    },
+    {
+      "source_file": "transpiled/1782062418112-AddSalStoreSalesReturn.js",
+      "class_name": "AddSalStoreSalesReturn1782062418112",
+      "effective_name": "AddSalStoreSalesReturn1782062418112",
+      "timestamp": 1782062418112
+    },
+    {
+      "source_file": "transpiled/1782064418112-AddUatFeedbackAgentFields.js",
+      "class_name": "AddUatFeedbackAgentFields1782064418112",
+      "effective_name": "AddUatFeedbackAgentFields1782064418112",
+      "timestamp": 1782064418112
+    },
+    {
+      "source_file": "transpiled/1782066418112-CreateBackupRecords.js",
+      "class_name": "CreateBackupRecords1782066418112",
+      "effective_name": "CreateBackupRecords1782066418112",
+      "timestamp": 1782066418112
+    },
+    {
+      "source_file": "transpiled/1782633382333-GrantDeviceMonitorFactoryMgr.js",
+      "class_name": "GrantDeviceMonitorFactoryMgr1782633382333",
+      "effective_name": "GrantDeviceMonitorFactoryMgr1782633382333",
+      "timestamp": 1782633382333
+    },
+    {
+      "source_file": "transpiled/1782638092093-AddSysNotificationsCompanyCode.js",
+      "class_name": "AddSysNotificationsCompanyCode1782638092093",
+      "effective_name": "AddSysNotificationsCompanyCode1782638092093",
+      "timestamp": 1782638092093
+    },
+    {
+      "source_file": "transpiled/1782639127220-CleanupVestigialMenuGrants.js",
+      "class_name": "CleanupVestigialMenuGrants1782639127220",
+      "effective_name": "CleanupVestigialMenuGrants1782639127220",
+      "timestamp": 1782639127220
+    },
+    {
+      "source_file": "transpiled/1782645332018-GrantWmsOpInoutEdit.js",
+      "class_name": "GrantWmsOpInoutEdit1782645332018",
+      "effective_name": "GrantWmsOpInoutEdit1782645332018",
+      "timestamp": 1782645332018
+    },
+    {
+      "source_file": "transpiled/1782700000000-AddMasterDataMultilingualNames.js",
+      "class_name": "AddMasterDataMultilingualNames1782700000000",
+      "effective_name": "AddMasterDataMultilingualNames1782700000000",
+      "timestamp": 1782700000000
+    },
+    {
+      "source_file": "transpiled/1782710000000-FixReimburseMenuAndSourceModeGrants.js",
+      "class_name": "FixReimburseMenuAndSourceModeGrants1782710000000",
+      "effective_name": "FixReimburseMenuAndSourceModeGrants1782710000000",
+      "timestamp": 1782710000000
+    },
+    {
+      "source_file": "transpiled/1782720000000-SeedStorePaymentAndSales2DashboardMenus.js",
+      "class_name": "SeedStorePaymentAndSales2DashboardMenus1782720000000",
+      "effective_name": "SeedStorePaymentAndSales2DashboardMenus1782720000000",
+      "timestamp": 1782720000000
+    },
+    {
+      "source_file": "transpiled/1782730000000-AddSysUserArchiveLifecycle.js",
+      "class_name": "AddSysUserArchiveLifecycle1782730000000",
+      "effective_name": "AddSysUserArchiveLifecycle1782730000000",
+      "timestamp": 1782730000000
+    },
+    {
+      "source_file": "transpiled/1782740000000-CreateChanjetIntegrationFoundation.js",
+      "class_name": "CreateChanjetIntegrationFoundation1782740000000",
+      "effective_name": "CreateChanjetIntegrationFoundation1782740000000",
+      "timestamp": 1782740000000
+    },
+    {
+      "source_file": "transpiled/1782741000000-CreateChanjetVoucherDraftAndReconciliation.js",
+      "class_name": "CreateChanjetVoucherDraftAndReconciliation1782741000000",
+      "effective_name": "CreateChanjetVoucherDraftAndReconciliation1782741000000",
+      "timestamp": 1782741000000
+    },
+    {
+      "source_file": "transpiled/1782742000000-CreateChanjetReadonlyMirror.js",
+      "class_name": "CreateChanjetReadonlyMirror1782742000000",
+      "effective_name": "CreateChanjetReadonlyMirror1782742000000",
+      "timestamp": 1782742000000
+    },
+    {
+      "source_file": "transpiled/1782750500000-CreateBugReports.js",
+      "class_name": "CreateBugReports1782750500000",
+      "effective_name": "CreateBugReports1782750500000",
+      "timestamp": 1782750500000
+    },
+    {
+      "source_file": "transpiled/1782750600000-ExtendBugReportsWorkflow.js",
+      "class_name": "ExtendBugReportsWorkflow1782750600000",
+      "effective_name": "ExtendBugReportsWorkflow1782750600000",
+      "timestamp": 1782750600000
+    },
+    {
+      "source_file": "transpiled/1784042679000-AllowChanjetSourceOnlyMatchStatus.js",
+      "class_name": "AllowChanjetSourceOnlyMatchStatus1784042679000",
+      "effective_name": "AllowChanjetSourceOnlyMatchStatus1784042679000",
+      "timestamp": 1784042679000
+    },
+    {
+      "source_file": "transpiled/1784120000000-EnforceSingleVisiblePrimaryUserRole.js",
+      "class_name": "EnforceSingleVisiblePrimaryUserRole1784120000000",
+      "effective_name": "EnforceSingleVisiblePrimaryUserRole1784120000000",
+      "timestamp": 1784120000000
+    },
+    {
+      "source_file": "transpiled/1784374615347-AddPackagingSourceBatchQuantities.js",
+      "class_name": "AddPackagingSourceBatchQuantities1784374615347",
+      "effective_name": "AddPackagingSourceBatchQuantities1784374615347",
+      "timestamp": 1784374615347
+    },
+    {
+      "source_file": "transpiled/1784552282000-ScopeChanjetMasterMappingByBook.js",
+      "class_name": "ScopeChanjetMasterMappingByBook1784552282000",
+      "effective_name": "ScopeChanjetMasterMappingByBook1784552282000",
+      "timestamp": 1784552282000
+    },
+    {
+      "source_file": "transpiled/1784600000000-AddChanjetWritebackPreparation.js",
+      "class_name": "AddChanjetWritebackPreparation1784600000000",
+      "effective_name": "AddChanjetWritebackPreparation1784600000000",
+      "timestamp": 1784600000000
+    },
+    {
+      "source_file": "transpiled/1784660000000-AddChanjetShareholderEquityReconciliation.js",
+      "class_name": "AddChanjetShareholderEquityReconciliation1784660000000",
+      "effective_name": "AddChanjetShareholderEquityReconciliation1784660000000",
+      "timestamp": 1784660000000
+    },
+    {
+      "source_file": "transpiled/1784670000000-AddChanjetErpInboundAccountingSync.js",
+      "class_name": "AddChanjetErpInboundAccountingSync1784670000000",
+      "effective_name": "AddChanjetErpInboundAccountingSync1784670000000",
+      "timestamp": 1784670000000
+    },
+    {
+      "source_file": "transpiled/1785200000000-AddWmsIssueOutboundGovernance.js",
+      "class_name": "AddWmsIssueOutboundGovernance1785200000000",
+      "effective_name": "AddWmsIssueOutboundGovernance1785200000000",
+      "timestamp": 1785200000000
+    },
+    {
+      "source_file": "transpiled/1785300000000-AddWmsChanjetEquivalentFields.js",
+      "class_name": "AddWmsChanjetEquivalentFields1785300000000",
+      "effective_name": "AddWmsChanjetEquivalentFields1785300000000",
+      "timestamp": 1785300000000
+    },
+    {
+      "source_file": "transpiled/1785400000000-CompleteChanjetWmsBridge.js",
+      "class_name": "CompleteChanjetWmsBridge1785400000000",
+      "effective_name": "CompleteChanjetWmsBridge1785400000000",
+      "timestamp": 1785400000000
+    },
+    {
+      "source_file": "transpiled/1785410000000-EnforceChanjetMappingSourceIdentity.js",
+      "class_name": "EnforceChanjetMappingSourceIdentity1785410000000",
+      "effective_name": "EnforceChanjetMappingSourceIdentity1785410000000",
+      "timestamp": 1785410000000
+    },
+    {
+      "source_file": "transpiled/1785420000000-AddChanjetWmsMappingEntityType.js",
+      "class_name": "AddChanjetWmsMappingEntityType1785420000000",
+      "effective_name": "AddChanjetWmsMappingEntityType1785420000000",
+      "timestamp": 1785420000000
+    },
+    {
+      "source_file": "transpiled/1785500000000-AddChanjetWmsDomainPolicies.js",
+      "class_name": "AddChanjetWmsDomainPolicies1785500000000",
+      "effective_name": "AddChanjetWmsDomainPolicies1785500000000",
+      "timestamp": 1785500000000
+    },
+    {
+      "source_file": "transpiled/1785900000000-AddChanjetApiTrafficBudget.js",
+      "class_name": "AddChanjetApiTrafficBudget1785900000000",
+      "effective_name": "AddChanjetApiTrafficBudget1785900000000",
+      "timestamp": 1785900000000
+    },
+    {
+      "source_file": "transpiled/1786000000000-AllowChanjetNotApplicableMatchStatus.js",
+      "class_name": "AllowChanjetNotApplicableMatchStatus1786000000000",
+      "effective_name": "AllowChanjetNotApplicableMatchStatus1786000000000",
+      "timestamp": 1786000000000
+    },
+    {
+      "source_file": "transpiled/1786946700000-AddEggInventoryLedgerDimensions.js",
+      "class_name": "AddEggInventoryLedgerDimensions1786946700000",
+      "effective_name": "AddEggInventoryLedgerDimensions1786946700000",
+      "timestamp": 1786946700000
+    },
+    {
+      "source_file": "transpiled/1787299200000-AllowNullSysUserStoreCode.js",
+      "class_name": "AllowNullSysUserStoreCode1787299200000",
+      "effective_name": "AllowNullSysUserStoreCode1787299200000",
+      "timestamp": 1787299200000
+    },
+    {
+      "source_file": "transpiled/1787304000000-RestoreFinanceSourceTypeChecks.js",
+      "class_name": "RestoreFinanceSourceTypeChecks1787304000000",
+      "effective_name": "RestoreFinanceSourceTypeChecks1787304000000",
+      "timestamp": 1787304000000
+    },
+    {
+      "source_file": "transpiled/1787551200000-AlignBrdFlockStatusDictionary.js",
+      "class_name": "AlignBrdFlockStatusDictionary1787551200000",
+      "effective_name": "AlignBrdFlockStatusDictionary1787551200000",
+      "timestamp": 1787551200000
+    },
+    {
+      "source_file": "transpiled/1787724000000-AddWarehouseDomain.js",
+      "class_name": "AddWarehouseDomain1787724000000",
+      "effective_name": "AddWarehouseDomain1787724000000",
+      "timestamp": 1787724000000
+    },
+    {
+      "source_file": "transpiled/1787731200000-AlignWmsTransactionForms.js",
+      "class_name": "AlignWmsTransactionForms1787731200000",
+      "effective_name": "AlignWmsTransactionForms1787731200000",
+      "timestamp": 1787731200000
+    },
+    {
+      "source_file": "transpiled/1787875200000-CreateStoreWorkstationIdentity.js",
+      "class_name": "CreateStoreWorkstationIdentity1787875200000",
+      "effective_name": "CreateStoreWorkstationIdentity1787875200000",
+      "timestamp": 1787875200000
+    },
+    {
+      "source_file": "transpiled/1787878800000-EnforceStorePosAtomicSettlement.js",
+      "class_name": "EnforceStorePosAtomicSettlement1787878800000",
+      "effective_name": "EnforceStorePosAtomicSettlement1787878800000",
+      "timestamp": 1787878800000
+    },
+    {
+      "source_file": "transpiled/1787961600000-TightenStoreSiteAndWarehouseOwnership.js",
+      "class_name": "TightenStoreSiteAndWarehouseOwnership1787961600000",
+      "effective_name": "TightenStoreSiteAndWarehouseOwnership1787961600000",
+      "timestamp": 1787961600000
+    },
+    {
+      "source_file": "transpiled/1787965200000-UpgradeWmsTransferLifecycle.js",
+      "class_name": "UpgradeWmsTransferLifecycle1787965200000",
+      "effective_name": "UpgradeWmsTransferLifecycle1787965200000",
+      "timestamp": 1787965200000
+    },
+    {
+      "source_file": "transpiled/1788134400000-CreateStoreReplenishmentOrchestration.js",
+      "class_name": "CreateStoreReplenishmentOrchestration1788134400000",
+      "effective_name": "CreateStoreReplenishmentOrchestration1788134400000",
+      "timestamp": 1788134400000
+    },
+    {
+      "source_file": "transpiled/1788220800000-ImplementStorePosV14TenderSettlement.js",
+      "class_name": "ImplementStorePosV14TenderSettlement1788220800000",
+      "effective_name": "ImplementStorePosV14TenderSettlement1788220800000",
+      "timestamp": 1788220800000
+    },
+    {
+      "source_file": "transpiled/1788253200000-AddSalesOrderLifecycleEvents.js",
+      "class_name": "AddSalesOrderLifecycleEvents1788253200000",
+      "effective_name": "AddSalesOrderLifecycleEvents1788253200000",
+      "timestamp": 1788253200000
+    },
+    {
+      "source_file": "transpiled/1788337017420-AddSalesOrderApprovalContext.js",
+      "class_name": "AddSalesOrderApprovalContext1788337017420",
+      "effective_name": "AddSalesOrderApprovalContext1788337017420",
+      "timestamp": 1788337017420
+    },
+    {
+      "source_file": "transpiled/1788408000000-AddSalesOrderBatchAllocations.js",
+      "class_name": "AddSalesOrderBatchAllocations1788408000000",
+      "effective_name": "AddSalesOrderBatchAllocations1788408000000",
+      "timestamp": 1788408000000
+    },
+    {
+      "source_file": "transpiled/1788411600000-AddSalesFulfillmentWarehouseAndPartialDelivery.js",
+      "class_name": "AddSalesFulfillmentWarehouseAndPartialDelivery1788411600000",
+      "effective_name": "AddSalesFulfillmentWarehouseAndPartialDelivery1788411600000",
+      "timestamp": 1788411600000
+    },
+    {
+      "source_file": "transpiled/1788415200000-AddDeliveryExceptionAndReturnRestockTargets.js",
+      "class_name": "AddDeliveryExceptionAndReturnRestockTargets1788415200000",
+      "effective_name": "AddDeliveryExceptionAndReturnRestockTargets1788415200000",
+      "timestamp": 1788415200000
+    },
+    {
+      "source_file": "transpiled/1788501600000-GovernSupplierWarehouseTypeDomains.js",
+      "class_name": "GovernSupplierWarehouseTypeDomains1788501600000",
+      "effective_name": "GovernSupplierWarehouseTypeDomains1788501600000",
+      "timestamp": 1788501600000
+    },
+    {
+      "source_file": "transpiled/1788570000000-RejectNonFiniteCashBalances.js",
+      "class_name": "RejectNonFiniteCashBalances1788570000000",
+      "effective_name": "RejectNonFiniteCashBalances1788570000000",
+      "timestamp": 1788570000000
+    },
+    {
+      "source_file": "transpiled/1788943471000-AddInventoryInboundDate.js",
+      "class_name": "AddInventoryInboundDate1788943471000",
+      "effective_name": "AddInventoryInboundDate1788943471000",
+      "timestamp": 1788943471000
+    },
+    {
+      "source_file": "transpiled/1789012800000-GovernPackagingGradingSubmissions.js",
+      "class_name": "GovernPackagingGradingSubmissions1789012800000",
+      "effective_name": "GovernPackagingGradingSubmissions1789012800000",
+      "timestamp": 1789012800000
+    },
+    {
+      "source_file": "transpiled/1789099200000-AddGradingVoidAudit.js",
+      "class_name": "AddGradingVoidAudit1789099200000",
+      "effective_name": "AddGradingVoidAudit1789099200000",
+      "timestamp": 1789099200000
+    },
+    {
+      "source_file": "transpiled/1789099201000-ProtectPackagingVoidAndTestIsolation.js",
+      "class_name": "ProtectPackagingVoidAndTestIsolation1789099201000",
+      "effective_name": "ProtectPackagingVoidAndTestIsolation1789099201000",
+      "timestamp": 1789099201000
+    },
+    {
+      "source_file": "transpiled/1789353300496-PackagingHistoryD1cEvidence.js",
+      "class_name": "PackagingHistoryD1cEvidence1789353300496",
+      "effective_name": "PackagingHistoryD1cEvidence1789353300496",
+      "timestamp": 1789353300496
+    },
+    {
+      "source_file": "transpiled/1789362000000-PackagingHistoryReadIndexes.js",
+      "class_name": "PackagingHistoryReadIndexes1789362000000",
+      "effective_name": "PackagingHistoryReadIndexes1789362000000",
+      "timestamp": 1789362000000
+    },
+    {
+      "source_file": "transpiled/1789520271000-SysDictConfigJsonJsonb.js",
+      "class_name": "SysDictConfigJsonJsonb1789520271000",
+      "effective_name": "SysDictConfigJsonJsonb1789520271000",
+      "timestamp": 1789520271000
+    },
+    {
+      "source_file": "transpiled/1789600000000-ConvergePhase1CanonicalSchema.js",
+      "class_name": "ConvergePhase1CanonicalSchema1789600000000",
+      "effective_name": "ConvergePhase1CanonicalSchema1789600000000",
+      "timestamp": 1789600000000
+    },
+    {
+      "source_file": "transpiled/1789600100000-WidenAccLedgerStoreCode.js",
+      "class_name": "WidenAccLedgerStoreCode1789600100000",
+      "effective_name": "WidenAccLedgerStoreCode1789600100000",
+      "timestamp": 1789600100000
+    },
+    {
+      "source_file": "transpiled/1789600200000-WidenWarehouseCodeForeignKeys.js",
+      "class_name": "WidenWarehouseCodeForeignKeys1789600200000",
+      "effective_name": "WidenWarehouseCodeForeignKeys1789600200000",
+      "timestamp": 1789600200000
+    },
+    {
+      "source_file": "transpiled/1789600300000-ConvergeInboundTimestamps.js",
+      "class_name": "ConvergeInboundTimestamps1789600300000",
+      "effective_name": "ConvergeInboundTimestamps1789600300000",
+      "timestamp": 1789600300000
+    },
+    {
+      "source_file": "transpiled/1791878400000-CreateChanjetExecutionAdmissions.js",
+      "class_name": "CreateChanjetExecutionAdmissions1791878400000",
+      "effective_name": "CreateChanjetExecutionAdmissions1791878400000",
+      "timestamp": 1791878400000
+    }
+  ]
+}

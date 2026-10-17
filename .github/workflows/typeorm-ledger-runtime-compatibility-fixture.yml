@@ -7,6 +7,24 @@ on:
       - 'apps/api/src/database/data-source.ts'
       - 'scripts/ci/run-typeorm-ledger-runtime-compatibility-fixture.mjs'
       - 'scripts/ci/typeorm-ledger-runtime-compatibility.test.mjs'
+      - 'scripts/ci/typeorm-ledger-rehearsal-*'
+      - 'scripts/ci/ledger-fixture-guard.mjs'
+      - 'scripts/ci/ledger-readonly-collect.test.mjs'
+      - 'scripts/ci/ledger-collection-staging.test.mjs'
+      - 'scripts/ci/ledger-rehearsal-gate.test.mjs'
+      - 'scripts/ci/ledger-collection-chain.mjs'
+      - 'scripts/ci/ledger-collection-chain.test.mjs'
+      - 'scripts/ci/ledger-preflight-output-classify.mjs'
+      - 'scripts/ci/ledger-preflight-output-classify.test.mjs'
+      - 'scripts/ci/ledger-source-inventory.mjs'
+      - 'scripts/ops/ledger-readonly-collect.mjs'
+      - 'scripts/ops/ledger-offline-evaluate.mjs'
+      - 'scripts/ops/ledger-collection-host.sh'
+      - 'scripts/ledger-preflight.mjs'
+      - 'apps/api/src/modules/chanjet/chanjet-execution-*'
+      - 'scripts/ops/chanjet-execution-*'
+      - 'scripts/ci/chanjet-execution-admission-cli.test.mjs'
+      - 'apps/api/test/fixtures/chanjet-admission-worker.cjs'
       - '.github/workflows/typeorm-ledger-runtime-compatibility-fixture.yml'
   workflow_dispatch:
 
@@ -40,6 +58,109 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter phoenix-erp-v3-nest build
       - run: node --test scripts/ci/typeorm-ledger-runtime-compatibility.test.mjs
+      - name: Clean-checkout verification of the collection toolchain
+        run: |
+          set -euo pipefail
+          # the collection toolchain must work from a CLEAN checkout of this
+          # exact head — no build, no repository state dependencies
+          STAGE="$(mktemp -d /tmp/ledger-clean-checkout-XXXXXX)"
+          git archive HEAD scripts/ops/ledger-readonly-collect.mjs scripts/ops/ledger-offline-evaluate.mjs scripts/ledger-preflight.mjs | tar -x -C "$STAGE"
+          cd "$STAGE"
+          node --check scripts/ops/ledger-readonly-collect.mjs
+          node --check scripts/ops/ledger-offline-evaluate.mjs
+          node --check scripts/ledger-preflight.mjs
+          # the staged single file is self-contained: help exits 0 with no
+          # repository context at all
+          node scripts/ops/ledger-readonly-collect.mjs --help >/dev/null
+          echo "CLEAN_CHECKOUT_VERIFICATION=PASS"
+
+      - name: Ledger readonly collection verification (dedicated disposable database, real psql)
+        env:
+          LEDGER_COLLECT_VERIFY_URL: postgresql://postgres:postgres@127.0.0.1:5432/ledger_collect_verify
+          LEDGER_COLLECT_VERIFY_REQUIRED: 'true'
+          LEDGER_COLLECT_DB_CONTAINER_DISCOVER: postgres:16.14-alpine
+        # the test bootstraps its dedicated ledger_collect_verify database
+        # INSIDE the service container (same-instance guard) and verifies the
+        # URL/container identity before anything destructive runs; the
+        # service container is discovered by its exact image. NO SKIP
+        # FALLBACK: REQUIRED=true makes a missing URL throw, and the output
+        # must report zero skipped tests.
+        run: |
+          set -euo pipefail
+          CONTAINER="$(docker ps --filter ancestor="$LEDGER_COLLECT_DB_CONTAINER_DISCOVER" --format '{{.Names}}' | head -1)"
+          test -n "$CONTAINER"
+          echo "COLLECTION_FIXTURE_CONTAINER=$CONTAINER"
+          OUT="$(LEDGER_COLLECT_DB_CONTAINER="$CONTAINER" node --test scripts/ci/ledger-readonly-collect.test.mjs 2>&1)" || TEST_EXIT=$?
+          echo "$OUT"
+          test "${TEST_EXIT:-0}" = "0"
+          echo "$OUT" | grep -q "# skipped 0"
+          echo "$OUT" | grep -q "# pass 7"
+          echo "COLLECTION_NO_SKIP_FALLBACK=VERIFIED"
+
+      - name: Ledger collection staging + offline adapter (dedicated staging database, real prod transport)
+        env:
+          LEDGER_COLLECT_VERIFY_URL: postgresql://postgres:postgres@127.0.0.1:5432/ledger_collect_verify
+          LEDGER_COLLECT_VERIFY_REQUIRED: 'true'
+          LEDGER_COLLECT_DB_CONTAINER_DISCOVER: postgres:16.14-alpine
+        run: |
+          set -euo pipefail
+          CONTAINER="$(docker ps --filter ancestor="$LEDGER_COLLECT_DB_CONTAINER_DISCOVER" --format '{{.Names}}' | head -1)"
+          test -n "$CONTAINER"
+          OUT="$(LEDGER_COLLECT_DB_CONTAINER="$CONTAINER" node --test scripts/ci/ledger-collection-staging.test.mjs 2>&1)" || TEST_EXIT=$?
+          echo "$OUT"
+          test "${TEST_EXIT:-0}" = "0"
+          echo "$OUT" | grep -q "# skipped 0"
+          echo "$OUT" | grep -q "# pass 5"
+          echo "STAGING_NO_SKIP_FALLBACK=VERIFIED"
+
+      - name: Rehearsal preflight-gate dynamic regressions (clean + injected fault)
+        env:
+          LEDGER_REHEARSAL_GATE_URL: postgresql://postgres:postgres@127.0.0.1:5432/phoenix_ledger_rehearsal
+          LEDGER_REHEARSAL_GATE_REQUIRED: 'true'
+        run: |
+          set -euo pipefail
+          OUT="$(node --test scripts/ci/ledger-rehearsal-gate.test.mjs 2>&1)" || TEST_EXIT=$?
+          echo "$OUT"
+          test "${TEST_EXIT:-0}" = "0"
+          echo "$OUT" | grep -q "# skipped 0"
+          echo "$OUT" | grep -q "# pass 2"
+          echo "REHEARSAL_GATE_NO_SKIP_FALLBACK=VERIFIED"
+
+      - name: Full collection chain contract test (no production network, local transport, four outcome classes)
+        env:
+          LEDGER_COLLECT_VERIFY_URL: postgresql://postgres:postgres@127.0.0.1:5432/ledger_collect_verify
+          LEDGER_COLLECTION_CHAIN_REQUIRED: 'true'
+          LEDGER_COLLECT_DB_CONTAINER_DISCOVER: postgres:16.14-alpine
+        run: |
+          set -euo pipefail
+          CONTAINER="$(docker ps --filter ancestor="$LEDGER_COLLECT_DB_CONTAINER_DISCOVER" --format '{{.Names}}' | head -1)"
+          test -n "$CONTAINER"
+          OUT="$(LEDGER_COLLECT_DB_CONTAINER="$CONTAINER" node --test scripts/ci/ledger-collection-chain.test.mjs 2>&1)" || TEST_EXIT=$?
+          echo "$OUT"
+          test "${TEST_EXIT:-0}" = "0"
+          echo "$OUT" | grep -q "# skipped 0"
+          echo "$OUT" | grep -q "# pass 13"
+          echo "CHAIN_CONTRACT_NO_SKIP_FALLBACK=VERIFIED"
+
+      - name: The coordinator's original offline counterexamples (six groups, verbatim shapes)
+        run: |
+          set -euo pipefail
+          OUT="$(node --test scripts/ci/ledger-offline-counterexamples.test.mjs 2>&1)" || TEST_EXIT=$?
+          echo "$OUT"
+          test "${TEST_EXIT:-0}" = "0"
+          echo "$OUT" | grep -q "# skipped 0"
+          echo "$OUT" | grep -q "# pass 10"
+          echo "ORIGINAL_COUNTEREXAMPLES_NO_SKIP_FALLBACK=VERIFIED"
+
+      - name: Preflight output classifier regressions (boundary matrix + real binary dynamics)
+        run: |
+          set -euo pipefail
+          OUT="$(node --test scripts/ci/ledger-preflight-output-classify.test.mjs 2>&1)" || TEST_EXIT=$?
+          echo "$OUT"
+          test "${TEST_EXIT:-0}" = "0"
+          echo "$OUT" | grep -q "# skipped 0"
+          echo "$OUT" | grep -q "# pass 20"
+          echo "CLASSIFIER_NO_SKIP_FALLBACK=VERIFIED"
       - name: Run real TypeORM ledger rehearsal
         env:
           PGHOST: 127.0.0.1
@@ -48,3 +169,87 @@ jobs:
           PGPASSWORD: postgres
           PGDATABASE: phoenix_ledger_rehearsal
         run: node scripts/ci/run-typeorm-ledger-runtime-compatibility-fixture.mjs
+
+  admission-postgres:
+    name: Real PostgreSQL18 Admission Invariants
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: chanjet_admission_fixture
+        ports:
+          - '127.0.0.1:5432:5432'
+        options: >-
+          --health-cmd "pg_isready -U postgres -d chanjet_admission_fixture"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Build compiled API (registration CLI consumes the real dist store)
+        run: pnpm --filter phoenix-erp-v3-nest build
+      - name: Require real isolated PostgreSQL tests (no skip fallback)
+        env:
+          CHANJET_ADMISSION_FIXTURE_URL: postgresql://postgres:postgres@127.0.0.1:5432/chanjet_admission_fixture
+          CHANJET_ADMISSION_FIXTURE_REQUIRED: 'true'
+        run: >-
+          pnpm --filter phoenix-erp-v3-nest exec jest --runInBand --runTestsByPath
+          src/modules/chanjet/chanjet-execution-admission.spec.ts
+          src/modules/chanjet/chanjet-readonly-policy.spec.ts
+          --json --outputFile=${{ runner.temp }}/chanjet-admission-results.json
+      - name: Assert real fixture tests ran and passed
+        run: |
+          node -e 'const r=require(process.argv[1]); if(!r.success || r.numPendingTests!==0 || !r.testResults.some(s=>s.assertionResults.some(t=>t.fullName.includes("rejects the actual cap=1") && t.status==="passed"))) throw Error("REAL_ADMISSION_MATRIX_REQUIRED"); console.log("REAL_PG18_ADMISSION_MATRIX=PASS;SKIPPED=0");' '${{ runner.temp }}/chanjet-admission-results.json'
+      - name: Execution transport wiring against the same isolated PostgreSQL18
+        env:
+          CHANJET_ADMISSION_FIXTURE_URL: postgresql://postgres:postgres@127.0.0.1:5432/chanjet_admission_fixture
+          CHANJET_EXECUTION_TRANSPORT_REQUIRED: 'true'
+        run: >-
+          pnpm --filter phoenix-erp-v3-nest exec jest --runInBand --runTestsByPath
+          src/modules/chanjet/chanjet-execution-transport.spec.ts
+          --json --outputFile=${{ runner.temp }}/chanjet-transport-results.json
+      - name: Assert transport wiring matrix ran and passed
+        run: |
+          node -e 'const r=require(process.argv[1]); if(!r.success || r.numPendingTests!==0 || !r.testResults.some(s=>s.assertionResults.some(t=>t.fullName.includes("gateway-deadline cancellation") && t.status==="passed"))) throw Error("REAL_EXECUTION_TRANSPORT_MATRIX_REQUIRED"); console.log("REAL_PG18_TRANSPORT_MATRIX=PASS;SKIPPED=0");' '${{ runner.temp }}/chanjet-transport-results.json'
+      - name: Registration CLI subprocess tests (real child process, real PostgreSQL18)
+        env:
+          CHANJET_ADMISSION_FIXTURE_URL: postgresql://postgres:postgres@127.0.0.1:5432/chanjet_admission_fixture
+          CHANJET_EXECUTION_CLI_REQUIRED: 'true'
+        run: node --test scripts/ci/chanjet-execution-admission-cli.test.mjs
+      - name: Orchestration full-chain subprocess tests (real child process, real PostgreSQL18, local HTTP fixture)
+        env:
+          CHANJET_ADMISSION_FIXTURE_URL: postgresql://postgres:postgres@127.0.0.1:5432/chanjet_admission_fixture
+          CHANJET_EXECUTION_ORCHESTRATION_REQUIRED: 'true'
+        run: node --test scripts/ci/chanjet-execution-orchestrate.test.mjs
+      - name: Execution-bound worker integration (real scheduler, real PostgreSQL18, local provider)
+        env:
+          CHANJET_ADMISSION_FIXTURE_URL: postgresql://postgres:postgres@127.0.0.1:5432/chanjet_admission_fixture
+          CHANJET_EXECUTION_WORKER_REQUIRED: 'true'
+        # no --forceExit: the scheduler's guard executor is disposed in
+        # onModuleDestroy and the fixture connections are closed — a natural
+        # process exit IS the resource-release assertion.
+        run: >-
+          pnpm --filter phoenix-erp-v3-nest exec jest --runInBand --runTestsByPath
+          src/modules/chanjet/chanjet-execution-worker.integration.spec.ts
+      - name: Mirror-write gate integration (real integration methods, real PostgreSQL18)
+        env:
+          CHANJET_ADMISSION_FIXTURE_URL: postgresql://postgres:postgres@127.0.0.1:5432/chanjet_admission_fixture
+          CHANJET_EXECUTION_WORKER_REQUIRED: 'true'
+        run: >-
+          pnpm --filter phoenix-erp-v3-nest exec jest --runInBand --runTestsByPath
+          src/modules/chanjet/chanjet-mirror-write-gate.integration.spec.ts
+      - name: First-sync protected-entry acceptance (real entry, real scheduler host, real PostgreSQL18)
+        env:
+          CHANJET_ADMISSION_FIXTURE_URL: postgresql://postgres:postgres@127.0.0.1:5432/chanjet_admission_fixture
+          CHANJET_FIRST_SYNC_REQUIRED: 'true'
+        run: node --test scripts/ci/chanjet-first-sync-contract.test.mjs

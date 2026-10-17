@@ -1,8 +1,11 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import os from 'node:os';
 import { execFileSync } from 'node:child_process';
 import { createRequire } from 'node:module';
+import { partitionRehearsalInventory } from './typeorm-ledger-rehearsal-inventory.mjs';
+import { classifyPreflightOutput } from './ledger-preflight-output-classify.mjs';
 
 const require = createRequire(import.meta.url);
 const { Client } = require('../../apps/api/node_modules/pg');
@@ -17,21 +20,22 @@ const pgEnv = {
 };
 const cli = path.join(root, 'apps/api/node_modules/.bin/typeorm');
 const dataSource = path.join(root, 'apps/api/dist/database/data-source.js');
+let rehearsalDataSource;
 const phase1Timestamps = new Set([1789600000000, 1789600100000, 1789600200000, 1789600300000]);
 const retired = { name: 'DropHouseOwnershipRedundantColumns1787647200000', timestamp: 1787647200000 };
 
 function inventory() {
   const output = execFileSync(process.execPath, ['scripts/ci/typeorm-migration-inventory.mjs', 'apps/api/dist/database/migrations'], { encoding: 'utf8' });
   const entries = JSON.parse(output);
-  assert.equal(entries.length, 88, `expected 88 canonical migrations, got ${entries.length}`);
-  const phase1 = entries.filter((entry) => phase1Timestamps.has(entry.timestamp));
+  const { history, admission } = partitionRehearsalInventory(entries);
+  const phase1 = history.filter((entry) => phase1Timestamps.has(entry.timestamp));
   assert.equal(phase1.length, 4, 'Phase 1 inventory must contain exactly four timestamps');
   assert.equal(new Set(phase1.map((entry) => entry.timestamp)).size, 4);
-  return { entries, phase1 };
+  return { entries: history, phase1, admission };
 }
 
 function runCli(args) {
-  return execFileSync(cli, ['-d', dataSource, ...args], {
+  return execFileSync(cli, ['-d', rehearsalDataSource, ...args], {
     cwd: path.join(root, 'apps/api'),
     env: { ...process.env, DB_HOST: pgEnv.host, DB_PORT: String(pgEnv.port), DB_USER: pgEnv.user, DB_PASSWORD: pgEnv.password, DB_NAME: pgEnv.database },
     encoding: 'utf8',
@@ -40,15 +44,24 @@ function runCli(args) {
 }
 
 async function main() {
+  assert.equal(pgEnv.host, '127.0.0.1', 'disposable loopback ledger fixture required');
+  assert.equal(pgEnv.database, 'phoenix_ledger_rehearsal', 'dedicated disposable ledger fixture database required');
   console.log(`TYPEORM_RUNTIME_VERSION=${typeormPackage.version}`);
-  const { entries, phase1 } = inventory();
-  const canonicalNames = new Set(entries.map((entry) => entry.effective_name));
+  const { entries, phase1, admission } = inventory();
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'phoenix-ledger-history-'));
+  rehearsalDataSource = path.join(directory, 'data-source.cjs');
+  // Explicit pinned historical classes only. Never seed or execute admission here.
+  fs.writeFileSync(rehearsalDataSource, `const { DataSource } = require(${JSON.stringify(path.join(root,'apps/api/node_modules/typeorm'))});
+    const { dataSourceOptions } = require(${JSON.stringify(dataSource)});
+    const entries = ${JSON.stringify(entries)};
+    module.exports.rehearsal = new DataSource({...dataSourceOptions, migrations: entries.map(e => require(${JSON.stringify(root)}+'/'+e.source_file)[e.class_name])});\n`, { mode:0o600 });
+  console.log('HISTORICAL_CANONICAL_INVENTORY=88;ADMISSION_EXCLUDED_FROM_LEDGER_REHEARSAL=YES');
   const legacyFiles = fs.readdirSync(path.join(root, 'apps/api/migrations')).filter((name) => /^2026.*\.sql$/.test(name)).sort();
   assert.equal(legacyFiles.length, 169, `expected 169 legacy SQL migrations, got ${legacyFiles.length}`);
   const client = new Client(pgEnv);
-  await client.connect();
   const q = (text, values) => client.query(text, values);
   try {
+    await client.connect();
     await q('DROP SCHEMA public CASCADE');
     await q('CREATE SCHEMA public');
     await q(`CREATE TABLE acc_ledger (id bigserial PRIMARY KEY, store_code varchar(32), ref_no varchar(128), ledger_type varchar(64), amount numeric)`);
@@ -88,6 +101,7 @@ async function main() {
     await q('INSERT INTO migrations(timestamp, name) VALUES ($1, $2)', [retired.timestamp, retired.name]);
     assert.equal((await q('SELECT count(*)::int AS n FROM schema_migrations')).rows[0].n, 169);
     assert.equal((await q('SELECT count(*)::int AS n FROM migrations')).rows[0].n, 85);
+    assert.equal((await q('SELECT count(*)::int AS n FROM migrations WHERE name=$1 OR timestamp=$2', [admission.effective_name,admission.timestamp])).rows[0].n, 0);
     console.log('INITIAL_LEDGER=PASS');
 
     const before = runCli(['migration:show']);
@@ -104,24 +118,55 @@ async function main() {
     console.log('PREEXISTING_PENDING_NEGATIVE_CONTROL=PASS');
     await q('INSERT INTO migrations(timestamp, name) VALUES ($1, $2)', [missing.timestamp, missing.effective_name]);
 
-    const preflight = (() => {
-      try { return { status: 0, output: execFileSync(process.execPath, ['scripts/ledger-preflight.mjs', '--db-mode', 'ci', '--mode', 'pre-migration'], { cwd: root, env: { ...process.env, MIG_MODE: 'ci', PGHOST: pgEnv.host, PGPORT: String(pgEnv.port), PGUSER: pgEnv.user, PGPASSWORD: pgEnv.password, PGDATABASE: pgEnv.database }, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }) }; }
-      catch (error) { return { status: error.status ?? 1, output: `${error.stdout ?? ''}${error.stderr ?? ''}` }; }
-    })();
-    console.log(`CURRENT_LEDGER_PREFLIGHT_RESULT=${preflight.status === 0 ? 'PASS' : 'BLOCK'}`);
-    if (preflight.status !== 0) {
-      try {
-        const diagnostics = JSON.parse(preflight.output);
-        console.log(`CURRENT_LEDGER_PREFLIGHT_BLOCK_REASONS=${JSON.stringify(diagnostics.failures ?? diagnostics.diagnostics ?? diagnostics)}`);
-      } catch {
-        console.log('CURRENT_LEDGER_PREFLIGHT_BLOCK_REASONS=UNPARSEABLE_PREFLIGHT_OUTPUT');
-      }
+    // The preflight runs its REAL evaluation against this fixture database.
+    // It requires the candidate ledger inventory (the same shape production
+    // builds: canonicalTypeorm + canonicalLegacy + retiredTypeorm) — without
+    // it the preflight deterministically crashes before evaluating
+    // ('BLOCK: canonical TypeORM inventory is required' on stderr), which is
+    // what historically surfaced as UNPARSEABLE_PREFLIGHT_OUTPUT. stdout and
+    // stderr are captured SEPARATELY and classified by the shared, tested
+    // classifier; business semantics are unchanged: any non-zero exit stays
+    // a BLOCK, only the reported reasons become truthful.
+    // FAULT INJECTION (CI/test-only, env-gated): LEDGER_REHEARSAL_FAULT=
+    // drop-legacy-row deletes one applied legacy row right before the
+    // preflight — the gate must actually fail the rehearsal (the negative
+    // control proving the assertion above is live, not decorative)
+    if (process.env.LEDGER_REHEARSAL_FAULT === 'drop-legacy-row') {
+      const victim = legacyFiles[0];
+      await q('DELETE FROM schema_migrations WHERE filename = $1', [victim]);
+      console.log(`LEDGER_REHEARSAL_FAULT=drop-legacy-row;victim=${victim}`);
     }
+    const inventoryFile = path.join(directory, 'candidate-ledger-inventory.json');
+    const retiredRegistry = JSON.parse(fs.readFileSync(path.join(root, 'scripts/ci/retired-typeorm-migrations.json'), 'utf8'));
+    fs.writeFileSync(inventoryFile, JSON.stringify({
+      canonicalTypeorm: entries.map((entry) => ({ effective_name: entry.effective_name, timestamp: String(entry.timestamp) })),
+      canonicalLegacy: legacyFiles,
+      retiredTypeorm: retiredRegistry,
+    }));
+    const preflightEnv = { ...process.env, MIG_MODE: 'ci', PGHOST: pgEnv.host, PGPORT: String(pgEnv.port), PGUSER: pgEnv.user, PGPASSWORD: pgEnv.password, PGDATABASE: pgEnv.database };
+    const preflight = (() => {
+      try {
+        return { status: 0, stdout: execFileSync(process.execPath, ['scripts/ledger-preflight.mjs', '--db-mode', 'ci', '--mode', 'pre-migration', '--inventory', inventoryFile], { cwd: root, env: preflightEnv, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }), stderr: '' };
+      } catch (error) {
+        return { status: error.status ?? 1, stdout: error.stdout ?? '', stderr: error.stderr ?? '' };
+      }
+    })();
+    const verdict = classifyPreflightOutput(preflight);
+    console.log(`CURRENT_LEDGER_PREFLIGHT_RESULT=${verdict.result}`);
+    console.log(`CURRENT_LEDGER_PREFLIGHT_BLOCK_REASONS=${JSON.stringify(verdict.reasons)}`);
+    // the rehearsal ASSERTS the expected preflight conclusion: this fixture
+    // is built (169 legacy + 85 rows, pre-migration) so the real evaluation
+    // MUST pass — a BLOCK (or a verdict that never formed) fails the
+    // rehearsal instead of being logged and skipped past
+    assert.equal(verdict.result, 'PASS', `EXPECTED_PREFLIGHT_VERDICT_UNMET: ${verdict.kind} ${JSON.stringify(verdict.reasons)}`);
 
     const runOutput = runCli(['migration:run', '--transaction', 'all']);
     for (const entry of phase1) assert.match(runOutput, new RegExp(entry.effective_name));
     assert.doesNotMatch(runOutput, new RegExp(retired.name));
     assert.equal((await q('SELECT count(*)::int AS n FROM migrations')).rows[0].n, 89);
+    assert.equal((await q('SELECT count(*)::int AS n FROM migrations WHERE name=$1 OR timestamp=$2', [admission.effective_name,admission.timestamp])).rows[0].n, 0);
+    assert.equal((await q("SELECT to_regclass('public.chanjet_execution_admissions') AS admission_table")).rows[0].admission_table, null);
+    console.log('ADMISSION_NOT_MARKED_APPLIED_OR_EXECUTED=PASS;REAL_ADMISSION_DDL_PROOF=SEPARATE_PG_JOB');
     assert.equal((await q('SELECT count(*)::int AS n FROM migrations WHERE name = $1', [retired.name])).rows[0].n, 1);
     console.log('MIGRATION_RUN_EXACTLY_FOUR=PASS');
     console.log('RETIRED_ROW_PRESERVED=PASS');
@@ -152,9 +197,18 @@ async function main() {
     console.log('SCHEMA_INVARIANTS=PASS');
     console.log('DATA_INVARIANTS=PASS');
     console.log('LEDGER_RUNTIME_COMPATIBILITY=PASS');
-    console.log('LEDGER_PREFLIGHT_RUNTIME_SEMANTICS_DIVERGENCE=CONFIRMED');
+    // evidence-based semantics line: only a REAL evaluation verdict (BLOCK
+    // JSON) may claim a semantics divergence — a crash, empty output or
+    // unparseable noise never formed an evaluation conclusion and is
+    // reported as exactly that
+    console.log(verdict.result === 'PASS'
+      ? 'LEDGER_PREFLIGHT_RUNTIME_SEMANTICS=AGREE'
+      : verdict.kind === 'EVALUATION'
+        ? 'LEDGER_PREFLIGHT_RUNTIME_SEMANTICS_DIVERGENCE=CONFIRMED'
+        : `LEDGER_PREFLIGHT_NO_EVALUATION_CONCLUSION;KIND=${verdict.kind};REASONS=${JSON.stringify(verdict.reasons)}`);
   } finally {
     await client.end();
+    fs.rmSync(directory, { recursive:true, force:true });
   }
 }
 

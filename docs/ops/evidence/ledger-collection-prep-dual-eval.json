@@ -1,0 +1,86 @@
+{
+  "schema": "phoenix.ledger-collection-prep-dual-eval/v1",
+  "created_at": "2026-10-17T01:01:26.178Z",
+  "baseline_head": "0e6b1ee2702a39d815391744ee95855294480969",
+  "sample": {
+    "file": "docs/ops/evidence/ledger-collection-sample.json",
+    "sha256": "da2dc8d845c4a0d2a26d3ac8e2b09114be44e7070289c2e2eeeb89fc327a181b",
+    "rows": {
+      "schema_migrations": 169,
+      "migrations": 85
+    },
+    "snapshot": "80265:80265:"
+  },
+  "inventories": [
+    {
+      "ref": "origin/main (22b47aebb50d2253afb465a25abc66ded26e873f)",
+      "file": "docs/ops/evidence/inv-main.json",
+      "sha256": "60db506dab2cd4b1b5d24dd226229f57f6ef6afdbb49350f9dd11d3fb4235ccb",
+      "entries": 88,
+      "generator": {
+        "path": "scripts/ci/ledger-source-inventory.mjs",
+        "sha256": "fb70156dce0a57c094b1622101de4dad0ad7053c9cf6d0524038330e230feb17"
+      }
+    },
+    {
+      "ref": "PR399 HEAD (0e6b1ee2702a39d815391744ee95855294480969)",
+      "file": "docs/ops/evidence/inv-pr399.json",
+      "sha256": "761cae1a0c1d3e55b35fd0ce8f033098be42308ef63089484ab94f213228cd11",
+      "entries": 89,
+      "generator": {
+        "path": "scripts/ci/ledger-source-inventory.mjs",
+        "sha256": "fb70156dce0a57c094b1622101de4dad0ad7053c9cf6d0524038330e230feb17"
+      }
+    }
+  ],
+  "evaluations": [
+    {
+      "inventory": "main",
+      "file": "docs/ops/evidence/eval-main.json",
+      "sha256": "e7d92ba1c4e48d3f21e1e5e063950802762b518d65d9e60b3a65cd67d7b0cd48",
+      "verdict": {
+        "pass": true,
+        "failures": []
+      },
+      "applied": 84,
+      "pending": 4,
+      "pending_list": [
+        "ConvergePhase1CanonicalSchema1789600000000",
+        "WidenAccLedgerStoreCode1789600100000",
+        "WidenWarehouseCodeForeignKeys1789600200000",
+        "ConvergeInboundTimestamps1789600300000"
+      ]
+    },
+    {
+      "inventory": "pr399",
+      "file": "docs/ops/evidence/eval-pr399.json",
+      "sha256": "72e88681b0625285794e7fefa2e45a535a6b83072065b66ed941a5e39f4de419",
+      "verdict": {
+        "pass": true,
+        "failures": []
+      },
+      "applied": 84,
+      "pending": 5,
+      "pending_list": [
+        "ConvergePhase1CanonicalSchema1789600000000",
+        "WidenAccLedgerStoreCode1789600100000",
+        "WidenWarehouseCodeForeignKeys1789600200000",
+        "ConvergeInboundTimestamps1789600300000",
+        "CreateChanjetExecutionAdmissions1791878400000"
+      ]
+    }
+  ],
+  "semantics_preserved": {
+    "historical_canonical_88": "main inventory = exactly 88 entries; PR399 = 88 + the admission migration",
+    "admission_independent": "CreateChanjetExecutionAdmissions1791878400000 appears ONLY in the PR399 pending list (admission is never marked applied in the ledger tables)",
+    "legacy_169": "canonicalLegacy = the real 169-file apps/api/migrations baseline; sample applied all 169",
+    "retired_registry": "scripts/ci/retired-typeorm-migrations.json used verbatim; the retired row is tolerated (known_retired_applied=1)",
+    "anomalies": "failures=[] for BOTH evaluations; the only cross-inventory difference is the single admission entry in the PR399 pending list"
+  },
+  "offline_adapter": {
+    "path": "scripts/ops/ledger-offline-evaluate.mjs",
+    "sha256": "f435c35c55443a831434b77a4ad07f0dbad912b8df3ffd8662eea1d2739b6290",
+    "note": "the DOCUMENTED offline path — maps the collection document, loads the FULL inventory/legacy/retired inputs, refuses missing/malformed/truncated/edited inputs (source verification regenerates from the declared source_ref and compares); raw --fixture invocation is vacuous and is not the path"
+  },
+  "note": "tracked inventories regenerated from RESOLVED commit SHAs (source_ref is a 40-hex sha, verifiable by regeneration)"
+}

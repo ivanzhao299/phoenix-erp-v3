@@ -39,12 +39,13 @@ describe('ChanjetReadonlySyncScheduler production restoration', () => {
     expect(f.integration.runReadonlyAlignmentCycle).toHaveBeenCalledTimes(1);expect(f.inbound.syncScheduledShareholderBalances).not.toHaveBeenCalled();
     expect(f.runner.query).toHaveBeenCalledWith(expect.stringContaining('result_summary'),expect.arrayContaining(['SUCCESS']),true);
   });
-  it('VERIFY prevents cron before first finite manual run',async()=>{
+  it('VERIFY: cron blocked; manual sync requires a durable execution (resolved refusal, zero durable work)',async()=>{
     process.env.CHANJET_SYNC_POLICY='READONLY_VERIFY';process.env.CHANJET_READONLY_APPROVAL=JSON.stringify({...readonlyApprovalFixture,verification:{...readonlyApprovalFixture.verification,expiresAt:new Date(Date.now()+60000).toISOString()}});
     const f=fixture();await f.subject.runScheduledSync();expect(f.integration.runReadonlyAlignmentCycle).not.toHaveBeenCalled();
-    await expect(f.subject.enqueueManualSync('operator',{})).rejects.toThrow();
-    await expect(f.subject.enqueueManualSync('operator',readonlyApprovalFixture.verification)).resolves.toMatchObject({accepted:true});
-    await new Promise(r=>setImmediate(r));expect(f.integration.runReadonlyAlignmentCycle).toHaveBeenCalledTimes(1);
+    await expect(f.subject.enqueueManualSync('operator',{})).resolves.toMatchObject({accepted:false,reason:'SYNC_EXECUTION_REQUIRED'});
+    await expect(f.subject.enqueueManualSync('operator',readonlyApprovalFixture.verification)).resolves.toMatchObject({accepted:false,reason:'SYNC_EXECUTION_REQUIRED'});
+    await new Promise(r=>setImmediate(r));expect(f.integration.runReadonlyAlignmentCycle).not.toHaveBeenCalled();
+    expect(f.runner.query.mock.calls.filter(c=>String(c[0]).includes('INSERT INTO chanjet_sync_jobs'))).toHaveLength(0);
   });
   it('stale legacy or durable RUNNING jobs block admission without changing historical rows',async()=>{
     const f=fixture({durable:[{id:3}]});await f.subject.runScheduledSync();
