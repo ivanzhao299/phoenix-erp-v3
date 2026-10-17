@@ -25,7 +25,7 @@ jobs:
         run: |
           node --input-type=module <<'NODE'
           import fs from 'node:fs';
-          
+
           // Observation only. These four scalar fields never grant fixture admission.
           const seen = new Set();
           let pid = process.pid;
