@@ -1,0 +1,135 @@
+name: Chanjet Admission Controlled Schema
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        type: choice
+        options: [inspect, apply]
+        default: inspect
+      expected_target_sha:
+        required: true
+        type: string
+      expected_production_sha:
+        required: true
+        type: string
+      expected_ledger_sha256:
+        description: 'apply only: exact fresh inspection ledger digest'
+        required: false
+        type: string
+      confirmation:
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: cicd-refs/heads/main
+  cancel-in-progress: false
+jobs:
+  schema:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+      - name: Bind reviewed source and prepare single migration
+        env:
+          TARGET: ${{ inputs.expected_target_sha }}
+          OPERATION: ${{ inputs.operation }}
+          CONFIRMATION: ${{ inputs.confirmation }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_SHA" = "$TARGET"
+          if [ "$OPERATION" = apply ]; then test "$CONFIRMATION" = APPLY_CHANJET_ADMISSION_ONLY; else test "$CONFIRMATION" = INSPECT_CHANJET_ADMISSION; fi
+          pnpm install --frozen-lockfile
+          node scripts/ops/build-chanjet-admission-sql.mjs > "$RUNNER_TEMP/admission.sql"
+          node scripts/ci/ledger-source-inventory.mjs "$TARGET" "$RUNNER_TEMP/inventory.json"
+          find apps/api/migrations -maxdepth 1 -name '*.sql' -printf '%f\n' | sort | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.stringify(s.trim().split(/\n/))))' > "$RUNNER_TEMP/legacy.json"
+          {
+            echo "PRODUCTION_CONTRACT_B64=$(base64 -w0 scripts/ops/production-config-contract.json)"
+            echo "PRODUCTION_PATH_HELPER_B64=$(base64 -w0 scripts/ops/production-trusted-paths.mjs)"
+            echo "PRODUCTION_CONTROL_BOOTSTRAP_B64=$(base64 -w0 scripts/ops/production-control-bootstrap.sh)"
+            echo "SCHEMA_PROGRAM_B64=$(base64 -w0 scripts/ops/chanjet-admission-schema-operation.mjs)"
+            echo "SCHEMA_PROGRAM_SHA256=$(sha256sum scripts/ops/chanjet-admission-schema-operation.mjs | cut -d' ' -f1)"
+            echo "ADMISSION_SQL_B64=$(base64 -w0 "$RUNNER_TEMP/admission.sql")"
+            echo "ADMISSION_SQL_SHA256=$(sha256sum "$RUNNER_TEMP/admission.sql" | cut -d' ' -f1)"
+            echo "ADMISSION_SOURCE_BLOB=$(git rev-parse HEAD:apps/api/src/database/migrations/1791878400000-CreateChanjetExecutionAdmissions.ts)"
+            echo "INVENTORY_B64=$(base64 -w0 "$RUNNER_TEMP/inventory.json")"
+            echo "LEGACY_B64=$(base64 -w0 "$RUNNER_TEMP/legacy.json")"
+            echo "RETIRED_B64=$(base64 -w0 scripts/ci/retired-typeorm-migrations.json)"
+            echo "PHASE1_B64=$(base64 -w0 scripts/ci/phase1-production-migration-manifest.json)"
+          } >> "$GITHUB_ENV"
+      - name: Locked production inspection or admission-only DDL
+        id: production
+        uses: appleboy/ssh-action@v1
+        env:
+          TARGET_SHA: ${{ inputs.expected_target_sha }}
+          EXPECTED_PRODUCTION_SHA: ${{ inputs.expected_production_sha }}
+          EXPECTED_LEDGER_SHA256: ${{ inputs.expected_ledger_sha256 }}
+          SCHEMA_OPERATION: ${{ inputs.operation }}
+          SCHEMA_RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}
+          PRODUCTION_CONTRACT_B64: ${{ env.PRODUCTION_CONTRACT_B64 }}
+          PRODUCTION_PATH_HELPER_B64: ${{ env.PRODUCTION_PATH_HELPER_B64 }}
+          PRODUCTION_CONTROL_BOOTSTRAP_B64: ${{ env.PRODUCTION_CONTROL_BOOTSTRAP_B64 }}
+          SCHEMA_PROGRAM_B64: ${{ env.SCHEMA_PROGRAM_B64 }}
+          SCHEMA_PROGRAM_SHA256: ${{ env.SCHEMA_PROGRAM_SHA256 }}
+          ADMISSION_SQL_B64: ${{ env.ADMISSION_SQL_B64 }}
+          ADMISSION_SQL_SHA256: ${{ env.ADMISSION_SQL_SHA256 }}
+          ADMISSION_SOURCE_BLOB: ${{ env.ADMISSION_SOURCE_BLOB }}
+          INVENTORY_B64: ${{ env.INVENTORY_B64 }}
+          LEGACY_B64: ${{ env.LEGACY_B64 }}
+          RETIRED_B64: ${{ env.RETIRED_B64 }}
+          PHASE1_B64: ${{ env.PHASE1_B64 }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
+          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+          proxy_port: 22
+          envs: PRODUCTION_CONTRACT_B64,PRODUCTION_PATH_HELPER_B64,PRODUCTION_CONTROL_BOOTSTRAP_B64,SCHEMA_PROGRAM_B64,SCHEMA_PROGRAM_SHA256,ADMISSION_SQL_B64,ADMISSION_SQL_SHA256,ADMISSION_SOURCE_BLOB,INVENTORY_B64,LEGACY_B64,RETIRED_B64,PHASE1_B64,TARGET_SHA,EXPECTED_PRODUCTION_SHA,EXPECTED_LEDGER_SHA256,SCHEMA_OPERATION,SCHEMA_RUN_ID
+          capture_stdout: true
+          command_timeout: 8m
+          script: |
+            set -Eeuo pipefail
+            set +x
+            umask 077
+            cd /data/phoenix-erp
+            DEPLOY_REPO_ROOT="$(pwd -P)"
+            eval "$(printf '%s' "$PRODUCTION_CONTROL_BOOTSTRAP_B64" | base64 -d)"
+            SCHEMA_STAGE="$STATE_DIR/admission-stage-$SCHEMA_RUN_ID"
+            test ! -e "$SCHEMA_STAGE"
+            mkdir -m 700 "$SCHEMA_STAGE"
+            export SCHEMA_STAGE
+            printf '%s' "$SCHEMA_PROGRAM_B64" | base64 -d > "$SCHEMA_STAGE/operation.mjs"
+            test "$(sha256sum "$SCHEMA_STAGE/operation.mjs" | cut -d' ' -f1)" = "$SCHEMA_PROGRAM_SHA256"
+            printf '%s' "$ADMISSION_SQL_B64" | base64 -d > "$SCHEMA_STAGE/admission.sql"
+            printf '%s' "$INVENTORY_B64" | base64 -d > "$SCHEMA_STAGE/inventory.json"
+            printf '%s' "$LEGACY_B64" | base64 -d > "$SCHEMA_STAGE/legacy.json"
+            printf '%s' "$RETIRED_B64" | base64 -d > "$SCHEMA_STAGE/retired.json"
+            printf '%s' "$PHASE1_B64" | base64 -d > "$SCHEMA_STAGE/phase1.json"
+            node --check "$SCHEMA_STAGE/operation.mjs"
+            node "$SCHEMA_STAGE/operation.mjs"
+      - name: Preserve and evaluate production inspection
+        if: always()
+        env:
+          REMOTE_STDOUT: ${{ steps.production.outputs.stdout }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/schema-evidence"
+          printf '%s' "$REMOTE_STDOUT" > "$RUNNER_TEMP/schema-evidence/stdout.txt"
+          node -e 'const fs=require("fs");const s=process.env.REMOTE_STDOUT||"";const l=s.split(/\r?\n/).find(l=>l.startsWith("SCHEMA_INSPECTION_B64="));if(l){fs.writeFileSync(process.argv[1],Buffer.from(l.split("=").slice(1).join("="),"base64"))}' "$RUNNER_TEMP/schema-evidence/inspection.json"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: chanjet-schema-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/schema-evidence

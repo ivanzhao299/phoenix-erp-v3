@@ -864,7 +864,7 @@ jobs:
               FLOOR_STAGE="$STATE_DIR/floor-stage-${DEPLOY_RUN_ID}"
               test ! -e "$FLOOR_STAGE"
               mkdir -m 700 "$FLOOR_STAGE"
-              for helper in production-config-contract.json production-config-guard.mjs production-deployment-state.mjs production-atomic-state.mjs production-trusted-paths.mjs capture-production-runtime.mjs update-managed-chanjet-env.mjs chanjet-readonly-policy.mjs api-bootstrap-schema-preflight.mjs promote-production-config-floor.mjs; do
+              for helper in production-config-contract.json production-config-guard.mjs production-deployment-state.mjs production-atomic-state.mjs production-trusted-paths.mjs capture-production-runtime.mjs update-managed-chanjet-env.mjs chanjet-readonly-policy.mjs api-bootstrap-schema-preflight.mjs promote-production-config-floor.mjs chanjet-admission-schema-receipt.mjs; do
                 git show "$TARGET_SHA:scripts/ops/$helper" > "$FLOOR_STAGE/$helper"
                 chmod 600 "$FLOOR_STAGE/$helper"
               done
@@ -881,7 +881,7 @@ jobs:
               EVIDENCE_STAGE="$STATE_DIR/evidence-stage-${DEPLOY_RUN_ID}"
               test ! -e "$EVIDENCE_STAGE"
               mkdir -m 700 "$EVIDENCE_STAGE"
-              for helper in production-deployment-evidence.mjs production-atomic-state.mjs production-config-contract.json production-config-guard.mjs production-trusted-paths.mjs capture-production-runtime.mjs update-managed-chanjet-env.mjs chanjet-readonly-policy.mjs; do
+              for helper in production-deployment-evidence.mjs production-atomic-state.mjs production-config-contract.json production-config-guard.mjs production-trusted-paths.mjs capture-production-runtime.mjs update-managed-chanjet-env.mjs chanjet-readonly-policy.mjs chanjet-admission-schema-receipt.mjs; do
                 git show "$TARGET_SHA:scripts/ops/$helper" > "$EVIDENCE_STAGE/$helper"
                 chmod 600 "$EVIDENCE_STAGE/$helper"
               done

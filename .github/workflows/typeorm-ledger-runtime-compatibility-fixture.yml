@@ -23,6 +23,8 @@ on:
       - 'scripts/ledger-preflight.mjs'
       - 'apps/api/src/modules/chanjet/chanjet-execution-*'
       - 'scripts/ops/chanjet-execution-*'
+      - 'scripts/ops/chanjet-admission-schema-*'
+      - 'scripts/ops/build-chanjet-admission-sql.mjs'
       - 'scripts/ci/chanjet-execution-admission-cli.test.mjs'
       - 'apps/api/test/fixtures/chanjet-admission-worker.cjs'
       - '.github/workflows/typeorm-ledger-runtime-compatibility-fixture.yml'
@@ -58,6 +60,23 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter phoenix-erp-v3-nest build
       - run: node --test scripts/ci/typeorm-ledger-runtime-compatibility.test.mjs
+      - name: Controlled admission schema receipt and PostgreSQL16 SQL transaction
+        env:
+          PGPASSWORD: postgres
+          PGHOST: 127.0.0.1
+          PGPORT: '5432'
+          PGUSER: postgres
+          PGDATABASE: ledger_collect_schema_release
+        run: |
+          set -euo pipefail
+          node --test scripts/ops/chanjet-admission-schema-receipt.test.mjs
+          createdb "$PGDATABASE"
+          psql -v ON_ERROR_STOP=1 -c 'CREATE TABLE migrations (id serial PRIMARY KEY, timestamp bigint NOT NULL, name varchar NOT NULL);'
+          node scripts/ops/build-chanjet-admission-sql.mjs > "$RUNNER_TEMP/admission.sql"
+          psql -v ON_ERROR_STOP=1 -f "$RUNNER_TEMP/admission.sql"
+          test "$(psql -At -c 'SELECT count(*) FROM migrations')" = 1
+          test "$(psql -At -c "SELECT count(*) FROM pg_trigger WHERE NOT tgisinternal AND tgname LIKE 'chanjet_%guard'")" = 4
+          echo 'CONTROLLED_ADMISSION_SQL_PG16=PASS'
       - name: Clean-checkout verification of the collection toolchain
         run: |
           set -euo pipefail
