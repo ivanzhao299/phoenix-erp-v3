@@ -366,7 +366,8 @@ export default function DailyPage() {
       setTimeout(() => setSubmitted(false), 3000);
       // G15：日报提交成功后，若任一班次填了 9 档 → 弹窗确认是否同步入销售库存
       // 仅 TEMP_PRODUCTION_INBOUND 模式可用；PACKAGING_INBOUND 模式提示前往包装中心
-      const rowsWithGrades = rowsToSubmit.filter(r => Object.values(r.gradeQty || {}).some(v => Number(v) > 0));
+      const rowsWithGrades = rowsToSubmit.filter((r, index) =>
+        results[index].status === 'fulfilled' && Object.values(r.gradeQty || {}).some(v => Number(v) > 0));
       if (rowsWithGrades.length > 0) {
         const totalSum = rowsWithGrades.reduce((s, r) => s + gradeSumOf(r.gradeQty), 0);
         const ok = await showConfirm({
@@ -387,18 +388,25 @@ export default function DailyPage() {
               headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
               body: JSON.stringify({ eggDate: formDate, houseCode: selectedHouse || undefined, items: allItems }),
             });
-            const j = await res.json();
-            if (res.ok && j.code === 200) {
+            const j = await res.json().catch(() => null);
+            const inboundSucceeded = res.ok
+              && j?.mode === 'TEMP_PRODUCTION_INBOUND'
+              && Array.isArray(j?.batches)
+              && j.batches.length === allItems.length
+              && Number(j?.totalInbound) === totalSum;
+            if (inboundSucceeded) {
               toast.success(`✓ ${t('ui.已入库', '已入库')} ${allItems.length} ${t('ui.个批次，合计', '个批次，合计')} ${totalSum.toLocaleString()} ${t('ui.枚', '枚')}`);
             } else {
-              if (j.message?.includes('PACKAGING_INBOUND')) {
+              if (j?.message?.includes('PACKAGING_INBOUND')) {
                 toast.error(t('ui.当前 SITE 是包装入库模式，请去包装作业中心完成', '当前 SITE 是包装入库模式，请去包装作业中心完成'));
               } else {
-                toast.error(`${t('ui.入库失败：', '入库失败：')}${j.message || res.statusText}`);
+                toast.error(`${t('ui.入库失败：', '入库失败：')}${j?.message || res.statusText}`);
               }
             }
           } catch (e: any) {
-            toast.error(`${t('ui.入库失败：', '入库失败：')}${e.message}`);
+            // The request may have committed before the response was lost. Do not
+            // retry automatically; ask the operator to verify inventory first.
+            toast.error(`${t('ui.入库结果未知，请先核对库存后再重试：', '入库结果未知，请先核对库存后再重试：')}${e.message || ''}`);
           }
         }
       }

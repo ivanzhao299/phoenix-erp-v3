@@ -9158,6 +9158,7 @@
   "ui.先补齐必填资料": "Complete required information first",
   "ui.先进先出 · SKU 精确分配 · 到期预警 · 损耗分析": "FIFO · precise SKU allocation · expiry alert · loss analysis",
   "ui.入库失败：": "Inbound failed:",
+  "ui.入库结果未知，请先核对库存后再重试：": "Inbound result is unknown; verify inventory before retrying:",
   "ui.该类型必须通过专用业务流程": "This type must use its dedicated business workflow",
   "ui.全局": "Global",
   "ui.全局健康评分见": "See global health score at",
