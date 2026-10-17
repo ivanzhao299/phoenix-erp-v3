@@ -128,8 +128,8 @@ export default function OutboundPage() {
       // 控制，调拨/盘亏等专用事务类型不会进入独立出库表单。
       options: OUT_TYPES
         .filter(type => canCreateOutboundType(type, {
-          inout: canCreateInout,
-          issue: canCreateIssue,
+          inout: Boolean(canCreateInout),
+          issue: Boolean(canCreateIssue),
           issueOnly,
         }))
         .map(type => ({ value: type, label: TYPE_LABEL[type]?.label ?? type })),
