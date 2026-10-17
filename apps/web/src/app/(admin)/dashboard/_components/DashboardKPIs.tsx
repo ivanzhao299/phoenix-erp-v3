@@ -1,12 +1,13 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { TrendingUp, AlertCircle, Egg, PackageSearch, BatteryWarning, ArrowUpRight, RefreshCw, ShieldCheck, CreditCard, Tractor } from 'lucide-react';
+import { AlertCircle, Egg, PackageSearch, BatteryWarning, ArrowUpRight, RefreshCw, ShieldCheck, CreditCard, Tractor, ChevronLeft, ChevronRight } from 'lucide-react';
 import styles from './dashboard.module.css';
 import { usePolling } from '@/hooks/usePolling';
 import { useLanguage } from '@/contexts/LanguageContext';
 import u from "@/styles/uix-utils.module.css";
 import { normalizeDashboardMetric } from '@/lib/dashboard-kpi-format';
+import { getDashboardAlertPage } from '@/lib/dashboard-alert-pagination';
 const CARD_THEMES = [{
   accent: 'var(--status-info)',
   bg: 'rgba(14,165,233,0.08)'
@@ -197,6 +198,7 @@ export default function DashboardKPIs({
   const [loading, setLoading] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [alerts, setAlerts] = useState(initialData.alertList ?? []);
+  const [alertPageNumber, setAlertPageNumber] = useState(1);
   const [integrity, setIntegrity] = useState(initialData.integrity ?? null);
   const fetchKpi = useCallback(async () => {
     setLoading(true);
@@ -212,7 +214,10 @@ export default function DashboardKPIs({
       }).then(r => r.json()).catch(() => null)]);
       if (kpiRes.code === 200) {
         setKpi(kpiRes.data);
-        if (kpiRes.data.alertList) setAlerts(kpiRes.data.alertList);
+        if (kpiRes.data.alertList) {
+          setAlerts(kpiRes.data.alertList);
+          setAlertPageNumber(currentPage => getDashboardAlertPage(kpiRes.data.alertList, currentPage).currentPage);
+        }
         setLastUpdated(new Date().toLocaleTimeString('zh-CN'));
       }
       if (integrityRes?.code === 200) setIntegrity(integrityRes.data);
@@ -221,10 +226,19 @@ export default function DashboardKPIs({
     } finally {
       setLoading(false);
     }
-  }, [API_BASE]);
+  }, [API_BASE, t]);
 
   // 挂载立即刷新，之后每 60s 轮询（后台标签时跳过，切回来时补跑）
   usePolling(fetchKpi, 60_000);
+  const alertPage = getDashboardAlertPage(alerts, alertPageNumber);
+
+  const dismissAlert = (alertId: number) => {
+    const nextAlerts = alerts.filter(alert => alert.id !== alertId);
+    setAlerts(nextAlerts);
+    // Keep the current page valid when dismissing the last row on a page.
+    setAlertPageNumber(currentPage => getDashboardAlertPage(nextAlerts, currentPage).currentPage);
+  };
+
   const stats = kpi.stats ?? EMPTY_STATS;
   const chartData = kpi.chartData ?? [];
   const maxProd = chartData.length ? Math.max(...chartData.map(d => d.prod), 1) : 1;
@@ -549,7 +563,8 @@ export default function DashboardKPIs({
         <div className={styles.glassCard} style={{
         display: 'flex',
         flexDirection: 'column',
-        gap: 16
+        gap: 16,
+        minHeight: 380
       }}>
           <h3 style={{
           fontSize: 18,
@@ -564,13 +579,19 @@ export default function DashboardKPIs({
           <div style={{
           display: 'flex',
           flexDirection: 'column',
-          gap: 12
+          gap: 12,
+          // Keep the card height stable even when an alert has a long message;
+          // the bounded list scrolls internally so the full text remains reachable.
+          height: 265,
+          maxHeight: 265,
+          overflowY: 'auto',
+          paddingRight: 4
         }}>
-            {alerts.map(item => <div key={item.id} className={styles.alertItem} style={{
+            {alertPage.pageItems.map(item => <div key={item.id} className={styles.alertItem} style={{
             borderLeft: `var(--card-accent-width) solid var(--status-${item.type === 'danger' ? 'danger' : item.type === 'warning' ? 'warning' : 'info'})`
           }}>
-                <span>{item.text}</span>
-                <button type="button" className={styles.dismissBtn} onClick={() => setAlerts(prev => prev.filter(a => a.id !== item.id))}>{t('dash.handled', '已处理')}</button>
+                <span style={{ minWidth: 0 }}>{item.text}</span>
+                <button type="button" className={styles.dismissBtn} onClick={() => dismissAlert(item.id)}>{t('dash.handled', '已处理')}</button>
               </div>)}
             {alerts.length === 0 && <div className={u.emptyPad40}>
                 <div style={{
@@ -580,6 +601,65 @@ export default function DashboardKPIs({
                 <div>{t('dash.noAlerts', '今日无待处理预警')}</div>
               </div>}
           </div>
+          {alerts.length > 0 && <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 8,
+          minHeight: 32,
+          fontSize: 12,
+          color: 'var(--text-secondary)'
+        }}>
+            <span aria-live="polite">
+              {t('notif.page', '第')} {alertPage.currentPage} {t('notif.pageOf', '页，共')} {alertPage.totalPages} · {alertPage.totalItems} {t('notif.itemUnit', '条')}
+            </span>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <button
+                type="button"
+                aria-label={t('common.prev', '上一页')}
+                title={t('common.prev', '上一页')}
+                onClick={() => setAlertPageNumber(page => Math.max(1, page - 1))}
+                disabled={alertPage.currentPage <= 1}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: 30,
+                  height: 30,
+                  border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius-sm)',
+                  background: 'var(--bg-card)',
+                  color: 'var(--text-primary)',
+                  cursor: alertPage.currentPage <= 1 ? 'not-allowed' : 'pointer',
+                  opacity: alertPage.currentPage <= 1 ? 0.45 : 1
+                }}
+              >
+                <ChevronLeft size={15} aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                aria-label={t('common.next', '下一页')}
+                title={t('common.next', '下一页')}
+                onClick={() => setAlertPageNumber(page => Math.min(alertPage.totalPages, page + 1))}
+                disabled={alertPage.currentPage >= alertPage.totalPages}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: 30,
+                  height: 30,
+                  border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius-sm)',
+                  background: 'var(--bg-card)',
+                  color: 'var(--text-primary)',
+                  cursor: alertPage.currentPage >= alertPage.totalPages ? 'not-allowed' : 'pointer',
+                  opacity: alertPage.currentPage >= alertPage.totalPages ? 0.45 : 1
+                }}
+              >
+                <ChevronRight size={15} aria-hidden="true" />
+              </button>
+            </div>
+          </div>}
         </div>
       </div>
     </div>;

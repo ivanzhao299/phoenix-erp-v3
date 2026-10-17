@@ -66,12 +66,13 @@ test('v3 floor re-anchor entrance threads the previous-floor binding and justifi
 
 test('disk report never dies of SIGPIPE under pipefail and stays fail-closed on real docker failures', () => {
   const deploy = fs.readFileSync('.github/workflows/deploy.yml', 'utf8');
-  // the old early-exiting consumer must be gone from the docker images feed
+  // The report must not feed a producer/consumer pipe at all: remote sed/awk
+  // behavior and very large inventories must not SIGPIPE the deploy shell.
   assert.doesNotMatch(deploy, /docker images --format[^\n]*\| sed -n '1,20p'/);
   assert.match(deploy, /IMAGE_REPORT="\$\(docker images --format/);
-  assert.match(deploy, /printf '%s\\n' "\$IMAGE_REPORT" \| sed -n '1,20p'/);
+  assert.match(deploy, /while IFS= read -r IMAGE_LINE && \[ "\$IMAGE_PREVIEW_COUNT" -lt 20 \]/);
   // real shell regression under the exact script discipline
-  const script = (dockerExit, lines) => `set -euo pipefail; docker() { ${dockerExit ? 'return 13' : `printf 'img-%s\\n' $(seq 1 ${lines})`}; }; IMAGE_REPORT="$(docker images --format x)"; printf '%s\\n' "$IMAGE_REPORT" | sed -n '1,20p' > /dev/null; echo SURVIVED`;
+  const script = (dockerExit, lines) => `set -Eeuo pipefail; docker() { ${dockerExit ? 'return 13' : `printf 'img-%s\\n' $(seq 1 ${lines})`}; }; IMAGE_REPORT="$(docker images --format x)"; IMAGE_PREVIEW_COUNT=0; while IFS= read -r IMAGE_LINE && [ "$IMAGE_PREVIEW_COUNT" -lt 20 ]; do printf '%s\\n' "$IMAGE_LINE" > /dev/null; IMAGE_PREVIEW_COUNT=$((IMAGE_PREVIEW_COUNT + 1)); done <<< "$IMAGE_REPORT"; echo SURVIVED`;
   const run = body => execFileSync('bash', ['-c', body], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
   // >20 images: the 38217361863-1 shape must not trip the ERR trap
   assert.equal(run(script(false, 31)), 'SURVIVED');

@@ -43,19 +43,37 @@ export const BENIGN_STARTUP_ERROR_ATTRIBUTION = 'ROUTES_RESOLVER_REGISTRATION';
 export const BENIGN_STARTUP_ERROR_WORD_SET = Object.freeze(['Nest', 'LOG', 'RoutesResolver', 'mSysErrorLogsController', 'api', 'system', 'error', 'logs']);
 // Verified-abort recovery: run 38217361863-1 deployed, switched and PASSED
 // both startup evidence and file verification, then the deploy script was
-// killed AFTER verify by the disk-report SIGPIPE pipe bug (root-caused in the
-// Actions log; fixed for future deploys in the same PR). PASS_REDACTED_SUMMARY
+// aborted AFTER verify; the original SIGPIPE attribution was a hypothesis.
+// Node 20 CLI reproduction later confirmed the complete/evidence TLA cycle
+// (see docs/ops/r3c-complete-module-cycle.md). PASS_REDACTED_SUMMARY
 // is NOT globally recoverable — this frozen transaction is the only one that
 // may close through this path, with the verify verdict recomputed from the
 // on-disk evidence rather than trusted from the receipt.
 export const VERIFIED_ABORT_RECEIPT_SCHEMA = 'phoenix.verified-abort-recovery-receipt/1';
 export const VERIFIED_ABORT_TRANSACTION = Object.freeze({ runId: '38217361863-1', targetSha: 'f46f651dcebeb11210c8e577f3c0caed87f356c2' });
+// M6 floor re-anchor transaction that reached API M6 and passed evidence but
+// aborted in the disk-report section before `complete`. It is independently
+// frozen: the previous floor must remain M4 while the candidate/target is M6.
+export const VERIFIED_ABORT_REANCHOR_TRANSACTION = Object.freeze({ runId: '38321168296-1', targetSha: '797eeca1db229f5e4d288da88d83888ad92b35c5', previousFloorSha: 'f46f651dcebeb11210c8e577f3c0caed87f356c2' });
+// Historical receipt wire label: retain byte compatibility, not a root-cause claim.
 export const VERIFIED_ABORT_POINT = 'DISK_REPORT_SIGPIPE';
+
+export const COMPLETE_ABORT_RECEIPT_SCHEMA = 'phoenix.complete-module-abort-recovery-receipt/1';
+export const COMPLETE_ABORT_POINT = 'COMPLETE_MODULE_EVALUATION_ABORT';
+export const COMPLETE_ABORT_TRANSACTION = Object.freeze({
+  runId: '38333221687-1', runAttempt: 1,
+  targetSha: '2e713d44b9697796ec903927bb5dd5e6fb9e4cb4',
+  previousFloorSha: '797eeca1db229f5e4d288da88d83888ad92b35c5',
+});
+
 
 const sha256 = value => createHash('sha256').update(value).digest('hex');
 const deepEqual = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 const wordSetOf = line => [...new Set(line.match(/[A-Za-z]{3,}/g) ?? [])].filter(word => !/^[a-fA-F0-9]{8,}$/.test(word));
 const sqlShapePattern = /\b(insert\s+into|update\s+\S+\s+set|delete\s+from|alter\s+table|create\s+(?:table|index|unique|sequence)|drop\s+(?:table|index|constraint)|truncate\s+table?|grant\s+|revoke\s+)\b/i;
+const isVerifiedAbortReanchor = context => context?.targetRunId === VERIFIED_ABORT_REANCHOR_TRANSACTION.runId
+  && context?.approvedSha === VERIFIED_ABORT_REANCHOR_TRANSACTION.targetSha
+  && context?.previousFloorSha === VERIFIED_ABORT_REANCHOR_TRANSACTION.previousFloorSha;
 
 // Replays the bounded startup window of the bound deploy and returns only
 // sanitized per-line identity (same word-set rules as the R0 collector; raw
@@ -69,7 +87,10 @@ export async function replayStartupWindow(evidence, dockerLogs) {
   const startup = evidence?.startup;
   if (!api || !startup || !dockerLogs) return { available: false };
   const streams = dockerLogs(['logs', '--timestamps', '--since', startup.startedAt, '--until', startup.capturedAt, api.id]);
+  if (!streams) return { available: false };
   const stdout = streams.stdout ?? ''; const stderr = streams.stderr ?? '';
+  let summary;
+  try { summary = evidenceModule.summarizeStartupLogs({ ...startup, runId: startup.deployRunId, runAttempt: startup.deployRunAttempt, floorSha: startup.configFloorSha, stdout, stderr, readinessVerified: true }); } catch { /* new path requires a fully verified bounded window */ }
   let schemaWriteCount = 0; let sqlShapeCount = 0; let errorLineCount = 0;
   const linesByTs = {};
   for (const [stream, text] of [['stdout', stdout], ['stderr', stderr]]) {
@@ -89,6 +110,7 @@ export async function replayStartupWindow(evidence, dockerLogs) {
     available: true,
     combinedDigest: createHash('sha256').update(Buffer.from(stdout)).update(Buffer.from([0])).update(Buffer.from(stderr)).digest('hex'),
     schemaWriteCount, sqlShapeCount, errorLineCount, linesByTs,
+    windowVerified: !!summary, stdoutLineCount: summary?.stdoutLineCount, stderrLineCount: summary?.stderrLineCount,
     schemaCompatibilityPass: /API_BOOTSTRAP_SCHEMA_COMPATIBILITY=PASS/i.test(`${stdout}\n${stderr}`),
   };
 }
@@ -159,8 +181,10 @@ function validateVerifiedAbortRecovery(bundle, context, reasons) {
   const { receipt, replay, evidence, evidenceFiles, dbEvidence } = bundle;
   if (!receipt) { reasons.push('RECEIPT_MISSING'); return; }
   if (receipt.schema !== VERIFIED_ABORT_RECEIPT_SCHEMA) reasons.push('RECEIPT_SCHEMA');
-  if (receipt.runId !== VERIFIED_ABORT_TRANSACTION.runId || receipt.targetSha !== VERIFIED_ABORT_TRANSACTION.targetSha
-    || context.targetRunId !== VERIFIED_ABORT_TRANSACTION.runId || context.approvedSha !== VERIFIED_ABORT_TRANSACTION.targetSha) reasons.push('RECEIPT_TRANSACTION_NOT_ELIGIBLE');
+  const frozen = isVerifiedAbortReanchor(context) ? VERIFIED_ABORT_REANCHOR_TRANSACTION : VERIFIED_ABORT_TRANSACTION;
+  if (context.targetRunId === VERIFIED_ABORT_REANCHOR_TRANSACTION.runId && receipt.previousFloorSha !== VERIFIED_ABORT_REANCHOR_TRANSACTION.previousFloorSha) reasons.push('RECEIPT_PREVIOUS_FLOOR_MISMATCH');
+  if (receipt.runId !== frozen.runId || receipt.targetSha !== frozen.targetSha
+    || context.targetRunId !== frozen.runId || context.approvedSha !== frozen.targetSha) reasons.push('RECEIPT_TRANSACTION_NOT_ELIGIBLE');
   const startup = evidence?.startup;
   if (!receipt.startup || receipt.startup.result !== 'PASS_REDACTED_SUMMARY') reasons.push('RECEIPT_STARTUP_RESULT');
   else if (receipt.startup.combinedDigest !== startup?.combinedDigest) reasons.push('RECEIPT_DIGEST_MISMATCH');
@@ -183,9 +207,143 @@ function validateVerifiedAbortRecovery(bundle, context, reasons) {
   validateDbBaseline(receipt, dbEvidence, reasons);
 }
 
+// The new module-abort path is frozen independently. Legacy receipt formats,
+// classifications and archived records are never rewritten or reinterpreted.
+export function assessCompleteAbortRecovery(bundle, context) {
+  const reasons = [];
+  const fail = code => reasons.push(code);
+  const f = COMPLETE_ABORT_TRANSACTION;
+  const { receipt, replay, archive, floor, active, deployRecord, marker, transaction, runtime, checkout, containers, evidence, evidenceFiles, liveEnv, dbEvidence } = bundle;
+  const now = context.now ?? Date.now();
+  const expired = r => Number.isFinite(Date.parse(r?.expiresAt)) && Date.parse(r.expiresAt) <= now;
+  if (context.targetRunId !== f.runId || context.approvedSha !== f.targetSha || context.previousFloorSha !== f.previousFloorSha) fail('COMPLETE_ABORT_CONTEXT_BINDING');
+  if (!/^\d+-\d+$/.test(context.recoveryRunId || '')) fail('BINDING_RECOVERY_RUN_ID');
+  if (!/^[a-f0-9]{64}$/.test(context.receiptSha256 || '')) fail('RECEIPT_TRANSPORT_BINDING');
+  if (!receipt) fail('RECEIPT_MISSING');
+  const rootKeys = ['schema', 'runId', 'runAttempt', 'targetSha', 'previousFloorSha', 'startup', 'abortPoint', 'readinessHttp', 'dbBaseline'];
+  const startupKeys = ['result', 'combinedDigest', 'schemaWriteSignalCount', 'errorSignalCount', 'schemaCompatibilityPass', 'stdoutLineCount', 'stderrLineCount'];
+  if (Object.keys(receipt || {}).some(k => !rootKeys.includes(k)) || Object.keys(receipt?.startup || {}).some(k => !startupKeys.includes(k))
+    || Object.keys(receipt?.dbBaseline || {}).some(k => !RECEIPT_DB_FIELDS.includes(k))) fail('RECEIPT_UNREVIEWED_FIELDS');
+  if (RECEIPT_DB_FIELDS.some(k => !Number.isInteger(receipt?.dbBaseline?.[k]) || receipt.dbBaseline[k] < 0)) fail('RECEIPT_DB_BASELINE_INVALID');
+  if (receipt?.schema !== COMPLETE_ABORT_RECEIPT_SCHEMA || receipt?.abortPoint !== COMPLETE_ABORT_POINT) fail('COMPLETE_ABORT_RECEIPT_CLASS');
+  if (receipt?.runId !== f.runId || receipt?.runAttempt !== f.runAttempt || receipt?.targetSha !== f.targetSha || receipt?.previousFloorSha !== f.previousFloorSha) fail('COMPLETE_ABORT_RECEIPT_BINDING');
+  if (receipt?.readinessHttp !== 200 || ![200, '200'].includes(bundle.readinessHttp)) fail('READINESS');
+  if (!checkout || checkout.head !== f.targetSha || checkout.clean !== true) fail('CHECKOUT_NOT_CLEAN_TARGET');
+  if (!floor || floor.version !== 3 || floor.phase !== 'READY' || floor.floorSha !== f.targetSha || floor.chanjetPolicy !== 'HOLD' || floor.readonlyApproval !== null) fail('FLOOR_SHAPE');
+  if (liveEnv?.CHANJET_SYNC_POLICY !== 'HOLD' || liveEnv?.CHANJET_READONLY_SYNC_ENABLED !== 'false' || liveEnv?.CHANJET_ERP_INBOUND_SYNC_ENABLED !== 'false') fail('LIVE_POLICY_FLAGS');
+  validateDbBaseline(receipt, dbEvidence, reasons);
+
+  const phase = archive?.phase ?? null;
+  if (phase === 'COMPLETE') fail('ALREADY_COMPLETE');
+  if (phase && !RECOVERY_PHASES.includes(phase)) fail('ARCHIVE_PHASE_INVALID');
+  let originalDeploy = deployRecord, originalMarker = marker, originalActive = active, originalTransaction = transaction;
+  if (archive) {
+    if (archive.schema !== RECOVERY_SCHEMA || archive.targetRunId !== f.runId || archive.approvedSha !== f.targetSha
+      || archive.previousFloorSha !== f.previousFloorSha || archive.receiptSha256 !== context.receiptSha256
+      || !/^\d+-\d+$/.test(archive.recoveryRunId || '') || !Number.isFinite(Date.parse(archive.recoveredAt))) fail('ARCHIVE_BINDING_MISMATCH');
+    const names = ['transaction.json', 'policy-transition.json', 'floor.json', 'active.json', `deploy-${f.runId}.json`];
+    const snapshots = archive.archived;
+    if (!Array.isArray(snapshots) || snapshots.length !== names.length || new Set(snapshots.map(x => x?.name)).size !== names.length
+      || snapshots.some(x => !names.includes(x?.name) || !x.value || x.sha256 !== sha256(JSON.stringify(x.value)))) fail('ARCHIVE_SNAPSHOTS_INVALID');
+    const get = name => snapshots?.find?.(x => x?.name === name)?.value;
+    originalDeploy = get(`deploy-${f.runId}.json`); originalMarker = get('policy-transition.json');
+    originalActive = get('active.json'); originalTransaction = get('transaction.json');
+    if (!deepEqual(get('floor.json'), floor)) fail('ARCHIVE_FLOOR_CHANGED');
+    if (marker && !deepEqual(marker, originalMarker)) fail('ARCHIVE_MARKER_CHANGED');
+    if (transaction && !deepEqual(transaction, originalTransaction)) fail('ARCHIVE_TRANSACTION_CHANGED');
+  }
+  if (originalTransaction?.version !== 3 || originalTransaction.runId !== f.runId || originalTransaction.phase !== 'IN_PROGRESS'
+    || originalTransaction.target !== f.targetSha || originalTransaction.configSha !== f.targetSha) fail('TRANSACTION_BINDING');
+  if ((!transaction || !marker) && phase !== 'DEPLOY_WRITTEN') fail('MARKERS_REQUIRED');
+  if (originalMarker?.version !== 3 || originalMarker.operation !== 'CODE_HOLD' || originalMarker.phase !== 'IN_PROGRESS'
+    || originalMarker.runId !== f.runId || originalMarker.target !== f.targetSha || originalMarker.previousFloorSha !== f.previousFloorSha
+    || !expired(originalMarker) || !(Date.parse(originalMarker.expiresAt) > Date.parse(originalMarker.startedAt))
+    || Date.parse(originalMarker.expiresAt) - Date.parse(originalMarker.startedAt) > 1800000) fail('POLICY_MARKER_HISTORY');
+  if (originalDeploy?.version !== 3 || originalDeploy.outcome !== 'SWITCHING' || originalDeploy.target !== f.targetSha
+    || originalDeploy.configSha !== f.targetSha || originalDeploy.floorSha !== f.targetSha || !expired(originalDeploy)
+    || originalDeploy.previous?.api?.revision !== f.previousFloorSha || originalDeploy.migrationBaseline !== f.previousFloorSha
+    || originalDeploy.candidates?.api?.revision !== f.targetSha || !deepEqual(originalDeploy.switched, { api: true, web: false })
+    || !Array.isArray(originalDeploy.migrationPaths) || originalDeploy.migrationPaths.length
+    || !deepEqual(originalDeploy.active, { api: originalDeploy.candidates?.api, web: originalDeploy.previous?.web })) fail('DEPLOY_HISTORY_BINDING');
+  for (const tuple of [originalMarker?.previousEnv, originalMarker?.nextEnv]) {
+    if (tuple?.CHANJET_SYNC_POLICY !== 'HOLD' || tuple?.CHANJET_READONLY_SYNC_ENABLED !== 'false' || tuple?.CHANJET_ERP_INBOUND_SYNC_ENABLED !== 'false') fail('MARKER_POLICY_HISTORY');
+  }
+  const pins = [originalDeploy?.previous?.api, originalDeploy?.previous?.web, originalDeploy?.candidates?.api];
+  if (pins.some(p => !/^sha256:[a-f0-9]{64}$/.test(p?.imageId || '') || !/^[a-f0-9]{40}$/.test(p?.revision || ''))
+    || !Array.isArray(originalDeploy?.protectedImages) || new Set(originalDeploy.protectedImages).size !== originalDeploy.protectedImages.length
+    || originalDeploy.protectedImages.some(id => !/^sha256:[a-f0-9]{64}$/.test(id))
+    || pins.some(p => !originalDeploy.protectedImages.includes(p.imageId))) fail('PROTECTED_IMAGE_HISTORY');
+  if (!deepEqual(originalMarker?.previous, originalDeploy?.previous) || !deepEqual(originalMarker?.candidateApi, originalDeploy?.candidates?.api)) fail('MARKER_DEPLOY_HISTORY');
+  if (originalActive?.version !== 3 || originalActive.outcome !== 'CONFIG_READY_HOLD' || originalActive.configSha !== f.targetSha
+    || originalActive.floorSha !== f.targetSha || originalActive.migrationBaseline !== f.previousFloorSha
+    || !deepEqual(originalActive.active, originalDeploy?.previous)) fail('ACTIVE_HISTORY_BINDING');
+  if (!runtime || !deepEqual(runtime, originalDeploy?.active)) fail('RUNTIME_NOT_CANDIDATE');
+
+  if (archive && originalDeploy && originalMarker) {
+    const expected = planRecoveredState(originalDeploy, originalMarker, { recoveryRunId: archive.recoveryRunId,
+      recoveredAt: archive.recoveredAt, startupResult: 'PASS_REDACTED_SUMMARY', classification: COMPLETE_ABORT_POINT, receiptSha256: context.receiptSha256 });
+    if (!deepEqual(archive.plan, expected)) fail('ARCHIVE_FULL_PLAN_MISMATCH');
+    // A write can succeed before its phase-record update. Only these exact
+    // old-or-applied combinations are resumable; no arbitrary mixed state.
+    if (phase === 'ARCHIVED') {
+      if ((!deepEqual(active, originalActive) && !deepEqual(active, expected.active)) || !deepEqual(deployRecord, originalDeploy)) fail('ARCHIVE_APPLIED_STATE_MISMATCH');
+    } else if (phase === 'ACTIVE_WRITTEN') {
+      if (!deepEqual(active, expected.active) || (!deepEqual(deployRecord, originalDeploy) && !deepEqual(deployRecord, expected.deployRecord))) fail('ARCHIVE_APPLIED_STATE_MISMATCH');
+    } else if (phase === 'DEPLOY_WRITTEN') {
+      if (!deepEqual(active, expected.active) || !deepEqual(deployRecord, expected.deployRecord)) fail('ARCHIVE_APPLIED_STATE_MISMATCH');
+    }
+  }
+  const startup = evidence?.startup;
+  for (const [name, item, expectedPhase] of [['pre', evidence?.pre, 'PRE_SNAPSHOT'], ['post', evidence?.post, 'POST_SNAPSHOT'], ['log', startup, 'API_STARTUP_LOG']]) {
+    if (item?.schema !== evidenceModule.EVIDENCE_SCHEMA || item.phase !== expectedPhase || item.deployRunId !== f.runId
+      || item.deployRunAttempt !== f.runAttempt || item.targetSha !== f.targetSha || item.configFloorSha !== f.targetSha) fail(`EVIDENCE_${name.toUpperCase()}_BINDING`);
+  }
+  if (!deepEqual(evidenceFiles, originalDeploy?.evidence) || !evidenceFiles?.pre || !evidenceFiles.post || !evidenceFiles.log) fail('VERIFY_FILES_UNAVAILABLE');
+  else {
+    try {
+      for (const [name, data] of [['pre', evidence.pre], ['post', evidence.post], ['log', startup]]) {
+        if (!deepEqual(JSON.parse(fs.readFileSync(evidenceFiles[name], 'utf8')), data)) fail('VERIFY_LOADED_FILES_MISMATCH');
+      }
+      evidenceModule.verifyEvidenceFiles(evidenceFiles.pre, evidenceFiles.post, evidenceFiles.log,
+        { runId: f.runId, runAttempt: f.runAttempt, targetSha: f.targetSha, configFloorSha: f.targetSha });
+    } catch { fail('VERIFY_RECOMPUTE_FAILED'); }
+  }
+  const claimed = receipt?.startup;
+  if (startup?.result !== 'PASS_REDACTED_SUMMARY' || claimed?.result !== startup?.result
+    || startup?.schemaWriteSignalCount !== 0 || startup?.errorSignalCount !== 0
+    || claimed?.schemaWriteSignalCount !== 0 || claimed?.errorSignalCount !== 0) fail('STARTUP_COUNTS_OR_RESULT');
+  if (!/^[a-f0-9]{64}$/.test(claimed?.combinedDigest || '') || claimed.combinedDigest !== startup?.combinedDigest) fail('RECEIPT_DIGEST_MISMATCH');
+  if (claimed?.schemaCompatibilityPass !== true || startup?.eventCounts?.SCHEMA_COMPATIBILITY_PASS !== 1
+    || startup?.eventCounts?.READINESS_HTTP_PASS !== 1) fail('STARTUP_COMPAT_READINESS');
+  if (!replay?.available || replay.windowVerified !== true) fail('REPLAY_WINDOW_UNVERIFIED');
+  if (replay?.combinedDigest !== startup?.combinedDigest || replay?.combinedDigest !== claimed?.combinedDigest) fail('REPLAY_DIGEST_MISMATCH');
+  if (replay?.schemaWriteCount !== 0 || replay?.sqlShapeCount !== 0 || replay?.errorLineCount !== 0
+    || replay?.schemaCompatibilityPass !== true) fail('REPLAY_SIGNAL_OR_COMPAT');
+  for (const key of ['stdoutLineCount', 'stderrLineCount']) {
+    if (!Number.isInteger(claimed?.[key]) || claimed[key] < 0 || claimed[key] !== startup?.[key] || claimed[key] !== replay?.[key]) fail('STARTUP_LINE_COUNTS');
+  }
+  const times = [evidence?.pre?.capturedAt, originalMarker?.startedAt, startup?.startedAt, evidence?.post?.capturedAt, startup?.capturedAt, originalMarker?.expiresAt].map(Date.parse);
+  if (times.some(t => !Number.isFinite(t)) || times.some((t, i) => i > 0 && t < times[i - 1])) fail('EVIDENCE_TIME_ORDER');
+  const preApi = evidence?.pre?.containers?.api;
+  if (!preApi || preApi.image !== originalDeploy?.previous?.api?.imageId || preApi.ociRevision !== f.previousFloorSha
+    || preApi.running !== true || preApi.health !== 'healthy') fail('PRE_API_HISTORY');
+  if (startup?.startedAt !== evidence?.post?.containers?.api?.startedAt || startup?.containerId !== evidence?.post?.containers?.api?.id) fail('STARTUP_API_BINDING');
+  for (const service of ['db', 'api', 'web']) {
+    const post = evidence?.post?.containers?.[service], live = containers?.[service];
+    if (!post || !live || live.error || post.running !== true || post.health !== 'healthy'
+      || ['id', 'startedAt', 'image', 'health', 'running', 'restartCount', 'ociRevision', 'mounts'].some(key => !deepEqual(post[key], live[key]))) fail(`LIVE_${service.toUpperCase()}_DRIFT`);
+    if (service !== 'api' && !deepEqual(evidence?.pre?.containers?.[service], post)) fail(`EVIDENCE_${service.toUpperCase()}_CHANGED`);
+  }
+  if (!evidence?.post?.containers?.api || evidence.post.containers.api.image !== originalDeploy?.candidates?.api?.imageId
+    || evidence.post.containers.api.ociRevision !== f.targetSha || evidence.post.containers.web?.image !== originalDeploy?.previous?.web?.imageId
+    || evidence.post.containers.web?.ociRevision !== originalDeploy?.previous?.web?.revision) fail('EVIDENCE_RUNTIME_PINS');
+  return { eligible: reasons.length === 0, reasons, resumeFrom: phase };
+}
+
 // Pure eligibility assessment over an already-collected state bundle. Every
 // check must pass for the current phase; failures are reported individually.
 export function assessRecovery(bundle, context) {
+  if (context.targetRunId === COMPLETE_ABORT_TRANSACTION.runId) return assessCompleteAbortRecovery(bundle, context);
   const reasons = [];
   const { transaction, deployRecord, marker, floor, active, runtime, containers, readinessHttp, liveEnv, evidence, archive } = bundle;
   const now = context.now ?? Date.now();
@@ -231,10 +389,15 @@ export function assessRecovery(bundle, context) {
     || marker.target !== context.approvedSha || !expired(marker)) reasons.push('POLICY_MARKER_SHAPE');
   if (marker && Number.isFinite(Date.parse(marker.startedAt)) && Number.isFinite(Date.parse(marker.expiresAt))
     && (Date.parse(marker.expiresAt) - Date.parse(marker.startedAt) > 30 * 60 * 1000)) reasons.push('POLICY_MARKER_WINDOW');
-  if (!floor || floor.version !== 3 || floor.floorSha !== context.approvedSha || floor.chanjetPolicy !== 'HOLD' || floor.readonlyApproval !== null) reasons.push('FLOOR_SHAPE');
+  const reanchor = isVerifiedAbortReanchor(context);
+  // The failed re-anchor may already have promoted floor.json to the target
+  // before the post-verify abort. The receipt still binds the prior floor, but
+  // the live floor and CONFIG_READY_HOLD active config must be the target.
+  const expectedFloorSha = context.approvedSha;
+  if (!floor || floor.version !== 3 || floor.floorSha !== expectedFloorSha || floor.chanjetPolicy !== 'HOLD' || floor.readonlyApproval !== null) reasons.push('FLOOR_SHAPE');
   if (active) {
     if (phase === 'ARCHIVED' || phase === null) {
-      if (active.version !== 3 || active.outcome !== 'CONFIG_READY_HOLD' || active.floorSha !== context.approvedSha || active.configSha !== context.approvedSha
+      if (active.version !== 3 || active.outcome !== 'CONFIG_READY_HOLD' || active.floorSha !== expectedFloorSha || active.configSha !== expectedFloorSha
         || active.active?.api?.revision === context.approvedSha
         || !deepEqual(active.active, deployRecord?.previous)) reasons.push('ACTIVE_STILL_PROMOTION_STATE');
     } else if (!deepEqual(active, archive?.plan?.active)) reasons.push('ACTIVE_NOT_RECOVERED_PLAN');
@@ -321,18 +484,29 @@ export function executeRecoveryStages(archive, io, { resumedBy } = {}) {
   return { executed, complete: true };
 }
 
+// Shared completion seam for the CLI and isolated regression tests. The
+// verified-abort path performs its live TOCTOU check before calling this
+// function; all staged writes and the externally visible COMPLETE result stay
+// in one tested path.
+export function completeRecovery(record, io, { resumedBy, write = () => {} } = {}) {
+  const result = executeRecoveryStages(record, io, { resumedBy });
+  write('DEPLOYMENT_RECOVERY', 'COMPLETE');
+  return result;
+}
+
 // CLI entry: only ever runs against the real trusted control plane, guarded by
-// RECOVERY_EXECUTE plus explicit run/SHA binding. Local tests never reach it.
+// RECOVERY_EXECUTE plus explicit run/SHA binding. Child-process tests use only
+// temporary local state and explicit host/Docker admission shims.
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const write = (label, value) => { console.log(`${label}=${value}`); };
   try {
-    const context = { targetRunId: process.env.RECOVERY_TARGET_RUN_ID, approvedSha: process.env.RECOVERY_APPROVED_SHA, recoveryRunId: process.env.RECOVERY_RUN_ID };
+    const context = { targetRunId: process.env.RECOVERY_TARGET_RUN_ID, approvedSha: process.env.RECOVERY_APPROVED_SHA, previousFloorSha: process.env.RECOVERY_PREVIOUS_FLOOR_SHA, recoveryRunId: process.env.RECOVERY_RUN_ID };
     if (process.env.RECOVERY_EXECUTE !== 'true' || !/^\d+(?:-\d+)?$/.test(context.targetRunId || '') || !/^[a-f0-9]{40}$/.test(context.approvedSha || '') || !/^\d+-\d+$/.test(context.recoveryRunId || '')) {
       write('DEPLOYMENT_RECOVERY', 'HOLD_EXECUTION_NOT_AUTHORIZED'); process.exitCode = 1;
     } else {
       const root = fs.realpathSync(process.cwd());
       const { CONTRACT, secureJson, verifyContext, rollbackEligibility, git } = await import('./production-config-guard.mjs');
-      const { atomicState } = await import('./production-deployment-state.mjs');
+      const { atomicState } = await import('./production-atomic-state.mjs');
       const { captureRuntime } = await import('./capture-production-runtime.mjs');
       const evidenceModule = await import('./production-deployment-evidence.mjs');
       verifyContext(root, CONTRACT.stateDirectory);
@@ -356,10 +530,15 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       try { readinessHttp = execFileSync('curl', ['-sS', '--max-time', '15', '-o', '/dev/null', '-w', '%{http_code}', 'http://127.0.0.1:3100/api/readiness'], { encoding: 'utf8' }).trim(); } catch { /* reported via READINESS */ }
       const rawEnv = JSON.parse(execFileSync('docker', ['inspect', 'phoenix-v3-api', '--format', '{{json .Config.Env}}'], { encoding: 'utf8' }));
       const liveEnv = Object.fromEntries(rawEnv.filter(line => /^(CHANJET_READONLY_SYNC_ENABLED|CHANJET_ERP_INBOUND_SYNC_ENABLED|CHANJET_SYNC_POLICY)=/.test(line)).map(line => [line.slice(0, line.indexOf('=')), line.slice(line.indexOf('=') + 1)]));
+      // New frozen path reads evidence through the trusted control-plane file
+      // reader (containment, ownership/mode, no symlinks and pinned identity).
+      // Legacy paths retain their existing receipt/file validation behavior.
+      const readEvidence = context.targetRunId === COMPLETE_ABORT_TRANSACTION.runId
+        ? secureJson : file => JSON.parse(fs.readFileSync(file, 'utf8'));
       const evidence = deployRecord?.evidence ? {
-        pre: JSON.parse(fs.readFileSync(deployRecord.evidence.pre, 'utf8')),
-        post: JSON.parse(fs.readFileSync(deployRecord.evidence.post, 'utf8')),
-        startup: JSON.parse(fs.readFileSync(deployRecord.evidence.log, 'utf8')),
+        pre: readEvidence(deployRecord.evidence.pre),
+        post: readEvidence(deployRecord.evidence.post),
+        startup: readEvidence(deployRecord.evidence.log),
       } : null;
       // Sanitized receipt (base64 payload; sha256 over the decoded bytes) gates
       // the single benign-startup-error transaction. Transport hash mismatch is
@@ -369,6 +548,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
         const bytes = Buffer.from(process.env.RECOVERY_STARTUP_RECEIPT_B64, 'base64');
         if (sha256(bytes) !== (process.env.RECOVERY_STARTUP_RECEIPT_SHA256 || '')) throw Object.assign(new Error('receipt transport hash'), { code: 'DEPLOYMENT_RECOVERY=HOLD_RECEIPT_TRANSPORT_HASH' });
         receipt = JSON.parse(bytes.toString('utf8'));
+        context.receiptSha256 = sha256(bytes);
       }
       let dbEvidence = null;
       try {
@@ -384,15 +564,15 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       const assessment = assessRecovery({ transaction, deployRecord, marker, floor, active, runtime, containers, readinessHttp, liveEnv, evidence, evidenceFiles, archive, checkout, receipt, replay, dbEvidence }, context);
       if (!assessment.eligible) { write('DEPLOYMENT_RECOVERY', `HOLD_${assessment.reasons.join(',')}`); process.exitCode = 1; }
       else if (!rollbackEligibility(root, floor, runtime.api).allowed) { write('DEPLOYMENT_RECOVERY', 'HOLD_RUNTIME_NOT_FLOOR_ELIGIBLE'); process.exitCode = 1; }
-      else if (evidence?.startup?.result === 'PASS_REDACTED_SUMMARY') {
-        // Verified-abort path only: re-run the live TOCTOU snapshot check the
-        // original deploy's `complete` would have performed.
-        try {
-          const evidenceModule = await import('./production-deployment-evidence.mjs');
-          evidenceModule.verifyLiveSnapshot(evidence.post, { runId: context.targetRunId, runAttempt: String(evidence.startup.deployRunAttempt ?? 1), targetSha: context.approvedSha, configFloorSha: floor.floorSha });
-        } catch (error) { throw Object.assign(new Error('verify live snapshot'), { code: 'DEPLOYMENT_RECOVERY=HOLD_VERIFY_LIVE_SNAPSHOT' }); }
-      }
       else {
+        if (evidence?.startup?.result === 'PASS_REDACTED_SUMMARY') {
+          // Verified-abort path only: re-run the live TOCTOU snapshot check the
+          // original deploy's `complete` would have performed.
+          try {
+            const evidenceModule = await import('./production-deployment-evidence.mjs');
+            evidenceModule.verifyLiveSnapshot(evidence.post, { runId: context.targetRunId, runAttempt: String(evidence.startup.deployRunAttempt ?? 1), targetSha: context.approvedSha, configFloorSha: floor.floorSha });
+          } catch (error) { throw Object.assign(new Error('verify live snapshot'), { code: 'DEPLOYMENT_RECOVERY=HOLD_VERIFY_LIVE_SNAPSHOT' }); }
+        }
         let record = archive;
         if (!record) {
           const recoveredAt = new Date().toISOString();
@@ -401,23 +581,22 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
           const plan = planRecoveredState(deployRecord, marker, {
             recoveryRunId: context.recoveryRunId, recoveredAt,
             startupResult: verifiedAbort ? 'PASS_REDACTED_SUMMARY' : benignError ? 'HOLD_STARTUP_ERROR' : CASE_A_STARTUP_RESULT,
-            classification: verifiedAbort ? 'EVIDENCE_VERIFIED_SCRIPT_ABORTED_AFTER_VERIFY' : benignError ? 'CASE_A_BENIGN_STARTUP_ERROR_SINGLE_ROUTES_RESOLVER_LINE' : 'CASE_A_BENIGN_STARTUP_LOG_SIGNALS',
+            classification: context.targetRunId === COMPLETE_ABORT_TRANSACTION.runId ? COMPLETE_ABORT_POINT : verifiedAbort ? 'EVIDENCE_VERIFIED_SCRIPT_ABORTED_AFTER_VERIFY' : benignError ? 'CASE_A_BENIGN_STARTUP_ERROR_SINGLE_ROUTES_RESOLVER_LINE' : 'CASE_A_BENIGN_STARTUP_LOG_SIGNALS',
             receiptSha256: (benignError || verifiedAbort) ? (process.env.RECOVERY_STARTUP_RECEIPT_SHA256 || null) : null,
           });
           const snapshotOf = (name, value) => ({ name, sha256: sha256(JSON.stringify(value)), value });
-          record = { schema: RECOVERY_SCHEMA, phase: 'ARCHIVED', recoveryRunId: context.recoveryRunId, recoveredAt, targetRunId: context.targetRunId, approvedSha: context.approvedSha, assessment,
+          record = { schema: RECOVERY_SCHEMA, phase: 'ARCHIVED', recoveryRunId: context.recoveryRunId, recoveredAt, targetRunId: context.targetRunId, approvedSha: context.approvedSha, ...(context.targetRunId === COMPLETE_ABORT_TRANSACTION.runId ? { previousFloorSha: context.previousFloorSha, receiptSha256: context.receiptSha256 } : {}), assessment,
             archived: [snapshotOf('transaction.json', transaction), snapshotOf('policy-transition.json', marker), snapshotOf('floor.json', floor), snapshotOf('active.json', active), snapshotOf(`deploy-${context.targetRunId}.json`, deployRecord)], plan };
           atomicState(stateFile(`recovery-${context.targetRunId}.json`), record);
         }
-        executeRecoveryStages(record, {
+        completeRecovery(record, {
           writeActive: value => atomicState(stateFile('active.json'), value),
           writeDeployRecord: value => atomicState(stateFile(`deploy-${context.targetRunId}.json`), value),
           writeArchive: value => atomicState(stateFile(`recovery-${context.targetRunId}.json`), value),
           exists: name => fs.existsSync(stateFile(name)),
           unlink: name => fs.unlinkSync(stateFile(name)),
           now: () => new Date().toISOString(),
-        }, { resumedBy: context.recoveryRunId });
-        write('DEPLOYMENT_RECOVERY', 'COMPLETE');
+        }, { resumedBy: context.recoveryRunId, write });
       }
     }
   } catch (error) {

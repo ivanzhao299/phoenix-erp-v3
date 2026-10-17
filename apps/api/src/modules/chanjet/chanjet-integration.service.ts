@@ -1,9 +1,12 @@
 import { requireReadonlyOrchestration, assertReadonlyOrchestrationOwnerIfPresent } from './chanjet-readonly-execution';
+import { activeExecutionScope, executionWriteGate, executionWriteGateTx, ExecutionScopeState, isCommitVerdictUnknown } from './chanjet-execution-scope';
+import { resolveGuardClientConfig, GuardConnectionConfig } from './chanjet-execution-guard-executor';
+import { Client } from 'pg';
 import { approvedReadonlyPolicy, requireApprovedReadonlyRequest, readonlyFailureCode } from './chanjet-readonly-policy';
 import { requireReadonlySync } from './chanjet-sync-control';
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
-import { DataSource, In, Not, Repository } from 'typeorm';
+import { DataSource, EntityManager, In, Not, QueryRunner, Repository } from 'typeorm';
 import { ChanjetAuthService, getChanjetBusinessFailure } from './chanjet-auth.service';
 import { ChanjetAccountBookEntity } from './chanjet-account-book.entity';
 import { ChanjetApiFieldCatalogEntity } from './chanjet-api-field-catalog.entity';
@@ -1560,6 +1563,10 @@ export class ChanjetIntegrationService {
     private readonly fieldMappingRepo: Repository<ChanjetErpFieldMappingEntity>,
     @InjectRepository(ChanjetWritebackOutboxEntity)
     private readonly writebackOutboxRepo: Repository<ChanjetWritebackOutboxEntity>,
+    // cancellation-channel override for the execution-bound mirror
+    // transaction (the scheduler passes its bounded guard configuration);
+    // absent, the channel is derived from the DataSource configuration
+    @Optional() private readonly executionCancellationConfig?: GuardConnectionConfig,
   ) {}
 
   listProbeEndpoints() {
@@ -7194,6 +7201,242 @@ export class ChanjetIntegrationService {
     return new Date(left).getTime() >= new Date(right).getTime() ? left : right;
   }
 
+  /** Shared execution-bound write transaction: EVERY step — connection
+   *  acquisition (pool wait included), the backend PID query, BEGIN, the SET
+   *  LOCAL budgets, the liveness gate, the business writes and the COMMIT —
+   *  is raced against the REAL-TIME remaining budget derived from the SAME
+   *  absolute execution deadline. A late acquisition aborts and releases
+   *  before any business SQL runs. A lost race PHYSICALLY DISCARDS the
+   *  session socket first (every cleanup step bounded, the close forced if
+   *  it will not confirm; a tainted session is never returned to the pool
+   *  carrying a raw BEGIN), then terminates the backend via the bounded
+   *  INDEPENDENT cancellation channel and confirms the discard. The COMMIT
+   *  verdict is classified: an explicit pg server rejection (SQLSTATE
+   *  present) never committed — fail-closed; a LOST response or connection
+   *  error is genuinely UNKNOWN (the commit may have landed) and is
+   *  reported as CHANJET_EXECUTION_TERMINAL_UNKNOWN, never claimed
+   *  committed or rolled back. */
+  private async runExecutionBoundWriteTx<T>(
+    scope: ExecutionScopeState,
+    logTag: string,
+    work: (runner: QueryRunner) => Promise<T>,
+  ): Promise<T> {
+    const deadline = scope.deadlineAt instanceof Date ? scope.deadlineAt.getTime() : Number.NaN;
+    if (!Number.isFinite(deadline) || deadline - Date.now() <= 1) throw new Error('CHANJET_EXECUTION_DEADLINE');
+    const remainingMs = (): number => deadline - Date.now();
+    const cancellationConfig = this.executionCancellationConfig
+      ?? resolveGuardClientConfig((this.ds.options ?? {}) as GuardConnectionConfig);
+    if (!cancellationConfig) throw new Error('CHANJET_EXECUTION_CANCEL_CHANNEL_UNAVAILABLE');
+    const withBound = async <T2>(boundedWork: Promise<T2>, ms: number, code: string): Promise<T2> => {
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      return Promise.race([
+        boundedWork,
+        new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error(code)), ms); }),
+      ]).finally(() => clearTimeout(timer));
+    };
+    const forceClose = (client: { connection?: { stream?: import('node:net').Socket } } | null | undefined): void => {
+      try { client?.connection?.stream?.destroy(new Error('CHANJET_EXECUTION_SESSION_FORCE_CLOSED')); } catch { /* already gone */ }
+    };
+    const queryRunner = this.ds.createQueryRunner();
+    let session: { connection?: { stream?: import('node:net').Socket }; end?: () => Promise<void> } | null | undefined;
+    let beginSeen = false;
+    let commitUnknown = false;
+    let errorEscaped = false;
+    let beginTimer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      // LATE ACQUISITION MUST ABORT: the pool wait and the backend PID query
+      // are raced against the same budget — no business SQL can run past the
+      // deadline, and a failed acquisition releases the runner cleanly.
+      // A LATE pool grant (the queued acquire resolving after the deadline
+      // race gave up) is returned immediately so the pool never leaks a
+      // checked-out slot.
+      let connectLost = false;
+      const connectPromise = queryRunner.connect().then(async () => {
+        if (connectLost) {
+          // a LATE pool grant after the deadline race gave up: complete the
+          // runner's FULL release lifecycle — TypeORM pushed the runner onto
+          // driver.connectedQueryRunners when the grant landed, and its own
+          // release hook clears that tracking AND hands the pg client back
+          // through the pool's own callback. The isReleased guard would skip
+          // the hook (the deadline path already released the runner), so the
+          // flag is cleared first; the DataSource itself recovers normally.
+          const runnerLifecycle = queryRunner as unknown as {
+            releasePostgresConnection?: (err?: unknown) => void;
+            isReleased?: boolean;
+          };
+          runnerLifecycle.isReleased = false;
+          runnerLifecycle.releasePostgresConnection?.();
+          return null;
+        }
+        return (queryRunner as unknown as { databaseConnection?: { connection?: { stream?: import('node:net').Socket }; end?: () => Promise<void> } }).databaseConnection ?? null;
+      }) as unknown as Promise<{ connection?: { stream?: import('node:net').Socket }; end?: () => Promise<void> } | null>;
+      try {
+        session = await withBound(connectPromise, remainingMs(), 'CHANJET_EXECUTION_DEADLINE');
+      } catch (acquireError) {
+        connectLost = true;
+        throw acquireError;
+      }
+      if (!session) throw new Error('CHANJET_EXECUTION_DEADLINE');
+      const [pidRow] = await withBound(
+        queryRunner.query('SELECT pg_backend_pid() AS pid'),
+        remainingMs(), 'CHANJET_EXECUTION_DEADLINE',
+      ) as Array<{ pid: number | string }>;
+      const selfPid = Number(pidRow?.pid);
+      // physical discard of the ORIGINAL session socket FIRST — the
+      // cancel/confirm steps below are each bounded and can never delay it
+      const discardSession = async (): Promise<void> => {
+        forceClose(session);
+        if (typeof session?.end === 'function') {
+          await withBound(session.end(), 500, 'CHANJET_EXECUTION_SESSION_END_TIMEOUT').catch(() => forceClose(session));
+        }
+        if (!queryRunner.isReleased) {
+          await withBound(queryRunner.release(), 500, 'CHANJET_EXECUTION_SESSION_RELEASE_TIMEOUT').catch(() => forceClose(session));
+        }
+      };
+      const abortViaIndependentChannel = async (): Promise<void> => {
+        await discardSession();
+        const cancelClient = new Client(cancellationConfig as never);
+        // controlled error handling: a failing cancellation connection emits
+        // 'error' OUTSIDE any pending query — unhandled, that event would
+        // escape and take the process down. It is captured, stops the
+        // remaining steps, and is reported verbatim.
+        let cancelError = '';
+        cancelClient.on('error', (...args: unknown[]) => {
+          const err = args[0] as Error | undefined;
+          if (!cancelError) cancelError = `${err?.name ?? 'Error'}:${err?.message ?? 'unknown'}`;
+        });
+        let pgConfirmed = false;
+        try {
+          await withBound(cancelClient.connect(), 1_000, 'CHANJET_EXECUTION_CANCEL_CONNECT_TIMEOUT');
+          if (cancelError) throw new Error(cancelError);
+          await withBound(cancelClient.query('SELECT pg_terminate_backend($1)', [selfPid]), 1_000, 'CHANJET_EXECUTION_CANCEL_TERMINATE_TIMEOUT');
+          const confirmDeadline = Date.now() + 2_000;
+          while (Date.now() < confirmDeadline && !cancelError) {
+            const rows = await withBound(
+              cancelClient.query('SELECT 1 FROM pg_stat_activity WHERE pid=$1', [selfPid]),
+              500, 'CHANJET_EXECUTION_CANCEL_CONFIRM_TIMEOUT',
+            ) as { rows?: unknown[] };
+            if (cancelError) break;
+            if (!rows.rows?.length) { pgConfirmed = true; break; }
+            await new Promise((resolve) => setTimeout(resolve, 100));
+          }
+        } catch { /* bounded best-effort: the session socket is already discarded */ }
+        finally {
+          // even the close is bounded and force-released: teardown can never
+          // hang on an unresponsive cancellation connection
+          await withBound(cancelClient.end(), 500, 'CHANJET_EXECUTION_CANCEL_END_TIMEOUT')
+            .catch(() => forceClose(cancelClient as unknown as { connection?: { stream?: import('node:net').Socket } }));
+        }
+        if (!pgConfirmed) this.log.error(`READONLY_HOLD_${logTag}_CLEANUP_UNCONFIRMED${cancelError ? `;cancelError=${cancelError}` : ''}`);
+      };
+      // The transaction is owned by THIS mechanism through TypeORM's own
+      // transaction API: startTransaction keeps isTransactionActive
+      // consistent, so the repository saves inside `work` never open or
+      // commit a transaction of their own — a raw BEGIN would let the first
+      // save() commit the whole batch early, unguarded by the deadline race.
+      // START TRANSACTION is still raced against the same absolute deadline.
+      const began = await Promise.race([
+        queryRunner.startTransaction().then(() => 'ok' as const),
+        new Promise<'timeout'>((resolve) => { beginTimer = setTimeout(() => resolve('timeout'), remainingMs()); }),
+      ]).catch(() => 'error' as const);
+      try {
+        if (began === 'timeout') {
+          commitUnknown = true;
+          await abortViaIndependentChannel();
+          throw new Error('CHANJET_EXECUTION_TERMINAL_UNKNOWN');
+        }
+        if (began !== 'ok') {
+          // BEGIN itself failed: no transaction started — discard (fail-closed)
+          await abortViaIndependentChannel();
+          throw new Error('CHANJET_EXECUTION_TX_BEGIN_FAILED');
+        }
+        beginSeen = true;
+        await withBound(queryRunner.query(`SET LOCAL statement_timeout=${remainingMs()}`), remainingMs(), 'CHANJET_EXECUTION_DEADLINE');
+        await withBound(queryRunner.query(`SET LOCAL lock_timeout=${Math.min(remainingMs(), 1_000)}`), remainingMs(), 'CHANJET_EXECUTION_DEADLINE');
+        const writesPromise = work(queryRunner);
+        // a race loser's rejection is owned by the abort path — never an
+        // unhandled rejection
+        writesPromise.catch(() => undefined);
+        const written = await withBound(writesPromise, remainingMs(), 'CHANJET_EXECUTION_DEADLINE');
+        const remaining = remainingMs();
+        if (remaining <= 1) {
+          commitUnknown = true;
+          await abortViaIndependentChannel();
+          throw new Error('CHANJET_EXECUTION_TERMINAL_UNKNOWN');
+        }
+        let commitTimer: ReturnType<typeof setTimeout> | undefined;
+        const commitOutcome = await Promise.race([
+          queryRunner.commitTransaction().then(() => 'committed' as const),
+          new Promise<'timeout'>((resolve) => { commitTimer = setTimeout(() => resolve('timeout'), remaining); }),
+        ]).catch((commitError: unknown) => ({ commitError } as { commitError: unknown }));
+        if (commitTimer) clearTimeout(commitTimer);
+        if (commitOutcome === 'timeout') {
+          // no server verdict within the budget: cancel, confirm, UNKNOWN
+          commitUnknown = true;
+          await abortViaIndependentChannel();
+          throw new Error('CHANJET_EXECUTION_TERMINAL_UNKNOWN');
+        }
+        if (typeof commitOutcome === 'object') {
+          if (isCommitVerdictUnknown(commitOutcome.commitError)) {
+            // connection-class or completion-unknown verdict (or a lost
+            // response): the commit may have landed server-side — genuinely
+            // UNKNOWN, never claimed committed or rolled back
+            commitUnknown = true;
+            await abortViaIndependentChannel();
+            throw new Error('CHANJET_EXECUTION_TERMINAL_UNKNOWN');
+          }
+          // EXPLICIT server rejection with a proven rollback: fail-closed
+          // discard and a verbatim failure
+          await abortViaIndependentChannel();
+          throw new Error('CHANJET_EXECUTION_TX_COMMIT_FAILED');
+        }
+        return written;
+      } catch (error) {
+        errorEscaped = true;
+        if (commitUnknown) {
+          // the session was discarded and the backend terminated — the
+          // UNKNOWN outcome propagates accurately
+          this.log.error(`READONLY_HOLD_${logTag}_COMMIT_UNKNOWN;sessionDiscarded=true`);
+          throw error;
+        }
+        // bounded ROLLBACK on the same session; if it cannot be confirmed
+        // the session is physically discarded and the backend terminated —
+        // the session never returns to the pool carrying a raw BEGIN
+        let rolled = false;
+        if (beginSeen) {
+          let rollbackTimer: ReturnType<typeof setTimeout> | undefined;
+          try {
+            rolled = await Promise.race([
+              queryRunner.rollbackTransaction().then(() => true as const),
+              new Promise<false>((resolve) => { rollbackTimer = setTimeout(() => resolve(false), 1_000); }),
+            ]).catch(() => false as const);
+          } catch { rolled = false; }
+          if (rollbackTimer) clearTimeout(rollbackTimer);
+        }
+        if (rolled !== true) await abortViaIndependentChannel();
+        throw error;
+      }
+    } catch (error) {
+      // EVERY escape (including a raced connection/PID acquisition loss
+      // before BEGIN) taints the session — the finally below then force-
+      // closes its socket so the pool can never hand out a connection with
+      // unresolved pending state
+      errorEscaped = true;
+      throw error;
+    } finally {
+      if (beginTimer) clearTimeout(beginTimer);
+      // reliable release: on ANY escaped error the session socket is
+      // force-closed FIRST — a tainted session (hung acquisition, suspended
+      // PID query, lost rollback) can never be borrowed from the pool
+      // carrying unresolved state — and the release itself is raced with the
+      // same forced close as its fallback
+      if (errorEscaped) forceClose(session);
+      if (!queryRunner.isReleased) {
+        await withBound(queryRunner.release(), 500, 'CHANJET_EXECUTION_SESSION_RELEASE_TIMEOUT').catch(() => forceClose(session));
+      }
+    }
+  }
+
   async syncReadOnlyMirror(scope: string[] = [], bookId?: string, period?: string): Promise<{
     requestedScope: string[];
     books: string[];
@@ -7257,6 +7500,10 @@ export class ChanjetIntegrationService {
       const targets = ep.requiresBook ? books : [''];
       for (const targetBookId of targets) {
         assertReadonlyOrchestrationOwnerIfPresent();
+        // execution-bound write gate: a held/expired admission refuses before
+        // this target's snapshot upsert / aggregate delete+upsert / mapping
+        // candidate writes (legacy non-execution paths pass through)
+        await executionWriteGate();
         const path = ep.requiresBook ? ep.path.replace('{bookid}', encodeURIComponent(targetBookId)) : ep.path;
         const request = this.buildProbeRequest(ep, period);
         const effectivePeriod = request.period;
@@ -7274,16 +7521,35 @@ export class ChanjetIntegrationService {
             await this.persistAccountBooks(resp);
           }
           const fields = await this.recordApiSample(ep.apiDomain, path, ep.method, resp);
-          const rawSnapshot = await this.recordReadSnapshot(ep, targetBookId, path, ep.method, effectivePeriod, resp);
-          const entityRows = await this.recordEntitySnapshots(ep, targetBookId, effectivePeriod, resp);
-          if (ep.mappingType && ep.key !== 'CUSTOMER_SUPPLIER') {
-            await this.createMappingCandidates(ep.mappingType, targetBookId, resp);
+          // execution-bound: the snapshot upsert, aggregate delete+upsert and
+          // mapping-candidate writes share ONE transaction whose FIRST
+          // statement is the admission liveness gate — a HOLD/deadline after
+          // the gate rolls the whole batch back to zero writes (legacy
+          // non-execution paths keep their existing behavior).
+          const scopeState = activeExecutionScope();
+          const persistWrites = async (manager?: EntityManager): Promise<{ rawSnapshotId: string; rowCount: number; entityRows: number }> => {
+            const rawSnapshot = await this.recordReadSnapshot(ep, targetBookId, path, ep.method, effectivePeriod, resp, manager);
+            const entityRows = await this.recordEntitySnapshots(ep, targetBookId, effectivePeriod, resp, manager);
+            if (ep.mappingType && ep.key !== 'CUSTOMER_SUPPLIER') {
+              await this.createMappingCandidates(ep.mappingType, targetBookId, resp, manager);
+            }
+            return { rawSnapshotId: rawSnapshot.id, rowCount: rawSnapshot.rowCount, entityRows };
+          };
+          let written!: { rawSnapshotId: string; rowCount: number; entityRows: number };
+          if (scopeState) {
+            written = await this.runExecutionBoundWriteTx(scopeState, 'MIRROR_TX', async (runner) => {
+              await executionWriteGateTx(runner.manager, scopeState.current, { forUpdate: true });
+              return persistWrites(runner.manager);
+            });
+          } else {
+            written = await persistWrites();
           }
+          const { rawSnapshotId, rowCount, entityRows } = written;
           await this.finishJob(job, 'SUCCESS', {
             key: ep.key,
             fields,
-            rows: rawSnapshot.rowCount,
-            rawSnapshotId: rawSnapshot.id,
+            rows: rowCount,
+            rawSnapshotId,
             entityRows,
           });
           results.push({
@@ -7291,8 +7557,8 @@ export class ChanjetIntegrationService {
             bookId: targetBookId,
             status: 'SUCCESS',
             fields,
-            rows: rawSnapshot.rowCount,
-            rawSnapshotId: rawSnapshot.id,
+            rows: rowCount,
+            rawSnapshotId,
             entityRows,
           });
         } catch (err) {
@@ -8105,10 +8371,14 @@ export class ChanjetIntegrationService {
     results: ChanjetReconciliationResultEntity[];
   }> {
     requireReadonlySync();
+    // execution-bound write gate: reconciliation candidate/resolution writes
+    // refuse for a held/expired execution (legacy paths pass through)
+    await executionWriteGate();
     const job = await this.createJob('RECONCILE', '', '', {
       scope: 'MASTER_MAPPING',
       mode: 'middle-layer-only',
     });
+    const scopeState = activeExecutionScope();
 
     try {
       const approval = approvedReadonlyPolicy();
@@ -8173,7 +8443,17 @@ export class ChanjetIntegrationService {
           resolvedAt: null,
         });
         assertReadonlyOrchestrationOwnerIfPresent();
-        const saved = await this.reconciliationRepo.save(result);
+        // execution-bound: each reconciliation save shares the FULL bounded
+        // transaction mechanism — connection acquisition, PID query, BEGIN,
+        // SET LOCAL budgets, the liveness gate, the write and the COMMIT are
+        // all raced against the same absolute deadline; a lost race discards
+        // the session and reports UNKNOWN/failure accurately (zero late writes)
+        const saved = scopeState
+          ? await this.runExecutionBoundWriteTx(scopeState, 'RECONCILE_TX', async (runner) => {
+              await executionWriteGateTx(runner.manager, scopeState.current, { forUpdate: true });
+              return runner.manager.getRepository(ChanjetReconciliationResultEntity).save(result);
+            })
+          : await this.reconciliationRepo.save(result);
         created += 1;
         statusCounts[saved.status] = (statusCounts[saved.status] || 0) + 1;
         if (!options.compact) results.push(saved);
@@ -8710,6 +8990,10 @@ export class ChanjetIntegrationService {
       const targets = ep.requiresBook ? books : [''];
       for (const targetBookId of targets) {
         assertReadonlyOrchestrationOwnerIfPresent();
+        // execution-bound write gate: a held/expired admission refuses before
+        // this target's snapshot upsert / aggregate delete+upsert / mapping
+        // candidate writes (legacy non-execution paths pass through)
+        await executionWriteGate();
         const path = ep.requiresBook ? ep.path.replace('{bookid}', encodeURIComponent(targetBookId)) : ep.path;
         const job = await this.createJob('PROBE', targetBookId, '', {
           key: ep.key,
@@ -8872,6 +9156,7 @@ export class ChanjetIntegrationService {
     method: HttpMethod,
     period: string,
     payload: unknown,
+    tx?: EntityManager,
   ): Promise<ChanjetReadSnapshotEntity> {
     const failure = getChanjetBusinessFailure(payload);
     if (failure) {
@@ -8896,24 +9181,27 @@ export class ChanjetIntegrationService {
       rawPayload: this.maskSensitivePayload(normalizedPayload),
     });
     assertReadonlyOrchestrationOwnerIfPresent();
-    await this.readSnapshotRepo.upsert(entity as any, {
+    // within an execution-bound write transaction the SAME connection is used
+    const repo = tx ? tx.getRepository(ChanjetReadSnapshotEntity) : this.readSnapshotRepo;
+    await repo.upsert(entity as any, {
       conflictPaths: ['bookId', 'endpointKey', 'payloadHash'],
       skipUpdateIfNoValuesChanged: false,
     });
-    const saved = await this.readSnapshotRepo.findOneBy({ bookId, endpointKey: ep.key, payloadHash });
+    const saved = await repo.findOneBy({ bookId, endpointKey: ep.key, payloadHash });
     return saved || entity;
   }
 
-  private async recordEntitySnapshots(ep: ProbeEndpoint, bookId: string, period: string, payload: unknown): Promise<number> {
+  private async recordEntitySnapshots(ep: ProbeEndpoint, bookId: string, period: string, payload: unknown, tx?: EntityManager): Promise<number> {
     const failure = getChanjetBusinessFailure(payload);
     if (failure) {
       throw new Error(`拒绝生成好业财实体快照 code=${failure.code} requestId=${failure.requestId || '-'} msg=${failure.message}`);
     }
     const entityType = ep.entityType || ep.key;
     const rows = this.extractRows(payload);
+    const repo = tx ? tx.getRepository(ChanjetEntitySnapshotEntity) : this.entitySnapshotRepo;
     if (this.isAggregateStatisticsEndpoint(ep.key, entityType)) {
       assertReadonlyOrchestrationOwnerIfPresent();
-      await this.entitySnapshotRepo.delete({ bookId, endpointKey: ep.key, entityType });
+      await repo.delete({ bookId, endpointKey: ep.key, entityType });
     }
     let count = 0;
     for (let index = 0; index < rows.length; index += 1) {
@@ -8922,7 +9210,10 @@ export class ChanjetIntegrationService {
       if (!normalized.externalId && !normalized.externalCode && !normalized.externalName) continue;
       const externalId = normalized.externalId || normalized.externalCode || `${ep.key}-${index + 1}`;
       assertReadonlyOrchestrationOwnerIfPresent();
-      await this.entitySnapshotRepo.upsert(
+      // aggregate delete/upsert liveness re-check on the SAME transaction: a
+      // HOLD/deadline landing mid-loop rolls the whole batch back to zero
+      if (tx) await executionWriteGateTx(tx, activeExecutionScope()!.current, { forUpdate: false });
+      await repo.upsert(
         {
           bookId,
           endpointKey: ep.key,
@@ -9553,8 +9844,9 @@ export class ChanjetIntegrationService {
     return Object.keys(snapshot.rawData).length > 0;
   }
 
-  private async createMappingCandidates(mappingType: ChanjetMappingType, bookId: string, resp: unknown): Promise<void> {
+  private async createMappingCandidates(mappingType: ChanjetMappingType, bookId: string, resp: unknown, tx?: EntityManager): Promise<void> {
     const rows = this.extractRows(resp).slice(0, 1000);
+    const mappingRepo = tx ? tx.getRepository(ChanjetMasterMappingEntity) : this.mappingRepo;
     for (const row of rows) {
       if (getChanjetBusinessFailure(row)) continue;
       const id = String(
@@ -9599,18 +9891,19 @@ export class ChanjetIntegrationService {
         reviewedBy: readonlySubjectReference ? 'system:chanjet-readonly-subject-reference' : null,
         reviewedAt: readonlySubjectReference ? new Date() : null,
         rawData: row,
-      });
+      }, tx);
     }
   }
 
-  private async upsertMasterMapping(input: Partial<ChanjetMasterMappingEntity>) {
+  private async upsertMasterMapping(input: Partial<ChanjetMasterMappingEntity>, tx?: EntityManager) {
+    const mappingRepo = tx ? tx.getRepository(ChanjetMasterMappingEntity) : this.mappingRepo;
     const mappingType = input.mappingType;
     const bookId = input.bookId ?? '';
     const chanjetId = input.chanjetId ?? '';
     const incomingReviewStatus = input.reviewStatus ?? 'PENDING';
 
     if (mappingType && chanjetId) {
-      const sourceRows = await this.mappingRepo.find({
+      const sourceRows = await mappingRepo.find({
         where: { mappingType, bookId, chanjetId },
         order: { updatedAt: 'DESC' },
       });
@@ -9653,13 +9946,13 @@ export class ChanjetIntegrationService {
           preferred.reviewedAt = input.reviewedAt ?? preferred.reviewedAt;
         }
         assertReadonlyOrchestrationOwnerIfPresent();
-        await this.mappingRepo.save(preferred);
+        await mappingRepo.save(preferred);
         return;
       }
     }
 
     assertReadonlyOrchestrationOwnerIfPresent();
-    await this.mappingRepo.upsert(
+    await mappingRepo.upsert(
       {
         mappingType,
         bookId,

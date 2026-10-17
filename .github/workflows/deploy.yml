@@ -383,7 +383,7 @@ jobs:
           CHANJET_HASH_FIXTURE_CONTAINER: ${{ job.services.postgres.id }}
         run: |
           docker run --rm -v "$PWD:/workspace:ro" -w /workspace node:20-alpine node --test --test-name-pattern="real atomic env" scripts/ops/chanjet-readonly-restoration.test.mjs
-          node --test scripts/ops/production-trusted-paths.test.mjs scripts/ops/production-env-update.test.mjs scripts/ops/production-rollback-state.test.mjs scripts/ops/production-deployment-evidence.test.mjs scripts/ops/production-deployment-recovery.test.mjs scripts/ops/chanjet-readonly-restoration.test.mjs scripts/ci/deploy-production-config.test.mjs scripts/ci/production-evidence-deploy-contract.test.mjs scripts/ci/phoenix-storage-migration.test.mjs
+          node --test scripts/ops/production-m12-recovery.test.mjs scripts/ops/production-deployment-complete-cli.test.mjs scripts/ops/production-deployment-bundles.test.mjs scripts/ops/production-trusted-paths.test.mjs scripts/ops/production-env-update.test.mjs scripts/ops/production-rollback-state.test.mjs scripts/ops/production-deployment-evidence.test.mjs scripts/ops/production-deployment-recovery.test.mjs scripts/ops/chanjet-readonly-restoration.test.mjs scripts/ci/deploy-production-config.test.mjs scripts/ci/production-evidence-deploy-contract.test.mjs scripts/ci/phoenix-storage-migration.test.mjs
           pnpm --filter phoenix-erp-v3-nest test -- --runInBand src/modules/chanjet
 
       - name: Test migration ledger preflight (read-only fixtures)
@@ -864,7 +864,7 @@ jobs:
               FLOOR_STAGE="$STATE_DIR/floor-stage-${DEPLOY_RUN_ID}"
               test ! -e "$FLOOR_STAGE"
               mkdir -m 700 "$FLOOR_STAGE"
-              for helper in production-config-contract.json production-config-guard.mjs production-deployment-state.mjs production-trusted-paths.mjs capture-production-runtime.mjs update-managed-chanjet-env.mjs chanjet-readonly-policy.mjs api-bootstrap-schema-preflight.mjs promote-production-config-floor.mjs; do
+              for helper in production-config-contract.json production-config-guard.mjs production-deployment-state.mjs production-atomic-state.mjs production-trusted-paths.mjs capture-production-runtime.mjs update-managed-chanjet-env.mjs chanjet-readonly-policy.mjs api-bootstrap-schema-preflight.mjs promote-production-config-floor.mjs chanjet-admission-schema-receipt.mjs; do
                 git show "$TARGET_SHA:scripts/ops/$helper" > "$FLOOR_STAGE/$helper"
                 chmod 600 "$FLOOR_STAGE/$helper"
               done
@@ -876,9 +876,16 @@ jobs:
               node "$FLOOR_STAGE/promote-production-config-floor.mjs"
             else
               node scripts/ops/production-config-guard.mjs --target "$TARGET_SHA"
-              git show "$TARGET_SHA:scripts/ops/production-deployment-evidence.mjs" > "$STATE_DIR/deploy-${DEPLOY_RUN_ID}-evidence.mjs"
-              chmod 600 "$STATE_DIR/deploy-${DEPLOY_RUN_ID}-evidence.mjs"
-              EVIDENCE_HELPER="$STATE_DIR/deploy-${DEPLOY_RUN_ID}-evidence.mjs"
+              # Stage the target evidence module with its entire import closure.
+              # A lone .mjs in STATE_DIR cannot resolve relative shared helpers.
+              EVIDENCE_STAGE="$STATE_DIR/evidence-stage-${DEPLOY_RUN_ID}"
+              test ! -e "$EVIDENCE_STAGE"
+              mkdir -m 700 "$EVIDENCE_STAGE"
+              for helper in production-deployment-evidence.mjs production-atomic-state.mjs production-config-contract.json production-config-guard.mjs production-trusted-paths.mjs capture-production-runtime.mjs update-managed-chanjet-env.mjs chanjet-readonly-policy.mjs chanjet-admission-schema-receipt.mjs; do
+                git show "$TARGET_SHA:scripts/ops/$helper" > "$EVIDENCE_STAGE/$helper"
+                chmod 600 "$EVIDENCE_STAGE/$helper"
+              done
+              EVIDENCE_HELPER="$EVIDENCE_STAGE/production-deployment-evidence.mjs"
               EVIDENCE_PHASE=PRE_SNAPSHOT node "$EVIDENCE_HELPER" capture "$PRE_EVIDENCE_FILE"
             fi
             test ! -e "$STATE_DIR/run-${DEPLOY_RUN_ID}"
@@ -1085,19 +1092,24 @@ jobs:
 
             # ── 磁盘用量报告 ─────────────────────────────────────────
             echo "📦 Docker 镜像占用:"
-            # docker images must NOT feed an early-exiting consumer (sed -n
-            # '1,20p') directly: with `set -o pipefail`, a >20-image host makes
-            # docker die of SIGPIPE and the ERR trap aborts the deploy AFTER a
-            # successful verify (run 38217361863-1). Capture first — the
-            # capture runs docker alone so a REAL docker failure stays fatal —
-            # then truncate the in-memory report (printf cannot block/SIGPIPE
-            # on a report far below the pipe buffer).
+            # Capture the producer before printing a bounded in-memory preview.
+            # This keeps formatting separate from real Docker command failures.
+            # Historical status 13 was reproduced in the complete CLI import
+            # cycle, rather than proven to originate from report pipelines.
             IMAGE_REPORT="$(docker images --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}")"
-            printf '%s\n' "$IMAGE_REPORT" | sed -n '1,20p'
+            IMAGE_PREVIEW_COUNT=0
+            while IFS= read -r IMAGE_LINE && [ "$IMAGE_PREVIEW_COUNT" -lt 20 ]; do
+              printf '%s\n' "$IMAGE_LINE"
+              IMAGE_PREVIEW_COUNT=$((IMAGE_PREVIEW_COUNT + 1))
+            done <<< "$IMAGE_REPORT"
             echo "💾 磁盘总览:"
-            df -h / | tail -1
+            # Keep the report free of producer/consumer pipelines: with pipefail,
+            # even a harmless formatting consumer can SIGPIPE the deploy shell
+            # after verification and leave the transaction in SWITCHING.
+            df -h /
             echo "🐳 Docker 总占用(builder cache 保留 5GB/24h 加速冷构建):"
-            docker system df 2>/dev/null || true
+            DOCKER_DISK_REPORT="$(docker system df 2>/dev/null || true)"
+            printf '%s\n' "$DOCKER_DISK_REPORT"
 
             node scripts/ops/production-deployment-state.mjs complete
             trap - ERR

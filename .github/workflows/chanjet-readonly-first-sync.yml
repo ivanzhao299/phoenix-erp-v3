@@ -1,0 +1,149 @@
+name: Chanjet controlled first sync
+on:
+  workflow_dispatch:
+    inputs:
+      approved_execution_manifest_b64:
+        description: "R4.2d 单独获批的执行 manifest JSON(base64)；由根控制工作流 prepare 交付并全程溯源"
+        required: true
+        type: string
+      approved_config_floor_sha:
+        description: "单独获批的 VERIFY floor 精确 merged main SHA；必须与 manifest.approval.floorSha 一致"
+        required: true
+        type: string
+      target_sha:
+        description: "发布完成的部署精确 SHA；默认 approved_config_floor_sha"
+        required: false
+        type: string
+        default: ''
+      deploy_run_id:
+        description: "发布完成的部署事务 run id（含 attempt），用于部署完成核验与证据目录"
+        required: true
+        type: string
+      first_sync_run_id:
+        description: "首同步证据 run id（含 attempt）；与部署 run 分开绑定"
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: cicd-refs/heads/main
+  cancel-in-progress: false
+jobs:
+  deploy-complete:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.target_sha || inputs.approved_config_floor_sha }}
+          fetch-depth: 1
+      - name: Verify THE GIVEN deploy run/attempt completed (dispatch event + production deploy job success)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          TARGET_SHA: ${{ inputs.target_sha || inputs.approved_config_floor_sha }}
+          DEPLOY_RUN_ID: ${{ inputs.deploy_run_id }}
+        run: |
+          set -Eeuo pipefail
+          node scripts/ops/verify-deploy-run-complete.mjs
+
+  audit:
+    if: github.event_name == 'workflow_dispatch'
+    needs: deploy-complete
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.target_sha || inputs.approved_config_floor_sha }}
+          fetch-depth: 0
+      - name: Bind the audit to the exact SHA, deploy run and floor
+        env:
+          TARGET_SHA: ${{ inputs.target_sha || inputs.approved_config_floor_sha }}
+          APPROVED_FLOOR_SHA: ${{ inputs.approved_config_floor_sha }}
+          DEPLOY_RUN_ID: ${{ inputs.deploy_run_id }}
+        run: |
+          set -Eeuo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_SHA"
+          test "$APPROVED_FLOOR_SHA" = "$TARGET_SHA"
+          echo "AUDIT_BOUND=TARGET:$TARGET_SHA;DEPLOY_RUN:$DEPLOY_RUN_ID;FLOOR:$APPROVED_FLOOR_SHA"
+
+  first-sync:
+    if: github.event_name == 'workflow_dispatch'
+    needs: [deploy-complete, audit]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.target_sha || inputs.approved_config_floor_sha }}
+          fetch-depth: 1
+
+      - name: Deliver the reviewed control payload (the same set the deploy workflow delivers)
+        run: |
+          set -Eeuo pipefail
+          {
+            echo "PRODUCTION_CONTRACT_B64=$(base64 -w0 scripts/ops/production-config-contract.json)"
+            echo "PRODUCTION_PATH_HELPER_B64=$(base64 -w0 scripts/ops/production-trusted-paths.mjs)"
+            echo "PRODUCTION_CONTROL_BOOTSTRAP_B64=$(base64 -w0 scripts/ops/production-control-bootstrap.sh)"
+          } >> "$GITHUB_ENV"
+
+      - name: Compute manifest digest for provenance
+        env:
+          APPROVED_EXECUTION_MANIFEST_B64: ${{ inputs.approved_execution_manifest_b64 }}
+        run: |
+          set -Eeuo pipefail
+          printf '%s' "$APPROVED_EXECUTION_MANIFEST_B64" | base64 -d > "$RUNNER_TEMP/approval-manifest.json"
+          echo "APPROVED_EXECUTION_MANIFEST_SHA256=$(sha256sum "$RUNNER_TEMP/approval-manifest.json" | cut -d' ' -f1)" >> "$GITHUB_ENV"
+
+      - name: Controlled first-sync chain (audit -> prepare -> handover -> first sync)
+        uses: appleboy/ssh-action@v1
+        env:
+          APPROVED_EXECUTION_MANIFEST_B64: ${{ inputs.approved_execution_manifest_b64 }}
+          APPROVED_EXECUTION_MANIFEST_SHA256: ${{ env.APPROVED_EXECUTION_MANIFEST_SHA256 }}
+          APPROVED_CONFIG_FLOOR_SHA: ${{ inputs.approved_config_floor_sha }}
+          TARGET_SHA: ${{ inputs.target_sha || inputs.approved_config_floor_sha }}
+          DEPLOY_RUN_ID: ${{ inputs.deploy_run_id }}
+          FIRST_SYNC_RUN_ID: ${{ inputs.first_sync_run_id }}
+          CHANJET_SYNC_OPERATOR_TOKEN: ${{ secrets.CHANJET_SYNC_OPERATOR_TOKEN }}
+          PRODUCTION_CONTRACT_B64: ${{ env.PRODUCTION_CONTRACT_B64 }}
+          PRODUCTION_PATH_HELPER_B64: ${{ env.PRODUCTION_PATH_HELPER_B64 }}
+          PRODUCTION_CONTROL_BOOTSTRAP_B64: ${{ env.PRODUCTION_CONTROL_BOOTSTRAP_B64 }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
+          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+          proxy_port: 22
+          envs: APPROVED_EXECUTION_MANIFEST_B64,APPROVED_EXECUTION_MANIFEST_SHA256,APPROVED_CONFIG_FLOOR_SHA,TARGET_SHA,DEPLOY_RUN_ID,FIRST_SYNC_RUN_ID,CHANJET_SYNC_OPERATOR_TOKEN,PRODUCTION_CONTRACT_B64,PRODUCTION_PATH_HELPER_B64,PRODUCTION_CONTROL_BOOTSTRAP_B64
+          command_timeout: 20m
+          script: |
+            set -Eeuo pipefail
+            umask 077
+            cd ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+            DEPLOY_REPO_ROOT="$(pwd -P)"
+            export FIRST_SYNC_ROOT="$DEPLOY_REPO_ROOT"
+            eval "$(printf '%s' "$PRODUCTION_CONTROL_BOOTSTRAP_B64" | base64 -d)"
+            export GIT_OPTIONAL_LOCKS=0
+            git() { command git -c "safe.directory=$DEPLOY_REPO_ROOT" -c core.hooksPath=/dev/null -c core.fsmonitor=false "$@"; }
+            # 本次获批 manifest 在部署主机 STATE_DIR 内落盘（无手工预置文件），
+            # 并核验 runner 侧计算的溯源摘要一致后才进入链体
+            R42D_MANIFEST_FILE="$STATE_DIR/approval-manifest-${FIRST_SYNC_RUN_ID}.json"
+            printf '%s' "$APPROVED_EXECUTION_MANIFEST_B64" | base64 -d > "$R42D_MANIFEST_FILE"
+            chmod 600 "$R42D_MANIFEST_FILE"
+            COMPUTED_DIGEST="$(sha256sum "$R42D_MANIFEST_FILE" | cut -d' ' -f1)"
+            if [ "$COMPUTED_DIGEST" != "$APPROVED_EXECUTION_MANIFEST_SHA256" ]; then
+              echo "FIRST_SYNC_HOLD=MANIFEST_DIGEST"; rm -f "$R42D_MANIFEST_FILE"; exit 28
+            fi
+            export R42D_MANIFEST_FILE R42D_MANIFEST_SHA256="$APPROVED_EXECUTION_MANIFEST_SHA256" STATE_DIR
+            # FD9（mutation.lock）由本 operation 进程持有并随执行链交付
+            exec 9>>"$STATE_DIR/mutation.lock"
+            flock -n 9 || { echo "FIRST_SYNC_HOLD=MUTATION_LOCK_BUSY"; exit 27; }
+            # 受审链体（FD9 身份 → stage → manifest 溯源 → 发布完成核验 →
+            # audit → prepare → handover → first-sync，fail-closed）
+            bash scripts/ops/chanjet-readonly-production-chain.sh

@@ -1,0 +1,189 @@
+{
+  "schema": "phoenix.ledger-collection-prep-verify/v1",
+  "created_at": "2026-10-17T01:01:26.178Z",
+  "baseline_head": "0e6b1ee2702a39d815391744ee95855294480969",
+  "fixture": {
+    "engine": "PostgreSQL 18.6 (docker r42c-pg18)",
+    "database": "ledger_collect_verify (disposable, dropped after prep)"
+  },
+  "collector": {
+    "path": "scripts/ops/ledger-readonly-collect.mjs",
+    "sha256": "67daee48159e350657897bec4ebfc25a291c4c7a986779f66d6017ac03460091",
+    "self_contained": true,
+    "stderr": "UNIFIED sanitize: control chars stripped, whitespace collapsed, 300-char cap — one path for every diagnostic",
+    "timeout_cross_check": "client > statement+lock enforced; INTEGER-ONLY timeouts (fractional values refused)"
+  },
+  "cases": [
+    {
+      "name": "normal",
+      "outcome": "PASS",
+      "detail": "one JSON document; both tables; single snapshot identity; scope check: no credentials/env/business tables in output"
+    },
+    {
+      "name": "lock conflict",
+      "outcome": "PASS",
+      "detail": "ACCESS EXCLUSIVE blocker held; --lock-timeout-ms 500 refused the collector bounded (<5s, stderr LEDGER_COLLECT_ERROR lock timeout); blocker kept its lock; zero collector connections/transactions/queries survived (pg_stat_activity residue empty after excluding blocker and fixture backends); retry after release succeeded"
+    },
+    {
+      "name": "connection failure",
+      "outcome": "PASS",
+      "detail": "real in-container connection refusal (PGPORT=1 forwarded to the fixture container psql); bounded <15s, LEDGER_COLLECT_ERROR"
+    },
+    {
+      "name": "garbage output",
+      "outcome": "PASS",
+      "detail": "non-JSON psql output → LEDGER_COLLECT_ERROR; stdout never a plausible document"
+    },
+    {
+      "name": "client bound",
+      "outcome": "PASS",
+      "detail": "hanging psql SIGKILLed at --client-timeout-ms 600 (observed ~630ms)"
+    },
+    {
+      "name": "server-side statement kill",
+      "outcome": "PASS",
+      "detail": "statement_timeout=400ms with pg_sleep(30): server cancelled (57014 canceling statement due to statement timeout), transaction aborted, no sleeping query and no idle-in-transaction survived"
+    },
+    {
+      "name": "server-side lock kill",
+      "outcome": "PASS",
+      "detail": "lock_timeout=400ms under ACCESS EXCLUSIVE: canceling statement due to lock timeout; blocker unaffected"
+    },
+    {
+      "name": "prod-transport job teardown",
+      "outcome": "PASS",
+      "detail": "SCOPE-PRECISE: the client kill may leave the exec-d psql inside the container alive; the SERVER-side bounds end it — asserted against pg_stat_activity that the in-container query disappears within statement+lock bound and no aborted transaction survives (real prod channel, not a child-process return assertion)"
+    },
+    {
+      "name": "staging prod-channel run",
+      "outcome": "PASS",
+      "detail": "the staged SINGLE-file collector (node --check + run, no repository context) actually executes through docker compose exec -T db against the fixture"
+    },
+    {
+      "name": "offline adapter exit contract",
+      "outcome": "PASS",
+      "detail": "exit 0 = PASS, exit 1 = real BLOCK verdict, exit 2 = input refusal (MISSING_INPUT/INVALID_INPUT) before any evaluation"
+    },
+    {
+      "name": "guard rejection zero-change",
+      "outcome": "PASS",
+      "detail": "foreign-nonce and marker-less dedicated databases are refused; rows, schemas and the instance database list are snapshotted identical BEFORE and AFTER the rejected guard calls (both sides unchanged)"
+    },
+    {
+      "name": "client-kill proof (prod transport)",
+      "outcome": "PASS",
+      "detail": "the wedged transport forwards the REAL statement to the container in the background (fd3 preserves stdin across the async list): the collection backend is captured by EXACT pid while waiting on the blocker lock; the collector exit at ≈2s proves the CLIENT timeout fired (the wedge can only be killed); the captured pid vanishes within the server-side bound (pid-precise, no query-text approximation); no aborted transaction survives"
+    },
+    {
+      "name": "offline CLI contract",
+      "outcome": "PASS",
+      "detail": "REAL CLI runs per counterexample: PASS=0; BLOCK=1 with the true failure list (legacy_missing); 14 refusal counterexamples each exit 2 with their specific MISSING_INPUT/INVALID_INPUT reason"
+    },
+    {
+      "name": "full-chain contract (no production network)",
+      "outcome": "PASS",
+      "detail": "the materialized chain runs end to end through the local transport against the fixture container: normal (exit 0, collection + both evaluations + summary + host evidence), BLOCK (exit 1, real verdict, evidence retained, no FAILURE marker), refusal (exit 2, FAILURE.txt stage=bind), crash (exit 3, FAILURE.txt + transport stdout/stderr archived)"
+    },
+    {
+      "name": "dual fixed-SHA binding",
+      "outcome": "PASS",
+      "detail": "wrong pinned main SHA refused at bind, exit 2, FAILURE.txt stage=bind; both inventories source_ref must equal the bound refs"
+    },
+    {
+      "name": "hung transport timeout + unified cleanup",
+      "outcome": "PASS",
+      "detail": "transport runs in its own process group; on the injected bound the WHOLE GROUP is SIGKILLed; chain exits 3 with failure evidence; pgrep proves no survivor"
+    },
+    {
+      "name": "sentinel zero-modification across all entries",
+      "outcome": "PASS",
+      "detail": "sentinel dedicated database byte-identical after normal/BLOCK/refusal/crash entries; instance database set changes only by the chain own database"
+    },
+    {
+      "name": "independent remote filesystem",
+      "outcome": "PASS",
+      "detail": "DEPLOY_PATH and host evidence under a separate root; runner evidence tree has NO host files, stdout-only recovery; remote evidence stays in the remote root"
+    },
+    {
+      "name": "retired-registry input refusals",
+      "outcome": "PASS",
+      "detail": "REAL CLI runs: not-an-array, malformed entry, duplicate identity — each exits 2 with INVALID_INPUT: retired registry reason"
+    },
+    {
+      "name": "original six offline counterexamples (verbatim)",
+      "outcome": "PASS",
+      "detail": "the coordinator script shapes formalized in scripts/ci/ledger-offline-counterexamples.test.mjs — confirmed FAILING first (all six exited 0), then fixed: duplicate legacy, invalid applied_at, duplicate inventory, name-vs-timestamp conflict, forged source_ref, truncated inventory (post-migration) each now exit 2; valid still 0; full-post still 1"
+    },
+    {
+      "name": "transport lifecycle four classes",
+      "outcome": "PASS",
+      "detail": "runBoundedGroup settles on CLOSE (pipes drained): leader-exits-early with a live descendant stays OPEN until the bound group-kills it; late descendant stdout fully captured (settle gated on close, not leader exit); stdin EPIPE recorded (never unhandled, outcome still settles); foreground hang group-killed at the bound"
+    },
+    {
+      "name": "same-name foreign-nonce provisioning refusal",
+      "outcome": "PASS",
+      "detail": "conditional provisioning refuses an EXISTING same-named dedicated database (another run nonce or unmarked) — both sides byte-identical before/after; all fixture suites use the conditional helper"
+    },
+    {
+      "name": "archived-digest recompute",
+      "outcome": "PASS",
+      "detail": "the runner archives the RAW recovered bytes (no re-serialization) and the test RECOMPUTES sha256 over the archived FILE, equal to the host digest"
+    },
+    {
+      "name": "dual DIFFERENT pinned SHAs",
+      "outcome": "PASS",
+      "detail": "main pinned to a second real commit (commit-tree, resolvable in any checkout), candidate to HEAD — the two inventories record the two different shas and bind.txt pins both"
+    },
+    {
+      "name": "SSH command-delivery boundary",
+      "outcome": "PASS",
+      "detail": "env values are single-quoted shell literals via shellQuote; a hostile value (quotes, $(...), backticks, ${...}) round-trips verbatim through sh -c — no expansion"
+    }
+  ],
+  "boundaries": {
+    "lock_timeout_ms": 2000,
+    "statement_timeout_ms": 10000,
+    "client_timeout_ms": 30000,
+    "note": "defaults in the collector; verification exercised the same code paths with shortened values"
+  },
+  "guards": {
+    "dedicated_database": "test refuses any database outside ^ledger_collect_ BEFORE connecting (phoenix_erp probe refused)",
+    "same_instance": "the URL database must exist on the specified container AND both views must report the identical server identity before anything runs",
+    "staging_prod_transport": "the staged SINGLE-file collector is actually RUN through its prod channel (docker compose exec db) against the fixture in scripts/ci/ledger-collection-staging.test.mjs"
+  },
+  "shared_guard": {
+    "path": "scripts/ci/ledger-fixture-guard.mjs",
+    "sha256": "45b7269a9ac2323ee514c8e8b1dcf67e87566c73d125dd60253c67759ab4c9c0",
+    "note": "identity + dedicated namespace + same-instance ownership + THIS-RUN ownership nonce (ledger_fixture_owner.run_nonce verified through BOTH the container psql and the URL connection) — every fixture suite runs it before anything destructive; provisioning flows through the container channel only"
+  },
+  "rehearsal_gate": {
+    "path": "scripts/ci/ledger-rehearsal-gate.test.mjs",
+    "sha256": "0764f5c565ce406aa67a4a075fc310cd0110aaad0c07c6ea5f59ea1a95f20706",
+    "cases": [
+      "clean fixture: rehearsal exit 0 with PREFLIGHT_RESULT=PASS and SEMANTICS=AGREE",
+      "injected fault (LEDGER_REHEARSAL_FAULT=drop-legacy-row): rehearsal exit 1, PREFLIGHT_RESULT=BLOCK with legacy_missing, EXPECTED_PREFLIGHT_VERDICT_UNMET — the gate is live, not decorative"
+    ]
+  },
+  "claim_accuracy": {
+    "residue_claims": "CHANNEL-SCOPED AND MEASURED (pid-precise)",
+    "coverage_scope": "the independent-remote-FS coverage is a SEPARATE ROOT on the SAME machine with the LOCAL transport; the REAL ssh transport is covered by the command-construction boundary test only — no production network is ever touched"
+  },
+  "chain": {
+    "runner": {
+      "path": "scripts/ci/ledger-collection-chain.mjs",
+      "sha256": "9526a6c6e7f76fbebfb26016b8532afab27ecb521d47923405677a82985a104c"
+    },
+    "host": {
+      "path": "scripts/ops/ledger-collection-host.sh",
+      "sha256": "64a33dc1b810c55d1822c6cfb6d873be4a38217023e0500783483a1eadbc29f7"
+    },
+    "contractTest": {
+      "path": "scripts/ci/ledger-collection-chain.test.mjs",
+      "sha256": "4619a95deb68ac372e4114e093a9d975d323e02abe7995d7edd3a35af3ca1049"
+    },
+    "stages": "clean deps, source binding with dual fixed SHA (collector digest + pinned main SHA), staging, stdout recovery with a REMOTE-OWNED evidence dir the runner never reads, raw digest verification, both-side evaluation, exception archiving",
+    "outcomeClasses": "normal=0 / BLOCK=1 / refusal=2 / crash=3 / transport timeout=3 with process-GROUP kill and unified cleanup",
+    "independentRemote": "the contract test runs the host side under a SEPARATE filesystem root; the runner tree contains stdout-recovered artifacts only",
+    "zeroModification": "a sentinel database on the same instance is proven byte-identical across ALL four chain entries"
+  }
+}

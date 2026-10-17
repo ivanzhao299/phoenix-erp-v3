@@ -75,12 +75,12 @@ export async function configTransaction(root,operation,approval) {
       || run.request_scope?.bookId!==v.bookId || run.request_scope?.period!==v.period || JSON.stringify(run.request_scope?.scope)!==JSON.stringify(v.scope)
       ||run.result_summary?.erpInbound?.applied===true||run.result_summary?.externalWriteEnabled!==false)hold('FIRST_CONTROLLED_SYNC_PROOF');
   }
-  // Before VERIFY, the operator uses existing finance RBAC and a real readonly probe.
-  // A token or source response is never printed or persisted in the transaction.
+  // VERIFY configuration authenticates against the protected LOCAL status route.
+  // Provider authentication/probe runs only after admission registration in prepare,
+  // sharing the first sync execution cap and deadline. No pre-admission HTTP.
   if(operation==='READONLY_VERIFY') {
     const token=process.env.CHANJET_SYNC_OPERATOR_TOKEN;if(!token)hold('PROTECTED_REMOTE_READ_AUTH_REQUIRED');
-    const v=approval.verification;
-    const url=`http://127.0.0.1:3100/api/chanjet/call?path=${encodeURIComponent(`/accounting/gl/statistics/receive/${v.bookId}`)}&q=${encodeURIComponent(`period=${v.period}`)}`;
+    const url='http://127.0.0.1:3100/api/chanjet/integration/alignment/status';
     const response=await fetch(url,{headers:{Authorization:`Bearer ${token}`},signal:AbortSignal.timeout(30_000)});
     const body=await response.json();if(!response.ok||body.success===false)hold('REMOTE_READ_AUTH');
   }
@@ -92,7 +92,7 @@ export async function configTransaction(root,operation,approval) {
   fs.writeFileSync(backup,source,{flag:'wx',mode:0o600});
   const flags=f=>({...((f===floor && expiredVerifyHold) ? expiredVerifyHoldEnvironment(f,expiredVerifyHold) : readonlyEnvironment(f)),CHANJET_READONLY_SYNC_ENABLED:f.operationalTuple.CHANJET_READONLY_SYNC_ENABLED,CHANJET_ERP_INBOUND_SYNC_ENABLED:'false'});
   const startedAt=new Date().toISOString();
-  const marker={version:3,operation,phase:'IN_PROGRESS',runId,target,previous:actual,candidateApi:actual.api,previousEnv:flags(floor),nextEnv:flags(next),startedAt,expiresAt:new Date(Date.now()+CONTRACT.maximumTransitionMs).toISOString()};
+  const marker={version:3,operation,phase:'IN_PROGRESS',runId,target,previous:actual,candidateApi:actual.api,previousEnv:flags(floor),nextEnv:flags(next),startedAt,expiresAt:new Date(Date.parse(startedAt)+CONTRACT.maximumTransitionMs).toISOString()};
   const recordFile=path.join(directory,`chanjet-config-${runId}.json`);
   atomicState(recordFile,{version:3,previousFloor:floor,nextFloor:next,previous:actual,envBackup:backup,beforeSha256:hash(source),afterSha256:hash(output),evidence,marker});
   atomicState(path.join(directory,'policy-transition.json'),marker);
@@ -100,7 +100,10 @@ export async function configTransaction(root,operation,approval) {
   replaceReadonlyEnv(envPath,source,output,stage);
   atomicState(path.join(directory,'floor.json'),next);
   guardProduction(root,directory,actual);
-  runCompose(['up','-d','--no-deps','--wait','api']);
+  // Configuration has its own record/marker and opens no deployment transaction.
+  // Recreate only the API using committed, trusted active pins; the general
+  // Compose caller otherwise selects deploy-<DEPLOY_RUN_ID>.json, which is absent.
+  runCompose(['up','-d','--no-deps','--wait','api'], {readState:()=>secureJson(path.join(directory,'active.json'))});
   guardProduction(root,directory,actual);
   if(JSON.stringify(captureRuntime())!==JSON.stringify(actual))hold('IMAGE_CHANGED_DURING_CONFIG');
   execFileSync('curl',['-fsS','--max-time','20','http://127.0.0.1:3100/api/readiness'],{env:executionEnv(),stdio:'ignore'});

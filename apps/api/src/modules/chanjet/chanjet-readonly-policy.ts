@@ -63,6 +63,10 @@ export function requireApprovedReadonlyRequest(request: ReadonlyRequest, company
 export function readonlyFailureCode(error: unknown): string {
   const text = String(error instanceof Error ? error.message : error);
   if (/^READONLY_HOLD_(RATE_LIMIT|REMOTE_AUTH|TIMEOUT|MAPPING|UNSUPPORTED|EXECUTION)$/.test(text)) return text;
+  // the fail-closed execution outcomes pass through VERBATIM: the UNKNOWN
+  // commit outcome and the discarded BEGIN/COMMIT failures must stay
+  // distinguishable from a plain clean-rollback refusal
+  if (/^CHANJET_EXECUTION_(TERMINAL_UNKNOWN|TX_BEGIN_FAILED|TX_COMMIT_FAILED)$/.test(text)) return text;
   if (/unsupported|not supported|不存在该接口/i.test(text)) return 'READONLY_HOLD_UNSUPPORTED';
   if (/budget|quota|429|限流|额度/i.test(text)) return 'READONLY_HOLD_RATE_LIMIT';
   if (/permission|401|403|50111|权限|token|REMOTE_AUTH/i.test(text)) return 'READONLY_HOLD_REMOTE_AUTH';

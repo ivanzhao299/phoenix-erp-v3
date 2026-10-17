@@ -77,6 +77,38 @@ export class ChanjetReadonlyLockLease {
     return this.closing ||= this.cleanup();
   }
 
+  /**
+   * FORCE destruction of this session: the socket is destroyed and the
+   * underlying client ended regardless of session state. Used when a
+   * transaction's outcome is unknown or its cleanup could not be confirmed —
+   * a dead session cannot be borrowed from the pool and its transaction can
+   * never commit. Resolves after the socket has been observed closed and the
+   * runner released.
+   */
+  async discard(): Promise<void> {
+    this.closed = true;
+    this.lost = true;
+    const socket = this.socket;
+    const disconnected = socket.closed ? Promise.resolve() : new Promise<void>((resolve) => { socket.once('close', () => resolve()); });
+    let ending: Promise<void>;
+    try { ending = this.endClient(); }
+    catch { ending = Promise.reject(new Error('READONLY_HOLD_LOCK_DISCARD')); }
+    socket.destroy(new Error('READONLY_HOLD_LOCK_SESSION_DISCARDED'));
+    // the close acknowledgement and the end() are each raced — a hung end()
+    // must never delay the discard teardown; the destroy above is the
+    // enforced release and the runner is released best-effort regardless
+    const withCeiling = (work: Promise<void>): Promise<void> => new Promise<void>((resolve) => {
+      const ceiling = setTimeout(resolve, 500);
+      ceiling.unref?.();
+      work.then(() => { clearTimeout(ceiling); resolve(); }, () => { clearTimeout(ceiling); resolve(); });
+    });
+    await withCeiling(disconnected.catch(() => undefined));
+    await withCeiling(ending);
+    if (!this.runner.isReleased) {
+      try { await this.runner.release(); } catch { /* destroyed */ }
+    }
+  }
+
   private async cleanup(): Promise<void> {
     this.closed = true;
     let discard = this.lost || this.runner.isReleased;

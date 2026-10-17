@@ -194,7 +194,12 @@ describe('Chanjet authorization lifecycle', () => {
     await reserve('READ', '/readonly');
     await reserve('WRITE', '/write');
 
-    expect(budgetQuery.mock.calls.map((call) => call[1]?.[0])).toEqual([
+    // deadline-bound timeout SET LOCAL statements precede the budget keys and
+    // are filtered out; the bound key sequence itself is unchanged
+    const budgetCalls = budgetQuery.mock.calls
+      .filter((call) => !String(call[0]).includes('SET LOCAL'))
+      .map((call) => call[1]?.[0]);
+    expect(budgetCalls).toEqual([
       expect.stringMatching(/^M:/),
       expect.stringMatching(/^D:/),
       expect.stringMatching(/^R:/),

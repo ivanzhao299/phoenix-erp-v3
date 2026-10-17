@@ -1,0 +1,121 @@
+name: Production Ledger Collection
+
+# ⚠️ 审阅用材料化入口（随 PR 交付，未 dispatch、未批准执行）。
+# 单次只读采集生产 ledger；整个链体在 scripts/ci/ledger-collection-chain.mjs
+# （runner 侧）+ scripts/ops/ledger-collection-host.sh（主机侧）中材料化并经
+# scripts/ci/ledger-collection-chain.test.mjs 在无生产网络的夹具上完整验证：
+# 干净依赖→来源绑定→暂存→stdout 回收→原始摘要校验→两侧评估→异常归档。
+# 本 workflow 是薄包装：任何失败严格失败；失败也归档证据（if: always）。
+#
+# 红线：READ ONLY 单事务；无业务表、无环境变量、无凭据读取；不合并、
+# 不部署、不做任何其它生产动作。
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_readonly:
+        description: 'Type RUN_PRODUCTION_LEDGER_COLLECT to authorize the read-only collection'
+        required: true
+        type: string
+      collection_ref:
+        description: 'Exact SHA of the approved source ref carrying the collector'
+        required: true
+        type: string
+      expected_collector_sha256:
+        description: 'sha256 of scripts/ops/ledger-readonly-collect.mjs on collection_ref'
+        required: true
+        type: string
+      expected_main_sha:
+        description: 'Pinned main SHA for the first (main) inventory — the dual fixed-SHA binding'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-ledger-collection
+  cancel-in-progress: false
+
+jobs:
+  production-ledger-collection:
+    name: Production ledger single-shot read-only collection
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: production-readonly
+    env:
+      COLLECTION_REF: ${{ inputs.collection_ref }}
+      EXPECTED_COLLECTOR_SHA256: ${{ inputs.expected_collector_sha256 }}
+      EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha }}
+      CONFIRM_READONLY: ${{ inputs.confirm_readonly }}
+
+    steps:
+      - name: Checkout the approved collection ref (full history for the offline inventories)
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.collection_ref }}
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+          cache: pnpm
+
+      # CLEAN DEPENDENCIES: the chain's deps phase verifies the toolchain, and
+      # the inventory generator needs the workspace's typescript installed
+      - name: Install reviewed dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Authorize and bind (confirmation string + exact ref, before anything else)
+        run: |
+          set -euo pipefail
+          test "$CONFIRM_READONLY" = RUN_PRODUCTION_LEDGER_COLLECT
+          test "$(git rev-parse HEAD)" = "$COLLECTION_REF"
+          # the DUAL FIXED SHA: fetch main and verify it resolves to the pin
+          git fetch origin main --depth 1
+          test "$(git rev-parse origin/main)" = "$EXPECTED_MAIN_SHA"
+          echo "COLLECTION_AUTHORIZED=ref:$COLLECTION_REF;main:$EXPECTED_MAIN_SHA"
+
+      - name: Materialize the SSH transport credentials (secrets to a private key file)
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          SSH_USER: ${{ secrets.DEPLOY_USER }}
+          SSH_HOST: ${{ secrets.DEPLOY_HOST }}
+          SSH_PORT: ${{ secrets.DEPLOY_PORT || 22 }}
+          SSH_PROXY: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_PROXY_HOST }}
+        run: |
+          set -euo pipefail
+          test -n "$SSH_KEY" && test -n "$SSH_USER" && test -n "$SSH_HOST"
+          KEY_FILE="$RUNNER_TEMP/ledger_collection_ssh_key"
+          printf '%s' "$SSH_KEY" > "$KEY_FILE"
+          chmod 600 "$KEY_FILE"
+          echo "SSH_KEY_FILE=$KEY_FILE" >> "$GITHUB_ENV"
+          echo "SSH_DEST=$SSH_USER@$SSH_HOST" >> "$GITHUB_ENV"
+          echo "SSH_PORT=$SSH_PORT" >> "$GITHUB_ENV"
+          if [ -n "${{ secrets.DEPLOY_PROXY_HOST }}" ]; then echo "SSH_PROXY_DEST=$SSH_PROXY" >> "$GITHUB_ENV"; fi
+          echo "DEPLOY_PATH=${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}" >> "$GITHUB_ENV"
+
+      - name: Run the materialized collection chain (strict; every failure fails the job)
+        run: |
+          set -euo pipefail
+          node scripts/ci/ledger-collection-chain.mjs \
+            --transport ssh \
+            --collection-ref "$COLLECTION_REF" \
+            --expected-collector-sha256 "$EXPECTED_COLLECTOR_SHA256" \
+            --expected-main-sha "$EXPECTED_MAIN_SHA" \
+            --evidence-dir "$RUNNER_TEMP/ledger-collection-evidence"
+
+      - name: Archive the evidence (ALWAYS — failures keep their evidence too)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ledger-collection-${{ inputs.collection_ref }}
+          path: ${{ runner.temp }}/ledger-collection-evidence
+          if-no-files-found: error

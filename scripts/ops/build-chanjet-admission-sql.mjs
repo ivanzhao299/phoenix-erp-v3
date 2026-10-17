@@ -1,0 +1,11 @@
+import fs from 'node:fs';
+import vm from 'node:vm';
+import ts from '../../apps/api/node_modules/typescript/lib/typescript.js';
+import { ADMISSION_PATH, ADMISSION_NAME } from './chanjet-admission-schema-receipt.mjs';
+const source = fs.readFileSync(ADMISSION_PATH,'utf8');
+const { outputText } = ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2021}});
+const exports = {}; vm.runInNewContext(outputText,{exports});
+const queries=[];
+await new exports[ADMISSION_NAME]().up({query:async sql=>{if(!/^CREATE (TABLE|FUNCTION|TRIGGER) /i.test(sql))throw Error('UNEXPECTED_ADMISSION_SQL');queries.push(sql);}});
+if(queries.length!==8)throw Error('ADMISSION_SQL_COUNT');
+process.stdout.write(`BEGIN;\nSET LOCAL lock_timeout='3000ms';\nSET LOCAL statement_timeout='30000ms';\nSELECT pg_advisory_xact_lock(1791878400);\nLOCK TABLE migrations IN EXCLUSIVE MODE;\n${queries.join(';\n')};\nINSERT INTO migrations(timestamp,name) VALUES (1791878400000,'${ADMISSION_NAME}');\nCOMMIT;\n`);

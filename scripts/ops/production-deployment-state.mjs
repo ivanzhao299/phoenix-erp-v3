@@ -1,42 +1,15 @@
+import { assertAdmissionSchemaApplied } from './chanjet-admission-schema-receipt.mjs';
 import { validatePolicyTransition } from './chanjet-readonly-policy.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
-import { randomUUID, createHash } from 'node:crypto';
+import { createHash } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { CONTRACT, secureJson, assertStateVersion, verifyContext, guardProduction, migrationScope, git, rollbackEligibility, assertTransactionOwnership } from './production-config-guard.mjs';
-import { inspectTrustedDirectory, assertSameDirectory, assertRegularFile, assertContained, readPinnedFile } from './production-trusted-paths.mjs';
+import { assertContained, readPinnedFile } from './production-trusted-paths.mjs';
 import { captureRuntime, executionEnv, IMAGE_ID, REVISION } from './capture-production-runtime.mjs';
-export function atomicState(file, value, dependencies = {}) {
-  const io = dependencies.fs || fs;
-  assertContained(file, (dependencies.contract || CONTRACT).stateDirectory);
-  const inspect = dependencies.inspectDirectory || (directory => inspectTrustedDirectory(directory, CONTRACT));
-  const directory = path.dirname(file); const before = inspect(directory);
-  const original = io.existsSync(file) ? io.lstatSync(file) : undefined;
-  if (original) assertRegularFile(original);
-  const temporary = `${file}.${randomUUID()}.tmp`;
-  let fd; let temporaryIdentity;
-  try {
-    fd = io.openSync(temporary, fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_EXCL | fs.constants.O_NOFOLLOW, 0o600);
-    temporaryIdentity = io.fstatSync(fd); assertRegularFile(temporaryIdentity);
-    io.writeFileSync(fd, JSON.stringify(value) + '\n'); io.fsyncSync(fd);
-    const written = io.fstatSync(fd);
-    io.closeSync(fd); fd = undefined;
-    assertSameDirectory(before, inspect(directory));
-    const named = io.lstatSync(temporary); assertRegularFile(named);
-    if (named.ino !== written.ino || named.dev !== written.dev || named.size !== written.size) throw new Error('STATE_HOLD=TEMPORARY_FILE_CHANGED');
-    const current = io.existsSync(file) ? io.lstatSync(file) : undefined;
-    if (current) assertRegularFile(current);
-    if (JSON.stringify(current && [current.dev,current.ino,current.size,current.mtimeMs]) !== JSON.stringify(original && [original.dev,original.ino,original.size,original.mtimeMs])) throw new Error('STATE_HOLD=DESTINATION_CHANGED');
-    io.renameSync(temporary, file);
-    const parent = io.openSync(directory, fs.constants.O_RDONLY | fs.constants.O_DIRECTORY | fs.constants.O_NOFOLLOW);
-    try { io.fsyncSync(parent); } finally { io.closeSync(parent); }
-    assertSameDirectory(before, inspect(directory));
-  } finally {
-    if (fd !== undefined) io.closeSync(fd);
-    if (io.existsSync(temporary)) { const remaining = io.lstatSync(temporary); assertRegularFile(remaining); if (!temporaryIdentity || remaining.dev !== temporaryIdentity.dev || remaining.ino !== temporaryIdentity.ino) throw new Error('STATE_HOLD=FOREIGN_TEMPORARY_RETAINED'); io.unlinkSync(temporary); }
-  }
-}
+import { atomicState } from './production-atomic-state.mjs';
+export { atomicState } from './production-atomic-state.mjs';
 export function beginState({ previous, configSha, target, scope, floor, evidence }) {
   if (configSha !== target || !REVISION.test(configSha) || !REVISION.test(target) || scope.baseline !== previous.api.revision || scope.target !== target) throw new Error('STATE_HOLD=BASELINE');
   return { expiresAt: new Date(Date.now() + CONTRACT.maximumTransitionMs).toISOString(), version: CONTRACT.version, configSha, target, floorSha: floor.floorSha, previous, active: previous, candidates: {}, switched: { api: false, web: false }, outcome: 'PREPARED', migrationBaseline: previous.api.revision, migrationPaths: scope.changed, protectedImages: [previous.api.imageId, previous.web.imageId], evidence };
@@ -102,10 +75,12 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       const evidence = process.env.DEPLOYMENT_EVIDENCE_PRE && process.env.DEPLOYMENT_EVIDENCE_POST && process.env.DEPLOYMENT_EVIDENCE_LOG
         ? { pre: process.env.DEPLOYMENT_EVIDENCE_PRE, post: process.env.DEPLOYMENT_EVIDENCE_POST, log: process.env.DEPLOYMENT_EVIDENCE_LOG } : undefined;
       if (!evidence) throw new Error('STATE_HOLD=DEPLOYMENT_EVIDENCE_BINDING');
+      const schemaApplied = scope.changed.length ? assertAdmissionSchemaApplied(root, scope) : false;
+      if (scope.changed.length && !schemaApplied) throw new Error('MIGRATION_SCOPE=HOLD:CONTROLLED_SCHEMA_RELEASE_REQUIRED');
       state = beginState({ previous, configSha: git(root, ['rev-parse', 'HEAD']), target, scope, floor, evidence });
       atomicState(file, state);
       atomicState(path.join(directory, 'transaction.json'), { version: CONTRACT.version, runId: process.env.DEPLOY_RUN_ID, phase: 'IN_PROGRESS', target, configSha: state.configSha });
-      if (scope.changed.length) throw new Error('MIGRATION_SCOPE=HOLD:CONTROLLED_SCHEMA_RELEASE_REQUIRED');
+      if (scope.changed.length) console.log('CONTROLLED_ADMISSION_SCHEMA=APPLIED;AUTOMATIC_ROLLBACK=HOLD');
       console.log(`PREV_API_REVISION=${previous.api.revision}\nPREV_WEB_REVISION=${previous.web.revision}\nRUN_MIG=false`);
     } else {
       if (!assertTransactionOwnership(directory, process.env.DEPLOY_RUN_ID)) throw new Error('STATE_HOLD=TRANSACTION_MARKER_REQUIRED');

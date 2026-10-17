@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
-import { assessRecovery, planRecoveredState, executeRecoveryStages, replayStartupWindow, RECOVERY_SCHEMA, CASE_A_STARTUP_RESULT, RECOVERY_PHASES, CASE_A_ERROR_RECEIPT_SCHEMA, BENIGN_STARTUP_ERROR_TRANSACTION, BENIGN_STARTUP_ERROR_ATTRIBUTION, BENIGN_STARTUP_ERROR_WORD_SET, VERIFIED_ABORT_RECEIPT_SCHEMA, VERIFIED_ABORT_TRANSACTION, VERIFIED_ABORT_POINT } from './production-deployment-recovery.mjs';
+import { assessRecovery, planRecoveredState, executeRecoveryStages, completeRecovery, replayStartupWindow, RECOVERY_SCHEMA, CASE_A_STARTUP_RESULT, RECOVERY_PHASES, CASE_A_ERROR_RECEIPT_SCHEMA, BENIGN_STARTUP_ERROR_TRANSACTION, BENIGN_STARTUP_ERROR_ATTRIBUTION, BENIGN_STARTUP_ERROR_WORD_SET, VERIFIED_ABORT_RECEIPT_SCHEMA, VERIFIED_ABORT_TRANSACTION, VERIFIED_ABORT_REANCHOR_TRANSACTION, VERIFIED_ABORT_POINT } from './production-deployment-recovery.mjs';
 
 const sha = c => c.repeat(40);
 const image = c => `sha256:${c.repeat(64)}`;
@@ -248,6 +248,16 @@ test('recovery bundle unpacks and every bundled module imports without ERR_MODUL
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
+});
+test('recovery workflow separates runner SHA from frozen target and previous floor', () => {
+  const workflow = fs.readFileSync('.github/workflows/chanjet-readonly-restoration.yml', 'utf8');
+  assert.match(workflow, /recovery_target_sha:/);
+  assert.match(workflow, /recovery_previous_floor_sha:/);
+  assert.match(workflow, /RECOVERY_TARGET_SHA: \$\{\{ inputs\.recovery_target_sha \}\}/);
+  assert.match(workflow, /RECOVERY_PREVIOUS_FLOOR_SHA: \$\{\{ inputs\.recovery_previous_floor_sha \}\}/);
+  assert.match(workflow, /RECOVERY_APPROVED_SHA="\$RECOVERY_TARGET_SHA"/);
+  assert.match(workflow, /RECOVERY_PREVIOUS_FLOOR_SHA="\$RECOVERY_PREVIOUS_FLOOR_SHA"/);
+  assert.match(workflow, /APPROVED_CONFIG_FLOOR_SHA: \$\{\{ inputs\.operation == 'recovery' && inputs\.recovery_target_sha \|\| inputs\.approved_main_sha \}\}/);
 });
 // ── resume binding: an existing archive must match this exact recovery context ──
 test('resume requires archive schema, run id, approved SHA and plan targets to match the context', () => {
@@ -494,6 +504,75 @@ async function verifiedBundle(overrides = {}) {
 }
 const verifiedContext = { targetRunId: '38217361863-1', approvedSha: M4, recoveryRunId: '38300000123-1', now: Date.parse('2026-10-12T09:00:00.000Z') };
 
+async function verifiedReanchorBundle() {
+  const M6 = VERIFIED_ABORT_REANCHOR_TRANSACTION.targetSha;
+  const M4 = VERIFIED_ABORT_REANCHOR_TRANSACTION.previousFloorSha;
+  const bundle = await verifiedBundle();
+  const runId = VERIFIED_ABORT_REANCHOR_TRANSACTION.runId;
+  const candidateApi = { imageId: image('6'), revision: M6 };
+  bundle.transaction = { ...bundle.transaction, runId, target: M6, configSha: M6 };
+  bundle.deployRecord = { ...bundle.deployRecord, target: M6, configSha: M6, floorSha: M6, candidates: { api: candidateApi }, active: { api: candidateApi, web: bundle.deployRecord.previous.web }, evidence: { pre: '', post: '', log: '' } };
+  bundle.marker = { ...bundle.marker, runId, target: M6 };
+  bundle.floor = { ...bundle.floor, floorSha: M6 };
+  bundle.active = { ...bundle.active, configSha: M6, floorSha: M6 };
+  bundle.runtime = { ...bundle.runtime, api: candidateApi };
+  bundle.containers = { ...bundle.containers, api: { ...bundle.containers.api, image: image('6'), ociRevision: M6 } };
+  bundle.evidence = {
+    pre: { ...bundle.evidence.pre, deployRunId: runId, targetSha: M6, configFloorSha: M6 },
+    post: { ...bundle.evidence.post, deployRunId: runId, targetSha: M6, configFloorSha: M6, containers: { ...bundle.evidence.post.containers, api: { ...bundle.evidence.post.containers.api, image: image('6'), ociRevision: M6 } } },
+    startup: { ...bundle.evidence.startup, deployRunId: runId, targetSha: M6, configFloorSha: M6 },
+  };
+  bundle.receipt = { ...bundle.receipt, runId, targetSha: M6, previousFloorSha: M4 };
+  bundle.checkout = { head: M6, clean: true };
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'verified-reanchor-'));
+  const files = { pre: path.join(dir, 'pre.json'), post: path.join(dir, 'post.json'), log: path.join(dir, 'log.json') };
+  fs.writeFileSync(files.pre, JSON.stringify(bundle.evidence.pre));
+  fs.writeFileSync(files.post, JSON.stringify(bundle.evidence.post));
+  fs.writeFileSync(files.log, JSON.stringify(bundle.evidence.startup));
+  bundle.evidenceFiles = files;
+  bundle.deployRecord.evidence = files;
+  return { bundle, dir, context: { targetRunId: runId, approvedSha: M6, previousFloorSha: M4, recoveryRunId: '38330000001-1', now: Date.parse('2026-10-13T00:00:00.000Z') } };
+}
+
+test('the M6 re-anchor verified-abort transaction is frozen to its M4 floor and eligible after evidence recompute', async () => {
+  const { bundle, dir, context } = await verifiedReanchorBundle();
+  try {
+    const assessment = assessRecovery(bundle, context);
+    assert.equal(assessment.eligible, true, JSON.stringify(assessment.reasons));
+    const plan = planRecoveredState(bundle.deployRecord, bundle.marker, { recoveryRunId: context.recoveryRunId, recoveredAt: '2026-10-13T00:10:00.000Z', startupResult: 'PASS_REDACTED_SUMMARY', classification: 'EVIDENCE_VERIFIED_SCRIPT_ABORTED_AFTER_VERIFY', receiptSha256: 'c'.repeat(64) });
+    assert.equal(plan.active.floorSha, context.approvedSha);
+    assert.equal(plan.active.active.api.revision, context.approvedSha);
+    assert.equal(plan.deployRecord.recovery.classification, 'EVIDENCE_VERIFIED_SCRIPT_ABORTED_AFTER_VERIFY');
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('M7 target or M6 previous-floor substitutions fail closed for the frozen M6 transaction', async () => {
+  const { bundle, dir, context } = await verifiedReanchorBundle();
+  try {
+    const wrongTarget = JSON.parse(JSON.stringify(bundle));
+    wrongTarget.receipt.targetSha = '5c4355fe32b4fe357cf5dc919a85e7aef7f59070';
+    assert.equal(assessRecovery(wrongTarget, context).eligible, false);
+    assert.ok(assessRecovery(wrongTarget, context).reasons.includes('RECEIPT_TRANSACTION_NOT_ELIGIBLE'));
+
+    const wrongPreviousFloor = JSON.parse(JSON.stringify(bundle));
+    wrongPreviousFloor.floor.floorSha = 'f46f651dcebeb11210c8e577f3c0caed87f356c2';
+    const floorAssessment = assessRecovery(wrongPreviousFloor, context);
+    assert.equal(floorAssessment.eligible, false);
+    assert.ok(floorAssessment.reasons.includes('FLOOR_SHAPE'));
+
+    const missingPreviousFloor = { ...context };
+    delete missingPreviousFloor.previousFloorSha;
+    const missingAssessment = assessRecovery(bundle, missingPreviousFloor);
+    assert.equal(missingAssessment.eligible, false);
+
+    const wrongReceiptFloor = JSON.parse(JSON.stringify(bundle));
+    wrongReceiptFloor.receipt.previousFloorSha = '797eeca1db229f5e4d288da88d83888ad92b35c5';
+    const receiptAssessment = assessRecovery(wrongReceiptFloor, context);
+    assert.equal(receiptAssessment.eligible, false);
+    assert.ok(receiptAssessment.reasons.includes('RECEIPT_PREVIOUS_FLOOR_MISMATCH'));
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
 test('the verified-abort transaction is eligible only with the frozen receipt and a clean recomputed state', async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'verified-abort-happy-'));
   try {
@@ -508,6 +587,26 @@ test('the verified-abort transaction is eligible only with the frozen receipt an
   const plan = planRecoveredState(bundle.deployRecord, bundle.marker, { recoveryRunId: verifiedContext.recoveryRunId, recoveredAt: '2026-10-12T09:30:00.000Z', startupResult: 'PASS_REDACTED_SUMMARY', classification: 'EVIDENCE_VERIFIED_SCRIPT_ABORTED_AFTER_VERIFY', receiptSha256: 'b'.repeat(64) });
   assert.equal(plan.deployRecord.recovery.startupResult, 'PASS_REDACTED_SUMMARY');
   assert.equal(plan.deployRecord.recovery.classification, 'EVIDENCE_VERIFIED_SCRIPT_ABORTED_AFTER_VERIFY');
+  // The CLI must continue into the shared staged executor after the live
+  // snapshot check. This source-level guard prevents the verified branch from
+  // becoming a silent successful no-op again.
+  const source = fs.readFileSync('scripts/ops/production-deployment-recovery.mjs', 'utf8');
+  const verifiedBranch = source.indexOf("if (evidence?.startup?.result === 'PASS_REDACTED_SUMMARY')");
+  const sharedStages = source.indexOf('let record = archive;', verifiedBranch);
+  assert.ok(verifiedBranch >= 0 && sharedStages > verifiedBranch, 'verified-abort must fall through to shared recovery stages');
+
+  // Exercise the same isolated staged IO used by the CLI and assert the
+  // externally visible completion/state contract without touching production.
+  const harness = ioHarness();
+  const archived = harness.makeArchive(plan);
+  const output = [];
+  const staged = completeRecovery(archived, harness.io, { write: (label, value) => output.push(`${label}=${value}`) });
+  assert.equal(staged.complete, true);
+  assert.deepEqual(output, ['DEPLOYMENT_RECOVERY=COMPLETE']);
+  assert.equal(harness.state.archive.phase, 'COMPLETE');
+  assert.equal(harness.state.active.outcome, 'SUCCESS');
+  assert.equal(harness.state.deployRecord.outcome, 'SUCCESS');
+  assert.deepEqual(harness.state.unlinked.sort(), ['policy-transition.json', 'transaction.json']);
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 test('every verified-abort rejection path holds individually', async () => {
@@ -560,6 +659,27 @@ test('verify recompute runs against real evidence files and fails closed on tamp
     const assessment = assessRecovery({ ...bundle, evidence: { ...bundle.evidence, startup: tampered } }, verifiedContext);
     assert.equal(assessment.eligible, false);
     assert.ok(assessment.reasons.includes('VERIFY_RECOMPUTE_FAILED'), `${assessment.reasons}`);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('verified-abort verify failure never enters the staged writer', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'verified-abort-hold-'));
+  try {
+    const { receipt, evidence } = await verifiedParts();
+    const files = { pre: path.join(dir, 'pre.json'), post: path.join(dir, 'post.json'), log: path.join(dir, 'log.json') };
+    fs.writeFileSync(files.pre, JSON.stringify(evidence.pre));
+    fs.writeFileSync(files.post, JSON.stringify(evidence.post));
+    const tampered = { ...evidence.startup, phase: 'TAMPERED' };
+    fs.writeFileSync(files.log, JSON.stringify(tampered));
+    const bundle = await verifiedBundle({ evidenceFiles: files, receipt, evidence: { ...evidence, startup: tampered } });
+    const assessment = assessRecovery(bundle, verifiedContext);
+    assert.equal(assessment.eligible, false);
+    assert.ok(assessment.reasons.includes('VERIFY_RECOMPUTE_FAILED'));
+    const harness = ioHarness();
+    assert.equal(harness.state.activeWrites, 0);
+    assert.equal(harness.state.deployWrites, 0);
+    assert.equal(harness.state.archiveWrites, 0);
+    assert.deepEqual(harness.state.unlinked, []);
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 test('PASS evidence outside the frozen verified-abort transaction never becomes recoverable', async () => {

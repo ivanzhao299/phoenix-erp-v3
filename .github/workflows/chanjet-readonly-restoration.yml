@@ -8,21 +8,31 @@ on:
         options: [audit, evidence, recovery, READONLY_VERIFY, first-sync, READONLY_ACTIVE, HOLD]
         default: audit
       approved_main_sha:
-        description: 'Separately approved exact merged main and v3 floor SHA; audit records it as candidate metadata'
+        description: 'Recovery: exact reviewed main runner SHA; audit/evidence: candidate/target metadata'
         required: true
         type: string
+      recovery_target_sha:
+        description: 'Recovery only: exact frozen transaction target SHA; never inferred from approved_main_sha'
+        required: false
+        type: string
+        default: ''
+      recovery_previous_floor_sha:
+        description: 'Recovery only: exact previous production floor SHA bound to the frozen transaction'
+        required: false
+        type: string
+        default: ''
       expected_production_sha:
         description: 'Audit/evidence only: expected deployed API OCI revision; never used to update the production checkout'
         required: false
         type: string
         default: ''
       bound_run_id:
-        description: 'Evidence only: original deploy transaction run id this collection is bound to (e.g. 38031441639-1)'
+        description: 'Evidence/recovery: exact original deployment transaction run id (including attempt)'
         required: false
         type: string
         default: ''
       startup_error_receipt:
-        description: 'Recovery only: sanitized Case A benign-startup-error receipt JSON (no raw logs/payloads); gates the single eligible HOLD_STARTUP_ERROR transaction'
+        description: 'Recovery only: sanitized frozen-transaction receipt JSON; no raw logs, credentials or business payloads'
         required: false
         type: string
         default: ''
@@ -53,6 +63,8 @@ jobs:
         env:
           OPERATION: ${{ inputs.operation }}
           APPROVED_SHA: ${{ inputs.approved_main_sha }}
+          RECOVERY_TARGET_SHA: ${{ inputs.recovery_target_sha }}
+          RECOVERY_PREVIOUS_FLOOR_SHA: ${{ inputs.recovery_previous_floor_sha }}
           EXPECTED_PRODUCTION_SHA: ${{ inputs.expected_production_sha }}
           BOUND_RUN_ID: ${{ inputs.bound_run_id }}
           STARTUP_ERROR_RECEIPT: ${{ inputs.startup_error_receipt }}
@@ -82,10 +94,12 @@ jobs:
             # required reviewers there before first use.
             test "$GITHUB_REF" = refs/heads/main
             test "$CONFIRMATION" = APPROVE_EXACT_RECOVERY_TRANSACTION
-            [[ "$APPROVED_SHA" =~ ^[a-f0-9]{40}$ ]]
+            test "$APPROVED_SHA" = "$GITHUB_SHA"
+            [[ "$RECOVERY_TARGET_SHA" =~ ^[a-f0-9]{40}$ ]]
+            [[ "$RECOVERY_PREVIOUS_FLOOR_SHA" =~ ^[a-f0-9]{40}$ ]]
             [[ "$BOUND_RUN_ID" =~ ^[0-9]+-[0-9]+$ ]]
             if [ -n "$STARTUP_ERROR_RECEIPT" ]; then
-              printf '%s' "$STARTUP_ERROR_RECEIPT" | node -e 'let d="";process.stdin.on("data",c=>d+=c);process.stdin.on("end",()=>{try{const r=JSON.parse(d);if(r.schema!=="phoenix.case-a-benign-startup-error-receipt/1"&&r.schema!=="phoenix.verified-abort-recovery-receipt/1")process.exit(1);console.log("RECEIPT_SCHEMA_OK="+r.runId)}catch{process.exit(1)}})' >/dev/null || { echo '::error::startup_error_receipt is not a valid sanitized receipt'; exit 26; }
+              printf '%s' "$STARTUP_ERROR_RECEIPT" | node -e 'let d="";process.stdin.on("data",c=>d+=c);process.stdin.on("end",()=>{try{const r=JSON.parse(d);if(r.schema!=="phoenix.case-a-benign-startup-error-receipt/1"&&r.schema!=="phoenix.verified-abort-recovery-receipt/1"&&r.schema!=="phoenix.complete-module-abort-recovery-receipt/1")process.exit(1);console.log("RECEIPT_SCHEMA_OK="+r.runId)}catch{process.exit(1)}})' >/dev/null || { echo '::error::startup_error_receipt is not a valid sanitized receipt'; exit 26; }
             fi
           else
             test "$GITHUB_REF" = refs/heads/main
@@ -103,6 +117,8 @@ jobs:
             echo "AUDIT_SQL_SHA256=$(sha256sum scripts/ops/readonly-audits/chanjet-restoration-preflight.sql | cut -d' ' -f1)"
             echo "CANDIDATE_MAIN_SHA=$APPROVED_SHA"
             echo "EXPECTED_PRODUCTION_SHA=$EXPECTED_PRODUCTION_SHA"
+            echo "RECOVERY_TARGET_SHA=$RECOVERY_TARGET_SHA"
+            echo "RECOVERY_PREVIOUS_FLOOR_SHA=$RECOVERY_PREVIOUS_FLOOR_SHA"
           } >> "$GITHUB_ENV"
           if [ "$OPERATION" = evidence ]; then
             echo "PRODUCTION_EVIDENCE_PROGRAM_B64=$(base64 -w0 scripts/ops/readonly-production-evidence.mjs)" >> "$GITHUB_ENV"
@@ -110,7 +126,7 @@ jobs:
           fi
           if [ "$OPERATION" = recovery ]; then
             RECOVERY_TAR="$(mktemp)"
-            tar -czf "$RECOVERY_TAR" -C scripts/ops production-deployment-recovery.mjs production-deployment-evidence.mjs production-config-guard.mjs production-deployment-state.mjs production-trusted-paths.mjs capture-production-runtime.mjs update-managed-chanjet-env.mjs chanjet-readonly-policy.mjs chanjet-readonly-production-audit.mjs production-config-contract.json
+            tar -czf "$RECOVERY_TAR" -C scripts/ops production-deployment-recovery.mjs production-deployment-evidence.mjs production-config-guard.mjs production-deployment-state.mjs production-atomic-state.mjs production-trusted-paths.mjs capture-production-runtime.mjs update-managed-chanjet-env.mjs chanjet-readonly-policy.mjs chanjet-readonly-production-audit.mjs production-config-contract.json chanjet-admission-schema-receipt.mjs
             echo "RECOVERY_BUNDLE_B64=$(base64 -w0 "$RECOVERY_TAR")" >> "$GITHUB_ENV"
             echo "RECOVERY_BUNDLE_SHA256=$(sha256sum "$RECOVERY_TAR" | cut -d' ' -f1)" >> "$GITHUB_ENV"
             rm -f "$RECOVERY_TAR"
@@ -137,11 +153,13 @@ jobs:
           RECOVERY_STARTUP_RECEIPT_SHA256: ${{ env.RECOVERY_STARTUP_RECEIPT_SHA256 }}
           CHANJET_CONFIG_OPERATION: ${{ inputs.operation }}
           CHANJET_APPROVAL_B64: ${{ env.CHANJET_APPROVAL_B64 }}
-          APPROVED_CONFIG_FLOOR_SHA: ${{ inputs.approved_main_sha }}
-          TARGET_SHA: ${{ inputs.approved_main_sha }}
+          APPROVED_CONFIG_FLOOR_SHA: ${{ inputs.operation == 'recovery' && inputs.recovery_target_sha || inputs.approved_main_sha }}
+          TARGET_SHA: ${{ inputs.operation == 'recovery' && inputs.recovery_target_sha || inputs.approved_main_sha }}
           CANDIDATE_MAIN_SHA: ${{ inputs.approved_main_sha }}
           EXPECTED_PRODUCTION_SHA: ${{ inputs.expected_production_sha }}
           BOUND_RUN_ID: ${{ inputs.bound_run_id }}
+          RECOVERY_TARGET_SHA: ${{ inputs.recovery_target_sha }}
+          RECOVERY_PREVIOUS_FLOOR_SHA: ${{ inputs.recovery_previous_floor_sha }}
           DEPLOY_RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}
           CHANJET_SYNC_OPERATOR_TOKEN: ${{ secrets.CHANJET_SYNC_OPERATOR_TOKEN }}
         with:
@@ -153,7 +171,7 @@ jobs:
           proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
           proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
           proxy_port: 22
-          envs: PRODUCTION_CONTRACT_B64,PRODUCTION_PATH_HELPER_B64,PRODUCTION_CONTROL_BOOTSTRAP_B64,AUDIT_PROGRAM_B64,AUDIT_PROGRAM_SHA256,AUDIT_SQL_B64,AUDIT_SQL_SHA256,PRODUCTION_EVIDENCE_PROGRAM_B64,PRODUCTION_EVIDENCE_PROGRAM_SHA256,RECOVERY_BUNDLE_B64,RECOVERY_BUNDLE_SHA256,RECOVERY_STARTUP_RECEIPT_B64,RECOVERY_STARTUP_RECEIPT_SHA256,CHANJET_CONFIG_OPERATION,CHANJET_APPROVAL_B64,APPROVED_CONFIG_FLOOR_SHA,TARGET_SHA,CANDIDATE_MAIN_SHA,EXPECTED_PRODUCTION_SHA,BOUND_RUN_ID,DEPLOY_RUN_ID,CHANJET_SYNC_OPERATOR_TOKEN
+          envs: PRODUCTION_CONTRACT_B64,PRODUCTION_PATH_HELPER_B64,PRODUCTION_CONTROL_BOOTSTRAP_B64,AUDIT_PROGRAM_B64,AUDIT_PROGRAM_SHA256,AUDIT_SQL_B64,AUDIT_SQL_SHA256,PRODUCTION_EVIDENCE_PROGRAM_B64,PRODUCTION_EVIDENCE_PROGRAM_SHA256,RECOVERY_BUNDLE_B64,RECOVERY_BUNDLE_SHA256,RECOVERY_STARTUP_RECEIPT_B64,RECOVERY_STARTUP_RECEIPT_SHA256,CHANJET_CONFIG_OPERATION,CHANJET_APPROVAL_B64,APPROVED_CONFIG_FLOOR_SHA,TARGET_SHA,CANDIDATE_MAIN_SHA,EXPECTED_PRODUCTION_SHA,BOUND_RUN_ID,RECOVERY_TARGET_SHA,RECOVERY_PREVIOUS_FLOOR_SHA,DEPLOY_RUN_ID,CHANJET_SYNC_OPERATOR_TOKEN
           command_timeout: 12m
           script: |
             set -Eeuo pipefail
@@ -207,7 +225,7 @@ jobs:
               test "$(sha256sum "$RECOVERY_STAGE/bundle.tgz" | cut -d' ' -f1)" = "$RECOVERY_BUNDLE_SHA256"
               tar -xzf "$RECOVERY_STAGE/bundle.tgz" -C "$RECOVERY_STAGE"
               AUDIT_STAGE=RECOVERY
-              RECOVERY_EXECUTE=true RECOVERY_TARGET_RUN_ID="$BOUND_RUN_ID" RECOVERY_APPROVED_SHA="$APPROVED_CONFIG_FLOOR_SHA" RECOVERY_RUN_ID="$DEPLOY_RUN_ID" \
+              RECOVERY_EXECUTE=true RECOVERY_TARGET_RUN_ID="$BOUND_RUN_ID" RECOVERY_APPROVED_SHA="$RECOVERY_TARGET_SHA" RECOVERY_PREVIOUS_FLOOR_SHA="$RECOVERY_PREVIOUS_FLOOR_SHA" RECOVERY_RUN_ID="$DEPLOY_RUN_ID" \
                 node "$RECOVERY_STAGE/production-deployment-recovery.mjs"
               AUDIT_STAGE=COMPLETE
             else
