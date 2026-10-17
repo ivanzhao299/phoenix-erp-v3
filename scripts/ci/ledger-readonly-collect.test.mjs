@@ -81,8 +81,25 @@ async function pgStatSnapshot() {
 verify('ledger readonly collection (isolated PostgreSQL18, real psql)', () => {
   before(async () => {
     assert.equal(parsedFixture.hostname, '127.0.0.1', 'isolated loopback fixture required');
+    // DEDICATED-DATABASE GUARD (before ANY connection, let alone DROP):
+    // this fixture destroys schemas — it must only ever target the
+    // purpose-named disposable database, never a real one
+    assert.match(pgEnv.PGDATABASE, /^ledger_collect_/, `dedicated disposable database required, got: ${pgEnv.PGDATABASE}`);
     container = resolveFixtureContainer();
     assert.ok(container, 'fixture DB container required for the real-psql shim');
+    // SAME-INSTANCE GUARD: the URL's database must exist ON the specified
+    // container, and both views must report the identical server identity —
+    // a URL pointing at a different instance than the container is refused
+    // before anything connects
+    const containerHasDb = spawnSync('docker', ['exec', container, 'psql', '-X', '-At', '-v', 'ON_ERROR_STOP=1', '-U', pgEnv.PGUSER, '-d', 'postgres', '-c', `SELECT 1 FROM pg_database WHERE datname = '${pgEnv.PGDATABASE}'`], { encoding: 'utf8' });
+    assert.equal(containerHasDb.status, 0, `container instance unreachable: ${containerHasDb.stderr}`);
+    assert.equal(containerHasDb.stdout.trim(), '1', `database ${pgEnv.PGDATABASE} does not exist on container ${container} — URL/container instance mismatch`);
+    const probe = new Client({ connectionString: fixtureUrl });
+    await probe.connect();
+    const urlVersion = (await probe.query('SHOW server_version')).rows[0].server_version;
+    await probe.end();
+    const containerVersion = spawnSync('docker', ['exec', container, 'psql', '-X', '-At', '-U', pgEnv.PGUSER, '-d', 'postgres', '-c', 'SHOW server_version'], { encoding: 'utf8' }).stdout.trim();
+    assert.equal(urlVersion.split(' ').pop(), containerVersion.split(' ').pop(), `URL and container report different servers: ${urlVersion} vs ${containerVersion}`);
     // the psql shim: the collector's `psql` call resolves to the fixture
     // container's own client — a REAL psql on the REAL database
     shimBin = fs.mkdtempSync(path.join(os.tmpdir(), 'ledger-collect-shim-'));

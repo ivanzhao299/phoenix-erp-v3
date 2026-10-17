@@ -30,13 +30,26 @@
 // Failures print a human `LEDGER_COLLECT_ERROR: <message>` line on stderr
 // and exit 1 — a crashed collection never prints a plausible-looking
 // document.
-import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { normalizePsqlOutput } from '../ledger-preflight.mjs';
 
 const COLLECTION_SCHEMA = 'phoenix.ledger-readonly-collection/v1';
+
+// SELF-CONTAINED STAGING: the collector imports nothing from the repository,
+// so the documented single-file delivery is runnable verbatim. This helper
+// mirrors the reviewed preflight's normalizePsqlOutput semantics exactly
+// (BEGIN/SET/COMMIT session noise stripped).
+function normalizePsqlOutput(output) {
+  return String(output ?? '')
+    .split(/\r?\n/)
+    .filter((line) => {
+      const token = line.trim();
+      return token && token !== 'BEGIN' && token !== 'SET' && token !== 'COMMIT';
+    })
+    .join('\n')
+    .trim();
+}
 
 function parseArgs(argv) {
   const args = {
