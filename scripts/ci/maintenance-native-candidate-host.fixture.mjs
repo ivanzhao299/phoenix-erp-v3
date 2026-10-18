@@ -216,7 +216,12 @@ async function exerciseNative() {
     const originalVerify=material.adapters.verifyCandidate;
     const collect=async(mode,leasePhases=false)=>{
       const state=store.readState();
-      const request={context,expectedStateDigest:state.stateDigest,replacementEvidence:h.engine.receipt(state,'CANDIDATE_REPLACEMENT'),rootLease:root,mode,timeoutMs:30000};
+      // The committed binding must now meet the narrower10s read budget.
+      // This still excludes queue wait/independent evidence verification and
+      // therefore cannot be labelled complete session admission.
+      const timeoutMs=leasePhases?10000:30000;
+      if(leasePhases)result.committedCollectorBudgetMs=timeoutMs;
+      const request={context,expectedStateDigest:state.stateDigest,replacementEvidence:h.engine.receipt(state,'CANDIDATE_REPLACEMENT'),rootLease:root,mode,timeoutMs};
       // Intentionally no dependency injection: all collector/default I/O is real.
       const value=await (leasePhases?collectCandidateLeaseBinding:collectCandidateServerBinding)(request);
       assert.equal(value.result,'OBSERVATION_ONLY');assert.equal(value.registryInstalled,false);assert.equal(value.admissionOrApprovalGranted,false);
