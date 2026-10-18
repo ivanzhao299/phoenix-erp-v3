@@ -445,9 +445,14 @@ test('producer failure after handoff retains the original lease for verified cle
 });
 test('a termination request cannot be handed off before exit is delivered',async()=>{
   const f=fixture();const get=wireOwnedControl(f,async(control,request)=>{
-    await control.start();assert.equal(control.child.kill('SIGTERM'),true);
-    assert.equal(control.child.exitCode,null);assert.equal(control.child.signalCode,null);assert.equal(control.child.killed,true);
-    assert.throws(()=>request.registerControlSession(control,f.lease),/REAL_CONTROL_SESSION_REQUIRED/);await control.close();
+    await control.start();
+    // The base transport's close waits for exit; the actual session debt lasts
+    // through stdio close. Register this waiter before sending any signal/EOF.
+    const child=control.child,closed=new Promise(resolve=>child.once('close',resolve));
+    assert.equal(child.kill('SIGTERM'),true);
+    assert.equal(child.exitCode,null);assert.equal(child.signalCode,null);assert.equal(child.killed,true);
+    assert.throws(()=>request.registerControlSession(control,f.lease),/REAL_CONTROL_SESSION_REQUIRED/);
+    await control.close();await closed;assert.equal(f.session.children.size,0);
   },{ignoreTerm:true});
   try{await f.session.run();assert.equal(f.session.controlChildren.size,0);}
   finally{if(get())await closeOwnedControl(f,get());}

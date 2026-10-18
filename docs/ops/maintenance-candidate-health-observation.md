@@ -52,3 +52,11 @@ A second review P2 identified missing before/after material in the standalone
 readiness artifact. Both selected pins and fingerprint objects, program hash,
 owner and interval are now retained for independent rechecking. No raw business
 data, credentials or HTTP bodies are archived.
+
+A final local general run on de12b135 recorded416 PASS/1 FAIL/25 SKIP,
+not417 PASS. The failure exposed an existing termination-handoff fixture that
+waited only for transport exit while session debt correctly persisted through
+stdio close. The fixture now registers its actual close waiter before signal/
+EOF and awaits it; runtime enforcement was not relaxed. The initial PR body
+mistakenly reused the earlier base-tree pass count and was promptly corrected;
+new final-source test and CI receipts are required before review/merge.
