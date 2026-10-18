@@ -100,3 +100,5 @@ jobs:
             artifacts/maintenance-erp-candidate/*/capsule-build.json
             artifacts/maintenance-erp-candidate/*/pg*-detector-canary.json
             artifacts/maintenance-erp-candidate/*/pg*-actual-erp-root-binding.json
+            artifacts/maintenance-erp-candidate/*/pg*-actual-erp-phase-correlation.json
+            artifacts/maintenance-erp-candidate/*/pg*-phase-chain/*.json

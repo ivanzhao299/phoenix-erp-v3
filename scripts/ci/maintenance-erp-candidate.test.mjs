@@ -59,3 +59,61 @@ test('production dependency closure preserves nested versions and never includes
   assert.equal(fs.existsSync(path.join(out, 'one/innocent-alias')), false);
   assert.equal(fs.realpathSync(path.join(out, 'one/node_modules/two')), fs.realpathSync(path.join(out, '.capsule', fs.readdirSync(path.join(out, '.capsule')).find(n => n.startsWith('two-')))));
 });
+
+import { actualPhaseMaterials, stablePhaseStatus, archiveOwnedPhaseStore } from './maintenance-erp-phase-correlation.fixture.mjs';
+import { bindingDigest, canonicalDigest } from '../ops/production-maintenance-receipts.mjs';
+function phaseInput() {
+  const at = '2026-10-19T01:00:00.000Z', owner = '1792371600000-42', sourceSha = 'b'.repeat(40), imageId = 'sha256:' + '5'.repeat(64);
+  const runtime = { Id: 'a'.repeat(64), Image: imageId, Config: { Labels: { 'org.opencontainers.image.revision': sourceSha } }, RestartCount: 0, State: { Running: true, Health: { Status: 'healthy' }, StartedAt: at, Pid: 41, Restarting: false, Dead: false } };
+  const dbRuntime = { Id: 'd'.repeat(64), Image: 'sha256:' + '6'.repeat(64), State: { StartedAt: at, Running: true, Health: { Status: 'healthy' } }, RestartCount: 0, Mounts: [] };
+  return { owner, sourceSha, imageId, runtime, dbRuntime, clock: () => Date.parse(at) + 10000,
+    status: { ...identity().status, owner, phase: 'FENCED', inFlight: 0, pendingChildren: 0, taskGraphs: 0 },
+    database: { containerId: dbRuntime.Id, imageId: dbRuntime.Image, containerStartedAt: at } };
+}
+test('real phase material builder binds every digest after final owner, source, clock and actual identity input', () => {
+  const input = phaseInput(), f = actualPhaseMaterials(input), digest = bindingDigest(f.context);
+  assert.equal(f.context.owner, input.owner); assert.equal(f.context.targetSha, input.sourceSha);
+  assert.equal(f.context.preSnapshot.db.id, input.dbRuntime.Id); assert.equal(f.candidate.api.id, input.runtime.Id);
+  assert.equal(f.candidate.api.health, input.runtime.State.Health.Status); assert.equal(f.candidate.bootId, input.status.bootId);
+  assert.equal(f.material.approval.bindingDigest, digest); assert.equal(f.material.recoveryPlan.bindingDigest, digest);
+  assert.equal(f.material.preEvidence.bindingDigest, digest); assert.equal(f.completion.bindingDigest, digest);
+  assert.equal(f.material.approval.serverRecord.commitId, input.sourceSha);
+  assert.equal(f.material.recoveryPlan.materials.find(m => m.kind === 'PRE_SNAPSHOT').sha256, canonicalDigest(f.context.preSnapshot));
+  assert.equal(f.material.preEvidence.capturedAt, new Date(input.clock()).toISOString());
+});
+test('phase material builder refuses mismatched actual API, database, owner and health inputs', () => {
+  for (const change of [i => i.status.owner = 'different', i => i.database.containerId = 'f'.repeat(64),
+    i => i.runtime.Config.Labels['org.opencontainers.image.revision'] = 'c'.repeat(40), i => i.runtime.State.Health.Status = 'starting']) {
+    const input = phaseInput(); change(input); assert.throws(() => actualPhaseMaterials(input));
+  }
+});
+
+function stableInput() { const s = phaseInput().status; s.controlSession.cleanup = { acquirePending: false, queriesPending: 0, retirementPending: false, terminationConfirmed: false, releaseConfirmed: false, debt: true }; return s; }
+test('stable sampling waits for the actual heartbeat query to settle and compares all accepted fields', async () => {
+  const good = stableInput(), busy = structuredClone(good); busy.controlSession.cleanup.queriesPending = 1; let reads = 0;
+  assert.deepEqual(await stablePhaseStatus(() => ++reads === 1 ? busy : good, { expected: good }), good); assert.equal(reads, 2);
+  const changed = structuredClone(good); changed.unexpected = true; await assert.rejects(stablePhaseStatus(() => changed, { expected: good }));
+});
+test('pending queries cannot hide poison, identity loss or consume an unbounded wait', async () => {
+  const good = stableInput(), busy = structuredClone(good); busy.controlSession.cleanup.queriesPending = 1;
+  await assert.rejects(stablePhaseStatus(() => busy, { expected: good, timeoutMs: 10 }), /DEADLINE|DID_NOT_SETTLE/);
+  for (const mutate of [v => v.poisoned = true, v => v.controlSession.sessionPid++, v => v.controlSession.broken = true]) {
+    const bad = structuredClone(busy); mutate(bad); await assert.rejects(stablePhaseStatus(() => bad, { expected: good }));
+  }
+  await assert.rejects(stablePhaseStatus(() => { Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 10); return good; }, { timeoutMs: 1 }), /DEADLINE/);
+});
+test('owned phase files are retained with hashes and synthetic-authority scope; symlinks and hardlinks are refused', () => {
+  const base = path.join(root, 'artifacts/maintenance-erp-candidate', `unit-archive-${randomUUID()}`); fs.mkdirSync(base, { recursive: true, mode: 0o700 });
+  const source = path.join(base, 'source'); fs.mkdirSync(source, { mode: 0o700 });
+  const raw = JSON.stringify({ fixtureOnly: true, kind: 'SYNTHETIC_OWNED_PROTOCOL' }); fs.writeFileSync(path.join(source, 'maintenance-state.json'), raw, { mode: 0o600 });
+  const target = path.join(base, 'archive'), result = archiveOwnedPhaseStore(source, target);
+  assert.equal(result.productionReceipt, false); assert.equal(result.files.length, 1);
+  assert.equal(result.files[0].size, Buffer.byteLength(raw)); assert.equal(result.files[0].sha256.length, 64);
+  assert.equal(fs.readFileSync(path.join(target, 'maintenance-state.json'), 'utf8'), raw);
+  assert.equal(JSON.parse(fs.readFileSync(path.join(target, 'manifest.json'))).governanceAndHistoricalPre, 'SYNTHETIC_TEST_ONLY');
+  fs.symlinkSync('maintenance-state.json', path.join(source, 'maintenance-alias.json'));
+  assert.throws(() => archiveOwnedPhaseStore(source, path.join(base, 'rejected')));
+  const hard = path.join(base, 'hard'); fs.mkdirSync(hard, { mode: 0o700 });
+  fs.linkSync(path.join(source, 'maintenance-state.json'), path.join(hard, 'maintenance-linked.json'));
+  assert.throws(() => archiveOwnedPhaseStore(hard, path.join(base, 'hard-rejected')));
+});
