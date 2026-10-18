@@ -73,6 +73,10 @@ jobs:
         env:
           MAINTENANCE_ROOT_PG_FIXTURE: '1'
         run: node --test scripts/ops/production-maintenance-root-lease.pg.test.mjs
+      - name: Actual original-root observer scoped close on PG16 and PG18
+        env:
+          MAINTENANCE_OWNED_OBSERVER_PG_FIXTURE: '1'
+        run: node --test scripts/ops/production-maintenance-owned-candidate-observer.pg.test.mjs
       - name: Candidate correlation with actual PG and root transport; synthetic candidate API
         env:
           MAINTENANCE_BINDING_PG_FIXTURE: '1'
@@ -95,6 +99,7 @@ jobs:
             artifacts/maintenance-candidate-database/*.json
             artifacts/maintenance-root-control/*.json
             artifacts/maintenance-candidate-binding/*.json
+            artifacts/maintenance-owned-candidate-observer/*.json
             artifacts/maintenance-recovery-core-materials/*.json
             artifacts/maintenance-ci/runtime-resources.json
             artifacts/maintenance-ci/replacement-resources.json
