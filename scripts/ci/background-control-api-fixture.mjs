@@ -44,10 +44,15 @@ function auditSystemStep(stage,work) {
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 const exec = (cmd, args, options = {}) => execFileSync(cmd, args, { env: safeEnv(), encoding: 'utf8', timeout: 10000, maxBuffer: 128 * 1024, stdio: ['ignore','pipe','pipe'], ...options }).trim();
 const git = (root, args) => exec('git', ['-c', `safe.directory=${root}`, '-c','core.hooksPath=/dev/null',...args], { cwd: root });
-function processStat(pid) {
+export function readProcessIdentity(pid) {
   const text = fs.readFileSync(`/proc/${pid}/stat`,'utf8'); const fields = text.slice(text.lastIndexOf(')') + 2).split(' ');
   const uid = Number(fs.readFileSync(`/proc/${pid}/status`,'utf8').match(/^Uid:\s+(\d+)/m)?.[1]);
-  return { pid: Number(pid), ppid: Number(fields[1]), start: fields[19], uid, exe: fs.realpathSync(`/proc/${pid}/exe`), cwd: fs.realpathSync(`/proc/${pid}/cwd`) };
+  if (!Number.isSafeInteger(Number(pid)) || Number(pid) < 1 || Number(text.slice(0,text.indexOf(' '))) !== Number(pid)
+    || !/^\d+$/.test(fields[19] || '') || !Number.isSafeInteger(uid) || uid < 0) hold('API_PROCESS_IDENTITY_UNVERIFIED');
+  return { pid: Number(pid), ppid: Number(fields[1]), start: fields[19], uid, state: fields[0] };
+}
+function processStat(pid) {
+  return { ...readProcessIdentity(pid), exe: fs.realpathSync(`/proc/${pid}/exe`), cwd: fs.realpathSync(`/proc/${pid}/cwd`) };
 }
 export function findRunnerAncestor(pid = process.pid, read = processStat) {
   for (let i = 0; i < 32 && pid > 1; i++) {
@@ -211,8 +216,35 @@ export function inspectCleanupProcess(pid, { read = processStat, probe = p => pr
     hold('API_PROCESS_STATE_UNVERIFIED');
   }
 }
+// POST-TERM only: disappearing exe/cwd is an exit race, never proof of exit.
+// Retry it only while fresh kernel identity still matches the registered PID.
+// Even a zombie must be reaped (ESRCH) before cleanup may unmount/delete.
+export function inspectPostTermProcess(api, { identity = readProcessIdentity, read = processStat, probe = p => process.kill(p,0) } = {}) {
+  const absent = error => {
+    if (!['ENOENT','ESRCH'].includes(error.code)) hold('API_PROCESS_STATE_UNVERIFIED');
+    try { probe(api.pid); } catch (probeError) { if (probeError.code === 'ESRCH') return null; }
+    hold('API_PROCESS_STATE_UNVERIFIED');
+  };
+  const bound = current => {
+    if (current.pid !== api.pid || current.start !== api.start || current.uid !== api.uid) hold('API_PID_REUSED');
+    return current;
+  };
+  let before; try { before = identity(api.pid); } catch(error) { return absent(error); }
+  bound(before);
+  let current;
+  try { current = read(api.pid); }
+  catch(error) {
+    if (!['ENOENT','ESRCH'].includes(error.code)) hold('API_PROCESS_STATE_UNVERIFIED');
+    let after; try { after = identity(api.pid); } catch(next) { return absent(next); }
+    return { ...bound(after), metadataPending: true };
+  }
+  bound(current);
+  if (current.exe !== api.exe || current.cwd !== api.cwd) hold('API_PID_REUSED');
+  let after; try { after = identity(api.pid); } catch(error) { return absent(error); }
+  return bound(after);
+}
 export async function waitFixtureProcessExit(api, dependencies = {}) {
-  const inspect=dependencies.inspect||inspectCleanupProcess;
+  const inspect=dependencies.inspect||(pid=>inspectPostTermProcess(api));
   for(let n=0;n<100;n++) {
     const current=inspect(api.pid);
     if(!current)return;
