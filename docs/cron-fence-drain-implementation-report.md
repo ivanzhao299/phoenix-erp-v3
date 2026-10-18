@@ -154,3 +154,17 @@ must still run against the resulting commit; old counts above do not certify
 this patch. Production load, protected
 root entry, legacy maintenance reconciliation and formal human approvals are
 still unverified or blocked. No production operation was performed.
+
+The first hosted run of this repair exposed a static bootstrap-audit contract
+regression, not a runtime test failure: the checker still expected the older
+identity guard and direct driver-call shape. The checker now accepts only the
+current full identity guard, an erased non-null assertion on the exact runner,
+and the specific zero-argument lexical observeQuery callback AST nodes owned by
+the private control query. Fixed SELECTs, namespace/key provenance, unique
+forwarder/setter, parameter non-escape and source/class ownership remain checked.
+Twenty-five valid syntax mutations include removal of both closed/broken guards,
+SQL/key/namespace shadowing, foreign receivers, wrong callbacks and writes.
+Independent Node20 static/preflight tests: 31 PASS; actual repository bootstrap
+audit: 555 source files, zero violations. The prior hosted failures are retained;
+new exact-head official CI remains required. No workflow, ALLOW parameter or
+security approval policy was changed.
