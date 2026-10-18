@@ -125,3 +125,39 @@ timestamps now distinguish anchor failure from later reads. The collector retain
 only a small allowlist of fixed private anchor/root-deadline categories on its
 generic error; arbitrary messages/paths/stderr/causes are discarded, public error
 text and rejection behavior stay unchanged. No deadline is raised or guard cached.
+
+Sourceaed27688 run39169684442 is mixed, not accepted: PG18 completed all three
+default observations and four guard negatives; PG16 failed the committed-phase
+observation with the private fixed category ROOT_CONTROL_OPERATION_DEADLINE.
+Its measured interval was about32.44s against the existing30s root operation
+budget. Both original roots were released and all three owned containers per
+major stopped exit0. This confirms a deadline failure, not a unique attribution
+of every prior generic HOLD or all elapsed time to one helper.
+
+Receipt state reads now use a private call-local pinned snapshot to avoid
+repeating the external root/ACL checks for every receipt. Each call still runs
+fresh beginning and ending guards and trusted-directory inspection. Linux reads
+fixed basenames through an open directory FD; every file is regular, same UID,
+0600, single-link and at most1MiB, with nanosecond metadata pinned before/after
+bounded reads. Complete state/context/digest/sequence/previous-digest chain
+verification remains required. All files and the named/open directory are swept
+again after the ending guard/inspection. Missing state follows the same ending
+checks. There is no cross-call cache or caller-accessible skip-guard capability.
+Phase anchors reuse only those already verified receipts and retain a final
+fresh state/marker read. Public independent read/readReceipt remain fresh.
+
+File opens use NOFOLLOW and NONBLOCK: a FIFO substituted after lstat is rejected
+by fstat without waiting for a writer. Actual owned-filesystem tests cover this
+race under an independent child watchdog, growth during the current read,
+earlier-file mutation/inode replacement, links, permissions, directory replacement,
+missing-state appearance, ending-inspection mutation, semantic chain tampering
+and descriptor closure. Guard fault tests are injected, not native FD9/ACL proof.
+
+The snapshot's default maximum10s monotonic budget rejects over-budget returns;
+it cannot interrupt every synchronous syscall or the existing ACL helper.
+Separate snapshot calls and archive reads do not create a single hard10s phase
+anchor deadline. Outer operation deadlines and process supervision remain
+necessary. This is call-local consistency under the existing continuously held
+FD9/trusted-root-writer model, not an atomic kernel snapshot or proof against
+privileged ACL/mount/lock ABA. Native PG16/PG18 acceptance on the updated exact
+HEAD is still required; reducing repeated checks alone is not performance PASS.

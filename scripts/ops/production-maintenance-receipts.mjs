@@ -4,6 +4,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
+import { performance } from 'node:perf_hooks';
 import { CONTRACT, verifyContext } from './production-config-guard.mjs';
 import { inspectTrustedDirectory, assertSameDirectory } from './production-trusted-paths.mjs';
 
@@ -129,19 +130,90 @@ export class MaintenanceReceiptStore {
     this.syncDirectory(); assertSameDirectory(directory, this.inspect(this.directory));
     if (!same(this.read(file), value)) hold('PERSISTED_RECEIPT_CHANGED');
   }
-  readState() {
-    this.guard(); if (!fs.existsSync(this.stateFile)) return null;
-    const record = this.read(this.stateFile); const { stateDigest, ...content } = record;
-    if (record.contextDigest !== this.digest || !same(record.context, this.context) || stateDigest !== canonicalDigest(content)
-      || !Array.isArray(record.receipts) || record.receipts.length > 100) hold('STATE_CONTEXT_CHANGED');
-    let previousDigest = null;
-    for (let i = 0; i < record.receipts.length; i++) {
-      const receipt = this.readReceipt(record.receipts[i]);
-      if (receipt.sequence !== i + 1 || receipt.previousDigest !== previousDigest) hold('RECEIPT_CHAIN_BROKEN');
-      previousDigest = receipt.digest;
-    }
-    return record;
+  #snapshotBudget(options = {}) {
+    if (!options || Object.getPrototypeOf(options) !== Object.prototype || Object.keys(options).some(key => !['timeoutMs','signal'].includes(key))) hold('RECEIPT_SNAPSHOT_BUDGET');
+    const { timeoutMs = 10000, signal } = options;
+    if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 10000 || (signal && !(signal instanceof AbortSignal))) hold('RECEIPT_SNAPSHOT_BUDGET');
+    const start = performance.now(); let last = start;
+    return () => { const current = performance.now();
+      if (!Number.isFinite(current) || current < last || current - start >= timeoutMs || signal?.aborted) hold('RECEIPT_SNAPSHOT_DEADLINE');
+      last = current;
+    };
   }
+  #validateReceipt(value, reference) {
+    const { digest, ...content } = value;
+    if (digest !== reference.digest || digest !== canonicalDigest(content) || value.sequence !== reference.sequence || value.contextDigest !== this.digest || value.owner !== this.context.owner) hold('RECEIPT_DIGEST');
+    return value;
+  }
+  // One call-local read transaction under the existing continuously held lock.
+  // No guard token/cache is exposed. Independent read()/readReceipt() stay fresh.
+  #readStateSnapshot(options) {
+    const check = this.#snapshotBudget(options); check(); this.guard(); check();
+    const directory = this.inspect(this.directory); check();
+    if (path.resolve(this.directory) !== this.directory || fs.realpathSync(this.directory) !== this.directory) hold('RECEIPT_SNAPSHOT_DIRECTORY');
+    const directoryFd = fs.openSync(this.directory, fs.constants.O_RDONLY | fs.constants.O_DIRECTORY | fs.constants.O_NOFOLLOW);
+    const pin = stat => ['dev','ino','uid','mode','nlink','size','mtimeNs','ctimeNs'].map(key => String(stat[key]));
+    const directoryPin = stat => ['dev','ino','uid','mode','mtimeNs','ctimeNs'].map(key => String(stat[key]));
+    const checkDirectory = stat => { if (!stat.isDirectory() || stat.isSymbolicLink() || stat.uid !== BigInt(this.uid) || (stat.mode & 0o7777n) !== 0o700n) hold('RECEIPT_SNAPSHOT_DIRECTORY'); };
+    const checkFile = stat => { if (!stat.isFile() || stat.isSymbolicLink() || stat.uid !== BigInt(this.uid) || (stat.mode & 0o7777n) !== 0o600n || stat.nlink !== 1n || stat.size > 1048576n) hold('UNTRUSTED_RECEIPT_FILE'); };
+    const entries = new Map();
+    // Linux production uses the pinned directory FD, not re-resolved ancestors.
+    // Non-Linux unit fixtures retain named-directory pre/post identity checks;
+    // the real production FD9 guard already requires Linux /proc.
+    const anchored = file => { if (path.dirname(file) !== this.directory) hold('RECEIPT_SNAPSHOT_PATH');
+      return process.platform === 'linux' ? `/proc/self/fd/${directoryFd}/${path.basename(file)}` : file; };
+    try {
+      const openedDirectory = fs.fstatSync(directoryFd, { bigint: true }); checkDirectory(openedDirectory);
+      const namedDirectory = fs.lstatSync(this.directory, { bigint: true }); checkDirectory(namedDirectory);
+      if (!same(directoryPin(openedDirectory), directoryPin(namedDirectory))) hold('RECEIPT_SNAPSHOT_DIRECTORY_CHANGED');
+      const initialDirectoryPin = directoryPin(openedDirectory);
+      const readPinned = file => {
+        check(); const name = anchored(file), named = fs.lstatSync(name, { bigint: true }); checkFile(named);
+        // A regular file may be replaced by a FIFO after lstat. Never block
+        // waiting for its writer; fstat below still rejects every non-file.
+        const fd = fs.openSync(name, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK);
+        try {
+          const opened = fs.fstatSync(fd, { bigint: true }); checkFile(opened);
+          if (!same(pin(named), pin(opened))) hold('RECEIPT_CHANGED');
+          // Bounded even if a concurrent writer grows the file after lstat.
+          const buffer = Buffer.alloc(Number(opened.size) + 1); let used = 0;
+          while (used < buffer.length) { check(); const size = fs.readSync(fd, buffer, used, buffer.length - used, used); check();
+            if (size === 0) break; used += size; if (used > Number(opened.size)) hold('RECEIPT_CHANGED'); }
+          if (used !== Number(opened.size)) hold('RECEIPT_CHANGED');
+          const after = fs.fstatSync(fd, { bigint: true }), current = fs.lstatSync(name, { bigint: true }); checkFile(after); checkFile(current);
+          if (!same(pin(opened), pin(after)) || !same(pin(after), pin(current))) hold('RECEIPT_CHANGED');
+          const value = JSON.parse(buffer.subarray(0, used).toString('utf8')); entries.set(file, pin(current)); check(); return value;
+        } finally { fs.closeSync(fd); }
+      };
+      const absent = fs.lstatSync(anchored(this.stateFile), { bigint: true, throwIfNoEntry: false }) === undefined;
+      let record = null; const receipts = new Map();
+      if (!absent) {
+        record = readPinned(this.stateFile); const { stateDigest, ...content } = record;
+        if (record.contextDigest !== this.digest || !same(record.context, this.context) || stateDigest !== canonicalDigest(content)
+          || !Array.isArray(record.receipts) || record.receipts.length > 100) hold('STATE_CONTEXT_CHANGED');
+        let previousDigest = null;
+        for (let i = 0; i < record.receipts.length; i++) { check(); const reference = record.receipts[i], file = this.receiptFile(reference);
+          if (entries.has(file)) hold('RECEIPT_CHAIN_BROKEN');
+          const receipt = this.#validateReceipt(readPinned(file), reference);
+          if (receipt.sequence !== i + 1 || receipt.previousDigest !== previousDigest) hold('RECEIPT_CHAIN_BROKEN');
+          previousDigest = receipt.digest; receipts.set(`${reference.sequence}:${reference.digest}`, receipt);
+        }
+      }
+      const sweep = () => {
+        check();
+        for (const [file, expected] of entries) { const current = fs.lstatSync(anchored(file), { bigint: true }); checkFile(current);
+          if (!same(pin(current), expected)) hold('RECEIPT_CHANGED'); check(); }
+        if (absent && fs.lstatSync(anchored(this.stateFile), { bigint: true, throwIfNoEntry: false }) !== undefined) hold('STATE_CONTEXT_CHANGED');
+        const currentFd = fs.fstatSync(directoryFd, { bigint: true }), currentName = fs.lstatSync(this.directory, { bigint: true });
+        checkDirectory(currentFd); checkDirectory(currentName);
+        if (!same(directoryPin(currentFd), initialDirectoryPin) || !same(directoryPin(currentName), initialDirectoryPin)) hold('RECEIPT_SNAPSHOT_DIRECTORY_CHANGED');
+        check();
+      };
+      sweep(); check(); this.guard(); check(); assertSameDirectory(directory, this.inspect(this.directory)); check(); sweep();
+      return { state: record, receipts };
+    } finally { fs.closeSync(directoryFd); }
+  }
+  readState(options) { return this.#readStateSnapshot(options).state; }
   writeState(content) {
     this.guard(); const before = this.inspect(this.directory);
     const previous = fs.existsSync(this.stateFile) ? fs.lstatSync(this.stateFile) : null; if (previous) this.checkFile(previous);
@@ -165,9 +237,7 @@ export class MaintenanceReceiptStore {
     this.immutable(this.receiptFile(ref), value); return ref;
   }
   readReceipt(reference) {
-    const value = this.read(this.receiptFile(reference)); const { digest, ...content } = value;
-    if (digest !== reference.digest || digest !== canonicalDigest(content) || value.sequence !== reference.sequence || value.contextDigest !== this.digest || value.owner !== this.context.owner) hold('RECEIPT_DIGEST');
-    return value;
+    return this.#validateReceipt(this.read(this.receiptFile(reference)), reference);
   }
   assertCurrent({ allowAbsent = false } = {}) {
     this.guard();
@@ -234,7 +304,7 @@ export class MaintenanceReceiptStore {
   readCandidateLeasePhaseAnchor({ expectedStateDigest, replacementStateDigest } = {}) {
     this.assertCurrent();
     if (!HASH.test(expectedStateDigest || '') || !HASH.test(replacementStateDigest || '')) hold('CANDIDATE_PHASE_ANCHOR_DIGEST');
-    const actual = this.readState();
+    const snapshot = this.#readStateSnapshot(), actual = snapshot.state;
     if (!actual || actual.stateDigest !== expectedStateDigest || actual.schema !== 'phoenix.legacy-maintenance-state/v1'
       || actual.legacyDrainResult !== 'UNSUPPORTED' || !iso(actual.updatedAt)) hold('CANDIDATE_PHASE_ANCHOR_STATE');
     const initialMarker = fs.existsSync(this.markerFile) ? this.read(this.markerFile) : null;
@@ -245,7 +315,10 @@ export class MaintenanceReceiptStore {
     } else if (!['CANDIDATE_FENCED', 'VERIFIED_FENCED'].includes(actual.phase) || actual.status !== 'FENCED') {
       hold('CANDIDATE_PHASE_ANCHOR_STATE');
     }
-    const receipts = fenced.receipts.map(reference => this.readReceipt(reference));
+    const receipts = fenced.receipts.map(reference => {
+      this.receiptFile(reference); const receipt = snapshot.receipts.get(`${reference.sequence}:${reference.digest}`);
+      if (!receipt) hold('CANDIDATE_PHASE_ANCHOR_CHAIN_ORDER'); return receipt;
+    });
     if (Date.parse(actual.updatedAt) < Date.parse(this.context.window.start) || Date.parse(actual.updatedAt) >= Date.parse(this.context.window.end)
       || receipts.some(r => r.schema !== 'phoenix.maintenance-receipt/v1' || !iso(r.recordedAt)
         || Date.parse(r.recordedAt) < Date.parse(this.context.window.start) || Date.parse(r.recordedAt) > Date.parse(actual.updatedAt))) hold('CANDIDATE_PHASE_ANCHOR_TIME');
