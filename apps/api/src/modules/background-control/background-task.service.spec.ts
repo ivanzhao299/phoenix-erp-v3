@@ -51,6 +51,77 @@ describe('background admission and whole task graph drain', () => {
       expect(log).not.toHaveBeenCalled();
     } finally { log.mockRestore(); }
   });
+  it('coalesces 1000 heartbeat ticks during a stalled probe and resumes without backlog or hiding active work', async () => {
+    jest.useFakeTimers({ doNotFake: ['setImmediate'] });
+    const f = fixture(); const probe = deferred(); const work = deferred(); const entered = deferred();
+    const log = jest.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);
+    let active: Promise<unknown> | undefined;
+    try {
+      await f.service.onModuleInit();
+      active = f.service.run('active', 'LOCAL', async () => { entered.resolve(); await work.promise; });
+      await entered.promise;
+      f.backend.probe.mockImplementationOnce(async () => { await probe.promise; return undefined; });
+      const enqueue = jest.spyOn(f.service as unknown as { serialized: (job: () => Promise<unknown>) => Promise<unknown> }, 'serialized');
+      jest.advanceTimersByTime(1000 * 1000);
+      expect(enqueue).toHaveBeenCalledTimes(1);
+      await tick(); expect(f.backend.probe).toHaveBeenCalledTimes(2);
+      jest.advanceTimersByTime(1000 * 1000); await tick();
+      expect(enqueue).toHaveBeenCalledTimes(1); expect(f.backend.probe).toHaveBeenCalledTimes(2);
+      expect(f.service.status()).toMatchObject({ inFlight: 1, taskGraphs: 1, poisoned: false });
+      probe.resolve(); await tick();
+      expect(f.backend.probe).toHaveBeenCalledTimes(2);
+      jest.advanceTimersByTime(1000); await tick();
+      expect(enqueue).toHaveBeenCalledTimes(2); expect(f.backend.probe).toHaveBeenCalledTimes(3);
+      expect(f.service.status()).toMatchObject({ inFlight: 1, taskGraphs: 1, poisoned: false });
+    } finally {
+      probe.resolve(); work.resolve(); await active;
+      await f.service.shutdown(1000); log.mockRestore(); jest.useRealTimers();
+    }
+  });
+  it('does not issue a queued heartbeat probe after shutdown starts', async () => {
+    jest.useFakeTimers({ doNotFake: ['setImmediate'] });
+    const f = fixture(); const blocked = deferred(); const entered = deferred(); const work = jest.fn();
+    const log = jest.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);
+    let admission: Promise<unknown> | undefined;
+    let stopping: Promise<void> | undefined;
+    try {
+      await f.service.onModuleInit();
+      f.backend.gateEnter.mockImplementationOnce(async () => { entered.resolve(); await blocked.promise; return true; });
+      admission = f.service.run('blocked-control', 'LOCAL', work); await entered.promise;
+      jest.advanceTimersByTime(1000);
+      stopping = f.service.shutdown(1000); blocked.resolve();
+      await expect(admission).rejects.toThrow('PARTICIPANT_HOLD'); await stopping;
+      expect(f.backend.probe).toHaveBeenCalledTimes(1); expect(work).not.toHaveBeenCalled();
+      expect(f.backend.close).toHaveBeenCalledTimes(1);
+    } finally {
+      blocked.resolve(); await admission?.catch(() => undefined);
+      await (stopping || f.service.shutdown(1000)).catch(() => undefined);
+      log.mockRestore(); jest.useRealTimers();
+    }
+  });
+  it('does not issue a queued heartbeat after poison and never resumes it from an OPEN manifest', async () => {
+    jest.useFakeTimers({ doNotFake: ['setImmediate'] });
+    const f = fixture(); const blocked = deferred(); const entered = deferred(); const work = jest.fn();
+    const log = jest.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);
+    let admission: Promise<unknown> | undefined;
+    try {
+      await f.service.onModuleInit();
+      f.backend.gateEnter.mockImplementationOnce(async () => { entered.resolve(); await blocked.promise; return true; });
+      admission = f.service.run('blocked-control', 'LOCAL', work); await entered.promise;
+      jest.advanceTimersByTime(1000); f.lose(); blocked.resolve();
+      await expect(admission).rejects.toThrow('PARTICIPANT_HOLD'); await tick();
+      jest.advanceTimersByTime(1000 * 1000); await tick();
+      expect(f.backend.probe).toHaveBeenCalledTimes(1); expect(work).not.toHaveBeenCalled();
+      expect(f.service.status()).toMatchObject({ poisoned: true, phase: 'HOLD' });
+      await expect(f.service.run('still-poisoned', 'LOCAL', work)).rejects.toThrow('PARTICIPANT_HOLD');
+      await expect(f.service.shutdown(1000)).rejects.toThrow('DRAIN_TIMEOUT_OR_SESSION_LOST');
+      expect(f.backend.close).not.toHaveBeenCalled();
+    } finally {
+      blocked.resolve(); await admission?.catch(() => undefined);
+      await f.service.shutdown(1000).catch(() => undefined);
+      log.mockRestore(); jest.useRealTimers();
+    }
+  });
   it('holds execution before releasing admission and never enters work before both', async () => {
     const f = fixture();
     await f.service.run('one', 'LOCAL', async () => {

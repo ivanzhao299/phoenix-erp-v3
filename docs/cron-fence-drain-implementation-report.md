@@ -114,3 +114,43 @@ canaries were rejected without writes; the SQL-comment DDL was detected in both
 LOG and STATEMENT records. Two intermediate failed runs are retained: one startup
 NOT_READY remains unexplained, while the marker failure was traced to legitimate
 empty pre-authentication log fields and fixed without weakening SQL identity.
+
+## Bounded control I/O and coalesced heartbeat checkpoint (2026-10-18)
+
+The control backend retains one master QueryRunner, inheriting the configured
+DataSource connection target, TLS and pool budget. Connect, session identity
+and SQL each have a five-second caller deadline. A deadline or session error
+permanently poisons the participant; it never reconnects or clears business task
+graphs. A queued or running heartbeat permits only one pending probe, so a slow
+control session cannot accumulate a timer backlog.
+
+A timeout does not cancel an underlying pool acquisition or SQL operation. The
+backend continues observing their settlement and reports unresolved cleanup
+debt. A late-acquired client is retired before any identity/business query.
+Retirement ends the captured owned client, with a bounded fallback that destroys
+only its socket, before QueryRunner bookkeeping releases it. Unconfirmed
+termination, release or pending I/O remains HOLD. The close deadline is one
+second; an unanswered acquisition remains one tracked debt rather than a
+claimed successful close. This is an explicit resource-recovery limitation.
+
+`controlSession.cleanup.terminationConfirmed` and a cleared local cleanup debt
+are local client/socket observations, **not** PostgreSQL server-session
+disappearance, business drain or deployment authority. A server query can
+outlive a TCP close. The coordinator must still independently verify the exact
+PID/backend_start, participant identity, poison/stopping state and empty task
+graph before declaring quiescence. An available exclusive advisory lock alone
+is insufficient.
+
+Independent technical review found no blocking P0/P1 within this bounded-HOLD
+contract. Backend/service pure tests: 34 PASS on Node 20.20.2. Actual owned
+loopback PostgreSQL 16.15 and 18.6 protocol suites: 10 PASS each, including exact
+server-session disappearance, no pool reuse of the retired session, actual
+20-second SQL timeout and retained in-flight business work after lock release.
+API build, API/Web type checks and changed-file lint passed on this source
+snapshot. The fresh full API suite completed naturally: 1,133 PASS / 332 SKIP
+(126 passed suites, 16 skipped). The two additional skipped cases are the
+explicit-PG tests executed separately on both owned versions above. Official CI
+must still run against the resulting commit; old counts above do not certify
+this patch. Production load, protected
+root entry, legacy maintenance reconciliation and formal human approvals are
+still unverified or blocked. No production operation was performed.
