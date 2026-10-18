@@ -66,7 +66,7 @@ export async function observeCandidateHealthAndStartup(request, dependencies = {
       || pre.deployRunAttempt !== Number(context.owner.split('-').at(-1)) || pre.targetSha !== context.targetSha || pre.configFloorSha !== context.targetSha
       || !iso(pre.capturedAt) || Date.parse(pre.capturedAt) < Date.parse(context.window.start) || Date.parse(pre.capturedAt) > now()) fail('FORMAL_PRE_BINDING');
     for (const service of ['api', 'web', 'db']) if (!pinMatches(pre.containers?.[service], context.preSnapshot[service], service !== 'db')) fail('FORMAL_PRE_RUNTIME');
-    const probe = (id, program) => { let result; try { result = JSON.parse(read(['exec', id, 'node', '-e', program])); } catch { fail('HTTP_PROBE_UNVERIFIED'); } return result; };
+    const probe = (id, program) => { let result; try { result = JSON.parse(read(['exec', id, '/usr/bin/env', '-i', 'PATH=/usr/local/bin:/usr/bin:/bin', '/usr/local/bin/node', '-e', program])); } catch { fail('HTTP_PROBE_UNVERIFIED'); } return result; };
     const api = probe(before.runtime.api.id, API_READINESS_PROGRAM), web = probe(context.preSnapshot.web.id, WEB_HTTP_PROGRAM);
     if (!exactKeys(api, ['status', 'ready', 'dbConnected', 'bodySha256', 'bodyBytes']) || api.status !== 200 || api.ready !== true || api.dbConnected !== true
       || !HASH.test(api.bodySha256 || '') || !Number.isSafeInteger(api.bodyBytes) || api.bodyBytes < 1 || api.bodyBytes > 4096) fail('API_READINESS_UNVERIFIED');

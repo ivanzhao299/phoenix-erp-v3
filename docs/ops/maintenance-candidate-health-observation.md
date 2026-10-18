@@ -10,7 +10,7 @@ It requests fixed localhost API `/api/readiness` and Web `/` endpoints inside
 the exact bound containers. It accepts API200 only with actual READY/connected
 JSON, bounds the streamed body and retains its hash/size only. Web never follows
 a redirect, accepts only200 or same-origin307/308, and discards body/headers.
-No caller URL, script, environment readiness flag or approval boolean is read.
+The fixed read helper uses env -i and the image's absolute Node path so NODE_OPTIONS/proxy injection cannot replace the fetch result. No API process environment is changed. No caller URL, script, readiness flag or approval boolean is read.
 
 It reuses the strict v3/API formal PRE/POST comparisons and original startup
 stdout/stderr classifiers. The PRE is read only from the fixed owner file and

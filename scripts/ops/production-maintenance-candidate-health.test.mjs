@@ -29,6 +29,7 @@ async function fixture() {
     calls.push(args);
     if (args[0] === 'exec') {
       const service = args[1] === f.candidate.id ? 'api' : 'web'; assert.equal(args[1], service === 'api' ? f.candidate.id : f.context.preSnapshot.web.id);
+      assert.deepEqual(args.slice(2, -1), ['/usr/bin/env', '-i', 'PATH=/usr/local/bin:/usr/bin:/bin', '/usr/local/bin/node', '-e']);
       assert.equal(args.at(-1), service === 'api' ? API_READINESS_PROGRAM : WEB_HTTP_PROGRAM); return JSON.stringify(probes[service]);
     }
     if (args[0] === 'inspect') {

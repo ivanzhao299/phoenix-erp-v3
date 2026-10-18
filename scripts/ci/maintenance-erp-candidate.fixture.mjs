@@ -354,7 +354,7 @@ export class OwnedErpCandidateCapsule {
   verifyActualReadiness(candidate) {
     const before = this.inspectContainer(candidate.id), statusBefore = this.status(candidate), fingerprintBefore = this.fingerprint(candidate.pg);
     assert.equal(statusBefore.phase, 'FENCED'); this.verifySession(candidate, statusBefore);
-    const proof = JSON.parse(this.docker(['exec', candidate.id, 'node', '-e', API_READINESS_PROGRAM]));
+    const proof = JSON.parse(this.docker(['exec', candidate.id, '/usr/bin/env', '-i', 'PATH=/usr/local/bin:/usr/bin:/bin', '/usr/local/bin/node', '-e', API_READINESS_PROGRAM]));
     assert.equal(proof.status, 200); assert.equal(proof.ready, true); assert.equal(proof.dbConnected, true);
     assert.match(proof.bodySha256, /^[a-f0-9]{64}$/); assert.ok(proof.bodyBytes > 0 && proof.bodyBytes <= 4096);
     const after = this.inspectContainer(candidate.id), statusAfter = this.status(candidate), fingerprintAfter = this.fingerprint(candidate.pg);
