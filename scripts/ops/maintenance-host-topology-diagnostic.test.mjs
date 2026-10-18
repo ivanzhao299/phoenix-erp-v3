@@ -160,3 +160,27 @@ test('the enlarged systemd census still has a fixed cap and reports overflow as 
   const result=await collectMaintenanceHostTopology(f.dependencies);
   assert.equal(result.systemd.units.length,256);assert.ok(result.truncations.some(x=>x.scope==='SYSTEMD_UNITS'&&x.maximumCount===256));assert.equal(result.verification,'UNVERIFIED');assert.equal(result.completeSafetyProof,false);
 });
+
+test('container failures report a closed stage code without raw metadata or relaxed validation', async () => {
+  for (const [kind,reason] of [['command','CONTAINER_INSPECT_COMMAND_UNAVAILABLE'],['json','CONTAINER_INSPECT_JSON_UNVERIFIED'],['count','CONTAINER_INSPECT_FIELD_COUNT_UNVERIFIED'],['identity','CONTAINER_INSPECT_IDENTITY_UNVERIFIED'],['process','CONTAINER_INSPECT_PROCESS_FIELDS_UNVERIFIED'],['time','CONTAINER_INSPECT_STARTED_AT_UNVERIFIED']]) {
+    const f=fixture();const original=f.execute;
+    f.dependencies.execute=async(binary,args,options)=>{
+      if(binary!=='/usr/bin/docker'||args[0]!=='inspect') return original(binary,args,options);
+      if(kind==='command')throw new Error(secret);if(kind==='json')return secret;if(kind==='count')return 'null';
+      const values=(await original(binary,args,options)).split('\t').map(JSON.parse);
+      if(kind==='identity')values[0]='f'.repeat(64);if(kind==='process')values[5]=-1;if(kind==='time')values[4]='0001-01-01T00:00:00Z';
+      return values.map(JSON.stringify).join('\t');
+    };
+    const result=await collectMaintenanceHostTopology(f.dependencies);assert.equal(result.docker.containers[0].reason,reason);
+    assert.equal(result.docker.verification,'UNVERIFIED');assert.equal(result.completeSafetyProof,false);assert.ok(!JSON.stringify(result).includes(secret));
+  }
+});
+test('service and timer relations use stable hashes and preserve unsupported identities without exporting names',async()=>{
+  const f=fixture();const result=await collectMaintenanceHostTopology(f.dependencies);
+  const service=result.systemd.units.find(x=>x.unitType==='SERVICE');const timer=result.systemd.units.find(x=>x.unitType==='TIMER');
+  assert.deepEqual(timer.triggerTargetSha256,[service.unitNameSha256]);assert.deepEqual(service.triggeredByTargetSha256,[timer.unitNameSha256]);
+  assert.ok(!JSON.stringify(result).includes('phoenix-api.service'));
+  const original=f.execute;f.dependencies.execute=async(binary,args,options)=>binary==='/usr/bin/systemctl'&&args[0]==='list-units'?JSON.stringify([{unit:'bad name.service'}]):original(binary,args,options);
+  const invalid=(await collectMaintenanceHostTopology(f.dependencies)).systemd.units.find(x=>x.reason==='UNIT_NAME_UNSUPPORTED');
+  assert.match(invalid.unitNameSha256,/^[a-f0-9]{64}$/);assert.equal(invalid.verification,'UNVERIFIED');
+});

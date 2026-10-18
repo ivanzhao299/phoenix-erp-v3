@@ -124,11 +124,21 @@ async function dockerTopology(io) {
   const containers = [];
   for (const id of limited(ids, LIMITS.containers, 'DOCKER_CONTAINERS', io)) {
     if (io.expired()) break;
+    let failure = 'CONTAINER_INSPECT_COMMAND_UNAVAILABLE';
     try {
-      const values = (await io.execute('/usr/bin/docker', ['inspect', id, '--format', dockerTemplate])).split('\t').map(JSON.parse);
+      const text = await io.execute('/usr/bin/docker', ['inspect', id, '--format', dockerTemplate]);
+      failure = 'CONTAINER_INSPECT_JSON_UNVERIFIED';
+      const values = text.split('\t').map(JSON.parse);
+      failure = 'CONTAINER_INSPECT_FIELD_COUNT_UNVERIFIED';
       if (values.length !== dockerFields.length) throw 0;
       const [actualId, imageId, running, health, startedAt, pid, restarting, restartCount, restartPolicy, privileged, caps, networkMode, pidMode, ipcMode, ports, networks, mounts, service, project] = values;
-      if (actualId !== id || !IMAGE.test(imageId) || !Number.isInteger(pid) || pid < 0 || !Number.isInteger(restartCount) || restartCount < 0 || !validTime(startedAt)) throw 0;
+      failure = 'CONTAINER_INSPECT_IDENTITY_UNVERIFIED';
+      if (actualId !== id || !IMAGE.test(imageId)) throw 0;
+      failure = 'CONTAINER_INSPECT_PROCESS_FIELDS_UNVERIFIED';
+      if (!Number.isInteger(pid) || pid < 0 || !Number.isInteger(restartCount) || restartCount < 0) throw 0;
+      failure = 'CONTAINER_INSPECT_STARTED_AT_UNVERIFIED';
+      if (!validTime(startedAt)) throw 0;
+      failure = 'CONTAINER_INSPECT_PROJECTION_UNVERIFIED';
       let revision = 'UNVERIFIED';
       try { const v = JSON.parse(await io.execute('/usr/bin/docker', ['image', 'inspect', imageId, '--format', '{{json (index .Config.Labels "org.opencontainers.image.revision")}}'])); if (SHA.test(v)) revision = v; } catch {}
       const capabilityNames = Array.isArray(caps) ? caps.filter(c => knownCaps.has(c)) : [];
@@ -139,7 +149,7 @@ async function dockerTopology(io) {
         networkMode: ['host', 'none', 'bridge', 'default'].includes(networkMode) ? networkMode.toUpperCase() : 'NAMED_OR_SHARED_UNVERIFIED', pidMode: modeClass(pidMode), ipcMode: modeClass(ipcMode),
         ports: portMappings(ports), networks: object(networks) ? Object.values(networks).map(n => ID.test(n?.NetworkID) ? { id: n.NetworkID, endpointId: ID.test(n.EndpointID) ? n.EndpointID : 'UNVERIFIED' } : unknown('NETWORK_ATTACHMENT_METADATA')) : [unknown('NETWORK_ATTACHMENT_METADATA')],
         mounts: Array.isArray(mounts) ? mounts.map(mountClass) : [unknown('MOUNT_METADATA')] });
-    } catch { containers.push({ id, ...unknown('CONTAINER_DISAPPEARED_OR_METADATA_UNAVAILABLE') }); }
+    } catch { containers.push({ id, ...unknown(failure) }); }
   }
   const networks = [];
   try {
@@ -199,7 +209,7 @@ async function systemdTopology(io) {
     const names = [...new Set([...services.map(s => s.unit), ...timers.flatMap(t => [t.unit, t.activates])].filter(n => typeof n === 'string'))]; const units = [];
     for (const unit of limited(names, LIMITS.units, 'SYSTEMD_UNITS', io)) {
       if (io.expired()) break;
-      if (!unitPattern.test(unit)) { units.push(unknown('UNIT_NAME_UNSUPPORTED')); continue; }
+      if (!unitPattern.test(unit)) { units.push({ unitNameSha256: hash(unit), ...unknown('UNIT_NAME_UNSUPPORTED') }); continue; }
       try {
         const text = await io.execute('/usr/bin/systemctl', ['show', '--no-pager', `--property=${properties}`, unit]); const metadata = {};
         for (const line of text.split('\n')) { const i = line.indexOf('='); if (i > 0) metadata[line.slice(0, i)] = line.slice(i + 1); }
@@ -211,7 +221,9 @@ async function systemdTopology(io) {
           mainPid: /^\d+$/.test(metadata.MainPID || '') ? Number(metadata.MainPID) : 'UNVERIFIED', controlPid: /^\d+$/.test(metadata.ControlPID || '') ? Number(metadata.ControlPID) : 'UNVERIFIED',
           restart: state(metadata.Restart, ['no', 'always', 'on-success', 'on-failure', 'on-abnormal', 'on-watchdog', 'on-abort']),
           fragmentPathSha256: hash(metadata.FragmentPath || ''), hasDropIns: Boolean(metadata.DropInPaths), triggersCount: metadata.Triggers?.split(/\s+/).filter(Boolean).length || 0,
-          triggeredByCount: metadata.TriggeredBy?.split(/\s+/).filter(Boolean).length || 0 });
+          triggeredByCount: metadata.TriggeredBy?.split(/\s+/).filter(Boolean).length || 0,
+          triggerTargetSha256: (metadata.Triggers || '').split(/\s+/).filter(Boolean).map(hash),
+          triggeredByTargetSha256: (metadata.TriggeredBy || '').split(/\s+/).filter(Boolean).map(hash) });
       } catch { units.push({ unitNameSha256: hash(unit), ...unknown('UNIT_DISAPPEARED_OR_METADATA_UNAVAILABLE') }); }
     }
     return { verification: hasUnverified(units) ? 'UNVERIFIED' : 'SNAPSHOT_ONLY', serviceCount: services.length, timerCount: timers.length, units, unitCommandsInspected: false,
