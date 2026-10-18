@@ -50,3 +50,14 @@ artifact path. Symlinks and unowned paths are refused; archive failure is FAIL.
 The reviewer found no new P0/P1 and did not execute tests. An earlier af2b2bf2
 prototype run lacks these final changes and is retained only as old-source
 diagnostic evidence; final-source PG results must be obtained afresh.
+
+The first af2b2bf2 real-PG prototype failed during root startup before any
+cross-phase case passed. The original local client closed, but server release
+could not be certified; this remains FAIL, not an inherited PASS. The initial
+fixture guard redundantly launched Docker inspections on every native
+trusted-path checkpoint. The revised fixture uses the already-verified
+immutable owned full container IDs for checkpoint bookkeeping and retains all
+actual independent DB identity pins and catalog checks before/after I/O, as
+the existing real-root fixture does. It does not change production guards or
+any deadline. Fixed transport stage codes support diagnosis without database
+stderr or connection data. Fresh actual execution must confirm the hypothesis.

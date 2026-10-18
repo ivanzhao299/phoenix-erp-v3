@@ -94,7 +94,10 @@ export async function exerciseActualErpPhaseCorrelation(capsule, candidate) {
   const guard = () => {
     for (const id of [pg.id, candidate.id]) {
       assert.ok(capsule.resources.some(r => r.id === id && r.type === 'container'));
-      capsule.inspectContainer(id); // Actual immutable owner labels, not fake inspect rows.
+      // Initial inspectContainer above verifies immutable owner labels. Fixed
+      // full IDs cannot be reused. Each actual PG observer independently pins
+      // DB ID/image/StartedAt before and after I/O; do not add slow Docker
+      // subprocesses to every trusted-path checkpoint in this fixture guard.
     }
   };
   const run = (args, input, { timeoutMs = 10000 } = {}) => {
@@ -102,6 +105,7 @@ export async function exerciseActualErpPhaseCorrelation(capsule, candidate) {
     return capsule.docker(args, { input, timeout: Math.min(timeoutMs, 10000), maxBuffer: 65536 });
   };
   let lease, binding, initialRoot, candidateDigest, cleanup;
+  const transportStages = [];
   const start = h.adapters.startCandidate;
   h.adapters.startCandidate = async request => {
     lease = new RootControlLease({ context, approval: h.material.approval, expectedStateDigest: request.state.stateDigest, database,
@@ -109,6 +113,15 @@ export async function exerciseActualErpPhaseCorrelation(capsule, candidate) {
         const owned = { child, closed: false }; owned.done = new Promise(resolve => child.once('close', () => { owned.closed = true; resolve(); }));
         children.push(owned); return { registered: true, pid: child.pid };
       } }, { store: h.store, guard, run, now: Date.now, admit: async () => true });
+    // Fixed stage/error codes only, never raw database stderr or connection data.
+    for (const name of ['start', 'query']) {
+      const original = lease.session[name].bind(lease.session);
+      lease.session[name] = async (...args) => {
+        transportStages.push({ method: name, state: 'ENTERED' });
+        try { const value = await original(...args); transportStages.push({ method: name, state: 'SETTLED' }); return value; }
+        catch { transportStages.push({ method: name, state: 'FAILED', code: lease.session.errorCode }); throw Error('OWNED_PHASE_CONTROL_TRANSPORT_FAILED'); }
+      };
+    }
     await lease.acquire(); return start(request);
   };
   const observe = async label => {
@@ -162,7 +175,7 @@ export async function exerciseActualErpPhaseCorrelation(capsule, candidate) {
   }
   const result = { schema: 'phoenix.actual-erp-phase-correlation-fixture/v1', result: failure || cleanup?.failures.length ? 'FAIL' : 'PASS',
     fixtureOnly: true, productionReceipt: false, owner: context.owner, pgMajor: pg.major, sourceSha: capsule.sourceSha, actualRuntime: { id: runtime.Id, imageId: runtime.Image, startedAt: runtime.State.StartedAt, pid: runtime.State.Pid, health: runtime.State.Health.Status, revision: capsule.sourceSha },
-    actualDatabase: database, cases, observations, cleanup, phaseArchive,
+    actualDatabase: database, cases, observations, cleanup, phaseArchive, transportStages,
     scope: { actualErpControlBackend: true, actualOriginalRootChild: true, actualPgCatalog: true, actualReceiptStoreAndPhaseArchives: true,
       fullCandidateLeaseCollectorPositive: 'NOT_RUN', composeRuntimeContract: 'NOT_RUN', productionStorageAndFd9: 'NOT_RUN',
       governanceAndHistoricalPre: 'SYNTHETIC_TEST_ONLY', continuousIngressProof: false, registryInstalled: false } };
