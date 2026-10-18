@@ -67,3 +67,5 @@ Final test/CI receipts must bind the committed exact source. This document
 alone is not a completed source review or production release receipt.
 
 The official isolated workflow now runs the original-root scoped close on actual PG16/PG18. It pins the tracked source/tree/helper blobs before/after, archives actual HELD and RELEASED catalog rows and an additional backend count, and requires successful cleanup before final PASS. This does not execute candidate.observe or prove actual API/Compose/storage/FD9/full lease. Fixture/setup, cleanup or deadline failures fail the Node test process. Earlier standalone prototype failures and unpinned diagnostic passes are retained separately. New exact-HEAD CI receipts are required.
+
+Native CI review also requires pre-recorded create-attempt/name debt when a Docker creation result is unknown, actual child-close registration retained even on failure, and a post-persistence deadline check. A JSON PASS alone is insufficient: the exact hosted run/test outcome must also succeed. Unknown owned creation is recorded for recovery, never called settled.
