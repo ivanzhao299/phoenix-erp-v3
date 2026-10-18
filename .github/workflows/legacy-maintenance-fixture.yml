@@ -58,6 +58,10 @@ jobs:
         env:
           MAINTENANCE_DATABASE_PG_FIXTURE: '1'
         run: node --test scripts/ops/production-maintenance-database-observer.pg.test.mjs
+      - name: Actual owned recovery core files and local image identity
+        env:
+          RECOVERY_MATERIAL_LOCAL_IMAGE_FIXTURE: '1'
+        run: node --test scripts/ops/production-maintenance-recovery-materials.test.mjs
       - name: Actual tracked ERP image startup and readonly mutation canaries
         run: node scripts/ci/maintenance-erp-candidate.fixture.mjs
       - name: Retain allowlisted isolated evidence only
@@ -69,6 +73,7 @@ jobs:
           retention-days: 14
           path: |
             artifacts/maintenance-db-observer/*.json
+            artifacts/maintenance-recovery-core-materials/*.json
             artifacts/maintenance-ci/runtime-resources.json
             artifacts/maintenance-ci/replacement-resources.json
             artifacts/maintenance-ci/replacement-resources.json.result.json
