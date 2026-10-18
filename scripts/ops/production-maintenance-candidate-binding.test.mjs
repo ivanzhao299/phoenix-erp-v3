@@ -1,6 +1,6 @@
 /** Synthetic transport/catalog races, no real PG/API/production proof. */
 import test from 'node:test';import assert from 'node:assert/strict';
-import {collectCandidateServerBinding,inspectCandidateStorage} from './production-maintenance-candidate-binding.mjs';
+import {collectCandidateServerBinding,inspectCandidateStorage,candidateBindingDiagnosticCode} from './production-maintenance-candidate-binding.mjs';
 import {candidateBindingFixture} from '../ci/maintenance-candidate-binding-fixture.mjs';
 const hold=/CANDIDATE_BINDING_HOLD=/;
 async function using(action){const f=await candidateBindingFixture();try{return await action(f);}finally{await f.lease.close().catch(()=>{});assert.equal(f.closed,true);}}
@@ -106,3 +106,14 @@ test('storage symlink and wrong mount are rejected before downstream observation
       {check(){},remaining:()=>100},{fs:disk,execFileSync:()=>'/'}),/CANDIDATE_BINDING_HOLD=STORAGE_/);
   }
 });
+
+for(const [message,diagnostic] of [
+  ['MAINTENANCE_HOLD=ROOT_CONTROL_OPERATION_DEADLINE','MAINTENANCE_HOLD=ROOT_CONTROL_OPERATION_DEADLINE'],
+  ['UNEXPECTED_RAW_SENTINEL_MUST_NOT_ESCAPE',undefined]
+])test('opaque collector rejection retains only fixed private category '+String(diagnostic),()=>using(async f=>{
+  await assert.rejects(collectCandidateServerBinding({...f.request,mode:'PRE_ADOPTION'},{...f.dependencies,guard(){throw Error(message);}}),error=>{
+    assert.equal(error.message,'CANDIDATE_BINDING_HOLD=OBSERVATION_UNVERIFIED');assert.equal(error.diagnosticCode,diagnostic);assert.equal(candidateBindingDiagnosticCode(error),diagnostic);
+    assert.equal(candidateBindingDiagnosticCode({diagnosticCode:'ARBITRARY_RAW_SENTINEL'}),undefined);
+    assert.equal(JSON.stringify(error).includes(message),false);assert.equal(error.cause,undefined);return true;
+  });
+}));

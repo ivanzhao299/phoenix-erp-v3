@@ -256,20 +256,27 @@ test('phase anchor rejects duplicate candidate receipts even when receipt hashes
   assert.throws(() => anchor(h, replaced), /CANDIDATE_PHASE_ANCHOR_UNIQUE_CHAIN/);
 });
 test('phase anchor rejects a state changed during observation rather than joining two phases', async () => {
-  const h = harness(); const { replaced } = await toCandidateAnchor(h); const original = h.store.readState.bind(h.store); let reads = 0;
-  h.store.readState = () => { const state = original(); return ++reads === 3 ? { ...state, stateDigest: hash('e') } : state; };
-  // Caller snapshot, initial actual read, then final observation re-read.
-  assert.throws(() => anchor(h, replaced), /CANDIDATE_PHASE_ANCHOR_CHANGED/);
+  const h = harness(); const { replaced } = await toCandidateAnchor(h); const state = h.store.readState();
+  const open = fs.openSync, intent = archive(h, state); let changedOnce = false;
+  // Change the actual state during archive observation, after the initial
+  // snapshot. Keep its digest valid so the final read detects the new phase.
+  fs.openSync = (file, ...args) => { const fd = open(file, ...args); if (file === intent && !changedOnce) {
+    changedOnce = true;
+    const { stateDigest, ...changed } = state; changed.updatedAt = time(1);
+    fs.writeFileSync(h.store.stateFile, JSON.stringify({ ...changed, stateDigest: canonicalDigest(changed) }));
+  } return fd; };
+  try { assert.throws(() => h.store.readCandidateLeasePhaseAnchor({ expectedStateDigest: state.stateDigest, replacementStateDigest: replaced.stateDigest }), /CANDIDATE_PHASE_ANCHOR_CHANGED/); assert.equal(changedOnce, true); }
+  finally { fs.openSync = open; }
 });
 
 test('unchanged state cannot hide an intent generation change during the anchor read', async () => {
-  const h = harness(); const { replaced } = await toCandidateAnchor(h); const original = h.store.readState.bind(h.store); let reads = 0;
-  h.store.readState = () => {
-    const state = original();
-    if (++reads === 3) h.store.beginMarker({ from: 'CANDIDATE_FENCED', to: 'VERIFIED_FENCED', operation: 'VERIFY_CANDIDATE', previousStateDigest: state.stateDigest, startedAt: time(0) });
-    return state;
-  };
-  assert.throws(() => anchor(h, replaced), /CANDIDATE_PHASE_ANCHOR_CHANGED/);
+  const h = harness(); const { replaced } = await toCandidateAnchor(h); const state = h.store.readState(); const open = fs.openSync, intent = archive(h, state); let changedOnce = false;
+  fs.openSync = (file, ...args) => { const fd = open(file, ...args); if (file === intent && !changedOnce) {
+    changedOnce = true;
+    h.store.beginMarker({ from: 'CANDIDATE_FENCED', to: 'VERIFIED_FENCED', operation: 'VERIFY_CANDIDATE', previousStateDigest: state.stateDigest, startedAt: time(0) });
+  } return fd; };
+  try { assert.throws(() => h.store.readCandidateLeasePhaseAnchor({ expectedStateDigest: state.stateDigest, replacementStateDigest: replaced.stateDigest }), /CANDIDATE_PHASE_ANCHOR_CHANGED/); assert.equal(changedOnce, true); }
+  finally { fs.openSync = open; }
 });
 for (const mutation of ['missing', 'wrongTo']) test(`verified anchor rejects ${mutation} VERIFY archive`, async () => {
   const h = harness(); const { replaced } = await toCandidateAnchor(h); await h.engine.verifyCandidate();

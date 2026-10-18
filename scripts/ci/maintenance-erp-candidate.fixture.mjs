@@ -10,6 +10,7 @@ import { exerciseActualErpRootBinding, performExpectedFaultTerm, performExpected
 import { API_READINESS_PROGRAM } from '../ops/production-maintenance-candidate-health.mjs';
 import { exerciseActualErpPhaseCorrelation } from './maintenance-erp-phase-correlation.fixture.mjs';
 import { selectOwnedComposeSubnet } from './owned-compose-ipam.mjs';
+import { CONTRACT, secureJson, verifyContext } from '../ops/production-config-guard.mjs';
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const KIND = 'maintenance-erp-candidate';
@@ -160,7 +161,10 @@ export class OwnedErpCandidateCapsule {
     run(ROOT_NODE, [compiler, '-p', path.join(api, 'tsconfig.build.json'), '--outDir', path.join(context, 'dist'), '--rootDir', path.join(api, 'src'), '--incremental', 'false'], { timeout: 120000 });
     fs.unlinkSync(path.join(api, 'node_modules'));
     const dependencies = copyProductionDependencies(path.join(REPO, 'apps/api'), path.join(context, 'node_modules'));
-    fs.copyFileSync(path.join(REPO, 'apps/api/package.json'), path.join(context, 'package.json'));
+    // Use the exact archived source and its tracked mode. A private root-owned
+    // checkout can legitimately materialize package.json0600 under umask077;
+    // copying that physical mode would make the UID1000 runtime unreadable.
+    fs.copyFileSync(path.join(api, 'package.json'), path.join(context, 'package.json'));
     fs.writeFileSync(path.join(context, 'fixture-preload.cjs'), networkPreload(this.owner));
     fs.writeFileSync(path.join(context, '.dockerignore'), '*\n!dist\n!dist/**\n!node_modules\n!node_modules/**\n!package.json\n!fixture-preload.cjs\n');
     fs.writeFileSync(path.join(this.root, 'capsule-build.json'), JSON.stringify({ sourceSha: this.sourceSha, sourceTreeHash: this.sourceTreeHash,
@@ -199,8 +203,26 @@ export class OwnedErpCandidateCapsule {
     // PostgreSQL's LOG stream is stderr. Never silently discard it as stdout-only exec would.
     return result.stdout + '\n' + result.stderr;
   }
-  async startPostgres(major) {
+  async startPostgres(major, { nativeDataSource } = {}) {
     if (![16, 18].includes(major)) hold('PG_MAJOR');
+    // Only the separately preflighted, exclusive hosted-VM fixture may use
+    // this fixed bind. The normal portable capsule keeps its owned tmpfs.
+    if (nativeDataSource !== undefined) {
+      assert.equal(process.getuid(), 0); assert.equal(nativeDataSource, '/data/maintenance-native-pg');
+      const entry = fs.lstatSync(nativeDataSource);
+      assert.ok(entry.isDirectory() && !entry.isSymbolicLink()); assert.equal(fs.realpathSync(nativeDataSource), nativeDataSource);
+      assert.equal(entry.uid, 0); assert.deepEqual(fs.readdirSync(nativeDataSource), []);
+      verifyContext(CONTRACT.repository, CONTRACT.stateDirectory);
+      const marker = secureJson('/var/lib/phoenix-erp/production-deployment-state/native-candidate-host-fixture.json');
+      assert.equal(marker.schema, 'phoenix.exclusive-native-host-fixture/v1'); assert.equal(marker.fixtureOnly, true); assert.equal(marker.productionReceipt, false);
+      assert.equal(marker.parentShellPid, process.ppid); assert.equal(marker.sourceSha, this.sourceSha); assert.equal(marker.major, major);
+      const mounted = JSON.parse(run('/usr/bin/findmnt', ['-J', '--mountpoint', '/data'])).filesystems;
+      assert.equal(mounted.length, 1); assert.equal(mounted[0].target, '/data'); assert.equal(mounted[0].fstype, 'ext4');
+      assert.match(mounted[0].source, /^\/dev\/loop[0-9]+$/);
+      const loop = JSON.parse(run('/usr/sbin/losetup', ['-J', '--list', mounted[0].source, '--output', 'NAME,BACK-FILE'])).loopdevices;
+      assert.equal(loop.length, 1); assert.equal(loop[0].name, mounted[0].source);
+      assert.equal(loop[0]['back-file'], path.join(marker.resourceDirectory, 'data.ext4'));
+    }
     const networkIds = this.docker(['network', 'ls', '-q', '--no-trunc']).split('\n').filter(Boolean);
     assert.ok(networkIds.length < 512);
     const occupied = networkIds.length ? this.docker(['network', 'inspect', ...networkIds, '--format', '{{json .IPAM.Config}}']).split('\n')
@@ -208,16 +230,24 @@ export class OwnedErpCandidateCapsule {
     const routes = JSON.parse(run('/usr/sbin/ip', ['-j', '-4', 'route', 'show'], { timeout: 3000, maxBuffer: 65536 }));
     for (const route of routes) if (route.dst && route.dst !== 'default') occupied.push(route.dst.includes('/') ? route.dst : route.dst + '/32');
     const isolatedSubnet = selectOwnedComposeSubnet(occupied, parseInt(hash(this.owner + major).slice(0, 4), 16) % 512);
-    const networkId = this.own(this.docker(['network', 'create', '--internal', '--subnet', isolatedSubnet, ...this.labels(), `phoenix-${this.owner}-pg${major}`]), `pg${major}-internal-network`, 'network');
+    const networkName = `phoenix-${this.owner}-pg${major}`;
+    const networkAttempt = nativeDataSource === undefined ? null : { type: 'network', name: networkName, state: 'CREATE_OUTCOME_UNVERIFIED' };
+    if (networkAttempt) { this.nativeHostCreationAttempts = [networkAttempt]; this.record({ nativeHostCreationAttempts: this.nativeHostCreationAttempts }); }
+    const networkId = this.own(this.docker(['network', 'create', '--internal', '--subnet', isolatedSubnet, ...this.labels(), networkName]), `pg${major}-internal-network`, 'network');
+    if (networkAttempt) { networkAttempt.id = networkId; networkAttempt.state = 'OWNED_ID_VERIFIED'; }
     assert.equal(this.docker(['network', 'inspect', networkId, '--format', '{{.Internal}}']), 'true');
     assert.deepEqual(JSON.parse(this.docker(['network', 'inspect', networkId, '--format', '{{json .IPAM.Config}}'])).map(row => row.Subnet), [isolatedSubnet]);
     assert.equal(this.docker(['network', 'inspect', networkId, '--format', '{{.EnableIPv6}}']), 'false');
     const mount = major === 16 ? '/var/lib/postgresql/data' : '/var/lib/postgresql';
-    const id = this.own(this.docker(['run', '--pull=never', '-d', ...this.labels(), '--network', networkId, '--network-alias', 'fixture-db', '--restart=no',
-      '--publish', '127.0.0.1::5432', '--mount', `type=tmpfs,destination=${mount},tmpfs-size=268435456`,
+    const databaseAttempt = nativeDataSource === undefined ? null : { type: 'container', name: `phoenix-native-${this.owner}-pg${major}`, state: 'CREATE_OUTCOME_UNVERIFIED' };
+    if (databaseAttempt) { this.nativeHostCreationAttempts.push(databaseAttempt); this.record({ nativeHostCreationAttempts: this.nativeHostCreationAttempts }); }
+    const id = this.own(this.docker(['run', '--pull=never', ...(databaseAttempt ? ['--name', databaseAttempt.name] : []), '-d', ...this.labels(), '--network', networkId, '--network-alias', 'fixture-db', '--restart=no',
+      '--publish', '127.0.0.1::5432', '--mount', nativeDataSource === undefined
+        ? `type=tmpfs,destination=${mount},tmpfs-size=268435456` : `type=bind,source=${nativeDataSource},destination=${mount}`,
       '-e', `POSTGRES_USER=${ADMIN}`, '-e', `POSTGRES_DB=${DB}`, '-e', 'POSTGRES_HOST_AUTH_METHOD=trust',
       '--health-cmd', `pg_isready -U ${ADMIN} -d ${DB}`, '--health-interval', '1s', '--health-timeout', '2s', '--health-retries', '30',
       `postgres:${major}-alpine`, '-c', 'log_statement=all', '-c', 'log_min_error_statement=error', '-c', 'log_line_prefix=bootstrap-db=%d user=%u app=%a pid=%p ']), `pg${major}`);
+    if (databaseAttempt) { databaseAttempt.id = id; databaseAttempt.state = 'OWNED_ID_VERIFIED'; }
     const pg = { id, major, networkId, isolatedSubnet }; const deadline = Date.now() + 30000;
     while (true) {
       try {

@@ -15,16 +15,35 @@ import {PUBLIC_DIRECTORY,HOLD_KINDS,inspectPublicDirectory,readPublicManifest,va
 import {readLegacyProjection,validateLegacyFencedProjection} from './production-maintenance-public-control.mjs';
 
 const fail=code=>{throw Error('CANDIDATE_BINDING_HOLD='+code);};
+// Fixed non-secret categories for private diagnostics. Public rejection remains
+// generic; arbitrary exception messages, paths, stderr and causes are discarded.
+const PRIVATE_DIAGNOSTICS = new Set([
+  'ROOT_CONTROL_OPERATION_DEADLINE','ROOT_CONTROL_OPERATION_ABORTED','ROOT_CONTROL_WINDOW_EXPIRED',
+  ...['DIGEST','STATE','TIME','UNIQUE_CHAIN','CHAIN_ORDER','PENDING','CHANGED'].map(v=>'CANDIDATE_PHASE_ANCHOR_'+v)
+].map(v=>'MAINTENANCE_HOLD='+v));
+export function candidateBindingDiagnosticCode(error) {
+  return PRIVATE_DIAGNOSTICS.has(error?.diagnosticCode)?error.diagnosticCode:undefined;
+}
+function opaqueFailure(error) {
+  const failure=Error('CANDIDATE_BINDING_HOLD=OBSERVATION_UNVERIFIED');
+  if(PRIVATE_DIAGNOSTICS.has(error?.message))Object.defineProperty(failure,'diagnosticCode',{value:error.message});
+  return failure;
+}
+
 const CONTROL='/run/phoenix-background-control';
 const UUID=/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/;
 const rawTime=v=>typeof v==='string'&&/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{6}Z$/.test(v)&&iso(v.slice(0,23)+'Z');
 const keys=(v,n)=>v&&Object.getPrototypeOf(v)===Object.prototype&&same(Object.keys(v).sort(),[...n].sort());
 const digest=v=>createHash('sha256').update(JSON.stringify(v)).digest('hex');
+// Docker nil and empty optional lists both mean no added capability/device.
+export const CANDIDATE_DOCKER_LIST_COUNTS = Object.freeze(['CapAdd', 'Devices', 'DeviceRequests']
+  .map(field => `(len (or .HostConfig.${field} ""))`));
 // Do not read Health.Log, environment, log driver config or arbitrary labels.
 const DOCKER_FIELDS=['.Id','.Image','.State.StartedAt','.State.Running','.State.Health.Status','.State.Pid','.State.Status','.State.Restarting','.State.Dead','.RestartCount',
   '(index .Config.Labels "com.docker.compose.project")','(index .Config.Labels "com.docker.compose.service")','.Mounts','.HostConfig.Privileged','.HostConfig.PidMode','.HostConfig.IpcMode',
-  '.HostConfig.UTSMode','.HostConfig.UsernsMode','.HostConfig.NetworkMode','.HostConfig.RestartPolicy.Name','(len .HostConfig.CapAdd)','(len .HostConfig.Devices)',
-  '(len .HostConfig.DeviceRequests)','.HostConfig.SecurityOpt'].map(field=>'{{json '+field+'}}').join('\t');
+  '.HostConfig.UTSMode','.HostConfig.UsernsMode','.HostConfig.NetworkMode','.HostConfig.RestartPolicy.Name',...CANDIDATE_DOCKER_LIST_COUNTS,'.HostConfig.SecurityOpt'].map(field=>'{{json '+field+'}}').join('\t');
+// Docker represents unconfigured optional lists as nil; Go len needs a non-nil fallback.
+// Nonempty lists still report their actual length and are rejected below.
 // Fixed localhost endpoint, no caller URL, headers, credential or script input.
 const STATUS_PROGRAM="fetch('http://127.0.0.1:3100/api/internal/background/status',{signal:AbortSignal.timeout(3000),redirect:'error'}).then(async r=>{if(!r.ok)process.exit(2);const t=await r.text();if(Buffer.byteLength(t)>32768)process.exit(4);process.stdout.write(t)}).catch(()=>process.exit(3))";
 function productionRun(args,input,{timeoutMs}){
@@ -225,7 +244,7 @@ async function collectCandidateBinding({context,expectedStateDigest,replacementE
       rootBefore,rootAfter,database,continuousDrainProof:false,continuousIngressProof:false,persistentOwnershipComplete:false,registryInstalled:false,
       admissionOrApprovalGranted:false,productionMutation:false,outerProcessSupervisionRequired:true};
     check();return result;
-  }catch(error){if(/^CANDIDATE_BINDING_HOLD=[A-Z_]+$/.test(error?.message||''))throw error;fail('OBSERVATION_UNVERIFIED');}
+  }catch(error){if(/^CANDIDATE_BINDING_HOLD=[A-Z_]+$/.test(error?.message||''))throw error;throw opaqueFailure(error);}
 }
 
 /** Operation-level START/VERIFY collector: preserve its original exact intent
