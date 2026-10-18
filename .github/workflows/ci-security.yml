@@ -29,11 +29,20 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Install pinned YAML parser for transport gate
+        run: npm install --no-save --ignore-scripts js-yaml@4.1.1
+
+      - name: Check approved production SSH entry
+        run: |
+          node --test scripts/ci/check-production-ssh-entry.test.mjs
+          node scripts/ci/check-production-ssh-entry.mjs
+
       # 冻结边界探针(by-design：任何 apps/api|web 改动都会红，提示需治理签字)。
-      # 它是首步且硬退，历史上会“遮蔽”后续真门禁(nullable/i18n/安全回归)使其根本不执行。
+      # 历史上该探针硬退会“遮蔽”后续真门禁(nullable/i18n/安全回归)。
       # 评分补强 P10：给后续真门禁加 if: always()，确保每个功能 PR 上它们都真正运行并独立判定，
       #   不再被冻结探针的红遮蔽。冻结探针自身语义不变(仍硬红，团队评审后过)。
       - name: Check frozen boundaries
+        if: always()
         env:
           FREEZE_BASE_REF: ${{ github.base_ref || 'main' }}
           # A merged main push is the reviewed release boundary. Keep PRs

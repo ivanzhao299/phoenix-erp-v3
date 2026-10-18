@@ -29,6 +29,7 @@
   },
   "devDependencies": {
     "concurrently": "^8.2.2",
+    "js-yaml": "4.1.1",
     "jsdom": "^26.1.0"
   },
   "engines": {
