@@ -22,7 +22,8 @@ test('safe HEAD/config remains current; no destructive reset, ref rollback, stas
 test('running identities captured before code sync and target floor checked before FF', () => {
   assert.ok(workflow.indexOf('capture.mjs" > "$CAPTURE_FILE"') < workflow.indexOf('git merge --ff-only origin/main'));
   assert.ok(workflow.indexOf('production-config-guard.mjs --target "$TARGET_SHA"') < workflow.indexOf('git merge --ff-only origin/main'));
-  assert.match(state, /migrationScope\(root, previous.api.revision, target\)/);
+  assert.match(state, /getScope = dependencies\.migrationScope \|\| migrationScope/);
+  assert.match(state, /getScope\(root, previous.api.revision, target\)/);
   assert.match(guard, /cat-file.*apiRevision/); assert.match(guard, /merge-base.*apiRevision, target/);
 });
 test('ordinary deployment never writes env or invokes schema-changing track; credential rotation is explicit', () => {
