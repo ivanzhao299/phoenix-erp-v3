@@ -123,7 +123,7 @@ function validateProjection(value,mode,context,stateDigest,bootId){
 /** Caller owns/supervises the existing root lease and all outer read work. This
  * function never acquires/closes a lease, writes state, signs evidence or opens
  * ingress. Synchronous filesystem I/O still requires outer process supervision. */
-export async function collectCandidateServerBinding({context,expectedStateDigest,replacementEvidence,rootLease,mode='PRE_ADOPTION',signal,timeoutMs=30000},dependencies={}){
+async function collectCandidateBinding({context,expectedStateDigest,replacementEvidence,rootLease,mode='PRE_ADOPTION',signal,timeoutMs=30000},dependencies={},leasePhases=false){
   try{
     validateMaintenanceContext(context);context=structuredClone(context);replacementEvidence=structuredClone(replacementEvidence);
     if(!['PRE_ADOPTION','ADOPTED'].includes(mode)||!HASH.test(expectedStateDigest||'')||!(rootLease instanceof RootControlLease)
@@ -140,13 +140,27 @@ export async function collectCandidateServerBinding({context,expectedStateDigest
     const store=dependencies.store||new MaintenanceReceiptStore(context);
     const run=(args,input)=>{check();guard();check();const raw=(dependencies.run||productionRun)(args,input,{timeoutMs:Math.min(10000,remaining())});check();
       if(typeof raw!=='string'||Buffer.byteLength(raw)>65536)fail('BOUNDED_OUTPUT');return raw;};
+    let firstAnchor=null;
     const state=()=>{
       check();guard();check();store.assertCurrent();const s=store.readState();
-      if(s?.schema!=='phoenix.legacy-maintenance-state/v1'||s.contextDigest!==bindingDigest(context)||s.stateDigest!==expectedStateDigest||!same(s.context,context)
-        ||s.legacyDrainResult!=='UNSUPPORTED'||s.status!==(s.phase==='CANDIDATE_REPLACED'?'HOLD_CANDIDATE_REVALIDATION_REQUIRED':'FENCED')
-        ||!iso(s.updatedAt)||Date.parse(s.updatedAt)<Date.parse(context.window.start)||Date.parse(s.updatedAt)>now()
-        ||!['CANDIDATE_REPLACED','CANDIDATE_FENCED'].includes(s.phase)||(mode==='ADOPTED'&&s.phase!=='CANDIDATE_FENCED'))fail('PRIVATE_OWNER_STATE_CHANGED');
-      store.assertOwnedIntent(s.phase==='CANDIDATE_REPLACED'?'START_CANDIDATE':'VERIFY_CANDIDATE',s.phase,s.stateDigest);check();return structuredClone(s);
+      if(leasePhases){
+        if(s?.schema!=='phoenix.legacy-maintenance-state/v1'||s.contextDigest!==bindingDigest(context)||s.stateDigest!==expectedStateDigest||!same(s.context,context)
+          ||s.legacyDrainResult!=='UNSUPPORTED'||!iso(s.updatedAt)||Date.parse(s.updatedAt)<Date.parse(context.window.start)||Date.parse(s.updatedAt)>now())fail('PRIVATE_OWNER_STATE_CHANGED');
+        // The immutable CR digest comes only from the genuine original lease.
+        // Current VF/OPEN state is never disguised as an earlier CF snapshot.
+        check();const anchor=store.readCandidateLeasePhaseAnchor({expectedStateDigest,replacementStateDigest:rootLease.expectedStateDigest});check();
+        if(s.phase==='CANDIDATE_FENCED'){
+          if(mode==='ADOPTED')store.assertOwnedIntent('VERIFY_CANDIDATE','CANDIDATE_FENCED',s.stateDigest);
+        }else if(!['VERIFIED_FENCED','COMPLETED_OPEN'].includes(s.phase)||mode!=='ADOPTED')fail('LEASE_PHASE_PROJECTION_REQUIRED');
+        if(!firstAnchor)firstAnchor=structuredClone(anchor);else if(!same(firstAnchor,anchor))fail('PHASE_ANCHOR_CHANGED');
+      }else{
+        if(s?.schema!=='phoenix.legacy-maintenance-state/v1'||s.contextDigest!==bindingDigest(context)||s.stateDigest!==expectedStateDigest||!same(s.context,context)
+          ||s.legacyDrainResult!=='UNSUPPORTED'||s.status!==(s.phase==='CANDIDATE_REPLACED'?'HOLD_CANDIDATE_REVALIDATION_REQUIRED':'FENCED')
+          ||!iso(s.updatedAt)||Date.parse(s.updatedAt)<Date.parse(context.window.start)||Date.parse(s.updatedAt)>now()
+          ||!['CANDIDATE_REPLACED','CANDIDATE_FENCED'].includes(s.phase)||(mode==='ADOPTED'&&s.phase!=='CANDIDATE_FENCED'))fail('PRIVATE_OWNER_STATE_CHANGED');
+        store.assertOwnedIntent(s.phase==='CANDIDATE_REPLACED'?'START_CANDIDATE':'VERIFY_CANDIDATE',s.phase,s.stateDigest);
+      }
+      check();return structuredClone(s);
     };
     const recorded=(s,kind)=>{
       if(!Array.isArray(s.receipts)||s.receipts.length>100)fail('FORMAL_RECEIPT_CHAIN_REQUIRED');
@@ -175,13 +189,13 @@ export async function collectCandidateServerBinding({context,expectedStateDigest
       const manifest=mode==='ADOPTED'?readPublicManifest():readLegacyProjection(PUBLIC_DIRECTORY,inspectPublicDirectory);
       return {bootstrap,modern,manifest};
     });
-    const projection=boot=>{check();const value=validateProjection(readProjection(),mode,context,expectedStateDigest,boot);check();
+    const projection=boot=>{check();const value=validateProjection(readProjection(),mode,context,leasePhases?firstAnchor.candidateStateDigest:expectedStateDigest,boot);check();
       for(const t of [value.bootstrap.capturedAt,...(value.modern?[value.modern.updatedAt]:[])])if(Date.parse(t)<Date.parse(context.window.start)||Date.parse(t)>now())fail('PROJECTION_TIME');
       return value;};
     const firstState=state(),formalReplacement=recorded(firstState,'CANDIDATE_REPLACEMENT');
     if(!same(replacementEvidence,formalReplacement))fail('CURRENT_CHAIN_REPLACEMENT_REQUIRED');
     const replacement=validateCandidateReplacement(formalReplacement,context,{now:now()});
-    const registered=firstState.phase==='CANDIDATE_FENCED'?validateMaintenanceEvidence(recorded(firstState,'CANDIDATE_FENCED'),'CANDIDATE_FENCED',context,now()):null;
+    const registered=firstState.phase!=='CANDIDATE_REPLACED'?validateMaintenanceEvidence(recorded(firstState,'CANDIDATE_FENCED'),'CANDIDATE_FENCED',context,now()):null;
     if(replacement.project!==context.replacement?.project)fail('EXACT_PROJECT_REQUIRED');
     const beforeProjection=projection(),beforeFloor=floorSnapshot();
     const rootBefore=await RootControlLease.prototype.observe.call(rootLease,{signal,timeoutMs:remaining()});check();state();
@@ -203,12 +217,25 @@ export async function collectCandidateServerBinding({context,expectedStateDigest
     const rootAfter=await RootControlLease.prototype.observe.call(rootLease,{signal,timeoutMs:remaining()});check();state();
     const rootCore=v=>({contextDigest:v.contextDigest,database:v.database,backends:v.observation.backends,locks:v.observation.locks});
     if(!same(beforeStatus,afterStatus)||!same(beforeRuntime,afterRuntime)||!same(beforeProjection,afterProjection)||!same(beforeFloor,afterFloor)||!same(rootCore(rootBefore),rootCore(rootAfter)))fail('OBSERVATION_CHANGED');
-    const result={schema:'phoenix.candidate-server-binding-observation/v1',result:'OBSERVATION_ONLY',mode,contextDigest:bindingDigest(context),stateDigest:expectedStateDigest,
+    const result={schema:leasePhases?'phoenix.candidate-lease-binding-observation/v1':'phoenix.candidate-server-binding-observation/v1',result:'OBSERVATION_ONLY',mode,contextDigest:bindingDigest(context),stateDigest:expectedStateDigest,
       startedAt:new Date(start).toISOString(),finishedAt:new Date(now()).toISOString(),candidateReplacementSha256:replacementEvidence.evidenceSha256,
+      ...(leasePhases?{authorizationCandidateStateDigest:firstAnchor.candidateStateDigest,phaseAnchor:structuredClone(firstAnchor),phaseAnchorSha256:canonicalDigest(firstAnchor)}:{}),
       runtime:beforeRuntime,status:beforeStatus,approvedRuntimeContractSha256:beforeFloor.floorDigest,projection:{bootstrapSha256:canonicalDigest(beforeProjection.bootstrap),modernSha256:beforeProjection.modern?canonicalDigest(beforeProjection.modern):null,
         publicManifestSha256:digest(beforeProjection.manifest),owner:context.owner,generation:beforeProjection.manifest.generation},
       rootBefore,rootAfter,database,continuousDrainProof:false,continuousIngressProof:false,persistentOwnershipComplete:false,registryInstalled:false,
       admissionOrApprovalGranted:false,productionMutation:false,outerProcessSupervisionRequired:true};
     check();return result;
   }catch(error){if(/^CANDIDATE_BINDING_HOLD=[A-Z_]+$/.test(error?.message||''))throw error;fail('OBSERVATION_UNVERIFIED');}
+}
+
+/** Operation-level START/VERIFY collector: preserve its original exact intent
+ * and phase contract. Request JSON cannot select the internal lease policy. */
+export function collectCandidateServerBinding(request,dependencies={}){
+  return collectCandidateBinding(request,dependencies,false);
+}
+/** Cross-phase read-only lease correlation. This still does not grant ingress,
+ * continuous drain, adoption, approval or production eligibility. The caller
+ * owns the genuine original root lease and every outer read process. */
+export function collectCandidateLeaseBinding(request,dependencies={}){
+  return collectCandidateBinding(request,dependencies,true);
 }
