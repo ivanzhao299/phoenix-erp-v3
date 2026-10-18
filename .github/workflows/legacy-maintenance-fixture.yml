@@ -58,6 +58,10 @@ jobs:
         env:
           MAINTENANCE_DATABASE_PG_FIXTURE: '1'
         run: node --test scripts/ops/production-maintenance-database-observer.pg.test.mjs
+      - name: Actual candidate root backend and lease lock observations on PG16 and PG18
+        env:
+          MAINTENANCE_CANDIDATE_PG_FIXTURE: '1'
+        run: node --test scripts/ops/production-maintenance-candidate-database.pg.test.mjs
       - name: Actual owned recovery core files and local image identity
         env:
           RECOVERY_MATERIAL_LOCAL_IMAGE_FIXTURE: '1'
@@ -73,6 +77,7 @@ jobs:
           retention-days: 14
           path: |
             artifacts/maintenance-db-observer/*.json
+            artifacts/maintenance-candidate-database/*.json
             artifacts/maintenance-recovery-core-materials/*.json
             artifacts/maintenance-ci/runtime-resources.json
             artifacts/maintenance-ci/replacement-resources.json
