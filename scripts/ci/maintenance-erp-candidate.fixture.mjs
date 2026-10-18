@@ -7,6 +7,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import assert from 'node:assert/strict';
 import { capturedDatabaseStatements, classifySql, parseBootControlIdentity, verifyCapturedControlIdentity, sliceCapturedWindow } from './api-bootstrap-mutations.mjs';
 import { exerciseActualErpRootBinding, performExpectedFaultTerm, performExpectedFaultKill, validateExpectedFaultShutdown } from './maintenance-erp-root-binding.fixture.mjs';
+import { API_READINESS_PROGRAM } from '../ops/production-maintenance-candidate-health.mjs';
 import { exerciseActualErpPhaseCorrelation } from './maintenance-erp-phase-correlation.fixture.mjs';
 import { selectOwnedComposeSubnet } from './owned-compose-ipam.mjs';
 
@@ -350,6 +351,24 @@ export class OwnedErpCandidateCapsule {
     this.record();
     return before;
   }
+  verifyActualReadiness(candidate) {
+    const before = this.inspectContainer(candidate.id), statusBefore = this.status(candidate), fingerprintBefore = this.fingerprint(candidate.pg);
+    assert.equal(statusBefore.phase, 'FENCED'); this.verifySession(candidate, statusBefore);
+    const proof = JSON.parse(this.docker(['exec', candidate.id, 'node', '-e', API_READINESS_PROGRAM]));
+    assert.equal(proof.status, 200); assert.equal(proof.ready, true); assert.equal(proof.dbConnected, true);
+    assert.match(proof.bodySha256, /^[a-f0-9]{64}$/); assert.ok(proof.bodyBytes > 0 && proof.bodyBytes <= 4096);
+    const after = this.inspectContainer(candidate.id), statusAfter = this.status(candidate), fingerprintAfter = this.fingerprint(candidate.pg);
+    for (const key of ['Id', 'Image', 'RestartCount']) assert.equal(after[key], before[key]);
+    assert.equal(after.State.StartedAt, before.State.StartedAt); assert.equal(after.State.Running, true);
+    assert.equal(statusAfter.bootId, statusBefore.bootId); assert.equal(statusAfter.phase, 'FENCED'); this.verifySession(candidate, statusAfter);
+    assert.deepEqual(fingerprintAfter, fingerprintBefore);
+    const result = { schema: 'phoenix.actual-erp-readiness-fixture/v1', result: 'PASS', fixtureOnly: true, productionReceipt: false,
+      sourceSha: this.sourceSha, imageId: this.imageId, pgMajor: candidate.pg.major, apiContainerId: candidate.id, bootId: statusAfter.bootId,
+      fixedProgramProof: proof, unchangedRuntime: true, schemaDataSequencesUnchanged: true, fullHealthCollectorPositive: 'NOT_RUN',
+      webHttpActual: 'NOT_RUN', productionStorageAndFd9: 'NOT_RUN', registryInstalled: false };
+    fs.writeFileSync(path.join(this.root, `pg${candidate.pg.major}-actual-readiness-probe.json`), JSON.stringify(result, null, 2), { mode: 0o600, flag: 'wx' });
+    this.results.push(result); this.record(); return result;
+  }
   async controlledOpen(candidate) {
     assert.equal(candidate.mode, 'FENCED'); const before = this.inspectContainer(candidate.id); const status = this.status(candidate); this.verifySession(candidate, status);
     const begin = `SELECT ${literal(`${candidate.captureApp}-OPEN_BEGIN`)}`; this.sql(candidate.pg, begin + ';');
@@ -437,7 +456,7 @@ export class OwnedErpCandidateCapsule {
       const pg = await this.startPostgres(major);
       const before = this.fingerprint(pg);
       const candidates = [await this.startCandidate(pg, 'missing'), await this.startCandidate(pg, 'FENCED')];
-      await this.verifyDefaultWindow(pg, candidates, before); this.detectorCanary(pg); await this.controlledOpen(candidates[1]);
+      await this.verifyDefaultWindow(pg, candidates, before); this.detectorCanary(pg); this.verifyActualReadiness(candidates[1]); await this.controlledOpen(candidates[1]);
       // Keep owned identities/receipts for root review. No deletion and no production state cleanup.
       for (const candidate of candidates) this.stopCandidate(candidate);
       const fault = await this.startCandidate(pg, 'FENCED', { role: 'root-binding-fault' });
