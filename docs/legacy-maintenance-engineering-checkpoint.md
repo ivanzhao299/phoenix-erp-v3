@@ -116,3 +116,25 @@ Independent Node20 static/preflight tests passed 31; real source audit passed
 555 files with zero violations. New exact-head hosted CI must still complete.
 Formal source/security approval and production legacy eligibility remain
 blocked. No failed CI run is relabeled as successful.
+
+## 2026-10-18 hosted fixture cleanup follow-up
+
+The current e16 PR admission run 39106471716 completed its business regression
+steps but failed the owned-fixture cleanup with `API_PROCESS_STATE_UNVERIFIED`.
+The original output does not identify errno or whether this occurred before or
+after TERM; a zombie/metadata exit race remains a hypothesis, not a proven cause.
+
+The narrow CI helper change tolerates disappearing exe/cwd metadata only after
+TERM and only while fresh kernel PID/start/UID still match the registered API.
+It retries within the existing bounded deadline. Success still requires ESRCH;
+even a real zombie is pending until reaped. Permission/I/O errors, unknown kernel
+identity, PID reuse, and a live process with deleted cwd cannot produce CLOSED.
+The PRE_TERM identity, task drain, source ownership, mount and deletion checks
+remain enforced. This is isolated CI lifecycle handling, not production drain
+or PG-session disappearance evidence.
+
+Node 20 local execution: 38 PASS / 2 conditional SKIP across fixture/network
+suites, including a real live deleted-cwd process and a real owned Python zombie
+with explicit parent reaping. Independent read-only review found no new P0/P1.
+The new exact HEAD must complete hosted CI before integration; the old failure
+is retained and is not recast as a PASS.

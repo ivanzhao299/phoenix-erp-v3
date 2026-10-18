@@ -5,7 +5,7 @@ import { spawnSync,spawn } from 'node:child_process';
 import { once } from 'node:events';
 import os from 'node:os';
 import path from 'node:path';
-import { validateContext,validateDatabaseContainer,validateStatus,findRunnerAncestor,runFixture,KINDS,TARGET,STATE,controlPathExists,cleanupNotStarted,inspectCleanupProcess,waitFixtureProcessExit,validateApiListeners,fixtureFailureCode,rootCallFailure,parseRootResponse,validateNetworkStage,createPositiveFixtureManifest } from './background-control-api-fixture.mjs';
+import { validateContext,validateDatabaseContainer,validateStatus,findRunnerAncestor,runFixture,KINDS,TARGET,STATE,controlPathExists,cleanupNotStarted,inspectCleanupProcess,inspectPostTermProcess,readProcessIdentity,waitFixtureProcessExit,validateApiListeners,fixtureFailureCode,rootCallFailure,parseRootResponse,validateNetworkStage,createPositiveFixtureManifest } from './background-control-api-fixture.mjs';
 const sha='a'.repeat(40),id='c'.repeat(64),bootId='00000000-0000-4000-8000-000000000001';
 const c={GITHUB_ACTIONS:'true',CI:'true',RUNNER_ENVIRONMENT:'github-hosted',RUNNER_OS:'Linux',RUNNER_ARCH:'X64',GITHUB_REPOSITORY:'ivanzhao299/phoenix-erp-v3',GITHUB_RUN_ID:'1234',GITHUB_RUN_ATTEMPT:'1',GITHUB_JOB:'regression',GITHUB_SHA:sha,GITHUB_WORKSPACE:'/home/runner/work/phoenix-erp-v3/phoenix-erp-v3',RUNNER_TEMP:'/home/runner/work/_temp',NODE_ENV:'test',APP_ENV:'test',DB_HOST:'127.0.0.1',DB_PORT:'5432',DB_USER:'phoenix_v3',DB_NAME:'phoenix_erp',PORT:'3100',BACKGROUND_FIXTURE_POSTGRES_ID:id,uid:1001};
 const facts={workspace:c.GITHUB_WORKSPACE,temp:c.RUNNER_TEMP,workspaceUid:1001,tempUid:1001,production:false,runner:{pid:10,start:'50'},head:sha,originApproved:true,mainRegular:true};
@@ -230,5 +230,64 @@ test('a real live process with a deleted cwd is HOLD, not a false stopped receip
   }finally{
     if(child.exitCode===null&&child.signalCode===null){const exited=once(child,'exit');child.kill('SIGTERM');await exited;}
     if(fs.existsSync(dir))fs.rmdirSync(dir);
+  }
+});
+
+test('post-TERM missing metadata retries only a freshly bound identity and still requires kernel absence',async()=>{
+  const api={pid:55,start:'88',uid:1001,exe:'/usr/bin/node',cwd:'/owned'};
+  const identity=()=>({pid:55,start:'88',uid:1001,state:'Z'});
+  const missing=()=>{throw Object.assign(Error('gone metadata'),{code:'ENOENT'});};
+  assert.equal(inspectPostTermProcess(api,{identity,read:missing,probe:()=>{}}).metadataPending,true);
+  // Z is never a terminal result, even if the process has no exe/cwd.
+  await assert.rejects(waitFixtureProcessExit(api,{sleep:async()=>{},inspect:()=>inspectPostTermProcess(api,{identity,read:missing})}),/API_SHUTDOWN_TIMEOUT/);
+  let polls=0;
+  await waitFixtureProcessExit(api,{sleep:async()=>{},inspect:()=>++polls<3?inspectPostTermProcess(api,{identity,read:missing}):null});
+  assert.equal(polls,3);
+  for(const delta of [{pid:56},{start:'99'},{uid:1002}])assert.throws(()=>inspectPostTermProcess(api,{identity:()=>({...identity(),...delta}),read:missing}),/API_PID_REUSED/);
+  for(const code of ['EACCES','EPERM','EIO'])assert.throws(()=>inspectPostTermProcess(api,{identity,read:()=>{throw Object.assign(Error('denied'),{code});}}),/API_PROCESS_STATE_UNVERIFIED/);
+  assert.throws(()=>inspectPostTermProcess(api,{identity:missing,probe:()=>{}}),/API_PROCESS_STATE_UNVERIFIED/);
+  assert.equal(inspectPostTermProcess(api,{identity:missing,probe:()=>{throw Object.assign(Error('gone PID'),{code:'ESRCH'});}}),null);
+});
+test('post-TERM real live deleted cwd never produces a closed process receipt',async()=>{
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'background-postterm-cwd-'));
+  const child=spawn(process.execPath,['-e',"process.stdout.write('READY');setInterval(()=>{},1000)"],{cwd:dir,stdio:['ignore','pipe','ignore']});
+  try{
+    await once(child.stdout,'data',{signal:AbortSignal.timeout(5000)});
+    const api={...readProcessIdentity(child.pid),exe:fs.realpathSync(`/proc/${child.pid}/exe`),cwd:dir};
+    fs.rmdirSync(dir);
+    assert.equal(inspectPostTermProcess(api).metadataPending,true);
+    await assert.rejects(waitFixtureProcessExit(api,{sleep:async()=>{}}),/API_SHUTDOWN_TIMEOUT/);
+    const exited=once(child,'exit');child.kill('SIGTERM');await exited;
+    assert.equal(inspectPostTermProcess(api),null);
+  }finally{
+    if(child.exitCode===null&&child.signalCode===null){const exited=once(child,'exit');child.kill('SIGTERM');await exited;}
+    if(fs.existsSync(dir))fs.rmdirSync(dir);
+  }
+});
+test('real owned zombie remains pending until its parent reaps it',async()=>{
+  const script=`import os,sys,signal
+signal.signal(signal.SIGTERM,lambda *_:sys.exit(2))
+pid=os.fork()
+if pid==0: os._exit(0)
+try:
+ os.waitid(os.P_PID,pid,os.WEXITED|os.WNOWAIT)
+ print(pid,flush=True)
+ sys.stdin.readline()
+finally:
+ os.waitpid(pid,0)
+`;
+  const owner=spawn('python3',['-u','-c',script],{stdio:['pipe','pipe','ignore']});
+  const exited=once(owner,'exit');let pid;
+  try{
+    const [chunk]=await once(owner.stdout,'data',{signal:AbortSignal.timeout(5000)});pid=Number(String(chunk).trim());assert.ok(Number.isInteger(pid)&&pid>1);
+    const api={...readProcessIdentity(pid),exe:'/unused-terminal-exe',cwd:'/unused-terminal-cwd'};
+    assert.equal(api.state,'Z');assert.doesNotThrow(()=>process.kill(pid,0));
+    assert.throws(()=>inspectCleanupProcess(pid),/API_PROCESS_STATE_UNVERIFIED/);
+    assert.equal(inspectPostTermProcess(api).metadataPending,true);
+    await assert.rejects(waitFixtureProcessExit(api,{sleep:async()=>{}}),/API_SHUTDOWN_TIMEOUT/);
+    owner.stdin.end('REAP\n');await exited;
+    assert.equal(inspectPostTermProcess(api),null);
+  }finally{
+    if(owner.exitCode===null&&owner.signalCode===null){owner.stdin.end('REAP\n');await exited;}
   }
 });
