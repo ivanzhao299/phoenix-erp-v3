@@ -96,11 +96,16 @@ function validateV3Metadata(item, service) {
     || !Array.isArray(item.mounts) || item.mounts.some(m => !m || !m.type || !m.destination || typeof m.readOnly !== 'boolean' || (m.type === 'bind' && !m.source))
     || (service !== 'db' && !SHA.test(item.ociRevision || ''))) throw hold(`${service.toUpperCase()}_IDENTITY`);
 }
+// Maintenance immutable storage canonicalizes JSON object keys. Preserve mount
+// array order and every field/value while ignoring only object-key insertion order.
+function serializedMounts(mounts) {
+  return JSON.stringify(Array.isArray(mounts) ? mounts.map(mount => Object.fromEntries(Object.entries(mount).sort(([a], [b]) => a.localeCompare(b)))) : mounts);
+}
 function unchanged(before, after, strict) {
   const keys = strict ? ['id', 'created', 'startedAt', 'image', 'ociRevision', 'restartCount'] : ['id', 'startedAt', 'image'];
   return before && after && keys.every(key => before[key] === after[key])
     && before.running === true && before.health === 'healthy' && after.running === true && after.health === 'healthy'
-    && JSON.stringify(before.mounts) === JSON.stringify(after.mounts);
+    && serializedMounts(before.mounts) === serializedMounts(after.mounts);
 }
 export function compareSnapshots(pre, post, expectedMode) {
   const mode = evidenceMode(pre); assertModeBinding(post, mode);
