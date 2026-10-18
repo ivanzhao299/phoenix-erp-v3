@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import os from 'node:os';
+import {fileURLToPath} from 'node:url';
 import path from 'node:path';
 import {randomUUID,createHash} from 'node:crypto';
 import {execFileSync,spawn} from 'node:child_process';
@@ -80,7 +80,7 @@ for(const image of ['postgres:16.14-alpine','postgres:18-alpine'])test(`owned ${
     }catch(error){record.result='FAIL';record.cleanup='UNVERIFIED_REQUIRES_OWNED_FIXTURE_RECOVERY';throw error;
     }finally{
     record.sourceSha256=createHash('sha256').update(fs.readFileSync(new URL('./production-maintenance-database-observer.mjs',import.meta.url))).digest('hex');
-    const out=path.join(os.tmpdir(),`phoenix-maintenance-db-observer-${owner}.json`);fs.writeFileSync(out,JSON.stringify(record,null,2)+'\n',{mode:0o600,flag:'wx'});console.log('OWNED_DATABASE_OBSERVER_RECEIPT='+out);
+    const directory=fileURLToPath(new URL('../../artifacts/maintenance-db-observer/',import.meta.url));fs.mkdirSync(directory,{recursive:true,mode:0o700});const out=path.join(directory,`${owner}.json`);fs.writeFileSync(out,JSON.stringify(record,null,2)+'\n',{mode:0o600,flag:'wx'});console.log('OWNED_DATABASE_OBSERVER_RECEIPT='+out);
     }
   }
 });

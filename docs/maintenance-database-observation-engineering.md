@@ -36,7 +36,7 @@ Node20 executed evidence:
   back by Docker before the success receipts were written.
 - Initial real tests failed because PostgreSQL JSON serialized OID as a string;
   the SQL now explicitly casts OID to bigint. Those failures are retained.
-- Production invocation, root/FD9 execution, migration/schema changes, CI on this
+- Production invocation, root/FD9 execution, migration/schema changes, hosted CI on this
   new branch, and production load tests are NOT_RUN.
 
 Remaining fixed persistent-work coverage must include the actual migrated schema
@@ -56,3 +56,8 @@ separate unresolved evidence. A database snapshot cannot resolve any of them.
 This checkpoint neither changes floor authorization nor supplies a formal
 production release receipt. API-only HOLD, Web and Chanjet stages remain subject
 to their current real production admission and exact-SHA governance.
+
+The existing serial isolated-maintenance workflow now executes the opt-in PG
+observation cases after its Docker replacement interval, and uploads only the
+fixed local fixture receipt directory. No production workflow, secret, privilege
+or deployment trigger is added. Hosted execution remains pending.
