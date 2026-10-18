@@ -2,6 +2,7 @@
  * environment approval, retry, rollback or modern DRAINED conversion. The
  * production producer registry is deliberately NOT installed yet. */
 import path from 'node:path';
+import fs from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { ChildProcess, spawn } from 'node:child_process';
 import { CONTRACT, verifyContext, secureJson, git } from './production-config-guard.mjs';
@@ -64,6 +65,7 @@ export function verifySessionFormalEvidence({ context, files }, dependencies = {
 
 export class LegacyMaintenanceDeploymentSession {
   #controlRegistrations = new WeakSet();
+  #phaseCommit = null;
   constructor({ plan }, dependencies = {}) {
     validateReleasePlan(plan); this.plan = structuredClone(plan); this.context = this.plan.context;
     this.rawStore = dependencies.store || new MaintenanceReceiptStore(this.context);
@@ -97,7 +99,7 @@ export class LegacyMaintenanceDeploymentSession {
       previousFloorSha: this.context.previousFloorSha, targetSha: this.context.targetSha }, participants));
     this.readFormalState = dependencies.readFormalState || (() => secureJson(path.join(this.store.directory, `deploy-${this.context.owner}.json`)));
     this.used = false; this.lease = null; this.pendingLease = null; this.fatal = null; this.activeController = null; this.monitor = null; this.monitorBusy = false;
-    this.monitorTask = null; this.monitorStopUnknown = false;
+    this.monitorTask = null; this.monitorStopUnknown = false; this.monitorGeneration = 0;
     this.lifecycleStarted = false; this.completedResult = null;
     this.pendingReads = new Set(); this.readTimeoutMs = dependencies.readTimeoutMs ?? 10000;
     if (!Number.isSafeInteger(this.readTimeoutMs) || this.readTimeoutMs < 1 || this.readTimeoutMs > 10000) hold('SESSION_READ_TIMEOUT_REQUIRED');
@@ -286,8 +288,10 @@ export class LegacyMaintenanceDeploymentSession {
     });
   }
   startMonitor() {
+    if (this.monitor || this.monitorBusy || this.#phaseCommit || this.fatal) hold('SESSION_MONITOR_START_STATE');
+    const generation = ++this.monitorGeneration;
     this.monitor = setInterval(() => {
-      if (this.monitorBusy || this.fatal) return; this.monitorBusy = true;
+      if (!this.monitor || generation !== this.monitorGeneration || this.monitorBusy || this.fatal) return; this.monitorBusy = true;
       this.monitorTask = this.track('MONITOR_PROBE', async () => {
         try { await this.checked(); if (this.lease) await this.verifyLease(); }
         catch (error) { this.fatal ||= error; this.activeController?.abort(); }
@@ -296,6 +300,7 @@ export class LegacyMaintenanceDeploymentSession {
     }, this.pollMs); this.monitor.unref();
   }
   async stopMonitor() {
+    ++this.monitorGeneration;
     if (this.monitor) clearInterval(this.monitor); this.monitor = null;
     // An in-progress read/lease probe must finish before a deliberate OPEN.
     if (this.monitorBusy) {
@@ -310,6 +315,56 @@ export class LegacyMaintenanceDeploymentSession {
       }
     }
     if (this.fatal) throw this.fatal;
+  }
+  async pauseMonitorForPhaseCommit({ from, to, expectedStateDigest }) {
+    if (this.#phaseCommit || !this.monitor || !this.lease || !HASH.test(expectedStateDigest || '')
+      || !((from === 'CANDIDATE_FENCED' && to === 'VERIFIED_FENCED') || (from === 'VERIFIED_FENCED' && to === 'COMPLETED_OPEN'))) hold('SESSION_PHASE_COMMIT_REQUEST');
+    const before = this.rawStore.readState();
+    if (before?.phase !== from || before.status !== 'FENCED' || before.stateDigest !== expectedStateDigest) hold('SESSION_PHASE_COMMIT_STATE');
+    let operationIntent = null;
+    if (from === 'CANDIDATE_FENCED') {
+      const marker = this.rawStore.assertOwnedIntent('VERIFY_CANDIDATE', from, expectedStateDigest);
+      const fields = ['schema', 'owner', 'contextDigest', 'operation', 'from', 'to', 'previousStateDigest', 'startedAt'];
+      if (marker.to !== to || !same(Object.keys(marker).sort(), fields.sort()) || !iso(marker.startedAt)
+        || Date.parse(marker.startedAt) < Date.parse(before.updatedAt) || Date.parse(marker.startedAt) >= Date.parse(this.context.window.end)) hold('SESSION_PHASE_COMMIT_INTENT');
+      operationIntent = marker;
+    } else this.rawStore.assertNoPending();
+    const token = Object.freeze({});
+    const barrier = { token, from, to, before, operationIntent, lease: this.lease, generation: null };
+    this.#phaseCommit = barrier;
+    await this.stopMonitor();
+    await this.checked(); await this.verifyLease(); await this.checked();
+    const currentIntent = fs.existsSync(this.rawStore.markerFile) ? this.rawStore.read(this.rawStore.markerFile) : null;
+    if (this.lease !== barrier.lease || !same(this.rawStore.readState(), before) || !same(currentIntent, operationIntent)
+      || this.monitor || this.monitorBusy) hold('SESSION_PHASE_COMMIT_CHANGED');
+    barrier.generation = this.monitorGeneration;
+    return token;
+  }
+  async resumeMonitorAfterPhaseCommit(token) {
+    const barrier = this.#phaseCommit;
+    if (!barrier || barrier.token !== token || barrier.from !== 'CANDIDATE_FENCED' || barrier.to !== 'VERIFIED_FENCED'
+      || barrier.generation !== this.monitorGeneration || this.monitor || this.monitorBusy || this.lease !== barrier.lease) hold('SESSION_PHASE_COMMIT_RESUME');
+    await this.checked(); this.rawStore.assertNoPending();
+    const after = this.rawStore.readState();
+    if (after?.phase !== barrier.to || after.status !== 'FENCED' || after.receipts.length !== barrier.before.receipts.length + 1
+      || !same(after.receipts.slice(0, -1), barrier.before.receipts)) hold('SESSION_PHASE_COMMIT_RESULT');
+    const intent = this.rawStore.read(path.join(this.rawStore.directory, `maintenance-intent-${this.context.owner}-${after.stateDigest}.json`));
+    if (!same(intent, barrier.operationIntent) || intent.schema !== 'phoenix.maintenance-intent/v1' || intent.owner !== this.context.owner || intent.contextDigest !== bindingDigest(this.context)
+      || intent.operation !== 'VERIFY_CANDIDATE' || intent.from !== barrier.from || intent.to !== barrier.to
+      || intent.previousStateDigest !== barrier.before.stateDigest || this.rawStore.readReceipt(after.receipts.at(-1)).kind !== 'VERIFIED_FENCED') hold('SESSION_PHASE_COMMIT_ARCHIVE');
+    // This still requires the actual lease implementation to support the new
+    // committed phase; a missing composite bridge must HOLD, never be bypassed.
+    await this.verifyLease(); await this.checked(); this.rawStore.assertNoPending();
+    if (this.#phaseCommit !== barrier || !same(this.rawStore.readState(), after) || this.lease !== barrier.lease
+      || this.monitor || this.monitorBusy || barrier.generation !== this.monitorGeneration) hold('SESSION_PHASE_COMMIT_CHANGED');
+    this.#phaseCommit = null; this.startMonitor();
+  }
+  assertOpenCommitBarrier(request) {
+    const barrier = this.#phaseCommit;
+    if (!barrier || barrier.from !== 'VERIFIED_FENCED' || barrier.to !== 'COMPLETED_OPEN' || barrier.generation !== this.monitorGeneration
+      || this.monitor || this.monitorBusy || this.lease !== barrier.lease) hold('SESSION_OPEN_COMMIT_BARRIER');
+    const marker = this.rawStore.assertOwnedEffectState('OPEN_CANDIDATE', request.state);
+    if (!same(marker.previousState, barrier.before) || marker.previousStateDigest !== barrier.before.stateDigest) hold('SESSION_OPEN_COMMIT_BARRIER');
   }
   adapters() {
     return {
@@ -350,11 +405,13 @@ export class LegacyMaintenanceDeploymentSession {
         const result = await this.producer('collectVerifiedCandidate', { ...request, formal, adopted, signal: this.activeController?.signal });
         const body = await this.evidence(result, 'VERIFIED_FENCED');
         if (body.startupEvidenceSha256 !== formal.digests.log || body.preSnapshotSha256 !== formal.digests.pre || body.postSnapshotSha256 !== formal.digests.post) hold('SESSION_VERIFIED_ARTIFACT_BINDING');
-        await this.checked(); return result;
+        await this.checked();
+        await this.pauseMonitorForPhaseCommit({ from: 'CANDIDATE_FENCED', to: 'VERIFIED_FENCED', expectedStateDigest: request.state.stateDigest });
+        return result;
       },
       openCandidate: async request => {
         request = { ...request, operation: 'OPEN_CANDIDATE' };
-        await this.stopMonitor(); await this.admission(request); await this.verifyLease();
+        this.assertOpenCommitBarrier(request); await this.admission(request); await this.verifyLease();
         const candidate = this.engine.receipt(request.state, 'CANDIDATE_FENCED').body;
         const expectedParticipants = [{ containerId: candidate.api.id, revision: this.context.targetSha, bootId: candidate.bootId, allowedKinds: ['LOCAL', 'EXTERNAL_READ', 'NOTIFICATION'] }];
         this.assertNoActiveChildren();
@@ -413,6 +470,7 @@ export class LegacyMaintenanceDeploymentSession {
       if (this.children.size) hold('SESSION_REPLACEMENT_CHILD_NOT_JOINED');
       await this.step('START_CANDIDATE', () => this.engine.startCandidate()); this.lease = this.pendingLease; this.pendingLease = null; await this.verifyLease();
       await this.step('VERIFY_CANDIDATE', () => this.engine.verifyCandidate());
+      await this.resumeMonitorAfterPhaseCommit(this.#phaseCommit?.token);
       const completion = await this.step('READ_FORMAL_COMPLETION', async signal => {
         const envelope = await this.producer('readFormalCompletion', { context: this.context, state: this.store.readState(), signal });
         const body = await this.evidence(envelope, 'COMPLETION'); const formal = this.readFormalState();
@@ -420,6 +478,7 @@ export class LegacyMaintenanceDeploymentSession {
           || body.successReceiptSha256 !== canonicalDigest(formal)) hold('SESSION_COMPLETION_NOT_FORMAL_RECEIPT');
         return envelope;
       });
+      await this.pauseMonitorForPhaseCommit({ from: 'VERIFIED_FENCED', to: 'COMPLETED_OPEN', expectedStateDigest: this.rawStore.readState().stateDigest });
       const state = await this.step('OPEN_CANDIDATE', () => this.engine.complete({ completionEvidence: completion }));
       if (state.phase !== 'COMPLETED_OPEN' || state.status !== 'SUCCESS') hold('SESSION_NOT_COMPLETED');
       succeeded = true;
