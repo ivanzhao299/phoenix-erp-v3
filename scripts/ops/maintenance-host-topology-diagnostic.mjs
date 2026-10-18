@@ -16,10 +16,10 @@ const ID = /^[a-f0-9]{64}$/;
 const IMAGE = /^sha256:[a-f0-9]{64}$/;
 const SHA = /^[a-f0-9]{40}$/;
 const hash = value => createHash('sha256').update(typeof value === 'string' ? value : JSON.stringify(value)).digest('hex');
-const properties = 'Id,ActiveState,SubState,LoadState,UnitFileState,MainPID,ControlPID,Restart,FragmentPath,DropInPaths,Triggers,TriggeredBy';
+const properties = 'Id,ActiveState,SubState,LoadState,UnitFileState,MainPID,ControlPID,Restart,FragmentPath,DropInPaths,Triggers,TriggeredBy,ControlGroup,WorkingDirectory,InvocationID';
 const dockerFields = ['.Id', '.Image', '.State.Running', '.State.Health.Status', '.State.StartedAt', '.State.Pid', '.State.Restarting', '.RestartCount',
   '.HostConfig.RestartPolicy.Name', '.HostConfig.Privileged', '.HostConfig.CapAdd', '.HostConfig.NetworkMode', '.HostConfig.PidMode', '.HostConfig.IpcMode',
-  '.NetworkSettings.Ports', '.NetworkSettings.Networks', '.Mounts', '(index .Config.Labels "com.docker.compose.service")', '(index .Config.Labels "com.docker.compose.project")'];
+  '.NetworkSettings.Ports', '.NetworkSettings.Networks', '.Mounts', '(index .Config.Labels "com.docker.compose.service")', '(index .Config.Labels "com.docker.compose.project")', '.Name'];
 const dockerTemplate = dockerFields.map(field => field === '.State.Health.Status' ? '{{if (index .State "Health")}}{{json .State.Health.Status}}{{else}}null{{end}}' : `{{json ${field}}}`).join('\t');
 export const TOPOLOGY_CONTAINER_PROJECTION = dockerTemplate;
 const networkTemplate = ['.Id', '.Driver', '.Scope', '.Internal', '.Attachable', '.Ingress', '.Containers', '(index .Options "com.docker.network.bridge.name")'].map(field => `{{json ${field}}}`).join('\t');
@@ -146,7 +146,7 @@ async function dockerTopology(io) {
       const values = text.split('\t').map(JSON.parse);
       failure = 'CONTAINER_INSPECT_FIELD_COUNT_UNVERIFIED';
       if (values.length !== dockerFields.length) throw 0;
-      const [actualId, imageId, running, health, startedAt, pid, restarting, restartCount, restartPolicy, privileged, caps, networkMode, pidMode, ipcMode, ports, networks, mounts, service, project] = values;
+      const [actualId, imageId, running, health, startedAt, pid, restarting, restartCount, restartPolicy, privileged, caps, networkMode, pidMode, ipcMode, ports, networks, mounts, service, project, name] = values;
       failure = 'CONTAINER_INSPECT_IDENTITY_UNVERIFIED';
       if (actualId !== id || !IMAGE.test(imageId)) throw 0;
       failure = 'CONTAINER_INSPECT_PROCESS_FIELDS_UNVERIFIED';
@@ -157,7 +157,8 @@ async function dockerTopology(io) {
       let revision = 'UNVERIFIED';
       try { const v = JSON.parse(await io.execute('/usr/bin/docker', ['image', 'inspect', imageId, '--format', '{{json (index .Config.Labels "org.opencontainers.image.revision")}}'])); if (SHA.test(v)) revision = v; } catch {}
       const capabilityNames = Array.isArray(caps) ? caps.filter(c => knownCaps.has(c)) : [];
-      containers.push({ verification: 'SNAPSHOT_ONLY', id, imageId, ociRevision: revision, running: safeBoolean(running), health: ['healthy', 'unhealthy', 'starting'].includes(health) ? health : 'UNVERIFIED',
+      if (await io.execute('/usr/bin/docker', ['inspect', id, '--format', dockerTemplate]) !== text) throw 0;
+      containers.push({ nameSha256: typeof name === 'string' ? hash(name) : 'UNVERIFIED', projectNameSha256: typeof project === 'string' ? hash(project) : 'UNVERIFIED', serviceNameSha256: typeof service === 'string' ? hash(service) : 'UNVERIFIED', verification: 'SNAPSHOT_ONLY', id, imageId, ociRevision: revision, running: safeBoolean(running), health: ['healthy', 'unhealthy', 'starting'].includes(health) ? health : 'UNVERIFIED',
         startedAt, pid, restarting: safeBoolean(restarting), restartCount, restartPolicy: ['no', 'always', 'unless-stopped', 'on-failure'].includes(restartPolicy) ? restartPolicy : 'UNVERIFIED',
         service: ['api', 'web', 'db'].includes(service) ? service : 'OTHER_UNVERIFIED', projectClass: typeof project === 'string' && /^phoenix[a-z0-9_-]*$/.test(project) ? 'PHOENIX' : 'OTHER_UNVERIFIED',
         privileged: safeBoolean(privileged), addedCapabilities: capabilityNames, unknownCapabilityCount: Array.isArray(caps) ? caps.length - capabilityNames.length : caps === null ? 0 : 'UNVERIFIED',
@@ -210,9 +211,15 @@ async function processTopology(io, containerIds) {
       for (const ns of ['net', 'mnt', 'pid']) { try { const value = await io.readlink(`/proc/${name}/ns/${ns}`); namespaces[ns] = /^\w+:\[\d+\]$/.test(value) ? { relationToPid1: references[ns] ? value === references[ns] ? 'SAME' : 'DIFFERENT' : 'UNVERIFIED', identitySha256: hash(value) } : unknown('NAMESPACE_METADATA'); } catch { namespaces[ns] = unknown('NAMESPACE_UNAVAILABLE'); } }
       const cgroup = await io.readFile(`/proc/${name}/cgroup`); const matches = [...cgroup.matchAll(/(?:docker[-/]|cri-containerd[-/]|libpod[-/])([a-f0-9]{64})(?:\.scope|\/|$)/g)].map(m => m[1]);
       const known = [...new Set(matches.filter(id => containerIds.includes(id)))];
-      const second = statIdentity(await io.readFile(`/proc/${name}/stat`)); if (JSON.stringify(first) !== JSON.stringify(second)) throw 0;
+      let cwdSha256 = 'UNVERIFIED'; try { const cwd = await io.readlink(`/proc/${name}/cwd`); if (path.isAbsolute(cwd) && cwd === await io.readlink(`/proc/${name}/cwd`)) cwdSha256 = hash(cwd); } catch {}
+      const groupPaths = cgroup.trim().split('\n').map(line => /^\d+:[^:]*:(\/[^\r\n]*)$/.exec(line)?.[1]);
+      const systemdControlGroupSha256 = groupPaths.length && groupPaths.every(Boolean) ? [...new Set(groupPaths)].sort().map(hash) : 'UNVERIFIED';
+      const second = statIdentity(await io.readFile(`/proc/${name}/stat`));
+      const secondStatus = await io.readFile(`/proc/${name}/status`);
+      if (JSON.stringify(first) !== JSON.stringify(second) || /^Uid:\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s*$/m.exec(secondStatus)?.[0] !== uid[0]
+        || await io.readFile(`/proc/${name}/cgroup`) !== cgroup) throw 0;
       processes.push({ pid, ppid: first.ppid, realUid: Number(uid[1]), effectiveUid: Number(uid[2]), startTicks: first.startTicks, verification: 'SNAPSHOT_ONLY',
-        executableClass: executableClass(exe), executablePathSha256: hash(exe), namespaces, cgroupSha256: hash(cgroup),
+        executableClass: executableClass(exe), executablePathSha256: hash(exe), cwdSha256, systemdControlGroupSha256, namespaces, cgroupSha256: hash(cgroup),
         executionLocation: known.length === 1 ? 'KNOWN_DOCKER_CONTAINER' : matches.length ? 'UNKNOWN_CONTAINER_UNVERIFIED' : 'HOST_OR_UNCLASSIFIED', containerIds: known,
         executorRole: known.length ? 'CONTAINER_ROLE_FROM_DOCKER_METADATA' : 'UNVERIFIED_NO_ARGUMENTS_INSPECTED' });
     } catch { processes.push({ pid, ...unknown('PROCESS_EXIT_REUSE_OR_METADATA_UNAVAILABLE') }); }
@@ -232,8 +239,23 @@ async function systemdTopology(io) {
         const text = await io.execute('/usr/bin/systemctl', ['show', '--no-pager', `--property=${properties}`, unit]); const metadata = {};
         for (const line of text.split('\n')) { const i = line.indexOf('='); if (i > 0) metadata[line.slice(0, i)] = line.slice(i + 1); }
         if (metadata.Id !== unit) throw 0;
+        let mainProcess = unknown('PROCESS_EXIT_REUSE_OR_METADATA_UNAVAILABLE');
+        if (/^[1-9][0-9]*$/.test(metadata.MainPID || '')) {
+          const main = metadata.MainPID;
+          const first = statIdentity(await io.readFile(`/proc/${main}/stat`));
+          const status = await io.readFile(`/proc/${main}/status`);
+          const uid = /^Uid:\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s*$/m.exec(status);
+          const second = statIdentity(await io.readFile(`/proc/${main}/stat`));
+          const afterStatus = await io.readFile(`/proc/${main}/status`);
+          if (!uid || JSON.stringify(first) !== JSON.stringify(second) || /^Uid:\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s*$/m.exec(afterStatus)?.[0] !== uid[0]) throw 0;
+          if (await io.execute('/usr/bin/systemctl', ['show', '--no-pager', `--property=${properties}`, unit]) !== text) throw 0;
+          mainProcess = { pid: Number(main), startTicks: first.startTicks, realUid: Number(uid[1]), effectiveUid: Number(uid[2]), verification: 'SNAPSHOT_ONLY' };
+        }
+        const controlGroupSha256 = typeof metadata.ControlGroup === 'string' && metadata.ControlGroup.startsWith('/') ? hash(metadata.ControlGroup) : 'UNVERIFIED';
+        const workingDirectorySha256 = typeof metadata.WorkingDirectory === 'string' && metadata.WorkingDirectory.startsWith('/') ? hash(metadata.WorkingDirectory) : 'UNVERIFIED';
+        const invocationIdSha256 = /^[a-f0-9]{32}$/.test(metadata.InvocationID || '') ? hash(metadata.InvocationID) : 'UNVERIFIED';
         const state = (value, allowed) => allowed.includes(value) ? value : 'UNVERIFIED';
-        units.push({ unitNameSha256: hash(unit), unitClass: unitClass(unit), unitType: unit.endsWith('.timer') ? 'TIMER' : 'SERVICE', verification: 'SNAPSHOT_ONLY',
+        units.push({ mainProcess, controlGroupSha256, workingDirectorySha256, invocationIdSha256, unitNameSha256: hash(unit), unitClass: unitClass(unit), unitType: unit.endsWith('.timer') ? 'TIMER' : 'SERVICE', verification: 'SNAPSHOT_ONLY',
           activeState: state(metadata.ActiveState, ['active', 'inactive', 'activating', 'deactivating', 'failed', 'reloading']), subState: state(metadata.SubState, ['running', 'exited', 'dead', 'waiting', 'elapsed', 'failed', 'start', 'stop']),
           loadState: state(metadata.LoadState, ['loaded', 'not-found', 'error', 'masked']), unitFileState: state(metadata.UnitFileState, ['enabled', 'disabled', 'static', 'masked', 'indirect', 'generated', 'transient', 'enabled-runtime', 'linked', 'linked-runtime']),
           mainPid: /^\d+$/.test(metadata.MainPID || '') ? Number(metadata.MainPID) : 'UNVERIFIED', controlPid: /^\d+$/.test(metadata.ControlPID || '') ? Number(metadata.ControlPID) : 'UNVERIFIED',

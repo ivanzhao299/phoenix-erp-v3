@@ -145,3 +145,10 @@ test('live GitHub main pin is checked separately from the frozen comparison base
   assert.equal(w.split('test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_GITHUB_MAIN_SHA"').length-1,2);
   assert.ok(w.includes("productionReleaseEligibility:'NOT_EVALUATED'"));assert.ok(w.includes("'scope.json'"));
 });
+
+test('new attribution joins accept only digests and fixed process metadata, never raw paths or names',()=>{
+  const data={...diagnostic(),hostTopology:{completeSafetyProof:false,productionMutation:false,continuousDrainProof:false,admissionOrApprovalGranted:false,docker:{containers:[{nameSha256:'a'.repeat(64),projectNameSha256:'b'.repeat(64),serviceNameSha256:'c'.repeat(64)}]},processes:{processes:[{cwdSha256:'d'.repeat(64),systemdControlGroupSha256:['e'.repeat(64)]}]},systemd:{units:[{controlGroupSha256:'e'.repeat(64),workingDirectorySha256:'d'.repeat(64),invocationIdSha256:'f'.repeat(64),mainProcess:{pid:2,startTicks:'123',realUid:0,effectiveUid:0,verification:'SNAPSHOT_ONLY'}}]}}};
+  assert.deepEqual(parseDiagnosticOutput(output(data),runnerSha),data);
+  data.hostTopology.systemd.units[0].workingDirectorySha256='/private/'+sentinel;
+  assert.throws(()=>parseDiagnosticOutput(output(data),runnerSha),e=>!e.message.includes(sentinel));
+});

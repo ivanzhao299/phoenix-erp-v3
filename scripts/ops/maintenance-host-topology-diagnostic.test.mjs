@@ -20,7 +20,7 @@ function fixture(overrides = {}) {
       if (args[0] === 'network' && args[1] === 'inspect') return [network, 'bridge', 'local', false, true, false, { [container]: { Name: secret, IPv4Address: secret } }, secret].map(JSON.stringify).join('\t');
       if (args[0] === 'inspect') return [container, image, true, 'healthy', '2026-10-17T10:00:00.123456789Z', 2, false, 0, 'unless-stopped', false, ['NET_ADMIN', secret], 'bridge', '', '',
         { '3100/tcp': [{ HostIp: '127.0.0.1', HostPort: '3100' }] }, { [secret]: { NetworkID: network, EndpointID: endpoint, Aliases: [secret] } },
-        [{ Type: 'bind', Source: `/secret/${secret}/.env`, Destination: `/private/${secret}`, RW: false }, { Type: 'bind', Source: '/var/lib/phoenix-background-control', Destination: '/run/phoenix-background-control', RW: false }], 'api', secret].map(JSON.stringify).join('\t');
+        [{ Type: 'bind', Source: `/secret/${secret}/.env`, Destination: `/private/${secret}`, RW: false }, { Type: 'bind', Source: '/var/lib/phoenix-background-control', Destination: '/run/phoenix-background-control', RW: false }], 'api', secret, `/private/${secret}`].map(JSON.stringify).join('\t');
     }
     if (binary === '/usr/bin/systemctl') {
       if (args[0] === 'list-units') return JSON.stringify([{ unit: 'phoenix-api.service', description: secret }]);
@@ -208,6 +208,41 @@ test('actual owned Docker container without Health metadata projects null withou
     const old=TOPOLOGY_CONTAINER_PROJECTION.replace('{{if (index .State "Health")}}','{{if .State.Health}}');
     assert.throws(()=>execFileSync('/usr/bin/docker',['inspect',id,'--format',old],{stdio:['ignore','pipe','pipe']}),error=>/map has no entry for key "Health"/.test(String(error.stderr)));
     const values=readonlyTopologyCommand('/usr/bin/docker',['inspect',id,'--format',TOPOLOGY_CONTAINER_PROJECTION]).split('\t').map(JSON.parse);
-    assert.equal(values[0],id);assert.equal(values[2],false);assert.equal(values[3],null);assert.equal(values.length,19);
+    assert.equal(values[0],id);assert.equal(values[2],false);assert.equal(values[3],null);assert.equal(values.length,20);
   }finally{if(id){verify();execFileSync('/usr/bin/docker',['rm',id],{stdio:['ignore','ignore','pipe']});}}
+});
+
+test('hashed Docker names and labels preserve attribution joins without exporting raw metadata', async () => {
+  const f=fixture(),result=await collectMaintenanceHostTopology(f.dependencies),row=result.docker.containers[0];
+  for(const field of ['nameSha256','projectNameSha256','serviceNameSha256'])assert.match(row[field],/^[a-f0-9]{64}$/);
+  assert.notEqual(row.nameSha256,row.projectNameSha256);
+  assert.equal(result.completeSafetyProof,false);assert.ok(!JSON.stringify(result).includes(secret));
+});
+test('container metadata changing between observations remains UNVERIFIED',async()=>{
+  const f=fixture(),original=f.execute;let reads=0;
+  f.dependencies.execute=async(binary,args,options)=>{const text=await original(binary,args,options);if(binary==='/usr/bin/docker'&&args[0]==='inspect'&&++reads===2){const row=text.split('\t').map(JSON.parse);row[7]=1;return row.map(JSON.stringify).join('\t');}return text;};
+  const result=await collectMaintenanceHostTopology(f.dependencies);assert.equal(result.docker.containers[0].verification,'UNVERIFIED');assert.equal(result.completeSafetyProof,false);
+});
+test('unit cgroup and boot instance join the same PID/startTicks while working paths remain hashed',async()=>{
+  const f=fixture(),original=f.execute,read=f.dependencies.readFile,link=f.dependencies.readlink;
+  f.dependencies.execute=async(binary,args,options)=>{const text=await original(binary,args,options);return binary==='/usr/bin/systemctl'&&args[0]==='show'?text+`\nControlGroup=/system.slice/phoenix-api.service\nWorkingDirectory=/private/${secret}\nInvocationID=${'e'.repeat(32)}`:text;};
+  f.dependencies.readFile=async file=>file.endsWith('/cgroup')?'0::/system.slice/phoenix-api.service\n':read(file);
+  f.dependencies.readlink=async file=>file.endsWith('/cwd')?`/private/${secret}`:link(file);
+  const result=await collectMaintenanceHostTopology(f.dependencies),p=result.processes.processes.find(p=>p.pid===2),unit=result.systemd.units.find(u=>u.unitType==='SERVICE');
+  assert.ok(p.systemdControlGroupSha256.includes(unit.controlGroupSha256));assert.equal(p.cwdSha256,unit.workingDirectorySha256);
+  assert.equal(unit.mainProcess.pid,p.pid);assert.equal(unit.mainProcess.startTicks,p.startTicks);assert.match(unit.invocationIdSha256,/^[a-f0-9]{64}$/);
+  assert.ok(!JSON.stringify(result).includes(secret));assert.equal(result.completeSafetyProof,false);
+});
+test('systemd instance changing on second read cannot claim stable main process',async()=>{
+  const f=fixture(),original=f.execute;let reads=0;
+  f.dependencies.execute=async(binary,args,options)=>{const text=await original(binary,args,options);return binary==='/usr/bin/systemctl'&&args[0]==='show'&&++reads===2?text+'\nInvocationID='+ 'f'.repeat(32):text;};
+  const result=await collectMaintenanceHostTopology(f.dependencies);assert.equal(result.systemd.units[0].verification,'UNVERIFIED');assert.equal(result.completeSafetyProof,false);
+});
+
+test('same PID changing UID or cgroup cannot supply a stable attribution row',async()=>{
+ for(const part of ['status','cgroup']){
+  const f=fixture(),read=f.dependencies.readFile;let hits=0;
+  f.dependencies.readFile=async file=>{const text=await read(file);return file===`/proc/2/${part}`&&++hits===2?(part==='status'?text.replace('Uid:\t0\t0\t0\t0','Uid:\t1\t1\t1\t1'):text+'\n0::/other'):text;};
+  const result=await collectMaintenanceHostTopology(f.dependencies);assert.equal(result.processes.processes.find(p=>p.pid===2).verification,'UNVERIFIED');assert.equal(result.completeSafetyProof,false);
+ }
 });
