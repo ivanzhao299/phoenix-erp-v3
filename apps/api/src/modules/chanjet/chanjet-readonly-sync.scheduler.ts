@@ -1,3 +1,4 @@
+import { backgroundAdmissionTransactionOwner } from '../background-control/background-admission-transaction-owner';
 import { ChanjetReadonlyLockLease } from './chanjet-readonly-lock-lease';
 import { randomUUID } from 'node:crypto';
 import { withReadonlyOrchestration } from './chanjet-readonly-execution';
@@ -738,7 +739,7 @@ export class ChanjetReadonlySyncScheduler implements OnApplicationBootstrap, OnM
       const connectionConfig = resolveGuardClientConfig((this.ds.options ?? {}) as GuardConnectionConfig);
       if (!connectionConfig) throw new Error('READONLY_HOLD_EXECUTION_GUARD_UNCONFIGURED');
       const guard = createBoundedGuardExecutor(connectionConfig);
-      const store = new ChanjetExecutionAdmissionStore(this.ds.manager);
+      const store = new ChanjetExecutionAdmissionStore(this.ds.manager, backgroundAdmissionTransactionOwner(this.background));
       store.setStandaloneExecutor(guard);
       this.executionSupportSingleton = { store, guard };
     }
