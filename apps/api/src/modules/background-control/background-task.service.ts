@@ -20,6 +20,7 @@ export class BackgroundTaskService implements BeforeApplicationShutdown, OnModul
   private lastGeneration?: number;
   private shutdownPromise?: Promise<void>;
   private heartbeat?: ReturnType<typeof setInterval>;
+  private heartbeatPending = false;
   private initialization?: Promise<void>;
   readonly identity: BackgroundIdentity = {
     bootId: randomUUID(),
@@ -43,7 +44,12 @@ export class BackgroundTaskService implements BeforeApplicationShutdown, OnModul
       backendStartedAt: controlSession.backendStartedAt, applicationName: controlSession.applicationName,
     } })}`);
     this.heartbeat = setInterval(() => {
-      if (!this.stopping && !this.poisoned) void this.serialized(() => this.backend.probe()).catch(() => { this.poisoned = true; });
+      if (this.stopping || this.poisoned || this.heartbeatPending) return;
+      // Reserve before enqueueing: the serialized control session may be stalled.
+      this.heartbeatPending = true;
+      void this.serialized(async () => {
+        if (!this.stopping && !this.poisoned) await this.backend.probe();
+      }).catch(() => { this.poisoned = true; }).finally(() => { this.heartbeatPending = false; });
     }, 1000);
     this.heartbeat.unref();
   }

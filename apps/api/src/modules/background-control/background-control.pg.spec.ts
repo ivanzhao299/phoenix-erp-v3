@@ -123,6 +123,53 @@ function deferred() { let resolve!: () => void; const promise = new Promise<void
     await expect(f.locks.probe()).rejects.toThrow('BACKGROUND_SESSION_IDENTITY_LOST');
     expect(f.service.status().poisoned).toBe(true);
   });
+  it('retired control PID/backend_start cannot return through a healthy TypeORM pool borrow', async () => {
+    const locks = backend(); locks.bindIdentity('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb');
+    await locks.probe(); await locks.executionEnter(); const old = locks.status();
+    await locks.close();
+    expect(locks.status().cleanup).toMatchObject({ terminationConfirmed: true, releaseConfirmed: true, debt: false });
+    const deadline = Date.now() + 2000; let remaining = 1;
+    while (remaining && Date.now() < deadline) {
+      const rows = await coordinator.query('SELECT count(*)::int AS remaining FROM pg_stat_activity WHERE pid=$1 AND floor(extract(epoch from backend_start)*1000)::bigint=$2',
+        [old.sessionPid, Date.parse(old.backendStartedAt!)]);
+      remaining = rows[0].remaining; if (remaining) await tick();
+    }
+    expect(remaining).toBe(0); expect(await waitExclusive(2)).toBe(true);
+    for (let i = 0; i < 4; i++) {
+      const next = db.createQueryRunner('master');
+      try {
+        await next.connect(); const rows = await next.query('SELECT pg_backend_pid() AS pid,backend_start FROM pg_stat_activity WHERE pid=pg_backend_pid()');
+        expect(rows[0].pid === old.sessionPid && new Date(rows[0].backend_start).toISOString() === old.backendStartedAt).toBe(false);
+      } finally { await next.release(); }
+    }
+    await expect(locks.probe()).rejects.toThrow('BACKGROUND_SESSION_LOST');
+  });
+  it('a timed-out actual control query releases its session but cannot drain still-running business work', async () => {
+    const f = await create(), pending = pendingWork(), started = deferred();
+    f.service.spawn('held-business-work', 'LOCAL', async () => { started.resolve(); await pending.promise; }); await started.promise;
+    const old = f.locks.status();
+    const runner = Reflect.get(f.locks, 'runner') as QueryRunner;
+    const original = runner.query.bind(runner);
+    jest.spyOn(runner, 'query').mockImplementation((sql: string, parameters?: unknown[]) =>
+      sql.includes('pg_backend_pid()') ? original('SELECT pg_sleep(20)') : original(sql, parameters));
+    await expect(f.locks.probe()).rejects.toThrow('BACKGROUND_SESSION_LOST');
+    expect(f.service.status()).toMatchObject({ poisoned: true, phase: 'HOLD', inFlight: 1, taskGraphs: 1, controlSession: { broken: true } });
+    // Local socket termination is not a server-session disappearance receipt.
+    // Server work can outlive a TCP close; independently observe this exact
+    // PID/backend_start before asserting that its advisory locks are gone.
+    let remaining = 1; const deadline = Date.now() + 25000;
+    while (remaining && Date.now() < deadline) {
+      const rows = await coordinator.query('SELECT count(*)::int AS remaining FROM pg_stat_activity WHERE pid=$1 AND floor(extract(epoch from backend_start)*1000)::bigint=$2',
+        [old.sessionPid, Date.parse(old.backendStartedAt!)]);
+      remaining = rows[0].remaining; if (remaining) await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    expect(remaining).toBe(0);
+    expect(await waitExclusive(2)).toBe(true);
+    await expect(f.service.shutdown(100)).rejects.toThrow('DRAIN_TIMEOUT_OR_SESSION_LOST');
+    expect(f.service.status().inFlight).toBe(1);
+    await expect(f.service.run('never-admitted-after-timeout', 'LOCAL', async () => undefined)).rejects.toThrow('PARTICIPANT_HOLD');
+    pending.resolve(); await tick();
+  }, 40000);
   it('a separate process death releases locks but provides no quiescent participant proof', async () => {
     const script = `const{Client}=require('pg');(async()=>{const c=new Client({connectionString:process.env.BACKGROUND_TEST_PG_URL});await c.connect();await c.query('SELECT pg_advisory_lock_shared(17455,2)');process.send({locked:true});setInterval(()=>{},1000)})().catch(()=>process.exit(2));`;
     const child = spawn(process.execPath, ['-e', script], { stdio: ['ignore', 'ignore', 'ignore', 'ipc'],
