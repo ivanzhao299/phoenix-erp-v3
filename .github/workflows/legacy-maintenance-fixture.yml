@@ -38,6 +38,7 @@ jobs:
           docker pull node:20-alpine
           docker pull node:20-bookworm-slim
           docker pull postgres:16-alpine
+          docker pull postgres:16.14-alpine
           docker pull postgres:18-alpine
           docker pull alpine:3.23
           mkdir -p artifacts/maintenance-ci
@@ -53,6 +54,10 @@ jobs:
           MAINTENANCE_REPLACEMENT_DOCKER_FIXTURE: '1'
           MAINTENANCE_REPLACEMENT_MANIFEST: ${{ github.workspace }}/artifacts/maintenance-ci/replacement-resources.json
         run: node --test scripts/ops/production-maintenance-replacement.docker.test.mjs
+      - name: Actual fixed readonly database observations on PG16 and PG18
+        env:
+          MAINTENANCE_DATABASE_PG_FIXTURE: '1'
+        run: node --test scripts/ops/production-maintenance-database-observer.pg.test.mjs
       - name: Actual tracked ERP image startup and readonly mutation canaries
         run: node scripts/ci/maintenance-erp-candidate.fixture.mjs
       - name: Retain allowlisted isolated evidence only
@@ -63,6 +68,7 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
           path: |
+            artifacts/maintenance-db-observer/*.json
             artifacts/maintenance-ci/runtime-resources.json
             artifacts/maintenance-ci/replacement-resources.json
             artifacts/maintenance-ci/replacement-resources.json.result.json
