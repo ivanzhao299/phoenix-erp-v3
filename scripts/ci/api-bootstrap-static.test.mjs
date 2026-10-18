@@ -7,6 +7,7 @@ import { createRequire } from 'node:module';
 import { spawnSync } from 'node:child_process';
 import { classifySql, capturedStatements, capturedDatabaseStatements, sliceCapturedWindow, verifyBootstrap, assertDefaultBackgroundHold, parseBootControlIdentity, verifyCapturedControlIdentity, summarizeBootstrapRuntime } from './api-bootstrap-mutations.mjs';
 const { auditBootstrap }=createRequire(import.meta.url)('./check-api-bootstrap-side-effects.cjs');
+const ts=createRequire(import.meta.url)('../../apps/api/node_modules/typescript');
 
 test('SQL detector rejects attempted DDL, business writes and sequence changes even when idempotent',()=>{
  for(const sql of ['CREATE TABLE IF NOT EXISTS t(id int)','ALTER TABLE t ADD COLUMN IF NOT EXISTS x text','DROP CONSTRAINT IF EXISTS f','CREATE EXTENSION IF NOT EXISTS "uuid-ossp"'])assert.equal(classifySql(sql),'SCHEMA_MUTATION');
@@ -226,12 +227,81 @@ test('bootstrap default-HOLD proof requires real stable boot/session identity an
 test('session application_name setter is admitted only from exact UUIDv4 boot binding and fixed GUC',()=>{
  const f=admissionStaticFixture();
  try {
-  const binding="private applicationName=''; bindIdentity(bootId:string) { if(this.runner || !/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(bootId)) throw Error('identity'); this.applicationName = `phoenix-fence:${bootId}`; }";
+  const binding="private applicationName=''; bindIdentity(bootId:string) { if(this.runner || this.closed || this.broken || !/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(bootId)) throw Error('identity'); this.applicationName = `phoenix-fence:${bootId}`; }";
   const source=f.backend.replace('  private async query',binding+'\n  private async query').replace('return this.runner.query(sql,',`await this.runner.query("SELECT set_config('application_name', $1, false)",[this.applicationName]); return this.runner.query(sql,`);
   f.write(f.base+'background-lock.backend.ts',source);assert.deepEqual(auditBootstrap(f.dir).violations,[]);
-  for(const mutation of [source.replace("set_config('application_name'","set_config('role'"),source.replace("$1, false)","$1, true)"),source.replace('[this.applicationName]','[process.env.VALUE]'),source.replace('`phoenix-fence:${bootId}`','process.env.VALUE'),source.replace('this.runner || !/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(bootId)','false')]) {
+  for(const mutation of [source.replace("set_config('application_name'","set_config('role'"),source.replace("$1, false)","$1, true)"),source.replace('[this.applicationName]','[process.env.VALUE]'),source.replace('`phoenix-fence:${bootId}`','process.env.VALUE'),source.replace('this.runner || this.closed || this.broken || !/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(bootId)','false')]) {
    f.write(f.base+'background-lock.backend.ts',mutation);assert(auditBootstrap(f.dir).violations.some(v=>v.code==='UNREVIEWED_BACKGROUND_CONTROL_SQL'));
   }
+ } finally {f.close();}
+});
+
+function boundedControlSource(f) {
+ const binding="private applicationName=''; bindIdentity(bootId:string) { if(this.runner || this.closed || this.broken || !/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(bootId)) throw Error('identity'); this.applicationName = `phoenix-fence:${bootId}`; }";
+ const methods=`private observeQuery<T>(work:()=>Promise<T>) { const promise=Promise.resolve().then(work); this.pendingQueries.add(promise); void promise.then(()=>this.pendingQueries.delete(promise),()=>this.pendingQueries.delete(promise)); return promise; }
+  private bounded<T>(promise:Promise<T>, milliseconds:number, code:string) { return promise; }
+  private async query(sql:string,key:number) {
+   await this.bounded(this.observeQuery(()=>this.runner!.query("SELECT set_config('application_name', $1, false)",[this.applicationName])),1000,'identity');
+   return await this.bounded(this.observeQuery(()=>this.runner!.query(sql,[BACKGROUND_NAMESPACE,key])),1000,'query');
+  }`;
+ return f.backend.replace('  private async query(sql:string,key:number) { return this.runner.query(sql,[BACKGROUND_NAMESPACE,key]); }',binding+'\n  '+methods);
+}
+
+test('bounded control callbacks admit only exact lexical owner, non-null receiver and unchanged nonce guard',()=>{
+ const f=admissionStaticFixture();
+ try {
+  const source=boundedControlSource(f);f.write(f.base+'background-lock.backend.ts',source);
+  const report=auditBootstrap(f.dir);assert.deepEqual(report.violations,[]);
+  assert.equal(report.sql.filter(record=>record.kind==='FIXED_SESSION_APPLICATION_NAME').length,1);
+  assert.equal(report.sql.filter(record=>record.kind==='FIXED_CONTROL_SELECT_FORWARDER').length,1);
+  const mutations=[
+   ['missing closed guard',source.replace('this.runner || this.closed || this.broken','this.runner || this.broken')],
+   ['missing both lifecycle guards',source.replace('this.runner || this.closed || this.broken','this.runner')],
+   ['unknown guard order',source.replace('this.closed || this.broken','this.broken || this.closed')],
+   ['foreign receiver',source.replace('this.runner!.query(sql,','this.driver!.query(sql,')],
+   ['receiver cast',source.replace('this.runner!.query(sql,','(this.runner as any).query(sql,')],
+   ['optional receiver',source.replace('this.runner!.query(sql,','this.runner?.query(sql,')],
+   ['receiver reassignment',source.replace('return await this.bounded','this.runner=otherDriver; return await this.bounded')],
+   ['element receiver reassignment',source.replace('return await this.bounded',"this['runner']=otherDriver; return await this.bounded")],
+   ['sql shadow',source.replace('observeQuery(()=>this.runner!.query(sql,','observeQuery((sql)=>this.runner!.query(sql,')],
+   ['key shadow',source.replace('observeQuery(()=>this.runner!.query(sql,','observeQuery((key)=>this.runner!.query(sql,')],
+   ['namespace shadow',source.replace('return await this.bounded','const BACKGROUND_NAMESPACE=999; return await this.bounded')],
+   ['function this shadow',source.replace('()=>this.runner!.query(sql,[BACKGROUND_NAMESPACE,key])','function(){return this.runner!.query(sql,[BACKGROUND_NAMESPACE,key]);}')],
+   ['block callback shadow',source.replace('()=>this.runner!.query(sql,[BACKGROUND_NAMESPACE,key])','()=>{const sql=unreviewed; return this.runner!.query(sql,[BACKGROUND_NAMESPACE,key]);}')],
+   ['other callback owner',source.replace('this.observeQuery(()=>this.runner!.query(sql,','this.unknownObserver(()=>this.runner!.query(sql,')],
+   ['non-private observer',source.replace('private observeQuery<T>','observeQuery<T>')],
+   ['sql escape',source.replace('return await this.bounded','leak(sql); return await this.bounded')],
+   ['key escape',source.replace('return await this.bounded','leak(key); return await this.bounded')],
+   ['dynamic control source',source.replace("this.query('SELECT pg_backend_pid() AS pid, $1::int AS namespace, $2::int AS session_probe',0)",'this.query(process.env.SQL,0)')],
+   ['write control source',source.replace('SELECT pg_backend_pid() AS pid, $1::int AS namespace, $2::int AS session_probe','DELETE FROM control')],
+   ['wrong namespace',source.replace('[BACKGROUND_NAMESPACE,key]','[999,key]')],
+   ['different session GUC',source.replace("set_config('application_name'","set_config('role'")],
+   ['session callback this shadow',source.replace('()=>this.runner!.query("SELECT set_config(\'application_name\', $1, false)",[this.applicationName])','function(){return this.runner!.query("SELECT set_config(\'application_name\', $1, false)",[this.applicationName]);}')],
+   ['session helper escape',source.replace('this.observeQuery(()=>this.runner!.query("SELECT set_config','this.unknownObserver(()=>this.runner!.query("SELECT set_config')],
+   ['duplicate session setter',source.replace('return await this.bounded','await this.observeQuery(()=>this.runner!.query("SELECT set_config(\'application_name\', $1, false)",[this.applicationName])); return await this.bounded')],
+   ['duplicate forwarder',source.replace('return await this.bounded','await this.observeQuery(()=>this.runner!.query(sql,[BACKGROUND_NAMESPACE,key])); return await this.bounded')],
+  ];
+  for(const [name,mutation] of mutations) {
+   assert.notEqual(mutation,source,name);
+   assert.deepEqual(ts.createSourceFile('mutation.ts',mutation,ts.ScriptTarget.Latest,true).parseDiagnostics,[],name);
+   f.write(f.base+'background-lock.backend.ts',mutation);
+   assert(auditBootstrap(f.dir).violations.some(v=>v.code==='UNREVIEWED_BACKGROUND_CONTROL_SQL'),name);
+  }
+ } finally {f.close();}
+});
+
+test('reviewed callback node grants never extend to another class, method or startup mutation',()=>{
+ const f=admissionStaticFixture();
+ try {
+  const source=boundedControlSource(f);f.write(f.base+'background-lock.backend.ts',source);
+  for(const sql of ['DELETE FROM control',"SELECT set_config('role', $1, false)"]) {
+   f.write('apps/api/src/unreviewed-hook.ts',`export class SystemController { onModuleInit(){return this.observeQuery(()=>this.runner!.query(${JSON.stringify(sql)},[]));} private observeQuery(work:any){return work();} }`);
+   const report=auditBootstrap(f.dir);
+   assert(report.violations.some(v=>['STARTUP_SQL_MUTATION','UNREVIEWED_STARTUP_SESSION_SQL'].includes(v.code)));
+  }
+  f.write('apps/api/src/unreviewed-hook.ts','export class EmptyHook {}');
+  f.write(f.base+'background-lock.backend.ts',source.replace('  probe()',"  moved(){return this.observeQuery(()=>this.runner!.query(sql,[BACKGROUND_NAMESPACE,key]));}\n  probe()").replace('this.query(\'SELECT pg_backend_pid() AS pid, $1::int AS namespace, $2::int AS session_probe\',0)','this.moved()'));
+  assert(auditBootstrap(f.dir).violations.some(v=>v.code==='UNRESOLVED_STARTUP_SQL'));
  } finally {f.close();}
 });
 

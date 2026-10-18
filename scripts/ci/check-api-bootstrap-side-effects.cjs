@@ -45,9 +45,13 @@ function target(entry,expr) {
 const literal = node => node && (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) ? node.text : undefined;
 const isThis = (node, name) => !!node && ts.isPropertyAccessExpression(node)
  && node.expression.kind === ts.SyntaxKind.ThisKeyword && node.name.text === name;
+// Only TypeScript's erased non-null assertion may wrap the reviewed receiver.
+// Casts, aliases, optional access and arbitrary driver expressions are not proof.
+const withoutNonNull = node => node && ts.isNonNullExpression(node) ? withoutNonNull(node.expression) : node;
 const controlClass = classes.get('BackgroundLockBackend');
 const controlQuery = controlClass?.methods.get('query');
 const controlUnlock = controlClass?.methods.get('unlock');
+const controlObserver = controlClass?.methods.get('observeQuery');
 const controlSql = new Set([
  'SELECT pg_try_advisory_lock_shared($1::int, $2::int) AS acquired',
  'SELECT pg_advisory_unlock_shared($1::int, $2::int)',
@@ -60,6 +64,25 @@ const normalizeSql = value => value?.replace(/\s+/g, ' ').trim();
 let controlSqlSafe = !!controlQuery;
 const controlForwarders = new Set();
 const controlSessionSetters = new Set();
+function exactControlQueryOwner(node) {
+ let current=node.parent;
+ while(current&&current!==controlQuery?.node) {
+  if(ts.isFunctionLike(current)) {
+   const admission=current.parent;
+   if(!ts.isArrowFunction(current)||current.parameters.length!==0||current.body!==node
+    ||!ts.isCallExpression(admission)||admission.arguments.length!==1||admission.arguments[0]!==current
+    ||!isThis(admission.expression,'observeQuery')||target(controlQuery,admission.expression)!==controlObserver
+    ||!controlObserver?.node.modifiers?.some(modifier=>modifier.kind===ts.SyntaxKind.PrivateKeyword)
+    ||controlObserver.node.parameters.length!==1||controlObserver.node.parameters[0].name.getText()!=='work')return false;
+  }
+  current=current.parent;
+ }
+ return current===controlQuery?.node;
+}
+function reviewedControlNode(entry,node,nodes) {
+ return controlSqlSafe&&entry.cls===controlClass&&entry.source===controlClass.source
+  &&nodes.has(node)&&exactControlQueryOwner(node);
+}
 function controlFail(entry, node, reason) {
  controlSqlSafe = false;
  violations.push({code:'UNREVIEWED_BACKGROUND_CONTROL_SQL',at:locate(entry,node),entry:entry.name,reason});
@@ -84,7 +107,7 @@ if(controlQuery) {
  let identitySafe=false;
  if(identityBinding) {
   const statements=identityBinding.node.body.statements;const guard=statements[0];const assignment=statements[1]?.expression;
-  const expectedGuard="this.runner||!/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(bootId)";
+  const expectedGuard="this.runner||this.closed||this.broken||!/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(bootId)";
   identitySafe=identityBinding.node.parameters.length===1&&identityBinding.node.parameters[0].name.getText()==='bootId'
    &&statements.length===2&&ts.isIfStatement(guard)&&guard.expression.getText(controlClass.source).replace(/\s+/g,'')===expectedGuard
    &&ts.isThrowStatement(guard.thenStatement)&&assignment&&ts.isBinaryExpression(assignment)&&assignment.operatorToken.kind===ts.SyntaxKind.EqualsToken
@@ -101,11 +124,13 @@ if(controlQuery) {
  const verifyForward=node=>{
   if(ts.isCallExpression(node)&&ts.isPropertyAccessExpression(node.expression)&&node.expression.name.text==='query') {
    const args=node.arguments,values=args[1];
-   const sessionSetter=isThis(node.expression.expression,'runner')&&args.length===2
+   const receiver=isThis(withoutNonNull(node.expression.expression),'runner')&&!node.expression.questionDotToken;
+   if(!exactControlQueryOwner(node))controlFail(controlQuery,node,'CONTROL_QUERY_CALLBACK_OWNER_CHANGED');
+   const sessionSetter=receiver&&args.length===2
     &&literal(args[0])==="SELECT set_config('application_name', $1, false)"
     &&values&&ts.isArrayLiteralExpression(values)&&values.elements.length===1&&isThis(values.elements[0],'applicationName');
    if(sessionSetter&&identitySafe)controlSessionSetters.add(node);
-   else if(!isThis(node.expression.expression,'runner')||args.length!==2||!ts.isIdentifier(args[0])||args[0].text!=='sql'
+   else if(!receiver||args.length!==2||!ts.isIdentifier(args[0])||args[0].text!=='sql'
     ||!values||!ts.isArrayLiteralExpression(values)||values.elements.length!==2
     ||!ts.isIdentifier(values.elements[0])||values.elements[0].text!=='BACKGROUND_NAMESPACE'
     ||!ts.isIdentifier(values.elements[1])||values.elements[1].text!=='key')controlFail(controlQuery,node,'CONTROL_FORWARDER_ARGUMENTS_CHANGED');
@@ -113,10 +138,21 @@ if(controlQuery) {
   }
   // Reassigning parameters/constants would make literal callers insufficient.
   if(ts.isBinaryExpression(node)&&node.operatorToken.kind>=ts.SyntaxKind.FirstAssignment&&node.operatorToken.kind<=ts.SyntaxKind.LastAssignment)
-   if(['sql','key','BACKGROUND_NAMESPACE'].includes(node.left.getText(controlClass.source)))controlFail(controlQuery,node,'CONTROL_ARGUMENT_REASSIGNED');
+   if(['sql','key','BACKGROUND_NAMESPACE'].includes(node.left.getText(controlClass.source))||isThis(node.left,'runner')
+    ||(ts.isElementAccessExpression(node.left)&&node.left.expression.kind===ts.SyntaxKind.ThisKeyword&&literal(node.left.argumentExpression)==='runner'))controlFail(controlQuery,node,'CONTROL_ARGUMENT_REASSIGNED');
   ts.forEachChild(node,verifyForward);
  };verifyForward(controlQuery.node);
  if(controlForwarders.size!==1)controlFail(controlQuery,controlQuery.node,'CONTROL_FORWARDER_NOT_UNIQUE');
+ if(controlSessionSetters.size>1)controlFail(controlQuery,controlQuery.node,'CONTROL_SESSION_SETTER_NOT_UNIQUE');
+ // sql/key may only occur as the method parameters and the exact forwarding
+ // argument nodes. In particular, closure shadowing and helper escapes fail.
+ const forward=[...controlForwarders][0];
+ const parameterUses=new Set([controlQuery.node.parameters[0].name,controlQuery.node.parameters[1].name,
+  forward?.arguments[0],forward?.arguments[1]?.elements?.[0],forward?.arguments[1]?.elements?.[1]]);
+ const checkParameterUses=node=>{
+  if(ts.isIdentifier(node)&&['sql','key','BACKGROUND_NAMESPACE'].includes(node.text)&&!parameterUses.has(node))controlFail(controlQuery,node,'CONTROL_ARGUMENT_ESCAPED_OR_SHADOWED');
+  ts.forEachChild(node,checkParameterUses);
+ };checkParameterUses(controlQuery.node);
  if(controlUnlock&&(!controlUnlock.node.modifiers?.some(modifier=>modifier.kind===ts.SyntaxKind.PrivateKeyword)
   ||controlUnlock.node.parameters.length!==1||controlUnlock.node.parameters[0].name.getText()!=='key'))
   controlFail(controlUnlock,controlUnlock.node,'CONTROL_UNLOCK_BINDING_CHANGED');
@@ -199,8 +235,8 @@ function inspect(entry) {
     const arg=node.arguments[0];let text;
     if(arg&&(ts.isStringLiteral(arg)||ts.isNoSubstitutionTemplateLiteral(arg)))text=arg.text;
     else if(arg&&ts.isTemplateExpression(arg))text=arg.head.text+arg.templateSpans.map(s=>s.literal.text).join(' ');
-    if(entry.name==='BackgroundLockBackend.query'&&controlSessionSetters.has(node)&&controlSqlSafe)sql.push({entry:entry.name,at:locate(entry,node),kind:'FIXED_SESSION_APPLICATION_NAME'});
-    else if(entry.name==='BackgroundLockBackend.query'&&controlForwarders.has(node)&&controlSqlSafe)sql.push({entry:entry.name,at:locate(entry,node),kind:'FIXED_CONTROL_SELECT_FORWARDER'});
+    if(reviewedControlNode(entry,node,controlSessionSetters))sql.push({entry:entry.name,at:locate(entry,node),kind:'FIXED_SESSION_APPLICATION_NAME'});
+    else if(reviewedControlNode(entry,node,controlForwarders))sql.push({entry:entry.name,at:locate(entry,node),kind:'FIXED_CONTROL_SELECT_FORWARDER'});
     else if(!text)violations.push({code:'UNRESOLVED_STARTUP_SQL',at:locate(entry,node),entry:entry.name});
     else if(/\bset_config\s*\(/i.test(text)||/(?:^|;)\s*(?:SET|RESET)\b/i.test(text.replace(/--[^\n]*/g,'').replace(/\/\*[\s\S]*?\*\//g,'')))violations.push({code:'UNREVIEWED_STARTUP_SESSION_SQL',at:locate(entry,node),entry:entry.name});
     else if(/\b(?:CREATE|ALTER|DROP|INSERT|UPDATE|DELETE|TRUNCATE|MERGE|setval|nextval)\b/i.test(text))violations.push({code:'STARTUP_SQL_MUTATION',at:locate(entry,node),entry:entry.name});
