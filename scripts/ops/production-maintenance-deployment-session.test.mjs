@@ -7,6 +7,7 @@ import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { execFileSync, spawn } from 'node:child_process';
 import { once } from 'node:events';
+import {DockerPostgresControlSession} from './background-control-coordinator.mjs';
 import { LegacyMaintenanceDeploymentSession, RELEASE_SCOPE, validateReleasePlan, verifySessionFormalEvidence } from './production-maintenance-deployment-session.mjs';
 import { MaintenanceReceiptStore, canonicalDigest, bindingDigest, createMaintenanceEvidence } from './production-maintenance-receipts.mjs';
 import { MAINTENANCE_OPERATIONS } from './production-maintenance-transition.mjs';
@@ -346,4 +347,120 @@ test('protected CLI rejects arbitrary shell/stdin commands without loading adapt
   assert.throws(() => execFileSync(process.execPath, ['scripts/ops/production-maintenance-deployment-session.mjs', 'sh', '-c', 'anything'], { stdio: ['ignore', 'pipe', 'pipe'] }), error => {
     assert.match(error.stderr.toString(), /SESSION_FIXED_COMMAND_REQUIRED/); return true;
   });
+});
+
+/** Real owned Node child, synthetic t/f transport ONLY. No Docker, PostgreSQL,
+ * server lock, release proof or production admission is claimed by these cases. */
+function ownedControl(f,{register=true,delay=0,response='t',ignoreTerm=false}={}){
+  const program=`${ignoreTerm?"process.on('SIGTERM',()=>{});":''}process.stdin.setEncoding('utf8');let rest='';process.stdin.on('data',chunk=>{rest+=chunk;let n;while((n=rest.indexOf('\\n'))>=0){rest=rest.slice(n+1);setTimeout(()=>process.stdout.write(${JSON.stringify(response+'\n')}),${delay});}});`;
+  return new DockerPostgresControlSession({commandTimeoutMs:1000},{spawn:()=>{
+    const child=spawn(process.execPath,['-e',program],{stdio:['pipe','pipe','pipe']});
+    if(register)f.session.registerOwnedChild(child);return child;
+  }});
+}
+async function closeOwnedControl(f,control){
+  f.session.closingControls=true;await control.close();
+  await Promise.all([...f.session.controlChildren.values()].map(entry=>entry.work));
+}
+function wireOwnedControl(f,exercise,options={}){
+  const register=f.producers.registerStartedCandidate,close=f.lease.close;let control;
+  f.producers.registerStartedCandidate=async request=>{
+    control=ownedControl(f,options);await exercise(control,request);return register(request);
+  };
+  f.lease.close=async request=>{if(control)await control.close();return close(request);};
+  f.rebuild();return ()=>control;
+}
+test('control child is supervised before handshake and transferred only after a verified response',async()=>{
+  const f=fixture();const get=wireOwnedControl(f,async(control,request)=>{
+    const starting=control.start();assert.equal(f.session.children.size,1);
+    assert.throws(()=>request.registerControlSession(control,f.lease),/REAL_CONTROL_SESSION_REQUIRED/);
+    await starting;assert.equal(control.handshakeVerified,true);
+    assert.throws(()=>f.session.assertNoActiveChildren(),/ACTIVE_EFFECT_CHILD/);
+    request.registerControlSession(control,f.lease);assert.equal(f.session.children.size,0);assert.equal(f.session.controlChildren.size,1);
+    f.session.assertNoActiveChildren();await control.ping();
+    assert.throws(()=>f.session.registerOwnedChild(control.child),/DUPLICATE_CHILD_REGISTRATION/);
+    assert.throws(()=>request.registerControlSession(control,f.lease),/HANDOFF_PHASE_OR_DUPLICATE/);
+  },{delay:50});
+  try{assert.equal((await f.session.run()).controlLeaseRelease,'VERIFIED_RELEASED');}
+  finally{if(get())await closeOwnedControl(f,get());}
+});
+test('unregistered control child and wrong phase cannot enter the persistent control set',async()=>{
+  for(const register of [false,true]){
+    const f=fixture();const get=wireOwnedControl(f,async(control,request)=>{
+      await control.start();const stage=f.session.stage;if(register)f.session.stage='PREFLIGHT';
+      assert.throws(()=>request.registerControlSession(control,f.lease),register?/HANDOFF_PHASE_OR_DUPLICATE/:/PENDING_CONTROL_CHILD_REQUIRED/);
+      f.session.stage=stage;assert.equal(f.session.controlChildren.size,0);await control.close();
+    },{register});
+    try{await f.session.run();}finally{if(get())await closeOwnedControl(f,get());}
+  }
+});
+test('a false transport handshake never becomes a registered control lease',async()=>{
+  const f=fixture();const get=wireOwnedControl(f,async(control,request)=>{
+    await assert.rejects(control.start(),/HANDSHAKE_FAILED/);assert.equal(control.handshakeVerified,false);
+    assert.throws(()=>request.registerControlSession(control,f.lease),/REAL_CONTROL_SESSION_REQUIRED/);await control.close();
+  },{response:'f'});
+  try{await f.session.run();}finally{if(get())await closeOwnedControl(f,get());}
+});
+test('unexpected control exit and child substitution remain fatal after ownership transfer',async()=>{
+  const f=fixture();const get=wireOwnedControl(f,async(control,request)=>{
+    await control.start();request.registerControlSession(control,f.lease);const original=control.child;
+    control.child={};assert.throws(()=>f.session.assertNoActiveChildren(),/CONTROL_PROCESS_LOST/);control.child=original;
+    const exited=once(original,'exit');original.kill('SIGTERM');await exited;
+    assert.match(f.session.fatal.message,/CONTROL_PROCESS_LOST/);assert.throws(()=>f.session.assertNoActiveChildren(),/CONTROL_PROCESS_LOST/);
+  });
+  try{await assert.rejects(f.session.run(),/CONTROL_PROCESS_LOST/);assert.equal(f.opened,false);}
+  finally{if(get())await closeOwnedControl(f,get());}
+});
+test('full synthetic release keeps a real control child supervised through final client close',async()=>{
+  const f=fixture();const get=wireOwnedControl(f,async(control,request)=>{await control.start();request.registerControlSession(control,f.lease);});
+  try{
+    const result=await f.session.run();assert.equal(result.formalDeploymentOutcome,'SUCCESS');assert.equal(result.controlLeaseRelease,'VERIFIED_RELEASED');
+    assert.equal(f.session.children.size,0);assert.equal(f.session.controlChildren.size,1);assert.equal(get().child,null);
+  }finally{if(get())await closeOwnedControl(f,get());}
+});
+test('server release receipt cannot hide a still-running control client after formal success',async()=>{
+  const f=fixture(),register=f.producers.registerStartedCandidate;let control;
+  f.producers.registerStartedCandidate=async request=>{control=ownedControl(f);await control.start();request.registerControlSession(control,f.lease);return register(request);};
+  f.rebuild({cleanupTimeoutMs:30});try{
+    await assert.rejects(f.session.run(),/FORMAL_SUCCESS_CONTROL_CLIENT_INCIDENT/);assert.equal(f.opened,true);
+    const incident=f.store.read(path.join(f.directory,`maintenance-session-control-clients-unsettled-${f.context.owner}.json`));
+    assert.equal(incident.clientLifecycle,'UNVERIFIED');assert.equal(incident.formalDeploymentOutcome,'SUCCESS');
+  }finally{if(control)await closeOwnedControl(f,control);}
+});
+test('changed returned lease and saved callback after producer completion cannot alter control ownership',async()=>{
+  const f=fixture(),register=f.producers.registerStartedCandidate,close=f.lease.close;let control,saved;
+  f.producers.registerStartedCandidate=async request=>{control=ownedControl(f);await control.start();saved=request.registerControlSession;
+    saved(control,f.lease);const result=await register(request);return {...result,lease:{observe:f.lease.observe,close:f.lease.close}};};
+  f.lease.close=async request=>{await control.close();return close(request);};f.rebuild();
+  try{await assert.rejects(f.session.run(),/LEASE_HANDOFF_CHANGED/);assert.equal(f.closed,true);assert.equal(f.opened,false);
+    assert.throws(()=>saved(control,f.lease),/REAL_CONTROL_SESSION_REQUIRED|HANDOFF_PHASE_OR_DUPLICATE/);
+  }finally{if(control)await closeOwnedControl(f,control);}
+});
+test('producer failure after handoff retains the original lease for verified cleanup',async()=>{
+  const f=fixture(),close=f.lease.close;let control;
+  f.producers.registerStartedCandidate=async request=>{control=ownedControl(f);await control.start();request.registerControlSession(control,f.lease);throw Error('OWNED_POST_HANDOFF_FAILURE');};
+  f.lease.close=async request=>{await control.close();return close(request);};f.rebuild();
+  try{await assert.rejects(f.session.run(),/OWNED_POST_HANDOFF_FAILURE/);assert.equal(f.closed,true);assert.equal(f.opened,false);assert.equal(control.child,null);}
+  finally{if(control)await closeOwnedControl(f,control);}
+});
+test('a termination request cannot be handed off before exit is delivered',async()=>{
+  const f=fixture();const get=wireOwnedControl(f,async(control,request)=>{
+    await control.start();assert.equal(control.child.kill('SIGTERM'),true);
+    assert.equal(control.child.exitCode,null);assert.equal(control.child.signalCode,null);assert.equal(control.child.killed,true);
+    assert.throws(()=>request.registerControlSession(control,f.lease),/REAL_CONTROL_SESSION_REQUIRED/);await control.close();
+  },{ignoreTerm:true});
+  try{await f.session.run();assert.equal(f.session.controlChildren.size,0);}
+  finally{if(get())await closeOwnedControl(f,get());}
+});
+test('monitor detects control substitution during a still-running producer',async()=>{
+  const f=fixture();const get=wireOwnedControl(f,async(control,request)=>{await control.start();request.registerControlSession(control,f.lease);});
+  f.producers.capturePostAndStartup=async()=>{
+    const original=get().child;get().child={};
+    try{const deadline=Date.now()+1000;while(!f.session.fatal&&Date.now()<deadline)await wait(5);
+      assert.match(f.session.fatal?.message||'',/CONTROL_PROCESS_LOST/);
+    }finally{get().child=original;}
+    throw f.session.fatal;
+  };
+  f.rebuild({pollMs:5});try{await assert.rejects(f.session.run(),/CONTROL_PROCESS_LOST/);assert.equal(f.opened,false);}
+  finally{if(get())await closeOwnedControl(f,get());}
 });
