@@ -104,3 +104,14 @@ in Docker's actual template engine: actual nil/empty host lists return0;
 synthetic empty/nonempty list values return0/1. These template cases do not add
 capabilities or devices to a container. Existing validator negative cases still
 reject each nonempty list. This matrix is not a privileged runtime acceptance.
+
+B9f7 source run39168403700 passed the list-template matrix and reached the public
+bind counterexample on both majors, then failed an assertion (unique assertion
+cause not exported). The owned shadow mount was released, original root release
+verified and three containers stopped exit0. The shadow directory used mkdir555
+under umask077, which yields500 and does not isolate the intended mount-only
+negative. The fixture now creates a new owned shadow, writes an exact0444
+manifest and fchmods the same open directory to0555 without changing umask or
+production guard rules. Stages and fixed guard-code diagnostics distinguish
+future counterexample failures; partial successful observations are exported
+with outcomeFAIL/completefalse and never accepted as a completed fixture.

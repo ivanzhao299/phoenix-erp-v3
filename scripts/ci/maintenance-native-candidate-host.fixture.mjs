@@ -74,6 +74,19 @@ export function writeOwnedFixtureReadonlyJson(file,value) {
   const directory=fs.openSync(parent,fs.constants.O_RDONLY|fs.constants.O_DIRECTORY|fs.constants.O_NOFOLLOW);
   try{fs.fsyncSync(directory);}finally{fs.closeSync(directory);}
 }
+export function createOwnedFixturePublicShadow(directory,manifest) {
+  const parent=path.dirname(directory),parentStat=fs.lstatSync(parent);
+  assert.ok(parentStat.isDirectory()&&!parentStat.isSymbolicLink());assert.equal(parentStat.uid,process.getuid());assert.equal(fs.realpathSync(parent),parent);
+  fs.mkdirSync(directory,{mode:0o700}); // EEXIST refuses an unrelated existing object.
+  const fd=fs.openSync(directory,fs.constants.O_RDONLY|fs.constants.O_DIRECTORY|fs.constants.O_NOFOLLOW);
+  try {
+    const owned=fs.fstatSync(fd);assert.ok(owned.isDirectory());assert.equal(owned.uid,process.getuid());
+    writeOwnedFixtureReadonlyJson(path.join(directory,'manifest.json'),manifest);
+    fs.fchmodSync(fd,0o555);fs.fsyncSync(fd);
+    const actual=fs.lstatSync(directory);assert.equal(actual.dev,owned.dev);assert.equal(actual.ino,owned.ino);assert.equal(actual.mode&0o7777,0o555);
+    return {dev:actual.dev,ino:actual.ino};
+  } finally {fs.closeSync(fd);}
+}
 export async function buildReadableFixturePayload(action) {
   const previous=process.umask(0o022);
   try{return await action();}finally{process.umask(previous);}
@@ -207,20 +220,23 @@ async function exerciseNative() {
       // Intentionally no dependency injection: all collector/default I/O is real.
       const value=await (leasePhases?collectCandidateLeaseBinding:collectCandidateServerBinding)(request);
       assert.equal(value.result,'OBSERVATION_ONLY');assert.equal(value.registryInstalled,false);assert.equal(value.admissionOrApprovalGranted,false);
-      observations.push(value);return value;
+      observations.push(value);result.completedObservationCount=observations.length;return value;
     };
     material.adapters.verifyCandidate=async request=>{
       result.stage='DEFAULT_PRE_ADOPTION_COLLECTOR';await collect('PRE_ADOPTION');
-      const before=fs.statSync(PUBLIC_DIRECTORY),shadow='/data/native-public-shadow';fs.mkdirSync(shadow,{mode:0o555});
-      fs.copyFileSync(path.join(PUBLIC_DIRECTORY,'manifest.json'),path.join(shadow,'manifest.json'),fs.constants.COPYFILE_EXCL);
-      const shadowIdentity=fs.statSync(shadow);result.shadowMount={source:shadow,target:PUBLIC_DIRECTORY,state:'MOUNT_OUTCOME_UNVERIFIED'};
+      result.stage='ACTUAL_PUBLIC_BIND_GUARD_COUNTEREXAMPLE';
+      const before=fs.statSync(PUBLIC_DIRECTORY),shadow='/data/native-public-shadow';
+      const shadowIdentity=createOwnedFixturePublicShadow(shadow,manifest);result.shadowMount={source:shadow,target:PUBLIC_DIRECTORY,state:'MOUNT_OUTCOME_UNVERIFIED'};
       writePrivate('native-fixture-shadow-intent.json',result.shadowMount);
       assert.deepEqual(info(),[]);let ownedMount;
       try {
         run('/usr/bin/mount',['--bind',shadow,PUBLIC_DIRECTORY]);ownedMount=info();assert.equal(ownedMount.length,1);
         assert.equal(fs.statSync(PUBLIC_DIRECTORY).dev,shadowIdentity.dev);assert.equal(fs.statSync(PUBLIC_DIRECTORY).ino,shadowIdentity.ino);
         result.shadowMount.state='OWNED_MOUNT_VERIFIED';
-        assert.throws(()=>inspectPublicDirectory(),/PUBLIC_DIRECTORY_UNAPPROVED_MOUNT|UNEXPECTED_CONTROL_MOUNT/);
+        assert.throws(()=>inspectPublicDirectory(),error=>{
+          result.publicGuardObservedCode=/^(?:BACKGROUND_HOLD|CONFIG_HOLD)=([A-Z0-9_]+)$/.exec(error?.message||'')?.[1]||'UNVERIFIED';
+          return ['PUBLIC_DIRECTORY_UNAPPROVED_MOUNT','UNEXPECTED_CONTROL_MOUNT'].includes(result.publicGuardObservedCode);
+        });
         await assert.rejects(()=>collect('PRE_ADOPTION'),/^Error: CANDIDATE_BINDING_HOLD=OBSERVATION_UNVERIFIED$/);
         counterexamples.push('ACTUAL_PUBLIC_BIND_REJECTED');
       } finally {
@@ -231,7 +247,7 @@ async function exerciseNative() {
           run('/usr/bin/umount',[PUBLIC_DIRECTORY]);assert.equal(fs.statSync(PUBLIC_DIRECTORY).ino,before.ino);assert.equal(fs.statSync(PUBLIC_DIRECTORY).dev,before.dev);result.shadowMount.state='RELEASED';}
         else assert.deepEqual(info(),[]);
       }
-      const bounds={check(){},remaining:()=>3000};
+      result.stage='ACTUAL_STORAGE_GUARD_COUNTEREXAMPLE';const bounds={check(){},remaining:()=>3000};
       assert.throws(()=>inspectCandidateStorage({...floor.operationalTuple,PHOENIX_PG_DATA_DIR:CONTRACT.stateDirectory},bounds),/STORAGE_MOUNT_REQUIRED/);
       counterexamples.push('ACTUAL_FINDMNT_WRONG_STORAGE_REJECTED');
       manifest.generation=2;manifest.participants=[{bootId:status.bootId,containerId:candidate.id,revision:context.targetSha,allowedKinds:[...HOLD_KINDS]}];
@@ -260,7 +276,7 @@ async function exerciseNative() {
     capsule.verifySession(candidate);check();inspectPublicDirectory();
     result.outcome='PASS';result.runtime={id:candidate.id,imageId:capsule.imageId,revision:result.sourceSha,dbId:pg.id};
     result.originalControlChild={pid:children[0].pid,closed:true};result.rootBackendCountAfterClose=0;
-    save('candidate-binding.json',{fixtureOnly:true,productionReceipt:false,sourceSha:result.sourceSha,observations});
+    save('candidate-binding.json',{fixtureOnly:true,productionReceipt:false,outcome:'PASS',complete:true,sourceSha:result.sourceSha,observations});
     save('root-release.json',{fixtureOnly:true,productionReceipt:false,sourceSha:result.sourceSha,release});
     releaseSaved=true;
   } catch(error) {
@@ -274,6 +290,10 @@ async function exerciseNative() {
         if(!releaseSaved){save('root-release.json',{fixtureOnly:true,productionReceipt:false,sourceSha:result.sourceSha,release});releaseSaved=true;}
         result.rootCleanup=children.every(c=>c.closed)?'VERIFIED_OWNED_ROOT_RELEASE_ONLY':'UNVERIFIED_CHILD_STDIO';
       }catch{result.rootCleanup='UNVERIFIED';result.outcome='FAIL';}
+    }
+    if(observations.length&&!fs.existsSync(path.join(output,'candidate-binding.json'))){
+      try{save('candidate-binding.json',{fixtureOnly:true,productionReceipt:false,outcome:'FAIL',complete:false,sourceSha:result.sourceSha,observations});}
+      catch{result.observationArchive='UNVERIFIED';result.outcome='FAIL';}
     }
     result.ownedChildren=children.map(c=>({pid:c.pid,closed:c.closed}));result.apiCreation=apiCreation;result.imageReadProbe=imageReadProbe;
     result.pgCreationAttempts=capsule.nativeHostCreationAttempts||[];

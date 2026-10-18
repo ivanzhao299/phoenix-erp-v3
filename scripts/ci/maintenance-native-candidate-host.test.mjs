@@ -3,7 +3,7 @@ import test from 'node:test';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { requireNativeHostRequest, writeOwnedFixtureReadonlyJson, buildReadableFixturePayload } from './maintenance-native-candidate-host.fixture.mjs';
+import { requireNativeHostRequest, writeOwnedFixtureReadonlyJson, buildReadableFixturePayload, createOwnedFixturePublicShadow } from './maintenance-native-candidate-host.fixture.mjs';
 import { OwnedErpCandidateCapsule } from './maintenance-erp-candidate.fixture.mjs';
 
 test('native entry refuses an absent hosted fixture request before fixed-path I/O',()=>{
@@ -29,4 +29,14 @@ test('runtime build output is readable while restrictive control umask is restor
     assert.equal(process.umask(),0o077);await assert.rejects(()=>buildReadableFixturePayload(async()=>{throw Error('EXPECTED_BUILD_FAILURE');}),/EXPECTED_BUILD_FAILURE/);
     assert.equal(process.umask(),0o077);}
   finally {process.umask(previous);}
+});
+
+test('owned public shadow keeps0555/0444 under umask077 and refuses existing targets',()=>{
+  const parent=fs.mkdtempSync(path.join(os.tmpdir(),'phoenix-native-shadow-')),directory=path.join(parent,'shadow');
+  const previous=process.umask(0o077);
+  try{const value={fixtureOnly:true},identity=createOwnedFixturePublicShadow(directory,value),actual=fs.lstatSync(directory);
+    assert.equal(actual.mode&0o7777,0o555);assert.equal(actual.dev,identity.dev);assert.equal(actual.ino,identity.ino);
+    assert.equal(fs.statSync(path.join(directory,'manifest.json')).mode&0o7777,0o444);assert.deepEqual(JSON.parse(fs.readFileSync(path.join(directory,'manifest.json'),'utf8')),value);
+    assert.throws(()=>createOwnedFixturePublicShadow(directory,{changed:true}),/EEXIST/);assert.equal(process.umask(),0o077);
+  }finally{process.umask(previous);}
 });
