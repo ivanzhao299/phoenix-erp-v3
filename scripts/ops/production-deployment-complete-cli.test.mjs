@@ -13,7 +13,7 @@ const ops = path.dirname(new URL(import.meta.url).pathname);
 const target = 'a'.repeat(40), previous = 'b'.repeat(40), runId = '123456-1';
 const image = c => `sha256:${c.repeat(64)}`;
 const pins = { api: { imageId: image('a'), revision: target }, web: { imageId: image('b'), revision: previous } };
-function fixture(t, { badEvidence = false, runtimeDrift = false, metadataDrift = false } = {}) {
+function fixture(t, { badEvidence = false, runtimeDrift = false, metadataDrift = false, maintenancePending = false, operation = 'complete' } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'deployment-complete-cli-'));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   const stateDir = path.join(dir, 'state'); fs.mkdirSync(stateDir, { mode: 0o700 });
@@ -59,6 +59,7 @@ function fixture(t, { badEvidence = false, runtimeDrift = false, metadataDrift =
   write('floor.json', { version: 3, floorSha: target });
   write('transaction.json', { version: 3, phase: 'IN_PROGRESS', runId });
   write('policy-transition.json', { version: 3, phase: 'IN_PROGRESS', operation: 'CODE_HOLD', runId });
+  if (maintenancePending) write('maintenance-current.json', { owner: '999999-1' });
   // Guard shim only replaces unrelated host admission; CLI ownership remains
   // bound to the fixture marker. All complete checks run from real sources.
   fs.writeFileSync(path.join(dir, 'production-config-guard.mjs'), `
@@ -70,7 +71,7 @@ export const verifyContext = (root, directory) => { if(root!==${JSON.stringify(d
 export const guardProduction = () => secureJson(path.join(CONTRACT.stateDirectory,'floor.json'));
 export const assertTransactionOwnership = (directory, id) => secureJson(path.join(directory,'transaction.json')).runId === id;
 export const migrationScope = () => { throw Error('UNEXPECTED_OPERATION'); };
-export const git = migrationScope; export const rollbackEligibility = migrationScope;
+export const git = migrationScope; export const rollbackEligibility = () => ({allowed:true});
 `);
   // Real file type/mode/link and atomic rename/fsync checks, with local UID and
   // fixture directory identity instead of the production mount/ACL authority.
@@ -99,7 +100,7 @@ else process.exit(99);
   const runtime = path.join(dir, 'capture-production-runtime.mjs');
   fs.writeFileSync(runtime, fs.readFileSync(runtime, 'utf8').replace("PATH: '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'", `PATH: ${JSON.stringify(dir)}`));
   const before = Object.fromEntries(['active.json', `deploy-${runId}.json`, 'transaction.json', 'policy-transition.json'].map(n => [n, fs.readFileSync(path.join(stateDir, n), 'utf8')]));
-  const result = spawnSync(process.execPath, [path.join(dir, 'production-deployment-state.mjs'), 'complete'], {
+  const result = spawnSync(process.execPath, [path.join(dir, 'production-deployment-state.mjs'), operation], {
     cwd: dir, encoding: 'utf8', timeout: 15000, env: { PATH: dir, DEPLOY_RUN_ID: runId, DEPLOY_RUN_ATTEMPT: '1' },
   });
   return { dir, stateDir, before, result };
@@ -112,6 +113,17 @@ test('real complete CLI exits zero, persists SUCCESS and removes both markers', 
   assert.match(result.stdout, /^DEPLOYMENT_STATE=SUCCESS\s*$/);
   for (const name of ['active.json', `deploy-${runId}.json`]) assert.equal(JSON.parse(fs.readFileSync(path.join(stateDir, name))).outcome, 'SUCCESS');
   for (const name of ['transaction.json', 'policy-transition.json']) assert.equal(fs.existsSync(path.join(stateDir, name)), false);
+});
+test('real complete CLI refuses an active maintenance lifecycle without changing deployment receipts', t => {
+  const { stateDir, before, result } = fixture(t, { maintenancePending: true });
+  assert.equal(result.status, 1); assert.doesNotMatch(result.stdout, /SUCCESS/);
+  for (const [name, bytes] of Object.entries(before)) assert.equal(fs.readFileSync(path.join(stateDir, name), 'utf8'), bytes);
+  assert.equal(fs.existsSync(path.join(stateDir, 'maintenance-current.json')), true);
+});
+test('read-only rollback plan remains available during an active maintenance lifecycle', t => {
+  const { stateDir, before, result } = fixture(t, { maintenancePending: true, operation: 'rollback-plan' });
+  assert.equal(result.status, 0, result.stderr); assert.ok(Array.isArray(JSON.parse(result.stdout)));
+  for (const [name, bytes] of Object.entries(before)) assert.equal(fs.readFileSync(path.join(stateDir, name), 'utf8'), bytes);
 });
 for (const [name, options] of [['bad evidence', { badEvidence: true }], ['runtime drift', { runtimeDrift: true }], ['live DB metadata drift', { metadataDrift: true }]]) {
   test(`real complete CLI holds on ${name} without writing state or clearing markers`, t => {

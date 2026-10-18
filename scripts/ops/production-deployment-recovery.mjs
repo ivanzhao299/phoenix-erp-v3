@@ -28,6 +28,7 @@ import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 import * as evidenceModule from './production-deployment-evidence.mjs';
+import { assertModernReleaseAdmission } from './production-maintenance-admission.mjs';
 
 export const RECOVERY_SCHEMA = 'phoenix.production-deployment-recovery/1';
 export const CASE_A_STARTUP_RESULT = 'HOLD_SCHEMA_OR_WRITE_SIGNAL';
@@ -464,6 +465,7 @@ export function planRecoveredState(deployRecord, marker, { recoveryRunId, recove
 // already applied (recorded in the archive phase) are skipped on resume.
 export function executeRecoveryStages(archive, io, { resumedBy } = {}) {
   if (!archive || !RECOVERY_PHASES.includes(archive.phase) || archive.phase === 'COMPLETE') throw Object.assign(new Error('RECOVERY_HOLD=ARCHIVE_PHASE'), { code: 'RECOVERY_HOLD=ARCHIVE_PHASE' });
+  (io.maintenanceAdmission || assertModernReleaseAdmission)();
   const record = resumedBy && resumedBy !== archive.recoveryRunId
     ? { ...archive, resumedByRunIds: [...new Set([...(archive.resumedByRunIds ?? []), resumedBy])] }
     : { ...archive };
@@ -565,6 +567,8 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       if (!assessment.eligible) { write('DEPLOYMENT_RECOVERY', `HOLD_${assessment.reasons.join(',')}`); process.exitCode = 1; }
       else if (!rollbackEligibility(root, floor, runtime.api).allowed) { write('DEPLOYMENT_RECOVERY', 'HOLD_RUNTIME_NOT_FLOOR_ELIGIBLE'); process.exitCode = 1; }
       else {
+        const maintenanceAdmission = () => assertModernReleaseAdmission({ directory: CONTRACT.stateDirectory }, { guard: () => verifyContext(root, CONTRACT.stateDirectory) });
+        maintenanceAdmission();
         if (evidence?.startup?.result === 'PASS_REDACTED_SUMMARY') {
           // Verified-abort path only: re-run the live TOCTOU snapshot check the
           // original deploy's `complete` would have performed.
@@ -590,6 +594,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
           atomicState(stateFile(`recovery-${context.targetRunId}.json`), record);
         }
         completeRecovery(record, {
+          maintenanceAdmission,
           writeActive: value => atomicState(stateFile('active.json'), value),
           writeDeployRecord: value => atomicState(stateFile(`deploy-${context.targetRunId}.json`), value),
           writeArchive: value => atomicState(stateFile(`recovery-${context.targetRunId}.json`), value),

@@ -3,7 +3,8 @@ import path from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
-import { CONTRACT, guardProduction, secureJson, git, requireCleanMain, rollbackEligibility } from './production-config-guard.mjs';
+import { CONTRACT, guardProduction, secureJson, git, requireCleanMain, rollbackEligibility, verifyContext } from './production-config-guard.mjs';
+import { assertModernReleaseAdmission } from './production-maintenance-admission.mjs';
 import { atomicState } from './production-deployment-state.mjs';
 import { captureRuntime, executionEnv } from './capture-production-runtime.mjs';
 import { readonlyEnvironment, expiredVerifyHoldEnvironment, validateReadonlyPolicy } from './chanjet-readonly-policy.mjs';
@@ -51,8 +52,10 @@ export function replaceReadonlyEnv(envPath, source, output, stage) {
 function database(sql) {
   return readDatabaseEvidence(`SELECT row_to_json(q) FROM (${sql}) q;`);
 }
-export async function configTransaction(root,operation,approval) {
+export async function configTransaction(root,operation,approval,dependencies={}) {
   const directory=CONTRACT.stateDirectory,runId=process.env.DEPLOY_RUN_ID,target=process.env.TARGET_SHA;
+  const maintenanceAdmission=dependencies.maintenanceAdmission||assertModernReleaseAdmission;
+  await maintenanceAdmission({directory},{guard:()=>verifyContext(root,directory)});
   if(!/^\d+-\d+$/.test(runId||'')||process.env.APPROVED_CONFIG_FLOOR_SHA!==target)hold('EXACT_SHA_APPROVAL');
   requireCleanMain(root,target);
   if(git(root,['ls-remote','origin','refs/heads/main']).split(/\s/)[0]!==target)hold('LATEST_MAIN_CHANGED');
@@ -85,6 +88,7 @@ export async function configTransaction(root,operation,approval) {
     const body=await response.json();if(!response.ok||body.success===false)hold('REMOTE_READ_AUTH');
   }
   const envPath=path.join(root,'.env'),source=fs.readFileSync(envPath),output=Buffer.from(readonlyFlagSource(source.toString('utf8'),next.operationalTuple.CHANJET_READONLY_SYNC_ENABLED));
+  await maintenanceAdmission({directory},{guard:()=>verifyContext(root,directory)});
   const stage='/data/.phoenix-env-staging';
   if(!fs.existsSync(stage))fs.mkdirSync(stage,{mode:0o700});
   const stageMeta=fs.lstatSync(stage);if(stageMeta.isSymbolicLink()||stageMeta.uid!==0||(stageMeta.mode&0o777)!==0o700)hold('ENV_STAGING');

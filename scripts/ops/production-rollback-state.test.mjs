@@ -111,7 +111,7 @@ test('state replacement persists active image identity at 0600 outside checkout'
 test('actual wrapper execution uses exact captured image IDs and strips all inherited overrides', () => {
   let command;
   runCompose(['up', '-d', '--no-deps', '--wait', 'api'], {
-    root: '/data/phoenix-erp', directory: '/fixture', readState: () => ({ version: CONTRACT.version, active: previous }), guard: () => ({ project: 'phoenix-fixture', operationalTuple: { CHANJET_READONLY_SYNC_ENABLED: 'false', CHANJET_ERP_INBOUND_SYNC_ENABLED: 'false' } }), capture: () => previous,
+    maintenanceAdmission: () => {}, root: '/data/phoenix-erp', directory: '/fixture', readState: () => ({ version: CONTRACT.version, active: previous }), guard: () => ({ project: 'phoenix-fixture', operationalTuple: { CHANJET_READONLY_SYNC_ENABLED: 'false', CHANJET_ERP_INBOUND_SYNC_ENABLED: 'false' } }), capture: () => previous,
     inspect: (id, revision) => ({ imageId: id, revision }), eligibility: () => ({ allowed: true }),
     backgroundMount: () => undefined,
     backgroundFence: () => undefined,
@@ -124,7 +124,7 @@ test('legacy API refuses DB or Web restart too, before any Docker mutation can i
   for (const service of ['api', 'db', 'web']) {
     let mutated = false;
     assert.throws(() => runCompose(['restart', service], {
-      root: '/data/phoenix-erp', directory: '/fixture', readState: () => ({ version: CONTRACT.version, active: previous }), guard: () => ({ project: 'phoenix-fixture', operationalTuple: { CHANJET_READONLY_SYNC_ENABLED: 'false', CHANJET_ERP_INBOUND_SYNC_ENABLED: 'false' } }), capture: () => previous,
+      maintenanceAdmission: () => {}, root: '/data/phoenix-erp', directory: '/fixture', readState: () => ({ version: CONTRACT.version, active: previous }), guard: () => ({ project: 'phoenix-fixture', operationalTuple: { CHANJET_READONLY_SYNC_ENABLED: 'false', CHANJET_ERP_INBOUND_SYNC_ENABLED: 'false' } }), capture: () => previous,
       inspect: (id, revision) => ({ imageId: id, revision }), eligibility: () => ({ allowed: false }), execute: () => { mutated = true; },
     }), /PRE_FLOOR_API_RECOVERY_HOLD/);
     assert.equal(mutated, false);
@@ -183,7 +183,7 @@ test('actual container identity drift cannot be judged by stale active pins', ()
   assert.throws(() => assertRuntimePins(changed, previous), /ACTIVE_RUNTIME_DRIFT/);
   let mutated = false;
   assert.throws(() => runCompose(['restart', 'api'], {
-    root: '/data/phoenix-erp', directory: '/fixture', readState: () => ({ version: CONTRACT.version, active: previous }), guard: () => ({ project: 'phoenix-fixture', operationalTuple: { CHANJET_READONLY_SYNC_ENABLED: 'false', CHANJET_ERP_INBOUND_SYNC_ENABLED: 'false' } }), capture: () => changed,
+    maintenanceAdmission: () => {}, root: '/data/phoenix-erp', directory: '/fixture', readState: () => ({ version: CONTRACT.version, active: previous }), guard: () => ({ project: 'phoenix-fixture', operationalTuple: { CHANJET_READONLY_SYNC_ENABLED: 'false', CHANJET_ERP_INBOUND_SYNC_ENABLED: 'false' } }), capture: () => changed,
     inspect: (id, revision) => ({ imageId: id, revision }), eligibility: () => ({ allowed: true }), execute: () => { mutated = true; },
   }), /ACTIVE_RUNTIME_DRIFT/);
   assert.equal(mutated, false);

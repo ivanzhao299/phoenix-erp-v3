@@ -18,7 +18,10 @@ test('production schema preflight is metadata SELECT inside enforced read-only t
 });
 test('promotion verifies approved requirement bytes and production metadata before writing floor state',()=>{
  const s=fs.readFileSync('scripts/ops/promote-production-config-floor.mjs','utf8');
- assert(s.indexOf('readBootstrapSchemaEvidence(bootstrapContract)')<s.indexOf("atomicState(path.join(directory, 'floor.json')"));
+ assert.match(s,/const write = dependencies\.atomicState \|\| atomicState/);
+ assert.match(s,/assertBootstrapSchemaEvidence\(bootstrapContract, \(dependencies\.readBootstrapSchemaEvidence \|\| readBootstrapSchemaEvidence\)\(bootstrapContract\)\)/);
+ const verified=s.indexOf('bootstrapSchema = assertBootstrapSchemaEvidence('), floorWrite=s.indexOf("write(path.join(directory, 'floor.json')");
+ assert(verified>=0 && floorWrite>verified);
  assert.match(s,/api-bootstrap-schema-contract.json/);assert.match(s,/STAGED_HELPER_MISMATCH/);assert.match(s,/bootstrapSchema, marker/);
  const w=fs.readFileSync('.github/workflows/deploy.yml','utf8');assert.match(w,/git show "\$TARGET_SHA:apps\/api\/src\/common\/database\/api-bootstrap-schema-contract.json"/);
  assert.match(w,/always\(\) && steps.bootstrap_sql.outcome/);assert.doesNotMatch(w.slice(w.indexOf('Preserve sanitized API bootstrap proof'),w.indexOf('Check entity ↔ DB schema sync')),/private-runtime/);
