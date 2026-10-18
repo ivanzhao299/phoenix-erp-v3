@@ -161,13 +161,15 @@ async function collectCandidateBinding({context,expectedStateDigest,replacementE
       if(typeof raw!=='string'||Buffer.byteLength(raw)>65536)fail('BOUNDED_OUTPUT');return raw;};
     let firstAnchor=null;
     const state=()=>{
-      check();guard();check();const s=store.readOwnedState({timeoutMs:Math.min(10000,remaining()),signal});check();
+      check();guard();check();
+      const view=leasePhases?store.readCandidateLeaseState({expectedStateDigest,replacementStateDigest:rootLease.expectedStateDigest,timeoutMs:Math.min(10000,remaining()),signal}):null;
+      const s=leasePhases?view.state:store.readOwnedState({timeoutMs:Math.min(10000,remaining()),signal});check();
       if(leasePhases){
         if(s?.schema!=='phoenix.legacy-maintenance-state/v1'||s.contextDigest!==bindingDigest(context)||s.stateDigest!==expectedStateDigest||!same(s.context,context)
           ||s.legacyDrainResult!=='UNSUPPORTED'||!iso(s.updatedAt)||Date.parse(s.updatedAt)<Date.parse(context.window.start)||Date.parse(s.updatedAt)>now())fail('PRIVATE_OWNER_STATE_CHANGED');
         // The immutable CR digest comes only from the genuine original lease.
         // Current VF/OPEN state is never disguised as an earlier CF snapshot.
-        check();const anchor=store.readCandidateLeasePhaseAnchor({expectedStateDigest,replacementStateDigest:rootLease.expectedStateDigest});check();
+        check();const anchor=view.anchor;check();
         if(s.phase==='CANDIDATE_FENCED'){
           if(mode==='ADOPTED')store.assertOwnedIntent('VERIFY_CANDIDATE','CANDIDATE_FENCED',s.stateDigest);
         }else if(!['VERIFIED_FENCED','COMPLETED_OPEN'].includes(s.phase)||mode!=='ADOPTED')fail('LEASE_PHASE_PROJECTION_REQUIRED');
