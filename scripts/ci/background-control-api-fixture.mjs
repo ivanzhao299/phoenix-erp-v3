@@ -10,7 +10,9 @@ import networkFixture from './background-control-api-network-fixture.cjs';
 
 export const TARGET = '/run/phoenix-background-control';
 export const STATE = '/run/phoenix-background-ci-fixture';
-export const KINDS = ['LOCAL', 'EXTERNAL_READ', 'NOTIFICATION'];
+// Business HTTP fixtures authorize local work only. External reads and
+// notifications need their own explicitly scoped provider/worker fixtures.
+export const KINDS = Object.freeze(['LOCAL']);
 const REPO = 'ivanzhao299/phoenix-erp-v3';
 const FIXTURE_KEYS = ['GITHUB_ACTIONS','CI','RUNNER_ENVIRONMENT','RUNNER_OS','RUNNER_ARCH','GITHUB_REPOSITORY','GITHUB_RUN_ID','GITHUB_RUN_ATTEMPT','GITHUB_JOB','GITHUB_SHA','GITHUB_WORKSPACE','RUNNER_TEMP','NODE_ENV','APP_ENV','DB_HOST','DB_PORT','DB_USER','DB_NAME','PORT','BACKGROUND_FIXTURE_POSTGRES_ID'];
 const safeEnv = () => ({ PATH: '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin', DOCKER_HOST: 'unix:///var/run/docker.sock' });
@@ -110,6 +112,13 @@ export function validateStatus(s, { owner, generation, phase, sha } = {}) {
     || control.applicationName !== `phoenix-fence:${s.bootId}` || !/^[a-f0-9]{40}$/.test(sha || '')) hold('REAL_FENCED_BOOT_REQUIRED');
   for (const name of ['inFlight','pendingChildren','taskGraphs']) if (!Number.isSafeInteger(s[name]) || s[name] < 0) hold('TASK_GRAPH_UNVERIFIED');
   return s;
+}
+export function createPositiveFixtureManifest(r,initial,fixtureId) {
+  if(!/^ci-\d+-\d+-[A-Za-z0-9_-]{1,80}$/.test(r?.owner||'')||!/^[a-f0-9]{40}$/.test(r?.sha||'')
+    ||!/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(initial?.bootId||'')
+    ||!/^[a-f0-9]{64}$/.test(fixtureId||''))hold('EXACT_FIXTURE_PARTICIPANT_REQUIRED');
+  return {protocolVersion:1,phase:'OPEN',owner:r.owner,generation:2,targetSha:r.sha,
+    participants:[{bootId:initial.bootId,containerId:fixtureId,revision:r.sha,allowedKinds:[...KINDS]}]};
 }
 async function status() {
   const r = await fetch('http://127.0.0.1:3100/api/internal/background/status', { signal: AbortSignal.timeout(3000), redirect: 'error' });
@@ -313,7 +322,7 @@ async function rootOperation(operation, input) {
     const initial = validateStatus(await status(),{owner:r.owner,generation:1,phase:'FENCED',sha:r.sha});
     if (initial.inFlight || initial.pendingChildren || initial.taskGraphs) hold('STARTUP_NOT_QUIESCENT'); verifySession(c,initial);
     const fixtureId = createHash('sha256').update(`ci-host:${r.owner}:${input.pid}:${proc.start}:${initial.bootId}`).digest('hex');
-    const manifest = {protocolVersion:1,phase:'OPEN',owner:r.owner,generation:2,targetSha:r.sha,participants:[{bootId:initial.bootId,containerId:fixtureId,revision:r.sha,allowedKinds:KINDS}]};
+    const manifest = createPositiveFixtureManifest(r,initial,fixtureId);
     // The root receipt commits expected OPEN before public admission. A crash
     // leaves reconciliation evidence, never a secret or production identity.
     writePrivate({...r,phase:'OPEN',api:proc,bootId:initial.bootId,fixtureId}); publish(r,manifest);
