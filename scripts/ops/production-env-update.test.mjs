@@ -64,7 +64,7 @@ test('real created-container environment retains literal dollars and escaping wi
   const env = path.join(dir, '.env'); fs.writeFileSync(env, updateSource(input, special));
   const name = `phoenix-env-fixture-${process.pid}-${Date.now()}`;
   const file = path.join(dir, 'compose.json');
-  fs.writeFileSync(file, JSON.stringify({ services: { fixture: { image: imageId, container_name: name, environment: Object.fromEntries(MANAGED_KEYS.map(key => [key, '${'+key+'}'])) } } }));
+  fs.writeFileSync(file, JSON.stringify({ services: { fixture: { image: imageId, network_mode: 'none', container_name: name, environment: Object.fromEntries(MANAGED_KEYS.map(key => [key, '${'+key+'}'])) } } }));
   const args = ['compose', '--project-name', name, '--env-file', env, '-f', file];
   const options = { env: { PATH: process.env.PATH }, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] };
   try {

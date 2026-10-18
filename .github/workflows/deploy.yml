@@ -625,14 +625,11 @@ jobs:
       - name: scp runtime-design-system.css → /opt/phoenix/static-overrides/
         uses: appleboy/scp-action@v1
         with:
-          host: ${{ secrets.DEPLOY_HOST }}
+          host: '47.236.122.224'
+          fingerprint: 'SHA256:Y4WEXMJ24a4r1KxOw0det4qcCFNxj65mZeIG9oQOJcI'
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
-          port: ${{ secrets.DEPLOY_PORT || 22 }}
-          proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
-          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
-          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
-          proxy_port: 22
+          port: 22
           source: "apps/web/public/runtime-design-system.css"
           target: "/opt/phoenix/static-overrides/"
           strip_components: 3  # 去掉 apps/web/public/ 三级
@@ -640,14 +637,11 @@ jobs:
       - name: Verify(touch mtime + curl nginx)
         uses: appleboy/ssh-action@v1
         with:
-          host: ${{ secrets.DEPLOY_HOST }}
+          host: '47.236.122.224'
+          fingerprint: 'SHA256:Y4WEXMJ24a4r1KxOw0det4qcCFNxj65mZeIG9oQOJcI'
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
-          port: ${{ secrets.DEPLOY_PORT || 22 }}
-          proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
-          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
-          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
-          proxy_port: 22
+          port: 22
           script: |
             set -e
             mkdir -p /opt/phoenix/static-overrides
@@ -746,14 +740,11 @@ jobs:
           CHANJET_CERT: ${{ secrets.CHANJET_CERT }}
           CHANJET_MSG_SECRET: ${{ secrets.CHANJET_MSG_SECRET }}
         with:
-          host: ${{ secrets.DEPLOY_HOST }}
+          host: '47.236.122.224'
+          fingerprint: 'SHA256:Y4WEXMJ24a4r1KxOw0det4qcCFNxj65mZeIG9oQOJcI'
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
-          port: ${{ secrets.DEPLOY_PORT || 22 }}
-          proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
-          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
-          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
-          proxy_port: 22
+          port: 22
           envs: APPROVED_CONFIG_FLOOR_SHA,APPROVED_PREVIOUS_FLOOR_SHA,DEPLOY_MODE,BUILD_WEB,BUILD_API,RUN_MIG,NGINX_CONF,DEPLOY_RUN_ID,DEPLOY_RUN_ATTEMPT,TARGET_SHA,PRESERVE_ARTIFACTS,ROTATE_CHANJET_CREDENTIALS,ONE_TIME_CONFIG_FLOOR_TRANSITION,GHCR_LOGIN_TOKEN,GHCR_LOGIN_USER,CHANJET_APP_KEY,CHANJET_APP_SECRET,CHANJET_ORG_ID,CHANJET_CERT,CHANJET_MSG_SECRET,PRODUCTION_CONTRACT_B64,PRODUCTION_PATH_HELPER_B64,PRODUCTION_CONTROL_BOOTSTRAP_B64
           script: |
             set -Eeuo pipefail
