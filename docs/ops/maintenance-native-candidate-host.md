@@ -79,3 +79,12 @@ checkout mode. Probe receipts retain fixed per-file access codes/metadata, and
 the host requires all four actual checks to succeed. New native CI remains
 required; the prior failure is retained without assigning an unproved unique
 cause.
+
+Source972ccb2f run39166743042 passed actual UID1000 image reads, API startup and
+original root acquisition on both PG majors, then failed the first default
+collector with generic HOLD. All three owned containers stopped with exit0 and
+the original root child closed. A new pure counterexample reproduced
+REPLACEMENT_CANDIDATE_IDENTITY: the phase fixture dropped Docker State.Status.
+The builder now validates/copies that actual field before hashing the material,
+and the native fixture validates its synthetic replacement before root acquire.
+The production validator is unchanged; new native acceptance remains required.

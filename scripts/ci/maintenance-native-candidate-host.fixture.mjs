@@ -13,6 +13,7 @@ import { CONTRACT, verifyContext, secureJson } from '../ops/production-config-gu
 import { MaintenanceReceiptStore, bindingDigest } from '../ops/production-maintenance-receipts.mjs';
 import { LegacyMaintenanceTransition } from '../ops/production-maintenance-transition.mjs';
 import { RootControlLease } from '../ops/production-maintenance-root-lease.mjs';
+import { validateCandidateReplacement } from '../ops/production-maintenance-replacement.mjs';
 import { collectCandidateServerBinding, collectCandidateLeaseBinding, inspectCandidateStorage } from '../ops/production-maintenance-candidate-binding.mjs';
 import { PUBLIC_DIRECTORY, HOLD_KINDS, inspectPublicDirectory, atomicPublicManifest } from '../ops/background-control-manifest.mjs';
 
@@ -135,7 +136,7 @@ async function startNativeApi(capsule,pg,manifest,creation) {
 async function exerciseNative() {
   requireNativeHostRequest(); fs.mkdirSync(output,{recursive:true,mode:0o700});
   const major=Number(process.env.NATIVE_FIXTURE_MAJOR),owner=`${Date.now()}-${process.pid}`;
-  const capsule=new OwnedErpCandidateCapsule({owner}); let root,candidate,release,firstFailure;
+  const capsule=new OwnedErpCandidateCapsule({owner}); let root,candidate,release,firstFailure,releaseSaved=false;
   const children=[],observations=[],counterexamples=[],apiCreation={attempted:false,state:'NOT_ATTEMPTED'},imageReadProbe={attempted:false,state:'NOT_ATTEMPTED'};
   const result={schema:'phoenix.native-host-candidate-fixture/v1',outcome:'FAIL',fixtureOnly:true,productionReceipt:false,
     sourceSha:process.env.NATIVE_FIXTURE_SHA,major,owner,registryInstalled:false,productionAuthorized:false,
@@ -186,6 +187,8 @@ async function exerciseNative() {
       await root.acquire({timeoutMs:120000}); return originalStart(request);
     };
     result.stage='BUILD_REAL_LOCAL_SYNTHETIC_HISTORY';await toStopped(h); await h.engine.reconcile({evidence:h.reconciliation});await h.engine.preparePromotion();await h.engine.replaceCandidate();
+    result.stage='VALIDATE_TEST_REPLACEMENT_MATERIAL';const replacementState=store.readState();
+    validateCandidateReplacement(h.engine.receipt(replacementState,'CANDIDATE_REPLACEMENT'),context);
     result.stage='ACQUIRE_ORIGINAL_NATIVE_ROOT';await h.engine.startCandidate();
     const originalVerify=material.adapters.verifyCandidate;
     const collect=async(mode,leasePhases=false)=>{
@@ -249,11 +252,19 @@ async function exerciseNative() {
     result.originalControlChild={pid:children[0].pid,closed:true};result.rootBackendCountAfterClose=0;
     save('candidate-binding.json',{fixtureOnly:true,productionReceipt:false,sourceSha:result.sourceSha,observations});
     save('root-release.json',{fixtureOnly:true,productionReceipt:false,sourceSha:result.sourceSha,release});
+    releaseSaved=true;
   } catch(error) {
     firstFailure=error;result.outcome='FAIL';result.failureClass=/^[A-Z_]+=([A-Z0-9_]+)$/.exec(error?.message||'')?.[0]||'NATIVE_FIXTURE_UNVERIFIED_FAILURE';
   } finally {
     if(root){try {if(!release)release=await root.close({timeoutMs:120000});}catch {result.rootCleanup='UNVERIFIED';result.outcome='FAIL';}}
     try {await joinChildren(children);}catch {result.childJoin='UNVERIFIED';result.outcome='FAIL';}
+    if(release){
+      try {assert.equal(release.ownedBackendGone,true);assert.equal(release.localClientClosed,true);assert.equal(release.owner,owner);
+        assert.equal(release.productionReleaseAuthorized,false);assert.equal(release.candidateProof,false);
+        if(!releaseSaved){save('root-release.json',{fixtureOnly:true,productionReceipt:false,sourceSha:result.sourceSha,release});releaseSaved=true;}
+        result.rootCleanup=children.every(c=>c.closed)?'VERIFIED_OWNED_ROOT_RELEASE_ONLY':'UNVERIFIED_CHILD_STDIO';
+      }catch{result.rootCleanup='UNVERIFIED';result.outcome='FAIL';}
+    }
     result.ownedChildren=children.map(c=>({pid:c.pid,closed:c.closed}));result.apiCreation=apiCreation;result.imageReadProbe=imageReadProbe;
     result.pgCreationAttempts=capsule.nativeHostCreationAttempts||[];
     if(apiCreation.state==='CREATE_OUTCOME_UNVERIFIED'||imageReadProbe.state==='CREATE_OUTCOME_UNVERIFIED'||result.pgCreationAttempts.some(c=>c.state!=='OWNED_ID_VERIFIED'))result.outcome='FAIL';

@@ -62,9 +62,10 @@ test('production dependency closure preserves nested versions and never includes
 
 import { actualPhaseMaterials, stablePhaseStatus, archiveOwnedPhaseStore } from './maintenance-erp-phase-correlation.fixture.mjs';
 import { bindingDigest, canonicalDigest } from '../ops/production-maintenance-receipts.mjs';
+import { validateCandidateReplacement } from '../ops/production-maintenance-replacement.mjs';
 function phaseInput() {
   const at = '2026-10-19T01:00:00.000Z', owner = '1792371600000-42', sourceSha = 'b'.repeat(40), imageId = 'sha256:' + '5'.repeat(64);
-  const runtime = { Id: 'a'.repeat(64), Image: imageId, Config: { Labels: { 'org.opencontainers.image.revision': sourceSha } }, RestartCount: 0, State: { Running: true, Health: { Status: 'healthy' }, StartedAt: at, Pid: 41, Restarting: false, Dead: false } };
+  const runtime = { Id: 'a'.repeat(64), Image: imageId, Config: { Labels: { 'org.opencontainers.image.revision': sourceSha } }, RestartCount: 0, State: { Status: 'running', Running: true, Health: { Status: 'healthy' }, StartedAt: at, Pid: 41, Restarting: false, Dead: false } };
   const dbRuntime = { Id: 'd'.repeat(64), Image: 'sha256:' + '6'.repeat(64), State: { StartedAt: at, Running: true, Health: { Status: 'healthy' } }, RestartCount: 0, Mounts: [] };
   return { owner, sourceSha, imageId, runtime, dbRuntime, clock: () => Date.parse(at) + 10000,
     status: { ...identity().status, owner, phase: 'FENCED', inFlight: 0, pendingChildren: 0, taskGraphs: 0 },
@@ -83,9 +84,14 @@ test('real phase material builder binds every digest after final owner, source, 
 });
 test('phase material builder refuses mismatched actual API, database, owner and health inputs', () => {
   for (const change of [i => i.status.owner = 'different', i => i.database.containerId = 'f'.repeat(64),
-    i => i.runtime.Config.Labels['org.opencontainers.image.revision'] = 'c'.repeat(40), i => i.runtime.State.Health.Status = 'starting']) {
+    i => i.runtime.Config.Labels['org.opencontainers.image.revision'] = 'c'.repeat(40), i => i.runtime.State.Health.Status = 'starting',i=>i.runtime.State.Status='paused']) {
     const input = phaseInput(); change(input); assert.throws(() => actualPhaseMaterials(input));
   }
+});
+test('actual phase replacement material passes the same complete validator used by the default collector',async()=>{
+  const input=phaseInput(),material=actualPhaseMaterials(input);
+  const replacement=await material.adapters.replaceCandidate({operationIntent:{fixtureOnly:true}});
+  assert.equal(validateCandidateReplacement(replacement,material.context,{now:input.clock()}).candidate.status,input.runtime.State.Status);
 });
 
 function stableInput() { const s = phaseInput().status; s.controlSession.cleanup = { acquirePending: false, queriesPending: 0, retirementPending: false, terminationConfirmed: false, releaseConfirmed: false, debt: true }; return s; }
