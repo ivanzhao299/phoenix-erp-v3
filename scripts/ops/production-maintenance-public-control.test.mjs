@@ -196,3 +196,75 @@ test('public directory installation occurs only after immutable claim and interr
   assert.equal(initialized, 1); assert.equal(fs.existsSync(f.bridge.privateFile), true);
   await assert.rejects(bridge.bootstrap(), /ALREADY_STARTED/); assert.equal(initialized, 1);
 });
+
+async function preparedObservationFixture(t, overrides = {}) {
+  const f = fixture(t); const bootstrapEvidence = await f.bridge.bootstrap(); const old = f.store.readState();
+  f.store.finishMarker(old);
+  const {stateDigest,...content}=old;const nextRefs=[...old.receipts];
+  nextRefs.push(f.store.appendReceipt('PROMOTION_PREPARED', f.evidence('PROMOTION_PREPARED',{fixtureOnly:true}),old,at(0)));
+  const state=f.store.writeState({...content,receipts:nextRefs,phase:'PROMOTION_PREPARED',status:'FENCED',updatedAt:at(0)});
+  f.store.beginMarker({from:state.phase,to:'CANDIDATE_REPLACED',operation:'REPLACE_CANDIDATE',previousStateDigest:state.stateDigest,startedAt:at(0)});
+  const bridge=new LegacyMaintenancePublicControl({context:f.context},{...f.dependencies,...overrides});
+  return {...f,bridge,bootstrapEvidence,expectedStateDigest:state.stateDigest};
+}
+const observe=f=>f.bridge.observeEmptyFence({expectedStateDigest:f.expectedStateDigest,bootstrapEvidence:f.bootstrapEvidence});
+const directoryBytes=dir=>fs.readdirSync(dir).sort().map(name=>[name,fs.readFileSync(path.join(dir,name)).toString('base64')]);
+test('protected empty-fence observation reads existing private/public evidence without writing or granting admission',async t=>{
+  const f=await preparedObservationFixture(t);const before=[directoryBytes(f.stateDirectory),directoryBytes(f.publicDirectory)];
+  f.bridge.bootstrap=()=>assert.fail('observation must not bootstrap');
+  const result=await observe(f);assert.equal(result.result,'OBSERVATION_ONLY');assert.equal(result.stateDigest,f.expectedStateDigest);
+  for(const key of ['continuousDrainProof','admissionOrApprovalGranted','registryInstalled'])assert.equal(result[key],false);
+  assert.equal(result.legacyDrainResult,'UNSUPPORTED');assert.equal(result.privateRecordSha256,f.bootstrapEvidence.body.privateRecordSha256);
+  assert.deepEqual([directoryBytes(f.stateDirectory),directoryBytes(f.publicDirectory)],before);
+});
+test('observation requires exact current state and independent authority/evidence rather than caller approval booleans',async t=>{
+  for(const key of ['verifyAuthority','verifyEvidence']){const f=await preparedObservationFixture(t,{[key]:undefined});await assert.rejects(observe(f),/INDEPENDENT_/);}
+  const f=await preparedObservationFixture(t);await assert.rejects(f.bridge.observeEmptyFence(),/STATE_DIGEST_REQUIRED/);
+  await assert.rejects(f.bridge.observeEmptyFence({expectedStateDigest:h('e'),bootstrapEvidence:f.bootstrapEvidence}),/STATE_MISMATCH/);
+  await assert.rejects(f.bridge.observeEmptyFence({expectedStateDigest:f.expectedStateDigest,bootstrapEvidence:{approved:true}}));
+});
+test('observation denies wrong public owner, target, generation, OPEN, nonempty participants, symlink and hardlink',async t=>{
+  for(const kind of ['owner','target','generation','open','participants','symlink','hardlink']){
+    const f=await preparedObservationFixture(t);const file=path.join(f.publicDirectory,'manifest.json');const m=JSON.parse(fs.readFileSync(file));
+    if(kind==='symlink'){fs.renameSync(file,file+'.original');fs.symlinkSync(file+'.original',file);}
+    else if(kind==='hardlink')fs.linkSync(file,file+'.link');
+    else{fs.chmodSync(file,0o644);if(kind==='owner')m.owner='999-1';if(kind==='target')m.targetSha=sha('e');if(kind==='generation')m.generation=2;if(kind==='open')m.phase='OPEN';if(kind==='participants')m.participants=[{}];fs.writeFileSync(file,JSON.stringify(m));fs.chmodSync(file,0o444);}
+    await assert.rejects(observe(f));
+  }
+});
+test('observation binds immutable private intent bytes and time to the independently verified bootstrap',async t=>{
+  for(const mutate of [r=>r.owner='999-1',r=>r.targetSha=sha('e'),r=>r.stateDigest='bad',r=>r.capturedAt=at(1000),r=>r.phase='OPEN',r=>r.extra=true]){
+    const f=await preparedObservationFixture(t);const r=f.store.read(f.bridge.privateFile);mutate(r);fs.writeFileSync(f.bridge.privateFile,JSON.stringify(r));await assert.rejects(observe(f),/PERSISTED_BINDING/);
+  }
+});
+test('observation rechecks intent and modern owner after asynchronous authority/evidence verification',async t=>{
+  for(const kind of ['marker','modern','state']){
+    const f=await preparedObservationFixture(t);const verifyEvidence=async()=>{
+      if(kind==='marker')fs.unlinkSync(f.store.markerFile);
+      if(kind==='modern')f.store.immutable(f.bridge.modernPrivate,{fixtureOnly:true});
+      if(kind==='state'){const {stateDigest,...s}=f.store.readState();f.store.writeState({...s,updatedAt:at(1)});}
+      return true;
+    };f.bridge=new LegacyMaintenancePublicControl({context:f.context},{...f.dependencies,verifyEvidence});await assert.rejects(observe(f));
+  }
+});
+test('observation retains the default root/FD9 guard and refuses an expired maintenance window',async t=>{
+  const f=await preparedObservationFixture(t,{guard:undefined});await assert.rejects(observe(f),/CONFIG_HOLD=/);
+  const expired=await preparedObservationFixture(t,{now:()=>now+700000});await assert.rejects(observe(expired),/WINDOW_CLOSED/);
+});
+
+test('observation pins caller envelope before awaits and rejects a verifier mutating its private evidence copy',async t=>{
+  const f=await preparedObservationFixture(t);const original=f.bootstrapEvidence.evidenceSha256;
+  f.bridge=new LegacyMaintenancePublicControl({context:f.context},{...f.dependencies,verifyAuthority:async()=>{f.bootstrapEvidence.evidenceSha256=h('e');f.bootstrapEvidence.body.owner='999-1';return true;}});
+  assert.equal((await observe(f)).bootstrapEvidenceSha256,original);
+  const g=await preparedObservationFixture(t);g.bridge=new LegacyMaintenancePublicControl({context:g.context},{...g.dependencies,verifyEvidence:async envelope=>{envelope.body.owner='999-1';return true;}});
+  await assert.rejects(observe(g),/BOOTSTRAP_CHANGED/);
+});
+
+test('observation rejects invalid, future and out-of-window state timestamps instead of accepting NaN comparisons',async t=>{
+  for(const updatedAt of ['invalid',at(1000),at(-700000)]){
+    const f=await preparedObservationFixture(t);const old=f.store.readState();f.store.finishMarker(old);
+    const {stateDigest,...content}=old;const state=f.store.writeState({...content,updatedAt});
+    f.store.beginMarker({from:state.phase,to:'CANDIDATE_REPLACED',operation:'REPLACE_CANDIDATE',previousStateDigest:state.stateDigest,startedAt:at(0)});
+    f.expectedStateDigest=state.stateDigest;await assert.rejects(observe(f),/STATE_TIME/);
+  }
+});
