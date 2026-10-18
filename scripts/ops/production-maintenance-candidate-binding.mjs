@@ -20,11 +20,13 @@ const UUID=/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}
 const rawTime=v=>typeof v==='string'&&/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{6}Z$/.test(v)&&iso(v.slice(0,23)+'Z');
 const keys=(v,n)=>v&&Object.getPrototypeOf(v)===Object.prototype&&same(Object.keys(v).sort(),[...n].sort());
 const digest=v=>createHash('sha256').update(JSON.stringify(v)).digest('hex');
+// Docker nil and empty optional lists both mean no added capability/device.
+export const CANDIDATE_DOCKER_LIST_COUNTS = Object.freeze(['CapAdd', 'Devices', 'DeviceRequests']
+  .map(field => `(len (or .HostConfig.${field} ""))`));
 // Do not read Health.Log, environment, log driver config or arbitrary labels.
 const DOCKER_FIELDS=['.Id','.Image','.State.StartedAt','.State.Running','.State.Health.Status','.State.Pid','.State.Status','.State.Restarting','.State.Dead','.RestartCount',
   '(index .Config.Labels "com.docker.compose.project")','(index .Config.Labels "com.docker.compose.service")','.Mounts','.HostConfig.Privileged','.HostConfig.PidMode','.HostConfig.IpcMode',
-  '.HostConfig.UTSMode','.HostConfig.UsernsMode','.HostConfig.NetworkMode','.HostConfig.RestartPolicy.Name','(len (or .HostConfig.CapAdd ""))','(len (or .HostConfig.Devices ""))',
-  '(len (or .HostConfig.DeviceRequests ""))','.HostConfig.SecurityOpt'].map(field=>'{{json '+field+'}}').join('\t');
+  '.HostConfig.UTSMode','.HostConfig.UsernsMode','.HostConfig.NetworkMode','.HostConfig.RestartPolicy.Name',...CANDIDATE_DOCKER_LIST_COUNTS,'.HostConfig.SecurityOpt'].map(field=>'{{json '+field+'}}').join('\t');
 // Docker represents unconfigured optional lists as nil; Go len needs a non-nil fallback.
 // Nonempty lists still report their actual length and are rejected below.
 // Fixed localhost endpoint, no caller URL, headers, credential or script input.

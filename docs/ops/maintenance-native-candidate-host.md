@@ -98,3 +98,9 @@ collector format now falls back to an empty string for nil CapAdd/Devices/
 DeviceRequests before len; actual nonempty lists still yield nonzero counts and
 remain prohibited. Runtime validation rules are unchanged. New native acceptance
 is required for this production-reader correction.
+
+Each native major also evaluates the same exported production list expressions
+in Docker's actual template engine: actual nil/empty host lists return0;
+synthetic empty/nonempty list values return0/1. These template cases do not add
+capabilities or devices to a container. Existing validator negative cases still
+reject each nonempty list. This matrix is not a privileged runtime acceptance.

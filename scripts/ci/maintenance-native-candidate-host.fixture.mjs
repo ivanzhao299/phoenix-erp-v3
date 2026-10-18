@@ -14,7 +14,7 @@ import { MaintenanceReceiptStore, bindingDigest } from '../ops/production-mainte
 import { LegacyMaintenanceTransition } from '../ops/production-maintenance-transition.mjs';
 import { RootControlLease } from '../ops/production-maintenance-root-lease.mjs';
 import { validateCandidateReplacement } from '../ops/production-maintenance-replacement.mjs';
-import { collectCandidateServerBinding, collectCandidateLeaseBinding, inspectCandidateStorage } from '../ops/production-maintenance-candidate-binding.mjs';
+import { collectCandidateServerBinding, collectCandidateLeaseBinding, inspectCandidateStorage, CANDIDATE_DOCKER_LIST_COUNTS } from '../ops/production-maintenance-candidate-binding.mjs';
 import { PUBLIC_DIRECTORY, HOLD_KINDS, inspectPublicDirectory, atomicPublicManifest } from '../ops/background-control-manifest.mjs';
 
 const output='/data/phoenix-erp/artifacts/maintenance-native-candidate-host';
@@ -161,6 +161,16 @@ async function exerciseNative() {
     assert.ok(nativePgMount&&nativePgMount.Type==='bind'&&nativePgMount.RW===true);
     const manifest={protocolVersion:1,phase:'FENCED',owner,generation:1,targetSha:capsule.sourceSha,participants:[]};
     result.stage='START_ACTUAL_BOUND_API';({candidate}=await startNativeApi(capsule,pg,manifest,apiCreation));
+    // Evaluate the production expressions in Docker's actual Go template engine.
+    // Nil/empty real host lists must read0; synthetic empty/nonempty list values
+    // test template semantics without granting a container any new capability.
+    result.stage='ACTUAL_DOCKER_LIST_TEMPLATE_MATRIX';result.dockerListTemplateCases=[];
+    for(const expression of CANDIDATE_DOCKER_LIST_COUNTS){
+      const field=/\.HostConfig\.(CapAdd|Devices|DeviceRequests)/.exec(expression)?.[0];assert.ok(field);
+      const expressions=[expression,expression.replace(field,'(slice (split "fixture" ",") 0 0)'),expression.replace(field,'(split "fixture" ",")')];
+      const values=capsule.docker(['inspect',candidate.id,'--format',expressions.map(v=>'{{json '+v+'}}').join('\t')]).split('\t').map(JSON.parse);
+      assert.deepEqual(values,[0,0,1]);result.dockerListTemplateCases.push({field,actualEmptyCount:values[0],syntheticEmptyCount:values[1],syntheticNonemptyCount:values[2]});
+    }
     const runtime=capsule.inspectContainer(candidate.id),dbRuntime=capsule.inspectContainer(pg.id),status=await stablePhaseStatus(()=>capsule.status(candidate));
     const database={containerId:pg.id,imageId:dbRuntime.Image,containerStartedAt:dbRuntime.State.StartedAt,
       ...JSON.parse(capsule.sql(pg,`SELECT json_build_object('databaseOid',(SELECT oid::bigint FROM pg_catalog.pg_database WHERE datname=current_database()),
