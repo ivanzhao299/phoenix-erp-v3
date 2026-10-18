@@ -7,6 +7,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import assert from 'node:assert/strict';
 import { capturedDatabaseStatements, classifySql, parseBootControlIdentity, verifyCapturedControlIdentity, sliceCapturedWindow } from './api-bootstrap-mutations.mjs';
 import { exerciseActualErpRootBinding, performExpectedFaultTerm, performExpectedFaultKill, validateExpectedFaultShutdown } from './maintenance-erp-root-binding.fixture.mjs';
+import { exerciseActualErpPhaseCorrelation } from './maintenance-erp-phase-correlation.fixture.mjs';
 import { selectOwnedComposeSubnet } from './owned-compose-ipam.mjs';
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -112,9 +113,10 @@ const pg=require('pg');const pgConnect=pg.Client.prototype.connect;pg.Client.pro
 }
 
 export class OwnedErpCandidateCapsule {
-  constructor({ artifactDirectory } = {}) {
+  constructor({ artifactDirectory, owner } = {}) {
     assert.equal(Number(process.versions.node.split('.')[0]), 20, 'Use the project Node20 baseline');
-    this.owner = `erp-candidate-${randomUUID()}`;
+    if (owner !== undefined && (typeof owner !== 'string' || !/^[0-9]{1,20}-[0-9]{1,10}$/.test(owner))) hold('NUMERIC_PHASE_OWNER_REQUIRED');
+    this.owner = owner ?? `erp-candidate-${randomUUID()}`;
     const base = path.resolve(artifactDirectory || path.join(REPO, 'artifacts/maintenance-erp-candidate'));
     if (!base.startsWith(path.join(REPO, 'artifacts') + path.sep) || fs.existsSync(path.join(base, this.owner))) hold('OWNED_ARTIFACT_DIRECTORY');
     fs.mkdirSync(base, { recursive: true, mode: 0o700 });
@@ -289,6 +291,12 @@ export class OwnedErpCandidateCapsule {
     assert.equal(candidate.initialStatus.generation, mode === 'missing' ? null : 1);
     assert.equal(candidate.initialStatus.inFlight, 0); assert.equal(candidate.initialStatus.taskGraphs, 0); this.verifySession(candidate);
     const denied = this.request(candidate, '/api/auth/login', { method: 'POST', body: {} }); assert.equal(denied.status, 503);
+    if (this.owner.match(/^[0-9]+-[0-9]+$/)) {
+      const healthyDeadline = Date.now() + 10000;
+      while (this.inspectContainer(candidate.id).State.Health?.Status !== 'healthy') {
+        if (Date.now() >= healthyDeadline) hold('ACTUAL_ERP_HEALTHCHECK_REQUIRED'); await sleep(100);
+      }
+    }
     candidate.ready = `SELECT ${literal(`${candidate.captureApp}-READY`)}`; this.sql(pg, candidate.ready + ';'); candidate.readyAt = Date.now();
     return candidate;
   }
@@ -433,6 +441,7 @@ export class OwnedErpCandidateCapsule {
       // Keep owned identities/receipts for root review. No deletion and no production state cleanup.
       for (const candidate of candidates) this.stopCandidate(candidate);
       const fault = await this.startCandidate(pg, 'FENCED', { role: 'root-binding-fault' });
+      if (/^[0-9]+-[0-9]+$/.test(this.owner)) this.results.push(await exerciseActualErpPhaseCorrelation(this, fault));
       const binding = await exerciseActualErpRootBinding(this, fault);
       try { binding.faultShutdown = await this.teardownExpectedFault(fault, binding); binding.result = 'PASS'; }
       catch { binding.result = 'FAIL'; binding.faultShutdown = { outcome: 'UNVERIFIED', productionReceipt: false }; throw Error('ACTUAL_ERP_FAULT_SHUTDOWN_UNVERIFIED'); }
@@ -446,7 +455,7 @@ export class OwnedErpCandidateCapsule {
   }
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  const fixture = new OwnedErpCandidateCapsule();
+  const fixture = new OwnedErpCandidateCapsule({ owner: `${Date.now()}-${process.pid}` });
   try { await fixture.build(); const result = await fixture.exercise(); console.log(JSON.stringify({ outcome: result.outcome, evidenceDirectory: fixture.root, sourceSha: result.sourceSha })); }
   catch (error) { fixture.record({ outcome: 'FAIL', failureCode: String(error.message).slice(0, 160) }); console.error(`ERP_CANDIDATE_FIXTURE_FAILED evidence=${fixture.root}`); process.exitCode = 1; }
 }

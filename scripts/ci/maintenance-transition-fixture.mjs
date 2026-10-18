@@ -10,9 +10,10 @@ const now = Date.parse('2026-10-18T01:10:00.000Z'); const time = ms => new Date(
 const hash = n => n.repeat(64); const sha = n => n.repeat(40);
 const operations = MAINTENANCE_OPERATIONS;
 function pin(n, revision = sha('a')) { return { id: hash(n), imageId: `sha256:${hash(n)}`, revision, startedAt: time(-86400000), restartCount: 0, running: true, health: 'healthy' }; }
-function fixture() {
-  const api = pin('1'); const web = pin('2', sha('c')); const db = { ...pin('3'), mountsSha256: hash('4') }; delete db.revision;
-  const context = { schema: MAINTENANCE_CONTEXT_SCHEMA, protocolVersion: 1, owner: '123456-1', previousFloorSha: sha('a'), previousApiSha: sha('a'), previousWebSha: sha('c'), targetSha: sha('b'),
+function fixture({ clock = () => now, context: suppliedContext, candidate: suppliedCandidate } = {}) {
+  const time = ms => new Date(clock() + ms).toISOString();
+  const api = suppliedContext?.preSnapshot.api || pin('1'); const web = suppliedContext?.preSnapshot.web || pin('2', sha('c')); const db = suppliedContext?.preSnapshot.db || { ...pin('3'), mountsSha256: hash('4') }; delete db.revision;
+  const context = suppliedContext ? structuredClone(suppliedContext) : { schema: MAINTENANCE_CONTEXT_SCHEMA, protocolVersion: 1, owner: '123456-1', previousFloorSha: sha('a'), previousApiSha: sha('a'), previousWebSha: sha('c'), targetSha: sha('b'),
     window: { start: time(-600000), end: time(600000) }, candidate: { revision: sha('b'), imageId: `sha256:${hash('5')}` }, sourceHelperSha256: hash('6'), schemaEvidenceSha256: hash('7'), migrationPaths: [], preSnapshot: { api, web, db }, executors: [api], replacement: { project: 'phoenix-test', composeFileSha256: hash('f') } };
   const digest = bindingDigest(context); const evidence = (kind, body) => createMaintenanceEvidence(kind, context, body, { capturedAt: time(0) });
   const approval = (purpose, payload) => ({ schema: MAINTENANCE_AUTHORITY_SCHEMA, bindingDigest: digest, purpose, decision: 'APPROVED', payload, payloadSha256: canonicalDigest(payload),
@@ -32,7 +33,7 @@ function fixture() {
       second: { ...api, running: false, pid: 0, status: 'exited', restarting: false, dead: false, exitCode: 143, oomKilled: false, checkedAt: time(-1000) } }],
     database: { remainingConnections: 0, openTransactions: 0, preparedTransactions: 0, persistentRunning: 0, persistentQueued: 0, ownershipComplete: true } });
   const reconciliation = evidence('RECONCILIATION', { domains: LEGACY_EVIDENCE_DOMAINS.map(domain => ({ domain, disposition: 'RECONCILED', unknownEffects: 0, pendingWrites: 0, requiresReplay: false, requiresBusinessMutation: false })), approvedScopeDigest: auth.payloadSha256 });
-  const candidate = { api: { ...pin('a', context.targetSha), imageId: context.candidate.imageId, startedAt: time(-1000), pid: 100, restarting: false, dead: false }, bootId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', owner: context.owner,
+  const candidate = suppliedCandidate ? structuredClone(suppliedCandidate) : { api: { ...pin('a', context.targetSha), imageId: context.candidate.imageId, startedAt: time(-1000), pid: 100, restarting: false, dead: false }, bootId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', owner: context.owner,
     admissionState: 'DENIED', inFlight: 0, pendingChildren: 0, taskGraphs: 0, poisoned: false, stopping: false,
     controlSession: { connected: true, broken: false, sessionPid: 123, databaseOid: 456, backendStartedAt: time(-1000) }, chanjetPolicy: 'HOLD', readonlySync: false, inboundSync: false, web, db };
   const completion = evidence('COMPLETION', { outcome: 'SUCCESS', owner: context.owner, floorSha: context.targetSha, api: candidate.api, bootId: candidate.bootId, successReceiptSha256: hash('d'),
@@ -49,7 +50,7 @@ function fixture() {
         isolationEvidenceSha256: ingress.evidenceSha256, recoveryEvidenceSha256: material.recoveryEvidence.evidenceSha256, recoveryMaterialsSha256: hash('e'), composeFileSha256: context.replacement.composeFileSha256,
         overrideSha256: hash('e'), commandSha256: hash('e'), eventsSha256: hash('e'), preInventorySha256: hash('e'), postInventorySha256: hash('e'), unexpectedExecutors: 0, oldImageRetained: true, webDbUnchanged: true,
         runMigration: false, webSwitched: false, coverageScope: 'FIXED_REPLACEMENT_INTERVAL_ONLY', postReplacementState: 'HOLD_CANDIDATE_REVALIDATION_REQUIRED',
-        candidatePublicMount: { source: '/var/lib/phoenix-background-control', destination: '/run/phoenix-background-control', type: 'bind', readOnly: true }, interval: { start: time(-2000), end: time(-500) },
+        candidatePublicMount: { source: '/var/lib/phoenix-background-control', destination: '/run/phoenix-background-control', type: 'bind', readOnly: true }, interval: { start: suppliedCandidate ? new Date(Date.parse(candidate.api.startedAt) - 1000).toISOString() : time(-2000), end: suppliedCandidate ? time(-1) : time(-500) },
         lifecycle: { oldDestroy: hash('e'), candidateCreate: hash('e'), candidateStart: hash('e') } }); return replacementEnvelope;
     },
     startCandidate: async () => evidence('CANDIDATE_FENCED', { ...candidate, candidateReplacementSha256: replacementEnvelope.evidenceSha256, registrationOnly: true, runtimeCreated: false, runtimeRestarted: false }),
