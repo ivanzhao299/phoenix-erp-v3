@@ -3,7 +3,7 @@ import test from 'node:test';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { requireNativeHostRequest, writeOwnedFixtureReadonlyJson } from './maintenance-native-candidate-host.fixture.mjs';
+import { requireNativeHostRequest, writeOwnedFixtureReadonlyJson, buildReadableFixturePayload } from './maintenance-native-candidate-host.fixture.mjs';
 import { OwnedErpCandidateCapsule } from './maintenance-erp-candidate.fixture.mjs';
 
 test('native entry refuses an absent hosted fixture request before fixed-path I/O',()=>{
@@ -20,5 +20,13 @@ test('fixture initial manifest stays exactly 0444 under restrictive umask and re
   const previous=process.umask(0o077);
   try {writeOwnedFixtureReadonlyJson(file,{fixtureOnly:true});assert.equal(fs.statSync(file).mode&0o777,0o444);
     assert.throws(()=>writeOwnedFixtureReadonlyJson(file,{changed:true}),/EEXIST/);assert.deepEqual(JSON.parse(fs.readFileSync(file,'utf8')),{fixtureOnly:true});}
+  finally {process.umask(previous);}
+});
+test('runtime build output is readable while restrictive control umask is restored on success and failure',async()=>{
+  const directory=fs.mkdtempSync(path.join(os.tmpdir(),'phoenix-native-build-')),file=path.join(directory,'runtime.js');
+  const previous=process.umask(0o077);
+  try {await buildReadableFixturePayload(async()=>fs.writeFileSync(file,'owned-fixture-only'));assert.equal(fs.statSync(file).mode&0o777,0o644);
+    assert.equal(process.umask(),0o077);await assert.rejects(()=>buildReadableFixturePayload(async()=>{throw Error('EXPECTED_BUILD_FAILURE');}),/EXPECTED_BUILD_FAILURE/);
+    assert.equal(process.umask(),0o077);}
   finally {process.umask(previous);}
 });

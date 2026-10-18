@@ -61,3 +61,11 @@ the fixture now explicitly sets0444 on the new descriptor and tests restrictive
 umask plus refusal to overwrite. Startup diagnostics export only fixed boolean
 error signals and a log digest. The old failure lacked those signals, so its
 unique root cause is UNVERIFIED until the new native execution is assessed.
+
+The second source7e3b51d3 run39165669011 also failed startup: both receipts now
+prove EACCES and exit1 with no original root child created. Source-built runtime
+files also inherited the private host umask, while the image executes as UID1000.
+Only the runtime build now temporarily uses022 and restores077 even on failure;
+private state modes are unchanged. A separate owned network-disabled container
+must prove the actual image payload is readable as UID1000 before API startup.
+The EACCES signal alone does not identify every denied path or a unique cause.

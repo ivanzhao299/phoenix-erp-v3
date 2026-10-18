@@ -73,6 +73,20 @@ export function writeOwnedFixtureReadonlyJson(file,value) {
   const directory=fs.openSync(parent,fs.constants.O_RDONLY|fs.constants.O_DIRECTORY|fs.constants.O_NOFOLLOW);
   try{fs.fsyncSync(directory);}finally{fs.closeSync(directory);}
 }
+export async function buildReadableFixturePayload(action) {
+  const previous=process.umask(0o022);
+  try{return await action();}finally{process.umask(previous);}
+}
+function checkActualImageReadable(capsule,creation) {
+  creation.attempted=true;creation.name=`phoenix-native-${capsule.owner}-image-read-probe`;creation.state='CREATE_OUTCOME_UNVERIFIED';
+  capsule.record({nativeImageReadProbe:creation});
+  const program="const fs=require('fs');for(const p of ['/app/fixture-preload.cjs','/app/dist/main.js','/app/package.json',require.resolve('pg')])fs.accessSync(p,fs.constants.R_OK);process.stdout.write(JSON.stringify({uid:process.getuid(),runtimePayloadReadable:true}))";
+  const id=capsule.own(capsule.docker(['create','--pull=never','--name',creation.name,...capsule.labels(),'--network=none','--read-only','--cap-drop=ALL',
+    '--security-opt=no-new-privileges','--entrypoint','node',capsule.imageId,'-e',program]),'native-image-read-probe');
+  creation.id=id;creation.state='OWNED_ID_VERIFIED';
+  const value=JSON.parse(capsule.docker(['start','-a',id]));assert.equal(value.uid,1000);assert.equal(value.runtimePayloadReadable,true);
+  assert.equal(capsule.inspectContainer(id).State.ExitCode,0);creation.result=value;
+}
 
 async function startNativeApi(capsule,pg,manifest,creation) {
   writeOwnedFixtureReadonlyJson(path.join(PUBLIC_DIRECTORY,'manifest.json'),manifest);
@@ -113,7 +127,7 @@ async function exerciseNative() {
   requireNativeHostRequest(); fs.mkdirSync(output,{recursive:true,mode:0o700});
   const major=Number(process.env.NATIVE_FIXTURE_MAJOR),owner=`${Date.now()}-${process.pid}`;
   const capsule=new OwnedErpCandidateCapsule({owner}); let root,candidate,release,firstFailure;
-  const children=[],observations=[],counterexamples=[],apiCreation={attempted:false,state:'NOT_ATTEMPTED'};
+  const children=[],observations=[],counterexamples=[],apiCreation={attempted:false,state:'NOT_ATTEMPTED'},imageReadProbe={attempted:false,state:'NOT_ATTEMPTED'};
   const result={schema:'phoenix.native-host-candidate-fixture/v1',outcome:'FAIL',fixtureOnly:true,productionReceipt:false,
     sourceSha:process.env.NATIVE_FIXTURE_SHA,major,owner,registryInstalled:false,productionAuthorized:false,
     authority:'SYNTHETIC_TEST_ONLY',maintenanceReplacementAndHistory:'SYNTHETIC_TEST_ONLY',
@@ -122,7 +136,10 @@ async function exerciseNative() {
   try {
     counterexamples.push(...nativeFd9Counterexamples());
     result.stage='BUILD_ACTUAL_SOURCE_IMAGE';result.imageBuild={attempted:true,tag:`phoenix-${owner}:candidate`,state:'BUILD_OUTCOME_UNVERIFIED'};
-    await capsule.build(); assert.equal(capsule.sourceSha,result.sourceSha);result.imageBuild.state='OWNED_ID_VERIFIED';result.imageBuild.id=capsule.imageId;
+    // Only runtime build output needs ordinary read/traverse permissions. Host
+    // control files keep explicit0600/0700 and the original restrictive umask.
+    await buildReadableFixturePayload(()=>capsule.build());assert.equal(capsule.sourceSha,result.sourceSha);result.imageBuild.state='OWNED_ID_VERIFIED';result.imageBuild.id=capsule.imageId;
+    result.stage='ACTUAL_UNPRIVILEGED_IMAGE_READ_PROBE';checkActualImageReadable(capsule,imageReadProbe);
     result.buildProvenance={sourceSha:result.sourceSha,pnpmLockSha256:hash(fs.readFileSync(path.join(CONTRACT.repository,'pnpm-lock.yaml'))),
       dependencyInstallSource:'SYMLINK_TO_SAME_SHA_HOSTED_RUNNER_PNPM_FROZEN_LOCKFILE',runnerCheckout:process.env.NATIVE_FIXTURE_SOURCE,
       scope:'TRACKED_SOURCE_CLEAN_UNTRACKED_FIXTURE_OUTPUT_AND_DEPENDENCY_LINKS_EXCLUDED'};
@@ -226,9 +243,9 @@ async function exerciseNative() {
   } finally {
     if(root){try {if(!release)release=await root.close({timeoutMs:120000});}catch {result.rootCleanup='UNVERIFIED';result.outcome='FAIL';}}
     try {await joinChildren(children);}catch {result.childJoin='UNVERIFIED';result.outcome='FAIL';}
-    result.ownedChildren=children.map(c=>({pid:c.pid,closed:c.closed}));result.apiCreation=apiCreation;
+    result.ownedChildren=children.map(c=>({pid:c.pid,closed:c.closed}));result.apiCreation=apiCreation;result.imageReadProbe=imageReadProbe;
     result.pgCreationAttempts=capsule.nativeHostCreationAttempts||[];
-    if(apiCreation.state==='CREATE_OUTCOME_UNVERIFIED'||result.pgCreationAttempts.some(c=>c.state!=='OWNED_ID_VERIFIED'))result.outcome='FAIL';
+    if(apiCreation.state==='CREATE_OUTCOME_UNVERIFIED'||imageReadProbe.state==='CREATE_OUTCOME_UNVERIFIED'||result.pgCreationAttempts.some(c=>c.state!=='OWNED_ID_VERIFIED'))result.outcome='FAIL';
     // Only immutable full IDs already proven owned by this capsule are stopped.
     // Images, networks, files and mounts are retained for VM disposal, not
     // described as a completed recovery or all-resources cleanup proof.
