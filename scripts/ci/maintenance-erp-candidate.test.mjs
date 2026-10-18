@@ -59,3 +59,31 @@ test('production dependency closure preserves nested versions and never includes
   assert.equal(fs.existsSync(path.join(out, 'one/innocent-alias')), false);
   assert.equal(fs.realpathSync(path.join(out, 'one/node_modules/two')), fs.realpathSync(path.join(out, '.capsule', fs.readdirSync(path.join(out, '.capsule')).find(n => n.startsWith('two-')))));
 });
+
+import { actualPhaseMaterials } from './maintenance-erp-phase-correlation.fixture.mjs';
+import { bindingDigest, canonicalDigest } from '../ops/production-maintenance-receipts.mjs';
+function phaseInput() {
+  const at = '2026-10-19T01:00:00.000Z', owner = '1792371600000-42', sourceSha = 'b'.repeat(40), imageId = 'sha256:' + '5'.repeat(64);
+  const runtime = { Id: 'a'.repeat(64), Image: imageId, Config: { Labels: { 'org.opencontainers.image.revision': sourceSha } }, RestartCount: 0, State: { Running: true, Health: { Status: 'healthy' }, StartedAt: at, Pid: 41, Restarting: false, Dead: false } };
+  const dbRuntime = { Id: 'd'.repeat(64), Image: 'sha256:' + '6'.repeat(64), State: { StartedAt: at, Running: true, Health: { Status: 'healthy' } }, RestartCount: 0, Mounts: [] };
+  return { owner, sourceSha, imageId, runtime, dbRuntime, clock: () => Date.parse(at) + 10000,
+    status: { ...identity().status, owner, phase: 'FENCED', inFlight: 0, pendingChildren: 0, taskGraphs: 0 },
+    database: { containerId: dbRuntime.Id, imageId: dbRuntime.Image, containerStartedAt: at } };
+}
+test('real phase material builder binds every digest after final owner, source, clock and actual identity input', () => {
+  const input = phaseInput(), f = actualPhaseMaterials(input), digest = bindingDigest(f.context);
+  assert.equal(f.context.owner, input.owner); assert.equal(f.context.targetSha, input.sourceSha);
+  assert.equal(f.context.preSnapshot.db.id, input.dbRuntime.Id); assert.equal(f.candidate.api.id, input.runtime.Id);
+  assert.equal(f.candidate.api.health, input.runtime.State.Health.Status); assert.equal(f.candidate.bootId, input.status.bootId);
+  assert.equal(f.material.approval.bindingDigest, digest); assert.equal(f.material.recoveryPlan.bindingDigest, digest);
+  assert.equal(f.material.preEvidence.bindingDigest, digest); assert.equal(f.completion.bindingDigest, digest);
+  assert.equal(f.material.approval.serverRecord.commitId, input.sourceSha);
+  assert.equal(f.material.recoveryPlan.materials.find(m => m.kind === 'PRE_SNAPSHOT').sha256, canonicalDigest(f.context.preSnapshot));
+  assert.equal(f.material.preEvidence.capturedAt, new Date(input.clock()).toISOString());
+});
+test('phase material builder refuses mismatched actual API, database, owner and health inputs', () => {
+  for (const change of [i => i.status.owner = 'different', i => i.database.containerId = 'f'.repeat(64),
+    i => i.runtime.Config.Labels['org.opencontainers.image.revision'] = 'c'.repeat(40), i => i.runtime.State.Health.Status = 'starting']) {
+    const input = phaseInput(); change(input); assert.throws(() => actualPhaseMaterials(input));
+  }
+});
