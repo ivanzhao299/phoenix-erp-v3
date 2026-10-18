@@ -3,6 +3,7 @@ import { admissionHold, validateExecutionManifest, ExecutionManifest } from './c
 
 type Tx = { query(sql: string, parameters?: unknown[]): Promise<AdmissionRow[]> };
 export type AdmissionManager = { transaction<T>(callback: (tx: Tx) => Promise<T>): Promise<T> };
+export type AdmissionTransactionOwner = { run<T>(start: () => Promise<T>): Promise<T> };
 export type AdmissionPhase = 'REGISTERED' | 'PROBING' | 'PROBED' | 'SYNCING' | 'VERIFIED' | 'HOLD';
 export type RequestPhase = 'PROBING' | 'SYNCING';
 export type RequestResult = 'OK' | 'BUSINESS_FAILURE' | 'TRANSPORT_FAILURE';
@@ -17,9 +18,9 @@ export type AdmissionRow = {
 export type ExecutionContext = { manifest: unknown; leaseId: string; phase: RequestPhase; deadlineAt?: Date };
 
 /**
- * Unwired control foundation, intentionally not Injectable or exported by a Nest module.
- * No HTTP, scheduler or provider code imports this store. Future registration belongs
- * only to the exact-SHA root CLI after its FD9/production/mapping/tuple guards.
+ * Storage-only control primitive; not Injectable and has no provider HTTP path.
+ * The API scheduler supplies its task-graph transaction owner. Independent root
+ * CLIs retain their existing FD9/production/mapping/tuple supervision contract.
  * DB constraints preserve bindings under ordinary DML, not a hostile table owner.
  */
 /**
@@ -42,8 +43,9 @@ export class ChanjetExecutionAdmissionStore {
    *      silently outlive the execution deadline);
    *   2. pool/transaction acquisition: bounded by the absolute-deadline race
    *      below — the caller returns on time; a late-acquired transaction runs
-   *      only its guard statement (remaining<=1ms aborts immediately), so no
-   *      callback SQL executes and nothing commits late. Pool acquisition
+   *      its deadline check before any SQL, so no callback SQL executes on
+   *      a late-acquired connection. Already-started
+   *      transactions can still settle after caller timeout. Pool acquisition
    *      itself cannot be per-call cancelled through the TypeORM manager
    *      interface — documented limitation; self-created sources set
    *      connectionTimeoutMillis instead;
@@ -56,7 +58,11 @@ export class ChanjetExecutionAdmissionStore {
     }
     return 2_000;
   }
-  constructor(private readonly manager: AdmissionManager | undefined) {}
+  constructor(private readonly manager: AdmissionManager | undefined, private readonly owner?: AdmissionTransactionOwner) {}
+  private ownedTransaction<T>(callback: (tx: Tx) => Promise<T>): Promise<T> {
+    const start = () => this.manager!.transaction(callback);
+    return this.owner ? this.owner.run(start) : start();
+  }
   private async transaction<T>(callback: (tx: Tx) => Promise<T>, deadlineAt?: Date): Promise<T> {
     if (!this.manager || typeof this.manager.transaction !== 'function') return admissionHold();
     const timed = async (tx: Tx): Promise<T> => {
@@ -80,16 +86,16 @@ export class ChanjetExecutionAdmissionStore {
     };
     if (!(deadlineAt instanceof Date) || !Number.isFinite(deadlineAt.getTime())) {
       // No trusted deadline: still bounded per statement by the constant.
-      try { return await this.manager.transaction(timed); } catch { return admissionHold(); }
+      try { return await this.ownedTransaction(timed); } catch { return admissionHold(); }
     }
     let timer: ReturnType<typeof setTimeout> | undefined;
     try {
-      // Absolute race: the caller returns on time; if the transaction was
-      // queued behind the pool it can only run its guard statement afterwards
-      // (per-statement budget hits 1ms) and rolls back — no delayed callback
-      // execution and no late commit.
+      // The race ends caller waiting only. The owner registers the entire
+      // manager promise before acquisition, including commit/rollback/release.
+      // Late-acquired callback SQL is denied by its deadline check; this is
+      // not cancellation or proof that an already-started commit did not occur.
       return await Promise.race([
-        this.manager.transaction(timed),
+        this.ownedTransaction(timed),
         new Promise<never>((_, reject) => {
           timer = setTimeout(() => reject(new Error('CHANJET_EXECUTION_DEADLINE')), Math.max(1, deadlineAt.getTime() - Date.now()));
         }),
