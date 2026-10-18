@@ -96,6 +96,7 @@ jobs:
           scripts/ci/maintenance-erp-root-binding.test.mjs
           scripts/ci/maintenance-legacy-erp.test.mjs
           scripts/ci/maintenance-native-candidate-host.test.mjs
+          scripts/ci/maintenance-fixture-authority.test.mjs
       - name: Actual registered Git and inherited FD9 in an owned isolated image
         run: |
           set -euo pipefail
