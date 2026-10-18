@@ -66,9 +66,10 @@ Actual production root/trusted paths/FD9, runtime ownership, full deployment
 timeout/abort faults and load/performance remain NOT_RUN. Source review and local transport
 proof do not satisfy these independent release gates.
 
-Local verification on this change's final code tree: 13 transport cases PASS;
-combined pure protocol/CI fixtures 399 PASS, 12 SKIP; existing staged-bundle
-cross-version contract cases 5 PASS. Tests use Node20 and native Linux Git/flock.
+Historical verification of implementation HEAD 9ba44c9b, before fixture
+isolation and the f4441dd0 base update: 13 transport cases PASS; combined pure
+protocol/CI fixtures 399 PASS, 12 SKIP; existing staged-bundle cross-version
+contract cases 5 PASS. Tests use Node20 and native Linux Git/flock.
 Skipped Docker/PG-gated suites are not claimed as passes. CI and actual production
 results must be recorded separately for the eventual exact commit.
 
@@ -82,3 +83,9 @@ read-only root, tmpfs and no capabilities. The general host suite records them
 as SKIP; a separate mandatory CI step must actually execute all 13. This is
 fixture isolation, not a production Git policy override. Do not count host
 SKIP as PASS. Current image/CI results must be archived for the updated HEAD.
+
+Post-isolation/base-update code HEAD 4459fa59808f1c396a8cb6a867bbc0232cb10b4b:
+local owned image 13 PASS / 0 SKIP, general host suite 391 PASS / 25 SKIP
+(the latter includes all 13 explicitly deferred native cases). These receipts
+are scoped to that exact code; the updated PR's official CI must run and record
+its actual SHA independently. No historical result is a production admission.
