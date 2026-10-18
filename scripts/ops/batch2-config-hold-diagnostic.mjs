@@ -6,6 +6,11 @@ import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { createHash } from 'node:crypto';
 
+export const READONLY_LOCAL_PSQL = `case "\${POSTGRES_USER-}" in ''|[0-9]*|*[!A-Za-z0-9_]*) exit 64;; esac
+case "\${POSTGRES_DB-}" in ''|[0-9]*|*[!A-Za-z0-9_]*) exit 64;; esac
+[ "\${#POSTGRES_USER}" -le 63 ] && [ "\${#POSTGRES_DB}" -le 63 ] || exit 64
+exec /usr/bin/timeout -s TERM -k 1 8 /usr/bin/env -i PATH=/usr/local/bin:/usr/bin:/bin PGCONNECT_TIMEOUT=3 PGAPPNAME=phoenix-maintenance-observer PGOPTIONS='-c default_transaction_read_only=on -c search_path=pg_catalog -c statement_timeout=3000 -c idle_in_transaction_session_timeout=5000' /usr/local/bin/psql --host=/var/run/postgresql --port=5432 --username="$POSTGRES_USER" --dbname="$POSTGRES_DB" --no-password -X -qAt --set=ON_ERROR_STOP=1`;
+
 export function safeClass(error) {
   return String(error?.message || '').match(/^(?:CONFIG_HOLD|MIGRATION_SCOPE|DEPLOY_EVIDENCE_HOLD|RUNTIME_HOLD)=[A-Z0-9_]+/)?.[0] || 'UNVERIFIED_READ_FAILED';
 }
@@ -142,27 +147,26 @@ export async function diagnose() {
   });
   out.migrationScope = actual && attempt('migration_scope', () => guard.migrationScope(ROOT, actual.api.revision, target));
   const db = sql => {
-    const text = run('docker', ['exec', '-i', '-e', 'PGOPTIONS=-c default_transaction_read_only=on', 'phoenix-v3-db', 'sh', '-c',
-      'exec psql -X -At -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "${POSTGRES_DB:-$POSTGRES_USER}"'],
-    { input: `BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY; SET LOCAL statement_timeout='20s'; SET LOCAL lock_timeout='3s'; ${sql}\nROLLBACK;` });
+    const text = run('docker', ['exec', '-i', 'phoenix-v3-db', '/bin/sh', '-c', READONLY_LOCAL_PSQL],
+    { input: `BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY; SET LOCAL search_path=pg_catalog; SET LOCAL statement_timeout='3s'; SET LOCAL lock_timeout='1s'; ${sql}\nROLLBACK;` });
     const line = text.split('\n').find(x => x.startsWith('{'));
     if (!line) throw Error('CONFIG_HOLD=BOOTSTRAP_SCHEMA_EVIDENCE');
     return JSON.parse(line);
   };
   out.ledger = attempt('ledger', () => ledgerSummary(inventory, db(`SELECT json_build_object(
-    'legacy',(SELECT COALESCE(json_agg(json_build_object('filename',filename)), '[]'::json) FROM schema_migrations),
-    'typeorm',(SELECT COALESCE(json_agg(json_build_object('name',name,'timestamp',timestamp)), '[]'::json) FROM migrations));`)));
+    'legacy',(SELECT COALESCE(json_agg(json_build_object('filename',filename)), '[]'::json) FROM public.schema_migrations),
+    'typeorm',(SELECT COALESCE(json_agg(json_build_object('name',name,'timestamp',timestamp)), '[]'::json) FROM public.migrations));`)));
   const schemaHelper = await import('data:text/javascript;base64,' + process.env.FORENSIC_SCHEMA_HELPER_B64);
   out.schemaCompatibility = attempt('schema', () => schemaHelper.assertBootstrapSchemaEvidence(schemaContract, db(schemaHelper.bootstrapSchemaSql(schemaContract))));
   out.asyncJobs = attempt('jobs', () => {
     const result = db(`SELECT json_build_object(
-      'runningJobs',(SELECT count(*) FROM chanjet_sync_jobs WHERE status='RUNNING'),
-      'queuedJobs',(SELECT count(*) FROM chanjet_sync_jobs WHERE request_scope->>'lifecycleState'='QUEUED' AND status='RUNNING'),
-      'recoveryCandidates',(SELECT count(*) FROM chanjet_sync_jobs WHERE status='RUNNING' AND request_scope ? 'orchestrationRunId'),
-      'legacyRunningJobs',(SELECT count(*) FROM chanjet_sync_jobs WHERE status='RUNNING' AND NOT COALESCE(request_scope ? 'orchestrationRunId',false)),
-      'writebackPending',(SELECT count(*) FROM chanjet_writeback_outbox WHERE state NOT IN ('ACKNOWLEDGED','CANCELLED','REVERSED')),
-      'wmsWritebackPending',(SELECT count(*) FROM chanjet_wms_writeback_outbox WHERE state NOT IN ('ACKNOWLEDGED','CANCELLED','REVERSED')),
-      'mappingConflicts',(SELECT count(*) FROM chanjet_master_mapping WHERE match_status='CONFLICT'));`);
+      'runningJobs',(SELECT count(*) FROM public.chanjet_sync_jobs WHERE status='RUNNING'),
+      'queuedJobs',(SELECT count(*) FROM public.chanjet_sync_jobs WHERE request_scope->>'lifecycleState'='QUEUED' AND status='RUNNING'),
+      'recoveryCandidates',(SELECT count(*) FROM public.chanjet_sync_jobs WHERE status='RUNNING' AND request_scope ? 'orchestrationRunId'),
+      'legacyRunningJobs',(SELECT count(*) FROM public.chanjet_sync_jobs WHERE status='RUNNING' AND NOT COALESCE(request_scope ? 'orchestrationRunId',false)),
+      'writebackPending',(SELECT count(*) FROM public.chanjet_writeback_outbox WHERE state NOT IN ('ACKNOWLEDGED','CANCELLED','REVERSED')),
+      'wmsWritebackPending',(SELECT count(*) FROM public.chanjet_wms_writeback_outbox WHERE state NOT IN ('ACKNOWLEDGED','CANCELLED','REVERSED')),
+      'mappingConflicts',(SELECT count(*) FROM public.chanjet_master_mapping WHERE match_status='CONFLICT'));`);
     return { scope: 'CHANJET_JOBS_AND_WRITEBACK_ONLY', otherAsyncTaskFamilies: 'UNVERIFIED',
       ...Object.fromEntries(['runningJobs', 'queuedJobs', 'recoveryCandidates', 'legacyRunningJobs', 'writebackPending', 'wmsWritebackPending', 'mappingConflicts'].map(key => [key,
         Number.isSafeInteger(result[key]) && result[key] >= 0 ? result[key] : 'UNVERIFIED'])) };

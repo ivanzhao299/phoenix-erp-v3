@@ -9,6 +9,9 @@ on:
       approved_main_sha:
         required: true
         type: string
+      expected_github_main_sha:
+        required: true
+        type: string
       approved_runner_sha:
         required: true
         type: string
@@ -45,6 +48,7 @@ jobs:
       - name: Validate exact diagnostic runner and target
         env:
           APPROVED_SHA: ${{ inputs.approved_main_sha }}
+          EXPECTED_GITHUB_MAIN_SHA: ${{ inputs.expected_github_main_sha }}
           APPROVED_RUNNER_SHA: ${{ inputs.approved_runner_sha }}
           APPROVED_PROGRAM_SHA256: ${{ inputs.approved_program_sha256 }}
           APPROVED_TOPOLOGY_SHA256: ${{ inputs.approved_topology_sha256 }}
@@ -55,6 +59,7 @@ jobs:
           test "$OPERATION" = audit
           test "$CONFIRMATION" = READONLY_BATCH2_CONFIG_FORENSICS
           test "$APPROVED_SHA" = 9155dcccd7578288a2ccedc9f2ec3f0dd0bf1f7e
+          [[ "$EXPECTED_GITHUB_MAIN_SHA" =~ ^[a-f0-9]{40}$ ]]
           [[ "$APPROVED_RUNNER_SHA" =~ ^[a-f0-9]{40}$ ]]
           [[ "$APPROVED_PROGRAM_SHA256" =~ ^[a-f0-9]{64}$ ]]
           [[ "$APPROVED_TOPOLOGY_SHA256" =~ ^[a-f0-9]{64}$ ]]
@@ -62,7 +67,7 @@ jobs:
           test "$(git rev-parse HEAD)" = "$APPROVED_RUNNER_SHA"
           test "$(sha256sum scripts/ops/batch2-config-hold-diagnostic.mjs | cut -d' ' -f1)" = "$APPROVED_PROGRAM_SHA256"
           test "$(sha256sum scripts/ops/maintenance-host-topology-diagnostic.mjs | cut -d' ' -f1)" = "$APPROVED_TOPOLOGY_SHA256"
-          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$APPROVED_SHA"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_GITHUB_MAIN_SHA"
           git merge-base --is-ancestor "$APPROVED_SHA" HEAD
           pnpm install --frozen-lockfile
           node --test scripts/ops/batch2-config-hold-diagnostic.test.mjs scripts/ops/maintenance-host-topology-diagnostic.test.mjs scripts/ci/pinned-readonly-ssh-transport.test.mjs scripts/ci/pinned-readonly-ssh-execution.test.mjs
@@ -149,6 +154,20 @@ jobs:
           export READONLY_SSH_DIRECTORY="$transport_dir"
           export READONLY_SSH_IDENTITY="$transport_dir/identity"
           node scripts/ci/pinned-readonly-ssh-execution.mjs --execute
+      - name: Verify main remains unchanged and retain comparison scope
+        if: steps.production.outcome == 'success'
+        env:
+          EXPECTED_GITHUB_MAIN_SHA: ${{ inputs.expected_github_main_sha }}
+          COMPARISON_TARGET_SHA: ${{ inputs.approved_main_sha }}
+        run: |
+          set -Eeuo pipefail
+          [[ "$EXPECTED_GITHUB_MAIN_SHA" =~ ^[a-f0-9]{40}$ ]]
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_GITHUB_MAIN_SHA"
+          node --input-type=module <<'JS'
+          import fs from 'node:fs';
+          import path from 'node:path';
+          fs.writeFileSync(path.join(process.env.RUNNER_TEMP,'config-forensics','scope.json'),JSON.stringify({schema:'phoenix.readonly-main-comparison-scope/v1',githubMainSha:process.env.EXPECTED_GITHUB_MAIN_SHA,comparisonTargetSha:process.env.COMPARISON_TARGET_SHA,runnerSha:process.env.GITHUB_SHA,productionReleaseEligibility:'NOT_EVALUATED',productionMutation:false},null,2)+'\n',{mode:0o600,flag:'wx'});
+          JS
       - uses: actions/upload-artifact@v4
         if: always()
         with:

@@ -48,3 +48,16 @@ test('topology code is hashed before import and a mismatched payload cannot exec
   await assert.rejects(verifiedTopologyCollector(bytes.toString('base64') + '\n', '0'.repeat(64)), /TOPOLOGY_PROGRAM_MISMATCH/);
   await assert.rejects(verifiedTopologyCollector('A'.repeat(131073), '0'.repeat(64)), /TOPOLOGY_PROGRAM_MISMATCH/);
 });
+
+test('fixed local psql rejects connection-string identifiers and cannot inherit libpq routing',async()=>{
+  const {READONLY_LOCAL_PSQL}=await import('./batch2-config-hold-diagnostic.mjs');
+  const {spawnSync}=await import('node:child_process');
+  const {readFileSync}=await import('node:fs');
+  for(const delta of [{POSTGRES_DB:'postgresql://unapproved.invalid/db'},{POSTGRES_DB:'host=unapproved.invalid dbname=foo'},{POSTGRES_USER:'-option'}]){
+    const result=spawnSync('/bin/sh',['-c',READONLY_LOCAL_PSQL],{env:{POSTGRES_USER:'fixture_owner',POSTGRES_DB:'phoenix_erp',...delta},encoding:'utf8',timeout:1000});
+    assert.equal(result.status,64);assert.equal(result.stdout,'');assert.equal(result.stderr,'');
+  }
+  assert.match(READONLY_LOCAL_PSQL,/\/usr\/bin\/env -i/);assert.match(READONLY_LOCAL_PSQL,/--host=\/var\/run\/postgresql --port=5432/);
+  const source=readFileSync(new URL('./batch2-config-hold-diagnostic.mjs',import.meta.url),'utf8');
+  assert.doesNotMatch(source,/FROM (?:schema_migrations|migrations|chanjet_sync_jobs|chanjet_writeback_outbox|chanjet_wms_writeback_outbox|chanjet_master_mapping)\b/);
+});

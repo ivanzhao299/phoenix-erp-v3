@@ -138,3 +138,10 @@ test('HTTP status, source migration paths and IPv4-mapped IPv6 follow their exis
   for(const changed of ['migrations/../secret.sql','private/secret.sql'])assert.throws(()=>parseDiagnosticOutput(output({...diagnostic(),migrationScope:{changed:[changed]}}),runnerSha));
   assert.throws(()=>parseDiagnosticOutput(output({...diagnostic(),hostAddress:'999.999.999.999'}),runnerSha));
 });
+
+test('live GitHub main pin is checked separately from the frozen comparison baseline',()=>{
+  const w=fs.readFileSync(new URL('../../.github/workflows/chanjet-readonly-restoration.yml',import.meta.url),'utf8');
+  assert.ok(w.includes('expected_github_main_sha:'));assert.ok(w.includes('test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_GITHUB_MAIN_SHA"'));
+  assert.equal(w.split('test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_GITHUB_MAIN_SHA"').length-1,2);
+  assert.ok(w.includes("productionReleaseEligibility:'NOT_EVALUATED'"));assert.ok(w.includes("'scope.json'"));
+});
