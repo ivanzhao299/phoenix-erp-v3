@@ -119,6 +119,12 @@ jobs:
           set +x
           umask 077
           if [ "$DEPLOY_HOST" != 47.236.122.224 ] || [ "$DEPLOY_PORT" != 22 ] || [ -n "$DEPLOY_PROXY_HOST" ] || [ -z "$DEPLOY_SSH_KEY" ]; then
+            # Export only approved booleans; never print protected input values.
+            [ "$DEPLOY_HOST" = 47.236.122.224 ] && host_match=true || host_match=false
+            [ "$DEPLOY_PORT" = 22 ] && port_match=true || port_match=false
+            [ -z "$DEPLOY_PROXY_HOST" ] && proxy_absent=true || proxy_absent=false
+            [ -n "$DEPLOY_SSH_KEY" ] && key_present=true || key_present=false
+            printf 'READONLY_INPUT_STATUS host_match=%s port_match=%s proxy_absent=%s key_present=%s\n' "$host_match" "$port_match" "$proxy_absent" "$key_present"
             echo 'PINNED_READONLY_EXECUTION_HOLD=PROTECTED_CONNECTION_INPUT'
             exit 2
           fi
