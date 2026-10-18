@@ -262,7 +262,9 @@ async function exerciseNative() {
       }
       result.stage='DEFAULT_ADOPTED_COLLECTOR';await collect('ADOPTED');return originalVerify(request);
     };
-    await h.engine.verifyCandidate();result.stage='DEFAULT_PHASE_AWARE_COLLECTOR';await collect('ADOPTED',true);
+    await h.engine.verifyCandidate();result.stage='VERIFY_COMMITTED_PHASE_ANCHOR';
+    const committed=store.readState();store.readCandidateLeasePhaseAnchor({expectedStateDigest:committed.stateDigest,replacementStateDigest:root.expectedStateDigest});
+    result.committedPhaseAnchorPrecheck='PASS';result.stage='DEFAULT_PHASE_AWARE_COLLECTOR';result.phaseAwareStartedAt=new Date().toISOString();await collect('ADOPTED',true);
     assert.equal(observations.length,3);assert.equal(children.length,1);
     assert.ok(observations.every(v=>v.rootBefore.observation.backends[0].pid===observations[0].rootBefore.observation.backends[0].pid));
     const beforeFiles=[];
@@ -280,7 +282,9 @@ async function exerciseNative() {
     save('root-release.json',{fixtureOnly:true,productionReceipt:false,sourceSha:result.sourceSha,release});
     releaseSaved=true;
   } catch(error) {
-    firstFailure=error;result.outcome='FAIL';result.failureClass=/^[A-Z_]+=([A-Z0-9_]+)$/.exec(error?.message||'')?.[0]||'NATIVE_FIXTURE_UNVERIFIED_FAILURE';
+    firstFailure=error;result.failureObservedAt=new Date().toISOString();
+    if(typeof error?.diagnosticCode==='string')result.fixedDiagnosticCode=error.diagnosticCode;
+    result.outcome='FAIL';result.failureClass=/^[A-Z_]+=([A-Z0-9_]+)$/.exec(error?.message||'')?.[0]||'NATIVE_FIXTURE_UNVERIFIED_FAILURE';
   } finally {
     if(root){try {if(!release)release=await root.close({timeoutMs:120000});}catch {result.rootCleanup='UNVERIFIED';result.outcome='FAIL';}}
     try {await joinChildren(children);}catch {result.childJoin='UNVERIFIED';result.outcome='FAIL';}

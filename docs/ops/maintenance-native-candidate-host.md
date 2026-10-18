@@ -115,3 +115,13 @@ manifest and fchmods the same open directory to0555 without changing umask or
 production guard rules. Stages and fixed guard-code diagnostics distinguish
 future counterexample failures; partial successful observations are exported
 with outcomeFAIL/completefalse and never accepted as a completed fixture.
+
+Source1726b819 run39168909584 completed real PRE_ADOPTION and ADOPTED default
+observations and all4 guard counterexamples on both majors, then failed the
+committed phase-aware collector with generic OBSERVATION_UNVERIFIED. Exported
+partial observations are FAIL/completefalse; original root release and owned
+container stops remain verified. A separate committed-anchor precheck and bounded
+timestamps now distinguish anchor failure from later reads. The collector retains
+only a small allowlist of fixed private anchor/root-deadline categories on its
+generic error; arbitrary messages/paths/stderr/causes are discarded, public error
+text and rejection behavior stay unchanged. No deadline is raised or guard cached.
