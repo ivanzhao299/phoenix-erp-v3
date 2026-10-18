@@ -114,3 +114,10 @@ test('actual execution argv resolves fixed Ed25519, curve25519 KEX and strict po
     assert.ok(!entries.has('proxyjump') || entries.get('proxyjump') === 'none'); assert.equal(entries.get('proxyusefdpass'), 'no');
   });
 });
+
+test('owner-approved direct forensic route is fixed in source and keeps protected identity only',()=>{
+  const workflow=fs.readFileSync(new URL('../../.github/workflows/chanjet-readonly-restoration.yml',import.meta.url),'utf8');
+  assert.ok(workflow.includes("DEPLOY_HOST: '47.236.122.224'"));assert.ok(workflow.includes("DEPLOY_PORT: '22'"));assert.ok(workflow.includes("DEPLOY_PROXY_HOST: ''"));
+  assert.ok(!workflow.includes('secrets.DEPLOY_HOST'));assert.ok(!workflow.includes('secrets.DEPLOY_PORT'));assert.ok(!workflow.includes('secrets.DEPLOY_PROXY_HOST'));
+  assert.ok(workflow.includes('DEPLOY_USER: ${{ secrets.DEPLOY_USER }}'));assert.ok(workflow.includes('DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}'));
+});

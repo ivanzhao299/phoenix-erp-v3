@@ -105,11 +105,12 @@ jobs:
           FORENSIC_TOPOLOGY_SHA256: ${{ env.FORENSIC_TOPOLOGY_SHA256 }}
           FORENSIC_TARGET_SHA: ${{ inputs.approved_main_sha }}
           FORENSIC_RUNNER_SHA: ${{ github.sha }}
-          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          # 2026-10-18 owner explicitly selected the approved direct entry.
+          DEPLOY_HOST: '47.236.122.224'
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
           DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
-          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT || 22 }}
-          DEPLOY_PROXY_HOST: ${{ secrets.DEPLOY_PROXY_HOST }}
+          DEPLOY_PORT: '22'
+          DEPLOY_PROXY_HOST: ''
           APPROVED_RUNNER_SHA: ${{ inputs.approved_runner_sha }}
           APPROVED_PROGRAM_SHA256: ${{ inputs.approved_program_sha256 }}
           APPROVED_TOPOLOGY_SHA256: ${{ inputs.approved_topology_sha256 }}
