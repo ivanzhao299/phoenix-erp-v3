@@ -6,7 +6,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import assert from 'node:assert/strict';
 import { capturedDatabaseStatements, classifySql, parseBootControlIdentity, verifyCapturedControlIdentity, sliceCapturedWindow } from './api-bootstrap-mutations.mjs';
-import { exerciseActualErpRootBinding } from './maintenance-erp-root-binding.fixture.mjs';
+import { exerciseActualErpRootBinding, performExpectedFaultTerm, performExpectedFaultKill, validateExpectedFaultShutdown } from './maintenance-erp-root-binding.fixture.mjs';
 import { selectOwnedComposeSubnet } from './owned-compose-ipam.mjs';
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -248,11 +248,13 @@ export class OwnedErpCandidateCapsule {
     const payload = JSON.parse(this.sql(candidate.pg, `SELECT json_build_object('oid',(SELECT oid FROM pg_database WHERE datname=current_database()),'rows',(SELECT coalesce(json_agg(x),'[]'::json) FROM (SELECT pid,datid,backend_start,to_char(backend_start AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS backend_started_at_us FROM pg_stat_activity WHERE application_name=${literal(name)}) x));`));
     return verifyLiveControlRow(status, payload.rows, payload.oid);
   }
-  async startCandidate(pg, mode) {
+  async startCandidate(pg, mode, { role = 'default' } = {}) {
     if (!['missing', 'FENCED'].includes(mode)) hold('STARTUP_MUST_DENY');
-    const publicSource = path.join(this.root, `pg${pg.major}-${mode}-public`); fs.mkdirSync(publicSource, { mode: 0o755 });
+    assert.ok(role === 'default' || (role === 'root-binding-fault' && mode === 'FENCED'));
+    const suffix = role === 'default' ? '' : '-' + role;
+    const publicSource = path.join(this.root, `pg${pg.major}-${mode}${suffix}-public`); fs.mkdirSync(publicSource, { mode: 0o755 });
     this.helper(publicSource, "const fs=require('fs');fs.chownSync('/control',0,0);fs.chmodSync('/control',0o555);");
-    const candidate = { pg, mode, publicSource, captureApp: `erp-${pg.major}-${mode}-${randomUUID().slice(0, 8)}` };
+    const candidate = { pg, mode, role, publicSource, captureApp: `erp-${pg.major}-${mode}${suffix}-${randomUUID().slice(0, 8)}` };
     if (mode === 'FENCED') this.publishRootManifest(candidate, { protocolVersion: 1, phase: 'FENCED', owner: this.owner, generation: 1, targetSha: this.sourceSha, participants: [] });
     candidate.begin = `SELECT ${literal(`${candidate.captureApp}-BEGIN`)}`; this.sql(pg, candidate.begin + ';');
     const env = { NODE_ENV: 'production', APP_ENV: 'production', PORT: '3100', DB_HOST: 'fixture-db', DB_PORT: '5432', DB_USER: WRITER, DB_NAME: DB,
@@ -262,7 +264,7 @@ export class OwnedErpCandidateCapsule {
     candidate.id = this.own(this.docker(['run', '--pull=never', '-d', ...this.labels(), '--network', pg.networkId, '--restart=no', '--read-only', '--cap-drop=ALL',
       '--security-opt=no-new-privileges', '--publish', '127.0.0.1::3100', '--tmpfs', '/tmp:rw,nosuid,nodev,size=16777216,mode=1777',
       '--tmpfs', '/app/uploads:rw,nosuid,nodev,size=16777216,uid=1000,gid=1000', '--mount', `type=bind,source=${publicSource},target=${CONTROL_TARGET},readonly`,
-      ...Object.entries(env).flatMap(([key, value]) => ['-e', `${key}=${value}`]), this.imageId]), `pg${pg.major}-${mode}-actual-erp`);
+      ...Object.entries(env).flatMap(([key, value]) => ['-e', `${key}=${value}`]), this.imageId]), `pg${pg.major}-${mode}${suffix}-actual-erp`);
     const deadline = Date.now() + 45000;
     while (true) {
       try {
@@ -394,18 +396,48 @@ export class OwnedErpCandidateCapsule {
     for (const result of this.results.filter(result => result.pgMajor === candidate.pg.major && result.mode === candidate.mode)) result.shutdownEvidence = evidence;
     this.record(); return evidence;
   }
+  async teardownExpectedFault(candidate, binding) {
+    assert.equal(candidate.role, 'root-binding-fault'); assert.equal(binding.originalChildrenClosed, true);
+    assert.equal(binding.result, 'PROBES_VERIFIED_PENDING_FAULT_TEARDOWN');
+    const count = text => text.split(/\r?\n/).filter(line => line === 'BACKGROUND_SHUTDOWN_HOLD').length;
+    const markersBeforeTerm = count(this.logs(candidate.id)); assert.equal(markersBeforeTerm, 0);
+    // First prove the signal was handled as HOLD. Do not hide the fault behind
+    // docker stop's timeout or send a second SIGTERM after the once listener.
+    const priorStatus = this.status(candidate), before = this.inspectContainer(candidate.id);
+    performExpectedFaultTerm(before, binding, priorStatus, markersBeforeTerm, () => this.docker(['kill', '--signal', 'SIGTERM', candidate.id]));
+    const deadline = Date.now() + 10000; let markersAfterTerm, status;
+    do {
+      const live = this.inspectContainer(candidate.id); assert.equal(live.State.Running, true);
+      markersAfterTerm = count(this.logs(candidate.id)); status = this.status(candidate);
+      if (markersAfterTerm === 1 && status.stopping === true) break;
+      await sleep(100);
+    } while (Date.now() < deadline);
+    status = this.status(candidate);
+    const deniedStatus = this.request(candidate, '/api/auth/login', { method: 'POST', body: {} }).status;
+    const afterTerm = this.inspectContainer(candidate.id);
+    // inspectContainer verifies immutable owner labels immediately before the
+    // explicit owner-only fault teardown, always using the original full ID.
+    const evidence = { signals: ['SIGTERM'], markersBeforeTerm, markersAfterTerm, status, expectedBootId: binding.finalApiStatus.bootId,
+      expectedControl: binding.finalApiStatus.controlSession, deniedStatus, rootOriginalChildrenClosed: binding.originalChildrenClosed };
+    performExpectedFaultKill(before, afterTerm, evidence, () => this.docker(['kill', '--signal', 'SIGKILL', candidate.id]));
+    let stopped;
+    for (let n = 0; n < 30; n++) { stopped = this.inspectContainer(candidate.id); if (!stopped.State.Running) break; await sleep(100); }
+    return validateExpectedFaultShutdown(before, afterTerm, stopped, { ...evidence, signals: ['SIGTERM', 'SIGKILL'] });
+  }
   async exercise() {
     for (const major of [16, 18]) {
       const pg = await this.startPostgres(major);
       const before = this.fingerprint(pg);
       const candidates = [await this.startCandidate(pg, 'missing'), await this.startCandidate(pg, 'FENCED')];
       await this.verifyDefaultWindow(pg, candidates, before); this.detectorCanary(pg); await this.controlledOpen(candidates[1]);
-      const binding = await exerciseActualErpRootBinding(this, candidates[1]);
-      assert.equal(binding.originalChildrenClosed, true);
-      this.results.push(binding);
-      fs.writeFileSync(path.join(this.root, `pg${major}-actual-erp-root-binding.json`), JSON.stringify(binding, null, 2), { mode: 0o600 });
       // Keep owned identities/receipts for root review. No deletion and no production state cleanup.
       for (const candidate of candidates) this.stopCandidate(candidate);
+      const fault = await this.startCandidate(pg, 'FENCED', { role: 'root-binding-fault' });
+      const binding = await exerciseActualErpRootBinding(this, fault);
+      try { binding.faultShutdown = await this.teardownExpectedFault(fault, binding); binding.result = 'PASS'; }
+      catch { binding.result = 'FAIL'; binding.faultShutdown = { outcome: 'UNVERIFIED', productionReceipt: false }; throw Error('ACTUAL_ERP_FAULT_SHUTDOWN_UNVERIFIED'); }
+      finally { fs.writeFileSync(path.join(this.root, `pg${major}-actual-erp-root-binding.json`), JSON.stringify(binding, null, 2), { mode: 0o600, flag: 'wx' }); }
+      this.results.push(binding);
       this.record();
     }
     const result = { schema: 'phoenix.real-erp-candidate-fixture-evidence/v1', outcome: 'PASS', fixtureOnly: true, productionReceipt: false,

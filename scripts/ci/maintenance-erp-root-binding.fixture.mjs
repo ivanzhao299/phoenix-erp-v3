@@ -51,6 +51,43 @@ export function persistRootBindingFailure(capsule, major, cleanup, children) {
   return file;
 }
 
+const runtimePin = value => [value.Id, value.Image, value.State.StartedAt, value.RestartCount];
+export function performExpectedFaultTerm(runtime, binding, status, markers, send) {
+  assert.deepEqual(runtimePin(runtime), runtimePin(binding.apiRuntime));
+  assert.equal(runtime.State.Running, true); assert.equal(runtime.State.OOMKilled, false);
+  assert.equal(binding.result, 'PROBES_VERIFIED_PENDING_FAULT_TEARDOWN'); assert.equal(binding.originalChildrenClosed, true);
+  assert.equal(markers, 0); assert.equal(status.phase, 'HOLD'); assert.equal(status.poisoned, true); assert.equal(status.stopping, false);
+  assert.equal(status.bootId, binding.finalApiStatus.bootId); assert.equal(status.controlSession.broken, true); assert.equal(status.controlSession.connected, false);
+  for (const field of ['sessionPid', 'backendStartedAtUs', 'applicationName']) assert.equal(status.controlSession[field], binding.finalApiStatus.controlSession[field]);
+  send();
+}
+export function validateExpectedFaultBeforeKill(before, afterTerm, evidence) {
+  assert.deepEqual(runtimePin(afterTerm), runtimePin(before));
+  assert.equal(before.State.Running, true); assert.equal(afterTerm.State.Running, true);
+  assert.equal(afterTerm.State.OOMKilled, false);
+  assert.deepEqual(evidence.signals, ['SIGTERM']);
+  assert.equal(evidence.markersBeforeTerm, 0); assert.equal(evidence.markersAfterTerm, 1);
+  assert.equal(evidence.status.phase, 'HOLD'); assert.equal(evidence.status.poisoned, true); assert.equal(evidence.status.stopping, true);
+  assert.equal(evidence.status.bootId, evidence.expectedBootId);
+  assert.equal(evidence.status.controlSession.broken, true); assert.equal(evidence.status.controlSession.connected, false);
+  for (const field of ['sessionPid', 'backendStartedAtUs', 'applicationName']) assert.equal(evidence.status.controlSession[field], evidence.expectedControl[field]);
+  assert.equal(evidence.deniedStatus, 503); assert.equal(evidence.rootOriginalChildrenClosed, true);
+}
+export function performExpectedFaultKill(before, latestRuntime, evidence, kill) {
+  validateExpectedFaultBeforeKill(before, latestRuntime, evidence);
+  kill();
+}
+export function validateExpectedFaultShutdown(before, afterTerm, stopped, evidence) {
+  assert.deepEqual(evidence.signals, ['SIGTERM', 'SIGKILL']);
+  validateExpectedFaultBeforeKill(before, afterTerm, { ...evidence, signals: evidence.signals.slice(0, 1) });
+  assert.deepEqual(runtimePin(stopped), runtimePin(before));
+  assert.equal(stopped.State.Running, false); assert.equal(stopped.State.OOMKilled, false); assert.equal(stopped.State.ExitCode, 137);
+  return { expectedFaultBehaviorVerified: true, shutdownOutcome: 'HOLD', forcedTermination: true,
+    legacyDrainResult: 'UNSUPPORTED', productionReceipt: false, containerId: before.Id, signals: evidence.signals,
+    markersBeforeTerm: 0, markersAfterTerm: 1, status: evidence.status, expectedBootId: evidence.expectedBootId, deniedStatus: 503,
+    exitCode: 137, oomKilled: false, originalChildrenClosed: true };
+}
+
 export async function exerciseActualErpRootBinding(capsule, candidate) {
   assert.equal(candidate.mode, 'FENCED');
   const pg = candidate.pg, cases = [], observations = [], children = [];
@@ -139,8 +176,9 @@ export async function exerciseActualErpRootBinding(capsule, candidate) {
       [runtime.Id, runtime.Image, runtime.State.StartedAt, runtime.RestartCount]);
     cases.push('loss of the actual ERP control connection poisons admission without replacement, restart or stale catalog acceptance');
     assert.equal(cases.length, 6);
-    return { schema: 'phoenix.actual-erp-root-binding-fixture/v1', result: 'PASS', fixtureOnly: true, productionReceipt: false,
+    return { schema: 'phoenix.actual-erp-root-binding-fixture/v1', result: 'PROBES_VERIFIED_PENDING_FAULT_TEARDOWN', fixtureOnly: true, productionReceipt: false,
       sourceSha: capsule.sourceSha, imageId: capsule.imageId, pgMajor: pg.major, apiContainerId: candidate.id, database,
+      apiRuntime: { Id: runtime.Id, Image: runtime.Image, State: { StartedAt: runtime.State.StartedAt }, RestartCount: runtime.RestartCount },
       erpRuntime: 'ACTUAL_SOURCE_BUILT', rootLeaseTransport: 'ACTUAL_ORIGINAL_CHILD', catalog: 'ACTUAL_INDEPENDENT_PG',
       authorityAndStore: 'SYNTHETIC_TEST_ONLY', historicalPre: 'SYNTHETIC_TEST_ONLY', fullCandidateServerObserver: 'NOT_RUN',
       productionStorageAndFD9: 'NOT_RUN', continuousDrainProof: false, registryInstalled: false, productionMutation: false,

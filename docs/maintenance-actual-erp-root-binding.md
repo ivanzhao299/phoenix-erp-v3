@@ -26,8 +26,8 @@ root observations/release and original local child PIDs/close settlement.
 Failure to close the root client does not skip local child cleanup: EOF and a
 bounded local signal/wait are attempted, but any timeout or missing server-gone
 proof fails the fixture. Detailed cleanup debt is stored in a separate immutable
-0600 artifact, so an outer failure handler cannot overwrite it. Five pure tests
-exercise failure settlement and evidence persistence.
+0600 artifact, so an outer failure handler cannot overwrite it. Pure tests
+exercise failure settlement, evidence persistence and fault-shutdown refusal.
 
 PG readiness requires both a healthy server and final PostgreSQL PID 1, excluding
 the temporary initialization server. Networks use the existing reserved fixture
@@ -45,17 +45,31 @@ storage/FD9, provide an atomic cross-process snapshot or establish continuous
 legacy drain/ingress isolation. All release/admission proof flags remain false.
 
 The existing real startup/Cron-minute/mutation-canary and FENCED→OPEN→FENCED
-tests remain in place. The new destructive connection-loss probe runs after
-them. Local child settlement does not mean all outer fixture images, containers
+tests remain in place and continue requiring normal exit 0. The new destructive
+connection-loss probe uses a third, separate candidate after those normal
+instances stop. Its first SIGTERM must produce a new real
+`BACKGROUND_SHUTDOWN_HOLD` log, the same boot/control identity, continued HOLD
+and HTTP 503. Only then is the owner-verified original container explicitly
+SIGKILLed for fixture teardown. Exit 137 is recorded as forced/HOLD/UNSUPPORTED,
+never successful drain. Overall fixture PASS verifies the expected fault, not
+release readiness. Missing/stale HOLD, identity drift, admission recovery, OOM
+or unsettled root children fail. The success artifact is written after teardown.
+Both signals validate their original runtime and current boot/control identity
+before sending; action-level negative tests verify no signal is sent after drift.
+Local child settlement does not mean all outer fixture images, containers
 or networks were deleted; the enclosing fixture retains its existing explicit
 resource ledger.
 
 ## Validation
 
-Local protocol run: 301 PASS / 12 SKIP. Independent source review closed two
+Final local protocol run: 325 PASS / 12 SKIP. Independent source review closed
 cleanup findings before submission. The initial local actual-image attempt
 failed creating a default Docker network; its result is FAIL, not inherited
-PASS. The final exact PR revision must execute the hosted real ERP step and
+PASS. The first hosted run 39135505513 verified six PG16 binding probes but then
+failed because it incorrectly applied normal exit-0 semantics to the intentionally
+poisoned instance. That run remains FAIL. Independent review confirmed the
+separate normal-exit and expected-fault contract above; application shutdown
+semantics are unchanged. The final exact PR revision must execute the hosted real ERP step and
 retain both major-version joint-binding receipts before acceptance. Source and
 production acceptance are separate; no production operation is authorized by
 this fixture.
