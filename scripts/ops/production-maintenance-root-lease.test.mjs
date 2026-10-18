@@ -91,13 +91,31 @@ test('client reference swapped while original close settles is never closed or c
 });
 test('total deadline crossed inside synchronous inspect prevents later catalog IO and poisons lease',async()=>{
   const f=fixture();await f.lease.acquire();let clock=f.now,reads=0,passedTimeout;
-  const run=f.lease.run;f.lease.now=()=>clock;f.lease.run=(args,input,options)=>{reads++;passedTimeout=options.timeoutMs;const value=run(args,input);clock+=11;return value;};
+  const run=f.lease.run,monotonic=f.lease.monotonicNow;f.lease.now=()=>clock;f.lease.monotonicNow=()=>0;f.lease.run=(args,input,options)=>{reads++;passedTimeout=options.timeoutMs;const value=run(args,input);clock+=11;return value;};
   await assert.rejects(f.lease.observe({timeoutMs:10}),/OPERATION_DEADLINE/);assert.equal(reads,1);assert.ok(passedTimeout<=10);
-  await assert.rejects(f.lease.observe(),/LEASE_NOT_HELD/);f.lease.run=run;f.lease.now=()=>f.now;await f.lease.close();
+  await assert.rejects(f.lease.observe(),/LEASE_NOT_HELD/);f.lease.run=run;f.lease.now=()=>f.now;f.lease.monotonicNow=monotonic;await f.lease.close();
 });
 test('aborted operation does not issue catalog reads or re-acquire admission',async()=>{
   const f=fixture();await f.lease.acquire();const controller=new AbortController();controller.abort();let reads=0;const run=f.lease.run;f.lease.run=(...args)=>{reads++;return run(...args);};
   await assert.rejects(f.lease.observe({signal:controller.signal}),/OPERATION_ABORTED/);assert.equal(reads,0);await f.lease.close();
+});
+test('frozen wall clock cannot extend a root observation beyond monotonic time; failed observation stays poisoned',async()=>{
+  const f=fixture();await f.lease.acquire();const run=f.lease.run,monotonic=f.lease.monotonicNow;let elapsed=0,reads=0;
+  f.lease.monotonicNow=()=>elapsed;f.lease.run=(...args)=>{reads++;const value=run(...args);elapsed=11;return value;};
+  try{await assert.rejects(f.lease.observe({timeoutMs:10}),/OPERATION_DEADLINE/);assert.equal(reads,1);await assert.rejects(f.lease.observe(),/LEASE_NOT_HELD/);}
+  finally{f.lease.run=run;f.lease.monotonicNow=monotonic;await f.lease.close();}
+});
+test('root budget rejects a wall rollback above its start and never re-reads clocks to enlarge remaining',()=>{
+  const f=fixture();let wall=f.now,mono=0,wallCalls=0,monoCalls=0;
+  f.lease.now=()=>{wallCalls++;return wall;};f.lease.monotonicNow=()=>{monoCalls++;return mono;};
+  const budget=f.lease.budget({timeoutMs:100});assert.equal(budget.remaining(),100);assert.equal(wallCalls,2);assert.equal(monoCalls,2);
+  wall+=20;mono=20;assert.equal(budget.remaining(),80);wall-=10;mono=30;assert.throws(()=>budget.remaining(),/OPERATION_DEADLINE/);
+});
+test('root budget rejects nonfinite clocks and monotonic rollback',()=>{
+  for(const clock of ['now','monotonicNow'])for(const value of [NaN,Infinity,-Infinity]){
+    const f=fixture();f.lease[clock]=()=>value;assert.throws(()=>f.lease.budget().remaining(),/OPERATION_DEADLINE/);
+  }
+  const f=fixture();let mono=10;f.lease.monotonicNow=()=>mono;const budget=f.lease.budget();mono=20;budget.check();mono=15;assert.throws(()=>budget.check(),/OPERATION_DEADLINE/);
 });
 test('concurrent cancelled observation poisons a previously waiting observation',async()=>{
   const f=fixture();await f.lease.acquire();const query=f.lease.session.query.bind(f.lease.session);let resume;

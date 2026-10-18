@@ -3,6 +3,7 @@
 import path from 'node:path';
 import {spawn,execFileSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
+import {performance} from 'node:perf_hooks';
 import {CONTRACT,verifyContext} from './production-config-guard.mjs';
 import {executionEnv} from './capture-production-runtime.mjs';
 import {DockerPostgresControlSession} from './background-control-coordinator.mjs';
@@ -73,7 +74,7 @@ export class RootControlLease {
     this.store=dependencies.store||new MaintenanceReceiptStore(context);
     this.guard=dependencies.guard||(()=>verifyContext(CONTRACT.repository,CONTRACT.stateDirectory));
     this.admit=dependencies.admit||(options=>assertLegacyMaintenanceAdmission(options,{verifyAuthority:dependencies.verifyAuthority}));
-    this.now=dependencies.now||Date.now;this.run=dependencies.run||productionRun;
+    this.now=dependencies.now||Date.now;this.monotonicNow=dependencies.monotonicNow||(()=>performance.now());this.run=dependencies.run||productionRun;
     const launch=dependencies.spawn||spawn;
     this.startFile=path.join(this.store.directory,`maintenance-root-control-start-${context.owner}.json`);
     this.serverFile=path.join(this.store.directory,`maintenance-root-control-server-${context.owner}.json`);
@@ -116,9 +117,15 @@ export class RootControlLease {
   }
   budget({timeoutMs=30000,signal}={}){
     if(!Number.isSafeInteger(timeoutMs)||timeoutMs<1||timeoutMs>120000||(signal&&!(signal instanceof AbortSignal)))fail('OPERATION_BUDGET_REQUIRED');
-    const start=this.now(),deadline=start+timeoutMs;
-    const check=()=>{if(signal?.aborted)fail('OPERATION_ABORTED');if(this.now()<start||this.now()>=deadline)fail('OPERATION_DEADLINE');};
-    return {check,remaining:()=>{check();return Math.max(1,Math.floor(deadline-this.now()));}};
+    const start=this.now(),monoStart=this.monotonicNow(),deadline=start+timeoutMs,monoDeadline=monoStart+timeoutMs;
+    let lastWall=start,lastMono=monoStart;
+    const check=()=>{
+      if(signal?.aborted)fail('OPERATION_ABORTED');
+      const wall=this.now(),mono=this.monotonicNow();
+      if(![start,monoStart,wall,mono].every(Number.isFinite)||wall<lastWall||mono<lastMono||wall>=deadline||mono>=monoDeadline)fail('OPERATION_DEADLINE');
+      lastWall=wall;lastMono=mono;
+    };
+    return {check,remaining:()=>{check();const left=Math.floor(Math.min(deadline-lastWall,monoDeadline-lastMono));if(left<1)fail('OPERATION_DEADLINE');return left;}};
   }
   observedRun(args,input,budget){
     budget.check();const timeoutMs=Math.min(10000,budget.remaining()),value=this.run(args,input,{timeoutMs});budget.check();return value;

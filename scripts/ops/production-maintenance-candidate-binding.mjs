@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {execFileSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
+import {performance} from 'node:perf_hooks';
 import {CONTRACT,verifyContext} from './production-config-guard.mjs';
 import {executionEnv} from './capture-production-runtime.mjs';
 import {RootControlLease} from './production-maintenance-root-lease.mjs';
@@ -65,7 +66,7 @@ function validateMounts(mounts,host,approved){
   return {source:PUBLIC_DIRECTORY,destination:CONTROL,type:'bind',readOnly:true,propagation:'rprivate'};
 }
 function runtimeSnapshot(replacement,run,approvedMounts){
-  let fields;try{fields=run(['inspect',replacement.candidate.id,'--format',DOCKER_FIELDS]).split('\t').map(JSON.parse);}catch{fail('RUNTIME_READ');}
+  let fields;try{fields=run(['inspect',replacement.candidate.id,'--format',DOCKER_FIELDS]).split('\t').map(JSON.parse);}catch(error){if(error?.message==='CANDIDATE_BINDING_HOLD=DEADLINE_OR_ABORT')throw error;fail('RUNTIME_READ');}
   if(fields.length!==24)fail('RUNTIME_FIELDS');
   const [id,imageId,StartedAt,Running,health,Pid,Status,Restarting,Dead,restartCount,project,service,mounts,Privileged,PidMode,IpcMode,UTSMode,UsernsMode,NetworkMode,restartPolicy,capAddCount,deviceCount,deviceRequestCount,SecurityOpt]=fields;
   const state={StartedAt,Running,Health:{Status:health},Pid,Status,Restarting,Dead},host={Privileged,PidMode,IpcMode,UTSMode,UsernsMode,NetworkMode,RestartPolicy:{Name:restartPolicy},capAddCount,deviceCount,deviceRequestCount,SecurityOpt},c=replacement.candidate;
@@ -77,7 +78,7 @@ function runtimeSnapshot(replacement,run,approvedMounts){
   return {api:{id,imageId,revision,startedAt:state.StartedAt,restartCount},pid:state.Pid,project:replacement.project,controlMount:validateMounts(mounts,host,approvedMounts)};
 }
 function statusSnapshot(id,manifest,run){
-  let s;try{s=JSON.parse(run(['exec',id,'node','-e',STATUS_PROGRAM]));}catch{fail('API_STATUS_READ');}
+  let s;try{s=JSON.parse(run(['exec',id,'node','-e',STATUS_PROGRAM]));}catch(error){if(error?.message==='CANDIDATE_BINDING_HOLD=DEADLINE_OR_ABORT')throw error;fail('API_STATUS_READ');}
   const c=s?.controlSession;
   if(s?.protocolVersion!==1||!UUID.test(s.bootId||'')||s.phase!=='FENCED'||s.owner!==manifest.owner||s.generation!==manifest.generation
     ||s.poisoned!==false||s.stopping!==false||!['inFlight','pendingChildren','taskGraphs'].every(k=>s[k]===0)
@@ -128,9 +129,13 @@ export async function collectCandidateServerBinding({context,expectedStateDigest
     if(!['PRE_ADOPTION','ADOPTED'].includes(mode)||!HASH.test(expectedStateDigest||'')||!(rootLease instanceof RootControlLease)
       ||!same(rootLease.context,context)||!Number.isSafeInteger(timeoutMs)||timeoutMs<1||timeoutMs>30000
       ||(signal&&!(signal instanceof AbortSignal)))fail('EXACT_OWNED_REQUEST');
-    const now=dependencies.now||Date.now,start=now(),end=Math.min(start+timeoutMs,Date.parse(context.window.end));
-    const check=()=>{const at=now();if(!Number.isFinite(at)||at<start||at<Date.parse(context.window.start)||at>=end||signal?.aborted)fail('DEADLINE_OR_ABORT');};
-    const remaining=()=>{check();return Math.max(1,Math.floor(end-now()));};
+    const now=dependencies.now||Date.now,monotonicNow=dependencies.monotonicNow||(()=>performance.now()),start=now(),monoStart=monotonicNow(),end=Math.min(start+timeoutMs,Date.parse(context.window.end)),monoEnd=monoStart+(end-start);
+    let lastWall=start,lastMono=monoStart;
+    const check=()=>{const at=now(),mono=monotonicNow();
+      if(![start,monoStart,at,mono].every(Number.isFinite)||at<lastWall||mono<lastMono||at<Date.parse(context.window.start)||at>=end||mono>=monoEnd||signal?.aborted)fail('DEADLINE_OR_ABORT');
+      lastWall=at;lastMono=mono;
+    };
+    const remaining=()=>{check();const left=Math.floor(Math.min(end-lastWall,monoEnd-lastMono));if(left<1)fail('DEADLINE_OR_ABORT');return left;};
     const guard=dependencies.guard||(()=>verifyContext(CONTRACT.repository,CONTRACT.stateDirectory));
     const store=dependencies.store||new MaintenanceReceiptStore(context);
     const run=(args,input)=>{check();guard();check();const raw=(dependencies.run||productionRun)(args,input,{timeoutMs:Math.min(10000,remaining())});check();
