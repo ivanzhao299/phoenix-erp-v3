@@ -19,6 +19,7 @@ import { MODE_EVIDENCE_SCHEMA, captureSnapshot, summarizeStartupLogs, startupBun
 // run unchanged. No Docker socket, real .env, network or production is accessed.
 const now = Date.parse('2026-10-18T01:10:00.000Z'), time = ms => new Date(now + ms).toISOString();
 const hash = n => n.repeat(64), sha = n => n.repeat(40), image = n => `sha256:${hash(n)}`;
+const actualBootId = '01234567-0123-4123-8123-0123456789ab';
 const ops = path.dirname(new URL(import.meta.url).pathname);
 const stagedFile = name => name === 'api-bootstrap-schema-contract.json' ? path.resolve(ops, '../../apps/api/src/common/database', name) : path.join(ops, name);
 function fixture(t) {
@@ -78,17 +79,17 @@ function fixture(t) {
   const historicalPre = captureSnapshot({ ...binding, deployMode: undefined, phase: 'PRE_SNAPSHOT', capturedAt: time(-4000) }, dockerRead);
   write(files.pre, captureSnapshot({ ...binding, phase: 'PRE_SNAPSHOT', capturedAt: time(-4000) }, dockerRead)); writes.length = 0;
   async function prepare() { await promoteLegacyMaintenanceFloor(request, deps); await beginLegacyMaintenanceDeployment(request, deps); await recordLegacyMaintenanceCandidate(request, deps); await switchLegacyMaintenanceDeployment(request, deps); }
-  function candidatePhase() {
+  function candidatePhase({ bootId = actualBootId, leaseBootId = bootId } = {}) {
     // Owned fixture creates the protocol's later immutable state/intent; it does
     // not pass a plan boolean in place of the real store/admission gate.
     fs.renameSync(store.markerFile, path.join(directory, 'fixture-finished-promotion-intent.json'));
     const candidateApi = { ...api, id: hash('9'), imageId: context.candidate.imageId, revision: context.targetSha, startedAt: time(-2000) };
     const controlSession = { connected: true, broken: false, sessionPid: 100, databaseOid: 16384, backendStartedAt: time(-2000) };
-    const candidate = evidence('CANDIDATE_FENCED', { api: candidateApi, bootId: hash('e'), controlSession, inFlight: 0, pendingChildren: 0, taskGraphs: 0, poisoned: false, stopping: false });
+    const candidate = evidence('CANDIDATE_FENCED', { api: candidateApi, bootId, controlSession, inFlight: 0, pendingChildren: 0, taskGraphs: 0, poisoned: false, stopping: false });
     const { stateDigest, ...content } = store.readState(); content.receipts.push(store.appendReceipt('CANDIDATE_FENCED', candidate, content, time(0)));
     request.state = store.writeState({ ...content, phase: 'CANDIDATE_FENCED', updatedAt: time(0) });
     store.beginMarker({ from: 'CANDIDATE_FENCED', to: 'VERIFIED_FENCED', operation: 'VERIFY_CANDIDATE', previousStateDigest: request.state.stateDigest, startedAt: time(0) });
-    request.controlLease = evidence('CANDIDATE_CONTROL_LEASE', { api: candidateApi, bootId: hash('e'), owner: context.owner, phase: 'FENCED', controlSession,
+    request.controlLease = evidence('CANDIDATE_CONTROL_LEASE', { api: candidateApi, bootId: leaseBootId, owner: context.owner, phase: 'FENCED', controlSession,
       admissionExclusive: true, executionExclusive: true, connected: true, admissionState: 'DENIED', inFlight: 0, pendingChildren: 0, taskGraphs: 0, poisoned: false, stopping: false, continuousIngress: true, unknownExecutors: 0 });
     runtime = { ...runtime, api: context.candidate };
     metadata.api = { ...metadata.api, id: candidateApi.id, image: candidateApi.imageId, revision: candidateApi.revision, state: { Running: true, StartedAt: candidateApi.startedAt, Health: { Status: 'healthy' } } };
@@ -181,6 +182,22 @@ test('formal completion verifies actual PRE POST startup and live pins before SU
   assert.equal(fs.existsSync(path.join(f.directory, 'transaction.json')), false); assert.equal(fs.existsSync(path.join(f.directory, 'policy-transition.json')), false);
   assert.ok(fs.existsSync(f.store.markerFile)); assert.ok(fs.existsSync(f.store.currentFile)); assert.equal(f.store.readState().phase, 'CANDIDATE_FENCED');
 });
+for (const [name, options] of [
+  ['legacy-64-hex', { bootId: hash('e') }],
+  ['wrong-version', { bootId: '01234567-0123-5123-8123-0123456789ab' }],
+  ['wrong-variant', { bootId: '01234567-0123-4123-7123-0123456789ab' }],
+  ['uppercase', { bootId: actualBootId.toUpperCase() }],
+  ['empty', { bootId: '' }],
+  ['different-valid-lease', { leaseBootId: '01234567-0123-4123-9123-0123456789ab' }],
+]) {
+  test(`formal completion rejects ${name} boot identity before any SUCCESS or marker cleanup`, async t => {
+    const f = fixture(t); await f.prepare(); f.candidatePhase(options);
+    await assert.rejects(completeLegacyMaintenanceDeployment(f.request, f.deps), /LEGACY_CANDIDATE_CONTROL_REQUIRED/);
+    assert.deepEqual(f.writes, []);
+    for (const marker of ['transaction.json', 'policy-transition.json', 'maintenance-transaction.json', 'maintenance-current.json']) assert.ok(fs.existsSync(path.join(f.directory, marker)));
+    assert.notEqual(f.read(path.join(f.directory, 'active.json')).outcome, 'SUCCESS');
+  });
+}
 test('new legacy maintenance transaction refuses a real historical v2 PRE receipt before begin', async t => {
   const f = fixture(t); await promoteLegacyMaintenanceFloor(f.request, f.deps);
   f.write(f.files.pre, f.historicalArtifacts().pre); f.writes.length = 0;
