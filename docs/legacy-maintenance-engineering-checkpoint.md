@@ -85,9 +85,34 @@ snapshots, SHA256 `ca38965d0f6bb9deb202ea648a32b0e9e7296fd89ccf7d17761133ec5945f
 owners, the READY-window bug and external Nginx lifecycle deviation remain
 recorded. Nine pure observer tests pass; no failed observation is rewritten.
 
-A newly confirmed upstream control-I/O P1 is under remediation: heartbeat queue
-coalescing and bounded owned-session retirement. Existing green functional CI
-is not evidence that this later finding is closed. Source approval and production
-eligibility remain blocked until the repaired exact source and integration tests
-are independently reviewed. PostgreSQL socket closure alone cannot prove the
-server backend disappeared or that still-running business work has drained.
+The upstream control-I/O P1 was repaired at Cron commit
+`38b728a558416537cf49bf79e3f3a24cca5d7cfb`: coalesced heartbeat, finite caller
+I/O deadlines, permanent poison and bounded owned-client retirement with tracked
+cleanup debt. Independent technical review found no blocking P0/P1 in that
+contract. Fresh local backend/service tests passed 34; real owned PG16/18 protocol
+tests passed 10 each; full API suite passed 1133 with 332 skips; build, API/Web
+typecheck and changed lint passed. Hosted fence workflow `39092148678` passed
+53 tests on each PG version. Local socket termination remains distinct from
+server-session disappearance; lock release does not clear still-running work.
+
+Hosted maintenance run `39092215432` succeeded on PR head
+`4d0c25dfb310edd8824f6980a2dcf8be6829fdc8`. Its actual checkout was temporary PR
+merge commit `0c1b31dd74571a150ddff371fc7b93f7c8043ab7`, whose parents were
+main `9155dccd` and that PR head, with exactly the same tree. The real tracked
+ERP candidate image was
+`sha256:e10ecf548e6042c1b4f275a53e66c8987d8d953eee716bdd7dcb45257454a012`;
+six PG16/18 startup, readonly-canary and same-boot control results passed.
+Summary SHA256:
+`51183942e257484c72b3a80a70a41007e20d90b8c0826600969634e84891203d`.
+This remains isolated evidence, not a production OCI release, FD9 or authority
+receipt. Earlier source-built candidate counts remain historical checkpoints.
+
+The same heads failed the separate bootstrap static audit because its exact
+AST contract did not recognize the newly reviewed closed/broken identity guard,
+non-null runner receiver and tracked-query callbacks. The checker and 25 valid-syntax negative mutations were updated in Cron
+`9f1d7f3710d1fe55ef4497f27390c5cee83e46b1`, retaining exact callback AST/source
+ownership, fixed SELECT/namespace/key and the full current identity guard.
+Independent Node20 static/preflight tests passed 31; real source audit passed
+555 files with zero violations. New exact-head hosted CI must still complete.
+Formal source/security approval and production legacy eligibility remain
+blocked. No failed CI run is relabeled as successful.
