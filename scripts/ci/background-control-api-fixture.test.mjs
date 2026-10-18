@@ -5,7 +5,7 @@ import { spawnSync,spawn } from 'node:child_process';
 import { once } from 'node:events';
 import os from 'node:os';
 import path from 'node:path';
-import { validateContext,validateDatabaseContainer,validateStatus,findRunnerAncestor,runFixture,KINDS,TARGET,STATE,controlPathExists,cleanupNotStarted,inspectCleanupProcess,waitFixtureProcessExit,validateApiListeners,fixtureFailureCode,rootCallFailure,parseRootResponse,validateNetworkStage } from './background-control-api-fixture.mjs';
+import { validateContext,validateDatabaseContainer,validateStatus,findRunnerAncestor,runFixture,KINDS,TARGET,STATE,controlPathExists,cleanupNotStarted,inspectCleanupProcess,waitFixtureProcessExit,validateApiListeners,fixtureFailureCode,rootCallFailure,parseRootResponse,validateNetworkStage,createPositiveFixtureManifest } from './background-control-api-fixture.mjs';
 const sha='a'.repeat(40),id='c'.repeat(64),bootId='00000000-0000-4000-8000-000000000001';
 const c={GITHUB_ACTIONS:'true',CI:'true',RUNNER_ENVIRONMENT:'github-hosted',RUNNER_OS:'Linux',RUNNER_ARCH:'X64',GITHUB_REPOSITORY:'ivanzhao299/phoenix-erp-v3',GITHUB_RUN_ID:'1234',GITHUB_RUN_ATTEMPT:'1',GITHUB_JOB:'regression',GITHUB_SHA:sha,GITHUB_WORKSPACE:'/home/runner/work/phoenix-erp-v3/phoenix-erp-v3',RUNNER_TEMP:'/home/runner/work/_temp',NODE_ENV:'test',APP_ENV:'test',DB_HOST:'127.0.0.1',DB_PORT:'5432',DB_USER:'phoenix_v3',DB_NAME:'phoenix_erp',PORT:'3100',BACKGROUND_FIXTURE_POSTGRES_ID:id,uid:1001};
 const facts={workspace:c.GITHUB_WORKSPACE,temp:c.RUNNER_TEMP,workspaceUid:1001,tempUid:1001,production:false,runner:{pid:10,start:'50'},head:sha,originApproved:true,mainRegular:true};
@@ -85,7 +85,37 @@ test('kernel listener proof rejects wildcard, foreign address, unknown inode and
 test('real boot UUID, exact fenced owner/generation and connected control identity are required',()=>{
   const binding={owner:status.owner,generation:1,phase:'FENCED',sha};assert.equal(validateStatus(status,binding),status);
   for(const delta of [{phase:'OPEN'},{bootId:'legacy'},{generation:2},{owner:'other'},{poisoned:true},{stopping:true},{inFlight:-1},{controlSession:{...status.controlSession,connected:false}},{controlSession:{...status.controlSession,applicationName:'fake'}}])assert.throws(()=>validateStatus({...status,...delta},binding),/CI_BACKGROUND_HOLD=/);
-  assert.deepEqual(KINDS,['LOCAL','EXTERNAL_READ','NOTIFICATION']);assert.ok(!KINDS.some(k=>k.startsWith('CHANJET_')));
+  assert.deepEqual(KINDS,['LOCAL']);assert.equal(Object.isFrozen(KINDS),true);
+});
+test('hosted manifest preserves exact participant bindings and cannot receive implicit external grants',()=>{
+  const manifest=createPositiveFixtureManifest({owner:status.owner,sha,allowedKinds:['EXTERNAL_READ','NOTIFICATION','CHANJET_AUTH']},status,id);
+  assert.equal(manifest.owner,status.owner);assert.equal(manifest.targetSha,sha);
+  assert.deepEqual(manifest.participants,[{bootId,containerId:id,revision:sha,allowedKinds:['LOCAL']}]);
+  for(const r of [{owner:'other-owner',sha},{owner:status.owner,sha:'main'}])assert.throws(()=>createPositiveFixtureManifest(r,status,id),/EXACT_FIXTURE_PARTICIPANT_REQUIRED/);
+  assert.throws(()=>createPositiveFixtureManifest({owner:status.owner,sha},{bootId:'unknown'},id),/EXACT_FIXTURE_PARTICIPANT_REQUIRED/);
+  assert.throws(()=>createPositiveFixtureManifest({owner:status.owner,sha},status,'container-name'),/EXACT_FIXTURE_PARTICIPANT_REQUIRED/);
+});
+test('real task service unit admission denies IoT/notification before callbacks while local work remains available',async t=>{
+  const base=new URL('../../apps/api/dist/modules/background-control/',import.meta.url);
+  for(const name of ['background-task.service.js','background-manifest.reader.js'])if(!fs.existsSync(new URL(name,base))){
+    if(process.env.GITHUB_ACTIONS==='true')assert.fail('COMPILED_BACKGROUND_ADMISSION_REQUIRED');
+    t.skip('NOT_RUN: build API first; this test requires the compiled real admission classes');return;
+  }
+  const [{BackgroundTaskService},{BackgroundManifestReader}]=await Promise.all([import(new URL('background-task.service.js',base)),import(new URL('background-manifest.reader.js',base))]);
+  const validator=new BackgroundManifestReader();let manifest;let gates=0,execution=0,work=0;
+  // UNIT control stub only: no PostgreSQL identity, session or drain proof.
+  const backend={bindLoss(){},bindIdentity(){},async gateEnter(){gates++;return true;},async gateExit(){gates--;},async executionEnter(){execution++;return true;},async executionExit(){execution--;},async close(){}};
+  const reader={read:()=>validator.validate(manifest),authorize:(identity,kind)=>validator.authorize.call({read:()=>validator.validate(manifest)},identity,kind)};
+  const tasks=new BackgroundTaskService(reader,backend);
+  manifest=createPositiveFixtureManifest({owner:status.owner,sha},{bootId:tasks.identity.bootId},id);
+  await tasks.run('local-business','LOCAL',async()=>work++);
+  for(const [name,kind] of [['iot.sync.scheduled','EXTERNAL_READ'],['notification.tick','NOTIFICATION']]){
+    assert.equal(await tasks.runScheduled(name,kind,async()=>{throw Error('QUERY_OR_HTTP_MUST_NOT_RUN');}),undefined);
+    await assert.rejects(tasks.run(name+'.manual',kind,async()=>{throw Error('QUERY_OR_HTTP_MUST_NOT_RUN');}),/BACKGROUND_HOLD=FENCED_OR_UNAUTHORIZED/);
+  }
+  await tasks.run('local-business-after-denial','LOCAL',async()=>work++);
+  assert.equal(work,2);assert.equal(gates,0);assert.equal(execution,0);
+  await tasks.shutdown();
 });
 test('invalid CI context causes zero sudo, writes, or API starts',async()=>{
   let sudo=0,starts=0,writes=0;
