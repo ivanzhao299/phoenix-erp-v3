@@ -38,6 +38,7 @@ jobs:
           docker pull node:20-bookworm-slim
           docker pull postgres:16-alpine
           docker pull postgres:18-alpine
+          docker pull alpine:3.23
           mkdir -p artifacts/maintenance-ci
       # Keep Docker lifecycle tests serial: replacement observes daemon events
       # and must reject unrelated lifecycle activity during its own interval.
