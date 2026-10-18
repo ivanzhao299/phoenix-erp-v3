@@ -95,6 +95,18 @@ test('total deadline crossed inside synchronous inspect prevents later catalog I
   await assert.rejects(f.lease.observe({timeoutMs:10}),/OPERATION_DEADLINE/);assert.equal(reads,1);assert.ok(passedTimeout<=10);
   await assert.rejects(f.lease.observe(),/LEASE_NOT_HELD/);f.lease.run=run;f.lease.now=()=>f.now;f.lease.monotonicNow=monotonic;await f.lease.close();
 });
+test('owned state checkpoint exhausting the caller budget cannot return a successful root observation',async()=>{
+  const f=fixture();await f.lease.acquire();const read=f.store.readOwnedState,run=f.lease.run,mono=f.lease.monotonicNow;
+  let clock=f.now,reads=0;
+  f.lease.now=()=>clock;f.lease.monotonicNow=()=>0;
+  f.store.readOwnedState=(...args)=>{const value=read(...args);clock+=11;return value;};
+  f.lease.run=(...args)=>{reads++;return run(...args);};
+  try {
+    await assert.rejects(f.lease.observe({timeoutMs:10}),/OPERATION_DEADLINE/);assert.equal(reads,0);
+    assert.equal(f.closed,false);assert.equal(f.child.exitCode,null);
+    await assert.rejects(f.lease.observe(),/LEASE_NOT_HELD/);
+  } finally {f.store.readOwnedState=read;f.lease.run=run;f.lease.now=()=>f.now;f.lease.monotonicNow=mono;await f.lease.close();}
+});
 test('aborted operation does not issue catalog reads or re-acquire admission',async()=>{
   const f=fixture();await f.lease.acquire();const controller=new AbortController();controller.abort();let reads=0;const run=f.lease.run;f.lease.run=(...args)=>{reads++;return run(...args);};
   await assert.rejects(f.lease.observe({signal:controller.signal}),/OPERATION_ABORTED/);assert.equal(reads,0);await f.lease.close();

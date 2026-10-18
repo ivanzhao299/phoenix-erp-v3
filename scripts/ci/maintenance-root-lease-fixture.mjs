@@ -13,6 +13,8 @@ export function rootLeaseFixture({now=Date.now(),database: supplied,owner='23456
   const state={contextDigest:bindingDigest(context),stateDigest:h('9'),phase:'CANDIDATE_REPLACED'},records=new Map();
   let current=true;
   const store={directory:'/owned-fixture-memory-not-production',assertCurrent(){assert.equal(current,true);},readState(){return state;},assertOwnedIntent(op,phase,digest){assert.equal(op,'START_CANDIDATE');assert.equal(phase,state.phase);assert.equal(digest,state.stateDigest);},
+    // Synthetic store only; actual pinned owner/state cases have separate tests.
+    readOwnedState(){assert.equal(current,true);return state;},
     immutable(file,value){assert.equal(records.has(file),false,'immutable fixture record');records.set(file,structuredClone(value));},read(file){assert.ok(records.has(file),'fixture record exists');return structuredClone(records.get(file));}};
   return {context,database,state,store,records,now,archive(){current=false;},options:{context,database,approval:{fixtureOnly:true},expectedStateDigest:state.stateDigest,registerOwnedChild:child=>({registered:true,pid:child.pid})},dependencies:{store,guard(){},admit:async()=>true,now:()=>now}};
 }

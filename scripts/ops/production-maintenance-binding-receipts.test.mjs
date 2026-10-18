@@ -27,6 +27,23 @@ test('one owned snapshot selects both unique payloads, without public per-receip
   value.replacement.body.fixture = 'mutated caller'; assert.deepEqual(f.read().replacement, f.payloads.CANDIDATE_REPLACEMENT);
   assert.equal(guards, 4); assert.equal(inspections, 4);
 });
+test('fixed owned state combines owner and full chain in one fresh batch for each checkpoint', () => {
+  const f = fixture(); let guards = 0;
+  f.s.guard = () => { guards++; };
+  f.s.assertCurrent = f.s.readState = () => assert.fail('do not split owner and state into independent reads');
+  const a = f.s.readOwnedState({ timeoutMs: 1000 }); assert.equal(a.stateDigest, f.digest); assert.equal(guards, 2);
+  a.context.owner = 'changed'; assert.equal(f.s.readOwnedState().context.owner, f.context.owner); assert.equal(guards, 4);
+  fs.renameSync(f.s.currentFile, f.s.currentFile+'.owned-retained');
+  assert.throws(() => f.s.readOwnedState(), /MAINTENANCE_OWNER_REQUIRED/);
+});
+test('owned state checkpoint cannot return a corrupt unselected chain or an owner changed at ending guard', () => {
+  const f = fixture({ extra: true }), state = f.s.readOwnedState(), file = f.s.receiptFile(state.receipts.at(-1));
+  const row = JSON.parse(fs.readFileSync(file)); row.payload.body.fixture = 'corrupted'; fs.writeFileSync(file, JSON.stringify(row));
+  assert.throws(() => f.s.readOwnedState(), /RECEIPT_DIGEST/);
+  const g = fixture(); let guards = 0;
+  g.s.guard = () => { if (++guards === 2) { const owner = JSON.parse(fs.readFileSync(g.s.currentFile)); owner.owner = '888-1'; fs.writeFileSync(g.s.currentFile, JSON.stringify(owner)); } };
+  assert.throws(() => g.s.readOwnedState(), /RECEIPT_CHANGED/); assert.equal(guards, 2);
+});
 test('CR view requires no candidate; later phases require its one exact receipt', () => {
   const f = fixture({ phase: 'CANDIDATE_REPLACED' }); assert.equal(f.read().candidate, null);
   const state = f.s.readState(); delete state.stateDigest; state.phase = 'CANDIDATE_FENCED'; f.s.writeState(state);
