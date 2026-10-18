@@ -37,3 +37,25 @@
 ## 尚未证明的边界
 
 Appleboy v1 的已核实输入支持 fingerprint，不提供 OpenSSH HostKeyAlgorithms/KexAlgorithms 参数；因此不能宣称此源码修复强制了 curve25519 KEX。指纹不匹配必须拒绝，无 fallback。真实 GitHub runner 网络、密钥身份、root/trusted paths/FD9 和生产任务排空必须在各自正式检查中取得证据。静态 PASS 不等同于生产准入、连续 drain 或恢复材料齐备。
+
+## 正式恢复工作流的剩余入口修正（2026-10-18）
+
+复核 main `22b445b3123b3d4b5c195ec05de31cdc00e1177c` 时，发现
+`chanjet-readonly-restoration.yml` 的一处正式 SSH 仍引用旧 host/port/proxy 配置。
+按用户“修正为已批准的直连入口”的授权，同样固定上述 IP、22 端口和主机指纹，删除
+四个 proxy 输入。username/key 的 secret 引用、远端脚本、env/envs、production
+environment、workflow_dispatch 参数、SHA 审批及 root/trusted paths/FD9 逻辑全部保留。
+Git diff 与独立只读复核均确认，workflow 的修改仅限这些传输入口字段。
+
+静态检查共用原有 YAML 解析和传输校验，部署工作流仍要求三处入口且仅一处 SCP；
+恢复工作流另行要求 `restore` job 中恰好一处 SSH。CLI 必须同时通过两套清单。
+新增负例覆盖旧 secret 地址/端口回退、缺失/错误指纹、单独 proxy key、替换 action/job、
+别名复制 job、重复键和 merge key，并禁止两份工作流互相替代。
+这只是既定 Appleboy 入口的静态契约，不宣称能审查任意 shell 网络命令或实际环境审批设置。
+
+本地 Node 20.20.2 的入口测试 **29 PASS / 0 SKIP**；入口与恢复契约组合共
+**70 PASS / 2 SKIP**（UID0 writer 和指定 PG 指纹 fixture 未执行），离线 frozen
+lockfile 安装、默认冻结门禁、默认安全扫描和 diff 格式检查通过。
+正式 GitHub CI 结果另存执行回执。本次没有触发正式恢复工作流、
+读取凭据或执行任何生产操作；本地静态通过不能证明 Appleboy 实际连接、持续任务排空、
+生产重锚资格或好业财业务范围批准。保护性只读取证使用的独立固定 runner 未被本变更修改。

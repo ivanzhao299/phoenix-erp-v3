@@ -6,7 +6,7 @@ import { load, JSON_SCHEMA } from 'js-yaml';
 export const APPROVED_PRODUCTION_SSH = Object.freeze({ host: '47.236.122.224', port: '22', fingerprint: 'SHA256:Y4WEXMJ24a4r1KxOw0det4qcCFNxj65mZeIG9oQOJcI' });
 const fail = reason => { throw new Error('PRODUCTION_SSH_ENTRY_HOLD=' + reason); };
 const mapping = value => value !== null && typeof value === 'object' && !Array.isArray(value);
-export function validateProductionSshEntries(text) {
+function parseProductionSshEntries(text) {
   if (typeof text !== 'string' || Buffer.byteLength(text) > 512 * 1024) fail('WORKFLOW_REQUIRED');
   let document;
   try { document = load(text, { schema: JSON_SCHEMA, json: false, onWarning: () => fail('YAML_WARNING') }); }
@@ -32,10 +32,23 @@ export function validateProductionSshEntries(text) {
       entries.push({ action, job: name, step: index + 1 });
     }
   }
+  return entries;
+}
+export function validateProductionSshEntries(text) {
+  const entries = parseProductionSshEntries(text);
   if (entries.length !== 3 || entries.filter(x => x.action === 'appleboy/scp-action@v1').length !== 1) fail('ENTRY_INVENTORY_CHANGED');
   return entries;
 }
+export function validateRestorationSshEntry(text) {
+  const entries = parseProductionSshEntries(text);
+  if (entries.length !== 1 || entries[0].action !== 'appleboy/ssh-action@v1' || entries[0].job !== 'restore') fail('RESTORATION_ENTRY_INVENTORY_CHANGED');
+  return entries;
+}
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  try { const entries=validateProductionSshEntries(fs.readFileSync(new URL('../../.github/workflows/deploy.yml', import.meta.url),'utf8'));console.log('PRODUCTION_SSH_ENTRY=PASS count='+entries.length); }
+  try {
+    const entries=validateProductionSshEntries(fs.readFileSync(new URL('../../.github/workflows/deploy.yml', import.meta.url),'utf8'));
+    const restoration=validateRestorationSshEntry(fs.readFileSync(new URL('../../.github/workflows/chanjet-readonly-restoration.yml', import.meta.url),'utf8'));
+    console.log('PRODUCTION_SSH_ENTRY=PASS deploy='+entries.length+' restoration='+restoration.length);
+  }
   catch(error) { console.error(/^PRODUCTION_SSH_ENTRY_HOLD=[A-Z_]+$/.test(error.message)?error.message:'PRODUCTION_SSH_ENTRY_HOLD=VALIDATION_FAILED');process.exitCode=1; }
 }
