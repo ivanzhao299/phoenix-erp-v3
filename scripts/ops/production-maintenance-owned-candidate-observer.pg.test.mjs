@@ -66,5 +66,6 @@ for(const major of [16,18])test(`original root observer scoped close on actual P
   if(deadline.expired()){record.result='FAIL';record.failureCode='OWNED_FIXTURE_DEADLINE_AFTER_PERSISTENCE';}
   console.log(JSON.stringify({pgMajor:major,result:record.result,cleanup:record.cleanup??'SCOPED_RESOURCES_SETTLED',evidence:p,fullCandidateLease:false}));
  }
+ deadline.assertActive();
  assert.equal(record.result,'PASS','Native root lifecycle or cleanup failed; retained owned evidence required');
 });
