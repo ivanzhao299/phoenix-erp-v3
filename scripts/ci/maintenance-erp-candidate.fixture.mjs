@@ -367,7 +367,8 @@ export class OwnedErpCandidateCapsule {
     const runtimePin = v => ({ id: v.Id, imageId: v.Image, revision: v.Config.Labels['org.opencontainers.image.revision'],
       startedAt: v.State.StartedAt, restartCount: v.RestartCount, running: v.State.Running, health: v.State.Health.Status });
     const statusPin = v => ({ bootId: v.bootId, owner: v.owner, generation: v.generation, phase: v.phase, inFlight: v.inFlight,
-      pendingChildren: v.pendingChildren, taskGraphs: v.taskGraphs, controlSession: structuredClone(v.controlSession) });
+      pendingChildren: v.pendingChildren, taskGraphs: v.taskGraphs, controlSession: Object.fromEntries(
+        ['connected', 'broken', 'sessionPid', 'databaseOid', 'backendStartedAt', 'backendStartedAtUs', 'applicationName'].map(key => [key, v.controlSession[key]])) });
     const result = { schema: 'phoenix.actual-erp-readiness-fixture/v1', result: 'PASS', fixtureOnly: true, productionReceipt: false,
       sourceSha: this.sourceSha, imageId: this.imageId, pgMajor: candidate.pg.major, apiContainerId: candidate.id, bootId: statusAfter.bootId,
       owner: this.owner, interval: { start: observedFrom, end: new Date().toISOString() }, programSha256: hash(API_READINESS_PROGRAM),
