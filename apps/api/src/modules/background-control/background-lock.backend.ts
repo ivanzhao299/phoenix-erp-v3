@@ -3,6 +3,8 @@ import { DataSource, QueryRunner } from 'typeorm';
 import { EventEmitter } from 'node:events';
 import { BACKGROUND_ADMISSION_KEY, BACKGROUND_EXECUTION_KEY, BACKGROUND_NAMESPACE } from './background-control.types';
 
+export const BUSINESS_LOCK_NAMES = ['workflow_sla_scheduler', 'credit_scheduler', 'egg_inventory_scheduler'] as const;
+export type BusinessLockName = typeof BUSINESS_LOCK_NAMES[number];
 export const BACKGROUND_IO_TIMEOUT_MS = 5000;
 export const BACKGROUND_CLOSE_TIMEOUT_MS = 1000;
 interface OwnedSocket extends EventEmitter { destroy(): unknown; closed?: boolean }
@@ -153,6 +155,26 @@ export class BackgroundLockBackend {
     return result[0]?.acquired === true;
   }
   executionExit() { return this.unlock(BACKGROUND_EXECUTION_KEY); }
+  async businessEnter(name: BusinessLockName): Promise<boolean> {
+    if (!BUSINESS_LOCK_NAMES.includes(name)) throw new Error('BACKGROUND_BUSINESS_LOCK_NAME_REQUIRED');
+    if (!this.status().connected) throw new Error('BACKGROUND_SESSION_LOST');
+    try {
+      // Separate, fixed business SQL; the reviewed control forwarder remains unchanged.
+      const rows: { acquired: boolean }[] = await this.bounded(this.observeQuery(() => this.runner!.query(
+        'SELECT pg_try_advisory_lock(hashtext($1)) AS acquired', [name])), BACKGROUND_IO_TIMEOUT_MS, 'BACKGROUND_BUSINESS_LOCK_TIMEOUT');
+      if (this.broken || this.closed || rows.length !== 1 || typeof rows[0]?.acquired !== 'boolean') throw new Error('BACKGROUND_BUSINESS_LOCK_RESULT_REQUIRED');
+      return rows[0].acquired;
+    } catch { this.lose(); throw new Error('BACKGROUND_BUSINESS_LOCK_HOLD'); }
+  }
+  async businessExit(name: BusinessLockName): Promise<void> {
+    if (!BUSINESS_LOCK_NAMES.includes(name)) throw new Error('BACKGROUND_BUSINESS_LOCK_NAME_REQUIRED');
+    if (!this.status().connected) throw new Error('BACKGROUND_SESSION_LOST');
+    try {
+      const rows: { released: boolean }[] = await this.bounded(this.observeQuery(() => this.runner!.query(
+        'SELECT pg_advisory_unlock(hashtext($1)) AS released', [name])), BACKGROUND_IO_TIMEOUT_MS, 'BACKGROUND_BUSINESS_UNLOCK_TIMEOUT');
+      if (this.broken || this.closed || rows.length !== 1 || rows[0]?.released !== true) throw new Error('BACKGROUND_BUSINESS_LOCK_OWNERSHIP_LOST');
+    } catch { this.lose(); throw new Error('BACKGROUND_BUSINESS_UNLOCK_HOLD'); }
+  }
   status() { return {
     connected: !!this.runner && !!this.connection && this.sessionPid !== null && this.databaseOid !== null && this.backendStartedAt !== null && this.backendStartedAtUs !== null && !this.broken && !this.closed,
     broken: this.broken, sessionPid: this.sessionPid, databaseOid: this.databaseOid, backendStartedAt: this.backendStartedAt,

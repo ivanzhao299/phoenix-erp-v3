@@ -1,8 +1,7 @@
 import { BackgroundTaskService } from '../background-control/background-task.service';
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
-import { InjectDataSource } from '@nestjs/typeorm';
-import { DataSource } from 'typeorm';
+import { BackgroundBusinessLockService } from '../background-control/background-business-lock.service';
 import { WorkflowSlaService } from './workflow-sla.service';
 import { CronMonitorService } from '../system-monitor/services/cron-monitor.service';
 
@@ -24,7 +23,7 @@ export class WorkflowSlaScheduler {
 
   constructor(
     private readonly sla: WorkflowSlaService,
-    @InjectDataSource() private readonly ds: DataSource,
+    private readonly businessLocks: BackgroundBusinessLockService,
     private readonly cronMon: CronMonitorService,
     private readonly backgroundTasks: BackgroundTaskService,
   ) {}
@@ -38,45 +37,19 @@ export class WorkflowSlaScheduler {
         return;
       }
 
-      // ── 获取 PostgreSQL advisory lock ─────────────────────────────────────────
-      let lockAcquired = false;
-      try {
-        const [row] = await this.ds.query<[{ acquired: boolean }]>(
-          `SELECT pg_try_advisory_lock(hashtext('workflow_sla_scheduler')) AS acquired`,
-        );
-        lockAcquired = row?.acquired === true;
-      } catch (err) {
-        this.logger.warn(`[SLA Scheduler] advisory lock query failed: ${(err as any)?.message ?? err}`);
-        return;
-      }
-
-      if (!lockAcquired) {
-        this.logger.log('[SLA Scheduler] skipped — another instance holds the lock');
-        return;
-      }
-
-      this.logger.log('[SLA Scheduler] acquired advisory lock — starting SLA check');
-      this.running = true;
-
-      try {
-        await this.sla.checkOverdueTasks();
-        this.logger.log('[SLA Scheduler] SLA check completed');
-        await this.cronMon.ok('workflow_sla');
-      } catch (err) {
-        this.logger.error(`[SLA Scheduler] SLA check failed: ${(err as any)?.message ?? err}`);
-        await this.cronMon.fail('workflow_sla', (err as any)?.message ?? String(err));
-      } finally {
-        this.running = false;
-        // 释放 advisory lock
+      const locked = await this.businessLocks.run('workflow_sla_scheduler', async () => {
+        this.running = true;
         try {
-          await this.ds.query(
-            `SELECT pg_advisory_unlock(hashtext('workflow_sla_scheduler'))`,
-          );
-          this.logger.log('[SLA Scheduler] released advisory lock');
-        } catch (unlockErr) {
-          this.logger.warn(`[SLA Scheduler] advisory unlock failed (will auto-expire on disconnect): ${(unlockErr as any)?.message}`);
-        }
-      }
+          await this.sla.checkOverdueTasks();
+          return true;
+        } catch (err) {
+          this.logger.error(`[SLA Scheduler] SLA check failed: ${(err as any)?.message ?? err}`);
+          await this.cronMon.fail('workflow_sla', (err as any)?.message ?? String(err));
+          return false;
+        } finally { this.running = false; }
+      });
+      if (!locked.acquired) this.logger.log('[SLA Scheduler] skipped — another instance holds the lock');
+      else if (locked.value) await this.cronMon.ok('workflow_sla');
     });
   }
 }
