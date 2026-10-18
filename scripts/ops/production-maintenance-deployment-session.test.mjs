@@ -464,3 +464,110 @@ test('monitor detects control substitution during a still-running producer',asyn
   f.rebuild({pollMs:5});try{await assert.rejects(f.session.run(),/CONTROL_PROCESS_LOST/);assert.equal(f.opened,false);}
   finally{if(get())await closeOwnedControl(f,get());}
 });
+
+function barrierDeferred() { let resolve; const promise = new Promise(r => { resolve = r; }); return { promise, resolve }; }
+function injectPendingMonitorAtVerify(f) {
+  const entered = barrierDeferred(), release = barrierDeferred();
+  const collect = f.producers.collectVerifiedCandidate;
+  f.producers.collectVerifiedCandidate = async request => {
+    const result = await collect(request);
+    f.session.monitorBusy = true;
+    f.session.monitorTask = f.session.track('MONITOR_PROBE', async () => {
+      try { await release.promise; } finally { f.session.monitorBusy = false; }
+    });
+    return result;
+  };
+  const stop = f.session.stopMonitor.bind(f.session);
+  f.session.stopMonitor = async () => { entered.resolve(); return stop(); };
+  return { entered: entered.promise, release: release.resolve };
+}
+test('phase commits occur only with monitor joined, original lease retained and new VF revalidated before resume', async () => {
+  const f = fixture(), writes = [], originalWrite = f.store.writeState.bind(f.store), observe = f.lease.observe;
+  let vfProbe = 0;
+  f.lease.observe = async (...args) => { if (f.store.readState()?.phase === 'VERIFIED_FENCED' && f.session.monitor === null) vfProbe++; return observe(...args); };
+  f.store.writeState = content => {
+    if (content.phase === 'VERIFIED_FENCED' || content.status === 'OPEN_COMMIT_PENDING') {
+      assert.equal(f.session.monitor, null); assert.equal(f.session.monitorBusy, false); assert.equal(f.closed, false); writes.push(content.phase);
+    }
+    return originalWrite(content);
+  };
+  const read = f.producers.readFormalCompletion;
+  f.producers.readFormalCompletion = async request => { assert.ok(f.session.monitor); assert.ok(vfProbe > 0); return read(request); };
+  await f.session.run();
+  assert.deepEqual(writes, ['VERIFIED_FENCED', 'COMPLETED_OPEN']); assert.equal(f.closed, true);
+});
+test('pending registered monitor blocks VERIFY commit until actual settlement', async () => {
+  const f = fixture(), monitor = injectPendingMonitorAtVerify(f), running = f.session.run();
+  await monitor.entered;
+  assert.equal(f.store.readState().phase, 'CANDIDATE_FENCED'); assert.equal(f.closed, false); assert.equal(f.opened, false);
+  assert.equal(f.store.read(f.store.markerFile).operation, 'VERIFY_CANDIDATE');
+  monitor.release(); await running;
+  assert.equal(f.store.readState().status, 'SUCCESS');
+});
+test('monitor commit barrier timeout retains unknown work and prevents VF/OPEN and lease cleanup', async () => {
+  const f = fixture(); f.rebuild({ cleanupTimeoutMs: 20 }); const monitor = injectPendingMonitorAtVerify(f);
+  const result = assert.rejects(f.session.run(), /SESSION_CHILDREN_UNVERIFIED_MANUAL_RECOVERY_REQUIRED/);
+  await monitor.entered; await result;
+  assert.equal(f.store.readState().phase, 'CANDIDATE_FENCED'); assert.equal(f.session.monitorStopUnknown, true);
+  assert.equal(f.closed, false); assert.equal(f.opened, false); assert.ok(fs.existsSync(f.store.markerFile));
+  monitor.release(); await wait(1);
+});
+test('fatal control loss during monitor join forbids the phase commit', async () => {
+  const f = fixture(), monitor = injectPendingMonitorAtVerify(f), result = assert.rejects(f.session.run());
+  await monitor.entered; f.session.fatal = new Error('MAINTENANCE_HOLD=FIXTURE_CONTROL_LOSS'); monitor.release(); await result;
+  assert.equal(f.store.readState().phase, 'CANDIDATE_FENCED'); assert.equal(f.opened, false);
+});
+test('window expiry while monitor joins forbids the phase commit', async () => {
+  const f = fixture(); let clock = now; f.rebuild({ now: () => clock });
+  const monitor = injectPendingMonitorAtVerify(f), result = assert.rejects(f.session.run());
+  await monitor.entered; clock = Date.parse(f.context.window.end); monitor.release(); await result;
+  assert.equal(f.store.readState().phase, 'CANDIDATE_FENCED'); assert.equal(f.opened, false);
+});
+test('failed new-phase lease observation leaves VF committed but never resumes monitor or publishes OPEN', async () => {
+  const f = fixture(), observe = f.lease.observe;
+  f.lease.observe = async (...args) => { if (f.store.readState()?.phase === 'VERIFIED_FENCED') throw new Error('MAINTENANCE_HOLD=FIXTURE_VF_LEASE_UNVERIFIED'); return observe(...args); };
+  await assert.rejects(f.session.run(), /FIXTURE_VF_LEASE_UNVERIFIED/);
+  assert.equal(f.store.readState().phase, 'VERIFIED_FENCED'); assert.equal(f.session.monitor, null); assert.equal(f.opened, false);
+  assert.equal(f.calls.includes('READ_COMPLETION'), false);
+});
+test('duplicate monitor start, forged resume and OPEN without the original barrier refuse', async () => {
+  const f = fixture(); f.session.startMonitor(); assert.throws(() => f.session.startMonitor(), /SESSION_MONITOR_START_STATE/);
+  await f.session.stopMonitor(); await assert.rejects(f.session.resumeMonitorAfterPhaseCommit({}), /SESSION_PHASE_COMMIT_RESUME/);
+  await assert.rejects(f.session.adapters().openCandidate({ state: {} }), /SESSION_OPEN_COMMIT_BARRIER/);
+  assert.equal(f.opened, false); assert.equal(f.closed, false);
+});
+
+test('a queued callback from an older monitor generation cannot run against a resumed interval', async () => {
+  const f = fixture(), set = globalThis.setInterval; let stale;
+  try {
+    globalThis.setInterval = callback => { stale = callback; return { unref() {} }; };
+    f.session.startMonitor();
+  } finally { globalThis.setInterval = set; }
+  await f.session.stopMonitor();
+  let checks = 0; f.session.checked = async () => { checks++; };
+  f.session.startMonitor(); stale(); await wait(1);
+  assert.equal(checks, 0); assert.equal(f.session.monitorBusy, false);
+  await f.session.stopMonitor();
+});
+
+test('VERIFY intent replacement while the monitor joins is refused before any VF commit', async () => {
+  const f = fixture(), monitor = injectPendingMonitorAtVerify(f), result = assert.rejects(f.session.run(), /SESSION_PHASE_COMMIT_CHANGED/);
+  await monitor.entered;
+  const marker = f.store.read(f.store.markerFile); fs.writeFileSync(f.store.markerFile, JSON.stringify({ ...marker, startedAt: at(1) }));
+  monitor.release(); await result;
+  assert.equal(f.store.readState().phase, 'CANDIDATE_FENCED'); assert.equal(f.opened, false);
+});
+for (const change of ['state', 'marker']) test(`new VF observation cannot resume after concurrent ${change} change`, async () => {
+  const f = fixture(), observe = f.lease.observe; let changed = false;
+  f.lease.observe = async (...args) => {
+    const state = f.store.readState();
+    if (state?.phase === 'VERIFIED_FENCED' && !changed) {
+      changed = true;
+      if (change === 'state') { const { stateDigest, ...content } = state; f.store.writeState({ ...content, updatedAt: at(1) }); }
+      else f.store.beginMarker({ from: state.phase, to: 'COMPLETED_OPEN', operation: 'OPEN_CANDIDATE', previousStateDigest: state.stateDigest, previousState: state, startedAt: at(0) });
+    }
+    return observe(...args);
+  };
+  await assert.rejects(f.session.run()); assert.equal(changed, true); assert.equal(f.session.monitor, null);
+  assert.equal(f.opened, false); assert.equal(f.calls.includes('READ_COMPLETION'), false);
+});
