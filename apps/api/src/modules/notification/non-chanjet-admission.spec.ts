@@ -17,6 +17,7 @@ describe('non-Chanjet background admission integrations', () => {
     const monitor = { ok: jest.fn(), fail: jest.fn(), runGuarded: jest.fn((_name: string, work: () => Promise<unknown>) => work()) };
     const dispatcher = { fire: jest.fn().mockResolvedValue(undefined) };
     const ds = { query } as never;
+    const businessLocks = { run: jest.fn() } as never;
     const credit = { refreshCustomerCredit: jest.fn() };
     const inventory = { markExpiredBatches: jest.fn() };
     const sla = { checkOverdueTasks: jest.fn() };
@@ -27,9 +28,9 @@ describe('non-Chanjet background admission integrations', () => {
       scheduled: [
         () => iot.scheduledSync(),
         () => new NotificationSchedulerService(ds, dispatcher as never, monitor as never, gate as never).tick(),
-        () => new WorkflowSlaScheduler(sla as never, ds, monitor as never, gate as never).handleSlaCheck(),
-        () => new CustomerCreditSchedulerService(ds, credit as never, monitor as never, recipients as never, gate as never).runDailyCreditRefresh(),
-        () => new EggInventorySchedulerService(ds, inventory as never, monitor as never, recipients as never, gate as never).runDailyMaintenance(),
+        () => new WorkflowSlaScheduler(sla as never, businessLocks, monitor as never, gate as never).handleSlaCheck(),
+        () => new CustomerCreditSchedulerService(ds, credit as never, monitor as never, recipients as never, gate as never, businessLocks).runDailyCreditRefresh(),
+        () => new EggInventorySchedulerService(ds, inventory as never, monitor as never, recipients as never, gate as never, businessLocks).runDailyMaintenance(),
         () => new FarmCronService(ds, monitor as never, gate as never).updateMedicationStatus(),
         () => new ArReconciliationService(ds, {} as never, {} as never, monitor as never, gate as never).cronMonthlyReconciliation(),
       ],
@@ -41,8 +42,8 @@ describe('non-Chanjet background admission integrations', () => {
         () => iot.fetchRealtimeProxy('house'),
         () => iot.listVendorHouses(),
         () => iot.dumpVendorHistory('house', '2026-01-01', []),
-        () => new CustomerCreditSchedulerService(ds, credit as never, monitor as never, recipients as never, gate as never).runManually(),
-        () => new EggInventorySchedulerService(ds, inventory as never, monitor as never, recipients as never, gate as never).runManually(),
+        () => new CustomerCreditSchedulerService(ds, credit as never, monitor as never, recipients as never, gate as never, businessLocks).runManually(),
+        () => new EggInventorySchedulerService(ds, inventory as never, monitor as never, recipients as never, gate as never, businessLocks).runManually(),
         () => new ArReconciliationService(ds, {} as never, {} as never, monitor as never, gate as never).runMonthlyReconciliationNow(),
       ],
     };

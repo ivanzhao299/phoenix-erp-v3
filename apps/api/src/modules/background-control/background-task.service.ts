@@ -123,6 +123,9 @@ export class BackgroundTaskService implements BeforeApplicationShutdown, OnModul
       if (started || !(error instanceof BackgroundAdmissionDeniedError)) this.logger.error('BACKGROUND_TASK_FAILED');
     });
   }
+  /** Internal one-way resource failure signal. It cannot grant admission or
+   * discard work; the registered owner must still observe actual settlement. */
+  resourceHold(): void { this.poisoned = true; }
   status() {
     let phase = 'HOLD';
     let owner: string | null = this.lastOwner ?? null;

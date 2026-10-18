@@ -1,5 +1,6 @@
 import { BackgroundTaskService } from '../../background-control/background-task.service';
-import { Injectable, Logger } from '@nestjs/common';
+import { BackgroundBusinessLockService } from '../../background-control/background-business-lock.service';
+import { ConflictException, Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
@@ -27,6 +28,7 @@ export class EggInventorySchedulerService {
     private readonly cronMon: CronMonitorService,
     private readonly recipients: ScopedNotificationRecipientService,
     private readonly backgroundTasks: BackgroundTaskService,
+    private readonly businessLocks: BackgroundBusinessLockService,
   ) {}
 
   // ── 每日 01:00 鸡蛋库存维护 ─────────────────────────────────────────────────
@@ -37,32 +39,18 @@ export class EggInventorySchedulerService {
   })
   async runDailyMaintenance() {
     await this.backgroundTasks.runScheduled('sales.egg-inventory.daily', 'LOCAL', async () => {
-      this.logger.log('[EggScheduler] 开始每日库存维护...');
-      const start = Date.now();
-
-      const [lockRow] = await this.ds.query(
-        `SELECT pg_try_advisory_lock(hashtext('egg_inventory_scheduler')) AS acquired`,
-      );
-      if (!lockRow?.acquired) {
-        this.logger.warn('[EggScheduler] 未获得分布式锁，跳过本次执行');
-        return;
-      }
-
-      try {
-        const stats = await this.runMaintenance();
-        this.logger.log(
-          `[EggScheduler] 完成: 过期=${stats.expiredBatches} 临期=${stats.expiringBatches} 耗时=${stats.durationMs}ms`,
-        );
-        await this.cronMon.ok('egg_inventory_daily', `expired=${stats.expiredBatches} expiring=${stats.expiringBatches}`);
-      } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : String(e);
-        this.logger.error(`[EggScheduler] 执行失败: ${msg}`);
-        await this.cronMon.fail('egg_inventory_daily', msg);
-      } finally {
-        await this.ds.query(`SELECT pg_advisory_unlock(hashtext('egg_inventory_scheduler'))`);
-      }
-
-      this.logger.log(`[EggScheduler] 本轮耗时 ${Date.now() - start}ms`);
+      const locked = await this.businessLocks.run('egg_inventory_scheduler', async () => {
+        try {
+          return await this.runMaintenance();
+        } catch (error: unknown) {
+          const message = error instanceof Error ? error.message : String(error);
+          this.logger.error('[BackgroundScheduler] business task failed');
+          await this.cronMon.fail('egg_inventory_daily', message);
+          return null;
+        }
+      });
+      if (!locked.acquired) this.logger.log('[BackgroundScheduler] another instance holds the task lock; skipped');
+      else if (locked.value) await this.cronMon.ok('egg_inventory_daily', `expired=${locked.value.expiredBatches} expiring=${locked.value.expiringBatches}`);
     });
   }
 
@@ -70,7 +58,9 @@ export class EggInventorySchedulerService {
   async runManually(): Promise<Record<string, unknown>> {
     return this.backgroundTasks.run('sales.egg-inventory.manual', 'LOCAL', async () => {
       this.logger.log('[EggScheduler] 手动触发库存维护...');
-      return this.runMaintenance();
+      const result = await this.businessLocks.run('egg_inventory_scheduler', () => this.runMaintenance());
+      if (!result.acquired) throw new ConflictException('BACKGROUND_BUSINESS_TASK_BUSY');
+      return result.value;
     });
   }
 
