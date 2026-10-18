@@ -64,10 +64,32 @@ test('wrong mode and incomplete adopted binding never reach production IO',()=>u
 }));
 test('abort and elapsed absolute deadline prevent later IO without releasing the held root resource',()=>using(async f=>{
   const controller=new AbortController();controller.abort();await assert.rejects(collectCandidateServerBinding({...f.request,signal:controller.signal},f.dependencies),hold);assert.equal(f.calls.length,0);
+  f.dependencies.monotonicNow=()=>0;f.lease.monotonicNow=()=>0;
   f.hook(()=>f.advance(11));await assert.rejects(collectCandidateServerBinding({...f.request,timeoutMs:10},f.dependencies),hold);assert.equal(f.calls.length,1);assert.equal(f.closed,false);
 }));
 test('unclassified IO errors are redacted and cannot become successful receipts',()=>using(async f=>{
   f.hook(()=>{throw Error('SECRET_SENTINEL');});await assert.rejects(collectCandidateServerBinding(f.request,f.dependencies),e=>/^CANDIDATE_BINDING_HOLD=[A-Z_]+$/.test(e.message)&&!e.message.includes('SECRET_SENTINEL'));
+}));
+test('candidate wall clock freeze cannot extend the shared monotonic budget across synchronous IO',()=>using(async f=>{
+  let elapsed=0;f.dependencies.monotonicNow=()=>elapsed;f.lease.monotonicNow=()=>0;f.hook(()=>{elapsed=11;});
+  await assert.rejects(collectCandidateServerBinding({...f.request,timeoutMs:10},f.dependencies),/DEADLINE_OR_ABORT/);assert.equal(f.calls.length,1);assert.equal(f.closed,false);
+}));
+test('candidate wall rollback above start prevents the next read without releasing the held root',()=>using(async f=>{
+  let wall=f.now;f.dependencies.now=()=>wall;f.hook(()=>{wall+=2;});
+  f.dependencies.readFloor=()=>{wall-=1;return structuredClone(f.floor);};
+  // The second floor read rolls back from a later accepted sample, not below start.
+  let count=0;const read=f.dependencies.readFloor;f.dependencies.readFloor=()=>{if(++count===1)return structuredClone(f.floor);return read();};
+  await assert.rejects(collectCandidateServerBinding(f.request,f.dependencies),/DEADLINE_OR_ABORT/);assert.equal(f.closed,false);
+}));
+test('candidate rejects nonfinite clock values before observation IO',()=>using(async f=>{
+  for(const clock of ['now','monotonicNow'])for(const value of [NaN,Infinity,-Infinity]){
+    await assert.rejects(collectCandidateServerBinding(f.request,{...f.dependencies,[clock]:()=>value}),/DEADLINE_OR_ABORT/);
+  }assert.equal(f.calls.length,0);assert.equal(f.closed,false);
+}));
+test('candidate rejects monotonic rollback before any subsequent API read',()=>using(async f=>{
+  let mono=0,reads=0;f.dependencies.monotonicNow=()=>mono;f.hook(()=>{mono=++reads===1?20:10;});
+  await assert.rejects(collectCandidateServerBinding(f.request,f.dependencies),/DEADLINE_OR_ABORT/);
+  assert.equal(f.calls.length,2);assert.equal(f.calls.some(args=>args[2]==='node'),false);assert.equal(f.closed,false);
 }));
 test('storage checks recheck one absolute budget before any next filesystem or findmnt operation',()=>{
   let left=10;const calls=[];
