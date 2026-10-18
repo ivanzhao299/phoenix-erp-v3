@@ -65,8 +65,17 @@ export function requireNativeHostRequest(e=process.env) {
   assert.ok(!fs.existsSync(path.join(CONTRACT.stateDirectory,'floor.json')));assert.ok(!fs.existsSync(path.join(PUBLIC_DIRECTORY,'manifest.json')));
 }
 
+export function writeOwnedFixtureReadonlyJson(file,value) {
+  assert.equal(path.basename(file),'manifest.json');const parent=path.dirname(file),stat=fs.lstatSync(parent);
+  assert.ok(stat.isDirectory()&&!stat.isSymbolicLink());assert.equal(stat.uid,process.getuid());assert.equal(fs.realpathSync(parent),parent);
+  const fd=fs.openSync(file,fs.constants.O_CREAT|fs.constants.O_EXCL|fs.constants.O_WRONLY|fs.constants.O_NOFOLLOW,0o444);
+  try {fs.fchmodSync(fd,0o444);fs.writeFileSync(fd,JSON.stringify(value)+'\n');fs.fsyncSync(fd);}finally{fs.closeSync(fd);}
+  const directory=fs.openSync(parent,fs.constants.O_RDONLY|fs.constants.O_DIRECTORY|fs.constants.O_NOFOLLOW);
+  try{fs.fsyncSync(directory);}finally{fs.closeSync(directory);}
+}
+
 async function startNativeApi(capsule,pg,manifest,creation) {
-  fs.writeFileSync(path.join(PUBLIC_DIRECTORY,'manifest.json'),JSON.stringify(manifest)+'\n',{mode:0o444,flag:'wx'});
+  writeOwnedFixtureReadonlyJson(path.join(PUBLIC_DIRECTORY,'manifest.json'),manifest);
   inspectPublicDirectory();
   const values={NODE_ENV:'production',APP_ENV:'production',PORT:'3100',DB_HOST:'fixture-db',DB_PORT:'5432',DB_USER:'erp_candidate_writer',DB_NAME:'api_bootstrap_fixture',
     DB_PASSWORD:'',JWT_SECRET:'owned-erp-candidate-fixture-only-at-least-32-characters',CHANJET_SYNC_POLICY:'HOLD',CHANJET_READONLY_SYNC_ENABLED:'false',
@@ -82,10 +91,17 @@ async function startNativeApi(capsule,pg,manifest,creation) {
   assert.match(created,/^[a-f0-9]{64}$/);creation.returnedId=created;
   const id=capsule.own(created,'native-candidate');creation.state='OWNED_ID_VERIFIED';
   const candidate={id,pg,mode:'FENCED',publicSource:PUBLIC_DIRECTORY}; const end=Date.now()+45000;
-  while(true){
-    const runtime=capsule.inspectContainer(id); assert.equal(runtime.State.Running,true);
-    try {const ready=capsule.request(candidate,'/api/readiness');if(ready.status===200&&runtime.State.Health?.Status==='healthy')break;} catch { /* Bounded initial startup. */ }
-    assert.ok(Date.now()<end,'NATIVE_API_STARTUP_TIMEOUT'); await wait(100);
+  try {
+    while(true){
+      const runtime=capsule.inspectContainer(id); assert.equal(runtime.State.Running,true);
+      try {const ready=capsule.request(candidate,'/api/readiness');if(ready.status===200&&runtime.State.Health?.Status==='healthy')break;} catch { /* Bounded initial startup. */ }
+      assert.ok(Date.now()<end,'NATIVE_API_STARTUP_TIMEOUT'); await wait(100);
+    }
+  }catch{
+    const stopped=capsule.inspectContainer(id),logs=capsule.logs(id);
+    creation.startupDiagnostic={running:stopped.State.Running,status:stopped.State.Status,exitCode:stopped.State.ExitCode,oomKilled:stopped.State.OOMKilled,
+      logSha256:hash(logs),signals:Object.fromEntries(['EACCES','PUBLIC_FILE_UNTRUSTED','PUBLIC_MANIFEST','BACKGROUND_STARTUP_HOLD','OWNED_ERP_CAPSULE_REQUIRED','MODULE_NOT_FOUND','SCHEMA'].map(code=>[code,logs.includes(code)]))};
+    throw Error('NATIVE_FIXTURE_HOLD=API_STARTUP_CONTRACT_FAILED');
   }
   const status=await stablePhaseStatus(()=>capsule.status(candidate)); capsule.verifySession(candidate,status);
   assert.equal(status.owner,capsule.owner); assert.equal(status.generation,1);
@@ -105,17 +121,17 @@ async function exerciseNative() {
     fullCandidateLease:'NOT_RUN',continuousIngressProof:false,fiveDomainReconciliation:'NOT_RUN',formalDeploymentCompletion:'NOT_RUN',actualWebHttp:'NOT_RUN',resources:'OWNED_VM_RETAINED'};
   try {
     counterexamples.push(...nativeFd9Counterexamples());
-    result.imageBuild={attempted:true,tag:`phoenix-${owner}:candidate`,state:'BUILD_OUTCOME_UNVERIFIED'};
+    result.stage='BUILD_ACTUAL_SOURCE_IMAGE';result.imageBuild={attempted:true,tag:`phoenix-${owner}:candidate`,state:'BUILD_OUTCOME_UNVERIFIED'};
     await capsule.build(); assert.equal(capsule.sourceSha,result.sourceSha);result.imageBuild.state='OWNED_ID_VERIFIED';result.imageBuild.id=capsule.imageId;
     result.buildProvenance={sourceSha:result.sourceSha,pnpmLockSha256:hash(fs.readFileSync(path.join(CONTRACT.repository,'pnpm-lock.yaml'))),
       dependencyInstallSource:'SYMLINK_TO_SAME_SHA_HOSTED_RUNNER_PNPM_FROZEN_LOCKFILE',runnerCheckout:process.env.NATIVE_FIXTURE_SOURCE,
       scope:'TRACKED_SOURCE_CLEAN_UNTRACKED_FIXTURE_OUTPUT_AND_DEPENDENCY_LINKS_EXCLUDED'};
-    const pg=await capsule.startPostgres(major,{nativeDataSource:'/data/maintenance-native-pg'});
+    result.stage='START_ACTUAL_BOUND_POSTGRES';const pg=await capsule.startPostgres(major,{nativeDataSource:'/data/maintenance-native-pg'});
     const actualPg=capsule.inspectContainer(pg.id);
     const nativePgMount=actualPg.Mounts.find(m=>m.Source==='/data/maintenance-native-pg');
     assert.ok(nativePgMount&&nativePgMount.Type==='bind'&&nativePgMount.RW===true);
     const manifest={protocolVersion:1,phase:'FENCED',owner,generation:1,targetSha:capsule.sourceSha,participants:[]};
-    ({candidate}=await startNativeApi(capsule,pg,manifest,apiCreation));
+    result.stage='START_ACTUAL_BOUND_API';({candidate}=await startNativeApi(capsule,pg,manifest,apiCreation));
     const runtime=capsule.inspectContainer(candidate.id),dbRuntime=capsule.inspectContainer(pg.id),status=await stablePhaseStatus(()=>capsule.status(candidate));
     const database={containerId:pg.id,imageId:dbRuntime.Image,containerStartedAt:dbRuntime.State.StartedAt,
       ...JSON.parse(capsule.sql(pg,`SELECT json_build_object('databaseOid',(SELECT oid::bigint FROM pg_catalog.pg_database WHERE datname=current_database()),
@@ -141,7 +157,8 @@ async function exerciseNative() {
       {store,admit:async()=>true});
       await root.acquire({timeoutMs:120000}); return originalStart(request);
     };
-    await toStopped(h); await h.engine.reconcile({evidence:h.reconciliation});await h.engine.preparePromotion();await h.engine.replaceCandidate();await h.engine.startCandidate();
+    result.stage='BUILD_REAL_LOCAL_SYNTHETIC_HISTORY';await toStopped(h); await h.engine.reconcile({evidence:h.reconciliation});await h.engine.preparePromotion();await h.engine.replaceCandidate();
+    result.stage='ACQUIRE_ORIGINAL_NATIVE_ROOT';await h.engine.startCandidate();
     const originalVerify=material.adapters.verifyCandidate;
     const collect=async(mode,leasePhases=false)=>{
       const state=store.readState();
@@ -152,7 +169,7 @@ async function exerciseNative() {
       observations.push(value);return value;
     };
     material.adapters.verifyCandidate=async request=>{
-      await collect('PRE_ADOPTION');
+      result.stage='DEFAULT_PRE_ADOPTION_COLLECTOR';await collect('PRE_ADOPTION');
       const before=fs.statSync(PUBLIC_DIRECTORY),shadow='/data/native-public-shadow';fs.mkdirSync(shadow,{mode:0o555});
       fs.copyFileSync(path.join(PUBLIC_DIRECTORY,'manifest.json'),path.join(shadow,'manifest.json'),fs.constants.COPYFILE_EXCL);
       const shadowIdentity=fs.statSync(shadow);result.shadowMount={source:shadow,target:PUBLIC_DIRECTORY,state:'MOUNT_OUTCOME_UNVERIFIED'};
@@ -186,9 +203,9 @@ async function exerciseNative() {
         const live=await stablePhaseStatus(()=>capsule.status(candidate));assert.equal(live.bootId,status.bootId);
         if(live.generation===2)break;assert.equal(live.generation,1);assert.ok(Date.now()<adoptionEnd,'NATIVE_ADOPTION_PROJECTION_TIMEOUT');await wait(25);
       }
-      await collect('ADOPTED');return originalVerify(request);
+      result.stage='DEFAULT_ADOPTED_COLLECTOR';await collect('ADOPTED');return originalVerify(request);
     };
-    await h.engine.verifyCandidate(); await collect('ADOPTED',true);
+    await h.engine.verifyCandidate();result.stage='DEFAULT_PHASE_AWARE_COLLECTOR';await collect('ADOPTED',true);
     assert.equal(observations.length,3);assert.equal(children.length,1);
     assert.ok(observations.every(v=>v.rootBefore.observation.backends[0].pid===observations[0].rootBefore.observation.backends[0].pid));
     const beforeFiles=[];
@@ -218,8 +235,9 @@ async function exerciseNative() {
     result.containerDisposition=[];
     for(const resource of capsule.resources.filter(r=>r.type==='container').reverse()){
       try {const before=capsule.inspectContainer(resource.id);if(before.State.Running)capsule.docker(['stop','--time','35',resource.id],{timeout:45000});
-        const after=capsule.inspectContainer(resource.id);assert.equal(after.State.Running,false);assert.equal(after.State.OOMKilled,false);
-        assert.equal(after.State.ExitCode,0);result.containerDisposition.push({id:resource.id,state:'STOPPED_RETAINED',exitCode:after.State.ExitCode});
+        const after=capsule.inspectContainer(resource.id);
+        result.containerDisposition.push({id:resource.id,state:after.State.Running?'UNVERIFIED':'STOPPED_RETAINED',exitCode:after.State.ExitCode,oomKilled:after.State.OOMKilled});
+        if(after.State.Running||after.State.OOMKilled||after.State.ExitCode!==0)result.outcome='FAIL';
       }catch {result.outcome='FAIL';result.containerDisposition.push({id:resource.id,state:'UNVERIFIED'});}
     }
     save('guard-counterexamples.json',{fixtureOnly:true,productionReceipt:false,sourceSha:result.sourceSha,counterexamples});save('result.json',result);

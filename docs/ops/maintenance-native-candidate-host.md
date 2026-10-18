@@ -53,3 +53,11 @@ bounded child join, supervised by the isolated job's 40-minute outer timeout.
 A runner kill or infrastructure loss cannot guarantee final archive delivery;
 missing receipts or failed jobs cannot be accepted as native PASS. Only fixed
 non-secret JSON receipts are exported, with failure-path exit status retained.
+
+The first hosted source397a0d4a run39165263567 failed API startup before acquiring
+a root lease. Its failed receipts remain separate from subsequent acceptance.
+Code inspection identified an initial manifest written as0400 under umask077;
+the fixture now explicitly sets0444 on the new descriptor and tests restrictive
+umask plus refusal to overwrite. Startup diagnostics export only fixed boolean
+error signals and a log digest. The old failure lacked those signals, so its
+unique root cause is UNVERIFIED until the new native execution is assessed.
