@@ -161,7 +161,7 @@ async function collectCandidateBinding({context,expectedStateDigest,replacementE
       if(typeof raw!=='string'||Buffer.byteLength(raw)>65536)fail('BOUNDED_OUTPUT');return raw;};
     let firstAnchor=null;
     const state=()=>{
-      check();guard();check();store.assertCurrent();const s=store.readState();
+      check();guard();check();const s=store.readOwnedState({timeoutMs:Math.min(10000,remaining()),signal});check();
       if(leasePhases){
         if(s?.schema!=='phoenix.legacy-maintenance-state/v1'||s.contextDigest!==bindingDigest(context)||s.stateDigest!==expectedStateDigest||!same(s.context,context)
           ||s.legacyDrainResult!=='UNSUPPORTED'||!iso(s.updatedAt)||Date.parse(s.updatedAt)<Date.parse(context.window.start)||Date.parse(s.updatedAt)>now())fail('PRIVATE_OWNER_STATE_CHANGED');

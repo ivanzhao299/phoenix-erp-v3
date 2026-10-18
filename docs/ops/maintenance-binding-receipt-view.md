@@ -39,6 +39,26 @@ continuous ingress, release, floor change or production admission is granted.
 The updated native fixture requires its final committed VF binding collector to
 run with a fixed10000ms caller budget, records that budget and retains failure if
 it expires. PRE/ADOPTED operation reads retain their30s limit. This new native
-gate is NOT_RUN on the local patch. Even success there would prove only that
+gate initially FAILED onPG16 at source0cc27949, run39174398135 attempt1,
+with fixed ROOT_CONTROL_OPERATION_DEADLINE diagnostics after two earlier
+observations. PG18 passed its collector slice. The combined gate remains HOLD;
+there is no automatic rerun or increase to the10000ms budget.
+
+The follow-up also combines owner plus complete state/receipt-chain reads into
+one fresh pinned batch at each root checkpoint and collector state check. It
+retains the separate root guard, all original checkpoint calls, START intent,
+window/abort/status/original-client checks and independent phase anchors. Owner
+metadata now participates in the same final sweep as the state. The in-memory
+root fixture has a clearly synthetic equivalent; disk races are tested on the
+real store. Native validation of this follow-up is NOT_RUN/PENDING.
+
+The root checkpoint still uses the store's fixed10s default rather than an
+individually propagated remaining budget. Its enclosing root operation rejects
+a late result and remains poisoned; a direct caller-layer test verifies no
+catalog read begins after a checkpoint consumes the operation budget and the
+original child remains owned until explicit cleanup. This does not prove hard
+interruption of a synchronous helper or a full session latency budget.
+
+Even success there would prove only that
 collector slice; queue wait and independent verification still need the complete
 session probe. No production timeout is raised or failure automatically retried.

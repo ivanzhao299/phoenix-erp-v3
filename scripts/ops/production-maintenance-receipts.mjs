@@ -219,6 +219,9 @@ export class MaintenanceReceiptStore {
     } finally { fs.closeSync(directoryFd); }
   }
   readState(options) { return this.#readStateSnapshot(options).state; }
+  /** Fresh owner + complete state/chain in one pinned batch. This never skips
+   * either root/ACL guard or exports a reusable guard/owner token. */
+  readOwnedState(options) { return this.#readStateSnapshot(options, true).state; }
   /** Fixed candidate receipt selection from one fresh, owned, fully verified
    * snapshot. No caller state, receipt rows or reusable guard token are trusted. */
   readCandidateBindingEvidence(request = {}) {
