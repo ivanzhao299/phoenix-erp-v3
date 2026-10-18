@@ -35,7 +35,18 @@ remain unproved. No fake Docker inspection rows or production-path bypasses
 are introduced. A separate owned Compose/storage fixture is still required
 for full collector phase acceptance.
 
-Initial local Node20 pure builder/transition/control tests: 91 PASS. Actual
+Initial local Node20 pure builder/transition/control tests: 94 PASS. Actual
 PG16/18 execution is pending and must be recorded separately with exact source
 SHA, fixture script and API image identities. No production operation, workflow
 dispatch, database write, Web release or Chanjet activity is performed here.
+
+Independent read-only review identified and closed two evidence/stability
+issues before final acceptance. Normal control heartbeat queries are sampled
+with a bounded monotonic deadline until they actually settle; poison, identity
+change and work graphs are rejected immediately, and the final accepted status
+still compares all fields. Actual owned protocol files are retained verbatim
+with a SHA256 manifest, explicit synthetic-authority scope and a dedicated CI
+artifact path. Symlinks and unowned paths are refused; archive failure is FAIL.
+The reviewer found no new P0/P1 and did not execute tests. An earlier af2b2bf2
+prototype run lacks these final changes and is retained only as old-source
+diagnostic evidence; final-source PG results must be obtained afresh.
