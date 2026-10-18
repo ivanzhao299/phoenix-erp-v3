@@ -13,7 +13,7 @@ import { collectCandidateDatabaseSnapshot } from '../ops/production-maintenance-
 import { canonicalDigest } from '../ops/production-maintenance-receipts.mjs';
 
 const changedMicrosecond = value => value.slice(0, -2) + (value.at(-2) === '9' ? '8' : String(Number(value.at(-2)) + 1)) + 'Z';
-export async function stablePhaseStatus(read, { expected, timeoutMs = 2000 } = {}) {
+export async function stablePhaseStatus(read, { expected, timeoutMs = 5000 } = {}) {
   assert.ok(Number.isSafeInteger(timeoutMs) && timeoutMs > 0 && timeoutMs <= 5000);
   const deadline = performance.now() + timeoutMs;
   while (true) {
@@ -45,6 +45,7 @@ export function archiveOwnedPhaseStore(directory, target) {
     assert.match(name, /^maintenance-[a-z0-9-]+\.json$/);
     const file = path.join(directory, name), before = fs.lstatSync(file);
     assert.ok(before.isFile() && !before.isSymbolicLink()); assert.equal(before.uid, process.getuid());
+    assert.equal(before.nlink, 1); assert.equal(before.mode & 0o777, 0o600);
     const fd = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
     let raw;
     try { assert.equal(fs.fstatSync(fd).ino, before.ino); raw = fs.readFileSync(fd); assert.equal(fs.fstatSync(fd).size, raw.length); }

@@ -102,7 +102,7 @@ test('pending queries cannot hide poison, identity loss or consume an unbounded 
   }
   await assert.rejects(stablePhaseStatus(() => { Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 10); return good; }, { timeoutMs: 1 }), /DEADLINE/);
 });
-test('owned phase files are retained with hashes and synthetic-authority scope; symlinks are refused', () => {
+test('owned phase files are retained with hashes and synthetic-authority scope; symlinks and hardlinks are refused', () => {
   const base = path.join(root, 'artifacts/maintenance-erp-candidate', `unit-archive-${randomUUID()}`); fs.mkdirSync(base, { recursive: true, mode: 0o700 });
   const source = path.join(base, 'source'); fs.mkdirSync(source, { mode: 0o700 });
   const raw = JSON.stringify({ fixtureOnly: true, kind: 'SYNTHETIC_OWNED_PROTOCOL' }); fs.writeFileSync(path.join(source, 'maintenance-state.json'), raw, { mode: 0o600 });
@@ -113,4 +113,7 @@ test('owned phase files are retained with hashes and synthetic-authority scope; 
   assert.equal(JSON.parse(fs.readFileSync(path.join(target, 'manifest.json'))).governanceAndHistoricalPre, 'SYNTHETIC_TEST_ONLY');
   fs.symlinkSync('maintenance-state.json', path.join(source, 'maintenance-alias.json'));
   assert.throws(() => archiveOwnedPhaseStore(source, path.join(base, 'rejected')));
+  const hard = path.join(base, 'hard'); fs.mkdirSync(hard, { mode: 0o700 });
+  fs.linkSync(path.join(source, 'maintenance-state.json'), path.join(hard, 'maintenance-linked.json'));
+  assert.throws(() => archiveOwnedPhaseStore(hard, path.join(base, 'hard-rejected')));
 });

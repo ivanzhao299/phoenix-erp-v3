@@ -61,3 +61,15 @@ actual independent DB identity pins and catalog checks before/after I/O, as
 the existing real-root fixture does. It does not change production guards or
 any deadline. Fixed transport stage codes support diagnosis without database
 stderr or connection data. Fresh actual execution must confirm the hypothesis.
+
+The second full prototype stopped before root acquisition because a real
+Docker/Node status read exceeded the fixture's new 2-second sampling budget.
+That FAIL is retained. The fixture budget is now 5 seconds to include the
+existing 3-second API fetch limit plus CLI startup; monotonic pre/post checks
+still reject late results. Production root/operation deadlines are unchanged.
+An explicit owned PG16 diagnostic then passed all 7 scoped phase cases and
+verified original backend release/child close, retaining 27 raw protocol files.
+Its API image remained 43719def while the revised helper was loaded separately,
+so it is diagnostic-only and NOT final-source acceptance. Both PG majors and
+the full capsule must still run afresh on the committed review target.
+Archive checks additionally reject hardlinks and non-0600 protocol files.
