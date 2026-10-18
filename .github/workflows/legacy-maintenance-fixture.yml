@@ -62,6 +62,10 @@ jobs:
         env:
           MAINTENANCE_CANDIDATE_PG_FIXTURE: '1'
         run: node --test scripts/ops/production-maintenance-candidate-database.pg.test.mjs
+      - name: Actual root control lease acquisition and partial failure cleanup on PG16 and PG18
+        env:
+          MAINTENANCE_ROOT_PG_FIXTURE: '1'
+        run: node --test scripts/ops/production-maintenance-root-lease.pg.test.mjs
       - name: Actual owned recovery core files and local image identity
         env:
           RECOVERY_MATERIAL_LOCAL_IMAGE_FIXTURE: '1'
@@ -78,6 +82,7 @@ jobs:
           path: |
             artifacts/maintenance-db-observer/*.json
             artifacts/maintenance-candidate-database/*.json
+            artifacts/maintenance-root-control/*.json
             artifacts/maintenance-recovery-core-materials/*.json
             artifacts/maintenance-ci/runtime-resources.json
             artifacts/maintenance-ci/replacement-resources.json
