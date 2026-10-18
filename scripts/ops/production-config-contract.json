@@ -99,6 +99,7 @@
     "scripts/ops/production-maintenance-gated-checkout.mjs",
     "scripts/ops/production-maintenance-gated-checkout.py",
     "scripts/ops/production-maintenance-candidate-health.mjs",
+    "scripts/ops/production-maintenance-owned-candidate-observer.mjs",
     "scripts/ops/production-maintenance-github-authority.mjs",
     "scripts/ops/production-maintenance-public-control.mjs",
     "scripts/ops/production-maintenance-receipts.mjs",
