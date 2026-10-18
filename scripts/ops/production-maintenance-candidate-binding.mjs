@@ -23,8 +23,10 @@ const digest=v=>createHash('sha256').update(JSON.stringify(v)).digest('hex');
 // Do not read Health.Log, environment, log driver config or arbitrary labels.
 const DOCKER_FIELDS=['.Id','.Image','.State.StartedAt','.State.Running','.State.Health.Status','.State.Pid','.State.Status','.State.Restarting','.State.Dead','.RestartCount',
   '(index .Config.Labels "com.docker.compose.project")','(index .Config.Labels "com.docker.compose.service")','.Mounts','.HostConfig.Privileged','.HostConfig.PidMode','.HostConfig.IpcMode',
-  '.HostConfig.UTSMode','.HostConfig.UsernsMode','.HostConfig.NetworkMode','.HostConfig.RestartPolicy.Name','(len .HostConfig.CapAdd)','(len .HostConfig.Devices)',
-  '(len .HostConfig.DeviceRequests)','.HostConfig.SecurityOpt'].map(field=>'{{json '+field+'}}').join('\t');
+  '.HostConfig.UTSMode','.HostConfig.UsernsMode','.HostConfig.NetworkMode','.HostConfig.RestartPolicy.Name','(len (or .HostConfig.CapAdd ""))','(len (or .HostConfig.Devices ""))',
+  '(len (or .HostConfig.DeviceRequests ""))','.HostConfig.SecurityOpt'].map(field=>'{{json '+field+'}}').join('\t');
+// Docker represents unconfigured optional lists as nil; Go len needs a non-nil fallback.
+// Nonempty lists still report their actual length and are rejected below.
 // Fixed localhost endpoint, no caller URL, headers, credential or script input.
 const STATUS_PROGRAM="fetch('http://127.0.0.1:3100/api/internal/background/status',{signal:AbortSignal.timeout(3000),redirect:'error'}).then(async r=>{if(!r.ok)process.exit(2);const t=await r.text();if(Buffer.byteLength(t)>32768)process.exit(4);process.stdout.write(t)}).catch(()=>process.exit(3))";
 function productionRun(args,input,{timeoutMs}){

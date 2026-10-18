@@ -88,3 +88,13 @@ REPLACEMENT_CANDIDATE_IDENTITY: the phase fixture dropped Docker State.Status.
 The builder now validates/copies that actual field before hashing the material,
 and the native fixture validates its synthetic replacement before root acquire.
 The production validator is unchanged; new native acceptance remains required.
+
+Source12dac871 run39167738187 passed the replacement-material precheck and failed
+both majors at RUNTIME_READ. The original root release and owned child closure
+were verified; all three containers stopped exit0. A separate read-only inspect
+of an already-owned local capsule reproduced Docker's exact template error:
+`len .HostConfig.CapAdd` receives nil when the optional list is unset. The
+collector format now falls back to an empty string for nil CapAdd/Devices/
+DeviceRequests before len; actual nonempty lists still yield nonzero counts and
+remain prohibited. Runtime validation rules are unchanged. New native acceptance
+is required for this production-reader correction.
