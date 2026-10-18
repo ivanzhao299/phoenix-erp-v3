@@ -121,3 +121,20 @@ test('owner-approved direct forensic route is fixed in source and keeps protecte
   assert.ok(!workflow.includes('secrets.DEPLOY_HOST'));assert.ok(!workflow.includes('secrets.DEPLOY_PORT'));assert.ok(!workflow.includes('secrets.DEPLOY_PROXY_HOST'));
   assert.ok(workflow.includes('DEPLOY_USER: ${{ secrets.DEPLOY_USER }}'));assert.ok(workflow.includes('DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}'));
 });
+
+test('all four existing startup summary results are preserved without treating HOLD as PASS',()=>{
+  for(const result of ['HOLD_SCHEMA_OR_WRITE_SIGNAL','HOLD_STARTUP_ERROR','UNVERIFIED_STARTUP_EVIDENCE','PASS_REDACTED_SUMMARY']){
+    const data={...diagnostic(),latestCompleteEvidenceTriplet:{startup:{result,rawOutput:false}}};
+    assert.equal(parseDiagnosticOutput(output(data),runnerSha).latestCompleteEvidenceTriplet.startup.result,result);
+  }
+  assert.throws(()=>parseDiagnosticOutput(output({...diagnostic(),latestCompleteEvidenceTriplet:{startup:{result:sentinel}}}),runnerSha),e=>e.message==='PINNED_READONLY_EXECUTION_HOLD=RESULT_STRING_RESULT'&&!e.message.includes(sentinel));
+});
+
+test('HTTP status, source migration paths and IPv4-mapped IPv6 follow their existing typed collector contracts',()=>{
+  for(const api of ['100','200','404','500','599'])assert.equal(parseDiagnosticOutput(output({...diagnostic(),health:{api}}),runnerSha).health.api,api);
+  for(const api of ['000','099','600',sentinel])assert.throws(()=>parseDiagnosticOutput(output({...diagnostic(),health:{api}}),runnerSha));
+  const data={...diagnostic(),migrationScope:{changed:['migrations/20260101_example.sql']},hostTopology:{completeSafetyProof:false,productionMutation:false,continuousDrainProof:false,admissionOrApprovalGranted:false,docker:{containers:[{ports:[{hosts:[{hostAddress:'::ffff:127.0.0.1'}]}]}]}}};
+  assert.deepEqual(parseDiagnosticOutput(output(data),runnerSha),data);
+  for(const changed of ['migrations/../secret.sql','private/secret.sql'])assert.throws(()=>parseDiagnosticOutput(output({...diagnostic(),migrationScope:{changed:[changed]}}),runnerSha));
+  assert.throws(()=>parseDiagnosticOutput(output({...diagnostic(),hostAddress:'999.999.999.999'}),runnerSha));
+});
