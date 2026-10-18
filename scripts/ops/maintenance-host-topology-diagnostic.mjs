@@ -20,7 +20,8 @@ const properties = 'Id,ActiveState,SubState,LoadState,UnitFileState,MainPID,Cont
 const dockerFields = ['.Id', '.Image', '.State.Running', '.State.Health.Status', '.State.StartedAt', '.State.Pid', '.State.Restarting', '.RestartCount',
   '.HostConfig.RestartPolicy.Name', '.HostConfig.Privileged', '.HostConfig.CapAdd', '.HostConfig.NetworkMode', '.HostConfig.PidMode', '.HostConfig.IpcMode',
   '.NetworkSettings.Ports', '.NetworkSettings.Networks', '.Mounts', '(index .Config.Labels "com.docker.compose.service")', '(index .Config.Labels "com.docker.compose.project")'];
-const dockerTemplate = dockerFields.map(field => field === '.State.Health.Status' ? '{{if .State.Health}}{{json .State.Health.Status}}{{else}}null{{end}}' : `{{json ${field}}}`).join('\t');
+const dockerTemplate = dockerFields.map(field => field === '.State.Health.Status' ? '{{if (index .State "Health")}}{{json .State.Health.Status}}{{else}}null{{end}}' : `{{json ${field}}}`).join('\t');
+export const TOPOLOGY_CONTAINER_PROJECTION = dockerTemplate;
 const networkTemplate = ['.Id', '.Driver', '.Scope', '.Internal', '.Attachable', '.Ingress', '.Containers', '(index .Options "com.docker.network.bridge.name")'].map(field => `{{json ${field}}}`).join('\t');
 const unitPattern = /^[A-Za-z0-9][A-Za-z0-9_.@:-]{0,199}\.(?:service|timer)$/;
 const knownCaps = new Set(['ALL', 'NET_ADMIN', 'NET_RAW', 'SYS_ADMIN', 'SYS_PTRACE', 'SYS_MODULE', 'DAC_READ_SEARCH', 'DAC_OVERRIDE', 'CHOWN', 'SETUID', 'SETGID', 'SYS_CHROOT', 'MKNOD', 'AUDIT_WRITE', 'SETFCAP', 'NET_BIND_SERVICE']);

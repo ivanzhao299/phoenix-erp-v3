@@ -1,6 +1,8 @@
 import test from 'node:test';
+import { execFileSync } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import assert from 'node:assert/strict';
-import { collectMaintenanceHostTopology, readonlyTopologyCommand, classifyReadonlyMetadataFailure, TOPOLOGY_SCHEMA, TOPOLOGY_COMMAND_ENV, TOPOLOGY_MAXIMUM_OUTPUT_BYTES } from './maintenance-host-topology-diagnostic.mjs';
+import { collectMaintenanceHostTopology, readonlyTopologyCommand, classifyReadonlyMetadataFailure, TOPOLOGY_CONTAINER_PROJECTION, TOPOLOGY_SCHEMA, TOPOLOGY_COMMAND_ENV, TOPOLOGY_MAXIMUM_OUTPUT_BYTES } from './maintenance-host-topology-diagnostic.mjs';
 
 const secret = 'DO_NOT_EXPORT_SENSITIVE_SENTINEL';
 const container = 'a'.repeat(64), image = `sha256:${'b'.repeat(64)}`, network = 'c'.repeat(64), endpoint = 'd'.repeat(64);
@@ -195,4 +197,17 @@ test('command classifications remain failed snapshots and reject injected catego
     const f=fixture();const original=f.execute;f.dependencies.execute=async(binary,args,options)=>{if(binary==='/usr/bin/docker'&&args[0]==='inspect')throw new Error('TOPOLOGY_HOLD=READONLY_METADATA_UNAVAILABLE_'+code);return original(binary,args,options);};
     const result=await collectMaintenanceHostTopology(f.dependencies);assert.equal(result.docker.containers[0].commandFailure,code===secret?'COMMAND_FAILURE_UNCLASSIFIED':code);assert.equal(result.docker.verification,'UNVERIFIED');assert.equal(result.completeSafetyProof,false);assert.ok(!JSON.stringify(result).includes(secret));
   }
+});
+
+test('actual owned Docker container without Health metadata projects null without executing the container', {skip:process.env.TOPOLOGY_LOCAL_PROJECTION_FIXTURE!=='1'},()=>{
+  const owner=randomUUID(),name='phoenix-owned-health-projection-'+owner;let id;
+  const verify=()=>{const projection='{{.Id}} {{.Name}} {{.Config.Image}} {{.State.Running}} {{index .Config.Labels "phoenix.fixture.owner"}}';assert.equal(execFileSync('/usr/bin/docker',['inspect',id,'--format',projection],{encoding:'utf8'}).trim(),`${id} /${name} postgres:16-alpine false ${owner}`);};
+  try{
+    execFileSync('/usr/bin/docker',['image','inspect','postgres:16-alpine','--format','{{.Id}}'],{stdio:['ignore','pipe','pipe']});
+    id=execFileSync('/usr/bin/docker',['create','--name',name,'--network','none','--label','phoenix.fixture.owner='+owner,'postgres:16-alpine','true'],{encoding:'utf8'}).trim();verify();
+    const old=TOPOLOGY_CONTAINER_PROJECTION.replace('{{if (index .State "Health")}}','{{if .State.Health}}');
+    assert.throws(()=>execFileSync('/usr/bin/docker',['inspect',id,'--format',old],{stdio:['ignore','pipe','pipe']}),error=>/map has no entry for key "Health"/.test(String(error.stderr)));
+    const values=readonlyTopologyCommand('/usr/bin/docker',['inspect',id,'--format',TOPOLOGY_CONTAINER_PROJECTION]).split('\t').map(JSON.parse);
+    assert.equal(values[0],id);assert.equal(values[2],false);assert.equal(values[3],null);assert.equal(values.length,19);
+  }finally{if(id){verify();execFileSync('/usr/bin/docker',['rm',id],{stdio:['ignore','ignore','pipe']});}}
 });
