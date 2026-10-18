@@ -11,6 +11,7 @@ import { Request, Response } from 'express';
 import { ThrottlerException } from '@nestjs/throttler';
 import { SysErrorLogsService } from '../../modules/system-monitor/services/sys-error-logs.service';
 import { SysAlertsService } from '../../modules/system-monitor/services/sys-alerts.service';
+import { BackgroundTaskService } from '../../modules/background-control/background-task.service';
 
 // P1(评分补强)：webhook 外推节流 —— 同 path 60s 内最多推一次，防 500 风暴打爆告警群。
 const _alertWebhookLastSent = new Map<string, number>();
@@ -30,6 +31,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
   private readonly logger = new Logger(AllExceptionsFilter.name);
 
   constructor(
+    private readonly tasks: BackgroundTaskService,
     @Optional() private readonly errorLogService?: SysErrorLogsService,
     @Optional() private readonly alertsService?: SysAlertsService,  // P1：500 → sys_alerts + webhook
   ) {}
@@ -137,66 +139,65 @@ export class AllExceptionsFilter implements ExceptionFilter {
       }
     } catch { /* ignore */ }
 
-    this.errorLogService.writeLog({
-      errorType:     params.errorType,
-      httpStatus:    params.httpStatus,
-      errorMessage:  params.errorMessage,
-      stackTrace:    process.env.NODE_ENV !== 'production' ? params.stackTrace : undefined,
-      pgErrorCode:   params.pgErrorCode,
-      requestMethod: params.req.method,
-      requestPath:   params.req.url,
-      requestBody,
-      userId:        userId != null ? Number(userId) : null,
-      username:      username ?? undefined,
-      ipAddress:     ip ?? undefined,
-      userAgent:     userAgent ?? undefined,
-    }).catch(e => this.logger.error('[AllExceptionsFilter] writeLog failed:', e?.message));
+    this.tasks.spawn('exception.error-log', 'LOCAL', async () => {
+      await this.errorLogService!.writeLog({
+        errorType:     params.errorType,
+        httpStatus:    params.httpStatus,
+        errorMessage:  params.errorMessage,
+        stackTrace:    process.env.NODE_ENV !== 'production' ? params.stackTrace : undefined,
+        pgErrorCode:   params.pgErrorCode,
+        requestMethod: params.req.method,
+        requestPath:   params.req.url,
+        requestBody,
+        userId:        userId != null ? Number(userId) : null,
+        username:      username ?? undefined,
+        ipAddress:     ip ?? undefined,
+        userAgent:     userAgent ?? undefined,
+      });
+    });
   }
 
-  /**
-   * P1(评分补强)：500 故障 → 持久化 sys_alerts(CRITICAL) + 节流外推到飞书/钉钉/Slack。
-   *   全程 fire-and-forget 且永不抛（避免死循环）。webhook 同 path 60s 节流防风暴。
-   *   运行时配置 ALERT_WEBHOOK_URL / ALERT_WEBHOOK_TYPE(feishu|dingtalk|slack)；未配则只落库。
-   */
+  /** Error side effects remain asynchronous to HTTP, but their actual promises
+   * belong to the deployment task graph. FENCED/HOLD denies new work without
+   * changing the response or recursively raising another alert. No replay. */
   private raiseCriticalAlert(req: Request, errorMessage: string) {
     const path = `${req.method} ${req.url}`;
-    // 1) 落库（每条 500 都记，sys_alerts 是持久台账）
-    this.alertsService
-      ?.createAlert({
-        alertType: 'API_5XX',
-        severity: 'CRITICAL',
-        title: `API 500：${path}`,
-        detail: { errorMessage: String(errorMessage).slice(0, 500) },
-        relatedPath: req.url,
-      })
-      .catch(() => { /* 告警失败不影响主流程 */ });
-
-    // 2) 外推（节流）
-    const url = process.env.ALERT_WEBHOOK_URL;
-    if (!url) return;
-    const now = Date.now();
-    const last = _alertWebhookLastSent.get(req.url) ?? 0;
-    if (now - last < 60_000) return;           // 同 path 60s 内不重复推
-    _alertWebhookLastSent.set(req.url, now);
-    this.pushWebhook(url, `🚨 API 500 ${path}`, String(errorMessage).slice(0, 300))
-      .catch(() => { /* 静默 */ });
+    if (this.alertsService) {
+      this.tasks.spawn('exception.critical-alert', 'NOTIFICATION', async () => {
+        await this.alertsService!.createAlert({
+          alertType: 'API_5XX',
+          severity: 'CRITICAL',
+          title: `API 500：${path}`,
+          detail: { errorMessage: String(errorMessage).slice(0, 500) },
+          relatedPath: req.url,
+        });
+      });
+    }
+    this.tasks.spawn('exception.alert-webhook', 'NOTIFICATION', async () => {
+      const url = process.env.ALERT_WEBHOOK_URL;
+      if (!url) return;
+      const now = Date.now();
+      const last = _alertWebhookLastSent.get(req.url) ?? 0;
+      if (now - last < 60_000) return;
+      // A denied admission must not consume a future allowed throttle slot.
+      _alertWebhookLastSent.set(req.url, now);
+      await this.pushWebhook(url, `🚨 API 500 ${path}`, String(errorMessage).slice(0, 300));
+    });
   }
 
-  /** PG 约束/字段/类型错误也进入告警中心，便于值班用户从同一入口看到真实 DB 故障源。 */
+  /** Alert creation also sends in-app notifications; retain that full grant boundary. */
   private raisePgAlert(req: Request, pgCode: string, errorMessage: string) {
+    if (!this.alertsService) return;
     const path = `${req.method} ${req.url}`;
-    this.alertsService
-      ?.createAlert({
+    this.tasks.spawn('exception.pg-alert', 'NOTIFICATION', async () => {
+      await this.alertsService!.createAlert({
         alertType: 'PG_ERROR',
         severity: ['42703', '22P02'].includes(pgCode) ? 'CRITICAL' : 'WARNING',
         title: `PG${pgCode}：${path}`,
-        detail: {
-          pgCode,
-          errorMessage: String(errorMessage).slice(0, 500),
-        },
+        detail: { pgCode, errorMessage: String(errorMessage).slice(0, 500) },
         relatedPath: req.url,
-      })
-      .catch(() => { /* 告警失败不影响主流程 */ });
+      });
+    });
   }
 
   private async pushWebhook(url: string, title: string, msg: string): Promise<void> {
