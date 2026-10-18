@@ -66,6 +66,7 @@
     "scripts/test-db-bootstrap.sh",
     "scripts/ops/api-bootstrap-schema-preflight.test.mjs",
     "apps/api/src/main.ts",
+    "apps/api/src/common/filters/all-exceptions.filter.ts",
     "apps/api/src/background-shutdown.ts",
     "apps/api/src/modules/farm/farm.cron.ts",
     "apps/api/src/modules/finance-v2/services/ar-reconciliation.service.ts",
