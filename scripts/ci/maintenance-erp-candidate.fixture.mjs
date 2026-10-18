@@ -6,6 +6,8 @@ import { createHash, randomUUID } from 'node:crypto';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import assert from 'node:assert/strict';
 import { capturedDatabaseStatements, classifySql, parseBootControlIdentity, verifyCapturedControlIdentity, sliceCapturedWindow } from './api-bootstrap-mutations.mjs';
+import { exerciseActualErpRootBinding } from './maintenance-erp-root-binding.fixture.mjs';
+import { selectOwnedComposeSubnet } from './owned-compose-ipam.mjs';
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const KIND = 'maintenance-erp-candidate';
@@ -196,15 +198,31 @@ export class OwnedErpCandidateCapsule {
   }
   async startPostgres(major) {
     if (![16, 18].includes(major)) hold('PG_MAJOR');
-    const networkId = this.own(this.docker(['network', 'create', '--internal', ...this.labels(), `phoenix-${this.owner}-pg${major}`]), `pg${major}-internal-network`, 'network');
+    const networkIds = this.docker(['network', 'ls', '-q', '--no-trunc']).split('\n').filter(Boolean);
+    assert.ok(networkIds.length < 512);
+    const occupied = networkIds.length ? this.docker(['network', 'inspect', ...networkIds, '--format', '{{json .IPAM.Config}}']).split('\n')
+      .flatMap(line => (JSON.parse(line) || []).map(item => item.Subnet).filter(value => typeof value === 'string' && !value.includes(':'))) : [];
+    const routes = JSON.parse(run('/usr/sbin/ip', ['-j', '-4', 'route', 'show'], { timeout: 3000, maxBuffer: 65536 }));
+    for (const route of routes) if (route.dst && route.dst !== 'default') occupied.push(route.dst.includes('/') ? route.dst : route.dst + '/32');
+    const isolatedSubnet = selectOwnedComposeSubnet(occupied, parseInt(hash(this.owner + major).slice(0, 4), 16) % 512);
+    const networkId = this.own(this.docker(['network', 'create', '--internal', '--subnet', isolatedSubnet, ...this.labels(), `phoenix-${this.owner}-pg${major}`]), `pg${major}-internal-network`, 'network');
     assert.equal(this.docker(['network', 'inspect', networkId, '--format', '{{.Internal}}']), 'true');
+    assert.deepEqual(JSON.parse(this.docker(['network', 'inspect', networkId, '--format', '{{json .IPAM.Config}}'])).map(row => row.Subnet), [isolatedSubnet]);
+    assert.equal(this.docker(['network', 'inspect', networkId, '--format', '{{.EnableIPv6}}']), 'false');
     const mount = major === 16 ? '/var/lib/postgresql/data' : '/var/lib/postgresql';
     const id = this.own(this.docker(['run', '--pull=never', '-d', ...this.labels(), '--network', networkId, '--network-alias', 'fixture-db', '--restart=no',
       '--publish', '127.0.0.1::5432', '--mount', `type=tmpfs,destination=${mount},tmpfs-size=268435456`,
       '-e', `POSTGRES_USER=${ADMIN}`, '-e', `POSTGRES_DB=${DB}`, '-e', 'POSTGRES_HOST_AUTH_METHOD=trust',
+      '--health-cmd', `pg_isready -U ${ADMIN} -d ${DB}`, '--health-interval', '1s', '--health-timeout', '2s', '--health-retries', '30',
       `postgres:${major}-alpine`, '-c', 'log_statement=all', '-c', 'log_min_error_statement=error', '-c', 'log_line_prefix=bootstrap-db=%d user=%u app=%a pid=%p ']), `pg${major}`);
-    const pg = { id, major, networkId }; const deadline = Date.now() + 30000;
-    while (true) { try { this.sql(pg, 'SELECT 1;'); break; } catch { if (Date.now() > deadline) hold('PG_START_TIMEOUT'); await sleep(200); } }
+    const pg = { id, major, networkId, isolatedSubnet }; const deadline = Date.now() + 30000;
+    while (true) {
+      try {
+        this.sql(pg, 'SELECT 1;');
+        if (this.inspectContainer(id).State.Health.Status === 'healthy' && this.docker(['exec', id, 'cat', '/proc/1/comm']) === 'postgres') break;
+      } catch { /* The init server is not the final postmaster. */ }
+      if (Date.now() > deadline) hold('PG_START_TIMEOUT'); await sleep(200);
+    }
     const actualMajor = Math.floor(Number(this.sql(pg, 'SHOW server_version_num;')) / 10000); assert.equal(actualMajor, major);
     const schema = fs.readFileSync(path.join(REPO, 'scripts/ci/api-bootstrap-schema-fixture.sql'), 'utf8');
     this.sql(pg, `${schema}\nCREATE EXTENSION IF NOT EXISTS "uuid-ossp";
@@ -382,6 +400,10 @@ export class OwnedErpCandidateCapsule {
       const before = this.fingerprint(pg);
       const candidates = [await this.startCandidate(pg, 'missing'), await this.startCandidate(pg, 'FENCED')];
       await this.verifyDefaultWindow(pg, candidates, before); this.detectorCanary(pg); await this.controlledOpen(candidates[1]);
+      const binding = await exerciseActualErpRootBinding(this, candidates[1]);
+      assert.equal(binding.originalChildrenClosed, true);
+      this.results.push(binding);
+      fs.writeFileSync(path.join(this.root, `pg${major}-actual-erp-root-binding.json`), JSON.stringify(binding, null, 2), { mode: 0o600 });
       // Keep owned identities/receipts for root review. No deletion and no production state cleanup.
       for (const candidate of candidates) this.stopCandidate(candidate);
       this.record();
