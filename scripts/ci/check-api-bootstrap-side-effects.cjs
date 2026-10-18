@@ -57,7 +57,7 @@ const controlSql = new Set([
  'SELECT pg_advisory_unlock_shared($1::int, $2::int)',
  'SELECT pg_advisory_unlock_shared($1::int, $2::int) AS released',
  'SELECT pg_backend_pid() AS pid, $1::int AS namespace, $2::int AS session_probe',
- "SELECT pg_backend_pid() AS pid, (SELECT oid::int FROM pg_database WHERE datname=current_database()) AS database_oid, (SELECT backend_start FROM pg_stat_activity WHERE pid=pg_backend_pid()) AS backend_started_at, current_setting('application_name') AS application_name, $1::int AS namespace, $2::int AS session_probe",
+ "SELECT pg_backend_pid() AS pid, (SELECT oid::int FROM pg_database WHERE datname=current_database()) AS database_oid, (SELECT backend_start FROM pg_stat_activity WHERE pid=pg_backend_pid()) AS backend_started_at, (SELECT to_char(backend_start AT TIME ZONE 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"') FROM pg_stat_activity WHERE pid=pg_backend_pid()) AS backend_started_at_us, current_setting('application_name') AS application_name, $1::int AS namespace, $2::int AS session_probe",
  'SELECT 1',
 ]);
 const normalizeSql = value => value?.replace(/\s+/g, ' ').trim();

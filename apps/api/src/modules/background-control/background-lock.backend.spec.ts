@@ -21,7 +21,7 @@ function fixture() {
   const client = new OwnedClient();
   const runner = { connect: jest.fn(async () => client), query: jest.fn<Promise<unknown[]>, [string]>(async sql => {
     if (sql.includes('set_config')) return [];
-    if (sql.includes('pg_backend_pid')) return [{ pid: 71, database_oid: 17, backend_started_at: new Date('2026-10-18T00:00:00.000Z'), application_name: `phoenix-fence:${bootId}` }];
+    if (sql.includes('pg_backend_pid')) return [{ pid: 71, database_oid: 17, backend_started_at: new Date('2026-10-18T00:00:00.000Z'), backend_started_at_us: '2026-10-18T00:00:00.000123Z', application_name: `phoenix-fence:${bootId}` }];
     return [sql.includes('unlock') ? { released: true } : { acquired: true }];
   }), release: jest.fn(async () => { expect(client._ending).toBe(true); expect(client._ended || client.connection.stream.closed).toBe(true); }) };
   const dataSource = { createQueryRunner: jest.fn(() => runner) };
@@ -29,6 +29,25 @@ function fixture() {
   return { backend, runner, dataSource, client, loss };
 }
 afterEach(() => { jest.useRealTimers(); });
+it('reports the raw microsecond identity from the original control connection while retaining legacy milliseconds', async () => {
+  const f = fixture(); await f.backend.probe(); await f.backend.probe();
+  expect(f.backend.status()).toMatchObject({ connected: true, sessionPid: 71, databaseOid: 17,
+    backendStartedAt: '2026-10-18T00:00:00.000Z', backendStartedAtUs: '2026-10-18T00:00:00.000123Z' });
+  expect(f.dataSource.createQueryRunner).toHaveBeenCalledTimes(1);
+  expect(f.runner.query.mock.calls.filter(([sql]) => sql.includes('pg_backend_pid'))[0][0]).toContain('HH24:MI:SS.US');
+  await f.backend.close();
+});
+for (const raw of [undefined, '2026-10-18T00:00:00.000Z', '2026-10-18T00:00:00.001123Z', '2026-10-18T00:00:00.000124Z']) {
+  it(`missing, downgraded, inconsistent or same-millisecond changed raw identity poisons the owned connection (${String(raw)})`, async () => {
+    const f = fixture(); await f.backend.probe();
+    f.runner.query.mockImplementation(async () => [{ pid: 71, database_oid: 17,
+      backend_started_at: new Date('2026-10-18T00:00:00.000Z'), backend_started_at_us: raw, application_name: `phoenix-fence:${bootId}` }]);
+    await expect(f.backend.probe()).rejects.toThrow('BACKGROUND_SESSION_IDENTITY_LOST');
+    expect(f.backend.status()).toMatchObject({ connected: false, broken: true, backendStartedAtUs: '2026-10-18T00:00:00.000123Z' });
+    await expect(f.backend.gateEnter()).rejects.toThrow('BACKGROUND_SESSION_LOST');
+    await f.backend.close(); expect(f.loss).toHaveBeenCalledTimes(1); expect(f.dataSource.createQueryRunner).toHaveBeenCalledTimes(1);
+  });
+}
 it('one master QueryRunner ends even a healthy owned pg client before ordinary release', async () => {
   const f = fixture(); await f.backend.probe(); expect(await f.backend.gateEnter()).toBe(true); await f.backend.gateExit();
   expect(f.dataSource.createQueryRunner).toHaveBeenCalledTimes(1); expect(f.dataSource.createQueryRunner).toHaveBeenCalledWith('master');
@@ -109,7 +128,7 @@ it('actual TypeORM0.3.29 and pg8.20 contracts evict ended master clients and tol
     const client = new OwnedClient(); let callbackCount = 0;
     const driver = { connection: {}, connectedQueryRunners: [] as PostgresQueryRunner[], obtainMasterConnection: jest.fn(async () => [client, (error?: Error) => { callbackCount++; expect(Boolean(error) || client._ending).toBe(true); }]), isReplicated: false };
     const runner = new PostgresQueryRunner(driver as never, 'master');
-    jest.spyOn(runner, 'query').mockImplementation(async (sql: string) => sql.includes('pg_backend_pid') ? [{ pid: 71, database_oid: 17, backend_started_at: new Date(), application_name: `phoenix-fence:${bootId}` }] : []);
+    jest.spyOn(runner, 'query').mockImplementation(async (sql: string) => sql.includes('pg_backend_pid') ? [{ pid: 71, database_oid: 17, backend_started_at: new Date('2026-10-18T00:00:00.000Z'), backend_started_at_us: '2026-10-18T00:00:00.000123Z', application_name: `phoenix-fence:${bootId}` }] : []);
     const backend = new BackgroundLockBackend({ createQueryRunner: () => runner } as unknown as DataSource); backend.bindIdentity(bootId); await backend.probe(); if (fail) client.emit('error', new Error('fixture driver error'));
     await backend.close(); expect(callbackCount).toBe(1); expect(runner.isReleased).toBe(true); expect(driver.connectedQueryRunners).toHaveLength(0);
   }

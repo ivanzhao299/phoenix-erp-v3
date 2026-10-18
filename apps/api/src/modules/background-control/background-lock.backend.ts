@@ -35,6 +35,7 @@ export class BackgroundLockBackend {
   private sessionPid: number | null = null;
   private databaseOid: number | null = null;
   private backendStartedAt: string | null = null;
+  private backendStartedAtUs: string | null = null;
   private applicationName = '';
   private onLoss: () => void = () => undefined;
   constructor(private readonly dataSource: DataSource) {}
@@ -153,32 +154,39 @@ export class BackgroundLockBackend {
   }
   executionExit() { return this.unlock(BACKGROUND_EXECUTION_KEY); }
   status() { return {
-    connected: !!this.runner && !!this.connection && this.sessionPid !== null && this.databaseOid !== null && this.backendStartedAt !== null && !this.broken && !this.closed,
+    connected: !!this.runner && !!this.connection && this.sessionPid !== null && this.databaseOid !== null && this.backendStartedAt !== null && this.backendStartedAtUs !== null && !this.broken && !this.closed,
     broken: this.broken, sessionPid: this.sessionPid, databaseOid: this.databaseOid, backendStartedAt: this.backendStartedAt,
+    backendStartedAtUs: this.backendStartedAtUs,
     applicationName: this.applicationName || null,
     cleanup: { acquirePending: this.acquirePending, queriesPending: this.pendingQueries.size, retirementPending: !!this.retirement && !this.releaseConfirmed && !this.cleanupFailed,
       terminationConfirmed: this.terminationConfirmed, releaseConfirmed: this.releaseConfirmed,
       debt: this.acquirePending || this.pendingQueries.size > 0 || (!!this.runner && !this.releaseConfirmed) || this.cleanupFailed },
   }; }
   async probe() {
-    const result: { pid: number; database_oid: number; backend_started_at: Date; application_name: string }[] = await this.query(`SELECT pg_backend_pid() AS pid,
+    const result: { pid: number; database_oid: number; backend_started_at: Date; backend_started_at_us: string; application_name: string }[] = await this.query(`SELECT pg_backend_pid() AS pid,
       (SELECT oid::int FROM pg_database WHERE datname=current_database()) AS database_oid,
       (SELECT backend_start FROM pg_stat_activity WHERE pid=pg_backend_pid()) AS backend_started_at,
+      (SELECT to_char(backend_start AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') FROM pg_stat_activity WHERE pid=pg_backend_pid()) AS backend_started_at_us,
       current_setting('application_name') AS application_name,
       $1::int AS namespace, $2::int AS session_probe`, 0);
     const row = result[0];
     if (!row || !Number.isSafeInteger(row.pid) || row.pid <= 0 || !Number.isSafeInteger(row.database_oid) || row.database_oid <= 0
       || !row.backend_started_at || !Number.isFinite(new Date(row.backend_started_at).getTime())
+      || typeof row.backend_started_at_us !== 'string' || !/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{6}Z$/.test(row.backend_started_at_us)
       || row.application_name !== this.applicationName
       || (this.sessionPid !== null && this.sessionPid !== row.pid)) {
       this.lose(); throw new Error('BACKGROUND_SESSION_IDENTITY_LOST');
     }
     const startedAt = new Date(row.backend_started_at).toISOString();
-    if ((this.databaseOid !== null && this.databaseOid !== row.database_oid)
-      || (this.backendStartedAt !== null && this.backendStartedAt !== startedAt)) {
+    // The Date field is retained for existing consumers. It can corroborate,
+    // but never replace, the raw server identity from this same connection.
+    if (row.backend_started_at_us.slice(0,23) + 'Z' !== startedAt
+      || (this.databaseOid !== null && this.databaseOid !== row.database_oid)
+      || (this.backendStartedAt !== null && this.backendStartedAt !== startedAt)
+      || (this.backendStartedAtUs !== null && this.backendStartedAtUs !== row.backend_started_at_us)) {
       this.lose(); throw new Error('BACKGROUND_SESSION_IDENTITY_LOST');
     }
-    this.sessionPid = row.pid; this.databaseOid = row.database_oid; this.backendStartedAt = startedAt;
+    this.sessionPid = row.pid; this.databaseOid = row.database_oid; this.backendStartedAt = startedAt; this.backendStartedAtUs = row.backend_started_at_us;
   }
   close(): Promise<void> {
     if (!this.closing) {

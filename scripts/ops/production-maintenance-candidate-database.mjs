@@ -13,9 +13,10 @@ const UUID=/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}
 const INSPECT='{{json .Id}}\t{{json .Image}}\t{{json .State.StartedAt}}\t{{json .State.Running}}\t{{if .State.Health}}{{json .State.Health.Status}}{{else}}null{{end}}';
 const keys=(value,fields)=>value&&Object.getPrototypeOf(value)===Object.prototype&&same(Object.keys(value).sort(),[...fields].sort());
 const positive=value=>Number.isSafeInteger(value)&&value>0;
+const rawTime=value=>typeof value==='string'&&/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{6}Z$/.test(value)&&iso(value.slice(0,23)+'Z');
 function validateSession(value,candidate=false){
   if(!keys(value,candidate?['sessionPid','backendStartedAt','bootId']:['sessionPid','backendStartedAt'])
-    ||!positive(value.sessionPid)||value.sessionPid>2147483647||!iso(value.backendStartedAt)
+    ||!positive(value.sessionPid)||value.sessionPid>2147483647||!rawTime(value.backendStartedAt)
     ||(candidate&&!UUID.test(value.bootId)))hold('EXACT_SESSION_BINDING_REQUIRED');
 }
 function validateBinding(b){
@@ -24,7 +25,7 @@ function validateBinding(b){
   const d=b.database;
   if(!keys(d,['containerId','imageId','containerStartedAt','postmasterStartedAt','clusterSystemIdentifier','databaseOid'])
     ||!ID.test(d.containerId)||!/^sha256:[a-f0-9]{64}$/.test(d.imageId)||!runtimeTimestamp(d.containerStartedAt)
-    ||!iso(d.postmasterStartedAt)||!/^[1-9][0-9]{0,19}$/.test(d.clusterSystemIdentifier||'')
+    ||!rawTime(d.postmasterStartedAt)||!/^[1-9][0-9]{0,19}$/.test(d.clusterSystemIdentifier||'')
     ||!positive(d.databaseOid)||d.databaseOid>4294967295)hold('EXACT_DATABASE_BINDING_REQUIRED');
   validateSession(b.root);validateSession(b.candidate,true);
   if(b.root.sessionPid===b.candidate.sessionPid)hold('DISTINCT_BACKENDS_REQUIRED');
@@ -35,7 +36,7 @@ const candidateName=b=>`phoenix-fence:${b.candidate.bootId}`;
  * No caller SQL, credentials, server address or user/database name is accepted. */
 export function candidateDatabaseSql(binding){
   validateBinding(binding);const b=structuredClone(binding);
-  const rows=(pid,name)=>`(SELECT coalesce(json_agg(json_build_object('pid',pid,'databaseOid',datid::bigint,'backendStartedAt',to_char(backend_start AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),'applicationName',application_name,'backendType',backend_type) ORDER BY pid),'[]'::json) FROM pg_catalog.pg_stat_activity WHERE pid=${pid} OR application_name='${name}')`;
+  const rows=(pid,name)=>`(SELECT coalesce(json_agg(json_build_object('pid',pid,'databaseOid',datid::bigint,'backendStartedAt',to_char(backend_start AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),'applicationName',application_name,'backendType',backend_type) ORDER BY pid),'[]'::json) FROM pg_catalog.pg_stat_activity WHERE pid=${pid} OR application_name='${name}')`;
   return `BEGIN READ ONLY;
 SET LOCAL search_path=pg_catalog;
 SET LOCAL statement_timeout='3s';
@@ -43,7 +44,7 @@ SET LOCAL lock_timeout='1s';
 SET LOCAL idle_in_transaction_session_timeout='5s';
 SELECT json_build_object(
  'sampledAt',to_char(clock_timestamp() AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
- 'postmasterStartedAt',to_char(pg_catalog.pg_postmaster_start_time() AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
+ 'postmasterStartedAt',to_char(pg_catalog.pg_postmaster_start_time() AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),
  'clusterSystemIdentifier',(SELECT system_identifier::text FROM pg_catalog.pg_control_system()),
  'databaseOid',(SELECT oid::bigint FROM pg_catalog.pg_database WHERE datname=current_database()),
  'serverVersionNum',current_setting('server_version_num')::integer,
@@ -79,7 +80,7 @@ export function validateCandidateDatabaseSnapshot(value,binding,{startedAt,finis
     const expected=[1,2].map(key=>({databaseOid:d.databaseOid,namespace:17455,key,keyForm:2,mode:'ExclusiveLock',granted:true}));
     if(!same(value.rootLocks,expected))hold('EXCLUSIVE_ROOT_LOCKS_REQUIRED');
   }else if(value.rootBackends.length!==0||value.rootLocks.length!==0)hold('ROOT_BACKEND_OR_LOCKS_REMAIN');
-  return {schema:'phoenix.candidate-database-observation/v1',result:expectRoot==='HELD'?'ROOT_HELD_SNAPSHOT':'ROOT_BACKEND_ABSENT_SNAPSHOT',
+  return {schema:'phoenix.candidate-database-observation/v2',result:expectRoot==='HELD'?'ROOT_HELD_SNAPSHOT':'ROOT_BACKEND_ABSENT_SNAPSHOT',
     bindingDigest:canonicalDigest(b),binding:b,querySha256:createHash('sha256').update(candidateDatabaseSql(b)).digest('hex'),
     startedAt,finishedAt,observation:structuredClone(value),continuousDrainProof:false,clientLifecycleSettlementProved:false,
     persistentOwnershipComplete:false,registryInstalled:false,admissionOrApprovalGranted:false,productionMutation:false};
