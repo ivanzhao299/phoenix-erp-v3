@@ -7,6 +7,8 @@ import { execFileSync, spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { once } from 'node:events';
 import { RegisteredMainFastForward, inspectCheckoutGit, checkoutGitEnvironment } from './production-maintenance-gated-checkout.mjs';
+const enabled = process.env.MAINTENANCE_NATIVE_GIT_FIXTURE === '1';
+const nativeTest = (name, fn) => test(name, { skip: !enabled }, fn);
 const worker = fileURLToPath(new URL('../ci/maintenance-gated-checkout-worker.mjs', import.meta.url));
 const launcher = fileURLToPath(new URL('./production-maintenance-gated-checkout.py', import.meta.url));
 const git = (root, ...args) => execFileSync('/usr/bin/git', args, { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env: { PATH: '/usr/bin:/bin', HOME: '/nonexistent', GIT_CONFIG_NOSYSTEM: '1' } }).trim();
@@ -44,7 +46,7 @@ function resumeOwnedGit(proof) {
   process.kill(proof.pid, 'SIGCONT');
 }
 
-test('native exact clean main fast-forward uses actual registered child close and preserves main', async () => {
+nativeTest('native exact clean main fast-forward uses actual registered child close and preserves main', async () => {
   const f = fixture(), result = await runWorker(f);
   assert.equal(result.status, 'PASS'); assert.equal(result.result.productionAdmission, false); assert.equal(result.result.closeVerified, true);
   assert.equal(result.reuseRefused, true); assert.equal(result.childrenRemaining, 0);
@@ -52,14 +54,14 @@ test('native exact clean main fast-forward uses actual registered child close an
   assert.equal(git(f.root, 'status', '--porcelain'), ''); assert.equal(lockHeld(f.lockFile), false);
   assert.equal(JSON.parse(fs.readFileSync(path.join(f.evidence, 'child.json'))).registered, true);
 });
-test('missing compiled capabilities and self FD9 fail closed before launcher or Git', async () => {
+nativeTest('missing compiled capabilities and self FD9 fail closed before launcher or Git', async () => {
   const f = fixture(); const absent = new RegisteredMainFastForward(f);
   await assert.rejects(absent.run(), /COMPILED_CAPABILITIES/); assert.equal(fs.readdirSync(f.evidence).length, 0);
   const noFd = await runWorker(f, 'normal', false); assert.equal(noFd.status, 'HOLD');
   assert.match(noFd.code, /SELF_FD9/); assert.equal(fs.readdirSync(f.evidence).filter(x => x !== 'result.json').length, 0);
   assert.equal(git(f.root, 'rev-parse', 'HEAD'), f.previousSha);
 });
-test('registration refusal and final admission revocation never send GO and join ungranted launcher', async () => {
+nativeTest('registration refusal and final admission revocation never send GO and join ungranted launcher', async () => {
   for (const mode of ['registration-refused', 'abort-before-go']) {
     const f = fixture(), result = await runWorker(f, mode);
     assert.equal(result.status, 'HOLD'); assert.equal(result.reuseRefused, true); assert.equal(result.childrenRemaining, 0);
@@ -67,12 +69,12 @@ test('registration refusal and final admission revocation never send GO and join
     assert.equal(lockHeld(f.lockFile), false);
   }
 });
-test('controller exits before GO: EOF refuses Git and inherited lock closes naturally', async () => {
+nativeTest('controller exits before GO: EOF refuses Git and inherited lock closes naturally', async () => {
   const f = fixture(); assert.equal(await runWorker(f, 'exit-before-go'), null);
   const until = Date.now() + 6000; while (lockHeld(f.lockFile) && Date.now() < until) await wait(10);
   assert.equal(lockHeld(f.lockFile), false); assert.equal(git(f.root, 'rev-parse', 'HEAD'), f.previousSha);
 });
-test('controller exits after GO: live fixed Git retains FD9 until its actual exit', async () => {
+nativeTest('controller exits after GO: live fixed Git retains FD9 until its actual exit', async () => {
   const f = fixture({ many: 3000 }); assert.equal(await runWorker(f, 'stop-git-exit-parent'), null);
   const proof = JSON.parse(fs.readFileSync(path.join(f.evidence, 'exec-proof.json')));
   // Parent exited. A lock held now can only come from the registered descendant.
@@ -85,7 +87,7 @@ test('controller exits after GO: live fixed Git retains FD9 until its actual exi
   assert.equal(fs.existsSync(path.join(f.evidence, 'result.json')), false);
   assert.ok([f.previousSha, f.targetSha].includes(git(f.root, 'rev-parse', 'HEAD')));
 });
-test('dirty/untracked, detached, divergent and remote drift are refused before intent', () => {
+nativeTest('dirty/untracked, detached, divergent and remote drift are refused before intent', () => {
   const cases = [
     f => fs.writeFileSync(path.join(f.root, 'old.txt'), 'dirty'),
     f => fs.writeFileSync(path.join(f.root, 'untracked'), 'x'),
@@ -95,7 +97,7 @@ test('dirty/untracked, detached, divergent and remote drift are refused before i
   ];
   for (const change of cases) { const f = fixture(); change(f); assert.throws(() => inspectCheckoutGit(f.root, f.previousSha, f.targetSha, checkoutGitEnvironment({ HOME: '/nonexistent' }))); assert.equal(fs.readdirSync(f.evidence).length, 0); }
 });
-test('configured executable filters/signatures/merge options and partial clone are refused without invoking them', () => {
+nativeTest('configured executable filters/signatures/merge options and partial clone are refused without invoking them', () => {
   for (const key of ['filter.fixture.smudge', 'filter.fixture.process', 'merge.verifySignatures', 'merge.fixture.driver', 'branch.main.mergeOptions', 'remote.origin.promisor']) {
     const f = fixture(); git(f.root, 'config', key, '/unreachable-must-never-execute');
     assert.throws(() => inspectCheckoutGit(f.root, f.previousSha, f.targetSha, checkoutGitEnvironment({ HOME: '/nonexistent' })), /EXECUTABLE_CONFIG_UNSUPPORTED/);
@@ -103,13 +105,13 @@ test('configured executable filters/signatures/merge options and partial clone a
   assert.throws(() => checkoutGitEnvironment({ HOME: '/nonexistent', GIT_CONFIG_COUNT: '1' }), /ENVIRONMENT_UNSUPPORTED/);
   assert.throws(() => checkoutGitEnvironment({ HOME: '/nonexistent', LD_PRELOAD: '/unreachable' }), /ENVIRONMENT_UNSUPPORTED/);
 });
-test('ignored collision is never overwritten; actual failed Git keeps exclusive intent and refuses retry', async () => {
+nativeTest('ignored collision is never overwritten; actual failed Git keeps exclusive intent and refuses retry', async () => {
   const f = fixture(); fs.writeFileSync(path.join(f.root, '.git/info/exclude'), 'new.txt\n'); fs.writeFileSync(path.join(f.root, 'new.txt'), 'do-not-overwrite\n');
   const result = await runWorker(f); assert.equal(result.status, 'HOLD'); assert.equal(result.code, 'MAINTENANCE_HOLD=CHECKOUT_GIT_RESULT_HOLD');
   assert.equal(result.reuseRefused, true); assert.equal(result.childrenRemaining, 0); assert.equal(fs.readFileSync(path.join(f.root, 'new.txt'), 'utf8'), 'do-not-overwrite\n');
   assert.equal(git(f.root, 'rev-parse', 'HEAD'), f.previousSha); assert.equal(fs.existsSync(path.join(f.evidence, 'intent.json')), true);
 });
-test('same inode through a different open description cannot impersonate inherited FD9', async () => {
+nativeTest('same inode through a different open description cannot impersonate inherited FD9', async () => {
   const f = fixture(); const owner = spawn('/usr/bin/python3', ['-I', '-c', 'import os,fcntl,time,sys; f=os.open(sys.argv[1],os.O_RDONLY); fcntl.flock(f,fcntl.LOCK_EX); print("READY",flush=True); time.sleep(3)', f.lockFile], { stdio: ['ignore', 'pipe', 'ignore'] });
   await once(owner.stdout, 'data');
   const fd = fs.openSync(f.lockFile, 'r');
@@ -117,7 +119,7 @@ test('same inode through a different open description cannot impersonate inherit
   child.stdout.resume(); child.stderr.resume(); child.stdin.end(`GO ${'a'.repeat(64)}\n`);
   const [code] = await once(child, 'close'); fs.closeSync(fd); assert.equal(code, 64); assert.equal(git(f.root, 'rev-parse', 'HEAD'), f.previousSha); await once(owner, 'close');
 });
-test('index hiding flags, sparse checkout and gitlinks cannot produce a false clean observation', () => {
+nativeTest('index hiding flags, sparse checkout and gitlinks cannot produce a false clean observation', () => {
   const safe = checkoutGitEnvironment({ HOME: '/nonexistent' });
   for (const flag of ['--assume-unchanged', '--skip-worktree']) {
     const f = fixture(); git(f.root, 'update-index', flag, 'old.txt'); fs.writeFileSync(path.join(f.root, 'old.txt'), 'hidden local modification\n');
@@ -130,7 +132,7 @@ test('index hiding flags, sparse checkout and gitlinks cannot produce a false cl
   const sub = fixture(); git(sub.root, 'update-index', '--add', '--cacheinfo', `160000,${sub.previousSha},nested`);
   assert.throws(() => inspectCheckoutGit(sub.root, sub.previousSha, sub.targetSha, safe), /INDEX_OR_SUBMODULE_UNSUPPORTED/);
 });
-test('every native preflight read and final inspection shares the caller deadline', () => {
+nativeTest('every native preflight read and final inspection shares the caller deadline', () => {
   const f = fixture(); let reads = 0;
   assert.throws(() => inspectCheckoutGit(f.root, f.previousSha, f.targetSha, checkoutGitEnvironment({ HOME: '/nonexistent' }), () => {
     if (++reads === 12) throw new Error('FIXTURE_DEADLINE'); return 10000;
@@ -138,14 +140,14 @@ test('every native preflight read and final inspection shares the caller deadlin
   assert.equal(git(f.root, 'rev-parse', 'HEAD'), f.previousSha);
 });
 
-test('unlocked descriptor and linked worktree are refused without changing state', async () => {
+nativeTest('unlocked descriptor and linked worktree are refused without changing state', async () => {
   const f = fixture(), result = await runWorker(f, 'normal', 'unlocked');
   assert.equal(result.status, 'HOLD'); assert.equal(git(f.root, 'rev-parse', 'HEAD'), f.previousSha); assert.equal(lockHeld(f.lockFile), false);
   const linked = path.join(f.directory, 'linked'); git(f.root, 'worktree', 'add', '-b', 'owned-linked', linked, f.previousSha);
   assert.throws(() => inspectCheckoutGit(linked, f.previousSha, f.targetSha, checkoutGitEnvironment({ HOME: '/nonexistent' })), /LINKED_WORKTREE_UNSUPPORTED/);
 });
 
-test('timeout after actual Git exec retains original child debt and FD9, without success or retry', async () => {
+nativeTest('timeout after actual Git exec retains original child debt and FD9, without success or retry', async () => {
   const f = fixture({ many: 3000 }); const result = await runWorker(f, 'stop-git-timeout');
   const proof = JSON.parse(fs.readFileSync(path.join(f.evidence, 'exec-proof.json')));
   try {

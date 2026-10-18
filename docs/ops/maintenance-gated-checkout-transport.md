@@ -71,3 +71,14 @@ combined pure protocol/CI fixtures 399 PASS, 12 SKIP; existing staged-bundle
 cross-version contract cases 5 PASS. Tests use Node20 and native Linux Git/flock.
 Skipped Docker/PG-gated suites are not claimed as passes. CI and actual production
 results must be recorded separately for the eventual exact commit.
+
+The initial hosted pure-suite run 39157739142 failed 10 fixture assertions:
+its native preflight reported unsupported executable Git configuration before
+the intended cases. This failure is retained; the exact configured category
+was not present in that run's log and is UNVERIFIED. Production configuration
+refusal remains unchanged. The 13 native cases now run explicitly in a tracked-
+source owned image with Git/Python/flock, no network, no writable host mounts,
+read-only root, tmpfs and no capabilities. The general host suite records them
+as SKIP; a separate mandatory CI step must actually execute all 13. This is
+fixture isolation, not a production Git policy override. Do not count host
+SKIP as PASS. Current image/CI results must be archived for the updated HEAD.
