@@ -16,6 +16,7 @@ describe('EggInventorySchedulerService notifications', () => {
     const service = new EggInventorySchedulerService(
       ds as never, inventory as never, { ok: jest.fn(), fail: jest.fn() } as never, recipients as never,
       { run: (_name: string, _kind: string, work: () => Promise<unknown>) => work() } as never,
+      { run: async (_name: string, work: () => Promise<unknown>) => ({ acquired: true, value: await work() }) } as never,
     );
     await expect(service.runManually()).rejects.toThrow('recipient lookup failed');
   });

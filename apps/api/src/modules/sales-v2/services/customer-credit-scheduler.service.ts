@@ -1,5 +1,6 @@
 import { BackgroundTaskService } from '../../background-control/background-task.service';
-import { Injectable, Logger } from '@nestjs/common';
+import { BackgroundBusinessLockService } from '../../background-control/background-business-lock.service';
+import { ConflictException, Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
@@ -28,31 +29,25 @@ export class CustomerCreditSchedulerService {
     private readonly cronMon: CronMonitorService,
     private readonly recipients: ScopedNotificationRecipientService,
     private readonly backgroundTasks: BackgroundTaskService,
+    private readonly businessLocks: BackgroundBusinessLockService,
   ) {}
 
   @Cron('0 0 2 * * *', { name: 'credit_daily_refresh', timeZone: 'Asia/Vientiane' })
   async runDailyCreditRefresh() {
     await this.backgroundTasks.runScheduled('sales.credit.daily', 'LOCAL', async () => {
-      // 防并发 Advisory Lock
-      const lockRows = await this.ds.query(
-        `SELECT pg_try_advisory_lock(hashtext('credit_scheduler')) AS acquired`,
-      );
-      if (!lockRows[0]?.acquired) {
-        this.logger.log('[CreditScheduler] 其他实例正在运行，跳过本次');
-        return;
-      }
-
-      try {
-        await this.doRefresh();
-        await this.cronMon.ok('credit_daily_refresh');
-      } catch (e: any) {
-        this.logger.error(`[CreditScheduler] 执行失败: ${e?.message ?? String(e)}`);
-        await this.cronMon.fail('credit_daily_refresh', e?.message ?? String(e));
-      } finally {
-        await this.ds.query(
-          `SELECT pg_advisory_unlock(hashtext('credit_scheduler'))`,
-        ).catch(() => {});
-      }
+      const locked = await this.businessLocks.run('credit_scheduler', async () => {
+        try {
+          await this.doRefresh();
+          return true;
+        } catch (error: unknown) {
+          const message = error instanceof Error ? error.message : String(error);
+          this.logger.error('[BackgroundScheduler] business task failed');
+          await this.cronMon.fail('credit_daily_refresh', message);
+          return false;
+        }
+      });
+      if (!locked.acquired) this.logger.log('[BackgroundScheduler] another instance holds the task lock; skipped');
+      else if (locked.value) await this.cronMon.ok('credit_daily_refresh');
     });
   }
 
@@ -69,8 +64,9 @@ export class CustomerCreditSchedulerService {
   }> {
     return this.backgroundTasks.run('sales.credit.manual', 'LOCAL', async () => {
       const t0 = Date.now();
-      const result = await this.doRefresh();
-      return { ...result, durationMs: Date.now() - t0 };
+      const result = await this.businessLocks.run('credit_scheduler', () => this.doRefresh());
+      if (!result.acquired) throw new ConflictException('BACKGROUND_BUSINESS_TASK_BUSY');
+      return { ...result.value, durationMs: Date.now() - t0 };
     });
   }
 
