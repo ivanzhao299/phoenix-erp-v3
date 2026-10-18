@@ -4,6 +4,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import { performance } from 'node:perf_hooks';
 import { now, time, hash } from '../ci/maintenance-transition-fixture.mjs';
 import { RootControlLease } from './production-maintenance-root-lease.mjs';
 import { collectCandidateLeaseBinding, collectCandidateServerBinding } from './production-maintenance-candidate-binding.mjs';
@@ -12,6 +13,61 @@ import { phaseFixture } from '../ci/maintenance-owned-candidate.fixture.mjs';
 
 async function using(action) { const f = await phaseFixture(); try { return await action(f); } finally { await f.close(); } }
 const hold = /CANDIDATE_BINDING_HOLD=/;
+test('fixed phase/state view returns genuine committed state with its unchanged authorization anchor', () => using(async f => {
+  const request={expectedStateDigest:f.candidateState.stateDigest,replacementStateDigest:f.root.expectedStateDigest};
+  const first=f.h.store.readCandidateLeaseState(request);
+  assert.equal(first.state.stateDigest,request.expectedStateDigest);assert.equal(first.anchor.currentStateDigest,first.state.stateDigest);
+  assert.deepEqual(first.anchor,f.h.store.readCandidateLeasePhaseAnchor(request));
+  first.state.context.owner='caller-mutation';first.anchor.owner='caller-mutation';
+  const second=f.h.store.readCandidateLeaseState(request);assert.equal(second.state.context.owner,f.h.context.owner);assert.equal(second.anchor.owner,f.h.context.owner);
+  const current=f.h.store.currentFile;fs.renameSync(current,current+'.owned-retained');
+  assert.throws(()=>f.h.store.readCandidateLeaseState(request),/MAINTENANCE_OWNER_REQUIRED/);
+  fs.renameSync(current+'.owned-retained',current);
+}));
+for(const extra of [{skipGuard:true},{state:{}},{receipts:[]},{timeoutMs:0},{timeoutMs:10001}]) test('phase/state view refuses caller inputs '+JSON.stringify(extra),()=>using(async f=>{
+  assert.throws(()=>f.h.store.readCandidateLeaseState({expectedStateDigest:f.candidateState.stateDigest,replacementStateDigest:f.root.expectedStateDigest,...extra}),/CANDIDATE_PHASE_ANCHOR_REQUEST|RECEIPT_SNAPSHOT_BUDGET/);
+}));
+test('phase/state final clone must finish inside its original budget',()=>using(async f=>{
+  const clone=globalThis.structuredClone,descriptor=Object.getOwnPropertyDescriptor(performance,'now');let clock=0,selected=false;
+  Object.defineProperty(performance,'now',{configurable:true,value:()=>clock});
+  globalThis.structuredClone=value=>{const result=clone(value);if(value?.state?.stateDigest===f.candidateState.stateDigest&&value.anchor){selected=true;clock=1000;}return result;};
+  try{assert.throws(()=>f.h.store.readCandidateLeaseState({expectedStateDigest:f.candidateState.stateDigest,replacementStateDigest:f.root.expectedStateDigest,timeoutMs:1000}),/RECEIPT_SNAPSHOT_DEADLINE/);assert.equal(selected,true);}
+  finally{globalThis.structuredClone=clone;if(descriptor)Object.defineProperty(performance,'now',descriptor);else Reflect.deleteProperty(performance,'now');}
+}));
+test('phase/state view refuses a nonfinite initial monotonic sample even if the next sample recovers',()=>using(async f=>{
+  const descriptor=Object.getOwnPropertyDescriptor(performance,'now');let calls=0;
+  Object.defineProperty(performance,'now',{configurable:true,value:()=>calls++===0?NaN:0});
+  try{assert.throws(()=>f.h.store.readCandidateLeaseState({expectedStateDigest:f.candidateState.stateDigest,replacementStateDigest:f.root.expectedStateDigest}),/RECEIPT_SNAPSHOT_DEADLINE/);}
+  finally{if(descriptor)Object.defineProperty(performance,'now',descriptor);else Reflect.deleteProperty(performance,'now');}
+}));
+for(const phase of ['CF','VF'])for(const field of ['owner','state'])for(const method of ['readCandidateLeaseState','readCandidateLeasePhaseAnchor'])
+test(`${method} refuses ${field} drift during actual ${phase} archive read`,()=>using(async f=>{
+  if(phase==='VF')await f.verify();
+  const state=f.h.store.readState(),request={expectedStateDigest:state.stateDigest,replacementStateDigest:f.root.expectedStateDigest};
+  const archive=`maintenance-intent-${f.h.context.owner}-${state.stateDigest}.json`,read=f.h.store.read,owner=fs.readFileSync(f.h.store.currentFile);let changed=false;
+  f.h.store.read=function(file){const value=read.call(this,file);if(!changed&&path.basename(file)===archive){
+    changed=true;
+    if(field==='owner'){const value=JSON.parse(owner);value.owner='7654321-1';fs.writeFileSync(this.currentFile,JSON.stringify(value));}
+    else{const {stateDigest,...content}=state;content.updatedAt=new Date(Date.parse(content.updatedAt)+1).toISOString();this.writeState(content);}
+  }return value;};
+  try{assert.throws(()=>f.h.store[method](request),/ANOTHER_MAINTENANCE_OWNER_ACTIVE|CANDIDATE_PHASE_ANCHOR_CHANGED/);assert.equal(changed,true);}
+  finally{f.h.store.read=read;fs.writeFileSync(f.h.store.currentFile,owner);const {stateDigest,...content}=state;f.h.store.writeState(content);}
+}));
+test('archive work consumes the same phase budget before ending owned snapshot',()=>using(async f=>{
+  const read=f.h.store.read,owned=f.h.store.readOwnedState,descriptor=Object.getOwnPropertyDescriptor(performance,'now');let clock=0,seenBudget;
+  Object.defineProperty(performance,'now',{configurable:true,value:()=>clock});
+  f.h.store.read=function(file){const value=read.call(this,file);if(path.basename(file).startsWith('maintenance-intent-'))clock=125;return value;};
+  f.h.store.readOwnedState=function(options){seenBudget=options.timeoutMs;return owned.call(this,options);};
+  try{f.h.store.readCandidateLeaseState({expectedStateDigest:f.candidateState.stateDigest,replacementStateDigest:f.root.expectedStateDigest,timeoutMs:1000});assert.ok(seenBudget>0&&seenBudget<=875);}
+  finally{f.h.store.read=read;f.h.store.readOwnedState=owned;if(descriptor)Object.defineProperty(performance,'now',descriptor);else Reflect.deleteProperty(performance,'now');}
+}));
+test('abort during actual archive read denies both phase view and ending snapshot',()=>using(async f=>{
+  const read=f.h.store.read,owned=f.h.store.readOwnedState,controller=new AbortController();let changed=false,endingReads=0;
+  f.h.store.read=function(file){const value=read.call(this,file);if(path.basename(file).startsWith('maintenance-intent-')){changed=true;controller.abort();}return value;};
+  f.h.store.readOwnedState=function(...args){endingReads++;return owned.apply(this,args);};
+  try{assert.throws(()=>f.h.store.readCandidateLeaseState({expectedStateDigest:f.candidateState.stateDigest,replacementStateDigest:f.root.expectedStateDigest,signal:controller.signal}),/RECEIPT_SNAPSHOT_DEADLINE/);assert.equal(changed,true);assert.equal(endingReads,0);}
+  finally{f.h.store.read=read;f.h.store.readOwnedState=owned;}
+}));
 test('steady CF lease observation uses real committed START while the operation collector still rejects no VERIFY intent', () => using(async f => {
   const r = await collectCandidateLeaseBinding(f.request('PRE_ADOPTION'), f.dependencies);
   assert.equal(r.schema, 'phoenix.candidate-lease-binding-observation/v1'); assert.equal(r.stateDigest, f.candidateState.stateDigest);

@@ -135,10 +135,12 @@ export class MaintenanceReceiptStore {
     const { timeoutMs = 10000, signal } = options;
     if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 10000 || (signal && !(signal instanceof AbortSignal))) hold('RECEIPT_SNAPSHOT_BUDGET');
     const start = performance.now(); let last = start;
-    return () => { const current = performance.now();
-      if (!Number.isFinite(current) || current < last || current - start >= timeoutMs || signal?.aborted) hold('RECEIPT_SNAPSHOT_DEADLINE');
+    const check = () => { const current = performance.now();
+      if (!Number.isFinite(start) || !Number.isFinite(current) || current < last || current - start >= timeoutMs || signal?.aborted) hold('RECEIPT_SNAPSHOT_DEADLINE');
       last = current;
     };
+    check.remaining = () => { check(); const left = Math.floor(timeoutMs - (last - start)); if (left < 1) hold('RECEIPT_SNAPSHOT_DEADLINE'); return left; };
+    return check;
   }
   #validateReceipt(value, reference) {
     const { digest, ...content } = value;
@@ -325,10 +327,17 @@ export class MaintenanceReceiptStore {
   /** Read actual trusted state/archives only. This is a phase anchor, not a
    * lease, approval, runtime observation or permission to admit background work.
    * Never rebuild historical state timestamps from receipt recordedAt values. */
-  readCandidateLeasePhaseAnchor({ expectedStateDigest, replacementStateDigest } = {}) {
-    this.assertCurrent();
+  readCandidateLeasePhaseAnchor(request = {}) { return this.#readCandidateLeasePhaseView(request).anchor; }
+  /** Fixed call-local phase/state view. The state is from the actual fully
+   * validated phase snapshot, never caller input or a cross-await cache. */
+  readCandidateLeaseState(request = {}) { return this.#readCandidateLeasePhaseView(request); }
+  #readCandidateLeasePhaseView(request) {
+    if (!request || Object.getPrototypeOf(request) !== Object.prototype
+      || Object.keys(request).some(key => !['expectedStateDigest','replacementStateDigest','timeoutMs','signal'].includes(key))) hold('CANDIDATE_PHASE_ANCHOR_REQUEST');
+    const { expectedStateDigest, replacementStateDigest, timeoutMs, signal } = request;
+    const check = this.#snapshotBudget({ timeoutMs, signal }); check();
     if (!HASH.test(expectedStateDigest || '') || !HASH.test(replacementStateDigest || '')) hold('CANDIDATE_PHASE_ANCHOR_DIGEST');
-    const snapshot = this.#readStateSnapshot(), actual = snapshot.state;
+    const snapshot = this.#readStateSnapshot({ timeoutMs: check.remaining(), signal }, true), actual = snapshot.state; check();
     if (!actual || actual.stateDigest !== expectedStateDigest || actual.schema !== 'phoenix.legacy-maintenance-state/v1'
       || actual.legacyDrainResult !== 'UNSUPPORTED' || !iso(actual.updatedAt)) hold('CANDIDATE_PHASE_ANCHOR_STATE');
     const initialMarker = fs.existsSync(this.markerFile) ? this.read(this.markerFile) : null;
@@ -381,12 +390,15 @@ export class MaintenanceReceiptStore {
     // A concurrent phase writer cannot splice this read across state/intent
     // generations. Composite runtime observers must repeat this anchor after
     // their own independent server probes as well.
-    if (!same(this.readState(), actual) || !same(fs.existsSync(this.markerFile) ? this.read(this.markerFile) : null, initialMarker)) hold('CANDIDATE_PHASE_ANCHOR_CHANGED');
+    check();
+    if (!same(this.readOwnedState({ timeoutMs: check.remaining(), signal }), actual)
+      || !same(fs.existsSync(this.markerFile) ? this.read(this.markerFile) : null, initialMarker)) hold('CANDIDATE_PHASE_ANCHOR_CHANGED');
     const result = { schema: 'phoenix.candidate-lease-phase-anchor/v1', contextDigest: this.digest, owner: this.context.owner,
       currentStateDigest: actual.stateDigest, currentPhase: actual.phase, currentStatus: actual.status, candidateStateDigest,
       replacementStateDigest, replacementReceiptDigest: replacement.digest, candidateReceiptDigest: candidate.digest,
       verifiedReceiptDigest, startIntentDigest, verifyIntentDigest, openIntentDigest, pendingIntentDigest: initialMarker ? canonicalDigest(initialMarker) : null };
-    this.assertCurrent(); return result;
+    this.assertCurrent(); check();
+    const view = structuredClone({ state: actual, anchor: result }); check(); return view;
   }
   finishMarker(committedState) {
     const initial = fs.lstatSync(this.markerFile); this.checkFile(initial); const marker = this.read(this.markerFile);
