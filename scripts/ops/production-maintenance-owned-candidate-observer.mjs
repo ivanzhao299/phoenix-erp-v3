@@ -1,10 +1,11 @@
-/** Own the lifetime of one already-held original root and its binding reads.
+/** Own the lifetime of one already-held original root and its binding and health reads.
  * Observations are never CANDIDATE_CONTROL_LEASE, ingress proof or approval.
  * No CLI/factory installs this component; all production admission still denies. */
 import { performance } from 'node:perf_hooks';
 import { ChildProcess } from 'node:child_process';
 import { RootControlLease } from './production-maintenance-root-lease.mjs';
-import { collectCandidateLeaseBinding } from './production-maintenance-candidate-binding.mjs';
+import { collectCandidateLeaseBinding, collectCandidateServerBinding } from './production-maintenance-candidate-binding.mjs';
+import { observeCandidateHealthAndStartup } from './production-maintenance-candidate-health.mjs';
 import { validateMaintenanceContext, bindingDigest, canonicalDigest, same, HASH } from './production-maintenance-receipts.mjs';
 const claimed = new WeakSet();
 const error = code => new Error('OWNED_CANDIDATE_HOLD=' + code);
@@ -16,7 +17,7 @@ const candidatePin = v => ({ runtime: v.runtime, bootId: v.status.bootId, contro
   authorizationCandidateStateDigest: v.authorizationCandidateStateDigest });
 
 export class OwnedCandidateBindingObserver {
-  #root; #session; #child; #context; #replacement; #collect; #dependencies; #now; #mono;
+  #root; #session; #child; #context; #replacement; #collect; #dependencies; #collectHealth; #healthDependencies; #now; #mono;
   #rootCloseWork = null; #rootCloseState = 'NOT_STARTED';
   #pending = new Set(); #fatal = null; #closing = false; #closeTask = null; #pin = null; #adopted = false;
   constructor({ context, replacementEvidence, rootLease }, dependencies = {}) {
@@ -26,12 +27,23 @@ export class OwnedCandidateBindingObserver {
     RootControlLease.prototype.assertHeld.call(rootLease);
     const child = rootLease.session?.child;
     if (!(child instanceof ChildProcess) || !Number.isSafeInteger(child.pid) || child.pid < 1 || child.killed || child.exitCode !== null || child.signalCode !== null) throw error('LIVE_ORIGINAL_CHILD_REQUIRED');
-    if ((dependencies.collect && typeof dependencies.collect !== 'function') || (dependencies.now && typeof dependencies.now !== 'function')
+    if ((dependencies.collectHealth && typeof dependencies.collectHealth !== 'function') || (dependencies.collect && typeof dependencies.collect !== 'function') || (dependencies.now && typeof dependencies.now !== 'function')
       || (dependencies.monotonicNow && typeof dependencies.monotonicNow !== 'function')) throw error('FIXED_DEPENDENCIES_REQUIRED');
     this.#root = rootLease; this.#session = rootLease.session; this.#child = child;
     this.#context = frozen(structuredClone(context)); this.#replacement = frozen(structuredClone(replacementEvidence));
     this.#collect = dependencies.collect || collectCandidateLeaseBinding;
     this.#dependencies = { ...(dependencies.bindingDependencies || {}) };
+    this.#collectHealth = dependencies.collectHealth || observeCandidateHealthAndStartup;
+    const healthDependencies = { ...(dependencies.healthDependencies || {}) };
+    const healthBinding = healthDependencies.collectBinding || collectCandidateServerBinding;
+    if (typeof healthBinding !== 'function') throw error('FIXED_DEPENDENCIES_REQUIRED');
+    this.#healthDependencies = { ...healthDependencies, collectBinding: async (request, deps) => {
+      this.#assertOriginal();
+      const value = await healthBinding(request, deps);
+      this.#assertOriginal();
+      if (!this.#pin || !same(this.#pin, candidatePin({ ...value, authorizationCandidateStateDigest: value.stateDigest }))) throw this.#poison('CANDIDATE_IDENTITY_CHANGED');
+      return value;
+    }, bindingDependencies: this.#dependencies };
     this.#now = dependencies.now || Date.now; this.#mono = dependencies.monotonicNow || (() => performance.now());
     claimed.add(rootLease); // Never unclaim a used transport, including after failure/close.
   }
@@ -55,23 +67,30 @@ export class OwnedCandidateBindingObserver {
     };
     return { check, remaining: () => { check(); return Math.max(1, Math.floor(Math.min(timeoutMs - (lastWall - wall), timeoutMs - (lastMono - mono), cleanup ? Infinity : Date.parse(this.#context.window.end) - lastWall))); } };
   }
-  async observe(request) {
+  observe(request) { return this.#observe(request, false); }
+  observeHealth(request) { return this.#observe(request, true); }
+  async #observe(request, health) {
     if (this.#fatal) throw this.#fatal;
     if (this.#closing) throw error('CLOSING');
-    if (!request || Object.keys(request).some(k => !['expectedStateDigest', 'mode', 'timeoutMs', 'signal'].includes(k))
-      || !HASH.test(request.expectedStateDigest || '') || !['PRE_ADOPTION', 'ADOPTED'].includes(request.mode)
+    if (!request || Object.keys(request).some(k => !(health ? ['expectedStateDigest', 'timeoutMs', 'signal'] : ['expectedStateDigest', 'mode', 'timeoutMs', 'signal']).includes(k))
+      || !HASH.test(request.expectedStateDigest || '') || (!health && !['PRE_ADOPTION', 'ADOPTED'].includes(request.mode))
       || (request.timeoutMs !== undefined && !timeoutValue(request.timeoutMs, 30000))
       || (request.signal && !(request.signal instanceof AbortSignal))) throw this.#poison('FIXED_OBSERVATION_REQUIRED');
-    if (this.#pending.size || (this.#adopted && request.mode !== 'ADOPTED')) throw this.#poison('CONCURRENT_OR_DOWNGRADED_READ');
-    const { expectedStateDigest, mode, signal } = request;
+    if (health && (!this.#adopted || !this.#pin)) throw this.#poison('ADOPTED_BINDING_BEFORE_HEALTH_REQUIRED');
+    if (this.#pending.size || (!health && this.#adopted && request.mode !== 'ADOPTED')) throw this.#poison('CONCURRENT_OR_DOWNGRADED_READ');
+    const { expectedStateDigest, signal } = request; const mode = health ? 'ADOPTED' : request.mode;
     const timeoutMs = request.timeoutMs ?? 30000, controller = new AbortController(), budget = this.#budget(timeoutMs, signal);
     const onAbort = () => controller.abort(); signal?.addEventListener('abort', onAbort, { once: true });
     const entry = { controller, work: null }; let timer;
     try {
       budget.check(); this.#assertOriginal();
       this.#pending.add(entry);
-      entry.work = Promise.resolve().then(() => this.#collect({ context: this.#context, expectedStateDigest,
-        replacementEvidence: this.#replacement, rootLease: this.#root, mode, signal: controller.signal, timeoutMs: budget.remaining() }, this.#dependencies));
+      entry.work = Promise.resolve().then(() => {
+        const fixedRequest = { context: this.#context, expectedStateDigest, replacementEvidence: this.#replacement,
+          rootLease: this.#root, signal: controller.signal, timeoutMs: budget.remaining() };
+        return health ? this.#collectHealth(fixedRequest, this.#healthDependencies)
+          : this.#collect({ ...fixedRequest, mode }, this.#dependencies);
+      });
       // Only actual settlement clears debt. A deadline or abort never does.
       entry.work.then(() => this.#pending.delete(entry), () => this.#pending.delete(entry));
       const value = await Promise.race([entry.work, new Promise((_, reject) => {
@@ -79,6 +98,16 @@ export class OwnedCandidateBindingObserver {
         controller.signal.addEventListener('abort', () => reject(error('OBSERVATION_ABORTED')), { once: true });
       })]);
       budget.check(); if (this.#fatal) throw this.#fatal; if (this.#closing) throw error('CLOSING'); this.#assertOriginal();
+      if (health) {
+        if (value?.schema !== 'phoenix.candidate-health-observation/v1' || value.result !== 'OBSERVATION_ONLY'
+          || value.contextDigest !== bindingDigest(this.#context) || value.stateDigest !== expectedStateDigest
+          || value.registryInstalled !== false || value.continuousIngressProof !== false || value.productionMutation !== false
+          || value.admissionOrApprovalGranted !== false || value.rawOutput !== false || value.outerProcessSupervisionRequired !== true)
+          throw error('FIXED_HEALTH_OBSERVATION_REQUIRED');
+        budget.check();
+        return { ...structuredClone(value), ownedObservationLifecycle: 'ORIGINAL_ROOT_AND_PENDING_READS_ONLY',
+          originalChildPid: this.#child.pid, fullCandidateLease: false };
+      }
       if (value?.schema !== 'phoenix.candidate-lease-binding-observation/v1' || value.result !== 'OBSERVATION_ONLY'
         || value.contextDigest !== bindingDigest(this.#context) || value.stateDigest !== expectedStateDigest || value.mode !== mode
         || value.candidateReplacementSha256 !== this.#replacement.evidenceSha256 || value.registryInstalled !== false
