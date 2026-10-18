@@ -215,6 +215,82 @@ export class MaintenanceReceiptStore {
     if (!same(expected, actualContent) || currentDigest !== canonicalDigest(expected)) hold('INVALID_OPEN_EFFECT_PROJECTION');
     return marker;
   }
+  #candidateCommittedIntent(stateDigest, { operation, from, to, previousStateDigest, receipt }) {
+    if (!HASH.test(stateDigest || '') || !HASH.test(previousStateDigest || '')) hold('CANDIDATE_PHASE_ANCHOR_DIGEST');
+    const marker = this.read(path.join(this.directory, `maintenance-intent-${this.context.owner}-${stateDigest}.json`));
+    const fields = ['schema', 'owner', 'contextDigest', 'operation', 'from', 'to', 'previousStateDigest', 'startedAt'];
+    if (!same(Object.keys(marker).sort(), fields.sort()) || marker.schema !== 'phoenix.maintenance-intent/v1'
+      || marker.owner !== this.context.owner || marker.contextDigest !== this.digest || marker.operation !== operation
+      || marker.from !== from || marker.to !== to || marker.previousStateDigest !== previousStateDigest
+      || !iso(marker.startedAt) || !iso(receipt?.recordedAt)
+      || Date.parse(marker.startedAt) < Date.parse(this.context.window.start)
+      || Date.parse(marker.startedAt) >= Date.parse(this.context.window.end)
+      || Date.parse(marker.startedAt) > Date.parse(receipt.recordedAt)) hold('CANDIDATE_COMMITTED_INTENT_BINDING');
+    return canonicalDigest(marker);
+  }
+  /** Read actual trusted state/archives only. This is a phase anchor, not a
+   * lease, approval, runtime observation or permission to admit background work.
+   * Never rebuild historical state timestamps from receipt recordedAt values. */
+  readCandidateLeasePhaseAnchor({ expectedStateDigest, replacementStateDigest } = {}) {
+    this.assertCurrent();
+    if (!HASH.test(expectedStateDigest || '') || !HASH.test(replacementStateDigest || '')) hold('CANDIDATE_PHASE_ANCHOR_DIGEST');
+    const actual = this.readState();
+    if (!actual || actual.stateDigest !== expectedStateDigest || actual.schema !== 'phoenix.legacy-maintenance-state/v1'
+      || actual.legacyDrainResult !== 'UNSUPPORTED' || !iso(actual.updatedAt)) hold('CANDIDATE_PHASE_ANCHOR_STATE');
+    const initialMarker = fs.existsSync(this.markerFile) ? this.read(this.markerFile) : null;
+    let fenced = actual, openIntentDigest = null;
+    if (actual.phase === 'COMPLETED_OPEN' && actual.status === 'OPEN_COMMIT_PENDING') {
+      const marker = this.assertOwnedEffectState('OPEN_CANDIDATE', actual);
+      fenced = marker.previousState; openIntentDigest = canonicalDigest(marker);
+    } else if (!['CANDIDATE_FENCED', 'VERIFIED_FENCED'].includes(actual.phase) || actual.status !== 'FENCED') {
+      hold('CANDIDATE_PHASE_ANCHOR_STATE');
+    }
+    const receipts = fenced.receipts.map(reference => this.readReceipt(reference));
+    if (Date.parse(actual.updatedAt) < Date.parse(this.context.window.start) || Date.parse(actual.updatedAt) >= Date.parse(this.context.window.end)
+      || receipts.some(r => r.schema !== 'phoenix.maintenance-receipt/v1' || !iso(r.recordedAt)
+        || Date.parse(r.recordedAt) < Date.parse(this.context.window.start) || Date.parse(r.recordedAt) > Date.parse(actual.updatedAt))) hold('CANDIDATE_PHASE_ANCHOR_TIME');
+    const unique = kind => {
+      const found = receipts.filter(receipt => receipt.kind === kind);
+      if (found.length !== 1) hold('CANDIDATE_PHASE_ANCHOR_UNIQUE_CHAIN');
+      return found[0];
+    };
+    const replacement = unique('CANDIDATE_REPLACEMENT'), candidate = unique('CANDIDATE_FENCED');
+    for (const receipt of [replacement, candidate]) validateMaintenanceEvidence(receipt.payload, receipt.kind, this.context, Date.parse(actual.updatedAt));
+    if (candidate.sequence !== replacement.sequence + 1) hold('CANDIDATE_PHASE_ANCHOR_CHAIN_ORDER');
+    let candidateStateDigest = fenced.stateDigest, verifiedReceiptDigest = null, verifyIntentDigest = null;
+    if (fenced.phase === 'VERIFIED_FENCED') {
+      const verified = unique('VERIFIED_FENCED');
+      validateMaintenanceEvidence(verified.payload, verified.kind, this.context, Date.parse(actual.updatedAt));
+      if (verified.sequence !== candidate.sequence + 1 || verified.digest !== receipts.at(-1)?.digest) hold('CANDIDATE_PHASE_ANCHOR_CHAIN_ORDER');
+      const archived = this.read(path.join(this.directory, `maintenance-intent-${this.context.owner}-${fenced.stateDigest}.json`));
+      candidateStateDigest = archived.previousStateDigest;
+      verifyIntentDigest = this.#candidateCommittedIntent(fenced.stateDigest, { operation: 'VERIFY_CANDIDATE', from: 'CANDIDATE_FENCED',
+        to: 'VERIFIED_FENCED', previousStateDigest: candidateStateDigest, receipt: verified });
+      verifiedReceiptDigest = verified.digest;
+      // VF must be a committed stable phase. OPEN pending is checked above
+      // against its real private projection and original VF state.
+      if (!openIntentDigest && fs.existsSync(this.markerFile)) hold('CANDIDATE_PHASE_ANCHOR_PENDING');
+    } else {
+      if (candidate.digest !== receipts.at(-1)?.digest || receipts.some(receipt => receipt.kind === 'VERIFIED_FENCED')) hold('CANDIDATE_PHASE_ANCHOR_CHAIN_ORDER');
+      if (fs.existsSync(this.markerFile)) {
+        const marker = this.assertOwnedIntent('VERIFY_CANDIDATE', 'CANDIDATE_FENCED', fenced.stateDigest);
+        const fields = ['schema', 'owner', 'contextDigest', 'operation', 'from', 'to', 'previousStateDigest', 'startedAt'];
+        if (marker.to !== 'VERIFIED_FENCED' || !same(Object.keys(marker).sort(), fields.sort()) || !iso(marker.startedAt)
+          || Date.parse(marker.startedAt) < Date.parse(fenced.updatedAt) || Date.parse(marker.startedAt) >= Date.parse(this.context.window.end)) hold('CANDIDATE_PHASE_ANCHOR_PENDING');
+      }
+    }
+    const startIntentDigest = this.#candidateCommittedIntent(candidateStateDigest, { operation: 'START_CANDIDATE', from: 'CANDIDATE_REPLACED',
+      to: 'CANDIDATE_FENCED', previousStateDigest: replacementStateDigest, receipt: candidate });
+    // A concurrent phase writer cannot splice this read across state/intent
+    // generations. Composite runtime observers must repeat this anchor after
+    // their own independent server probes as well.
+    if (!same(this.readState(), actual) || !same(fs.existsSync(this.markerFile) ? this.read(this.markerFile) : null, initialMarker)) hold('CANDIDATE_PHASE_ANCHOR_CHANGED');
+    const result = { schema: 'phoenix.candidate-lease-phase-anchor/v1', contextDigest: this.digest, owner: this.context.owner,
+      currentStateDigest: actual.stateDigest, currentPhase: actual.phase, currentStatus: actual.status, candidateStateDigest,
+      replacementStateDigest, replacementReceiptDigest: replacement.digest, candidateReceiptDigest: candidate.digest,
+      verifiedReceiptDigest, startIntentDigest, verifyIntentDigest, openIntentDigest, pendingIntentDigest: initialMarker ? canonicalDigest(initialMarker) : null };
+    this.assertCurrent(); return result;
+  }
   finishMarker(committedState) {
     const initial = fs.lstatSync(this.markerFile); this.checkFile(initial); const marker = this.read(this.markerFile);
     if (marker.owner !== this.context.owner || marker.contextDigest !== this.digest) hold('MARKER_OWNER_CHANGED');

@@ -238,3 +238,117 @@ test('OPEN effect accepts only the exact committed typed projection and rejects 
     await assert.rejects(h.engine.complete({ completionEvidence: h.completion }), /SIMULATED_ADAPTER_HOLD/); assert.ok(fs.existsSync(h.store.markerFile));
   }
 });
+
+async function toCandidateAnchor(h) {
+  await toStopped(h); await h.engine.reconcile({ evidence: h.reconciliation });
+  await h.engine.preparePromotion(); await h.engine.replaceCandidate();
+  const replaced = h.store.readState(); await h.engine.startCandidate();
+  return { replaced, candidate: h.store.readState() };
+}
+const anchor = (h, replaced) => h.store.readCandidateLeasePhaseAnchor({ expectedStateDigest: h.store.readState().stateDigest, replacementStateDigest: replaced.stateDigest });
+const archive = (h, state) => path.join(h.directory, `maintenance-intent-${h.context.owner}-${state.stateDigest}.json`);
+test('candidate phase anchor follows actual committed START/VERIFY and private OPEN without reconstructing timestamps', async () => {
+  let sequence = 0; const h = harness(fixture(), { now: () => now + sequence++ });
+  const { replaced, candidate } = await toCandidateAnchor(h);
+  const original = anchor(h, replaced);
+  assert.equal(original.currentPhase, 'CANDIDATE_FENCED'); assert.equal(original.candidateStateDigest, candidate.stateDigest);
+  assert.notEqual(candidate.updatedAt, h.store.readReceipt(candidate.receipts.at(-1)).recordedAt);
+  assert.equal(original.pendingIntentDigest, null); assert.equal(original.verifiedReceiptDigest, null);
+  const verify = h.adapters.verifyCandidate;
+  h.adapters.verifyCandidate = async request => {
+    const pending = anchor(h, replaced);
+    assert.ok(pending.pendingIntentDigest); assert.equal(pending.candidateStateDigest, candidate.stateDigest);
+    return verify(request);
+  };
+  await h.engine.verifyCandidate();
+  const verified = anchor(h, replaced);
+  assert.equal(verified.currentPhase, 'VERIFIED_FENCED'); assert.equal(verified.candidateStateDigest, candidate.stateDigest);
+  assert.equal(verified.startIntentDigest, original.startIntentDigest); assert.ok(verified.verifyIntentDigest);
+  const open = h.adapters.openCandidate;
+  h.adapters.openCandidate = async request => {
+    const pending = anchor(h, replaced);
+    assert.equal(pending.currentPhase, 'COMPLETED_OPEN'); assert.equal(pending.currentStatus, 'OPEN_COMMIT_PENDING');
+    assert.equal(pending.candidateStateDigest, candidate.stateDigest); assert.ok(pending.openIntentDigest);
+    assert.equal(pending.verifyIntentDigest, verified.verifyIntentDigest);
+    return open(request);
+  };
+  await h.engine.complete({ completionEvidence: h.completion });
+  assert.throws(() => anchor(h, replaced)); // Success cannot mint another FENCED lease anchor.
+});
+test('phase anchor rejects wrong exact current/root-start digests and leaves all evidence unchanged', async () => {
+  const h = harness(); const { replaced } = await toCandidateAnchor(h);
+  const before = fs.readdirSync(h.directory).sort().map(f => [f, fs.readFileSync(path.join(h.directory, f), 'utf8')]);
+  assert.throws(() => h.store.readCandidateLeasePhaseAnchor({ expectedStateDigest: hash('e'), replacementStateDigest: replaced.stateDigest }));
+  assert.throws(() => h.store.readCandidateLeasePhaseAnchor({ expectedStateDigest: h.store.readState().stateDigest, replacementStateDigest: hash('e') }));
+  assert.deepEqual(fs.readdirSync(h.directory).sort().map(f => [f, fs.readFileSync(path.join(h.directory, f), 'utf8')]), before);
+});
+for (const field of ['operation', 'from', 'to', 'owner', 'contextDigest', 'previousStateDigest', 'startedAt']) {
+  test(`phase anchor rejects altered committed START ${field}`, async () => {
+    const h = harness(); const { replaced, candidate } = await toCandidateAnchor(h);
+    const file = archive(h, candidate), intent = JSON.parse(fs.readFileSync(file)); intent[field] = field.endsWith('Digest') ? hash('e') : 'WRONG';
+    fs.writeFileSync(file, JSON.stringify(intent)); assert.throws(() => anchor(h, replaced), /CANDIDATE_COMMITTED_INTENT_BINDING/);
+  });
+}
+test('missing START archive or stale active START marker is not treated as committed registration', async () => {
+  const h = harness(); const { replaced, candidate } = await toCandidateAnchor(h);
+  fs.renameSync(archive(h, candidate), path.join(h.directory, 'fixture-missing-start.json'));
+  assert.throws(() => anchor(h, replaced), /ENOENT/);
+  fs.renameSync(path.join(h.directory, 'fixture-missing-start.json'), archive(h, candidate));
+  h.store.beginMarker({ from: 'CANDIDATE_REPLACED', to: 'CANDIDATE_FENCED', operation: 'START_CANDIDATE', previousStateDigest: replaced.stateDigest, startedAt: time(0) });
+  assert.throws(() => anchor(h, replaced), /OPERATION_INTENT_NOT_OWNED/);
+});
+test('uncommitted VERIFY marker remains HOLD after VF write and wrong VERIFY destination is rejected', async () => {
+  const h = harness(); const { replaced } = await toCandidateAnchor(h);
+  const read = h.adapters.verifyCandidate;
+  h.adapters.verifyCandidate = async request => {
+    const marker = h.store.read(h.store.markerFile); fs.writeFileSync(h.store.markerFile, JSON.stringify({ ...marker, to: 'COMPLETED_OPEN' }));
+    assert.throws(() => anchor(h, replaced), /CANDIDATE_PHASE_ANCHOR_PENDING/);
+    fs.writeFileSync(h.store.markerFile, JSON.stringify(marker)); return read(request);
+  };
+  await h.engine.verifyCandidate(); const vf = h.store.readState();
+  fs.renameSync(archive(h, vf), h.store.markerFile);
+  assert.throws(() => anchor(h, replaced));
+});
+test('phase anchor rejects duplicate candidate receipts even when receipt hashes and chain are valid', async () => {
+  const h = harness(); const { replaced } = await toCandidateAnchor(h); const state = h.store.readState();
+  const payload = h.engine.receipt(state, 'CANDIDATE_FENCED');
+  const extra = h.store.appendReceipt('CANDIDATE_FENCED', payload, state, time(0));
+  const { stateDigest, ...content } = state; h.store.writeState({ ...content, receipts: [...state.receipts, extra] });
+  assert.throws(() => anchor(h, replaced), /CANDIDATE_PHASE_ANCHOR_UNIQUE_CHAIN/);
+});
+test('phase anchor rejects a state changed during observation rather than joining two phases', async () => {
+  const h = harness(); const { replaced } = await toCandidateAnchor(h); const original = h.store.readState.bind(h.store); let reads = 0;
+  h.store.readState = () => { const state = original(); return ++reads === 3 ? { ...state, stateDigest: hash('e') } : state; };
+  // Caller snapshot, initial actual read, then final observation re-read.
+  assert.throws(() => anchor(h, replaced), /CANDIDATE_PHASE_ANCHOR_CHANGED/);
+});
+
+test('unchanged state cannot hide an intent generation change during the anchor read', async () => {
+  const h = harness(); const { replaced } = await toCandidateAnchor(h); const original = h.store.readState.bind(h.store); let reads = 0;
+  h.store.readState = () => {
+    const state = original();
+    if (++reads === 3) h.store.beginMarker({ from: 'CANDIDATE_FENCED', to: 'VERIFIED_FENCED', operation: 'VERIFY_CANDIDATE', previousStateDigest: state.stateDigest, startedAt: time(0) });
+    return state;
+  };
+  assert.throws(() => anchor(h, replaced), /CANDIDATE_PHASE_ANCHOR_CHANGED/);
+});
+for (const mutation of ['missing', 'wrongTo']) test(`verified anchor rejects ${mutation} VERIFY archive`, async () => {
+  const h = harness(); const { replaced } = await toCandidateAnchor(h); await h.engine.verifyCandidate();
+  const vf = h.store.readState(), file = archive(h, vf);
+  if (mutation === 'missing') fs.renameSync(file, path.join(h.directory, 'fixture-missing-verify.json'));
+  else { const intent = h.store.read(file); fs.writeFileSync(file, JSON.stringify({ ...intent, to: 'COMPLETED_OPEN' })); }
+  assert.throws(() => anchor(h, replaced));
+});
+test('OPEN pending cannot substitute a rehashed historical VF state without its committed archive', async () => {
+  const h = harness(); const { replaced } = await toCandidateAnchor(h); await h.engine.verifyCandidate();
+  h.adapters.openCandidate = async () => {
+    const marker = h.store.read(h.store.markerFile), { stateDigest, ...prior } = marker.previousState;
+    prior.updatedAt = time(-1); const digest = canonicalDigest(prior);
+    marker.previousState = { ...prior, stateDigest: digest }; marker.previousStateDigest = digest;
+    fs.writeFileSync(h.store.markerFile, JSON.stringify(marker));
+    assert.throws(() => anchor(h, replaced));
+    throw new Error('FIXTURE_OPEN_REFUSED');
+  };
+  await assert.rejects(h.engine.complete({ completionEvidence: h.completion }), /FIXTURE_OPEN_REFUSED/);
+  assert.ok(fs.existsSync(h.store.markerFile));
+});
