@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';
-import {validateProductionSshEntries,APPROVED_PRODUCTION_SSH} from './check-production-ssh-entry.mjs';
+import {validateProductionSshEntries,validateRestorationSshEntry,APPROVED_PRODUCTION_SSH} from './check-production-ssh-entry.mjs';
 const workflow=fs.readFileSync(new URL('../../.github/workflows/deploy.yml',import.meta.url),'utf8');
 test('all three production SSH/SCP entries bind approved direct address, port and public key fingerprint',()=>{assert.equal(validateProductionSshEntries(workflow).length,3);});
 for(const [kind,mutate] of [
@@ -22,3 +22,28 @@ test('rejects undefined aliases and incomplete anchor nodes',()=>{assert.throws(
 test('actual YAML job alias with dotted name cannot hide a fourth SSH connection',()=>{const changed=workflow.replace('  deploy:\n','  deploy: &release.job\n')+'\n  deploy-copy: *release.job\n';assert.notEqual(changed,workflow);assert.throws(()=>validateProductionSshEntries(changed),/ENTRY_INVENTORY_CHANGED/);});
 test('valid shared fingerprint scalar is checked after YAML alias resolution',()=>{let changed=workflow;const line="fingerprint: '"+APPROVED_PRODUCTION_SSH.fingerprint+"'";changed=changed.replace(line,"fingerprint: &approved_key '"+APPROVED_PRODUCTION_SSH.fingerprint+"'");changed=changed.replace(line,'fingerprint: *approved_key');assert.equal(validateProductionSshEntries(changed).length,3);});
 test('YAML merge keys, cycles, multiple documents and custom tags fail closed without exposing parser values',()=>{for(const changed of [workflow.replace("          host: '47.236.122.224'","          <<: { host: evil }\n          host: '47.236.122.224'"),workflow+'\n---\nsecret: SENTINEL\n',workflow+'\nunsafe: !!js/function SENTINEL\n','jobs: &root { cyclic: { steps: [*root] } }'])assert.throws(()=>validateProductionSshEntries(changed),error=>/^PRODUCTION_SSH_ENTRY_HOLD=[A-Z_]+$/.test(error.message)&&!error.message.includes('SENTINEL'));});
+
+const restoration=fs.readFileSync(new URL('../../.github/workflows/chanjet-readonly-restoration.yml',import.meta.url),'utf8');
+test('restoration has one approved SSH entry in its protected restore job',()=>{
+  const [entry]=validateRestorationSshEntry(restoration);
+  assert.equal(entry.job,'restore');assert.equal(entry.action,'appleboy/ssh-action@v1');
+});
+for(const [kind,mutate] of [
+  ['host secret regression',s=>s.replace("host: '47.236.122.224'",'host: ${{ secrets.DEPLOY_HOST }}')],
+  ['port secret regression',s=>s.replace('port: 22','port: ${{ secrets.DEPLOY_PORT || 22 }}')],
+  ['missing fingerprint',s=>s.replace("          fingerprint: '"+APPROVED_PRODUCTION_SSH.fingerprint+"'\n",'')],
+  ['wrong fingerprint',s=>s.replace(APPROVED_PRODUCTION_SSH.fingerprint,'SHA256:UNAPPROVED')],
+  ['proxy key alone',s=>s.replace('          port: 22','          port: 22\n          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY }}')],
+  ['different action',s=>s.replace('appleboy/ssh-action@v1','appleboy/scp-action@v1')],
+  ['different job',s=>s.replace('  restore:\n','  unprotected:\n')],
+  ['aliased second job',s=>s.replace('  restore:\n','  restore: &copy\n')+'\n  duplicate: *copy\n'],
+  ['duplicate host',s=>s.replace("          host: '47.236.122.224'","          host: '47.236.122.224'\n          host: '192.0.2.1'")],
+  ['merge key',s=>s.replace("          host: '47.236.122.224'","          <<: {host: evil}\n          host: '47.236.122.224'")]
+])test('restoration rejects '+kind,()=>{
+  const changed=mutate(restoration);assert.notEqual(changed,restoration);
+  assert.throws(()=>validateRestorationSshEntry(changed),/^Error: PRODUCTION_SSH_ENTRY_HOLD=[A-Z_]+$/);
+});
+test('deploy and restoration inventories cannot substitute for one another',()=>{
+  assert.throws(()=>validateRestorationSshEntry(workflow),/RESTORATION_ENTRY_INVENTORY_CHANGED/);
+  assert.throws(()=>validateProductionSshEntries(restoration),/ENTRY_INVENTORY_CHANGED/);
+});
