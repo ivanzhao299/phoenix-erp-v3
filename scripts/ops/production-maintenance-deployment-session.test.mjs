@@ -315,14 +315,14 @@ test('early producer failure still leaves durable reservation and demands actual
     await assert.rejects(f.session.run(), /CHILDREN_UNVERIFIED_MANUAL_RECOVERY_REQUIRED/);
     assert.equal(fs.existsSync(f.store.markerFile), true); assert.equal(f.closed, false); assert.equal(f.opened, false);
     assert.equal(f.store.read(f.store.markerFile).operation, 'SESSION_PREFLIGHT');
-  } finally { if (child?.exitCode === null) { const exited = once(child, 'exit'); child.kill('SIGKILL'); await exited; } }
+  } finally { if (child?.exitCode === null) { const closed = once(child, 'close'); child.kill('SIGKILL'); await closed; } }
 });
 test('a producer returning with a registered live child cannot reach the next effect or OPEN', async () => {
   const f = fixture(), original = f.producers.stopLegacy; let child;
   f.producers.stopLegacy = async request => { child = spawn(process.execPath, ['-e', 'setInterval(()=>{},1000)'], { stdio: 'ignore' }); request.registerOwnedChild(child); return original(request); };
   f.rebuild({ cleanupTimeoutMs: 30 });
   try { await assert.rejects(f.session.run(), /CHILDREN_UNVERIFIED_MANUAL_RECOVERY_REQUIRED/); assert.equal(f.calls.includes('RECONCILE'), false); assert.equal(f.opened, false); }
-  finally { if (child?.exitCode === null) { const exited = once(child, 'exit'); child.kill('SIGKILL'); await exited; } }
+  finally { if (child?.exitCode === null) { const closed = once(child, 'close'); child.kill('SIGKILL'); await closed; } }
 });
 test('effect ignores abort and false zero-child join cannot release lease or commit late state', async () => {
   const f = fixture(); let finish;
@@ -570,4 +570,59 @@ for (const change of ['state', 'marker']) test(`new VF observation cannot resume
   };
   await assert.rejects(f.session.run()); assert.equal(changed, true); assert.equal(f.session.monitor, null);
   assert.equal(f.opened, false); assert.equal(f.calls.includes('READ_COMPLETION'), false);
+});
+
+/** Actual local Node parent + owned descendant retaining inherited pipes. No
+ * production process, Docker service or PG connection is involved. */
+async function inheritedPipeExit(f, register) {
+  const gate = path.join(f.directory, 'owned-descendant-close-gate-' + Math.random().toString(16).slice(2));
+  const descendant = `const fs=require('fs');const gate=${JSON.stringify(gate)};const timer=setInterval(()=>{if(fs.existsSync(gate)){clearInterval(timer);process.exit(0);}},10);setTimeout(()=>process.exit(2),5000).unref();`;
+  const parent = `const {spawn}=require('child_process');const child=spawn(process.execPath,['-e',${JSON.stringify(descendant)}],{stdio:['ignore','inherit','inherit']});child.once('spawn',()=>{child.unref();process.exit(0);});`;
+  const child = spawn(process.execPath, ['-e', parent], { stdio: ['ignore', 'pipe', 'pipe'] });
+  const closed = once(child, 'close'); let didClose = false; closed.then(() => { didClose = true; });
+  try { register(child); await once(child, 'exit'); } catch (error) { fs.writeFileSync(gate, 'owned fixture release'); await closed; throw error; }
+  return { child, closed, get didClose() { return didClose; }, async release() { fs.writeFileSync(gate, 'owned fixture release'); await closed; } };
+}
+test('exit does not settle an owned child while its descendant retains output pipes', async () => {
+  const f = fixture(); let peer;
+  try {
+    peer = await inheritedPipeExit(f, child => f.session.registerOwnedChild(child));
+    assert.equal(peer.child.exitCode, 0); assert.equal(peer.didClose, false);
+    assert.equal(f.session.children.size, 1);
+    assert.throws(() => f.session.assertNoActiveChildren(), /ACTIVE_EFFECT_CHILD/);
+    await peer.release(); assert.equal(peer.didClose, true); assert.equal(f.session.children.size, 0);
+    f.session.assertNoActiveChildren();
+  } finally { if (peer && !peer.didClose) await peer.release(); }
+});
+test('an exited pipe owner causes bounded HOLD and retains marker and lease despite a zero-child receipt', async () => {
+  const f = fixture(); let peer;
+  f.producers.capturePostAndStartup = async request => { peer = await inheritedPipeExit(f, request.registerOwnedChild); };
+  f.rebuild({ cleanupTimeoutMs: 30 });
+  try {
+    await assert.rejects(f.session.run(), /CHILDREN_UNVERIFIED_MANUAL_RECOVERY_REQUIRED/);
+    assert.equal(peer.didClose, false); assert.equal(f.session.children.size, 1);
+    assert.equal(f.closed, false); assert.equal(f.opened, false);
+    assert.equal(fs.existsSync(f.store.markerFile), true);
+    assert.equal(f.calls.includes('FORMAL_COMPLETE'), false);
+    const incident = f.store.read(path.join(f.directory, `maintenance-session-children-unverified-${f.context.owner}.json`));
+    assert.equal(incident.childrenState, 'UNKNOWN'); assert.equal(incident.leaseRelease, 'NOT_ATTEMPTED');
+  } finally { if (peer) await peer.release(); }
+});
+test('registration cannot infer historical close from an already exited or closed child', async () => {
+  const f = fixture(); const peer = await inheritedPipeExit(f, () => {});
+  try {
+    assert.throws(() => f.session.registerOwnedChild(peer.child), /OWNED_CHILD_REGISTRATION_REQUIRED/);
+    assert.equal(f.session.children.size, 0); await peer.release();
+    assert.throws(() => f.session.registerOwnedChild(peer.child), /OWNED_CHILD_REGISTRATION_REQUIRED/);
+  } finally { if (!peer.didClose) await peer.release(); }
+});
+test('a producer can continue only after its normally registered child reaches close', async () => {
+  const f = fixture(), stop = f.producers.stopLegacy;
+  f.producers.stopLegacy = async request => {
+    const child = spawn(process.execPath, ['-e', 'process.stdout.write("owned fixture complete");'], { stdio: ['ignore','pipe','pipe'] });
+    const closed = once(child, 'close'); request.registerOwnedChild(child); await closed;
+    assert.equal(f.session.children.size, 0); return stop(request);
+  };
+  assert.equal((await f.session.run()).controlLeaseRelease, 'VERIFIED_RELEASED');
+  assert.equal(f.opened, true);
 });
