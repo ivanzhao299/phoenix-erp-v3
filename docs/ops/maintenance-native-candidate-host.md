@@ -161,3 +161,17 @@ necessary. This is call-local consistency under the existing continuously held
 FD9/trusted-root-writer model, not an atomic kernel snapshot or proof against
 privileged ACL/mount/lock ABA. Native PG16/PG18 acceptance on the updated exact
 HEAD is still required; reducing repeated checks alone is not performance PASS.
+
+Snapshot source564b60c7 run39171206939 passed both native majors: default PRE,
+ADOPTED and committed VF observations measured7.616/7.713/9.153s on PG16 and
+10.893/11.295/14.153s on PG18, all below the unchanged30s root budget. Original
+root release, child closure, four native guard negatives and three owned-container
+exit0 stops were verified on each. Those observations remain isolated and do
+not prove every composed session read fits its separate10s budget.
+
+The same workflow failed one general-suite test (491PASS/1FAIL/27SKIP): the
+false-handshake fixture returned after transport exit, before the registered
+child's stdio close. No runtime refusal was relaxed. The fixture now captures the
+original child close promise before handshake and joins it before returning from
+rejected-registration paths and fixture cleanup. Native PASS from that SHA does
+not override its aggregate failed CI; the updated exact HEAD requires fresh CI.

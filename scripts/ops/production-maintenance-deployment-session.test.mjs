@@ -351,15 +351,23 @@ test('protected CLI rejects arbitrary shell/stdin commands without loading adapt
 
 /** Real owned Node child, synthetic t/f transport ONLY. No Docker, PostgreSQL,
  * server lock, release proof or production admission is claimed by these cases. */
+const ownedControlCloses = new WeakMap();
 function ownedControl(f,{register=true,delay=0,response='t',ignoreTerm=false}={}){
   const program=`${ignoreTerm?"process.on('SIGTERM',()=>{});":''}process.stdin.setEncoding('utf8');let rest='';process.stdin.on('data',chunk=>{rest+=chunk;let n;while((n=rest.indexOf('\\n'))>=0){rest=rest.slice(n+1);setTimeout(()=>process.stdout.write(${JSON.stringify(response+'\n')}),${delay});}});`;
-  return new DockerPostgresControlSession({commandTimeoutMs:1000},{spawn:()=>{
+  const control = new DockerPostgresControlSession({commandTimeoutMs:1000},{spawn:()=>{
     const child=spawn(process.execPath,['-e',program],{stdio:['pipe','pipe','pipe']});
+    // Capture the original close before handshake failure can retire .child.
+    // Transport close() waits for exit; producer completion requires stdio close.
+    ownedControlCloses.set(control,new Promise(resolve=>child.once('close',resolve)));
     if(register)f.session.registerOwnedChild(child);return child;
   }});
+  return control;
+}
+async function joinOwnedControl(control){
+  await control.close();await ownedControlCloses.get(control);
 }
 async function closeOwnedControl(f,control){
-  f.session.closingControls=true;await control.close();
+  f.session.closingControls=true;await joinOwnedControl(control);
   await Promise.all([...f.session.controlChildren.values()].map(entry=>entry.work));
 }
 function wireOwnedControl(f,exercise,options={}){
@@ -367,7 +375,7 @@ function wireOwnedControl(f,exercise,options={}){
   f.producers.registerStartedCandidate=async request=>{
     control=ownedControl(f,options);await exercise(control,request);return register(request);
   };
-  f.lease.close=async request=>{if(control)await control.close();return close(request);};
+  f.lease.close=async request=>{if(control)await joinOwnedControl(control);return close(request);};
   f.rebuild();return ()=>control;
 }
 test('control child is supervised before handshake and transferred only after a verified response',async()=>{
@@ -389,7 +397,7 @@ test('unregistered control child and wrong phase cannot enter the persistent con
     const f=fixture();const get=wireOwnedControl(f,async(control,request)=>{
       await control.start();const stage=f.session.stage;if(register)f.session.stage='PREFLIGHT';
       assert.throws(()=>request.registerControlSession(control,f.lease),register?/HANDOFF_PHASE_OR_DUPLICATE/:/PENDING_CONTROL_CHILD_REQUIRED/);
-      f.session.stage=stage;assert.equal(f.session.controlChildren.size,0);await control.close();
+      f.session.stage=stage;assert.equal(f.session.controlChildren.size,0);await joinOwnedControl(control);
     },{register});
     try{await f.session.run();}finally{if(get())await closeOwnedControl(f,get());}
   }
@@ -397,7 +405,7 @@ test('unregistered control child and wrong phase cannot enter the persistent con
 test('a false transport handshake never becomes a registered control lease',async()=>{
   const f=fixture();const get=wireOwnedControl(f,async(control,request)=>{
     await assert.rejects(control.start(),/HANDSHAKE_FAILED/);assert.equal(control.handshakeVerified,false);
-    assert.throws(()=>request.registerControlSession(control,f.lease),/REAL_CONTROL_SESSION_REQUIRED/);await control.close();
+    assert.throws(()=>request.registerControlSession(control,f.lease),/REAL_CONTROL_SESSION_REQUIRED/);await joinOwnedControl(control);
   },{response:'f'});
   try{await f.session.run();}finally{if(get())await closeOwnedControl(f,get());}
 });
