@@ -45,7 +45,7 @@ function atomicLegacyFencedProjection(directory, manifest, dependencies = {}) {
   } finally { if (fd !== undefined) io.closeSync(fd); }
   // Failed temporaries are deliberately retained for root reconciliation.
 }
-function readLegacyProjection(directory, inspect, uid = 0) {
+export function readLegacyProjection(directory, inspect, uid = 0) {
   const before = inspect(directory); const file = path.join(directory, 'manifest.json');
   const named = fs.lstatSync(file); regular(named, uid);
   const fd = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);

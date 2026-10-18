@@ -66,6 +66,10 @@ jobs:
         env:
           MAINTENANCE_ROOT_PG_FIXTURE: '1'
         run: node --test scripts/ops/production-maintenance-root-lease.pg.test.mjs
+      - name: Candidate correlation with actual PG and root transport; synthetic candidate API
+        env:
+          MAINTENANCE_BINDING_PG_FIXTURE: '1'
+        run: node --test scripts/ops/production-maintenance-candidate-binding.pg.test.mjs
       - name: Actual owned recovery core files and local image identity
         env:
           RECOVERY_MATERIAL_LOCAL_IMAGE_FIXTURE: '1'
@@ -83,6 +87,7 @@ jobs:
             artifacts/maintenance-db-observer/*.json
             artifacts/maintenance-candidate-database/*.json
             artifacts/maintenance-root-control/*.json
+            artifacts/maintenance-candidate-binding/*.json
             artifacts/maintenance-recovery-core-materials/*.json
             artifacts/maintenance-ci/runtime-resources.json
             artifacts/maintenance-ci/replacement-resources.json
