@@ -7,6 +7,11 @@ Credit and egg manual runs also bypassed their Cron business lock.
 The three fixed task keys now use `BackgroundBusinessLockService`: one dedicated
 master QueryRunner owns both lock statements and exact PID/database/raw
 microsecond session probes. It preserves PostgreSQL hashtext key semantics.
+A local reservation also caps resources at one per fixed key through actual
+cleanup, so same-process duplicate requests cannot fill the pool with lock
+contenders. This bounds additional live/acquiring/cleanup sessions at three
+per API process, besides its original control session. It is not a production
+load proof or permission to change the pool budget.
 Manual and scheduled calls share this same owner; busy Cron runs skip and busy
 manual runs return HTTP 409 rather than invented zero statistics. Successful
 Cron heartbeat writes occur after the helper has verified unlock and physically
@@ -42,7 +47,10 @@ Normal zero work and a poisoned HOLD remain distinct results.
 
 ## Validation
 
-Local Node 20 tests cover same-connection acquisition/release, distinct nonce,
+The final local combined API suite passed 1,176 tests with 336 explicitly
+skipped; API typecheck also passed after the final local reservation bound. The Node bootstrap/formal-completion
+suites passed 65 tests. Changed-file ESLint has zero errors and four existing
+warnings. Local Node 20 tests cover same-connection acquisition/release, distinct nonce,
 busy refusal, manual/Cron shared keys, heartbeat ordering, registration race,
 known-loss-before-work, still-running work after loss, late acquisition, delayed
 unlock, false unlock, dual failures and undefined business rejection.
@@ -69,3 +77,34 @@ is modified. Full required CI, actual PG fixtures and independent review are
 required on the final PR revision. The 17-producer factory, phase-anchor bridge,
 production protection/host evidence and maintenance window remain separate
 release blockers.
+
+## Static security finding dispositions
+
+The unapproved scan returned FAIL for eight broad Chanjet/callback/nonce
+keyword hits. Each is retained below. Runtime identity/child registration is
+security-sensitive and has been independently reviewed; the matches do not
+modify Chanjet authentication, signatures, callbacks or synchronization grants.
+No scanner setting or approval environment is injected. Exact-head delegated
+review and legitimate PR label-derived CI remain required.
+
+| File | Line | Classification / evidence |
+| --- | ---: | --- |
+| `apps/api/src/modules/background-control/background-business-lock.pg.spec.ts` | 60 | Owned fixture identity assertion or unchanged denied-admission integration; real PG nonce/coordinator cases and unit tests cover the binding. |
+| `apps/api/src/modules/background-control/background-business-lock.service.spec.ts` | 36 | Owned fixture identity assertion or unchanged denied-admission integration; real PG nonce/coordinator cases and unit tests cover the binding. |
+| `apps/api/src/modules/background-control/background-business-lock.service.spec.ts` | 42 | Owned fixture identity assertion or unchanged denied-admission integration; real PG nonce/coordinator cases and unit tests cover the binding. |
+| `apps/api/src/modules/background-control/background-business-lock.service.spec.ts` | 43 | Owned fixture identity assertion or unchanged denied-admission integration; real PG nonce/coordinator cases and unit tests cover the binding. |
+| `apps/api/src/modules/background-control/background-business-lock.service.ts` | 34 | Runtime resource identity / registration comment. Dedicated UUID and synchronous registration are reviewed with race and PG counterexamples; no remote auth change. |
+| `apps/api/src/modules/background-control/background-business-lock.service.ts` | 35 | Runtime resource identity / registration comment. Dedicated UUID and synchronous registration are reviewed with race and PG counterexamples; no remote auth change. |
+| `apps/api/src/modules/background-control/background-business-lock.service.ts` | 52 | Runtime resource identity / registration comment. Dedicated UUID and synchronous registration are reviewed with race and PG counterexamples; no remote auth change. |
+| `apps/api/src/modules/notification/non-chanjet-admission.spec.ts` | 10 | Owned fixture identity assertion or unchanged denied-admission integration; real PG nonce/coordinator cases and unit tests cover the binding. |
+
+## Connection/query budget
+
+Local reservations limit additional live/acquiring/cleanup sessions to three
+per process, plus the existing global control connection. A successful helper
+uses seven fixed session/identity SQL statements outside the unchanged business
+body; a remotely busy key uses three, and a locally busy key uses none. The
+existing task-graph control admission still applies. This is a source-derived
+budget, not measured production latency or assurance about server capacity.
+Pool/connection capacity, concurrent API count and real deployment-window load
+remain UNVERIFIED until protected live admission. No pool size is increased.

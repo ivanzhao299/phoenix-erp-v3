@@ -44,6 +44,13 @@ describe('owned business lock session and deployment task graph', () => {
     expect(f.client.end).toHaveBeenCalledTimes(1); expect(f.runner.release).toHaveBeenCalledTimes(1); expect(f.held()).toBe(false);
     expect(f.tasks.status()).toMatchObject({ inFlight: 0, poisoned: false }); await f.tasks.shutdown(1000);
   });
+  it('coalesces local same-key contenders before pool acquisition while the original resource is active', async () => {
+    const f = fixture(), pending = deferred(), entered = deferred(), forbidden = jest.fn();
+    const active = f.service.run('credit_scheduler', async () => { entered.resolve(); await pending.promise; return 1; }); await entered.promise;
+    await expect(f.service.run('credit_scheduler', forbidden)).resolves.toEqual({ acquired: false });
+    expect(forbidden).not.toHaveBeenCalled(); expect(f.ds.createQueryRunner).toHaveBeenCalledTimes(1);
+    pending.resolve(); await active; await f.tasks.shutdown(1000);
+  });
   it('busy never executes work or unlocks another owner, but retires its own connection', async () => {
     const f = fixture(), original = f.runner.query.getMockImplementation()!;
     f.runner.query.mockImplementation((sql, args) => sql.includes('pg_try_advisory_lock') ? Promise.resolve([{ acquired: false }]) : original(sql, args));

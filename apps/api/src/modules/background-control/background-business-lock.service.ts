@@ -23,16 +23,20 @@ const kinds: Record<BusinessLockName, BackgroundTaskKind> = {
  * pg client before public release bookkeeping; no private pool API is used. */
 @Injectable()
 export class BackgroundBusinessLockService {
+  private readonly reserved = new Set<BusinessLockName>();
   constructor(@InjectDataSource() private readonly dataSource: DataSource, private readonly tasks: BackgroundTaskService) {}
 
   async run<T>(name: BusinessLockName, work: () => Promise<T>): Promise<BusinessLockResult<T>> {
     if (!BUSINESS_LOCK_NAMES.includes(name)) throw new Error('BACKGROUND_BUSINESS_LOCK_NAME_REQUIRED');
     return this.tasks.run(`business-lock.${name}`, kinds[name], async () => {
+      if (this.reserved.has(name)) return { acquired: false };
       const backend = new BackgroundLockBackend(this.dataSource);
       // The global control boot nonce must remain unique in pg_stat_activity.
       // This child resource is owned by the parent graph, with its own nonce.
       backend.bindIdentity(randomUUID());
       backend.bindLoss(() => this.tasks.resourceHold());
+      // At most one acquisition/live/cleanup resource per fixed key per process.
+      this.reserved.add(name);
       let settled!: () => void;
       const callerFinished = new Promise<void>(resolve => { settled = resolve; });
       // Register BEFORE acquisition, while the parent graph and grant are live.
@@ -42,11 +46,12 @@ export class BackgroundBusinessLockService {
         resourceRegistered = true;
         await callerFinished;
         while (backend.status().cleanup.debt) await new Promise<void>(resolve => setTimeout(resolve, 25));
+        this.reserved.delete(name);
       });
       void cleanup.catch(() => this.tasks.resourceHold());
       // run registers a live child synchronously before invoking its callback.
       // If a concurrent poison rejected it, do not acquire any DB resource.
-      if (!resourceRegistered) { settled(); await cleanup; throw new Error('BACKGROUND_BUSINESS_RESOURCE_REGISTRATION_REQUIRED'); }
+      if (!resourceRegistered) { this.reserved.delete(name); settled(); await cleanup; throw new Error('BACKGROUND_BUSINESS_RESOURCE_REGISTRATION_REQUIRED'); }
       let acquired = false, primaryError: unknown;
       let stage: PrimaryFailure = 'SESSION', primaryFailure: PrimaryFailure = 'NONE', cleanupFailure: CleanupFailure = 'NONE';
       let result: BusinessLockResult<T> | undefined;
