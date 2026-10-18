@@ -6,7 +6,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { CONTRACT, verifyContext } from './production-config-guard.mjs';
 import { assertSameDirectory } from './production-trusted-paths.mjs';
 import { PUBLIC_DIRECTORY, HOLD_KINDS, initializePublicProjection, inspectPublicDirectory, validateManifest, validateParticipants, atomicPublicManifest, readPublicManifest } from './background-control-manifest.mjs';
-import { MaintenanceReceiptStore, bindingDigest, canonicalDigest, createMaintenanceEvidence, same, SHA, iso, hold } from './production-maintenance-receipts.mjs';
+import { MaintenanceReceiptStore, bindingDigest, canonicalDigest, createMaintenanceEvidence, same, SHA, HASH, iso, hold } from './production-maintenance-receipts.mjs';
 import { LegacyMaintenanceTransition } from './production-maintenance-transition.mjs';
 
 const digest = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
@@ -110,6 +110,43 @@ export class LegacyMaintenancePublicControl {
     if (!same(actual, manifest) || !same(this.store.read(this.privateFile), record)) hold('BOOTSTRAP_PERSISTED_BINDING_CHANGED');
     return createMaintenanceEvidence('LEGACY_PUBLIC_FENCED', this.context, { owner: this.context.owner, phase: 'FENCED', participants: [],
       generation: 1, legacyDrainResult: 'UNSUPPORTED', privateRecordSha256: canonicalDigest(record), publicManifestSha256: digest(actual) }, { capturedAt: new Date(this.now()).toISOString() });
+  }
+  /** Read the already-published legacy deny. This never bootstraps a manifest,
+   * mints a trusted envelope, installs producers or proves continuous fencing.
+   * Callers must retain their bounded owned read lifecycle across verifiers. */
+  async observeEmptyFence({ expectedStateDigest, bootstrapEvidence } = {}) {
+    if (!HASH.test(expectedStateDigest || '')) hold('PUBLIC_OBSERVATION_STATE_DIGEST_REQUIRED');
+    const state = this.state('PROMOTION_PREPARED', 'REPLACE_CANDIDATE', expectedStateDigest);
+    if (!iso(state.updatedAt) || Date.parse(state.updatedAt) < Date.parse(this.context.window.start)
+      || Date.parse(state.updatedAt) > this.now()) hold('PUBLIC_OBSERVATION_STATE_TIME');
+    const bootstrap = structuredClone(bootstrapEvidence), bootstrapDigest = canonicalDigest(bootstrap);
+    await this.protocol.authorityStillValid(state);
+    const proof = await this.protocol.evidence(bootstrap, 'LEGACY_PUBLIC_FENCED');
+    if (canonicalDigest(bootstrap) !== bootstrapDigest) hold('PUBLIC_OBSERVATION_BOOTSTRAP_CHANGED');
+    this.state('PROMOTION_PREPARED', 'REPLACE_CANDIDATE', expectedStateDigest);
+    if (!proof || proof.owner !== this.context.owner || proof.phase !== 'FENCED' || proof.generation !== 1
+      || !Array.isArray(proof.participants) || proof.participants.length !== 0 || proof.legacyDrainResult !== 'UNSUPPORTED'
+      || !HASH.test(proof.privateRecordSha256 || '') || !HASH.test(proof.publicManifestSha256 || '')) hold('PUBLIC_OBSERVATION_BOOTSTRAP_BINDING');
+    this.absentModern();
+    const record = this.store.read(this.privateFile);
+    const manifest = readLegacyProjection(this.directory, this.inspect, this.expectedUid);
+    if (!same(Object.keys(record).sort(), ['schema', 'contextDigest', 'owner', 'previousFloorSha', 'targetSha', 'stateDigest', 'phase', 'manifestDigest', 'generation', 'capturedAt'].sort())
+      || record.schema !== 'phoenix.legacy-public-control/v1' || record.contextDigest !== this.contextDigest
+      || record.owner !== this.context.owner || record.previousFloorSha !== this.context.previousFloorSha
+      || record.targetSha !== this.context.targetSha || record.phase !== 'PUBLISHING_LEGACY_FENCE' || record.generation !== 1
+      || !HASH.test(record.stateDigest || '') || !iso(record.capturedAt)
+      || Date.parse(record.capturedAt) < Date.parse(this.context.window.start) || Date.parse(record.capturedAt) > Date.parse(state.updatedAt)
+      || manifest.owner !== this.context.owner || manifest.targetSha !== this.context.targetSha
+      || record.manifestDigest !== digest(manifest) || proof.privateRecordSha256 !== canonicalDigest(record)
+      || proof.publicManifestSha256 !== digest(manifest)) hold('PUBLIC_OBSERVATION_PERSISTED_BINDING');
+    this.state('PROMOTION_PREPARED', 'REPLACE_CANDIDATE', expectedStateDigest); this.absentModern();
+    if (!same(this.store.read(this.privateFile), record) || !same(readLegacyProjection(this.directory, this.inspect, this.expectedUid), manifest)) hold('PUBLIC_OBSERVATION_CHANGED');
+    this.state('PROMOTION_PREPARED', 'REPLACE_CANDIDATE', expectedStateDigest);
+    return { schema: 'phoenix.legacy-empty-fence-observation/v1', result: 'OBSERVATION_ONLY',
+      contextDigest: this.contextDigest, stateDigest: expectedStateDigest, owner: this.context.owner, targetSha: this.context.targetSha,
+      phase: 'FENCED', generation: 1, participants: [], bootstrapEvidenceSha256: bootstrap.evidenceSha256,
+      privateRecordSha256: canonicalDigest(record), publicManifestSha256: digest(manifest), capturedAt: new Date(this.now()).toISOString(),
+      legacyDrainResult: 'UNSUPPORTED', continuousDrainProof: false, admissionOrApprovalGranted: false, registryInstalled: false };
   }
   /** Bridge only after startup DENIED and independently verified root Docker/PG
    * binding. This never grants OPEN or fabricates modern DRAINED evidence. */
