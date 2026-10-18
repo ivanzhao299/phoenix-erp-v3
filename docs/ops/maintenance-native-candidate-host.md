@@ -69,3 +69,13 @@ Only the runtime build now temporarily uses022 and restores077 even on failure;
 private state modes are unchanged. A separate owned network-disabled container
 must prove the actual image payload is readable as UID1000 before API startup.
 The EACCES signal alone does not identify every denied path or a unique cause.
+
+Source4c1afecf run39166098845 failed the new image probe before PG/API creation.
+A separate local owned image with a normal source checkout was readable as
+UID1000; this diagnostic is not native acceptance. The VM clone is created under
+077, so its physical tracked package.json can be0600. The builder now copies that
+file from the exact Git archive (tracked mode) instead of inheriting the private
+checkout mode. Probe receipts retain fixed per-file access codes/metadata, and
+the host requires all four actual checks to succeed. New native CI remains
+required; the prior failure is retained without assigning an unproved unique
+cause.

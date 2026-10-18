@@ -161,7 +161,10 @@ export class OwnedErpCandidateCapsule {
     run(ROOT_NODE, [compiler, '-p', path.join(api, 'tsconfig.build.json'), '--outDir', path.join(context, 'dist'), '--rootDir', path.join(api, 'src'), '--incremental', 'false'], { timeout: 120000 });
     fs.unlinkSync(path.join(api, 'node_modules'));
     const dependencies = copyProductionDependencies(path.join(REPO, 'apps/api'), path.join(context, 'node_modules'));
-    fs.copyFileSync(path.join(REPO, 'apps/api/package.json'), path.join(context, 'package.json'));
+    // Use the exact archived source and its tracked mode. A private root-owned
+    // checkout can legitimately materialize package.json0600 under umask077;
+    // copying that physical mode would make the UID1000 runtime unreadable.
+    fs.copyFileSync(path.join(api, 'package.json'), path.join(context, 'package.json'));
     fs.writeFileSync(path.join(context, 'fixture-preload.cjs'), networkPreload(this.owner));
     fs.writeFileSync(path.join(context, '.dockerignore'), '*\n!dist\n!dist/**\n!node_modules\n!node_modules/**\n!package.json\n!fixture-preload.cjs\n');
     fs.writeFileSync(path.join(this.root, 'capsule-build.json'), JSON.stringify({ sourceSha: this.sourceSha, sourceTreeHash: this.sourceTreeHash,

@@ -80,12 +80,21 @@ export async function buildReadableFixturePayload(action) {
 function checkActualImageReadable(capsule,creation) {
   creation.attempted=true;creation.name=`phoenix-native-${capsule.owner}-image-read-probe`;creation.state='CREATE_OUTCOME_UNVERIFIED';
   capsule.record({nativeImageReadProbe:creation});
-  const program="const fs=require('fs');for(const p of ['/app/fixture-preload.cjs','/app/dist/main.js','/app/package.json',require.resolve('pg')])fs.accessSync(p,fs.constants.R_OK);process.stdout.write(JSON.stringify({uid:process.getuid(),runtimePayloadReadable:true}))";
+  const program=`const fs=require('fs');const checks=[],metadata=[];
+    const code=e=>['EACCES','ENOENT','ENOTDIR','MODULE_NOT_FOUND'].includes(e.code)?e.code:'UNVERIFIED';
+    for(const [name,p] of [['preload','/app/fixture-preload.cjs'],['compiledMain','/app/dist/main.js'],['packageJson','/app/package.json']]){
+      try{fs.accessSync(p,fs.constants.R_OK);checks.push({name,readable:true});}catch(e){checks.push({name,readable:false,code:code(e)});}}
+    try{fs.accessSync(require.resolve('pg'),fs.constants.R_OK);checks.push({name:'pgEntry',readable:true});}catch(e){checks.push({name:'pgEntry',readable:false,code:code(e)});}
+    for(const [name,p] of [['app','/app'],['dist','/app/dist'],['modules','/app/node_modules'],['capsule','/app/node_modules/.capsule'],['preload','/app/fixture-preload.cjs']]){
+      try{const s=fs.statSync(p);metadata.push({name,mode:s.mode&4095,uid:s.uid,gid:s.gid,directory:s.isDirectory()});}catch(e){metadata.push({name,code:code(e)});}}
+    process.stdout.write(JSON.stringify({uid:process.getuid(),runtimePayloadReadable:checks.every(c=>c.readable),checks,metadata}));`;
   const id=capsule.own(capsule.docker(['create','--pull=never','--name',creation.name,...capsule.labels(),'--network=none','--read-only','--cap-drop=ALL',
     '--security-opt=no-new-privileges','--entrypoint','node',capsule.imageId,'-e',program]),'native-image-read-probe');
   creation.id=id;creation.state='OWNED_ID_VERIFIED';
-  const value=JSON.parse(capsule.docker(['start','-a',id]));assert.equal(value.uid,1000);assert.equal(value.runtimePayloadReadable,true);
-  assert.equal(capsule.inspectContainer(id).State.ExitCode,0);creation.result=value;
+  const value=JSON.parse(capsule.docker(['start','-a',id]));creation.result=value;
+  assert.equal(value.uid,1000);assert.equal(value.runtimePayloadReadable,true);
+  assert.deepEqual(value.checks.map(c=>c.name),['preload','compiledMain','packageJson','pgEntry']);assert.ok(value.checks.every(c=>c.readable===true));
+  assert.equal(capsule.inspectContainer(id).State.ExitCode,0);
 }
 
 async function startNativeApi(capsule,pg,manifest,creation) {
@@ -141,6 +150,8 @@ async function exerciseNative() {
     await buildReadableFixturePayload(()=>capsule.build());assert.equal(capsule.sourceSha,result.sourceSha);result.imageBuild.state='OWNED_ID_VERIFIED';result.imageBuild.id=capsule.imageId;
     result.stage='ACTUAL_UNPRIVILEGED_IMAGE_READ_PROBE';checkActualImageReadable(capsule,imageReadProbe);
     result.buildProvenance={sourceSha:result.sourceSha,pnpmLockSha256:hash(fs.readFileSync(path.join(CONTRACT.repository,'pnpm-lock.yaml'))),
+      physicalSourcePackageMode:fs.statSync(path.join(CONTRACT.repository,'apps/api/package.json')).mode&0o777,
+      runtimePackageSource:'EXACT_GIT_ARCHIVE_TRACKED_MODE_NOT_PRIVATE_CHECKOUT_MODE',
       dependencyInstallSource:'SYMLINK_TO_SAME_SHA_HOSTED_RUNNER_PNPM_FROZEN_LOCKFILE',runnerCheckout:process.env.NATIVE_FIXTURE_SOURCE,
       scope:'TRACKED_SOURCE_CLEAN_UNTRACKED_FIXTURE_OUTPUT_AND_DEPENDENCY_LINKS_EXCLUDED'};
     result.stage='START_ACTUAL_BOUND_POSTGRES';const pg=await capsule.startPostgres(major,{nativeDataSource:'/data/maintenance-native-pg'});
