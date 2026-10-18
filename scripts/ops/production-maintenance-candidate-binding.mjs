@@ -161,7 +161,7 @@ async function collectCandidateBinding({context,expectedStateDigest,replacementE
       if(typeof raw!=='string'||Buffer.byteLength(raw)>65536)fail('BOUNDED_OUTPUT');return raw;};
     let firstAnchor=null;
     const state=()=>{
-      check();guard();check();store.assertCurrent();const s=store.readState();
+      check();guard();check();const s=store.readOwnedState({timeoutMs:Math.min(10000,remaining()),signal});check();
       if(leasePhases){
         if(s?.schema!=='phoenix.legacy-maintenance-state/v1'||s.contextDigest!==bindingDigest(context)||s.stateDigest!==expectedStateDigest||!same(s.context,context)
           ||s.legacyDrainResult!=='UNSUPPORTED'||!iso(s.updatedAt)||Date.parse(s.updatedAt)<Date.parse(context.window.start)||Date.parse(s.updatedAt)>now())fail('PRIVATE_OWNER_STATE_CHANGED');
@@ -180,12 +180,6 @@ async function collectCandidateBinding({context,expectedStateDigest,replacementE
         store.assertOwnedIntent(s.phase==='CANDIDATE_REPLACED'?'START_CANDIDATE':'VERIFY_CANDIDATE',s.phase,s.stateDigest);
       }
       check();return structuredClone(s);
-    };
-    const recorded=(s,kind)=>{
-      if(!Array.isArray(s.receipts)||s.receipts.length>100)fail('FORMAL_RECEIPT_CHAIN_REQUIRED');
-      const matches=[];
-      for(const reference of s.receipts){check();const record=store.readReceipt(reference);check();if(record.kind===kind)matches.push(record.payload);}
-      if(matches.length!==1)fail('UNIQUE_FORMAL_RECEIPT_REQUIRED');return structuredClone(matches[0]);
     };
     const floorSnapshot=()=>{
       check();const floor=(dependencies.readFloor||(()=>store.read(path.join(store.directory,'floor.json'))))();check();
@@ -211,10 +205,15 @@ async function collectCandidateBinding({context,expectedStateDigest,replacementE
     const projection=boot=>{check();const value=validateProjection(readProjection(),mode,context,leasePhases?firstAnchor.candidateStateDigest:expectedStateDigest,boot);check();
       for(const t of [value.bootstrap.capturedAt,...(value.modern?[value.modern.updatedAt]:[])])if(Date.parse(t)<Date.parse(context.window.start)||Date.parse(t)>now())fail('PROJECTION_TIME');
       return value;};
-    const firstState=state(),formalReplacement=recorded(firstState,'CANDIDATE_REPLACEMENT');
+    const firstState=state(); check();
+    let recorded;
+    try{recorded=store.readCandidateBindingEvidence({expectedStateDigest:firstState.stateDigest,timeoutMs:Math.min(10000,remaining()),signal});}
+    catch(error){if(error?.message==='MAINTENANCE_HOLD=CANDIDATE_BINDING_RECEIPT_UNIQUE')fail('UNIQUE_FORMAL_RECEIPT_REQUIRED');throw error;}check();
+    if(recorded.stateDigest!==firstState.stateDigest)fail('CURRENT_CHAIN_REPLACEMENT_REQUIRED');
+    const formalReplacement=recorded.replacement;
     if(!same(replacementEvidence,formalReplacement))fail('CURRENT_CHAIN_REPLACEMENT_REQUIRED');
     const replacement=validateCandidateReplacement(formalReplacement,context,{now:now()});
-    const registered=firstState.phase!=='CANDIDATE_REPLACED'?validateMaintenanceEvidence(recorded(firstState,'CANDIDATE_FENCED'),'CANDIDATE_FENCED',context,now()):null;
+    const registered=firstState.phase!=='CANDIDATE_REPLACED'?validateMaintenanceEvidence(recorded.candidate,'CANDIDATE_FENCED',context,now()):null;
     if(replacement.project!==context.replacement?.project)fail('EXACT_PROJECT_REQUIRED');
     const beforeProjection=projection(),beforeFloor=floorSnapshot();
     const rootBefore=await RootControlLease.prototype.observe.call(rootLease,{signal,timeoutMs:remaining()});check();state();

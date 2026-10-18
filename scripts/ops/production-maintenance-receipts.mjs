@@ -147,7 +147,7 @@ export class MaintenanceReceiptStore {
   }
   // One call-local read transaction under the existing continuously held lock.
   // No guard token/cache is exposed. Independent read()/readReceipt() stay fresh.
-  #readStateSnapshot(options) {
+  #readStateSnapshot(options, owned = false) {
     const check = this.#snapshotBudget(options); check(); this.guard(); check();
     const directory = this.inspect(this.directory); check();
     if (path.resolve(this.directory) !== this.directory || fs.realpathSync(this.directory) !== this.directory) hold('RECEIPT_SNAPSHOT_DIRECTORY');
@@ -185,6 +185,11 @@ export class MaintenanceReceiptStore {
           const value = JSON.parse(buffer.subarray(0, used).toString('utf8')); entries.set(file, pin(current)); check(); return value;
         } finally { fs.closeSync(fd); }
       };
+      if (owned) {
+        if (fs.lstatSync(anchored(this.currentFile), { bigint: true, throwIfNoEntry: false }) === undefined) hold('MAINTENANCE_OWNER_REQUIRED');
+        const current = readPinned(this.currentFile);
+        if (current.schema !== 'phoenix.maintenance-owner/v1' || current.owner !== this.context.owner || current.contextDigest !== this.digest) hold('ANOTHER_MAINTENANCE_OWNER_ACTIVE');
+      }
       const absent = fs.lstatSync(anchored(this.stateFile), { bigint: true, throwIfNoEntry: false }) === undefined;
       let record = null; const receipts = new Map();
       if (!absent) {
@@ -214,6 +219,25 @@ export class MaintenanceReceiptStore {
     } finally { fs.closeSync(directoryFd); }
   }
   readState(options) { return this.#readStateSnapshot(options).state; }
+  /** Fresh owner + complete state/chain in one pinned batch. This never skips
+   * either root/ACL guard or exports a reusable guard/owner token. */
+  readOwnedState(options) { return this.#readStateSnapshot(options, true).state; }
+  /** Fixed candidate receipt selection from one fresh, owned, fully verified
+   * snapshot. No caller state, receipt rows or reusable guard token are trusted. */
+  readCandidateBindingEvidence(request = {}) {
+    if (!request || Object.getPrototypeOf(request) !== Object.prototype
+      || Object.keys(request).some(key => !['expectedStateDigest','timeoutMs','signal'].includes(key))
+      || !HASH.test(request.expectedStateDigest || '')) hold('CANDIDATE_BINDING_RECEIPT_REQUEST');
+    const { expectedStateDigest, timeoutMs = 10000, signal } = request;
+    const check = this.#snapshotBudget({ timeoutMs, signal }); check();
+    const snapshot = this.#readStateSnapshot({ timeoutMs, signal }, true), state = snapshot.state; check();
+    if (!state || state.schema !== 'phoenix.legacy-maintenance-state/v1' || state.legacyDrainResult !== 'UNSUPPORTED'
+      || state.stateDigest !== expectedStateDigest || !['CANDIDATE_REPLACED','CANDIDATE_FENCED','VERIFIED_FENCED','COMPLETED_OPEN'].includes(state.phase)) hold('CANDIDATE_BINDING_RECEIPT_STATE');
+    const select = kind => [...snapshot.receipts.values()].filter(receipt => receipt.kind === kind);
+    const replacement = select('CANDIDATE_REPLACEMENT'), candidate = select('CANDIDATE_FENCED');
+    if (replacement.length !== 1 || candidate.length !== (state.phase === 'CANDIDATE_REPLACED' ? 0 : 1)) hold('CANDIDATE_BINDING_RECEIPT_UNIQUE');
+    const result = structuredClone({ stateDigest: state.stateDigest, replacement: replacement[0].payload, candidate: candidate[0]?.payload ?? null }); check(); return result;
+  }
   writeState(content) {
     this.guard(); const before = this.inspect(this.directory);
     const previous = fs.existsSync(this.stateFile) ? fs.lstatSync(this.stateFile) : null; if (previous) this.checkFile(previous);

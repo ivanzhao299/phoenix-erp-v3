@@ -42,6 +42,15 @@ export async function candidateBindingFixture(options={}){
   };
   addReceipt('CANDIDATE_REPLACEMENT',evidence);
   f.store.readReceipt=ref=>{const row=receiptRows.get(ref.digest);assert.ok(row);assert.equal(row.sequence,ref.sequence);return structuredClone(row);};
+  // In-memory fixture seam only. Actual owner/file/digest/chain races are
+  // exercised separately by production-maintenance-binding-receipts.test.mjs.
+  f.store.readCandidateBindingEvidence=({expectedStateDigest})=>{
+    assert.equal(expectedStateDigest,f.state.stateDigest);
+    const rows=f.state.receipts.map(reference=>f.store.readReceipt(reference));
+    const replacement=rows.filter(row=>row.kind==='CANDIDATE_REPLACEMENT'),candidate=rows.filter(row=>row.kind==='CANDIDATE_FENCED');
+    if(replacement.length!==1||candidate.length!==(f.state.phase==='CANDIDATE_REPLACED'?0:1))throw Error('MAINTENANCE_HOLD=CANDIDATE_BINDING_RECEIPT_UNIQUE');
+    return structuredClone({stateDigest:f.state.stateDigest,replacement:replacement[0].payload,candidate:candidate[0]?.payload??null});
+  };
   const manifest={protocolVersion:1,phase:'FENCED',owner:f.context.owner,generation:1,targetSha:f.context.targetSha,participants:[]};
   const projection={bootstrap:{schema:'phoenix.legacy-public-control/v1',contextDigest:f.state.contextDigest,owner:f.context.owner,previousFloorSha:f.context.previousFloorSha,targetSha:f.context.targetSha,
     stateDigest:h('8'),phase:'PUBLISHING_LEGACY_FENCE',manifestDigest:hash(manifest),generation:1,capturedAt:at(-20000)},modern:null,manifest};

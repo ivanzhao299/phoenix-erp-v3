@@ -103,7 +103,7 @@ export class RootControlLease {
     if(this.#status==='FAILED')fail('LEASE_POISONED');
     this.guard();if(this.signal?.aborted)fail('ABORTED');
     if(this.now()<Date.parse(this.context.window.start)||this.now()>=Date.parse(this.context.window.end))fail('WINDOW_EXPIRED');
-    this.store.assertCurrent();const state=this.store.readState();
+    const state=this.store.readOwnedState();
     if(state?.contextDigest!==this.contextDigest)fail('OWNER_STATE_CHANGED');
     if(start){if(state.phase!=='CANDIDATE_REPLACED'||state.stateDigest!==this.expectedStateDigest)fail('START_STATE_CHANGED');
       this.store.assertOwnedIntent('START_CANDIDATE','CANDIDATE_REPLACED',state.stateDigest);}
