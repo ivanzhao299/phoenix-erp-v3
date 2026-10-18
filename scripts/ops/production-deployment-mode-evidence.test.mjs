@@ -223,3 +223,27 @@ test('coordinator preserves only genuinely unbound historical API evidence', () 
   assert.equal(expected.deployMode, 'api'); assert.equal(expected.evidenceSchema, 'phoenix.production-deployment-evidence/v2');
   assert.equal(expected.runId, '123-1'); assert.equal(expected.targetSha, target);
 });
+
+for (const mode of ['api', 'web', 'full']) test(`${mode} canonical PRE object-key order preserves mount identity and rejects actual changes`, () => {
+  const f = fixture(mode);
+  for (const item of Object.values(f.pre.containers)) item.mounts = item.mounts.map(m => Object.fromEntries(Object.entries(m).sort(([a], [b]) => a.localeCompare(b))));
+  assert.doesNotThrow(() => compareSnapshots(f.pre, f.post, mode));
+  for (const field of ['source', 'destination', 'readOnly']) {
+    const changed = clone(f.post), mount = changed.containers.db.mounts[0]; mount[field] = typeof mount[field] === 'boolean' ? !mount[field] : mount[field] + '-changed';
+    assert.throws(() => compareSnapshots(f.pre, changed, mode), /DB_CHANGED/);
+  }
+});
+
+for (const [mode, peers] of [['api', ['db', 'web']], ['web', ['db', 'api']], ['full', ['db']]]) {
+  for (const service of peers) test(`${mode} unchanged ${service} preserves every mount field and array order`, () => {
+    const f = fixture(mode), initial = f.pre.containers[service].mounts[0];
+    initial.preservedFixtureField = 'identity';
+    f.pre.containers[service].mounts.push({ type: 'bind', source: '/data/second', destination: '/app/second', readOnly: true });
+    f.post.containers[service].mounts = clone(f.pre.containers[service].mounts);
+    assert.doesNotThrow(() => compareSnapshots(f.pre, f.post, mode));
+    for (const mutate of [mounts => mounts.reverse(), mounts => delete mounts[0].preservedFixtureField, mounts => mounts[0].newField = 'unexpected']) {
+      const changed = clone(f.post); mutate(changed.containers[service].mounts);
+      assert.throws(() => compareSnapshots(f.pre, changed, mode), new RegExp(service.toUpperCase() + '_CHANGED'));
+    }
+  });
+}

@@ -73,3 +73,40 @@ Native CI review also requires pre-recorded create-attempt/name debt when a Dock
 A static ops import inventory exposed four unprotected transitive modules: root lease, candidate binding, candidate database and database observer. All four are now floor-critical. A TypeScript-AST regression test traverses static/literal local ESM imports from protected ops entrypoints and detects a removed dependency without changing its bytes. Before pins:1PASS/1FAIL naming exactly these four; after pins requires2PASS. It does NOT evaluate nonliteral installed-guard/dist imports, CommonJS require, native/file access or full recovery closure; those remain separate UNKNOWN/manual-review work, never silently accepted as full recovery. Initial scanner prototypes conservatively rejected legacy nonliteral installed-guard loading and were not used as passing evidence.
 
 A parser review P2 added fixed-path coverage for dynamic imports with an options/attributes argument and for no-substitution template literals. Both have missing-pin counterexamples. Nonliteral path expressions remain explicitly outside this static/literal module check.
+
+## Owned health reads
+
+`observeHealth({expectedStateDigest, signal, timeoutMs})` uses the existing fixed
+health/startup collector after an accepted ADOPTED binding. Caller requests
+cannot supply a URL, program, replacement, root or collector. Default health
+binding reads verify the captured original root/session/child and the same
+candidate/runtime/database/floor pin as the preceding adopted observation.
+The health operation is limited to the existing CF + owned VERIFY intent; later
+committed phases still use phase-aware binding observations.
+
+Binding and health observations share one pending ledger and deadline. Concurrent
+reads permanently refuse the owner. Timeout/abort does not remove an unfinished
+read, and close waits for actual settlement before releasing the original root.
+A late success cannot erase a prior failure. Health output remains observation
+only and retains `outerProcessSupervisionRequired:true`; registering a Promise
+is not native child supervision, formal deployment completion, ingress proof or
+an installed producer factory.
+
+The composition regression uses a real locally owned Node control child and
+actual private receipt persistence, with synthetic Docker/HTTP/PG catalog/logs.
+It exposed an independent comparison bug: immutable storage canonicalizes object
+keys, while the deployment verifier compared mount JSON insertion order. Mount
+comparison now sorts object keys only, preserving array order, every field and
+all values. Tests prove canonical PRE succeeds while changed source, destination
+or read-only flags still fail in API/Web/full modes. Runtime identity checks and
+mode-specific deployment contracts are unchanged.
+
+Native default health/Web HTTP integration and a complete candidate lease remain
+NOT_RUN. Production authority, continuous ingress and all17 producers remain
+uninstalled/default-denied. These tests cannot be used as production acceptance.
+
+Current local composition checks:91 targeted PASS/0SKIP;486 general PASS/27SKIP.
+Before the mount correction, the new canonical-PRE cases failed in all3 modes;
+before dependency setup, the broad run also failed to resolve TypeScript for the
+existing import-closure test. Neither prior result is accepted as a pass.
+The current source still requires independent review and official CI.
