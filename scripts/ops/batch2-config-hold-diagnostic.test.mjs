@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { safeClass, safeFlag, safeSha, safePin, ledgerSummary } from './batch2-config-hold-diagnostic.mjs';
+import { safeClass, safeFlag, safeSha, safePin, ledgerSummary, verifiedTopologyCollector } from './batch2-config-hold-diagnostic.mjs';
 
 test('exception details and environment canaries never become diagnostic values', () => {
   const privateValue = 'sensitive-canary-value';
@@ -39,4 +39,12 @@ test('host payload retains readonly DB fence and does not contain mutation or wh
   assert.doesNotMatch(s, /fs\.(write|append|mkdir|unlink|rm|rename|chmod|chown|truncate)/);
   assert.doesNotMatch(s, /(?:console\.(?:log|error)\([^\n]*(?:records|floor|active|values)|JSON\.stringify\(records\))/);
   assert.doesNotMatch(s, /CHANJET_SYNC_OPERATOR_TOKEN|READONLY_APPROVAL'\)\s*[,}]/);
+});
+
+test('topology code is hashed before import and a mismatched payload cannot execute', async () => {
+  const bytes = Buffer.from('globalThis.__topologyCanary = true;');
+  await assert.rejects(verifiedTopologyCollector(bytes.toString('base64'), '0'.repeat(64)), /TOPOLOGY_PROGRAM_MISMATCH/);
+  assert.equal(globalThis.__topologyCanary, undefined);
+  await assert.rejects(verifiedTopologyCollector(bytes.toString('base64') + '\n', '0'.repeat(64)), /TOPOLOGY_PROGRAM_MISMATCH/);
+  await assert.rejects(verifiedTopologyCollector('A'.repeat(131073), '0'.repeat(64)), /TOPOLOGY_PROGRAM_MISMATCH/);
 });

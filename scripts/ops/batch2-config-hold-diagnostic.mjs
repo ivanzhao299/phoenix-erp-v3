@@ -35,6 +35,17 @@ export function ledgerSummary(inventory, actual) {
   };
 }
 
+export async function verifiedTopologyCollector(encoded, expectedHash) {
+  if (typeof encoded !== 'string' || encoded.length > 131072 || !/^[A-Za-z0-9+/]+={0,2}$/.test(encoded)
+    || !/^[a-f0-9]{64}$/.test(expectedHash || '')) throw Error('CONFIG_HOLD=TOPOLOGY_PROGRAM_MISMATCH');
+  const bytes = Buffer.from(encoded, 'base64');
+  if (bytes.length > 98304 || bytes.toString('base64') !== encoded
+    || createHash('sha256').update(bytes).digest('hex') !== expectedHash) throw Error('CONFIG_HOLD=TOPOLOGY_PROGRAM_MISMATCH');
+  const helper = await import('data:text/javascript;base64,' + encoded);
+  if (helper.TOPOLOGY_SCHEMA !== 'phoenix.maintenance-host-topology/v1'
+    || typeof helper.collectMaintenanceHostTopology !== 'function') throw Error('CONFIG_HOLD=TOPOLOGY_PROGRAM_INTERFACE');
+  return helper;
+}
 export async function diagnose() {
   // Imported helper CLIs must remain library-only when this file is stdin.
   process.argv[1] = '/reviewed-batch2-diagnostic-stdin';
@@ -51,6 +62,7 @@ export async function diagnose() {
   // and parent FD9 lock satisfy the installed authority.
   guard.verifyContext(ROOT, STATE);
   guard.requireCleanMain(ROOT);
+  const topologyHelper = await verifiedTopologyCollector(process.env.FORENSIC_TOPOLOGY_B64, process.env.FORENSIC_TOPOLOGY_SHA256);
   const decoded = name => JSON.parse(Buffer.from(process.env[name] || '', 'base64').toString());
   const approvedContract = decoded('PRODUCTION_CONTRACT_B64');
   const schemaContract = decoded('FORENSIC_SCHEMA_CONTRACT_B64');
@@ -175,6 +187,14 @@ export async function diagnose() {
         sensitiveLineCount: startup.sensitiveLineCount, rawOutput: startup.rawOutput,
         bindingMatches: startup.containerId === post.containers.api.id && startup.startedAt === post.containers.api.startedAt && startup.targetSha === post.targetSha && startup.configFloorSha === post.configFloorSha && startup.deployRunId === post.deployRunId && startup.deployRunAttempt === post.deployRunAttempt } };
   });
+  try {
+    out.hostTopology = await topologyHelper.collectMaintenanceHostTopology({ guard: () => {
+      guard.verifyContext(ROOT, STATE); guard.requireCleanMain(ROOT); return true;
+    } });
+  } catch {
+    out.hostTopology = { result: 'UNVERIFIED', completeSafetyProof: false, continuousDrainProof: false, admissionOrApprovalGranted: false };
+    out.errors.push({ stage: 'host_topology', classification: 'UNVERIFIED_READ_FAILED' });
+  }
   const final = attempt('control_record_postcheck', () => Object.fromEntries(names.map(name => [name, captureRecord(name).fingerprint])));
   out.controlRecordsUnchanged = final ? names.every(name => JSON.stringify(final[name]) === JSON.stringify(initial[name].fingerprint)) : 'UNVERIFIED';
   out.controlRecordComparison = 'PINNED_RAW_BYTES_AND_FILE_IDENTITY';

@@ -9,6 +9,15 @@ on:
       approved_main_sha:
         required: true
         type: string
+      approved_runner_sha:
+        required: true
+        type: string
+      approved_program_sha256:
+        required: true
+        type: string
+      approved_topology_sha256:
+        required: true
+        type: string
       confirmation:
         required: true
         type: string
@@ -36,6 +45,9 @@ jobs:
       - name: Validate exact diagnostic runner and target
         env:
           APPROVED_SHA: ${{ inputs.approved_main_sha }}
+          APPROVED_RUNNER_SHA: ${{ inputs.approved_runner_sha }}
+          APPROVED_PROGRAM_SHA256: ${{ inputs.approved_program_sha256 }}
+          APPROVED_TOPOLOGY_SHA256: ${{ inputs.approved_topology_sha256 }}
           OPERATION: ${{ inputs.operation }}
           CONFIRMATION: ${{ inputs.confirmation }}
         run: |
@@ -43,11 +55,17 @@ jobs:
           test "$OPERATION" = audit
           test "$CONFIRMATION" = READONLY_BATCH2_CONFIG_FORENSICS
           test "$APPROVED_SHA" = 9155dcccd7578288a2ccedc9f2ec3f0dd0bf1f7e
-          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          [[ "$APPROVED_RUNNER_SHA" =~ ^[a-f0-9]{40}$ ]]
+          [[ "$APPROVED_PROGRAM_SHA256" =~ ^[a-f0-9]{64}$ ]]
+          [[ "$APPROVED_TOPOLOGY_SHA256" =~ ^[a-f0-9]{64}$ ]]
+          test "$GITHUB_SHA" = "$APPROVED_RUNNER_SHA"
+          test "$(git rev-parse HEAD)" = "$APPROVED_RUNNER_SHA"
+          test "$(sha256sum scripts/ops/batch2-config-hold-diagnostic.mjs | cut -d' ' -f1)" = "$APPROVED_PROGRAM_SHA256"
+          test "$(sha256sum scripts/ops/maintenance-host-topology-diagnostic.mjs | cut -d' ' -f1)" = "$APPROVED_TOPOLOGY_SHA256"
           test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$APPROVED_SHA"
           git merge-base --is-ancestor "$APPROVED_SHA" HEAD
           pnpm install --frozen-lockfile
-          node --test scripts/ops/batch2-config-hold-diagnostic.test.mjs
+          node --test scripts/ops/batch2-config-hold-diagnostic.test.mjs scripts/ops/maintenance-host-topology-diagnostic.test.mjs
           node scripts/ci/ledger-source-inventory.mjs "$APPROVED_SHA" "$RUNNER_TEMP/inventory.json"
           node --input-type=module - "$RUNNER_TEMP/inventory.json" <<'JS'
           import fs from 'node:fs';
@@ -65,10 +83,12 @@ jobs:
             FORENSIC_SCHEMA_HELPER_B64:read('scripts/ops/api-bootstrap-schema-preflight.mjs'),
             FORENSIC_INVENTORY_B64:Buffer.from(JSON.stringify(inv)),
             FORENSIC_PROGRAM_B64:fs.readFileSync('scripts/ops/batch2-config-hold-diagnostic.mjs'),
+            FORENSIC_TOPOLOGY_B64:fs.readFileSync('scripts/ops/maintenance-host-topology-diagnostic.mjs'),
           };
           for(const [k,v] of Object.entries(entries))fs.appendFileSync(process.env.GITHUB_ENV,k+'='+v.toString('base64')+'\n');
           JS
-          echo "FORENSIC_PROGRAM_SHA256=$(sha256sum scripts/ops/batch2-config-hold-diagnostic.mjs | cut -d' ' -f1)" >> "$GITHUB_ENV"
+          echo "FORENSIC_PROGRAM_SHA256=$APPROVED_PROGRAM_SHA256" >> "$GITHUB_ENV"
+          echo "FORENSIC_TOPOLOGY_SHA256=$APPROVED_TOPOLOGY_SHA256" >> "$GITHUB_ENV"
       - name: Read production through existing root trusted paths and FD9
         id: production
         uses: appleboy/ssh-action@v1
@@ -81,10 +101,13 @@ jobs:
           FORENSIC_INVENTORY_B64: ${{ env.FORENSIC_INVENTORY_B64 }}
           FORENSIC_PROGRAM_B64: ${{ env.FORENSIC_PROGRAM_B64 }}
           FORENSIC_PROGRAM_SHA256: ${{ env.FORENSIC_PROGRAM_SHA256 }}
+          FORENSIC_TOPOLOGY_B64: ${{ env.FORENSIC_TOPOLOGY_B64 }}
+          FORENSIC_TOPOLOGY_SHA256: ${{ env.FORENSIC_TOPOLOGY_SHA256 }}
           FORENSIC_TARGET_SHA: ${{ inputs.approved_main_sha }}
           FORENSIC_RUNNER_SHA: ${{ github.sha }}
         with:
           host: ${{ secrets.DEPLOY_HOST }}
+          fingerprint: SHA256:Y4WEXMJ24a4r1KxOw0det4qcCFNxj65mZeIG9oQOJcI
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           port: ${{ secrets.DEPLOY_PORT || 22 }}
@@ -93,7 +116,7 @@ jobs:
           proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
           proxy_port: 22
           capture_stdout: true
-          envs: PRODUCTION_CONTRACT_B64,PRODUCTION_PATH_HELPER_B64,PRODUCTION_CONTROL_BOOTSTRAP_B64,FORENSIC_SCHEMA_CONTRACT_B64,FORENSIC_SCHEMA_HELPER_B64,FORENSIC_INVENTORY_B64,FORENSIC_PROGRAM_B64,FORENSIC_PROGRAM_SHA256,FORENSIC_TARGET_SHA,FORENSIC_RUNNER_SHA
+          envs: PRODUCTION_CONTRACT_B64,PRODUCTION_PATH_HELPER_B64,PRODUCTION_CONTROL_BOOTSTRAP_B64,FORENSIC_SCHEMA_CONTRACT_B64,FORENSIC_SCHEMA_HELPER_B64,FORENSIC_INVENTORY_B64,FORENSIC_PROGRAM_B64,FORENSIC_PROGRAM_SHA256,FORENSIC_TOPOLOGY_B64,FORENSIC_TOPOLOGY_SHA256,FORENSIC_TARGET_SHA,FORENSIC_RUNNER_SHA
           command_timeout: 5m
           script: |
             set -Eeuo pipefail
@@ -106,7 +129,7 @@ jobs:
             test "$(git branch --show-current)" = main
             test -z "$(git status --porcelain --untracked-files=all)"
             test "$(printf '%s' "$FORENSIC_PROGRAM_B64" | base64 -d | sha256sum | cut -d' ' -f1)" = "$FORENSIC_PROGRAM_SHA256"
-            printf '%s' "$FORENSIC_PROGRAM_B64" | base64 -d | node --input-type=module -
+            printf '%s' "$FORENSIC_PROGRAM_B64" | base64 -d | /usr/bin/timeout --signal=TERM --kill-after=5s 240s node --input-type=module -
             echo FORENSIC_CONTROL_SHELL_COMPLETE=true
       - name: Preserve allowlisted diagnostic result on runner only
         if: always()
