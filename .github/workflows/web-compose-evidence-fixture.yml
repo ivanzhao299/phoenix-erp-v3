@@ -1,0 +1,101 @@
+name: Web Compose Evidence Fixture
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/web-compose-evidence-fixture.yml'
+      - 'scripts/ci/web-compose-*'
+      - 'scripts/ci/web-evidence-*'
+      - 'scripts/ci/owned-fixture-deadline*'
+      - 'scripts/ci/owned-compose-ipam*'
+      - 'scripts/ops/production-deployment-evidence.mjs'
+      - 'scripts/ops/chanjet-readonly-production-audit.mjs'
+      - 'apps/web/**'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - 'package.json'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/web-compose-evidence-fixture.yml'
+      - 'scripts/ci/web-compose-*'
+      - 'scripts/ci/web-evidence-*'
+      - 'scripts/ci/owned-fixture-deadline*'
+      - 'scripts/ci/owned-compose-ipam*'
+      - 'scripts/ops/production-deployment-evidence.mjs'
+      - 'scripts/ops/chanjet-readonly-production-audit.mjs'
+      - 'apps/web/**'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - 'package.json'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: web-compose-fixture-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  isolated-web-compose:
+    name: Actual Next Compose Web-only Evidence
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Deadline refusal and isolated subnet contracts
+        run: node --test scripts/ci/owned-fixture-deadline.test.mjs scripts/ci/owned-compose-ipam.test.mjs
+      - name: Prepare borrowed fixture bases
+        run: |
+          docker pull node:20-bookworm-slim
+          docker pull postgres:18-alpine
+      - name: Rebuild both actual source revisions without registry upload
+        env:
+          IMAGE_SUMMARY: ${{ runner.temp }}/web-compose-image-summary.json
+        run: |
+          node --input-type=module <<'JS'
+          import fs from 'node:fs';
+          import {buildWebComposeImages} from './scripts/ci/web-compose-images.fixture.mjs';
+          const result=await buildWebComposeImages();
+          if(result.result!=='PASS'||result.builds.length!==2)throw Error('ACTUAL_WEB_SOURCE_BUILDS_REQUIRED');
+          fs.writeFileSync(process.env.IMAGE_SUMMARY,JSON.stringify(result),{mode:0o600,flag:'wx'});
+          JS
+      - name: Actual Compose replacement, fault refusal and owner cleanup
+        env:
+          IMAGE_SUMMARY: ${{ runner.temp }}/web-compose-image-summary.json
+        run: |
+          node --input-type=module <<'JS'
+          import fs from 'node:fs';
+          import {spawnSync} from 'node:child_process';
+          const result=JSON.parse(fs.readFileSync(process.env.IMAGE_SUMMARY));
+          if(result.result!=='PASS'||result.builds.length!==2||result.productionImage!==false)throw Error('SOURCE_BUILD_RECEIPTS_REQUIRED');
+          const before=result.builds.find(b=>b.role==='before'),target=result.builds.find(b=>b.role==='target');
+          if(!before||!target||before.sourceSha!==result.beforeSha||target.sourceSha!==result.targetSha)throw Error('EXACT_IMAGE_PROVENANCE_REQUIRED');
+          const env={...process.env,WEB_COMPOSE_REQUIRED:'1',WEB_COMPOSE_BEFORE_IMAGE:before.imageId,WEB_COMPOSE_TARGET_IMAGE:target.imageId};
+          delete env.NODE_TEST_CONTEXT;
+          const test=spawnSync(process.execPath,['--test','scripts/ci/web-compose-evidence.e2e.test.mjs'],{env,stdio:'inherit',timeout:300000});
+          if(test.status!==0)throw Error('ACTUAL_WEB_COMPOSE_EVIDENCE_FAILED');
+          JS
+      - name: Retain allowlisted isolated evidence only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-compose-fixture-evidence
+          retention-days: 14
+          if-no-files-found: warn
+          path: |
+            artifacts/web-compose-image-builds/*/summary.json
+            artifacts/web-compose-image-builds/*/before/provenance.json
+            artifacts/web-compose-image-builds/*/target/provenance.json
+            artifacts/web-compose-evidence/*/results.json
+            artifacts/web-compose-evidence/*/deploy-*-evidence.json

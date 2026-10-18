@@ -10,14 +10,17 @@ import {randomUUID} from 'node:crypto';
 import {RootControlLease,rootPsqlProgram} from './production-maintenance-root-lease.mjs';
 import {DockerPostgresControlSession} from './background-control-coordinator.mjs';
 import {rootLeaseFixture} from '../ci/maintenance-root-lease-fixture.mjs';
+import {ownedFixtureDeadline,assertSuccessfulFixtureRecord} from '../ci/owned-fixture-deadline.mjs';
 const enabled=process.env.MAINTENANCE_ROOT_PG_FIXTURE==='1',manual=/SESSION_CHILDREN_UNVERIFIED_MANUAL_RECOVERY_REQUIRED/;
 const env={PATH:'/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',DOCKER_HOST:'unix:///var/run/docker.sock'};
 const delay=ms=>new Promise(r=>setTimeout(r,ms));
-function docker(args,input){try{return execFileSync('/usr/bin/docker',args,{input,env,encoding:'utf8',timeout:12000,maxBuffer:65536,stdio:['pipe','pipe','pipe']}).trim();}catch{throw Error('OWNED_ROOT_FIXTURE_COMMAND_FAILED');}}
+function rawDocker(args,input){try{return execFileSync('/usr/bin/docker',args,{input,env,encoding:'utf8',timeout:12000,maxBuffer:65536,stdio:['pipe','pipe','pipe']}).trim();}catch{throw Error('OWNED_ROOT_FIXTURE_COMMAND_FAILED');}}
 for(const image of ['postgres:16.14-alpine','postgres:18-alpine'])test(`actual ${image} root control lease and failures`,{skip:!enabled,timeout:180000},async t=>{
+  const deadline=ownedFixtureDeadline({signal:t.signal,timeoutMs:179000});let cleaning=false;
+  const docker=(args,input)=>{if(!cleaning)deadline.assertActive();const result=rawDocker(args,input);if(!cleaning)deadline.assertActive();return result;};
   const owner=randomUUID(),name='phoenix-root-lease-'+owner,cases=[],leases=[],peers=[],children=[];let id,createAttempted=false,sequence=0;
   const record={schema:'phoenix.root-control-isolated-fixture/v1',owner,image,fixtureAuthorityAndStoreOnly:true,productionConnectionExecuted:false,productionMutation:false,cases};
-  const sub=async(label,fn)=>t.test(label,async()=>{await fn();cases.push(label);});
+  const sub=async(label,fn)=>t.test(label,async()=>{deadline.assertActive();await fn();deadline.assertActive();cases.push(label);});
   try{
     createAttempted=true;id=docker(['run','--detach','--name',name,'--label','phoenix.fixture.owner='+owner,'--network','none','--tmpfs',
       (image.includes(':18')?'/var/lib/postgresql':'/var/lib/postgresql/data')+':rw,nosuid,noexec,size=256m','-e','POSTGRES_USER=fixture_owner','-e','POSTGRES_DB=phoenix_erp','-e','POSTGRES_HOST_AUTH_METHOD=trust','-e','PGDATA=/var/lib/postgresql/data',
@@ -32,7 +35,7 @@ for(const image of ['postgres:16.14-alpine','postgres:18-alpine'])test(`actual $
     const make=(options={},dependencies={})=>{
       const f=rootLeaseFixture({database,owner:`23456789-${++sequence}`});
       const register=options.registerOwnedChild||f.options.registerOwnedChild;
-      const lease=new RootControlLease({...f.options,...options,registerOwnedChild:child=>{
+      const lease=new RootControlLease({...f.options,...options,signal:options.signal?AbortSignal.any([t.signal,options.signal]):t.signal,registerOwnedChild:child=>{
         const owned={child,closed:false};owned.done=new Promise(resolve=>child.once('close',()=>{owned.closed=true;resolve();}));children.push(owned);return register(child);
       }},{...f.dependencies,now:Date.now,run:docker,...dependencies});leases.push(lease);return {...f,lease};
     };
@@ -90,9 +93,10 @@ for(const image of ['postgres:16.14-alpine','postgres:18-alpine'])test(`actual $
       await assert.rejects(f.lease.observe(),/MAINTENANCE_HOLD=/);await assert.rejects(f.lease.close(),manual);assert.equal(f.records.has(f.lease.releaseFile),false);
       assert.notEqual(pin()[2],initial[2]);
     });
-    assert.equal(cases.length,10,'ALL_REQUIRED_SUBTESTS_MUST_COMPLETE_BEFORE_PASS');record.result='PASS';
+    deadline.assertActive();assert.equal(cases.length,10,'ALL_REQUIRED_SUBTESTS_MUST_COMPLETE_BEFORE_PASS');record.result='PASS';
   }catch(error){record.result='FAIL';record.failure='OWNED_ROOT_LEASE_TEST_FAILED';throw error;}
   finally{
+    cleaning=true;
     const failures=[];
     // A negative case may intentionally retain a manual HOLD; owner-only
     // container teardown below settles fixture resources, never production.
@@ -112,7 +116,8 @@ for(const image of ['postgres:16.14-alpine','postgres:18-alpine'])test(`actual $
     if(failures.length){record.result='FAIL';record.cleanup='UNVERIFIED_REQUIRES_OWNED_FIXTURE_RECOVERY';record.cleanupFailures=failures;}
     else record.cleanup='ALL_OWNED_RESOURCES_SETTLED';
     const directory=fileURLToPath(new URL('../../artifacts/maintenance-root-control/',import.meta.url));fs.mkdirSync(directory,{recursive:true,mode:0o700});
-    const out=path.join(directory,owner+'.json');fs.writeFileSync(out,JSON.stringify(record,null,2)+'\n',{mode:0o600,flag:'wx'});console.log('OWNED_ROOT_CONTROL_RECEIPT='+out);
+    Object.assign(record,deadline.finalize(record));const out=path.join(directory,owner+'.json');fs.writeFileSync(out,JSON.stringify(record,null,2)+'\n',{mode:0o600,flag:'wx'});console.log('OWNED_ROOT_CONTROL_RECEIPT='+out);
     if(failures.length)throw Error('OWNED_FIXTURE_CLEANUP_UNVERIFIED');
+    assertSuccessfulFixtureRecord(record);
   }
 });
