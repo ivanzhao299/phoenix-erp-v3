@@ -14,6 +14,67 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  native-host-candidate:
+    name: Native Default Candidate Collector PG${{ matrix.pg }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        pg: [16, 18]
+    # No environment, production secrets, SSH, deployment approval or dispatch.
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Prepare immutable isolated bases
+        run: |
+          docker pull node:20-bookworm-slim
+          docker pull postgres:${{ matrix.pg }}-alpine
+      - name: Actual default guards, fixed paths, FD9 and candidate collector
+        env:
+          NATIVE_PG_MAJOR: ${{ matrix.pg }}
+        run: |
+          set -uo pipefail
+          test "$RUNNER_ENVIRONMENT" = github-hosted || exit 64
+          native_root="$RUNNER_TEMP/phoenix-native-candidate-$NATIVE_PG_MAJOR"
+          native_export="$GITHUB_WORKSPACE/artifacts/maintenance-native-candidate-host-$NATIVE_PG_MAJOR"
+          test ! -e "$native_root" || exit 65
+          sudo install -d -m 0700 "$native_root"
+          mkdir -m 0700 -p "$native_export"
+          native_node="$(command -v node)"
+          set +e
+          sudo /usr/bin/env -i PATH="$(dirname "$native_node"):/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
+            NATIVE_FIXTURE_HOSTED=github-hosted-exclusive-vm NATIVE_FIXTURE_MAJOR="$NATIVE_PG_MAJOR" \
+            NATIVE_FIXTURE_SHA="$GITHUB_SHA" NATIVE_FIXTURE_NODE="$native_node" \
+            NATIVE_FIXTURE_SOURCE="$GITHUB_WORKSPACE" NATIVE_FIXTURE_OUTPUT="$native_root" \
+            /bin/bash "$GITHUB_WORKSPACE/scripts/ci/maintenance-native-candidate-host.sh"
+          native_result=$?
+          set -e
+          # Only fixed non-secret JSON receipts are exported. The ext4 image,
+          # source, runtime logs and any failed private state remain in this VM.
+          for native_name in host-intent.json setup-result.json host-resources.json process-result.json result.json candidate-binding.json root-release.json guard-counterexamples.json protocol-file-manifest.json; do
+            if sudo test -f "$native_root/$native_name"; then
+              sudo install -m 0600 -o "$(id -u)" -g "$(id -g)" "$native_root/$native_name" "$native_export/$native_name" || exit 66
+            fi
+          done
+          exit "$native_result"
+      - name: Retain native allowlisted evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: maintenance-native-candidate-host-pg${{ matrix.pg }}
+          if-no-files-found: warn
+          retention-days: 14
+          path: artifacts/maintenance-native-candidate-host-${{ matrix.pg }}/*.json
   isolated-maintenance:
     name: Legacy Maintenance PG16 PG18 And Real ERP
     runs-on: ubuntu-latest
@@ -34,6 +95,7 @@ jobs:
           scripts/ci/maintenance-erp-candidate.test.mjs
           scripts/ci/maintenance-erp-root-binding.test.mjs
           scripts/ci/maintenance-legacy-erp.test.mjs
+          scripts/ci/maintenance-native-candidate-host.test.mjs
       - name: Actual registered Git and inherited FD9 in an owned isolated image
         run: |
           set -euo pipefail

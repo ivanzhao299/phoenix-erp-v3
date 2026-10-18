@@ -63,6 +63,7 @@ export function actualPhaseMaterials({ owner, sourceSha, imageId, runtime, statu
   assert.equal(status.owner, owner); assert.equal(status.phase, 'FENCED');
   assert.equal(runtime.Image, imageId); assert.equal(runtime.Config.Labels['org.opencontainers.image.revision'], sourceSha);
   assert.equal(runtime.State.Health.Status, 'healthy'); assert.equal(dbRuntime.State.Health.Status, 'healthy');
+  assert.equal(runtime.State.Status, 'running');
   const f = fixture({ clock }), context = structuredClone(f.context), web = context.preSnapshot.web;
   context.owner = owner; context.targetSha = sourceSha; context.candidate = { revision: sourceSha, imageId };
   context.preSnapshot.db = { id: dbRuntime.Id, imageId: dbRuntime.Image, startedAt: dbRuntime.State.StartedAt, restartCount: dbRuntime.RestartCount,
@@ -71,7 +72,7 @@ export function actualPhaseMaterials({ owner, sourceSha, imageId, runtime, statu
   assert.equal(context.preSnapshot.db.imageId, database.imageId);
   assert.equal(context.preSnapshot.db.startedAt, database.containerStartedAt);
   const candidate = { api: { id: runtime.Id, imageId, revision: sourceSha, startedAt: runtime.State.StartedAt, restartCount: runtime.RestartCount,
-    running: runtime.State.Running, health: runtime.State.Health.Status, pid: runtime.State.Pid, restarting: runtime.State.Restarting, dead: runtime.State.Dead },
+    running: runtime.State.Running, status: runtime.State.Status, health: runtime.State.Health.Status, pid: runtime.State.Pid, restarting: runtime.State.Restarting, dead: runtime.State.Dead },
     bootId: status.bootId, owner, admissionState: 'DENIED', inFlight: status.inFlight, pendingChildren: status.pendingChildren, taskGraphs: status.taskGraphs,
     poisoned: status.poisoned, stopping: status.stopping, controlSession: structuredClone(status.controlSession),
     chanjetPolicy: 'HOLD', readonlySync: false, inboundSync: false, web, db: context.preSnapshot.db };
