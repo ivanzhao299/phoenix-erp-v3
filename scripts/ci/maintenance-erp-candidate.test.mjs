@@ -22,8 +22,8 @@ test('owned immutable full container and both labels are mandatory', () => {
 function identity() {
   const bootId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
   const status = { bootId, poisoned: false, stopping: false, controlSession: { connected: true, broken: false, sessionPid: 15,
-    databaseOid: 12, backendStartedAt: '2026-10-18T00:00:00.000Z', applicationName: `phoenix-fence:${bootId}` } };
-  return { status, rows: [{ pid: 15, datid: 12, backend_start: '2026-10-18T00:00:00.000Z' }] };
+    databaseOid: 12, backendStartedAt: '2026-10-18T00:00:00.000Z', backendStartedAtUs: '2026-10-18T00:00:00.000123Z', applicationName: `phoenix-fence:${bootId}` } };
+  return { status, rows: [{ pid: 15, datid: 12, backend_start: '2026-10-18T00:00:00.000Z', backend_started_at_us: '2026-10-18T00:00:00.000123Z' }] };
 }
 test('live root PostgreSQL unique session must match actual boot, PID, DB and start', () => {
   const { status, rows } = identity(); assert.equal(verifyLiveControlRow(status, rows, 12).unique, true);
@@ -32,6 +32,13 @@ test('live root PostgreSQL unique session must match actual boot, PID, DB and st
   }
   assert.throws(() => verifyLiveControlRow(status, rows, 13), /CONTROL_SESSION_BINDING/);
   assert.throws(() => verifyLiveControlRow({ ...status, poisoned: true }, rows, 12), /CONTROL_SESSION_BINDING/);
+});
+test('actual ERP binding refuses raw microsecond mismatch or absence even when PID and Date match',()=>{
+  const {status,rows}=identity();
+  for(const raw of [undefined,'2026-10-18T00:00:00.000Z','2026-10-18T00:00:00.000124Z']){
+    assert.throws(()=>verifyLiveControlRow({...status,controlSession:{...status.controlSession,backendStartedAtUs:raw}},rows,12),/CONTROL_SESSION_BINDING/);
+    assert.throws(()=>verifyLiveControlRow(status,[{...rows[0],backend_started_at_us:raw}],12),/CONTROL_SESSION_BINDING/);
+  }
 });
 test('production dependency closure preserves nested versions and never includes env/key fixtures', () => {
   const dir = path.join(root, 'artifacts/maintenance-erp-candidate', `unit-${randomUUID()}`); fs.mkdirSync(dir, { recursive: true, mode: 0o700 });

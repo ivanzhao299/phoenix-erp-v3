@@ -13,7 +13,7 @@ const env={PATH:'/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',D
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 function docker(args,input){try{return execFileSync('/usr/bin/docker',args,{input,env,encoding:'utf8',timeout:12000,maxBuffer:65536,stdio:['pipe','pipe','pipe']}).trim();}catch{throw Error('OWNED_CANDIDATE_FIXTURE_COMMAND_FAILED');}}
 const psql=['psql','--username=fixture_owner','-X','-qAt','--set=ON_ERROR_STOP=1'];
-const identitySql="SELECT json_build_object('sessionPid',pg_backend_pid(),'backendStartedAt',to_char(backend_start AT TIME ZONE 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"')) FROM pg_stat_activity WHERE pid=pg_backend_pid();";
+const identitySql="SELECT json_build_object('sessionPid',pg_backend_pid(),'backendStartedAt',to_char(backend_start AT TIME ZONE 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"')) FROM pg_stat_activity WHERE pid=pg_backend_pid();";
 function session(id,applicationName,database='phoenix_erp'){
   const child=spawn('/usr/bin/docker',['exec','-i','-e',`PGAPPNAME=${applicationName}`,id,...psql,'--dbname='+database],{env,stdio:['pipe','pipe','pipe']});
   const lines=createInterface({input:child.stdout});child.stderr.on('data',()=>{});let pending=null,broken=false,closed=false,closePromise;
@@ -35,7 +35,7 @@ function session(id,applicationName,database='phoenix_erp'){
 }
 for(const image of ['postgres:16.14-alpine','postgres:18-alpine'])test(`owned ${image} candidate root backend binding`,{skip:!enabled,timeout:120000},async t=>{
   const owner=randomUUID(),name=`phoenix-candidate-db-${owner}`,boot=randomUUID(),sessions=[],cases=[];let id,createAttempted=false;
-  const record={schema:'phoenix.candidate-database-fixture/v1',owner,image,productionConnectionExecuted:false,productionMutation:false,cases};
+  const record={schema:'phoenix.candidate-database-fixture/v2',owner,image,productionConnectionExecuted:false,productionMutation:false,cases};
   const add=(applicationName,database)=>{const s=session(id,applicationName,database);sessions.push(s);return s;};
   try{
     const mount=image.includes(':18')?'/var/lib/postgresql':'/var/lib/postgresql/data';
@@ -52,7 +52,7 @@ for(const image of ['postgres:16.14-alpine','postgres:18-alpine'])test(`owned ${
     const [full,imageId,containerStartedAt,seenOwner,network]=docker(['inspect',id,'--format','{{json .Id}}\t{{json .Image}}\t{{json .State.StartedAt}}\t{{json (index .Config.Labels "phoenix.fixture.owner")}}\t{{json .HostConfig.NetworkMode}}']).split('\t').map(JSON.parse);
     assert.equal(full,id);assert.equal(seenOwner,owner);assert.equal(network,'none');
     const direct=sql=>docker(['exec','-i',id,...psql,'--dbname=phoenix_erp'],sql);
-    const facts=JSON.parse(direct("SELECT json_build_object('databaseOid',(SELECT oid::bigint FROM pg_database WHERE datname=current_database()),'postmasterStartedAt',to_char(pg_postmaster_start_time() AT TIME ZONE 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"'),'clusterSystemIdentifier',(SELECT system_identifier::text FROM pg_control_system()));"));
+    const facts=JSON.parse(direct("SELECT json_build_object('databaseOid',(SELECT oid::bigint FROM pg_database WHERE datname=current_database()),'postmasterStartedAt',to_char(pg_postmaster_start_time() AT TIME ZONE 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"'),'clusterSystemIdentifier',(SELECT system_identifier::text FROM pg_control_system()));"));
     const root=add('phoenix-maintenance-control:1234-1'),candidate=add(`phoenix-fence:${boot}`);
     const rootIdentity=await root.query(identitySql),candidateIdentity=await candidate.query(identitySql);
     const binding={owner:'1234-1',previousFloorSha:'a'.repeat(40),targetSha:'b'.repeat(40),database:{containerId:id,imageId,containerStartedAt,...facts},root:rootIdentity,candidate:{...candidateIdentity,bootId:boot}};
@@ -62,6 +62,20 @@ for(const image of ['postgres:16.14-alpine','postgres:18-alpine'])test(`owned ${
     await t.test('actual two exclusive locks and distinct root/candidate backends are bound',()=>{
       if(process.env.MAINTENANCE_CANDIDATE_FIXTURE_NEGATIVE==='1')assert.fail('CONTROLLED_FIXTURE_FAILURE_SENTINEL');
       assert.equal(collect().result,'ROOT_HELD_SNAPSHOT');cases.push('HELD_IDENTITIES_AND_LOCKS');
+    });
+    await t.test('same PID and millisecond cannot conceal a different raw backend or postmaster microsecond',()=>{
+      const change=value=>value.slice(0,-2)+(value.at(-2)==='9'?'8':String(Number(value.at(-2))+1))+'Z';
+      for(const part of ['root','candidate','database']){
+        const key=part==='database'?'postmasterStartedAt':'backendStartedAt',value=binding[part][key],altered=change(value);
+        assert.match(value,/\.\d{6}Z$/);assert.notEqual(value,altered);assert.equal(Date.parse(value),Date.parse(altered));
+        assert.throws(()=>collect({[part]:{...binding[part],[key]:altered}}),/BACKEND_IDENTITY_CHANGED|DATABASE_IDENTITY_OR_VISIBILITY/);
+      }cases.push('RAW_MICROSECOND_IDENTITY_NOT_MS_ALIAS');
+    });
+    await t.test('old millisecond-only binding is explicitly refused rather than padded or inferred',()=>{
+      for(const part of ['root','candidate','database']){
+        const key=part==='database'?'postmasterStartedAt':'backendStartedAt';
+        assert.throws(()=>collect({[part]:{...binding[part],[key]:new Date(binding[part][key]).toISOString()}}),/EXACT_.*BINDING_REQUIRED/);
+      }cases.push('LEGACY_MS_BINDING_REFUSED');
     });
     await t.test('wrong root PID, candidate boot, backend start, database OID and cluster fail closed',()=>{
       for(const changed of [{root:{...binding.root,sessionPid:2000000000}},{root:{...binding.root,backendStartedAt:'2020-01-01T00:00:00.000Z'}},
@@ -103,7 +117,7 @@ for(const image of ['postgres:16.14-alpine','postgres:18-alpine'])test(`owned ${
       await candidate.query('SELECT pg_advisory_lock_shared(17455,1); SELECT pg_advisory_lock_shared(17455,2); SELECT true;');
       assert.equal(collect({}, {expectRoot:'RELEASED'}).result,'ROOT_BACKEND_ABSENT_SNAPSHOT');cases.push('NEW_SHARED_LOCKS_NOT_OLD_LEASE');
     });
-    assert.equal(cases.length,10,'ALL_SUBTESTS_MUST_COMPLETE_BEFORE_PASS_RECEIPT');record.result='PASS';
+    assert.equal(cases.length,12,'ALL_SUBTESTS_MUST_COMPLETE_BEFORE_PASS_RECEIPT');record.result='PASS';
   }catch(error){record.result='FAIL';record.failure='OWNED_CANDIDATE_DATABASE_TEST_FAILED';throw error;}
   finally{
     const cleanupFailures=[];

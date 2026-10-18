@@ -40,6 +40,8 @@ export function verifyLiveControlRow(status, rows, databaseOid) {
     || status.poisoned !== false || status.stopping !== false || p?.connected !== true || p.broken !== false
     || p.applicationName !== `phoenix-fence:${status.bootId}` || !Array.isArray(rows) || rows.length !== 1
     || rows[0].pid !== p.sessionPid || Number(rows[0].datid) !== p.databaseOid || Number(databaseOid) !== p.databaseOid
+    || typeof p.backendStartedAtUs !== 'string' || !/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{6}Z$/.test(p.backendStartedAtUs)
+    || rows[0].backend_started_at_us !== p.backendStartedAtUs || p.backendStartedAtUs.slice(0,23)+'Z' !== p.backendStartedAt
     || new Date(rows[0].backend_start).toISOString() !== p.backendStartedAt) hold('CONTROL_SESSION_BINDING');
   return { unique: true, bootId: status.bootId, ...p };
 }
@@ -225,7 +227,7 @@ export class OwnedErpCandidateCapsule {
   status(candidate) { const response = this.request(candidate, '/api/internal/background/status'); assert.equal(response.status, 200); return response.body; }
   verifySession(candidate, status = this.status(candidate)) {
     const name = `phoenix-fence:${status.bootId}`;
-    const payload = JSON.parse(this.sql(candidate.pg, `SELECT json_build_object('oid',(SELECT oid FROM pg_database WHERE datname=current_database()),'rows',(SELECT coalesce(json_agg(x),'[]'::json) FROM (SELECT pid,datid,backend_start FROM pg_stat_activity WHERE application_name=${literal(name)}) x));`));
+    const payload = JSON.parse(this.sql(candidate.pg, `SELECT json_build_object('oid',(SELECT oid FROM pg_database WHERE datname=current_database()),'rows',(SELECT coalesce(json_agg(x),'[]'::json) FROM (SELECT pid,datid,backend_start,to_char(backend_start AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS backend_started_at_us FROM pg_stat_activity WHERE application_name=${literal(name)}) x));`));
     return verifyLiveControlRow(status, payload.rows, payload.oid);
   }
   async startCandidate(pg, mode) {

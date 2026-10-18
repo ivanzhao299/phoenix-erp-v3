@@ -1,13 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {candidateDatabaseSql,validateCandidateDatabaseSnapshot,collectCandidateDatabaseSnapshot} from './production-maintenance-candidate-database.mjs';
-const at='2026-10-18T10:30:00.000Z';
+const at='2026-10-18T10:30:00.000Z',rawAt='2026-10-18T10:30:00.000123Z';
 const binding=()=>({owner:'1234-1',previousFloorSha:'a'.repeat(40),targetSha:'b'.repeat(40),
-  database:{containerId:'c'.repeat(64),imageId:'sha256:'+'d'.repeat(64),containerStartedAt:at,postmasterStartedAt:at,clusterSystemIdentifier:'123456789',databaseOid:16384},
-  root:{sessionPid:101,backendStartedAt:at},candidate:{sessionPid:102,backendStartedAt:at,bootId:'01234567-0123-4123-8123-0123456789ab'}});
-const row=(b,root)=>({pid:b[root?'root':'candidate'].sessionPid,databaseOid:b.database.databaseOid,backendStartedAt:at,
+  database:{containerId:'c'.repeat(64),imageId:'sha256:'+'d'.repeat(64),containerStartedAt:at,postmasterStartedAt:rawAt,clusterSystemIdentifier:'123456789',databaseOid:16384},
+  root:{sessionPid:101,backendStartedAt:rawAt},candidate:{sessionPid:102,backendStartedAt:rawAt,bootId:'01234567-0123-4123-8123-0123456789ab'}});
+const row=(b,root)=>({pid:b[root?'root':'candidate'].sessionPid,databaseOid:b.database.databaseOid,backendStartedAt:rawAt,
   applicationName:root?`phoenix-maintenance-control:${b.owner}`:`phoenix-fence:${b.candidate.bootId}`,backendType:'client backend'});
-const sample=(b=binding())=>({sampledAt:at,postmasterStartedAt:at,clusterSystemIdentifier:b.database.clusterSystemIdentifier,databaseOid:b.database.databaseOid,
+const sample=(b=binding())=>({sampledAt:at,postmasterStartedAt:rawAt,clusterSystemIdentifier:b.database.clusterSystemIdentifier,databaseOid:b.database.databaseOid,
   serverVersionNum:180000,statsVisibilityComplete:true,rootBackends:[row(b,true)],candidateBackends:[row(b,false)],
   rootLocks:[1,2].map(key=>({databaseOid:b.database.databaseOid,namespace:17455,key,keyForm:2,mode:'ExclusiveLock',granted:true}))});
 const interval={startedAt:at,finishedAt:at};
@@ -16,6 +16,21 @@ test('held snapshot binds both server backends and exact locks without creating 
   assert.equal(s.result,'ROOT_HELD_SNAPSHOT');
   for(const k of ['continuousDrainProof','clientLifecycleSettlementProved','persistentOwnershipComplete','registryInstalled','admissionOrApprovalGranted','productionMutation'])assert.equal(s[k],false);
   assert.deepEqual(s.binding,b);assert.match(s.querySha256,/^[a-f0-9]{64}$/);
+});
+test('v2 raw identities retain all six digits and reject a different microsecond within the same millisecond',()=>{
+  for(const part of ['root','candidate','postmaster']){
+    const b=binding(),s=sample(b),changed='2026-10-18T10:30:00.000124Z';
+    assert.equal(Date.parse(rawAt),Date.parse(changed));
+    if(part==='postmaster')s.postmasterStartedAt=changed;else s[part+'Backends'][0].backendStartedAt=changed;
+    assert.throws(()=>validateCandidateDatabaseSnapshot(s,b,interval),/BACKEND_IDENTITY_CHANGED|DATABASE_IDENTITY_OR_VISIBILITY/);
+  }
+  assert.equal(validateCandidateDatabaseSnapshot(sample(),binding(),interval).schema,'phoenix.candidate-database-observation/v2');
+});
+test('millisecond-only legacy identities cannot satisfy the raw v2 binding',()=>{
+  for(const part of ['root','candidate','database']){
+    const b=binding();if(part==='database')b.database.postmasterStartedAt=at;else b[part].backendStartedAt=at;
+    assert.throws(()=>candidateDatabaseSql(b),/EXACT_.*BINDING_REQUIRED/);
+  }
 });
 test('PID reuse, wrong backend start, duplicate application name and hidden stats fail closed',()=>{
   for(const mutate of [s=>s.rootBackends[0].backendStartedAt='2026-10-18T10:29:00.000Z',s=>s.rootBackends[0].applicationName='unowned',s=>s.rootBackends[0].pid++,

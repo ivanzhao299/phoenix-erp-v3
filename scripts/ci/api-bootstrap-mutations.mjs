@@ -10,7 +10,7 @@ const fixtureDatabase = 'api_bootstrap_fixture';
 const normalizeControlSql = sql => sql.trim().replace(/;$/, '').replace(/\s+/g, ' ');
 const controlProbeSqls = new Set([
   'SELECT pg_backend_pid() AS pid, $1::int AS namespace, $2::int AS session_probe',
-  "SELECT pg_backend_pid() AS pid, (SELECT oid::int FROM pg_database WHERE datname=current_database()) AS database_oid, (SELECT backend_start FROM pg_stat_activity WHERE pid=pg_backend_pid()) AS backend_started_at, current_setting('application_name') AS application_name, $1::int AS namespace, $2::int AS session_probe",
+  "SELECT pg_backend_pid() AS pid, (SELECT oid::int FROM pg_database WHERE datname=current_database()) AS database_oid, (SELECT backend_start FROM pg_stat_activity WHERE pid=pg_backend_pid()) AS backend_started_at, (SELECT to_char(backend_start AT TIME ZONE 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"') FROM pg_stat_activity WHERE pid=pg_backend_pid()) AS backend_started_at_us, current_setting('application_name') AS application_name, $1::int AS namespace, $2::int AS session_probe",
 ]);
 const controlIdentitySql = "SELECT set_config('application_name', $1, false)";
 const isPublicControlNonce = value => typeof value === 'string' && /^phoenix-fence:[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(value);
