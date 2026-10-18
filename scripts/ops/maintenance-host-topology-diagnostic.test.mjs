@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { collectMaintenanceHostTopology, readonlyTopologyCommand, TOPOLOGY_SCHEMA, TOPOLOGY_COMMAND_ENV, TOPOLOGY_MAXIMUM_OUTPUT_BYTES } from './maintenance-host-topology-diagnostic.mjs';
+import { collectMaintenanceHostTopology, readonlyTopologyCommand, classifyReadonlyMetadataFailure, TOPOLOGY_SCHEMA, TOPOLOGY_COMMAND_ENV, TOPOLOGY_MAXIMUM_OUTPUT_BYTES } from './maintenance-host-topology-diagnostic.mjs';
 
 const secret = 'DO_NOT_EXPORT_SENSITIVE_SENTINEL';
 const container = 'a'.repeat(64), image = `sha256:${'b'.repeat(64)}`, network = 'c'.repeat(64), endpoint = 'd'.repeat(64);
@@ -183,4 +183,16 @@ test('service and timer relations use stable hashes and preserve unsupported ide
   const original=f.execute;f.dependencies.execute=async(binary,args,options)=>binary==='/usr/bin/systemctl'&&args[0]==='list-units'?JSON.stringify([{unit:'bad name.service'}]):original(binary,args,options);
   const invalid=(await collectMaintenanceHostTopology(f.dependencies)).systemd.units.find(x=>x.reason==='UNIT_NAME_UNSUPPORTED');
   assert.match(invalid.unitNameSha256,/^[a-f0-9]{64}$/);assert.equal(invalid.verification,'UNVERIFIED');
+});
+
+test('failed command classifier exports only a closed category, never stderr or object names',()=>{
+  for(const [error,expected] of [[{code:'ETIMEDOUT'},'COMMAND_TIMEOUT'],[{code:'ENOENT'},'COMMAND_EXECUTABLE_UNAVAILABLE'],[{stderr:`Error: No such container: ${secret}`},'OBJECT_METADATA_UNAVAILABLE'],[{stderr:Buffer.from(`index of untyped nil ${secret}`)},'TEMPLATE_INDEX_UNAVAILABLE'],[{stderr:`can't evaluate field ${secret}`},'TEMPLATE_FIELD_UNAVAILABLE'],[{stderr:`permission denied ${secret}`},'METADATA_ACCESS_DENIED'],[{stderr:`Cannot connect to the Docker daemon ${secret}`},'DOCKER_DAEMON_UNAVAILABLE'],[{code:secret,stderr:secret},'COMMAND_FAILURE_UNCLASSIFIED']]){
+    assert.equal(classifyReadonlyMetadataFailure(error),expected);assert.ok(!classifyReadonlyMetadataFailure(error).includes(secret));
+  }
+});
+test('command classifications remain failed snapshots and reject injected category strings',async()=>{
+  for(const code of ['TEMPLATE_FIELD_UNAVAILABLE',secret]){
+    const f=fixture();const original=f.execute;f.dependencies.execute=async(binary,args,options)=>{if(binary==='/usr/bin/docker'&&args[0]==='inspect')throw new Error('TOPOLOGY_HOLD=READONLY_METADATA_UNAVAILABLE_'+code);return original(binary,args,options);};
+    const result=await collectMaintenanceHostTopology(f.dependencies);assert.equal(result.docker.containers[0].commandFailure,code===secret?'COMMAND_FAILURE_UNCLASSIFIED':code);assert.equal(result.docker.verification,'UNVERIFIED');assert.equal(result.completeSafetyProof,false);assert.ok(!JSON.stringify(result).includes(secret));
+  }
 });

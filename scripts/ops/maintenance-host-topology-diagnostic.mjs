@@ -42,6 +42,20 @@ function readCronFile(file, expected, budget) {
   } finally { fs.closeSync(fd); }
 }
 
+const COMMAND_FAILURES = new Set(['COMMAND_TIMEOUT', 'COMMAND_EXECUTABLE_UNAVAILABLE', 'OBJECT_METADATA_UNAVAILABLE', 'TEMPLATE_INDEX_UNAVAILABLE', 'TEMPLATE_FIELD_UNAVAILABLE', 'METADATA_ACCESS_DENIED', 'DOCKER_DAEMON_UNAVAILABLE', 'COMMAND_FAILURE_UNCLASSIFIED']);
+/** Categorization of a failed read only; never forwards raw errors or proves absence. */
+export function classifyReadonlyMetadataFailure(error) {
+  if (error?.code === 'ETIMEDOUT') return 'COMMAND_TIMEOUT';
+  if (error?.code === 'ENOENT') return 'COMMAND_EXECUTABLE_UNAVAILABLE';
+  const text = Buffer.isBuffer(error?.stderr) ? error.stderr.toString('utf8') : typeof error?.stderr === 'string' ? error.stderr : '';
+  if (/No such (?:object|container):/i.test(text)) return 'OBJECT_METADATA_UNAVAILABLE';
+  if (text.includes('index of untyped nil')) return 'TEMPLATE_INDEX_UNAVAILABLE';
+  if (text.includes("can't evaluate field")) return 'TEMPLATE_FIELD_UNAVAILABLE';
+  if (/permission denied/i.test(text)) return 'METADATA_ACCESS_DENIED';
+  if (text.includes('Cannot connect to the Docker daemon')) return 'DOCKER_DAEMON_UNAVAILABLE';
+  return 'COMMAND_FAILURE_UNCLASSIFIED';
+}
+
 /** Fixed read-only command allowlist, including the exact inspect projections.
  * stdout/stderr are never forwarded on failure. No shell or credential argv. */
 export function readonlyTopologyCommand(binary, args, { timeoutMs = 10000 } = {}) {
@@ -60,7 +74,7 @@ export function readonlyTopologyCommand(binary, args, { timeoutMs = 10000 } = {}
   try {
     return execFileSync(binary, args, { encoding: 'utf8', timeout: timeoutMs, maxBuffer: 2 * 1024 * 1024,
       env: TOPOLOGY_COMMAND_ENV, stdio: ['ignore', 'pipe', 'pipe'] }).trim();
-  } catch { throw new Error('TOPOLOGY_HOLD=READONLY_METADATA_UNAVAILABLE'); }
+  } catch (error) { throw new Error('TOPOLOGY_HOLD=READONLY_METADATA_UNAVAILABLE_' + classifyReadonlyMetadataFailure(error)); }
 }
 function executableClass(exe) {
   const name = path.basename(exe);
@@ -149,7 +163,10 @@ async function dockerTopology(io) {
         networkMode: ['host', 'none', 'bridge', 'default'].includes(networkMode) ? networkMode.toUpperCase() : 'NAMED_OR_SHARED_UNVERIFIED', pidMode: modeClass(pidMode), ipcMode: modeClass(ipcMode),
         ports: portMappings(ports), networks: object(networks) ? Object.values(networks).map(n => ID.test(n?.NetworkID) ? { id: n.NetworkID, endpointId: ID.test(n.EndpointID) ? n.EndpointID : 'UNVERIFIED' } : unknown('NETWORK_ATTACHMENT_METADATA')) : [unknown('NETWORK_ATTACHMENT_METADATA')],
         mounts: Array.isArray(mounts) ? mounts.map(mountClass) : [unknown('MOUNT_METADATA')] });
-    } catch { containers.push({ id, ...unknown(failure) }); }
+    } catch (error) {
+      const code = /^TOPOLOGY_HOLD=READONLY_METADATA_UNAVAILABLE_([A-Z_]+)$/.exec(error?.message || '')?.[1];
+      containers.push({ id, ...unknown(failure), ...(failure === 'CONTAINER_INSPECT_COMMAND_UNAVAILABLE' ? { commandFailure: COMMAND_FAILURES.has(code) ? code : 'COMMAND_FAILURE_UNCLASSIFIED' } : {}) });
+    }
   }
   const networks = [];
   try {
