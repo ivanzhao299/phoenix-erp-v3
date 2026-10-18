@@ -1,3 +1,6 @@
+// Production executable currently returns BACKGROUND_CLI_PARTICIPANT_NOT_REGISTERED.
+// Core below is exercised only through the explicit owned CI harness; durable
+// standalone-CLI journal/participant governance remains future engineering.
 // R4.2d production prepare: the controlled root workflow's register + probe
 // + SYNCING-begin + handover, executed INSIDE the deployed API container —
 // /app/dist and /app/node_modules are the DEPLOYED revision's compiled
@@ -14,12 +17,17 @@
 //   host persists the handover JSON into the approved state directory.
 import fs from 'node:fs';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { pathToFileURL, fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 
 // Deploy layout (production): /app/dist + /app/node_modules. The isolated
 // acceptance stages the SAME layout shape via R42D_DIST_ROOT/R42D_MODULES —
 // the reviewed code path is identical either way.
+// Independent production CLI participants are not integrated into the durable
+// root task inventory yet. FD9 alone cannot establish crash-safe drain proof.
+// The executable entry deliberately remains HOLD with zero DB/provider work.
+export async function runProductionPrepareCore({ createBackground } = {}) {
+  if (typeof createBackground !== 'function') throw Error('BACKGROUND_CLI_PARTICIPANT_NOT_REGISTERED');
 const canonicalJson = (value) => {
   if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`;
   if (value && typeof value === 'object') {
@@ -36,11 +44,9 @@ const { ChanjetExecutionHttpGateway } = await import(pathToFileURL(path.join(dis
 const scopeModule = await import(pathToFileURL(path.join(distRoot, 'modules/chanjet/chanjet-execution-scope.js')).href);
 const { ChanjetAuthService } = await import(pathToFileURL(path.join(distRoot, 'modules/chanjet/chanjet-auth.service.js')).href);
 const { DataSource } = entryRequire(path.join(modulesRoot, 'typeorm/index.js'));
-const { Client } = entryRequire(path.join(modulesRoot, 'pg'));
 
 const fail = (reason, extra = {}) => {
-  console.log(`PREPARE=HOLD;${JSON.stringify({ reason, ...extra })}`);
-  process.exit(4);
+  throw Object.assign(new Error(reason), { prepareDetails: extra });
 };
 
 const manifest = JSON.parse(process.env.R42D_MANIFEST || 'null');
@@ -51,7 +57,6 @@ if (!manifest || typeof manifest !== 'object' || manifest.version !== 1
 if (!/^[a-f0-9]{40}$/.test(expectedFloorSha) || manifest.approval.floorSha !== expectedFloorSha) fail('FLOOR_SHA_MISMATCH', { executionId: manifest.executionId });
 if (!stateDir) fail('STATE_REQUIRED');
 
-await (async () => {
   const dataSource = new DataSource({
     type: 'postgres',
     host: process.env.DB_HOST || '127.0.0.1',
@@ -62,6 +67,10 @@ await (async () => {
     logging: false,
   });
   await dataSource.initialize();
+  let background;
+  let handoverReceipt;
+  try {
+    background = await createBackground(dataSource);
   // R4.2d: 登记与 provider HTTP 之前的来源核验 —— 真实 VERIFY 运行元组
   // （容器自身配置）、当前审批（规范 JSON 逐字段）、映射对、exact-SHA floor
   const distPolicy = await import(pathToFileURL(path.join(distRoot, 'modules/chanjet/chanjet-readonly-policy.js')).href);
@@ -113,6 +122,7 @@ await (async () => {
       },
     },
     { ok: async () => {}, fail: async () => {} },
+    background,
   );
   // R4.2d: 生产使用真实持久鉴权状态 —— appTicket/certificate/tokens 来自
   // sys_chanjet_state（容器自身数据库配置的真实持久状态），禁止 SYNTHETIC_TICKET。
@@ -153,9 +163,16 @@ await (async () => {
   const tmp = `${handoverFile}.tmp`;
   fs.writeFileSync(tmp, JSON.stringify(handover));
   fs.renameSync(tmp, handoverFile);
-  console.log(`PREPARE=PASS;${JSON.stringify({ version: 1, target: expectedFloorSha, executionId: manifest.executionId, leaseId: syncLease, deadlineAt: deadlineAt.toISOString(), approvalId: manifest.approval.approvalId, floorSha: expectedFloorSha })}`);
-  await dataSource.destroy().catch(() => undefined);
-  process.exit(0);
-})().catch(async (error) => {
-  fail(String(error?.message || error).replace(/[^\x20-\x7e]/g, ' ').slice(0, 160));
-});
+  handoverReceipt = { version: 1, target: expectedFloorSha, executionId: manifest.executionId, leaseId: syncLease, deadlineAt: deadlineAt.toISOString(), approvalId: manifest.approval.approvalId, floorSha: expectedFloorSha };
+  } finally {
+    try { await background?.shutdown(); }
+    finally { await dataSource.destroy(); }
+  }
+  console.log(`PREPARE=PASS;${JSON.stringify(handoverReceipt)}`);
+  return handoverReceipt;
+}
+
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  console.log('PREPARE=HOLD;{"reason":"BACKGROUND_CLI_PARTICIPANT_NOT_REGISTERED"}');
+  process.exitCode = 4;
+}

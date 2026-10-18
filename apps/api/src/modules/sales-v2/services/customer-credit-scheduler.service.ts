@@ -1,3 +1,4 @@
+import { BackgroundTaskService } from '../../background-control/background-task.service';
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { InjectDataSource } from '@nestjs/typeorm';
@@ -26,30 +27,33 @@ export class CustomerCreditSchedulerService {
     private readonly creditService: CustomerCreditService,
     private readonly cronMon: CronMonitorService,
     private readonly recipients: ScopedNotificationRecipientService,
+    private readonly backgroundTasks: BackgroundTaskService,
   ) {}
 
   @Cron('0 0 2 * * *', { name: 'credit_daily_refresh', timeZone: 'Asia/Vientiane' })
   async runDailyCreditRefresh() {
-    // 防并发 Advisory Lock
-    const lockRows = await this.ds.query(
-      `SELECT pg_try_advisory_lock(hashtext('credit_scheduler')) AS acquired`,
-    );
-    if (!lockRows[0]?.acquired) {
-      this.logger.log('[CreditScheduler] 其他实例正在运行，跳过本次');
-      return;
-    }
+    await this.backgroundTasks.runScheduled('sales.credit.daily', 'LOCAL', async () => {
+      // 防并发 Advisory Lock
+      const lockRows = await this.ds.query(
+        `SELECT pg_try_advisory_lock(hashtext('credit_scheduler')) AS acquired`,
+      );
+      if (!lockRows[0]?.acquired) {
+        this.logger.log('[CreditScheduler] 其他实例正在运行，跳过本次');
+        return;
+      }
 
-    try {
-      await this.doRefresh();
-      await this.cronMon.ok('credit_daily_refresh');
-    } catch (e: any) {
-      this.logger.error(`[CreditScheduler] 执行失败: ${e?.message ?? String(e)}`);
-      await this.cronMon.fail('credit_daily_refresh', e?.message ?? String(e));
-    } finally {
-      await this.ds.query(
-        `SELECT pg_advisory_unlock(hashtext('credit_scheduler'))`,
-      ).catch(() => {});
-    }
+      try {
+        await this.doRefresh();
+        await this.cronMon.ok('credit_daily_refresh');
+      } catch (e: any) {
+        this.logger.error(`[CreditScheduler] 执行失败: ${e?.message ?? String(e)}`);
+        await this.cronMon.fail('credit_daily_refresh', e?.message ?? String(e));
+      } finally {
+        await this.ds.query(
+          `SELECT pg_advisory_unlock(hashtext('credit_scheduler'))`,
+        ).catch(() => {});
+      }
+    });
   }
 
   /**
@@ -63,9 +67,11 @@ export class CustomerCreditSchedulerService {
     overLimit: number;
     durationMs: number;
   }> {
-    const t0 = Date.now();
-    const result = await this.doRefresh();
-    return { ...result, durationMs: Date.now() - t0 };
+    return this.backgroundTasks.run('sales.credit.manual', 'LOCAL', async () => {
+      const t0 = Date.now();
+      const result = await this.doRefresh();
+      return { ...result, durationMs: Date.now() - t0 };
+    });
   }
 
   // ── 内部执行 ──────────────────────────────────────────────────────────────

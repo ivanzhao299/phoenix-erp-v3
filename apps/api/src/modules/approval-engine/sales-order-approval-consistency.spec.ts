@@ -13,7 +13,7 @@ function makeService(overrides: Record<string, unknown> = {}) {
     { transaction: jest.fn() } as any,
     { get: jest.fn() } as any,
     registry as any,
-    {} as any, {} as any,
+    {} as any, {} as any, { spawn: jest.fn() } as any,
   );
 }
 

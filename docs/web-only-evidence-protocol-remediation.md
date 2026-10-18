@@ -77,3 +77,29 @@ Observed through the same v3 evidence verifier:
 The result is **1/1 real Docker E2E PASS, zero skips**, archived in `real-next-web-e2e.log` and the `web-evidence-e2e-3080c12d-4a95-4362-853c-b4bee255a7f0/` receipt directory. Containers and images remain preserved in the resource manifest for root-agent cleanup. No production operation, publish, PR, commit or push was executed. The first direct build stamped this worktree's tracked `apps/web/public/sw.js`; that generated file is explicitly excluded from source integration.
 
 At the root agent's explicit direction, `scripts/ops/chanjet-readonly-production-chain.sh` was appended to `criticalFiles`. This reinforces the audit verifier staging contract and requires a fresh final floor target during integration.
+
+## Controlled dependency integration checkpoint (2026-10-18)
+
+The Web branch now includes the reviewed Cron foundation `9f1d7f37` and legacy
+maintenance foundation `e16f1256`. Five textual conflicts were resolved using
+the independently reviewed local combination `ef2468d4`, retaining both test
+lists, owned PostgreSQL admission, the exact 94-file critical closure, typed
+maintenance cores and mode-aware evidence. Seven compatibility files bind
+maintenance records and the coordinator to v3/API and preserve final live
+reinspection after asynchronous authority. Historical unbound API v2 remains
+strictly separate; no Web/full downgrade is accepted.
+
+Before this documentation update the full index tree exactly matched that
+reviewed combination (`e64c5198b6f1bc98312e10cbbd51040fc7bb82cf`). The tracked
+generated `apps/web/public/sw.js` working change was preserved and excluded.
+This is a stacked feature branch, not a merge of the isolated integration branch
+to main. Planned main integration remains Cron, maintenance, then Web, with
+main CI and exact merge-tree compatibility checked after each merge.
+
+The project owner has explicitly delegated code review and merge to Codex
+without requiring a third-party reviewer. Reviews are recorded as COMMENT,
+never fabricated GitHub APPROVE. Existing workflow gates remain enforced.
+Production identity, old-runtime reconciliation, exact floor authority and
+separate Web release permission remain separate; no production operation is
+claimed or authorized by this source checkpoint. Fresh tests/official CI must
+bind the resulting Web HEAD before integration.

@@ -11,6 +11,7 @@ concurrency:
 
 env:
   NODE_ENV: test
+  APP_ENV: test
   E2E_DB: "1"
   ENABLE_DEV_LOGIN: "true"
   DB_HOST: 127.0.0.1
@@ -48,7 +49,7 @@ jobs:
           POSTGRES_PASSWORD: phoenix_v3_pass
           POSTGRES_DB: phoenix_erp
         ports:
-          - 5432:5432
+          - 127.0.0.1:5432:5432
         options: >-
           --health-cmd "pg_isready -U phoenix_v3 -d phoenix_erp"
           --health-interval 5s --health-timeout 5s --health-retries 20
@@ -84,20 +85,14 @@ jobs:
       - name: Build Web
         run: pnpm --filter web build
 
-      - name: Start API
+      - name: Start API with protected disposable background fixture
         working-directory: apps/api
+        env:
+          PORT: "3100"
+          BACKGROUND_FIXTURE_POSTGRES_ID: ${{ job.services.postgres.id }}
         run: |
-          nohup node dist/main > "$RUNNER_TEMP/api.log" 2>&1 &
-          echo $! > "$RUNNER_TEMP/api.pid"
-          for i in $(seq 1 90); do
-            if curl -fsS http://127.0.0.1:3100/api/health >/dev/null; then
-              echo "API ready after ${i}s"
-              exit 0
-            fi
-            sleep 1
-          done
-          tail -100 "$RUNNER_TEMP/api.log"
-          exit 1
+          node --test ../../scripts/ci/background-control-api-fixture.test.mjs ../../scripts/ci/background-control-api-network-fixture.test.mjs
+          bash ../../scripts/ci/background-control-api-fixture.sh start
 
       - name: Seed disposable E2E fixture
         run: bash scripts/seed-e2e-replenishment-fixture.sh "$RUNNER_TEMP/replenishment-fixture.json"
@@ -117,7 +112,7 @@ jobs:
 
       - name: Start Web
         run: |
-          nohup pnpm --filter web start > "$RUNNER_TEMP/web.log" 2>&1 &
+          nohup pnpm --filter web start --hostname 127.0.0.1 > "$RUNNER_TEMP/web.log" 2>&1 &
           echo $! > "$RUNNER_TEMP/web.pid"
           for i in $(seq 1 90); do
             if curl -fsS http://127.0.0.1:3000/ >/dev/null; then
@@ -145,3 +140,9 @@ jobs:
             apps/web/playwright-report
             ${{ runner.temp }}/api.log
             ${{ runner.temp }}/web.log
+
+      - name: Close owned background API fixture
+        if: always()
+        env:
+          BACKGROUND_FIXTURE_POSTGRES_ID: ${{ job.services.postgres.id }}
+        run: bash scripts/ci/background-control-api-fixture.sh cleanup

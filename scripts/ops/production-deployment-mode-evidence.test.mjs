@@ -9,6 +9,7 @@ import { pathToFileURL } from 'node:url';
 import { MODE_EVIDENCE_SCHEMA, compareSnapshots, verifyEvidenceFiles, verifyLiveSnapshot, summarizeStartupLogs, startupBundle } from './production-deployment-evidence.mjs';
 import * as verifier from './production-deployment-evidence.mjs';
 import { deploymentMode, beginState } from './production-deployment-state.mjs';
+import { completedDeploymentEvidenceBinding } from './background-control-coordinator.mjs';
 import { readFormalDeploymentEvidence } from './chanjet-readonly-production-audit.mjs';
 const target = 'a'.repeat(40), previous = 'b'.repeat(40);
 const image = c => `sha256:${c.repeat(64)}`;
@@ -199,4 +200,26 @@ test('new standalone auditor carries its reviewed verifier beside actual old ins
       });
     }
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+// The coordinator independently enforces the record's evidence generation;
+// it cannot infer an old contract merely from receipts supplied at OPEN.
+test('coordinator requires v3 API evidence for a mode-bound successful deployment', () => {
+  const f = fixture('api');
+  const expected = completedDeploymentEvidenceBinding({ deployMode: 'api' }, { owner: '123-1', targetSha: target });
+  assert.equal(expected.evidenceSchema, MODE_EVIDENCE_SCHEMA);
+  withFiles(f, files => assert.equal(verifyEvidenceFiles(files.pre, files.post, files.log, expected).deployMode, 'api'));
+  const downgraded = clone(f);
+  for (const receipt of [downgraded.pre, downgraded.post, downgraded.log]) { receipt.schema = 'phoenix.production-deployment-evidence/v2'; delete receipt.deployMode; }
+  withFiles(downgraded, files => assert.throws(() => verifyEvidenceFiles(files.pre, files.post, files.log, expected), /MODE_BINDING/));
+});
+test('coordinator refuses non-API and missing typed-legacy mode records', () => {
+  for (const state of [{ deployMode: 'web' }, { deployMode: 'full' }, { deployMode: undefined }, { deployMode: null }, { maintenance: {} }]) {
+    assert.throws(() => completedDeploymentEvidenceBinding(state, { owner: '123-1', targetSha: target }), /DEPLOY_SUCCESS_MODE_BINDING/);
+  }
+});
+test('coordinator preserves only genuinely unbound historical API evidence', () => {
+  const expected = completedDeploymentEvidenceBinding({}, { owner: '123-1', targetSha: target });
+  assert.equal(expected.deployMode, 'api'); assert.equal(expected.evidenceSchema, 'phoenix.production-deployment-evidence/v2');
+  assert.equal(expected.runId, '123-1'); assert.equal(expected.targetSha, target);
 });

@@ -1,3 +1,4 @@
+import { chanjetBackgroundFixture } from './chanjet-background.test-fixture';
 import {
   ChanjetAuthService,
   getChanjetBusinessFailure,
@@ -10,6 +11,7 @@ function createService(options: {
   persistedCertificate?: string | null;
   persistedTokens?: Record<string, { openToken: string; expiresAt: number }> | null;
   budgetQuery?: jest.Mock;
+  background?: ReturnType<typeof chanjetBackgroundFixture>;
 } = {}) {
   const stateRepo = {
     findOneBy: jest.fn().mockResolvedValue({
@@ -34,11 +36,7 @@ function createService(options: {
     CHANJET_MSG_SECRET: '',
     CHANJET_CERT: options.envCertificate ?? '',
   };
-  const service = new ChanjetAuthService(
-    { get: jest.fn((key: string, fallback = '') => values[key] ?? fallback) } as never,
-    stateRepo as never,
-    { ok: jest.fn(), fail: jest.fn() } as never,
-  );
+  const service = new ChanjetAuthService({ get: jest.fn((key: string, fallback = '') => values[key] ?? fallback) } as never, stateRepo as never, { ok: jest.fn(), fail: jest.fn() } as never, (options.background ?? chanjetBackgroundFixture()).service);
   return { service, stateRepo };
 }
 
@@ -216,5 +214,95 @@ describe('Chanjet authorization lifecycle', () => {
       dailyReadBudget: 620,
       dailyWriteBudget: 20,
     });
+  });
+});
+
+
+describe('Chanjet background admission', () => {
+  afterEach(() => jest.restoreAllMocks());
+
+  it('fenced startup suppresses auth bootstrap even when sync flags alone would not stop authentication', async () => {
+    const background = chanjetBackgroundFixture(['CHANJET_AUTH', 'CHANJET_SYNC']);
+    const { service, stateRepo } = createService({ background });
+    stateRepo.findOneBy.mockResolvedValue(null as never);
+    const send = jest.spyOn(global, 'fetch').mockRejectedValue(new Error('unexpected provider send'));
+    await service.onModuleInit();
+    await background.settle();
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    expect(send).not.toHaveBeenCalled();
+    expect(background.calls).toContainEqual({ name: 'chanjet-auth-bootstrap', kind: 'CHANJET_AUTH' });
+  });
+
+  it('direct manual auth and business calls refuse before provider, budget, cache, or persistence work', async () => {
+    const background = chanjetBackgroundFixture(['CHANJET_AUTH', 'CHANJET_SYNC']);
+    const { service, stateRepo } = createService({ background });
+    const send = jest.spyOn(global, 'fetch').mockRejectedValue(new Error('unexpected provider send'));
+    const budget = jest.spyOn(service as never, 'reserveTrafficBudget' as never);
+    await expect(service.triggerAppTicket()).rejects.toThrow('BACKGROUND_ADMISSION_DENIED');
+    await expect(service.fetchCertificateByAuthCode('synthetic-code')).rejects.toThrow('BACKGROUND_ADMISSION_DENIED');
+    await expect(service.getOpenToken()).rejects.toThrow('BACKGROUND_ADMISSION_DENIED');
+    await expect(service.callApi('/accounting/gl/statistics/receive')).rejects.toThrow('BACKGROUND_ADMISSION_DENIED');
+    expect(send).not.toHaveBeenCalled();
+    expect(budget).not.toHaveBeenCalled();
+    expect(stateRepo.save).not.toHaveBeenCalled();
+  });
+
+  it('fenced token and health Cron skip provider calls and keep the token cache intact', async () => {
+    const background = chanjetBackgroundFixture(['CHANJET_AUTH']);
+    const { service } = createService({ background });
+    await service.onModuleInit();
+    const token = jest.spyOn(service, 'getOpenToken');
+    const health = jest.spyOn(service, 'listAccountBooks');
+    await service.cronRefreshToken();
+    await service.cronHealthCheck();
+    expect(token).not.toHaveBeenCalled();
+    expect(health).not.toHaveBeenCalled();
+  });
+
+  it('tracks callback persistence until its write has settled without changing callback memory semantics', async () => {
+    const background = chanjetBackgroundFixture();
+    const { service, stateRepo } = createService({ background });
+    let finish!: () => void;
+    stateRepo.save.mockImplementation(() => new Promise<void>((resolve) => { finish = resolve; }));
+    service.setAppTicket('synthetic-ticket');
+    expect(service.getAppTicket()).toBe('synthetic-ticket');
+    expect(background.pending.size).toBe(1);
+    finish();
+    await background.settle();
+    expect(background.pending.size).toBe(0);
+  });
+});
+
+describe('Chanjet deadline continuation drain coverage', () => {
+  it('retains a timed-out budget acquisition until the transaction settles and refuses its late SQL', async () => {
+    const background = chanjetBackgroundFixture();
+    const { service, stateRepo } = createService({ background });
+    let release!: () => void;
+    const poolWait = new Promise<void>((resolve) => { release = resolve; });
+    const query = jest.fn();
+    Object.assign(stateRepo, { manager: { transaction: async (work: (tx: { query: jest.Mock }) => Promise<unknown>) => {
+      await poolWait;
+      return work({ query });
+    } } });
+    await expect(service['reserveTrafficBudget']('READ', '/synthetic', new Date(Date.now() + 15))).rejects.toThrow('CHANJET_EXECUTION_DEADLINE');
+    expect(background.pending.size).toBe(1);
+    expect(query).not.toHaveBeenCalled();
+    release();
+    await background.settle();
+    expect(query).not.toHaveBeenCalled();
+    expect(background.pending.size).toBe(0);
+  });
+
+  it('retains an abandoned FIFO traffic slot through its predecessor and timer settlement', async () => {
+    const background = chanjetBackgroundFixture();
+    const { service } = createService({ background });
+    let release!: () => void;
+    service['trafficQueue'] = new Promise<void>((resolve) => { release = resolve; });
+    await expect(service['waitForTrafficSlot'](new Date(Date.now() + 15))).rejects.toThrow('CHANJET_EXECUTION_DEADLINE');
+    expect(background.pending.size).toBe(1);
+    release();
+    await background.settle();
+    expect(background.pending.size).toBe(0);
+    await expect(service['trafficQueue']).resolves.toBeUndefined();
   });
 });

@@ -5,8 +5,9 @@ import os from 'node:os';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import { spawnSync } from 'node:child_process';
-import { classifySql, capturedStatements, capturedDatabaseStatements, sliceCapturedWindow, verifyBootstrap } from './api-bootstrap-mutations.mjs';
+import { classifySql, capturedStatements, capturedDatabaseStatements, sliceCapturedWindow, verifyBootstrap, assertDefaultBackgroundHold, parseBootControlIdentity, verifyCapturedControlIdentity, summarizeBootstrapRuntime } from './api-bootstrap-mutations.mjs';
 const { auditBootstrap }=createRequire(import.meta.url)('./check-api-bootstrap-side-effects.cjs');
+const ts=createRequire(import.meta.url)('../../apps/api/node_modules/typescript');
 
 test('SQL detector rejects attempted DDL, business writes and sequence changes even when idempotent',()=>{
  for(const sql of ['CREATE TABLE IF NOT EXISTS t(id int)','ALTER TABLE t ADD COLUMN IF NOT EXISTS x text','DROP CONSTRAINT IF EXISTS f','CREATE EXTENSION IF NOT EXISTS "uuid-ossp"'])assert.equal(classifySql(sql),'SCHEMA_MUTATION');
@@ -14,6 +15,8 @@ test('SQL detector rejects attempted DDL, business writes and sequence changes e
  for(const sql of ["SELECT setval('t_seq',1)","SELECT nextval('t_seq')"])assert.equal(classifySql(sql),'SEQUENCE_MUTATION');
  assert.equal(classifySql('SELECT unreviewed_custom_function()'),'UNKNOWN_EXECUTABLE_SQL');
  assert.equal(classifySql('SELECT * FROM t WHERE ((id=$1))'),'READ');
+ assert.equal(classifySql('SELECT 1; SELECT 2'),'UNKNOWN_SQL');
+ assert.equal(classifySql("SELECT 'literal; harmless'"),'READ');
 });
 
 test('capture handles multi-line server statements and excludes other process SQL',()=>{
@@ -65,4 +68,369 @@ test('legacy regression schema fixture refuses production or remote context and 
  const sql=fs.readFileSync('scripts/ci/api-bootstrap-schema-fixture.sql','utf8').replace(/--[^\n]*/g,'');
  assert.doesNotMatch(sql,/\b(?:INSERT|UPDATE|DELETE|TRUNCATE|setval|nextval|ALTER|DROP)\b/i);
  assert(!fs.readFileSync('apps/api/src/app.module.ts','utf8').includes('schema-fixture'));
+});
+
+function admissionStaticFixture() {
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'bootstrap-admission-static-'));
+ const write=(file,text)=>{fs.mkdirSync(path.dirname(path.join(dir,file)),{recursive:true});fs.writeFileSync(path.join(dir,file),text);};
+ write('apps/api/src/app.module.ts','const config={synchronize:false,migrationsRun:false,installExtensions:false};');
+ write('apps/api/src/database/data-source.ts','const config={synchronize:false,migrationsRun:false};');
+ write('apps/api/src/modules/generic-crud/generic-crud.service.ts','export class EmptyGeneric {}');
+ write('apps/api/src/modules/master/master.controller.ts','export class EmptyMaster {}');
+ const base='apps/api/src/modules/background-control/';
+ write(base+'background-control.types.ts','export const BACKGROUND_NAMESPACE=17455; export const BACKGROUND_ADMISSION_KEY=1; export const BACKGROUND_EXECUTION_KEY=2;');
+ const backend=`import { BACKGROUND_NAMESPACE, BACKGROUND_ADMISSION_KEY, BACKGROUND_EXECUTION_KEY } from './background-control.types';
+ export class BackgroundLockBackend {
+  private async query(sql:string,key:number) { return this.runner.query(sql,[BACKGROUND_NAMESPACE,key]); }
+  probe() { return this.query('SELECT pg_backend_pid() AS pid, $1::int AS namespace, $2::int AS session_probe',0); }
+  gateEnter() { return this.query('SELECT pg_try_advisory_lock_shared($1::int, $2::int) AS acquired',BACKGROUND_ADMISSION_KEY); }
+  executionExit() { return this.query('SELECT pg_advisory_unlock_shared($1::int, $2::int)',BACKGROUND_EXECUTION_KEY); }
+ }`;
+ const task=`export class BackgroundTaskService {
+  constructor(private backend:BackgroundLockBackend) {}
+  onModuleInit() { return this.backend.probe(); }
+  run(name:string,kind:string,work:any) { return work(); }
+ }`;
+ const auth=`export class ChanjetAuthService {
+  constructor(private background:BackgroundTaskService) {}
+  onModuleInit() { return this.triggerAppTicket(); }
+  async triggerAppTicket() { return this.background.run('chanjet-triggerAppTicket','CHANJET_AUTH',()=>this.triggerAppTicketAdmitted()); }
+  private async triggerAppTicketAdmitted() {
+   const url='https://openapi.chanjet.com/auth/appTicket/resend';
+   return fetch(url,{method:'POST',redirect:'manual'});
+  }
+ }`;
+ write(base+'background-lock.backend.ts',backend);write(base+'background-task.service.ts',task);
+ const authFile='apps/api/src/modules/chanjet/chanjet-auth.service.ts';write(authFile,auth);
+ return {dir,write,backend,task,auth,base,authFile,close:()=>fs.rmSync(dir,{recursive:true,force:true})};
+}
+
+test('startup control SQL forwarding requires fixed SELECT call sites, namespace and exact parameters',()=>{
+ const f=admissionStaticFixture();
+ try {
+  assert.deepEqual(auditBootstrap(f.dir).violations,[]);
+  const mutations=[
+   f.backend.replace("this.query('SELECT pg_backend_pid() AS pid, $1::int AS namespace, $2::int AS session_probe',0)","this.query(process.env.SQL,0)"),
+   f.backend.replace('SELECT pg_backend_pid() AS pid, $1::int AS namespace, $2::int AS session_probe','UPDATE control SET phase=1'),
+   f.backend.replace('SELECT pg_backend_pid() AS pid, $1::int AS namespace, $2::int AS session_probe','SELECT unreviewed_function()'),
+   f.backend.replace('[BACKGROUND_NAMESPACE,key]','[999,key]'),
+   f.backend.replace('return this.runner.query','sql=process.env.SQL; return this.runner.query'),
+   f.backend.replace('  probe()',"  escaped() { return this.query; }\n  probe()"),
+   f.backend.replace('  probe()',"  field=this.query(process.env.SQL,0);\n  probe()"),
+   f.backend.replace('  probe()',"  hidden() { return this.query('DELETE FROM control',0); }\n  probe()"),
+  ];
+  for(const source of mutations) {
+   f.write(f.base+'background-lock.backend.ts',source);
+   const report=auditBootstrap(f.dir);
+   assert(report.violations.some(v=>v.code==='UNREVIEWED_BACKGROUND_CONTROL_SQL'),source);
+  }
+  f.write(f.base+'background-lock.backend.ts',f.backend);
+  f.write(f.base+'background-control.types.ts','export const BACKGROUND_NAMESPACE=12; export const BACKGROUND_ADMISSION_KEY=1; export const BACKGROUND_EXECUTION_KEY=2;');
+  assert(auditBootstrap(f.dir).violations.some(v=>v.reason==='CONTROL_NAMESPACE_OR_KEYS_CHANGED'));
+ } finally {f.close();}
+});
+
+test('resend helper requires the sole exact public CHANJET_AUTH admission and rejects unguarded calls anywhere',()=>{
+ const f=admissionStaticFixture();
+ try {
+  assert.deepEqual(auditBootstrap(f.dir).violations,[]);
+  const mutations=[
+   f.auth.replace("'CHANJET_AUTH'","'LOCAL'"),
+   f.auth.replace("'CHANJET_AUTH'",'dynamicKind'),
+   f.auth.replace("this.background.run('chanjet-triggerAppTicket','CHANJET_AUTH',()=>this.triggerAppTicketAdmitted())",'this.triggerAppTicketAdmitted()'),
+   f.auth.replace('  private async triggerAppTicketAdmitted()', '  ignoredButDangerous() { return this.triggerAppTicketAdmitted(); }\n  private async triggerAppTicketAdmitted()'),
+   f.auth.replace('  private async triggerAppTicketAdmitted()', "  ignoredButDangerous() { return this['triggerAppTicketAdmitted'](); }\n  private async triggerAppTicketAdmitted()"),
+   f.auth.replace('  private async triggerAppTicketAdmitted()', '  ignoredButDangerous() { return this.triggerAppTicketAdmitted; }\n  private async triggerAppTicketAdmitted()'),
+   f.auth.replace('private async triggerAppTicketAdmitted()', 'async triggerAppTicketAdmitted()'),
+   f.auth.replace('async triggerAppTicket()','private async triggerAppTicket()'),
+  ];
+  for(const source of mutations) {
+   f.write(f.authFile,source);
+   assert(auditBootstrap(f.dir).violations.some(v=>v.code==='UNGUARDED_STARTUP_REMOTE_HELPER'),source);
+  }
+ } finally {f.close();}
+});
+
+test('admitted resend retains literal endpoint, POST and manual redirect restrictions',()=>{
+ const f=admissionStaticFixture();
+ try {
+  for(const source of [
+   f.auth.replace('https://openapi.chanjet.com/auth/appTicket/resend','https://unreviewed.invalid/resend'),
+   f.auth.replace("method:'POST'","method:'GET'"),
+   f.auth.replace("method:'POST'",'method:process.env.METHOD'),
+   f.auth.replace("redirect:'manual'","redirect:'follow'"),
+   f.auth.replace("redirect:'manual'",'redirect:process.env.REDIRECT'),
+   f.auth.replace("redirect:'manual'","redirect:'manual',...unreviewedOptions"),
+   f.auth.replace("redirect:'manual'","redirect:'manual',redirect:'follow'"),
+   f.auth.replace("method:'POST'","method:'POST',method:'GET'"),
+   f.auth.replace("const url='https://openapi.chanjet.com/auth/appTicket/resend'",'const url=process.env.URL'),
+  ]) {
+   f.write(f.authFile,source);
+   assert(auditBootstrap(f.dir).violations.some(v=>v.code==='UNREVIEWED_STARTUP_REMOTE_CALL'),source);
+  }
+ } finally {f.close();}
+});
+
+
+test('control-session classification requires exact statement and captured namespace/key bindings',()=>{
+ const probe='SELECT pg_backend_pid() AS pid, $1::int AS namespace, $2::int AS session_probe';
+ const lock='SELECT pg_try_advisory_lock_shared($1::int, $2::int) AS acquired';
+ const unlock='SELECT pg_advisory_unlock_shared($1::int, $2::int) AS released';
+ assert.equal(classifySql('SELECT 1'),'READ');
+ assert.equal(classifySql(probe,['17455','0']),'CONTROL_SESSION');
+ assert.equal(classifySql(lock,['17455','1']),'CONTROL_SESSION');
+ assert.equal(classifySql(unlock,['17455','2']),'CONTROL_SESSION');
+ for(const [sql,params] of [[probe,undefined],[probe,['17455','1']],[probe,['17456','0']],[lock,['17455','0']],[lock,['17455','3']],['SELECT pg_backend_pid()',[]],['SELECT pg_advisory_lock(17455,1)',[]],['SELECT unreviewed_function()', ['17455','0']]])
+  assert.equal(classifySql(sql,params),'UNKNOWN_EXECUTABLE_SQL');
+ assert.equal(classifySql(probe+'; UPDATE t SET x=1',['17455','0']),'BUSINESS_DATA_MUTATION');
+ assert.equal(classifySql(probe+'; ALTER TABLE t ADD x int',['17455','0']),'SCHEMA_MUTATION');
+});
+
+test('server capture associates only numeric control DETAIL with the exact app/pid and never stores other parameters',()=>{
+ const prefix=pid=>`bootstrap-db=fixture user=runtime app=target pid=${pid} `;
+ const probe='SELECT pg_backend_pid() AS pid, $1::int AS namespace, $2::int AS session_probe';
+ const log=prefix(1)+'LOG: execute <unnamed>: '+probe+'\n'
+  +prefix(2)+'LOG: statement: SELECT business FROM t WHERE id=$1\n'
+  +prefix(1)+"DETAIL: parameters: $1 = '17455', $2 = '0'\n"
+  +prefix(2)+"DETAIL: parameters: $1 = 'sensitive-fixture-must-not-be-retained'\n";
+ const records=capturedDatabaseStatements(log);
+ assert.equal(records.length,2);assert.deepEqual(records[0].controlParameters,['17455','0']);
+ assert.equal(classifySql(records[0].sql,records[0].controlParameters),'CONTROL_SESSION');
+ assert(!JSON.stringify(records).includes('sensitive-fixture'));
+ const mismatch=capturedDatabaseStatements(prefix(1)+'LOG: execute <unnamed>: '+probe+'\n'+prefix(3)+"DETAIL: parameters: $1 = '17455', $2 = '0'\n");
+ assert.equal(classifySql(mismatch[0].sql,mismatch[0].controlParameters),'UNKNOWN_EXECUTABLE_SQL');
+});
+
+test('fixed-key unlock helper rejects dynamic key, escaped reference and key reassignment',()=>{
+ const f=admissionStaticFixture();
+ try {
+  const source=f.backend.replace("executionExit() { return this.query('SELECT pg_advisory_unlock_shared($1::int, $2::int)',BACKGROUND_EXECUTION_KEY); }",`private async unlock(key:number) { return this.query('SELECT pg_advisory_unlock_shared($1::int, $2::int) AS released',key); }
+   executionExit() { return this.unlock(BACKGROUND_EXECUTION_KEY); }`);
+  f.write(f.base+'background-lock.backend.ts',source);assert.deepEqual(auditBootstrap(f.dir).violations,[]);
+  for(const mutation of [source.replace('this.unlock(BACKGROUND_EXECUTION_KEY)','this.unlock(dynamicKey)'),source.replace('this.unlock(BACKGROUND_EXECUTION_KEY)','this.unlock'),source.replace("return this.query('SELECT pg_advisory_unlock_shared", "key=dynamicKey; return this.query('SELECT pg_advisory_unlock_shared")]) {
+   f.write(f.base+'background-lock.backend.ts',mutation);assert(auditBootstrap(f.dir).violations.some(v=>v.code==='UNREVIEWED_BACKGROUND_CONTROL_SQL'));
+  }
+ } finally {f.close();}
+});
+
+test('bootstrap default-HOLD proof requires real stable boot/session identity and healthy quiescent coordinator',()=>{
+ const status={protocolVersion:1,bootId:'12345678-1234-4123-8123-123456789abc',phase:'HOLD',inFlight:0,pendingChildren:0,taskGraphs:0,poisoned:false,stopping:false,controlSession:{connected:true,broken:false,sessionPid:42,databaseOid:100,backendStartedAt:'2026-10-18T00:00:00.000Z',applicationName:'phoenix-fence:12345678-1234-4123-8123-123456789abc'}};
+ const safe=assertDefaultBackgroundHold(status);assert.equal(safe.bootId,status.bootId);
+ assert.deepEqual(assertDefaultBackgroundHold({...status,phase:'FENCED'},safe).controlSession,safe.controlSession);
+ for(const mutation of [{...status,phase:'OPEN'},{...status,bootId:undefined},{...status,inFlight:1},{...status,pendingChildren:1},{...status,taskGraphs:1},{...status,poisoned:true},{...status,controlSession:{connected:false,broken:false,sessionPid:42}},{...status,controlSession:{connected:true,broken:true,sessionPid:42}}])
+  assert.throws(()=>assertDefaultBackgroundHold(mutation),/DEFAULT_HOLD_REQUIRED/);
+ assert.throws(()=>assertDefaultBackgroundHold({...status,bootId:'87654321-1234-4123-8123-123456789abc'},safe),/DEFAULT_HOLD_REQUIRED/);
+ assert.throws(()=>assertDefaultBackgroundHold({...status,controlSession:{...status.controlSession,sessionPid:43}},safe),/DEFAULT_HOLD_REQUIRED/);
+});
+
+
+test('session application_name setter is admitted only from exact UUIDv4 boot binding and fixed GUC',()=>{
+ const f=admissionStaticFixture();
+ try {
+  const binding="private applicationName=''; bindIdentity(bootId:string) { if(this.runner || this.closed || this.broken || !/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(bootId)) throw Error('identity'); this.applicationName = `phoenix-fence:${bootId}`; }";
+  const source=f.backend.replace('  private async query',binding+'\n  private async query').replace('return this.runner.query(sql,',`await this.runner.query("SELECT set_config('application_name', $1, false)",[this.applicationName]); return this.runner.query(sql,`);
+  f.write(f.base+'background-lock.backend.ts',source);assert.deepEqual(auditBootstrap(f.dir).violations,[]);
+  for(const mutation of [source.replace("set_config('application_name'","set_config('role'"),source.replace("$1, false)","$1, true)"),source.replace('[this.applicationName]','[process.env.VALUE]'),source.replace('`phoenix-fence:${bootId}`','process.env.VALUE'),source.replace('this.runner || this.closed || this.broken || !/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(bootId)','false')]) {
+   f.write(f.base+'background-lock.backend.ts',mutation);assert(auditBootstrap(f.dir).violations.some(v=>v.code==='UNREVIEWED_BACKGROUND_CONTROL_SQL'));
+  }
+ } finally {f.close();}
+});
+
+function boundedControlSource(f) {
+ const binding="private applicationName=''; bindIdentity(bootId:string) { if(this.runner || this.closed || this.broken || !/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(bootId)) throw Error('identity'); this.applicationName = `phoenix-fence:${bootId}`; }";
+ const methods=`private observeQuery<T>(work:()=>Promise<T>) { const promise=Promise.resolve().then(work); this.pendingQueries.add(promise); void promise.then(()=>this.pendingQueries.delete(promise),()=>this.pendingQueries.delete(promise)); return promise; }
+  private bounded<T>(promise:Promise<T>, milliseconds:number, code:string) { return promise; }
+  private async query(sql:string,key:number) {
+   await this.bounded(this.observeQuery(()=>this.runner!.query("SELECT set_config('application_name', $1, false)",[this.applicationName])),1000,'identity');
+   return await this.bounded(this.observeQuery(()=>this.runner!.query(sql,[BACKGROUND_NAMESPACE,key])),1000,'query');
+  }`;
+ return f.backend.replace('  private async query(sql:string,key:number) { return this.runner.query(sql,[BACKGROUND_NAMESPACE,key]); }',binding+'\n  '+methods);
+}
+
+test('bounded control callbacks admit only exact lexical owner, non-null receiver and unchanged nonce guard',()=>{
+ const f=admissionStaticFixture();
+ try {
+  const source=boundedControlSource(f);f.write(f.base+'background-lock.backend.ts',source);
+  const report=auditBootstrap(f.dir);assert.deepEqual(report.violations,[]);
+  assert.equal(report.sql.filter(record=>record.kind==='FIXED_SESSION_APPLICATION_NAME').length,1);
+  assert.equal(report.sql.filter(record=>record.kind==='FIXED_CONTROL_SELECT_FORWARDER').length,1);
+  const mutations=[
+   ['missing closed guard',source.replace('this.runner || this.closed || this.broken','this.runner || this.broken')],
+   ['missing both lifecycle guards',source.replace('this.runner || this.closed || this.broken','this.runner')],
+   ['unknown guard order',source.replace('this.closed || this.broken','this.broken || this.closed')],
+   ['foreign receiver',source.replace('this.runner!.query(sql,','this.driver!.query(sql,')],
+   ['receiver cast',source.replace('this.runner!.query(sql,','(this.runner as any).query(sql,')],
+   ['optional receiver',source.replace('this.runner!.query(sql,','this.runner?.query(sql,')],
+   ['receiver reassignment',source.replace('return await this.bounded','this.runner=otherDriver; return await this.bounded')],
+   ['element receiver reassignment',source.replace('return await this.bounded',"this['runner']=otherDriver; return await this.bounded")],
+   ['sql shadow',source.replace('observeQuery(()=>this.runner!.query(sql,','observeQuery((sql)=>this.runner!.query(sql,')],
+   ['key shadow',source.replace('observeQuery(()=>this.runner!.query(sql,','observeQuery((key)=>this.runner!.query(sql,')],
+   ['namespace shadow',source.replace('return await this.bounded','const BACKGROUND_NAMESPACE=999; return await this.bounded')],
+   ['function this shadow',source.replace('()=>this.runner!.query(sql,[BACKGROUND_NAMESPACE,key])','function(){return this.runner!.query(sql,[BACKGROUND_NAMESPACE,key]);}')],
+   ['block callback shadow',source.replace('()=>this.runner!.query(sql,[BACKGROUND_NAMESPACE,key])','()=>{const sql=unreviewed; return this.runner!.query(sql,[BACKGROUND_NAMESPACE,key]);}')],
+   ['other callback owner',source.replace('this.observeQuery(()=>this.runner!.query(sql,','this.unknownObserver(()=>this.runner!.query(sql,')],
+   ['non-private observer',source.replace('private observeQuery<T>','observeQuery<T>')],
+   ['sql escape',source.replace('return await this.bounded','leak(sql); return await this.bounded')],
+   ['key escape',source.replace('return await this.bounded','leak(key); return await this.bounded')],
+   ['dynamic control source',source.replace("this.query('SELECT pg_backend_pid() AS pid, $1::int AS namespace, $2::int AS session_probe',0)",'this.query(process.env.SQL,0)')],
+   ['write control source',source.replace('SELECT pg_backend_pid() AS pid, $1::int AS namespace, $2::int AS session_probe','DELETE FROM control')],
+   ['wrong namespace',source.replace('[BACKGROUND_NAMESPACE,key]','[999,key]')],
+   ['different session GUC',source.replace("set_config('application_name'","set_config('role'")],
+   ['session callback this shadow',source.replace('()=>this.runner!.query("SELECT set_config(\'application_name\', $1, false)",[this.applicationName])','function(){return this.runner!.query("SELECT set_config(\'application_name\', $1, false)",[this.applicationName]);}')],
+   ['session helper escape',source.replace('this.observeQuery(()=>this.runner!.query("SELECT set_config','this.unknownObserver(()=>this.runner!.query("SELECT set_config')],
+   ['duplicate session setter',source.replace('return await this.bounded','await this.observeQuery(()=>this.runner!.query("SELECT set_config(\'application_name\', $1, false)",[this.applicationName])); return await this.bounded')],
+   ['duplicate forwarder',source.replace('return await this.bounded','await this.observeQuery(()=>this.runner!.query(sql,[BACKGROUND_NAMESPACE,key])); return await this.bounded')],
+  ];
+  for(const [name,mutation] of mutations) {
+   assert.notEqual(mutation,source,name);
+   assert.deepEqual(ts.createSourceFile('mutation.ts',mutation,ts.ScriptTarget.Latest,true).parseDiagnostics,[],name);
+   f.write(f.base+'background-lock.backend.ts',mutation);
+   assert(auditBootstrap(f.dir).violations.some(v=>v.code==='UNREVIEWED_BACKGROUND_CONTROL_SQL'),name);
+  }
+ } finally {f.close();}
+});
+
+test('reviewed callback node grants never extend to another class, method or startup mutation',()=>{
+ const f=admissionStaticFixture();
+ try {
+  const source=boundedControlSource(f);f.write(f.base+'background-lock.backend.ts',source);
+  for(const sql of ['DELETE FROM control',"SELECT set_config('role', $1, false)"]) {
+   f.write('apps/api/src/unreviewed-hook.ts',`export class SystemController { onModuleInit(){return this.observeQuery(()=>this.runner!.query(${JSON.stringify(sql)},[]));} private observeQuery(work:any){return work();} }`);
+   const report=auditBootstrap(f.dir);
+   assert(report.violations.some(v=>['STARTUP_SQL_MUTATION','UNREVIEWED_STARTUP_SESSION_SQL'].includes(v.code)));
+  }
+  f.write('apps/api/src/unreviewed-hook.ts','export class EmptyHook {}');
+  f.write(f.base+'background-lock.backend.ts',source.replace('  probe()',"  moved(){return this.observeQuery(()=>this.runner!.query(sql,[BACKGROUND_NAMESPACE,key]));}\n  probe()").replace('this.query(\'SELECT pg_backend_pid() AS pid, $1::int AS namespace, $2::int AS session_probe\',0)','this.moved()'));
+  assert(auditBootstrap(f.dir).violations.some(v=>v.code==='UNRESOLVED_STARTUP_SQL'));
+ } finally {f.close();}
+});
+
+test('runtime session identity SQL requires captured public UUID nonce and never permits other set_config',()=>{
+ const statement="SELECT set_config('application_name', $1, false)";
+ const nonce='phoenix-fence:12345678-1234-4123-8123-123456789abc';
+ assert.equal(classifySql(statement,[nonce]),'CONTROL_SESSION');
+ for(const [sql,params] of [[statement,[]],[statement,['arbitrary']],[statement.replace('application_name','role'),[nonce]],[statement.replace('false','true'),[nonce]],[statement.replace('$1',"'constant'"),[nonce]]])assert.equal(classifySql(sql,params),'UNKNOWN_EXECUTABLE_SQL');
+ const log=`bootstrap-db=fixture user=runtime app=marked pid=4 LOG: execute <unnamed>: ${statement}\nbootstrap-db=fixture user=runtime app=marked pid=4 DETAIL: parameters: $1 = '${nonce}'\n`;
+ const record=capturedDatabaseStatements(log)[0];assert.deepEqual(record.controlParameters,[nonce]);assert.equal(record.pid,4);
+ assert.equal(classifySql(record.sql,record.controlParameters),'CONTROL_SESSION');
+});
+
+
+test('session SQL is restricted to exact reviewed transaction controls; mutable SET/RESET and set_config are denied',()=>{
+ for(const sql of ['BEGIN','COMMIT','ROLLBACK','START TRANSACTION'])assert.equal(classifySql(sql),'SESSION');
+ for(const sql of ["SET session_replication_role='replica'",'SET search_path=attacker,public','SET ROLE superuser','RESET ALL','RESET ROLE','BEGIN; SET ROLE superuser','SELECT 1; SET ROLE superuser','SELECT 1; /*comment*/ RESET ALL'])
+  assert.equal(classifySql(sql),'UNREVIEWED_SESSION_SQL');
+ const f=admissionStaticFixture();
+ try {
+  for(const sql of ["SET session_replication_role='replica'",'RESET ALL','SELECT 1; SET ROLE superuser','SELECT 1; /*comment*/ RESET ALL',"SELECT set_config('search_path','attacker',false)"]){
+   f.write('apps/api/src/session-hook.ts',`export class SystemController { onModuleInit(){return this.ds.query(${JSON.stringify(sql)});} }`);
+   assert(auditBootstrap(f.dir).violations.some(v=>v.code==='UNREVIEWED_STARTUP_SESSION_SQL'));
+  }
+ } finally {f.close();}
+});
+
+
+test('every CONTROL_SESSION record binds to one startup-sampled PID/boot/app/database/start and rejects extra identities',()=>{
+ const boot={protocolVersion:1,bootId:'12345678-1234-4123-8123-123456789abc',phase:'HOLD',controlSession:{connected:true,broken:false,sessionPid:42,databaseOid:100,backendStartedAt:'2026-10-18T00:00:00.000Z',applicationName:'phoenix-fence:12345678-1234-4123-8123-123456789abc'}};
+ const app='capture_fixture';const nonce=boot.controlSession.applicationName;
+ const binding={app,pid:42,database:'api_bootstrap_fixture',sql:"SELECT set_config('application_name', $1, false)",controlParameters:[nonce]};
+ const probe={app:nonce,pid:42,database:'api_bootstrap_fixture',sql:'SELECT pg_backend_pid() AS pid, $1::int AS namespace, $2::int AS session_probe',controlParameters:['17455','0']};
+ const records=[binding,probe,{app,pid:7,database:'api_bootstrap_fixture',sql:'SELECT 1'}];
+ const samples=[{...boot,inFlight:0,pendingChildren:0,taskGraphs:0,poisoned:false,stopping:false}];
+ assert.equal(verifyCapturedControlIdentity(records,app,boot,samples).controlStatementCount,2);
+ // A schema HOLD may lack HTTP samples, but never lacks the exact startup identity.
+ assert.equal(verifyCapturedControlIdentity(records,app,boot,[]).identityBindingCount,1);
+ for(const extra of [{...probe,app,pid:99},{...binding,pid:99,controlParameters:['phoenix-fence:87654321-1234-4123-8123-123456789abc']},{...probe,app:nonce,pid:99},{...probe,sql:'SELECT 1'}])
+  assert.throws(()=>verifyCapturedControlIdentity([...records,extra],app,boot,samples),/BINDING_REQUIRED|UNMARKED_DATABASE/);
+ for(const changed of [{...samples[0],controlSession:{...boot.controlSession,databaseOid:101}},{...samples[0],controlSession:{...boot.controlSession,backendStartedAt:'2026-10-18T00:00:01.000Z'}}])
+  assert.throws(()=>verifyCapturedControlIdentity(records,app,boot,[changed]),/BINDING_REQUIRED/);
+ assert.throws(()=>verifyCapturedControlIdentity(records,app,undefined,[]),/CONTROL_IDENTITY_REQUIRED/);
+});
+
+test('startup control marker requires exactly one allowlisted identity and never archives arbitrary log fields',()=>{
+ const boot={protocolVersion:1,bootId:'12345678-1234-4123-8123-123456789abc',phase:'HOLD',controlSession:{connected:true,broken:false,sessionPid:42,databaseOid:100,backendStartedAt:'2026-10-18T00:00:00.000Z',applicationName:'phoenix-fence:12345678-1234-4123-8123-123456789abc'}};
+ const marker='BACKGROUND_CONTROL_BOOT='+JSON.stringify(boot);
+ assert.deepEqual(parseBootControlIdentity('[Nest] '+marker+'\n'),boot);
+ assert.throws(()=>parseBootControlIdentity('schema hold without control identity'),/BOOT_MARKER_REQUIRED/);
+ assert.throws(()=>parseBootControlIdentity(marker+'\n'+marker),/BOOT_MARKER_REQUIRED/);
+ assert.throws(()=>parseBootControlIdentity('BACKGROUND_CONTROL_BOOT='+JSON.stringify({...boot,unreviewed:'must-not-save'})),/BOOT_MARKER_FIELDS/);
+ assert.throws(()=>parseBootControlIdentity('BACKGROUND_CONTROL_BOOT='+JSON.stringify({...boot,phase:'OPEN'})),/CONTROL_IDENTITY_REQUIRED/);
+});
+
+
+test('PG16 lowercase and PG18 capitalized Parameters retain identical strict session binding',()=>{
+ const boot={protocolVersion:1,bootId:'12345678-1234-4123-8123-123456789abc',phase:'HOLD',controlSession:{connected:true,broken:false,sessionPid:42,databaseOid:100,backendStartedAt:'2026-10-18T00:00:00.000Z',applicationName:'phoenix-fence:12345678-1234-4123-8123-123456789abc'}};
+ const app='capture_fixture',nonce=boot.controlSession.applicationName;
+ const prefix=(application,pid=42)=>`bootstrap-db=api_bootstrap_fixture user=runtime app=${application} pid=${pid} `;
+ for(const keyword of ['parameters','Parameters']) {
+  const log=prefix(app)+"LOG: execute <unnamed>: SELECT set_config('application_name', $1, false)\n"
+   +prefix(app)+`DETAIL: ${keyword}: $1 = '${nonce}'\n`
+   +prefix(nonce)+'LOG: execute <unnamed>: SELECT pg_backend_pid() AS pid, $1::int AS namespace, $2::int AS session_probe\n'
+   +prefix(nonce)+`DETAIL: ${keyword}: $1 = '17455', $2 = '0'\n`;
+  const records=capturedDatabaseStatements(log);
+  assert.equal(verifyCapturedControlIdentity(records,app,boot).controlStatementCount,2);
+  const wrongPid=log.replace(prefix(nonce)+`DETAIL: ${keyword}`,prefix(nonce,99)+`DETAIL: ${keyword}`);
+  assert.equal(classifySql(capturedDatabaseStatements(wrongPid)[1].sql,capturedDatabaseStatements(wrongPid)[1].controlParameters),'UNKNOWN_EXECUTABLE_SQL');
+  const wrongNamespace=log.replace("$1 = '17455'","$1 = '99999'");
+  assert.equal(classifySql(capturedDatabaseStatements(wrongNamespace)[1].sql,capturedDatabaseStatements(wrongNamespace)[1].controlParameters),'UNKNOWN_EXECUTABLE_SQL');
+ }
+});
+
+test('binding failures expose bounded safe classification instead of generic HOLD or raw captured SQL',()=>{
+ const boot={protocolVersion:1,bootId:'12345678-1234-4123-8123-123456789abc',phase:'HOLD',controlSession:{connected:true,broken:false,sessionPid:42,databaseOid:100,backendStartedAt:'2026-10-18T00:00:00.000Z',applicationName:'phoenix-fence:12345678-1234-4123-8123-123456789abc'}};
+ const record={app:'capture_fixture',pid:42,database:'api_bootstrap_fixture',sql:"SELECT set_config('application_name', $1, false)"};
+ assert.throws(()=>verifyCapturedControlIdentity([record],'capture_fixture',boot),error=>{
+  assert.equal(error.message,'BOOTSTRAP_CONTROL_SESSION_BINDING_REQUIRED_IDENTITY_COUNT');
+  assert.equal(error.bootstrapDiagnostics.identityStatementCount,1);assert.equal(error.bootstrapDiagnostics.missingControlParameters,1);
+  assert.equal(error.bootstrapDiagnostics.identityStatements[0].pidMatchesSample,true);
+  assert.equal(error.bootstrapDiagnostics.identityStatements[0].appMatchesCapture,true);
+  assert(!JSON.stringify(error.bootstrapDiagnostics).includes('set_config'));return true;
+ });
+});
+
+
+test('SQL comments and literals containing DETAIL Parameters never hide rejected DDL log records',()=>{
+ const ddl='/* DETAIL: Parameters: */ CREATE TABLE forbidden_fixture(id int)';
+ const prefix='bootstrap-db=api_bootstrap_fixture user=runtime app=target pid=42 ';
+ const log=prefix+'LOG: statement: '+ddl+'\n'+prefix+'ERROR: cannot execute CREATE TABLE in a read-only transaction\n'+prefix+'STATEMENT: '+ddl+'\n';
+ const records=capturedDatabaseStatements(log);
+ assert.equal(records.length,2);assert.deepEqual(records.map(record=>record.sourceLevel),['LOG','STATEMENT']);
+ assert(records.every(record=>record.sql.trim()===ddl&&classifySql(record.sql)==='SCHEMA_MUTATION'));
+ const lookalike=prefix+"LOG: statement: SELECT 'DETAIL: Parameters:' AS label\n";
+ assert.equal(capturedDatabaseStatements(lookalike).length,1);
+ assert.equal(classifySql(capturedDatabaseStatements(lookalike)[0].sql),'READ');
+});
+
+test('only the actual DETAIL header and payload beginning may attach control parameter evidence',()=>{
+ const prefix='bootstrap-db=api_bootstrap_fixture user=runtime app=target pid=42 ';
+ const probe='SELECT pg_backend_pid() AS pid, $1::int AS namespace, $2::int AS session_probe';
+ for(const forged of [
+  prefix+"LOG: statement: /* DETAIL: Parameters: $1 = '17455', $2 = '0' */ SELECT 1",
+  prefix+"DETAIL: unrelated context DETAIL: Parameters: $1 = '17455', $2 = '0'",
+  "not-a-header "+prefix+"DETAIL: Parameters: $1 = '17455', $2 = '0'",
+ ]) {
+  const records=capturedDatabaseStatements(prefix+'LOG: execute <unnamed>: '+probe+'\n'+forged+'\n');
+  assert.equal(records[0].controlParameters,undefined);
+ }
+ const valid=capturedDatabaseStatements(prefix+'LOG: execute <unnamed>: '+probe+'\n'+prefix+"DETAIL: Parameters: $1 = '17455', $2 = '0'\n");
+ assert.deepEqual(valid[0].controlParameters,['17455','0']);
+});
+
+
+test('startup failure diagnostics retain fixed flags and hashes without raw runtime text',()=>{
+ const raw='Nest application successfully started\nEADDRINUSE\nprivate-fixture-value-must-not-be-kept';
+ const summary=summarizeBootstrapRuntime(raw);
+ assert.equal(summary.applicationStarted,true);assert.equal(summary.errorFlags.addressInUse,true);
+ assert.equal(summary.startupMarkerCount,0);assert(!JSON.stringify(summary).includes('private-fixture-value'));
+});
+
+
+test('pre-auth PostgreSQL LOG with empty database/user terminates records without hiding empty-database SQL',()=>{
+ const prefix='bootstrap-db=api_bootstrap_fixture user=runtime app=control pid=42 ';
+ const log=prefix+"LOG: statement: SELECT 'BEGIN'\nbootstrap-db= user= app= pid=99 LOG: connection received: host=127.0.0.1\n"+prefix+"LOG: statement: SELECT 'END'\n";
+ const records=capturedDatabaseStatements(log);assert.equal(records.length,2);
+ assert.equal(records[0].sql.trim(),"SELECT 'BEGIN'");assert.equal(records[1].sql.trim(),"SELECT 'END'");
+ const malformedSessionSql=capturedDatabaseStatements('bootstrap-db= user= app= pid=99 STATEMENT: CREATE TABLE unknown_fixture(id int)\n');
+ assert.equal(malformedSessionSql.length,1);assert.equal(malformedSessionSql[0].database,'');
+ assert.equal(classifySql(malformedSessionSql[0].sql),'SCHEMA_MUTATION');
 });

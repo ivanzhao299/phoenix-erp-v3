@@ -190,6 +190,8 @@ jobs:
     name: Real PostgreSQL18 Admission Invariants
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      CHANJET_FIXTURE_OWNER: github-${{ github.run_id }}-${{ github.run_attempt }}-admission
     services:
       postgres:
         image: postgres:18-alpine
@@ -213,6 +215,13 @@ jobs:
           node-version: 20
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Prove immutable owned PostgreSQL identity before fixture tests
+        env:
+          CHANJET_STOP_DB_CONTAINER: ${{ job.services.postgres.id }}
+          CHANJET_ADMISSION_FIXTURE_URL: postgresql://postgres:postgres@127.0.0.1:5432/chanjet_admission_fixture
+        run: |
+          node --input-type=module -e 'import {requireOwnedPostgresFixture} from "./scripts/ci/owned-postgres-fixture.mjs"; const id=requireOwnedPostgresFixture({url:process.env.CHANJET_ADMISSION_FIXTURE_URL,container:process.env.CHANJET_STOP_DB_CONTAINER,owner:process.env.CHANJET_FIXTURE_OWNER}); if(id!==process.env.CHANJET_STOP_DB_CONTAINER) throw Error("IMMUTABLE_CONTAINER_ID_REQUIRED"); await import("node:fs").then(fs=>fs.appendFileSync(process.env.GITHUB_ENV,"CHANJET_STOP_DB_CONTAINER="+id+"\n")); console.log("OWNED_POSTGRES_IDENTITY=PASS");'
+          node --test scripts/ci/owned-postgres-fixture.test.mjs scripts/ci/chanjet-background-fixture.test.mjs
       - name: Build compiled API (registration CLI consumes the real dist store)
         run: pnpm --filter phoenix-erp-v3-nest build
       - name: Require real isolated PostgreSQL tests (no skip fallback)

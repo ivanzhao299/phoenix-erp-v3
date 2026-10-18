@@ -1,3 +1,4 @@
+import { chanjetBackgroundFixture } from './chanjet-background.test-fixture';
 import { DataSource } from 'typeorm';
 import { ChanjetSyncJobEntity } from './chanjet-sync-job.entity';
 import { ChanjetArSnapshotEntity } from './chanjet-ar-snapshot.entity';
@@ -31,7 +32,7 @@ integration('isolated PostgreSQL Chanjet restoration', () => {
     finally { clearTimeout(timer!); }
   }
   const scheduler = (call=jest.fn().mockResolvedValue(cycle)) => {
-    const subject=new ChanjetReadonlySyncScheduler({runReadonlyAlignmentCycle:call} as never,{ok:jest.fn(),fail:jest.fn()} as never,ds,{} as never);
+    const subject=new ChanjetReadonlySyncScheduler({runReadonlyAlignmentCycle:call} as never, {ok:jest.fn(),fail:jest.fn()} as never, ds, {} as never, chanjetBackgroundFixture().service);
     let complete!: () => void;
     const done=new Promise<void>(resolve=>{complete=resolve;});
     const internal=subject as unknown as {executeSync:(...args:unknown[])=>Promise<void>};

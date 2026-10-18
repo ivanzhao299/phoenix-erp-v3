@@ -1,3 +1,4 @@
+import { BackgroundTaskService } from '../background-control/background-task.service';
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
@@ -45,6 +46,7 @@ export class WorkflowNotificationService {
     private readonly ds: DataSource,
     private readonly notificationSvc: NotificationService,
     private readonly pushSvc: PushNotificationService,
+    private readonly background: BackgroundTaskService,
   ) {}
 
   /** 根据角色代码查询所有有效用户 ID */
@@ -87,6 +89,10 @@ export class WorkflowNotificationService {
 
   /** 新任务创建 — 通知有审批权限的角色用户 */
   async onTaskCreated(payload: WfNotifyTaskPayload): Promise<void> {
+    return this.background.run('workflow.task-created', 'NOTIFICATION', () => this.onTaskCreatedAdmitted(payload));
+  }
+
+  private async onTaskCreatedAdmitted(payload: WfNotifyTaskPayload): Promise<void> {
     this.logger.log(
       `[NOTIFY] task_created | instance=${payload.instanceId}` +
       ` biz=${payload.bizType}#${payload.bizId}` +
@@ -108,7 +114,7 @@ export class WorkflowNotificationService {
       const title   = this.buildTitle(payload.bizType, 'pending');
       const content = this.buildContent(payload, 'pending');
 
-      await Promise.all(userIds.map(uid =>
+      const stationResults = await Promise.allSettled(userIds.map(uid =>
         this.notificationSvc.create({
           userId:           uid,
           notificationType: 'WORKFLOW_TASK',
@@ -122,10 +128,13 @@ export class WorkflowNotificationService {
         }),
       ));
 
-      // fire-and-forget push，失败不影响主业务
-      for (const uid of userIds) {
-        this.pushSvc.sendToUser(uid, { title, body: content, url: '/mobile/workflow' }).catch(() => {});
-      }
+      const failedStation = stationResults.find(result => result.status === 'rejected');
+      if (failedStation?.status === 'rejected') throw failedStation.reason;
+
+      // Keep every push in the admitted task until delivery and cleanup settle.
+      await Promise.allSettled(userIds.map(uid =>
+        this.pushSvc.sendToUser(uid, { title, body: content, url: '/mobile/workflow' }),
+      ));
     } catch (err) {
       this.logger.error(`[NOTIFY] onTaskCreated failed: ${(err as any)?.message}`);
     }
@@ -141,6 +150,10 @@ export class WorkflowNotificationService {
 
   /** 实例全部审批通过 — 通知发起人 */
   async onInstanceCompleted(payload: WfNotifyInstancePayload): Promise<void> {
+    return this.background.run('workflow.instance-completed', 'NOTIFICATION', () => this.onInstanceCompletedAdmitted(payload));
+  }
+
+  private async onInstanceCompletedAdmitted(payload: WfNotifyInstancePayload): Promise<void> {
     this.logger.log(
       `[NOTIFY] instance_completed | instance=${payload.instanceId}` +
       ` result=${payload.result} biz=${payload.bizType}#${payload.bizId}`,
@@ -162,7 +175,7 @@ export class WorkflowNotificationService {
         bizId:            payload.bizId,
         bizNo:            payload.bizNo,
       });
-      this.pushSvc.sendToUser(payload.starterUserId, { title, body: content, url: '/mobile/workflow' }).catch(() => {});
+      await this.pushSvc.sendToUser(payload.starterUserId, { title, body: content, url: '/mobile/workflow' });
     } catch (err) {
       this.logger.error(`[NOTIFY] onInstanceCompleted failed: ${(err as any)?.message}`);
     }
@@ -170,6 +183,10 @@ export class WorkflowNotificationService {
 
   /** 实例被拒绝 — 通知发起人 */
   async onInstanceRejected(payload: WfNotifyInstancePayload): Promise<void> {
+    return this.background.run('workflow.instance-rejected', 'NOTIFICATION', () => this.onInstanceRejectedAdmitted(payload));
+  }
+
+  private async onInstanceRejectedAdmitted(payload: WfNotifyInstancePayload): Promise<void> {
     this.logger.log(
       `[NOTIFY] instance_rejected | instance=${payload.instanceId}` +
       ` biz=${payload.bizType}#${payload.bizId}`,
@@ -191,7 +208,7 @@ export class WorkflowNotificationService {
         bizId:            payload.bizId,
         bizNo:            payload.bizNo,
       });
-      this.pushSvc.sendToUser(payload.starterUserId, { title, body: content, url: '/mobile/workflow' }).catch(() => {});
+      await this.pushSvc.sendToUser(payload.starterUserId, { title, body: content, url: '/mobile/workflow' });
     } catch (err) {
       this.logger.error(`[NOTIFY] onInstanceRejected failed: ${(err as any)?.message}`);
     }

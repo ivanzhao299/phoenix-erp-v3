@@ -1,3 +1,4 @@
+import { chanjetBackgroundFixture } from './chanjet-background.test-fixture';
 import { EventEmitter } from 'node:events';
 import { ChanjetReadonlySyncScheduler } from './chanjet-readonly-sync.scheduler';
 import { installReadonlyApprovalFixture, readonlyApprovalFixture } from './chanjet-readonly-policy.test-fixture';
@@ -6,7 +7,7 @@ describe('ChanjetReadonlySyncScheduler production restoration', () => {
   const previous = process.env.CHANJET_READONLY_SYNC_ENABLED;
   beforeEach(() => { restore = installReadonlyApprovalFixture(); process.env.CHANJET_READONLY_SYNC_ENABLED = 'true'; });
   afterEach(() => { restore(); if(previous === undefined) delete process.env.CHANJET_READONLY_SYNC_ENABLED; else process.env.CHANJET_READONLY_SYNC_ENABLED = previous; jest.restoreAllMocks(); });
-  function fixture({ durable = [] as unknown[], lock = true, failure = false } = {}) {
+  function fixture({ durable = [] as unknown[], lock = true, failure = false } = {}, background = chanjetBackgroundFixture()) {
     const query = jest.fn().mockImplementation((sql: string) => {
       if(sql.includes('pg_advisory_unlock')) return Promise.resolve([{ released:true }]);
       if(sql.includes('pg_try_advisory_lock')) return Promise.resolve([{ acquired:lock }]);
@@ -23,7 +24,7 @@ describe('ChanjetReadonlySyncScheduler production restoration', () => {
     const integration = { runReadonlyAlignmentCycle:jest.fn().mockResolvedValue(cycle), recordCurrentStateAlert:jest.fn() };
     const inbound = { syncScheduledShareholderBalances:jest.fn() };
     const monitor = { ok:jest.fn(), fail:jest.fn() };
-    return { subject:new ChanjetReadonlySyncScheduler(integration as never,monitor as never,ds as never,inbound as never),ds,runner,integration,inbound,monitor };
+    return { subject:new ChanjetReadonlySyncScheduler(integration as never, monitor as never, ds as never, inbound as never, background.service),ds,runner,integration,inbound,monitor,background };
   }
   it.each([undefined,'false','','0','yes'])('default/ambiguous flag %s prevents any durable or remote work',async value=>{
     if(value===undefined)delete process.env.CHANJET_READONLY_SYNC_ENABLED;else process.env.CHANJET_READONLY_SYNC_ENABLED=value;
@@ -70,6 +71,62 @@ describe('ChanjetReadonlySyncScheduler production restoration', () => {
     expect(f.integration.runReadonlyAlignmentCycle).not.toHaveBeenCalled();
     expect(f.runner.query).toHaveBeenCalledWith(expect.stringContaining('result_summary'),expect.arrayContaining(['FAIL']),true);
     await expect(f.subject.getRunState()).resolves.toMatchObject({state:'HOLD'});
+  });
+
+  it('fenced startup and Cron perform no durable read or provider work even with the sync flag enabled', async () => {
+    const background = chanjetBackgroundFixture(['CHANJET_SYNC']);
+    const f = fixture({}, background);
+    f.subject.onApplicationBootstrap();
+    await f.subject.runScheduledSync();
+    await background.settle();
+    expect(f.ds.query).not.toHaveBeenCalled();
+    expect(f.ds.createQueryRunner).not.toHaveBeenCalled();
+    expect(f.integration.runReadonlyAlignmentCycle).not.toHaveBeenCalled();
+  });
+
+  it('fenced manual admission rejects before durable reservation or lease acquisition', async () => {
+    const f = fixture({}, chanjetBackgroundFixture(['CHANJET_SYNC']));
+    await expect(f.subject.enqueueManualSync('operator')).rejects.toThrow('BACKGROUND_ADMISSION_DENIED');
+    expect(f.ds.createQueryRunner).not.toHaveBeenCalled();
+    expect(f.integration.runReadonlyAlignmentCycle).not.toHaveBeenCalled();
+  });
+
+  it('accepted asynchronous worker remains registered through the provider cycle and lease cleanup', async () => {
+    const f = fixture();
+    let started!: () => void;
+    let finish!: () => void;
+    const entered = new Promise<void>((resolve) => { started = resolve; });
+    const completion = new Promise<void>((resolve) => { finish = resolve; });
+    const cycle = await f.integration.runReadonlyAlignmentCycle();
+    f.integration.runReadonlyAlignmentCycle.mockClear();
+    f.integration.runReadonlyAlignmentCycle.mockImplementation(async () => { started(); await completion; return cycle; });
+    const response = await f.subject.enqueueManualSync('operator');
+    expect(response.accepted).toBe(true);
+    expect(f.background.pending.size).toBe(1);
+    await entered;
+    expect(f.background.pending.size).toBe(1);
+    expect(f.runner.release).not.toHaveBeenCalled();
+    finish();
+    await f.background.settle();
+    expect(f.background.pending.size).toBe(0);
+    expect(f.runner.release).toHaveBeenCalledTimes(1);
+  });
+
+  it('retains durable HOLD evidence and releases a reserved lease when child admission is poisoned', async () => {
+    const background = chanjetBackgroundFixture();
+    const originalRun = background.service.run.bind(background.service);
+    jest.spyOn(background.service, 'run').mockImplementation((name, kind, work) => {
+      if (name === 'chanjet-readonly-worker') return Promise.reject(new Error('BACKGROUND_HOLD=CHILD_UNAUTHORIZED'));
+      return originalRun(name, kind, work);
+    });
+    const f = fixture({}, background);
+    expect((await f.subject.enqueueManualSync('operator')).accepted).toBe(true);
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    expect(f.runner.release).toHaveBeenCalledTimes(1);
+    expect(f.integration.runReadonlyAlignmentCycle).not.toHaveBeenCalled();
+    expect(f.runner.query.mock.calls.some(c => String(c[0]).includes('INSERT INTO chanjet_sync_jobs'))).toBe(true);
+    expect(f.runner.query.mock.calls.some(c => String(c[0]).includes('UPDATE chanjet_sync_jobs'))).toBe(false);
+    await expect(f.subject.getRunState()).resolves.toMatchObject({ state: 'HOLD', message: 'READONLY_HOLD_DISPATCH' });
   });
 
 });

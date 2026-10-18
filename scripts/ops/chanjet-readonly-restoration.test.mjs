@@ -106,7 +106,7 @@ test('real atomic env writer preserves owner/group/0600 and validates CAS before
 });
 test('resolved compose must match approved policy and unchanged data binds',()=>{
   const next=switchPlan(floor,'READONLY_VERIFY',approval,now);const env=expected(next);
-  const config={services:{api:{environment:env,volumes:[{type:'bind',source:tuple.PHOENIX_UPLOADS_DIR,target:'/app/uploads'}]},db:{volumes:[{type:'bind',source:tuple.PHOENIX_PG_DATA_DIR,target:'/var/lib/postgresql/data'}]}}};
+  const config={services:{api:{environment:env,volumes:[{type:'bind',source:tuple.PHOENIX_UPLOADS_DIR,target:'/app/uploads'},{type:'bind',source:'/var/lib/phoenix-background-control',target:'/run/phoenix-background-control',read_only:true,bind:{create_host_path:false}}]},db:{volumes:[{type:'bind',source:tuple.PHOENIX_PG_DATA_DIR,target:'/var/lib/postgresql/data'}]}}};
   validateEffectiveConfig(config,next.operationalTuple,next);
   assert.throws(()=>validateEffectiveConfig({...config,services:{...config.services,api:{...config.services.api,environment:{...env,CHANJET_ERP_INBOUND_SYNC_ENABLED:'true'}}}},next.operationalTuple,next));
 });
@@ -142,7 +142,7 @@ test('expired VERIFY can only close through an exact fresh HOLD operation',()=>{
   const expiredNow=now+60001,context={operation:'HOLD',runId:'12-1',target:sha};
   assert.throws(()=>readonlyEnvironment(verify,expiredNow),/VERIFY_DEADLINE/);
   const env=expiredVerifyHoldEnvironment(verify,context,expiredNow);assert.equal(env.CHANJET_SYNC_POLICY,'READONLY_VERIFY');
-  const config={services:{api:{environment:{...env,CHANJET_READONLY_SYNC_ENABLED:'true',CHANJET_ERP_INBOUND_SYNC_ENABLED:'false'},volumes:[{type:'bind',source:tuple.PHOENIX_UPLOADS_DIR,target:'/app/uploads'}]},db:{volumes:[{type:'bind',source:tuple.PHOENIX_PG_DATA_DIR,target:'/var/lib/postgresql/data'}]}}};
+  const config={services:{api:{environment:{...env,CHANJET_READONLY_SYNC_ENABLED:'true',CHANJET_ERP_INBOUND_SYNC_ENABLED:'false'},volumes:[{type:'bind',source:tuple.PHOENIX_UPLOADS_DIR,target:'/app/uploads'},{type:'bind',source:'/var/lib/phoenix-background-control',target:'/run/phoenix-background-control',read_only:true,bind:{create_host_path:false}}]},db:{volumes:[{type:'bind',source:tuple.PHOENIX_PG_DATA_DIR,target:'/var/lib/postgresql/data'}]}}};
   const old=Date.now;Date.now=()=>expiredNow;try {
     assert.throws(()=>validateEffectiveConfig(config,verify.operationalTuple,verify),/VERIFY_DEADLINE/);
     validateEffectiveConfig(config,verify.operationalTuple,verify,context);
@@ -229,4 +229,13 @@ test('real first-sync CLI expired VERIFY is rejected before enqueue or proof wri
 test('real baseline marker exceeds30min with advancing clock; corrected CLI derives deadline from the same start',t=>{
   const before=readonlyCliFixture(t,{baselineConfig:true,clockStep:1});assert.equal(before.result.status,1);const marker=before.read('policy-transition.json');assert.ok(Date.parse(marker.expiresAt)-Date.parse(marker.startedAt)>30*60*1000);assert.equal(before.trace.filter(x=>x.kind==='composeApi').length,0);
   const after=readonlyCliFixture(t,{clockStep:1});cliSafe(after);assert.equal(after.result.status,0,after.result.stderr);assert.equal(after.names.includes('policy-transition.json'),false);assert.equal(after.read(`chanjet-config-${after.runId}.json`).outcome,'SUCCESS');
+});
+test('real policy CLI refuses an active maintenance owner before DB, HTTP, env or container mutation',t=>{
+  const f=readonlyCliFixture(t,{maintenancePending:true});
+  assert.equal(f.result.status,1);assert.equal(f.result.signal,null);
+  assert.match(f.result.stderr,/CHANJET_CONFIG_TRANSACTION=HOLD/);
+  assert.equal(f.env,f.source);assert.equal(f.names.includes('policy-transition.json'),false);
+  assert.equal(f.names.some(name=>name.startsWith('chanjet-config-')),false);
+  assert.equal(f.trace.some(entry=>['localHttp','dbReadOnly','composeApi'].includes(entry.kind)),false);
+  assert.equal(f.read('floor.json').chanjetPolicy,'HOLD');
 });

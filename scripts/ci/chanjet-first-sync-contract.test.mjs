@@ -317,9 +317,9 @@ const evidenceState = (runId) => JSON.parse(fs.readFileSync(path.join(workDir, `
 
 const providerHits = () => fs.readFileSync(providerHitsFile, 'utf8').split('\n').filter(Boolean).length;
 
-// Resolve exactly one explicitly owned loopback fixture before ANY database
-// setup or mutation. Never discover or fall back to another local database.
-const ownedDbContainer = requireOwnedPostgresFixture({ url: fixtureUrl, container: process.env.CHANJET_STOP_DB_CONTAINER, owner: process.env.CHANJET_FIXTURE_OWNER });
+// Explicit immutable instance only: no name discovery or arbitrary fallback.
+const ownedDbContainer = requireOwnedPostgresFixture({ url: fixtureUrl,
+  container: process.env.CHANJET_STOP_DB_CONTAINER, owner: process.env.CHANJET_FIXTURE_OWNER });
 const resolveFixtureDbContainer = () => ownedDbContainer;
 
 database('first-sync protected-entry acceptance (real entry, real scheduler host, real PostgreSQL18, local provider)', () => {
@@ -391,7 +391,7 @@ database('first-sync protected-entry acceptance (real entry, real scheduler host
     // registered (R42D_SKIP_REGISTRATION), matching the root workflow's
     // register-then-prepare sequencing
     const prepareScript = path.join(repoRoot, 'scripts/ops/chanjet-readonly-production-prepare.mjs');
-    const prepare = spawnSync(process.execPath, [prepareScript], {
+    const prepare = spawnSync(process.execPath, [path.join(repoRoot, 'scripts/ci/chanjet-production-prepare-fixture.mjs'), prepareScript], {
       encoding: 'utf8',
       timeout: 120_000,
       env: {
@@ -418,6 +418,7 @@ database('first-sync protected-entry acceptance (real entry, real scheduler host
         R42D_SKIP_REGISTRATION: '1',
       },
     });
+    assert.equal(prepare.status, 0, `${prepare.stdout} ${prepare.stderr}`);
     const prepareLine = String(prepare.stdout).split('\n').find((l) => l.startsWith('PREPARE='));
     assert.equal(prepareLine?.split(';')[0], 'PREPARE=PASS', `${prepare.stdout} ${prepare.stderr}`);
     const handover = JSON.parse(prepareLine.split(';')[1]);

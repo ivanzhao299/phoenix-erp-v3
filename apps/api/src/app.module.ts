@@ -1,4 +1,6 @@
 import { Module } from '@nestjs/common';
+import { BackgroundHttpInterceptor } from './modules/background-control/background-http.interceptor';
+import { BackgroundControlModule } from './modules/background-control/background-control.module';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ScheduleModule } from '@nestjs/schedule';
@@ -77,6 +79,7 @@ import { BugIntakeModule } from './modules/bug-intake/bug-intake.module';
 
 @Module({
   imports: [
+    BackgroundControlModule,
     ConfigModule.forRoot({ isGlobal: true }),
     // 速率限制：仅在生产环境启用；开发环境 skipIf 直接放行，避免 React Strict Mode
     // 双重挂载 + 多标签页并发把 127.0.0.1 同一 bucket 打满触发 blockDuration 死锁
@@ -155,6 +158,8 @@ import { BugIntakeModule } from './modules/bug-intake/bug-intake.module';
   ],
   controllers: [DebugController, HealthController],
   providers: [
+    // Admission must wrap all downstream interceptors and their audit children.
+    { provide: APP_INTERCEPTOR, useClass: BackgroundHttpInterceptor },
     ApiBootstrapSchemaCheck,
     JwtStrategy,
     // ThrottlerGuard 不全局挂载——仅在 auth.controller login 端点单独 @UseGuards

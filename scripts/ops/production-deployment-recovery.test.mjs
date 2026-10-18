@@ -127,6 +127,7 @@ function ioHarness({ failAt } = {}) {
     state,
     makeArchive: archive,
     io: {
+      maintenanceAdmission: () => {},
       writeActive(value) { state.activeWrites++; if (failAt === 'writeActive') throw new Error('injected'); state.active = value; },
       writeDeployRecord(value) { state.deployWrites++; if (failAt === 'writeDeployRecord') throw new Error('injected'); state.deployRecord = value; },
       writeArchive(value) { state.archiveWrites++; if (failAt === `archive:${value.phase}`) throw new Error('injected'); state.archive = value; },

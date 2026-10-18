@@ -1,3 +1,4 @@
+import { chanjetBackgroundFixture } from './chanjet-background.test-fixture';
 // Real scheduler -> worker execution-binding integration: the reviewed
 // ChanjetReadonlySyncScheduler drives an isolated PostgreSQL18 with a REAL
 // auth service whose provider HTTP goes to a local loopback fixture INSIDE
@@ -52,6 +53,88 @@ const VERIFY_PERIOD = POLICY.verification.period;
 const POLICY_FLOOR = POLICY.floorSha;
 const POLICY_APPROVAL = POLICY.approvalId;
 const OWNER = 'ROOT_OPERATOR';
+
+type SiblingHost = { child: import('node:child_process').ChildProcess; base: string; kill: () => Promise<void> };
+/** Owned local fixture processes only. Natural exit is observed before teardown succeeds. */
+function spawnSibling(execPath: string, args: string[], options: { env?: Record<string, string | undefined>; onSpawn?: (child: SiblingHost['child']) => void } = {}): Promise<SiblingHost> {
+  const child = spawn(execPath, args, { stdio: ['ignore', 'pipe', 'inherit'], env: { ...process.env, ...options.env } });
+  let stopping: Promise<void> | undefined;
+  const kill = (): Promise<void> => stopping ||= (async () => {
+    if (!child.pid || child.exitCode !== null || child.signalCode !== null) return;
+    await new Promise<void>((resolve, reject) => {
+      let escalation: ReturnType<typeof setTimeout>;
+      let ceiling: ReturnType<typeof setTimeout>;
+      const done = () => { clearTimeout(escalation); clearTimeout(ceiling); resolve(); };
+      // Subscribe before sending a signal; a previously observed exit is also idempotent.
+      child.once('exit', done);
+      child.kill('SIGTERM');
+      escalation = setTimeout(() => { if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL'); }, 35_000);
+      ceiling = setTimeout(() => { child.off('exit', done); reject(Error('SIBLING_HOST_CLEANUP_HOLD')); }, 40_000);
+    });
+  })();
+  return new Promise<SiblingHost>((resolve, reject) => {
+    let settled = false;
+    let output='';
+    const fail = (error: Error) => {
+      if (settled) return; settled = true; clearTimeout(timer);
+      void kill().then(() => reject(error), () => reject(Error('SIBLING_HOST_CLEANUP_HOLD')));
+    };
+    const timer = setTimeout(() => fail(Error('SIBLING_HOST_START_TIMEOUT')), 15_000);
+    child.stdout!.on('data', function onData(d: Buffer) {
+      output+=String(d);if(output.length>32768){fail(Error('SIBLING_HOST_START_OUTPUT_LIMIT'));return;}
+      const boundary=output.lastIndexOf('\n');if(boundary<0)return;
+      const complete=output.slice(0,boundary+1);output=output.slice(boundary+1);
+      const port = complete.match(/^PORT ([1-9][0-9]{0,4})\r?$/m)?.[1];
+      if (!port || Number(port)>65535 || settled) return;
+      settled = true;clearTimeout(timer);child.stdout!.off('data', onData);
+      resolve({ child, base: `http://127.0.0.1:${port}`, kill });
+    });
+    child.once('error', () => fail(Error('SIBLING_HOST_START_FAILED')));
+    child.once('exit', code => fail(Error(`SIBLING_HOST_EXITED:${code}`)));
+    try { options.onSpawn?.(child); } catch { fail(Error('SIBLING_HOST_OBSERVER_FAILED')); }
+  });
+}
+async function withSiblingHosts<T>(work: (start: typeof spawnSibling) => Promise<T>): Promise<T> {
+  const acquired: SiblingHost[] = [];
+  let value!: T;
+  let failed=false;
+  let failure: unknown;
+  let cleanupFailed=false;
+  try {
+    value=await work(async (...args) => { const host=await spawnSibling(...args);acquired.push(host);return host; });
+  } catch(error) {
+    failed=true;failure=error;
+  } finally {
+    const results=await Promise.allSettled(acquired.reverse().map(host=>host.kill()));
+    cleanupFailed=results.some(result=>result.status==='rejected');
+  }
+  if(cleanupFailed)throw Error('SIBLING_HOST_CLEANUP_HOLD');
+  if(failed)throw failure;
+  return value;
+}
+
+describe('worker sibling fixture lifecycle (real local child processes)', () => {
+  it('cleanup is bounded and idempotent after a child already exited', async () => {
+    const host=await spawnSibling(process.execPath,['-e',"process.stdout.write('PORT 12');setTimeout(()=>console.log('345'),10);setTimeout(()=>process.exit(0),50)"]);
+    expect(host.base).toBe('http://127.0.0.1:12345');
+    if(host.child.exitCode===null&&host.child.signalCode===null)await new Promise<void>(resolve=>host.child.once('exit',()=>resolve()));
+    await host.kill();await host.kill();
+    expect(host.child.exitCode).toBe(0);
+  });
+  it('a host rejected before PORT is observed exited before setup rejection', async () => {
+    let child: SiblingHost['child'] | undefined;
+    await expect(spawnSibling(process.execPath,['-e','process.exit(2)'],{onSpawn:value=>{child=value;}})).rejects.toThrow('SIBLING_HOST_EXITED:2');
+    expect(child?.exitCode).toBe(2);
+  });
+  it('adapter setup refusal closes the already acquired provider and leaves no child handle', async () => {
+    let provider: SiblingHost | undefined;
+    await expect(withSiblingHosts(async start=>{
+      provider=await start(process.execPath,['-e',"const s=require('node:http').createServer((_q,r)=>r.end());s.listen(0,'127.0.0.1',()=>console.log('PORT '+s.address().port));process.on('SIGTERM',()=>s.close(()=>process.exit(0)));"]);
+      await start(process.execPath,['-e','process.exit(3)']);
+    })).rejects.toThrow('SIBLING_HOST_EXITED:3');
+    expect(provider?.child.exitCode).toBe(0);
+  });
+});
 
 worker('execution-bound scheduler worker (real PostgreSQL18, real auth, local provider)', () => {
   let ds: DataSource;
@@ -126,11 +209,7 @@ worker('execution-bound scheduler worker (real PostgreSQL18, real auth, local pr
     // hard requirement: the worker's provider traffic is bound to the LOCAL
     // fixture — the real provider endpoint must never be contacted
     process.env.CHANJET_PROVIDER_BASE_URL = providerBase;
-    auth = new ChanjetAuthService(
-      { get: (key: string, fallback?: string) => process.env[key] ?? fallback } as never,
-      { findOneBy: async () => ({ key: 'singleton', appTicket: 'SYNTHETIC_TICKET', certificate: null, tokens: null }), save: async (e: unknown) => e } as never,
-      { ok: async () => {}, fail: async () => {} } as never,
-    );
+    auth = new ChanjetAuthService({ get: (key: string, fallback?: string) => process.env[key] ?? fallback } as never, { findOneBy: async () => ({ key: 'singleton', appTicket: 'SYNTHETIC_TICKET', certificate: null, tokens: null }), save: async (e: unknown) => e } as never, { ok: async () => {}, fail: async () => {} } as never, chanjetBackgroundFixture().service);
     Object.assign(auth, { appKey: 'SYNTHETIC_KEY', appSecret: 'SYNTHETIC_SECRET', orgId: 'SYNTHETIC_ORG', cert: 'SYNTHETIC_CERT', appTicket: 'SYNTHETIC_TICKET' });
   });
   // disposable fixture: rebuild the schema from scratch — the admission
@@ -255,7 +334,7 @@ worker('execution-bound scheduler worker (real PostgreSQL18, real auth, local pr
         };
       },
     };
-    const subject = new ChanjetReadonlySyncScheduler(integration as never, { ok: async () => {}, fail: async () => {} } as never, ds, {} as never);
+    const subject = new ChanjetReadonlySyncScheduler(integration as never, { ok: async () => {}, fail: async () => {} } as never, ds, {} as never, chanjetBackgroundFixture().service);
     let complete!: () => void;
     const done = new Promise<void>((resolve) => { complete = resolve; });
     const internal = subject as unknown as { executeSync: (...args: unknown[]) => Promise<void>; onModuleDestroy: () => Promise<void> };
@@ -455,28 +534,6 @@ worker('execution-bound scheduler worker (real PostgreSQL18, real auth, local pr
     expect(ok.outcome).toBe('OK');
   });
 
-  /** Sibling long-lived child: resolves with the port it prints and a kill
-   *  handle (sibling-owned listeners are reachable from orchestrator
-   *  children; parent-owned listeners are not). */
-  function spawnSibling(execPath: string, args: string[], options: { env?: Record<string, string | undefined> }) {
-    const child = spawn(execPath, args, { stdio: ['ignore', 'pipe', 'inherit'], env: { ...process.env, ...options.env } });
-    return new Promise<{ child: import('node:child_process').ChildProcess; base: string; kill: () => Promise<void> }>((resolve, reject) => {
-      const timer = setTimeout(() => reject(Error('SIBLING_HOST_START_TIMEOUT')), 15_000);
-      child.stdout!.on('data', function onData(d: Buffer) {
-        const port = String(d).match(/PORT (\d+)/)?.[1];
-        if (!port) return;
-        clearTimeout(timer);
-        child.stdout!.off('data', onData);
-        resolve({
-          child,
-          base: `http://127.0.0.1:${port}`,
-          kill: () => { child.kill(); return new Promise<void>((done2) => { child.on('exit', () => done2()); }); },
-        });
-      });
-      child.on('exit', (code: number | null) => { clearTimeout(timer); reject(Error(`SIBLING_HOST_EXITED:${code}`)); });
-    });
-  }
-
   it('mirror-write boundary gate: after a durable HOLD the real reconciliation/repo writes refuse and the run lands FAIL', async () => {
     const { manifest, syncLease, deadlineAt } = await registeredInSyncing({ cap: 10, verifyMode: true });
     const repo = ds.getRepository(ChanjetSyncJobEntity);
@@ -547,26 +604,26 @@ worker('execution-bound scheduler worker (real PostgreSQL18, real auth, local pr
     // scope) — matching the production topology where the controller process
     // and the scheduler are separate
     const approvalFile = join(workDir(), `approval-${randomUUID().slice(0, 8)}.json`);
-    writeFileSync(approvalFile, JSON.stringify(readonlyApprovalFixture));
+    writeFileSync(approvalFile, JSON.stringify(manifest.approval));
     // the provider fixture AND the scheduler host are SIBLING processes: a
     // listener owned by this jest process is not reachable from the CLI child
-    const providerSibling = await spawnSibling(process.execPath, [
-      join(process.cwd().replace(/\/apps\/api$/, ''), 'scripts/ci/chanjet-orchestration-provider-fixture.mjs'),
-      '--hits-file', combinedHits,
-    ], {});
-    const providerBaseForCli = providerSibling.base;
-    const adapter = await spawnSibling(process.execPath, [
-      join(process.cwd().replace(/\/apps\/api$/, ''), 'scripts/ci/chanjet-orchestration-scheduler-host.mjs'),
-      '--pg-url', fixtureUrl!,
-      '--provider-base', providerSibling.base,
-      '--auth-token', 'SYNTHETIC_OP_TOKEN',
-      '--sync-policy', 'READONLY_VERIFY',
-      '--readonly-approval', approvalFile,
-    ], {
-      env: { ...process.env, CHANJET_READONLY_SYNC_ENABLED: 'true', CHANJET_APP_KEY: 'SYNTHETIC_KEY', CHANJET_APP_SECRET: 'SYNTHETIC_SECRET', CHANJET_ORG_ID: 'SYNTHETIC_ORG', CHANJET_CERT: 'SYNTHETIC_CERT' },
-    });
-    const adapterBase = adapter.base;
-    try {
+    await withSiblingHosts(async startSibling => {
+      const providerSibling = await startSibling(process.execPath, [
+        join(process.cwd().replace(/\/apps\/api$/, ''), 'scripts/ci/chanjet-orchestration-provider-fixture.mjs'),
+        '--hits-file', combinedHits,
+      ], {});
+      const providerBaseForCli = providerSibling.base;
+      const adapter = await startSibling(process.execPath, [
+        join(process.cwd().replace(/\/apps\/api$/, ''), 'scripts/ci/chanjet-orchestration-scheduler-host.mjs'),
+        '--pg-url', fixtureUrl!,
+        '--provider-base', providerSibling.base,
+        '--auth-token', 'SYNTHETIC_OP_TOKEN',
+        '--sync-policy', 'READONLY_VERIFY',
+        '--readonly-approval', approvalFile,
+      ], {
+        env: { ...process.env, CHANJET_READONLY_SYNC_ENABLED: 'true', CHANJET_APP_KEY: 'SYNTHETIC_KEY', CHANJET_APP_SECRET: 'SYNTHETIC_SECRET', CHANJET_ORG_ID: 'SYNTHETIC_ORG', CHANJET_CERT: 'SYNTHETIC_CERT' },
+      });
+      const adapterBase = adapter.base;
       // the REAL orchestrator CLI: registers (fd9 held), probes, begins
       // SYNCING, enqueues through the adapter to the REAL scheduler, whose
       // worker HTTP shares the execution and whose SUCCESS gate commits
@@ -609,10 +666,7 @@ worker('execution-bound scheduler worker (real PostgreSQL18, real auth, local pr
       // fixture (the probe's own HTTP went to it as well)
       const siblingHits = readFileSync(combinedHits, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l).url);
       expect(siblingHits.length).toBeGreaterThanOrEqual(3);
-    } finally {
-      await adapter.kill();
-      await providerSibling.kill();
-    }
+    });
   }, 60_000);
 
   it('pool saturation: the terminal gate cleanup leaves no raw transaction and later borrowers see FAIL, never the hidden SUCCESS', async () => {
@@ -727,10 +781,7 @@ worker('execution-bound scheduler worker (real PostgreSQL18, real auth, local pr
     const proxyUrl = `postgres://${encodeURIComponent(fixturePg.username)}:${encodeURIComponent(fixturePg.password)}@127.0.0.1:${proxy.port}/${fixturePg.pathname.slice(1)}`;
     const gateDs = new DataSource({ type: 'postgres', url: proxyUrl, entities: [ChanjetSyncJobEntity], logging: false });
     await gateDs.initialize();
-    const subject = new ChanjetReadonlySyncScheduler(
-      {} as never, { ok: async () => {}, fail: async () => {} } as never, gateDs, {} as never,
-      options.executionCancellationConfig ? { executionCancellationConfig: options.executionCancellationConfig } : {},
-    );
+    const subject = new ChanjetReadonlySyncScheduler({} as never, { ok: async () => {}, fail: async () => {} } as never, gateDs, {} as never, chanjetBackgroundFixture().service, options.executionCancellationConfig ? { executionCancellationConfig: options.executionCancellationConfig } : {});
     return { subject, gateDs };
   }
 

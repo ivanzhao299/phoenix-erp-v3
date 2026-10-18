@@ -188,7 +188,7 @@ if (CMD === 'docker') {
           R42D_DIST_ROOT: cfg.distRoot, R42D_MODULES: cfg.modulesRoot,
         };
         trace({ kind: 'prepareExec', script });
-        const child = spawnSync(process.execPath, [script, ...cmdArgs.slice(2)], {
+        const child = spawnSync(process.execPath, [path.join(cfg.repoRoot, 'scripts/ci/chanjet-production-prepare-fixture.mjs'), script, ...cmdArgs.slice(2)], {
           encoding: 'utf8', maxBuffer: 16 * 1024 * 1024,
           env: { ...process.env, ...containerEnv, ...envs },
         });

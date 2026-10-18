@@ -1,3 +1,4 @@
+import { BackgroundTaskService } from '../background-control/background-task.service';
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
@@ -39,6 +40,7 @@ export class PushNotificationService implements OnModuleInit {
     @InjectDataSource()
     private readonly ds: DataSource,
     private readonly cls: ClsService,
+    private readonly background: BackgroundTaskService,
   ) {}
 
   onModuleInit() {
@@ -139,6 +141,10 @@ export class PushNotificationService implements OnModuleInit {
    * 410/404 响应自动禁用订阅；失败不影响主业务。
    */
   async sendToUser(userId: string | number, payload: PushPayload): Promise<void> {
+    return this.background.run('notification.web-push', 'NOTIFICATION', () => this.sendToUserAdmitted(userId, payload));
+  }
+
+  private async sendToUserAdmitted(userId: string | number, payload: PushPayload): Promise<void> {
     if (!this.vapidReady) return;
 
     try {

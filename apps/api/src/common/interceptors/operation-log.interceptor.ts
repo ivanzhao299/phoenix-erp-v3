@@ -24,6 +24,7 @@ import { mergeMap, tap } from 'rxjs/operators';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { ClsService } from 'nestjs-cls';
+import { BackgroundTaskService } from '../../modules/background-control/background-task.service';
 
 /** 需要记录操作日志的路径规则 */
 interface LogRule {
@@ -198,6 +199,7 @@ export class OperationLogInterceptor implements NestInterceptor {
   constructor(
     @InjectDataSource() private readonly ds: DataSource,
     private readonly cls: ClsService,
+    private readonly background: BackgroundTaskService,
   ) {}
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
@@ -238,8 +240,8 @@ export class OperationLogInterceptor implements NestInterceptor {
     return before$.pipe(mergeMap((beforeRows: any[]) => next.handle().pipe(
       tap({
         next: (responseBody: any) => {
-          // 异步写日志，不等待，不影响响应
-          this.writeLog({
+          // Register immediately; the parent's lease remains until the audit insert settles.
+          this.enqueueLog({
             userId,
             username,
             roleCode,
@@ -255,12 +257,10 @@ export class OperationLogInterceptor implements NestInterceptor {
             beforeData: beforeRows[0] ? { status: beforeRows[0].status, arInvoiceId: beforeRows[0].ar_invoice_id } : null,
             afterData:  safeSlice(responseBody),
             resultStatus: 'SUCCESS',
-          }).catch(err =>
-            console.error('[OperationLogInterceptor] write error:', err?.message),
-          );
+          });
         },
         error: (err: any) => {
-          this.writeLog({
+          this.enqueueLog({
             userId,
             username,
             roleCode,
@@ -276,10 +276,21 @@ export class OperationLogInterceptor implements NestInterceptor {
             beforeData: beforeRows[0] ? { status: beforeRows[0].status, arInvoiceId: beforeRows[0].ar_invoice_id } : null,
             afterData:     { error: err?.message ?? String(err) },
             resultStatus: 'FAIL',
-          }).catch(() => {});
+          });
         },
       }),
     )));
+  }
+
+  private enqueueLog(data: Parameters<OperationLogInterceptor['writeLog']>[0]): void {
+    this.background.spawn('http.operation-log', 'LOCAL', async () => {
+      try {
+        await this.writeLog(data);
+      } catch {
+        // Keep audit failures off the response path without exposing SQL, credentials or business rows.
+        console.error('[OperationLogInterceptor] AUDIT_WRITE_FAILED');
+      }
+    });
   }
 
   private async writeLog(data: {

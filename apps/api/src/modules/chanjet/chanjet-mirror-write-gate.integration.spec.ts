@@ -1,3 +1,4 @@
+import { chanjetBackgroundFixture } from './chanjet-background.test-fixture';
 // R4.2c mirror-write positive + boundary integration: the REAL integration
 // service methods (syncReadOnlyMirror → recordReadSnapshot /
 // recordEntitySnapshots / createMappingCandidates through the SAME gated
@@ -159,11 +160,7 @@ mirror('mirror-write liveness inside the gated write transaction (real integrati
     process.env.CHANJET_PROVIDER_BASE_URL = providerBase;
     restorePolicy = installReadonlyApprovalFixture();
     process.env.CHANJET_READONLY_SYNC_ENABLED = 'true';
-    auth = new ChanjetAuthService(
-      { get: (key: string, fallback?: string) => process.env[key] ?? fallback } as never,
-      { findOneBy: async () => ({ key: 'singleton', appTicket: 'SYNTHETIC_TICKET', certificate: null, tokens: null }), save: async (e: unknown) => e } as never,
-      { ok: async () => {}, fail: async () => {} } as never,
-    );
+    auth = new ChanjetAuthService({ get: (key: string, fallback?: string) => process.env[key] ?? fallback } as never, { findOneBy: async () => ({ key: 'singleton', appTicket: 'SYNTHETIC_TICKET', certificate: null, tokens: null }), save: async (e: unknown) => e } as never, { ok: async () => {}, fail: async () => {} } as never, chanjetBackgroundFixture().service);
     Object.assign(auth, { appKey: 'SYNTHETIC_KEY', appSecret: 'SYNTHETIC_SECRET', orgId: 'SYNTHETIC_ORG', cert: 'SYNTHETIC_CERT', appTicket: 'SYNTHETIC_TICKET' });
     integration = new ChanjetIntegrationService(
       auth, ds,
