@@ -32,6 +32,7 @@ jobs:
         run: >-
           node --test scripts/ops/production-maintenance-*.test.mjs
           scripts/ci/maintenance-erp-candidate.test.mjs
+          scripts/ci/maintenance-erp-root-binding.test.mjs
           scripts/ci/maintenance-legacy-erp.test.mjs
       - name: Prepare isolated Docker bases
         run: |
@@ -74,7 +75,7 @@ jobs:
         env:
           RECOVERY_MATERIAL_LOCAL_IMAGE_FIXTURE: '1'
         run: node --test scripts/ops/production-maintenance-recovery-materials.test.mjs
-      - name: Actual tracked ERP image startup and readonly mutation canaries
+      - name: Actual ERP startup, mutation canaries and original root lease catalog binding
         run: node scripts/ci/maintenance-erp-candidate.fixture.mjs
       - name: Retain allowlisted isolated evidence only
         if: always()
@@ -98,3 +99,4 @@ jobs:
             artifacts/maintenance-erp-candidate/*/resources.json
             artifacts/maintenance-erp-candidate/*/capsule-build.json
             artifacts/maintenance-erp-candidate/*/pg*-detector-canary.json
+            artifacts/maintenance-erp-candidate/*/pg*-actual-erp-root-binding.json
