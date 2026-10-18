@@ -33,7 +33,8 @@ responder and one actual private receipt-chain refusal. They prove formatter,
 parser, race and denial behavior; they do not prove a full real collector
 positive with HTTP/PG/Compose/storage/FD9. That full positive remains NOT_RUN.
 The shared real ERP capsule additionally runs the fixed API readiness program
-on PG16/18 and archives its exact source/container/fingerprint proof. That
+on PG16/18 and archives its exact source/owner/time interval, program hash,
+before/after selected runtime/boot pins and both DB fingerprint hashes. That
 single-program integration remains distinct from the whole collector and Web
 HTTP verification. Its results must be executed and archived on the new HEAD.
 
@@ -46,3 +47,8 @@ counterexamples were added. No production policy was relaxed to pass tests.
 The floor contract adds this helper as a protected path. Source/restore closure,
 real producer installation, actual host/ingress ownership, production authority,
 fresh final-target admission and the human maintenance window remain separate.
+
+A second review P2 identified missing before/after material in the standalone
+readiness artifact. Both selected pins and fingerprint objects, program hash,
+owner and interval are now retained for independent rechecking. No raw business
+data, credentials or HTTP bodies are archived.

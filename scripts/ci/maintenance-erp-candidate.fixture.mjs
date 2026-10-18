@@ -352,7 +352,9 @@ export class OwnedErpCandidateCapsule {
     return before;
   }
   verifyActualReadiness(candidate) {
+    const observedFrom = new Date().toISOString();
     const before = this.inspectContainer(candidate.id), statusBefore = this.status(candidate), fingerprintBefore = this.fingerprint(candidate.pg);
+    assert.equal(before.Config.Labels['org.opencontainers.image.revision'], this.sourceSha);
     assert.equal(statusBefore.phase, 'FENCED'); this.verifySession(candidate, statusBefore);
     const proof = JSON.parse(this.docker(['exec', candidate.id, '/usr/bin/env', '-i', 'PATH=/usr/local/bin:/usr/bin:/bin', '/usr/local/bin/node', '-e', API_READINESS_PROGRAM]));
     assert.equal(proof.status, 200); assert.equal(proof.ready, true); assert.equal(proof.dbConnected, true);
@@ -362,9 +364,15 @@ export class OwnedErpCandidateCapsule {
     assert.equal(after.State.StartedAt, before.State.StartedAt); assert.equal(after.State.Running, true);
     assert.equal(statusAfter.bootId, statusBefore.bootId); assert.equal(statusAfter.phase, 'FENCED'); this.verifySession(candidate, statusAfter);
     assert.deepEqual(fingerprintAfter, fingerprintBefore);
+    const runtimePin = v => ({ id: v.Id, imageId: v.Image, revision: v.Config.Labels['org.opencontainers.image.revision'],
+      startedAt: v.State.StartedAt, restartCount: v.RestartCount, running: v.State.Running, health: v.State.Health.Status });
+    const statusPin = v => ({ bootId: v.bootId, owner: v.owner, generation: v.generation, phase: v.phase, inFlight: v.inFlight,
+      pendingChildren: v.pendingChildren, taskGraphs: v.taskGraphs, controlSession: structuredClone(v.controlSession) });
     const result = { schema: 'phoenix.actual-erp-readiness-fixture/v1', result: 'PASS', fixtureOnly: true, productionReceipt: false,
       sourceSha: this.sourceSha, imageId: this.imageId, pgMajor: candidate.pg.major, apiContainerId: candidate.id, bootId: statusAfter.bootId,
-      fixedProgramProof: proof, unchangedRuntime: true, schemaDataSequencesUnchanged: true, fullHealthCollectorPositive: 'NOT_RUN',
+      owner: this.owner, interval: { start: observedFrom, end: new Date().toISOString() }, programSha256: hash(API_READINESS_PROGRAM),
+      beforeRuntime: runtimePin(before), afterRuntime: runtimePin(after), beforeStatus: statusPin(statusBefore), afterStatus: statusPin(statusAfter),
+      fingerprintBefore, fingerprintAfter, fixedProgramProof: proof, unchangedRuntime: true, schemaDataSequencesUnchanged: true, fullHealthCollectorPositive: 'NOT_RUN',
       webHttpActual: 'NOT_RUN', productionStorageAndFd9: 'NOT_RUN', registryInstalled: false };
     fs.writeFileSync(path.join(this.root, `pg${candidate.pg.major}-actual-readiness-probe.json`), JSON.stringify(result, null, 2), { mode: 0o600, flag: 'wx' });
     this.results.push(result); this.record(); return result;
