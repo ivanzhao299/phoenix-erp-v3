@@ -142,13 +142,14 @@ export class LegacyMaintenanceDeploymentSession {
   #registerChild(child, observer) {
     // Registration is bookkeeping, never permission to launch a command. The
     // compiled typed producer still must perform real operation admission.
-    if (!(child instanceof ChildProcess) || !Number.isSafeInteger(child.pid) || child.pid < 1 || this.fatal) hold('SESSION_OWNED_CHILD_REGISTRATION_REQUIRED');
+    if (!(child instanceof ChildProcess) || !Number.isSafeInteger(child.pid) || child.pid < 1 || child.exitCode !== null || child.signalCode !== null || this.fatal) hold('SESSION_OWNED_CHILD_REGISTRATION_REQUIRED');
     if ([...this.children].some(entry => entry.child === child) || [...this.controlChildren.values()].some(entry => entry.child === child)) hold('SESSION_DUPLICATE_CHILD_REGISTRATION');
     const entry = { child, pid: child.pid, observer, work: null };
-    if (child.exitCode === null && child.signalCode === null) {
-      entry.work = new Promise(resolve => child.once('exit', resolve)); this.children.add(entry);
-      entry.work.then(() => this.children.delete(entry));
-    }
+    // Exit alone does not settle inherited stdout/stderr held by descendants.
+    // Register while the original child is live and retain debt through close.
+    // An error or an exit code cannot prove a previously missed close event.
+    entry.work = new Promise(resolve => child.once('close', resolve)); this.children.add(entry);
+    entry.work.then(() => this.children.delete(entry));
     return { pid: child.pid, registered: true };
   }
   registerObserverChild(child) {
