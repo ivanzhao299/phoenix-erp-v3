@@ -142,3 +142,21 @@ test('fixed command environment pins the local Docker socket and carries no ambi
   assert.equal(TOPOLOGY_COMMAND_ENV.DOCKER_HOST, 'unix:///var/run/docker.sock');
   for (const key of ['DOCKER_CONTEXT', 'DOCKER_TLS_VERIFY', 'DOCKER_CERT_PATH', 'HOME', 'SSH_AUTH_SOCK']) assert.equal(Object.hasOwn(TOPOLOGY_COMMAND_ENV, key), false);
 });
+
+test('the observed 193-service plus 18-timer census fits while all safety decisions stay denied',async()=>{
+  const f=fixture();const original=f.execute;
+  f.dependencies.execute=async(binary,args,options)=>{
+    if(binary==='/usr/bin/systemctl'&&args[0]==='list-units')return JSON.stringify(Array.from({length:193},(_,i)=>({unit:`observed-${i}.service`})));
+    if(binary==='/usr/bin/systemctl'&&args[0]==='list-timers')return JSON.stringify(Array.from({length:18},(_,i)=>({unit:`observed-${i}.timer`,activates:`observed-${i}.service`})));
+    return original(binary,args,options);
+  };
+  const result=await collectMaintenanceHostTopology(f.dependencies);
+  assert.equal(result.systemd.units.length,211);assert.equal(result.systemd.units.filter(u=>u.unitType==='TIMER').length,18);
+  assert.ok(!result.truncations.some(x=>x.scope==='SYSTEMD_UNITS'));assert.equal(result.completeSafetyProof,false);assert.equal(result.admissionOrApprovalGranted,false);
+});
+test('the enlarged systemd census still has a fixed cap and reports overflow as unverified',async()=>{
+  const f=fixture();const original=f.execute;
+  f.dependencies.execute=async(binary,args,options)=>binary==='/usr/bin/systemctl'&&args[0]==='list-units'?JSON.stringify(Array.from({length:300},(_,i)=>({unit:`overflow-${i}.service`}))):original(binary,args,options);
+  const result=await collectMaintenanceHostTopology(f.dependencies);
+  assert.equal(result.systemd.units.length,256);assert.ok(result.truncations.some(x=>x.scope==='SYSTEMD_UNITS'&&x.maximumCount===256));assert.equal(result.verification,'UNVERIFIED');assert.equal(result.completeSafetyProof,false);
+});
