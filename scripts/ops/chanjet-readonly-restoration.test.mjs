@@ -106,7 +106,7 @@ test('real atomic env writer preserves owner/group/0600 and validates CAS before
 });
 test('resolved compose must match approved policy and unchanged data binds',()=>{
   const next=switchPlan(floor,'READONLY_VERIFY',approval,now);const env=expected(next);
-  const config={services:{api:{environment:env,volumes:[{type:'bind',source:tuple.PHOENIX_UPLOADS_DIR,target:'/app/uploads'}]},db:{volumes:[{type:'bind',source:tuple.PHOENIX_PG_DATA_DIR,target:'/var/lib/postgresql/data'}]}}};
+  const config={services:{api:{environment:env,volumes:[{type:'bind',source:tuple.PHOENIX_UPLOADS_DIR,target:'/app/uploads'},{type:'bind',source:'/var/lib/phoenix-background-control',target:'/run/phoenix-background-control',read_only:true,bind:{create_host_path:false}}]},db:{volumes:[{type:'bind',source:tuple.PHOENIX_PG_DATA_DIR,target:'/var/lib/postgresql/data'}]}}};
   validateEffectiveConfig(config,next.operationalTuple,next);
   assert.throws(()=>validateEffectiveConfig({...config,services:{...config.services,api:{...config.services.api,environment:{...env,CHANJET_ERP_INBOUND_SYNC_ENABLED:'true'}}}},next.operationalTuple,next));
 });
@@ -142,7 +142,7 @@ test('expired VERIFY can only close through an exact fresh HOLD operation',()=>{
   const expiredNow=now+60001,context={operation:'HOLD',runId:'12-1',target:sha};
   assert.throws(()=>readonlyEnvironment(verify,expiredNow),/VERIFY_DEADLINE/);
   const env=expiredVerifyHoldEnvironment(verify,context,expiredNow);assert.equal(env.CHANJET_SYNC_POLICY,'READONLY_VERIFY');
-  const config={services:{api:{environment:{...env,CHANJET_READONLY_SYNC_ENABLED:'true',CHANJET_ERP_INBOUND_SYNC_ENABLED:'false'},volumes:[{type:'bind',source:tuple.PHOENIX_UPLOADS_DIR,target:'/app/uploads'}]},db:{volumes:[{type:'bind',source:tuple.PHOENIX_PG_DATA_DIR,target:'/var/lib/postgresql/data'}]}}};
+  const config={services:{api:{environment:{...env,CHANJET_READONLY_SYNC_ENABLED:'true',CHANJET_ERP_INBOUND_SYNC_ENABLED:'false'},volumes:[{type:'bind',source:tuple.PHOENIX_UPLOADS_DIR,target:'/app/uploads'},{type:'bind',source:'/var/lib/phoenix-background-control',target:'/run/phoenix-background-control',read_only:true,bind:{create_host_path:false}}]},db:{volumes:[{type:'bind',source:tuple.PHOENIX_PG_DATA_DIR,target:'/var/lib/postgresql/data'}]}}};
   const old=Date.now;Date.now=()=>expiredNow;try {
     assert.throws(()=>validateEffectiveConfig(config,verify.operationalTuple,verify),/VERIFY_DEADLINE/);
     validateEffectiveConfig(config,verify.operationalTuple,verify,context);

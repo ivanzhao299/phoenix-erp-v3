@@ -79,6 +79,14 @@ services:
       CHANJET_READONLY_APPROVAL: ${CHANJET_READONLY_APPROVAL:-}
     volumes:
       - ${PHOENIX_UPLOADS_DIR:-phoenix_uploads}:/app/uploads   # 合同/单据文件持久化
+      # Non-secret root publication only. Directory bind preserves atomic manifest
+      # replacement; no private production state or writable control is exposed.
+      - type: bind
+        source: /var/lib/phoenix-background-control
+        target: /run/phoenix-background-control
+        read_only: true
+        bind:
+          create_host_path: false
     ports:
       - "127.0.0.1:${API_PORT:-3100}:3100"
     healthcheck:

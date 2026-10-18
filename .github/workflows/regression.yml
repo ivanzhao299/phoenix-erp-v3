@@ -24,6 +24,7 @@ env:
   JWT_SECRET: ci_test_secret_minlen_32_characters_xx
   JWT_SECRET_PREV: ""
   NODE_ENV: test
+  APP_ENV: test
   # P3(评分补强)：镜像 deploy.yml 的 test job —— 回归套件用 admin/admin123 dev 快捷登录拿 token。
   #   缺此变量时 auth.service 走真实密码校验 → admin 登录 "密码错误" → system 回归第一步即挂。
   #   main.ts 仅在 NODE_ENV=production 时禁止本变量（fail-closed），CI(NODE_ENV=test)安全。
@@ -42,7 +43,7 @@ jobs:
           POSTGRES_PASSWORD: phoenix_v3_pass
           POSTGRES_DB: phoenix_erp
         ports:
-          - 5432:5432
+          - 127.0.0.1:5432:5432
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
@@ -213,23 +214,14 @@ jobs:
           DB_NAME: phoenix_erp
         run: pnpm exec jest src/modules/store-pos/store-receiving-chain.pg.integration.spec.ts --runInBand
 
-      - name: Start API (background)
+      - name: Start API (background) with protected disposable background fixture
         working-directory: apps/api
         env:
-          PORT: 3100
+          PORT: "3100"
+          BACKGROUND_FIXTURE_POSTGRES_ID: ${{ job.services.postgres.id }}
         run: |
-          nohup node dist/main > /tmp/api.log 2>&1 &
-          echo $! > /tmp/api.pid
-          for i in $(seq 1 60); do
-            if curl -sf http://127.0.0.1:3100/api/health >/dev/null; then
-              echo "API ready after ${i}s"
-              exit 0
-            fi
-            sleep 1
-          done
-          echo "API failed to start" >&2
-          tail -100 /tmp/api.log >&2
-          exit 1
+          node --test ../../scripts/ci/background-control-api-fixture.test.mjs ../../scripts/ci/background-control-api-network-fixture.test.mjs
+          bash ../../scripts/ci/background-control-api-fixture.sh start
 
       - name: Packaging VOID and test isolation — PostgreSQL concurrency
         working-directory: apps/api
@@ -288,7 +280,7 @@ jobs:
         if: failure()
         run: |
           echo "=== API log (last 200 lines) ==="
-          tail -200 /tmp/api.log || true
+          tail -200 "$RUNNER_TEMP/api.log" || true
 
       # ── 失败告警 ──────────────────────────────────────────────────
       # 在 repo Settings → Secrets 配置：
@@ -326,9 +318,8 @@ jobs:
               ;;
           esac
 
-      - name: Stop API
+      - name: Close owned background API fixture
         if: always()
-        run: |
-          if [ -f /tmp/api.pid ]; then
-            kill -9 $(cat /tmp/api.pid) 2>/dev/null || true
-          fi
+        env:
+          BACKGROUND_FIXTURE_POSTGRES_ID: ${{ job.services.postgres.id }}
+        run: bash scripts/ci/background-control-api-fixture.sh cleanup

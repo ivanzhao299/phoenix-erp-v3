@@ -97,6 +97,7 @@ test('wrapper forbids raw config/exec/build/routing/down and requires a single c
 test('production config validates simultaneous bind paths and explicit independent hold values', () => {
   const tuple = { PHOENIX_DATA_MOUNT_GUARD: 'true', PHOENIX_PG_DATA_DIR: '/data/test/postgres', PHOENIX_UPLOADS_DIR: '/data/test/uploads', CHANJET_READONLY_SYNC_ENABLED: 'false', CHANJET_ERP_INBOUND_SYNC_ENABLED: 'false' };
   const config = { services: { db: { volumes: [{ type: 'bind', source: tuple.PHOENIX_PG_DATA_DIR, target: '/var/lib/postgresql/data' }] }, api: { environment: { CHANJET_READONLY_SYNC_ENABLED: 'false', CHANJET_ERP_INBOUND_SYNC_ENABLED: 'false' }, volumes: [{ type: 'bind', source: tuple.PHOENIX_UPLOADS_DIR, target: '/app/uploads' }] } } };
+  config.services.api.volumes.push({ type: 'bind', source: '/var/lib/phoenix-background-control', target: '/run/phoenix-background-control', read_only: true, bind: { create_host_path: false } });
   validateEffectiveConfig(config, tuple);
   config.services.api.environment.CHANJET_READONLY_SYNC_ENABLED = 'true'; assert.throws(() => validateEffectiveConfig(config, tuple), /CHANJET_POLICY_FLAGS/);
 });
@@ -112,6 +113,8 @@ test('actual wrapper execution uses exact captured image IDs and strips all inhe
   runCompose(['up', '-d', '--no-deps', '--wait', 'api'], {
     root: '/data/phoenix-erp', directory: '/fixture', readState: () => ({ version: CONTRACT.version, active: previous }), guard: () => ({ project: 'phoenix-fixture', operationalTuple: { CHANJET_READONLY_SYNC_ENABLED: 'false', CHANJET_ERP_INBOUND_SYNC_ENABLED: 'false' } }), capture: () => previous,
     inspect: (id, revision) => ({ imageId: id, revision }), eligibility: () => ({ allowed: true }),
+    backgroundMount: () => undefined,
+    backgroundFence: () => undefined,
     execute: (binary, args, options) => { command = { binary, args, options }; return Buffer.from('not-forwarded'); },
   });
   assert.equal(command.binary, 'docker'); assert.equal(command.options.env.API_IMAGE, previous.api.imageId); assert.equal(command.options.env.WEB_IMAGE, previous.web.imageId);

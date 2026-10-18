@@ -1,3 +1,4 @@
+import { chanjetBackgroundFixture } from './chanjet-background.test-fixture';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -77,7 +78,7 @@ integration('real PostgreSQL continuous readonly lock ownership', () => {
   async function remote() { requireReadonlyOrchestration(); const response = await fetch(endpoint); requireReadonlyOrchestration(); return response.json(); }
   function subject(call: () => Promise<unknown> = remote, ctor = ChanjetReadonlySyncScheduler, source = ds) {
     const done = barrier();
-    const service = new ctor({ runReadonlyAlignmentCycle: call } as never, { ok: jest.fn(), fail: jest.fn() } as never, source, {} as never);
+    const service = new ctor({ runReadonlyAlignmentCycle: call } as never, { ok: jest.fn(), fail: jest.fn() } as never, source, {} as never, chanjetBackgroundFixture().service);
     const internal = service as unknown as { executeSync: (...args: unknown[]) => Promise<void>; recoverInterruptedRun: () => Promise<void> };
     const execute = internal.executeSync.bind(service);
     internal.executeSync = async (...args) => { try { await execute(...args); } finally { done.resolve(); } };

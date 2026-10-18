@@ -288,7 +288,7 @@ jobs:
           POSTGRES_PASSWORD: phoenix_v3_pass
           POSTGRES_DB: phoenix_erp
         ports:
-          - 5432:5432
+          - 127.0.0.1:5432:5432
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
@@ -304,6 +304,7 @@ jobs:
       JWT_SECRET: ci_test_secret_minlen_32_characters_xx
       JWT_SECRET_PREV: ""
       NODE_ENV: test
+      APP_ENV: test
       ENABLE_DEV_LOGIN: "true"
       PGHOST: 127.0.0.1
       PGPORT: 5432
@@ -383,7 +384,7 @@ jobs:
           CHANJET_HASH_FIXTURE_CONTAINER: ${{ job.services.postgres.id }}
         run: |
           docker run --rm -v "$PWD:/workspace:ro" -w /workspace node:20-alpine node --test --test-name-pattern="real atomic env" scripts/ops/chanjet-readonly-restoration.test.mjs
-          node --test scripts/ops/production-m12-recovery.test.mjs scripts/ops/production-deployment-complete-cli.test.mjs scripts/ops/production-deployment-bundles.test.mjs scripts/ops/production-trusted-paths.test.mjs scripts/ops/production-env-update.test.mjs scripts/ops/production-rollback-state.test.mjs scripts/ops/production-deployment-evidence.test.mjs scripts/ops/production-deployment-recovery.test.mjs scripts/ops/chanjet-readonly-restoration.test.mjs scripts/ci/deploy-production-config.test.mjs scripts/ci/production-evidence-deploy-contract.test.mjs scripts/ci/phoenix-storage-migration.test.mjs
+          node --test scripts/ops/background-control*.test.mjs scripts/ops/background-deployment-session.test.mjs scripts/ops/production-m12-recovery.test.mjs scripts/ops/production-deployment-complete-cli.test.mjs scripts/ops/production-deployment-bundles.test.mjs scripts/ops/production-trusted-paths.test.mjs scripts/ops/production-env-update.test.mjs scripts/ops/production-rollback-state.test.mjs scripts/ops/production-deployment-evidence.test.mjs scripts/ops/production-deployment-recovery.test.mjs scripts/ops/chanjet-readonly-restoration.test.mjs scripts/ci/deploy-production-config.test.mjs scripts/ci/production-evidence-deploy-contract.test.mjs scripts/ci/phoenix-storage-migration.test.mjs
           pnpm --filter phoenix-erp-v3-nest test -- --runInBand src/modules/chanjet
 
       - name: Test migration ledger preflight (read-only fixtures)
@@ -462,22 +463,14 @@ jobs:
           path: ${{ runner.temp }}/phoenix-entity-evidence/
           if-no-files-found: error
 
-      - name: Start API
+      - name: Start API with protected disposable background fixture
         working-directory: apps/api
         env:
-          PORT: 3100
+          PORT: "3100"
+          BACKGROUND_FIXTURE_POSTGRES_ID: ${{ job.services.postgres.id }}
         run: |
-          nohup node dist/main > /tmp/api.log 2>&1 &
-          echo $! > /tmp/api.pid
-          for i in $(seq 1 60); do
-            if curl -sf http://127.0.0.1:3100/api/readiness >/dev/null; then
-              echo "✅ API ready after ${i}s"; exit 0
-            fi
-            sleep 1
-          done
-          echo "❌ API failed to start" >&2
-          tail -100 /tmp/api.log >&2
-          exit 1
+          node --test ../../scripts/ci/background-control-api-fixture.test.mjs ../../scripts/ci/background-control-api-network-fixture.test.mjs
+          bash ../../scripts/ci/background-control-api-fixture.sh start
 
       - name: Regression — system
         working-directory: apps/api
@@ -503,11 +496,13 @@ jobs:
 
       - name: Dump API log on failure
         if: failure()
-        run: tail -200 /tmp/api.log || true
+        run: tail -200 "$RUNNER_TEMP/api.log" || true
 
-      - name: Stop API
+      - name: Close owned background API fixture
         if: always()
-        run: kill $(cat /tmp/api.pid 2>/dev/null) 2>/dev/null || true
+        env:
+          BACKGROUND_FIXTURE_POSTGRES_ID: ${{ job.services.postgres.id }}
+        run: bash scripts/ci/background-control-api-fixture.sh cleanup
 
   # ════════════════════════════════════════════════════════════════════════
   # Job 2: Build & Push 镜像 — matrix 按 detect 输出动态裁剪
@@ -810,6 +805,10 @@ jobs:
               trap - ERR
               set +e
               echo "::error::Deploy failed; safe config retained; 数据库未自动覆盖恢复"
+              if [ "${BACKGROUND_DEPLOYMENT_SUPERVISED:-false}" = true ]; then
+                echo "ROLLBACK=HOLD_BACKGROUND_FENCE_REQUIRES_OPERATOR_RECOVERY"
+                exit "$rc"
+              fi
               if [ "$CODE_SYNCED" = true ] && [ -f "$STATE_DIR/deploy-${DEPLOY_RUN_ID}.json" ]; then
                 # API below floor is explicitly ineligible. No legacy fence exception is granted here.
                 PLAN="$(node scripts/ops/production-deployment-state.mjs rollback-plan)"
@@ -848,6 +847,12 @@ jobs:
             git fetch origin main
             test "$(git rev-parse origin/main)" = "$TARGET_SHA"
             git merge-base --is-ancestor "$PREV_GIT_SHA" "$TARGET_SHA"
+            assert_target_main() {
+              if [ "$BUILD_API" = true ]; then
+                node "$BACKGROUND_STAGE/background-deployment-session.mjs" check-main
+              fi
+            }
+            perform_deployment() {
             PRE_EVIDENCE_FILE="$STATE_DIR/deploy-${DEPLOY_RUN_ID}-pre-evidence.json"
             POST_EVIDENCE_FILE="$STATE_DIR/deploy-${DEPLOY_RUN_ID}-post-evidence.json"
             LOG_EVIDENCE_FILE="$STATE_DIR/deploy-${DEPLOY_RUN_ID}-startup-evidence.json"
@@ -873,6 +878,7 @@ jobs:
               git show "$TARGET_SHA:apps/api/src/common/database/api-bootstrap-schema-contract.json" > "$FLOOR_STAGE/api-bootstrap-schema-contract.json"
               chmod 600 "$FLOOR_STAGE/api-bootstrap-schema-contract.json"
               EVIDENCE_PHASE=PRE_SNAPSHOT node "$FLOOR_STAGE/production-deployment-evidence.mjs" capture "$PRE_EVIDENCE_FILE"
+              assert_target_main
               node "$FLOOR_STAGE/promote-production-config-floor.mjs"
             else
               node scripts/ops/production-config-guard.mjs --target "$TARGET_SHA"
@@ -897,6 +903,7 @@ jobs:
             trap rollback_deploy ERR
 
             # ── 同步代码(必须先 pull,否则下面 cp 仓库新文件会找不到)──
+            assert_target_main
             git merge --ff-only origin/main
             if [ "$(git rev-parse HEAD)" != "$TARGET_SHA" ]; then
               echo "::error::服务器代码版本与目标 SHA 不一致"
@@ -917,6 +924,8 @@ jobs:
             echo "MIGRATION_BASELINE_SOURCE=RUNNING_API_REVISION; RUN_MIG=false"
 
             # 首次部署兜底:确保 runtime-design-system.css alias 目录 + 种子文件存在
+            # API-only must not create or replace shared Web override content.
+            if [ "$BUILD_WEB" = true ]; then
             mkdir -p /opt/phoenix/static-overrides
             if [ ! -f /opt/phoenix/static-overrides/runtime-design-system.css ]; then
               # 用仓库内默认占位版作种子(后续 fast-css 才能 scp 覆盖)
@@ -930,6 +939,7 @@ jobs:
                 chmod 644 /opt/phoenix/static-overrides/runtime-design-system.css
                 echo "⚠ 仓库无 runtime-design-system.css 源文件,写空占位"
               fi
+            fi
             fi
 
             # Ordinary code deployment does not rewrite production .env.
@@ -1065,6 +1075,7 @@ jobs:
                 CANDIDATE_API_IMAGE="$API_IMAGE"
                 echo "PRODUCTION_MIGRATION_REQUIRED=NO; skipping schema-first migration"
               fi
+              assert_target_main
               node scripts/ops/production-deployment-state.mjs switch api
               API_SWITCH_STARTED=true
               API_IMAGE="$CANDIDATE_API_IMAGE" docker compose up -d --no-deps --wait api
@@ -1111,8 +1122,29 @@ jobs:
             DOCKER_DISK_REPORT="$(docker system df 2>/dev/null || true)"
             printf '%s\n' "$DOCKER_DISK_REPORT"
 
+            assert_target_main
             node scripts/ops/production-deployment-state.mjs complete
             trap - ERR
+            echo "✅ Application evidence complete; background release still requires owner verification"
+            }
+
+            if [ "$BUILD_API" = true ]; then
+              # Stage the exact reviewed target before any floor/code/container
+              # change. The supervisor retains a real PostgreSQL lock session
+              # and FD9 across the whole body; a legacy API cannot claim drain.
+              BACKGROUND_STAGE="$STATE_DIR/background-stage-${DEPLOY_RUN_ID}"
+              test ! -e "$BACKGROUND_STAGE"
+              mkdir -m 700 "$BACKGROUND_STAGE"
+              for helper in background-deployment-session.mjs background-control-coordinator.mjs background-control-manifest.mjs production-config-contract.json production-config-guard.mjs production-atomic-state.mjs production-trusted-paths.mjs capture-production-runtime.mjs production-deployment-evidence.mjs update-managed-chanjet-env.mjs chanjet-readonly-policy.mjs chanjet-admission-schema-receipt.mjs; do
+                git show "$TARGET_SHA:scripts/ops/$helper" > "$BACKGROUND_STAGE/$helper"
+                chmod 600 "$BACKGROUND_STAGE/$helper"
+              done
+              export -f git docker rollback_deploy assert_target_main perform_deployment
+              export DEPLOY_REPO_ROOT PREV_GIT_SHA STATE_DIR CODE_SYNCED API_SWITCH_STARTED WEB_SWITCH_STARTED BACKGROUND_STAGE
+              { declare -f perform_deployment; printf '%s\n' 'perform_deployment'; } | node "$BACKGROUND_STAGE/background-deployment-session.mjs" run
+            else
+              perform_deployment
+            fi
             echo "✅ Deploy ($DEPLOY_MODE) complete — $(date '+%Y-%m-%d %H:%M:%S')"
 
       - name: Send deploy notification

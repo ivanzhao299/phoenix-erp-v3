@@ -12,6 +12,7 @@ import { WfApprovalInstanceEntity }     from './entities/wf-approval-instance.en
 import { WfApprovalInstanceStepEntity } from './entities/wf-approval-instance-step.entity';
 import { WorkflowBizRegistryService }   from './workflow-biz-registry.service';
 import { WorkflowNotificationService }  from '../workflow/workflow-notification.service';
+import { BackgroundTaskService } from '../background-control/background-task.service';
 import { AssignmentResolverService, ApproverType } from '../workflow/assignment-resolver.service';
 import { ALL_PERM_CODES, hasPerm, PermCode } from '../../auth/permissions.util';
 
@@ -55,7 +56,22 @@ export class ApprovalEngineService {
     private readonly notify: WorkflowNotificationService,
     @Inject(forwardRef(() => AssignmentResolverService))
     private readonly assignmentResolver: AssignmentResolverService,
+    private readonly background: BackgroundTaskService,
   ) {}
+
+  /** Register before returning to the caller; preserve the existing next-turn delivery timing. */
+  private deferNotification(name: string, work: () => Promise<unknown>): void {
+    this.background.spawn(name, 'NOTIFICATION', async () => {
+      await new Promise<void>(resolve => setImmediate(resolve));
+      await work();
+    });
+  }
+
+  private async settleNotifications(work: Promise<unknown>[]): Promise<void> {
+    const results = await Promise.allSettled(work);
+    const failed = results.find(result => result.status === 'rejected');
+    if (failed?.status === 'rejected') throw failed.reason;
+  }
 
   // ── 工具 ────────────────────────────────────────────────────────────────
 
@@ -258,8 +274,8 @@ export class ApprovalEngineService {
       await mgr.save(WfApprovalInstanceStepEntity, pendingSteps);
 
       // 通知新审批人
-      setImmediate(() => {
-        this.notify
+      this.deferNotification('approval.reassigned', async () => {
+        await this.notify
           .onTaskCreated({
             instanceId:     instance.id,
             bizType:        instance.bizType,
@@ -268,8 +284,7 @@ export class ApprovalEngineService {
             subject:        instance.subject ?? undefined,
             starterUserId:  instance.startedBy ?? undefined,
             assigneeUserId: picked.userId,
-          })
-          .catch(() => {/* ignore */});
+          });
       });
 
       return { ok: true, toName: picked.displayName };
@@ -456,8 +471,8 @@ export class ApprovalEngineService {
 
     // 通知第一步所有审批人（fire-and-forget）
     const firstStepEntities = stepEntities.filter(s => s.stepNo === ruleSteps[0]?.stepNo);
-    setImmediate(() => {
-      Promise.all(
+    this.deferNotification('approval.first-step', async () => {
+      await this.settleNotifications(
         firstStepEntities.map(step =>
           this.notify.onTaskCreated({
             instanceId:        savedInstance.id,
@@ -470,7 +485,7 @@ export class ApprovalEngineService {
             assigneeUserId:    step.approverUserId ?? undefined,
           }),
         ),
-      ).catch(() => {/* ignore */});
+      );
     });
 
     return savedInstance;
@@ -548,8 +563,8 @@ export class ApprovalEngineService {
 
     // 审批人提示（g183 复用）+ 通知被指定的审批人
     this.cls.set('approvalHint', { roleZh: picked.roleNameZh, names: [picked.displayName], stepNo: 1 });
-    setImmediate(() => {
-      this.notify
+    this.deferNotification('approval.dynamic-assignee', async () => {
+      await this.notify
         .onTaskCreated({
           instanceId:     instance.id,
           bizType:        params.bizType,
@@ -558,8 +573,7 @@ export class ApprovalEngineService {
           subject:        params.subject,
           starterUserId:  starterUserId || undefined,
           assigneeUserId: picked.userId,
-        })
-        .catch(() => {/* ignore */});
+        });
     });
 
     return instance;
@@ -672,8 +686,8 @@ export class ApprovalEngineService {
 
         // 通知发起人：审批完成
         const starterUserId = instance.startedBy ?? undefined;
-        setImmediate(() => {
-          this.notify.onInstanceCompleted({
+        this.deferNotification('approval.completed', async () => {
+          await this.notify.onInstanceCompleted({
             instanceId:    instance.id,
             bizType:       instance.bizType,
             bizId:         instance.bizId,
@@ -681,7 +695,7 @@ export class ApprovalEngineService {
             subject:       instance.subject ?? undefined,
             starterUserId: starterUserId ?? undefined,
             result:        'APPROVED',
-          }).catch(() => {/* ignore */});
+          });
         });
 
         return { finished: true, approved: true };
@@ -692,25 +706,23 @@ export class ApprovalEngineService {
         // 通知下一步所有审批人
         const nextStepNo = instance.currentStepNo;
         const instanceSnapshot = { ...instance };
-        setImmediate(async () => {
-          try {
-            const nextSteps = await this.stepRepo.find({
-              where: { instanceId: instance.id, stepNo: nextStepNo, status: 'PENDING' as any },
-            });
-            await Promise.all(
-              nextSteps.map(ns =>
-                this.notify.onTaskCreated({
-                  instanceId:       instanceSnapshot.id,
-                  bizType:          instanceSnapshot.bizType,
-                  bizId:            instanceSnapshot.bizId,
-                  bizNo:            instanceSnapshot.bizNo,
-                  subject:          instanceSnapshot.subject ?? undefined,
-                  assigneeRoleCode: ns.approverRole   ?? undefined,
-                  assigneeUserId:   ns.approverUserId ?? undefined,
-                }),
-              ),
-            );
-          } catch {/* ignore */}
+        this.deferNotification('approval.next-step', async () => {
+          const nextSteps = await this.stepRepo.find({
+            where: { instanceId: instance.id, stepNo: nextStepNo, status: 'PENDING' as any },
+          });
+          await this.settleNotifications(
+            nextSteps.map(ns =>
+              this.notify.onTaskCreated({
+                instanceId:       instanceSnapshot.id,
+                bizType:          instanceSnapshot.bizType,
+                bizId:            instanceSnapshot.bizId,
+                bizNo:            instanceSnapshot.bizNo,
+                subject:          instanceSnapshot.subject ?? undefined,
+                assigneeRoleCode: ns.approverRole   ?? undefined,
+                assigneeUserId:   ns.approverUserId ?? undefined,
+              }),
+            ),
+          );
         });
 
         return { finished: false, approved: false, currentStepNo: instance.currentStepNo, totalSteps: instance.totalSteps };
@@ -772,8 +784,8 @@ export class ApprovalEngineService {
       // 通知发起人：审批被拒绝
       const starterUserId = instance.startedBy ?? undefined;
       const snapshot = { ...instance };
-      setImmediate(() => {
-        this.notify.onInstanceRejected({
+      this.deferNotification('approval.rejected', async () => {
+        await this.notify.onInstanceRejected({
           instanceId:    snapshot.id,
           bizType:       snapshot.bizType,
           bizId:         snapshot.bizId,
@@ -781,7 +793,7 @@ export class ApprovalEngineService {
           subject:       snapshot.subject ?? undefined,
           starterUserId: starterUserId ?? undefined,
           result:        'REJECTED',
-        }).catch(() => {/* ignore */});
+        });
       });
     });
   }

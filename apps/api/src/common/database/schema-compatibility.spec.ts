@@ -57,7 +57,7 @@ describe('Existing schema ownership at API startup', () => {
     const query = jest.fn().mockResolvedValueOnce(['mon_device_realtime_snapshot', 'mon_device_property_history', 'mon_device_alert_event'].map(table_name => ({ table_name, column_name: 'property_code' }))).mockResolvedValueOnce([]);
     const fetchSpy = jest.spyOn(global, 'fetch');
     try {
-      await new IotSyncService({ query } as never, {} as never, {} as never).onModuleInit();
+      await new IotSyncService({ query } as never, {} as never, {} as never, {} as never).onModuleInit();
       expect(query).toHaveBeenCalledTimes(2);
       expect(query.mock.calls.every(([sql]) => /^SELECT/.test(sql))).toBe(true);
       expect(fetchSpy).not.toHaveBeenCalled();

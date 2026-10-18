@@ -12,6 +12,7 @@
 // not server-derived), budget exhaustion, overdue deadline, business facts
 // changed — each keeping its non-overwritable failure evidence.
 import test, { describe, before, after } from 'node:test';
+import { requireOwnedPostgresFixture } from './owned-postgres-fixture.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -316,21 +317,10 @@ const evidenceState = (runId) => JSON.parse(fs.readFileSync(path.join(workDir, `
 
 const providerHits = () => fs.readFileSync(providerHitsFile, 'utf8').split('\n').filter(Boolean).length;
 
-// the fixture DB container: explicit override first; otherwise discovered
-// from the runner's docker state by matching the fixture database name (the
-// environment may carry several postgres containers)
-function resolveFixtureDbContainer() {
-  if (process.env.CHANJET_STOP_DB_CONTAINER) return process.env.CHANJET_STOP_DB_CONTAINER;
-  const fixtureDbName = new URL(fixtureUrl).pathname.slice(1);
-  const candidates = execFileSync('docker', ['ps', '--format', '{{.Names}}'], { encoding: 'utf8' })
-    .split('\n').filter(Boolean).filter((n) => n.includes('postgres'));
-  return candidates.find((n) => {
-    try {
-      const envJson = execFileSync('docker', ['exec', n, 'printenv', 'POSTGRES_DB'], { encoding: 'utf8' }).trim();
-      return envJson === fixtureDbName;
-    } catch { return false; }
-  }) || candidates[0] || 'phoenix-r42a-admission-fixture';
-}
+// Explicit immutable instance only: no name discovery or arbitrary fallback.
+const ownedDbContainer = requireOwnedPostgresFixture({ url: fixtureUrl,
+  container: process.env.CHANJET_STOP_DB_CONTAINER, owner: process.env.CHANJET_FIXTURE_OWNER });
+const resolveFixtureDbContainer = () => ownedDbContainer;
 
 database('first-sync protected-entry acceptance (real entry, real scheduler host, real PostgreSQL18, local provider)', () => {
   before(async () => {
@@ -401,7 +391,7 @@ database('first-sync protected-entry acceptance (real entry, real scheduler host
     // registered (R42D_SKIP_REGISTRATION), matching the root workflow's
     // register-then-prepare sequencing
     const prepareScript = path.join(repoRoot, 'scripts/ops/chanjet-readonly-production-prepare.mjs');
-    const prepare = spawnSync(process.execPath, [prepareScript], {
+    const prepare = spawnSync(process.execPath, [path.join(repoRoot, 'scripts/ci/chanjet-production-prepare-fixture.mjs'), prepareScript], {
       encoding: 'utf8',
       timeout: 120_000,
       env: {
@@ -428,6 +418,7 @@ database('first-sync protected-entry acceptance (real entry, real scheduler host
         R42D_SKIP_REGISTRATION: '1',
       },
     });
+    assert.equal(prepare.status, 0, `${prepare.stdout} ${prepare.stderr}`);
     const prepareLine = String(prepare.stdout).split('\n').find((l) => l.startsWith('PREPARE='));
     assert.equal(prepareLine?.split(';')[0], 'PREPARE=PASS', `${prepare.stdout} ${prepare.stderr}`);
     const handover = JSON.parse(prepareLine.split(';')[1]);

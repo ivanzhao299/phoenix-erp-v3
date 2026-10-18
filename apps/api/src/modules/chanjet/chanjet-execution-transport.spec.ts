@@ -1,3 +1,4 @@
+import { chanjetBackgroundFixture } from './chanjet-background.test-fixture';
 import { createServer, Server } from 'node:http';
 import * as net from 'node:net';
 import assert from 'node:assert/strict';
@@ -105,11 +106,7 @@ function createService(fixtureBase: string, manager?: unknown) {
   process.env.CHANJET_PROVIDER_BASE_URL = fixtureBase;
   process.env.CHANJET_MIN_REQUEST_INTERVAL_MS = '100';
   const stateRepoWithManager = manager ? { ...stateRepo, manager } : stateRepo;
-  const service = new ChanjetAuthService(
-    { get: jest.fn((key: string, fallback = '') => values[key] ?? fallback) } as never,
-    stateRepoWithManager as never,
-    { ok: jest.fn(), fail: jest.fn() } as never,
-  );
+  const service = new ChanjetAuthService({ get: jest.fn((key: string, fallback = '') => values[key] ?? fallback) } as never, stateRepoWithManager as never, { ok: jest.fn(), fail: jest.fn() } as never, chanjetBackgroundFixture().service);
   // onModuleInit would schedule background bootstrapping; seed the fields the
   // request paths need directly instead (cert preset keeps the TOKEN exchange
   // self-contained so receipts map 1:1 to the exchanges under test).

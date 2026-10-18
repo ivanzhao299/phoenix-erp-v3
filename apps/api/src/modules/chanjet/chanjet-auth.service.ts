@@ -9,6 +9,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as crypto from 'crypto';
 import { SysChanjetStateEntity } from './sys-chanjet-state.entity';
+import { BackgroundTaskService } from '../background-control/background-task.service';
 import { CronMonitorService } from '../system-monitor/services/cron-monitor.service';
 
 interface TokenEntry {
@@ -111,6 +112,7 @@ export class ChanjetAuthService implements OnModuleInit {
     @InjectRepository(SysChanjetStateEntity)
     private stateRepo: Repository<SysChanjetStateEntity>,
     private readonly cronMon: CronMonitorService,
+    private readonly background: BackgroundTaskService,
   ) {}
 
   private maskSensitive(value: unknown): unknown {
@@ -200,7 +202,10 @@ export class ChanjetAuthService implements OnModuleInit {
     this.log.log(`CHANJET_AUTH_CONFIGURED appKeyPresent=${!!this.appKey} orgIdPresent=${!!this.orgId}`);
 
     // 容器启动自愈:仍无 appTicket → 主动让平台 resend(异步,不阻塞 onModuleInit)
-    setImmediate(() => this.bootstrapAppTicket());
+    this.background.spawn('chanjet-auth-bootstrap', 'CHANJET_AUTH', async () => {
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      await this.bootstrapAppTicket();
+    });
   }
 
   /** 持久化当前内存状态到 PG(upsert singleton 行) */
@@ -233,6 +238,10 @@ export class ChanjetAuthService implements OnModuleInit {
   /** 定时 refresh openToken(每 4 天,token 有效 6 天留 2 天缓冲) */
   @Cron('0 0 4 */4 * *', { name: 'chanjet-refresh-token' })
   async cronRefreshToken(): Promise<void> {
+    await this.background.runScheduled('chanjet-cronRefreshToken', 'CHANJET_AUTH', () => this.cronRefreshTokenAdmitted());
+  }
+
+  private async cronRefreshTokenAdmitted(): Promise<void> {
     if (!this.isConfigured() || !this.appTicket || !this.cert) return;
     try {
       this.tokenCache.clear();  // 清缓存强制重换
@@ -248,6 +257,10 @@ export class ChanjetAuthService implements OnModuleInit {
   /** 定时健康检查(每天早 8 点,拉账套列表) */
   @Cron(CronExpression.EVERY_DAY_AT_8AM, { name: 'chanjet-health-check' })
   async cronHealthCheck(): Promise<void> {
+    await this.background.runScheduled('chanjet-cronHealthCheck', 'CHANJET_AUTH', () => this.cronHealthCheckAdmitted());
+  }
+
+  private async cronHealthCheckAdmitted(): Promise<void> {
     if (!this.isConfigured()) return;
     try {
       const result = await this.listAccountBooks() as unknown;
@@ -276,7 +289,7 @@ export class ChanjetAuthService implements OnModuleInit {
   setAppTicket(ticket: string) {
     this.appTicket = ticket;
     this.log.log('appTicket 已更新: [REDACTED]');
-    void this.persistState();
+    this.background.spawn('chanjet-auth-persist-state', 'LOCAL', () => this.persistState());
   }
 
   setCertificate(cert: string) {
@@ -289,11 +302,15 @@ export class ChanjetAuthService implements OnModuleInit {
       this.tokenCache.clear();
     }
     this.log.log(`certificate 已更新: [REDACTED] tokenCacheInvalidated=${changed}`);
-    void this.persistState();
+    this.background.spawn('chanjet-auth-persist-state', 'LOCAL', () => this.persistState());
   }
 
   /** 用 authCode 换 certificate（企业授权回调场景） */
   async fetchCertificateByAuthCode(authCode: string): Promise<string> {
+    return this.background.run('chanjet-fetchCertificateByAuthCode', 'CHANJET_AUTH', () => this.fetchCertificateByAuthCodeAdmitted(authCode));
+  }
+
+  private async fetchCertificateByAuthCodeAdmitted(authCode: string): Promise<string> {
     this.log.log('POST /auth/certificate (authCode)');
     const json = await this.executionSend('CERTIFICATE', async (signal, _deadlineMs, base) => {
       const res = await providerFetch(`${base}/auth/certificate`, {
@@ -340,6 +357,10 @@ export class ChanjetAuthService implements OnModuleInit {
 
   /** 用 appTicket 换 certificate（如果 .env 已有 CHANJET_CERT 可跳过） */
   async fetchCertificate(): Promise<string> {
+    return this.background.run('chanjet-fetchCertificate', 'CHANJET_AUTH', () => this.fetchCertificateAdmitted());
+  }
+
+  private async fetchCertificateAdmitted(): Promise<string> {
     if (this.cert) return this.cert;
 
     if (!this.appTicket) {
@@ -374,6 +395,10 @@ export class ChanjetAuthService implements OnModuleInit {
 
   /** 用 appTicket + certificate 换 openToken（accessToken） */
   async getOpenToken(orgId?: string): Promise<string> {
+    return this.background.run('chanjet-getOpenToken', 'CHANJET_AUTH', () => this.getOpenTokenAdmitted(orgId));
+  }
+
+  private async getOpenTokenAdmitted(orgId?: string): Promise<string> {
     const targetOrg = orgId || this.orgId;
     // Inside an execution scope a cached token must not silently substitute
     // the auth exchange: the fetch (when needed) is an admission-counted TOKEN
@@ -421,7 +446,10 @@ export class ChanjetAuthService implements OnModuleInit {
       //   and the caller retries explicitly (each retry is counted).
       if (code === '4041') {
         if (!activeExecutionScope()) {
-          void this.triggerAppTicket().catch((e) => this.log.warn(`4041 自愈 resend 失败: ${(e as Error).message}`));
+          this.background.spawn('chanjet-auth-ticket-recovery', 'CHANJET_AUTH', async () => {
+            try { await this.triggerAppTicket(); }
+            catch (error) { this.log.warn(`4041 自愈 resend 失败: ${(error as Error).message}`); }
+          });
         }
         throw new Error('好业财 appTicket 已过期,已自动向平台请求重新推送授权票据,请约 10 秒后重试同步。(code=4041)');
       }
@@ -433,12 +461,16 @@ export class ChanjetAuthService implements OnModuleInit {
       expiresAt: Date.now() + expiresIn * 1000,
     });
     this.log.log(`openToken 已缓存，有效 ${expiresIn}s`);
-    void this.persistState();
+    this.background.spawn('chanjet-auth-persist-state', 'LOCAL', () => this.persistState());
     return accessToken;
   }
 
   /** 主动触发 appTicket 推送（需消息接收地址已配好） */
   async triggerAppTicket(): Promise<Record<string, unknown>> {
+    return this.background.run('chanjet-triggerAppTicket', 'CHANJET_AUTH', () => this.triggerAppTicketAdmitted());
+  }
+
+  private async triggerAppTicketAdmitted(): Promise<Record<string, unknown>> {
     const active = activeExecutionScope();
     if (active) {
       // Inside an execution scope the resend is an admission-counted,
@@ -477,6 +509,10 @@ export class ChanjetAuthService implements OnModuleInit {
     opts: ChanjetCallOptions = {},
     _isRetry = false,
   ): Promise<T> {
+    return this.background.run('chanjet-business-api', 'CHANJET_SYNC', () => this.callApiAdmitted<T>(path, opts, _isRetry));
+  }
+
+  private async callApiAdmitted<T>(path: string, opts: ChanjetCallOptions, _isRetry: boolean): Promise<T> {
     assertReadonlyOrchestrationOwnerIfPresent();
     if (['READONLY_VERIFY', 'READONLY_ACTIVE'].includes(process.env.CHANJET_SYNC_POLICY || '')) {
       assertChanjetProxyReadonly(opts.method || 'POST', path);
@@ -655,7 +691,12 @@ export class ChanjetAuthService implements OnModuleInit {
         setTimeout(resolve, intervalMs);
       });
     })();
-    slot.then(() => release(), () => release());
+    // A caller can lose its deadline race while this FIFO slot is still
+    // waiting. Keep the slot registered until settlement so drain includes
+    // the outstanding queue continuation as well as the provider request.
+    this.background.spawn('chanjet-traffic-slot-settle', 'CHANJET_SYNC', async () => {
+      try { await slot; } finally { release(); }
+    });
     let timer: NodeJS.Timeout | undefined;
     try {
       if (deadlineAt) {
@@ -743,17 +784,22 @@ export class ChanjetAuthService implements OnModuleInit {
     // back — no late budget write, no dangling client work.
     let budgetTimer: NodeJS.Timeout | undefined;
     try {
+      const transaction = manager.transaction(async (tx) => {
+        if (deadlineAt && Date.now() >= deadlineAt.getTime()) throw new Error('CHANJET_EXECUTION_DEADLINE');
+        await reserve(tx, monthKey, monthLimit);
+        await reserve(tx, dayKey, dayLimit);
+        if (kind === 'READ') {
+          await reserve(tx, readKey, readLimit);
+        } else {
+          await reserve(tx, writeKey, writeLimit);
+        }
+      });
+      // The absolute-deadline race returns to the caller promptly; the
+      // database transaction itself remains in the admitted graph until its
+      // late acquisition/rollback/commit has actually settled.
+      this.background.spawn('chanjet-budget-transaction-settle', 'CHANJET_SYNC', () => transaction);
       await Promise.race([
-        manager.transaction(async (tx) => {
-          if (deadlineAt && Date.now() >= deadlineAt.getTime()) throw new Error('CHANJET_EXECUTION_DEADLINE');
-          await reserve(tx, monthKey, monthLimit);
-          await reserve(tx, dayKey, dayLimit);
-          if (kind === 'READ') {
-            await reserve(tx, readKey, readLimit);
-          } else {
-            await reserve(tx, writeKey, writeLimit);
-          }
-        }),
+        transaction,
         ...(deadlineAt
           ? [new Promise<never>((_, reject) => {
               budgetTimer = setTimeout(() => reject(new Error('CHANJET_EXECUTION_DEADLINE')), Math.max(1, deadlineAt.getTime() - Date.now()));

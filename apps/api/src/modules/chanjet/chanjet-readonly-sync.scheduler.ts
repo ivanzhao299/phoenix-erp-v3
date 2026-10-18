@@ -7,6 +7,7 @@ import { Injectable, Logger, OnApplicationBootstrap, OnModuleDestroy, Optional }
 import { Cron } from '@nestjs/schedule';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
+import { BackgroundTaskService } from '../background-control/background-task.service';
 import { CronMonitorService } from '../system-monitor/services/cron-monitor.service';
 import { ChanjetIntegrationService } from './chanjet-integration.service';
 import { ChanjetErpInboundSyncService } from './chanjet-erp-inbound-sync.service';
@@ -77,14 +78,16 @@ export class ChanjetReadonlySyncScheduler implements OnApplicationBootstrap, OnM
     private readonly cronMon: CronMonitorService,
     @InjectDataSource() private readonly ds: DataSource,
     private readonly inboundSync: ChanjetErpInboundSyncService,
+    private readonly background: BackgroundTaskService,
     @Optional() private readonly executionOptions: { executionCancellationConfig?: GuardConnectionConfig } = {},
   ) {}
 
   onApplicationBootstrap(): void {
     this.executionCancellationConfig = this.executionOptions.executionCancellationConfig;
     if (!readonlySyncEnabled()) return;
-    setImmediate(() => {
-      void this.recoverInterruptedRun();
+    this.background.spawn('chanjet-readonly-recovery', 'CHANJET_SYNC', async () => {
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      await this.recoverInterruptedRun();
     });
   }
 
@@ -92,6 +95,10 @@ export class ChanjetReadonlySyncScheduler implements OnApplicationBootstrap, OnM
   // the 30k monthly free allowance for operator checks and controlled writes.
   @Cron('0 15 */6 * * *', { name: JOB_NAME, timeZone: 'Asia/Shanghai' })
   async runScheduledSync(): Promise<void> {
+    await this.background.runScheduled(JOB_NAME, 'CHANJET_SYNC', () => this.runScheduledSyncAdmitted());
+  }
+
+  private async runScheduledSyncAdmitted(): Promise<void> {
     if (!readonlySyncEnabled() || !readonlyScheduleEnabled()) {
       this.log.warn(`${JOB_NAME} READONLY_SCHEDULE_HOLD`);
       return;
@@ -107,17 +114,37 @@ export class ChanjetReadonlySyncScheduler implements OnApplicationBootstrap, OnM
   }
 
   async enqueueManualSync(requestedBy: string, request: ManualSyncRequest = {}, options: { authPrincipal?: string } = {}) {
+    return this.background.run('chanjet-readonly-manual-queue', 'CHANJET_SYNC', () => this.enqueueManualSyncAdmitted(requestedBy, request, options));
+  }
+
+  private async enqueueManualSyncAdmitted(requestedBy: string, request: ManualSyncRequest, options: { authPrincipal?: string }) {
     if (!readonlySyncEnabled()) return this.disabledRun();
     const prepared = await this.prepareRun(requestedBy, request, options);
     const response = { accepted: prepared.accepted, reason: prepared.reason, run: prepared.run };
     if (!prepared.accepted || !prepared.lease || !prepared.run.runId) return response;
     const { lease } = prepared;
     const runId = prepared.run.runId;
-    setImmediate(() => {
-      // executeSync consumes this lease exactly once; unexpected failures remain audited HOLD.
-      void this.executeSync(requestedBy, request, runId, lease, prepared.executionBinding).catch(() => {
-        this.log.error('READONLY_HOLD_DISPATCH');
-      });
+    // Register the child before the admitted enqueue returns: the durable
+    // reservation and its lease stay in the same drain graph through settle.
+    let workerEntered = false;
+    const worker = this.background.run('chanjet-readonly-worker', 'CHANJET_SYNC', async () => {
+      workerEntered = true;
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      // executeSync owns terminal persistence and closes its lease in finally.
+      await this.executeSync(requestedBy, request, runId, lease, prepared.executionBinding);
+    });
+    void worker.catch(async () => {
+      // A lost control session can poison the participant while reservation
+      // awaits PostgreSQL. Child admission must still refuse; release the
+      // already-retained lease and retain the durable RUNNING row for review.
+      // Poison remains HOLD: this cleanup can never establish DRAIN_PASS.
+      if (!workerEntered) {
+        this.queued = false;
+        this.lastRun = { ...this.lastRun, state: 'HOLD', decision: 'HOLD', completedAt: new Date().toISOString(), message: 'READONLY_HOLD_DISPATCH' };
+        try { await lease.close(); }
+        catch { this.log.error('READONLY_HOLD_LOCK_CLEANUP'); }
+      }
+      this.log.error('READONLY_HOLD_DISPATCH');
     });
     return response;
   }
@@ -360,7 +387,6 @@ export class ChanjetReadonlySyncScheduler implements OnApplicationBootstrap, OnM
       const message = terminalAttempted ? 'READONLY_HOLD_TERMINAL_PERSISTENCE' : readonlyFailureCode(error);
       this.lastRun = { ...this.lastRun, state: 'HOLD', completedAt: new Date().toISOString(), decision: 'HOLD', message };
       this.log.error(message);
-      this.log.warn(`RAW=${String(error instanceof Error ? error.message : error).replace(/[^\x20-\x7e]/g, ' ').slice(0, 140)}`);
       // A failed execution-bound run durably STOPS the execution: no later
       // send and no late sync success can build on it. The stop goes through
       // the reviewed bounded guard mechanism (ALREADY_STOPPED is fine).
