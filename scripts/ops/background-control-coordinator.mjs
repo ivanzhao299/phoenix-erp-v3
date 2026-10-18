@@ -19,7 +19,7 @@ const safeDocker = args => execFileSync('docker', args, { env: executionEnv(), e
  * crosses the boundary and SQL is limited to this protocol's fixed lock keys. */
 export class DockerPostgresControlSession {
   constructor({ commandTimeoutMs = 5000 } = {}, dependencies = {}) {
-    this.commandTimeoutMs = commandTimeoutMs; this.child = null; this.pending = null; this.broken = false;
+    this.commandTimeoutMs = commandTimeoutMs; this.child = null; this.pending = null; this.broken = false; this.handshakeVerified = false;
     this.queue = Promise.resolve(); this.errorCode = null; this.launch = dependencies.spawn || spawn;
   }
   connected() { return Boolean(this.child && !this.broken && this.child.exitCode === null); }
@@ -28,7 +28,7 @@ export class DockerPostgresControlSession {
     if (this.child) return;
     this.child = this.launch('docker', ['exec', '-i', 'phoenix-v3-db', 'sh', '-c', 'exec psql --username="$POSTGRES_USER" --dbname="$POSTGRES_DB" -X -qAt --set=ON_ERROR_STOP=1'],
       { env: executionEnv(), stdio: ['pipe', 'pipe', 'pipe'] });
-    const lose = () => { this.broken = true; this.errorCode = 'CONTROL_SESSION_LOST'; if (this.pending) { this.pending.reject(new Error('BACKGROUND_HOLD=CONTROL_SESSION_LOST')); this.pending = null; } };
+    const lose = () => { this.broken = true; this.handshakeVerified = false; this.errorCode = 'CONTROL_SESSION_LOST'; if (this.pending) { this.pending.reject(new Error('BACKGROUND_HOLD=CONTROL_SESSION_LOST')); this.pending = null; } };
     this.child.on('error', lose); this.child.on('exit', lose);
     // Never relay database stderr, which may contain deployment connection data.
     this.child.stderr.on('data', () => {});
@@ -38,7 +38,8 @@ export class DockerPostgresControlSession {
       if (!/^[tf]$/.test(line)) { lose(); return; }
       this.pending = null; pending.resolve(line === 't');
     });
-    await this.query('SELECT true;');
+    if (await this.query('SELECT true;') !== true) { this.broken = true; fail('CONTROL_SESSION_HANDSHAKE_FAILED'); }
+    this.handshakeVerified = true;
   }
   async query(sql) {
     const operation = this.queue.then(async () => {
@@ -77,12 +78,13 @@ export class DockerPostgresControlSession {
     return true;
   }
   async close() {
+    this.handshakeVerified = false;
     if (!this.child) return;
     const child = this.child; this.child = null;
     // A clean psql EOF ends its PostgreSQL session. Give docker exec time to
     // relay EOF instead of killing the client first and orphaning psql locks.
     child.stdin.end();
-    if (child.exitCode !== null) return;
+    if (child.exitCode !== null || child.signalCode !== null) return;
     await new Promise((resolve, reject) => {
       const timer = setTimeout(() => { child.kill(); reject(new Error('BACKGROUND_HOLD=CONTROL_SESSION_CLOSE_TIMEOUT')); }, 2000);
       child.once('exit', () => { clearTimeout(timer); resolve(); });

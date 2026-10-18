@@ -63,6 +63,7 @@ export function verifySessionFormalEvidence({ context, files }, dependencies = {
 }
 
 export class LegacyMaintenanceDeploymentSession {
+  #controlRegistrations = new WeakSet();
   constructor({ plan }, dependencies = {}) {
     validateReleasePlan(plan); this.plan = structuredClone(plan); this.context = this.plan.context;
     this.rawStore = dependencies.store || new MaintenanceReceiptStore(this.context);
@@ -103,7 +104,7 @@ export class LegacyMaintenanceDeploymentSession {
     this.cleanupTimeoutMs = dependencies.cleanupTimeoutMs ?? 10000; this.stepTimeoutMs = dependencies.stepTimeoutMs ?? CONTRACT.maximumTransitionMs;
     if (!Number.isSafeInteger(this.cleanupTimeoutMs) || this.cleanupTimeoutMs < 1 || this.cleanupTimeoutMs > 10000
       || !Number.isSafeInteger(this.stepTimeoutMs) || this.stepTimeoutMs < 1 || this.stepTimeoutMs > CONTRACT.maximumTransitionMs) hold('SESSION_OPERATION_TIMEOUT_REQUIRED');
-    this.actions = new Set(); this.children = new Set(); this.controlSessions = new Set(); this.closingControls = false; this.reservation = null;
+    this.actions = new Set(); this.children = new Set(); this.controlSessions = new Set(); this.controlChildren = new Map(); this.closingControls = false; this.reservation = null;
     this.pollMs = dependencies.pollMs ?? 2000;
     if (!Number.isSafeInteger(this.pollMs) || this.pollMs < 1 || this.pollMs > 5000) hold('SESSION_MONITOR_INTERVAL_REQUIRED');
     this.stage = 'NOT_STARTED';
@@ -112,9 +113,9 @@ export class LegacyMaintenanceDeploymentSession {
   }
   async checked() {
     if (this.fatal) throw this.fatal;
-    this.guard(); this.engine.checkWindow(); await this.boundedRead('EXACT_MAIN', options => this.checkMain(options));
+    this.guard(); this.engine.checkWindow(); this.assertControlSessionsLive(); await this.boundedRead('EXACT_MAIN', options => this.checkMain(options));
     this.guard(); this.engine.checkWindow();
-    if (this.fatal) throw this.fatal;
+    if (this.fatal) throw this.fatal; this.assertControlSessionsLive();
   }
   async boundedRead(kind, action) {
     const controller = new AbortController(), entry = { kind, controller };
@@ -140,6 +141,7 @@ export class LegacyMaintenanceDeploymentSession {
     // Registration is bookkeeping, never permission to launch a command. The
     // compiled typed producer still must perform real operation admission.
     if (!(child instanceof ChildProcess) || !Number.isSafeInteger(child.pid) || child.pid < 1 || this.fatal) hold('SESSION_OWNED_CHILD_REGISTRATION_REQUIRED');
+    if ([...this.children].some(entry => entry.child === child) || [...this.controlChildren.values()].some(entry => entry.child === child)) hold('SESSION_DUPLICATE_CHILD_REGISTRATION');
     const entry = { child, pid: child.pid, observer, work: null };
     if (child.exitCode === null && child.signalCode === null) {
       entry.work = new Promise(resolve => child.once('exit', resolve)); this.children.add(entry);
@@ -156,22 +158,50 @@ export class LegacyMaintenanceDeploymentSession {
   producer(name, request) {
     if (this.fatal) throw this.fatal;
     return this.track(`PRODUCER_${name}`, async () => {
-      const result = await this.producers[name]({ ...request, registerOwnedChild: child => this.registerOwnedChild(child),
-        ...(name === 'registerStartedCandidate' ? { registerControlSession: session => this.registerControlSession(session) } : {}) });
-      this.assertNoActiveChildren({ allowObservers: true }); return result;
+      const registration = { active: true, name, stateDigest: request.state?.stateDigest, lease: null };
+      if (name === 'registerStartedCandidate') this.#controlRegistrations.add(registration);
+      try {
+        const result = await this.producers[name]({ ...request, registerOwnedChild: child => this.registerOwnedChild(child),
+          ...(name === 'registerStartedCandidate' ? { registerControlSession: (session, lease) => this.registerControlSession(session, lease, registration) } : {}) });
+        if (registration.lease && result?.lease !== registration.lease) hold('SESSION_CONTROL_LEASE_HANDOFF_CHANGED');
+        this.assertNoActiveChildren({ allowObservers: true }); return result;
+      } finally { registration.active = false; this.#controlRegistrations.delete(registration); }
     });
   }
-  registerControlSession(session) {
-    if (!(session instanceof DockerPostgresControlSession) || !session.connected() || !(session.child instanceof ChildProcess)
-      || !Number.isSafeInteger(session.child.pid) || session.child.pid < 1 || this.fatal) hold('SESSION_REAL_CONTROL_SESSION_REQUIRED');
+  registerControlSession(session, lease, registration) {
+    if (!(session instanceof DockerPostgresControlSession) || session.handshakeVerified !== true || !session.connected() || !(session.child instanceof ChildProcess)
+      || !Number.isSafeInteger(session.child.pid) || session.child.pid < 1 || session.child.exitCode !== null
+      || session.child.signalCode !== null || session.child.killed || this.fatal) hold('SESSION_REAL_CONTROL_SESSION_REQUIRED');
+    if (this.stage !== 'START_CANDIDATE' || this.closingControls || this.controlSessions.size
+      || !this.#controlRegistrations.has(registration) || registration?.active !== true || registration.name !== 'registerStartedCandidate'
+      || !lease || typeof lease.observe !== 'function' || typeof lease.close !== 'function') hold('SESSION_CONTROL_HANDOFF_PHASE_OR_DUPLICATE');
+    this.rawStore.assertCurrent(); const state = this.rawStore.readState();
+    if (state?.phase !== 'CANDIDATE_REPLACED' || state.stateDigest !== registration.stateDigest) hold('SESSION_CONTROL_HANDOFF_STATE_CHANGED');
+    this.rawStore.assertOwnedIntent('START_CANDIDATE', 'CANDIDATE_REPLACED', state.stateDigest);
+    const child = session.child;
+    const pending = [...this.children].filter(entry => entry.child === child && entry.observer === false);
+    if (pending.length !== 1) hold('SESSION_PENDING_CONTROL_CHILD_REQUIRED');
+    // Transfer ownership, never drop it: handshake work starts in the ordinary
+    // child set; the connected lease keeps its original child and close waiter.
+    const entry = { child, pid: child.pid, work: new Promise(resolve => child.once('close', resolve)) };
+    this.controlChildren.set(session, entry); this.children.delete(pending[0]);
+    registration.lease = lease; this.pendingLease = lease;
     this.controlSessions.add(session);
-    session.child.once('exit', () => {
+    const lost = () => {
       if (!this.closingControls) { this.fatal ||= new Error('MAINTENANCE_HOLD=SESSION_CONTROL_PROCESS_LOST'); this.activeController?.abort(); }
-    });
+    };
+    child.once('exit', lost); child.once('error', lost);
   }
   assertNoActiveChildren({ allowObservers = false } = {}) {
     if ([...this.children].some(child => !allowObservers || !child.observer)) hold('SESSION_ACTIVE_EFFECT_CHILD');
-    for (const session of this.controlSessions) if (!this.closingControls && !session.connected()) hold('SESSION_CONTROL_PROCESS_LOST');
+    this.assertControlSessionsLive();
+  }
+  assertControlSessionsLive() {
+    for (const session of this.controlSessions) {
+      const original = this.controlChildren.get(session);
+      if (!this.closingControls && (!original || session.child !== original.child || original.child.killed
+        || original.child.exitCode !== null || original.child.signalCode !== null || !session.connected())) hold('SESSION_CONTROL_PROCESS_LOST');
+    }
   }
   async boundedCleanup(action) {
     const controller = new AbortController(); let timer;
@@ -238,6 +268,7 @@ export class LegacyMaintenanceDeploymentSession {
       expectedPhase: request.state.phase, expectedStateDigest: request.state.stateDigest, requiredBudgetMs: budget });
   }
   async verifyLease() {
+    this.assertControlSessionsLive();
     if (!this.lease || typeof this.lease.observe !== 'function' || typeof this.lease.close !== 'function') hold('SESSION_PERSISTENT_CANDIDATE_LEASE_REQUIRED');
     // Observe + structural validation + independent verification form ONE owned
     // probe. A hung verifier remains registered after its deadline; a zero-child
@@ -251,7 +282,7 @@ export class LegacyMaintenanceDeploymentSession {
         || body.admissionState !== 'DENIED' || body.inFlight !== 0 || body.pendingChildren !== 0 || body.taskGraphs !== 0
         || body.poisoned !== false || body.stopping !== false || body.continuousIngress !== true || body.unknownExecutors !== 0
         || !same(body.controlSession, candidate.controlSession)) hold('SESSION_CANDIDATE_LEASE_LOST');
-      return proof;
+      this.assertControlSessionsLive(); return proof;
     });
   }
   startMonitor() {
@@ -445,6 +476,14 @@ export class LegacyMaintenanceDeploymentSession {
             hold(succeeded ? 'SESSION_FORMAL_SUCCESS_LEASE_RELEASE_INCIDENT' : 'SESSION_HOLD_LEASE_RELEASE_INCIDENT');
           }
         }
+        try {
+          await this.boundedCleanup(() => Promise.all([...this.controlChildren.values()].map(entry => entry.work)));
+        } catch {
+          try { this.incident('CONTROL_CLIENTS_UNSETTLED', { formalDeploymentOutcome: succeeded ? 'SUCCESS' : 'NOT_COMPLETED',
+            outcome: 'MANUAL_RECOVERY_REQUIRED', clientLifecycle: 'UNVERIFIED',
+            serverReleaseEvidence: 'DOES_NOT_PROVE_CLIENT_SETTLEMENT' }); } catch {}
+          hold(succeeded ? 'SESSION_FORMAL_SUCCESS_CONTROL_CLIENT_INCIDENT' : 'SESSION_HOLD_CONTROL_CLIENT_INCIDENT');
+        }
         if (succeeded && this.completedResult) this.completedResult.controlLeaseRelease = 'VERIFIED_RELEASED';
       }
     }
@@ -466,7 +505,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     await runProtectedMaintenanceSession(); console.log('MAINTENANCE_SESSION=SUCCESS');
   } catch (error) {
     console.error(/^MAINTENANCE_HOLD=[A-Z0-9_]+$/.test(error.message) ? error.message : 'MAINTENANCE_HOLD=SESSION_VALIDATION_FAILED'); process.exitCode = 1;
-    if (/SESSION_CHILDREN_UNVERIFIED_MANUAL_RECOVERY_REQUIRED|SESSION_(?:FORMAL_SUCCESS|HOLD)_LEASE_RELEASE_INCIDENT/.test(error.message)) {
+    if (/SESSION_CHILDREN_UNVERIFIED_MANUAL_RECOVERY_REQUIRED|SESSION_(?:FORMAL_SUCCESS|HOLD)_(?:LEASE_RELEASE|CONTROL_CLIENT)_INCIDENT/.test(error.message)) {
       // Preserve this controller/FD9 for operator recovery. A process/host crash
       // can still release locks: durable markers/deny and external isolation
       // must be independently re-inspected, never assumed from this timer.
