@@ -21,6 +21,9 @@ const PRIVATE_DIAGNOSTICS = new Set([
   'ROOT_CONTROL_OPERATION_DEADLINE','ROOT_CONTROL_OPERATION_ABORTED','ROOT_CONTROL_WINDOW_EXPIRED',
   ...['DIGEST','STATE','TIME','UNIQUE_CHAIN','CHAIN_ORDER','PENDING','CHANGED'].map(v=>'CANDIDATE_PHASE_ANCHOR_'+v)
 ].map(v=>'MAINTENANCE_HOLD='+v));
+export function candidateBindingDiagnosticCode(error) {
+  return PRIVATE_DIAGNOSTICS.has(error?.diagnosticCode)?error.diagnosticCode:undefined;
+}
 function opaqueFailure(error) {
   const failure=Error('CANDIDATE_BINDING_HOLD=OBSERVATION_UNVERIFIED');
   if(PRIVATE_DIAGNOSTICS.has(error?.message))Object.defineProperty(failure,'diagnosticCode',{value:error.message});

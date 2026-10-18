@@ -14,7 +14,7 @@ import { MaintenanceReceiptStore, bindingDigest } from '../ops/production-mainte
 import { LegacyMaintenanceTransition } from '../ops/production-maintenance-transition.mjs';
 import { RootControlLease } from '../ops/production-maintenance-root-lease.mjs';
 import { validateCandidateReplacement } from '../ops/production-maintenance-replacement.mjs';
-import { collectCandidateServerBinding, collectCandidateLeaseBinding, inspectCandidateStorage, CANDIDATE_DOCKER_LIST_COUNTS } from '../ops/production-maintenance-candidate-binding.mjs';
+import { collectCandidateServerBinding, collectCandidateLeaseBinding, inspectCandidateStorage, CANDIDATE_DOCKER_LIST_COUNTS, candidateBindingDiagnosticCode } from '../ops/production-maintenance-candidate-binding.mjs';
 import { PUBLIC_DIRECTORY, HOLD_KINDS, inspectPublicDirectory, atomicPublicManifest } from '../ops/background-control-manifest.mjs';
 
 const output='/data/phoenix-erp/artifacts/maintenance-native-candidate-host';
@@ -283,7 +283,7 @@ async function exerciseNative() {
     releaseSaved=true;
   } catch(error) {
     firstFailure=error;result.failureObservedAt=new Date().toISOString();
-    if(typeof error?.diagnosticCode==='string')result.fixedDiagnosticCode=error.diagnosticCode;
+    const diagnostic=candidateBindingDiagnosticCode(error);if(diagnostic)result.fixedDiagnosticCode=diagnostic;
     result.outcome='FAIL';result.failureClass=/^[A-Z_]+=([A-Z0-9_]+)$/.exec(error?.message||'')?.[0]||'NATIVE_FIXTURE_UNVERIFIED_FAILURE';
   } finally {
     if(root){try {if(!release)release=await root.close({timeoutMs:120000});}catch {result.rootCleanup='UNVERIFIED';result.outcome='FAIL';}}
