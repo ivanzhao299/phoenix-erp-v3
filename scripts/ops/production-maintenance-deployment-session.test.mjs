@@ -11,7 +11,7 @@ import { LegacyMaintenanceDeploymentSession, RELEASE_SCOPE, validateReleasePlan,
 import { MaintenanceReceiptStore, canonicalDigest, bindingDigest, createMaintenanceEvidence } from './production-maintenance-receipts.mjs';
 import { MAINTENANCE_OPERATIONS } from './production-maintenance-transition.mjs';
 import { assertModernReleaseAdmission, assertLegacyMaintenanceAdmission } from './production-maintenance-admission.mjs';
-import { captureSnapshot, summarizeStartupLogs } from './production-deployment-evidence.mjs';
+import { MODE_EVIDENCE_SCHEMA, captureSnapshot, summarizeStartupLogs, startupBundle } from './production-deployment-evidence.mjs';
 import { beginState } from './production-deployment-state.mjs';
 import { LEGACY_EVIDENCE_DOMAINS } from './background-control-legacy-transition.mjs';
 
@@ -58,7 +58,7 @@ function fixture() {
     const value = Object.entries(current).find(([, p]) => p.imageId === args[2]); assert.ok(value, 'read only owned image');
     return JSON.stringify(value[0] === 'db' ? {} : { 'org.opencontainers.image.revision': value[1].revision });
   };
-  const evidenceBinding = { runId: context.owner, runAttempt: '1', targetSha: context.targetSha, floorSha: context.targetSha, capturedAt: at(0) };
+  const evidenceBinding = { runId: context.owner, runAttempt: '1', targetSha: context.targetSha, floorSha: context.targetSha, capturedAt: at(0), deployMode: 'api' };
   const lease = { observe: async () => evidence('CANDIDATE_CONTROL_LEASE', { ...candidateBody, phase: 'FENCED', admissionExclusive: true, executionExclusive: true, connected: true,
     continuousIngress: true, unknownExecutors: 0 }), close: async ({ succeeded }) => { calls.push(succeeded ? 'CLOSE_SUCCESS' : 'CLOSE_HOLD'); closed = true;
     return evidence('CANDIDATE_CONTROL_RELEASED', { owner: context.owner, connected: false, admissionExclusive: false, executionExclusive: false, ownedBackendGone: true, serverObservationSha256: h('e') }); } };
@@ -72,7 +72,7 @@ function fixture() {
     database: { ownershipComplete: true, remainingConnections: 0, openTransactions: 0, preparedTransactions: 0, persistentRunning: 0, persistentQueued: 0 } });
   const producers = {
     assertReady: async () => { calls.push('READY'); return evidence('SESSION_PRODUCERS_READY', { scope: RELEASE_SCOPE, operations: MAINTENANCE_OPERATIONS, sourceHelperSha256: context.sourceHelperSha256, detachedEffects: false }); },
-    capturePre: async ({ files }) => { calls.push('PRE'); store.immutable(files.pre, captureSnapshot({ ...evidenceBinding, phase: 'PRE_SNAPSHOT' }, dockerRead));
+    capturePre: async ({ files }) => { calls.push('PRE'); store.immutable(files.pre, captureSnapshot({ ...evidenceBinding, capturedAt: at(-3000), phase: 'PRE_SNAPSHOT' }, dockerRead));
       return evidence('PRE', { healthy: true, runtime: context.preSnapshot, schemaEvidenceSha256: context.schemaEvidenceSha256, migrationPaths: [], unfinishedTransaction: false,
         chanjetPolicy: 'HOLD', readonlySync: false, inboundSync: false, inventory: { hostInventoryComplete: true, unaccountedExecutors: 0, dockerExecutorIds: [api.id], allDockerIds: [api.id, web.id, db.id], classifiedNonExecutorIds: [web.id, db.id] } }); },
     captureRecovery: async () => recovery,
@@ -87,13 +87,15 @@ function fixture() {
     registerStartedCandidate: async ({ replacement: replaced }) => { calls.push('REGISTER'); registered = evidence('CANDIDATE_FENCED', { ...candidateBody, candidateReplacementSha256: replaced.evidenceSha256,
       registrationOnly: true, runtimeCreated: false, runtimeRestarted: false }); return { evidence: registered, lease }; },
     collectAdoption: async () => ({ evidence: evidence('CANDIDATE_PUBLIC_ADOPTION', {}), participants: [{ containerId: candidate.id, revision: context.targetSha, bootId, allowedKinds: ['LOCAL', 'EXTERNAL_READ', 'NOTIFICATION'] }] }),
-    capturePostAndStartup: async ({ files }) => { calls.push('POST'); store.immutable(files.post, captureSnapshot({ ...evidenceBinding, phase: 'POST_SNAPSHOT' }, dockerRead));
-      store.immutable(files.log, summarizeStartupLogs({ stdout: `${at(-500)} API_BOOTSTRAP_SCHEMA_COMPATIBILITY=PASS\n${at(-250)} Nest application started\n`, stderr: '', containerId: candidate.id,
-        startedAt: candidate.startedAt, capturedAt: at(0), ...evidenceBinding, readinessVerified: true })); },
+    capturePostAndStartup: async ({ files }) => { calls.push('POST'); const post = captureSnapshot({ ...evidenceBinding, phase: 'POST_SNAPSHOT' }, dockerRead);
+      store.immutable(files.post, post);
+      const apiStartup = summarizeStartupLogs({ stdout: `${at(-500)} API_BOOTSTRAP_SCHEMA_COMPATIBILITY=PASS\n${at(-250)} Nest application started\n`, stderr: '', containerId: candidate.id,
+        startedAt: candidate.startedAt, capturedAt: at(0), ...evidenceBinding, readinessVerified: true });
+      store.immutable(files.log, startupBundle(post, { api: apiStartup })); },
     completeFormalDeployment: async ({ files }) => { calls.push('FORMAL_COMPLETE');
       const pins = Object.fromEntries(['api', 'web', 'db'].map(name => [name, { imageId: context.preSnapshot[name].imageId, ...(name === 'db' ? {} : { revision: context.preSnapshot[name].revision }) }]));
       const state = beginState({ previous: pins, configSha: context.targetSha, target: context.targetSha, scope: { baseline: context.previousApiSha, target: context.targetSha, changed: [] },
-        floor: { floorSha: context.targetSha }, evidence: files }); state.switched.api = true; state.active = { ...pins, api: context.candidate }; state.outcome = 'SUCCESS'; state.fixtureOnly = true;
+        floor: { floorSha: context.targetSha }, evidence: files, mode: 'api' }); state.switched.api = true; state.active = { ...pins, api: context.candidate }; state.outcome = 'SUCCESS'; state.fixtureOnly = true;
       store.immutable(path.join(directory, `deploy-${context.owner}.json`), state); },
     collectVerifiedCandidate: async ({ formal }) => { calls.push('VERIFIED'); return evidence('VERIFIED_FENCED', { ...candidateBody, apiReadiness: 'PASS', webHttpSmoke: 'PASS', liveReinspect: 'PASS',
       startupEvidenceSha256: formal.digests.log, preSnapshotSha256: formal.digests.pre, postSnapshotSha256: formal.digests.post, unfinishedTransaction: false, runMigration: false }); },
@@ -145,6 +147,13 @@ test('owned full session uses real store/admission/evidence checks in fixed orde
   assert.equal(result.formalDeploymentOutcome, 'SUCCESS'); assert.equal(result.controlLeaseRelease, 'VERIFIED_RELEASED'); assert.equal(result.legacyDrainResult, 'UNSUPPORTED'); assert.equal(f.closed, true); assert.equal(f.opened, true);
   assert.deepEqual(f.calls, ['READY', 'PRE', 'JOIN', 'FENCE', 'STOP', 'RECONCILE', 'PUBLIC_EMPTY', 'PROMOTE', 'REPLACE', 'REGISTER', 'ADOPT', 'POST', 'FORMAL_COMPLETE', 'VERIFIED', 'READ_COMPLETION', 'OPEN', 'CLOSE_SUCCESS']);
   assert.equal(f.store.readState().status, 'SUCCESS'); assert.equal(fs.existsSync(f.store.currentFile), false); assert.equal(fs.existsSync(f.store.markerFile), false);
+  for (const file of Object.values(f.session.files)) {
+    const receipt = f.store.read(file); assert.equal(receipt.schema, MODE_EVIDENCE_SCHEMA); assert.equal(receipt.deployMode, 'api');
+  }
+  const startup = f.store.read(f.session.files.log);
+  assert.equal(startup.phase, 'SERVICE_STARTUP_LOGS'); assert.deepEqual(Object.keys(startup.services), ['api']);
+  assert.equal(startup.services.api.phase, 'API_STARTUP_LOG'); assert.equal(startup.services.api.schema, MODE_EVIDENCE_SCHEMA);
+  assert.equal(f.store.read(path.join(f.directory, `deploy-${f.context.owner}.json`)).deployMode, 'api');
   assert.ok(f.admissionCalls.includes('REPLACE_CANDIDATE')); assert.ok(f.admissionCalls.includes('OPEN_CANDIDATE'));
   assert.equal(JSON.stringify(result).includes('DRAINED'), false);
   await assert.rejects(f.session.run(), /ALREADY_USED/);
@@ -185,6 +194,33 @@ test('real formal PRE/POST validator blocks changed Web identity before formal c
   f.producers.capturePostAndStartup = async request => { await capture(request); const post = f.store.read(request.files.post); post.containers.web.id = h('f');
     fs.writeFileSync(request.files.post, JSON.stringify(post), { mode: 0o600 }); };
   await assert.rejects(f.session.run(), /WEB_CHANGED/); assert.equal(f.calls.includes('FORMAL_COMPLETE'), false); assert.equal(f.opened, false);
+});
+test('new API-only maintenance transaction rejects genuine historical, Web and full PRE receipts', async () => {
+  for (const mode of [undefined, 'web', 'full']) {
+    const f = fixture(), capture = f.producers.capturePre;
+    f.producers.capturePre = async request => {
+      const envelope = await capture(request);
+      // Generate each alternative through the real capture API, without editing
+      // a schema field to manufacture compatibility or a false mode receipt.
+      const pre = captureSnapshot({ phase: 'PRE_SNAPSHOT', runId: f.context.owner, runAttempt: '1', targetSha: f.context.targetSha,
+        floorSha: f.context.targetSha, capturedAt: at(-3000), ...(mode ? { deployMode: mode } : {}) }, f.dockerRead);
+      fs.writeFileSync(request.files.pre, JSON.stringify(pre), { mode: 0o600 }); return envelope;
+    };
+    await assert.rejects(f.session.run(), /MODE_BINDING/);
+    assert.equal(f.calls.includes('FORMAL_COMPLETE'), false); assert.equal(f.opened, false);
+  }
+});
+test('new API-only maintenance transaction rejects genuine unbundled historical API startup receipt', async () => {
+  const f = fixture(), capture = f.producers.capturePostAndStartup;
+  f.producers.capturePostAndStartup = async request => {
+    await capture(request);
+    const startup = summarizeStartupLogs({ stdout: `${at(-500)} API_BOOTSTRAP_SCHEMA_COMPATIBILITY=PASS\n${at(-250)} Nest application started\n`, stderr: '',
+      containerId: f.candidateBody.api.id, startedAt: f.candidateBody.api.startedAt, capturedAt: at(0), runId: f.context.owner, runAttempt: '1',
+      targetSha: f.context.targetSha, floorSha: f.context.targetSha, readinessVerified: true });
+    fs.writeFileSync(request.files.log, JSON.stringify(startup), { mode: 0o600 });
+  };
+  await assert.rejects(f.session.run(), /MODE_BINDING/);
+  assert.equal(f.calls.includes('FORMAL_COMPLETE'), false); assert.equal(f.opened, false);
 });
 test('lost candidate lease or missing formal SUCCESS never reaches OPEN', async () => {
   for (const stage of ['lease', 'success']) {

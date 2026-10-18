@@ -8,14 +8,19 @@ import { execFileSync } from 'node:child_process';
 import { CONTRACT, secureJson, assertStateVersion, verifyContext, guardProduction, migrationScope, git, rollbackEligibility, assertTransactionOwnership } from './production-config-guard.mjs';
 import { assertModernReleaseAdmission, assertLegacyMaintenanceAdmission } from './production-maintenance-admission.mjs';
 import { MaintenanceReceiptStore, validateMaintenanceContext, validateMaintenanceEvidence, validateRuntimePin, bindingDigest, same, HASH, hold } from './production-maintenance-receipts.mjs';
-import { EVIDENCE_SCHEMA, verifyEvidenceFiles, verifyLiveSnapshot } from './production-deployment-evidence.mjs';
+import { EVIDENCE_SCHEMA, MODE_EVIDENCE_SCHEMA, verifyEvidenceFiles, verifyLiveSnapshot } from './production-deployment-evidence.mjs';
 import { assertContained, readPinnedFile } from './production-trusted-paths.mjs';
 import { captureRuntime, executionEnv, IMAGE_ID, REVISION } from './capture-production-runtime.mjs';
 import { atomicState } from './production-atomic-state.mjs';
 export { atomicState } from './production-atomic-state.mjs';
-export function beginState({ previous, configSha, target, scope, floor, evidence }) {
+export function deploymentMode({ mode, buildApi, buildWeb }) {
+  if (!['api', 'web', 'full'].includes(mode) || buildApi !== ['api', 'full'].includes(mode) || buildWeb !== ['web', 'full'].includes(mode)) throw new Error('STATE_HOLD=DEPLOY_MODE');
+  return mode;
+}
+export function beginState({ previous, configSha, target, scope, floor, evidence, mode }) {
+  if (mode !== undefined && !['api', 'web', 'full'].includes(mode)) throw new Error('STATE_HOLD=DEPLOY_MODE');
   if (configSha !== target || !REVISION.test(configSha) || !REVISION.test(target) || scope.baseline !== previous.api.revision || scope.target !== target) throw new Error('STATE_HOLD=BASELINE');
-  return { expiresAt: new Date(Date.now() + CONTRACT.maximumTransitionMs).toISOString(), version: CONTRACT.version, configSha, target, floorSha: floor.floorSha, previous, active: previous, candidates: {}, switched: { api: false, web: false }, outcome: 'PREPARED', migrationBaseline: previous.api.revision, migrationPaths: scope.changed, protectedImages: [previous.api.imageId, previous.web.imageId], evidence };
+  return { ...(mode ? { deployMode: mode } : {}), expiresAt: new Date(Date.now() + CONTRACT.maximumTransitionMs).toISOString(), version: CONTRACT.version, configSha, target, floorSha: floor.floorSha, previous, active: previous, candidates: {}, switched: { api: false, web: false }, outcome: 'PREPARED', migrationBaseline: previous.api.revision, migrationPaths: scope.changed, protectedImages: [previous.api.imageId, previous.web.imageId], evidence };
 }
 export function rollbackPlan(state, eligible) {
   // DB/schema-changing releases use the separate controlled migration authority.
@@ -134,7 +139,7 @@ function legacyPrevious(context) {
 }
 function assertLegacyDeploymentRecord(state, context, files) {
   if (!state.maintenance || !same(state.maintenance, { protocol: 'STOP_AND_RECONCILE', owner: context.owner, contextDigest: bindingDigest(context) })
-    || state.target !== context.targetSha || state.configSha !== context.targetSha || state.floorSha !== context.targetSha
+    || state.deployMode !== 'api' || state.target !== context.targetSha || state.configSha !== context.targetSha || state.floorSha !== context.targetSha
     || !Array.isArray(state.migrationPaths) || state.migrationPaths.length || state.switched.web !== false
     || !same(state.previous, legacyPrevious(context)) || !same(state.active.web, state.previous.web)
     || !same(state.evidence, files)) hold('LEGACY_DEPLOYMENT_RECORD_MISMATCH');
@@ -144,7 +149,7 @@ function assertLegacyFloor(floor, context) {
     || floor.operationalTuple?.CHANJET_READONLY_SYNC_ENABLED !== 'false' || floor.operationalTuple?.CHANJET_ERP_INBOUND_SYNC_ENABLED !== 'false') hold('LEGACY_FLOOR_API_HOLD_REQUIRED');
 }
 function assertLegacyPre(pre, context) {
-  if (pre.schema !== EVIDENCE_SCHEMA || pre.phase !== 'PRE_SNAPSHOT' || pre.deployRunId !== context.owner
+  if (pre.schema !== MODE_EVIDENCE_SCHEMA || pre.deployMode !== 'api' || pre.phase !== 'PRE_SNAPSHOT' || pre.deployRunId !== context.owner
     || pre.deployRunAttempt !== Number(context.owner.split('-').at(-1)) || pre.targetSha !== context.targetSha || pre.configFloorSha !== context.targetSha) hold('LEGACY_FORMAL_PRE_BINDING');
   for (const service of ['api', 'web', 'db']) {
     const pin = context.preSnapshot[service], actual = pre.containers?.[service];
@@ -191,7 +196,8 @@ async function deploymentOperationCore({ root, directory, operation, input, valu
     if (!evidence) throw new Error('STATE_HOLD=DEPLOYMENT_EVIDENCE_BINDING');
     const schemaApplied = scope.changed.length ? schemaCheck(root, scope) : false;
     if (scope.changed.length && !schemaApplied) throw new Error('MIGRATION_SCOPE=HOLD:CONTROLLED_SCHEMA_RELEASE_REQUIRED');
-    state = beginState({ previous, configSha: getGit(root, ['rev-parse', 'HEAD']), target, scope, floor, evidence });
+    const mode = deploymentMode({ mode: env.DEPLOY_MODE, buildApi: env.BUILD_API === 'true', buildWeb: env.BUILD_WEB === 'true' });
+    state = beginState({ mode, previous, configSha: getGit(root, ['rev-parse', 'HEAD']), target, scope, floor, evidence });
     if (legacy) state.maintenance = { protocol: 'STOP_AND_RECONCILE', owner: legacy.context.owner, contextDigest: bindingDigest(legacy.context) };
     await admit();
     write(file, state);
@@ -201,6 +207,9 @@ async function deploymentOperationCore({ root, directory, operation, input, valu
   } else {
     if (!assertTransactionOwnership(directory, env.DEPLOY_RUN_ID, { readState: read })) throw new Error('STATE_HOLD=TRANSACTION_MARKER_REQUIRED');
     state = assertStateVersion(read(file));
+    // Historical transactions predate mode binding and remain API-only.
+    const mode = state.deployMode ?? 'api';
+    if (!['api', 'web', 'full'].includes(mode) || (env.DEPLOY_MODE && env.DEPLOY_MODE !== mode)) throw new Error('STATE_HOLD=DEPLOY_MODE');
     if (legacy) {
       assertLegacyDeploymentRecord(state, legacy.context, legacy.files);
       const transaction = read(path.join(directory, 'transaction.json'));
@@ -215,7 +224,7 @@ async function deploymentOperationCore({ root, directory, operation, input, valu
         || promotion.previousFloorSha !== legacy.context.previousFloorSha) hold('LEGACY_PROMOTION_REQUIRED');
     }
     if (operation === 'candidate') {
-      if (!['api', 'web'].includes(input) || value !== (legacy ? legacy.context.candidate.imageId : `ghcr.io/ivanzhao299/phoenix-erp-v3/${input}:sha-${state.target}`)) throw new Error('STATE_HOLD=CANDIDATE_REF');
+      if (!(mode === 'full' ? ['api', 'web'] : [mode]).includes(input) || value !== (legacy ? legacy.context.candidate.imageId : `ghcr.io/ivanzhao299/phoenix-erp-v3/${input}:sha-${state.target}`)) throw new Error('STATE_HOLD=CANDIDATE_REF');
       if (legacy && (input !== 'api' || state.candidates.api)) hold('LEGACY_CANDIDATE_ALREADY_RECORDED');
       state.candidates[input] = candidateInspector(value, state.target);
       if (legacy && !same(state.candidates.api, legacy.context.candidate)) hold('LEGACY_CANDIDATE_PIN_MISMATCH');
@@ -227,7 +236,7 @@ async function deploymentOperationCore({ root, directory, operation, input, valu
       }
       state.protectedImages = [...new Set([...state.protectedImages, state.candidates[input].imageId])];
     } else if (operation === 'switch') {
-      if (!['api', 'web'].includes(input) || !state.candidates[input]) throw new Error('STATE_HOLD=NO_CANDIDATE');
+      if (!(mode === 'full' ? ['api', 'web'] : [mode]).includes(input) || !state.candidates[input]) throw new Error('STATE_HOLD=NO_CANDIDATE');
       if (legacy && (input !== 'api' || state.switched.api)) hold('LEGACY_LOGICAL_SWITCH_ALREADY_RECORDED');
       state.switched[input] = true; state.active[input] = state.candidates[input]; state.outcome = 'SWITCHING';
     } else if (operation === 'rollback-plan') {
@@ -248,7 +257,7 @@ async function deploymentOperationCore({ root, directory, operation, input, valu
           if (!api || api.id !== controlled.id || api.image !== controlled.imageId || api.ociRevision !== controlled.revision
             || api.startedAt !== controlled.startedAt || api.restartCount !== controlled.restartCount) hold('LEGACY_POST_CONTROL_IDENTITY');
         }
-        const binding = { runId: env.DEPLOY_RUN_ID, runAttempt: env.DEPLOY_RUN_ATTEMPT || String(env.GITHUB_RUN_ATTEMPT || '1'), targetSha: state.target, configFloorSha: state.floorSha };
+        const binding = { runId: env.DEPLOY_RUN_ID, runAttempt: env.DEPLOY_RUN_ATTEMPT || String(env.GITHUB_RUN_ATTEMPT || '1'), targetSha: state.target, configFloorSha: state.floorSha, deployMode: mode, evidenceSchema: state.deployMode ? MODE_EVIDENCE_SCHEMA : EVIDENCE_SCHEMA };
         verifyEvidenceFiles(state.evidence.pre, state.evidence.post, state.evidence.log, binding);
         verifyLiveSnapshot(post, binding, dependencies.dockerRead);
       }
@@ -262,7 +271,7 @@ async function deploymentOperationCore({ root, directory, operation, input, valu
     // the SUCCESS records and closure of this deployment's own markers.
     if (legacy && completedActive) {
       if (!same(capture(), state.active)) hold('LEGACY_POST_SWITCH_IDENTITY');
-      const binding = { runId: env.DEPLOY_RUN_ID, runAttempt: env.DEPLOY_RUN_ATTEMPT, targetSha: state.target, configFloorSha: state.floorSha };
+      const binding = { runId: env.DEPLOY_RUN_ID, runAttempt: env.DEPLOY_RUN_ATTEMPT, targetSha: state.target, configFloorSha: state.floorSha, deployMode: mode, evidenceSchema: state.deployMode ? MODE_EVIDENCE_SCHEMA : EVIDENCE_SCHEMA };
       verifyLiveSnapshot(read(state.evidence.post), binding, dependencies.dockerRead);
     }
     if (completedActive) write(path.join(directory, 'active.json'), completedActive);

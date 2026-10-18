@@ -90,3 +90,24 @@ test('v3 re-anchor admits a new critical helper through installed and target val
   assert.doesNotThrow(() => assertFloor(repo, plan.floor, target, { targetTree: true }));
   assert.equal(plan.marker.previousFloorSha, oldSha); assert.equal(plan.active.outcome, 'CONFIG_READY_HOLD');
 });
+
+test('standalone audit stages its reviewed verifier closure before importing against an older checkout', async t => {
+  const restoration = fs.readFileSync('.github/workflows/chanjet-readonly-restoration.yml', 'utf8');
+  assert.match(restoration, /if \[ "\$OPERATION" = recovery \] \|\| \[ "\$OPERATION" = audit \]/);
+  const files = restoration.match(/tar -czf "\$RECOVERY_TAR" -C scripts\/ops ([^\n]+)/)[1].trim().split(/\s+/);
+  assert.deepEqual([...closure(files)].filter(name => !files.includes(name)), []);
+  const extract = restoration.indexOf('tar -xzf "$AUDIT_BUNDLE_STAGE/verifier-bundle.tgz"');
+  assert.ok(extract > restoration.indexOf('test "$(sha256sum "$AUDIT_BUNDLE_STAGE/verifier-bundle.tgz"'));
+  assert.ok(extract < restoration.indexOf('node "$AUDIT_BUNDLE_STAGE/audit.mjs"'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'standalone-audit-stage-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  for (const name of files) fs.copyFileSync(path.join(ops, name), path.join(dir, name));
+  fs.copyFileSync(path.join(ops, 'chanjet-readonly-production-audit.mjs'), path.join(dir, 'audit.mjs'));
+  const audit = await import(pathToFileURL(path.join(dir, 'audit.mjs')).href);
+  const verifier = await audit.loadAuditEvidenceVerifier();
+  assert.equal(typeof verifier.evidenceMode, 'function');
+  assert.equal(typeof verifier.verifyLiveSnapshot, 'function');
+  const chain = fs.readFileSync('scripts/ops/chanjet-readonly-production-chain.sh', 'utf8');
+  const copied = chain.match(/for helper in ([^;]+); do\n\s+cp "scripts\/ops\/\$helper" "\$AUDIT_DIR\/\$helper"/)[1].split(/\s+/);
+  assert.deepEqual([...closure(['chanjet-readonly-production-audit.mjs'])].filter(name => name !== 'chanjet-readonly-production-audit.mjs' && !copied.includes(name)), []);
+});

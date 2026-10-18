@@ -71,6 +71,12 @@ process.exit(ok ? 0 : 1);
 AUDIT_DIR="$STATE_DIR/run-${DEPLOY_RUN_ID}/readonly-audit-${FIRST_SYNC_RUN_ID}"
 test ! -e "$AUDIT_DIR"
 mkdir -m 700 -p "$AUDIT_DIR"
+# Carry the verifier from this reviewed checkout; an older installed helper
+# cannot implement a newer evidence protocol. The stage stays root-private.
+for helper in production-deployment-evidence.mjs production-atomic-state.mjs production-config-contract.json production-config-guard.mjs production-trusted-paths.mjs capture-production-runtime.mjs update-managed-chanjet-env.mjs chanjet-readonly-policy.mjs chanjet-admission-schema-receipt.mjs; do
+  cp "scripts/ops/$helper" "$AUDIT_DIR/$helper"
+  chmod 600 "$AUDIT_DIR/$helper"
+done
 cp scripts/ops/chanjet-readonly-production-audit.mjs "$AUDIT_DIR/audit.mjs"
 cp scripts/ops/readonly-audits/chanjet-restoration-preflight.sql "$AUDIT_DIR/preflight.sql"
 chmod 600 "$AUDIT_DIR/audit.mjs" "$AUDIT_DIR/preflight.sql"

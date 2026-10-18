@@ -12,7 +12,7 @@ import { LegacyMaintenanceTransition, MAINTENANCE_OPERATIONS, validateRecoveryMa
 import { LegacyMaintenancePublicControl } from './production-maintenance-public-control.mjs';
 import { ControlledComposeReplacement, validateCandidateReplacement, DockerReplacementEvents } from './production-maintenance-replacement.mjs';
 import { verifyCompletedDeployment, DockerPostgresControlSession } from './background-control-coordinator.mjs';
-import { verifyEvidenceFiles, verifyLiveSnapshot } from './production-deployment-evidence.mjs';
+import { MODE_EVIDENCE_SCHEMA, verifyEvidenceFiles, verifyLiveSnapshot } from './production-deployment-evidence.mjs';
 
 export const RELEASE_SCOPE = Object.freeze({ mode: 'api', buildApi: true, buildWeb: false, runMigration: false,
   chanjetPolicy: 'HOLD', readonlySync: false, inboundSync: false, rotateCredentials: false, automaticRollback: false });
@@ -50,7 +50,8 @@ export function verifySessionFormalEvidence({ context, files }, dependencies = {
   const guard = dependencies.guard || (() => verifyContext(CONTRACT.repository, CONTRACT.stateDirectory));
   const read = dependencies.read || secureJson; guard();
   const before = Object.fromEntries(Object.entries(files).map(([key, file]) => [key, read(file)]));
-  const binding = { runId: context.owner, runAttempt: context.owner.split('-').at(-1), targetSha: context.targetSha, configFloorSha: context.targetSha };
+  const binding = { runId: context.owner, runAttempt: context.owner.split('-').at(-1), targetSha: context.targetSha,
+    configFloorSha: context.targetSha, deployMode: 'api', evidenceSchema: MODE_EVIDENCE_SCHEMA };
   const result = verifyEvidenceFiles(files.pre, files.post, files.log, binding);
   const live = verifyLiveSnapshot(before.post, binding, dependencies.dockerRead);
   for (const [key, file] of Object.entries(files)) if (!same(before[key], read(file))) hold('SESSION_FORMAL_EVIDENCE_CHANGED');

@@ -12,7 +12,7 @@ import { assertLegacyMaintenanceStateCore, beginLegacyMaintenanceDeployment, rec
 import { MaintenanceReceiptStore, createMaintenanceEvidence, bindingDigest, canonicalDigest, MAINTENANCE_AUTHORITY_SCHEMA } from './production-maintenance-receipts.mjs';
 import { MAINTENANCE_OPERATIONS } from './production-maintenance-transition.mjs';
 import { LEGACY_EVIDENCE_DOMAINS } from './background-control-legacy-transition.mjs';
-import { captureSnapshot, summarizeStartupLogs } from './production-deployment-evidence.mjs';
+import { MODE_EVIDENCE_SCHEMA, captureSnapshot, summarizeStartupLogs, startupBundle } from './production-deployment-evidence.mjs';
 
 // Only owned temporary files and explicit read-only host/Docker fixture adapters.
 // The admission, receipt store, policy, schema and formal evidence validators
@@ -74,8 +74,9 @@ function fixture(t) {
   const dockerRead = args => { if (args[0] === 'inspect') { const m = metadata[args[1].replace('phoenix-v3-', '')]; return [m.id, m.created, m.image, m.state, 0, m.mounts].map(JSON.stringify).join('\t'); }
     const m = Object.values(metadata).find(m => m.image === args[2]); return JSON.stringify(m.revision ? { 'org.opencontainers.image.revision': m.revision } : {}); };
   deps.dockerRead = dockerRead;
-  const binding = { runId: context.owner, runAttempt: 1, targetSha: context.targetSha, floorSha: context.targetSha, capturedAt: time(0) };
-  write(files.pre, captureSnapshot({ ...binding, phase: 'PRE_SNAPSHOT' }, dockerRead)); writes.length = 0;
+  const binding = { runId: context.owner, runAttempt: 1, targetSha: context.targetSha, floorSha: context.targetSha, deployMode: 'api', capturedAt: time(0) };
+  const historicalPre = captureSnapshot({ ...binding, deployMode: undefined, phase: 'PRE_SNAPSHOT', capturedAt: time(-4000) }, dockerRead);
+  write(files.pre, captureSnapshot({ ...binding, phase: 'PRE_SNAPSHOT', capturedAt: time(-4000) }, dockerRead)); writes.length = 0;
   async function prepare() { await promoteLegacyMaintenanceFloor(request, deps); await beginLegacyMaintenanceDeployment(request, deps); await recordLegacyMaintenanceCandidate(request, deps); await switchLegacyMaintenanceDeployment(request, deps); }
   function candidatePhase() {
     // Owned fixture creates the protocol's later immutable state/intent; it does
@@ -92,8 +93,9 @@ function fixture(t) {
     runtime = { ...runtime, api: context.candidate };
     metadata.api = { ...metadata.api, id: candidateApi.id, image: candidateApi.imageId, revision: candidateApi.revision, state: { Running: true, StartedAt: candidateApi.startedAt, Health: { Status: 'healthy' } } };
     const post = captureSnapshot({ ...binding, phase: 'POST_SNAPSHOT' }, dockerRead); write(files.post, post);
-    write(files.log, summarizeStartupLogs({ ...binding, containerId: post.containers.api.id, startedAt: post.containers.api.startedAt,
-      stdout: `${time(-1000)} API_BOOTSTRAP_SCHEMA_COMPATIBILITY=PASS\n`, readinessVerified: true })); writes.length = 0;
+    const apiStartup = summarizeStartupLogs({ ...binding, service: 'api', containerId: post.containers.api.id, startedAt: post.containers.api.startedAt,
+      stdout: `${time(-1000)} API_BOOTSTRAP_SCHEMA_COMPATIBILITY=PASS\n`, readinessVerified: true });
+    write(files.log, startupBundle(post, { api: apiStartup })); writes.length = 0;
   }
   function replaceReceipt(kind, mutate) {
     const { stateDigest, ...content } = store.readState(); const records = content.receipts.map(ref => store.readReceipt(ref));
@@ -106,7 +108,13 @@ function fixture(t) {
     const marker = store.read(store.markerFile); marker.previousStateDigest = request.state.stateDigest;
     fs.writeFileSync(store.markerFile, JSON.stringify(marker));
   }
-  return { root, directory, context, request, deps, store, read, write, writes, files, prepare, candidatePhase, metadata, evidence, initialFloor, replaceReceipt };
+  function historicalArtifacts() {
+    const post = captureSnapshot({ ...binding, deployMode: undefined, phase: 'POST_SNAPSHOT' }, dockerRead);
+    const log = summarizeStartupLogs({ ...binding, deployMode: undefined, containerId: post.containers.api.id, startedAt: post.containers.api.startedAt,
+      stdout: `${time(-1000)} API_BOOTSTRAP_SCHEMA_COMPATIBILITY=PASS\n`, readinessVerified: true });
+    return { pre: historicalPre, post, log };
+  }
+  return { root, directory, context, request, deps, store, read, write, writes, files, prepare, candidatePhase, metadata, evidence, initialFloor, replaceReceipt, historicalArtifacts };
 }
 
 for (const operation of [promoteLegacyMaintenanceFloor, beginLegacyMaintenanceDeployment, recordLegacyMaintenanceCandidate, switchLegacyMaintenanceDeployment, completeLegacyMaintenanceDeployment]) {
@@ -161,7 +169,8 @@ test('API-only typed promotion and deployment preserve standard marker ordering 
   const f = fixture(t); await f.prepare();
   assert.deepEqual(f.writes.slice(0, 6), [`floor-promotion-${f.context.owner}.json`, 'policy-transition.json', 'floor.json', 'active.json', `deploy-${f.context.owner}.json`, 'transaction.json']);
   const state = f.read(path.join(f.directory, `deploy-${f.context.owner}.json`));
-  assert.equal(state.switched.api, true); assert.equal(state.switched.web, false); assert.deepEqual(state.migrationPaths, []);
+  assert.equal(state.deployMode, 'api'); assert.equal(state.switched.api, true); assert.equal(state.switched.web, false); assert.deepEqual(state.migrationPaths, []);
+  assert.equal(f.read(f.files.pre).schema, MODE_EVIDENCE_SCHEMA); assert.equal(f.read(f.files.pre).deployMode, 'api');
   assert.equal(f.read(path.join(f.directory, 'floor.json')).floorSha, f.context.targetSha);
   assert.equal(f.store.readState().stateDigest, f.request.state.stateDigest); assert.ok(fs.existsSync(f.store.markerFile)); assert.ok(fs.existsSync(f.store.currentFile));
 });
@@ -172,10 +181,32 @@ test('formal completion verifies actual PRE POST startup and live pins before SU
   assert.equal(fs.existsSync(path.join(f.directory, 'transaction.json')), false); assert.equal(fs.existsSync(path.join(f.directory, 'policy-transition.json')), false);
   assert.ok(fs.existsSync(f.store.markerFile)); assert.ok(fs.existsSync(f.store.currentFile)); assert.equal(f.store.readState().phase, 'CANDIDATE_FENCED');
 });
+test('new legacy maintenance transaction refuses a real historical v2 PRE receipt before begin', async t => {
+  const f = fixture(t); await promoteLegacyMaintenanceFloor(f.request, f.deps);
+  f.write(f.files.pre, f.historicalArtifacts().pre); f.writes.length = 0;
+  await assert.rejects(beginLegacyMaintenanceDeployment(f.request, f.deps), /HOLD/); assert.deepEqual(f.writes, []);
+  assert.equal(fs.existsSync(path.join(f.directory, 'transaction.json')), false); assert.ok(fs.existsSync(f.store.markerFile));
+});
+test('new API maintenance transaction cannot downgrade formal completion to genuine v2 artifacts', async t => {
+  const f = fixture(t); await f.prepare(); f.candidatePhase();
+  const historical = f.historicalArtifacts();
+  for (const kind of ['pre', 'post', 'log']) f.write(f.files[kind], historical[kind]);
+  f.writes.length = 0; await assert.rejects(completeLegacyMaintenanceDeployment(f.request, f.deps), /HOLD/); assert.deepEqual(f.writes, []);
+  assert.ok(fs.existsSync(path.join(f.directory, 'transaction.json'))); assert.ok(fs.existsSync(f.store.markerFile));
+});
+for (const mode of ['web', 'full', 'missing']) {
+  test(`typed API maintenance transaction rejects a persisted ${mode} deployment mode`, async t => {
+    const f = fixture(t); await f.prepare(); f.candidatePhase();
+    const file = path.join(f.directory, `deploy-${f.context.owner}.json`), state = f.read(file);
+    if (mode === 'missing') delete state.deployMode; else state.deployMode = mode; f.write(file, state);
+    f.writes.length = 0; await assert.rejects(completeLegacyMaintenanceDeployment(f.request, f.deps), /HOLD/); assert.deepEqual(f.writes, []);
+    assert.ok(fs.existsSync(path.join(f.directory, 'transaction.json'))); assert.ok(fs.existsSync(f.store.markerFile));
+  });
+}
 for (const kind of ['bad-startup', 'web-changed', 'db-live-drift', 'api-live-drift', 'control-identity', 'evidence-path', 'lost-control', 'expired-policy', 'transaction-target']) {
   test(`formal completion holds on ${kind} and retains all existing markers`, async t => {
     const f = fixture(t); await f.prepare(); f.candidatePhase();
-    if (kind === 'bad-startup') { const log = f.read(f.files.log); log.result = 'HOLD_STARTUP_ERROR'; f.write(f.files.log, log); }
+    if (kind === 'bad-startup') { const log = f.read(f.files.log); log.services.api.result = 'HOLD_STARTUP_ERROR'; f.write(f.files.log, log); }
     if (kind === 'web-changed') { const post = f.read(f.files.post); post.containers.web.id = hash('f'); f.write(f.files.post, post); }
     if (kind === 'db-live-drift') f.metadata.db.id = hash('f');
     if (kind === 'api-live-drift') f.metadata.api.state.Running = false;

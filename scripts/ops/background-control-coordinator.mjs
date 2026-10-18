@@ -6,7 +6,7 @@ import { createInterface } from 'node:readline';
 import { CONTRACT, secureJson, verifyContext } from './production-config-guard.mjs';
 import { executionEnv, captureRuntime } from './capture-production-runtime.mjs';
 import { assertContained } from './production-trusted-paths.mjs';
-import { verifyEvidenceFiles, verifyLiveSnapshot } from './production-deployment-evidence.mjs';
+import { EVIDENCE_SCHEMA, MODE_EVIDENCE_SCHEMA, verifyEvidenceFiles, verifyLiveSnapshot } from './production-deployment-evidence.mjs';
 import { BackgroundManifestPublisher, PUBLIC_DIRECTORY, fail, validateBinding, validateParticipants } from './background-control-manifest.mjs';
 
 export const LOCK_NAMESPACE = 17455;
@@ -121,6 +121,14 @@ export function verifyParticipantStatus(actual, expected, manifest) {
   for (const key of ['inFlight', 'pendingChildren', 'taskGraphs']) if (!Number.isSafeInteger(s[key]) || s[key] < 0) fail('PARTICIPANT_COUNT_INVALID');
   return s;
 }
+/** New deployment records bind v3/API-only receipts. Only records that
+ * actually predate mode binding retain the historical v2/API-only contract. */
+export function completedDeploymentEvidenceBinding(deployment, binding) {
+  const modeBound = Object.hasOwn(deployment, 'deployMode');
+  if ((modeBound && deployment.deployMode !== 'api') || (!modeBound && Object.hasOwn(deployment, 'maintenance'))) fail('DEPLOY_SUCCESS_MODE_BINDING');
+  return { runId: binding.owner, runAttempt: binding.owner.split('-').at(-1), targetSha: binding.targetSha,
+    configFloorSha: binding.targetSha, deployMode: 'api', evidenceSchema: modeBound ? MODE_EVIDENCE_SCHEMA : EVIDENCE_SCHEMA };
+}
 export function verifyCompletedDeployment(binding, participants) {
   validateBinding(binding); validateParticipants(participants, { targetSha: binding.targetSha });
   verifyContext(CONTRACT.repository, CONTRACT.stateDirectory);
@@ -140,8 +148,7 @@ export function verifyCompletedDeployment(binding, participants) {
   const evidence = deployment.evidence;
   if (!evidence || !evidence.pre || !evidence.post || !evidence.log) fail('DEPLOY_EVIDENCE_REQUIRED');
   for (const file of [evidence.pre, evidence.post, evidence.log]) assertContained(file, CONTRACT.stateDirectory);
-  const [runId, attempt] = [binding.owner, binding.owner.split('-').at(-1)];
-  const evidenceBinding = { runId, runAttempt: attempt, targetSha: binding.targetSha, configFloorSha: binding.targetSha };
+  const evidenceBinding = completedDeploymentEvidenceBinding(deployment, binding);
   // Read protected formal receipts, then independently re-inspect live identity.
   const post = secureJson(evidence.post);
   verifyEvidenceFiles(evidence.pre, evidence.post, evidence.log, evidenceBinding);
