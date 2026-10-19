@@ -109,6 +109,7 @@ test('storage symlink and wrong mount are rejected before downstream observation
 
 for(const [message,diagnostic] of [
   ['MAINTENANCE_HOLD=ROOT_CONTROL_OPERATION_DEADLINE','MAINTENANCE_HOLD=ROOT_CONTROL_OPERATION_DEADLINE'],
+  ['MAINTENANCE_HOLD=RECEIPT_SNAPSHOT_DEADLINE','MAINTENANCE_HOLD=RECEIPT_SNAPSHOT_DEADLINE'],
   ['UNEXPECTED_RAW_SENTINEL_MUST_NOT_ESCAPE',undefined]
 ])test('opaque collector rejection retains only fixed private category '+String(diagnostic),()=>using(async f=>{
   await assert.rejects(collectCandidateServerBinding({...f.request,mode:'PRE_ADOPTION'},{...f.dependencies,guard(){throw Error(message);}}),error=>{
