@@ -92,3 +92,13 @@ Neither run proves packet denial or a successful old/new window. The topology
 is corrected to a dedicated non-internal bridge; the exact published-port
 assertion, all kernel-expression/counter checks and all failure guards remain.
 The new source requires fresh actual hosted receipts.
+
+Hosted source1bedfff0, run39189700969, confirmed the next pre-install failure
+on both majors: the runner nft build rejects pipe-backed `/dev/stdin` as
+non-regular. Programs are now staged only in new root-owned0600 regular files
+inside the experiment's private directory, with no-follow/exclusive creation,
+fsync, bytes/hash and file identity checks before/after the command. The same
+compiled rule bytes and all kernel assertions remain. No stdin fallback or
+unknown-command retry is used. The separate local owned network-namespace
+compiler check returned unsupported kernel capability and remains a failure;
+it is not evidence of hosted host capability.

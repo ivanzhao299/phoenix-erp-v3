@@ -33,7 +33,19 @@ export async function runOwnedKernelIngress() {
   const save=()=>fs.writeFileSync(file,JSON.stringify(receipt,null,2)+'\n',{mode:0o600});save();
   const run=(program,args,options={})=>{const timeout=kernelCommandTimeout(remaining(),options.timeout??10000);let value;try{value=execFileSync(program,args,{input:options.input,env,encoding:'utf8',maxBuffer:1024*1024,stdio:['pipe','pipe','pipe'],timeout,killSignal:'SIGKILL'});}catch(error){const stderr=String(error.stderr||'');receipt.failedCommand={program:path.basename(program),argvSha256:hash(JSON.stringify(args)),status:Number.isInteger(error.status)?error.status:null,signal:typeof error.signal==='string'?error.signal:null,stderrSha256:hash(stderr),...(program==='/usr/sbin/nft'&&args.includes('--file')?{ownedProgramDiagnostic:stderr.slice(0,4096)}:{})};save();throw error;}remaining();return value.trim();};
   const docker=(args,options)=>run('/usr/bin/docker',['--host','unix:///var/run/docker.sock',...args],options);
-  const nft=(args,input)=>run('/usr/sbin/nft',args,{input});
+  let nftSequence=0;
+  const nft=(args,input)=>{
+    if(input===undefined)return run('/usr/sbin/nft',args);
+    assert.equal(typeof input,'string');assert.ok(Buffer.byteLength(input)>0&&Buffer.byteLength(input)<=65536);assert.equal(args.at(-1),'-');assert.ok(args.includes('--file'));
+    // Some installed libnftables builds reject a pipe-backed /dev/stdin. Stage
+    // only this experiment's program as a new root-owned regular file instead.
+    const relative=`nft-program-${++nftSequence}.rules`,programFile=path.join(output,relative),bytes=Buffer.from(input);
+    const fd=fs.openSync(programFile,fs.constants.O_WRONLY|fs.constants.O_CREAT|fs.constants.O_EXCL|fs.constants.O_NOFOLLOW,0o600);
+    try{fs.writeFileSync(fd,bytes);fs.fsyncSync(fd);}finally{fs.closeSync(fd);}
+    const pin=()=>{const st=fs.lstatSync(programFile);assert.ok(st.isFile()&&!st.isSymbolicLink());assert.equal(st.uid,0);assert.equal(st.nlink,1);assert.equal(st.mode&0o777,0o600);assert.equal(hash(fs.readFileSync(programFile)),hash(bytes));return {dev:st.dev,ino:st.ino,size:st.size,mtimeMs:st.mtimeMs,ctimeMs:st.ctimeMs};};
+    const before=pin();(receipt.nftPrograms??=[]).push({relative,sha256:hash(bytes),pin:before});save();
+    try{return run('/usr/sbin/nft',[...args.slice(0,-1),programFile]);}finally{assert.deepEqual(pin(),before);}
+  };
   const labels=['--label',`phoenix.test.owner=${owner}`,'--label','phoenix.test.kind=kernel-ingress'];
   const intent=(operation,details)=>{const value={operation,details,sequence:receipt.intents.length+1,outcome:'INTENT'};receipt.intents.push(value);save();return value;};
   const capture=(id,role)=>{assert.match(id,/^[a-f0-9]{64}$/);const row=JSON.parse(docker(['inspect',id,'--format','[{{json .Id}},{{json .Image}},{{json .State}},{{json .RestartCount}},{{json .Config.Labels}},{{json .Mounts}},{{json .HostConfig.Privileged}},{{json .HostConfig.PidMode}}]']));assert.equal(row[0],id);assert.equal(row[4]['phoenix.test.owner'],owner);assert.equal(row[4]['phoenix.test.kind'],'kernel-ingress');assert.equal(row[3],0);assert.equal(row[2].OOMKilled,false);assert.equal(row[6],false);assert.equal(row[7],'');assert.ok(row[5].every(m=>m.Type==='tmpfs'),'KERNEL_FIXTURE_UNAPPROVED_DATA_MOUNT');assert.ok([receipt.images.node,receipt.images.pg].includes(row[1]));
