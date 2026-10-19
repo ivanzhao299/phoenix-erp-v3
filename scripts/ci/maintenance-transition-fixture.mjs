@@ -44,7 +44,7 @@ function fixture({ clock = () => now, context: suppliedContext, candidate: suppl
     fenceIngress: async () => { calls.push('FENCE'); return ingress; }, stopLegacy: async () => { calls.push('STOP'); return stopped; },
     preparePromotion: async () => evidence('PROMOTION_PREPARED', { previousFloorSha: context.previousFloorSha, floorSha: context.targetSha, floorVersion: 3, phase: 'CODE_HOLD', owner: context.owner, chanjetPolicy: 'HOLD', readonlySync: false, inboundSync: false, runMigration: false, webSwitched: false, promotionRecordSha256: hash('d') }),
     replaceCandidate: async ({ operationIntent }) => {
-      replacementEnvelope = evidence('CANDIDATE_REPLACEMENT', { protocol: 'CONTROLLED_COMPOSE_REPLACEMENT', legacyDrainResult: 'UNSUPPORTED', oldDisposition: 'REMOVED_BY_CONTROLLED_REPLACEMENT', owner: context.owner,
+      replacementEnvelope = evidence('CANDIDATE_REPLACEMENT', { eventProjection: 'ALLOWLISTED_DOCKER_EVENTS_V2_STRING_NANO', protocol: 'CONTROLLED_COMPOSE_REPLACEMENT', legacyDrainResult: 'UNSUPPORTED', oldDisposition: 'REMOVED_BY_CONTROLLED_REPLACEMENT', owner: context.owner,
         oldExecutor: api, candidate: { ...candidate.api, restartPolicy: 'no', service: 'api', project: context.replacement.project }, project: context.replacement.project,
         replacementIntentSha256: hash('d'), operationIntentSha256: canonicalDigest(operationIntent), stoppedEvidenceSha256: stopped.evidenceSha256, reconciliationEvidenceSha256: reconciliation.evidenceSha256,
         isolationEvidenceSha256: ingress.evidenceSha256, recoveryEvidenceSha256: material.recoveryEvidence.evidenceSha256, recoveryMaterialsSha256: hash('e'), composeFileSha256: context.replacement.composeFileSha256,

@@ -120,7 +120,7 @@ function fixture() {
     producers, publicControl, modernAdmission: () => assertModernReleaseAdmission({ directory }, admissionDeps),
     admit: async options => { admissionCalls.push(options.operation); return assertLegacyMaintenanceAdmission({ ...options, directory }, admissionDeps); },
     makeReplacement: options => ({ replace: async () => { calls.push('REPLACE'); const marker = store.assertOwnedIntent('REPLACE_CANDIDATE', 'PROMOTION_PREPARED', options.state.stateDigest);
-      current = { api: candidate, web, db }; replacement = evidence('CANDIDATE_REPLACEMENT', { protocol: 'CONTROLLED_COMPOSE_REPLACEMENT', legacyDrainResult: 'UNSUPPORTED', oldDisposition: 'REMOVED_BY_CONTROLLED_REPLACEMENT',
+      current = { api: candidate, web, db }; replacement = evidence('CANDIDATE_REPLACEMENT', { eventProjection: 'ALLOWLISTED_DOCKER_EVENTS_V2_STRING_NANO', protocol: 'CONTROLLED_COMPOSE_REPLACEMENT', legacyDrainResult: 'UNSUPPORTED', oldDisposition: 'REMOVED_BY_CONTROLLED_REPLACEMENT',
         owner: context.owner, oldExecutor: api, candidate, project: context.replacement.project, replacementIntentSha256: h('e'), operationIntentSha256: canonicalDigest(marker),
         stoppedEvidenceSha256: stopped.evidenceSha256, reconciliationEvidenceSha256: options.prerequisites.reconciliation.evidenceSha256, isolationEvidenceSha256: ingress.evidenceSha256,
         recoveryEvidenceSha256: recovery.evidenceSha256, recoveryMaterialsSha256: h('e'), composeFileSha256: context.replacement.composeFileSha256, overrideSha256: h('e'), commandSha256: h('e'),
