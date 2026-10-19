@@ -751,12 +751,8 @@ jobs:
             umask 077
             cd ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
             DEPLOY_REPO_ROOT="$(pwd -P)"
-            # Validate all control ancestors before opening FD9; contract/helper come from this reviewed runner revision.
             eval "$(printf '%s' "$PRODUCTION_CONTROL_BOOTSTRAP_B64" | base64 -d)"
 
-            # SSH can run as a different user from the checkout owner. Trust
-            # only this approved physical checkout for these Git invocations;
-            # keep global Git settings and the main/clean/SHA guards unchanged.
             DEPLOY_REPO_ROOT="$(pwd -P)"
             git() {
               command git -c "safe.directory=$DEPLOY_REPO_ROOT" "$@"
@@ -767,9 +763,6 @@ jobs:
             echo "  build_web=$BUILD_WEB  build_api=$BUILD_API  run_mig=$RUN_MIG"
             echo "════════════════════════════════════════════════"
 
-            # Floor promotions are API-only and must never inherit the
-            # workflow-dispatch migration default. Check this before PRE,
-            # floor state changes, or any database operation.
             if [ -n "${APPROVED_CONFIG_FLOOR_SHA:-}" ]; then
               test "$DEPLOY_MODE" = api || { echo "DEPLOY_EVIDENCE_HOLD=FLOOR_SCOPE"; exit 23; }
               test "$BUILD_API" = true || { echo "DEPLOY_EVIDENCE_HOLD=FLOOR_SCOPE"; exit 23; }
@@ -777,7 +770,6 @@ jobs:
               test "$RUN_MIG" = false || { echo "DEPLOY_EVIDENCE_HOLD=MIGRATION_FLAG"; exit 24; }
             fi
 
-            # API schema changes must retain evidence/DB and never clean backups.
             if [ "$BUILD_API" = "true" ]; then export PRESERVE_ARTIFACTS=true; fi
             API_SWITCH_STARTED=false
             WEB_SWITCH_STARTED=false
@@ -789,7 +781,6 @@ jobs:
               exit 22
             fi
 
-            # Git/configuration stays at safe target even after image rollback.
             PREV_GIT_SHA="$(git rev-parse HEAD)"
             rollback_deploy() {
               rc=$?
@@ -834,7 +825,6 @@ jobs:
               exit 20
             fi
 
-            # Fetch exact merged target; capture actual runtime before code sync.
             git fetch origin main
             test "$(git rev-parse origin/main)" = "$TARGET_SHA"
             git merge-base --is-ancestor "$PREV_GIT_SHA" "$TARGET_SHA"
@@ -848,8 +838,6 @@ jobs:
             POST_EVIDENCE_FILE="$STATE_DIR/deploy-${DEPLOY_RUN_ID}-post-evidence.json"
             LOG_EVIDENCE_FILE="$STATE_DIR/deploy-${DEPLOY_RUN_ID}-startup-evidence.json"
             export DEPLOYMENT_EVIDENCE_PRE="$PRE_EVIDENCE_FILE" DEPLOYMENT_EVIDENCE_POST="$POST_EVIDENCE_FILE" DEPLOYMENT_EVIDENCE_LOG="$LOG_EVIDENCE_FILE"
-            # Validate target tree BEFORE replacing the current safe config.
-            # C3 must first install the approved floor; legacy checkout is not auto-reconciled.
             if [ -n "${APPROVED_CONFIG_FLOOR_SHA:-}" ]; then
               test "$APPROVED_CONFIG_FLOOR_SHA" = "$TARGET_SHA"
               test "$DEPLOY_MODE" = api
@@ -860,7 +848,7 @@ jobs:
               FLOOR_STAGE="$STATE_DIR/floor-stage-${DEPLOY_RUN_ID}"
               test ! -e "$FLOOR_STAGE"
               mkdir -m 700 "$FLOOR_STAGE"
-              for helper in production-config-contract.json production-config-guard.mjs production-deployment-state.mjs production-atomic-state.mjs production-trusted-paths.mjs capture-production-runtime.mjs update-managed-chanjet-env.mjs chanjet-readonly-policy.mjs api-bootstrap-schema-preflight.mjs promote-production-config-floor.mjs chanjet-admission-schema-receipt.mjs production-maintenance-admission.mjs production-maintenance-receipts.mjs production-maintenance-transition.mjs background-control-legacy-transition.mjs background-control-manifest.mjs; do
+              for helper in production-config-contract.json production-config-guard.mjs production-deployment-state.mjs production-atomic-state.mjs production-trusted-paths.mjs capture-production-runtime.mjs update-managed-chanjet-env.mjs chanjet-readonly-policy.mjs api-bootstrap-schema-preflight.mjs promote-production-config-floor.mjs chanjet-admission-schema-receipt.mjs production-maintenance-admission.mjs production-maintenance-receipts.mjs production-maintenance-transition.mjs production-maintenance-owner-authority.mjs production-maintenance-github-authority.mjs production-maintenance-owner-source-provenance.mjs background-control-legacy-transition.mjs background-control-manifest.mjs; do
                 git show "$TARGET_SHA:scripts/ops/$helper" > "$FLOOR_STAGE/$helper"
                 chmod 600 "$FLOOR_STAGE/$helper"
               done
@@ -878,7 +866,7 @@ jobs:
               EVIDENCE_STAGE="$STATE_DIR/evidence-stage-${DEPLOY_RUN_ID}"
               test ! -e "$EVIDENCE_STAGE"
               mkdir -m 700 "$EVIDENCE_STAGE"
-              for helper in production-deployment-evidence.mjs production-atomic-state.mjs production-config-contract.json production-config-guard.mjs production-trusted-paths.mjs capture-production-runtime.mjs update-managed-chanjet-env.mjs chanjet-readonly-policy.mjs chanjet-admission-schema-receipt.mjs production-maintenance-admission.mjs production-maintenance-receipts.mjs production-maintenance-transition.mjs background-control-legacy-transition.mjs background-control-manifest.mjs; do
+              for helper in production-deployment-evidence.mjs production-atomic-state.mjs production-config-contract.json production-config-guard.mjs production-trusted-paths.mjs capture-production-runtime.mjs update-managed-chanjet-env.mjs chanjet-readonly-policy.mjs chanjet-admission-schema-receipt.mjs production-maintenance-admission.mjs production-maintenance-receipts.mjs production-maintenance-transition.mjs production-maintenance-owner-authority.mjs production-maintenance-github-authority.mjs production-maintenance-owner-source-provenance.mjs background-control-legacy-transition.mjs background-control-manifest.mjs; do
                 git show "$TARGET_SHA:scripts/ops/$helper" > "$EVIDENCE_STAGE/$helper"
                 chmod 600 "$EVIDENCE_STAGE/$helper"
               done
@@ -893,7 +881,6 @@ jobs:
             chmod 600 "$CAPTURE_FILE"
             trap rollback_deploy ERR
 
-            # ── 同步代码(必须先 pull,否则下面 cp 仓库新文件会找不到)──
             assert_target_main
             git merge --ff-only origin/main
             if [ "$(git rev-parse HEAD)" != "$TARGET_SHA" ]; then
@@ -903,19 +890,12 @@ jobs:
             CODE_SYNCED=true
             echo "✅ Code synced"
 
-            # In bind-mount mode, stop before any Compose operation if /data
-            # is absent, the sentinel is missing, or the configured paths are
-            # not on the mounted filesystem. Named-volume mode remains a no-op.
             bash scripts/ops/require-phoenix-data-mount.sh
 
-            # First-class running API revision baseline; begin rejects missing/nonancestor
-            # identity and any migration paths. Schema releases use the separate controlled track.
             node scripts/ops/production-deployment-state.mjs begin "$CAPTURE_FILE"
             RUN_MIG=false
             echo "MIGRATION_BASELINE_SOURCE=RUNNING_API_REVISION; RUN_MIG=false"
 
-            # 首次部署兜底:确保 runtime-design-system.css alias 目录 + 种子文件存在
-            # API-only must not create or replace shared Web override content.
             if [ "$BUILD_WEB" = true ]; then
             mkdir -p /opt/phoenix/static-overrides
             if [ ! -f /opt/phoenix/static-overrides/runtime-design-system.css ]; then
@@ -933,18 +913,15 @@ jobs:
             fi
             fi
 
-            # Ordinary code deployment does not rewrite production .env.
             if [ "${ROTATE_CHANJET_CREDENTIALS:-false}" = true ]; then
               export PHOENIX_ENV_STAGING_DIRECTORY=/data/.phoenix-env-staging
               node scripts/ops/update-managed-chanjet-env.mjs
             fi
-            # Protected active/rollback image IDs are retained; no broad image prune.
 
             printf '%s' "$GHCR_LOGIN_TOKEN" | \
               docker login ghcr.io -u "$GHCR_LOGIN_USER" --password-stdin
             unset GHCR_LOGIN_TOKEN
 
-            # ── 按 mode 决定拉哪些镜像 ────────────────────────────────
             if [ "$BUILD_API" = "true" ]; then
               export API_IMAGE="ghcr.io/${{ github.repository_owner }}/phoenix-erp-v3/api:sha-${TARGET_SHA}"
               docker compose pull api
@@ -962,12 +939,9 @@ jobs:
               node scripts/ops/production-deployment-state.mjs candidate web "$WEB_IMAGE"
             fi
 
-            # ── DB(所有 mode 都需要):幂等启动 ─────────────────────────
-            # Code-only releases never restart/recreate DB (could indirectly restart a legacy API).
             test "$(docker inspect phoenix-v3-db --format '{{.State.Health.Status}}')" = healthy
             echo "✅ DB healthy"
 
-            # ── DB 迁移(仅 api/full)─────────────────────────────────
             if [ "$RUN_MIG" = "true" ]; then
               # PostgreSQL must have room for both the custom dump and migration
               # index/WAL writes. Fail before creating another backup when the
@@ -1039,7 +1013,6 @@ jobs:
               echo "── 跳过 DB 迁移(mode=$DEPLOY_MODE)──"
             fi
 
-            # ── Nginx(仅 full mode)──────────────────────────────────
             if [ "$DEPLOY_MODE" = "full" ] && [ -n "$NGINX_CONF" ]; then
               NGINX_ROLLBACK_FILE="$STATE_DIR/run-${DEPLOY_RUN_ID}/nginx-before.conf"
               cp /etc/nginx/conf.d/erp.eggslao.com.conf "$NGINX_ROLLBACK_FILE"
@@ -1055,7 +1028,6 @@ jobs:
               echo "✅ Nginx reloaded"
             fi
 
-            # ── 滚动重启容器(按 mode 选)──────────────────────────────
             if [ "$BUILD_API" = "true" ]; then
               # Resolve the pulled candidate. Run schema-first only when this
               # change set actually contains migration-affecting paths; a
@@ -1078,8 +1050,6 @@ jobs:
               docker compose up -d --no-deps --wait web
             fi
 
-            # ── 部署后温和清理(不动 builder cache) ─────────────────────
-            # Retention-aware image cleanup is a separately approved operation.
 
             # ── Smoke test(所有 mode)───────────────────────────────
             sleep 3
@@ -1095,10 +1065,6 @@ jobs:
 
             # ── 磁盘用量报告 ─────────────────────────────────────────
             echo "📦 Docker 镜像占用:"
-            # Capture the producer before printing a bounded in-memory preview.
-            # This keeps formatting separate from real Docker command failures.
-            # Historical status 13 was reproduced in the complete CLI import
-            # cycle, rather than proven to originate from report pipelines.
             IMAGE_REPORT="$(docker images --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}")"
             IMAGE_PREVIEW_COUNT=0
             while IFS= read -r IMAGE_LINE && [ "$IMAGE_PREVIEW_COUNT" -lt 20 ]; do
@@ -1106,9 +1072,6 @@ jobs:
               IMAGE_PREVIEW_COUNT=$((IMAGE_PREVIEW_COUNT + 1))
             done <<< "$IMAGE_REPORT"
             echo "💾 磁盘总览:"
-            # Keep the report free of producer/consumer pipelines: with pipefail,
-            # even a harmless formatting consumer can SIGPIPE the deploy shell
-            # after verification and leave the transaction in SWITCHING.
             df -h /
             echo "🐳 Docker 总占用(builder cache 保留 5GB/24h 加速冷构建):"
             DOCKER_DISK_REPORT="$(docker system df 2>/dev/null || true)"
@@ -1127,7 +1090,7 @@ jobs:
               BACKGROUND_STAGE="$STATE_DIR/background-stage-${DEPLOY_RUN_ID}"
               test ! -e "$BACKGROUND_STAGE"
               mkdir -m 700 "$BACKGROUND_STAGE"
-              for helper in background-deployment-session.mjs background-control-coordinator.mjs background-control-manifest.mjs production-config-contract.json production-config-guard.mjs production-atomic-state.mjs production-trusted-paths.mjs capture-production-runtime.mjs production-deployment-evidence.mjs update-managed-chanjet-env.mjs chanjet-readonly-policy.mjs chanjet-admission-schema-receipt.mjs production-maintenance-admission.mjs production-maintenance-receipts.mjs production-maintenance-transition.mjs background-control-legacy-transition.mjs; do
+              for helper in background-deployment-session.mjs background-control-coordinator.mjs background-control-manifest.mjs production-config-contract.json production-config-guard.mjs production-atomic-state.mjs production-trusted-paths.mjs capture-production-runtime.mjs production-deployment-evidence.mjs update-managed-chanjet-env.mjs chanjet-readonly-policy.mjs chanjet-admission-schema-receipt.mjs production-maintenance-admission.mjs production-maintenance-receipts.mjs production-maintenance-transition.mjs production-maintenance-owner-authority.mjs production-maintenance-github-authority.mjs production-maintenance-owner-source-provenance.mjs background-control-legacy-transition.mjs; do
                 git show "$TARGET_SHA:scripts/ops/$helper" > "$BACKGROUND_STAGE/$helper"
                 chmod 600 "$BACKGROUND_STAGE/$helper"
               done

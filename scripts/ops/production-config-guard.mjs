@@ -5,7 +5,7 @@ import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { REVISION, IMAGE_ID, executionEnv, captureRuntime } from './capture-production-runtime.mjs';
 import { envRecords } from './update-managed-chanjet-env.mjs';
-import { assertRootIdentity, inspectTrustedDirectory, readPinnedFile, assertRegularFile, assertContained, assertNoLegacyState, strictSshCommand } from './production-trusted-paths.mjs';
+import { assertRootIdentity, inspectTrustedDirectory, readPinnedFile, assertRegularFile, assertContained, assertNoLegacyState, strictSshCommand, assertWorkflowFd9Lock } from './production-trusted-paths.mjs';
 export const CONTRACT = JSON.parse(fs.readFileSync(new URL('./production-config-contract.json', import.meta.url)));
 export const MIGRATION_PATHS = ['apps/api/src/database/migrations', 'apps/api/migrations', 'apps/api/ddl', 'migrations', 'scripts/db-migrate.sh', 'scripts/deploy-schema-first.sh'];
 export function git(root, args, { timeoutMs } = {}) {
@@ -86,6 +86,7 @@ export function verifyContext(root, stateDirectory) {
   assertRegularFile(lock);
   const inherited = fs.statSync(`/proc/${process.ppid}/fd/9`); assertRegularFile(inherited);
   if (lock.dev !== inherited.dev || lock.ino !== inherited.ino) throw new Error('CONFIG_HOLD=HOST_LOCK_REQUIRED');
+  assertWorkflowFd9Lock(path.join(stateDirectory, 'mutation.lock'),process.ppid);
   try { execFileSync('flock', ['-n', path.join(stateDirectory, 'mutation.lock'), 'true'], { stdio: 'ignore' }); }
   catch { return; }
   throw new Error('CONFIG_HOLD=HOST_LOCK_NOT_HELD');

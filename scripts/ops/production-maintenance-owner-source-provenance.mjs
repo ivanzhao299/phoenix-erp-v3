@@ -83,3 +83,19 @@ export async function collectOwnerDelegatedSourceProvenance(input,dependencies={
    serverSnapshotSha256:canonicalDigest(initial),sourceDecision:{securityTouch:body.SECURITY_TOUCH_DECISION,frozenBoundary:body.FROZEN_BOUNDARY_DECISION,scope:'SOURCE_ONLY'}};
  }catch(error){return {...common,outcome:'HOLD',reason:/^OWNER_SOURCE_PROVENANCE_HOLD=([A-Z_]+)$/.exec(error?.message||'')?.[1]||'SERVER_RESPONSE_UNVERIFIED'};}
 }
+
+/** Stable source inputs pinned by the protected owner registration. Capture
+ * chronology and mutable unrelated PR metadata are deliberately excluded. */
+export function ownerSourceBindingDigest(value){
+ if(value?.outcome!=='SERVER_SOURCE_FACTS_VERIFIED'||value.repository!==REPOSITORY
+  ||![value.sourceHeadSha,value.sourceTreeSha,value.observedMainSha].every(s=>SHA.test(s||''))
+  ||![value.ownerDelegationDigest,value.sourceReviewReceiptDigest,value.rawReviewRecordSha256,value.bodySha256].every(s=>HASH.test(s||''))
+  ||!positive(value.prNumber)||!positive(value.reviewId)||!positive(value.reviewerId)||!login(value.reviewer)
+  ||value.realGithubState!=='COMMENTED'||value.sourceDecision?.securityTouch!=='APPROVED'
+  ||value.sourceDecision?.frozenBoundary!=='APPROVED'||value.sourceDecision?.scope!=='SOURCE_ONLY')fail('STABLE_SOURCE_BINDING_REQUIRED');
+ return canonicalDigest({schema:'phoenix.owner-source-binding/v1',repository:value.repository,prNumber:value.prNumber,
+  sourceHeadSha:value.sourceHeadSha,sourceTreeSha:value.sourceTreeSha,targetMainSha:value.observedMainSha,
+  ownerDelegationDigest:value.ownerDelegationDigest,sourceReviewReceiptDigest:value.sourceReviewReceiptDigest,
+  reviewId:value.reviewId,reviewerId:value.reviewerId,reviewer:value.reviewer,realGithubState:value.realGithubState,
+  rawReviewRecordSha256:value.rawReviewRecordSha256,bodySha256:value.bodySha256,sourceDecision:value.sourceDecision});
+}

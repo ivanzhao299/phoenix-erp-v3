@@ -1,5 +1,6 @@
 /** Separate legacy bootstrap protocol. It must NEVER be converted into the
  * modern coordinator's DRAINED receipt or passed to that coordinator as one. */
+import {isOwnerDelegatedMaintenanceApproval} from './production-maintenance-owner-authority.mjs';
 import { LEGACY_EVIDENCE_DOMAINS } from './background-control-legacy-transition.mjs';
 import { MaintenanceReceiptStore, bindingDigest, canonicalDigest, same, hold, iso, HASH,
   validateMaintenanceContext, validateMaintenanceEvidence, validateRuntimePin, MAINTENANCE_AUTHORITY_SCHEMA } from './production-maintenance-receipts.mjs';
@@ -86,12 +87,14 @@ export class LegacyMaintenanceTransition {
   checkWindow() { const now = this.now(); if (now < Date.parse(this.context.window.start) || now >= Date.parse(this.context.window.end)) hold('MAINTENANCE_WINDOW_CLOSED'); return now; }
   async approval(approval, purpose, payloadCheck) {
     const r = approval?.serverRecord;
-    if (approval?.schema !== MAINTENANCE_AUTHORITY_SCHEMA || approval.bindingDigest !== this.digest || approval.purpose !== purpose
-      || approval.decision !== 'APPROVED' || !HASH.test(approval.payloadSha256) || canonicalDigest(approval.payload) !== approval.payloadSha256
-      || !r || r.state !== 'APPROVED' || r.commitId !== this.context.targetSha || !iso(r.submittedAt)
-      || Date.parse(r.submittedAt) > this.now() || typeof r.reviewer !== 'string' || !r.reviewer || typeof r.author !== 'string' || !r.author
-      || r.reviewer.toLowerCase() === r.author.toLowerCase() || !HASH.test(r.rawRecordSha256)
-      || !payloadCheck(approval.payload) || await this.verifyAuthority(approval, { purpose, bindingDigest: this.digest, targetSha: this.context.targetSha, context: this.context }) !== true) hold('INDEPENDENT_AUTHORITY_UNIMPLEMENTED_OR_REJECTED');
+    const ownerDelegated=approval?.authorityKind==='OWNER_DELEGATED';
+    const expected={purpose,bindingDigest:this.digest,targetSha:this.context.targetSha,context:this.context};
+    const validRecord=ownerDelegated?isOwnerDelegatedMaintenanceApproval(approval,expected):(
+      approval?.authorityKind===undefined&&approval?.schema===MAINTENANCE_AUTHORITY_SCHEMA&&approval.bindingDigest===this.digest&&approval.purpose===purpose
+      &&approval.decision==='APPROVED'&&HASH.test(approval.payloadSha256)&&canonicalDigest(approval.payload)===approval.payloadSha256
+      &&r&&r.state==='APPROVED'&&r.commitId===this.context.targetSha&&iso(r.submittedAt)&&Date.parse(r.submittedAt)<=this.now()
+      &&typeof r.reviewer==='string'&&r.reviewer&&typeof r.author==='string'&&r.author&&r.reviewer.toLowerCase()!==r.author.toLowerCase()&&HASH.test(r.rawRecordSha256));
+    if(!validRecord||!payloadCheck(approval.payload)||await this.verifyAuthority(approval,expected)!==true)hold('INDEPENDENT_AUTHORITY_UNIMPLEMENTED_OR_REJECTED');
     return approval;
   }
   async evidence(envelope, kind) {

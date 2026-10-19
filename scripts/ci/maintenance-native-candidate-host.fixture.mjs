@@ -47,7 +47,18 @@ function nativeFd9Counterexamples() {
       'owned-fd9-negative',process.execPath,probe,other],{cwd:CONTRACT.repository});}catch(error){failure=error;}
     assert.equal(failure?.status,42);assert.equal(String(failure.stdout).trim(),'EXPECTED_NATIVE_GUARD_DENIAL');check();
   }
-  return ['NATIVE_PARENT_FD9_MISSING_REJECTED','NATIVE_PARENT_FD9_WRONG_INODE_REJECTED'];
+  // An ordinary worker retains the immediate-parent FD9 contract. The fixed
+  // factory additionally passes that same descriptor to its worker's own fd9.
+  const controllerProbe=`import {CONTRACT,verifyContext} from './scripts/ops/production-config-guard.mjs';
+    verifyContext(CONTRACT.repository,CONTRACT.stateDirectory);
+    process.stdout.write('ORIGINAL_WORKFLOW_FD9_VERIFIED');`;
+  assert.equal(run(process.execPath,['--input-type=module','-e',controllerProbe],{cwd:CONTRACT.repository}),'ORIGINAL_WORKFLOW_FD9_VERIFIED');
+  // An additional unregistered ancestor cannot choose a more distant lock PID.
+  const extraDepth=`import {spawnSync} from 'node:child_process';
+    const result=spawnSync(process.execPath,['--input-type=module','-e',${JSON.stringify(controllerProbe)}],{cwd:process.cwd(),encoding:'utf8'});
+    process.exit(result.status===0?42:0);`;
+  run(process.execPath,['--input-type=module','-e',extraDepth],{cwd:CONTRACT.repository});
+  return ['NATIVE_PARENT_FD9_MISSING_REJECTED','NATIVE_PARENT_FD9_WRONG_INODE_REJECTED','ACTUAL_CONTROLLER_ORIGINAL_WORKFLOW_FD9_VERIFIED','EXTRA_UNREGISTERED_ANCESTOR_REJECTED'];
 }
 
 export function requireNativeHostRequest(e=process.env) {

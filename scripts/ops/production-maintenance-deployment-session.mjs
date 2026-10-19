@@ -433,8 +433,23 @@ export class LegacyMaintenanceDeploymentSession {
       verifyCandidate: async request => {
         await this.admission(request); await this.verifyLease();
         const adoption = await this.producer('collectAdoption', request);
+        // The private/public adoption is a deliberate two-write projection
+        // transition. Join the original monitor read before it, keeping the
+        // actual root locks, durable ingress and child-loss listeners alive.
+        // A normal observer must never race this half-committed projection.
+        const adoptionLease = this.lease, adoptionState = this.rawStore.readState();
+        const adoptionIntent = this.rawStore.assertOwnedIntent('VERIFY_CANDIDATE', 'CANDIDATE_FENCED', adoptionState.stateDigest);
+        await this.stopMonitor();
+        if (this.monitor || this.monitorBusy || this.lease !== adoptionLease || adoptionState.stateDigest !== request.state.stateDigest) hold('SESSION_ADOPTION_MONITOR_BARRIER');
+        await this.checked(); await this.verifyLease(); await this.admission(request);
         const adopted = await this.publicControl.adoptCandidate(adoption); await this.evidence(adopted, 'CANDIDATE_PUBLIC_ADOPTED');
-        await this.verifyLease(); await this.admission(request);
+        await this.checked(); await this.verifyLease(); await this.checked();
+        if (this.lease !== adoptionLease || !same(this.rawStore.readState(), adoptionState)
+          || !same(this.rawStore.assertOwnedIntent('VERIFY_CANDIDATE', 'CANDIDATE_FENCED', adoptionState.stateDigest), adoptionIntent)
+          || this.monitor || this.monitorBusy) hold('SESSION_ADOPTION_SOURCE_CHANGED');
+        // Restart only after actual ADOPTED binding succeeds. Failure retains
+        // the existing HOLD/partial projection without retry or rollback.
+        this.startMonitor(); await this.admission(request);
         await this.producer('capturePostAndStartup', { ...request, files: this.files, signal: this.activeController?.signal });
         const formal = await this.verifyFormalFiles(); await this.verifyLease(); await this.admission(request);
         await this.producer('completeFormalDeployment', { ...request, files: this.files, formal, signal: this.activeController?.signal });

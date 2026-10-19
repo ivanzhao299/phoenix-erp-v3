@@ -1,6 +1,7 @@
 /** Release entrypoint admission, deliberately separate from verifyContext.
  * This module never changes state, runs Docker, or accepts an environment bypass.
  * Call it immediately before the typed effect while retaining the same FD 9. */
+import {isOwnerDelegatedMaintenanceApproval} from './production-maintenance-owner-authority.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import { CONTRACT, verifyContext } from './production-config-guard.mjs';
@@ -126,12 +127,13 @@ export async function assertLegacyMaintenanceAdmission(options, overrides = {}) 
   const expected = { purpose: 'MAINTENANCE', operation: options.operation, intentOperation: profile.intent,
     bindingDigest: bindingDigest(context), targetSha: context.targetSha, context,
     expectedPhase: options.expectedPhase, stateDigest: before.state.stateDigest, intentSha256: canonicalDigest(before.marker) };
-  if (approval?.payload?.protocol !== 'STOP_AND_RECONCILE' || !Array.isArray(approval.payload.operations)
-    || !approval.payload.operations.includes(options.operation) || !approval.payload.operations.includes(profile.intent)
-    || Date.parse(approval?.serverRecord?.submittedAt) > now()
-    || await verifyGithubMaintenanceAuthority(approval, expected, { verifyServerRecord: async () => {
-      try { return await verifyAuthority(approval, expected) === true; } catch { return false; }
-    } }) !== true) hold('INDEPENDENT_MAINTENANCE_AUTHORITY_REQUIRED');
+  const verify=async()=>{try{return await verifyAuthority(approval,expected)===true;}catch{return false;}};
+  const ownerDelegated=approval?.authorityKind==='OWNER_DELEGATED';
+  const authorized=ownerDelegated?(isOwnerDelegatedMaintenanceApproval(approval,expected)&&await verify()):(
+    approval?.authorityKind===undefined&&Date.parse(approval?.serverRecord?.submittedAt)<=now()
+    &&await verifyGithubMaintenanceAuthority(approval,expected,{verifyServerRecord:verify})===true);
+  if(approval?.payload?.protocol!=='STOP_AND_RECONCILE'||!Array.isArray(approval.payload.operations)
+    ||!approval.payload.operations.includes(options.operation)||!approval.payload.operations.includes(profile.intent)||!authorized)hold('INDEPENDENT_MAINTENANCE_AUTHORITY_REQUIRED');
   // Authority retrieval can await remote service calls. Re-read all identities
   // and the owned intent after it, rather than using a stale approval snapshot.
   deadline(context, options.requiredBudgetMs, now()); d.guard();
