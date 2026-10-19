@@ -44,3 +44,24 @@ main, a production floor, or release eligibility. Dispatch must separately pin
 the new runner commit, unchanged diagnostic-program digest, new topology digest
 and the actual current GitHub main. Live production findings remain UNVERIFIED
 until that exact new run produces valid protected receipts.
+
+A subsequent refinement classifies a changed second Docker projection by closed
+field groups (identity, state, health, process, policy, namespace, ports, networks,
+mounts or labels). It never exports either changed value or reuses a stale first
+snapshot. A failed second command and malformed encoding have distinct closed
+categories. A health-only change still leaves the entire container UNVERIFIED;
+container-ID inventory stability does not make its runtime identity stable.
+
+Container, Compose project and service identifiers remain hashes. Technical
+review rejected exporting arbitrary original Docker identifiers because character
+and sensitive-word filtering cannot prove that a free-form label is public.
+No Docker name disclosure or new ownership assertion is part of this refinement.
+The transport independently validates a bounded, unique list of closed change
+categories; unexpected strings and fields remain rejected. A synthetic transport
+test initially omitted the existing mandatory topology boundary booleans; its
+fixture was corrected without relaxing the validator. The failed log remains.
+
+The narrowed change-category refinement was re-run with both real owned Docker
+fixtures enabled: 68 tests passed, zero failed, zero skipped. Independent review
+confirmed the original-name disclosure finding closed and no remaining P0/P1 in
+this refinement. These are local component checks, not fresh production facts.

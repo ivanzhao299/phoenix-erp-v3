@@ -163,3 +163,14 @@ test('public Node metadata has field-specific vocabulary and cannot add stop aut
   assert.throws(()=>parseDiagnosticOutput(output(changed),runnerSha),error=>!error.message.includes(sentinel));
  }
 });
+
+test('container race classifications retain strict field and authority validation',()=>{
+ const data={...diagnostic(),hostTopology:{schema:'phoenix.maintenance-host-topology/v1',completeSafetyProof:false,productionMutation:false,continuousDrainProof:false,admissionOrApprovalGranted:false,docker:{containers:[{id:'c'.repeat(64),verification:'UNVERIFIED',reason:'CONTAINER_INSPECT_CHANGED_UNVERIFIED',changedProjectionGroups:['HEALTH','STATE']}]}}};
+ assert.deepEqual(parseDiagnosticOutput(output(data),runnerSha),data);
+ for(const groups of [[],['HEALTH','HEALTH'],['Config.Env'],['HEALTH',sentinel],'HEALTH']){
+  const bad=structuredClone(data);bad.hostTopology.docker.containers[0].changedProjectionGroups=groups;assert.throws(()=>parseDiagnosticOutput(output(bad),runnerSha),error=>!error.message.includes(sentinel));
+ }
+ for(const change of [{publicMetadata:{containerPublicName:'site-api-1'}},{stopAuthorized:true}]){
+  const bad=structuredClone(data);Object.assign(bad.hostTopology.docker.containers[0],change);assert.throws(()=>parseDiagnosticOutput(output(bad),runnerSha));
+ }
+});

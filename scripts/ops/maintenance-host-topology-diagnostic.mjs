@@ -33,6 +33,14 @@ const object = value => value !== null && typeof value === 'object' && !Array.is
 const privateUnitNames=new WeakMap();
 const privateNodePins=new WeakMap();
 const sensitivePublicName=value=>/secret|token|password|credential|private|certificate|[a-f0-9]{32}/i.test(value);
+const projectionGroups=['IDENTITY','IDENTITY','STATE','HEALTH','IDENTITY','PROCESS','STATE','STATE','POLICY','POLICY','POLICY','NAMESPACE','NAMESPACE','NAMESPACE','PORTS','NETWORKS','MOUNTS','LABELS','LABELS','LABELS'];
+/** Values and command failures are never exported. Whole rows remain unknown
+ * even when the only observed difference is a health transition. */
+export function changedContainerProjectionGroups(before,after) {
+ const parse=text=>{const values=text.split('\t').map(JSON.parse);if(values.length!==dockerFields.length)throw 0;return values;};
+ try { const a=parse(before),b=parse(after);return [...new Set(a.flatMap((value,index)=>JSON.stringify(value)===JSON.stringify(b[index])?[]:[projectionGroups[index]]))].sort(); }
+ catch { return ['METADATA_ENCODING']; }
+}
 /** Public operational metadata only. Never argv, flags, script contents or an
  * assertion of business ownership/permission to stop a process. */
 export function projectNodeEntry(commandLine){
@@ -190,7 +198,7 @@ async function dockerTopology(io) {
   const containers = [];
   for (const id of limited(ids, LIMITS.containers, 'DOCKER_CONTAINERS', io)) {
     if (io.expired()) break;
-    let failure = 'CONTAINER_INSPECT_COMMAND_UNAVAILABLE';
+    let failure = 'CONTAINER_INSPECT_COMMAND_UNAVAILABLE',changedProjectionGroups;
     try {
       const text = await io.execute('/usr/bin/docker', ['inspect', id, '--format', dockerTemplate]);
       failure = 'CONTAINER_INSPECT_JSON_UNVERIFIED';
@@ -208,7 +216,11 @@ async function dockerTopology(io) {
       let revision = 'UNVERIFIED';
       try { const v = JSON.parse(await io.execute('/usr/bin/docker', ['image', 'inspect', imageId, '--format', '{{json (index .Config.Labels "org.opencontainers.image.revision")}}'])); if (SHA.test(v)) revision = v; } catch {}
       const capabilityNames = Array.isArray(caps) ? caps.filter(c => knownCaps.has(c)) : [];
-      if (await io.execute('/usr/bin/docker', ['inspect', id, '--format', dockerTemplate]) !== text) throw 0;
+      failure = 'CONTAINER_INSPECT_SECOND_READ_UNAVAILABLE';
+      const secondText=await io.execute('/usr/bin/docker', ['inspect', id, '--format', dockerTemplate]);
+      failure = 'CONTAINER_INSPECT_CHANGED_UNVERIFIED';
+      if(secondText!==text){changedProjectionGroups=changedContainerProjectionGroups(text,secondText);if(changedProjectionGroups.length===0)changedProjectionGroups=['METADATA_ENCODING'];throw 0;}
+      failure = 'CONTAINER_INSPECT_PROJECTION_UNVERIFIED';
       containers.push({ nameSha256: typeof name === 'string' ? hash(name) : 'UNVERIFIED', projectNameSha256: typeof project === 'string' ? hash(project) : 'UNVERIFIED', serviceNameSha256: typeof service === 'string' ? hash(service) : 'UNVERIFIED', verification: 'SNAPSHOT_ONLY', id, imageId, ociRevision: revision, running: safeBoolean(running), health: ['healthy', 'unhealthy', 'starting'].includes(health) ? health : 'UNVERIFIED',
         startedAt, pid, restarting: safeBoolean(restarting), restartCount, restartPolicy: ['no', 'always', 'unless-stopped', 'on-failure'].includes(restartPolicy) ? restartPolicy : 'UNVERIFIED',
         service: ['api', 'web', 'db'].includes(service) ? service : 'OTHER_UNVERIFIED', projectClass: typeof project === 'string' && /^phoenix[a-z0-9_-]*$/.test(project) ? 'PHOENIX' : 'OTHER_UNVERIFIED',
@@ -218,7 +230,7 @@ async function dockerTopology(io) {
         mounts: Array.isArray(mounts) ? mounts.map(mountClass) : [unknown('MOUNT_METADATA')] });
     } catch (error) {
       const code = /^TOPOLOGY_HOLD=READONLY_METADATA_UNAVAILABLE_([A-Z_]+)$/.exec(error?.message || '')?.[1];
-      containers.push({ id, ...unknown(failure), ...(failure === 'CONTAINER_INSPECT_COMMAND_UNAVAILABLE' ? { commandFailure: COMMAND_FAILURES.has(code) ? code : 'COMMAND_FAILURE_UNCLASSIFIED' } : {}) });
+      containers.push({ id, ...unknown(failure), ...(changedProjectionGroups?{changedProjectionGroups}:{}), ...(['CONTAINER_INSPECT_COMMAND_UNAVAILABLE','CONTAINER_INSPECT_SECOND_READ_UNAVAILABLE'].includes(failure) ? { commandFailure: COMMAND_FAILURES.has(code) ? code : 'COMMAND_FAILURE_UNCLASSIFIED' } : {}) });
     }
   }
   const networks = [];

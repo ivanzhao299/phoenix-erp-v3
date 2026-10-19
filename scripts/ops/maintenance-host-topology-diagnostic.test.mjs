@@ -309,3 +309,23 @@ test('PID reuse during the last unit-join cmdline read cannot publish a public a
  const result=await collectMaintenanceHostTopology(f.dependencies),p=result.processes.processes.find(p=>p.pid===2);
  assert.equal(p.verification,'UNVERIFIED');assert.equal(p.nodePublicMetadata.unitPublicName,undefined);assert.equal(p.nodePublicMetadata.stopAuthorized,false);
 });
+
+test('Docker projection races retain only changed field groups and no stale identity, names or runtime fields',async()=>{
+ for(const [index,changed,expected] of [[0,'f'.repeat(64),'IDENTITY'],[3,'unhealthy','HEALTH'],[5,3,'PROCESS'],[6,true,'STATE'],[8,'always','POLICY'],[11,'host','NAMESPACE'],[14,{},'PORTS'],[15,{},'NETWORKS'],[16,[],'MOUNTS'],[17,secret,'LABELS']]){
+  const f=fixture(),original=f.execute;let count=0;
+  f.dependencies.execute=async(binary,args,options)=>{const text=await original(binary,args,options);if(binary!=='/usr/bin/docker'||args[0]!=='inspect'||++count!==2)return text;const values=text.split('\t').map(JSON.parse);values[index]=changed;return values.map(JSON.stringify).join('\t');};
+  const result=await collectMaintenanceHostTopology(f.dependencies),row=result.docker.containers[0];
+  assert.equal(row.verification,'UNVERIFIED');assert.equal(row.reason,'CONTAINER_INSPECT_CHANGED_UNVERIFIED');assert.deepEqual(row.changedProjectionGroups,[expected]);
+  assert.deepEqual(Object.keys(row).sort(),['changedProjectionGroups','id','reason','verification']);assert.equal(result.completeSafetyProof,false);assert.ok(!JSON.stringify(result).includes(secret));
+ }
+});
+test('second Docker read failures and malformed projection stay unknown with closed diagnostic categories',async()=>{
+ for(const malformed of [false,true]){
+  const f=fixture(),original=f.execute;let count=0;
+  f.dependencies.execute=async(binary,args,options)=>{if(binary==='/usr/bin/docker'&&args[0]==='inspect'&&++count===2){if(malformed)return secret;throw Error('TOPOLOGY_HOLD=READONLY_METADATA_UNAVAILABLE_COMMAND_TIMEOUT');}return original(binary,args,options);};
+  const row=(await collectMaintenanceHostTopology(f.dependencies)).docker.containers[0];
+  assert.equal(row.verification,'UNVERIFIED');assert.equal(row.reason,malformed?'CONTAINER_INSPECT_CHANGED_UNVERIFIED':'CONTAINER_INSPECT_SECOND_READ_UNAVAILABLE');
+  if(malformed)assert.deepEqual(row.changedProjectionGroups,['METADATA_ENCODING']);else assert.equal(row.commandFailure,'COMMAND_TIMEOUT');
+  assert.ok(!JSON.stringify(row).includes(secret));
+ }
+});
