@@ -32,7 +32,7 @@ jobs:
         with:
           node-version: '20'
       - name: Pure bounded rules and kernel projection counterexamples
-        run: node --test scripts/ci/maintenance-kernel-ingress-policy.test.mjs scripts/ci/maintenance-kernel-ingress-probes.test.mjs scripts/ci/maintenance-kernel-netlink.test.mjs scripts/ci/maintenance-kernel-netlink-channel.test.mjs
+        run: node --test scripts/ci/maintenance-kernel-ingress-policy.test.mjs scripts/ci/maintenance-kernel-ingress-probes.test.mjs scripts/ci/maintenance-kernel-netlink.test.mjs scripts/ci/maintenance-kernel-netlink-channel.test.mjs scripts/ci/maintenance-kernel-source-facts.test.mjs
       - name: Require actual isolated kernel tools and immutable image IDs
         run: |
           set -euo pipefail

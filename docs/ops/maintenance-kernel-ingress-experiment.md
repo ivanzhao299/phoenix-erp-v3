@@ -74,8 +74,34 @@ Passing this packet-path experiment would not prove production topology or a
 continuous interval: Docker event/loss coverage, independently supervised kernel
 rule monitoring, cross-phase lease assembly, real old API and five-domain effects,
 formal source/artifact/owner authorization, recovery closure and complete producer
-integration remain mandatory. Production host ownership, environment approval
-protection, maintenance start/duration and fresh final SHA audit are still absent.
+integration remain mandatory. Production host ownership, maintenance
+start/duration and fresh final SHA audit remain release prerequisites. The owner
+has since explicitly waived the independent required-reviewer requirement;
+that waiver does not supply any missing technical ingress or runtime evidence.
+
+## Exact running-kernel facts before a commit-barrier experiment
+
+`maintenance-kernel-source-facts.fixture.mjs` collects only read-only kernel and
+package facts in the already authorized exclusive CI VM: uname release/version/
+architecture, boot ID, network namespace, optional Ubuntu version signature,
+the exact named installed image package and source metadata, visible livepatch
+entries and enabled states, and kernel taint. Identity is rechecked after the
+read. The time interval is recorded, but livepatch/taint are sequential reads,
+not an atomic snapshot. Missing optional facts and failed package queries remain
+explicitly unavailable, not assumed absent or safe.
+
+The receipt always records `sourceBinding=UNVERIFIED`,
+`runningBinaryToPackageBinding=UNVERIFIED`, `barrierCapability=false` and
+`continuousIngressProof=false`. In particular a signed-wrapper source package,
+an installed package, or an empty visible livepatch directory cannot establish
+the provenance or notification ordering of the running kernel. The original
+GETGEN transport and its success-ACK parser are unchanged.
+
+A future fixed commit-mutex barrier needs a separate reviewed protocol, exact
+running distribution-source profile and strict error-request correlation. An
+empty batch, socket queue sample or successful GETGEN is not accepted as that
+barrier. A failed batch is also a transaction admission/abort operation, not a
+silent extension of the existing read-only probe. It is not implemented here.
 
 Technical references: [Docker packet filtering](https://docs.docker.com/engine/network/packet-filtering-firewalls/),
 [Docker nftables](https://docs.docker.com/engine/network/firewall-nftables/),

@@ -10,6 +10,7 @@ import assert from 'node:assert/strict';
 import { compileOwnedIngressRules, projectOwnedIngressTable, ingressIdentity } from './maintenance-kernel-ingress-policy.mjs';
 import {kernelRemaining,kernelCommandTimeout,boundedOwnedHttpProbe,ownedHttpProbeProgram} from './maintenance-kernel-ingress-probes.mjs';
 import {openOwnedNetlinkChannel} from './maintenance-kernel-netlink-channel.fixture.mjs';
+import {collectOwnedKernelSourceFacts} from './maintenance-kernel-source-facts.fixture.mjs';
 const hash = value => createHash('sha256').update(value).digest('hex');
 const env = { PATH: '/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin', DOCKER_HOST: 'unix:///var/run/docker.sock' };
 const IPv4 = value => typeof value==='string' && value.split('.').length===4 && value.split('.').every(p=>/^(0|[1-9][0-9]{0,2})$/.test(p)&&Number(p)<=255);
@@ -76,6 +77,8 @@ export async function runOwnedKernelIngress() {
   const identity=()=>{assert.equal(fs.readlinkSync('/proc/self/ns/net'),hostNetworkNamespace);const nowInterface=JSON.parse(run('/usr/sbin/ip',['-json','-details','link','show','dev',scope.bridge]));assert.equal(nowInterface.length,1);assert.equal(nowInterface[0].ifindex,receipt.network.interfaceIndex);assert.equal(nowInterface[0].linkinfo.info_kind,'bridge');const tables=kernel();assert.deepEqual(ingressIdentity(tables),baseline);return tables;};
   const remove=()=>{identity();const q=intent('REMOVE_EXACT_OWNED_RULE_TABLES',{table:compiled.table});nft(['--file','-'],`delete table bridge ${compiled.table}\ndelete table inet ${compiled.table}\n`);q.outcome='REMOVED';save();};
   try {
+    receipt.kernelSourceFacts=collectOwnedKernelSourceFacts();
+    assert.equal(receipt.kernelSourceFacts.facts.networkNamespace,hostNetworkNamespace);save();
     // Original read-only process is registered before its first handshake.
     // Actual multicast readiness is tested only by the parent-owned no-hook
     // sentinel below. GETGEN alone never proves notification consumption.
