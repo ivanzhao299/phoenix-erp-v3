@@ -152,3 +152,14 @@ test('new attribution joins accept only digests and fixed process metadata, neve
   data.hostTopology.systemd.units[0].workingDirectorySha256='/private/'+sentinel;
   assert.throws(()=>parseDiagnosticOutput(output(data),runnerSha),e=>!e.message.includes(sentinel));
 });
+
+
+test('public Node metadata has field-specific vocabulary and cannot add stop authority',()=>{
+ const metadata={entryClass:'SCRIPT_BASENAME_ONLY',nodeEntryBasename:'main.js',nodeEntrySha256:'b'.repeat(64),packageEvidenceClass:'CWD_PACKAGE_METADATA_ONLY',packageName:'@owned/fixture',packageVersion:'1.2.3-test.1',unitProcessJoin:'EXACT_MAIN_PROCESS',unitPublicName:'owned-node.service',businessOwner:'UNKNOWN',stopAuthorized:false};
+ const value=()=>({...diagnostic(),hostTopology:{schema:'phoenix.maintenance-host-topology/v1',completeSafetyProof:false,productionMutation:false,continuousDrainProof:false,admissionOrApprovalGranted:false,processes:{processes:[{pid:947,nodePublicMetadata:{...metadata}}]}}});
+ assert.deepEqual(parseDiagnosticOutput(output(value()),runnerSha),value());
+ for(const [key,bad]of [['nodeEntryBasename',sentinel],['packageName',sentinel],['packageVersion','PASS'],['unitPublicName','bad name.service'],['unitProcessJoin','PASS'],['businessOwner','PHOENIX'],['stopAuthorized',true]]){
+  const changed=value();changed.hostTopology.processes.processes[0].nodePublicMetadata[key]=bad;
+  assert.throws(()=>parseDiagnosticOutput(output(changed),runnerSha),error=>!error.message.includes(sentinel));
+ }
+});

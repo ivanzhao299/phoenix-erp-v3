@@ -2,7 +2,7 @@ import test from 'node:test';
 import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import assert from 'node:assert/strict';
-import { collectMaintenanceHostTopology, readonlyTopologyCommand, classifyReadonlyMetadataFailure, TOPOLOGY_CONTAINER_PROJECTION, TOPOLOGY_SCHEMA, TOPOLOGY_COMMAND_ENV, TOPOLOGY_MAXIMUM_OUTPUT_BYTES } from './maintenance-host-topology-diagnostic.mjs';
+import { collectMaintenanceHostTopology, projectNodeEntry, projectNodePackage, readonlyTopologyCommand, classifyReadonlyMetadataFailure, TOPOLOGY_CONTAINER_PROJECTION, TOPOLOGY_SCHEMA, TOPOLOGY_COMMAND_ENV, TOPOLOGY_MAXIMUM_OUTPUT_BYTES } from './maintenance-host-topology-diagnostic.mjs';
 
 const secret = 'DO_NOT_EXPORT_SENSITIVE_SENTINEL';
 const container = 'a'.repeat(64), image = `sha256:${'b'.repeat(64)}`, network = 'c'.repeat(64), endpoint = 'd'.repeat(64);
@@ -245,4 +245,67 @@ test('same PID changing UID or cgroup cannot supply a stable attribution row',as
   f.dependencies.readFile=async file=>{const text=await read(file);return file===`/proc/2/${part}`&&++hits===2?(part==='status'?text.replace('Uid:\t0\t0\t0\t0','Uid:\t1\t1\t1\t1'):text+'\n0::/other'):text;};
   const result=await collectMaintenanceHostTopology(f.dependencies);assert.equal(result.processes.processes.find(p=>p.pid===2).verification,'UNVERIFIED');assert.equal(result.completeSafetyProof,false);
  }
+});
+
+
+test('public Node entry projection never exports flags, script contents or trailing arguments',()=>{
+ const command='/usr/bin/node\0/opt/fixture/main.js\0--password\0'+secret+'\0';
+ const result=projectNodeEntry(command);assert.equal(result.entryClass,'SCRIPT_BASENAME_ONLY');assert.equal(result.nodeEntryBasename,'main.js');assert.match(result.nodeEntrySha256,/^[a-f0-9]{64}$/);assert.ok(!JSON.stringify(result).includes(secret));
+ for(const entry of ['--eval','-e','relative.js','/opt/fixture/'+secret+'.js','/opt/fixture/token.js','/opt/fixture/../main.js'])assert.equal(projectNodeEntry('/usr/bin/node\0'+entry+'\0'+secret+'\0').entryClass,'UNVERIFIED');
+ assert.equal(projectNodeEntry(command+'x'.repeat(8193)).entryClass,'UNVERIFIED');
+ assert.equal(projectNodeEntry('/usr/bin/node\0/opt/pm2/ProcessContainerFork.js\0'+secret+'\0').entryClass,'PROCESS_MANAGER_WRAPPER');
+});
+test('package projection returns only constrained name/version and keeps cwd evidence distinct from execution',()=>{
+ assert.deepEqual(projectNodePackage({name:'@owned/fixture',version:'1.2.3-test.1',scripts:{start:secret},token:secret}),{packageEvidenceClass:'CWD_PACKAGE_METADATA_ONLY',packageName:'@owned/fixture',packageVersion:'1.2.3-test.1'});
+ for(const value of [{name:secret,version:'1.2.3'},{name:'fixture',version:secret},{name:'fixture',version:'PASS'},{name:'token',version:'1.2.3'},{name:'../../fixture',version:'1.2.3'},null])assert.deepEqual(projectNodePackage(value),{packageEvidenceClass:'UNVERIFIED'});
+});
+function hostNodeFixture({wrapper=false,changeExe=false,changeArgv=false}={}){
+ const f=fixture();const original={...f.dependencies};let exeReads=0,argvReads=0;
+ f.dependencies.readFile=async file=>file.endsWith('/cgroup')?'0::/system.slice/owned-node.service\n':original.readFile(file);
+ f.dependencies.readlink=async file=>file.endsWith('/cwd')?'/opt/owned-node':file.endsWith('/exe')?(changeExe&&file.includes('/2/')&&++exeReads>1?'/usr/bin/other':'/usr/bin/node'):original.readlink(file);
+ f.dependencies.readNodeCommandLine=async file=>'/usr/bin/node\0/opt/owned-node/'+(wrapper?'ProcessContainerFork.js':'main.js')+'\0'+(changeArgv&&file.includes('/2/')&&++argvReads>1?'changed':secret)+'\0';
+ f.dependencies.readNodePackage=async()=>projectNodePackage({name:'owned-node',version:'1.2.3',password:secret});
+ f.dependencies.execute=async(binary,args,options)=>{
+  if(binary==='/usr/bin/systemctl'&&args[0]==='list-units')return JSON.stringify([{unit:'owned-node.service'}]);
+  if(binary==='/usr/bin/systemctl'&&args[0]==='list-timers')return '[]';
+  if(binary==='/usr/bin/systemctl'&&args[0]==='show')return 'Id=owned-node.service\nActiveState=active\nSubState=running\nLoadState=loaded\nUnitFileState=enabled\nMainPID=2\nControlPID=0\nRestart=always\nControlGroup=/system.slice/owned-node.service\nWorkingDirectory=/opt/owned-node\nInvocationID='+'1'.repeat(32);
+  return original.execute(binary,args,options);
+ };
+ return f;
+}
+test('stable host Node and exact unit join expose public hints while business ownership/stop remain denied',async()=>{
+ const f=hostNodeFixture(),result=await collectMaintenanceHostTopology(f.dependencies),p=result.processes.processes.find(p=>p.pid===2);
+ assert.equal(p.nodePublicMetadata.nodeEntryBasename,'main.js');assert.equal(p.nodePublicMetadata.packageName,'owned-node');assert.equal(p.nodePublicMetadata.unitPublicName,'owned-node.service');assert.equal(p.nodePublicMetadata.unitProcessJoin,'EXACT_MAIN_PROCESS');
+ assert.equal(p.nodePublicMetadata.businessOwner,'UNKNOWN');assert.equal(p.nodePublicMetadata.stopAuthorized,false);assert.equal(result.completeSafetyProof,false);assert.ok(!JSON.stringify(result).includes(secret));
+});
+test('same startTicks cannot hide an exec or changed original argv',async()=>{
+ for(const changes of [{changeExe:true},{changeArgv:true}]){
+  const result=await collectMaintenanceHostTopology(hostNodeFixture(changes).dependencies);const p=result.processes.processes.find(p=>p.pid===2);
+  assert.equal(p.verification,'UNVERIFIED');assert.equal(result.completeSafetyProof,false);assert.ok(!JSON.stringify(result).includes(secret));
+ }
+});
+test('PM2 wrapper and cwd package metadata cannot establish executed application or stop permission',async()=>{
+ const result=await collectMaintenanceHostTopology(hostNodeFixture({wrapper:true}).dependencies),p=result.processes.processes.find(p=>p.pid===2);
+ assert.equal(p.nodePublicMetadata.entryClass,'PROCESS_MANAGER_WRAPPER');assert.equal(p.nodePublicMetadata.packageEvidenceClass,'CWD_PACKAGE_METADATA_ONLY');assert.equal(p.nodePublicMetadata.businessOwner,'UNKNOWN');assert.equal(p.nodePublicMetadata.stopAuthorized,false);
+});
+
+
+test('invalid UTF-8 cannot collapse distinct original argv bytes to one identity',()=>{
+ assert.equal(projectNodeEntry(Buffer.concat([Buffer.from('/usr/bin/node\0/opt/fixture/main.js\0'),Buffer.from([255]),Buffer.from('\0')])).entryClass,'UNVERIFIED');
+});
+test('different or unknown mount namespace refuses host CWD package reads',async()=>{
+ for(const state of ['DIFFERENT','UNVERIFIED']){
+  const f=hostNodeFixture();const original=f.dependencies.readlink;let packages=0;
+  f.dependencies.readlink=async file=>{if(file==='/proc/2/ns/mnt'){if(state==='UNVERIFIED')throw Error(secret);return 'mnt:[999999]';}return original(file);};
+  f.dependencies.readNodePackage=async()=>{packages++;return projectNodePackage({name:'wrong-mount',version:'1.2.3'});};
+  const result=await collectMaintenanceHostTopology(f.dependencies),p=result.processes.processes.find(p=>p.pid===2);
+  assert.equal(p.nodePublicMetadata.packageEvidenceClass,'UNVERIFIED');assert.equal(p.nodePublicMetadata.packageName,undefined);assert.equal(packages,1);
+ }
+});
+test('PID reuse during the last unit-join cmdline read cannot publish a public association',async()=>{
+ const f=hostNodeFixture();const read=f.dependencies.readFile,argv=f.dependencies.readNodeCommandLine;let reads=0,changed=false;
+ f.dependencies.readNodeCommandLine=async file=>{const value=await argv(file);if(file.includes('/2/')&&++reads===3)changed=true;return value;};
+ f.dependencies.readFile=async file=>file==='/proc/2/stat'&&changed?processStat('2','999'):read(file);
+ const result=await collectMaintenanceHostTopology(f.dependencies),p=result.processes.processes.find(p=>p.pid===2);
+ assert.equal(p.verification,'UNVERIFIED');assert.equal(p.nodePublicMetadata.unitPublicName,undefined);assert.equal(p.nodePublicMetadata.stopAuthorized,false);
 });

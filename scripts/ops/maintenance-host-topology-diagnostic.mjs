@@ -30,6 +30,57 @@ const safeBoolean = value => typeof value === 'boolean' ? value : 'UNVERIFIED';
 const parseRows = text => text.trim() ? text.trim().split('\n') : [];
 const validTime = value => typeof value === 'string' && /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{1,9}Z$/.test(value) && Number.isFinite(Date.parse(value));
 const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
+const privateUnitNames=new WeakMap();
+const privateNodePins=new WeakMap();
+const sensitivePublicName=value=>/secret|token|password|credential|private|certificate|[a-f0-9]{32}/i.test(value);
+/** Public operational metadata only. Never argv, flags, script contents or an
+ * assertion of business ownership/permission to stop a process. */
+export function projectNodeEntry(commandLine){
+ const text=Buffer.isBuffer(commandLine)?commandLine.toString('utf8'):commandLine;
+ if(typeof text!=='string'||Buffer.byteLength(text)>8192||!text.endsWith('\0')||Buffer.from(text,'utf8').toString('utf8')!==text||(Buffer.isBuffer(commandLine)&&!Buffer.from(text,'utf8').equals(commandLine)))return {entryClass:'UNVERIFIED'};
+ const argv=text.split('\0'),entry=argv[1];
+ if(!entry||entry.startsWith('-')||!path.isAbsolute(entry)||path.normalize(entry)!==entry||entry.includes('\n')||entry.includes('\r'))return {entryClass:'UNVERIFIED'};
+ const basename=path.basename(entry);
+ if(['ProcessContainerFork.js','ProcessContainer.js','Daemon.js'].includes(basename))return {entryClass:'PROCESS_MANAGER_WRAPPER',nodeEntryBasename:basename,nodeEntrySha256:hash(entry)};
+ if(!/^[a-z][a-z0-9._-]{0,63}\.(?:cjs|mjs|js)$/.test(basename)||sensitivePublicName(basename))return {entryClass:'UNVERIFIED',nodeEntrySha256:hash(entry)};
+ return {entryClass:'SCRIPT_BASENAME_ONLY',nodeEntryBasename:basename,nodeEntrySha256:hash(entry)};
+}
+export function projectNodePackage(value){
+ if(!object(value)||typeof value.name!=='string'||typeof value.version!=='string'
+  ||!/^(@[a-z0-9][a-z0-9._-]{0,31}\/)?[a-z0-9][a-z0-9._-]{0,47}$/.test(value.name)||sensitivePublicName(value.name)
+  ||!/^\d{1,6}\.\d{1,6}\.\d{1,6}(?:-[a-z0-9.-]{1,32})?(?:\+[a-z0-9.-]{1,32})?$/i.test(value.version)||sensitivePublicName(value.version))return {packageEvidenceClass:'UNVERIFIED'};
+ return {packageEvidenceClass:'CWD_PACKAGE_METADATA_ONLY',packageName:value.name,packageVersion:value.version};
+}
+export function boundedProcCommandLine(file,budget){
+ if(!/^\/proc\/[1-9][0-9]*\/cmdline$/.test(file))throw Error('UNVERIFIED');
+ budget();const fd=fs.openSync(file,fs.constants.O_RDONLY|fs.constants.O_NOFOLLOW|fs.constants.O_NONBLOCK);
+ try{const data=Buffer.alloc(8193);let at=0;
+  while(at<data.length){budget();const size=fs.readSync(fd,data,at,data.length-at,null);budget();if(!size)break;at+=size;}
+  if(at>8192)throw Error('UNVERIFIED');budget();const raw=data.subarray(0,at),text=raw.toString('utf8');if(!Buffer.from(text,'utf8').equals(raw))throw Error('UNVERIFIED');return text;
+ }finally{fs.closeSync(fd);}
+}
+const metadataPin=stat=>[stat.dev,stat.ino,stat.uid,stat.gid,stat.mode,stat.nlink,stat.size,stat.mtimeMs,stat.ctimeMs];
+export function readNodeCwdPackage(directory,budget){
+ if(!path.isAbsolute(directory)||path.normalize(directory)!==directory||directory==='/'||/(?:^|\/)(?:\.ssh|secrets?)(?:\/|$)/i.test(directory))throw Error('UNVERIFIED');
+ const chain=[];let current='/';
+ for(const part of ['',...directory.split('/').filter(Boolean)]){
+  if(part)current=path.join(current,part);budget();const stat=fs.lstatSync(current);
+  if(!stat.isDirectory()||stat.isSymbolicLink()||stat.uid!==0||(stat.mode&0o022))throw Error('UNVERIFIED');chain.push({file:current,pin:metadataPin(stat)});
+ }
+ const file=path.join(directory,'package.json');budget();const initial=fs.lstatSync(file);
+ if(!initial.isFile()||initial.isSymbolicLink()||initial.nlink!==1||initial.uid!==0||(initial.mode&0o022)||initial.size<1||initial.size>131072)throw Error('UNVERIFIED');
+ budget();const fd=fs.openSync(file,fs.constants.O_RDONLY|fs.constants.O_NOFOLLOW|fs.constants.O_NONBLOCK);let value;
+ try{
+  budget();const opened=fs.fstatSync(fd);budget();if(!opened.isFile()||JSON.stringify(metadataPin(initial))!==JSON.stringify(metadataPin(opened)))throw Error('UNVERIFIED');
+  const data=Buffer.alloc(initial.size+1);let at=0;
+  while(at<data.length){budget();const size=fs.readSync(fd,data,at,data.length-at,null);budget();if(!size)break;at+=size;}
+  budget();const afterRead=fs.fstatSync(fd);budget();if(at!==initial.size||JSON.stringify(metadataPin(initial))!==JSON.stringify(metadataPin(afterRead)))throw Error('UNVERIFIED');
+  value=projectNodePackage(JSON.parse(data.subarray(0,at).toString('utf8')));
+ }finally{fs.closeSync(fd);}
+ budget();if(JSON.stringify(metadataPin(initial))!==JSON.stringify(metadataPin(fs.lstatSync(file))))throw Error('UNVERIFIED');
+ for(const entry of chain){budget();if(JSON.stringify(entry.pin)!==JSON.stringify(metadataPin(fs.lstatSync(entry.file))))throw Error('UNVERIFIED');}
+ return value;
+}
 function readCronFile(file, expected, budget) {
   budget();
   const fd = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
@@ -199,7 +250,7 @@ async function processTopology(io, containerIds) {
   let names; try { names = (await io.readdir('/proc')).filter(name => /^\d+$/.test(name)); } catch { return { ...unknown('PROC_ENUMERATION_UNAVAILABLE'), processes: [] }; }
   const references = {};
   for (const ns of ['net', 'mnt', 'pid']) { if (io.expired()) break; try { references[ns] = await io.readlink(`/proc/1/ns/${ns}`); } catch {} }
-  const processes = [];
+  const processes = [];let inspectedNodeCount=0;
   for (const name of limited(names, LIMITS.processes, 'PROCESSES', io)) {
     if (io.expired()) break;
     const pid = Number(name);
@@ -207,21 +258,34 @@ async function processTopology(io, containerIds) {
       const first = statIdentity(await io.readFile(`/proc/${name}/stat`)); const status = await io.readFile(`/proc/${name}/status`);
       const uid = /^Uid:\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s*$/m.exec(status); const ppid = /^PPid:\s+(\d+)\s*$/m.exec(status);
       if (!uid || !ppid || Number(ppid[1]) !== first.ppid) throw 0;
-      const exe = await io.readlink(`/proc/${name}/exe`); const namespaces = {};
-      for (const ns of ['net', 'mnt', 'pid']) { try { const value = await io.readlink(`/proc/${name}/ns/${ns}`); namespaces[ns] = /^\w+:\[\d+\]$/.test(value) ? { relationToPid1: references[ns] ? value === references[ns] ? 'SAME' : 'DIFFERENT' : 'UNVERIFIED', identitySha256: hash(value) } : unknown('NAMESPACE_METADATA'); } catch { namespaces[ns] = unknown('NAMESPACE_UNAVAILABLE'); } }
+      const exe = await io.readlink(`/proc/${name}/exe`); const namespaces = {},namespaceRaw={};
+      for (const ns of ['net', 'mnt', 'pid']) { try { const value = await io.readlink(`/proc/${name}/ns/${ns}`);namespaceRaw[ns]=value; namespaces[ns] = /^\w+:\[\d+\]$/.test(value) ? { relationToPid1: references[ns] ? value === references[ns] ? 'SAME' : 'DIFFERENT' : 'UNVERIFIED', identitySha256: hash(value) } : unknown('NAMESPACE_METADATA'); } catch { namespaces[ns] = unknown('NAMESPACE_UNAVAILABLE'); } }
       const cgroup = await io.readFile(`/proc/${name}/cgroup`); const matches = [...cgroup.matchAll(/(?:docker[-/]|cri-containerd[-/]|libpod[-/])([a-f0-9]{64})(?:\.scope|\/|$)/g)].map(m => m[1]);
       const known = [...new Set(matches.filter(id => containerIds.includes(id)))];
-      let cwdSha256 = 'UNVERIFIED'; try { const cwd = await io.readlink(`/proc/${name}/cwd`); if (path.isAbsolute(cwd) && cwd === await io.readlink(`/proc/${name}/cwd`)) cwdSha256 = hash(cwd); } catch {}
+      let cwdSha256 = 'UNVERIFIED',cwd; try { cwd = await io.readlink(`/proc/${name}/cwd`); if (path.isAbsolute(cwd) && cwd === await io.readlink(`/proc/${name}/cwd`)) cwdSha256 = hash(cwd); } catch {}
+      let nodePublicMetadata,commandLineHash;
+      if(executableClass(exe)==='NODE'&&matches.length===0&&Number(uid[1])===0&&Number(uid[2])===0){
+        nodePublicMetadata={entryClass:'UNVERIFIED',packageEvidenceClass:'UNVERIFIED',businessOwner:'UNKNOWN',stopAuthorized:false};
+        if(inspectedNodeCount++<16){
+          try{const commandLine=await io.readNodeCommandLine(`/proc/${name}/cmdline`);commandLineHash=hash(commandLine);Object.assign(nodePublicMetadata,projectNodeEntry(commandLine));}catch{}
+          if(cwd&&cwdSha256!=='UNVERIFIED'&&namespaces.mnt?.relationToPid1==='SAME'){try{Object.assign(nodePublicMetadata,await io.readNodePackage(cwd));}catch{}}
+        }
+      }
       const groupPaths = cgroup.trim().split('\n').map(line => /^\d+:[^:]*:(\/[^\r\n]*)$/.exec(line)?.[1]);
       const systemdControlGroupSha256 = groupPaths.length && groupPaths.every(Boolean) ? [...new Set(groupPaths)].sort().map(hash) : 'UNVERIFIED';
       const second = statIdentity(await io.readFile(`/proc/${name}/stat`));
       const secondStatus = await io.readFile(`/proc/${name}/status`);
       if (JSON.stringify(first) !== JSON.stringify(second) || /^Uid:\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s*$/m.exec(secondStatus)?.[0] !== uid[0]
-        || await io.readFile(`/proc/${name}/cgroup`) !== cgroup) throw 0;
-      processes.push({ pid, ppid: first.ppid, realUid: Number(uid[1]), effectiveUid: Number(uid[2]), startTicks: first.startTicks, verification: 'SNAPSHOT_ONLY',
+        || await io.readFile(`/proc/${name}/cgroup`) !== cgroup||await io.readlink(`/proc/${name}/exe`)!==exe) throw 0;
+      if(cwdSha256!=='UNVERIFIED'&&await io.readlink(`/proc/${name}/cwd`)!==cwd)throw 0;
+      for(const ns of Object.keys(namespaceRaw))if(await io.readlink(`/proc/${name}/ns/${ns}`)!==namespaceRaw[ns])throw 0;
+      if(commandLineHash&&hash(await io.readNodeCommandLine(`/proc/${name}/cmdline`))!==commandLineHash)throw 0;
+      const row={ pid, ppid: first.ppid, realUid: Number(uid[1]), effectiveUid: Number(uid[2]), startTicks: first.startTicks, verification: 'SNAPSHOT_ONLY',
         executableClass: executableClass(exe), executablePathSha256: hash(exe), cwdSha256, systemdControlGroupSha256, namespaces, cgroupSha256: hash(cgroup),
         executionLocation: known.length === 1 ? 'KNOWN_DOCKER_CONTAINER' : matches.length ? 'UNKNOWN_CONTAINER_UNVERIFIED' : 'HOST_OR_UNCLASSIFIED', containerIds: known,
-        executorRole: known.length ? 'CONTAINER_ROLE_FROM_DOCKER_METADATA' : 'UNVERIFIED_NO_ARGUMENTS_INSPECTED' });
+        executorRole: known.length ? 'CONTAINER_ROLE_FROM_DOCKER_METADATA' : 'UNVERIFIED_NO_ARGUMENTS_INSPECTED',...(nodePublicMetadata?{nodePublicMetadata}: {}) };
+      if(nodePublicMetadata)privateNodePins.set(row,{first,statusUid:uid[0],exe,cwd,cgroup,namespaceRaw,commandLineHash});
+      processes.push(row);
     } catch { processes.push({ pid, ...unknown('PROCESS_EXIT_REUSE_OR_METADATA_UNAVAILABLE') }); }
   }
   return { verification: hasUnverified(processes) ? 'UNVERIFIED' : 'SNAPSHOT_ONLY', namespaceReference: 'PROC_1_ONLY_NOT_HOST_ATTESTATION', hostExecutorCompleteness: 'UNVERIFIED', processes };
@@ -255,7 +319,7 @@ async function systemdTopology(io) {
         const workingDirectorySha256 = typeof metadata.WorkingDirectory === 'string' && metadata.WorkingDirectory.startsWith('/') ? hash(metadata.WorkingDirectory) : 'UNVERIFIED';
         const invocationIdSha256 = /^[a-f0-9]{32}$/.test(metadata.InvocationID || '') ? hash(metadata.InvocationID) : 'UNVERIFIED';
         const state = (value, allowed) => allowed.includes(value) ? value : 'UNVERIFIED';
-        units.push({ mainProcess, controlGroupSha256, workingDirectorySha256, invocationIdSha256, unitNameSha256: hash(unit), unitClass: unitClass(unit), unitType: unit.endsWith('.timer') ? 'TIMER' : 'SERVICE', verification: 'SNAPSHOT_ONLY',
+        const unitRow={ mainProcess, controlGroupSha256, workingDirectorySha256, invocationIdSha256, unitNameSha256: hash(unit), unitClass: unitClass(unit), unitType: unit.endsWith('.timer') ? 'TIMER' : 'SERVICE', verification: 'SNAPSHOT_ONLY',
           activeState: state(metadata.ActiveState, ['active', 'inactive', 'activating', 'deactivating', 'failed', 'reloading']), subState: state(metadata.SubState, ['running', 'exited', 'dead', 'waiting', 'elapsed', 'failed', 'start', 'stop']),
           loadState: state(metadata.LoadState, ['loaded', 'not-found', 'error', 'masked']), unitFileState: state(metadata.UnitFileState, ['enabled', 'disabled', 'static', 'masked', 'indirect', 'generated', 'transient', 'enabled-runtime', 'linked', 'linked-runtime']),
           mainPid: /^\d+$/.test(metadata.MainPID || '') ? Number(metadata.MainPID) : 'UNVERIFIED', controlPid: /^\d+$/.test(metadata.ControlPID || '') ? Number(metadata.ControlPID) : 'UNVERIFIED',
@@ -263,12 +327,38 @@ async function systemdTopology(io) {
           fragmentPathSha256: hash(metadata.FragmentPath || ''), hasDropIns: Boolean(metadata.DropInPaths), triggersCount: metadata.Triggers?.split(/\s+/).filter(Boolean).length || 0,
           triggeredByCount: metadata.TriggeredBy?.split(/\s+/).filter(Boolean).length || 0,
           triggerTargetSha256: (metadata.Triggers || '').split(/\s+/).filter(Boolean).map(hash),
-          triggeredByTargetSha256: (metadata.TriggeredBy || '').split(/\s+/).filter(Boolean).map(hash) });
+          triggeredByTargetSha256: (metadata.TriggeredBy || '').split(/\s+/).filter(Boolean).map(hash) };
+        privateUnitNames.set(unitRow,unit);units.push(unitRow);
       } catch { units.push({ unitNameSha256: hash(unit), ...unknown('UNIT_DISAPPEARED_OR_METADATA_UNAVAILABLE') }); }
     }
     return { verification: hasUnverified(units) ? 'UNVERIFIED' : 'SNAPSHOT_ONLY', serviceCount: services.length, timerCount: timers.length, units, unitCommandsInspected: false,
       unsupportedServiceRows: services.filter(s => !unitPattern.test(s.unit || '')).length, unsupportedTimerRows: timers.filter(t => !unitPattern.test(t.unit || '')).length };
   } catch { return { ...unknown('SYSTEMD_METADATA_UNAVAILABLE'), units: [], unitCommandsInspected: false }; }
+}
+async function joinNodeUnitMetadata(io,processes,systemd){
+ for(const row of processes.processes){
+  const saved=privateNodePins.get(row);if(!saved||io.expired())continue;
+  try{
+   const base='/proc/'+row.pid;
+   if(JSON.stringify(statIdentity(await io.readFile(base+'/stat')))!==JSON.stringify(saved.first)
+    ||/^Uid:\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s*$/m.exec(await io.readFile(base+'/status'))?.[0]!==saved.statusUid
+    ||await io.readlink(base+'/exe')!==saved.exe||await io.readFile(base+'/cgroup')!==saved.cgroup)throw 0;
+   if(saved.cwd&&await io.readlink(base+'/cwd')!==saved.cwd)throw 0;
+   for(const ns of Object.keys(saved.namespaceRaw))if(await io.readlink(base+'/ns/'+ns)!==saved.namespaceRaw[ns])throw 0;
+   if(saved.commandLineHash&&hash(await io.readNodeCommandLine(base+'/cmdline'))!==saved.commandLineHash)throw 0;
+   if(JSON.stringify(statIdentity(await io.readFile(base+'/stat')))!==JSON.stringify(saved.first)
+    ||/^Uid:\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s*$/m.exec(await io.readFile(base+'/status'))?.[0]!==saved.statusUid)throw 0;
+   const matches=systemd.units.filter(unit=>unit.verification==='SNAPSHOT_ONLY'&&Array.isArray(row.systemdControlGroupSha256)&&row.systemdControlGroupSha256.includes(unit.controlGroupSha256));
+   row.nodePublicMetadata.unitProcessJoin='UNVERIFIED';
+   if(matches.length===1){
+    const unit=matches[0],main=unit.mainProcess;
+    if(main?.verification==='SNAPSHOT_ONLY'&&main.pid===row.pid&&main.startTicks===row.startTicks&&main.realUid===row.realUid&&main.effectiveUid===row.effectiveUid)row.nodePublicMetadata.unitProcessJoin='EXACT_MAIN_PROCESS';
+    else if(main?.verification==='SNAPSHOT_ONLY'&&main.pid!==row.pid)row.nodePublicMetadata.unitProcessJoin='SAME_CGROUP_PROCESS';
+    const name=privateUnitNames.get(unit);
+    if(row.nodePublicMetadata.unitProcessJoin!=='UNVERIFIED'&&typeof name==='string'&&/^[a-z][a-z0-9_-]{0,47}\.service$/.test(name)&&!sensitivePublicName(name))row.nodePublicMetadata.unitPublicName=name;
+   }
+  }catch{row.verification='UNVERIFIED';row.nodePublicMetadata={entryClass:'UNVERIFIED',packageEvidenceClass:'UNVERIFIED',unitProcessJoin:'UNVERIFIED',businessOwner:'UNKNOWN',stopAuthorized:false};}
+ }
 }
 async function cronTopology(io) {
   const files = [], sources = ['/etc/crontab'];
@@ -323,10 +413,13 @@ export async function collectMaintenanceHostTopology(dependencies = {}) {
   const io = { expired, truncations, execute: async (binary, args) => { budget(); const remaining = Math.min(10000, Math.floor(deadline - clock())); if (remaining < 1) throw new Error('TOPOLOGY_HOLD=COLLECTION_BUDGET_EXHAUSTED'); const result = await execute(binary, args, { timeoutMs: remaining }); budget(); return result; },
     readFile: wrap(dependencies.readFile || (file => fs.readFileSync(file, 'utf8'))), lstat: wrap(dependencies.lstat || (file => fs.lstatSync(file))),
     readdir: wrap(dependencies.readdir || (directory => fs.readdirSync(directory))), readlink: wrap(dependencies.readlink || (file => fs.readlinkSync(file))),
-    readCronFile: wrap((file, expected) => (dependencies.readCronFile || readCronFile)(file, expected, budget)) };
+    readCronFile: wrap((file, expected) => (dependencies.readCronFile || readCronFile)(file, expected, budget)),
+    readNodeCommandLine:wrap(file=>(dependencies.readNodeCommandLine||boundedProcCommandLine)(file,budget)),
+    readNodePackage:wrap(directory=>(dependencies.readNodePackage||readNodeCwdPackage)(directory,budget)) };
   const docker = await dockerTopology(io); if (!expired()) await check();
   const processes = expired() ? { ...unknown('TOTAL_BUDGET_EXHAUSTED_TRUNCATED'), processes: [] } : await processTopology(io, docker.containers.map(c => c.id)); if (!expired()) await check();
   const systemd = expired() ? { ...unknown('TOTAL_BUDGET_EXHAUSTED_TRUNCATED'), units: [] } : await systemdTopology(io); if (!expired()) await check();
+  if(!expired())await joinNodeUnitMetadata(io,processes,systemd);if(!expired())await check();
   const cron = expired() ? { ...unknown('TOTAL_BUDGET_EXHAUSTED_TRUNCATED'), files: [] } : await cronTopology(io); if (!expired()) await check();
   const finishedMs = now(); const elapsedMs = Math.max(0, clock() - startedBudgetMs); const budgetExpired = expired(); if (budgetExpired) truncations.push({ scope: 'COLLECTOR', reason: 'TOTAL_BUDGET_EXHAUSTED_TRUNCATED' });
   const result = { schema: TOPOLOGY_SCHEMA, startedAt, finishedAt: new Date(finishedMs).toISOString(), result: truncations.length ? 'READONLY_SNAPSHOT_UNVERIFIED_TRUNCATED' : 'READONLY_SNAPSHOT',
