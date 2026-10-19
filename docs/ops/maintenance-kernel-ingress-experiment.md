@@ -102,3 +102,12 @@ compiled rule bytes and all kernel assertions remain. No stdin fallback or
 unknown-command retry is used. The separate local owned network-namespace
 compiler check returned unsupported kernel capability and remains a failure;
 it is not evidence of hosted host capability.
+
+Hosted source66a46293, run39190252666, installed the owned rules on both
+majors but rejected the first inet projection. Captured owned tables confirm
+nft1.0.9 omits exact IPv4/TCP prerequisite comparisons already implied by the
+remaining payload header expressions. A separate local owned inet namespace
+with nft1.1.5 showed the same rendering. The projection now canonicalizes only
+those exact equivalent predicates; changed family/protocol/operator/extra
+fields/duplicates/address/interface/port/drop still reject. New negative tests
+cover these distinctions. This does not yet prove hosted bridge packet denial.

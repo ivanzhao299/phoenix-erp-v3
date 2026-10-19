@@ -36,7 +36,7 @@ export function compileOwnedIngressRules(scope) {
     scope: 'OWNED_IPV4_TCP3100_NEW_INGRESS_ONLY', productionAuthority: false, continuousIngressProof: false, inflightDrain: 'NOT_PROVED' };
 }
 function normalizedExpressions(expressions) {
-  return expressions.map(expression=>{
+  const expanded=expressions.map(expression=>{
     if(expression.counter) return {counter:{}};
     if(expression.match) {
       const copy=structuredClone(expression);const match=copy.match;
@@ -47,6 +47,15 @@ function normalizedExpressions(expressions) {
     }
     return expression;
   });
+  // nft renders protocol prerequisites implicitly once a corresponding payload
+  // header is present. Normalize only exact equivalent equality predicates;
+  // contradictory/unknown selectors and extra fields must still be rejected.
+  const payload=protocol=>expanded.some(e=>e.match?.left?.payload?.protocol===protocol);
+  const prerequisites=[
+    ...(payload('ip')?[{match:{op:'==',left:{meta:{key:'nfproto'}},right:'ipv4'}},{match:{op:'==',left:{payload:{protocol:'ether',field:'type'}},right:'ip'}}]:[]),
+    ...(payload('tcp')?[{match:{op:'==',left:{meta:{key:'l4proto'}},right:'tcp'}}]:[]),
+  ].map(canonical);const seen=new Set();
+  return expanded.filter(expression=>{const key=canonical(expression);if(!prerequisites.includes(key))return true;assert.ok(!seen.has(key),'KERNEL_FIXTURE_DUPLICATE_PROTOCOL_PREREQUISITE');seen.add(key);return false;});
 }
 const canonical=value=>JSON.stringify(value,(_key,item)=>item&&Object.getPrototypeOf(item)===Object.prototype?Object.fromEntries(Object.keys(item).sort().map(key=>[key,item[key]])):item);
 /** The actual kernel JSON remains in private fixture memory. Persist a safe
