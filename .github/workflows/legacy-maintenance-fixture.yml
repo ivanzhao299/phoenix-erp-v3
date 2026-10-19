@@ -14,6 +14,50 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  pinned-old-api-startup:
+    name: Pinned Old API Startup PG${{ matrix.pg }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        pg: [16, 18]
+    # Isolated source startup only. No production environment/secrets/dispatch.
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Prepare isolated bases
+        run: |
+          test "$RUNNER_ENVIRONMENT" = github-hosted || exit 64
+          docker pull node:20-bookworm-slim
+          docker pull postgres:${{ matrix.pg }}-alpine
+      - name: Exact old source, readonly startup, one-signal stop
+        env:
+          LEGACY_PG_MAJOR: ${{ matrix.pg }}
+        run: |
+          umask 077
+          node scripts/ci/maintenance-legacy-api.fixture.mjs
+      - name: Retain fixed non-secret JSON receipts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pinned-old-api-startup-pg${{ matrix.pg }}
+          path: |
+            artifacts/maintenance-erp-candidate/*/resources.json
+            artifacts/maintenance-erp-candidate/*/capsule-build.json
+            artifacts/maintenance-erp-candidate/*/pg*-legacy-startup-only.json
+          if-no-files-found: error
+          retention-days: 14
   native-host-candidate:
     name: Native Default Candidate Collector PG${{ matrix.pg }}
     runs-on: ubuntu-latest
@@ -97,6 +141,8 @@ jobs:
           scripts/ci/maintenance-legacy-erp.test.mjs
           scripts/ci/maintenance-native-candidate-host.test.mjs
           scripts/ci/maintenance-fixture-authority.test.mjs
+          scripts/ci/maintenance-pinned-api-source.test.mjs
+          scripts/ci/maintenance-legacy-signal.test.mjs
       - name: Actual registered Git and inherited FD9 in an owned isolated image
         run: |
           set -euo pipefail
