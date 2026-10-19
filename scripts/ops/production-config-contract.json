@@ -107,6 +107,7 @@
     "scripts/ops/production-maintenance-owned-candidate-observer.mjs",
     "scripts/ops/production-maintenance-observation-queue.mjs",
     "scripts/ops/production-maintenance-github-authority.mjs",
+    "scripts/ops/production-maintenance-owner-source-provenance.mjs",
     "scripts/ops/production-maintenance-public-control.mjs",
     "scripts/ops/production-maintenance-receipts.mjs",
     "scripts/ops/production-maintenance-replacement.mjs",
