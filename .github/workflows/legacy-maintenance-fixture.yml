@@ -124,6 +124,11 @@ jobs:
           MAINTENANCE_REPLACEMENT_DOCKER_FIXTURE: '1'
           MAINTENANCE_REPLACEMENT_MANIFEST: ${{ github.workspace }}/artifacts/maintenance-ci/replacement-resources.json
         run: node --test scripts/ops/production-maintenance-replacement.docker.test.mjs
+      - name: Synthetic local declared TERM and timeout termination event observations
+        env:
+          MAINTENANCE_TERMINATION_DOCKER_FIXTURE: '1'
+          MAINTENANCE_TERMINATION_MANIFEST: ${{ github.workspace }}/artifacts/maintenance-ci/termination-observations.json
+        run: node --test scripts/ops/production-maintenance-termination-policy.docker.test.mjs
       - name: Actual fixed readonly database observations on PG16 and PG18
         env:
           MAINTENANCE_DATABASE_PG_FIXTURE: '1'
@@ -165,6 +170,7 @@ jobs:
             artifacts/maintenance-owned-candidate-observer/*.json
             artifacts/maintenance-recovery-core-materials/*.json
             artifacts/maintenance-ci/runtime-resources.json
+            artifacts/maintenance-ci/termination-observations.json
             artifacts/maintenance-ci/replacement-resources.json
             artifacts/maintenance-ci/replacement-resources.json.result.json
             artifacts/maintenance-ci/replacement-resources.json.reviver.json
