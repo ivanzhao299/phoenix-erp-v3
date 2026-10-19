@@ -35,11 +35,11 @@ describe('trusted projection, replay and loopback boundaries', () => {
     expect(() => new BackgroundManifestReader().validate(m)).toThrow('MANIFEST_INVALID');
   });
   it('loopback status rejects forwarded spoofing from a non-loopback socket', () => {
-    const tasks = { status: jest.fn(() => ({ inFlight: 0 })) };
+    const tasks = { observeStatus: jest.fn(() => ({ inFlight: 0 })) };
     const controller = new BackgroundStatusController(tasks as unknown as BackgroundTaskService);
     const request = { socket: { remoteAddress: '172.20.0.1' }, ip: '127.0.0.1', headers: { 'x-forwarded-for': '127.0.0.1' } };
     expect(() => controller.status(request as unknown as Request)).toThrow();
-    expect(tasks.status).not.toHaveBeenCalled();
+    expect(tasks.observeStatus).not.toHaveBeenCalled();
     expect(controller.status({ socket: { remoteAddress: '::ffff:127.0.0.1' } } as unknown as Request)).toEqual({ inFlight: 0 });
   });
 });

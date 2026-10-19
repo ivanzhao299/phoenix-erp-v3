@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import { fixture } from '../ci/maintenance-transition-fixture.mjs';
 import { canonicalDigest } from './production-maintenance-receipts.mjs';
 import { DockerNetworkIsolationProducer } from './production-maintenance-runtime.mjs';
+import { MAINTENANCE_OPERATIONS } from './production-maintenance-transition.mjs';
 import { TERMINATION_POLICY_SCHEMA } from './production-maintenance-termination-policy.mjs';
 
 function sample({policyPresent=true,approvalPresent=true,allowed=true,stopFailure=false,onAuthorize,onInfrastructure,clock,monotonic,onRead,twoExecutors=false}={}){
@@ -17,7 +18,8 @@ function sample({policyPresent=true,approvalPresent=true,allowed=true,stopFailur
     executors:context.executors.map(p=>Object.fromEntries(['id','imageId','revision','startedAt','restartCount'].map(k=>[k,p[k]]))),
     method:'DOCKER_STOP',stopSignal:'SIGTERM',timeoutSeconds:30,timeoutEscalation:'DOCKER_SIGKILL',commandTimeoutMs:35000,maxAttempts:1,recoveryOperator:'fixture-only'};
   if(policyPresent)context.terminationPolicy=policy;
-  const approval={payload:approvalPresent?{terminationPolicySha256:canonicalDigest(policy)}:{}};
+  const approval={purpose:'MAINTENANCE',payload:{protocol:'STOP_AND_RECONCILE',operations:MAINTENANCE_OPERATIONS,
+    ...(approvalPresent?{terminationPolicySha256:canonicalDigest(policy)}:{})}};
   const mutations=[],intents=new Map();let running=true;
   const run=(args)=>{
     onRead?.({args,running});

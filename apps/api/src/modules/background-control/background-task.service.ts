@@ -22,6 +22,7 @@ export class BackgroundTaskService implements BeforeApplicationShutdown, OnModul
   private heartbeat?: ReturnType<typeof setInterval>;
   private heartbeatPending = false;
   private initialization?: Promise<void>;
+  private statusObservation?: Promise<ReturnType<BackgroundTaskService['status']>>;
   readonly identity: BackgroundIdentity = {
     bootId: randomUUID(),
   };
@@ -126,6 +127,20 @@ export class BackgroundTaskService implements BeforeApplicationShutdown, OnModul
   /** Internal one-way resource failure signal. It cannot grant admission or
    * discard work; the registered owner must still observe actual settlement. */
   resourceHold(): void { this.poisoned = true; }
+  /** Sample after already-owned control queries settle. This does not pause
+   * heartbeat, discard business graphs or grant admission. Concurrent readers
+   * share only the in-progress read; a completed snapshot is never cached. */
+  observeStatus(): Promise<ReturnType<BackgroundTaskService['status']>> {
+    if (this.statusObservation) return this.statusObservation;
+    const work = this.serialized(async () => this.status());
+    this.statusObservation = work;
+    void work.then(() => {
+      if (this.statusObservation === work) this.statusObservation = undefined;
+    }, () => {
+      if (this.statusObservation === work) this.statusObservation = undefined;
+    });
+    return work;
+  }
   status() {
     let phase = 'HOLD';
     let owner: string | null = this.lastOwner ?? null;

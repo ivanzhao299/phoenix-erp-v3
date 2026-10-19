@@ -11,6 +11,7 @@ import http from 'node:http';
 import { validateStoppedSamples, validateDatabaseQuiescence, validateExecutorInventory, evaluateLegacyReconciliation, LEGACY_DOMAINS, DockerNetworkIsolationProducer } from './production-maintenance-runtime.mjs';
 import { canonicalDigest } from './production-maintenance-receipts.mjs';
 import { TERMINATION_POLICY_SCHEMA } from './production-maintenance-termination-policy.mjs';
+import { MAINTENANCE_OPERATIONS } from './production-maintenance-transition.mjs';
 
 const enabled = process.env.MAINTENANCE_DOCKER_FIXTURE === '1';
 const manifestPath = process.env.MAINTENANCE_FIXTURE_MANIFEST;
@@ -171,7 +172,7 @@ test('actual isolated Docker legacy transition, crashes and residual work PG16 +
     // real all-host ps plus independently verified host inventory, never this adapter.
     const capsuleRun = (args, options) => args[0] === 'ps' ? resources.filter(r => r.type === 'container').map(r => r.id).join('\n') : docker(args, options);
     const intents = [];
-    const producer = new DockerNetworkIsolationProducer({ context, approval: { fixtureOnly: true,payload:{terminationPolicySha256:canonicalDigest(context.terminationPolicy)} }, infrastructureEvidence,
+    const producer = new DockerNetworkIsolationProducer({ context, approval: { fixtureOnly: true,purpose:'MAINTENANCE',payload:{protocol:'STOP_AND_RECONCILE',operations:MAINTENANCE_OPERATIONS,terminationPolicySha256:canonicalDigest(context.terminationPolicy)} }, infrastructureEvidence,
       store: { directory: '/fixture-only', immutable: (file, value) => { assert.equal(intents.some(i=>i.file===file),false); intents.push({ file, value:structuredClone(value) }); },
         read:file=>structuredClone(intents.find(i=>i.file===file)?.value) },
       authority: { verifyAuthority: async () => true, verifyInfrastructure: async () => true } }, { guard: () => {}, run: capsuleRun });

@@ -70,6 +70,15 @@ test('abort and elapsed absolute deadline prevent later IO without releasing the
 test('unclassified IO errors are redacted and cannot become successful receipts',()=>using(async f=>{
   f.hook(()=>{throw Error('SECRET_SENTINEL');});await assert.rejects(collectCandidateServerBinding(f.request,f.dependencies),e=>/^CANDIDATE_BINDING_HOLD=[A-Z_]+$/.test(e.message)&&!e.message.includes('SECRET_SENTINEL'));
 }));
+test('control cleanup failures preserve strict rejection with private closed diagnostics',()=>using(async f=>{
+ const original=structuredClone(f.status.controlSession.cleanup);
+ for(const [field,value,diagnostic]of [['queriesPending',1,'QUERY_PENDING'],['acquirePending',true,'ACQUIRE_PENDING'],['debt',false,'DEBT_INVALID'],['retirementPending',true,'RETIREMENT_PENDING'],['terminationConfirmed',true,'TERMINATED'],['releaseConfirmed',true,'RELEASED']]){
+  f.status.controlSession.cleanup={...original,[field]:value};
+  await assert.rejects(collectCandidateServerBinding(f.request,f.dependencies),error=>error.message==='CANDIDATE_BINDING_HOLD=UNSETTLED_OR_INVALID_CONTROL_RESOURCE'&&candidateBindingDiagnosticCode(error)==='CANDIDATE_CONTROL_CLEANUP_'+diagnostic);
+ }
+ f.status.controlSession.cleanup={...original,secretField:'NEVER_EXPORT_SECRET'};
+ await assert.rejects(collectCandidateServerBinding(f.request,f.dependencies),error=>candidateBindingDiagnosticCode(error)==='CANDIDATE_CONTROL_CLEANUP_SHAPE_INVALID'&&!error.message.includes('NEVER_EXPORT'));
+}));
 test('candidate wall clock freeze cannot extend the shared monotonic budget across synchronous IO',()=>using(async f=>{
   let elapsed=0;f.dependencies.monotonicNow=()=>elapsed;f.lease.monotonicNow=()=>0;f.hook(()=>{elapsed=11;});
   await assert.rejects(collectCandidateServerBinding({...f.request,timeoutMs:10},f.dependencies),/DEADLINE_OR_ABORT/);assert.equal(f.calls.length,1);assert.equal(f.closed,false);

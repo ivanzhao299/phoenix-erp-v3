@@ -30,6 +30,23 @@ function validateInitial(value) {
   return plainClone(value);
 }
 
+/** Deterministic proposal for the isolated session's plan, before controllers
+ * start. This unsigned simulated record grants NOTHING. Admission still needs
+ * a fresh independently signed reply from the original issuer for this record.
+ * The timestamp is the frozen window start, never a claimed human review time. */
+export function prepareFixtureAuthorityApproval(value, purpose) {
+  const initial = validateInitial(value), record = initial.records.find(r => r.purpose === purpose);
+  if (!record) fail();
+  const index = initial.records.indexOf(record), contextDigest = bindingDigest(initial.context), payloadSha256 = canonicalDigest(record.payload);
+  const body = [SOURCE, contextDigest, payloadSha256, initial.context.targetSha, record.purpose].join('\n');
+  const raw = { source: SOURCE, fixtureOnly: true, productionAuthorized: false, kind: 'GITHUB_REVIEW', id: index + 1,
+    state: 'APPROVED', commitId: initial.context.targetSha, submittedAt: initial.context.window.start,
+    reviewer: 'simulated-independent-reviewer', author: 'simulated-fixture-author', permission: 'ADMIN', body, bodySha256: textHash(body) };
+  return { schema: 'phoenix.maintenance-authority/v1', source: SOURCE, fixtureOnly: true, productionAuthorized: false,
+    bindingDigest: contextDigest, purpose, decision: 'APPROVED', payload: record.payload, payloadSha256,
+    serverRecord: { ...raw, rawRecordSha256: canonicalDigest(raw) } };
+}
+
 function budget(timeoutMs = 10000, signal, context) {
   if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 10000 || (signal && !(signal instanceof AbortSignal))) fail();
   const start = Date.now(), monoStart = performance.now(); let wall = start, mono = monoStart;
@@ -77,15 +94,8 @@ async function childMain() {
         if (initial || !exact(request, ['id', 'operation', 'value'])) fail();
         initial = validateInitial(request.value);
         ({ privateKey, publicKey } = generateKeyPairSync('ed25519'));
-        for (const [index, record] of initial.records.entries()) {
-          const contextDigest = bindingDigest(initial.context), payloadSha256 = canonicalDigest(record.payload);
-          const body = [SOURCE, contextDigest, payloadSha256, initial.context.targetSha, record.purpose].join('\n');
-          const raw = { source: SOURCE, fixtureOnly: true, productionAuthorized: false, kind: 'GITHUB_REVIEW', id: index + 1,
-            state: 'APPROVED', commitId: initial.context.targetSha, submittedAt: new Date().toISOString(),
-            reviewer: 'simulated-independent-reviewer', author: 'simulated-fixture-author', permission: 'ADMIN', body, bodySha256: textHash(body) };
-          const approval = { schema: 'phoenix.maintenance-authority/v1', source: SOURCE, fixtureOnly: true, productionAuthorized: false,
-            bindingDigest: contextDigest, purpose: record.purpose, decision: 'APPROVED', payload: record.payload, payloadSha256,
-            serverRecord: { ...raw, rawRecordSha256: canonicalDigest(raw) } };
+        for (const record of initial.records) {
+          const approval = prepareFixtureAuthorityApproval(initial, record.purpose);
           records.set(record.purpose, { approval, version: 1, revoked: false });
         }
         response = { publicKey: publicKey.export({ type: 'spki', format: 'pem' }), source: SOURCE, fixtureOnly: true, productionAuthorized: false };
@@ -181,13 +191,22 @@ export async function openFixtureAuthority(value, { timeoutMs = 10000, registerO
     try { await join(startupBudget); } catch { throw debtError(); }
     throw error;
   }
-  const read = async (purpose, remaining, signal) => {
-    remaining(); const nonce = randomUUID(), requestedAt = Date.now(), response = await rpc('READ', { purpose, nonce }, { timeoutMs: remaining(), signal }); remaining();
+  const read = async (purpose, remaining, signal, nonce = randomUUID()) => {
+    if (typeof nonce !== 'string' || !/^[0-9a-f-]{36}$/.test(nonce)) fail();
+    remaining(); const requestedAt = Date.now(), response = await rpc('READ', { purpose, nonce }, { timeoutMs: remaining(), signal }); remaining();
     if (!verifyFixtureAuthorityResponse(identity.publicKey, response, { nonce, requestedAt, context, purpose })) fail();
     remaining();
     return response;
   };
   const reader = Object.freeze({ source: SOURCE, fixtureOnly: true, productionAuthorized: false,
+    observeRecord: async (purpose, options = {}) => {
+      try {
+        if (!options || Object.getPrototypeOf(options) !== Object.prototype
+          || Object.keys(options).some(k => !['nonce', 'timeoutMs', 'signal'].includes(k))) fail();
+        const remaining = budget(options.timeoutMs ?? 10000, options.signal, context);
+        const response = plainClone(await read(purpose, remaining, options.signal, options.nonce)); remaining(); return response;
+      } catch (error) { poison(); throw error; }
+    },
     readApproval: async purpose => {
       try { const remaining = budget(10000, undefined, context); const value = plainClone((await read(purpose, remaining)).approval); remaining(); return value; }
       catch (error) { poison(); throw error; }

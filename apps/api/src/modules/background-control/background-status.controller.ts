@@ -11,6 +11,6 @@ export class BackgroundStatusController {
   status(@Req() request: Request) {
     // Deliberately ignores trust-proxy, X-Forwarded-For and request.ip.
     if (!['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(request.socket.remoteAddress ?? '')) throw new ForbiddenException();
-    return this.tasks.status();
+    return this.tasks.observeStatus();
   }
 }

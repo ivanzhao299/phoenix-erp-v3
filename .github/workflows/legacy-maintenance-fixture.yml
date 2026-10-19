@@ -32,7 +32,7 @@ jobs:
         with:
           node-version: '20'
       - name: Pure bounded rules and kernel projection counterexamples
-        run: node --test scripts/ci/maintenance-kernel-ingress-policy.test.mjs scripts/ci/maintenance-kernel-ingress-probes.test.mjs
+        run: node --test scripts/ci/maintenance-kernel-ingress-policy.test.mjs scripts/ci/maintenance-kernel-ingress-probes.test.mjs scripts/ci/maintenance-kernel-netlink.test.mjs scripts/ci/maintenance-kernel-netlink-channel.test.mjs scripts/ci/maintenance-kernel-source-facts.test.mjs
       - name: Require actual isolated kernel tools and immutable image IDs
         run: |
           set -euo pipefail
@@ -58,6 +58,7 @@ jobs:
             RUNNER_ENVIRONMENT=github-hosted NATIVE_KERNEL_INGRESS=EXCLUSIVE_GITHUB_VM_ONLY \
             NATIVE_PG_MAJOR="$NATIVE_PG_MAJOR" NATIVE_KERNEL_OUTPUT="$kernel_output" \
             GITHUB_WORKSPACE="$GITHUB_WORKSPACE" GITHUB_SHA="$GITHUB_SHA" \
+            GITHUB_RUN_ID="$GITHUB_RUN_ID" GITHUB_RUN_ATTEMPT="$GITHUB_RUN_ATTEMPT" \
             "$kernel_node" "$GITHUB_WORKSPACE/scripts/ci/maintenance-kernel-ingress.fixture.mjs"
           kernel_result=$?
           set -e
@@ -140,6 +141,8 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
       - uses: pnpm/action-setup@v4
         with:
           version: 9
@@ -152,10 +155,15 @@ jobs:
         run: >-
           node --test scripts/ops/production-maintenance-*.test.mjs
           scripts/ci/maintenance-erp-candidate.test.mjs
+          scripts/ci/maintenance-api-dependency-lock.test.mjs
+          scripts/ci/maintenance-archived-source.test.mjs
+          scripts/ci/maintenance-legacy-source.test.mjs
           scripts/ci/maintenance-erp-root-binding.test.mjs
           scripts/ci/maintenance-legacy-erp.test.mjs
           scripts/ci/maintenance-native-candidate-host.test.mjs
           scripts/ci/maintenance-fixture-authority.test.mjs
+          scripts/ci/maintenance-isolated-authority-participant.test.mjs
+          scripts/ci/maintenance-isolated-business-recorder.test.mjs
       - name: Actual registered Git and inherited FD9 in an owned isolated image
         run: |
           set -euo pipefail
@@ -173,6 +181,11 @@ jobs:
           mkdir -p artifacts/maintenance-ci
       # Keep Docker lifecycle tests serial: replacement observes daemon events
       # and must reject unrelated lifecycle activity during its own interval.
+      - name: Independent sealed local business recorder on owned PG16 and PG18
+        env:
+          MAINTENANCE_BUSINESS_PG_FIXTURE: '1'
+          MAINTENANCE_BUSINESS_OUTPUT: ${{ github.workspace }}/artifacts/maintenance-ci/business-recorder
+        run: node --test scripts/ci/maintenance-isolated-business-recorder.test.mjs
       - name: Actual PG16 PG18 ingress and legacy reconciliation mechanisms
         env:
           MAINTENANCE_DOCKER_FIXTURE: '1'
@@ -214,6 +227,10 @@ jobs:
         run: node --test scripts/ops/production-maintenance-recovery-materials.test.mjs
       - name: Actual ERP startup, mutation canaries and original root lease catalog binding
         run: node scripts/ci/maintenance-erp-candidate.fixture.mjs
+      - name: Actual old226 source across a scheduler boundary and owned stop
+        env:
+          LEGACY_SOURCE_PROTOCOL_FIXTURE: OWNED_ISOLATED_ONLY
+        run: node scripts/ci/maintenance-legacy-source.fixture.mjs
       - name: Retain allowlisted isolated evidence only
         if: always()
         uses: actions/upload-artifact@v4
@@ -229,6 +246,7 @@ jobs:
             artifacts/maintenance-owned-candidate-observer/*.json
             artifacts/maintenance-recovery-core-materials/*.json
             artifacts/maintenance-ci/runtime-resources.json
+            artifacts/maintenance-ci/business-recorder/*.json
             artifacts/maintenance-ci/termination-observations.json
             artifacts/maintenance-ci/replacement-resources.json
             artifacts/maintenance-ci/replacement-resources.json.result.json
@@ -237,6 +255,7 @@ jobs:
             artifacts/maintenance-erp-candidate/*/summary.json
             artifacts/maintenance-erp-candidate/*/resources.json
             artifacts/maintenance-erp-candidate/*/capsule-build.json
+            artifacts/maintenance-erp-candidate/*/legacy-source-protocol.json
             artifacts/maintenance-erp-candidate/*/pg*-detector-canary.json
             artifacts/maintenance-erp-candidate/*/pg*-actual-erp-root-binding.json
             artifacts/maintenance-erp-candidate/*/pg*-actual-erp-phase-correlation.json

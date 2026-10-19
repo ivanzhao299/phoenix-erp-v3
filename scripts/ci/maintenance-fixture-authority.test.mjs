@@ -6,7 +6,7 @@ import { once } from 'node:events';
 import { performance } from 'node:perf_hooks';
 import { fixture } from './maintenance-transition-fixture.mjs';
 import { bindingDigest, canonicalDigest, verifyGithubMaintenanceAuthority } from '../ops/production-maintenance-receipts.mjs';
-import { openFixtureAuthority, verifyFixtureAuthorityResponse } from './maintenance-fixture-authority.fixture.mjs';
+import { openFixtureAuthority, prepareFixtureAuthorityApproval, verifyFixtureAuthorityResponse } from './maintenance-fixture-authority.fixture.mjs';
 
 function material() {
   const f = fixture({ clock: Date.now });
@@ -20,7 +20,7 @@ async function using(action) {
 }
 test('separate child signs immutable records; runner receives no issuer or revocation capability', () => using(async ({ reader, controller, initial }) => {
   assert.notEqual(controller.childPid, process.pid); assert.ok(Number.isSafeInteger(controller.childPid));
-  assert.deepEqual(Object.keys(reader).sort(), ['fixtureOnly', 'productionAuthorized', 'readApproval', 'source', 'verifyAuthority']);
+  assert.deepEqual(Object.keys(reader).sort(), ['fixtureOnly', 'observeRecord', 'productionAuthorized', 'readApproval', 'source', 'verifyAuthority']);
   assert.equal(reader.source, 'SIMULATED_GITHUB_PROTOCOL'); assert.equal(reader.productionAuthorized, false);
   const approval = await reader.readApproval('MAINTENANCE');
   assert.equal(approval.fixtureOnly, true); assert.equal(approval.serverRecord.source, 'SIMULATED_GITHUB_PROTOCOL');
@@ -28,6 +28,28 @@ test('separate child signs immutable records; runner receives no issuer or revoc
   // A structurally valid, simulated record still has NO default server verifier.
   assert.equal(await verifyGithubMaintenanceAuthority(approval, expected(initial.context)), false);
   assert.ok(!JSON.stringify({ reader, controller }).includes('PRIVATE KEY'));
+}));
+test('pre-controller unsigned proposal matches the frozen independent record but cannot authorize on its own', async () => {
+  const initial = material(), proposal = prepareFixtureAuthorityApproval(initial, 'MAINTENANCE');
+  assert.equal(proposal.serverRecord.submittedAt, initial.context.window.start);
+  assert.equal(await verifyGithubMaintenanceAuthority(proposal, expected(initial.context)), false);
+  const service = await openFixtureAuthority(initial);
+  try {
+    assert.deepEqual(await service.reader.readApproval('MAINTENANCE'), proposal);
+    assert.equal(await service.reader.verifyAuthority(proposal, expected(initial.context)), true);
+  } finally { await service.controller.close(); }
+});
+test('controller health read echoes its exact nonce in a fresh original-issuer signed response', () => using(async ({ reader, controller, initial }) => {
+  const nonce = randomUUID(), requestedAt = Date.now();
+  const response = await reader.observeRecord('MAINTENANCE', { nonce, timeoutMs: 1000 });
+  assert.equal(verifyFixtureAuthorityResponse(controller.publicKey, response, { nonce, requestedAt, context: initial.context, purpose: 'MAINTENANCE' }), true);
+  assert.equal(verifyFixtureAuthorityResponse(controller.publicKey, response, { nonce: randomUUID(), requestedAt, context: initial.context, purpose: 'MAINTENANCE' }), false);
+  const next = await reader.observeRecord('MAINTENANCE', { nonce: randomUUID(), timeoutMs: 1000 });
+  assert.notEqual(next.nonce, response.nonce); assert.notEqual(next.signature, response.signature);
+}));
+test('revocation also prevents a signed controller health read', () => using(async ({ reader, controller }) => {
+  await controller.revoke('MAINTENANCE');
+  await assert.rejects(reader.observeRecord('MAINTENANCE', { nonce: randomUUID() }), /FIXTURE_AUTHORITY_HOLD=/);
 }));
 test('initial caller mutation and returned approval mutation cannot update the independent frozen record', () => using(async ({ reader, initial }) => {
   const target = structuredClone(initial.context), approval = await reader.readApproval('MAINTENANCE');

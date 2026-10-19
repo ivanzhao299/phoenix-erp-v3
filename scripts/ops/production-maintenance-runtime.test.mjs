@@ -2,6 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { validateHealthyPre, validateExecutorInventory, validateContinuousFence, validateStoppedSamples,
   validateDatabaseQuiescence, evaluateLegacyReconciliation, inspectDockerRuntime, LEGACY_DOMAINS, assertNoHostControlMount, DockerNetworkIsolationProducer } from './production-maintenance-runtime.mjs';
+import { MAINTENANCE_OPERATIONS } from './production-maintenance-transition.mjs';
+import { bindingDigest, canonicalDigest } from './production-maintenance-receipts.mjs';
+import { openFixtureAuthority, prepareFixtureAuthorityApproval } from '../ci/maintenance-fixture-authority.fixture.mjs';
 
 const old = 'a'.repeat(40), time = Date.parse('2026-10-18T01:00:00.000Z');
 const pin = { id: '1'.repeat(64), imageId: 'sha256:'+'2'.repeat(64), revision: old,
@@ -66,11 +69,11 @@ test('host control mount ancestors and data roots cannot bypass network isolatio
   }
   assert.doesNotThrow(() => assertNoHostControlMount('/data/phoenix-erp-data/uploads'));
 });
-function isolationFixture({ change = {}, authority = null, sidecarMode = null } = {}) {
-  let now = time, mutations = 0;
+function isolationFixture({ change = {}, authority = null, sidecarMode = null, at = time } = {}) {
+  let now = at, mutations = 0;
   const network = { id: '5'.repeat(64), name: 'fixture-net', driver: 'bridge' };
   const context = { schema: 'phoenix.legacy-maintenance-context/v1', protocolVersion: 1, owner: '12345-1', previousFloorSha: old, previousApiSha: old,
-    previousWebSha: old, targetSha: 'b'.repeat(40), window: { start: new Date(time - 1000).toISOString(), end: new Date(time + 60000).toISOString() },
+    previousWebSha: old, targetSha: 'b'.repeat(40), window: { start: new Date(at - 1000).toISOString(), end: new Date(at + 60000).toISOString() },
     candidate: { revision: 'b'.repeat(40), imageId: pin.imageId }, sourceHelperSha256: '1'.repeat(64), schemaEvidenceSha256: '2'.repeat(64), migrationPaths: [],
     preSnapshot: { ...healthy(), db: { ...healthy().db, mountsSha256: '3'.repeat(64) } }, executors: [pin],
     networkIsolation: { networks: [network], approvedMounts: change.mounts?.map(m => ({ source: m.Source, destination: m.Destination, readWrite: m.RW })) || [] } };
@@ -88,10 +91,33 @@ function isolationFixture({ change = {}, authority = null, sidecarMode = null } 
       value.capAdd, value.devices, value.deviceRequests, value.ipcMode, value.utsMode].map(JSON.stringify).join('\t');
     mutations++; return '';
   };
-  const producer = new DockerNetworkIsolationProducer({ context, approval: {}, infrastructureEvidence, now: () => now,
+  const producer = new DockerNetworkIsolationProducer({ context, approval: { purpose:'MAINTENANCE',payload:{protocol:'STOP_AND_RECONCILE',operations:MAINTENANCE_OPERATIONS} }, infrastructureEvidence, now: () => now,
     store: { directory: '/fixture-only', immutable: () => {} }, authority: authority || { verifyAuthority: async () => true, verifyInfrastructure: async () => true } }, { guard: () => {}, run });
-  return { producer, mutations: () => mutations, advance: milliseconds => { now += milliseconds; } };
+  return { producer, context, infrastructureEvidence, mutations: () => mutations, advance: milliseconds => { now += milliseconds; } };
 }
+test('missing fence suboperations or an unknown observation cannot borrow another approval scope',async()=>{
+ for(const missing of ['FENCE_INGRESS','DISABLE_RESTART_POLICY','DISCONNECT_LEGACY_NETWORKS']){
+  const f=isolationFixture();f.producer.approval.payload.operations=MAINTENANCE_OPERATIONS.filter(op=>op!==missing);
+  await assert.rejects(f.producer.fenceIngress(),/NETWORK_APPROVAL_SCOPE_REQUIRED/);assert.equal(f.mutations(),0);
+ }
+ const f=isolationFixture();await assert.rejects(f.producer.authorized('OPEN_CANDIDATE'),/NETWORK_APPROVAL_SCOPE_REQUIRED/);
+ f.producer.approval.payload.operations=MAINTENANCE_OPERATIONS.filter(op=>op!=='FENCE_INGRESS');
+ await assert.rejects(f.producer.authorized('OBSERVE_NETWORK_ISOLATION'),/NETWORK_APPROVAL_SCOPE_REQUIRED/);assert.equal(f.mutations(),0);
+});
+test('actual separate signed maintenance authority accepts typed network observation and rejects revocation',async()=>{
+ const f=isolationFixture({at:Date.now()}),initial={context:f.context,records:[{purpose:'MAINTENANCE',payload:f.producer.approval.payload}]};
+ const proposal=prepareFixtureAuthorityApproval(initial,'MAINTENANCE'),service=await openFixtureAuthority(initial),requests=[];
+ f.producer.approval=proposal;
+ f.producer.authority={verifyAuthority:async(a,e)=>{requests.push(e);return service.reader.verifyAuthority(a,e);},
+  verifyInfrastructure:async(value,expected)=>canonicalDigest(value)===canonicalDigest(f.infrastructureEvidence)&&bindingDigest(expected.context)===bindingDigest(f.context)};
+ try{
+  await f.producer.authorized('DISCONNECT_LEGACY_NETWORKS');await f.producer.authorized('OBSERVE_NETWORK_ISOLATION');
+  assert.deepEqual(requests.map(r=>[r.purpose,r.operation]),[['MAINTENANCE','DISCONNECT_LEGACY_NETWORKS'],['MAINTENANCE','FENCE_INGRESS']]);
+  assert.equal(requests[1].observationOperation,'OBSERVE_NETWORK_ISOLATION');assert.equal(f.mutations(),0);
+  await service.controller.revoke('MAINTENANCE');
+  await assert.rejects(f.producer.authorized('OBSERVE_NETWORK_ISOLATION'),/INDEPENDENT_NETWORK_MAINTENANCE_AUTHORITY_REQUIRED/);assert.equal(f.mutations(),0);
+ }finally{await service.controller.close();}
+});
 test('host/shared network, unknown network and privileged namespace configurations fail before mutations', async () => {
   for (const change of [{ networkMode: 'host' }, { networkMode: 'container:another' }, { networks: { other: { NetworkID: '9'.repeat(64) } } },
     { privileged: true }, { capAdd: ['NET_ADMIN'] }, { capAdd: ['SYS_ADMIN'] }, { devices: [{}] }, { deviceRequests: [{}] }, { ipcMode: 'host' }, { utsMode: 'host' },

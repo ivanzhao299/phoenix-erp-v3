@@ -14,10 +14,11 @@ import { LegacyMaintenancePublicControl } from './production-maintenance-public-
 import { ControlledComposeReplacement, validateCandidateReplacement, DockerReplacementEvents, replacementEventFormat } from './production-maintenance-replacement.mjs';
 import { verifyCompletedDeployment, DockerPostgresControlSession } from './background-control-coordinator.mjs';
 import { MODE_EVIDENCE_SCHEMA, verifyEvidenceFiles, verifyLiveSnapshot } from './production-deployment-evidence.mjs';
+import { MaintenanceControlParticipants } from './production-maintenance-control-participants.mjs';
 
 export const RELEASE_SCOPE = Object.freeze({ mode: 'api', buildApi: true, buildWeb: false, runMigration: false,
   chanjetPolicy: 'HOLD', readonlySync: false, inboundSync: false, rotateCredentials: false, automaticRollback: false });
-export const SESSION_STEPS = Object.freeze(['PREFLIGHT', 'CAPTURE_HEALTHY_PRE', 'PREFLIGHT_HANDOFF', 'PREPARE', 'FENCE_INGRESS', 'STOP_LEGACY', 'RECONCILE',
+export const SESSION_STEPS = Object.freeze(['BOOTSTRAP_CONTROLLERS', 'PREFLIGHT', 'CAPTURE_HEALTHY_PRE', 'PREFLIGHT_HANDOFF', 'PREPARE', 'FENCE_INGRESS', 'STOP_LEGACY', 'RECONCILE',
   'PREPARE_PROMOTION', 'REPLACE_CANDIDATE', 'START_CANDIDATE', 'VERIFY_CANDIDATE', 'READ_FORMAL_COMPLETION', 'OPEN_CANDIDATE']);
 export const REQUIRED_PRODUCERS = Object.freeze(['assertReady', 'capturePre', 'captureRecovery', 'fenceIngress', 'stopLegacy', 'collectReconciliation',
   'preparePromotion', 'captureReplacementIsolation', 'verifyEmptyPublicFence', 'registerStartedCandidate', 'collectAdoption',
@@ -112,10 +113,19 @@ export class LegacyMaintenanceDeploymentSession {
     this.stage = 'NOT_STARTED';
     this.engine = new LegacyMaintenanceTransition({ context: this.context }, { store: this.store, verifyAuthority: this.verifyAuthority,
       verifyEvidence: this.verifyEvidence, now: this.now, adapters: this.adapters() });
+    this.controlParticipants = dependencies.controlParticipants ?? null;
+    if (this.controlParticipants !== null && (!(this.controlParticipants instanceof MaintenanceControlParticipants)
+      || this.controlParticipants.inventory().contextDigest !== bindingDigest(this.context))) hold('SESSION_TYPED_CONTROL_PARTICIPANTS_REQUIRED');
+    this.controlParticipantsStarted = false; this.controlParticipantsReady = false; this.controlParticipantsClosed = false;
+    this.unsubscribeControlFailure = this.controlParticipants?.subscribeFailure(error => {
+      this.fatal ||= error; this.activeController?.abort();
+      for (const read of this.pendingReads) read.controller.abort();
+    });
   }
   async checked() {
     if (this.fatal) throw this.fatal;
     this.guard(); this.engine.checkWindow(); this.assertControlSessionsLive(); await this.boundedRead('EXACT_MAIN', options => this.checkMain(options));
+    if (this.controlParticipantsReady) await this.boundedRead('CONTROL_PARTICIPANTS_HEALTH', options => this.controlParticipants.check(options));
     this.guard(); this.engine.checkWindow();
     if (this.fatal) throw this.fatal; this.assertControlSessionsLive();
   }
@@ -198,6 +208,7 @@ export class LegacyMaintenanceDeploymentSession {
   assertNoActiveChildren({ allowObservers = false } = {}) {
     if ([...this.children].some(child => !allowObservers || !child.observer)) hold('SESSION_ACTIVE_EFFECT_CHILD');
     this.assertControlSessionsLive();
+    if (this.controlParticipantsReady) this.controlParticipants.assertLive();
   }
   assertControlSessionsLive() {
     for (const session of this.controlSessions) {
@@ -232,10 +243,37 @@ export class LegacyMaintenanceDeploymentSession {
     return content.body;
   }
   async assertJoined(envelope) {
+    if (this.controlParticipantsReady) {
+      const joined = await this.cleanupEvidence(envelope, 'SESSION_FOREGROUND_SETTLED');
+      const retained = this.retainedControllerIdentity();
+      if (joined.owner !== this.context.owner || joined.stage !== this.stage || joined.scope !== 'FOREGROUND'
+        || joined.graphClosed !== false || joined.foregroundOutstanding !== 0 || joined.activeMutators !== 0
+        || joined.activeReadProbes !== 0 || joined.outstandingChildren !== 0 || joined.detachedEffects !== false
+        || !HASH.test(joined.childInventorySha256 || '') || joined.retainedParticipantCount !== retained.length
+        || joined.retainedControllerInventorySha256 !== canonicalDigest(retained)) hold('SESSION_FOREGROUND_NOT_SETTLED');
+      return joined;
+    }
     const joined = await this.cleanupEvidence(envelope, 'SESSION_CHILDREN_JOINED');
     if (joined.owner !== this.context.owner || joined.stage !== this.stage || joined.allOwnedChildrenObserved !== true
       || joined.activeMutators !== 0 || joined.activeReadProbes !== 0 || joined.outstandingChildren !== 0 || joined.detachedEffects !== false || !HASH.test(joined.childInventorySha256 || '')) hold('SESSION_CHILDREN_NOT_JOINED');
     return joined;
+  }
+  retainedControllerIdentity() {
+    return this.controlParticipants.inventory().participants.map(({ role, pid, sourceSha256, argvSha256, phase, originalCloseObserved }) =>
+      ({ role, pid, sourceSha256, argvSha256, phase, originalCloseObserved }));
+  }
+  assertControllerGraphClosed(receipt, complete) {
+    const { outcome, productionAuthority, ...pinned } = receipt || {};
+    if (receipt?.schema !== 'phoenix.maintenance-control-participant-inventory/v1' || receipt.owner !== this.context.owner
+      || receipt.contextDigest !== bindingDigest(this.context) || receipt.graphClosed !== true || receipt.lifecycleOnly !== true
+      || receipt.admissionOrApprovalGranted !== false || receipt.productionAuthority !== false || receipt.pendingProtocols !== 0
+      || !Array.isArray(receipt.unregisteredStartRoles) || receipt.unregisteredStartRoles.length
+      || !Array.isArray(receipt.rejectedRegistrations) || receipt.rejectedRegistrations.length
+      || !Array.isArray(receipt.participants) || (complete && receipt.participants.length !== 3)
+      || receipt.participants.some(p => p.phase !== 'CLOSED' || p.originalCloseObserved !== true)
+      || outcome !== 'ORIGINAL_CONTROLLERS_CLOSED' || productionAuthority !== false
+      || !same(pinned, this.controlParticipants.inventory())) hold('SESSION_CONTROLLER_GRAPH_NOT_CLOSED');
+    this.controlParticipantsClosed = true; this.unsubscribeControlFailure?.();
   }
   incident(kind, details) {
     if (!this.rawStore.assertCurrent({ allowAbsent: true })) {
@@ -432,6 +470,14 @@ export class LegacyMaintenanceDeploymentSession {
     if (this.used) hold('SESSION_ALREADY_USED'); this.used = true;
     let succeeded = false, childrenJoined = true;
     try {
+      if (this.controlParticipants) {
+        this.guard(); this.engine.checkWindow(); this.stage = 'BOOTSTRAP_CONTROLLERS';
+        await this.boundedRead('EXACT_MAIN_BEFORE_CONTROLLERS', options => this.checkMain(options));
+        this.guard(); this.engine.checkWindow(); this.modernAdmission();
+        this.controlParticipantsStarted = true;
+        await this.boundedRead('CONTROL_PARTICIPANTS_BOOTSTRAP', options => this.controlParticipants.bootstrap(options));
+        this.controlParticipantsReady = true;
+      }
       await this.checked(); this.modernAdmission();
       await this.boundedRead('INDEPENDENT_AUTHORITY', () => this.engine.approval(this.plan.approval, 'MAINTENANCE', payload => payload.protocol === 'STOP_AND_RECONCILE'
         && same(payload.operations, MAINTENANCE_OPERATIONS) && payload.recoveryPlanDigest === canonicalDigest(this.plan.recoveryPlan)
@@ -451,6 +497,7 @@ export class LegacyMaintenanceDeploymentSession {
         recoveryEvidence: await this.producer('captureRecovery', { context: this.context, recoveryPlan: this.plan.recoveryPlan, signal }) }));
       await this.step('PREFLIGHT_HANDOFF', async signal => {
         const envelope = await this.boundedCleanup(options => this.producers.abortAndJoin({ ...options, context: this.context, stage: this.stage, signal,
+          scope: 'FOREGROUND',
           pendingReadProbes: [...this.pendingReads].map(read => read.kind) }));
         await this.assertJoined(envelope); // All known work except this handoff itself is settled.
         if (this.children.size || this.pendingReads.size || [...this.actions].some(a => a.kind !== 'STEP_PREFLIGHT_HANDOFF')) hold('SESSION_PREFLIGHT_CHILDREN_REMAIN');
@@ -490,12 +537,32 @@ export class LegacyMaintenanceDeploymentSession {
     } catch (error) {
       this.fatal ||= error; this.activeController?.abort();
       for (const read of this.pendingReads) read.controller.abort();
+      // Even pre-bootstrap reads can outlive their deadline while ignoring
+      // abort. Never release supervision merely because no graph/marker exists.
+      if (!this.lifecycleStarted && !this.lease && !this.pendingLease) {
+        try {
+          await this.knownWorkSettled();
+        } catch {
+          childrenJoined = false; hold('SESSION_CHILDREN_UNVERIFIED_MANUAL_RECOVERY_REQUIRED');
+        }
+        // These original controller closes are local resource facts, not
+        // issuer-signed release approvals. Only close after reads settle.
+        if (this.controlParticipantsStarted) {
+          try {
+            this.assertControllerGraphClosed(await this.boundedCleanup(options => this.controlParticipants.close(options)), false);
+          } catch {
+            childrenJoined = false; hold('SESSION_BOOTSTRAP_CONTROLLER_CLOSE_UNVERIFIED');
+          }
+        }
+        throw error;
+      }
       // A timed-out or failed child must be joined; no subsequent action is
       // issued. This typed producer cannot delete/clear/rollback any marker.
       if (this.lifecycleStarted || this.lease || this.pendingLease) {
         childrenJoined = false;
         try {
           const envelope = await this.boundedCleanup(options => this.producers.abortAndJoin({ ...options, context: this.context, stage: this.stage,
+            scope: 'FOREGROUND',
             pendingReadProbes: [...this.pendingReads].map(read => read.kind) }));
           await this.assertJoined(envelope); await this.knownWorkSettled();
           childrenJoined = true;
@@ -545,6 +612,19 @@ export class LegacyMaintenanceDeploymentSession {
           hold(succeeded ? 'SESSION_FORMAL_SUCCESS_CONTROL_CLIENT_INCIDENT' : 'SESSION_HOLD_CONTROL_CLIENT_INCIDENT');
         }
         if (succeeded && this.completedResult) this.completedResult.controlLeaseRelease = 'VERIFIED_RELEASED';
+        if (this.controlParticipantsStarted && !this.controlParticipantsClosed) {
+          try {
+            await this.knownWorkSettled();
+            const closed = await this.boundedCleanup(options => this.controlParticipants.close(options));
+            this.assertControllerGraphClosed(closed, succeeded);
+            if (succeeded && this.completedResult) this.completedResult.controlParticipantsRelease = 'VERIFIED_ORIGINAL_CLOSES';
+          } catch {
+            try { this.incident('READ_CONTROLLERS_UNVERIFIED', { formalDeploymentOutcome: succeeded ? 'SUCCESS' : 'NOT_COMPLETED',
+              publicState: succeeded ? 'OPEN_ALREADY_PUBLISHED' : 'REQUIRES_READONLY_REINSPECT', controllerClosure: 'UNKNOWN',
+              outcome: 'MANUAL_RECOVERY_REQUIRED', automaticRollbackAttempted: false }); } catch {}
+            hold(succeeded ? 'SESSION_FORMAL_SUCCESS_CONTROLLER_CLOSE_INCIDENT' : 'SESSION_HOLD_CONTROLLER_CLOSE_INCIDENT');
+          }
+        }
       }
     }
   }
@@ -565,7 +645,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     await runProtectedMaintenanceSession(); console.log('MAINTENANCE_SESSION=SUCCESS');
   } catch (error) {
     console.error(/^MAINTENANCE_HOLD=[A-Z0-9_]+$/.test(error.message) ? error.message : 'MAINTENANCE_HOLD=SESSION_VALIDATION_FAILED'); process.exitCode = 1;
-    if (/SESSION_CHILDREN_UNVERIFIED_MANUAL_RECOVERY_REQUIRED|SESSION_(?:FORMAL_SUCCESS|HOLD)_(?:LEASE_RELEASE|CONTROL_CLIENT)_INCIDENT/.test(error.message)) {
+    if (/SESSION_CHILDREN_UNVERIFIED_MANUAL_RECOVERY_REQUIRED|SESSION_BOOTSTRAP_CONTROLLER_CLOSE_UNVERIFIED|SESSION_(?:FORMAL_SUCCESS|HOLD)_(?:LEASE_RELEASE|CONTROL_CLIENT|CONTROLLER_CLOSE)_INCIDENT/.test(error.message)) {
       // Preserve this controller/FD9 for operator recovery. A process/host crash
       // can still release locks: durable markers/deny and external isolation
       // must be independently re-inspected, never assumed from this timer.

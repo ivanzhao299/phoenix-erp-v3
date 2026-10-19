@@ -28,6 +28,50 @@ function deferred() { let resolve!: () => void; const promise = new Promise<void
 const tick = () => new Promise(resolve => setImmediate(resolve));
 
 describe('background admission and whole task graph drain', () => {
+  it('samples the real counters after a pending heartbeat while retaining active business work', async () => {
+    jest.useFakeTimers({ doNotFake: ['setImmediate'] });
+    const f = fixture(), probe = deferred(), work = deferred(), entered = deferred();
+    let queryPending = false;
+    const ordinaryStatus = f.backend.status;
+    f.backend.status = () => ({ ...ordinaryStatus(), cleanup: { queriesPending: queryPending ? 1 : 0 } });
+    const log = jest.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);
+    let active: Promise<unknown> | undefined;
+    try {
+      await f.service.onModuleInit();
+      active = f.service.run('active-during-status', 'LOCAL', async () => { entered.resolve(); await work.promise; });
+      await entered.promise;
+      f.backend.probe.mockImplementationOnce(async () => { queryPending = true; await probe.promise; queryPending = false; });
+      jest.advanceTimersByTime(1000); await tick();
+      expect(f.service.status()).toMatchObject({ inFlight: 1, controlSession: { cleanup: { queriesPending: 1 } } });
+      const first = f.service.observeStatus(), concurrent = f.service.observeStatus();
+      expect(concurrent).toBe(first);
+      let settled = false; void first.then(() => { settled = true; });
+      await tick(); expect(settled).toBe(false);
+      probe.resolve();
+      const observed = await first;
+      expect(observed).toMatchObject({ inFlight: 1, taskGraphs: 1, poisoned: false, controlSession: { cleanup: { queriesPending: 0 } } });
+      work.resolve(); await active;
+      expect(await f.service.observeStatus()).toMatchObject({ inFlight: 0, taskGraphs: 0 });
+      expect(observed.inFlight).toBe(1); // Returned snapshots do not change/cache.
+    } finally {
+      probe.resolve(); work.resolve(); await active;
+      await f.service.shutdown(1000); log.mockRestore(); jest.useRealTimers();
+    }
+  });
+  it('a failed queued heartbeat yields HOLD rather than a healthy observation', async () => {
+    jest.useFakeTimers({ doNotFake: ['setImmediate'] });
+    const f = fixture(), probe = deferred();
+    const log = jest.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);
+    try {
+      await f.service.onModuleInit();
+      f.backend.probe.mockImplementationOnce(async () => { await probe.promise; throw new Error('OWNED_PROBE_FAILED'); });
+      jest.advanceTimersByTime(1000); await tick();
+      const observing = f.service.observeStatus(); probe.resolve();
+      expect(await observing).toMatchObject({ phase: 'HOLD', poisoned: true });
+    } finally {
+      probe.resolve(); await f.service.shutdown(1000).catch(() => undefined); log.mockRestore(); jest.useRealTimers();
+    }
+  });
   it('emits one boot record with an exact safe field allowlist after session verification', async () => {
     const f = fixture(); f.manifest.phase = 'FENCED'; f.manifest.owner = 'DO_NOT_EMIT_APPROVAL_OWNER';
     const log = jest.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);
