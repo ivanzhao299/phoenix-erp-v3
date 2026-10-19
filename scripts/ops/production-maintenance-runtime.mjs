@@ -13,6 +13,11 @@ const ID = /^[a-f0-9]{64}$/;
 const SHA = /^[a-f0-9]{40}$/;
 const iso = value => typeof value === 'string' && Number.isFinite(Date.parse(value));
 const hold = reason => { throw new Error(`MAINTENANCE_HOLD=${reason}`); };
+// Read-only observation consumes the approved fence scope; it is not a new
+// mutation operation or an independently minted approval purpose.
+const NETWORK_APPROVAL_OPERATION = Object.freeze({ FENCE_INGRESS: 'FENCE_INGRESS',
+  DISABLE_RESTART_POLICY: 'DISABLE_RESTART_POLICY', DISCONNECT_LEGACY_NETWORKS: 'DISCONNECT_LEGACY_NETWORKS',
+  STOP_LEGACY: 'STOP_LEGACY', OBSERVE_NETWORK_ISOLATION: 'FENCE_INGRESS' });
 // Tokens are private, single-use and minted only after durable exact-ID intent.
 // A caller cannot use the public mutation adapter as an alternate STOP entry.
 const stopPermissions = new WeakMap();
@@ -238,9 +243,14 @@ export class DockerNetworkIsolationProducer {
     scope?.remaining();
     this.guard();
     this.assertWindow();
+    const approvedOperation = Object.hasOwn(NETWORK_APPROVAL_OPERATION,operation) && NETWORK_APPROVAL_OPERATION[operation];
+    if (!approvedOperation || this.approval?.purpose !== 'MAINTENANCE' || this.approval.payload?.protocol !== 'STOP_AND_RECONCILE'
+      || !Array.isArray(this.approval.payload.operations) || !this.approval.payload.operations.includes(approvedOperation)) hold('NETWORK_APPROVAL_SCOPE_REQUIRED');
     if (operation==='STOP_LEGACY') requireLegacyTerminationApproval(this.approval,this.context);
     const now = this.now();
-    const request={purpose:'FENCE_INGRESS',operation,bindingDigest:bindingDigest(this.context),targetSha:this.context.targetSha,context:this.context};
+    const request={purpose:'MAINTENANCE',operation:approvedOperation,
+      ...(operation==='OBSERVE_NETWORK_ISOLATION'?{observationOperation:operation}:{}),
+      bindingDigest:bindingDigest(this.context),targetSha:this.context.targetSha,context:this.context};
     const checkAuthority=options=>this.authority?.verifyAuthority?.(this.approval,{...request,...options});
     const checkInfrastructure=options=>this.authority?.verifyInfrastructure?.(this.infrastructureEvidence,{context:this.context,now,...options});
     if ((scope?await scope.wait(checkAuthority):await checkAuthority({}))!==true
@@ -322,6 +332,8 @@ export class DockerNetworkIsolationProducer {
       restartPolicy, attached, checkedAt: new Date(this.now()).toISOString() };
   }
   async fenceIngress() {
+    await this.authorized('FENCE_INGRESS');
+    await this.authorized('DISABLE_RESTART_POLICY');
     await this.authorized('DISCONNECT_LEGACY_NETWORKS');
     for (const p of this.context.executors) {
       const actual = this.inspect(p.id);
