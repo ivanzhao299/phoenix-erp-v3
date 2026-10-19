@@ -204,7 +204,7 @@ jobs:
       - name: Actual fixed readonly database observations on PG16 and PG18
         env:
           MAINTENANCE_DATABASE_PG_FIXTURE: '1'
-        run: node --test scripts/ops/production-maintenance-database-observer.pg.test.mjs
+        run: node --test scripts/ops/production-maintenance-database-observer.pg.test.mjs scripts/ops/production-maintenance-domain-observer.pg.test.mjs
       - name: Actual candidate root backend and lease lock observations on PG16 and PG18
         env:
           MAINTENANCE_CANDIDATE_PG_FIXTURE: '1'

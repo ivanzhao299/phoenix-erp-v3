@@ -482,9 +482,11 @@ test('monitor detects control substitution during a still-running producer',asyn
 function barrierDeferred() { let resolve; const promise = new Promise(r => { resolve = r; }); return { promise, resolve }; }
 function injectPendingMonitorAtVerify(f) {
   const entered = barrierDeferred(), release = barrierDeferred();
+  let injected = false;
   const collect = f.producers.collectVerifiedCandidate;
   f.producers.collectVerifiedCandidate = async request => {
     const result = await collect(request);
+    injected = true;
     f.session.monitorBusy = true;
     f.session.monitorTask = f.session.track('MONITOR_PROBE', async () => {
       try { await release.promise; } finally { f.session.monitorBusy = false; }
@@ -492,9 +494,36 @@ function injectPendingMonitorAtVerify(f) {
     return result;
   };
   const stop = f.session.stopMonitor.bind(f.session);
-  f.session.stopMonitor = async () => { entered.resolve(); return stop(); };
+  f.session.stopMonitor = async () => { if (injected) entered.resolve(); return stop(); };
   return { entered: entered.promise, release: release.resolve };
 }
+test('adoption joins the original monitor before either projection write and resumes only after verified adoption', async () => {
+  const f = fixture(), entered = barrierDeferred(), release = barrierDeferred();
+  const collect = f.producers.collectAdoption, adopt = f.publicControl.adoptCandidate.bind(f.publicControl);
+  let adopted = false;
+  f.producers.collectAdoption = async request => {
+    const result = await collect(request);
+    f.session.monitorBusy = true;
+    f.session.monitorTask = f.session.track('MONITOR_PROBE', async () => { entered.resolve(); try { await release.promise; } finally { f.session.monitorBusy = false; } });
+    return result;
+  };
+  f.publicControl.adoptCandidate = async value => {
+    assert.equal(f.session.monitor, null); assert.equal(f.session.monitorBusy, false); assert.equal(f.closed, false);
+    adopted = true; return adopt(value);
+  };
+  const post = f.producers.capturePostAndStartup;
+  f.producers.capturePostAndStartup = async request => { assert.equal(adopted, true); assert.ok(f.session.monitor); return post(request); };
+  const running = f.session.run(); await entered.promise; await wait(5); assert.equal(adopted, false);
+  release.resolve(); await running; assert.equal(f.opened, true);
+});
+test('adoption failure retains the original failure without restarting monitor or replaying projection', async () => {
+  const f = fixture(); let attempted = 0, restartAfterFailure = false, failed = false;
+  const start = f.session.startMonitor.bind(f.session);
+  f.session.startMonitor = () => { if (failed) restartAfterFailure = true; return start(); };
+  f.publicControl.adoptCandidate = async () => { assert.equal(f.session.monitor, null); attempted++; failed = true; throw Error('FIXTURE_ADOPTION_PARTIAL'); };
+  await assert.rejects(f.session.run(), /FIXTURE_ADOPTION_PARTIAL/);
+  assert.equal(attempted, 1); assert.equal(restartAfterFailure, false); assert.equal(f.opened, false); assert.ok(fs.existsSync(f.store.markerFile));
+});
 test('phase commits occur only with monitor joined, original lease retained and new VF revalidated before resume', async () => {
   const f = fixture(), writes = [], originalWrite = f.store.writeState.bind(f.store), observe = f.lease.observe;
   let vfProbe = 0;

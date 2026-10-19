@@ -121,3 +121,17 @@ test('monotonic expiry cannot be hidden by a frozen wall clock or permit a late 
  await assert.rejects(registerOwnerMaintenanceGrant(r.input,r.dependencies),/REGISTRATION_READ_DEADLINE/);
  assert.equal(fs.existsSync(r.grantFile),false);
 }));
+test('a bounded transaction may use a strictly contained subwindow of the actual owner maintenance window',()=>use(async f=>{
+ const r=prepareRegistration(f),instruction=JSON.parse(fs.readFileSync(r.instructionFile));
+ instruction.window={start:time(-3600000),end:time(36000000)};
+ fs.writeFileSync(r.instructionFile,JSON.stringify(instruction));
+ const result=await registerOwnerMaintenanceGrant(r.input,r.dependencies);
+ assert.equal(result.grantDigest,canonicalDigest(f.grant));
+ assert.equal(f.grant.expiresAt,f.request.context.window.end,'the outer approval does not extend the transaction lease');
+}));
+test('a transaction cannot start before the owner window even when its end fits',()=>use(async f=>{
+ const r=prepareRegistration(f),instruction=JSON.parse(fs.readFileSync(r.instructionFile));
+ instruction.window={start:time(1),end:time(36000000)};fs.writeFileSync(r.instructionFile,JSON.stringify(instruction));
+ await assert.rejects(registerOwnerMaintenanceGrant(r.input,r.dependencies),/USER_INSTRUCTION_SCOPE_OR_WINDOW/);
+ assert.equal(fs.existsSync(r.grantFile),false);
+}));

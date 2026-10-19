@@ -279,7 +279,9 @@ export async function registerOwnerMaintenanceGrant(input,dependencies={}){
    ||value.authorizationRef!==grant.authorizationRef||value.authorizationDigest!==grant.authorizationDigest
    ||value.maintenanceWindowConfirmationDigest!==grant.maintenanceWindowConfirmationDigest
    ||value.previousFloorSha!==context.previousFloorSha||value.targetSha!==context.targetSha
-   ||!same(value.window,context.window)||!same(value.delegate,grant.delegate)||!same(value.scope,SCOPE))throw fail('USER_INSTRUCTION_SCOPE_OR_WINDOW');
+   ||!iso(value.window?.start)||!iso(value.window?.end)||Date.parse(value.window.start)>=Date.parse(value.window.end)
+   ||Date.parse(context.window.start)<Date.parse(value.window.start)||Date.parse(context.window.end)>Date.parse(value.window.end)
+   ||!same(value.delegate,grant.delegate)||!same(value.scope,SCOPE))throw fail('USER_INSTRUCTION_SCOPE_OR_WINDOW');
   return value;
  };
  const artifactDigest=()=>{
