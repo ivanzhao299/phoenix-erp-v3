@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import {pathToFileURL,fileURLToPath} from 'node:url';
 import {createHash,randomUUID} from 'node:crypto';
 import {execFileSync} from 'node:child_process';
 import {observeRecoveryCoreMaterials,RECOVERY_CORE_FILES} from './production-maintenance-recovery-materials.mjs';
@@ -26,10 +27,24 @@ function fixture(t){
  return {root,directory,put,context,plan,manifest,controller,request,dependencies,calls,read:()=>observeRecoveryCoreMaterials(request,dependencies)};
 }
 test('actual pinned file bytes and local exact image are observed without recovery or approval claims',t=>{
- const f=fixture(t),out=f.read();assert.equal(out.status,'CORE_MATERIALS_OBSERVED');assert.equal(out.files.length,26);assert.equal(out.image.digestKind,'DOCKER_IMAGE_CONFIG_ID');
+ const f=fixture(t),out=f.read();assert.equal(out.status,'CORE_MATERIALS_OBSERVED');assert.equal(out.files.length,27);assert.equal(out.image.digestKind,'DOCKER_IMAGE_CONFIG_ID');
  for(const key of ['recoveryReady','productionMutation','admissionOrApprovalGranted','registryInstalled'])assert.equal(out[key],false);
  assert.ok(out.unverified.includes('OLD_INSTALLED_GUARD_CLOSURE'));assert.equal(f.calls.length,2);assert.ok(f.calls.every(args=>args[0]==='image'&&args[1]==='inspect'&&args[2]===f.context.candidate.imageId));
  assert.ok(!JSON.stringify(out).includes('Contact approved operator'));assert.ok(RECOVERY_CORE_FILES.every(file=>CONTRACT.criticalFiles.includes(file)));
+});
+test('the physical core helper closure can actually load the session with its retained-controller dependency',async t=>{
+ const root=fs.mkdtempSync(path.join(os.tmpdir(),'phoenix-owned-helper-import-'));
+ t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
+ const source=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../..');
+ for(const relative of RECOVERY_CORE_FILES){
+  const file=path.join(root,relative);fs.mkdirSync(path.dirname(file),{recursive:true,mode:0o700});
+  fs.copyFileSync(path.join(source,relative),file);fs.chmodSync(file,0o600);
+ }
+ const loaded=await import(pathToFileURL(path.join(root,'scripts/ops/production-maintenance-deployment-session.mjs')).href);
+ assert.equal(typeof loaded.LegacyMaintenanceDeploymentSession,'function');
+ assert.ok(loaded.SESSION_STEPS.includes('BOOTSTRAP_CONTROLLERS'));
+ // Loading source creates no factory, approval or production mutation.
+ assert.deepEqual(fs.readdirSync(root).sort(),['apps','docker-compose.yml','scripts']);
 });
 test('default production guard denies an isolated unprivileged context rather than using fixture authority',t=>{
  const f=fixture(t);f.context.window={start:new Date(Date.now()-1000).toISOString(),end:new Date(Date.now()+60000).toISOString()};f.plan.bindingDigest=bindingDigest(f.context);assert.throws(()=>observeRecoveryCoreMaterials(f.request),/CONFIG_HOLD|ROOT|CONTEXT|ENOENT/);assert.equal(f.calls.length,0);
