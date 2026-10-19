@@ -14,12 +14,16 @@ actor, source, artifact, PRE or API-only/HOLD scope refuses admission. The
 owner branch does not authorize UNKNOWN_EFFECTS, Web, migration, credential
 rotation, automatic rollback or Chanjet synchronization.
 
-This module has no writer, CLI or environment approval switch. A source COMMENT
-or a digest supplied by a release plan cannot register runtime permission. The
-formal trusted bootstrap must separately verify the real user authorization,
-final source/main and server facts, confirmed maintenance window and actual
-release/recovery evidence before creating the registration. That bootstrap and
-the complete production first-switch factory are not installed by this change.
+The runtime reader has no CLI or environment approval switch. A source COMMENT
+or a digest supplied by a release plan cannot register runtime permission.
+`registerOwnerMaintenanceGrant` in the GitHub adapter is the separate,
+create-only registration operation. It requires an already protected record of
+the real user instruction and confirmed window, exact source/main server facts,
+the active dispatch actor/attempt, and an unexpired server artifact whose digest
+matches the actual protected archive bytes. It cannot create the user instruction
+or infer its human origin from GitHub: the trusted bootstrap operator must
+record the actual user-channel authorization. This registration operation is
+not yet wired into the formal workflow or complete first-switch factory.
 Production remains HOLD until their actual safety conditions are satisfied.
 
 Local validation: 93 targeted authority/transition/admission/staging checks
@@ -38,8 +42,8 @@ The owner authorization path in the GitHub adapter now consumes a protected
 registration, the exact delegated COMMENT, stable source binding, exact release
 artifact digest and the active dispatch run/attempt/actor. It never queries
 Required reviewers for this mode. The earlier independent-review adapter remains
-available as a separate mode. This does not install the grant-registration
-bootstrap or authorize any unreviewed target.
+available as a separate mode. The separate registration function does not
+authorize an unreviewed target or install the full workflow bootstrap.
 
 The same cohort adds fixed read-controller processes and a persistent ingress
 implementation which refuses a shared ERP bridge or an unowned published API
@@ -59,3 +63,14 @@ factory acceptance are NOT_RUN. Single-component fixtures are not Stage F
 acceptance. Static installation of all 17 real producers, their continuous-run
 acceptance, exact bootstrap, final workflow branch and the final-SHA release
 packet remain outstanding. Do not dispatch this checkpoint to production.
+
+The registration operation now retains two complete source/server captures and
+a fixed 120-second wall/monotonic budget. The previous proposed 30-second budget
+was too small for approximately 34 authenticated reads. It checks revocation
+and the approved window around each read; timeout cannot write a late grant.
+It writes the immutable registration receipt before the grant. A partial write
+is preserved for inspection and cannot be retried or overwritten. Its tests use
+synthetic user instructions and simulated server responses, not production
+authority. These tests also cover altered local/server artifact bytes, another
+run, expired artifacts, source edits, main drift, wrong actor, missing window,
+revocation and monotonic expiry with a frozen wall clock.

@@ -2,9 +2,14 @@
  * approves a deployment. Source-code Review and target production authority are
  * separate server facts. No environment-verification fallback is installed. */
 import { execFileSync } from 'node:child_process';
-import { readRegisteredOwnerMaintenanceGrant } from './production-maintenance-owner-authority.mjs';
+import fs from 'node:fs';
+import path from 'node:path';
+import {performance} from 'node:perf_hooks';
+import {CONTRACT,verifyContext} from './production-config-guard.mjs';
+import {inspectTrustedDirectory,assertSameDirectory,readPinnedFile} from './production-trusted-paths.mjs';
+import { readRegisteredOwnerMaintenanceGrant, validateRegisteredOwnerMaintenanceGrant } from './production-maintenance-owner-authority.mjs';
 import { createHash } from 'node:crypto';
-import { bindingDigest, canonicalDigest, validateMaintenanceContext, HASH, SHA, iso } from './production-maintenance-receipts.mjs';
+import { bindingDigest, canonicalDigest, validateMaintenanceContext, HASH, SHA, iso, same, MaintenanceReceiptStore } from './production-maintenance-receipts.mjs';
 
 const REPOSITORY = 'ivanzhao299/phoenix-erp-v3';
 const REVIEW_SCHEMA = 'phoenix.maintenance-source-review/v1';
@@ -227,4 +232,110 @@ async function collectOwnerAuthority(request, dependencies) {
   } catch (error) {
     return {...common,reason:/^MAINTENANCE_GITHUB_HOLD=([A-Z_]+)$/.exec(error?.message || '')?.[1] || 'OWNER_AUTHORITY_UNVERIFIED'};
   }
+}
+
+/** Registration is a separate, create-only bootstrap, before the session. The
+ * operator must first record the real user-channel instruction and confirmed
+ * window at the fixed protected path. This code cannot authenticate a chat's
+ * human author; that is the trusted bootstrap operator's responsibility. It
+ * never derives that authority from COMMENT, approve_production, a digest or
+ * GitHub account permissions. Server reads independently bind the recorded
+ * instruction to the source, current dispatch and the actual artifact bytes.
+ *
+ * Dependencies are for isolated fixtures. The production defaults retain the
+ * root/trusted-path/FD9 guard and real authenticated read-only GitHub transport.
+ * No JSON input can select a verifier, command, executable or file path. */
+export async function registerOwnerMaintenanceGrant(input,dependencies={}){
+ const fail=code=>Error('OWNER_MAINTENANCE_AUTHORITY_HOLD='+code);
+ const exact=(value,keys)=>value&&Object.getPrototypeOf(value)===Object.prototype&&same(Object.keys(value).sort(),[...keys].sort());
+ const SCOPE={mode:'api',buildApi:true,buildWeb:false,runMigration:false,chanjetPolicy:'HOLD',readonlySync:false,inboundSync:false,rotateCredentials:false,automaticRollback:false};
+ if(!exact(input,['grant','approval','ownerSource']))throw fail('EXACT_REGISTRATION_REQUEST');
+ const request=structuredClone(input),{grant,approval,ownerSource}=request,context=grant.context;
+ const expected={context,bindingDigest:bindingDigest(context),targetSha:context.targetSha,purpose:'MAINTENANCE'};
+ const directory=dependencies.directory||CONTRACT.stateDirectory,guard=dependencies.guard||(()=>verifyContext(CONTRACT.repository,directory));
+ const inspect=dependencies.inspectDirectory||(value=>inspectTrustedDirectory(value,CONTRACT)),uid=dependencies.expectedUid??0,now=dependencies.now||Date.now;
+ const store=dependencies.store||new MaintenanceReceiptStore(context),io=dependencies.fs||fs;
+ const {collectOwnerDelegatedSourceProvenance,ownerSourceBindingDigest}=await import('./production-maintenance-owner-source-provenance.mjs');
+ // Two full source/server captures are intentionally retained. Thirty-four
+ // bounded authenticated GETs must not share an unrealistic 30-second budget.
+ // Wall and monotonic limits cannot extend the approved maintenance window.
+ const api=dependencies.api||githubReadOnlyApi,mono=dependencies.monotonic||(()=>performance.now()),started=now(),monoStarted=mono();let last=started,lastMono=monoStarted;
+ const check=()=>{
+  guard();const at=now();
+  const mt=mono();
+  if(!Number.isSafeInteger(at)||at<last||at-started>=120000||![mt,monoStarted].every(Number.isFinite)||mt<lastMono||mt-monoStarted>=120000)throw fail('REGISTRATION_READ_DEADLINE');last=at;lastMono=mt;
+  validateRegisteredOwnerMaintenanceGrant(grant,approval,expected,at);
+  absent(path.join(directory,`maintenance-owner-revoked-${context.owner}.json`));
+ };
+ const fixed=(kind,extension='json')=>path.join(directory,`maintenance-${kind}-${context.owner}.${extension}`);
+ const absent=file=>{try{io.lstatSync(file);throw fail('REGISTRATION_OR_REVOCATION_ALREADY_EXISTS');}catch(error){if(error.code!=='ENOENT')throw error;}};
+ const noPrevious=()=>{for(const kind of ['owner-grant','owner-registration','owner-revoked'])absent(fixed(kind));};
+ const read=file=>readPinnedFile(file,{contract:CONTRACT,uid},{fs:io,inspectDirectory:inspect});
+ const instructionFile=fixed('owner-instruction'),artifactFile=fixed('release-artifact','zip');
+ const instruction=()=>{
+  let value;try{value=JSON.parse(read(instructionFile));}catch{throw fail('PROTECTED_USER_INSTRUCTION_REQUIRED');}
+  const fields=['schema','origin','authorizationRef','authorizationDigest','maintenanceWindowConfirmationDigest','previousFloorSha','targetSha','window','delegate','scope'];
+  if(!exact(value,fields)||value.schema!=='phoenix.owner-maintenance-instruction/v1'||value.origin!=='TRUSTED_INTERACTIVE_USER'
+   ||value.authorizationRef!==grant.authorizationRef||value.authorizationDigest!==grant.authorizationDigest
+   ||value.maintenanceWindowConfirmationDigest!==grant.maintenanceWindowConfirmationDigest
+   ||value.previousFloorSha!==context.previousFloorSha||value.targetSha!==context.targetSha
+   ||!same(value.window,context.window)||!same(value.delegate,grant.delegate)||!same(value.scope,SCOPE))throw fail('USER_INSTRUCTION_SCOPE_OR_WINDOW');
+  return value;
+ };
+ const artifactDigest=()=>{
+  // The release artifact is a bounded instruction/evidence bundle, never a
+  // container image or credential archive. Do not print any archive contents.
+  const stat=io.lstatSync(artifactFile);if(stat.size<1||stat.size>1024*1024)throw fail('RELEASE_ARTIFACT_SIZE');
+  const value=createHash('sha256').update(read(artifactFile)).digest('hex');
+  if(value!==grant.evidence.releaseArtifactDigest)throw fail('LOCAL_RELEASE_ARTIFACT_CHANGED');return value;
+ };
+ check();const beforeDirectory=inspect(directory);noPrevious();const beforeInstruction=instruction(),localDigest=artifactDigest();
+ if(!exact(ownerSource,['repository','prNumber','sourceHeadSha','sourceTreeSha','expectedMainSha','reviewId','delegateUserId','delegateLogin','ownerDelegationDigest','sourceReviewReceiptDigest','pinnedReviewRecordSha256'])
+  ||ownerSource.repository!==grant.repository||ownerSource.prNumber!==grant.source.prNumber||ownerSource.reviewId!==grant.source.reviewId
+  ||ownerSource.sourceHeadSha!==grant.source.headSha||ownerSource.sourceTreeSha!==grant.source.treeSha||ownerSource.expectedMainSha!==context.targetSha
+  ||ownerSource.delegateUserId!==grant.delegate.githubUserId||ownerSource.delegateLogin!==grant.delegate.githubLogin
+  ||ownerSource.ownerDelegationDigest!==grant.authorizationDigest||ownerSource.pinnedReviewRecordSha256!==grant.source.reviewRecordDigest)throw fail('REGISTRATION_SOURCE_BINDING');
+ const readServer=async endpoint=>{check();let value;try{value=await api(endpoint);}catch{throw fail('SERVER_UNAVAILABLE');}check();return value;};
+ const source=await collectOwnerDelegatedSourceProvenance(ownerSource,{api:readServer,now});check();
+ if(source.outcome!=='SERVER_SOURCE_FACTS_VERIFIED'||ownerSourceBindingDigest(source)!==grant.source.sourceProvenanceDigest)throw fail('SERVER_SOURCE_CHANGED');
+ const base='/repos/'+grant.repository,runPath=base+'/actions/runs/'+grant.dispatch.runId,artifactPath=base+'/actions/artifacts/'+grant.evidence.releaseArtifactId;
+ const runBinding=value=>{
+  if(value?.id!==grant.dispatch.runId||value.run_attempt!==grant.dispatch.attempt||value.repository?.full_name!==grant.repository
+   ||value.actor?.id!==grant.delegate.githubUserId||value.actor?.login!==grant.delegate.githubLogin
+   ||value.triggering_actor?.id!==grant.delegate.githubUserId||value.triggering_actor?.login!==grant.delegate.githubLogin
+   ||value.event!=='workflow_dispatch'||value.head_branch!=='main'||value.head_sha!==context.targetSha
+   ||value.path!=='.github/workflows/deploy.yml'||value.status!=='in_progress')throw fail('SERVER_DISPATCH_CHANGED');
+  return {id:value.id,attempt:value.run_attempt,actor:value.actor.id,triggeringActor:value.triggering_actor.id,event:value.event,sha:value.head_sha,path:value.path};
+ };
+ const artifactBinding=value=>{
+  if(value?.id!==grant.evidence.releaseArtifactId||value.expired!==false||value.digest!=='sha256:'+localDigest
+   ||value.workflow_run?.id!==grant.dispatch.runId||value.workflow_run?.head_sha!==context.targetSha
+   ||!Number.isSafeInteger(value.size_in_bytes)||value.size_in_bytes<1||value.size_in_bytes>1024*1024)throw fail('SERVER_RELEASE_ARTIFACT_CHANGED');
+  return {id:value.id,digest:value.digest,runId:value.workflow_run.id,headSha:value.workflow_run.head_sha,size:value.size_in_bytes};
+ };
+ const readFacts=async()=>{
+  const run=runBinding(await readServer(runPath)),artifact=artifactBinding(await readServer(artifactPath));
+  const pr=await readServer(base+'/pulls/'+grant.source.prNumber),main=await readServer(base+'/git/ref/heads/main');
+  const compare=await readServer(base+'/compare/'+grant.source.headSha+'...'+context.targetSha);
+  if(pr.state!=='closed'||pr.merged!==true||pr.head?.sha!==grant.source.headSha||pr.merge_commit_sha!==context.targetSha
+   ||main.object?.sha!==context.targetSha||compare.base_commit?.sha!==grant.source.headSha||compare.merge_base_commit?.sha!==grant.source.headSha||!['ahead','identical'].includes(compare.status))throw fail('SERVER_MERGE_OR_MAIN_CHANGED');
+  return {run,artifact,prDigest:canonicalDigest(pr),mainDigest:canonicalDigest(main),compareDigest:canonicalDigest(compare)};
+ };
+ const facts=await readFacts();
+ // A second complete source capture detects edits/revocations during the run
+ // and artifact reads. Capture timestamps are not part of the stable binding.
+ const finalSource=await collectOwnerDelegatedSourceProvenance(ownerSource,{api:readServer,now});check();
+ if(finalSource.outcome!=='SERVER_SOURCE_FACTS_VERIFIED'||ownerSourceBindingDigest(finalSource)!==grant.source.sourceProvenanceDigest
+  ||!same(facts,await readFacts())||!same(beforeInstruction,instruction())||artifactDigest()!==localDigest)throw fail('REGISTRATION_CHANGED_DURING_CAPTURE');
+ check();noPrevious();assertSameDirectory(beforeDirectory,inspect(directory));
+ // Immutable receipt first, authority last. A partial registration retains its
+ // receipt and must be inspected; it cannot be silently retried or overwritten.
+ const receipt={schema:'phoenix.owner-maintenance-registration/v1',owner:context.owner,contextDigest:expected.bindingDigest,
+  grantDigest:canonicalDigest(grant),instructionDigest:canonicalDigest(beforeInstruction),sourceBindingDigest:grant.source.sourceProvenanceDigest,
+  serverFactsDigest:canonicalDigest(facts),releaseArtifactDigest:localDigest,registeredAt:new Date(now()).toISOString(),authorityModel:'OWNER_DELEGATED',requiredReviewersUsed:false};
+ store.immutable(fixed('owner-registration'),receipt);check();
+ if(!same(beforeInstruction,instruction())||artifactDigest()!==localDigest)throw fail('REGISTRATION_INPUT_CHANGED_BEFORE_WRITE');
+ absent(fixed('owner-revoked'));store.immutable(fixed('owner-grant'),grant);
+ if(!same(store.read(fixed('owner-grant')),grant))throw fail('REGISTRATION_WRITE_UNVERIFIED');
+ return receipt;
 }

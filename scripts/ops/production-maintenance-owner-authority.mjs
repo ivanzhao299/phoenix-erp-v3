@@ -1,7 +1,8 @@
 /** A protected registration of real user-channel delegation, not a GitHub
  * APPROVE and not authority derived from a COMMENT or a supplied digest.
- * Runtime consumption is read-only. No grant writer, CLI or environment bypass
- * exists here; the formal trusted bootstrap must register the exact grant. */
+ * Runtime consumption is read-only. The trusted GitHub bootstrap cannot create
+ * the user instruction or window confirmation it consumes. No CLI or
+ * environment approval bypass exists. */
 import fs from 'node:fs';
 import path from 'node:path';
 import {CONTRACT,verifyContext} from './production-config-guard.mjs';
