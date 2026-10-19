@@ -48,14 +48,24 @@ for(const image of ['postgres:16.14-alpine','postgres:18-alpine'])test(`owned ${
     record.binding=binding;
     const collect=(changed={},run=docker)=>collectMaintenanceDatabaseSnapshot({...binding,...changed},{guard:()=>{},run});
     await t.test('zero counts remain SNAPSHOT_ONLY and HOLD',()=>{const s=collect();assert.equal(s.observation.currentDatabaseClientSessions,0);assert.equal(s.ownershipComplete,false);assert.equal(s.result,'HOLD');results.push({case:'ZERO_IS_NOT_DRAIN',result:'PASS'});});
-    const holder=spawn('/usr/bin/docker',['exec','-i',id,...fixturePsql,'--dbname=phoenix_erp'],{env,stdio:['pipe','pipe','pipe']});
-    const lines=createInterface({input:holder.stdout});const waitLine=expected=>new Promise((resolve,reject)=>{const timer=setTimeout(()=>{lines.off('line',read);reject(Error('OWNED_HOLDER_TIMEOUT'));},5000);function read(line){if(line===expected){clearTimeout(timer);lines.off('line',read);resolve();}}lines.on('line',read);});
+    const holderApp='owned-observer-'+owner;
+    const holder=spawn('/usr/bin/docker',['exec','-i','-e','PGAPPNAME='+holderApp,id,...fixturePsql,'--dbname=phoenix_erp'],{env,stdio:['pipe','pipe','pipe']});
+    const lines=createInterface({input:holder.stdout});const waitLine=expected=>new Promise((resolve,reject)=>{const timer=setTimeout(()=>{lines.off('line',read);reject(Error('OWNED_HOLDER_TIMEOUT'));},5000);function read(line){if(typeof expected==='string'?line===expected:expected.test(line)){clearTimeout(timer);lines.off('line',read);resolve(line);}}lines.on('line',read);});
     holder.stderr.on('data',()=>{});const exited=once(holder,'exit');
     try{
-      let ready=waitLine('IDLE_READY');holder.stdin.write("SET idle_in_transaction_session_timeout='10s'; SELECT 'IDLE_READY';\n");await ready;
+      let ready=waitLine(/^IDLE_READY [1-9][0-9]*$/);holder.stdin.write("SET idle_in_transaction_session_timeout='10s'; SELECT pg_backend_pid() AS holder_pid \\gset\n\\echo IDLE_READY :holder_pid\n");const pid=Number(String(await ready).split(' ')[1]);assert.ok(Number.isSafeInteger(pid)&&pid>0);
+      const readHolder=()=>JSON.parse(psql(`SELECT coalesce(json_agg(json_build_object('pid',pid,'applicationName',application_name,'backendStart',backend_start::text,'state',state,'openTransaction',xact_start IS NOT NULL)),'[]'::json) FROM pg_stat_activity WHERE pid=${pid} AND application_name='${holderApp}';`));
       await t.test('a real idle backend blocks any quiescence inference',()=>{const s=collect();assert.equal(s.observation.currentDatabaseClientSessions,1);assert.ok(s.reasons.includes('DATABASE_WORK_OBSERVED'));results.push({case:'IDLE_BACKEND_PRESENT',result:'PASS'});});
-      ready=waitLine('TX_READY');holder.stdin.write("BEGIN; SELECT 'TX_READY';\n");await ready;
-      await t.test('real idle-in-transaction is independently counted',()=>{const s=collect();assert.equal(s.observation.clientSessionsWithOpenTransaction,1);assert.equal(s.observation.idleInTransactionSessions,1);results.push({case:'OPEN_TRANSACTION_PRESENT',result:'PASS'});});
+      ready=waitLine('TX_READY');holder.stdin.write("BEGIN;\n\\echo TX_READY\n");await ready;
+      await t.test('real idle-in-transaction is independently counted',()=>{
+        const before=readHolder();assert.equal(before.length,1);assert.equal(before[0].state,'idle in transaction');assert.equal(before[0].openTransaction,true);
+        const s=collect();const after=readHolder();assert.deepEqual(after,before);
+        // Global statistics must retain other real backends. Their presence
+        // cannot turn this negative quiescence observation into a test failure.
+        assert.ok(s.observation.clientSessionsWithOpenTransaction>=1);assert.ok(s.observation.idleInTransactionSessions>=1);
+        assert.equal(s.result,'HOLD');assert.ok(s.reasons.includes('DATABASE_WORK_OBSERVED'));
+        results.push({case:'OPEN_TRANSACTION_PRESENT',result:'PASS',ownedHolder:before[0],observedGlobalOpenTransactions:s.observation.clientSessionsWithOpenTransaction,observedGlobalIdleTransactions:s.observation.idleInTransactionSessions});
+      });
     }finally{holder.stdin.end('ROLLBACK;\n\\q\n');try{await bounded(exited,3000);}catch(error){holder.kill('SIGTERM');try{await bounded(exited,1000);}catch{holder.kill('SIGKILL');}throw error;}finally{lines.close();}}
     await t.test('a real prepared transaction survives client exit',()=>{
       psql("BEGIN; SELECT 1; PREPARE TRANSACTION 'owned_observer_prepared';");

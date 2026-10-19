@@ -65,9 +65,21 @@ jobs:
         working-directory: apps/api
         env:
           BACKGROUND_TEST_PG_URL: postgresql://fence_fixture@127.0.0.1:56416/fence_test
-        run: pnpm exec jest --runInBand src/modules/background-control
+          NOTIFICATION_TEST_PG_CONTAINER: ${{ job.services.pg16.id }}
+        run: pnpm exec jest --runInBand src/modules/background-control src/modules/notification/notification-dispatcher.pg.spec.ts
       - name: API actual multiprocess PG18
         working-directory: apps/api
         env:
           BACKGROUND_TEST_PG_URL: postgresql://fence_fixture@127.0.0.1:56418/fence_test
-        run: pnpm exec jest --runInBand src/modules/background-control
+          NOTIFICATION_TEST_PG_CONTAINER: ${{ job.services.pg18.id }}
+        run: pnpm exec jest --runInBand src/modules/background-control src/modules/notification/notification-dispatcher.pg.spec.ts
+      - name: Retain only safe notification domain receipts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: actual-notification-pg16-pg18
+          retention-days: 14
+          if-no-files-found: warn
+          path: |
+            artifacts/maintenance-notification/owned-*/result.json
+            artifacts/maintenance-notification/owned-*/sink.jsonl
