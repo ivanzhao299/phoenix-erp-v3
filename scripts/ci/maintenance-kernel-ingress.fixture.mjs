@@ -65,7 +65,7 @@ export async function runOwnedKernelIngress() {
   const markerFor=id=>owner+'-'+receipt.resources.find(r=>r.id===id).role;
   const serviceProbe=id=>JSON.parse(docker(['exec',id,'node','-e',probeCode,'http://127.0.0.1:3100/',markerFor(id)]));
   const targetIp=id=>{const row=JSON.parse(docker(['inspect',id,'--format','{{json .NetworkSettings.Networks}}']));assert.deepEqual(Object.keys(row),[networkName]);const ip=row[networkName].IPAddress;assert.ok(IPv4(ip));assert.ok(!row[networkName].GlobalIPv6Address);return ip;};
-  let networkName,networkId,scope,compiled,baseline,netlink;
+  let networkName,networkId,scope,compiled,baseline,netlink,lossChannel,lossChild;
   const observe=async phase=>{const value=await netlink.probe();(receipt.netlink.probes??=[]).push({phase,...value});save();remaining();return value;};
   const checkpoint=(name,observed)=>{receipt.checkpoint={name,...(observed?{observed}: {})};save();};
   const kernel=()=>['inet','bridge'].map(family=>{
@@ -144,8 +144,48 @@ export async function runOwnedKernelIngress() {
     assert.equal(hash(fs.readFileSync(new URL(import.meta.url))),helperSha256);assert.equal(hash(fs.readFileSync(new URL('./maintenance-kernel-ingress-policy.mjs',import.meta.url))),policySha256);assert.equal(hash(fs.readFileSync(new URL('./maintenance-kernel-ingress-probes.mjs',import.meta.url))),probesSha256);remaining();
     await observe('FINAL_TRANSPORT_DELTA_NOT_INTERVAL_SEAL');
     receipt.netlink.close=await netlink.close();receipt.netlink.originalChild.actualClose='EXIT0_SIGNAL_NULL';save();
+    // Separate fault-only channel: deliberately stop THIS original readonly
+    // child and overflow its verified small receive queue using owned no-hook
+    // table notifications. Never signal discovered host services or rule owners.
+    const lossOwner=`${process.env.GITHUB_RUN_ID}-${Number(process.env.GITHUB_RUN_ATTEMPT)+100000}`;
+    let lossClosed;
+    lossChannel=openOwnedNetlinkChannel({owner:lossOwner,experiment:'EXPECTED_OVERFLOW',registerOwnedChild:child=>{
+      lossChild=child;lossClosed=new Promise(resolve=>child.once('close',(code,signal)=>resolve({code,signal})));
+      receipt.netlink.overflowCounterexample={pid:child.pid,registeredBeforeProbe:true,result:'PENDING'};save();
+    }});
+    const initialLoss=await lossChannel.probe();
+    assert.ok(initialLoss.socketReceiveBufferBytes>0&&initialLoss.socketReceiveBufferBytes<=8192);
+    receipt.netlink.overflowCounterexample.initialProbe=initialLoss;save();
+    const noLossTable=JSON.parse(nft(['--json','list','tables']));assert.ok(!noLossTable.nftables.some(x=>x.table?.name===lossChannel.readinessTable));
+    const pause=intent('PAUSE_EXACT_OWNED_READONLY_OBSERVER_FOR_LOSS_COUNTEREXAMPLE',{pid:lossChild.pid,sourceSha256:lossChannel.sourceSha256});
+    assert.equal(lossChild.exitCode,null);assert.equal(lossChild.signalCode,null);assert.equal(lossChild.kill('SIGSTOP'),true);
+    for(let i=0;;i++){
+      const text=fs.readFileSync(`/proc/${lossChild.pid}/stat`,'utf8'),state=text.slice(text.lastIndexOf(')')+2).split(' ')[0];
+      if(state==='T')break;assert.ok(i<100);remaining();await new Promise(r=>setTimeout(r,5));
+    }
+    pause.outcome='ORIGINAL_CHILD_STOPPED_CONFIRMED';save();
+    const flood=intent('OWNED_NO_HOOK_SENTINEL_LOSS_FLOOD',{table:lossChannel.readinessTable,cycles:64,separateCommittedTransactions:true,receiveBufferBytes:initialLoss.socketReceiveBufferBytes});
+    for(let i=0;i<64;i++){
+      nft(['--file','-'],`add table inet ${lossChannel.readinessTable}\n`);
+      nft(['--file','-'],`delete table inet ${lossChannel.readinessTable}\n`);
+    }
+    flood.outcome='FIXED_OWNED_PROGRAM_RETURNED';save();
+    const resume=intent('RESUME_EXACT_OWNED_READONLY_OBSERVER',{pid:lossChild.pid});assert.equal(lossChild.kill('SIGCONT'),true);resume.outcome='SIGNAL_SENT';save();
+    await assert.rejects(()=>lossChannel.probe());
+    let closeTimer;let lossExit;
+    try{lossExit=await Promise.race([lossClosed,new Promise((_,reject)=>{closeTimer=setTimeout(()=>reject(Error('KERNEL_FIXTURE_LOSS_CHILD_CLOSE_UNVERIFIED')),Math.min(3000,remaining()));})]);}finally{clearTimeout(closeTimer);}
+    assert.deepEqual(lossExit,{code:64,signal:null});
+    const lossDebt=lossChannel.cleanupDebt();assert.equal(lossDebt.reportedHold,'RECEIVE_ENOBUFS');assert.equal(lossDebt.originalChildClosed,true);assert.equal(lossDebt.failed,true);
+    await assert.rejects(()=>lossChannel.probe());await assert.rejects(()=>lossChannel.close());
+    receipt.netlink.overflowCounterexample={...receipt.netlink.overflowCounterexample,result:'PASS_ACTUAL_KERNEL_ENOBUFS_STICKY_HOLD',originalClose:lossExit,debt:lossDebt,reopened:false};receipt.netlink.actualKernelOverflow='PASS_ACTUAL_SEPARATE_CHANNEL';save();
     receipt.outcome='PASS_COMPONENT_ONLY';receipt.cleanupComplete=false;receipt.retainedOwnedResources=true;receipt.negativeRulesRetained=true;receipt.resourceLifecycleAcceptance='NOT_VERIFIED_RETAINED_COMPONENT_EXPERIMENT_ONLY';save();remaining();return receipt;
   } catch(error) {
+    if(lossChannel){
+      // Only the original locally created readonly fault child may need resume
+      // before closure. This does not remove any packet-filtering rules.
+      if(lossChild?.exitCode===null&&lossChild?.signalCode===null)lossChild.kill('SIGCONT');
+      try{receipt.netlink.lossFailureCleanup=await lossChannel.close();}catch(closeError){receipt.netlink.lossFailureCleanup={result:'HOLD',...closeError.cleanupDebt};}save();
+    }
     if(netlink){receipt.netlink.debt=netlink.cleanupDebt();try{receipt.netlink.failureCleanup=await netlink.close();}catch(closeError){receipt.netlink.failureCleanup={result:'HOLD',...closeError.cleanupDebt};}save();}
     const at=/maintenance-kernel-ingress\.fixture\.mjs:(\d+):(\d+)/.exec(error?.stack||'');if(at)receipt.failureLocation={line:Number(at[1]),column:Number(at[2])};receipt.outcome='HOLD';receipt.failureClass=safeFailure(error);receipt.commandOutcomeMayBeUnknown=true;receipt.cleanupComplete=false;receipt.automaticRetry=false;save();throw Error(receipt.failureClass);}
 }

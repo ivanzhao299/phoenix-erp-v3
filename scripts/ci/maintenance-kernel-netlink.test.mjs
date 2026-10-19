@@ -34,7 +34,7 @@ try:
     f=self.responses.pop(0);g=f['group'];return bytes.fromhex(f['hex']),[(270,3,m.struct.pack('=I',g))],0,(0,64 if g==7 else 0)
    def sendto(self,data,address):return len(data)
   o=object.__new__(m.OwnedNetlinkSocket);o.namespace=os.readlink('/proc/self/ns/net');o.owned_table=v['owned'];o.readiness_table=v['readiness']
-  o.socket=FakeSocket();o.started=time.monotonic();o.sequence=0;o.frames=[];o.reported_index=0;o.chain='0'*64;o.failed=False;o.port_id=1234;o.last_generation=None
+  o.socket=FakeSocket();o.started=time.monotonic();o.sequence=0;o.frames=[];o.reported_index=0;o.chain='0'*64;o.failed=False;o.port_id=1234;o.receive_buffer=8192;o.last_generation=None
   m.select.select=lambda *args:([o.socket],[],[])
   o.receive();out=o.probe('a'*36)
  elif sys.argv[2]=='loss':

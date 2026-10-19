@@ -20,9 +20,10 @@ export class NetlinkTranscript {
   accept(value,nonce){
     try{
       if(this.#failed)fail('TRANSCRIPT_ALREADY_FAILED');
-      exact(value,['nonce','originalSocketPortId','membership','namespace','generation','acknowledged','eventCount','eventChainSha256','events','multicastReadiness','continuousIngressProof','productionAuthority','fixtureOnly']);
+      exact(value,['nonce','originalSocketPortId','membership','socketReceiveBufferBytes','namespace','generation','acknowledged','eventCount','eventChainSha256','events','multicastReadiness','continuousIngressProof','productionAuthority','fixtureOnly']);
       assert.equal(value.nonce,nonce);assert.equal(value.namespace,this.#namespace);assert.deepEqual(value.membership,[7]);
       assert.ok(Number.isInteger(value.originalSocketPortId)&&value.originalSocketPortId>0&&value.originalSocketPortId<=0xffffffff);
+      assert.ok(Number.isInteger(value.socketReceiveBufferBytes)&&value.socketReceiveBufferBytes>0&&value.socketReceiveBufferBytes<=4194304);
       if(this.#port!==null)assert.equal(value.originalSocketPortId,this.#port);
       assert.equal(value.acknowledged,true);assert.equal(value.fixtureOnly,true);assert.equal(value.productionAuthority,false);assert.equal(value.continuousIngressProof,false);
       assert.equal(value.multicastReadiness,'NOT_PROVED_REQUIRES_PARENT_SENTINEL');
@@ -48,16 +49,21 @@ export class NetlinkTranscript {
   snapshot(){return {eventCount:this.#count,eventChainSha256:this.#chain,originalSocketPortId:this.#port,failed:this.#failed,continuousIngressProof:false};}
 }
 
-export function openOwnedNetlinkChannel({owner,registerOwnedChild}){
+export function openOwnedNetlinkChannel({owner,registerOwnedChild,experiment='NORMAL'}){
   if(!/^[0-9]{1,20}-[0-9]{1,10}$/.test(owner)||typeof registerOwnedChild!=='function')fail('OWNER_OR_REGISTRATION');
   if(process.getuid?.()!==0||process.env.RUNNER_ENVIRONMENT!=='github-hosted'||fs.existsSync('/.dockerenv'))fail('EXCLUSIVE_VM_REQUIRED');
+  if(!['NORMAL','EXPECTED_OVERFLOW'].includes(experiment))fail('CLOSED_EXPERIMENT_REQUIRED');
   const sourceSha256=hash(fs.readFileSync(source)),namespace=fs.readlinkSync('/proc/self/ns/net'),transcript=new NetlinkTranscript(namespace);
-  const child=spawn('/usr/bin/python3',['-I','-u',source,'--owned-readonly-channel',owner],{env:{PATH:'/usr/bin:/bin',RUNNER_ENVIRONMENT:'github-hosted'},stdio:['pipe','pipe','pipe']});
-  let closed=false,fatal=false,closing=false,pending=null,buffer=Buffer.alloc(0),stderrBytes=0,closePromise=null;
+  const child=spawn('/usr/bin/python3',['-I','-u',source,experiment==='NORMAL'?'--owned-readonly-channel':'--owned-readonly-overflow-counterexample',owner],{env:{PATH:'/usr/bin:/bin',RUNNER_ENVIRONMENT:'github-hosted'},stdio:['pipe','pipe','pipe']});
+  let closed=false,fatal=false,closing=false,pending=null,buffer=Buffer.alloc(0),stderrBytes=0,closePromise=null,stderrText='',observedClose=null;
   const poison=code=>{fatal=true;if(pending)pending.reject(Error('KERNEL_NETLINK_CHANNEL_HOLD='+code));};
-  const joined=new Promise(resolve=>child.once('close',(code,signal)=>{closed=true;if(!closing||code!==0||signal!==null)poison('CHILD_CLOSE');if(pending){pending.reject(Error('KERNEL_NETLINK_CHANNEL_HOLD=CLOSED_WITH_PENDING'));pending=null;}resolve({code,signal});}));
+  const joined=new Promise(resolve=>child.once('close',(code,signal)=>{closed=true;observedClose={code,signal};if(!closing||code!==0||signal!==null)poison('CHILD_CLOSE');if(pending){pending.reject(Error('KERNEL_NETLINK_CHANNEL_HOLD=CLOSED_WITH_PENDING'));pending=null;}resolve(observedClose);}));
   child.on('error',()=>poison('CHILD_ERROR'));child.stdin.on('error',()=>poison('INPUT_ERROR'));
-  child.stderr.on('data',chunk=>{stderrBytes+=chunk.length;poison(stderrBytes>4096?'STDERR_BUDGET':'CHILD_REPORTED_HOLD');});
+  child.stderr.on('data',chunk=>{
+    stderrBytes+=chunk.length;
+    if(stderrBytes<=4096)stderrText+=chunk.toString('utf8');
+    poison(stderrBytes>4096?'STDERR_BUDGET':'CHILD_REPORTED_HOLD');
+  });
   child.stdout.on('data',chunk=>{
     try{
       buffer=Buffer.concat([buffer,chunk]);if(buffer.length>262144)fail('OUTPUT_BUDGET');
@@ -89,7 +95,8 @@ export function openOwnedNetlinkChannel({owner,registerOwnedChild}){
       return result;
     }finally{clearTimeout(timer);signal?.removeEventListener('abort',abort);}
   };
-  const cleanupDebt=()=>({childPid:child.pid,originalChildClosed:closed,pendingRequests:pending?1:0,failed:fatal,bufferedBytes:buffer.length,stderrBytes,fixtureOnly:true,productionAuthority:false});
+  const lossLine='OWNED_NETLINK_HOLD=RECEIVE_ENOBUFS\n';
+  const cleanupDebt=()=>({childPid:child.pid,originalChildClosed:closed,observedClose,pendingRequests:pending?1:0,failed:fatal,reportedHold:stderrBytes===Buffer.byteLength(lossLine)&&stderrText===lossLine?'RECEIVE_ENOBUFS':null,bufferedBytes:buffer.length,stderrBytes,fixtureOnly:true,productionAuthority:false});
   return Object.freeze({
     sourceSha256,childPid:child.pid,namespace,
     table:'phoenix_fixture_'+hash(owner).slice(0,32),readinessTable:'phoenix_ready_'+hash(owner).slice(0,32),

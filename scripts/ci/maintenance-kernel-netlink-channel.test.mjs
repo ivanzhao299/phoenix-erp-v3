@@ -11,7 +11,7 @@ function batch({start=0,chain='0'.repeat(64),port=1234,time=100}={}){
   {messageType:2,sequence:start+1,deliveryGroup:0,messagePortId:port,frameSha256:'b'.repeat(64),kind:'ACK',requestSequence:start+1,requestPortId:port}
  ].map((r,i)=>({...r,localIndex:start+i+1,receivedMonotonicNs:String(time+i)}));
  for(const row of rows)chain=digest(chain+JSON.stringify(Object.fromEntries(Object.keys(row).sort().map(key=>[key,row[key]]))));
- return {nonce,originalSocketPortId:port,membership:[7],namespace,generation:42,acknowledged:true,eventCount:start+2,eventChainSha256:chain,events:rows,multicastReadiness:'NOT_PROVED_REQUIRES_PARENT_SENTINEL',continuousIngressProof:false,productionAuthority:false,fixtureOnly:true};
+ return {nonce,originalSocketPortId:port,membership:[7],socketReceiveBufferBytes:8192,namespace,generation:42,acknowledged:true,eventCount:start+2,eventChainSha256:chain,events:rows,multicastReadiness:'NOT_PROVED_REQUIRES_PARENT_SENTINEL',continuousIngressProof:false,productionAuthority:false,fixtureOnly:true};
 }
 test('original transcript hash chain continues across fresh deltas without claiming continuity',()=>{
  const t=new NetlinkTranscript(namespace),first=batch();assert.deepEqual(t.accept(first,nonce),first);

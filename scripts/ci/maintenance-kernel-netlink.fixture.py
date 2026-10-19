@@ -105,7 +105,7 @@ def parse_datagram(data, sender_pid, receive_flags, owned_table, readiness_table
 
 
 class OwnedNetlinkSocket:
-    def __init__(self, owner):
+    def __init__(self, owner, overflow_counterexample=False):
         if not re.fullmatch(r"[0-9]{1,20}-[0-9]{1,10}", owner):
             hold("OWNER_REQUIRED")
         if os.getuid() != 0 or os.path.exists("/.dockerenv") or os.environ.get("RUNNER_ENVIRONMENT") != "github-hosted":
@@ -115,7 +115,10 @@ class OwnedNetlinkSocket:
         self.owned_table, self.readiness_table = "phoenix_fixture_" + digest, "phoenix_ready_" + digest
         self.socket = socket.socket(socket.AF_NETLINK, socket.SOCK_RAW, 12)
         try:
-            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 1048576)
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 4096 if overflow_counterexample else 1048576)
+            self.receive_buffer = self.socket.getsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF)
+            if overflow_counterexample and not 1 <= self.receive_buffer <= 8192:
+                hold("COUNTEREXAMPLE_BUFFER_UNVERIFIED")
             # Never suppress ENOBUFS. It poisons the complete observation run.
             self.socket.setsockopt(270, 5, 0)
             self.socket.setsockopt(270, 3, 1)  # NETLINK_PKTINFO: actual destination group
@@ -214,6 +217,7 @@ class OwnedNetlinkSocket:
             if time.monotonic() >= deadline or len(self.frames) - before > 256:
                 hold("PROBE_DEADLINE_OR_DELTA_BUDGET")
             result = {"nonce": nonce, "originalSocketPortId": self.port_id, "membership": [7],
+                    "socketReceiveBufferBytes": self.receive_buffer,
                     "namespace": self.namespace, "generation": generation, "acknowledged": ack,
                     "eventCount": len(self.frames), "eventChainSha256": self.chain,
                     "events": self.frames[before:], "multicastReadiness": "NOT_PROVED_REQUIRES_PARENT_SENTINEL",
@@ -231,9 +235,9 @@ class OwnedNetlinkSocket:
 def main():
     observer = None
     try:
-        if len(sys.argv) != 3 or sys.argv[1] != "--owned-readonly-channel":
+        if len(sys.argv) != 3 or sys.argv[1] not in ("--owned-readonly-channel", "--owned-readonly-overflow-counterexample"):
             hold("FIXED_COMMAND_REQUIRED")
-        observer = OwnedNetlinkSocket(sys.argv[2])
+        observer = OwnedNetlinkSocket(sys.argv[2], overflow_counterexample=sys.argv[1] == "--owned-readonly-overflow-counterexample")
         # No automatic readiness claim. The parent must consume a fresh PROBE
         # and then prove actual multicast readiness under approved setup intent.
         os.set_blocking(0, False)
