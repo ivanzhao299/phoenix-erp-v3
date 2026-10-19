@@ -32,7 +32,7 @@ jobs:
         with:
           node-version: '20'
       - name: Pure bounded rules and kernel projection counterexamples
-        run: node --test scripts/ci/maintenance-kernel-ingress-policy.test.mjs scripts/ci/maintenance-kernel-ingress-probes.test.mjs
+        run: node --test scripts/ci/maintenance-kernel-ingress-policy.test.mjs scripts/ci/maintenance-kernel-ingress-probes.test.mjs scripts/ci/maintenance-kernel-netlink.test.mjs scripts/ci/maintenance-kernel-netlink-channel.test.mjs
       - name: Require actual isolated kernel tools and immutable image IDs
         run: |
           set -euo pipefail
@@ -58,6 +58,7 @@ jobs:
             RUNNER_ENVIRONMENT=github-hosted NATIVE_KERNEL_INGRESS=EXCLUSIVE_GITHUB_VM_ONLY \
             NATIVE_PG_MAJOR="$NATIVE_PG_MAJOR" NATIVE_KERNEL_OUTPUT="$kernel_output" \
             GITHUB_WORKSPACE="$GITHUB_WORKSPACE" GITHUB_SHA="$GITHUB_SHA" \
+            GITHUB_RUN_ID="$GITHUB_RUN_ID" GITHUB_RUN_ATTEMPT="$GITHUB_RUN_ATTEMPT" \
             "$kernel_node" "$GITHUB_WORKSPACE/scripts/ci/maintenance-kernel-ingress.fixture.mjs"
           kernel_result=$?
           set -e
