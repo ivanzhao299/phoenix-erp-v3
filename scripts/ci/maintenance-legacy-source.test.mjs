@@ -64,3 +64,26 @@ test('unknown stop outcome consumes the original single attempt and never author
  await assert.rejects(capsule.stopLegacySource(legacy),/ALREADY_ATTEMPTED/);
  assert.equal(commands.filter(c=>c[0]==='stop').length,1);
 });
+
+import {spawn} from 'node:child_process';
+import {ownedNetworkPreload} from './maintenance-erp-candidate.fixture.mjs';
+test('transport instrumentation preserves the real original child default SIGTERM exit',async()=>{
+ const owner=`${Date.now()}-${process.pid+sequence++}`,capsule=new OwnedErpCandidateCapsule({owner});
+ const preload=path.join(capsule.root,'preload.cjs'),module=path.join(capsule.root,'node_modules/pg');
+ fs.mkdirSync(module,{recursive:true});fs.writeFileSync(path.join(module,'index.js'),'exports.Client=class Client{connect(){}};');
+ fs.writeFileSync(preload,ownedNetworkPreload(owner));
+ // Only the test provider's listening port is made ephemeral on loopback.
+ // Signals/process APIs and the generated instrumentation remain unmodified.
+ const program=`const http=require('http'),listen=http.Server.prototype.listen;
+ http.Server.prototype.listen=function(){return listen.call(this,0,'127.0.0.1',()=>this.unref());};
+ require(process.argv[1]);setInterval(()=>{},1000);process.stdout.write('OWNED_CHILD_READY\\n');`;
+ const child=spawn(process.execPath,['-e',program,preload],{env:{PATH:'/usr/bin:/bin',ERP_CANDIDATE_FIXTURE:owner,DB_HOST:'fixture-db',DB_NAME:'api_bootstrap_fixture'},stdio:['ignore','pipe','pipe']});
+ let closed=false,ready='',stderr='';const done=new Promise(resolve=>child.once('close',(code,signal)=>{closed=true;resolve({code,signal});}));
+ child.stderr.on('data',c=>stderr+=c);let timer;
+ try{
+  await Promise.race([new Promise((resolve,reject)=>{child.stdout.on('data',c=>{ready+=c;if(ready==='OWNED_CHILD_READY\n')resolve();else reject(Error('UNEXPECTED_OWNED_CHILD_OUTPUT'));});child.once('error',reject);child.once('exit',()=>reject(Error('OWNED_CHILD_EARLY_EXIT')));}),new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error('OWNED_CHILD_READY_TIMEOUT')),3000);})]);
+  clearTimeout(timer);assert.equal(child.kill('SIGTERM'),true);
+  const result=await Promise.race([done,new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error('DEFAULT_SIGNAL_EXIT_WAS_INTERCEPTED')),3000);})]);
+  assert.deepEqual(result,{code:null,signal:'SIGTERM'});assert.equal(stderr,'');
+ }finally{clearTimeout(timer);if(!closed){child.kill('SIGKILL');await done;}}
+});

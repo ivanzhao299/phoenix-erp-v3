@@ -99,7 +99,7 @@ export function copyProductionDependencies(apiRoot, destination) {
   return [...records.values()].map(({ name, version, dependencies }) => ({ name, version, dependencies }));
 }
 
-function networkPreload(owner) {
+export function ownedNetworkPreload(owner) {
   // Only transport observation/denial and a loopback provider. No clock, SQL, Nest or HTTP handler replacement.
   return `'use strict';
 const fs=require('fs'),net=require('net'),http=require('http');
@@ -108,7 +108,7 @@ const events='/tmp/erp-candidate-network.jsonl';
 const record=kind=>fs.appendFileSync(events,JSON.stringify({kind,at:new Date().toISOString()})+'\\n',{mode:0o600});
 let providerCalls=0;
 const provider=http.createServer((q,s)=>{s.setHeader('Content-Type','application/json');if(q.url==='/_fixture/status'){s.end(JSON.stringify({providerCalls}));return;}providerCalls++;record('LOOPBACK_PROVIDER_ATTEMPT');s.writeHead(503);s.end('{"fixtureOnly":true}');});
-provider.listen(3099,'127.0.0.1',()=>provider.unref());process.once('SIGTERM',()=>provider.close());
+provider.listen(3099,'127.0.0.1',()=>provider.unref());
 const connect=net.Socket.prototype.connect;net.Socket.prototype.connect=function(...args){const p=Array.isArray(args[0])?args[0][0]:args[0];const host=typeof p==='object'?p.host:typeof args[1]==='string'?args[1]:undefined;const port=typeof p==='object'?p.port:p;
 if(host&&!['127.0.0.1','localhost','::1'].includes(host)&&!(host==='fixture-db'&&Number(port)===5432)){record('FORBIDDEN_TCP_ATTEMPT');throw Error('ERP_FIXTURE_EXTERNAL_TCP_FORBIDDEN');}return connect.apply(this,args);};
 const fetch=global.fetch;global.fetch=async(...args)=>{const u=new URL(String(args[0]));if(!['127.0.0.1','localhost','[::1]'].includes(u.hostname)){record('NON_LOOPBACK_FETCH_ATTEMPT');throw Error('ERP_FIXTURE_EXTERNAL_FETCH_FORBIDDEN');}return fetch(...args);};
@@ -183,7 +183,7 @@ export class OwnedErpCandidateCapsule {
     // checkout can legitimately materialize package.json0600 under umask077;
     // copying that physical mode would make the UID1000 runtime unreadable.
     fs.copyFileSync(path.join(api, 'package.json'), path.join(context, 'package.json'));
-    fs.writeFileSync(path.join(context, 'fixture-preload.cjs'), networkPreload(this.owner));
+    fs.writeFileSync(path.join(context, 'fixture-preload.cjs'), ownedNetworkPreload(this.owner));
     fs.writeFileSync(path.join(context, '.dockerignore'), '*\n!dist\n!dist/**\n!node_modules\n!node_modules/**\n!package.json\n!fixture-preload.cjs\n');
     fs.writeFileSync(path.join(this.root, 'capsule-build.json'), JSON.stringify({ sourceSha: this.sourceSha, sourceTreeHash: this.sourceTreeHash,
       fixtureScriptSha256: this.fixtureScriptSha256,instrumentationSha,archiveIdentity,archivedDependencyLock:this.archivedDependencyLock??null, pnpmLockSha256: hash(fs.readFileSync(path.join(REPO, 'pnpm-lock.yaml'))),
