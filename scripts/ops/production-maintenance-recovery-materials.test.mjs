@@ -27,7 +27,7 @@ function fixture(t){
  return {root,directory,put,context,plan,manifest,controller,request,dependencies,calls,read:()=>observeRecoveryCoreMaterials(request,dependencies)};
 }
 test('actual pinned file bytes and local exact image are observed without recovery or approval claims',t=>{
- const f=fixture(t),out=f.read();assert.equal(out.status,'CORE_MATERIALS_OBSERVED');assert.equal(out.files.length,27);assert.equal(out.image.digestKind,'DOCKER_IMAGE_CONFIG_ID');
+ const f=fixture(t),out=f.read();assert.equal(out.status,'CORE_MATERIALS_OBSERVED');assert.equal(out.files.length,28);assert.equal(out.image.digestKind,'DOCKER_IMAGE_CONFIG_ID');
  for(const key of ['recoveryReady','productionMutation','admissionOrApprovalGranted','registryInstalled'])assert.equal(out[key],false);
  assert.ok(out.unverified.includes('OLD_INSTALLED_GUARD_CLOSURE'));assert.equal(f.calls.length,2);assert.ok(f.calls.every(args=>args[0]==='image'&&args[1]==='inspect'&&args[2]===f.context.candidate.imageId));
  assert.ok(!JSON.stringify(out).includes('Contact approved operator'));assert.ok(RECOVERY_CORE_FILES.every(file=>CONTRACT.criticalFiles.includes(file)));
