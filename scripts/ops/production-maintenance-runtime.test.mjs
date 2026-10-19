@@ -117,7 +117,7 @@ test('classified sidecar sharing an API network or PID namespace cannot bypass i
 });
 test('remaining window must contain the full bounded stop budget', async () => {
   const fixture = isolationFixture(); fixture.advance(30000);
-  await assert.rejects(fixture.producer.mutate('STOP_LEGACY', ['stop', '--time', '30', pin.id], 35000), /MAINTENANCE_WINDOW_CLOSED/);
+  await assert.rejects(fixture.producer.mutate('STOP_LEGACY', ['stop', '--signal', 'SIGTERM', '--time', '30', pin.id], 35000), /MAINTENANCE_WINDOW_CLOSED/);
   assert.equal(fixture.mutations(), 0);
 });
 test('mutation adapter accepts only fixed typed commands for exact approved identities', async () => {

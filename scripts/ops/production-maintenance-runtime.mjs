@@ -6,11 +6,15 @@ import path from 'node:path';
 import { CONTRACT, verifyContext } from './production-config-guard.mjs';
 import { executionEnv } from './capture-production-runtime.mjs';
 import { canonicalDigest, bindingDigest, createMaintenanceEvidence, validateMaintenanceContext } from './production-maintenance-receipts.mjs';
+import { requireLegacyTerminationApproval } from './production-maintenance-termination-policy.mjs';
 
 const ID = /^[a-f0-9]{64}$/;
 const SHA = /^[a-f0-9]{40}$/;
 const iso = value => typeof value === 'string' && Number.isFinite(Date.parse(value));
 const hold = reason => { throw new Error(`MAINTENANCE_HOLD=${reason}`); };
+// Tokens are private, single-use and minted only after durable exact-ID intent.
+// A caller cannot use the public mutation adapter as an alternate STOP entry.
+const stopPermissions = new WeakMap();
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 const STATE_FIELDS = '{{json .State.Running}}\t{{if .State.Health}}{{json .State.Health.Status}}{{else}}null{{end}}\t{{json .State.Pid}}\t{{json .State.Status}}\t{{json .State.Restarting}}\t{{json .State.Dead}}\t{{json .State.ExitCode}}\t{{json .State.OOMKilled}}\t{{json .State.StartedAt}}';
 export const LEGACY_DOMAINS = ['NOTIFICATION_EXTERNAL_SEND', 'IOT_PARTIAL_COMMITS', 'CHANJET_AUTH_REQUESTS', 'DATABASE_TRANSACTIONS', 'PERSISTENT_TASKS'];
@@ -186,6 +190,7 @@ export class DockerNetworkIsolationProducer {
     this.store = store; this.authority = authority; this.now = now;
     this.guard = dependencies.guard || productionRuntimeGuard; this.run = dependencies.run || productionDockerCommand;
     this.enforcedAt = null; this.networks = context.networkIsolation?.networks;
+    stopPermissions.set(this,new Set());
     if (!Array.isArray(this.networks) || !this.networks.length || this.networks.length > 32
       || this.networks.some(n => !ID.test(n.id) || !/^[a-zA-Z0-9_.-]{1,128}$/.test(n.name) || n.driver !== 'bridge')
       || new Set(this.networks.map(n => n.id)).size !== this.networks.length) hold('APPROVED_BRIDGE_NETWORK_INVENTORY_REQUIRED');
@@ -193,6 +198,7 @@ export class DockerNetworkIsolationProducer {
   async authorized(operation) {
     this.guard();
     this.assertWindow();
+    if (operation==='STOP_LEGACY') requireLegacyTerminationApproval(this.approval,this.context);
     const now = this.now();
     if (await this.authority?.verifyAuthority?.(this.approval, { purpose: 'FENCE_INGRESS', operation, bindingDigest: bindingDigest(this.context), targetSha: this.context.targetSha, context: this.context }) !== true
       || await this.authority?.verifyInfrastructure?.(this.infrastructureEvidence, { context: this.context, now }) !== true) hold('INDEPENDENT_NETWORK_MAINTENANCE_AUTHORITY_REQUIRED');
@@ -219,13 +225,31 @@ export class DockerNetworkIsolationProducer {
     const now = this.now();
     if (now < Date.parse(this.context.window.start) || now + budgetMs >= Date.parse(this.context.window.end)) hold('MAINTENANCE_WINDOW_CLOSED');
   }
-  async mutate(operation, args, budgetMs) {
+  async mutate(operation, args, budgetMs, stopPermission) {
     const executor = id => this.context.executors.some(p => p.id === id);
     const approved = (operation === 'DISABLE_RESTART_POLICY' && args.length === 3 && args[0] === 'update' && args[1] === '--restart=no' && executor(args[2]) && budgetMs === 10000)
       || (operation === 'DISCONNECT_LEGACY_NETWORKS' && args.length === 4 && args[0] === 'network' && args[1] === 'disconnect' && this.networks.some(n => n.id === args[2]) && executor(args[3]) && budgetMs === 10000)
-      || (operation === 'STOP_LEGACY' && args.length === 4 && args[0] === 'stop' && args[1] === '--time' && args[2] === '30' && executor(args[3]) && budgetMs === 35000);
+      || (operation === 'STOP_LEGACY' && args.length === 6 && args[0] === 'stop' && args[1] === '--signal' && args[2] === 'SIGTERM'
+        && args[3] === '--time' && args[4] === '30' && executor(args[5]) && budgetMs === 35000);
     if (!approved) hold('TYPED_MAINTENANCE_COMMAND_REQUIRED');
+    this.guard();this.assertWindow(budgetMs);
+    if(operation==='STOP_LEGACY'){
+      const permissions=stopPermissions.get(this);
+      if(!permissions.has(stopPermission)||stopPermission.id!==args[5])hold('STOP_TYPED_INTENT_REQUIRED');
+      permissions.delete(stopPermission);
+    }
     await this.authorized(operation);
+    if(operation==='STOP_LEGACY'){
+      const actual=this.inspect(args[5]);
+      if(actual.attached.length||actual.restartPolicy!=='no')hold('NETWORK_ISOLATION_LOST');
+      if(!actual.running||actual.pid<=0||actual.status!=='running'||actual.restarting||actual.dead||actual.oomKilled)hold('LEGACY_NOT_RUNNING_BEFORE_STOP');
+      const {policySha256}=requireLegacyTerminationApproval(this.approval,this.context);
+      if(stopPermission.contextDigest!==bindingDigest(this.context)||stopPermission.policySha256!==policySha256
+        ||stopPermission.approvalDigest!==canonicalDigest(this.approval)||stopPermission.commandSha256!==canonicalDigest(args)
+        ||stopPermission.store!==this.store)hold('STOP_AUTHORIZATION_BINDING_CHANGED');
+      let persisted;try{persisted=this.store.read(stopPermission.intentFile);}catch{hold('STOP_INTENT_CHANGED');}
+      if(canonicalDigest(persisted)!==stopPermission.intentDigest)hold('STOP_INTENT_CHANGED');
+    }
     this.guard(); this.assertWindow(budgetMs);
     const result = this.run(args, { timeoutMs: budgetMs });
     this.assertWindow(); return result;
@@ -294,9 +318,25 @@ export class DockerNetworkIsolationProducer {
     await this.observeIngress(); await this.authorized('STOP_LEGACY');
     const actual = this.inspect(id);
     if (actual.attached.length || actual.restartPolicy !== 'no') hold('NETWORK_ISOLATION_LOST');
-    await this.mutate('STOP_LEGACY', ['stop', '--time', '30', id], 35000);
-    const stopped = this.inspect(id);
-    if (stopped.running || stopped.pid !== 0 || stopped.status !== 'exited') hold('OLD_EXECUTOR_NOT_STOPPED');
-    return stopped;
+    if(!actual.running||actual.pid<=0||actual.status!=='running'||actual.restarting||actual.dead||actual.oomKilled)hold('LEGACY_NOT_RUNNING_BEFORE_STOP');
+    const {policySha256}=requireLegacyTerminationApproval(this.approval,this.context);
+    const command=['stop','--signal','SIGTERM','--time','30',id];
+    this.guard();this.assertWindow(35000);
+    if(typeof this.store?.immutable!=='function'||typeof this.store?.read!=='function'||!path.isAbsolute(this.store?.directory||''))hold('IMMUTABLE_STOP_INTENT_STORE_REQUIRED');
+    const intentFile=path.join(this.store.directory,`maintenance-stop-intent-${this.context.owner}-${id}.json`);
+    const intent={
+      schema:'phoenix.maintenance-stop-intent/v1',bindingDigest:bindingDigest(this.context),owner:this.context.owner,
+      targetSha:this.context.targetSha,terminationPolicySha256:policySha256,commandSha256:canonicalDigest(command),
+      executor:Object.fromEntries(['id','imageId','revision','startedAt','restartCount'].map(k=>[k,actual[k]])),
+      maxAttempts:1,automaticRetry:false,recordedAt:new Date(this.now()).toISOString()
+    };
+    const permission=Object.freeze({id,intentFile,intentDigest:canonicalDigest(intent),store:this.store,
+      contextDigest:bindingDigest(this.context),policySha256,approvalDigest:canonicalDigest(this.approval),commandSha256:canonicalDigest(command)});
+    this.store.immutable(intentFile,intent);stopPermissions.get(this).add(permission);
+    try{await this.mutate('STOP_LEGACY',command,35000,permission);}
+    finally{stopPermissions.get(this).delete(permission);}
+    this.guard();this.assertWindow();const stopped = this.inspect(id);this.guard();this.assertWindow();
+    if (stopped.running || stopped.pid !== 0 || stopped.status !== 'exited' || stopped.oomKilled!==false) hold('OLD_EXECUTOR_NOT_STOPPED');
+    return {...stopped,terminationPolicySha256:policySha256,terminationObservation:'NOT_COLLECTED',legacyDrainResult:'UNSUPPORTED'};
   }
 }

@@ -1,7 +1,9 @@
 # Legacy termination policy and isolated observation component
 
 This component is a prerequisite for the first-switch STOP_AND_RECONCILE protocol.
-It is not installed into the production STOP adapter, full 17-producer factory,
+The low-level Docker isolation STOP adapter now requires its exact structural
+policy digest, independent authority callback and durable single-use intent.
+Its event observer is not installed into production, the full 17-producer factory,
 approval verifier, continuous ingress controller or floor writer. It grants no
 authority and cannot produce DRAINED, RECONCILED, OPEN or production success.
 
@@ -27,11 +29,19 @@ pins must match the maintenance context. Recovery operator and explicit policy
 digest must be present in any future approval payload. The digest helper checks
 structure only: it never fetches a review or authenticates an approval.
 
-The actual production adapter must still enforce durable single-use intent,
-independent approval, exact before/after identity, command signal, host exclusion,
-FD9, deadline, continuous ingress and observation verification before accepting
-this policy. These integrations remain outstanding. No label, environment value
-or caller-provided JSON grants production permission.
+The low-level adapter explicitly sends SIGTERM with stop30, rechecks exact live
+isolation after authority verification, and writes an immutable owner/target/pin/
+policy/command intent before the effect. A private single-use token prevents the
+generic mutation method from becoming an alternate STOP entry. Failed outcomes
+retain the intent; no automatic retry is provided. The policy module is now a
+floor critical file. No production floor has been updated by this source change.
+
+The adapter reports `terminationObservation=NOT_COLLECTED`; physical stop is not
+proof of graceful completion or approved signal causality. Integration with the
+actual independently verified observation controller and full release factory
+remains outstanding. Root/FD9, host exclusion, fresh actual before/after identity,
+window, continuous ingress and five-domain verification are still mandatory.
+No label, environment value or caller-provided JSON grants production permission.
 
 ## Event semantics and limits
 

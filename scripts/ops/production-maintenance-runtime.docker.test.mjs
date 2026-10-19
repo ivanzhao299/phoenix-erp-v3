@@ -9,12 +9,14 @@ import { execFileSync, fork, spawn } from 'node:child_process';
 import { once } from 'node:events';
 import http from 'node:http';
 import { validateStoppedSamples, validateDatabaseQuiescence, validateExecutorInventory, evaluateLegacyReconciliation, LEGACY_DOMAINS, DockerNetworkIsolationProducer } from './production-maintenance-runtime.mjs';
+import { canonicalDigest } from './production-maintenance-receipts.mjs';
+import { TERMINATION_POLICY_SCHEMA } from './production-maintenance-termination-policy.mjs';
 
 const enabled = process.env.MAINTENANCE_DOCKER_FIXTURE === '1';
 const manifestPath = process.env.MAINTENANCE_FIXTURE_MANIFEST;
 const owner = `legacy-maintenance-${randomUUID()}`;
 const resources = [];
-const docker = (args, { timeoutMs = 30000 } = {}) => execFileSync('docker', args, { encoding: 'utf8', env: { PATH: process.env.PATH }, stdio: ['ignore', 'pipe', 'pipe'], timeout: timeoutMs }).trim();
+const docker = (args, { timeoutMs = 30000 } = {}) => execFileSync('/usr/bin/docker', ['--host','unix:///var/run/docker.sock',...args], { encoding: 'utf8', env: { PATH: process.env.PATH }, stdio: ['ignore', 'pipe', 'pipe'], timeout: timeoutMs }).trim();
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 const revision = 'a'.repeat(40);
 function record(id, role, type = 'container') {
@@ -99,7 +101,7 @@ test('actual isolated Docker legacy transition, crashes and residual work PG16 +
     });
     await t.test(`PG${major}: actual residual client transaction blocks stop certification`, async () => {
       owned(id);
-      const worker = spawn('docker', ['exec', id, 'psql', '-U', 'maintenance_fixture', '-d', 'maintenance_fixture', '-X', '-qAt', '-v', 'ON_ERROR_STOP=1', '-c',
+      const worker = spawn('/usr/bin/docker', ['--host','unix:///var/run/docker.sock','exec', id, 'psql', '-U', 'maintenance_fixture', '-d', 'maintenance_fixture', '-X', '-qAt', '-v', 'ON_ERROR_STOP=1', '-c',
         "SET application_name='maintenance-fixture-residual'; BEGIN; SELECT pg_sleep(3); ROLLBACK;"], { env: { PATH: process.env.PATH }, stdio: 'ignore' });
       const done = once(worker, 'exit');
       const deadline = Date.now() + 2000; let counts;
@@ -160,14 +162,18 @@ test('actual isolated Docker legacy transition, crashes and residual work PG16 +
       candidate: { revision: 'b'.repeat(40), imageId: before.imageId }, sourceHelperSha256: '1'.repeat(64), schemaEvidenceSha256: '2'.repeat(64), migrationPaths: [],
       preSnapshot: { api: before, web: preWeb, db: { ...pgPins[0], health: 'healthy', mountsSha256: '3'.repeat(64) } }, executors: [before],
       networkIsolation: { networks: [{ id: networkId, name: networkName, driver: 'bridge' }], approvedMounts: [] } };
+    context.terminationPolicy={schema:TERMINATION_POLICY_SCHEMA,protocol:'STOP_AND_RECONCILE',owner:context.owner,targetSha:context.targetSha,window:context.window,
+      executors:[Object.fromEntries(['id','imageId','revision','startedAt','restartCount'].map(k=>[k,before[k]]))],method:'DOCKER_STOP',stopSignal:'SIGTERM',timeoutSeconds:30,
+      timeoutEscalation:'DOCKER_SIGKILL',commandTimeoutMs:35000,maxAttempts:1,recoveryOperator:'isolated-fixture-operator'};
     const infrastructureEvidence = { body: { hostInventoryComplete: true, orchestratorsDisabled: true, unknownHostExecutors: 0, swarmActive: false, watchtowerPresent: false,
       classifiedNonExecutorIds: resources.filter(r => r.type === 'container' && r.id !== id).map(r => r.id) } };
     // The fixture's universe is this explicitly owned capsule. Production uses
     // real all-host ps plus independently verified host inventory, never this adapter.
     const capsuleRun = (args, options) => args[0] === 'ps' ? resources.filter(r => r.type === 'container').map(r => r.id).join('\n') : docker(args, options);
     const intents = [];
-    const producer = new DockerNetworkIsolationProducer({ context, approval: { fixtureOnly: true }, infrastructureEvidence,
-      store: { directory: '/fixture-only', immutable: (file, value) => { assert.equal(intents.length, 0); intents.push({ file, value }); } },
+    const producer = new DockerNetworkIsolationProducer({ context, approval: { fixtureOnly: true,payload:{terminationPolicySha256:canonicalDigest(context.terminationPolicy)} }, infrastructureEvidence,
+      store: { directory: '/fixture-only', immutable: (file, value) => { assert.equal(intents.some(i=>i.file===file),false); intents.push({ file, value:structuredClone(value) }); },
+        read:file=>structuredClone(intents.find(i=>i.file===file)?.value) },
       authority: { verifyAuthority: async () => true, verifyInfrastructure: async () => true } }, { guard: () => {}, run: capsuleRun });
     const streamAbort = new AbortController();
     const stream = await fetch(endpoint + '/stream', { signal: streamAbort.signal });
@@ -190,6 +196,8 @@ test('actual isolated Docker legacy transition, crashes and residual work PG16 +
     await producer.observeIngress();
     const isolated = producer.inspect(id); assert.equal(isolated.attached.length, 0); assert.equal(isolated.restartPolicy, 'no');
     const first = await producer.stop(id); await wait(1100); const second = producer.inspect(id);
+    assert.equal(intents.length,2);assert.equal(intents[1].value.terminationPolicySha256,canonicalDigest(context.terminationPolicy));
+    assert.equal(first.terminationObservation,'NOT_COLLECTED');assert.equal(first.legacyDrainResult,'UNSUPPORTED');
     assert.equal(validateStoppedSamples(before, first, second).revives, false);
     for (let index = 0; index < pgPins.length; index++) {
       const actual = inspect(pgPins[index].id);
