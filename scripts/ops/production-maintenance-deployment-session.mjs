@@ -11,7 +11,7 @@ import { MaintenanceReceiptStore, validateMaintenanceContext, validateMaintenanc
   bindingDigest, same, hold, HASH, MAINTENANCE_EVIDENCE_SCHEMA, iso } from './production-maintenance-receipts.mjs';
 import { LegacyMaintenanceTransition, MAINTENANCE_OPERATIONS, validateRecoveryMaterial } from './production-maintenance-transition.mjs';
 import { LegacyMaintenancePublicControl } from './production-maintenance-public-control.mjs';
-import { ControlledComposeReplacement, validateCandidateReplacement, DockerReplacementEvents } from './production-maintenance-replacement.mjs';
+import { ControlledComposeReplacement, validateCandidateReplacement, DockerReplacementEvents, replacementEventFormat } from './production-maintenance-replacement.mjs';
 import { verifyCompletedDeployment, DockerPostgresControlSession } from './background-control-coordinator.mjs';
 import { MODE_EVIDENCE_SCHEMA, verifyEvidenceFiles, verifyLiveSnapshot } from './production-deployment-evidence.mjs';
 
@@ -92,7 +92,7 @@ export class LegacyMaintenanceDeploymentSession {
     this.makeReplacement = dependencies.makeReplacement || (options => new ControlledComposeReplacement(options, { store: this.store,
       verifyAuthority: this.verifyAuthority, verifyEvidence: this.verifyEvidence,
       verifyPublicFence: request => this.producer('verifyEmptyPublicFence', request),
-      events: new DockerReplacementEvents({ spawnProcess: (...args) => { const child = spawn(...args); this.registerObserverChild(child); return child; } }) }));
+      events: new DockerReplacementEvents({ registerChild: child => this.registerObserverChild(child) }) }));
     this.files = formalEvidencePaths(this.store.directory, this.context.owner);
     this.verifyFormalFiles = dependencies.verifyFormalFiles || (() => verifySessionFormalEvidence({ context: this.context, files: this.files }));
     this.verifyFormalCompletion = dependencies.verifyFormalCompletion || ((candidate, participants) => verifyCompletedDeployment({ owner: this.context.owner,
@@ -155,7 +155,7 @@ export class LegacyMaintenanceDeploymentSession {
   registerObserverChild(child) {
     const args = child.spawnargs;
     if (!Array.isArray(args) || args.length !== 6 || args[0] !== '/usr/bin/docker' || args[1] !== 'events'
-      || args[2] !== '--since' || !iso(args[3]) || args[4] !== '--format' || args[5] !== '{{json .}}') hold('SESSION_FIXED_OBSERVER_REQUIRED');
+      || args[2] !== '--since' || !iso(args[3]) || args[4] !== '--format' || args[5] !== replacementEventFormat) hold('SESSION_FIXED_OBSERVER_REQUIRED');
     return this.#registerChild(child, true);
   }
   producer(name, request) {

@@ -49,7 +49,7 @@ export function mockReplacement(overrides = {}) {
     if (args[0] === 'image') return args[2] === old.imageId ? old.revision : args[2] === candidate.imageId ? candidate.revision : args[2] === web.imageId ? web.revision : db.revision;
     throw Error('unexpected readonly command');
   };
-  const event = (id, Action, offset) => ({ Type: 'container', Action, Actor: { ID: id, Attributes: { 'com.docker.compose.project': project, 'com.docker.compose.service': 'api' } }, timeNano: (now + offset) * 1e6 });
+  const event = (id, Action, offset) => ({ Type: 'container', Action, Actor: { ID: id, Attributes: { 'com.docker.compose.project': project, 'com.docker.compose.service': 'api' } }, timeNano: (BigInt(Math.round(now + offset)) * 1000000n).toString() });
   let eventStart;
   const events = { start: async at => { eventStart = Date.parse(at); }, finish: async end => {
     const step = (Date.parse(end) - eventStart) / 4;
@@ -123,31 +123,93 @@ test('actual candidate mount and post-effect public fence are mandatory; no comp
 });
 test('lifecycle rejects old revival, unknown executors, missing or duplicate create, clock drift and event saturation', () => {
   const f = mockReplacement(), start = new Date(now).toISOString(), end = new Date(now + 100).toISOString();
-  const event = (id, Action) => ({ Type: 'container', Action, Actor: { ID: id, Attributes: { 'com.docker.compose.project': project, 'com.docker.compose.service': 'api' } }, timeNano: (now + 1) * 1e6 });
+  const event = (id, Action) => ({ Type: 'container', Action, Actor: { ID: id, Attributes: { 'com.docker.compose.project': project, 'com.docker.compose.service': 'api' } }, timeNano: (BigInt(now + 1) * 1000000n).toString() });
   const good = [event(f.old.id, 'destroy'), event(f.candidate.id, 'create'), event(f.candidate.id, 'start')];
   const check = events => validateReplacementLifecycle(events, { oldId: f.old.id, candidateId: f.candidate.id, project, start, end });
   assert.ok(check(good));
   for (const bad of [[...good, event(f.old.id, 'start')], [...good, event(hash('f'), 'start')], good.slice(1), [...good, good[1]],
-    good.map(e => ({ ...e, timeNano: (now - 1) * 1e6 })), Array(256).fill(good[0])]) assert.throws(() => check(bad));
+    good.map(e => ({ ...e, timeNano: (BigInt(now - 1) * 1000000n).toString() })), Array(256).fill(good[0])]) assert.throws(() => check(bad));
 });
 test('audit event projection never retains exec command text or arbitrary Docker labels', () => {
-  const safe = redactReplacementEvent({ Type: 'container', Action: 'exec_create: echo SECRET_FIXTURE', timeNano: now * 1e6,
+  const safe = redactReplacementEvent({ Type: 'container', Action: 'exec_create: echo SECRET_FIXTURE', timeNano: (BigInt(now) * 1000000n).toString(),
     Actor: { ID: hash('a'), Attributes: { 'com.docker.compose.project': project, 'com.docker.compose.service': 'api', secret: 'SECRET_FIXTURE', image: 'SECRET_FIXTURE' } } });
   assert.equal(safe.Action, 'exec_create'); assert.equal(JSON.stringify(safe).includes('SECRET_FIXTURE'), false);
-  assert.equal(JSON.stringify(redactReplacementEvent({ Type: 'volume', Action: 'create', timeNano: now * 1e6, Actor: { ID: 'SECRET_FIXTURE', Attributes: {} } })).includes('SECRET_FIXTURE'), false);
+  assert.equal(JSON.stringify(redactReplacementEvent({ Type: 'volume', Action: 'create', timeNano: (BigInt(now) * 1000000n).toString(), Actor: { ID: 'SECRET_FIXTURE', Attributes: {} } })).includes('SECRET_FIXTURE'), false);
 });
 test('persistent observer and bounded daemon history must agree; truncated/failed/saturated coverage holds', async () => {
-  const row = { Type: 'container', Action: 'create', Actor: { ID: hash('a'), Attributes: {} }, timeNano: (now + 1) * 1e6 };
+  const row = { Type: 'container', Action: 'create', Actor: { ID: hash('a'), Attributes: {} }, timeNano: (BigInt(now + 1) * 1000000n).toString() };
   for (const mode of ['match', 'truncated', 'saturated', 'observer-error', 'observer-exit-during-history']) {
     const child = Object.assign(new EventEmitter(), { stdout: new EventEmitter(), stderr: new EventEmitter(), pid: 123, exitCode: null, signalCode: null,
-      kill() { this.exitCode = 0; this.emit('exit', 0); } });
+      kill() { this.exitCode = 0; this.emit('exit', 0); this.emit('close', 0); return true; } });
     const rows = mode === 'saturated' ? Array(256).fill(row) : [row], text = rows.map(r => JSON.stringify(r)).join('\n') + '\n';
     const observer = new DockerReplacementEvents({ spawnProcess: () => { setImmediate(() => { child.stdout.emit('data', text); if (mode === 'observer-error') child.stderr.emit('data', 'redacted'); }); return child; },
       run: () => { if (mode === 'observer-exit-during-history') child.exitCode = 1; return mode === 'truncated' ? '' : text; }, env: {} });
     try {
-      if (mode === 'observer-error') await assert.rejects(observer.start(new Date(now).toISOString()), /OBSERVER_NOT_RUNNING/);
+      if (mode === 'observer-error' || mode === 'saturated') await assert.rejects(observer.start(new Date(now).toISOString()), /OBSERVER_NOT_RUNNING/);
       else { await observer.start(new Date(now).toISOString()); if (mode === 'match') assert.equal((await observer.finish(new Date(now + 100).toISOString())).length, 1);
-        else await assert.rejects(observer.finish(new Date(now + 100).toISOString()), /COVERAGE_UNPROVEN/); }
-    } finally { await observer.close(); }
+        else await assert.rejects(observer.finish(new Date(now + 100).toISOString()), /COVERAGE_UNPROVEN|OBSERVER_NOT_RUNNING/); }
+    } finally { if (mode === 'match') await observer.close(); else await assert.rejects(observer.close(), /CLEANUP_OR_EVIDENCE_FAILED|COVERAGE_UNPROVEN/); }
   }
+});
+
+test('nanosecond order cannot be rounded into a valid lifecycle', () => {
+  const f = mockReplacement(), start = new Date(now).toISOString(), end = new Date(now + 100).toISOString();
+  const at = BigInt(now + 1) * 1000000n;
+  const event = (id, Action, n) => ({ Type: 'container', Action, Actor: { ID: id, Attributes: { 'com.docker.compose.project': project, 'com.docker.compose.service': 'api' } }, timeNano: n.toString() });
+  const good = [event(f.old.id, 'destroy', at), event(f.candidate.id, 'create', at + 1n), event(f.candidate.id, 'start', at + 2n)];
+  const check = rows => validateReplacementLifecycle(rows, { oldId: f.old.id, candidateId: f.candidate.id, project, start, end });
+  assert.ok(check(good));
+  assert.throws(() => check([good[0], event(f.candidate.id, 'create', at + 3n), good[2]]), /INCOMPLETE/);
+  assert.throws(() => redactReplacementEvent({ ...good[0], timeNano: Number(good[0].timeNano) }), /PRECISE_CLOCK/);
+});
+test('observer close failure cannot leave a completed replacement tombstone', async () => {
+  const f = mockReplacement(); let closes = 0;
+  f.events.close = async () => { closes++; throw Error('ORIGINAL_STDIO_UNCLOSED'); };
+  await assert.rejects(f.instance.replace(), /ORIGINAL_STDIO_UNCLOSED/);
+  assert.equal(closes, 1); assert.equal(f.mutated, true);
+  assert.equal(f.writes.length, 3); assert.equal(f.writes.at(-1).body.outcome, 'HOLD');
+});
+function streamFixture({ close = true, final = '', partial = '' } = {}) {
+  const kills = [], row = { Type: 'container', Action: 'create', Actor: { ID: hash('a'), Attributes: {} }, timeNano: (BigInt(now + 1) * 1000000n).toString() };
+  const text = JSON.stringify(row) + '\n';
+  const child = Object.assign(new EventEmitter(), { stdout: new EventEmitter(), stderr: new EventEmitter(), pid: 321, exitCode: null, signalCode: null,
+    kill(signal) { kills.push(signal); this.exitCode = 0; this.emit('exit', 0); if (final) this.stdout.emit('data', typeof final === 'function' ? final(row) : final); if (close) this.emit('close', 0); return true; } });
+  const observer = new DockerReplacementEvents({ spawnProcess: () => { setImmediate(() => child.stdout.emit('data', text + partial)); return child; }, run: () => text, env: {} });
+  return { observer, child, row, kills };
+}
+test('original observer exit without stdio close retains debt and never sends automatic KILL', async () => {
+  const f = streamFixture({ close: false }); await f.observer.start(new Date(now).toISOString()); await f.observer.finish(new Date(now + 100).toISOString());
+  await assert.rejects(f.observer.close(), /STDIO_CLOSE_TIMEOUT/);
+  assert.deepEqual(f.kills, ['SIGTERM']); assert.equal(f.observer.cleanupDebt().pendingOriginalChild, true);
+  await assert.rejects(f.observer.close(), /CLOSE_SINGLE_USE/); assert.deepEqual(f.kills, ['SIGTERM']);
+  f.child.emit('close', 0); assert.equal(f.observer.cleanupDebt().pendingOriginalChild, false); assert.equal(f.observer.cleanupDebt().evidenceFailed, true);
+});
+test('final flushed events must match history before close can validate', async () => {
+  const f = streamFixture({ final: row => JSON.stringify(row) + '\n' }); await f.observer.start(new Date(now).toISOString()); await f.observer.finish(new Date(now + 100).toISOString());
+  await assert.rejects(f.observer.close(), /COVERAGE_UNPROVEN/); assert.equal(f.observer.cleanupDebt().pendingOriginalChild, false);
+});
+test('unflushed partial row rejects evidence and a second observer start', async () => {
+  const f = streamFixture({ partial: '{' }); await f.observer.start(new Date(now).toISOString()); await f.observer.finish(new Date(now + 100).toISOString());
+  await assert.rejects(f.observer.close(), /CLEANUP_OR_EVIDENCE_FAILED/); await assert.rejects(f.observer.start(new Date(now).toISOString()), /SINGLE_USE/);
+});
+
+test('observer reference is readonly and original PID drift never signals another process', async () => {
+  const f = streamFixture(); await f.observer.start(new Date(now).toISOString());
+  assert.throws(() => { f.observer.child = {}; }, TypeError);
+  f.child.pid = 999; await assert.rejects(f.observer.close(), /ORIGINAL_IDENTITY_LOST/);
+  assert.deepEqual(f.kills, []); assert.equal(f.observer.cleanupDebt().originalPid, 321); assert.equal(f.observer.cleanupDebt().pendingOriginalChild, true);
+  f.child.emit('close', 0);
+});
+test('registration failure retains and joins original child; effect error remains primary with cleanup debt', async () => {
+  const f = streamFixture(); f.observer.registerChild = () => { throw Error('REGISTER_FAIL'); };
+  await assert.rejects(f.observer.start(new Date(now).toISOString()), /REGISTRATION_FAILED/);
+  assert.equal(f.observer.cleanupDebt().pendingOriginalChild, true);
+  await assert.rejects(f.observer.close(), /CLEANUP_OR_EVIDENCE_FAILED/);
+  assert.deepEqual(f.kills, ['SIGTERM']); assert.equal(f.observer.cleanupDebt().pendingOriginalChild, false);
+  const r = mockReplacement({ execute() { throw Error('ORIGINAL_EFFECT_FAILURE'); } });
+  r.events.close = async () => { throw Error('CLEANUP_SECONDARY'); };
+  r.events.cleanupDebt = () => ({ pendingOriginalChild: true, originalPid: 321 });
+  await assert.rejects(r.instance.replace(), /ORIGINAL_EFFECT_FAILURE/);
+  assert.equal(r.writes.at(-1).body.cleanupReason, 'MAINTENANCE_HOLD=REPLACEMENT_OBSERVER_CLEANUP_FAILED');
+  assert.equal(r.writes.at(-1).body.observerCleanupDebt.pendingOriginalChild, true);
 });

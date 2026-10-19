@@ -4,7 +4,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync, spawn } from 'node:child_process';
-import { once } from 'node:events';
 import { createHash } from 'node:crypto';
 import { CONTRACT, verifyContext, git } from './production-config-guard.mjs';
 import { executionEnv } from './capture-production-runtime.mjs';
@@ -53,16 +52,25 @@ function unchangedServices(pre, run) {
     if (!pinsMatch(actual, pre[service]) || !actual.running || actual.health !== 'healthy') hold('REPLACEMENT_WEB_DB_CHANGED');
   }
 }
-/** Docker exec actions can include command text and arbitrary labels may contain
- * secrets. Neither is retained. Hashes bind this explicit safe projection. */
+/** Fixed projection: arbitrary labels are never received, and action command
+ * suffixes are removed before retention. Nanoseconds never pass through Number. */
+export const replacementEventFormat = '{"Type":{{json .Type}},"Action":{{json .Action}},"Actor":{"ID":{{json .Actor.ID}},"Attributes":{'
+  + '"com.docker.compose.project":{{if index .Actor.Attributes "com.docker.compose.project"}}{{json (index .Actor.Attributes "com.docker.compose.project")}}{{else}}null{{end}},'
+  + '"com.docker.compose.service":{{if index .Actor.Attributes "com.docker.compose.service"}}{{json (index .Actor.Attributes "com.docker.compose.service")}}{{else}}null{{end}}}},"timeNano":"{{.TimeNano}}"}';
+function nano(value) {
+  if (typeof value !== 'string' || !/^[1-9][0-9]{0,21}$/.test(value)) hold('REPLACEMENT_EVENT_PRECISE_CLOCK_REQUIRED');
+  return BigInt(value);
+}
+const isoNano = value => { if (!validIso(value)) hold('REPLACEMENT_EVENT_INTERVAL'); return BigInt(Date.parse(value)) * 1000000n; };
 export function redactReplacementEvent(event) {
   const action = event?.Action?.split(':')[0];
   if (!/^[a-z_]{1,40}$/.test(event?.Type || '') || !/^[a-z_]{1,40}$/.test(action || '')
-    || typeof event.Actor?.ID !== 'string' || !Number.isFinite(Number(event.timeNano))) hold('REPLACEMENT_EVENT_SHAPE');
+    || typeof event.Actor?.ID !== 'string') hold('REPLACEMENT_EVENT_SHAPE');
+  nano(event.timeNano);
   const attributes = {};
   for (const key of ['com.docker.compose.project', 'com.docker.compose.service']) {
     const value = event.Actor?.Attributes?.[key];
-    if (value !== undefined) { if (typeof value !== 'string' || !/^[A-Za-z0-9_.-]{1,128}$/.test(value)) hold('REPLACEMENT_EVENT_SCOPE'); attributes[key] = value; }
+    if (value !== undefined && value !== null) { if (typeof value !== 'string' || !/^[A-Za-z0-9_.-]{1,128}$/.test(value)) hold('REPLACEMENT_EVENT_SCOPE'); attributes[key] = value; }
   }
   if (event.Type === 'container' && !HASH.test(event.Actor.ID)) hold('REPLACEMENT_EVENT_FULL_CONTAINER_ID');
   const id = event.Type === 'container' ? event.Actor.ID : canonicalDigest({ opaqueDockerIdentity: event.Actor.ID });
@@ -72,45 +80,80 @@ function eventsFrom(text) {
   if (!text.trim()) return [];
   try { return text.trim().split('\n').map(row => redactReplacementEvent(JSON.parse(row))); } catch { hold('REPLACEMENT_EVENT_PARSE'); }
 }
-/** Docker history is bounded at 256 events. The persistent observer and the
- * complete bounded history must agree, and saturation is always HOLD. */
+/** Matching bounded stream/history is interval evidence only. It does not prove
+ * exclusive issuer, subscription readiness or continuous host ingress exclusion.
+ * No target signals or automatic observer KILL/reconnect are performed here. */
 export class DockerReplacementEvents {
-  constructor({ run = command, spawnProcess = spawn, env = executionEnv() } = {}) { this.run = run; this.spawnProcess = spawnProcess; this.env = env; }
+  #originalChild = null; #originalPid = null; #originalSignal = null;
+  get child() { return this.#originalChild; }
+  constructor({ run = command, spawnProcess = spawn, registerChild = () => {}, env = executionEnv() } = {}) {
+    this.run = run; this.spawnProcess = spawnProcess; this.registerChild = registerChild; this.env = env; this.rows = []; this.tail = ''; this.bytes = 0;
+    this.used = false; this.failed = false; this.closing = false; this.closed = false; this.closeAttempted = false;
+  }
   async start(start) {
-    this.startAt = start; this.bytes = ''; this.failed = false;
-    this.child = this.spawnProcess('/usr/bin/docker', ['events', '--since', start, '--format', '{{json .}}'], { env: this.env, stdio: ['ignore', 'pipe', 'pipe'] });
-    this.child.stdout.on('data', bytes => { this.bytes += bytes; if (Buffer.byteLength(this.bytes) > 2 * 1024 * 1024) { this.failed = true; this.child.kill('SIGTERM'); } });
-    this.child.stderr.on('data', () => { this.failed = true; });
-    this.child.on('error', () => { this.failed = true; });
-    await wait(200);
-    if (this.failed || this.child.exitCode !== null || this.child.signalCode !== null || !this.child.pid) hold('REPLACEMENT_OBSERVER_NOT_RUNNING');
+    if (this.used) hold('REPLACEMENT_OBSERVER_SINGLE_USE'); this.used = true; isoNano(start); this.startAt = start;
+    this.#originalChild = this.spawnProcess('/usr/bin/docker', ['events', '--since', start, '--format', replacementEventFormat], { env: this.env, stdio: ['ignore', 'pipe', 'pipe'] });
+    this.#originalPid = this.child.pid; this.#originalSignal = this.child.kill.bind(this.child);
+    this.closedPromise = new Promise(resolve => { this.child.once('close', () => { this.closed = true; if (!this.closing) this.failed = true; resolve(); }); });
+    const fail = () => { this.failed = true; };
+    this.child.on('error', fail); this.child.once('exit', () => { if (!this.closing) fail(); });
+    this.child.stdout.on('error', fail); this.child.stderr.on('error', fail); this.child.stderr.on('data', fail);
+    this.child.stdout.on('data', bytes => {
+      this.bytes += bytes.length; if (this.bytes > 65536) { fail(); return; }
+      this.tail += bytes.toString('utf8');
+      for (;;) {
+        const end = this.tail.indexOf('\n'); if (end < 0) break;
+        const line = this.tail.slice(0, end); this.tail = this.tail.slice(end + 1);
+        try { if (line.length > 4096 || this.rows.length >= 255) throw Error('bound'); this.rows.push(redactReplacementEvent(JSON.parse(line))); } catch { fail(); }
+      }
+      if (this.tail.length > 4096) fail();
+    });
+    // Retain the original object and close waiter BEFORE registration can fail.
+    try { this.registerChild(this.child); } catch { this.failed = true; hold('REPLACEMENT_OBSERVER_REGISTRATION_FAILED'); }
+    await wait(200); this.assertLive();
+  }
+  assertLive() {
+    if (!this.child || this.failed || this.closing || this.closed || this.child.exitCode !== null || this.child.signalCode !== null || !this.#originalPid || this.child.pid !== this.#originalPid) { this.failed = true; hold('REPLACEMENT_OBSERVER_NOT_RUNNING'); }
+  }
+  verifyFinalCoverage() {
+    const start = isoNano(this.startAt), end = isoNano(this.endAt);
+    const stream = this.rows.filter(event => { const at = nano(event.timeNano); if (at < start) hold('REPLACEMENT_EVENT_BEFORE_INTERVAL'); return at < end; });
+    // Sorted digests must not hide duplicated/reordered lifecycle observations.
+    if (this.failed || this.history.length >= 256 || stream.length >= 256 || !same(this.history, stream)) { this.failed = true; hold('REPLACEMENT_EVENT_COVERAGE_UNPROVEN'); }
+    return structuredClone(this.history);
   }
   async finish(end) {
-    if (!this.child || this.failed || this.child.exitCode !== null || this.child.signalCode !== null) hold('REPLACEMENT_OBSERVER_LOST');
-    const history = eventsFrom(this.run(['events', '--since', this.startAt, '--until', end, '--format', '{{json .}}']));
-    await wait(250);
-    const deadline = Date.parse(end) / 1000;
-    const stream = eventsFrom(this.bytes).filter(event => Number(event.timeNano) / 1e9 < deadline);
-    const digestRows = events => events.map(e => canonicalDigest(e)).sort();
-    if (this.failed || this.child.exitCode !== null || this.child.signalCode !== null || history.length >= 256 || stream.length >= 256
-      || !same(digestRows(history), digestRows(stream))) hold('REPLACEMENT_EVENT_COVERAGE_UNPROVEN');
-    return history;
+    try {
+    this.assertLive();
+    if (this.endAt || isoNano(end) <= isoNano(this.startAt)) hold('REPLACEMENT_EVENT_INTERVAL'); this.endAt = end;
+    this.history = eventsFrom(this.run(['events', '--since', this.startAt, '--until', end, '--format', replacementEventFormat]));
+    for (const row of this.history) if (nano(row.timeNano) < isoNano(this.startAt) || nano(row.timeNano) >= isoNano(end)) hold('REPLACEMENT_EVENT_HISTORY_INTERVAL');
+    await wait(250); this.assertLive(); return this.verifyFinalCoverage();
+    } catch (error) { this.failed = true; throw error; }
   }
   async close() {
-    if (this.child && this.child.exitCode === null && this.child.signalCode === null) {
-      const done = once(this.child, 'exit'); this.child.kill('SIGTERM');
-      await Promise.race([done, wait(2000).then(() => { this.child.kill('SIGKILL'); })]);
-    }
+    if (this.closeAttempted) hold('REPLACEMENT_OBSERVER_CLOSE_SINGLE_USE'); this.closeAttempted = true;
+    if (!this.child) return { stdioClosed: true, observerAbsent: true, continuityClaim: false };
+    const preFailed = this.failed || this.closed || this.child.exitCode !== null || this.child.signalCode !== null;
+    this.closing = true; let timer;
+    if (this.child.pid !== this.#originalPid) { this.failed = true; hold('REPLACEMENT_OBSERVER_ORIGINAL_IDENTITY_LOST'); }
+    if (!this.closed) this.#originalSignal('SIGTERM');
+    try { await Promise.race([this.closedPromise, new Promise((_, reject) => { timer = setTimeout(() => { this.failed = true; reject(new Error('MAINTENANCE_HOLD=REPLACEMENT_OBSERVER_STDIO_CLOSE_TIMEOUT')); }, 2000); })]); }
+    finally { clearTimeout(timer); }
+    if (preFailed || this.failed || !this.closed || this.tail !== '') { this.failed = true; hold('REPLACEMENT_OBSERVER_CLEANUP_OR_EVIDENCE_FAILED'); }
+    if (this.endAt) this.verifyFinalCoverage();
+    return { originalPid: this.#originalPid, stdioClosed: true, automaticKill: false, continuityClaim: false };
   }
-  snapshot() { return eventsFrom(this.bytes || ''); }
+  cleanupDebt() { return { originalPid: this.#originalPid, closeAttempted: this.closeAttempted, stdioClosed: this.closed, pendingOriginalChild: !!this.child && !this.closed, evidenceFailed: this.failed }; }
+  snapshot() { return structuredClone(this.rows); }
 }
 export function validateReplacementLifecycle(events, { oldId, candidateId, project, start, end }) {
   if (!Array.isArray(events) || events.length >= 256 || !events.length) hold('REPLACEMENT_LIFECYCLE_REQUIRED');
   const relevant = events.filter(event => event.Type === 'container');
   let destroyed, created, started;
   for (const event of relevant) {
-    const id = event.Actor?.ID, attrs = event.Actor?.Attributes || {}, at = Number(event.timeNano) / 1e6;
-    if (!HASH.test(id || '') || !Number.isFinite(at) || at < Date.parse(start) || at >= Date.parse(end)) hold('REPLACEMENT_EVENT_CLOCK_OR_ID');
+    const id = event.Actor?.ID, attrs = event.Actor?.Attributes || {}, at = nano(event.timeNano);
+    if (!HASH.test(id || '') || at < isoNano(start) || at >= isoNano(end)) hold('REPLACEMENT_EVENT_CLOCK_OR_ID');
     if (id !== oldId && id !== candidateId && ['create', 'start', 'restart', 'unpause', 'die', 'destroy', 'stop', 'kill', 'rename', 'update'].includes(event.Action)) hold('REPLACEMENT_CONCURRENT_CONTAINER_MUTATION');
     if (id === oldId) {
       if (event.Action === 'start' || event.Action === 'restart' || event.Action === 'unpause') hold('REPLACEMENT_OLD_REVIVED');
@@ -124,15 +167,15 @@ export function validateReplacementLifecycle(events, { oldId, candidateId, proje
       if (['die', 'destroy', 'restart', 'stop', 'kill', 'unpause'].includes(event.Action)) hold('REPLACEMENT_CANDIDATE_UNSTABLE');
     }
   }
-  if (!destroyed || !created || !started || Number(created.timeNano) > Number(started.timeNano)
-    || Number(destroyed.timeNano) > Number(started.timeNano)) hold('REPLACEMENT_LIFECYCLE_INCOMPLETE');
+  if (!destroyed || !created || !started || nano(created.timeNano) > nano(started.timeNano)
+    || nano(destroyed.timeNano) > nano(started.timeNano)) hold('REPLACEMENT_LIFECYCLE_INCOMPLETE');
   return { oldDestroy: canonicalDigest(destroyed), candidateCreate: canonicalDigest(created), candidateStart: canonicalDigest(started) };
 }
 /** This checks structure and exact identity. It NEVER substitutes for independent
  * evidence/authority verification by the protocol or isolation owner. */
 export function validateCandidateReplacement(envelope, context, { now = Date.now(), publicSource = PUBLIC_DIRECTORY } = {}) {
   const body = validateMaintenanceEvidence(envelope, 'CANDIDATE_REPLACEMENT', context, now);
-  if (body.protocol !== 'CONTROLLED_COMPOSE_REPLACEMENT' || body.legacyDrainResult !== 'UNSUPPORTED'
+  if (body.eventProjection !== 'ALLOWLISTED_DOCKER_EVENTS_V2_STRING_NANO' || body.protocol !== 'CONTROLLED_COMPOSE_REPLACEMENT' || body.legacyDrainResult !== 'UNSUPPORTED'
     || body.oldDisposition !== 'REMOVED_BY_CONTROLLED_REPLACEMENT' || body.owner !== context.owner
     || !same(body.oldExecutor, context.preSnapshot.api) || bodyHashes.some(key => !HASH.test(body[key] || ''))
     || body.unexpectedExecutors !== 0 || body.oldImageRetained !== true || body.webDbUnchanged !== true
@@ -240,7 +283,7 @@ export class ControlledComposeReplacement {
     // Exclusive root writes precede EVERY possible container mutation.
     this.store.immutable(overrideFile, override);
     this.store.immutable(path.join(this.store.directory, `maintenance-replacement-intent-${this.context.owner}.json`), intent);
-    const start = iso(this.now()); let events;
+    const start = iso(this.now()); let events, observerCloseAttempted = false, effectError = null;
     try {
       const daemonTime = Date.parse(this.run(['info', '--format', '{{.SystemTime}}']));
       if (!Number.isFinite(daemonTime) || Math.abs(daemonTime - this.now()) > 1000) hold('REPLACEMENT_DAEMON_CLOCK_UNPROVEN');
@@ -276,13 +319,16 @@ export class ControlledComposeReplacement {
       // continuous candidate fencing. It grants no future ingress/OPEN authority.
       await wait(20); const end = iso(this.now()); events = await this.events.finish(end);
       const lifecycle = validateReplacementLifecycle(events, { oldId: old.id, candidateId: candidate.id, project: this.project, start, end });
+      // Close/join the ORIGINAL observer and validate its final flushed data
+      // before any completed receipt. Exit alone is not stdio closure.
+      observerCloseAttempted = true; await this.events.close(); this.window(); this.guard();
       if (Date.parse(bodies.isolation.leaseExpiresAt) <= this.now() + 5000) hold('REPLACEMENT_POST_EFFECT_LEASE_EXPIRED');
       const body = { protocol: 'CONTROLLED_COMPOSE_REPLACEMENT', legacyDrainResult: 'UNSUPPORTED', oldDisposition: 'REMOVED_BY_CONTROLLED_REPLACEMENT',
         owner: this.context.owner, oldExecutor: old, candidate, project: this.project, replacementIntentSha256: canonicalDigest(intent),
         ...Object.fromEntries(bodyHashes.filter(key => key in intent).map(key => [key, intent[key]])), eventsSha256: canonicalDigest(events),
         preInventorySha256: canonicalDigest(preInventory), postInventorySha256: canonicalDigest(after), recoveryMaterialsSha256: bodies.recovery.materialsSha256,
         unexpectedExecutors: 0, oldImageRetained: true, webDbUnchanged: true, runMigration: false, webSwitched: false, interval: { start, end }, lifecycle,
-        eventProjection: 'ALLOWLISTED_DOCKER_EVENTS_V1', candidatePublicMount,
+        eventProjection: 'ALLOWLISTED_DOCKER_EVENTS_V2_STRING_NANO', candidatePublicMount,
         coverageScope: 'FIXED_REPLACEMENT_INTERVAL_ONLY', postReplacementState: 'HOLD_CANDIDATE_REVALIDATION_REQUIRED' };
       const envelope = createMaintenanceEvidence('CANDIDATE_REPLACEMENT', this.context, body, { capturedAt: iso(this.now()) });
       validateCandidateReplacement(envelope, this.context, { now: this.now(), publicSource: this.publicSource });
@@ -290,6 +336,12 @@ export class ControlledComposeReplacement {
       this.store.immutable(path.join(this.store.directory, `maintenance-replacement-${this.context.owner}.json`), envelope);
       return envelope;
     } catch (error) {
+      effectError = error;
+      let cleanupReason = null;
+      if (!observerCloseAttempted) {
+        observerCloseAttempted = true;
+        try { await this.events.close(); } catch (cleanup) { cleanupReason = /^MAINTENANCE_HOLD=[A-Z_]+$/.test(cleanup?.message || '') ? cleanup.message : 'MAINTENANCE_HOLD=REPLACEMENT_OBSERVER_CLEANUP_FAILED'; }
+      } else if (this.events.cleanupDebt?.().evidenceFailed) cleanupReason = 'MAINTENANCE_HOLD=REPLACEMENT_OBSERVER_CLEANUP_OR_EVIDENCE_FAILED';
       // Best-effort immutable diagnostics never clear the pending operation or
       // turn a partial effect into success. If authority/storage was lost, the
       // original error remains authoritative and no unsafe fallback is used.
@@ -299,11 +351,11 @@ export class ControlledComposeReplacement {
         const reason = /^MAINTENANCE_HOLD=[A-Z_]+$/.test(error?.message || '') ? error.message : 'MAINTENANCE_HOLD=REPLACEMENT_EFFECT_FAILED';
         this.store.immutable(path.join(this.store.directory, `maintenance-replacement-failure-${this.context.owner}.json`), {
           schema: 'phoenix.maintenance-replacement-failure/v1', owner: this.context.owner, bindingDigest: bindingDigest(this.context),
-          outcome: 'HOLD', reason, capturedAt: iso(this.now()), replacementIntentSha256: canonicalDigest(intent),
-          eventProjection: 'ALLOWLISTED_DOCKER_EVENTS_V1', events: captured.slice(0, 255), eventsTruncated: captured.length > 255,
+          outcome: 'HOLD', reason, cleanupReason, observerCleanupDebt: this.events.cleanupDebt?.() || { status: 'NOT_AVAILABLE' }, capturedAt: iso(this.now()), replacementIntentSha256: canonicalDigest(intent),
+          eventProjection: 'ALLOWLISTED_DOCKER_EVENTS_V2_STRING_NANO', events: captured.slice(0, 255), eventsTruncated: captured.length > 255,
           continuityClaim: false, automaticRecoveryAttempted: false });
       } catch {}
       throw error;
-    } finally { await this.events.close(); }
+    } finally { if (!observerCloseAttempted) { observerCloseAttempted = true; try { await this.events.close(); } catch (cleanup) { if (!effectError) throw cleanup; } } }
   }
 }

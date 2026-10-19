@@ -28,7 +28,7 @@ export async function candidateBindingFixture(options={}){
     {...f.dependencies,now,run:options.rootRun||rootRun,...(options.realRoot?{}:{spawn:launch})});await lease.acquire();
   const candidate={id:h('a'),imageId:f.context.candidate.imageId,revision:f.context.targetSha,startedAt:at(-9500),restartCount:0,running:true,health:'healthy',
     pid:5555,status:'running',restarting:false,dead:false,restartPolicy:'no',service:'api',project:f.context.replacement.project};
-  const body={protocol:'CONTROLLED_COMPOSE_REPLACEMENT',legacyDrainResult:'UNSUPPORTED',oldDisposition:'REMOVED_BY_CONTROLLED_REPLACEMENT',owner:f.context.owner,oldExecutor:f.context.preSnapshot.api,
+  const body={eventProjection:'ALLOWLISTED_DOCKER_EVENTS_V2_STRING_NANO',protocol:'CONTROLLED_COMPOSE_REPLACEMENT',legacyDrainResult:'UNSUPPORTED',oldDisposition:'REMOVED_BY_CONTROLLED_REPLACEMENT',owner:f.context.owner,oldExecutor:f.context.preSnapshot.api,
     unexpectedExecutors:0,oldImageRetained:true,webDbUnchanged:true,coverageScope:'FIXED_REPLACEMENT_INTERVAL_ONLY',postReplacementState:'HOLD_CANDIDATE_REVALIDATION_REQUIRED',
     candidatePublicMount:{source:PUBLIC_DIRECTORY,destination:'/run/phoenix-background-control',type:'bind',readOnly:true},runMigration:false,webSwitched:false,interval:{start:at(-10000),end:at(-9000)},
     candidate,project:f.context.replacement.project,recoveryMaterialsSha256:h('a'),lifecycle:{oldDestroy:h('a'),candidateCreate:h('b'),candidateStart:h('c')}};
