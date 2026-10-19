@@ -15,6 +15,7 @@ import { assertModernReleaseAdmission, assertLegacyMaintenanceAdmission } from '
 import { MODE_EVIDENCE_SCHEMA, captureSnapshot, summarizeStartupLogs, startupBundle } from './production-deployment-evidence.mjs';
 import { beginState } from './production-deployment-state.mjs';
 import { LEGACY_EVIDENCE_DOMAINS } from './background-control-legacy-transition.mjs';
+import { openControlParticipantFixture } from '../ci/maintenance-control-participants.fixture.mjs';
 
 const h = c => c.repeat(64), sha = c => c.repeat(40), now = Date.parse('2026-10-18T06:00:00.000Z'), at = offset => new Date(now + offset).toISOString();
 const digestText = value => createHash('sha256').update(value).digest('hex');
@@ -638,4 +639,136 @@ test('a producer can continue only after its normally registered child reaches c
   };
   assert.equal((await f.session.run()).controlLeaseRelease, 'VERIFIED_RELEASED');
   assert.equal(f.opened, true);
+});
+
+// Controller lifetime integration only. Existing session effects/authority are
+// synthetic here; this is not the complete real seventeen-producer acceptance.
+async function withControllers(action, options = {}) {
+  const f = fixture(), originalClock = Date.now;
+  Date.now = () => now; // The existing unit context has a fixed historical window.
+  let controllers;
+  try {
+    controllers = await openControlParticipantFixture({ ...options, context: f.context });
+    return await action(f, controllers);
+  } finally { if (controllers) await controllers.cleanup(); Date.now = originalClock; }
+}
+function useForegroundReceipt(f) {
+  f.producers.abortAndJoin = async ({ stage, scope }) => {
+    assert.equal(scope, 'FOREGROUND');
+    const retained = f.session.retainedControllerIdentity();
+    return f.evidence('SESSION_FOREGROUND_SETTLED', { owner: f.context.owner, stage, scope, graphClosed: false,
+      foregroundOutstanding: f.session.children.size, activeMutators: 0, activeReadProbes: f.session.pendingReads.size,
+      outstandingChildren: f.session.children.size, detachedEffects: false,
+      childInventorySha256: canonicalDigest([...f.session.children].map(e => e.pid)),
+      retainedParticipantCount: retained.length, retainedControllerInventorySha256: canonicalDigest(retained) });
+  };
+}
+test('plan-shaped objects cannot install a controller graph or execute a supplied inventory function', () => {
+  const f = fixture(); let called = false;
+  assert.throws(() => f.rebuild({ controlParticipants: { inventory() { called = true; return { contextDigest: bindingDigest(f.context) }; } } }), /TYPED_CONTROL_PARTICIPANTS_REQUIRED/);
+  assert.equal(called, false);
+});
+test('a real controller graph bound to another owner is refused before startup', () => withControllers(async (f, g) => {
+  const wrong = new g.graph.constructor({ context: { ...f.context, owner: '123999-1' }, definitions: g.definitions });
+  assert.throws(() => f.rebuild({ controlParticipants: wrong }), /TYPED_CONTROL_PARTICIPANTS_REQUIRED/);
+  assert.equal(g.clients.length, 0);
+}));
+test('remote main drift prevents controller bootstrap and all business effects', () => withControllers(async (f, g) => {
+  f.rebuild({ controlParticipants: g.graph }); f.driftMain();
+  await assert.rejects(f.session.run(), /SESSION_REMOTE_MAIN_CHANGED/);
+  assert.equal(g.clients.length, 0); assert.deepEqual(f.calls, []); assert.equal(fs.existsSync(f.store.markerFile), false);
+}));
+async function assertUnsettledInitialReadRetainsSupervision(f, graph) {
+  let settle;
+  f.rebuild({ ...(graph ? { controlParticipants: graph } : {}), readTimeoutMs: 40, cleanupTimeoutMs: 40,
+    checkMain: () => new Promise(resolve => { settle = resolve; }) });
+  const run = f.session.run();
+  try {
+    await assert.rejects(run, /SESSION_CHILDREN_UNVERIFIED_MANUAL_RECOVERY_REQUIRED/);
+    assert.equal(f.session.controlParticipantsStarted, false);
+    assert.equal(f.session.lifecycleStarted, false);
+    assert.equal(f.session.pendingReads.size, 1);
+    assert.deepEqual(f.calls, []);
+    assert.equal(fs.existsSync(f.store.markerFile), false);
+    assert.equal(fs.existsSync(f.store.currentFile), false);
+  } finally { settle?.(); }
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(f.session.pendingReads.size, 0);
+  // Late actual settlement cannot turn the failed attempt into success.
+  await assert.rejects(run, /SESSION_CHILDREN_UNVERIFIED_MANUAL_RECOVERY_REQUIRED/);
+  await assert.rejects(f.session.run(), /SESSION_ALREADY_USED/);
+}
+test('an abort-ignoring initial main read retains supervision before any controller or marker', () => withControllers(async (f, g) => {
+  await assertUnsettledInitialReadRetainsSupervision(f, g.graph);
+  assert.equal(g.clients.length, 0);
+}));
+test('an abort-ignoring initial main read also retains supervision without a controller graph', async () => {
+  await assertUnsettledInitialReadRetainsSupervision(fixture());
+});
+test('an unknown existing transaction prevents controller bootstrap and remains untouched', () => withControllers(async (f, g) => {
+  const before = JSON.stringify({ unknown: true, fixtureOnly: true }); fs.writeFileSync(f.store.markerFile, before, { mode: 0o600, flag: 'wx' });
+  f.rebuild({ controlParticipants: g.graph });
+  await assert.rejects(f.session.run(), /MAINTENANCE_LIFECYCLE_ACTIVE/);
+  assert.equal(g.clients.length, 0); assert.deepEqual(f.calls, []); assert.equal(fs.readFileSync(f.store.markerFile, 'utf8'), before);
+}));
+test('session retains explicit controllers at foreground handoff and closes them only after root evidence verification', () => withControllers(async (f, g) => {
+  useForegroundReceipt(f); f.rebuild({ controlParticipants: g.graph });
+  const rootClose = f.lease.close;
+  f.lease.close = async request => { g.graph.assertLive(); assert.equal(g.closeOrder.length, 0); return rootClose(request); };
+  const result = await f.session.run();
+  assert.equal(result.formalDeploymentOutcome, 'SUCCESS'); assert.equal(result.controlLeaseRelease, 'VERIFIED_RELEASED');
+  assert.equal(result.controlParticipantsRelease, 'VERIFIED_ORIGINAL_CLOSES');
+  assert.equal((await g.graph.close()).graphClosed, true); assert.equal(f.opened, true);
+  assert.equal(g.clients.length, 3); assert.ok(g.clients.every(c => c.child.exitCode === 0));
+}));
+test('authority refusal before reservation still closes every bootstrapped original controller', () => withControllers(async (f, g) => {
+  f.rebuild({ controlParticipants: g.graph, verifyAuthority: async () => false });
+  await assert.rejects(f.session.run(), /INDEPENDENT_AUTHORITY/);
+  assert.deepEqual(f.calls, []); assert.equal(fs.existsSync(f.store.markerFile), false);
+  assert.equal(f.session.controlParticipantsClosed, true); assert.equal((await g.graph.close()).graphClosed, true);
+  assert.ok(g.clients.every(c => c.child.exitCode === 0));
+}));
+test('bad bootstrap health before any business effect is joined without requiring a nonexistent issuer receipt', () => withControllers(async (f, g) => {
+  f.rebuild({ controlParticipants: g.graph });
+  await assert.rejects(f.session.run(), /PARTICIPANT_HEALTH_UNVERIFIED/);
+  assert.deepEqual(f.calls, []); assert.equal(fs.existsSync(f.store.markerFile), false);
+  assert.equal(f.session.controlParticipantsClosed, true); assert.equal((await g.graph.close()).graphClosed, true);
+}, { probe(response) { return { ...response, healthy: false }; } }));
+test('bootstrap work that ignores abort retains original controller debt and requires manual recovery before reservation', async () => {
+  let finish, entered; const started = new Promise(resolve => { entered = resolve; });
+  await withControllers(async (f, g) => {
+    f.rebuild({ controlParticipants: g.graph, readTimeoutMs: 1500, cleanupTimeoutMs: 40 });
+    const run = f.session.run(), rejected = assert.rejects(run, /BOOTSTRAP_CONTROLLER_CLOSE_UNVERIFIED/);
+    try {
+      await Promise.race([started, rejected.then(() => { throw Error('OWNED_FIXTURE_BOOTSTRAP_MILESTONE_NOT_REACHED'); })]);
+      await rejected; assert.deepEqual(f.calls, []); assert.equal(f.session.lifecycleStarted, false);
+      assert.equal(fs.existsSync(f.store.markerFile), false); assert.equal(f.session.controlParticipantsClosed, false);
+      assert.ok(g.graph.inventory().pendingProtocols > 0); assert.equal(g.clients.length, 1); assert.equal(g.clients[0].child.connected, true);
+      finish(); await new Promise(resolve => setImmediate(resolve));
+      await assert.rejects(g.graph.close(), /CLOSE_UNVERIFIED/);
+    } finally { if (finish) finish(); }
+  }, { start(client) { entered(); return new Promise(resolve => { finish = () => resolve(client); }); } });
+});
+test('old all-children receipt cannot claim foreground completion with retained controllers', () => withControllers(async (f, g) => {
+  f.rebuild({ controlParticipants: g.graph });
+  await assert.rejects(f.session.run(), /CHILDREN_UNVERIFIED_MANUAL_RECOVERY_REQUIRED/);
+  assert.equal(f.calls.includes('FENCE'), false); assert.equal(f.calls.includes('STOP'), false);
+  assert.equal(f.opened, false); assert.equal(f.closed, false); assert.equal(fs.existsSync(f.store.markerFile), true);
+  assert.ok(g.clients.every(c => c.child.connected && c.child.exitCode === null));
+  await g.graph.close(); // Explicit owned test cleanup; durable marker remains.
+  assert.equal(fs.existsSync(f.store.markerFile), true);
+}));
+test('formal SUCCESS and OPEN remain true when final controller closure fails', async () => {
+  let complete;
+  await withControllers(async (f, g) => {
+    useForegroundReceipt(f); f.rebuild({ controlParticipants: g.graph, cleanupTimeoutMs: 60 });
+    await assert.rejects(f.session.run(), /FORMAL_SUCCESS_CONTROLLER_CLOSE_INCIDENT/);
+    assert.equal(f.opened, true); assert.equal(f.closed, true); assert.equal(f.store.readState().status, 'SUCCESS');
+    assert.equal(f.store.read(path.join(f.directory, `deploy-${f.context.owner}.json`)).outcome, 'SUCCESS');
+    const incident = f.store.read(path.join(f.directory, `maintenance-session-read-controllers-unverified-${f.context.owner}.json`));
+    assert.equal(incident.formalDeploymentOutcome, 'SUCCESS'); assert.equal(incident.publicState, 'OPEN_ALREADY_PUBLISHED');
+    assert.equal(incident.automaticRollbackAttempted, false); assert.equal(f.session.controlParticipantsClosed, false);
+    assert.ok(g.clients.every(c => c.child.connected)); complete();
+    await new Promise(resolve => setImmediate(resolve));
+  }, { close() { return new Promise(resolve => { complete = resolve; }); } });
 });

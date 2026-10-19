@@ -96,6 +96,7 @@
     "scripts/ops/chanjet-readonly-production-prepare.mjs",
     "scripts/ops/production-maintenance-admission.mjs",
     "scripts/ops/production-maintenance-deployment-session.mjs",
+    "scripts/ops/production-maintenance-control-participants.mjs",
     "scripts/ops/production-maintenance-gated-checkout.mjs",
     "scripts/ops/production-maintenance-gated-checkout.py",
     "scripts/ops/production-maintenance-candidate-health.mjs",

@@ -156,6 +156,8 @@ jobs:
           scripts/ci/maintenance-legacy-erp.test.mjs
           scripts/ci/maintenance-native-candidate-host.test.mjs
           scripts/ci/maintenance-fixture-authority.test.mjs
+          scripts/ci/maintenance-isolated-authority-participant.test.mjs
+          scripts/ci/maintenance-isolated-business-recorder.test.mjs
       - name: Actual registered Git and inherited FD9 in an owned isolated image
         run: |
           set -euo pipefail
@@ -173,6 +175,11 @@ jobs:
           mkdir -p artifacts/maintenance-ci
       # Keep Docker lifecycle tests serial: replacement observes daemon events
       # and must reject unrelated lifecycle activity during its own interval.
+      - name: Independent sealed local business recorder on owned PG16 and PG18
+        env:
+          MAINTENANCE_BUSINESS_PG_FIXTURE: '1'
+          MAINTENANCE_BUSINESS_OUTPUT: ${{ github.workspace }}/artifacts/maintenance-ci/business-recorder
+        run: node --test scripts/ci/maintenance-isolated-business-recorder.test.mjs
       - name: Actual PG16 PG18 ingress and legacy reconciliation mechanisms
         env:
           MAINTENANCE_DOCKER_FIXTURE: '1'
@@ -229,6 +236,7 @@ jobs:
             artifacts/maintenance-owned-candidate-observer/*.json
             artifacts/maintenance-recovery-core-materials/*.json
             artifacts/maintenance-ci/runtime-resources.json
+            artifacts/maintenance-ci/business-recorder/*.json
             artifacts/maintenance-ci/termination-observations.json
             artifacts/maintenance-ci/replacement-resources.json
             artifacts/maintenance-ci/replacement-resources.json.result.json
