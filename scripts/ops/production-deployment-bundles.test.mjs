@@ -8,6 +8,25 @@ import { pathToFileURL } from 'node:url';
 
 const ops = path.dirname(new URL(import.meta.url).pathname);
 const workflow = fs.readFileSync(new URL('../../.github/workflows/deploy.yml', import.meta.url), 'utf8');
+test('inline workflow scripts retain size headroom before GitHub expression expansion',()=>{
+  const lines=workflow.split('\n'),scripts=[];
+  for(let index=0;index<lines.length;index++){
+    const match=/^( *)(?:run|script): \|\s*$/.exec(lines[index]);if(!match)continue;
+    const indent=match[1].length,body=[];
+    for(let at=index+1;at<lines.length;at++){
+      const line=lines[at];if(line.trim()&&line.match(/^ */)[0].length<=indent)break;
+      body.push(line.slice(indent+2));
+    }
+    const value=body.join('\n');scripts.push(value);
+    // The old deployment action input grew from 20,601 to 21,015 UTF-8 bytes
+    // and GitHub rejected the workflow before creating any jobs. Reserve
+    // additional room for its embedded expressions, without removing checks.
+    assert.ok(Buffer.byteLength(value)<=20000,`inline script at line ${index+1} must be moved into a reviewed helper before growing further`);
+  }
+  assert.ok(scripts.length>=10);
+  const remote=scripts.find(value=>value.startsWith('set -Eeuo pipefail\n')&&value.includes('CODE_SYNCED=false'));
+  assert.ok(remote);execFileSync('/bin/bash',['-n'],{input:remote,stdio:['pipe','pipe','pipe']});
+});
 function closure(files) {
   const seen = new Set();
   function visit(name) {

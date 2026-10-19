@@ -253,3 +253,34 @@ test('read-only admission seam cannot itself promote floor, switch runtime or cl
   const f = fixture(t); const result = await assertLegacyMaintenanceStateCore(f.request, 'PREPARE_PROMOTION', f.deps);
   assert.equal(result.context.targetSha, f.context.targetSha); assert.deepEqual(f.writes, []); assert.ok(fs.existsSync(f.store.markerFile));
 });
+test('a stale five-second snapshot still blocks without a fresh compiled observer',async t=>{
+ const f=fixture(t);f.deps.now=()=>now+6000;
+ await assert.rejects(assertLegacyMaintenanceStateCore(f.request,'PREPARE_PROMOTION',f.deps),/ISOLATION_STALE/);
+ assert.deepEqual(f.writes,[]);
+});
+test('each typed writer admission refreshes real isolation across slow preparation without changing old evidence',async t=>{
+ const f=fixture(t),original=structuredClone(f.request.isolation);let clock=now,captures=0;
+ f.deps.now=()=>clock;
+ f.deps.verifyAuthority=async()=>{clock+=1200;return true;};
+ f.deps.captureLegacyIsolation=async binding=>{
+  assert.equal(binding.expectedStateDigest,f.request.state.stateDigest);
+  assert.deepEqual(binding.context,f.context);assert.deepEqual(binding.state,f.request.state);captures++;
+  return createMaintenanceEvidence('INGRESS_FENCE',f.context,{...original.body,lastVerifiedAt:new Date(clock).toISOString()},{capturedAt:new Date(clock).toISOString()});
+ };
+ await f.prepare();
+ assert.ok(clock-now>5000);assert.ok(captures>4);assert.deepEqual(f.request.isolation,original);
+ const actual=f.read(path.join(f.directory,`deploy-${f.context.owner}.json`));
+ assert.equal(actual.outcome,'SWITCHING');assert.deepEqual(actual.switched,{api:true,web:false});
+});
+for(const mode of ['stale','foreign-context','lost-fence','unverified-source'])test(`fresh isolation capture rejects ${mode} before floor writes`,async t=>{
+ const f=fixture(t);f.deps.now=()=>now+6000;
+ f.deps.captureLegacyIsolation=async()=>{
+  if(mode==='foreign-context'){const foreign=structuredClone(f.context);foreign.owner='123457-1';return createMaintenanceEvidence('INGRESS_FENCE',foreign,f.request.isolation.body,{capturedAt:time(6000)});}
+  const body={...f.request.isolation.body,lastVerifiedAt:mode==='stale'?time(0):time(6000)};
+  if(mode==='lost-fence')body.state='RELEASED';
+  return createMaintenanceEvidence('INGRESS_FENCE',f.context,body,{capturedAt:time(6000)});
+ };
+ if(mode==='unverified-source')f.deps.verifyEvidence=async envelope=>envelope.capturedAt!==time(6000);
+ await assert.rejects(promoteLegacyMaintenanceFloor(f.request,f.deps),/ISOLATION_STALE|EVIDENCE_BINDING|CONTINUOUS_INGRESS|EVIDENCE_UNVERIFIED/);
+ assert.deepEqual(f.writes,[]);
+});

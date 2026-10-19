@@ -112,7 +112,15 @@ export async function assertLegacyMaintenanceStateCore(request, operation, depen
         || item.requiresReplay !== false || item.requiresBusinessMutation !== false;
     })) hold('LEGACY_STATE_RECONCILIATION_REQUIRED');
   if (operation === 'PREPARE_PROMOTION') {
-    const isolation = await evidence(request.isolation, 'INGRESS_FENCE'); validateIngressFence(isolation, context, now());
+    // A promotion/state writer can perform several slow schema, Git and main
+    // reads between admissions. The compiled factory may freshly observe the
+    // same owned isolation at EACH admission; never extend an old receipt's
+    // timestamp or its five-second validity. JSON plans cannot provide code.
+    if (dependencies.captureLegacyIsolation !== undefined && typeof dependencies.captureLegacyIsolation !== 'function') hold('LEGACY_FIXED_ISOLATION_CAPTURE_REQUIRED');
+    const isolationEnvelope = dependencies.captureLegacyIsolation
+      ? await dependencies.captureLegacyIsolation({ context: structuredClone(context), state: structuredClone(state), expectedStateDigest: state.stateDigest,
+        operation, signal: request.signal }) : request.isolation;
+    const isolation = await evidence(isolationEnvelope, 'INGRESS_FENCE'); validateIngressFence(isolation, context, now());
     if (now() - Date.parse(isolation.lastVerifiedAt) > 5000) hold('LEGACY_STATE_ISOLATION_STALE');
     const bootstrap = await evidence(request.bootstrap, 'LEGACY_PUBLIC_FENCED');
     if (bootstrap.owner !== context.owner || bootstrap.phase !== 'FENCED' || bootstrap.generation !== 1
