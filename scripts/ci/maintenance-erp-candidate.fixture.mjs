@@ -11,6 +11,7 @@ import { API_READINESS_PROGRAM } from '../ops/production-maintenance-candidate-h
 import { exerciseActualErpPhaseCorrelation } from './maintenance-erp-phase-correlation.fixture.mjs';
 import { selectOwnedComposeSubnet } from './owned-compose-ipam.mjs';
 import { CONTRACT, secureJson, verifyContext } from '../ops/production-config-guard.mjs';
+import { planPinnedLegacyApiSource, pinnedApiTreeHash, pinnedApiSourceHelperIdentity } from './maintenance-pinned-api-source.fixture.mjs';
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const KIND = 'maintenance-erp-candidate';
@@ -21,12 +22,13 @@ const RO = 'erp_candidate_readonly';
 const ROOT_NODE = process.execPath; // Constructor independently enforces Node major 20.
 export const CONTROL_TARGET = '/run/phoenix-background-control';
 const hash = value => createHash('sha256').update(value).digest('hex');
+const loadedFixtureSha256 = hash(fs.readFileSync(fileURLToPath(import.meta.url)));
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 const hold = code => { throw new Error(`ERP_CANDIDATE_FIXTURE_HOLD=${code}`); };
 const safeEnv = () => ({ PATH: process.env.PATH, DOCKER_HOST: 'unix:///var/run/docker.sock' });
 const run = (command, args, options = {}) => execFileSync(command, args, { encoding: 'utf8', env: safeEnv(),
   timeout: 30000, maxBuffer: 8 * 1024 * 1024, stdio: ['pipe', 'pipe', 'pipe'], ...options }).trim();
-const git = args => run('git', ['-c', 'core.hooksPath=/dev/null', ...args], { cwd: REPO });
+const git = args => run('git', ['--no-replace-objects', '-c', 'core.hooksPath=/dev/null', ...args], { cwd: REPO });
 const quote = value => '"' + value.replaceAll('"', '""') + '"';
 const literal = value => "'" + value.replaceAll("'", "''") + "'";
 
@@ -97,7 +99,7 @@ export function copyProductionDependencies(apiRoot, destination) {
   return [...records.values()].map(({ name, version, dependencies }) => ({ name, version, dependencies }));
 }
 
-function networkPreload(owner) {
+export function networkPreload(owner) {
   // Only transport observation/denial and a loopback provider. No clock, SQL, Nest or HTTP handler replacement.
   return `'use strict';
 const fs=require('fs'),net=require('net'),http=require('http');
@@ -106,7 +108,7 @@ const events='/tmp/erp-candidate-network.jsonl';
 const record=kind=>fs.appendFileSync(events,JSON.stringify({kind,at:new Date().toISOString()})+'\\n',{mode:0o600});
 let providerCalls=0;
 const provider=http.createServer((q,s)=>{s.setHeader('Content-Type','application/json');if(q.url==='/_fixture/status'){s.end(JSON.stringify({providerCalls}));return;}providerCalls++;record('LOOPBACK_PROVIDER_ATTEMPT');s.writeHead(503);s.end('{"fixtureOnly":true}');});
-provider.listen(3099,'127.0.0.1',()=>provider.unref());process.once('SIGTERM',()=>provider.close());
+provider.listen(3099,'127.0.0.1',()=>provider.unref());
 const connect=net.Socket.prototype.connect;net.Socket.prototype.connect=function(...args){const p=Array.isArray(args[0])?args[0][0]:args[0];const host=typeof p==='object'?p.host:typeof args[1]==='string'?args[1]:undefined;const port=typeof p==='object'?p.port:p;
 if(host&&!['127.0.0.1','localhost','::1'].includes(host)&&!(host==='fixture-db'&&Number(port)===5432)){record('FORBIDDEN_TCP_ATTEMPT');throw Error('ERP_FIXTURE_EXTERNAL_TCP_FORBIDDEN');}return connect.apply(this,args);};
 const fetch=global.fetch;global.fetch=async(...args)=>{const u=new URL(String(args[0]));if(!['127.0.0.1','localhost','[::1]'].includes(u.hostname)){record('NON_LOOPBACK_FETCH_ATTEMPT');throw Error('ERP_FIXTURE_EXTERNAL_FETCH_FORBIDDEN');}return fetch(...args);};
@@ -128,10 +130,11 @@ export class OwnedErpCandidateCapsule {
   record(extra = {}) { fs.writeFileSync(path.join(this.root, 'resources.json'), JSON.stringify({ schema: 'phoenix.owned-erp-candidate/v1',
     fixtureOnly: true, productionReceipt: false, owner: this.owner, sourceSha: this.sourceSha, imageId: this.imageId,
     sourceTreeHash: this.sourceTreeHash, fixtureScriptSha256: this.fixtureScriptSha256,
-    resources: this.resources, results: this.results, cleanupExecuted: false, ...extra }, null, 2), { mode: 0o600 }); }
+    resources: this.resources, results: this.results, legacyCreationAttempt:this.legacyCreationAttempt, legacyStopAttempt:this.legacyStopAttempt, legacyPgStopAttempt:this.legacyPgStopAttempt, legacyObservation:this.legacyObservation, cleanupExecuted: false, ...extra }, null, 2), { mode: 0o600 }); }
   docker(args, options = {}) { return run('/usr/bin/docker', args, options); }
-  inspectContainer(id) {
-    const f = this.docker(['inspect', id, '--format', '{{json .Id}}\t{{json .Image}}\t{{json .Config.Labels}}\t{{json .State}}\t{{json .RestartCount}}\t{{json .Mounts}}\t{{json .NetworkSettings.Ports}}']).split('\t').map(JSON.parse);
+  inspectContainer(id, { timeoutMs = 30000 } = {}) {
+    assert.ok(Number.isInteger(timeoutMs) && timeoutMs > 0 && timeoutMs <= 30000);
+    const f = this.docker(['inspect', id, '--format', '{{json .Id}}\t{{json .Image}}\t{{json .Config.Labels}}\t{{json .State}}\t{{json .RestartCount}}\t{{json .Mounts}}\t{{json .NetworkSettings.Ports}}'], { timeout: timeoutMs }).split('\t').map(JSON.parse);
     return requireOwnedResource({ Id: f[0], Image: f[1], Config: { Labels: f[2] }, State: f[3], RestartCount: f[4], Mounts: f[5], Ports: f[6] }, this.owner);
   }
   own(id, role, type = 'container') {
@@ -144,17 +147,24 @@ export class OwnedErpCandidateCapsule {
     if (!this.resources.some(r => r.id === id)) this.resources.push({ id, role, type }); this.record(); return id;
   }
   labels() { return ['--label', `phoenix.test.owner=${this.owner}`, '--label', `phoenix.test.kind=${KIND}`]; }
-  async build() {
-    this.sourceSha = git(['rev-parse', 'HEAD']); assert.match(this.sourceSha, /^[a-f0-9]{40}$/);
-    run('git', ['diff', '--quiet', 'HEAD', '--', 'apps/api/src', 'apps/api/tsconfig.json', 'apps/api/tsconfig.build.json', 'apps/api/package.json'], { cwd: REPO });
+  async build(options = {}) {
+    if (!options || Object.getPrototypeOf(options)!==Object.prototype || Object.keys(options).some(k=>k!=='legacySourceSha')) hold('FIXED_BUILD_OPTIONS_REQUIRED');
+    assert.equal(hash(fs.readFileSync(fileURLToPath(import.meta.url))), loadedFixtureSha256, 'Loaded capsule source changed');
+    const helperIdentity = pinnedApiSourceHelperIdentity();
+    const builderHead=git(['rev-parse','HEAD']);assert.match(builderHead,/^[a-f0-9]{40}$/);
+    this.legacySourcePlan=options.legacySourceSha===undefined?null:planPinnedLegacyApiSource({root:REPO,sourceSha:options.legacySourceSha,expectedHead:builderHead});
+    this.sourceSha = this.legacySourcePlan?.sourceSha || builderHead;
+    git(['diff', '--quiet', 'HEAD', '--', 'apps/api/src', 'apps/api/tsconfig.json', 'apps/api/tsconfig.build.json', 'apps/api/package.json']);
+    if(this.legacySourcePlan){git(['diff','--quiet','HEAD','--','pnpm-lock.yaml']);assert.equal(hash(fs.readFileSync(path.join(REPO,'pnpm-lock.yaml'))),this.legacySourcePlan.builderLockSha256);}
     const context = path.join(this.root, 'image-context'); fs.mkdirSync(context, { mode: 0o700 });
     const source = path.join(context, 'tracked-source'); fs.mkdirSync(source, { mode: 0o700 });
     const selected = ['apps/api/src', 'apps/api/tsconfig.json', 'apps/api/tsconfig.build.json', 'apps/api/package.json'];
     const tree = git(['ls-tree', '-r', this.sourceSha, '--', ...selected]);
     if (tree.split('\n').some(line => /^120000\s/.test(line) || /\t.*(?:\/\.env(?:\.|$)|\.(?:pem|key|p12|pfx)$)/i.test(line))) hold('ARCHIVE_SOURCE_NOT_APPROVED');
-    this.sourceTreeHash = hash(tree);
-    this.fixtureScriptSha256 = hash(fs.readFileSync(fileURLToPath(import.meta.url)));
-    const archive = execFileSync('git', ['archive', this.sourceSha, ...selected], { cwd: REPO, env: safeEnv(), maxBuffer: 32 * 1024 * 1024 });
+    this.sourceTreeHash = pinnedApiTreeHash(tree);
+    if(this.legacySourcePlan)assert.equal(this.sourceTreeHash,this.legacySourcePlan.sourceTreeHash);
+    this.fixtureScriptSha256 = loadedFixtureSha256;
+    const archive = execFileSync('git', ['--no-replace-objects', 'archive', this.sourceSha, ...selected], { cwd: REPO, env: safeEnv(), maxBuffer: 32 * 1024 * 1024 });
     run('tar', ['-x', '-C', source], { input: archive });
     const api = path.join(source, 'apps/api'); fs.symlinkSync(fs.realpathSync(path.join(REPO, 'apps/api/node_modules')), path.join(api, 'node_modules'));
     const compiler = path.join(REPO, 'apps/api/node_modules/typescript/bin/tsc');
@@ -166,19 +176,27 @@ export class OwnedErpCandidateCapsule {
     // copying that physical mode would make the UID1000 runtime unreadable.
     fs.copyFileSync(path.join(api, 'package.json'), path.join(context, 'package.json'));
     fs.writeFileSync(path.join(context, 'fixture-preload.cjs'), networkPreload(this.owner));
+    const dockerfile = fs.readFileSync(new URL('./maintenance-erp-candidate.Dockerfile', import.meta.url));
+    fs.writeFileSync(path.join(context,'fixture.Dockerfile'), dockerfile, {mode:0o600,flag:'wx'});
     fs.writeFileSync(path.join(context, '.dockerignore'), '*\n!dist\n!dist/**\n!node_modules\n!node_modules/**\n!package.json\n!fixture-preload.cjs\n');
     fs.writeFileSync(path.join(this.root, 'capsule-build.json'), JSON.stringify({ sourceSha: this.sourceSha, sourceTreeHash: this.sourceTreeHash,
       fixtureScriptSha256: this.fixtureScriptSha256, pnpmLockSha256: hash(fs.readFileSync(path.join(REPO, 'pnpm-lock.yaml'))),
-      dependencies, excluded: ['.env', 'keys', 'private directories', 'tests', 'full repository mount'], nodeBaseline: 20 }, null, 2));
+      dependencies, legacySourcePlan:this.legacySourcePlan, pinnedApiSourceHelperSha256:helperIdentity,
+      buildDockerfileSha256:hash(dockerfile),
+      preloadSha256:hash(fs.readFileSync(path.join(context,'fixture-preload.cjs'))),
+      excluded: ['.env', 'keys', 'private directories', 'tests', 'full repository mount'], nodeBaseline: 20 }, null, 2));
     const base = this.docker(['image', 'inspect', 'node:20-bookworm-slim', '--format', '{{.Id}}']);
-    const tag = `phoenix-${this.owner}:candidate`;
+    const tag = `phoenix-${this.owner}:${this.legacySourcePlan?'legacy':'candidate'}`;
     this.docker(['build', '--pull=false', '--network=none', '--build-arg', `SOURCE_SHA=${this.sourceSha}`, '--build-arg', `FIXTURE_OWNER=${this.owner}`,
-      '-f', path.join(REPO, 'scripts/ci/maintenance-erp-candidate.Dockerfile'), '-t', tag, context], { timeout: 180000 });
+      '-f', path.join(context, 'fixture.Dockerfile'), '-t', tag, context], { timeout: 180000 });
     this.imageId = this.own(this.docker(['image', 'inspect', tag, '--format', '{{.Id}}']), 'actual-erp-api', 'image');
     const fields = this.docker(['image', 'inspect', this.imageId, '--format', '{{json .Config.Labels}}\t{{json .RootFS.Layers}}']).split('\t').map(JSON.parse);
     assert.equal(fields[0]['org.opencontainers.image.revision'], this.sourceSha);
     const baseLayers = JSON.parse(this.docker(['image', 'inspect', base, '--format', '{{json .RootFS.Layers}}']));
-    assert.deepEqual(fields[1].slice(0, baseLayers.length), baseLayers); this.record({ sourceTreeHash: this.sourceTreeHash, nodeBaseImageId: base });
+    assert.deepEqual(fields[1].slice(0, baseLayers.length), baseLayers);
+    assert.equal(hash(fs.readFileSync(fileURLToPath(import.meta.url))), loadedFixtureSha256, 'Loaded capsule source changed');
+    assert.equal(pinnedApiSourceHelperIdentity(), helperIdentity);
+    this.record({ sourceTreeHash: this.sourceTreeHash, nodeBaseImageId: base });
     return this;
   }
   helper(source, script, input = '') {
@@ -271,9 +289,10 @@ export class OwnedErpCandidateCapsule {
     assert.equal(readonly, 'off');
     return { transactionReadOnly: false, realInsertSucceededThenRolledBack: true, sequenceTouched: false };
   }
-  request(candidate, pathname, { method = 'GET', body } = {}) {
-    const script = `fetch(process.argv[1],{method:process.argv[2],${body === undefined ? '' : "headers:{'content-type':'application/json'},body:process.argv[3],"}signal:AbortSignal.timeout(3000)}).then(async r=>{const t=await r.text();let b;try{b=JSON.parse(t)}catch{b=null}process.stdout.write(JSON.stringify({status:r.status,body:b}),()=>process.exit(0))}).catch(()=>process.exit(2))`;
-    return JSON.parse(this.docker(['exec', candidate.id, 'node', '-e', script, `http://127.0.0.1:3100${pathname}`, method, ...(body === undefined ? [] : [JSON.stringify(body)])]));
+  request(candidate, pathname, { method = 'GET', body, timeoutMs = 30000 } = {}) {
+    assert.ok(Number.isInteger(timeoutMs) && timeoutMs>0 && timeoutMs<=30000);
+    const script = `fetch(process.argv[1],{method:process.argv[2],${body === undefined ? '' : "headers:{'content-type':'application/json'},body:process.argv[3],"}signal:AbortSignal.timeout(${Math.min(3000,timeoutMs)})}).then(async r=>{const t=await r.text();let b;try{b=JSON.parse(t)}catch{b=null}process.stdout.write(JSON.stringify({status:r.status,body:b}),()=>process.exit(0))}).catch(()=>process.exit(2))`;
+    return JSON.parse(this.docker(['exec', candidate.id, 'node', '-e', script, `http://127.0.0.1:3100${pathname}`, method, ...(body === undefined ? [] : [JSON.stringify(body)])],{timeout:timeoutMs}));
   }
   status(candidate) { const response = this.request(candidate, '/api/internal/background/status'); assert.equal(response.status, 200); return response.body; }
   verifySession(candidate, status = this.status(candidate)) {
