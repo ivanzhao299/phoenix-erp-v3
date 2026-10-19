@@ -2,7 +2,7 @@
 import { execFileSync } from 'node:child_process';
 const [mode, containerId, endpoint] = process.argv.slice(2);
 if (process.env.MAINTENANCE_OWNED_FIXTURE !== '1' || !/^[a-f0-9]{64}$/.test(containerId || '')) process.exit(70);
-const docker = args => execFileSync('docker', args, { encoding: 'utf8', env: { PATH: process.env.PATH }, stdio: ['ignore', 'pipe', 'pipe'], timeout: 10000 });
+const docker = args => execFileSync('/usr/bin/docker', ['--host','unix:///var/run/docker.sock',...args], { encoding: 'utf8', env: { PATH: process.env.PATH }, stdio: ['ignore', 'pipe', 'pipe'], timeout: 10000 });
 const labels = JSON.parse(docker(['inspect', containerId, '--format', '{{json .Config.Labels}}']));
 if (labels?.['phoenix.test.kind'] !== 'legacy-maintenance' || labels?.['phoenix.test.owner'] !== process.env.MAINTENANCE_FIXTURE_OWNER) process.exit(71);
 const sql = statement => docker(['exec', containerId, 'psql', '-U', 'maintenance_fixture', '-d', 'maintenance_fixture', '-X', '-qAt', '-v', 'ON_ERROR_STOP=1', '-c', statement]);

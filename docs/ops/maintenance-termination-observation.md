@@ -1,7 +1,9 @@
 # Legacy termination policy and isolated observation component
 
 This component is a prerequisite for the first-switch STOP_AND_RECONCILE protocol.
-It is not installed into the production STOP adapter, full 17-producer factory,
+The low-level Docker isolation STOP adapter now requires its exact structural
+policy digest, independent authority callback and durable single-use intent.
+Its event observer is not installed into production, the full 17-producer factory,
 approval verifier, continuous ingress controller or floor writer. It grants no
 authority and cannot produce DRAINED, RECONCILED, OPEN or production success.
 
@@ -27,11 +29,34 @@ pins must match the maintenance context. Recovery operator and explicit policy
 digest must be present in any future approval payload. The digest helper checks
 structure only: it never fetches a review or authenticates an approval.
 
-The actual production adapter must still enforce durable single-use intent,
-independent approval, exact before/after identity, command signal, host exclusion,
-FD9, deadline, continuous ingress and observation verification before accepting
-this policy. These integrations remain outstanding. No label, environment value
-or caller-provided JSON grants production permission.
+The low-level adapter explicitly sends SIGTERM with stop30, rechecks exact live
+isolation after authority verification, and writes an immutable owner/target/pin/
+policy/command intent before the effect. A private single-use token prevents the
+generic mutation method from becoming an alternate STOP entry. Failed outcomes
+retain the intent; no automatic retry is provided. The policy module is now a
+floor critical file. No production floor has been updated by this source change.
+
+The complete STOP admission/effect/post-inspection has one monotonic maximum
+60-second acceptance budget, additionally limited by the original window's
+monotonic expiry. Wall and monotonic rollback/non-finite values reject. Approval
+callbacks have observed promises, AbortSignals and at most 10-second waits;
+timeout is sticky and late approval cannot revive the attempt. Remaining read
+budgets decrease. The full 35-second Docker command slot must remain before any
+target signal: the actual 30-second stop is never silently shortened. Identity,
+context, approval and persisted-intent bindings are rechecked after async review.
+Timeout does not prove an underlying readonly request or daemon command stopped;
+pending outcome remains HOLD and no target retry is allowed.
+Unsettled verifier promises remain visible through readonly `cleanupDebt()`;
+other executor STOP requests are refused while this debt exists. Late settlement
+can reduce that local debt count, but never revives the failed original attempt.
+This bookkeeping is not proof that all host/background activity is quiescent.
+
+The adapter reports `terminationObservation=NOT_COLLECTED`; physical stop is not
+proof of graceful completion or approved signal causality. Integration with the
+actual independently verified observation controller and full release factory
+remains outstanding. Root/FD9, host exclusion, fresh actual before/after identity,
+window, continuous ingress and five-domain verification are still mandatory.
+No label, environment value or caller-provided JSON grants production permission.
 
 ## Event semantics and limits
 

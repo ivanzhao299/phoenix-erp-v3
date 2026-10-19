@@ -110,6 +110,7 @@
     "scripts/ops/production-maintenance-receipts.mjs",
     "scripts/ops/production-maintenance-replacement.mjs",
     "scripts/ops/production-maintenance-runtime.mjs",
+    "scripts/ops/production-maintenance-termination-policy.mjs",
     "scripts/ops/production-maintenance-transition.mjs"
   ],
   "executionUid": 0,
