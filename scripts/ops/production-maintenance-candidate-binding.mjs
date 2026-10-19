@@ -21,6 +21,8 @@ const PRIVATE_DIAGNOSTICS = new Set([
   'ROOT_CONTROL_OPERATION_DEADLINE','ROOT_CONTROL_OPERATION_ABORTED','ROOT_CONTROL_WINDOW_EXPIRED','RECEIPT_SNAPSHOT_DEADLINE',
   ...['DIGEST','STATE','TIME','UNIQUE_CHAIN','CHAIN_ORDER','PENDING','CHANGED'].map(v=>'CANDIDATE_PHASE_ANCHOR_'+v)
 ].map(v=>'MAINTENANCE_HOLD='+v));
+for(const code of ['SHAPE_INVALID','ACQUIRE_PENDING','QUERY_PENDING','RETIREMENT_PENDING','TERMINATED','RELEASED','DEBT_INVALID'])
+  PRIVATE_DIAGNOSTICS.add('CANDIDATE_CONTROL_CLEANUP_'+code);
 export function candidateBindingDiagnosticCode(error) {
   return PRIVATE_DIAGNOSTICS.has(error?.diagnosticCode)?error.diagnosticCode:undefined;
 }
@@ -107,9 +109,14 @@ function statusSnapshot(id,manifest,run){
   const cleanup=c.cleanup;
   // The one expected live control resource is debt until retirement. It is not
   // unsettled business work. Requiring debt=false would reject every live lease.
-  if(!keys(cleanup,['acquirePending','queriesPending','retirementPending','terminationConfirmed','releaseConfirmed','debt'])
-    ||cleanup.acquirePending!==false||cleanup.queriesPending!==0||cleanup.retirementPending!==false
-    ||cleanup.terminationConfirmed!==false||cleanup.releaseConfirmed!==false||cleanup.debt!==true)fail('UNSETTLED_OR_INVALID_CONTROL_RESOURCE');
+  const cleanupIssue=!keys(cleanup,['acquirePending','queriesPending','retirementPending','terminationConfirmed','releaseConfirmed','debt'])?'SHAPE_INVALID'
+    :cleanup.acquirePending!==false?'ACQUIRE_PENDING':cleanup.queriesPending!==0?'QUERY_PENDING'
+      :cleanup.retirementPending!==false?'RETIREMENT_PENDING':cleanup.terminationConfirmed!==false?'TERMINATED'
+        :cleanup.releaseConfirmed!==false?'RELEASED':cleanup.debt!==true?'DEBT_INVALID':null;
+  if(cleanupIssue){
+    const error=Error('CANDIDATE_BINDING_HOLD=UNSETTLED_OR_INVALID_CONTROL_RESOURCE');
+    Object.defineProperty(error,'diagnosticCode',{value:'CANDIDATE_CONTROL_CLEANUP_'+cleanupIssue});throw error;
+  }
   return {protocolVersion:1,bootId:s.bootId,phase:s.phase,owner:s.owner,generation:s.generation,inFlight:0,pendingChildren:0,taskGraphs:0,
     poisoned:false,stopping:false,controlSession:{connected:true,broken:false,sessionPid:c.sessionPid,databaseOid:c.databaseOid,
       backendStartedAt:c.backendStartedAt,backendStartedAtUs:c.backendStartedAtUs,applicationName:c.applicationName,cleanup:structuredClone(cleanup)}};

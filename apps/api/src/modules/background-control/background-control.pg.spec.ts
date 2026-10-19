@@ -65,6 +65,42 @@ function deferred() { let resolve!: () => void; const promise = new Promise<void
     expect(await waitExclusive(2)).toBe(true);
     await expect(f.service.run('denied', 'LOCAL', async () => undefined)).rejects.toThrow('FENCED_OR_UNAUTHORIZED');
   });
+  it('waits for a real in-flight control heartbeat before observing without hiding active business work', async () => {
+    const nativeCreate = db.createQueryRunner.bind(db), started = deferred(), work = pendingWork(), entered = deferred();
+    let delayNext = false;
+    const factory = jest.spyOn(db, 'createQueryRunner').mockImplementation(mode => {
+      const runner = nativeCreate(mode), nativeQuery = runner.query.bind(runner);
+      runner.query = async (sql: string, parameters?: unknown[], structured?: true) => {
+        if (delayNext && typeof sql === 'string' && sql.includes('AS session_probe')) {
+          delayNext = false; started.resolve();
+          return structured === true ? nativeQuery(sql + ' FROM pg_sleep(0.5)', parameters, true) : nativeQuery(sql + ' FROM pg_sleep(0.5)', parameters);
+        }
+        return structured === true ? nativeQuery(sql, parameters, true) : nativeQuery(sql, parameters);
+      };
+      return runner;
+    });
+    let active: Promise<unknown> | undefined;
+    try {
+      const f = await create(), originalPid = f.locks.status().sessionPid;
+      active = f.service.run('status-during-pg-heartbeat', 'LOCAL', async () => { entered.resolve(); await work.promise; });
+      await entered.promise; delayNext = true; await started.promise;
+      const deadline = Date.now() + 1000;
+      while (true) {
+        const rows = await coordinator.query('SELECT wait_event FROM pg_stat_activity WHERE pid=$1', [originalPid]);
+        if (rows[0]?.wait_event === 'PgSleep') break;
+        if (Date.now() >= deadline) throw new Error('OWNED_CONTROL_QUERY_NOT_OBSERVED');
+        await tick();
+      }
+      expect(f.service.status()).toMatchObject({ inFlight: 1, controlSession: { cleanup: { queriesPending: 1 } } });
+      let settled = false;
+      const observing = f.service.observeStatus(); void observing.then(() => { settled = true; });
+      await tick(); expect(settled).toBe(false);
+      expect(await observing).toMatchObject({ inFlight: 1, taskGraphs: 1, poisoned: false,
+        controlSession: { connected: true, sessionPid: originalPid, cleanup: { queriesPending: 0 } } });
+    } finally {
+      delayNext = false; factory.mockRestore(); work.resolve(); await active;
+    }
+  });
   it('holds one shared execution lock across two outer jobs and detached notification children', async () => {
     const f = await create(); const pending = pendingWork();
     await f.service.run('parent', 'LOCAL', async () => f.service.spawn('child', 'NOTIFICATION', () => pending.promise));
