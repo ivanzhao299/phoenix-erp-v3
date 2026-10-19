@@ -108,9 +108,12 @@ describe('Notification fixture connection rejects redirection before any IO',()=
   coordinator=db.createQueryRunner();await coordinator.connect();
  },30000);
  afterEach(async()=>{
-  try{await coordinator?.query('SELECT pg_advisory_unlock_all()');}catch(e){suiteCleanupFailures.push('PER_CASE_UNLOCK');throw e;}
-  finally{manifest.phase='OPEN';manifest.generation++;try{await db?.query('ALTER TABLE sys_notification_log DROP CONSTRAINT IF EXISTS fixture_reject_log;TRUNCATE sys_notification_rules,sys_notification_templates,sys_user_notification_prefs,sys_notification_log,sys_push_subscriptions;');}
-   catch(e){suiteCleanupFailures.push('PER_CASE_DATABASE_RESET');throw e;}}
+  const failures:string[]=[];
+  try{await coordinator?.query('SELECT pg_advisory_unlock_all()');}catch{failures.push('PER_CASE_UNLOCK');}
+  manifest.phase='OPEN';manifest.generation++;
+  try{await db?.query('ALTER TABLE sys_notification_log DROP CONSTRAINT IF EXISTS fixture_reject_log;TRUNCATE sys_notification_rules,sys_notification_templates,sys_user_notification_prefs,sys_notification_log,sys_push_subscriptions;');}
+  catch{failures.push('PER_CASE_DATABASE_RESET');}
+  suiteCleanupFailures.push(...failures);expect(failures).toEqual([]);
  });
  afterAll(async()=>{
   const cleanupFailures:string[]=[...suiteCleanupFailures];let originalSinkClose:{code:number|null;signal:NodeJS.Signals|null}|undefined,closeConfirmed=false,closedHash:string|undefined;
