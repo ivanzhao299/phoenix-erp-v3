@@ -818,6 +818,7 @@ jobs:
               fi
             }
 
+            # ── 干净工作树硬门禁:禁止静默 stash/覆盖服务器改动 ───────
             if [ -n "$(git status --porcelain --untracked-files=all)" ]; then
               echo "::error::生产服务器工作树不干净,拒绝部署"
               git status --short
@@ -1050,6 +1051,7 @@ jobs:
             fi
 
 
+            # ── Smoke test(所有 mode)───────────────────────────────
             sleep 3
             curl -fsSL --max-time 20 http://127.0.0.1:3100/api/readiness -o /dev/null
             curl -fsSL --max-time 20 http://127.0.0.1:3000/ -o /dev/null
@@ -1061,6 +1063,7 @@ jobs:
             node "$EVIDENCE_HELPER" logs "$POST_EVIDENCE_FILE" "$LOG_EVIDENCE_FILE"
             node "$EVIDENCE_HELPER" verify "$PRE_EVIDENCE_FILE" "$POST_EVIDENCE_FILE" "$LOG_EVIDENCE_FILE"
 
+            # ── 磁盘用量报告 ─────────────────────────────────────────
             echo "📦 Docker 镜像占用:"
             IMAGE_REPORT="$(docker images --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}")"
             IMAGE_PREVIEW_COUNT=0
