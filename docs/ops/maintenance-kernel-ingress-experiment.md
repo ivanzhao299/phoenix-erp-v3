@@ -13,8 +13,13 @@ readiness therefore cannot substitute for independent physical ingress controls.
 
 ## Deliberately restricted topology
 
-Each PG16/18 job owns an exclusive GitHub-hosted VM and creates one internal IPv4
+Each PG16/18 job owns an exclusive GitHub-hosted VM and creates one dedicated private IPv4
 bridge, synthetic Node HTTP executors, one peer and a real PostgreSQL container.
+The bridge is not marked Docker internal: real CI on both PG majors showed
+Docker suppresses the required host port publication on an internal network.
+The dedicated normal bridge and exact loopback publication match the packet
+paths under test; this is not a claim of egress isolation. Test programs contain
+only fixed owned-service and database destinations.
 The HTTP server deliberately has no application fence. The host publication is
 exactly 127.0.0.1:3100. IPv6 is disabled and no IPv6 port publication is accepted.
 Database storage and client image VOLUME paths use owned ephemeral tmpfs; no host
@@ -76,3 +81,14 @@ Technical references: [Docker packet filtering](https://docs.docker.com/engine/n
 [Docker nftables](https://docs.docker.com/engine/network/firewall-nftables/),
 [bridge filtering](https://wiki.iptables.org/wiki-nftables/index.php/Bridge_filtering),
 [netfilter hooks](https://wiki.nftables.org/wiki-nftables/index.php/Netfilter_hooks).
+
+## Retained first hosted failures
+
+Exact source `2e214adad8ebe22f365d8b0f00a5b44feaf378f5`, run39189126535,
+failed before rule installation on both majors. Diagnostic source
+`9739062faf485d89fb0a89078ce37cc13b3d0682`, run39189258358, confirmed
+`NetworkSettings.Ports={}` at OWNED_PUBLISHED_PORT_BINDING on PG16 and PG18.
+Neither run proves packet denial or a successful old/new window. The topology
+is corrected to a dedicated non-internal bridge; the exact published-port
+assertion, all kernel-expression/counter checks and all failure guards remain.
+The new source requires fresh actual hosted receipts.
