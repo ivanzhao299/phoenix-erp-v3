@@ -114,7 +114,11 @@
     "scripts/ops/production-maintenance-runtime.mjs",
     "scripts/ops/production-maintenance-termination-policy.mjs",
     "scripts/ops/production-maintenance-transition.mjs",
-    "scripts/ops/production-maintenance-owner-authority.mjs"
+    "scripts/ops/production-maintenance-owner-authority.mjs",
+    "scripts/ops/maintenance-ingress-policy.mjs",
+    "scripts/ops/production-maintenance-ingress-controller.mjs",
+    "scripts/ops/production-maintenance-controller-worker.mjs",
+    "scripts/ops/production-maintenance-controller-factory.mjs"
   ],
   "executionUid": 0,
   "controlRoot": "/var/lib/phoenix-erp",

@@ -28,7 +28,7 @@ export function validateRegisteredOwnerMaintenanceGrant(grant,approval,expected,
  if(!isOwnerDelegatedMaintenanceApproval(approval,expected))throw fail('EXACT_OWNER_APPROVAL_REQUIRED');
  const fields=['schema','repository','authorityKind','authorizationOrigin','authorizationRef','authorizationDigest','delegate','context','source','dispatch','maintenanceWindowConfirmationDigest','scope','payloadSha256','evidence','registeredAt','expiresAt'];
  if(!exact(grant,fields)||grant.schema!==GRANT_SCHEMA||grant.repository!=='ivanzhao299/phoenix-erp-v3'||grant.authorityKind!=='OWNER_DELEGATED'||grant.authorizationOrigin!=='TRUSTED_INTERACTIVE_USER'
-  ||grant.authorizationRef!=='OWNER_DIRECT_AUTHORIZATION_20261018_AND_EXPEDITED_20261019'||!HASH.test(grant.authorizationDigest)
+  ||!['OWNER_DIRECT_AUTHORIZATION_20261018_AND_EXPEDITED_20261019','OWNER_EXECUTION_ORDER_V2_20261019'].includes(grant.authorizationRef)||!HASH.test(grant.authorizationDigest)
   ||canonicalDigest(grant)!==approval.ownerGrantSha256||!same(grant.context,expected.context)||!same(grant.scope,SCOPE)||grant.payloadSha256!==approval.payloadSha256
   ||!HASH.test(grant.maintenanceWindowConfirmationDigest)||!iso(grant.registeredAt)||!iso(grant.expiresAt)||grant.expiresAt!==expected.context.window.end
   ||!Number.isFinite(now)||Date.parse(grant.registeredAt)>now||now<Date.parse(expected.context.window.start)||now>=Date.parse(grant.expiresAt))throw fail('GRANT_SCOPE_TIME_OR_DIGEST');
@@ -48,7 +48,7 @@ export function validateRegisteredOwnerMaintenanceGrant(grant,approval,expected,
 /** Production defaults retain real root/trusted-path/FD9 protection. A plan or
  * candidate cannot select a filename, register a grant or clear a revocation.
  * The same run's effects re-read the exact protected registration every time. */
-export async function verifyRegisteredOwnerMaintenanceAuthority(approval,expected,dependencies={}){
+export async function readRegisteredOwnerMaintenanceGrant(approval,expected,dependencies={}){
  try{
   if(!isOwnerDelegatedMaintenanceApproval(approval,expected))return false;
   const directory=dependencies.directory||CONTRACT.stateDirectory,guard=dependencies.guard||(()=>verifyContext(CONTRACT.repository,directory));
@@ -59,6 +59,10 @@ export async function verifyRegisteredOwnerMaintenanceAuthority(approval,expecte
   const read=()=>JSON.parse(readPinnedFile(file,{contract:CONTRACT,uid},{fs:io,inspectDirectory:inspect}));
   const first=read();validateRegisteredOwnerMaintenanceGrant(first,approval,expected,now());
   guard();const second=read();if(!same(first,second)||!notRevoked())return false;
-  validateRegisteredOwnerMaintenanceGrant(second,approval,expected,now());assertSameDirectory(before,inspect(directory));guard();return true;
+  validateRegisteredOwnerMaintenanceGrant(second,approval,expected,now());assertSameDirectory(before,inspect(directory));guard();return structuredClone(second);
  }catch{return false;}
+}
+
+export async function verifyRegisteredOwnerMaintenanceAuthority(approval,expected,dependencies={}){
+ return Boolean(await readRegisteredOwnerMaintenanceGrant(approval,expected,dependencies));
 }

@@ -110,3 +110,23 @@ export function strictSshCommand(base = '', program = '') {
   // Mandatory options come first: OpenSSH uses the first value. Existing -i/-F and config identity selection stay intact.
   return `${match[1]} -oBatchMode=yes -oStrictHostKeyChecking=yes -oUpdateHostKeys=no -oControlMaster=no -oControlPath=none -oConnectTimeout=10${match[2] ? ' ' + match[2] : ''}`;
 }
+
+/** Linux fdinfo lists flock locks belonging to this actual open description.
+ * A lock held by another process on another open description is insufficient.
+ * Standalone use proves only a local lock; callers retain root/path authority. */
+export function assertWorkflowFd9Lock(file,holderPid){
+ if(process.platform!=='linux'||!Number.isSafeInteger(holderPid)||holderPid<=1)hold('WORKFLOW_FD9_HOLDER_REQUIRED');
+ const fd=`/proc/${holderPid}/fd/9`,info=`/proc/${holderPid}/fdinfo/9`,uid=process.getuid();
+ const pin=s=>[s.dev,s.ino,s.uid,s.mode,s.nlink];
+ const sample=()=>{
+  const named=fs.lstatSync(file),opened=fs.statSync(fd);assertRegularFile(named,{uid});assertRegularFile(opened,{uid});
+  if(JSON.stringify(pin(named))!==JSON.stringify(pin(opened)))hold('HOST_LOCK_REQUIRED');
+  const lines=fs.readFileSync(info,'utf8').split('\n').filter(line=>line.startsWith('lock:'));
+  if(lines.length!==1)hold('WORKFLOW_FD9_NOT_LOCK_OWNER');
+  const match=/^lock:\s+\d+:\s+FLOCK\s+ADVISORY\s+WRITE\s+[0-9]+\s+[a-f0-9]+:[a-f0-9]+:([0-9]+)\s+0\s+EOF$/.exec(lines[0]);
+  if(!match||match[1]!==String(opened.ino))hold('WORKFLOW_FD9_NOT_LOCK_OWNER');
+  return {pin:pin(named),lock:lines[0]};
+ };
+ try{if(JSON.stringify(sample())!==JSON.stringify(sample()))hold('WORKFLOW_FD9_LOCK_CHANGED');}
+ catch(error){if(error.message.startsWith('CONFIG_HOLD='))throw error;hold('WORKFLOW_FD9_LOCK_UNVERIFIED');}
+}

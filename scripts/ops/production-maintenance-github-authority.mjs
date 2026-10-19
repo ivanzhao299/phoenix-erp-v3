@@ -2,6 +2,7 @@
  * approves a deployment. Source-code Review and target production authority are
  * separate server facts. No environment-verification fallback is installed. */
 import { execFileSync } from 'node:child_process';
+import { readRegisteredOwnerMaintenanceGrant } from './production-maintenance-owner-authority.mjs';
 import { createHash } from 'node:crypto';
 import { bindingDigest, canonicalDigest, validateMaintenanceContext, HASH, SHA, iso } from './production-maintenance-receipts.mjs';
 
@@ -104,6 +105,7 @@ async function readProtectedEnvironmentEvidence(run, environmentConfig, expected
 /** Returns source/target evidence even when the environment authority producer is
  * absent. In that case outcome remains HOLD and productionAuthorized is false. */
 export async function collectMaintenanceGithubAuthority(request, dependencies = {}) {
+  if (request?.authorityMode === 'OWNER_DELEGATED') return collectOwnerAuthority(request, dependencies);
   validateRequest(request); const api = dependencies.api || githubReadOnlyApi; const now = dependencies.now || Date.now;
   const checkedAt = new Date(now()).toISOString(); const base = `/repos/${REPOSITORY}/pulls/${request.prNumber}`;
   const contextDigest = bindingDigest(request.context);
@@ -172,5 +174,57 @@ export async function collectMaintenanceGithubAuthority(request, dependencies = 
   } catch (error) {
     return { schema: 'phoenix.maintenance-github-evidence/v1', outcome: 'HOLD', productionAuthorized: false, repository: REPOSITORY,
       prNumber: request.prNumber, contextDigest, reason: /^MAINTENANCE_GITHUB_HOLD=([A-Z_]+)$/.exec(error?.message || '')?.[1] || 'API_UNAVAILABLE_OR_DENIED', checkedAt };
+  }
+}
+
+/** The owner path consumes an actual protected grant and fresh server facts.
+ * A COMMENT, environment name, input boolean or supplied proof never registers
+ * that grant. No environment reviewer is required by this authorization mode.
+ * This authorizes only the exact typed operation; it is not deployment success. */
+async function collectOwnerAuthority(request, dependencies) {
+  const api = dependencies.api || githubReadOnlyApi, now = dependencies.now || Date.now;
+  let common = { schema: 'phoenix.maintenance-github-evidence/v1', authorityMode: 'OWNER_DELEGATED', outcome: 'HOLD', productionAuthorized: false };
+  try {
+    request = structuredClone(request);
+    validateRequest(request);
+    const expected = {context:request.context,bindingDigest:bindingDigest(request.context),targetSha:request.context.targetSha,purpose:request.purpose,operation:request.operation};
+    common = {...common,repository:REPOSITORY,prNumber:request.prNumber,contextDigest:expected.bindingDigest,receiptDigest:request.receiptDigest,operation:request.operation,purpose:request.purpose};
+    const grant = await readRegisteredOwnerMaintenanceGrant(request.ownerApproval, expected, dependencies.ownerAuthorityDependencies);
+    if (!grant) fail('PROTECTED_OWNER_GRANT_REQUIRED');
+    if(request.receiptDigest !== grant.evidence.releaseArtifactDigest) fail('OWNER_RELEASE_ARTIFACT_CHANGED');
+    const source = request.ownerSource;
+    if (!source || source.repository !== REPOSITORY || source.prNumber !== request.prNumber || source.reviewId !== request.reviewId
+      || source.sourceHeadSha !== request.sourceHeadSha || source.sourceHeadSha !== grant.source.headSha || source.sourceTreeSha !== grant.source.treeSha
+      || source.expectedMainSha !== request.context.targetSha || source.delegateUserId !== grant.delegate.githubUserId || source.delegateLogin !== grant.delegate.githubLogin
+      || source.ownerDelegationDigest !== grant.authorizationDigest || source.sourceReviewReceiptDigest !== request.sourceReviewReceiptDigest
+      || source.pinnedReviewRecordSha256 !== grant.source.reviewRecordDigest || source.prNumber !== grant.source.prNumber || source.reviewId !== grant.source.reviewId
+      || request.pinnedReviewRecordSha256 !== grant.source.reviewRecordDigest) fail('OWNER_SOURCE_GRANT_BINDING');
+    const {collectOwnerDelegatedSourceProvenance,ownerSourceBindingDigest} = await import('./production-maintenance-owner-source-provenance.mjs');
+    const provenance = await collectOwnerDelegatedSourceProvenance(source,{api,now});
+    if(provenance.outcome !== 'SERVER_SOURCE_FACTS_VERIFIED' || provenance.rawReviewRecordSha256 !== grant.source.reviewRecordDigest) fail('OWNER_SOURCE_COMMENT_CHANGED');
+    if(ownerSourceBindingDigest(provenance) !== grant.source.sourceProvenanceDigest) fail('OWNER_SOURCE_PROVENANCE_CHANGED');
+    const root = `/repos/${REPOSITORY}`, pull = `${root}/pulls/${request.prNumber}`;
+    const readRun = async () => {
+      const run = await api(`${root}/actions/runs/${grant.dispatch.runId}`);
+      if (run.id !== grant.dispatch.runId || run.run_attempt !== grant.dispatch.attempt || run.actor?.id !== grant.dispatch.actorId
+        || run.actor?.login !== grant.delegate.githubLogin || run.triggering_actor?.id !== grant.dispatch.actorId
+        || run.head_sha !== request.context.targetSha || run.repository?.full_name !== REPOSITORY || run.event !== 'workflow_dispatch'
+        || run.head_branch !== 'main' || run.path !== '.github/workflows/deploy.yml' || run.status !== 'in_progress') fail('OWNER_DISPATCH_CHANGED');
+      return run;
+    };
+    const pr = await api(pull), run = await readRun();
+    if(pr?.merged !== true || pr.state !== 'closed' || pr.head?.sha !== grant.source.headSha || pr.merge_commit_sha !== request.context.targetSha) fail('OWNER_TARGET_NOT_EXACT_MERGE');
+    const compare = await api(`${root}/compare/${grant.source.headSha}...${request.context.targetSha}`);
+    if(compare.base_commit?.sha !== grant.source.headSha || compare.merge_base_commit?.sha !== grant.source.headSha || !['ahead','identical'].includes(compare.status)) fail('OWNER_SOURCE_NOT_IN_TARGET');
+    const final = await collectOwnerDelegatedSourceProvenance(source,{api,now});
+    if(final.outcome !== 'SERVER_SOURCE_FACTS_VERIFIED' || final.serverSnapshotSha256 !== provenance.serverSnapshotSha256
+      || canonicalDigest(await api(pull)) !== canonicalDigest(pr) || canonicalDigest(await readRun()) !== canonicalDigest(run)
+      || !(await readRegisteredOwnerMaintenanceGrant(request.ownerApproval,expected,dependencies.ownerAuthorityDependencies))) fail('OWNER_AUTHORITY_CHANGED_DURING_CAPTURE');
+    return {...common,outcome:'AUTHORIZED',productionAuthorized:true,authorityKind:'OWNER_DELEGATED',decision:'AUTHORIZED',
+      sourceReview:provenance,targetBinding:{result:'VERIFIED',targetMainSha:request.context.targetSha,mergeCommitSha:pr.merge_commit_sha},
+      environment:{result:'NOT_REQUIRED_BY_OWNER_AUTHORIZATION',requiredReviewersUsed:false},
+      ownerGrantSha256:request.ownerApproval.ownerGrantSha256,dispatchRecordSha256:canonicalDigest(run),checkedThrough:new Date(now()).toISOString()};
+  } catch (error) {
+    return {...common,reason:/^MAINTENANCE_GITHUB_HOLD=([A-Z_]+)$/.exec(error?.message || '')?.[1] || 'OWNER_AUTHORITY_UNVERIFIED'};
   }
 }
