@@ -44,7 +44,11 @@ export async function runOwnedKernelIngress() {
     try{fs.writeFileSync(fd,bytes);fs.fsyncSync(fd);}finally{fs.closeSync(fd);}
     const pin=()=>{const st=fs.lstatSync(programFile);assert.ok(st.isFile()&&!st.isSymbolicLink());assert.equal(st.uid,0);assert.equal(st.nlink,1);assert.equal(st.mode&0o777,0o600);assert.equal(hash(fs.readFileSync(programFile)),hash(bytes));return {dev:st.dev,ino:st.ino,size:st.size,mtimeMs:st.mtimeMs,ctimeMs:st.ctimeMs};};
     const before=pin();(receipt.nftPrograms??=[]).push({relative,sha256:hash(bytes),pin:before});save();
-    try{return run('/usr/sbin/nft',[...args.slice(0,-1),programFile]);}finally{assert.deepEqual(pin(),before);}
+    let result,commandError,verificationError;
+    try{result=run('/usr/sbin/nft',[...args.slice(0,-1),programFile]);}catch(error){commandError=error;}
+    try{assert.deepEqual(pin(),before);remaining();}catch(error){verificationError=error;receipt.nftProgramVerification={relative,outcome:'HOLD',commandAlsoFailed:Boolean(commandError)};save();}
+    if(commandError||verificationError)throw new AggregateError([commandError,verificationError].filter(Boolean),'KERNEL_FIXTURE_PROGRAM_OR_COMMAND_FAILURE');
+    return result;
   };
   const labels=['--label',`phoenix.test.owner=${owner}`,'--label','phoenix.test.kind=kernel-ingress'];
   const intent=(operation,details)=>{const value={operation,details,sequence:receipt.intents.length+1,outcome:'INTENT'};receipt.intents.push(value);save();return value;};
