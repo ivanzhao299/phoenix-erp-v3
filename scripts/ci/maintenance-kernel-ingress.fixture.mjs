@@ -64,7 +64,11 @@ export async function runOwnedKernelIngress() {
   const targetIp=id=>{const row=JSON.parse(docker(['inspect',id,'--format','{{json .NetworkSettings.Networks}}']));assert.deepEqual(Object.keys(row),[networkName]);const ip=row[networkName].IPAddress;assert.ok(IPv4(ip));assert.ok(!row[networkName].GlobalIPv6Address);return ip;};
   let networkName,networkId,scope,compiled,baseline;
   const checkpoint=(name,observed)=>{receipt.checkpoint={name,...(observed?{observed}: {})};save();};
-  const kernel=()=>['inet','bridge'].map(family=>projectOwnedIngressTable(JSON.parse(nft(['--json','--handle','list','table',family,compiled.table])),family,{...scope,owner:compiled.table.slice('phoenix_fixture_'.length)}));
+  const kernel=()=>['inet','bridge'].map(family=>{
+    const raw=nft(['--json','--handle','list','table',family,compiled.table]);assert.ok(Buffer.byteLength(raw)<=32768);
+    const observed=JSON.parse(raw);(receipt.ownedKernelObservations??={})[family]=observed;save();
+    return projectOwnedIngressTable(observed,family,{...scope,owner:compiled.table.slice('phoenix_fixture_'.length)});
+  });
   const identity=()=>{assert.equal(fs.readlinkSync('/proc/self/ns/net'),hostNetworkNamespace);const nowInterface=JSON.parse(run('/usr/sbin/ip',['-json','-details','link','show','dev',scope.bridge]));assert.equal(nowInterface.length,1);assert.equal(nowInterface[0].ifindex,receipt.network.interfaceIndex);assert.equal(nowInterface[0].linkinfo.info_kind,'bridge');const tables=kernel();assert.deepEqual(ingressIdentity(tables),baseline);return tables;};
   const remove=()=>{identity();const q=intent('REMOVE_EXACT_OWNED_RULE_TABLES',{table:compiled.table});nft(['--file','-'],`delete table bridge ${compiled.table}\ndelete table inet ${compiled.table}\n`);q.outcome='REMOVED';save();};
   try {
