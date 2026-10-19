@@ -153,6 +153,8 @@ jobs:
         run: >-
           node --test scripts/ops/production-maintenance-*.test.mjs
           scripts/ci/maintenance-erp-candidate.test.mjs
+          scripts/ci/maintenance-api-dependency-lock.test.mjs
+          scripts/ci/maintenance-archived-source.test.mjs
           scripts/ci/maintenance-erp-root-binding.test.mjs
           scripts/ci/maintenance-legacy-erp.test.mjs
           scripts/ci/maintenance-native-candidate-host.test.mjs

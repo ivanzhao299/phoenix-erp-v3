@@ -11,6 +11,8 @@ import { API_READINESS_PROGRAM } from '../ops/production-maintenance-candidate-h
 import { exerciseActualErpPhaseCorrelation } from './maintenance-erp-phase-correlation.fixture.mjs';
 import { selectOwnedComposeSubnet } from './owned-compose-ipam.mjs';
 import { CONTRACT, secureJson, verifyContext } from '../ops/production-config-guard.mjs';
+import {verifyArchivedApiDependencyLock} from './maintenance-api-dependency-lock.fixture.mjs';
+import {assertUnreplacedArchiveStore,readUnreplacedGit,verifyExtractedGitTree} from './maintenance-archived-source.fixture.mjs';
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const KIND = 'maintenance-erp-candidate';
@@ -26,7 +28,7 @@ const hold = code => { throw new Error(`ERP_CANDIDATE_FIXTURE_HOLD=${code}`); };
 const safeEnv = () => ({ PATH: process.env.PATH, DOCKER_HOST: 'unix:///var/run/docker.sock' });
 const run = (command, args, options = {}) => execFileSync(command, args, { encoding: 'utf8', env: safeEnv(),
   timeout: 30000, maxBuffer: 8 * 1024 * 1024, stdio: ['pipe', 'pipe', 'pipe'], ...options }).trim();
-const git = args => run('git', ['-c', 'core.hooksPath=/dev/null', ...args], { cwd: REPO });
+const git = args => readUnreplacedGit(REPO,args).trim();
 const quote = value => '"' + value.replaceAll('"', '""') + '"';
 const literal = value => "'" + value.replaceAll("'", "''") + "'";
 
@@ -144,9 +146,22 @@ export class OwnedErpCandidateCapsule {
     if (!this.resources.some(r => r.id === id)) this.resources.push({ id, role, type }); this.record(); return id;
   }
   labels() { return ['--label', `phoenix.test.owner=${this.owner}`, '--label', `phoenix.test.kind=${KIND}`]; }
-  async build() {
-    this.sourceSha = git(['rev-parse', 'HEAD']); assert.match(this.sourceSha, /^[a-f0-9]{40}$/);
-    run('git', ['diff', '--quiet', 'HEAD', '--', 'apps/api/src', 'apps/api/tsconfig.json', 'apps/api/tsconfig.build.json', 'apps/api/package.json'], { cwd: REPO });
+  async build({sourceRevision}={}) {
+    assertUnreplacedArchiveStore(REPO);
+    const instrumentationSha=git(['rev-parse','HEAD']);
+    this.sourceSha = sourceRevision??instrumentationSha; assert.match(this.sourceSha, /^[a-f0-9]{40}$/);
+    if(this.sourceSha!==instrumentationSha){
+      // The only historical executable in this release exercise is the actual
+      // approved legacy baseline. Never relabel current code as the old API.
+      assert.equal(this.sourceSha,'226878864f184d26f41a890e666ebed52547db14');
+      git(['merge-base','--is-ancestor',this.sourceSha,instrumentationSha]);
+      this.archivedDependencyLock=verifyArchivedApiDependencyLock({
+        previousLock:git(['show',`${this.sourceSha}:pnpm-lock.yaml`]),currentLock:git(['show',`${instrumentationSha}:pnpm-lock.yaml`]),
+        previousManifest:git(['show',`${this.sourceSha}:apps/api/package.json`]),currentManifest:git(['show',`${instrumentationSha}:apps/api/package.json`])});
+    }
+    git(['diff','--quiet','HEAD','--','apps/api/src','apps/api/tsconfig.json','apps/api/tsconfig.build.json','apps/api/package.json','pnpm-lock.yaml']);
+    for(const file of ['pnpm-lock.yaml','apps/api/package.json'])
+      assert.ok(fs.readFileSync(path.join(REPO,file)).equals(readUnreplacedGit(REPO,['show',`${instrumentationSha}:${file}`],{binary:true})),'BUILD_PHYSICAL_MANIFEST_OR_LOCK_DRIFT');
     const context = path.join(this.root, 'image-context'); fs.mkdirSync(context, { mode: 0o700 });
     const source = path.join(context, 'tracked-source'); fs.mkdirSync(source, { mode: 0o700 });
     const selected = ['apps/api/src', 'apps/api/tsconfig.json', 'apps/api/tsconfig.build.json', 'apps/api/package.json'];
@@ -154,12 +169,14 @@ export class OwnedErpCandidateCapsule {
     if (tree.split('\n').some(line => /^120000\s/.test(line) || /\t.*(?:\/\.env(?:\.|$)|\.(?:pem|key|p12|pfx)$)/i.test(line))) hold('ARCHIVE_SOURCE_NOT_APPROVED');
     this.sourceTreeHash = hash(tree);
     this.fixtureScriptSha256 = hash(fs.readFileSync(fileURLToPath(import.meta.url)));
-    const archive = execFileSync('git', ['archive', this.sourceSha, ...selected], { cwd: REPO, env: safeEnv(), maxBuffer: 32 * 1024 * 1024 });
+    const archive = readUnreplacedGit(REPO,['archive','--format=tar',this.sourceSha,...selected],{binary:true});
     run('tar', ['-x', '-C', source], { input: archive });
+    const archiveIdentity=verifyExtractedGitTree(REPO,this.sourceSha,selected,source);
     const api = path.join(source, 'apps/api'); fs.symlinkSync(fs.realpathSync(path.join(REPO, 'apps/api/node_modules')), path.join(api, 'node_modules'));
     const compiler = path.join(REPO, 'apps/api/node_modules/typescript/bin/tsc');
     run(ROOT_NODE, [compiler, '-p', path.join(api, 'tsconfig.build.json'), '--outDir', path.join(context, 'dist'), '--rootDir', path.join(api, 'src'), '--incremental', 'false'], { timeout: 120000 });
     fs.unlinkSync(path.join(api, 'node_modules'));
+    assert.deepEqual(verifyExtractedGitTree(REPO,this.sourceSha,selected,source),archiveIdentity);
     const dependencies = copyProductionDependencies(path.join(REPO, 'apps/api'), path.join(context, 'node_modules'));
     // Use the exact archived source and its tracked mode. A private root-owned
     // checkout can legitimately materialize package.json0600 under umask077;
@@ -168,7 +185,7 @@ export class OwnedErpCandidateCapsule {
     fs.writeFileSync(path.join(context, 'fixture-preload.cjs'), networkPreload(this.owner));
     fs.writeFileSync(path.join(context, '.dockerignore'), '*\n!dist\n!dist/**\n!node_modules\n!node_modules/**\n!package.json\n!fixture-preload.cjs\n');
     fs.writeFileSync(path.join(this.root, 'capsule-build.json'), JSON.stringify({ sourceSha: this.sourceSha, sourceTreeHash: this.sourceTreeHash,
-      fixtureScriptSha256: this.fixtureScriptSha256, pnpmLockSha256: hash(fs.readFileSync(path.join(REPO, 'pnpm-lock.yaml'))),
+      fixtureScriptSha256: this.fixtureScriptSha256,instrumentationSha,archiveIdentity,archivedDependencyLock:this.archivedDependencyLock??null, pnpmLockSha256: hash(fs.readFileSync(path.join(REPO, 'pnpm-lock.yaml'))),
       dependencies, excluded: ['.env', 'keys', 'private directories', 'tests', 'full repository mount'], nodeBaseline: 20 }, null, 2));
     const base = this.docker(['image', 'inspect', 'node:20-bookworm-slim', '--format', '{{.Id}}']);
     const tag = `phoenix-${this.owner}:candidate`;
@@ -179,6 +196,7 @@ export class OwnedErpCandidateCapsule {
     assert.equal(fields[0]['org.opencontainers.image.revision'], this.sourceSha);
     const baseLayers = JSON.parse(this.docker(['image', 'inspect', base, '--format', '{{json .RootFS.Layers}}']));
     assert.deepEqual(fields[1].slice(0, baseLayers.length), baseLayers); this.record({ sourceTreeHash: this.sourceTreeHash, nodeBaseImageId: base });
+    assert.equal(git(['rev-parse','HEAD']),instrumentationSha,'BUILD_INSTRUMENTATION_HEAD_CHANGED');
     return this;
   }
   helper(source, script, input = '') {
