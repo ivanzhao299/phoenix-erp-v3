@@ -149,50 +149,56 @@ export class MaintenanceReceiptStore {
   }
   // One call-local read transaction under the existing continuously held lock.
   // No guard token/cache is exposed. Independent read()/readReceipt() stay fresh.
-  #readStateSnapshot(options, owned = false) {
-    const check = this.#snapshotBudget(options); check(); this.guard(); check();
+  #readStateSnapshot(options, owned = false, projection = null, parentBudget = null) {
+    const localBudget = this.#snapshotBudget(options);
+    const check = () => { if (parentBudget) parentBudget(); localBudget(); };
+    const readIO = action => { check(); const value = action(); check(); return value; };
+    check(); this.guard(); check();
     const directory = this.inspect(this.directory); check();
-    if (path.resolve(this.directory) !== this.directory || fs.realpathSync(this.directory) !== this.directory) hold('RECEIPT_SNAPSHOT_DIRECTORY');
-    const directoryFd = fs.openSync(this.directory, fs.constants.O_RDONLY | fs.constants.O_DIRECTORY | fs.constants.O_NOFOLLOW);
+    if (path.resolve(this.directory) !== this.directory || readIO(() => fs.realpathSync(this.directory)) !== this.directory) hold('RECEIPT_SNAPSHOT_DIRECTORY');
+    check(); const directoryFd = fs.openSync(this.directory, fs.constants.O_RDONLY | fs.constants.O_DIRECTORY | fs.constants.O_NOFOLLOW);
     const pin = stat => ['dev','ino','uid','mode','nlink','size','mtimeNs','ctimeNs'].map(key => String(stat[key]));
     const directoryPin = stat => ['dev','ino','uid','mode','mtimeNs','ctimeNs'].map(key => String(stat[key]));
     const checkDirectory = stat => { if (!stat.isDirectory() || stat.isSymbolicLink() || stat.uid !== BigInt(this.uid) || (stat.mode & 0o7777n) !== 0o700n) hold('RECEIPT_SNAPSHOT_DIRECTORY'); };
     const checkFile = stat => { if (!stat.isFile() || stat.isSymbolicLink() || stat.uid !== BigInt(this.uid) || (stat.mode & 0o7777n) !== 0o600n || stat.nlink !== 1n || stat.size > 1048576n) hold('UNTRUSTED_RECEIPT_FILE'); };
-    const entries = new Map();
+    const entries = new Map(), absentFiles = new Set(), values = new Map();
     // Linux production uses the pinned directory FD, not re-resolved ancestors.
     // Non-Linux unit fixtures retain named-directory pre/post identity checks;
     // the real production FD9 guard already requires Linux /proc.
     const anchored = file => { if (path.dirname(file) !== this.directory) hold('RECEIPT_SNAPSHOT_PATH');
       return process.platform === 'linux' ? `/proc/self/fd/${directoryFd}/${path.basename(file)}` : file; };
     try {
-      const openedDirectory = fs.fstatSync(directoryFd, { bigint: true }); checkDirectory(openedDirectory);
-      const namedDirectory = fs.lstatSync(this.directory, { bigint: true }); checkDirectory(namedDirectory);
+      check(); // The directory FD is already covered by finally if this expires.
+      const openedDirectory = readIO(() => fs.fstatSync(directoryFd, { bigint: true })); checkDirectory(openedDirectory);
+      const namedDirectory = readIO(() => fs.lstatSync(this.directory, { bigint: true })); checkDirectory(namedDirectory);
       if (!same(directoryPin(openedDirectory), directoryPin(namedDirectory))) hold('RECEIPT_SNAPSHOT_DIRECTORY_CHANGED');
       const initialDirectoryPin = directoryPin(openedDirectory);
       const readPinned = file => {
-        check(); const name = anchored(file), named = fs.lstatSync(name, { bigint: true }); checkFile(named);
+        check(); if (projection && values.has(file)) { const cached = structuredClone(values.get(file)); check(); return cached; }
+        const name = anchored(file), named = readIO(() => fs.lstatSync(name, { bigint: true })); checkFile(named);
         // A regular file may be replaced by a FIFO after lstat. Never block
         // waiting for its writer; fstat below still rejects every non-file.
-        const fd = fs.openSync(name, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK);
+        check(); const fd = fs.openSync(name, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK);
         try {
-          const opened = fs.fstatSync(fd, { bigint: true }); checkFile(opened);
+          check(); // Do not throw after open until the original FD has a finally.
+          const opened = readIO(() => fs.fstatSync(fd, { bigint: true })); checkFile(opened);
           if (!same(pin(named), pin(opened))) hold('RECEIPT_CHANGED');
           // Bounded even if a concurrent writer grows the file after lstat.
           const buffer = Buffer.alloc(Number(opened.size) + 1); let used = 0;
-          while (used < buffer.length) { check(); const size = fs.readSync(fd, buffer, used, buffer.length - used, used); check();
+          while (used < buffer.length) { const size = readIO(() => fs.readSync(fd, buffer, used, buffer.length - used, used));
             if (size === 0) break; used += size; if (used > Number(opened.size)) hold('RECEIPT_CHANGED'); }
           if (used !== Number(opened.size)) hold('RECEIPT_CHANGED');
-          const after = fs.fstatSync(fd, { bigint: true }), current = fs.lstatSync(name, { bigint: true }); checkFile(after); checkFile(current);
+          const after = readIO(() => fs.fstatSync(fd, { bigint: true })), current = readIO(() => fs.lstatSync(name, { bigint: true })); checkFile(after); checkFile(current);
           if (!same(pin(opened), pin(after)) || !same(pin(after), pin(current))) hold('RECEIPT_CHANGED');
-          const value = JSON.parse(buffer.subarray(0, used).toString('utf8')); entries.set(file, pin(current)); check(); return value;
+          const value = JSON.parse(buffer.subarray(0, used).toString('utf8')); entries.set(file, pin(current)); values.set(file, value); check(); return value;
         } finally { fs.closeSync(fd); }
       };
       if (owned) {
-        if (fs.lstatSync(anchored(this.currentFile), { bigint: true, throwIfNoEntry: false }) === undefined) hold('MAINTENANCE_OWNER_REQUIRED');
+        if (readIO(() => fs.lstatSync(anchored(this.currentFile), { bigint: true, throwIfNoEntry: false })) === undefined) hold('MAINTENANCE_OWNER_REQUIRED');
         const current = readPinned(this.currentFile);
         if (current.schema !== 'phoenix.maintenance-owner/v1' || current.owner !== this.context.owner || current.contextDigest !== this.digest) hold('ANOTHER_MAINTENANCE_OWNER_ACTIVE');
       }
-      const absent = fs.lstatSync(anchored(this.stateFile), { bigint: true, throwIfNoEntry: false }) === undefined;
+      const absent = readIO(() => fs.lstatSync(anchored(this.stateFile), { bigint: true, throwIfNoEntry: false })) === undefined;
       let record = null; const receipts = new Map();
       if (!absent) {
         record = readPinned(this.stateFile); const { stateDigest, ...content } = record;
@@ -206,18 +212,28 @@ export class MaintenanceReceiptStore {
           previousDigest = receipt.digest; receipts.set(`${reference.sequence}:${reference.digest}`, receipt);
         }
       }
+      const existsPinned = file => {
+        check(); const present = readIO(() => fs.lstatSync(anchored(file), { bigint: true, throwIfNoEntry: false })) !== undefined;
+        if (present) readPinned(file); else absentFiles.add(file);
+        check(); return present;
+      };
+      // Only private, fixed-schema projections may consume this transaction.
+      // No FD, reader, guard token or cache survives this synchronous call.
+      const projected = projection ? projection({ state: record, receipts }, { read: readPinned, exists: existsPinned, check }) : null;
+      if (projected && typeof projected.then === 'function') hold('RECEIPT_SNAPSHOT_ASYNC_PROJECTION');
       const sweep = () => {
         check();
-        for (const [file, expected] of entries) { const current = fs.lstatSync(anchored(file), { bigint: true }); checkFile(current);
+        for (const file of absentFiles) if (readIO(() => fs.lstatSync(anchored(file), { bigint: true, throwIfNoEntry: false })) !== undefined) hold('RECEIPT_CHANGED');
+        for (const [file, expected] of entries) { const current = readIO(() => fs.lstatSync(anchored(file), { bigint: true })); checkFile(current);
           if (!same(pin(current), expected)) hold('RECEIPT_CHANGED'); check(); }
-        if (absent && fs.lstatSync(anchored(this.stateFile), { bigint: true, throwIfNoEntry: false }) !== undefined) hold('STATE_CONTEXT_CHANGED');
-        const currentFd = fs.fstatSync(directoryFd, { bigint: true }), currentName = fs.lstatSync(this.directory, { bigint: true });
+        if (absent && readIO(() => fs.lstatSync(anchored(this.stateFile), { bigint: true, throwIfNoEntry: false })) !== undefined) hold('STATE_CONTEXT_CHANGED');
+        const currentFd = readIO(() => fs.fstatSync(directoryFd, { bigint: true })), currentName = readIO(() => fs.lstatSync(this.directory, { bigint: true }));
         checkDirectory(currentFd); checkDirectory(currentName);
         if (!same(directoryPin(currentFd), initialDirectoryPin) || !same(directoryPin(currentName), initialDirectoryPin)) hold('RECEIPT_SNAPSHOT_DIRECTORY_CHANGED');
         check();
       };
       sweep(); check(); this.guard(); check(); assertSameDirectory(directory, this.inspect(this.directory)); check(); sweep();
-      return { state: record, receipts };
+      const result = projection ? structuredClone(projected) : { state: record, receipts }; check(); return result;
     } finally { fs.closeSync(directoryFd); }
   }
   readState(options) { return this.#readStateSnapshot(options).state; }
@@ -311,9 +327,9 @@ export class MaintenanceReceiptStore {
     if (!same(expected, actualContent) || currentDigest !== canonicalDigest(expected)) hold('INVALID_OPEN_EFFECT_PROJECTION');
     return marker;
   }
-  #candidateCommittedIntent(stateDigest, { operation, from, to, previousStateDigest, receipt }) {
+  #candidateCommittedIntent(stateDigest, { operation, from, to, previousStateDigest, receipt }, read = file => this.read(file)) {
     if (!HASH.test(stateDigest || '') || !HASH.test(previousStateDigest || '')) hold('CANDIDATE_PHASE_ANCHOR_DIGEST');
-    const marker = this.read(path.join(this.directory, `maintenance-intent-${this.context.owner}-${stateDigest}.json`));
+    const marker = read(path.join(this.directory, `maintenance-intent-${this.context.owner}-${stateDigest}.json`));
     const fields = ['schema', 'owner', 'contextDigest', 'operation', 'from', 'to', 'previousStateDigest', 'startedAt'];
     if (!same(Object.keys(marker).sort(), fields.sort()) || marker.schema !== 'phoenix.maintenance-intent/v1'
       || marker.owner !== this.context.owner || marker.contextDigest !== this.digest || marker.operation !== operation
@@ -340,10 +356,70 @@ export class MaintenanceReceiptStore {
     const snapshot = this.#readStateSnapshot({ timeoutMs: check.remaining(), signal }, true), actual = snapshot.state; check();
     if (!actual || actual.stateDigest !== expectedStateDigest || actual.schema !== 'phoenix.legacy-maintenance-state/v1'
       || actual.legacyDrainResult !== 'UNSUPPORTED' || !iso(actual.updatedAt)) hold('CANDIDATE_PHASE_ANCHOR_STATE');
-    const initialMarker = fs.existsSync(this.markerFile) ? this.read(this.markerFile) : null;
+    const derived = this.#deriveCandidateLeasePhaseView(actual, snapshot, { replacementStateDigest }, {
+      read: file => this.read(file), exists: file => fs.existsSync(file),
+      assertEffect: (op, state) => this.assertOwnedEffectState(op, state),
+      assertIntent: (op, from, digest) => this.assertOwnedIntent(op, from, digest) });
+    const initialMarker = derived.marker;
+    // A concurrent phase writer cannot splice this read across state/intent
+    // generations. Composite runtime observers must repeat this anchor after
+    // their own independent server probes as well.
+    check();
+    if (!same(this.readOwnedState({ timeoutMs: check.remaining(), signal }), actual)
+      || !same(fs.existsSync(this.markerFile) ? this.read(this.markerFile) : null, initialMarker)) hold('CANDIDATE_PHASE_ANCHOR_CHANGED');
+    const result = derived.anchor;
+    this.assertCurrent(); check();
+    const view = structuredClone({ state: actual, anchor: result }); check(); return view;
+  }
+  /** Fixed lease binding view from one owned directory-FD transaction. All
+   * phase/receipt/intent checks and both guards remain inside the same budget.
+   * Returned values confer no authority and must be read again after await. */
+  readCandidateBindingView(request = {}) {
+    if (!request || Object.getPrototypeOf(request) !== Object.prototype
+      || Object.keys(request).some(key => !['expectedStateDigest','replacementStateDigest','timeoutMs','signal'].includes(key))) hold('CANDIDATE_PHASE_ANCHOR_REQUEST');
+    const { expectedStateDigest, replacementStateDigest, timeoutMs, signal } = request;
+    const check = this.#snapshotBudget({ timeoutMs, signal }); check();
+    if (!HASH.test(expectedStateDigest || '') || !HASH.test(replacementStateDigest || '')) hold('CANDIDATE_PHASE_ANCHOR_DIGEST');
+    const view = this.#readStateSnapshot({ timeoutMs: check.remaining(), signal }, true, (snapshot, pin) => {
+      check(); const actual = snapshot.state;
+      if (!actual || actual.stateDigest !== expectedStateDigest || actual.schema !== 'phoenix.legacy-maintenance-state/v1'
+        || actual.legacyDrainResult !== 'UNSUPPORTED' || !iso(actual.updatedAt)) hold('CANDIDATE_PHASE_ANCHOR_STATE');
+      const assertIntent = (operation, from, previousStateDigest) => {
+        const marker = pin.read(this.markerFile);
+        if (marker.schema !== 'phoenix.maintenance-intent/v1' || marker.owner !== this.context.owner || marker.contextDigest !== this.digest
+          || marker.operation !== operation || marker.from !== from || marker.previousStateDigest !== previousStateDigest) hold('OPERATION_INTENT_NOT_OWNED');
+        return marker;
+      };
+      const derived = this.#deriveCandidateLeasePhaseView(actual, snapshot, { replacementStateDigest }, {
+        read: pin.read, exists: pin.exists, assertIntent,
+        assertEffect: operation => this.#snapshotOpenEffect(operation, actual, pin.read(this.markerFile), snapshot) });
+      check(); return { state: derived.state, anchor: derived.anchor, bindings: derived.bindings };
+    }, check);
+    check(); return view;
+  }
+  #snapshotOpenEffect(operation, actual, marker, snapshot) {
+    if (marker.operation !== operation || marker.schema !== 'phoenix.maintenance-intent/v1' || marker.owner !== this.context.owner || marker.contextDigest !== this.digest) hold('OPERATION_INTENT_NOT_OWNED');
+    // The ONLY intermediate private projection is final OPEN authority. Do not
+    // waive phase/hash checks merely because an operation claims to be ongoing.
+    const prior = marker.previousState; const { stateDigest: previousDigest, ...previousContent } = prior || {};
+    if (operation !== 'OPEN_CANDIDATE' || marker.from !== 'VERIFIED_FENCED' || marker.to !== 'COMPLETED_OPEN'
+      || actual.phase !== 'COMPLETED_OPEN' || actual.status !== 'OPEN_COMMIT_PENDING' || !prior || previousDigest !== marker.previousStateDigest
+      || canonicalDigest(previousContent) !== previousDigest || prior.phase !== 'VERIFIED_FENCED' || prior.status !== 'FENCED'
+      || prior.contextDigest !== this.digest || !same(prior.context, this.context) || !Array.isArray(prior.receipts)
+      || actual.receipts.length !== prior.receipts.length + 1 || !iso(marker.startedAt)) hold('INVALID_OPEN_EFFECT_PROJECTION');
+    const reference = actual.receipts.at(-1); const completion = snapshot.receipts.get(`${reference.sequence}:${reference.digest}`);
+    if (!completion || completion.kind !== 'COMPLETION' || completion.previousDigest !== (prior.receipts.at(-1)?.digest || null)
+      || completion.recordedAt !== marker.startedAt) hold('OPEN_COMPLETION_RECEIPT_REQUIRED');
+    const expected = { ...previousContent, phase: 'COMPLETED_OPEN', status: 'OPEN_COMMIT_PENDING', receipts: [...prior.receipts, reference], updatedAt: marker.startedAt };
+    const { stateDigest: currentDigest, ...actualContent } = actual;
+    if (!same(expected, actualContent) || currentDigest !== canonicalDigest(expected)) hold('INVALID_OPEN_EFFECT_PROJECTION');
+    return marker;
+  }
+  #deriveCandidateLeasePhaseView(actual, snapshot, { replacementStateDigest }, io) {
+    const initialMarker = io.exists(this.markerFile) ? io.read(this.markerFile) : null;
     let fenced = actual, openIntentDigest = null;
     if (actual.phase === 'COMPLETED_OPEN' && actual.status === 'OPEN_COMMIT_PENDING') {
-      const marker = this.assertOwnedEffectState('OPEN_CANDIDATE', actual);
+      const marker = io.assertEffect('OPEN_CANDIDATE', actual);
       fenced = marker.previousState; openIntentDigest = canonicalDigest(marker);
     } else if (!['CANDIDATE_FENCED', 'VERIFIED_FENCED'].includes(actual.phase) || actual.status !== 'FENCED') {
       hold('CANDIDATE_PHASE_ANCHOR_STATE');
@@ -368,37 +444,31 @@ export class MaintenanceReceiptStore {
       const verified = unique('VERIFIED_FENCED');
       validateMaintenanceEvidence(verified.payload, verified.kind, this.context, Date.parse(actual.updatedAt));
       if (verified.sequence !== candidate.sequence + 1 || verified.digest !== receipts.at(-1)?.digest) hold('CANDIDATE_PHASE_ANCHOR_CHAIN_ORDER');
-      const archived = this.read(path.join(this.directory, `maintenance-intent-${this.context.owner}-${fenced.stateDigest}.json`));
+      const archived = io.read(path.join(this.directory, `maintenance-intent-${this.context.owner}-${fenced.stateDigest}.json`));
       candidateStateDigest = archived.previousStateDigest;
       verifyIntentDigest = this.#candidateCommittedIntent(fenced.stateDigest, { operation: 'VERIFY_CANDIDATE', from: 'CANDIDATE_FENCED',
-        to: 'VERIFIED_FENCED', previousStateDigest: candidateStateDigest, receipt: verified });
+        to: 'VERIFIED_FENCED', previousStateDigest: candidateStateDigest, receipt: verified }, io.read);
       verifiedReceiptDigest = verified.digest;
       // VF must be a committed stable phase. OPEN pending is checked above
       // against its real private projection and original VF state.
-      if (!openIntentDigest && fs.existsSync(this.markerFile)) hold('CANDIDATE_PHASE_ANCHOR_PENDING');
+      if (!openIntentDigest && io.exists(this.markerFile)) hold('CANDIDATE_PHASE_ANCHOR_PENDING');
     } else {
       if (candidate.digest !== receipts.at(-1)?.digest || receipts.some(receipt => receipt.kind === 'VERIFIED_FENCED')) hold('CANDIDATE_PHASE_ANCHOR_CHAIN_ORDER');
-      if (fs.existsSync(this.markerFile)) {
-        const marker = this.assertOwnedIntent('VERIFY_CANDIDATE', 'CANDIDATE_FENCED', fenced.stateDigest);
+      if (io.exists(this.markerFile)) {
+        const marker = io.assertIntent('VERIFY_CANDIDATE', 'CANDIDATE_FENCED', fenced.stateDigest);
         const fields = ['schema', 'owner', 'contextDigest', 'operation', 'from', 'to', 'previousStateDigest', 'startedAt'];
         if (marker.to !== 'VERIFIED_FENCED' || !same(Object.keys(marker).sort(), fields.sort()) || !iso(marker.startedAt)
           || Date.parse(marker.startedAt) < Date.parse(fenced.updatedAt) || Date.parse(marker.startedAt) >= Date.parse(this.context.window.end)) hold('CANDIDATE_PHASE_ANCHOR_PENDING');
       }
     }
     const startIntentDigest = this.#candidateCommittedIntent(candidateStateDigest, { operation: 'START_CANDIDATE', from: 'CANDIDATE_REPLACED',
-      to: 'CANDIDATE_FENCED', previousStateDigest: replacementStateDigest, receipt: candidate });
-    // A concurrent phase writer cannot splice this read across state/intent
-    // generations. Composite runtime observers must repeat this anchor after
-    // their own independent server probes as well.
-    check();
-    if (!same(this.readOwnedState({ timeoutMs: check.remaining(), signal }), actual)
-      || !same(fs.existsSync(this.markerFile) ? this.read(this.markerFile) : null, initialMarker)) hold('CANDIDATE_PHASE_ANCHOR_CHANGED');
-    const result = { schema: 'phoenix.candidate-lease-phase-anchor/v1', contextDigest: this.digest, owner: this.context.owner,
+      to: 'CANDIDATE_FENCED', previousStateDigest: replacementStateDigest, receipt: candidate }, io.read);
+    const anchor = { schema: 'phoenix.candidate-lease-phase-anchor/v1', contextDigest: this.digest, owner: this.context.owner,
       currentStateDigest: actual.stateDigest, currentPhase: actual.phase, currentStatus: actual.status, candidateStateDigest,
       replacementStateDigest, replacementReceiptDigest: replacement.digest, candidateReceiptDigest: candidate.digest,
       verifiedReceiptDigest, startIntentDigest, verifyIntentDigest, openIntentDigest, pendingIntentDigest: initialMarker ? canonicalDigest(initialMarker) : null };
-    this.assertCurrent(); check();
-    const view = structuredClone({ state: actual, anchor: result }); check(); return view;
+    return { state: actual, anchor, marker: initialMarker,
+      bindings: { stateDigest: actual.stateDigest, replacement: replacement.payload, candidate: candidate.payload } };
   }
   finishMarker(committedState) {
     const initial = fs.lstatSync(this.markerFile); this.checkFile(initial); const marker = this.read(this.markerFile);

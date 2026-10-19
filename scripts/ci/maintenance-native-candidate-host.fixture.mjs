@@ -223,6 +223,7 @@ async function exerciseNative() {
       if(leasePhases)result.committedCollectorBudgetMs=timeoutMs;
       const request={context,expectedStateDigest:state.stateDigest,replacementEvidence:h.engine.receipt(state,'CANDIDATE_REPLACEMENT'),rootLease:root,mode,timeoutMs};
       // Intentionally no dependency injection: all collector/default I/O is real.
+      if(leasePhases)result.phaseAwareCollectorStartedAt=new Date().toISOString();
       const value=await (leasePhases?collectCandidateLeaseBinding:collectCandidateServerBinding)(request);
       assert.equal(value.result,'OBSERVATION_ONLY');assert.equal(value.registryInstalled,false);assert.equal(value.admissionOrApprovalGranted,false);
       observations.push(value);result.completedObservationCount=observations.length;return value;
@@ -269,8 +270,15 @@ async function exerciseNative() {
     };
     await h.engine.verifyCandidate();result.stage='VERIFY_COMMITTED_PHASE_ANCHOR';
     const committed=store.readState();store.readCandidateLeasePhaseAnchor({expectedStateDigest:committed.stateDigest,replacementStateDigest:root.expectedStateDigest});
-    result.committedPhaseAnchorPrecheck='PASS';result.stage='DEFAULT_PHASE_AWARE_COLLECTOR';result.phaseAwareStartedAt=new Date().toISOString();await collect('ADOPTED',true);
-    assert.equal(observations.length,3);assert.equal(children.length,1);
+    result.committedPhaseAnchorPrecheck='PASS';result.stage='DEFAULT_PHASE_AWARE_COLLECTOR';result.phaseAwareSamples=[];
+    // A prior main PG18 run failed this fixed budget. Take three independent
+    // fresh observations, on the same original root, without retries/caching.
+    for(let sample=1;sample<=3;sample++){
+      result.phaseAwareStartedAt=new Date().toISOString();const value=await collect('ADOPTED',true);
+      const durationMs=Date.parse(value.finishedAt)-Date.parse(value.startedAt);assert.ok(durationMs>=0&&durationMs<10000);
+      result.phaseAwareSamples.push({sample,budgetMs:10000,startedAt:value.startedAt,finishedAt:value.finishedAt,durationMs});
+    }
+    assert.equal(observations.length,5);assert.equal(children.length,1);
     assert.ok(observations.every(v=>v.rootBefore.observation.backends[0].pid===observations[0].rootBefore.observation.backends[0].pid));
     const beforeFiles=[];
     for(const name of fs.readdirSync(CONTRACT.stateDirectory).sort()){

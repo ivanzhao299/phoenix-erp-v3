@@ -18,7 +18,7 @@ const fail=code=>{throw Error('CANDIDATE_BINDING_HOLD='+code);};
 // Fixed non-secret categories for private diagnostics. Public rejection remains
 // generic; arbitrary exception messages, paths, stderr and causes are discarded.
 const PRIVATE_DIAGNOSTICS = new Set([
-  'ROOT_CONTROL_OPERATION_DEADLINE','ROOT_CONTROL_OPERATION_ABORTED','ROOT_CONTROL_WINDOW_EXPIRED',
+  'ROOT_CONTROL_OPERATION_DEADLINE','ROOT_CONTROL_OPERATION_ABORTED','ROOT_CONTROL_WINDOW_EXPIRED','RECEIPT_SNAPSHOT_DEADLINE',
   ...['DIGEST','STATE','TIME','UNIQUE_CHAIN','CHAIN_ORDER','PENDING','CHANGED'].map(v=>'CANDIDATE_PHASE_ANCHOR_'+v)
 ].map(v=>'MAINTENANCE_HOLD='+v));
 export function candidateBindingDiagnosticCode(error) {
@@ -159,10 +159,10 @@ async function collectCandidateBinding({context,expectedStateDigest,replacementE
     const store=dependencies.store||new MaintenanceReceiptStore(context);
     const run=(args,input)=>{check();guard();check();const raw=(dependencies.run||productionRun)(args,input,{timeoutMs:Math.min(10000,remaining())});check();
       if(typeof raw!=='string'||Buffer.byteLength(raw)>65536)fail('BOUNDED_OUTPUT');return raw;};
-    let firstAnchor=null;
+    let firstAnchor=null, selectedBindingEvidence=null;
     const state=()=>{
       check();guard();check();
-      const view=leasePhases?store.readCandidateLeaseState({expectedStateDigest,replacementStateDigest:rootLease.expectedStateDigest,timeoutMs:Math.min(10000,remaining()),signal}):null;
+      const view=leasePhases?store.readCandidateBindingView({expectedStateDigest,replacementStateDigest:rootLease.expectedStateDigest,timeoutMs:Math.min(10000,remaining()),signal}):null;
       const s=leasePhases?view.state:store.readOwnedState({timeoutMs:Math.min(10000,remaining()),signal});check();
       if(leasePhases){
         if(s?.schema!=='phoenix.legacy-maintenance-state/v1'||s.contextDigest!==bindingDigest(context)||s.stateDigest!==expectedStateDigest||!same(s.context,context)
@@ -171,9 +171,10 @@ async function collectCandidateBinding({context,expectedStateDigest,replacementE
         // Current VF/OPEN state is never disguised as an earlier CF snapshot.
         check();const anchor=view.anchor;check();
         if(s.phase==='CANDIDATE_FENCED'){
-          if(mode==='ADOPTED')store.assertOwnedIntent('VERIFY_CANDIDATE','CANDIDATE_FENCED',s.stateDigest);
+          if(mode==='ADOPTED'&&!anchor.pendingIntentDigest)fail('PRIVATE_OWNER_STATE_CHANGED');
         }else if(!['VERIFIED_FENCED','COMPLETED_OPEN'].includes(s.phase)||mode!=='ADOPTED')fail('LEASE_PHASE_PROJECTION_REQUIRED');
         if(!firstAnchor)firstAnchor=structuredClone(anchor);else if(!same(firstAnchor,anchor))fail('PHASE_ANCHOR_CHANGED');
+        selectedBindingEvidence=view.bindings;
       }else{
         if(s?.schema!=='phoenix.legacy-maintenance-state/v1'||s.contextDigest!==bindingDigest(context)||s.stateDigest!==expectedStateDigest||!same(s.context,context)
           ||s.legacyDrainResult!=='UNSUPPORTED'||s.status!==(s.phase==='CANDIDATE_REPLACED'?'HOLD_CANDIDATE_REVALIDATION_REQUIRED':'FENCED')
@@ -209,7 +210,7 @@ async function collectCandidateBinding({context,expectedStateDigest,replacementE
       return value;};
     const firstState=state(); check();
     let recorded;
-    try{recorded=store.readCandidateBindingEvidence({expectedStateDigest:firstState.stateDigest,timeoutMs:Math.min(10000,remaining()),signal});}
+    try{recorded=leasePhases?selectedBindingEvidence:store.readCandidateBindingEvidence({expectedStateDigest:firstState.stateDigest,timeoutMs:Math.min(10000,remaining()),signal});}
     catch(error){if(error?.message==='MAINTENANCE_HOLD=CANDIDATE_BINDING_RECEIPT_UNIQUE')fail('UNIQUE_FORMAL_RECEIPT_REQUIRED');throw error;}check();
     if(recorded.stateDigest!==firstState.stateDigest)fail('CURRENT_CHAIN_REPLACEMENT_REQUIRED');
     const formalReplacement=recorded.replacement;
