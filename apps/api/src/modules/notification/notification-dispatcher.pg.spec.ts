@@ -3,7 +3,7 @@
 import 'reflect-metadata';
 import * as fs from 'node:fs';import * as path from 'node:path';import * as https from 'node:https';
 import {fork,ChildProcess,execFileSync} from 'node:child_process';
-import {createECDH,randomBytes,createHash} from 'node:crypto';import {isIP} from 'node:net';
+import {createECDH,randomBytes,createHash} from 'node:crypto';
 import {DataSource,QueryRunner} from 'typeorm';import {ClsService} from 'nestjs-cls';
 import {Logger} from '@nestjs/common';import * as webpush from 'web-push';
 import {NotificationDispatcherService} from './notification-dispatcher.service';
@@ -12,12 +12,8 @@ import {BackgroundManifestReader} from '../background-control/background-manifes
 import {BackgroundLockBackend} from '../background-control/background-lock.backend';
 import {BackgroundTaskService} from '../background-control/background-task.service';
 import {BackgroundManifest} from '../background-control/background-control.types';
+import {ownedConnection,inspectOwnedPg} from '../../test-fixtures/owned-background-pg';
 const url=process.env.BACKGROUND_TEST_PG_URL;
-function ownedConnection(value:string|undefined){
- let target:URL;try{target=new URL(value||'');}catch{throw Error('OWNED_LOOPBACK_POSTGRES_REQUIRED');}
- if(!['postgres:','postgresql:'].includes(target.protocol)||target.hostname!=='127.0.0.1'||target.pathname!=='/fence_test'||target.username!=='fence_fixture'||!['56416','56418'].includes(target.port)||target.search||target.hash||target.password)throw Error('OWNED_LOOPBACK_POSTGRES_REQUIRED');
- return {type:'postgres' as const,host:'127.0.0.1',port:Number(target.port),username:'fence_fixture',database:'fence_test',ssl:false as const,synchronize:false,migrationsRun:false,installExtensions:false};
-}
 function requireOriginalSinkCompletion(input:{closeConfirmed:boolean;sinkLost:boolean;exit:{code:number|null;signal:NodeJS.Signals|null}|undefined;finalHash:string|undefined;closedHash:string|undefined}){
  if(!input.closeConfirmed||input.sinkLost||input.exit?.code!==0||input.exit?.signal!==null||!input.finalHash||input.closedHash!==input.finalHash)throw Error('ORIGINAL_TLS_SINK_COMPLETION_UNVERIFIED');
 }
@@ -56,24 +52,10 @@ describe('Notification fixture connection rejects redirection before any IO',()=
    &&events.filter(e=>e.operationId===id&&e.kind==='RESPONSE_COMMITTED'&&e.status===202).length===1
    &&rows.filter(r=>r.status==='SENT'&&r.channel==='PUSH'&&r.trigger_event.operation===id).length===1?'RECONCILED_ISOLATED_OPERATION':'HOLD';
  }
- function inspectOwnedPg(port:string){
-  const id=process.env.NOTIFICATION_TEST_PG_CONTAINER;
-  if(!/^[a-f0-9]{64}$/.test(id||''))throw Error('ORIGINAL_OWNED_PG_CONTAINER_ID_REQUIRED');
-  const template='[{{json .Id}},{{json .Image}},{{json .State.StartedAt}},{{json .State.Running}},{{json .RestartCount}},{{json (index .Config.Labels "phoenix.fixture")}},{{json .NetworkSettings.Ports}},{{json .Mounts}},{{json .Name}},{{if (index .State "Health")}}{{json .State.Health.Status}}{{else}}null{{end}}]';
-  const run=(args:string[])=>execFileSync('/usr/bin/docker',['--host','unix:///var/run/docker.sock',...args],{env:{PATH:'/usr/bin:/bin'},encoding:'utf8',stdio:['ignore','pipe','pipe'],timeout:5000,maxBuffer:32768}).trim();
-  const pin=JSON.parse(run(['inspect',id!,'--format',template]));
-  if(pin[0]!==id||!/^sha256:[a-f0-9]{64}$/.test(pin[1])||pin[3]!==true||pin[4]!==0||pin[5]!=='background-control'||(pin[9]!==null&&pin[9]!=='healthy')||pin[8].startsWith('/phoenix-v3-')
-   ||JSON.stringify(pin[6])!==JSON.stringify({'5432/tcp':[{HostIp:'127.0.0.1',HostPort:port}]})||pin[7].some((m:any)=>m.Type==='bind'))throw Error('ORIGINAL_OWNED_PG_IDENTITY_MISMATCH');
-  const metadata=run(['inspect',id!,'--format','{{range .Config.Env}}{{if eq . "POSTGRES_DB=fence_test"}}DB_MATCH {{end}}{{if eq . "POSTGRES_USER=fence_fixture"}}USER_MATCH {{end}}{{end}}']);
-  if(metadata!=='USER_MATCH DB_MATCH'&&metadata!=='DB_MATCH USER_MATCH')throw Error('OWNED_DATABASE_CONFIGURATION_MISMATCH');
-  run(['exec',id!,'pg_isready','-q','-U','fence_fixture','-d','fence_test']);
-  const serverAddress=run(['inspect',id!,'--format','{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}']);if(isIP(serverAddress)!==4)throw Error('OWNED_PG_NETWORK_IDENTITY_REQUIRED');
-  return {id:pin[0],imageId:pin[1],startedAt:pin[2],loopbackPort:port,serverAddress,actualPgIsReady:'PASS'};
- }
  let pgPin:ReturnType<typeof inspectOwnedPg>;
  beforeAll(async()=>{
   const connection=ownedConnection(url),fixturePort=String(connection.port);
-  pgPin=inspectOwnedPg(fixturePort);
+  pgPin=inspectOwnedPg(fixturePort,process.env.NOTIFICATION_TEST_PG_CONTAINER);
   if(['VAPID_PUBLIC_KEY','VAPID_PRIVATE_KEY','VAPID_SUBJECT','NODE_TLS_REJECT_UNAUTHORIZED'].some(k=>process.env[k]!==undefined))throw Error('REFUSE_AMBIENT_PUSH_OR_TLS_CONFIGURATION');
   const base=path.resolve(process.cwd(),'../../artifacts/maintenance-notification');fs.mkdirSync(base,{recursive:true,mode:0o700});
   directory=fs.mkdtempSync(path.join(base,'owned-'));fs.chmodSync(directory,0o700);
@@ -92,7 +74,7 @@ describe('Notification fixture connection rejects redirection before any IO',()=
   pgMajor=Math.floor(Number((await admin.query('SHOW server_version_num'))[0].server_version_num)/10000);expect(pgMajor).toBe(fixturePort==='56416'?16:18);
   const actual=(await admin.query('SELECT current_database() AS database, current_user AS username, host(inet_server_addr()) AS address, inet_server_port() AS port'))[0];
   expect(actual).toEqual({database:'fence_test',username:'fence_fixture',address:pgPin.serverAddress,port:5432});
-  expect(inspectOwnedPg(fixturePort)).toEqual(pgPin);
+  expect(inspectOwnedPg(fixturePort,process.env.NOTIFICATION_TEST_PG_CONTAINER)).toEqual(pgPin);
   const schema='notify_'+owner;await admin.query(`CREATE SCHEMA ${schema}`);
   db=await new DataSource({...connection,extra:{options:`-c search_path=${schema}`}}).initialize();
   await db.query(`CREATE TABLE sys_notification_rules(id int,rule_code text,rule_name text,category text,event_type text,trigger_config jsonb,recipient_strategy text,recipient_config jsonb,channels text[],template_code text,priority text,dedupe_window_sec int,status text);
