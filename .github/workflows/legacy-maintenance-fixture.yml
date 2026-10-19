@@ -14,6 +14,65 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  owned-kernel-ingress:
+    name: Owned Kernel Ingress PG${{ matrix.pg }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      matrix:
+        pg: [16, 18]
+    # Exclusive synthetic VM experiment. No production secrets/environment,
+    # SSH, deployment dispatch, floor state or production network operations.
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+      - name: Pure bounded rules and kernel projection counterexamples
+        run: node --test scripts/ci/maintenance-kernel-ingress-policy.test.mjs scripts/ci/maintenance-kernel-ingress-probes.test.mjs
+      - name: Require actual isolated kernel tools and immutable image IDs
+        run: |
+          set -euo pipefail
+          test "$RUNNER_ENVIRONMENT" = github-hosted
+          test -x /usr/sbin/nft
+          test -x /usr/sbin/ip
+          test -x /usr/bin/docker
+          docker pull node:20-alpine
+          docker pull postgres:${{ matrix.pg }}-alpine
+      - name: Actual host and peer packets across pre-existing replacement fence
+        env:
+          NATIVE_PG_MAJOR: ${{ matrix.pg }}
+        run: |
+          set -uo pipefail
+          test "$RUNNER_ENVIRONMENT" = github-hosted || exit 64
+          kernel_output="$RUNNER_TEMP/phoenix-kernel-$NATIVE_PG_MAJOR"
+          kernel_export="$GITHUB_WORKSPACE/artifacts/maintenance-kernel-ingress-$NATIVE_PG_MAJOR"
+          test ! -e "$kernel_output" || exit 65
+          mkdir -m 0700 -p "$kernel_export"
+          kernel_node="$(command -v node)"
+          set +e
+          sudo /usr/bin/env -i PATH="$(dirname "$kernel_node"):/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
+            RUNNER_ENVIRONMENT=github-hosted NATIVE_KERNEL_INGRESS=EXCLUSIVE_GITHUB_VM_ONLY \
+            NATIVE_PG_MAJOR="$NATIVE_PG_MAJOR" NATIVE_KERNEL_OUTPUT="$kernel_output" \
+            GITHUB_WORKSPACE="$GITHUB_WORKSPACE" GITHUB_SHA="$GITHUB_SHA" \
+            "$kernel_node" "$GITHUB_WORKSPACE/scripts/ci/maintenance-kernel-ingress.fixture.mjs"
+          kernel_result=$?
+          set -e
+          if sudo test -f "$kernel_output/result.json"; then
+            sudo install -m 0600 -o "$(id -u)" -g "$(id -g)" "$kernel_output/result.json" "$kernel_export/result.json" || exit 66
+          fi
+          exit "$kernel_result"
+      - name: Retain only scoped kernel experiment receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: maintenance-kernel-ingress-pg${{ matrix.pg }}
+          if-no-files-found: warn
+          retention-days: 14
+          path: artifacts/maintenance-kernel-ingress-${{ matrix.pg }}/*.json
   native-host-candidate:
     name: Native Default Candidate Collector PG${{ matrix.pg }}
     runs-on: ubuntu-latest
