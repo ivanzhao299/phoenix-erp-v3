@@ -36,6 +36,21 @@ generic mutation method from becoming an alternate STOP entry. Failed outcomes
 retain the intent; no automatic retry is provided. The policy module is now a
 floor critical file. No production floor has been updated by this source change.
 
+The complete STOP admission/effect/post-inspection has one monotonic maximum
+60-second acceptance budget, additionally limited by the original window's
+monotonic expiry. Wall and monotonic rollback/non-finite values reject. Approval
+callbacks have observed promises, AbortSignals and at most 10-second waits;
+timeout is sticky and late approval cannot revive the attempt. Remaining read
+budgets decrease. The full 35-second Docker command slot must remain before any
+target signal: the actual 30-second stop is never silently shortened. Identity,
+context, approval and persisted-intent bindings are rechecked after async review.
+Timeout does not prove an underlying readonly request or daemon command stopped;
+pending outcome remains HOLD and no target retry is allowed.
+Unsettled verifier promises remain visible through readonly `cleanupDebt()`;
+other executor STOP requests are refused while this debt exists. Late settlement
+can reduce that local debt count, but never revives the failed original attempt.
+This bookkeeping is not proof that all host/background activity is quiescent.
+
 The adapter reports `terminationObservation=NOT_COLLECTED`; physical stop is not
 proof of graceful completion or approved signal causality. Integration with the
 actual independently verified observation controller and full release factory

@@ -3,6 +3,7 @@
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
+import { performance } from 'node:perf_hooks';
 import { CONTRACT, verifyContext } from './production-config-guard.mjs';
 import { executionEnv } from './capture-production-runtime.mjs';
 import { canonicalDigest, bindingDigest, createMaintenanceEvidence, validateMaintenanceContext } from './production-maintenance-receipts.mjs';
@@ -15,6 +16,41 @@ const hold = reason => { throw new Error(`MAINTENANCE_HOLD=${reason}`); };
 // Tokens are private, single-use and minted only after durable exact-ID intent.
 // A caller cannot use the public mutation adapter as an alternate STOP entry.
 const stopPermissions = new WeakMap();
+const attemptedStops = new WeakMap();
+const activeStops = new WeakMap();
+const stopDebts = new WeakMap();
+
+/** One monotonic 60s admission/effect/inspection budget. The original window
+ * also sets a monotonic deadline, so a frozen wall clock cannot extend it.
+ * Pending readonly approval work is observed, aborted and never called closed
+ * merely because the bounded wait timed out. It cannot revive permission. */
+function boundedStopScope(context,wall,monotonic,checkBinding) {
+  const start=monotonic(),wallStart=wall();let last=start,lastWall=wallStart,failed=false;
+  if(!Number.isFinite(start)||!Number.isFinite(wallStart))hold('STOP_ADMISSION_CLOCK');
+  const deadline=start+Math.min(60000,Date.parse(context.window.end)-wallStart);
+  const controller=new AbortController(),pending=new Set();
+  const cancel=()=>{failed=true;controller.abort();};
+  const remaining=()=>{
+    try{checkBinding();}catch(error){cancel();throw error;}
+    const at=monotonic(),clock=wall();
+    if(failed||!Number.isFinite(at)||!Number.isFinite(clock)||at<last||clock<lastWall||at>=deadline
+      ||clock<Date.parse(context.window.start)||clock>=Date.parse(context.window.end)){cancel();hold('STOP_ADMISSION_DEADLINE_OR_CLOCK');}
+    last=at;lastWall=clock;const left=Math.floor(deadline-at);if(left<1){cancel();hold('STOP_ADMISSION_DEADLINE_OR_CLOCK');}return left;
+  };
+  return {remaining,signal:controller.signal,cancel,pending,
+    async wait(action){
+      const before=remaining(),ms=Math.min(10000,before);
+      const work=Promise.resolve().then(()=>{remaining();return action({signal:controller.signal,timeoutMs:ms});});pending.add(work);
+      work.then(()=>pending.delete(work),()=>pending.delete(work));
+      let timer;
+      try{const result=await Promise.race([work,new Promise((_,reject)=>{timer=setTimeout(()=>{cancel();reject(Error('MAINTENANCE_HOLD=STOP_AUTHORIZATION_TIMEOUT'));},ms);})]);
+        if(before-remaining()>=ms){cancel();hold('STOP_AUTHORIZATION_TIMEOUT');}return result;}
+      catch(error){cancel();throw error;}finally{clearTimeout(timer);}
+    },
+    read(run,args){const before=remaining(),ms=Math.min(10000,before);const value=run(args,{timeoutMs:ms});
+      if(before-remaining()>=ms){cancel();hold('STOP_READ_TIMEOUT');}return value;}
+  };
+}
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 const STATE_FIELDS = '{{json .State.Running}}\t{{if .State.Health}}{{json .State.Health.Status}}{{else}}null{{end}}\t{{json .State.Pid}}\t{{json .State.Status}}\t{{json .State.Restarting}}\t{{json .State.Dead}}\t{{json .State.ExitCode}}\t{{json .State.OOMKilled}}\t{{json .State.StartedAt}}';
 export const LEGACY_DOMAINS = ['NOTIFICATION_EXTERNAL_SEND', 'IOT_PARTIAL_COMMITS', 'CHANJET_AUTH_REQUESTS', 'DATABASE_TRANSACTIONS', 'PERSISTENT_TASKS'];
@@ -191,41 +227,50 @@ export class DockerNetworkIsolationProducer {
     this.guard = dependencies.guard || productionRuntimeGuard; this.run = dependencies.run || productionDockerCommand;
     this.enforcedAt = null; this.networks = context.networkIsolation?.networks;
     stopPermissions.set(this,new Set());
+    attemptedStops.set(this,new Set());
+    stopDebts.set(this,new Set());
+    this.monotonic=dependencies.monotonic||(()=>performance.now());
     if (!Array.isArray(this.networks) || !this.networks.length || this.networks.length > 32
       || this.networks.some(n => !ID.test(n.id) || !/^[a-zA-Z0-9_.-]{1,128}$/.test(n.name) || n.driver !== 'bridge')
       || new Set(this.networks.map(n => n.id)).size !== this.networks.length) hold('APPROVED_BRIDGE_NETWORK_INVENTORY_REQUIRED');
   }
-  async authorized(operation) {
+  async authorized(operation,scope) {
+    scope?.remaining();
     this.guard();
     this.assertWindow();
     if (operation==='STOP_LEGACY') requireLegacyTerminationApproval(this.approval,this.context);
     const now = this.now();
-    if (await this.authority?.verifyAuthority?.(this.approval, { purpose: 'FENCE_INGRESS', operation, bindingDigest: bindingDigest(this.context), targetSha: this.context.targetSha, context: this.context }) !== true
-      || await this.authority?.verifyInfrastructure?.(this.infrastructureEvidence, { context: this.context, now }) !== true) hold('INDEPENDENT_NETWORK_MAINTENANCE_AUTHORITY_REQUIRED');
+    const request={purpose:'FENCE_INGRESS',operation,bindingDigest:bindingDigest(this.context),targetSha:this.context.targetSha,context:this.context};
+    const checkAuthority=options=>this.authority?.verifyAuthority?.(this.approval,{...request,...options});
+    const checkInfrastructure=options=>this.authority?.verifyInfrastructure?.(this.infrastructureEvidence,{context:this.context,now,...options});
+    if ((scope?await scope.wait(checkAuthority):await checkAuthority({}))!==true
+      ||(scope?await scope.wait(checkInfrastructure):await checkInfrastructure({}))!==true)hold('INDEPENDENT_NETWORK_MAINTENANCE_AUTHORITY_REQUIRED');
+    scope?.remaining();
     this.guard(); this.assertWindow();
     const body = this.infrastructureEvidence?.body;
     if (body?.hostInventoryComplete !== true || body?.orchestratorsDisabled !== true || body?.unknownHostExecutors !== 0
       || body?.swarmActive !== false || body?.watchtowerPresent !== false || !Array.isArray(body?.classifiedNonExecutorIds)) hold('UNPROVEN_HOST_ORCHESTRATOR_EXCLUSION');
-    const all = this.run(['ps', '-a', '--no-trunc', '-q']).split('\n').filter(Boolean).sort();
+    const read=args=>scope?scope.read(this.run,args):this.run(args);
+    const all = read(['ps', '-a', '--no-trunc', '-q']).split('\n').filter(Boolean).sort();
     validateExecutorInventory({ hostInventoryComplete: true, unaccountedExecutors: 0, dockerExecutorIds: this.context.executors.map(p => p.id), allDockerIds: all, classifiedNonExecutorIds: body.classifiedNonExecutorIds }, this.context.executors);
     for (const id of body.classifiedNonExecutorIds) {
       // A supposedly non-executor sidecar sharing the old API's namespace can
       // still reach loopback after bridge detach. No shared-namespace exception.
-      const [networkMode, pidMode] = this.run(['inspect', id, '--format', '{{json .HostConfig.NetworkMode}}\t{{json .HostConfig.PidMode}}']).split('\t').map(JSON.parse);
+      const [networkMode, pidMode] = read(['inspect', id, '--format', '{{json .HostConfig.NetworkMode}}\t{{json .HostConfig.PidMode}}']).split('\t').map(JSON.parse);
       if ([networkMode, pidMode].some(mode => typeof mode !== 'string' || mode.startsWith('container:'))) hold('UNSUPPORTED_SHARED_NAMESPACE_SIDECAR');
     }
-    if (this.run(['info', '--format', '{{.Swarm.LocalNodeState}}']) !== 'inactive') hold('SWARM_ORCHESTRATOR_UNSUPPORTED');
+    if (read(['info', '--format', '{{.Swarm.LocalNodeState}}']) !== 'inactive') hold('SWARM_ORCHESTRATOR_UNSUPPORTED');
     for (const network of this.networks) {
-      const [id, name, driver, scope] = this.run(['network', 'inspect', network.id, '--format', '{{json .Id}}\t{{json .Name}}\t{{json .Driver}}\t{{json .Scope}}']).split('\t').map(JSON.parse);
-      if (id !== network.id || name !== network.name || driver !== 'bridge' || scope !== 'local') hold('APPROVED_BRIDGE_NETWORK_CHANGED');
+      const [id, name, driver, networkScope] = read(['network', 'inspect', network.id, '--format', '{{json .Id}}\t{{json .Name}}\t{{json .Driver}}\t{{json .Scope}}']).split('\t').map(JSON.parse);
+      if (id !== network.id || name !== network.name || driver !== 'bridge' || networkScope !== 'local') hold('APPROVED_BRIDGE_NETWORK_CHANGED');
     }
     this.assertWindow();
   }
   assertWindow(budgetMs = 0) {
     const now = this.now();
-    if (now < Date.parse(this.context.window.start) || now + budgetMs >= Date.parse(this.context.window.end)) hold('MAINTENANCE_WINDOW_CLOSED');
+    if (!Number.isFinite(now)||now < Date.parse(this.context.window.start) || now + budgetMs >= Date.parse(this.context.window.end)) hold('MAINTENANCE_WINDOW_CLOSED');
   }
-  async mutate(operation, args, budgetMs, stopPermission) {
+  async mutate(operation, args, budgetMs, stopPermission,scope) {
     const executor = id => this.context.executors.some(p => p.id === id);
     const approved = (operation === 'DISABLE_RESTART_POLICY' && args.length === 3 && args[0] === 'update' && args[1] === '--restart=no' && executor(args[2]) && budgetMs === 10000)
       || (operation === 'DISCONNECT_LEGACY_NETWORKS' && args.length === 4 && args[0] === 'network' && args[1] === 'disconnect' && this.networks.some(n => n.id === args[2]) && executor(args[3]) && budgetMs === 10000)
@@ -238,26 +283,29 @@ export class DockerNetworkIsolationProducer {
       if(!permissions.has(stopPermission)||stopPermission.id!==args[5])hold('STOP_TYPED_INTENT_REQUIRED');
       permissions.delete(stopPermission);
     }
-    await this.authorized(operation);
+    await this.authorized(operation,scope);
     if(operation==='STOP_LEGACY'){
-      const actual=this.inspect(args[5]);
+      const actual=this.inspect(args[5],scope);
       if(actual.attached.length||actual.restartPolicy!=='no')hold('NETWORK_ISOLATION_LOST');
       if(!actual.running||actual.pid<=0||actual.status!=='running'||actual.restarting||actual.dead||actual.oomKilled)hold('LEGACY_NOT_RUNNING_BEFORE_STOP');
       const {policySha256}=requireLegacyTerminationApproval(this.approval,this.context);
       if(stopPermission.contextDigest!==bindingDigest(this.context)||stopPermission.policySha256!==policySha256
         ||stopPermission.approvalDigest!==canonicalDigest(this.approval)||stopPermission.commandSha256!==canonicalDigest(args)
         ||stopPermission.store!==this.store)hold('STOP_AUTHORIZATION_BINDING_CHANGED');
-      let persisted;try{persisted=this.store.read(stopPermission.intentFile);}catch{hold('STOP_INTENT_CHANGED');}
+      scope?.remaining();let persisted;try{persisted=this.store.read(stopPermission.intentFile);}catch{hold('STOP_INTENT_CHANGED');}scope?.remaining();
       if(canonicalDigest(persisted)!==stopPermission.intentDigest)hold('STOP_INTENT_CHANGED');
     }
     this.guard(); this.assertWindow(budgetMs);
+    if(operation==='STOP_LEGACY'&&(!scope||scope.remaining()<35000))hold('STOP_FULL_COMMAND_BUDGET_UNAVAILABLE');
+    const beforeCommand=scope?.remaining();
     const result = this.run(args, { timeoutMs: budgetMs });
+    if(scope&&beforeCommand-scope.remaining()>=budgetMs)hold('STOP_COMMAND_ACCEPTANCE_TIMEOUT');
     this.assertWindow(); return result;
   }
-  inspect(id) {
+  inspect(id,scope) {
     if (!this.context.executors.some(p => p.id === id)) hold('UNAPPROVED_EXECUTOR');
     const [actualId, imageId, restartCount, running, health, pid, status, restarting, dead, exitCode, oomKilled, startedAt,
-      networkMode, restartPolicy, privileged, pidMode, mounts, networks, swarmServiceId, capAdd, devices, deviceRequests, ipcMode, utsMode] = this.run(['inspect', id, '--format', ISOLATION_INSPECT]).split('\t').map(JSON.parse);
+      networkMode, restartPolicy, privileged, pidMode, mounts, networks, swarmServiceId, capAdd, devices, deviceRequests, ipcMode, utsMode] = (scope?scope.read(this.run,['inspect',id,'--format',ISOLATION_INSPECT]):this.run(['inspect',id,'--format',ISOLATION_INSPECT])).split('\t').map(JSON.parse);
     const expected = this.context.executors.find(p => p.id === id);
     if (actualId !== id || imageId !== expected.imageId || startedAt !== expected.startedAt || restartCount !== expected.restartCount
       || privileged !== false || !['', 'private'].includes(pidMode) || typeof networkMode !== 'string' || ['host', 'none'].includes(networkMode) || networkMode.startsWith('container:')
@@ -298,11 +346,11 @@ export class DockerNetworkIsolationProducer {
     this.enforcedAt = new Date(this.now()).toISOString();
     return this.observeIngress();
   }
-  async observeIngress() {
-    await this.authorized('OBSERVE_NETWORK_ISOLATION');
+  async observeIngress(scope) {
+    await this.authorized('OBSERVE_NETWORK_ISOLATION',scope);
     if (!this.enforcedAt) hold('NETWORK_ISOLATION_NOT_ESTABLISHED');
     for (const p of this.context.executors) {
-      const actual = this.inspect(p.id);
+      const actual = this.inspect(p.id,scope);
       if (actual.attached.length !== 0 || actual.restartPolicy !== 'no' || actual.restarting) hold('NETWORK_ISOLATION_LOST');
     }
     const capturedAt = new Date(this.now()).toISOString();
@@ -315,8 +363,16 @@ export class DockerNetworkIsolationProducer {
     }, { capturedAt });
   }
   async stop(id) {
-    await this.observeIngress(); await this.authorized('STOP_LEGACY');
-    const actual = this.inspect(id);
+    if(this.cleanupDebt().pendingAuthorityPromises>0)hold('STOP_PENDING_AUTHORITY_DEBT');
+    if(attemptedStops.get(this).has(id)||activeStops.has(this))hold('STOP_ATTEMPT_REUSED_OR_ACTIVE');
+    attemptedStops.get(this).add(id);
+    const entryContext=bindingDigest(this.context),entryApproval=canonicalDigest(this.approval);
+    const scope=boundedStopScope(this.context,this.now,this.monotonic,()=>{
+      if(bindingDigest(this.context)!==entryContext||canonicalDigest(this.approval)!==entryApproval)hold('STOP_ADMISSION_BINDING_CHANGED');
+    });activeStops.set(this,scope);
+    try{
+    await this.observeIngress(scope); await this.authorized('STOP_LEGACY',scope);
+    const actual = this.inspect(id,scope);
     if (actual.attached.length || actual.restartPolicy !== 'no') hold('NETWORK_ISOLATION_LOST');
     if(!actual.running||actual.pid<=0||actual.status!=='running'||actual.restarting||actual.dead||actual.oomKilled)hold('LEGACY_NOT_RUNNING_BEFORE_STOP');
     const {policySha256}=requireLegacyTerminationApproval(this.approval,this.context);
@@ -332,11 +388,19 @@ export class DockerNetworkIsolationProducer {
     };
     const permission=Object.freeze({id,intentFile,intentDigest:canonicalDigest(intent),store:this.store,
       contextDigest:bindingDigest(this.context),policySha256,approvalDigest:canonicalDigest(this.approval),commandSha256:canonicalDigest(command)});
-    this.store.immutable(intentFile,intent);stopPermissions.get(this).add(permission);
-    try{await this.mutate('STOP_LEGACY',command,35000,permission);}
+    scope.remaining();this.store.immutable(intentFile,intent);scope.remaining();stopPermissions.get(this).add(permission);
+    try{await this.mutate('STOP_LEGACY',command,35000,permission,scope);}
     finally{stopPermissions.get(this).delete(permission);}
-    this.guard();this.assertWindow();const stopped = this.inspect(id);this.guard();this.assertWindow();
+    this.guard();this.assertWindow();scope.remaining();const stopped = this.inspect(id,scope);this.guard();this.assertWindow();scope.remaining();
     if (stopped.running || stopped.pid !== 0 || stopped.status !== 'exited' || stopped.oomKilled!==false) hold('OLD_EXECUTOR_NOT_STOPPED');
     return {...stopped,terminationPolicySha256:policySha256,terminationObservation:'NOT_COLLECTED',legacyDrainResult:'UNSUPPORTED'};
+    }finally{scope.cancel();if(scope.pending.size)stopDebts.get(this).add(scope);activeStops.delete(this);}
+  }
+  /** Local readonly bookkeeping, never executor drain/authority evidence.
+   * Abort and timeout do not join an uncooperative underlying verifier. */
+  cleanupDebt(){
+    const debts=stopDebts.get(this);let pendingAuthorityPromises=0;
+    for(const scope of debts){if(!scope.pending.size)debts.delete(scope);else pendingAuthorityPromises+=scope.pending.size;}
+    return {pendingAuthorityPromises,unsettledStopScopes:debts.size,productionEvidence:false};
   }
 }
