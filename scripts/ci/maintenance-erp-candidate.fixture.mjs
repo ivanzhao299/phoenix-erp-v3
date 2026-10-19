@@ -117,6 +117,7 @@ const pg=require('pg');const pgConnect=pg.Client.prototype.connect;pg.Client.pro
 }
 
 export class OwnedErpCandidateCapsule {
+  #legacyCandidates=new WeakMap();
   constructor({ artifactDirectory, owner } = {}) {
     assert.equal(Number(process.versions.node.split('.')[0]), 20, 'Use the project Node20 baseline');
     if (owner !== undefined && (typeof owner !== 'string' || !/^[0-9]{1,20}-[0-9]{1,10}$/.test(owner))) hold('NUMERIC_PHASE_OWNER_REQUIRED');
@@ -125,12 +126,12 @@ export class OwnedErpCandidateCapsule {
     if (!base.startsWith(path.join(REPO, 'artifacts') + path.sep) || fs.existsSync(path.join(base, this.owner))) hold('OWNED_ARTIFACT_DIRECTORY');
     fs.mkdirSync(base, { recursive: true, mode: 0o700 });
     this.root = path.join(base, this.owner); fs.mkdirSync(this.root, { mode: 0o700 });
-    this.resources = []; this.results = []; this.record();
+    this.resources = []; this.results = [];this.legacyObservations=[]; this.record();
   }
   record(extra = {}) { fs.writeFileSync(path.join(this.root, 'resources.json'), JSON.stringify({ schema: 'phoenix.owned-erp-candidate/v1',
     fixtureOnly: true, productionReceipt: false, owner: this.owner, sourceSha: this.sourceSha, imageId: this.imageId,
     sourceTreeHash: this.sourceTreeHash, fixtureScriptSha256: this.fixtureScriptSha256,
-    resources: this.resources, results: this.results, cleanupExecuted: false, ...extra }, null, 2), { mode: 0o600 }); }
+    resources: this.resources, results: this.results,legacyObservations:this.legacyObservations, cleanupExecuted: false, ...extra }, null, 2), { mode: 0o600 }); }
   docker(args, options = {}) { return run('/usr/bin/docker', args, options); }
   inspectContainer(id) {
     const f = this.docker(['inspect', id, '--format', '{{json .Id}}\t{{json .Image}}\t{{json .Config.Labels}}\t{{json .State}}\t{{json .RestartCount}}\t{{json .Mounts}}\t{{json .NetworkSettings.Ports}}']).split('\t').map(JSON.parse);
@@ -298,6 +299,79 @@ export class OwnedErpCandidateCapsule {
     const name = `phoenix-fence:${status.bootId}`;
     const payload = JSON.parse(this.sql(candidate.pg, `SELECT json_build_object('oid',(SELECT oid FROM pg_database WHERE datname=current_database()),'rows',(SELECT coalesce(json_agg(x),'[]'::json) FROM (SELECT pid,datid,backend_start,to_char(backend_start AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS backend_started_at_us FROM pg_stat_activity WHERE application_name=${literal(name)}) x));`));
     return verifyLiveControlRow(status, payload.rows, payload.oid);
+  }
+  /** Actual historical source with a modern FENCED projection deliberately
+   * mounted. Only observes its unsupported protocol; never calls it DRAINED. */
+  async startLegacySource(pg) {
+    assert.equal(this.sourceSha,'226878864f184d26f41a890e666ebed52547db14');assert.ok(this.archivedDependencyLock);
+    const originalPg=this.inspectContainer(pg.id);assert.equal(originalPg.State.Running,true);assert.equal(originalPg.RestartCount,0);
+    assert.ok(this.resources.some(r=>r.id===pg.networkId&&r.type==='network'));
+    const pgPin=Object.freeze({id:originalPg.Id,imageId:originalPg.Image,startedAt:originalPg.State.StartedAt,restartCount:originalPg.RestartCount,networkId:pg.networkId,major:pg.major});
+    const publicSource=path.join(this.root,`pg${pg.major}-LEGACY-public`);fs.mkdirSync(publicSource,{mode:0o755});
+    this.helper(publicSource,"const fs=require('fs');fs.chownSync('/control',0,0);fs.chmodSync('/control',0o555);");
+    const legacy={pg,mode:'LEGACY_SOURCE_UNFENCED',publicSource,captureApp:`legacy-${pg.major}-${this.owner}`};
+    this.publishRootManifest(legacy,{protocolVersion:1,phase:'FENCED',owner:this.owner,generation:1,targetSha:this.sourceSha,participants:[]});
+    const values={NODE_ENV:'production',APP_ENV:'production',PORT:'3100',DB_HOST:'fixture-db',DB_PORT:'5432',DB_USER:WRITER,DB_NAME:DB,
+      DB_PASSWORD:'',JWT_SECRET:'owned-erp-candidate-fixture-only-at-least-32-characters',CHANJET_SYNC_POLICY:'HOLD',CHANJET_READONLY_SYNC_ENABLED:'false',
+      CHANJET_ERP_INBOUND_SYNC_ENABLED:'false',CHANJET_APP_KEY:'owned-fixture-app-key',CHANJET_APP_SECRET:'owned-fixture-app-secret',
+      CHANJET_PROVIDER_BASE_URL:'http://127.0.0.1:3099',ERP_CANDIDATE_FIXTURE:this.owner,ERP_CAPTURE_APP:legacy.captureApp};
+    legacy.id=this.own(this.docker(['run','--pull=never','-d',...this.labels(),'--network',pg.networkId,'--restart=no','--read-only','--cap-drop=ALL',
+      '--security-opt=no-new-privileges','--publish','127.0.0.1::3100','--tmpfs','/tmp:rw,nosuid,nodev,size=16777216,mode=1777',
+      '--tmpfs','/app/uploads:rw,nosuid,nodev,size=16777216,uid=1000,gid=1000','--mount',`type=bind,source=${publicSource},target=${CONTROL_TARGET},readonly`,
+      ...Object.entries(values).flatMap(([key,value])=>['-e',`${key}=${value}`]),this.imageId]),`pg${pg.major}-actual-legacy-source`);
+    const deadline=Date.now()+45000;
+    for(;;){
+      const live=this.inspectContainer(legacy.id);assert.equal(live.Image,this.imageId);assert.equal(live.RestartCount,0);
+      if(!live.State.Running)hold('ACTUAL_LEGACY_SOURCE_EXITED');
+      try{const ready=this.request(legacy,'/api/readiness');if(ready.status===200&&ready.body?.status==='READY'&&ready.body?.db==='connected'&&live.State.Health?.Status==='healthy'){legacy.readiness=ready;break;}}catch{}
+      if(Date.now()>=deadline)hold('ACTUAL_LEGACY_SOURCE_START_TIMEOUT');await sleep(100);
+    }
+    const live=this.inspectContainer(legacy.id);assert.equal(live.Config.Labels['org.opencontainers.image.revision'],this.sourceSha);
+    const mount=live.Mounts.find(row=>row.Destination===CONTROL_TARGET);assert.equal(mount?.Source,publicSource);assert.equal(mount?.RW,false);
+    const unsupported=this.request(legacy,'/api/internal/background/status');assert.equal(unsupported.status,404);
+    legacy.originalPin={id:legacy.id,imageId:live.Image,startedAt:live.State.StartedAt,restartCount:live.RestartCount};
+    this.#legacyCandidates.set(legacy,{pin:Object.freeze({...legacy.originalPin}),pgPin,pgReference:pg,owner:this.owner,sourceSha:this.sourceSha,
+      captureApp:legacy.captureApp,originalRole:`pg${pg.major}-actual-legacy-source`,stopAttempted:false});
+    const observation={stage:'ACTUAL_LEGACY_STARTUP',capturedAt:new Date().toISOString(),sourceSha:this.sourceSha,pgMajor:pg.major,runtime:legacy.originalPin,readiness:'PASS',mountedModernProjection:'FENCED',modernStatusHttp:404,
+      modernDrain:'UNSUPPORTED',continuousDrainProof:false,productionRuntimeEquivalent:false};
+    this.legacyObservations.push(observation);this.record({actualLegacyStartup:observation});
+    return legacy;
+  }
+  async stopLegacySource(legacy) {
+    const saved=this.#legacyCandidates.get(legacy);assert.ok(saved,'UNREGISTERED_LEGACY_SOURCE');
+    assert.equal(saved.stopAttempted,false,'LEGACY_STOP_ALREADY_ATTEMPTED');
+    // The returned observation is mutable. It never grants lifecycle authority:
+    // validate it before any mutation and execute only against private pins.
+    assert.equal(this.owner,saved.owner);assert.equal(this.sourceSha,saved.sourceSha);
+    assert.equal(this.sourceSha,'226878864f184d26f41a890e666ebed52547db14');assert.equal(this.imageId,saved.pin.imageId);
+    assert.equal(legacy.id,saved.pin.id);assert.deepEqual(legacy.originalPin,saved.pin);
+    assert.equal(legacy.pg,saved.pgReference);assert.equal(legacy.captureApp,saved.captureApp);
+    for(const key of ['id','major','networkId'])assert.equal(legacy.pg[key],saved.pgPin[key]);
+    assert.equal(this.resources.filter(r=>r.id===saved.pin.id&&r.type==='container'&&r.role===saved.originalRole).length,1);
+    assert.equal(this.resources.filter(r=>r.id===saved.pgPin.id&&r.type==='container'&&r.role===`pg${saved.pgPin.major}`).length,1);
+    assert.equal(this.resources.filter(r=>r.id===saved.pgPin.networkId&&r.type==='network'&&r.role===`pg${saved.pgPin.major}-internal-network`).length,1);
+    const before=this.inspectContainer(saved.pin.id);assert.equal(before.Id,saved.pin.id);assert.equal(before.State.Running,true);
+    assert.equal(before.Image,saved.pin.imageId);assert.equal(before.State.StartedAt,saved.pin.startedAt);assert.equal(before.RestartCount,saved.pin.restartCount);
+    assert.equal(before.Config.Labels['org.opencontainers.image.revision'],saved.sourceSha);
+    const database=this.inspectContainer(saved.pgPin.id);assert.equal(database.Id,saved.pgPin.id);assert.equal(database.Image,saved.pgPin.imageId);
+    assert.equal(database.State.StartedAt,saved.pgPin.startedAt);assert.equal(database.RestartCount,saved.pgPin.restartCount);assert.equal(database.State.Running,true);
+    const network=JSON.parse(this.docker(['network','inspect',saved.pgPin.networkId,'--format','{{json .}}']));
+    assert.equal(network.Id,saved.pgPin.networkId);assert.equal(network.Internal,true);
+    assert.equal(network.Labels['phoenix.test.owner'],saved.owner);assert.equal(network.Labels['phoenix.test.kind'],KIND);
+    // Persist the attempt before issuing the only stop. A timeout or unknown
+    // result cannot authorize a second mutation, even if the caller retries.
+    saved.stopAttempted=true;this.record({legacyStopAttempt:{id:saved.pin.id,state:'ATTEMPT_STARTED'}});
+    this.docker(['stop','--signal','SIGTERM','--time','30',saved.pin.id],{timeout:35000});
+    const after=this.inspectContainer(saved.pin.id);assert.equal(after.State.Running,false);assert.equal(after.State.Pid,0);assert.equal(after.State.OOMKilled,false);assert.equal(after.Image,before.Image);
+    assert.equal(after.State.StartedAt,before.State.StartedAt);assert.equal(after.RestartCount,0);
+    // Actual backend disappearance is observed independently in the owned DB;
+    // this does not reconcile committed business work or prepared transactions.
+    let remaining;const deadline=Date.now()+5000;
+    do{remaining=Number(this.sql(saved.pgPin,`SELECT count(*) FROM pg_stat_activity WHERE application_name=${literal(saved.captureApp)};`));if(remaining===0)break;await sleep(25);}while(Date.now()<deadline);
+    assert.equal(remaining,0);
+    const value={stage:'ACTUAL_LEGACY_STOP',capturedAt:new Date().toISOString(),sourceSha:saved.sourceSha,pgMajor:saved.pgPin.major,runtime:saved.pin,exitCode:after.State.ExitCode,backendCountAfterStop:remaining,modernDrain:'UNSUPPORTED',
+      fiveDomainReconciliation:'NOT_RUN',revivalProtection:'NOT_PROVED',continuousIngressProof:false,fixtureOnly:true,productionAuthority:false};
+    this.legacyObservations.push(value);this.record({actualLegacyStop:value});return value;
   }
   async startCandidate(pg, mode, { role = 'default' } = {}) {
     if (!['missing', 'FENCED'].includes(mode)) hold('STARTUP_MUST_DENY');

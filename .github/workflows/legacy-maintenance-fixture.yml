@@ -141,6 +141,8 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
       - uses: pnpm/action-setup@v4
         with:
           version: 9
@@ -155,6 +157,7 @@ jobs:
           scripts/ci/maintenance-erp-candidate.test.mjs
           scripts/ci/maintenance-api-dependency-lock.test.mjs
           scripts/ci/maintenance-archived-source.test.mjs
+          scripts/ci/maintenance-legacy-source.test.mjs
           scripts/ci/maintenance-erp-root-binding.test.mjs
           scripts/ci/maintenance-legacy-erp.test.mjs
           scripts/ci/maintenance-native-candidate-host.test.mjs
@@ -224,6 +227,10 @@ jobs:
         run: node --test scripts/ops/production-maintenance-recovery-materials.test.mjs
       - name: Actual ERP startup, mutation canaries and original root lease catalog binding
         run: node scripts/ci/maintenance-erp-candidate.fixture.mjs
+      - name: Actual old226 source across a scheduler boundary and owned stop
+        env:
+          LEGACY_SOURCE_PROTOCOL_FIXTURE: OWNED_ISOLATED_ONLY
+        run: node scripts/ci/maintenance-legacy-source.fixture.mjs
       - name: Retain allowlisted isolated evidence only
         if: always()
         uses: actions/upload-artifact@v4
@@ -248,6 +255,7 @@ jobs:
             artifacts/maintenance-erp-candidate/*/summary.json
             artifacts/maintenance-erp-candidate/*/resources.json
             artifacts/maintenance-erp-candidate/*/capsule-build.json
+            artifacts/maintenance-erp-candidate/*/legacy-source-protocol.json
             artifacts/maintenance-erp-candidate/*/pg*-detector-canary.json
             artifacts/maintenance-erp-candidate/*/pg*-actual-erp-root-binding.json
             artifacts/maintenance-erp-candidate/*/pg*-actual-erp-phase-correlation.json
