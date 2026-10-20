@@ -76,12 +76,20 @@ export function assertTransactionOwnership(directory, runId, dependencies = {}) 
 }
 export function verifyContext(root, stateDirectory) {
   assertRootIdentity(CONTRACT); assertNoLegacyState(CONTRACT);
-  inspectTrustedDirectory(stateDirectory, CONTRACT);
+  const directoryBefore = inspectTrustedDirectory(stateDirectory, CONTRACT);
   if (fs.realpathSync(root) !== CONTRACT.repository || fs.realpathSync(stateDirectory) !== CONTRACT.stateDirectory) throw new Error('CONFIG_HOLD=UNAPPROVED_CONTEXT');
   const state = fs.lstatSync(stateDirectory);
   if (!state.isDirectory() || state.isSymbolicLink() || state.uid !== process.getuid() || (state.mode & 0o777) !== 0o700) throw new Error('CONFIG_HOLD=STATE_DIRECTORY');
   // Lock is held by the workflow shell for the whole Git/config/container transaction.
-  readPinnedFile(path.join(stateDirectory, 'mutation.lock'), { contract: CONTRACT });
+  // The first actual snapshot covers this same synchronous lock read's BEFORE.
+  // Consume it once; readPinnedFile still performs a fresh AFTER observation.
+  // No await, effect or cross-call metadata cache is introduced.
+  let beforeAvailable = true;
+  readPinnedFile(path.join(stateDirectory, 'mutation.lock'), { contract: CONTRACT }, { inspectDirectory(directory) {
+    if (directory !== stateDirectory) throw new Error('CONFIG_HOLD=UNAPPROVED_CONTEXT');
+    if (beforeAvailable) { beforeAvailable = false; return directoryBefore; }
+    return inspectTrustedDirectory(directory, CONTRACT);
+  } });
   const lock = fs.lstatSync(path.join(stateDirectory, 'mutation.lock'));
   assertRegularFile(lock);
   const inherited = fs.statSync(`/proc/${process.ppid}/fd/9`); assertRegularFile(inherited);

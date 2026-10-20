@@ -21,7 +21,7 @@ export class MaintenanceControlParticipants {
   #context; #definitions; #entries = new Map(); #pending = new Set(); #unregisteredStarts = new Set();
   #rejectedRegistrations = [];
   #failureListeners = new Set();
-  #fatal = null; #started = false; #closing = false; #closeTask = null; #checkTask = null; #closeVerified = false; #closeWasVerified = false;
+  #fatal = null; #started = false; #closing = false; #closeTask = null; #checkTask = null; #closeVerified = false; #closeWasVerified = false; #observationTask = null;
   constructor({ context, definitions }) {
     validateMaintenanceContext(context);
     if (!Array.isArray(definitions) || definitions.length !== CONTROL_PARTICIPANT_ROLES.length) throw fail('ALL_FIXED_ROLES_REQUIRED');
@@ -145,6 +145,8 @@ export class MaintenanceControlParticipants {
   }
   async check({ timeoutMs = 10000, signal } = {}) {
     this.assertLive(); const remaining = this.#budget(timeoutMs, signal);
+    while(this.#observationTask) await this.#wait(()=>this.#observationTask,remaining,signal);
+    remaining();this.assertLive();
     // Concurrent step/monitor waiters join only the current live probe batch;
     // neither a completed snapshot nor a reset deadline is reused.
     if (!this.#checkTask) {
@@ -158,6 +160,25 @@ export class MaintenanceControlParticipants {
     const batch = this.#checkTask;
     try { await this.#wait(() => batch, remaining, signal); this.assertLive(); return this.inventory(); }
     catch (error) { throw this.#poison(error); }
+  }
+  /** Join real in-progress HEALTH work, then take one synchronous host
+   * snapshot. Reservation precedes await so no queued monitor can start a new
+   * helper during capture. This grants no task drain or release authority. */
+  async observeQuiescent(observer,{timeoutMs=10000,signal}={}) {
+    this.assertLive();const remaining=this.#budget(timeoutMs,signal);
+    if(typeof observer!=='function')throw fail('SYNCHRONOUS_OBSERVER_REQUIRED');
+    while(this.#observationTask)await this.#wait(()=>this.#observationTask,remaining,signal);
+    let release;const reservation=new Promise(resolve=>{release=resolve;});this.#observationTask=reservation;
+    try{
+      while(this.#checkTask){const current=this.#checkTask;await this.#wait(()=>current,remaining,signal);}
+      remaining();this.assertLive();
+      const value=observer();
+      if(value&&typeof value.then==='function')throw fail('SYNCHRONOUS_OBSERVER_REQUIRED');
+      remaining();this.assertLive();return value;
+    }catch(error){
+      if(/^MAINTENANCE_PARTICIPANT_HOLD=/.test(error?.message||''))throw this.#poison(error);
+      throw error;
+    }finally{if(this.#observationTask===reservation)this.#observationTask=null;release();}
   }
   inventory() {
     return { schema: 'phoenix.maintenance-control-participant-inventory/v1', owner: this.#context.owner,

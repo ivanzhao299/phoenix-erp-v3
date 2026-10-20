@@ -184,7 +184,7 @@ export function createMaintenanceRegistryReader(context,{readControllers,getOwne
     if(!(entry?.child instanceof ChildProcess)||entry.child.pid!==entry.pid||recordedChildren.has(entry.child))hold('ROOT_READER_ORIGINAL_CHILD_REQUIRED');
     recordedChildren.set(entry.child,procStat(entry.pid));
   };
-  const registry=async({candidateId,signal}={})=>{
+  const snapshot=({candidateId,signal}={})=>{
     if(signal?.aborted)hold('ROOT_READER_ABORTED');guard();
     const controls=new Map([[self.pid,self],[parent.pid,parent]]);
     if(procStat(self.pid).startTicks!==self.startTicks||procStat(parent.pid).startTicks!==parent.startTicks)hold('ROOT_READER_ROOT_CONTROLLER_REUSED');
@@ -245,12 +245,15 @@ export function createMaintenanceRegistryReader(context,{readControllers,getOwne
       if(!potential)continue;
       if(value.erpControlReference||argv.includes(Buffer.from('phoenix-v3-api')))hold('ROOT_READER_UNKNOWN_HOST_EXECUTOR');
       const identitySha256=canonicalDigest(value),approved=ownership.hostProcesses.filter(pin=>pin.pid===pid&&pin.identitySha256===identitySha256&&typeof pin.owner==='string'&&pin.owner.length>0);
-      if(approved.length!==1){const error=Error('MAINTENANCE_HOLD=ROOT_READER_HOST_PROCESS_OWNERSHIP_UNVERIFIED');error.unverifiedHostProcess={pid,exe:value.exe,identitySha256,registeredIdentitySha256:ownership.hostProcesses.filter(pin=>pin.pid===pid).map(pin=>pin.identitySha256)};throw error;}
+      if(approved.length!==1){const error=Error('MAINTENANCE_HOLD=ROOT_READER_HOST_PROCESS_OWNERSHIP_UNVERIFIED');error.unverifiedHostProcess={pid,ppid:value.ppid,parentIsRegisteredControl:controls.has(value.ppid),exe:value.exe,cwdSha256:value.cwdSha256,argvSha256:value.argvSha256,fileArgumentSha256:(()=>{const parts=argv.toString('utf8').split('\0');return parts[1]?.startsWith('/')?hash(parts[1]):null;})(),inlineCodeSha256:(()=>{const parts=argv.toString('utf8').split('\0'),at=parts.indexOf('-c');return at>=0?hash(parts[at+1]||''):null;})(),identitySha256,registeredIdentitySha256:ownership.hostProcesses.filter(pin=>pin.pid===pid).map(pin=>pin.identitySha256)};throw error;}
       hostProcesses.push({pid,classification:'NON_ERP_PINNED',erpControlReference:false,identitySha256});
     }
     const schedulers=captureMaintenanceSchedulers();guard();
     return {schema:'phoenix.maintenance-host-registry/v1',containers:containerRows,hostProcesses:hostProcesses.sort((a,b)=>a.pid-b.pid),schedulers};
   };
+  const registry=(request={})=>readControllers?.graph
+    ?readControllers.graph.observeQuiescent(()=>snapshot(request),{signal:request.signal,timeoutMs:Math.min(10000,request.timeoutMs??10000)})
+    :Promise.resolve(snapshot(request));
   return {registry,recordOwnedChild};
 }
 
