@@ -78,9 +78,16 @@ export function partitionMaintenanceSchedulerUnits(text){
  const entries=text.split('\n').filter(line=>line.trim()).map(line=>{const [name,state]=line.trim().split(/\s+/);return {name,state};}).sort((a,b)=>a.name.localeCompare(b.name));
  const states=new Set(['enabled','enabled-runtime','linked','linked-runtime','alias','masked','masked-runtime','static','disabled','indirect','generated','transient','bad']);
  if(entries.length>2048||new Set(entries.map(row=>row.name)).size!==entries.length||entries.some(row=>!/^[-A-Za-z0-9_.@:\\]+\.(?:service|timer)$/.test(row.name)||!states.has(row.state)))hold('ROOT_READER_UNIT_INVENTORY');
- return {entries,instances:entries.filter(row=>!row.name.includes('@.')).map(row=>row.name),
-  templates:entries.filter(row=>row.name.includes('@.')&&!row.state.startsWith('masked')).map(row=>row.name),
-  maskedTemplates:entries.filter(row=>row.name.includes('@.')&&row.state.startsWith('masked'))};
+ return {entries,instances:entries.filter(row=>!/@\.(?:service|timer)$/.test(row.name)).map(row=>row.name),
+  templates:entries.filter(row=>/@\.(?:service|timer)$/.test(row.name)&&!row.state.startsWith('masked')).map(row=>row.name),
+  maskedTemplates:entries.filter(row=>/@\.(?:service|timer)$/.test(row.name)&&row.state.startsWith('masked'))};
+}
+
+/** A masked unit has no executable definition. /dev/null is the explicit
+ * systemd mask sentinel, not an unreadable scheduler file or an empty service.
+ * Never extend this exception to an unmasked unit or another special path. */
+export function isMaintenanceSystemdMask(file,lines){
+ return lines.includes('LoadState=masked')&&!lines.some(line=>line.startsWith('ExecStart=')&&line!=='ExecStart=')&&fs.realpathSync(file)==='/dev/null';
 }
 
 /** Fixed scheduler discovery. Definitions are hashed in memory; command lines
@@ -112,12 +119,15 @@ export function captureMaintenanceSchedulers(){
     if(inventory.templates.length)add('systemd-template-definitions',Buffer.from(run(systemctl,['cat','--no-pager','--',...inventory.templates])));
     if(inventory.maskedTemplates.length)add('systemd-masked-template-state',Buffer.from(JSON.stringify(inventory.maskedTemplates)));
     if(inventory.instances.length){
-      const definitions=run(systemctl,['show','--no-pager','--property=Id,FragmentPath,DropInPaths,ExecStart,WorkingDirectory',...inventory.instances]);
+      const definitions=run(systemctl,['show','--no-pager','--property=Id,LoadState,FragmentPath,DropInPaths,ExecStart,WorkingDirectory',...inventory.instances]);
       for(const block of definitions.split('\n\n').filter(Boolean)){
         const lines=block.split('\n'),id=lines.find(line=>line.startsWith('Id='))?.slice(3);
         if(!id||!units.includes(id))hold('ROOT_READER_UNIT_DEFINITION');add('systemd:'+id,Buffer.from(block));
         for(const line of lines.filter(line=>line.startsWith('FragmentPath=')||line.startsWith('DropInPaths=')))
-          for(const full of line.slice(line.indexOf('=')+1).split(' ').filter(Boolean))file(full);
+          for(const full of line.slice(line.indexOf('=')+1).split(' ').filter(Boolean)){
+            if(isMaintenanceSystemdMask(full,lines))continue;
+            file(full);
+          }
       }
     }
   }
