@@ -9,7 +9,11 @@ const root='/data/phoenix-erp',state='/var/lib/phoenix-erp/production-deployment
 const output=path.join(root,'artifacts/maintenance-native-candidate-host');
 const hash=bytes=>createHash('sha256').update(bytes).digest('hex');
 const env={PATH:process.env.PATH,DOCKER_HOST:'unix:///var/run/docker.sock',DOCKER_CONFIG:'/home/phoenix-codex-deploy/.docker'};
-const run=(program,args,{input,timeout=10000,maxBuffer=1024*1024,buffer=false,cwd=root}={})=>execFileSync(program,args,{cwd,input,env,encoding:buffer?undefined:'utf8',timeout,maxBuffer,stdio:['pipe','pipe','pipe']});
+const run=(program,args,{input,timeout=10000,maxBuffer=1024*1024,buffer=false,cwd=root}={})=>{
+ try{return execFileSync(program,args,{cwd,input,env,encoding:buffer?undefined:'utf8',timeout,maxBuffer,stdio:['pipe','pipe','pipe']});}
+ catch(error){error.fixtureCommand={program:path.basename(program),operation:args[0],status:error.status??null,
+  diagnostic:String(error.stderr||'').split('\n').filter(line=>/^(?:ERROR:|Error:|error:|docker:|nft:)/.test(line.trim())).map(line=>line.slice(0,240)).slice(0,4)};throw error;}
+};
 const git=args=>run('/usr/bin/git',['-c',`safe.directory=${root}`,'-c','core.hooksPath=/dev/null',...args]).trim();
 const docker=(args,options)=>run('/usr/bin/docker',args,options).trim();
 const write=(file,value)=>fs.writeFileSync(file,JSON.stringify(value)+'\n',{mode:0o600,flag:'wx'});
@@ -75,9 +79,10 @@ async function main(){
  const egressProgram=`table inet phoenix_fixture_egress { chain forward { type filter hook forward priority -200; policy accept; iifname "${bridge}" oifname != "${bridge}" counter drop; } }\n`;
  fs.writeFileSync(egressFile,egressProgram,{mode:0o600,flag:'wx'});run('/usr/sbin/nft',['--file',egressFile]);
  result.fixtureEgress={bridge,programSha256:hash(egressProgram),scope:'EXCLUSIVE_VM_BRIDGE_FORWARDING_ONLY'};save();
+ result.stage='START_DATABASE';save();
  const pgId=docker(['run','-d','--name','phoenix-v3-db','--label','com.docker.compose.project=phoenix-erp','--label','com.docker.compose.service=db','--network',network,'--network-alias','db','--restart=no',
   '--mount','type=bind,source=/data/maintenance-native-pg,target=/var/lib/postgresql/data','-e','PGDATA=/var/lib/postgresql/data','-e','POSTGRES_USER=erp_fixture_admin','-e','POSTGRES_DB=api_bootstrap_fixture','-e','POSTGRES_HOST_AUTH_METHOD=trust','--health-cmd','pg_isready -U erp_fixture_admin -d api_bootstrap_fixture','--health-interval','1s','--health-timeout','2s','--health-retries','40',`postgres:${major}-alpine`]);
- await healthy(pgId);const sql=s=>docker(['exec','-i',pgId,'psql','-U','erp_fixture_admin','-d','api_bootstrap_fixture','-X','-qAt','-v','ON_ERROR_STOP=1'],{input:s});
+ await healthy(pgId);result.stage='CREATE_ISOLATED_SCHEMA';save();const sql=s=>docker(['exec','-i',pgId,'psql','-U','erp_fixture_admin','-d','api_bootstrap_fixture','-X','-qAt','-v','ON_ERROR_STOP=1'],{input:s});
  sql(fs.readFileSync(path.join(root,'scripts/ci/api-bootstrap-schema-fixture.sql'),'utf8')+`\nCREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE TABLE sys_menu(menu_code text);CREATE TABLE sys_chanjet_state(key varchar(16) PRIMARY KEY,app_ticket text,certificate text,tokens jsonb,updated_at timestamptz);
 CREATE TABLE sys_notification_log(channel text,status text);CREATE TABLE mon_house_device_mapping(status text,vendor_house_id bigint);
@@ -90,10 +95,11 @@ CREATE TABLE sys_alerts(id bigint,alert_type text,title text,related_path text,r
 CREATE TABLE sys_chanjet_api_budget(budget_key text,request_count integer,updated_at timestamptz);
 CREATE TABLE chanjet_sync_jobs(status text,request_scope jsonb);CREATE TABLE chanjet_execution_admissions(phase text);CREATE TABLE chanjet_execution_requests(kind text,status text,result text);
 CREATE ROLE erp_candidate_writer LOGIN;GRANT CONNECT ON DATABASE api_bootstrap_fixture TO erp_candidate_writer;GRANT USAGE,CREATE ON SCHEMA public TO erp_candidate_writer;GRANT ALL ON ALL TABLES IN SCHEMA public TO erp_candidate_writer;GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO erp_candidate_writer;`);
+ result.stage='START_WEB_PEER_AND_OLD_API';save();
  const webId=docker(['run','-d','--name','phoenix-v3-web','--label','com.docker.compose.project=phoenix-erp','--label','com.docker.compose.service=web','--network',network,'--restart=no','-p','127.0.0.1:3000:3000','--health-cmd',"node -e \"fetch('http://127.0.0.1:3000/').then(r=>process.exit(r.ok?0:1))\"",'--health-interval','1s',webTag]);
  const values={NODE_ENV:'production',APP_ENV:'production',PORT:'3100',DB_HOST:'db',DB_PORT:'5432',DB_USER:'erp_candidate_writer',DB_PASSWORD:'',DB_NAME:'api_bootstrap_fixture',JWT_SECRET:'owned-fixture-secret-at-least-32-characters',CHANJET_SYNC_POLICY:'HOLD',CHANJET_READONLY_SYNC_ENABLED:'false',CHANJET_ERP_INBOUND_SYNC_ENABLED:'false'};
  const apiId=docker(['run','-d','--name','phoenix-v3-api','--label','com.docker.compose.project=phoenix-erp','--label','com.docker.compose.service=api','--network',network,'--network-alias','api','--restart=unless-stopped','-p','127.0.0.1:3100:3100','--mount','type=bind,source=/data/maintenance-native-uploads,target=/app/uploads',...Object.entries(values).flatMap(([k,v])=>['-e',`${k}=${v}`]),legacyImage,'node','dist/main.js']);
- await healthy(apiId);await healthy(webId);
+ result.stage='WAIT_OLD_API_HEALTH';save();await healthy(apiId);await healthy(webId);result.stage='READ_ACTUAL_OLD_404';save();
  const http=run('/usr/bin/curl',['-s','-o','/dev/null','--max-time','3','-w','%{http_code}','http://127.0.0.1:3100/api/internal/background/status']).trim();assert.equal(http,'404');result.oldControlHttp=Number(http);result.stage='VERIFY_INSTALLED_OLD_GUARD';save();
  const envValues={...values,PHOENIX_DATA_MOUNT_GUARD:'true',PHOENIX_PG_DATA_DIR:'/data/maintenance-native-pg',PHOENIX_UPLOADS_DIR:'/data/maintenance-native-uploads'};
  fs.writeFileSync(path.join(root,'.env'),Object.entries(envValues).map(([k,v])=>`${k}=${v}`).join('\n')+'\n',{mode:0o600,flag:'wx'});
@@ -143,4 +149,4 @@ CREATE ROLE erp_candidate_writer LOGIN;GRANT CONNECT ON DATABASE api_bootstrap_f
  result.evidence=Object.fromEntries(['pre','post','log'].map(kind=>[kind,JSON.parse(fs.readFileSync(path.join(state,`maintenance-formal-${kind}-${owner}.json`)))]));save();
  console.log(JSON.stringify({outcome:'PASS',major,targetSha:target,fullFactory:true,fixtureOnly:true,productionReceipt:false}));
 }
-if(process.argv[1]&&path.resolve(process.argv[1])===new URL(import.meta.url).pathname)try{await main();}catch(error){result.outcome='HOLD';result.failureClass=/^\w+_HOLD=[A-Z0-9_]+$/.test(error?.message||'')?error.message:error?.code==='ERR_ASSERTION'?'FIXTURE_ASSERTION':'FIXTURE_UNVERIFIED_FAILURE';result.failureAt=new Date().toISOString();result.errorType=error?.name||'Error';result.commandExit=Number.isInteger(error?.status)?error.status:null;result.failureFrames=String(error?.stack||'').split('\n').slice(1,4).filter(line=>/^\s+at /.test(line)).map(line=>line.replaceAll(root,'<owned-root>'));if(fixtureAdmitted)save();console.error(result.failureClass);process.exitCode=1;}
+if(process.argv[1]&&path.resolve(process.argv[1])===new URL(import.meta.url).pathname)try{await main();}catch(error){result.outcome='HOLD';result.failureClass=/^\w+_HOLD=[A-Z0-9_]+$/.test(error?.message||'')?error.message:error?.code==='ERR_ASSERTION'?'FIXTURE_ASSERTION':'FIXTURE_UNVERIFIED_FAILURE';result.failureAt=new Date().toISOString();result.errorType=error?.name||'Error';result.commandExit=Number.isInteger(error?.status)?error.status:null;result.failedCommand=error.fixtureCommand||null;if(/^FULL_FIXTURE_[A-Z_]+$/.test(error?.message||''))result.failureClass=error.message;result.failureFrames=String(error?.stack||'').split('\n').slice(1,4).filter(line=>/^\s+at /.test(line)).map(line=>line.replaceAll(root,'<owned-root>'));if(fixtureAdmitted)save();console.error(result.failureClass);process.exitCode=1;}
