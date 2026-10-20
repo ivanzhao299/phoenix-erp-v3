@@ -90,6 +90,33 @@ export function isMaintenanceSystemdMask(file,lines){
  return lines.includes('LoadState=masked')&&!lines.some(line=>line.startsWith('ExecStart=')&&line!=='ExecStart=')&&fs.realpathSync(file)==='/dev/null';
 }
 
+/** systemctl ExecStart combines the actual loaded command definition with
+ * last-run bookkeeping. Keep every command/argv/ignore_errors byte and all
+ * other properties; only the documented final execution metadata is excluded
+ * from the immutable definition pin. Unknown serialization fails closed. */
+export function normalizeMaintenanceSystemdDefinition(block,typed){
+ if(typed!==undefined){
+  if(typed?.type!=='a(sasbttttuii)'||!Array.isArray(typed.data)||typed.data.length<1||typed.data.length>64
+   ||typed.data.some(row=>!Array.isArray(row)||row.length!==10||typeof row[0]!=='string'||!row[0].startsWith('/')||!Array.isArray(row[1])||row[1].length>256
+    ||row[1].some(v=>typeof v!=='string'||v.includes('\0'))||typeof row[2]!=='boolean'||row.slice(3).some(v=>!Number.isSafeInteger(v))
+    ||row.slice(3,8).some(v=>v<0))||Buffer.byteLength(JSON.stringify(typed))>65536)hold('ROOT_READER_SYSTEMD_TYPED_EXEC_FORMAT');
+  const commands=JSON.stringify(typed.data.map(row=>({path:row[0],argv:row[1],ignoreErrors:row[2]})));
+  return block.split('\n').map(line=>line.startsWith('ExecStart=')?'ExecStart='+commands:line).join('\n');
+ }
+ return block.split('\n').map(line=>{
+  if(!line.startsWith('ExecStart=')||line==='ExecStart=')return line;
+  const value=line.slice('ExecStart='.length);
+  // A compound textual value has ambiguous argv/block boundaries. It is
+  // deliberately unsupported rather than guessing where a command ends.
+  const fields=['{ path=',' ; argv[]=',' ; ignore_errors=',' ; start_time=',' ; stop_time=',' ; pid=',' ; code=',' ; status='];
+  if(fields.some(field=>value.split(field).length!==2))hold('ROOT_READER_SYSTEMD_EXEC_DEFINITION_FORMAT');
+  const match=/^\{ path=([^{}\r\n]+) ; argv\[\]=([^{}\r\n]*) ; ignore_errors=(yes|no) ; start_time=\[[^\]{}\r\n]*\] ; stop_time=\[[^\]{}\r\n]*\] ; pid=[0-9]+ ; code=[^;{}\r\n]+ ; status=[^;{}\r\n]+ \}$/.exec(value);
+  if(!match)hold('ROOT_READER_SYSTEMD_EXEC_DEFINITION_FORMAT');
+  const stable=`{ path=${match[1]} ; argv[]=${match[2]} ; ignore_errors=${match[3]} }`;
+  return 'ExecStart='+stable;
+ }).join('\n');
+}
+
 /** Fixed scheduler discovery. Definitions are hashed in memory; command lines
  * and crontab bytes are never emitted. All listed files must remain readable,
  * regular and stable for this capture; absence of a service tool is explicit. */
@@ -122,7 +149,18 @@ export function captureMaintenanceSchedulers(){
       const definitions=run(systemctl,['show','--no-pager','--property=Id,LoadState,FragmentPath,DropInPaths,ExecStart,WorkingDirectory',...inventory.instances]);
       for(const block of definitions.split('\n\n').filter(Boolean)){
         const lines=block.split('\n'),id=lines.find(line=>line.startsWith('Id='))?.slice(3);
-        if(!id||!units.includes(id))hold('ROOT_READER_UNIT_DEFINITION');add('systemd:'+id,Buffer.from(block));
+        if(!id||!units.includes(id))hold('ROOT_READER_UNIT_DEFINITION');
+        let definition;
+        try{definition=normalizeMaintenanceSystemdDefinition(block);}catch(error){
+          if(error.message!=='MAINTENANCE_HOLD=ROOT_READER_SYSTEMD_EXEC_DEFINITION_FORMAT'||!id.endsWith('.service'))throw error;
+          // The human-readable form cannot distinguish shell braces/compound
+          // argv from command boundaries. Read the actual typed D-Bus property;
+          // preserve its path + argv array + ignore-errors boolean byte for byte.
+          const label=[...Buffer.from(id)].map(byte=>byte>=48&&byte<=57||byte>=65&&byte<=90||byte>=97&&byte<=122?String.fromCharCode(byte):'_'+byte.toString(16).padStart(2,'0')).join('');
+          let typed;try{typed=JSON.parse(run('/usr/bin/busctl',['--system','--json=short','get-property','org.freedesktop.systemd1','/org/freedesktop/systemd1/unit/'+label,'org.freedesktop.systemd1.Service','ExecStart']));}catch{hold('ROOT_READER_SYSTEMD_TYPED_EXEC_UNVERIFIED');}
+          definition=normalizeMaintenanceSystemdDefinition(block,typed);
+        }
+        add('systemd:'+id,Buffer.from(definition));
         for(const line of lines.filter(line=>line.startsWith('FragmentPath=')||line.startsWith('DropInPaths=')))
           for(const full of line.slice(line.indexOf('=')+1).split(' ').filter(Boolean)){
             if(isMaintenanceSystemdMask(full,lines))continue;
@@ -207,7 +245,7 @@ export function createMaintenanceRegistryReader(context,{readControllers,getOwne
       if(!potential)continue;
       if(value.erpControlReference||argv.includes(Buffer.from('phoenix-v3-api')))hold('ROOT_READER_UNKNOWN_HOST_EXECUTOR');
       const identitySha256=canonicalDigest(value),approved=ownership.hostProcesses.filter(pin=>pin.pid===pid&&pin.identitySha256===identitySha256&&typeof pin.owner==='string'&&pin.owner.length>0);
-      if(approved.length!==1)hold('ROOT_READER_HOST_PROCESS_OWNERSHIP_UNVERIFIED');
+      if(approved.length!==1){const error=Error('MAINTENANCE_HOLD=ROOT_READER_HOST_PROCESS_OWNERSHIP_UNVERIFIED');error.unverifiedHostProcess={pid,exe:value.exe,identitySha256,registeredIdentitySha256:ownership.hostProcesses.filter(pin=>pin.pid===pid).map(pin=>pin.identitySha256)};throw error;}
       hostProcesses.push({pid,classification:'NON_ERP_PINNED',erpControlReference:false,identitySha256});
     }
     const schedulers=captureMaintenanceSchedulers();guard();
