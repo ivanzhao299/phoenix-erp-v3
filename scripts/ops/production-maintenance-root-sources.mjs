@@ -179,7 +179,12 @@ export function createProductionMaintenanceSources(plan,{readControllers,readers
     async capturePre(request){
       check(request.signal);await readers.installedGuard({context,signal:request.signal});
       const actual=inspectMaintenancePreRuntime(),schema=captureMaintenanceSchema(context),scope=migrationScope(CONTRACT.repository,context.previousApiSha,context.targetSha);
-      if(!same(actual,context.preSnapshot)||canonicalDigest(schema)!==context.schemaEvidenceSha256||scope.changed.length)hold('ROOT_SOURCE_PRE_OR_SCHEMA_CHANGED');
+      if(!same(actual,context.preSnapshot)||canonicalDigest(schema)!==context.schemaEvidenceSha256||scope.changed.length){
+        const error=Error('MAINTENANCE_HOLD=ROOT_SOURCE_PRE_OR_SCHEMA_CHANGED');
+        error.preAdmissionDifference={runtime:Object.fromEntries(['api','web','db'].map(service=>[service,Object.keys(actual[service]).filter(key=>actual[service][key]!==context.preSnapshot[service][key]).map(key=>({field:key,before:context.preSnapshot[service][key],after:actual[service][key]}))])),
+          schemaChanged:canonicalDigest(schema)!==context.schemaEvidenceSha256,migrationPaths:scope.changed};
+        throw error;
+      }
       for(const name of ['transaction.json','policy-transition.json'])if(fs.existsSync(path.join(CONTRACT.stateDirectory,name)))hold('ROOT_SOURCE_PENDING_DEPLOYMENT');
       const runtime=captureRuntime(),policy=captureMaintenanceChanjetPolicy();
       return {body:{healthy:true,runtime:actual,schemaEvidenceSha256:context.schemaEvidenceSha256,migrationPaths:scope.changed,unfinishedTransaction:false,
