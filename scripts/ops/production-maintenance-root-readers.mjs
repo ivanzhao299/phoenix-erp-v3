@@ -70,6 +70,19 @@ function containerIdentity(id){
 export function observeMaintenanceProcessIdentity(pid){guard();return processIdentity(pid).value;}
 export function observeMaintenanceContainerIdentity(id){guard();if(!ID.test(id))hold('ROOT_READER_CONTAINER_ID');return containerIdentity(id);}
 
+/** Templates have definitions but no instance properties. Querying an
+ * uninstantiated @.service with systemctl show aborts the entire batch. Keep
+ * them in the inventory and hash their actual cat output instead of dropping
+ * their potential scheduled work. Masked templates remain explicit state pins. */
+export function partitionMaintenanceSchedulerUnits(text){
+ const entries=text.split('\n').filter(line=>line.trim()).map(line=>{const [name,state]=line.trim().split(/\s+/);return {name,state};}).sort((a,b)=>a.name.localeCompare(b.name));
+ const states=new Set(['enabled','enabled-runtime','linked','linked-runtime','alias','masked','masked-runtime','static','disabled','indirect','generated','transient','bad']);
+ if(entries.length>2048||new Set(entries.map(row=>row.name)).size!==entries.length||entries.some(row=>!/^[-A-Za-z0-9_.@:\\]+\.(?:service|timer)$/.test(row.name)||!states.has(row.state)))hold('ROOT_READER_UNIT_INVENTORY');
+ return {entries,instances:entries.filter(row=>!row.name.includes('@.')).map(row=>row.name),
+  templates:entries.filter(row=>row.name.includes('@.')&&!row.state.startsWith('masked')).map(row=>row.name),
+  maskedTemplates:entries.filter(row=>row.name.includes('@.')&&row.state.startsWith('masked'))};
+}
+
 /** Fixed scheduler discovery. Definitions are hashed in memory; command lines
  * and crontab bytes are never emitted. All listed files must remain readable,
  * regular and stable for this capture; absence of a service tool is explicit. */
@@ -93,11 +106,13 @@ export function captureMaintenanceSchedulers(){
   }
   const systemctl='/usr/bin/systemctl';
   if(fs.existsSync(systemctl)){
-    const units=run(systemctl,['list-unit-files','--type=service,timer','--no-pager','--no-legend']).split('\n').filter(Boolean).map(line=>line.trim().split(/\s+/)[0]).sort();
-    if(units.length>2048||units.some(name=>!/^[A-Za-z0-9_.@:\\-]+\.(?:service|timer)$/.test(name)))hold('ROOT_READER_UNIT_INVENTORY');
-    add('systemd-unit-inventory',Buffer.from(units.join('\n')));
-    if(units.length){
-      const definitions=run(systemctl,['show','--no-pager','--property=Id,FragmentPath,DropInPaths,ExecStart,WorkingDirectory',...units]);
+    const inventory=partitionMaintenanceSchedulerUnits(run(systemctl,['list-unit-files','--type=service,timer','--no-pager','--no-legend']));
+    const units=inventory.entries.map(row=>row.name);
+    add('systemd-unit-inventory',Buffer.from(JSON.stringify(inventory.entries)));
+    if(inventory.templates.length)add('systemd-template-definitions',Buffer.from(run(systemctl,['cat','--no-pager','--',...inventory.templates])));
+    if(inventory.maskedTemplates.length)add('systemd-masked-template-state',Buffer.from(JSON.stringify(inventory.maskedTemplates)));
+    if(inventory.instances.length){
+      const definitions=run(systemctl,['show','--no-pager','--property=Id,FragmentPath,DropInPaths,ExecStart,WorkingDirectory',...inventory.instances]);
       for(const block of definitions.split('\n\n').filter(Boolean)){
         const lines=block.split('\n'),id=lines.find(line=>line.startsWith('Id='))?.slice(3);
         if(!id||!units.includes(id))hold('ROOT_READER_UNIT_DEFINITION');add('systemd:'+id,Buffer.from(block));
