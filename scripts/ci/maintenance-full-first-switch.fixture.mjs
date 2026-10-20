@@ -66,7 +66,15 @@ async function main(){
  const {RELEASE_SCOPE}=await load('production-maintenance-deployment-session.mjs');
  const {runProductionMaintenanceSession}=await load('production-maintenance-production-entry.mjs');
  result.stage='START_OWNED_DATABASE_AND_LEGACY';save();
- const network=docker(['network','create','--internal','--label','com.docker.compose.project=phoenix-erp','--label',`phoenix.test.owner=${owner}`,'phoenix-erp_default']);
+ const network=docker(['network','create','--label','com.docker.compose.project=phoenix-erp','--label',`phoenix.test.owner=${owner}`,'phoenix-erp_default']);
+ // Docker internal bridges intentionally omit published ports. Use a normal
+ // exclusive bridge and block its external forwarding before any app starts;
+ // host published HTTP and same-bridge DB traffic remain real and reachable.
+ const bridge='br-'+network.slice(0,12),egressFile=path.join(state,'full-fixture-egress.rules');
+ assert.match(bridge,/^br-[a-f0-9]{12}$/);
+ const egressProgram=`table inet phoenix_fixture_egress { chain forward { type filter hook forward priority -200; policy accept; iifname "${bridge}" oifname != "${bridge}" counter drop; } }\n`;
+ fs.writeFileSync(egressFile,egressProgram,{mode:0o600,flag:'wx'});run('/usr/sbin/nft',['--file',egressFile]);
+ result.fixtureEgress={bridge,programSha256:hash(egressProgram),scope:'EXCLUSIVE_VM_BRIDGE_FORWARDING_ONLY'};save();
  const pgId=docker(['run','-d','--name','phoenix-v3-db','--label','com.docker.compose.project=phoenix-erp','--label','com.docker.compose.service=db','--network',network,'--network-alias','db','--restart=no',
   '--mount','type=bind,source=/data/maintenance-native-pg,target=/var/lib/postgresql/data','-e','PGDATA=/var/lib/postgresql/data','-e','POSTGRES_USER=erp_fixture_admin','-e','POSTGRES_DB=api_bootstrap_fixture','-e','POSTGRES_HOST_AUTH_METHOD=trust','--health-cmd','pg_isready -U erp_fixture_admin -d api_bootstrap_fixture','--health-interval','1s','--health-timeout','2s','--health-retries','40',`postgres:${major}-alpine`]);
  await healthy(pgId);const sql=s=>docker(['exec','-i',pgId,'psql','-U','erp_fixture_admin','-d','api_bootstrap_fixture','-X','-qAt','-v','ON_ERROR_STOP=1'],{input:s});
@@ -86,7 +94,7 @@ CREATE ROLE erp_candidate_writer LOGIN;GRANT CONNECT ON DATABASE api_bootstrap_f
  const values={NODE_ENV:'production',APP_ENV:'production',PORT:'3100',DB_HOST:'db',DB_PORT:'5432',DB_USER:'erp_candidate_writer',DB_PASSWORD:'',DB_NAME:'api_bootstrap_fixture',JWT_SECRET:'owned-fixture-secret-at-least-32-characters',CHANJET_SYNC_POLICY:'HOLD',CHANJET_READONLY_SYNC_ENABLED:'false',CHANJET_ERP_INBOUND_SYNC_ENABLED:'false'};
  const apiId=docker(['run','-d','--name','phoenix-v3-api','--label','com.docker.compose.project=phoenix-erp','--label','com.docker.compose.service=api','--network',network,'--network-alias','api','--restart=unless-stopped','-p','127.0.0.1:3100:3100','--mount','type=bind,source=/data/maintenance-native-uploads,target=/app/uploads',...Object.entries(values).flatMap(([k,v])=>['-e',`${k}=${v}`]),legacyImage,'node','dist/main.js']);
  await healthy(apiId);await healthy(webId);
- const http=run('/usr/bin/curl',['-s','-o','/dev/null','--max-time','3','-w','%{http_code}','http://127.0.0.1:3100/api/internal/background/status']).trim();assert.equal(http,'404');result.oldControlHttp=Number(http);
+ const http=run('/usr/bin/curl',['-s','-o','/dev/null','--max-time','3','-w','%{http_code}','http://127.0.0.1:3100/api/internal/background/status']).trim();assert.equal(http,'404');result.oldControlHttp=Number(http);result.stage='VERIFY_INSTALLED_OLD_GUARD';save();
  const envValues={...values,PHOENIX_DATA_MOUNT_GUARD:'true',PHOENIX_PG_DATA_DIR:'/data/maintenance-native-pg',PHOENIX_UPLOADS_DIR:'/data/maintenance-native-uploads'};
  fs.writeFileSync(path.join(root,'.env'),Object.entries(envValues).map(([k,v])=>`${k}=${v}`).join('\n')+'\n',{mode:0o600,flag:'wx'});
  // Preserve every existing branch; only this disposable clone gets an old main.
