@@ -67,6 +67,18 @@ export function validateRuntimePin(pin, { revisionRequired = true } = {}) {
     || !Number.isSafeInteger(pin.restartCount) || pin.restartCount < 0) hold('RUNTIME_IDENTITY');
   return pin;
 }
+/** Healthy admission is required BEFORE intentional network isolation. Once
+ * detached, DB-dependent readiness may fail by design; STOP still requires the
+ * same live, non-restarting, non-OOM executor with zero attached networks. */
+export function validateLegacyIsolatedPreStop(expected,before){
+  validateRuntimePin(expected);validateRuntimePin(before);
+  if(expected.running!==true||expected.health!=='healthy'
+    ||['id','imageId','revision','startedAt','restartCount'].some(key=>before[key]!==expected[key])
+    ||before.restartPolicy!=='no'||before.running!==true||!Number.isSafeInteger(before.pid)||before.pid<1
+    ||before.status!=='running'||before.restarting!==false||before.dead!==false||before.oomKilled!==false
+    ||!Array.isArray(before.attached)||before.attached.length!==0)hold('LEGACY_PRE_STOP_BINDING');
+  return before;
+}
 export function validateHealthyPre(snapshot) {
   for (const name of ['api', 'web', 'db']) {
     const pin = validateRuntimePin(snapshot?.[name], { revisionRequired: name !== 'db' });
@@ -187,9 +199,7 @@ export class LegacyMaintenanceRuntime {
     for (const expected of this.context.executors) {
       await this.verifiedFence();
       const before = await this.transport.inspect(expected.id);
-      validateRuntimePin(before);
-      if (['id', 'imageId', 'revision', 'startedAt', 'restartCount'].some(k => before[k] !== expected[k])
-        || before.restartPolicy !== 'no' || before.running !== true || before.health !== 'healthy') hold('LEGACY_PRE_STOP_BINDING');
+      validateLegacyIsolatedPreStop(expected,before);
       await this.authorize('STOP_LEGACY');
       await this.transport.stop(expected.id, { timeoutSeconds: 30 });
       const first = await this.transport.inspect(expected.id);

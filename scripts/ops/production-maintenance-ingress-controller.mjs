@@ -30,7 +30,12 @@ export class PersistentMaintenanceIngressController {
   this.#authority=authority;this.#store=store||new MaintenanceReceiptStore(context);this.#now=dependencies.now||Date.now;this.#mono=dependencies.monotonic||(()=>performance.now());
   this.#readIdentity=dependencies.readHostIdentity||(()=>({bootId:fs.readFileSync('/proc/sys/kernel/random/boot_id','utf8').trim(),networkNamespace:fs.readlinkSync('/proc/self/ns/net')}));
  }
- #poison(error){this.#fatal||=/^MAINTENANCE_INGRESS_HOLD=[A-Z_]+$/.test(error?.message||'')?error:fail('VALIDATION_OR_EFFECT_UNVERIFIED');this.#state='HOLD';return this.#fatal;}
+ #poison(error){
+  this.#fatal||=/^MAINTENANCE_INGRESS_HOLD=[A-Z_]+$/.test(error?.message||'')?error:fail('VALIDATION_OR_EFFECT_UNVERIFIED');
+  if(/^MAINTENANCE_HOLD=[A-Z_]{1,100}$/.test(error?.message||''))this.#fatal.ingressFailureClass=error.message;
+  if(error?.message==='MAINTENANCE_HOLD=ROOT_READER_HOST_PROCESS_OWNERSHIP_UNVERIFIED')this.#fatal.unverifiedHostProcess=error.unverifiedHostProcess;
+  this.#state='HOLD';return this.#fatal;
+ }
  #budget(){const start=this.#mono(),wall=this.#now();let last=start,lastWall=wall;
   return()=>{if(this.#fatal)throw this.#fatal;this.#guard();const at=this.#mono(),now=this.#now();if(![start,wall,at,now].every(Number.isFinite)||at<last||now<lastWall||at-start>=10000||now-wall>=10000||now<Date.parse(this.#context.window.start)||now>=Date.parse(this.#context.window.end))throw fail('DEADLINE_OR_WINDOW');last=at;lastWall=now;return Math.max(1,Math.floor(Math.min(10000-(at-start),10000-(now-wall),Date.parse(this.#context.window.end)-now)));};
  }
