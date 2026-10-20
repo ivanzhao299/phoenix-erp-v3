@@ -7,15 +7,13 @@ import path from 'node:path';
 import {execFileSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
 import {pathToFileURL} from 'node:url';
-import {captureRuntime} from './capture-production-runtime.mjs';
 import {CONTRACT,verifyContext,secureJson,git,migrationScope} from './production-config-guard.mjs';
 import {executionEnv} from './capture-production-runtime.mjs';
-import {readPinnedFile} from './production-trusted-paths.mjs';
 import {canonicalDigest,bindingDigest,hold,same,HASH,SHA,MAINTENANCE_CONTEXT_SCHEMA,MAINTENANCE_AUTHORITY_SCHEMA} from './production-maintenance-receipts.mjs';
 import {RELEASE_SCOPE,validateReleasePlan} from './production-maintenance-deployment-session.mjs';
 import {MAINTENANCE_OPERATIONS} from './production-maintenance-transition.mjs';
 import {captureMaintenanceSourceManifest,inspectMaintenancePreRuntime,captureMaintenanceSchema,captureMaintenanceChanjetPolicy,verifyMaintenanceSourceManifest} from './production-maintenance-root-sources.mjs';
-import {createMaintenanceRegistryReader,hashMaintenanceRecoveryFile} from './production-maintenance-root-readers.mjs';
+import {createMaintenanceRegistryReader,hashMaintenanceRecoveryFile,verifyInstalledMaintenanceGuard} from './production-maintenance-root-readers.mjs';
 import {discoverMaintenanceDatabaseIdentity} from './production-maintenance-database-observer.mjs';
 import {collectMaintenanceDomainObservation} from './production-maintenance-domain-observer.mjs';
 import {collectMaintenanceIotState} from './production-maintenance-iot-state.mjs';
@@ -91,43 +89,24 @@ export function captureLegacyNetworkScope(context){
  command('/bin/bash',[path.join(CONTRACT.repository,'scripts/ops/require-phoenix-data-mount.sh')]);
  return {approvedMounts,networks:[{id,name:n.Name,driver:n.Driver}],ingressScope:{networkId:id,bridge,interfaceIndex:links[0].ifindex,subnet:n.IPAM.Config[0].Subnet,port:3100}};
 }
-export async function bootstrapLegacyFirstSwitch(){
- guard();const pins=validateLegacyDispatchScope(),{owner,targetSha,previousFloorSha}=pins,root=CONTRACT.repository,state=CONTRACT.stateDirectory;
- if(git(root,['rev-parse','HEAD'])!==previousFloorSha||git(root,['status','--porcelain','--untracked-files=all'])
-  ||git(root,['ls-remote','origin','refs/heads/main'])!==`${targetSha}\trefs/heads/main`)hold('BOOTSTRAP_MAIN_OR_OLD_CHECKOUT_CHANGED');
- for(const file of ['transaction.json','policy-transition.json','maintenance-current.json','maintenance-transaction.json'])if(fs.existsSync(path.join(state,file)))hold('BOOTSTRAP_UNFINISHED_TRANSACTION');
- const floor=secureJson(path.join(state,'floor.json')),active=secureJson(path.join(state,'active.json'));
- if(floor.version!==3||floor.phase!=='READY'||floor.floorSha!==previousFloorSha||floor.chanjetPolicy!=='HOLD'||floor.readonlyApproval!==null||active.outcome!=='SUCCESS')hold('BOOTSTRAP_OLD_FLOOR_NOT_READY');
- const installed=await import(pathToFileURL(path.join(root,'scripts/ops/production-config-guard.mjs')).href);
- installed.guardProduction(root,state,captureRuntime());
- const template=secureJson(path.join(state,`owner-release-authorization-template-${targetSha}.json`));
- if(template.schema!=='phoenix.owner-maintenance-instruction/v1'||template.origin!=='TRUSTED_INTERACTIVE_USER'
-  ||template.targetSha!==targetSha||template.previousFloorSha!==previousFloorSha||!same(template.scope,RELEASE_SCOPE)
-  ||!HASH.test(template.authorizationDigest||'')||!HASH.test(template.maintenanceWindowConfirmationDigest||'')
-  ||template.delegate?.githubUserId!==7245339||template.delegate?.githubLogin!=='emvia'
-  ||!Number.isFinite(Date.parse(template.window?.start))||!Number.isFinite(Date.parse(template.window?.end))
-  ||Date.now()<Date.parse(template.window.start)||Date.now()+180000>=Date.parse(template.window.end))hold('BOOTSTRAP_REAL_OWNER_WINDOW_REQUIRED');
- const source=decodeSource(process.env.MAINTENANCE_RELEASE_INPUT);
- if(source.ownerSource.expectedMainSha!==targetSha||source.ownerSource.ownerDelegationDigest!==template.authorizationDigest)hold('BOOTSTRAP_SOURCE_OWNER_BINDING');
- const provenance=await collectOwnerDelegatedSourceProvenance(source.ownerSource);
- if(provenance.outcome!=='SERVER_SOURCE_FACTS_VERIFIED')hold('BOOTSTRAP_EXACT_SOURCE_COMMENT_REQUIRED');
+/** Private material preparation has no authority registration, FENCE or STOP.
+ * The exclusive VM exercise reuses these exact default readers and archives;
+ * only its separate fixture-owned authority is synthetic. */
+export async function prepareMaintenanceRuntimeMaterials({owner,targetSha,previousFloorSha,previousWebSha,window,image}){
+ guard();const root=CONTRACT.repository,state=CONTRACT.stateDirectory;
+ if(!/^\d+-\d+$/.test(owner)||![targetSha,previousFloorSha].every(value=>SHA.test(value))
+  ||!/^sha256:[a-f0-9]{64}$/.test(image||'')||!Number.isFinite(Date.parse(window?.end)))hold('BOOTSTRAP_EXACT_MATERIAL_REQUEST');
  const preSnapshot=inspectMaintenancePreRuntime();captureMaintenanceChanjetPolicy();
- if(preSnapshot.api.revision!==previousFloorSha||preSnapshot.web.revision!==template.previousWebSha&&template.previousWebSha!==undefined)hold('BOOTSTRAP_AUTHORIZED_RUNTIME_CHANGED');
+ if(preSnapshot.api.revision!==previousFloorSha||previousWebSha!==undefined&&preSnapshot.web.revision!==previousWebSha)hold('BOOTSTRAP_AUTHORIZED_RUNTIME_CHANGED');
  // Objective source fact: the old control endpoint must really be absent. A
  // status timeout, 401/403/500, or modern endpoint is never legacy permission.
  const status=command('/usr/bin/curl',['--silent','--output','/dev/null','--max-time','3','--write-out','%{http_code}','http://127.0.0.1:3100/api/internal/background/status']).trim();
  if(status!=='404')hold('BOOTSTRAP_LEGACY_404_REQUIRED');
  const sourceManifest=captureMaintenanceSourceManifest(root,targetSha);verifyMaintenanceSourceManifest(sourceManifest,{target:targetSha});
  const migration=migrationScope(root,previousFloorSha,targetSha);if(migration.changed.length)hold('BOOTSTRAP_MIGRATION_PATH_CHANGED');
- // Candidate preparation happens before any ingress/floor/container mutation.
- if(!process.env.GHCR_LOGIN_TOKEN)hold('BOOTSTRAP_EPHEMERAL_ACTIONS_TOKEN_REQUIRED');
- docker(['login','ghcr.io','--username','ivanzhao299','--password-stdin'],{input:process.env.GHCR_LOGIN_TOKEN});
- const tag=`ghcr.io/ivanzhao299/phoenix-erp-v3/api:sha-${targetSha}`;
- docker(['pull',tag],{timeout:120000});
- const image=JSON.parse(docker(['image','inspect',tag,'--format','{{json .Id}}']).split('\t')[0]);
  const revision=docker(['image','inspect',image,'--format','{{index .Config.Labels "org.opencontainers.image.revision"}}']);
  if(!/^sha256:[a-f0-9]{64}$/.test(image)||revision!==targetSha)hold('BOOTSTRAP_CANDIDATE_REVISION');
- const now=Date.now(),end=Math.min(now+CONTRACT.maximumTransitionMs,Date.parse(template.window.end));
+ const now=Date.now(),end=Math.min(now+CONTRACT.maximumTransitionMs,Date.parse(window.end));
  const context={schema:MAINTENANCE_CONTEXT_SCHEMA,protocolVersion:1,owner,previousFloorSha,previousApiSha:previousFloorSha,previousWebSha:preSnapshot.web.revision,targetSha,
   window:{start:new Date(now).toISOString(),end:new Date(end).toISOString()},candidate:{imageId:image,revision:targetSha},preSnapshot,executors:[preSnapshot.api],migrationPaths:[],sourceHelperSha256:canonicalDigest(sourceManifest),schemaEvidenceSha256:'0'.repeat(64),
   replacement:{project:'phoenix-erp',composeFileSha256:digest(command('/usr/bin/git',['-c',`safe.directory=${root}`,'show',`${targetSha}:docker-compose.yml`],{buffer:true}))}};
@@ -161,11 +140,41 @@ export async function bootstrapLegacyFirstSwitch(){
  const procedureSha256=digest(procedure),recoveryPlan={bindingDigest:bindingDigest(context),strategy:'COMPATIBLE_CANDIDATE_OR_HOLD',automaticOldRuntimeRollback:false,automaticDatabaseRestore:false,businessReplay:false,responsibleOperator:'emvia',procedureSha256,
   materials:[{kind:'CANDIDATE_IMAGE',sha256:files[0].sha256,imageId:image,revision:targetSha},{kind:'SOURCE_HELPERS',sha256:context.sourceHelperSha256},{kind:'PRE_SNAPSHOT',sha256:canonicalDigest(preSnapshot)},{kind:'RECOVERY_PROCEDURE',sha256:procedureSha256}],stopConditions:['INGRESS_LOST','UNKNOWN_SIDE_EFFECTS','CANDIDATE_FAILED','FLOOR_STATE_INCONSISTENT']};
  const payload={protocol:'STOP_AND_RECONCILE',operations:[...MAINTENANCE_OPERATIONS],recoveryPlanDigest:canonicalDigest(recoveryPlan),preSnapshotDigest:canonicalDigest(preSnapshot),terminationPolicySha256:canonicalDigest(context.terminationPolicy)};
+ return {context,packet,recoveryPlan,payload};
+}
+
+export async function bootstrapLegacyFirstSwitch(){
+ guard();const pins=validateLegacyDispatchScope(),{owner,targetSha,previousFloorSha}=pins,root=CONTRACT.repository,state=CONTRACT.stateDirectory;
+ if(git(root,['rev-parse','HEAD'])!==previousFloorSha||git(root,['status','--porcelain','--untracked-files=all'])
+  ||git(root,['ls-remote','origin','refs/heads/main'])!==`${targetSha}\trefs/heads/main`)hold('BOOTSTRAP_MAIN_OR_OLD_CHECKOUT_CHANGED');
+ for(const file of ['transaction.json','policy-transition.json','maintenance-current.json','maintenance-transaction.json'])if(fs.existsSync(path.join(state,file)))hold('BOOTSTRAP_UNFINISHED_TRANSACTION');
+ const floor=secureJson(path.join(state,'floor.json')),active=secureJson(path.join(state,'active.json'));
+ if(floor.version!==3||floor.phase!=='READY'||floor.floorSha!==previousFloorSha||floor.chanjetPolicy!=='HOLD'||floor.readonlyApproval!==null||active.outcome!=='SUCCESS')hold('BOOTSTRAP_OLD_FLOOR_NOT_READY');
+ verifyInstalledMaintenanceGuard();
+ const template=secureJson(path.join(state,`owner-release-authorization-template-${targetSha}.json`));
+ if(template.schema!=='phoenix.owner-maintenance-instruction/v1'||template.origin!=='TRUSTED_INTERACTIVE_USER'
+  ||template.targetSha!==targetSha||template.previousFloorSha!==previousFloorSha||!same(template.scope,RELEASE_SCOPE)
+  ||!HASH.test(template.authorizationDigest||'')||!HASH.test(template.maintenanceWindowConfirmationDigest||'')
+  ||template.delegate?.githubUserId!==7245339||template.delegate?.githubLogin!=='emvia'
+  ||!Number.isFinite(Date.parse(template.window?.start))||!Number.isFinite(Date.parse(template.window?.end))
+  ||Date.now()<Date.parse(template.window.start)||Date.now()+180000>=Date.parse(template.window.end))hold('BOOTSTRAP_REAL_OWNER_WINDOW_REQUIRED');
+ const source=decodeSource(process.env.MAINTENANCE_RELEASE_INPUT);
+ if(source.ownerSource.expectedMainSha!==targetSha||source.ownerSource.ownerDelegationDigest!==template.authorizationDigest)hold('BOOTSTRAP_SOURCE_OWNER_BINDING');
+ const provenance=await collectOwnerDelegatedSourceProvenance(source.ownerSource);
+ if(provenance.outcome!=='SERVER_SOURCE_FACTS_VERIFIED')hold('BOOTSTRAP_EXACT_SOURCE_COMMENT_REQUIRED');
+ // Candidate preparation precedes any ingress/floor/container mutation.
+ if(!process.env.GHCR_LOGIN_TOKEN)hold('BOOTSTRAP_EPHEMERAL_ACTIONS_TOKEN_REQUIRED');
+ docker(['login','ghcr.io','--username','ivanzhao299','--password-stdin'],{input:process.env.GHCR_LOGIN_TOKEN});
+ const tag=`ghcr.io/ivanzhao299/phoenix-erp-v3/api:sha-${targetSha}`;
+ docker(['pull',tag],{timeout:120000});
+ const image=JSON.parse(docker(['image','inspect',tag,'--format','{{json .Id}}']));
+ const {context,packet,recoveryPlan,payload}=await prepareMaintenanceRuntimeMaterials({owner,targetSha,previousFloorSha,
+  previousWebSha:template.previousWebSha,window:template.window,image});
  const artifact=await releaseArtifact(process.env.MAINTENANCE_RELEASE_ARTIFACT_ID,process.env.MAINTENANCE_RELEASE_ARTIFACT_DIGEST);
  const [runId,attempt]=owner.split('-').map(Number),grant={schema:'phoenix.owner-delegated-maintenance-grant/v1',repository:'ivanzhao299/phoenix-erp-v3',authorityKind:'OWNER_DELEGATED',authorizationOrigin:'TRUSTED_INTERACTIVE_USER',authorizationRef:template.authorizationRef,authorizationDigest:template.authorizationDigest,delegate:template.delegate,context,
   source:{headSha:source.ownerSource.sourceHeadSha,treeSha:source.ownerSource.sourceTreeSha,prNumber:source.ownerSource.prNumber,reviewId:source.ownerSource.reviewId,reviewRecordDigest:provenance.rawReviewRecordSha256,sourceProvenanceDigest:ownerSourceBindingDigest(provenance),mergedMainSha:targetSha},
   dispatch:{runId,attempt,actorId:7245339,workflowSha:targetSha,workflowPath:'.github/workflows/deploy.yml',event:'workflow_dispatch'},maintenanceWindowConfirmationDigest:template.maintenanceWindowConfirmationDigest,scope:RELEASE_SCOPE,payloadSha256:canonicalDigest(payload),
-  evidence:{preSnapshotDigest:canonicalDigest(preSnapshot),recoveryMaterialDigest:canonicalDigest(files),candidateImageId:image,releaseArtifactId:Number(process.env.MAINTENANCE_RELEASE_ARTIFACT_ID),releaseArtifactDigest:digest(artifact)},registeredAt:new Date().toISOString(),expiresAt:context.window.end};
+  evidence:{preSnapshotDigest:canonicalDigest(context.preSnapshot),recoveryMaterialDigest:canonicalDigest(packet.recovery.files),candidateImageId:image,releaseArtifactId:Number(process.env.MAINTENANCE_RELEASE_ARTIFACT_ID),releaseArtifactDigest:digest(artifact)},registeredAt:new Date().toISOString(),expiresAt:context.window.end};
  const approval={schema:MAINTENANCE_AUTHORITY_SCHEMA,authorityKind:'OWNER_DELEGATED',decision:'AUTHORIZED',purpose:'MAINTENANCE',bindingDigest:bindingDigest(context),payload,payloadSha256:canonicalDigest(payload),ownerGrantSha256:canonicalDigest(grant)};
  const instruction=Object.fromEntries(['schema','origin','authorizationRef','authorizationDigest','maintenanceWindowConfirmationDigest','previousFloorSha','targetSha','window','delegate','scope'].map(k=>[k,template[k]]));
  writeJson(path.join(state,`maintenance-owner-instruction-${owner}.json`),instruction);immutable(path.join(state,`maintenance-release-artifact-${owner}.zip`),artifact);

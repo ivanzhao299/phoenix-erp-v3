@@ -5,6 +5,7 @@ umask 077
 test "$(id -u)" = 0
 test "${NATIVE_FIXTURE_HOSTED-}" = github-hosted-exclusive-vm
 case "${NATIVE_FIXTURE_MAJOR-}" in 16|18) ;; *) exit 64 ;; esac
+case "${NATIVE_FIXTURE_FLOW-candidate}" in candidate|legacy-first-switch) ;; *) exit 64 ;; esac
 case "${NATIVE_FIXTURE_SHA-}" in *[!a-f0-9]*|'') exit 64 ;; esac
 test "${#NATIVE_FIXTURE_SHA}" = 40
 test -x "${NATIVE_FIXTURE_NODE-}"
@@ -53,7 +54,9 @@ trap native_setup_exit EXIT
  inspectTrustedDirectory("/var/lib",CONTRACT);
 '
 native_phase=CREATE_OWNED_DATA_VOLUME
-truncate -s 4G "$NATIVE_FIXTURE_OUTPUT/data.ext4"
+native_data_size=4G
+if [ "${NATIVE_FIXTURE_FLOW-candidate}" = legacy-first-switch ]; then native_data_size=8G; fi
+truncate -s "$native_data_size" "$NATIVE_FIXTURE_OUTPUT/data.ext4"
 mkfs.ext4 -q -F "$NATIVE_FIXTURE_OUTPUT/data.ext4"
 mkdir -m 0755 /data
 mount -o loop,nodev,nosuid "$NATIVE_FIXTURE_OUTPUT/data.ext4" /data
@@ -97,7 +100,11 @@ cd /data/phoenix-erp
 # Keep this exact shell alive as Node's direct parent holding genuine FD9.
 native_phase=RUN_NATIVE_DEFAULT_COLLECTOR
 set +e
-"$NATIVE_FIXTURE_NODE" scripts/ci/maintenance-native-candidate-host.fixture.mjs
+if [ "${NATIVE_FIXTURE_FLOW-candidate}" = legacy-first-switch ]; then
+  "$NATIVE_FIXTURE_NODE" scripts/ci/maintenance-full-first-switch.fixture.mjs
+else
+  "$NATIVE_FIXTURE_NODE" scripts/ci/maintenance-native-candidate-host.fixture.mjs
+fi
 result=$?
 set -e
 # Export only fixed non-secret receipts; never logs, source, .env or PG data.

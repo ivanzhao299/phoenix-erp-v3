@@ -3,13 +3,12 @@
  * values, executable adapters, externally supplied SQL or release approvals. */
 import fs from 'node:fs';
 import path from 'node:path';
-import {pathToFileURL} from 'node:url';
 import {ChildProcess,execFileSync,spawn} from 'node:child_process';
 import {createHash} from 'node:crypto';
 import {finished} from 'node:stream/promises';
 import {CONTRACT,verifyContext,secureJson,git} from './production-config-guard.mjs';
 import {readPinnedFile} from './production-trusted-paths.mjs';
-import {executionEnv,captureRuntime} from './capture-production-runtime.mjs';
+import {executionEnv} from './capture-production-runtime.mjs';
 import {canonicalDigest,bindingDigest,same,HASH,hold} from './production-maintenance-receipts.mjs';
 import {collectMaintenanceDomainObservation} from './production-maintenance-domain-observer.mjs';
 import {readOwnerAuthUnknownDecision} from './production-maintenance-owner-unknown.mjs';
@@ -65,6 +64,11 @@ function containerIdentity(id){
   return {id:actual,imageId,name,startedAt,restartCount,pid,running,privileged,pidMode,networkMode,
     bindsSha256:canonicalDigest(binds),project,erpBind:Array.isArray(binds)&&binds.some(v=>v.startsWith(CONTRACT.repository+':')||v.startsWith(CONTRACT.repository+'/'))};
 }
+
+/** Read-only ownership audit candidates. These functions return identity
+ * observations only and never classify, approve or register an executor. */
+export function observeMaintenanceProcessIdentity(pid){guard();return processIdentity(pid).value;}
+export function observeMaintenanceContainerIdentity(id){guard();if(!ID.test(id))hold('ROOT_READER_CONTAINER_ID');return containerIdentity(id);}
 
 /** Fixed scheduler discovery. Definitions are hashed in memory; command lines
  * and crontab bytes are never emitted. All listed files must remain readable,
@@ -187,6 +191,15 @@ export function createMaintenanceRegistryReader(context,{readControllers,getOwne
   return {registry,recordOwnedChild};
 }
 
+export function verifyInstalledMaintenanceGuard(){
+  guard();
+  // Fresh process, fixed root paths: an earlier import of a target helper must
+  // never substitute cached target modules for the installed OLD guard closure.
+  const program="import {guardProduction,CONTRACT} from './scripts/ops/production-config-guard.mjs';import {captureRuntime} from './scripts/ops/capture-production-runtime.mjs';guardProduction(CONTRACT.repository,CONTRACT.stateDirectory,captureRuntime());";
+  try{execFileSync(process.execPath,['--input-type=module','-e',program],{cwd:CONTRACT.repository,env:executionEnv(),timeout:10000,maxBuffer:65536,stdio:['ignore','pipe','pipe']});}
+  catch{hold('ROOT_READER_INSTALLED_GUARD_REJECTED');}guard();
+}
+
 export function createProductionMaintenanceReaders(plan,{readControllers}={}){
   const context=plan.context,packet=secureJson(path.join(CONTRACT.stateDirectory,`maintenance-root-source-data-${context.owner}.json`));
   let getOwnedChildren=()=>[];const recoveryChildren=[];
@@ -198,10 +211,7 @@ export function createProductionMaintenanceReaders(plan,{readControllers}={}){
   return Object.freeze({
     registry:registry.registry,recordOwnedChild:registry.recordOwnedChild,
     bindOwnedChildren(value){if(typeof value!=='function')hold('ROOT_READER_CHILD_REGISTRY_REQUIRED');getOwnedChildren=value;},
-    async installedGuard(){
-      guard();const installed=await import(pathToFileURL(path.join(CONTRACT.repository,'scripts/ops/production-config-guard.mjs')).href);
-      installed.guardProduction(CONTRACT.repository,CONTRACT.stateDirectory,captureRuntime());guard();
-    },
+    async installedGuard(){verifyInstalledMaintenanceGuard();},
     domainFacts,
     async recovery({signal}={}){
       guard();const material=packet.recovery,base=path.join(CONTRACT.stateDirectory,`maintenance-materials-${context.owner}`);
