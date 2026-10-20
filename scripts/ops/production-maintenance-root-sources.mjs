@@ -131,8 +131,8 @@ export function createProductionMaintenanceSources(plan,{readControllers,readers
   const registry=async request=>{check(request?.signal);const actual=await readers.registry({context,...request});verifyMaintenanceRegistry(packet.registry,actual);check(request?.signal);return actual;};
   const verifyAuthority=({approval,...expected})=>expected.purpose==='UNKNOWN_EFFECTS'
     ?verifyOwnerAuthUnknownAuthority(approval,expected,plan.approval):verifyRegisteredOwnerMaintenanceAuthority(approval,expected);
-  const inventory=async(request={})=>{
-    const actual=await registry(request),expected=actual.containers.filter(row=>row.classification==='ERP_EXECUTOR').map(row=>row.id);
+  const inventoryFromRegistry=(actual,request={})=>{
+    const expected=actual.containers.filter(row=>row.classification==='ERP_EXECUTOR').map(row=>row.id);
     // The fixed live reader validates the old exact pin or protected replacement
     // intent. A candidate is never authorized by caller-supplied ID alone.
     if(expected.length!==1||request.candidateId&&expected[0]!==request.candidateId)hold('ROOT_SOURCE_EXECUTOR_PHASE_REQUIRED');
@@ -143,8 +143,12 @@ export function createProductionMaintenanceSources(plan,{readControllers,readers
     validateExecutorInventory(value,[{...context.preSnapshot.api,id:expected[0]}]);
     return value;
   };
+  const inventory=async(request={})=>inventoryFromRegistry(await registry(request),request);
   const infrastructure=async request=>{
-    const actual=await registry(request),inv=await inventory(request);
+    // Use this call's fresh verified registry for its inventory. Repeating the
+    // entire same observation here doubles all Docker/systemd/path reads; it
+    // does not add another effect boundary. Docker IDs are still re-read below.
+    const actual=await registry(request),inv=inventoryFromRegistry(actual,request);
     if(fixedDocker(['info','--format','{{.Swarm.LocalNodeState}}'])!=='inactive')hold('ROOT_SOURCE_SWARM_UNSUPPORTED');
     if(actual.schedulers.some(row=>row.erpControlReference||row.classification!=='SYSTEM_PINNED'&&row.classification!=='NON_ERP_PINNED'))hold('ROOT_SOURCE_ORCHESTRATOR_UNVERIFIED');
     const stable={...actual,containers:actual.containers.filter(row=>!['ERP_EXECUTOR','CONTROL_PROCESS'].includes(row.classification)),

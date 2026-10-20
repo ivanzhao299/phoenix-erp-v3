@@ -35,7 +35,10 @@ export class PersistentMaintenanceIngressController {
   return()=>{if(this.#fatal)throw this.#fatal;this.#guard();const at=this.#mono(),now=this.#now();if(![start,wall,at,now].every(Number.isFinite)||at<last||now<lastWall||at-start>=10000||now-wall>=10000||now<Date.parse(this.#context.window.start)||now>=Date.parse(this.#context.window.end))throw fail('DEADLINE_OR_WINDOW');last=at;lastWall=now;return Math.max(1,Math.floor(Math.min(10000-(at-start),10000-(now-wall),Date.parse(this.#context.window.end)-now)));};
  }
  #hostIdentity(check){check();const value=this.#readIdentity();check();if(!value||!same(Object.keys(value).sort(),['bootId','networkNamespace'])||!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(value.bootId)||!/^net:\[[1-9][0-9]*\]$/.test(value.networkNamespace))throw fail('HOST_IDENTITY_UNVERIFIED');if(this.#host&&!same(this.#host,value))throw fail('BOOT_OR_NAMESPACE_CHANGED');return value;}
- #command(binary,args,check){const timeoutMs=check(),result=this.#run(binary,args,{timeoutMs});check();return result;}
+ #command(binary,args,check){let completed=false;
+  try{const timeoutMs=check(),result=this.#run(binary,args,{timeoutMs});completed=true;check();return result;}
+  catch(error){error.ingressCommand={program:path.basename(binary),operation:args.includes('--file')?'APPLY_KERNEL_PROGRAM':args[0],completed,state:this.#state};throw error;}
+ }
  async #admit(operation,check,method='verifyExclusiveWriter'){
   const controller=new AbortController(),request=Object.freeze({model:MODEL,operation,context:structuredClone(this.#context),contextDigest:bindingDigest(this.#context),scope:structuredClone(this.#scope),scopeDigest:canonicalDigest(this.#scope),signal:controller.signal,timeoutMs:check()});
   let timer;const work=Promise.resolve().then(()=>{check();return this.#authority?.[method]?.(request);});this.#authorityReads.add(work);work.then(()=>this.#authorityReads.delete(work),()=>this.#authorityReads.delete(work));
