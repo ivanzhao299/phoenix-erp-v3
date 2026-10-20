@@ -29,7 +29,8 @@ async function main(){
  fs.appendFileSync(path.join(root,'.git/info/exclude'),'\n/artifacts/\n/node_modules\n/apps/api/node_modules\n');
  const current=new OwnedErpCandidateCapsule({owner}),legacy=new OwnedErpCandidateCapsule({owner:baseOwner});
  const prior=process.umask(0o022);try{await current.build();await legacy.build({sourceRevision:old});}finally{process.umask(prior);}
- const currentBase=current.imageId,legacyImage=legacy.imageId;
+ const currentBase=current.imageId,legacyImage=legacy.imageId,currentBaseTag=`phoenix-${owner}:candidate`;
+ assert.equal(docker(['image','inspect',currentBaseTag,'--format','{{.Id}}']),currentBase);
  // Remove only the capsule's preload *entry command*, not application code.
  // Egress is physically constrained by this owned internal network instead.
  const build=path.join(state,'full-fixture-image-context');fs.mkdirSync(build,{mode:0o700});
@@ -41,10 +42,13 @@ async function main(){
  git(['-c','user.name=Owned isolated fixture','-c','user.email=fixture@example.invalid','add','docker-compose.yml']);
  git(['-c','user.name=Owned isolated fixture','-c','user.email=fixture@example.invalid','commit','--allow-empty','-qm','fixture: bind exclusive full first-switch target']);
  const target=git(['rev-parse','HEAD']);result.targetSha=target;result.applicationSourceSha=sourceHead;
- fs.writeFileSync(path.join(build,'Dockerfile'),`FROM ${currentBase}\nLABEL org.opencontainers.image.revision=${target}\nCMD ["node","dist/main.js"]\n`,{mode:0o600});
+ fs.writeFileSync(path.join(build,'Dockerfile'),`FROM ${currentBaseTag}\nLABEL org.opencontainers.image.revision=${target}\nCMD ["node","dist/main.js"]\n`,{mode:0o600});
+ result.stage='BUILD_PINNED_CANDIDATE_IMAGE';save();
  const candidateTag=`phoenix-full-${owner}:candidate`;
  docker(['build','--network=none','--pull=false','-t',candidateTag,build],{timeout:120000});
+ assert.equal(docker(['image','inspect',currentBaseTag,'--format','{{.Id}}']),currentBase);
  const candidateImage=docker(['image','inspect',candidateTag,'--format','{{.Id}}']);result.candidateImageId=candidateImage;result.previousImageId=legacyImage;
+ result.stage='BUILD_OWNED_WEB_PEER';save();
  fs.writeFileSync(path.join(build,'Dockerfile'),`FROM node:20-bookworm-slim\nLABEL org.opencontainers.image.revision=${webSha}\nCMD ["node","-e","require('http').createServer((q,s)=>s.end('owned Web peer')).listen(3000,'0.0.0.0')"]\n`,{mode:0o600});
  const webTag=`phoenix-full-${owner}:web`;docker(['build','--network=none','--pull=false','-t',webTag,build],{timeout:60000});
  // A private bare origin makes main drift and fast-forward checks real Git I/O.
@@ -131,4 +135,4 @@ CREATE ROLE erp_candidate_writer LOGIN;GRANT CONNECT ON DATABASE api_bootstrap_f
  result.evidence=Object.fromEntries(['pre','post','log'].map(kind=>[kind,JSON.parse(fs.readFileSync(path.join(state,`maintenance-formal-${kind}-${owner}.json`)))]));save();
  console.log(JSON.stringify({outcome:'PASS',major,targetSha:target,fullFactory:true,fixtureOnly:true,productionReceipt:false}));
 }
-if(process.argv[1]&&path.resolve(process.argv[1])===new URL(import.meta.url).pathname)try{await main();}catch(error){result.outcome='HOLD';result.failureClass=/^\w+_HOLD=[A-Z0-9_]+$/.test(error?.message||'')?error.message:error?.code==='ERR_ASSERTION'?'FIXTURE_ASSERTION':'FIXTURE_UNVERIFIED_FAILURE';result.failureAt=new Date().toISOString();if(fixtureAdmitted)save();console.error(result.failureClass);process.exitCode=1;}
+if(process.argv[1]&&path.resolve(process.argv[1])===new URL(import.meta.url).pathname)try{await main();}catch(error){result.outcome='HOLD';result.failureClass=/^\w+_HOLD=[A-Z0-9_]+$/.test(error?.message||'')?error.message:error?.code==='ERR_ASSERTION'?'FIXTURE_ASSERTION':'FIXTURE_UNVERIFIED_FAILURE';result.failureAt=new Date().toISOString();result.errorType=error?.name||'Error';result.commandExit=Number.isInteger(error?.status)?error.status:null;result.failureFrames=String(error?.stack||'').split('\n').slice(1,4).filter(line=>/^\s+at /.test(line)).map(line=>line.replaceAll(root,'<owned-root>'));if(fixtureAdmitted)save();console.error(result.failureClass);process.exitCode=1;}
