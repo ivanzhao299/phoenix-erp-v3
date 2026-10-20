@@ -102,6 +102,9 @@ CREATE ROLE erp_candidate_writer LOGIN;GRANT CONNECT ON DATABASE api_bootstrap_f
  write(path.join(state,'maintenance-host-ownership-registry.json'),{schema:'phoenix.maintenance-reviewed-host-ownership/v1',evidenceSha256:hash(JSON.stringify({fixtureOnly:true,processPins,network})),hostProcesses:processPins,containers:[]});
  const window={start:new Date(Date.now()-1000).toISOString(),end:new Date(Date.now()+29*60000).toISOString()};
  write(path.join(state,`owner-scoped-auth-unknown-${target}.json`),{schema:'phoenix.owner-scoped-auth-unknown-decision/v1',origin:'TRUSTED_INTERACTIVE_USER',authorizationRef:'OWNER_SCOPED_AUTH_UNKNOWN_NO_REPLAY',authorizationDigest:hash('SYNTHETIC_FIXTURE_NOT_A_USER_DECISION'),previousFloorSha:old,targetSha:target,oldApiContainerId:apiId,domain:'CHANJET_AUTH_REQUESTS',objects:[`api/${apiId}/chanjet-auth-lineage`],noReplay:true,businessMutation:false,window});
+ const oldBoundary=(Math.floor(Date.now()/60000)+1)*60000+1500;result.stage='LEGACY_NEXT_REAL_SCHEDULER_BOUNDARY';save();
+ while(Date.now()<oldBoundary)await wait(Math.min(250,oldBoundary-Date.now()));
+ await healthy(apiId);result.oldSchedulerBoundaryObservedAt=new Date().toISOString();
  result.stage='ACTUAL_SOURCE_PRE_RECOVERY_AND_FIVE_DOMAIN_BASELINE';save();
  const material=await prepareMaintenanceRuntimeMaterials({owner,targetSha:target,previousFloorSha:old,previousWebSha:webSha,window,image:candidateImage});
  const {context,packet,recoveryPlan,payload}=material;
@@ -119,6 +122,11 @@ CREATE ROLE erp_candidate_writer LOGIN;GRANT CONNECT ON DATABASE api_bootstrap_f
  assert.equal(currentFloor.floorSha,target);assert.equal(currentFloor.phase,'READY');assert.equal(formal.outcome,'SUCCESS');assert.equal(formal.switched.web,false);assert.equal(manifest.phase,'OPEN');
  assert.equal(docker(['inspect','phoenix-v3-web','--format','{{.Id}}']),webId);assert.equal(docker(['inspect','phoenix-v3-db','--format','{{.Id}}']),pgId);
  for(const marker of ['maintenance-current.json','maintenance-transaction.json','transaction.json','policy-transition.json'])assert.equal(fs.existsSync(path.join(state,marker)),false,marker);
+ result.stage='OPEN_NEXT_REAL_SCHEDULER_BOUNDARY';save();
+ const openBoundary=(Math.floor(Date.now()/60000)+1)*60000+1500;while(Date.now()<openBoundary)await wait(Math.min(250,openBoundary-Date.now()));
+ await healthy(docker(['inspect','phoenix-v3-api','--format','{{.Id}}']));
+ const switches=JSON.parse(docker(['exec','phoenix-v3-api','node','-e',"console.log(JSON.stringify({policy:process.env.CHANJET_SYNC_POLICY,readonly:process.env.CHANJET_READONLY_SYNC_ENABLED,inbound:process.env.CHANJET_ERP_INBOUND_SYNC_ENABLED}))"]));
+ assert.deepEqual(switches,{policy:'HOLD',readonly:'false',inbound:'false'});result.openSchedulerBoundaryObservedAt=new Date().toISOString();
  result.outcome='PASS';result.stage='FULL_FACTORY_COMPLETED';result.session=final;result.actualFloor=currentFloor;result.actualDeployment=formal;result.publicPhase=manifest.phase;result.webDbIdentity='UNCHANGED';
  result.evidence=Object.fromEntries(['pre','post','log'].map(kind=>[kind,JSON.parse(fs.readFileSync(path.join(state,`maintenance-formal-${kind}-${owner}.json`)))]));save();
  console.log(JSON.stringify({outcome:'PASS',major,targetSha:target,fullFactory:true,fixtureOnly:true,productionReceipt:false}));
