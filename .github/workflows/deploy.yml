@@ -55,6 +55,10 @@ on:
         description: "显式批准五个受管理 Chanjet 凭据轮换；普通部署保持 .env 不写入"
         type: boolean
         default: false
+      maintenance_release_input:
+        description: "旧 API 首切的精确源审查材料 JSON；生产仍须独立的受保护负责人指令及停机窗口"
+        type: string
+        default: ''
       approve_production:
         description: "批准部署到生产环境（必选）"
         type: boolean
@@ -689,12 +693,14 @@ jobs:
       needs.build-push.result == 'success' &&
       inputs.skip_deploy != true
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 40
     environment: production
 
     permissions:
       contents: read
       packages: read
+      actions: read
+      pull-requests: read
 
     steps:
       - uses: actions/checkout@v5
@@ -707,6 +713,23 @@ jobs:
             echo "PRODUCTION_PATH_HELPER_B64=$(base64 -w0 scripts/ops/production-trusted-paths.mjs)"
             echo "PRODUCTION_CONTROL_BOOTSTRAP_B64=$(base64 -w0 scripts/ops/production-control-bootstrap.sh)"
           } >> "$GITHUB_ENV"
+
+      - name: Prepare legacy source artifact
+        if: inputs.maintenance_release_input != ''
+        env:
+          MAINTENANCE_RELEASE_INPUT: ${{ inputs.maintenance_release_input }}
+          TARGET_SHA: ${{ github.sha }}
+        run: node scripts/ops/production-maintenance-release-input.mjs
+
+      - name: Archive legacy source artifact
+        if: inputs.maintenance_release_input != ''
+        id: legacy_artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: legacy-source-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/phoenix-legacy-release-source/
+          if-no-files-found: error
+          retention-days: 14
 
       - name: Prepare nginx config (full mode only)
         id: nginx
@@ -732,6 +755,9 @@ jobs:
           ONE_TIME_CONFIG_FLOOR_TRANSITION: ${{ inputs.one_time_config_floor_transition }}
           APPROVED_CONFIG_FLOOR_SHA: ${{ inputs.approved_config_floor_sha }}
           APPROVED_PREVIOUS_FLOOR_SHA: ${{ inputs.approved_previous_floor_sha }}
+          MAINTENANCE_RELEASE_INPUT: ${{ inputs.maintenance_release_input }}
+          MAINTENANCE_RELEASE_ARTIFACT_ID: ${{ steps.legacy_artifact.outputs.artifact-id }}
+          MAINTENANCE_RELEASE_ARTIFACT_DIGEST: ${{ steps.legacy_artifact.outputs.artifact-digest }}
           GHCR_LOGIN_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GHCR_LOGIN_USER: ${{ github.repository_owner }}
           CHANJET_APP_KEY: ${{ secrets.CHANJET_APP_KEY }}
@@ -745,7 +771,8 @@ jobs:
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           port: 22
-          envs: APPROVED_CONFIG_FLOOR_SHA,APPROVED_PREVIOUS_FLOOR_SHA,DEPLOY_MODE,BUILD_WEB,BUILD_API,RUN_MIG,NGINX_CONF,DEPLOY_RUN_ID,DEPLOY_RUN_ATTEMPT,TARGET_SHA,PRESERVE_ARTIFACTS,ROTATE_CHANJET_CREDENTIALS,ONE_TIME_CONFIG_FLOOR_TRANSITION,GHCR_LOGIN_TOKEN,GHCR_LOGIN_USER,CHANJET_APP_KEY,CHANJET_APP_SECRET,CHANJET_ORG_ID,CHANJET_CERT,CHANJET_MSG_SECRET,PRODUCTION_CONTRACT_B64,PRODUCTION_PATH_HELPER_B64,PRODUCTION_CONTROL_BOOTSTRAP_B64
+          command_timeout: 35m
+          envs: APPROVED_CONFIG_FLOOR_SHA,APPROVED_PREVIOUS_FLOOR_SHA,MAINTENANCE_RELEASE_INPUT,MAINTENANCE_RELEASE_ARTIFACT_ID,MAINTENANCE_RELEASE_ARTIFACT_DIGEST,DEPLOY_MODE,BUILD_WEB,BUILD_API,RUN_MIG,NGINX_CONF,DEPLOY_RUN_ID,DEPLOY_RUN_ATTEMPT,TARGET_SHA,PRESERVE_ARTIFACTS,ROTATE_CHANJET_CREDENTIALS,ONE_TIME_CONFIG_FLOOR_TRANSITION,GHCR_LOGIN_TOKEN,GHCR_LOGIN_USER,CHANJET_APP_KEY,CHANJET_APP_SECRET,CHANJET_ORG_ID,CHANJET_CERT,CHANJET_MSG_SECRET,PRODUCTION_CONTRACT_B64,PRODUCTION_PATH_HELPER_B64,PRODUCTION_CONTROL_BOOTSTRAP_B64
           script: |
             set -Eeuo pipefail
             umask 077
@@ -828,6 +855,29 @@ jobs:
             git fetch origin main
             test "$(git rev-parse origin/main)" = "$TARGET_SHA"
             git merge-base --is-ancestor "$PREV_GIT_SHA" "$TARGET_SHA"
+            # A real legacy 404 uses the fixed STOP_AND_RECONCILE factory.
+            # This route owns the whole release and must never fall through to
+            # the modern DRAIN endpoint or execute perform_deployment again.
+            if [ -n "${MAINTENANCE_RELEASE_INPUT:-}" ]; then
+              LEGACY_STAGE="$STATE_DIR/legacy-stage-${DEPLOY_RUN_ID}"
+              test ! -e "$LEGACY_STAGE"
+              mkdir -m 700 "$LEGACY_STAGE"
+              while IFS= read -r helper; do
+                case "$helper" in
+                  scripts/ops/*) base="${helper#scripts/ops/}"; [[ "$base" =~ ^[a-z0-9-]+\.(mjs|json|py|sh)$ ]] || continue ;;
+                  apps/api/src/common/database/api-bootstrap-schema-contract.json|docker-compose.yml) ;;
+                  *) continue ;;
+                esac
+                mkdir -p -m 700 "$LEGACY_STAGE/$(dirname "$helper")"
+                git show "$TARGET_SHA:$helper" > "$LEGACY_STAGE/$helper"
+                chmod 600 "$LEGACY_STAGE/$helper"
+              done < <(git ls-tree -r --name-only "$TARGET_SHA" -- scripts/ops apps/api/src/common/database/api-bootstrap-schema-contract.json docker-compose.yml)
+              cp "$LEGACY_STAGE/apps/api/src/common/database/api-bootstrap-schema-contract.json" "$LEGACY_STAGE/scripts/ops/api-bootstrap-schema-contract.json"
+              export MAINTENANCE_RELEASE_ARTIFACT_DIGEST="sha256:${MAINTENANCE_RELEASE_ARTIFACT_DIGEST#sha256:}"
+              node "$LEGACY_STAGE/scripts/ops/production-maintenance-bootstrap.mjs" run
+              echo "✅ Legacy API-only first switch complete"
+              exit 0
+            fi
             assert_target_main() {
               if [ "$BUILD_API" = true ]; then
                 node "$BACKGROUND_STAGE/background-deployment-session.mjs" check-main
@@ -848,7 +898,7 @@ jobs:
               FLOOR_STAGE="$STATE_DIR/floor-stage-${DEPLOY_RUN_ID}"
               test ! -e "$FLOOR_STAGE"
               mkdir -m 700 "$FLOOR_STAGE"
-              for helper in production-config-contract.json production-config-guard.mjs production-deployment-state.mjs production-atomic-state.mjs production-trusted-paths.mjs capture-production-runtime.mjs update-managed-chanjet-env.mjs chanjet-readonly-policy.mjs api-bootstrap-schema-preflight.mjs promote-production-config-floor.mjs chanjet-admission-schema-receipt.mjs production-maintenance-admission.mjs production-maintenance-receipts.mjs production-maintenance-transition.mjs production-maintenance-owner-authority.mjs production-maintenance-github-authority.mjs production-maintenance-owner-source-provenance.mjs background-control-legacy-transition.mjs background-control-manifest.mjs; do
+              for helper in production-config-contract.json production-config-guard.mjs production-deployment-state.mjs production-atomic-state.mjs production-trusted-paths.mjs capture-production-runtime.mjs update-managed-chanjet-env.mjs chanjet-readonly-policy.mjs api-bootstrap-schema-preflight.mjs promote-production-config-floor.mjs chanjet-admission-schema-receipt.mjs production-maintenance-admission.mjs production-maintenance-receipts.mjs production-maintenance-transition.mjs production-maintenance-owner-unknown.mjs production-maintenance-reconciliation.mjs production-maintenance-owner-authority.mjs production-maintenance-github-authority.mjs production-maintenance-owner-source-provenance.mjs background-control-legacy-transition.mjs background-control-manifest.mjs; do
                 git show "$TARGET_SHA:scripts/ops/$helper" > "$FLOOR_STAGE/$helper"
                 chmod 600 "$FLOOR_STAGE/$helper"
               done
@@ -866,7 +916,7 @@ jobs:
               EVIDENCE_STAGE="$STATE_DIR/evidence-stage-${DEPLOY_RUN_ID}"
               test ! -e "$EVIDENCE_STAGE"
               mkdir -m 700 "$EVIDENCE_STAGE"
-              for helper in production-deployment-evidence.mjs production-atomic-state.mjs production-config-contract.json production-config-guard.mjs production-trusted-paths.mjs capture-production-runtime.mjs update-managed-chanjet-env.mjs chanjet-readonly-policy.mjs chanjet-admission-schema-receipt.mjs production-maintenance-admission.mjs production-maintenance-receipts.mjs production-maintenance-transition.mjs production-maintenance-owner-authority.mjs production-maintenance-github-authority.mjs production-maintenance-owner-source-provenance.mjs background-control-legacy-transition.mjs background-control-manifest.mjs; do
+              for helper in production-deployment-evidence.mjs production-atomic-state.mjs production-config-contract.json production-config-guard.mjs production-trusted-paths.mjs capture-production-runtime.mjs update-managed-chanjet-env.mjs chanjet-readonly-policy.mjs chanjet-admission-schema-receipt.mjs production-maintenance-admission.mjs production-maintenance-receipts.mjs production-maintenance-transition.mjs production-maintenance-owner-unknown.mjs production-maintenance-reconciliation.mjs production-maintenance-owner-authority.mjs production-maintenance-github-authority.mjs production-maintenance-owner-source-provenance.mjs background-control-legacy-transition.mjs background-control-manifest.mjs; do
                 git show "$TARGET_SHA:scripts/ops/$helper" > "$EVIDENCE_STAGE/$helper"
                 chmod 600 "$EVIDENCE_STAGE/$helper"
               done
@@ -1090,7 +1140,7 @@ jobs:
               BACKGROUND_STAGE="$STATE_DIR/background-stage-${DEPLOY_RUN_ID}"
               test ! -e "$BACKGROUND_STAGE"
               mkdir -m 700 "$BACKGROUND_STAGE"
-              for helper in background-deployment-session.mjs background-control-coordinator.mjs background-control-manifest.mjs production-config-contract.json production-config-guard.mjs production-atomic-state.mjs production-trusted-paths.mjs capture-production-runtime.mjs production-deployment-evidence.mjs update-managed-chanjet-env.mjs chanjet-readonly-policy.mjs chanjet-admission-schema-receipt.mjs production-maintenance-admission.mjs production-maintenance-receipts.mjs production-maintenance-transition.mjs production-maintenance-owner-authority.mjs production-maintenance-github-authority.mjs production-maintenance-owner-source-provenance.mjs background-control-legacy-transition.mjs; do
+              for helper in background-deployment-session.mjs background-control-coordinator.mjs background-control-manifest.mjs production-config-contract.json production-config-guard.mjs production-atomic-state.mjs production-trusted-paths.mjs capture-production-runtime.mjs production-deployment-evidence.mjs update-managed-chanjet-env.mjs chanjet-readonly-policy.mjs chanjet-admission-schema-receipt.mjs production-maintenance-admission.mjs production-maintenance-receipts.mjs production-maintenance-transition.mjs production-maintenance-owner-unknown.mjs production-maintenance-reconciliation.mjs production-maintenance-owner-authority.mjs production-maintenance-github-authority.mjs production-maintenance-owner-source-provenance.mjs background-control-legacy-transition.mjs; do
                 git show "$TARGET_SHA:scripts/ops/$helper" > "$BACKGROUND_STAGE/$helper"
                 chmod 600 "$BACKGROUND_STAGE/$helper"
               done

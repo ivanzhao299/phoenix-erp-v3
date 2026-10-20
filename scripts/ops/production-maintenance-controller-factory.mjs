@@ -16,7 +16,7 @@ export function createMaintenanceReadControllers(plan){
  validateReleasePlan(plan);verifyContext(CONTRACT.repository,CONTRACT.stateDirectory);
  const own=fs.fstatSync(9),original=fs.statSync(`/proc/${process.ppid}/fd/9`);
  if(own.dev!==original.dev||own.ino!==original.ino)throw fail('ORIGINAL_SELF_FD9_REQUIRED');
- const context=structuredClone(plan.context),digest=bindingDigest(context),clients=new Map();
+ const context=structuredClone(plan.context),digest=bindingDigest(context),clients=new Map(),registeredChildren=new Map();
  const expected=execFileSync('/usr/bin/git',['-c',`safe.directory=${CONTRACT.repository}`,'show',`${context.targetSha}:scripts/ops/production-maintenance-controller-worker.mjs`],{cwd:CONTRACT.repository,timeout:5000,maxBuffer:65536,stdio:['ignore','pipe','pipe']});
  const bytes=readPinnedFile(workerFile,{contract:CONTRACT}),sourceSha256=hash(bytes);
  if(!bytes.equals(expected))throw fail('WORKER_SOURCE_NOT_EXACT_TARGET');
@@ -25,6 +25,8 @@ export function createMaintenanceReadControllers(plan){
    verifyContext(CONTRACT.repository,CONTRACT.stateDirectory);
    if(clients.has(role)||hash(readPinnedFile(workerFile,{contract:CONTRACT}))!==sourceSha256)throw fail('SINGLE_PINNED_WORKER_REQUIRED');
    const child=fork(workerFile,[context.owner,role],{execPath:process.execPath,execArgv:[],env:{PATH:'/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'},stdio:['ignore','pipe','pipe','ipc','ignore','ignore','ignore','ignore','ignore',9]});
+   const stat=fs.readFileSync(`/proc/${child.pid}/stat`,'utf8'),startTicks=stat.slice(stat.lastIndexOf(')')+2).split(' ')[19];
+   registeredChildren.set(role,{child,pid:child.pid,startTicks});
    const pending=new Map();let broken=null,closing=false,closed=false;
    const joined=new Promise(resolve=>child.once('close',()=>{closed=true;for(const p of pending.values())p.reject(fail('ORIGINAL_CHILD_CLOSED'));pending.clear();resolve();}));
    const poison=()=>{broken||=fail('WORKER_PROTOCOL_OR_LIFECYCLE');for(const p of pending.values())p.reject(broken);};
@@ -61,6 +63,6 @@ export function createMaintenanceReadControllers(plan){
   close:(client,options)=>client.close(options)
  }));
  const graph=new MaintenanceControlParticipants({context,definitions});
- return {graph,async capturePre(options){const client=clients.get('EVIDENCE_RECORDER');if(!client)throw fail('RECORDER_NOT_BOOTSTRAPPED');return client.rpc('CAPTURE_PRE',options);},
+ return {graph,registeredChildren:()=>[...registeredChildren.values()],async capturePre(options){const client=clients.get('EVIDENCE_RECORDER');if(!client)throw fail('RECORDER_NOT_BOOTSTRAPPED');return client.rpc('CAPTURE_PRE',options);},
   async verifyFormal(options){const client=clients.get('EVIDENCE_RECORDER');if(!client)throw fail('RECORDER_NOT_BOOTSTRAPPED');return client.rpc('VERIFY_FORMAL',options);}};
 }

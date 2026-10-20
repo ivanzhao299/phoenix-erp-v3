@@ -16,6 +16,7 @@ const hold = reason => { throw Error('RECOVERY_MATERIAL_HOLD=' + reason); };
 // This list deliberately does not claim coverage of the uninstalled registry.
 export const RECOVERY_CORE_FILES = Object.freeze([
   'production-maintenance-deployment-session.mjs', 'production-maintenance-transition.mjs',
+  'production-maintenance-owner-unknown.mjs', 'production-maintenance-reconciliation.mjs',
   'production-maintenance-control-participants.mjs',
   'maintenance-ingress-policy.mjs', 'production-maintenance-ingress-controller.mjs',
   'production-maintenance-controller-worker.mjs', 'production-maintenance-controller-factory.mjs',

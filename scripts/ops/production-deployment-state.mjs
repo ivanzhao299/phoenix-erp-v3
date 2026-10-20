@@ -61,7 +61,7 @@ export async function assertLegacyMaintenanceStateCore(request, operation, depen
   // Ordinary release and read-only diagnostic CLI paths must not initialize the
   // separate legacy protocol graph. No top-level await or duplicated validator.
   const { validateStoppedLegacy, validateIngressFence } = await import('./production-maintenance-transition.mjs');
-  const { LEGACY_EVIDENCE_DOMAINS } = await import('./background-control-legacy-transition.mjs');
+  const { verifyCommittedLegacyReconciliation } = await import('./production-maintenance-reconciliation.mjs');
   validateMaintenanceContext(request?.context);
   if (!['PREPARE_PROMOTION', 'VERIFY_CANDIDATE'].includes(operation)
     || Object.keys(request).some(key => !['root', 'context', 'contextDigest', 'state', 'approval', 'files', 'isolation', 'bootstrap', 'controlLease', 'signal', 'operation'].includes(key))
@@ -103,14 +103,10 @@ export async function assertLegacyMaintenanceStateCore(request, operation, depen
   const ingressEnvelope = receipt('INGRESS_FENCE'), stoppedEnvelope = receipt('STOP_LEGACY');
   const ingress = await evidence(ingressEnvelope, 'INGRESS_FENCE'); validateIngressFence(ingress, context, now());
   validateStoppedLegacy(await evidence(stoppedEnvelope, 'STOP_LEGACY'), context, ingressEnvelope.evidenceSha256, now());
-  const reconciled = await evidence(receipt('RECONCILIATION'), 'RECONCILIATION');
-  if (!same(receipt('MAINTENANCE_AUTHORITY'), request.approval) || reconciled.approvedScopeDigest !== request.approval.payloadSha256
-    || !Array.isArray(reconciled.domains) || reconciled.domains.length !== LEGACY_EVIDENCE_DOMAINS.length
-    || LEGACY_EVIDENCE_DOMAINS.some(domain => {
-      const items = reconciled.domains.filter(item => item.domain === domain); const item = items[0];
-      return items.length !== 1 || item.disposition !== 'RECONCILED' || item.unknownEffects !== 0 || item.pendingWrites !== 0
-        || item.requiresReplay !== false || item.requiresBusinessMutation !== false;
-    })) hold('LEGACY_STATE_RECONCILIATION_REQUIRED');
+  const reconciliationEnvelope=receipt('RECONCILIATION');await evidence(reconciliationEnvelope,'RECONCILIATION');
+  if(!same(receipt('MAINTENANCE_AUTHORITY'),request.approval))hold('LEGACY_STATE_RECONCILIATION_REQUIRED');
+  await verifyCommittedLegacyReconciliation({envelope:reconciliationEnvelope,context,state,store,maintenanceApproval:request.approval,
+    verifyAuthority:dependencies.verifyAuthority});
   if (operation === 'PREPARE_PROMOTION') {
     // A promotion/state writer can perform several slow schema, Git and main
     // reads between admissions. The compiled factory may freshly observe the

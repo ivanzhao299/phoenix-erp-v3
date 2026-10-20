@@ -1,3 +1,4 @@
+import {createOwnerAuthUnknownApproval} from './production-maintenance-owner-unknown.mjs';
 /** ONE compiled assembly of the seventeen maintenance producers. Read-source
  * capabilities below are code, never release-plan JSON. This assembly is not
  * installed by the production CLI until its real root source bootstrap and
@@ -146,10 +147,17 @@ export function assembleMaintenanceFactory({plan,sources,readControllers}){
   stopLegacy:()=>legacy.stopLegacy(),
   async collectReconciliation(request){
    const source=await read('reconciliation',{...request,stopped:session.engine.receipt(request.state,'STOP_LEGACY')});
-   // This owner-delegated assembly does not manufacture the distinct object-
-   // level UNKNOWN_EFFECTS approval. Actual unknown effects remain HOLD.
-   if(evaluateLegacyReconciliation(source?.domains).result!=='RECONCILED')hold('FACTORY_FIVE_DOMAINS_UNRECONCILED');
-   return {evidence:proofs.issue('RECONCILIATION',{domains:source.domains,approvedScopeDigest:plan.approval.payloadSha256},source.observations),unknownApprovals:[]};
+   const evidence=proofs.issue('RECONCILIATION',{domains:source.domains,approvedScopeDigest:plan.approval.payloadSha256},source.observations);
+   const unknownApprovals=[];
+   if(source.unknownDecision){
+    const approval=createOwnerAuthUnknownApproval(context,plan.approval,evidence,source.unknownDecision);
+    if(await verifyAuthority(approval,{purpose:'UNKNOWN_EFFECTS',context,bindingDigest:digest,targetSha:context.targetSha})!==true)hold('FACTORY_SCOPED_AUTH_UNKNOWN_NOT_APPROVED');
+    unknownApprovals.push(approval);
+   }
+   // The transition independently validates each exact unknown object and its
+   // separate owner decision against this freshly issued evidence hash.
+   if(!unknownApprovals.length&&evaluateLegacyReconciliation(source?.domains).result!=='RECONCILED')hold('FACTORY_FIVE_DOMAINS_UNRECONCILED');
+   return {evidence,unknownApprovals};
   },
   async preparePromotion(request){
    const typed=async()=>({root:CONTRACT.repository,context,state:request.state,approval:plan.approval,files:request.files,bootstrap:request.bootstrap,isolation:await observeIsolation(),signal:request.signal});
@@ -202,8 +210,10 @@ export function assembleMaintenanceFactory({plan,sources,readControllers}){
   return replacement;
  };
  session=new LegacyMaintenanceDeploymentSession({plan},{store,producers,verifyAuthority,verifyEvidence:proofs.verify,publicControl,makeReplacement,controlParticipants:readControllers.graph,
+  recordOwnedChild:typeof sources.recordOwnedChild==='function'?entry=>sources.recordOwnedChild(entry):null,
   async verifyFormalFiles(){const actual=verifySessionFormalEvidence({context,files:session.files}),independent=await readControllers.verifyFormal({timeoutMs:10000});
    if(!same(actual.digests,independent.digests)||canonicalDigest(actual.live)!==independent.liveDigest)hold('FACTORY_FORMAL_RECORDER_DISAGREES');return actual;}});
+ if(typeof sources.bindSession==='function')sources.bindSession(session);
  return Object.freeze({run:()=>session.run(),registry:Object.freeze({names:Object.keys(producers),productionEntryInstalled:false}),
   debt:()=>({pendingSourceReads:pending.size,candidate:candidateFactory.cleanupDebt(),ingress:ingress.status(),network:isolation?.cleanupDebt()||null})});
 }

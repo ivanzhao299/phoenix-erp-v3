@@ -9,7 +9,7 @@ import {randomUUID,createHash} from 'node:crypto';
 import {execFileSync,spawn} from 'node:child_process';
 import {createInterface} from 'node:readline';
 import {once} from 'node:events';
-import {collectMaintenanceDatabaseSnapshot,DATABASE_OBSERVATION_SQL_SHA256} from './production-maintenance-database-observer.mjs';
+import {collectMaintenanceDatabaseSnapshot,discoverMaintenanceDatabaseIdentity,DATABASE_OBSERVATION_SQL_SHA256} from './production-maintenance-database-observer.mjs';
 const enabled=process.env.MAINTENANCE_DATABASE_PG_FIXTURE==='1';
 const env={PATH:'/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',DOCKER_HOST:'unix:///var/run/docker.sock'};
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
@@ -43,9 +43,14 @@ for(const image of ['postgres:16.14-alpine','postgres:18-alpine'])test(`owned ${
     record.finalServerAdmission={temporaryHealthyObserved:sawTemporaryHealthy,pid1Comm:'postgres',result:'PASS'};
     const [actualId,imageId,containerStartedAt,ownerSeen,network]=docker(['inspect',id,'--format','{{json .Id}}\t{{json .Image}}\t{{json .State.StartedAt}}\t{{json (index .Config.Labels "phoenix.fixture.owner")}}\t{{json .HostConfig.NetworkMode}}']).split('\t').map(JSON.parse);
     assert.equal(actualId,id);assert.equal(ownerSeen,owner);assert.equal(network,'none');
-    const facts=JSON.parse(psql(`SELECT json_build_object('databaseOid',(SELECT oid::bigint FROM pg_database WHERE datname=current_database()),'postmasterStartedAt',to_char(pg_postmaster_start_time() AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),'clusterSystemIdentifier',(SELECT system_identifier::text FROM pg_control_system()));`));
+    const facts=JSON.parse(psql(`SELECT json_build_object('databaseOid',(SELECT oid::bigint FROM pg_database WHERE datname=current_database()),'postmasterStartedAt',to_char(pg_postmaster_start_time() AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),'clusterSystemIdentifier',(SELECT system_identifier::text FROM pg_control_system()));`));
     const binding={containerId:id,imageId,containerStartedAt,...facts,previousFloorSha:'c'.repeat(40),targetSha:'d'.repeat(40)};
     record.binding=binding;
+    await t.test('actual discovered microsecond identity matches the fixed root lease contract',()=>{
+      const identity=discoverMaintenanceDatabaseIdentity({containerId:id,imageId,containerStartedAt},{guard:()=>{},run:docker});
+      assert.deepEqual(identity,{containerId:id,imageId,containerStartedAt,...facts});
+      assert.match(identity.postmasterStartedAt,/\.[0-9]{6}Z$/);results.push({case:'ACTUAL_ROOT_IDENTITY_MICROSECONDS',result:'PASS'});
+    });
     const collect=(changed={},run=docker)=>collectMaintenanceDatabaseSnapshot({...binding,...changed},{guard:()=>{},run});
     await t.test('zero counts remain SNAPSHOT_ONLY and HOLD',()=>{const s=collect();assert.equal(s.observation.currentDatabaseClientSessions,0);assert.equal(s.ownershipComplete,false);assert.equal(s.result,'HOLD');results.push({case:'ZERO_IS_NOT_DRAIN',result:'PASS'});});
     const holderApp='owned-observer-'+owner;
@@ -97,7 +102,7 @@ for(const image of ['postgres:16.14-alpine','postgres:18-alpine'])test(`owned ${
       }results.push({case:'CONNINFO_INPUT_REJECTED',result:'PASS'});
     });
     const final=collect();assert.equal(final.observation.currentDatabaseClientSessions,0);assert.equal(final.observation.currentDatabasePreparedTransactions,0);assert.equal(final.observation.otherDatabasePreparedTransactions,0);
-    record.finalDatabaseCounters=final.observation;assert.equal(results.length,9);record.result='PASS';
+    record.finalDatabaseCounters=final.observation;assert.equal(results.length,10);record.result='PASS';
   }catch(error){record.result='FAIL';record.failure='OWNED_DATABASE_TEST_FAILED';throw error;
   }finally{
     try{

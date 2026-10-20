@@ -126,7 +126,7 @@ jobs:
           fi
           if [ "$OPERATION" = recovery ] || [ "$OPERATION" = audit ]; then
             RECOVERY_TAR="$(mktemp)"
-            tar -czf "$RECOVERY_TAR" -C scripts/ops production-deployment-recovery.mjs production-deployment-evidence.mjs production-config-guard.mjs production-deployment-state.mjs production-atomic-state.mjs production-trusted-paths.mjs capture-production-runtime.mjs update-managed-chanjet-env.mjs chanjet-readonly-policy.mjs chanjet-readonly-production-audit.mjs production-config-contract.json chanjet-admission-schema-receipt.mjs production-maintenance-admission.mjs production-maintenance-receipts.mjs production-maintenance-transition.mjs production-maintenance-owner-authority.mjs background-control-legacy-transition.mjs background-control-manifest.mjs
+            tar -czf "$RECOVERY_TAR" -C scripts/ops production-deployment-recovery.mjs production-deployment-evidence.mjs production-config-guard.mjs production-deployment-state.mjs production-atomic-state.mjs production-trusted-paths.mjs capture-production-runtime.mjs update-managed-chanjet-env.mjs chanjet-readonly-policy.mjs chanjet-readonly-production-audit.mjs production-config-contract.json chanjet-admission-schema-receipt.mjs production-maintenance-admission.mjs production-maintenance-receipts.mjs production-maintenance-transition.mjs production-maintenance-owner-unknown.mjs production-maintenance-reconciliation.mjs production-maintenance-owner-authority.mjs background-control-legacy-transition.mjs background-control-manifest.mjs
             echo "RECOVERY_BUNDLE_B64=$(base64 -w0 "$RECOVERY_TAR")" >> "$GITHUB_ENV"
             echo "RECOVERY_BUNDLE_SHA256=$(sha256sum "$RECOVERY_TAR" | cut -d' ' -f1)" >> "$GITHUB_ENV"
             rm -f "$RECOVERY_TAR"

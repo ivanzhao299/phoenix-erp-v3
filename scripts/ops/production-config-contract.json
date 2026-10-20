@@ -121,7 +121,15 @@
     "scripts/ops/production-maintenance-controller-factory.mjs",
     "scripts/ops/production-maintenance-candidate-factory.mjs",
     "scripts/ops/production-maintenance-domain-observer.mjs",
-    "scripts/ops/production-maintenance-factory.mjs"
+    "scripts/ops/production-maintenance-factory.mjs",
+    "scripts/ops/production-maintenance-root-sources.mjs",
+    "scripts/ops/production-maintenance-root-readers.mjs",
+    "scripts/ops/production-maintenance-production-entry.mjs",
+    "scripts/ops/production-maintenance-bootstrap.mjs",
+    "scripts/ops/production-maintenance-release-input.mjs",
+    "scripts/ops/production-maintenance-owner-unknown.mjs",
+    "scripts/ops/production-maintenance-reconciliation.mjs",
+    "scripts/ops/production-maintenance-iot-state.mjs"
   ],
   "executionUid": 0,
   "controlRoot": "/var/lib/phoenix-erp",

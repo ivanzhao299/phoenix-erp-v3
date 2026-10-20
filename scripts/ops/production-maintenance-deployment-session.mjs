@@ -87,6 +87,7 @@ export class LegacyMaintenanceDeploymentSession {
     this.modernAdmission = dependencies.modernAdmission || (() => assertModernReleaseAdmission());
     this.admit = dependencies.admit || (options => assertLegacyMaintenanceAdmission(options, { verifyAuthority: this.verifyAuthority }));
     this.producers = dependencies.producers || unavailableProductionProducers();
+    this.recordOwnedChild = dependencies.recordOwnedChild || null;
     for (const name of REQUIRED_PRODUCERS) if (typeof this.producers[name] !== 'function') hold('SESSION_TYPED_PRODUCER_MISSING');
     this.publicControl = dependencies.publicControl || new LegacyMaintenancePublicControl({ context: this.context }, {
       store: this.store, verifyAuthority: this.verifyAuthority, verifyEvidence: this.verifyEvidence });
@@ -160,6 +161,7 @@ export class LegacyMaintenanceDeploymentSession {
     // An error or an exit code cannot prove a previously missed close event.
     entry.work = new Promise(resolve => child.once('close', resolve)); this.children.add(entry);
     entry.work.then(() => this.children.delete(entry));
+    if(this.recordOwnedChild)this.recordOwnedChild(entry);
     return { pid: child.pid, registered: true };
   }
   registerObserverChild(child) {
@@ -649,10 +651,10 @@ export class LegacyMaintenanceDeploymentSession {
  * It remains HOLD until the reviewed producer registry is implemented. */
 export async function runProtectedMaintenanceSession() {
   verifyContext(CONTRACT.repository, CONTRACT.stateDirectory);
-  if (!/^\d+-\d+$/.test(process.env.DEPLOY_RUN_ID || '')) hold('SESSION_OWNER_REQUIRED');
-  const plan = secureJson(path.join(CONTRACT.stateDirectory, `maintenance-release-plan-${process.env.DEPLOY_RUN_ID}.json`));
-  if (plan.context?.owner !== process.env.DEPLOY_RUN_ID) hold('SESSION_PLAN_OWNER_MISMATCH');
-  return new LegacyMaintenanceDeploymentSession({ plan }).run();
+  // Load after this module has initialized: factory imports the Session engine.
+  // This is a fixed literal module, never a path supplied by a release plan.
+  const {runProductionMaintenanceSession}=await import('./production-maintenance-production-entry.mjs');
+  return runProductionMaintenanceSession();
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   try {

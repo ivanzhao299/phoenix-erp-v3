@@ -10,7 +10,7 @@ import { executionEnv } from './capture-production-runtime.mjs';
 import { MaintenanceReceiptStore, bindingDigest, canonicalDigest, createMaintenanceEvidence,
   validateMaintenanceContext, validateMaintenanceEvidence, validateRuntimePin, HASH, same, hold, iso as validIso } from './production-maintenance-receipts.mjs';
 import { validateStoppedLegacy } from './production-maintenance-transition.mjs';
-import { LEGACY_EVIDENCE_DOMAINS as LEGACY_DOMAINS } from './background-control-legacy-transition.mjs';
+import {verifyCommittedLegacyReconciliation} from './production-maintenance-reconciliation.mjs';
 import { PUBLIC_DIRECTORY } from './background-control-manifest.mjs';
 
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -242,11 +242,8 @@ export class ControlledComposeReplacement {
       if (await this.verifyEvidence(envelope, { kind, context: this.context }) !== true) hold('REPLACEMENT_PRIOR_EVIDENCE_UNVERIFIED');
     }
     validateStoppedLegacy(bodies.stopped, this.context, bodies.stopped.ingressFenceDigest, this.now());
-    const reconciliation = bodies.reconciliation;
-    if (!Array.isArray(reconciliation.domains) || reconciliation.domains.length !== 5 || LEGACY_DOMAINS.some(domain => {
-      const entry = reconciliation.domains.find(item => item.domain === domain);
-      return !entry || entry.disposition !== 'RECONCILED' || entry.unknownEffects !== 0 || entry.pendingWrites !== 0 || entry.requiresReplay !== false || entry.requiresBusinessMutation !== false;
-    })) hold('REPLACEMENT_FIVE_DOMAINS_UNRECONCILED');
+    await verifyCommittedLegacyReconciliation({envelope:this.prerequisites.reconciliation,context:this.context,state:this.state,
+      store:this.store,maintenanceApproval:this.approval,verifyAuthority:this.verifyAuthority});
     const fence = bodies.isolation;
     if (fence.state !== 'FROZEN' || fence.continuous !== true || fence.revival?.restartPolicy !== 'no'
       || fence.revival.orchestratorsDisabled !== true || !same(fence.revival.executorIds, [this.context.preSnapshot.api.id])
