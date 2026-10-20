@@ -76,7 +76,7 @@ async function main(){
  // host published HTTP and same-bridge DB traffic remain real and reachable.
  const bridge='br-'+network.slice(0,12),egressFile=path.join(state,'full-fixture-egress.rules');
  assert.match(bridge,/^br-[a-f0-9]{12}$/);
- const egressProgram=`table inet phoenix_fixture_egress { chain forward { type filter hook forward priority -200; policy accept; iifname "${bridge}" oifname != "${bridge}" counter drop; } }\n`;
+ const egressProgram=`table inet phoenix_fixture_egress { chain forward { type filter hook forward priority -200; policy accept; iifname "${bridge}" oifname != "${bridge}" counter drop; }\n}\n`;
  fs.writeFileSync(egressFile,egressProgram,{mode:0o600,flag:'wx'});run('/usr/sbin/nft',['--file',egressFile]);
  result.fixtureEgress={bridge,programSha256:hash(egressProgram),scope:'EXCLUSIVE_VM_BRIDGE_FORWARDING_ONLY'};save();
  result.stage='START_DATABASE';save();
