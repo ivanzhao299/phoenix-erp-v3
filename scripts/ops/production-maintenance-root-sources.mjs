@@ -112,7 +112,14 @@ export function verifyMaintenanceRegistry(expected,actual){
   // Their live identities are verified by the fixed reader against context and
   // the original child graph; immutable unrelated neighbours must not change.
   const pinned=rows=>rows.filter(row=>!['ERP_EXECUTOR','CONTROL_PROCESS'].includes(row.classification));
-  if(['containers','hostProcesses'].some(key=>!same(pinned(expected[key]),pinned(actual[key])))||!same(expected.schedulers,actual.schedulers))hold('ROOT_SOURCE_HOST_REGISTRY_CHANGED');
+  const differences={};
+  for(const key of ['containers','hostProcesses','schedulers']){
+    const before=key==='schedulers'?expected[key]:pinned(expected[key]),after=key==='schedulers'?actual[key]:pinned(actual[key]);
+    if(same(before,after))continue;
+    const identity=row=>String(row.id??row.pid),oldRows=new Map(before.map(row=>[identity(row),row])),newRows=new Map(after.map(row=>[identity(row),row]));
+    differences[key]=[...new Set([...oldRows.keys(),...newRows.keys()])].filter(id=>!same(oldRows.get(id)??null,newRows.get(id)??null)).slice(0,32).map(id=>({id,before:oldRows.get(id)??null,after:newRows.get(id)??null}));
+  }
+  if(Object.keys(differences).length){const error=Error('MAINTENANCE_HOLD=ROOT_SOURCE_HOST_REGISTRY_CHANGED');error.registryDifference=differences;throw error;}
   return true;
 }
 
