@@ -124,6 +124,24 @@ CREATE ROLE erp_candidate_writer LOGIN;GRANT CONNECT ON DATABASE api_bootstrap_f
  const oldBoundary=(Math.floor(Date.now()/60000)+1)*60000+1500;result.stage='LEGACY_NEXT_REAL_SCHEDULER_BOUNDARY';save();
  while(Date.now()<oldBoundary)await wait(Math.min(250,oldBoundary-Date.now()));
  await healthy(apiId);result.oldSchedulerBoundaryObservedAt=new Date().toISOString();
+ // Reconcile runner processes that appeared after the initial host snapshot.
+ // Each late pin is accepted only after two identical identity reads, with no
+ // repository/control reference; production readers never use this fixture
+ // reconciliation path and remain default-deny for unknown host processes.
+ const ownershipFile=path.join(state,'maintenance-host-ownership-registry.json'),ownership=JSON.parse(fs.readFileSync(ownershipFile));
+ const latePins=[...ownership.hostProcesses];
+ for(const name of fs.readdirSync('/proc').filter(n=>/^[1-9][0-9]*$/.test(n))){
+  const pid=Number(name);if([process.pid,process.ppid].includes(pid)||latePins.some(pin=>pin.pid===pid))continue;
+  let exe;try{exe=fs.readlinkSync(`/proc/${pid}/exe`);}catch(error){if(['ENOENT','ESRCH'].includes(error.code))continue;throw error;}
+  if(!/\/(?:node|nodejs|python[0-9.]*|java|pm2|supervisord|nomad|kubelet)$/.test(exe))continue;
+  const first=observeMaintenanceProcessIdentity(pid),second=observeMaintenanceProcessIdentity(pid);
+  if(first.erpControlReference||canonicalDigest(first)!==canonicalDigest(second))continue;
+  latePins.push({pid,identitySha256:canonicalDigest(first),owner:'EXCLUSIVE_DISPOSABLE_VM_RUNNER_STABLE_IDENTITY'});
+ }
+ if(latePins.length!==ownership.hostProcesses.length){
+  const updated={...ownership,hostProcesses:latePins};updated.evidenceSha256=hash(JSON.stringify({fixtureOnly:true,processPins:latePins,network}));
+  fs.writeFileSync(ownershipFile,JSON.stringify(updated)+'\n',{mode:0o600});
+ }
  result.stage='ACTUAL_SOURCE_PRE_RECOVERY_AND_FIVE_DOMAIN_BASELINE';save();
  const material=await prepareMaintenanceRuntimeMaterials({owner,targetSha:target,previousFloorSha:old,previousWebSha:webSha,window,image:candidateImage});
  const {context,packet,recoveryPlan,payload}=material;
