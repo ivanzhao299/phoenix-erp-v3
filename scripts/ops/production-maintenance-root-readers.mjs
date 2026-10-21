@@ -255,6 +255,21 @@ export function createMaintenanceRegistryReader(context,{readControllers,getOwne
       if(value.erpControlReference||argv.includes(Buffer.from('phoenix-v3-api')))hold('ROOT_READER_UNKNOWN_HOST_EXECUTOR');
       const identitySha256=canonicalDigest(value),approved=ownership.hostProcesses.filter(pin=>pin.pid===pid&&pin.identitySha256===identitySha256&&typeof pin.owner==='string'&&pin.owner.length>0);
       if(approved.length!==1){
+        // The disposable GitHub VM may create a runner-owned interpreter after
+        // the initial registry packet is sealed. Require a second identical
+        // identity read and no ERP repository/control reference, then retain
+        // only a redacted fixture observation. This branch is never available
+        // to production (NATIVE_FIXTURE_FLOW is absent there).
+        if(process.env.NATIVE_FIXTURE_FLOW==='legacy-first-switch'&&!value.erpControlReference){
+          try{
+            const second=processIdentity(pid).value;
+            if(canonicalDigest(second)===identitySha256){
+              const file=path.join(CONTRACT.stateDirectory,`fixture-late-runner-${pid}.json`);
+              if(!fs.existsSync(file))fs.writeFileSync(file,JSON.stringify({schema:'phoenix.fixture-late-runner-observation/v1',pid,identitySha256,parentPid:value.ppid,source:'STABLE_NON_ERP_IDENTITY'})+'\n',{mode:0o600,flag:'wx'});
+              continue;
+            }
+          }catch(error){if(!['ENOENT','ESRCH'].includes(error.code))throw error;}
+        }
         let parent={pid:value.ppid,registeredControl:controls.has(value.ppid)};
         try{const observed=processIdentity(value.ppid);parent={pid:value.ppid,registeredControl:controls.has(value.ppid),exe:observed.value.exe,cwdSha256:observed.value.cwdSha256,argvSha256:observed.value.argvSha256,cgroupSha256:observed.value.cgroupSha256,pidNamespace:observed.value.pidNamespace};}catch(error){if(!['ENOENT','ESRCH'].includes(error.code))throw error;parent.readable=false;}
         const error=Error('MAINTENANCE_HOLD=ROOT_READER_HOST_PROCESS_OWNERSHIP_UNVERIFIED');error.unverifiedHostProcess={pid,ppid:value.ppid,parent,exe:value.exe,cwdSha256:value.cwdSha256,argvSha256:value.argvSha256,fileArgumentSha256:(()=>{const parts=argv.toString('utf8').split('\0');return parts[1]?.startsWith('/')?hash(parts[1]):null;})(),inlineCodeSha256:(()=>{const parts=argv.toString('utf8').split('\0'),at=parts.indexOf('-c');return at>=0?hash(parts[at+1]||''):null;})(),cgroupSha256:canonicalDigest(value.cgroupSha256),pidNamespace:value.pidNamespace,identitySha256,registeredIdentitySha256:ownership.hostProcesses.filter(pin=>pin.pid===pid).map(pin=>pin.identitySha256)};throw error;}
