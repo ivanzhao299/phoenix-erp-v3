@@ -244,7 +244,12 @@ export function createProductionMaintenanceSources(plan,{readControllers,readers
       }
       if(stable<2){
         const error=Error('MAINTENANCE_HOLD=ROOT_SOURCE_DATABASE_OR_PERSISTENT_WORK_REMAINS');
-        error.databaseQuiescenceCounts=counts;throw error;
+        error.databaseQuiescenceCounts=counts;
+        try{
+          const sql=`BEGIN READ ONLY; SET LOCAL search_path=pg_catalog; SET LOCAL statement_timeout='3s'; SELECT coalesce(json_agg(row_to_json(x) ORDER BY x.application_name,x.state),'[]'::json) FROM (SELECT coalesce(application_name,'') AS application_name,coalesce(state,'') AS state,backend_type,count(*)::integer AS count FROM pg_stat_activity WHERE backend_type='client backend' GROUP BY application_name,state,backend_type) x; ROLLBACK;`;
+          error.databaseClientSummary=JSON.parse(execFileSync('/usr/bin/docker',['exec','-i',identity.containerId,'/bin/sh','-c',DATABASE_OBSERVATION_PSQL],{input:sql,env:executionEnv(),encoding:'utf8',timeout:10000,stdio:['pipe','pipe','pipe']}));
+        }catch{error.databaseClientSummary=null;}
+        throw error;
       }
       return {ownershipComplete:true,remainingConnections:0,openTransactions:0,preparedTransactions:0,persistentRunning:0,persistentQueued:0,
         registrySha256:canonicalDigest(packet.registry),databaseSnapshot:snapshot,persistentObservation:facts};
