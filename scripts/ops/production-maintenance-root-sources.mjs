@@ -220,14 +220,25 @@ export function createProductionMaintenanceSources(plan,{readControllers,readers
       return same(stable(evidence),stable(live));
     },
     async databaseQuiescence(request){
-      check(request.signal);await registry(request);const identity=database();
-      const snapshot=collectMaintenanceDatabaseSnapshot({...identity,previousFloorSha:context.previousFloorSha,targetSha:context.targetSha});
-      const facts=await readers.domainFacts({context,identity,signal:request.signal}),s=snapshot.observation,p=facts.observation?.persistent;
-      const counts={statsVisibilityComplete:s.statsVisibilityComplete,currentDatabaseClientSessions:s.currentDatabaseClientSessions,
-        otherDatabaseClientSessions:s.otherDatabaseClientSessions,clientSessionsWithOpenTransaction:s.clientSessionsWithOpenTransaction,
-        currentDatabasePreparedTransactions:s.currentDatabasePreparedTransactions,otherDatabasePreparedTransactions:s.otherDatabasePreparedTransactions,
-        persistentRunning:p?.runningJobs,persistentQueued:p?.queuedJobs,activeAdmissions:p?.activeAdmissions,reservedRequests:p?.reservedRequests};
-      if(counts.statsVisibilityComplete!==true||Object.values(counts).some((n,index)=>index>0&&n!==0)){
+      check(request.signal);await registry(request);const identity=database();let snapshot,facts,counts,stable=0;
+      // Health probes and short-lived observer clients can overlap one sample.
+      // Require two consecutive zero observations inside a bounded window;
+      // persistent work is never converted into a pass by this settling loop.
+      for(let attempt=0;attempt<8;attempt++){
+        check(request.signal);
+        snapshot=collectMaintenanceDatabaseSnapshot({...identity,previousFloorSha:context.previousFloorSha,targetSha:context.targetSha});
+        facts=await readers.domainFacts({context,identity,signal:request.signal});
+        const s=snapshot.observation,p=facts.observation?.persistent;
+        counts={statsVisibilityComplete:s.statsVisibilityComplete,currentDatabaseClientSessions:s.currentDatabaseClientSessions,
+          otherDatabaseClientSessions:s.otherDatabaseClientSessions,clientSessionsWithOpenTransaction:s.clientSessionsWithOpenTransaction,
+          currentDatabasePreparedTransactions:s.currentDatabasePreparedTransactions,otherDatabasePreparedTransactions:s.otherDatabasePreparedTransactions,
+          persistentRunning:p?.runningJobs,persistentQueued:p?.queuedJobs,activeAdmissions:p?.activeAdmissions,reservedRequests:p?.reservedRequests};
+        const zero=counts.statsVisibilityComplete===true&&Object.values(counts).every((n,index)=>index===0||n===0);
+        stable=zero?stable+1:0;
+        if(stable>=2)break;
+        if(attempt<7)await new Promise(resolve=>setTimeout(resolve,500));
+      }
+      if(stable<2){
         const error=Error('MAINTENANCE_HOLD=ROOT_SOURCE_DATABASE_OR_PERSISTENT_WORK_REMAINS');
         error.databaseQuiescenceCounts=counts;throw error;
       }
