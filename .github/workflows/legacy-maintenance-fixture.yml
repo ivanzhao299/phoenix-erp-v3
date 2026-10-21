@@ -138,7 +138,10 @@ jobs:
   full-first-switch:
     name: ONE Full Legacy First Switch PG${{ matrix.pg }}
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    # The complete source/recovery image archive and two real scheduler
+    # boundaries can exceed the shorter candidate-collector budget on hosted
+    # runners. This is still a bounded disposable fixture, never production.
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
