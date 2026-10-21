@@ -188,8 +188,9 @@ jobs:
             NATIVE_FIXTURE_FLOW=legacy-first-switch NATIVE_FIXTURE_HOSTED=github-hosted-exclusive-vm NATIVE_FIXTURE_MAJOR="$NATIVE_PG_MAJOR" \
             NATIVE_FIXTURE_SHA="$GITHUB_SHA" NATIVE_FIXTURE_NODE="$native_node" \
             NATIVE_FIXTURE_SOURCE="$GITHUB_WORKSPACE" NATIVE_FIXTURE_OUTPUT="$native_root" \
+            NATIVE_FIXTURE_SCRIPT="$GITHUB_WORKSPACE/scripts/ci/maintenance-native-candidate-host.sh" \
             /usr/bin/unshare --pid --fork --mount-proc --propagation shared \
-              /bin/bash "$GITHUB_WORKSPACE/scripts/ci/maintenance-native-candidate-host.sh"
+              /bin/bash -c '/bin/bash "$NATIVE_FIXTURE_SCRIPT"'
           native_result=$?
           set -e
           # Only fixed non-secret JSON receipts are exported. The ext4 image,
