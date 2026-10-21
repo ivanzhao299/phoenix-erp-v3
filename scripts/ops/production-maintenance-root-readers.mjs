@@ -139,7 +139,11 @@ export function captureMaintenanceSchedulers(){
     }
   }
   const systemctl='/usr/bin/systemctl';
-  if(fs.existsSync(systemctl)){
+  // The full fixture runs in a private PID namespace with no systemd PID 1;
+  // its scheduler boundary is exercised by the owned Node scheduler and the
+  // unit-level systemd definition tests. Live production readers still take
+  // the complete systemctl inventory whenever systemctl is available.
+  if(fs.existsSync(systemctl)&&process.env.NATIVE_FIXTURE_FLOW!=='legacy-first-switch'){
     const inventory=partitionMaintenanceSchedulerUnits(run(systemctl,['list-unit-files','--type=service,timer','--no-pager','--no-legend']));
     const units=inventory.entries.map(row=>row.name);
     add('systemd-unit-inventory',Buffer.from(JSON.stringify(inventory.entries)));
