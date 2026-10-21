@@ -23,6 +23,10 @@ import {validateOwnerAuthUnknownDecision} from './production-maintenance-owner-u
 import {runProductionMaintenanceSession,retainControllerOnRecoveryIncident} from './production-maintenance-production-entry.mjs';
 const digest=bytes=>createHash('sha256').update(bytes).digest('hex');
 const guard=()=>verifyContext(CONTRACT.repository,CONTRACT.stateDirectory);
+const fixtureProgress=stage=>{
+ if(process.env.NATIVE_FIXTURE_FLOW!=='legacy-first-switch'||!process.env.NATIVE_FIXTURE_OUTPUT)return;
+ try{fs.writeFileSync(path.join(process.env.NATIVE_FIXTURE_OUTPUT,'progress.json'),JSON.stringify({schema:'phoenix.fixture-progress/v1',stage,at:new Date().toISOString()})+'\n',{mode:0o600});}catch{}
+};
 const command=(program,args,{input,timeout=10000,buffer=false,maxBuffer=1024*1024}={})=>{
  try{return execFileSync(program,args,{input,env:executionEnv(),encoding:buffer?undefined:'utf8',timeout,maxBuffer,stdio:['pipe','pipe','pipe']});}
  catch{hold('BOOTSTRAP_BOUNDED_COMMAND_FAILED');}
@@ -93,7 +97,7 @@ export function captureLegacyNetworkScope(context){
  * The exclusive VM exercise reuses these exact default readers and archives;
  * only its separate fixture-owned authority is synthetic. */
 export async function prepareMaintenanceRuntimeMaterials({owner,targetSha,previousFloorSha,previousWebSha,window,image}){
- guard();const root=CONTRACT.repository,state=CONTRACT.stateDirectory;
+ fixtureProgress('PREPARE_START');guard();const root=CONTRACT.repository,state=CONTRACT.stateDirectory;
  if(!/^\d+-\d+$/.test(owner)||![targetSha,previousFloorSha].every(value=>SHA.test(value))
   ||!/^sha256:[a-f0-9]{64}$/.test(image||'')||!Number.isFinite(Date.parse(window?.end)))hold('BOOTSTRAP_EXACT_MATERIAL_REQUEST');
  const preSnapshot=inspectMaintenancePreRuntime();captureMaintenanceChanjetPolicy();
@@ -129,14 +133,19 @@ export async function prepareMaintenanceRuntimeMaterials({owner,targetSha,previo
  immutable(path.join(materialDir,'procedure.txt'),procedure);writeJson(path.join(materialDir,'source-manifest.json'),sourceManifest);
  writeJson(path.join(materialDir,'pre.json'),{owner,targetSha,previousFloorSha,runtime:preSnapshot});
  const oldFiles=captureMaintenanceSourceManifest(root,previousFloorSha).files.map(entry=>entry.path);
+ fixtureProgress('PREVIOUS_GUARD_ARCHIVE_START');
  command('/usr/bin/git',['-c',`safe.directory=${root}`,'archive','--format=tar',`--output=${path.join(materialDir,'previous-guard.tar')}`,previousFloorSha,...oldFiles],{timeout:30000});fs.chmodSync(path.join(materialDir,'previous-guard.tar'),0o600);
- docker(['image','save','--output',path.join(materialDir,'candidate-image.tar'),image],{timeout:120000});fs.chmodSync(path.join(materialDir,'candidate-image.tar'),0o600);
+ fixtureProgress('PREVIOUS_GUARD_ARCHIVE_DONE');fixtureProgress('CANDIDATE_IMAGE_SAVE_START');
+ docker(['image','save','--output',path.join(materialDir,'candidate-image.tar'),image],{timeout:120000});fs.chmodSync(path.join(materialDir,'candidate-image.tar'),0o600);fixtureProgress('CANDIDATE_IMAGE_SAVE_DONE');
  const files=[];for(const name of ['candidate-image.tar','previous-guard.tar','source-manifest.json','pre.json','procedure.txt']){
-  const file=path.join(materialDir,name),stat=fs.statSync(file);const sha256=command('/usr/bin/sha256sum',[file],{timeout:30000}).split(' ')[0];
-  await hashMaintenanceRecoveryFile(file,{bytes:stat.size,sha256});files.push({name,bytes:stat.size,sha256});
+  fixtureProgress(`HASH_START:${name}`);const file=path.join(materialDir,name),stat=fs.statSync(file);const sha256=command('/usr/bin/sha256sum',[file],{timeout:30000}).split(' ')[0];
+  await hashMaintenanceRecoveryFile(file,{bytes:stat.size,sha256});files.push({name,bytes:stat.size,sha256});fixtureProgress(`HASH_DONE:${name}`);
  }
+ fixtureProgress('REGISTRY_START');
  const registry=await createMaintenanceRegistryReader(context).registry();
+ fixtureProgress('REGISTRY_DONE');
  const packet={schema:'phoenix.maintenance-root-source-data/v1',sourceManifest,registry,recovery:{files},preDomains};context.rootSourceDataSha256=canonicalDigest(packet);
+ fixtureProgress('PACKET_DONE');
  const procedureSha256=digest(procedure),recoveryPlan={bindingDigest:bindingDigest(context),strategy:'COMPATIBLE_CANDIDATE_OR_HOLD',automaticOldRuntimeRollback:false,automaticDatabaseRestore:false,businessReplay:false,responsibleOperator:'emvia',procedureSha256,
   materials:[{kind:'CANDIDATE_IMAGE',sha256:files[0].sha256,imageId:image,revision:targetSha},{kind:'SOURCE_HELPERS',sha256:context.sourceHelperSha256},{kind:'PRE_SNAPSHOT',sha256:canonicalDigest(preSnapshot)},{kind:'RECOVERY_PROCEDURE',sha256:procedureSha256}],stopConditions:['INGRESS_LOST','UNKNOWN_SIDE_EFFECTS','CANDIDATE_FAILED','FLOOR_STATE_INCONSISTENT']};
  const payload={protocol:'STOP_AND_RECONCILE',operations:[...MAINTENANCE_OPERATIONS],recoveryPlanDigest:canonicalDigest(recoveryPlan),preSnapshotDigest:canonicalDigest(preSnapshot),terminationPolicySha256:canonicalDigest(context.terminationPolicy)};

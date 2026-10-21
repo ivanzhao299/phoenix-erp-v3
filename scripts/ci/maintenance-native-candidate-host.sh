@@ -123,7 +123,7 @@ native_phase=EXPORT_FIXED_RECEIPTS
  import fs from "node:fs";
  const source="/data/phoenix-erp/artifacts/maintenance-native-candidate-host/";
  const output=process.env.NATIVE_FIXTURE_OUTPUT;
- for(const name of ["result.json","candidate-binding.json","root-release.json","guard-counterexamples.json","protocol-file-manifest.json"]){
+ for(const name of ["result.json","progress.json","candidate-binding.json","root-release.json","guard-counterexamples.json","protocol-file-manifest.json"]){
   if(fs.existsSync(source+name))fs.copyFileSync(source+name,output+"/"+name,fs.constants.COPYFILE_EXCL);
  }
  fs.writeFileSync(output+"/process-result.json",JSON.stringify({fixtureOnly:true,productionReceipt:false,exitCode:Number(process.env.NATIVE_FIXTURE_RESULT)})+"\n",{flag:"wx",mode:0o600});
