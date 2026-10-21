@@ -85,7 +85,7 @@ async function main(){
  await healthy(pgId);
  // Freeze the disposable health probe after the initial healthy verdict so
  // pg_stat_activity drain samples cannot race a recurring pg_isready client.
- docker(['update','--health-interval','1h',pgId]);
+ docker(['update','--health-interval=1h',pgId]);
  result.stage='CREATE_ISOLATED_SCHEMA';save();const sql=s=>docker(['exec','-i',pgId,'psql','-U','erp_fixture_admin','-d','api_bootstrap_fixture','-X','-qAt','-v','ON_ERROR_STOP=1'],{input:s});
  sql(fs.readFileSync(path.join(root,'scripts/ci/api-bootstrap-schema-fixture.sql'),'utf8')+`\nCREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE TABLE sys_menu(menu_code text);CREATE TABLE sys_chanjet_state(key varchar(16) PRIMARY KEY,app_ticket text,certificate text,tokens jsonb,updated_at timestamptz);
