@@ -223,8 +223,14 @@ export function createProductionMaintenanceSources(plan,{readControllers,readers
       check(request.signal);await registry(request);const identity=database();
       const snapshot=collectMaintenanceDatabaseSnapshot({...identity,previousFloorSha:context.previousFloorSha,targetSha:context.targetSha});
       const facts=await readers.domainFacts({context,identity,signal:request.signal}),s=snapshot.observation,p=facts.observation?.persistent;
-      if(s.statsVisibilityComplete!==true||[s.currentDatabaseClientSessions,s.otherDatabaseClientSessions,s.clientSessionsWithOpenTransaction,
-        s.currentDatabasePreparedTransactions,s.otherDatabasePreparedTransactions,p?.runningJobs,p?.queuedJobs,p?.activeAdmissions,p?.reservedRequests].some(n=>n!==0))hold('ROOT_SOURCE_DATABASE_OR_PERSISTENT_WORK_REMAINS');
+      const counts={statsVisibilityComplete:s.statsVisibilityComplete,currentDatabaseClientSessions:s.currentDatabaseClientSessions,
+        otherDatabaseClientSessions:s.otherDatabaseClientSessions,clientSessionsWithOpenTransaction:s.clientSessionsWithOpenTransaction,
+        currentDatabasePreparedTransactions:s.currentDatabasePreparedTransactions,otherDatabasePreparedTransactions:s.otherDatabasePreparedTransactions,
+        persistentRunning:p?.runningJobs,persistentQueued:p?.queuedJobs,activeAdmissions:p?.activeAdmissions,reservedRequests:p?.reservedRequests};
+      if(counts.statsVisibilityComplete!==true||Object.values(counts).some((n,index)=>index>0&&n!==0)){
+        const error=Error('MAINTENANCE_HOLD=ROOT_SOURCE_DATABASE_OR_PERSISTENT_WORK_REMAINS');
+        error.databaseQuiescenceCounts=counts;throw error;
+      }
       return {ownershipComplete:true,remainingConnections:0,openTransactions:0,preparedTransactions:0,persistentRunning:0,persistentQueued:0,
         registrySha256:canonicalDigest(packet.registry),databaseSnapshot:snapshot,persistentObservation:facts};
     },
