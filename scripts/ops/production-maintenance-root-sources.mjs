@@ -220,7 +220,11 @@ export function createProductionMaintenanceSources(plan,{readControllers,readers
       return same(stable(evidence),stable(live));
     },
     async databaseQuiescence(request){
-      check(request.signal);await registry(request);const identity=database();let snapshot,facts,counts,stable=0;
+      check(request.signal);await registry(request);const identity=database();
+      // Allow the bounded old-container stop grace period to release backend
+      // sessions before the first database drain sample.
+      await new Promise(resolve=>setTimeout(resolve,5000));
+      let snapshot,facts,counts,stable=0;
       // Health probes and short-lived observer clients can overlap one sample.
       // Require two consecutive zero observations inside a bounded window;
       // persistent work is never converted into a pass by this settling loop.
