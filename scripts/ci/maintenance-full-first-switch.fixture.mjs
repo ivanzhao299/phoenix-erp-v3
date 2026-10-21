@@ -138,7 +138,7 @@ CREATE ROLE erp_candidate_writer LOGIN;GRANT CONNECT ON DATABASE api_bootstrap_f
   const pid=Number(name);if([process.pid,process.ppid].includes(pid)||latePins.some(pin=>pin.pid===pid))continue;
   let exe;try{exe=fs.readlinkSync(`/proc/${pid}/exe`);}catch(error){if(['ENOENT','ESRCH'].includes(error.code))continue;throw error;}
   if(!/\/(?:node|nodejs|python[0-9.]*|java|pm2|supervisord|nomad|kubelet)$/.test(exe))continue;
-  const first=observeMaintenanceProcessIdentity(pid),second=observeMaintenanceProcessIdentity(pid);
+  let first,second;try{first=observeMaintenanceProcessIdentity(pid);second=observeMaintenanceProcessIdentity(pid);}catch(error){if(['ENOENT','ESRCH'].includes(error.code))continue;throw error;}
   if(first.erpControlReference||canonicalDigest(first)!==canonicalDigest(second))continue;
   latePins.push({pid,identitySha256:canonicalDigest(first),owner:'EXCLUSIVE_DISPOSABLE_VM_RUNNER_STABLE_IDENTITY'});
  }
