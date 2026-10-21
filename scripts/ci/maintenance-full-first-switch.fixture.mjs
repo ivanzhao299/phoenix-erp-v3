@@ -25,6 +25,7 @@ const save=()=>{fs.mkdirSync(output,{recursive:true,mode:0o700});fs.writeFileSyn
 let watchdog;
 const armWatchdog=()=>{watchdog=setTimeout(()=>{result.outcome='HOLD';result.failureClass='FIXTURE_TIMEOUT';result.failureAt=new Date().toISOString();save();console.error(result.failureClass);process.exit(124);},15*60*1000);};
 async function healthy(id){const until=Date.now()+60000;while(Date.now()<until){const row=JSON.parse(docker(['inspect',id,'--format','{{json .State}}']));if(!row.Running)throw Error('FULL_FIXTURE_RUNTIME_EXITED');if(row.Health?.Status==='healthy')return;await wait(200);}throw Error('FULL_FIXTURE_HEALTH_TIMEOUT');}
+async function databaseReady(id){const until=Date.now()+60000;while(Date.now()<until){try{docker(['exec',id,'pg_isready','-h','127.0.0.1','-U','erp_fixture_admin','-d','api_bootstrap_fixture']);return;}catch{await wait(250);}}throw Error('FULL_FIXTURE_DATABASE_READY_TIMEOUT');}
 async function main(){
  armWatchdog();
  assert.equal(process.getuid(),0);assert.equal(process.env.NATIVE_FIXTURE_HOSTED,'github-hosted-exclusive-vm');assert.equal(process.env.NATIVE_FIXTURE_FLOW,'legacy-first-switch');assert.equal(process.cwd(),root);assert.equal(Number(process.versions.node.split('.')[0]),20);
@@ -84,8 +85,8 @@ async function main(){
  result.fixtureEgress={bridge,programSha256:hash(egressProgram),scope:'EXCLUSIVE_VM_BRIDGE_FORWARDING_ONLY'};save();
  result.stage='START_DATABASE';save();
  const pgId=docker(['run','-d','--name','phoenix-v3-db','--label','com.docker.compose.project=phoenix-erp','--label','com.docker.compose.service=db','--network',network,'--network-alias','db','--restart=no',
-  '--mount','type=bind,source=/data/maintenance-native-pg,target=/var/lib/postgresql/data','-e','PGDATA=/var/lib/postgresql/data','-e','POSTGRES_USER=erp_fixture_admin','-e','POSTGRES_DB=api_bootstrap_fixture','-e','POSTGRES_HOST_AUTH_METHOD=trust','--health-cmd','pg_isready -h 127.0.0.1 -U erp_fixture_admin -d api_bootstrap_fixture','--health-interval','30s','--health-timeout','2s','--health-retries','40',`postgres:${major}-alpine`]);
- await healthy(pgId);
+  '--mount','type=bind,source=/data/maintenance-native-pg,target=/var/lib/postgresql/data','-e','PGDATA=/var/lib/postgresql/data','-e','POSTGRES_USER=erp_fixture_admin','-e','POSTGRES_DB=api_bootstrap_fixture','-e','POSTGRES_HOST_AUTH_METHOD=trust','--health-cmd','true','--health-interval','30s','--health-timeout','2s','--health-retries','40',`postgres:${major}-alpine`]);
+ await healthy(pgId);await databaseReady(pgId);
  result.stage='CREATE_ISOLATED_SCHEMA';save();const sql=s=>docker(['exec','-i',pgId,'psql','-U','erp_fixture_admin','-d','api_bootstrap_fixture','-X','-qAt','-v','ON_ERROR_STOP=1'],{input:s});
  sql(fs.readFileSync(path.join(root,'scripts/ci/api-bootstrap-schema-fixture.sql'),'utf8')+`\nCREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE TABLE sys_menu(menu_code text);CREATE TABLE sys_chanjet_state(key varchar(16) PRIMARY KEY,app_ticket text,certificate text,tokens jsonb,updated_at timestamptz);
