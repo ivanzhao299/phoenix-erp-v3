@@ -173,12 +173,19 @@ jobs:
           sudo install -d -m 0700 "$native_root"
           mkdir -m 0700 -p "$native_export"
           native_node="$(command -v node)"
+          # Keep the complete long-lived first-switch fixture inside its own
+          # disposable PID namespace. Hosted runners may start unrelated
+          # Python helpers in the host namespace; isolation makes the
+          # ownership reader observe only PID 1, the fixture, and its
+          # explicitly registered children. The reader itself remains
+          # fail-closed for any unregistered process it can see.
           set +e
           sudo /usr/bin/env -i PATH="$(dirname "$native_node"):/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
             NATIVE_FIXTURE_FLOW=legacy-first-switch NATIVE_FIXTURE_HOSTED=github-hosted-exclusive-vm NATIVE_FIXTURE_MAJOR="$NATIVE_PG_MAJOR" \
             NATIVE_FIXTURE_SHA="$GITHUB_SHA" NATIVE_FIXTURE_NODE="$native_node" \
             NATIVE_FIXTURE_SOURCE="$GITHUB_WORKSPACE" NATIVE_FIXTURE_OUTPUT="$native_root" \
-            /bin/bash "$GITHUB_WORKSPACE/scripts/ci/maintenance-native-candidate-host.sh"
+            /usr/bin/unshare --pid --fork --mount-proc \
+              /bin/bash "$GITHUB_WORKSPACE/scripts/ci/maintenance-native-candidate-host.sh"
           native_result=$?
           set -e
           # Only fixed non-secret JSON receipts are exported. The ext4 image,
