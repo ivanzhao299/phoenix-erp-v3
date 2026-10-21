@@ -173,6 +173,15 @@ jobs:
           sudo install -d -m 0700 "$native_root"
           mkdir -m 0700 -p "$native_export"
           native_node="$(command -v node)"
+          # Mount the fixture data volume in the host mount namespace before
+          # entering the private PID namespace. Docker runs in the host mount
+          # namespace and must be able to bind the same owned paths.
+          native_data_size=8G
+          sudo test ! -e /data
+          sudo truncate -s "$native_data_size" "$native_root/data.ext4"
+          sudo mkfs.ext4 -q -F "$native_root/data.ext4"
+          sudo mkdir -m 0755 /data
+          sudo mount -o loop,nodev,nosuid "$native_root/data.ext4" /data
           # Keep the complete long-lived first-switch fixture inside its own
           # disposable PID namespace. Hosted runners may start unrelated
           # Python helpers in the host namespace; isolation makes the
@@ -184,6 +193,7 @@ jobs:
             NATIVE_FIXTURE_FLOW=legacy-first-switch NATIVE_FIXTURE_HOSTED=github-hosted-exclusive-vm NATIVE_FIXTURE_MAJOR="$NATIVE_PG_MAJOR" \
             NATIVE_FIXTURE_SHA="$GITHUB_SHA" NATIVE_FIXTURE_NODE="$native_node" \
             NATIVE_FIXTURE_SOURCE="$GITHUB_WORKSPACE" NATIVE_FIXTURE_OUTPUT="$native_root" \
+            NATIVE_FIXTURE_PREMOUNTED=1 \
             /usr/bin/unshare --pid --fork --mount-proc \
               /bin/bash "$GITHUB_WORKSPACE/scripts/ci/maintenance-native-candidate-host.sh"
           native_result=$?

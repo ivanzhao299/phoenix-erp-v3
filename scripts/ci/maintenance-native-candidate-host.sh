@@ -14,7 +14,11 @@ test "$(git -c safe.directory="$NATIVE_FIXTURE_SOURCE" -C "$NATIVE_FIXTURE_SOURC
 test "$(docker info --format '{{.DockerRootDir}}')" = /var/lib/docker
 test -z "$(docker ps -aq)"
 test ! -e /.dockerenv
-test ! -e /data
+if [ "${NATIVE_FIXTURE_PREMOUNTED-0}" = 1 ]; then
+  test -d /data
+else
+  test ! -e /data
+fi
 test ! -e /var/lib/phoenix-erp
 test ! -e /var/lib/phoenix-background-control
 test ! -e /home/phoenix-codex-deploy/production-deployment-state
@@ -56,10 +60,15 @@ trap native_setup_exit EXIT
 native_phase=CREATE_OWNED_DATA_VOLUME
 native_data_size=4G
 if [ "${NATIVE_FIXTURE_FLOW-candidate}" = legacy-first-switch ]; then native_data_size=8G; fi
-truncate -s "$native_data_size" "$NATIVE_FIXTURE_OUTPUT/data.ext4"
-mkfs.ext4 -q -F "$NATIVE_FIXTURE_OUTPUT/data.ext4"
-mkdir -m 0755 /data
-mount -o loop,nodev,nosuid "$NATIVE_FIXTURE_OUTPUT/data.ext4" /data
+if [ "${NATIVE_FIXTURE_PREMOUNTED-0}" = 1 ]; then
+  test -f "$NATIVE_FIXTURE_OUTPUT/data.ext4"
+  mountpoint -q /data
+else
+  truncate -s "$native_data_size" "$NATIVE_FIXTURE_OUTPUT/data.ext4"
+  mkfs.ext4 -q -F "$NATIVE_FIXTURE_OUTPUT/data.ext4"
+  mkdir -m 0755 /data
+  mount -o loop,nodev,nosuid "$NATIVE_FIXTURE_OUTPUT/data.ext4" /data
+fi
 "$NATIVE_FIXTURE_NODE" --input-type=module -e '
  import fs from "node:fs"; import {execFileSync} from "node:child_process";
  const mount=JSON.parse(execFileSync("findmnt",["-J","--target","/data"],{encoding:"utf8"}));
