@@ -223,7 +223,7 @@ export function createProductionMaintenanceSources(plan,{readControllers,readers
       check(request.signal);await registry(request);const identity=database();
       // Allow the bounded old-container stop grace period to release backend
       // sessions before the first database drain sample.
-      await new Promise(resolve=>setTimeout(resolve,5000));
+      await new Promise(resolve=>setTimeout(resolve,30000));
       let snapshot,facts,counts,stable=0;
       // Health probes and short-lived observer clients can overlap one sample.
       // Require two consecutive zero observations inside a bounded window;
