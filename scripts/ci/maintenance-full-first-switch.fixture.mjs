@@ -82,7 +82,11 @@ async function main(){
  result.stage='START_DATABASE';save();
  const pgId=docker(['run','-d','--name','phoenix-v3-db','--label','com.docker.compose.project=phoenix-erp','--label','com.docker.compose.service=db','--network',network,'--network-alias','db','--restart=no',
   '--mount','type=bind,source=/data/maintenance-native-pg,target=/var/lib/postgresql/data','-e','PGDATA=/var/lib/postgresql/data','-e','POSTGRES_USER=erp_fixture_admin','-e','POSTGRES_DB=api_bootstrap_fixture','-e','POSTGRES_HOST_AUTH_METHOD=trust','--health-cmd','pg_isready -h 127.0.0.1 -U erp_fixture_admin -d api_bootstrap_fixture','--health-interval','10s','--health-timeout','2s','--health-retries','40',`postgres:${major}-alpine`]);
- await healthy(pgId);result.stage='CREATE_ISOLATED_SCHEMA';save();const sql=s=>docker(['exec','-i',pgId,'psql','-U','erp_fixture_admin','-d','api_bootstrap_fixture','-X','-qAt','-v','ON_ERROR_STOP=1'],{input:s});
+ await healthy(pgId);
+ // Freeze the disposable health probe after the initial healthy verdict so
+ // pg_stat_activity drain samples cannot race a recurring pg_isready client.
+ docker(['update','--health-interval','1h',pgId]);
+ result.stage='CREATE_ISOLATED_SCHEMA';save();const sql=s=>docker(['exec','-i',pgId,'psql','-U','erp_fixture_admin','-d','api_bootstrap_fixture','-X','-qAt','-v','ON_ERROR_STOP=1'],{input:s});
  sql(fs.readFileSync(path.join(root,'scripts/ci/api-bootstrap-schema-fixture.sql'),'utf8')+`\nCREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE TABLE sys_menu(menu_code text);CREATE TABLE sys_chanjet_state(key varchar(16) PRIMARY KEY,app_ticket text,certificate text,tokens jsonb,updated_at timestamptz);
 CREATE TABLE sys_notification_log(channel text,status text);CREATE TABLE mon_house_device_mapping(status text,vendor_house_id bigint);
