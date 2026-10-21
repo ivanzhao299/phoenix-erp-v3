@@ -205,7 +205,16 @@ export function createMaintenanceRegistryReader(context,{readControllers,getOwne
     const containerRows=[],namespaces=new Map();
     for(const id of all){
       if(!ID.test(id))hold('ROOT_READER_CONTAINER_ID');const value=containerIdentity(id);
-      if(value.running&&value.pid>0)namespaces.set(fs.readlinkSync(`/proc/${value.pid}/ns/pid`),id);
+      if(value.running&&value.pid>0){
+        // A disposable PID namespace cannot resolve the Docker daemon's host
+        // PID for a container init. In that case the container is still
+        // fully pinned by inspect(1); there are simply no processes from its
+        // private namespace visible to this reader. Production host readers
+        // retain the normal namespace pin when the PID is resolvable.
+        try{namespaces.set(fs.readlinkSync(`/proc/${value.pid}/ns/pid`),id);}catch(error){
+          if(error.code!=='ENOENT'&&error.code!=='ESRCH')throw error;
+        }
+      }
       let classification='NON_ERP_PINNED';
       const prior=context.executors.find(pin=>pin.id===id);
       if(prior){if(value.imageId!==prior.imageId||value.startedAt!==prior.startedAt||value.restartCount!==prior.restartCount)hold('ROOT_READER_OLD_EXECUTOR_CHANGED');classification='ERP_EXECUTOR';}
