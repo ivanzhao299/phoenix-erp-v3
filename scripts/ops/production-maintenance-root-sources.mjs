@@ -46,6 +46,11 @@ export function inspectMaintenancePreRuntime(dependencies={}){
     if(service!=='db')pin.revision=actual.revision;
     if(service==='db'){
       const mounts=JSON.parse(run(['inspect',id,'--format','{{json .Mounts}}']));
+      if(!Array.isArray(mounts))hold('ROOT_SOURCE_DB_MOUNTS_REQUIRED');
+      // Docker preserves mount semantics but does not promise array order
+      // across daemon namespaces. Hash a deterministic view so entering the
+      // disposable PID/mount namespace cannot look like a DB identity drift.
+      mounts.sort((a,b)=>JSON.stringify(a).localeCompare(JSON.stringify(b)));
       pin.mountsSha256=canonicalDigest(mounts);
     }
     result[service]=pin;
