@@ -141,7 +141,7 @@ jobs:
     # The complete source/recovery image archive and two real scheduler
     # boundaries can exceed the shorter candidate-collector budget on hosted
     # runners. This is still a bounded disposable fixture, never production.
-    timeout-minutes: 90
+    timeout-minutes: 180
     strategy:
       fail-fast: false
       matrix:

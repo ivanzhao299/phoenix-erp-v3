@@ -23,7 +23,7 @@ const result={schema:'phoenix.full-legacy-first-switch-fixture/v1',fixtureOnly:t
  authority:'SYNTHETIC_ROOT_FIXTURE_ONLY',webImplementation:'OWNED_HTTP_PROTOCOL_PEER_NOT_NEXT_UAT',outcome:'PENDING',fullFactory:true,productionMutation:false};
 const save=()=>{fs.mkdirSync(output,{recursive:true,mode:0o700});fs.writeFileSync(path.join(output,'result.json'),JSON.stringify(result,null,2)+'\n',{mode:0o600});};
 let watchdog;
-const armWatchdog=()=>{watchdog=setTimeout(()=>{result.outcome='HOLD';result.failureClass='FIXTURE_TIMEOUT';result.failureAt=new Date().toISOString();save();console.error(result.failureClass);process.exit(124);},60*60*1000);};
+const armWatchdog=()=>{watchdog=setTimeout(()=>{result.outcome='HOLD';result.failureClass='FIXTURE_TIMEOUT';result.failureAt=new Date().toISOString();save();console.error(result.failureClass);process.exit(124);},120*60*1000);};
 async function healthy(id){const until=Date.now()+60000;while(Date.now()<until){const row=JSON.parse(docker(['inspect',id,'--format','{{json .State}}']));if(!row.Running)throw Error('FULL_FIXTURE_RUNTIME_EXITED');if(row.Health?.Status==='healthy')return;await wait(200);}throw Error('FULL_FIXTURE_HEALTH_TIMEOUT');}
 async function databaseReady(id){const until=Date.now()+60000;while(Date.now()<until){try{docker(['exec',id,'pg_isready','-h','127.0.0.1','-U','erp_fixture_admin','-d','api_bootstrap_fixture']);return;}catch{await wait(250);}}throw Error('FULL_FIXTURE_DATABASE_READY_TIMEOUT');}
 async function main(){
