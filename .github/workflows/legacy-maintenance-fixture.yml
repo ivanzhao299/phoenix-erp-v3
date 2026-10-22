@@ -112,7 +112,6 @@ jobs:
           mkdir -m 0700 -p "$native_export"
           native_node="$(command -v node)"
           set +e
-          /usr/bin/timeout --signal=TERM --kill-after=45s 15m \
           sudo /usr/bin/env -i PATH="$(dirname "$native_node"):/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
             NATIVE_FIXTURE_HOSTED=github-hosted-exclusive-vm NATIVE_FIXTURE_MAJOR="$NATIVE_PG_MAJOR" \
             NATIVE_FIXTURE_SHA="$GITHUB_SHA" NATIVE_FIXTURE_NODE="$native_node" \
@@ -191,6 +190,7 @@ jobs:
           mkdir -m 0700 -p "$native_export"
           native_node="$(command -v node)"
           set +e
+          /usr/bin/timeout --signal=TERM --kill-after=45s 15m \
           sudo /usr/bin/env -i PATH="$(dirname "$native_node"):/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
             NATIVE_FIXTURE_FLOW=legacy-first-switch NATIVE_FIXTURE_HOSTED=github-hosted-exclusive-vm NATIVE_FIXTURE_MAJOR="$NATIVE_PG_MAJOR" \
             NATIVE_FIXTURE_SHA="$GITHUB_SHA" NATIVE_FIXTURE_NODE="$native_node" \

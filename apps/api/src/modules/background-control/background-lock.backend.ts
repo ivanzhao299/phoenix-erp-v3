@@ -214,8 +214,15 @@ export class BackgroundLockBackend {
     if (!this.closing) {
       this.closed = true; this.startRetirement();
       this.closing = (async () => {
-        if (this.acquirePending) throw new Error('BACKGROUND_CLEANUP_PENDING_CONNECT');
+        // A SIGTERM can race the first control-session acquisition. Keep that
+        // owned QueryRunner under the same bounded cleanup contract instead of
+        // abandoning a late pg client with an unnamed backend session.
+        if (this.acquirePending && this.acquisition) {
+          try { await this.bounded(this.acquisition, BACKGROUND_CLOSE_TIMEOUT_MS, 'BACKGROUND_ACQUISITION_CLOSE_TIMEOUT'); }
+          catch { /* the owned acquisition remains a tracked HOLD */ }
+        }
         if (this.retirement) await this.bounded(this.retirement, BACKGROUND_CLOSE_TIMEOUT_MS, 'BACKGROUND_CLEANUP_UNVERIFIED');
+        if (this.acquirePending) throw new Error('BACKGROUND_CLEANUP_PENDING_CONNECT');
         if (this.status().cleanup.debt) throw new Error('BACKGROUND_CLEANUP_PENDING_IO');
       })();
       void this.closing.catch(() => undefined);

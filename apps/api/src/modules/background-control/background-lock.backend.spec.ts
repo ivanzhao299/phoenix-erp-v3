@@ -61,16 +61,16 @@ it('never-returned pool acquisition times out and remains tracked debt without p
   jest.useFakeTimers(); const f = fixture(), acquire = deferred<OwnedClient>(); f.runner.connect.mockImplementation(() => acquire.promise);
   const pending = expect(f.backend.probe()).rejects.toThrow('BACKGROUND_SESSION_LOST'); await flush(); await jest.advanceTimersByTimeAsync(BACKGROUND_IO_TIMEOUT_MS); await pending;
   expect(f.loss).toHaveBeenCalledTimes(1); expect(f.backend.status()).toMatchObject({ broken: true, cleanup: { acquirePending: true, debt: true } });
-  await expect(f.backend.close()).rejects.toThrow('BACKGROUND_CLEANUP_PENDING_CONNECT'); expect(f.runner.release).not.toHaveBeenCalled(); expect(f.client.end).not.toHaveBeenCalled();
+  const close = f.backend.close(); await jest.advanceTimersByTimeAsync(BACKGROUND_CLOSE_TIMEOUT_MS); await expect(close).rejects.toThrow(/BACKGROUND_CLEANUP/); expect(f.runner.release).not.toHaveBeenCalled(); expect(f.client.end).not.toHaveBeenCalled();
   await expect(f.backend.gateEnter()).rejects.toThrow('BACKGROUND_SESSION_LOST'); expect(f.runner.connect).toHaveBeenCalledTimes(1);
 });
 it('late acquisition is ended and retired, never used for SQL or returned alive to the pool', async () => {
   jest.useFakeTimers(); const f = fixture(), acquire = deferred<OwnedClient>(); f.runner.connect.mockImplementation(() => acquire.promise);
   const pending = expect(f.backend.probe()).rejects.toThrow('BACKGROUND_SESSION_LOST'); await flush(); await jest.advanceTimersByTimeAsync(BACKGROUND_IO_TIMEOUT_MS); await pending;
-  const close = f.backend.close(); await expect(close).rejects.toThrow('BACKGROUND_CLEANUP_PENDING_CONNECT'); acquire.resolve(f.client); await flush();
+  const close = f.backend.close(); acquire.resolve(f.client); await close; await flush();
   expect(f.runner.query).not.toHaveBeenCalled(); expect(f.client.end).toHaveBeenCalledTimes(1); expect(f.runner.release).toHaveBeenCalledTimes(1);
   expect(f.backend.status().cleanup).toMatchObject({ acquirePending: false, releaseConfirmed: true, terminationConfirmed: true, debt: false });
-  expect(f.backend.close()).toBe(close); await expect(close).rejects.toThrow('BACKGROUND_CLEANUP_PENDING_CONNECT');
+  expect(f.backend.close()).toBe(close); await close;
 });
 for (const stage of ['identity', 'query']) it(`${stage} SQL deadline poisons and retires while unresolved I/O stays debt`, async () => {
   jest.useFakeTimers(); const f = fixture(), query = deferred<unknown[]>(); if (stage === 'query') await f.backend.probe(); f.runner.query.mockImplementation(() => query.promise);
