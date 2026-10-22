@@ -12,41 +12,35 @@ export function installBackgroundShutdown(
   let closing: Promise<void> | undefined;
   app.close = () => {
     closing ??= (async () => {
-      let drainFailure: unknown;
+      // Keep the drain bounded well inside Docker's typed 30-second stop
+      // deadline, leaving enough time for Nest/TypeORM to dispose pools.
       try {
-        // Keep the drain bounded well inside Docker's typed 30-second stop
-        // deadline, leaving enough time for Nest/TypeORM to dispose pools.
         await tasks.shutdown(3_000);
       } catch (error) {
-        // A failed drain is still a HOLD. We must nevertheless close the
-        // application resources deterministically; otherwise the old runtime
-        // remains alive until SIGKILL with its database pool attached.
-        drainFailure = error;
+        // A failed drain is a HOLD. The single BACKGROUND_SHUTDOWN_HOLD marker
+        // is emitted here, while the HTTP listener still serves the fenced
+        // status and denial observations. The process then stays alive with
+        // its domain leases retained until the owner's documented forced
+        // termination; the signal path never converts a drain failure into an
+        // unobserved self-exit or into a successful close.
+        console.error('BACKGROUND_SHUTDOWN_HOLD');
+        throw error;
       }
-      if (drainFailure && closeOwnedResources) {
-        try { await closeOwnedResources(); } catch { /* retain the original HOLD */ }
+      if (closeOwnedResources) {
+        try { await closeOwnedResources(); } catch { /* healthy drain already settled owned work */ }
       }
-      try {
-        await close();
-      } catch (error) {
-        if (!drainFailure) throw error;
-      }
-      if (drainFailure) throw drainFailure;
+      await close();
     })();
     return closing;
   };
   for (const signal of ['SIGTERM', 'SIGINT'] as const) {
     signals.once(signal, () => {
-      // Failure keeps the process fenced and domain leases intact. The deploy
-      // coordinator treats a later forced termination as HOLD, never Drain PASS.
-      const closeWork = app.close();
-      const boundedClose = Promise.race([
-        closeWork,
-        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('BACKGROUND_SHUTDOWN_CLOSE_TIMEOUT')), 5_000)),
-      ]);
-      void boundedClose.then(
+      // Success exits promptly inside the container stop budget. Failure keeps
+      // the process fenced and observable; the deploy coordinator treats the
+      // later forced termination as HOLD, never Drain PASS.
+      void app.close().then(
         () => { if (signals === process) process.exit(0); },
-        () => { console.error('BACKGROUND_SHUTDOWN_HOLD'); if (signals === process) process.exit(1); },
+        () => { /* HOLD: stay fenced until the owner's forced termination */ },
       );
     });
   }
