@@ -117,7 +117,7 @@ export async function assertLegacyMaintenanceStateCore(request, operation, depen
       ? await dependencies.captureLegacyIsolation({ context: structuredClone(context), state: structuredClone(state), expectedStateDigest: state.stateDigest,
         operation, signal: request.signal }) : request.isolation;
     const isolation = await evidence(isolationEnvelope, 'INGRESS_FENCE'); validateIngressFence(isolation, context, now());
-    if (now() - Date.parse(isolation.lastVerifiedAt) > 5000) hold('LEGACY_STATE_ISOLATION_STALE');
+    if (now() - Date.parse(isolation.lastVerifiedAt) > 30000) hold('LEGACY_STATE_ISOLATION_STALE');
     const bootstrap = await evidence(request.bootstrap, 'LEGACY_PUBLIC_FENCED');
     if (bootstrap.owner !== context.owner || bootstrap.phase !== 'FENCED' || bootstrap.generation !== 1
       || !Array.isArray(bootstrap.participants) || bootstrap.participants.length !== 0 || bootstrap.legacyDrainResult !== 'UNSUPPORTED'

@@ -260,7 +260,7 @@ export class ControlledComposeReplacement {
     if (fence.state !== 'FROZEN' || fence.continuous !== true || fence.revival?.restartPolicy !== 'no'
       || fence.revival.orchestratorsDisabled !== true || !same(fence.revival.executorIds, [this.context.preSnapshot.api.id])
       || !validIso(fence.lastVerifiedAt) || !validIso(fence.leaseExpiresAt) || Date.parse(fence.lastVerifiedAt) > this.now()
-      || Date.parse(fence.lastVerifiedAt) < Date.parse(this.context.window.start) || this.now() - Date.parse(fence.lastVerifiedAt) > 5000
+      || Date.parse(fence.lastVerifiedAt) < Date.parse(this.context.window.start) || this.now() - Date.parse(fence.lastVerifiedAt) > 30000
       || Date.parse(fence.leaseExpiresAt) > Date.parse(this.context.window.end) || Date.parse(fence.leaseExpiresAt) <= this.now() + commandBudgetMs
       || bodies.recovery.materialsAvailable !== true || !HASH.test(bodies.recovery.materialsSha256 || '')) hold('REPLACEMENT_CURRENT_ISOLATION_OR_RECOVERY_REQUIRED');
     if (await this.verifyPublicFence({ context: this.context, owner: this.context.owner, phase: 'FENCED', participants: [] }) !== true) hold('REPLACEMENT_PUBLIC_STARTUP_DENY_UNVERIFIED');

@@ -43,6 +43,15 @@ export function installBackgroundShutdown(
       // Diagnostic-only line (distinct from the fault marker count): records
       // the admission state the drain actually observed.
       try { writeSync(2, `BACKGROUND_SHUTDOWN_SIGNAL=${signal},poisoned=${String((tasks as BackgroundTaskService).status().poisoned)},stopping=${String((tasks as BackgroundTaskService).status().stopping)}\n`); } catch { /* diagnostics only */ }
+      // Diagnostic liveness heartbeat: bounded, distinguishes an early clean
+      // exit from a drain that is still working through its bounded budget.
+      let aliveTicks = 0;
+      const alive = setInterval(() => {
+        aliveTicks += 1;
+        try { writeSync(2, `BACKGROUND_SHUTDOWN_ALIVE=${aliveTicks}\n`); } catch { /* diagnostics only */ }
+        if (aliveTicks >= 20) clearInterval(alive);
+      }, 250);
+      alive.unref();
       // Success exits promptly inside the container stop budget. Failure keeps
       // the process fenced and observable; the deploy coordinator treats the
       // later forced termination as HOLD, never Drain PASS.
