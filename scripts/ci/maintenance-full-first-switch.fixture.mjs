@@ -102,6 +102,8 @@ CREATE TABLE chanjet_sync_jobs(status text,request_scope jsonb);CREATE TABLE cha
 CREATE ROLE erp_candidate_writer LOGIN;GRANT CONNECT ON DATABASE api_bootstrap_fixture TO erp_candidate_writer;GRANT USAGE,CREATE ON SCHEMA public TO erp_candidate_writer;GRANT ALL ON ALL TABLES IN SCHEMA public TO erp_candidate_writer;GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO erp_candidate_writer;`);
  result.stage='START_WEB_PEER_AND_OLD_API';save();
  const webId=docker(['run','-d','--name','phoenix-v3-web','--label','com.docker.compose.project=phoenix-erp','--label','com.docker.compose.service=web','--network',network,'--restart=no','-p','127.0.0.1:3000:3000','--health-cmd',"node -e \"fetch('http://127.0.0.1:3000/').then(r=>process.exit(r.ok?0:1))\"",'--health-interval','1s',webTag]);
+ // Preserve every existing branch; only this disposable clone gets an old main.
+ if(git(['branch','--list','main']))git(['branch','-m','main','fixture-original-main']);git(['switch','-c','main',old]);
  const values={NODE_ENV:'production',APP_ENV:'production',PORT:'3100',DB_HOST:'db',DB_PORT:'5432',DB_USER:'erp_candidate_writer',DB_PASSWORD:'',DB_NAME:'api_bootstrap_fixture',JWT_SECRET:'owned-fixture-secret-at-least-32-characters',CHANJET_SYNC_POLICY:'HOLD',CHANJET_READONLY_SYNC_ENABLED:'false',CHANJET_ERP_INBOUND_SYNC_ENABLED:'false'};
  const envValues={...values,PHOENIX_DATA_MOUNT_GUARD:'true',PHOENIX_PG_DATA_DIR:'/data/maintenance-native-pg',PHOENIX_UPLOADS_DIR:'/data/maintenance-native-uploads'};
  fs.writeFileSync(path.join(root,'.env'),Object.entries(envValues).map(([k,v])=>`${k}=${v}`).join('\n')+'\n',{mode:0o600,flag:'wx'});
@@ -119,8 +121,6 @@ CREATE ROLE erp_candidate_writer LOGIN;GRANT CONNECT ON DATABASE api_bootstrap_f
  const apiId=docker(['inspect','phoenix-v3-api','--format','{{.Id}}']);
  result.stage='WAIT_OLD_API_HEALTH';save();await healthy(apiId);await healthy(webId);result.stage='READ_ACTUAL_OLD_404';save();
  const http=run('/usr/bin/curl',['-s','-o','/dev/null','--max-time','3','-w','%{http_code}','http://127.0.0.1:3100/api/internal/background/status']).trim();assert.equal(http,'404');result.oldControlHttp=Number(http);result.stage='VERIFY_INSTALLED_OLD_GUARD';save();
- // Preserve every existing branch; only this disposable clone gets an old main.
- if(git(['branch','--list','main']))git(['branch','-m','main','fixture-original-main']);git(['switch','-c','main',old]);
  const actual=captureRuntime(),tuple=Object.fromEntries(['PHOENIX_DATA_MOUNT_GUARD','PHOENIX_PG_DATA_DIR','PHOENIX_UPLOADS_DIR','CHANJET_READONLY_SYNC_ENABLED','CHANJET_ERP_INBOUND_SYNC_ENABLED'].map(k=>[k,envValues[k]]));
  write(path.join(state,'floor.json'),{version:3,floorSha:old,phase:'READY',chanjetPolicy:'HOLD',readonlyApproval:null,project:'phoenix-erp',operationalTuple:tuple});
  write(path.join(state,'active.json'),{version:3,configSha:old,floorSha:old,outcome:'SUCCESS',active:actual,protectedImages:[actual.api.imageId,actual.web.imageId]});
