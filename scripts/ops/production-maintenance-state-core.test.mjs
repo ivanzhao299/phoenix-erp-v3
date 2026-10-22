@@ -139,7 +139,7 @@ test('exact real owner, intent, state digest, phase and authority SHA are requir
 });
 test('stop samples, all five reconciled domains, independent evidence and empty fenced bootstrap cannot be skipped', async t => {
   for (const mutate of [f => { f.deps.verifyEvidence = async () => false; }, f => { f.request.bootstrap = f.evidence('LEGACY_PUBLIC_FENCED', { ...f.request.bootstrap.body, participants: ['foreign'] }); },
-    f => { f.request.isolation = f.evidence('INGRESS_FENCE', { ...f.request.isolation.body, lastVerifiedAt: time(-6000) }); },
+    f => { f.request.isolation = f.evidence('INGRESS_FENCE', { ...f.request.isolation.body, lastVerifiedAt: time(-31000) }); },
     f => { const { stateDigest, ...s } = f.store.readState(); s.receipts = s.receipts.filter((_, i) => i !== 2); f.request.state = f.store.writeState(s); }]) {
     const f = fixture(t);
     try { mutate(f); await assert.rejects(promoteLegacyMaintenanceFloor(f.request, f.deps), /MAINTENANCE_HOLD=/); }
@@ -253,8 +253,8 @@ test('read-only admission seam cannot itself promote floor, switch runtime or cl
   const f = fixture(t); const result = await assertLegacyMaintenanceStateCore(f.request, 'PREPARE_PROMOTION', f.deps);
   assert.equal(result.context.targetSha, f.context.targetSha); assert.deepEqual(f.writes, []); assert.ok(fs.existsSync(f.store.markerFile));
 });
-test('a stale five-second snapshot still blocks without a fresh compiled observer',async t=>{
- const f=fixture(t);f.deps.now=()=>now+6000;
+test('a stale thirty-second snapshot still blocks without a fresh compiled observer',async t=>{
+ const f=fixture(t);f.deps.now=()=>now+31000;
  await assert.rejects(assertLegacyMaintenanceStateCore(f.request,'PREPARE_PROMOTION',f.deps),/ISOLATION_STALE/);
  assert.deepEqual(f.writes,[]);
 });
@@ -273,14 +273,14 @@ test('each typed writer admission refreshes real isolation across slow preparati
  assert.equal(actual.outcome,'SWITCHING');assert.deepEqual(actual.switched,{api:true,web:false});
 });
 for(const mode of ['stale','foreign-context','lost-fence','unverified-source'])test(`fresh isolation capture rejects ${mode} before floor writes`,async t=>{
- const f=fixture(t);f.deps.now=()=>now+6000;
+ const f=fixture(t);f.deps.now=()=>now+31000;
  f.deps.captureLegacyIsolation=async()=>{
-  if(mode==='foreign-context'){const foreign=structuredClone(f.context);foreign.owner='123457-1';return createMaintenanceEvidence('INGRESS_FENCE',foreign,f.request.isolation.body,{capturedAt:time(6000)});}
-  const body={...f.request.isolation.body,lastVerifiedAt:mode==='stale'?time(0):time(6000)};
+  if(mode==='foreign-context'){const foreign=structuredClone(f.context);foreign.owner='123457-1';return createMaintenanceEvidence('INGRESS_FENCE',foreign,f.request.isolation.body,{capturedAt:time(31000)});}
+  const body={...f.request.isolation.body,lastVerifiedAt:mode==='stale'?time(0):time(31000)};
   if(mode==='lost-fence')body.state='RELEASED';
-  return createMaintenanceEvidence('INGRESS_FENCE',f.context,body,{capturedAt:time(6000)});
+  return createMaintenanceEvidence('INGRESS_FENCE',f.context,body,{capturedAt:time(31000)});
  };
- if(mode==='unverified-source')f.deps.verifyEvidence=async envelope=>envelope.capturedAt!==time(6000);
+ if(mode==='unverified-source')f.deps.verifyEvidence=async envelope=>envelope.capturedAt!==time(31000);
  await assert.rejects(promoteLegacyMaintenanceFloor(f.request,f.deps),/ISOLATION_STALE|EVIDENCE_BINDING|CONTINUOUS_INGRESS|EVIDENCE_UNVERIFIED/);
  assert.deepEqual(f.writes,[]);
 });
