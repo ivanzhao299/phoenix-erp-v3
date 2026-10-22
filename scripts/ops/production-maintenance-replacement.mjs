@@ -19,7 +19,12 @@ const iso = ms => new Date(ms).toISOString();
 const safeFields = '{{json .Id}}\t{{json .Image}}\t{{json .State}}\t{{json .RestartCount}}\t{{json .HostConfig.RestartPolicy.Name}}\t{{json .NetworkSettings.Networks}}\t{{json .Config.Labels}}';
 const bodyHashes = ['replacementIntentSha256', 'operationIntentSha256', 'stoppedEvidenceSha256', 'reconciliationEvidenceSha256', 'isolationEvidenceSha256',
   'recoveryEvidenceSha256', 'composeFileSha256', 'overrideSha256', 'commandSha256', 'eventsSha256', 'preInventorySha256', 'postInventorySha256'];
-const pinsMatch = (a, b) => ['id', 'imageId', 'revision', 'startedAt', 'restartCount'].every(key => a?.[key] === b?.[key]);
+// The pinned expectation defines the compared identity: the API executor pin
+// always carries an OCI revision; the database pin legitimately has none (its
+// exact image is already pinned by imageId), and an absent image label
+// renders as the empty string rather than undefined.
+const pinsMatch = (a, b) => ['id', 'imageId', 'startedAt', 'restartCount'].every(key => a?.[key] === b?.[key])
+  && (b?.revision === undefined || a?.revision === b?.revision);
 
 export function replacementCommand({ root, project, overrideFile }) {
   if (!path.isAbsolute(root) || path.normalize(root) !== root || !/^phoenix[a-z0-9_-]{1,63}$/.test(project || '')
