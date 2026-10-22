@@ -69,10 +69,18 @@ export class MaintenanceControlParticipants {
     const abort = () => controller.abort(); signal?.addEventListener('abort', abort, { once: true });
     try {
       this.#pending.add(entry);
+      let settled = false;
       entry.work = Promise.resolve().then(() => { remaining(); return action({ signal: controller.signal, timeoutMs: remaining() }); });
-      entry.work.then(() => this.#pending.delete(entry), () => this.#pending.delete(entry));
+      entry.work.then(() => { settled = true; this.#pending.delete(entry); }, () => { settled = true; this.#pending.delete(entry); });
       const result = await Promise.race([entry.work, new Promise((_, reject) => {
-        timer = setTimeout(() => { controller.abort(); reject(fail('DEADLINE_OR_ABORT')); }, remaining());
+        // Under event-loop starvation (synchronous promotion work on the
+        // shared single-threaded session) a healthy worker reply can already
+        // be queued behind this timer's deadline. Grant exactly one loop
+        // turn before declaring the deadline so replies win their race.
+        timer = setTimeout(async () => {
+          await new Promise(resolve => setImmediate(resolve));
+          if (!settled) { controller.abort(); reject(fail('DEADLINE_OR_ABORT')); }
+        }, remaining());
         controller.signal.addEventListener('abort', () => reject(fail('DEADLINE_OR_ABORT')), { once: true });
       })]); remaining(); return result;
     } finally { clearTimeout(timer); signal?.removeEventListener('abort', abort); if (!entry.work) this.#pending.delete(entry); }

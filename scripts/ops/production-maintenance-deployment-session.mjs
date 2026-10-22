@@ -585,6 +585,7 @@ export class LegacyMaintenanceDeploymentSession {
           childrenJoined = true;
         } catch {}
         try { this.incident(childrenJoined ? 'HOLD' : 'CHILDREN_UNVERIFIED', { outcome: 'HOLD',
+          stage: this.stage, fatal: this.fatal?.message || null,
           childrenState: childrenJoined ? 'VERIFIED_JOINED' : 'UNKNOWN', leaseRelease: childrenJoined ? 'PENDING' : 'NOT_ATTEMPTED',
           actualLockState: 'UNKNOWN_REQUIRES_READONLY_REINSPECT', publicState: 'REQUIRES_READONLY_REINSPECT',
           requiredSafety: 'DURABLE_PUBLIC_DENY_AND_INDEPENDENT_EXTERNAL_ISOLATION',
