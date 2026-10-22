@@ -34,6 +34,10 @@ export class PersistentMaintenanceIngressController {
   this.#fatal||=/^MAINTENANCE_INGRESS_HOLD=[A-Z_]+$/.test(error?.message||'')?error:fail('VALIDATION_OR_EFFECT_UNVERIFIED');
   if(/^MAINTENANCE_HOLD=[A-Z_]{1,100}$/.test(error?.message||''))this.#fatal.ingressFailureClass=error.message;
   if(error?.message==='MAINTENANCE_HOLD=ROOT_READER_HOST_PROCESS_OWNERSHIP_UNVERIFIED')this.#fatal.unverifiedHostProcess=error.unverifiedHostProcess;
+  // Redacted diagnostic only: retain the wrapped cause's class and first
+  // frames so an isolated fixture HOLD names its actual origin.
+  this.#fatal.ingressUnderlying??={name:error?.name||null,message:error?.message||null,
+   frames:String(error?.stack||'').split('\n').slice(1,5).map(line=>line.trim()).filter(Boolean)};
   this.#state='HOLD';return this.#fatal;
  }
  #budget(){const start=this.#mono(),wall=this.#now();let last=start,lastWall=wall;
