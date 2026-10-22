@@ -74,7 +74,7 @@ async function main(){
  const {RELEASE_SCOPE}=await load('production-maintenance-deployment-session.mjs');
  const {runProductionMaintenanceSession}=await load('production-maintenance-production-entry.mjs');
  result.stage='START_OWNED_DATABASE_AND_LEGACY';save();
- const network=docker(['network','create','--label','com.docker.compose.project=phoenix-erp','--label',`phoenix.test.owner=${owner}`,'phoenix-erp_default']);
+ const network=docker(['network','create','--label','com.docker.compose.project=phoenix-erp','--label','com.docker.compose.network=default','--label',`phoenix.test.owner=${owner}`,'phoenix-erp_default']);
  // Docker internal bridges intentionally omit published ports. Use a normal
  // exclusive bridge and block its external forwarding before any app starts;
  // host published HTTP and same-bridge DB traffic remain real and reachable.
