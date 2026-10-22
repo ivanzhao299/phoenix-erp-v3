@@ -21,6 +21,7 @@ export class BackgroundTaskService implements BeforeApplicationShutdown, OnModul
   private shutdownPromise?: Promise<void>;
   private heartbeat?: ReturnType<typeof setInterval>;
   private heartbeatPending = false;
+  private drainTimeoutRetired = false;
   private initialization?: Promise<void>;
   private statusObservation?: Promise<ReturnType<BackgroundTaskService['status']>>;
   readonly identity: BackgroundIdentity = {
@@ -160,6 +161,14 @@ export class BackgroundTaskService implements BeforeApplicationShutdown, OnModul
       controlSession: this.backend.status(),
     };
   }
+  /** A timed-out drain must retire the owned control QueryRunner exactly once.
+   * Under load the drain's own deadline branch can reject before the timer
+   * callback runs; either path may arrive first, never both twice. */
+  private retireDrainTimeoutBackend(): void {
+    if (this.drainTimeoutRetired) return;
+    this.drainTimeoutRetired = true;
+    void this.backend.close().catch(() => undefined);
+  }
   shutdown(deadlineMs = 30000): Promise<void> {
     if (this.shutdownPromise) return this.shutdownPromise;
     this.stopping = true;
@@ -168,9 +177,7 @@ export class BackgroundTaskService implements BeforeApplicationShutdown, OnModul
     const timeout = new Promise<never>((_resolve, reject) => {
       timer = setTimeout(() => {
         this.poisoned = true;
-        // A timed-out drain must retire the owned control QueryRunner now; the
-        // outer container stop cannot wait for the abandoned drain promise.
-        void this.backend.close().catch(() => undefined);
+        this.retireDrainTimeoutBackend();
         reject(new BackgroundAdmissionDeniedError('DRAIN_TIMEOUT_OR_SESSION_LOST'));
       }, deadlineMs);
     });
@@ -182,9 +189,12 @@ export class BackgroundTaskService implements BeforeApplicationShutdown, OnModul
     await this.serialized(async () => undefined);
     if (this.poisoned) throw new BackgroundAdmissionDeniedError('DRAIN_TIMEOUT_OR_SESSION_LOST');
     while (this.graphs.size > 0) {
-      if (Date.now() >= deadline || this.poisoned) {
-        this.poisoned = true; throw new BackgroundAdmissionDeniedError('DRAIN_TIMEOUT_OR_SESSION_LOST');
+      if (Date.now() >= deadline) {
+        this.poisoned = true;
+        this.retireDrainTimeoutBackend();
+        throw new BackgroundAdmissionDeniedError('DRAIN_TIMEOUT_OR_SESSION_LOST');
       }
+      if (this.poisoned) throw new BackgroundAdmissionDeniedError('DRAIN_TIMEOUT_OR_SESSION_LOST');
       await new Promise(resolve => setTimeout(resolve, Math.min(25, Math.max(1, deadline - Date.now()))));
     }
     await this.serialized(async () => {

@@ -282,8 +282,15 @@ export function createProductionMaintenanceSources(plan,{readControllers,readers
     async revalidateCheckout(request){
       check(request.signal);await registry(request);
       const floor=secureJson(path.join(CONTRACT.stateDirectory,'floor.json'));
-      if(floor.phase!=='CODE_HOLD'||floor.floorSha!==context.targetSha||floor.chanjetPolicy!=='HOLD'||floor.readonlyApproval!==null
-        ||git(CONTRACT.repository,['rev-parse','HEAD'])!==context.previousFloorSha||git(CONTRACT.repository,['status','--porcelain','--untracked-files=all'])
+      // The fixed gated checkout revalidates the same source facts BOTH before
+      // and after its one registered fast-forward: HEAD is the previous floor
+      // before the launcher runs and the approved target after it. The floor
+      // contract keeps phase READY everywhere between promotion and completion
+      // (assertFloor/guardProduction depend on it); only the durable promotion
+      // marker carries the CODE_HOLD operation.
+      const head=git(CONTRACT.repository,['rev-parse','HEAD']);
+      if(floor.phase!=='READY'||floor.floorSha!==context.targetSha||floor.chanjetPolicy!=='HOLD'||floor.readonlyApproval!==null
+        ||![context.previousFloorSha,context.targetSha].includes(head)||git(CONTRACT.repository,['status','--porcelain','--untracked-files=all'])
         ||git(CONTRACT.repository,['ls-remote','origin','refs/heads/main'],{timeoutMs:5000})!==`${context.targetSha}\trefs/heads/main`)return false;
       return verifyAuthority({approval:plan.approval,purpose:'MAINTENANCE',context,bindingDigest:bindingDigest(context),targetSha:context.targetSha});
     },
