@@ -127,10 +127,10 @@ CREATE ROLE erp_candidate_writer LOGIN;GRANT CONNECT ON DATABASE api_bootstrap_f
  verifyInstalledMaintenanceGuard();
  const processPins=[];
  for(const name of fs.readdirSync('/proc').filter(n=>/^[1-9][0-9]*$/.test(n))){const pid=Number(name);if([process.pid,process.ppid].includes(pid))continue;let exe;
-  try{exe=fs.readlinkSync(`/proc/${pid}/exe`);}catch(error){if(['ENOENT','ESRCH'].includes(error.code))continue;throw error;}
+  try{exe=fs.readlinkSync(`/proc/${pid}/exe`);}catch(error){if(['ENOENT','ESRCH','EACCES','EPERM'].includes(error.code))continue;throw error;}
   if(!/\/(?:node|nodejs|python[0-9.]*|java|pm2|supervisord|nomad|kubelet)$/.test(exe))continue;
   try{const v=observeMaintenanceProcessIdentity(pid);processPins.push({pid,identitySha256:canonicalDigest(v),owner:'EXCLUSIVE_DISPOSABLE_VM_RUNNER_OR_OWNED_CONTAINER'});}
-  catch(error){if(!['ENOENT','ESRCH'].includes(error?.code))throw error;}
+  catch(error){if(!['ENOENT','ESRCH','EACCES','EPERM'].includes(error?.code))throw error;}
  }
  // Active container namespaces are excluded by the real registry reader. This
  // file is explicit fixture ownership material, never production classification.
@@ -148,9 +148,9 @@ CREATE ROLE erp_candidate_writer LOGIN;GRANT CONNECT ON DATABASE api_bootstrap_f
  const latePins=[...ownership.hostProcesses];
  for(const name of fs.readdirSync('/proc').filter(n=>/^[1-9][0-9]*$/.test(n))){
   const pid=Number(name);if([process.pid,process.ppid].includes(pid)||latePins.some(pin=>pin.pid===pid))continue;
-  let exe;try{exe=fs.readlinkSync(`/proc/${pid}/exe`);}catch(error){if(['ENOENT','ESRCH'].includes(error.code))continue;throw error;}
+  let exe;try{exe=fs.readlinkSync(`/proc/${pid}/exe`);}catch(error){if(['ENOENT','ESRCH','EACCES','EPERM'].includes(error.code))continue;throw error;}
   if(!/\/(?:node|nodejs|python[0-9.]*|java|pm2|supervisord|nomad|kubelet)$/.test(exe))continue;
-  let first,second;try{first=observeMaintenanceProcessIdentity(pid);second=observeMaintenanceProcessIdentity(pid);}catch(error){if(['ENOENT','ESRCH'].includes(error.code))continue;throw error;}
+  let first,second;try{first=observeMaintenanceProcessIdentity(pid);second=observeMaintenanceProcessIdentity(pid);}catch(error){if(['ENOENT','ESRCH','EACCES','EPERM'].includes(error.code))continue;throw error;}
   if(first.erpControlReference||canonicalDigest(first)!==canonicalDigest(second))continue;
   latePins.push({pid,identitySha256:canonicalDigest(first),owner:'EXCLUSIVE_DISPOSABLE_VM_RUNNER_STABLE_IDENTITY'});
  }

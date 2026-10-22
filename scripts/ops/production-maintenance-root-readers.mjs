@@ -47,7 +47,7 @@ function processIdentity(pid){
   const before=procStat(pid),base=`/proc/${pid}`;
   const argv=fs.readFileSync(`${base}/cmdline`),cgroup=fs.readFileSync(`${base}/cgroup`,'utf8');
   let exe='',cwd='';
-  try{exe=fs.readlinkSync(`${base}/exe`);cwd=fs.readlinkSync(`${base}/cwd`);}catch(error){if(!['ENOENT','ESRCH'].includes(error.code))throw error;}
+  try{exe=fs.readlinkSync(`${base}/exe`);cwd=fs.readlinkSync(`${base}/cwd`);}catch(error){if(!['ENOENT','ESRCH','EACCES','EPERM'].includes(error.code))throw error;}
   const value={...before,exe,cwdSha256:hash(cwd),argvSha256:hash(argv),cgroupSha256:hash(cgroup),
     pidNamespace:fs.readlinkSync(`${base}/ns/pid`),erpControlReference:argv.includes(Buffer.from(CONTRACT.repository))||cwd===CONTRACT.repository||cwd.startsWith(CONTRACT.repository+'/')};
   if(procStat(pid).startTicks!==before.startTicks)hold('ROOT_READER_PROCESS_REUSED');
@@ -241,7 +241,7 @@ export function createMaintenanceRegistryReader(context,{readControllers,getOwne
     const hostProcesses=[];
     for(const name of fs.readdirSync('/proc').filter(name=>/^[1-9][0-9]*$/.test(name))){
       const pid=Number(name);let observation;
-      try{observation=processIdentity(pid);}catch(error){if(['ENOENT','ESRCH'].includes(error.code))continue;throw error;}
+      try{observation=processIdentity(pid);}catch(error){if(['ENOENT','ESRCH','EACCES','EPERM'].includes(error.code))continue;throw error;}
       const {value,argv}=observation;
       // Membership is the actual PID namespace of a pinned Docker init, not a
       // process-name exclusion. Docker own-container pidMode was checked above.
@@ -268,10 +268,10 @@ export function createMaintenanceRegistryReader(context,{readControllers,getOwne
               if(!fs.existsSync(file))fs.writeFileSync(file,JSON.stringify({schema:'phoenix.fixture-late-runner-observation/v1',pid,identitySha256,parentPid:value.ppid,source:'STABLE_NON_ERP_IDENTITY'})+'\n',{mode:0o600,flag:'wx'});
               continue;
             }
-          }catch(error){if(!['ENOENT','ESRCH'].includes(error.code))throw error;}
+          }catch(error){if(!['ENOENT','ESRCH','EACCES','EPERM'].includes(error.code))throw error;}
         }
         let parent={pid:value.ppid,registeredControl:controls.has(value.ppid)};
-        try{const observed=processIdentity(value.ppid);parent={pid:value.ppid,registeredControl:controls.has(value.ppid),exe:observed.value.exe,cwdSha256:observed.value.cwdSha256,argvSha256:observed.value.argvSha256,cgroupSha256:observed.value.cgroupSha256,pidNamespace:observed.value.pidNamespace};}catch(error){if(!['ENOENT','ESRCH'].includes(error.code))throw error;parent.readable=false;}
+        try{const observed=processIdentity(value.ppid);parent={pid:value.ppid,registeredControl:controls.has(value.ppid),exe:observed.value.exe,cwdSha256:observed.value.cwdSha256,argvSha256:observed.value.argvSha256,cgroupSha256:observed.value.cgroupSha256,pidNamespace:observed.value.pidNamespace};}catch(error){if(!['ENOENT','ESRCH','EACCES','EPERM'].includes(error.code))throw error;parent.readable=false;}
         const error=Error('MAINTENANCE_HOLD=ROOT_READER_HOST_PROCESS_OWNERSHIP_UNVERIFIED');error.unverifiedHostProcess={pid,ppid:value.ppid,parent,exe:value.exe,cwdSha256:value.cwdSha256,argvSha256:value.argvSha256,fileArgumentSha256:(()=>{const parts=argv.toString('utf8').split('\0');return parts[1]?.startsWith('/')?hash(parts[1]):null;})(),inlineCodeSha256:(()=>{const parts=argv.toString('utf8').split('\0'),at=parts.indexOf('-c');return at>=0?hash(parts[at+1]||''):null;})(),cgroupSha256:canonicalDigest(value.cgroupSha256),pidNamespace:value.pidNamespace,identitySha256,registeredIdentitySha256:ownership.hostProcesses.filter(pin=>pin.pid===pid).map(pin=>pin.identitySha256)};throw error;}
       hostProcesses.push({pid,classification:'NON_ERP_PINNED',erpControlReference:false,identitySha256});
     }
