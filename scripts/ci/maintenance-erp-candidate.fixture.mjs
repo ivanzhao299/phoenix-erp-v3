@@ -611,6 +611,7 @@ export class OwnedErpCandidateCapsule {
           const logLines = (String(rawLogs.stdout ?? '') + '\n' + String(rawLogs.stderr ?? '')).split(/\r?\n/);
           postMortem.markers = logLines.filter(line => line === 'BACKGROUND_SHUTDOWN_HOLD').length;
           postMortem.shutdownSignals = logLines.filter(line => line.startsWith('BACKGROUND_SHUTDOWN_')).slice(-6);
+          postMortem.logTail = logLines.filter(Boolean).slice(-8);
           postMortem.logsStatus = rawLogs.status;
         } catch (logsError) { postMortem.logsError = String(logsError?.message || logsError).split('\n')[0].slice(0, 160); }
         binding.faultShutdown = { outcome: 'UNVERIFIED', productionReceipt: false,
