@@ -596,12 +596,19 @@ export class OwnedErpCandidateCapsule {
       try { binding.faultShutdown = await this.teardownExpectedFault(fault, binding); binding.result = 'PASS'; }
       catch (teardownError) {
         // Redacted diagnostic only: retain the first failing assertion's
-        // class/message so an isolated fixture HOLD names its actual origin.
+        // class/message plus the container's post-mortem exit state so an
+        // isolated fixture HOLD names its actual origin.
         binding.result = 'FAIL';
+        let postMortem = null;
+        try {
+          const stopped = this.inspectContainer(candidate.id);
+          postMortem = { running: stopped.State.Running, exitCode: stopped.State.ExitCode, oomKilled: stopped.State.OOMKilled,
+            markers: this.logs(candidate.id).split(/\r?\n/).filter(line => line === 'BACKGROUND_SHUTDOWN_HOLD').length };
+        } catch { postMortem = null; }
         binding.faultShutdown = { outcome: 'UNVERIFIED', productionReceipt: false,
-          failure: { name: teardownError?.name || null, message: teardownError?.message || null, operator: teardownError?.operator || null,
+          failure: { name: teardownError?.name || null, message: (teardownError?.message || null) && teardownError.message.split('\n')[0].slice(0, 240), operator: teardownError?.operator || null,
             actual: teardownError?.actual === undefined ? null : String(teardownError.actual).slice(0, 200),
-            expected: teardownError?.expected === undefined ? null : String(teardownError.expected).slice(0, 200) } };
+            expected: teardownError?.expected === undefined ? null : String(teardownError.expected).slice(0, 200) }, postMortem };
         throw Error('ACTUAL_ERP_FAULT_SHUTDOWN_UNVERIFIED');
       }
       finally { fs.writeFileSync(path.join(this.root, `pg${major}-actual-erp-root-binding.json`), JSON.stringify(binding, null, 2), { mode: 0o600, flag: 'wx' }); }

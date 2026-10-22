@@ -170,7 +170,9 @@ export function assembleMaintenanceFactory({plan,sources,readControllers}){
    const checkout=new RegisteredMainFastForward({root:CONTRACT.repository,previousSha:context.previousFloorSha,targetSha:context.targetSha,lockFile:path.join(store.directory,'mutation.lock')},{
     async revalidate(){if(await read('revalidateCheckout',{context,promotion,state:request.state,isolation:await observeIsolation()})!==true)hold('FACTORY_CHECKOUT_SOURCE_UNVERIFIED');},
     writeIntent:value=>store.immutable(path.join(store.directory,`maintenance-checkout-intent-${context.owner}.json`),value),registerOwnedChild:request.registerOwnedChild});
-   const checkoutObservation=await checkout.run({signal:request.signal});
+   // The one registered fast-forward runs on an exclusive VM that may still
+   // be digesting image/prepare work; grant the checkout's full fixed cap.
+   const checkoutObservation=await checkout.run({signal:request.signal,timeoutMs:60000});
    await beginLegacyMaintenanceDeployment(await typed(),dependencies);await recordLegacyMaintenanceCandidate(await typed(),dependencies);await switchLegacyMaintenanceDeployment(await typed(),dependencies);
    const record=store.read(promotion.record);
    return proofs.issue('PROMOTION_PREPARED',{previousFloorSha:context.previousFloorSha,floorSha:context.targetSha,floorVersion:3,phase:'CODE_HOLD',owner:context.owner,
