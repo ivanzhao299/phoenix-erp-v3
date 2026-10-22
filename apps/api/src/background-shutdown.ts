@@ -15,7 +15,7 @@ export function installBackgroundShutdown(
       try {
         // Keep the drain bounded well inside Docker's typed 30-second stop
         // deadline, leaving enough time for Nest/TypeORM to dispose pools.
-        await tasks.shutdown(10_000);
+        await tasks.shutdown(3_000);
       } catch (error) {
         // A failed drain is still a HOLD. We must nevertheless close the
         // application resources deterministically; otherwise the old runtime
