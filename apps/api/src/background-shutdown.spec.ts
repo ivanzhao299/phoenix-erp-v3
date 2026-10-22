@@ -13,13 +13,13 @@ describe('background shutdown ordering', () => {
     expect(app.close()).toBe(pending);
     settle(); await pending;
     expect(close).toHaveBeenCalledTimes(1);
-    expect(tasks.shutdown).toHaveBeenCalledWith(30000);
+    expect(tasks.shutdown).toHaveBeenCalledWith(25000);
   });
-  it('never disposes resources after drain failure', async () => {
+  it('closes resources after drain failure while preserving the HOLD error', async () => {
     const close = jest.fn(async () => undefined);
     const app = { close };
     installBackgroundShutdown(app, { shutdown: jest.fn(async () => { throw new Error('HOLD'); }) }, { once: jest.fn() } as unknown as NodeJS.Process);
     await expect(app.close()).rejects.toThrow('HOLD');
-    expect(close).not.toHaveBeenCalled();
+    expect(close).toHaveBeenCalledTimes(1);
   });
 });

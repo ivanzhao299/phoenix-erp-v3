@@ -11,8 +11,23 @@ export function installBackgroundShutdown(
   let closing: Promise<void> | undefined;
   app.close = () => {
     closing ??= (async () => {
-      await tasks.shutdown(30_000);
-      await close();
+      let drainFailure: unknown;
+      try {
+        // Leave a bounded grace period for the container's SIGTERM handler to
+        // finish Nest/TypeORM disposal before Docker's typed stop deadline.
+        await tasks.shutdown(25_000);
+      } catch (error) {
+        // A failed drain is still a HOLD. We must nevertheless close the
+        // application resources deterministically; otherwise the old runtime
+        // remains alive until SIGKILL with its database pool attached.
+        drainFailure = error;
+      }
+      try {
+        await close();
+      } catch (error) {
+        if (!drainFailure) throw error;
+      }
+      if (drainFailure) throw drainFailure;
     })();
     return closing;
   };
