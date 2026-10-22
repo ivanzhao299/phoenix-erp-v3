@@ -187,5 +187,14 @@ export class BackgroundTaskService implements BeforeApplicationShutdown, OnModul
       await this.backend.close();
     });
   }
-  beforeApplicationShutdown() { return this.shutdown(); }
+  beforeApplicationShutdown() {
+    // The outer maintenance shutdown records the original drain failure and
+    // keeps the operation in HOLD. Nest must still continue its remaining
+    // teardown hooks (especially TypeORM pool disposal); rethrowing the cached
+    // rejection here would abort that teardown and leave an unnamed backend.
+    return this.shutdown().catch(() => {
+      this.logger.error('BACKGROUND_SHUTDOWN_HOLD');
+      return undefined;
+    });
+  }
 }
