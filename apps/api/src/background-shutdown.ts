@@ -13,6 +13,7 @@ export function installBackgroundShutdown(
   let closing: Promise<void> | undefined;
   app.close = () => {
     closing ??= (async () => {
+      try { writeSync(2, 'BACKGROUND_SHUTDOWN_CLOSING\n'); } catch { /* diagnostics only */ }
       // Keep the drain bounded well inside Docker's typed 30-second stop
       // deadline, leaving enough time for Nest/TypeORM to dispose pools.
       try {

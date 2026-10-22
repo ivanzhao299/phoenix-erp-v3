@@ -34,7 +34,14 @@ export function replacementCommand({ root, project, overrideFile }) {
 }
 function command(args, { timeoutMs = 10000, env = executionEnv() } = {}) {
   try { return execFileSync('/usr/bin/docker', args, { encoding: 'utf8', timeout: timeoutMs, maxBuffer: 2 * 1024 * 1024,
-    env, stdio: ['ignore', 'pipe', 'pipe'] }).trim(); } catch { hold('REPLACEMENT_DOCKER_COMMAND_FAILED'); }
+    env, stdio: ['ignore', 'pipe', 'pipe'] }).trim(); }
+  catch (error) {
+    const failure = Error('MAINTENANCE_HOLD=REPLACEMENT_DOCKER_COMMAND_FAILED');
+    // Fixed non-secret stderr class lines only, for isolated fixture triage.
+    failure.replacementCommandDetail = String(error?.stderr || '').split('\n')
+      .filter(line => /^(?:Error|error|invalid|failed|manifest|no such|pull access)/i.test(line.trim())).map(line => line.trim().slice(0, 120)).slice(0, 3);
+    throw failure;
+  }
 }
 export function inspectReplacementRuntime(id, run = command) {
   if (!HASH.test(id)) hold('REPLACEMENT_FULL_ID_REQUIRED');
@@ -280,7 +287,12 @@ export class ControlledComposeReplacement {
     unchangedServices(this.context.preSnapshot, this.run);
     const actualImage = this.run(['image', 'inspect', this.context.candidate.imageId, '--format', '{{json .Id}}\t{{json .Config.Labels}}']).split('\t').map(JSON.parse);
     if (actualImage[0] !== this.context.candidate.imageId || actualImage[1]?.['org.opencontainers.image.revision'] !== this.context.targetSha) hold('REPLACEMENT_CANDIDATE_IMAGE_REQUIRED');
-    const override = { services: { api: { image: this.context.candidate.imageId, restart: 'no' } } };
+    // Compose resolves `image:` as a repository reference, not a bare local
+    // image ID; retag the already-verified candidate image locally under an
+    // exact owner-scoped name so `--pull never --no-build` resolves it.
+    const localCandidateTag = `phoenix-maintenance-${this.context.owner}:candidate`;
+    this.run(['tag', this.context.candidate.imageId, localCandidateTag]);
+    const override = { services: { api: { image: localCandidateTag, restart: 'no' } } };
     const overrideFile = path.join(this.store.directory, `maintenance-replacement-compose-${this.context.owner}.json`);
     const args = replacementCommand({ root: source.root, project: this.project, overrideFile });
     const intent = { schema: 'phoenix.maintenance-replacement-intent/v1', owner: this.context.owner, bindingDigest: bindingDigest(this.context),

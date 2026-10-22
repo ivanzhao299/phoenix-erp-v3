@@ -47,6 +47,7 @@ export function mockReplacement(overrides = {}) {
     if (args[0] === 'image' && args.at(-1).includes('{{json .Config.Labels}}')) return [context.candidate.imageId, { 'org.opencontainers.image.revision': context.targetSha }].map(JSON.stringify).join('\t');
     if (args[0] === 'image' && args.at(-1) === '{{json .Id}}') return JSON.stringify(args[2]);
     if (args[0] === 'image') return args[2] === old.imageId ? old.revision : args[2] === candidate.imageId ? candidate.revision : args[2] === web.imageId ? web.revision : db.revision;
+    if (args[0] === 'tag' && args[1] === context.candidate.imageId) return '';
     throw Error('unexpected readonly command');
   };
   const event = (id, Action, offset) => ({ Type: 'container', Action, Actor: { ID: id, Attributes: { 'com.docker.compose.project': project, 'com.docker.compose.service': 'api' } }, timeNano: (BigInt(Math.round(now + offset)) * 1000000n).toString() });
