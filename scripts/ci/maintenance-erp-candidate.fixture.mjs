@@ -601,8 +601,9 @@ export class OwnedErpCandidateCapsule {
         binding.result = 'FAIL';
         let postMortem = {};
         try {
-          const [state] = this.docker(['inspect', fault.id, '--format', '{{json .State}}\t{{json .RestartCount}}']).split('\t').map(JSON.parse);
+          const [state, restartCount, restartPolicy] = this.docker(['inspect', fault.id, '--format', '{{json .State}}\t{{json .RestartCount}}\t{{json .HostConfig.RestartPolicy.Name}}']).split('\t').map(JSON.parse);
           postMortem.running = state.Running; postMortem.exitCode = state.ExitCode; postMortem.oomKilled = state.OOMKilled;
+          postMortem.restartCount = restartCount; postMortem.restartPolicy = restartPolicy;
         } catch (stateError) { postMortem.stateError = String(stateError?.message || stateError).split('\n')[0].slice(0, 160); }
         try {
           // Raw logs without the owned-resource assertions: the container may
@@ -612,6 +613,8 @@ export class OwnedErpCandidateCapsule {
           postMortem.markers = logLines.filter(line => line === 'BACKGROUND_SHUTDOWN_HOLD').length;
           postMortem.shutdownSignals = logLines.filter(line => line.startsWith('BACKGROUND_SHUTDOWN_')).slice(-6);
           postMortem.logTail = logLines.filter(Boolean).slice(-8);
+          const signalIndex = logLines.findIndex(line => line.startsWith('BACKGROUND_SHUTDOWN_SIGNAL'));
+          postMortem.totalLogLines = logLines.length; postMortem.signalLineIndex = signalIndex;
           postMortem.logsStatus = rawLogs.status;
         } catch (logsError) { postMortem.logsError = String(logsError?.message || logsError).split('\n')[0].slice(0, 160); }
         binding.faultShutdown = { outcome: 'UNVERIFIED', productionReceipt: false,
