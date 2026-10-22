@@ -38,6 +38,8 @@ export class MaintenanceControlParticipants {
   #poison(error) {
     const first = this.#fatal === null;
     this.#fatal ||= /^MAINTENANCE_PARTICIPANT_HOLD=[A-Z_]+$/.test(error?.message || '') ? error : fail('PROTOCOL_UNVERIFIED');
+    // Redacted diagnostic only: the wrapped cause's class and message.
+    this.#fatal.participantUnderlying ??= { name: error?.name || null, message: String(error?.message ?? error).slice(0, 200) };
     for (const entry of this.#pending) if (!entry.cleanup) entry.controller.abort();
     if (first) for (const listener of this.#failureListeners) { try { listener(this.#fatal); } catch { /* Cannot rehabilitate failure. */ } }
     return this.#fatal;
