@@ -38,8 +38,7 @@ function command(args, { timeoutMs = 10000, env = executionEnv() } = {}) {
   catch (error) {
     const failure = Error('MAINTENANCE_HOLD=REPLACEMENT_DOCKER_COMMAND_FAILED');
     // Fixed non-secret stderr class lines only, for isolated fixture triage.
-    failure.replacementCommandDetail = String(error?.stderr || '').split('\n')
-      .filter(line => /^(?:Error|error|invalid|failed|manifest|no such|pull access)/i.test(line.trim())).map(line => line.trim().slice(0, 120)).slice(0, 3);
+    failure.replacementCommandDetail = String(error?.stderr || '').split('\n').map(line => line.trim()).filter(Boolean).slice(0, 5);
     throw failure;
   }
 }
