@@ -237,7 +237,7 @@ describe('background admission and whole task graph drain', () => {
     const admission = f.service.run('stalled', 'LOCAL', async () => undefined);
     await tick(); await expect(f.service.shutdown(5)).rejects.toThrow('DRAIN_TIMEOUT_OR_SESSION_LOST');
     pending.resolve(); await expect(admission).rejects.toThrow('PARTICIPANT_HOLD');
-    expect(f.backend.close).not.toHaveBeenCalled();
+    expect(f.backend.close).toHaveBeenCalledTimes(1);
   });
   it('shutdown racing execution acquisition releases the acquired lock without starting work', async () => {
     const f = fixture(); const pending = deferred(); const entered = deferred(); const work = jest.fn();
@@ -252,7 +252,7 @@ describe('background admission and whole task graph drain', () => {
     const f = fixture(); const pending = deferred();
     f.service.spawn('long', 'LOCAL', () => pending.promise); await tick();
     await expect(f.service.shutdown(5)).rejects.toThrow('DRAIN_TIMEOUT_OR_SESSION_LOST');
-    expect(f.backend.close).not.toHaveBeenCalled(); expect(f.service.status().poisoned).toBe(true);
+    expect(f.backend.close).toHaveBeenCalledTimes(1); expect(f.service.status().poisoned).toBe(true);
     pending.resolve(); await tick();
   });
   it('shutdown drains children then closes session and blocks later admission', async () => {

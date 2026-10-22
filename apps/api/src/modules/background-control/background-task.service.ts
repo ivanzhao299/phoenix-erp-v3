@@ -166,7 +166,13 @@ export class BackgroundTaskService implements BeforeApplicationShutdown, OnModul
     if (this.heartbeat) clearInterval(this.heartbeat);
     let timer: ReturnType<typeof setTimeout>;
     const timeout = new Promise<never>((_resolve, reject) => {
-      timer = setTimeout(() => { this.poisoned = true; reject(new BackgroundAdmissionDeniedError('DRAIN_TIMEOUT_OR_SESSION_LOST')); }, deadlineMs);
+      timer = setTimeout(() => {
+        this.poisoned = true;
+        // A timed-out drain must retire the owned control QueryRunner now; the
+        // outer container stop cannot wait for the abandoned drain promise.
+        void this.backend.close().catch(() => undefined);
+        reject(new BackgroundAdmissionDeniedError('DRAIN_TIMEOUT_OR_SESSION_LOST'));
+      }, deadlineMs);
     });
     this.shutdownPromise = Promise.race([this.drain(deadlineMs), timeout]).finally(() => clearTimeout(timer));
     return this.shutdownPromise;
