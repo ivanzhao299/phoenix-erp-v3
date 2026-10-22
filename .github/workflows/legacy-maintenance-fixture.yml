@@ -127,6 +127,19 @@ jobs:
             fi
           done
           exit "$native_result"
+      - name: Retain full fixture progress on cancellation
+        if: always()
+        run: |
+          set +e
+          native_root="$RUNNER_TEMP/phoenix-full-first-switch-${{ matrix.pg }}"
+          native_export="$GITHUB_WORKSPACE/artifacts/maintenance-full-first-switch-${{ matrix.pg }}"
+          mkdir -p "$native_export"
+          for native_name in progress.json result.json setup-result.json process-result.json; do
+            if sudo test -f "$native_root/$native_name"; then
+              sudo install -m 0600 -o "$(id -u)" -g "$(id -g)" \
+                "$native_root/$native_name" "$native_export/$native_name"
+            fi
+          done
       - name: Retain native allowlisted evidence
         if: always()
         uses: actions/upload-artifact@v4
