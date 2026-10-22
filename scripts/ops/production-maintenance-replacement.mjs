@@ -291,7 +291,12 @@ export class ControlledComposeReplacement {
     // exact owner-scoped name so `--pull never --no-build` resolves it.
     const localCandidateTag = `phoenix-maintenance-${this.context.owner}:candidate`;
     this.run(['tag', this.context.candidate.imageId, localCandidateTag]);
-    const override = { services: { api: { image: localCandidateTag, restart: 'no' } } };
+    // The compose file's stock healthcheck assumes curl; pin a node-based
+    // readiness probe instead so the exact candidate runtime is observable on
+    // any owned API image (node ships in every one of them).
+    const override = { services: { api: { image: localCandidateTag, restart: 'no',
+      healthcheck: { test: ['CMD','node','-e',"fetch('http://127.0.0.1:3100/api/readiness',{signal:AbortSignal.timeout(3000)}).then(async r=>{const b=await r.json();process.exit(r.ok&&b.status==='READY'&&b.db==='connected'?0:1)}).catch(()=>process.exit(1))"],
+        interval: '1s', timeout: '4s', start_period: '3s', retries: 40 } } } };
     const overrideFile = path.join(this.store.directory, `maintenance-replacement-compose-${this.context.owner}.json`);
     const args = replacementCommand({ root: source.root, project: this.project, overrideFile });
     const intent = { schema: 'phoenix.maintenance-replacement-intent/v1', owner: this.context.owner, bindingDigest: bindingDigest(this.context),
