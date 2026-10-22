@@ -111,7 +111,14 @@ export function validateEffectiveConfig(config, tuple, floor = { operationalTupl
   }
   const control = config.services.api.volumes.filter(volume => volume.target === '/run/phoenix-background-control');
   if (control.length !== 1 || control[0].type !== 'bind' || control[0].source !== '/var/lib/phoenix-background-control'
-    || control[0].read_only !== true || control[0].bind?.create_host_path !== false) throw new Error('CONFIG_HOLD=BACKGROUND_CONTROL_MOUNT');
+    || control[0].read_only !== true || control[0].bind?.create_host_path !== false) {
+    // Fixed non-secret fields only (paths/flags), never interpolated env values.
+    const error = new Error('CONFIG_HOLD=BACKGROUND_CONTROL_MOUNT');
+    error.renderedControlVolumes = config.services.api.volumes
+      .map(volume => ({ type: volume.type ?? null, source: volume.type === 'bind' ? volume.source ?? null : null,
+        target: volume.target ?? null, read_only: volume.read_only ?? null, bind: volume.bind ?? null }));
+    throw error;
+  }
   // The API receives only the non-secret projection, never the private 0700
   // state directory, its parent, or a writable alias of the public manifest.
   if (config.services.api.volumes.some(volume => volume.type === 'bind' && (volume.source === CONTRACT.controlRoot || volume.source?.startsWith(CONTRACT.controlRoot + '/')
