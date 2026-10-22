@@ -119,7 +119,12 @@ export class OwnedCandidateBindingObserver {
       budget.check();
       return { ...structuredClone(value), ownedObservationLifecycle: 'ORIGINAL_ROOT_AND_PENDING_READS_ONLY',
         originalChildPid: this.#child.pid, fullCandidateLease: false, continuousIngressProof: false, registryInstalled: false };
-    } catch { throw this.#poison('OBSERVATION_FAILED'); }
+    } catch (inner) {
+      const failure = this.#poison('OBSERVATION_FAILED');
+      // Redacted diagnostic only: the wrapped observation's class.
+      failure.ownedUnderlying ??= String(inner?.message ?? inner).slice(0, 200);
+      throw failure;
+    }
     finally { clearTimeout(timer); signal?.removeEventListener('abort', onAbort); }
   }
   cleanupDebt() {
