@@ -592,7 +592,13 @@ export class LegacyMaintenanceDeploymentSession {
           // continued ownership or protection from that unverified condition.
           locksSurviveProcessCrash: false }); } catch {}
       }
-      if (!childrenJoined) hold('SESSION_CHILDREN_UNVERIFIED_MANUAL_RECOVERY_REQUIRED');
+      if (!childrenJoined) {
+        const diagnostic = { stage: this.stage, lifecycleStarted: this.lifecycleStarted, children: this.children.size,
+          pendingReads: this.pendingReads.size, actions: [...this.actions].map(action => action.kind), controlChildren: this.controlChildren.size,
+          controlParticipantsStarted: this.controlParticipantsStarted, controlParticipantsClosed: this.controlParticipantsClosed,
+          monitorStopUnknown: this.monitorStopUnknown, fatal: this.fatal?.message || null };
+        const failure = Error('SESSION_CHILDREN_UNVERIFIED_MANUAL_RECOVERY_REQUIRED'); failure.sessionChildrenDiagnostic = diagnostic; throw failure;
+      }
       throw error;
     } finally {
       try { await this.stopMonitor(); } catch {}
