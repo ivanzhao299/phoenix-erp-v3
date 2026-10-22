@@ -166,7 +166,14 @@ test('observation deadline cannot capture while an original HEALTH protocol rema
  await using(async f=>{
   await f.graph.bootstrap();armed=true;const existing=f.graph.check({timeoutMs:500}).catch(error=>error);await started;
   let captured=0;await assert.rejects(f.graph.observeQuiescent(()=>{captured++;return {};},{timeoutMs:20}),/DEADLINE_OR_ABORT/);assert.equal(captured,0);
-  unblock();assert.ok(await existing instanceof Error);assert.equal((await f.graph.close()).graphClosed,true);await assert.rejects(f.graph.check(),/HOLD=/);
+  // The initiator's own 500ms join deadline expires while the probe is still
+  // outstanding; that expiry is transient for the shared graph.
+  assert.ok(await existing instanceof Error);
+  // The shared batch finishes on its self-contained budget after unblock and
+  // a fresh probe succeeds: one caller's timeout never executes another
+  // caller's observation.
+  unblock();const recovered=await f.graph.check();assert.equal(recovered.schema,'phoenix.maintenance-control-participant-inventory/v1');
+  assert.equal((await f.graph.close()).graphClosed,true);
  },{async probe(response){if(armed){armed=false;entered();await new Promise(resolve=>{unblock=resolve;});}return response;}});
 });
 test('asynchronous observers are rejected and cannot rehabilitate graph health',()=>using(async f=>{

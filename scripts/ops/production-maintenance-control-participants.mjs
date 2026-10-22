@@ -148,18 +148,30 @@ export class MaintenanceControlParticipants {
     while(this.#observationTask) await this.#wait(()=>this.#observationTask,remaining,signal);
     remaining();this.assertLive();
     // Concurrent step/monitor waiters join only the current live probe batch;
-    // neither a completed snapshot nor a reset deadline is reused.
+    // neither a completed snapshot nor a reset deadline is reused. The batch
+    // runs on its own self-contained budget with no caller signal: one
+    // caller's abandonment (a session read timeout aborting its signal) must
+    // not execute the shared probes for every other live waiter. Genuine
+    // probe overshoot of the batch budget, or any protocol failure, still
+    // poisons the graph permanently.
     if (!this.#checkTask) {
+      const batchRemaining = this.#budget(10000);
       this.#checkTask = (async () => {
-        try { for (const d of this.#definitions) await this.#probe(d, this.#entries.get(d.role), remaining, signal); this.assertLive(); }
+        try { for (const d of this.#definitions) await this.#probe(d, this.#entries.get(d.role), batchRemaining); this.assertLive(); }
         catch (error) { throw this.#poison(error); }
       })();
       const original = this.#checkTask;
       original.then(() => { if (this.#checkTask === original) this.#checkTask = null; }, () => { if (this.#checkTask === original) this.#checkTask = null; });
     }
     const batch = this.#checkTask;
+    // A joining caller's own deadline or abort is transient for the graph:
+    // rethrow it without poisoning so the next caller re-probes healthy
+    // participants. The batch's own failure path above remains permanent.
     try { await this.#wait(() => batch, remaining, signal); this.assertLive(); return this.inventory(); }
-    catch (error) { throw this.#poison(error); }
+    catch (error) {
+      if (error?.message === 'MAINTENANCE_PARTICIPANT_HOLD=DEADLINE_OR_ABORT') throw error;
+      throw this.#poison(error);
+    }
   }
   /** Join real in-progress HEALTH work, then take one synchronous host
    * snapshot. Reservation precedes await so no queued monitor can start a new
@@ -176,6 +188,9 @@ export class MaintenanceControlParticipants {
       if(value&&typeof value.then==='function')throw fail('SYNCHRONOUS_OBSERVER_REQUIRED');
       remaining();this.assertLive();return value;
     }catch(error){
+      // The joining caller's own deadline/abort is transient for the graph,
+      // exactly as in check(): the next caller re-observes healthy state.
+      if(error?.message==='MAINTENANCE_PARTICIPANT_HOLD=DEADLINE_OR_ABORT')throw error;
       if(/^MAINTENANCE_PARTICIPANT_HOLD=/.test(error?.message||''))throw this.#poison(error);
       throw error;
     }finally{if(this.#observationTask===reservation)this.#observationTask=null;release();}
