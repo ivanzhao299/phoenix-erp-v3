@@ -596,7 +596,9 @@ export class LegacyMaintenanceDeploymentSession {
         const diagnostic = { stage: this.stage, lifecycleStarted: this.lifecycleStarted, children: this.children.size,
           pendingReads: this.pendingReads.size, actions: [...this.actions].map(action => action.kind), controlChildren: this.controlChildren.size,
           controlParticipantsStarted: this.controlParticipantsStarted, controlParticipantsClosed: this.controlParticipantsClosed,
-          monitorStopUnknown: this.monitorStopUnknown, fatal: this.fatal?.message || null };
+          monitorStopUnknown: this.monitorStopUnknown, fatal: this.fatal?.message || null,
+          fatalDatabaseQuiescenceCounts: this.fatal?.databaseQuiescenceCounts || null,
+          fatalDatabaseClientSummary: this.fatal?.databaseClientSummary || null };
         const failure = Error('SESSION_CHILDREN_UNVERIFIED_MANUAL_RECOVERY_REQUIRED'); failure.sessionChildrenDiagnostic = diagnostic; throw failure;
       }
       throw error;
