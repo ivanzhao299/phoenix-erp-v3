@@ -90,7 +90,11 @@ export function captureLegacyNetworkScope(context){
  const compose=JSON.parse(command('/usr/bin/docker',['compose','--project-directory',CONTRACT.repository,'--file',path.join(CONTRACT.repository,'docker-compose.yml'),'--project-name','phoenix-erp','config','--format','json']));
  const approvedMounts=(compose.services?.api?.volumes||[]).map(m=>({source:m.source,destination:m.target,readWrite:m.read_only!==true}));
  const actual=JSON.parse(docker(['inspect',context.preSnapshot.api.id,'--format','{{json .Mounts}}']));
- if(!Array.isArray(actual)||actual.some(m=>m.Type!=='bind')||!same(actual.map(m=>({source:m.Source,destination:m.Destination,readWrite:m.RW})).sort((a,b)=>a.destination.localeCompare(b.destination)),approvedMounts.sort((a,b)=>a.destination.localeCompare(b.destination))))hold('BOOTSTRAP_OLD_COMPOSE_MOUNT_DRIFT');
+ if(!Array.isArray(actual)||actual.some(m=>m.Type!=='bind')||!same(actual.map(m=>({source:m.Source,destination:m.Destination,readWrite:m.RW})).sort((a,b)=>a.destination.localeCompare(b.destination)),approvedMounts.sort((a,b)=>a.destination.localeCompare(b.destination)))){
+  const error=Error('MAINTENANCE_HOLD=BOOTSTRAP_OLD_COMPOSE_MOUNT_DRIFT');
+  // Fixed non-secret bind paths only, for isolated fixture triage.
+  error.composeMountDifference={actual:(Array.isArray(actual)?actual:[]).map(m=>({type:m.Type??null,source:m.Source??null,destination:m.Destination??null,readWrite:m.RW??null})),approved:approvedMounts};
+  throw error;}
  command('/bin/bash',[path.join(CONTRACT.repository,'scripts/ops/require-phoenix-data-mount.sh')]);
  return {approvedMounts,networks:[{id,name:n.Name,driver:n.Driver}],ingressScope:{networkId:id,bridge,interfaceIndex:links[0].ifindex,subnet:n.IPAM.Config[0].Subnet,port:3100}};
 }
