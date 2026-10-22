@@ -14,7 +14,8 @@ import {RELEASE_SCOPE,validateReleasePlan} from './production-maintenance-deploy
 import {MAINTENANCE_OPERATIONS} from './production-maintenance-transition.mjs';
 import {captureMaintenanceSourceManifest,inspectMaintenancePreRuntime,captureMaintenanceSchema,captureMaintenanceChanjetPolicy,verifyMaintenanceSourceManifest} from './production-maintenance-root-sources.mjs';
 import {createMaintenanceRegistryReader,hashMaintenanceRecoveryFile,verifyInstalledMaintenanceGuard} from './production-maintenance-root-readers.mjs';
-import {discoverMaintenanceDatabaseIdentity} from './production-maintenance-database-observer.mjs';
+import {discoverMaintenanceDatabaseIdentity,DATABASE_OBSERVATION_PSQL} from './production-maintenance-database-observer.mjs';
+import {captureLegacyExternalIdentity,legacyExternalIdentityFile,EXTERNAL_SESSION_LISTING_SQL} from './production-maintenance-external-drain.mjs';
 import {collectMaintenanceDomainObservation} from './production-maintenance-domain-observer.mjs';
 import {collectMaintenanceIotState} from './production-maintenance-iot-state.mjs';
 import {collectOwnerDelegatedSourceProvenance,ownerSourceBindingDigest} from './production-maintenance-owner-source-provenance.mjs';
@@ -146,6 +147,19 @@ export async function prepareMaintenanceRuntimeMaterials({owner,targetSha,previo
  fixtureProgress('REGISTRY_DONE');
  const packet={schema:'phoenix.maintenance-root-source-data/v1',sourceManifest,registry,recovery:{files},preDomains};context.rootSourceDataSha256=canonicalDigest(packet);
  fixtureProgress('PACKET_DONE');
+ // Immutable pre-stop identity of the legacy API's external database client,
+ // recorded while the old container is still attached and its pool sessions
+ // are live. Pure observation (network membership + actual pg_stat_activity
+ // rows); the context digest is computed only after every context field is
+ // final. The fixture-only external drain protocol revalidates this exact
+ // record after the stop before any bounded effect; production never drains.
+ const legacyNetworkId=context.networkIsolation.networks[0].id;
+ const legacyNetworkMembers=Object.entries(JSON.parse(docker(['network','inspect',legacyNetworkId,'--format','{{json .Containers}}'])))
+  .map(([id,value])=>({id,ipv4Address:value?.IPv4Address}));
+ const legacyExternalSessions=JSON.parse(docker(['exec','-i',preSnapshot.db.id,'/bin/sh','-c',DATABASE_OBSERVATION_PSQL],{input:EXTERNAL_SESSION_LISTING_SQL}));
+ fixtureProgress('LEGACY_EXTERNAL_IDENTITY_DONE');
+ writeJson(legacyExternalIdentityFile(state,owner),captureLegacyExternalIdentity({context,networkId:legacyNetworkId,
+  containers:legacyNetworkMembers,sessions:legacyExternalSessions,capturedAt:new Date().toISOString()}));
  const procedureSha256=digest(procedure),recoveryPlan={bindingDigest:bindingDigest(context),strategy:'COMPATIBLE_CANDIDATE_OR_HOLD',automaticOldRuntimeRollback:false,automaticDatabaseRestore:false,businessReplay:false,responsibleOperator:'emvia',procedureSha256,
   materials:[{kind:'CANDIDATE_IMAGE',sha256:files[0].sha256,imageId:image,revision:targetSha},{kind:'SOURCE_HELPERS',sha256:context.sourceHelperSha256},{kind:'PRE_SNAPSHOT',sha256:canonicalDigest(preSnapshot)},{kind:'RECOVERY_PROCEDURE',sha256:procedureSha256}],stopConditions:['INGRESS_LOST','UNKNOWN_SIDE_EFFECTS','CANDIDATE_FAILED','FLOOR_STATE_INCONSISTENT']};
  const payload={protocol:'STOP_AND_RECONCILE',operations:[...MAINTENANCE_OPERATIONS],recoveryPlanDigest:canonicalDigest(recoveryPlan),preSnapshotDigest:canonicalDigest(preSnapshot),terminationPolicySha256:canonicalDigest(context.terminationPolicy)};

@@ -15,6 +15,7 @@ import {verifyOwnerAuthUnknownAuthority} from './production-maintenance-owner-un
 import {verifyRegisteredOwnerMaintenanceAuthority} from './production-maintenance-owner-authority.mjs';
 import {inspectDockerRuntime,validateExecutorInventory} from './production-maintenance-runtime.mjs';
 import {discoverMaintenanceDatabaseIdentity,collectMaintenanceDatabaseSnapshot,DATABASE_OBSERVATION_PSQL} from './production-maintenance-database-observer.mjs';
+import {drainExternalLegacySessions} from './production-maintenance-external-drain.mjs';
 import {bootstrapSchemaSql,assertBootstrapSchemaEvidence} from './api-bootstrap-schema-preflight.mjs';
 
 const digest=bytes=>createHash('sha256').update(bytes).digest('hex');
@@ -227,7 +228,7 @@ export function createProductionMaintenanceSources(plan,{readControllers,readers
       // allow a bounded transport/PG release grace before declaring its old
       // client sessions unreconciled. This never terminates a backend.
       await new Promise(resolve=>setTimeout(resolve,90000));
-      let snapshot,facts,counts,stable=0;
+      let snapshot,facts,counts,stable=0,externalDrain=null;
       // Health probes and short-lived observer clients can overlap one sample.
       // Require two consecutive zero observations inside a bounded window;
       // persistent work is never converted into a pass by this settling loop.
@@ -241,13 +242,32 @@ export function createProductionMaintenanceSources(plan,{readControllers,readers
           currentDatabasePreparedTransactions:s.currentDatabasePreparedTransactions,otherDatabasePreparedTransactions:s.otherDatabasePreparedTransactions,
           persistentRunning:p?.runningJobs,persistentQueued:p?.queuedJobs,activeAdmissions:p?.activeAdmissions,reservedRequests:p?.reservedRequests};
         const zero=counts.statsVisibilityComplete===true&&Object.values(counts).every((n,index)=>index===0||n===0);
-        stable=zero?stable+1:0;
+        if(zero)stable++;
+        else{
+          stable=0;
+          // The historical 22687886 runtime can leave its idle client backend
+          // retained by PostgreSQL after the container stop. Exactly once,
+          // BEFORE the final determination, run the bounded fixture-only
+          // external legacy-connection drain against sessions pinned to the
+          // exact stopped identity. Production (fixture gate closed) keeps
+          // pure observation with no effect and still HOLDs on any remainder;
+          // any drain mismatch throws its own immediate HOLD.
+          if(!externalDrain&&counts.statsVisibilityComplete===true&&counts.currentDatabaseClientSessions>0
+            &&counts.otherDatabaseClientSessions===0&&counts.clientSessionsWithOpenTransaction===0
+            &&counts.currentDatabasePreparedTransactions===0&&counts.otherDatabasePreparedTransactions===0
+            &&counts.persistentRunning===0&&counts.persistentQueued===0
+            &&counts.activeAdmissions===0&&counts.reservedRequests===0)
+            externalDrain=await drainExternalLegacySessions({context,databaseBinding:identity});
+        }
         if(stable>=2)break;
         if(attempt<7)await new Promise(resolve=>setTimeout(resolve,500));
       }
       if(stable<2){
         const error=Error('MAINTENANCE_HOLD=ROOT_SOURCE_DATABASE_OR_PERSISTENT_WORK_REMAINS');
         error.databaseQuiescenceCounts=counts;
+        if(externalDrain)error.externalLegacyDrain={status:externalDrain.status,fixtureOnly:externalDrain.fixtureOnly,
+          attempted:externalDrain.attempted??null,beforeCount:externalDrain.receipt?.beforeCount??null,
+          afterCount:externalDrain.receipt?.afterCount??null,failureReason:externalDrain.receipt?.failureReason??null};
         try{
           const sql=`BEGIN READ ONLY; SET LOCAL search_path=pg_catalog; SET LOCAL statement_timeout='3s'; SELECT json_build_object('groups',(SELECT coalesce(json_agg(row_to_json(x) ORDER BY x.application_name,x.state),'[]'::json) FROM (SELECT coalesce(application_name,'') AS application_name,coalesce(state,'') AS state,backend_type,count(*)::integer AS count FROM pg_stat_activity WHERE backend_type='client backend' GROUP BY application_name,state,backend_type) x),'sessions',(SELECT coalesce(json_agg(json_build_object('pid',pid,'application_name',application_name,'usename',usename,'client_addr',client_addr::text,'backend_start',to_char(backend_start AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),'state',state,'backend_type',backend_type) ORDER BY pid),'[]'::json) FROM pg_stat_activity WHERE backend_type='client backend' AND pid<>pg_backend_pid())); ROLLBACK;`;
           error.databaseClientSummary=JSON.parse(execFileSync('/usr/bin/docker',['exec','-i',identity.containerId,'/bin/sh','-c',DATABASE_OBSERVATION_PSQL],{input:sql,env:executionEnv(),encoding:'utf8',timeout:10000,stdio:['pipe','pipe','pipe']}));

@@ -103,6 +103,7 @@
     "scripts/ops/production-maintenance-candidate-binding.mjs",
     "scripts/ops/production-maintenance-candidate-database.mjs",
     "scripts/ops/production-maintenance-database-observer.mjs",
+    "scripts/ops/production-maintenance-external-drain.mjs",
     "scripts/ops/production-maintenance-root-lease.mjs",
     "scripts/ops/production-maintenance-owned-candidate-observer.mjs",
     "scripts/ops/production-maintenance-observation-queue.mjs",

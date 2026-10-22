@@ -1,7 +1,7 @@
 import { EventEmitter } from 'node:events';
 import { DataSource } from 'typeorm';
 import { BackgroundBusinessLockService } from './background-business-lock.service';
-import { BackgroundLockBackend, BACKGROUND_IO_TIMEOUT_MS } from './background-lock.backend';
+import { BackgroundLockBackend, BACKGROUND_CLOSE_TIMEOUT_MS, BACKGROUND_IO_TIMEOUT_MS } from './background-lock.backend';
 import { BackgroundTaskService } from './background-task.service';
 import { BackgroundManifestReader } from './background-manifest.reader';
 import { BackgroundManifest } from './background-control.types';
@@ -105,7 +105,9 @@ describe('owned business lock session and deployment task graph', () => {
   it('late pool acquisition stays counted after timeout and retires without lock/work or clearing HOLD', async () => {
     jest.useFakeTimers(); const f = fixture(), acquisition = deferred<OwnedClient>(); f.runner.connect.mockImplementation(() => acquisition.promise);
     const work = jest.fn(), result = expect(f.service.run('credit_scheduler', work)).rejects.toThrow('HOLD');
-    await flush(); await jest.advanceTimersByTimeAsync(BACKGROUND_IO_TIMEOUT_MS); await result;
+    // The late-acquisition close spends its own bounded close budget on the
+    // still-pending pool acquisition before the caller rejection can settle.
+    await flush(); await jest.advanceTimersByTimeAsync(BACKGROUND_IO_TIMEOUT_MS + BACKGROUND_CLOSE_TIMEOUT_MS); await result;
     expect(f.tasks.status()).toMatchObject({ poisoned: true, inFlight: 1 }); expect(f.runner.release).not.toHaveBeenCalled();
     acquisition.resolve(f.client); await flush(); await jest.advanceTimersByTimeAsync(50); await flush();
     expect(f.runner.query).not.toHaveBeenCalled(); expect(work).not.toHaveBeenCalled(); expect(f.runner.release).toHaveBeenCalledTimes(1);
