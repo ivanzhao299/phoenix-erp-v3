@@ -25,7 +25,11 @@ async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, { bodyParser: false });
 
   const background = app.get(BackgroundTaskService);
-  installBackgroundShutdown(app, background);
+  const { DataSource } = await import('typeorm');
+  const runtimeDataSource = app.get(DataSource);
+  installBackgroundShutdown(app, background, process, async () => {
+    if (runtimeDataSource.isInitialized) await runtimeDataSource.destroy();
+  });
 
   // ── 静态文件：合同/单据上传目录 ───────────────────────────────────────────
   // 生产默认禁用 /uploads 裸目录暴露；历史兼容需显式 ENABLE_LEGACY_UPLOADS_STATIC=true。
@@ -91,7 +95,6 @@ async function bootstrap() {
 
   // ── G5-A++ MenuRegistry hydrate（启动期从 sys_menu 加载 menu_code 注册表） ──
   try {
-    const { DataSource } = await import('typeorm');
     const { hydrateMenuRegistry } = await import('./common/guards/menu-registry.service');
     const ds: InstanceType<typeof DataSource> = app.get(DataSource);
     await hydrateMenuRegistry(ds.manager);

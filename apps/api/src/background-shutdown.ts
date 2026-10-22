@@ -6,6 +6,7 @@ export function installBackgroundShutdown(
   app: Pick<INestApplication, 'close'>,
   tasks: Pick<BackgroundTaskService, 'shutdown'>,
   signals: Pick<NodeJS.Process, 'once'> = process,
+  closeOwnedResources?: () => Promise<void>,
 ) {
   const close = app.close.bind(app);
   let closing: Promise<void> | undefined;
@@ -21,6 +22,9 @@ export function installBackgroundShutdown(
         // application resources deterministically; otherwise the old runtime
         // remains alive until SIGKILL with its database pool attached.
         drainFailure = error;
+      }
+      if (drainFailure && closeOwnedResources) {
+        try { await closeOwnedResources(); } catch { /* retain the original HOLD */ }
       }
       try {
         await close();
