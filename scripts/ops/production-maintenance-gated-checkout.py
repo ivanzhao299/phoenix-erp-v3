@@ -55,7 +55,11 @@ def main():
     inherited_lock(lock_path)
     sys.stdout.write("CHECKOUT_GATE_READY=" + token + "\n")
     sys.stdout.flush()
-    ready, _, _ = select.select([0], [], [], 5)
+    # The controller runs real admission reads (registry snapshots, pinned
+    # source revalidation) between GATE_READY and GO; those legitimately take
+    # longer than a few seconds on a loaded exclusive VM. The controller's own
+    # bounded deadline still bounds this checkout end to end.
+    ready, _, _ = select.select([0], [], [], 60)
     if not ready:
         refuse()
     # One atomic small controller write; no command body, shell or extra argv.

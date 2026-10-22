@@ -599,15 +599,18 @@ export class OwnedErpCandidateCapsule {
         // class/message plus the container's post-mortem exit state so an
         // isolated fixture HOLD names its actual origin.
         binding.result = 'FAIL';
-        let postMortem = null;
+        let postMortem = {};
         try {
           const [state] = this.docker(['inspect', candidate.id, '--format', '{{json .State}}\t{{json .RestartCount}}']).split('\t').map(JSON.parse);
+          postMortem.running = state.Running; postMortem.exitCode = state.ExitCode; postMortem.oomKilled = state.OOMKilled;
+        } catch (stateError) { postMortem.stateError = String(stateError?.message || stateError).split('\n')[0].slice(0, 160); }
+        try {
           // Raw logs without the owned-resource assertions: the container may
           // legitimately already be stopped when this diagnostic runs.
           const rawLogs = spawnSync('/usr/bin/docker', ['logs', candidate.id], { encoding: 'utf8', env: safeEnv(), timeout: 10000, maxBuffer: 16 * 1024 * 1024 });
-          postMortem = { running: state.Running, exitCode: state.ExitCode, oomKilled: state.OOMKilled,
-            markers: String(rawLogs.stdout ?? '').split(/\r?\n/).filter(line => line === 'BACKGROUND_SHUTDOWN_HOLD').length };
-        } catch { postMortem = null; }
+          postMortem.markers = String(rawLogs.stdout ?? '').split(/\r?\n/).filter(line => line === 'BACKGROUND_SHUTDOWN_HOLD').length;
+          postMortem.logsStatus = rawLogs.status;
+        } catch (logsError) { postMortem.logsError = String(logsError?.message || logsError).split('\n')[0].slice(0, 160); }
         binding.faultShutdown = { outcome: 'UNVERIFIED', productionReceipt: false,
           failure: { name: teardownError?.name || null, message: (teardownError?.message || null) && teardownError.message.split('\n')[0].slice(0, 240), operator: teardownError?.operator || null,
             actual: teardownError?.actual === undefined ? null : String(teardownError.actual).slice(0, 200),
