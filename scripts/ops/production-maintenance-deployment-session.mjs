@@ -586,6 +586,10 @@ export class LegacyMaintenanceDeploymentSession {
         } catch {}
         try { this.incident(childrenJoined ? 'HOLD' : 'CHILDREN_UNVERIFIED', { outcome: 'HOLD',
           stage: this.stage, fatal: this.fatal?.message || null,
+          // Redacted diagnostic fields already attached to the fatal error by
+          // compiled producers (fixed non-secret detail objects only).
+          fatalDetail: this.fatal && typeof this.fatal === 'object'
+            ? Object.fromEntries(Object.entries(this.fatal).filter(([key]) => typeof key === 'string' && !['stack', 'message', 'name'].includes(key))) : null,
           childrenState: childrenJoined ? 'VERIFIED_JOINED' : 'UNKNOWN', leaseRelease: childrenJoined ? 'PENDING' : 'NOT_ATTEMPTED',
           actualLockState: 'UNKNOWN_REQUIRES_READONLY_REINSPECT', publicState: 'REQUIRES_READONLY_REINSPECT',
           requiredSafety: 'DURABLE_PUBLIC_DENY_AND_INDEPENDENT_EXTERNAL_ISOLATION',
