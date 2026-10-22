@@ -118,7 +118,8 @@ CREATE ROLE erp_candidate_writer LOGIN;GRANT CONNECT ON DATABASE api_bootstrap_f
  for(const name of fs.readdirSync('/proc').filter(n=>/^[1-9][0-9]*$/.test(n))){const pid=Number(name);if([process.pid,process.ppid].includes(pid))continue;let exe;
   try{exe=fs.readlinkSync(`/proc/${pid}/exe`);}catch(error){if(['ENOENT','ESRCH'].includes(error.code))continue;throw error;}
   if(!/\/(?:node|nodejs|python[0-9.]*|java|pm2|supervisord|nomad|kubelet)$/.test(exe))continue;
-  const v=observeMaintenanceProcessIdentity(pid);processPins.push({pid,identitySha256:canonicalDigest(v),owner:'EXCLUSIVE_DISPOSABLE_VM_RUNNER_OR_OWNED_CONTAINER'});
+  try{const v=observeMaintenanceProcessIdentity(pid);processPins.push({pid,identitySha256:canonicalDigest(v),owner:'EXCLUSIVE_DISPOSABLE_VM_RUNNER_OR_OWNED_CONTAINER'});}
+  catch(error){if(!['ENOENT','ESRCH'].includes(error?.code))throw error;}
  }
  // Active container namespaces are excluded by the real registry reader. This
  // file is explicit fixture ownership material, never production classification.
