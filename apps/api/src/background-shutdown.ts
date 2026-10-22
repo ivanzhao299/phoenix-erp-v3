@@ -39,7 +39,12 @@ export function installBackgroundShutdown(
     signals.once(signal, () => {
       // Failure keeps the process fenced and domain leases intact. The deploy
       // coordinator treats a later forced termination as HOLD, never Drain PASS.
-      void app.close().then(
+      const closeWork = app.close();
+      const boundedClose = Promise.race([
+        closeWork,
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('BACKGROUND_SHUTDOWN_CLOSE_TIMEOUT')), 5_000)),
+      ]);
+      void boundedClose.then(
         () => { if (signals === process) process.exit(0); },
         () => { console.error('BACKGROUND_SHUTDOWN_HOLD'); if (signals === process) process.exit(1); },
       );
