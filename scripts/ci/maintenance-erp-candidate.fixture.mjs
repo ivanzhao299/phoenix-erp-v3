@@ -608,7 +608,9 @@ export class OwnedErpCandidateCapsule {
           // Raw logs without the owned-resource assertions: the container may
           // legitimately already be stopped when this diagnostic runs.
           const rawLogs = spawnSync('/usr/bin/docker', ['logs', fault.id], { encoding: 'utf8', env: safeEnv(), timeout: 10000, maxBuffer: 16 * 1024 * 1024 });
-          postMortem.markers = (String(rawLogs.stdout ?? '') + '\n' + String(rawLogs.stderr ?? '')).split(/\r?\n/).filter(line => line === 'BACKGROUND_SHUTDOWN_HOLD').length;
+          const logLines = (String(rawLogs.stdout ?? '') + '\n' + String(rawLogs.stderr ?? '')).split(/\r?\n/);
+          postMortem.markers = logLines.filter(line => line === 'BACKGROUND_SHUTDOWN_HOLD').length;
+          postMortem.shutdownSignals = logLines.filter(line => line.startsWith('BACKGROUND_SHUTDOWN_SIGNAL')).slice(-3);
           postMortem.logsStatus = rawLogs.status;
         } catch (logsError) { postMortem.logsError = String(logsError?.message || logsError).split('\n')[0].slice(0, 160); }
         binding.faultShutdown = { outcome: 'UNVERIFIED', productionReceipt: false,
