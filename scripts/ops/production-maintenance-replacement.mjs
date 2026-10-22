@@ -49,7 +49,14 @@ function inventory(run) {
 function unchangedServices(pre, run) {
   for (const service of ['web', 'db']) {
     const actual = inspectReplacementRuntime(pre[service].id, run);
-    if (!pinsMatch(actual, pre[service]) || !actual.running || actual.health !== 'healthy') hold('REPLACEMENT_WEB_DB_CHANGED');
+    if (!pinsMatch(actual, pre[service]) || !actual.running || actual.health !== 'healthy') {
+      const error = Error('MAINTENANCE_HOLD=REPLACEMENT_WEB_DB_CHANGED');
+      // Fixed non-secret pin fields only, for isolated fixture triage.
+      error.webDbDifference = { service, actual: { id: actual.id, imageId: actual.imageId, running: actual.running,
+        health: actual.health, restartCount: actual.restartCount, startedAt: actual.startedAt },
+        expected: { id: pre[service].id, imageId: pre[service].imageId, restartCount: pre[service].restartCount, startedAt: pre[service].startedAt } };
+      throw error;
+    }
   }
 }
 /** Fixed projection: arbitrary labels are never received, and action command

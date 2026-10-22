@@ -610,7 +610,7 @@ export class OwnedErpCandidateCapsule {
           const rawLogs = spawnSync('/usr/bin/docker', ['logs', fault.id], { encoding: 'utf8', env: safeEnv(), timeout: 10000, maxBuffer: 16 * 1024 * 1024 });
           const logLines = (String(rawLogs.stdout ?? '') + '\n' + String(rawLogs.stderr ?? '')).split(/\r?\n/);
           postMortem.markers = logLines.filter(line => line === 'BACKGROUND_SHUTDOWN_HOLD').length;
-          postMortem.shutdownSignals = logLines.filter(line => line.startsWith('BACKGROUND_SHUTDOWN_SIGNAL')).slice(-3);
+          postMortem.shutdownSignals = logLines.filter(line => line.startsWith('BACKGROUND_SHUTDOWN_')).slice(-6);
           postMortem.logsStatus = rawLogs.status;
         } catch (logsError) { postMortem.logsError = String(logsError?.message || logsError).split('\n')[0].slice(0, 160); }
         binding.faultShutdown = { outcome: 'UNVERIFIED', productionReceipt: false,
