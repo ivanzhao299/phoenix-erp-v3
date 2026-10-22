@@ -27,8 +27,10 @@ export function installBackgroundShutdown(
         // Synchronous stderr write: pipe buffers do not survive process.exit,
         // and the fault observation contract requires this marker exactly once.
         try { writeSync(2, 'BACKGROUND_SHUTDOWN_HOLD\n'); } catch { /* retained HOLD still throws */ }
+        try { writeSync(2, `BACKGROUND_SHUTDOWN_REASON=${String(error?.message ?? error).slice(0, 120)}\n`); } catch { /* diagnostics only */ }
         throw error;
       }
+      try { writeSync(2, 'BACKGROUND_SHUTDOWN_DRAIN=RESOLVED\n'); } catch { /* diagnostics only */ }
       if (closeOwnedResources) {
         try { await closeOwnedResources(); } catch { /* healthy drain already settled owned work */ }
       }

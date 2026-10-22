@@ -231,7 +231,7 @@ export class ControlledComposeReplacement {
     this.store.assertCurrent();
     if (this.store.readState().stateDigest !== this.state.stateDigest) hold('REPLACEMENT_STATE_CHANGED');
     const marker = this.store.assertOwnedIntent('REPLACE_CANDIDATE', 'PROMOTION_PREPARED', this.state.stateDigest);
-    if (await this.verifyAuthority(this.approval, { purpose: 'MAINTENANCE', operation: 'REPLACE_CANDIDATE', context: this.context, bindingDigest: bindingDigest(this.context) }) !== true) hold('REPLACEMENT_INDEPENDENT_APPROVAL_REQUIRED');
+    if (await this.verifyAuthority(this.approval, { purpose: 'MAINTENANCE', operation: 'REPLACE_CANDIDATE', context: this.context, bindingDigest: bindingDigest(this.context), targetSha: this.context.targetSha }) !== true) hold('REPLACEMENT_INDEPENDENT_APPROVAL_REQUIRED');
     return marker;
   }
   async priorEvidence() {
