@@ -107,7 +107,9 @@ export class MaintenanceControlParticipants {
   async #probe(definition, entry, remaining, signal) {
     if (this.#fatal) throw this.#fatal;
     this.#assertOriginal(entry, false); const nonce = randomUUID();
-    const response = await this.#wait(options => definition.probe(entry.client, { ...options, nonce }), remaining, signal);
+    // The batch budget can exceed one worker RPC budget; clamp each probe to
+    // the worker transport's own fixed cap instead of refusing it outright.
+    const response = await this.#wait(options => definition.probe(entry.client, { ...options, timeoutMs: Math.min(options.timeoutMs, 10000), nonce }), remaining, signal);
     if (this.#fatal) throw this.#fatal;
     this.#assertOriginal(entry, false);
     if (!exact(response, ['schema', 'role', 'owner', 'contextDigest', 'sourceSha256', 'childPid', 'nonce', 'healthy', 'pending', 'protocolVersion'])
@@ -155,10 +157,17 @@ export class MaintenanceControlParticipants {
     // probe overshoot of the batch budget, or any protocol failure, still
     // poisons the graph permanently.
     if (!this.#checkTask) {
-      const batchRemaining = this.#budget(10000);
       this.#checkTask = (async () => {
-        try { for (const d of this.#definitions) await this.#probe(d, this.#entries.get(d.role), batchRemaining); this.assertLive(); }
-        catch (error) { throw this.#poison(error); }
+        try {
+          for (const d of this.#definitions) {
+            // Each probe gets its own full fixed budget with no caller signal:
+            // one caller's abandonment cannot execute the shared probes, and a
+            // saturated exclusive-VM event loop slows the batch as a whole
+            // without any single probe exceeding its own bound.
+            await this.#probe(d, this.#entries.get(d.role), this.#budget(10000));
+          }
+          this.assertLive();
+        } catch (error) { throw this.#poison(error); }
       })();
       const original = this.#checkTask;
       original.then(() => { if (this.#checkTask === original) this.#checkTask = null; }, () => { if (this.#checkTask === original) this.#checkTask = null; });

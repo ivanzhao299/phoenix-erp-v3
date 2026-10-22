@@ -41,17 +41,25 @@ export class PersistentMaintenanceIngressController {
   this.#state='HOLD';return this.#fatal;
  }
  #budget(){const start=this.#mono(),wall=this.#now();let last=start,lastWall=wall;
-  return()=>{if(this.#fatal)throw this.#fatal;this.#guard();const at=this.#mono(),now=this.#now();if(![start,wall,at,now].every(Number.isFinite)||at<last||now<lastWall||at-start>=10000||now-wall>=10000||now<Date.parse(this.#context.window.start)||now>=Date.parse(this.#context.window.end))throw fail('DEADLINE_OR_WINDOW');last=at;lastWall=now;return Math.max(1,Math.floor(Math.min(10000-(at-start),10000-(now-wall),Date.parse(this.#context.window.end)-now)));};
+  // 30s bounded effect budget: each underlying command stays individually
+  // bounded, but an exclusive first-switch VM can saturate its single event
+  // loop with legitimate promotion work while this controller observes; a
+  // 10s aggregate cap converted those load spikes into fixture HOLDs.
+  const capMs=30000;
+  return()=>{if(this.#fatal)throw this.#fatal;this.#guard();const at=this.#mono(),now=this.#now();if(![start,wall,at,now].every(Number.isFinite)||at<last||now<lastWall||at-start>=capMs||now-wall>=capMs||now<Date.parse(this.#context.window.start)||now>=Date.parse(this.#context.window.end))throw fail('DEADLINE_OR_WINDOW');last=at;lastWall=now;return Math.max(1,Math.floor(Math.min(capMs-(at-start),capMs-(now-wall),Date.parse(this.#context.window.end)-now)));};
  }
  #hostIdentity(check){check();const value=this.#readIdentity();check();if(!value||!same(Object.keys(value).sort(),['bootId','networkNamespace'])||!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(value.bootId)||!/^net:\[[1-9][0-9]*\]$/.test(value.networkNamespace))throw fail('HOST_IDENTITY_UNVERIFIED');if(this.#host&&!same(this.#host,value))throw fail('BOOT_OR_NAMESPACE_CHANGED');return value;}
  #command(binary,args,check){let completed=false;
-  try{const timeoutMs=check(),result=this.#run(binary,args,{timeoutMs});completed=true;check();return result;}
+  try{const timeoutMs=Math.min(check(),10000),result=this.#run(binary,args,{timeoutMs});completed=true;check();return result;}
   catch(error){error.ingressCommand={program:path.basename(binary),operation:args.includes('--file')?'APPLY_KERNEL_PROGRAM':args[0],completed,state:this.#state};throw error;}
  }
  async #admit(operation,check,method='verifyExclusiveWriter'){
-  const controller=new AbortController(),request=Object.freeze({model:MODEL,operation,context:structuredClone(this.#context),contextDigest:bindingDigest(this.#context),scope:structuredClone(this.#scope),scopeDigest:canonicalDigest(this.#scope),signal:controller.signal,timeoutMs:check()});
+  // Authority waits keep their own fixed 10s bound even when the aggregate
+  // observation budget has more room left.
+  const admitMs=Math.min(check(),10000);
+  const controller=new AbortController(),request=Object.freeze({model:MODEL,operation,context:structuredClone(this.#context),contextDigest:bindingDigest(this.#context),scope:structuredClone(this.#scope),scopeDigest:canonicalDigest(this.#scope),signal:controller.signal,timeoutMs:admitMs});
   let timer;const work=Promise.resolve().then(()=>{check();return this.#authority?.[method]?.(request);});this.#authorityReads.add(work);work.then(()=>this.#authorityReads.delete(work),()=>this.#authorityReads.delete(work));
-  try{const result=await Promise.race([work,new Promise((_,reject)=>{timer=setTimeout(()=>{controller.abort();reject(fail('AUTHORITY_TIMEOUT'));},check());})]);check();
+  try{const result=await Promise.race([work,new Promise((_,reject)=>{timer=setTimeout(()=>{controller.abort();reject(fail('AUTHORITY_TIMEOUT'));},admitMs);})]);check();
    if(result!==true)throw fail(method==='verifyFormalOpen'?'FORMAL_OPEN_NOT_VERIFIED':'EXCLUSIVE_WRITER_NOT_VERIFIED');
   }finally{clearTimeout(timer);controller.abort();}
  }

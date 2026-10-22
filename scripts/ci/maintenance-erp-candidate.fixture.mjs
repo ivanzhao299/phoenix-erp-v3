@@ -601,8 +601,8 @@ export class OwnedErpCandidateCapsule {
         binding.result = 'FAIL';
         let postMortem = null;
         try {
-          const stopped = this.inspectContainer(candidate.id);
-          postMortem = { running: stopped.State.Running, exitCode: stopped.State.ExitCode, oomKilled: stopped.State.OOMKilled,
+          const [state] = this.docker(['inspect', candidate.id, '--format', '{{json .State}}\t{{json .RestartCount}}']).split('\t').map(JSON.parse);
+          postMortem = { running: state.Running, exitCode: state.ExitCode, oomKilled: state.OOMKilled,
             markers: this.logs(candidate.id).split(/\r?\n/).filter(line => line === 'BACKGROUND_SHUTDOWN_HOLD').length };
         } catch { postMortem = null; }
         binding.faultShutdown = { outcome: 'UNVERIFIED', productionReceipt: false,
