@@ -602,8 +602,11 @@ export class OwnedErpCandidateCapsule {
         let postMortem = null;
         try {
           const [state] = this.docker(['inspect', candidate.id, '--format', '{{json .State}}\t{{json .RestartCount}}']).split('\t').map(JSON.parse);
+          // Raw logs without the owned-resource assertions: the container may
+          // legitimately already be stopped when this diagnostic runs.
+          const rawLogs = spawnSync('/usr/bin/docker', ['logs', candidate.id], { encoding: 'utf8', env: safeEnv(), timeout: 10000, maxBuffer: 16 * 1024 * 1024 });
           postMortem = { running: state.Running, exitCode: state.ExitCode, oomKilled: state.OOMKilled,
-            markers: this.logs(candidate.id).split(/\r?\n/).filter(line => line === 'BACKGROUND_SHUTDOWN_HOLD').length };
+            markers: String(rawLogs.stdout ?? '').split(/\r?\n/).filter(line => line === 'BACKGROUND_SHUTDOWN_HOLD').length };
         } catch { postMortem = null; }
         binding.faultShutdown = { outcome: 'UNVERIFIED', productionReceipt: false,
           failure: { name: teardownError?.name || null, message: (teardownError?.message || null) && teardownError.message.split('\n')[0].slice(0, 240), operator: teardownError?.operator || null,

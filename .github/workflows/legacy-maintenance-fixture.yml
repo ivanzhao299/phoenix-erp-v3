@@ -150,7 +150,12 @@ jobs:
           path: artifacts/maintenance-native-candidate-host-${{ matrix.pg }}/*.json
   full-first-switch:
     name: ONE Full Legacy First Switch PG${{ matrix.pg }}
-    runs-on: ubuntu-latest
+    # The complete one-process maintenance session (image archives, full Git
+    # object integrity reads, three control workers and its own supervision
+    # probes) needs real parallel CPU headroom; on a 2-core runner its own
+    # synchronous promotion work starved the supervision budgets and turned
+    # load spikes into fixture HOLDs.
+    runs-on: ubuntu-latest-4-cores
     # The complete source/recovery image archive and two real scheduler
     # boundaries can exceed the shorter candidate-collector budget on hosted
     # runners. This is still a bounded disposable fixture, never production.
