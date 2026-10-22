@@ -34,7 +34,11 @@ export function inspectCheckoutGit(root, expected, target, env = checkoutGitEnvi
   if (!path.isAbsolute(root) || fs.realpathSync(root) !== root || !SHA.test(expected) || !SHA.test(target)) hold('CHECKOUT_EXACT_SCOPE_REQUIRED');
   // Config listing invokes no configured filter/signature/transport executable.
   // Never expose values (which can contain credentials), only fixed error codes.
-  const keys = read(['config', '--null', '--name-only', '--list']).split('\0').filter(Boolean);
+  // Scope is the repository's OWN config: host-level system/global config (for
+  // example a runner image's /etc/gitconfig filter.lfs entries) is part of the
+  // trusted host baseline this native Git transport already runs under, while
+  // anything the repository itself configured stays fully denied.
+  const keys = read(['config', '--null', '--name-only', '--list', '--local']).split('\0').filter(Boolean);
   if (keys.some(key => deniedConfig.test(key))) hold('CHECKOUT_EXECUTABLE_CONFIG_UNSUPPORTED');
   if (keys.some(key => key.toLowerCase() === 'core.sshcommand')) {
     const selected = read(['config', '--get', 'core.sshCommand']).trim();

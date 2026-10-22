@@ -594,7 +594,16 @@ export class OwnedErpCandidateCapsule {
       if (/^[0-9]+-[0-9]+$/.test(this.owner)) this.results.push(await exerciseActualErpPhaseCorrelation(this, fault));
       const binding = await exerciseActualErpRootBinding(this, fault);
       try { binding.faultShutdown = await this.teardownExpectedFault(fault, binding); binding.result = 'PASS'; }
-      catch { binding.result = 'FAIL'; binding.faultShutdown = { outcome: 'UNVERIFIED', productionReceipt: false }; throw Error('ACTUAL_ERP_FAULT_SHUTDOWN_UNVERIFIED'); }
+      catch (teardownError) {
+        // Redacted diagnostic only: retain the first failing assertion's
+        // class/message so an isolated fixture HOLD names its actual origin.
+        binding.result = 'FAIL';
+        binding.faultShutdown = { outcome: 'UNVERIFIED', productionReceipt: false,
+          failure: { name: teardownError?.name || null, message: teardownError?.message || null, operator: teardownError?.operator || null,
+            actual: teardownError?.actual === undefined ? null : String(teardownError.actual).slice(0, 200),
+            expected: teardownError?.expected === undefined ? null : String(teardownError.expected).slice(0, 200) } };
+        throw Error('ACTUAL_ERP_FAULT_SHUTDOWN_UNVERIFIED');
+      }
       finally { fs.writeFileSync(path.join(this.root, `pg${major}-actual-erp-root-binding.json`), JSON.stringify(binding, null, 2), { mode: 0o600, flag: 'wx' }); }
       this.results.push(binding);
       this.record();
