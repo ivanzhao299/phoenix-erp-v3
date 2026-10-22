@@ -61,6 +61,14 @@ function selfSql(identity){
   return `SELECT pg_catalog.pg_backend_pid()=${identity.pid} AND current_setting('application_name')='${identity.applicationName}' AND (SELECT oid::bigint FROM pg_catalog.pg_database WHERE datname=current_database())=${identity.databaseOid} AND (SELECT to_char(backend_start AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') FROM pg_catalog.pg_stat_activity WHERE pid=pg_catalog.pg_backend_pid())='${identity.backendStartedAt}';`;
 }
 async function bounded(work,ms,code='CLIENT_CLOSE_TIMEOUT'){let timer;try{return await Promise.race([work,new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error(`MAINTENANCE_HOLD=ROOT_CONTROL_${code}`)),ms);})]);}finally{clearTimeout(timer);}}
+async function closeOwnedChild(child,closed,budget){
+  try{child.stdin.end();}catch{}
+  try{await bounded(closed,Math.min(5000,budget.remaining()));return true;}catch{}
+  if(child.exitCode===null&&typeof child.kill==='function')try{child.kill('SIGTERM');}catch{}
+  try{await bounded(closed,Math.min(1000,budget.remaining()));return true;}catch{}
+  if(child.exitCode===null&&typeof child.kill==='function')try{child.kill('SIGKILL');}catch{}
+  try{await bounded(closed,Math.min(1000,budget.remaining()));return true;}catch{return false;}
+}
 
 export class RootControlLease {
   #identity=null; #child=null; #childClose=null; #childError=false; #spawnAttempted=false; #attemptPersisted=false; #closing=false; #closeTask=null;
@@ -211,7 +219,7 @@ export class RootControlLease {
   async closeUnknown(budget=this.budget()){
     this.#status='UNKNOWN';this.#closing=true;
     budget.check();this.guard();budget.check();
-    if(this.#child){try{this.#child.stdin.end();}catch{}if(this.#childClose)await bounded(this.#childClose,Math.min(5000,budget.remaining()));budget.check();}
+    if(this.#child&&this.#childClose){if(!await closeOwnedChild(this.#child,this.#childClose,budget))manual();budget.check();}
   }
   close(options={}){
     return this.#closeTask??=(async()=>{
@@ -231,8 +239,7 @@ export class RootControlLease {
         // A missing identity receipt must not prevent EOF; it still prevents
         // claiming verified release, even if a server-gone snapshot succeeds.
         const originalClient=this.session.child===this.#child;
-        try{this.#child.stdin.end();}catch{}
-        await bounded(this.#childClose,Math.min(5000,budget.remaining()));budget.check();
+        if(!await closeOwnedChild(this.#child,this.#childClose,budget))manual();budget.check();
         const clientStillOriginal=this.session.child===this.#child;
         if(clientStillOriginal)await this.session.close();
         const observation=this.scan('RELEASED',budget);budget.check();
