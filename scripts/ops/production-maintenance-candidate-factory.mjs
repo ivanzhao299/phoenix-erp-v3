@@ -30,7 +30,7 @@ export class MaintenanceObservationGate{
  async run(options,action){
   if(this.#fatal)throw this.#fatal;if(this.#closing)hold('FACTORY_OBSERVATION_CLOSING');
   const {timeoutMs=10000,signal}=options||{};
-  if(!Number.isSafeInteger(timeoutMs)||timeoutMs<1||timeoutMs>10000||typeof action!=='function'||signal&&!(signal instanceof AbortSignal))hold('FACTORY_OBSERVATION_BUDGET');
+  if(!Number.isSafeInteger(timeoutMs)||timeoutMs<1||timeoutMs>30000||typeof action!=='function'||signal&&!(signal instanceof AbortSignal))hold('FACTORY_OBSERVATION_BUDGET');
   const wall=Date.now(),mono=performance.now(),previous=this.#tail,controller=new AbortController(),entry={controller,work:null};let timer;
   let lastWall=wall,lastMono=mono;
   const remaining=()=>{const now=Date.now(),at=performance.now();if(this.#fatal)throw this.#fatal;
