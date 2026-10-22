@@ -601,13 +601,13 @@ export class OwnedErpCandidateCapsule {
         binding.result = 'FAIL';
         let postMortem = {};
         try {
-          const [state] = this.docker(['inspect', candidate.id, '--format', '{{json .State}}\t{{json .RestartCount}}']).split('\t').map(JSON.parse);
+          const [state] = this.docker(['inspect', fault.id, '--format', '{{json .State}}\t{{json .RestartCount}}']).split('\t').map(JSON.parse);
           postMortem.running = state.Running; postMortem.exitCode = state.ExitCode; postMortem.oomKilled = state.OOMKilled;
         } catch (stateError) { postMortem.stateError = String(stateError?.message || stateError).split('\n')[0].slice(0, 160); }
         try {
           // Raw logs without the owned-resource assertions: the container may
           // legitimately already be stopped when this diagnostic runs.
-          const rawLogs = spawnSync('/usr/bin/docker', ['logs', candidate.id], { encoding: 'utf8', env: safeEnv(), timeout: 10000, maxBuffer: 16 * 1024 * 1024 });
+          const rawLogs = spawnSync('/usr/bin/docker', ['logs', fault.id], { encoding: 'utf8', env: safeEnv(), timeout: 10000, maxBuffer: 16 * 1024 * 1024 });
           postMortem.markers = String(rawLogs.stdout ?? '').split(/\r?\n/).filter(line => line === 'BACKGROUND_SHUTDOWN_HOLD').length;
           postMortem.logsStatus = rawLogs.status;
         } catch (logsError) { postMortem.logsError = String(logsError?.message || logsError).split('\n')[0].slice(0, 160); }

@@ -11,7 +11,7 @@ const fail = code => Error('MAINTENANCE_PARTICIPANT_HOLD=' + code);
 const sha = value => createHash('sha256').update(value).digest('hex');
 const exact = (value, keys) => value && Object.getPrototypeOf(value) === Object.prototype
   && same(Object.keys(value).sort(), [...keys].sort());
-const validBudget = value => Number.isSafeInteger(value) && value >= 1 && value <= 10000;
+const validBudget = value => Number.isSafeInteger(value) && value >= 1 && value <= 30000;
 
 /** The same entry/close promise follows PENDING -> READY -> CLOSING -> CLOSED.
  * A step can retain healthy controllers; only final closure can say graphClosed.
@@ -172,7 +172,7 @@ export class MaintenanceControlParticipants {
             // one caller's abandonment cannot execute the shared probes, and a
             // saturated exclusive-VM event loop slows the batch as a whole
             // without any single probe exceeding its own bound.
-            await this.#probe(d, this.#entries.get(d.role), this.#budget(10000));
+            await this.#probe(d, this.#entries.get(d.role), this.#budget(30000));
           }
           this.assertLive();
         } catch (error) { throw this.#poison(error); }
