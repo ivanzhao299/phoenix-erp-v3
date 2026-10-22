@@ -103,11 +103,22 @@ CREATE ROLE erp_candidate_writer LOGIN;GRANT CONNECT ON DATABASE api_bootstrap_f
  result.stage='START_WEB_PEER_AND_OLD_API';save();
  const webId=docker(['run','-d','--name','phoenix-v3-web','--label','com.docker.compose.project=phoenix-erp','--label','com.docker.compose.service=web','--network',network,'--restart=no','-p','127.0.0.1:3000:3000','--health-cmd',"node -e \"fetch('http://127.0.0.1:3000/').then(r=>process.exit(r.ok?0:1))\"",'--health-interval','1s',webTag]);
  const values={NODE_ENV:'production',APP_ENV:'production',PORT:'3100',DB_HOST:'db',DB_PORT:'5432',DB_USER:'erp_candidate_writer',DB_PASSWORD:'',DB_NAME:'api_bootstrap_fixture',JWT_SECRET:'owned-fixture-secret-at-least-32-characters',CHANJET_SYNC_POLICY:'HOLD',CHANJET_READONLY_SYNC_ENABLED:'false',CHANJET_ERP_INBOUND_SYNC_ENABLED:'false'};
- const apiId=docker(['run','-d','--name','phoenix-v3-api','--label','com.docker.compose.project=phoenix-erp','--label','com.docker.compose.service=api','--network',network,'--network-alias','api','--restart=unless-stopped','-p','127.0.0.1:3100:3100','--mount','type=bind,source=/data/maintenance-native-uploads,target=/app/uploads',...Object.entries(values).flatMap(([k,v])=>['-e',`${k}=${v}`]),legacyImage,'node','dist/main.js']);
- result.stage='WAIT_OLD_API_HEALTH';save();await healthy(apiId);await healthy(webId);result.stage='READ_ACTUAL_OLD_404';save();
- const http=run('/usr/bin/curl',['-s','-o','/dev/null','--max-time','3','-w','%{http_code}','http://127.0.0.1:3100/api/internal/background/status']).trim();assert.equal(http,'404');result.oldControlHttp=Number(http);result.stage='VERIFY_INSTALLED_OLD_GUARD';save();
  const envValues={...values,PHOENIX_DATA_MOUNT_GUARD:'true',PHOENIX_PG_DATA_DIR:'/data/maintenance-native-pg',PHOENIX_UPLOADS_DIR:'/data/maintenance-native-uploads'};
  fs.writeFileSync(path.join(root,'.env'),Object.entries(envValues).map(([k,v])=>`${k}=${v}`).join('\n')+'\n',{mode:0o600,flag:'wx'});
+ // The old executor is created by compose itself: the controlled replacement
+ // later asks compose to --force-recreate the api service, and compose cannot
+ // adopt a manually created container regardless of its labels. A fixed
+ // legacy override pins the exact old image, the original command and a
+ // node-based healthcheck (the capsule image has no curl).
+ const legacyTag=`phoenix-legacy-${owner}:api`;
+ docker(['tag',legacyImage,legacyTag]);
+ const legacyOverride=path.join(state,`full-fixture-legacy-compose-${owner}.json`);
+ fs.writeFileSync(legacyOverride,JSON.stringify({services:{api:{image:legacyTag,command:['node','dist/main.js'],
+  healthcheck:{test:['CMD','node','-e',"fetch('http://127.0.0.1:3100/api/readiness',{signal:AbortSignal.timeout(3000)}).then(async r=>{const b=await r.json();process.exit(r.ok&&b.status==='READY'&&b.db==='connected'?0:1)}).catch(()=>process.exit(1))"],interval:'1s',timeout:'4s',start_period:'3s',retries:40}}}})+'\n',{mode:0o600,flag:'wx'});
+ docker(['compose','--project-name','phoenix-erp','--project-directory',root,'--env-file',path.join(root,'.env'),'-f',path.join(root,'docker-compose.yml'),'-f',legacyOverride,'up','-d','--no-deps','--no-build','api']);
+ const apiId=docker(['inspect','phoenix-v3-api','--format','{{.Id}}']);
+ result.stage='WAIT_OLD_API_HEALTH';save();await healthy(apiId);await healthy(webId);result.stage='READ_ACTUAL_OLD_404';save();
+ const http=run('/usr/bin/curl',['-s','-o','/dev/null','--max-time','3','-w','%{http_code}','http://127.0.0.1:3100/api/internal/background/status']).trim();assert.equal(http,'404');result.oldControlHttp=Number(http);result.stage='VERIFY_INSTALLED_OLD_GUARD';save();
  // Preserve every existing branch; only this disposable clone gets an old main.
  if(git(['branch','--list','main']))git(['branch','-m','main','fixture-original-main']);git(['switch','-c','main',old]);
  const actual=captureRuntime(),tuple=Object.fromEntries(['PHOENIX_DATA_MOUNT_GUARD','PHOENIX_PG_DATA_DIR','PHOENIX_UPLOADS_DIR','CHANJET_READONLY_SYNC_ENABLED','CHANJET_ERP_INBOUND_SYNC_ENABLED'].map(k=>[k,envValues[k]]));
