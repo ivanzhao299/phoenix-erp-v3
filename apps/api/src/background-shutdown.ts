@@ -1,4 +1,5 @@
 import { INestApplication } from '@nestjs/common';
+import { writeSync } from 'node:fs';
 import { BackgroundTaskService } from './modules/background-control/background-task.service';
 
 /** Drain before Nest disposes domain leases. Native shutdown hooks run too late. */
@@ -23,7 +24,9 @@ export function installBackgroundShutdown(
         // its domain leases retained until the owner's documented forced
         // termination; the signal path never converts a drain failure into an
         // unobserved self-exit or into a successful close.
-        console.error('BACKGROUND_SHUTDOWN_HOLD');
+        // Synchronous stderr write: pipe buffers do not survive process.exit,
+        // and the fault observation contract requires this marker exactly once.
+        try { writeSync(2, 'BACKGROUND_SHUTDOWN_HOLD\n'); } catch { /* retained HOLD still throws */ }
         throw error;
       }
       if (closeOwnedResources) {
@@ -35,6 +38,9 @@ export function installBackgroundShutdown(
   };
   for (const signal of ['SIGTERM', 'SIGINT'] as const) {
     signals.once(signal, () => {
+      // Diagnostic-only line (distinct from the fault marker count): records
+      // the admission state the drain actually observed.
+      try { writeSync(2, `BACKGROUND_SHUTDOWN_SIGNAL=${signal},poisoned=${String((tasks as BackgroundTaskService).status().poisoned)},stopping=${String((tasks as BackgroundTaskService).status().stopping)}\n`); } catch { /* diagnostics only */ }
       // Success exits promptly inside the container stop budget. Failure keeps
       // the process fenced and observable; the deploy coordinator treats the
       // later forced termination as HOLD, never Drain PASS.

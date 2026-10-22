@@ -110,8 +110,11 @@ export function validateEffectiveConfig(config, tuple, floor = { operationalTupl
     if (!source?.startsWith('/data/') || path.normalize(source) !== source || !mount || mount.type !== 'bind' || mount.source !== source) throw new Error('CONFIG_HOLD=STORAGE_TUPLE');
   }
   const control = config.services.api.volumes.filter(volume => volume.target === '/run/phoenix-background-control');
+  // Compose rendering normalizes an explicit create_host_path:false to an
+  // omitted key (an effective true renders explicitly as true); accept the
+  // omission, refuse any explicit truthy rendering.
   if (control.length !== 1 || control[0].type !== 'bind' || control[0].source !== '/var/lib/phoenix-background-control'
-    || control[0].read_only !== true || control[0].bind?.create_host_path !== false) {
+    || control[0].read_only !== true || control[0].bind?.create_host_path != null && control[0].bind.create_host_path !== false) {
     // Fixed non-secret fields only (paths/flags), never interpolated env values.
     const error = new Error('CONFIG_HOLD=BACKGROUND_CONTROL_MOUNT');
     error.renderedControlVolumes = config.services.api.volumes
