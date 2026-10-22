@@ -13,7 +13,7 @@ describe('background shutdown ordering', () => {
     expect(app.close()).toBe(pending);
     settle(); await pending;
     expect(close).toHaveBeenCalledTimes(1);
-    expect(tasks.shutdown).toHaveBeenCalledWith(25000);
+    expect(tasks.shutdown).toHaveBeenCalledWith(10000);
   });
   it('closes resources after drain failure while preserving the HOLD error', async () => {
     const close = jest.fn(async () => undefined);
