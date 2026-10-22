@@ -89,7 +89,7 @@ export class RegisteredMainFastForward {
     const { root, previousSha, targetSha, lockFile, capabilities: c } = this;
     if (previousSha === targetSha) hold('CHECKOUT_EXACT_SCOPE_REQUIRED');
     if (!['revalidate', 'writeIntent', 'registerOwnedChild'].every(key => typeof c[key] === 'function')) hold('CHECKOUT_COMPILED_CAPABILITIES_REQUIRED');
-    if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 60000 || !path.isAbsolute(lockFile) || fs.realpathSync(lockFile) !== lockFile) hold('CHECKOUT_FIXED_SCOPE_REQUIRED');
+    if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 120000 || !path.isAbsolute(lockFile) || fs.realpathSync(lockFile) !== lockFile) hold('CHECKOUT_FIXED_SCOPE_REQUIRED');
     const deadline = performance.now() + timeoutMs, remaining = () => {
       if (signal?.aborted || performance.now() >= deadline) hold('CHECKOUT_ABORTED_OR_TIMEOUT');
       return Math.max(1, Math.floor(deadline - performance.now()));

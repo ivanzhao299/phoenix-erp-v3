@@ -172,7 +172,7 @@ export function assembleMaintenanceFactory({plan,sources,readControllers}){
     writeIntent:value=>store.immutable(path.join(store.directory,`maintenance-checkout-intent-${context.owner}.json`),value),registerOwnedChild:request.registerOwnedChild});
    // The one registered fast-forward runs on an exclusive VM that may still
    // be digesting image/prepare work; grant the checkout's full fixed cap.
-   const checkoutObservation=await checkout.run({signal:request.signal,timeoutMs:60000});
+   const checkoutObservation=await checkout.run({signal:request.signal,timeoutMs:120000});
    await beginLegacyMaintenanceDeployment(await typed(),dependencies);await recordLegacyMaintenanceCandidate(await typed(),dependencies);await switchLegacyMaintenanceDeployment(await typed(),dependencies);
    const record=store.read(promotion.record);
    return proofs.issue('PROMOTION_PREPARED',{previousFloorSha:context.previousFloorSha,floorSha:context.targetSha,floorVersion:3,phase:'CODE_HOLD',owner:context.owner,
