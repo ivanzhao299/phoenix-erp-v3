@@ -651,7 +651,10 @@ export class LegacyMaintenanceDeploymentSession {
               releasedFields: releaseError?.releasedFields ?? null,
               publicState: succeeded ? 'OPEN_ALREADY_PUBLISHED' : 'REQUIRES_READONLY_REINSPECT', leaseRelease: 'UNKNOWN',
               actualLockState: 'UNKNOWN_REQUIRES_READONLY_REINSPECT', outcome: 'MANUAL_RECOVERY_REQUIRED' }); } catch {}
-            hold(succeeded ? 'SESSION_FORMAL_SUCCESS_LEASE_RELEASE_INCIDENT' : 'SESSION_HOLD_LEASE_RELEASE_INCIDENT');
+            const releaseIncident = Error('MAINTENANCE_HOLD=' + (succeeded ? 'SESSION_FORMAL_SUCCESS_LEASE_RELEASE_INCIDENT' : 'SESSION_HOLD_LEASE_RELEASE_INCIDENT'));
+            releaseIncident.releaseUnderlying = String(releaseError?.message ?? releaseError).slice(0, 200);
+            releaseIncident.releasedFields = releaseError?.releasedFields ?? null;
+            throw releaseIncident;
           }
         }
         try {
