@@ -138,7 +138,7 @@ export class OwnedCandidateBindingObserver {
   }
   close({ timeoutMs = 10000 } = {}) {
     if (this.#closeTask) return this.#closeTask;
-    if (!timeoutValue(timeoutMs, 10000)) return Promise.reject(error('CLEANUP_BUDGET_REQUIRED'));
+    if (!timeoutValue(timeoutMs, 60000)) return Promise.reject(error('CLEANUP_BUDGET_REQUIRED'));
     this.#closing = true;
     return this.#closeTask = (async () => {
       const budget = this.#budget(timeoutMs, undefined, true); let timer;
