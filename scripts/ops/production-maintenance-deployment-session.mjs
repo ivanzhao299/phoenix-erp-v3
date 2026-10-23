@@ -570,8 +570,10 @@ export class LegacyMaintenanceDeploymentSession {
           } catch (closeError) {
             childrenJoined = false;
             const failure = Error('MAINTENANCE_HOLD=SESSION_BOOTSTRAP_CONTROLLER_CLOSE_UNVERIFIED');
-            // Redacted diagnostic only: the wrapped controller close cause chain.
+            // Redacted diagnostic only: the original error plus the wrapped
+            // controller close cause chain.
             failure.closeUnderlying = String(closeError?.message ?? closeError).slice(0, 200);
+            failure.originalUnderlying = String(error?.message ?? error).slice(0, 200);
             if (closeError && typeof closeError === 'object') {
               failure.closeUnderlyingChain = { closeUnderlying: closeError.closeUnderlying ?? null,
                 participantUnderlying: closeError.participantUnderlying ?? null };
