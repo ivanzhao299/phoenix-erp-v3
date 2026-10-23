@@ -29,6 +29,8 @@ export function candidateBindingDiagnosticCode(error) {
 function opaqueFailure(error) {
   const failure=Error('CANDIDATE_BINDING_HOLD=OBSERVATION_UNVERIFIED');
   if(PRIVATE_DIAGNOSTICS.has(error?.message))Object.defineProperty(failure,'diagnosticCode',{value:error.message});
+  // Redacted diagnostic only: the wrapped binding observation's class.
+  failure.bindingUnderlying ??= String(error?.message ?? error).slice(0, 200);
   return failure;
 }
 

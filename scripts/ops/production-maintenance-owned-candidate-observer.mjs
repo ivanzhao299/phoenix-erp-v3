@@ -123,7 +123,8 @@ export class OwnedCandidateBindingObserver {
       const failure = this.#poison('OBSERVATION_FAILED');
       // Redacted diagnostic only: the wrapped observation's class.
       failure.ownedUnderlying ??= String(inner?.message ?? inner).slice(0, 200);
-      if (inner && typeof inner === 'object') failure.healthUnderlying ??= inner.healthUnderlying ?? null;
+      if (inner && typeof inner === 'object') { failure.healthUnderlying ??= inner.healthUnderlying ?? null;
+        failure.bindingUnderlying ??= inner.bindingUnderlying ?? null; }
       throw failure;
     }
     finally { clearTimeout(timer); signal?.removeEventListener('abort', onAbort); }
