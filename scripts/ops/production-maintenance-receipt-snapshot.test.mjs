@@ -113,7 +113,7 @@ test('ending guard budget exhaustion and external abort cannot return already-re
     assert.throws(()=>s.readState({timeoutMs:50,signal:controller.signal}),/RECEIPT_SNAPSHOT_DEADLINE/);
   }
 });
-for(const option of [{timeoutMs:0},{timeoutMs:10001},{skipGuard:true},{signal:{}}])test('snapshot has no caller guard bypass '+JSON.stringify(option),()=>{
+for(const option of [{timeoutMs:0},{timeoutMs:30001},{skipGuard:true},{signal:{}}])test('snapshot has no caller guard bypass '+JSON.stringify(option),()=>{
   const {s}=fixture();assert.throws(()=>s.readState(option),/RECEIPT_SNAPSHOT_BUDGET/);
 });
 test('later independent call revalidates newly changed semantic digest instead of using earlier content',()=>{

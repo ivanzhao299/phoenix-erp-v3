@@ -98,7 +98,7 @@ test('unknown purpose is denied, and a closed original child cannot authorize ca
 });
 test('invalid budgets or pre-aborted authority read cannot grant admission', () => using(async ({ reader, initial }) => {
   const approval = await reader.readApproval('MAINTENANCE'), abort = new AbortController(); abort.abort();
-  for (const options of [{ timeoutMs: 0 }, { timeoutMs: 10001 }, { signal: abort.signal }])
+  for (const options of [{ timeoutMs: 0 }, { timeoutMs: 30001 }, { signal: abort.signal }])
     assert.equal(await reader.verifyAuthority(approval, { ...expected(initial.context), ...options }), false);
 }));
 test('pure verifier exercises a valid signed baseline, then wrong key/nonce and tampering', () => using(async ({ reader, initial }) => {
