@@ -125,7 +125,7 @@ for(const [message,diagnostic] of [
     assert.equal(error.message,'CANDIDATE_BINDING_HOLD=OBSERVATION_UNVERIFIED');assert.equal(error.diagnosticCode,diagnostic);assert.equal(candidateBindingDiagnosticCode(error),diagnostic);
     assert.equal(candidateBindingDiagnosticCode({diagnosticCode:'ARBITRARY_RAW_SENTINEL'}),undefined);
     assert.equal(JSON.stringify(error).includes(message),false);assert.equal(error.cause,undefined);
-    // The redacted class-only diagnostic carries the fixed private category only.
-    assert.equal(error.bindingUnderlying,message);return true;
+    // Private categories keep only their fixed class code; no raw message.
+    assert.equal(error.bindingUnderlying,undefined);return true;
   });
 }));

@@ -30,7 +30,8 @@ function opaqueFailure(error) {
   const failure=Error('CANDIDATE_BINDING_HOLD=OBSERVATION_UNVERIFIED');
   if(PRIVATE_DIAGNOSTICS.has(error?.message))Object.defineProperty(failure,'diagnosticCode',{value:error.message});
   // Redacted diagnostic only: the wrapped binding observation's class.
-  failure.bindingUnderlying ??= String(error?.message ?? error).slice(0, 200);
+  // Private categories deliberately keep only their fixed class code.
+  if (!PRIVATE_DIAGNOSTICS.has(error?.message)) failure.bindingUnderlying ??= String(error?.message ?? error).slice(0, 200);
   if (error && typeof error === 'object') failure.rootUnderlying ??= error.rootUnderlying ?? null;
   return failure;
 }
