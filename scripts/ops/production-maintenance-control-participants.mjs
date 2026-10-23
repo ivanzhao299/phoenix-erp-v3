@@ -79,9 +79,8 @@ export class MaintenanceControlParticipants {
         // shared single-threaded session) a healthy worker reply can already
         // be queued behind this timer's deadline. Grant exactly one loop
         // turn before declaring the deadline so replies win their race.
-        timer = setTimeout(async () => {
-          await new Promise(resolve => setImmediate(resolve));
-          if (!settled) { controller.abort(); reject(fail('DEADLINE_OR_ABORT')); }
+        timer = setTimeout(() => {
+          setImmediate(() => { if (!settled) { controller.abort(); reject(fail('DEADLINE_OR_ABORT')); } });
         }, remaining());
         controller.signal.addEventListener('abort', () => reject(fail('DEADLINE_OR_ABORT')), { once: true });
       })]); remaining(); return result;
@@ -247,7 +246,11 @@ export class MaintenanceControlParticipants {
           || this.#rejectedRegistrations.length) throw fail('GRAPH_NOT_CLOSED');
         this.#closeVerified = true; this.#closeWasVerified = true;
         return { ...this.inventory(), pendingProtocols: 0, outcome: 'ORIGINAL_CONTROLLERS_CLOSED', productionAuthority: false };
-      } catch (error) { this.#poison(error); throw fail('CLOSE_UNVERIFIED_MANUAL_RECOVERY_REQUIRED'); }
+      } catch (error) {
+        const poisoned = this.#poison(error);
+        poisoned.closeUnderlying ??= String(error?.message ?? error).slice(0, 200);
+        throw fail('CLOSE_UNVERIFIED_MANUAL_RECOVERY_REQUIRED');
+      }
     })();
   }
 }
