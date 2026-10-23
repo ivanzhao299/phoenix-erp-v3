@@ -223,7 +223,7 @@ async function childMain() {
 
 export async function openIsolatedBusinessRecorder(input, { registerOwnedChild, timeoutMs = 10000 } = {}) {
   const initial = validate(input), sourceSha256 = hash(fs.readFileSync(fileURLToPath(import.meta.url)));
-  if (typeof registerOwnedChild !== 'function' || !Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 10000) fail('OWNED_REGISTRATION_REQUIRED');
+  if (typeof registerOwnedChild !== 'function' || !Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 30000) fail('OWNED_REGISTRATION_REQUIRED');
   const child = fork(fileURLToPath(import.meta.url), ['--owned-business-recorder'], {
     execPath: process.execPath, execArgv: [], env: { PATH: '/usr/bin:/bin' }, stdio: ['ignore','ignore','ignore','ipc'] });
   let closed = false, fatal = false, closing; const pending = new Map();
@@ -236,8 +236,8 @@ export async function openIsolatedBusinessRecorder(input, { registerOwnedChild, 
     if (!p || !(exact(response, ['id','ok','value']) && response.ok === true || exact(response, ['id','ok']) && response.ok === false)) { fatal = true; return; }
     pending.delete(response.id); response.ok ? p.resolve(response.value) : p.reject(Error('ISOLATED_RECORDER_HOLD=READ_REFUSED'));
   });
-  const rpc = async (operation, fields, { timeoutMs = 10000, signal } = {}) => {
-    if ((fatal && operation !== 'CLOSE') || closed || !child.connected || pending.size >= 16 || !Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 10000
+  const rpc = async (operation, fields, { timeoutMs = 30000, signal } = {}) => {
+    if ((fatal && operation !== 'CLOSE') || closed || !child.connected || pending.size >= 16 || !Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 30000
       || (signal && !(signal instanceof AbortSignal)) || signal?.aborted) fail('DEADLINE_OR_UNAVAILABLE');
     const start = performance.now(), wall = Date.now(), id = randomUUID(); let timer, abort;
     const work = new Promise((resolve,reject) => { pending.set(id, { resolve, reject });
@@ -271,7 +271,7 @@ export async function openIsolatedBusinessRecorder(input, { registerOwnedChild, 
       cleanupDebt: () => ({ originalChildClosed: closed, pendingReads: pending.size, fatal, fixtureOnly: true, productionReceipt: false }),
       close: ({ timeoutMs = 10000 } = {}) => {
         if (closing) return closing;
-        if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 10000) return Promise.reject(Error('ISOLATED_RECORDER_HOLD=FIXED_CLOSE_BUDGET_REQUIRED'));
+        if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 30000) return Promise.reject(Error('ISOLATED_RECORDER_HOLD=FIXED_CLOSE_BUDGET_REQUIRED'));
         if (pending.size) return Promise.reject(Error('ISOLATED_RECORDER_HOLD=PENDING_WORK_REQUIRES_SUPERVISION'));
         return closing = (async () => {
           const start = performance.now(); await rpc('CLOSE', {}, { timeoutMs }); let timer;
