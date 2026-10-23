@@ -105,8 +105,8 @@ export class LegacyMaintenanceDeploymentSession {
     this.lifecycleStarted = false; this.completedResult = null;
     this.pendingReads = new Set(); this.readTimeoutMs = dependencies.readTimeoutMs ?? 60000;
     if (!Number.isSafeInteger(this.readTimeoutMs) || this.readTimeoutMs < 1 || this.readTimeoutMs > 60000) hold('SESSION_READ_TIMEOUT_REQUIRED');
-    this.cleanupTimeoutMs = dependencies.cleanupTimeoutMs ?? 10000; this.stepTimeoutMs = dependencies.stepTimeoutMs ?? CONTRACT.maximumTransitionMs;
-    if (!Number.isSafeInteger(this.cleanupTimeoutMs) || this.cleanupTimeoutMs < 1 || this.cleanupTimeoutMs > 10000
+    this.cleanupTimeoutMs = dependencies.cleanupTimeoutMs ?? 30000; this.stepTimeoutMs = dependencies.stepTimeoutMs ?? CONTRACT.maximumTransitionMs;
+    if (!Number.isSafeInteger(this.cleanupTimeoutMs) || this.cleanupTimeoutMs < 1 || this.cleanupTimeoutMs > 30000
       || !Number.isSafeInteger(this.stepTimeoutMs) || this.stepTimeoutMs < 1 || this.stepTimeoutMs > CONTRACT.maximumTransitionMs) hold('SESSION_OPERATION_TIMEOUT_REQUIRED');
     this.actions = new Set(); this.children = new Set(); this.controlSessions = new Set(); this.controlChildren = new Map(); this.closingControls = false; this.reservation = null;
     this.pollMs = dependencies.pollMs ?? 2000;
