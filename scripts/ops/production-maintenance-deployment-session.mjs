@@ -103,8 +103,8 @@ export class LegacyMaintenanceDeploymentSession {
     this.used = false; this.lease = null; this.pendingLease = null; this.fatal = null; this.activeController = null; this.monitor = null; this.monitorBusy = false;
     this.monitorTask = null; this.monitorStopUnknown = false; this.monitorGeneration = 0;
     this.lifecycleStarted = false; this.completedResult = null;
-    this.pendingReads = new Set(); this.readTimeoutMs = dependencies.readTimeoutMs ?? 30000;
-    if (!Number.isSafeInteger(this.readTimeoutMs) || this.readTimeoutMs < 1 || this.readTimeoutMs > 30000) hold('SESSION_READ_TIMEOUT_REQUIRED');
+    this.pendingReads = new Set(); this.readTimeoutMs = dependencies.readTimeoutMs ?? 60000;
+    if (!Number.isSafeInteger(this.readTimeoutMs) || this.readTimeoutMs < 1 || this.readTimeoutMs > 60000) hold('SESSION_READ_TIMEOUT_REQUIRED');
     this.cleanupTimeoutMs = dependencies.cleanupTimeoutMs ?? 10000; this.stepTimeoutMs = dependencies.stepTimeoutMs ?? CONTRACT.maximumTransitionMs;
     if (!Number.isSafeInteger(this.cleanupTimeoutMs) || this.cleanupTimeoutMs < 1 || this.cleanupTimeoutMs > 10000
       || !Number.isSafeInteger(this.stepTimeoutMs) || this.stepTimeoutMs < 1 || this.stepTimeoutMs > CONTRACT.maximumTransitionMs) hold('SESSION_OPERATION_TIMEOUT_REQUIRED');
