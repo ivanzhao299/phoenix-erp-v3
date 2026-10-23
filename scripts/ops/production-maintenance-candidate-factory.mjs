@@ -45,7 +45,10 @@ export class MaintenanceObservationGate{
       // Redacted diagnostic only: the wrapped source observation's message.
       failure.factoryUnderlying ??= String(error?.message ?? error).slice(0, 200);
       if (error && typeof error === 'object') { failure.ownedUnderlying ??= error.ownedUnderlying ?? null;
-        failure.observationUnderlying ??= error.observationUnderlying ?? null; }throw failure;});
+        failure.observationUnderlying ??= error.observationUnderlying ?? null;
+        failure.bindingUnderlying ??= error.bindingUnderlying ?? null;
+        failure.rootUnderlying ??= error.rootUnderlying ?? null;
+        failure.healthUnderlying ??= error.healthUnderlying ?? null; }throw failure;});
    this.#tail=entry.work.then(()=>undefined,()=>undefined);
    entry.work.then(()=>this.#pending.delete(entry),()=>this.#pending.delete(entry));
    return await Promise.race([entry.work,new Promise((_,reject)=>{timer=setTimeout(()=>reject(this.#poison('DEADLINE')),remaining());})]);
