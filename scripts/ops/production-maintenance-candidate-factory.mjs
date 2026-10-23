@@ -43,7 +43,9 @@ export class MaintenanceObservationGate{
    entry.work=previous.then(async()=>{const value=await action({signal:controller.signal,remaining,timeoutMs:remaining()});remaining();return value;})
     .catch(error=>{const failure=this.#poison(error?.message==='MAINTENANCE_HOLD=FACTORY_OBSERVATION_DEADLINE_OR_ABORT'?'DEADLINE_OR_ABORT':'SOURCE_FAILED');
       // Redacted diagnostic only: the wrapped source observation's message.
-      failure.factoryUnderlying ??= String(error?.message ?? error).slice(0, 200);throw failure;});
+      failure.factoryUnderlying ??= String(error?.message ?? error).slice(0, 200);
+      if (error && typeof error === 'object') { failure.ownedUnderlying ??= error.ownedUnderlying ?? null;
+        failure.observationUnderlying ??= error.observationUnderlying ?? null; }throw failure;});
    this.#tail=entry.work.then(()=>undefined,()=>undefined);
    entry.work.then(()=>this.#pending.delete(entry),()=>this.#pending.delete(entry));
    return await Promise.race([entry.work,new Promise((_,reject)=>{timer=setTimeout(()=>reject(this.#poison('DEADLINE')),remaining());})]);

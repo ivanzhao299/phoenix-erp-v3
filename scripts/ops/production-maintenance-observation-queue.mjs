@@ -80,6 +80,7 @@ export class OwnedCandidateObservationQueue {
         const queueFailure = this.#poison(error?.message === 'OBSERVATION_QUEUE_HOLD=DEADLINE_OR_ABORT' ? 'DEADLINE_OR_ABORT' : 'OBSERVATION_FAILED');
         // Redacted diagnostic only: the wrapped observation's message.
         queueFailure.observationUnderlying ??= String(error?.message ?? error).slice(0, 200);
+        if (error && typeof error === 'object') queueFailure.ownedUnderlying ??= error.ownedUnderlying ?? null;
         throw queueFailure;
       });
       // A rejected observer method can still own abort-ignoring inner reads.
