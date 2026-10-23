@@ -29,10 +29,12 @@ export function candidateBindingDiagnosticCode(error) {
 function opaqueFailure(error) {
   const failure=Error('CANDIDATE_BINDING_HOLD=OBSERVATION_UNVERIFIED');
   if(PRIVATE_DIAGNOSTICS.has(error?.message))Object.defineProperty(failure,'diagnosticCode',{value:error.message});
-  // Redacted diagnostic only: the wrapped binding observation's class.
-  // Private categories deliberately keep only their fixed class code.
-  if (!PRIVATE_DIAGNOSTICS.has(error?.message)) failure.bindingUnderlying ??= String(error?.message ?? error).slice(0, 200);
-  if (error && typeof error === 'object') failure.rootUnderlying ??= error.rootUnderlying ?? null;
+  // Non-enumerable redacted class diagnostic (same channel as diagnosticCode):
+  // private categories and raw sentinels never appear in serialized forms.
+  const underlying = !PRIVATE_DIAGNOSTICS.has(error?.message) ? String(error?.message ?? error).slice(0, 200) : undefined;
+  if (underlying !== undefined) Object.defineProperty(failure, 'bindingUnderlying', { value: underlying });
+  if (error && typeof error === 'object' && error.rootUnderlying != null)
+    Object.defineProperty(failure, 'rootUnderlying', { value: error.rootUnderlying });
   return failure;
 }
 
