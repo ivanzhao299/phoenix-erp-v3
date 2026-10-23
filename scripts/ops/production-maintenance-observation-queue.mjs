@@ -44,9 +44,9 @@ export class OwnedCandidateObservationQueue {
     const allowed = health ? ['expectedStateDigest', 'timeoutMs', 'signal'] : ['expectedStateDigest', 'mode', 'timeoutMs', 'signal'];
     if (!request || Object.getPrototypeOf(request) !== Object.prototype || Object.keys(request).some(key => !allowed.includes(key))
       || !HASH.test(request.expectedStateDigest || '') || (!health && !['PRE_ADOPTION', 'ADOPTED'].includes(request.mode))
-      || (request.timeoutMs !== undefined && !validMs(request.timeoutMs, 30000))
+      || (request.timeoutMs !== undefined && !validMs(request.timeoutMs, 60000))
       || (request.signal && !(request.signal instanceof AbortSignal))) throw this.#poison('FIXED_REQUEST_REQUIRED');
-    const { signal, expectedStateDigest, mode } = request; const timeoutMs = request.timeoutMs ?? 30000;
+    const { signal, expectedStateDigest, mode } = request; const timeoutMs = request.timeoutMs ?? 60000;
     const remaining = this.#budget(timeoutMs, signal), controller = new AbortController();
     const entry = { controller, work: null, started: false }, previous = this.#tail;
     let timer, abortResult;

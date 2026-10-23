@@ -155,11 +155,11 @@ function validateProjection(value,mode,context,stateDigest,bootId){
 /** Caller owns/supervises the existing root lease and all outer read work. This
  * function never acquires/closes a lease, writes state, signs evidence or opens
  * ingress. Synchronous filesystem I/O still requires outer process supervision. */
-async function collectCandidateBinding({context,expectedStateDigest,replacementEvidence,rootLease,mode='PRE_ADOPTION',signal,timeoutMs=30000},dependencies={},leasePhases=false){
+async function collectCandidateBinding({context,expectedStateDigest,replacementEvidence,rootLease,mode='PRE_ADOPTION',signal,timeoutMs=60000},dependencies={},leasePhases=false){
   try{
     validateMaintenanceContext(context);context=structuredClone(context);replacementEvidence=structuredClone(replacementEvidence);
     if(!['PRE_ADOPTION','ADOPTED'].includes(mode)||!HASH.test(expectedStateDigest||'')||!(rootLease instanceof RootControlLease)
-      ||!same(rootLease.context,context)||!Number.isSafeInteger(timeoutMs)||timeoutMs<1||timeoutMs>30000
+      ||!same(rootLease.context,context)||!Number.isSafeInteger(timeoutMs)||timeoutMs<1||timeoutMs>60000
       ||(signal&&!(signal instanceof AbortSignal)))fail('EXACT_OWNED_REQUEST');
     const now=dependencies.now||Date.now,monotonicNow=dependencies.monotonicNow||(()=>performance.now()),start=now(),monoStart=monotonicNow(),end=Math.min(start+timeoutMs,Date.parse(context.window.end)),monoEnd=monoStart+(end-start);
     let lastWall=start,lastMono=monoStart;

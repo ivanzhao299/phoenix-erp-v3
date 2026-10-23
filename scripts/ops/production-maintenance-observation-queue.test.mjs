@@ -122,7 +122,7 @@ test('binding and synthetic health share the same FIFO and original adopted root
       contextDigest: request.rootLease.contextDigest, stateDigest: request.expectedStateDigest, registryInstalled: false, continuousIngressProof: false,
       productionMutation: false, admissionOrApprovalGranted: false, rawOutput: false, outerProcessSupervisionRequired: true }; }) }));
 });
-for (const request of [{ mode: 'PRE_ADOPTION', timeoutMs: 30001 }, { mode: 'PRE_ADOPTION', skipGuard: true }, { mode: 'ADOPTED', signal: {} }, { mode: 'OTHER' }]) test('fixed request validation retains default denial '+JSON.stringify(request), () => using(async f => {
+for (const request of [{ mode: 'PRE_ADOPTION', timeoutMs: 60001 }, { mode: 'PRE_ADOPTION', skipGuard: true }, { mode: 'ADOPTED', signal: {} }, { mode: 'OTHER' }]) test('fixed request validation retains default denial '+JSON.stringify(request), () => using(async f => {
   await assert.rejects(f.queue.observe({ ...f.req(), ...request }), /FIXED_REQUEST_REQUIRED/);
   await assert.rejects(f.queue.observe(f.req()), /QUEUE_HOLD=/);
 }));

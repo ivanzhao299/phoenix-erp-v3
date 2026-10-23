@@ -74,12 +74,12 @@ export class OwnedCandidateBindingObserver {
     if (this.#closing) throw error('CLOSING');
     if (!request || Object.keys(request).some(k => !(health ? ['expectedStateDigest', 'timeoutMs', 'signal'] : ['expectedStateDigest', 'mode', 'timeoutMs', 'signal']).includes(k))
       || !HASH.test(request.expectedStateDigest || '') || (!health && !['PRE_ADOPTION', 'ADOPTED'].includes(request.mode))
-      || (request.timeoutMs !== undefined && !timeoutValue(request.timeoutMs, 30000))
+      || (request.timeoutMs !== undefined && !timeoutValue(request.timeoutMs, 60000))
       || (request.signal && !(request.signal instanceof AbortSignal))) throw this.#poison('FIXED_OBSERVATION_REQUIRED');
     if (health && (!this.#adopted || !this.#pin)) throw this.#poison('ADOPTED_BINDING_BEFORE_HEALTH_REQUIRED');
     if (this.#pending.size || (!health && this.#adopted && request.mode !== 'ADOPTED')) throw this.#poison('CONCURRENT_OR_DOWNGRADED_READ');
     const { expectedStateDigest, signal } = request; const mode = health ? 'ADOPTED' : request.mode;
-    const timeoutMs = request.timeoutMs ?? 30000, controller = new AbortController(), budget = this.#budget(timeoutMs, signal);
+    const timeoutMs = request.timeoutMs ?? 60000, controller = new AbortController(), budget = this.#budget(timeoutMs, signal);
     const onAbort = () => controller.abort(); signal?.addEventListener('abort', onAbort, { once: true });
     const entry = { controller, work: null }; let timer;
     try {

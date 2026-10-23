@@ -30,7 +30,7 @@ export class MaintenanceObservationGate{
  async run(options,action){
   if(this.#fatal)throw this.#fatal;if(this.#closing)hold('FACTORY_OBSERVATION_CLOSING');
   const {timeoutMs=30000,signal}=options||{};
-  if(!Number.isSafeInteger(timeoutMs)||timeoutMs<1||timeoutMs>30000||typeof action!=='function'||signal&&!(signal instanceof AbortSignal))hold('FACTORY_OBSERVATION_BUDGET');
+  if(!Number.isSafeInteger(timeoutMs)||timeoutMs<1||timeoutMs>60000||typeof action!=='function'||signal&&!(signal instanceof AbortSignal))hold('FACTORY_OBSERVATION_BUDGET');
   const wall=Date.now(),mono=performance.now(),previous=this.#tail,controller=new AbortController(),entry={controller,work:null};let timer;
   let lastWall=wall,lastMono=mono;
   const remaining=()=>{const now=Date.now(),at=performance.now();if(this.#fatal)throw this.#fatal;
@@ -53,7 +53,7 @@ export class MaintenanceObservationGate{
  }
  debt(){return {pendingCaptures:this.#pending.size,closing:this.#closing,failed:this.#fatal!==null};}
  join({timeoutMs=30000}={}){
-  if(this.#joined)return this.#joined;if(!Number.isSafeInteger(timeoutMs)||timeoutMs<1||timeoutMs>30000)hold('FACTORY_OBSERVATION_JOIN_BUDGET');
+  if(this.#joined)return this.#joined;if(!Number.isSafeInteger(timeoutMs)||timeoutMs<1||timeoutMs>60000)hold('FACTORY_OBSERVATION_JOIN_BUDGET');
   this.#closing=true;for(const entry of this.#pending)entry.controller.abort();
   return this.#joined=(async()=>{let timer;try{await Promise.race([Promise.allSettled([...this.#pending].map(entry=>entry.work)),new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error('MAINTENANCE_HOLD=FACTORY_OBSERVATION_CAPTURE_UNSETTLED')),timeoutMs);})]);if(this.#pending.size)hold('FACTORY_OBSERVATION_CAPTURE_UNSETTLED');}finally{clearTimeout(timer);}})();
  }
