@@ -94,7 +94,7 @@ test('stale state digest and external abort remain failures', () => {
 for (const request of [{ skipGuard: true }, { state: {} }, { receipts: [] }, { expectedStateDigest: 'short' }]) test('fixed view accepts no caller evidence or guard bypass '+JSON.stringify(request), () => {
   const f = fixture(); assert.throws(() => f.read(request), /CANDIDATE_BINDING_RECEIPT_REQUEST/);
 });
-for (const timeoutMs of [0,10001]) test('fixed view rejects invalid snapshot budget '+timeoutMs, () => {
+for (const timeoutMs of [0,30001]) test('fixed view rejects invalid snapshot budget '+timeoutMs, () => {
   const f = fixture(); assert.throws(() => f.read({ timeoutMs }), /RECEIPT_SNAPSHOT_BUDGET/);
 });
 test('successful snapshot cannot return when final selection clone exhausts its original budget', () => {
