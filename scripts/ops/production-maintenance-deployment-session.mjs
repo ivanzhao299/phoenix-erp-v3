@@ -567,8 +567,16 @@ export class LegacyMaintenanceDeploymentSession {
         if (this.controlParticipantsStarted) {
           try {
             this.assertControllerGraphClosed(await this.boundedCleanup(options => this.controlParticipants.close(options)), false);
-          } catch {
-            childrenJoined = false; hold('SESSION_BOOTSTRAP_CONTROLLER_CLOSE_UNVERIFIED');
+          } catch (closeError) {
+            childrenJoined = false;
+            const failure = Error('MAINTENANCE_HOLD=SESSION_BOOTSTRAP_CONTROLLER_CLOSE_UNVERIFIED');
+            // Redacted diagnostic only: the wrapped controller close cause chain.
+            failure.closeUnderlying = String(closeError?.message ?? closeError).slice(0, 200);
+            if (closeError && typeof closeError === 'object') {
+              failure.closeUnderlyingChain = { closeUnderlying: closeError.closeUnderlying ?? null,
+                participantUnderlying: closeError.participantUnderlying ?? null };
+            }
+            throw failure;
           }
         }
         throw error;
