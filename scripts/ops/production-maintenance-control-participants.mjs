@@ -11,7 +11,7 @@ const fail = code => Error('MAINTENANCE_PARTICIPANT_HOLD=' + code);
 const sha = value => createHash('sha256').update(value).digest('hex');
 const exact = (value, keys) => value && Object.getPrototypeOf(value) === Object.prototype
   && same(Object.keys(value).sort(), [...keys].sort());
-const validBudget = value => Number.isSafeInteger(value) && value >= 1 && value <= 30000;
+const validBudget = value => Number.isSafeInteger(value) && value >= 1 && value <= 60000;
 
 /** The same entry/close promise follows PENDING -> READY -> CLOSING -> CLOSED.
  * A step can retain healthy controllers; only final closure can say graphClosed.
