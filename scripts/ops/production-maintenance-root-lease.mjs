@@ -90,7 +90,7 @@ export class RootControlLease {
     this.serverFile=path.join(this.store.directory,`maintenance-root-control-server-${context.owner}.json`);
     this.releaseFile=path.join(this.store.directory,`maintenance-root-control-released-${context.owner}.json`);
     this.incidentFile=path.join(this.store.directory,`maintenance-root-control-incident-${context.owner}.json`);
-    this.session=new DockerPostgresControlSession({commandTimeoutMs:5000},{spawn:()=>{
+    this.session=new DockerPostgresControlSession({commandTimeoutMs:30000},{spawn:()=>{
       this.checkpoint(true);this.#spawnAttempted=true;
       const child=launch('/usr/bin/docker',['exec','-i',this.database.containerId,'/bin/sh','-c',rootPsqlProgram(this.context.owner)],{env:executionEnv(),stdio:['pipe','pipe','pipe']});
       // Save before registration can throw; the base class has not assigned its
@@ -141,7 +141,7 @@ export class RootControlLease {
     budget.check();const timeoutMs=Math.min(10000,budget.remaining()),value=this.run(args,input,{timeoutMs});budget.check();return value;
   }
   async query(sql,budget){
-    budget.check();this.session.commandTimeoutMs=Math.min(5000,budget.remaining());const value=await this.session.query(sql);budget.check();return value;
+    budget.check();this.session.commandTimeoutMs=Math.min(30000,budget.remaining());const value=await this.session.query(sql);budget.check();return value;
   }
   pin(budget){
     let values;try{values=this.observedRun(['inspect',this.database.containerId,'--format',INSPECT],undefined,budget).split('\t').map(JSON.parse);}catch(error){if(error?.message?.includes('OPERATION_'))throw error;fail('DATABASE_RUNTIME_READ_FAILED');}
@@ -186,7 +186,7 @@ export class RootControlLease {
       parentPid:process.pid,programSha256:sha(rootPsqlProgram(this.context.owner)),createdAt:new Date(this.now()).toISOString()};
     this.store.immutable(this.startFile,attempt);this.#attemptPersisted=true;this.#status='STARTING';
     try{
-      this.session.commandTimeoutMs=Math.min(5000,budget.remaining());await this.session.start();budget.check();this.checkpoint(true);this.assertOriginalClient();
+      this.session.commandTimeoutMs=Math.min(30000,budget.remaining());await this.session.start();budget.check();this.checkpoint(true);this.assertOriginalClient();
       const discovered=this.scan('DISCOVER',budget),row=discovered.observation.backends[0];
       this.assertOriginalClient();
       const identity={pid:row.pid,databaseOid:row.databaseOid,backendStartedAt:row.backendStartedAt,applicationName:row.applicationName};
