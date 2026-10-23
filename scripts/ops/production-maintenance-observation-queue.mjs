@@ -103,9 +103,9 @@ export class OwnedCandidateObservationQueue {
       manualRecoveryRequired: this.#fatal !== null || inner.manualRecoveryRequired,
       fullCandidateLease: false, registryInstalled: false, productionReleaseAuthorized: false };
   }
-  close({ timeoutMs = 10000 } = {}) {
+  close({ timeoutMs = 60000 } = {}) {
     if (this.#closeTask) return this.#closeTask;
-    if (!validMs(timeoutMs, 10000)) return Promise.reject(failure('CLEANUP_BUDGET_REQUIRED'));
+    if (!validMs(timeoutMs, 60000)) return Promise.reject(failure('CLEANUP_BUDGET_REQUIRED'));
     this.#closing = true;
     return this.#closeTask = (async () => {
       const remaining = this.#budget(timeoutMs); let timer;
