@@ -635,11 +635,20 @@ export class LegacyMaintenanceDeploymentSession {
           try {
             const released = await this.cleanupEvidence(await this.boundedCleanup(options => lease.close({ ...options, succeeded })), 'CANDIDATE_CONTROL_RELEASED');
             if (released.owner !== this.context.owner || released.connected !== false || released.admissionExclusive !== false
-              || released.executionExclusive !== false || released.ownedBackendGone !== true || !HASH.test(released.serverObservationSha256 || '')) hold('SESSION_LEASE_RELEASE_UNVERIFIED');
-          } catch {
+              || released.executionExclusive !== false || released.ownedBackendGone !== true || !HASH.test(released.serverObservationSha256 || '')) {
+              const mismatch = Error('MAINTENANCE_HOLD=SESSION_LEASE_RELEASE_UNVERIFIED');
+              // Redacted diagnostic only: the exact released-field mismatch.
+              mismatch.releasedFields = { owner: released.owner, connected: released.connected, admissionExclusive: released.admissionExclusive,
+                executionExclusive: released.executionExclusive, ownedBackendGone: released.ownedBackendGone,
+                serverObservationSha256: HASH.test(released.serverObservationSha256 || '') ? 'valid' : 'invalid' };
+              throw mismatch;
+            }
+          } catch (releaseError) {
             // SUCCESS/public OPEN may already exist. Retain them truthfully;
             // append an incident instead of silently rewriting release history.
             try { this.incident('LEASE_RELEASE_UNVERIFIED', { formalDeploymentOutcome: succeeded ? 'SUCCESS' : 'NOT_COMPLETED',
+              releaseUnderlying: String(releaseError?.message ?? releaseError).slice(0, 200),
+              releasedFields: releaseError?.releasedFields ?? null,
               publicState: succeeded ? 'OPEN_ALREADY_PUBLISHED' : 'REQUIRES_READONLY_REINSPECT', leaseRelease: 'UNKNOWN',
               actualLockState: 'UNKNOWN_REQUIRES_READONLY_REINSPECT', outcome: 'MANUAL_RECOVERY_REQUIRED' }); } catch {}
             hold(succeeded ? 'SESSION_FORMAL_SUCCESS_LEASE_RELEASE_INCIDENT' : 'SESSION_HOLD_LEASE_RELEASE_INCIDENT');
