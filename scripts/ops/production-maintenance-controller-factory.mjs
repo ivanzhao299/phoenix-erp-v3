@@ -40,7 +40,7 @@ export function createMaintenanceReadControllers(plan){
    const client={child,joined,role,pending,
     rpc(operation,{nonce=randomUUID(),timeoutMs=10000,signal}={}){
      if((broken&&!['CLOSE'].includes(operation))||closed||!child.connected||closing&&operation!=='CLOSE')return Promise.reject(broken||fail('WORKER_UNAVAILABLE'));
-     if(!Number.isSafeInteger(timeoutMs)||timeoutMs<1||timeoutMs>30000||signal?.aborted)return Promise.reject(fail('RPC_BUDGET_OR_ABORT'));
+     if(!Number.isSafeInteger(timeoutMs)||timeoutMs<1||timeoutMs>60000||signal?.aborted)return Promise.reject(fail('RPC_BUDGET_OR_ABORT'));
      const id=randomUUID();let timer,abort;
      const work=new Promise((resolve,reject)=>{
       // Do not erase an expired RPC. Only its actual reply or original close

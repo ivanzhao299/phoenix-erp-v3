@@ -118,7 +118,7 @@ export class MaintenanceControlParticipants {
     this.#assertOriginal(entry, false); const nonce = randomUUID();
     // The batch budget can exceed one worker RPC budget; clamp each probe to
     // the worker transport's own fixed cap instead of refusing it outright.
-    const response = await this.#wait(options => definition.probe(entry.client, { ...options, timeoutMs: Math.min(options.timeoutMs, 30000), nonce }), remaining, signal);
+    const response = await this.#wait(options => definition.probe(entry.client, { ...options, timeoutMs: Math.min(options.timeoutMs, 60000), nonce }), remaining, signal);
     if (this.#fatal) throw this.#fatal;
     this.#assertOriginal(entry, false);
     if (!exact(response, ['schema', 'role', 'owner', 'contextDigest', 'sourceSha256', 'childPid', 'nonce', 'healthy', 'pending', 'protocolVersion'])
