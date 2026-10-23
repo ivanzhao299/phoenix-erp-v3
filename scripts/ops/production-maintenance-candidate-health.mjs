@@ -94,6 +94,9 @@ export async function observeCandidateHealthAndStartup(request, dependencies = {
       outerProcessSupervisionRequired: true };
   } catch (error) {
     if (/^CANDIDATE_HEALTH_HOLD=[A-Z_]+$/.test(error?.message || '')) throw error;
-    fail('OBSERVATION_UNVERIFIED');
+    const failure = Error('CANDIDATE_HEALTH_HOLD=OBSERVATION_UNVERIFIED');
+    // Redacted diagnostic only: the wrapped health observation's class.
+    failure.healthUnderlying ??= String(error?.message ?? error).slice(0, 200);
+    throw failure;
   }
 }
