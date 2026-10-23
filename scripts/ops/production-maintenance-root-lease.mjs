@@ -18,6 +18,8 @@ const positive=v=>Number.isSafeInteger(v)&&v>0;
 const rawTime=v=>typeof v==='string'&&/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{6}Z$/.test(v)&&iso(v.slice(0,23)+'Z');
 const INSPECT='{{json .Id}}\t{{json .Image}}\t{{json .State.StartedAt}}\t{{json .State.Running}}\t{{if .State.Health}}{{json .State.Health.Status}}{{else}}null{{end}}';
 const safeReason=e=>/^MAINTENANCE_HOLD=([A-Z0-9_]+)$/.exec(e?.message||'')?.[1]||'ROOT_CONTROL_UNVERIFIED_FAILURE';
+// Redacted diagnostic only: keep the wrapped cause's class alongside the reason.
+const rootUnderlying=e=>String(e?.message??e).slice(0,200);
 const sha=text=>createHash('sha256').update(text).digest('hex');
 const frozen=value=>{if(value&&typeof value==='object'){for(const child of Object.values(value))frozen(child);Object.freeze(value);}return value;};
 export function validateRootDatabaseBinding(database,context){
@@ -199,7 +201,7 @@ export class RootControlLease {
         if(this.#identity){try{await this.close();}catch{manual();}}
         else{try{await this.closeUnknown();}catch{}this.incident('STARTUP_IDENTITY_UNVERIFIED');manual();}
       }
-      throw Error(`MAINTENANCE_HOLD=${safeReason(error)}`);
+      {const failure=Error(`MAINTENANCE_HOLD=${safeReason(error)}`);failure.rootUnderlying??=rootUnderlying(error);throw failure;}
     }
   }
   async observe(options={}){
@@ -208,7 +210,7 @@ export class RootControlLease {
       this.assertHeld();
       const self=selfSql(this.#identity);if(await this.query(self,budget)!==true)fail('HOLDING_CHANNEL_IDENTITY_MISMATCH');
       this.assertHeld();const observed=this.scan('HELD',budget);this.assertHeld();budget.check();return observed;
-    }catch(error){this.#status='FAILED';throw Error(`MAINTENANCE_HOLD=${safeReason(error)}`);}
+    }catch(error){this.#status='FAILED';{const failure=Error(`MAINTENANCE_HOLD=${safeReason(error)}`);failure.rootUnderlying??=rootUnderlying(error);throw failure;}}
   }
   incident(reason){
     if(!this.#attemptPersisted)return;

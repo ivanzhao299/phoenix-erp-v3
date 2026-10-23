@@ -82,7 +82,8 @@ export class OwnedCandidateObservationQueue {
         queueFailure.observationUnderlying ??= String(error?.message ?? error).slice(0, 200);
         if (error && typeof error === 'object') { queueFailure.ownedUnderlying ??= error.ownedUnderlying ?? null;
           queueFailure.healthUnderlying ??= error.healthUnderlying ?? null;
-          queueFailure.bindingUnderlying ??= error.bindingUnderlying ?? null; }
+          queueFailure.bindingUnderlying ??= error.bindingUnderlying ?? null;
+          queueFailure.rootUnderlying ??= error.rootUnderlying ?? null; }
         throw queueFailure;
       });
       // A rejected observer method can still own abort-ignoring inner reads.

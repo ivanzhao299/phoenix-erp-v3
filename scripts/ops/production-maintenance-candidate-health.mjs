@@ -97,7 +97,8 @@ export async function observeCandidateHealthAndStartup(request, dependencies = {
     const failure = Error('CANDIDATE_HEALTH_HOLD=OBSERVATION_UNVERIFIED');
     // Redacted diagnostic only: the wrapped health observation's class.
     failure.healthUnderlying ??= String(error?.message ?? error).slice(0, 200);
-    if (error && typeof error === 'object') failure.bindingUnderlying ??= error.bindingUnderlying ?? null;
+    if (error && typeof error === 'object') { failure.bindingUnderlying ??= error.bindingUnderlying ?? null;
+      failure.rootUnderlying ??= error.rootUnderlying ?? null; }
     throw failure;
   }
 }

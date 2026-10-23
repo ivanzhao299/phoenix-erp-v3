@@ -125,7 +125,8 @@ export class OwnedCandidateBindingObserver {
       failure.ownedUnderlying ??= String(inner?.message ?? inner).slice(0, 200);
       if (inner && typeof inner === 'object') { failure.healthUnderlying ??= inner.healthUnderlying ?? null;
         failure.bindingUnderlying ??= inner.bindingUnderlying ?? null;
-        failure.observationUnderlying ??= inner.observationUnderlying ?? null; }
+        failure.observationUnderlying ??= inner.observationUnderlying ?? null;
+        failure.rootUnderlying ??= inner.rootUnderlying ?? null; }
       throw failure;
     }
     finally { clearTimeout(timer); signal?.removeEventListener('abort', onAbort); }
