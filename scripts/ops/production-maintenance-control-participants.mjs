@@ -249,6 +249,7 @@ export class MaintenanceControlParticipants {
       } catch (error) {
         const poisoned = this.#poison(error);
         poisoned.closeUnderlying ??= String(error?.message ?? error).slice(0, 200);
+        poisoned.closeUnderlyingChain ??= (error && typeof error === 'object') ? {closeUnderlying: error.closeUnderlying ?? null, participantUnderlying: error.participantUnderlying ?? null} : null;
         throw fail('CLOSE_UNVERIFIED_MANUAL_RECOVERY_REQUIRED');
       }
     })();
