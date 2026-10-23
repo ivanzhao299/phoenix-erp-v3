@@ -129,7 +129,7 @@ export async function assertLegacyMaintenanceStateCore(request, operation, depen
     if (candidate.api.imageId !== context.candidate.imageId || candidate.api.revision !== context.targetSha
       || context.executors.some(old => old.id === candidate.api.id)
       || !/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(candidate.bootId || '')
-      || now() - Date.parse(request.controlLease.capturedAt) > 5000 || !same(lease.api, candidate.api) || lease.bootId !== candidate.bootId
+      || now() - Date.parse(request.controlLease.capturedAt) > 30000 || !same(lease.api, candidate.api) || lease.bootId !== candidate.bootId
       || lease.owner !== context.owner || lease.phase !== 'FENCED' || lease.admissionExclusive !== true || lease.executionExclusive !== true
       || lease.connected !== true || lease.admissionState !== 'DENIED' || lease.inFlight !== 0 || lease.pendingChildren !== 0 || lease.taskGraphs !== 0
       || lease.poisoned !== false || lease.stopping !== false || lease.continuousIngress !== true || lease.unknownExecutors !== 0
