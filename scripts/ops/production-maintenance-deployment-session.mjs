@@ -574,6 +574,8 @@ export class LegacyMaintenanceDeploymentSession {
             // controller close cause chain.
             failure.closeUnderlying = String(closeError?.message ?? closeError).slice(0, 200);
             failure.originalUnderlying = String(error?.message ?? error).slice(0, 200);
+            if (error && typeof error === 'object') failure.originalDetail = { participantUnderlying: error.participantUnderlying ?? null,
+              closeUnderlying: error.closeUnderlying ?? null, ingressUnderlying: error.ingressUnderlying ?? null };
             if (closeError && typeof closeError === 'object') {
               failure.closeUnderlyingChain = { closeUnderlying: closeError.closeUnderlying ?? null,
                 participantUnderlying: closeError.participantUnderlying ?? null };
