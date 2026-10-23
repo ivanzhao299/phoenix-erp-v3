@@ -125,7 +125,7 @@ export class RootControlLease {
   assertHeld(){
     if(this.#status!=='HELD'||this.#closing)fail('LEASE_NOT_HELD');this.checkpoint();this.assertOriginalClient();
   }
-  budget({timeoutMs=30000,signal}={}){
+  budget({timeoutMs=60000,signal}={}){
     if(!Number.isSafeInteger(timeoutMs)||timeoutMs<1||timeoutMs>120000||(signal&&!(signal instanceof AbortSignal)))fail('OPERATION_BUDGET_REQUIRED');
     const start=this.now(),monoStart=this.monotonicNow(),deadline=start+timeoutMs,monoDeadline=monoStart+timeoutMs;
     let lastWall=start,lastMono=monoStart;
@@ -212,10 +212,10 @@ export class RootControlLease {
       this.assertHeld();const observed=this.scan('HELD',budget);this.assertHeld();budget.check();return observed;
     }catch(error){this.#status='FAILED';{const failure=Error(`MAINTENANCE_HOLD=${safeReason(error)}`);failure.rootUnderlying??=rootUnderlying(error);throw failure;}}
   }
-  incident(reason){
+  incident(reason, extra = null){
     if(!this.#attemptPersisted)return;
     try{this.store.immutable(this.incidentFile,{schema:'phoenix.root-control-incident/v1',contextDigest:this.contextDigest,owner:this.context.owner,
-      reason,clientPid:this.#child?.pid||null,serverIdentity:this.#identity,localClientClose:'DOES_NOT_PROVE_REMOTE_PROCESS_OR_SERVER_RELEASE',
+      reason,...(extra&&typeof extra==='object'?extra:{}),clientPid:this.#child?.pid||null,serverIdentity:this.#identity,localClientClose:'DOES_NOT_PROVE_REMOTE_PROCESS_OR_SERVER_RELEASE',
       outcome:'MANUAL_RECOVERY_REQUIRED',observedAt:new Date(this.now()).toISOString()});}catch{}
   }
   async closeUnknown(budget=this.budget()){
@@ -250,7 +250,11 @@ export class RootControlLease {
           localClientClosed:true,ownedBackendGone:true,serverObservationSha256:canonicalDigest(observation),observedAt:new Date(this.now()).toISOString(),
           candidateProof:false,productionReleaseAuthorized:false};
         this.store.immutable(this.releaseFile,released);this.#status='RELEASE_VERIFIED';return released;
-      }catch{this.#status='UNKNOWN';this.incident('RELEASE_UNVERIFIED');manual();}
+      }catch(error){this.#status='UNKNOWN';
+        // Redacted diagnostic only: the wrapped release cause's class.
+        try{const receipt=this.store.read(this.releaseFile);}catch{}
+        this.releaseUnderlying=String(error?.message??error).slice(0,200);
+        this.incident('RELEASE_UNVERIFIED',{releaseUnderlying:this.releaseUnderlying});manual();}
     })();
   }
 }
