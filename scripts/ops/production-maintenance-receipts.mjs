@@ -133,7 +133,7 @@ export class MaintenanceReceiptStore {
   #snapshotBudget(options = {}) {
     if (!options || Object.getPrototypeOf(options) !== Object.prototype || Object.keys(options).some(key => !['timeoutMs','signal'].includes(key))) hold('RECEIPT_SNAPSHOT_BUDGET');
     const { timeoutMs = 10000, signal } = options;
-    if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 10000 || (signal && !(signal instanceof AbortSignal))) hold('RECEIPT_SNAPSHOT_BUDGET');
+    if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 30000 || (signal && !(signal instanceof AbortSignal))) hold('RECEIPT_SNAPSHOT_BUDGET');
     const start = performance.now(); let last = start;
     const check = () => { const current = performance.now();
       if (!Number.isFinite(start) || !Number.isFinite(current) || current < last || current - start >= timeoutMs || signal?.aborted) hold('RECEIPT_SNAPSHOT_DEADLINE');

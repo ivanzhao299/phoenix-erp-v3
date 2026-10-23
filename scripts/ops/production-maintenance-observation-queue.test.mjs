@@ -53,9 +53,9 @@ test('expired queued call never starts later and permanently fences siblings', (
   return using(async f => {
     // Expiry here is driven by the synthetic clock, not by real collector CPU
     // scheduling. A separate test below exercises the actual30ms queue timer.
-    const first = f.queue.observe(f.req({ timeoutMs: 30000 })); await until(() => count === 1);
-    const second = f.queue.observe(f.req({ timeoutMs: 10000 })), rejected = assert.rejects(second, /QUEUE_HOLD=DEADLINE_OR_ABORT/);
-    clock = 15000; gate.resolve(); await first; await rejected; assert.equal(count, 1);
+    const first = f.queue.observe(f.req({ timeoutMs: 60000 })); await until(() => count === 1);
+    const second = f.queue.observe(f.req({ timeoutMs: 20000 })), rejected = assert.rejects(second, /QUEUE_HOLD=DEADLINE_OR_ABORT/);
+    clock = 30000; gate.resolve(); await first; await rejected; assert.equal(count, 1);
     await assert.rejects(f.queue.observe(f.req()), /QUEUE_HOLD=/);
   }, () => ({ collect: async (...args) => { count++; await gate.promise; return collectCandidateLeaseBinding(...args); } }), { now: () => clock, monotonicNow: () => clock });
 });
