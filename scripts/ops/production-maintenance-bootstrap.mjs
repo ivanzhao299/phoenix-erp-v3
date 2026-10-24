@@ -30,7 +30,7 @@ const fixtureProgress=stage=>{
 };
 const command=(program,args,{input,timeout=10000,buffer=false,maxBuffer=1024*1024}={})=>{
  try{return execFileSync(program,args,{input,env:executionEnv(),encoding:buffer?undefined:'utf8',timeout,maxBuffer,stdio:['pipe','pipe','pipe']});}
- catch{hold('BOOTSTRAP_BOUNDED_COMMAND_FAILED');}
+ catch(error){hold('BOOTSTRAP_BOUNDED_COMMAND_FAILED_'+path.basename(String(program)).toUpperCase().replace(/[^A-Z0-9]/g,'_'));}
 };
 const docker=(args,options)=>command('/usr/bin/docker',args,options).trim();
 function immutable(file,bytes){
