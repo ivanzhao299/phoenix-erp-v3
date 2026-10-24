@@ -194,7 +194,23 @@ export async function bootstrapLegacyFirstSwitch(){
  docker(['login','ghcr.io','--username','ivanzhao299','--password-stdin'],{input:process.env.GHCR_LOGIN_TOKEN});
  const tag=`ghcr.io/ivanzhao299/phoenix-erp-v3/api:sha-${targetSha}`;
  docker(['pull',tag],{timeout:120000});
- const image=JSON.parse(docker(['image','inspect',tag,'--format','{{json .Id}}']));
+ // The registry tag may resolve to a provenance/attestation manifest LIST;
+ // image inspect on the containerd store then reports the index digest while
+ // the saved archive carries the platform image (config digest). The reader
+ // pins candidate identity to the archive config bytes, so resolve the image
+ // ID from a minimal local save of the exact pulled tag, never from the
+ // possibly list-level inspect digest.
+ const inspectDir=path.join(CONTRACT.stateDirectory,`bootstrap-image-probe-${owner}`);fs.mkdirSync(inspectDir,{recursive:true,mode:0o700});
+ const probe=path.join(inspectDir,'image.tar');
+ docker(['image','save','--output',probe,tag],{timeout:120000});
+ const archiveManifest=JSON.parse(command('/usr/bin/tar',['-xOf',probe,'manifest.json'],{timeout:30000}));
+ if(!Array.isArray(archiveManifest)||archiveManifest.length!==1||typeof archiveManifest[0].Config!=='string'
+  ||!/^(?:[a-f0-9]{64}\.json|blobs\/sha256\/[a-f0-9]{64})$/.test(archiveManifest[0].Config))hold('BOOTSTRAP_CANDIDATE_ARCHIVE_MANIFEST_REQUIRED');
+ const archiveConfig=command('/usr/bin/tar',['-xOf',probe,archiveManifest[0].Config],{timeout:30000});
+ const archiveRevision=JSON.parse(archiveConfig).config?.Labels?.['org.opencontainers.image.revision'];
+ const image='sha256:'+digest(archiveConfig);
+ if(archiveRevision!==targetSha)hold('BOOTSTRAP_CANDIDATE_REVISION_LABEL_REQUIRED');
+ fs.rmSync(inspectDir,{recursive:true,force:true});
  const {context,packet,recoveryPlan,payload}=await prepareMaintenanceRuntimeMaterials({owner,targetSha,previousFloorSha,
   previousWebSha:template.previousWebSha,window:template.window,image});
  const artifact=await releaseArtifact(process.env.MAINTENANCE_RELEASE_ARTIFACT_ID,process.env.MAINTENANCE_RELEASE_ARTIFACT_DIGEST);
