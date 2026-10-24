@@ -344,7 +344,16 @@ export function createProductionMaintenanceReaders(plan,{readControllers}={}){
       if(typeof configPath!=='string'||!/^(?:[a-f0-9]{64}\.json|blobs\/sha256\/[a-f0-9]{64})$/.test(configPath))hold('ROOT_READER_IMAGE_ARCHIVE_CONFIG_PATH');
       // tar preserves exact config bytes; text trimming would change its ID.
       const config=execFileSync('/usr/bin/tar',['-xOf',archive,configPath],{env:executionEnv(),timeout:5000,maxBuffer:1024*1024,stdio:['ignore','pipe','pipe']});
-      if('sha256:'+hash(config)!==context.candidate.imageId||JSON.parse(config).config?.Labels?.['org.opencontainers.image.revision']!==context.targetSha)hold('ROOT_READER_IMAGE_ARCHIVE_CONFIG');
+      // Store-agnostic archive pin: the runtime candidate identity in
+      // context.candidate.imageId names the image the daemon addresses
+      // (classic store: config digest; containerd store: manifest/index
+      // digest). The recovery archive is verified against the config digest
+      // pinned from the same archive at prepare time, plus the exact target
+      // revision label. A classic store coincides with candidate.imageId.
+      const pinnedArchiveConfigDigest=packet.recovery.archiveConfigDigest;
+      if(typeof pinnedArchiveConfigDigest!=='string'||!/^sha256:[a-f0-9]{64}$/.test(pinnedArchiveConfigDigest)
+       ||'sha256:'+hash(config)!==pinnedArchiveConfigDigest
+       ||JSON.parse(config).config?.Labels?.['org.opencontainers.image.revision']!==context.targetSha)hold('ROOT_READER_IMAGE_ARCHIVE_CONFIG');
       const paths=new Set(run('/usr/bin/tar',['-tf',archive]).split('\n'));
       if(manifest[0].Layers.some(name=>typeof name!=='string'||!paths.has(name)||!/^(?:[a-f0-9]{64}\/layer\.tar|blobs\/sha256\/[a-f0-9]{64})$/.test(name)))hold('ROOT_READER_IMAGE_ARCHIVE_LAYER_MISSING');
       const diffIds=JSON.parse(config).rootfs?.diff_ids;
