@@ -83,7 +83,12 @@ export function compareMaintenanceIotState(pre,post){
     return result;
   };
   const baselineFindings=findings(pre),postFindings=findings(post);
-  const windowFindings=postFindings.filter(row=>changed.has(row.key)||!baselineFindings.some(old=>same(old,row)));
+  // A standing finding identical to its baseline is a pre-existing sensor
+  // condition, not a new window effect: the legacy sync refreshes realtime
+  // rows every few minutes, so key freshness alone must not re-open a proof
+  // obligation the baseline already carried. Only findings that are new or
+  // changed relative to the baseline remain window findings.
+  const windowFindings=postFindings.filter(row=>!baselineFindings.some(old=>same(old,row)));
   for(const k of before.keys())if(!after.has(k))windowFindings.push({key:k,code:'SNAPSHOT_DELETED'});
   for(const row of post.deviceAlerts.filter(row=>!alertBefore.has(row.id))){
     const title=`设备预警：${row.house} ${row.propertyName||row.property}`,related=`/breeding/device-alerts?house=${encodeURIComponent(row.house)}`;
