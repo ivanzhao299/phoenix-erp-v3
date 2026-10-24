@@ -108,10 +108,10 @@ export function captureLegacyNetworkScope(context){
 /** Private material preparation has no authority registration, FENCE or STOP.
  * The exclusive VM exercise reuses these exact default readers and archives;
  * only its separate fixture-owned authority is synthetic. */
-export async function prepareMaintenanceRuntimeMaterials({owner,targetSha,previousFloorSha,previousWebSha,window,image,archiveConfigDigest}){
+export async function prepareMaintenanceRuntimeMaterials({owner,targetSha,previousFloorSha,previousWebSha,window,image,archiveConfigDigest,archiveLayersAreOciBlobs}){
  fixtureProgress('PREPARE_START');guard();const root=CONTRACT.repository,state=CONTRACT.stateDirectory;
  if(!/^\d+-\d+$/.test(owner)||![targetSha,previousFloorSha].every(value=>SHA.test(value))
-  ||!/^sha256:[a-f0-9]{64}$/.test(image||'')||!/^sha256:[a-f0-9]{64}$/.test(archiveConfigDigest||'')||!Number.isFinite(Date.parse(window?.end)))hold('BOOTSTRAP_EXACT_MATERIAL_REQUEST');
+  ||!/^sha256:[a-f0-9]{64}$/.test(image||'')||!/^sha256:[a-f0-9]{64}$/.test(archiveConfigDigest||'')||typeof archiveLayersAreOciBlobs!=='boolean'||!Number.isFinite(Date.parse(window?.end)))hold('BOOTSTRAP_EXACT_MATERIAL_REQUEST');
  const preSnapshot=inspectMaintenancePreRuntime();captureMaintenanceChanjetPolicy();
  if(preSnapshot.api.revision!==previousFloorSha||previousWebSha!==undefined&&preSnapshot.web.revision!==previousWebSha)hold('BOOTSTRAP_AUTHORIZED_RUNTIME_CHANGED');
  // Objective source fact: the old control endpoint must really be absent. A
@@ -156,7 +156,7 @@ export async function prepareMaintenanceRuntimeMaterials({owner,targetSha,previo
  fixtureProgress('REGISTRY_START');
  const registry=await createMaintenanceRegistryReader(context).registry();
  fixtureProgress('REGISTRY_DONE');
- const packet={schema:'phoenix.maintenance-root-source-data/v1',sourceManifest,registry,recovery:{files,archiveConfigDigest},preDomains};context.rootSourceDataSha256=canonicalDigest(packet);
+ const packet={schema:'phoenix.maintenance-root-source-data/v1',sourceManifest,registry,recovery:{files,archiveConfigDigest,archiveLayersAreOciBlobs},preDomains};context.rootSourceDataSha256=canonicalDigest(packet);
  fixtureProgress('PACKET_DONE');
  // Immutable pre-stop identity of the legacy API's external database client,
  // recorded while the old container is still attached and its pool sessions
@@ -220,9 +220,11 @@ export async function bootstrapLegacyFirstSwitch(){
  // config digest is pinned separately for the store-agnostic recovery check.
  const archiveConfigDigest='sha256:'+digest(archiveConfig);
  if(archiveRevision!==targetSha)hold('BOOTSTRAP_CANDIDATE_REVISION_LABEL_REQUIRED');
+ const archiveLayersAreOciBlobs=Array.isArray(archiveManifest[0].Layers)&&archiveManifest[0].Layers.every(name=>/^blobs\/sha256\/[a-f0-9]{64}$/.test(name));
+ if(!archiveLayersAreOciBlobs&&!(Array.isArray(archiveManifest[0].Layers)&&archiveManifest[0].Layers.length&&archiveManifest[0].Layers.every(name=>/^[a-f0-9]{64}\/layer\.tar$/.test(name))))hold('BOOTSTRAP_CANDIDATE_ARCHIVE_LAYER_FORM_REQUIRED');
  fs.rmSync(inspectDir,{recursive:true,force:true});
  const {context,packet,recoveryPlan,payload}=await prepareMaintenanceRuntimeMaterials({owner,targetSha,previousFloorSha,
-  previousWebSha:template.previousWebSha,window:template.window,image,archiveConfigDigest});
+  previousWebSha:template.previousWebSha,window:template.window,image,archiveConfigDigest,archiveLayersAreOciBlobs});
  const artifact=await releaseArtifact(process.env.MAINTENANCE_RELEASE_ARTIFACT_ID,process.env.MAINTENANCE_RELEASE_ARTIFACT_DIGEST);
  const [runId,attempt]=owner.split('-').map(Number),grant={schema:'phoenix.owner-delegated-maintenance-grant/v1',repository:'ivanzhao299/phoenix-erp-v3',authorityKind:'OWNER_DELEGATED',authorizationOrigin:'TRUSTED_INTERACTIVE_USER',authorizationRef:template.authorizationRef,authorizationDigest:template.authorizationDigest,delegate:template.delegate,context,
   source:{headSha:source.ownerSource.sourceHeadSha,treeSha:source.ownerSource.sourceTreeSha,prNumber:source.ownerSource.prNumber,reviewId:source.ownerSource.reviewId,reviewRecordDigest:provenance.rawReviewRecordSha256,sourceProvenanceDigest:ownerSourceBindingDigest(provenance),mergedMainSha:targetSha},

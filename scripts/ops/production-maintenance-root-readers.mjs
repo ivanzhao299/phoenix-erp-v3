@@ -358,6 +358,13 @@ export function createProductionMaintenanceReaders(plan,{readControllers}={}){
       if(manifest[0].Layers.some(name=>typeof name!=='string'||!paths.has(name)||!/^(?:[a-f0-9]{64}\/layer\.tar|blobs\/sha256\/[a-f0-9]{64})$/.test(name)))hold('ROOT_READER_IMAGE_ARCHIVE_LAYER_MISSING');
       const diffIds=JSON.parse(config).rootfs?.diff_ids;
       if(!Array.isArray(diffIds)||diffIds.length!==manifest[0].Layers.length||diffIds.some(value=>!/^sha256:[a-f0-9]{64}$/.test(value)))hold('ROOT_READER_IMAGE_LAYER_CONTRACT');
+      // Classic docker-archive layers are stored uncompressed: streaming bytes
+      // hash to the config diff_ids. An OCI-layout save stores compressed
+      // content-addressed blobs (blobs/sha256/<digest>): streaming bytes hash
+      // to the blob's own name instead. Both forms verify the actual bytes.
+      const ociBlobs=manifest[0].Layers.every(name=>/^blobs\/sha256\/[a-f0-9]{64}$/.test(name));
+      if(ociBlobs&&!packet.recovery.archiveLayersAreOciBlobs)hold('ROOT_READER_IMAGE_LAYER_CONTRACT');
+      if(!ociBlobs&&packet.recovery.archiveLayersAreOciBlobs!==false)hold('ROOT_READER_IMAGE_LAYER_CONTRACT');
       for(const [index,layer]of manifest[0].Layers.entries()){
         const child=spawn('/usr/bin/tar',['-xOf',archive,layer],{env:executionEnv(),stdio:['ignore','pipe','pipe']});
         const entry={child,pid:child.pid};registry.recordOwnedChild(entry);recoveryChildren.push(entry);
@@ -369,7 +376,9 @@ export function createProductionMaintenanceReaders(plan,{readControllers}={}){
         try{
           for await(const chunk of child.stdout){bytes+=chunk.length;if(bytes>8*1024**3){abort();break;}sum.update(chunk);}
           const exit=await closed;
-          if(readError||exit.code!==0||exit.signal||'sha256:'+sum.digest('hex')!==diffIds[index])hold('ROOT_READER_IMAGE_LAYER_BYTES_CHANGED');
+          const streamedDigest='sha256:'+sum.digest('hex');
+          const expected=ociBlobs?layer.slice('blobs/sha256/'.length):diffIds[index];
+          if(readError||exit.code!==0||exit.signal||streamedDigest!==expected)hold('ROOT_READER_IMAGE_LAYER_BYTES_CHANGED');
         }finally{clearTimeout(timer);signal?.removeEventListener('abort',abort);if(child.exitCode===null&&child.signalCode===null)child.kill('SIGKILL');await closed;}
       }
       const image=JSON.parse(docker(['image','inspect',context.candidate.imageId,'--format','{{json .Id}}']));
