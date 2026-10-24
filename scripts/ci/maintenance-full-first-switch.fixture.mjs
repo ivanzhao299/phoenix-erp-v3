@@ -159,7 +159,16 @@ CREATE ROLE erp_candidate_writer LOGIN;GRANT CONNECT ON DATABASE api_bootstrap_f
   fs.writeFileSync(ownershipFile,JSON.stringify(updated)+'\n',{mode:0o600});
  }
  result.stage='ACTUAL_SOURCE_PRE_RECOVERY_AND_FIVE_DOMAIN_BASELINE';save();
- const material=await prepareMaintenanceRuntimeMaterials({owner,targetSha:target,previousFloorSha:old,previousWebSha:webSha,window,image:candidateImage});
+ // Mirror the production prepare probe: the archive form pins must come from
+ // the same daemon save the recovery reader later verifies byte-for-byte.
+ const fixtureProbe=path.join(state,`fixture-image-probe-${owner}.tar`);
+ docker(['image','save','--output',fixtureProbe,candidateTag],{timeout:120000});
+ const fixtureManifest=JSON.parse(run('/usr/bin/tar',['-xOf',fixtureProbe,'manifest.json'],{timeout:30000}));
+ const fixtureConfig=run('/usr/bin/tar',['-xOf',fixtureProbe,fixtureManifest[0].Config],{timeout:30000,buffer:true,maxBuffer:1024*1024});
+ const archiveConfigDigest='sha256:'+hash(fixtureConfig);
+ const archiveLayersAreOciBlobs=Array.isArray(fixtureManifest[0].Layers)&&fixtureManifest[0].Layers.every(name=>/^blobs\/sha256\/[a-f0-9]{64}$/.test(name));
+ fs.rmSync(fixtureProbe,{force:true});
+ const material=await prepareMaintenanceRuntimeMaterials({owner,targetSha:target,previousFloorSha:old,previousWebSha:webSha,window,image:candidateImage,archiveConfigDigest,archiveLayersAreOciBlobs});
  const {context,packet,recoveryPlan,payload}=material;
  const grant={schema:'phoenix.owner-delegated-maintenance-grant/v1',repository:'ivanzhao299/phoenix-erp-v3',authorityKind:'OWNER_DELEGATED',authorizationOrigin:'TRUSTED_INTERACTIVE_USER',authorizationRef:'OWNER_EXECUTION_ORDER_V2_20261019',authorizationDigest:hash('SYNTHETIC_FIXTURE_ONLY'),delegate:{githubUserId:7245339,githubLogin:'emvia'},context,
   source:{headSha:sourceHead,treeSha:git(['rev-parse',`${sourceHead}^{tree}`]),prNumber:1,reviewId:1,reviewRecordDigest:hash('FIXTURE_NO_GITHUB_REVIEW'),sourceProvenanceDigest:hash('FIXTURE_NO_GITHUB_PROVENANCE'),mergedMainSha:target},
