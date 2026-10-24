@@ -213,5 +213,5 @@ export async function bootstrapLegacyFirstSwitch(){
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
  try{if(process.argv.length!==3||process.argv[2]!=='run')hold('BOOTSTRAP_FIXED_COMMAND_REQUIRED');await bootstrapLegacyFirstSwitch();console.log('LEGACY_FIRST_SWITCH=SUCCESS');}
- catch(error){console.error(/^\w+_HOLD=[A-Z0-9_]+$/.test(error.message)?error.message:'MAINTENANCE_HOLD=BOOTSTRAP_FAILED');process.exitCode=1;retainControllerOnRecoveryIncident(error);}
+ catch(error){const detail={};for(const key of ['unverifiedHostProcess','registryDifference','preAdmissionDifference','ingressUnderlying','participantUnderlying','ownedUnderlying','observationUnderlying','bindingUnderlying','rootUnderlying','healthUnderlying','webDbDifference','renderedControlVolumes','replacementCommandDetail','composeMountDifference','sessionChildrenDiagnostic','databaseQuiescenceCounts','databaseClientSummary'])if(error&&error[key]!==undefined)detail[key]=error[key];if(Object.keys(detail).length)console.error('BOOTSTRAP_HOLD_DETAIL='+JSON.stringify(detail).slice(0,4000));console.error(/^\w+_HOLD=[A-Z0-9_]+$/.test(error.message)?error.message:'MAINTENANCE_HOLD=BOOTSTRAP_FAILED');process.exitCode=1;retainControllerOnRecoveryIncident(error);}
 }

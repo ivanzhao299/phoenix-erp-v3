@@ -249,7 +249,7 @@ export function createMaintenanceRegistryReader(context,{readControllers,getOwne
       const pid=Number(name);let observation;
       try{observation=processIdentity(pid);}catch(error){if(['ENOENT','ESRCH','EACCES','EPERM'].includes(error.code))continue;throw error;}
       const {value,argv}=observation;
-      if(controlPids.has(value.ppid))continue;
+      if(controlPids.has(value.ppid)||controlPids.has(pid))continue;
       // Membership is the actual PID namespace of a pinned Docker init, not a
       // process-name exclusion. Docker own-container pidMode was checked above.
       if(namespaces.has(value.pidNamespace))continue;
