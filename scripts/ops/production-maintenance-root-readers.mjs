@@ -239,10 +239,17 @@ export function createMaintenanceRegistryReader(context,{readControllers,getOwne
       if(approved.length!==1)hold('ROOT_READER_FOREIGN_CONTAINER_OWNERSHIP_UNVERIFIED');
     }
     const hostProcesses=[];
+    // The guard's own readACLs python and this reader's bounded exec children
+    // are observation machinery of the scanning session, not foreign host
+    // processes. On a loaded host the ACL child can still be alive when the
+    // scan reaches its pid; exclude every direct child of a live control
+    // (self, parent, registered IPC children) instead of racing it.
+    const controlPids=new Set([self.pid,parent.pid,...controls.keys()]);
     for(const name of fs.readdirSync('/proc').filter(name=>/^[1-9][0-9]*$/.test(name))){
       const pid=Number(name);let observation;
       try{observation=processIdentity(pid);}catch(error){if(['ENOENT','ESRCH','EACCES','EPERM'].includes(error.code))continue;throw error;}
       const {value,argv}=observation;
+      if(controlPids.has(value.ppid))continue;
       // Membership is the actual PID namespace of a pinned Docker init, not a
       // process-name exclusion. Docker own-container pidMode was checked above.
       if(namespaces.has(value.pidNamespace))continue;
