@@ -44,6 +44,21 @@ export function parseMaintenanceReviewBody(body) {
  * from disk here, printed, or retained in evidence. Error output is suppressed. */
 export function githubReadOnlyApi(endpoint) {
   if (typeof endpoint !== 'string' || !endpoint.startsWith(`/repos/${REPOSITORY}/`) || /[\r\n#]/.test(endpoint)) fail('API_SCOPE');
+  // Actions supplies this ephemeral token over the protected SSH environment.
+  // It is never put in argv, persisted, logged or accepted from release JSON.
+  if(process.env.GHCR_LOGIN_TOKEN){
+    return (async()=>{
+      const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),15000);
+      try{
+        const response=await fetch(API+endpoint,{method:'GET',redirect:'error',signal:controller.signal,
+          headers:{Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28',Authorization:'Bearer '+process.env.GHCR_LOGIN_TOKEN}});
+        if(!response.ok)fail('API_UNAVAILABLE_OR_DENIED');
+        const chunks=[];let bytes=0;
+        for await(const chunk of response.body){bytes+=chunk.length;if(bytes>4*1024*1024)fail('API_RESPONSE_SIZE');chunks.push(chunk);}
+        return JSON.parse(Buffer.concat(chunks).toString('utf8'));
+      }catch{fail('API_UNAVAILABLE_OR_DENIED');}finally{clearTimeout(timer);}
+    })();
+  }
   try {
     const bytes = execFileSync('gh', ['api', '--hostname', 'github.com', '--method', 'GET', endpoint,
       '-H', 'Accept: application/vnd.github+json', '-H', 'X-GitHub-Api-Version: 2022-11-28'],

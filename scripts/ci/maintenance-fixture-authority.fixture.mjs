@@ -48,7 +48,7 @@ export function prepareFixtureAuthorityApproval(value, purpose) {
 }
 
 function budget(timeoutMs = 10000, signal, context) {
-  if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 10000 || (signal && !(signal instanceof AbortSignal))) fail();
+  if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 30000 || (signal && !(signal instanceof AbortSignal))) fail();
   const start = Date.now(), monoStart = performance.now(); let wall = start, mono = monoStart;
   return () => {
     const w = Date.now(), m = performance.now();

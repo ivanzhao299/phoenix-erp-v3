@@ -2,13 +2,29 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {spawnSync} from 'node:child_process';
-import {collectMaintenanceDatabaseSnapshot,validateDatabaseObservation,DATABASE_OBSERVATION_SQL,DATABASE_OBSERVATION_SQL_SHA256,DATABASE_OBSERVATION_PSQL} from './production-maintenance-database-observer.mjs';
+import {collectMaintenanceDatabaseSnapshot,discoverMaintenanceDatabaseIdentity,validateDatabaseObservation,DATABASE_IDENTITY_SQL,DATABASE_OBSERVATION_SQL,DATABASE_OBSERVATION_SQL_SHA256,DATABASE_OBSERVATION_PSQL} from './production-maintenance-database-observer.mjs';
 import {validateDatabaseQuiescence} from './production-maintenance-runtime.mjs';
 const at='2026-10-18T07:40:00.000Z';
 const binding={containerId:'a'.repeat(64),imageId:'sha256:'+'b'.repeat(64),containerStartedAt:at,postmasterStartedAt:at,clusterSystemIdentifier:'1234567890',databaseOid:16384,previousFloorSha:'c'.repeat(40),targetSha:'d'.repeat(40)};
 const zero=()=>({sampledAt:at,postmasterStartedAt:at,clusterSystemIdentifier:'1234567890',databaseOid:16384,serverVersionNum:160014,statsVisibilityComplete:true,currentDatabaseClientSessions:0,otherDatabaseClientSessions:0,clientSessionsWithOpenTransaction:0,idleInTransactionSessions:0,currentDatabasePreparedTransactions:0,otherDatabasePreparedTransactions:0});
 const interval={startedAt:at,finishedAt:at};
 const pin=()=>[binding.containerId,binding.imageId,binding.containerStartedAt,true,'healthy'].map(JSON.stringify).join('\t');
+test('root identity preserves actual microseconds and verifies original runtime before and after the bounded read',()=>{
+  const runtime={containerId:binding.containerId,imageId:binding.imageId,containerStartedAt:binding.containerStartedAt};
+  const identity={databaseOid:binding.databaseOid,postmasterStartedAt:'2026-10-18T07:40:00.123456Z',clusterSystemIdentifier:binding.clusterSystemIdentifier};
+  const trace=[];
+  const value=discoverMaintenanceDatabaseIdentity(runtime,{guard:()=>trace.push('guard'),run:(args,input)=>{
+    trace.push(args[0]);if(args[0]==='inspect')return pin();
+    assert.deepEqual(args,['exec','-i',runtime.containerId,'/bin/sh','-c',DATABASE_OBSERVATION_PSQL]);assert.equal(input,DATABASE_IDENTITY_SQL);return JSON.stringify(identity);
+  }});
+  assert.deepEqual(trace,['guard','inspect','exec','guard','inspect']);assert.deepEqual(value,{...runtime,...identity});
+  for(const delta of [{postmasterStartedAt:at},{databaseOid:0},{clusterSystemIdentifier:'unknown'},{ownershipComplete:true}]){
+    assert.throws(()=>discoverMaintenanceDatabaseIdentity(runtime,{guard:()=>{},run:args=>args[0]==='inspect'?pin():JSON.stringify({...identity,...delta})}),/DATABASE_IDENTITY_FIELDS/);
+  }
+  let reads=0;
+  assert.throws(()=>discoverMaintenanceDatabaseIdentity(runtime,{guard:()=>{},run:args=>args[0]==='inspect'?(++reads===1?pin():pin().replace('healthy','unhealthy')):JSON.stringify(identity)}),/DATABASE_RUNTIME_DRIFT/);
+  assert.throws(()=>discoverMaintenanceDatabaseIdentity({...runtime,sql:'SELECT 1'}),/EXACT_DATABASE_RUNTIME_PIN_REQUIRED/);
+});
 test('zero aggregate snapshot cannot satisfy database quiescence or grant any admission',()=>{
   const snapshot=validateDatabaseObservation(zero(),binding,interval);
   assert.equal(snapshot.result,'HOLD');assert.equal(snapshot.ownershipComplete,false);assert.equal(snapshot.persistentRunning,null);assert.equal(snapshot.persistentQueued,null);

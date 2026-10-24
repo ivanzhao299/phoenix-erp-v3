@@ -29,6 +29,12 @@ export function candidateBindingDiagnosticCode(error) {
 function opaqueFailure(error) {
   const failure=Error('CANDIDATE_BINDING_HOLD=OBSERVATION_UNVERIFIED');
   if(PRIVATE_DIAGNOSTICS.has(error?.message))Object.defineProperty(failure,'diagnosticCode',{value:error.message});
+  // Non-enumerable redacted class diagnostic (same channel as diagnosticCode):
+  // private categories and raw sentinels never appear in serialized forms.
+  const underlying = !PRIVATE_DIAGNOSTICS.has(error?.message) ? String(error?.message ?? error).slice(0, 200) : undefined;
+  if (underlying !== undefined) Object.defineProperty(failure, 'bindingUnderlying', { value: underlying });
+  if (error && typeof error === 'object' && error.rootUnderlying != null)
+    Object.defineProperty(failure, 'rootUnderlying', { value: error.rootUnderlying });
   return failure;
 }
 
@@ -149,11 +155,11 @@ function validateProjection(value,mode,context,stateDigest,bootId){
 /** Caller owns/supervises the existing root lease and all outer read work. This
  * function never acquires/closes a lease, writes state, signs evidence or opens
  * ingress. Synchronous filesystem I/O still requires outer process supervision. */
-async function collectCandidateBinding({context,expectedStateDigest,replacementEvidence,rootLease,mode='PRE_ADOPTION',signal,timeoutMs=30000},dependencies={},leasePhases=false){
+async function collectCandidateBinding({context,expectedStateDigest,replacementEvidence,rootLease,mode='PRE_ADOPTION',signal,timeoutMs=60000},dependencies={},leasePhases=false){
   try{
     validateMaintenanceContext(context);context=structuredClone(context);replacementEvidence=structuredClone(replacementEvidence);
     if(!['PRE_ADOPTION','ADOPTED'].includes(mode)||!HASH.test(expectedStateDigest||'')||!(rootLease instanceof RootControlLease)
-      ||!same(rootLease.context,context)||!Number.isSafeInteger(timeoutMs)||timeoutMs<1||timeoutMs>30000
+      ||!same(rootLease.context,context)||!Number.isSafeInteger(timeoutMs)||timeoutMs<1||timeoutMs>60000
       ||(signal&&!(signal instanceof AbortSignal)))fail('EXACT_OWNED_REQUEST');
     const now=dependencies.now||Date.now,monotonicNow=dependencies.monotonicNow||(()=>performance.now()),start=now(),monoStart=monotonicNow(),end=Math.min(start+timeoutMs,Date.parse(context.window.end)),monoEnd=monoStart+(end-start);
     let lastWall=start,lastMono=monoStart;
@@ -164,13 +170,13 @@ async function collectCandidateBinding({context,expectedStateDigest,replacementE
     const remaining=()=>{check();const left=Math.floor(Math.min(end-lastWall,monoEnd-lastMono));if(left<1)fail('DEADLINE_OR_ABORT');return left;};
     const guard=dependencies.guard||(()=>verifyContext(CONTRACT.repository,CONTRACT.stateDirectory));
     const store=dependencies.store||new MaintenanceReceiptStore(context);
-    const run=(args,input)=>{check();guard();check();const raw=(dependencies.run||productionRun)(args,input,{timeoutMs:Math.min(10000,remaining())});check();
+    const run=(args,input)=>{check();guard();check();const raw=(dependencies.run||productionRun)(args,input,{timeoutMs:Math.min(30000,remaining())});check();
       if(typeof raw!=='string'||Buffer.byteLength(raw)>65536)fail('BOUNDED_OUTPUT');return raw;};
     let firstAnchor=null, selectedBindingEvidence=null;
     const state=()=>{
       check();guard();check();
-      const view=leasePhases?store.readCandidateBindingView({expectedStateDigest,replacementStateDigest:rootLease.expectedStateDigest,timeoutMs:Math.min(10000,remaining()),signal}):null;
-      const s=leasePhases?view.state:store.readOwnedState({timeoutMs:Math.min(10000,remaining()),signal});check();
+      const view=leasePhases?store.readCandidateBindingView({expectedStateDigest,replacementStateDigest:rootLease.expectedStateDigest,timeoutMs:Math.min(30000,remaining()),signal}):null;
+      const s=leasePhases?view.state:store.readOwnedState({timeoutMs:Math.min(30000,remaining()),signal});check();
       if(leasePhases){
         if(s?.schema!=='phoenix.legacy-maintenance-state/v1'||s.contextDigest!==bindingDigest(context)||s.stateDigest!==expectedStateDigest||!same(s.context,context)
           ||s.legacyDrainResult!=='UNSUPPORTED'||!iso(s.updatedAt)||Date.parse(s.updatedAt)<Date.parse(context.window.start)||Date.parse(s.updatedAt)>now())fail('PRIVATE_OWNER_STATE_CHANGED');
@@ -217,7 +223,7 @@ async function collectCandidateBinding({context,expectedStateDigest,replacementE
       return value;};
     const firstState=state(); check();
     let recorded;
-    try{recorded=leasePhases?selectedBindingEvidence:store.readCandidateBindingEvidence({expectedStateDigest:firstState.stateDigest,timeoutMs:Math.min(10000,remaining()),signal});}
+    try{recorded=leasePhases?selectedBindingEvidence:store.readCandidateBindingEvidence({expectedStateDigest:firstState.stateDigest,timeoutMs:Math.min(30000,remaining()),signal});}
     catch(error){if(error?.message==='MAINTENANCE_HOLD=CANDIDATE_BINDING_RECEIPT_UNIQUE')fail('UNIQUE_FORMAL_RECEIPT_REQUIRED');throw error;}check();
     if(recorded.stateDigest!==firstState.stateDigest)fail('CURRENT_CHAIN_REPLACEMENT_REQUIRED');
     const formalReplacement=recorded.replacement;

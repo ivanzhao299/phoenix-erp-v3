@@ -1,5 +1,6 @@
 /** Separate legacy bootstrap protocol. It must NEVER be converted into the
  * modern coordinator's DRAINED receipt or passed to that coordinator as one. */
+import {isOwnerAuthUnknownApproval} from './production-maintenance-owner-unknown.mjs';
 import {isOwnerDelegatedMaintenanceApproval} from './production-maintenance-owner-authority.mjs';
 import { LEGACY_EVIDENCE_DOMAINS } from './background-control-legacy-transition.mjs';
 import { MaintenanceReceiptStore, bindingDigest, canonicalDigest, same, hold, iso, HASH,
@@ -89,7 +90,7 @@ export class LegacyMaintenanceTransition {
     const r = approval?.serverRecord;
     const ownerDelegated=approval?.authorityKind==='OWNER_DELEGATED';
     const expected={purpose,bindingDigest:this.digest,targetSha:this.context.targetSha,context:this.context};
-    const validRecord=ownerDelegated?isOwnerDelegatedMaintenanceApproval(approval,expected):(
+    const validRecord=ownerDelegated?(purpose==='UNKNOWN_EFFECTS'?isOwnerAuthUnknownApproval(approval,expected):isOwnerDelegatedMaintenanceApproval(approval,expected)):(
       approval?.authorityKind===undefined&&approval?.schema===MAINTENANCE_AUTHORITY_SCHEMA&&approval.bindingDigest===this.digest&&approval.purpose===purpose
       &&approval.decision==='APPROVED'&&HASH.test(approval.payloadSha256)&&canonicalDigest(approval.payload)===approval.payloadSha256
       &&r&&r.state==='APPROVED'&&r.commitId===this.context.targetSha&&iso(r.submittedAt)&&Date.parse(r.submittedAt)<=this.now()

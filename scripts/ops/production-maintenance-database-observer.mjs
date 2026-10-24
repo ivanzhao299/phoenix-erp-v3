@@ -26,7 +26,7 @@ SET LOCAL lock_timeout='1s';
 SET LOCAL idle_in_transaction_session_timeout='5s';
 SELECT json_build_object(
  'sampledAt',to_char(clock_timestamp() AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
- 'postmasterStartedAt',to_char(pg_catalog.pg_postmaster_start_time() AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
+ 'postmasterStartedAt',to_char(pg_catalog.pg_postmaster_start_time() AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),
  'clusterSystemIdentifier',(SELECT system_identifier::text FROM pg_catalog.pg_control_system()),
  'databaseOid',(SELECT oid::bigint FROM pg_catalog.pg_database WHERE datname=current_database()),
  'serverVersionNum',current_setting('server_version_num')::integer,
@@ -41,6 +41,41 @@ SELECT json_build_object(
 ROLLBACK;
 `;
 export const DATABASE_OBSERVATION_SQL_SHA256 = createHash('sha256').update(DATABASE_OBSERVATION_SQL).digest('hex');
+export const DATABASE_IDENTITY_SQL = `BEGIN READ ONLY;
+SET LOCAL search_path=pg_catalog;
+SET LOCAL statement_timeout='3s';
+SET LOCAL lock_timeout='1s';
+SELECT json_build_object(
+ 'postmasterStartedAt',to_char(pg_catalog.pg_postmaster_start_time() AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),
+ 'clusterSystemIdentifier',(SELECT system_identifier::text FROM pg_catalog.pg_control_system()),
+ 'databaseOid',(SELECT oid::bigint FROM pg_catalog.pg_database WHERE datname=current_database())
+);
+ROLLBACK;
+`;
+/** Discover the actual server identity used by the original root lease. Keep
+ * PostgreSQL microseconds: rounding them breaks the later exact backend pin.
+ * This read grants no ownership, quiescence, release or replay permission. */
+export function discoverMaintenanceDatabaseIdentity(pin, dependencies = {}) {
+  const fields=['containerId','imageId','containerStartedAt'];
+  if (!pin || Object.getPrototypeOf(pin)!==Object.prototype || !same(Object.keys(pin).sort(),fields.sort())
+    || !ID.test(pin.containerId) || !/^sha256:[a-f0-9]{64}$/.test(pin.imageId) || !iso(pin.containerStartedAt)) hold('EXACT_DATABASE_RUNTIME_PIN_REQUIRED');
+  const guard=dependencies.guard||(()=>verifyContext(CONTRACT.repository,CONTRACT.stateDirectory));
+  const run=dependencies.run||productionRun;
+  const verify=()=>{
+    let value;
+    try { value=run(['inspect',pin.containerId,'--format',INSPECT]).split('\t').map(JSON.parse); }
+    catch { hold('DATABASE_RUNTIME_READ_FAILED'); }
+    if (!same(value,[pin.containerId,pin.imageId,pin.containerStartedAt,true,'healthy'])) hold('DATABASE_RUNTIME_DRIFT');
+  };
+  guard(); verify(); let identity;
+  try { identity=JSON.parse(run(['exec','-i',pin.containerId,'/bin/sh','-c',DATABASE_OBSERVATION_PSQL],DATABASE_IDENTITY_SQL)); }
+  catch { hold('DATABASE_IDENTITY_READ_FAILED'); }
+  if (!identity || Object.getPrototypeOf(identity)!==Object.prototype
+    || !same(Object.keys(identity).sort(),['postmasterStartedAt','clusterSystemIdentifier','databaseOid'].sort())
+    || !/^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{6}Z$/.test(identity.postmasterStartedAt||'') || !iso(identity.postmasterStartedAt)
+    || !/^[1-9][0-9]{0,19}$/.test(identity.clusterSystemIdentifier||'') || !Number.isSafeInteger(identity.databaseOid) || identity.databaseOid<1) hold('DATABASE_IDENTITY_FIELDS');
+  guard(); verify(); return {...pin,...identity};
+}
 function productionRun(args, input) {
   try { return execFileSync('/usr/bin/docker',args,{input,env:executionEnv(),encoding:'utf8',timeout:10000,maxBuffer:65536,stdio:['pipe','pipe','pipe']}).trim(); }
   catch { hold('BOUNDED_READ_FAILED'); } // Never relay raw stderr or command/env.

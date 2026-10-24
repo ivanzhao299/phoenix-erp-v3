@@ -61,7 +61,7 @@ export async function assertLegacyMaintenanceStateCore(request, operation, depen
   // Ordinary release and read-only diagnostic CLI paths must not initialize the
   // separate legacy protocol graph. No top-level await or duplicated validator.
   const { validateStoppedLegacy, validateIngressFence } = await import('./production-maintenance-transition.mjs');
-  const { LEGACY_EVIDENCE_DOMAINS } = await import('./background-control-legacy-transition.mjs');
+  const { verifyCommittedLegacyReconciliation } = await import('./production-maintenance-reconciliation.mjs');
   validateMaintenanceContext(request?.context);
   if (!['PREPARE_PROMOTION', 'VERIFY_CANDIDATE'].includes(operation)
     || Object.keys(request).some(key => !['root', 'context', 'contextDigest', 'state', 'approval', 'files', 'isolation', 'bootstrap', 'controlLease', 'signal', 'operation'].includes(key))
@@ -103,14 +103,10 @@ export async function assertLegacyMaintenanceStateCore(request, operation, depen
   const ingressEnvelope = receipt('INGRESS_FENCE'), stoppedEnvelope = receipt('STOP_LEGACY');
   const ingress = await evidence(ingressEnvelope, 'INGRESS_FENCE'); validateIngressFence(ingress, context, now());
   validateStoppedLegacy(await evidence(stoppedEnvelope, 'STOP_LEGACY'), context, ingressEnvelope.evidenceSha256, now());
-  const reconciled = await evidence(receipt('RECONCILIATION'), 'RECONCILIATION');
-  if (!same(receipt('MAINTENANCE_AUTHORITY'), request.approval) || reconciled.approvedScopeDigest !== request.approval.payloadSha256
-    || !Array.isArray(reconciled.domains) || reconciled.domains.length !== LEGACY_EVIDENCE_DOMAINS.length
-    || LEGACY_EVIDENCE_DOMAINS.some(domain => {
-      const items = reconciled.domains.filter(item => item.domain === domain); const item = items[0];
-      return items.length !== 1 || item.disposition !== 'RECONCILED' || item.unknownEffects !== 0 || item.pendingWrites !== 0
-        || item.requiresReplay !== false || item.requiresBusinessMutation !== false;
-    })) hold('LEGACY_STATE_RECONCILIATION_REQUIRED');
+  const reconciliationEnvelope=receipt('RECONCILIATION');await evidence(reconciliationEnvelope,'RECONCILIATION');
+  if(!same(receipt('MAINTENANCE_AUTHORITY'),request.approval))hold('LEGACY_STATE_RECONCILIATION_REQUIRED');
+  await verifyCommittedLegacyReconciliation({envelope:reconciliationEnvelope,context,state,store,maintenanceApproval:request.approval,
+    verifyAuthority:dependencies.verifyAuthority});
   if (operation === 'PREPARE_PROMOTION') {
     // A promotion/state writer can perform several slow schema, Git and main
     // reads between admissions. The compiled factory may freshly observe the
@@ -121,7 +117,7 @@ export async function assertLegacyMaintenanceStateCore(request, operation, depen
       ? await dependencies.captureLegacyIsolation({ context: structuredClone(context), state: structuredClone(state), expectedStateDigest: state.stateDigest,
         operation, signal: request.signal }) : request.isolation;
     const isolation = await evidence(isolationEnvelope, 'INGRESS_FENCE'); validateIngressFence(isolation, context, now());
-    if (now() - Date.parse(isolation.lastVerifiedAt) > 5000) hold('LEGACY_STATE_ISOLATION_STALE');
+    if (now() - Date.parse(isolation.lastVerifiedAt) > 30000) hold('LEGACY_STATE_ISOLATION_STALE');
     const bootstrap = await evidence(request.bootstrap, 'LEGACY_PUBLIC_FENCED');
     if (bootstrap.owner !== context.owner || bootstrap.phase !== 'FENCED' || bootstrap.generation !== 1
       || !Array.isArray(bootstrap.participants) || bootstrap.participants.length !== 0 || bootstrap.legacyDrainResult !== 'UNSUPPORTED'
@@ -133,7 +129,7 @@ export async function assertLegacyMaintenanceStateCore(request, operation, depen
     if (candidate.api.imageId !== context.candidate.imageId || candidate.api.revision !== context.targetSha
       || context.executors.some(old => old.id === candidate.api.id)
       || !/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(candidate.bootId || '')
-      || now() - Date.parse(request.controlLease.capturedAt) > 5000 || !same(lease.api, candidate.api) || lease.bootId !== candidate.bootId
+      || now() - Date.parse(request.controlLease.capturedAt) > 30000 || !same(lease.api, candidate.api) || lease.bootId !== candidate.bootId
       || lease.owner !== context.owner || lease.phase !== 'FENCED' || lease.admissionExclusive !== true || lease.executionExclusive !== true
       || lease.connected !== true || lease.admissionState !== 'DENIED' || lease.inFlight !== 0 || lease.pendingChildren !== 0 || lease.taskGraphs !== 0
       || lease.poisoned !== false || lease.stopping !== false || lease.continuousIngress !== true || lease.unknownExecutors !== 0

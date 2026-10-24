@@ -87,6 +87,7 @@ export class LegacyMaintenanceDeploymentSession {
     this.modernAdmission = dependencies.modernAdmission || (() => assertModernReleaseAdmission());
     this.admit = dependencies.admit || (options => assertLegacyMaintenanceAdmission(options, { verifyAuthority: this.verifyAuthority }));
     this.producers = dependencies.producers || unavailableProductionProducers();
+    this.recordOwnedChild = dependencies.recordOwnedChild || null;
     for (const name of REQUIRED_PRODUCERS) if (typeof this.producers[name] !== 'function') hold('SESSION_TYPED_PRODUCER_MISSING');
     this.publicControl = dependencies.publicControl || new LegacyMaintenancePublicControl({ context: this.context }, {
       store: this.store, verifyAuthority: this.verifyAuthority, verifyEvidence: this.verifyEvidence });
@@ -102,10 +103,10 @@ export class LegacyMaintenanceDeploymentSession {
     this.used = false; this.lease = null; this.pendingLease = null; this.fatal = null; this.activeController = null; this.monitor = null; this.monitorBusy = false;
     this.monitorTask = null; this.monitorStopUnknown = false; this.monitorGeneration = 0;
     this.lifecycleStarted = false; this.completedResult = null;
-    this.pendingReads = new Set(); this.readTimeoutMs = dependencies.readTimeoutMs ?? 10000;
-    if (!Number.isSafeInteger(this.readTimeoutMs) || this.readTimeoutMs < 1 || this.readTimeoutMs > 10000) hold('SESSION_READ_TIMEOUT_REQUIRED');
-    this.cleanupTimeoutMs = dependencies.cleanupTimeoutMs ?? 10000; this.stepTimeoutMs = dependencies.stepTimeoutMs ?? CONTRACT.maximumTransitionMs;
-    if (!Number.isSafeInteger(this.cleanupTimeoutMs) || this.cleanupTimeoutMs < 1 || this.cleanupTimeoutMs > 10000
+    this.pendingReads = new Set(); this.readTimeoutMs = dependencies.readTimeoutMs ?? 60000;
+    if (!Number.isSafeInteger(this.readTimeoutMs) || this.readTimeoutMs < 1 || this.readTimeoutMs > 60000) hold('SESSION_READ_TIMEOUT_REQUIRED');
+    this.cleanupTimeoutMs = dependencies.cleanupTimeoutMs ?? 60000; this.stepTimeoutMs = dependencies.stepTimeoutMs ?? CONTRACT.maximumTransitionMs;
+    if (!Number.isSafeInteger(this.cleanupTimeoutMs) || this.cleanupTimeoutMs < 1 || this.cleanupTimeoutMs > 60000
       || !Number.isSafeInteger(this.stepTimeoutMs) || this.stepTimeoutMs < 1 || this.stepTimeoutMs > CONTRACT.maximumTransitionMs) hold('SESSION_OPERATION_TIMEOUT_REQUIRED');
     this.actions = new Set(); this.children = new Set(); this.controlSessions = new Set(); this.controlChildren = new Map(); this.closingControls = false; this.reservation = null;
     this.pollMs = dependencies.pollMs ?? 2000;
@@ -160,6 +161,7 @@ export class LegacyMaintenanceDeploymentSession {
     // An error or an exit code cannot prove a previously missed close event.
     entry.work = new Promise(resolve => child.once('close', resolve)); this.children.add(entry);
     entry.work.then(() => this.children.delete(entry));
+    if(this.recordOwnedChild)this.recordOwnedChild(entry);
     return { pid: child.pid, registered: true };
   }
   registerObserverChild(child) {
@@ -565,8 +567,20 @@ export class LegacyMaintenanceDeploymentSession {
         if (this.controlParticipantsStarted) {
           try {
             this.assertControllerGraphClosed(await this.boundedCleanup(options => this.controlParticipants.close(options)), false);
-          } catch {
-            childrenJoined = false; hold('SESSION_BOOTSTRAP_CONTROLLER_CLOSE_UNVERIFIED');
+          } catch (closeError) {
+            childrenJoined = false;
+            const failure = Error('MAINTENANCE_HOLD=SESSION_BOOTSTRAP_CONTROLLER_CLOSE_UNVERIFIED');
+            // Redacted diagnostic only: the original error plus the wrapped
+            // controller close cause chain.
+            failure.closeUnderlying = String(closeError?.message ?? closeError).slice(0, 200);
+            failure.originalUnderlying = String(error?.message ?? error).slice(0, 200);
+            if (error && typeof error === 'object') failure.originalDetail = { participantUnderlying: error.participantUnderlying ?? null,
+              closeUnderlying: error.closeUnderlying ?? null, ingressUnderlying: error.ingressUnderlying ?? null };
+            if (closeError && typeof closeError === 'object') {
+              failure.closeUnderlyingChain = { closeUnderlying: closeError.closeUnderlying ?? null,
+                participantUnderlying: closeError.participantUnderlying ?? null };
+            }
+            throw failure;
           }
         }
         throw error;
@@ -583,6 +597,11 @@ export class LegacyMaintenanceDeploymentSession {
           childrenJoined = true;
         } catch {}
         try { this.incident(childrenJoined ? 'HOLD' : 'CHILDREN_UNVERIFIED', { outcome: 'HOLD',
+          stage: this.stage, fatal: this.fatal?.message || null,
+          // Redacted diagnostic fields already attached to the fatal error by
+          // compiled producers (fixed non-secret detail objects only).
+          fatalDetail: this.fatal && typeof this.fatal === 'object'
+            ? Object.fromEntries(Object.entries(this.fatal).filter(([key]) => typeof key === 'string' && !['stack', 'message', 'name'].includes(key))) : null,
           childrenState: childrenJoined ? 'VERIFIED_JOINED' : 'UNKNOWN', leaseRelease: childrenJoined ? 'PENDING' : 'NOT_ATTEMPTED',
           actualLockState: 'UNKNOWN_REQUIRES_READONLY_REINSPECT', publicState: 'REQUIRES_READONLY_REINSPECT',
           requiredSafety: 'DURABLE_PUBLIC_DENY_AND_INDEPENDENT_EXTERNAL_ISOLATION',
@@ -590,7 +609,15 @@ export class LegacyMaintenanceDeploymentSession {
           // continued ownership or protection from that unverified condition.
           locksSurviveProcessCrash: false }); } catch {}
       }
-      if (!childrenJoined) hold('SESSION_CHILDREN_UNVERIFIED_MANUAL_RECOVERY_REQUIRED');
+      if (!childrenJoined) {
+        const diagnostic = { stage: this.stage, lifecycleStarted: this.lifecycleStarted, children: this.children.size,
+          pendingReads: this.pendingReads.size, actions: [...this.actions].map(action => action.kind), controlChildren: this.controlChildren.size,
+          controlParticipantsStarted: this.controlParticipantsStarted, controlParticipantsClosed: this.controlParticipantsClosed,
+          monitorStopUnknown: this.monitorStopUnknown, fatal: this.fatal?.message || null,
+          fatalDatabaseQuiescenceCounts: this.fatal?.databaseQuiescenceCounts || null,
+          fatalDatabaseClientSummary: this.fatal?.databaseClientSummary || null };
+        const failure = Error('SESSION_CHILDREN_UNVERIFIED_MANUAL_RECOVERY_REQUIRED'); failure.sessionChildrenDiagnostic = diagnostic; throw failure;
+      }
       throw error;
     } finally {
       try { await this.stopMonitor(); } catch {}
@@ -608,14 +635,26 @@ export class LegacyMaintenanceDeploymentSession {
           try {
             const released = await this.cleanupEvidence(await this.boundedCleanup(options => lease.close({ ...options, succeeded })), 'CANDIDATE_CONTROL_RELEASED');
             if (released.owner !== this.context.owner || released.connected !== false || released.admissionExclusive !== false
-              || released.executionExclusive !== false || released.ownedBackendGone !== true || !HASH.test(released.serverObservationSha256 || '')) hold('SESSION_LEASE_RELEASE_UNVERIFIED');
-          } catch {
+              || released.executionExclusive !== false || released.ownedBackendGone !== true || !HASH.test(released.serverObservationSha256 || '')) {
+              const mismatch = Error('MAINTENANCE_HOLD=SESSION_LEASE_RELEASE_UNVERIFIED');
+              // Redacted diagnostic only: the exact released-field mismatch.
+              mismatch.releasedFields = { owner: released.owner, connected: released.connected, admissionExclusive: released.admissionExclusive,
+                executionExclusive: released.executionExclusive, ownedBackendGone: released.ownedBackendGone,
+                serverObservationSha256: HASH.test(released.serverObservationSha256 || '') ? 'valid' : 'invalid' };
+              throw mismatch;
+            }
+          } catch (releaseError) {
             // SUCCESS/public OPEN may already exist. Retain them truthfully;
             // append an incident instead of silently rewriting release history.
             try { this.incident('LEASE_RELEASE_UNVERIFIED', { formalDeploymentOutcome: succeeded ? 'SUCCESS' : 'NOT_COMPLETED',
+              releaseUnderlying: String(releaseError?.message ?? releaseError).slice(0, 200),
+              releasedFields: releaseError?.releasedFields ?? null,
               publicState: succeeded ? 'OPEN_ALREADY_PUBLISHED' : 'REQUIRES_READONLY_REINSPECT', leaseRelease: 'UNKNOWN',
               actualLockState: 'UNKNOWN_REQUIRES_READONLY_REINSPECT', outcome: 'MANUAL_RECOVERY_REQUIRED' }); } catch {}
-            hold(succeeded ? 'SESSION_FORMAL_SUCCESS_LEASE_RELEASE_INCIDENT' : 'SESSION_HOLD_LEASE_RELEASE_INCIDENT');
+            const releaseIncident = Error('MAINTENANCE_HOLD=' + (succeeded ? 'SESSION_FORMAL_SUCCESS_LEASE_RELEASE_INCIDENT' : 'SESSION_HOLD_LEASE_RELEASE_INCIDENT'));
+            releaseIncident.releaseUnderlying = String(releaseError?.message ?? releaseError).slice(0, 200);
+            releaseIncident.releasedFields = releaseError?.releasedFields ?? null;
+            throw releaseIncident;
           }
         }
         try {
@@ -649,10 +688,10 @@ export class LegacyMaintenanceDeploymentSession {
  * It remains HOLD until the reviewed producer registry is implemented. */
 export async function runProtectedMaintenanceSession() {
   verifyContext(CONTRACT.repository, CONTRACT.stateDirectory);
-  if (!/^\d+-\d+$/.test(process.env.DEPLOY_RUN_ID || '')) hold('SESSION_OWNER_REQUIRED');
-  const plan = secureJson(path.join(CONTRACT.stateDirectory, `maintenance-release-plan-${process.env.DEPLOY_RUN_ID}.json`));
-  if (plan.context?.owner !== process.env.DEPLOY_RUN_ID) hold('SESSION_PLAN_OWNER_MISMATCH');
-  return new LegacyMaintenanceDeploymentSession({ plan }).run();
+  // Load after this module has initialized: factory imports the Session engine.
+  // This is a fixed literal module, never a path supplied by a release plan.
+  const {runProductionMaintenanceSession}=await import('./production-maintenance-production-entry.mjs');
+  return runProductionMaintenanceSession();
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   try {

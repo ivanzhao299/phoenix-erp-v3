@@ -74,12 +74,12 @@ export class OwnedCandidateBindingObserver {
     if (this.#closing) throw error('CLOSING');
     if (!request || Object.keys(request).some(k => !(health ? ['expectedStateDigest', 'timeoutMs', 'signal'] : ['expectedStateDigest', 'mode', 'timeoutMs', 'signal']).includes(k))
       || !HASH.test(request.expectedStateDigest || '') || (!health && !['PRE_ADOPTION', 'ADOPTED'].includes(request.mode))
-      || (request.timeoutMs !== undefined && !timeoutValue(request.timeoutMs, 30000))
+      || (request.timeoutMs !== undefined && !timeoutValue(request.timeoutMs, 60000))
       || (request.signal && !(request.signal instanceof AbortSignal))) throw this.#poison('FIXED_OBSERVATION_REQUIRED');
     if (health && (!this.#adopted || !this.#pin)) throw this.#poison('ADOPTED_BINDING_BEFORE_HEALTH_REQUIRED');
     if (this.#pending.size || (!health && this.#adopted && request.mode !== 'ADOPTED')) throw this.#poison('CONCURRENT_OR_DOWNGRADED_READ');
     const { expectedStateDigest, signal } = request; const mode = health ? 'ADOPTED' : request.mode;
-    const timeoutMs = request.timeoutMs ?? 30000, controller = new AbortController(), budget = this.#budget(timeoutMs, signal);
+    const timeoutMs = request.timeoutMs ?? 60000, controller = new AbortController(), budget = this.#budget(timeoutMs, signal);
     const onAbort = () => controller.abort(); signal?.addEventListener('abort', onAbort, { once: true });
     const entry = { controller, work: null }; let timer;
     try {
@@ -119,7 +119,16 @@ export class OwnedCandidateBindingObserver {
       budget.check();
       return { ...structuredClone(value), ownedObservationLifecycle: 'ORIGINAL_ROOT_AND_PENDING_READS_ONLY',
         originalChildPid: this.#child.pid, fullCandidateLease: false, continuousIngressProof: false, registryInstalled: false };
-    } catch { throw this.#poison('OBSERVATION_FAILED'); }
+    } catch (inner) {
+      const failure = this.#poison('OBSERVATION_FAILED');
+      // Redacted diagnostic only: the wrapped observation's class.
+      failure.ownedUnderlying ??= String(inner?.message ?? inner).slice(0, 200);
+      if (inner && typeof inner === 'object') { failure.healthUnderlying ??= inner.healthUnderlying ?? null;
+        failure.bindingUnderlying ??= inner.bindingUnderlying ?? null;
+        failure.observationUnderlying ??= inner.observationUnderlying ?? null;
+        failure.rootUnderlying ??= inner.rootUnderlying ?? null; }
+      throw failure;
+    }
     finally { clearTimeout(timer); signal?.removeEventListener('abort', onAbort); }
   }
   cleanupDebt() {
@@ -129,7 +138,7 @@ export class OwnedCandidateBindingObserver {
   }
   close({ timeoutMs = 10000 } = {}) {
     if (this.#closeTask) return this.#closeTask;
-    if (!timeoutValue(timeoutMs, 10000)) return Promise.reject(error('CLEANUP_BUDGET_REQUIRED'));
+    if (!timeoutValue(timeoutMs, 60000)) return Promise.reject(error('CLEANUP_BUDGET_REQUIRED'));
     this.#closing = true;
     return this.#closeTask = (async () => {
       const budget = this.#budget(timeoutMs, undefined, true); let timer;

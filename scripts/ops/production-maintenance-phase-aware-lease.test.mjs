@@ -24,7 +24,7 @@ test('fixed phase/state view returns genuine committed state with its unchanged 
   assert.throws(()=>f.h.store.readCandidateLeaseState(request),/MAINTENANCE_OWNER_REQUIRED/);
   fs.renameSync(current+'.owned-retained',current);
 }));
-for(const extra of [{skipGuard:true},{state:{}},{receipts:[]},{timeoutMs:0},{timeoutMs:10001}]) test('phase/state view refuses caller inputs '+JSON.stringify(extra),()=>using(async f=>{
+for(const extra of [{skipGuard:true},{state:{}},{receipts:[]},{timeoutMs:0},{timeoutMs:30001}]) test('phase/state view refuses caller inputs '+JSON.stringify(extra),()=>using(async f=>{
   assert.throws(()=>f.h.store.readCandidateLeaseState({expectedStateDigest:f.candidateState.stateDigest,replacementStateDigest:f.root.expectedStateDigest,...extra}),/CANDIDATE_PHASE_ANCHOR_REQUEST|RECEIPT_SNAPSHOT_BUDGET/);
 }));
 test('phase/state final clone must finish inside its original budget',()=>using(async f=>{

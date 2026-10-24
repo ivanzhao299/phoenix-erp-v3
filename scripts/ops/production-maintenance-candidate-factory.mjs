@@ -29,8 +29,8 @@ export class MaintenanceObservationGate{
  #poison(code){this.#fatal||=Error('MAINTENANCE_HOLD=FACTORY_OBSERVATION_'+code);for(const entry of this.#pending)entry.controller.abort();return this.#fatal;}
  async run(options,action){
   if(this.#fatal)throw this.#fatal;if(this.#closing)hold('FACTORY_OBSERVATION_CLOSING');
-  const {timeoutMs=10000,signal}=options||{};
-  if(!Number.isSafeInteger(timeoutMs)||timeoutMs<1||timeoutMs>10000||typeof action!=='function'||signal&&!(signal instanceof AbortSignal))hold('FACTORY_OBSERVATION_BUDGET');
+  const {timeoutMs=30000,signal}=options||{};
+  if(!Number.isSafeInteger(timeoutMs)||timeoutMs<1||timeoutMs>60000||typeof action!=='function'||signal&&!(signal instanceof AbortSignal))hold('FACTORY_OBSERVATION_BUDGET');
   const wall=Date.now(),mono=performance.now(),previous=this.#tail,controller=new AbortController(),entry={controller,work:null};let timer;
   let lastWall=wall,lastMono=mono;
   const remaining=()=>{const now=Date.now(),at=performance.now();if(this.#fatal)throw this.#fatal;
@@ -41,15 +41,22 @@ export class MaintenanceObservationGate{
   try{
    remaining();this.#pending.add(entry);
    entry.work=previous.then(async()=>{const value=await action({signal:controller.signal,remaining,timeoutMs:remaining()});remaining();return value;})
-    .catch(error=>{throw this.#poison(error?.message==='MAINTENANCE_HOLD=FACTORY_OBSERVATION_DEADLINE_OR_ABORT'?'DEADLINE_OR_ABORT':'SOURCE_FAILED');});
+    .catch(error=>{const failure=this.#poison(error?.message==='MAINTENANCE_HOLD=FACTORY_OBSERVATION_DEADLINE_OR_ABORT'?'DEADLINE_OR_ABORT':'SOURCE_FAILED');
+      // Redacted diagnostic only: the wrapped source observation's message.
+      failure.factoryUnderlying ??= String(error?.message ?? error).slice(0, 200);
+      if (error && typeof error === 'object') { failure.ownedUnderlying ??= error.ownedUnderlying ?? null;
+        failure.observationUnderlying ??= error.observationUnderlying ?? null;
+        failure.bindingUnderlying ??= error.bindingUnderlying ?? null;
+        failure.rootUnderlying ??= error.rootUnderlying ?? null;
+        failure.healthUnderlying ??= error.healthUnderlying ?? null; }throw failure;});
    this.#tail=entry.work.then(()=>undefined,()=>undefined);
    entry.work.then(()=>this.#pending.delete(entry),()=>this.#pending.delete(entry));
    return await Promise.race([entry.work,new Promise((_,reject)=>{timer=setTimeout(()=>reject(this.#poison('DEADLINE')),remaining());})]);
   }finally{clearTimeout(timer);signal?.removeEventListener('abort',abort);}
  }
  debt(){return {pendingCaptures:this.#pending.size,closing:this.#closing,failed:this.#fatal!==null};}
- join({timeoutMs=10000}={}){
-  if(this.#joined)return this.#joined;if(!Number.isSafeInteger(timeoutMs)||timeoutMs<1||timeoutMs>10000)hold('FACTORY_OBSERVATION_JOIN_BUDGET');
+ join({timeoutMs=30000}={}){
+  if(this.#joined)return this.#joined;if(!Number.isSafeInteger(timeoutMs)||timeoutMs<1||timeoutMs>60000)hold('FACTORY_OBSERVATION_JOIN_BUDGET');
   this.#closing=true;for(const entry of this.#pending)entry.controller.abort();
   return this.#joined=(async()=>{let timer;try{await Promise.race([Promise.allSettled([...this.#pending].map(entry=>entry.work)),new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error('MAINTENANCE_HOLD=FACTORY_OBSERVATION_CAPTURE_UNSETTLED')),timeoutMs);})]);if(this.#pending.size)hold('FACTORY_OBSERVATION_CAPTURE_UNSETTLED');}finally{clearTimeout(timer);}})();
  }
@@ -125,7 +132,7 @@ export function createMaintenanceCandidateFactory({plan,store,issue,verifyEviden
   return issue('CANDIDATE_CONTROL_LEASE',{...body,phase:'FENCED',connected:true,admissionExclusive:true,executionExclusive:true},sources);
  };
  const close=(options={})=>closed||=(async()=>{
-  const started=performance.now(),timeoutMs=options.timeoutMs??10000;
+  const started=performance.now(),timeoutMs=options.timeoutMs??30000;
   if(!queue)hold('FACTORY_ORIGINAL_ROOT_NOT_REGISTERED');await captures.join({timeoutMs});
   // The ingress adapter separately retains abort-ignoring authority reads after
   // its outer timeout. A settled capture does not settle that inner resource.
@@ -142,9 +149,9 @@ export function createMaintenanceCandidateFactory({plan,store,issue,verifyEviden
    if(originalState.phase!=='CANDIDATE_REPLACED'||originalState.stateDigest!==request.state.stateDigest||await verifyEvidence(replacement,{kind:'CANDIDATE_REPLACEMENT',context})!==true)hold('FACTORY_REPLACEMENT_REQUIRED');
    const database=await readDatabaseIdentity({signal:request.signal});
    root=await acquireRootControlLease({context,approval:plan.approval,expectedStateDigest:originalState.stateDigest,database,
-    registerOwnedChild:request.registerOwnedChild,signal:request.signal,timeoutMs:30000},{store,verifyAuthority});
+    registerOwnedChild:request.registerOwnedChild,signal:request.signal,timeoutMs:60000},{store,verifyAuthority});
    try{queue=new OwnedCandidateObservationQueue(new OwnedCandidateBindingObserver({context,replacementEvidence:replacement,rootLease:root}));}
-   catch(error){const released=await root.close({timeoutMs:10000});if(released.localClientClosed!==true||released.ownedBackendGone!==true)hold('FACTORY_PRE_HANDOFF_ROOT_RELEASE_UNVERIFIED');throw error;}
+   catch(error){const released=await root.close({timeoutMs:60000});if(released.localClientClosed!==true||released.ownedBackendGone!==true)hold('FACTORY_PRE_HANDOFF_ROOT_RELEASE_UNVERIFIED');throw error;}
    lease=Object.freeze({observe:leaseProof,close});
    // Register the original child/lease before its binding read can fail. A
    // failure then follows Session's actual close/join path, never a lost client.
@@ -154,29 +161,29 @@ export function createMaintenanceCandidateFactory({plan,store,issue,verifyEviden
    // queue is first consumed only after that engine commit. Never rename CR as
    // a CF lease observation merely to satisfy an earlier validator.
    const observation=await collectCandidateServerBinding({context,expectedStateDigest:originalState.stateDigest,replacementEvidence:replacement,
-    rootLease:root,mode:'PRE_ADOPTION',signal:request.signal,timeoutMs:10000});
+    rootLease:root,mode:'PRE_ADOPTION',signal:request.signal,timeoutMs:60000});
    const isolation=await ingress.observe();
    if(!same(state(),originalState)||await verifyExecutorInventory({phase:originalState.phase,candidateId:observation.runtime.api.id,signal:request.signal})!==true)hold('FACTORY_INITIAL_CANDIDATE_SOURCE_CHANGED');
    const sources={observation,isolation};candidate=observedCandidate(sources);
    return {evidence:await issue('CANDIDATE_FENCED',{...candidate,registrationOnly:true,runtimeCreated:false,runtimeRestarted:false},sources),lease};
   },
   async collectAdoption(request){
-   const sources=await observe({signal:request.signal,timeoutMs:10000}),body=observedCandidate(sources);
+   const sources=await observe({signal:request.signal,timeoutMs:60000}),body=observedCandidate(sources);
    if(!candidate||!pinEqual(body.api,candidate.api)||body.bootId!==candidate.bootId||!same(body.controlSession,candidate.controlSession))hold('FACTORY_ADOPTION_CANDIDATE_CHANGED');
    return {evidence:await issue('CANDIDATE_PUBLIC_ADOPTION',{...body,rootLocks:{admissionExclusive:true,executionExclusive:true}},sources),participants:participants()};
   },
   async capturePostAndStartup(request){
-   await observe({signal:request.signal,timeoutMs:10000});if(mode()!=='ADOPTED')hold('FACTORY_ACTUAL_ADOPTION_BEFORE_POST_REQUIRED');
-   health=await queue.observeHealth({expectedStateDigest:state().stateDigest,signal:request.signal,timeoutMs:30000});
+   await observe({signal:request.signal,timeoutMs:60000});if(mode()!=='ADOPTED')hold('FACTORY_ACTUAL_ADOPTION_BEFORE_POST_REQUIRED');
+   health=await queue.observeHealth({expectedStateDigest:state().stateDigest,signal:request.signal,timeoutMs:60000});
    store.immutable(request.files.post,health.post);store.immutable(request.files.log,health.startup);
    return {apiReadiness:health.apiReadiness,webHttp:health.webHttp,liveReinspectSha256:health.liveReinspectSha256};
   },
   async completeFormalDeployment(request){
-   const controlLease=await leaseProof({signal:request.signal,timeoutMs:10000});
+   const controlLease=await leaseProof({signal:request.signal,timeoutMs:60000});
    return completeLegacyMaintenanceDeployment({root:CONTRACT.repository,context,state:request.state,approval:plan.approval,files:request.files,controlLease,signal:request.signal},{verifyAuthority,verifyEvidence});
   },
   async collectVerifiedCandidate(request){
-   const sources=await observe({signal:request.signal,timeoutMs:10000}),actual=observedCandidate(sources),completed=formal();
+   const sources=await observe({signal:request.signal,timeoutMs:60000}),actual=observedCandidate(sources),completed=formal();
    if(!health||health.apiReadiness.ready!==true||health.webHttp.accepted!==true||!HASH.test(health.liveReinspectSha256)||!pinEqual(actual.api,candidate.api))hold('FACTORY_POST_HEALTH_NOT_VERIFIED');
    // These facts were collected by the original bounded health observer, then
    // independently verified against the actual formal files by the Session.
@@ -185,7 +192,7 @@ export function createMaintenanceCandidateFactory({plan,store,issue,verifyEviden
     unfinishedTransaction:false,formalDeploymentOutcome:completed.outcome},{...sources,health,completed,formalDigests:request.formal.digests});
   },
   async readFormalCompletion(request){
-   const sources=await observe({signal:request.signal,timeoutMs:10000}),completed=formal(),next=nextMaintenanceOpenManifest(readPublicManifest(PUBLIC_DIRECTORY),context,participants());
+   const sources=await observe({signal:request.signal,timeoutMs:60000}),completed=formal(),next=nextMaintenanceOpenManifest(readPublicManifest(PUBLIC_DIRECTORY),context,participants());
    return issue('COMPLETION',{outcome:completed.outcome,owner,floorSha:completed.floorSha,api:candidate.api,bootId:candidate.bootId,
     successReceiptSha256:canonicalDigest(completed),publicManifestSha256:manifestDigest(next),allowedKinds:[...HOLD_KINDS],
     chanjetPolicy:'HOLD',readonlySync:false,inboundSync:false,ingressReleaseAuthorized:true},{...sources,completed,next});
@@ -203,7 +210,7 @@ export function createMaintenanceCandidateFactory({plan,store,issue,verifyEviden
  return Object.freeze({producers:Object.freeze(producers),
   async verifyCandidateBinding(envelope,request){
    if(!candidate||await verifyEvidence(envelope,{kind:'CANDIDATE_PUBLIC_ADOPTION',context})!==true)return false;
-   const sources=await observe({timeoutMs:10000}),body=observedCandidate(sources);
+   const sources=await observe({timeoutMs:60000}),body=observedCandidate(sources);
    return request.stateDigest===state().stateDigest&&same(request.participants,participants())&&pinEqual(body.api,envelope.body.api)&&body.bootId===envelope.body.bootId&&same(body.controlSession,envelope.body.controlSession);
   },
   async verifyFormalOpen(){
@@ -214,7 +221,7 @@ export function createMaintenanceCandidateFactory({plan,store,issue,verifyEviden
     ||completed.active.api.imageId!==candidate.api.imageId||completed.active.api.revision!==candidate.api.revision)return false;
    const actual=inspectDockerRuntime(candidate.api.id);if(!pinEqual(actual,candidate.api)||actual.running!==true||actual.health!=='healthy')return false;
    verifyCompanions();if(await verifyExecutorInventory({phase:'COMPLETED_OPEN',candidateId:candidate.api.id})!==true)return false;
-   root.assertHeld();const observed=await root.observe({timeoutMs:10000});return observed.mode==='HELD'&&observed.contextDigest===digest
+   root.assertHeld();const observed=await root.observe({timeoutMs:60000});return observed.mode==='HELD'&&observed.contextDigest===digest
     &&same(observed.database,root.database)&&observed.observation.backends.length===1&&observed.observation.backends[0].applicationName===`phoenix-maintenance-control:${owner}`;
   },
   cleanupDebt(){return {captures:captures.debt(),ingress:ingress.status(),candidateQueue:queue?.cleanupDebt()||null,unregisteredRoot:root!==null&&queue===null};},

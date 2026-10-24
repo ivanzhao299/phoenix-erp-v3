@@ -11,7 +11,7 @@ const fail = code => Error('MAINTENANCE_PARTICIPANT_HOLD=' + code);
 const sha = value => createHash('sha256').update(value).digest('hex');
 const exact = (value, keys) => value && Object.getPrototypeOf(value) === Object.prototype
   && same(Object.keys(value).sort(), [...keys].sort());
-const validBudget = value => Number.isSafeInteger(value) && value >= 1 && value <= 10000;
+const validBudget = value => Number.isSafeInteger(value) && value >= 1 && value <= 60000;
 
 /** The same entry/close promise follows PENDING -> READY -> CLOSING -> CLOSED.
  * A step can retain healthy controllers; only final closure can say graphClosed.
@@ -21,7 +21,7 @@ export class MaintenanceControlParticipants {
   #context; #definitions; #entries = new Map(); #pending = new Set(); #unregisteredStarts = new Set();
   #rejectedRegistrations = [];
   #failureListeners = new Set();
-  #fatal = null; #started = false; #closing = false; #closeTask = null; #checkTask = null; #closeVerified = false; #closeWasVerified = false;
+  #fatal = null; #started = false; #closing = false; #closeTask = null; #checkTask = null; #closeVerified = false; #closeWasVerified = false; #observationTask = null;
   constructor({ context, definitions }) {
     validateMaintenanceContext(context);
     if (!Array.isArray(definitions) || definitions.length !== CONTROL_PARTICIPANT_ROLES.length) throw fail('ALL_FIXED_ROLES_REQUIRED');
@@ -38,6 +38,8 @@ export class MaintenanceControlParticipants {
   #poison(error) {
     const first = this.#fatal === null;
     this.#fatal ||= /^MAINTENANCE_PARTICIPANT_HOLD=[A-Z_]+$/.test(error?.message || '') ? error : fail('PROTOCOL_UNVERIFIED');
+    // Redacted diagnostic only: the wrapped cause's class and message.
+    this.#fatal.participantUnderlying ??= { name: error?.name || null, message: String(error?.message ?? error).slice(0, 200) };
     for (const entry of this.#pending) if (!entry.cleanup) entry.controller.abort();
     if (first) for (const listener of this.#failureListeners) { try { listener(this.#fatal); } catch { /* Cannot rehabilitate failure. */ } }
     return this.#fatal;
@@ -69,10 +71,17 @@ export class MaintenanceControlParticipants {
     const abort = () => controller.abort(); signal?.addEventListener('abort', abort, { once: true });
     try {
       this.#pending.add(entry);
+      let settled = false;
       entry.work = Promise.resolve().then(() => { remaining(); return action({ signal: controller.signal, timeoutMs: remaining() }); });
-      entry.work.then(() => this.#pending.delete(entry), () => this.#pending.delete(entry));
+      entry.work.then(() => { settled = true; this.#pending.delete(entry); }, () => { settled = true; this.#pending.delete(entry); });
       const result = await Promise.race([entry.work, new Promise((_, reject) => {
-        timer = setTimeout(() => { controller.abort(); reject(fail('DEADLINE_OR_ABORT')); }, remaining());
+        // Under event-loop starvation (synchronous promotion work on the
+        // shared single-threaded session) a healthy worker reply can already
+        // be queued behind this timer's deadline. Grant exactly one loop
+        // turn before declaring the deadline so replies win their race.
+        timer = setTimeout(() => {
+          setImmediate(() => { if (!settled) { controller.abort(); reject(fail('DEADLINE_OR_ABORT')); } });
+        }, remaining());
         controller.signal.addEventListener('abort', () => reject(fail('DEADLINE_OR_ABORT')), { once: true });
       })]); remaining(); return result;
     } finally { clearTimeout(timer); signal?.removeEventListener('abort', abort); if (!entry.work) this.#pending.delete(entry); }
@@ -107,7 +116,9 @@ export class MaintenanceControlParticipants {
   async #probe(definition, entry, remaining, signal) {
     if (this.#fatal) throw this.#fatal;
     this.#assertOriginal(entry, false); const nonce = randomUUID();
-    const response = await this.#wait(options => definition.probe(entry.client, { ...options, nonce }), remaining, signal);
+    // The batch budget can exceed one worker RPC budget; clamp each probe to
+    // the worker transport's own fixed cap instead of refusing it outright.
+    const response = await this.#wait(options => definition.probe(entry.client, { ...options, timeoutMs: Math.min(options.timeoutMs, 60000), nonce }), remaining, signal);
     if (this.#fatal) throw this.#fatal;
     this.#assertOriginal(entry, false);
     if (!exact(response, ['schema', 'role', 'owner', 'contextDigest', 'sourceSha256', 'childPid', 'nonce', 'healthy', 'pending', 'protocolVersion'])
@@ -145,19 +156,62 @@ export class MaintenanceControlParticipants {
   }
   async check({ timeoutMs = 10000, signal } = {}) {
     this.assertLive(); const remaining = this.#budget(timeoutMs, signal);
+    while(this.#observationTask) await this.#wait(()=>this.#observationTask,remaining,signal);
+    remaining();this.assertLive();
     // Concurrent step/monitor waiters join only the current live probe batch;
-    // neither a completed snapshot nor a reset deadline is reused.
+    // neither a completed snapshot nor a reset deadline is reused. The batch
+    // runs on its own self-contained budget with no caller signal: one
+    // caller's abandonment (a session read timeout aborting its signal) must
+    // not execute the shared probes for every other live waiter. Genuine
+    // probe overshoot of the batch budget, or any protocol failure, still
+    // poisons the graph permanently.
     if (!this.#checkTask) {
       this.#checkTask = (async () => {
-        try { for (const d of this.#definitions) await this.#probe(d, this.#entries.get(d.role), remaining, signal); this.assertLive(); }
-        catch (error) { throw this.#poison(error); }
+        try {
+          for (const d of this.#definitions) {
+            // Each probe gets its own full fixed budget with no caller signal:
+            // one caller's abandonment cannot execute the shared probes, and a
+            // saturated exclusive-VM event loop slows the batch as a whole
+            // without any single probe exceeding its own bound.
+            await this.#probe(d, this.#entries.get(d.role), this.#budget(30000));
+          }
+          this.assertLive();
+        } catch (error) { throw this.#poison(error); }
       })();
       const original = this.#checkTask;
       original.then(() => { if (this.#checkTask === original) this.#checkTask = null; }, () => { if (this.#checkTask === original) this.#checkTask = null; });
     }
     const batch = this.#checkTask;
+    // A joining caller's own deadline or abort is transient for the graph:
+    // rethrow it without poisoning so the next caller re-probes healthy
+    // participants. The batch's own failure path above remains permanent.
     try { await this.#wait(() => batch, remaining, signal); this.assertLive(); return this.inventory(); }
-    catch (error) { throw this.#poison(error); }
+    catch (error) {
+      if (error?.message === 'MAINTENANCE_PARTICIPANT_HOLD=DEADLINE_OR_ABORT') throw error;
+      throw this.#poison(error);
+    }
+  }
+  /** Join real in-progress HEALTH work, then take one synchronous host
+   * snapshot. Reservation precedes await so no queued monitor can start a new
+   * helper during capture. This grants no task drain or release authority. */
+  async observeQuiescent(observer,{timeoutMs=10000,signal}={}) {
+    this.assertLive();const remaining=this.#budget(timeoutMs,signal);
+    if(typeof observer!=='function')throw fail('SYNCHRONOUS_OBSERVER_REQUIRED');
+    while(this.#observationTask)await this.#wait(()=>this.#observationTask,remaining,signal);
+    let release;const reservation=new Promise(resolve=>{release=resolve;});this.#observationTask=reservation;
+    try{
+      while(this.#checkTask){const current=this.#checkTask;await this.#wait(()=>current,remaining,signal);}
+      remaining();this.assertLive();
+      const value=observer();
+      if(value&&typeof value.then==='function')throw fail('SYNCHRONOUS_OBSERVER_REQUIRED');
+      remaining();this.assertLive();return value;
+    }catch(error){
+      // The joining caller's own deadline/abort is transient for the graph,
+      // exactly as in check(): the next caller re-observes healthy state.
+      if(error?.message==='MAINTENANCE_PARTICIPANT_HOLD=DEADLINE_OR_ABORT')throw error;
+      if(/^MAINTENANCE_PARTICIPANT_HOLD=/.test(error?.message||''))throw this.#poison(error);
+      throw error;
+    }finally{if(this.#observationTask===reservation)this.#observationTask=null;release();}
   }
   inventory() {
     return { schema: 'phoenix.maintenance-control-participant-inventory/v1', owner: this.#context.owner,
@@ -192,7 +246,12 @@ export class MaintenanceControlParticipants {
           || this.#rejectedRegistrations.length) throw fail('GRAPH_NOT_CLOSED');
         this.#closeVerified = true; this.#closeWasVerified = true;
         return { ...this.inventory(), pendingProtocols: 0, outcome: 'ORIGINAL_CONTROLLERS_CLOSED', productionAuthority: false };
-      } catch (error) { this.#poison(error); throw fail('CLOSE_UNVERIFIED_MANUAL_RECOVERY_REQUIRED'); }
+      } catch (error) {
+        const poisoned = this.#poison(error);
+        poisoned.closeUnderlying ??= String(error?.message ?? error).slice(0, 200);
+        poisoned.closeUnderlyingChain ??= (error && typeof error === 'object') ? {closeUnderlying: error.closeUnderlying ?? null, participantUnderlying: error.participantUnderlying ?? null} : null;
+        throw fail('CLOSE_UNVERIFIED_MANUAL_RECOVERY_REQUIRED');
+      }
     })();
   }
 }

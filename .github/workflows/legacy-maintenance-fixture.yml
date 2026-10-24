@@ -121,7 +121,86 @@ jobs:
           set -e
           # Only fixed non-secret JSON receipts are exported. The ext4 image,
           # source, runtime logs and any failed private state remain in this VM.
-          for native_name in host-intent.json setup-result.json host-resources.json process-result.json result.json candidate-binding.json root-release.json guard-counterexamples.json protocol-file-manifest.json; do
+          for native_name in host-intent.json setup-result.json host-resources.json process-result.json result.json progress.json candidate-binding.json root-release.json guard-counterexamples.json protocol-file-manifest.json; do
+            if sudo test -f "$native_root/$native_name"; then
+              sudo install -m 0600 -o "$(id -u)" -g "$(id -g)" "$native_root/$native_name" "$native_export/$native_name" || exit 66
+            fi
+          done
+          exit "$native_result"
+      - name: Retain full fixture progress on cancellation
+        if: always()
+        run: |
+          set +e
+          native_root="$RUNNER_TEMP/phoenix-full-first-switch-${{ matrix.pg }}"
+          native_export="$GITHUB_WORKSPACE/artifacts/maintenance-full-first-switch-${{ matrix.pg }}"
+          mkdir -p "$native_export"
+          for native_name in progress.json result.json setup-result.json process-result.json; do
+            if sudo test -f "$native_root/$native_name"; then
+              sudo install -m 0600 -o "$(id -u)" -g "$(id -g)" \
+                "$native_root/$native_name" "$native_export/$native_name"
+            fi
+          done
+      - name: Retain native allowlisted evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: maintenance-native-candidate-host-pg${{ matrix.pg }}
+          if-no-files-found: warn
+          retention-days: 14
+          path: artifacts/maintenance-native-candidate-host-${{ matrix.pg }}/*.json
+  full-first-switch:
+    name: ONE Full Legacy First Switch PG${{ matrix.pg }}
+    runs-on: ubuntu-latest
+    # The complete source/recovery image archive and two real scheduler
+    # boundaries can exceed the shorter candidate-collector budget on hosted
+    # runners. This is still a bounded disposable fixture, never production.
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        pg: [16, 18]
+    # No environment, production secrets, SSH, deployment approval or dispatch.
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Prepare immutable isolated bases
+        run: |
+          docker pull node:20-bookworm-slim
+          docker pull postgres:${{ matrix.pg }}-alpine
+      - name: ONE actual old404-to-new factory, formal SUCCESS and OPEN
+        env:
+          NATIVE_PG_MAJOR: ${{ matrix.pg }}
+        run: |
+          set -uo pipefail
+          test "$RUNNER_ENVIRONMENT" = github-hosted || exit 64
+          native_root="$RUNNER_TEMP/phoenix-full-first-switch-$NATIVE_PG_MAJOR"
+          native_export="$GITHUB_WORKSPACE/artifacts/maintenance-full-first-switch-$NATIVE_PG_MAJOR"
+          test ! -e "$native_root" || exit 65
+          sudo install -d -m 0700 "$native_root"
+          mkdir -m 0700 -p "$native_export"
+          native_node="$(command -v node)"
+          set +e
+          /usr/bin/timeout --signal=TERM --kill-after=45s 30m \
+          sudo /usr/bin/env -i PATH="$(dirname "$native_node"):/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
+            NATIVE_FIXTURE_FLOW=legacy-first-switch NATIVE_FIXTURE_HOSTED=github-hosted-exclusive-vm NATIVE_FIXTURE_MAJOR="$NATIVE_PG_MAJOR" \
+            NATIVE_FIXTURE_SHA="$GITHUB_SHA" NATIVE_FIXTURE_NODE="$native_node" \
+            NATIVE_FIXTURE_SOURCE="$GITHUB_WORKSPACE" NATIVE_FIXTURE_OUTPUT="$native_root" \
+            /bin/bash "$GITHUB_WORKSPACE/scripts/ci/maintenance-native-candidate-host.sh"
+          native_result=$?
+          set -e
+          # Only fixed non-secret JSON receipts are exported. The ext4 image,
+          # source, runtime logs and any failed private state remain in this VM.
+          for native_name in host-intent.json setup-result.json host-resources.json process-result.json result.json progress.json candidate-binding.json root-release.json guard-counterexamples.json protocol-file-manifest.json external-legacy-connection-drain.json; do
             if sudo test -f "$native_root/$native_name"; then
               sudo install -m 0600 -o "$(id -u)" -g "$(id -g)" "$native_root/$native_name" "$native_export/$native_name" || exit 66
             fi
@@ -131,10 +210,10 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: maintenance-native-candidate-host-pg${{ matrix.pg }}
+          name: maintenance-full-first-switch-pg${{ matrix.pg }}
           if-no-files-found: warn
           retention-days: 14
-          path: artifacts/maintenance-native-candidate-host-${{ matrix.pg }}/*.json
+          path: artifacts/maintenance-full-first-switch-${{ matrix.pg }}/*.json
   isolated-maintenance:
     name: Legacy Maintenance PG16 PG18 And Real ERP
     runs-on: ubuntu-latest
@@ -204,7 +283,7 @@ jobs:
       - name: Actual fixed readonly database observations on PG16 and PG18
         env:
           MAINTENANCE_DATABASE_PG_FIXTURE: '1'
-        run: node --test scripts/ops/production-maintenance-database-observer.pg.test.mjs scripts/ops/production-maintenance-domain-observer.pg.test.mjs
+        run: node --test scripts/ops/production-maintenance-database-observer.pg.test.mjs scripts/ops/production-maintenance-domain-observer.pg.test.mjs scripts/ops/production-maintenance-iot-state.pg.test.mjs
       - name: Actual candidate root backend and lease lock observations on PG16 and PG18
         env:
           MAINTENANCE_CANDIDATE_PG_FIXTURE: '1'

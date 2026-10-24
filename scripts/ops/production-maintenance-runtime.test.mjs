@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { validateHealthyPre, validateExecutorInventory, validateContinuousFence, validateStoppedSamples,
+import { validateHealthyPre, validateLegacyIsolatedPreStop, validateExecutorInventory, validateContinuousFence, validateStoppedSamples,
   validateDatabaseQuiescence, evaluateLegacyReconciliation, inspectDockerRuntime, LEGACY_DOMAINS, assertNoHostControlMount, DockerNetworkIsolationProducer } from './production-maintenance-runtime.mjs';
 import { MAINTENANCE_OPERATIONS } from './production-maintenance-transition.mjs';
 import { bindingDigest, canonicalDigest } from './production-maintenance-receipts.mjs';
@@ -86,7 +86,7 @@ function isolationFixture({ change = {}, authority = null, sidecarMode = null, a
     if (args[0] === 'info') return 'inactive';
     if (args[0] === 'network' && args[1] === 'inspect') return [network.id, network.name, network.driver, 'local'].map(JSON.stringify).join('\t');
     if (args[0] === 'inspect' && args[1] === sidecarId) return sidecarMode.map(JSON.stringify).join('\t');
-    if (args[0] === 'inspect') return [pin.id, pin.imageId, 0, true, 'healthy', pin.pid, 'running', false, false, 0, false, pin.startedAt,
+    if (args[0] === 'inspect') return [pin.id, pin.imageId, 0, true, value.health ?? 'healthy', pin.pid, 'running', false, false, 0, false, pin.startedAt,
       value.networkMode, value.restartPolicy, value.privileged, value.pidMode, value.mounts, value.networks, value.labels?.['com.docker.swarm.service.id'] || null,
       value.capAdd, value.devices, value.deviceRequests, value.ipcMode, value.utsMode].map(JSON.stringify).join('\t');
     mutations++; return '';
@@ -154,4 +154,15 @@ test('mutation adapter accepts only fixed typed commands for exact approved iden
     await assert.rejects(fixture.producer.mutate(operation, args, budget), /TYPED_MAINTENANCE_COMMAND_REQUIRED/);
   }
   assert.equal(fixture.mutations(), 0);
+});
+
+test('isolated legacy STOP retains healthy admission and exact live isolation despite DB readiness loss',()=>{
+ const isolated={...pin,health:'unhealthy',restartPolicy:'no',status:'running',oomKilled:false,attached:[]};
+ assert.equal(validateLegacyIsolatedPreStop(pin,isolated),isolated);
+ assert.throws(()=>validateLegacyIsolatedPreStop({...pin,health:'unhealthy'},isolated),/LEGACY_PRE_STOP_BINDING/);
+ for(const change of [{id:'9'.repeat(64)},{imageId:'sha256:'+'9'.repeat(64)},{revision:'9'.repeat(40)},{startedAt:new Date(time).toISOString()},{restartCount:1},{running:false},{pid:0},{status:'exited'},{restarting:true},{dead:true},{oomKilled:true},{restartPolicy:'unless-stopped'},{attached:[{id:'network'}]},{attached:undefined}])assert.throws(()=>validateLegacyIsolatedPreStop(pin,{...isolated,...change}),/LEGACY_PRE_STOP_BINDING/);
+});
+
+test('legacy unhealthy admission still prevents every isolation mutation before STOP',async()=>{
+ const f=isolationFixture({change:{health:'unhealthy'}});await assert.rejects(f.producer.fenceIngress(),/LEGACY_PRE_ISOLATION_NOT_HEALTHY/);assert.equal(f.mutations(),0);
 });

@@ -66,7 +66,7 @@ export async function candidateBindingFixture(options={}){
   runtime.Mounts.push({Type:'bind',Source:floor.operationalTuple.PHOENIX_UPLOADS_DIR,Destination:'/app/uploads',RW:true,Propagation:'rprivate'});
   const calls=[];let hook=()=>{},catalogHook=v=>v,rootObserveHook=()=>{};
   const run=(args,input,options)=>{
-    calls.push(structuredClone(args));hook(args);assert.ok(options.timeoutMs>=1&&options.timeoutMs<=10000);
+    calls.push(structuredClone(args));hook(args);assert.ok(options.timeoutMs>=1&&options.timeoutMs<=30000);
     if(args[0]==='inspect'){
       if(args[1]===f.database.containerId)return databaseRun(args,input,options);
       assert.equal(args[1],candidate.id);const s=runtime.State,c=runtime.HostConfig;

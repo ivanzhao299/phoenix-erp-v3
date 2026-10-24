@@ -48,7 +48,13 @@ async function promoteFloorCore(root, env, dependencies, admit, legacy) {
     || env.BUILD_API !== 'true' || env.BUILD_WEB !== 'false'
     || env.ROTATE_CHANJET_CREDENTIALS === 'true' || env.ONE_TIME_CONFIG_FLOOR_TRANSITION === 'true') throw new Error('CONFIG_HOLD=FLOOR_PROMOTION_SCOPE');
   // Installed v2 validator remains the authority for the pre-promotion state.
-  const installed = await (dependencies.loadInstalledGuard || (async () => import(pathToFileURL(path.join(root, 'scripts/ops/production-config-guard.mjs')).href)))();
+  // The default loader must bind to the CURRENT checkout bytes: the exclusive
+  // first-switch fixture executes its whole session in one process where the
+  // same file URL can already be cached from an earlier tree state, silently
+  // substituting the candidate guard for the installed one. Pinning the import
+  // to the live HEAD makes every distinct checkout its own module instance; a
+  // fresh production subprocess keeps exactly the same behaviour.
+  const installed = await (dependencies.loadInstalledGuard || (async () => import(`${pathToFileURL(path.join(root, 'scripts/ops/production-config-guard.mjs')).href}?checkout=${getGit(root, ['rev-parse', 'HEAD'])}`)))();
   // v2 → v3 is the one-time legacy promotion; v3 → v3' is the re-anchor path
   // for reviewed criticalFiles changes on merged main. Anything else is a HOLD.
   if (![2, 3].includes(installed.CONTRACT.version)) throw new Error('CONFIG_HOLD=V2_PROMOTION_REQUIRED');
@@ -62,7 +68,7 @@ async function promoteFloorCore(root, env, dependencies, admit, legacy) {
   getGit(root, ['merge-base', '--is-ancestor', getGit(root, ['rev-parse', 'HEAD']), target]);
   // Every executed staged helper must be identical to the exact approved merged tree.
   const base = path.dirname(new URL(import.meta.url).pathname);
-  for (const file of ['production-config-contract.json', 'production-config-guard.mjs', 'production-deployment-state.mjs', 'production-atomic-state.mjs', 'production-deployment-evidence.mjs', 'production-trusted-paths.mjs', 'capture-production-runtime.mjs', 'update-managed-chanjet-env.mjs', 'chanjet-readonly-policy.mjs', 'api-bootstrap-schema-preflight.mjs', 'api-bootstrap-schema-contract.json', 'promote-production-config-floor.mjs', 'chanjet-admission-schema-receipt.mjs', 'production-maintenance-admission.mjs', 'production-maintenance-receipts.mjs', 'production-maintenance-transition.mjs', 'production-maintenance-owner-authority.mjs', 'production-maintenance-github-authority.mjs', 'production-maintenance-owner-source-provenance.mjs', 'background-control-legacy-transition.mjs', 'background-control-manifest.mjs']) {
+  for (const file of ['production-config-contract.json', 'production-config-guard.mjs', 'production-deployment-state.mjs', 'production-atomic-state.mjs', 'production-deployment-evidence.mjs', 'production-trusted-paths.mjs', 'capture-production-runtime.mjs', 'update-managed-chanjet-env.mjs', 'chanjet-readonly-policy.mjs', 'api-bootstrap-schema-preflight.mjs', 'api-bootstrap-schema-contract.json', 'promote-production-config-floor.mjs', 'chanjet-admission-schema-receipt.mjs', 'production-maintenance-admission.mjs', 'production-maintenance-receipts.mjs', 'production-maintenance-transition.mjs', 'production-maintenance-owner-unknown.mjs', 'production-maintenance-reconciliation.mjs', 'production-maintenance-owner-authority.mjs', 'production-maintenance-github-authority.mjs', 'production-maintenance-owner-source-provenance.mjs', 'background-control-legacy-transition.mjs', 'background-control-manifest.mjs']) {
     const source = file === 'api-bootstrap-schema-contract.json' ? `apps/api/src/common/database/${file}` : `scripts/ops/${file}`;
     if (!readFile(path.join(base, file)).equals(Buffer.from(getGit(root, ['show', `${target}:${source}`]) + '\n'))) throw new Error('CONFIG_HOLD=STAGED_HELPER_MISMATCH');
   }

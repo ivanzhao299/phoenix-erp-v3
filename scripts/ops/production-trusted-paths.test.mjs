@@ -7,7 +7,7 @@ import { spawnSync, execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { CONTRACT, assertStateVersion } from './production-config-guard.mjs';
 import { ancestors, validateDirectorySnapshots, parseMountInfo, assertSameDirectory, assertRegularFile, assertContained,
-  readPinnedFile, strictSshCommand, bootstrapPreflight, assertRootIdentity } from './production-trusted-paths.mjs';
+  readACLs, readPinnedFile, strictSshCommand, bootstrapPreflight, assertRootIdentity } from './production-trusted-paths.mjs';
 import { atomicState } from './production-deployment-state.mjs';
 
 function model(directory = CONTRACT.stateDirectory) {
@@ -172,4 +172,11 @@ esac
   assert.equal(result.status, 0, result.stderr); assert.match(result.stdout, /FD9_HELD/);
   assert.equal(fs.readFileSync(lock, 'utf8'), 'PRESERVE_LOCK_BYTES');
   assert.equal(spawnSync('flock', ['-n', lock, 'true']).status, 0);
+}));
+
+test('ACL helper retains exact metadata reads while ignoring Python startup injection',()=>temporary(dir=>{
+ const marker=path.join(dir,'unexpected-startup'),site=path.join(dir,'sitecustomize.py'),oldPath=process.env.PYTHONPATH;
+ fs.writeFileSync(site,`open(${JSON.stringify(marker)}, 'w').write('unexpected')\n`);process.env.PYTHONPATH=dir;
+ try{assert.deepEqual(readACLs([dir]),[[false,false]]);assert.equal(fs.existsSync(marker),false);}
+ finally{if(oldPath===undefined)delete process.env.PYTHONPATH;else process.env.PYTHONPATH=oldPath;}
 }));

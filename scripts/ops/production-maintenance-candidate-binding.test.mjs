@@ -124,6 +124,9 @@ for(const [message,diagnostic] of [
   await assert.rejects(collectCandidateServerBinding({...f.request,mode:'PRE_ADOPTION'},{...f.dependencies,guard(){throw Error(message);}}),error=>{
     assert.equal(error.message,'CANDIDATE_BINDING_HOLD=OBSERVATION_UNVERIFIED');assert.equal(error.diagnosticCode,diagnostic);assert.equal(candidateBindingDiagnosticCode(error),diagnostic);
     assert.equal(candidateBindingDiagnosticCode({diagnosticCode:'ARBITRARY_RAW_SENTINEL'}),undefined);
-    assert.equal(JSON.stringify(error).includes(message),false);assert.equal(error.cause,undefined);return true;
+    assert.equal(JSON.stringify(error).includes(message),false);assert.equal(error.cause,undefined);
+    // Private categories keep only their fixed class code; an unexpected raw
+    // error also never escapes its message into any serialized form.
+    return true;
   });
 }));

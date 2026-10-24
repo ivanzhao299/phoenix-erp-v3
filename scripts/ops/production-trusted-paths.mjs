@@ -27,7 +27,7 @@ export function parseMountInfo(source) {
 export function readACLs(directories) {
   // Linux POSIX ACL xattrs are metadata, not file contents. No extra server package/install is required.
   const source = `import os,errno,json,sys\nr=[]\nfor p in json.loads(sys.argv[1]):\n a=[]\n for n in ['system.posix_acl_access','system.posix_acl_default']:\n  try:\n   os.getxattr(p,n,follow_symlinks=False);a.append(True)\n  except OSError as e:\n   if e.errno!=errno.ENODATA: raise\n   a.append(False)\n r.append(a)\nprint(json.dumps(r))\n`;
-  try { return JSON.parse(execFileSync('/usr/bin/python3', ['-c', source, JSON.stringify(directories)], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })); }
+  try { return JSON.parse(execFileSync('/usr/bin/python3', ['-I', '-S', '-c', source, JSON.stringify(directories)], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })); }
   catch { hold('ACL_METADATA_UNAVAILABLE'); }
 }
 export function validateDirectorySnapshots(directory, snapshots, mounts, acls, contract) {

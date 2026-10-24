@@ -76,3 +76,7 @@ test('unowned or different published endpoint never permits localhost ingress ru
  state.ports={'3100/tcp':[{HostIp:'127.0.0.1',HostPort:'13100'}]};
  await assert.rejects(controller.install(),/EXCLUSIVE_PUBLISHED_ERP_PORT_REQUIRED/);assert.equal(state.mutationCalls.length,0);
 }));
+test('fixed upstream HOLD classification remains diagnostic without granting ingress or exposing arbitrary errors',()=>use({authority:{verifyExclusiveWriter:async()=>{throw Error('MAINTENANCE_HOLD=ROOT_SOURCE_HOST_REGISTRY_CHANGED');}}},async({controller,state})=>{
+ await assert.rejects(controller.install(),error=>error.message==='MAINTENANCE_INGRESS_HOLD=VALIDATION_OR_EFFECT_UNVERIFIED'&&error.ingressFailureClass==='MAINTENANCE_HOLD=ROOT_SOURCE_HOST_REGISTRY_CHANGED');
+ assert.equal(controller.status().state,'HOLD');assert.equal(state.mutationCalls.length,0);
+}));

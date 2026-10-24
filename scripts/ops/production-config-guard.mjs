@@ -76,12 +76,20 @@ export function assertTransactionOwnership(directory, runId, dependencies = {}) 
 }
 export function verifyContext(root, stateDirectory) {
   assertRootIdentity(CONTRACT); assertNoLegacyState(CONTRACT);
-  inspectTrustedDirectory(stateDirectory, CONTRACT);
+  const directoryBefore = inspectTrustedDirectory(stateDirectory, CONTRACT);
   if (fs.realpathSync(root) !== CONTRACT.repository || fs.realpathSync(stateDirectory) !== CONTRACT.stateDirectory) throw new Error('CONFIG_HOLD=UNAPPROVED_CONTEXT');
   const state = fs.lstatSync(stateDirectory);
   if (!state.isDirectory() || state.isSymbolicLink() || state.uid !== process.getuid() || (state.mode & 0o777) !== 0o700) throw new Error('CONFIG_HOLD=STATE_DIRECTORY');
   // Lock is held by the workflow shell for the whole Git/config/container transaction.
-  readPinnedFile(path.join(stateDirectory, 'mutation.lock'), { contract: CONTRACT });
+  // The first actual snapshot covers this same synchronous lock read's BEFORE.
+  // Consume it once; readPinnedFile still performs a fresh AFTER observation.
+  // No await, effect or cross-call metadata cache is introduced.
+  let beforeAvailable = true;
+  readPinnedFile(path.join(stateDirectory, 'mutation.lock'), { contract: CONTRACT }, { inspectDirectory(directory) {
+    if (directory !== stateDirectory) throw new Error('CONFIG_HOLD=UNAPPROVED_CONTEXT');
+    if (beforeAvailable) { beforeAvailable = false; return directoryBefore; }
+    return inspectTrustedDirectory(directory, CONTRACT);
+  } });
   const lock = fs.lstatSync(path.join(stateDirectory, 'mutation.lock'));
   assertRegularFile(lock);
   const inherited = fs.statSync(`/proc/${process.ppid}/fd/9`); assertRegularFile(inherited);
@@ -102,8 +110,18 @@ export function validateEffectiveConfig(config, tuple, floor = { operationalTupl
     if (!source?.startsWith('/data/') || path.normalize(source) !== source || !mount || mount.type !== 'bind' || mount.source !== source) throw new Error('CONFIG_HOLD=STORAGE_TUPLE');
   }
   const control = config.services.api.volumes.filter(volume => volume.target === '/run/phoenix-background-control');
+  // Compose rendering normalizes an explicit create_host_path:false to an
+  // omitted key (an effective true renders explicitly as true); accept the
+  // omission, refuse any explicit truthy rendering.
   if (control.length !== 1 || control[0].type !== 'bind' || control[0].source !== '/var/lib/phoenix-background-control'
-    || control[0].read_only !== true || control[0].bind?.create_host_path !== false) throw new Error('CONFIG_HOLD=BACKGROUND_CONTROL_MOUNT');
+    || control[0].read_only !== true || control[0].bind?.create_host_path != null && control[0].bind.create_host_path !== false) {
+    // Fixed non-secret fields only (paths/flags), never interpolated env values.
+    const error = new Error('CONFIG_HOLD=BACKGROUND_CONTROL_MOUNT');
+    error.renderedControlVolumes = config.services.api.volumes
+      .map(volume => ({ type: volume.type ?? null, source: volume.type === 'bind' ? volume.source ?? null : null,
+        target: volume.target ?? null, read_only: volume.read_only ?? null, bind: volume.bind ?? null }));
+    throw error;
+  }
   // The API receives only the non-secret projection, never the private 0700
   // state directory, its parent, or a writable alias of the public manifest.
   if (config.services.api.volumes.some(volume => volume.type === 'bind' && (volume.source === CONTRACT.controlRoot || volume.source?.startsWith(CONTRACT.controlRoot + '/')

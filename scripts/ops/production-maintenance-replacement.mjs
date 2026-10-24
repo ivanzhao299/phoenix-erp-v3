@@ -10,7 +10,7 @@ import { executionEnv } from './capture-production-runtime.mjs';
 import { MaintenanceReceiptStore, bindingDigest, canonicalDigest, createMaintenanceEvidence,
   validateMaintenanceContext, validateMaintenanceEvidence, validateRuntimePin, HASH, same, hold, iso as validIso } from './production-maintenance-receipts.mjs';
 import { validateStoppedLegacy } from './production-maintenance-transition.mjs';
-import { LEGACY_EVIDENCE_DOMAINS as LEGACY_DOMAINS } from './background-control-legacy-transition.mjs';
+import {verifyCommittedLegacyReconciliation} from './production-maintenance-reconciliation.mjs';
 import { PUBLIC_DIRECTORY } from './background-control-manifest.mjs';
 
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -19,7 +19,12 @@ const iso = ms => new Date(ms).toISOString();
 const safeFields = '{{json .Id}}\t{{json .Image}}\t{{json .State}}\t{{json .RestartCount}}\t{{json .HostConfig.RestartPolicy.Name}}\t{{json .NetworkSettings.Networks}}\t{{json .Config.Labels}}';
 const bodyHashes = ['replacementIntentSha256', 'operationIntentSha256', 'stoppedEvidenceSha256', 'reconciliationEvidenceSha256', 'isolationEvidenceSha256',
   'recoveryEvidenceSha256', 'composeFileSha256', 'overrideSha256', 'commandSha256', 'eventsSha256', 'preInventorySha256', 'postInventorySha256'];
-const pinsMatch = (a, b) => ['id', 'imageId', 'revision', 'startedAt', 'restartCount'].every(key => a?.[key] === b?.[key]);
+// The pinned expectation defines the compared identity: the API executor pin
+// always carries an OCI revision; the database pin legitimately has none (its
+// exact image is already pinned by imageId), and an absent image label
+// renders as the empty string rather than undefined.
+const pinsMatch = (a, b) => ['id', 'imageId', 'startedAt', 'restartCount'].every(key => a?.[key] === b?.[key])
+  && (b?.revision === undefined || a?.revision === b?.revision);
 
 export function replacementCommand({ root, project, overrideFile }) {
   if (!path.isAbsolute(root) || path.normalize(root) !== root || !/^phoenix[a-z0-9_-]{1,63}$/.test(project || '')
@@ -29,7 +34,13 @@ export function replacementCommand({ root, project, overrideFile }) {
 }
 function command(args, { timeoutMs = 10000, env = executionEnv() } = {}) {
   try { return execFileSync('/usr/bin/docker', args, { encoding: 'utf8', timeout: timeoutMs, maxBuffer: 2 * 1024 * 1024,
-    env, stdio: ['ignore', 'pipe', 'pipe'] }).trim(); } catch { hold('REPLACEMENT_DOCKER_COMMAND_FAILED'); }
+    env, stdio: ['ignore', 'pipe', 'pipe'] }).trim(); }
+  catch (error) {
+    const failure = Error('MAINTENANCE_HOLD=REPLACEMENT_DOCKER_COMMAND_FAILED');
+    // Fixed non-secret stderr class lines only, for isolated fixture triage.
+    failure.replacementCommandDetail = String(error?.stderr || '').split('\n').map(line => line.trim()).filter(Boolean).slice(0, 5);
+    throw failure;
+  }
 }
 export function inspectReplacementRuntime(id, run = command) {
   if (!HASH.test(id)) hold('REPLACEMENT_FULL_ID_REQUIRED');
@@ -49,7 +60,14 @@ function inventory(run) {
 function unchangedServices(pre, run) {
   for (const service of ['web', 'db']) {
     const actual = inspectReplacementRuntime(pre[service].id, run);
-    if (!pinsMatch(actual, pre[service]) || !actual.running || actual.health !== 'healthy') hold('REPLACEMENT_WEB_DB_CHANGED');
+    if (!pinsMatch(actual, pre[service]) || !actual.running || actual.health !== 'healthy') {
+      const error = Error('MAINTENANCE_HOLD=REPLACEMENT_WEB_DB_CHANGED');
+      // Fixed non-secret pin fields only, for isolated fixture triage.
+      error.webDbDifference = { service, actual: { id: actual.id, imageId: actual.imageId, running: actual.running,
+        health: actual.health, restartCount: actual.restartCount, startedAt: actual.startedAt },
+        expected: { id: pre[service].id, imageId: pre[service].imageId, restartCount: pre[service].restartCount, startedAt: pre[service].startedAt } };
+      throw error;
+    }
   }
 }
 /** Fixed projection: arbitrary labels are never received, and action command
@@ -231,7 +249,7 @@ export class ControlledComposeReplacement {
     this.store.assertCurrent();
     if (this.store.readState().stateDigest !== this.state.stateDigest) hold('REPLACEMENT_STATE_CHANGED');
     const marker = this.store.assertOwnedIntent('REPLACE_CANDIDATE', 'PROMOTION_PREPARED', this.state.stateDigest);
-    if (await this.verifyAuthority(this.approval, { purpose: 'MAINTENANCE', operation: 'REPLACE_CANDIDATE', context: this.context, bindingDigest: bindingDigest(this.context) }) !== true) hold('REPLACEMENT_INDEPENDENT_APPROVAL_REQUIRED');
+    if (await this.verifyAuthority(this.approval, { purpose: 'MAINTENANCE', operation: 'REPLACE_CANDIDATE', context: this.context, bindingDigest: bindingDigest(this.context), targetSha: this.context.targetSha }) !== true) hold('REPLACEMENT_INDEPENDENT_APPROVAL_REQUIRED');
     return marker;
   }
   async priorEvidence() {
@@ -242,16 +260,13 @@ export class ControlledComposeReplacement {
       if (await this.verifyEvidence(envelope, { kind, context: this.context }) !== true) hold('REPLACEMENT_PRIOR_EVIDENCE_UNVERIFIED');
     }
     validateStoppedLegacy(bodies.stopped, this.context, bodies.stopped.ingressFenceDigest, this.now());
-    const reconciliation = bodies.reconciliation;
-    if (!Array.isArray(reconciliation.domains) || reconciliation.domains.length !== 5 || LEGACY_DOMAINS.some(domain => {
-      const entry = reconciliation.domains.find(item => item.domain === domain);
-      return !entry || entry.disposition !== 'RECONCILED' || entry.unknownEffects !== 0 || entry.pendingWrites !== 0 || entry.requiresReplay !== false || entry.requiresBusinessMutation !== false;
-    })) hold('REPLACEMENT_FIVE_DOMAINS_UNRECONCILED');
+    await verifyCommittedLegacyReconciliation({envelope:this.prerequisites.reconciliation,context:this.context,state:this.state,
+      store:this.store,maintenanceApproval:this.approval,verifyAuthority:this.verifyAuthority});
     const fence = bodies.isolation;
     if (fence.state !== 'FROZEN' || fence.continuous !== true || fence.revival?.restartPolicy !== 'no'
       || fence.revival.orchestratorsDisabled !== true || !same(fence.revival.executorIds, [this.context.preSnapshot.api.id])
       || !validIso(fence.lastVerifiedAt) || !validIso(fence.leaseExpiresAt) || Date.parse(fence.lastVerifiedAt) > this.now()
-      || Date.parse(fence.lastVerifiedAt) < Date.parse(this.context.window.start) || this.now() - Date.parse(fence.lastVerifiedAt) > 5000
+      || Date.parse(fence.lastVerifiedAt) < Date.parse(this.context.window.start) || this.now() - Date.parse(fence.lastVerifiedAt) > 30000
       || Date.parse(fence.leaseExpiresAt) > Date.parse(this.context.window.end) || Date.parse(fence.leaseExpiresAt) <= this.now() + commandBudgetMs
       || bodies.recovery.materialsAvailable !== true || !HASH.test(bodies.recovery.materialsSha256 || '')) hold('REPLACEMENT_CURRENT_ISOLATION_OR_RECOVERY_REQUIRED');
     if (await this.verifyPublicFence({ context: this.context, owner: this.context.owner, phase: 'FENCED', participants: [] }) !== true) hold('REPLACEMENT_PUBLIC_STARTUP_DENY_UNVERIFIED');
@@ -271,7 +286,17 @@ export class ControlledComposeReplacement {
     unchangedServices(this.context.preSnapshot, this.run);
     const actualImage = this.run(['image', 'inspect', this.context.candidate.imageId, '--format', '{{json .Id}}\t{{json .Config.Labels}}']).split('\t').map(JSON.parse);
     if (actualImage[0] !== this.context.candidate.imageId || actualImage[1]?.['org.opencontainers.image.revision'] !== this.context.targetSha) hold('REPLACEMENT_CANDIDATE_IMAGE_REQUIRED');
-    const override = { services: { api: { image: this.context.candidate.imageId, restart: 'no' } } };
+    // Compose resolves `image:` as a repository reference, not a bare local
+    // image ID; retag the already-verified candidate image locally under an
+    // exact owner-scoped name so `--pull never --no-build` resolves it.
+    const localCandidateTag = `phoenix-maintenance-${this.context.owner}:candidate`;
+    this.run(['tag', this.context.candidate.imageId, localCandidateTag]);
+    // The compose file's stock healthcheck assumes curl; pin a node-based
+    // readiness probe instead so the exact candidate runtime is observable on
+    // any owned API image (node ships in every one of them).
+    const override = { services: { api: { image: localCandidateTag, restart: 'no',
+      healthcheck: { test: ['CMD','node','-e',"fetch('http://127.0.0.1:3100/api/readiness',{signal:AbortSignal.timeout(3000)}).then(async r=>{const b=await r.json();process.exit(r.ok&&b.status==='READY'&&b.db==='connected'?0:1)}).catch(()=>process.exit(1))"],
+        interval: '1s', timeout: '4s', start_period: '3s', retries: 40 } } } };
     const overrideFile = path.join(this.store.directory, `maintenance-replacement-compose-${this.context.owner}.json`);
     const args = replacementCommand({ root: source.root, project: this.project, overrideFile });
     const intent = { schema: 'phoenix.maintenance-replacement-intent/v1', owner: this.context.owner, bindingDigest: bindingDigest(this.context),

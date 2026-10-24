@@ -44,9 +44,9 @@ export class OwnedCandidateObservationQueue {
     const allowed = health ? ['expectedStateDigest', 'timeoutMs', 'signal'] : ['expectedStateDigest', 'mode', 'timeoutMs', 'signal'];
     if (!request || Object.getPrototypeOf(request) !== Object.prototype || Object.keys(request).some(key => !allowed.includes(key))
       || !HASH.test(request.expectedStateDigest || '') || (!health && !['PRE_ADOPTION', 'ADOPTED'].includes(request.mode))
-      || (request.timeoutMs !== undefined && !validMs(request.timeoutMs, 30000))
+      || (request.timeoutMs !== undefined && !validMs(request.timeoutMs, 60000))
       || (request.signal && !(request.signal instanceof AbortSignal))) throw this.#poison('FIXED_REQUEST_REQUIRED');
-    const { signal, expectedStateDigest, mode } = request; const timeoutMs = request.timeoutMs ?? 30000;
+    const { signal, expectedStateDigest, mode } = request; const timeoutMs = request.timeoutMs ?? 60000;
     const remaining = this.#budget(timeoutMs, signal), controller = new AbortController();
     const entry = { controller, work: null, started: false }, previous = this.#tail;
     let timer, abortResult;
@@ -77,7 +77,14 @@ export class OwnedCandidateObservationQueue {
         // Poison before resolving the serialization tail; a queued sibling
         // cannot slip into a native read between failure and caller delivery.
         if (this.#closing) throw failure('CLOSING');
-        throw this.#poison(error?.message === 'OBSERVATION_QUEUE_HOLD=DEADLINE_OR_ABORT' ? 'DEADLINE_OR_ABORT' : 'OBSERVATION_FAILED');
+        const queueFailure = this.#poison(error?.message === 'OBSERVATION_QUEUE_HOLD=DEADLINE_OR_ABORT' ? 'DEADLINE_OR_ABORT' : 'OBSERVATION_FAILED');
+        // Redacted diagnostic only: the wrapped observation's message.
+        queueFailure.observationUnderlying ??= String(error?.message ?? error).slice(0, 200);
+        if (error && typeof error === 'object') { queueFailure.ownedUnderlying ??= error.ownedUnderlying ?? null;
+          queueFailure.healthUnderlying ??= error.healthUnderlying ?? null;
+          queueFailure.bindingUnderlying ??= error.bindingUnderlying ?? null;
+          queueFailure.rootUnderlying ??= error.rootUnderlying ?? null; }
+        throw queueFailure;
       });
       // A rejected observer method can still own abort-ignoring inner reads.
       // That debt stays in the observer and is independently joined by close().
@@ -96,9 +103,9 @@ export class OwnedCandidateObservationQueue {
       manualRecoveryRequired: this.#fatal !== null || inner.manualRecoveryRequired,
       fullCandidateLease: false, registryInstalled: false, productionReleaseAuthorized: false };
   }
-  close({ timeoutMs = 10000 } = {}) {
+  close({ timeoutMs = 60000 } = {}) {
     if (this.#closeTask) return this.#closeTask;
-    if (!validMs(timeoutMs, 10000)) return Promise.reject(failure('CLEANUP_BUDGET_REQUIRED'));
+    if (!validMs(timeoutMs, 60000)) return Promise.reject(failure('CLEANUP_BUDGET_REQUIRED'));
     this.#closing = true;
     return this.#closeTask = (async () => {
       const remaining = this.#budget(timeoutMs); let timer;

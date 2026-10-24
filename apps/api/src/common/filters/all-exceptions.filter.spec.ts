@@ -101,7 +101,9 @@ describe('exception side effects use actual background admission and settlement'
     const f = fixture(), pending = deferred(); f.log.writeLog.mockImplementation(() => pending.promise);
     f.filter.catch(new ForbiddenException('owned-denial'), f.host); await tick();
     await expect(f.tasks.shutdown(10)).rejects.toThrow('DRAIN_TIMEOUT_OR_SESSION_LOST');
-    expect(f.tasks.status()).toMatchObject({ inFlight: 1, poisoned: true }); expect(f.backend.close).not.toHaveBeenCalled();
+    // A timed-out drain still retires the owned control runner immediately;
+    // the HOLD state and pending business settlement are retained truthfully.
+    expect(f.tasks.status()).toMatchObject({ inFlight: 1, poisoned: true }); expect(f.backend.close).toHaveBeenCalledTimes(1);
     pending.resolve(); await tick(); expect(f.tasks.status()).toMatchObject({ inFlight: 0, poisoned: true, phase: 'HOLD' });
     await expect(f.tasks.shutdown(1000)).rejects.toThrow();
   });

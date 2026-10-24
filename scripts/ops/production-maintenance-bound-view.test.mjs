@@ -31,7 +31,7 @@ for (const phase of ['CF', 'VF']) test(`fixed binding view matches actual comple
   assert.equal(next.state.context.owner, f.h.context.owner); assert.equal(next.anchor.owner, f.h.context.owner);
   assert.notEqual(next.bindings.candidate.owner, 'caller-change');
 }));
-for (const extra of [{ view: {} }, { receipts: [] }, { skipGuard: true }, { read() {} }, { timeoutMs: 0 }, { timeoutMs: 10001 }])
+for (const extra of [{ view: {} }, { receipts: [] }, { skipGuard: true }, { read() {} }, { timeoutMs: 0 }, { timeoutMs: 30001 }])
   test('fixed view refuses caller capability/cache/invalid budget ' + Object.keys(extra), () => using(async f => {
     assert.throws(() => view(f, extra), /CANDIDATE_PHASE_ANCHOR_REQUEST|RECEIPT_SNAPSHOT_BUDGET/);
   }));

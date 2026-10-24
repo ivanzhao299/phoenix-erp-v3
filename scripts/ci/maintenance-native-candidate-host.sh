@@ -5,6 +5,7 @@ umask 077
 test "$(id -u)" = 0
 test "${NATIVE_FIXTURE_HOSTED-}" = github-hosted-exclusive-vm
 case "${NATIVE_FIXTURE_MAJOR-}" in 16|18) ;; *) exit 64 ;; esac
+case "${NATIVE_FIXTURE_FLOW-candidate}" in candidate|legacy-first-switch) ;; *) exit 64 ;; esac
 case "${NATIVE_FIXTURE_SHA-}" in *[!a-f0-9]*|'') exit 64 ;; esac
 test "${#NATIVE_FIXTURE_SHA}" = 40
 test -x "${NATIVE_FIXTURE_NODE-}"
@@ -13,7 +14,11 @@ test "$(git -c safe.directory="$NATIVE_FIXTURE_SOURCE" -C "$NATIVE_FIXTURE_SOURC
 test "$(docker info --format '{{.DockerRootDir}}')" = /var/lib/docker
 test -z "$(docker ps -aq)"
 test ! -e /.dockerenv
-test ! -e /data
+if [ "${NATIVE_FIXTURE_PREMOUNTED-0}" = 1 ]; then
+  test -d /data
+else
+  test ! -e /data
+fi
 test ! -e /var/lib/phoenix-erp
 test ! -e /var/lib/phoenix-background-control
 test ! -e /home/phoenix-codex-deploy/production-deployment-state
@@ -53,10 +58,17 @@ trap native_setup_exit EXIT
  inspectTrustedDirectory("/var/lib",CONTRACT);
 '
 native_phase=CREATE_OWNED_DATA_VOLUME
-truncate -s 4G "$NATIVE_FIXTURE_OUTPUT/data.ext4"
-mkfs.ext4 -q -F "$NATIVE_FIXTURE_OUTPUT/data.ext4"
-mkdir -m 0755 /data
-mount -o loop,nodev,nosuid "$NATIVE_FIXTURE_OUTPUT/data.ext4" /data
+native_data_size=4G
+if [ "${NATIVE_FIXTURE_FLOW-candidate}" = legacy-first-switch ]; then native_data_size=8G; fi
+if [ "${NATIVE_FIXTURE_PREMOUNTED-0}" = 1 ]; then
+  test -f "$NATIVE_FIXTURE_OUTPUT/data.ext4"
+  mountpoint -q /data
+else
+  truncate -s "$native_data_size" "$NATIVE_FIXTURE_OUTPUT/data.ext4"
+  mkfs.ext4 -q -F "$NATIVE_FIXTURE_OUTPUT/data.ext4"
+  mkdir -m 0755 /data
+  mount -o loop,nodev,nosuid "$NATIVE_FIXTURE_OUTPUT/data.ext4" /data
+fi
 "$NATIVE_FIXTURE_NODE" --input-type=module -e '
  import fs from "node:fs"; import {execFileSync} from "node:child_process";
  const mount=JSON.parse(execFileSync("findmnt",["-J","--target","/data"],{encoding:"utf8"}));
@@ -97,7 +109,11 @@ cd /data/phoenix-erp
 # Keep this exact shell alive as Node's direct parent holding genuine FD9.
 native_phase=RUN_NATIVE_DEFAULT_COLLECTOR
 set +e
-"$NATIVE_FIXTURE_NODE" scripts/ci/maintenance-native-candidate-host.fixture.mjs
+if [ "${NATIVE_FIXTURE_FLOW-candidate}" = legacy-first-switch ]; then
+  "$NATIVE_FIXTURE_NODE" scripts/ci/maintenance-full-first-switch.fixture.mjs
+else
+  "$NATIVE_FIXTURE_NODE" scripts/ci/maintenance-native-candidate-host.fixture.mjs
+fi
 result=$?
 set -e
 # Export only fixed non-secret receipts; never logs, source, .env or PG data.
@@ -107,7 +123,7 @@ native_phase=EXPORT_FIXED_RECEIPTS
  import fs from "node:fs";
  const source="/data/phoenix-erp/artifacts/maintenance-native-candidate-host/";
  const output=process.env.NATIVE_FIXTURE_OUTPUT;
- for(const name of ["result.json","candidate-binding.json","root-release.json","guard-counterexamples.json","protocol-file-manifest.json"]){
+ for(const name of ["result.json","progress.json","candidate-binding.json","root-release.json","guard-counterexamples.json","protocol-file-manifest.json"]){
   if(fs.existsSync(source+name))fs.copyFileSync(source+name,output+"/"+name,fs.constants.COPYFILE_EXCL);
  }
  fs.writeFileSync(output+"/process-result.json",JSON.stringify({fixtureOnly:true,productionReceipt:false,exitCode:Number(process.env.NATIVE_FIXTURE_RESULT)})+"\n",{flag:"wx",mode:0o600});

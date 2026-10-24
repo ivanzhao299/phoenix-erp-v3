@@ -34,9 +34,9 @@ function stableBinding(value) {
 export async function observeCandidateHealthAndStartup(request, dependencies = {}) {
   try {
     if (!request || Object.keys(request).some(key => !['context', 'expectedStateDigest', 'replacementEvidence', 'rootLease', 'signal', 'timeoutMs'].includes(key))) fail('FIXED_REQUEST_REQUIRED');
-    const { context, expectedStateDigest, replacementEvidence, rootLease, signal, timeoutMs = 30000 } = request;
+    const { context, expectedStateDigest, replacementEvidence, rootLease, signal, timeoutMs = 60000 } = request;
     validateMaintenanceContext(context);
-    if (!HASH.test(expectedStateDigest || '') || !Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 30000 || (signal && !(signal instanceof AbortSignal))) fail('FIXED_REQUEST_REQUIRED');
+    if (!HASH.test(expectedStateDigest || '') || !Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 60000 || (signal && !(signal instanceof AbortSignal))) fail('FIXED_REQUEST_REQUIRED');
     const now = dependencies.now || Date.now, mono = dependencies.monotonicNow || (() => performance.now());
     const start = now(), initialMono = mono(), deadline = Math.min(start + timeoutMs, Date.parse(context.window.end)), monoDeadline = initialMono + deadline - start;
     let lastWall = start, lastMono = initialMono;
@@ -94,6 +94,11 @@ export async function observeCandidateHealthAndStartup(request, dependencies = {
       outerProcessSupervisionRequired: true };
   } catch (error) {
     if (/^CANDIDATE_HEALTH_HOLD=[A-Z_]+$/.test(error?.message || '')) throw error;
-    fail('OBSERVATION_UNVERIFIED');
+    const failure = Error('CANDIDATE_HEALTH_HOLD=OBSERVATION_UNVERIFIED');
+    // Redacted diagnostic only: the wrapped health observation's class.
+    failure.healthUnderlying ??= String(error?.message ?? error).slice(0, 200);
+    if (error && typeof error === 'object') { failure.bindingUnderlying ??= error.bindingUnderlying ?? null;
+      failure.rootUnderlying ??= error.rootUnderlying ?? null; }
+    throw failure;
   }
 }

@@ -53,9 +53,9 @@ test('expired queued call never starts later and permanently fences siblings', (
   return using(async f => {
     // Expiry here is driven by the synthetic clock, not by real collector CPU
     // scheduling. A separate test below exercises the actual30ms queue timer.
-    const first = f.queue.observe(f.req({ timeoutMs: 30000 })); await until(() => count === 1);
-    const second = f.queue.observe(f.req({ timeoutMs: 10000 })), rejected = assert.rejects(second, /QUEUE_HOLD=DEADLINE_OR_ABORT/);
-    clock = 15000; gate.resolve(); await first; await rejected; assert.equal(count, 1);
+    const first = f.queue.observe(f.req({ timeoutMs: 60000 })); await until(() => count === 1);
+    const second = f.queue.observe(f.req({ timeoutMs: 20000 })), rejected = assert.rejects(second, /QUEUE_HOLD=DEADLINE_OR_ABORT/);
+    clock = 30000; gate.resolve(); await first; await rejected; assert.equal(count, 1);
     await assert.rejects(f.queue.observe(f.req()), /QUEUE_HOLD=/);
   }, () => ({ collect: async (...args) => { count++; await gate.promise; return collectCandidateLeaseBinding(...args); } }), { now: () => clock, monotonicNow: () => clock });
 });
@@ -122,7 +122,7 @@ test('binding and synthetic health share the same FIFO and original adopted root
       contextDigest: request.rootLease.contextDigest, stateDigest: request.expectedStateDigest, registryInstalled: false, continuousIngressProof: false,
       productionMutation: false, admissionOrApprovalGranted: false, rawOutput: false, outerProcessSupervisionRequired: true }; }) }));
 });
-for (const request of [{ mode: 'PRE_ADOPTION', timeoutMs: 30001 }, { mode: 'PRE_ADOPTION', skipGuard: true }, { mode: 'ADOPTED', signal: {} }, { mode: 'OTHER' }]) test('fixed request validation retains default denial '+JSON.stringify(request), () => using(async f => {
+for (const request of [{ mode: 'PRE_ADOPTION', timeoutMs: 60001 }, { mode: 'PRE_ADOPTION', skipGuard: true }, { mode: 'ADOPTED', signal: {} }, { mode: 'OTHER' }]) test('fixed request validation retains default denial '+JSON.stringify(request), () => using(async f => {
   await assert.rejects(f.queue.observe({ ...f.req(), ...request }), /FIXED_REQUEST_REQUIRED/);
   await assert.rejects(f.queue.observe(f.req()), /QUEUE_HOLD=/);
 }));

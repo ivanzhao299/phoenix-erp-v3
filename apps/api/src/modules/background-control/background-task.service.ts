@@ -21,6 +21,7 @@ export class BackgroundTaskService implements BeforeApplicationShutdown, OnModul
   private shutdownPromise?: Promise<void>;
   private heartbeat?: ReturnType<typeof setInterval>;
   private heartbeatPending = false;
+  private drainTimeoutRetired = false;
   private initialization?: Promise<void>;
   private statusObservation?: Promise<ReturnType<BackgroundTaskService['status']>>;
   readonly identity: BackgroundIdentity = {
@@ -160,13 +161,25 @@ export class BackgroundTaskService implements BeforeApplicationShutdown, OnModul
       controlSession: this.backend.status(),
     };
   }
+  /** A timed-out drain must retire the owned control QueryRunner exactly once.
+   * Under load the drain's own deadline branch can reject before the timer
+   * callback runs; either path may arrive first, never both twice. */
+  private retireDrainTimeoutBackend(): void {
+    if (this.drainTimeoutRetired) return;
+    this.drainTimeoutRetired = true;
+    void this.backend.close().catch(() => undefined);
+  }
   shutdown(deadlineMs = 30000): Promise<void> {
     if (this.shutdownPromise) return this.shutdownPromise;
     this.stopping = true;
     if (this.heartbeat) clearInterval(this.heartbeat);
     let timer: ReturnType<typeof setTimeout>;
     const timeout = new Promise<never>((_resolve, reject) => {
-      timer = setTimeout(() => { this.poisoned = true; reject(new BackgroundAdmissionDeniedError('DRAIN_TIMEOUT_OR_SESSION_LOST')); }, deadlineMs);
+      timer = setTimeout(() => {
+        this.poisoned = true;
+        this.retireDrainTimeoutBackend();
+        reject(new BackgroundAdmissionDeniedError('DRAIN_TIMEOUT_OR_SESSION_LOST'));
+      }, deadlineMs);
     });
     this.shutdownPromise = Promise.race([this.drain(deadlineMs), timeout]).finally(() => clearTimeout(timer));
     return this.shutdownPromise;
@@ -176,9 +189,12 @@ export class BackgroundTaskService implements BeforeApplicationShutdown, OnModul
     await this.serialized(async () => undefined);
     if (this.poisoned) throw new BackgroundAdmissionDeniedError('DRAIN_TIMEOUT_OR_SESSION_LOST');
     while (this.graphs.size > 0) {
-      if (Date.now() >= deadline || this.poisoned) {
-        this.poisoned = true; throw new BackgroundAdmissionDeniedError('DRAIN_TIMEOUT_OR_SESSION_LOST');
+      if (Date.now() >= deadline) {
+        this.poisoned = true;
+        this.retireDrainTimeoutBackend();
+        throw new BackgroundAdmissionDeniedError('DRAIN_TIMEOUT_OR_SESSION_LOST');
       }
+      if (this.poisoned) throw new BackgroundAdmissionDeniedError('DRAIN_TIMEOUT_OR_SESSION_LOST');
       await new Promise(resolve => setTimeout(resolve, Math.min(25, Math.max(1, deadline - Date.now()))));
     }
     await this.serialized(async () => {
@@ -187,5 +203,13 @@ export class BackgroundTaskService implements BeforeApplicationShutdown, OnModul
       await this.backend.close();
     });
   }
-  beforeApplicationShutdown() { return this.shutdown(); }
+  beforeApplicationShutdown() {
+    // The outer maintenance shutdown records the original drain failure and
+    // keeps the operation in HOLD. Nest must still continue its remaining
+    // teardown hooks (especially TypeORM pool disposal); rethrowing the cached
+    // rejection here would abort that teardown and leave an unnamed backend.
+    // The single BACKGROUND_SHUTDOWN_HOLD marker stays with the signal-level
+    // bounded close; logging here too would emit it twice for one SIGTERM.
+    return this.shutdown().catch(() => undefined);
+  }
 }

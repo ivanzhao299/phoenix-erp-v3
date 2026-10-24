@@ -18,6 +18,8 @@ const positive=v=>Number.isSafeInteger(v)&&v>0;
 const rawTime=v=>typeof v==='string'&&/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{6}Z$/.test(v)&&iso(v.slice(0,23)+'Z');
 const INSPECT='{{json .Id}}\t{{json .Image}}\t{{json .State.StartedAt}}\t{{json .State.Running}}\t{{if .State.Health}}{{json .State.Health.Status}}{{else}}null{{end}}';
 const safeReason=e=>/^MAINTENANCE_HOLD=([A-Z0-9_]+)$/.exec(e?.message||'')?.[1]||'ROOT_CONTROL_UNVERIFIED_FAILURE';
+// Redacted diagnostic only: keep the wrapped cause's class alongside the reason.
+const rootUnderlying=e=>String(e?.message??e).slice(0,200);
 const sha=text=>createHash('sha256').update(text).digest('hex');
 const frozen=value=>{if(value&&typeof value==='object'){for(const child of Object.values(value))frozen(child);Object.freeze(value);}return value;};
 export function validateRootDatabaseBinding(database,context){
@@ -61,6 +63,14 @@ function selfSql(identity){
   return `SELECT pg_catalog.pg_backend_pid()=${identity.pid} AND current_setting('application_name')='${identity.applicationName}' AND (SELECT oid::bigint FROM pg_catalog.pg_database WHERE datname=current_database())=${identity.databaseOid} AND (SELECT to_char(backend_start AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') FROM pg_catalog.pg_stat_activity WHERE pid=pg_catalog.pg_backend_pid())='${identity.backendStartedAt}';`;
 }
 async function bounded(work,ms,code='CLIENT_CLOSE_TIMEOUT'){let timer;try{return await Promise.race([work,new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error(`MAINTENANCE_HOLD=ROOT_CONTROL_${code}`)),ms);})]);}finally{clearTimeout(timer);}}
+async function closeOwnedChild(child,closed,budget){
+  try{child.stdin.end();}catch{}
+  try{await bounded(closed,Math.min(5000,budget.remaining()));return true;}catch{}
+  if(child.exitCode===null&&typeof child.kill==='function')try{child.kill('SIGTERM');}catch{}
+  try{await bounded(closed,Math.min(1000,budget.remaining()));return true;}catch{}
+  if(child.exitCode===null&&typeof child.kill==='function')try{child.kill('SIGKILL');}catch{}
+  try{await bounded(closed,Math.min(1000,budget.remaining()));return true;}catch{return false;}
+}
 
 export class RootControlLease {
   #identity=null; #child=null; #childClose=null; #childError=false; #spawnAttempted=false; #attemptPersisted=false; #closing=false; #closeTask=null;
@@ -80,7 +90,7 @@ export class RootControlLease {
     this.serverFile=path.join(this.store.directory,`maintenance-root-control-server-${context.owner}.json`);
     this.releaseFile=path.join(this.store.directory,`maintenance-root-control-released-${context.owner}.json`);
     this.incidentFile=path.join(this.store.directory,`maintenance-root-control-incident-${context.owner}.json`);
-    this.session=new DockerPostgresControlSession({commandTimeoutMs:5000},{spawn:()=>{
+    this.session=new DockerPostgresControlSession({commandTimeoutMs:30000},{spawn:()=>{
       this.checkpoint(true);this.#spawnAttempted=true;
       const child=launch('/usr/bin/docker',['exec','-i',this.database.containerId,'/bin/sh','-c',rootPsqlProgram(this.context.owner)],{env:executionEnv(),stdio:['pipe','pipe','pipe']});
       // Save before registration can throw; the base class has not assigned its
@@ -115,7 +125,7 @@ export class RootControlLease {
   assertHeld(){
     if(this.#status!=='HELD'||this.#closing)fail('LEASE_NOT_HELD');this.checkpoint();this.assertOriginalClient();
   }
-  budget({timeoutMs=30000,signal}={}){
+  budget({timeoutMs=60000,signal}={}){
     if(!Number.isSafeInteger(timeoutMs)||timeoutMs<1||timeoutMs>120000||(signal&&!(signal instanceof AbortSignal)))fail('OPERATION_BUDGET_REQUIRED');
     const start=this.now(),monoStart=this.monotonicNow(),deadline=start+timeoutMs,monoDeadline=monoStart+timeoutMs;
     let lastWall=start,lastMono=monoStart;
@@ -131,7 +141,7 @@ export class RootControlLease {
     budget.check();const timeoutMs=Math.min(10000,budget.remaining()),value=this.run(args,input,{timeoutMs});budget.check();return value;
   }
   async query(sql,budget){
-    budget.check();this.session.commandTimeoutMs=Math.min(5000,budget.remaining());const value=await this.session.query(sql);budget.check();return value;
+    budget.check();this.session.commandTimeoutMs=Math.min(30000,budget.remaining());const value=await this.session.query(sql);budget.check();return value;
   }
   pin(budget){
     let values;try{values=this.observedRun(['inspect',this.database.containerId,'--format',INSPECT],undefined,budget).split('\t').map(JSON.parse);}catch(error){if(error?.message?.includes('OPERATION_'))throw error;fail('DATABASE_RUNTIME_READ_FAILED');}
@@ -176,7 +186,7 @@ export class RootControlLease {
       parentPid:process.pid,programSha256:sha(rootPsqlProgram(this.context.owner)),createdAt:new Date(this.now()).toISOString()};
     this.store.immutable(this.startFile,attempt);this.#attemptPersisted=true;this.#status='STARTING';
     try{
-      this.session.commandTimeoutMs=Math.min(5000,budget.remaining());await this.session.start();budget.check();this.checkpoint(true);this.assertOriginalClient();
+      this.session.commandTimeoutMs=Math.min(30000,budget.remaining());await this.session.start();budget.check();this.checkpoint(true);this.assertOriginalClient();
       const discovered=this.scan('DISCOVER',budget),row=discovered.observation.backends[0];
       this.assertOriginalClient();
       const identity={pid:row.pid,databaseOid:row.databaseOid,backendStartedAt:row.backendStartedAt,applicationName:row.applicationName};
@@ -191,7 +201,7 @@ export class RootControlLease {
         if(this.#identity){try{await this.close();}catch{manual();}}
         else{try{await this.closeUnknown();}catch{}this.incident('STARTUP_IDENTITY_UNVERIFIED');manual();}
       }
-      throw Error(`MAINTENANCE_HOLD=${safeReason(error)}`);
+      {const failure=Error(`MAINTENANCE_HOLD=${safeReason(error)}`);failure.rootUnderlying??=rootUnderlying(error);throw failure;}
     }
   }
   async observe(options={}){
@@ -200,18 +210,18 @@ export class RootControlLease {
       this.assertHeld();
       const self=selfSql(this.#identity);if(await this.query(self,budget)!==true)fail('HOLDING_CHANNEL_IDENTITY_MISMATCH');
       this.assertHeld();const observed=this.scan('HELD',budget);this.assertHeld();budget.check();return observed;
-    }catch(error){this.#status='FAILED';throw Error(`MAINTENANCE_HOLD=${safeReason(error)}`);}
+    }catch(error){this.#status='FAILED';{const failure=Error(`MAINTENANCE_HOLD=${safeReason(error)}`);failure.rootUnderlying??=rootUnderlying(error);throw failure;}}
   }
-  incident(reason){
+  incident(reason, extra = null){
     if(!this.#attemptPersisted)return;
     try{this.store.immutable(this.incidentFile,{schema:'phoenix.root-control-incident/v1',contextDigest:this.contextDigest,owner:this.context.owner,
-      reason,clientPid:this.#child?.pid||null,serverIdentity:this.#identity,localClientClose:'DOES_NOT_PROVE_REMOTE_PROCESS_OR_SERVER_RELEASE',
+      reason,...(extra&&typeof extra==='object'?extra:{}),clientPid:this.#child?.pid||null,serverIdentity:this.#identity,localClientClose:'DOES_NOT_PROVE_REMOTE_PROCESS_OR_SERVER_RELEASE',
       outcome:'MANUAL_RECOVERY_REQUIRED',observedAt:new Date(this.now()).toISOString()});}catch{}
   }
   async closeUnknown(budget=this.budget()){
     this.#status='UNKNOWN';this.#closing=true;
     budget.check();this.guard();budget.check();
-    if(this.#child){try{this.#child.stdin.end();}catch{}if(this.#childClose)await bounded(this.#childClose,Math.min(5000,budget.remaining()));budget.check();}
+    if(this.#child&&this.#childClose){if(!await closeOwnedChild(this.#child,this.#childClose,budget))manual();budget.check();}
   }
   close(options={}){
     return this.#closeTask??=(async()=>{
@@ -231,8 +241,7 @@ export class RootControlLease {
         // A missing identity receipt must not prevent EOF; it still prevents
         // claiming verified release, even if a server-gone snapshot succeeds.
         const originalClient=this.session.child===this.#child;
-        try{this.#child.stdin.end();}catch{}
-        await bounded(this.#childClose,Math.min(5000,budget.remaining()));budget.check();
+        if(!await closeOwnedChild(this.#child,this.#childClose,budget))manual();budget.check();
         const clientStillOriginal=this.session.child===this.#child;
         if(clientStillOriginal)await this.session.close();
         const observation=this.scan('RELEASED',budget);budget.check();
@@ -241,7 +250,11 @@ export class RootControlLease {
           localClientClosed:true,ownedBackendGone:true,serverObservationSha256:canonicalDigest(observation),observedAt:new Date(this.now()).toISOString(),
           candidateProof:false,productionReleaseAuthorized:false};
         this.store.immutable(this.releaseFile,released);this.#status='RELEASE_VERIFIED';return released;
-      }catch{this.#status='UNKNOWN';this.incident('RELEASE_UNVERIFIED');manual();}
+      }catch(error){this.#status='UNKNOWN';
+        // Redacted diagnostic only: the wrapped release cause's class.
+        try{const receipt=this.store.read(this.releaseFile);}catch{}
+        this.releaseUnderlying=String(error?.message??error).slice(0,200);
+        this.incident('RELEASE_UNVERIFIED',{releaseUnderlying:this.releaseUnderlying});manual();}
     })();
   }
 }

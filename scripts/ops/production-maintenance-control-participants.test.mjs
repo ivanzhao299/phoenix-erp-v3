@@ -152,3 +152,30 @@ test('startup deadline retains original work/child debt; late start cannot rehab
     assert.equal(f.graph.close(), closing); await assert.rejects(closing, /CLOSE_UNVERIFIED/);
   } finally { if (finish) finish(); await f.cleanup(); }
 });
+test('host snapshot joins existing HEALTH and reserves the synchronous boundary before queued monitor probes',async()=>{
+ let armed=false,unblock,entered;const started=new Promise(resolve=>{entered=resolve;});
+ await using(async f=>{
+  await f.graph.bootstrap();armed=true;const existing=f.graph.check();await started;
+  let captured=false;const observation=f.graph.observeQuiescent(()=>{captured=true;assert.equal(f.probes.length,6);return {snapshot:'ACTUAL_SYNCHRONOUS_BOUNDARY'};});
+  const queued=f.graph.check();await new Promise(resolve=>setImmediate(resolve));assert.equal(captured,false);assert.equal(f.probes.length,4);
+  unblock();await existing;assert.deepEqual(await observation,{snapshot:'ACTUAL_SYNCHRONOUS_BOUNDARY'});await queued;assert.equal(f.probes.length,9);assert.equal((await f.graph.close()).graphClosed,true);
+ },{async probe(response){if(armed){armed=false;entered();await new Promise(resolve=>{unblock=resolve;});}return response;}});
+});
+test('observation deadline cannot capture while an original HEALTH protocol remains outstanding',async()=>{
+ let armed=false,unblock,entered;const started=new Promise(resolve=>{entered=resolve;});
+ await using(async f=>{
+  await f.graph.bootstrap();armed=true;const existing=f.graph.check({timeoutMs:500}).catch(error=>error);await started;
+  let captured=0;await assert.rejects(f.graph.observeQuiescent(()=>{captured++;return {};},{timeoutMs:20}),/DEADLINE_OR_ABORT/);assert.equal(captured,0);
+  // The initiator's own 500ms join deadline expires while the probe is still
+  // outstanding; that expiry is transient for the shared graph.
+  assert.ok(await existing instanceof Error);
+  // The shared batch finishes on its self-contained budget after unblock and
+  // a fresh probe succeeds: one caller's timeout never executes another
+  // caller's observation.
+  unblock();const recovered=await f.graph.check();assert.equal(recovered.schema,'phoenix.maintenance-control-participant-inventory/v1');
+  assert.equal((await f.graph.close()).graphClosed,true);
+ },{async probe(response){if(armed){armed=false;entered();await new Promise(resolve=>{unblock=resolve;});}return response;}});
+});
+test('asynchronous observers are rejected and cannot rehabilitate graph health',()=>using(async f=>{
+ await f.graph.bootstrap();await assert.rejects(f.graph.observeQuiescent(()=>Promise.resolve({})),/SYNCHRONOUS_OBSERVER_REQUIRED/);await assert.rejects(f.graph.check(),/SYNCHRONOUS_OBSERVER_REQUIRED/);assert.equal((await f.graph.close()).graphClosed,true);
+}));
