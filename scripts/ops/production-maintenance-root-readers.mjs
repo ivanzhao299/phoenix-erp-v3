@@ -377,7 +377,7 @@ export function createProductionMaintenanceReaders(plan,{readControllers}={}){
           for await(const chunk of child.stdout){bytes+=chunk.length;if(bytes>8*1024**3){abort();break;}sum.update(chunk);}
           const exit=await closed;
           const streamedDigest='sha256:'+sum.digest('hex');
-          const expected=ociBlobs?layer.slice('blobs/sha256/'.length):diffIds[index];
+          const expected=ociBlobs?'sha256:'+layer.slice('blobs/sha256/'.length):diffIds[index];
           if(readError||exit.code!==0||exit.signal||streamedDigest!==expected)hold('ROOT_READER_IMAGE_LAYER_BYTES_CHANGED');
         }finally{clearTimeout(timer);signal?.removeEventListener('abort',abort);if(child.exitCode===null&&child.signalCode===null)child.kill('SIGKILL');await closed;}
       }
