@@ -1,3 +1,4 @@
+import { DAILY_EXPORT_SNAPSHOT, DAILY_EXPORT_MAX_ROWS } from './daily-export-policy';
 import { Injectable, BadRequestException, ForbiddenException, InternalServerErrorException, Logger } from '@nestjs/common';
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
@@ -330,8 +331,9 @@ export class GenericCrudService {
   }
 
   private buildFindAllSql(table: string, query: any, extraWhere: string[] = [], extraValues: unknown[] = []) {
-    const limit = Math.min(Math.max(Number(query.limit) || 100, 1), 1000);
-    const offset = Math.max(Number(query.offset) || 0, 0);
+    const exportSnapshot = table === 'brd_daily_logs' && query[DAILY_EXPORT_SNAPSHOT] === true;
+    const limit = exportSnapshot ? DAILY_EXPORT_MAX_ROWS + 1 : Math.min(Math.max(Number(query.limit) || 100, 1), 1000);
+    const offset = exportSnapshot ? 0 : Math.max(Number(query.offset) || 0, 0);
 
     const whereClauses = [];
     if (['pkg_work_shifts','pkg_source_batches','pkg_grading_records','pkg_packing_records'].includes(table)) whereClauses.push('is_test = false');

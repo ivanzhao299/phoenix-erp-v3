@@ -26,7 +26,7 @@ import { usePermission } from '@/hooks/usePermission';
 import { useToast } from '@/contexts/ToastContext';
 import { useDialog } from '@/contexts/DialogContext';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { Save, Download, Cpu, CheckCircle, X as XIcon } from 'lucide-react';
+import { Save, Cpu, CheckCircle, X as XIcon } from 'lucide-react';
 import s from '@/components/ui/admin-ui.module.css';
 import { primaryActionButton, secondaryActionButton } from '@/components/design-system/cockpit-styles';
 import { HouseSelector } from '@/components/shared-selectors/MasterDataSelectors'; // G4-E 鸡舍主数据
@@ -34,6 +34,8 @@ import { useDictOptions } from '@/hooks/useDictOptions'; // 班次字典化
 import DictSelect from '@/components/shared-selectors/DictSelect'; // G19-A 死亡/淘汰原因字典化
 import { useProductGrades } from '@/hooks/useProductGrades'; // G14 9 档分级
 import { ModalV2 } from '@/components/design-system/dialogs/ModalV2';
+import { DailyGradeDetails } from '@/components/breeding/DailyGradeDetails';
+import { DailyReportExport } from '@/components/breeding/DailyReportExport';
 import { cullingReasonLabel, isDailyReportHouseMissing } from '@/lib/breeding-daily';
 
 // 纯数字输入列（分前后两段，中间插入淘汰数+淘汰原因）
@@ -67,7 +69,7 @@ export default function DailyPage() {
   } = useDialog();
   // G23-B：can(role[]) → PBAC（menu+op）；保留 can 兼容性
   const {
-    can, canCreate, canEdit, canExport
+    can, canCreate, canEdit
   } = usePermission('MENU_FARM_DAILY');
   const {
     t
@@ -179,6 +181,7 @@ export default function DailyPage() {
       house: d.house_code || d.flock_no || t('ui.未知', '未知'),
       houseName: houseNameMap[d.house_code as string] || houseNameMap[d.flock_no as string] || d.house_code || t('ui.未知', '未知'),
       eggs: d.eggs_produced || 0,
+      eggsByGrade: d.eggs_by_grade,
       dirtyEggs: d.dirty_eggs || 0,
       brokenEggs: d.broken_eggs || 0,
       deaths: d.mortality_qty || 0,
@@ -442,20 +445,6 @@ export default function DailyPage() {
       }
     }
   };
-  const handleExport = () => {
-    const headers = [t('ui.班次', '班次'), t('ui.产蛋数', '产蛋数'), t('ui.脏蛋', '脏蛋'), t('ui.破损蛋', '破损蛋'), t('ui.死亡', '死亡'), t('ui.淘汰数', '淘汰数'), t('ui.淘汰原因', '淘汰原因'), t('ui.饲料kg', '饲料kg'), t('ui.用水L', '用水L'), t('ui.温度', '温度'), t('ui.湿度', '湿度'), t('common.remark', '备注')];
-    const rowData = rows.map(r => [shiftLabel(r.shift), r.eggs || 0, r.dirtyEggs || 0, r.brokenEggs || 0, r.deaths || 0, r.elimination || 0, cullingReasonLabel(r.elimReason, cullingReasonCodeMap, ''), r.feedKg || 0, r.waterL || 0, r.temp || 0, r.humidity || 0, r.remark]);
-    const csv = [headers, ...rowData].map(r => r.join(',')).join('\n');
-    const blob = new Blob(['﻿' + csv], {
-      type: 'text/csv;charset=utf-8'
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${t('ui.日报', '日报')}_${selectedHouse}_${formDate}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
   const handleApprove = () => {
     setApproved(true);
     setTimeout(() => setApproved(false), 3000);
@@ -525,9 +514,7 @@ export default function DailyPage() {
             <button type="button" style={secondaryActionButton} onClick={() => historyRef.current?.scrollIntoView({
         behavior: 'smooth'
       })}>{t('ui.历史记录', '历史记录')}</button>
-            {canExport && <button type="button" style={secondaryActionButton} onClick={handleExport}>
-                <Download size={14} />{t('ui.导出报表', '导出报表')}
-              </button>}
+            <DailyReportExport grades={productGrades} />
             {canEdit && <button type="button" onClick={() => setShowGenModal(true)} disabled={generating || !selectedHouse} style={{
         opacity: generating || !selectedHouse ? 0.6 : 1,
         cursor: generating || !selectedHouse ? 'not-allowed' : 'pointer',
@@ -836,12 +823,12 @@ export default function DailyPage() {
         </label>
       </div>
       <div className={s.card} style={{
-      overflow: 'hidden'
+      overflowX: 'auto'
     }}>
         <table className={s.table}>
           <thead>
             <tr>
-              {[t('common.date', '日期'), t('ui.鸡舍', '鸡舍'), t('ui.产蛋数', '产蛋数'), t('ui.脏蛋', '脏蛋'), t('ui.破损蛋', '破损蛋'), t('ui.死亡', '死亡'), t('ui.淘汰', '淘汰'), t('ui.淘汰原因', '淘汰原因'), t('ui.饲料(kg)', '饲料(kg)'), t('ui.温度', '温度'), t('ui.湿度', '湿度'), t('common.remark', '备注')].map(h => <th key={h}>{h}</th>)}
+              {[t('common.date', '日期'), t('ui.鸡舍', '鸡舍'), t('ui.产蛋数', '产蛋数'), t('breeding.daily.gradeDetails', '九档分级明细'), t('ui.脏蛋', '脏蛋'), t('ui.破损蛋', '破损蛋'), t('ui.死亡', '死亡'), t('ui.淘汰', '淘汰'), t('ui.淘汰原因', '淘汰原因'), t('ui.饲料(kg)', '饲料(kg)'), t('ui.温度', '温度'), t('ui.湿度', '湿度'), t('common.remark', '备注')].map(h => <th key={h}>{h}</th>)}
             </tr>
           </thead>
           <tbody>
@@ -849,6 +836,7 @@ export default function DailyPage() {
                 <td>{String(r.date ?? '—')}</td>
                 <td>{String(r.houseName ?? r.house ?? '—')}</td>
                 <td className={u.fw600}>{Number(r.eggs ?? 0).toLocaleString()}</td>
+                <td><DailyGradeDetails value={r.eggsByGrade} grades={productGrades} /></td>
                 <td style={{
               color: Number(r.dirtyEggs) > 30 ? 'var(--status-warning)' : 'var(--text-primary)'
             }}>{String(r.dirtyEggs ?? 0)}</td>
@@ -868,7 +856,7 @@ export default function DailyPage() {
                 <td>{String(r.humidity ?? '—')}%</td>
                 <td className={u.muted12}>{String(r.remark ?? '—')}</td>
               </tr>)}
-            {!visibleReports.length && <tr><td colSpan={12} style={{
+            {!visibleReports.length && <tr><td colSpan={13} style={{
               padding: 24,
               textAlign: 'center',
               color: 'var(--text-secondary)',
