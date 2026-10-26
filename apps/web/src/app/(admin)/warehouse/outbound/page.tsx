@@ -13,6 +13,7 @@ import { Plus } from "lucide-react";
 import apiRequest from "@/lib/api-client";
 import {
   OUTBOUND_DESTINATIONS,
+  resetOutboundDestination,
   ISSUE_OUTBOUND_TYPES,
   canCreateOutboundType,
   isStandaloneOutboundType,
@@ -123,16 +124,15 @@ export default function OutboundPage() {
   const FIELDS: FormField[] = [
     { key: "outbound_no",    label: t("ui.出库单号", "出库单号"), type: "text",   placeholder: t("ui.留空自动生成WO", "留空自动生成 WO-XXXXXX") },
     { key: "date",           label: t("ui.出库日期", "出库日期"), type: "date",   required: true },
-    { key: "type",           label: t("ui.出库类型", "出库类型"), type: "select", required: true,
+    { key: "type",           label: t("ui.出库类型", "出库类型"), type: "dict", dictType: "INV_OUTBOUND_TYPE", required: true,
       // 普通页面可创建所有允许独立出库的类型；领用类型仍受 MENU_WMS_ISSUE
       // 控制，调拨/盘亏等专用事务类型不会进入独立出库表单。
-      options: OUT_TYPES
+      allowedValues: OUT_TYPES
         .filter(type => canCreateOutboundType(type, {
           inout: Boolean(canCreateInout),
           issue: Boolean(canCreateIssue),
           issueOnly,
-        }))
-        .map(type => ({ value: type, label: TYPE_LABEL[type]?.label ?? type })),
+        })),
       validate: value => isStandaloneOutboundType(value)
         ? undefined
         : t("ui.该类型必须通过专用业务流程", "该类型必须通过专用业务流程") },
@@ -350,7 +350,7 @@ export default function OutboundPage() {
       />
 
       <RightDrawer open={drawerOpen} title={editing ? t("ui.编辑出库单", "编辑出库单") : t("ui.新建出库单", "新建出库单")} onClose={closeDrawer}>
-        <CrudForm fields={FIELDS} batchRefreshKey={refreshKey} initialValues={{ ...(editing ?? {}), operator: currentOperator }} onSubmit={handleSave} onCancel={closeDrawer} loading={saving} />
+        <CrudForm transformValues={resetOutboundDestination} fields={FIELDS} batchRefreshKey={refreshKey} initialValues={{ ...(editing ?? {}), operator: currentOperator }} onSubmit={handleSave} onCancel={closeDrawer} loading={saving} />
       </RightDrawer>
 
       <ConfirmDialog open={confirmOpen} title={t("ui.确认删除", "确认删除")} message={t("ui.删除后不可恢复确认继续", "删除后不可恢复，确认继续？")}

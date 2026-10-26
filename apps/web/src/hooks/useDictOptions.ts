@@ -1,7 +1,8 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useCrud } from './useCrud';
-import { cachedGet, TTL } from '@/lib/request-cache'; // G89-P1 全表拉取去重+缓存
+import { crudApi } from '@/lib/api-client';
+import { cachedGet, TTL } from '@/lib/request-cache'; // 按字典类型去重+缓存
 import { useLanguage } from '@/contexts/LanguageContext';
 
 type DictPair = { value: string; label: string };
@@ -27,7 +28,6 @@ export const useDictOptions = (dictCode: string | string[]) => {
   const [optionPairs, setOptionPairs] = useState<DictPair[]>(cached?.optionPairs || []);
   const [loading,     setLoading]     = useState(!cached);
 
-  const { fetchRecords } = useCrud('sys_dict');
 
   useEffect(() => {
     if (_cache[cacheKey]) {
@@ -35,10 +35,19 @@ export const useDictOptions = (dictCode: string | string[]) => {
       setOptions(c.options); setCodeMap(c.codeMap); setOptionPairs(c.optionPairs);
       setLoading(false); return;
     }
-    // G89-P1：所有 DictSelect 拉的都是同一张全表，常量 key 去重+缓存——
-    //   一个含 6 个 DictSelect 的表单从 6 次全表下载降为 1 次。
-    cachedGet<DictEntry[] | null>('crud:sys_dict:all1000', TTL.dict, () => fetchRecords({ limit: 1000 }))
-      .then((dicts: DictEntry[] | null) => {
+    // Filter before the API's 1,000-row cap: an unrelated large dictionary
+    // must not hide this type. Per-type requests still share the cache.
+    let active = true;
+    Promise.allSettled(codes.map(code => cachedGet<DictEntry[] | null>(
+      `crud:sys_dict:type:${code}`, TTL.dict, async () => {
+        // Shared requests must outlive one consumer's StrictMode cleanup and
+        // must not cancel a parallel dictionary through useCrud's latest-only runner.
+        const result = await crudApi.list<DictEntry>('sys_dict', { dict_type: code, status: 'ACTIVE', limit: 1000 });
+        return Array.isArray(result) ? result : result.data;
+      },
+    ))).then(groups => {
+        if (!active) return;
+        const dicts = groups.flatMap(group => group.status === 'fulfilled' ? (group.value || []) : []);
         const merged: string[]             = [];
         const cm:     Record<string,string>= {};
         const pairs:  DictPair[]           = [];
@@ -65,12 +74,13 @@ export const useDictOptions = (dictCode: string | string[]) => {
           });
         });
         if (merged.length > 0) {
-          _cache[cacheKey] = { options: merged, codeMap: cm, optionPairs: pairs };
+          if (groups.every(group => group.status === 'fulfilled')) _cache[cacheKey] = { options: merged, codeMap: cm, optionPairs: pairs };
           setOptions(merged); setCodeMap(cm); setOptionPairs(pairs);
         }
       })
       .catch(() => {})
-      .finally(() => setLoading(false));
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cacheKey]);
 

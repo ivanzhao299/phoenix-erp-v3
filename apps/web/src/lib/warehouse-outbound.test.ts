@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   ISSUE_OUTBOUND_TYPES,
+  resetOutboundDestination,
   OUTBOUND_DESTINATIONS,
   STANDALONE_OUTBOUND_TYPES,
   canCreateOutboundType,
@@ -60,4 +61,11 @@ describe('warehouse outbound form policy', () => {
     expect(validateOutboundItem('SKU-1', { type: 'PRODUCTION_USE', item_type: 'SKU' })).toContain('只允许领用物料');
     expect(validateOutboundItem('MAT-1', { type: 'SALE', item_type: 'MATERIAL' })).toContain('产成品 SKU');
   });
+});
+
+it('clears hidden recipient values when the type or destination changes', () => {
+  const sale = { type: 'RETURN', destination_type: 'CUSTOMER', destination_customer_code: 'CUST-A', destination_code: 'stale' };
+  expect(resetOutboundDestination(sale, 'type')).toMatchObject({ destination_type: 'SUPPLIER', destination_customer_code: '', destination_code: '' });
+  expect(resetOutboundDestination({ type: 'SALE', destination_type: 'STORE', destination_customer_code: 'CUST-A' }, 'destination_type')).toMatchObject({ destination_type: 'STORE', destination_customer_code: '' });
+  expect(resetOutboundDestination(sale, 'qty')).toBe(sale);
 });

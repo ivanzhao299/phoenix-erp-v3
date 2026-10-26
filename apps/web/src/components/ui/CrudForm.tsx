@@ -57,6 +57,7 @@ export interface FormField {
   valueField?: 'code' | 'id' | 'username';                              // user/cashAccount
   onPickKeys?: Record<string, string>;                                   // 主数据自动带出：{ 目标 key: raw 字段名 }
   visibleWhen?: { field: string; values: Array<string | number> };        // 按其它字段值显隐
+  allowedValues?: readonly string[];
   allowedValuesByField?: { field: string; values: Record<string, readonly string[]> };
   validate?: (value: unknown, values: Record<string, unknown>) => string | undefined;
 }
@@ -69,6 +70,7 @@ interface CrudFormProps {
   loading?: boolean;
   submitLabel?: string;
   batchRefreshKey?: string | number;
+  transformValues?: (values: Record<string, unknown>, changedField: string) => Record<string, unknown>;
 }
 
 function buildInitValues(
@@ -91,6 +93,7 @@ export const CrudForm = memo(function CrudForm({
   loading,
   submitLabel: _submitLabel,
   batchRefreshKey,
+  transformValues,
 }: CrudFormProps) {
   const { t } = useLanguage();
   const submitLabel = _submitLabel ?? t('common.save', '保存');
@@ -114,9 +117,12 @@ export const CrudForm = memo(function CrudForm({
   }, [initKey]);
 
   const set = useCallback((key: string, val: unknown) => {
-    setValues(prev => ({ ...prev, [key]: val }));
+    setValues(prev => {
+      const next = { ...prev, [key]: val };
+      return transformValues ? transformValues(next, key) : next;
+    });
     setErrors(prev => prev[key] ? { ...prev, [key]: "" } : prev);
-  }, []);
+  }, [transformValues]);
 
   const validate = useCallback((): boolean => {
     const errs: Record<string, string> = {};
@@ -126,7 +132,7 @@ export const CrudForm = memo(function CrudForm({
         errs[f.key] = `${f.label}${t('ui.不能为空', '不能为空')}`;
         return;
       }
-      const allowed = f.allowedValuesByField?.values[String(values[f.allowedValuesByField.field] ?? '')];
+      const allowed = f.allowedValues ?? f.allowedValuesByField?.values[String(values[f.allowedValuesByField.field] ?? '')];
       if (allowed && values[f.key] && !allowed.includes(String(values[f.key]))) {
         errs[f.key] = `${f.label}${t('ui.与当前业务类型不匹配', '与当前业务类型不匹配')}`;
         return;
@@ -221,7 +227,7 @@ export const CrudForm = memo(function CrudForm({
                 onChange={v => set(field.key, v)}
                 placeholder={field.placeholder}
                 allowEmpty={!field.required}
-                allowedValues={field.allowedValuesByField?.values[String(values[field.allowedValuesByField.field] ?? '')]}
+                allowedValues={field.allowedValues ?? field.allowedValuesByField?.values[String(values[field.allowedValuesByField.field] ?? '')]}
               />
             ) : field.type === "company" ? (
               <CompanySelector

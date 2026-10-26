@@ -97,3 +97,14 @@ export function validateOutboundItem(_value: unknown, values: Record<string, unk
   }
   return undefined;
 }
+
+/** Changing the business type/destination must not retain a hidden recipient. */
+export function resetOutboundDestination(values: Record<string, unknown>, changedField: string): Record<string, unknown> {
+  if (changedField !== 'type' && changedField !== 'destination_type') return values;
+  const allowed = OUTBOUND_DESTINATIONS[String(values.type)] ?? [];
+  const destination = allowed.includes(String(values.destination_type)) ? values.destination_type : (allowed[0] ?? '');
+  return { ...values, destination_type: destination,
+    destination_house_code: '', destination_customer_code: '', destination_warehouse_code: '',
+    destination_store_code: '', department_code: '', project_code: '', receiver_username: '', destination_code: '',
+  };
+}
