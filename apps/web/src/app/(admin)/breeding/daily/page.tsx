@@ -35,6 +35,7 @@ import DictSelect from '@/components/shared-selectors/DictSelect'; // G19-A 死�
 import { useProductGrades } from '@/hooks/useProductGrades'; // G14 9 档分级
 import { ModalV2 } from '@/components/design-system/dialogs/ModalV2';
 import { cullingReasonLabel, isDailyReportHouseMissing } from '@/lib/breeding-daily';
+import { GradeQuantityInput } from '@/components/breeding/GradeQuantityInput';
 
 // 纯数字输入列（分前后两段，中间插入淘汰数+淘汰原因）
 const FIELDS_A = ['eggs', 'dirtyEggs', 'brokenEggs', 'deaths'] as const;
@@ -907,14 +908,10 @@ export default function DailyPage() {
                       <td style={{ fontWeight: 500 }}>{g.grade_name}</td>
                       <td style={{ fontFamily: 'monospace', fontSize: 12, color: 'var(--text-secondary)' }}>{g.grade_code}</td>
                       <td style={{ padding: '6px 8px', textAlign: 'right' }}>
-                        <input type="number" min={0} step={1} value={row.gradeQty[g.grade_code] ?? ''} onChange={e => {
-                          const v = e.target.value;
-                          let safe: string;
-                          if (v === '' || v === '-') safe = '';
-                          else { const n = Number(v); safe = (Number.isNaN(n) || n < 0) ? '0' : v; }
+                        <GradeQuantityInput aria-label={`${g.grade_name} · ${t('ui.数量(枚)', '数量(枚)')}`} value={row.gradeQty[g.grade_code] ?? ''} onValueChange={safe => {
                           const newGradeQty = { ...row.gradeQty, [g.grade_code]: safe };
                           setRows(rs => rs.map(r => r.id === row.id ? { ...r, gradeQty: newGradeQty } : r));
-                        }} onFocus={e => e.currentTarget.select()} className={s.inp} style={{ textAlign: 'right', width: 120, padding: '6px 8px' }} placeholder="0" />
+                        }} className={s.inp} style={{ textAlign: 'right', width: 120, padding: '6px 8px' }} placeholder="0" />
                       </td>
                     </tr>
                   ))}
