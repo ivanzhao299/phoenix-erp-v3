@@ -5,8 +5,8 @@ import { expect, it, vi } from 'vitest';
 const fetchRecords = vi.hoisted(() => vi.fn(async (_table: string, query: Record<string, unknown>) => {
   // Model unrelated rows consuming the global list cap.
   if (!query.dict_type) return Array.from({ length: 1000 }, (_, i) => ({ dict_type: 'OTHER', dict_code: String(i), status: 'ACTIVE' }));
-  return [{ dict_type: query.dict_type, dict_code: 'SALE', dict_label_zh: '字典销售', status: 'ACTIVE' },
-    { dict_type: query.dict_type, dict_code: 'OLD', dict_label_zh: '旧值', status: 'INACTIVE' }];
+  return [{ dict_type: String(query.dict_type), dict_code: 'SALE', dict_label_zh: '字典销售', status: 'ACTIVE' },
+    { dict_type: String(query.dict_type), dict_code: 'OLD', dict_label_zh: '旧值', status: 'INACTIVE' }];
 }));
 vi.mock('@/lib/api-client', () => ({ crudApi: { list: fetchRecords } }));
 vi.mock('@/contexts/LanguageContext', () => ({ useLanguage: () => ({ lang: 'zh', t: (_key: string, fallback: string) => fallback }) }));
@@ -31,7 +31,7 @@ it('keeps successful dictionaries when another type fails and does not cache a p
   let fail = true;
   fetchRecords.mockImplementation(async (_table, query) => {
     if (query.dict_type === 'FAILURE_TEST' && fail) throw Error('fixture outage');
-    return [{ dict_type: query.dict_type, dict_code: String(query.dict_type), dict_label_zh: String(query.dict_type), status: 'ACTIVE' }];
+    return [{ dict_type: String(query.dict_type), dict_code: String(query.dict_type), dict_label_zh: String(query.dict_type), status: 'ACTIVE' }];
   });
   const Consumer = () => { const { optionPairs } = useDictOptions(['SUCCESS_TEST', 'FAILURE_TEST']); return <span>{optionPairs.map(p => p.value).join(',')}</span>; };
   const host = document.createElement('div'); let root = createRoot(host);
