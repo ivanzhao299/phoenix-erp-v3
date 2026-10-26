@@ -28,6 +28,10 @@ export interface EggLedgerEntry {
   grade: string;
   qty_change: number;
   house_code: string | null;
+  house_name: string | null;
+  grade_name: string | null;
+  grade_name_en: string | null;
+  grade_name_lo: string | null;
   customer_no: string | null;
   note: string | null;
   operator: string;
@@ -71,18 +75,28 @@ export class FarmEggService {
   /** 按日期范围查询统一鸡蛋库存流水。 */
   async getLedger(startDate: string, endDate: string): Promise<EggLedgerEntry[]> {
     const scope = this.companyScope;
+    // A ledger row describes the event, not the batch's current classification.
+    // Older writers omitted the event grade/house or used retired aliases; retain
+    // the standardized batch fallback for those rows, without rewriting history.
+    const eventGrade = `COALESCE(event_grade.grade_code, NULLIF(b.grade_code_std, ''), NULLIF(b.quality_grade, ''), NULLIF(l.quality_grade, ''))`;
+    const eventHouse = `COALESCE(NULLIF(l.house_code, ''), CASE
+      WHEN b.collection_batch_ref LIKE 'HOUSE-%' THEN NULLIF(SUBSTRING(b.collection_batch_ref FROM 7), '')
+    END)`;
     return this.ds.query<EggLedgerEntry[]>(
       `SELECT l.id, COALESCE(l.log_date, l.created_at::date)::text AS log_date,
-              l.change_type, COALESCE(b.grade_code_std, b.quality_grade, l.quality_grade) AS grade,
-              l.qty_change, l.house_code, h.house_name,
+              l.change_type, ${eventGrade} AS grade,
+              l.qty_change, ${eventHouse} AS house_code, h.house_name,
               g.grade_name, g.grade_name_en, g.grade_name_lo,
               l.customer_no, l.note, l.operator,
               l.created_at::text
        FROM inv_ledger l
        JOIN inv_batches b ON b.batch_no = l.batch_no
-       LEFT JOIN brd_houses h ON h.house_code = l.house_code
+       LEFT JOIN product_grades event_grade ON event_grade.grade_code = NULLIF(l.quality_grade, '')
+         AND event_grade.status <> 'DEPRECATED'
+       LEFT JOIN brd_houses h ON h.house_code = ${eventHouse}
+         AND EXISTS (SELECT 1 FROM brd_farms f WHERE f.farm_code = h.farm_code AND f.company_code = b.company_code)
        LEFT JOIN product_grades g
-         ON g.grade_code = COALESCE(b.grade_code_std, b.quality_grade, l.quality_grade)
+         ON g.grade_code = ${eventGrade}
        WHERE b.product_code LIKE 'PRD-EGG-%'
          AND COALESCE(l.log_date, b.egg_date, l.created_at::date) BETWEEN $1 AND $2
          AND ($3::boolean OR b.company_code = ANY($4::text[]))
