@@ -42,7 +42,7 @@ for (const statuses of [[201, 400], [400, 201], [201, 201], [400, 400]]) {
     if (path === '/api/v2/inventory/production-inbound') {
       const body = route.request().postDataJSON();
       inboundItems = body.items;
-      return route.fulfill({ json: { mode: 'TEMP_PRODUCTION_INBOUND', batches: body.items.map((item: { grade: string }, index: number) => ({ batchNo: `fixture-${index}`, grade: item.grade })), totalInbound: body.items.reduce((sum: number, item: { qty: number }) => sum + item.qty, 0) } });
+      return route.fulfill({ json: { mode: 'TEMP_PRODUCTION_INBOUND', batches: body.items.map((item: { grade: string; qty: number }, index: number) => ({ batchNo: `fixture-${index}`, grade: item.grade, qty: item.qty })), totalInbound: body.items.reduce((sum: number, item: { qty: number }) => sum + item.qty, 0) } });
     }
     throw new Error(`Unexpected mutation ${path}`);
   });

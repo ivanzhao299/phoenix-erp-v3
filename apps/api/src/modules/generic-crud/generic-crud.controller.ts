@@ -16,6 +16,7 @@ import {
   GoneException,
 } from '@nestjs/common';
 import { ClsService } from 'nestjs-cls';
+import { DAILY_EXPORT_SNAPSHOT, DAILY_EXPORT_MAX_ROWS } from './daily-export-policy';
 import { GenericCrudService } from './generic-crud.service';
 import { AuthSubcodeGuard } from '../../common/guards/auth-subcode.guard';
 import { ALLOWED_TABLES, BREEDING_SCOPED_TABLES, BreedingScopedTable } from './crud.constants';
@@ -433,6 +434,31 @@ export class GenericCrudController {
     }
 
     return { task_no: taskNo, items: [item] };
+  }
+
+  /** Dedicated export gate; reads retain the exact list API's RBAC and DataScope. */
+  @Get('brd_daily_logs/export')
+  @Header('Cache-Control', 'no-store')
+  async exportDailyLogs(@Query() query: Record<string, unknown>, @Req() req: { user?: { permissions?: string[]; username?: string } }) {
+    const permissions: string[] = req.user?.permissions || [];
+    if (req.user?.username !== 'admin' && !hasPerm(permissions, 'MENU_FARM_DAILY', 'X')) {
+      throw new ForbiddenException('MENU_FARM_DAILY:X required');
+    }
+    const date = query.log_date;
+    if (typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date)
+      || !Number.isFinite(Date.parse(`${date}T00:00:00.000Z`))
+      || new Date(`${date}T00:00:00.000Z`).toISOString().slice(0, 10) !== date) {
+      throw new BadRequestException('log_date must be a valid YYYY-MM-DD calendar date');
+    }
+    if (query.house_code != null && typeof query.house_code !== 'string') {
+      throw new BadRequestException('house_code must be a string');
+    }
+    const result = await this.findAll('brd_daily_logs', {
+      log_date: date, [DAILY_EXPORT_SNAPSHOT]: true,
+      ...(query.house_code ? { house_code: query.house_code } : {}),
+    }, req);
+    if (result.data.length > DAILY_EXPORT_MAX_ROWS) throw new BadRequestException('EXPORT_TOO_LARGE');
+    return result;
   }
 
   @Get(':table')
