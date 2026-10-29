@@ -132,6 +132,27 @@ describe('FarmService', () => {
       const sql = manager.query.mock.calls[0][0] as string;
       const values = manager.query.mock.calls[0][1] as unknown[];
       expect(values[sql.match(/\(([^)]+)\) VALUES/)![1].split(',').indexOf('"eggs_produced"')]).toBe(150);
+      expect(manager.query.mock.calls.some(([query]) => String(query).includes("'FARM_IN'"))).toBe(false);
+    });
+
+    it('skips the legacy FARM_IN ledger when an explicit total accompanies grades', async () => {
+      const { entityManager, manager, svc } = buildSvc();
+      entityManager.query.mockResolvedValueOnce([
+        { grade_code: 'GRADE_1' }, { grade_code: 'GRADE_2' },
+      ]);
+      manager.query.mockResolvedValue([]);
+
+      await svc.submitBreedingDailyLog({
+        log_date: '2026-07-16',
+        shift: 'MORNING',
+        house_code: 'H001',
+        eggs_produced: 200,
+        eggs_by_grade: { GRADE_1: 100, GRADE_2: 100 },
+        mortality_qty: 0,
+        opening_qty: 1000,
+      });
+
+      expect(manager.query.mock.calls.some(([query]) => String(query).includes("'FARM_IN'"))).toBe(false);
     });
 
     it('binds ownership from the house and accepts any farm in the guarded scope', async () => {
