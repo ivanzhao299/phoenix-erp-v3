@@ -188,9 +188,11 @@ export class FarmService {
 
     // 2026-06-06: 若提供了 eggs_by_grade，自动派生 eggs_produced/dirty_eggs/broken_eggs
     // 保持向后兼容；权威字段是 eggs_by_grade（与 product_grades 同源）。
+    let hasGradeBreakdown = false;
     if (body.eggs_by_grade && typeof body.eggs_by_grade === 'object') {
       const ebg = body.eggs_by_grade as Record<string, unknown>;
       const num = (k: string) => Math.max(0, Number(ebg[k]) || 0);
+      hasGradeBreakdown = Object.values(ebg).some(value => Number(value) > 0);
       // G67 已将可售编码从 XL/L/M/S/XS 切换为 GRADE_1..5；以 ACTIVE
       // 等级主数据判断可售档，避免旧硬编码将日报总产蛋数算成 0。
       const saleableRows: Array<{ grade_code: string }> = await this.entityManager.query(
@@ -330,8 +332,9 @@ export class FarmService {
         }
       }
 
-      // A4: inv_ledger 记账 — 无 PRD-EGG 批次时不阻塞日报，只记 warning
-      if (eggs > 0) {
+      // A4: 无分级明细的旧日报才写 FARM_IN；有分级时由用户确认后的
+      // production-inbound 统一写库存，避免同一批蛋被日报和分级各记一次。
+      if (eggs > 0 && !hasGradeBreakdown) {
         try {
           const batches = await manager.query(
             `SELECT batch_no FROM inv_batches WHERE product_code LIKE 'PRD-EGG%' ORDER BY created_at DESC LIMIT 1`,

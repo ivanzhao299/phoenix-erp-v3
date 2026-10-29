@@ -36,7 +36,13 @@ import { useProductGrades } from '@/hooks/useProductGrades'; // G14 9 档分级
 import { ModalV2 } from '@/components/design-system/dialogs/ModalV2';
 import { DailyGradeDetails } from '@/components/breeding/DailyGradeDetails';
 import { DailyReportExport } from '@/components/breeding/DailyReportExport';
-import { cullingReasonLabel, isDailyReportHouseMissing } from '@/lib/breeding-daily';
+import {
+  cullingReasonLabel,
+  dailyReportEggTotal,
+  gradeQuantityTotal,
+  hasDailyReportInput,
+  isDailyReportHouseMissing,
+} from '@/lib/breeding-daily';
 import { readProductionInboundResult } from '@/lib/production-inbound-result';
 import { GradeQuantityInput } from '@/components/breeding/GradeQuantityInput';
 
@@ -276,15 +282,14 @@ export default function DailyPage() {
     [field]: val
   } : r));
   // G14：9 档 sum 计算
-  const gradeSumOf = (gradeQty: Record<string, string>): number =>
-    Object.values(gradeQty || {}).reduce((s, v) => s + (Number(v) || 0), 0);
+  const gradeSumOf = gradeQuantityTotal;
 
   const handleSubmit = async () => {
     if (isDailyReportHouseMissing(selectedHouse)) {
       toast.error(t('ui.请先选择鸡舍后再提交', '请先选择鸡舍后再提交'));
       return;
     }
-    const hasData = rows.some(r => r.eggs || r.deaths || r.feedKg || r.dirtyEggs || r.brokenEggs || r.waterL);
+    const hasData = rows.some(hasDailyReportInput);
     if (!hasData) {
       toast.error(t('ui.请至少录入一项数据（产蛋数、死淘或饲料用量）后再提交', '请至少录入一项数据（产蛋数、死淘或饲料用量）后再提交'));
       return;
@@ -338,6 +343,7 @@ export default function DailyPage() {
         const n = Number(qty) || 0;
         if (n > 0) eggsByGrade[code] = n;
       }
+      const hasGradeData = Object.keys(eggsByGrade).length > 0;
       const payload: Record<string, unknown> = {
         house_code: selectedHouse,
         flock_no: flockByHouse[selectedHouse] || selectedHouse,
@@ -351,7 +357,8 @@ export default function DailyPage() {
         mortality_reason: r.mortalityReason || null,   // G19-A
         elimination_qty: Number(r.elimination) || 0,
         culling_reason: r.elimReason || null,
-        eggs_produced: Number(r.eggs) || 0,
+        // Let the API derive the total from eggs_by_grade when the total field is blank.
+        eggs_produced: dailyReportEggTotal(r.eggs, hasGradeData),
         dirty_eggs: Number(r.dirtyEggs) || 0,
         broken_eggs: Number(r.brokenEggs) || 0,
         temp: Number(r.temp) || 25,
@@ -360,7 +367,7 @@ export default function DailyPage() {
         operator: operatorName,
       };
       // G14：携带 9 档分级 JSON，让生产终端可一键消费
-      if (Object.keys(eggsByGrade).length > 0) payload.eggs_by_grade = eggsByGrade;
+      if (hasGradeData) payload.eggs_by_grade = eggsByGrade;
       const res = await fetch(`${API_BASE}/api/v3/farm/daily-logs`, {
         method: 'POST',
         headers: {
@@ -379,7 +386,7 @@ export default function DailyPage() {
       }
       return r.shift;
     };
-    const rowsToSubmit = rows.filter(r => r.eggs || r.deaths || r.feedKg || r.dirtyEggs || r.brokenEggs || r.waterL);
+    const rowsToSubmit = rows.filter(hasDailyReportInput);
     const results = await Promise.allSettled(rowsToSubmit.map(submitOne));
     const fulfilled = results.filter(r => r.status === 'fulfilled') as PromiseFulfilledResult<string>[];
     const rejected = results.map((r, i) => ({
