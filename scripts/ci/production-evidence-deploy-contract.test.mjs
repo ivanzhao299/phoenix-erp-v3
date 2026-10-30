@@ -39,7 +39,7 @@ test('background deployment supervisor is reserved for API-only no-migration rel
   const deploySection = workflow.slice(workflow.indexOf('name: Deploy via SSH'));
   assert.match(deploySection, /if \[ "\$DEPLOY_MODE" = "api" \] && \[ "\$BUILD_API" = true \] && \[ "\$BUILD_WEB" = false \] && \[ "\$RUN_MIG" = false \]/);
   assert.match(deploySection, /full\/migration releases use the/);
-  assert.match(deploySection, /if \[ -n "\$\{BACKGROUND_STAGE:-\}" \] && \[ -f "\$BACKGROUND_STAGE\/background-deployment-session\.mjs" \]/);
+  assert.match(deploySection, /if \[ -n "\$\{BACKGROUND_STAGE:-\}" \] && \[ -f "\$BACKGROUND_STAGE\/background-deployment-session\.mjs" \]; then node/);
   assert.match(deploySection, /test "\$\(git rev-parse origin\/main\)" = "\$TARGET_SHA"/);
 });
 

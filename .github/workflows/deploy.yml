@@ -880,11 +880,7 @@ jobs:
             fi
             assert_target_main() {
               if [ "$BUILD_API" = true ]; then
-                if [ -n "${BACKGROUND_STAGE:-}" ] && [ -f "$BACKGROUND_STAGE/background-deployment-session.mjs" ]; then
-                  node "$BACKGROUND_STAGE/background-deployment-session.mjs" check-main
-                else
-                  test "$(git rev-parse origin/main)" = "$TARGET_SHA"
-                fi
+                if [ -n "${BACKGROUND_STAGE:-}" ] && [ -f "$BACKGROUND_STAGE/background-deployment-session.mjs" ]; then node "$BACKGROUND_STAGE/background-deployment-session.mjs" check-main; else test "$(git rev-parse origin/main)" = "$TARGET_SHA"; fi
               fi
             }
             perform_deployment() {
