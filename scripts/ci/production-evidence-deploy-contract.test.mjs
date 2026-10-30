@@ -35,6 +35,12 @@ test('approved floor promotion is API-only and fail-closed before PRE on migrati
   assert.match(apiDecision, /run_mig=false/);
 });
 
+test('background deployment supervisor is reserved for API-only no-migration releases', () => {
+  const deploySection = workflow.slice(workflow.indexOf('name: Deploy via SSH'));
+  assert.match(deploySection, /if \[ "\$DEPLOY_MODE" = "api" \] && \[ "\$BUILD_API" = true \] && \[ "\$BUILD_WEB" = false \] && \[ "\$RUN_MIG" = false \]/);
+  assert.match(deploySection, /full\/migration releases use the/);
+});
+
 test('startup evidence contract captures both Docker streams and preserves fail-closed limits', () => {
   const helper = fs.readFileSync('scripts/ops/production-deployment-evidence.mjs', 'utf8');
   assert.match(helper, /spawnSync\('docker'/);

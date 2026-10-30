@@ -1133,10 +1133,12 @@ jobs:
             echo "✅ Application evidence complete; background release still requires owner verification"
             }
 
-            if [ "$BUILD_API" = true ]; then
-              # Stage the exact reviewed target before any floor/code/container
+            if [ "$DEPLOY_MODE" = "api" ] && [ "$BUILD_API" = true ] && [ "$BUILD_WEB" = false ] && [ "$RUN_MIG" = false ]; then
+              # Stage the exact reviewed target before an API-only floor/code
               # change. The supervisor retains a real PostgreSQL lock session
-              # and FD9 across the whole body; a legacy API cannot claim drain.
+              # and FD9 across the whole body; full/migration releases use the
+              # ordinary deployment body because they intentionally replace
+              # both services or apply the migration path.
               BACKGROUND_STAGE="$STATE_DIR/background-stage-${DEPLOY_RUN_ID}"
               test ! -e "$BACKGROUND_STAGE"
               mkdir -m 700 "$BACKGROUND_STAGE"
