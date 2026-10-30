@@ -125,11 +125,13 @@ jobs:
             echo "PRODUCTION_EVIDENCE_PROGRAM_SHA256=$(sha256sum scripts/ops/readonly-production-evidence.mjs | cut -d' ' -f1)" >> "$GITHUB_ENV"
           fi
           if [ "$OPERATION" = recovery ] || [ "$OPERATION" = audit ]; then
-            RECOVERY_TAR="$(mktemp)"
-            tar -czf "$RECOVERY_TAR" -C scripts/ops production-deployment-recovery.mjs production-deployment-evidence.mjs production-config-guard.mjs production-deployment-state.mjs production-atomic-state.mjs production-trusted-paths.mjs capture-production-runtime.mjs update-managed-chanjet-env.mjs chanjet-readonly-policy.mjs chanjet-readonly-production-audit.mjs production-config-contract.json chanjet-admission-schema-receipt.mjs production-maintenance-admission.mjs production-maintenance-receipts.mjs production-maintenance-transition.mjs production-maintenance-owner-unknown.mjs production-maintenance-reconciliation.mjs production-maintenance-owner-authority.mjs background-control-legacy-transition.mjs background-control-manifest.mjs
-            echo "RECOVERY_BUNDLE_B64=$(base64 -w0 "$RECOVERY_TAR")" >> "$GITHUB_ENV"
-            echo "RECOVERY_BUNDLE_SHA256=$(sha256sum "$RECOVERY_TAR" | cut -d' ' -f1)" >> "$GITHUB_ENV"
-            rm -f "$RECOVERY_TAR"
+            if [ "$OPERATION" = audit ]; then
+              RECOVERY_TAR="$(mktemp)"
+              tar -czf "$RECOVERY_TAR" -C scripts/ops production-deployment-recovery.mjs production-deployment-evidence.mjs production-config-guard.mjs production-deployment-state.mjs production-atomic-state.mjs production-trusted-paths.mjs capture-production-runtime.mjs update-managed-chanjet-env.mjs chanjet-readonly-policy.mjs chanjet-readonly-production-audit.mjs production-config-contract.json chanjet-admission-schema-receipt.mjs production-maintenance-admission.mjs production-maintenance-receipts.mjs production-maintenance-transition.mjs production-maintenance-owner-unknown.mjs production-maintenance-reconciliation.mjs production-maintenance-owner-authority.mjs background-control-legacy-transition.mjs background-control-manifest.mjs
+              echo "RECOVERY_BUNDLE_B64=$(base64 -w0 "$RECOVERY_TAR")" >> "$GITHUB_ENV"
+              echo "RECOVERY_BUNDLE_SHA256=$(sha256sum "$RECOVERY_TAR" | cut -d' ' -f1)" >> "$GITHUB_ENV"
+              rm -f "$RECOVERY_TAR"
+            fi
             if [ -n "$STARTUP_ERROR_RECEIPT" ]; then
               echo "RECOVERY_STARTUP_RECEIPT_B64=$(printf '%s' "$STARTUP_ERROR_RECEIPT" | base64 -w0)" >> "$GITHUB_ENV"
               echo "RECOVERY_STARTUP_RECEIPT_SHA256=$(printf '%s' "$STARTUP_ERROR_RECEIPT" | sha256sum | cut -d' ' -f1)" >> "$GITHUB_ENV"
@@ -216,17 +218,18 @@ jobs:
               AUDIT_STAGE=COMPLETE
             elif [ "$CHANJET_CONFIG_OPERATION" = recovery ]; then
               # One-time Case A recovery of the bound failed transaction. The
-              # reviewed bundle is staged under the trusted state directory
-              # (recovery mutates control state; staging follows the audit
-              # precedent). RECOVERY_EXECUTE=true exists only on this path.
+              # recovery entrance is read from the exact reviewed checkout so
+              # the whole tarball is not placed in ssh-action's environment
+              # (large base64 envs exceed the runner exec argument limit).
               AUDIT_STAGE=RECOVERY_BUNDLE
               RECOVERY_STAGE="$STATE_DIR/recovery-bundle-${DEPLOY_RUN_ID}"
               test ! -e "$RECOVERY_STAGE"
               mkdir -m 700 "$RECOVERY_STAGE"
-              printf '%s' "$RECOVERY_BUNDLE_B64" | base64 -d > "$RECOVERY_STAGE/bundle.tgz"
-              chmod 600 "$RECOVERY_STAGE/bundle.tgz"
-              test "$(sha256sum "$RECOVERY_STAGE/bundle.tgz" | cut -d' ' -f1)" = "$RECOVERY_BUNDLE_SHA256"
-              tar -xzf "$RECOVERY_STAGE/bundle.tgz" -C "$RECOVERY_STAGE"
+              test "$(git rev-parse HEAD)" = "$TARGET_SHA"
+              for helper in production-deployment-recovery.mjs production-deployment-evidence.mjs production-config-guard.mjs production-deployment-state.mjs production-atomic-state.mjs production-trusted-paths.mjs capture-production-runtime.mjs update-managed-chanjet-env.mjs chanjet-readonly-policy.mjs chanjet-readonly-production-audit.mjs production-config-contract.json chanjet-admission-schema-receipt.mjs production-maintenance-admission.mjs production-maintenance-receipts.mjs production-maintenance-transition.mjs production-maintenance-owner-unknown.mjs production-maintenance-reconciliation.mjs production-maintenance-owner-authority.mjs background-control-legacy-transition.mjs background-control-manifest.mjs; do
+                git show "$TARGET_SHA:scripts/ops/$helper" > "$RECOVERY_STAGE/$helper"
+                chmod 600 "$RECOVERY_STAGE/$helper"
+              done
               AUDIT_STAGE=RECOVERY
               RECOVERY_EXECUTE=true RECOVERY_TARGET_RUN_ID="$BOUND_RUN_ID" RECOVERY_APPROVED_SHA="$RECOVERY_TARGET_SHA" RECOVERY_PREVIOUS_FLOOR_SHA="$RECOVERY_PREVIOUS_FLOOR_SHA" RECOVERY_RUN_ID="$DEPLOY_RUN_ID" \
                 node "$RECOVERY_STAGE/production-deployment-recovery.mjs"
