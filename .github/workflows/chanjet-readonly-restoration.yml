@@ -227,7 +227,7 @@ jobs:
               mkdir -m 700 "$RECOVERY_STAGE"
               test "$(git rev-parse HEAD)" = "$TARGET_SHA"
               for helper in production-deployment-recovery.mjs production-deployment-evidence.mjs production-config-guard.mjs production-deployment-state.mjs production-atomic-state.mjs production-trusted-paths.mjs capture-production-runtime.mjs update-managed-chanjet-env.mjs chanjet-readonly-policy.mjs chanjet-readonly-production-audit.mjs production-config-contract.json chanjet-admission-schema-receipt.mjs production-maintenance-admission.mjs production-maintenance-receipts.mjs production-maintenance-transition.mjs production-maintenance-owner-unknown.mjs production-maintenance-reconciliation.mjs production-maintenance-owner-authority.mjs background-control-legacy-transition.mjs background-control-manifest.mjs; do
-                git show "$TARGET_SHA:scripts/ops/$helper" > "$RECOVERY_STAGE/$helper"
+                git show "$CANDIDATE_MAIN_SHA:scripts/ops/$helper" > "$RECOVERY_STAGE/$helper"
                 chmod 600 "$RECOVERY_STAGE/$helper"
               done
               AUDIT_STAGE=RECOVERY
