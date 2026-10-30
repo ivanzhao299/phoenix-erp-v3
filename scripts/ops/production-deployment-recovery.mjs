@@ -378,8 +378,10 @@ export function assessRecovery(bundle, context) {
   if (!deployRecord || deployRecord.version !== 3 || deployRecord.candidates?.api?.revision !== context.approvedSha
     || !Array.isArray(deployRecord.migrationPaths) || deployRecord.migrationPaths.length || deployRecord.target !== context.approvedSha) reasons.push('DEPLOY_RECORD_SHAPE');
   if (deployRecord) {
-    const expectedOutcome = phase === 'DEPLOY_WRITTEN' ? 'SUCCESS' : 'SWITCHING';
-    if (deployRecord.outcome !== expectedOutcome) reasons.push('DEPLOY_RECORD_OUTCOME_PHASE_MISMATCH');
+    const expectedOutcomes = phase === 'DEPLOY_WRITTEN' ? ['SUCCESS'] : ['SWITCHING', 'ROLLING_BACK'];
+    if (!expectedOutcomes.includes(deployRecord.outcome)) reasons.push('DEPLOY_RECORD_OUTCOME_PHASE_MISMATCH');
+    if (phase !== 'DEPLOY_WRITTEN' && deployRecord.outcome === 'ROLLING_BACK'
+      && (deployRecord.switched?.api !== true || deployRecord.switched?.web !== false)) reasons.push('ROLLBACK_SCOPE_MISMATCH');
     if (phase === 'DEPLOY_WRITTEN' && !deepEqual(deployRecord, archive?.plan?.deployRecord)) reasons.push('DEPLOY_RECORD_NOT_RECOVERED_PLAN');
   }
   if (deployRecord && !expired(deployRecord)) reasons.push('TRANSACTION_NOT_EXPIRED');
@@ -537,10 +539,17 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       // Legacy paths retain their existing receipt/file validation behavior.
       const readEvidence = context.targetRunId === COMPLETE_ABORT_TRANSACTION.runId
         ? secureJson : file => JSON.parse(fs.readFileSync(file, 'utf8'));
+      const readEvidenceFile = (name, file) => {
+        try { return readEvidence(file); }
+        catch (error) {
+          if (error?.code === 'ENOENT') throw Object.assign(new Error(`DEPLOYMENT_RECOVERY=HOLD_EVIDENCE_FILE_MISSING_${name}`), { code: `DEPLOYMENT_RECOVERY=HOLD_EVIDENCE_FILE_MISSING_${name}` });
+          throw error;
+        }
+      };
       const evidence = deployRecord?.evidence ? {
-        pre: readEvidence(deployRecord.evidence.pre),
-        post: readEvidence(deployRecord.evidence.post),
-        startup: readEvidence(deployRecord.evidence.log),
+        pre: readEvidenceFile('PRE', deployRecord.evidence.pre),
+        post: readEvidenceFile('POST', deployRecord.evidence.post),
+        startup: readEvidenceFile('STARTUP', deployRecord.evidence.log),
       } : null;
       // Sanitized receipt (base64 payload; sha256 over the decoded bytes) gates
       // the single benign-startup-error transaction. Transport hash mismatch is

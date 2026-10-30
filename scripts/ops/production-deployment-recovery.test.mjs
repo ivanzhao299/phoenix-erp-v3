@@ -56,6 +56,12 @@ test('the real run 38031441639-1 post-failure shape is recovery-eligible', () =>
   const assessment = assessRecovery(validBundle(), context);
   assert.deepEqual(assessment, { eligible: true, reasons: [], resumeFrom: null });
 });
+test('an API-only rollback hold remains eligible for forward recovery', () => {
+  const bundle = validBundle({ deployRecord: { ...validBundle().deployRecord, outcome: 'ROLLING_BACK', switched: { api: true, web: false } } });
+  assert.deepEqual(assessRecovery(bundle, context), { eligible: true, reasons: [], resumeFrom: null });
+  const wrongScope = validBundle({ deployRecord: { ...validBundle().deployRecord, outcome: 'ROLLING_BACK', switched: { api: true, web: true } } });
+  assert.equal(assessRecovery(wrongScope, context).reasons.includes('ROLLBACK_SCOPE_MISMATCH'), true);
+});
 test('RECOVERY_RUN_ID is mandatory and bound', () => {
   assert.equal(assessRecovery(validBundle(), { ...context, recoveryRunId: '' }).reasons.includes('BINDING_RECOVERY_RUN_ID'), true);
   assert.equal(assessRecovery(validBundle(), { ...context, recoveryRunId: 'not-a-run' }).reasons.includes('BINDING_RECOVERY_RUN_ID'), true);
