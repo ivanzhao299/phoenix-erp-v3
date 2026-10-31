@@ -22,6 +22,10 @@ const git = args => execFileSync('git', ['-c', `safe.directory=${root}`, '-c', '
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   try {
+    for (const name of ['floor.json', 'active.json', 'mutation.lock']) {
+      const stat = fs.lstatSync(path.join(stateDirectory, name));
+      console.error(`RUNTIME_PIN_STATE_META=${name}:uid=${stat.uid}:mode=${(stat.mode & 0o7777).toString(8)}:nlink=${stat.nlink}:type=${stat.isFile() ? 'file' : stat.isDirectory() ? 'directory' : 'other'}`);
+    }
     verifyContext(root, stateDirectory);
     if (!/^[a-f0-9]{40}$/.test(targetSha) || !/^\d+$/.test(runId)) hold('INPUT');
     if (targetSha !== git(['rev-parse', 'HEAD'])) hold('CHECKOUT');
