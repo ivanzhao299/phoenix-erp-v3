@@ -69,6 +69,14 @@ jobs:
             set +x
             cd "$DEPLOY_PATH"
             git_safe() { command git -c "safe.directory=$DEPLOY_PATH" -c core.hooksPath=/dev/null "$@"; }
+            test "$(git_safe branch --show-current)" = main
+            test -z "$(git_safe status --porcelain --untracked-files=all)"
+            CURRENT_SHA="$(git_safe rev-parse HEAD)"
+            if [ "$CURRENT_SHA" != "$TARGET_SHA" ]; then
+              git_safe fetch --no-tags origin main
+              test "$(git_safe rev-parse FETCH_HEAD)" = "$TARGET_SHA"
+              git_safe merge --ff-only "$TARGET_SHA"
+            fi
             test "$(git_safe rev-parse HEAD)" = "$TARGET_SHA"
             test "$(git_safe ls-remote origin refs/heads/main | cut -f1)" = "$TARGET_SHA"
             test -z "$(git_safe status --porcelain --untracked-files=all)"
