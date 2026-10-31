@@ -464,7 +464,7 @@ export function planRecoveredState(deployRecord, marker, { recoveryRunId, recove
       ...deployRecord, outcome: 'SUCCESS',
       recovery: {
         schema: RECOVERY_SCHEMA, recoveryRunId, recoveredAt,
-        originalOutcome: 'SWITCHING', markerStartedAt: marker.startedAt, markerExpiresAt: marker.expiresAt,
+        originalOutcome: 'SWITCHING', markerStartedAt: marker?.startedAt ?? null, markerExpiresAt: marker?.expiresAt ?? null,
         startupResult, classification, receiptSha256,
         forwardFinalized: true, imageRollback: 'INELIGIBLE_PRE_FLOOR_API',
       },

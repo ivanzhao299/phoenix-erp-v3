@@ -56,6 +56,11 @@ test('the real run 38031441639-1 post-failure shape is recovery-eligible', () =>
   const assessment = assessRecovery(validBundle(), context);
   assert.deepEqual(assessment, { eligible: true, reasons: [], resumeFrom: null });
 });
+test('recovery provenance tolerates a marker already cleared by rollback cleanup', () => {
+  const plan = planRecoveredState(validBundle().__planBase.deployRecord, null, { recoveryRunId: context.recoveryRunId, recoveredAt: '2026-10-12T03:00:00.000Z' });
+  assert.equal(plan.deployRecord.recovery.markerStartedAt, null);
+  assert.equal(plan.deployRecord.recovery.markerExpiresAt, null);
+});
 test('an API-only rollback hold remains eligible for forward recovery', () => {
   const bundle = validBundle({ deployRecord: { ...validBundle().deployRecord, outcome: 'ROLLING_BACK', switched: { api: true, web: false } } });
   assert.deepEqual(assessRecovery(bundle, context), { eligible: true, reasons: [], resumeFrom: null });
