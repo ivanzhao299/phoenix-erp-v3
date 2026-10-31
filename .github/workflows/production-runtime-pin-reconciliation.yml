@@ -68,12 +68,13 @@ jobs:
             set -Eeuo pipefail
             set +x
             cd "$DEPLOY_PATH"
-            test "$(git rev-parse HEAD)" = "$TARGET_SHA"
-            test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$TARGET_SHA"
-            test -z "$(git status --porcelain --untracked-files=all)"
+            git_safe() { command git -c "safe.directory=$DEPLOY_PATH" -c core.hooksPath=/dev/null "$@"; }
+            test "$(git_safe rev-parse HEAD)" = "$TARGET_SHA"
+            test "$(git_safe ls-remote origin refs/heads/main | cut -f1)" = "$TARGET_SHA"
+            test -z "$(git_safe status --porcelain --untracked-files=all)"
             STAGE="/var/lib/phoenix-erp/production-deployment-state/runtime-pin-reconcile-${REPAIR_RUN_ID}"
             test ! -e "$STAGE"
             mkdir -m 700 "$STAGE"
-            git show "$TARGET_SHA:scripts/ops/reconcile-production-runtime-pins.mjs" > "$STAGE/reconcile.mjs"
+            git_safe show "$TARGET_SHA:scripts/ops/reconcile-production-runtime-pins.mjs" > "$STAGE/reconcile.mjs"
             chmod 600 "$STAGE/reconcile.mjs"
             TARGET_SHA="$TARGET_SHA" EXPECTED_FLOOR_SHA="$EXPECTED_FLOOR_SHA" REPAIR_RUN_ID="$REPAIR_RUN_ID" node "$STAGE/reconcile.mjs"

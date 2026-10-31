@@ -18,13 +18,14 @@ const stateDirectory = CONTRACT.stateDirectory;
 const targetSha = process.env.TARGET_SHA || '';
 const expectedFloorSha = process.env.EXPECTED_FLOOR_SHA || '';
 const runId = process.env.REPAIR_RUN_ID || '';
+const git = args => execFileSync('git', ['-c', `safe.directory=${root}`, '-c', 'core.hooksPath=/dev/null', ...args], { cwd: root, encoding: 'utf8' }).trim();
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   try {
     verifyContext(root, stateDirectory);
     if (!/^[a-f0-9]{40}$/.test(targetSha) || !/^\d+$/.test(runId)) hold('INPUT');
-    if (targetSha !== (execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim())) hold('CHECKOUT');
-    if (targetSha !== (execFileSync('git', ['ls-remote', 'origin', 'refs/heads/main'], { cwd: root, encoding: 'utf8' }).split(/\s/)[0])) hold('REMOTE_MAIN');
+    if (targetSha !== git(['rev-parse', 'HEAD'])) hold('CHECKOUT');
+    if (targetSha !== git(['ls-remote', 'origin', 'refs/heads/main']).split(/\s/)[0]) hold('REMOTE_MAIN');
     const floor = secureJson(path.join(stateDirectory, 'floor.json'));
     const active = secureJson(path.join(stateDirectory, 'active.json'));
     if (floor.version !== 3 || floor.phase !== 'READY' || floor.floorSha !== expectedFloorSha || floor.chanjetPolicy !== 'HOLD') hold('FLOOR');
