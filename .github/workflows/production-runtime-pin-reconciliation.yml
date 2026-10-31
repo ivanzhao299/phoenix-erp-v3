@@ -83,6 +83,8 @@ jobs:
             STAGE="/var/lib/phoenix-erp/production-deployment-state/runtime-pin-reconcile-${REPAIR_RUN_ID}"
             test ! -e "$STAGE"
             mkdir -m 700 "$STAGE"
-            git_safe show "$TARGET_SHA:scripts/ops/reconcile-production-runtime-pins.mjs" > "$STAGE/reconcile.mjs"
-            chmod 600 "$STAGE/reconcile.mjs"
+            for helper in reconcile-production-runtime-pins.mjs production-config-guard.mjs production-config-contract.json production-atomic-state.mjs production-trusted-paths.mjs capture-production-runtime.mjs update-managed-chanjet-env.mjs chanjet-readonly-policy.mjs; do
+              git_safe show "$TARGET_SHA:scripts/ops/$helper" > "$STAGE/$helper"
+              chmod 600 "$STAGE/$helper"
+            done
             TARGET_SHA="$TARGET_SHA" EXPECTED_FLOOR_SHA="$EXPECTED_FLOOR_SHA" REPAIR_RUN_ID="$REPAIR_RUN_ID" node "$STAGE/reconcile.mjs"
