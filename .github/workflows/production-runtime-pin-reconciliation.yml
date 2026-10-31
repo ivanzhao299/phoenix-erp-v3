@@ -87,4 +87,4 @@ jobs:
               git_safe show "$TARGET_SHA:scripts/ops/$helper" > "$STAGE/$helper"
               chmod 600 "$STAGE/$helper"
             done
-            TARGET_SHA="$TARGET_SHA" EXPECTED_FLOOR_SHA="$EXPECTED_FLOOR_SHA" REPAIR_RUN_ID="$REPAIR_RUN_ID" node "$STAGE/reconcile.mjs"
+            TARGET_SHA="$TARGET_SHA" EXPECTED_FLOOR_SHA="$EXPECTED_FLOOR_SHA" REPAIR_RUN_ID="$REPAIR_RUN_ID" node "$STAGE/reconcile-production-runtime-pins.mjs"
