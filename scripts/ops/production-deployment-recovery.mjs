@@ -551,8 +551,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       const readEvidenceFile = (name, file) => {
         try { return readEvidence(file); }
         catch (error) {
-          if (error?.code === 'ENOENT' && name === 'POST') return null;
-          if (error?.code === 'ENOENT') throw Object.assign(new Error(`DEPLOYMENT_RECOVERY=HOLD_EVIDENCE_FILE_MISSING_${name}`), { code: `DEPLOYMENT_RECOVERY=HOLD_EVIDENCE_FILE_MISSING_${name}` });
+          if (error?.code === 'ENOENT') return null;
           throw error;
         }
       };
