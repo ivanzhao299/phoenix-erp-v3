@@ -347,6 +347,9 @@ export function assessRecovery(bundle, context) {
   if (context.targetRunId === COMPLETE_ABORT_TRANSACTION.runId) return assessCompleteAbortRecovery(bundle, context);
   const reasons = [];
   const { transaction, deployRecord, marker, floor, active, runtime, containers, readinessHttp, liveEnv, evidence, archive } = bundle;
+  const rollbackWithoutPostEvidence = deployRecord?.outcome === 'ROLLING_BACK'
+    && deployRecord.switched?.api === true && deployRecord.switched?.web === false
+    && !evidence?.post;
   const now = context.now ?? Date.now();
   const expired = record => record && Number.isFinite(Date.parse(record.expiresAt)) && Date.parse(record.expiresAt) <= now;
   if (!context.targetRunId || !/^\d+(?:-\d+)?$/.test(context.targetRunId)) reasons.push('BINDING_TARGET_RUN_ID');
@@ -409,7 +412,13 @@ export function assessRecovery(bundle, context) {
   if (!runtime?.web?.revision || !active?.active?.web?.revision || (phase === 'ARCHIVED' || phase === null ? runtime.web.revision !== active.active.web.revision : runtime.web.revision !== archive?.plan?.active?.active?.web?.revision)) reasons.push('RUNTIME_WEB_DRIFTED');
   if (readinessHttp !== 200 && readinessHttp !== '200') reasons.push('READINESS');
   if (!liveEnv || liveEnv.CHANJET_SYNC_POLICY !== 'HOLD' || liveEnv.CHANJET_READONLY_SYNC_ENABLED !== 'false' || liveEnv.CHANJET_ERP_INBOUND_SYNC_ENABLED !== 'false') reasons.push('LIVE_POLICY_FLAGS');
-  if (!evidence?.startup || evidence.startup.deployRunId !== context.targetRunId || evidence.startup.targetSha !== context.approvedSha
+  if (rollbackWithoutPostEvidence) {
+    if (deployRecord.candidates?.api?.revision !== context.approvedSha
+      || deployRecord.activeApiRevision !== context.approvedSha
+      || deployRecord.previousApiRevision !== context.approvedSha
+      || runtime?.api?.revision !== context.approvedSha
+      || runtime?.web?.revision !== active?.active?.web?.revision) reasons.push('ROLLBACK_RUNTIME_BINDING');
+  } else if (!evidence?.startup || evidence.startup.deployRunId !== context.targetRunId || evidence.startup.targetSha !== context.approvedSha
     || !evidence.pre || evidence.pre.deployRunId !== context.targetRunId || !evidence.post || evidence.post.deployRunId !== context.targetRunId
     || evidence.post.containers?.api?.ociRevision !== context.approvedSha || evidence.startup.containerId !== evidence.post.containers?.api?.id) reasons.push('EVIDENCE_BINDING');
   else if (evidence.startup.result === CASE_A_STARTUP_RESULT) { /* original Case A class: unchanged */ }
@@ -542,6 +551,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       const readEvidenceFile = (name, file) => {
         try { return readEvidence(file); }
         catch (error) {
+          if (error?.code === 'ENOENT' && name === 'POST') return null;
           if (error?.code === 'ENOENT') throw Object.assign(new Error(`DEPLOYMENT_RECOVERY=HOLD_EVIDENCE_FILE_MISSING_${name}`), { code: `DEPLOYMENT_RECOVERY=HOLD_EVIDENCE_FILE_MISSING_${name}` });
           throw error;
         }
