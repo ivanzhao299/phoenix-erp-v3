@@ -58,7 +58,8 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     guardProduction(root, stateDirectory, actual);
     console.log('RUNTIME_PIN_RECONCILIATION=PASS');
   } catch (error) {
-    console.error(error?.message?.startsWith('RUNTIME_PIN_RECONCILIATION=') ? error.message : 'RUNTIME_PIN_RECONCILIATION=HOLD_VALIDATION');
+    const message = String(error?.message || '').replace(/\s+/g, ' ').slice(0, 160);
+    console.error(message.startsWith('RUNTIME_PIN_RECONCILIATION=') ? message : `RUNTIME_PIN_RECONCILIATION=HOLD_VALIDATION:${message || 'UNKNOWN'}`);
     process.exitCode = 1;
   }
 }
