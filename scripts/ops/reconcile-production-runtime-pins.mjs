@@ -26,18 +26,24 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       const stat = fs.lstatSync(path.join(stateDirectory, name));
       console.error(`RUNTIME_PIN_STATE_META=${name}:uid=${stat.uid}:mode=${(stat.mode & 0o7777).toString(8)}:nlink=${stat.nlink}:type=${stat.isFile() ? 'file' : stat.isDirectory() ? 'directory' : 'other'}`);
     }
+    console.error('RUNTIME_PIN_STAGE=VERIFY_CONTEXT_START');
     verifyContext(root, stateDirectory);
+    console.error('RUNTIME_PIN_STAGE=VERIFY_CONTEXT_DONE');
     if (!/^[a-f0-9]{40}$/.test(targetSha) || !/^\d+$/.test(runId)) hold('INPUT');
     if (targetSha !== git(['rev-parse', 'HEAD'])) hold('CHECKOUT');
     if (targetSha !== git(['ls-remote', 'origin', 'refs/heads/main']).split(/\s/)[0]) hold('REMOTE_MAIN');
+    console.error('RUNTIME_PIN_STAGE=READ_STATE_START');
     const floor = secureJson(path.join(stateDirectory, 'floor.json'));
     const active = secureJson(path.join(stateDirectory, 'active.json'));
+    console.error('RUNTIME_PIN_STAGE=READ_STATE_DONE');
     if (floor.version !== 3 || floor.phase !== 'READY' || floor.floorSha !== expectedFloorSha || floor.chanjetPolicy !== 'HOLD') hold('FLOOR');
     if (active.version !== 3 || active.outcome !== 'SUCCESS' || active.floorSha !== floor.floorSha) hold('ACTIVE_STATE');
     for (const name of ['transaction.json', 'policy-transition.json']) {
       if (fs.existsSync(path.join(stateDirectory, name))) hold('UNFINISHED_TRANSACTION');
     }
+    console.error('RUNTIME_PIN_STAGE=CAPTURE_RUNTIME_START');
     const actual = captureRuntime();
+    console.error('RUNTIME_PIN_STAGE=CAPTURE_RUNTIME_DONE');
     const inspectHealth = service => execFileSync('docker', ['inspect', `phoenix-v3-${service}`, '--format', '{{.State.Health.Status}}'], { env: executionEnv(), encoding: 'utf8' }).trim();
     if (inspectHealth('api') !== 'healthy' || inspectHealth('web') !== 'healthy') hold('UNHEALTHY_RUNTIME');
     if (actual.api.revision !== floor.floorSha || actual.web.revision !== active.active.web.revision) hold('REVISION_BINDING');
@@ -58,8 +64,12 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
         completedAt: new Date().toISOString(),
       },
     };
+    console.error('RUNTIME_PIN_STAGE=ATOMIC_WRITE_START');
     atomicState(path.join(stateDirectory, 'active.json'), next);
+    console.error('RUNTIME_PIN_STAGE=ATOMIC_WRITE_DONE');
+    console.error('RUNTIME_PIN_STAGE=POST_GUARD_START');
     guardProduction(root, stateDirectory, actual);
+    console.error('RUNTIME_PIN_STAGE=POST_GUARD_DONE');
     console.log('RUNTIME_PIN_RECONCILIATION=PASS');
   } catch (error) {
     const message = String(error?.message || '').replace(/\s+/g, ' ').slice(0, 160);
