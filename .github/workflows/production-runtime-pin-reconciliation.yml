@@ -1,0 +1,79 @@
+name: Production Runtime Pin Reconciliation
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_repair:
+        description: 'Type REPAIR_PRODUCTION_RUNTIME_PINS to authorize the one-time state repair'
+        required: true
+        type: string
+      expected_main_sha:
+        description: 'Exact merged main SHA containing this reviewed repair workflow'
+        required: true
+        type: string
+      expected_floor_sha:
+        description: 'Current production configuration floor SHA'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-runtime-pin-reconciliation
+  cancel-in-progress: false
+
+jobs:
+  reconcile:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Validate reviewed repair binding
+        env:
+          CONFIRM_REPAIR: ${{ inputs.confirm_repair }}
+          EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha }}
+          EXPECTED_FLOOR_SHA: ${{ inputs.expected_floor_sha }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = refs/heads/main
+          test "$CONFIRM_REPAIR" = REPAIR_PRODUCTION_RUNTIME_PINS
+          test "$EXPECTED_MAIN_SHA" = "$GITHUB_SHA"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$EXPECTED_FLOOR_SHA" != "$GITHUB_SHA"
+          [[ "$EXPECTED_FLOOR_SHA" =~ ^[a-f0-9]{40}$ ]]
+      - name: Reconcile runtime pins over controlled SSH
+        uses: appleboy/ssh-action@v1
+        env:
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+          TARGET_SHA: ${{ github.sha }}
+          EXPECTED_FLOOR_SHA: ${{ inputs.expected_floor_sha }}
+          REPAIR_RUN_ID: ${{ github.run_id }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
+          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+          proxy_port: 22
+          envs: DEPLOY_PATH,TARGET_SHA,EXPECTED_FLOOR_SHA,REPAIR_RUN_ID
+          command_timeout: 5m
+          script: |
+            set -Eeuo pipefail
+            set +x
+            cd "$DEPLOY_PATH"
+            test "$(git rev-parse HEAD)" = "$TARGET_SHA"
+            test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$TARGET_SHA"
+            test -z "$(git status --porcelain --untracked-files=all)"
+            STAGE="/var/lib/phoenix-erp/production-deployment-state/runtime-pin-reconcile-${REPAIR_RUN_ID}"
+            test ! -e "$STAGE"
+            mkdir -m 700 "$STAGE"
+            git show "$TARGET_SHA:scripts/ops/reconcile-production-runtime-pins.mjs" > "$STAGE/reconcile.mjs"
+            chmod 600 "$STAGE/reconcile.mjs"
+            TARGET_SHA="$TARGET_SHA" EXPECTED_FLOOR_SHA="$EXPECTED_FLOOR_SHA" REPAIR_RUN_ID="$REPAIR_RUN_ID" node "$STAGE/reconcile.mjs"
