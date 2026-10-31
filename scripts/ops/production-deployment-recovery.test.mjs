@@ -71,6 +71,17 @@ test('an API-only rollback can close when its post evidence file is gone but run
   };
   assert.deepEqual(assessRecovery(rollback, context), { eligible: true, reasons: [], resumeFrom: null });
 });
+test('the stale rollback shape tolerates cleared marker and successful active pins', () => {
+  const base = validBundle();
+  const rollback = {
+    ...base,
+    marker: null,
+    active: { ...base.active, outcome: 'SUCCESS', active: { api: base.runtime.api, web: base.runtime.web } },
+    deployRecord: { ...base.deployRecord, outcome: 'ROLLING_BACK', switched: { api: true, web: false } },
+    evidence: { pre: null, post: null, startup: null },
+  };
+  assert.deepEqual(assessRecovery(rollback, context), { eligible: true, reasons: [], resumeFrom: null });
+});
 test('RECOVERY_RUN_ID is mandatory and bound', () => {
   assert.equal(assessRecovery(validBundle(), { ...context, recoveryRunId: '' }).reasons.includes('BINDING_RECOVERY_RUN_ID'), true);
   assert.equal(assessRecovery(validBundle(), { ...context, recoveryRunId: 'not-a-run' }).reasons.includes('BINDING_RECOVERY_RUN_ID'), true);
