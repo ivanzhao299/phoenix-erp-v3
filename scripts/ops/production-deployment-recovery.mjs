@@ -350,6 +350,7 @@ export function assessRecovery(bundle, context) {
   const rollbackWithoutPostEvidence = deployRecord?.outcome === 'ROLLING_BACK'
     && deployRecord.switched?.api === true && deployRecord.switched?.web === false
     && !evidence?.post;
+  const rollbackStaleActiveState = rollbackWithoutPostEvidence && (marker === null || active?.outcome === 'SUCCESS');
   const now = context.now ?? Date.now();
   const expired = record => record && Number.isFinite(Date.parse(record.expiresAt)) && Date.parse(record.expiresAt) <= now;
   if (!context.targetRunId || !/^\d+(?:-\d+)?$/.test(context.targetRunId)) reasons.push('BINDING_TARGET_RUN_ID');
@@ -389,7 +390,7 @@ export function assessRecovery(bundle, context) {
   }
   if (deployRecord && !expired(deployRecord)) reasons.push('TRANSACTION_NOT_EXPIRED');
   // The policy marker may be partially cleared once the final stage started.
-  const markerToleratedMissing = phase === 'DEPLOY_WRITTEN';
+  const markerToleratedMissing = phase === 'DEPLOY_WRITTEN' || (rollbackWithoutPostEvidence && marker === null);
   if (marker === null && markerToleratedMissing) { /* partial cleanup tolerated */ }
   else if (!marker || marker.version !== 3 || marker.operation !== 'CODE_HOLD' || marker.phase !== 'IN_PROGRESS' || marker.runId !== context.targetRunId
     || marker.target !== context.approvedSha || !expired(marker)) reasons.push('POLICY_MARKER_SHAPE');
@@ -401,7 +402,11 @@ export function assessRecovery(bundle, context) {
   // the live floor and CONFIG_READY_HOLD active config must be the target.
   const expectedFloorSha = context.approvedSha;
   if (!floor || floor.version !== 3 || floor.floorSha !== expectedFloorSha || floor.chanjetPolicy !== 'HOLD' || floor.readonlyApproval !== null) reasons.push('FLOOR_SHAPE');
-  if (active) {
+  if (rollbackStaleActiveState) {
+    if (!active || active.version !== 3 || active.configSha !== expectedFloorSha || active.floorSha !== expectedFloorSha
+      || active.active?.api?.revision !== context.approvedSha
+      || active.active?.web?.revision !== runtime?.web?.revision) reasons.push('ROLLBACK_ACTIVE_BINDING');
+  } else if (active) {
     if (phase === 'ARCHIVED' || phase === null) {
       if (active.version !== 3 || active.outcome !== 'CONFIG_READY_HOLD' || active.floorSha !== expectedFloorSha || active.configSha !== expectedFloorSha
         || active.active?.api?.revision === context.approvedSha
@@ -414,8 +419,6 @@ export function assessRecovery(bundle, context) {
   if (!liveEnv || liveEnv.CHANJET_SYNC_POLICY !== 'HOLD' || liveEnv.CHANJET_READONLY_SYNC_ENABLED !== 'false' || liveEnv.CHANJET_ERP_INBOUND_SYNC_ENABLED !== 'false') reasons.push('LIVE_POLICY_FLAGS');
   if (rollbackWithoutPostEvidence) {
     if (deployRecord.candidates?.api?.revision !== context.approvedSha
-      || deployRecord.activeApiRevision !== context.approvedSha
-      || deployRecord.previousApiRevision !== context.approvedSha
       || runtime?.api?.revision !== context.approvedSha
       || runtime?.web?.revision !== active?.active?.web?.revision) reasons.push('ROLLBACK_RUNTIME_BINDING');
   } else if (!evidence?.startup || evidence.startup.deployRunId !== context.targetRunId || evidence.startup.targetSha !== context.approvedSha
