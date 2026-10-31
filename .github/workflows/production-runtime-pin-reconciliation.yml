@@ -46,6 +46,12 @@ jobs:
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
           test "$EXPECTED_FLOOR_SHA" != "$GITHUB_SHA"
           [[ "$EXPECTED_FLOOR_SHA" =~ ^[a-f0-9]{40}$ ]]
+      - name: Prepare reviewed control bootstrap
+        run: |
+          set -euo pipefail
+          echo "PRODUCTION_CONTRACT_B64=$(base64 -w0 scripts/ops/production-config-contract.json)" >> "$GITHUB_ENV"
+          echo "PRODUCTION_PATH_HELPER_B64=$(base64 -w0 scripts/ops/production-trusted-paths.mjs)" >> "$GITHUB_ENV"
+          echo "PRODUCTION_CONTROL_BOOTSTRAP_B64=$(base64 -w0 scripts/ops/production-control-bootstrap.sh)" >> "$GITHUB_ENV"
       - name: Reconcile runtime pins over controlled SSH
         uses: appleboy/ssh-action@v1
         env:
@@ -53,6 +59,9 @@ jobs:
           TARGET_SHA: ${{ github.sha }}
           EXPECTED_FLOOR_SHA: ${{ inputs.expected_floor_sha }}
           REPAIR_RUN_ID: ${{ github.run_id }}
+          PRODUCTION_CONTRACT_B64: ${{ env.PRODUCTION_CONTRACT_B64 }}
+          PRODUCTION_PATH_HELPER_B64: ${{ env.PRODUCTION_PATH_HELPER_B64 }}
+          PRODUCTION_CONTROL_BOOTSTRAP_B64: ${{ env.PRODUCTION_CONTROL_BOOTSTRAP_B64 }}
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
@@ -62,12 +71,14 @@ jobs:
           proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
           proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
           proxy_port: 22
-          envs: DEPLOY_PATH,TARGET_SHA,EXPECTED_FLOOR_SHA,REPAIR_RUN_ID
+          envs: DEPLOY_PATH,TARGET_SHA,EXPECTED_FLOOR_SHA,REPAIR_RUN_ID,PRODUCTION_CONTRACT_B64,PRODUCTION_PATH_HELPER_B64,PRODUCTION_CONTROL_BOOTSTRAP_B64
           command_timeout: 5m
           script: |
             set -Eeuo pipefail
             set +x
             cd "$DEPLOY_PATH"
+            export DEPLOY_REPO_ROOT="$DEPLOY_PATH"
+            eval "$(printf '%s' "$PRODUCTION_CONTROL_BOOTSTRAP_B64" | base64 -d)"
             git_safe() { command git -c "safe.directory=$DEPLOY_PATH" -c core.hooksPath=/dev/null "$@"; }
             test "$(git_safe branch --show-current)" = main
             test -z "$(git_safe status --porcelain --untracked-files=all)"
