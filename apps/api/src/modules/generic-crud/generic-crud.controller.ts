@@ -67,8 +67,21 @@ export class GenericCrudController {
     'daily_close',
     'store_inventory',
   ]);
+  private static readonly DEDICATED_CORE_WRITE_TABLES = new Set([
+    'brd_vaccinations',
+    'brd_medications',
+    'brd_medication_records',
+    'brd_medication_issue_lines',
+    'inv_batches',
+    'inv_ledger',
+  ]);
 
   private checkTableAccess(table: string, req: any, method: string) {
+    if (method !== 'GET' && GenericCrudController.DEDICATED_CORE_WRITE_TABLES.has(table)) {
+      throw new ForbiddenException(
+        `核心表 [${table}] 禁止通过 Generic CRUD 写入，请使用专用业务接口`,
+      );
+    }
     if (method !== 'GET' && GenericCrudController.RETIRED_STORE_WRITE_TABLES.has(table)) {
       throw new GoneException(
         `旧门店表 [${table}] 写入口已退役；历史查询保持只读，请使用 Store POS V2 专用 API`,
@@ -430,7 +443,7 @@ export class GenericCrudController {
       brd_farms:        'mapped_site_code',  // mdm1_03 已加 + 回填
       brd_medications:        'store_code',  // v3_schema 已有（主档表）
       brd_medication_records: 'site_code',   // G21-4 业务记录表按 site 隔离
-      brd_vaccinations: null,  // G33-C：表无 store_code/site_code 列，注入 SQL 500；scope 留待 schema 补 site_code 列
+      brd_vaccinations: 'site_code',
       // 三张 breeding 主表在下方走 findAllBreedingScoped；这里不再承担其隔离。
       brd_houses:       null,
       brd_flocks:       null,

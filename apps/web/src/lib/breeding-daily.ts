@@ -2,6 +2,11 @@ export function isDailyReportHouseMissing(houseCode: string | null | undefined):
   return String(houseCode ?? '').trim().length === 0;
 }
 
+export function hasDailyReportInput(input: Record<string, unknown>): boolean {
+  return ['eggs', 'dirtyEggs', 'brokenEggs', 'deaths', 'elimination', 'feedKg', 'waterL']
+    .some(field => Number(input[field] ?? 0) > 0);
+}
+
 const FALLBACK_CULLING_REASON_LABELS: Record<string, string> = {
   LOW_PRODUCTION: '产蛋率低',
   SICKNESS: '患病',

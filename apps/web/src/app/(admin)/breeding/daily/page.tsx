@@ -34,7 +34,7 @@ import { useDictOptions } from '@/hooks/useDictOptions'; // 班次字典化
 import DictSelect from '@/components/shared-selectors/DictSelect'; // G19-A 死亡/淘汰原因字典化
 import { useProductGrades } from '@/hooks/useProductGrades'; // G14 9 档分级
 import { ModalV2 } from '@/components/design-system/dialogs/ModalV2';
-import { cullingReasonLabel, isDailyReportHouseMissing } from '@/lib/breeding-daily';
+import { cullingReasonLabel, hasDailyReportInput, isDailyReportHouseMissing } from '@/lib/breeding-daily';
 
 // 纯数字输入列（分前后两段，中间插入淘汰数+淘汰原因）
 const FIELDS_A = ['eggs', 'dirtyEggs', 'brokenEggs', 'deaths'] as const;
@@ -137,6 +137,8 @@ export default function DailyPage() {
   const [submitted, setSubmitted] = useState(false);
   const [approved, setApproved] = useState(false);
   const [reports, setReports] = useState<DailyReport[]>([]);
+  const [historyHouse, setHistoryHouse] = useState('');
+  const [historyDate, setHistoryDate] = useState(today);
   const [deviceHint, setDeviceHint] = useState<Record<string, string> | null>(null);
   const [generating, setGenerating] = useState(false);
   const [genResult, setGenResult] = useState<any>(null);
@@ -257,171 +259,56 @@ export default function DailyPage() {
       toast.error(t('ui.请先选择鸡舍后再提交', '请先选择鸡舍后再提交'));
       return;
     }
-    const hasData = rows.some(r => r.eggs || r.deaths || r.feedKg || r.dirtyEggs || r.brokenEggs || r.waterL);
+    const row = rows[0];
+    const hasData = hasDailyReportInput({ ...row, eggs: String(gradeSumOf(row.gradeQty)) });
     if (!hasData) {
       toast.error(t('ui.请至少录入一项数据（产蛋数、死淘或饲料用量）后再提交', '请至少录入一项数据（产蛋数、死淘或饲料用量）后再提交'));
       return;
     }
-    const hasNegative = rows.some(r => Number(r.eggs) < 0 || Number(r.deaths) < 0 || Number(r.feedKg) < 0 || Number(r.dirtyEggs) < 0 || Number(r.brokenEggs) < 0 || Number(r.waterL) < 0);
-    if (hasNegative) {
-      toast.error(t('ui.产蛋数、死淘数及耗材等数据不能录入负数！', '产蛋数、死淘数及耗材等数据不能录入负数！'));
+    const invalidGrade = Object.values(row.gradeQty || {}).some(value => value !== '' && (!Number.isSafeInteger(Number(value)) || Number(value) < 0));
+    if (invalidGrade) {
+      toast.error(t('breeding.daily.gradeIntegerRequired', '九档数量必须为非负整数'));
       return;
     }
-    // G14：9 档录入校验 — sum(9档) vs eggs_produced 偏差 > 3% 弹窗确认
-    for (const r of rows) {
-      const eggs = Number(r.eggs) || 0;
-      const gradeSum = gradeSumOf(r.gradeQty);
-      if (eggs > 0 && gradeSum === 0) {
-        toast.error(
-          `${shiftLabel(r.shift)}${t(
-            'breeding.daily.grade_breakdown_required',
-            '：已录产蛋数，必须补齐 9 档分级后才能提交',
-          )}`,
-        );
-        return;
-      }
-      if (gradeSum > 0 && eggs > 0) {
-        const diff = Math.abs(gradeSum - eggs);
-        const tolerance = Math.max(3, eggs * 0.03);
-        if (diff > tolerance) {
-          const ok = await showConfirm({
-            type: 'confirm', icon: '⚠️',
-            title: `${shiftLabel(r.shift)}${t('ui.：9 档分级总数与产蛋数不一致', '：9 档分级总数与产蛋数不一致')}`,
-            message: `${t('ui.9 档分级 sum =', '9 档分级 sum =')} ${gradeSum} ${t('ui.枚', '枚')}\n${t('ui.产蛋总数 =', '产蛋总数 =')} ${eggs} ${t('ui.枚', '枚')}\n${t('ui.差', '差')} ${diff} ${t('ui.枚（容差', '枚（容差')} ${Math.round(tolerance)}${t('ui.）', '）')}\n\n${t('ui.是否继续提交？', '是否继续提交？')}`,
-            confirmLabel: t('ui.继续提交', '继续提交'),
-          });
-          if (!ok) return;
-        }
-      }
-    }
     const token = typeof window !== 'undefined' ? sessionStorage.getItem('phoenix_token') : '';
-    const userStr = typeof window !== 'undefined' ? sessionStorage.getItem('phoenix_user') : '{}';
-    const user = userStr ? JSON.parse(userStr) : {};
-    const operatorName = user.realNameZh || user.username || t('ui.未知操作人', '未知操作人');
-    const submitOne = async (r: typeof rows[number]) => {
-      // G14：构建 eggs_by_grade JSON（仅含 qty>0 的档）
-      const eggsByGrade: Record<string, number> = {};
-      for (const [code, qty] of Object.entries(r.gradeQty || {})) {
-        const n = Number(qty) || 0;
-        if (n > 0) eggsByGrade[code] = n;
-      }
-      const payload: Record<string, unknown> = {
-        house_code: selectedHouse,
-        flock_no: flockByHouse[selectedHouse] || selectedHouse,
-        farm_code: farmCodeByHouse[selectedHouse] || '',
-        log_date: formDate,
-        shift: r.shift,
-        feed_consumed: Number(r.feedKg) || 0,
-        water_consumed: Number(r.waterL) || 0,
-        self_use_qty: Number(r.selfUse) || 0,  // G9：自用蛋数
-        mortality_qty: Number(r.deaths) || 0,
-        mortality_reason: r.mortalityReason || null,   // G19-A
-        elimination_qty: Number(r.elimination) || 0,
-        culling_reason: r.elimReason || null,
-        eggs_produced: Number(r.eggs) || 0,
-        dirty_eggs: Number(r.dirtyEggs) || 0,
-        broken_eggs: Number(r.brokenEggs) || 0,
-        temp: Number(r.temp) || 25,
-        humidity: Number(r.humidity) || 60,
-        note: r.remark,
-        operator: operatorName,
-      };
-      // G14：携带 9 档分级 JSON，让生产终端可一键消费
-      if (Object.keys(eggsByGrade).length > 0) payload.eggs_by_grade = eggsByGrade;
+    const user = JSON.parse(typeof window !== 'undefined' ? sessionStorage.getItem('phoenix_user') || '{}' : '{}');
+    const eggsByGrade = Object.fromEntries(Object.entries(row.gradeQty).filter(([, value]) => Number(value) > 0).map(([code, value]) => [code, Number(value)]));
+    const payload: Record<string, unknown> = {
+      house_code: selectedHouse,
+      flock_no: flockByHouse[selectedHouse] || selectedHouse,
+      farm_code: farmCodeByHouse[selectedHouse] || '',
+      log_date: formDate,
+      feed_consumed: Number(row.feedKg) || 0,
+      water_consumed: Number(row.waterL) || 0,
+      mortality_qty: Number(row.deaths) || 0,
+      mortality_reason: row.mortalityReason || null,
+      elimination_qty: Number(row.elimination) || 0,
+      culling_reason: row.elimReason || null,
+      temp: Number(row.temp) || 25,
+      humidity: Number(row.humidity) || 60,
+      note: row.remark,
+      operator: user.realNameZh || user.username || t('ui.未知操作人', '未知操作人'),
+      eggs_by_grade: eggsByGrade,
+    };
+    try {
       const res = await fetch(`${API_BASE}/api/v3/farm/daily-logs`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? {
-            Authorization: `Bearer ${token}`
-          } : {})
-        },
-        body: JSON.stringify(payload)
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify(payload),
       });
       if (!res.ok) {
-        const j = await res.json().catch(() => ({
-          message: res.statusText
-        }));
-        throw new Error(j?.message || j?.msg || `HTTP ${res.status}`);
+        const result = await res.json().catch(() => ({ message: res.statusText }));
+        throw new Error(result?.message || result?.msg || `HTTP ${res.status}`);
       }
-      return r.shift;
-    };
-    const rowsToSubmit = rows.filter(r => r.eggs || r.deaths || r.feedKg || r.dirtyEggs || r.brokenEggs || r.waterL);
-    const results = await Promise.allSettled(rowsToSubmit.map(submitOne));
-    const fulfilled = results.filter(r => r.status === 'fulfilled') as PromiseFulfilledResult<string>[];
-    const rejected = results.map((r, i) => ({
-      r,
-      shift: rowsToSubmit[i].shift
-    })).filter(x => x.r.status === 'rejected') as Array<{
-      r: PromiseRejectedResult;
-      shift: string;
-    }>;
-    if (rejected.length > 0) {
-      const failed = rejected.map(x => `${x.shift}：${(x.r.reason as Error)?.message || t('ui.未知错误', '未知错误')}`).join('\n');
-      toast.error(`${t('ui.部分班次提交失败：', '部分班次提交失败：')}\n${failed}`);
-    }
-    if (fulfilled.length > 0) {
+      setHistoryHouse(selectedHouse);
+      setHistoryDate(formDate);
+      await loadData();
+      setRows([mkRow(1, 'DAILY')]);
       setSubmitted(true);
-      setApproved(false);
       setTimeout(() => setSubmitted(false), 3000);
-      // G15：日报提交成功后，若任一班次填了 9 档 → 弹窗确认是否同步入销售库存
-      // 仅 TEMP_PRODUCTION_INBOUND 模式可用；PACKAGING_INBOUND 模式提示前往包装中心
-      const rowsWithGrades = rowsToSubmit.filter(r => Object.values(r.gradeQty || {}).some(v => Number(v) > 0));
-      if (rowsWithGrades.length > 0) {
-        const totalSum = rowsWithGrades.reduce((s, r) => s + gradeSumOf(r.gradeQty), 0);
-        const ok = await showConfirm({
-          type: 'confirm', icon: '📦',
-          title: t('ui.日报已保存 — 是否同步入销售库存？', '日报已保存 — 是否同步入销售库存？'),
-          message: `${t('ui.共', '共')} ${rowsWithGrades.length} ${t('ui.个班次填了 9 档分级，合计', '个班次填了 9 档分级，合计')} ${totalSum.toLocaleString()} ${t('ui.枚。', '枚。')}\n\n${t('ui.确认 → 自动写入鸡蛋销售成品仓（LPH_MS_EGG_SALES），可直接销售。', '确认 → 自动写入鸡蛋销售成品仓（LPH_MS_EGG_SALES），可直接销售。')}\n${t('ui.取消 → 仅保存日报数据，稍后去「日产蛋入库」分级入库。', '取消 → 仅保存日报数据，稍后去「日产蛋入库」分级入库。')}`,
-          confirmLabel: t('ui.同步入销售库存', '同步入销售库存'),
-          cancelLabel: t('ui.仅保存日报', '仅保存日报'),
-        });
-        if (ok) {
-          // 调 daily-inbound endpoint 一键入库
-          const allItems = rowsWithGrades.flatMap(r =>
-            Object.entries(r.gradeQty).filter(([, v]) => Number(v) > 0).map(([grade, qty]) => ({ grade, qty: Number(qty) }))
-          );
-          try {
-            const res = await fetch(`${API_BASE}/api/v2/inventory/production-inbound`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-              body: JSON.stringify({ eggDate: formDate, houseCode: selectedHouse || undefined, items: allItems }),
-            });
-            const j = await res.json();
-            if (res.ok && j.code === 200) {
-              toast.success(`✓ ${t('ui.已入库', '已入库')} ${allItems.length} ${t('ui.个批次，合计', '个批次，合计')} ${totalSum.toLocaleString()} ${t('ui.枚', '枚')}`);
-            } else {
-              if (j.message?.includes('PACKAGING_INBOUND')) {
-                toast.error(t('ui.当前 SITE 是包装入库模式，请去包装作业中心完成', '当前 SITE 是包装入库模式，请去包装作业中心完成'));
-              } else {
-                toast.error(`${t('ui.入库失败：', '入库失败：')}${j.message || res.statusText}`);
-              }
-            }
-          } catch (e: any) {
-            toast.error(`${t('ui.入库失败：', '入库失败：')}${e.message}`);
-          }
-        }
-      }
-      if (rejected.length === 0) {
-        const codes = shiftOptions.length > 0 ? shiftOptions.map(o => o.value) : ['BRD_SHIFT_MORNING', 'BRD_SHIFT_EVENING'];
-        setRows(codes.map((c, i) => mkRow(i + 1, c)));
-      }
-      loadData();
+    } catch (error: unknown) {
+      toast.error(`${t('ui.日报提交失败：', '日报提交失败：')}${error instanceof Error ? error.message : t('ui.未知错误', '未知错误')}`);
     }
-  };
-  const handleExport = () => {
-    const headers = [t('ui.班次', '班次'), t('ui.产蛋数', '产蛋数'), t('ui.脏蛋', '脏蛋'), t('ui.破损蛋', '破损蛋'), t('ui.死亡', '死亡'), t('ui.淘汰数', '淘汰数'), t('ui.淘汰原因', '淘汰原因'), t('ui.饲料kg', '饲料kg'), t('ui.用水L', '用水L'), t('ui.温度', '温度'), t('ui.湿度', '湿度'), t('common.remark', '备注')];
-    const rowData = rows.map(r => [shiftLabel(r.shift), r.eggs || 0, r.dirtyEggs || 0, r.brokenEggs || 0, r.deaths || 0, r.elimination || 0, cullingReasonLabel(r.elimReason, cullingReasonCodeMap, ''), r.feedKg || 0, r.waterL || 0, r.temp || 0, r.humidity || 0, r.remark]);
-    const csv = [headers, ...rowData].map(r => r.join(',')).join('\n');
-    const blob = new Blob(['﻿' + csv], {
-      type: 'text/csv;charset=utf-8'
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${t('ui.日报', '日报')}_${selectedHouse}_${formDate}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
   };
   const handleApprove = () => {
     setApproved(true);
@@ -483,6 +370,20 @@ export default function DailyPage() {
     feedKg: rows.reduce((sum, r) => sum + (Number(r.feedKg) || 0), 0)
   };
   const visibleReports = reports.filter(r => !selectedHouse || r.house === selectedHouse).slice(0, 30);
+  const handleExport = () => {
+    const headers = ['date', 'house', 'eggs', 'dirtyEggs', 'brokenEggs', 'deaths', 'elimination', 'cullingReason', 'feedKg', 'temp', 'humidity', 'remark'];
+    const rows = visibleReports.map(report => headers.map(header => {
+      const value = String(report[header] ?? '');
+      return `"${value.replaceAll('"', '""')}"`;
+    }).join(','));
+    const csv = `\uFEFF${headers.join(',')}\n${rows.join('\n')}`;
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `breeding-daily-${historyHouse || selectedHouse || 'all'}-${historyDate || today}.csv`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  };
   return <div className="animate-fade-in">
       <PageHeader title={t('ui.日生产日报录入', '日生产日报录入')} subtitle={t('ui.按班次录入当日生产数据', '按班次录入当日生产数据')} breadcrumb={[t('ui.养殖管理', '养殖管理'), t('ui.日生产日报', '日生产日报')]} actions={<div style={{
       display: 'flex',

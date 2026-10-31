@@ -156,8 +156,8 @@ export default function BreedingPage() {
       apiFetch("/api/crud/brd_flocks?limit=1000"),
       apiFetch("/api/crud/brd_daily_logs?limit=1000"),
       apiFetch(`/api/crud/brd_daily_logs?log_date=${today}&limit=1000`),
-      apiFetch("/api/crud/brd_medications"),
-      apiFetch("/api/crud/brd_vaccinations")
+      apiFetch("/api/farm/medication-records/withdrawals"),
+      apiFetch("/api/farm/immune/plans")
     ]);
 
     // If the effect was superseded (Strict Mode double-invoke) or farms API failed,
@@ -235,13 +235,14 @@ export default function BreedingPage() {
     const alertList: AlertItem[] = [];
     const todayTs = new Date(today);
     meds.forEach((m: Record<string, unknown>) => {
-      const endDate = new Date((m.clear_date || m.end_date || m.withdrawDate) as string);
-      const daysLeft = Math.ceil((endDate.getTime() - todayTs.getTime()) / 86400000);
+      const withdrawUntil = String(m.withdraw_until || '').slice(0, 10);
+      const endDate = withdrawUntil ? new Date(`${withdrawUntil}T00:00:00`) : null;
+      const daysLeft = endDate ? Math.ceil((endDate.getTime() - todayTs.getTime()) / 86400000) : -1;
       if (daysLeft >= 0 && daysLeft <= 5) alertList.push({
         id: "wd-" + m.id,
         type: daysLeft <= 2 ? "danger" : "warning",
         label: t('ui.停药期预警', '停药期预警'),
-        msg: `${m.farm_house || m.house_code || t('ui.鸡舍', '鸡舍')} ${m.medicine || m.drug_name || t('ui.药物', '药物')} ${t('ui.停药期还剩', '停药期还剩')} ${daysLeft} ${t('ui.天', '天')}`,
+        msg: `${m.house_code || m.flock_no || t('ui.鸡舍', '鸡舍')} ${m.medication_code || t('ui.药物', '药物')} ${t('ui.停药期还剩', '停药期还剩')} ${daysLeft} ${t('ui.天', '天')}`,
         time: t('ui.系统', '系统')
       });
     });

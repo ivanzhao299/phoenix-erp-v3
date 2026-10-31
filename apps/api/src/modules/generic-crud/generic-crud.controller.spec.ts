@@ -90,6 +90,34 @@ describe('GenericCrudController WMS RBAC', () => {
     expect(svc.update).not.toHaveBeenCalled();
   });
 
+  it('blocks Generic CRUD writes to dedicated medication and inventory fact tables', async () => {
+    for (const table of ['brd_vaccinations', 'brd_medication_records', 'brd_medication_issue_lines', 'inv_batches', 'inv_ledger']) {
+      await expect(controller.create(table, { id: 1 }, req(['*']))).rejects.toBeInstanceOf(ForbiddenException);
+      await expect(controller.updateWithColumn(table, 'id', '1', { note: 'x' }, req(['*']))).rejects.toBeInstanceOf(ForbiddenException);
+      await expect(controller.remove(table, '1', req(['*']))).rejects.toBeInstanceOf(ForbiddenException);
+    }
+    expect(svc.create).not.toHaveBeenCalled();
+    expect(svc.update).not.toHaveBeenCalled();
+  });
+
+  it('routes vaccination reads through the breeding scope query', async () => {
+    dataScopeService.resolve.mockResolvedValueOnce({
+      isGlobal: false,
+      scopeLevel: 'SITE',
+      allowedCompanyCodes: ['COMP-A'],
+      allowedProjectCodes: [],
+      allowedWarehouseCodes: [],
+      allowedFarmCodes: ['FARM-A'],
+      allowedSiteCodes: ['SITE-A'],
+      userId: '1',
+    });
+    await expect(controller.findAll('brd_vaccinations', {}, req(['MENU_FARM_VET:V']))).resolves.toEqual({ code: 200, data: [] });
+    expect(svc.findAllBreedingScoped).toHaveBeenCalledWith('brd_vaccinations', {}, {
+      farmCodes: ['FARM-A'], siteCodes: ['SITE-A'], companyCodes: ['COMP-A'],
+    });
+    expect(svc.findAll).not.toHaveBeenCalledWith('brd_vaccinations', expect.anything());
+  });
+
   it('allows the captured warehouse overview WMS reads with MENU_WMS_VIEW', async () => {
     await expect(
       controller.findAll('wms_zones', { limit: '100', offset: '0' }, req(['MENU_WMS_VIEW:V'])),

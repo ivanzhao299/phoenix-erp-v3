@@ -20,25 +20,25 @@ export class FarmCronService {
     const today = new Date().toISOString().slice(0, 10);
 
     try {
-      // 1. 更新为停药期 (inWithdrawal)
-      // 条件: using 状态，且今天已经超过用药结束日期 (end_date < today)，但还没超过清退日期 (clear_date >= today)
-      // 注意 sqlite / pg 处理日期的差异，直接按字符串比较
+      // 1. 更新为停药期。MVP 使用数据库日期字符串比较，避免读取已废弃的主数据表。
       const res1 = await this.entityManager.query(`
-        UPDATE "brd_medications"
-        SET status = 'inWithdrawal'
-        WHERE status = 'using' 
-          AND end_date < $1 
-          AND clear_date >= $1
+        UPDATE "brd_medication_records"
+        SET status = 'IN_WITHDRAWAL', updated_at = NOW()
+        WHERE status = 'USING'
+          AND end_date IS NOT NULL
+          AND end_date < $1
+          AND withdraw_until IS NOT NULL
+          AND withdraw_until >= $1
       `, [today]);
       this.logger.log(`Updated to inWithdrawal: ${Array.isArray(res1) ? res1[1] : (res1?.rowCount || 0)} records`);
 
-      // 2. 更新为已完全清退 (cleared)
-      // 条件: using/inWithdrawal 状态，且今天已经超过清退日期 (clear_date < today)
+      // 2. 更新为已完全清退。销售侧以 CLEARED 状态作为可售判断输入。
       const res2 = await this.entityManager.query(`
-        UPDATE "brd_medications"
-        SET status = 'cleared'
-        WHERE status IN ('using', 'inWithdrawal') 
-          AND clear_date < $1
+        UPDATE "brd_medication_records"
+        SET status = 'CLEARED', updated_at = NOW()
+        WHERE status IN ('USING', 'IN_WITHDRAWAL')
+          AND withdraw_until IS NOT NULL
+          AND withdraw_until < $1
       `, [today]);
       this.logger.log(`Updated to cleared: ${Array.isArray(res2) ? res2[1] : (res2?.rowCount || 0)} records`);
 

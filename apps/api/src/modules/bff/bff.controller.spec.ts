@@ -92,6 +92,16 @@ describe('DashboardBffController', () => {
       expect(String(flockCall?.[0])).toContain('farm_code = $1');
       expect(flockCall?.[1]).toEqual(['LPH_MENGSAI']);
     });
+
+    it('reads withdrawal alerts from medication records and applies site scope', async () => {
+      const { controller, em } = buildController();
+      await controller.getKpi({ user: { username: 'farm-manager', storeCode: 'SITE-A', permissions: [] } });
+      const withdrawalCall = em.query.mock.calls.find(([sql]) => String(sql).includes('FROM brd_medication_records'));
+      expect(withdrawalCall).toBeDefined();
+      expect(String(withdrawalCall?.[0])).toContain("status <> 'CANCELLED'");
+      expect(String(withdrawalCall?.[0])).toContain('site_code = $1');
+      expect(withdrawalCall?.[1]).toEqual(['SITE-A']);
+    });
   });
 });
 

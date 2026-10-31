@@ -7,6 +7,14 @@ import { redactSensitive } from '../../common/logging/redact-sensitive';
 
 @Injectable()
 export class GenericCrudService implements OnModuleInit {
+  private static readonly MIGRATION_OWNED_TABLES = new Set([
+    'brd_medications',
+    'brd_vaccinations',
+    'brd_medication_records',
+    'brd_medication_issue_lines',
+    'inv_batches',
+    'inv_ledger',
+  ]);
   private static readonly RETIRED_COLUMNS: Readonly<Record<string, ReadonlySet<string>>> = {
     brd_houses: new Set(['company_code', 'site_code', 'store_code']),
   };
@@ -39,6 +47,11 @@ export class GenericCrudService implements OnModuleInit {
    * 当发现列不存在时，自动 ALTER TABLE 添加该列，实现前后端自适应
    */
   private async ensureColumn(table: string, column: string): Promise<void> {
+    if (GenericCrudService.MIGRATION_OWNED_TABLES.has(table)) {
+      throw new InternalServerErrorException(
+        `核心养殖表 ${table} 缺少列 ${column}，必须先执行 TypeORM schema migration`,
+      );
+    }
     this.assertColumnsAllowed(table, [column]);
     await this.entityManager.query(
       `ALTER TABLE "${table}" ADD COLUMN IF NOT EXISTS "${column}" TEXT`
@@ -206,9 +219,7 @@ export class GenericCrudService implements OnModuleInit {
         // ── Phase C 修复：补全 brd_farms/flocks 的 store_code 列 ──
         // 这3张表在上方 brdAlters 段已 CREATE，但建表语句和 ALTER 段都漏了 store_code，
         // 导致全新数据库（CI/新装）的 breeding 回归测试因缺列失败。
-        // （brd_daily_logs.farm_code / brd_medications.medication_code 在各自 CREATE
-        //   语句中已含，无需在此补——且那两表在 businessTables 段才 CREATE，
-        //   在此 brdAlters 段 ALTER 会因表未建而失败。）
+        // 核心养殖表由 TypeORM schema migration 管理，不在 Generic CRUD 启动路径中补列。
         `ALTER TABLE brd_farms  ADD COLUMN IF NOT EXISTS store_code VARCHAR(64) DEFAULT 'ALL'`,
         `ALTER TABLE brd_flocks ADD COLUMN IF NOT EXISTS store_code VARCHAR(64) DEFAULT 'ALL'`,
         // B4: lookup.controller farms() 查询的 company_code，
@@ -575,66 +586,6 @@ export class GenericCrudService implements OnModuleInit {
            created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
          )`,
 
-        // ── 养殖扩展（免疫/用药/停药） ────────────────────────────────────
-        // B2: brd_immune_plans / brd_medication_records / brd_withdrawal_alerts 是 V2 残留的
-        //     3 张孤儿表，V3 前端完全不使用（实际语义都被 brd_vaccinations / brd_medications
-        //     收口）。暂保留 schema 不删除（避免 V2 历史数据丢失），但运行时无人写入。
-        //     待 V2 数据彻底归档后可 DROP 这 3 张表。
-        `CREATE TABLE IF NOT EXISTS brd_immune_plans (
-           id          SERIAL PRIMARY KEY,
-           plan_no     VARCHAR(50) UNIQUE,
-           flock_no    VARCHAR(50),
-           house_code  VARCHAR(50),
-           vaccine     VARCHAR(100),
-           plan_date   DATE,
-           actual_date DATE,
-           status      VARCHAR(20) DEFAULT 'PENDING',
-           created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-           updated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-         )`,
-        `ALTER TABLE brd_immune_plans ADD COLUMN IF NOT EXISTS actual_date DATE`,
-        `ALTER TABLE brd_immune_plans ADD COLUMN IF NOT EXISTS updated_at  TIMESTAMP`,
-
-        `CREATE TABLE IF NOT EXISTS brd_medication_records (
-           id          SERIAL PRIMARY KEY,
-           flock_no    VARCHAR(50),
-           drug_name   VARCHAR(100),
-           start_date  DATE,
-           end_date    DATE,
-           dosage      VARCHAR(100),
-           status      VARCHAR(20) DEFAULT 'ACTIVE',
-           created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-           updated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-         )`,
-        `ALTER TABLE brd_medication_records ADD COLUMN IF NOT EXISTS dosage     VARCHAR(100)`,
-        `ALTER TABLE brd_medication_records ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP`,
-
-        `CREATE TABLE IF NOT EXISTS brd_vaccinations (
-           id           SERIAL PRIMARY KEY,
-           flock_no     VARCHAR(50),
-           vaccine      VARCHAR(100),
-           plan_date    DATE,
-           actual_date  DATE,
-           batch_no     VARCHAR(50),
-           status       VARCHAR(20) DEFAULT 'PENDING',
-           created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-           updated_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-         )`,
-        `ALTER TABLE brd_vaccinations ADD COLUMN IF NOT EXISTS batch_no       VARCHAR(50)`,
-        `ALTER TABLE brd_vaccinations ADD COLUMN IF NOT EXISTS farm_house     VARCHAR(100)`,
-        `ALTER TABLE brd_vaccinations ADD COLUMN IF NOT EXISTS house_code     VARCHAR(50)`,
-        `ALTER TABLE brd_vaccinations ADD COLUMN IF NOT EXISTS farm_code      VARCHAR(50)`,
-        `ALTER TABLE brd_vaccinations ADD COLUMN IF NOT EXISTS vaccine_name   VARCHAR(100)`,
-        `ALTER TABLE brd_vaccinations ADD COLUMN IF NOT EXISTS vaccine_batch_no VARCHAR(50)`,
-        `ALTER TABLE brd_vaccinations ADD COLUMN IF NOT EXISTS flock_count    INT DEFAULT 0`,
-        `ALTER TABLE brd_vaccinations ADD COLUMN IF NOT EXISTS next_due_date  DATE`,
-        `ALTER TABLE brd_vaccinations ADD COLUMN IF NOT EXISTS method         VARCHAR(50)`,
-        `ALTER TABLE brd_vaccinations ADD COLUMN IF NOT EXISTS dose           VARCHAR(100)`,
-        `ALTER TABLE brd_vaccinations ADD COLUMN IF NOT EXISTS executor       VARCHAR(100)`,
-        `ALTER TABLE brd_vaccinations ADD COLUMN IF NOT EXISTS updated_at     TIMESTAMP`,
-        // A3: 历史数据可能混存 done/DONE，统一大写
-        `UPDATE brd_vaccinations SET status = UPPER(status) WHERE status IS NOT NULL AND status <> UPPER(status)`,
-
         // A1: 把 brd_daily_logs 唯一键从 (log_date, house_code) 扩展到含 shift，
         //     原约束在多班次场景下会让第二条 INSERT 必报 23505。
         //     ALTER ... DROP/ADD 不带 IF NOT EXISTS，所以包在 DO 块里做存在性检测。
@@ -991,56 +942,6 @@ export class GenericCrudService implements OnModuleInit {
            ('FARM-EMP', '职工购买',    'FARM', 'ACTIVE')
          ON CONFLICT (customer_code) DO NOTHING`,
 
-        // A5: 药品目录种子数据（ON CONFLICT DO NOTHING 幂等）
-        `INSERT INTO brd_medications (medication_code, medication_name, dosage, status) VALUES
-           ('MED-001', '新城疫疫苗',        '1000头份/瓶',       'ACTIVE'),
-           ('MED-002', '禽流感H9疫苗',      '500头份/瓶',        'ACTIVE'),
-           ('MED-003', '禽流感H5疫苗',      '500头份/瓶',        'ACTIVE'),
-           ('MED-004', '传染性支气管炎疫苗', '1000头份/瓶',       'ACTIVE'),
-           ('MED-005', '法氏囊疫苗',        '1000头份/瓶',       'ACTIVE'),
-           ('MED-006', '鸡痘疫苗',          '1000头份/瓶',       'ACTIVE'),
-           ('MED-007', '传染性喉气管炎疫苗', '500头份/瓶',        'ACTIVE'),
-           ('MED-008', '马立克疫苗',        '1000头份/瓶',       'ACTIVE'),
-           ('MED-009', '恩诺沙星',          '100g/袋',           'ACTIVE'),
-           ('MED-010', '阿莫西林',          '100g/袋',           'ACTIVE'),
-           ('MED-011', '多西环素',          '100g/袋',           'ACTIVE'),
-           ('MED-012', '氟苯尼考',          '100g/袋',           'ACTIVE'),
-           ('MED-013', '泰乐菌素',          '100g/袋',           'ACTIVE'),
-           ('MED-014', '林可霉素',          '100g/袋',           'ACTIVE'),
-           ('MED-015', '庆大霉素',          '100ml/瓶',          'ACTIVE'),
-           ('MED-016', '新霉素',            '100g/袋',           'ACTIVE'),
-           ('MED-017', '磺胺二甲嘧啶',      '500g/袋',           'ACTIVE'),
-           ('MED-018', '诺氟沙星',          '100g/袋',           'ACTIVE'),
-           ('MED-019', '环丙沙星',          '100g/袋',           'ACTIVE'),
-           ('MED-020', '妥曲珠利',          '1L/瓶',             'ACTIVE'),
-           ('MED-021', '安普罗利',          '100g/袋',           'ACTIVE'),
-           ('MED-022', '地克珠利',          '1L/瓶',             'ACTIVE'),
-           ('MED-023', '磺胺氯吡嗪钠',      '100g/袋',           'ACTIVE'),
-           ('MED-024', '伊维菌素',          '500ml/瓶',          'ACTIVE'),
-           ('MED-025', '阿苯达唑',          '500g/袋',           'ACTIVE'),
-           ('MED-026', '维生素C',           '100g/袋',           'ACTIVE'),
-           ('MED-027', '维生素E',           '100g/袋',           'ACTIVE'),
-           ('MED-028', '维生素AD3',         '500ml/瓶',          'ACTIVE'),
-           ('MED-029', '维生素K3',          '100g/袋',           'ACTIVE'),
-           ('MED-030', '复合维生素',         '100g/袋',           'ACTIVE'),
-           ('MED-031', '电解多维',           '100g/袋',           'ACTIVE'),
-           ('MED-032', '葡萄糖',            '500g/袋',           'ACTIVE'),
-           ('MED-033', '口服补液盐',         '100g/袋',           'ACTIVE'),
-           ('MED-034', '黄芪多糖',          '100g/袋',           'ACTIVE'),
-           ('MED-035', '板蓝根',            '100g/袋',           'ACTIVE'),
-           ('MED-036', '双黄连',            '100ml/瓶',          'ACTIVE'),
-           ('MED-037', '地塞米松',          '100ml/瓶',          'ACTIVE'),
-           ('MED-038', '扑热息痛',          '100g/袋',           'ACTIVE'),
-           ('MED-039', '氨茶碱',            '100g/袋',           'ACTIVE'),
-           ('MED-040', '碳酸氢钠',          '500g/袋',           'ACTIVE'),
-           ('MED-041', '过硫酸氢钾复合盐',   '500g/袋',           'ACTIVE'),
-           ('MED-042', '碘伏',              '5L/桶',             'ACTIVE'),
-           ('MED-043', '酒精',              '500ml/瓶',          'ACTIVE'),
-           ('MED-044', '火碱',              '25kg/袋',           'ACTIVE'),
-           ('MED-045', '生石灰',            '25kg/袋',           'ACTIVE'),
-           ('MED-046', '甲醛溶液',          '500ml/瓶',          'ACTIVE')
-         ON CONFLICT (medication_code) DO NOTHING`,
-
         // ══════════════════════════════════════════════════════════════════════
         // 阶段二收尾：V2 残表归档封存（sys_users / sys_roles / sys_user_roles）
         // 策略：
@@ -1284,55 +1185,6 @@ export class GenericCrudService implements OnModuleInit {
            created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
            UNIQUE (log_date, house_code, shift)
          )`,
-
-        // ── 兽药主数据 ────────────────────────────────────────────────────
-        `CREATE TABLE IF NOT EXISTS brd_medications (
-           id               SERIAL PRIMARY KEY,
-           medication_code  VARCHAR(64) UNIQUE,
-           medication_name  VARCHAR(256),
-           dosage           VARCHAR(64),
-           status           VARCHAR(32) DEFAULT 'ACTIVE',
-           created_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-           updated_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-         )`,
-
-        // ── 库存批次 & 台账 ───────────────────────────────────────────────
-        `CREATE TABLE IF NOT EXISTS inv_batches (
-           id              SERIAL PRIMARY KEY,
-           batch_no        VARCHAR(64) UNIQUE,
-           product_code    VARCHAR(64),
-           qty             INTEGER DEFAULT 0,
-           qty_available   INTEGER,
-           status          VARCHAR(20) DEFAULT 'AVAILABLE',
-           warehouse_code  VARCHAR(50),
-           location_code   VARCHAR(50),
-           store_code      VARCHAR(50),
-           expire_date     DATE,
-           created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-           updated_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-         )`,
-        `ALTER TABLE inv_batches ADD COLUMN IF NOT EXISTS qty_available INTEGER`,
-        `ALTER TABLE inv_batches ADD COLUMN IF NOT EXISTS warehouse_code VARCHAR(50)`,
-        `ALTER TABLE inv_batches ADD COLUMN IF NOT EXISTS location_code  VARCHAR(50)`,
-        `ALTER TABLE inv_batches ADD COLUMN IF NOT EXISTS store_code     VARCHAR(50)`,
-        `ALTER TABLE inv_batches ADD COLUMN IF NOT EXISTS expire_date    DATE`,
-        `ALTER TABLE inv_batches ADD COLUMN IF NOT EXISTS updated_at     TIMESTAMP`,
-
-        `CREATE TABLE IF NOT EXISTS inv_ledger (
-           id           SERIAL PRIMARY KEY,
-           batch_no     VARCHAR(64),
-           change_type  VARCHAR(64),
-           qty_change   INTEGER DEFAULT 0,
-           operator     VARCHAR(128),
-           store_code   VARCHAR(50),
-           ref_no       VARCHAR(128),
-           note         TEXT,
-           created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-         )`,
-        `ALTER TABLE inv_ledger ADD COLUMN IF NOT EXISTS log_date      DATE`,
-        `ALTER TABLE inv_ledger ADD COLUMN IF NOT EXISTS warehouse_code VARCHAR(50)`,
-        `ALTER TABLE inv_ledger ADD COLUMN IF NOT EXISTS house_code    VARCHAR(50)`,
-        `ALTER TABLE inv_ledger ADD COLUMN IF NOT EXISTS customer_no   VARCHAR(100)`,
 
         // ── WMS 仓库 / 入出库 / 盘点 ─────────────────────────────────────
         `CREATE TABLE IF NOT EXISTS wms_warehouses (
