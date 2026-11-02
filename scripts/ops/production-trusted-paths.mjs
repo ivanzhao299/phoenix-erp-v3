@@ -61,7 +61,9 @@ export function assertSameDirectory(before, after) {
   if (JSON.stringify(before) !== JSON.stringify(after)) hold('PATH_CHANGED_DURING_OPERATION');
 }
 export function assertRegularFile(stat, { uid = 0, mode = 0o600 } = {}) {
-  if (!stat.isFile() || stat.isSymbolicLink?.() || stat.uid !== uid || (stat.mode & 0o7777) !== mode || stat.nlink !== 1) hold('FILE_PERMISSIONS_OR_LINK');
+  if (!stat.isFile() || stat.isSymbolicLink?.() || stat.uid !== uid || (stat.mode & 0o7777) !== mode || stat.nlink !== 1) {
+    hold(`FILE_PERMISSIONS_OR_LINK:${stat.uid}:${(stat.mode & 0o7777).toString(8)}:${stat.nlink}:${stat.isSymbolicLink?.() ? 'symlink' : stat.isFile() ? 'file' : 'other'}`);
+  }
 }
 const identity = stat => [stat.dev, stat.ino, stat.uid, stat.mode, stat.nlink, stat.size, stat.mtimeMs, stat.ctimeMs];
 export function readPinnedFile(file, { contract, uid = 0, trustedParent = true } = {}, dependencies = {}) {
