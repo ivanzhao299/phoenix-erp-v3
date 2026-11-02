@@ -776,9 +776,6 @@ jobs:
           script: |
             set -Eeuo pipefail
             umask 077
-            # The production contract pins the repository to /data/phoenix-erp.
-            # Do not let a stale DEPLOY_PATH secret redirect deployment into a
-            # generated/read-only checkout.
             cd /data/phoenix-erp
             DEPLOY_REPO_ROOT="$(pwd -P)"
             eval "$(printf '%s' "$PRODUCTION_CONTROL_BOOTSTRAP_B64" | base64 -d)"

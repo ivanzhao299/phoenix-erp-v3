@@ -115,10 +115,6 @@ jobs:
               find "$DEPLOY_PATH/artifacts/.docker-config" -depth -type d -empty -delete
             fi
             if [ "$ACTION" = emergency-recover ]; then
-              # Emergency space recovery is limited to allowlisted,
-              # reproducible artifacts so a stale floor cannot strand the
-              # database at 100% disk usage. No volumes, containers, or
-              # application source are touched here.
               mapfile -t obsolete_backups < <(
                 find /opt/phoenix-erp-backups -mindepth 1 -maxdepth 1 -type d \
                   -name 'deploy-pre-migration-*' -printf '%T@ %p\n' 2>/dev/null \
@@ -133,7 +129,7 @@ jobs:
               docker buildx prune -a -f --keep-storage=1GB 2>/dev/null \
                 || docker builder prune -a -f 2>/dev/null || true
               echo 'IMAGE_PRUNE=UNREFERENCED_ONLY_EMERGENCY'
-              docker image prune -a -f 2>/dev/null || true
+              docker image prune --all --force 2>/dev/null || true
               journalctl --vacuum-size=256M || true
             fi
             report_disk
