@@ -1,5 +1,28 @@
 import { BadRequestException } from '@nestjs/common';
-import { ProductionInboundService } from './production-inbound.service';
+import {
+  ProductionInboundService,
+  findDailyInboundOverages,
+  normalizeGradeQuantityMap,
+  sumGradeQuantityMaps,
+} from './production-inbound.service';
+
+describe('daily report inventory consistency helpers', () => {
+  it('normalizes JSONB grade quantities and ignores malformed values', () => {
+    expect(normalizeGradeQuantityMap('{"GRADE_1":"100","GRADE_2":-1,"":5}')).toEqual({ GRADE_1: 100 });
+    expect(sumGradeQuantityMaps([
+      { eggs_by_grade: { GRADE_1: 100, GRADE_2: 20 } },
+      { eggs_by_grade: '{"GRADE_1":50}' },
+    ])).toEqual({ GRADE_1: 150, GRADE_2: 20 });
+  });
+
+  it('finds only the grade quantities that exceed the remaining daily report allowance', () => {
+    expect(findDailyInboundOverages(
+      { GRADE_1: 100, GRADE_2: 50 },
+      { GRADE_1: 80 },
+      [{ grade: 'GRADE_1', qty: 20 }, { grade: 'GRADE_2', qty: 51 }],
+    )).toEqual([{ grade: 'GRADE_2', requested: 51, remaining: 50 }]);
+  });
+});
 
 describe('ProductionInboundService master-data resolution', () => {
   const makeService = (query: jest.Mock, createProductionBatch = jest.fn(), dataScope?: any) => {
@@ -156,14 +179,14 @@ describe('ProductionInboundService master-data resolution', () => {
     const totalInbound = quantities.reduce((sum, qty) => sum + qty, 0);
     expect(first).toMatchObject({ totalInbound, idempotent: false });
     expect(transaction).toHaveBeenCalledTimes(1);
-    expect(createProductionBatch).toHaveBeenCalledTimes(quantities.length);
+    expect(createProductionBatch).toHaveBeenCalledTimes(1);
 
     existing.push(...first.batches.map(batch => ({ batch_no: batch.batchNo, quality_grade: batch.grade, qty: batch.qty, product_code: batch.productCode, sku_code: 'SKU-1', spec_code: 'LOOSE', egg_date: dto.eggDate, collection_batch_ref: 'HOUSE-HOUSE-A', warehouse_code: 'WH-A', location_code: 'LOC-A' })));
     const second = await service.recordProductionInbound(dto);
     expect(second).toMatchObject({ totalInbound, idempotent: true });
     expect(second.batches).toEqual(first.batches);
-    expect(new Set(second.batches.map(batch => batch.batchNo)).size).toBe(quantities.length);
-    expect(createProductionBatch).toHaveBeenCalledTimes(quantities.length);
+    expect(new Set(second.batches.map(batch => batch.batchNo)).size).toBe(1);
+    expect(createProductionBatch).toHaveBeenCalledTimes(1);
     expect(managerQuery).toHaveBeenCalledWith(expect.stringContaining('pg_advisory_xact_lock'), expect.any(Array));
   });
 

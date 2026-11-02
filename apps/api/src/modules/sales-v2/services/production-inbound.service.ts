@@ -14,6 +14,45 @@ type MasterContext = {
   locationCode: string;
 };
 
+export type GradeQuantityMap = Record<string, number>;
+
+/** Parse a JSONB value without allowing malformed historical rows to widen stock. */
+export function normalizeGradeQuantityMap(value: unknown): GradeQuantityMap {
+  let parsed = value;
+  if (typeof parsed === 'string') {
+    try { parsed = JSON.parse(parsed); } catch { return {}; }
+  }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+  const result: GradeQuantityMap = {};
+  for (const [grade, raw] of Object.entries(parsed as Record<string, unknown>)) {
+    const qty = Math.max(0, Math.round(Number(raw) || 0));
+    if (grade.trim() && qty > 0) result[grade.trim()] = (result[grade.trim()] ?? 0) + qty;
+  }
+  return result;
+}
+
+export function sumGradeQuantityMaps(rows: Array<{ eggs_by_grade?: unknown }>): GradeQuantityMap {
+  const result: GradeQuantityMap = {};
+  for (const row of rows) {
+    for (const [grade, qty] of Object.entries(normalizeGradeQuantityMap(row.eggs_by_grade))) {
+      result[grade] = (result[grade] ?? 0) + qty;
+    }
+  }
+  return result;
+}
+
+export function findDailyInboundOverages(
+  expected: GradeQuantityMap,
+  alreadyInbound: GradeQuantityMap,
+  requested: Array<{ grade: string; qty: number }>,
+): Array<{ grade: string; requested: number; remaining: number }> {
+  const requestedByGrade: GradeQuantityMap = {};
+  for (const item of requested) requestedByGrade[item.grade] = (requestedByGrade[item.grade] ?? 0) + item.qty;
+  return Object.entries(requestedByGrade)
+    .map(([grade, qty]) => ({ grade, requested: qty, remaining: Math.max(0, (expected[grade] ?? 0) - (alreadyInbound[grade] ?? 0)) }))
+    .filter(row => row.requested > row.remaining);
+}
+
 /**
  * ProductionInboundService — 库存来源模式治理 Phase P1A · 临时生产入库
  * ════════════════════════════════════════════════════════════════════════
@@ -148,6 +187,59 @@ export class ProductionInboundService {
   }
 
   /**
+   * When a daily report already contains grade quantities, production inbound
+   * is a posting of that report, not a free-form second source of truth.
+   * Enforce the remaining per-grade allowance inside the same transaction as
+   * the idempotency check so retries and concurrent posts cannot overstate stock.
+   */
+  private async assertDailyReportCapacity(
+    mgr: { query: (sql: string, params?: unknown[]) => Promise<any[]> },
+    dto: { eggDate: string; houseCode?: string },
+    items: Array<{ grade: string; qty: number }>,
+    collectionRef: string | null,
+    sourceNo: string,
+  ): Promise<void> {
+    if (!dto.houseCode || !collectionRef) return;
+    const table = (await mgr.query(`SELECT to_regclass('brd_daily_logs') AS table_name`)) ?? [];
+    if (!table[0]?.table_name) return;
+
+    const reports = await mgr.query(
+      `SELECT eggs_by_grade
+         FROM brd_daily_logs
+        WHERE log_date = $1 AND house_code = $2`,
+      [dto.eggDate, dto.houseCode],
+    );
+    const expected = sumGradeQuantityMaps(reports);
+    // No grade breakdown means this is a legacy/manual inbound flow. Keep it
+    // available, while reports with grade data are strictly bounded.
+    if (Object.keys(expected).length === 0) return;
+
+    const postedRows = await mgr.query(
+      `SELECT COALESCE(grade_code_std, quality_grade) AS grade,
+              COALESCE(SUM(qty), 0)::numeric AS qty
+         FROM inv_batches
+        WHERE source_type = 'TEMP_PRODUCTION'
+          AND egg_date = $1
+          AND collection_batch_ref = $2
+          AND source_no IS DISTINCT FROM $3
+        GROUP BY COALESCE(grade_code_std, quality_grade)`,
+      [dto.eggDate, collectionRef, sourceNo],
+    );
+    const alreadyInbound: GradeQuantityMap = {};
+    for (const row of postedRows) {
+      const grade = String(row.grade ?? '').trim();
+      const qty = Math.max(0, Math.round(Number(row.qty) || 0));
+      if (grade && qty > 0) alreadyInbound[grade] = (alreadyInbound[grade] ?? 0) + qty;
+    }
+
+    const overages = findDailyInboundOverages(expected, alreadyInbound, items);
+    if (overages.length > 0) {
+      const detail = overages.map(row => `${row.grade}: 请求 ${row.requested}，剩余 ${row.remaining}`).join('；');
+      throw new BadRequestException(`日产蛋分级入库超过日报剩余额度（${detail}）。请先核对日报或已入库记录后重试`);
+    }
+  }
+
+  /**
    * 录入日产蛋 → 直接形成销售库存（仅 TEMP_PRODUCTION_INBOUND 模式）
    */
   async recordProductionInbound(dto: {
@@ -178,9 +270,19 @@ export class ProductionInboundService {
     }
     dto = { ...dto, houseCode: dto.houseCode?.trim() || undefined };
     if (!Array.isArray(dto.items) || dto.items.length === 0) throw new BadRequestException('items 不能为空');
-    const effectiveItems = dto.items
+    const normalizedItems = dto.items
       .map(item => ({ ...item, spec: item.spec?.trim() || 'LOOSE', grade: String(item.grade || '').trim(), qty: Math.max(0, Math.round(Number(item.qty) || 0)) }))
       .filter(item => item.qty > 0);
+    // A daily report may contain the same grade in both shifts. Inventory is
+    // keyed by the daily source document, so merge those lines before writing;
+    // otherwise a unique source index cannot protect the document atomically.
+    const itemMap = new Map<string, { grade: string; qty: number; spec: string }>();
+    for (const item of normalizedItems) {
+      const key = `${item.grade}\u0000${item.spec}`;
+      const current = itemMap.get(key);
+      itemMap.set(key, current ? { ...current, qty: current.qty + item.qty } : item);
+    }
+    const effectiveItems = [...itemMap.values()];
     if (effectiveItems.length === 0) throw new BadRequestException('至少需要一个数量大于 0 的蛋品档位');
 
     const context = await this.resolveMasterContext(dto);
@@ -253,6 +355,7 @@ export class ProductionInboundService {
         }
         return;
       }
+      await this.assertDailyReportCapacity(mgr, dto, effectiveItems, collectionRef, sourceNo);
       for (const item of effectiveItems) {
         const { qty, grade } = item;
         const sku = resolved.get(`${grade}\u0000${item.spec ?? ''}`)!;

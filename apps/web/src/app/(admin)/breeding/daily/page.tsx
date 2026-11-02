@@ -39,6 +39,7 @@ import { DailyReportExport } from '@/components/breeding/DailyReportExport';
 import {
   cullingReasonLabel,
   dailyReportEggTotal,
+  dailyReportInboundIdempotencyKey,
   gradeQuantityTotal,
   hasDailyReportInput,
   isDailyReportHouseMissing,
@@ -430,7 +431,12 @@ export default function DailyPage() {
             const res = await fetch(`${API_BASE}/api/v2/inventory/production-inbound`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-              body: JSON.stringify({ eggDate: formDate, houseCode: selectedHouse || undefined, items: allItems }),
+              body: JSON.stringify({
+                eggDate: formDate,
+                houseCode: selectedHouse || undefined,
+                idempotencyKey: dailyReportInboundIdempotencyKey(formDate, selectedHouse),
+                items: allItems,
+              }),
             });
             const result = await readProductionInboundResult(res, allItems);
             if (result.status === 'success') {

@@ -1,6 +1,12 @@
-import { FarmService, dailyLogScopeWhere, deriveOrgScope } from './farm.service';
+import { FarmService, dailyLogScopeWhere, deriveOrgScope, hasPositiveGradeBreakdown } from './farm.service';
 
 describe('FarmService', () => {
+  it('recognizes positive grade breakdowns in object and JSONB forms', () => {
+    expect(hasPositiveGradeBreakdown({ GRADE_1: 1 })).toBe(true);
+    expect(hasPositiveGradeBreakdown('{"GRADE_1":2}')).toBe(true);
+    expect(hasPositiveGradeBreakdown({ GRADE_1: 0, GRADE_2: '' })).toBe(false);
+  });
+
   describe('organization scope', () => {
     it('fails closed when DataScope is missing and the token has no storeCode', () => {
       expect(deriveOrgScope({
@@ -186,6 +192,29 @@ describe('FarmService', () => {
       expect(values).toEqual(expect.arrayContaining(['LPH-MS-02', 'SITE-MS-02', 'COMP-LAO-AGRI']));
       expect(values).not.toEqual(expect.arrayContaining(['SPOOFED-FARM', 'SPOOFED-SITE', 'SPOOFED-COMPANY']));
     });
+  });
+
+  it('does not create a legacy FARM_IN delta when updating a graded daily report', async () => {
+    const { manager, svc } = buildSvc();
+    manager.query.mockImplementation(async (sql: string) => {
+      if (sql.includes('SELECT eggs_produced')) return [{
+        eggs_produced: 100,
+        mortality_qty: 0,
+        log_date: '2026-07-16',
+        flock_no: 'FLOCK-A',
+        house_code: 'H001',
+        eggs_by_grade: { GRADE_1: 100 },
+      }];
+      if (sql.includes('SELECT COALESCE(SUM(mortality_qty)')) return [{ total_mortality: 0, total_eggs: 120 }];
+      if (sql.includes('SELECT current_qty')) return [];
+      return [];
+    });
+
+    await expect(svc.updateBreedingDailyLog(7, {
+      house_code: 'H001', flock_no: 'FLOCK-A', log_date: '2026-07-16',
+      eggs_produced: 120, eggs_by_grade: { GRADE_1: 120 }, mortality_qty: 0,
+    })).resolves.toEqual({ code: 200, msg: '日报更新成功' });
+    expect(manager.query).not.toHaveBeenCalledWith(expect.stringContaining("INSERT INTO inv_ledger"), expect.anything());
   });
 
   it('uses house ownership fallback for grade breakdown and trend queries', async () => {

@@ -155,6 +155,15 @@ const ALLOWED_DAILY_COLS = new Set([
 
 const MISSING_HOUSE_MESSAGE = '请先选择鸡舍后再提交';
 
+export function hasPositiveGradeBreakdown(value: unknown): boolean {
+  let parsed = value;
+  if (typeof parsed === 'string') {
+    try { parsed = JSON.parse(parsed); } catch { return false; }
+  }
+  return Boolean(parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+    && Object.values(parsed as Record<string, unknown>).some(item => Number(item) > 0));
+}
+
 @Injectable()
 export class FarmService {
   constructor(
@@ -192,7 +201,7 @@ export class FarmService {
     if (body.eggs_by_grade && typeof body.eggs_by_grade === 'object') {
       const ebg = body.eggs_by_grade as Record<string, unknown>;
       const num = (k: string) => Math.max(0, Number(ebg[k]) || 0);
-      hasGradeBreakdown = Object.values(ebg).some(value => Number(value) > 0);
+      hasGradeBreakdown = hasPositiveGradeBreakdown(ebg);
       // G67 已将可售编码从 XL/L/M/S/XS 切换为 GRADE_1..5；以 ACTIVE
       // 等级主数据判断可售档，避免旧硬编码将日报总产蛋数算成 0。
       const saleableRows: Array<{ grade_code: string }> = await this.entityManager.query(
@@ -371,7 +380,7 @@ export class FarmService {
 
     return await this.entityManager.transaction(async (manager) => {
       const oldRecords = await manager.query(
-        `SELECT eggs_produced, mortality_qty, log_date, flock_no, house_code
+        `SELECT eggs_produced, mortality_qty, log_date, flock_no, house_code, eggs_by_grade
          FROM brd_daily_logs WHERE id = $1`,
         [id],
       );
@@ -380,6 +389,7 @@ export class FarmService {
       }
       const old = oldRecords[0];
       const oldEggs = Number(old.eggs_produced) || 0;
+      const hasGradeBreakdown = hasPositiveGradeBreakdown(body.eggs_by_grade ?? old.eggs_by_grade);
 
       const { fields, values } = this.sanitize(body);
       if (fields.length === 0) {
@@ -422,7 +432,7 @@ export class FarmService {
 
       // A4: 库存差额冲销 — 无批次时降级 warning
       const eggsDiff = eggs - oldEggs;
-      if (eggsDiff !== 0) {
+      if (eggsDiff !== 0 && !hasGradeBreakdown) {
         try {
           const batches = await manager.query(
             `SELECT batch_no FROM inv_batches WHERE product_code LIKE 'PRD-EGG%' ORDER BY created_at DESC LIMIT 1`,

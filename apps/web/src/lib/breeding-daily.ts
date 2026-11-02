@@ -34,6 +34,28 @@ export function dailyReportEggTotal(value: unknown, hasGradeData: boolean): numb
   return Number(value) || 0;
 }
 
+/**
+ * Stable identity shared by the daily report and daily inbound screens.
+ * One house/day is one production-inbound document; retries must replay the
+ * same source instead of creating a second inventory document.
+ */
+export function dailyReportInboundIdempotencyKey(
+  logDate: unknown,
+  houseCode: unknown,
+): string | undefined {
+  const date = String(logDate ?? '').trim();
+  const house = String(houseCode ?? '').trim();
+  if (!date || !house) return undefined;
+
+  // Keep the key bounded even when a legacy house code is unusually long.
+  let hash = 2166136261;
+  for (const char of `${date}\u0000${house}`) {
+    hash ^= char.charCodeAt(0);
+    hash = Math.imul(hash, 16777619);
+  }
+  return `DAILY-${date}-${house.slice(0, 24)}-${(hash >>> 0).toString(16)}`.slice(0, 64);
+}
+
 const FALLBACK_CULLING_REASON_LABELS: Record<string, string> = {
   LOW_PRODUCTION: '产蛋率低',
   SICKNESS: '患病',
