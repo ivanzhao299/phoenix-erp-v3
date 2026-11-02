@@ -82,6 +82,8 @@ jobs:
             set -u
             set +x
             echo "DIAG_STAGE=SSH_CONNECTED"
+            echo "REMOTE_UID=$(id -u)"
+            echo "REMOTE_USER=$(id -un)"
 
             if [ ! -d "$DEPLOY_PATH" ]; then
               echo "DIAG_FAILURE=DEPLOY_PATH_MISSING"
@@ -92,6 +94,8 @@ jobs:
               exit 32
             fi
             echo "DIAG_STAGE=DEPLOY_PATH_OK"
+            stat -c 'DEPLOY_PATH_STAT=%U:%G:%a:%n' "$DEPLOY_PATH" 2>/dev/null || true
+            ls -ld "$DEPLOY_PATH/.git" 2>/dev/null || true
 
             if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
               echo "DIAG_FAILURE=NOT_GIT_REPOSITORY"
