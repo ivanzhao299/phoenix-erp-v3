@@ -132,6 +132,8 @@ jobs:
               done
               docker buildx prune -a -f --keep-storage=1GB 2>/dev/null \
                 || docker builder prune -a -f 2>/dev/null || true
+              echo 'IMAGE_PRUNE=UNREFERENCED_ONLY_EMERGENCY'
+              docker image prune -a -f 2>/dev/null || true
               journalctl --vacuum-size=256M || true
             fi
             report_disk
