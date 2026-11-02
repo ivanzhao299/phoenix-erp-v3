@@ -90,9 +90,14 @@ export function verifyContext(root, stateDirectory) {
     if (beforeAvailable) { beforeAvailable = false; return directoryBefore; }
     return inspectTrustedDirectory(directory, CONTRACT);
   } });
-  const lock = fs.lstatSync(path.join(stateDirectory, 'mutation.lock'));
+  const lockPath = path.join(stateDirectory, 'mutation.lock');
+  const lock = fs.lstatSync(lockPath);
   assertRegularFile(lock);
-  const inherited = fs.statSync(`/proc/${process.ppid}/fd/9`); assertRegularFile(inherited);
+  // Linux exposes an inherited descriptor through /proc as a proc symlink.
+  // Resolve that one kernel-owned link before applying the regular-file guard;
+  // rejecting the proc link itself makes every valid FD9 lock unrecoverable.
+  const inheritedPath = fs.realpathSync(`/proc/${process.ppid}/fd/9`);
+  const inherited = fs.statSync(inheritedPath); assertRegularFile(inherited);
   if (lock.dev !== inherited.dev || lock.ino !== inherited.ino) throw new Error('CONFIG_HOLD=HOST_LOCK_REQUIRED');
   assertWorkflowFd9Lock(path.join(stateDirectory, 'mutation.lock'),process.ppid);
   try { execFileSync('flock', ['-n', path.join(stateDirectory, 'mutation.lock'), 'true'], { stdio: 'ignore' }); }
