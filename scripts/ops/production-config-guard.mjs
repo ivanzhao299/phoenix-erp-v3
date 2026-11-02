@@ -102,7 +102,7 @@ export function verifyContext(root, stateDirectory) {
   if (inherited.uid !== 0 || (inherited.mode & 0o7777) !== 0o600 || inherited.nlink !== 1) {
     throw new Error('CONFIG_HOLD=FILE_PERMISSIONS_OR_LINK');
   }
-  if (lock.dev !== inherited.dev || lock.ino !== inherited.ino) throw new Error(`CONFIG_HOLD=HOST_LOCK_REQUIRED:${lock.dev}:${lock.ino}:${inherited.dev}:${inherited.ino}`);
+  if (lock.dev !== inherited.dev || lock.ino !== inherited.ino) throw new Error(`CONFIG_HOLD=HOST_LOCK_REQUIRED:${lock.dev}:${lock.ino}:${inherited.dev}:${inherited.ino}:${inheritedTarget}`);
   assertWorkflowFd9Lock(lockPath, process.ppid);
   try { execFileSync('flock', ['-n', path.join(stateDirectory, 'mutation.lock'), 'true'], { stdio: 'ignore' }); }
   catch { return; }
