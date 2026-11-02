@@ -121,14 +121,13 @@ export function assertWorkflowFd9Lock(file,holderPid){
  const fd=`/proc/${holderPid}/fd/9`,info=`/proc/${holderPid}/fdinfo/9`,uid=process.getuid();
  const pin=s=>[s.dev,s.ino,s.uid,s.mode,s.nlink];
  const sample=()=>{
-  const named=fs.lstatSync(file),openedFd=fs.openSync(fd, fs.constants.O_RDONLY),opened=fs.fstatSync(openedFd);assertRegularFile(named,{uid});
+  const named=fs.lstatSync(file),target=fs.readlinkSync(fd).replace(/ \(deleted\)$/, ''),opened=fs.statSync(target);assertRegularFile(named,{uid});
   if (opened.uid !== uid || (opened.mode & 0o7777) !== 0o600 || opened.nlink !== 1) hold('FILE_PERMISSIONS_OR_LINK');
   if(JSON.stringify(pin(named))!==JSON.stringify(pin(opened)))hold('HOST_LOCK_REQUIRED');
   const lines=fs.readFileSync(info,'utf8').split('\n').filter(line=>line.startsWith('lock:'));
   if(lines.length!==1)hold('WORKFLOW_FD9_NOT_LOCK_OWNER');
   const match=/^lock:\s+\d+:\s+FLOCK\s+ADVISORY\s+WRITE\s+[0-9]+\s+[a-f0-9]+:[a-f0-9]+:([0-9]+)\s+0\s+EOF$/.exec(lines[0]);
   if(!match||match[1]!==String(opened.ino))hold('WORKFLOW_FD9_NOT_LOCK_OWNER');
-  fs.closeSync(openedFd);
   return {pin:pin(named),lock:lines[0]};
  };
  try{if(JSON.stringify(sample())!==JSON.stringify(sample()))hold('WORKFLOW_FD9_LOCK_CHANGED');}
