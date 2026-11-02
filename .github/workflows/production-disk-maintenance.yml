@@ -107,6 +107,13 @@ jobs:
             }
 
             echo "action=$ACTION"
+            # Remove only the disposable Docker CLI metadata created by the
+            # production audit session. It is outside the application source
+            # and otherwise trips the clean-worktree admission gate.
+            if [ -d "$DEPLOY_PATH/artifacts/.docker-config" ]; then
+              find "$DEPLOY_PATH/artifacts/.docker-config" -depth -type f -delete
+              find "$DEPLOY_PATH/artifacts/.docker-config" -depth -type d -empty -delete
+            fi
             report_disk
             if [ "$ACTION" = incident-verify ]; then
               cd "$DEPLOY_PATH"
