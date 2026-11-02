@@ -48,7 +48,7 @@ jobs:
           PRODUCTION_PATH_HELPER_B64: ${{ env.PRODUCTION_PATH_HELPER_B64 }}
           PRODUCTION_CONTROL_BOOTSTRAP_B64: ${{ env.PRODUCTION_CONTROL_BOOTSTRAP_B64 }}
           ACTION: ${{ inputs.action }}
-          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+          DEPLOY_PATH: /data/phoenix-erp
           MAINTENANCE_RUN_ID: ${{ github.run_id }}
         with:
           host: ${{ secrets.DEPLOY_HOST }}

@@ -64,7 +64,7 @@ jobs:
         uses: appleboy/ssh-action@v1
         env:
           EXPECTED_SHA: ${{ github.sha }}
-          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+          DEPLOY_PATH: /data/phoenix-erp
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}

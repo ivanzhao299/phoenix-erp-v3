@@ -55,7 +55,7 @@ jobs:
       - name: Reconcile runtime pins over controlled SSH
         uses: appleboy/ssh-action@v1
         env:
-          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+          DEPLOY_PATH: /data/phoenix-erp
           TARGET_SHA: ${{ github.sha }}
           EXPECTED_FLOOR_SHA: ${{ inputs.expected_floor_sha }}
           REPAIR_RUN_ID: ${{ github.run_id }}
