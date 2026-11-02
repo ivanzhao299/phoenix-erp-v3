@@ -121,7 +121,8 @@ export function assertWorkflowFd9Lock(file,holderPid){
  const fd=`/proc/${holderPid}/fd/9`,info=`/proc/${holderPid}/fdinfo/9`,uid=process.getuid();
  const pin=s=>[s.dev,s.ino,s.uid,s.mode,s.nlink];
  const sample=()=>{
-  const named=fs.lstatSync(file),openedFd=fs.openSync(fd, fs.constants.O_RDONLY),opened=fs.fstatSync(openedFd);assertRegularFile(named,{uid});assertRegularFile(opened,{uid});
+  const named=fs.lstatSync(file),openedFd=fs.openSync(fd, fs.constants.O_RDONLY),opened=fs.fstatSync(openedFd);assertRegularFile(named,{uid});
+  if (opened.uid !== uid || (opened.mode & 0o7777) !== 0o600 || opened.nlink !== 1) hold('FILE_PERMISSIONS_OR_LINK');
   if(JSON.stringify(pin(named))!==JSON.stringify(pin(opened)))hold('HOST_LOCK_REQUIRED');
   const lines=fs.readFileSync(info,'utf8').split('\n').filter(line=>line.startsWith('lock:'));
   if(lines.length!==1)hold('WORKFLOW_FD9_NOT_LOCK_OWNER');

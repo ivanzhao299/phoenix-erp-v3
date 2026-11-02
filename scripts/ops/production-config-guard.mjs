@@ -98,7 +98,10 @@ export function verifyContext(root, stateDirectory) {
   // rejecting the proc link itself makes every valid FD9 lock unrecoverable.
   const inheritedFdPath = `/proc/${process.ppid}/fd/9`;
   const inheritedFd = fs.openSync(inheritedFdPath, fs.constants.O_RDONLY);
-  const inherited = fs.fstatSync(inheritedFd); assertRegularFile(inherited);
+  const inherited = fs.fstatSync(inheritedFd);
+  if (inherited.uid !== 0 || (inherited.mode & 0o7777) !== 0o600 || inherited.nlink !== 1) {
+    throw new Error('CONFIG_HOLD=FILE_PERMISSIONS_OR_LINK');
+  }
   if (lock.dev !== inherited.dev || lock.ino !== inherited.ino) throw new Error('CONFIG_HOLD=HOST_LOCK_REQUIRED');
   fs.closeSync(inheritedFd);
   assertWorkflowFd9Lock(lockPath, process.ppid);
