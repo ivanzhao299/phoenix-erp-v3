@@ -96,10 +96,12 @@ export function verifyContext(root, stateDirectory) {
   // Linux exposes an inherited descriptor through /proc as a proc symlink.
   // Resolve that one kernel-owned link before applying the regular-file guard;
   // rejecting the proc link itself makes every valid FD9 lock unrecoverable.
-  const inheritedPath = fs.realpathSync(`/proc/${process.ppid}/fd/9`);
-  const inherited = fs.statSync(inheritedPath); assertRegularFile(inherited);
+  const inheritedFdPath = `/proc/${process.ppid}/fd/9`;
+  const inheritedFd = fs.openSync(inheritedFdPath, fs.constants.O_RDONLY);
+  const inherited = fs.fstatSync(inheritedFd); assertRegularFile(inherited);
   if (lock.dev !== inherited.dev || lock.ino !== inherited.ino) throw new Error('CONFIG_HOLD=HOST_LOCK_REQUIRED');
-  assertWorkflowFd9Lock(path.join(stateDirectory, 'mutation.lock'),process.ppid);
+  fs.closeSync(inheritedFd);
+  assertWorkflowFd9Lock(lockPath, process.ppid);
   try { execFileSync('flock', ['-n', path.join(stateDirectory, 'mutation.lock'), 'true'], { stdio: 'ignore' }); }
   catch { return; }
   throw new Error('CONFIG_HOLD=HOST_LOCK_NOT_HELD');
