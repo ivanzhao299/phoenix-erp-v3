@@ -135,7 +135,7 @@ export function validateEffectiveConfig(config, tuple, floor = { operationalTupl
     || volume.source === '/' || CONTRACT.controlRoot.startsWith(volume.source + '/')
     || ((volume.source === '/var/lib/phoenix-background-control' || volume.source?.startsWith('/var/lib/phoenix-background-control/')) && volume !== control[0])))) throw new Error('CONFIG_HOLD=PRIVATE_CONTROL_EXPOSURE');
 }
-export function guardProduction(root, stateDirectory, images, expiredVerifyHold) {
+export function guardProduction(root, stateDirectory, images, expiredVerifyHold, options = {}) {
   verifyContext(root, stateDirectory); requireCleanMain(root);
   const owningTransaction = assertTransactionOwnership(stateDirectory, process.env.DEPLOY_RUN_ID);
   const actual = captureRuntime();
@@ -152,7 +152,20 @@ export function guardProduction(root, stateDirectory, images, expiredVerifyHold)
   const floor = secureJson(path.join(stateDirectory, 'floor.json'));
   const priorFloor = assertStateVersion(secureJson(path.join(stateDirectory, 'active.json'))).floorSha;
   assertFloorMonotonic(root, priorFloor, floor.floorSha);
-  assertFloor(root, floor);
+  if (options.allowFloorReanchor === true) {
+    const target = options.reanchorTarget || '';
+    const previousFloorSha = options.previousFloorSha || '';
+    if (floor.version !== 3 || floor.phase !== 'READY' || floor.floorSha !== previousFloorSha
+      || !REVISION.test(target) || target === previousFloorSha
+      || process.env.APPROVED_CONFIG_FLOOR_SHA !== target
+      || process.env.APPROVED_PREVIOUS_FLOOR_SHA !== previousFloorSha) {
+      throw new Error('CONFIG_HOLD=FLOOR_REANCHOR_CONTEXT');
+    }
+    try { git(root, ['merge-base', '--is-ancestor', previousFloorSha, target]); }
+    catch { throw new Error('CONFIG_HOLD=FLOOR_REANCHOR_REGRESSION'); }
+  } else {
+    assertFloor(root, floor);
+  }
   const envFile = path.join(root, '.env'); const metadata = fs.lstatSync(envFile);
   if (!metadata.isFile() || metadata.isSymbolicLink() || (metadata.mode & 0o777) !== 0o600) throw new Error('CONFIG_HOLD=ENV_PERMISSIONS');
   if (!/^phoenix[a-z0-9_-]*$/.test(floor.project || '')) throw new Error('CONFIG_HOLD=APPROVED_PROJECT');
