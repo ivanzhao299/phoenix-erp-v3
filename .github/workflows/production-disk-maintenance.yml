@@ -114,6 +114,26 @@ jobs:
               find "$DEPLOY_PATH/artifacts/.docker-config" -depth -type f -delete
               find "$DEPLOY_PATH/artifacts/.docker-config" -depth -type d -empty -delete
             fi
+            if [ "$ACTION" = emergency-recover ]; then
+              # Emergency space recovery is limited to allowlisted,
+              # reproducible artifacts so a stale floor cannot strand the
+              # database at 100% disk usage. No volumes, containers, or
+              # application source are touched here.
+              mapfile -t obsolete_backups < <(
+                find /opt/phoenix-erp-backups -mindepth 1 -maxdepth 1 -type d \
+                  -name 'deploy-pre-migration-*' -printf '%T@ %p\n' 2>/dev/null \
+                  | sort -nr | awk 'NR > 3 { sub(/^[^ ]+ /, ""); print }'
+              )
+              for backup_dir in "${obsolete_backups[@]}"; do
+                case "$backup_dir" in
+                  /opt/phoenix-erp-backups/deploy-pre-migration-*) rm -rf --one-file-system -- "$backup_dir" ;;
+                  *) echo "::error::Refusing unexpected backup path: $backup_dir"; exit 40 ;;
+                esac
+              done
+              docker buildx prune -a -f --keep-storage=1GB 2>/dev/null \
+                || docker builder prune -a -f 2>/dev/null || true
+              journalctl --vacuum-size=256M || true
+            fi
             report_disk
             if [ "$ACTION" = incident-verify ]; then
               cd "$DEPLOY_PATH"
