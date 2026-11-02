@@ -94,6 +94,8 @@ jobs:
             STAGE="/var/lib/phoenix-erp/production-deployment-state/runtime-pin-reconcile-${REPAIR_RUN_ID}"
             test ! -e "$STAGE"
             mkdir -m 700 "$STAGE"
+            stat -c 'RUNTIME_PIN_FS=%U:%G:%a:%h:%F:%n' /var/lib/phoenix-erp/production-deployment-state /var/lib/phoenix-erp/production-deployment-state/mutation.lock /proc/$$/fd/9
+            cat /proc/$$/fdinfo/9 | sed -n '1,12p'
             for helper in reconcile-production-runtime-pins.mjs production-config-guard.mjs production-config-contract.json production-atomic-state.mjs production-trusted-paths.mjs capture-production-runtime.mjs update-managed-chanjet-env.mjs chanjet-readonly-policy.mjs; do
               git_safe show "$TARGET_SHA:scripts/ops/$helper" > "$STAGE/$helper"
               chmod 600 "$STAGE/$helper"
