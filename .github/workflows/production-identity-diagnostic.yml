@@ -97,13 +97,13 @@ jobs:
             stat -c 'DEPLOY_PATH_STAT=%U:%G:%a:%n' "$DEPLOY_PATH" 2>/dev/null || true
             ls -ld "$DEPLOY_PATH/.git" 2>/dev/null || true
 
-            if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+            if ! git -c "safe.directory=$DEPLOY_PATH" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
               echo "DIAG_FAILURE=NOT_GIT_REPOSITORY"
               exit 33
             fi
             echo "DIAG_STAGE=GIT_REPOSITORY_OK"
 
-            CURRENT_SHA="$(git rev-parse HEAD 2>/dev/null || true)"
+            CURRENT_SHA="$(git -c "safe.directory=$DEPLOY_PATH" rev-parse HEAD 2>/dev/null || true)"
             echo "PRODUCTION_SHA=$CURRENT_SHA"
             echo "EXPECTED_SHA=$EXPECTED_SHA"
             if [ "$CURRENT_SHA" != "$EXPECTED_SHA" ]; then
@@ -115,10 +115,10 @@ jobs:
             fi
             echo "DIAG_STAGE=HEAD_CAPTURED"
 
-            BRANCH="$(git branch --show-current 2>/dev/null || true)"
+            BRANCH="$(git -c "safe.directory=$DEPLOY_PATH" branch --show-current 2>/dev/null || true)"
             echo "PRODUCTION_BRANCH=${BRANCH:-detached}"
 
-            ORIGIN_URL="$(git config --get remote.origin.url 2>/dev/null || true)"
+            ORIGIN_URL="$(git -c "safe.directory=$DEPLOY_PATH" config --get remote.origin.url 2>/dev/null || true)"
             if [ -z "$ORIGIN_URL" ]; then
               echo "ORIGIN_PRESENT=false"
               echo "ORIGIN_MATCHES_UPSTREAM=false"
@@ -139,7 +139,7 @@ jobs:
             fi
             echo "DIAG_STAGE=ORIGIN_CHECKED"
 
-            if [ -n "$(git status --porcelain --untracked-files=all)" ]; then
+            if [ -n "$(git -c "safe.directory=$DEPLOY_PATH" status --porcelain --untracked-files=all)" ]; then
               echo "WORKTREE_CLEAN=false"
               WORKTREE_CLEAN=false
             else
