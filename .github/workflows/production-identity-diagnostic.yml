@@ -139,8 +139,10 @@ jobs:
             fi
             echo "DIAG_STAGE=ORIGIN_CHECKED"
 
-            if [ -n "$(git -c "safe.directory=$DEPLOY_PATH" status --porcelain --untracked-files=all)" ]; then
+            WORKTREE_STATUS="$(git -c "safe.directory=$DEPLOY_PATH" status --porcelain --untracked-files=all)"
+            if [ -n "$WORKTREE_STATUS" ]; then
               echo "WORKTREE_CLEAN=false"
+              printf '%s\n' "$WORKTREE_STATUS" | sed -n '1,40p'
               WORKTREE_CLEAN=false
             else
               echo "WORKTREE_CLEAN=true"
