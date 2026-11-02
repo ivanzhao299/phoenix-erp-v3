@@ -168,6 +168,10 @@ jobs:
               node --version
             fi
             echo "DIAG_STAGE=NODE_CHECKED"
+            STATE_DIR=/var/lib/phoenix-erp/production-deployment-state
+            if [ -r "$STATE_DIR/floor.json" ] && [ -r "$STATE_DIR/active.json" ]; then
+              STATE_DIR="$STATE_DIR" node -e 'const fs=require("fs");const f=JSON.parse(fs.readFileSync(process.env.STATE_DIR+"/floor.json"));const a=JSON.parse(fs.readFileSync(process.env.STATE_DIR+"/active.json"));console.log("FLOOR_SHA="+(f.floorSha||""));console.log("ACTIVE_API_REVISION="+(a.active?.api?.revision||""));console.log("ACTIVE_WEB_REVISION="+(a.active?.web?.revision||""));'
+            fi
 
             if [ "$ORIGIN_MATCHES_UPSTREAM" = false ]; then
               echo "DIAG_RESULT=BLOCKED"
