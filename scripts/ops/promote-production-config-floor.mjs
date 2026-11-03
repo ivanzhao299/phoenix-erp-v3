@@ -1,4 +1,4 @@
-import { assertAdmissionSchemaApplied } from './chanjet-admission-schema-receipt.mjs';
+import { assertAdmissionSchemaApplied, assertScopeMigrationsReceipted } from './chanjet-admission-schema-receipt.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -98,7 +98,10 @@ async function promoteFloorCore(root, env, dependencies, admit, legacy) {
   // one critical file relative to the current floor (a no-op re-anchor would
   // silently re-bless an unchanged contract). Empty diff → dedicated HOLD.
   const criticalFilesChanged = getGit(root, ['diff', '--name-only', previousFloor.floorSha, target, '--', ...CONTRACT.criticalFiles]).split('\n').filter(Boolean).length > 0;
-  const schemaApplied = (dependencies.assertAdmissionSchemaApplied || assertAdmissionSchemaApplied)(root, scope);
+  // Pending migrations are only tolerable for an api-only floor re-anchor when
+  // every one of them was applied through the reviewed out-of-band channel and
+  // still matches its recorded ledger digest.
+  const schemaApplied = (dependencies.assertScopeMigrationsReceipted || assertScopeMigrationsReceipted)(root, scope);
   const plan = promotionPlan({ schemaApplied, previousFloor, previousActive, actual, target, approvedSha: env.APPROVED_CONFIG_FLOOR_SHA, runId: env.DEPLOY_RUN_ID, scope, criticalFilesChanged, expectedPreviousFloorSha: env.APPROVED_PREVIOUS_FLOOR_SHA || '', now: (dependencies.now || Date.now)() });
   (dependencies.assertFloor || assertFloor)(root, plan.floor, target, { targetTree: true });
   const record = path.join(directory, `floor-promotion-${env.DEPLOY_RUN_ID}.json`);

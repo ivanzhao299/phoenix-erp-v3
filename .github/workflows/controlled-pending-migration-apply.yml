@@ -1,0 +1,140 @@
+name: Controlled Pending Migration Apply
+
+on:
+  workflow_dispatch:
+    inputs:
+      phase:
+        description: 'inspect = read-only pending/ledger dump; apply = run pending migrations from the reviewed candidate image and record receipts'
+        required: true
+        type: choice
+        options: [inspect, apply]
+      approve_production:
+        description: 'Type APPLY-PENDING-MIGRATIONS-20261103 to authorize'
+        required: true
+        type: string
+      expected_main_sha:
+        description: 'Exact merged main SHA carrying this reviewed workflow and the candidate image'
+        required: true
+        type: string
+      expected_before_ledger_sha256:
+        description: 'apply only: ledger digest observed by the inspect phase (compare-and-swap)'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: controlled-pending-migration-apply
+  cancel-in-progress: false
+
+jobs:
+  execute:
+    if: inputs.phase == 'inspect' || inputs.approve_production == 'APPLY-PENDING-MIGRATIONS-20261103'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: production
+    steps:
+      - uses: actions/checkout@v5
+        with: { fetch-depth: 0 }
+      - name: Validate reviewed binding
+        env:
+          EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = refs/heads/main
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$EXPECTED_MAIN_SHA" = "$GITHUB_SHA"
+      - name: Prepare trusted helpers
+        run: |
+          set -euo pipefail
+          echo "PRODUCTION_CONTRACT_B64=$(base64 -w0 scripts/ops/production-config-contract.json)" >> "$GITHUB_ENV"
+          echo "PRODUCTION_PATH_HELPER_B64=$(base64 -w0 scripts/ops/production-trusted-paths.mjs)" >> "$GITHUB_ENV"
+          echo "PRODUCTION_CONTROL_BOOTSTRAP_B64=$(base64 -w0 scripts/ops/production-control-bootstrap.sh)" >> "$GITHUB_ENV"
+      - name: Run ${{ inputs.phase }} over controlled SSH
+        uses: appleboy/ssh-action@v1
+        env:
+          TARGET_SHA: ${{ github.sha }}
+          PHASE: ${{ inputs.phase }}
+          EXPECTED_BEFORE_LEDGER_SHA256: ${{ inputs.expected_before_ledger_sha256 }}
+          MIGRATION_RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}
+          GHCR_LOGIN_USER: ${{ secrets.GHCR_LOGIN_USER }}
+          GHCR_LOGIN_TOKEN: ${{ secrets.GHCR_LOGIN_TOKEN }}
+          PRODUCTION_CONTRACT_B64: ${{ env.PRODUCTION_CONTRACT_B64 }}
+          PRODUCTION_PATH_HELPER_B64: ${{ env.PRODUCTION_PATH_HELPER_B64 }}
+          PRODUCTION_CONTROL_BOOTSTRAP_B64: ${{ env.PRODUCTION_CONTROL_BOOTSTRAP_B64 }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
+          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+          proxy_port: 22
+          envs: TARGET_SHA,PHASE,EXPECTED_BEFORE_LEDGER_SHA256,MIGRATION_RUN_ID,GHCR_LOGIN_USER,GHCR_LOGIN_TOKEN,PRODUCTION_CONTRACT_B64,PRODUCTION_PATH_HELPER_B64,PRODUCTION_CONTROL_BOOTSTRAP_B64
+          command_timeout: 20m
+          script: |
+            set -Eeuo pipefail
+            umask 077
+            cd /data/phoenix-erp
+            export DEPLOY_REPO_ROOT=/data/phoenix-erp
+            eval "$(printf '%s' "$PRODUCTION_CONTROL_BOOTSTRAP_B64" | base64 -d)"
+            git_safe() { command git -c "safe.directory=$DEPLOY_REPO_ROOT" -c core.hooksPath=/dev/null "$@"; }
+            test "$(git_safe branch --show-current)" = main
+            test -z "$(git_safe status --porcelain --untracked-files=all)"
+            git_safe fetch --no-tags origin main
+            test "$(git_safe rev-parse FETCH_HEAD)" = "$TARGET_SHA"
+            for marker in transaction.json policy-transition.json background-control.json; do
+              test ! -e "$STATE_DIR/$marker" || { echo "MIGRATION_APPLY=HOLD_IN_FLIGHT_$marker"; exit 1; }
+            done
+            STAGE="$STATE_DIR/migration-apply-$MIGRATION_RUN_ID"
+            test ! -e "$STAGE"
+            mkdir -m 700 "$STAGE"
+            trap 'rm -rf "$STAGE"' EXIT
+            for helper in chanjet-admission-schema-receipt.mjs record-migration-apply-receipt.mjs production-config-guard.mjs production-config-contract.json production-atomic-state.mjs production-trusted-paths.mjs capture-production-runtime.mjs audit-daily-egg-inbound.mjs; do
+              git_safe show "$TARGET_SHA:scripts/ops/$helper" > "$STAGE/$helper"
+              chmod 600 "$STAGE/$helper"
+            done
+
+            API_IMAGE="ghcr.io/ivanzhao299/phoenix-erp-v3/api:sha-$TARGET_SHA"
+            docker login ghcr.io -u "$GHCR_LOGIN_USER" --password-stdin <<< "$GHCR_LOGIN_TOKEN"
+            docker pull -q "$API_IMAGE" >/dev/null
+            test "$(docker image inspect "$API_IMAGE" --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}')" = "$TARGET_SHA"
+
+            show_migrations() {
+              API_IMAGE="$API_IMAGE" docker compose run --no-deps -T --entrypoint ./node_modules/.bin/typeorm api \
+                -d dist/database/data-source.js migration:show 2>/dev/null || true
+            }
+            PENDING_CLASSES="$(show_migrations | grep -F '[ ]' | sed -E 's/.*\[ \][[:space:]]*//' | tr '\n' ' ')"
+            echo "PENDING_MIGRATION_CLASSES=$PENDING_CLASSES"
+            LEDGER_SHA256="$(node --input-type=module -e "import {readProductionLedger,digest} from '$STAGE/chanjet-admission-schema-receipt.mjs'; console.log(digest(JSON.stringify(readProductionLedger())))")"
+            echo "LEDGER_SHA256=$LEDGER_SHA256"
+            RUNNING_API_REV="$(docker inspect phoenix-v3-api --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}')"
+            echo "RUNNING_API_REV=$RUNNING_API_REV"
+            MIGRATION_PATHS="$(git_safe diff --name-only "$RUNNING_API_REV" "$TARGET_SHA" -- apps/api/src/database/migrations | tr '\n' ' ')"
+            echo "CHANGED_MIGRATION_PATHS=$MIGRATION_PATHS"
+            run_audit() {
+              DAILY_EGG_PSQL_CMD="docker exec -i -e PGOPTIONS='-c default_transaction_read_only=on' phoenix-v3-db sh -c 'exec psql -X -v ON_ERROR_STOP=1 -tA -U \"\$POSTGRES_USER\" -d \"\$POSTGRES_DB\"'" \
+                node "$STAGE/audit-daily-egg-inbound.mjs" --output-dir "$STAGE/out" --report "$STAGE/out/REPORT.md" >/dev/null 2>&1 || test $? -eq 2
+              node -e 'const r=require(process.argv[1]);console.log(r.conclusion)' "$STAGE/out/daily-egg-inbound-audit-latest.json"
+            }
+
+            if [ "$PHASE" = inspect ]; then
+              echo "AUDIT_CONCLUSION=$(run_audit)"
+              cat "$STAGE/out/REPORT.md"
+              echo "INSPECT=COMPLETE"
+              exit 0
+            fi
+
+            test "$EXPECTED_BEFORE_LEDGER_SHA256" = "$LEDGER_SHA256" || { echo 'MIGRATION_APPLY=HOLD_LEDGER_MOVED'; exit 1; }
+            AUDIT_CONCLUSION="$(run_audit)"
+            test "$AUDIT_CONCLUSION" = GO || { echo "MIGRATION_APPLY=HOLD_AUDIT_$AUDIT_CONCLUSION"; exit 1; }
+            test -n "$PENDING_CLASSES" || { echo 'MIGRATION_APPLY=NOOP_NOTHING_PENDING'; exit 0; }
+            PRESERVE_ARTIFACTS=true bash scripts/deploy-schema-first.sh /opt/phoenix/backups/migration-evidence "$API_IMAGE"
+            PENDING_AFTER="$(show_migrations | grep -F '[ ]' | sed -E 's/.*\[ \][[:space:]]*//' | tr '\n' ' ')"
+            test -z "$PENDING_AFTER" || { echo "MIGRATION_APPLY=HOLD_STILL_PENDING:$PENDING_AFTER"; exit 1; }
+            test -n "$MIGRATION_PATHS" || { echo 'MIGRATION_APPLY=HOLD_NO_CHANGED_PATHS'; exit 1; }
+            TARGET_SHA="$TARGET_SHA" MIGRATION_RUN_ID="$MIGRATION_RUN_ID" BEFORE_LEDGER_SHA256="$EXPECTED_BEFORE_LEDGER_SHA256" \
+              node "$STAGE/record-migration-apply-receipt.mjs" $MIGRATION_PATHS
+            echo "MIGRATION_APPLY=COMMITTED"

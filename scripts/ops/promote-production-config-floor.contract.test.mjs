@@ -24,3 +24,8 @@ test('v3 re-anchor branch validates with the candidate guard before promotion', 
   // A hold code must always be classified, never swallowed.
   assert.match(script, /CONFIG_FLOOR_PROMOTION=HOLD:\$\{code\}/);
 });
+
+test('pending migrations require durable per-migration apply receipts', () => {
+  assert.match(script, /assertScopeMigrationsReceipted/);
+  assert.match(script, /dependencies\.assertScopeMigrationsReceipted \|\| assertScopeMigrationsReceipted/);
+});
