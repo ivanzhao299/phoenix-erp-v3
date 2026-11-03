@@ -39,7 +39,15 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
         beforeLedgerSha256, afterLedgerSha256: ledgerDigest,
       };
       const file = path.join(CONTRACT.stateDirectory, RECEIPT_DIRECTORY, `${name}.json`);
-      if (secureJsonOptional(file)) hold(`RECEIPT_EXISTS:${name}`);
+      const existing = secureJsonOptional(file);
+      if (existing) {
+        const core = value => { const { runId: _r, appliedAt: _a, ...rest } = value; return rest; };
+        if (JSON.stringify(core(existing)) === JSON.stringify(core(receipt))) {
+          console.log(`MIGRATION_RECEIPT=ALREADY_RECORDED;migration=${name}`);
+          continue;
+        }
+        hold(`RECEIPT_EXISTS:${name}`);
+      }
       atomicState(file, receipt);
       console.log(`MIGRATION_RECEIPT=RECORDED;migration=${name};run=${runId};ledger=${ledgerDigest.slice(0, 12)}`);
     }

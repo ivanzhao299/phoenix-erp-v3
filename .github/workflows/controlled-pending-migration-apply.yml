@@ -107,7 +107,8 @@ jobs:
               API_IMAGE="$API_IMAGE" docker compose run --no-deps -T --entrypoint ./node_modules/.bin/typeorm api \
                 -d dist/database/data-source.js migration:show 2>/dev/null || true
             }
-            PENDING_CLASSES="$(show_migrations | grep -F '[ ]' | sed -E 's/.*\[ \][[:space:]]*//' | tr '\n' ' ')"
+            pending_classes() { show_migrations | grep -F '[ ]' | sed -E 's/.*\[ \][[:space:]]*//' | tr '\n' ' ' || true; }
+            PENDING_CLASSES="$(pending_classes)"
             echo "PENDING_MIGRATION_CLASSES=$PENDING_CLASSES"
             LEDGER_SHA256="$(node --input-type=module -e "import {readProductionLedger,digest} from '$STAGE/chanjet-admission-schema-receipt.mjs'; console.log(digest(JSON.stringify(readProductionLedger())))")"
             echo "LEDGER_SHA256=$LEDGER_SHA256"
@@ -128,14 +129,22 @@ jobs:
               exit 0
             fi
 
-            test "$EXPECTED_BEFORE_LEDGER_SHA256" = "$LEDGER_SHA256" || { echo 'MIGRATION_APPLY=HOLD_LEDGER_MOVED'; exit 1; }
-            AUDIT_CONCLUSION="$(run_audit)"
-            test "$AUDIT_CONCLUSION" = GO || { echo "MIGRATION_APPLY=HOLD_AUDIT_$AUDIT_CONCLUSION"; exit 1; }
-            test -n "$PENDING_CLASSES" || { echo 'MIGRATION_APPLY=NOOP_NOTHING_PENDING'; exit 0; }
-            PRESERVE_ARTIFACTS=true bash scripts/deploy-schema-first.sh /opt/phoenix/backups/migration-evidence "$API_IMAGE"
-            PENDING_AFTER="$(show_migrations | grep -F '[ ]' | sed -E 's/.*\[ \][[:space:]]*//' | tr '\n' ' ')"
-            test -z "$PENDING_AFTER" || { echo "MIGRATION_APPLY=HOLD_STILL_PENDING:$PENDING_AFTER"; exit 1; }
             test -n "$MIGRATION_PATHS" || { echo 'MIGRATION_APPLY=HOLD_NO_CHANGED_PATHS'; exit 1; }
+            if [ -n "$PENDING_CLASSES" ]; then
+              # Compare-and-swap: refuse to execute migrations if anything else
+              # touched the ledger since the reviewed inspect phase.
+              test "$EXPECTED_BEFORE_LEDGER_SHA256" = "$LEDGER_SHA256" || { echo 'MIGRATION_APPLY=HOLD_LEDGER_MOVED'; exit 1; }
+              AUDIT_CONCLUSION="$(run_audit)"
+              test "$AUDIT_CONCLUSION" = GO || { echo "MIGRATION_APPLY=HOLD_AUDIT_$AUDIT_CONCLUSION"; exit 1; }
+              PRESERVE_ARTIFACTS=true bash scripts/deploy-schema-first.sh /opt/phoenix/backups/migration-evidence "$API_IMAGE"
+              PENDING_AFTER="$(pending_classes)"
+              test -z "$PENDING_AFTER" || { echo "MIGRATION_APPLY=HOLD_STILL_PENDING:$PENDING_AFTER"; exit 1; }
+            else
+              echo 'MIGRATION_APPLY=MIGRATIONS_ALREADY_APPLIED_RECORDING_RECEIPTS'
+            fi
+            # Receipt recording is idempotent: it requires every changed
+            # migration to be present in the production ledger and refuses
+            # to overwrite an existing receipt.
             TARGET_SHA="$TARGET_SHA" MIGRATION_RUN_ID="$MIGRATION_RUN_ID" BEFORE_LEDGER_SHA256="$EXPECTED_BEFORE_LEDGER_SHA256" \
               node "$STAGE/record-migration-apply-receipt.mjs" $MIGRATION_PATHS
             echo "MIGRATION_APPLY=COMMITTED"
