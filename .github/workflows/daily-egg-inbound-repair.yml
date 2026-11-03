@@ -69,6 +69,10 @@ jobs:
             trap 'rm -rf "$STAGE"' EXIT
             cd "$REPO"
             git_safe() { command git -c safe.directory=$REPO -c core.hooksPath=/dev/null "$@"; }
+            # The production object store only has fetched refs; stage the
+            # reviewed target without moving the checked-out worktree.
+            git_safe fetch --no-tags origin main
+            test "$(git_safe rev-parse FETCH_HEAD)" = "$TARGET_SHA"
             git_safe cat-file -e "$TARGET_SHA^{commit}"
             # Everything the workflow executes is staged from the reviewed SHA,
             # never from the mutable production worktree.
