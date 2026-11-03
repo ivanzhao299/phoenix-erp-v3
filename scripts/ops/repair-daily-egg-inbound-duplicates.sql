@@ -55,6 +55,16 @@ BEGIN
   ) THEN
     RAISE EXCEPTION 'DAILY_EGG_REPAIR_UNSAFE_BATCH_STATE';
   END IF;
+  -- The fixed 27-char marker overwrites legacy_source (varchar(32)); refuse
+  -- instead of silently discarding an existing provenance value.
+  IF EXISTS (
+    SELECT 1 FROM daily_egg_duplicate_repair d
+      JOIN inv_batches b ON b.id = d.id
+     WHERE COALESCE(b.legacy_source, '') <> ''
+       AND b.legacy_source NOT LIKE '%DAILY_EGG_DUPLICATE_RETIRED%'
+  ) THEN
+    RAISE EXCEPTION 'DAILY_EGG_REPAIR_LEGACY_SOURCE_NOT_EMPTY';
+  END IF;
 END $$;
 
 -- The newest row in every duplicate group must be the report-authoritative
@@ -97,12 +107,14 @@ END $$;
 
 -- Keep the old row and its ledger references for auditability, but remove it
 -- from active stock and from the source identity that will be made unique.
+-- legacy_source is varchar(32): use the fixed marker and keep the original
+-- source_no traceable through inv_ledger.ref_no (both the original
+-- TEMP_PRODUCTION_INBOUND rows and the reversal row below carry it).
 UPDATE inv_batches b
    SET qty = 0,
        qty_available = 0,
        source_no = NULL,
-       legacy_source = CONCAT_WS('|', NULLIF(b.legacy_source, ''),
-         'DAILY_EGG_DUPLICATE_RETIRED source_no=', d.source_no),
+       legacy_source = 'DAILY_EGG_DUPLICATE_RETIRED',
        updated_at = NOW()
   FROM daily_egg_duplicate_repair d
  WHERE b.id = d.id;
