@@ -146,9 +146,10 @@ test('workflow staged helper closure imports without access to checkout neighbou
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'background-stage-'));
   try {
     const workflow = fs.readFileSync(new URL('../../.github/workflows/deploy.yml', import.meta.url), 'utf8');
-    const closure = workflow.match(/for helper in (background-deployment-session\.mjs [^;]+); do/);
-    assert.ok(closure, 'reviewed explicit staging closure required');
-    for (const file of closure[1].split(' ')) fs.copyFileSync(new URL(file, import.meta.url), path.join(dir, file));
+    assert.match(workflow, /git show "\$TARGET_SHA:scripts\/ops\/background-stage-helpers\.txt" \| while IFS= read -r helper/);
+    const closure = fs.readFileSync(new URL('./background-stage-helpers.txt', import.meta.url), 'utf8').split(/\r?\n/).filter(Boolean);
+    assert.ok(closure.includes('background-deployment-session.mjs'), 'reviewed explicit staging closure required');
+    for (const file of closure) fs.copyFileSync(new URL(file, import.meta.url), path.join(dir, file));
     const staged = await import(pathToFileURL(path.join(dir, 'background-deployment-session.mjs')).href);
     assert.equal(typeof staged.executeFencedDeployment, 'function');
     assert.equal(typeof staged.exactReanchorBinding, 'function');
