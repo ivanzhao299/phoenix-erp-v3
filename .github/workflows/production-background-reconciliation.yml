@@ -79,12 +79,14 @@ jobs:
             eval "$(printf '%s' "$PRODUCTION_CONTROL_BOOTSTRAP_B64" | base64 -d)"
             git_safe() { command git -c "safe.directory=$DEPLOY_REPO_ROOT" -c core.hooksPath=/dev/null "$@"; }
             test "$(git_safe branch --show-current)" = main
+            # Both phases stage helpers from the reviewed target, so both must
+            # have its objects; a fetch never moves the checked-out worktree.
+            git_safe fetch --no-tags origin main
+            test "$(git_safe rev-parse FETCH_HEAD)" = "$TARGET_SHA"
             if [ "$PHASE" != inspect ]; then
               # Guarded fast-forward only, exactly like the runtime-pin repair.
               # Inspect stays read-only: it never moves the production checkout.
               if [ "$(git_safe rev-parse HEAD)" != "$TARGET_SHA" ]; then
-                git_safe fetch --no-tags origin main
-                test "$(git_safe rev-parse FETCH_HEAD)" = "$TARGET_SHA"
                 git_safe merge --ff-only "$TARGET_SHA"
               fi
               test "$(git_safe rev-parse HEAD)" = "$TARGET_SHA"
