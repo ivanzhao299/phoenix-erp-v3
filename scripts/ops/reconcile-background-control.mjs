@@ -87,7 +87,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       const stage = path.join(stateDirectory, `txn-rollback-${deadRunId}`);
       fs.mkdirSync(stage, { mode: 0o700, recursive: true });
       try {
-        for (const helper of ['production-deployment-state.mjs', 'production-config-guard.mjs', 'production-config-contract.json', 'production-atomic-state.mjs', 'production-trusted-paths.mjs', 'capture-production-runtime.mjs', 'update-managed-chanjet-env.mjs', 'chanjet-readonly-policy.mjs', 'production-deployment-evidence.mjs', 'production-maintenance-admission.mjs', 'production-maintenance-receipts.mjs', 'chanjet-admission-schema-receipt.mjs']) {
+        for (const helper of ['production-deployment-state.mjs', 'production-config-guard.mjs', 'production-config-contract.json', 'production-atomic-state.mjs', 'production-trusted-paths.mjs', 'capture-production-runtime.mjs', 'update-managed-chanjet-env.mjs', 'chanjet-readonly-policy.mjs', 'production-deployment-evidence.mjs', 'production-maintenance-admission.mjs', 'production-maintenance-receipts.mjs', 'production-maintenance-owner-authority.mjs', 'production-maintenance-owner-unknown.mjs', 'production-maintenance-reconciliation.mjs', 'production-maintenance-transition.mjs', 'chanjet-admission-schema-receipt.mjs', 'background-control-manifest.mjs', 'background-control-legacy-transition.mjs']) {
           fs.writeFileSync(path.join(stage, helper), execFileSync('git', ['-c', `safe.directory=${root}`, '-c', 'core.hooksPath=/dev/null', 'show', `${targetSha}:scripts/ops/${helper}`]));
         }
         const stateEnv = { ...process.env, DEPLOY_RUN_ID: deadRunId, DEPLOY_RUN_ATTEMPT: deadRunId.split('-').at(-1), TARGET_SHA: marker.target };
