@@ -7,7 +7,7 @@ on:
         description: 'inspect = read-only state dump; reconcile = clear the stranded hold'
         required: true
         type: choice
-        options: [inspect, reconcile, revive-participant, abort-prepared-promotion, complete-background-open]
+        options: [inspect, reconcile, revive-participant, abort-prepared-promotion, complete-background-open, rollback-dead-transaction]
       confirm_reconciliation:
         description: 'Type RECONCILE_PRODUCTION_BACKGROUND_CONTROL to authorize the targeted recovery'
         required: true
@@ -22,6 +22,10 @@ on:
         type: string
       session_owner:
         description: 'complete-background-open only: the <run>-<attempt> whose verified deploy needs its OPEN published'
+        required: false
+        type: string
+      dead_run_id:
+        description: 'rollback-dead-transaction only: the <run>-<attempt> whose transaction marker must be closed'
         required: false
         type: string
 
@@ -66,6 +70,7 @@ jobs:
           PHASE: ${{ inputs.phase }}
           PROMOTION_RUN_ID: ${{ inputs.promotion_run_id }}
           SESSION_OWNER: ${{ inputs.session_owner }}
+          DEAD_RUN_ID: ${{ inputs.dead_run_id }}
           PRODUCTION_CONTRACT_B64: ${{ env.PRODUCTION_CONTRACT_B64 }}
           PRODUCTION_PATH_HELPER_B64: ${{ env.PRODUCTION_PATH_HELPER_B64 }}
           PRODUCTION_CONTROL_BOOTSTRAP_B64: ${{ env.PRODUCTION_CONTROL_BOOTSTRAP_B64 }}
@@ -78,7 +83,7 @@ jobs:
           proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
           proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
           proxy_port: 22
-          envs: TARGET_SHA,PHASE,PROMOTION_RUN_ID,SESSION_OWNER,PRODUCTION_CONTRACT_B64,PRODUCTION_PATH_HELPER_B64,PRODUCTION_CONTROL_BOOTSTRAP_B64
+          envs: TARGET_SHA,PHASE,PROMOTION_RUN_ID,SESSION_OWNER,DEAD_RUN_ID,PRODUCTION_CONTRACT_B64,PRODUCTION_PATH_HELPER_B64,PRODUCTION_CONTROL_BOOTSTRAP_B64
           command_timeout: 8m
           script: |
             set -Eeuo pipefail

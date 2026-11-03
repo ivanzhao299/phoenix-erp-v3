@@ -54,7 +54,7 @@ const git = args => execFileSync('git', ['-c', `safe.directory=${root}`, '-c', '
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   try {
-    if (mode !== 'inspect' && mode !== 'reconcile' && mode !== 'revive-participant' && mode !== 'abort-prepared-promotion' && mode !== 'complete-background-open') throw new Error('BACKGROUND_RECONCILIATION=HOLD_USAGE_UNKNOWN_MODE');
+    if (mode !== 'inspect' && mode !== 'reconcile' && mode !== 'revive-participant' && mode !== 'abort-prepared-promotion' && mode !== 'complete-background-open' && mode !== 'rollback-dead-transaction') throw new Error('BACKGROUND_RECONCILIATION=HOLD_USAGE_UNKNOWN_MODE');
     mark('VERIFY_CONTEXT');
     verifyContext(root, stateDirectory);
     mark('CHECKOUT');
@@ -66,6 +66,39 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     mark('REMOTE_MAIN');
     if (targetSha !== git(['ls-remote', 'origin', 'refs/heads/main']).split(/\s/)[0]) hold('REMOTE_MAIN');
     mark('HOLD_SHAPE');
+    if (mode === 'rollback-dead-transaction') {
+      // A deployment body that died between `switch` and the container update
+      // leaves its transaction marker behind while the runtime still runs the
+      // previous pins; every later deploy then holds on UNFINISHED_TRANSACTION.
+      // Replay the reviewed `rolled-back` closure, whose own assertions prove
+      // the runtime never moved before deleting the marker.
+      const deadRunId = process.env.DEAD_RUN_ID || '';
+      if (!/^\d+-\d+$/.test(deadRunId)) hold('DEAD_RUN_ID');
+      if (targetSha !== git(['rev-parse', 'HEAD'])) hold('CHECKOUT');
+      const markerFile = path.join(stateDirectory, 'transaction.json');
+      if (!fs.existsSync(markerFile)) { console.log('BACKGROUND_RECONCILIATION=NOOP'); process.exit(0); }
+      const marker = secureJson(markerFile);
+      const deadRecord = secureJson(path.join(stateDirectory, `deploy-${deadRunId}.json`));
+      if (!marker || marker.runId !== deadRunId || marker.phase !== 'IN_PROGRESS' || !deadRecord || deadRecord.outcome !== 'PENDING') hold('DEAD_TRANSACTION_BINDING');
+      console.log(JSON.stringify({ deadTransaction: { marker, switched: deadRecord.switched, previous: deadRecord.previous } }));
+      const stage = path.join(stateDirectory, `txn-rollback-${deadRunId}`);
+      fs.mkdirSync(stage, { mode: 0o700, recursive: true });
+      try {
+        for (const helper of ['production-deployment-state.mjs', 'production-config-guard.mjs', 'production-config-contract.json', 'production-atomic-state.mjs', 'production-trusted-paths.mjs', 'capture-production-runtime.mjs', 'update-managed-chanjet-env.mjs', 'chanjet-readonly-policy.mjs', 'production-deployment-evidence.mjs', 'production-maintenance-admission.mjs', 'production-maintenance-receipts.mjs', 'chanjet-admission-schema-receipt.mjs']) {
+          fs.writeFileSync(path.join(stage, helper), execFileSync('git', ['-c', `safe.directory=${root}`, '-c', 'core.hooksPath=/dev/null', 'show', `${targetSha}:scripts/ops/${helper}`]));
+        }
+        const stateEnv = { ...process.env, DEPLOY_RUN_ID: deadRunId, DEPLOY_RUN_ATTEMPT: deadRunId.split('-').at(-1), TARGET_SHA: marker.target };
+        if (deadRecord.switched?.api) {
+          execFileSync('node', [path.join(stage, 'production-deployment-state.mjs'), 'rollback-pin', 'api'], { cwd: root, env: stateEnv });
+        }
+        execFileSync('node', [path.join(stage, 'production-deployment-state.mjs'), 'rolled-back'], { cwd: root, env: stateEnv });
+      } finally {
+        try { fs.rmSync(stage, { recursive: true, force: true }); } catch { /* evidence stays in the log */ }
+      }
+      mark('COMPLETE');
+      console.log(`BACKGROUND_RECONCILIATION=TRANSACTION_ROLLED_BACK;run=${deadRunId};target=${marker.target}`);
+      process.exit(0);
+    }
     if (mode === 'complete-background-open') {
       // A background session whose deploy body fully succeeded (api switched,
       // evidence complete, floor promoted) but whose OPEN step died can only
