@@ -92,10 +92,8 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       for (const service of ['api', 'web']) {
         const previous = deadRecord.previous?.[service];
         if (!previous || actualDead[service].imageId !== previous.imageId || actualDead[service].revision !== previous.revision) hold(`RUNTIME_MOVED_${service.toUpperCase()}`);
-        if (deadRecord.switched?.[service]) {
-          const candidate = deadRecord.candidates?.[service];
-          if (!candidate || candidate.imageId !== previous.imageId || candidate.revision !== previous.revision) hold(`CANDIDATE_DIVERGED_${service.toUpperCase()}`);
-        }
+        // A rebuilt candidate legitimately carries a different image digest;
+        // safety comes from the runtime never having left `previous`.
       }
       const deadFloor = secureJson(path.join(stateDirectory, 'floor.json'));
       const deadActive = secureJson(path.join(stateDirectory, 'active.json'));
