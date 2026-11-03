@@ -79,7 +79,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       if (!fs.existsSync(markerFile)) { console.log('BACKGROUND_RECONCILIATION=NOOP'); process.exit(0); }
       const marker = secureJson(markerFile);
       const deadRecord = secureJson(path.join(stateDirectory, `deploy-${deadRunId}.json`));
-      if (!marker || marker.runId !== deadRunId || marker.phase !== 'IN_PROGRESS' || !deadRecord || deadRecord.outcome !== 'PENDING') hold('DEAD_TRANSACTION_BINDING');
+      if (!marker || marker.runId !== deadRunId || marker.phase !== 'IN_PROGRESS' || !deadRecord || !['PREPARED', 'SWITCHING', 'PENDING'].includes(deadRecord.outcome)) hold('DEAD_TRANSACTION_BINDING');
       console.log(JSON.stringify({ deadTransaction: { marker, switched: deadRecord.switched, previous: deadRecord.previous } }));
       const stage = path.join(stateDirectory, `txn-rollback-${deadRunId}`);
       fs.mkdirSync(stage, { mode: 0o700, recursive: true });
