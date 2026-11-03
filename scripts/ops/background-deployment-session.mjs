@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
-import { CONTRACT, secureJson, verifyContext, git } from './production-config-guard.mjs';
+import { CONTRACT, secureJson, verifyContext, git, guardProduction } from './production-config-guard.mjs';
 import { captureRuntime } from './capture-production-runtime.mjs';
 import { atomicState } from './production-atomic-state.mjs';
 import { metadataFor } from './production-deployment-evidence.mjs';
@@ -167,7 +167,16 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     for (const key of ['repository', 'controlRoot', 'stateDirectory', 'archiveDirectory', 'executionUid', 'controlMounts']) {
       if (JSON.stringify(installed.CONTRACT[key]) !== JSON.stringify(CONTRACT[key])) fail('CONTROL_CONTEXT_CHANGE');
     }
-    installed.guardProduction(CONTRACT.repository, CONTRACT.stateDirectory, captureRuntime());
+    const actual = captureRuntime();
+    if (floor.version === 3 && floor.floorSha !== process.env.TARGET_SHA) {
+      guardProduction(CONTRACT.repository, CONTRACT.stateDirectory, actual, undefined, {
+        allowFloorReanchor: true,
+        reanchorTarget: process.env.TARGET_SHA,
+        previousFloorSha: floor.floorSha,
+      });
+    } else {
+      installed.guardProduction(CONTRACT.repository, CONTRACT.stateDirectory, actual);
+    }
     const participants = discoverParticipants(floor.project);
     const script = fs.readFileSync(0, 'utf8');
     const result = await executeFencedDeployment({ binding, project: floor.project, participants, script });
