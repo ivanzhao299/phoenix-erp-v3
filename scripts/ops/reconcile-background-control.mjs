@@ -78,8 +78,11 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       const markerFile = path.join(stateDirectory, 'transaction.json');
       if (!fs.existsSync(markerFile)) { console.log('BACKGROUND_RECONCILIATION=NOOP'); process.exit(0); }
       const marker = secureJson(markerFile);
-      const deadRecord = secureJson(path.join(stateDirectory, `deploy-${deadRunId}.json`));
-      if (!marker || marker.runId !== deadRunId || marker.phase !== 'IN_PROGRESS' || !deadRecord || !['PREPARED', 'SWITCHING', 'PENDING'].includes(deadRecord.outcome)) hold('DEAD_TRANSACTION_BINDING');
+      let deadRecord = null;
+      try { deadRecord = secureJson(path.join(stateDirectory, `deploy-${deadRunId}.json`)); } catch { deadRecord = null; }
+      console.log(JSON.stringify({ deadMarker: marker, deadRecordSummary: deadRecord && { outcome: deadRecord.outcome, switched: deadRecord.switched, phase: deadRecord.phase } }));
+      if (!marker || String(marker.runId) !== deadRunId || marker.phase !== 'IN_PROGRESS') hold('DEAD_TRANSACTION_BINDING');
+      if (!deadRecord || ['SUCCESS', 'ROLLED_BACK'].includes(deadRecord.outcome)) hold('DEAD_TRANSACTION_BINDING');
       console.log(JSON.stringify({ deadTransaction: { marker, switched: deadRecord.switched, previous: deadRecord.previous } }));
       const stage = path.join(stateDirectory, `txn-rollback-${deadRunId}`);
       fs.mkdirSync(stage, { mode: 0o700, recursive: true });
