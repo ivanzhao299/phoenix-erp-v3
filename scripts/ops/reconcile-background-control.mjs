@@ -91,10 +91,13 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
           fs.writeFileSync(path.join(stage, helper), execFileSync('git', ['-c', `safe.directory=${root}`, '-c', 'core.hooksPath=/dev/null', 'show', `${targetSha}:scripts/ops/${helper}`]));
         }
         const stateEnv = { ...process.env, DEPLOY_RUN_ID: deadRunId, DEPLOY_RUN_ATTEMPT: deadRunId.split('-').at(-1), TARGET_SHA: marker.target };
+        // Node marks inherited descriptors close-on-exec; pass FD9 through an
+        // explicit stdio slot so the staged helper still proves lock ownership.
+        const stateStdio = ['ignore', 'pipe', 'pipe', 'ignore', 'ignore', 'ignore', 'ignore', 'ignore', 'ignore', 'inherit'];
         if (deadRecord.switched?.api) {
-          execFileSync('node', [path.join(stage, 'production-deployment-state.mjs'), 'rollback-pin', 'api'], { cwd: root, env: stateEnv });
+          execFileSync('node', [path.join(stage, 'production-deployment-state.mjs'), 'rollback-pin', 'api'], { cwd: root, env: stateEnv, stdio: stateStdio });
         }
-        execFileSync('node', [path.join(stage, 'production-deployment-state.mjs'), 'rolled-back'], { cwd: root, env: stateEnv });
+        execFileSync('node', [path.join(stage, 'production-deployment-state.mjs'), 'rolled-back'], { cwd: root, env: stateEnv, stdio: stateStdio });
       } finally {
         try { fs.rmSync(stage, { recursive: true, force: true }); } catch { /* evidence stays in the log */ }
       }
