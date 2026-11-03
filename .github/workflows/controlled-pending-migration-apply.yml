@@ -93,7 +93,7 @@ jobs:
             test ! -e "$STAGE"
             mkdir -m 700 "$STAGE"
             trap 'rm -rf "$STAGE"' EXIT
-            for helper in chanjet-admission-schema-receipt.mjs record-migration-apply-receipt.mjs production-config-guard.mjs production-config-contract.json production-atomic-state.mjs production-trusted-paths.mjs capture-production-runtime.mjs audit-daily-egg-inbound.mjs; do
+            for helper in chanjet-admission-schema-receipt.mjs record-migration-apply-receipt.mjs production-config-guard.mjs production-config-contract.json production-atomic-state.mjs production-trusted-paths.mjs capture-production-runtime.mjs chanjet-readonly-policy.mjs update-managed-chanjet-env.mjs audit-daily-egg-inbound.mjs; do
               git_safe show "$TARGET_SHA:scripts/ops/$helper" > "$STAGE/$helper"
               chmod 600 "$STAGE/$helper"
             done
