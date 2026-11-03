@@ -34,7 +34,17 @@ SELECT * FROM ranked WHERE group_count > 1 AND rn > 1;
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM daily_egg_duplicate_repair) THEN
-    RAISE EXCEPTION 'DAILY_EGG_REPAIR_NO_DUPLICATES';
+    -- Either nothing was ever duplicated (hard error), or this repair already
+    -- ran and retired the older rows (idempotent no-op for controlled reruns).
+    IF EXISTS (
+      SELECT 1 FROM inv_batches
+       WHERE source_type = 'TEMP_PRODUCTION'
+         AND legacy_source LIKE '%DAILY_EGG_DUPLICATE_RETIRED%'
+    ) THEN
+      RAISE NOTICE 'DAILY_EGG_REPAIR_ALREADY_APPLIED';
+    ELSE
+      RAISE EXCEPTION 'DAILY_EGG_REPAIR_NO_DUPLICATES';
+    END IF;
   END IF;
   IF EXISTS (
     SELECT 1 FROM daily_egg_duplicate_repair

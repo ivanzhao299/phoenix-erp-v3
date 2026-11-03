@@ -69,9 +69,35 @@ WITH report_grade AS (
    GROUP BY company_code, source_no, COALESCE(sku_code, ''), COALESCE(grade_code_std, quality_grade, ''), COALESCE(spec_code, packaging_spec, '')
   HAVING COUNT(*) > 1
 ), legacy_farm_in AS (
-  SELECT COUNT(*)::int AS rows, COALESCE(SUM(qty_change), 0)::int AS total_qty
+  SELECT COUNT(*)::int AS farm_rows, COALESCE(SUM(qty_change), 0)::int AS total_qty
     FROM inv_ledger
    WHERE change_type = 'FARM_IN' AND note LIKE '日报产蛋入账%'
+), retired AS (
+  SELECT COUNT(*)::int AS retired_batches, COALESCE(SUM(qty), 0)::int AS retired_qty
+    FROM inv_batches
+   WHERE source_type = 'TEMP_PRODUCTION'
+     AND legacy_source LIKE '%DAILY_EGG_DUPLICATE_RETIRED%'
+), production_ledger AS (
+  SELECT b.batch_no, b.qty::numeric AS batch_qty,
+         COALESCE(SUM(l.qty_change), 0)::numeric AS ledger_qty
+    FROM inv_batches b
+    LEFT JOIN inv_ledger l
+      ON l.batch_no = b.batch_no
+     AND l.change_type IN ('TEMP_PRODUCTION_INBOUND', 'TEMP_PRODUCTION_REVERSAL')
+   WHERE b.source_type = 'TEMP_PRODUCTION'
+     AND b.legacy_source NOT LIKE '%DAILY_EGG_DUPLICATE_RETIRED%'
+     -- Outbound/adjustment flows rewrite batch qty; only untouched batches
+     -- must still match the original production ledger exactly.
+     AND NOT EXISTS (
+       SELECT 1 FROM inv_ledger o
+        WHERE o.batch_no = b.batch_no
+          AND o.change_type NOT IN ('TEMP_PRODUCTION_INBOUND', 'TEMP_PRODUCTION_REVERSAL')
+     )
+   GROUP BY b.batch_no, b.qty
+), unbalanced AS (
+  SELECT COUNT(*)::int AS unbalanced_batches
+    FROM production_ledger
+   WHERE batch_qty <> ledger_qty
 )
 SELECT jsonb_build_object(
   'database', current_database(),
@@ -80,9 +106,16 @@ SELECT jsonb_build_object(
   'duplicate_sources', COALESCE((SELECT jsonb_agg(to_jsonb(x) ORDER BY x.batch_count DESC, x.source_no) FROM (SELECT * FROM duplicate_sources LIMIT 100) x), '[]'::jsonb),
   'overposted_grade_groups', COALESCE((SELECT COUNT(*) FROM overposted), 0),
   'overposted_grades', COALESCE((SELECT jsonb_agg(to_jsonb(x) ORDER BY x.log_date, x.house_code, x.grade) FROM (SELECT * FROM overposted LIMIT 100) x), '[]'::jsonb),
-  'legacy_daily_farm_in_rows', (SELECT rows FROM legacy_farm_in),
+  'legacy_daily_farm_in_rows', (SELECT farm_rows FROM legacy_farm_in),
   'legacy_daily_farm_in_qty', (SELECT total_qty FROM legacy_farm_in),
-  'conclusion', CASE WHEN (SELECT COUNT(*) FROM duplicate_sources) = 0 AND (SELECT COUNT(*) FROM overposted) = 0 THEN 'GO' ELSE 'HOLD' END
+  'retired_duplicate_batches', (SELECT retired_batches FROM retired),
+  'retired_duplicate_qty', (SELECT retired_qty FROM retired),
+  'unbalanced_production_batches', (SELECT unbalanced_batches FROM unbalanced),
+  'conclusion', CASE
+    WHEN (SELECT COUNT(*) FROM duplicate_sources) = 0
+     AND (SELECT COUNT(*) FROM overposted) = 0
+     AND (SELECT unbalanced_batches FROM unbalanced) = 0
+    THEN 'GO' ELSE 'HOLD' END
 )::text;
 `;
 
@@ -96,6 +129,8 @@ console.log(`daily egg inbound audit: ${result.conclusion}`);
 console.log(`duplicate_source_groups=${result.duplicate_source_groups}`);
 console.log(`overposted_grade_groups=${result.overposted_grade_groups}`);
 console.log(`legacy_daily_farm_in_rows=${result.legacy_daily_farm_in_rows}`);
+console.log(`retired_duplicate_batches=${result.retired_duplicate_batches}`);
+console.log(`unbalanced_production_batches=${result.unbalanced_production_batches}`);
 process.exitCode = result.conclusion === 'GO' ? 0 : 2;
 
 function renderMarkdown(value, jsonPath) {
@@ -109,6 +144,8 @@ function renderMarkdown(value, jsonPath) {
     `- 超过日报分级额度的组：${value.overposted_grade_groups}`,
     `- 历史日报 FARM_IN 行数：${value.legacy_daily_farm_in_rows}`,
     `- 历史日报 FARM_IN 数量：${value.legacy_daily_farm_in_qty}`,
+    `- 已退役重复批次（保留追溯行）：${value.retired_duplicate_batches}（${value.retired_duplicate_qty} 枚）`,
+    `- 生产台账不平衡批次数：${value.unbalanced_production_batches}`,
     '',
     '审计只读，不会修改日报、库存批次或流水。若结论为 HOLD，先人工核对 JSON 明细，再处理历史数据；不要直接跳过唯一索引迁移。',
     '',

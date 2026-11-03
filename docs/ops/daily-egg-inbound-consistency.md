@@ -39,3 +39,30 @@ node scripts/ops/audit-daily-egg-inbound.mjs \
 日报业务修复和生产部署恢复必须分开验收。生产 runtime pin 对账脚本现在输出有限的
 `RUNTIME_PIN_STAGE` 和带阶段的 HOLD 原因，只用于定位 `verifyContext`、状态绑定、运行时读取、
 原子写入或写后守护中的具体阻断；它不绕过 `mutation.lock`、配置 floor 或 evidence 门禁。
+
+## 受控修复与发布顺序（2026-11-03 收口）
+
+修复迁移 `1792000000000-EnforceTempProductionSourceIdentity` 会在存在重复来源时主动
+停止，因此生产必须先修复历史数据、再跑带迁移的部署。固定顺序：
+
+1. **背景对账 inspect**（只读）：`Production Background Control Reconciliation`
+   workflow，phase=`inspect`。若部署被 `BACKGROUND_HOLD=UNFINISHED_BACKGROUND
+   _TRANSACTION` 卡住，先用它确认滞留记录的 phase/owner/target 与运行时 pin。
+2. **背景对账 reconcile**（受控清除）：同一 workflow，phase=`reconcile` + 口令。
+   只清除"已断定的滞留 FENCED/CODE_HOLD"（或从未发布公投影的 PUBLISHING_FENCE），
+   目标等于现行 floor、运行时漂移、或有部署事务在途时一律 HOLD。
+3. **修复 preflight**（只读）：`Daily Egg Inbound Duplicate Repair` workflow，
+   phase=`preflight`。列出拟退役组；台账不平衡时拒绝。
+4. **修复 apply**：phase=`apply`。执行 `scripts/ops/repair-daily-egg-inbound-duplicates.sql`
+   （单事务、前置断言、保留原始行、冲销流水幂等、可重跑为 no-op）。
+5. **修复 verify**（只读）：phase=`verify`。审计必须 `GO`（重复 0、超日报 0、生产
+   台账平衡 0 差异）。历史 `FARM_IN` 行数仅作追溯统计，不阻断。
+6. **full 部署**：`CI/CD — Build & Deploy`（手动批准，auto→full，含迁移）。
+   迁移此时可成功建出 `uq_inv_batches_temp_production_source_identity`。
+7. **部署后复核**：API/Web 容器 revision == main HEAD、健康检查、迁移表末条 ==
+   `EnforceTempProductionSourceIdentity1792000000000`、审计保持 `GO`。
+
+修复保留规则：每组保留 `created_at` 最新行（与日报分级一致的那条），旧行 `qty/qty_available`
+归零、`source_no` 置空、`legacy_source` 标记 `DAILY_EGG_DUPLICATE_RETIRED`，并写
+`TEMP_PRODUCTION_REVERSAL` 冲销流水 —— 行与流水都保留，可完整追溯。被消耗
+（`qty_available <> qty`）、非 AVAILABLE、或保留行仍超日报的组一律中止不修。
