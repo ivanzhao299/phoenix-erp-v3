@@ -109,6 +109,9 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       try { fs.unlinkSync(markerFile); } catch (error) { if (error.code !== 'ENOENT') hold('UNLINK_FAILED'); }
       const policyMarker = path.join(stateDirectory, 'policy-transition.json');
       try { fs.unlinkSync(policyMarker); } catch (error) { if (error.code !== 'ENOENT') hold('UNLINK_FAILED'); }
+      mark('COMPLETE');
+      console.log(`BACKGROUND_RECONCILIATION=TRANSACTION_ROLLED_BACK;run=${deadRunId};target=${marker.target};runtimeApi=${actualDead.api.revision}`);
+      process.exit(0);
     }
     if (mode === 'complete-background-open') {
       // A background session whose deploy body fully succeeded (api switched,
