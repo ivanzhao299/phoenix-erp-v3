@@ -62,7 +62,8 @@ export function assertScopeMigrationsReceipted(root, scope) {
   if (!scope.changed.length) return false;
   if (scope.changed.length === 1 && scope.changed[0] === ADMISSION_PATH) return assertAdmissionSchemaApplied(root, scope);
   const ledger = readProductionLedger();
-  const applied = new Set(ledger.typeorm.map(row => `${row.timestamp}:${row.name}`));
+  const isApplied = (timestamp, fileClassName) => ledger.typeorm.some(
+    row => String(row.timestamp) === String(timestamp) && (row.name === fileClassName || row.name === `${fileClassName}${timestamp}`));
   for (const migrationPath of scope.changed) {
     const name = path.basename(migrationPath, '.ts');
     const match = /^(\d+)-([A-Za-z0-9]+)$/.exec(name);
@@ -72,7 +73,7 @@ export function assertScopeMigrationsReceipted(root, scope) {
     validateRegistryReceipt(receipt, { migrationPath, sourceBlob });
     git(root, ['merge-base', '--is-ancestor', receipt.sourceSha, scope.target]);
     if (git(root, ['rev-parse', `${receipt.sourceSha}:${migrationPath}`]) !== receipt.sourceBlob) throw Error('MIGRATION_SCOPE=HOLD:MIGRATION_SOURCE_BLOB_DRIFT');
-    if (!applied.has(`${match[1]}:${match[2]}`)) throw Error(`MIGRATION_SCOPE=HOLD:MIGRATION_NOT_APPLIED:${name}`);
+    if (!isApplied(match[1], match[2])) throw Error(`MIGRATION_SCOPE=HOLD:MIGRATION_NOT_APPLIED:${name}`);
   }
   if (digest(JSON.stringify(ledger)) !== receiptLedgerDigest(scope, root)) throw Error('MIGRATION_SCOPE=HOLD:APPLIED_LEDGER_DRIFT');
   return true;

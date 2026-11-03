@@ -24,14 +24,15 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     verifyContext(root, CONTRACT.stateDirectory);
     const ledger = readProductionLedger();
     const ledgerDigest = digest(JSON.stringify(ledger));
-    const applied = new Set(ledger.typeorm.map(row => `${row.timestamp}:${row.name}`));
+    const isApplied = (timestamp, fileClassName) => ledger.typeorm.some(
+      row => String(row.timestamp) === String(timestamp) && (row.name === fileClassName || row.name === `${fileClassName}${timestamp}`));
     for (const migrationPath of migrationPaths) {
       if (!migrationPath.startsWith('apps/api/src/database/migrations/')) hold('PATH_SCOPE');
       const name = path.basename(migrationPath, '.ts');
       const match = /^(\d+)-([A-Za-z0-9]+)$/.exec(name);
       if (!match) hold(`NAME:${name}`);
       const sourceBlob = git(root, ['rev-parse', `${targetSha}:${migrationPath}`]);
-      if (!applied.has(`${match[1]}:${match[2]}`)) hold(`NOT_APPLIED:${name}`);
+      if (!isApplied(match[1], match[2])) hold(`NOT_APPLIED:${name}`);
       const receipt = {
         schema: 'phoenix.migration-apply-receipt/v1', outcome: 'SUCCESS',
         migrationPath, migrationTimestamp: Number(match[1]), migrationName: match[2],

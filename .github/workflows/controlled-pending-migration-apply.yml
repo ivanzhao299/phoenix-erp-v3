@@ -98,24 +98,29 @@ jobs:
               chmod 600 "$STAGE/$helper"
             done
 
-            API_IMAGE="ghcr.io/ivanzhao299/phoenix-erp-v3/api:sha-$TARGET_SHA"
-            docker login ghcr.io -u "$GHCR_LOGIN_USER" --password-stdin <<< "$GHCR_LOGIN_TOKEN"
-            docker pull -q "$API_IMAGE" >/dev/null
-            test "$(docker image inspect "$API_IMAGE" --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}')" = "$TARGET_SHA"
-
-            show_migrations() {
-              API_IMAGE="$API_IMAGE" docker compose run --no-deps -T --entrypoint ./node_modules/.bin/typeorm api \
-                -d dist/database/data-source.js migration:show 2>/dev/null || true
-            }
-            pending_classes() { show_migrations | grep -F '[ ]' | sed -E 's/.*\[ \][[:space:]]*//' | tr '\n' ' ' || true; }
-            PENDING_CLASSES="$(pending_classes)"
-            echo "PENDING_MIGRATION_CLASSES=$PENDING_CLASSES"
-            LEDGER_SHA256="$(node --input-type=module -e "import {readProductionLedger,digest} from '$STAGE/chanjet-admission-schema-receipt.mjs'; console.log(digest(JSON.stringify(readProductionLedger())))")"
+            # Pending migrations are derived from the reviewed target tree
+            # minus the production ledger; no candidate image is needed unless
+            # migrations actually have to execute.
+            LEDGER_JSON_LINE="$(node --input-type=module -e "import {readProductionLedger} from '$STAGE/chanjet-admission-schema-receipt.mjs'; console.log(JSON.stringify(readProductionLedger()))")"
+            LEDGER_SHA256="$(node --input-type=module -e "import {createHash} from 'node:crypto'; const d=createHash('sha256').update(process.argv[1]).digest('hex'); console.log(d)" "$LEDGER_JSON_LINE")"
             echo "LEDGER_SHA256=$LEDGER_SHA256"
             RUNNING_API_REV="$(docker inspect phoenix-v3-api --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}')"
             echo "RUNNING_API_REV=$RUNNING_API_REV"
             MIGRATION_PATHS="$(git_safe diff --name-only "$RUNNING_API_REV" "$TARGET_SHA" -- apps/api/src/database/migrations | tr '\n' ' ')"
             echo "CHANGED_MIGRATION_PATHS=$MIGRATION_PATHS"
+            APPLIED_JSON="$(node -e 'const l=JSON.parse(process.argv[1]);console.log(JSON.stringify(l.typeorm))' "$LEDGER_JSON_LINE")"
+            PENDING_CLASSES=""
+            for f in $(git_safe ls-tree --name-only "$TARGET_SHA" apps/api/src/database/migrations/ | grep -E '\.ts$' || true); do
+              name="$(basename "$f" .ts)"
+              ts="${name%%-*}"
+              cls="${name#*-}"
+              node -e '
+                const applied = JSON.parse(process.argv[1]); const ts = process.argv[2]; const cls = process.argv[3];
+                const done = applied.some(row => String(row.timestamp) === ts && (row.name === cls || row.name === cls + ts));
+                process.exit(done ? 0 : 1);' "$APPLIED_JSON" "$ts" "$cls" || PENDING_CLASSES="$PENDING_CLASSES $name"
+            done
+            echo "PENDING_MIGRATION_FILES=$PENDING_CLASSES"
+            PENDING_CLASSES="$PENDING_CLASSES"
             run_audit() {
               DAILY_EGG_PSQL_CMD="docker exec -i -e PGOPTIONS='-c default_transaction_read_only=on' phoenix-v3-db sh -c 'exec psql -X -v ON_ERROR_STOP=1 -tA -U \"\$POSTGRES_USER\" -d \"\$POSTGRES_DB\"'" \
                 node "$STAGE/audit-daily-egg-inbound.mjs" --output-dir "$STAGE/out" --report "$STAGE/out/REPORT.md" >/dev/null 2>&1 || test $? -eq 2
@@ -136,8 +141,21 @@ jobs:
               test "$EXPECTED_BEFORE_LEDGER_SHA256" = "$LEDGER_SHA256" || { echo 'MIGRATION_APPLY=HOLD_LEDGER_MOVED'; exit 1; }
               AUDIT_CONCLUSION="$(run_audit)"
               test "$AUDIT_CONCLUSION" = GO || { echo "MIGRATION_APPLY=HOLD_AUDIT_$AUDIT_CONCLUSION"; exit 1; }
+              API_IMAGE="ghcr.io/ivanzhao299/phoenix-erp-v3/api:sha-$TARGET_SHA"
+              docker login ghcr.io -u "$GHCR_LOGIN_USER" --password-stdin <<< "$GHCR_LOGIN_TOKEN"
+              docker pull -q "$API_IMAGE" >/dev/null
+              test "$(docker image inspect "$API_IMAGE" --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}')" = "$TARGET_SHA"
               PRESERVE_ARTIFACTS=true bash scripts/deploy-schema-first.sh /opt/phoenix/backups/migration-evidence "$API_IMAGE"
-              PENDING_AFTER="$(pending_classes)"
+              LEDGER_JSON_LINE_AFTER="$(node --input-type=module -e "import {readProductionLedger} from '$STAGE/chanjet-admission-schema-receipt.mjs'; console.log(JSON.stringify(readProductionLedger()))")"
+              # Re-derive pending from the fresh ledger.
+              PENDING_AFTER=""
+              for f in $(git_safe ls-tree --name-only "$TARGET_SHA" apps/api/src/database/migrations/ | grep -E '\.ts$' || true); do
+                name="$(basename "$f" .ts)"; ts="${name%%-*}"; cls="${name#*-}"
+                APPLIED_JSON="$LEDGER_JSON_LINE_AFTER" node -e '
+                  const applied = JSON.parse(process.env.APPLIED_JSON).typeorm; const ts = process.argv[2]; const cls = process.argv[3];
+                  const done = applied.some(row => String(row.timestamp) === ts && (row.name === cls || row.name === cls + ts));
+                  process.exit(done ? 0 : 1);' x "$ts" "$cls" || PENDING_AFTER="$PENDING_AFTER $name"
+              done
               test -z "$PENDING_AFTER" || { echo "MIGRATION_APPLY=HOLD_STILL_PENDING:$PENDING_AFTER"; exit 1; }
             else
               echo 'MIGRATION_APPLY=MIGRATIONS_ALREADY_APPLIED_RECORDING_RECEIPTS'
