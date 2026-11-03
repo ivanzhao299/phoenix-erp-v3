@@ -52,7 +52,7 @@ const git = args => execFileSync('git', ['-c', `safe.directory=${root}`, '-c', '
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   try {
-    if (mode !== 'inspect' && mode !== 'reconcile' && mode !== 'revive-participant') throw new Error('BACKGROUND_RECONCILIATION=HOLD_USAGE_INSPECT_RECONCILE_OR_REVIVE');
+    if (mode !== 'inspect' && mode !== 'reconcile' && mode !== 'revive-participant' && mode !== 'abort-prepared-promotion') throw new Error('BACKGROUND_RECONCILIATION=HOLD_USAGE_UNKNOWN_MODE');
     mark('VERIFY_CONTEXT');
     verifyContext(root, stateDirectory);
     mark('CHECKOUT');
@@ -63,6 +63,55 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     if (mode === 'reconcile' && targetSha !== git(['rev-parse', 'HEAD'])) hold('CHECKOUT');
     mark('REMOTE_MAIN');
     if (targetSha !== git(['ls-remote', 'origin', 'refs/heads/main']).split(/\s/)[0]) hold('REMOTE_MAIN');
+    mark('HOLD_SHAPE');
+    if (mode === 'abort-prepared-promotion') {
+      // A promotion that reached PREPARED_HOLD but whose deployment body died
+      // leaves floor/active on the target with an in-flight policy-transition
+      // marker bound to that exact run attempt. No rerun can reuse the marker,
+      // so the only safe completion is restoring the recorded previous state.
+      const promotionRunId = process.env.PROMOTION_RUN_ID || '';
+      if (!/^\d+-\d+$/.test(promotionRunId)) hold('PROMOTION_RUN_ID');
+      const recordFile = path.join(stateDirectory, `floor-promotion-${promotionRunId}.json`);
+      const markerFile = path.join(stateDirectory, 'policy-transition.json');
+      if (!fs.existsSync(recordFile) || !fs.existsSync(markerFile)) hold('NO_PREPARED_PROMOTION');
+      const record = secureJson(recordFile);
+      const marker = secureJson(markerFile);
+      const floor = secureJson(path.join(stateDirectory, 'floor.json'));
+      const active = secureJson(path.join(stateDirectory, 'active.json'));
+      if (!record || record.version !== 3 || !record.previousFloor || !record.previousActive
+        || record.approvedSha !== marker.target || floor.floorSha !== marker.target || active.floorSha !== marker.target
+        || String(marker.runId) !== promotionRunId || marker.phase !== 'IN_PROGRESS'
+        || active.outcome !== 'CONFIG_READY_HOLD') hold('PROMOTION_BINDING');
+      if (fs.existsSync(path.join(stateDirectory, 'transaction.json'))) hold('DEPLOYMENT_TRANSACTION_IN_FLIGHT');
+      mark('RUNTIME_BINDING');
+      const actualAbort = captureRuntime();
+      if (actualAbort.api.revision !== record.previousFloor.floorSha
+        || actualAbort.web.revision !== record.previousActive.active.web.revision) hold('RUNTIME_DRIFT');
+      mark('RESTORE_PREVIOUS');
+      // Evidence first: the full prepared state stays in the reviewed log.
+      console.log(JSON.stringify({ aborted: { record, marker, floor, active } }));
+      atomicState(path.join(stateDirectory, 'floor.json'), record.previousFloor);
+      atomicState(path.join(stateDirectory, 'active.json'), record.previousActive);
+      const abortHighWater = Math.max(marker.generation ?? 0, 0);
+      for (const file of [markerFile]) {
+        try { fs.unlinkSync(file); } catch (error) { if (error.code !== 'ENOENT') hold('UNLINK_FAILED'); }
+      }
+      mark('CLEAR_HOLD');
+      const abortPrivate = path.join(stateDirectory, 'background-control.json');
+      const abortRecord = fs.existsSync(abortPrivate) ? secureJson(abortPrivate) : null;
+      if (abortRecord && String(abortRecord.owner) === promotionRunId) {
+        const generationFile = path.join(stateDirectory, 'background-generation.json');
+        const highWater = Math.max(abortRecord.generation || 0, abortHighWater);
+        if (highWater >= 1) atomicState(generationFile, { schema: 'phoenix.background-generation/1', generation: highWater, updatedAt: new Date().toISOString() });
+        for (const file of [abortPrivate, path.join(stateDirectory, `background-drain-${promotionRunId}.json`)]) {
+          try { fs.unlinkSync(file); } catch (error) { if (error.code !== 'ENOENT') hold('UNLINK_FAILED'); }
+        }
+        try { fs.unlinkSync(path.join(PUBLIC_DIRECTORY, 'manifest.json')); } catch (error) { if (error.code !== 'ENOENT') hold('UNLINK_FAILED'); }
+      }
+      mark('COMPLETE');
+      console.log(`BACKGROUND_RECONCILIATION=PROMOTION_ABORTED;run=${promotionRunId};target=${targetSha};restoredFloor=${record.previousFloor.floorSha};runtimeApi=${actualAbort.api.revision}`);
+      process.exit(0);
+    }
     mark('STATE_BINDING');
     const floor = secureJson(path.join(stateDirectory, 'floor.json'));
     const active = secureJson(path.join(stateDirectory, 'active.json'));
@@ -72,7 +121,6 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     for (const name of ['transaction.json', 'policy-transition.json']) {
       if (fs.existsSync(path.join(stateDirectory, name))) hold(`DEPLOYMENT_IN_PROGRESS_${name.replace(/[^a-z]/gi, '_').toUpperCase()}`);
     }
-    mark('HOLD_SHAPE');
     const execFileSyncLocal = (file, args) => execFileSync(file, args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
     const participantStatus = () => {
       const probe = "fetch('http://127.0.0.1:3100/api/internal/background/status',{signal:AbortSignal.timeout(3000)}).then(async r=>{if(!r.ok)process.exit(2);process.stdout.write(await r.text())}).catch(()=>process.exit(3))";
