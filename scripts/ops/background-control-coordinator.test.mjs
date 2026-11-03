@@ -35,6 +35,7 @@ function fixture() {
     now: () => clock, sleep: async ms => { clock += ms; },
   });
   return { events, publisher, coordinator, session, inspect, get record() { return record; }, get manifest() { return manifest; },
+    clear: () => { record = null; manifest = null; },
     disconnect: () => { connected = false; }, block: key => { blockedKey = key; }, setActive: n => { active = n; },
     crash: () => { current = []; }, poison: () => { poisoned = true; }, changeBoot: () => { bootChange = true; }, replace: () => { current = [next]; } };
 }
@@ -71,8 +72,7 @@ test('fence generation never regresses below the durable high-water mark', () =>
   // fence must continue above it or live participants reject it as replay.
   f.publisher.readHighWater = () => 10;
   assert.throws(() => f.publisher.fence(binding, [p]), /UNFINISHED_BACKGROUND_TRANSACTION/);
-  f.publisher.writePrivate(null); // simulate the cleared private record
-  f.publisher.writePublic(null); // simulate the cleared public projection
+  f.clear(); // simulate the reconciled private record and public projection
   f.publisher.fence({ owner: '123456-9', previousFloorSha: 'a'.repeat(40), targetSha: 'b'.repeat(40) }, [p]);
   assert.equal(f.manifest.generation, 11);
 });
