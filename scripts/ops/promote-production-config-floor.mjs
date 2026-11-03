@@ -140,5 +140,9 @@ export async function promoteLegacyMaintenanceFloor(request, dependencies = {}) 
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   try { await promoteFloor(fs.realpathSync(process.cwd())); }
-  catch { console.error('CONFIG_FLOOR_PROMOTION=HOLD'); process.exitCode = 1; }
+  catch (error) {
+    const code = String(error?.message || 'UNKNOWN').replace(/\s+/g, ' ').slice(0, 160);
+    console.error(`CONFIG_FLOOR_PROMOTION=HOLD:${code}`);
+    process.exitCode = 1;
+  }
 }
