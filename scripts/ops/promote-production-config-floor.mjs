@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { createHash } from 'node:crypto';
-import { CONTRACT, git, requireCleanMain, assertFloorMonotonic, migrationScope, assertFloor, secureJson, verifyContext } from './production-config-guard.mjs';
+import { CONTRACT, git, guardProduction, requireCleanMain, assertFloorMonotonic, migrationScope, assertFloor, secureJson, verifyContext } from './production-config-guard.mjs';
 import { assertModernReleaseAdmission } from './production-maintenance-admission.mjs';
 import { assertLegacyMaintenanceStateCore } from './production-deployment-state.mjs';
 import { same, hold } from './production-maintenance-receipts.mjs';
