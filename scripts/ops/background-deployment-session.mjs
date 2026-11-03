@@ -28,6 +28,7 @@ export function exactReanchorBinding(env, floor, active) {
   // This release protocol implements exactly the reviewed old/new floor
   // transition. A future unchanged-floor code release needs its own previous
   // runtime/floor contract and must not reach mutation then fail at UNFENCE.
+  console.error(`BACKGROUND_REANCHOR_INPUTS=cfg:${/^[a-f0-9]{40}$/.test(env.APPROVED_CONFIG_FLOOR_SHA || '')};cfgTarget:${env.APPROVED_CONFIG_FLOOR_SHA === env.TARGET_SHA};prev:${/^[a-f0-9]{40}$/.test(env.APPROVED_PREVIOUS_FLOOR_SHA || '')};same:${env.APPROVED_PREVIOUS_FLOOR_SHA === env.APPROVED_CONFIG_FLOOR_SHA}`);
   if (!/^[a-f0-9]{40}$/.test(env.APPROVED_CONFIG_FLOOR_SHA || '') || env.APPROVED_CONFIG_FLOOR_SHA !== env.TARGET_SHA
     || !/^[a-f0-9]{40}$/.test(env.APPROVED_PREVIOUS_FLOOR_SHA || '')
     || env.APPROVED_PREVIOUS_FLOOR_SHA === env.APPROVED_CONFIG_FLOOR_SHA) fail('UNSUPPORTED_NORMAL_DEPLOY');
