@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawn, execFileSync } from 'node:child_process';
 import { createInterface } from 'node:readline';
+import { assertScopeMigrationsReceipted } from './chanjet-admission-schema-receipt.mjs';
 import { CONTRACT, secureJson, verifyContext } from './production-config-guard.mjs';
 import { executionEnv, captureRuntime } from './capture-production-runtime.mjs';
 import { assertContained } from './production-trusted-paths.mjs';
@@ -145,7 +146,10 @@ export function verifyCompletedDeployment(binding, participants) {
     || deployment.floorSha !== binding.targetSha || floor.floorSha !== binding.targetSha || active.floorSha !== binding.targetSha
     || deployment.previous?.api?.revision !== binding.previousFloorSha || deployment.active?.api?.revision !== binding.targetSha
     || active.active?.api?.revision !== binding.targetSha || floor.chanjetPolicy !== 'HOLD' || floor.readonlyApproval !== null
-    || !Array.isArray(deployment.migrationPaths) || deployment.migrationPaths.length !== 0
+    || !Array.isArray(deployment.migrationPaths)
+    || (deployment.migrationPaths.length > 0 && !assertScopeMigrationsReceipted(CONTRACT.repository, {
+      baseline: binding.previousFloorSha, target: binding.targetSha, changed: deployment.migrationPaths,
+    }))
     || JSON.stringify(deployment.active) !== JSON.stringify(active.active)) fail('DEPLOY_SUCCESS_BINDING');
   const evidence = deployment.evidence;
   if (!evidence || !evidence.pre || !evidence.post || !evidence.log) fail('DEPLOY_EVIDENCE_REQUIRED');

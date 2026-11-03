@@ -39,7 +39,9 @@ import { pathToFileURL } from 'node:url';
 import { CONTRACT, secureJson, verifyContext } from './production-config-guard.mjs';
 import { atomicState } from './production-atomic-state.mjs';
 import { captureRuntime } from './capture-production-runtime.mjs';
-import { PUBLIC_DIRECTORY, readPublicManifest } from './background-control-manifest.mjs';
+import { PUBLIC_DIRECTORY, readPublicManifest, BackgroundManifestPublisher } from './background-control-manifest.mjs';
+import { verifyCompletedDeployment } from './background-control-coordinator.mjs';
+import { discoverParticipants } from './background-deployment-session.mjs';
 
 const hold = reason => { throw new Error(`BACKGROUND_RECONCILIATION=HOLD_${reason}`); };
 let stage = 'START';
@@ -52,7 +54,7 @@ const git = args => execFileSync('git', ['-c', `safe.directory=${root}`, '-c', '
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   try {
-    if (mode !== 'inspect' && mode !== 'reconcile' && mode !== 'revive-participant' && mode !== 'abort-prepared-promotion') throw new Error('BACKGROUND_RECONCILIATION=HOLD_USAGE_UNKNOWN_MODE');
+    if (mode !== 'inspect' && mode !== 'reconcile' && mode !== 'revive-participant' && mode !== 'abort-prepared-promotion' && mode !== 'complete-background-open') throw new Error('BACKGROUND_RECONCILIATION=HOLD_USAGE_UNKNOWN_MODE');
     mark('VERIFY_CONTEXT');
     verifyContext(root, stateDirectory);
     mark('CHECKOUT');
@@ -64,6 +66,45 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     mark('REMOTE_MAIN');
     if (targetSha !== git(['ls-remote', 'origin', 'refs/heads/main']).split(/\s/)[0]) hold('REMOTE_MAIN');
     mark('HOLD_SHAPE');
+    if (mode === 'complete-background-open') {
+      // A background session whose deploy body fully succeeded (api switched,
+      // evidence complete, floor promoted) but whose OPEN step died can only
+      // move forward: the runtime already runs the target. Re-verify the
+      // formal SUCCESS receipt with the reviewed verifier and publish OPEN.
+      const sessionOwner = process.env.SESSION_OWNER || '';
+      if (!/^\d+-\d+$/.test(sessionOwner)) hold('SESSION_OWNER');
+      if (targetSha !== git(['rev-parse', 'HEAD'])) hold('CHECKOUT');
+      const sessionPrivate = path.join(stateDirectory, 'background-control.json');
+      if (!fs.existsSync(sessionPrivate)) hold('NO_RECORD');
+      const record = secureJson(sessionPrivate);
+      if (!record || record.owner !== sessionOwner || !['FENCED', 'CODE_HOLD'].includes(record.phase)) hold('OWNER_OR_TRANSACTION_MISMATCH');
+      for (const name of ['transaction.json', 'policy-transition.json']) {
+        if (fs.existsSync(path.join(stateDirectory, name))) hold(`DEPLOYMENT_IN_PROGRESS_${name.replace(/[^a-z]/gi, '_').toUpperCase()}`);
+      }
+      mark('STATE_BINDING');
+      const floor = secureJson(path.join(stateDirectory, 'floor.json'));
+      const active = secureJson(path.join(stateDirectory, 'active.json'));
+      if (floor.version !== 3 || floor.phase !== 'READY' || floor.floorSha !== record.targetSha
+        || active.version !== 3 || active.outcome !== 'SUCCESS' || active.floorSha !== record.targetSha) hold('FLOOR');
+      const deployment = secureJson(path.join(stateDirectory, `deploy-${sessionOwner}.json`));
+      if (!deployment || deployment.outcome !== 'SUCCESS' || deployment.target !== record.targetSha) hold('DEPLOY_RECORD');
+      mark('RUNTIME_BINDING');
+      const actual = captureRuntime();
+      if (actual.api.revision !== record.targetSha || JSON.stringify(actual) !== JSON.stringify(active.active)) hold('RUNTIME_DRIFT');
+      const binding = { owner: record.owner, previousFloorSha: record.previousFloorSha, targetSha: record.targetSha };
+      mark('OPEN');
+      // The old session's control session is gone with it; the formal OPEN
+      // only needs the independent SUCCESS verifier plus the publisher.
+      const next = discoverParticipants(floor.project);
+      const publisher = new BackgroundManifestPublisher();
+      await publisher.open(binding, next, async b => {
+        verifyCompletedDeployment(b, next);
+        return true;
+      });
+      mark('COMPLETE');
+      console.log(`BACKGROUND_RECONCILIATION=OPENED;owner=${record.owner};target=${record.targetSha};runtimeApi=${actual.api.revision}`);
+      process.exit(0);
+    }
     if (mode === 'abort-prepared-promotion') {
       // A promotion that reached PREPARED_HOLD but whose deployment body died
       // leaves floor/active on the target with an in-flight policy-transition
