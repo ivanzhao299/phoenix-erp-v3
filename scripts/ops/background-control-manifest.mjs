@@ -114,12 +114,28 @@ export class BackgroundManifestPublisher {
     this.directory = options.publicDirectory || PUBLIC_DIRECTORY;
     this.stateDirectory = options.stateDirectory || CONTRACT.stateDirectory;
     this.privateFile = path.join(this.stateDirectory, 'background-control.json');
+    this.generationFile = path.join(this.stateDirectory, 'background-generation.json');
     this.guard = dependencies.guard || (() => verifyContext(CONTRACT.repository, this.stateDirectory));
     this.inspect = dependencies.inspect || inspectPublicDirectory;
     this.readPrivate = dependencies.readPrivate || (() => fs.existsSync(this.privateFile) ? secureJson(this.privateFile) : null);
     this.writePrivate = dependencies.writePrivate || (value => atomicState(this.privateFile, value));
     this.writePublic = dependencies.writePublic || (value => atomicPublicManifest(this.directory, value, this.inspect));
     this.readPublic = dependencies.readPublic || (() => readPublicManifest(this.directory, this.inspect));
+    // The durable generation high-water mark survives hold reconciliation.
+    // Without it, clearing a stranded record resets the next fence to
+    // generation 1 while live participants still watermark the stranded
+    // generation, and every fresh manifest is rejected as a replay.
+    this.readHighWater = dependencies.readHighWater || (() => {
+      if (!fs.existsSync(this.generationFile)) return 0;
+      const value = JSON.parse(fs.readFileSync(this.generationFile, 'utf8'));
+      if (!value || value.schema !== 'phoenix.background-generation/1'
+        || !Number.isSafeInteger(value.generation) || value.generation < 0) fail('GENERATION_STATE');
+      return value.generation;
+    });
+    this.writeHighWater = dependencies.writeHighWater || (generation => {
+      if (!Number.isSafeInteger(generation) || generation < 1) fail('GENERATION_STATE');
+      atomicState(this.generationFile, { schema: 'phoenix.background-generation/1', generation, updatedAt: this.now() });
+    });
     this.now = dependencies.now || (() => new Date().toISOString());
   }
   assertOwned(binding) {
@@ -139,13 +155,14 @@ export class BackgroundManifestPublisher {
     if (publicPrevious && (publicPrevious.phase !== 'OPEN' || !previous || previous.generation !== publicPrevious.generation
       || previous.owner !== publicPrevious.owner || previous.targetSha !== publicPrevious.targetSha
       || publicPrevious.targetSha !== binding.previousFloorSha || previous.manifestDigest !== projectionDigest(publicPrevious))) fail('UNRECONCILED_PUBLIC_STATE');
-    const generation = Math.max(previous?.generation || 0, publicPrevious?.generation || 0) + 1;
+    const generation = Math.max(previous?.generation || 0, publicPrevious?.generation || 0, this.readHighWater()) + 1;
     if (!Number.isSafeInteger(generation)) fail('GENERATION_EXHAUSTED');
     const manifest = { protocolVersion: 1, phase: 'FENCED', owner: binding.owner, generation, targetSha: binding.targetSha, participants };
     const record = { protocolVersion: 1, ...binding, generation, phase: 'PUBLISHING_FENCE', manifestDigest: projectionDigest(manifest), updatedAt: this.now() };
     this.writePrivate(record); // Crash before public fence cannot authorize any deploy.
     this.writePublic(manifest); // Durable deny occurs before any lock wait/deploy.
     this.writePrivate({ ...record, phase: 'FENCED' });
+    this.writeHighWater(generation);
     return manifest;
   }
   hold(binding, reason) {
@@ -167,7 +184,7 @@ export class BackgroundManifestPublisher {
     // next public projection digest to the private authority BEFORE publishing
     // OPEN. A crash may leave private OPEN/public FENCED (manual reconciliation),
     // never public OPEN ahead of its committed authority record.
-    this.writePrivate(next); this.writePublic(manifest);
+    this.writePrivate(next); this.writePublic(manifest); this.writeHighWater(generation);
     return manifest;
   }
 }

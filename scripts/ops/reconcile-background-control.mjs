@@ -37,6 +37,7 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { CONTRACT, secureJson, verifyContext } from './production-config-guard.mjs';
+import { atomicState } from './production-atomic-state.mjs';
 import { captureRuntime } from './capture-production-runtime.mjs';
 import { PUBLIC_DIRECTORY, readPublicManifest } from './background-control-manifest.mjs';
 
@@ -133,6 +134,12 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     mark('CLEAR_HOLD');
     // Evidence first: the full record stays in the reviewed workflow log.
     console.log(JSON.stringify({ cleared: { record, manifest } }));
+    // Persist the generation high-water mark before deleting the records so
+    // the next fence continues above every generation a live participant may
+    // still watermark (see BackgroundManifestPublisher).
+    const generationFile = path.join(stateDirectory, 'background-generation.json');
+    const highWater = Math.max(record.generation, manifest?.generation ?? 0);
+    if (highWater >= 1) atomicState(generationFile, { schema: 'phoenix.background-generation/1', generation: highWater, updatedAt: new Date().toISOString() });
     for (const file of [privateFile, path.join(stateDirectory, `background-drain-${record.owner}.json`)]) {
       try { fs.unlinkSync(file); } catch (error) { if (error.code !== 'ENOENT') hold('UNLINK_FAILED'); }
     }

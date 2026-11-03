@@ -53,3 +53,12 @@ test('participant revival is the only reset for an invisible generation watermar
   // Revival never touches the production checkout.
   assert.match(script, /mode === 'reconcile' && targetSha !== git/);
 });
+
+test('clearing a hold persists the generation high-water mark', () => {
+  // The next fence must continue above every generation a live participant
+  // may still watermark, otherwise it is rejected as MANIFEST_GENERATION_REPLAY.
+  assert.match(script, /background-generation\.json/);
+  assert.match(script, /phoenix\.background-generation\/1/);
+  assert.match(script, /Math\.max\(record\.generation, manifest\?\.generation \?\? 0\)/);
+  assert.match(script, /atomicState\(generationFile/);
+});
