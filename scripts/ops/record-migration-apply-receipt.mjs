@@ -4,6 +4,7 @@
  * what later lets a v3 floor re-anchor tolerate the applied migrations
  * (see assertScopeMigrationsReceipted in chanjet-admission-schema-receipt.mjs).
  * Refuses to record anything the production ledger cannot confirm. */
+import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { CONTRACT, git, secureJson, verifyContext } from './production-config-guard.mjs';
@@ -22,6 +23,10 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     if (!/^[a-f0-9]{40}$/.test(targetSha) || !/^\d+-\d+$/.test(runId) || !/^[a-f0-9]{64}$/.test(beforeLedgerSha256)) hold('INPUT');
     if (!migrationPaths.length) hold('NO_MIGRATIONS');
     verifyContext(root, CONTRACT.stateDirectory);
+    // atomicState pins the parent directory, so create the root-only receipts
+    // directory exactly once with the control-root mode contract.
+    const receiptDirectory = path.join(CONTRACT.stateDirectory, RECEIPT_DIRECTORY);
+    if (!fs.existsSync(receiptDirectory)) fs.mkdirSync(receiptDirectory, { mode: 0o700 });
     const ledger = readProductionLedger();
     const ledgerDigest = digest(JSON.stringify(ledger));
     const isApplied = (timestamp, fileClassName) => ledger.typeorm.some(
