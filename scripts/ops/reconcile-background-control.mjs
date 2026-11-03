@@ -80,30 +80,37 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       const marker = secureJson(markerFile);
       let deadRecord = null;
       try { deadRecord = secureJson(path.join(stateDirectory, `deploy-${deadRunId}.json`)); } catch { deadRecord = null; }
-      console.log(JSON.stringify({ deadMarker: marker, deadRecordSummary: deadRecord && { outcome: deadRecord.outcome, switched: deadRecord.switched, phase: deadRecord.phase } }));
+      console.log(JSON.stringify({ deadMarker: marker, deadRecord: deadRecord }));
       if (!marker || String(marker.runId) !== deadRunId || marker.phase !== 'IN_PROGRESS') hold('DEAD_TRANSACTION_BINDING');
       if (!deadRecord || ['SUCCESS', 'ROLLED_BACK'].includes(deadRecord.outcome)) hold('DEAD_TRANSACTION_BINDING');
-      console.log(JSON.stringify({ deadTransaction: { marker, switched: deadRecord.switched, previous: deadRecord.previous } }));
-      const stage = path.join(stateDirectory, `txn-rollback-${deadRunId}`);
-      fs.mkdirSync(stage, { mode: 0o700, recursive: true });
-      try {
-        for (const helper of ['production-deployment-state.mjs', 'production-config-guard.mjs', 'production-config-contract.json', 'production-atomic-state.mjs', 'production-trusted-paths.mjs', 'capture-production-runtime.mjs', 'update-managed-chanjet-env.mjs', 'chanjet-readonly-policy.mjs', 'production-deployment-evidence.mjs', 'production-maintenance-admission.mjs', 'production-maintenance-receipts.mjs', 'production-maintenance-owner-authority.mjs', 'production-maintenance-owner-unknown.mjs', 'production-maintenance-reconciliation.mjs', 'production-maintenance-transition.mjs', 'chanjet-admission-schema-receipt.mjs', 'background-control-manifest.mjs', 'background-control-legacy-transition.mjs']) {
-          fs.writeFileSync(path.join(stage, helper), execFileSync('git', ['-c', `safe.directory=${root}`, '-c', 'core.hooksPath=/dev/null', 'show', `${targetSha}:scripts/ops/${helper}`]));
+      // GuardProduction binds closure to the original checkout (configSha ==
+      // HEAD), which legitimate post-incident main movement breaks. Close the
+      // transaction explicitly instead, proving the body never mutated the
+      // runtime: every switched candidate must already BE the running image.
+      mark('RUNTIME_BINDING');
+      const actualDead = captureRuntime();
+      for (const service of ['api', 'web']) {
+        const previous = deadRecord.previous?.[service];
+        if (!previous || actualDead[service].imageId !== previous.imageId || actualDead[service].revision !== previous.revision) hold(`RUNTIME_MOVED_${service.toUpperCase()}`);
+        if (deadRecord.switched?.[service]) {
+          const candidate = deadRecord.candidates?.[service];
+          if (!candidate || candidate.imageId !== previous.imageId || candidate.revision !== previous.revision) hold(`CANDIDATE_DIVERGED_${service.toUpperCase()}`);
         }
-        const stateEnv = { ...process.env, DEPLOY_RUN_ID: deadRunId, DEPLOY_RUN_ATTEMPT: deadRunId.split('-').at(-1), TARGET_SHA: marker.target };
-        // Node marks inherited descriptors close-on-exec; pass FD9 through an
-        // explicit stdio slot so the staged helper still proves lock ownership.
-        const stateStdio = ['ignore', 'pipe', 'pipe', 'ignore', 'ignore', 'ignore', 'ignore', 'ignore', 'ignore', 'inherit'];
-        if (deadRecord.switched?.api) {
-          execFileSync('node', [path.join(stage, 'production-deployment-state.mjs'), 'rollback-pin', 'api'], { cwd: root, env: stateEnv, stdio: stateStdio });
-        }
-        execFileSync('node', [path.join(stage, 'production-deployment-state.mjs'), 'rolled-back'], { cwd: root, env: stateEnv, stdio: stateStdio });
-      } finally {
-        try { fs.rmSync(stage, { recursive: true, force: true }); } catch { /* evidence stays in the log */ }
       }
-      mark('COMPLETE');
-      console.log(`BACKGROUND_RECONCILIATION=TRANSACTION_ROLLED_BACK;run=${deadRunId};target=${marker.target}`);
-      process.exit(0);
+      const deadFloor = secureJson(path.join(stateDirectory, 'floor.json'));
+      const deadActive = secureJson(path.join(stateDirectory, 'active.json'));
+      if (deadActive.outcome !== 'SUCCESS' || deadActive.active?.api?.revision !== actualDead.api.revision) hold('ACTIVE_BINDING');
+      mark('CLOSE_TRANSACTION');
+      atomicState(path.join(stateDirectory, `deploy-${deadRunId}.json`), {
+        ...deadRecord,
+        outcome: 'ROLLED_BACK',
+        rolledBackBy: 'reconcile-background-control/rollback-dead-transaction',
+        rolledBackAt: new Date().toISOString(),
+        rollbackProof: { runtime: actualDead, previous: deadRecord.previous, floorSha: deadFloor.floorSha },
+      });
+      try { fs.unlinkSync(markerFile); } catch (error) { if (error.code !== 'ENOENT') hold('UNLINK_FAILED'); }
+      const policyMarker = path.join(stateDirectory, 'policy-transition.json');
+      try { fs.unlinkSync(policyMarker); } catch (error) { if (error.code !== 'ENOENT') hold('UNLINK_FAILED'); }
     }
     if (mode === 'complete-background-open') {
       // A background session whose deploy body fully succeeded (api switched,
