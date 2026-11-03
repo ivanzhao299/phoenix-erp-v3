@@ -5,9 +5,19 @@
  * Every later deploy then fails with BACKGROUND_HOLD=UNFINISHED_BACKGROUND
  * _TRANSACTION while business background tasks stay denied.
  *
- * This tool has exactly two modes:
- *   inspect    read-only dump of the hold state (never mutates anything)
- *   reconcile  delete the stranded hold after every invariant below holds
+ * This tool has exactly three modes:
+ *   inspect            read-only dump of the hold state (never mutates anything)
+ *   reconcile          delete the stranded hold after every invariant below holds
+ *   revive-participant after a hold was cleared, the running API still holds an
+ *                      in-memory manifest-generation watermark from the stranded
+ *                      session; a fresh fence generation (1) is then rejected as
+ *                      MANIFEST_GENERATION_REPLAY and every deploy dies at
+ *                      PARTICIPANT_FENCE_NOT_OBSERVED. The watermark is not
+ *                      observable through any file, so the only protocol-true
+ *                      reset is restarting the stateless API participant (same
+ *                      image, same revision, runtime pins unchanged). This mode
+ *                      performs that restart only when no control record exists
+ *                      and no deployment is in flight.
  *
  * Invariants enforced before any deletion (failure stops with a *_HOLD code):
  *   - the production context is the contract repository/state directory and
@@ -41,7 +51,7 @@ const git = args => execFileSync('git', ['-c', `safe.directory=${root}`, '-c', '
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   try {
-    if (mode !== 'inspect' && mode !== 'reconcile') throw new Error('BACKGROUND_RECONCILIATION=HOLD_USAGE_INSPECT_OR_RECONCILE');
+    if (mode !== 'inspect' && mode !== 'reconcile' && mode !== 'revive-participant') throw new Error('BACKGROUND_RECONCILIATION=HOLD_USAGE_INSPECT_RECONCILE_OR_REVIVE');
     mark('VERIFY_CONTEXT');
     verifyContext(root, stateDirectory);
     mark('CHECKOUT');
@@ -62,6 +72,30 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       if (fs.existsSync(path.join(stateDirectory, name))) hold(`DEPLOYMENT_IN_PROGRESS_${name.replace(/[^a-z]/gi, '_').toUpperCase()}`);
     }
     mark('HOLD_SHAPE');
+    const execFileSyncLocal = (file, args) => execFileSync(file, args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+    const participantStatus = () => {
+      const probe = "fetch('http://127.0.0.1:3100/api/internal/background/status',{signal:AbortSignal.timeout(3000)}).then(async r=>{if(!r.ok)process.exit(2);process.stdout.write(await r.text())}).catch(()=>process.exit(3))";
+      return JSON.parse(execFileSyncLocal('docker', ['exec', 'phoenix-v3-api', 'node', '-e', probe]));
+    };
+    if (mode === 'revive-participant') {
+      if (fs.existsSync(path.join(stateDirectory, 'background-control.json'))) hold('REVIVE_WITH_RECORD_CLEAR_FIRST');
+      const before = participantStatus();
+      console.log(JSON.stringify({ participantBefore: { bootId: before.bootId, phase: before.phase, owner: before.owner, generation: before.generation } }));
+      execFileSyncLocal('docker', ['restart', 'phoenix-v3-api']);
+      mark('REVIVE_WAIT_HEALTH');
+      let healthy = false;
+      for (let attempt = 0; attempt < 40 && !healthy; attempt += 1) {
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        try { healthy = execFileSyncLocal('docker', ['inspect', 'phoenix-v3-api', '--format', '{{.State.Health.Status}}']) === 'healthy'; } catch { /* retry */ }
+      }
+      if (!healthy) hold('REVIVE_UNHEALTHY');
+      const after = participantStatus();
+      if (after.poisoned || after.stopping || after.controlSession?.connected !== true) hold('REVIVE_PARTICIPANT_NOT_READY');
+      console.log(JSON.stringify({ participantAfter: { bootId: after.bootId, phase: after.phase, generation: after.generation } }));
+      mark('COMPLETE');
+      console.log(`BACKGROUND_RECONCILIATION=REVIVED;bootId=${after.bootId};phase=${after.phase};generation=${after.generation}`);
+      process.exit(0);
+    }
     const privateFile = path.join(stateDirectory, 'background-control.json');
     if (!fs.existsSync(privateFile)) { console.log('BACKGROUND_RECONCILIATION=NOOP'); process.exit(0); }
     const record = secureJson(privateFile);

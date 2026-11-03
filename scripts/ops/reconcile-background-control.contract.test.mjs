@@ -35,8 +35,21 @@ test('background control reconciliation workflow is dispatch-gated and stages re
   assert.match(workflow, /cd \/data\/phoenix-erp/);
   assert.match(workflow, /PRODUCTION_CONTROL_BOOTSTRAP_B64/);
   assert.match(workflow, /git_safe show "\$TARGET_SHA:scripts\/ops\/\$helper"/);
-  // Inspect may not fast-forward the production checkout; reconcile may.
-  assert.match(workflow, /if \[ "\$PHASE" != inspect \]/);
+  // Read-only phases never fast-forward the production checkout; reconcile may.
+  assert.match(workflow, /case "\$PHASE" in inspect\|revive-participant\)/);
   assert.match(workflow, /git_safe merge --ff-only "\$TARGET_SHA"/);
   assert.match(script, /if \(mode === 'reconcile' && targetSha !== git\(\['rev-parse', 'HEAD'\]\)\) hold\('CHECKOUT'\)/);
+});
+
+test('participant revival is the only reset for an invisible generation watermark', () => {
+  // The stranded session leaves an in-memory manifest watermark that no file
+  // can express; only a stateless API restart accepts a fresh generation.
+  assert.match(script, /revive-participant/);
+  assert.match(script, /docker', \['restart', 'phoenix-v3-api'\]/);
+  assert.match(script, /REVIVE_WITH_RECORD_CLEAR_FIRST/);
+  assert.match(script, /REVIVE_UNHEALTHY/);
+  // Revival refuses while any control record still exists.
+  assert.match(script, /mark\('HOLD_SHAPE'\);[\s\S]*?if \(mode === 'revive-participant'\) \{[\s\S]*?background-control\.json/);
+  // Revival never touches the production checkout.
+  assert.match(script, /mode === 'reconcile' && targetSha !== git/);
 });

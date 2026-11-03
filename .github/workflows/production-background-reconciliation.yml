@@ -7,7 +7,7 @@ on:
         description: 'inspect = read-only state dump; reconcile = clear the stranded hold'
         required: true
         type: choice
-        options: [inspect, reconcile]
+        options: [inspect, reconcile, revive-participant]
       confirm_reconciliation:
         description: 'Type RECONCILE_PRODUCTION_BACKGROUND_CONTROL to authorize the targeted recovery'
         required: true
@@ -69,7 +69,7 @@ jobs:
           proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
           proxy_port: 22
           envs: TARGET_SHA,PHASE,PRODUCTION_CONTRACT_B64,PRODUCTION_PATH_HELPER_B64,PRODUCTION_CONTROL_BOOTSTRAP_B64
-          command_timeout: 5m
+          command_timeout: 8m
           script: |
             set -Eeuo pipefail
             # The production contract pins the repository; never follow a stale
@@ -83,16 +83,16 @@ jobs:
             # have its objects; a fetch never moves the checked-out worktree.
             git_safe fetch --no-tags origin main
             test "$(git_safe rev-parse FETCH_HEAD)" = "$TARGET_SHA"
-            if [ "$PHASE" != inspect ]; then
+            case "$PHASE" in inspect|revive-participant)
+              # Read-only phases never move the production checkout.
+              echo "READONLY_PHASE_CHECKOUT=$(git_safe rev-parse HEAD)"
+            ;; *)
               # Guarded fast-forward only, exactly like the runtime-pin repair.
-              # Inspect stays read-only: it never moves the production checkout.
               if [ "$(git_safe rev-parse HEAD)" != "$TARGET_SHA" ]; then
                 git_safe merge --ff-only "$TARGET_SHA"
               fi
               test "$(git_safe rev-parse HEAD)" = "$TARGET_SHA"
-            else
-              echo "INSPECT_CHECKOUT=$(git_safe rev-parse HEAD)"
-            fi
+            ;; esac
             STAGE="/var/lib/phoenix-erp/production-deployment-state/background-reconcile-${{ github.run_id }}"
             test ! -e "$STAGE"
             mkdir -m 700 "$STAGE"
