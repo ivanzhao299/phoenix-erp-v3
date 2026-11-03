@@ -23,6 +23,7 @@ on:
 
 permissions:
   contents: read
+  packages: read
 
 concurrency:
   group: controlled-pending-migration-apply
@@ -58,8 +59,8 @@ jobs:
           PHASE: ${{ inputs.phase }}
           EXPECTED_BEFORE_LEDGER_SHA256: ${{ inputs.expected_before_ledger_sha256 }}
           MIGRATION_RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}
-          GHCR_LOGIN_USER: ${{ secrets.GHCR_LOGIN_USER }}
-          GHCR_LOGIN_TOKEN: ${{ secrets.GHCR_LOGIN_TOKEN }}
+          GHCR_LOGIN_USER: ${{ github.repository_owner }}
+          GHCR_LOGIN_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PRODUCTION_CONTRACT_B64: ${{ env.PRODUCTION_CONTRACT_B64 }}
           PRODUCTION_PATH_HELPER_B64: ${{ env.PRODUCTION_PATH_HELPER_B64 }}
           PRODUCTION_CONTROL_BOOTSTRAP_B64: ${{ env.PRODUCTION_CONTROL_BOOTSTRAP_B64 }}
