@@ -36,6 +36,7 @@ test('background control reconciliation workflow is dispatch-gated and stages re
   assert.match(workflow, /PRODUCTION_CONTROL_BOOTSTRAP_B64/);
   assert.match(workflow, /git_safe show "\$TARGET_SHA:scripts\/ops\/\$helper"/);
   // Inspect may not fast-forward the production checkout; reconcile may.
-  assert.match(workflow, /HOLD_CHECKOUT_BEHIND_INSPECT_ONLY/);
+  assert.match(workflow, /if \[ "\$PHASE" != inspect \]/);
   assert.match(workflow, /git_safe merge --ff-only "\$TARGET_SHA"/);
+  assert.match(script, /if \(mode === 'reconcile' && targetSha !== git\(\['rev-parse', 'HEAD'\]\)\) hold\('CHECKOUT'\)/);
 });

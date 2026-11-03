@@ -79,15 +79,18 @@ jobs:
             eval "$(printf '%s' "$PRODUCTION_CONTROL_BOOTSTRAP_B64" | base64 -d)"
             git_safe() { command git -c "safe.directory=$DEPLOY_REPO_ROOT" -c core.hooksPath=/dev/null "$@"; }
             test "$(git_safe branch --show-current)" = main
-            CURRENT_SHA="$(git_safe rev-parse HEAD)"
-            if [ "$CURRENT_SHA" != "$TARGET_SHA" ]; then
+            if [ "$PHASE" != inspect ]; then
               # Guarded fast-forward only, exactly like the runtime-pin repair.
-              test "$PHASE" != inspect || { echo 'BACKGROUND_RECONCILIATION=HOLD_CHECKOUT_BEHIND_INSPECT_ONLY'; exit 1; }
-              git_safe fetch --no-tags origin main
-              test "$(git_safe rev-parse FETCH_HEAD)" = "$TARGET_SHA"
-              git_safe merge --ff-only "$TARGET_SHA"
+              # Inspect stays read-only: it never moves the production checkout.
+              if [ "$(git_safe rev-parse HEAD)" != "$TARGET_SHA" ]; then
+                git_safe fetch --no-tags origin main
+                test "$(git_safe rev-parse FETCH_HEAD)" = "$TARGET_SHA"
+                git_safe merge --ff-only "$TARGET_SHA"
+              fi
+              test "$(git_safe rev-parse HEAD)" = "$TARGET_SHA"
+            else
+              echo "INSPECT_CHECKOUT=$(git_safe rev-parse HEAD)"
             fi
-            test "$(git_safe rev-parse HEAD)" = "$TARGET_SHA"
             STAGE="/var/lib/phoenix-erp/production-deployment-state/background-reconcile-${{ github.run_id }}"
             test ! -e "$STAGE"
             mkdir -m 700 "$STAGE"

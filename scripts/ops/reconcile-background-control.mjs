@@ -47,7 +47,9 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     mark('CHECKOUT');
     if (!/^[a-f0-9]{40}$/.test(targetSha)) hold('TARGET_SHA');
     if (git(['branch', '--show-current']) !== 'main' || git(['status', '--porcelain', '--untracked-files=all'])) hold('WORKTREE_NOT_CLEAN_MAIN');
-    if (targetSha !== git(['rev-parse', 'HEAD'])) hold('CHECKOUT');
+    // Inspection is read-only and must work while the checkout is still behind;
+    // only the mutating reconcile binds to an exactly checked-out target.
+    if (mode === 'reconcile' && targetSha !== git(['rev-parse', 'HEAD'])) hold('CHECKOUT');
     mark('REMOTE_MAIN');
     if (targetSha !== git(['ls-remote', 'origin', 'refs/heads/main']).split(/\s/)[0]) hold('REMOTE_MAIN');
     mark('STATE_BINDING');
