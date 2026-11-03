@@ -64,6 +64,7 @@ async function promoteFloorCore(root, env, dependencies, admit, legacy) {
   const actual = (dependencies.captureRuntime || captureRuntime)();
   const previousFloor = installed.secureJson(path.join(directory, 'floor.json'));
   const criticalFilesChangedBeforePromotion = getGit(root, ['diff', '--name-only', previousFloor.floorSha, target, '--', ...CONTRACT.criticalFiles]).split('\n').filter(Boolean).length > 0;
+  console.log(`FLOOR_REANCHOR_PRECHECK=version:${previousFloor.version};critical:${criticalFilesChangedBeforePromotion}`);
   if (previousFloor.version === 3 && criticalFilesChangedBeforePromotion) {
     // The installed v3 guard quite correctly rejects a critical-file mismatch
     // during ordinary deploys. During the explicitly bound v3→v3' transition,
