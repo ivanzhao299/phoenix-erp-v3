@@ -695,6 +695,7 @@ jobs:
 
   # ════════════════════════════════════════════════════════════════════════
   # Job 3b: web/api/full deploy — 完整 ssh 部署(按 mode 裁剪步骤)
+  # Full follow-up releases keep the API/Web runtime pair on one descendant SHA.
   # ════════════════════════════════════════════════════════════════════════
   deploy:
     name: Deploy · ${{ needs.detect-changes.outputs.mode }}
