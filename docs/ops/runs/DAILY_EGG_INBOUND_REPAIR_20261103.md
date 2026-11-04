@@ -70,3 +70,24 @@
 - **API↔checkout 差异证据**：`git diff --stat ae2523d2c..5328b9915 -- apps/api/src apps/web/src` 输出为**空**（零差异）；全量差异仅 `.github/workflows/production-background-reconciliation.yml`、`scripts/ops/reconcile-background-control.mjs`、`docs/ops/runs/DAILY_EGG_INBOUND_REPAIR_20261103.md` 三个非运行时文件。即审查基准时点 API 运行时与 main 的应用代码完全一致。本次审查整改提交后，`apps/api/src` 将携带待发布修复（见下）。
 - **full 发布链 P1 风险（独立立项）**：背景控制上线后，deploy body 的 `docker()` 包装使 `up api` 一律要求"本 run 的 fence+drain 证明"，而 full/web 模式从不 fence —— **常规 full 发布自 10/26 起结构性不可用**（#41603777102 与其回滚双双 HOLD 即为实证）。本次以 api-only 重锚定 + web-only 部署达成等效结果，不等于 full 链修复。设计提案：二选一 —— (a) full 模式复用背景会话（fence→双服务切换→verify→open，需扩展 verifyCompletedDeployment 的 switched.web 语义与 drain 参与者清单）；(b) 为"floor 不变的普通代码发布"定义受控通道（exactReanchorBinding 目前显式拒绝 `prev==cfg` 的同 floor 发布）。在落地前，**任何 full 部署都会失败**，须走 api-only 重锚定（仅当 criticalFiles 变化）或 web-only。
 - **待发布**：本次审查整改的业务代码（P1×2 + P2×1）已合入 main 但**尚未部署** —— 因 full 链阻断 + 本批无 criticalFiles 变更（重锚定协议拒绝无契约变化的 floor 移动）。发布路径：待 full 链修复落地，或下一次 criticalFiles 变更的重锚定窗口随车发布。
+
+## 二轮审查整改与上线（2026-11-04）
+
+按第二轮审查意见修复（main `e51b0dea4…9f13513d8`）：
+
+1. **冲销三重校验**：补录分级的 `FARM_REVERSED` 写入前锁定现实 —— 幂等键 `(log_date, ref_no, 补录冲销 note)` 拦截重复转换；flock 净额（原始 FARM_IN + 差额调整 − 历史冲销）必须覆盖待冲销量；不足即整事务失败。新增 3 个场景测试（缺失拒绝/净额不足拒绝/重复幂等）。
+2. **批次收窄**：`status='AVAILABLE' AND qty_available>0`；PRD-EGG 无鸡舍维度，公司+蛋日上限即数据模型可表达的最细粒度（已注释说明）。
+3. **no-op 范围绑定**：already-applied 判定绑定退役行自身的 (log_date, house) 集合，范围内要求 overpost=0 **且** kept==report 双向严格等值；其他日期/鸡舍的退役标记无法让当前范围静默。
+4. **契约调和（产品冲突呈报）**：审查要求"找不到批次即失败"与 breeding-regression A4 既有产品契约"无 PRD-EGG 批次时日报不阻塞"直接冲突。取舍：legacy FARM_IN 保持不阻塞但**显式警告**（返回体 `ledgerSkipped: true` + 警告 msg）；分级入库与冲销路径保持 fail-closed。
+5. **真实 PG 并发证明**：issue381 fixture 接入 deploy CI（postgres:18 service），每次 push 必跑。含新增用例：两不同幂等键 `Promise.all` 争抢同一额度 → 恰一成功、败者零写入；5 键并发同 payload → 收敛为单文档单批次。陈旧用例（per-key 文档、合并语义前断言）已对齐，fixture 补建生产同款唯一索引。
+
+### 上线证据（main = 9f13513d8）
+
+- CI：#41760018694 push 全绿（Type-check & Regression 5m17s 含 PG 并发证明与 breeding 回归）
+- 重锚定：#41761197062 `BACKGROUND_DEPLOYMENT=SUCCESS`（一次通过，无人工对账）→ floor=9f13513d8
+- web 部署：#41762327357 `✅ Deploy (web) complete`
+- 运行时：api=9f13513d8 healthy、web=9f13513d8 healthy、`/api/readiness` OK —— **API/Web/checkout/main 四点一致**
+- 审计：#41763488241 `VERIFY=GO`（重复 0 / 超额 0 / 平衡 0 / 退役 10）
+- no-op 实证：#41763710673 生产真实演练 `DAILY_EGG_REPAIR_ALREADY_APPLIED; scope_days=2; overpost=0; mismatch=0`（空事务提交，零写入）
+
+full 发布链设计缺口仍独立立项（见上文 P1 风险）；本次发布经 api-only 重锚定（合法 criticalFiles 窗口=issue381 CI 接线）+ web-only 完成。
