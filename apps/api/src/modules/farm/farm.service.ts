@@ -1,7 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Optional, Inject } from '@nestjs/common';
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
 import { OrgOwnershipService } from '../org/services/org-ownership.service';
+import { ScopedNotificationRecipientService } from '../notification/scoped-notification-recipient.service';
 
 /**
  * FarmService — 养殖中心业务服务
@@ -172,6 +173,7 @@ export class FarmService {
     private readonly ownership: OrgOwnershipService,
     // Optional so standalone construction (tests) keeps working; production
     // resolves it through NotificationModule and uses real DataScope filters.
+    @Optional() @Inject(ScopedNotificationRecipientService)
     private readonly scopedRecipients?: { resolve(companyCode: string, menuCodes: string[]): Promise<string[]> },
   ) {}
 
