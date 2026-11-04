@@ -44,12 +44,18 @@ fixture('Farm pending-ledger notifications on real PostgreSQL', () => {
         ON sys_notifications (user_id, biz_type, biz_no)
        WHERE biz_type = 'FARM_LEDGER_PENDING' AND biz_no IS NOT NULL;
       CREATE TABLE IF NOT EXISTS sys_user (user_id BIGINT PRIMARY KEY, username VARCHAR(64), status INT);
+      -- The inbound spec may already have created a narrower brd_daily_logs;
+      -- align the columns idempotently instead of assuming one definition.
       CREATE TABLE IF NOT EXISTS brd_daily_logs (
         id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-        log_date DATE, house_code VARCHAR(64), shift VARCHAR(32),
-        flock_no VARCHAR(64), farm_code VARCHAR(64), company_code VARCHAR(64),
-        eggs_produced NUMERIC, mortality_qty NUMERIC, eggs_by_grade JSONB
+        log_date DATE, house_code VARCHAR(64), eggs_by_grade JSONB
       );
+      ALTER TABLE brd_daily_logs ADD COLUMN IF NOT EXISTS shift VARCHAR(32);
+      ALTER TABLE brd_daily_logs ADD COLUMN IF NOT EXISTS flock_no VARCHAR(64);
+      ALTER TABLE brd_daily_logs ADD COLUMN IF NOT EXISTS farm_code VARCHAR(64);
+      ALTER TABLE brd_daily_logs ADD COLUMN IF NOT EXISTS company_code VARCHAR(64);
+      ALTER TABLE brd_daily_logs ADD COLUMN IF NOT EXISTS eggs_produced NUMERIC;
+      ALTER TABLE brd_daily_logs ADD COLUMN IF NOT EXISTS mortality_qty NUMERIC;
       TRUNCATE sys_notifications, brd_daily_logs RESTART IDENTITY;
       DELETE FROM sys_user WHERE user_id IN (7, 9);
       INSERT INTO sys_user(user_id, username, status) VALUES (7, 'keeper-a', 1), (9, 'keeper-b', 1);
