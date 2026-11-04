@@ -150,3 +150,9 @@ CI #41785539853 全绿（真实 PG 合计 22/22：入库 18 + 通知 4）。终�
 The controlled full production release completed at `69f20f64d3cf6fbf9dffd4d1ea8b44ad61ac0932` (deploy run `41933308224`, job `126941534875`). API and Web are both healthy on that revision; the production floor remains `7b907d8866581602ba1db397de74e6c038663bcc`.
 
 Read-only verification run `41935401238` returned `VERIFY=GO`: duplicate source groups `0`, overposted grade groups `0`, retired duplicate batches `10`, unbalanced production batches `0`, legacy FARM_IN rows `54`. The post-release background inspect `41935786951` showed `OPEN` with both active API/Web revisions equal to `69f20f64…`. No repair SQL or migration was executed during this release window.
+
+## Final four-point-consistency correction
+
+The documentation/audit commit `15d9d8048e9aad54c34496e06819f4402b887f58` was subsequently deployed through full run `41936463938` (job `126949187913`). The final inspect run `41937648721` confirmed `OPEN`, floor `7b907d886…`, and API/Web/checkout/main four-point consistency at `15d9d8048…`.
+
+Final read-only verification run `41937791714` returned `VERIFY=GO`: duplicate `0`, overpost `0`, retired duplicate batches `10`, unbalanced `0`, legacy FARM_IN rows `54`.

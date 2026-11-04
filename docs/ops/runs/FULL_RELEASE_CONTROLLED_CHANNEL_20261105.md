@@ -59,3 +59,11 @@ The full deploy used the explicit `run_migrations=false` policy because the desc
 The controlled daily-egg read-only verification run `41935401238` returned `VERIFY=GO`: duplicate source groups `0`, overposted grade groups `0`, retired duplicate batches `10`, unbalanced production batches `0`, and legacy FARM_IN rows `54`. The general protected read-only audit completed successfully in run `41935867949` after adding the production checkout safe-directory allowance in `468d9cb47`.
 
 Rollback/recovery evidence is retained: the failed first full attempt `41927010280` made no service switch and was closed by `rollback-dead-transaction` run `41929602631`, followed by `reconcile` run `41930865500` and participant revival run `41931099724`. No production database migration or business-data write was performed in the successful full window.
+
+## Final four-point-consistency release correction (2026-11-05)
+
+After the first successful full window at `69f20f64…`, the post-release documentation/audit commit `15d9d8048e9aad54c34496e06819f4402b887f58` was itself deployed through the same controlled full channel. Final production evidence is run `41936463938`, deploy job `126949187913`: `RUN_MIG=false`, `PRODUCTION_COMPOSE=PASS`, `DEPLOYMENT_STATE=SUCCESS`, and `BACKGROUND_DEPLOYMENT=SUCCESS`.
+
+The final inspect run `41937648721` confirmed `OPEN`, floor `7b907d886…`, and active API/Web revisions both equal to `15d9d8048…`. The final protected daily-egg audit run `41937791714` returned `VERIFY=GO`: duplicate `0`, overpost `0`, retired duplicate batches `10`, unbalanced `0`, legacy FARM_IN rows `54`.
+
+Therefore `69f20f64…` is the previous successful full window; `15d9d8048…` is the final four-point-consistent production runtime and the authoritative release conclusion.
