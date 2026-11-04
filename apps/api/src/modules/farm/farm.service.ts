@@ -241,36 +241,88 @@ export class FarmService {
     input: { flockNo: string; logDate: string; houseCode: string; shift?: string; amount: number; companyCode?: string | null; operator?: string },
   ): Promise<void> {
     const refNo = input.flockNo || input.houseCode;
+    // Identity is the FULL daily-report coordinate: date + ref + house + shift.
+    // Without shift, the evening shift's backfill would be silently swallowed
+    // by the morning shift's reversal on the same flock and date.
+    const identity = `（${input.logDate} ${input.houseCode}${input.shift ? ` ${input.shift}` : ''}）`;
     const already = (await manager.query(
       `SELECT 1 FROM inv_ledger
         WHERE change_type = 'FARM_REVERSED'
           AND note LIKE '日报补录分级：冲销历史 FARM_IN%'
           AND log_date = $1::date
           AND ref_no = $2
+          AND note LIKE '%'
+          AND right(note, length($3)) = $3
         LIMIT 1`,
-      [input.logDate, refNo],
+      [input.logDate, refNo, identity],
     )) ?? [];
     if (already.length > 0) return; // idempotent rerun of the same transition
 
+    // Net amount is scoped to this report's date and company. Rows written by
+    // the fixed paths carry log_date/company_code; legacy rows predate those
+    // columns (NULL) and are the only ones allowed to fall through the filter.
     const netRows = (await manager.query(
       `SELECT COALESCE(SUM(CASE WHEN change_type = 'FARM_IN' THEN qty_change
                                  WHEN change_type = 'FARM_REVERSED' THEN -qty_change END), 0)::numeric AS net_farm_in
         FROM inv_ledger
        WHERE ref_no = $1
+         AND (log_date IS NULL OR log_date = $2::date)
+         AND ($3::text IS NULL OR company_code IS NULL OR company_code = $3)
          AND (note LIKE '日报产蛋入账%' OR note LIKE '日报补录分级%' OR note LIKE '日报修改差额%')`,
-      [refNo],
+      [refNo, input.logDate, input.companyCode ?? null],
     )) ?? [];
     const netFarmIn = Number(netRows[0]?.net_farm_in ?? 0);
     if (!(netFarmIn >= input.amount) || input.amount <= 0) {
       throw new BadRequestException(
-        `补录分级冲销校验失败：${input.houseCode} 在 ${input.logDate} 的历史 FARM_IN 净额为 ${netFarmIn} 枚，不足以冲销 ${input.amount} 枚（原始流水缺失或已被调整）。请先核对库存台账（ref_no=${refNo}）`,
+        `补录分级冲销校验失败：${input.houseCode} 在 ${input.logDate} 的历史 FARM_IN 净额为 ${netFarmIn} 枚，不足以冲销 ${input.amount} 枚（原始流水缺失或已被调整）。请先核对库存台账（ref_no=${refNo}，范围=${input.logDate}${input.companyCode ? `/${input.companyCode}` : ''}）`,
       );
     }
     const batchNo = await this.findLegacyEggBatch(manager, input.companyCode, input.logDate);
     await manager.query(
-      `INSERT INTO inv_ledger (batch_no, change_type, qty_change, operator, store_code, ref_no, note, log_date)
-       VALUES ($1, 'FARM_REVERSED', $2::int, $3, 'FACTORY', $4, $5, $6::date)`,
-      [batchNo, input.amount, input.operator || 'SYS', refNo, `日报补录分级：冲销历史 FARM_IN ${input.amount}枚（${input.logDate} ${input.houseCode}${input.shift ? ` ${input.shift}` : ''}）`, input.logDate],
+      `INSERT INTO inv_ledger (batch_no, change_type, qty_change, operator, store_code, ref_no, note, log_date, company_code)
+       VALUES ($1, 'FARM_REVERSED', $2::int, $3, 'FACTORY', $4, $5, $6::date, $7)`,
+      [batchNo, input.amount, input.operator || 'SYS', refNo, `日报补录分级：冲销历史 FARM_IN ${input.amount}枚${identity}`, input.logDate, input.companyCode ?? null],
+    );
+  }
+
+  /**
+   * Product verdict A: a skipped legacy FARM_IN must survive the HTTP
+   * response. Persist an unread pending-ledger notification for the
+   * company's inventory keepers (MENU_INV_BATCH holders, admin as
+   * fallback), deduplicated per (date, house).
+   */
+  private async recordPendingLedgerNotification(
+    manager: { query: (sql: string, params?: unknown[]) => Promise<any[]> },
+    input: { logDate: string; houseCode: string; eggs: number; companyCode: string | null; flockNo: string },
+  ): Promise<void> {
+    const bizNo = `FARM_LEDGER_PENDING:${input.logDate}:${input.houseCode}`;
+    const existing = (await manager.query(
+      `SELECT 1 FROM sys_notifications WHERE biz_type = 'FARM_LEDGER_PENDING' AND biz_no = $1 LIMIT 1`,
+      [bizNo],
+    )) ?? [];
+    if (existing.length > 0) return;
+    await manager.query(
+      `INSERT INTO sys_notifications (user_id, notification_type, title, content, company_code, biz_type, biz_no, status, created_at)
+       SELECT u.user_id, 'WORKFLOW_TASK', $1, $2, $3, 'FARM_LEDGER_PENDING', $4, 'UNREAD', NOW()
+         FROM sys_user u
+        WHERE u.status = 1
+          AND (
+            u.username = 'admin'
+            OR EXISTS (
+              SELECT 1
+                FROM sys_user_role ur
+                JOIN sys_role_menu_permission rmp ON rmp.role_id = ur.role_id
+                JOIN sys_menu m ON m.menu_id = rmp.menu_id AND m.menu_code = 'MENU_INV_BATCH'
+               WHERE ur.user_id = u.user_id
+            )
+          )
+        ON CONFLICT DO NOTHING`,
+      [
+        '日报 FARM_IN 待补账',
+        `日报（${input.logDate} ${input.houseCode}，flock=${input.flockNo || input.houseCode}）产蛋 ${input.eggs} 枚因无可用 PRD-EGG 批次未记入库存台账，请维护批次后补账。`,
+        input.companyCode,
+        bizNo,
+      ],
     );
   }
 
@@ -490,19 +542,23 @@ export class FarmService {
         const batchNo = await this.lookupLegacyEggBatch(manager, body.company_code as string | undefined, body.log_date);
         if (batchNo) {
           await manager.query(
-            `INSERT INTO inv_ledger (batch_no, change_type, qty_change, operator, store_code, ref_no, note)
-             VALUES ($1, 'FARM_IN', $2::int, $3, 'FACTORY', $4, $5)`,
-            [batchNo, eggs, body.operator || 'SYS', flock_no || '', `日报产蛋入账 ${eggs}枚`],
+            `INSERT INTO inv_ledger (batch_no, change_type, qty_change, operator, store_code, ref_no, note, log_date, company_code)
+             VALUES ($1, 'FARM_IN', $2::int, $3, 'FACTORY', $4, $5, $6::date, $7)`,
+            [batchNo, eggs, body.operator || 'SYS', flock_no || '', `日报产蛋入账 ${eggs}枚`, body.log_date, body.company_code ?? null],
           );
         } else {
           ledgerSkipped = true;
-          console.warn('[FarmService][WARN] 无可用 PRD-EGG 批次，FARM_IN 记账跳过（返回体已携带警告）：', { flock_no, eggs, log_date: body.log_date });
+          console.warn('[FarmService][WARN] 无可用 PRD-EGG 批次，FARM_IN 记账跳过（已持久化待补账通知）：', { flock_no, eggs, log_date: body.log_date });
+          await this.recordPendingLedgerNotification(manager, {
+            logDate: String(body.log_date), houseCode: body.house_code, eggs,
+            companyCode: (body.company_code as string | undefined) ?? null, flockNo: flock_no || '',
+          });
         }
       }
 
       return {
         code: 200,
-        msg: ledgerSkipped ? '日报提交成功（警告：无可用 PRD-EGG 批次，本次 FARM_IN 未记账，请维护批次后补账）' : '日报提交成功',
+        msg: ledgerSkipped ? '日报提交成功（警告：无可用 PRD-EGG 批次，本次 FARM_IN 未记账，待补账通知已发给库存管理员）' : '日报提交成功',
         ledgerSkipped,
       };
     });
@@ -519,7 +575,7 @@ export class FarmService {
 
     return await this.entityManager.transaction(async (manager) => {
       const oldRecords = await manager.query(
-        `SELECT eggs_produced, mortality_qty, log_date, flock_no, house_code, company_code, eggs_by_grade
+        `SELECT eggs_produced, mortality_qty, log_date, flock_no, house_code, company_code, shift, eggs_by_grade
          FROM brd_daily_logs WHERE id = $1`,
         [id],
       );
@@ -584,7 +640,8 @@ export class FarmService {
         // 幂等三重校验），此后该日报只经 TEMP_PRODUCTION 台账入库。
         await this.reverseLegacyFarmIn(manager, {
           flockNo: effectiveFlockNo || '', logDate: String(logDate), houseCode: old.house_code,
-          amount: oldEggs, companyCode: (body.company_code ?? old.company_code) as string | undefined, operator: body.operator,
+          shift: (body.shift ?? old.shift) as string | undefined, amount: oldEggs,
+          companyCode: (body.company_code ?? old.company_code) as string | undefined, operator: body.operator,
         });
       } else if (eggsDiff !== 0 && !hasGradeBreakdown) {
         // 纯无分级路径：按差额记账；批次按公司+日期+可用量精确定位，
@@ -592,8 +649,8 @@ export class FarmService {
         const batchNo = await this.lookupLegacyEggBatch(manager, (body.company_code ?? old.company_code) as string | undefined, logDate);
         if (batchNo) {
           await manager.query(
-            `INSERT INTO inv_ledger (batch_no, change_type, qty_change, operator, store_code, ref_no, note)
-             VALUES ($1, $2, $3::int, $4, 'FACTORY', $5, $6)`,
+            `INSERT INTO inv_ledger (batch_no, change_type, qty_change, operator, store_code, ref_no, note, log_date, company_code)
+             VALUES ($1, $2, $3::int, $4, 'FACTORY', $5, $6, $7::date, $8)`,
             [
               batchNo,
               eggsDiff > 0 ? 'FARM_IN' : 'FARM_REVERSED',
@@ -601,6 +658,8 @@ export class FarmService {
               body.operator || 'SYS',
               effectiveFlockNo || '',
               `日报修改差额 ${eggsDiff > 0 ? '+' : ''}${eggsDiff}`,
+              logDate,
+              (body.company_code ?? old.company_code) ?? null,
             ],
           );
         } else {

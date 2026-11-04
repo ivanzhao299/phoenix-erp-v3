@@ -77,12 +77,15 @@ BEGIN
            AND COALESCE(i.qty, 0) > COALESCE(r.qty, 0)
       ) overposted),
       (SELECT COUNT(*) FROM (
-        SELECT k.qty, r.qty AS report_qty
-          FROM inbound_grade k
-          LEFT JOIN report_grade r
-            ON r.log_date = k.log_date AND r.house_code = k.house_code AND r.grade = k.grade
-         WHERE (k.log_date, k.house_code) IN (SELECT log_date, house_code FROM retired_scope)
-           AND (r.qty IS NULL OR k.qty <> r.qty)
+        -- Bidirectional equality on the SAME FULL JOIN the overpost check
+        -- uses: a retired scope whose report has grades with NO inbound at
+        -- all (report 100 / inbound 0) is a mismatch, not a pass.
+        SELECT COALESCE(r.qty, 0) AS report_qty, COALESCE(i.qty, 0) AS inbound_qty
+          FROM report_grade r
+          FULL JOIN inbound_grade i USING (log_date, house_code, grade)
+         WHERE (COALESCE(r.log_date, i.log_date), COALESCE(r.house_code, i.house_code))
+                 IN (SELECT log_date, house_code FROM retired_scope)
+           AND COALESCE(r.qty, 0) <> COALESCE(i.qty, 0)
       ) mismatched)
     INTO scope_rows, scope_overpost, scope_mismatch;
     IF scope_rows > 0 AND scope_overpost = 0 AND scope_mismatch = 0 THEN

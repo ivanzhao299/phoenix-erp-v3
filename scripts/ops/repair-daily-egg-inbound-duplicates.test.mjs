@@ -32,7 +32,11 @@ test('already-applied no-op is bound to the retired rows own repair scope', () =
   // Scope membership is explicit, never whole-database.
   assert.match(alreadyApplied, /IN \(SELECT log_date, house_code FROM retired_scope\)/);
   assert.match(alreadyApplied, /COALESCE\(i\.qty, 0\) > COALESCE\(r\.qty, 0\)/);
-  assert.match(alreadyApplied, /r\.qty IS NULL OR k\.qty <> r\.qty/);
+  // Mismatch must be bidirectional on the SAME FULL JOIN: a report grade with
+  // zero inbound is a mismatch too, never a silent no-op pass.
+  const mismatch = alreadyApplied.match(/SELECT COUNT\(\*\) FROM \(\s*[\s\S]*?mismatched\)/)?.[0] ?? '';
+  assert.match(mismatch, /report_grade r\s*\n\s*FULL JOIN inbound_grade i USING \(log_date, house_code, grade\)/);
+  assert.match(mismatch, /COALESCE\(r\.qty, 0\) <> COALESCE\(i\.qty, 0\)/);
   assert.match(script, /IF scope_rows > 0 AND scope_overpost = 0 AND scope_mismatch = 0 THEN/);
 });
 
