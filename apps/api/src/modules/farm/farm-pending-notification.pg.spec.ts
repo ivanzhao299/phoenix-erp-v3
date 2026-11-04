@@ -80,7 +80,8 @@ fixture('Farm pending-ledger notifications on real PostgreSQL', () => {
     };
   });
 
-  const notices = async () => db.query(
+  type NoticeRow = { user_id: number; biz_no: string; title: string; content: string };
+  const notices = async (): Promise<NoticeRow[]> => db.query(
     'SELECT user_id, biz_no, title, content FROM sys_notifications WHERE biz_type = $1 ORDER BY user_id, biz_no',
     ['FARM_LEDGER_PENDING'],
   );
@@ -92,8 +93,8 @@ fixture('Farm pending-ledger notifications on real PostgreSQL', () => {
     });
     expect(result.ledgerSkipped).toBe(true);
     const rows = await notices();
-    expect(rows.map(row => row.user_id).sort()).toEqual([7, 9]);
-    for (const row of rows) expect(row.biz_no).toBe('FARM_LEDGER_PENDING:COMP-A:2026-10-20:H1');
+    expect(rows.map((row: { user_id: number }) => row.user_id).sort()).toEqual([7, 9]);
+    for (const row of rows as Array<{ biz_no: string }>) expect(row.biz_no).toBe('FARM_LEDGER_PENDING:COMP-A:2026-10-20:H1');
   });
 
   it('persists the diff notice from the update skip path', async () => {
@@ -123,7 +124,7 @@ fixture('Farm pending-ledger notifications on real PostgreSQL', () => {
     ]);
     const rows = await notices();
     expect(rows).toHaveLength(2); // one per recipient (7, 9), no duplicates
-    expect(new Set(rows.map(row => row.user_id)).size).toBe(2);
+    expect(new Set(rows.map((row: { user_id: number }) => row.user_id)).size).toBe(2);
   });
 
   it('separates notices of two companies sharing one house code', async () => {
@@ -143,7 +144,7 @@ fixture('Farm pending-ledger notifications on real PostgreSQL', () => {
     expect(resultA.ledgerSkipped).toBe(true);
     expect(resultB.ledgerSkipped).toBe(true);
     const rows = await notices();
-    expect(rows.map(row => row.biz_no).sort()).toEqual([
+    expect(rows.map((row: { biz_no: string }) => row.biz_no).sort()).toEqual([
       'FARM_LEDGER_PENDING:COMP-A:2026-10-22:H1',
       'FARM_LEDGER_PENDING:COMP-B:2026-10-22:H1',
       'FARM_LEDGER_PENDING:COMP-A:2026-10-22:H1',
