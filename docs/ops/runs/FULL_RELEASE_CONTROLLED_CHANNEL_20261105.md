@@ -41,3 +41,5 @@ Compose 错误包含 `stage=compose-up-api`、run-scoped proof 文件名、owner
 ## Follow-up release window (2026-11-05)
 
 The merged target `20b964de8` first passed the repository's explicit API floor path during the initial dispatch (`CI/CD — Build & Deploy` run `41920198732`), with `RUN_MIG=false`, API/Web smoke and readiness successful, and `BACKGROUND_DEPLOYMENT=SUCCESS`. A subsequent full dispatch must target a strict descendant SHA so the full binding has a new runtime revision; same-floor reuse remains a deliberate HOLD. The descendant commit below is documentation-only and exists to carry this release-window evidence into the full controlled channel.
+
+The API floor re-anchor for `b06984833` completed in run `41923832069`; the matching Web-only alignment completed in run `41925324799`. The final full release target is the strict descendant created after this pair is aligned.
