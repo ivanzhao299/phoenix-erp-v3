@@ -193,11 +193,11 @@ export class FarmService {
    * transaction — a silently skipped ledger row would make the daily report
    * lie about stock.
    */
-  private async findLegacyEggBatch(
+  private async lookupLegacyEggBatch(
     manager: { query: (sql: string, params?: unknown[]) => Promise<any[]> },
     companyCode: string | null | undefined,
     logDate: unknown,
-  ): Promise<string> {
+  ): Promise<string | null> {
     const rows = (await manager.query(
       `SELECT batch_no FROM inv_batches
         WHERE product_code LIKE 'PRD-EGG%'
@@ -209,10 +209,18 @@ export class FarmService {
         LIMIT 1`,
       [companyCode ?? null, logDate as string],
     )) ?? [];
-    const batchNo = rows[0]?.batch_no;
+    return rows[0]?.batch_no ?? null;
+  }
+
+  private async findLegacyEggBatch(
+    manager: { query: (sql: string, params?: unknown[]) => Promise<any[]> },
+    companyCode: string | null | undefined,
+    logDate: unknown,
+  ): Promise<string> {
+    const batchNo = await this.lookupLegacyEggBatch(manager, companyCode, logDate);
     if (!batchNo) {
       throw new BadRequestException(
-        `无匹配的可用 PRD-EGG 库存批次（公司=${companyCode ?? '全部'}，蛋日≤${String(logDate)}，需 AVAILABLE 且可用量>0），日报库存记账失败：请先维护蛋品批次后重试`,
+        `无匹配的可用 PRD-EGG 库存批次（公司=${companyCode ?? '全部'}，蛋日≤${String(logDate)}，需 AVAILABLE 且可用量>0），库存记账失败：请先维护蛋品批次后重试`,
       );
     }
     return batchNo;
@@ -475,17 +483,28 @@ export class FarmService {
       }
       // 无分级明细的旧日报才写 FARM_IN；有分级时由用户确认后的
       // production-inbound 统一写库存，避免同一批蛋被日报和分级各记一次。
-      // 批次按公司+日期精确定位；找不到批次时整个事务失败，不允许静默漏记账。
+      // 批次按公司+日期+可用量精确定位。找不到批次时保持产品契约"日报
+      // 不阻塞"，但绝不静默：返回体携带 ledgerSkipped 警告，等待补账。
+      let ledgerSkipped = false;
       if (eggs > 0 && !hasGradeBreakdown) {
-        const batchNo = await this.findLegacyEggBatch(manager, body.company_code as string | undefined, body.log_date);
-        await manager.query(
-          `INSERT INTO inv_ledger (batch_no, change_type, qty_change, operator, store_code, ref_no, note)
-           VALUES ($1, 'FARM_IN', $2::int, $3, 'FACTORY', $4, $5)`,
-          [batchNo, eggs, body.operator || 'SYS', flock_no || '', `日报产蛋入账 ${eggs}枚`],
-        );
+        const batchNo = await this.lookupLegacyEggBatch(manager, body.company_code as string | undefined, body.log_date);
+        if (batchNo) {
+          await manager.query(
+            `INSERT INTO inv_ledger (batch_no, change_type, qty_change, operator, store_code, ref_no, note)
+             VALUES ($1, 'FARM_IN', $2::int, $3, 'FACTORY', $4, $5)`,
+            [batchNo, eggs, body.operator || 'SYS', flock_no || '', `日报产蛋入账 ${eggs}枚`],
+          );
+        } else {
+          ledgerSkipped = true;
+          console.warn('[FarmService][WARN] 无可用 PRD-EGG 批次，FARM_IN 记账跳过（返回体已携带警告）：', { flock_no, eggs, log_date: body.log_date });
+        }
       }
 
-      return { code: 200, msg: '日报提交成功' };
+      return {
+        code: 200,
+        msg: ledgerSkipped ? '日报提交成功（警告：无可用 PRD-EGG 批次，本次 FARM_IN 未记账，请维护批次后补账）' : '日报提交成功',
+        ledgerSkipped,
+      };
     });
   }
 
@@ -568,20 +587,26 @@ export class FarmService {
           amount: oldEggs, companyCode: (body.company_code ?? old.company_code) as string | undefined, operator: body.operator,
         });
       } else if (eggsDiff !== 0 && !hasGradeBreakdown) {
-        // 纯无分级路径：按差额记账；批次按公司+日期精确定位，找不到即失败。
-        const batchNo = await this.findLegacyEggBatch(manager, (body.company_code ?? old.company_code) as string | undefined, logDate);
-        await manager.query(
-          `INSERT INTO inv_ledger (batch_no, change_type, qty_change, operator, store_code, ref_no, note)
-           VALUES ($1, $2, $3::int, $4, 'FACTORY', $5, $6)`,
-          [
-            batchNo,
-            eggsDiff > 0 ? 'FARM_IN' : 'FARM_REVERSED',
-            Math.abs(eggsDiff),
-            body.operator || 'SYS',
-            effectiveFlockNo || '',
-            `日报修改差额 ${eggsDiff > 0 ? '+' : ''}${eggsDiff}`,
-          ],
-        );
+        // 纯无分级路径：按差额记账；批次按公司+日期+可用量精确定位，
+        // 找不到时保持"更新不阻塞"契约但显式警告。
+        const batchNo = await this.lookupLegacyEggBatch(manager, (body.company_code ?? old.company_code) as string | undefined, logDate);
+        if (batchNo) {
+          await manager.query(
+            `INSERT INTO inv_ledger (batch_no, change_type, qty_change, operator, store_code, ref_no, note)
+             VALUES ($1, $2, $3::int, $4, 'FACTORY', $5, $6)`,
+            [
+              batchNo,
+              eggsDiff > 0 ? 'FARM_IN' : 'FARM_REVERSED',
+              Math.abs(eggsDiff),
+              body.operator || 'SYS',
+              effectiveFlockNo || '',
+              `日报修改差额 ${eggsDiff > 0 ? '+' : ''}${eggsDiff}`,
+            ],
+          );
+        } else {
+          console.warn('[FarmService][WARN] 无可用 PRD-EGG 批次，修改差额记账跳过（返回体已携带警告）：', { flock_no: effectiveFlockNo, eggsDiff, log_date: logDate });
+          return { code: 200, msg: '日报更新成功（警告：无可用 PRD-EGG 批次，本次差额未记账，请维护批次后补账）', ledgerSkipped: true };
+        }
       }
 
       return { code: 200, msg: '日报更新成功' };

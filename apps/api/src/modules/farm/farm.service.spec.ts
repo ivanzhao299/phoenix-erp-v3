@@ -108,7 +108,7 @@ describe('FarmService', () => {
         eggs_produced: 0,
         mortality_qty: 0,
         opening_qty: 100,
-      })).resolves.toEqual({ code: 200, msg: '日报提交成功' });
+      })).resolves.toEqual({ code: 200, msg: '日报提交成功', ledgerSkipped: false });
 
       const insert = manager.query.mock.calls.find(([query]) => String(query).includes('INSERT INTO "brd_daily_logs"'));
       expect(insert).toBeTruthy();
@@ -205,7 +205,7 @@ describe('FarmService', () => {
       expect(manager.query.mock.calls.some(([query]) => String(query).includes('INSERT INTO "brd_daily_logs"'))).toBe(false);
     });
 
-    it('fails the whole transaction when no company/date-matched PRD-EGG batch exists', async () => {
+    it('keeps the non-blocking contract when no PRD-EGG batch exists, but reports the skipped ledger loudly', async () => {
       const { manager, entityManager, svc } = buildSvc();
       entityManager.query.mockResolvedValue([]);
       manager.query.mockImplementation(async (sql: string) => {
@@ -214,13 +214,18 @@ describe('FarmService', () => {
         return [];
       });
 
+      // The daily report must never be blocked by the legacy ledger path
+      // (breeding-regression A4 contract), but the skip is explicit in the
+      // response instead of a silent stock lie.
       await expect(svc.submitBreedingDailyLog({
         log_date: '2026-07-16', shift: 'MORNING', house_code: 'H001', company_code: 'COMP-A',
         eggs_produced: 120, mortality_qty: 0, opening_qty: 1000,
-      })).rejects.toThrow('无匹配的可用 PRD-EGG 库存批次');
-      // The upsert happened inside the same transaction; failing after it must
-      // leave the caller with an error, never a silent partial success.
-      expect(manager.query.mock.calls.some(([query]) => String(query).includes('INSERT INTO inv_ledger') && String(query).includes("'FARM_IN'"))).toBe(false);
+      })).resolves.toEqual({
+        code: 200,
+        msg: '日报提交成功（警告：无可用 PRD-EGG 批次，本次 FARM_IN 未记账，请维护批次后补账）',
+        ledgerSkipped: true,
+      });
+      expect(manager.query.mock.calls.some(([query]) => String(query).includes('INSERT INTO inv_ledger'))).toBe(false);
     });
 
     it('refuses the grade backfill when the original FARM_IN never exists', async () => {
@@ -273,7 +278,7 @@ describe('FarmService', () => {
       await expect(svc.submitBreedingDailyLog({
         log_date: '2026-07-16', shift: 'MORNING', house_code: 'H001',
         eggs_by_grade: { GRADE_1: 300 }, mortality_qty: 0,
-      })).resolves.toEqual({ code: 200, msg: '日报提交成功' });
+      })).resolves.toEqual({ code: 200, msg: '日报提交成功', ledgerSkipped: false });
       expect(manager.query.mock.calls.some(([query]) => String(query).includes('INSERT INTO inv_ledger'))).toBe(false);
     });
 
@@ -302,7 +307,7 @@ describe('FarmService', () => {
         farmCodes: ['LPH-MS-01', 'LPH-MS-02'],
         siteCodes: ['SITE-MS-01', 'SITE-MS-02'],
         companyCodes: ['COMP-LAO-AGRI'],
-      })).resolves.toEqual({ code: 200, msg: '日报提交成功' });
+      })).resolves.toEqual({ code: 200, msg: '日报提交成功', ledgerSkipped: false });
 
       const insert = manager.query.mock.calls.find(([query]) => String(query).includes('INSERT INTO "brd_daily_logs"'));
       expect(insert![1]).toEqual(expect.arrayContaining(['LPH-MS-02', 'SITE-MS-02', 'COMP-LAO-AGRI']));
