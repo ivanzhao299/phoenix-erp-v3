@@ -144,3 +144,9 @@ CI #41785539853 全绿（真实 PG 合计 22/22：入库 18 + 通知 4）。终�
 历史记录中的 full `#41603777102` HOLD（Compose `up api` 缺本 run fence/drain）是本立项的触发证据；此前 API-only 重锚定 + Web-only 只是应急 workaround。现行 full 正式进入 BackgroundFenceCoordinator：复用 advisory locks、FD9、manifest、drain/CAS 和 OPEN，正式 evidence 同时绑定 API/Web。full record 分离上一运行时 revision 与 `configFloorSha`，支持连续 full；criticalFiles 变化仍只能走 API-only floor re-anchor。
 
 迁移路径必须先完成 controlled-pending-migration receipt；`RUN_MIG` 不得静默归 false。缺回执报 `FULL_MIGRATION_RECEIPT_REQUIRED:<file>` 并保持 FENCED。失败、重启、并发、死事务和回滚操作顺序见 [`FULL_RELEASE_CONTROLLED_CHANNEL_20261105.md`](FULL_RELEASE_CONTROLLED_CHANNEL_20261105.md)。代码层已通过 89 项 targeted tests；真实 PostgreSQL/Compose 演练仍是下一生产窗口的启用前置条件。
+
+## 2026-11-05 full-release closure
+
+The controlled full production release completed at `69f20f64d3cf6fbf9dffd4d1ea8b44ad61ac0932` (deploy run `41933308224`, job `126941534875`). API and Web are both healthy on that revision; the production floor remains `7b907d8866581602ba1db397de74e6c038663bcc`.
+
+Read-only verification run `41935401238` returned `VERIFY=GO`: duplicate source groups `0`, overposted grade groups `0`, retired duplicate batches `10`, unbalanced production batches `0`, legacy FARM_IN rows `54`. The post-release background inspect `41935786951` showed `OPEN` with both active API/Web revisions equal to `69f20f64…`. No repair SQL or migration was executed during this release window.

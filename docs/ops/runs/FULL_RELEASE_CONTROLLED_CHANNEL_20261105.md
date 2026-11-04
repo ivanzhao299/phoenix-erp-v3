@@ -49,3 +49,13 @@ The API floor re-anchor for `b06984833` completed in run `41923832069`; the matc
 Final full-release attempt is prepared after API floor re-anchor and Web alignment on `7b907d886`; the target below is its strict descendant and uses `run_migrations=false` because this delta contains no migration paths.
 
 - Production API floor re-anchor run `41930005883` and Web-only alignment run `41931705901` both succeeded at `7b907d8866581602ba1db397de74e6c038663bcc`; the next full target is this documentation descendant.
+
+## Production window closure (2026-11-05)
+
+The real production window completed successfully. The API floor re-anchor to `7b907d8866581602ba1db397de74e6c038663bcc` succeeded in run `41930005883`; Web-only pairing to the same revision succeeded in run `41931705901`. The controlled full release then targeted strict descendant `69f20f64d3cf6fbf9dffd4d1ea8b44ad61ac0932` in run `41933308224`, deploy job `126941534875`.
+
+The full deploy used the explicit `run_migrations=false` policy because the descendant contained no migration paths. Production evidence recorded `PRODUCTION_CONFIG_GUARD=PASS`, `BACKGROUND_MAIN_BINDING=PASS`, `PRODUCTION_COMPOSE=PASS`, `PRODUCTION_MIGRATION_REQUIRED=NO`, API/Web smoke and readiness success, `DEPLOYMENT_STATE=SUCCESS`, and `BACKGROUND_DEPLOYMENT=SUCCESS`. The post-release inspect run `41935786951` confirmed `OPEN`, floor `7b907d886…`, and API/Web active revisions both `69f20f64…`.
+
+The controlled daily-egg read-only verification run `41935401238` returned `VERIFY=GO`: duplicate source groups `0`, overposted grade groups `0`, retired duplicate batches `10`, unbalanced production batches `0`, and legacy FARM_IN rows `54`. The general protected read-only audit completed successfully in run `41935867949` after adding the production checkout safe-directory allowance in `468d9cb47`.
+
+Rollback/recovery evidence is retained: the failed first full attempt `41927010280` made no service switch and was closed by `rollback-dead-transaction` run `41929602631`, followed by `reconcile` run `41930865500` and participant revival run `41931099724`. No production database migration or business-data write was performed in the successful full window.
