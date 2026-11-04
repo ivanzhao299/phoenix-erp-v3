@@ -123,3 +123,18 @@ full 发布链设计缺口仍独立立项（见上文 P1 风险）；本次发�
 **证明边界**：该 fixture 向 FarmService 注入了 resolve() 桩结果，因此真实 PostgreSQL 覆盖的是通知表结构、部分唯一索引推断、并发去重与公司隔离；DataScope 收件人解析本身由 ScopedNotificationRecipientService 既有单测覆盖，不在此 fixture 范围内。
 
 CI #41785539853 全绿（真实 PG 合计 22/22：入库 18 + 通知 4）。终验条件不变：下个发布窗口上线后执行迁移、通知路径生产验证与 VERIFY=GO 审计。
+
+## 发布窗口终验（2026-11-04 UTC+8 15:45–19:00 窗口，实际 15:52–16:54 完成）
+
+| 步骤 | 结果 | 证据 |
+|---|---|---|
+| 0. 窗口合法性 | criticalFiles 差异 = deploy.yml（issue381 CI 扩展，真实工程变更） | `git diff 9f13513d8..HEAD ∩ criticalFiles` |
+| 0.5 途中根因 | 首两次重锚定死于 pending 迁移无回执（`FILE_READ_FAILED:1793000000000-….json`，协议按设计拒绝）—— 按既有顺序补受控迁移通道后通过；期间顺手给 trusted-paths 的 FILE_READ_FAILED 补了文件名诊断（`f438714ba`） | #41794400326 / #41798117302 → #41799530772 reconcile |
+| 1. 受控迁移 | `MIGRATION_APPLY=COMMITTED`（CAS `1e4db570`），回执登记 ledger=`e888a849` | #41800029635 |
+| 2. 迁移落库复核 | `uq_sys_notifications_farm_ledger_pending` 索引在位；`migrations` 含 `FarmLedgerPendingNotificationDedup1793000000000` | 生产只读 psql |
+| 3. 重锚定 | `CONFIG_FLOOR_PROMOTION=PREPARED_HOLD` → `BACKGROUND_DEPLOYMENT=SUCCESS`（回执齐备后一次通过，零人工对账） | #41800351340 |
+| 4. web 部署 | `✅ Deploy (web) complete`；API/Web=main=`f438714ba` healthy、readiness OK —— 四点一致 | #41801644753 |
+| 5. 通知路径生产验证 | 只读 `EXPLAIN`：`Conflict Arbiter Indexes: uq_sys_notifications_farm_ledger_pending`（生产 PG 接受 ON CONFLICT 部分索引推断——CI 抓出的 bug 场景在生产证明已修复）；`proof_rows=0` 零写入 | 生产只读 EXPLAIN |
+| 6. 终验审计 | `VERIFY=GO`（重复 0 / 超额 0 / 退役 10 / 平衡 0 / FARM_IN 54 仅追溯） | #41803008377 |
+
+**终验条件全部满足，本任务正式闭环。**
