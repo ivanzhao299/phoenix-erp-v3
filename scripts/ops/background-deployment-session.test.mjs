@@ -7,7 +7,7 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { createHash } from 'node:crypto';
-import { discoverParticipants, executeFencedDeployment, exactReanchorBinding, spawnDeploymentBody, assertLatestMain } from './background-deployment-session.mjs';
+import { discoverParticipants, executeFencedDeployment, exactReanchorBinding, fullDeploymentBinding, spawnDeploymentBody, assertLatestMain } from './background-deployment-session.mjs';
 import { assertBackgroundMount, assertBackgroundFence, runCompose } from './phoenix-production-compose.mjs';
 import { validateEffectiveConfig, CONTRACT } from './production-config-guard.mjs';
 import { assertModernReleaseAdmission } from './production-maintenance-admission.mjs';
@@ -112,6 +112,22 @@ test('normal, full, migration and unbound floor releases are rejected before pub
   for (const change of [{ DEPLOY_MODE: 'full' }, { RUN_MIG: 'true' }, { BUILD_WEB: 'true' }]) assert.throws(() => exactReanchorBinding({ ...env, ...change }, floor, active), /API_ONLY_NO_MIGRATION_REQUIRED/);
   assert.throws(() => exactReanchorBinding(env, floor, { ...active, active: { api: { revision: targetSha } } }), /OLD_FLOOR_RUNTIME_BINDING/);
 });
+test('full release binds the existing floor and rejects promotion or same-floor reuse', () => {
+  const floor = { version: 3, phase: 'READY', chanjetPolicy: 'HOLD', readonlyApproval: null, floorSha: oldSha };
+  const active = { version: 3, outcome: 'SUCCESS', floorSha: oldSha, active: { api: { revision: oldSha }, web: { revision: oldSha } } };
+  const env = { DEPLOY_MODE: 'full', BUILD_API: 'true', BUILD_WEB: 'true', RUN_MIG: 'false', TARGET_SHA: targetSha, DEPLOY_RUN_ID: binding.owner };
+  assert.deepEqual(fullDeploymentBinding(env, floor, active), { ...binding, deployMode: 'full', configFloorSha: oldSha });
+  assert.throws(() => fullDeploymentBinding({ ...env, TARGET_SHA: oldSha }, floor, active), /FULL_RELEASE_SAME_FLOOR/);
+  assert.throws(() => fullDeploymentBinding({ ...env, APPROVED_CONFIG_FLOOR_SHA: targetSha }, floor, active), /FULL_RELEASE_FLOOR_PROMOTION_CONFLICT/);
+  assert.throws(() => fullDeploymentBinding({ ...env, BUILD_WEB: 'false' }, floor, active), /FULL_RELEASE_SCOPE/);
+});
+test('consecutive full releases bind the previous runtime above an unchanged floor', () => {
+  const runtimeOne = 'c'.repeat(40); const runtimeTwo = 'd'.repeat(40);
+  const floor = { version: 3, phase: 'READY', chanjetPolicy: 'HOLD', readonlyApproval: null, floorSha: oldSha };
+  const active = { version: 3, outcome: 'SUCCESS', floorSha: oldSha, active: { api: { revision: runtimeOne }, web: { revision: runtimeOne } } };
+  const env = { DEPLOY_MODE: 'full', BUILD_API: 'true', BUILD_WEB: 'true', RUN_MIG: 'false', TARGET_SHA: runtimeTwo, DEPLOY_RUN_ID: binding.owner };
+  assert.deepEqual(fullDeploymentBinding(env, floor, active), { owner: binding.owner, previousFloorSha: runtimeOne, targetSha: runtimeTwo, deployMode: 'full', configFloorSha: oldSha });
+});
 test('deploy child retains FD9, uses a process group and keeps the conservative recovery marker', () => {
   let command; let body;
   spawnDeploymentBody('approved body', { maintenanceAdmission: () => {}, root: '/fixture', env: { SAFE_TEST: 'true' }, spawn: (binary, args, config) => {
@@ -174,6 +190,20 @@ test('drain and proof precede body; only independently verified success can open
   assert.equal(result.outcome, 'SUCCESS');
   assert.deepEqual(f.events.slice(0, 4), ['drain', 'proof', 'quiescent', 'body']);
   assert.ok(f.events.indexOf('verified-open') > f.events.indexOf('body')); assert.equal(f.events.at(-1), 'close');
+});
+test('full mode uses the same fenced session ordering and preserves HOLD on body failure', async () => {
+  const full = fixture();
+  const fullOptions = { ...options, binding: { ...binding, deployMode: 'full', configFloorSha: oldSha } };
+  await executeFencedDeployment(fullOptions, { maintenanceAdmission: () => {}, coordinator: full.coordinator, verifyMain: async () => true,
+    persistProof: async proof => { assert.equal(proof.outcome, 'DRAINED'); full.events.push('proof'); },
+    spawnBody: () => { full.events.push('body'); setImmediate(() => full.exit(0)); return full.child; }, discoverNew: async () => [next],
+  });
+  assert.deepEqual(full.events.slice(0, 4), ['drain', 'proof', 'quiescent', 'body']);
+  const failed = fixture();
+  await assert.rejects(executeFencedDeployment({ ...fullOptions }, { maintenanceAdmission: () => {}, coordinator: failed.coordinator, verifyMain: async () => true,
+    persistProof: async () => {}, spawnBody: () => { setImmediate(() => failed.exit(23)); return failed.child; },
+  }), /DEPLOY_BODY_FAILED/);
+  assert.ok(failed.events.includes('hold')); assert.ok(!failed.events.includes('verified-open'));
 });
 test('legacy runtime or failed drain never starts the deploy body', async () => {
   const f = fixture({ fenceAndDrain: async () => { throw new Error('BACKGROUND_HOLD=HOLD_NO_FENCE_OR_DRAIN_PROOF'); } });
@@ -253,6 +283,11 @@ test('protected API mutation requires a private exact-run modern DRAINED proof, 
   ]) {
     const f = drainFixture(); modify(f); assert.throws(() => assertBackgroundFence('/fixture', f.deps), /BACKGROUND_DRAIN_PROOF_REQUIRED/);
   }
+});
+test('compose fence failures identify the missing run-scoped proof and stage', () => {
+  const f = drainFixture();
+  f.deps.readState = file => { throw new Error(`CONFIG_HOLD=FILE_READ_FAILED:${path.basename(file)}`); };
+  assert.throws(() => assertBackgroundFence('/fixture', f.deps), /BACKGROUND_DRAIN_PROOF_REQUIRED;stage=compose-up-api;missing=background-control\.json/);
 });
 test('API up/restart without drain proof performs zero Docker mutations; other API mutation commands remain outside allowlist', () => {
   const imageId = 'sha256:' + 'a'.repeat(64); const images = { api: { imageId, revision: oldSha }, web: { imageId, revision: oldSha } };

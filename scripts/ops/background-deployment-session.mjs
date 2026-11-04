@@ -5,7 +5,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
-import { CONTRACT, secureJson, verifyContext, git, guardProduction } from './production-config-guard.mjs';
+import { assertScopeMigrationsReceipted } from './chanjet-admission-schema-receipt.mjs';
+import { CONTRACT, secureJson, verifyContext, git, guardProduction, migrationScope } from './production-config-guard.mjs';
 import { captureRuntime } from './capture-production-runtime.mjs';
 import { atomicState } from './production-atomic-state.mjs';
 import { metadataFor } from './production-deployment-evidence.mjs';
@@ -37,6 +38,35 @@ export function exactReanchorBinding(env, floor, active) {
   const binding = { owner: env.DEPLOY_RUN_ID, previousFloorSha: env.APPROVED_PREVIOUS_FLOOR_SHA, targetSha: env.TARGET_SHA };
   validateBinding(binding);
   if (binding.previousFloorSha !== floor.floorSha || active.active?.api?.revision !== floor.floorSha) fail('OLD_FLOOR_RUNTIME_BINDING');
+  return binding;
+}
+
+/** Full releases use the same fenced session and lock proof as API-only
+ * releases, while keeping the existing floor unchanged.  Critical-file
+ * changes still require the explicit floor re-anchor path; this binding only
+ * authorizes a descendant release whose current runtime and floor agree. */
+export function fullDeploymentBinding(env, floor, active) {
+  if (env.DEPLOY_MODE !== 'full' || env.BUILD_API !== 'true' || env.BUILD_WEB !== 'true'
+    || !['true', 'false'].includes(env.RUN_MIG || 'false')) fail('FULL_RELEASE_SCOPE');
+  if (!/^[a-f0-9]{40}$/.test(env.TARGET_SHA || '') || !/^\d+-\d+$/.test(env.DEPLOY_RUN_ID || '')) fail('FULL_RELEASE_BINDING');
+  const previousRuntimeSha = active.active?.api?.revision;
+  if (floor.version !== 3 || floor.phase !== 'READY' || floor.chanjetPolicy !== 'HOLD' || floor.readonlyApproval !== null
+    || active.version !== 3 || active.outcome !== 'SUCCESS' || active.floorSha !== floor.floorSha
+    || !/^[a-f0-9]{40}$/.test(previousRuntimeSha || '') || active.active?.web?.revision !== previousRuntimeSha) fail('FULL_FLOOR_RUNTIME_BINDING');
+  if (env.APPROVED_CONFIG_FLOOR_SHA || env.APPROVED_PREVIOUS_FLOOR_SHA) fail('FULL_RELEASE_FLOOR_PROMOTION_CONFLICT');
+  if (env.TARGET_SHA === previousRuntimeSha) fail('FULL_RELEASE_SAME_FLOOR');
+  if (env.RUN_MIG === 'true') {
+    let scope;
+    try { scope = migrationScope(CONTRACT.repository, previousRuntimeSha, env.TARGET_SHA); }
+    catch { fail('FULL_MIGRATION_SCOPE_UNREADABLE'); }
+    if (scope.changed.length) {
+      try { assertScopeMigrationsReceipted(CONTRACT.repository, scope); }
+      catch { fail(`FULL_MIGRATION_RECEIPT_REQUIRED:${scope.changed.map(path => path.split('/').at(-1)).join(',')}`); }
+    }
+  }
+  const binding = { owner: env.DEPLOY_RUN_ID, previousFloorSha: previousRuntimeSha, targetSha: env.TARGET_SHA,
+    deployMode: 'full', configFloorSha: floor.floorSha };
+  validateBinding(binding);
   return binding;
 }
 
@@ -158,7 +188,9 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     if (process.argv[2] !== 'run') fail('OPERATION');
     const floor = secureJson(path.join(CONTRACT.stateDirectory, 'floor.json'));
     const active = secureJson(path.join(CONTRACT.stateDirectory, 'active.json'));
-    const binding = exactReanchorBinding(process.env, floor, active);
+    const binding = process.env.DEPLOY_MODE === 'full'
+      ? fullDeploymentBinding(process.env, floor, active)
+      : exactReanchorBinding(process.env, floor, active);
     if (fs.existsSync(path.join(CONTRACT.stateDirectory, `background-drain-${binding.owner}.json`))) fail('DRAIN_RECEIPT_REUSED');
     if (fs.existsSync(path.join(CONTRACT.stateDirectory, 'transaction.json')) || fs.existsSync(path.join(CONTRACT.stateDirectory, 'policy-transition.json'))) fail('UNFINISHED_DEPLOY_TRANSACTION');
     // Existing floor authority validates its own complete contract, actual
@@ -168,7 +200,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       if (JSON.stringify(installed.CONTRACT[key]) !== JSON.stringify(CONTRACT[key])) fail('CONTROL_CONTEXT_CHANGE');
     }
     const actual = captureRuntime();
-    if (floor.version === 3 && floor.floorSha !== process.env.TARGET_SHA) {
+    if (process.env.DEPLOY_MODE !== 'full' && floor.version === 3 && floor.floorSha !== process.env.TARGET_SHA) {
       guardProduction(CONTRACT.repository, CONTRACT.stateDirectory, actual, undefined, {
         allowFloorReanchor: true,
         reanchorTarget: process.env.TARGET_SHA,
