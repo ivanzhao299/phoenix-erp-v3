@@ -98,7 +98,7 @@ fixture('Farm pending-ledger notifications on real PostgreSQL', () => {
     };
   });
 
-  type NoticeRow = { user_id: number; biz_no: string; title: string; content: string };
+  type NoticeRow = { user_id: string; biz_no: string; title: string; content: string };
   const notices = async (): Promise<NoticeRow[]> => db.query(
     'SELECT user_id, biz_no, title, content FROM sys_notifications WHERE biz_type = $1 ORDER BY user_id, biz_no',
     ['FARM_LEDGER_PENDING'],
@@ -111,7 +111,7 @@ fixture('Farm pending-ledger notifications on real PostgreSQL', () => {
     });
     expect(result.ledgerSkipped).toBe(true);
     const rows = await notices();
-    expect(rows.map((row: { user_id: number }) => row.user_id).sort()).toEqual([7, 9]);
+    expect(rows.map((row: { user_id: string }) => row.user_id).sort()).toEqual(['7', '9']);
     for (const row of rows as Array<{ biz_no: string }>) expect(row.biz_no).toBe('FARM_LEDGER_PENDING:COMP-A:2026-10-20:H1');
   });
 
@@ -142,7 +142,7 @@ fixture('Farm pending-ledger notifications on real PostgreSQL', () => {
     ]);
     const rows = await notices();
     expect(rows).toHaveLength(2); // one per recipient (7, 9), no duplicates
-    expect(new Set(rows.map((row: { user_id: number }) => row.user_id)).size).toBe(2);
+    expect(new Set(rows.map((row: { user_id: string }) => row.user_id)).size).toBe(2);
   });
 
   it('separates notices of two companies sharing one house code', async () => {
