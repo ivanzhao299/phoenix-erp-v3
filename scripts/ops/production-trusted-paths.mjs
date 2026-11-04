@@ -81,7 +81,7 @@ export function readPinnedFile(file, { contract, uid = 0, trustedParent = true }
     if (JSON.stringify(identity(opened)) !== JSON.stringify(identity(after)) || JSON.stringify(identity(after)) !== JSON.stringify(identity(named))) hold('FILE_CHANGED_DURING_READ');
     if (trustedParent) assertSameDirectory(before, inspect(path.dirname(file)));
     return bytes;
-  } catch (error) { if (error.message.startsWith('CONFIG_HOLD=')) throw error; hold('FILE_READ_FAILED'); }
+  } catch (error) { if (error.message.startsWith('CONFIG_HOLD=')) throw error; hold(`FILE_READ_FAILED:${path.basename(file)}`); }
   finally { if (fd !== undefined) io.closeSync(fd); }
 }
 export function assertContained(file, root) {
