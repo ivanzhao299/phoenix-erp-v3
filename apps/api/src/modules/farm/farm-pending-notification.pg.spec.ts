@@ -56,6 +56,11 @@ fixture('Farm pending-ledger notifications on real PostgreSQL', () => {
       ALTER TABLE brd_daily_logs ADD COLUMN IF NOT EXISTS company_code VARCHAR(64);
       ALTER TABLE brd_daily_logs ADD COLUMN IF NOT EXISTS eggs_produced NUMERIC;
       ALTER TABLE brd_daily_logs ADD COLUMN IF NOT EXISTS mortality_qty NUMERIC;
+      ALTER TABLE brd_daily_logs ADD COLUMN IF NOT EXISTS business_date DATE;
+      CREATE TABLE IF NOT EXISTS brd_flocks (
+        flock_no VARCHAR(64) PRIMARY KEY, house_code VARCHAR(64),
+        current_qty NUMERIC, initial_qty NUMERIC, current_lay_rate NUMERIC
+      );
       TRUNCATE sys_notifications, brd_daily_logs RESTART IDENTITY;
       DELETE FROM sys_user WHERE user_id IN (7, 9);
       INSERT INTO sys_user(user_id, username, status) VALUES (7, 'keeper-a', 1), (9, 'keeper-b', 1);
