@@ -47,6 +47,10 @@ fixture('Issue 381 real PostgreSQL inbound transactions and retries', () => {
       CREATE TABLE IF NOT EXISTS inv_ledger (id serial PRIMARY KEY, batch_no text REFERENCES inv_batches(batch_no), change_type text,
         qty_change numeric, operator text, store_code text, ref_no text, note text, batch_expire_date date,
         quality_grade text, company_code text, sku_code text, log_date date, warehouse_code text, location_code text);
+      CREATE UNIQUE INDEX IF NOT EXISTS uq_inv_batches_temp_production_source_identity
+        ON inv_batches (company_code, source_type, source_no,
+          COALESCE(sku_code, ''), COALESCE(grade_code_std, quality_grade, ''), COALESCE(spec_code, packaging_spec, ''))
+        WHERE source_type = 'TEMP_PRODUCTION' AND source_no IS NOT NULL;
       TRUNCATE inv_ledger, inv_batches, product_skus, product_grades, sys_organizations,
         brd_farms, brd_houses, brd_daily_logs, wms_warehouses, wms_locations RESTART IDENTITY;
     `);
@@ -163,7 +167,9 @@ fixture('Issue 381 real PostgreSQL inbound transactions and retries', () => {
   it('rolls back every batch and event if a later ledger insert fails, then permits a clean retry', async () => {
     await db.query('ALTER TABLE inv_ledger ADD CONSTRAINT fixture_reject_second_item CHECK (qty_change <> 22)');
     try {
-      await expect(service.recordProductionInbound(payload())).rejects.toThrow();
+      await expect(service.recordProductionInbound({
+        ...payload(), items: [{ grade: 'GRADE_1', qty: 11 }, { grade: 'GRADE_2', qty: 22 }],
+      })).rejects.toThrow();
       expect(await counts()).toEqual({ batches: 0, events: 0 });
     } finally { await db.query('ALTER TABLE inv_ledger DROP CONSTRAINT fixture_reject_second_item'); }
     expect(await service.recordProductionInbound(payload())).toMatchObject({ idempotent: false, totalInbound: 33 });
@@ -186,29 +192,34 @@ fixture('Issue 381 real PostgreSQL inbound transactions and retries', () => {
   });
 
   it.each([
-    { name: 'date', changed: { eggDate: '2026-10-18' } },
-    { name: 'house', changed: { houseCode: 'HOUSE-A2' } },
-    { name: 'warehouse', changed: { warehouseCode: 'WH-A2', locationCode: 'LOC-A2' } },
-    { name: 'location', changed: { locationCode: 'LOC-A-OTHER' } },
-  ])('rejects same-key replay across $name without leaking old batch identities', async ({ changed }) => {
-    const request = { ...payload(), idempotencyKey: 'CUSTOM-REPLAY' };
+    // A key bound to another date is rejected by key discipline before any stock work.
+    { name: 'date', changed: { eggDate: '2026-10-18' }, message: 'idempotencyKey 必须形如' },
+    // Another house is another document AND another company: scope refuses it.
+    { name: 'house', changed: { houseCode: 'HOUSE-B', warehouseCode: 'WH-B', locationCode: 'LOC-B' }, message: '无权向公司' },
+    // Same house, different stock destination: the daily document's
+    // provenance must match exactly, or the repost is refused.
+    { name: 'warehouse', changed: { warehouseCode: 'WH-A2', locationCode: 'LOC-A2' }, message: '来源或库存归属不一致' },
+    { name: 'location', changed: { locationCode: 'LOC-A-OTHER' }, message: '来源或库存归属不一致' },
+  ])('rejects a repost that diverges from the committed daily document across $name', async ({ changed, message }) => {
+    const request = { ...payload(), idempotencyKey: 'DAILY-2026-10-17-HOUSE-A-CUSTOM' };
     const original = await service.recordProductionInbound(request);
     // Revoke the original warehouse, while the new requested warehouse is authorized.
-    scope.allowedWarehouseCodes = ['WH-A', 'WH-A2'];
-    if (changed.warehouseCode) scope.allowedWarehouseCodes = ['WH-A2'];
+    scope.allowedWarehouseCodes = ['WH-A', 'WH-A2', 'WH-B'];
     const error = await service.recordProductionInbound({ ...request, ...changed }).catch(e => e);
     expect(error.getStatus()).toBe(400);
-    expect(error.message).toContain('来源或库存归属不一致');
+    expect(error.message).toContain(message);
     original.batches.forEach(batch => expect(error.message).not.toContain(batch.batchNo));
     expect(await counts()).toEqual({ batches: 1, events: 1 });
   });
 
-  it('fails closed for historic replay rows without provenance, and preserves exact-context retries', async () => {
-    const request = { ...payload(), idempotencyKey: 'HISTORY' };
+  it('fails closed for provenance-stripped rows through the DB source identity, and preserves exact-context retries', async () => {
+    const request = { ...payload(), idempotencyKey: 'DAILY-2026-10-17-HOUSE-A-HISTORY' };
     const first = await service.recordProductionInbound(request);
     expect((await service.recordProductionInbound(request)).batches).toEqual(first.batches);
     await db.query('UPDATE inv_batches SET collection_batch_ref=NULL');
-    await expect(service.recordProductionInbound(request)).rejects.toThrow('来源或库存归属不一致');
+    // The daily dimension no longer sees the row, but its source identity is
+    // still owned: the production source-identity index refuses the duplicate.
+    await expect(service.recordProductionInbound(request)).rejects.toThrow();
     expect(await counts()).toEqual({ batches: 1, events: 1 });
   });
 
@@ -238,8 +249,8 @@ fixture('Issue 381 real PostgreSQL inbound transactions and retries', () => {
     const direct = { companyCode: 'COMP-A', warehouseCode: 'WH-A', locationCode: 'LOC-A',
       eggDate: '2026-10-17', productCode: 'PRD-EGG-RAW', qualityGrade: 'GRADE_1', qty: 3 };
     const results = await Promise.all([
-      service.recordProductionInbound({ ...payload(), idempotencyKey: 'SHARED' }),
-      service.recordProductionInbound({ ...payload(), houseCode: 'HOUSE-B', warehouseCode: 'WH-B', locationCode: 'LOC-B', idempotencyKey: 'SHARED' }),
+      service.recordProductionInbound({ ...payload(), idempotencyKey: 'DAILY-2026-10-17-HOUSE-A-SHARED' }),
+      service.recordProductionInbound({ ...payload(), houseCode: 'HOUSE-B', warehouseCode: 'WH-B', locationCode: 'LOC-B', idempotencyKey: 'DAILY-2026-10-17-HOUSE-B-SHARED' }),
       core.createProductionBatch(direct),
       db.transaction(manager => core.createProductionBatch({ ...direct, sourceType: 'PACKAGING',
         ledgerChangeType: 'PACKAGING_INBOUND', packagingBatchRef: 'FIXTURE-PKG' }, manager)),
