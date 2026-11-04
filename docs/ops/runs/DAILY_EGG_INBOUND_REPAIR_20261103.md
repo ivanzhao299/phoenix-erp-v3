@@ -114,10 +114,12 @@ full 发布链设计缺口仍独立立项（见上文 P1 风险）；本次发�
 
 历史 NULL 流水无范围仍是**已知限制**（数据中不存在范围信息，报告前文已披露）；严格隔离需回填或人工清单，不在本轮范围。
 
-## 五轮：通知路径真实 PostgreSQL 证明（2026-11-04，main = acd81bb2e）
+## 五轮：通知路径真实 PostgreSQL 证明（2026-11-04；ON CONFLICT 修复合入 `016e8d69b`，随后的 `acd81bb2e` 为 bigint 断言的测试修正，本文档提交后 main = `314df59a5`）
 
 按第四轮审查建议把通知路径烟测**固化进 CI**（而非等发布窗口手工执行）：`farm-pending-notification.pg.spec.ts` 接入 issue381 真实 PG fixture，每次 push 必跑，覆盖审查列出的全部四点 —— submit 缺批次插入、update 缺批次差额、同用户并发去重（部分唯一索引 + ON CONFLICT）、跨公司同鸡舍隔离。
 
-**该证明当场抓出一个生产级 bug**：ON CONFLICT 对部分唯一索引的推断要求语句谓词被索引谓词蕴含，服务语句缺少 `AND biz_no IS NOT NULL` 项 → 每次去重插入都是 PG 硬错误（迁移上生产后同样会炸）——正是审查引用 PG 文档警告的精确场景，mock 测试无法发现。已对齐谓词并同步 mock 断言。
+**该证明当场抓出一个生产级 bug**：ON CONFLICT 对部分唯一索引的推断要求语句谓词被索引谓词蕴含，服务语句缺少 `AND biz_no IS NOT NULL` 项 → 每次去重插入都是 PG 硬错误（迁移上生产后同样会炸）——正是审查引用 PG 文档警告的精确场景，mock 测试无法发现。已对齐谓词并同步 mock 断言（生产修复提交 `016e8d69b`）。
 
-CI #41785539853 全绿（含入库 18/18 + 通知 4/4 真实 PG 用例）。终验条件不变：下个发布窗口上线后重跑生产审计 + 通知路径验证。
+**证明边界**：该 fixture 向 FarmService 注入了 resolve() 桩结果，因此真实 PostgreSQL 覆盖的是通知表结构、部分唯一索引推断、并发去重与公司隔离；DataScope 收件人解析本身由 ScopedNotificationRecipientService 既有单测覆盖，不在此 fixture 范围内。
+
+CI #41785539853 全绿（真实 PG 合计 22/22：入库 18 + 通知 4）。终验条件不变：下个发布窗口上线后执行迁移、通知路径生产验证与 VERIFY=GO 审计。
