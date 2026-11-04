@@ -37,3 +37,7 @@ Compose 错误包含 `stage=compose-up-api`、run-scoped proof 文件名、owner
 ## 验证与启用前置条件
 
 已通过 background session、coordinator、Compose proof、reconcile、mode evidence、deploy workflow targeted contract/fixture 测试（89 项）。覆盖成功、失败、超时、session loss、main drift、连续 full、缺 proof 诊断、双服务 evidence、迁移 receipt gate 和死事务恢复边界。当前未执行真实生产连接或真实 full 生产 Compose；下一窗口必须在隔离 PostgreSQL 18 和等价 bootstrap 中证明 no-criticalFiles full 成功、缺 receipt HOLD、body failure/reconcile、连续 full，并保存 DRAINED/MIGRATION/SUCCESS/OPEN 证据。
+
+## Follow-up release window (2026-11-05)
+
+The merged target `20b964de8` first passed the repository's explicit API floor path during the initial dispatch (`CI/CD — Build & Deploy` run `41920198732`), with `RUN_MIG=false`, API/Web smoke and readiness successful, and `BACKGROUND_DEPLOYMENT=SUCCESS`. A subsequent full dispatch must target a strict descendant SHA so the full binding has a new runtime revision; same-floor reuse remains a deliberate HOLD. The descendant commit below is documentation-only and exists to carry this release-window evidence into the full controlled channel.
