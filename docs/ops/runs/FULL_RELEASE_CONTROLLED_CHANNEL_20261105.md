@@ -36,4 +36,4 @@ Compose 错误包含 `stage=compose-up-api`、run-scoped proof 文件名、owner
 
 ## 验证与启用前置条件
 
-已通过 background session、coordinator、Compose proof、reconcile、mode evidence、deploy workflow targeted contract/fixture 测试（88 项）。覆盖成功、失败、超时、session loss、main drift、连续 full、缺 proof 诊断、双服务 evidence、迁移 receipt gate 和死事务恢复边界。当前未执行真实生产连接或真实 full 生产 Compose；下一窗口必须在隔离 PostgreSQL 18 和等价 bootstrap 中证明 no-criticalFiles full 成功、缺 receipt HOLD、body failure/reconcile、连续 full，并保存 DRAINED/MIGRATION/SUCCESS/OPEN 证据。
+已通过 background session、coordinator、Compose proof、reconcile、mode evidence、deploy workflow targeted contract/fixture 测试（89 项）。覆盖成功、失败、超时、session loss、main drift、连续 full、缺 proof 诊断、双服务 evidence、迁移 receipt gate 和死事务恢复边界。当前未执行真实生产连接或真实 full 生产 Compose；下一窗口必须在隔离 PostgreSQL 18 和等价 bootstrap 中证明 no-criticalFiles full 成功、缺 receipt HOLD、body failure/reconcile、连续 full，并保存 DRAINED/MIGRATION/SUCCESS/OPEN 证据。
