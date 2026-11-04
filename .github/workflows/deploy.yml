@@ -31,6 +31,11 @@ on:
         type: choice
         options: [auto, fast-css, web, api, full]
         default: auto
+      run_migrations:
+        description: "迁移策略；auto 仅在自动变更范围判定，手动 full 可显式关闭无迁移文档发布"
+        type: choice
+        options: [auto, true, false]
+        default: auto
       skip_deploy:
         description: "跳过部署步骤(仅构建)"
         type: boolean
@@ -171,6 +176,7 @@ jobs:
         id: decide
         env:
           MANUAL_MODE: ${{ inputs.mode || 'auto' }}
+          MANUAL_RUN_MIG: ${{ inputs.run_migrations || 'auto' }}
           IS_DISPATCH: ${{ github.event_name == 'workflow_dispatch' }}
           IS_PUSH:    ${{ github.event_name == 'push' }}
           IS_PR:      ${{ github.event_name == 'pull_request' }}
@@ -267,7 +273,11 @@ jobs:
               echo "build_web=true"  >> $GITHUB_OUTPUT
               echo "build_api=true"  >> $GITHUB_OUTPUT
               echo "run_test=true"   >> $GITHUB_OUTPUT
-              echo "run_mig=$MIGRATION_CHANGED" >> $GITHUB_OUTPUT
+              if [ "$IS_DISPATCH" = "true" ] && [ "$MANUAL_RUN_MIG" != "auto" ]; then
+                echo "run_mig=$MANUAL_RUN_MIG" >> $GITHUB_OUTPUT
+              else
+                echo "run_mig=$MIGRATION_CHANGED" >> $GITHUB_OUTPUT
+              fi
               ;;
           esac
           echo "mode=$MODE" >> $GITHUB_OUTPUT
