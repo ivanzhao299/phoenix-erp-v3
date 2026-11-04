@@ -1150,6 +1150,11 @@ jobs:
 
             if { [ "$DEPLOY_MODE" = "api" ] && [ "$BUILD_API" = true ] && [ "$BUILD_WEB" = false ] && [ "$RUN_MIG" = false ]; } || \
                { [ "$DEPLOY_MODE" = "full" ] && [ "$BUILD_API" = true ] && [ "$BUILD_WEB" = true ]; }; then
+              if [ "$DEPLOY_MODE" = "api" ]; then
+                # API-only/no-migration releases retain the historical explicit
+                # gate; full keeps the receipt-bound RUN_MIG value above.
+                RUN_MIG=false
+              fi
               # Stage the exact reviewed target before the fenced API-only or
               # full release. The supervisor retains a real PostgreSQL lock
               # session and FD9 across the whole body; migration receipts remain
