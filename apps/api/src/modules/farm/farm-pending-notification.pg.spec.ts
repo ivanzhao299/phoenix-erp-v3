@@ -61,6 +61,13 @@ fixture('Farm pending-ledger notifications on real PostgreSQL', () => {
         flock_no VARCHAR(64) PRIMARY KEY, house_code VARCHAR(64),
         current_qty NUMERIC, initial_qty NUMERIC, current_lay_rate NUMERIC
       );
+      -- The daily-report upsert targets (log_date, house_code, shift); the
+      -- narrower inbound fixture table carries no such constraint.
+      DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_fixture_daily_log_identity') THEN
+          ALTER TABLE brd_daily_logs ADD CONSTRAINT uq_fixture_daily_log_identity UNIQUE (log_date, house_code, shift);
+        END IF;
+      END $$;
       TRUNCATE sys_notifications, brd_daily_logs RESTART IDENTITY;
       DELETE FROM sys_user WHERE user_id IN (7, 9);
       INSERT INTO sys_user(user_id, username, status) VALUES (7, 'keeper-a', 1), (9, 'keeper-b', 1);
