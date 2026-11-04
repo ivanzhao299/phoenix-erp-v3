@@ -138,3 +138,9 @@ CI #41785539853 全绿（真实 PG 合计 22/22：入库 18 + 通知 4）。终�
 | 6. 终验审计 | `VERIFY=GO`（重复 0 / 超额 0 / 退役 10 / 平衡 0 / FARM_IN 54 仅追溯） | #41803008377 |
 
 **终验条件全部满足，本任务正式闭环。**
+
+## Full 发布链修订（2026-11-05）
+
+历史记录中的 full `#41603777102` HOLD（Compose `up api` 缺本 run fence/drain）是本立项的触发证据；此前 API-only 重锚定 + Web-only 只是应急 workaround。现行 full 正式进入 BackgroundFenceCoordinator：复用 advisory locks、FD9、manifest、drain/CAS 和 OPEN，正式 evidence 同时绑定 API/Web。full record 分离上一运行时 revision 与 `configFloorSha`，支持连续 full；criticalFiles 变化仍只能走 API-only floor re-anchor。
+
+迁移路径必须先完成 controlled-pending-migration receipt；`RUN_MIG` 不得静默归 false。缺回执报 `FULL_MIGRATION_RECEIPT_REQUIRED:<file>` 并保持 FENCED。失败、重启、并发、死事务和回滚操作顺序见 [`FULL_RELEASE_CONTROLLED_CHANNEL_20261105.md`](FULL_RELEASE_CONTROLLED_CHANNEL_20261105.md)。代码层已通过 89 项 targeted tests；真实 PostgreSQL/Compose 演练仍是下一生产窗口的启用前置条件。

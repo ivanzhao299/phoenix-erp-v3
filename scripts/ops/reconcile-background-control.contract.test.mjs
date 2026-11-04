@@ -24,7 +24,7 @@ test('background control reconcile only ever clears an inspected, stranded hold'
   // In-flight deployment state is a hard hold.
   assert.match(script, /transaction\.json/);
   // Runtime must still match the pinned floor before any deletion.
-  assert.match(script, /actual\.api\.revision !== floor\.floorSha/);
+  assert.match(script, /expectedApi = fullRecord \? active\.active\.api\.revision : floor\.floorSha/);
   // Inspect never reaches mutation: it exits before the phase checks.
   assert.match(script, /if \(mode === 'inspect'\) \{[\s\S]*?process\.exit\(0\);/);
 });

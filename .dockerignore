@@ -1,0 +1,13 @@
+node_modules
+**/node_modules
+.git
+.worktrees
+artifacts
+.tmp-*
+.env
+.env.*
+!.env.example
+*.log
+coverage
+.next
+dist

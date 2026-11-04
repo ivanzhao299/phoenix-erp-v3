@@ -97,7 +97,8 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       }
       const deadFloor = secureJson(path.join(stateDirectory, 'floor.json'));
       const deadActive = secureJson(path.join(stateDirectory, 'active.json'));
-      if (deadActive.outcome !== 'SUCCESS' || deadActive.active?.api?.revision !== actualDead.api.revision) hold('ACTIVE_BINDING');
+      if (deadActive.outcome !== 'SUCCESS' || deadActive.active?.api?.revision !== actualDead.api.revision
+        || (deadRecord.deployMode === 'full' && deadActive.active?.web?.revision !== actualDead.web.revision)) hold('ACTIVE_BINDING');
       mark('CLOSE_TRANSACTION');
       atomicState(path.join(stateDirectory, `deploy-${deadRunId}.json`), {
         ...deadRecord,
@@ -131,14 +132,18 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       mark('STATE_BINDING');
       const floor = secureJson(path.join(stateDirectory, 'floor.json'));
       const active = secureJson(path.join(stateDirectory, 'active.json'));
-      if (floor.version !== 3 || floor.phase !== 'READY' || floor.floorSha !== record.targetSha
-        || active.version !== 3 || active.outcome !== 'SUCCESS' || active.floorSha !== record.targetSha) hold('FLOOR');
+      const mode = record.deployMode || 'api';
+      const configFloorSha = mode === 'full' ? (record.configFloorSha || floor.floorSha) : record.targetSha;
+      if (floor.version !== 3 || floor.phase !== 'READY' || floor.floorSha !== configFloorSha
+        || active.version !== 3 || active.outcome !== 'SUCCESS' || active.floorSha !== configFloorSha) hold('FLOOR');
       const deployment = secureJson(path.join(stateDirectory, `deploy-${sessionOwner}.json`));
       if (!deployment || deployment.outcome !== 'SUCCESS' || deployment.target !== record.targetSha) hold('DEPLOY_RECORD');
       mark('RUNTIME_BINDING');
       const actual = captureRuntime();
-      if (actual.api.revision !== record.targetSha || JSON.stringify(actual) !== JSON.stringify(active.active)) hold('RUNTIME_DRIFT');
-      const binding = { owner: record.owner, previousFloorSha: record.previousFloorSha, targetSha: record.targetSha };
+      if (actual.api.revision !== record.targetSha || (mode === 'full' && actual.web.revision !== record.targetSha)
+        || JSON.stringify(actual) !== JSON.stringify(active.active)) hold('RUNTIME_DRIFT');
+      const binding = { owner: record.owner, previousFloorSha: record.previousFloorSha, targetSha: record.targetSha,
+        ...(mode === 'full' ? { deployMode: 'full', configFloorSha } : {}) };
       mark('OPEN');
       // The old session's control session is gone with it; the formal OPEN
       // only needs the independent SUCCESS verifier plus the publisher.
@@ -265,8 +270,11 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     }
     mark('RUNTIME_BINDING');
     const actual = captureRuntime();
-    if (actual.api.revision !== floor.floorSha || actual.web.revision !== active.active.web.revision) hold('RUNTIME_DRIFT');
-    if (record.targetSha === floor.floorSha) hold('TARGET_ACTIVE_USE_DEPLOYMENT_RECOVERY');
+    const fullRecord = record.deployMode === 'full';
+    const expectedApi = fullRecord ? active.active.api.revision : floor.floorSha;
+    const expectedWeb = fullRecord ? active.active.web.revision : active.active.web.revision;
+    if (actual.api.revision !== expectedApi || actual.web.revision !== expectedWeb) hold('RUNTIME_DRIFT');
+    if (!fullRecord && record.targetSha === floor.floorSha) hold('TARGET_ACTIVE_USE_DEPLOYMENT_RECOVERY');
     mark('CLEAR_HOLD');
     // Evidence first: the full record stays in the reviewed workflow log.
     console.log(JSON.stringify({ cleared: { record, manifest } }));

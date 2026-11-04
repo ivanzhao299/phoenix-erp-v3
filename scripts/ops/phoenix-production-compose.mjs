@@ -12,15 +12,16 @@ import { inspectPublicDirectory, readPublicManifest, PUBLIC_DIRECTORY } from './
 import { metadataFor } from './production-deployment-evidence.mjs';
 export function assertBackgroundFence(directory = CONTRACT.stateDirectory, dependencies = {}) {
   const env = dependencies.env || process.env;
-  const fail = () => { throw new Error('COMPOSE_HOLD=BACKGROUND_DRAIN_PROOF_REQUIRED'); };
+  const fail = (detail = 'missing=background-control.json,background-drain-proof,manifest.json') => { throw new Error(`COMPOSE_HOLD=BACKGROUND_DRAIN_PROOF_REQUIRED;stage=compose-up-api;${detail}`); };
   if (!/^\d+-\d+$/.test(env.DEPLOY_RUN_ID || '') || !/^[a-f0-9]{40}$/.test(env.TARGET_SHA || '')) fail();
   const read = dependencies.readState || secureJson;
   let record; let proof; let manifest;
-  try {
-    record = read(path.join(directory, 'background-control.json'));
-    proof = read(path.join(directory, `background-drain-${env.DEPLOY_RUN_ID}.json`));
-    manifest = (dependencies.readManifest || readPublicManifest)();
-  } catch { fail(); }
+  try { record = read(path.join(directory, 'background-control.json')); }
+  catch (error) { fail(`missing=background-control.json;cause=${String(error?.message || 'read-failed').replace(/\s+/g, '_')}`); }
+  try { proof = read(path.join(directory, `background-drain-${env.DEPLOY_RUN_ID}.json`)); }
+  catch (error) { fail(`missing=background-drain-${env.DEPLOY_RUN_ID}.json;cause=${String(error?.message || 'read-failed').replace(/\s+/g, '_')}`); }
+  try { manifest = (dependencies.readManifest || readPublicManifest)(); }
+  catch (error) { fail(`missing=manifest.json;cause=${String(error?.message || 'read-failed').replace(/\s+/g, '_')}`); }
   if (!record || !proof || !manifest || record.protocolVersion !== 1 || proof.protocolVersion !== 1 || manifest.protocolVersion !== 1
     || !['FENCED', 'CODE_HOLD'].includes(record.phase) || record.holdReason || manifest.phase !== record.phase
     || record.owner !== env.DEPLOY_RUN_ID || proof.owner !== record.owner || manifest.owner !== record.owner
@@ -29,7 +30,7 @@ export function assertBackgroundFence(directory = CONTRACT.stateDirectory, depen
     || proof.outcome !== 'DRAINED' || !Number.isSafeInteger(record.generation) || record.generation < 1
     || proof.generation !== record.generation || manifest.generation !== record.generation
     || record.manifestDigest !== createHash('sha256').update(JSON.stringify(manifest)).digest('hex')
-    || !Array.isArray(proof.participants) || proof.participants.length !== 1 || !Array.isArray(manifest.participants) || manifest.participants.length !== 1) fail();
+    || !Array.isArray(proof.participants) || proof.participants.length !== 1 || !Array.isArray(manifest.participants) || manifest.participants.length !== 1) fail(`mismatch=owner:${record?.owner || 'missing'};run=${env.DEPLOY_RUN_ID};target=${record?.targetSha || 'missing'};generation=${record?.generation || 'missing'}`);
   const p = proof.participants[0]; const m = manifest.participants[0];
   if (!/^[a-f0-9]{64}$/.test(p.containerId || '') || !/^[a-f0-9-]{36}$/.test(p.bootId || '')
     || p.revision !== record.previousFloorSha || p.containerId !== m.containerId || p.bootId !== m.bootId || p.revision !== m.revision

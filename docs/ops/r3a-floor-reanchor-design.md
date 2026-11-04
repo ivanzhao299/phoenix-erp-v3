@@ -75,3 +75,7 @@ inputs:
            PASS_REDACTED_SUMMARY → complete → floor=M/active=SUCCESS
 不变量:    Chanjet HOLD/false/false；无 migration、无 Web/DB 容器变更
 ```
+
+## Full 发布关系（2026-11-05）
+
+`FLOOR_REANCHOR_WITHOUT_CONTRACT_CHANGE` 仍适用于 floor 重锚定。普通 full 发布改走 [`FULL_RELEASE_CONTROLLED_CHANNEL_20261105.md`](runs/FULL_RELEASE_CONTROLLED_CHANNEL_20261105.md)：复用 background session、保持 floor 不变，并分开绑定上一运行时 revision 与 `configFloorSha`；criticalFiles 变化、floor promotion 参数或 same-floor 重启仍 HOLD。

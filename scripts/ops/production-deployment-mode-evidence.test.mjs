@@ -213,10 +213,14 @@ test('coordinator requires v3 API evidence for a mode-bound successful deploymen
   for (const receipt of [downgraded.pre, downgraded.post, downgraded.log]) { receipt.schema = 'phoenix.production-deployment-evidence/v2'; delete receipt.deployMode; }
   withFiles(downgraded, files => assert.throws(() => verifyEvidenceFiles(files.pre, files.post, files.log, expected), /MODE_BINDING/));
 });
-test('coordinator refuses non-API and missing typed-legacy mode records', () => {
-  for (const state of [{ deployMode: 'web' }, { deployMode: 'full' }, { deployMode: undefined }, { deployMode: null }, { maintenance: {} }]) {
+test('coordinator accepts full mode and refuses web or malformed typed records', () => {
+  const full = completedDeploymentEvidenceBinding({ deployMode: 'full' }, { owner: '123-1', targetSha: target, previousFloorSha: previous, deployMode: 'full', configFloorSha: previous });
+  assert.equal(full.deployMode, 'full');
+  assert.equal(full.configFloorSha, previous);
+  for (const state of [{ deployMode: 'web' }, { deployMode: 'invalid' }, { deployMode: null }, { maintenance: {} }]) {
     assert.throws(() => completedDeploymentEvidenceBinding(state, { owner: '123-1', targetSha: target }), /DEPLOY_SUCCESS_MODE_BINDING/);
   }
+  assert.throws(() => completedDeploymentEvidenceBinding({ deployMode: 'full' }, { owner: '123-1', targetSha: target, previousFloorSha: previous, deployMode: 'api' }), /DEPLOY_SUCCESS_MODE_BINDING/);
 });
 test('coordinator preserves only genuinely unbound historical API evidence', () => {
   const expected = completedDeploymentEvidenceBinding({}, { owner: '123-1', targetSha: target });
