@@ -438,7 +438,9 @@ jobs:
           psql -d issue381_fixture -c "CREATE TABLE IF NOT EXISTS issue381_fixture_owner(owner_key text); TRUNCATE issue381_fixture_owner; INSERT INTO issue381_fixture_owner VALUES ('$ISSUE381_FIXTURE_OWNER')"
           cd apps/api
           ISSUE381_PG_URL="postgresql://$DB_USER:$DB_PASSWORD@$DB_HOST:$DB_PORT/issue381_fixture" \
-            ./node_modules/.bin/jest --runInBand --runTestsByPath src/modules/sales-v2/services/production-inbound.pg.spec.ts
+            ./node_modules/.bin/jest --runInBand --runTestsByPath \
+              src/modules/sales-v2/services/production-inbound.pg.spec.ts \
+              src/modules/farm/farm-pending-notification.pg.spec.ts
 
       - name: Production-equivalent isolated API bootstrap SQL proof
         id: bootstrap_sql
