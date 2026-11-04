@@ -91,3 +91,15 @@
 - no-op 实证：#41763710673 生产真实演练 `DAILY_EGG_REPAIR_ALREADY_APPLIED; scope_days=2; overpost=0; mismatch=0`（空事务提交，零写入）
 
 full 发布链设计缺口仍独立立项（见上文 P1 风险）；本次发布经 api-only 重锚定（合法 criticalFiles 窗口=issue381 CI 接线）+ web-only 完成。
+
+## 三轮审查整改（2026-11-04，main = bbbb42e23）
+
+1. **no-op 双向等值（Fix1）**：`scope_mismatch` 改用与 overpost 相同的 `report_grade FULL JOIN inbound_grade` + `COALESCE(r.qty,0) <> COALESCE(i.qty,0)` —— "日报有分级、入库为 0"的退役范围不再可能静默通过。生产实证（#41772004192）：新 SQL 空事务演练 `ALREADY_APPLIED; scope_days=2; overpost=0; mismatch=0`（双向口径下仍 0 差异）。
+2. **冲销身份与净额范围（Fix2）**：
+   - 幂等键 = 日期 + ref_no + **班次**（note 尾缀 `（date house shift）` 精确匹配）—— 同日同 flock 早/晚班各自精确冲销一次（新增测试：双班各自 300/500 互不吞没）；
+   - 净额范围 = `(log_date = 报告日 OR log_date IS NULL)` × `(company_code = 公司 OR IS NULL)` —— 带范围的新行不再跨日/跨公司串账（新增测试：他日 500 不入本日净额，冲 600 被拒）；历史 NULL 行是唯一无范围来源；
+   - 所有新写的 legacy 台账行（FARM_IN / 差额 / 冲销）持久化 `log_date` + `company_code`。
+3. **产品裁决：A（保留"日报不阻塞"）+ 持久化待补账**：跳过时写入 `sys_notifications`（biz_type=`FARM_LEDGER_PENDING`，biz_no=`date:house` 去重，收件人=同公司 MENU_INV_BATCH 持有者 + admin），不再只依赖 HTTP 返回体；msg 同步更新。裁决理由：breeding-regression A4 是业务方钉死的一线契约（每日生产录入不可因库存记账失败而停摆），分级链路才是权威记账路径；B 方案会在批次维护缺位时阻断全部日报录入，风险不对称。
+4. CI（#41770956033）全绿：jest 66 passed（新增双班/跨日/通知持久化 3 例）、issue381 真实 PG 18/18、breeding 回归恢复、lint 0 errors。
+
+**发布状态**：本批改动不含 criticalFiles（`git diff 9f13513d8..HEAD ∩ criticalFiles = ∅`，已核），无重锚定窗口，**已合入 main 待下个发布窗口上线**（下次任何 criticalFiles 变更的重锚定随车发布；或 full 链修复落地后常规发布）。生产运行时保持 9f13513d8（两轮已上线修复）+ 审计 VERIFY=GO 不受影响。
