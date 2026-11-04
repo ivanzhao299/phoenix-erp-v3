@@ -191,13 +191,15 @@ export class ProductionInboundService {
    * is a posting of that report, not a free-form second source of truth.
    * Enforce the remaining per-grade allowance inside the same transaction as
    * the idempotency check so retries and concurrent posts cannot overstate stock.
+   * Every TEMP_PRODUCTION batch for the daily dimension counts against the
+   * allowance, whatever source key created it — the caller's own key included,
+   * because the replay check above has already short-circuited exact repeats.
    */
   private async assertDailyReportCapacity(
     mgr: { query: (sql: string, params?: unknown[]) => Promise<any[]> },
     dto: { eggDate: string; houseCode?: string },
     items: Array<{ grade: string; qty: number }>,
     collectionRef: string | null,
-    sourceNo: string,
   ): Promise<void> {
     if (!dto.houseCode || !collectionRef) return;
     const table = (await mgr.query(`SELECT to_regclass('brd_daily_logs') AS table_name`)) ?? [];
@@ -221,9 +223,8 @@ export class ProductionInboundService {
         WHERE source_type = 'TEMP_PRODUCTION'
           AND egg_date = $1
           AND collection_batch_ref = $2
-          AND source_no IS DISTINCT FROM $3
         GROUP BY COALESCE(grade_code_std, quality_grade)`,
-      [dto.eggDate, collectionRef, sourceNo],
+      [dto.eggDate, collectionRef],
     );
     const alreadyInbound: GradeQuantityMap = {};
     for (const row of postedRows) {
@@ -267,6 +268,11 @@ export class ProductionInboundService {
     assertEggDate(dto.eggDate);
     if (dto.idempotencyKey !== undefined && (typeof dto.idempotencyKey !== 'string' || dto.idempotencyKey.trim().length > 64)) {
       throw new BadRequestException('idempotencyKey 必须为不超过 64 字符的字符串');
+    }
+    // Bind the caller key to this posting's date before any master-data work.
+    const clientKeyEarly = dto.idempotencyKey?.trim();
+    if (clientKeyEarly && !clientKeyEarly.startsWith(`DAILY-${dto.eggDate}-`)) {
+      throw new BadRequestException('idempotencyKey 必须形如 DAILY-<蛋日期>-<鸡舍> 且与本次入库日报一致');
     }
     dto = { ...dto, houseCode: dto.houseCode?.trim() || undefined };
     if (!Array.isArray(dto.items) || dto.items.length === 0) throw new BadRequestException('items 不能为空');
@@ -320,18 +326,26 @@ export class ProductionInboundService {
     if (missing.length) throw new BadRequestException(`以下蛋品档位缺少 ACTIVE SKU：${[...new Set(missing)].join('、')}。请先在主数据中心维护`);
     if (ambiguous.length) throw new BadRequestException(`以下蛋品档位匹配多个 ACTIVE SKU：${[...new Set(ambiguous)].join('、')}。请选择规格后重试`);
 
-    const sourceNo = (dto.idempotencyKey?.trim() || `TEMP-${dto.eggDate}-${dto.houseCode ?? siteCode ?? companyCode}`).slice(0, 64);
+    // Idempotency keys are a daily-report identity, not a free client choice:
+    // the date binding was validated up front; an omitted key is derived from
+    // the same daily dimension the lock uses.
+    const clientKey = dto.idempotencyKey?.trim();
+    const sourceNo = (clientKey || `DAILY-${dto.eggDate}-${dto.houseCode ?? siteCode ?? companyCode}`.slice(0, 64)).slice(0, 64);
+    // One daily report (company + date + house/site) is one serialization
+    // domain: callers holding different keys must not read the same remaining
+    // allowance concurrently, so the lock covers the whole daily document.
+    const dailyScopeLock = `${companyCode}|TEMP_PRODUCTION_DAILY|${dto.eggDate}|${collectionRef ?? siteCode ?? companyCode}`;
     let idempotent = false;
     const run = async (mgr: any, enforceIdempotency = true) => {
-      // Serialize retries for one daily report while the transaction is open.
-      if (enforceIdempotency) await mgr.query('SELECT pg_advisory_xact_lock(hashtext($1))', [sourceNo]);
+      if (enforceIdempotency) await mgr.query('SELECT pg_advisory_xact_lock(hashtext($1))', [dailyScopeLock]);
       const existing = enforceIdempotency ? await mgr.query(
         `SELECT batch_no, quality_grade, qty, product_code, sku_code, spec_code,
                 egg_date::text AS egg_date, collection_batch_ref, warehouse_code, location_code
            FROM inv_batches
-          WHERE company_code = $1 AND source_type = 'TEMP_PRODUCTION' AND source_no = $2
+          WHERE company_code = $1 AND source_type = 'TEMP_PRODUCTION' AND egg_date = $2
+            AND collection_batch_ref IS NOT DISTINCT FROM $3
           ORDER BY batch_no FOR UPDATE`,
-        [companyCode, sourceNo],
+        [companyCode, dto.eggDate, collectionRef],
       ) : [];
       if (existing.length > 0) {
         // A source key identifies the complete inbound context. Never expose a batch
@@ -355,7 +369,7 @@ export class ProductionInboundService {
         }
         return;
       }
-      await this.assertDailyReportCapacity(mgr, dto, effectiveItems, collectionRef, sourceNo);
+      await this.assertDailyReportCapacity(mgr, dto, effectiveItems, collectionRef);
       for (const item of effectiveItems) {
         const { qty, grade } = item;
         const sku = resolved.get(`${grade}\u0000${item.spec ?? ''}`)!;

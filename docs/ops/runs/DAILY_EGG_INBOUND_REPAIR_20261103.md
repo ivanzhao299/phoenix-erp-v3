@@ -48,11 +48,25 @@
 4. **重锚定 #1**（#41579888764）：死于 PARTICIPANT_FENCE_NOT_OBSERVED —— 清除记录使 fence 代数归 1，容器内存水位=10 拒绝 REPLAY。→ 实现 revive-participant（受控重启 API，水位归零）+ 高水位持久化。
 5. **重锚定 #2**（#41582834413）：fence 通过，死于 `guardProduction is not defined`（promote 漏 import，10/31 以来所有重锚定的真凶）。→ 修复 + contract test。
 6. **重锚定 #3**（#41593610259）：promotion PREPARED_HOLD 后 body 死于 ADMISSION_SCHEMA_RECEIPT_REQUIRED（deployment-state 仍用 admission-only 回执规则）。→ 回执泛化 + 受控迁移应用工作流；用 abort-prepared-promotion 还原 floor。
-7. **受控迁移应用**（#41590377899 inspect / #41590587941 apply）：`deploy-schema-first.sh` 一次性容器应用 1792000000000（索引建成、migrations 记录），回执登记 COMMITTED（#41593253786）。
+7. **受控迁移应用**（#41590377899 inspect / #41590587941 apply / #41593253786 回执）：**#41590587941 的 job 结论是 failure** —— 它成功执行了 `deploy-schema-first.sh`（迁移已应用、索引已建、migrations 已记录），但随后的回执登记步骤因 TypeORM 类名匹配 bug 退出码 1。即"迁移已应用"与"run 整体成功"必须分开陈述。完整成功链：#41590587941（DDL 应用，部分成功）→ #41593253786（回执登记 `MIGRATION_RECEIPT=COMPLETE`）→ #41578231972 / #41610989848（审计 `VERIFY=GO`，重复 0、超额 0、平衡 0）。
 8. **重锚定 #4**（#41595462900）：body 全部成功（API 已切 ac9481e88），仅 OPEN 死于 DEPLOY_SUCCESS_BINDING（verifier 仍要求空 migrationPaths）。→ verifier 接受带回执迁移；complete-background-open 补发 OPEN。
 9. **重锚定 #5**（#41601516361）：**全程自走 BACKGROUND_DEPLOYMENT=SUCCESS**（floor→ae2523d2c）。
 10. **full 部署**（#41603777102）：死于 compose 包装对 up api 的 fence 证明要求（full 模式从不 fence —— 背景控制上线后的设计断层），回滚同因失败，遗留死事务。→ rollback-dead-transaction 显式闭账（证明 runtime 未动）。
 11. **web 部署**（#41608876230）：**SUCCESS**（web→b861c9d14）。
 12. **终验**：API=ae2523d2c(floor) healthy、Web=b861c9d14 healthy、readiness OK、审计 VERIFY=GO。
 
-遗留（见交付报告）：full 模式 up-api 的 fence 语义断层的正式设计；API 镜像落后 main 数个纯脚本提交（下个 floor 周期收敛）。
+### 审查整改（2026-11-04）
+
+按审查意见修复并全部本地验证（jest 39/39、farm+inbound 全域 60 passed、ops node:test 73/73、API/Web tsc 0 错、迁移门禁过）：
+
+1. **P1 并发超额**：`production-inbound` 事务锁改为日报维度（`companyCode|TEMP_PRODUCTION_DAILY|<eggDate>|<house/site>`），不同幂等键不再能并发读同一剩余额度；既有批次查询改为按日报维度（company+date+collection_ref）而非 source_no，跨键重放幂等、跨键数量不一致拒绝；客户端幂等键必须绑定本次蛋日期（`DAILY-<date>-` 前缀），缺省由服务端按日报维度派生。
+2. **P1 分级转换**：无分级→有分级（submit 与 update 两条路径）按原始数量写 `FARM_REVERSED` 精确冲销旧 `FARM_IN`（note 含日志标识，可追溯）；有分级→无分级且该日报已有 TEMP_PRODUCTION 批次时，在写入前拒绝。
+3. **P2 批次定位**：`findLegacyEggBatch` 按 company+蛋日≤log_date 精确定位 PRD-EGG 批次；找不到批次时**事务失败**（移除两处 console.warn 吞错）。
+4. **P2 修复 SQL**：kept 与日报改为**严格等值**（`k.qty <> r.qty` 双向拒绝）；already-applied no-op 判定改为范围绑定（存在合规退役行 且 全库 overpost=0，即审计 GO 摘要），不再被任意标记误触发；新增静态测试 4 项。
+
+### 证据更正与补充
+
+- **迁移 run 结论更正**：见上文第 7 条（#41590587941 = failure/部分成功；成功证据链为 #41593253786 + 双次审计 VERIFY=GO）。
+- **API↔checkout 差异证据**：`git diff --stat ae2523d2c..5328b9915 -- apps/api/src apps/web/src` 输出为**空**（零差异）；全量差异仅 `.github/workflows/production-background-reconciliation.yml`、`scripts/ops/reconcile-background-control.mjs`、`docs/ops/runs/DAILY_EGG_INBOUND_REPAIR_20261103.md` 三个非运行时文件。即审查基准时点 API 运行时与 main 的应用代码完全一致。本次审查整改提交后，`apps/api/src` 将携带待发布修复（见下）。
+- **full 发布链 P1 风险（独立立项）**：背景控制上线后，deploy body 的 `docker()` 包装使 `up api` 一律要求"本 run 的 fence+drain 证明"，而 full/web 模式从不 fence —— **常规 full 发布自 10/26 起结构性不可用**（#41603777102 与其回滚双双 HOLD 即为实证）。本次以 api-only 重锚定 + web-only 部署达成等效结果，不等于 full 链修复。设计提案：二选一 —— (a) full 模式复用背景会话（fence→双服务切换→verify→open，需扩展 verifyCompletedDeployment 的 switched.web 语义与 drain 参与者清单）；(b) 为"floor 不变的普通代码发布"定义受控通道（exactReanchorBinding 目前显式拒绝 `prev==cfg` 的同 floor 发布）。在落地前，**任何 full 部署都会失败**，须走 api-only 重锚定（仅当 criticalFiles 变化）或 web-only。
+- **待发布**：本次审查整改的业务代码（P1×2 + P2×1）已合入 main 但**尚未部署** —— 因 full 链阻断 + 本批无 criticalFiles 变更（重锚定协议拒绝无契约变化的 floor 移动）。发布路径：待 full 链修复落地，或下一次 criticalFiles 变更的重锚定窗口随车发布。

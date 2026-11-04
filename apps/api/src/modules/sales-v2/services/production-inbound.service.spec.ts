@@ -195,4 +195,89 @@ describe('ProductionInboundService master-data resolution', () => {
     await expect(service.recordProductionInbound({ eggDate: '2026-08-25', items: [{ grade: 'GRADE_1', qty: 0 }] }))
       .rejects.toThrow('至少需要一个数量大于 0');
   });
+
+  it('rejects an idempotency key bound to a different egg date', async () => {
+    const { service } = makeService(jest.fn());
+    await expect(service.recordProductionInbound({
+      houseCode: 'HOUSE-A', eggDate: '2026-08-25', idempotencyKey: 'DAILY-2026-08-26-HOUSE-A-abc',
+      items: [{ grade: 'GRADE_1', qty: 1 }],
+    })).rejects.toThrow('idempotencyKey 必须形如 DAILY-<蛋日期>-');
+  });
+
+  function buildRetryService() {
+    const query = jest.fn().mockImplementation(async (sql: string) => {
+      if (!sql) return [{ farm_code: 'FARM-A', farm_company_code: 'COMP-A', farm_site_code: 'SITE-A' }];
+      if (sql.includes('sys_organizations')) return [{ '?column?': 1 }];
+      if (sql.includes('wms_warehouses')) return [{ warehouse_code: 'WH-A' }];
+      if (sql.includes('wms_locations')) return [{ location_code: 'LOC-A' }];
+      if (sql.includes('product_skus')) return [{ sku_code: 'SKU-1', product_code: 'PROD', grade_code: 'GRADE_1', spec_code: 'LOOSE' }];
+      return [];
+    });
+    const existing: any[] = [];
+    const managerQuery = jest.fn().mockImplementation(async (sql: string) => {
+      if (sql.includes('pg_advisory_xact_lock')) return [];
+      if (sql.includes('FOR UPDATE')) return existing;
+      return [];
+    });
+    const transaction = jest.fn(async (operation: (manager: any) => Promise<unknown>) => operation({ query: managerQuery }));
+    const createProductionBatch = jest.fn().mockImplementation(async () => ({ batch_no: `EGG-${createProductionBatch.mock.calls.length}` }));
+    const modeSvc = { resolveMode: jest.fn().mockResolvedValue('TEMP_PRODUCTION_INBOUND') };
+    const service = new ProductionInboundService(
+      { query, transaction } as never,
+      { get: jest.fn() } as never,
+      { createProductionBatch } as never,
+      modeSvc as never,
+      { resolveHouse: jest.fn(async (houseCode: string) => { const [row] = await query('', [houseCode]); return { houseCode, farmCode: row.farm_code, companyCode: row.farm_company_code, siteCode: row.farm_site_code }; }), resolveWarehouse: jest.fn(async (warehouseCode: string) => ({ warehouseCode, companyCode: 'COMP-A' })) } as never,
+    );
+    return { service, managerQuery, createProductionBatch, existing };
+  }
+
+  it('replays one daily report regardless of which caller key created it', async () => {
+    const { service, managerQuery, createProductionBatch, existing } = buildRetryService();
+    const dto = { houseCode: 'HOUSE-A', eggDate: '2026-08-25', items: [{ grade: 'GRADE_1', qty: 5 }] };
+    const first = await service.recordProductionInbound({ ...dto, idempotencyKey: 'DAILY-2026-08-25-HOUSE-A-aaaa' });
+    expect(first).toMatchObject({ totalInbound: 5, idempotent: false });
+
+    existing.push(...first.batches.map(batch => ({ batch_no: batch.batchNo, quality_grade: batch.grade, qty: batch.qty, product_code: batch.productCode, sku_code: 'SKU-1', spec_code: 'LOOSE', egg_date: dto.eggDate, collection_batch_ref: 'HOUSE-HOUSE-A', warehouse_code: 'WH-A', location_code: 'LOC-A' })));
+    const second = await service.recordProductionInbound({ ...dto, idempotencyKey: 'DAILY-2026-08-25-HOUSE-A-bbbb' });
+    expect(second).toMatchObject({ totalInbound: 5, idempotent: true });
+    expect(second.batches).toEqual(first.batches);
+    expect(createProductionBatch).toHaveBeenCalledTimes(1);
+    // The serialization lock covers the daily report dimension, not the key.
+    const lock = managerQuery.mock.calls.find(([sql]) => String(sql).includes('pg_advisory_xact_lock'));
+    expect(lock![1][0]).toContain('TEMP_PRODUCTION_DAILY');
+    expect(lock![1][0]).toContain('2026-08-25');
+  });
+
+  it('counts already-posted batches against the allowance whatever source key created them', async () => {
+    const query = jest.fn().mockImplementation(async (sql: string) => {
+      if (!sql) return [{ farm_code: 'FARM-A', farm_company_code: 'COMP-A', farm_site_code: 'SITE-A' }];
+      if (sql.includes('sys_organizations')) return [{ '?column?': 1 }];
+      if (sql.includes('wms_warehouses')) return [{ warehouse_code: 'WH-A' }];
+      if (sql.includes('wms_locations')) return [{ location_code: 'LOC-A' }];
+      if (sql.includes('product_skus')) return [{ sku_code: 'SKU-1', product_code: 'PROD', grade_code: 'GRADE_1', spec_code: 'LOOSE' }];
+      return [];
+    });
+    const managerQuery = jest.fn().mockImplementation(async (sql: string) => {
+      if (sql.includes('pg_advisory_xact_lock')) return [];
+      if (sql.includes('FOR UPDATE')) return [];
+      if (sql.includes('to_regclass')) return [{ table_name: 'brd_daily_logs' }];
+      if (sql.includes('FROM brd_daily_logs')) return [{ eggs_by_grade: { GRADE_1: 100 } }];
+      if (sql.includes('GROUP BY')) return [{ grade: 'GRADE_1', qty: 80 }];
+      return [];
+    });
+    const transaction = jest.fn(async (operation: (manager: any) => Promise<unknown>) => operation({ query: managerQuery }));
+    const modeSvc = { resolveMode: jest.fn().mockResolvedValue('TEMP_PRODUCTION_INBOUND') };
+    const service = new ProductionInboundService(
+      { query, transaction } as never,
+      { get: jest.fn() } as never,
+      { createProductionBatch: jest.fn() } as never,
+      modeSvc as never,
+      { resolveHouse: jest.fn(async (houseCode: string) => { const [row] = await query('', [houseCode]); return { houseCode, farmCode: row.farm_code, companyCode: row.farm_company_code, siteCode: row.farm_site_code }; }), resolveWarehouse: jest.fn(async (warehouseCode: string) => ({ warehouseCode, companyCode: 'COMP-A' })) } as never,
+    );
+    await expect(service.recordProductionInbound({
+      houseCode: 'HOUSE-A', eggDate: '2026-08-25', idempotencyKey: 'DAILY-2026-08-25-HOUSE-A-cccc',
+      items: [{ grade: 'GRADE_1', qty: 30 }],
+    })).rejects.toThrow('剩余额度');
+  });
 });

@@ -32,15 +32,41 @@ WITH ranked AS (
 SELECT * FROM ranked WHERE group_count > 1 AND rn > 1;
 
 DO $$
+DECLARE overpost_count int;
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM daily_egg_duplicate_repair) THEN
     -- Either nothing was ever duplicated (hard error), or this repair already
-    -- ran and retired the older rows (idempotent no-op for controlled reruns).
+    -- ran. "Already ran" is proven by scope, not by the marker alone: retired
+    -- rows must exist AND no overposted (date, house, grade) group may remain
+    -- anywhere — the same consistency summary the audit requires for GO.
+    WITH report_grade AS (
+      SELECT dl.log_date, dl.house_code, grade.key AS grade,
+             SUM(GREATEST(0, ROUND(grade.value::numeric)))::numeric AS qty
+        FROM brd_daily_logs dl
+        CROSS JOIN LATERAL jsonb_each_text(COALESCE(dl.eggs_by_grade, '{}'::jsonb)) grade
+       GROUP BY dl.log_date, dl.house_code, grade.key
+    ), inbound_grade AS (
+      SELECT b.egg_date AS log_date,
+             SUBSTRING(b.collection_batch_ref FROM 7) AS house_code,
+             COALESCE(b.grade_code_std, b.quality_grade) AS grade,
+             SUM(b.qty)::numeric AS qty
+        FROM inv_batches b
+       WHERE b.source_type = 'TEMP_PRODUCTION'
+         AND b.collection_batch_ref LIKE 'HOUSE-%'
+       GROUP BY b.egg_date, SUBSTRING(b.collection_batch_ref FROM 7),
+                COALESCE(b.grade_code_std, b.quality_grade)
+    )
+    SELECT COUNT(*) INTO overpost_count
+      FROM report_grade r
+      FULL JOIN inbound_grade i USING (log_date, house_code, grade)
+     WHERE COALESCE(i.qty, 0) > COALESCE(r.qty, 0);
     IF EXISTS (
       SELECT 1 FROM inv_batches
        WHERE source_type = 'TEMP_PRODUCTION'
          AND legacy_source LIKE '%DAILY_EGG_DUPLICATE_RETIRED%'
-    ) THEN
+         AND COALESCE(qty, 0) = 0
+         AND source_no IS NULL
+    ) AND overpost_count = 0 THEN
       RAISE NOTICE 'DAILY_EGG_REPAIR_ALREADY_APPLIED';
     ELSE
       RAISE EXCEPTION 'DAILY_EGG_REPAIR_NO_DUPLICATES';
@@ -67,8 +93,10 @@ BEGIN
   END IF;
 END $$;
 
--- The newest row in every duplicate group must be the report-authoritative
--- quantity. Any mismatch stops the repair instead of guessing which row wins.
+-- The kept (newest) rows must reproduce the daily report EXACTLY per grade.
+-- Both directions matter: kept > report means the repair would leave an
+-- overpost behind; kept < report means the kept row is not the authoritative
+-- posting and the repair must not guess which row wins.
 DO $$
 BEGIN
   IF EXISTS (
@@ -99,7 +127,7 @@ BEGIN
       FROM kept k
       LEFT JOIN report_grade r
         ON r.log_date = k.log_date AND r.house_code = k.house_code AND r.grade = k.grade
-     WHERE r.qty IS NULL OR k.qty > r.qty
+     WHERE r.qty IS NULL OR k.qty <> r.qty
   ) THEN
     RAISE EXCEPTION 'DAILY_EGG_REPAIR_REPORT_MISMATCH';
   END IF;
