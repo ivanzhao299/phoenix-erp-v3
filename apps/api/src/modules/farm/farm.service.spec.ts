@@ -342,6 +342,7 @@ describe('FarmService', () => {
         if (sql.includes('SELECT eggs_by_grade, eggs_produced FROM brd_daily_logs')) return [];
         if (sql.includes('SELECT batch_no FROM inv_batches')) return [];
         if (sql.includes('sys_notifications')) return [];
+        if (sql.includes("username = 'admin'")) return [{ user_id: '1' }];
         return [];
       });
 
@@ -352,8 +353,63 @@ describe('FarmService', () => {
       expect(result.ledgerSkipped).toBe(true);
       const notify = manager.query.mock.calls.find(([query]) => String(query).includes('INSERT INTO sys_notifications'));
       expect(notify).toBeTruthy();
-      expect(String(notify![0])).toContain('FARM_LEDGER_PENDING');
-      expect(notify![1]).toEqual(expect.arrayContaining(['FARM_LEDGER_PENDING:2026-07-16:H001']));
+      // biz_no carries the company so two companies sharing a house code
+      // never swallow each other's notices.
+      expect(notify![1]).toEqual(expect.arrayContaining(['FARM_LEDGER_PENDING:COMP-A:2026-07-16:H001']));
+      // Dedup is database-level: the insert targets the partial unique index.
+      expect(String(notify![0])).toContain("ON CONFLICT (user_id, biz_type, biz_no) WHERE biz_type = 'FARM_LEDGER_PENDING'");
+    });
+
+    it('persists the pending-ledger notification from the UPDATE path too', async () => {
+      const { manager, svc } = buildSvc();
+      manager.query.mockImplementation(async (sql: string) => {
+        if (sql.includes('SELECT eggs_produced')) return [{
+          eggs_produced: 300, mortality_qty: 0, log_date: '2026-07-16', flock_no: 'FLOCK-A',
+          house_code: 'H001', company_code: 'COMP-A', shift: 'MORNING', eggs_by_grade: null,
+        }];
+        if (sql.includes('SELECT batch_no FROM inv_batches')) return [];
+        if (sql.includes('sys_notifications')) return [];
+        if (sql.includes("username = 'admin'")) return [{ user_id: '1' }];
+        if (sql.includes('SELECT COALESCE(SUM(mortality_qty)')) return [{ total_mortality: 0, total_eggs: 300 }];
+        if (sql.includes('SELECT current_qty')) return [];
+        return [];
+      });
+
+      const result = await svc.updateBreedingDailyLog(7, {
+        house_code: 'H001', flock_no: 'FLOCK-A', log_date: '2026-07-16',
+        eggs_produced: 500, mortality_qty: 0,
+      });
+      expect(result.ledgerSkipped).toBe(true);
+      const notify = manager.query.mock.calls.find(([query]) => String(query).includes('INSERT INTO sys_notifications'));
+      expect(notify).toBeTruthy();
+      expect(notify![1]).toEqual(expect.arrayContaining(['FARM_LEDGER_PENDING:COMP-A:2026-07-16:H001']));
+      expect(String(notify![1][1])).toContain('200 枚');
+    });
+
+    it('resolves recipients through the scoped service when injected', async () => {
+      const manager = { query: jest.fn() };
+      const entityManager = {
+        query: jest.fn(),
+        transaction: jest.fn(async (cb: (m: { query: jest.Mock }) => Promise<unknown>) => cb(manager)),
+      };
+      const resolve = jest.fn().mockResolvedValue(['7', '9']);
+      const svc = new FarmService(entityManager as never, {
+        resolveHouse: jest.fn(async () => ({ houseCode: 'H001', farmCode: 'F', siteCode: 'S', companyCode: 'COMP-A' })),
+      } as never, { resolve } as never);
+      entityManager.query.mockResolvedValue([]);
+      manager.query.mockImplementation(async (sql: string) => {
+        if (sql.includes('SELECT eggs_by_grade, eggs_produced FROM brd_daily_logs')) return [];
+        if (sql.includes('SELECT batch_no FROM inv_batches')) return [];
+        return [];
+      });
+
+      await svc.submitBreedingDailyLog({
+        log_date: '2026-07-16', shift: 'MORNING', house_code: 'H001', company_code: 'COMP-A',
+        eggs_produced: 80, mortality_qty: 0,
+      });
+      expect(resolve).toHaveBeenCalledWith('COMP-A', ['MENU_INV_BATCH']);
+      const notify = manager.query.mock.calls.find(([query]) => String(query).includes('INSERT INTO sys_notifications'));
+      expect(notify![1][4]).toEqual(['7', '9']);
     });
 
     it('binds ownership from the house and accepts any farm in the guarded scope', async () => {

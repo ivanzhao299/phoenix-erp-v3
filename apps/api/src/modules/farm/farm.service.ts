@@ -170,6 +170,9 @@ export class FarmService {
     @InjectEntityManager()
     private readonly entityManager: EntityManager,
     private readonly ownership: OrgOwnershipService,
+    // Optional so standalone construction (tests) keeps working; production
+    // resolves it through NotificationModule and uses real DataScope filters.
+    private readonly scopedRecipients?: { resolve(companyCode: string, menuCodes: string[]): Promise<string[]> },
   ) {}
 
   /** 把任意 body 过滤为只剩白名单列；用于动态 SQL 拼接前的安全防线 */
@@ -287,41 +290,41 @@ export class FarmService {
 
   /**
    * Product verdict A: a skipped legacy FARM_IN must survive the HTTP
-   * response. Persist an unread pending-ledger notification for the
-   * company's inventory keepers (MENU_INV_BATCH holders, admin as
-   * fallback), deduplicated per (date, house).
+   * response. Persist one unread pending-ledger notification per recipient
+   * for the company's inventory keepers (MENU_INV_BATCH holders resolved
+   * through the scoped recipient service; admin only as a fallback when the
+   * resolver is unavailable). Deduplication is database-level via the
+   * partial unique index on (user_id, biz_type, biz_no), and biz_no carries
+   * the company code so two companies sharing a house code never swallow
+   * each other's notices.
    */
   private async recordPendingLedgerNotification(
     manager: { query: (sql: string, params?: unknown[]) => Promise<any[]> },
     input: { logDate: string; houseCode: string; eggs: number; companyCode: string | null; flockNo: string },
   ): Promise<void> {
-    const bizNo = `FARM_LEDGER_PENDING:${input.logDate}:${input.houseCode}`;
-    const existing = (await manager.query(
-      `SELECT 1 FROM sys_notifications WHERE biz_type = 'FARM_LEDGER_PENDING' AND biz_no = $1 LIMIT 1`,
-      [bizNo],
-    )) ?? [];
-    if (existing.length > 0) return;
+    const company = input.companyCode || '';
+    const bizNo = `FARM_LEDGER_PENDING:${company || 'NO-COMPANY'}:${input.logDate}:${input.houseCode}`;
+    let recipients: string[];
+    if (this.scopedRecipients && company) {
+      recipients = await this.scopedRecipients.resolve(company, ['MENU_INV_BATCH']);
+    } else {
+      const admins = (await manager.query(`SELECT user_id::text FROM sys_user WHERE username = 'admin' AND status = 1 LIMIT 1`)) ?? [];
+      recipients = admins.map((row: any) => String(row.user_id));
+    }
+    if (!recipients.length) return;
     await manager.query(
       `INSERT INTO sys_notifications (user_id, notification_type, title, content, company_code, biz_type, biz_no, status, created_at)
        SELECT u.user_id, 'WORKFLOW_TASK', $1, $2, $3, 'FARM_LEDGER_PENDING', $4, 'UNREAD', NOW()
          FROM sys_user u
         WHERE u.status = 1
-          AND (
-            u.username = 'admin'
-            OR EXISTS (
-              SELECT 1
-                FROM sys_user_role ur
-                JOIN sys_role_menu_permission rmp ON rmp.role_id = ur.role_id
-                JOIN sys_menu m ON m.menu_id = rmp.menu_id AND m.menu_code = 'MENU_INV_BATCH'
-               WHERE ur.user_id = u.user_id
-            )
-          )
-        ON CONFLICT DO NOTHING`,
+          AND u.user_id::text = ANY($5)
+        ON CONFLICT (user_id, biz_type, biz_no) WHERE biz_type = 'FARM_LEDGER_PENDING' DO NOTHING`,
       [
         '日报 FARM_IN 待补账',
         `日报（${input.logDate} ${input.houseCode}，flock=${input.flockNo || input.houseCode}）产蛋 ${input.eggs} 枚因无可用 PRD-EGG 批次未记入库存台账，请维护批次后补账。`,
         input.companyCode,
         bizNo,
+        recipients,
       ],
     );
   }
@@ -663,8 +666,12 @@ export class FarmService {
             ],
           );
         } else {
-          console.warn('[FarmService][WARN] 无可用 PRD-EGG 批次，修改差额记账跳过（返回体已携带警告）：', { flock_no: effectiveFlockNo, eggsDiff, log_date: logDate });
-          return { code: 200, msg: '日报更新成功（警告：无可用 PRD-EGG 批次，本次差额未记账，请维护批次后补账）', ledgerSkipped: true };
+          console.warn('[FarmService][WARN] 无可用 PRD-EGG 批次，修改差额记账跳过（已持久化待补账通知）：', { flock_no: effectiveFlockNo, eggsDiff, log_date: logDate });
+          await this.recordPendingLedgerNotification(manager, {
+            logDate: String(logDate), houseCode: old.house_code, eggs: Math.abs(eggsDiff),
+            companyCode: (body.company_code ?? old.company_code) ?? null, flockNo: effectiveFlockNo || '',
+          });
+          return { code: 200, msg: '日报更新成功（警告：无可用 PRD-EGG 批次，本次差额未记账，待补账通知已发给库存管理员）', ledgerSkipped: true };
         }
       }
 

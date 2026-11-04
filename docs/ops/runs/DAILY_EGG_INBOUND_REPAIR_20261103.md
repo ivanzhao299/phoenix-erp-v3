@@ -92,7 +92,7 @@
 
 full 发布链设计缺口仍独立立项（见上文 P1 风险）；本次发布经 api-only 重锚定（合法 criticalFiles 窗口=issue381 CI 接线）+ web-only 完成。
 
-## 三轮审查整改（2026-11-04，main = bbbb42e23）
+## 三轮审查整改（2026-11-04；代码合入 `bbbb42e23`，随文档提交后 main = `95391c269`）
 
 1. **no-op 双向等值（Fix1）**：`scope_mismatch` 改用与 overpost 相同的 `report_grade FULL JOIN inbound_grade` + `COALESCE(r.qty,0) <> COALESCE(i.qty,0)` —— "日报有分级、入库为 0"的退役范围不再可能静默通过。生产实证（#41772004192）：新 SQL 空事务演练 `ALREADY_APPLIED; scope_days=2; overpost=0; mismatch=0`（双向口径下仍 0 差异）。
 2. **冲销身份与净额范围（Fix2）**：
@@ -103,3 +103,13 @@ full 发布链设计缺口仍独立立项（见上文 P1 风险）；本次发�
 4. CI（#41770956033）全绿：jest 66 passed（新增双班/跨日/通知持久化 3 例）、issue381 真实 PG 18/18、breeding 回归恢复、lint 0 errors。
 
 **发布状态**：本批改动不含 criticalFiles（`git diff 9f13513d8..HEAD ∩ criticalFiles = ∅`，已核），无重锚定窗口，**已合入 main 待下个发布窗口上线**（下次任何 criticalFiles 变更的重锚定随车发布；或 full 链修复落地后常规发布）。生产运行时保持 9f13513d8（两轮已上线修复）+ 审计 VERIFY=GO 不受影响。
+
+## 四轮审查整改（2026-11-04，本节合入提交见 git log）
+
+1. **update 路径补待补账通知**：修改日报缺批次分支与 submit 对称 —— 同事务写 `FARM_LEDGER_PENDING` 通知（差额数量入文案），新增 update 场景测试（断言通知落库 + `200 枚` 差额文案）。
+2. **数据库级去重**：新迁移 `1793000000000-FarmLedgerPendingNotificationDedup` 建**部分唯一索引** `(user_id, biz_type, biz_no) WHERE biz_type='FARM_LEDGER_PENDING' AND biz_no IS NOT NULL`（DDL-only、含 down()、不动历史数据）；服务改为 `ON CONFLICT … DO NOTHING`（删除 SELECT 预检查竞态）。`biz_no` 升级为 `FARM_LEDGER_PENDING:<company>:<date>:<house>` —— 不同公司同鸡舍编码不再互吞通知（测试断言新格式）。
+3. **收件人真正限定同公司**：FarmModule 导入 NotificationModule，`FarmService` 注入 `ScopedNotificationRecipientService`（可选注入，独立构造降级为 admin），收件人 = `resolve(company, ['MENU_INV_BATCH'])` —— 复用既有 DataScope 解析（含 perm/deny/用户级权限集），新增注入场景测试断言 resolve 参数与收件人集合。
+4. **文档 SHA 更正**：三轮段落的主标识改为"代码合入 bbbb42e23、随文档提交 main=95391c269"，避免审计误引用。
+5. 门禁：91 条 TS 迁移 DML/down() 全过、constraint-drift 0 新增、lint 0 errors、jest 68 passed（新增 3 例）。
+
+历史 NULL 流水无范围仍是**已知限制**（数据中不存在范围信息，报告前文已披露）；严格隔离需回填或人工清单，不在本轮范围。
