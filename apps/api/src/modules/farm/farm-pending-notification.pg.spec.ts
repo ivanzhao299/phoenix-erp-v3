@@ -36,7 +36,7 @@ fixture('Farm pending-ledger notifications on real PostgreSQL', () => {
         title VARCHAR(256) NOT NULL,
         content TEXT NOT NULL,
         link_type VARCHAR(32), link_id VARCHAR(64),
-        biz_type VARCHAR(32), biz_id VARCHAR(64), biz_no VARCHAR(80),
+        biz_type VARCHAR(32), biz_id VARCHAR(64), biz_no VARCHAR(80), company_code VARCHAR(64),
         status VARCHAR(16) NOT NULL DEFAULT 'UNREAD',
         read_at TIMESTAMPTZ, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );

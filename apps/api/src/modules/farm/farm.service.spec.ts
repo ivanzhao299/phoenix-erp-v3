@@ -357,7 +357,7 @@ describe('FarmService', () => {
       // never swallow each other's notices.
       expect(notify![1]).toEqual(expect.arrayContaining(['FARM_LEDGER_PENDING:COMP-A:2026-07-16:H001']));
       // Dedup is database-level: the insert targets the partial unique index.
-      expect(String(notify![0])).toContain("ON CONFLICT (user_id, biz_type, biz_no) WHERE biz_type = 'FARM_LEDGER_PENDING'");
+      expect(String(notify![0])).toContain("ON CONFLICT (user_id, biz_type, biz_no) WHERE biz_type = 'FARM_LEDGER_PENDING' AND biz_no IS NOT NULL");
     });
 
     it('persists the pending-ledger notification from the UPDATE path too', async () => {

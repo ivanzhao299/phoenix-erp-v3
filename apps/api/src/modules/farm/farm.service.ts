@@ -320,7 +320,7 @@ export class FarmService {
          FROM sys_user u
         WHERE u.status = 1
           AND u.user_id::text = ANY($5)
-        ON CONFLICT (user_id, biz_type, biz_no) WHERE biz_type = 'FARM_LEDGER_PENDING' DO NOTHING`,
+        ON CONFLICT (user_id, biz_type, biz_no) WHERE biz_type = 'FARM_LEDGER_PENDING' AND biz_no IS NOT NULL DO NOTHING`,
       [
         '日报 FARM_IN 待补账',
         `日报（${input.logDate} ${input.houseCode}，flock=${input.flockNo || input.houseCode}）产蛋 ${input.eggs} 枚因无可用 PRD-EGG 批次未记入库存台账，请维护批次后补账。`,
