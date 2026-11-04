@@ -47,3 +47,5 @@ The API floor re-anchor for `b06984833` completed in run `41923832069`; the matc
 - Web-only runtime pairing completed in deploy run `41925324799` at `b0698483349bc5e9d6b700134a6dbc361287aaa8`; the next full release must target a descendant SHA.
 
 Final full-release attempt is prepared after API floor re-anchor and Web alignment on `7b907d886`; the target below is its strict descendant and uses `run_migrations=false` because this delta contains no migration paths.
+
+- Production API floor re-anchor run `41930005883` and Web-only alignment run `41931705901` both succeeded at `7b907d8866581602ba1db397de74e6c038663bcc`; the next full target is this documentation descendant.
