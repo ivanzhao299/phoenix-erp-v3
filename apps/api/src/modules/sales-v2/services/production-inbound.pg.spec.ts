@@ -117,9 +117,47 @@ fixture('Issue 381 real PostgreSQL inbound transactions and retries', () => {
     await expect(service.recordProductionInbound({
       ...payload(), items: [{ grade: 'GRADE_1', qty: 100 }],
     })).resolves.toMatchObject({ totalInbound: 100 });
+    // A different key on the SAME daily document is not a second document:
+    // the daily dimension already holds committed stock, so a changed
+    // repost is refused as a document conflict, not as an allowance loan.
     await expect(service.recordProductionInbound({
-      ...payload(), idempotencyKey: 'second-document', items: [{ grade: 'GRADE_1', qty: 1 }],
-    })).rejects.toThrow('超过日报剩余额度');
+      ...payload(), idempotencyKey: 'DAILY-2026-10-17-HOUSE-A-zzz', items: [{ grade: 'GRADE_1', qty: 1 }],
+    })).rejects.toThrow('已存在但数量或档位不同');
+    // The exact same posting under yet another key replays idempotently.
+    await expect(service.recordProductionInbound({
+      ...payload(), idempotencyKey: 'DAILY-2026-10-17-HOUSE-A-yyy', items: [{ grade: 'GRADE_1', qty: 100 }],
+    })).resolves.toMatchObject({ idempotent: true, totalInbound: 100 });
+    await expect(service.recordProductionInbound({
+      ...payload(), idempotencyKey: 'DAILY-2026-10-18-HOUSE-A-xxx', items: [{ grade: 'GRADE_1', qty: 1 }],
+    })).rejects.toThrow('idempotencyKey 必须形如');
+  });
+
+  it('cannot double-consume one daily allowance from two concurrent different-key posts', async () => {
+    await db.query(
+      `INSERT INTO brd_daily_logs (log_date, house_code, eggs_by_grade)
+       VALUES ('2026-10-17', 'HOUSE-A', $1::jsonb)`,
+      [JSON.stringify({ GRADE_1: 100 })],
+    );
+    // Two DIFFERENT keys, two DIFFERENT quantities, one allowance: only one
+    // posting may win; the loser must fail without writing anything.
+    const outcomes = await Promise.allSettled([
+      service.recordProductionInbound({ ...payload(), idempotencyKey: 'DAILY-2026-10-17-HOUSE-A-fast', items: [{ grade: 'GRADE_1', qty: 60 }] }),
+      service.recordProductionInbound({ ...payload(), idempotencyKey: 'DAILY-2026-10-17-HOUSE-A-slow', items: [{ grade: 'GRADE_1', qty: 70 }] }),
+    ]);
+    expect(outcomes.filter(row => row.status === 'fulfilled')).toHaveLength(1);
+    const winner = outcomes.find(row => row.status === 'fulfilled') as PromiseFulfilledResult<any>;
+    expect(winner.value.totalInbound).toBeLessThanOrEqual(100);
+    const batchQty = (await db.query('SELECT COALESCE(SUM(qty),0)::int AS qty FROM inv_batches'))[0].qty;
+    expect(batchQty).toBe(winner.value.totalInbound);
+    // After a win, ANY further different-quantity post under another key is
+    // a document conflict — the daily dimension holds exactly one truth.
+    const losers = await Promise.allSettled([
+      service.recordProductionInbound({ ...payload(), idempotencyKey: 'DAILY-2026-10-17-HOUSE-A-t1', items: [{ grade: 'GRADE_1', qty: 30 }] }),
+      service.recordProductionInbound({ ...payload(), idempotencyKey: 'DAILY-2026-10-17-HOUSE-A-t2', items: [{ grade: 'GRADE_1', qty: 30 }] }),
+    ]);
+    expect(losers.map(row => row.status)).toEqual(['rejected', 'rejected']);
+    for (const loser of losers) expect((loser as PromiseRejectedResult).reason.message).toContain('已存在但数量或档位不同');
+    expect((await db.query('SELECT COALESCE(SUM(qty),0)::int AS qty FROM inv_batches'))[0].qty).toBe(batchQty);
   });
 
   it('rolls back every batch and event if a later ledger insert fails, then permits a clean retry', async () => {
@@ -182,13 +220,16 @@ fixture('Issue 381 real PostgreSQL inbound transactions and retries', () => {
     expect(await counts()).toEqual({ batches: 0, events: 0 });
   });
 
-  it('serializes different keys on the same day without batch-number collisions', async () => {
+  it('serializes different keys on the same day into ONE daily document', async () => {
+    // One house/day is ONE production-inbound document regardless of caller
+    // keys: five concurrent different-key posts of the same payload must
+    // collapse to a single committed batch set, not five documents.
     const results = await Promise.all(Array.from({ length: 5 }, (_, i) => service.recordProductionInbound({
-      ...payload(), idempotencyKey: `INDEPENDENT-${i}`,
+      ...payload(), idempotencyKey: `DAILY-2026-10-17-HOUSE-A-${i}`,
     })));
-    expect(results.every(result => !result.idempotent)).toBe(true);
-    expect(new Set(results.flatMap(result => result.batches.map(batch => batch.batchNo))).size).toBe(5);
-    expect(await counts()).toEqual({ batches: 5, events: 5 });
+    expect(results.filter(result => !result.idempotent)).toHaveLength(1);
+    for (const result of results) expect(result.batches).toEqual(results[0].batches);
+    expect(await counts()).toEqual({ batches: 1, events: 1 });
   });
 
   it('shares numbering across companies, direct callers and callers supplying a transaction', async () => {

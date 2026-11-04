@@ -32,13 +32,16 @@ WITH ranked AS (
 SELECT * FROM ranked WHERE group_count > 1 AND rn > 1;
 
 DO $$
-DECLARE overpost_count int;
+DECLARE scope_rows int; scope_overpost int; scope_mismatch int;
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM daily_egg_duplicate_repair) THEN
     -- Either nothing was ever duplicated (hard error), or this repair already
-    -- ran. "Already ran" is proven by scope, not by the marker alone: retired
-    -- rows must exist AND no overposted (date, house, grade) group may remain
-    -- anywhere — the same consistency summary the audit requires for GO.
+    -- ran. "Already ran" is bound to the retired rows' OWN repair scope —
+    -- the (log_date, house) pairs they retired — not to the marker alone and
+    -- not to the whole database: a retired row under another date/house can
+    -- never silence this run. Within that scope the full GO contract must
+    -- hold: no overposted grade group and kept batches equal the report
+    -- exactly, in both directions.
     WITH report_grade AS (
       SELECT dl.log_date, dl.house_code, grade.key AS grade,
              SUM(GREATEST(0, ROUND(grade.value::numeric)))::numeric AS qty
@@ -55,21 +58,37 @@ BEGIN
          AND b.collection_batch_ref LIKE 'HOUSE-%'
        GROUP BY b.egg_date, SUBSTRING(b.collection_batch_ref FROM 7),
                 COALESCE(b.grade_code_std, b.quality_grade)
+    ), retired_scope AS (
+      SELECT DISTINCT b.egg_date AS log_date,
+             SUBSTRING(b.collection_batch_ref FROM 7) AS house_code
+        FROM inv_batches b
+       WHERE b.source_type = 'TEMP_PRODUCTION'
+         AND b.legacy_source LIKE '%DAILY_EGG_DUPLICATE_RETIRED%'
+         AND COALESCE(b.qty, 0) = 0
+         AND b.source_no IS NULL
+         AND b.collection_batch_ref LIKE 'HOUSE-%'
     )
-    SELECT COUNT(*) INTO overpost_count
-      FROM report_grade r
-      FULL JOIN inbound_grade i USING (log_date, house_code, grade)
-     WHERE COALESCE(i.qty, 0) > COALESCE(r.qty, 0);
-    IF EXISTS (
-      SELECT 1 FROM inv_batches
-       WHERE source_type = 'TEMP_PRODUCTION'
-         AND legacy_source LIKE '%DAILY_EGG_DUPLICATE_RETIRED%'
-         AND COALESCE(qty, 0) = 0
-         AND source_no IS NULL
-    ) AND overpost_count = 0 THEN
-      RAISE NOTICE 'DAILY_EGG_REPAIR_ALREADY_APPLIED';
+    SELECT
+      (SELECT COUNT(*) FROM retired_scope),
+      (SELECT COUNT(*) FROM (
+        SELECT 1 FROM report_grade r FULL JOIN inbound_grade i USING (log_date, house_code, grade)
+         WHERE (COALESCE(r.log_date, i.log_date), COALESCE(r.house_code, i.house_code))
+                 IN (SELECT log_date, house_code FROM retired_scope)
+           AND COALESCE(i.qty, 0) > COALESCE(r.qty, 0)
+      ) overposted),
+      (SELECT COUNT(*) FROM (
+        SELECT k.qty, r.qty AS report_qty
+          FROM inbound_grade k
+          LEFT JOIN report_grade r
+            ON r.log_date = k.log_date AND r.house_code = k.house_code AND r.grade = k.grade
+         WHERE (k.log_date, k.house_code) IN (SELECT log_date, house_code FROM retired_scope)
+           AND (r.qty IS NULL OR k.qty <> r.qty)
+      ) mismatched)
+    INTO scope_rows, scope_overpost, scope_mismatch;
+    IF scope_rows > 0 AND scope_overpost = 0 AND scope_mismatch = 0 THEN
+      RAISE NOTICE 'DAILY_EGG_REPAIR_ALREADY_APPLIED; scope_days=%; overpost=0; mismatch=0', scope_rows;
     ELSE
-      RAISE EXCEPTION 'DAILY_EGG_REPAIR_NO_DUPLICATES';
+      RAISE EXCEPTION 'DAILY_EGG_REPAIR_NO_DUPLICATES; scope_rows=%; scope_overpost=%; scope_mismatch=%', scope_rows, scope_overpost, scope_mismatch;
     END IF;
   END IF;
   IF EXISTS (

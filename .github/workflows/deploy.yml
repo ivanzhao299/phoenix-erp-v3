@@ -427,6 +427,19 @@ jobs:
           node scripts/ci/check-api-bootstrap-side-effects.cjs
           node --test scripts/ci/api-bootstrap-static.test.mjs scripts/ops/api-bootstrap-schema-preflight.test.mjs
 
+      - name: Real-PostgreSQL daily inbound concurrency proof (issue381 fixture)
+        env:
+          ISSUE381_FIXTURE_OWNER: ${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          set -euo pipefail
+          export PGHOST="$DB_HOST" PGPORT="$DB_PORT" PGUSER="$DB_USER" PGPASSWORD="$DB_PASSWORD" PGDATABASE="$DB_NAME"
+          psql -tAc "SELECT 1 FROM pg_database WHERE datname='issue381_fixture'" | grep -q 1 \
+            || psql -c "CREATE DATABASE issue381_fixture"
+          psql -d issue381_fixture -c "CREATE TABLE IF NOT EXISTS issue381_fixture_owner(owner_key text); TRUNCATE issue381_fixture_owner; INSERT INTO issue381_fixture_owner VALUES ('$ISSUE381_FIXTURE_OWNER')"
+          cd apps/api
+          ISSUE381_PG_URL="postgresql://$DB_USER:$DB_PASSWORD@$DB_HOST:$DB_PORT/issue381_fixture" \
+            ./node_modules/.bin/jest --runInBand --runTestsByPath src/modules/sales-v2/services/production-inbound.pg.spec.ts
+
       - name: Production-equivalent isolated API bootstrap SQL proof
         id: bootstrap_sql
         env:

@@ -187,9 +187,11 @@ export class FarmService {
 
   /**
    * Legacy no-grade daily reports post their eggs into an existing PRD-EGG
-   * batch. The batch must belong to the report's company and not be newer
-   * than the report date, and a missing batch FAILS the transaction — a
-   * silently skipped ledger row would make the daily report lie about stock.
+   * batch. PRD-EGG batches carry no house dimension, so company + egg-date
+   * ceiling is the finest identity the data model expresses; the batch must
+   * also still be AVAILABLE with open quantity. A missing batch FAILS the
+   * transaction — a silently skipped ledger row would make the daily report
+   * lie about stock.
    */
   private async findLegacyEggBatch(
     manager: { query: (sql: string, params?: unknown[]) => Promise<any[]> },
@@ -201,6 +203,8 @@ export class FarmService {
         WHERE product_code LIKE 'PRD-EGG%'
           AND ($1::text IS NULL OR company_code = $1)
           AND egg_date <= $2::date
+          AND status = 'AVAILABLE'
+          AND COALESCE(qty_available, 0) > 0
         ORDER BY egg_date DESC NULLS LAST, created_at DESC
         LIMIT 1`,
       [companyCode ?? null, logDate as string],
@@ -208,10 +212,58 @@ export class FarmService {
     const batchNo = rows[0]?.batch_no;
     if (!batchNo) {
       throw new BadRequestException(
-        `无匹配的 PRD-EGG 库存批次（公司=${companyCode ?? '全部'}，蛋日≤${String(logDate)}），日报库存记账失败：请先维护蛋品批次后重试`,
+        `无匹配的可用 PRD-EGG 库存批次（公司=${companyCode ?? '全部'}，蛋日≤${String(logDate)}，需 AVAILABLE 且可用量>0），日报库存记账失败：请先维护蛋品批次后重试`,
       );
     }
     return batchNo;
+  }
+
+  /**
+   * Compensate the legacy FARM_IN posting when grades are backfilled onto a
+   * no-grade report. The reversal is written only against proven reality:
+   *  - one reversal per daily report identity (log_date + ref_no) — rerunning
+   *    the same transition is an exact no-op, never extra ledger rows;
+   *  - the flock's net legacy FARM_IN (originals plus adjustments, minus
+   *    prior reversals) must still cover the amount being reversed;
+   *  - any shortfall (missing original, already adjusted, already reversed
+   *    under another identity) fails the whole transaction.
+   */
+  private async reverseLegacyFarmIn(
+    manager: { query: (sql: string, params?: unknown[]) => Promise<any[]> },
+    input: { flockNo: string; logDate: string; houseCode: string; shift?: string; amount: number; companyCode?: string | null; operator?: string },
+  ): Promise<void> {
+    const refNo = input.flockNo || input.houseCode;
+    const already = (await manager.query(
+      `SELECT 1 FROM inv_ledger
+        WHERE change_type = 'FARM_REVERSED'
+          AND note LIKE '日报补录分级：冲销历史 FARM_IN%'
+          AND log_date = $1::date
+          AND ref_no = $2
+        LIMIT 1`,
+      [input.logDate, refNo],
+    )) ?? [];
+    if (already.length > 0) return; // idempotent rerun of the same transition
+
+    const netRows = (await manager.query(
+      `SELECT COALESCE(SUM(CASE WHEN change_type = 'FARM_IN' THEN qty_change
+                                 WHEN change_type = 'FARM_REVERSED' THEN -qty_change END), 0)::numeric AS net_farm_in
+        FROM inv_ledger
+       WHERE ref_no = $1
+         AND (note LIKE '日报产蛋入账%' OR note LIKE '日报补录分级%' OR note LIKE '日报修改差额%')`,
+      [refNo],
+    )) ?? [];
+    const netFarmIn = Number(netRows[0]?.net_farm_in ?? 0);
+    if (!(netFarmIn >= input.amount) || input.amount <= 0) {
+      throw new BadRequestException(
+        `补录分级冲销校验失败：${input.houseCode} 在 ${input.logDate} 的历史 FARM_IN 净额为 ${netFarmIn} 枚，不足以冲销 ${input.amount} 枚（原始流水缺失或已被调整）。请先核对库存台账（ref_no=${refNo}）`,
+      );
+    }
+    const batchNo = await this.findLegacyEggBatch(manager, input.companyCode, input.logDate);
+    await manager.query(
+      `INSERT INTO inv_ledger (batch_no, change_type, qty_change, operator, store_code, ref_no, note, log_date)
+       VALUES ($1, 'FARM_REVERSED', $2::int, $3, 'FACTORY', $4, $5, $6::date)`,
+      [batchNo, input.amount, input.operator || 'SYS', refNo, `日报补录分级：冲销历史 FARM_IN ${input.amount}枚（${input.logDate} ${input.houseCode}${input.shift ? ` ${input.shift}` : ''}）`, input.logDate],
+    );
   }
 
   /** Grade removal is a stock-affecting transition: refuse it while the
@@ -416,12 +468,10 @@ export class FarmService {
       // 无分级 → 有分级：旧 FARM_IN 必须按原始数量精确冲销，之后该批蛋
       //   只能经 production-inbound 的 TEMP_PRODUCTION 台账入库。
       if (prior && !priorHasGrades && hasGradeBreakdown && priorEggs > 0) {
-        const batchNo = await this.findLegacyEggBatch(manager, body.company_code as string | undefined, body.log_date);
-        await manager.query(
-          `INSERT INTO inv_ledger (batch_no, change_type, qty_change, operator, store_code, ref_no, note)
-           VALUES ($1, 'FARM_REVERSED', $2::int, $3, 'FACTORY', $4, $5)`,
-          [batchNo, priorEggs, body.operator || 'SYS', flock_no || '', `日报补录分级：冲销历史 FARM_IN ${priorEggs}枚（${body.log_date} ${body.house_code} ${body.shift ?? ''}）`],
-        );
+        await this.reverseLegacyFarmIn(manager, {
+          flockNo: flock_no || '', logDate: String(body.log_date), houseCode: body.house_code,
+          shift: body.shift, amount: priorEggs, companyCode: body.company_code as string | undefined, operator: body.operator,
+        });
       }
       // 无分级明细的旧日报才写 FARM_IN；有分级时由用户确认后的
       // production-inbound 统一写库存，避免同一批蛋被日报和分级各记一次。
@@ -511,14 +561,12 @@ export class FarmService {
       // A4: 分级状态迁移与库存差额记账。
       const eggsDiff = eggs - oldEggs;
       if (!oldHasGrades && hasGradeBreakdown && oldEggs > 0) {
-        // 无分级 → 有分级：旧 FARM_IN 按原始数量精确冲销（补一条逆向流水，
-        // 保留原始行可追溯），此后该日报只经 TEMP_PRODUCTION 台账入库。
-        const batchNo = await this.findLegacyEggBatch(manager, (body.company_code ?? old.company_code) as string | undefined, logDate);
-        await manager.query(
-          `INSERT INTO inv_ledger (batch_no, change_type, qty_change, operator, store_code, ref_no, note)
-           VALUES ($1, 'FARM_REVERSED', $2::int, $3, 'FACTORY', $4, $5)`,
-          [batchNo, oldEggs, body.operator || 'SYS', effectiveFlockNo || '', `日报补录分级：冲销历史 FARM_IN ${oldEggs}枚（${logDate} ${old.house_code}）`],
-        );
+        // 无分级 → 有分级：旧 FARM_IN 按原始数量精确冲销（带存在性/净额/
+        // 幂等三重校验），此后该日报只经 TEMP_PRODUCTION 台账入库。
+        await this.reverseLegacyFarmIn(manager, {
+          flockNo: effectiveFlockNo || '', logDate: String(logDate), houseCode: old.house_code,
+          amount: oldEggs, companyCode: (body.company_code ?? old.company_code) as string | undefined, operator: body.operator,
+        });
       } else if (eggsDiff !== 0 && !hasGradeBreakdown) {
         // 纯无分级路径：按差额记账；批次按公司+日期精确定位，找不到即失败。
         const batchNo = await this.findLegacyEggBatch(manager, (body.company_code ?? old.company_code) as string | undefined, logDate);

@@ -19,16 +19,21 @@ test('kept batches must equal the daily report exactly, in both directions', () 
   assert.doesNotMatch(script, /k\.qty > r\.qty/);
 });
 
-test('already-applied no-op is scope-bound, not marker-bound', () => {
-  // A retired marker anywhere must not silence a repair while any overposted
-  // (date, house, grade) group remains, or while no retired row even exists.
-  const alreadyApplied = script.match(/IF EXISTS \(\s*SELECT 1 FROM inv_batches[\s\S]*?DAILY_EGG_REPAIR_ALREADY_APPLIED/)?.[0] ?? '';
+test('already-applied no-op is bound to the retired rows own repair scope', () => {
+  // The no-op fingerprint is the (log_date, house) pairs of retired rows: a
+  // retired marker under another date or house can never silence this run,
+  // and within the retired scope both overpost AND kept-vs-report equality
+  // (both directions) must hold before the run is allowed to no-op.
+  const alreadyApplied = script.match(/DECLARE scope_rows int;[\s\S]*?DAILY_EGG_REPAIR_ALREADY_APPLIED/)?.[0] ?? '';
+  assert.match(alreadyApplied, /retired_scope AS \(/);
   assert.match(alreadyApplied, /legacy_source LIKE '%DAILY_EGG_DUPLICATE_RETIRED%'/);
-  assert.match(alreadyApplied, /COALESCE\(qty, 0\) = 0/);
-  assert.match(alreadyApplied, /source_no IS NULL/);
-  assert.match(script, /AND overpost_count = 0 THEN/);
-  // The overpost summary used for the binding is the audit's own definition.
-  assert.match(script, /COALESCE\(i\.qty, 0\) > COALESCE\(r\.qty, 0\)/);
+  assert.match(alreadyApplied, /COALESCE\(b\.qty, 0\) = 0/);
+  assert.match(alreadyApplied, /b\.source_no IS NULL/);
+  // Scope membership is explicit, never whole-database.
+  assert.match(alreadyApplied, /IN \(SELECT log_date, house_code FROM retired_scope\)/);
+  assert.match(alreadyApplied, /COALESCE\(i\.qty, 0\) > COALESCE\(r\.qty, 0\)/);
+  assert.match(alreadyApplied, /r\.qty IS NULL OR k\.qty <> r\.qty/);
+  assert.match(script, /IF scope_rows > 0 AND scope_overpost = 0 AND scope_mismatch = 0 THEN/);
 });
 
 test('reversal stays idempotent and refusal stays fail-closed', () => {

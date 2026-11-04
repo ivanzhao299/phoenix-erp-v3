@@ -140,7 +140,7 @@ describe('FarmService', () => {
       const sql = insert[0] as string;
       const values = insert[1] as unknown[];
       expect(values[sql.match(/\(([^)]+)\) VALUES/)![1].split(',').indexOf('"eggs_produced"')]).toBe(150);
-      expect(manager.query.mock.calls.some(([query]) => String(query).includes("'FARM_IN'"))).toBe(false);
+      expect(manager.query.mock.calls.some(([query]) => String(query).includes('INSERT INTO inv_ledger') && String(query).includes("'FARM_IN'"))).toBe(false);
     });
 
     it('skips the legacy FARM_IN ledger when an explicit total accompanies grades', async () => {
@@ -160,16 +160,17 @@ describe('FarmService', () => {
         opening_qty: 1000,
       });
 
-      expect(manager.query.mock.calls.some(([query]) => String(query).includes("'FARM_IN'"))).toBe(false);
+      expect(manager.query.mock.calls.some(([query]) => String(query).includes('INSERT INTO inv_ledger') && String(query).includes("'FARM_IN'"))).toBe(false);
     });
 
     it('reverses the legacy FARM_IN exactly once when grades are backfilled onto a no-grade report', async () => {
       const { manager, entityManager, svc } = buildSvc();
       entityManager.query.mockResolvedValue([{ grade_code: 'GRADE_1' }, { grade_code: 'GRADE_2' }]);
-      manager.query.mockImplementation(async (sql: string) => {
+      manager.query.mockImplementation(async (sql: string, params?: unknown[]) => {
         if (sql.includes('SELECT eggs_by_grade, eggs_produced FROM brd_daily_logs')) {
           return [{ eggs_by_grade: null, eggs_produced: 300 }];
         }
+        if (sql.includes('net_farm_in')) return [{ net_farm_in: 300 }];
         if (sql.includes('SELECT batch_no FROM inv_batches')) return [{ batch_no: 'PRD-EGG-OLD' }];
         return [];
       });
@@ -179,11 +180,11 @@ describe('FarmService', () => {
         eggs_by_grade: { GRADE_1: 150, GRADE_2: 150 }, mortality_qty: 0, opening_qty: 1000,
       });
 
-      const reversal = manager.query.mock.calls.find(([query]) => String(query).includes("'FARM_REVERSED'"));
+      const reversal = manager.query.mock.calls.find(([query]) => String(query).includes("INSERT INTO inv_ledger") && String(query).includes("'FARM_REVERSED'"));
       expect(reversal).toBeTruthy();
       expect(reversal![1]).toEqual(expect.arrayContaining(['PRD-EGG-OLD', 300, 'SYS']));
       expect(String(reversal![1][4])).toContain('冲销历史 FARM_IN 300枚');
-      expect(manager.query.mock.calls.some(([query]) => String(query).includes("'FARM_IN'"))).toBe(false);
+      expect(manager.query.mock.calls.some(([query]) => String(query).includes('INSERT INTO inv_ledger') && String(query).includes("'FARM_IN'"))).toBe(false);
     });
 
     it('refuses removing grades while the report already feeds TEMP_PRODUCTION stock', async () => {
@@ -216,10 +217,64 @@ describe('FarmService', () => {
       await expect(svc.submitBreedingDailyLog({
         log_date: '2026-07-16', shift: 'MORNING', house_code: 'H001', company_code: 'COMP-A',
         eggs_produced: 120, mortality_qty: 0, opening_qty: 1000,
-      })).rejects.toThrow('无匹配的 PRD-EGG 库存批次');
+      })).rejects.toThrow('无匹配的可用 PRD-EGG 库存批次');
       // The upsert happened inside the same transaction; failing after it must
       // leave the caller with an error, never a silent partial success.
-      expect(manager.query.mock.calls.some(([query]) => String(query).includes("'FARM_IN'"))).toBe(false);
+      expect(manager.query.mock.calls.some(([query]) => String(query).includes('INSERT INTO inv_ledger') && String(query).includes("'FARM_IN'"))).toBe(false);
+    });
+
+    it('refuses the grade backfill when the original FARM_IN never exists', async () => {
+      const { manager, entityManager, svc } = buildSvc();
+      entityManager.query.mockResolvedValue([{ grade_code: 'GRADE_1' }]);
+      manager.query.mockImplementation(async (sql: string) => {
+        if (sql.includes('SELECT eggs_by_grade, eggs_produced FROM brd_daily_logs')) {
+          return [{ eggs_by_grade: null, eggs_produced: 300 }];
+        }
+        if (sql.includes('net_farm_in')) return [{ net_farm_in: 0 }];
+        return [];
+      });
+
+      await expect(svc.submitBreedingDailyLog({
+        log_date: '2026-07-16', shift: 'MORNING', house_code: 'H001',
+        eggs_by_grade: { GRADE_1: 300 }, mortality_qty: 0,
+      })).rejects.toThrow('净额为 0 枚，不足以冲销 300 枚');
+      expect(manager.query.mock.calls.some(([query]) => String(query).includes('INSERT INTO inv_ledger'))).toBe(false);
+    });
+
+    it('refuses the grade backfill when earlier adjustments already consumed the net FARM_IN', async () => {
+      const { manager, entityManager, svc } = buildSvc();
+      entityManager.query.mockResolvedValue([{ grade_code: 'GRADE_1' }]);
+      manager.query.mockImplementation(async (sql: string) => {
+        if (sql.includes('SELECT eggs_by_grade, eggs_produced FROM brd_daily_logs')) {
+          return [{ eggs_by_grade: null, eggs_produced: 500 }];
+        }
+        if (sql.includes('net_farm_in')) return [{ net_farm_in: 120 }];
+        return [];
+      });
+
+      await expect(svc.submitBreedingDailyLog({
+        log_date: '2026-07-16', shift: 'MORNING', house_code: 'H001',
+        eggs_by_grade: { GRADE_1: 500 }, mortality_qty: 0,
+      })).rejects.toThrow('净额为 120 枚，不足以冲销 500 枚');
+      expect(manager.query.mock.calls.some(([query]) => String(query).includes('INSERT INTO inv_ledger'))).toBe(false);
+    });
+
+    it('treats a repeated grade backfill as an idempotent no-op, never a second reversal', async () => {
+      const { manager, entityManager, svc } = buildSvc();
+      entityManager.query.mockResolvedValue([{ grade_code: 'GRADE_1' }]);
+      manager.query.mockImplementation(async (sql: string) => {
+        if (sql.includes('SELECT eggs_by_grade, eggs_produced FROM brd_daily_logs')) {
+          return [{ eggs_by_grade: null, eggs_produced: 300 }];
+        }
+        if (sql.includes("note LIKE '日报补录分级：冲销历史 FARM_IN%'")) return [{ '?column?': 1 }];
+        return [];
+      });
+
+      await expect(svc.submitBreedingDailyLog({
+        log_date: '2026-07-16', shift: 'MORNING', house_code: 'H001',
+        eggs_by_grade: { GRADE_1: 300 }, mortality_qty: 0,
+      })).resolves.toEqual({ code: 200, msg: '日报提交成功' });
+      expect(manager.query.mock.calls.some(([query]) => String(query).includes('INSERT INTO inv_ledger'))).toBe(false);
     });
 
     it('binds ownership from the house and accepts any farm in the guarded scope', async () => {
@@ -291,6 +346,7 @@ describe('FarmService', () => {
         company_code: 'COMP-A',
         eggs_by_grade: null,
       }];
+      if (sql.includes('net_farm_in')) return [{ net_farm_in: 400 }];
       if (sql.includes('SELECT batch_no FROM inv_batches')) return [{ batch_no: 'PRD-EGG-OLD' }];
       if (sql.includes('SELECT COALESCE(SUM(mortality_qty)')) return [{ total_mortality: 0, total_eggs: 400 }];
       if (sql.includes('SELECT current_qty')) return [];
@@ -302,11 +358,11 @@ describe('FarmService', () => {
       eggs_by_grade: { GRADE_1: 200, GRADE_2: 200 }, mortality_qty: 0,
     })).resolves.toEqual({ code: 200, msg: '日报更新成功' });
 
-    const reversal = manager.query.mock.calls.find(([query]) => String(query).includes("'FARM_REVERSED'"));
+    const reversal = manager.query.mock.calls.find(([query]) => String(query).includes("INSERT INTO inv_ledger") && String(query).includes("'FARM_REVERSED'"));
     expect(reversal).toBeTruthy();
     expect(reversal![1]).toEqual(expect.arrayContaining(['PRD-EGG-OLD', 400]));
     expect(String(reversal![1][4])).toContain('冲销历史 FARM_IN 400枚（2026-07-16 H001）');
-    expect(manager.query.mock.calls.some(([query]) => String(query).includes("'FARM_IN'"))).toBe(false);
+    expect(manager.query.mock.calls.some(([query]) => String(query).includes('INSERT INTO inv_ledger') && String(query).includes("'FARM_IN'"))).toBe(false);
   });
 
   it('refuses an update that strips grades from a report already posted to TEMP_PRODUCTION stock', async () => {
