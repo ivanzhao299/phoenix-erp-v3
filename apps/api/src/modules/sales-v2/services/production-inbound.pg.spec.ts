@@ -193,20 +193,20 @@ fixture('Issue 381 real PostgreSQL inbound transactions and retries', () => {
 
   it.each([
     // A key bound to another date is rejected by key discipline before any stock work.
-    { name: 'date', changed: { eggDate: '2026-10-18' }, message: 'idempotencyKey 必须形如' },
+    { name: 'date', changed: { eggDate: '2026-10-18' }, message: 'idempotencyKey 必须形如', status: 400 },
     // Another house is another document AND another company: scope refuses it.
-    { name: 'house', changed: { houseCode: 'HOUSE-B', warehouseCode: 'WH-B', locationCode: 'LOC-B' }, message: '无权向公司' },
+    { name: 'house', changed: { houseCode: 'HOUSE-B', warehouseCode: 'WH-B', locationCode: 'LOC-B' }, message: '无权向公司', status: 403 },
     // Same house, different stock destination: the daily document's
     // provenance must match exactly, or the repost is refused.
-    { name: 'warehouse', changed: { warehouseCode: 'WH-A2', locationCode: 'LOC-A2' }, message: '来源或库存归属不一致' },
-    { name: 'location', changed: { locationCode: 'LOC-A-OTHER' }, message: '来源或库存归属不一致' },
-  ])('rejects a repost that diverges from the committed daily document across $name', async ({ changed, message }) => {
+    { name: 'warehouse', changed: { warehouseCode: 'WH-A2', locationCode: 'LOC-A2' }, message: '来源或库存归属不一致', status: 400 },
+    { name: 'location', changed: { locationCode: 'LOC-A-OTHER' }, message: '来源或库存归属不一致', status: 400 },
+  ])('rejects a repost that diverges from the committed daily document across $name', async ({ changed, message, status }) => {
     const request = { ...payload(), idempotencyKey: 'DAILY-2026-10-17-HOUSE-A-CUSTOM' };
     const original = await service.recordProductionInbound(request);
     // Revoke the original warehouse, while the new requested warehouse is authorized.
     scope.allowedWarehouseCodes = ['WH-A', 'WH-A2', 'WH-B'];
     const error = await service.recordProductionInbound({ ...request, ...changed }).catch(e => e);
-    expect(error.getStatus()).toBe(400);
+    expect(error.getStatus()).toBe(status);
     expect(error.message).toContain(message);
     original.batches.forEach(batch => expect(error.message).not.toContain(batch.batchNo));
     expect(await counts()).toEqual({ batches: 1, events: 1 });
