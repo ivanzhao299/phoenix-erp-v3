@@ -215,7 +215,9 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     console.log(`BACKGROUND_DEPLOYMENT=${result.outcome}`);
     }
   } catch (error) {
+    const detail = String(error?.message || error || 'unknown').replace(/[\r\n]+/g, ' ').slice(0, 240);
     const code = /^(?:BACKGROUND|CONFIG|RUNTIME|STATE)_HOLD=[A-Z0-9_]+$/.test(error.message) ? error.message : 'BACKGROUND_HOLD=DEPLOY_SESSION_FAILED';
+    console.error(`BACKGROUND_FAILURE_DETAIL=${detail}`);
     console.error(code); process.exitCode = 1;
   }
 }
