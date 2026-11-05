@@ -86,9 +86,20 @@ jobs:
             test -z "$(git_safe status --porcelain --untracked-files=all)"
             git_safe fetch --no-tags origin main
             test "$(git_safe rev-parse FETCH_HEAD)" = "$TARGET_SHA"
-            for marker in transaction.json policy-transition.json background-control.json; do
+            for marker in transaction.json policy-transition.json; do
               test ! -e "$STATE_DIR/$marker" || { echo "MIGRATION_APPLY=HOLD_IN_FLIGHT_$marker"; exit 1; }
             done
+            # OPEN is the normal post-release admission state, not an
+            # in-flight deployment. Continue rejecting fenced/publishing or
+            # malformed records before schema-first migration.
+            if [ -e "$STATE_DIR/background-control.json" ]; then
+              node --input-type=module -e '
+                import fs from "node:fs";
+                const record = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+                if (record?.phase !== "OPEN") process.exit(1);
+              ' "$STATE_DIR/background-control.json" \
+                || { echo 'MIGRATION_APPLY=HOLD_IN_FLIGHT_background-control.json'; exit 1; }
+            fi
             STAGE="$STATE_DIR/migration-apply-$MIGRATION_RUN_ID"
             test ! -e "$STAGE"
             mkdir -m 700 "$STAGE"
