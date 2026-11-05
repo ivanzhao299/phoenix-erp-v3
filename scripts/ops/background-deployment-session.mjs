@@ -158,7 +158,10 @@ export async function executeFencedDeployment({ binding, project, participants, 
     clearInterval(monitor); clearTimeout(deadline); clearTimeout(killDeadline);
     await pollPromise;
     if (failed) throw failed;
-    if (result.code !== 0 || result.signal || child.backgroundInputFailed) fail('DEPLOY_BODY_FAILED');
+    if (result.code !== 0 || result.signal || child.backgroundInputFailed) {
+      console.error(`BACKGROUND_BODY_RESULT=code:${result.code ?? 'null'} signal:${result.signal ?? 'none'} inputFailed:${child.backgroundInputFailed === true}`);
+      fail('DEPLOY_BODY_FAILED');
+    }
     if (!coordinator.session.connected() || await coordinator.session.ping() !== true) fail('CONTROL_SESSION_LOST');
     coordinator.publisher.assertOwned(binding);
     const next = await (dependencies.discoverNew || (() => discoverParticipants(project)))();
