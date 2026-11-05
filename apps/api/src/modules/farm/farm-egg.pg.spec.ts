@@ -98,7 +98,11 @@ describePg('Issue 400 isolated PostgreSQL HTTP inventory chain', () => {
     rows.forEach((row, i) => expect(row).toMatchObject({ grade_code_std: grades[i], quality_grade: grades[i], qty: String((i + 1) * 11), event_grade: grades[i], qty_change: String((i + 1) * 11) }));
     const result = await ledger('2026-10-10').expect(200);
     expect(result.body.data).toHaveLength(9);
-    for (const [i, grade] of grades.entries()) expect(result.body.data.find((r: ApiLedgerRow) => r.grade === grade)).toMatchObject({ grade_name: names[i], grade_name_en: `Grade ${grade}`, grade_name_lo: `ໄຂ່ ${grade}`, qty_change: String((i + 1) * 11) });
+    for (const [i, grade] of grades.entries()) {
+      const row = result.body.data.find((r: ApiLedgerRow) => r.grade === grade);
+      expect(row).toMatchObject({ grade_name: names[i], grade_name_en: `Grade ${grade}`, grade_name_lo: `ໄຂ່ ${grade}`, qty_change: String((i + 1) * 11) });
+      expect(row.created_at).toMatch(/Z$/);
+    }
   });
 
   it('never replaces nine historical event grades with the current batch grade', async () => {

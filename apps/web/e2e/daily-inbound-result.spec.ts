@@ -49,8 +49,11 @@ for (const scenario of ['success', 'rejected', 'invalid-json', 'invalid-fields',
     await expect(page.getByText('日报已保存 — 是否同步入销售库存？', { exact: true })).toBeVisible();
     await page.getByRole('button', { name: '同步入销售库存', exact: true }).click();
     if (scenario === 'success') await expect(page.getByText(/已入库.*1.*个批次/)).toBeVisible();
-    else if (scenario === 'rejected') await expect(page.getByText(/入库失败：.*fixture SKU unavailable/)).toBeVisible();
-    else {
+    else if (scenario === 'rejected') {
+      await expect(page.getByText(/入库失败：.*fixture SKU unavailable/)).toBeVisible();
+      // A rejected inventory post must not refresh the saved-report history.
+      await expect(page.locator('table tbody')).not.toContainText('测试鸡舍');
+    } else {
       await expect(page.getByText(/入库结果未知，请先核对库存后再重试/)).toBeVisible();
       await expect(page.getByText(/入库失败：/)).toHaveCount(0);
     }

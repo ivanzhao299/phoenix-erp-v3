@@ -402,13 +402,11 @@ export default function DailyPage() {
       toast.error(`${t('ui.部分班次提交失败：', '部分班次提交失败：')}\n${failed}`);
     }
     if (fulfilled.length > 0) {
-      // Show the saved business date, including backdated reports outside the recent page.
-      setHistoryHouse(selectedHouse);
-      setHistoryDate(formDate);
-      if (historyHouse === selectedHouse && historyDate === formDate) loadData();
-      setSubmitted(true);
-      setApproved(false);
-      setTimeout(() => setSubmitted(false), 3000);
+      // A report is saved before its optional inventory posting because the
+      // posting validates the report's grade allowance. Do not refresh the
+      // history list until that second request has succeeded; otherwise a
+      // rejected posting looks like a valid inventory-backed report (#493).
+      let inboundFailed = false;
       // G15：日报提交成功后，若任一班次填了 9 档 → 弹窗确认是否同步入销售库存
       // 仅 TEMP_PRODUCTION_INBOUND 模式可用；PACKAGING_INBOUND 模式提示前往包装中心
       const rowsWithGrades = rowsToSubmit.filter((r, index) =>
@@ -441,23 +439,37 @@ export default function DailyPage() {
             const result = await readProductionInboundResult(res, allItems);
             if (result.status === 'success') {
               toast.success(`✓ ${t('ui.已入库', '已入库')} ${allItems.length} ${t('ui.个批次，合计', '个批次，合计')} ${totalSum.toLocaleString()} ${t('ui.枚', '枚')}`);
-            } else if (result.status === 'unknown') {
-              toast.error(t('ui.入库结果未知，请先核对库存后再重试：', '入库结果未知，请先核对库存后再重试：'));
-            } else if (result.message.includes('PACKAGING_INBOUND')) {
-              toast.error(t('ui.当前 SITE 是包装入库模式，请去包装作业中心完成', '当前 SITE 是包装入库模式，请去包装作业中心完成'));
             } else {
-              toast.error(`${t('ui.入库失败：', '入库失败：')}${result.message}`);
+              inboundFailed = true;
+              if (result.status === 'unknown') {
+                toast.error(t('ui.入库结果未知，请先核对库存后再重试：', '入库结果未知，请先核对库存后再重试：'));
+              } else if (result.message.includes('PACKAGING_INBOUND')) {
+                toast.error(t('ui.当前 SITE 是包装入库模式，请去包装作业中心完成', '当前 SITE 是包装入库模式，请去包装作业中心完成'));
+              } else {
+                toast.error(`${t('ui.入库失败：', '入库失败：')}${result.message}`);
+              }
             }
           } catch (e: unknown) {
+            inboundFailed = true;
             // The request may have committed before the response was lost. Do not
             // retry automatically; ask the operator to verify inventory first.
             toast.error(`${t('ui.入库结果未知，请先核对库存后再重试：', '入库结果未知，请先核对库存后再重试：')}${e instanceof Error ? e.message : ''}`);
           }
         }
       }
-      if (rejected.length === 0) {
-        const codes = shiftOptions.length > 0 ? shiftOptions.map(o => o.value) : ['BRD_SHIFT_MORNING', 'BRD_SHIFT_EVENING'];
-        setRows(codes.map((c, i) => mkRow(i + 1, c)));
+      if (!inboundFailed) {
+        // Show the saved business date only after the optional inventory post
+        // is confirmed, including backdated reports outside the recent page.
+        setHistoryHouse(selectedHouse);
+        setHistoryDate(formDate);
+        if (historyHouse === selectedHouse && historyDate === formDate) loadData();
+        setSubmitted(true);
+        setApproved(false);
+        setTimeout(() => setSubmitted(false), 3000);
+        if (rejected.length === 0) {
+          const codes = shiftOptions.length > 0 ? shiftOptions.map(o => o.value) : ['BRD_SHIFT_MORNING', 'BRD_SHIFT_EVENING'];
+          setRows(codes.map((c, i) => mkRow(i + 1, c)));
+        }
       }
     }
   };
