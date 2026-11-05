@@ -542,7 +542,7 @@ jobs:
     name: Build & Push ${{ matrix.target }}
     needs: [detect-changes, test]
     if: |
-      always() &&
+      success() &&
       (github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')) &&
       github.ref == 'refs/heads/main' &&
       (needs.test.result == 'success' || needs.test.result == 'skipped') &&
@@ -711,7 +711,7 @@ jobs:
     name: Deploy · ${{ needs.detect-changes.outputs.mode }}
     needs: [detect-changes, build-push]
     if: |
-      always() &&
+      success() &&
       github.event_name == 'workflow_dispatch' &&
       github.ref == 'refs/heads/main' &&
       inputs.approve_production == true &&
