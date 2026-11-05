@@ -88,7 +88,7 @@ export class FarmEggService {
               l.qty_change, h.house_code, h.house_name,
               g.grade_name, g.grade_name_en, g.grade_name_lo,
               l.customer_no, l.note, l.operator,
-              l.created_at AS created_at
+              to_char(l.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS created_at
        FROM inv_ledger l
        JOIN inv_batches b ON b.batch_no = l.batch_no
        LEFT JOIN product_grades event_grade ON event_grade.grade_code = NULLIF(l.quality_grade, '')
