@@ -1,7 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Optional, Inject } from '@nestjs/common';
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
 import { OrgOwnershipService } from '../org/services/org-ownership.service';
+import { ScopedNotificationRecipientService } from '../notification/scoped-notification-recipient.service';
 
 /**
  * FarmService — 养殖中心业务服务
@@ -155,12 +156,25 @@ const ALLOWED_DAILY_COLS = new Set([
 
 const MISSING_HOUSE_MESSAGE = '请先选择鸡舍后再提交';
 
+export function hasPositiveGradeBreakdown(value: unknown): boolean {
+  let parsed = value;
+  if (typeof parsed === 'string') {
+    try { parsed = JSON.parse(parsed); } catch { return false; }
+  }
+  return Boolean(parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+    && Object.values(parsed as Record<string, unknown>).some(item => Number(item) > 0));
+}
+
 @Injectable()
 export class FarmService {
   constructor(
     @InjectEntityManager()
     private readonly entityManager: EntityManager,
     private readonly ownership: OrgOwnershipService,
+    // Optional so standalone construction (tests) keeps working; production
+    // resolves it through NotificationModule and uses real DataScope filters.
+    @Optional() @Inject(ScopedNotificationRecipientService)
+    private readonly scopedRecipients?: { resolve(companyCode: string, menuCodes: string[]): Promise<string[]> },
   ) {}
 
   /** 把任意 body 过滤为只剩白名单列；用于动态 SQL 拼接前的安全防线 */
@@ -174,6 +188,169 @@ export class FarmService {
       }
     }
     return { fields, values };
+  }
+
+  /**
+   * Legacy no-grade daily reports post their eggs into an existing PRD-EGG
+   * batch. PRD-EGG batches carry no house dimension, so company + egg-date
+   * ceiling is the finest identity the data model expresses; the batch must
+   * also still be AVAILABLE with open quantity. A missing batch FAILS the
+   * transaction — a silently skipped ledger row would make the daily report
+   * lie about stock.
+   */
+  private async lookupLegacyEggBatch(
+    manager: { query: (sql: string, params?: unknown[]) => Promise<any[]> },
+    companyCode: string | null | undefined,
+    logDate: unknown,
+  ): Promise<string | null> {
+    const rows = (await manager.query(
+      `SELECT batch_no FROM inv_batches
+        WHERE product_code LIKE 'PRD-EGG%'
+          AND ($1::text IS NULL OR company_code = $1)
+          AND egg_date <= $2::date
+          AND status = 'AVAILABLE'
+          AND COALESCE(qty_available, 0) > 0
+        ORDER BY egg_date DESC NULLS LAST, created_at DESC
+        LIMIT 1`,
+      [companyCode ?? null, logDate as string],
+    )) ?? [];
+    return rows[0]?.batch_no ?? null;
+  }
+
+  private async findLegacyEggBatch(
+    manager: { query: (sql: string, params?: unknown[]) => Promise<any[]> },
+    companyCode: string | null | undefined,
+    logDate: unknown,
+  ): Promise<string> {
+    const batchNo = await this.lookupLegacyEggBatch(manager, companyCode, logDate);
+    if (!batchNo) {
+      throw new BadRequestException(
+        `无匹配的可用 PRD-EGG 库存批次（公司=${companyCode ?? '全部'}，蛋日≤${String(logDate)}，需 AVAILABLE 且可用量>0），库存记账失败：请先维护蛋品批次后重试`,
+      );
+    }
+    return batchNo;
+  }
+
+  /**
+   * Compensate the legacy FARM_IN posting when grades are backfilled onto a
+   * no-grade report. The reversal is written only against proven reality:
+   *  - one reversal per daily report identity (log_date + ref_no) — rerunning
+   *    the same transition is an exact no-op, never extra ledger rows;
+   *  - the flock's net legacy FARM_IN (originals plus adjustments, minus
+   *    prior reversals) must still cover the amount being reversed;
+   *  - any shortfall (missing original, already adjusted, already reversed
+   *    under another identity) fails the whole transaction.
+   */
+  private async reverseLegacyFarmIn(
+    manager: { query: (sql: string, params?: unknown[]) => Promise<any[]> },
+    input: { flockNo: string; logDate: string; houseCode: string; shift?: string; amount: number; companyCode?: string | null; operator?: string },
+  ): Promise<void> {
+    const refNo = input.flockNo || input.houseCode;
+    // Identity is the FULL daily-report coordinate: date + ref + house + shift.
+    // Without shift, the evening shift's backfill would be silently swallowed
+    // by the morning shift's reversal on the same flock and date.
+    const identity = `（${input.logDate} ${input.houseCode}${input.shift ? ` ${input.shift}` : ''}）`;
+    const already = (await manager.query(
+      `SELECT 1 FROM inv_ledger
+        WHERE change_type = 'FARM_REVERSED'
+          AND note LIKE '日报补录分级：冲销历史 FARM_IN%'
+          AND log_date = $1::date
+          AND ref_no = $2
+          AND note LIKE '%'
+          AND right(note, length($3)) = $3
+        LIMIT 1`,
+      [input.logDate, refNo, identity],
+    )) ?? [];
+    if (already.length > 0) return; // idempotent rerun of the same transition
+
+    // Net amount is scoped to this report's date and company. Rows written by
+    // the fixed paths carry log_date/company_code; legacy rows predate those
+    // columns (NULL) and are the only ones allowed to fall through the filter.
+    const netRows = (await manager.query(
+      `SELECT COALESCE(SUM(CASE WHEN change_type = 'FARM_IN' THEN qty_change
+                                 WHEN change_type = 'FARM_REVERSED' THEN -qty_change END), 0)::numeric AS net_farm_in
+        FROM inv_ledger
+       WHERE ref_no = $1
+         AND (log_date IS NULL OR log_date = $2::date)
+         AND ($3::text IS NULL OR company_code IS NULL OR company_code = $3)
+         AND (note LIKE '日报产蛋入账%' OR note LIKE '日报补录分级%' OR note LIKE '日报修改差额%')`,
+      [refNo, input.logDate, input.companyCode ?? null],
+    )) ?? [];
+    const netFarmIn = Number(netRows[0]?.net_farm_in ?? 0);
+    if (!(netFarmIn >= input.amount) || input.amount <= 0) {
+      throw new BadRequestException(
+        `补录分级冲销校验失败：${input.houseCode} 在 ${input.logDate} 的历史 FARM_IN 净额为 ${netFarmIn} 枚，不足以冲销 ${input.amount} 枚（原始流水缺失或已被调整）。请先核对库存台账（ref_no=${refNo}，范围=${input.logDate}${input.companyCode ? `/${input.companyCode}` : ''}）`,
+      );
+    }
+    const batchNo = await this.findLegacyEggBatch(manager, input.companyCode, input.logDate);
+    await manager.query(
+      `INSERT INTO inv_ledger (batch_no, change_type, qty_change, operator, store_code, ref_no, note, log_date, company_code)
+       VALUES ($1, 'FARM_REVERSED', $2::int, $3, 'FACTORY', $4, $5, $6::date, $7)`,
+      [batchNo, input.amount, input.operator || 'SYS', refNo, `日报补录分级：冲销历史 FARM_IN ${input.amount}枚${identity}`, input.logDate, input.companyCode ?? null],
+    );
+  }
+
+  /**
+   * Product verdict A: a skipped legacy FARM_IN must survive the HTTP
+   * response. Persist one unread pending-ledger notification per recipient
+   * for the company's inventory keepers (MENU_INV_BATCH holders resolved
+   * through the scoped recipient service; admin only as a fallback when the
+   * resolver is unavailable). Deduplication is database-level via the
+   * partial unique index on (user_id, biz_type, biz_no), and biz_no carries
+   * the company code so two companies sharing a house code never swallow
+   * each other's notices.
+   */
+  private async recordPendingLedgerNotification(
+    manager: { query: (sql: string, params?: unknown[]) => Promise<any[]> },
+    input: { logDate: string; houseCode: string; eggs: number; companyCode: string | null; flockNo: string },
+  ): Promise<void> {
+    const company = input.companyCode || '';
+    const bizNo = `FARM_LEDGER_PENDING:${company || 'NO-COMPANY'}:${input.logDate}:${input.houseCode}`;
+    let recipients: string[];
+    if (this.scopedRecipients && company) {
+      recipients = await this.scopedRecipients.resolve(company, ['MENU_INV_BATCH']);
+    } else {
+      const admins = (await manager.query(`SELECT user_id::text FROM sys_user WHERE username = 'admin' AND status = 1 LIMIT 1`)) ?? [];
+      recipients = admins.map((row: any) => String(row.user_id));
+    }
+    if (!recipients.length) return;
+    await manager.query(
+      `INSERT INTO sys_notifications (user_id, notification_type, title, content, company_code, biz_type, biz_no, status, created_at)
+       SELECT u.user_id, 'WORKFLOW_TASK', $1, $2, $3, 'FARM_LEDGER_PENDING', $4, 'UNREAD', NOW()
+         FROM sys_user u
+        WHERE u.status = 1
+          AND u.user_id::text = ANY($5)
+        ON CONFLICT (user_id, biz_type, biz_no) WHERE biz_type = 'FARM_LEDGER_PENDING' AND biz_no IS NOT NULL DO NOTHING`,
+      [
+        '日报 FARM_IN 待补账',
+        `日报（${input.logDate} ${input.houseCode}，flock=${input.flockNo || input.houseCode}）产蛋 ${input.eggs} 枚因无可用 PRD-EGG 批次未记入库存台账，请维护批次后补账。`,
+        input.companyCode,
+        bizNo,
+        recipients,
+      ],
+    );
+  }
+
+  /** Grade removal is a stock-affecting transition: refuse it while the
+   *  report's eggs already exist as TEMP_PRODUCTION batches. */
+  private async assertNoTempProductionForReport(
+    manager: { query: (sql: string, params?: unknown[]) => Promise<any[]> },
+    logDate: unknown,
+    houseCode: string,
+  ): Promise<void> {
+    const posted = (await manager.query(
+      `SELECT 1 FROM inv_batches
+        WHERE source_type = 'TEMP_PRODUCTION'
+          AND egg_date = $1
+          AND collection_batch_ref = $2
+        LIMIT 1`,
+      [logDate as string, `HOUSE-${houseCode}`],
+    )) ?? [];
+    if (posted.length > 0) {
+      throw new BadRequestException(
+        `该日报（${String(logDate)} ${houseCode}）已按分级入库，不能移除分级明细；请先在库存侧处理已入库批次后再修改`,
+      );
+    }
   }
 
   async submitBreedingDailyLog(body: any, scope: OrgScope = { isGlobal: true, farmCode: null, siteCode: null }) {
@@ -192,7 +369,7 @@ export class FarmService {
     if (body.eggs_by_grade && typeof body.eggs_by_grade === 'object') {
       const ebg = body.eggs_by_grade as Record<string, unknown>;
       const num = (k: string) => Math.max(0, Number(ebg[k]) || 0);
-      hasGradeBreakdown = Object.values(ebg).some(value => Number(value) > 0);
+      hasGradeBreakdown = hasPositiveGradeBreakdown(ebg);
       // G67 已将可售编码从 XL/L/M/S/XS 切换为 GRADE_1..5；以 ACTIVE
       // 等级主数据判断可售档，避免旧硬编码将日报总产蛋数算成 0。
       const saleableRows: Array<{ grade_code: string }> = await this.entityManager.query(
@@ -280,6 +457,26 @@ export class FarmService {
     }
 
     return await this.entityManager.transaction(async (manager) => {
+      // Grade-transition detection needs the row this submit will upsert:
+      // adding grades must retire the legacy FARM_IN posting at exactly the
+      // old amount, and removing grades that already feed TEMP_PRODUCTION
+      // stock must be refused before anything is written.
+      const priorRows = (await manager.query(
+        `SELECT eggs_by_grade, eggs_produced FROM brd_daily_logs
+          WHERE log_date = $1 AND house_code = $2 AND shift = $3`,
+        [body.log_date, body.house_code, body.shift ?? ''],
+      )) ?? [];
+      const prior = priorRows[0];
+      const priorHasGrades = hasPositiveGradeBreakdown(prior?.eggs_by_grade);
+      const priorEggs = Number(prior?.eggs_produced) || 0;
+
+      // Stripping grades from a report whose eggs already exist as
+      // TEMP_PRODUCTION stock would resurrect double counting; refuse before
+      // the report row is rewritten at all.
+      if (prior && priorHasGrades && !hasGradeBreakdown) {
+        await this.assertNoTempProductionForReport(manager, body.log_date, body.house_code);
+      }
+
       const { fields, values } = this.sanitize(body);
       if (fields.length === 0) {
         throw new BadRequestException('提交数据为空或全部字段非法');
@@ -332,31 +529,43 @@ export class FarmService {
         }
       }
 
-      // A4: 无分级明细的旧日报才写 FARM_IN；有分级时由用户确认后的
+      // A4: 分级状态迁移与旧记账路径。
+      // 无分级 → 有分级：旧 FARM_IN 必须按原始数量精确冲销，之后该批蛋
+      //   只能经 production-inbound 的 TEMP_PRODUCTION 台账入库。
+      if (prior && !priorHasGrades && hasGradeBreakdown && priorEggs > 0) {
+        await this.reverseLegacyFarmIn(manager, {
+          flockNo: flock_no || '', logDate: String(body.log_date), houseCode: body.house_code,
+          shift: body.shift, amount: priorEggs, companyCode: body.company_code as string | undefined, operator: body.operator,
+        });
+      }
+      // 无分级明细的旧日报才写 FARM_IN；有分级时由用户确认后的
       // production-inbound 统一写库存，避免同一批蛋被日报和分级各记一次。
+      // 批次按公司+日期+可用量精确定位。找不到批次时保持产品契约"日报
+      // 不阻塞"，但绝不静默：返回体携带 ledgerSkipped 警告，等待补账。
+      let ledgerSkipped = false;
       if (eggs > 0 && !hasGradeBreakdown) {
-        try {
-          const batches = await manager.query(
-            `SELECT batch_no FROM inv_batches WHERE product_code LIKE 'PRD-EGG%' ORDER BY created_at DESC LIMIT 1`,
+        const batchNo = await this.lookupLegacyEggBatch(manager, body.company_code as string | undefined, body.log_date);
+        if (batchNo) {
+          await manager.query(
+            `INSERT INTO inv_ledger (batch_no, change_type, qty_change, operator, store_code, ref_no, note, log_date, company_code)
+             VALUES ($1, 'FARM_IN', $2::int, $3, 'FACTORY', $4, $5, $6::date, $7)`,
+            [batchNo, eggs, body.operator || 'SYS', flock_no || '', `日报产蛋入账 ${eggs}枚`, body.log_date, body.company_code ?? null],
           );
-          if (batches.length > 0) {
-            await manager.query(
-              `INSERT INTO inv_ledger (batch_no, change_type, qty_change, operator, store_code, ref_no, note)
-               VALUES ($1, 'FARM_IN', $2::int, $3, 'FACTORY', $4, $5)`,
-              [batches[0].batch_no, eggs, body.operator || 'SYS', flock_no || '', `日报产蛋入账 ${eggs}枚`],
-            );
-          } else {
-            console.warn(
-              '[FarmService][WARN] 无可用 PRD-EGG 批次，产蛋入账已跳过；请仓储部门新建批次后补账',
-              { flock_no, eggs, log_date: body.log_date },
-            );
-          }
-        } catch (e: any) {
-          console.warn('[FarmService][WARN] inv_ledger 记账失败（不阻塞日报）:', e?.message);
+        } else {
+          ledgerSkipped = true;
+          console.warn('[FarmService][WARN] 无可用 PRD-EGG 批次，FARM_IN 记账跳过（已持久化待补账通知）：', { flock_no, eggs, log_date: body.log_date });
+          await this.recordPendingLedgerNotification(manager, {
+            logDate: String(body.log_date), houseCode: body.house_code, eggs,
+            companyCode: (body.company_code as string | undefined) ?? null, flockNo: flock_no || '',
+          });
         }
       }
 
-      return { code: 200, msg: '日报提交成功' };
+      return {
+        code: 200,
+        msg: ledgerSkipped ? '日报提交成功（警告：无可用 PRD-EGG 批次，本次 FARM_IN 未记账，待补账通知已发给库存管理员）' : '日报提交成功',
+        ledgerSkipped,
+      };
     });
   }
 
@@ -371,7 +580,7 @@ export class FarmService {
 
     return await this.entityManager.transaction(async (manager) => {
       const oldRecords = await manager.query(
-        `SELECT eggs_produced, mortality_qty, log_date, flock_no, house_code
+        `SELECT eggs_produced, mortality_qty, log_date, flock_no, house_code, company_code, shift, eggs_by_grade
          FROM brd_daily_logs WHERE id = $1`,
         [id],
       );
@@ -380,6 +589,15 @@ export class FarmService {
       }
       const old = oldRecords[0];
       const oldEggs = Number(old.eggs_produced) || 0;
+      const oldHasGrades = hasPositiveGradeBreakdown(old.eggs_by_grade);
+      const hasGradeBreakdown = hasPositiveGradeBreakdown(body.eggs_by_grade !== undefined ? body.eggs_by_grade : old.eggs_by_grade);
+
+      // Stripping grades from a report whose eggs already exist as
+      // TEMP_PRODUCTION stock would resurrect double counting; refuse before
+      // the report row is rewritten at all.
+      if (oldHasGrades && !hasGradeBreakdown) {
+        await this.assertNoTempProductionForReport(manager, body.log_date ?? old.log_date, old.house_code);
+      }
 
       const { fields, values } = this.sanitize(body);
       if (fields.length === 0) {
@@ -420,31 +638,42 @@ export class FarmService {
         }
       }
 
-      // A4: 库存差额冲销 — 无批次时降级 warning
+      // A4: 分级状态迁移与库存差额记账。
       const eggsDiff = eggs - oldEggs;
-      if (eggsDiff !== 0) {
-        try {
-          const batches = await manager.query(
-            `SELECT batch_no FROM inv_batches WHERE product_code LIKE 'PRD-EGG%' ORDER BY created_at DESC LIMIT 1`,
+      if (!oldHasGrades && hasGradeBreakdown && oldEggs > 0) {
+        // 无分级 → 有分级：旧 FARM_IN 按原始数量精确冲销（带存在性/净额/
+        // 幂等三重校验），此后该日报只经 TEMP_PRODUCTION 台账入库。
+        await this.reverseLegacyFarmIn(manager, {
+          flockNo: effectiveFlockNo || '', logDate: String(logDate), houseCode: old.house_code,
+          shift: (body.shift ?? old.shift) as string | undefined, amount: oldEggs,
+          companyCode: (body.company_code ?? old.company_code) as string | undefined, operator: body.operator,
+        });
+      } else if (eggsDiff !== 0 && !hasGradeBreakdown) {
+        // 纯无分级路径：按差额记账；批次按公司+日期+可用量精确定位，
+        // 找不到时保持"更新不阻塞"契约但显式警告。
+        const batchNo = await this.lookupLegacyEggBatch(manager, (body.company_code ?? old.company_code) as string | undefined, logDate);
+        if (batchNo) {
+          await manager.query(
+            `INSERT INTO inv_ledger (batch_no, change_type, qty_change, operator, store_code, ref_no, note, log_date, company_code)
+             VALUES ($1, $2, $3::int, $4, 'FACTORY', $5, $6, $7::date, $8)`,
+            [
+              batchNo,
+              eggsDiff > 0 ? 'FARM_IN' : 'FARM_REVERSED',
+              Math.abs(eggsDiff),
+              body.operator || 'SYS',
+              effectiveFlockNo || '',
+              `日报修改差额 ${eggsDiff > 0 ? '+' : ''}${eggsDiff}`,
+              logDate,
+              (body.company_code ?? old.company_code) ?? null,
+            ],
           );
-          if (batches.length > 0) {
-            await manager.query(
-              `INSERT INTO inv_ledger (batch_no, change_type, qty_change, operator, store_code, ref_no, note)
-               VALUES ($1, $2, $3::int, $4, 'FACTORY', $5, $6)`,
-              [
-                batches[0].batch_no,
-                eggsDiff > 0 ? 'FARM_IN' : 'FARM_REVERSED',
-                Math.abs(eggsDiff),
-                body.operator || 'SYS',
-                effectiveFlockNo || '',
-                `日报修改差额 ${eggsDiff > 0 ? '+' : ''}${eggsDiff}`,
-              ],
-            );
-          } else {
-            console.warn('[FarmService][WARN] 修改差额记账跳过，无 PRD-EGG 批次');
-          }
-        } catch (e: any) {
-          console.warn('[FarmService][WARN] inv_ledger 差额记账失败:', e?.message);
+        } else {
+          console.warn('[FarmService][WARN] 无可用 PRD-EGG 批次，修改差额记账跳过（已持久化待补账通知）：', { flock_no: effectiveFlockNo, eggsDiff, log_date: logDate });
+          await this.recordPendingLedgerNotification(manager, {
+            logDate: String(logDate), houseCode: old.house_code, eggs: Math.abs(eggsDiff),
+            companyCode: (body.company_code ?? old.company_code) ?? null, flockNo: effectiveFlockNo || '',
+          });
+          return { code: 200, msg: '日报更新成功（警告：无可用 PRD-EGG 批次，本次差额未记账，待补账通知已发给库存管理员）', ledgerSkipped: true };
         }
       }
 

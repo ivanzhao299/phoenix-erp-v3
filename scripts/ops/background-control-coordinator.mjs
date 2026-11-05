@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawn, execFileSync } from 'node:child_process';
 import { createInterface } from 'node:readline';
+import { assertScopeMigrationsReceipted } from './chanjet-admission-schema-receipt.mjs';
 import { CONTRACT, secureJson, verifyContext } from './production-config-guard.mjs';
 import { executionEnv, captureRuntime } from './capture-production-runtime.mjs';
 import { assertContained } from './production-trusted-paths.mjs';
@@ -123,13 +124,16 @@ export function verifyParticipantStatus(actual, expected, manifest) {
   for (const key of ['inFlight', 'pendingChildren', 'taskGraphs']) if (!Number.isSafeInteger(s[key]) || s[key] < 0) fail('PARTICIPANT_COUNT_INVALID');
   return s;
 }
-/** New deployment records bind v3/API-only receipts. Only records that
- * actually predate mode binding retain the historical v2/API-only contract. */
+/** Deployment records bind v3 receipts to the fenced release mode. Historical
+ * records without deployMode remain API-only for compatibility. */
 export function completedDeploymentEvidenceBinding(deployment, binding) {
   const modeBound = Object.hasOwn(deployment, 'deployMode');
-  if ((modeBound && deployment.deployMode !== 'api') || (!modeBound && Object.hasOwn(deployment, 'maintenance'))) fail('DEPLOY_SUCCESS_MODE_BINDING');
+  const deployMode = modeBound ? deployment.deployMode : 'api';
+  if (!['api', 'full'].includes(deployMode) || (binding.deployMode && binding.deployMode !== deployMode)
+    || (!modeBound && Object.hasOwn(deployment, 'maintenance'))) fail('DEPLOY_SUCCESS_MODE_BINDING');
   return { runId: binding.owner, runAttempt: binding.owner.split('-').at(-1), targetSha: binding.targetSha,
-    configFloorSha: binding.targetSha, deployMode: 'api', evidenceSchema: modeBound ? MODE_EVIDENCE_SCHEMA : EVIDENCE_SCHEMA };
+    configFloorSha: binding.configFloorSha || (deployMode === 'full' ? binding.previousFloorSha : binding.targetSha), deployMode,
+    evidenceSchema: modeBound ? MODE_EVIDENCE_SCHEMA : EVIDENCE_SCHEMA };
 }
 export function verifyCompletedDeployment(binding, participants) {
   validateBinding(binding); validateParticipants(participants, { targetSha: binding.targetSha });
@@ -138,14 +142,24 @@ export function verifyCompletedDeployment(binding, participants) {
   const deployment = secureJson(path.join(CONTRACT.stateDirectory, `deploy-${binding.owner}.json`));
   const active = secureJson(path.join(CONTRACT.stateDirectory, 'active.json'));
   const floor = secureJson(path.join(CONTRACT.stateDirectory, 'floor.json'));
+  const mode = deployment.deployMode || 'api';
+  if (binding.deployMode && binding.deployMode !== mode) fail('DEPLOY_SUCCESS_MODE_BINDING');
+  const floorSha = mode === 'full' ? (binding.configFloorSha || floor.floorSha) : binding.targetSha;
+  const webSwitched = mode === 'full';
   if (deployment.version !== CONTRACT.version || active.version !== CONTRACT.version || floor.version !== CONTRACT.version
     || deployment.outcome !== 'SUCCESS' || active.outcome !== 'SUCCESS' || deployment.target !== binding.targetSha
     || deployment.configSha !== binding.targetSha || active.configSha !== binding.targetSha || floor.phase !== 'READY'
-    || deployment.switched?.api !== true || deployment.switched?.web !== false
-    || deployment.floorSha !== binding.targetSha || floor.floorSha !== binding.targetSha || active.floorSha !== binding.targetSha
+    || deployment.switched?.api !== true || deployment.switched?.web !== webSwitched
+    || deployment.floorSha !== floorSha || floor.floorSha !== floorSha || active.floorSha !== floorSha
     || deployment.previous?.api?.revision !== binding.previousFloorSha || deployment.active?.api?.revision !== binding.targetSha
     || active.active?.api?.revision !== binding.targetSha || floor.chanjetPolicy !== 'HOLD' || floor.readonlyApproval !== null
-    || !Array.isArray(deployment.migrationPaths) || deployment.migrationPaths.length !== 0
+    || (mode === 'full' && (deployment.previous?.web?.revision !== binding.previousFloorSha
+      || deployment.active?.web?.revision !== binding.targetSha || active.active?.web?.revision !== binding.targetSha))
+    || (mode === 'api' && deployment.active?.web?.revision !== deployment.previous?.web?.revision)
+    || !Array.isArray(deployment.migrationPaths)
+    || (deployment.migrationPaths.length > 0 && !assertScopeMigrationsReceipted(CONTRACT.repository, {
+      baseline: binding.previousFloorSha, target: binding.targetSha, changed: deployment.migrationPaths,
+    }))
     || JSON.stringify(deployment.active) !== JSON.stringify(active.active)) fail('DEPLOY_SUCCESS_BINDING');
   const evidence = deployment.evidence;
   if (!evidence || !evidence.pre || !evidence.post || !evidence.log) fail('DEPLOY_EVIDENCE_REQUIRED');

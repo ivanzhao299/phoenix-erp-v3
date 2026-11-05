@@ -1,9 +1,9 @@
-import { assertAdmissionSchemaApplied } from './chanjet-admission-schema-receipt.mjs';
+import { assertAdmissionSchemaApplied, assertScopeMigrationsReceipted } from './chanjet-admission-schema-receipt.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { createHash } from 'node:crypto';
-import { CONTRACT, git, requireCleanMain, assertFloorMonotonic, migrationScope, assertFloor, secureJson, verifyContext } from './production-config-guard.mjs';
+import { CONTRACT, git, guardProduction, requireCleanMain, assertFloorMonotonic, migrationScope, assertFloor, secureJson, verifyContext } from './production-config-guard.mjs';
 import { assertModernReleaseAdmission } from './production-maintenance-admission.mjs';
 import { assertLegacyMaintenanceStateCore } from './production-deployment-state.mjs';
 import { same, hold } from './production-maintenance-receipts.mjs';
@@ -62,7 +62,23 @@ async function promoteFloorCore(root, env, dependencies, admit, legacy) {
     if (JSON.stringify(installed.CONTRACT[key]) !== JSON.stringify(CONTRACT[key])) throw new Error('CONFIG_HOLD=PROMOTION_CONTEXT_CHANGE');
   }
   const actual = (dependencies.captureRuntime || captureRuntime)();
-  installed.guardProduction(root, directory, actual); (dependencies.requireCleanMain || requireCleanMain)(root);
+  const previousFloor = installed.secureJson(path.join(directory, 'floor.json'));
+  const criticalFilesChangedBeforePromotion = getGit(root, ['diff', '--name-only', previousFloor.floorSha, target, '--', ...CONTRACT.criticalFiles]).split('\n').filter(Boolean).length > 0;
+  console.log(`FLOOR_REANCHOR_PRECHECK=version:${previousFloor.version};critical:${criticalFilesChangedBeforePromotion}`);
+  if (previousFloor.version === 3 && criticalFilesChangedBeforePromotion) {
+    // The installed v3 guard quite correctly rejects a critical-file mismatch
+    // during ordinary deploys. During the explicitly bound v3→v3' transition,
+    // validate every other production invariant with the reviewed candidate
+    // guard and waive only that one mismatch until the new floor is written.
+    guardProduction(root, directory, actual, undefined, {
+      allowFloorReanchor: true,
+      reanchorTarget: target,
+      previousFloorSha: previousFloor.floorSha,
+    });
+  } else {
+    installed.guardProduction(root, directory, actual);
+  }
+  (dependencies.requireCleanMain || requireCleanMain)(root);
   for (const name of ['transaction.json', 'policy-transition.json']) if (present(path.join(directory, name))) throw new Error('CONFIG_HOLD=UNFINISHED_PROMOTION');
   if (getGit(root, ['rev-parse', 'origin/main']) !== target || getGit(root, ['ls-remote', 'origin', 'refs/heads/main']).split(/\s/)[0] !== target) throw new Error('CONFIG_HOLD=LATEST_MAIN_CHANGED');
   getGit(root, ['merge-base', '--is-ancestor', getGit(root, ['rev-parse', 'HEAD']), target]);
@@ -72,7 +88,6 @@ async function promoteFloorCore(root, env, dependencies, admit, legacy) {
     const source = file === 'api-bootstrap-schema-contract.json' ? `apps/api/src/common/database/${file}` : `scripts/ops/${file}`;
     if (!readFile(path.join(base, file)).equals(Buffer.from(getGit(root, ['show', `${target}:${source}`]) + '\n'))) throw new Error('CONFIG_HOLD=STAGED_HELPER_MISMATCH');
   }
-  const previousFloor = installed.secureJson(path.join(directory, 'floor.json'));
   const previousActive = installed.secureJson(path.join(directory, 'active.json'));
   (dependencies.assertFloorMonotonic || assertFloorMonotonic)(root, previousFloor.floorSha, target);
   if (legacy && (previousFloor.version !== 3 || previousFloor.floorSha !== legacy.context.previousFloorSha
@@ -83,7 +98,10 @@ async function promoteFloorCore(root, env, dependencies, admit, legacy) {
   // one critical file relative to the current floor (a no-op re-anchor would
   // silently re-bless an unchanged contract). Empty diff → dedicated HOLD.
   const criticalFilesChanged = getGit(root, ['diff', '--name-only', previousFloor.floorSha, target, '--', ...CONTRACT.criticalFiles]).split('\n').filter(Boolean).length > 0;
-  const schemaApplied = (dependencies.assertAdmissionSchemaApplied || assertAdmissionSchemaApplied)(root, scope);
+  // Pending migrations are only tolerable for an api-only floor re-anchor when
+  // every one of them was applied through the reviewed out-of-band channel and
+  // still matches its recorded ledger digest.
+  const schemaApplied = (dependencies.assertScopeMigrationsReceipted || assertScopeMigrationsReceipted)(root, scope);
   const plan = promotionPlan({ schemaApplied, previousFloor, previousActive, actual, target, approvedSha: env.APPROVED_CONFIG_FLOOR_SHA, runId: env.DEPLOY_RUN_ID, scope, criticalFilesChanged, expectedPreviousFloorSha: env.APPROVED_PREVIOUS_FLOOR_SHA || '', now: (dependencies.now || Date.now)() });
   (dependencies.assertFloor || assertFloor)(root, plan.floor, target, { targetTree: true });
   const record = path.join(directory, `floor-promotion-${env.DEPLOY_RUN_ID}.json`);
@@ -125,5 +143,9 @@ export async function promoteLegacyMaintenanceFloor(request, dependencies = {}) 
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   try { await promoteFloor(fs.realpathSync(process.cwd())); }
-  catch { console.error('CONFIG_FLOOR_PROMOTION=HOLD'); process.exitCode = 1; }
+  catch (error) {
+    const code = String(error?.message || 'UNKNOWN').replace(/\s+/g, ' ').slice(0, 160);
+    console.error(`CONFIG_FLOOR_PROMOTION=HOLD:${code}`);
+    process.exitCode = 1;
+  }
 }

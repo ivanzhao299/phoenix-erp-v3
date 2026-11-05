@@ -36,7 +36,7 @@ async function fixture(port) {
   let record = null, manifest = null, active = 1, missing = false;
   let controlIdentity = (await client.query('SELECT pg_backend_pid() AS pid, (SELECT oid::int FROM pg_database WHERE datname=current_database()) AS oid, backend_start FROM pg_stat_activity WHERE pid=pg_backend_pid()')).rows[0];
   const publisher = new BackgroundManifestPublisher({}, { guard: () => {}, inspect: () => ({}), readPrivate: () => record, readPublic: () => manifest,
-    writePrivate: value => { record = value; }, writePublic: value => { manifest = value; } });
+    writePrivate: value => { record = value; }, writePublic: value => { manifest = value; }, readHighWater: () => 0, writeHighWater: () => {} });
   const coordinator = new BackgroundFenceCoordinator({ binding, participants: [participant], project: 'phoenix', timeoutMs: 2000, pollMs: 10 }, {
     publisher, session, inventory: () => missing ? [] : [participant.containerId], verifySuccess: async () => true,
     inspectParticipant: async () => ({ containerId: participant.containerId, revision: old, startedAt: new Date().toISOString(), restartCount: 0,

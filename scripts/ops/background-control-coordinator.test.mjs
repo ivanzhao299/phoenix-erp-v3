@@ -9,12 +9,14 @@ const p = { bootId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', containerId: '1'.rep
 const next = { ...p, bootId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', containerId: '2'.repeat(64), revision: target };
 function fixture() {
   const events = [];
-  let record = null; let manifest = null;
+  let record = null; let manifest = null; let highWater = 0;
   const publisher = new BackgroundManifestPublisher({}, {
     guard: () => events.push('root-fd9'), inspect: () => ({}),
     readPrivate: () => record && structuredClone(record), readPublic: () => manifest && structuredClone(manifest),
     writePrivate: value => { record = structuredClone(value); events.push(`private:${value.phase}`); },
-    writePublic: value => { manifest = structuredClone(value); events.push(`public:${value.phase}`); }, now: () => '2026-10-18T00:00:00.000Z',
+    writePublic: value => { manifest = structuredClone(value); events.push(`public:${value.phase}`); },
+    readHighWater: () => highWater, writeHighWater: generation => { highWater = generation; events.push(`highwater:${generation}`); },
+    now: () => '2026-10-18T00:00:00.000Z',
   });
   let connected = true; let clock = 0; let current = [p]; let active = 0; let poisoned = false; let bootChange = false;
   const acquired = new Set(); let blockedKey = null;
@@ -33,6 +35,7 @@ function fixture() {
     now: () => clock, sleep: async ms => { clock += ms; },
   });
   return { events, publisher, coordinator, session, inspect, get record() { return record; }, get manifest() { return manifest; },
+    clear: () => { record = null; manifest = null; },
     disconnect: () => { connected = false; }, block: key => { blockedKey = key; }, setActive: n => { active = n; },
     crash: () => { current = []; }, poison: () => { poisoned = true; }, changeBoot: () => { bootChange = true; }, replace: () => { current = [next]; } };
 }
@@ -62,6 +65,16 @@ test('generation increments on explicit verified OPEN and successor FENCE, never
   const f = fixture(); f.publisher.fence(binding, [p]);
   await f.publisher.open(binding, [next], async () => true); assert.equal(f.manifest.generation, 2); assert.equal(f.record.phase, 'OPEN');
   f.publisher.fence({ owner: '123456-2', previousFloorSha: target, targetSha: 'c'.repeat(40) }, [next]); assert.equal(f.manifest.generation, 3);
+});
+test('fence generation never regresses below the durable high-water mark', () => {
+  const f = fixture(); f.publisher.fence(binding, [p]); assert.equal(f.manifest.generation, 1);
+  // Reconciliation cleared both records but persisted generation 10: a fresh
+  // fence must continue above it or live participants reject it as replay.
+  f.publisher.readHighWater = () => 10;
+  assert.throws(() => f.publisher.fence(binding, [p]), /UNFINISHED_BACKGROUND_TRANSACTION/);
+  f.clear(); // simulate the reconciled private record and public projection
+  f.publisher.fence({ owner: '123456-9', previousFloorSha: 'a'.repeat(40), targetSha: 'b'.repeat(40) }, [p]);
+  assert.equal(f.manifest.generation, 11);
 });
 test('unresolved fence cannot be silently claimed by same or another run', () => {
   const f = fixture(); f.publisher.fence(binding, [p]);

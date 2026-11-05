@@ -1,4 +1,4 @@
-import { assertAdmissionSchemaApplied } from './chanjet-admission-schema-receipt.mjs';
+import { assertScopeMigrationsReceipted } from './chanjet-admission-schema-receipt.mjs';
 import { validatePolicyTransition } from './chanjet-readonly-policy.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -166,7 +166,7 @@ async function deploymentOperationCore({ root, directory, operation, input, valu
   const read = dependencies.readState || secureJson, write = dependencies.atomicState || atomicState;
   const capture = dependencies.captureRuntime || captureRuntime, guard = dependencies.guardProduction || guardProduction;
   const getGit = dependencies.git || git, getScope = dependencies.migrationScope || migrationScope;
-  const candidateInspector = dependencies.inspectCandidate || inspectCandidate, schemaCheck = dependencies.assertAdmissionSchemaApplied || assertAdmissionSchemaApplied;
+  const candidateInspector = dependencies.inspectCandidate || inspectCandidate, schemaCheck = dependencies.assertScopeMigrationsReceipted || assertScopeMigrationsReceipted;
   const eligibility = dependencies.rollbackEligibility || rollbackEligibility;
   const file = transactionFile(directory, env.DEPLOY_RUN_ID); let state, completedActive;
   if (operation === 'begin') {

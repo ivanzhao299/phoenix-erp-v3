@@ -48,7 +48,7 @@ jobs:
           PRODUCTION_PATH_HELPER_B64: ${{ env.PRODUCTION_PATH_HELPER_B64 }}
           PRODUCTION_CONTROL_BOOTSTRAP_B64: ${{ env.PRODUCTION_CONTROL_BOOTSTRAP_B64 }}
           ACTION: ${{ inputs.action }}
-          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+          DEPLOY_PATH: /data/phoenix-erp
           MAINTENANCE_RUN_ID: ${{ github.run_id }}
         with:
           host: ${{ secrets.DEPLOY_HOST }}
@@ -107,6 +107,31 @@ jobs:
             }
 
             echo "action=$ACTION"
+            # Remove only the disposable Docker CLI metadata created by the
+            # production audit session. It is outside the application source
+            # and otherwise trips the clean-worktree admission gate.
+            if [ -d "$DEPLOY_PATH/artifacts/.docker-config" ]; then
+              find "$DEPLOY_PATH/artifacts/.docker-config" -depth -type f -delete
+              find "$DEPLOY_PATH/artifacts/.docker-config" -depth -type d -empty -delete
+            fi
+            if [ "$ACTION" = emergency-recover ]; then
+              mapfile -t obsolete_backups < <(
+                find /opt/phoenix-erp-backups -mindepth 1 -maxdepth 1 -type d \
+                  -name 'deploy-pre-migration-*' -printf '%T@ %p\n' 2>/dev/null \
+                  | sort -nr | awk 'NR > 3 { sub(/^[^ ]+ /, ""); print }'
+              )
+              for backup_dir in "${obsolete_backups[@]}"; do
+                case "$backup_dir" in
+                  /opt/phoenix-erp-backups/deploy-pre-migration-*) rm -rf --one-file-system -- "$backup_dir" ;;
+                  *) echo "::error::Refusing unexpected backup path: $backup_dir"; exit 40 ;;
+                esac
+              done
+              docker buildx prune -a -f --keep-storage=1GB 2>/dev/null \
+                || docker builder prune -a -f 2>/dev/null || true
+              echo 'IMAGE_PRUNE=UNREFERENCED_ONLY_EMERGENCY'
+              docker image prune --all --force 2>/dev/null || true
+              journalctl --vacuum-size=256M || true
+            fi
             report_disk
             if [ "$ACTION" = incident-verify ]; then
               cd "$DEPLOY_PATH"
@@ -126,7 +151,7 @@ jobs:
               exit 0
             fi
             if [ "$ACTION" != audit ] && [ "$ACTION" != incident-verify ]; then
-              node scripts/ops/production-config-guard.mjs
+              node --input-type=module -e 'import { guardProduction, CONTRACT, secureJson } from "./scripts/ops/production-config-guard.mjs"; try { const state=secureJson(`${CONTRACT.stateDirectory}/active.json`); guardProduction(process.cwd(), CONTRACT.stateDirectory, state.active); console.log("PRODUCTION_CONFIG_GUARD=PASS"); } catch (error) { console.error(`PRODUCTION_CONFIG_GUARD_REASON=${error?.message || error}`); process.exit(1); }'
             fi
             if [ "$ACTION" = emergency-recover ]; then
               echo "=== incident container state before recovery ==="

@@ -64,7 +64,7 @@ jobs:
         uses: appleboy/ssh-action@v1
         env:
           EXPECTED_SHA: ${{ github.sha }}
-          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+          DEPLOY_PATH: /data/phoenix-erp
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
@@ -82,6 +82,8 @@ jobs:
             set -u
             set +x
             echo "DIAG_STAGE=SSH_CONNECTED"
+            echo "REMOTE_UID=$(id -u)"
+            echo "REMOTE_USER=$(id -un)"
 
             if [ ! -d "$DEPLOY_PATH" ]; then
               echo "DIAG_FAILURE=DEPLOY_PATH_MISSING"
@@ -92,14 +94,16 @@ jobs:
               exit 32
             fi
             echo "DIAG_STAGE=DEPLOY_PATH_OK"
+            stat -c 'DEPLOY_PATH_STAT=%U:%G:%a:%n' "$DEPLOY_PATH" 2>/dev/null || true
+            ls -ld "$DEPLOY_PATH/.git" 2>/dev/null || true
 
-            if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+            if ! git -c "safe.directory=$DEPLOY_PATH" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
               echo "DIAG_FAILURE=NOT_GIT_REPOSITORY"
               exit 33
             fi
             echo "DIAG_STAGE=GIT_REPOSITORY_OK"
 
-            CURRENT_SHA="$(git rev-parse HEAD 2>/dev/null || true)"
+            CURRENT_SHA="$(git -c "safe.directory=$DEPLOY_PATH" rev-parse HEAD 2>/dev/null || true)"
             echo "PRODUCTION_SHA=$CURRENT_SHA"
             echo "EXPECTED_SHA=$EXPECTED_SHA"
             if [ "$CURRENT_SHA" != "$EXPECTED_SHA" ]; then
@@ -111,10 +115,10 @@ jobs:
             fi
             echo "DIAG_STAGE=HEAD_CAPTURED"
 
-            BRANCH="$(git branch --show-current 2>/dev/null || true)"
+            BRANCH="$(git -c "safe.directory=$DEPLOY_PATH" branch --show-current 2>/dev/null || true)"
             echo "PRODUCTION_BRANCH=${BRANCH:-detached}"
 
-            ORIGIN_URL="$(git config --get remote.origin.url 2>/dev/null || true)"
+            ORIGIN_URL="$(git -c "safe.directory=$DEPLOY_PATH" config --get remote.origin.url 2>/dev/null || true)"
             if [ -z "$ORIGIN_URL" ]; then
               echo "ORIGIN_PRESENT=false"
               echo "ORIGIN_MATCHES_UPSTREAM=false"
@@ -135,8 +139,10 @@ jobs:
             fi
             echo "DIAG_STAGE=ORIGIN_CHECKED"
 
-            if [ -n "$(git status --porcelain --untracked-files=all)" ]; then
+            WORKTREE_STATUS="$(git -c "safe.directory=$DEPLOY_PATH" status --porcelain --untracked-files=all)"
+            if [ -n "$WORKTREE_STATUS" ]; then
               echo "WORKTREE_CLEAN=false"
+              printf '%s\n' "$WORKTREE_STATUS" | sed -n '1,40p'
               WORKTREE_CLEAN=false
             else
               echo "WORKTREE_CLEAN=true"
@@ -162,6 +168,10 @@ jobs:
               node --version
             fi
             echo "DIAG_STAGE=NODE_CHECKED"
+            STATE_DIR=/var/lib/phoenix-erp/production-deployment-state
+            if [ -r "$STATE_DIR/floor.json" ] && [ -r "$STATE_DIR/active.json" ]; then
+              STATE_DIR="$STATE_DIR" node -e 'const fs=require("fs");const f=JSON.parse(fs.readFileSync(process.env.STATE_DIR+"/floor.json"));const a=JSON.parse(fs.readFileSync(process.env.STATE_DIR+"/active.json"));console.log("FLOOR_SHA="+(f.floorSha||""));console.log("ACTIVE_API_REVISION="+(a.active?.api?.revision||""));console.log("ACTIVE_WEB_REVISION="+(a.active?.web?.revision||""));'
+            fi
 
             if [ "$ORIGIN_MATCHES_UPSTREAM" = false ]; then
               echo "DIAG_RESULT=BLOCKED"

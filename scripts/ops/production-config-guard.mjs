@@ -90,11 +90,18 @@ export function verifyContext(root, stateDirectory) {
     if (beforeAvailable) { beforeAvailable = false; return directoryBefore; }
     return inspectTrustedDirectory(directory, CONTRACT);
   } });
-  const lock = fs.lstatSync(path.join(stateDirectory, 'mutation.lock'));
+  const lockPath = path.join(stateDirectory, 'mutation.lock');
+  const lock = fs.lstatSync(lockPath);
   assertRegularFile(lock);
-  const inherited = fs.statSync(`/proc/${process.ppid}/fd/9`); assertRegularFile(inherited);
-  if (lock.dev !== inherited.dev || lock.ino !== inherited.ino) throw new Error('CONFIG_HOLD=HOST_LOCK_REQUIRED');
-  assertWorkflowFd9Lock(path.join(stateDirectory, 'mutation.lock'),process.ppid);
+  // Linux exposes an inherited descriptor through /proc as a proc symlink.
+  // Resolve that one kernel-owned link before applying the regular-file guard;
+  // rejecting the proc link itself makes every valid FD9 lock unrecoverable.
+  const inherited = fs.fstatSync(9);
+  if (inherited.uid !== 0 || (inherited.mode & 0o7777) !== 0o600 || inherited.nlink !== 1) {
+    throw new Error('CONFIG_HOLD=FILE_PERMISSIONS_OR_LINK');
+  }
+  if (lock.dev !== inherited.dev || lock.ino !== inherited.ino) throw new Error(`CONFIG_HOLD=HOST_LOCK_REQUIRED:${lock.dev}:${lock.ino}:${inherited.dev}:${inherited.ino}`);
+  assertWorkflowFd9Lock(lockPath, process.pid);
   try { execFileSync('flock', ['-n', path.join(stateDirectory, 'mutation.lock'), 'true'], { stdio: 'ignore' }); }
   catch { return; }
   throw new Error('CONFIG_HOLD=HOST_LOCK_NOT_HELD');
@@ -128,7 +135,7 @@ export function validateEffectiveConfig(config, tuple, floor = { operationalTupl
     || volume.source === '/' || CONTRACT.controlRoot.startsWith(volume.source + '/')
     || ((volume.source === '/var/lib/phoenix-background-control' || volume.source?.startsWith('/var/lib/phoenix-background-control/')) && volume !== control[0])))) throw new Error('CONFIG_HOLD=PRIVATE_CONTROL_EXPOSURE');
 }
-export function guardProduction(root, stateDirectory, images, expiredVerifyHold) {
+export function guardProduction(root, stateDirectory, images, expiredVerifyHold, options = {}) {
   verifyContext(root, stateDirectory); requireCleanMain(root);
   const owningTransaction = assertTransactionOwnership(stateDirectory, process.env.DEPLOY_RUN_ID);
   const actual = captureRuntime();
@@ -145,7 +152,20 @@ export function guardProduction(root, stateDirectory, images, expiredVerifyHold)
   const floor = secureJson(path.join(stateDirectory, 'floor.json'));
   const priorFloor = assertStateVersion(secureJson(path.join(stateDirectory, 'active.json'))).floorSha;
   assertFloorMonotonic(root, priorFloor, floor.floorSha);
-  assertFloor(root, floor);
+  if (options.allowFloorReanchor === true) {
+    const target = options.reanchorTarget || '';
+    const previousFloorSha = options.previousFloorSha || '';
+    if (floor.version !== 3 || floor.phase !== 'READY' || floor.floorSha !== previousFloorSha
+      || !REVISION.test(target) || target === previousFloorSha
+      || process.env.APPROVED_CONFIG_FLOOR_SHA !== target
+      || process.env.APPROVED_PREVIOUS_FLOOR_SHA !== previousFloorSha) {
+      throw new Error('CONFIG_HOLD=FLOOR_REANCHOR_CONTEXT');
+    }
+    try { git(root, ['merge-base', '--is-ancestor', previousFloorSha, target]); }
+    catch { throw new Error('CONFIG_HOLD=FLOOR_REANCHOR_REGRESSION'); }
+  } else {
+    assertFloor(root, floor);
+  }
   const envFile = path.join(root, '.env'); const metadata = fs.lstatSync(envFile);
   if (!metadata.isFile() || metadata.isSymbolicLink() || (metadata.mode & 0o777) !== 0o600) throw new Error('CONFIG_HOLD=ENV_PERMISSIONS');
   if (!/^phoenix[a-z0-9_-]*$/.test(floor.project || '')) throw new Error('CONFIG_HOLD=APPROVED_PROJECT');

@@ -9,6 +9,7 @@ import PageHeader from "@/components/PageHeader";
 import request from "@/lib/api-client";
 import { useLanguage } from '@/contexts/LanguageContext';
 import { HouseSelector, WarehouseSelector, LocationSelector } from '@/components/shared-selectors/MasterDataSelectors';
+import { dailyReportInboundIdempotencyKey } from '@/lib/breeding-daily';
 
 /**
  * 日产蛋入库（库存来源模式治理 P1A · 临时生产入库）
@@ -155,6 +156,7 @@ export default function DailyInboundPage() {
           siteCode: siteCode || undefined,
           warehouseCode,
           locationCode,
+          idempotencyKey: dailyReportInboundIdempotencyKey(eggDate, houseCode),
           items
         })
       });

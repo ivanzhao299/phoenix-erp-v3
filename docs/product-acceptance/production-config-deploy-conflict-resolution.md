@@ -345,3 +345,7 @@ Image-only rollback keeps safe HEAD, immutable pins and current .env. Persistent
 Current automated coverage A–K includes real isolated Compose/Nginx/create-only Docker fixtures, actual Bash ERR handling, env escaping/permissions/atomicity, source/default/manual/recovery gates, floor/ancestry/dirty cases, running API migration baseline after failed deploy, first transition certificate and interrupted-state fences. Independent review findings were fixed; new implementation tests are not skipped. Exact counts/results are in the implementation report.
 
 Remaining authorization: merge/CI belongs to the current repository-only request; production reconciliation/deployment/quiescence/network controls remain **NO**. The merged SHA is a candidate floor, not a deployed revision. Obtain explicit ONE_TIME_PRODUCTION_CONFIG_FLOOR_TRANSITION authorization before any production mutation.
+
+## Full controlled channel（2026-11-05）
+
+Compose guarded wrapper 对 API `up/restart` 的本 run fence/drain 要求现由 full 发布正式满足。full 复用 BackgroundFenceCoordinator 的 advisory locks、CAS、migration receipt、双阶段 evidence 和 OPEN；Web 由 formal evidence 覆盖，API participant 仍是唯一 background supervisor participant。协议与恢复步骤见 [`docs/ops/runs/FULL_RELEASE_CONTROLLED_CHANNEL_20261105.md`](../ops/runs/FULL_RELEASE_CONTROLLED_CHANNEL_20261105.md)。

@@ -14,6 +14,45 @@ type MasterContext = {
   locationCode: string;
 };
 
+export type GradeQuantityMap = Record<string, number>;
+
+/** Parse a JSONB value without allowing malformed historical rows to widen stock. */
+export function normalizeGradeQuantityMap(value: unknown): GradeQuantityMap {
+  let parsed = value;
+  if (typeof parsed === 'string') {
+    try { parsed = JSON.parse(parsed); } catch { return {}; }
+  }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+  const result: GradeQuantityMap = {};
+  for (const [grade, raw] of Object.entries(parsed as Record<string, unknown>)) {
+    const qty = Math.max(0, Math.round(Number(raw) || 0));
+    if (grade.trim() && qty > 0) result[grade.trim()] = (result[grade.trim()] ?? 0) + qty;
+  }
+  return result;
+}
+
+export function sumGradeQuantityMaps(rows: Array<{ eggs_by_grade?: unknown }>): GradeQuantityMap {
+  const result: GradeQuantityMap = {};
+  for (const row of rows) {
+    for (const [grade, qty] of Object.entries(normalizeGradeQuantityMap(row.eggs_by_grade))) {
+      result[grade] = (result[grade] ?? 0) + qty;
+    }
+  }
+  return result;
+}
+
+export function findDailyInboundOverages(
+  expected: GradeQuantityMap,
+  alreadyInbound: GradeQuantityMap,
+  requested: Array<{ grade: string; qty: number }>,
+): Array<{ grade: string; requested: number; remaining: number }> {
+  const requestedByGrade: GradeQuantityMap = {};
+  for (const item of requested) requestedByGrade[item.grade] = (requestedByGrade[item.grade] ?? 0) + item.qty;
+  return Object.entries(requestedByGrade)
+    .map(([grade, qty]) => ({ grade, requested: qty, remaining: Math.max(0, (expected[grade] ?? 0) - (alreadyInbound[grade] ?? 0)) }))
+    .filter(row => row.requested > row.remaining);
+}
+
 /**
  * ProductionInboundService — 库存来源模式治理 Phase P1A · 临时生产入库
  * ════════════════════════════════════════════════════════════════════════
@@ -148,6 +187,60 @@ export class ProductionInboundService {
   }
 
   /**
+   * When a daily report already contains grade quantities, production inbound
+   * is a posting of that report, not a free-form second source of truth.
+   * Enforce the remaining per-grade allowance inside the same transaction as
+   * the idempotency check so retries and concurrent posts cannot overstate stock.
+   * Every TEMP_PRODUCTION batch for the daily dimension counts against the
+   * allowance, whatever source key created it — the caller's own key included,
+   * because the replay check above has already short-circuited exact repeats.
+   */
+  private async assertDailyReportCapacity(
+    mgr: { query: (sql: string, params?: unknown[]) => Promise<any[]> },
+    dto: { eggDate: string; houseCode?: string },
+    items: Array<{ grade: string; qty: number }>,
+    collectionRef: string | null,
+  ): Promise<void> {
+    if (!dto.houseCode || !collectionRef) return;
+    const table = (await mgr.query(`SELECT to_regclass('brd_daily_logs') AS table_name`)) ?? [];
+    if (!table[0]?.table_name) return;
+
+    const reports = await mgr.query(
+      `SELECT eggs_by_grade
+         FROM brd_daily_logs
+        WHERE log_date = $1 AND house_code = $2`,
+      [dto.eggDate, dto.houseCode],
+    );
+    const expected = sumGradeQuantityMaps(reports);
+    // No grade breakdown means this is a legacy/manual inbound flow. Keep it
+    // available, while reports with grade data are strictly bounded.
+    if (Object.keys(expected).length === 0) return;
+
+    const postedRows = await mgr.query(
+      `SELECT COALESCE(grade_code_std, quality_grade) AS grade,
+              COALESCE(SUM(qty), 0)::numeric AS qty
+         FROM inv_batches
+        WHERE source_type = 'TEMP_PRODUCTION'
+          AND egg_date = $1
+          AND collection_batch_ref = $2
+        GROUP BY COALESCE(grade_code_std, quality_grade)`,
+      [dto.eggDate, collectionRef],
+    );
+    const alreadyInbound: GradeQuantityMap = {};
+    for (const row of postedRows) {
+      const grade = String(row.grade ?? '').trim();
+      const qty = Math.max(0, Math.round(Number(row.qty) || 0));
+      if (grade && qty > 0) alreadyInbound[grade] = (alreadyInbound[grade] ?? 0) + qty;
+    }
+
+    const overages = findDailyInboundOverages(expected, alreadyInbound, items);
+    if (overages.length > 0) {
+      const detail = overages.map(row => `${row.grade}: 请求 ${row.requested}，剩余 ${row.remaining}`).join('；');
+      throw new BadRequestException(`日产蛋分级入库超过日报剩余额度（${detail}）。请先核对日报或已入库记录后重试`);
+    }
+  }
+
+  /**
    * 录入日产蛋 → 直接形成销售库存（仅 TEMP_PRODUCTION_INBOUND 模式）
    */
   async recordProductionInbound(dto: {
@@ -176,11 +269,26 @@ export class ProductionInboundService {
     if (dto.idempotencyKey !== undefined && (typeof dto.idempotencyKey !== 'string' || dto.idempotencyKey.trim().length > 64)) {
       throw new BadRequestException('idempotencyKey 必须为不超过 64 字符的字符串');
     }
+    // Bind the caller key to this posting's date before any master-data work.
+    const clientKeyEarly = dto.idempotencyKey?.trim();
+    if (clientKeyEarly && !clientKeyEarly.startsWith(`DAILY-${dto.eggDate}-`)) {
+      throw new BadRequestException('idempotencyKey 必须形如 DAILY-<蛋日期>-<鸡舍> 且与本次入库日报一致');
+    }
     dto = { ...dto, houseCode: dto.houseCode?.trim() || undefined };
     if (!Array.isArray(dto.items) || dto.items.length === 0) throw new BadRequestException('items 不能为空');
-    const effectiveItems = dto.items
+    const normalizedItems = dto.items
       .map(item => ({ ...item, spec: item.spec?.trim() || 'LOOSE', grade: String(item.grade || '').trim(), qty: Math.max(0, Math.round(Number(item.qty) || 0)) }))
       .filter(item => item.qty > 0);
+    // A daily report may contain the same grade in both shifts. Inventory is
+    // keyed by the daily source document, so merge those lines before writing;
+    // otherwise a unique source index cannot protect the document atomically.
+    const itemMap = new Map<string, { grade: string; qty: number; spec: string }>();
+    for (const item of normalizedItems) {
+      const key = `${item.grade}\u0000${item.spec}`;
+      const current = itemMap.get(key);
+      itemMap.set(key, current ? { ...current, qty: current.qty + item.qty } : item);
+    }
+    const effectiveItems = [...itemMap.values()];
     if (effectiveItems.length === 0) throw new BadRequestException('至少需要一个数量大于 0 的蛋品档位');
 
     const context = await this.resolveMasterContext(dto);
@@ -218,18 +326,26 @@ export class ProductionInboundService {
     if (missing.length) throw new BadRequestException(`以下蛋品档位缺少 ACTIVE SKU：${[...new Set(missing)].join('、')}。请先在主数据中心维护`);
     if (ambiguous.length) throw new BadRequestException(`以下蛋品档位匹配多个 ACTIVE SKU：${[...new Set(ambiguous)].join('、')}。请选择规格后重试`);
 
-    const sourceNo = (dto.idempotencyKey?.trim() || `TEMP-${dto.eggDate}-${dto.houseCode ?? siteCode ?? companyCode}`).slice(0, 64);
+    // Idempotency keys are a daily-report identity, not a free client choice:
+    // the date binding was validated up front; an omitted key is derived from
+    // the same daily dimension the lock uses.
+    const clientKey = dto.idempotencyKey?.trim();
+    const sourceNo = (clientKey || `DAILY-${dto.eggDate}-${dto.houseCode ?? siteCode ?? companyCode}`.slice(0, 64)).slice(0, 64);
+    // One daily report (company + date + house/site) is one serialization
+    // domain: callers holding different keys must not read the same remaining
+    // allowance concurrently, so the lock covers the whole daily document.
+    const dailyScopeLock = `${companyCode}|TEMP_PRODUCTION_DAILY|${dto.eggDate}|${collectionRef ?? siteCode ?? companyCode}`;
     let idempotent = false;
     const run = async (mgr: any, enforceIdempotency = true) => {
-      // Serialize retries for one daily report while the transaction is open.
-      if (enforceIdempotency) await mgr.query('SELECT pg_advisory_xact_lock(hashtext($1))', [sourceNo]);
+      if (enforceIdempotency) await mgr.query('SELECT pg_advisory_xact_lock(hashtext($1))', [dailyScopeLock]);
       const existing = enforceIdempotency ? await mgr.query(
         `SELECT batch_no, quality_grade, qty, product_code, sku_code, spec_code,
                 egg_date::text AS egg_date, collection_batch_ref, warehouse_code, location_code
            FROM inv_batches
-          WHERE company_code = $1 AND source_type = 'TEMP_PRODUCTION' AND source_no = $2
+          WHERE company_code = $1 AND source_type = 'TEMP_PRODUCTION' AND egg_date = $2
+            AND collection_batch_ref IS NOT DISTINCT FROM $3
           ORDER BY batch_no FOR UPDATE`,
-        [companyCode, sourceNo],
+        [companyCode, dto.eggDate, collectionRef],
       ) : [];
       if (existing.length > 0) {
         // A source key identifies the complete inbound context. Never expose a batch
@@ -253,6 +369,7 @@ export class ProductionInboundService {
         }
         return;
       }
+      await this.assertDailyReportCapacity(mgr, dto, effectiveItems, collectionRef);
       for (const item of effectiveItems) {
         const { qty, grade } = item;
         const sku = resolved.get(`${grade}\u0000${item.spec ?? ''}`)!;

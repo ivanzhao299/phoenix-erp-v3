@@ -1,6 +1,12 @@
-import { FarmService, dailyLogScopeWhere, deriveOrgScope } from './farm.service';
+import { FarmService, dailyLogScopeWhere, deriveOrgScope, hasPositiveGradeBreakdown } from './farm.service';
 
 describe('FarmService', () => {
+  it('recognizes positive grade breakdowns in object and JSONB forms', () => {
+    expect(hasPositiveGradeBreakdown({ GRADE_1: 1 })).toBe(true);
+    expect(hasPositiveGradeBreakdown('{"GRADE_1":2}')).toBe(true);
+    expect(hasPositiveGradeBreakdown({ GRADE_1: 0, GRADE_2: '' })).toBe(false);
+  });
+
   describe('organization scope', () => {
     it('fails closed when DataScope is missing and the token has no storeCode', () => {
       expect(deriveOrgScope({
@@ -93,6 +99,7 @@ describe('FarmService', () => {
 
     it('trims a selected house_code and writes the daily log', async () => {
       const { manager, svc } = buildSvc();
+      manager.query.mockResolvedValue([]);
 
       await expect(svc.submitBreedingDailyLog({
         log_date: '2026-07-07',
@@ -101,12 +108,12 @@ describe('FarmService', () => {
         eggs_produced: 0,
         mortality_qty: 0,
         opening_qty: 100,
-      })).resolves.toEqual({ code: 200, msg: '日报提交成功' });
+      })).resolves.toEqual({ code: 200, msg: '日报提交成功', ledgerSkipped: false });
 
-      expect(manager.query).toHaveBeenCalledTimes(1);
-      expect(manager.query.mock.calls[0][0]).toContain('INSERT INTO "brd_daily_logs"');
-      expect(manager.query.mock.calls[0][1]).toContain('H001');
-      expect(manager.query.mock.calls[0][1]).not.toContain(' H001 ');
+      const insert = manager.query.mock.calls.find(([query]) => String(query).includes('INSERT INTO "brd_daily_logs"'));
+      expect(insert).toBeTruthy();
+      expect(insert![1]).toContain('H001');
+      expect(insert![1]).not.toContain(' H001 ');
     });
 
     it('derives eggs_produced from the canonical GRADE_1..5 saleable grades', async () => {
@@ -129,10 +136,11 @@ describe('FarmService', () => {
         opening_qty: 1000,
       });
 
-      const sql = manager.query.mock.calls[0][0] as string;
-      const values = manager.query.mock.calls[0][1] as unknown[];
+      const insert = manager.query.mock.calls.find(([query]) => String(query).includes('INSERT INTO "brd_daily_logs"'))!;
+      const sql = insert[0] as string;
+      const values = insert[1] as unknown[];
       expect(values[sql.match(/\(([^)]+)\) VALUES/)![1].split(',').indexOf('"eggs_produced"')]).toBe(150);
-      expect(manager.query.mock.calls.some(([query]) => String(query).includes("'FARM_IN'"))).toBe(false);
+      expect(manager.query.mock.calls.some(([query]) => String(query).includes('INSERT INTO inv_ledger') && String(query).includes("'FARM_IN'"))).toBe(false);
     });
 
     it('skips the legacy FARM_IN ledger when an explicit total accompanies grades', async () => {
@@ -152,7 +160,256 @@ describe('FarmService', () => {
         opening_qty: 1000,
       });
 
-      expect(manager.query.mock.calls.some(([query]) => String(query).includes("'FARM_IN'"))).toBe(false);
+      expect(manager.query.mock.calls.some(([query]) => String(query).includes('INSERT INTO inv_ledger') && String(query).includes("'FARM_IN'"))).toBe(false);
+    });
+
+    it('reverses the legacy FARM_IN exactly once when grades are backfilled onto a no-grade report', async () => {
+      const { manager, entityManager, svc } = buildSvc();
+      entityManager.query.mockResolvedValue([{ grade_code: 'GRADE_1' }, { grade_code: 'GRADE_2' }]);
+      manager.query.mockImplementation(async (sql: string, params?: unknown[]) => {
+        if (sql.includes('SELECT eggs_by_grade, eggs_produced FROM brd_daily_logs')) {
+          return [{ eggs_by_grade: null, eggs_produced: 300 }];
+        }
+        if (sql.includes('net_farm_in')) return [{ net_farm_in: 300 }];
+        if (sql.includes('SELECT batch_no FROM inv_batches')) return [{ batch_no: 'PRD-EGG-OLD' }];
+        return [];
+      });
+
+      await svc.submitBreedingDailyLog({
+        log_date: '2026-07-16', shift: 'MORNING', house_code: 'H001', company_code: 'COMP-A',
+        eggs_by_grade: { GRADE_1: 150, GRADE_2: 150 }, mortality_qty: 0, opening_qty: 1000,
+      });
+
+      const reversal = manager.query.mock.calls.find(([query]) => String(query).includes("INSERT INTO inv_ledger") && String(query).includes("'FARM_REVERSED'"));
+      expect(reversal).toBeTruthy();
+      expect(reversal![1]).toEqual(expect.arrayContaining(['PRD-EGG-OLD', 300, 'SYS']));
+      expect(String(reversal![1][4])).toContain('冲销历史 FARM_IN 300枚');
+      expect(manager.query.mock.calls.some(([query]) => String(query).includes('INSERT INTO inv_ledger') && String(query).includes("'FARM_IN'"))).toBe(false);
+    });
+
+    it('refuses removing grades while the report already feeds TEMP_PRODUCTION stock', async () => {
+      const { manager, entityManager, svc } = buildSvc();
+      entityManager.query.mockResolvedValue([]);
+      manager.query.mockImplementation(async (sql: string) => {
+        if (sql.includes('SELECT eggs_by_grade, eggs_produced FROM brd_daily_logs')) {
+          return [{ eggs_by_grade: { GRADE_1: 100 }, eggs_produced: 100 }];
+        }
+        if (sql.includes('TEMP_PRODUCTION')) return [{ '?column?': 1 }];
+        return [];
+      });
+
+      await expect(svc.submitBreedingDailyLog({
+        log_date: '2026-07-16', shift: 'MORNING', house_code: 'H001',
+        eggs_by_grade: {}, eggs_produced: 100, mortality_qty: 0,
+      })).rejects.toThrow('不能移除分级明细');
+      expect(manager.query.mock.calls.some(([query]) => String(query).includes('INSERT INTO "brd_daily_logs"'))).toBe(false);
+    });
+
+    it('keeps the non-blocking contract when no PRD-EGG batch exists, but reports the skipped ledger loudly', async () => {
+      const { manager, entityManager, svc } = buildSvc();
+      entityManager.query.mockResolvedValue([]);
+      manager.query.mockImplementation(async (sql: string) => {
+        if (sql.includes('SELECT eggs_by_grade, eggs_produced FROM brd_daily_logs')) return [];
+        if (sql.includes('SELECT batch_no FROM inv_batches')) return [];
+        return [];
+      });
+
+      // The daily report must never be blocked by the legacy ledger path
+      // (breeding-regression A4 contract), but the skip is explicit in the
+      // response instead of a silent stock lie.
+      await expect(svc.submitBreedingDailyLog({
+        log_date: '2026-07-16', shift: 'MORNING', house_code: 'H001', company_code: 'COMP-A',
+        eggs_produced: 120, mortality_qty: 0, opening_qty: 1000,
+      })).resolves.toEqual({
+        code: 200,
+        msg: '日报提交成功（警告：无可用 PRD-EGG 批次，本次 FARM_IN 未记账，待补账通知已发给库存管理员）',
+        ledgerSkipped: true,
+      });
+      expect(manager.query.mock.calls.some(([query]) => String(query).includes('INSERT INTO inv_ledger'))).toBe(false);
+    });
+
+    it('refuses the grade backfill when the original FARM_IN never exists', async () => {
+      const { manager, entityManager, svc } = buildSvc();
+      entityManager.query.mockResolvedValue([{ grade_code: 'GRADE_1' }]);
+      manager.query.mockImplementation(async (sql: string) => {
+        if (sql.includes('SELECT eggs_by_grade, eggs_produced FROM brd_daily_logs')) {
+          return [{ eggs_by_grade: null, eggs_produced: 300 }];
+        }
+        if (sql.includes('net_farm_in')) return [{ net_farm_in: 0 }];
+        return [];
+      });
+
+      await expect(svc.submitBreedingDailyLog({
+        log_date: '2026-07-16', shift: 'MORNING', house_code: 'H001',
+        eggs_by_grade: { GRADE_1: 300 }, mortality_qty: 0,
+      })).rejects.toThrow('净额为 0 枚，不足以冲销 300 枚');
+      expect(manager.query.mock.calls.some(([query]) => String(query).includes('INSERT INTO inv_ledger'))).toBe(false);
+    });
+
+    it('refuses the grade backfill when earlier adjustments already consumed the net FARM_IN', async () => {
+      const { manager, entityManager, svc } = buildSvc();
+      entityManager.query.mockResolvedValue([{ grade_code: 'GRADE_1' }]);
+      manager.query.mockImplementation(async (sql: string) => {
+        if (sql.includes('SELECT eggs_by_grade, eggs_produced FROM brd_daily_logs')) {
+          return [{ eggs_by_grade: null, eggs_produced: 500 }];
+        }
+        if (sql.includes('net_farm_in')) return [{ net_farm_in: 120 }];
+        return [];
+      });
+
+      await expect(svc.submitBreedingDailyLog({
+        log_date: '2026-07-16', shift: 'MORNING', house_code: 'H001',
+        eggs_by_grade: { GRADE_1: 500 }, mortality_qty: 0,
+      })).rejects.toThrow('净额为 120 枚，不足以冲销 500 枚');
+      expect(manager.query.mock.calls.some(([query]) => String(query).includes('INSERT INTO inv_ledger'))).toBe(false);
+    });
+
+    it('treats a repeated grade backfill as an idempotent no-op, never a second reversal', async () => {
+      const { manager, entityManager, svc } = buildSvc();
+      entityManager.query.mockResolvedValue([{ grade_code: 'GRADE_1' }]);
+      manager.query.mockImplementation(async (sql: string) => {
+        if (sql.includes('SELECT eggs_by_grade, eggs_produced FROM brd_daily_logs')) {
+          return [{ eggs_by_grade: null, eggs_produced: 300 }];
+        }
+        if (sql.includes("note LIKE '日报补录分级：冲销历史 FARM_IN%'")) return [{ '?column?': 1 }];
+        return [];
+      });
+
+      await expect(svc.submitBreedingDailyLog({
+        log_date: '2026-07-16', shift: 'MORNING', house_code: 'H001',
+        eggs_by_grade: { GRADE_1: 300 }, mortality_qty: 0,
+      })).resolves.toEqual({ code: 200, msg: '日报提交成功', ledgerSkipped: false });
+      expect(manager.query.mock.calls.some(([query]) => String(query).includes('INSERT INTO inv_ledger'))).toBe(false);
+    });
+
+    it('reverses BOTH shifts independently when one flock posts morning and evening no-grade reports', async () => {
+      // Same date, same flock: the evening backfill must NOT be swallowed by
+      // the morning reversal — identity includes the shift.
+      const { manager, entityManager, svc } = buildSvc();
+      entityManager.query.mockResolvedValue([{ grade_code: 'GRADE_1' }]);
+      let prior = [{ eggs_by_grade: null, eggs_produced: 300 }];
+      const reversals: Array<{ note: string; amount: number }> = [];
+      manager.query.mockImplementation(async (sql: string, params?: unknown[]) => {
+        if (sql.includes('SELECT eggs_by_grade, eggs_produced FROM brd_daily_logs')) return prior;
+        if (sql.includes("right(note, length($3)) = $3")) return [];
+        if (sql.includes('net_farm_in')) return [{ net_farm_in: 800 }];
+        if (sql.includes('SELECT batch_no FROM inv_batches')) return [{ batch_no: 'PRD-EGG-OLD' }];
+        if (String(sql).includes('INSERT INTO inv_ledger')) {
+          reversals.push({ note: String(params?.[4]), amount: Number(params?.[1]) });
+          return [];
+        }
+        return [];
+      });
+
+      await svc.submitBreedingDailyLog({ log_date: '2026-07-16', shift: '早班', house_code: 'H001', eggs_by_grade: { GRADE_1: 300 }, mortality_qty: 0 });
+      prior = [{ eggs_by_grade: null, eggs_produced: 500 }];
+      await svc.submitBreedingDailyLog({ log_date: '2026-07-16', shift: '晚班', house_code: 'H001', eggs_by_grade: { GRADE_1: 500 }, mortality_qty: 0 });
+
+      expect(reversals).toHaveLength(2);
+      expect(reversals[0]).toMatchObject({ amount: 300 });
+      expect(reversals[0].note).toContain('（2026-07-16 H001 早班）');
+      expect(reversals[1]).toMatchObject({ amount: 500 });
+      expect(reversals[1].note).toContain('（2026-07-16 H001 晚班）');
+    });
+
+    it('scopes the net FARM_IN to the report date: another day\'s posting cannot fund this reversal', async () => {
+      const { manager, entityManager, svc } = buildSvc();
+      entityManager.query.mockResolvedValue([{ grade_code: 'GRADE_1' }]);
+      manager.query.mockImplementation(async (sql: string, params?: unknown[]) => {
+        if (sql.includes('SELECT eggs_by_grade, eggs_produced FROM brd_daily_logs')) {
+          return [{ eggs_by_grade: null, eggs_produced: 600 }];
+        }
+        if (sql.includes('net_farm_in')) {
+          // New-style rows carry log_date; only same-day rows count.
+          return [{ net_farm_in: 100 }];
+        }
+        return [];
+      });
+
+      await expect(svc.submitBreedingDailyLog({
+        log_date: '2026-07-16', shift: 'MORNING', house_code: 'H001',
+        eggs_by_grade: { GRADE_1: 600 }, mortality_qty: 0,
+      })).rejects.toThrow('净额为 100 枚，不足以冲销 600 枚');
+      const netQuery = manager.query.mock.calls.find(([query]) => String(query).includes('net_farm_in'));
+      expect(netQuery![1]).toEqual(expect.arrayContaining(['2026-07-16']));
+      expect(String(netQuery![0])).toContain('(log_date IS NULL OR log_date = $2::date)');
+    });
+
+    it('persists a durable pending-ledger notification when the legacy skip fires', async () => {
+      const { manager, entityManager, svc } = buildSvc();
+      entityManager.query.mockResolvedValue([]);
+      manager.query.mockImplementation(async (sql: string) => {
+        if (sql.includes('SELECT eggs_by_grade, eggs_produced FROM brd_daily_logs')) return [];
+        if (sql.includes('SELECT batch_no FROM inv_batches')) return [];
+        if (sql.includes('sys_notifications')) return [];
+        if (sql.includes("username = 'admin'")) return [{ user_id: '1' }];
+        return [];
+      });
+
+      const result = await svc.submitBreedingDailyLog({
+        log_date: '2026-07-16', shift: 'MORNING', house_code: 'H001', company_code: 'COMP-A',
+        eggs_produced: 120, mortality_qty: 0,
+      });
+      expect(result.ledgerSkipped).toBe(true);
+      const notify = manager.query.mock.calls.find(([query]) => String(query).includes('INSERT INTO sys_notifications'));
+      expect(notify).toBeTruthy();
+      // biz_no carries the company so two companies sharing a house code
+      // never swallow each other's notices.
+      expect(notify![1]).toEqual(expect.arrayContaining(['FARM_LEDGER_PENDING:COMP-A:2026-07-16:H001']));
+      // Dedup is database-level: the insert targets the partial unique index.
+      expect(String(notify![0])).toContain("ON CONFLICT (user_id, biz_type, biz_no) WHERE biz_type = 'FARM_LEDGER_PENDING' AND biz_no IS NOT NULL");
+    });
+
+    it('persists the pending-ledger notification from the UPDATE path too', async () => {
+      const { manager, svc } = buildSvc();
+      manager.query.mockImplementation(async (sql: string) => {
+        if (sql.includes('SELECT eggs_produced')) return [{
+          eggs_produced: 300, mortality_qty: 0, log_date: '2026-07-16', flock_no: 'FLOCK-A',
+          house_code: 'H001', company_code: 'COMP-A', shift: 'MORNING', eggs_by_grade: null,
+        }];
+        if (sql.includes('SELECT batch_no FROM inv_batches')) return [];
+        if (sql.includes('sys_notifications')) return [];
+        if (sql.includes("username = 'admin'")) return [{ user_id: '1' }];
+        if (sql.includes('SELECT COALESCE(SUM(mortality_qty)')) return [{ total_mortality: 0, total_eggs: 300 }];
+        if (sql.includes('SELECT current_qty')) return [];
+        return [];
+      });
+
+      const result = await svc.updateBreedingDailyLog(7, {
+        house_code: 'H001', flock_no: 'FLOCK-A', log_date: '2026-07-16',
+        eggs_produced: 500, mortality_qty: 0,
+      });
+      expect(result.ledgerSkipped).toBe(true);
+      const notify = manager.query.mock.calls.find(([query]) => String(query).includes('INSERT INTO sys_notifications'));
+      expect(notify).toBeTruthy();
+      expect(notify![1]).toEqual(expect.arrayContaining(['FARM_LEDGER_PENDING:COMP-A:2026-07-16:H001']));
+      expect(String(notify![1][1])).toContain('200 枚');
+    });
+
+    it('resolves recipients through the scoped service when injected', async () => {
+      const manager = { query: jest.fn() };
+      const entityManager = {
+        query: jest.fn(),
+        transaction: jest.fn(async (cb: (m: { query: jest.Mock }) => Promise<unknown>) => cb(manager)),
+      };
+      const resolve = jest.fn().mockResolvedValue(['7', '9']);
+      const svc = new FarmService(entityManager as never, {
+        resolveHouse: jest.fn(async () => ({ houseCode: 'H001', farmCode: 'F', siteCode: 'S', companyCode: 'COMP-A' })),
+      } as never, { resolve } as never);
+      entityManager.query.mockResolvedValue([]);
+      manager.query.mockImplementation(async (sql: string) => {
+        if (sql.includes('SELECT eggs_by_grade, eggs_produced FROM brd_daily_logs')) return [];
+        if (sql.includes('SELECT batch_no FROM inv_batches')) return [];
+        return [];
+      });
+
+      await svc.submitBreedingDailyLog({
+        log_date: '2026-07-16', shift: 'MORNING', house_code: 'H001', company_code: 'COMP-A',
+        eggs_produced: 80, mortality_qty: 0,
+      });
+      expect(resolve).toHaveBeenCalledWith('COMP-A', ['MENU_INV_BATCH']);
+      const notify = manager.query.mock.calls.find(([query]) => String(query).includes('INSERT INTO sys_notifications'));
+      expect(notify![1][4]).toEqual(['7', '9']);
     });
 
     it('binds ownership from the house and accepts any farm in the guarded scope', async () => {
@@ -180,12 +437,90 @@ describe('FarmService', () => {
         farmCodes: ['LPH-MS-01', 'LPH-MS-02'],
         siteCodes: ['SITE-MS-01', 'SITE-MS-02'],
         companyCodes: ['COMP-LAO-AGRI'],
-      })).resolves.toEqual({ code: 200, msg: '日报提交成功' });
+      })).resolves.toEqual({ code: 200, msg: '日报提交成功', ledgerSkipped: false });
 
-      const values = manager.query.mock.calls[0][1];
-      expect(values).toEqual(expect.arrayContaining(['LPH-MS-02', 'SITE-MS-02', 'COMP-LAO-AGRI']));
-      expect(values).not.toEqual(expect.arrayContaining(['SPOOFED-FARM', 'SPOOFED-SITE', 'SPOOFED-COMPANY']));
+      const insert = manager.query.mock.calls.find(([query]) => String(query).includes('INSERT INTO "brd_daily_logs"'));
+      expect(insert![1]).toEqual(expect.arrayContaining(['LPH-MS-02', 'SITE-MS-02', 'COMP-LAO-AGRI']));
+      expect(insert![1]).not.toEqual(expect.arrayContaining(['SPOOFED-FARM', 'SPOOFED-SITE', 'SPOOFED-COMPANY']));
     });
+  });
+
+  it('does not create a legacy FARM_IN delta when updating a graded daily report', async () => {
+    const { manager, svc } = buildSvc();
+    manager.query.mockImplementation(async (sql: string) => {
+      if (sql.includes('SELECT eggs_produced')) return [{
+        eggs_produced: 100,
+        mortality_qty: 0,
+        log_date: '2026-07-16',
+        flock_no: 'FLOCK-A',
+        house_code: 'H001',
+        company_code: 'COMP-A',
+        eggs_by_grade: { GRADE_1: 100 },
+      }];
+      if (sql.includes('SELECT COALESCE(SUM(mortality_qty)')) return [{ total_mortality: 0, total_eggs: 120 }];
+      if (sql.includes('SELECT current_qty')) return [];
+      return [];
+    });
+
+    await expect(svc.updateBreedingDailyLog(7, {
+      house_code: 'H001', flock_no: 'FLOCK-A', log_date: '2026-07-16',
+      eggs_produced: 120, eggs_by_grade: { GRADE_1: 120 }, mortality_qty: 0,
+    })).resolves.toEqual({ code: 200, msg: '日报更新成功' });
+    expect(manager.query).not.toHaveBeenCalledWith(expect.stringContaining("INSERT INTO inv_ledger"), expect.anything());
+  });
+
+  it('reverses the original FARM_IN amount when an update backfills grades onto a no-grade report', async () => {
+    const { manager, svc } = buildSvc();
+    manager.query.mockImplementation(async (sql: string) => {
+      if (sql.includes('SELECT eggs_produced')) return [{
+        eggs_produced: 400,
+        mortality_qty: 0,
+        log_date: '2026-07-16',
+        flock_no: 'FLOCK-A',
+        house_code: 'H001',
+        company_code: 'COMP-A',
+        eggs_by_grade: null,
+      }];
+      if (sql.includes('net_farm_in')) return [{ net_farm_in: 400 }];
+      if (sql.includes('SELECT batch_no FROM inv_batches')) return [{ batch_no: 'PRD-EGG-OLD' }];
+      if (sql.includes('SELECT COALESCE(SUM(mortality_qty)')) return [{ total_mortality: 0, total_eggs: 400 }];
+      if (sql.includes('SELECT current_qty')) return [];
+      return [];
+    });
+
+    await expect(svc.updateBreedingDailyLog(7, {
+      house_code: 'H001', flock_no: 'FLOCK-A', log_date: '2026-07-16',
+      eggs_by_grade: { GRADE_1: 200, GRADE_2: 200 }, mortality_qty: 0,
+    })).resolves.toEqual({ code: 200, msg: '日报更新成功' });
+
+    const reversal = manager.query.mock.calls.find(([query]) => String(query).includes("INSERT INTO inv_ledger") && String(query).includes("'FARM_REVERSED'"));
+    expect(reversal).toBeTruthy();
+    expect(reversal![1]).toEqual(expect.arrayContaining(['PRD-EGG-OLD', 400]));
+    expect(String(reversal![1][4])).toContain('冲销历史 FARM_IN 400枚（2026-07-16 H001）');
+    expect(manager.query.mock.calls.some(([query]) => String(query).includes('INSERT INTO inv_ledger') && String(query).includes("'FARM_IN'"))).toBe(false);
+  });
+
+  it('refuses an update that strips grades from a report already posted to TEMP_PRODUCTION stock', async () => {
+    const { manager, svc } = buildSvc();
+    manager.query.mockImplementation(async (sql: string) => {
+      if (sql.includes('SELECT eggs_produced')) return [{
+        eggs_produced: 100,
+        mortality_qty: 0,
+        log_date: '2026-07-16',
+        flock_no: 'FLOCK-A',
+        house_code: 'H001',
+        company_code: 'COMP-A',
+        eggs_by_grade: { GRADE_1: 100 },
+      }];
+      if (sql.includes('TEMP_PRODUCTION')) return [{ '?column?': 1 }];
+      return [];
+    });
+
+    await expect(svc.updateBreedingDailyLog(7, {
+      house_code: 'H001', flock_no: 'FLOCK-A', log_date: '2026-07-16',
+      eggs_by_grade: {}, eggs_produced: 100, mortality_qty: 0,
+    })).rejects.toThrow('不能移除分级明细');
+    expect(manager.query.mock.calls.some(([query]) => String(query).includes('UPDATE "brd_daily_logs"'))).toBe(false);
   });
 
   it('uses house ownership fallback for grade breakdown and trend queries', async () => {

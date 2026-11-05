@@ -36,6 +36,7 @@ fixture('Issue 381 real PostgreSQL inbound transactions and retries', () => {
       CREATE TABLE IF NOT EXISTS sys_organizations (org_code text PRIMARY KEY, company_code text, org_type text, status text);
       CREATE TABLE IF NOT EXISTS brd_farms (farm_code text PRIMARY KEY, company_code text, mapped_site_code text, status text);
       CREATE TABLE IF NOT EXISTS brd_houses (house_code text PRIMARY KEY, farm_code text, status text);
+      CREATE TABLE IF NOT EXISTS brd_daily_logs (id serial PRIMARY KEY, log_date date, house_code text, eggs_by_grade jsonb);
       CREATE TABLE IF NOT EXISTS wms_warehouses (warehouse_code text PRIMARY KEY, company_code text, site_code text, status text, type text, domain text);
       CREATE TABLE IF NOT EXISTS wms_locations (location_code text PRIMARY KEY, warehouse_code text, status text);
       CREATE TABLE IF NOT EXISTS inv_batches (id serial PRIMARY KEY, batch_no varchar(64) UNIQUE, product_code text, company_code text,
@@ -46,8 +47,12 @@ fixture('Issue 381 real PostgreSQL inbound transactions and retries', () => {
       CREATE TABLE IF NOT EXISTS inv_ledger (id serial PRIMARY KEY, batch_no text REFERENCES inv_batches(batch_no), change_type text,
         qty_change numeric, operator text, store_code text, ref_no text, note text, batch_expire_date date,
         quality_grade text, company_code text, sku_code text, log_date date, warehouse_code text, location_code text);
+      CREATE UNIQUE INDEX IF NOT EXISTS uq_inv_batches_temp_production_source_identity
+        ON inv_batches (company_code, source_type, source_no,
+          COALESCE(sku_code, ''), COALESCE(grade_code_std, quality_grade, ''), COALESCE(spec_code, packaging_spec, ''))
+        WHERE source_type = 'TEMP_PRODUCTION' AND source_no IS NOT NULL;
       TRUNCATE inv_ledger, inv_batches, product_skus, product_grades, sys_organizations,
-        brd_farms, brd_houses, wms_warehouses, wms_locations RESTART IDENTITY;
+        brd_farms, brd_houses, brd_daily_logs, wms_warehouses, wms_locations RESTART IDENTITY;
     `);
     for (const [i, grade] of grades.entries()) {
       await db.query("INSERT INTO product_grades VALUES ($1,'ACTIVE',$2)", [grade, i]);
@@ -67,7 +72,7 @@ fixture('Issue 381 real PostgreSQL inbound transactions and retries', () => {
   afterAll(async () => { if (db?.isInitialized) await db.destroy(); });
   beforeEach(async () => {
     await db.query('ALTER TABLE inv_ledger DROP CONSTRAINT IF EXISTS fixture_reject_second_item');
-    await db.query('TRUNCATE inv_ledger, inv_batches RESTART IDENTITY');
+    await db.query('TRUNCATE inv_ledger, inv_batches, brd_daily_logs RESTART IDENTITY');
     scope = { isGlobal: false, allowedCompanyCodes: ['COMP-A'], allowedWarehouseCodes: ['WH-A'] };
     service = new ProductionInboundService(db, cls as never, new EggInventoryService(db, cls as never),
       { resolveMode: async () => 'TEMP_PRODUCTION_INBOUND' } as never, new OrgOwnershipService(db.manager));
@@ -79,16 +84,16 @@ fixture('Issue 381 real PostgreSQL inbound transactions and retries', () => {
     const retry = await service.recordProductionInbound(payload());
     expect(first.idempotent).toBe(false);
     expect(retry).toMatchObject({ idempotent: true, totalInbound: 33, batches: first.batches });
-    expect(new Set(retry.batches.map(row => row.batchNo)).size).toBe(2);
-    expect(retry.batches.map(row => row.qty)).toEqual([11, 22]);
-    expect(await counts()).toEqual({ batches: 2, events: 2 });
+    expect(new Set(retry.batches.map(row => row.batchNo)).size).toBe(1);
+    expect(retry.batches.map(row => row.qty)).toEqual([33]);
+    expect(await counts()).toEqual({ batches: 1, events: 1 });
   });
 
   it('serializes simultaneous duplicate requests without creating extra batches or ledger events', async () => {
     const results = await Promise.all(Array.from({ length: 5 }, () => service.recordProductionInbound(payload())));
     expect(results.filter(row => !row.idempotent)).toHaveLength(1);
     for (const result of results) expect(result.batches).toEqual(results[0].batches);
-    expect(await counts()).toEqual({ batches: 2, events: 2 });
+    expect(await counts()).toEqual({ batches: 1, events: 1 });
   });
 
   it('blocks a competing changed payload and leaves the committed stock unchanged', async () => {
@@ -97,18 +102,78 @@ fixture('Issue 381 real PostgreSQL inbound transactions and retries', () => {
     const outcomes = await Promise.allSettled([service.recordProductionInbound(payload()), service.recordProductionInbound(changed)]);
     expect(outcomes.map(row => row.status)).toEqual(['fulfilled', 'rejected']);
     expect((await service.recordProductionInbound(payload())).batches).toEqual(first.batches);
-    expect(await counts()).toEqual({ batches: 2, events: 2 });
+    expect(await counts()).toEqual({ batches: 1, events: 1 });
     expect((await db.query('SELECT sum(qty)::int AS qty FROM inv_batches'))[0].qty).toBe(33);
+  });
+
+  it('never allows inbound quantities to exceed the daily report grade allowance', async () => {
+    await db.query(
+      `INSERT INTO brd_daily_logs (log_date, house_code, eggs_by_grade)
+       VALUES ('2026-10-17', 'HOUSE-A', $1::jsonb)`,
+      [JSON.stringify({ GRADE_1: 100, GRADE_2: 20 })],
+    );
+
+    await expect(service.recordProductionInbound({
+      ...payload(), items: [{ grade: 'GRADE_1', qty: 101 }],
+    })).rejects.toThrow('超过日报剩余额度');
+    expect(await counts()).toEqual({ batches: 0, events: 0 });
+
+    await expect(service.recordProductionInbound({
+      ...payload(), items: [{ grade: 'GRADE_1', qty: 100 }],
+    })).resolves.toMatchObject({ totalInbound: 100 });
+    // A different key on the SAME daily document is not a second document:
+    // the daily dimension already holds committed stock, so a changed
+    // repost is refused as a document conflict, not as an allowance loan.
+    await expect(service.recordProductionInbound({
+      ...payload(), idempotencyKey: 'DAILY-2026-10-17-HOUSE-A-zzz', items: [{ grade: 'GRADE_1', qty: 1 }],
+    })).rejects.toThrow('已存在但数量或档位不同');
+    // The exact same posting under yet another key replays idempotently.
+    await expect(service.recordProductionInbound({
+      ...payload(), idempotencyKey: 'DAILY-2026-10-17-HOUSE-A-yyy', items: [{ grade: 'GRADE_1', qty: 100 }],
+    })).resolves.toMatchObject({ idempotent: true, totalInbound: 100 });
+    await expect(service.recordProductionInbound({
+      ...payload(), idempotencyKey: 'DAILY-2026-10-18-HOUSE-A-xxx', items: [{ grade: 'GRADE_1', qty: 1 }],
+    })).rejects.toThrow('idempotencyKey 必须形如');
+  });
+
+  it('cannot double-consume one daily allowance from two concurrent different-key posts', async () => {
+    await db.query(
+      `INSERT INTO brd_daily_logs (log_date, house_code, eggs_by_grade)
+       VALUES ('2026-10-17', 'HOUSE-A', $1::jsonb)`,
+      [JSON.stringify({ GRADE_1: 100 })],
+    );
+    // Two DIFFERENT keys, two DIFFERENT quantities, one allowance: only one
+    // posting may win; the loser must fail without writing anything.
+    const outcomes = await Promise.allSettled([
+      service.recordProductionInbound({ ...payload(), idempotencyKey: 'DAILY-2026-10-17-HOUSE-A-fast', items: [{ grade: 'GRADE_1', qty: 60 }] }),
+      service.recordProductionInbound({ ...payload(), idempotencyKey: 'DAILY-2026-10-17-HOUSE-A-slow', items: [{ grade: 'GRADE_1', qty: 70 }] }),
+    ]);
+    expect(outcomes.filter(row => row.status === 'fulfilled')).toHaveLength(1);
+    const winner = outcomes.find(row => row.status === 'fulfilled') as PromiseFulfilledResult<any>;
+    expect(winner.value.totalInbound).toBeLessThanOrEqual(100);
+    const batchQty = (await db.query('SELECT COALESCE(SUM(qty),0)::int AS qty FROM inv_batches'))[0].qty;
+    expect(batchQty).toBe(winner.value.totalInbound);
+    // After a win, ANY further different-quantity post under another key is
+    // a document conflict — the daily dimension holds exactly one truth.
+    const losers = await Promise.allSettled([
+      service.recordProductionInbound({ ...payload(), idempotencyKey: 'DAILY-2026-10-17-HOUSE-A-t1', items: [{ grade: 'GRADE_1', qty: 30 }] }),
+      service.recordProductionInbound({ ...payload(), idempotencyKey: 'DAILY-2026-10-17-HOUSE-A-t2', items: [{ grade: 'GRADE_1', qty: 30 }] }),
+    ]);
+    expect(losers.map(row => row.status)).toEqual(['rejected', 'rejected']);
+    for (const loser of losers) expect((loser as PromiseRejectedResult).reason.message).toContain('已存在但数量或档位不同');
+    expect((await db.query('SELECT COALESCE(SUM(qty),0)::int AS qty FROM inv_batches'))[0].qty).toBe(batchQty);
   });
 
   it('rolls back every batch and event if a later ledger insert fails, then permits a clean retry', async () => {
     await db.query('ALTER TABLE inv_ledger ADD CONSTRAINT fixture_reject_second_item CHECK (qty_change <> 22)');
     try {
-      await expect(service.recordProductionInbound(payload())).rejects.toThrow();
+      await expect(service.recordProductionInbound({
+        ...payload(), items: [{ grade: 'GRADE_1', qty: 11 }, { grade: 'GRADE_2', qty: 22 }],
+      })).rejects.toThrow();
       expect(await counts()).toEqual({ batches: 0, events: 0 });
     } finally { await db.query('ALTER TABLE inv_ledger DROP CONSTRAINT fixture_reject_second_item'); }
     expect(await service.recordProductionInbound(payload())).toMatchObject({ idempotent: false, totalInbound: 33 });
-    expect(await counts()).toEqual({ batches: 2, events: 2 });
+    expect(await counts()).toEqual({ batches: 1, events: 1 });
   });
 
   it('preserves existing stock and grade/SKU/location ownership through normal writes and refused foreign writes', async () => {
@@ -127,30 +192,35 @@ fixture('Issue 381 real PostgreSQL inbound transactions and retries', () => {
   });
 
   it.each([
-    { name: 'date', changed: { eggDate: '2026-10-18' } },
-    { name: 'house', changed: { houseCode: 'HOUSE-A2' } },
-    { name: 'warehouse', changed: { warehouseCode: 'WH-A2', locationCode: 'LOC-A2' } },
-    { name: 'location', changed: { locationCode: 'LOC-A-OTHER' } },
-  ])('rejects same-key replay across $name without leaking old batch identities', async ({ changed }) => {
-    const request = { ...payload(), idempotencyKey: 'CUSTOM-REPLAY' };
+    // A key bound to another date is rejected by key discipline before any stock work.
+    { name: 'date', changed: { eggDate: '2026-10-18' }, message: 'idempotencyKey 必须形如', status: 400 },
+    // Another house is another document AND another company: scope refuses it.
+    { name: 'house', changed: { houseCode: 'HOUSE-B', warehouseCode: 'WH-B', locationCode: 'LOC-B' }, message: '无权向公司', status: 403 },
+    // Same house, different stock destination: the daily document's
+    // provenance must match exactly, or the repost is refused.
+    { name: 'warehouse', changed: { warehouseCode: 'WH-A2', locationCode: 'LOC-A2' }, message: '来源或库存归属不一致', status: 400 },
+    { name: 'location', changed: { locationCode: 'LOC-A-OTHER' }, message: '来源或库存归属不一致', status: 400 },
+  ])('rejects a repost that diverges from the committed daily document across $name', async ({ changed, message, status }) => {
+    const request = { ...payload(), idempotencyKey: 'DAILY-2026-10-17-HOUSE-A-CUSTOM' };
     const original = await service.recordProductionInbound(request);
     // Revoke the original warehouse, while the new requested warehouse is authorized.
-    scope.allowedWarehouseCodes = ['WH-A', 'WH-A2'];
-    if (changed.warehouseCode) scope.allowedWarehouseCodes = ['WH-A2'];
+    scope.allowedWarehouseCodes = ['WH-A', 'WH-A2', 'WH-B'];
     const error = await service.recordProductionInbound({ ...request, ...changed }).catch(e => e);
-    expect(error.getStatus()).toBe(400);
-    expect(error.message).toContain('来源或库存归属不一致');
+    expect(error.getStatus()).toBe(status);
+    expect(error.message).toContain(message);
     original.batches.forEach(batch => expect(error.message).not.toContain(batch.batchNo));
-    expect(await counts()).toEqual({ batches: 2, events: 2 });
+    expect(await counts()).toEqual({ batches: 1, events: 1 });
   });
 
-  it('fails closed for historic replay rows without provenance, and preserves exact-context retries', async () => {
-    const request = { ...payload(), idempotencyKey: 'HISTORY' };
+  it('fails closed for provenance-stripped rows through the DB source identity, and preserves exact-context retries', async () => {
+    const request = { ...payload(), idempotencyKey: 'DAILY-2026-10-17-HOUSE-A-HISTORY' };
     const first = await service.recordProductionInbound(request);
     expect((await service.recordProductionInbound(request)).batches).toEqual(first.batches);
     await db.query('UPDATE inv_batches SET collection_batch_ref=NULL');
-    await expect(service.recordProductionInbound(request)).rejects.toThrow('来源或库存归属不一致');
-    expect(await counts()).toEqual({ batches: 2, events: 2 });
+    // The daily dimension no longer sees the row, but its source identity is
+    // still owned: the production source-identity index refuses the duplicate.
+    await expect(service.recordProductionInbound(request)).rejects.toThrow();
+    expect(await counts()).toEqual({ batches: 1, events: 1 });
   });
 
   it('rejects oversized keys and invalid dates without writing inventory', async () => {
@@ -161,13 +231,16 @@ fixture('Issue 381 real PostgreSQL inbound transactions and retries', () => {
     expect(await counts()).toEqual({ batches: 0, events: 0 });
   });
 
-  it('serializes different keys on the same day without batch-number collisions', async () => {
+  it('serializes different keys on the same day into ONE daily document', async () => {
+    // One house/day is ONE production-inbound document regardless of caller
+    // keys: five concurrent different-key posts of the same payload must
+    // collapse to a single committed batch set, not five documents.
     const results = await Promise.all(Array.from({ length: 5 }, (_, i) => service.recordProductionInbound({
-      ...payload(), idempotencyKey: `INDEPENDENT-${i}`,
+      ...payload(), idempotencyKey: `DAILY-2026-10-17-HOUSE-A-${i}`,
     })));
-    expect(results.every(result => !result.idempotent)).toBe(true);
-    expect(new Set(results.flatMap(result => result.batches.map(batch => batch.batchNo))).size).toBe(10);
-    expect(await counts()).toEqual({ batches: 10, events: 10 });
+    expect(results.filter(result => !result.idempotent)).toHaveLength(1);
+    for (const result of results) expect(result.batches).toEqual(results[0].batches);
+    expect(await counts()).toEqual({ batches: 1, events: 1 });
   });
 
   it('shares numbering across companies, direct callers and callers supplying a transaction', async () => {
@@ -176,15 +249,15 @@ fixture('Issue 381 real PostgreSQL inbound transactions and retries', () => {
     const direct = { companyCode: 'COMP-A', warehouseCode: 'WH-A', locationCode: 'LOC-A',
       eggDate: '2026-10-17', productCode: 'PRD-EGG-RAW', qualityGrade: 'GRADE_1', qty: 3 };
     const results = await Promise.all([
-      service.recordProductionInbound({ ...payload(), idempotencyKey: 'SHARED' }),
-      service.recordProductionInbound({ ...payload(), houseCode: 'HOUSE-B', warehouseCode: 'WH-B', locationCode: 'LOC-B', idempotencyKey: 'SHARED' }),
+      service.recordProductionInbound({ ...payload(), idempotencyKey: 'DAILY-2026-10-17-HOUSE-A-SHARED' }),
+      service.recordProductionInbound({ ...payload(), houseCode: 'HOUSE-B', warehouseCode: 'WH-B', locationCode: 'LOC-B', idempotencyKey: 'DAILY-2026-10-17-HOUSE-B-SHARED' }),
       core.createProductionBatch(direct),
       db.transaction(manager => core.createProductionBatch({ ...direct, sourceType: 'PACKAGING',
         ledgerChangeType: 'PACKAGING_INBOUND', packagingBatchRef: 'FIXTURE-PKG' }, manager)),
     ]);
     expect(results).toHaveLength(4);
-    expect(await counts()).toEqual({ batches: 6, events: 6 });
-    expect((await db.query('SELECT count(DISTINCT batch_no)::int AS n FROM inv_batches'))[0].n).toBe(6);
+    expect(await counts()).toEqual({ batches: 4, events: 4 });
+    expect((await db.query('SELECT count(DISTINCT batch_no)::int AS n FROM inv_batches'))[0].n).toBe(4);
   });
 
   it('rolls back a direct caller batch when its ledger write fails', async () => {

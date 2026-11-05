@@ -61,7 +61,9 @@ export function assertSameDirectory(before, after) {
   if (JSON.stringify(before) !== JSON.stringify(after)) hold('PATH_CHANGED_DURING_OPERATION');
 }
 export function assertRegularFile(stat, { uid = 0, mode = 0o600 } = {}) {
-  if (!stat.isFile() || stat.isSymbolicLink?.() || stat.uid !== uid || (stat.mode & 0o7777) !== mode || stat.nlink !== 1) hold('FILE_PERMISSIONS_OR_LINK');
+  if (!stat.isFile() || stat.isSymbolicLink?.() || stat.uid !== uid || (stat.mode & 0o7777) !== mode || stat.nlink !== 1) {
+    hold(`FILE_PERMISSIONS_OR_LINK:${stat.uid}:${(stat.mode & 0o7777).toString(8)}:${stat.nlink}:${stat.isSymbolicLink?.() ? 'symlink' : stat.isFile() ? 'file' : 'other'}`);
+  }
 }
 const identity = stat => [stat.dev, stat.ino, stat.uid, stat.mode, stat.nlink, stat.size, stat.mtimeMs, stat.ctimeMs];
 export function readPinnedFile(file, { contract, uid = 0, trustedParent = true } = {}, dependencies = {}) {
@@ -79,7 +81,7 @@ export function readPinnedFile(file, { contract, uid = 0, trustedParent = true }
     if (JSON.stringify(identity(opened)) !== JSON.stringify(identity(after)) || JSON.stringify(identity(after)) !== JSON.stringify(identity(named))) hold('FILE_CHANGED_DURING_READ');
     if (trustedParent) assertSameDirectory(before, inspect(path.dirname(file)));
     return bytes;
-  } catch (error) { if (error.message.startsWith('CONFIG_HOLD=')) throw error; hold('FILE_READ_FAILED'); }
+  } catch (error) { if (error.message.startsWith('CONFIG_HOLD=')) throw error; hold(`FILE_READ_FAILED:${path.basename(file)}`); }
   finally { if (fd !== undefined) io.closeSync(fd); }
 }
 export function assertContained(file, root) {
@@ -116,10 +118,11 @@ export function strictSshCommand(base = '', program = '') {
  * Standalone use proves only a local lock; callers retain root/path authority. */
 export function assertWorkflowFd9Lock(file,holderPid){
  if(process.platform!=='linux'||!Number.isSafeInteger(holderPid)||holderPid<=1)hold('WORKFLOW_FD9_HOLDER_REQUIRED');
- const fd=`/proc/${holderPid}/fd/9`,info=`/proc/${holderPid}/fdinfo/9`,uid=process.getuid();
+  const fd=`/proc/${holderPid}/fd/9`,info=`/proc/${holderPid}/fdinfo/9`,uid=process.getuid();
  const pin=s=>[s.dev,s.ino,s.uid,s.mode,s.nlink];
  const sample=()=>{
-  const named=fs.lstatSync(file),opened=fs.statSync(fd);assertRegularFile(named,{uid});assertRegularFile(opened,{uid});
+  const named=fs.lstatSync(file),opened=fs.fstatSync(9);assertRegularFile(named,{uid});
+  if (opened.uid !== uid || (opened.mode & 0o7777) !== 0o600 || opened.nlink !== 1) hold('FILE_PERMISSIONS_OR_LINK');
   if(JSON.stringify(pin(named))!==JSON.stringify(pin(opened)))hold('HOST_LOCK_REQUIRED');
   const lines=fs.readFileSync(info,'utf8').split('\n').filter(line=>line.startsWith('lock:'));
   if(lines.length!==1)hold('WORKFLOW_FD9_NOT_LOCK_OWNER');

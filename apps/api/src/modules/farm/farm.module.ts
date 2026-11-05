@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { NotificationModule } from '../notification/notification.module';
 import { FarmController } from './farm.controller';
 import { FarmService } from './farm.service';
 import { FarmCronService } from './farm.cron';
@@ -13,6 +14,7 @@ import { FarmMedicineService } from './farm-medicine.service';
 import { RolesGuard } from '../../common/guards/roles.guard';
 
 @Module({
+  imports: [NotificationModule],
   controllers: [FarmController, FarmFeedController, FarmEggController, FarmSalesController, FarmMedicineController],
   providers: [FarmService, FarmCronService, FarmFeedService, FarmEggService, FarmSalesService, FarmMedicineService, RolesGuard],
   exports: [FarmService, FarmFeedService, FarmEggService, FarmSalesService, FarmMedicineService],

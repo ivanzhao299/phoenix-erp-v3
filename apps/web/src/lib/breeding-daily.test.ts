@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   cullingReasonLabel,
   dailyReportEggTotal,
+  dailyReportInboundIdempotencyKey,
   gradeQuantityTotal,
   hasDailyReportInput,
   isDailyReportHouseMissing,
@@ -35,6 +36,20 @@ describe('isDailyReportHouseMissing', () => {
     expect(isDailyReportHouseMissing(null)).toBe(true);
     expect(isDailyReportHouseMissing(undefined)).toBe(true);
     expect(isDailyReportHouseMissing('HENHOUSE-001')).toBe(false);
+  });
+});
+
+describe('daily report inbound identity', () => {
+  it('uses the same bounded key for retries from both screens', () => {
+    const first = dailyReportInboundIdempotencyKey('2026-10-30', 'HOUSE-A');
+    expect(first).toBe(dailyReportInboundIdempotencyKey('2026-10-30', 'HOUSE-A'));
+    expect(first).toMatch(/^DAILY-2026-10-30-HOUSE-A-/);
+    expect(first!.length).toBeLessThanOrEqual(64);
+  });
+
+  it('does not create an identity for an incomplete report context', () => {
+    expect(dailyReportInboundIdempotencyKey('', 'HOUSE-A')).toBeUndefined();
+    expect(dailyReportInboundIdempotencyKey('2026-10-30', ' ')).toBeUndefined();
   });
 });
 

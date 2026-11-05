@@ -31,6 +31,11 @@ on:
         type: choice
         options: [auto, fast-css, web, api, full]
         default: auto
+      run_migrations:
+        description: "迁移策略；auto 仅在自动变更范围判定，手动 full 可显式关闭无迁移文档发布"
+        type: choice
+        options: [auto, true, false]
+        default: auto
       skip_deploy:
         description: "跳过部署步骤(仅构建)"
         type: boolean
@@ -171,6 +176,7 @@ jobs:
         id: decide
         env:
           MANUAL_MODE: ${{ inputs.mode || 'auto' }}
+          MANUAL_RUN_MIG: ${{ inputs.run_migrations || 'auto' }}
           IS_DISPATCH: ${{ github.event_name == 'workflow_dispatch' }}
           IS_PUSH:    ${{ github.event_name == 'push' }}
           IS_PR:      ${{ github.event_name == 'pull_request' }}
@@ -267,7 +273,11 @@ jobs:
               echo "build_web=true"  >> $GITHUB_OUTPUT
               echo "build_api=true"  >> $GITHUB_OUTPUT
               echo "run_test=true"   >> $GITHUB_OUTPUT
-              echo "run_mig=$MIGRATION_CHANGED" >> $GITHUB_OUTPUT
+              if [ "$IS_DISPATCH" = "true" ] && [ "$MANUAL_RUN_MIG" != "auto" ]; then
+                echo "run_mig=$MANUAL_RUN_MIG" >> $GITHUB_OUTPUT
+              else
+                echo "run_mig=$MIGRATION_CHANGED" >> $GITHUB_OUTPUT
+              fi
               ;;
           esac
           echo "mode=$MODE" >> $GITHUB_OUTPUT
@@ -426,6 +436,21 @@ jobs:
         run: |
           node scripts/ci/check-api-bootstrap-side-effects.cjs
           node --test scripts/ci/api-bootstrap-static.test.mjs scripts/ops/api-bootstrap-schema-preflight.test.mjs
+
+      - name: Real-PostgreSQL daily inbound concurrency proof (issue381 fixture)
+        env:
+          ISSUE381_FIXTURE_OWNER: ${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          set -euo pipefail
+          export PGHOST="$DB_HOST" PGPORT="$DB_PORT" PGUSER="$DB_USER" PGPASSWORD="$DB_PASSWORD" PGDATABASE="$DB_NAME"
+          psql -tAc "SELECT 1 FROM pg_database WHERE datname='issue381_fixture'" | grep -q 1 \
+            || psql -c "CREATE DATABASE issue381_fixture"
+          psql -d issue381_fixture -c "CREATE TABLE IF NOT EXISTS issue381_fixture_owner(owner_key text); TRUNCATE issue381_fixture_owner; INSERT INTO issue381_fixture_owner VALUES ('$ISSUE381_FIXTURE_OWNER')"
+          cd apps/api
+          ISSUE381_PG_URL="postgresql://$DB_USER:$DB_PASSWORD@$DB_HOST:$DB_PORT/issue381_fixture" \
+            ./node_modules/.bin/jest --runInBand --runTestsByPath \
+              src/modules/sales-v2/services/production-inbound.pg.spec.ts \
+              src/modules/farm/farm-pending-notification.pg.spec.ts
 
       - name: Production-equivalent isolated API bootstrap SQL proof
         id: bootstrap_sql
@@ -680,6 +705,7 @@ jobs:
 
   # ════════════════════════════════════════════════════════════════════════
   # Job 3b: web/api/full deploy — 完整 ssh 部署(按 mode 裁剪步骤)
+  # Full follow-up releases keep the API/Web runtime pair on one descendant SHA.
   # ════════════════════════════════════════════════════════════════════════
   deploy:
     name: Deploy · ${{ needs.detect-changes.outputs.mode }}
@@ -776,7 +802,7 @@ jobs:
           script: |
             set -Eeuo pipefail
             umask 077
-            cd ${{ secrets.DEPLOY_PATH || '~/phoenix-erp' }}
+            cd /data/phoenix-erp
             DEPLOY_REPO_ROOT="$(pwd -P)"
             eval "$(printf '%s' "$PRODUCTION_CONTROL_BOOTSTRAP_B64" | base64 -d)"
 
@@ -880,7 +906,7 @@ jobs:
             fi
             assert_target_main() {
               if [ "$BUILD_API" = true ]; then
-                node "$BACKGROUND_STAGE/background-deployment-session.mjs" check-main
+                if [ -n "${BACKGROUND_STAGE:-}" ] && [ -f "$BACKGROUND_STAGE/background-deployment-session.mjs" ]; then node "$BACKGROUND_STAGE/background-deployment-session.mjs" check-main; else test "$(git rev-parse origin/main)" = "$TARGET_SHA"; fi
               fi
             }
             perform_deployment() {
@@ -943,8 +969,8 @@ jobs:
             bash scripts/ops/require-phoenix-data-mount.sh
 
             node scripts/ops/production-deployment-state.mjs begin "$CAPTURE_FILE"
-            RUN_MIG=false
-            echo "MIGRATION_BASELINE_SOURCE=RUNNING_API_REVISION; RUN_MIG=false"
+            RUN_MIG="${RUN_MIG:-false}"
+            echo "MIGRATION_BASELINE_SOURCE=RUNNING_API_REVISION; RUN_MIG=$RUN_MIG"
 
             if [ "$BUILD_WEB" = true ]; then
             mkdir -p /opt/phoenix/static-overrides
@@ -1133,14 +1159,21 @@ jobs:
             echo "✅ Application evidence complete; background release still requires owner verification"
             }
 
-            if [ "$BUILD_API" = true ]; then
-              # Stage the exact reviewed target before any floor/code/container
-              # change. The supervisor retains a real PostgreSQL lock session
-              # and FD9 across the whole body; a legacy API cannot claim drain.
+            if { [ "$DEPLOY_MODE" = "api" ] && [ "$BUILD_API" = true ] && [ "$BUILD_WEB" = false ] && [ "$RUN_MIG" = false ]; } || \
+               { [ "$DEPLOY_MODE" = "full" ] && [ "$BUILD_API" = true ] && [ "$BUILD_WEB" = true ]; }; then
+              if [ "$DEPLOY_MODE" = "api" ]; then
+                # API-only/no-migration releases retain the historical explicit
+                # gate; full keeps the receipt-bound RUN_MIG value above.
+                RUN_MIG=false
+              fi
+              # Stage the exact reviewed target before the fenced API-only or
+              # full release. The supervisor retains a real PostgreSQL lock
+              # session and FD9 across the whole body; migration receipts remain
+              # required by deployment-state begin before this body.
               BACKGROUND_STAGE="$STATE_DIR/background-stage-${DEPLOY_RUN_ID}"
               test ! -e "$BACKGROUND_STAGE"
               mkdir -m 700 "$BACKGROUND_STAGE"
-              for helper in background-deployment-session.mjs background-control-coordinator.mjs background-control-manifest.mjs production-config-contract.json production-config-guard.mjs production-atomic-state.mjs production-trusted-paths.mjs capture-production-runtime.mjs production-deployment-evidence.mjs update-managed-chanjet-env.mjs chanjet-readonly-policy.mjs chanjet-admission-schema-receipt.mjs production-maintenance-admission.mjs production-maintenance-receipts.mjs production-maintenance-transition.mjs production-maintenance-owner-unknown.mjs production-maintenance-reconciliation.mjs production-maintenance-owner-authority.mjs production-maintenance-github-authority.mjs production-maintenance-owner-source-provenance.mjs background-control-legacy-transition.mjs; do
+              git show "$TARGET_SHA:scripts/ops/background-stage-helpers.txt" | while IFS= read -r helper; do
                 git show "$TARGET_SHA:scripts/ops/$helper" > "$BACKGROUND_STAGE/$helper"
                 chmod 600 "$BACKGROUND_STAGE/$helper"
               done

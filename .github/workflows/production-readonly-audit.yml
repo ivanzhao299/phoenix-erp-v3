@@ -129,6 +129,7 @@ jobs:
                 echo 'FAIL AUDIT_STAGE=DEPLOY_DIRECTORY class=UNAVAILABLE exit=2'
                 exit 2
               fi
+              git config --global --add safe.directory "$metadata_deploy_path"
               set +e
               metadata_output=$(node "$AUDIT_BUNDLE_DIR/scripts/ops/readonly-audits/packaging-metadata.cjs" 2>/dev/null)
               metadata_exit=$?
@@ -157,6 +158,7 @@ jobs:
               echo 'FAIL AUDIT_STAGE=DEPLOY_DIRECTORY exit=2'
               exit 2
             fi
+            git config --global --add safe.directory "$audit_deploy_path"
             if [ ! -r "$AUDIT_BUNDLE_DIR/scripts/ops/run-production-readonly-audit.sh" ]; then
               echo 'FAIL AUDIT_STAGE=BUNDLE_RUNNER exit=2'
               exit 2

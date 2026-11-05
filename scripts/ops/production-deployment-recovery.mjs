@@ -347,6 +347,10 @@ export function assessRecovery(bundle, context) {
   if (context.targetRunId === COMPLETE_ABORT_TRANSACTION.runId) return assessCompleteAbortRecovery(bundle, context);
   const reasons = [];
   const { transaction, deployRecord, marker, floor, active, runtime, containers, readinessHttp, liveEnv, evidence, archive } = bundle;
+  const rollbackWithoutPostEvidence = deployRecord?.outcome === 'ROLLING_BACK'
+    && deployRecord.switched?.api === true && deployRecord.switched?.web === false
+    && !evidence?.post;
+  const rollbackStaleActiveState = rollbackWithoutPostEvidence && (marker === null || active?.outcome === 'SUCCESS');
   const now = context.now ?? Date.now();
   const expired = record => record && Number.isFinite(Date.parse(record.expiresAt)) && Date.parse(record.expiresAt) <= now;
   if (!context.targetRunId || !/^\d+(?:-\d+)?$/.test(context.targetRunId)) reasons.push('BINDING_TARGET_RUN_ID');
@@ -378,13 +382,15 @@ export function assessRecovery(bundle, context) {
   if (!deployRecord || deployRecord.version !== 3 || deployRecord.candidates?.api?.revision !== context.approvedSha
     || !Array.isArray(deployRecord.migrationPaths) || deployRecord.migrationPaths.length || deployRecord.target !== context.approvedSha) reasons.push('DEPLOY_RECORD_SHAPE');
   if (deployRecord) {
-    const expectedOutcome = phase === 'DEPLOY_WRITTEN' ? 'SUCCESS' : 'SWITCHING';
-    if (deployRecord.outcome !== expectedOutcome) reasons.push('DEPLOY_RECORD_OUTCOME_PHASE_MISMATCH');
+    const expectedOutcomes = phase === 'DEPLOY_WRITTEN' ? ['SUCCESS'] : ['SWITCHING', 'ROLLING_BACK'];
+    if (!expectedOutcomes.includes(deployRecord.outcome)) reasons.push('DEPLOY_RECORD_OUTCOME_PHASE_MISMATCH');
+    if (phase !== 'DEPLOY_WRITTEN' && deployRecord.outcome === 'ROLLING_BACK'
+      && (deployRecord.switched?.api !== true || deployRecord.switched?.web !== false)) reasons.push('ROLLBACK_SCOPE_MISMATCH');
     if (phase === 'DEPLOY_WRITTEN' && !deepEqual(deployRecord, archive?.plan?.deployRecord)) reasons.push('DEPLOY_RECORD_NOT_RECOVERED_PLAN');
   }
   if (deployRecord && !expired(deployRecord)) reasons.push('TRANSACTION_NOT_EXPIRED');
   // The policy marker may be partially cleared once the final stage started.
-  const markerToleratedMissing = phase === 'DEPLOY_WRITTEN';
+  const markerToleratedMissing = phase === 'DEPLOY_WRITTEN' || (rollbackWithoutPostEvidence && marker === null);
   if (marker === null && markerToleratedMissing) { /* partial cleanup tolerated */ }
   else if (!marker || marker.version !== 3 || marker.operation !== 'CODE_HOLD' || marker.phase !== 'IN_PROGRESS' || marker.runId !== context.targetRunId
     || marker.target !== context.approvedSha || !expired(marker)) reasons.push('POLICY_MARKER_SHAPE');
@@ -396,7 +402,11 @@ export function assessRecovery(bundle, context) {
   // the live floor and CONFIG_READY_HOLD active config must be the target.
   const expectedFloorSha = context.approvedSha;
   if (!floor || floor.version !== 3 || floor.floorSha !== expectedFloorSha || floor.chanjetPolicy !== 'HOLD' || floor.readonlyApproval !== null) reasons.push('FLOOR_SHAPE');
-  if (active) {
+  if (rollbackStaleActiveState) {
+    if (!active || active.version !== 3 || active.configSha !== expectedFloorSha || active.floorSha !== expectedFloorSha
+      || active.active?.api?.revision !== context.approvedSha
+      || active.active?.web?.revision !== runtime?.web?.revision) reasons.push('ROLLBACK_ACTIVE_BINDING');
+  } else if (active) {
     if (phase === 'ARCHIVED' || phase === null) {
       if (active.version !== 3 || active.outcome !== 'CONFIG_READY_HOLD' || active.floorSha !== expectedFloorSha || active.configSha !== expectedFloorSha
         || active.active?.api?.revision === context.approvedSha
@@ -407,7 +417,11 @@ export function assessRecovery(bundle, context) {
   if (!runtime?.web?.revision || !active?.active?.web?.revision || (phase === 'ARCHIVED' || phase === null ? runtime.web.revision !== active.active.web.revision : runtime.web.revision !== archive?.plan?.active?.active?.web?.revision)) reasons.push('RUNTIME_WEB_DRIFTED');
   if (readinessHttp !== 200 && readinessHttp !== '200') reasons.push('READINESS');
   if (!liveEnv || liveEnv.CHANJET_SYNC_POLICY !== 'HOLD' || liveEnv.CHANJET_READONLY_SYNC_ENABLED !== 'false' || liveEnv.CHANJET_ERP_INBOUND_SYNC_ENABLED !== 'false') reasons.push('LIVE_POLICY_FLAGS');
-  if (!evidence?.startup || evidence.startup.deployRunId !== context.targetRunId || evidence.startup.targetSha !== context.approvedSha
+  if (rollbackWithoutPostEvidence) {
+    if (deployRecord.candidates?.api?.revision !== context.approvedSha
+      || runtime?.api?.revision !== context.approvedSha
+      || runtime?.web?.revision !== active?.active?.web?.revision) reasons.push('ROLLBACK_RUNTIME_BINDING');
+  } else if (!evidence?.startup || evidence.startup.deployRunId !== context.targetRunId || evidence.startup.targetSha !== context.approvedSha
     || !evidence.pre || evidence.pre.deployRunId !== context.targetRunId || !evidence.post || evidence.post.deployRunId !== context.targetRunId
     || evidence.post.containers?.api?.ociRevision !== context.approvedSha || evidence.startup.containerId !== evidence.post.containers?.api?.id) reasons.push('EVIDENCE_BINDING');
   else if (evidence.startup.result === CASE_A_STARTUP_RESULT) { /* original Case A class: unchanged */ }
@@ -450,7 +464,7 @@ export function planRecoveredState(deployRecord, marker, { recoveryRunId, recove
       ...deployRecord, outcome: 'SUCCESS',
       recovery: {
         schema: RECOVERY_SCHEMA, recoveryRunId, recoveredAt,
-        originalOutcome: 'SWITCHING', markerStartedAt: marker.startedAt, markerExpiresAt: marker.expiresAt,
+        originalOutcome: 'SWITCHING', markerStartedAt: marker?.startedAt ?? null, markerExpiresAt: marker?.expiresAt ?? null,
         startupResult, classification, receiptSha256,
         forwardFinalized: true, imageRollback: 'INELIGIBLE_PRE_FLOOR_API',
       },
@@ -537,10 +551,17 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       // Legacy paths retain their existing receipt/file validation behavior.
       const readEvidence = context.targetRunId === COMPLETE_ABORT_TRANSACTION.runId
         ? secureJson : file => JSON.parse(fs.readFileSync(file, 'utf8'));
+      const readEvidenceFile = (name, file) => {
+        try { return readEvidence(file); }
+        catch (error) {
+          if (error?.code === 'ENOENT') return null;
+          throw error;
+        }
+      };
       const evidence = deployRecord?.evidence ? {
-        pre: readEvidence(deployRecord.evidence.pre),
-        post: readEvidence(deployRecord.evidence.post),
-        startup: readEvidence(deployRecord.evidence.log),
+        pre: readEvidenceFile('PRE', deployRecord.evidence.pre),
+        post: readEvidenceFile('POST', deployRecord.evidence.post),
+        startup: readEvidenceFile('STARTUP', deployRecord.evidence.log),
       } : null;
       // Sanitized receipt (base64 payload; sha256 over the decoded bytes) gates
       // the single benign-startup-error transaction. Transport hash mismatch is

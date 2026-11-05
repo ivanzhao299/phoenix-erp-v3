@@ -56,6 +56,37 @@ test('the real run 38031441639-1 post-failure shape is recovery-eligible', () =>
   const assessment = assessRecovery(validBundle(), context);
   assert.deepEqual(assessment, { eligible: true, reasons: [], resumeFrom: null });
 });
+test('recovery provenance tolerates a marker already cleared by rollback cleanup', () => {
+  const plan = planRecoveredState(validBundle().__planBase.deployRecord, null, { recoveryRunId: context.recoveryRunId, recoveredAt: '2026-10-12T03:00:00.000Z' });
+  assert.equal(plan.deployRecord.recovery.markerStartedAt, null);
+  assert.equal(plan.deployRecord.recovery.markerExpiresAt, null);
+});
+test('an API-only rollback hold remains eligible for forward recovery', () => {
+  const bundle = validBundle({ deployRecord: { ...validBundle().deployRecord, outcome: 'ROLLING_BACK', switched: { api: true, web: false } } });
+  assert.deepEqual(assessRecovery(bundle, context), { eligible: true, reasons: [], resumeFrom: null });
+  const wrongScope = validBundle({ deployRecord: { ...validBundle().deployRecord, outcome: 'ROLLING_BACK', switched: { api: true, web: true } } });
+  assert.equal(assessRecovery(wrongScope, context).reasons.includes('ROLLBACK_SCOPE_MISMATCH'), true);
+});
+test('an API-only rollback can close when its post evidence file is gone but runtime pins remain bound', () => {
+  const base = validBundle();
+  const rollback = {
+    ...base,
+    deployRecord: { ...base.deployRecord, outcome: 'ROLLING_BACK', switched: { api: true, web: false }, activeApiRevision: sha(approved), previousApiRevision: sha(approved) },
+    evidence: { ...base.evidence, post: null },
+  };
+  assert.deepEqual(assessRecovery(rollback, context), { eligible: true, reasons: [], resumeFrom: null });
+});
+test('the stale rollback shape tolerates cleared marker and successful active pins', () => {
+  const base = validBundle();
+  const rollback = {
+    ...base,
+    marker: null,
+    active: { ...base.active, outcome: 'SUCCESS', active: { api: base.runtime.api, web: base.runtime.web } },
+    deployRecord: { ...base.deployRecord, outcome: 'ROLLING_BACK', switched: { api: true, web: false } },
+    evidence: { pre: null, post: null, startup: null },
+  };
+  assert.deepEqual(assessRecovery(rollback, context), { eligible: true, reasons: [], resumeFrom: null });
+});
 test('RECOVERY_RUN_ID is mandatory and bound', () => {
   assert.equal(assessRecovery(validBundle(), { ...context, recoveryRunId: '' }).reasons.includes('BINDING_RECOVERY_RUN_ID'), true);
   assert.equal(assessRecovery(validBundle(), { ...context, recoveryRunId: 'not-a-run' }).reasons.includes('BINDING_RECOVERY_RUN_ID'), true);

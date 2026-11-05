@@ -66,6 +66,16 @@ for (const [name, variable] of [['floor promotion', 'FLOOR_STAGE'], ['ordinary e
   });
 }
 
+test('background staging list is reviewed on main and has the full import closure', () => {
+  const workflowText = workflow;
+  assert.match(workflowText, /git show "\$TARGET_SHA:scripts\/ops\/background-stage-helpers\.txt" \| while IFS= read -r helper/);
+  const files = fs.readFileSync(path.join(ops, 'background-stage-helpers.txt'), 'utf8').split(/\r?\n/).filter(Boolean);
+  assert.ok(files.length >= 15);
+  for (const file of files) assert.ok(fs.existsSync(path.join(ops, file)), `staged helper ${file} exists on main`);
+  const missing = [...closure(files)].filter(file => !files.includes(file));
+  assert.deepEqual(missing, []);
+});
+
 test('shared atomic helper is pinned in the critical-file contract', () => {
   const contract = JSON.parse(fs.readFileSync(path.join(ops, 'production-config-contract.json')));
   assert.ok(contract.criticalFiles.includes('scripts/ops/production-atomic-state.mjs'));

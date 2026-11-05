@@ -21,7 +21,7 @@ test('evidence failure has no recovery Compose path and API mode cannot recreate
   assert.match(deploySection, /trap rollback_deploy ERR/);
   assert.doesNotMatch(deploySection.slice(deploySection.indexOf('node "$EVIDENCE_HELPER" verify'), deploySection.indexOf('node scripts/ops/production-deployment-state.mjs complete')), /compose up .*\b(?:db|web)\b/);
   assert.match(deploySection, /test "\$BUILD_WEB" = false/);
-  assert.match(deploySection, /RUN_MIG=false/);
+  assert.match(deploySection, /RUN_MIG="\$\{RUN_MIG:-false\}"/);
 });
 
 test('approved floor promotion is API-only and fail-closed before PRE on migration flags', () => {
@@ -33,6 +33,18 @@ test('approved floor promotion is API-only and fail-closed before PRE on migrati
   const apiDecision = workflow.slice(workflow.indexOf('            api)'), workflow.indexOf('            full|*'));
   assert.match(apiDecision, /APPROVED_CONFIG_FLOOR_SHA/);
   assert.match(apiDecision, /run_mig=false/);
+});
+
+test('background deployment supervisor fences API-only and full releases', () => {
+  const deploySection = workflow.slice(workflow.indexOf('name: Deploy via SSH'));
+  assert.match(deploySection, /\[ "\$DEPLOY_MODE" = "api" \].*\[ "\$RUN_MIG" = false \]/s);
+  assert.match(deploySection, /\[ "\$DEPLOY_MODE" = "full" \].*\[ "\$BUILD_WEB" = true \]/s);
+  assert.doesNotMatch(deploySection, /full\/migration releases use the ordinary deployment body/);
+  assert.match(deploySection, /if \[ -n "\$\{BACKGROUND_STAGE:-\}" \] && \[ -f "\$BACKGROUND_STAGE\/background-deployment-session\.mjs" \]; then node/);
+  assert.match(deploySection, /test "\$\(git rev-parse origin\/main\)" = "\$TARGET_SHA"/);
+  const session = fs.readFileSync('scripts/ops/background-deployment-session.mjs', 'utf8');
+  assert.match(session, /FULL_MIGRATION_RECEIPT_REQUIRED/);
+  assert.match(session, /configFloorSha/);
 });
 
 test('startup evidence contract captures both Docker streams and preserves fail-closed limits', () => {
