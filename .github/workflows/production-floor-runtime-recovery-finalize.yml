@@ -105,7 +105,9 @@ jobs:
             printf '%s' "$MANAGED_ENV_B64" | base64 -d > "$STAGE/update-managed-chanjet-env.mjs"
             chmod 600 "$STAGE"/*
             exec 9<> "$STATE_DIR/mutation.lock"
-            flock -n 9
+            echo "RECOVERY_FINALIZE_STAGE=LOCK_OPENED"
+            flock -n 9 || { echo "RECOVERY_FINALIZE_HOLD=LOCK_BUSY"; exit 1; }
+            echo "RECOVERY_FINALIZE_STAGE=LOCK_ACQUIRED"
             STATE_DIR="$STATE_DIR" EXPECTED_RUNTIME_SHA="$EXPECTED_RUNTIME_SHA" RECOVERY_RUN_ID="$RECOVERY_RUN_ID" STAGE="$STAGE" \
             node --input-type=module <<'NODE'
             import fs from 'node:fs';
