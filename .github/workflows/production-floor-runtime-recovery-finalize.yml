@@ -93,6 +93,11 @@ jobs:
             git_safe() { git -c "safe.directory=$DEPLOY_PATH" -c core.hooksPath=/dev/null "$@"; }
             test "$(git_safe branch --show-current)" = main
             test -z "$(git_safe status --porcelain --untracked-files=all)"
+            if [ "$(git_safe rev-parse HEAD)" != "$TARGET_SHA" ]; then
+              git_safe fetch --no-tags origin main
+              test "$(git_safe rev-parse FETCH_HEAD)" = "$TARGET_SHA"
+              git_safe merge --ff-only "$TARGET_SHA"
+            fi
             test "$(git_safe rev-parse HEAD)" = "$TARGET_SHA"
             STATE_DIR=/var/lib/phoenix-erp/production-deployment-state
             STAGE="$STATE_DIR/floor-runtime-recovery-finalize-${RECOVERY_RUN_ID}-${WORKFLOW_RUN_ID}"
