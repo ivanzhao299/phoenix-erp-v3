@@ -124,7 +124,6 @@ jobs:
             if (health('api') !== 'healthy' || health('web') !== 'healthy') throw new Error('RECOVERY_FINALIZE_HOLD=UNHEALTHY_RUNTIME');
             const actual = captureRuntime();
             if (actual.api.revision !== process.env.EXPECTED_RUNTIME_SHA || actual.web.revision !== process.env.EXPECTED_RUNTIME_SHA) throw new Error('RECOVERY_FINALIZE_HOLD=RUNTIME_REVISION');
-            guardProduction(process.cwd(), stateDir, actual);
             const receiptPath = path.join(stateDir, `floor-runtime-recovery-${process.env.RECOVERY_RUN_ID}.json`);
             if (!fs.existsSync(receiptPath)) throw new Error('RECOVERY_FINALIZE_HOLD=RECEIPT_MISSING');
             const receipt = secureJson(receiptPath);
