@@ -104,13 +104,7 @@ jobs:
             printf '%s' "$CHANJET_POLICY_B64" | base64 -d > "$STAGE/chanjet-readonly-policy.mjs"
             printf '%s' "$MANAGED_ENV_B64" | base64 -d > "$STAGE/update-managed-chanjet-env.mjs"
             chmod 600 "$STAGE"/*
-            exec 9>&-
-            exec 9<> "$STATE_DIR/mutation.lock"
-            echo "RECOVERY_FINALIZE_STAGE=LOCK_OPENED"
-            flock -n 9 || { echo "RECOVERY_FINALIZE_HOLD=LOCK_BUSY"; exit 1; }
-            echo "RECOVERY_FINALIZE_STAGE=LOCK_ACQUIRED"
-            STATE_DIR="$STATE_DIR" EXPECTED_RUNTIME_SHA="$EXPECTED_RUNTIME_SHA" RECOVERY_RUN_ID="$RECOVERY_RUN_ID" STAGE="$STAGE" \
-            node --input-type=module <<'NODE'
+            cat > "$STAGE/finalize.mjs" <<'NODE'
             import fs from 'node:fs';
             import path from 'node:path';
             import { pathToFileURL } from 'node:url';
@@ -138,3 +132,4 @@ jobs:
             atomicState(path.join(stateDir, `floor-runtime-recovery-${process.env.RECOVERY_RUN_ID}-complete.json`), { ...receipt, completedAt: new Date().toISOString(), floorSha: floor.floorSha, activeSha: active.floorSha, guard: 'PASS', runtime: actual });
             console.log(`FLOOR_RUNTIME_RECOVERY_FINALIZE=PASS;RUN=${process.env.RECOVERY_RUN_ID};SHA=${process.env.EXPECTED_RUNTIME_SHA}`);
             NODE
+            flock -n "$STATE_DIR/mutation.lock" bash -c 'exec 9<> "$1"; STATE_DIR="$2" EXPECTED_RUNTIME_SHA="$3" RECOVERY_RUN_ID="$4" STAGE="$5" node "$5/finalize.mjs"' _ "$STATE_DIR/mutation.lock" "$STATE_DIR" "$EXPECTED_RUNTIME_SHA" "$RECOVERY_RUN_ID" "$STAGE"
