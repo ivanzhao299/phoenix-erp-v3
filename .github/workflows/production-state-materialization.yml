@@ -11,6 +11,11 @@ on:
         description: 'Exact current main SHA'
         required: true
         type: string
+      record_name:
+        description: 'Optional recovery/deploy record to inspect read-only'
+        required: false
+        default: ''
+        type: string
 
 permissions:
   contents: read
@@ -43,6 +48,7 @@ jobs:
         env:
           DEPLOY_PATH: /data/phoenix-erp
           STATE_DIR: /var/lib/phoenix-erp/production-deployment-state
+          RECORD_NAME: ${{ inputs.record_name }}
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
@@ -52,7 +58,7 @@ jobs:
           proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
           proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
           proxy_port: 22
-          envs: DEPLOY_PATH,STATE_DIR
+          envs: DEPLOY_PATH,STATE_DIR,RECORD_NAME
           capture_stdout: true
           command_timeout: 5m
           script: |
@@ -80,6 +86,11 @@ jobs:
             find "$STATE_DIR" -maxdepth 1 -type f \( -name 'deploy-*.json' -o -name 'recovery-*.json' \) -print0 | sort -z | while IFS= read -r -d '' file; do
               printf 'STATE_RECORD=%s size=%s sha256=%s\n' "${file##*/}" "$(stat -c '%s' "$file")" "$(sha256sum "$file" | cut -d' ' -f1)"
             done
+            if [ -n "$RECORD_NAME" ]; then
+              case "$RECORD_NAME" in recovery-*.json|deploy-*.json) ;; *) echo INVALID_RECORD_NAME; exit 2 ;; esac
+              printf 'SELECTED_RECORD=%s\n' "$RECORD_NAME"
+              jq -c . "$STATE_DIR/$RECORD_NAME"
+            fi
       - name: Write state materialization
         env:
           STATE_DUMP: ${{ steps.collect_state.outputs.stdout }}
