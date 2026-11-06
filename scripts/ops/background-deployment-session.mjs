@@ -74,11 +74,13 @@ export function spawnDeploymentBody(body, dependencies = {}) {
   (dependencies.maintenanceAdmission || assertModernReleaseAdmission)();
   // FD9 must survive both layers: verifyContext checks the invoking parent's
   // inherited descriptor, not an environment assertion of lock ownership.
-  const stdio = ['pipe', 'inherit', 'inherit', 'ignore', 'ignore', 'ignore', 'ignore', 'ignore', 'ignore', 9];
+  const stdio = ['pipe', 'pipe', 'pipe', 'ignore', 'ignore', 'ignore', 'ignore', 'ignore', 'ignore', 9];
   const child = (dependencies.spawn || spawn)('/bin/bash', ['-Eeuo', 'pipefail'], {
     env: { ...(dependencies.env || process.env), BACKGROUND_DEPLOYMENT_SUPERVISED: 'true' },
     cwd: dependencies.root || CONTRACT.repository, stdio, detached: true,
   });
+  child.stdout?.on?.('data', chunk => process.stdout.write(chunk));
+  child.stderr?.on?.('data', chunk => process.stderr.write(chunk));
   child.stdin.on?.('error', () => { child.backgroundInputFailed = true; try { child.kill('SIGTERM'); } catch { /* Fixed failure classification below. */ } });
   child.stdin.end(body); return child;
 }
