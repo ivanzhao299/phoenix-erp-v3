@@ -104,6 +104,7 @@ jobs:
             printf '%s' "$CHANJET_POLICY_B64" | base64 -d > "$STAGE/chanjet-readonly-policy.mjs"
             printf '%s' "$MANAGED_ENV_B64" | base64 -d > "$STAGE/update-managed-chanjet-env.mjs"
             chmod 600 "$STAGE"/*
+            exec 9>&-
             exec 9<> "$STATE_DIR/mutation.lock"
             echo "RECOVERY_FINALIZE_STAGE=LOCK_OPENED"
             flock -n 9 || { echo "RECOVERY_FINALIZE_HOLD=LOCK_BUSY"; exit 1; }
