@@ -131,4 +131,4 @@ jobs:
             atomicState(path.join(stateDir, `floor-runtime-recovery-${process.env.RECOVERY_RUN_ID}-complete.json`), { ...receipt, completedAt: new Date().toISOString(), floorSha: floor.floorSha, activeSha: active.floorSha, guard: 'PASS', runtime: actual });
             console.log(`FLOOR_RUNTIME_RECOVERY_FINALIZE=PASS;RUN=${process.env.RECOVERY_RUN_ID};SHA=${process.env.EXPECTED_RUNTIME_SHA}`);
             NODE
-            flock -n "$STATE_DIR/mutation.lock" bash -c 'exec 9<> "$1"; STATE_DIR="$2" EXPECTED_RUNTIME_SHA="$3" RECOVERY_RUN_ID="$4" STAGE="$5" node "$5/finalize.mjs"' _ "$STATE_DIR/mutation.lock" "$STATE_DIR" "$EXPECTED_RUNTIME_SHA" "$RECOVERY_RUN_ID" "$STAGE"
+            STATE_DIR="$STATE_DIR" EXPECTED_RUNTIME_SHA="$EXPECTED_RUNTIME_SHA" RECOVERY_RUN_ID="$RECOVERY_RUN_ID" STAGE="$STAGE" node "$STAGE/finalize.mjs"
