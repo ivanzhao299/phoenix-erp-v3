@@ -77,7 +77,9 @@ jobs:
         run: |
           set -euo pipefail
           test -n "$STATE_B64"
-          printf '%s' "$STATE_B64" | base64 -d > production-state-materialization.tgz
+          STATE_LINE="$(printf '%s\n' "$STATE_B64" | awk '/^[A-Za-z0-9+\/=]+$/{last=$0} END{print last}')"
+          test -n "$STATE_LINE"
+          printf '%s' "$STATE_LINE" | base64 -d > production-state-materialization.tgz
           tar -tzf production-state-materialization.tgz
       - name: Upload state archive
         uses: actions/upload-artifact@v4
