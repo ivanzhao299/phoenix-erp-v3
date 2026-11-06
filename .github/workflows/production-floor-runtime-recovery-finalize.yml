@@ -66,6 +66,7 @@ jobs:
           TARGET_SHA: ${{ github.sha }}
           EXPECTED_RUNTIME_SHA: ${{ inputs.expected_runtime_sha }}
           RECOVERY_RUN_ID: ${{ inputs.recovery_run_id }}
+          WORKFLOW_RUN_ID: ${{ github.run_id }}
           PRODUCTION_CONTRACT_B64: ${{ env.PRODUCTION_CONTRACT_B64 }}
           PRODUCTION_PATH_HELPER_B64: ${{ env.PRODUCTION_PATH_HELPER_B64 }}
           PRODUCTION_ATOMIC_STATE_B64: ${{ env.PRODUCTION_ATOMIC_STATE_B64 }}
@@ -82,7 +83,7 @@ jobs:
           proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
           proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
           proxy_port: 22
-          envs: DEPLOY_PATH,TARGET_SHA,EXPECTED_RUNTIME_SHA,RECOVERY_RUN_ID,PRODUCTION_CONTRACT_B64,PRODUCTION_PATH_HELPER_B64,PRODUCTION_ATOMIC_STATE_B64,PRODUCTION_GUARD_B64,CAPTURE_RUNTIME_B64,CHANJET_POLICY_B64,MANAGED_ENV_B64
+          envs: DEPLOY_PATH,TARGET_SHA,EXPECTED_RUNTIME_SHA,RECOVERY_RUN_ID,WORKFLOW_RUN_ID,PRODUCTION_CONTRACT_B64,PRODUCTION_PATH_HELPER_B64,PRODUCTION_ATOMIC_STATE_B64,PRODUCTION_GUARD_B64,CAPTURE_RUNTIME_B64,CHANJET_POLICY_B64,MANAGED_ENV_B64
           command_timeout: 5m
           script: |
             set -Eeuo pipefail
@@ -93,7 +94,7 @@ jobs:
             test -z "$(git_safe status --porcelain --untracked-files=all)"
             test "$(git_safe rev-parse HEAD)" = "$TARGET_SHA"
             STATE_DIR=/var/lib/phoenix-erp/production-deployment-state
-            STAGE="$STATE_DIR/floor-runtime-recovery-finalize-${RECOVERY_RUN_ID}"
+            STAGE="$STATE_DIR/floor-runtime-recovery-finalize-${RECOVERY_RUN_ID}-${WORKFLOW_RUN_ID}"
             test ! -e "$STAGE"
             mkdir -m 700 "$STAGE"
             printf '%s' "$PRODUCTION_CONTRACT_B64" | base64 -d > "$STAGE/production-config-contract.json"
