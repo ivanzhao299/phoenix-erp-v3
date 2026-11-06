@@ -1179,7 +1179,7 @@ jobs:
               done
               export -f git docker rollback_deploy assert_target_main perform_deployment
               export DEPLOY_REPO_ROOT PREV_GIT_SHA STATE_DIR CODE_SYNCED API_SWITCH_STARTED WEB_SWITCH_STARTED BACKGROUND_STAGE
-              { declare -f perform_deployment; printf '%s\n' 'perform_deployment'; } | node "$BACKGROUND_STAGE/background-deployment-session.mjs" run 2>&1 | tee "$STATE_DIR/run-${DEPLOY_RUN_ID}/background-body-output.log"
+              { declare -f perform_deployment; printf '%s\n' 'perform_deployment'; } | node "$BACKGROUND_STAGE/background-deployment-session.mjs" run 2>&1 | tee "/tmp/phoenix-body-output-${DEPLOY_RUN_ID}.log"
             else
               perform_deployment
             fi
