@@ -70,11 +70,15 @@ jobs:
             printf '%s\n' "PRODUCTION_HEAD=$(git -C "$DEPLOY_PATH" rev-parse HEAD)" >> "$tmp/collection-metadata.txt"
             for name in floor.json active.json transaction.json policy-transition.json background-control.json; do
               printf 'STATE_FILE=%s\n' "$name"
-              if [ -f "$STATE_DIR/$name" ]; then jq -c . "$STATE_DIR/$name"; else printf 'MISSING\n'; fi
+              if [ ! -f "$STATE_DIR/$name" ]; then printf 'MISSING\n'; continue; fi
+              case "$name" in
+                floor.json) jq -c '{version,phase,floorSha,chanjetPolicy,readonlyApproval}' "$STATE_DIR/$name" ;;
+                active.json) jq -c '{version,floorSha,outcome,active:{api:{revision,imageId},web:{revision,imageId}}}' "$STATE_DIR/$name" ;;
+                *) jq -c . "$STATE_DIR/$name" ;;
+              esac
             done
             find "$STATE_DIR" -maxdepth 1 -type f \( -name 'deploy-*.json' -o -name 'recovery-*.json' \) -print0 | sort -z | while IFS= read -r -d '' file; do
-              printf 'STATE_FILE=%s\n' "${file##*/}"
-              jq -c . "$file"
+              printf 'STATE_RECORD=%s size=%s sha256=%s\n' "${file##*/}" "$(stat -c '%s' "$file")" "$(sha256sum "$file" | cut -d' ' -f1)"
             done
       - name: Write state materialization
         env:
