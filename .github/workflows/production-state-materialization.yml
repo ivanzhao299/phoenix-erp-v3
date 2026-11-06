@@ -89,7 +89,7 @@ jobs:
             if [ -n "$RECORD_NAME" ]; then
               case "$RECORD_NAME" in recovery-*.json|deploy-*.json|background-body-output.log|run-*/background-body-output.log) ;; *) echo INVALID_RECORD_NAME; exit 2 ;; esac
               printf 'SELECTED_RECORD=%s\n' "$RECORD_NAME"
-              if [[ "$RECORD_NAME" == *.json ]]; then jq -c . "$STATE_DIR/$RECORD_NAME"; else tail -200 "$STATE_DIR/$RECORD_NAME"; fi
+              if [[ "$RECORD_NAME" == *.json ]]; then jq -c . "$STATE_DIR/$RECORD_NAME"; else tail -200 "$STATE_DIR/$RECORD_NAME" | sed 's/^/BODY_LOG: /'; fi
             fi
       - name: Write state materialization
         env:
