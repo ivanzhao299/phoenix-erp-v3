@@ -89,6 +89,7 @@ jobs:
             set -Eeuo pipefail
             set +x
             cd "$DEPLOY_PATH"
+            echo "RECOVERY_FINALIZE_STAGE=SCRIPT_START"
             git_safe() { git -c "safe.directory=$DEPLOY_PATH" -c core.hooksPath=/dev/null "$@"; }
             test "$(git_safe branch --show-current)" = main
             test -z "$(git_safe status --porcelain --untracked-files=all)"
@@ -133,12 +134,15 @@ jobs:
             console.log(`FLOOR_RUNTIME_RECOVERY_FINALIZE=PASS;RUN=${process.env.RECOVERY_RUN_ID};SHA=${process.env.EXPECTED_RUNTIME_SHA}`);
             NODE
             STATE_DIR=/var/lib/phoenix-erp/production-deployment-state
+            echo "RECOVERY_FINALIZE_STAGE=STATE_READ"
             floor_sha="$(jq -r '.floorSha' "$STATE_DIR/floor.json")"
             active_sha="$(jq -r '.floorSha' "$STATE_DIR/active.json")"
+            echo "RECOVERY_FINALIZE_STATE=$floor_sha/$active_sha"
             test "$floor_sha" = "$EXPECTED_RUNTIME_SHA"
             test "$active_sha" = "$EXPECTED_RUNTIME_SHA"
             test ! -e "$STATE_DIR/transaction.json"
             test ! -e "$STATE_DIR/policy-transition.json"
+            echo "RECOVERY_FINALIZE_STAGE=HEALTH"
             test "$(docker inspect phoenix-v3-api --format '{{.State.Health.Status}}')" = healthy
             test "$(docker inspect phoenix-v3-web --format '{{.State.Health.Status}}')" = healthy
             api_image="$(docker inspect phoenix-v3-api --format '{{.Image}}')"
