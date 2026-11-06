@@ -1,0 +1,87 @@
+name: Production State Materialization
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_readonly:
+        description: 'Type COLLECT_PRODUCTION_STATE_READONLY to authorize read-only state collection'
+        required: true
+        type: string
+      expected_main_sha:
+        description: 'Exact current main SHA'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-state-materialization
+  cancel-in-progress: false
+
+jobs:
+  collect:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production-readonly
+    steps:
+      - uses: actions/checkout@v5
+        with: { fetch-depth: 0 }
+      - name: Validate read-only binding
+        env:
+          CONFIRM: ${{ inputs.confirm_readonly }}
+          EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha }}
+        run: |
+          set -euo pipefail
+          test "$CONFIRM" = COLLECT_PRODUCTION_STATE_READONLY
+          test "$EXPECTED_MAIN_SHA" = "$GITHUB_SHA"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+      - name: Collect production state over read-only SSH
+        id: collect_state
+        uses: appleboy/ssh-action@v1
+        env:
+          DEPLOY_PATH: /data/phoenix-erp
+          STATE_DIR: /var/lib/phoenix-erp/production-deployment-state
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
+          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+          proxy_port: 22
+          envs: DEPLOY_PATH,STATE_DIR
+          capture_stdout: true
+          command_timeout: 5m
+          script: |
+            set -Eeuo pipefail
+            umask 077
+            test "$(git -C "$DEPLOY_PATH" branch --show-current)" = main
+            test "$(git -C "$DEPLOY_PATH" status --porcelain --untracked-files=all)" = ''
+            tmp="$(mktemp -d)"
+            trap 'rm -rf "$tmp"' EXIT
+            for name in floor.json active.json transaction.json policy-transition.json background-control.json; do
+              if [ -f "$STATE_DIR/$name" ]; then cp -p "$STATE_DIR/$name" "$tmp/$name"; fi
+            done
+            find "$STATE_DIR" -maxdepth 1 -type f -name 'deploy-*.json' -exec cp -p {} "$tmp/" \;
+            find "$STATE_DIR" -maxdepth 1 -type f -name 'recovery-*.json' -exec cp -p {} "$tmp/" \;
+            printf '%s\n' "COLLECTED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$tmp/collection-metadata.txt"
+            printf '%s\n' "PRODUCTION_HEAD=$(git -C "$DEPLOY_PATH" rev-parse HEAD)" >> "$tmp/collection-metadata.txt"
+            printf '%s\n' "STATE_DIR=$STATE_DIR" >> "$tmp/collection-metadata.txt"
+            tar -czf - -C "$tmp" . | base64 -w0
+      - name: Write state archive
+        env:
+          STATE_B64: ${{ steps.collect_state.outputs.stdout }}
+        run: |
+          set -euo pipefail
+          test -n "$STATE_B64"
+          printf '%s' "$STATE_B64" | base64 -d > production-state-materialization.tgz
+          tar -tzf production-state-materialization.tgz
+      - name: Upload state archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-state-materialization-${{ github.run_id }}
+          path: production-state-materialization.tgz
+          if-no-files-found: error
