@@ -1,0 +1,149 @@
+name: Production Floor Runtime Recovery
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_recovery:
+        description: 'Type RECOVER_PRODUCTION_FLOOR_RUNTIME to authorize the one-time reviewed recovery'
+        required: true
+        type: string
+      expected_main_sha:
+        description: 'Exact reviewed main SHA containing this recovery workflow'
+        required: true
+        type: string
+      expected_floor_sha:
+        description: 'Current inconsistent floor SHA'
+        required: true
+        type: string
+      expected_runtime_sha:
+        description: 'Verified API/Web runtime SHA to restore as floor'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-floor-runtime-recovery
+  cancel-in-progress: false
+
+jobs:
+  recover:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    steps:
+      - uses: actions/checkout@v5
+        with: { fetch-depth: 0 }
+      - name: Validate reviewed recovery binding
+        env:
+          CONFIRM: ${{ inputs.confirm_recovery }}
+          EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha }}
+          EXPECTED_FLOOR_SHA: ${{ inputs.expected_floor_sha }}
+          EXPECTED_RUNTIME_SHA: ${{ inputs.expected_runtime_sha }}
+        run: |
+          set -euo pipefail
+          test "$CONFIRM" = RECOVER_PRODUCTION_FLOOR_RUNTIME
+          test "$EXPECTED_MAIN_SHA" = "$GITHUB_SHA"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          [[ "$EXPECTED_FLOOR_SHA" =~ ^[a-f0-9]{40}$ ]]
+          [[ "$EXPECTED_RUNTIME_SHA" =~ ^[a-f0-9]{40}$ ]]
+          test "$EXPECTED_FLOOR_SHA" != "$EXPECTED_RUNTIME_SHA"
+      - name: Prepare reviewed recovery helpers
+        run: |
+          set -euo pipefail
+          echo "PRODUCTION_CONTRACT_B64=$(base64 -w0 scripts/ops/production-config-contract.json)" >> "$GITHUB_ENV"
+          echo "PRODUCTION_PATH_HELPER_B64=$(base64 -w0 scripts/ops/production-trusted-paths.mjs)" >> "$GITHUB_ENV"
+          echo "PRODUCTION_ATOMIC_STATE_B64=$(base64 -w0 scripts/ops/production-atomic-state.mjs)" >> "$GITHUB_ENV"
+          echo "PRODUCTION_GUARD_B64=$(base64 -w0 scripts/ops/production-config-guard.mjs)" >> "$GITHUB_ENV"
+          echo "CAPTURE_RUNTIME_B64=$(base64 -w0 scripts/ops/capture-production-runtime.mjs)" >> "$GITHUB_ENV"
+          echo "CHANJET_POLICY_B64=$(base64 -w0 scripts/ops/chanjet-readonly-policy.mjs)" >> "$GITHUB_ENV"
+          echo "MANAGED_ENV_B64=$(base64 -w0 scripts/ops/update-managed-chanjet-env.mjs)" >> "$GITHUB_ENV"
+      - name: Execute one-time floor/runtime recovery over controlled SSH
+        uses: appleboy/ssh-action@v1
+        env:
+          DEPLOY_PATH: /data/phoenix-erp
+          TARGET_SHA: ${{ github.sha }}
+          EXPECTED_FLOOR_SHA: ${{ inputs.expected_floor_sha }}
+          EXPECTED_RUNTIME_SHA: ${{ inputs.expected_runtime_sha }}
+          RECOVERY_RUN_ID: ${{ github.run_id }}
+          PRODUCTION_CONTRACT_B64: ${{ env.PRODUCTION_CONTRACT_B64 }}
+          PRODUCTION_PATH_HELPER_B64: ${{ env.PRODUCTION_PATH_HELPER_B64 }}
+          PRODUCTION_ATOMIC_STATE_B64: ${{ env.PRODUCTION_ATOMIC_STATE_B64 }}
+          PRODUCTION_GUARD_B64: ${{ env.PRODUCTION_GUARD_B64 }}
+          CAPTURE_RUNTIME_B64: ${{ env.CAPTURE_RUNTIME_B64 }}
+          CHANJET_POLICY_B64: ${{ env.CHANJET_POLICY_B64 }}
+          MANAGED_ENV_B64: ${{ env.MANAGED_ENV_B64 }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          proxy_host: ${{ secrets.DEPLOY_PROXY_HOST }}
+          proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
+          proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+          proxy_port: 22
+          envs: DEPLOY_PATH,TARGET_SHA,EXPECTED_FLOOR_SHA,EXPECTED_RUNTIME_SHA,RECOVERY_RUN_ID,PRODUCTION_CONTRACT_B64,PRODUCTION_PATH_HELPER_B64,PRODUCTION_ATOMIC_STATE_B64,PRODUCTION_GUARD_B64,CAPTURE_RUNTIME_B64,CHANJET_POLICY_B64,MANAGED_ENV_B64
+          command_timeout: 5m
+          script: |
+            set -Eeuo pipefail
+            set +x
+            cd "$DEPLOY_PATH"
+            git_safe() { git -c "safe.directory=$DEPLOY_PATH" -c core.hooksPath=/dev/null "$@"; }
+            test "$(git_safe branch --show-current)" = main
+            test -z "$(git_safe status --porcelain --untracked-files=all)"
+            CURRENT_SHA="$(git_safe rev-parse HEAD)"
+            if [ "$CURRENT_SHA" != "$TARGET_SHA" ]; then
+              git_safe fetch --no-tags origin main
+              test "$(git_safe rev-parse FETCH_HEAD)" = "$TARGET_SHA"
+              git_safe merge --ff-only "$TARGET_SHA"
+            fi
+            test "$(git_safe rev-parse HEAD)" = "$TARGET_SHA"
+            test "$(git_safe ls-remote origin refs/heads/main | cut -f1)" = "$TARGET_SHA"
+            STAGE="/var/lib/phoenix-erp/production-deployment-state/floor-runtime-recovery-${RECOVERY_RUN_ID}"
+            test ! -e "$STAGE"
+            mkdir -m 700 "$STAGE"
+            printf '%s' "$PRODUCTION_CONTRACT_B64" | base64 -d > "$STAGE/production-config-contract.json"
+            printf '%s' "$PRODUCTION_PATH_HELPER_B64" | base64 -d > "$STAGE/production-trusted-paths.mjs"
+            printf '%s' "$PRODUCTION_ATOMIC_STATE_B64" | base64 -d > "$STAGE/production-atomic-state.mjs"
+            printf '%s' "$PRODUCTION_GUARD_B64" | base64 -d > "$STAGE/production-config-guard.mjs"
+            printf '%s' "$CAPTURE_RUNTIME_B64" | base64 -d > "$STAGE/capture-production-runtime.mjs"
+            printf '%s' "$CHANJET_POLICY_B64" | base64 -d > "$STAGE/chanjet-readonly-policy.mjs"
+            printf '%s' "$MANAGED_ENV_B64" | base64 -d > "$STAGE/update-managed-chanjet-env.mjs"
+            chmod 600 "$STAGE"/*
+            STATE_DIR=/var/lib/phoenix-erp/production-deployment-state \
+            TARGET_SHA="$TARGET_SHA" EXPECTED_FLOOR_SHA="$EXPECTED_FLOOR_SHA" EXPECTED_RUNTIME_SHA="$EXPECTED_RUNTIME_SHA" RECOVERY_RUN_ID="$RECOVERY_RUN_ID" STAGE="$STAGE" \
+            node --input-type=module <<'NODE'
+            import fs from 'node:fs';
+            import path from 'node:path';
+            import { pathToFileURL } from 'node:url';
+            import { execFileSync } from 'node:child_process';
+            const guardModule = await import(pathToFileURL(process.env.STAGE + '/production-config-guard.mjs'));
+            const atomicModule = await import(pathToFileURL(process.env.STAGE + '/production-atomic-state.mjs'));
+            const runtimeModule = await import(pathToFileURL(process.env.STAGE + '/capture-production-runtime.mjs'));
+            const { secureJson, guardProduction } = guardModule;
+            const { atomicState } = atomicModule;
+            const { captureRuntime, executionEnv } = runtimeModule;
+            const stateDir = process.env.STATE_DIR;
+            const floorPath = path.join(stateDir, 'floor.json');
+            const activePath = path.join(stateDir, 'active.json');
+            const floor = secureJson(floorPath);
+            const active = secureJson(activePath);
+            if (floor.version !== 3 || floor.phase !== 'READY' || floor.floorSha !== process.env.EXPECTED_FLOOR_SHA) throw new Error('RECOVERY_HOLD=FLOOR_BINDING');
+            if (fs.existsSync(path.join(stateDir, 'transaction.json')) || fs.existsSync(path.join(stateDir, 'policy-transition.json'))) throw new Error('RECOVERY_HOLD=ACTIVE_TRANSACTION');
+            const health = service => execFileSync('docker', ['inspect', `phoenix-v3-${service}`, '--format', '{{.State.Health.Status}}'], { env: executionEnv(), encoding: 'utf8' }).trim();
+            if (health('api') !== 'healthy' || health('web') !== 'healthy') throw new Error('RECOVERY_HOLD=UNHEALTHY_RUNTIME');
+            const actual = captureRuntime();
+            if (actual.api.revision !== process.env.EXPECTED_RUNTIME_SHA || actual.web.revision !== process.env.EXPECTED_RUNTIME_SHA) throw new Error('RECOVERY_HOLD=RUNTIME_REVISION');
+            const archive = { schema: 'phoenix.production-floor-runtime-recovery/1', recoveryRunId: process.env.RECOVERY_RUN_ID, recoveredAt: new Date().toISOString(), previousFloor: floor, previousActive: active, verifiedRuntime: actual, targetFloorSha: process.env.EXPECTED_RUNTIME_SHA, reason: 'RESTORE_FLOOR_TO_VERIFIED_ACTIVE_RUNTIME' };
+            atomicState(path.join(process.env.STAGE, 'recovery-receipt.json'), archive);
+            atomicState(path.join(stateDir, `floor-runtime-recovery-${process.env.RECOVERY_RUN_ID}.json`), archive);
+            const nextFloor = { ...floor, floorSha: process.env.EXPECTED_RUNTIME_SHA, phase: 'READY', chanjetPolicy: 'HOLD', readonlyApproval: null };
+            const nextActive = { ...active, version: 3, floorSha: process.env.EXPECTED_RUNTIME_SHA, configSha: process.env.EXPECTED_RUNTIME_SHA, active: actual, outcome: 'SUCCESS', recoveryRunId: process.env.RECOVERY_RUN_ID };
+            atomicState(floorPath, nextFloor);
+            atomicState(activePath, nextActive);
+            guardProduction(process.cwd(), stateDir, actual);
+            atomicState(path.join(stateDir, `floor-runtime-recovery-${process.env.RECOVERY_RUN_ID}-complete.json`), { ...archive, completedAt: new Date().toISOString(), floorSha: nextFloor.floorSha, activeSha: nextActive.floorSha });
+            console.log(`FLOOR_RUNTIME_RECOVERY=PASS;RUN=${process.env.RECOVERY_RUN_ID};SHA=${process.env.EXPECTED_RUNTIME_SHA}`);
+            NODE
