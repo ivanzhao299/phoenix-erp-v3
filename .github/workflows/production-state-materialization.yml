@@ -87,7 +87,7 @@ jobs:
               printf 'STATE_RECORD=%s size=%s sha256=%s\n' "${file##*/}" "$(stat -c '%s' "$file")" "$(sha256sum "$file" | cut -d' ' -f1)"
             done
             if [ -n "$RECORD_NAME" ]; then
-              case "$RECORD_NAME" in recovery-*.json|deploy-*.json|background-body-output.log) ;; *) echo INVALID_RECORD_NAME; exit 2 ;; esac
+              case "$RECORD_NAME" in recovery-*.json|deploy-*.json|background-body-output.log|run-*/background-body-output.log) ;; *) echo INVALID_RECORD_NAME; exit 2 ;; esac
               printf 'SELECTED_RECORD=%s\n' "$RECORD_NAME"
               if [[ "$RECORD_NAME" == *.json ]]; then jq -c . "$STATE_DIR/$RECORD_NAME"; else tail -200 "$STATE_DIR/$RECORD_NAME"; fi
             fi
