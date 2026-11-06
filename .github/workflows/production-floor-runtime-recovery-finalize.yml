@@ -132,4 +132,28 @@ jobs:
             atomicState(path.join(stateDir, `floor-runtime-recovery-${process.env.RECOVERY_RUN_ID}-complete.json`), { ...receipt, completedAt: new Date().toISOString(), floorSha: floor.floorSha, activeSha: active.floorSha, guard: 'PASS', runtime: actual });
             console.log(`FLOOR_RUNTIME_RECOVERY_FINALIZE=PASS;RUN=${process.env.RECOVERY_RUN_ID};SHA=${process.env.EXPECTED_RUNTIME_SHA}`);
             NODE
-            STATE_DIR="$STATE_DIR" EXPECTED_RUNTIME_SHA="$EXPECTED_RUNTIME_SHA" RECOVERY_RUN_ID="$RECOVERY_RUN_ID" STAGE="$STAGE" node "$STAGE/finalize.mjs"
+            STATE_DIR=/var/lib/phoenix-erp/production-deployment-state
+            floor_sha="$(jq -r '.floorSha' "$STATE_DIR/floor.json")"
+            active_sha="$(jq -r '.floorSha' "$STATE_DIR/active.json")"
+            test "$floor_sha" = "$EXPECTED_RUNTIME_SHA"
+            test "$active_sha" = "$EXPECTED_RUNTIME_SHA"
+            test ! -e "$STATE_DIR/transaction.json"
+            test ! -e "$STATE_DIR/policy-transition.json"
+            test "$(docker inspect phoenix-v3-api --format '{{.State.Health.Status}}')" = healthy
+            test "$(docker inspect phoenix-v3-web --format '{{.State.Health.Status}}')" = healthy
+            api_image="$(docker inspect phoenix-v3-api --format '{{.Image}}')"
+            web_image="$(docker inspect phoenix-v3-web --format '{{.Image}}')"
+            api_revision="$(docker image inspect "$api_image" --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}')"
+            web_revision="$(docker image inspect "$web_image" --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}')"
+            test "$api_revision" = "$EXPECTED_RUNTIME_SHA"
+            test "$web_revision" = "$EXPECTED_RUNTIME_SHA"
+            receipt="$STATE_DIR/floor-runtime-recovery-${RECOVERY_RUN_ID}.json"
+            test -f "$receipt"
+            test "$(jq -r '.schema' "$receipt")" = phoenix.production-floor-runtime-recovery/1
+            test "$(jq -r '.targetFloorSha' "$receipt")" = "$EXPECTED_RUNTIME_SHA"
+            runtime="$(jq -cn --arg ai "$api_image" --arg ar "$api_revision" --arg wi "$web_image" --arg wr "$web_revision" '{api:{imageId:$ai,revision:$ar},web:{imageId:$wi,revision:$wr}}')"
+            tmp="$STATE_DIR/.floor-runtime-recovery-${RECOVERY_RUN_ID}-complete.json.tmp"
+            jq --arg completedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --arg floorSha "$floor_sha" --arg activeSha "$active_sha" --argjson runtime "$runtime" '. + {completedAt:$completedAt,floorSha:$floorSha,activeSha:$activeSha,guard:"PASS",runtime:$runtime}' "$receipt" > "$tmp"
+            chmod 600 "$tmp"
+            mv -f "$tmp" "$STATE_DIR/floor-runtime-recovery-${RECOVERY_RUN_ID}-complete.json"
+            echo "FLOOR_RUNTIME_RECOVERY_FINALIZE=PASS;RUN=${RECOVERY_RUN_ID};SHA=${EXPECTED_RUNTIME_SHA}"
