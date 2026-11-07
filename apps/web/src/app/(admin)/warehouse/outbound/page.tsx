@@ -364,7 +364,7 @@ export default function OutboundPage() {
         pageSize={30}
       />
 
-      <RightDrawer open={drawerOpen} title={editing ? t("ui.编辑出库单", "编辑出库单") : t("ui.批量新建出库单", "批量新建出库单")} onClose={closeDrawer}>
+      <RightDrawer open={drawerOpen} width={editing ? 520 : "min(1100px, calc(100vw - 32px))"} title={editing ? t("ui.编辑出库单", "编辑出库单") : t("ui.批量新建出库单", "批量新建出库单")} onClose={closeDrawer}>
         {editing ? <CrudForm transformValues={resetOutboundDestination} fields={FIELDS} batchRefreshKey={refreshKey} initialValues={{ ...(editing ?? {}), operator: currentOperator }} onSubmit={handleSave} onCancel={closeDrawer} loading={saving} /> : <BatchDocumentEditor kind="outbound" header={batchHeader} setHeader={setBatchHeader} items={batchItems} setItems={setBatchItems} onSubmit={handleBatchSave} onCancel={closeDrawer} loading={saving} />}
       </RightDrawer>
 

@@ -5,6 +5,7 @@ import { Plus, Trash2 } from "lucide-react";
 import { InventoryItemSelector, WarehouseSelector, CustomerSelector, StoreSelector, DepartmentSelector, ProjectSelector, UserSelector, SupplierSelector, HouseSelector } from "@/components/shared-selectors/MasterDataSelectors";
 import { DictSelect } from "@/components/shared-selectors/DictSelect";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { primaryActionButton, secondaryActionButton, actionPill } from "@/components/design-system/cockpit-styles";
 
 export type BatchLine = Record<string, unknown> & { _key: string };
 export type BatchHeader = Record<string, unknown>;
@@ -58,14 +59,14 @@ export default function BatchDocumentEditor({ kind, header, setHeader, items, se
           <td style={{ padding: 7 }}><input value={String(line.item_name ?? "")} readOnly style={{ ...inputStyle, background: "var(--bg-muted)" }} /></td>
           <td style={{ padding: 7, width: 100 }}><input value={String(line.unit ?? "")} readOnly style={{ ...inputStyle, background: "var(--bg-muted)" }} /></td>
           <td style={{ padding: 7, width: 130 }}><input type="number" min="0" step="0.001" value={String(line.qty ?? "")} onChange={e => updateLine(line._key, { qty: e.target.value })} style={inputStyle} required /></td>
-          <td style={{ padding: 7, width: 60 }}><button type="button" aria-label={t("common.delete", "删除")} onClick={() => removeLine(line._key)} disabled={items.length === 1} style={{ border: 0, background: "transparent", cursor: items.length === 1 ? "not-allowed" : "pointer" }}><Trash2 size={15} /></button></td>
+          <td style={{ padding: 7, width: 60 }}><button type="button" aria-label={t("common.delete", "删除")} onClick={() => removeLine(line._key)} disabled={items.length === 1} style={{ ...actionPill("danger"), opacity: items.length === 1 ? 0.45 : 1, cursor: items.length === 1 ? "not-allowed" : "pointer", padding: "5px 8px" }}><Trash2 size={15} /></button></td>
         </tr>)}</tbody>
       </table>
     </div>
     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-      <button type="button" onClick={() => setItems([...items, newBatchLine()])} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "7px 10px", border: "1px solid var(--border-subtle)", borderRadius: 6, background: "var(--bg-surface)", cursor: "pointer" }}><Plus size={14} />{t("ui.新增明细", "新增明细")}</button>
+      <button type="button" onClick={() => setItems([...items, newBatchLine()])} style={secondaryActionButton}><Plus size={14} />{t("ui.新增明细", "新增明细")}</button>
       <strong>{t("ui.合计数量", "合计数量")}：{total}</strong>
-      <div style={{ display: "flex", gap: 8 }}><button type="button" onClick={onCancel} style={{ padding: "7px 12px" }}>{t("common.cancel", "取消")}</button><button type="button" onClick={onSubmit} disabled={loading || items.some(line => !line.item || Number(line.qty) <= 0)} style={{ padding: "7px 12px", fontWeight: 700 }}>{loading ? t("common.processing", "处理中") : t("common.save", "保存")}</button></div>
+      <div style={{ display: "flex", gap: 8 }}><button type="button" onClick={onCancel} style={secondaryActionButton}>{t("common.cancel", "取消")}</button><button type="button" onClick={onSubmit} disabled={loading || items.some(line => !line.item || Number(line.qty) <= 0)} style={{ ...primaryActionButton, opacity: loading || items.some(line => !line.item || Number(line.qty) <= 0) ? 0.55 : 1 }}>{loading ? t("common.processing", "处理中") : t("common.save", "保存")}</button></div>
     </div>
   </div>;
 }
