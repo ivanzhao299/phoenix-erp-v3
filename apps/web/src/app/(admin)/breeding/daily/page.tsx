@@ -30,7 +30,7 @@ import { Save, Cpu, CheckCircle, X as XIcon } from 'lucide-react';
 import s from '@/components/ui/admin-ui.module.css';
 import { primaryActionButton, secondaryActionButton } from '@/components/design-system/cockpit-styles';
 import { HouseSelector } from '@/components/shared-selectors/MasterDataSelectors'; // G4-E 鸡舍主数据
-import { useDictOptions } from '@/hooks/useDictOptions'; // 班次字典化
+import { useDictOptions } from '@/hooks/useDictOptions';
 import DictSelect from '@/components/shared-selectors/DictSelect'; // G19-A 死亡/淘汰原因字典化
 import { useProductGrades } from '@/hooks/useProductGrades'; // G14 9 档分级
 import { ModalV2 } from '@/components/design-system/dialogs/ModalV2';
@@ -109,10 +109,7 @@ export default function DailyPage() {
   const {
     fetchRecords: fetchFlocks
   } = useCrud('brd_flocks');
-  const {
-    fetchRecords,
-    createRecord
-  } = useCrud('brd_daily_logs');
+  const { fetchRecords } = useCrud('brd_daily_logs');
   const [houses, setHouses] = useState<{
     code: string;
     label: string;
@@ -133,30 +130,9 @@ export default function DailyPage() {
   const [flockByHouse, setFlockByHouse] = useState<Record<string, string>>({});
   const [farmCodeByHouse, setFarmCodeByHouse] = useState<Record<string, string>>({});
   const [formDate, setFormDate] = useState(today);
-  // 班次字典化：BRD_SHIFT（G102 统一为中文 早班/晚班）；字典为空时 fallback 同口径
-  const { optionPairs: shiftOptions } = useDictOptions('BRD_SHIFT');
   const { codeMap: cullingReasonCodeMap } = useDictOptions('BRD_CULLING_REASON');
-  const shiftRows = shiftOptions.length > 0
-    ? shiftOptions.map((opt, i) => mkRow(i + 1, opt.value))
-    : [mkRow(1, '早班'), mkRow(2, '晚班')];
-  const [rows, setRows] = useState(shiftRows);
-  // 字典加载完后同步 rows（首次加载从 fallback DAY/NIGHT 切到 dict 实际值）
-  useEffect(() => {
-    if (shiftOptions.length === 0) return;
-    setRows(prev => {
-      if (prev.length === shiftOptions.length && prev.every((r, i) => r.shift === shiftOptions[i].value)) return prev;
-      return shiftOptions.map((opt, i) => mkRow(i + 1, opt.value));
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [shiftOptions.length]);
-  // G14：字典加载失败时用内置中文 fallback，避免显示 'BRD_SHIFT_MORNING' 字典码
-  const FALLBACK_SHIFT_LABELS: Record<string, string> = {
-    'BRD_SHIFT_MORNING': '早班', 'BRD_SHIFT_EVENING': '晚班',
-    'BRD_SHIFT_NIGHT':   '夜班', 'BRD_SHIFT_DAY':     '全天',
-    'DAY': '早班', 'NIGHT': '晚班',
-  };
-  const shiftLabel = (code: string) =>
-    shiftOptions.find(o => o.value === code)?.label || FALLBACK_SHIFT_LABELS[code] || code;
+  // Issue #498: the management page has one daily entry; DAILY is an internal compatibility value.
+  const [rows, setRows] = useState([mkRow(1, 'DAILY')]);
   const [submitted, setSubmitted] = useState(false);
   const [approved, setApproved] = useState(false);
   const [reports, setReports] = useState<DailyReport[]>([]);
@@ -168,7 +144,6 @@ export default function DailyPage() {
   const [genHour, setGenHour] = useState<number | ''>(17);
   // G14：当前舍存栏（拉自 brd_flocks.current_qty）+ 9 档 modal
   const [currentQty, setCurrentQty] = useState<number>(0);
-  const [gradeModalRowId, setGradeModalRowId] = useState<number | null>(null);
   const { grades: productGrades } = useProductGrades();
   const historyRequest = useRef(0);
   const loadData = useCallback(async () => {
@@ -290,187 +265,36 @@ export default function DailyPage() {
       toast.error(t('ui.请先选择鸡舍后再提交', '请先选择鸡舍后再提交'));
       return;
     }
-    const hasData = rows.some(hasDailyReportInput);
+    const row = rows[0];
+    const hasData = hasDailyReportInput({ ...row, eggs: String(gradeSumOf(row.gradeQty)) });
     if (!hasData) {
       toast.error(t('ui.请至少录入一项数据（产蛋数、死淘或饲料用量）后再提交', '请至少录入一项数据（产蛋数、死淘或饲料用量）后再提交'));
       return;
     }
-    const hasNegative = rows.some(r => Number(r.eggs) < 0 || Number(r.deaths) < 0 || Number(r.feedKg) < 0 || Number(r.dirtyEggs) < 0 || Number(r.brokenEggs) < 0 || Number(r.waterL) < 0);
-    if (hasNegative) {
-      toast.error(t('ui.产蛋数、死淘数及耗材等数据不能录入负数！', '产蛋数、死淘数及耗材等数据不能录入负数！'));
-      return;
-    }
-    const invalidGrade = rows.some(row => Object.values(row.gradeQty || {}).some(value =>
-      value !== '' && (!Number.isSafeInteger(Number(value)) || Number(value) < 0)));
+    const invalidGrade = Object.values(row.gradeQty || {}).some(value => value !== '' && (!Number.isSafeInteger(Number(value)) || Number(value) < 0));
     if (invalidGrade) {
       toast.error(t('breeding.daily.gradeIntegerRequired', '九档数量必须为非负整数'));
       return;
     }
-    // G14：9 档录入校验 — sum(9档) vs eggs_produced 偏差 > 3% 弹窗确认
-    for (const r of rows) {
-      const eggs = Number(r.eggs) || 0;
-      const gradeSum = gradeSumOf(r.gradeQty);
-      if (eggs > 0 && gradeSum === 0) {
-        toast.error(
-          `${shiftLabel(r.shift)}${t(
-            'breeding.daily.grade_breakdown_required',
-            '：已录产蛋数，必须补齐 9 档分级后才能提交',
-          )}`,
-        );
-        return;
-      }
-      if (gradeSum > 0 && eggs > 0) {
-        const diff = Math.abs(gradeSum - eggs);
-        const tolerance = Math.max(3, eggs * 0.03);
-        if (diff > tolerance) {
-          const ok = await showConfirm({
-            type: 'confirm', icon: '⚠️',
-            title: `${shiftLabel(r.shift)}${t('ui.：9 档分级总数与产蛋数不一致', '：9 档分级总数与产蛋数不一致')}`,
-            message: `${t('ui.9 档分级 sum =', '9 档分级 sum =')} ${gradeSum} ${t('ui.枚', '枚')}\n${t('ui.产蛋总数 =', '产蛋总数 =')} ${eggs} ${t('ui.枚', '枚')}\n${t('ui.差', '差')} ${diff} ${t('ui.枚（容差', '枚（容差')} ${Math.round(tolerance)}${t('ui.）', '）')}\n\n${t('ui.是否继续提交？', '是否继续提交？')}`,
-            confirmLabel: t('ui.继续提交', '继续提交'),
-          });
-          if (!ok) return;
-        }
-      }
-    }
     const token = typeof window !== 'undefined' ? sessionStorage.getItem('phoenix_token') : '';
-    const userStr = typeof window !== 'undefined' ? sessionStorage.getItem('phoenix_user') : '{}';
-    const user = userStr ? JSON.parse(userStr) : {};
-    const operatorName = user.realNameZh || user.username || t('ui.未知操作人', '未知操作人');
-    const submitOne = async (r: typeof rows[number]) => {
-      // G14：构建 eggs_by_grade JSON（仅含 qty>0 的档）
-      const eggsByGrade: Record<string, number> = {};
-      for (const [code, qty] of Object.entries(r.gradeQty || {})) {
-        const n = Number(qty) || 0;
-        if (n > 0) eggsByGrade[code] = n;
-      }
-      const hasGradeData = Object.keys(eggsByGrade).length > 0;
-      const payload: Record<string, unknown> = {
-        house_code: selectedHouse,
-        flock_no: flockByHouse[selectedHouse] || selectedHouse,
-        farm_code: farmCodeByHouse[selectedHouse] || '',
-        log_date: formDate,
-        shift: r.shift,
-        feed_consumed: Number(r.feedKg) || 0,
-        water_consumed: Number(r.waterL) || 0,
-        self_use_qty: Number(r.selfUse) || 0,  // G9：自用蛋数
-        mortality_qty: Number(r.deaths) || 0,
-        mortality_reason: r.mortalityReason || null,   // G19-A
-        elimination_qty: Number(r.elimination) || 0,
-        culling_reason: r.elimReason || null,
-        // Let the API derive the total from eggs_by_grade when the total field is blank.
-        eggs_produced: dailyReportEggTotal(r.eggs, hasGradeData),
-        dirty_eggs: Number(r.dirtyEggs) || 0,
-        broken_eggs: Number(r.brokenEggs) || 0,
-        temp: Number(r.temp) || 25,
-        humidity: Number(r.humidity) || 60,
-        note: r.remark,
-        operator: operatorName,
-      };
-      // G14：携带 9 档分级 JSON，让生产终端可一键消费
-      if (hasGradeData) payload.eggs_by_grade = eggsByGrade;
-      const res = await fetch(`${API_BASE}/api/v3/farm/daily-logs`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? {
-            Authorization: `Bearer ${token}`
-          } : {})
-        },
-        body: JSON.stringify(payload)
-      });
-      if (!res.ok) {
-        const j = await res.json().catch(() => ({
-          message: res.statusText
-        }));
-        throw new Error(j?.message || j?.msg || `HTTP ${res.status}`);
-      }
-      return r.shift;
+    const user = JSON.parse(typeof window !== 'undefined' ? sessionStorage.getItem('phoenix_user') || '{}' : '{}');
+    const eggsByGrade = Object.fromEntries(Object.entries(row.gradeQty).filter(([, value]) => Number(value) > 0).map(([code, value]) => [code, Number(value)]));
+    const payload: Record<string, unknown> = {
+      house_code: selectedHouse, flock_no: flockByHouse[selectedHouse] || selectedHouse,
+      farm_code: farmCodeByHouse[selectedHouse] || '', log_date: formDate,
+      feed_consumed: Number(row.feedKg) || 0, water_consumed: Number(row.waterL) || 0,
+      mortality_qty: Number(row.deaths) || 0, mortality_reason: row.mortalityReason || null,
+      elimination_qty: Number(row.elimination) || 0, culling_reason: row.elimReason || null,
+      temp: Number(row.temp) || 25, humidity: Number(row.humidity) || 60, note: row.remark,
+      operator: user.realNameZh || user.username || t('ui.未知操作人', '未知操作人'), eggs_by_grade: eggsByGrade,
     };
-    const rowsToSubmit = rows.filter(hasDailyReportInput);
-    const results = await Promise.allSettled(rowsToSubmit.map(submitOne));
-    const fulfilled = results.filter(r => r.status === 'fulfilled') as PromiseFulfilledResult<string>[];
-    const rejected = results.map((r, i) => ({
-      r,
-      shift: rowsToSubmit[i].shift
-    })).filter(x => x.r.status === 'rejected') as Array<{
-      r: PromiseRejectedResult;
-      shift: string;
-    }>;
-    if (rejected.length > 0) {
-      const failed = rejected.map(x => `${x.shift}：${(x.r.reason as Error)?.message || t('ui.未知错误', '未知错误')}`).join('\n');
-      toast.error(`${t('ui.部分班次提交失败：', '部分班次提交失败：')}\n${failed}`);
-    }
-    if (fulfilled.length > 0) {
-      // A report is saved before its optional inventory posting because the
-      // posting validates the report's grade allowance. Do not refresh the
-      // history list until that second request has succeeded; otherwise a
-      // rejected posting looks like a valid inventory-backed report (#493).
-      let inboundFailed = false;
-      // G15：日报提交成功后，若任一班次填了 9 档 → 弹窗确认是否同步入销售库存
-      // 仅 TEMP_PRODUCTION_INBOUND 模式可用；PACKAGING_INBOUND 模式提示前往包装中心
-      const rowsWithGrades = rowsToSubmit.filter((r, index) =>
-        results[index].status === 'fulfilled' && Object.values(r.gradeQty || {}).some(v => Number(v) > 0));
-      if (rowsWithGrades.length > 0) {
-        const totalSum = rowsWithGrades.reduce((s, r) => s + gradeSumOf(r.gradeQty), 0);
-        const ok = await showConfirm({
-          type: 'confirm', icon: '📦',
-          title: t('ui.日报已保存 — 是否同步入销售库存？', '日报已保存 — 是否同步入销售库存？'),
-          message: `${t('ui.共', '共')} ${rowsWithGrades.length} ${t('ui.个班次填了 9 档分级，合计', '个班次填了 9 档分级，合计')} ${totalSum.toLocaleString()} ${t('ui.枚。', '枚。')}\n\n${t('ui.确认 → 自动写入鸡蛋销售成品仓（LPH_MS_EGG_SALES），可直接销售。', '确认 → 自动写入鸡蛋销售成品仓（LPH_MS_EGG_SALES），可直接销售。')}\n${t('ui.取消 → 仅保存日报数据，稍后去「日产蛋入库」分级入库。', '取消 → 仅保存日报数据，稍后去「日产蛋入库」分级入库。')}`,
-          confirmLabel: t('ui.同步入销售库存', '同步入销售库存'),
-          cancelLabel: t('ui.仅保存日报', '仅保存日报'),
-        });
-        if (ok) {
-          // 调 daily-inbound endpoint 一键入库
-          const allItems = rowsWithGrades.flatMap(r =>
-            Object.entries(r.gradeQty).filter(([, v]) => Number(v) > 0).map(([grade, qty]) => ({ grade, qty: Number(qty) }))
-          );
-          try {
-            const res = await fetch(`${API_BASE}/api/v2/inventory/production-inbound`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-              body: JSON.stringify({
-                eggDate: formDate,
-                houseCode: selectedHouse || undefined,
-                idempotencyKey: dailyReportInboundIdempotencyKey(formDate, selectedHouse),
-                items: allItems,
-              }),
-            });
-            const result = await readProductionInboundResult(res, allItems);
-            if (result.status === 'success') {
-              toast.success(`✓ ${t('ui.已入库', '已入库')} ${allItems.length} ${t('ui.个批次，合计', '个批次，合计')} ${totalSum.toLocaleString()} ${t('ui.枚', '枚')}`);
-            } else {
-              inboundFailed = true;
-              if (result.status === 'unknown') {
-                toast.error(t('ui.入库结果未知，请先核对库存后再重试：', '入库结果未知，请先核对库存后再重试：'));
-              } else if (result.message.includes('PACKAGING_INBOUND')) {
-                toast.error(t('ui.当前 SITE 是包装入库模式，请去包装作业中心完成', '当前 SITE 是包装入库模式，请去包装作业中心完成'));
-              } else {
-                toast.error(`${t('ui.入库失败：', '入库失败：')}${result.message}`);
-              }
-            }
-          } catch (e: unknown) {
-            inboundFailed = true;
-            // The request may have committed before the response was lost. Do not
-            // retry automatically; ask the operator to verify inventory first.
-            toast.error(`${t('ui.入库结果未知，请先核对库存后再重试：', '入库结果未知，请先核对库存后再重试：')}${e instanceof Error ? e.message : ''}`);
-          }
-        }
-      }
-      if (!inboundFailed) {
-        // Show the saved business date only after the optional inventory post
-        // is confirmed, including backdated reports outside the recent page.
-        setHistoryHouse(selectedHouse);
-        setHistoryDate(formDate);
-        if (historyHouse === selectedHouse && historyDate === formDate) loadData();
-        setSubmitted(true);
-        setApproved(false);
-        setTimeout(() => setSubmitted(false), 3000);
-        if (rejected.length === 0) {
-          const codes = shiftOptions.length > 0 ? shiftOptions.map(o => o.value) : ['BRD_SHIFT_MORNING', 'BRD_SHIFT_EVENING'];
-          setRows(codes.map((c, i) => mkRow(i + 1, c)));
-        }
-      }
+    try {
+      const res = await fetch(`${API_BASE}/api/v3/farm/daily-logs`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify(payload) });
+      if (!res.ok) { const result = await res.json().catch(() => ({ message: res.statusText })); throw new Error(result?.message || result?.msg || `HTTP ${res.status}`); }
+      setHistoryHouse(selectedHouse); setHistoryDate(formDate); await loadData(); setRows([mkRow(1, 'DAILY')]);
+      setSubmitted(true); setTimeout(() => setSubmitted(false), 3000);
+    } catch (error: unknown) {
+      toast.error(`${t('ui.日报提交失败：', '日报提交失败：')}${error instanceof Error ? error.message : t('ui.未知错误', '未知错误')}`);
     }
   };
   const handleApprove = () => {
@@ -534,7 +358,7 @@ export default function DailyPage() {
   };
   const visibleReports = reports;
   return <div className="animate-fade-in">
-      <PageHeader title={t('ui.日生产日报录入', '日生产日报录入')} subtitle={t('ui.按班次录入当日生产数据', '按班次录入当日生产数据')} breadcrumb={[t('ui.养殖管理', '养殖管理'), t('ui.日生产日报', '日生产日报')]} actions={<div style={{
+      <PageHeader title={t('ui.日生产日报录入', '日生产日报录入')} subtitle={t('ui.一次录入当日生产数据', '一次录入当日生产数据')} breadcrumb={[t('ui.养殖管理', '养殖管理'), t('ui.日生产日报', '日生产日报')]} actions={<div style={{
       display: 'flex',
       gap: 10,
       flexWrap: 'wrap'
@@ -638,7 +462,7 @@ export default function DailyPage() {
               <span style={{
             color: 'var(--text-secondary)',
             fontSize: 11
-          }}>（{t('ui.已自动预填所有班次，可手动修改', '已自动预填所有班次，可手动修改')}）</span>
+          }}>（{t('ui.已自动预填当日数据，可手动修改', '已自动预填当日数据，可手动修改')}）</span>
             </div>}
           <div style={{
           marginLeft: 'auto',
@@ -678,19 +502,14 @@ export default function DailyPage() {
         </div>
       </div>
 
-      {/* G14 v2：每个班次独立卡片，字段上方内嵌 label，负数自动归零 */}
+      {/* 单日数据卡片，字段上方内嵌 label，负数自动归零 */}
       <div className={s.card} style={{ marginBottom: 24, overflow: 'hidden' }}>
         <div className={s.cardHeader}>
-          <span className={s.cardTitle} style={{ color: 'var(--color-primary)' }}>{t('ui.班次数据录入', '班次数据录入')}</span>
+          <span className={s.cardTitle} style={{ color: 'var(--color-primary)' }}>{t('ui.单日数据录入', '单日数据录入')}</span>
         </div>
         <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 14 }}>
           {rows.map(row => {
             const gradeSum = gradeSumOf(row.gradeQty);
-            const eggsNum = Number(row.eggs) || 0;
-            const gradeCellAccent = gradeSum > 0
-              ? (eggsNum > 0 && Math.abs(gradeSum - eggsNum) > Math.max(3, eggsNum * 0.03)
-                ? 'var(--status-warning)' : 'var(--status-success)')
-              : 'var(--text-secondary)';
             // G14 v2：number 输入统一封装，min=0 + onChange 拦截负数
             const numInput = (field: keyof typeof row, w = 100) => (
               <input
@@ -725,21 +544,7 @@ export default function DailyPage() {
                 border: '1px solid var(--border)', borderRadius: 10, padding: 14, background: 'var(--bg-page)',
                 display: 'flex', flexDirection: 'column', gap: 12,
               }}>
-                {/* 班次标题 + 9 档分级按钮 */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--color-primary)', padding: '4px 10px', borderRadius: 6, background: 'color-mix(in srgb, var(--color-primary) 12%, transparent)' }}>
-                      {shiftLabel(row.shift)}
-                    </span>
-                  </div>
-                  <button type="button" onClick={() => setGradeModalRowId(row.id)} style={{
-                    padding: '7px 14px', borderRadius: 6, fontSize: 12, cursor: 'pointer',
-                    background: 'var(--bg-card)', border: `1px solid ${gradeCellAccent}`, color: gradeCellAccent,
-                    display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 600,
-                  }}>
-                    {gradeSum > 0 ? <><CheckCircle size={14} />{t('ui.9 档', '9 档')} {gradeSum}{t('ui.枚', '枚')}</> : <>{t('ui.按 9 档分级', '按 9 档分级')}</>}
-                  </button>
-                </div>
+                {/* 单日数据：不展示班次，9 档直接在产蛋区录入 */}
                 {/* G19-A 三组分块 — 产蛋区 / 死淘区 / 环境区 — 用色块区分业务语义 */}
                 {/* 产蛋区（绿） */}
                 <div style={{
@@ -751,11 +556,12 @@ export default function DailyPage() {
                   <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--status-success)', marginBottom: 8, letterSpacing: 0.5 }}>
                     🥚 {t('ui.产蛋区', '产蛋区')}
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 10 }}>
-                    <div style={cellStyle}><span style={labelStyle}>{t('ui.产蛋数(枚)', '产蛋数(枚)')}</span>{numInput('eggs', 130)}</div>
-                    <div style={cellStyle}><span style={labelStyle}>🟡 {t('ui.脏蛋(枚)', '脏蛋(枚)')}</span>{numInput('dirtyEggs', 130)}</div>
-                    <div style={cellStyle}><span style={labelStyle}>🔴 {t('ui.破损蛋(枚)', '破损蛋(枚)')}</span>{numInput('brokenEggs', 130)}</div>
-                    <div style={cellStyle}><span style={labelStyle}>{t('ui.自用蛋(枚)', '自用蛋(枚)')}</span>{numInput('selfUse', 130)}</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: 10 }}>
+                    {productGrades.map(g => <div key={g.grade_code} style={cellStyle}>
+                      <span style={labelStyle}>{g.grade_name} ({g.grade_code})</span>
+                      <GradeQuantityInput aria-label={`${g.grade_name} · ${t('ui.数量(枚)', '数量(枚)')}`} value={row.gradeQty[g.grade_code] ?? ''} onValueChange={safe => setRows(rs => rs.map(r => r.id === row.id ? { ...r, gradeQty: { ...r.gradeQty, [g.grade_code]: safe } } : r))} />
+                    </div>)}
+                    <div style={{ ...cellStyle, fontWeight: 700, color: 'var(--status-success)' }}><span style={labelStyle}>{t('ui.产蛋合计(枚)', '产蛋合计（枚）')}</span><span>{gradeSum.toLocaleString()}</span></div>
                   </div>
                 </div>
 
@@ -894,64 +700,12 @@ export default function DailyPage() {
         </table>
       </div>
 
-      {/* G14：9 档分级录入 modal */}
-      {gradeModalRowId !== null && (() => {
-        const row = rows.find(r => r.id === gradeModalRowId);
-        if (!row) return null;
-        const eggsNum = Number(row.eggs) || 0;
-        const gradeSum = gradeSumOf(row.gradeQty);
-        const diff = gradeSum - eggsNum;
-        const tolerance = Math.max(3, eggsNum * 0.03);
-        const inTolerance = eggsNum === 0 || Math.abs(diff) <= tolerance;
-        return (
-          <ModalV2 open={true} onClose={() => setGradeModalRowId(null)} title={`${shiftLabel(row.shift)} · ${t('ui.9 档分级录入', '9 档分级录入')}`} width={600}>
-              <div style={{ marginBottom: 12, padding: 12, borderRadius: 8, background: 'var(--bg-muted)', fontSize: 13 }}>
-                <div>{t('ui.产蛋总数', '产蛋总数')}：<strong>{eggsNum.toLocaleString()}</strong> {t('ui.枚', '枚')} · {t('ui.9 档 sum', '9 档 sum')}：<strong style={{ color: inTolerance ? 'var(--status-success)' : 'var(--status-warning)' }}>{gradeSum.toLocaleString()}</strong> {t('ui.枚', '枚')}</div>
-                {eggsNum > 0 && !inTolerance && (
-                  <div style={{ marginTop: 6, color: 'var(--status-warning)', fontSize: 12 }}>
-                    ⚠️ {t('ui.差', '差')} {Math.abs(diff)} {t('ui.枚', '枚')}（{t('ui.容差', '容差')} {Math.round(tolerance)}），{t('ui.提交时会弹窗确认', '提交时会弹窗确认')}
-                  </div>
-                )}
-              </div>
-              <table className={s.table} style={{ width: '100%' }}>
-                <thead>
-                  <tr><th>{t('ui.等级', '等级')}</th><th>{t('ui.编码', '编码')}</th><th style={{ textAlign: 'right' }}>{t('ui.数量(枚)', '数量(枚)')}</th></tr>
-                </thead>
-                <tbody>
-                  {productGrades.map(g => (
-                    <tr key={g.grade_code}>
-                      <td style={{ fontWeight: 500 }}>{g.grade_name}</td>
-                      <td style={{ fontFamily: 'monospace', fontSize: 12, color: 'var(--text-secondary)' }}>{g.grade_code}</td>
-                      <td style={{ padding: '6px 8px', textAlign: 'right' }}>
-                        <GradeQuantityInput aria-label={`${g.grade_name} · ${t('ui.数量(枚)', '数量(枚)')}`} value={row.gradeQty[g.grade_code] ?? ''} onValueChange={safe => {
-                          const newGradeQty = { ...row.gradeQty, [g.grade_code]: safe };
-                          setRows(rs => rs.map(r => r.id === row.id ? { ...r, gradeQty: newGradeQty } : r));
-                        }} className={s.inp} style={{ textAlign: 'right', width: 120, padding: '6px 8px' }} placeholder="0" />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
-                <button type="button" style={secondaryActionButton} onClick={() => {
-                  setRows(rs => rs.map(r => r.id === row.id ? { ...r, gradeQty: {} } : r));
-                }}>
-                  {t('ui.清空', '清空')}
-                </button>
-                <button type="button" style={primaryActionButton} onClick={() => setGradeModalRowId(null)}>
-                  {t('ui.确定', '确定')}
-                </button>
-              </div>
-          </ModalV2>
-        );
-      })()}
-
       {/* G16：设备数据一键填入 — 选时点 modal */}
       <ModalV2 open={showGenModal} onClose={() => setShowGenModal(false)} title={t('ui.设备数据一键填入', '设备数据一键填入')} width={520}>
         <div style={{ padding: 12, background: 'var(--bg-muted)', borderRadius: 8, fontSize: 12, color: 'var(--text-secondary)', marginBottom: 16, lineHeight: 1.6 }}>
           <div>· {t('ui.饲料/用水', '饲料/用水')} = {t('ui.今日累计读数 − 昨日累计读数（当日用量）', '今日累计读数 − 昨日累计读数（当日用量）')}</div>
           <div>· {t('ui.温度/湿度', '温度/湿度')} = {t('ui.当日均值', '当日均值')}</div>
-          <div>· {t('ui.填入晨班行；如需分摊到其它班次请手动拆分', '填入晨班行；如需分摊到其它班次请手动拆分')}</div>
+          <div>· {t('ui.填入当日数据行', '填入当日数据行')}</div>
         </div>
         <div style={{ marginBottom: 14 }}>
           <label style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', display: 'block', marginBottom: 6 }}>

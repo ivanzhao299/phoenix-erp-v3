@@ -42,7 +42,7 @@ export class FarmController {
   /**
    * GET /api/v3/farm/daily-logs/eggs-breakdown?date=&houseCode=
    * 拉指定日期+鸡舍的"按 9 档分解"产蛋数据，供日产蛋入库页"从今日日报预填"按钮使用。
-   * 返回多班次聚合后的 grade → qty 映射（含 saleable + 异常档）。
+   * 返回按日期+鸡舍聚合后的 grade → qty 映射（含历史班次兼容和异常档）。
    */
   @Get('daily-logs/eggs-breakdown')
   @RequireMenu('MENU_FARM_DAILY', 'V')
