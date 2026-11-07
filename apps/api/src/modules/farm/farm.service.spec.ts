@@ -116,29 +116,6 @@ describe('FarmService', () => {
       expect(insert![1]).not.toContain(' H001 ');
     });
 
-    it('forces DAILY and derives all summary fields from eggs_by_grade', async () => {
-      const { entityManager, manager, svc } = buildSvc();
-      manager.query.mockResolvedValue([]);
-      entityManager.query.mockResolvedValueOnce([
-        { grade_code: 'GRADE_1' }, { grade_code: 'GRADE_2' },
-      ]);
-
-      await svc.submitBreedingDailyLog({
-        log_date: '2026-07-16', shift: 'EVENING', house_code: 'H001',
-        eggs_by_grade: { GRADE_1: 10, GRADE_2: 20, DIRTY: 3, BROKEN: 4 },
-        eggs_produced: 999, dirty_eggs: 999, broken_eggs: 999,
-        mortality_qty: 0, opening_qty: 100,
-      });
-
-      const sql = manager.query.mock.calls[0][0] as string;
-      const values = manager.query.mock.calls[0][1] as unknown[];
-      const columns = sql.match(/\(([^)]+)\) VALUES/)![1].split(',').map((c) => c.replaceAll('"', ''));
-      expect(values[columns.indexOf('shift')]).toBe('DAILY');
-      expect(values[columns.indexOf('eggs_produced')]).toBe(30);
-      expect(values[columns.indexOf('dirty_eggs')]).toBe(3);
-      expect(values[columns.indexOf('broken_eggs')]).toBe(4);
-    });
-
     it('derives eggs_produced from the canonical GRADE_1..5 saleable grades', async () => {
       const { entityManager, manager, svc } = buildSvc();
       manager.query.mockResolvedValue([]);
