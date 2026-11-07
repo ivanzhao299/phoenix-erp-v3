@@ -1087,6 +1087,24 @@ describe('WmsService inventory read queries', () => {
     expect(manager.query).not.toHaveBeenCalledWith(expect.stringContaining('INSERT INTO inv_ledger'), expect.anything());
   });
 
+  it('wraps batch inbound confirmation in one transaction and rejects an invalid document before inventory writes', async () => {
+    const manager = { query: jest.fn() };
+    const em = { transaction: jest.fn(async (cb: any) => cb(manager)) };
+    const service = new WmsService(em as any, { get: jest.fn(() => ({ isGlobal: true, allowedWarehouseCodes: [] })) } as any);
+    await expect(service.confirmBatchInbound({ documents: [{ task_no: 'WI-1', items: [] }] }, { username: 'admin' }))
+      .rejects.toMatchObject({ response: expect.objectContaining({ msg: '入库数据校验失败' }) });
+    expect(em.transaction).toHaveBeenCalledTimes(1);
+    expect(manager.query).not.toHaveBeenCalledWith(expect.stringContaining('INSERT INTO inv_batches'), expect.anything());
+  });
+
+  it('rejects duplicate outbound numbers in a batch before opening a transaction', async () => {
+    const em = { transaction: jest.fn() };
+    const service = new WmsService(em as any, { get: jest.fn() } as any);
+    await expect(service.confirmBatchStandaloneOutbound({ documents: [{ outbound_no: 'WO-1' }, { outbound_no: 'WO-1' }] }, { username: 'admin' }))
+      .rejects.toThrow('outbound_no 不得重复');
+    expect(em.transaction).not.toHaveBeenCalled();
+  });
+
   it('rejects loss approval from a non-DONE state', async () => {
     const manager = {
       query: jest.fn(async (sql: string) => sql.includes('FROM wms_stocktake')

@@ -27,6 +27,18 @@ export class InboundController {
     return await this.wmsService.getInboundTask(taskNo);
   }
 
+  @Post('batch')
+  @RequireMenu('MENU_WMS_INOUT', 'C')
+  async createBatch(@Body() body: any, @Req() req: any) {
+    return await this.wmsService.createBatchInbound(body, req.user);
+  }
+
+  @Post('batch/confirm')
+  @RequireMenu('MENU_WMS_INOUT', 'E')
+  async confirmBatch(@Body() body: any, @Req() req: any) {
+    return await this.wmsService.confirmBatchInbound(body, req.user);
+  }
+
   @Post('confirm')
   @RequireMenu('MENU_WMS_INOUT', 'C')
   async confirmInbound(@Body() body: any, @Req() req: any) {

@@ -10,8 +10,8 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { CheckSquare, Plus } from "lucide-react";
+import BatchDocumentEditor, { newBatchLine, type BatchHeader, type BatchLine } from "@/components/warehouse/BatchDocumentEditor";
 import {
-  buildWarehouseInboundConfirmPayload,
   buildWarehouseInboundSavePayload,
   getWarehouseInboundConfirmKeyword,
 } from "@/lib/warehouse-inbound";
@@ -54,6 +54,8 @@ export default function InboundPage() {
   const [approving,     setApproving]     = useState(false);
   const [approveError,  setApproveError]  = useState("");
   const [typeFilter,    setTypeFilter]    = useState("");
+  const [batchHeader, setBatchHeader] = useState<BatchHeader>({ date: new Date().toISOString().slice(0, 10), type: "PURCHASE", warehouse_code: "" });
+  const [batchItems, setBatchItems] = useState<BatchLine[]>([newBatchLine()]);
 
   const SOURCE_LABEL: Record<string, string> = {
     PRODUCTION: t("ui.生产入库", "生产入库"),
@@ -99,7 +101,7 @@ export default function InboundPage() {
   ];
 
   const refresh     = useCallback(() => setRefreshKey(k => k + 1), []);
-  const openNew     = useCallback(() => { if (!canCreateInout) return; setEditing(null); setDrawerOpen(true); }, [canCreateInout]);
+  const openNew     = useCallback(() => { if (!canCreateInout) return; setEditing(null); setBatchHeader({ date: new Date().toISOString().slice(0, 10), type: "PURCHASE", warehouse_code: "" }); setBatchItems([newBatchLine()]); setDrawerOpen(true); }, [canCreateInout]);
   const isEditableRow = useCallback((row: Row) => {
     return ["PENDING", "PROCESSING"].includes(String(row.status ?? "").toUpperCase());
   }, []);
@@ -120,6 +122,17 @@ export default function InboundPage() {
     } finally { setSaving(false); }
   }, [editing, refresh]);
 
+  const handleBatchSave = useCallback(async () => {
+    setSaving(true);
+    try {
+      const stamp = Date.now().toString().slice(-8);
+      const taskNo = String(batchHeader.inbound_no || `WI-${stamp}`);
+      const items = batchItems.map(({ _key, ...item }) => ({ ...item, product_code: item.product_code || item.item || item.sku_code, actual_qty: Number(item.qty), expected_qty: Number(item.qty) }));
+      await request("/inbound/batch", { method: "POST", body: JSON.stringify({ documents: [{ ...batchHeader, task_no: taskNo, inbound_no: taskNo, status: "PENDING", operator: currentOperator, items }] }) });
+      setDrawerOpen(false); refresh();
+    } finally { setSaving(false); }
+  }, [batchHeader, batchItems, currentOperator, refresh]);
+
   const handleDelete   = useCallback((row: Row) => { if (!canDeleteInout || !isDeletableRow(row)) return; setDeleteTarget(row); setConfirmOpen(true); }, [canDeleteInout, isDeletableRow]);
   const confirmDelete  = useCallback(async () => {
     if (!deleteTarget?.id) return;
@@ -134,23 +147,17 @@ export default function InboundPage() {
     setApproveOpen(true);
   }, [canConfirmInout]);
   const confirmApprove = useCallback(async () => {
-    const built = buildWarehouseInboundConfirmPayload(approveTarget);
-    if (!built.ok) {
-      const reasonText: Record<typeof built.reason, string> = {
-        missing_task_no: t("ui.入库单缺少任务号无法确认", "入库单缺少任务号，无法写入库存。"),
-        missing_product_code: t("ui.入库单缺少产品编码无法确认", "入库单缺少产品编码/物料编码，无法写入库存。"),
-        invalid_qty: t("ui.入库数量必须大于0", "入库数量必须大于 0。"),
-      };
-      setApproveError(reasonText[built.reason]);
+    const taskNo = String(approveTarget?.task_no || approveTarget?.inbound_no || "").trim();
+    if (!taskNo) {
+      setApproveError(t("ui.入库单缺少任务号无法确认", "入库单缺少任务号，无法写入库存。"));
       return;
     }
-
     setApproving(true);
     setApproveError("");
     try {
-      const res = await request<InboundConfirmResponse>("/inbound/confirm", {
+      const res = await request<InboundConfirmResponse>("/inbound/batch/confirm", {
         method: "POST",
-        body: JSON.stringify(built.payload),
+        body: JSON.stringify({ documents: [{ task_no: taskNo }] }),
       });
       if (res?.code && res.code >= 400) {
         setApproveError(res.msg || res.message || t("ui.入库确认失败", "入库确认失败"));
@@ -243,8 +250,8 @@ export default function InboundPage() {
         pageSize={30}
       />
 
-      <RightDrawer open={drawerOpen} title={editing ? t("ui.编辑入库单", "编辑入库单") : t("ui.新建入库单", "新建入库单")} onClose={closeDrawer}>
-        <CrudForm fields={FIELDS} batchRefreshKey={refreshKey} initialValues={{ ...(editing ?? {}), operator: currentOperator }} onSubmit={handleSave} onCancel={closeDrawer} loading={saving} />
+      <RightDrawer open={drawerOpen} title={editing ? t("ui.编辑入库单", "编辑入库单") : t("ui.批量新建入库单", "批量新建入库单")} onClose={closeDrawer}>
+        {editing ? <CrudForm fields={FIELDS} batchRefreshKey={refreshKey} initialValues={{ ...(editing ?? {}), operator: currentOperator }} onSubmit={handleSave} onCancel={closeDrawer} loading={saving} /> : <BatchDocumentEditor kind="inbound" header={batchHeader} setHeader={setBatchHeader} items={batchItems} setItems={setBatchItems} onSubmit={handleBatchSave} onCancel={closeDrawer} loading={saving} />}
       </RightDrawer>
 
       <ConfirmDialog open={confirmOpen} title={t("ui.确认删除", "确认删除")} message={t("ui.删除后不可恢复确认继续", "删除后不可恢复，确认继续？")}
