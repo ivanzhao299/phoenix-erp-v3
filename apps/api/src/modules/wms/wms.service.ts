@@ -947,8 +947,8 @@ export class WmsService {
           if (!Number.isFinite(lineQty) || lineQty <= 0) throw new BadRequestException(`出库单 ${outboundNo} 明细数量必须大于 0`);
           const lineIdentity = await this.resolveInventoryItem(manager, this.nonEmptyString(line?.item || line?.product_code || line?.sku_code || line?.material_code), this.nonEmptyString(line?.item_type));
           await manager.query(
-            `INSERT INTO wms_outbound_items (outbound_no,product_code,batch_no,qty,picked_qty,actual_qty)
-             VALUES ($1,$2,$3,$4::numeric,0,0)`,
+            `INSERT INTO wms_outbound_items (outbound_no,product_code,batch_no,qty,actual_qty)
+             VALUES ($1,$2,$3,$4::numeric,0)`,
             [outboundNo, lineIdentity.skuCode || lineIdentity.materialCode || lineIdentity.productCode, this.nonEmptyString(line?.batch_no), lineQty],
           );
         }
@@ -1011,7 +1011,7 @@ export class WmsService {
           } else {
             await this.deductStandaloneOutboundByItem(manager, String(line.product_code || ''), qty, outboundNo, lineOrder, user);
           }
-          await manager.query(`UPDATE wms_outbound_items SET actual_qty = $1::numeric, picked_qty = $1::numeric WHERE id = $2`, [qty, line.id]);
+          await manager.query(`UPDATE wms_outbound_items SET actual_qty = $1::numeric WHERE id = $2`, [qty, line.id]);
           totalQty += qty;
         }
         await manager.query(`UPDATE wms_outbound SET status = 'DONE', qty = $1::numeric, updated_at = CURRENT_TIMESTAMP WHERE id = $2`, [totalQty, order.id]);

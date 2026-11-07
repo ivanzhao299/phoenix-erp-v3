@@ -23,5 +23,9 @@ describe("warehouse batch document editor contract", () => {
     expect(editor).toContain("newBatchLine");
     expect(inbound).toContain('request<InboundConfirmResponse>("/inbound/batch/confirm"');
     expect(outbound).toContain("/outbound/batch/confirm");
+    expect(inbound).toContain('width={editing ? 520 : "min(1100px, calc(100vw - 32px))"}');
+    expect(outbound).toContain('width={editing ? 520 : "min(1100px, calc(100vw - 32px))"}');
+    expect(editor).toContain("primaryActionButton");
+    expect(editor).toContain("secondaryActionButton");
   });
 });

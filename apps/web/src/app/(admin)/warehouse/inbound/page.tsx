@@ -250,7 +250,7 @@ export default function InboundPage() {
         pageSize={30}
       />
 
-      <RightDrawer open={drawerOpen} title={editing ? t("ui.编辑入库单", "编辑入库单") : t("ui.批量新建入库单", "批量新建入库单")} onClose={closeDrawer}>
+      <RightDrawer open={drawerOpen} width={editing ? 520 : "min(1100px, calc(100vw - 32px))"} title={editing ? t("ui.编辑入库单", "编辑入库单") : t("ui.批量新建入库单", "批量新建入库单")} onClose={closeDrawer}>
         {editing ? <CrudForm fields={FIELDS} batchRefreshKey={refreshKey} initialValues={{ ...(editing ?? {}), operator: currentOperator }} onSubmit={handleSave} onCancel={closeDrawer} loading={saving} /> : <BatchDocumentEditor kind="inbound" header={batchHeader} setHeader={setBatchHeader} items={batchItems} setItems={setBatchItems} onSubmit={handleBatchSave} onCancel={closeDrawer} loading={saving} />}
       </RightDrawer>
 
