@@ -2,5 +2,6 @@
   {"name":"ConvergePhase1CanonicalSchema1789600000000","timestamp":1789600000000},
   {"name":"WidenAccLedgerStoreCode1789600100000","timestamp":1789600100000},
   {"name":"WidenWarehouseCodeForeignKeys1789600200000","timestamp":1789600200000},
-  {"name":"ConvergeInboundTimestamps1789600300000","timestamp":1789600300000}
+  {"name":"ConvergeInboundTimestamps1789600300000","timestamp":1789600300000},
+  {"name":"ConsolidateBreedingDailyLogs1790000000000","timestamp":1790000000000}
 ]
