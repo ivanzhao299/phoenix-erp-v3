@@ -66,8 +66,7 @@ export class ConsolidateBreedingDailyLogs1790000000000 implements MigrationInter
                elimination_qty = t.elimination_qty,
                feed_consumed = t.feed_consumed,
                water_consumed = t.water_consumed,
-               eggs_by_grade = t.eggs_by_grade,
-               updated_at = CURRENT_TIMESTAMP
+               eggs_by_grade = t.eggs_by_grade
           FROM totals t
          WHERE d.id = t.survivor_id
       `);
