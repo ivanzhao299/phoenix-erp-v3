@@ -37,7 +37,6 @@ export class ConsolidateBreedingDailyLogs1790000000000 implements MigrationInter
                  COALESCE(SUM(COALESCE(d.dirty_eggs, 0)), 0)::int AS dirty_eggs,
                  COALESCE(SUM(COALESCE(d.bad_eggs, 0)), 0)::int AS bad_eggs,
                  COALESCE(SUM(COALESCE(d.mortality_qty, 0)), 0)::int AS mortality_qty,
-                 COALESCE(SUM(COALESCE(d.elimination_qty, 0)), 0)::int AS elimination_qty,
                  COALESCE(SUM(COALESCE(d.feed_consumed, 0)), 0) AS feed_consumed,
                  COALESCE(SUM(COALESCE(d.water_consumed, 0)), 0) AS water_consumed,
                  COALESCE((
@@ -63,7 +62,6 @@ export class ConsolidateBreedingDailyLogs1790000000000 implements MigrationInter
                dirty_eggs = t.dirty_eggs,
                bad_eggs = t.bad_eggs,
                mortality_qty = t.mortality_qty,
-               elimination_qty = t.elimination_qty,
                feed_consumed = t.feed_consumed,
                water_consumed = t.water_consumed,
                eggs_by_grade = t.eggs_by_grade
