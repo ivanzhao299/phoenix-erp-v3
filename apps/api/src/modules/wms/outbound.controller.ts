@@ -33,6 +33,18 @@ export class OutboundController {
     return await this.wmsService.advanceOutboundOrder(orderNo, body, req.user);
   }
 
+  @Post('batch')
+  @RequireMenu('MENU_WMS_INOUT', 'C', ['MENU_WMS_ISSUE'])
+  async createBatch(@Body() body: any, @Req() req: any) {
+    return await this.wmsService.createBatchStandaloneOutbound(body, req.user);
+  }
+
+  @Post('batch/confirm')
+  @RequireMenu('MENU_WMS_INOUT', 'E', ['MENU_WMS_ISSUE'])
+  async confirmBatch(@Body() body: any, @Req() req: any) {
+    return await this.wmsService.confirmBatchStandaloneOutbound(body, req.user);
+  }
+
   @Post('standalone/:outbound_no/confirm')
   @RequireMenu('MENU_WMS_INOUT', 'E', ['MENU_WMS_ISSUE'])
   async confirmStandalone(@Param('outbound_no') outboundNo: string, @Req() req: any) {

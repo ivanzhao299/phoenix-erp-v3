@@ -10,6 +10,7 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { Plus } from "lucide-react";
+import BatchDocumentEditor, { newBatchLine, type BatchHeader, type BatchLine } from "@/components/warehouse/BatchDocumentEditor";
 import apiRequest from "@/lib/api-client";
 import {
   OUTBOUND_DESTINATIONS,
@@ -85,6 +86,8 @@ export default function OutboundPage() {
   const [deleteTarget, setDeleteTarget] = useState<Row | null>(null);
   const [typeFilter,   setTypeFilter]   = useState(issueOnly ? "PRODUCTION_USE" : "");
   const [confirmingNo, setConfirmingNo] = useState("");
+  const [batchHeader, setBatchHeader] = useState<BatchHeader>({ date: new Date().toISOString().slice(0, 10), type: "SALE", warehouse_code: "", destination_type: "CUSTOMER" });
+  const [batchItems, setBatchItems] = useState<BatchLine[]>([newBatchLine()]);
 
   // 当前用户的 site/farm 推导 — 用于 Selector 过滤
   const userStore = useMemo(() => getStoreCode(), []);
@@ -211,7 +214,7 @@ export default function OutboundPage() {
     return ISSUE_TYPES.has(String(type || "")) ? canDeleteIssue : canDeleteInout;
   }, [canDeleteInout, canDeleteIssue]);
   const canCreateCurrent = issueOnly ? canCreateIssue : canCreateAny;
-  const openNew     = useCallback(() => { if (!canCreateCurrent) return; setEditing(null); setDrawerOpen(true); }, [canCreateCurrent]);
+  const openNew     = useCallback(() => { if (!canCreateCurrent) return; setEditing(null); setBatchHeader({ date: new Date().toISOString().slice(0, 10), type: issueOnly ? "PRODUCTION_USE" : "SALE", warehouse_code: siteCode ?? "", destination_type: issueOnly ? "HOUSE" : "CUSTOMER" }); setBatchItems([newBatchLine()]); setDrawerOpen(true); }, [canCreateCurrent, issueOnly, siteCode]);
   const openEdit    = useCallback((row: Row) => { if (!canEditType(row.type)) return; setEditing(row); setDrawerOpen(true); }, [canEditType]);
   const closeDrawer = useCallback(() => setDrawerOpen(false), []);
 
@@ -242,6 +245,17 @@ export default function OutboundPage() {
     } finally { setSaving(false); }
   }, [canCreateType, canEditType, editing, refresh, siteCode]);
 
+  const handleBatchSave = useCallback(async () => {
+    setSaving(true);
+    try {
+      const stamp = Date.now().toString().slice(-8);
+      const outboundNo = String(batchHeader.outbound_no || `WO-${stamp}`);
+      const items = batchItems.map(({ _key, ...item }) => ({ ...item, item: item.item || item.product_code || item.sku_code || item.material_code }));
+      await apiRequest("/outbound/batch", { method: "POST", body: JSON.stringify({ documents: [{ ...batchHeader, outbound_no: outboundNo, status: "PENDING", operator: currentOperator, ...(siteCode ? { site_code: siteCode } : {}), items }] }) });
+      setDrawerOpen(false); refresh();
+    } finally { setSaving(false); }
+  }, [batchHeader, batchItems, currentOperator, refresh, siteCode]);
+
   const handleDelete = (row: Row) => {
     if (!canDeleteType(row.type)) return;
     setDeleteTarget(row);
@@ -259,8 +273,9 @@ export default function OutboundPage() {
     if (!window.confirm(t("ui.确认出库将扣减库存并写入台账是否继续", "确认出库将扣减库存并写入台账，是否继续？"))) return;
     setConfirmingNo(outboundNo);
     try {
-      await apiRequest(`/outbound/standalone/${encodeURIComponent(outboundNo)}/confirm`, {
+      await apiRequest("/outbound/batch/confirm", {
         method: "POST",
+        body: JSON.stringify({ documents: [{ outbound_no: outboundNo }] }),
       });
       invalidateBatchLookups();
       refresh();
@@ -349,8 +364,8 @@ export default function OutboundPage() {
         pageSize={30}
       />
 
-      <RightDrawer open={drawerOpen} title={editing ? t("ui.编辑出库单", "编辑出库单") : t("ui.新建出库单", "新建出库单")} onClose={closeDrawer}>
-        <CrudForm transformValues={resetOutboundDestination} fields={FIELDS} batchRefreshKey={refreshKey} initialValues={{ ...(editing ?? {}), operator: currentOperator }} onSubmit={handleSave} onCancel={closeDrawer} loading={saving} />
+      <RightDrawer open={drawerOpen} title={editing ? t("ui.编辑出库单", "编辑出库单") : t("ui.批量新建出库单", "批量新建出库单")} onClose={closeDrawer}>
+        {editing ? <CrudForm transformValues={resetOutboundDestination} fields={FIELDS} batchRefreshKey={refreshKey} initialValues={{ ...(editing ?? {}), operator: currentOperator }} onSubmit={handleSave} onCancel={closeDrawer} loading={saving} /> : <BatchDocumentEditor kind="outbound" header={batchHeader} setHeader={setBatchHeader} items={batchItems} setItems={setBatchItems} onSubmit={handleBatchSave} onCancel={closeDrawer} loading={saving} />}
       </RightDrawer>
 
       <ConfirmDialog open={confirmOpen} title={t("ui.确认删除", "确认删除")} message={t("ui.删除后不可恢复确认继续", "删除后不可恢复，确认继续？")}

@@ -286,6 +286,90 @@ export class WmsService {
   }
 
   /**
+   * 批量创建入库单。所有单据与明细在同一事务内落库；task_no 已存在时仅允许完全幂等重放。
+   */
+  async createBatchInbound(body: any, user: any) {
+    const documents = Array.isArray(body?.documents) ? body.documents
+      : Array.isArray(body?.orders) ? body.orders
+      : body?.header && Array.isArray(body?.items) ? [{ ...body.header, items: body.items }]
+      : Array.isArray(body?.items) ? [body] : [];
+    if (!documents.length) throw new BadRequestException('documents 必须至少包含一条入库单');
+    return this.em.transaction(async manager => {
+      const created: any[] = [];
+      for (const [index, doc] of documents.entries()) {
+        const taskNo = this.nonEmptyString(doc?.task_no || doc?.inbound_no);
+        if (!taskNo) throw new BadRequestException(`第 ${index + 1} 张入库单 task_no 必填`);
+        const items = Array.isArray(doc?.items) ? doc.items : [];
+        if (!items.length) throw new BadRequestException(`入库单 ${taskNo} 明细不能为空`);
+        const warehouseCode = this.nonEmptyString(doc?.warehouse_code);
+        await this.assertWritableWarehouse(warehouseCode, `入库单 ${taskNo}`);
+        const existing = await manager.query('SELECT task_no,status FROM wms_inbound WHERE task_no=$1 FOR UPDATE', [taskNo]);
+        if (existing.length) {
+          if (String(existing[0].status).toUpperCase() !== 'PENDING') {
+            throw new BadRequestException(`入库单 ${taskNo} 已存在且状态不可幂等创建`);
+          }
+          const existingItems = await manager.query('SELECT COUNT(*)::int AS count FROM wms_inbound_items WHERE task_no=$1', [taskNo]);
+          if (Number(existingItems[0]?.count || 0) !== items.length) {
+            throw new BadRequestException(`入库单 ${taskNo} 幂等键冲突，明细不一致`);
+          }
+          created.push({ task_no: taskNo, status: 'PENDING', idempotent: true });
+          continue;
+        }
+        await manager.query(
+          `INSERT INTO wms_inbound (task_no,status,warehouse_code,type,item,qty,store_code,operator,attachment_url,date,site_code,company_code,remark,created_at,updated_at)
+           VALUES ($1,'PENDING',$2,$3,$4,$5::numeric,$6,$7,$8,$9::date,$10,$11,$12,now(),now())`,
+          [taskNo, warehouseCode, String(doc?.type || 'GENERIC').toUpperCase(), this.nonEmptyString(doc?.item || items[0]?.item || items[0]?.product_code),
+            Number(doc?.qty || items.reduce((sum: number, it: any) => sum + (Number(it?.qty) || 0), 0)),
+            this.nonEmptyString(doc?.store_code) || 'ALL', String(user?.username || doc?.operator || user?.userId || 'SYS'),
+            this.nonEmptyString(doc?.attachment_url), doc?.date || null, this.nonEmptyString(doc?.site_code), this.nonEmptyString(doc?.company_code), this.nonEmptyString(doc?.remark)],
+        );
+        for (const [line, item] of items.entries()) {
+          const qty = Number(item?.qty ?? item?.expected_qty);
+          if (!Number.isFinite(qty) || qty <= 0) throw new BadRequestException(`入库单 ${taskNo} 第 ${line + 1} 行数量必须大于 0`);
+          await manager.query(
+            `INSERT INTO wms_inbound_items (task_no,batch_no,product_code,qty,actual_qty,broken_qty)
+             VALUES ($1,$2,$3,$4::numeric,0,0)`,
+            [taskNo, this.nonEmptyString(item?.batch_no), this.nonEmptyString(item?.product_code || item?.sku_code || item?.material_code), qty],
+          );
+        }
+        created.push({ task_no: taskNo, status: 'PENDING', idempotent: false });
+      }
+      return { code: 200, msg: '批量入库单创建成功', data: created };
+    });
+  }
+
+  /** 批量确认入库：复用单据级库存事务逻辑，并将所有单据包在同一事务。 */
+  async confirmBatchInbound(body: any, user: any) {
+    const documents = Array.isArray(body?.documents) ? body.documents
+      : Array.isArray(body?.orders) ? body.orders
+      : body?.header && Array.isArray(body?.items) ? [{ ...body.header, items: body.items }]
+      : Array.isArray(body?.items) ? [body] : [];
+    if (!documents.length) throw new BadRequestException('documents 必须至少包含一条入库确认');
+    return this.em.transaction(async manager => {
+      const results: any[] = [];
+      for (const doc of documents) {
+        const taskNo = this.nonEmptyString(doc?.task_no || doc?.inbound_no);
+        if (!taskNo) throw new BadRequestException('入库确认缺少 task_no');
+        const persistedRows = Array.isArray(doc?.items) && doc.items.length
+          ? doc.items
+          : await manager.query(
+            `SELECT batch_no, product_code, qty, expected_qty, actual_qty, broken_qty, warehouse_code, location_code
+               FROM wms_inbound_items WHERE task_no = $1 ORDER BY id ASC`,
+            [taskNo],
+          );
+        const persisted = Array.isArray(persistedRows) ? persistedRows : [];
+        const items = persisted.map((item: any) => ({
+          ...item,
+          actual_qty: item.actual_qty && Number(item.actual_qty) > 0 ? item.actual_qty : item.qty,
+          expected_qty: item.expected_qty && Number(item.expected_qty) > 0 ? item.expected_qty : item.qty,
+        }));
+        results.push(await this.confirmInbound({ ...doc, task_no: taskNo, items }, user, manager));
+      }
+      return { code: 200, msg: '批量入库确认成功', data: results };
+    });
+  }
+
+  /**
    * 确认入库 — V3 修正版
    *
    * A3 修复要点：
@@ -299,7 +383,7 @@ export class WmsService {
    *
    * 注：硬编码 'INBOUND-DOCK' 库位与 'WH-B' 兜底仓库改为前端传入或用 task 字段
    */
-  async confirmInbound(body: any, user: any) {
+  async confirmInbound(body: any, user: any, managerOverride?: EntityManager) {
     const { task_no, items = [] } = body;
     if (!task_no) throw new BadRequestException('task_no 必填');
 
@@ -343,7 +427,7 @@ export class WmsService {
       throw new BadRequestException({ code: 400, msg: '入库数据校验失败', errors: validationErrors });
     }
 
-    return await this.em.transaction(async (manager) => {
+    const execute = async (manager: EntityManager) => {
       // V2 fidelity: 幂等 — 仅 PENDING/PROCESSING 状态允许确认
       const tasks = await manager.query(
         `SELECT warehouse_code, operator, store_code, status, type, date FROM wms_inbound WHERE task_no = $1 FOR UPDATE`,
@@ -573,7 +657,8 @@ export class WmsService {
         }
       }
       return { code: 200, msg: '入库确认成功', data: { task_no, status: 'COMPLETED' } };
-    });
+    };
+    return managerOverride ? execute(managerOverride) : this.em.transaction(execute);
   }
 
   /**
@@ -816,6 +901,126 @@ export class WmsService {
    * wms_outbound 是仓储页面的单据表，不能通过通用 CRUD 直接把状态改为 DONE。
    * 只有库存批次扣减和 inv_ledger 流水都成功后，事务才会提交 DONE。
    */
+  /** 批量创建独立出库单，单批次失败会回滚整批。 */
+  async createBatchStandaloneOutbound(body: any, user: any) {
+    const documents = Array.isArray(body?.documents) ? body.documents
+      : Array.isArray(body?.orders) ? body.orders
+      : body?.header && Array.isArray(body?.items) ? [{ ...body.header, items: body.items }]
+      : Array.isArray(body?.items) ? [body] : [];
+    if (!documents.length) throw new BadRequestException('documents 必须至少包含一条出库单');
+    return this.em.transaction(async manager => {
+      const created: any[] = [];
+      for (const [index, doc] of documents.entries()) {
+        const outboundNo = this.nonEmptyString(doc?.outbound_no);
+        if (!outboundNo) throw new BadRequestException(`第 ${index + 1} 张出库单 outbound_no 必填`);
+        this.assertOutboundPermission(doc?.type, user, 'C');
+        const lines = Array.isArray(doc?.items) ? doc.items : [doc];
+        const totalQty = lines.reduce((sum: number, line: any) => sum + (Number(line?.qty) || 0), 0);
+        const validationDoc = { ...doc, item: doc?.item || lines[0]?.item || lines[0]?.product_code || lines[0]?.sku_code || lines[0]?.material_code, qty: doc?.qty ?? totalQty };
+        this.validateStandaloneOutbound(validationDoc);
+        const warehouseCode = this.nonEmptyString(doc?.warehouse_code);
+        await this.assertWritableWarehouse(warehouseCode, `出库单 ${outboundNo}`);
+        await this.assertActiveScopedDestination(doc);
+        const existing = await manager.query('SELECT outbound_no,status FROM wms_outbound WHERE outbound_no=$1 FOR UPDATE', [outboundNo]);
+        if (existing.length) {
+          if (String(existing[0].status).toUpperCase() !== 'PENDING') throw new BadRequestException(`出库单 ${outboundNo} 已存在且状态不可幂等创建`);
+          created.push({ outbound_no: outboundNo, status: 'PENDING', idempotent: true });
+          continue;
+        }
+        const firstLine = lines[0];
+        const identity = await this.resolveInventoryItem(
+          manager,
+          this.nonEmptyString(doc?.item || firstLine?.item || firstLine?.product_code || firstLine?.sku_code || firstLine?.material_code),
+          this.nonEmptyString(doc?.item_type || firstLine?.item_type),
+        );
+        const destinationCode = resolveOutboundDestinationCode(doc);
+        const rows = await manager.query(
+          `INSERT INTO wms_outbound (outbound_no,date,type,warehouse_code,item,qty,status,destination_type,destination_code,store_code,operator,ref_no,order_no,remark,company_code,created_at,updated_at)
+           VALUES ($1,$2,$3,$4,$5,$6::numeric,'PENDING',$7,$8,$9,$10,$11,$12,$13,$14,now(),now()) RETURNING *`,
+          [outboundNo, doc?.date || new Date().toISOString().slice(0, 10), String(doc?.type).toUpperCase(), warehouseCode,
+            identity.itemCode, totalQty, String(doc?.destination_type).toUpperCase(), destinationCode,
+            this.nonEmptyString(doc?.store_code) || 'ALL', String(user?.username || user?.userId || 'SYS'), this.nonEmptyString(doc?.ref_no),
+            this.nonEmptyString(doc?.order_no), this.nonEmptyString(doc?.remark), this.nonEmptyString(doc?.company_code)],
+        );
+        for (const line of lines) {
+          const lineQty = Number(line?.qty);
+          if (!Number.isFinite(lineQty) || lineQty <= 0) throw new BadRequestException(`出库单 ${outboundNo} 明细数量必须大于 0`);
+          const lineIdentity = await this.resolveInventoryItem(manager, this.nonEmptyString(line?.item || line?.product_code || line?.sku_code || line?.material_code), this.nonEmptyString(line?.item_type));
+          await manager.query(
+            `INSERT INTO wms_outbound_items (outbound_no,product_code,batch_no,qty,picked_qty,actual_qty)
+             VALUES ($1,$2,$3,$4::numeric,0,0)`,
+            [outboundNo, lineIdentity.skuCode || lineIdentity.materialCode || lineIdentity.productCode, this.nonEmptyString(line?.batch_no), lineQty],
+          );
+        }
+        created.push({ ...rows[0], idempotent: false });
+      }
+      return { code: 200, msg: '批量出库单创建成功', data: created };
+    });
+  }
+
+  /** 批量确认独立出库；复用单据确认的扣库存与流水逻辑。 */
+  async confirmBatchStandaloneOutbound(body: any, user: any) {
+    const documents = Array.isArray(body?.documents) ? body.documents
+      : Array.isArray(body?.orders) ? body.orders
+      : body?.header && Array.isArray(body?.items) ? [{ ...body.header, items: body.items }]
+      : Array.isArray(body?.items) ? [body] : [];
+    const outboundNos = documents.map((doc: any) => this.nonEmptyString(doc?.outbound_no || doc)).filter(Boolean) as string[];
+    if (!outboundNos.length) throw new BadRequestException('documents 必须至少包含一条出库确认');
+    if (new Set(outboundNos).size !== outboundNos.length) throw new BadRequestException('批量确认中 outbound_no 不得重复');
+    return this.em.transaction(async manager => {
+      const results: any[] = [];
+      for (const outboundNo of outboundNos) {
+        const [order] = await manager.query(
+          `SELECT * FROM wms_outbound WHERE outbound_no = $1 FOR UPDATE`,
+          [outboundNo],
+        );
+        if (!order) throw new BadRequestException(`出库单 ${outboundNo} 不存在`);
+        this.assertOutboundPermission(order.type, user, 'E');
+        const status = String(order.status || 'PENDING').toUpperCase();
+        if (status === 'DONE') {
+          results.push({ code: 200, idempotent: true, data: { outbound_no: outboundNo, status: 'DONE' } });
+          continue;
+        }
+        if (!['PENDING', 'PICKING'].includes(status)) {
+          throw new BadRequestException(`出库单 ${outboundNo} 当前状态 ${status} 不允许确认`);
+        }
+        await this.assertWritableWarehouse(order.warehouse_code, `出库单 ${outboundNo}`);
+        const lines = await manager.query(
+          `SELECT id, product_code, batch_no, qty FROM wms_outbound_items WHERE outbound_no = $1 ORDER BY id ASC FOR UPDATE`,
+          [outboundNo],
+        );
+        if (!lines.length) {
+          results.push(await this.confirmStandaloneOutbound(outboundNo, user, manager));
+          continue;
+        }
+        let totalQty = 0;
+        for (const line of lines) {
+          const qty = Number(line.qty);
+          if (!Number.isFinite(qty) || qty <= 0) throw new BadRequestException(`出库单 ${outboundNo} 明细数量必须大于 0`);
+          const lineOrder = { ...order, item: line.product_code, qty, batch_no: line.batch_no };
+          const batchNo = this.nonEmptyString(line.batch_no);
+          if (batchNo) {
+            const [batch] = await manager.query(
+              `SELECT batch_no, product_code, sku_code, material_code, item_type, material_type, unit, qty, qty_available, warehouse_code, store_code, company_code
+                 FROM inv_batches WHERE batch_no = $1 FOR UPDATE`,
+              [batchNo],
+            );
+            if (!batch) throw new BadRequestException(`库存批次 ${batchNo} 不存在`);
+            if (batch.warehouse_code !== order.warehouse_code) throw new BadRequestException(`库存批次 ${batchNo} 与出库仓库不一致`);
+            await this.deductOutboundBatch(manager, batch, qty, outboundNo, lineOrder, user, 'DONE');
+          } else {
+            await this.deductStandaloneOutboundByItem(manager, String(line.product_code || ''), qty, outboundNo, lineOrder, user);
+          }
+          await manager.query(`UPDATE wms_outbound_items SET actual_qty = $1::numeric, picked_qty = $1::numeric WHERE id = $2`, [qty, line.id]);
+          totalQty += qty;
+        }
+        await manager.query(`UPDATE wms_outbound SET status = 'DONE', qty = $1::numeric, updated_at = CURRENT_TIMESTAMP WHERE id = $2`, [totalQty, order.id]);
+        results.push({ code: 200, msg: '出库确认成功，库存与台账已同步扣减', data: { outbound_no: outboundNo, status: 'DONE', qty: totalQty } });
+      }
+      return { code: 200, msg: '批量出库确认成功', data: results };
+    });
+  }
+
   async createStandaloneOutbound(body: any, user: any) {
     this.assertOutboundPermission(body?.type, user, 'C');
     this.validateStandaloneOutbound(body);
@@ -1043,11 +1248,11 @@ export class WmsService {
     throw new BadRequestException(`库存品目 ${itemCode} 不存在、已停用或不在生效期`);
   }
 
-  async confirmStandaloneOutbound(outboundNo: string, user: any) {
+  async confirmStandaloneOutbound(outboundNo: string, user: any, managerOverride?: EntityManager) {
     const normalizedNo = this.nonEmptyString(outboundNo);
     if (!normalizedNo) throw new BadRequestException('outbound_no 必填');
 
-    return await this.em.transaction(async (manager) => {
+    const execute = async (manager: EntityManager) => {
       const rows = await manager.query(
         `SELECT id, outbound_no, status, type, warehouse_code, store_code, company_code,
                 item, item_type, material_type, material_code, sku_code, unit,
@@ -1137,7 +1342,8 @@ export class WmsService {
         msg: '出库确认成功，库存与台账已同步扣减',
         data: { outbound_no: normalizedNo, status: 'DONE', qty },
       };
-    });
+    };
+    return managerOverride ? execute(managerOverride) : this.em.transaction(execute);
   }
 
   private async deductStandaloneOutboundByItem(
