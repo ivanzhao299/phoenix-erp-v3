@@ -186,22 +186,20 @@ export class FarmService {
     }
     body.house_code = houseCode;
 
-    // 2026-06-06: 若提供了 eggs_by_grade，自动派生 eggs_produced/dirty_eggs/broken_eggs
-    // 保持向后兼容；权威字段是 eggs_by_grade（与 product_grades 同源）。
+    // 新版日报只有一个日班次。历史 MORNING/EVENING（以及包装模块写入的中文班次）
+    // 仍由查询兼容，但所有 farm service 新写入统一落 DAILY。
+    body.shift = 'DAILY';
+
+    // eggs_by_grade 是明细权威来源；只要提供就始终重算三个汇总字段，不能信任前端伪造值。
     if (body.eggs_by_grade && typeof body.eggs_by_grade === 'object') {
       const ebg = body.eggs_by_grade as Record<string, unknown>;
       const num = (k: string) => Math.max(0, Number(ebg[k]) || 0);
-      // G67 已将可售编码从 XL/L/M/S/XS 切换为 GRADE_1..5；以 ACTIVE
-      // 等级主数据判断可售档，避免旧硬编码将日报总产蛋数算成 0。
       const saleableRows: Array<{ grade_code: string }> = await this.entityManager.query(
         `SELECT grade_code FROM product_grades WHERE status = 'ACTIVE' AND is_saleable = true`,
       );
-      const saleableSum = saleableRows.reduce((sum, { grade_code }) => sum + num(grade_code), 0);
-      // 仅在前端未显式传 eggs_produced/dirty/broken 时回填，避免覆盖业务方手动校正
-      if (body.eggs_produced == null) body.eggs_produced = saleableSum;
-      if (body.dirty_eggs == null)    body.dirty_eggs    = num('DIRTY');
-      if (body.broken_eggs == null)   body.broken_eggs   = num('BROKEN');
-      // 序列化为 JSON 字符串供 INSERT JSONB 列
+      body.eggs_produced = saleableRows.reduce((sum, { grade_code }) => sum + num(grade_code), 0);
+      body.dirty_eggs = num('DIRTY');
+      body.broken_eggs = num('BROKEN');
       body.eggs_by_grade = JSON.stringify(ebg);
     }
 
@@ -358,6 +356,17 @@ export class FarmService {
   }
 
   async updateBreedingDailyLog(id: number, body: any) {
+    if (body.eggs_by_grade && typeof body.eggs_by_grade === 'object') {
+      const ebg = body.eggs_by_grade as Record<string, unknown>;
+      const num = (k: string) => Math.max(0, Number(ebg[k]) || 0);
+      const saleableRows: Array<{ grade_code: string }> = await this.entityManager.query(
+        `SELECT grade_code FROM product_grades WHERE status = 'ACTIVE' AND is_saleable = true`,
+      );
+      body.eggs_produced = saleableRows.reduce((sum, { grade_code }) => sum + num(grade_code), 0);
+      body.dirty_eggs = num('DIRTY');
+      body.broken_eggs = num('BROKEN');
+      body.eggs_by_grade = JSON.stringify(ebg);
+    }
     const eggs = Number(body.eggs_produced) || 0;
     const mortality = Number(body.mortality_qty) || 0;
     const flock_no = body.flock_no || body.house_code;
@@ -450,7 +459,7 @@ export class FarmService {
   }
 
   /**
-   * 按日期 + 鸡舍 聚合 eggs_by_grade，合并所有班次（早/晚班）。
+   * 按日期 + 鸡舍 聚合 eggs_by_grade；兼容迁移前的历史班次行。
    * 用于 daily-inbound 页"从今日日报预填"按钮 — 业务方录完日报后，
    * 入库页能一键拉到 9 档数量预填，减少二次录入。
    */
