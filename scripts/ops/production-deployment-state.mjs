@@ -17,6 +17,15 @@ export function deploymentMode({ mode, buildApi, buildWeb }) {
   if (!['api', 'web', 'full'].includes(mode) || buildApi !== ['api', 'full'].includes(mode) || buildWeb !== ['web', 'full'].includes(mode)) throw new Error('STATE_HOLD=DEPLOY_MODE');
   return mode;
 }
+export function deploymentMigrationScope(scope, mode) {
+  if (!scope || !Array.isArray(scope.changed) || !REVISION.test(scope.baseline || '') || !REVISION.test(scope.target || '')) throw new Error('STATE_HOLD=BASELINE');
+  if (!['api', 'web', 'full'].includes(mode)) throw new Error('STATE_HOLD=DEPLOY_MODE');
+  // A web-only release keeps the running API and database pinned. Migration
+  // files that appeared after the running API revision therefore belong to a
+  // future API/full release and must neither block this Web switch nor disable
+  // its rollback. API/full releases retain the strict receipt requirement.
+  return mode === 'web' ? { ...scope, changed: [] } : scope;
+}
 export function beginState({ previous, configSha, target, scope, floor, evidence, mode }) {
   if (mode !== undefined && !['api', 'web', 'full'].includes(mode)) throw new Error('STATE_HOLD=DEPLOY_MODE');
   if (configSha !== target || !REVISION.test(configSha) || !REVISION.test(target) || scope.baseline !== previous.api.revision || scope.target !== target) throw new Error('STATE_HOLD=BASELINE');
@@ -194,14 +203,15 @@ async function deploymentOperationCore({ root, directory, operation, input, valu
     requireFirstTransition({ legacyApi: legacyApi && !promotion, floor, proof, composeBytes: fs.readFileSync(path.join(root, 'docker-compose.yml')),
       mode: env.DEPLOY_MODE, buildApi: env.BUILD_API === 'true', buildWeb: env.BUILD_WEB === 'true',
       authorized: env.ONE_TIME_CONFIG_FLOOR_TRANSITION === 'true', rotateCredentials: env.ROTATE_CHANJET_CREDENTIALS === 'true' });
-    const scope = getScope(root, previous.api.revision, target);
-    if (legacy && scope.changed.length !== 0) hold('LEGACY_MIGRATION_PATH_CHANGED');
+    const mode = deploymentMode({ mode: env.DEPLOY_MODE, buildApi: env.BUILD_API === 'true', buildWeb: env.BUILD_WEB === 'true' });
+    const discoveredScope = getScope(root, previous.api.revision, target);
+    if (legacy && discoveredScope.changed.length !== 0) hold('LEGACY_MIGRATION_PATH_CHANGED');
+    const scope = deploymentMigrationScope(discoveredScope, mode);
     const evidence = env.DEPLOYMENT_EVIDENCE_PRE && env.DEPLOYMENT_EVIDENCE_POST && env.DEPLOYMENT_EVIDENCE_LOG
       ? { pre: env.DEPLOYMENT_EVIDENCE_PRE, post: env.DEPLOYMENT_EVIDENCE_POST, log: env.DEPLOYMENT_EVIDENCE_LOG } : undefined;
     if (!evidence) throw new Error('STATE_HOLD=DEPLOYMENT_EVIDENCE_BINDING');
     const schemaApplied = scope.changed.length ? schemaCheck(root, scope) : false;
     if (scope.changed.length && !schemaApplied) throw new Error('MIGRATION_SCOPE=HOLD:CONTROLLED_SCHEMA_RELEASE_REQUIRED');
-    const mode = deploymentMode({ mode: env.DEPLOY_MODE, buildApi: env.BUILD_API === 'true', buildWeb: env.BUILD_WEB === 'true' });
     state = beginState({ mode, previous, configSha: getGit(root, ['rev-parse', 'HEAD']), target, scope, floor, evidence });
     if (legacy) state.maintenance = { protocol: 'STOP_AND_RECONCILE', owner: legacy.context.owner, contextDigest: bindingDigest(legacy.context) };
     await admit();
