@@ -1,7 +1,12 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
 /**
- * @allow-data-dml: 合并历史多班次日报为 DAILY，并保留可回滚快照。
+ * Canonical daily-report migration gate for issues 498/499.
+ *
+ * Historical rows may carry fields and inventory references that cannot be
+ * losslessly merged in a schema migration. This migration therefore fails
+ * closed when consolidation is required and performs no business-row DELETE or
+ * UPDATE. A reviewed repair receipt must establish a safe, scoped result first.
  */
 export class ConsolidateBreedingDailyLogs1790000000000 implements MigrationInterface {
   name = 'ConsolidateBreedingDailyLogs1790000000000';
@@ -9,78 +14,31 @@ export class ConsolidateBreedingDailyLogs1790000000000 implements MigrationInter
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.startTransaction();
     try {
-      await queryRunner.query(`
-        CREATE TABLE IF NOT EXISTS brd_daily_logs_498_499_backup (
-          id integer PRIMARY KEY,
-          row_data jsonb NOT NULL
-        )
+      const invalid = await queryRunner.query(`
+        SELECT COUNT(*)::int AS count
+        FROM brd_daily_logs
+        WHERE log_date IS NULL OR house_code IS NULL OR BTRIM(house_code) = ''
       `);
-      await queryRunner.query(`
-        INSERT INTO brd_daily_logs_498_499_backup (id, row_data)
-        SELECT id, to_jsonb(d)
-        FROM brd_daily_logs d
-        ON CONFLICT (id) DO NOTHING
+      if (Number(invalid[0]?.count || 0) > 0) {
+        throw new Error('BREEDING_DAILY_MIGRATION_HOLD_INVALID_IDENTITY');
+      }
+
+      const duplicateGroups = await queryRunner.query(`
+        SELECT log_date, house_code, COUNT(*)::int AS row_count
+        FROM brd_daily_logs
+        GROUP BY log_date, house_code
+        HAVING COUNT(*) > 1
+        LIMIT 1
       `);
-      await queryRunner.query(`
-        WITH ranked AS (
-          SELECT id,
-                 FIRST_VALUE(id) OVER (
-                   PARTITION BY log_date, house_code
-                   ORDER BY CASE WHEN shift = 'DAILY' THEN 0 ELSE 1 END, id
-                 ) AS survivor_id
-          FROM brd_daily_logs
-        ), totals AS (
-          SELECT r.survivor_id,
-                 COALESCE(SUM(COALESCE(d.eggs_produced, 0)), 0)::int AS eggs_produced,
-                 COALESCE(SUM(COALESCE(d.good_eggs, 0)), 0)::int AS good_eggs,
-                 COALESCE(SUM(COALESCE(d.broken_eggs, 0)), 0)::int AS broken_eggs,
-                 COALESCE(SUM(COALESCE(d.dirty_eggs, 0)), 0)::int AS dirty_eggs,
-                 COALESCE(SUM(COALESCE(d.bad_eggs, 0)), 0)::int AS bad_eggs,
-                 COALESCE(SUM(COALESCE(d.mortality_qty, 0)), 0)::int AS mortality_qty,
-                 COALESCE(SUM(COALESCE(d.feed_consumed, 0)), 0) AS feed_consumed,
-                 COALESCE(SUM(COALESCE(d.water_consumed, 0)), 0) AS water_consumed,
-                 COALESCE((
-                   SELECT jsonb_object_agg(e.key, e.qty)
-                   FROM (
-                     SELECT e.key, SUM((e.value #>> '{}')::numeric) AS qty
-                     FROM brd_daily_logs x
-                     JOIN ranked rx ON rx.id = x.id
-                     CROSS JOIN LATERAL jsonb_each(CASE WHEN jsonb_typeof(x.eggs_by_grade) = 'object' THEN x.eggs_by_grade ELSE '{}'::jsonb END) e
-                     WHERE rx.survivor_id = r.survivor_id
-                     GROUP BY e.key
-                   ) e
-                 ), '{}'::jsonb) AS eggs_by_grade
-          FROM brd_daily_logs d
-          JOIN ranked r ON r.id = d.id
-          GROUP BY r.survivor_id
-        )
-        UPDATE brd_daily_logs d
-           SET shift = 'DAILY',
-               eggs_produced = t.eggs_produced,
-               good_eggs = t.good_eggs,
-               broken_eggs = t.broken_eggs,
-               dirty_eggs = t.dirty_eggs,
-               bad_eggs = t.bad_eggs,
-               mortality_qty = t.mortality_qty,
-               feed_consumed = t.feed_consumed,
-               water_consumed = t.water_consumed,
-               eggs_by_grade = t.eggs_by_grade
-          FROM totals t
-         WHERE d.id = t.survivor_id
-      `);
-      await queryRunner.query(`
-        DELETE FROM brd_daily_logs d
-        USING (
-          SELECT id,
-                 FIRST_VALUE(id) OVER (
-                   PARTITION BY log_date, house_code
-                   ORDER BY CASE WHEN shift = 'DAILY' THEN 0 ELSE 1 END, id
-                 ) AS survivor_id
-          FROM brd_daily_logs
-        ) duplicates
-        WHERE d.id = duplicates.id
-          AND duplicates.id <> duplicates.survivor_id
-      `);
+      if (duplicateGroups.length > 0) {
+        throw new Error(
+          `BREEDING_DAILY_MIGRATION_HOLD_REVIEW_REQUIRED:${duplicateGroups[0].log_date}:${duplicateGroups[0].house_code}`,
+        );
+      }
+
+      // No data mutation is required when every date/house has one row. Keep
+      // the migration transactional and idempotent; reviewed repair tooling is
+      // the only path allowed to merge historical business rows.
       await queryRunner.commitTransaction();
     } catch (error) {
       await queryRunner.rollbackTransaction();
@@ -89,19 +47,9 @@ export class ConsolidateBreedingDailyLogs1790000000000 implements MigrationInter
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.startTransaction();
-    try {
-      await queryRunner.query(`DELETE FROM brd_daily_logs WHERE id IN (SELECT id FROM brd_daily_logs_498_499_backup)`);
-      await queryRunner.query(`
-        INSERT INTO brd_daily_logs
-        SELECT (jsonb_populate_record(NULL::brd_daily_logs, row_data)).*
-        FROM brd_daily_logs_498_499_backup
-      `);
-      await queryRunner.query(`DROP TABLE brd_daily_logs_498_499_backup`);
-      await queryRunner.commitTransaction();
-    } catch (error) {
-      await queryRunner.rollbackTransaction();
-      throw error;
-    }
+    // up() creates no schema or business data. Execute a harmless transactional
+    // probe so the migration contract remains genuinely reversible without
+    // restoring snapshots over post-deployment edits.
+    await queryRunner.query('SELECT 1');
   }
 }
