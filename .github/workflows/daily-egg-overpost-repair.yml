@@ -1,6 +1,6 @@
 name: Daily Egg Overpost Repair
 
-on:
+"on":
   workflow_dispatch:
     inputs:
       phase:
