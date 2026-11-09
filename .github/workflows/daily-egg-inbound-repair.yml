@@ -8,6 +8,12 @@ on:
         required: true
         type: choice
         options: [preflight, apply, verify]
+      repair_kind:
+        description: Reviewed repair scope
+        required: true
+        type: choice
+        options: [duplicate, overpost]
+        default: duplicate
       approve_production:
         description: Type DAILY-EGG-REPAIR-20261103 to authorize
         required: true
@@ -26,7 +32,7 @@ concurrency:
 
 jobs:
   execute:
-    if: inputs.approve_production == 'DAILY-EGG-REPAIR-20261103'
+    if: (inputs.repair_kind == 'duplicate' && inputs.approve_production == 'DAILY-EGG-REPAIR-20261103') || (inputs.repair_kind == 'overpost' && inputs.approve_production == 'DAILY-EGG-OVERPOST-REPAIR-20261109')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment: production
@@ -48,6 +54,7 @@ jobs:
         env:
           TARGET_SHA: ${{ github.sha }}
           PHASE: ${{ inputs.phase }}
+          REPAIR_KIND: ${{ inputs.repair_kind }}
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
@@ -57,7 +64,7 @@ jobs:
           proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
           proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
           proxy_port: 22
-          envs: TARGET_SHA,PHASE
+          envs: TARGET_SHA,PHASE,REPAIR_KIND
           command_timeout: 10m
           script: |
             set -Eeuo pipefail
@@ -106,6 +113,8 @@ jobs:
             fi
 
             # apply: replay the reviewed, transactional, self-asserting repair.
-            git_safe show "$TARGET_SHA:scripts/ops/repair-daily-egg-inbound-duplicates.sql" \
+            REPAIR_SQL="scripts/ops/repair-daily-egg-inbound-duplicates.sql"
+            if [ "$REPAIR_KIND" = "overpost" ]; then REPAIR_SQL="scripts/ops/repair-daily-egg-inbound-overpost.sql"; fi
+            git_safe show "$TARGET_SHA:$REPAIR_SQL" \
               | docker exec -i phoenix-v3-db sh -c 'exec psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
             echo "APPLY=COMMITTED"
