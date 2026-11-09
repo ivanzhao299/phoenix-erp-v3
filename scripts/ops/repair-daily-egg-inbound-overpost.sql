@@ -53,7 +53,7 @@ FROM inv_batches b JOIN daily_egg_overpost_repair r USING(batch_no);
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM inv_batches b JOIN daily_egg_overpost_repair r USING(batch_no)
-             WHERE b.qty_available <> b.qty - r.reverse_qty) THEN
+             WHERE b.qty_available <> b.qty) THEN
     RAISE EXCEPTION 'DAILY_EGG_OVERPOST_POST_STATE_MISMATCH';
   END IF;
 END $$;
