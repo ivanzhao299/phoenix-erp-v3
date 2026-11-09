@@ -100,6 +100,7 @@ jobs:
                   if (result.unbalanced_production_batches > 0) { console.error("PREFLIGHT=LEDGER_UNBALANCED_HOLD"); process.exit(2); }
                   for (const group of result.duplicate_sources) console.log(`REPAIR_CANDIDATE source=${group.source_no} company=${group.company_code} batches=${group.batch_count} qty=${group.total_qty}`);
                   for (const group of result.overposted_grades || []) console.log(`OVERPOSTED ${JSON.stringify(group)}`);
+                  for (const group of result.daily_duplicates || []) console.log(`DAILY_DUPLICATE ${JSON.stringify(group)}`);
                   console.log("PREFLIGHT=REPAIR_ELIGIBLE");
                 } else if (result.conclusion !== "GO") {
                   console.error("VERIFY=HOLD"); process.exit(2);
