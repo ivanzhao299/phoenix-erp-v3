@@ -175,12 +175,18 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
         || record.approvedSha !== marker.target || floor.floorSha !== marker.target || active.floorSha !== marker.target
         || String(marker.runId) !== promotionRunId || marker.phase !== 'IN_PROGRESS'
         || active.outcome !== 'CONFIG_READY_HOLD') hold('PROMOTION_BINDING');
-      if (fs.existsSync(path.join(stateDirectory, 'transaction.json'))) hold('DEPLOYMENT_TRANSACTION_IN_FLIGHT');
+      const transactionFile = path.join(stateDirectory, 'transaction.json');
+       const transaction = fs.existsSync(transactionFile) ? secureJson(transactionFile) : null;
+       if (transaction && (transaction.runId !== promotionRunId || transaction.phase !== 'IN_PROGRESS' || transaction.target !== marker.target)) hold('DEPLOYMENT_TRANSACTION_BINDING');
       mark('RUNTIME_BINDING');
       const actualAbort = captureRuntime();
       if (actualAbort.api.revision !== record.previousFloor.floorSha
         || actualAbort.web.revision !== record.previousActive.active.web.revision) hold('RUNTIME_DRIFT');
-      mark('RESTORE_PREVIOUS');
+      if (transaction) {
+         atomicState(transactionFile, { ...transaction, phase: 'ROLLED_BACK', outcome: 'ROLLED_BACK', rolledBackBy: 'reconcile-background-control/abort-prepared-promotion', rolledBackAt: new Date().toISOString(), rollbackProof: { runtime: actualAbort, previous: record.previousActive } });
+         fs.unlinkSync(transactionFile);
+       }
+       mark('RESTORE_PREVIOUS');
       // Evidence first: the full prepared state stays in the reviewed log.
       console.log(JSON.stringify({ aborted: { record, marker, floor, active } }));
       atomicState(path.join(stateDirectory, 'floor.json'), record.previousFloor);
