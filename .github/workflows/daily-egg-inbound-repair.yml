@@ -89,7 +89,7 @@ jobs:
                 const result = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
                 console.log(`conclusion=${result.conclusion} duplicate_source_groups=${result.duplicate_source_groups} overposted_grade_groups=${result.overposted_grade_groups} retired_duplicate_batches=${result.retired_duplicate_batches} unbalanced_production_batches=${result.unbalanced_production_batches} legacy_daily_farm_in_rows=${result.legacy_daily_farm_in_rows}`);
                 if (env.PHASE === "preflight") {
-                  if (result.duplicate_source_groups === 0) { console.error("PREFLIGHT=NOTHING_TO_REPAIR"); process.exit(2); }
+                  if (result.duplicate_source_groups === 0 && result.overposted_grade_groups === 0) { console.error("PREFLIGHT=NOTHING_TO_REPAIR"); process.exit(2); }
                   if (result.unbalanced_production_batches > 0) { console.error("PREFLIGHT=LEDGER_UNBALANCED_HOLD"); process.exit(2); }
                   for (const group of result.duplicate_sources) console.log(`REPAIR_CANDIDATE source=${group.source_no} company=${group.company_code} batches=${group.batch_count} qty=${group.total_qty}`);
                   for (const group of result.overposted_grades || []) console.log(`OVERPOSTED log_date=${group.log_date} house_code=${group.house_code} grade=${group.grade} reported_qty=${group.reported_qty} inbound_qty=${group.inbound_qty} over_qty=${group.over_qty}`);
