@@ -112,7 +112,11 @@ jobs:
             printf '%s' "$CHANJET_POLICY_B64" | base64 -d > "$STAGE/chanjet-readonly-policy.mjs"
             printf '%s' "$MANAGED_ENV_B64" | base64 -d > "$STAGE/update-managed-chanjet-env.mjs"
             chmod 600 "$STAGE"/*
-            STATE_DIR=/var/lib/phoenix-erp/production-deployment-state \
+            STATE_DIR=/var/lib/phoenix-erp/production-deployment-state
+             exec 9<> "$STATE_DIR/mutation.lock"
+             flock -n 9
+             export STATE_DIR
+             STATE_DIR="$STATE_DIR" \
             TARGET_SHA="$TARGET_SHA" EXPECTED_FLOOR_SHA="$EXPECTED_FLOOR_SHA" EXPECTED_RUNTIME_SHA="$EXPECTED_RUNTIME_SHA" RECOVERY_RUN_ID="$RECOVERY_RUN_ID" STAGE="$STAGE" \
             node --input-type=module <<'NODE'
             import fs from 'node:fs';
