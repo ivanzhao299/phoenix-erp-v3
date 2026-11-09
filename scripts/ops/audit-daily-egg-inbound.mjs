@@ -72,6 +72,13 @@ WITH report_grade AS (
     FROM report_grade r
     FULL JOIN inbound_grade i USING (log_date, house_code, grade)
    WHERE COALESCE(i.qty, 0) > COALESCE(r.qty, 0)
+), daily_duplicate_groups AS (
+   SELECT log_date::text AS log_date, house_code,
+          COUNT(*)::int AS row_count,
+          jsonb_agg(to_jsonb(d) ORDER BY id) AS rows
+     FROM brd_daily_logs d
+    GROUP BY log_date, house_code
+   HAVING COUNT(*) > 1
 ), duplicate_sources AS (
   SELECT company_code, source_no,
          COALESCE(sku_code, '') AS sku_code,
@@ -117,7 +124,9 @@ WITH report_grade AS (
 SELECT jsonb_build_object(
   'database', current_database(),
   'checked_at', NOW(),
-  'duplicate_source_groups', COALESCE((SELECT COUNT(*) FROM duplicate_sources), 0),
+  'daily_duplicate_groups', COALESCE((SELECT COUNT(*) FROM daily_duplicate_groups), 0),
+   'daily_duplicates', COALESCE((SELECT jsonb_agg(to_jsonb(x) ORDER BY x.log_date, x.house_code) FROM (SELECT * FROM daily_duplicate_groups LIMIT 100) x), '[]'::jsonb),
+   'duplicate_source_groups', COALESCE((SELECT COUNT(*) FROM duplicate_sources), 0),
   'duplicate_sources', COALESCE((SELECT jsonb_agg(to_jsonb(x) ORDER BY x.batch_count DESC, x.source_no) FROM (SELECT * FROM duplicate_sources LIMIT 100) x), '[]'::jsonb),
   'overposted_grade_groups', COALESCE((SELECT COUNT(*) FROM overposted), 0),
   'overposted_grades', COALESCE((SELECT jsonb_agg(to_jsonb(x) ORDER BY x.log_date, x.house_code, x.grade) FROM (SELECT * FROM overposted LIMIT 100) x), '[]'::jsonb),
@@ -141,6 +150,7 @@ fs.writeFileSync(jsonPath, `${JSON.stringify(result, null, 2)}\n`);
 fs.writeFileSync(reportPath, renderMarkdown(result, jsonPath));
 
 console.log(`daily egg inbound audit: ${result.conclusion}`);
+console.log(`daily_duplicate_groups=${result.daily_duplicate_groups}`);
 console.log(`duplicate_source_groups=${result.duplicate_source_groups}`);
 console.log(`overposted_grade_groups=${result.overposted_grade_groups}`);
 console.log(`legacy_daily_farm_in_rows=${result.legacy_daily_farm_in_rows}`);
