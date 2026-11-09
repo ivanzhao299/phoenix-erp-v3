@@ -12,7 +12,7 @@ on:
         description: Reviewed repair scope
         required: true
         type: choice
-        options: [duplicate, overpost]
+        options: [duplicate, overpost, daily_merge]
         default: duplicate
       approve_production:
         description: Type DAILY-EGG-REPAIR-20261103 to authorize
@@ -32,7 +32,7 @@ concurrency:
 
 jobs:
   execute:
-    if: (inputs.repair_kind == 'duplicate' && inputs.approve_production == 'DAILY-EGG-REPAIR-20261103') || (inputs.repair_kind == 'overpost' && inputs.approve_production == 'DAILY-EGG-OVERPOST-REPAIR-20261109')
+    if: (inputs.repair_kind == 'duplicate' && inputs.approve_production == 'DAILY-EGG-REPAIR-20261103') || (inputs.repair_kind == 'overpost' && inputs.approve_production == 'DAILY-EGG-OVERPOST-REPAIR-20261109') || (inputs.repair_kind == 'daily_merge' && inputs.approve_production == 'DAILY-DUPLICATE-REPAIR-20261109')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment: production
@@ -116,6 +116,7 @@ jobs:
             # apply: replay the reviewed, transactional, self-asserting repair.
             REPAIR_SQL="scripts/ops/repair-daily-egg-inbound-duplicates.sql"
             if [ "$REPAIR_KIND" = "overpost" ]; then REPAIR_SQL="scripts/ops/repair-daily-egg-inbound-overpost.sql"; fi
+            if [ "$REPAIR_KIND" = "daily_merge" ]; then REPAIR_SQL="scripts/ops/repair-breeding-daily-duplicate.sql"; fi
             git_safe show "$TARGET_SHA:$REPAIR_SQL" \
               | docker exec -i phoenix-v3-db sh -c 'exec psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
             echo "APPLY=COMMITTED"
