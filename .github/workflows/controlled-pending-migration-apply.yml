@@ -43,8 +43,8 @@ jobs:
           EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha }}
         run: |
           set -euo pipefail
-          test "$GITHUB_REF" = refs/heads/main
-          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "${GITHUB_REF_NAME:-${GITHUB_REF#refs/heads/}}" = main
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN_SHA"
           test "$EXPECTED_MAIN_SHA" = "$GITHUB_SHA"
       - name: Prepare trusted helpers
         run: |
