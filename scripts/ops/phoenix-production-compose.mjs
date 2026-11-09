@@ -104,5 +104,9 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   try {
     runCompose(process.argv.slice(2));
     console.log('PRODUCTION_COMPOSE=PASS');
-  } catch { console.error('PRODUCTION_COMPOSE=HOLD'); process.exitCode = 1; }
+  } catch (error) {
+    const detail = String(error?.message || error || 'unknown').replace(/[\r\n]+/g, ' ').slice(0, 300);
+    console.error(`PRODUCTION_COMPOSE=HOLD;DETAIL=${detail}`);
+    process.exitCode = 1;
+  }
 }
