@@ -53,7 +53,22 @@ WITH report_grade AS (
          COALESCE(r.grade, i.grade) AS grade,
          COALESCE(r.qty, 0) AS reported_qty,
          COALESCE(i.qty, 0) AS inbound_qty,
-         COALESCE(i.qty, 0) - COALESCE(r.qty, 0) AS over_qty
+         COALESCE(i.qty, 0) - COALESCE(r.qty, 0) AS over_qty,
+          COALESCE((SELECT jsonb_agg(to_jsonb(b) ORDER BY b.batch_no)
+                      FROM inv_batches b
+                     WHERE b.source_type = 'TEMP_PRODUCTION'
+                       AND b.collection_batch_ref = 'HOUSE-' || COALESCE(r.house_code, i.house_code)
+                       AND b.egg_date::text = COALESCE(r.log_date, i.log_date)
+                       AND COALESCE(b.grade_code_std, b.quality_grade) = COALESCE(r.grade, i.grade)), '[]'::jsonb) AS inbound_batches,
+          COALESCE((SELECT jsonb_agg(to_jsonb(l) ORDER BY l.id)
+                      FROM inv_ledger l
+                     WHERE l.batch_no IN (
+                       SELECT b.batch_no FROM inv_batches b
+                        WHERE b.source_type = 'TEMP_PRODUCTION'
+                          AND b.collection_batch_ref = 'HOUSE-' || COALESCE(r.house_code, i.house_code)
+                          AND b.egg_date::text = COALESCE(r.log_date, i.log_date)
+                          AND COALESCE(b.grade_code_std, b.quality_grade) = COALESCE(r.grade, i.grade)
+                     )), '[]'::jsonb) AS inbound_ledger
     FROM report_grade r
     FULL JOIN inbound_grade i USING (log_date, house_code, grade)
    WHERE COALESCE(i.qty, 0) > COALESCE(r.qty, 0)
