@@ -36,11 +36,13 @@ function createService(
     productMasters?: Array<Record<string, unknown>>;
     productEvidence?: Array<Record<string, unknown>>;
     departmentEvidence?: Array<Record<string, unknown>>;
+    skuReferencesActive?: boolean;
   } = {},
 ) {
   const ds = {
     query: jest.fn(async (sql: string) => {
       if (sql.includes('FROM chanjet_master_mapping')) return sources;
+      if (/SELECT \* FROM (mst_products|product_grades|packaging_specs) WHERE/.test(sql)) return targets.skuReferencesActive === false ? [] : [{ status: 'ACTIVE' }];
       if (sql.includes('WITH evidence AS')) return targets.productEvidence || [];
       if (sql.includes('raw_data->>\'departmentId\' AS "departmentId"')) {
         return targets.departmentEvidence || [];
@@ -644,6 +646,24 @@ describe('ChanjetErpMasterBusinessReviewService', () => {
     });
     expect(String(plan.candidates[0].createPayload?.gradeCode)).toHaveLength(5);
     expect(String(plan.candidates[0].createPayload?.specCode).length).toBeLessThanOrEqual(16);
+  });
+
+  it('holds egg SKU candidates with exact missing reference codes before apply', async () => {
+    const { service, ds } = createService([source({
+      mapping_type: 'PRODUCT', chanjet_name: '1号红蛋', chanjet_code: '901',
+      raw_data: { erpMasterGapProposal: { gapClass: 'PRODUCT_SKU_MODEL_REQUIRED' } },
+    })], {
+      productEvidence: [{ bookId: 'BOOK-1', productCode: '901', evidenceCount: 20, baseUoms: ['枚'], specs: [] }],
+      skuReferencesActive: false,
+    });
+    const plan = await service.plan();
+    expect(plan.candidates[0]).toMatchObject({ decision: 'HOLD', blockers: expect.arrayContaining([
+      'SKU_ACTIVE_REFERENCE_REQUIRED:product_code=EGG',
+      'SKU_ACTIVE_REFERENCE_REQUIRED:grade_code=CJ_G1',
+      'SKU_ACTIVE_REFERENCE_REQUIRED:spec_code=CJ_RED_STD',
+    ]) });
+    expect(plan.summary.actionable).toBe(0);
+    expect(ds.createQueryRunner).not.toHaveBeenCalled();
   });
 
   it('keeps unclassified egg SKU dimension codes within the production schema limit', async () => {

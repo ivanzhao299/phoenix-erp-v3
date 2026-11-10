@@ -1,8 +1,10 @@
 import { EntityManager } from 'typeorm';
 import { SkuPolicy, SKU_IDENTITY_FIELDS } from './sku-policy';
-import { ProductMasterService } from './product-master.service';
+import { SkuWriter } from './sku-writer';
 import { MasterDataRuntimeService } from '../../master-data/master-data-runtime.service';
 import { GenericCrudService } from '../../generic-crud/generic-crud.service';
+
+function writer(db: any) { return new SkuWriter(db, {} as any, { logInTransaction: jest.fn() } as any); }
 
 const sku = { sku_code: 'SKU-1', product_code: 'P1', grade_code: 'G1', spec_code: 'S1', sku_name: 'Eggs', status: 'ACTIVE' };
 const core = ['sal_order_items', 'sal_price_items', 'inv_batches', 'inv_ledger'];
@@ -29,6 +31,7 @@ function fixture(reference?: string, failure?: 'catalog' | 'probe' | 'lock') {
       return [stored];
     }
     if (sql.includes('FOR UPDATE')) return [{ ...stored }];
+    if (sql.includes('FOR SHARE')) return [{ status: 'ACTIVE', product_name: 'Eggs' }];
     return [];
   });
   const manager = { query } as unknown as EntityManager;
@@ -39,24 +42,24 @@ function fixture(reference?: string, failure?: 'catalog' | 'probe' | 'lock') {
 describe('SKU identity protection', () => {
   it.each(SKU_IDENTITY_FIELDS)('blocks referenced %s changes', async key => {
     const f = fixture('sal_order_items');
-    await expect(new ProductMasterService(f.db as any).updateSku('SKU-1', { [key]: 'NEW' })).rejects.toMatchObject({ status: 409 });
+    await expect(writer(f.db).update('SKU-1', { [key]: 'NEW' })).rejects.toMatchObject({ status: 409 });
     expect(f.stored()[key]).toBe(sku[key]);
   });
   it.each(SKU_IDENTITY_FIELDS)('allows unreferenced %s changes', async key => {
     const f = fixture();
-    await expect(new ProductMasterService(f.db as any).updateSku('SKU-1', { [key]: 'NEW' })).resolves.toMatchObject({ [key]: 'NEW' });
+    await expect(writer(f.db).update('SKU-1', { [key]: 'NEW' })).resolves.toMatchObject({ [key]: 'NEW' });
     expect(f.db.transaction).toHaveBeenCalledTimes(1);
     expect(f.query.mock.calls.some(([sql]) => sql.startsWith('LOCK TABLE'))).toBe(true);
   });
   it.each(refs)('blocks references in %s, including inactive/historical documents', async table => {
     const f = fixture(table);
-    await expect(new ProductMasterService(f.db as any).updateSku('SKU-1', { grade_code: 'G2' })).rejects.toThrow(table);
+    await expect(writer(f.db).update('SKU-1', { grade_code: 'G2' })).rejects.toThrow(table);
     expect(f.stored().grade_code).toBe('G1');
     expect(f.query.mock.calls.some(([sql]) => sql.startsWith('LOCK TABLE'))).toBe(false);
   });
   it.each(['catalog', 'probe', 'lock'] as const)('does not permit writes after %s failure', async failure => {
     const f = fixture(undefined, failure);
-    await expect(new ProductMasterService(f.db as any).updateSku('SKU-1', { grade_code: 'G2' })).rejects.toThrow('unavailable');
+    await expect(writer(f.db).update('SKU-1', { grade_code: 'G2' })).rejects.toThrow('unavailable');
     expect(f.stored().grade_code).toBe('G1');
   });
   it('rejects busy reference tables with a retryable conflict and no identity write', async () => {
@@ -66,7 +69,7 @@ describe('SKU identity protection', () => {
       if (sql.startsWith('LOCK TABLE')) throw Object.assign(new Error('busy'), { code: '55P03' });
       return original(sql, values);
     });
-    await expect(new ProductMasterService(f.db as any).updateSku('SKU-1', { spec_code: 'S2' })).rejects.toMatchObject({ status: 409 });
+    await expect(writer(f.db).update('SKU-1', { spec_code: 'S2' })).rejects.toMatchObject({ status: 409 });
     expect(f.stored().spec_code).toBe('S1');
   });
   it('rechecks references after obtaining the nonwaiting locks', async () => {
@@ -78,12 +81,12 @@ describe('SKU identity protection', () => {
       if (locked && sql.startsWith('SELECT 1 FROM "inv_batches"')) return [{ exists: 1 }];
       return original(sql, values);
     });
-    await expect(new ProductMasterService(f.db as any).updateSku('SKU-1', { spec_code: 'S2' })).rejects.toMatchObject({ status: 409 });
+    await expect(writer(f.db).update('SKU-1', { spec_code: 'S2' })).rejects.toMatchObject({ status: 409 });
     expect(f.stored().spec_code).toBe('S1');
   });
   it('returns a retryable conflict when the SKU row is busy, including name edits', async () => {
     const db = { transaction: jest.fn((fn: any) => fn({ query: jest.fn().mockRejectedValue(Object.assign(new Error('busy'), { code: '55P03' })) })) };
-    await expect(new ProductMasterService(db as any).updateSku('SKU-1', { sku_name: 'New name' })).rejects.toMatchObject({ status: 409 });
+    await expect(writer(db).update('SKU-1', { sku_name: 'New name' })).rejects.toMatchObject({ status: 409 });
   });
   it('rejects an overlong second probe instead of continuing with identity update', async () => {
     const f = fixture();
@@ -99,7 +102,7 @@ describe('SKU identity protection', () => {
       return original(sql, values);
     });
     try {
-      await expect(new ProductMasterService(f.db as any).updateSku('SKU-1', { spec_code: 'S2' })).rejects.toMatchObject({ status: 409 });
+      await expect(writer(f.db).update('SKU-1', { spec_code: 'S2' })).rejects.toMatchObject({ status: 409 });
       expect(f.stored().spec_code).toBe('S1');
     } finally { now.mockRestore(); }
   });
@@ -109,21 +112,14 @@ describe('SKU identity protection', () => {
   });
   it('allows names and remarks, and resubmission of unchanged identity on referenced SKUs', async () => {
     const f = fixture('sal_order_items');
-    await expect(new ProductMasterService(f.db as any).updateSku('SKU-1', { product_code: 'P1', sku_name: 'New name', remark: 'Note' })).resolves.toMatchObject({ sku_name: 'New name', remark: 'Note' });
+    await expect(writer(f.db).update('SKU-1', { product_code: 'P1', sku_name: 'New name', remark: 'Note' })).resolves.toMatchObject({ sku_name: 'New name', remark: 'Note' });
     expect(f.query.mock.calls.some(([sql]) => sql.includes('information_schema'))).toBe(false);
   });
-  it.each(['runtime', 'crud'])('protects the %s write entry point', async entry => {
+  it('protects the runtime write entry point', async () => {
     const f = fixture('sal_price_items');
-    const runtime = new MasterDataRuntimeService(f.db as any, {} as any, { log: jest.fn() } as any, {} as any, {} as any, {} as any, {} as any);
-    const result = entry === 'runtime' ? runtime.update('sku', 'SKU-1', { spec_code: 'S2' }) : new GenericCrudService(f.db as any).update('product_skus', 'id', 1, { spec_code: 'S2' });
-    await expect(result).rejects.toMatchObject({ status: 409 });
+    const runtime = new MasterDataRuntimeService(f.db as any, {} as any, { logInTransaction: jest.fn() } as any, {} as any, {} as any, {} as any, {} as any);
+    await expect(runtime.update('sku', 'SKU-1', { spec_code: 'S2' })).rejects.toMatchObject({ status: 409 });
     expect(f.stored().spec_code).toBe('S1');
-  });
-  it.each(['runtime', 'crud'])('allows unreferenced identity updates via %s', async entry => {
-    const f = fixture();
-    const runtime = new MasterDataRuntimeService(f.db as any, {} as any, { log: jest.fn() } as any, {} as any, {} as any, {} as any, {} as any);
-    await (entry === 'runtime' ? runtime.update('sku', 'SKU-1', { spec_code: 'S2' }) : new GenericCrudService(f.db as any).update('product_skus', 'id', 1, { spec_code: 'S2' }));
-    expect(f.stored().spec_code).toBe('S2');
   });
   it('blocks physical SKU deletion through generic CRUD', async () => {
     const f = fixture('sal_order_items');
@@ -132,8 +128,8 @@ describe('SKU identity protection', () => {
   });
   it('rejects SKU code changes and empty identity values', async () => {
     const f = fixture();
-    await expect(new ProductMasterService(f.db as any).updateSku('SKU-1', { sku_code: 'NEW' })).rejects.toMatchObject({ status: 400 });
-    await expect(new ProductMasterService(f.db as any).updateSku('SKU-1', { spec_code: '' })).rejects.toMatchObject({ status: 400 });
+    await expect(writer(f.db).update('SKU-1', { sku_code: 'NEW' })).rejects.toMatchObject({ status: 400 });
+    await expect(writer(f.db).update('SKU-1', { spec_code: '' })).rejects.toMatchObject({ status: 400 });
   });
 });
 

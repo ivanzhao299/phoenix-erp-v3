@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { createHash } from 'crypto';
 import { DataSource, QueryRunner } from 'typeorm';
+import { SkuWriter } from '../product-master/services/sku-writer';
 
 export const CHANJET_ERP_MASTER_APPLY_TOKEN = 'APPROVE_CHANJET_ERP_MASTER_MAPPING';
 export const CHANJET_ERP_MASTER_REVIEW_ACTION = 'CHANJET_ERP_MAP_APPLY';
@@ -344,6 +345,24 @@ export class ChanjetErpMasterBusinessReviewService {
         genericWarehouseNamesByCompany,
       },
     ));
+    // Candidate dimensions must be governed ACTIVE masters before review can authorize creation.
+    // Do not invent CJ_* grade/spec records as a side effect of a financial integration.
+    for (const candidate of candidates) {
+      if (candidate.decision !== 'CREATE_MASTER' || candidate.targetTable !== 'product_skus') continue;
+      const payload = candidate.createPayload || {};
+      try {
+        const { problems } = await SkuWriter.checkReferences(this.ds, {
+          product_code: payload.productCode, grade_code: payload.gradeCode, spec_code: payload.specCode,
+        });
+        if (problems.length) {
+          candidate.decision = 'HOLD';
+          candidate.blockers.push(...problems.map(problem => `SKU_ACTIVE_REFERENCE_REQUIRED:${problem}`));
+        }
+      } catch {
+        candidate.decision = 'HOLD';
+        candidate.blockers.push('SKU_REFERENCE_CHECK_UNAVAILABLE');
+      }
+    }
     const byMappingType: Record<string, Record<ChanjetErpMasterReviewDecision, number>> = {};
     for (const candidate of candidates) {
       byMappingType[candidate.mappingType] ||= {
@@ -1521,24 +1540,12 @@ export class ChanjetErpMasterBusinessReviewService {
       return rows.length === 1;
     }
     if (candidate.targetTable === 'product_skus') {
-      const rows = await runner.query(
-        `INSERT INTO product_skus
-          (sku_code, sku_name, product_code, product_name, grade_code,
-           spec_code, status, remark)
-         VALUES ($1,$2,$3,$4,$5,$6,'ACTIVE',$7)
-         ON CONFLICT (sku_code) DO NOTHING
-         RETURNING sku_code`,
-        [
-          payload.skuCode,
-          payload.skuName,
-          payload.productCode,
-          payload.productName,
-          payload.gradeCode,
-          payload.specCode,
-          remark,
-        ],
-      );
-      return rows.length === 1;
+      return SkuWriter.createApproved(runner, {
+        product_code: payload.productCode,
+        grade_code: payload.gradeCode,
+        spec_code: payload.specCode,
+        remark,
+      }, String(payload.skuCode ?? ''), String(payload.skuName ?? ''), actor);
     }
     if (candidate.targetTable === 'mst_materials') {
       const rows = await runner.query(

@@ -60,6 +60,27 @@ describe('GenericCrudController WMS RBAC', () => {
     );
   });
 
+  it.each(['mst_products', 'product_skus'])('blocks every %s write before admin bypass or any service call', async table => {
+    for (const user of [req(['*']), { user: { username: 'admin', roles: ['ROLE_ADMIN'] } }, req(['MENU_MD_PRODUCT:V,C,E,D', 'MENU_MD_SKU:V,C,E,D'])]) {
+      await expect(controller.create(table, {}, user)).rejects.toThrow(ForbiddenException);
+      await expect(controller.update(table, '1', {}, user)).rejects.toThrow(ForbiddenException);
+      await expect(controller.updateWithColumn(table, 'id', '1', {}, user)).rejects.toThrow(ForbiddenException);
+      await expect(controller.remove(table, '1', user)).rejects.toThrow(ForbiddenException);
+      await expect(controller.removeWithColumn(table, 'id', '1', user)).rejects.toThrow(ForbiddenException);
+    }
+    expect(svc.create).not.toHaveBeenCalled();
+    expect(svc.update).not.toHaveBeenCalled();
+    expect(svc.remove).not.toHaveBeenCalled();
+    expect(svc.findOneByColumn).not.toHaveBeenCalled();
+  });
+
+  it('keeps SKU generic reads protected by explicit current or legacy view rights', async () => {
+    for (const permissions of [['MENU_MD_SKU:V'], ['MENU_MASTER_SKU:V']]) {
+      await expect(controller.findAll('product_skus', {}, req(permissions))).resolves.toEqual({ code: 200, data: [] });
+    }
+    await expect(controller.findAll('product_skus', {}, req(['MENU_SALES2_ORDER:E']))).rejects.toThrow(ForbiddenException);
+  });
+
   it('marks generic CRUD list responses as non-cacheable', () => {
     const headers = Reflect.getMetadata(
       HEADERS_METADATA,

@@ -8,6 +8,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { ClsService } from 'nestjs-cls';
 import { isMenuRegistered } from './menu-registry.service';
 import { hasPerm, PermCode } from '../../auth/permissions.util';
+import { hasSkuPermission } from './sku-access.guard';
 
 /**
  * MasterDataTypeGuard — 主数据 Runtime 的「项级原子」鉴权守卫（G56-B）
@@ -50,6 +51,7 @@ const TYPE_TO_MENU: Record<string, string> = {
 
 const TYPE_TO_ALT_MENUS: Record<string, string[]> = {
   company: ['MENU_MD_ORG'],
+  sku: ['MENU_MASTER_SKU'],
   // 采购项目入口沿用采购域权限，但页面已收口到统一 project Runtime。
   project: ['MENU_PRC2_PROJECT'],
 };
@@ -88,6 +90,11 @@ export class MasterDataTypeGuard extends AuthGuard('jwt') implements CanActivate
     const op = deriveOp(req.method, String(req.originalUrl || req.url || ''));
     if (Array.isArray(user.roles) && user.roles.includes('ROLE_ADMIN')) return true;
     if (user.role === 'ROLE_ADMIN') return true;
+
+    if (type === 'sku') {
+      if (hasSkuPermission(user, op)) return true;
+      throw new ForbiddenException('MENU_PERMISSION_DENIED');
+    }
 
     const codes = masterDataPermissionMenus(type);
     if (codes.length === 0) throw new ForbiddenException('MENU_PERMISSION_DENIED');

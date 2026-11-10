@@ -5,7 +5,6 @@ import { EntityManager } from 'typeorm';
 import { BREEDING_FARMS_TABLE, BreedingScopedTable } from './crud.constants';
 import { OrgOwnershipService } from '../org/services/org-ownership.service';
 import { schemaMismatch } from '../../common/database/schema-compatibility';
-import { SkuPolicy } from '../product-master/services/sku-policy';
 import { redactSensitive } from '../../common/logging/redact-sensitive';
 
 @Injectable()
@@ -519,6 +518,7 @@ export class GenericCrudService {
   }
 
   async create(table: string, body: any) {
+    if (['mst_products', 'product_skus'].includes(table)) throw new ForbiddenException('产品/SKU 必须使用主数据领域接口，禁止通用 CRUD 写入');
     if (['pkg_work_shifts','pkg_source_batches','pkg_grading_records','pkg_packing_records','pkg_handover_records','pkg_packing_boxes','pkg_packing_code_registry','pkg_packing_code_claims','pkg_packing_events','pkg_packing_operations'].includes(table)) throw new ForbiddenException('包装链必须使用专用作业接口，禁止通用修改/删除');
     if (table === BREEDING_FARMS_TABLE) await this.validateFarmSiteMapping(body);
     const fields = Object.keys(body);
@@ -560,23 +560,8 @@ export class GenericCrudService {
   }
 
   async update(table: string, pkName: string, id: any, body: any) {
+    if (['mst_products', 'product_skus'].includes(table)) throw new ForbiddenException('产品/SKU 必须使用主数据领域接口，禁止通用 CRUD 写入');
     if (['pkg_work_shifts','pkg_source_batches','pkg_grading_records','pkg_packing_records','pkg_handover_records','pkg_packing_boxes','pkg_packing_code_registry','pkg_packing_code_claims','pkg_packing_events','pkg_packing_operations'].includes(table)) throw new ForbiddenException('包装链必须使用专用作业接口，禁止通用修改/删除');
-    if (table === 'product_skus') {
-      if (!['id', 'sku_code'].includes(pkName)) throw new BadRequestException('SKU 更新只支持 id / sku_code');
-      return this.entityManager.transaction(async manager => {
-        const [before] = await manager.query(`SELECT * FROM product_skus WHERE "${pkName}"=$1 FOR UPDATE`, [id]);
-        if (!before) throw new BadRequestException('Record not found');
-        await SkuPolicy.assertIdentityChange(manager, before, body ?? {});
-        const allowed = new Set(['sku_name', 'sku_name_en', 'sku_name_lo', 'product_code', 'product_name', 'grade_code', 'spec_code', 'barcode', 'status', 'effective_date', 'expire_date', 'remark']);
-        const fields = Object.keys(body ?? {}).filter(key => allowed.has(key));
-        if (!fields.length) throw new BadRequestException('Empty body');
-        await manager.query(
-          `UPDATE product_skus SET ${fields.map((key, i) => `"${key}"=$${i + 1}`).join(',')},updated_at=NOW() WHERE sku_code=$${fields.length + 1}`,
-          [...fields.map(key => body[key]), before.sku_code],
-        );
-        return { msg: 'Updated successfully' };
-      });
-    }
     console.log(`[SVC Update START] table=${table} pk=${pkName} id=${id} body=${JSON.stringify(redactSensitive(body))}`);
     if (table === BREEDING_FARMS_TABLE) {
       const current = await this.findOneByColumn(table, pkName, id);
@@ -622,7 +607,7 @@ export class GenericCrudService {
   }
 
   async remove(table: string, pkName: string, id: any) {
-    if (table === 'product_skus') throw new ForbiddenException('SKU 禁止物理删除，请使用主数据归档流程');
+    if (['mst_products', 'product_skus'].includes(table)) throw new ForbiddenException('产品/SKU 必须使用主数据领域接口，禁止通用 CRUD 写入');
     if (['pkg_work_shifts','pkg_source_batches','pkg_grading_records','pkg_packing_records','pkg_handover_records','pkg_packing_boxes','pkg_packing_code_registry','pkg_packing_code_claims','pkg_packing_events','pkg_packing_operations'].includes(table)) throw new ForbiddenException('包装链必须使用专用作业接口，禁止通用修改/删除');
     this.assertColumnsAllowed(table, [pkName]);
     if (table === 'brd_farms') {

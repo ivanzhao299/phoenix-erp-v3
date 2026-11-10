@@ -41,12 +41,12 @@ export class CodeGeneratorService {
     return [];
   }
 
-  async next(prefix: string): Promise<string> {
+  async next(prefix: string, manager: Pick<DataSource, 'query'> = this.ds): Promise<string> {
     const p = String(prefix || '').toUpperCase().trim();
     if (!p) throw new Error('编码前缀不能为空');
 
     // 原子自增：UPDATE...RETURNING 在单条 SQL 内完成读改写，行级锁防并发重号
-    const raw = await this.ds.query(
+    const raw = await manager.query(
       `UPDATE mst_code_seq
           SET current_no = current_no + 1, updated_at = NOW()
         WHERE prefix = $1

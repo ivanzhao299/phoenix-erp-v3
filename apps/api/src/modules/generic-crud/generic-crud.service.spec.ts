@@ -382,11 +382,11 @@ describe('GenericCrudService schema mismatch', () => {
     const { Logger } = await import('@nestjs/common');
     const audit = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
     try {
-      const request = operation === 'create' ? service.create('mst_products', { new_field: 'value' }) : service.update('mst_products', 'id', 1, { new_field: 'value' });
-      await expect(request).rejects.toMatchObject({ response: { code: 'SCHEMA_MISMATCH', table: 'mst_products', column: 'new_field' } });
+      const request = operation === 'create' ? service.create('wms_zones', { new_field: 'value' }) : service.update('wms_zones', 'id', 1, { new_field: 'value' });
+      await expect(request).rejects.toMatchObject({ response: { code: 'SCHEMA_MISMATCH', table: 'wms_zones', column: 'new_field' } });
       expect(query).toHaveBeenCalledTimes(1);
       expect(query.mock.calls[0][0]).not.toMatch(/ALTER|CREATE|setval/i);
-      expect(audit).toHaveBeenCalledWith('SCHEMA_MISMATCH table=mst_products column=new_field');
+      expect(audit).toHaveBeenCalledWith('SCHEMA_MISMATCH table=wms_zones column=new_field');
       expect(JSON.stringify(audit.mock.calls)).not.toContain('fixture-password');
     } finally { audit.mockRestore(); }
   });
@@ -395,5 +395,17 @@ describe('GenericCrudService schema mismatch', () => {
     const service = new GenericCrudService({ query: jest.fn() } as never);
     expect('onModuleInit' in service).toBe(false);
     expect('ensureColumn' in service).toBe(false);
+  });
+});
+
+
+describe('GenericCrudService product domain boundary', () => {
+  it.each(['mst_products', 'product_skus'])('rejects all direct %s writes without querying', async table => {
+    const query = jest.fn();
+    const service = new GenericCrudService({ query } as never);
+    await expect(service.create(table, {})).rejects.toMatchObject({ status: 403 });
+    await expect(service.update(table, 'id', 1, {})).rejects.toMatchObject({ status: 403 });
+    await expect(service.remove(table, 'id', 1)).rejects.toMatchObject({ status: 403 });
+    expect(query).not.toHaveBeenCalled();
   });
 });

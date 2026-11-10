@@ -1,3 +1,4 @@
+import { ProductPolicy } from '../product-master/services/product-policy';
 import { Injectable } from '@nestjs/common';
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
@@ -175,17 +176,9 @@ export class PackagingService {
     const expireDate = new Date(Date.now() + 7 * 86400 * 1000).toISOString().slice(0, 10);
 
     try {
-      // 鲜蛋原料产品幂等创建（无 UNIQUE 约束，用 WHERE NOT EXISTS 替代 ON CONFLICT）
-      await this.em.query(
-        `INSERT INTO mst_products (product_code, product_name_zh, product_name_lo,
-            unit_zh, unit_lo, shelf_life_days, price_retail, price_wholesale, status)
-         SELECT 'PRD-EGG-RAW', '鲜蛋原料（未分级）', 'ໄຂ່ສົດດິບ',
-                '枚', 'ໜ່ວຍ', 7, 0, 0, 'ACTIVE'
-         WHERE NOT EXISTS (SELECT 1 FROM mst_products WHERE product_code = 'PRD-EGG-RAW')`,
-      ).catch(() => { /* mst_products schema 兼容性差异静默 */ });
-
       // ── 事务：5 步原子提交 ──────────────────────────────────────
       await this.em.transaction(async (mgr) => {
+        await ProductPolicy.ensureRawEggProduct(mgr, userId ? String(userId) : undefined);
         // ① pkg_shifts → DONE
         // 显式 ::int 类型 cast，避免 V2 老列(TEXT) + V3 新列(INT) 让 pg 类型推断失败
         // completed_time 是 V2 历史 TEXT 列，用 to_char 而非 NOW() 防类型不匹配

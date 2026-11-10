@@ -77,6 +77,9 @@ export class GenericCrudController {
   ]);
 
   private checkTableAccess(table: string, req: any, method: string) {
+    if (method !== 'GET' && ['mst_products', 'product_skus'].includes(table)) {
+      throw new ForbiddenException('产品/SKU 必须使用主数据领域接口，禁止通用 CRUD 写入');
+    }
     if (method !== 'GET' && GenericCrudController.RETIRED_STORE_WRITE_TABLES.has(table)) {
       throw new GoneException(
         `旧门店表 [${table}] 写入口已退役；历史查询保持只读，请使用 Store POS V2 专用 API`,
@@ -145,6 +148,7 @@ export class GenericCrudController {
    * F9：表名 → 备选菜单码（OR 关系）。用于 FE/BE 域刻意不同的表，避免持 FE 域权的用户被 BE 误 403。
    */
   private tableToAltMenus(table: string, method: string): string[] {
+    if (method === 'GET' && table === 'product_skus') return ['MENU_MASTER_SKU'];
     // BUG-20260707-0002: 库存总览只读拉取 wms_* 汇总数据时应接受仓储查看权。
     // 保留 MENU_WMS_INOUT 作为 GET 备选，避免已有出入库作业角色因未显式持 MENU_WMS_VIEW 被误挡。
     if (table === 'wms_outbound') {
@@ -318,7 +322,7 @@ export class GenericCrudController {
     if (table === 'mst_products')            return 'MENU_MD_PRODUCT';
     if (table === 'mst_suppliers')           return 'MENU_MD_SUPPLIER';
     if (table === 'mst_customers')           return 'MENU_MD_CUSTOMER';
-    if (table === 'mst_skus')                return 'MENU_MD_SKU';
+    if (table === 'mst_skus' || table === 'product_skus') return 'MENU_MD_SKU';
     if (table.startsWith('mst_'))            return null;
     return null;
   }

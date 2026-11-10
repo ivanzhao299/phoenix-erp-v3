@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
-import { DataSource } from 'typeorm';
+import { DataSource, EntityManager } from 'typeorm';
 
 export type MdAction = 'CREATE' | 'UPDATE' | 'FREEZE' | 'ARCHIVE' | 'RESTORE' | 'MERGE';
 
@@ -23,7 +23,19 @@ export class MasterDataAuditService {
     before?: unknown; after?: unknown; operator?: string; reason?: string;
   }): Promise<void> {
     try {
-      await this.ds.query(
+      await MasterDataAuditService.writeInTransaction(this.ds, entry);
+    } catch (e: any) {
+      this.logger.warn(`[MdAudit] 审计写入失败（不阻断）：${e?.message}`);
+    }
+  }
+
+  /** Domain writes require their audit record to commit in the same transaction. */
+  async logInTransaction(manager: Pick<EntityManager, 'query'>, entry: Parameters<MasterDataAuditService['log']>[0]): Promise<void> {
+    await MasterDataAuditService.writeInTransaction(manager, entry);
+  }
+
+  static async writeInTransaction(manager: Pick<EntityManager, 'query'>, entry: Parameters<MasterDataAuditService['log']>[0]): Promise<void> {
+    await manager.query(
         `INSERT INTO mst_audit_trail
            (object_type, object_code, action, before_json, after_json, operator, reason)
          VALUES ($1,$2,$3,$4,$5,$6,$7)`,
@@ -34,9 +46,6 @@ export class MasterDataAuditService {
           entry.operator ?? null, entry.reason ?? null,
         ],
       );
-    } catch (e: any) {
-      this.logger.warn(`[MdAudit] 审计写入失败（不阻断）：${e?.message}`);
-    }
   }
 
   /** 查询某主数据的审计历史 */

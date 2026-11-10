@@ -1,7 +1,7 @@
 import { Injectable, ConflictException, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
-import { SkuPolicy, SKU_IDENTITY_FIELDS } from './sku-policy';
+import { MasterDataRuntimeService } from '../../master-data/master-data-runtime.service';
 
 /**
  * ProductMasterService — Phase H2
@@ -52,13 +52,17 @@ export interface PackagingSpec {
 
 export interface ProductSku {
   id?: number;
-  sku_code: string;
+  sku_code?: string;
   product_code: string;
   product_name?: string;
   grade_code: string;
   spec_code: string;
   sku_name?: string;
   barcode?: string;
+  sku_name_en?: string;
+  sku_name_lo?: string;
+  effective_date?: string;
+  expire_date?: string;
   status?: string;
   remark?: string;
   created_at?: string;
@@ -73,6 +77,7 @@ export interface ProductSku {
 export class ProductMasterService {
   constructor(
     @InjectEntityManager() private readonly em: EntityManager,
+    private readonly runtime: MasterDataRuntimeService,
   ) {}
 
   // ── product_grades ──────────────────────────────────────────────
@@ -251,64 +256,15 @@ export class ProductMasterService {
     return rows[0];
   }
 
-  async createSku(dto: ProductSku): Promise<ProductSku> {
-    // 检查三元组唯一性
-    const combo = await this.em.query(
-      `SELECT 1 FROM product_skus WHERE product_code=$1 AND grade_code=$2 AND spec_code=$3`,
-      [dto.product_code, dto.grade_code, dto.spec_code],
-    );
-    if (combo.length) throw new ConflictException(
-      `SKU with (product=${dto.product_code}, grade=${dto.grade_code}, spec=${dto.spec_code}) already exists`,
-    );
-
-    // 自动生成 sku_code（如未提供）
-    const skuCode = dto.sku_code || this.generateSkuCode(dto.product_code, dto.grade_code, dto.spec_code);
-
-    // 尝试从 mst_products 查询产品名
-    let productName = dto.product_name;
-    if (!productName) {
-      const prows = await this.em.query(
-        `SELECT product_name_zh FROM mst_products WHERE product_code=$1 LIMIT 1`,
-        [dto.product_code],
-      ).catch(() => []);
-      productName = prows[0]?.product_name_zh || dto.product_code;
-    }
-
-    const skuName = dto.sku_name || `${productName} (${dto.grade_code} / ${dto.spec_code})`;
-
-    const rows = await this.em.query(
-      `INSERT INTO product_skus
-         (sku_code, product_code, product_name, grade_code, spec_code, sku_name, barcode, status, remark, created_at, updated_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NOW(),NOW())
-       RETURNING *`,
-      [
-        skuCode, dto.product_code, productName, dto.grade_code, dto.spec_code,
-        skuName, dto.barcode ?? null, dto.status ?? 'ACTIVE', dto.remark ?? null,
-      ],
-    );
-    return rows[0];
+  /** Legacy HTTP compatibility adapter; Runtime owns SKU rules and all SQL writes. */
+  async createSku(dto: ProductSku, operator?: string): Promise<ProductSku> {
+    const { code } = await this.runtime.create('sku', dto, operator);
+    return this.getSku(code);
   }
 
-  async updateSku(skuCode: string, dto: Partial<ProductSku>): Promise<ProductSku> {
-    return this.em.transaction(async manager => {
-      const before = await SkuPolicy.lockForUpdate(manager, skuCode);
-      await SkuPolicy.assertIdentityChange(manager, before, dto);
-      const fields = [...SKU_IDENTITY_FIELDS, 'product_name', 'sku_name', 'barcode', 'status', 'remark'] as const;
-      const changed = fields.filter(key => dto[key] !== undefined);
-      if (!changed.length) return before;
-      const sets = changed.map((key, i) => `${key}=$${i + 1}`);
-      const rows = await manager.query(
-        `UPDATE product_skus SET ${sets.join(',')},updated_at=NOW() WHERE sku_code=$${changed.length + 1} RETURNING *`,
-        [...changed.map(key => dto[key]), skuCode],
-      );
-      return rows[0];
-    });
-  }
-
-  /** 根据 product+grade+spec 自动生成 sku_code。示例：EGG-AA-TRAY30 */
-  private generateSkuCode(productCode: string, gradeCode: string, specCode: string): string {
-    const product = productCode.replace(/^PRD-/, '').replace(/-RAW$/, '').toUpperCase();
-    return `${product}-${gradeCode}-${specCode}`;
+  async updateSku(skuCode: string, dto: Partial<ProductSku>, operator?: string): Promise<ProductSku> {
+    await this.runtime.update('sku', skuCode, dto, operator);
+    return this.getSku(skuCode);
   }
 
   // ── mst_products（只读查询，H2 阶段不提供写接口）──────────────

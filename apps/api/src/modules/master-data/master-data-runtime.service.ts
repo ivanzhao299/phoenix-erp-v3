@@ -1,7 +1,7 @@
 import { Injectable, BadRequestException, ForbiddenException, NotFoundException, Logger } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
-import { SkuPolicy } from '../product-master/services/sku-policy';
+import { SkuWriter } from '../product-master/services/sku-writer';
 import { ClsService } from 'nestjs-cls';
 import { CodeGeneratorService } from './code-generator.service';
 import { MasterDataAuditService } from './master-data-audit.service';
@@ -303,13 +303,6 @@ const VALIDATION: Record<string, ValidationCfg> = {
   warehouse: {
     required: ['warehouse_name', 'company_code'],
     unique: [{ fields: ['warehouse_name'], scopeByCompany: true, label: '仓库名称' }],
-  },
-  sku: {
-    required: ['sku_name'],
-    unique: [
-      { fields: ['sku_name'], label: 'SKU 名称' },
-      { fields: ['barcode'], skipEmpty: true, label: '条码' },
-    ],
   },
   grade: { required: ['grade_name'], unique: [{ fields: ['grade_name'], label: '等级名称' }] },
   spec: { required: ['spec_name'], unique: [{ fields: ['spec_name'], label: '规格名称' }] },
@@ -626,6 +619,10 @@ export class MasterDataRuntimeService {
    *   不再有 DRAFT/人工审批环节：建档即校验即生效，「随时新建、自动进名单」。
    */
   async create(type: string, dto: Record<string, any>, operator?: string): Promise<{ code: string; status: string }> {
+    if (type === 'sku') {
+      const row = await new SkuWriter(this.ds, this.codeGen, this.audit).create(dto, operator);
+      return { code: row.sku_code, status: row.status };
+    }
     const c = this.cfg(type);
     const code = type === 'warehouse' && dto.owner_store_id
       ? String(dto[c.codeCol] || '').trim()
@@ -654,6 +651,10 @@ export class MasterDataRuntimeService {
    *   主数据中心仍可后续冻结/归档清理）。审计 action=CREATE_QUICK 留痕。
    */
   async createQuick(type: string, dto: Record<string, any>, operator?: string): Promise<{ code: string; name: string }> {
+    if (type === 'sku') {
+      const row = await new SkuWriter(this.ds, this.codeGen, this.audit).create(dto, operator);
+      return { code: row.sku_code, name: row.sku_name };
+    }
     const c = this.cfg(type);
     const code = type === 'warehouse' && dto.owner_store_id
       ? String(dto[c.codeCol] || '').trim()
@@ -718,30 +719,8 @@ export class MasterDataRuntimeService {
   ): Promise<{ code: string; pendingChange: boolean; changeRequestId?: number; pendingFields?: string[]; message?: string }> {
     const c = this.cfg(type);
     if (type === 'sku') {
-      let auditEntry: Parameters<MasterDataAuditService['log']>[0] | undefined;
-      const result = await this.ds.transaction(async manager => {
-        const before = await SkuPolicy.lockForUpdate(manager, code);
-        const changes: Record<string, any> = {};
-        for (const col of c.writableCols) {
-          if (dto[col] !== undefined && dto[col] !== before[col]) changes[col] = dto[col];
-        }
-        const cols = Object.keys(changes);
-        if (!cols.length) {
-          await SkuPolicy.assertIdentityChange(manager, before, dto);
-          return { code, pendingChange: false };
-        }
-        const errors = await this.validate(type, c, { ...before, ...changes }, code, new Set(cols));
-        if (errors.length) throw new BadRequestException(`自动审批未通过：${errors.join('；')}`);
-        await SkuPolicy.assertIdentityChange(manager, before, dto);
-        await manager.query(
-          `UPDATE product_skus SET ${cols.map((col, i) => `${col}=$${i + 1}`).join(',')},updated_at=NOW() WHERE sku_code=$${cols.length + 1}`,
-          [...cols.map(col => changes[col]), code],
-        );
-        auditEntry = { objectType: c.objectType, objectCode: code, action: 'UPDATE', before: this.pick(before, cols), after: { ...changes, _autoApproved: true }, operator: operator ?? 'AUTO' };
-        return { code, pendingChange: false };
-      });
-      if (auditEntry) await this.audit.log(auditEntry);
-      return result;
+      await new SkuWriter(this.ds, this.codeGen, this.audit).update(code, dto, operator);
+      return { code, pendingChange: false };
     }
     const before = await this.get(type, code);
 
@@ -822,6 +801,7 @@ export class MasterDataRuntimeService {
 
   /** 生命周期流转：submit/approve/reject/freeze/archive/restore */
   async transition(type: string, code: string, action: string, operator?: string, reason?: string): Promise<{ status: string }> {
+    if (type === 'sku') return new SkuWriter(this.ds, this.codeGen, this.audit).transition(code, action, operator, reason);
     const c = this.cfg(type);
     const before = await this.get(type, code);
     const cur = before.status;

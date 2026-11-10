@@ -45,6 +45,10 @@ export class SkuPolicy {
       }
     }
 
+    await this.assertUnreferenced(manager, before);
+  }
+
+  static async assertUnreferenced(manager: EntityManager, before: Record<string, unknown>) {
     await manager.query(`SET LOCAL statement_timeout = '2s'`);
 
     // Discover actual base-table columns, including legacy item_code aliases and packaging JSON.
