@@ -1,6 +1,6 @@
 import {
   IsString, IsOptional, IsNumber, IsBoolean, IsArray,
-  IsDateString, IsIn, Min, ValidateNested, IsNotEmpty,
+  IsDateString, IsIn, Min, ValidateNested, IsNotEmpty, ValidateIf,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -12,9 +12,11 @@ export class CreateSalesOrderItemDto {
    * 传入后自动带出 productCode / gradeCode / packagingSpec，
    * 价格解析也优先按 sku_code 匹配。
    */
-  @IsOptional() @IsString()
+  @ValidateIf((_object, value) => value !== undefined)
+  @IsString() @IsNotEmpty()
   skuCode?: string;
 
+  @ValidateIf(object => object.skuCode === undefined)
   @IsString() @IsNotEmpty()
   productCode: string;
 

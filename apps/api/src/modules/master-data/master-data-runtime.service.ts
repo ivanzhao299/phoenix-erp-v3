@@ -1,6 +1,7 @@
 import { Injectable, BadRequestException, ForbiddenException, NotFoundException, Logger } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
+import { SkuPolicy } from '../product-master/services/sku-policy';
 import { ClsService } from 'nestjs-cls';
 import { CodeGeneratorService } from './code-generator.service';
 import { MasterDataAuditService } from './master-data-audit.service';
@@ -716,6 +717,32 @@ export class MasterDataRuntimeService {
     type: string, code: string, dto: Record<string, any>, operator?: string,
   ): Promise<{ code: string; pendingChange: boolean; changeRequestId?: number; pendingFields?: string[]; message?: string }> {
     const c = this.cfg(type);
+    if (type === 'sku') {
+      let auditEntry: Parameters<MasterDataAuditService['log']>[0] | undefined;
+      const result = await this.ds.transaction(async manager => {
+        const before = await SkuPolicy.lockForUpdate(manager, code);
+        const changes: Record<string, any> = {};
+        for (const col of c.writableCols) {
+          if (dto[col] !== undefined && dto[col] !== before[col]) changes[col] = dto[col];
+        }
+        const cols = Object.keys(changes);
+        if (!cols.length) {
+          await SkuPolicy.assertIdentityChange(manager, before, dto);
+          return { code, pendingChange: false };
+        }
+        const errors = await this.validate(type, c, { ...before, ...changes }, code, new Set(cols));
+        if (errors.length) throw new BadRequestException(`自动审批未通过：${errors.join('；')}`);
+        await SkuPolicy.assertIdentityChange(manager, before, dto);
+        await manager.query(
+          `UPDATE product_skus SET ${cols.map((col, i) => `${col}=$${i + 1}`).join(',')},updated_at=NOW() WHERE sku_code=$${cols.length + 1}`,
+          [...cols.map(col => changes[col]), code],
+        );
+        auditEntry = { objectType: c.objectType, objectCode: code, action: 'UPDATE', before: this.pick(before, cols), after: { ...changes, _autoApproved: true }, operator: operator ?? 'AUTO' };
+        return { code, pendingChange: false };
+      });
+      if (auditEntry) await this.audit.log(auditEntry);
+      return result;
+    }
     const before = await this.get(type, code);
 
     // 计算真正变化的列

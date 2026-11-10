@@ -1,6 +1,7 @@
 import { Injectable, ConflictException, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
+import { SkuPolicy, SKU_IDENTITY_FIELDS } from './sku-policy';
 
 /**
  * ProductMasterService — Phase H2
@@ -289,23 +290,19 @@ export class ProductMasterService {
   }
 
   async updateSku(skuCode: string, dto: Partial<ProductSku>): Promise<ProductSku> {
-    const sets: string[] = [];
-    const args: unknown[] = [];
-    let i = 1;
-    if (dto.product_name !== undefined) { sets.push(`product_name=$${i++}`); args.push(dto.product_name); }
-    if (dto.sku_name     !== undefined) { sets.push(`sku_name=$${i++}`);     args.push(dto.sku_name); }
-    if (dto.barcode      !== undefined) { sets.push(`barcode=$${i++}`);      args.push(dto.barcode); }
-    if (dto.status       !== undefined) { sets.push(`status=$${i++}`);       args.push(dto.status); }
-    if (dto.remark       !== undefined) { sets.push(`remark=$${i++}`);       args.push(dto.remark); }
-    if (!sets.length) return this.getSku(skuCode);
-    sets.push(`updated_at=NOW()`);
-    args.push(skuCode);
-    const rows = await this.em.query(
-      `UPDATE product_skus SET ${sets.join(',')} WHERE sku_code=$${i} RETURNING *`,
-      args,
-    );
-    if (!rows.length) throw new NotFoundException(`SKU ${skuCode} not found`);
-    return rows[0];
+    return this.em.transaction(async manager => {
+      const before = await SkuPolicy.lockForUpdate(manager, skuCode);
+      await SkuPolicy.assertIdentityChange(manager, before, dto);
+      const fields = [...SKU_IDENTITY_FIELDS, 'product_name', 'sku_name', 'barcode', 'status', 'remark'] as const;
+      const changed = fields.filter(key => dto[key] !== undefined);
+      if (!changed.length) return before;
+      const sets = changed.map((key, i) => `${key}=$${i + 1}`);
+      const rows = await manager.query(
+        `UPDATE product_skus SET ${sets.join(',')},updated_at=NOW() WHERE sku_code=$${changed.length + 1} RETURNING *`,
+        [...changed.map(key => dto[key]), skuCode],
+      );
+      return rows[0];
+    });
   }
 
   /** 根据 product+grade+spec 自动生成 sku_code。示例：EGG-AA-TRAY30 */

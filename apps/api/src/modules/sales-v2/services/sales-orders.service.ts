@@ -14,6 +14,7 @@ import { FinanceArAdapter } from '../adapters/finance-ar.adapter';
 import { EggInventoryService } from './egg-inventory.service';      // Phase 7
 import { SalesOrderLifecycleService } from './sales-order-lifecycle.service';
 import { WorkflowBizRegistryService } from '../../approval-engine/workflow-biz-registry.service';
+import { SkuPolicy } from '../../product-master/services/sku-policy';
 import { CreditCustomerMasterNotFoundException } from './credit-domain.errors';
 import {
   CreateSalesOrderDto, UpdateSalesOrderDto, QuerySalesOrderDto,
@@ -112,13 +113,6 @@ export class SalesOrdersService implements OnApplicationBootstrap {
     return `${prefix}${String(Number(row[0].cnt) + 1).padStart(5, '0')}`;
   }
 
-  private isMissingOrderItemSkuColumn(err: unknown): boolean {
-    const e = err as { code?: string; message?: string };
-    return e?.code === '42703'
-      && String(e.message ?? '').includes('sku_code')
-      && String(e.message ?? '').includes('sal_order_items');
-  }
-
   private async insertOrderItem(params: {
     salesOrderId: string;
     productCode: string;
@@ -146,33 +140,18 @@ export class SalesOrdersService implements OnApplicationBootstrap {
       params.skuCode,
     ];
 
-    try {
-      await manager.query(
-        `INSERT INTO sal_order_items (
-           sales_order_id, product_code, product_name,
-           grade_code, packaging_spec, qty,
-           resolved_unit_price, actual_unit_price, unit_price,
-           floor_price, ceiling_price, amount,
-           price_book_id, price_book_no, below_floor_price,
-           sku_code
-         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
-        values,
-      );
-    } catch (err: unknown) {
-      if (!this.isMissingOrderItemSkuColumn(err)) throw err;
-
-      this.logger.warn('[SalesOrder] sal_order_items.sku_code 缺失，明细写入降级为旧 schema 兼容路径');
-      await manager.query(
-        `INSERT INTO sal_order_items (
-           sales_order_id, product_code, product_name,
-           grade_code, packaging_spec, qty,
-           resolved_unit_price, actual_unit_price, unit_price,
-           floor_price, ceiling_price, amount,
-           price_book_id, price_book_no, below_floor_price
-         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
-        values.slice(0, 15),
-      );
-    }
+    // Only omitted skuCode uses the historical schema path. Explicit SKUs must retain their reference.
+    const withSku = params.skuCode !== null;
+    await manager.query(
+      `INSERT INTO sal_order_items (
+         sales_order_id, product_code, product_name,
+         grade_code, packaging_spec, qty,
+         resolved_unit_price, actual_unit_price, unit_price,
+         floor_price, ceiling_price, amount,
+         price_book_id, price_book_no, below_floor_price${withSku ? ', sku_code' : ''}
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15${withSku ? ',$16' : ''})`,
+      withSku ? values : values.slice(0, 15),
+    );
   }
 
   // ── 1. 列表 ───────────────────────────────────────────────────────────────
@@ -298,161 +277,140 @@ export class SalesOrdersService implements OnApplicationBootstrap {
       }
     }
 
-    // 解析价格（每行调用 PriceRuntime）
-    const resolvedItems: Array<{
-      productCode: string; productName: string | null;
-      gradeCode: string | null; packagingSpec: string | null;
-      qty: number;
-      resolvedUnitPrice: number; actualUnitPrice: number;
-      floorPrice: number | null; ceilingPrice: number | null;
-      belowFloor: boolean;
-      priceBookId: string | null; priceBookNo: string | null;
-      amount: number;
-      skuCode: string | null;     // Phase H5
-    }> = [];
+    return this.ds.transaction(async (mgr) => {
+      // 解析价格（每行调用 PriceRuntime）
+      const resolvedItems: Array<{
+        productCode: string; productName: string | null;
+        gradeCode: string | null; packagingSpec: string | null;
+        qty: number;
+        resolvedUnitPrice: number; actualUnitPrice: number;
+        floorPrice: number | null; ceilingPrice: number | null;
+        belowFloor: boolean;
+        priceBookId: string | null; priceBookNo: string | null;
+        amount: number;
+        skuCode: string | null;     // Phase H5
+      }> = [];
 
-    let anyBelowFloor = false;
+      let anyBelowFloor = false;
 
-    for (const item of dto.items) {
-      // Phase H5: SKU 优先推导 — 若传入 skuCode，从 product_skus 自动带出产品/等级/规格
-      let productCode    = item.productCode;
-      let gradeCode      = item.gradeCode ?? null;
-      let packagingSpec  = item.packagingSpec ?? null;
-      let skuCode: string | null = item.skuCode ?? null;
+      for (const item of dto.items) {
+        // Missing skuCode alone keeps the legacy product/grade/spec path.
+        const sku = item.skuCode === undefined ? null : await SkuPolicy.requireUsable(mgr, item.skuCode);
+        const productCode = sku ? sku.product_code : item.productCode;
+        const gradeCode = sku ? sku.grade_code : item.gradeCode ?? null;
+        const packagingSpec = sku ? sku.spec_code : item.packagingSpec ?? null;
+        const skuCode: string | null = sku ? sku.sku_code : null;
 
-      if (skuCode) {
+        let resolved: any = {
+          unitPrice: 0, floorPrice: null, ceilingPrice: null,
+          priceBookId: null, priceBookNo: null,
+        };
+
         try {
-          const [skuRow] = await this.ds.query(
-            `SELECT product_code, grade_code, spec_code, sku_name
-             FROM product_skus WHERE sku_code=$1 AND status='ACTIVE' LIMIT 1`,
-            [skuCode],
-          );
-          if (skuRow) {
-            productCode   = skuRow.product_code;
-            gradeCode     = skuRow.grade_code;
-            packagingSpec = skuRow.spec_code;
-          } else {
-            this.logger.warn(`[SalesOrder] skuCode ${skuCode} 在 product_skus 中不存在或已停用，降级为旧逻辑`);
-            skuCode = null;
-          }
-        } catch (e: unknown) {
-          const msg = e instanceof Error ? e.message : String(e);
-          this.logger.warn(`[SalesOrder] SKU 查询失败（不阻断建单）: ${msg}`);
-          skuCode = null;
-        }
+          resolved = await this.priceRuntime.resolvePrice({
+            companyCode:    dto.companyCode,
+            productCode,
+            gradeCode:      gradeCode ?? undefined,
+            packagingSpec:  packagingSpec ?? undefined,
+            qty:            item.qty,
+            customerCode:   dto.customerCode ?? undefined,
+            channelCode:    channelCode ?? undefined,
+            skuCode:        skuCode ?? undefined,   // Phase H5: sku_code 优先匹配价格
+          });
+        } catch { /* 无价格时用 0 */ }
+
+        const resolvedUnitPrice = Number(resolved.unitPrice ?? 0);
+        const actualUnitPrice   = item.actualUnitPrice !== undefined
+          ? Number(item.actualUnitPrice)
+          : resolvedUnitPrice;
+
+        const floorPrice   = resolved.floorPrice != null ? Number(resolved.floorPrice) : null;
+        const ceilingPrice = resolved.ceilingPrice != null ? Number(resolved.ceilingPrice) : null;
+        const belowFloor   = floorPrice !== null && actualUnitPrice < floorPrice;
+
+        if (belowFloor) anyBelowFloor = true;
+
+        const amount = Math.round(actualUnitPrice * Number(item.qty) * 100) / 100;
+
+        resolvedItems.push({
+          productCode,
+          productName:      item.productName ?? null,
+          gradeCode,
+          packagingSpec,
+          qty:              Number(item.qty),
+          resolvedUnitPrice,
+          actualUnitPrice,
+          floorPrice,
+          ceilingPrice,
+          belowFloor,
+          priceBookId:      resolved.priceBookId ? String(resolved.priceBookId) : null,
+          priceBookNo:      resolved.priceBookNo ?? null,
+          amount,
+          skuCode,          // Phase H5
+        });
       }
 
-      let resolved: any = {
-        unitPrice: 0, floorPrice: null, ceilingPrice: null,
-        priceBookId: null, priceBookNo: null,
-      };
+      const subtotal     = resolvedItems.reduce((s, i) => s + i.amount, 0);
+      const totalAmount  = Math.round((subtotal - 0) * 100) / 100; // discount=0
+      const orderNo      = await this.genOrderNo();
+      const currencyCode = dto.currencyCode ?? 'LAK';
 
-      try {
-        resolved = await this.priceRuntime.resolvePrice({
-          companyCode:    dto.companyCode,
-          productCode,
-          gradeCode:      gradeCode ?? undefined,
-          packagingSpec:  packagingSpec ?? undefined,
-          qty:            item.qty,
-          customerCode:   dto.customerCode ?? undefined,
-          channelCode:    channelCode ?? undefined,
-          skuCode:        skuCode ?? undefined,   // Phase H5: sku_code 优先匹配价格
-        });
-      } catch { /* 无价格时用 0 */ }
+      const orderResult = await mgr.query(
+        `INSERT INTO sal_sales_orders (
+           order_no, customer_id, customer_code, customer_name,
+           company_code, company_name, fulfillment_warehouse_code, warehouse_governance_pending, channel_code,
+           price_book_id, price_book_no, currency_code,
+           subtotal, discount, total_amount,
+           status, need_price_approval, need_credit_approval,
+           over_credit, below_floor_price,
+           expected_delivery_date, delivery_address, remark, created_by
+         ) VALUES (
+           $1,$2,$3,$4,
+           $5,$6,$7,FALSE,$8,
+           $9,$10,$11,
+           $12,0,$13,
+           'DRAFT',FALSE,FALSE,
+           FALSE,$14,
+           $15,$16,$17,$18
+         ) RETURNING *`,
+        [
+          orderNo,
+          customer ? String(customer.id) : null,
+          customer?.customer_no ?? dto.customerCode ?? null,
+          customer?.customer_name ?? null,
+          dto.companyCode, dto.companyName ?? null, dto.fulfillmentWarehouseCode,
+          channelCode,
+          resolvedItems[0]?.priceBookId ?? null,
+          resolvedItems[0]?.priceBookNo ?? null,
+          currencyCode,
+          subtotal, totalAmount,
+          anyBelowFloor,
+          dto.expectedDeliveryDate ?? null,
+          dto.deliveryAddress ?? null,
+          dto.remark ?? null,
+          user.userName || user.userId,
+        ],
+      );
+      const order = orderResult[0];
 
-      const resolvedUnitPrice = Number(resolved.unitPrice ?? 0);
-      const actualUnitPrice   = item.actualUnitPrice !== undefined
-        ? Number(item.actualUnitPrice)
-        : resolvedUnitPrice;
+      // 明细行
+      for (const item of resolvedItems) {
+        await this.insertOrderItem({ salesOrderId: String(order.id), ...item }, mgr);
+      }
 
-      const floorPrice   = resolved.floorPrice != null ? Number(resolved.floorPrice) : null;
-      const ceilingPrice = resolved.ceilingPrice != null ? Number(resolved.ceilingPrice) : null;
-      const belowFloor   = floorPrice !== null && actualUnitPrice < floorPrice;
-
-      if (belowFloor) anyBelowFloor = true;
-
-      const amount = Math.round(actualUnitPrice * Number(item.qty) * 100) / 100;
-
-      resolvedItems.push({
-        productCode,
-        productName:      item.productName ?? null,
-        gradeCode,
-        packagingSpec,
-        qty:              Number(item.qty),
-        resolvedUnitPrice,
-        actualUnitPrice,
-        floorPrice,
-        ceilingPrice,
-        belowFloor,
-        priceBookId:      resolved.priceBookId ? String(resolved.priceBookId) : null,
-        priceBookNo:      resolved.priceBookNo ?? null,
-        amount,
-        skuCode,          // Phase H5
+      await this.lifecycle.appendEvent(mgr, {
+        salesOrderId: String(order.id), orderNo: order.order_no,
+        eventType: 'CREATED', fromStatus: null, toStatus: 'DRAFT',
+        actorUserId: user.userId, actorName: user.userName, actorType: 'USER',
+        comment: dto.remark ?? null, sourceEndpoint: '/api/v2/sales/orders',
+        sourceModule: 'SALES_ORDER',
       });
-    }
 
-    const subtotal     = resolvedItems.reduce((s, i) => s + i.amount, 0);
-    const totalAmount  = Math.round((subtotal - 0) * 100) / 100; // discount=0
-    const orderNo      = await this.genOrderNo();
-    const currencyCode = dto.currencyCode ?? 'LAK';
-
-    return this.ds.transaction(async (mgr) => {
-    const orderResult = await mgr.query(
-      `INSERT INTO sal_sales_orders (
-         order_no, customer_id, customer_code, customer_name,
-         company_code, company_name, fulfillment_warehouse_code, warehouse_governance_pending, channel_code,
-         price_book_id, price_book_no, currency_code,
-         subtotal, discount, total_amount,
-         status, need_price_approval, need_credit_approval,
-         over_credit, below_floor_price,
-         expected_delivery_date, delivery_address, remark, created_by
-       ) VALUES (
-         $1,$2,$3,$4,
-         $5,$6,$7,FALSE,$8,
-         $9,$10,$11,
-         $12,0,$13,
-         'DRAFT',FALSE,FALSE,
-         FALSE,$14,
-         $15,$16,$17,$18
-       ) RETURNING *`,
-      [
-        orderNo,
-        customer ? String(customer.id) : null,
-        customer?.customer_no ?? dto.customerCode ?? null,
-        customer?.customer_name ?? null,
-        dto.companyCode, dto.companyName ?? null, dto.fulfillmentWarehouseCode,
-        channelCode,
-        resolvedItems[0]?.priceBookId ?? null,
-        resolvedItems[0]?.priceBookNo ?? null,
-        currencyCode,
-        subtotal, totalAmount,
-        anyBelowFloor,
-        dto.expectedDeliveryDate ?? null,
-        dto.deliveryAddress ?? null,
-        dto.remark ?? null,
-        user.userName || user.userId,
-      ],
-    );
-    const order = orderResult[0];
-
-    // 明细行
-    for (const item of resolvedItems) {
-      await this.insertOrderItem({ salesOrderId: String(order.id), ...item }, mgr);
-    }
-
-    await this.lifecycle.appendEvent(mgr, {
-      salesOrderId: String(order.id), orderNo: order.order_no,
-      eventType: 'CREATED', fromStatus: null, toStatus: 'DRAFT',
-      actorUserId: user.userId, actorName: user.userName, actorType: 'USER',
-      comment: dto.remark ?? null, sourceEndpoint: '/api/v2/sales/orders',
-      sourceModule: 'SALES_ORDER',
-    });
-
-    const items = await mgr.query(
-      `SELECT * FROM sal_order_items WHERE sales_order_id = $1 ORDER BY id ASC`,
-      [String(order.id)],
-    );
-    return { ...order, items };
+      const items = await mgr.query(
+        `SELECT * FROM sal_order_items WHERE sales_order_id = $1 ORDER BY id ASC`,
+        [String(order.id)],
+      );
+      return { ...order, items };
     });
   }
 
@@ -464,108 +422,95 @@ export class SalesOrdersService implements OnApplicationBootstrap {
       throw new ForbiddenException(`仅 DRAFT 状态的订单可编辑，当前状态：${rec.status}`);
     }
 
-    // 如果 items 传入则重建明细（删旧插新）
-    if (dto.items && dto.items.length > 0) {
-      await this.ds.query(`DELETE FROM sal_order_items WHERE sales_order_id = $1`, [id]);
+    return this.ds.transaction(async mgr => {
+      const [locked] = await mgr.query('SELECT * FROM sal_sales_orders WHERE id=$1 FOR UPDATE', [id]);
+      if (!locked || locked.status !== 'DRAFT') throw new ForbiddenException('仅 DRAFT 状态的订单可编辑');
+      // 如果 items 传入则重建明细（删旧插新）
+      if (dto.items && dto.items.length > 0) {
 
-      let anyBelowFloor = false;
-      const resolvedItems: any[] = [];
-      const companyCode = rec.company_code;
-      const channelCode = dto.channelCode ?? rec.channel_code ?? null;
+        let anyBelowFloor = false;
+        const resolvedItems: any[] = [];
+        const companyCode = locked.company_code;
+        const channelCode = dto.channelCode ?? locked.channel_code ?? null;
 
-      for (const item of dto.items) {
-        // Phase H5: SKU 优先推导
-        let productCode   = item.productCode;
-        let gradeCode     = item.gradeCode ?? null;
-        let packagingSpec = item.packagingSpec ?? null;
-        let skuCode: string | null = item.skuCode ?? null;
+        for (const item of dto.items) {
+          const sku = item.skuCode === undefined ? null : await SkuPolicy.requireUsable(mgr, item.skuCode);
+          const productCode = sku ? sku.product_code : item.productCode;
+          const gradeCode = sku ? sku.grade_code : item.gradeCode ?? null;
+          const packagingSpec = sku ? sku.spec_code : item.packagingSpec ?? null;
+          const skuCode: string | null = sku ? sku.sku_code : null;
 
-        if (skuCode) {
+          let resolved: any = { unitPrice: 0, floorPrice: null, ceilingPrice: null, priceBookId: null, priceBookNo: null };
           try {
-            const [skuRow] = await this.ds.query(
-              `SELECT product_code, grade_code, spec_code
-               FROM product_skus WHERE sku_code=$1 AND status='ACTIVE' LIMIT 1`,
-              [skuCode],
-            );
-            if (skuRow) {
-              productCode   = skuRow.product_code;
-              gradeCode     = skuRow.grade_code;
-              packagingSpec = skuRow.spec_code;
-            } else {
-              skuCode = null;
-            }
-          } catch { skuCode = null; }
+            resolved = await this.priceRuntime.resolvePrice({
+              companyCode, productCode,
+              gradeCode:      gradeCode ?? undefined,
+              packagingSpec:  packagingSpec ?? undefined,
+              qty:            item.qty,
+              customerCode:   dto.customerCode ?? locked.customer_code ?? undefined,
+              channelCode:    channelCode ?? undefined,
+              skuCode:        skuCode ?? undefined,  // Phase H5
+            });
+          } catch { /* fallback 0 */ }
+
+          const resolvedUnitPrice = Number(resolved.unitPrice ?? 0);
+          const actualUnitPrice   = item.actualUnitPrice !== undefined ? Number(item.actualUnitPrice) : resolvedUnitPrice;
+          const floorPrice   = resolved.floorPrice != null ? Number(resolved.floorPrice) : null;
+          const ceilingPrice = resolved.ceilingPrice != null ? Number(resolved.ceilingPrice) : null;
+          const belowFloor   = floorPrice !== null && actualUnitPrice < floorPrice;
+          if (belowFloor) anyBelowFloor = true;
+          const amount = Math.round(actualUnitPrice * Number(item.qty) * 100) / 100;
+
+          resolvedItems.push({
+            productCode, productName: item.productName ?? null,
+            gradeCode, packagingSpec,
+            qty: Number(item.qty), resolvedUnitPrice, actualUnitPrice, floorPrice, ceilingPrice,
+            belowFloor, priceBookId: resolved.priceBookId ? String(resolved.priceBookId) : null,
+            priceBookNo: resolved.priceBookNo ?? null, amount,
+            skuCode,  // Phase H5
+          });
         }
 
-        let resolved: any = { unitPrice: 0, floorPrice: null, ceilingPrice: null, priceBookId: null, priceBookNo: null };
-        try {
-          resolved = await this.priceRuntime.resolvePrice({
-            companyCode, productCode,
-            gradeCode:      gradeCode ?? undefined,
-            packagingSpec:  packagingSpec ?? undefined,
-            qty:            item.qty,
-            customerCode:   dto.customerCode ?? rec.customer_code ?? undefined,
-            channelCode:    channelCode ?? undefined,
-            skuCode:        skuCode ?? undefined,  // Phase H5
-          });
-        } catch { /* fallback 0 */ }
+        const subtotal    = resolvedItems.reduce((s, i) => s + i.amount, 0);
+        const totalAmount = Math.round(subtotal * 100) / 100;
 
-        const resolvedUnitPrice = Number(resolved.unitPrice ?? 0);
-        const actualUnitPrice   = item.actualUnitPrice !== undefined ? Number(item.actualUnitPrice) : resolvedUnitPrice;
-        const floorPrice   = resolved.floorPrice != null ? Number(resolved.floorPrice) : null;
-        const ceilingPrice = resolved.ceilingPrice != null ? Number(resolved.ceilingPrice) : null;
-        const belowFloor   = floorPrice !== null && actualUnitPrice < floorPrice;
-        if (belowFloor) anyBelowFloor = true;
-        const amount = Math.round(actualUnitPrice * Number(item.qty) * 100) / 100;
+        await mgr.query(`DELETE FROM sal_order_items WHERE sales_order_id = $1`, [id]);
+        for (const item of resolvedItems) {
+          await this.insertOrderItem({ salesOrderId: id, ...item }, mgr);
+        }
 
-        resolvedItems.push({
-          productCode, productName: item.productName ?? null,
-          gradeCode, packagingSpec,
-          qty: Number(item.qty), resolvedUnitPrice, actualUnitPrice, floorPrice, ceilingPrice,
-          belowFloor, priceBookId: resolved.priceBookId ? String(resolved.priceBookId) : null,
-          priceBookNo: resolved.priceBookNo ?? null, amount,
-          skuCode,  // Phase H5
-        });
+        // 更新订单金额
+        await mgr.query(
+          `UPDATE sal_sales_orders
+           SET subtotal=$1, total_amount=$2, below_floor_price=$3, updated_at=NOW()
+           WHERE id=$4`,
+          [subtotal, totalAmount, anyBelowFloor, id],
+        );
       }
 
-      const subtotal    = resolvedItems.reduce((s, i) => s + i.amount, 0);
-      const totalAmount = Math.round(subtotal * 100) / 100;
+      // 更新头部字段
+      const sets: string[] = ['updated_at = NOW()'];
+      const params: any[] = [];
+      const add = (col: string, v: any) => {
+        if (v !== undefined) { params.push(v); sets.push(`${col} = $${params.length}`); }
+      };
+      add('customer_code',          dto.customerCode);
+      add('channel_code',           dto.channelCode);
+      add('currency_code',          dto.currencyCode);
+      add('expected_delivery_date', dto.expectedDeliveryDate);
+      add('delivery_address',       dto.deliveryAddress);
+      add('remark',                 dto.remark);
 
-      for (const item of resolvedItems) {
-        await this.insertOrderItem({ salesOrderId: id, ...item });
-      }
-
-      // 更新订单金额
-      await this.ds.query(
-        `UPDATE sal_sales_orders
-         SET subtotal=$1, total_amount=$2, below_floor_price=$3, updated_at=NOW()
-         WHERE id=$4`,
-        [subtotal, totalAmount, anyBelowFloor, id],
+      params.push(id);
+      const result = await mgr.query(
+        `UPDATE sal_sales_orders SET ${sets.join(', ')} WHERE id = $${params.length} RETURNING *`,
+        params,
       );
-    }
-
-    // 更新头部字段
-    const sets: string[] = ['updated_at = NOW()'];
-    const params: any[] = [];
-    const add = (col: string, v: any) => {
-      if (v !== undefined) { params.push(v); sets.push(`${col} = $${params.length}`); }
-    };
-    add('customer_code',          dto.customerCode);
-    add('channel_code',           dto.channelCode);
-    add('currency_code',          dto.currencyCode);
-    add('expected_delivery_date', dto.expectedDeliveryDate);
-    add('delivery_address',       dto.deliveryAddress);
-    add('remark',                 dto.remark);
-
-    params.push(id);
-    const result = await this.ds.query(
-      `UPDATE sal_sales_orders SET ${sets.join(', ')} WHERE id = $${params.length} RETURNING *`,
-      params,
-    );
-    const items = await this.ds.query(
-      `SELECT * FROM sal_order_items WHERE sales_order_id = $1 ORDER BY id ASC`, [id],
-    );
-    return { ...result[0], items };
+      const items = await mgr.query(
+        `SELECT * FROM sal_order_items WHERE sales_order_id = $1 ORDER BY id ASC`, [id],
+      );
+      return { ...result[0], items };
+    });
   }
 
   // ── 5. 提交审批（Phase 5 增强：信用控制 Runtime）────────────────────────

@@ -6,12 +6,13 @@ import { ForbiddenException, ServiceUnavailableException } from '@nestjs/common'
 import { CreditCustomerMasterNotFoundException } from './credit-domain.errors';
 
 describe('SalesOrdersService draft creation', () => {
-  function makeService(query: jest.Mock) {
-    const manager = { query };
-    const ds = { query, manager, transaction: jest.fn((fn: any) => fn(manager)) } as unknown as DataSource;
+  function makeService(query: jest.Mock, scope = { isGlobal: true, allowedCompanyCodes: [] as string[] }) {
+    const managerQuery = jest.fn((...args: unknown[]) => query(...args));
+    const manager = { query: managerQuery };
+    const ds = { query: jest.fn((...args: unknown[]) => query(...args)), manager, transaction: jest.fn((fn: any) => fn(manager)) } as unknown as DataSource;
     const cls = {
       get: jest.fn((key: string) => {
-        if (key === 'dataScope') return { isGlobal: true, allowedCompanyCodes: [] };
+        if (key === 'dataScope') return scope;
         if (key === 'user') return { userId: '1', username: 'guodapeng', name: '郭大鹏' };
         return undefined;
       }),
@@ -40,12 +41,13 @@ describe('SalesOrdersService draft creation', () => {
       { get: jest.fn(() => ({})), register: jest.fn() } as any,
     );
 
-    return { service, priceRuntime };
+    return { service, priceRuntime, ds, managerQuery };
   }
 
-  it('retries order item insert without sku_code when production schema lacks the optional column', async () => {
+  it('rejects missing sku_code schema for explicitly supplied SKU instead of losing its reference', async () => {
     const query = jest.fn(async (sql: string) => {
       if (sql.includes('FROM wms_warehouses')) return [{ warehouse_code: 'WH-MENGSE' }];
+      if (sql.includes('FROM product_skus')) return [{ sku_code: 'SKU-1-30', product_code: 'PRD-EGG-1', grade_code: 'G1', spec_code: 'S1', status: 'ACTIVE', today: '2026-11-10' }];
       if (sql.includes('COUNT(*) AS cnt FROM sal_sales_orders')) {
         return [{ cnt: '0' }];
       }
@@ -77,18 +79,91 @@ describe('SalesOrdersService draft creation', () => {
         qty: 10,
         actualUnitPrice: 12,
       }],
-    })).resolves.toMatchObject({
-      id: '101',
-      items: [{ id: '501', product_code: 'PRD-EGG-1' }],
-    });
+    })).rejects.toThrow('does not exist');
 
     const itemInserts = query.mock.calls
       .map(([sql]) => String(sql))
       .filter((sql) => sql.includes('INSERT INTO sal_order_items'));
 
-    expect(itemInserts).toHaveLength(2);
+    expect(itemInserts).toHaveLength(1);
     expect(itemInserts[0]).toContain('sku_code');
-    expect(itemInserts[1]).not.toContain('sku_code');
+  });
+
+  it.each(['create', 'update'])('denies %s outside the caller company scope before opening a write transaction', async mode => {
+    const query = jest.fn().mockResolvedValue([{ id: '1', status: 'DRAFT', company_code: 'COMP-OTHER' }]);
+    const f = makeService(query, { isGlobal: false, allowedCompanyCodes: ['COMP-A'] });
+    const result = mode === 'create'
+      ? f.service.createDraft({ companyCode: 'COMP-OTHER', fulfillmentWarehouseCode: 'WH-A', items: [{ productCode: 'P1', qty: 1 }] })
+      : f.service.updateDraft('1', { items: [{ productCode: 'P1', qty: 1 }] });
+    await expect(result).rejects.toBeInstanceOf(ForbiddenException);
+    expect(f.ds.transaction).not.toHaveBeenCalled();
+  });
+
+  describe.each(['create', 'update'])('%s SKU validation', mode => {
+    function setup(skuRow: Record<string, unknown> | null, lookupError = false) {
+      const query = jest.fn(async (sql: string, _params?: unknown[]) => {
+        if (sql.includes('FROM product_skus')) {
+          if (lookupError) throw new Error('SKU database unavailable');
+          return skuRow ? [skuRow] : [];
+        }
+        if (sql.includes('FROM wms_warehouses')) return [{ warehouse_code: 'WH-A' }];
+        if (sql.includes('COUNT(*) AS cnt')) return [{ cnt: '0' }];
+        if (sql.includes('FROM sal_sales_orders') || sql.includes('INSERT INTO sal_sales_orders') || sql.includes('UPDATE sal_sales_orders')) return [{ id: '1', status: 'DRAFT', company_code: 'COMP-A' }];
+        return [];
+      });
+      const f = makeService(query);
+      const save = (item: Record<string, unknown>) => mode === 'create'
+        ? f.service.createDraft({ companyCode: 'COMP-A', fulfillmentWarehouseCode: 'WH-A', items: [item] } as any)
+        : f.service.updateDraft('1', { items: [item] } as any);
+      return { ...f, query, save };
+    }
+    const valid = { sku_code: 'SKU-1', product_code: 'AUTH-P', grade_code: 'AUTH-G', spec_code: 'AUTH-S', status: 'ACTIVE', today: '2026-11-10' };
+    it.each([
+      ['missing', null], ['inactive', { ...valid, status: 'FROZEN' }],
+      ['future', { ...valid, effective_date: '2026-11-11' }], ['expired', { ...valid, expire_date: '2026-11-09' }],
+    ])('rejects %s SKU before changing any order data', async (_label, row) => {
+      const f = setup(row as any);
+      await expect(f.save({ skuCode: 'SKU-1', productCode: 'FALLBACK', qty: 1 })).rejects.toMatchObject({ status: 400 });
+      expect(f.query.mock.calls.some(([sql]) => /^(DELETE|INSERT|UPDATE)/.test(sql.trim()))).toBe(false);
+      expect(f.priceRuntime.resolvePrice).not.toHaveBeenCalled();
+    });
+    it('propagates SKU lookup failure before writes', async () => {
+      const f = setup(null, true);
+      await expect(f.save({ skuCode: 'SKU-1', productCode: 'FALLBACK', qty: 1 })).rejects.toThrow('SKU database unavailable');
+      expect(f.query.mock.calls.some(([sql]) => /^(DELETE|INSERT|UPDATE)/.test(sql.trim()))).toBe(false);
+    });
+    it.each(['', null, '   '])('rejects explicitly empty skuCode %p', async skuCode => {
+      const f = setup(valid);
+      await expect(f.save({ skuCode, productCode: 'FALLBACK', qty: 1 })).rejects.toMatchObject({ status: 400 });
+    });
+    it('uses authoritative SKU identity for prices and stored items', async () => {
+      const f = setup(valid);
+      await f.save({ skuCode: 'SKU-1', productCode: 'WRONG', gradeCode: 'WRONG', packagingSpec: 'WRONG', qty: 1 });
+      expect(f.priceRuntime.resolvePrice).toHaveBeenCalledWith(expect.objectContaining({ skuCode: 'SKU-1', productCode: 'AUTH-P', gradeCode: 'AUTH-G', packagingSpec: 'AUTH-S' }));
+      const insert = f.query.mock.calls.find(([sql]) => sql.includes('INSERT INTO sal_order_items'))!;
+      expect((insert as unknown[])[1]).toEqual(expect.arrayContaining(['AUTH-P', 'AUTH-G', 'AUTH-S', 'SKU-1']));
+      expect(f.ds.transaction).toHaveBeenCalledTimes(1);
+      expect((f.ds.query as jest.Mock).mock.calls.some(([sql]: any[]) => /^(DELETE|INSERT|UPDATE)/.test(String(sql).trim()))).toBe(false);
+      expect(f.managerQuery.mock.calls.some(([sql]) => String(sql).includes('INSERT INTO sal_order_items'))).toBe(true);
+    });
+    it('propagates item insert failure through the surrounding transaction', async () => {
+      const f = setup(valid);
+      const original = f.query.getMockImplementation()!;
+      f.query.mockImplementation(async (sql, params) => {
+        if (sql.includes('INSERT INTO sal_order_items')) throw new Error('item write failed');
+        return original(sql, params);
+      });
+      await expect(f.save({ skuCode: 'SKU-1', qty: 1 })).rejects.toThrow('item write failed');
+      expect(f.ds.transaction).toHaveBeenCalledTimes(1);
+      expect((f.ds.query as jest.Mock).mock.calls.some(([sql]) => /^(DELETE|INSERT|UPDATE)/.test(String(sql).trim()))).toBe(false);
+    });
+    it('preserves the omitted-SKU legacy path and its identity', async () => {
+      const f = setup(null);
+      await f.save({ productCode: 'LEGACY-P', gradeCode: 'LEGACY-G', packagingSpec: 'LEGACY-S', qty: 1 });
+      expect(f.query.mock.calls.some(([sql]) => sql.includes('FROM product_skus'))).toBe(false);
+      expect(f.priceRuntime.resolvePrice).toHaveBeenCalledWith(expect.objectContaining({ productCode: 'LEGACY-P', gradeCode: 'LEGACY-G', packagingSpec: 'LEGACY-S', skuCode: undefined }));
+      expect(f.query.mock.calls.find(([sql]) => sql.includes('INSERT INTO sal_order_items'))![0]).not.toContain('sku_code');
+    });
   });
 
   it('resolves a legacy customer code through the canonical sal_customers columns', async () => {
