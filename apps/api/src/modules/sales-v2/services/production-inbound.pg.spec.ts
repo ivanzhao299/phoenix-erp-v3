@@ -31,8 +31,8 @@ fixture('Issue 381 real PostgreSQL inbound transactions and retries', () => {
       throw new Error('Fixture ownership mismatch');
     }
     await db.query(`
-      CREATE TABLE IF NOT EXISTS mst_products (product_code text PRIMARY KEY, status text);
-      CREATE TABLE IF NOT EXISTS packaging_specs (spec_code text PRIMARY KEY, status text);
+      CREATE TABLE IF NOT EXISTS mst_products (product_code text PRIMARY KEY, status text, unit text, unit_zh text);
+      CREATE TABLE IF NOT EXISTS packaging_specs (spec_code text PRIMARY KEY, status text, base_unit text, display_unit text, qty_per_unit numeric(10,2));
       CREATE TABLE IF NOT EXISTS product_grades (grade_code text PRIMARY KEY, status text, sort_order int, is_saleable boolean DEFAULT true, is_storable boolean DEFAULT true);
       CREATE TABLE IF NOT EXISTS product_skus (sku_code text PRIMARY KEY, product_code text, grade_code text, spec_code text, status text, effective_date date, expire_date date);
       CREATE TABLE IF NOT EXISTS sys_organizations (org_code text PRIMARY KEY, company_code text, org_type text, status text);
@@ -45,7 +45,7 @@ fixture('Issue 381 real PostgreSQL inbound transactions and retries', () => {
         warehouse_code text, location_code text, egg_date date, inbound_date date, expire_date date,
         quality_grade text, packaging_spec text, source_type text, source_no text, qty numeric, qty_available numeric,
         status text, sku_code text, grade_code_std text, spec_code text, packaging_batch_ref text,
-        collection_batch_ref text, created_at timestamptz, updated_at timestamptz);
+        collection_batch_ref text, unit text, base_quantity_version smallint, created_at timestamptz, updated_at timestamptz);
       CREATE TABLE IF NOT EXISTS inv_ledger (id serial PRIMARY KEY, batch_no text REFERENCES inv_batches(batch_no), change_type text,
         qty_change numeric, operator text, store_code text, ref_no text, note text, batch_expire_date date,
         quality_grade text, company_code text, sku_code text, log_date date, warehouse_code text, location_code text);
@@ -56,8 +56,8 @@ fixture('Issue 381 real PostgreSQL inbound transactions and retries', () => {
       TRUNCATE inv_ledger, inv_batches, product_skus, product_grades, mst_products, packaging_specs, sys_organizations,
         brd_farms, brd_houses, brd_daily_logs, wms_warehouses, wms_locations RESTART IDENTITY;
     `);
-    await db.query("INSERT INTO mst_products VALUES ('PRD-EGG-RAW','ACTIVE')");
-    await db.query("INSERT INTO packaging_specs VALUES ('LOOSE','ACTIVE')");
+    await db.query("INSERT INTO mst_products VALUES ('PRD-EGG-RAW','ACTIVE','枚','枚')");
+    await db.query("INSERT INTO packaging_specs VALUES ('LOOSE','ACTIVE','枚','枚',1)");
     for (const [i, grade] of grades.entries()) {
       await db.query("INSERT INTO product_grades VALUES ($1,'ACTIVE',$2)", [grade, i]);
       await db.query("INSERT INTO product_skus VALUES ($1,'PRD-EGG-RAW',$2,'LOOSE','ACTIVE')", [`SKU-${grade}`, grade]);
@@ -87,6 +87,7 @@ fixture('Issue 381 real PostgreSQL inbound transactions and retries', () => {
     const first = await service.recordProductionInbound(payload());
     const retry = await service.recordProductionInbound(payload());
     expect(first.idempotent).toBe(false);
+    expect((await db.query('SELECT unit,base_quantity_version FROM inv_batches'))[0]).toEqual({ unit: '枚', base_quantity_version: 1 });
     expect(retry).toMatchObject({ idempotent: true, totalInbound: 33, batches: first.batches });
     expect(new Set(retry.batches.map(row => row.batchNo)).size).toBe(1);
     expect(retry.batches.map(row => row.qty)).toEqual([33]);
