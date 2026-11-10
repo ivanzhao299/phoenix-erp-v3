@@ -1,3 +1,4 @@
+import { SkuPolicy } from '../product-master/services/sku-policy';
 import {
   BadRequestException,
   ForbiddenException,
@@ -8,7 +9,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { createHash } from 'crypto';
-import { In, Repository } from 'typeorm';
+import { EntityManager, In, Repository } from 'typeorm';
 import { ChanjetBookCompanyMapEntity } from './chanjet-book-company-map.entity';
 import { ChanjetEntitySnapshotEntity } from './chanjet-entity-snapshot.entity';
 import {
@@ -530,7 +531,7 @@ export class ChanjetWmsBridgeService {
               : 'source identity only; ERP master mapping required before promotion',
         },
       });
-      await this.mappingRepository.save(next);
+      await this.saveMappingTarget(next);
       if (match) exactMatched += 1;
       else if (uniqueMatches.length > 1) conflicts += 1;
       else sourceOnly += 1;
@@ -1080,7 +1081,7 @@ export class ChanjetWmsBridgeService {
       : input.decision === 'REJECT'
         ? 'REJECTED'
         : 'HOLD';
-    const [saved] = await this.mappingRepository.manager.query(
+    const persist = (manager: Pick<EntityManager, 'query'>) => manager.query(
       `INSERT INTO chanjet_wms_uom_conversion_policies (
          book_id, company_code, source_product_code, source_product_name,
          source_uom, erp_entity_type, erp_product_code, erp_base_uom,
@@ -1113,7 +1114,13 @@ export class ChanjetWmsBridgeService {
         JSON.stringify(input.evidence || {}),
         actor,
       ],
-    ) as Array<Record<string, unknown>>;
+    );
+    const [saved] = input.decision === 'APPROVE' && input.erpEntityType === 'SKU'
+      ? await this.mappingRepository.manager.transaction(async manager => {
+        await SkuPolicy.requireUsable(manager, input.erpProductCode, 'stock');
+        return persist(manager);
+      })
+      : await persist(this.mappingRepository.manager);
     return {
       policy: saved,
       erpInventoryFactsMutated: false,
@@ -1230,12 +1237,24 @@ export class ChanjetWmsBridgeService {
         rule: 'explicit administrator selection validated against active ERP master data',
       },
     };
-    await this.mappingRepository.save(mapping);
+    await this.saveMappingTarget(mapping);
     return {
       mapping,
       erpBusinessTablesMutated: false,
       externalWriteExecuted: false,
     };
+  }
+
+  /** Revalidate a new SKU mapping in the same transaction as persistence. */
+  private async saveMappingTarget(mapping: ChanjetMasterMappingEntity): Promise<void> {
+    if (mapping.erpEntityType !== 'SKU' || !mapping.erpCode) {
+      await this.mappingRepository.save(mapping);
+      return;
+    }
+    await this.mappingRepository.manager.transaction(async manager => {
+      await SkuPolicy.requireUsable(manager, mapping.erpCode, 'stock');
+      await manager.save(ChanjetMasterMappingEntity, mapping);
+    });
   }
 
   async listPromotionCandidates(limit = 200, state?: ChanjetWmsPromotionState) {
@@ -1586,8 +1605,8 @@ export class ChanjetWmsBridgeService {
             COALESCE(NULLIF(sku_name, ''), product_name, '') AS name,
             '' AS company_code,
             'SKU' AS entity_type
-          FROM product_skus
-          WHERE status = 'ACTIVE'
+          FROM product_skus s
+          WHERE ${SkuPolicy.usableSql('s', 'stock')}
           UNION ALL
           SELECT
             material_code AS code,

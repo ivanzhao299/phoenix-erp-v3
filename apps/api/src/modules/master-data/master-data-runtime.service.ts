@@ -1,6 +1,7 @@
 import { Injectable, BadRequestException, ForbiddenException, NotFoundException, Logger } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
+import { SkuPolicy } from '../product-master/services/sku-policy';
 import { SkuWriter } from '../product-master/services/sku-writer';
 import { ClsService } from 'nestjs-cls';
 import { CodeGeneratorService } from './code-generator.service';
@@ -575,6 +576,7 @@ export class MasterDataRuntimeService {
   /** 引用治理：仅 ACTIVE 且在生效期内（供前端 Selector 调用） */
   async listActive(type: string): Promise<any[]> {
     const c = this.cfg(type);
+    if (type === 'sku') return this.ds.query(`SELECT s.sku_code AS code, s.sku_name AS name FROM product_skus s WHERE ${SkuPolicy.usableSql('s')} ORDER BY s.sku_name`);
     // G71：Selector 引用也按公司隔离（避免选到他公司主数据）
     const params: any[] = [];
     let companyClause = '';

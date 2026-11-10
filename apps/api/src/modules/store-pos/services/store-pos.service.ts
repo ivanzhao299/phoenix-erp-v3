@@ -1,3 +1,4 @@
+import { SkuPolicy } from '../../product-master/services/sku-policy';
 /**
  * Phoenix ERP V3 — Store POS Service
  * Sales V2 Phase 9: 直营店收银作业台
@@ -265,10 +266,13 @@ export class StorePosService {
 
     // 事务：插入主表 + 明细行
     return this.ds.transaction(async mgr => {
-      const resolvedItems = await Promise.all(dto.items.map(async item => ({
-        item,
-        price: await this.resolveItemPrice(dto, item, mgr),
-      })));
+      const resolvedItems = [];
+      for (const supplied of dto.items) {
+        const sku = supplied.skuCode === undefined ? null : await SkuPolicy.requireUsable(mgr, supplied.skuCode, 'sale-stock');
+        const item = sku ? { ...supplied, productCode: sku.product_code, productName: sku.sku_name || sku.product_name,
+          gradeCode: sku.grade_code, packagingSpec: sku.spec_code } : supplied;
+        resolvedItems.push({ item, price: await this.resolveItemPrice(dto, item, mgr) });
+      }
       // D6: POS 首期不开放改价，客户端 unitPrice 仅兼容接收，不参与权威金额。
       const subtotal = resolvedItems.reduce((s, x) => s + x.item.qty * x.price.unitPrice, 0);
       const total = Math.max(0, subtotal - discount);
@@ -842,6 +846,7 @@ export class StorePosService {
          AND (pb.effective_to IS NULL OR pb.effective_to >= CURRENT_DATE)
          AND pi.status = 'ACTIVE'
          AND pi.unit_price > 0
+         AND (pi.sku_code IS NULL OR (${SkuPolicy.usableSql('ps', 'sale-stock')}))
        ORDER BY COALESCE(pi.sku_code,''),pi.product_code,COALESCE(pi.grade_code,''),COALESCE(pi.packaging_spec,''),
          CASE WHEN pb.store_code=$2 THEN 0 ELSE 1 END,
          pb.priority ASC,pb.effective_from DESC NULLS LAST,pb.publish_version DESC,pb.id DESC`,
@@ -875,6 +880,7 @@ export class StorePosService {
       if (qty <= 0) continue;
 
       // Phase H5: PATH A（sku_code）优先，PATH B（product+grade）回退。
+      if (item.sku_code != null) await SkuPolicy.requireUsable(mgr, item.sku_code, 'sale-stock');
       const useSkuPath = !!item.sku_code;
       const lockKey = useSkuPath
         ? `fifo:${sale.company_code}:${sale.warehouseCodes.join(',')}:sku:${item.sku_code}`

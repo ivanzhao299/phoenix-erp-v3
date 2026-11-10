@@ -115,7 +115,7 @@ async function api<T>(method: string, path: string, body?: unknown): Promise<T> 
 async function loadSkus(): Promise<SkuItem[]> {
   try {
     const token = typeof window !== 'undefined' ? localStorage.getItem('phoenix_token') || sessionStorage.getItem('phoenix_token') || '' : '';
-    const res = await fetch('/api/product-master/skus', {
+    const res = await fetch('/api/product-master/skus?usage=stock', {
       headers: {
         'Content-Type': 'application/json',
         ...(token ? {

@@ -214,7 +214,7 @@ export default function OutboundPage() {
     return ISSUE_TYPES.has(String(type || "")) ? canDeleteIssue : canDeleteInout;
   }, [canDeleteInout, canDeleteIssue]);
   const canCreateCurrent = issueOnly ? canCreateIssue : canCreateAny;
-  const openNew     = useCallback(() => { if (!canCreateCurrent) return; setEditing(null); setBatchHeader({ date: new Date().toISOString().slice(0, 10), type: issueOnly ? "PRODUCTION_USE" : "SALE", warehouse_code: siteCode ?? "", destination_type: issueOnly ? "HOUSE" : "CUSTOMER" }); setBatchItems([newBatchLine()]); setDrawerOpen(true); }, [canCreateCurrent, issueOnly, siteCode]);
+  const openNew     = useCallback(() => { if (!canCreateCurrent) return; setEditing(null); setBatchHeader({ date: new Date().toISOString().slice(0, 10), type: issueOnly ? "PRODUCTION_USE" : "SALE", warehouse_code: siteCode ?? "", destination_type: issueOnly ? "HOUSE" : "CUSTOMER" }); setBatchItems([newBatchLine()]); setDrawerOpen(true); }, [canCreateCurrent, issueOnly, siteCode, setBatchHeader, setBatchItems]);
   const openEdit    = useCallback((row: Row) => { if (!canEditType(row.type)) return; setEditing(row); setDrawerOpen(true); }, [canEditType]);
   const closeDrawer = useCallback(() => setDrawerOpen(false), []);
 

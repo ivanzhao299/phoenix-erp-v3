@@ -2,6 +2,7 @@ import { BadRequestException, Body, Controller, Get, Param, Post, Query, Req, Us
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
 import { ClsService } from 'nestjs-cls';
+import { SkuPolicy } from '../services/sku-policy';
 import { ProductMasterService } from '../services/product-master.service';
 import { DataScopeService } from '../../org/services/data-scope.service';
 import { OrgOwnershipService } from '../../org/services/org-ownership.service';
@@ -93,14 +94,21 @@ export class LookupController {
   /** GET /api/lookup/product-grades — 仅 ACTIVE 等级，供前端下拉 */
   @Get('product-grades')
   async productGrades() {
-    const data = await this.cached('product-grades', () => this.svc.listGrades());
+    const data = await this.em.query(`SELECT grade_code, grade_name, grade_name_lo, is_saleable, is_storable, status FROM product_grades WHERE status='ACTIVE' ORDER BY sort_order, grade_code`);
     return { code: 200, data };
   }
 
   /** GET /api/lookup/packaging-specs — 仅 ACTIVE 规格 */
   @Get('packaging-specs')
   async packagingSpecs() {
-    const data = await this.cached('packaging-specs', () => this.svc.listSpecs());
+    const data = await this.em.query(`SELECT spec_code, spec_name, spec_name_lo, qty_per_unit, base_unit, display_unit, status FROM packaging_specs WHERE status='ACTIVE' ORDER BY sort_order, spec_code`);
+    return { code: 200, data };
+  }
+
+  /** Global business references, authenticated by MenuGuard without a management menu. */
+  @Get('products')
+  async products() {
+    const data = await this.em.query(`SELECT product_code, COALESCE(NULLIF(product_name_zh, ''), product_name) AS product_name, status FROM mst_products WHERE status='ACTIVE' ORDER BY product_code`);
     return { code: 200, data };
   }
 
@@ -315,9 +323,7 @@ export class LookupController {
              ps.status
        FROM product_skus ps
         LEFT JOIN packaging_specs spec ON spec.spec_code = ps.spec_code
-       WHERE ps.status = 'ACTIVE'
-         AND (ps.effective_date IS NULL OR ps.effective_date <= CURRENT_DATE)
-         AND (ps.expire_date IS NULL OR ps.expire_date >= CURRENT_DATE)
+       WHERE ${SkuPolicy.usableSql('ps', 'stock')}
        ORDER BY "itemType", "materialType", "itemName"
     `);
     return { code: 200, data: rows };

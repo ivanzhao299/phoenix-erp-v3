@@ -1,6 +1,7 @@
 import { Injectable, ConflictException, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
+import { SkuPolicy, SkuUsage } from './sku-policy';
 import { MasterDataRuntimeService } from '../../master-data/master-data-runtime.service';
 
 /**
@@ -224,7 +225,7 @@ export class ProductMasterService {
 
   // ── product_skus ────────────────────────────────────────────────
 
-  async listSkus(filters?: { product_code?: string; grade_code?: string; spec_code?: string; status?: string }): Promise<ProductSku[]> {
+  async listSkus(filters?: { product_code?: string; grade_code?: string; spec_code?: string; status?: string; usage?: SkuUsage }): Promise<ProductSku[]> {
     const conds: string[] = [];
     const args: unknown[] = [];
     let i = 1;
@@ -237,8 +238,7 @@ export class ProductMasterService {
     const activeReference = !filters?.status || filters.status === 'ACTIVE';
     if (!filters?.status) conds.push(`status = 'ACTIVE'`);
     if (activeReference) {
-      conds.push(`(effective_date IS NULL OR effective_date <= CURRENT_DATE)`);
-      conds.push(`(expire_date IS NULL OR expire_date >= CURRENT_DATE)`);
+      conds.push(SkuPolicy.usableSql('product_skus', filters?.usage));
     }
     const where = `WHERE ${conds.join(' AND ')}`;
     return this.em.query(

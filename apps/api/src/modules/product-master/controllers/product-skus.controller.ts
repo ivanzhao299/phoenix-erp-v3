@@ -1,4 +1,5 @@
 import { Controller, Get, Post, Put, Body, Param, Query, Req, UseGuards } from '@nestjs/common';
+import { SkuPolicy } from '../services/sku-policy';
 import { MenuGuard } from '../../../common/guards/menu.guard';
 import { SkuAccessGuard } from '../../../common/guards/sku-access.guard';
 import { ProductMasterService, ProductSku } from '../services/product-master.service';
@@ -20,8 +21,9 @@ export class ProductSkusController {
     @Query('grade_code')   grade_code?: string,
     @Query('spec_code')    spec_code?: string,
     @Query('status')       status?: string,
+    @Query('usage') usage?: string,
   ) {
-    const rows = await this.svc.listSkus({ product_code, grade_code, spec_code, status });
+    const rows = await this.svc.listSkus({ product_code, grade_code, spec_code, status, usage: SkuPolicy.usage(usage) });
     return { code: 200, data: rows };
   }
 

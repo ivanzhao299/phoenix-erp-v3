@@ -48,6 +48,7 @@ export interface FormField {
   span?: 1 | 2;
   defaultValue?: string | number;
   // G4-D 扩展
+  skuUsage?: 'any' | 'sale' | 'stock' | 'sale-stock';
   dictType?: string;                                                    // type='dict' 必填
   // G17：filterBy 同时支持「字段引用」(*Field) 和「固定值」(直传 siteCode/farmCode/companyCode)
   filterBy?: {
@@ -288,7 +289,7 @@ export const CrudForm = memo(function CrudForm({
                 warehouseCode={field.filterBy?.warehouseField ? String(values[field.filterBy.warehouseField] ?? "") : undefined}
                 zoneCode={field.filterBy?.zoneField ? String(values[field.filterBy.zoneField] ?? "") : undefined} />
             ) : field.type === "sku" ? (
-              <SkuSelector
+              <SkuSelector usage={field.skuUsage ?? "stock"}
                 value={String(values[field.key] ?? "")}
                 onChange={v => set(field.key, v)}
                 onPick={o => {

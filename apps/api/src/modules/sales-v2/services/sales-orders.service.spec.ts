@@ -47,6 +47,7 @@ describe('SalesOrdersService draft creation', () => {
   it('rejects missing sku_code schema for explicitly supplied SKU instead of losing its reference', async () => {
     const query = jest.fn(async (sql: string) => {
       if (sql.includes('FROM wms_warehouses')) return [{ warehouse_code: 'WH-MENGSE' }];
+      if (/SELECT \* FROM (mst_products|product_grades|packaging_specs)/.test(sql)) return [{ status: 'ACTIVE', is_saleable: true, is_storable: true }];
       if (sql.includes('FROM product_skus')) return [{ sku_code: 'SKU-1-30', product_code: 'PRD-EGG-1', grade_code: 'G1', spec_code: 'S1', status: 'ACTIVE', today: '2026-11-10' }];
       if (sql.includes('COUNT(*) AS cnt FROM sal_sales_orders')) {
         return [{ cnt: '0' }];
@@ -102,7 +103,8 @@ describe('SalesOrdersService draft creation', () => {
   describe.each(['create', 'update'])('%s SKU validation', mode => {
     function setup(skuRow: Record<string, unknown> | null, lookupError = false) {
       const query = jest.fn(async (sql: string, _params?: unknown[]) => {
-        if (sql.includes('FROM product_skus')) {
+        if (/SELECT \* FROM (mst_products|product_grades|packaging_specs)/.test(sql)) return [{ status: 'ACTIVE', is_saleable: true, is_storable: true }];
+      if (sql.includes('FROM product_skus')) {
           if (lookupError) throw new Error('SKU database unavailable');
           return skuRow ? [skuRow] : [];
         }

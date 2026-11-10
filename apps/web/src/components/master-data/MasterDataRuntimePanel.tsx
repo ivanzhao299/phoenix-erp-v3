@@ -8,7 +8,7 @@ import DictSelect from "@/components/shared-selectors/DictSelect";  // G66 字�
 import { useDictOptions } from "@/hooks/useDictOptions";  // g200o:列表 dict 转译
 import {
   CompanySelector, CustomerSelector, SupplierSelector, ProjectSelector,
-  WarehouseSelector, ZoneSelector, LocationSelector, SkuSelector, UserSelector, FarmSelector,
+  WarehouseSelector, ZoneSelector, LocationSelector, SkuSelector, UserSelector, FarmSelector, ProductSelector, GradeSelector, SpecSelector,
 } from "@/components/shared-selectors/MasterDataSelectors";  // G83 主数据档案选择器化
 import { EmptyState, LoadingSkeleton, SelectField } from "@/components/design-system";
 import {
@@ -35,13 +35,15 @@ export interface MdField {
   key: string; label: string; required?: boolean;
   type?: "text" | "number" | "date" | "select" | "readonly"
     | "company" | "customer" | "supplier" | "project"
-    | "warehouse" | "zone" | "location" | "sku" | "user" | "farm";
+    | "warehouse" | "zone" | "location" | "sku" | "user" | "farm" | "product" | "grade" | "spec";
   options?: { value: string; label: string }[];
   displayKind?: MasterDataDisplayKind;
   dictType?: string;   // 字段挂字典 → DictSelect
   onPickKeys?: Record<string, string>;   // 主数据自动带出：{ 目标key: raw字段名 }（onPick 有 ?? label 兜底）
   filterBy?: { warehouseField?: string; zoneField?: string; companyField?: string };  // 级联过滤
   readOnlyOnEdit?: boolean;
+  /** Atomic selector updates (code, canonical name and a default business name). */
+  referenceUpdate?: (previous: Record<string, unknown>, code: string, raw: Record<string, unknown> | null) => Record<string, unknown>;
   // g200p: 分组(同 group 字段渲染到同一 section);page 模式下按 group 切 Panel;drawer 模式无效
   group?: string;
 }
@@ -98,6 +100,10 @@ export function renderMdFieldInput(
   const code = String(form[f.key] ?? "");
   const onChange = (v: string) => setForm(prev => ({ ...prev, [f.key]: v }));
   const onPick = (o: any) => {
+    if (f.referenceUpdate) {
+      setForm(prev => f.referenceUpdate!(prev, o?.value ?? "", o?.raw ?? null));
+      return;
+    }
     if (!f.onPickKeys) return;
     setForm(prev => {
       const next = { ...prev };
@@ -108,7 +114,11 @@ export function renderMdFieldInput(
   const filterCompany = f.filterBy?.companyField ? String(form[f.filterBy.companyField] ?? "") : undefined;
   const filterWh = f.filterBy?.warehouseField ? String(form[f.filterBy.warehouseField] ?? "") : undefined;
   const filterZone = f.filterBy?.zoneField ? String(form[f.filterBy.zoneField] ?? "") : undefined;
+  const referenceChange = f.referenceUpdate ? () => undefined : onChange;
   switch (f.type) {
+    case "product": return <ProductSelector value={code} onChange={referenceChange} onPick={onPick} />;
+    case "grade": return <GradeSelector value={code} onChange={referenceChange} onPick={onPick} />;
+    case "spec": return <SpecSelector value={code} onChange={referenceChange} onPick={onPick} />;
     case "company":   return <CompanySelector value={code} onChange={onChange} onPick={onPick} />;
     case "customer":  return <CustomerSelector value={code} onChange={onChange} onPick={onPick} />;
     case "supplier":  return <SupplierSelector value={code} onChange={onChange} onPick={onPick} />;

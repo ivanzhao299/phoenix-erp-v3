@@ -4,6 +4,8 @@ import { EggInventoryService } from './egg-inventory.service';
 describe('EggInventoryService conditional inventory updates', () => {
   it('fails closed when FIFO candidate no longer matches the guarded update', async () => {
     const query = jest.fn(async (sql: string) => {
+      if (sql.includes('FROM product_skus')) return [{ sku_code: 'SKU-1', product_code: 'P-1', grade_code: 'G', spec_code: 'S', status: 'ACTIVE' }];
+      if (/SELECT \* FROM (mst_products|product_grades|packaging_specs)/.test(sql)) return [{ status: 'ACTIVE', is_saleable: true, is_storable: true }];
       if (sql.includes('pg_advisory_xact_lock')) return [];
       if (sql.includes('SELECT * FROM inv_batches')) return [{
         batch_no: 'B-1', company_code: 'COMP-A', warehouse_code: 'WH-A',
@@ -12,7 +14,7 @@ describe('EggInventoryService conditional inventory updates', () => {
       if (sql.includes('SELECT batch_no FROM changed')) return [];
       return [];
     });
-    const service = new EggInventoryService({ query } as never, { get: jest.fn() } as never);
+    const service = new EggInventoryService({ query, transaction: async (run: (manager: any) => unknown) => run({ query }) } as never, { get: jest.fn() } as never);
 
     await expect(service.allocateByFIFO({
       productCode: 'P-1', skuCode: 'SKU-1', companyCode: 'COMP-A', qty: 2,
@@ -26,6 +28,8 @@ describe('EggInventoryService conditional inventory updates', () => {
 
   it('reports company, SKU, requested qty and company-allocatable qty without warehouse details', async () => {
     const query = jest.fn(async (sql: string) => {
+      if (sql.includes('FROM product_skus')) return [{ sku_code: 'SKU-1', product_code: 'P-1', grade_code: 'G', spec_code: 'S', status: 'ACTIVE' }];
+      if (/SELECT \* FROM (mst_products|product_grades|packaging_specs)/.test(sql)) return [{ status: 'ACTIVE', is_saleable: true, is_storable: true }];
       if (sql.includes('pg_advisory_xact_lock')) return [];
       if (sql.includes('SELECT * FROM inv_batches')) return [{
         batch_no: 'B-1', company_code: 'COMP-A', warehouse_code: 'WH-SECRET',
@@ -34,7 +38,7 @@ describe('EggInventoryService conditional inventory updates', () => {
       if (sql.includes('SELECT batch_no FROM changed')) return [{ batch_no: 'B-1' }];
       return [];
     });
-    const service = new EggInventoryService({ query } as never, { get: jest.fn() } as never);
+    const service = new EggInventoryService({ query, transaction: async (run: (manager: any) => unknown) => run({ query }) } as never, { get: jest.fn() } as never);
 
     await expect(service.allocateByFIFO({
       productCode: 'P-1', skuCode: 'SKU-1', companyCode: 'COMP-A', qty: 5,
@@ -54,6 +58,8 @@ describe('EggInventoryService conditional inventory updates', () => {
 
   it('keeps the complete FIFO company/status/expiry/legacy matrix and SKU path in SQL', async () => {
     const query = jest.fn(async (sql: string) => {
+      if (sql.includes('FROM product_skus')) return [{ sku_code: 'SKU-1', product_code: 'P-1', grade_code: 'G', spec_code: 'S', status: 'ACTIVE' }];
+      if (/SELECT \* FROM (mst_products|product_grades|packaging_specs)/.test(sql)) return [{ status: 'ACTIVE', is_saleable: true, is_storable: true }];
       if (sql.includes('pg_advisory_xact_lock')) return [];
       if (sql.includes('SELECT * FROM inv_batches')) return [{
         batch_no: 'B-1', warehouse_code: 'WH-A', qty_available: 1, sku_code: 'SKU-1',
@@ -61,7 +67,7 @@ describe('EggInventoryService conditional inventory updates', () => {
       if (sql.includes('SELECT batch_no FROM changed')) return [{ batch_no: 'B-1' }];
       return [];
     });
-    const service = new EggInventoryService({ query } as never, { get: jest.fn() } as never);
+    const service = new EggInventoryService({ query, transaction: async (run: (manager: any) => unknown) => run({ query }) } as never, { get: jest.fn() } as never);
     await service.allocateByFIFO({
       productCode: 'P-1', skuCode: 'SKU-1', companyCode: 'COMP-A', qty: 1,
       refNo: 'SO-1', note: 'test',
@@ -82,7 +88,7 @@ describe('EggInventoryService getExpiringBatches DataScope', () => {
   it('filters a normal user to allowed companies', async () => {
     const query = jest.fn().mockResolvedValue([]);
     const cls = { get: jest.fn().mockReturnValue({ isGlobal: false, allowedCompanyCodes: ['COMP-A'] }) };
-    const service = new EggInventoryService({ query } as never, cls as never);
+    const service = new EggInventoryService({ query, transaction: async (run: (manager: any) => unknown) => run({ query }) } as never, cls as never);
     await service.getExpiringBatches({ days: 7 });
     expect(query).toHaveBeenCalledWith(expect.stringContaining('company_code = ANY($2)'), [7, ['COMP-A']]);
   });
@@ -90,7 +96,7 @@ describe('EggInventoryService getExpiringBatches DataScope', () => {
   it('fails closed when a normal user has no company scope', async () => {
     const query = jest.fn();
     const cls = { get: jest.fn().mockReturnValue({ isGlobal: false, allowedCompanyCodes: [] }) };
-    const service = new EggInventoryService({ query } as never, cls as never);
+    const service = new EggInventoryService({ query, transaction: async (run: (manager: any) => unknown) => run({ query }) } as never, cls as never);
     await expect(service.getExpiringBatches({ days: 7 })).resolves.toEqual([]);
     expect(query).not.toHaveBeenCalled();
   });
@@ -98,14 +104,14 @@ describe('EggInventoryService getExpiringBatches DataScope', () => {
   it('keeps global scheduled scans unfiltered when CLS has no request scope', async () => {
     const query = jest.fn().mockResolvedValue([]);
     const cls = { get: jest.fn().mockReturnValue(undefined) };
-    const service = new EggInventoryService({ query } as never, cls as never);
+    const service = new EggInventoryService({ query, transaction: async (run: (manager: any) => unknown) => run({ query }) } as never, cls as never);
     await service.getExpiringBatches({ days: 3 });
     expect(query).toHaveBeenCalledWith(expect.not.stringContaining('company_code = ANY'), [3]);
   });
 
   it('uses the same sellable egg-family scope as the inventory dashboard', async () => {
     const query = jest.fn().mockResolvedValue([]);
-    const service = new EggInventoryService({ query } as never, { get: jest.fn() } as never);
+    const service = new EggInventoryService({ query, transaction: async (run: (manager: any) => unknown) => run({ query }) } as never, { get: jest.fn() } as never);
     await service.getExpiringBatches({ days: 7 });
     const sql = String(query.mock.calls[0][0]);
     expect(sql).toContain("b.status = 'AVAILABLE'");
@@ -114,7 +120,7 @@ describe('EggInventoryService getExpiringBatches DataScope', () => {
 
   it('orders expiring batches by expiry date with a stable batch/id tie-breaker', async () => {
     const query = jest.fn().mockResolvedValue([]);
-    const service = new EggInventoryService({ query } as never, { get: jest.fn() } as never);
+    const service = new EggInventoryService({ query, transaction: async (run: (manager: any) => unknown) => run({ query }) } as never, { get: jest.fn() } as never);
     await service.getExpiringBatches({ days: 7 });
     expect(String(query.mock.calls[0][0])).toContain(
       'ORDER BY b.expire_date ASC, b.batch_no ASC, b.id ASC',
@@ -129,7 +135,7 @@ describe('EggInventoryService inventory list/dashboard parity', () => {
       product_name: 'PRD-EGG-1', qty_available: 100, status: 'AVAILABLE',
     }];
     const query = jest.fn().mockResolvedValue(rows);
-    const service = new EggInventoryService({ query } as never, { get: jest.fn() } as never);
+    const service = new EggInventoryService({ query, transaction: async (run: (manager: any) => unknown) => run({ query }) } as never, { get: jest.fn() } as never);
 
     await expect(service.getAvailableBatches({ productCode: 'EGG' })).resolves.toEqual(rows);
 
@@ -163,7 +169,7 @@ describe('EggInventoryService inventory list/dashboard parity', () => {
   it('applies DataScope to batches and fails closed outside the requested company', async () => {
     const query = jest.fn();
     const cls = { get: jest.fn().mockReturnValue({ isGlobal: false, allowedCompanyCodes: ['COMP-A'] }) };
-    const service = new EggInventoryService({ query } as never, cls as never);
+    const service = new EggInventoryService({ query, transaction: async (run: (manager: any) => unknown) => run({ query }) } as never, cls as never);
 
     await expect(service.getAvailableBatches({ productCode: 'EGG', companyCode: 'COMP-B' })).resolves.toEqual([]);
     expect(query).not.toHaveBeenCalled();
@@ -171,6 +177,8 @@ describe('EggInventoryService inventory list/dashboard parity', () => {
 
   it('keeps active batch count and quantity on the exact list status/qty/expiry scope', async () => {
     const query = jest.fn(async (sql: string) => {
+      if (sql.includes('FROM product_skus')) return [{ sku_code: 'SKU-1', product_code: 'P-1', grade_code: 'G', spec_code: 'S', status: 'ACTIVE' }];
+      if (/SELECT \* FROM (mst_products|product_grades|packaging_specs)/.test(sql)) return [{ status: 'ACTIVE', is_saleable: true, is_storable: true }];
       if (sql.includes("inventory.expiring_warn_days")) return [];
       if (sql.includes('FROM inv_batches b')) return [{
         active_batches: '2', total_available: '150', expiring_batches: '1', expiring_qty: '50',
@@ -178,7 +186,7 @@ describe('EggInventoryService inventory list/dashboard parity', () => {
       }];
       return [{ expire_loss: '0', damage_loss: '0', write_off: '0' }];
     });
-    const service = new EggInventoryService({ query } as never, { get: jest.fn() } as never);
+    const service = new EggInventoryService({ query, transaction: async (run: (manager: any) => unknown) => run({ query }) } as never, { get: jest.fn() } as never);
 
     await expect(service.getDashboardStats()).resolves.toMatchObject({ activeBatches: 2, totalAvailable: 150, expiringWarnDays: 7 });
 
@@ -202,7 +210,7 @@ describe('EggInventoryService loss analysis contract', () => {
       .mockResolvedValueOnce([{
         expire_total: '15', damage_total: '2', write_off_total: '3', total_loss: '24', total_records: '5',
       }]);
-    const service = new EggInventoryService({ query } as never, { get: jest.fn().mockReturnValue(undefined) } as never);
+    const service = new EggInventoryService({ query, transaction: async (run: (manager: any) => unknown) => run({ query }) } as never, { get: jest.fn().mockReturnValue(undefined) } as never);
 
     await expect(service.getLossAnalysis()).resolves.toEqual({
       byType: [{
@@ -230,7 +238,7 @@ describe('EggInventoryService loss analysis contract', () => {
   it('uses the same company DataScope behavior as the other inventory tabs', async () => {
     const query = jest.fn().mockResolvedValueOnce([]).mockResolvedValueOnce([]).mockResolvedValueOnce([{}]);
     const cls = { get: jest.fn().mockReturnValue({ isGlobal: false, allowedCompanyCodes: ['COMP-A'] }) };
-    const service = new EggInventoryService({ query } as never, cls as never);
+    const service = new EggInventoryService({ query, transaction: async (run: (manager: any) => unknown) => run({ query }) } as never, cls as never);
 
     await service.getLossAnalysis('COMP-A');
     expect(query).toHaveBeenCalledTimes(3);
@@ -243,7 +251,7 @@ describe('EggInventoryService loss analysis contract', () => {
   it('fails closed before querying when the requested company is outside DataScope', async () => {
     const query = jest.fn();
     const cls = { get: jest.fn().mockReturnValue({ isGlobal: false, allowedCompanyCodes: ['COMP-A'] }) };
-    const service = new EggInventoryService({ query } as never, cls as never);
+    const service = new EggInventoryService({ query, transaction: async (run: (manager: any) => unknown) => run({ query }) } as never, cls as never);
 
     await expect(service.getLossAnalysis('COMP-B')).resolves.toMatchObject({
       byType: [], byBatch: [], summary: { total_expire_loss: 0, total_damage_loss: 0, total_loss: 0 },

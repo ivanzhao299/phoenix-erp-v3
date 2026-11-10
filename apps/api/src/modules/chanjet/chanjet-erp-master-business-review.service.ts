@@ -1,3 +1,4 @@
+import { SkuPolicy } from '../product-master/services/sku-policy';
 import { Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { createHash } from 'crypto';
@@ -702,8 +703,8 @@ export class ChanjetErpMasterBusinessReviewService {
                   COALESCE(NULLIF(sku_name, ''), product_name, ''),
                   '', 'SKU', 'product_skus',
                   CASE WHEN product_code = 'EGG' OR product_code LIKE 'PRD-EGG-%' THEN '枚' ELSE '' END
-             FROM product_skus
-            WHERE status = 'ACTIVE'
+             FROM product_skus s
+            WHERE ${SkuPolicy.usableSql('s')}
            UNION ALL
            SELECT material_code, COALESCE(material_name, ''), '',
                   'MATERIAL', 'mst_materials', COALESCE(unit, '')
@@ -1651,6 +1652,7 @@ export class ChanjetErpMasterBusinessReviewService {
     };
     const sql = contracts[candidate.targetTable];
     if (!sql) throw new Error(`unsupported target table ${candidate.targetTable}`);
+    if (candidate.targetTable === 'product_skus') await SkuPolicy.requireUsable(runner.manager, candidate.targetCode);
     const rows = await runner.query(sql, [candidate.targetCode]);
     if (
       rows.length !== 1

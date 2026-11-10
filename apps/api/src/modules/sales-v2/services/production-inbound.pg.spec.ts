@@ -31,8 +31,10 @@ fixture('Issue 381 real PostgreSQL inbound transactions and retries', () => {
       throw new Error('Fixture ownership mismatch');
     }
     await db.query(`
-      CREATE TABLE IF NOT EXISTS product_grades (grade_code text PRIMARY KEY, status text, sort_order int);
-      CREATE TABLE IF NOT EXISTS product_skus (sku_code text PRIMARY KEY, product_code text, grade_code text, spec_code text, status text);
+      CREATE TABLE IF NOT EXISTS mst_products (product_code text PRIMARY KEY, status text);
+      CREATE TABLE IF NOT EXISTS packaging_specs (spec_code text PRIMARY KEY, status text);
+      CREATE TABLE IF NOT EXISTS product_grades (grade_code text PRIMARY KEY, status text, sort_order int, is_saleable boolean DEFAULT true, is_storable boolean DEFAULT true);
+      CREATE TABLE IF NOT EXISTS product_skus (sku_code text PRIMARY KEY, product_code text, grade_code text, spec_code text, status text, effective_date date, expire_date date);
       CREATE TABLE IF NOT EXISTS sys_organizations (org_code text PRIMARY KEY, company_code text, org_type text, status text);
       CREATE TABLE IF NOT EXISTS brd_farms (farm_code text PRIMARY KEY, company_code text, mapped_site_code text, status text);
       CREATE TABLE IF NOT EXISTS brd_houses (house_code text PRIMARY KEY, farm_code text, status text);
@@ -51,9 +53,11 @@ fixture('Issue 381 real PostgreSQL inbound transactions and retries', () => {
         ON inv_batches (company_code, source_type, source_no,
           COALESCE(sku_code, ''), COALESCE(grade_code_std, quality_grade, ''), COALESCE(spec_code, packaging_spec, ''))
         WHERE source_type = 'TEMP_PRODUCTION' AND source_no IS NOT NULL;
-      TRUNCATE inv_ledger, inv_batches, product_skus, product_grades, sys_organizations,
+      TRUNCATE inv_ledger, inv_batches, product_skus, product_grades, mst_products, packaging_specs, sys_organizations,
         brd_farms, brd_houses, brd_daily_logs, wms_warehouses, wms_locations RESTART IDENTITY;
     `);
+    await db.query("INSERT INTO mst_products VALUES ('PRD-EGG-RAW','ACTIVE')");
+    await db.query("INSERT INTO packaging_specs VALUES ('LOOSE','ACTIVE')");
     for (const [i, grade] of grades.entries()) {
       await db.query("INSERT INTO product_grades VALUES ($1,'ACTIVE',$2)", [grade, i]);
       await db.query("INSERT INTO product_skus VALUES ($1,'PRD-EGG-RAW',$2,'LOOSE','ACTIVE')", [`SKU-${grade}`, grade]);

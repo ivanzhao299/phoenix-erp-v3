@@ -1231,7 +1231,7 @@ function Wizard(p: any) {
               required
               error={p.errors.sku}
             >
-              <SkuSelector
+              <SkuSelector usage="sale-stock"
                 value={p.sku?.value || ""}
                 onChange={() => {}}
                 onPick={p.setSku}

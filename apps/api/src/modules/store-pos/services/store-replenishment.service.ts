@@ -1,3 +1,4 @@
+import { SkuPolicy } from '../../product-master/services/sku-policy';
 import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { ClsService } from 'nestjs-cls';
@@ -77,9 +78,12 @@ export class StoreReplenishmentService {
         VALUES ($1,$2,$3,$4,$5,COALESCE($6::date,CURRENT_DATE),$7,$8,$9) RETURNING *`,
         [requestNo, context.storeId, context.companyCode, context.warehouseCodes[0], dto.sourceWarehouseCode || null,
           dto.requestedDate || null, dto.urgency === 'URGENT' ? 'URGENT' : 'NORMAL', String(dto.reason || ''), String(this.user?.username || 'SYS')]);
-      for (const line of lines) await manager.query(`INSERT INTO store_replenishment_request_lines
+      for (const line of lines) {
+        const sku = await SkuPolicy.requireUsable(manager, line.skuCode, 'sale-stock');
+        await manager.query(`INSERT INTO store_replenishment_request_lines
         (request_id,sku_code,sku_name,requested_qty,remark) VALUES ($1,$2,$3,$4::numeric,$5)`,
-        [row.id, line.skuCode, String(line.skuName || ''), Number(line.qty), String(line.remark || '')]);
+        [row.id, sku.sku_code, sku.sku_name || sku.product_name, Number(line.qty), String(line.remark || '')]);
+      }
       return { ...row, storeCode: context.storeCode, lines };
     });
   }

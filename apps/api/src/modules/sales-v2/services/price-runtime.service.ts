@@ -1,4 +1,5 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { SkuPolicy } from '../../product-master/services/sku-policy';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { ClsService } from 'nestjs-cls';
@@ -62,6 +63,14 @@ export class PriceRuntimeService {
    *   - dto.skuCode 非空时，同时尝试 sku_code 精确路径和旧路径，sku_code 路径优先
    */
   async resolvePrice(dto: ResolvePriceDto, queryable: Pick<DataSource, 'query'> = this.ds): Promise<ResolvedPrice> {
+    if (dto.skuCode !== undefined) {
+      const code = SkuPolicy.code(dto.skuCode);
+      const sku = queryable === this.ds
+        ? (await queryable.query(`SELECT s.* FROM product_skus s WHERE s.sku_code=$1 AND ${SkuPolicy.usableSql('s', 'sale')}`, [code]))[0]
+        : await SkuPolicy.requireUsable(queryable, code, 'sale');
+      if (!sku) throw new BadRequestException('SKU 不存在、未启用或不适用于销售');
+      dto = { ...dto, productCode: sku.product_code, gradeCode: sku.grade_code, packagingSpec: sku.spec_code };
+    }
     const qty     = dto.qty ?? null;
     const skuCode = dto.skuCode ?? null;
 
@@ -94,6 +103,7 @@ export class PriceRuntimeService {
       WHERE pb.company_code = $1
         AND pb.status       = 'ACTIVE'
         AND pi.status       = 'ACTIVE'
+        AND (pi.sku_code IS NULL OR EXISTS (SELECT 1 FROM product_skus ps WHERE ps.sku_code=pi.sku_code AND ${SkuPolicy.usableSql('ps', 'sale')}))
         AND (pb.effective_from IS NULL OR pb.effective_from <= CURRENT_DATE)
         AND (pb.effective_to   IS NULL OR pb.effective_to   >= CURRENT_DATE)
         AND (
@@ -196,7 +206,8 @@ export class PriceRuntimeService {
         skuCode:       dto.skuCode,
         qty:           dto.qty,
       });
-    } catch {
+    } catch (error) {
+      if (dto.skuCode !== undefined && !(error instanceof NotFoundException)) throw error;
       // 无价格配置 → 通过（但记录警告）
       return {
         passed:       true,

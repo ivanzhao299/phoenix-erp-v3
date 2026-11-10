@@ -1,3 +1,4 @@
+import { SkuPolicy } from '../../product-master/services/sku-policy';
 import {
   Injectable, Logger, BadRequestException, ConflictException,
 } from '@nestjs/common';
@@ -247,18 +248,9 @@ export class EggInventoryService {
     gradeCode:   string;
     specCode:    string;
   }> {
-    const rows = await (mgr ?? this.ds).query(
-      `SELECT product_code, grade_code, spec_code FROM product_skus WHERE sku_code = $1 AND status = 'ACTIVE'`,
-      [skuCode],
-    );
-    if (!rows?.length) {
-      throw new BadRequestException(`SKU "${skuCode}" 不存在或已停用，请先在主数据中心维护 SKU 档案`);
-    }
-    return {
-      productCode: rows[0].product_code,
-      gradeCode:   rows[0].grade_code,
-      specCode:    rows[0].spec_code,
-    };
+    if (!mgr) throw new Error('SKU 校验需要库存写入事务');
+    const sku = await SkuPolicy.requireUsable(mgr, skuCode, 'stock');
+    return { productCode: sku.product_code, gradeCode: sku.grade_code, specCode: sku.spec_code };
   }
 
   // ── 1. 创建生产批次 ──────────────────────────────────────────────────────────
@@ -309,8 +301,8 @@ export class EggInventoryService {
     let specCode     = params.specCode     ?? null;
     let skuCode      = params.skuCode      ?? null;
 
-    if (skuCode) {
-      const skuInfo = await this.resolveSkuInfo(skuCode, mgr);
+    if (params.skuCode !== undefined) {
+      const skuInfo = await this.resolveSkuInfo(params.skuCode!, mgr);
       productCode  = skuInfo.productCode;
       gradeCodeStd = skuInfo.gradeCode;
       specCode     = skuInfo.specCode;
@@ -318,8 +310,8 @@ export class EggInventoryService {
       params = {
         ...params,
         productCode,
-        qualityGrade:  params.qualityGrade  ?? skuInfo.gradeCode,
-        packagingSpec: params.packagingSpec ?? skuInfo.specCode,
+        qualityGrade: skuInfo.gradeCode,
+        packagingSpec: skuInfo.specCode,
       };
     }
 
@@ -496,7 +488,9 @@ export class EggInventoryService {
     },
     mgr?: EntityManager,
   ): Promise<FifoAllocation[]> {
-    const q = mgr ? mgr.query.bind(mgr) : this.ds.query.bind(this.ds);
+    if (!mgr) return this.ds.transaction(manager => this.allocateByFIFO(params, manager));
+    const q = mgr.query.bind(mgr);
+    if (params.skuCode !== undefined) await SkuPolicy.requireUsable(mgr, params.skuCode, 'sale-stock');
 
     if (params.qty <= 0) throw new BadRequestException('分配数量必须大于 0');
 
@@ -552,6 +546,7 @@ export class EggInventoryService {
     for (const batch of batches) {
       if (remaining <= 0) break;
 
+      if (batch.sku_code != null) await SkuPolicy.requireUsable(mgr, batch.sku_code, 'sale-stock');
       const canTake = Math.min(remaining, Number(batch.qty_available));
       remaining -= canTake;
 
@@ -625,7 +620,8 @@ export class EggInventoryService {
     mgr?: EntityManager,
     fulfillmentWarehouseCode?: string,
   ): Promise<boolean> {
-    const q = mgr ? mgr.query.bind(mgr) : this.ds.query.bind(this.ds);
+    if (!mgr) return this.ds.transaction(manager => this.reserveInventory(orderId, orderNo, companyCode, manager, fulfillmentWarehouseCode));
+    const q = mgr.query.bind(mgr);
     let createdAny = false;
     await q(`SELECT pg_advisory_xact_lock(hashtext($1))`, [`sales-order-reservation:${orderId}`]);
 
@@ -774,7 +770,8 @@ export class EggInventoryService {
     requestedQty: number,
     mgr?: EntityManager,
   ): Promise<number> {
-    const q = mgr ? mgr.query.bind(mgr) : this.ds.query.bind(this.ds);
+    if (!mgr) return this.ds.transaction(manager => this.confirmOutbound(orderId, orderNo, companyCode, deliveryNo, deliveryId, requestedQty, manager));
+    const q = mgr.query.bind(mgr);
 
     const allocations = await q(
       `SELECT a.*,b.qty,b.expire_date,b.quality_grade,b.sku_code,b.warehouse_code,b.location_code,b.status
@@ -792,6 +789,7 @@ export class EggInventoryService {
       const available = Number(allocation.reserved_qty) - Number(allocation.outbound_qty) - Number(allocation.released_qty);
       const outQty = Math.min(available, remaining);
       if (outQty <= 0) continue;
+      if (allocation.sku_code != null) await SkuPolicy.requireUsable(mgr, allocation.sku_code, 'sale-stock');
 
         // 正式扣减物理库存（qty）
         const changed = await q(

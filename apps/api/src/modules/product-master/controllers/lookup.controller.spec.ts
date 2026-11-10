@@ -122,6 +122,12 @@ describe('LookupController guard and DataScope HTTP integration', () => {
     await get('/api/lookup/companies', bearer).expect(200);
   });
 
+  it.each(['products', 'product-grades', 'packaging-specs'])('allows authenticated business users to look up %s without management permissions', async path => {
+    const bearer = token({ sub: 'company-a', username: 'no-master-menu', roles: ['ROLE_SALES'], permissions: [] });
+    await get(`/api/lookup/${path}`, bearer).expect(200);
+    await get(`/api/lookup/${path}`).expect(401);
+  });
+
   it('rejects requests without a JWT', async () => {
     await get('/api/lookup/companies').expect(401);
     expect(dataScope.resolve).not.toHaveBeenCalled();

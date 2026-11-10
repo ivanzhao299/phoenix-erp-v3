@@ -12,7 +12,7 @@ describe('PackagingInventoryIntegrationService terminal handover', () => {
         if (sql.includes('FROM product_grades')) return [{ grade_code: 'L', is_saleable: true, is_storable: true, status: 'ACTIVE' }];
         if (sql.includes('FROM packaging_specs')) return [{ spec_code: 'PKG_PACK_SPEC_3', qty_per_unit: 30, status: 'ACTIVE' }];
         if (sql.includes('FROM mst_products')) return [{ product_code: 'REGISTERED-EGG', status: 'ACTIVE' }];
-        if (sql.includes('FROM product_skus')) return [{ sku_code: 'EGG-L-PKG_PACK_SPEC_3', product_code: 'REGISTERED-EGG', status: 'ACTIVE' }];
+        if (sql.includes('FROM product_skus')) return [{ sku_code: 'EGG-L-PKG_PACK_SPEC_3', product_code: 'REGISTERED-EGG', grade_code: 'L', spec_code: 'PKG_PACK_SPEC_3', status: 'ACTIVE' }];
         return [];
       }),
     };

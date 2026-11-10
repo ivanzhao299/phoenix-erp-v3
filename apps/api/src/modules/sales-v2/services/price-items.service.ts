@@ -2,7 +2,8 @@ import {
   Injectable, NotFoundException, ForbiddenException, BadRequestException,
 } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
-import { DataSource } from 'typeorm';
+import { SkuPolicy } from '../../product-master/services/sku-policy';
+import { DataSource, EntityManager } from 'typeorm';
 import { ClsService } from 'nestjs-cls';
 import { DataScopeContext } from '../../org/services/data-scope.service';
 import {
@@ -43,25 +44,9 @@ export class PriceItemsService {
    * Phase H3: 根据 sku_code 查询 product_skus，返回推导出的 productCode/gradeCodeStd/specCode
    * 仅在 dto.skuCode 存在时调用
    */
-  private async resolveSkuInfo(skuCode: string): Promise<{ productCode: string; gradeCodeStd: string; specCode: string }> {
-    const rows = await this.ds.query(
-      `SELECT product_code, grade_code, spec_code
-         FROM product_skus
-        WHERE sku_code = $1
-          AND status = 'ACTIVE'
-          AND (effective_date IS NULL OR effective_date <= CURRENT_DATE)
-          AND (expire_date IS NULL OR expire_date >= CURRENT_DATE)`,
-      [skuCode],
-    );
-    if (!rows?.length) {
-      throw new BadRequestException(`SKU "${skuCode}" 不存在、已停用或不在生效期，请先在主数据中心维护 SKU 档案`);
-    }
-    const sku = rows[0];
-    return {
-      productCode:  sku.product_code,
-      gradeCodeStd: sku.grade_code,
-      specCode:     sku.spec_code,
-    };
+  private async resolveSkuInfo(manager: EntityManager, skuCode: unknown) {
+    const sku = await SkuPolicy.requireUsable(manager, skuCode, 'sale');
+    return { productCode: sku.product_code, gradeCodeStd: sku.grade_code, specCode: sku.spec_code };
   }
 
   async listItems(q: QueryPriceItemDto) {
@@ -128,38 +113,40 @@ export class PriceItemsService {
       throw new ForbiddenException('ACTIVE 价格册不可添加明细，请先失效后操作');
     }
 
-    // Phase H3: 如果提供了 sku_code，校验并自动推导 productCode / gradeCodeStd / specCode
-    let productCode  = dto.productCode;
-    let gradeCodeStd = dto.gradeCodeStd ?? null;
-    let specCode     = dto.specCode     ?? null;
+    return this.ds.transaction(async manager => {
+      // Phase H3: 如果提供了 sku_code，校验并自动推导 productCode / gradeCodeStd / specCode
+      let productCode  = dto.productCode;
+      let gradeCodeStd = dto.gradeCodeStd ?? null;
+      let specCode     = dto.specCode     ?? null;
 
-    if (dto.skuCode) {
-      const skuInfo = await this.resolveSkuInfo(dto.skuCode);
-      productCode  = skuInfo.productCode;
-      gradeCodeStd = skuInfo.gradeCodeStd;
-      specCode     = skuInfo.specCode;
-    }
+      if (dto.skuCode !== undefined) {
+        const skuInfo = await this.resolveSkuInfo(manager, dto.skuCode);
+        productCode  = skuInfo.productCode;
+        gradeCodeStd = skuInfo.gradeCodeStd;
+        specCode     = skuInfo.specCode;
+      }
 
-    const result = await this.ds.query(`
-      INSERT INTO sal_price_items
-        (price_book_id, product_code, grade_code, packaging_spec,
-         currency_code, unit_price, floor_price, ceiling_price,
-         min_qty, max_qty, status,
-         sku_code, grade_code_std, spec_code)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'ACTIVE',$11,$12,$13)
-      RETURNING *
-    `, [
-      dto.priceBookId, productCode,
-      dto.gradeCode    ?? null, dto.packagingSpec ?? null,
-      dto.currencyCode ?? 'LAK',
-      dto.unitPrice,
-      dto.floorPrice   ?? null, dto.ceilingPrice  ?? null,
-      dto.minQty       ?? null, dto.maxQty        ?? null,
-      dto.skuCode      ?? null,
-      gradeCodeStd,
-      specCode,
-    ]);
-    return result[0];
+      const result = await manager.query(`
+        INSERT INTO sal_price_items
+          (price_book_id, product_code, grade_code, packaging_spec,
+           currency_code, unit_price, floor_price, ceiling_price,
+           min_qty, max_qty, status,
+           sku_code, grade_code_std, spec_code)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'ACTIVE',$11,$12,$13)
+        RETURNING *
+      `, [
+        dto.priceBookId, productCode,
+        dto.gradeCode    ?? null, dto.packagingSpec ?? null,
+        dto.currencyCode ?? 'LAK',
+        dto.unitPrice,
+        dto.floorPrice   ?? null, dto.ceilingPrice  ?? null,
+        dto.minQty       ?? null, dto.maxQty        ?? null,
+        dto.skuCode      ?? null,
+        gradeCodeStd,
+        specCode,
+      ]);
+      return result[0];
+    });
   }
 
   async updateItem(id: string, dto: UpdatePriceItemDto) {
@@ -227,48 +214,45 @@ export class PriceItemsService {
     if (!dto.items?.length) throw new BadRequestException('导入数据不可为空');
     if (dto.items.length > 500) throw new BadRequestException('单次批量导入上限 500 条');
 
-    const results: any[] = [];
-    for (const item of dto.items) {
-      // Phase H3: 批量导入同样支持 sku_code 推导
-      let productCode  = item.productCode;
-      let gradeCodeStd = item.gradeCodeStd ?? null;
-      let specCode     = item.specCode     ?? null;
+    return this.ds.transaction(async manager => {
+      const results: any[] = [];
+      for (const item of dto.items) {
+        // Phase H3: 批量导入同样支持 sku_code 推导
+        let productCode  = item.productCode;
+        let gradeCodeStd = item.gradeCodeStd ?? null;
+        let specCode     = item.specCode     ?? null;
 
-      if (item.skuCode) {
-        try {
-          const skuInfo = await this.resolveSkuInfo(item.skuCode);
-          productCode  = skuInfo.productCode;
+        if (item.skuCode !== undefined) {
+          const skuInfo = await this.resolveSkuInfo(manager, item.skuCode);
+          productCode = skuInfo.productCode;
           gradeCodeStd = skuInfo.gradeCodeStd;
-          specCode     = skuInfo.specCode;
-        } catch {
-          // SKU 无效时跳过该条，继续处理下一条
-          continue;
+          specCode = skuInfo.specCode;
         }
-      }
 
-      const r = await this.ds.query(`
-        INSERT INTO sal_price_items
-          (price_book_id, product_code, grade_code, packaging_spec,
-           currency_code, unit_price, floor_price, ceiling_price,
-           min_qty, max_qty, status,
-           sku_code, grade_code_std, spec_code)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'ACTIVE',$11,$12,$13)
-        ON CONFLICT DO NOTHING
-        RETURNING *
-      `, [
-        dto.priceBookId, productCode,
-        item.gradeCode    ?? null, item.packagingSpec ?? null,
-        item.currencyCode ?? 'LAK',
-        item.unitPrice,
-        item.floorPrice   ?? null, item.ceilingPrice  ?? null,
-        item.minQty       ?? null, item.maxQty        ?? null,
-        item.skuCode      ?? null,
-        gradeCodeStd,
-        specCode,
-      ]);
-      if (r?.length) results.push(r[0]);
-    }
-    return { imported: results.length, total: dto.items.length };
+        const r = await manager.query(`
+          INSERT INTO sal_price_items
+            (price_book_id, product_code, grade_code, packaging_spec,
+             currency_code, unit_price, floor_price, ceiling_price,
+             min_qty, max_qty, status,
+             sku_code, grade_code_std, spec_code)
+          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'ACTIVE',$11,$12,$13)
+          ON CONFLICT DO NOTHING
+          RETURNING *
+        `, [
+          dto.priceBookId, productCode,
+          item.gradeCode    ?? null, item.packagingSpec ?? null,
+          item.currencyCode ?? 'LAK',
+          item.unitPrice,
+          item.floorPrice   ?? null, item.ceilingPrice  ?? null,
+          item.minQty       ?? null, item.maxQty        ?? null,
+          item.skuCode      ?? null,
+          gradeCodeStd,
+          specCode,
+        ]);
+        if (r?.length) results.push(r[0]);
+      }
+      return { imported: results.length, total: dto.items.length };
+    });
   }
 
   async copyFromBook(sourceBookId: string, targetBookId: string) {
@@ -278,19 +262,19 @@ export class PriceItemsService {
       throw new ForbiddenException('目标价格册 ACTIVE 状态不可复制');
     }
 
-    // Phase H3: 复制时同步带上 sku_code / grade_code_std / spec_code
-    const result = await this.ds.query(`
-      INSERT INTO sal_price_items
-        (price_book_id, product_code, grade_code, packaging_spec,
-         currency_code, unit_price, floor_price, ceiling_price, min_qty, max_qty, status,
-         sku_code, grade_code_std, spec_code)
-      SELECT $1, product_code, grade_code, packaging_spec,
-             currency_code, unit_price, floor_price, ceiling_price, min_qty, max_qty, 'ACTIVE',
-             sku_code, grade_code_std, spec_code
-      FROM sal_price_items
-      WHERE price_book_id = $2 AND status = 'ACTIVE'
-    `, [targetBookId, sourceBookId]);
-
-    return { copied: result?.affectedRows ?? result?.rowCount ?? 0 };
+    return this.ds.transaction(async manager => {
+      const items = await manager.query(`SELECT * FROM sal_price_items WHERE price_book_id=$1 AND status='ACTIVE' ORDER BY id FOR SHARE`, [sourceBookId]);
+      for (const item of items) {
+        if (item.sku_code != null) {
+          const sku = await SkuPolicy.requireUsable(manager, item.sku_code, 'sale');
+          item.product_code = sku.product_code; item.grade_code_std = sku.grade_code; item.spec_code = sku.spec_code;
+        }
+        await manager.query(`INSERT INTO sal_price_items
+          (price_book_id,product_code,grade_code,packaging_spec,currency_code,unit_price,floor_price,ceiling_price,min_qty,max_qty,status,sku_code,grade_code_std,spec_code)
+          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'ACTIVE',$11,$12,$13)`,
+          [targetBookId,item.product_code,item.grade_code,item.packaging_spec,item.currency_code,item.unit_price,item.floor_price,item.ceiling_price,item.min_qty,item.max_qty,item.sku_code,item.grade_code_std,item.spec_code]);
+      }
+      return { copied: items.length };
+    });
   }
 }

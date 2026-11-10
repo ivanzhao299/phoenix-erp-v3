@@ -1,6 +1,13 @@
 import { WmsService } from './wms.service';
 import { BadRequestException } from '@nestjs/common';
 
+// Active master fixtures for transaction tests; availability rejection is covered separately.
+function masterRows(sql: string) {
+  if (sql.includes('FROM product_skus WHERE sku_code=$1 FOR SHARE')) return [{ sku_code: 'SKU-EGG-A-30', product_code: 'PRD-EGG', grade_code: 'A', spec_code: 'TRAY30', sku_name: '鸡蛋SKU', status: 'ACTIVE' }];
+  if (/SELECT \* FROM (mst_products|product_grades|packaging_specs)/.test(sql)) return [{ status: 'ACTIVE', is_saleable: true, is_storable: true, base_unit: '枚' }];
+  return undefined;
+}
+
 describe('WmsService inventory read queries', () => {
   const buildService = (rows: any[] = []) => {
     const em = {
@@ -85,6 +92,7 @@ describe('WmsService inventory read queries', () => {
   it('allows PURCHASE receipt inbound to a FEED warehouse', async () => {
     const manager = {
       query: jest.fn(async (sql: string) => {
+        const masters = masterRows(sql); if (masters) return masters;
         if (sql.includes('SELECT type')) return [{ type: 'FEED', domain: 'OPERATIONAL' }];
         if (sql.includes('FROM mst_materials')) return [{
           material_code: 'MAT-FEED-1', material_name: '饲料', material_type: 'FEED_RAW', unit: 'kg',
@@ -192,6 +200,7 @@ describe('WmsService inventory read queries', () => {
   it('accepts SKU-only inbound confirmation and persists SKU to batch and ledger', async () => {
     const manager = {
       query: jest.fn(async (sql: string, _params?: unknown[]) => {
+        const masters = masterRows(sql); if (masters) return masters;
         if (sql.includes('SELECT type, domain FROM wms_warehouses')) {
           return [{ type: 'PURCHASE_RECV', domain: 'OPERATIONAL' }];
         }
@@ -239,8 +248,9 @@ describe('WmsService inventory read queries', () => {
     });
 
     const skuLookup = manager.query.mock.calls.find(([sql]) => String(sql).includes('FROM product_skus'));
-    expect(skuLookup?.[0]).toContain('effective_date IS NULL OR ps.effective_date <= CURRENT_DATE');
-    expect(skuLookup?.[0]).toContain('expire_date IS NULL OR ps.expire_date >= CURRENT_DATE');
+    expect(skuLookup?.[0]).toContain('CURRENT_DATE::text AS today');
+    expect(skuLookup?.[0]).toContain('FOR SHARE');
+    expect(manager.query.mock.calls.filter(([sql]) => /FROM (mst_products|product_grades|packaging_specs)/.test(sql))).toHaveLength(3);
 
     const insertBatchCall = manager.query.mock.calls.find(([sql]) =>
       String(sql).includes('INSERT INTO inv_batches') && String(sql).includes('sku_code'),
@@ -286,6 +296,7 @@ describe('WmsService inventory read queries', () => {
   it('normalizes a SKU entered in the legacy product-code field so outbound can select the stock', async () => {
     const manager = {
       query: jest.fn(async (sql: string, params?: unknown[]) => {
+        const masters = masterRows(sql); if (masters) return masters;
         if (sql.includes('SELECT type, domain FROM wms_warehouses')) {
           return [{ type: 'PURCHASE_RECV', domain: 'OPERATIONAL' }];
         }
@@ -365,6 +376,7 @@ describe('WmsService inventory read queries', () => {
   it('persists received quantity two on the inbound line before posting visible inventory', async () => {
     const manager = {
       query: jest.fn(async (sql: string, _params?: unknown[]) => {
+        const masters = masterRows(sql); if (masters) return masters;
         if (sql.includes('SELECT type, domain FROM wms_warehouses')) {
           return [{ type: 'FEED', domain: 'OPERATIONAL' }];
         }
@@ -422,6 +434,7 @@ describe('WmsService inventory read queries', () => {
   it('ships outbound inventory by SKU across available batches', async () => {
     const manager = {
       query: jest.fn(async (sql: string, _params?: unknown[]) => {
+        const masters = masterRows(sql); if (masters) return masters;
         if (sql.includes('SELECT batch_no FROM changed')) return [{ batch_no: 'changed' }];
         if (sql.includes('SELECT order_no, status, store_code FROM ord_orders')) {
           return [{ order_no: 'SO-SKU-1', status: 'ALLOCATED', store_code: 'ALL' }];
@@ -503,6 +516,7 @@ describe('WmsService inventory read queries', () => {
   it('confirms a standalone outbound only after deducting its batch and writing the ledger', async () => {
     const manager = {
       query: jest.fn(async (sql: string) => {
+        const masters = masterRows(sql); if (masters) return masters;
         if (sql.includes('SELECT batch_no FROM changed')) return [{ batch_no: 'B-EGG-A-1' }];
         if (sql.includes('FROM wms_outbound')) {
           return [{
@@ -590,6 +604,7 @@ describe('WmsService inventory read queries', () => {
   it('confirms a legacy ALL-owned batch and normalizes ownership to its warehouse company', async () => {
     const manager = {
       query: jest.fn(async (sql: string) => {
+        const masters = masterRows(sql); if (masters) return masters;
         if (sql.includes('SELECT batch_no FROM changed')) return [{ batch_no: 'IBN-LEGACY-1' }];
         if (sql.includes('FROM wms_outbound')) {
           return [{
@@ -629,6 +644,7 @@ describe('WmsService inventory read queries', () => {
   it('rejects a batch whose company ownership does not match the outbound', async () => {
     const manager = {
       query: jest.fn(async (sql: string) => {
+        const masters = masterRows(sql); if (masters) return masters;
         if (sql.includes('FROM wms_outbound')) return [{
           id: '33', outbound_no: 'WO-OWNER-MISMATCH', status: 'PENDING', type: 'SALE',
           warehouse_code: 'WH-A', company_code: 'COMP-A', store_code: 'ALL',
@@ -654,6 +670,7 @@ describe('WmsService inventory read queries', () => {
   it('creates a minimal valid sale outbound and keeps it pending', async () => {
     const manager = {
       query: jest.fn(async (sql: string) => {
+        const masters = masterRows(sql); if (masters) return masters;
         if (sql.includes('FROM product_skus')) {
           return [{ sku_code: 'SKU-EGG-A-30', product_code: 'PRD-EGG', sku_name: '鸡蛋SKU', unit: '枚' }];
         }
@@ -705,6 +722,7 @@ describe('WmsService inventory read queries', () => {
   it('keeps a standalone outbound pending when inventory is insufficient', async () => {
     const manager = {
       query: jest.fn(async (sql: string) => {
+        const masters = masterRows(sql); if (masters) return masters;
         if (sql.includes('FROM wms_outbound')) {
           return [{
             id: '32',
@@ -761,6 +779,7 @@ describe('WmsService inventory read queries', () => {
   it('blocks transfer receiving from the generic inbound confirmation workflow', async () => {
     const manager = {
       query: jest.fn(async (sql: string) => {
+        const masters = masterRows(sql); if (masters) return masters;
         if (sql.includes('FROM wms_inbound')) {
           return [{
             warehouse_code: 'WH-B',
@@ -824,6 +843,7 @@ describe('WmsService inventory read queries', () => {
   it('keeps transfer identity and available quantity in one atomic transaction', async () => {
     const manager = {
       query: jest.fn(async (sql: string, _params?: unknown[]) => {
+        const masters = masterRows(sql); if (masters) return masters;
         if (sql.includes('SELECT batch_no FROM changed')) return [{ batch_no: 'B-MAT-1' }];
         if (sql.includes('FROM wms_warehouses w')) return [{ company_code: 'COMP-B', store_code: 'STORE-B', store_status: 'ACTIVE' }];
         if (sql.includes('FROM inv_batches WHERE batch_no = $1 FOR UPDATE')) {
@@ -910,6 +930,7 @@ describe('WmsService inventory read queries', () => {
   it('does not mutate inventory when the transfer master record cannot be written', async () => {
     const manager = {
       query: jest.fn(async (sql: string) => {
+        const masters = masterRows(sql); if (masters) return masters;
         if (sql.includes('INSERT INTO wms_transfer')) throw new Error('transfer master unavailable');
         return [];
       }),
@@ -935,7 +956,7 @@ describe('WmsService inventory read queries', () => {
   });
 
   it('creates a PENDING transfer without mutating inventory', async () => {
-    const manager = { query: jest.fn().mockResolvedValue([]) };
+    const manager = { query: jest.fn(async (sql: string) => sql.includes('SELECT sku_code, warehouse_code FROM inv_batches') ? [{ warehouse_code: 'WH-A', sku_code: null }] : []) };
     const em = { transaction: jest.fn(async (cb: any) => cb(manager)) };
     const cls = { get: jest.fn(() => ({ isGlobal: true, allowedWarehouseCodes: [] })) };
     const service = new WmsService(em as any, cls as any);
@@ -959,7 +980,7 @@ describe('WmsService inventory read queries', () => {
   });
 
   it('allows an orchestrated replenishment target only when it is in the resolved SALES bindings', async () => {
-    const manager = { query: jest.fn().mockResolvedValue([]) };
+    const manager = { query: jest.fn(async (sql: string) => sql.includes('SELECT sku_code, warehouse_code FROM inv_batches') ? [{ warehouse_code: 'WH-A', sku_code: null }] : []) };
     const em = { transaction: jest.fn(async (cb: any) => cb(manager)) };
     const cls = { get: jest.fn(() => ({ isGlobal: false, allowedWarehouseCodes: ['WH-A'] })) };
     const service = new WmsService(em as any, cls as any);
@@ -977,6 +998,7 @@ describe('WmsService inventory read queries', () => {
 
   it('dispatches PENDING stock into auditable in-transit ownership', async () => {
     const manager = { query: jest.fn(async (sql: string) => {
+        const masters = masterRows(sql); if (masters) return masters;
       if (sql.includes('SELECT batch_no FROM changed')) return [{ batch_no: 'B-1' }];
       if (sql.includes('FROM wms_transfer WHERE')) return [{ transfer_no: 'TR-2', status: 'PENDING', from_warehouse: 'WH-A', to_warehouse: 'WH-B' }];
       if (sql.includes('FROM wms_transfer_items')) return [{ id: 1, source_batch_no: 'B-1', expected_qty: 3 }];
@@ -993,6 +1015,7 @@ describe('WmsService inventory read queries', () => {
 
   it('dispatch requires only source warehouse scope', async () => {
     const manager = { query: jest.fn(async (sql: string) => {
+        const masters = masterRows(sql); if (masters) return masters;
       if (sql.includes('SELECT batch_no FROM changed')) return [{ batch_no: 'B-1' }];
       if (sql.includes('FROM wms_transfer WHERE')) return [{ transfer_no: 'TR-SOURCE', status: 'PENDING', from_warehouse: 'WH-A', to_warehouse: 'WH-B' }];
       if (sql.includes('FROM wms_transfer_items')) return [{ id: 1, source_batch_no: 'B-1', expected_qty: 1 }];
@@ -1006,6 +1029,7 @@ describe('WmsService inventory read queries', () => {
 
   it('receive requires target warehouse scope, not source warehouse scope', async () => {
     const manager = { query: jest.fn(async (sql: string) => {
+        const masters = masterRows(sql); if (masters) return masters;
       if (sql.includes('FROM wms_transfer WHERE')) return [{ transfer_no: 'TR-TARGET', status: 'IN_TRANSIT', from_warehouse: 'WH-A', to_warehouse: 'WH-B' }];
       if (sql.includes('FROM wms_transfer_items')) return [];
       return [];
@@ -1021,6 +1045,7 @@ describe('WmsService inventory read queries', () => {
 
   it('records signing shortage/damage and keeps the transfer RECEIVED until linked resolution', async () => {
     const manager = { query: jest.fn(async (sql: string) => {
+        const masters = masterRows(sql); if (masters) return masters;
       if (sql.includes('FROM wms_transfer WHERE')) return [{ transfer_no: 'TR-3', status: 'IN_TRANSIT', from_warehouse: 'WH-A', to_warehouse: 'WH-B' }];
       if (sql.includes('FROM wms_transfer_items')) return [{ id: 11, source_batch_no: 'B-1', expected_qty: 5, source_snapshot: {} }];
       if (sql.includes('FROM wms_warehouses w')) return [{ company_code: 'COMP-A', store_code: 'STORE-B', store_status: 'ACTIVE' }];
@@ -1047,6 +1072,7 @@ describe('WmsService inventory read queries', () => {
 
   it('requires every received discrepancy to link a loss or adjustment document', async () => {
     const manager = { query: jest.fn(async (sql: string) => {
+        const masters = masterRows(sql); if (masters) return masters;
       if (sql.includes('FROM wms_transfer WHERE')) return [{ transfer_no: 'TR-4', status: 'RECEIVED', to_warehouse: 'WH-B' }];
       if (sql.includes('FROM wms_transfer_discrepancies')) return [{ id: 21 }];
       return [];
@@ -1059,6 +1085,7 @@ describe('WmsService inventory read queries', () => {
 
   it('complete requires target warehouse scope', async () => {
     const manager = { query: jest.fn(async (sql: string) => {
+        const masters = masterRows(sql); if (masters) return masters;
       if (sql.includes('FROM wms_transfer WHERE')) return [{ transfer_no: 'TR-4', status: 'RECEIVED', from_warehouse: 'WH-A', to_warehouse: 'WH-B' }];
       if (sql.includes('FROM wms_transfer_discrepancies')) return [];
       return [];

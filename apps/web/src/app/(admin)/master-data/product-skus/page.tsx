@@ -5,6 +5,7 @@ import { MasterDataRuntimePanel } from "@/components/master-data/MasterDataRunti
 import { MasterDataCenterStrip } from "@/components/master-data/MasterDataCenterStrip";
 import { MasterDataDetailDrawer } from "@/components/master-data/MasterDataDetailDrawer";
 import { skuConfig } from "@/components/master-data/detail-configs";
+import { skuFields } from "@/components/master-data/sku-fields";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 export default function SkuRuntimePage() {
@@ -20,17 +21,7 @@ export default function SkuRuntimePage() {
         codeKey="sku_code"
         nameKey="sku_name"
         onCodeClick={(code) => setDetailCode(code)}
-        fields={[
-          { key: "sku_name", label: t('md.skuName', 'SKU 名称'), required: true },
-          { key: "product_code", label: t('md.productCode', '产品编码'), required: true },
-          { key: "product_name", label: t('md.productName', '产品名称') },
-          { key: "grade_code", label: t('md.gradeCode', '等级编码'), required: true },
-          { key: "spec_code", label: t('md.specCode', '规格编码'), required: true },
-          { key: "barcode", label: t('md.barcode', '条码') },
-          { key: "effective_date", label: t('md.effectiveDate', '生效日期'), type: "date" },
-          { key: "expire_date", label: t('md.expireDate', '失效日期'), type: "date" },
-          { key: "remark", label: t('md.remark', '备注') },
-        ]}
+        fields={skuFields(t)}
         columns={[
           { key: "sku_name", label: t('md.skuName', 'SKU 名称') },
           { key: "product_code", label: t('md.product', '产品') },

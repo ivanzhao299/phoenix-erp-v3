@@ -52,6 +52,8 @@ describe('StorePosService V1-2 atomic settlement', () => {
 
   it('rejects an insufficient FIFO allocation so the enclosing transaction can roll back', async () => {
     const mgr = { query: jest.fn(async (sql: string) => {
+      if (sql.includes('FROM product_skus')) return [{ sku_code: 'SKU-EGG', product_code: 'EGG', grade_code: 'G', spec_code: 'S', status: 'ACTIVE' }];
+      if (/SELECT \* FROM (mst_products|product_grades|packaging_specs)/.test(sql)) return [{ status: 'ACTIVE', is_saleable: true, is_storable: true }];
       if (sql.includes('FROM inv_batches')) return [{ batch_no: 'B1', warehouse_code: 'WH-A', qty_available: 2 }];
       if (sql.includes('UPDATE inv_batches')) return [{ batch_no: 'B1' }];
       return [];
@@ -63,6 +65,8 @@ describe('StorePosService V1-2 atomic settlement', () => {
 
   it('persists every batch allocation for a multi-batch FIFO deduction', async () => {
     const mgr = { query: jest.fn(async (sql: string) => {
+      if (sql.includes('FROM product_skus')) return [{ sku_code: 'SKU-EGG', product_code: 'EGG', grade_code: 'G', spec_code: 'S', status: 'ACTIVE' }];
+      if (/SELECT \* FROM (mst_products|product_grades|packaging_specs)/.test(sql)) return [{ status: 'ACTIVE', is_saleable: true, is_storable: true }];
       if (sql.includes('FROM inv_batches')) return [
         { batch_no: 'B1', warehouse_code: 'WH-A', qty_available: 1 },
         { batch_no: 'B2', warehouse_code: 'WH-A', qty_available: 2 },
@@ -81,6 +85,8 @@ describe('StorePosService V1-2 atomic settlement', () => {
 
   it('normalizes the PostgreSQL UPDATE result through a SELECT CTE before checking one changed row', async () => {
     const mgr = { query: jest.fn(async (sql: string) => {
+      if (sql.includes('FROM product_skus')) return [{ sku_code: 'SKU-EGG', product_code: 'EGG', grade_code: 'G', spec_code: 'S', status: 'ACTIVE' }];
+      if (/SELECT \* FROM (mst_products|product_grades|packaging_specs)/.test(sql)) return [{ status: 'ACTIVE', is_saleable: true, is_storable: true }];
       if (sql.includes('FROM inv_batches')) return [
         { batch_no: 'B1', warehouse_code: 'WH-A', qty_available: 3 },
       ];
@@ -101,6 +107,8 @@ describe('StorePosService V1-2 atomic settlement', () => {
       items: [{ ...sale.items[0], batch_no: 'PRE-FIX-BATCH' }],
     };
     const mgr = { query: jest.fn(async (sql: string) => {
+      if (sql.includes('FROM product_skus')) return [{ sku_code: 'SKU-EGG', product_code: 'EGG', grade_code: 'G', spec_code: 'S', status: 'ACTIVE' }];
+      if (/SELECT \* FROM (mst_products|product_grades|packaging_specs)/.test(sql)) return [{ status: 'ACTIVE', is_saleable: true, is_storable: true }];
       if (sql.includes('FROM inv_batches')) return [
         { batch_no: 'CURRENT-BATCH', warehouse_code: 'WH-A', qty_available: 3 },
       ];

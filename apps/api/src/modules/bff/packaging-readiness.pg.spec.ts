@@ -23,7 +23,7 @@ const url = process.env.PACKAGING_TEST_DATABASE_URL;
       CREATE TABLE mst_products(product_code text PRIMARY KEY,status text);
       CREATE TABLE product_grades(grade_code text PRIMARY KEY,status text,is_saleable boolean,is_storable boolean,sort_order integer);
       CREATE TABLE packaging_specs(spec_code text PRIMARY KEY,spec_name text,status text,qty_per_unit integer);
-      CREATE TABLE product_skus(sku_code text PRIMARY KEY,product_code text,grade_code text,spec_code text,status text);
+      CREATE TABLE product_skus(sku_code text PRIMARY KEY,product_code text,grade_code text,spec_code text,status text,effective_date date,expire_date date);
       CREATE TABLE brd_farms(farm_code text PRIMARY KEY,company_code text,status text);
       CREATE TABLE brd_houses(house_code text PRIMARY KEY,farm_code text,status text);
       CREATE TABLE wms_warehouses(warehouse_code text PRIMARY KEY,company_code text,status text);

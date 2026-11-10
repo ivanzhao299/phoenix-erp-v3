@@ -30,7 +30,18 @@ describe('ProductionInboundService master-data resolution', () => {
     let resolvedCompany = 'COMP-A';
     return {
       service: new ProductionInboundService(
-        { query } as never,
+        { query, transaction: async (run: (manager: any) => unknown) => {
+          let selected: any[] = [];
+          const manager = { query: async (sql: string, values: unknown[]) => {
+            if (sql.includes('WHERE sku_code=$1 FOR SHARE')) return selected.map(row => ({ ...row, status: 'ACTIVE' }));
+            if (/SELECT \* FROM (mst_products|product_grades|packaging_specs)/.test(sql)) return [{ status: 'ACTIVE', is_storable: true }];
+            if (sql.includes('pg_advisory_xact_lock') || sql.includes('FROM inv_batches') || sql.includes('to_regclass')) return [];
+            const rows = await query(sql, values);
+            if (sql.includes('FROM product_skus')) selected = rows;
+            return rows;
+          } };
+          return run(manager);
+        } } as never,
         { get: jest.fn((key: string) => key === 'dataScope' ? dataScope : undefined) } as never,
         { createProductionBatch } as never,
         modeSvc as never,
@@ -75,7 +86,7 @@ describe('ProductionInboundService master-data resolution', () => {
     expect(createProductionBatch).toHaveBeenCalledWith(expect.objectContaining({
       companyCode: 'COMP-A', warehouseCode: 'WH-A', locationCode: 'LOC-IN-A',
       skuCode: 'SKU-EGG-1', productCode: 'PROD-EGG', gradeCodeStd: 'GRADE_1', specCode: 'LOOSE',
-    }));
+    }), expect.objectContaining({ query: expect.any(Function) }));
   });
 
   it('uses house -> farm authority ahead of spoofed explicit company/site', async () => {
@@ -160,6 +171,8 @@ describe('ProductionInboundService master-data resolution', () => {
     });
     const existing: any[] = [];
     const managerQuery = jest.fn().mockImplementation(async (sql: string) => {
+      if (sql.includes('FROM product_skus')) return [{ sku_code: 'SKU-1', product_code: 'PROD', grade_code: 'GRADE_1', spec_code: 'LOOSE', status: 'ACTIVE' }];
+      if (/SELECT \* FROM (mst_products|product_grades|packaging_specs)/.test(sql)) return [{ status: 'ACTIVE', is_storable: true }];
       if (sql.includes('pg_advisory_xact_lock')) return [];
       if (sql.includes('FROM inv_batches')) return existing;
       return [];
@@ -215,6 +228,8 @@ describe('ProductionInboundService master-data resolution', () => {
     });
     const existing: any[] = [];
     const managerQuery = jest.fn().mockImplementation(async (sql: string) => {
+      if (sql.includes('FROM product_skus')) return [{ sku_code: 'SKU-1', product_code: 'PROD', grade_code: 'GRADE_1', spec_code: 'LOOSE', status: 'ACTIVE' }];
+      if (/SELECT \* FROM (mst_products|product_grades|packaging_specs)/.test(sql)) return [{ status: 'ACTIVE', is_storable: true }];
       if (sql.includes('pg_advisory_xact_lock')) return [];
       if (sql.includes('FOR UPDATE')) return existing;
       return [];
@@ -249,6 +264,14 @@ describe('ProductionInboundService master-data resolution', () => {
     expect(lock![1][0]).toContain('2026-08-25');
   });
 
+  it('replays an omitted-spec daily request from stored identities after master availability changes', async () => {
+    const { service, managerQuery, createProductionBatch, existing } = buildRetryService();
+    existing.push({ batch_no: 'OLD-BATCH', quality_grade: 'GRADE_1', qty: 5, product_code: 'OLD-PRODUCT', sku_code: 'FROZEN-SKU', spec_code: 'LOOSE', egg_date: '2026-08-25', collection_batch_ref: 'HOUSE-HOUSE-A', warehouse_code: 'WH-A', location_code: 'LOC-A' });
+    await expect(service.recordProductionInbound({ houseCode: 'HOUSE-A', eggDate: '2026-08-25', items: [{ grade: 'GRADE_1', qty: 5 }] })).resolves.toMatchObject({ idempotent: true, batches: [{ batchNo: 'OLD-BATCH', productCode: 'OLD-PRODUCT' }] });
+    expect(managerQuery.mock.calls.some(([sql]) => sql.includes('product_skus'))).toBe(false);
+    expect(createProductionBatch).not.toHaveBeenCalled();
+  });
+
   it('counts already-posted batches against the allowance whatever source key created them', async () => {
     const query = jest.fn().mockImplementation(async (sql: string) => {
       if (!sql) return [{ farm_code: 'FARM-A', farm_company_code: 'COMP-A', farm_site_code: 'SITE-A' }];
@@ -259,6 +282,8 @@ describe('ProductionInboundService master-data resolution', () => {
       return [];
     });
     const managerQuery = jest.fn().mockImplementation(async (sql: string) => {
+      if (sql.includes('FROM product_skus')) return [{ sku_code: 'SKU-1', product_code: 'PROD', grade_code: 'GRADE_1', spec_code: 'LOOSE', status: 'ACTIVE' }];
+      if (/SELECT \* FROM (mst_products|product_grades|packaging_specs)/.test(sql)) return [{ status: 'ACTIVE', is_storable: true }];
       if (sql.includes('pg_advisory_xact_lock')) return [];
       if (sql.includes('FOR UPDATE')) return [];
       if (sql.includes('to_regclass')) return [{ table_name: 'brd_daily_logs' }];

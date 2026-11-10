@@ -441,7 +441,7 @@ export default function SalesV2OrdersPage() {
   useEffect(() => {
     api<any>('GET', '/api/v2/sales/customers?limit=200').then(r => setCustomers(r.data ?? [])).catch(() => {});
     // Phase H5: 加载 SKU 主数据
-    api<any>('GET', '/api/product-master/skus?limit=500').then(r => setSkus(Array.isArray(r) ? r : r.data ?? [])).catch(() => {});
+    api<any>('GET', '/api/product-master/skus?limit=500&usage=sale').then(r => setSkus(Array.isArray(r) ? r : r.data ?? [])).catch(() => {});
   }, []);
 
   // ── 选择客户时加载实时信用分析（Phase 5：调用 credit-analysis API）────────
@@ -1093,7 +1093,7 @@ export default function SalesV2OrdersPage() {
                   display: 'block',
                   marginBottom: 2
                 }}>{t('ui.商品（SKU 主数据）*','商品（SKU 主数据）*')}</label>
-                      <SkuSelector value={item.skuCode ?? ''} onChange={code => setNewItems(p => p.map((it, i) => i === idx ? {
+                      <SkuSelector usage="sale" value={item.skuCode ?? ''} onChange={code => setNewItems(p => p.map((it, i) => i === idx ? {
                   ...it,
                   skuCode: code,
                   _resolved: undefined

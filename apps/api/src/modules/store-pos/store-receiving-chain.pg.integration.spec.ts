@@ -17,6 +17,10 @@ describePg('Store receiving canonical WMS chain PostgreSQL integration', () => {
   const targetWarehouse = `B6-STORE-${suffix}`;
   const storeCode = `B6-STORE-${suffix}`;
   const companyCode = `B6-COMP-${suffix}`;
+  const productCode = `B6-P-${suffix}`;
+  const gradeCode = `B6G${suffix}`;
+  const specCode = `B6-S-${suffix}`;
+  const skuCode = `B6-SKU-${suffix}`;
   const sourceBatch = `B6-BATCH-${suffix}`;
   const legacyReceivingNo = `B6-LEGACY-${suffix}`;
   let storeId: string;
@@ -66,12 +70,17 @@ describePg('Store receiving canonical WMS chain PostgreSQL integration', () => {
               ($4,$5,'EGG_SALES','ACTIVE','OPERATIONAL',$3,$6,$7)`,
       [sourceWarehouse, `B6 Source ${suffix}`, companyCode, targetWarehouse, `B6 Target ${suffix}`, storeId, storeCode],
     );
+    // New stock transactions require a real usable SKU and all three ACTIVE parents.
+    await ds.query(`INSERT INTO mst_products (product_code,product_name,product_name_zh,unit_zh,status) VALUES ($1,'B6 Product','B6 Product','EA','ACTIVE')`, [productCode]);
+    await ds.query(`INSERT INTO product_grades (grade_code,grade_name,is_saleable,is_storable,status) VALUES ($1,'B6 Grade',true,true,'ACTIVE')`, [gradeCode]);
+    await ds.query(`INSERT INTO packaging_specs (spec_code,spec_name,qty_per_unit,base_unit,display_unit,status) VALUES ($1,'B6 Spec',1,'EA','EA','ACTIVE')`, [specCode]);
+    await ds.query(`INSERT INTO product_skus (sku_code,sku_name,product_code,product_name,grade_code,spec_code,status) VALUES ($1,'B6 SKU',$2,'B6 Product',$3,$4,'ACTIVE')`, [skuCode, productCode, gradeCode, specCode]);
     await ds.query(
       `INSERT INTO inv_batches
         (batch_no,product_code,sku_code,item_type,unit,qty,qty_available,status,
          warehouse_code,location_code,store_code,company_code,inbound_date)
-       VALUES ($1,'B6-PRODUCT',$2,'SKU','EA',10,10,'AVAILABLE',$3,'B6-SOURCE',$4,$5,CURRENT_DATE)`,
-      [sourceBatch, `B6-SKU-${suffix}`, sourceWarehouse, 'ALL', companyCode],
+       VALUES ($1,$6,$2,'SKU','EA',10,10,'AVAILABLE',$3,'B6-SOURCE',$4,$5,CURRENT_DATE)`,
+      [sourceBatch, skuCode, sourceWarehouse, 'ALL', companyCode, productCode],
     );
     // The historical table is runtime-created by GenericCrudService in production;
     // create the legacy projection explicitly in this disposable PG16 fixture so
@@ -102,6 +111,10 @@ describePg('Store receiving canonical WMS chain PostgreSQL integration', () => {
         await manager.query(`DELETE FROM inv_ledger WHERE ref_no=$1`, [transferNo]);
       }
       await manager.query(`DELETE FROM inv_batches WHERE batch_no=$1 OR batch_no LIKE $2`, [sourceBatch, `${sourceBatch}-T-%`]);
+      await manager.query(`DELETE FROM product_skus WHERE sku_code=$1`, [skuCode]);
+      await manager.query(`DELETE FROM packaging_specs WHERE spec_code=$1`, [specCode]);
+      await manager.query(`DELETE FROM product_grades WHERE grade_code=$1`, [gradeCode]);
+      await manager.query(`DELETE FROM mst_products WHERE product_code=$1`, [productCode]);
       await manager.query(`DELETE FROM wms_warehouses WHERE warehouse_code IN ($1,$2)`, [sourceWarehouse, targetWarehouse]);
       await manager.query(`DELETE FROM store_master WHERE id=$1`, [storeId]);
     });

@@ -1,3 +1,4 @@
+import { SkuPolicy } from '../../product-master/services/sku-policy';
 import { Injectable, Logger, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
@@ -305,27 +306,6 @@ export class ProductionInboundService {
     const collectionRef = dto.houseCode ? `HOUSE-${dto.houseCode}` : (siteCode ? `SITE-${siteCode}` : null);
     const batches: Array<{ batchNo: string; grade: string; qty: number; productCode: string }> = [];
 
-    const grades = [...new Set(effectiveItems.map(item => item.grade))];
-    const skuRows: Array<{ sku_code: string; product_code: string; grade_code: string; spec_code: string }> = grades.length
-      ? await this.ds.query(
-        `SELECT sku_code, product_code, grade_code, spec_code FROM product_skus
-          WHERE status = 'ACTIVE' AND grade_code = ANY($1)
-          ORDER BY grade_code, spec_code, sku_code`,
-        [grades],
-      )
-      : [];
-    const resolved = new Map<string, (typeof skuRows)[number]>();
-    const missing: string[] = [];
-    const ambiguous: string[] = [];
-    for (const item of effectiveItems) {
-      const matches = skuRows.filter(row => row.grade_code === item.grade && (!item.spec || row.spec_code === item.spec));
-      if (matches.length === 0) missing.push(item.spec ? `${item.grade}/${item.spec}` : item.grade);
-      else if (matches.length > 1) ambiguous.push(item.spec ? `${item.grade}/${item.spec}` : item.grade);
-      else resolved.set(`${item.grade}\u0000${item.spec ?? ''}`, matches[0]);
-    }
-    if (missing.length) throw new BadRequestException(`以下蛋品档位缺少 ACTIVE SKU：${[...new Set(missing)].join('、')}。请先在主数据中心维护`);
-    if (ambiguous.length) throw new BadRequestException(`以下蛋品档位匹配多个 ACTIVE SKU：${[...new Set(ambiguous)].join('、')}。请选择规格后重试`);
-
     // Idempotency keys are a daily-report identity, not a free client choice:
     // the date binding was validated up front; an omitted key is derived from
     // the same daily dimension the lock uses.
@@ -336,9 +316,9 @@ export class ProductionInboundService {
     // allowance concurrently, so the lock covers the whole daily document.
     const dailyScopeLock = `${companyCode}|TEMP_PRODUCTION_DAILY|${dto.eggDate}|${collectionRef ?? siteCode ?? companyCode}`;
     let idempotent = false;
-    const run = async (mgr: any, enforceIdempotency = true) => {
-      if (enforceIdempotency) await mgr.query('SELECT pg_advisory_xact_lock(hashtext($1))', [dailyScopeLock]);
-      const existing = enforceIdempotency ? await mgr.query(
+    const run = async (mgr: any) => {
+      await mgr.query('SELECT pg_advisory_xact_lock(hashtext($1))', [dailyScopeLock]);
+      const existing = await mgr.query(
         `SELECT batch_no, quality_grade, qty, product_code, sku_code, spec_code,
                 egg_date::text AS egg_date, collection_batch_ref, warehouse_code, location_code
            FROM inv_batches
@@ -346,7 +326,7 @@ export class ProductionInboundService {
             AND collection_batch_ref IS NOT DISTINCT FROM $3
           ORDER BY batch_no FOR UPDATE`,
         [companyCode, dto.eggDate, collectionRef],
-      ) : [];
+      );
       if (existing.length > 0) {
         // A source key identifies the complete inbound context. Never expose a batch
         // from another date/house/location, including historic rows missing provenance.
@@ -355,11 +335,14 @@ export class ProductionInboundService {
           || row.warehouse_code !== warehouseCode || row.location_code !== locationCode)) {
           throw new BadRequestException('该入库请求来源或库存归属不一致，请先核对库存后再重试');
         }
+        // A replay compares persisted source dimensions, independent of today's master availability.
+        const sort = (a: { grade: string; specCode: string }, b: { grade: string; specCode: string }) => `${a.grade}:${a.specCode}`.localeCompare(`${b.grade}:${b.specCode}`);
         const expected = effectiveItems.map(item => {
-          const sku = resolved.get(`${item.grade}\u0000${item.spec ?? ''}`)!;
-          return { grade: item.grade, qty: item.qty, productCode: sku.product_code, skuCode: sku.sku_code, specCode: sku.spec_code };
-        }).sort((a, b) => `${a.skuCode}:${a.grade}`.localeCompare(`${b.skuCode}:${b.grade}`));
-        const actual = existing.map((row: any) => ({ grade: row.quality_grade, qty: Number(row.qty), productCode: row.product_code, skuCode: row.sku_code, specCode: row.spec_code })).sort((a: any, b: any) => `${a.skuCode}:${a.grade}`.localeCompare(`${b.skuCode}:${b.grade}`));
+          const matches = existing.filter((row: any) => row.quality_grade === item.grade && (!item.spec || row.spec_code === item.spec));
+          if (matches.length !== 1) throw new BadRequestException('该日报入库请求档位或规格与已有记录不一致');
+          return { grade: item.grade, qty: item.qty, specCode: matches[0].spec_code };
+        }).sort(sort);
+        const actual = existing.map((row: any) => ({ grade: row.quality_grade, qty: Number(row.qty), specCode: row.spec_code })).sort(sort);
         if (JSON.stringify(actual) !== JSON.stringify(expected)) {
           throw new BadRequestException('该日报入库请求已存在但数量或档位不同，请先核对库存后再重试');
         }
@@ -369,6 +352,28 @@ export class ProductionInboundService {
         }
         return;
       }
+      const grades = [...new Set(effectiveItems.map(item => item.grade))];
+      const skuRows: Array<{ sku_code: string; product_code: string; grade_code: string; spec_code: string }> = grades.length
+        ? await mgr.query(
+          `SELECT sku_code, product_code, grade_code, spec_code FROM product_skus
+            WHERE ${SkuPolicy.usableSql('product_skus', 'stock')} AND grade_code = ANY($1)
+            ORDER BY grade_code, spec_code, sku_code FOR SHARE`,
+          [grades],
+        )
+        : [];
+      const resolved = new Map<string, (typeof skuRows)[number]>();
+      const missing: string[] = [];
+      const ambiguous: string[] = [];
+      for (const item of effectiveItems) {
+        const matches = skuRows.filter(row => row.grade_code === item.grade && (!item.spec || row.spec_code === item.spec));
+        if (matches.length === 0) missing.push(item.spec ? `${item.grade}/${item.spec}` : item.grade);
+        else if (matches.length > 1) ambiguous.push(item.spec ? `${item.grade}/${item.spec}` : item.grade);
+        else resolved.set(`${item.grade}\u0000${item.spec ?? ''}`, matches[0]);
+      }
+      if (missing.length) throw new BadRequestException(`以下蛋品档位缺少 ACTIVE SKU：${[...new Set(missing)].join('、')}。请先在主数据中心维护`);
+      if (ambiguous.length) throw new BadRequestException(`以下蛋品档位匹配多个 ACTIVE SKU：${[...new Set(ambiguous)].join('、')}。请选择规格后重试`);
+
+      for (const sku of resolved.values()) await SkuPolicy.requireUsable(mgr, sku.sku_code, 'stock');
       await this.assertDailyReportCapacity(mgr, dto, effectiveItems, collectionRef);
       for (const item of effectiveItems) {
         const { qty, grade } = item;
@@ -381,14 +386,11 @@ export class ProductionInboundService {
           sourceNo, sourceType: 'TEMP_PRODUCTION', ledgerChangeType: 'TEMP_PRODUCTION_INBOUND',
           collectionBatchRef: collectionRef ?? undefined,
         };
-        const batch = enforceIdempotency
-          ? await this.eggInv.createProductionBatch(params, mgr)
-          : await this.eggInv.createProductionBatch(params);
+        const batch = await this.eggInv.createProductionBatch(params, mgr);
         batches.push({ batchNo: batch.batch_no, grade, qty, productCode });
       }
     };
-    if (typeof (this.ds as any).transaction === 'function') await this.ds.transaction((mgr: any) => run(mgr, true));
-    else await run(this.ds, false);
+    await this.ds.transaction((mgr: any) => run(mgr));
 
     const totalInbound = batches.reduce((s, b) => s + b.qty, 0);
     this.logger.log(
