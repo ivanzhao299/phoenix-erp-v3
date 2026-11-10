@@ -3,8 +3,12 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
 /** Forward only quantity contract. No historical business data is inferred or backfilled. */
 export class PackageQuantitySnapshots1794268800000 implements MigrationInterface {
   private readonly tables = ['sal_order_items', 'sal_store_sale_items', 'sal_return_items', 'sal_price_items', 'wms_outbound', 'wms_inbound_items', 'wms_outbound_items'];
+  // Some historical installations omit these legacy detail tables (see
+  // AddWmsChanjetEquivalentFields). Do not invent their schema in this migration.
+  private readonly optionalLegacyTables = new Set(['wms_inbound_items', 'wms_outbound_items']);
   async up(queryRunner: QueryRunner): Promise<void> {
     for (const table of this.tables) {
+      if (this.optionalLegacyTables.has(table) && !(await queryRunner.hasTable(table))) continue;
       await queryRunner.query(`ALTER TABLE "${table}" ADD COLUMN IF NOT EXISTS quantity_snapshot jsonb`);
       await queryRunner.query(`DO $$ BEGIN
         IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_${table}_quantity_snapshot' AND conrelid='${table}'::regclass) THEN
@@ -28,6 +32,7 @@ export class PackageQuantitySnapshots1794268800000 implements MigrationInterface
     await queryRunner.query('ALTER TABLE sal_return_items DROP COLUMN IF EXISTS valuation_snapshot');
     await queryRunner.query('ALTER TABLE inv_batches DROP COLUMN IF EXISTS base_quantity_version');
     for (const table of [...this.tables].reverse()) {
+      if (this.optionalLegacyTables.has(table) && !(await queryRunner.hasTable(table))) continue;
       await queryRunner.query(`ALTER TABLE "${table}" DROP COLUMN IF EXISTS quantity_snapshot`);
     }
   }

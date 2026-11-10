@@ -304,4 +304,26 @@ fixture('package quantities: owned disposable PostgreSQL 18 service integration'
     await migration.down(db.createQueryRunner()); await migration.down(db.createQueryRunner()); await migration.up(db.createQueryRunner());
     expect((await db.query("SELECT column_name FROM information_schema.columns WHERE table_name='inv_batches' AND column_name='base_quantity_version'"))).toHaveLength(1);
   });
+  it('migrates historical installations without optional WMS detail tables but still requires core tables', async () => {
+    const runner = db.createQueryRunner();
+    await runner.connect();
+    await runner.startTransaction();
+    try {
+      await runner.query('ALTER TABLE wms_inbound_items RENAME TO fixture_saved_inbound_items');
+      await migration.down(runner);
+      await migration.up(runner);
+      expect(await runner.hasColumn('wms_outbound_items', 'quantity_snapshot')).toBe(true);
+      await runner.query('ALTER TABLE wms_outbound_items RENAME TO fixture_saved_outbound_items');
+      await migration.down(runner);
+      await migration.up(runner);
+      expect(await runner.hasColumn('sal_order_items', 'quantity_snapshot')).toBe(true);
+      expect(await runner.hasTable('wms_inbound_items')).toBe(false);
+      expect(await runner.hasTable('wms_outbound_items')).toBe(false);
+      await runner.query('ALTER TABLE sal_order_items RENAME TO fixture_saved_order_items');
+      await expect(migration.up(runner)).rejects.toThrow(/sal_order_items/);
+    } finally {
+      await runner.rollbackTransaction();
+      await runner.release();
+    }
+  });
 });
