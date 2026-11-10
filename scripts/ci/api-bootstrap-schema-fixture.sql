@@ -162,6 +162,8 @@ CREATE TABLE IF NOT EXISTS wms_inbound_items (
            expected_qty    INT DEFAULT 0,
            actual_qty      INT DEFAULT 0,
            broken_qty      INT DEFAULT 0,
+           -- This CI-only legacy table is created after the migration chain.
+           quantity_snapshot JSONB,
            warehouse_code  VARCHAR(64),
            location_code   VARCHAR(64),
            created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
