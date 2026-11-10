@@ -137,7 +137,7 @@ describe('PackagingTerminalBffController', () => {
       if (sql.includes('SELECT gr.*')) return [{ code: 'GC-A', shift_id: 1, outputs_json: { A: 360 } }];
       if (sql.includes('FROM product_grades')) return [{ status:'ACTIVE', is_saleable:true, is_storable:true }];
       if (sql.includes('FROM packaging_specs')) return [{ status:'ACTIVE', spec_code:'SPEC', qty_per_unit:180 }];
-      if (sql.includes('FROM product_skus')) return [{ status:'ACTIVE', sku_code:'SKU', product_code:'P' }];
+      if (sql.includes('FROM product_skus')) return [{ status:'ACTIVE', sku_code:'SKU', product_code:'P', grade_code:'A', spec_code:'SPEC' }];
       if (sql.includes('FROM mst_products')) return [{ status:'ACTIVE', product_code:'P' }];
       return [];
     }) };

@@ -29,7 +29,8 @@ describe('inventory inbound-date write-path contract', () => {
     expect(egg).toContain('egg_date, inbound_date, expire_date');
     expect(wms.match(/company_code, inbound_date/g)?.length).toBeGreaterThanOrEqual(3);
     expect(returns).toContain("new Date().toISOString().slice(0, 10), mgr");
-    expect(storePos).toContain('location_code, inbound_date, created_at');
+    const posBatchColumns = storePos.match(/INSERT INTO inv_batches\s*\(([^)]+)\)/)?.[1].split(',').map(column => column.trim());
+    expect(posBatchColumns).toEqual(expect.arrayContaining(['location_code', 'inbound_date', 'created_at']));
     expect(medicine).toContain("'MED_INBOUND', safeDate");
   });
 
