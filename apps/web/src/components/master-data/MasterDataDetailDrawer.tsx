@@ -54,7 +54,8 @@ export function MasterDataDetailDrawer({ open, code, config, onClose }: Props) {
 
   useEffect(() => {
     if (!open || !code) return;
-    setLoading(true); setErrors([]);
+    let live = true;
+    setInfo(null); setExtra({}); setLoading(true); setErrors([]);
     const errs: string[] = [];
     const safe = async <T,>(p: string, label: string): Promise<T | null> => {
       try { return await request<T>(p); }
@@ -72,6 +73,7 @@ export function MasterDataDetailDrawer({ open, code, config, onClose }: Props) {
         `/master-data/audit/${config.referenceObjectType}/${encodeURIComponent(code)}`, t('ui.审计','审计')),
         ...(config.extraApis || []).map(api => safe<any>(resolvePath(api.path), translateLiteral(api.label))),
       ]);
+      if (!live) return;
       setInfo(infoR);
       setRefs(refsR || { totalReferences: 0, references: [], canArchive: true });
       const auditItems = Array.isArray(auditR) ? auditR : (auditR?.items ?? []);
@@ -82,6 +84,7 @@ export function MasterDataDetailDrawer({ open, code, config, onClose }: Props) {
       setErrors(errs);
       setLoading(false);
     })();
+    return () => { live = false; };
   }, [open, code, config, t, translateLiteral]);
 
   if (!open) return null;
@@ -172,7 +175,7 @@ export function MasterDataDetailDrawer({ open, code, config, onClose }: Props) {
           )}
 
           {/* 自定义 sections（最近活动等） */}
-          {config.sections?.map((s, i) => (
+          {!loading && config.sections?.map((s, i) => (
             <section key={i}>
               <SectionTitle>{translateLiteral(s.title)}</SectionTitle>
               {s.render(extra, info)}

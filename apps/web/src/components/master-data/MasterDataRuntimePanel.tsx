@@ -3,6 +3,8 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { Plus, RefreshCw, Pencil, Send, Snowflake, Archive, RotateCcw, X, Link2, MoreHorizontal, Info } from "lucide-react";
+import { useSkuPermission } from "@/hooks/useSkuPermission";
+import type { SkuManagementResult } from "./ProductSkuAssociation";
 import { usePermission } from "@/hooks/usePermission";
 import DictSelect from "@/components/shared-selectors/DictSelect";  // G66 字段挂字典
 import { useDictOptions } from "@/hooks/useDictOptions";  // g200o:列表 dict 转译
@@ -62,6 +64,9 @@ export interface MasterDataRuntimePanelProps {
   mode?: "drawer" | "page";
   /** g200p:page 模式下,新建/编辑跳转的路由前缀。默认 `/master-data/<type>s` */
   pageRoutePrefix?: string;
+  productCode?: string;
+  onCreate?: () => void;
+  rowLinks?: (row: Record<string, unknown>) => React.ReactNode;
 }
 
 type StatusTone = 'default' | 'success' | 'warning' | 'danger';
@@ -172,7 +177,7 @@ export function multilingualNameFields(type: string, nameKey: string): MdField[]
 }
 
 export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
-  const { type, title, codeKey, nameKey, fields, columns, objectType, onCodeClick, mode = "drawer", pageRoutePrefix } = props;
+  const { type, title, codeKey, nameKey, fields, columns, objectType, onCodeClick, mode = "drawer", pageRoutePrefix, productCode, onCreate, rowLinks } = props;
   const { t, translateLiteral, lang } = useLanguage();  // task #25：列表名称列按当前语言显示
   // task #25：多语言类型在表单末尾追加英文/老挝文名称输入；已在页面 fields 里配过的语言键不重复注入
   const formFields = useMemo(() => {
@@ -191,8 +196,10 @@ export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
   const perType = usePermission(TYPE_TO_MENU[type] ?? "MENU_MD_CENTER");
   // 采购项目入口仍由 MENU_PRC2_PROJECT 授权；页面已统一到 project Runtime。
   const procurementProject = usePermission(type === "project" ? "MENU_PRC2_PROJECT" : null);
-  const canCreate = perType.canCreate || procurementProject.canCreate || perType.isSuper;
-  const canEdit = perType.canEdit || procurementProject.canEdit || perType.isSuper;
+  const skuPermission = useSkuPermission();
+  const canView = type !== "sku" || skuPermission.canView;
+  const canCreate = type === "sku" ? skuPermission.canCreate : perType.canCreate || procurementProject.canCreate || perType.isSuper;
+  const canEdit = type === "sku" ? skuPermission.canEdit : perType.canEdit || procurementProject.canEdit || perType.isSuper;
   // G131：支持业务单据页(如采购供应商档案)直达「新增」——?create=1 自动开新增抽屉，
   //   存完后 returnTo 自动回跳来源页（采购员无需手动绕回）。
   //   用 window.location 读 query（避免 useSearchParams 强制 Suspense 边界 / 整页 CSR bailout）。
@@ -204,6 +211,11 @@ export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");   // G92：关键字段变更转审批等正向提示
   const [filterStatus, setFilterStatus] = useState("");
+  const scope = `${productCode ?? ""}|${filterStatus}`;
+  const [cursor, setCursor] = useState({ scope: "", page: 1 });
+  const page = cursor.scope === scope ? cursor.page : 1;
+  const [management, setManagement] = useState<SkuManagementResult | null>(null);
+  const loadSequence = useRef(0);
   const [editing, setEditing] = useState<Record<string, any> | null>(null);
   const [form, setForm] = useState<Record<string, any>>({});
   const [saving, setSaving] = useState(false);
@@ -213,13 +225,26 @@ export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
   const resolvedObjectType = (objectType ?? type.toUpperCase().replace(/-/g, '_'));
 
   const load = useCallback(async () => {
+    const sequence = ++loadSequence.current;
     setLoading(true); setError("");
+    if (!canView) { setRows([]); setManagement(null); setLoading(false); return; }
     try {
-      const qs = filterStatus ? `?status=${filterStatus}` : "";
-      setRows(await request<Record<string, any>[]>(`/master-data/runtime/${type}${qs}`));
-    } catch (e: unknown) { setError(friendlyError(e instanceof Error ? e.message : "", title)); }
-    finally { setLoading(false); }
-  }, [type, filterStatus]);
+      const qs = new URLSearchParams();
+      if (filterStatus) qs.set("status", filterStatus);
+      if (type === "sku") {
+        if (productCode) qs.set("product_code", productCode);
+        qs.set("page", String(page));
+        const result = await request<SkuManagementResult>(`/master-data/runtime/sku/management?${qs}`);
+        if (sequence !== loadSequence.current) return;
+        setRows(result.items); setManagement(result);
+      } else {
+        const result = await request<Record<string, any>[]>(`/master-data/runtime/${type}${qs.size ? `?${qs}` : ""}`);
+        if (sequence === loadSequence.current) setRows(result);
+      }
+    } catch (e: unknown) {
+      if (sequence === loadSequence.current) { setRows([]); setManagement(null); setError(friendlyError(e instanceof Error ? e.message : "", title)); }
+    } finally { if (sequence === loadSequence.current) setLoading(false); }
+  }, [type, filterStatus, productCode, page, canView, title]);
 
   useRefreshToken(load);
   // G131：挂载时读 query（?create=1 / returnTo）；create=1 且有权 → 自动打开「新增」抽屉
@@ -229,9 +254,11 @@ export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
     setAutoCreate(sp.get("create") === "1");
   }, []);
   useEffect(() => {
-    if (autoCreate && canCreate) { setForm({}); setEditing({}); }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoCreate, canCreate]);
+    if (autoCreate && canCreate) {
+      if (type === "sku") router.replace(`/master-data/product-skus/new${productCode !== undefined ? `?product_code=${encodeURIComponent(productCode)}` : ""}`);
+      else { setForm({}); setEditing({}); }
+    }
+  }, [autoCreate, canCreate, type, productCode, router]);
 
   // G5.5-D：按需懒加载行的引用计数（避免一次性查询全部）
   const fetchRefCount = useCallback(async (code: string) => {
@@ -248,7 +275,8 @@ export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
   // g200p: page 模式跳路由,drawer 模式开抽屉
   const routePrefix = pageRoutePrefix ?? `/master-data/${type}s`;
   const openNew = () => {
-    if (mode === "page") router.push(`${routePrefix}/new`);
+    if (onCreate) onCreate();
+    else if (mode === "page") router.push(`${routePrefix}/new`);
     else { setForm({}); setEditing({}); }
   };
   const openEdit = (row: Record<string, any>) => {
@@ -305,6 +333,7 @@ export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
 
   return (
     <div>
+      {!canView && <p>{translateLiteral("无 SKU 查看权限，列表不可见。")}</p>}
       <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 16, flexWrap: "wrap" }}>
         <div style={{ width: 150 }}>
           <SelectField
@@ -337,7 +366,7 @@ export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
       )}
 
       <div style={{ borderRadius: 10, border: "1px solid var(--border)", overflow: "hidden", background: "var(--bg-card)" }}>
-        {loading ? <div style={{ padding: 16 }}><LoadingSkeleton variant="table" rows={6} /></div>
+        {!canView ? null : loading ? <div style={{ padding: 16 }}><LoadingSkeleton variant="table" rows={6} /></div>
           : rows.length === 0 ? <div style={{ padding: 32 }}><EmptyState title={`${t('ui.暂无','暂无')}${translateLiteral(title)}${t('ui.数据','数据')}`} compact /></div>
           : (
             <div style={{ overflowX: "auto" }}>
@@ -405,6 +434,7 @@ export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
                         )}
                       </td>
                       <td style={{ ...tdStyle, textAlign: "right" }}>
+                        {rowLinks?.(r)}
                         <RowActions
                           row={r}
                           canEdit={canEdit}
@@ -421,6 +451,17 @@ export function MasterDataRuntimePanel(props: MasterDataRuntimePanelProps) {
             </div>
           )}
       </div>
+
+      {type === "sku" && canView && management && !loading && <p>
+        {translateLiteral("全部状态共")} {management.relatedTotal} {translateLiteral("条")} · {Object.entries(management.statusCounts).map(([status, count]) => `${translateLiteral(STATUS_LABEL[status]?.label ?? status)} ${count}`).join(" · ")}
+      </p>}
+      {type === "sku" && canView && management && !loading && (
+        <div style={{ display: "flex", gap: 16, marginTop: 12, alignItems: "center" }}>
+          <span>{translateLiteral("共")} {management.total} {translateLiteral("条")} · {translateLiteral("第")} {page} / {Math.max(1, Math.ceil(management.total / management.pageSize))} {translateLiteral("页")}</span>
+          <button disabled={page <= 1} onClick={() => setCursor({ scope, page: page - 1 })}>{translateLiteral("上一页")}</button>
+          <button disabled={page * management.pageSize >= management.total} onClick={() => setCursor({ scope, page: page + 1 })}>{translateLiteral("下一页")}</button>
+        </div>
+      )}
 
       {/* 新增/编辑抽屉 — g200o-2 flex 三段 + Portal 渲染到 body 顶层
            (绕过 animate-fade-in 的 transform 让 fixed containing block 锚到祖先的问题) */}

@@ -1,4 +1,6 @@
 "use client";
+import { useSkuPermission } from "@/hooks/useSkuPermission";
+import { skuManagementRoute } from "@/components/master-data/ProductSkuAssociation";
 import { useState } from "react";
 import PageHeader from "@/components/PageHeader";
 import { MasterDataRuntimePanel } from "@/components/master-data/MasterDataRuntimePanel";
@@ -15,7 +17,8 @@ import { PRODUCT_FIELDS } from "./_fields";
  */
 
 export default function ProductRuntimePage() {
-  const { t } = useLanguage();
+  const { t, translateLiteral } = useLanguage();
+  const skuPermission = useSkuPermission();
   const [detailCode, setDetailCode] = useState<string | null>(null);
   return (
     <div className="animate-fade-in" style={{ padding: "24px 32px" }}>
@@ -30,6 +33,7 @@ export default function ProductRuntimePage() {
         pageRoutePrefix="/master-data/products"
         onCodeClick={(code) => setDetailCode(code)}
         fields={PRODUCT_FIELDS}
+        rowLinks={row => skuPermission.canView ? <a href={skuManagementRoute(String(row.product_code))} style={{ marginRight: 12 }}>{translateLiteral("SKU/销售规格")}</a> : null}
         columns={[
           { key: "product_name_zh", label: t('md.nameZh', '中文名') },
           { key: "category_code", label: t('md.category', '品类') },

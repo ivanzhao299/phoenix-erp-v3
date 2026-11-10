@@ -1,41 +1,12 @@
-"use client";
-import { useState } from "react";
-import PageHeader from "@/components/PageHeader";
-import { MasterDataRuntimePanel } from "@/components/master-data/MasterDataRuntimePanel";
-import { MasterDataCenterStrip } from "@/components/master-data/MasterDataCenterStrip";
-import { MasterDataDetailDrawer } from "@/components/master-data/MasterDataDetailDrawer";
-import { skuConfig } from "@/components/master-data/detail-configs";
-import { skuFields } from "@/components/master-data/sku-fields";
-import { useLanguage } from "@/contexts/LanguageContext";
+'use client';
+import { Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { SkuManagementPage } from '@/components/master-data/SkuManagementPage';
 
+function Content() {
+  const query = useSearchParams();
+  return <SkuManagementPage key={query.toString()} productCode={query.get('product_code') ?? undefined} initialSkuCode={query.get('sku_code') ?? ''} />;
+}
 export default function SkuRuntimePage() {
-  const { t } = useLanguage();
-  const [detailCode, setDetailCode] = useState<string | null>(null);
-  return (
-    <div className="animate-fade-in" style={{ padding: "24px 32px" }}>
-      <PageHeader title={t('md.skuCenter', 'SKU 中心')} subtitle={t('md.skuCenterSub', '物料 SKU 主档 · 三键唯一 · 库存批次 · 点击编码查看 SKU 全景')} breadcrumb={[t('md.center', '主数据中心'), t('md.skuCenter', 'SKU 中心')]} />
-      <MasterDataCenterStrip type="sku" />
-      <MasterDataRuntimePanel
-        type="sku"
-        title="SKU"
-        codeKey="sku_code"
-        nameKey="sku_name"
-        onCodeClick={(code) => setDetailCode(code)}
-        fields={skuFields(t)}
-        columns={[
-          { key: "sku_name", label: t('md.skuName', 'SKU 名称') },
-          { key: "product_code", label: t('md.product', '产品') },
-          { key: "grade_code", label: t('md.grade', '等级') },
-          { key: "spec_code", label: t('md.spec', '规格') },
-          { key: "barcode", label: t('md.barcode', '条码') },
-        ]}
-      />
-      <MasterDataDetailDrawer
-        open={detailCode !== null}
-        code={detailCode}
-        config={skuConfig}
-        onClose={() => setDetailCode(null)}
-      />
-    </div>
-  );
+  return <Suspense fallback={<p>正在加载 SKU/销售规格…</p>}><Content /></Suspense>;
 }

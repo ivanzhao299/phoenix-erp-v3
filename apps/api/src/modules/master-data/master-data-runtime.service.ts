@@ -573,6 +573,38 @@ export class MasterDataRuntimeService {
     return this.ds.query(sql, params);
   }
 
+  /** One statement keeps page, total and status counts on the same database snapshot. */
+  async listSkuManagement(type: string, query: Record<string, string> = {}) {
+    if (type !== 'sku') throw new BadRequestException('仅 SKU 支持此管理查询');
+    const allowed = new Set(['product_code', 'status', 'page', 'pageSize']);
+    if (Object.keys(query).some(key => !allowed.has(key))) throw new BadRequestException('不支持的查询条件');
+    const integer = (value: string | undefined, fallback: number, max: number) => {
+      if (value === undefined) return fallback;
+      if (typeof value !== 'string' || !/^[1-9]\d*$/.test(value) || !Number.isSafeInteger(Number(value)) || Number(value) > max)
+        throw new BadRequestException('分页参数无效');
+      return Number(value);
+    };
+    const page = integer(query.page, 1, 1000000);
+    const pageSize = integer(query.pageSize, 20, 100);
+    const product = query.product_code;
+    if (product !== undefined && (typeof product !== 'string' || !product.trim() || product.trim() !== product || product.length > 100))
+      throw new BadRequestException('产品编码无效');
+    const status = query.status;
+    if (status !== undefined && !['DRAFT', 'PENDING_APPROVAL', 'ACTIVE', 'FROZEN', 'ARCHIVED', 'REJECTED'].includes(status))
+      throw new BadRequestException('状态无效');
+    const [result] = await this.ds.query(`
+      WITH related AS (SELECT * FROM product_skus WHERE ($1::text IS NULL OR product_code = $1)),
+      filtered AS (SELECT * FROM related WHERE ($2::text IS NULL OR status = $2)),
+      paged AS (SELECT * FROM filtered ORDER BY updated_at DESC NULLS LAST, sku_code LIMIT $3 OFFSET $4),
+      counts AS (SELECT status, COUNT(*)::int AS count FROM related GROUP BY status)
+      SELECT COALESCE((SELECT jsonb_agg(paged ORDER BY updated_at DESC NULLS LAST, sku_code) FROM paged), '[]'::jsonb) AS items,
+        (SELECT COUNT(*)::int FROM filtered) AS total,
+        (SELECT COUNT(*)::int FROM related) AS "relatedTotal",
+        COALESCE((SELECT jsonb_object_agg(status, count) FROM counts), '{}'::jsonb) AS "statusCounts"
+    `, [product ?? null, status ?? null, pageSize, (page - 1) * pageSize]);
+    return { ...result, page, pageSize };
+  }
+
   /** 引用治理：仅 ACTIVE 且在生效期内（供前端 Selector 调用） */
   async listActive(type: string): Promise<any[]> {
     const c = this.cfg(type);

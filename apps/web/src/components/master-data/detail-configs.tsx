@@ -1,4 +1,5 @@
 'use client';
+import { ProductSkuAssociation } from './ProductSkuAssociation';
 
 /**
  * detail-configs.tsx — UIX-8 通用主数据详情配置
@@ -218,14 +219,7 @@ export const productConfig: MasterDataConfig = {
   centerName: '产品中心',
   nameKey: 'product_name',
   referenceObjectType: 'PRODUCT',
-  extraApis: [
-    { key: 'skus', label: 'SKU 列表', path: '/product-master/skus?product_code=:code&limit=10' },
-  ],
   kpis: [
-    {
-      label: '关联 SKU', icon: <Package size={16} />,
-      value: (_i, extra) => { const list = arr(extra.skus); return { display: list.length, suffix: '个' }; },
-    },
     {
       label: '保质期', icon: <Calendar size={16} />,
       value: (info) => ({ display: info?.shelf_life_days ? `${info.shelf_life_days}d` : '—' }),
@@ -247,23 +241,7 @@ export const productConfig: MasterDataConfig = {
     { key: 'shelf_life_days', label: '保质期(天)' },
     { key: 'price_retail',    label: '零售价' },
   ],
-  sections: [
-    {
-      title: '关联 SKU',
-      render: (extra) => {
-        const rows = arr(extra.skus).slice(0, 10);
-        return (
-          <RecentRows
-            rows={rows}
-            getKey={(r) => String(r.id || r.sku_code)}
-            getLabel={(r) => <code style={{ fontSize: 12, color: 'var(--color-primary)' }}>{r.sku_code}</code>}
-            getSub={(r) => `${r.grade_code || '—'} · ${r.spec_code || '—'}`}
-            getRight={(r) => <span style={{ fontSize: 12, color: 'var(--text-primary)' }}>{r.sku_name || ''}</span>}
-          />
-        );
-      },
-    },
-  ],
+  sections: [{ title: 'SKU/销售规格', render: (_extra, info) => <ProductSkuAssociation product={info} /> }],
 };
 
 // ── 配置：仓库 ───────────────────────────────────────────

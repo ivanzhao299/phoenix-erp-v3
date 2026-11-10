@@ -35,6 +35,12 @@ export class MasterDataRuntimeController {
     return this.rt.listActive(type);
   }
 
+  /** Explicit management read: SKU V permission, all historical states, bounded pagination. */
+  @Get(':type/management')
+  management(@Param('type') type: string, @Query() query: Record<string, string>) {
+    return this.rt.listSkuManagement(type, query);
+  }
+
   @Get(':type/:code')
   get(@Param('type') type: string, @Param('code') code: string) {
     return this.rt.get(type, code);

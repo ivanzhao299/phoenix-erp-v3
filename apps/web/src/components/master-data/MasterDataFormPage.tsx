@@ -62,7 +62,7 @@ export function MasterDataFormPage(props: MasterDataFormPageProps) {
       buckets[g].push(f);
     });
     return order.map(g => ({ name: g, fields: buckets[g] }));
-  }, [fields]);
+  }, [allFields]);
 
   // initialRow 异步加载场景(edit 模式)
   useEffect(() => { if (initialRow) setForm({ ...initialRow }); }, [initialRow]);
