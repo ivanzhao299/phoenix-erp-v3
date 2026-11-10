@@ -4,6 +4,9 @@ import {
 import { Type } from 'class-transformer';
 
 export class CreatePriceItemDto {
+  @IsOptional() @IsIn(['BASE', 'PACKAGE'])
+  quantityBasis?: 'BASE' | 'PACKAGE';
+
   @Type(() => Number) @IsNumber()
   priceBookId: number;
 
@@ -48,6 +51,9 @@ export class CreatePriceItemDto {
 }
 
 export class UpdatePriceItemDto {
+  @IsOptional() @IsIn(['BASE', 'PACKAGE'])
+  quantityBasis?: 'BASE' | 'PACKAGE';
+
   @Type(() => Number) @IsNumber() @IsOptional() @Min(0)
   unitPrice?: number;
 
@@ -110,6 +116,9 @@ export class BulkImportPriceItemDto {
 }
 
 export class ResolvePriceDto {
+  @IsOptional() @IsIn(['BASE', 'PACKAGE'])
+  quantityBasis?: 'BASE' | 'PACKAGE';
+
   @IsString() @IsNotEmpty()
   companyCode: string;
 
@@ -143,6 +152,9 @@ export class ResolvePriceDto {
 }
 
 export class ValidatePriceDto {
+  @IsOptional() @IsIn(['BASE', 'PACKAGE'])
+  quantityBasis?: 'BASE' | 'PACKAGE';
+
   @IsString() @IsNotEmpty()
   companyCode: string;
 

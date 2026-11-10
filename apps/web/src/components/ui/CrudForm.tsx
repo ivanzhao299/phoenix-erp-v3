@@ -236,7 +236,7 @@ export const CrudForm = memo(function CrudForm({
                 onChange={v => set(field.key, v)}
                 onPick={o => {
                   Object.entries(field.onPickKeys ?? {}).forEach(([k, rawField]) => {
-                    set(k, (o as any)?.raw?.[rawField] ?? o?.label ?? "");
+                    set(k, rawField === "unit" ? String(o?.raw?.unit || "单位未记录，待核实") : (o as any)?.raw?.[rawField] ?? o?.label ?? "");
                   });
                 }} />
             ) : field.type === "customer" ? (
@@ -299,6 +299,7 @@ export const CrudForm = memo(function CrudForm({
                 }} />
             ) : field.type === "inventory-item" ? (
               <InventoryItemSelector
+                itemType={String(values.item_type ?? "")}
                 value={String(values[field.key] ?? "")}
                 onChange={v => set(field.key, v)}
                 onPick={o => {

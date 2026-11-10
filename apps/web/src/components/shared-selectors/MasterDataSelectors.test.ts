@@ -11,7 +11,7 @@ vi.mock('@/contexts/LanguageContext', () => ({
   useLanguage: () => ({ t: (_key: string, fallback: string) => fallback, lang: language.current }),
 }));
 
-import { CashAccountSelector, FarmSelector, HouseSelector, CompanySelector, CustomerSelector, LocationSelector, StoreMembershipSelector, WarehouseSelector, ZoneSelector } from './MasterDataSelectors';
+import { InventoryItemSelector, CashAccountSelector, FarmSelector, HouseSelector, CompanySelector, CustomerSelector, LocationSelector, StoreMembershipSelector, WarehouseSelector, ZoneSelector } from './MasterDataSelectors';
 import { invalidateCache } from '@/lib/request-cache';
 
 // React 19 uses this flag to suppress false-positive act environment warnings.
@@ -251,5 +251,25 @@ describe('farm and house name/code selector contract', () => {
     expect(requestMock.mock.calls.some(([path]) => path === '/lookup/houses?farmCode=FARM-1')).toBe(true);
     expect(host.textContent).toContain('正式鸡舍（HOUSE-1）');
     expect(host.querySelector('select')?.getAttribute('data-i18n-skip')).toBe('true');
+  });
+});
+
+describe('Inventory item role identity', () => {
+  let host: HTMLDivElement; let root: Root;
+  beforeEach(() => { requestMock.mockReset(); invalidateCache(); host=document.createElement('div'); document.body.append(host); root=createRoot(host); });
+  afterEach(async()=>{await act(async()=>root.unmount());host.remove();});
+  it('keeps same-code MATERIAL and SKU distinct while returning plain code and explicit role', async()=>{
+    requestMock.mockResolvedValue({data:[{status:'ACTIVE',itemCode:'SAME',itemType:'MATERIAL',itemName:'托盘',unit:'件'},{status:'ACTIVE',itemCode:'SAME',itemType:'SKU',itemName:'鸡蛋',unit:'枚'}]});
+    const onChange=vi.fn(),onPick=vi.fn();
+    await act(async()=>root.render(createElement(InventoryItemSelector,{value:'SAME',onChange,onPick})));
+    await flush();
+    expect(host.querySelector('[role="alert"]')?.textContent).toContain('类型不明确');
+    const select=host.querySelector('select')!;
+    expect(Array.from(select.options).map(x=>x.value)).toEqual(['','MATERIAL:SAME','SKU:SAME']);
+    await act(async()=>{select.value='SKU:SAME';select.dispatchEvent(new Event('change',{bubbles:true}));});
+    expect(onChange).toHaveBeenLastCalledWith('SAME');
+    expect(onPick).toHaveBeenLastCalledWith(expect.objectContaining({value:'SAME',raw:expect.objectContaining({itemType:'SKU'})}));
+    await act(async()=>root.render(createElement(InventoryItemSelector,{value:'SAME',itemType:'MATERIAL',onChange,onPick})));
+    expect(host.querySelector('select')?.value).toBe('MATERIAL:SAME');
   });
 });

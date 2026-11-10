@@ -1,3 +1,4 @@
+import { resolveQuantity } from '../../product-master/services/quantity-contract';
 import {
   Injectable, NotFoundException, ForbiddenException, BadRequestException,
 } from '@nestjs/common';
@@ -131,8 +132,8 @@ export class PriceItemsService {
           (price_book_id, product_code, grade_code, packaging_spec,
            currency_code, unit_price, floor_price, ceiling_price,
            min_qty, max_qty, status,
-           sku_code, grade_code_std, spec_code)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'ACTIVE',$11,$12,$13)
+           sku_code, grade_code_std, spec_code, quantity_snapshot)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'ACTIVE',$11,$12,$13,$14::jsonb)
         RETURNING *
       `, [
         dto.priceBookId, productCode,
@@ -144,14 +145,16 @@ export class PriceItemsService {
         dto.skuCode      ?? null,
         gradeCodeStd,
         specCode,
+        await resolveQuantity(manager, { qty: 1, skuCode: dto.skuCode, quantityBasis: dto.quantityBasis }),
       ]);
       return result[0];
     });
   }
 
   async updateItem(id: string, dto: UpdatePriceItemDto) {
-    const rows = await this.ds.query(`SELECT pi.*, pb.status AS book_status, pb.company_code
-      FROM sal_price_items pi JOIN sal_price_books pb ON pb.id = pi.price_book_id WHERE pi.id = $1`, [id]);
+    return this.ds.transaction(async manager => {
+    const rows = await manager.query(`SELECT pi.*, pb.status AS book_status, pb.company_code
+      FROM sal_price_items pi JOIN sal_price_books pb ON pb.id = pi.price_book_id WHERE pi.id = $1 FOR UPDATE OF pb,pi`, [id]);
     if (!rows?.length) throw new NotFoundException(`价格明细 ${id} 不存在`);
     const item = rows[0];
 
@@ -176,14 +179,19 @@ export class PriceItemsService {
     add('min_qty',       dto.minQty);
     add('max_qty',       dto.maxQty);
     add('currency_code', dto.currencyCode);
+    if (dto.quantityBasis !== undefined) {
+        if (item.sku_code) await SkuPolicy.requireUsable(manager, item.sku_code, 'sale');
+        add('quantity_snapshot', await resolveQuantity(manager, { qty: 1, skuCode: item.sku_code, quantityBasis: dto.quantityBasis }));
+    }
 
     if (!sets.length) return item;
     params.push(id);
-    const result = await this.ds.query(
+    const result = await manager.query(
       `UPDATE sal_price_items SET ${sets.join(', ')} WHERE id = $${params.length} RETURNING *`,
       params,
     );
     return result[0];
+    });
   }
 
   async disableItem(id: string) {
@@ -234,8 +242,8 @@ export class PriceItemsService {
             (price_book_id, product_code, grade_code, packaging_spec,
              currency_code, unit_price, floor_price, ceiling_price,
              min_qty, max_qty, status,
-             sku_code, grade_code_std, spec_code)
-          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'ACTIVE',$11,$12,$13)
+             sku_code, grade_code_std, spec_code, quantity_snapshot)
+          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'ACTIVE',$11,$12,$13,$14::jsonb)
           ON CONFLICT DO NOTHING
           RETURNING *
         `, [
@@ -248,6 +256,7 @@ export class PriceItemsService {
           item.skuCode      ?? null,
           gradeCodeStd,
           specCode,
+          await resolveQuantity(manager, { qty: 1, skuCode: item.skuCode, quantityBasis: item.quantityBasis }),
         ]);
         if (r?.length) results.push(r[0]);
       }
@@ -270,9 +279,9 @@ export class PriceItemsService {
           item.product_code = sku.product_code; item.grade_code_std = sku.grade_code; item.spec_code = sku.spec_code;
         }
         await manager.query(`INSERT INTO sal_price_items
-          (price_book_id,product_code,grade_code,packaging_spec,currency_code,unit_price,floor_price,ceiling_price,min_qty,max_qty,status,sku_code,grade_code_std,spec_code)
-          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'ACTIVE',$11,$12,$13)`,
-          [targetBookId,item.product_code,item.grade_code,item.packaging_spec,item.currency_code,item.unit_price,item.floor_price,item.ceiling_price,item.min_qty,item.max_qty,item.sku_code,item.grade_code_std,item.spec_code]);
+          (price_book_id,product_code,grade_code,packaging_spec,currency_code,unit_price,floor_price,ceiling_price,min_qty,max_qty,status,sku_code,grade_code_std,spec_code,quantity_snapshot)
+          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'ACTIVE',$11,$12,$13,$14::jsonb)`,
+          [targetBookId,item.product_code,item.grade_code,item.packaging_spec,item.currency_code,item.unit_price,item.floor_price,item.ceiling_price,item.min_qty,item.max_qty,item.sku_code,item.grade_code_std,item.spec_code,item.quantity_snapshot || null]);
       }
       return { copied: items.length };
     });

@@ -1,3 +1,4 @@
+import { resolveQuantity, QuantitySnapshot, savedQuantity } from '../../product-master/services/quantity-contract';
 import { SkuPolicy } from '../../product-master/services/sku-policy';
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
@@ -7,6 +8,8 @@ import { DataScopeContext } from '../../org/services/data-scope.service';
 import { ResolvePriceDto, ValidatePriceDto } from '../dto/price-item.dto';
 
 export interface ResolvedPrice {
+  quantitySnapshot?: QuantitySnapshot | null;
+  priceQuantitySnapshot?: QuantitySnapshot | null;
   priceBookId:   string;
   priceBookNo:   string;
   priceItemId:   string;
@@ -71,11 +74,13 @@ export class PriceRuntimeService {
       if (!sku) throw new BadRequestException('SKU 不存在、未启用或不适用于销售');
       dto = { ...dto, productCode: sku.product_code, gradeCode: sku.grade_code, packagingSpec: sku.spec_code };
     }
+    const quantity = await resolveQuantity(queryable, { ...dto, qty: dto.qty ?? 1 });
     const qty     = dto.qty ?? null;
     const skuCode = dto.skuCode ?? null;
 
     const rows = await queryable.query(`
       SELECT
+        pi.quantity_snapshot,
         pi.id              AS item_id,
         pi.unit_price,
         pi.floor_price,
@@ -118,8 +123,12 @@ export class PriceRuntimeService {
             AND (pi.packaging_spec IS NULL OR pi.packaging_spec = $5)
           )
         )
-        AND ($6::numeric IS NULL OR pi.min_qty IS NULL OR pi.min_qty <= $6::numeric)
-        AND ($6::numeric IS NULL OR pi.max_qty IS NULL OR pi.max_qty >= $6::numeric)
+        AND ($11::boolean OR pi.quantity_snapshot IS NULL OR (pi.quantity_snapshot->>'basis'='BASE' AND pi.quantity_snapshot->>'factor'='1'))
+        AND (NOT $11::boolean OR (pi.quantity_snapshot IS NOT NULL
+          AND pi.quantity_snapshot->>'baseUnit'=$13
+          AND (pi.quantity_snapshot->>'factor')::numeric>0))
+        AND ($6::numeric IS NULL OR pi.min_qty IS NULL OR pi.min_qty <= CASE WHEN $11::boolean THEN $12::numeric / (pi.quantity_snapshot->>'factor')::numeric ELSE $6::numeric END)
+        AND ($6::numeric IS NULL OR pi.max_qty IS NULL OR pi.max_qty >= CASE WHEN $11::boolean THEN $12::numeric / (pi.quantity_snapshot->>'factor')::numeric ELSE $6::numeric END)
         AND ($9::varchar IS NULL OR pi.currency_code = $9::varchar)
         AND (
               pb.store_code    = $10
@@ -147,9 +156,18 @@ export class PriceRuntimeService {
       dto.channelCode  ?? null,
       dto.currencyCode ?? null,
       dto.storeCode ?? null,
+      !!quantity, quantity?.baseQty ?? null, quantity?.baseUnit ?? null,
     ]);
 
     if (!rows?.length) {
+      if (!quantity) {
+        const configured = await queryable.query(`SELECT 1 FROM sal_price_items pi JOIN sal_price_books pb ON pb.id=pi.price_book_id
+          WHERE (pi.sku_code=$1 OR (pi.product_code=$3 AND (pi.grade_code IS NULL OR pi.grade_code=$4) AND (pi.packaging_spec IS NULL OR pi.packaging_spec=$5)))
+          AND pb.company_code=$2 AND pi.status='ACTIVE' AND pb.status='ACTIVE'
+          AND pi.quantity_snapshot IS NOT NULL LIMIT 1`, [dto.skuCode ?? null,dto.companyCode,dto.productCode,dto.gradeCode ?? null,dto.packagingSpec ?? null]);
+        if (configured.length) throw new BadRequestException('该 SKU 已明确价格计量，请使用明确数量单位的新客户端');
+      }
+
       throw new NotFoundException(
         `未找到价格：公司=${dto.companyCode} 产品=${dto.productCode}` +
         (dto.skuCode       ? ` SKU=${dto.skuCode}` : '') +
@@ -161,6 +179,10 @@ export class PriceRuntimeService {
     }
 
     const r = rows[0];
+    if (quantity && !r.quantity_snapshot) throw new BadRequestException('价格单位未确认，请先在价格册维护明确计量口径');
+    if (r.quantity_snapshot != null) savedQuantity({ qty: 1, quantity_snapshot: r.quantity_snapshot });
+    if (quantity && r.quantity_snapshot?.basis==='PACKAGE' && r.quantity_snapshot.factor!==quantity.packageFactor) throw new BadRequestException('规格换算已变更，请重新维护每托/每箱报价');
+    const multiplier = quantity ? quantity.factor / Number(r.quantity_snapshot.factor) : 1;
     const tier = Number(r.tier);
     const sourceType: 'STORE' | 'CUSTOMER' | 'CHANNEL' | 'DEFAULT' =
       tier === 0 ? 'STORE' : tier === 1 ? 'CUSTOMER' : tier === 2 ? 'CHANNEL' : 'DEFAULT';
@@ -172,12 +194,14 @@ export class PriceRuntimeService {
                                   `默认价格册`;
 
     return {
+      quantitySnapshot: quantity,
+      priceQuantitySnapshot: r.quantity_snapshot ?? null,
       priceBookId:  String(r.book_id),
       priceBookNo:  r.price_book_no,
       priceItemId:  String(r.item_id),
-      unitPrice:    Number(r.unit_price),
-      floorPrice:   r.floor_price  != null ? Number(r.floor_price)  : null,
-      ceilingPrice: r.ceiling_price != null ? Number(r.ceiling_price) : null,
+      unitPrice:    Number(r.unit_price) * multiplier,
+      floorPrice:   r.floor_price  != null ? Number(r.floor_price) * multiplier : null,
+      ceilingPrice: r.ceiling_price != null ? Number(r.ceiling_price) * multiplier : null,
       currencyCode: r.currency_code,
       sourceType,
       publishVersion: Number(r.publish_version),
@@ -205,9 +229,10 @@ export class PriceRuntimeService {
         packagingSpec: dto.packagingSpec,
         skuCode:       dto.skuCode,
         qty:           dto.qty,
+        quantityBasis: dto.quantityBasis,
       });
     } catch (error) {
-      if (dto.skuCode !== undefined && !(error instanceof NotFoundException)) throw error;
+      if (error instanceof BadRequestException || dto.quantityBasis !== undefined || (dto.skuCode !== undefined && !(error instanceof NotFoundException))) throw error;
       // 无价格配置 → 通过（但记录警告）
       return {
         passed:       true,

@@ -7,6 +7,9 @@ import { Type } from 'class-transformer';
 // ── 订单明细行 ────────────────────────────────────────────────────────────────
 
 export class CreateSalesOrderItemDto {
+  @IsOptional() @IsIn(['BASE', 'PACKAGE'])
+  quantityBasis?: 'BASE' | 'PACKAGE';
+
   /**
    * Phase H5: SKU 编码（优先）。
    * 传入后自动带出 productCode / gradeCode / packagingSpec，

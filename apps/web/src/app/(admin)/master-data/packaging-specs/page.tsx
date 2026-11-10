@@ -25,19 +25,16 @@ export default function PackagingSpecRuntimePage() {
         onCodeClick={(code) => setDetailCode(code)}
         fields={[
           { key: "spec_name", label: t('md.specName', '规格名称'), required: true },
-          { key: "unit_count", label: t('md.unitCount', '单位数量（如 30 枚/盒）'), type: "number" },
-          { key: "pack_type", label: t('md.packType', '包装类型'), type: "select", options: [
-            { value: "BOX", label: t('md.packBox', '纸盒') }, { value: "PLASTIC", label: t('md.packPlastic', '塑料盒') },
-            { value: "TRAY", label: t('md.packTray', '托盘') }, { value: "BAG", label: t('md.packBag', '袋装') }, { value: "BULK", label: t('md.packBulk', '散装') },
-          ] },
-          { key: "effective_date", label: t('md.effectiveDate', '生效日期'), type: "date" },
-          { key: "expire_date", label: t('md.expireDate', '失效日期'), type: "date" },
+          { key: "qty_per_unit", label: t('md.qtyPerUnit', '每销售单位含基础数量（托30、箱360）'), type: "number", required: true },
+          { key: "base_unit", label: t('md.baseUnit', '库存基本单位（如枚）'), required: true },
+          { key: "display_unit", label: t('md.displayUnit', '销售单位（如托、箱）'), required: true },
           { key: "remark", label: t('md.remark', '备注') },
         ]}
         columns={[
           { key: "spec_name", label: t('md.specName', '规格名称') },
-          { key: "unit_count", label: t('md.unitCountShort', '单位数') },
-          { key: "pack_type", label: t('md.packType', '包装类型') },
+          { key: "qty_per_unit", label: t('md.qtyPerUnit', '每销售单位基础量') },
+          { key: "base_unit", label: t('md.baseUnit', '库存基本单位') },
+          { key: "display_unit", label: t('md.displayUnit', '销售单位') },
         ]}
       />
       <MasterDataDetailDrawer

@@ -1,5 +1,7 @@
 "use client";
 
+import { changeQuotedSku } from '@/lib/price-item-measurement';
+import { QuantityBasisInput, type QuantityBasis } from '@/components/shared-selectors/QuantityBasisInput';
 import { useState, useCallback, useEffect, useMemo, type CSSProperties } from "react";
 import u from "@/styles/uix-utils.module.css";
 import { BookOpen, List, Zap, AlertTriangle, Plus, RefreshCw, Search, X, Info, Layers } from "lucide-react";
@@ -105,6 +107,7 @@ interface SpecItem {
   status: string;
   qty_per_unit: number;
   display_unit: string;
+  base_unit?: string;
 }
 interface SkuItem {
   sku_code: string;
@@ -741,6 +744,7 @@ function PriceBooksTab() {
 
 /** 价格明细表单（自定义，支持 SKU 选择自动填充） */
 interface ItemFormState {
+  quantityBasis: QuantityBasis | '';
   priceBookId: string;
   skuCode: string; // Phase H3: SKU 选择器
   productCode: string;
@@ -754,6 +758,7 @@ interface ItemFormState {
   currencyCode: string;
 }
 const EMPTY_FORM: ItemFormState = {
+  quantityBasis: 'PACKAGE',
   priceBookId: "",
   skuCode: "",
   productCode: "",
@@ -828,21 +833,7 @@ function PriceItemsTab() {
 
   /** Phase H3: 选择 SKU → 自动填充 productCode（readonly），grade/spec 保持可选 */
   const handleSkuChange = (skuCode: string) => {
-    const sku = master.skus.find(x => x.sku_code === skuCode);
-    if (sku) {
-      setForm(f => ({
-        ...f,
-        skuCode,
-        productCode: sku.product_code,
-        gradeCode: sku.grade_code,
-        packagingSpec: sku.spec_code
-      }));
-    } else {
-      setForm(f => ({
-        ...f,
-        skuCode
-      }));
-    }
+    setForm(f => changeQuotedSku(f, skuCode, master.skus.find(x => x.sku_code===skuCode)));
   };
   const openCreate = () => {
     setEditing(null);
@@ -854,6 +845,7 @@ function PriceItemsTab() {
     setForm({
       priceBookId: String(row.price_book_id ?? ""),
       skuCode: row.sku_code ?? "",
+      quantityBasis: row.quantity_snapshot?.basis ?? '',
       productCode: row.product_code ?? "",
       gradeCode: row.grade_code ?? "",
       packagingSpec: row.packaging_spec ?? "",
@@ -871,6 +863,8 @@ function PriceItemsTab() {
       setErrorMsg(t('ui.请填写产品编码，或通过 SKU 选择器自动填充','请填写产品编码，或通过 SKU 选择器自动填充'));
       return;
     }
+    if (!editing && !form.quantityBasis) { setErrorMsg('请明确价格计量口径并选择 SKU'); return; }
+    if (form.quantityBasis && !form.skuCode) { setErrorMsg('明确计量价格必须选择 SKU'); return; }
     if (!form.unitPrice) {
       setErrorMsg(t('ui.单价不能为空','单价不能为空'));
       return;
@@ -878,6 +872,7 @@ function PriceItemsTab() {
     setSaving(true);
     try {
       const payload: Record<string, unknown> = {
+        quantityBasis: form.quantityBasis || undefined,
         priceBookId: Number(form.priceBookId),
         productCode: form.productCode || undefined,
         gradeCode: form.gradeCode || undefined,
@@ -895,6 +890,7 @@ function PriceItemsTab() {
         await apiFetch(`${API}/items/${editing.id}`, {
           method: "PATCH",
           body: JSON.stringify({
+            quantityBasis: payload.quantityBasis,
             unitPrice: payload.unitPrice,
             floorPrice: payload.floorPrice,
             ceilingPrice: payload.ceilingPrice,
@@ -1047,7 +1043,7 @@ function PriceItemsTab() {
                 <td style={{
               textAlign: "right",
               fontWeight: 700
-            }}>{Number(row.unit_price).toLocaleString()}</td>
+            }}>{Number(row.unit_price).toLocaleString()} / {row.quantity_snapshot?.tradeUnit ?? '旧价单位待确认'}</td>
                 <td style={{
               textAlign: "right",
               color: "var(--status-warning)"
@@ -1209,6 +1205,9 @@ function PriceItemsTab() {
             {specOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
 
+          <QuantityBasisInput value={form.quantityBasis} onChange={basis => setForm(f => ({ ...f, quantityBasis: basis }))} />
+          {(() => { const spec=master.specs.find(s => s.spec_code===form.packagingSpec); return spec ? <div>当前规格：1 {spec.display_unit} = {spec.qty_per_unit} {spec.base_unit || '基本单位'}；报价 / {form.quantityBasis==='BASE' ? spec.base_unit : spec.display_unit}。每托价、每箱价分别维护。</div> : null; })()}
+          <p>托/箱是同一产品的销售换算规格，库存按产品基本单位计算。确认单位后，单价、底价、最高价及数量阶梯均采用此单位；旧价格不会自动换算。</p>
           <label style={lbl}>{t('ui.单价','单价')} <span style={{
             color: "var(--status-danger)"
           }}>*</span></label>

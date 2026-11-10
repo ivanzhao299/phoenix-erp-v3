@@ -1,3 +1,4 @@
+import { baseQuantity } from '../../product-master/services/quantity-contract';
 import {
   Injectable, NotFoundException, ForbiddenException,
   BadRequestException, ConflictException, Logger,
@@ -210,11 +211,13 @@ export class DeliveryOrdersService {
     const orders = await this.ds.query(
       `SELECT so.id, so.order_no, so.customer_code, so.customer_name, so.delivery_address,
               so.status, so.company_code, so.fulfillment_warehouse_code,
-              COALESCE(items.order_qty, 0) AS order_qty,
+              COALESCE(items.order_qty, 0) AS order_qty, items.base_units, items.legacy_lines,
               COALESCE(outbound.outbound_qty, 0) AS outbound_qty
        FROM sal_sales_orders so
        LEFT JOIN (
-         SELECT sales_order_id, SUM(qty) AS order_qty
+         SELECT sales_order_id, SUM(COALESCE((quantity_snapshot->>'baseQty')::numeric,qty)) AS order_qty,
+                array_agg(DISTINCT quantity_snapshot->>'baseUnit') FILTER (WHERE quantity_snapshot IS NOT NULL) AS base_units,
+                COUNT(*) FILTER (WHERE quantity_snapshot IS NULL) AS legacy_lines
          FROM sal_order_items
          GROUP BY sales_order_id
        ) items ON items.sales_order_id = so.id
@@ -238,6 +241,8 @@ export class DeliveryOrdersService {
       throw new ForbiddenException(`无权使用履约仓 ${fulfillmentWarehouseCode}`);
     }
 
+    const baseUnits=[...new Set(orders.flatMap((o: any) => o.base_units ?? []))];
+    if (baseUnits.length>1 || (baseUnits.length && orders.some((o: any) => Number(o.legacy_lines)>0))) throw new BadRequestException('配送计划不能合计不同或未确认的基本单位，请分开创建并先核实历史单位');
     const requestedItems = dto.items ?? [];
     const requestedKeys = requestedItems.map((x) => String(x.salesOrderId));
     if (new Set(requestedKeys).size !== requestedKeys.length) {
@@ -255,6 +260,7 @@ export class DeliveryOrdersService {
       if (!(qty > 0) || qty > remaining) {
         throw new ConflictException(`订单 ${order.order_no} 本次配送 ${qty} 超过剩余可配送 ${remaining}`);
       }
+      if (baseUnits.length===1) baseQuantity(qty,1,String(baseUnits[0]));
       order.planned_qty = qty;
     }
 
@@ -478,7 +484,7 @@ export class DeliveryOrdersService {
               (SELECT COALESCE(SUM(a.outbound_qty),0) FROM sal_order_items oi
                JOIN sal_order_item_batch_allocations a ON a.sales_order_item_id=oi.id
                WHERE oi.sales_order_id=so.id)
-              >= (SELECT COALESCE(SUM(oi.qty),0) FROM sal_order_items oi WHERE oi.sales_order_id=so.id)
+              >= (SELECT COALESCE(SUM(COALESCE((oi.quantity_snapshot->>'baseQty')::numeric,oi.qty)),0) FROM sal_order_items oi WHERE oi.sales_order_id=so.id)
                 AS fully_outbound
        FROM sal_delivery_order_items i JOIN sal_sales_orders so ON so.id=i.sales_order_id
        WHERE i.delivery_order_id=$1`, [id],
@@ -504,7 +510,7 @@ export class DeliveryOrdersService {
            WHERE id = ANY($1) AND status='ALLOCATED'
              AND (SELECT COALESCE(SUM(a.outbound_qty),0) FROM sal_order_items oi
                   JOIN sal_order_item_batch_allocations a ON a.sales_order_item_id=oi.id WHERE oi.sales_order_id=sal_sales_orders.id)
-                 >= (SELECT COALESCE(SUM(oi.qty),0) FROM sal_order_items oi WHERE oi.sales_order_id=sal_sales_orders.id)`,
+                 >= (SELECT COALESCE(SUM(COALESCE((oi.quantity_snapshot->>'baseQty')::numeric,oi.qty)),0) FROM sal_order_items oi WHERE oi.sales_order_id=sal_sales_orders.id)`,
           [soIds],
         );
       }

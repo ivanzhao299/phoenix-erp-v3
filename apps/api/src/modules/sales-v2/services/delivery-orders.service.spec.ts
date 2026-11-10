@@ -17,7 +17,7 @@ describe('DeliveryOrdersService creation', () => {
       if (sql.includes('FROM sal_sales_orders')) {
         expect(sql).toContain('id = ANY($1::bigint[])');
         expect(sql).toContain('order_no = ANY($2::text[])');
-        expect(sql).toContain('SUM(qty) AS order_qty');
+        expect(sql).toContain("SUM(COALESCE((quantity_snapshot->>'baseQty')::numeric,qty)) AS order_qty");
         expect(params).toEqual([[], ['SO-20260725-00001']]);
         return [{
           id: '101',

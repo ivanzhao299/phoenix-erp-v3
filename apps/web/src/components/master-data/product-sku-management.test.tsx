@@ -166,7 +166,7 @@ describe('product → SKU management rendered behavior', () => {
     await render(<SkuCreatePage productCode="P1" />);
     expect(field('产品').value).toBe('P1'); expect((field('产品') as HTMLInputElement).readOnly).toBe(true);
     expect(field('产品名称').value).toBe('权威鲜蛋'); expect((field('产品名称') as HTMLInputElement).readOnly).toBe(true);
-    await select(field('等级') as HTMLSelectElement, 'G1'); await select(field('规格') as HTMLSelectElement, 'S1');
+    await select(field('等级') as HTMLSelectElement, 'G1'); await select(field('销售换算规格（同商品共享基础库存）') as HTMLSelectElement, 'S1');
     expect(field('SKU 名称').value).toBe('权威鲜蛋 (G1 / S1)'); await click('保存');
     expect(state.request).toHaveBeenCalledWith('/master-data/runtime/sku', expect.objectContaining({ method: 'POST', body: expect.stringContaining('"product_name":"权威鲜蛋"') }));
     expect(state.replace).toHaveBeenLastCalledWith(expect.stringMatching(/^\/master-data\/product-skus\?product_code=P1&_refresh=/));

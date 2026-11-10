@@ -1,5 +1,6 @@
 'use client';
 
+import { QuantityBasisInput, quantityText, type QuantitySnapshot, type QuantityBasis } from '@/components/shared-selectors/QuantityBasisInput';
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import u from "@/styles/uix-utils.module.css";
@@ -165,6 +166,8 @@ interface OrderItem {
   product_name: string | null;
   grade_code: string | null;
   qty: number;
+  quantity_snapshot?: QuantitySnapshot;
+  price_snapshot?: { actualUnitPrice: number; resolvedUnitPrice: number };
   resolved_unit_price: number;
   actual_unit_price: number;
   floor_price: number | null;
@@ -374,6 +377,9 @@ export default function SalesV2OrdersPage() {
     gradeCode: string;
     qty: string;
     actualUnitPrice: string;
+    _manualPrice?: boolean;
+    quantityBasis?: QuantityBasis;
+    _unit?: { qty_per_unit: number; base_unit: string; display_unit: string };
     skuCode?: string; // Phase H5
     _resolved?: PriceResult;
   }>>([{
@@ -506,26 +512,28 @@ export default function SalesV2OrdersPage() {
 
   // ── 价格 resolve ────────────────────────────────────────────────────────────
 
-  const resolveItemPrice = async (idx: number) => {
-    const item = newItems[idx];
+  const resolveItemPrice = async (idx: number, picked?: (typeof newItems)[number]) => {
+    const item = picked ?? newItems[idx];
     if (!item.productCode || !newForm.companyCode) return;
     try {
       const r = await api<any>('POST', '/api/v2/sales/pricing/resolve-price', {
         companyCode: newForm.companyCode,
         productCode: item.productCode,
+        skuCode: item.skuCode,
         gradeCode: item.gradeCode || undefined,
         qty: Number(item.qty) || 1,
+        quantityBasis: item.quantityBasis,
         customerCode: newForm.customerCode || undefined,
         channelCode: newForm.channelCode || undefined
       });
-      setNewItems(prev => prev.map((it, i) => i === idx ? {
+      setNewItems(prev => prev.map((it, i) => i === idx && it.skuCode===item.skuCode && it.quantityBasis===item.quantityBasis && it.qty===item.qty ? {
         ...it,
         _resolved: {
           unitPrice: r.unitPrice,
           floorPrice: r.floorPrice,
           priceBookId: r.priceBookId
         },
-        actualUnitPrice: it.actualUnitPrice || String(r.unitPrice ?? '')
+        actualUnitPrice: it._manualPrice ? it.actualUnitPrice : String(r.unitPrice ?? '')
       } : it));
     } catch {/* fallback */}
   };
@@ -564,7 +572,8 @@ export default function SalesV2OrdersPage() {
           productCode: i.productCode,
           gradeCode: i.gradeCode || undefined,
           qty: Number(i.qty),
-          actualUnitPrice: i.actualUnitPrice ? Number(i.actualUnitPrice) : undefined
+          quantityBasis: i.quantityBasis,
+          actualUnitPrice: i._manualPrice && i.actualUnitPrice ? Number(i.actualUnitPrice) : undefined
         }))
       });
       setShowCreate(false);
@@ -1099,19 +1108,25 @@ export default function SalesV2OrdersPage() {
                   _resolved: undefined
                 } : it))} onPick={o => {
                   const raw = o?.raw;
-                  setNewItems(p => p.map((it, i) => i === idx ? {
-                    ...it,
+                  const picked = {
+                    ...newItems[idx],
                     skuCode: raw?.sku_code ?? '',
                     productCode: raw?.product_code ?? '',
                     gradeCode: raw?.grade_code ?? '',
+                    quantityBasis: 'PACKAGE' as const,
+                    actualUnitPrice: '', _manualPrice: false,
+                    _unit: raw ? { qty_per_unit: Number(raw.qty_per_unit), base_unit: String(raw.base_unit || ''), display_unit: String(raw.display_unit || '') } : undefined,
                     _resolved: undefined
-                  } : it));
-                  if (raw) setTimeout(() => resolveItemPrice(idx), 0);
+                  };
+                  setNewItems(p => p.map((it,i) => i===idx ? picked : it));
+                  if (raw) void resolveItemPrice(idx,picked);
                 }} style={{
                   fontSize: 12,
                   padding: '6px 8px',
                   border: '1px solid var(--status-special-border)'
                 }} />
+                      {item.skuCode && <QuantityBasisInput value={item.quantityBasis ?? ''} onChange={basis => { const picked={...newItems[idx],quantityBasis:basis,_resolved:undefined,actualUnitPrice:'',_manualPrice:false}; setNewItems(p=>p.map((it,i)=>i===idx?picked:it)); void resolveItemPrice(idx,picked); }} />}
+                      {item._unit && <div>{quantityText(item.qty || 0, { basis: item.quantityBasis ?? 'PACKAGE', factor: item.quantityBasis==='BASE' ? 1 : item._unit.qty_per_unit, baseQty: 0, baseUnit: item._unit.base_unit, tradeUnit: item.quantityBasis==='BASE' ? item._unit.base_unit : item._unit.display_unit })}</div>}
                       {item.skuCode && <span style={{
                   fontSize: 10,
                   color: 'var(--color-purple-500)'
@@ -1166,7 +1181,7 @@ export default function SalesV2OrdersPage() {
                     display: 'block',
                     marginBottom: 2
                   }}>{t('ui.数量','数量')}</label>
-                        <input type="number" value={item.qty} onChange={e => setNewItems(p => p.map((it, i) => i === idx ? {
+                        <input type="number" value={item.qty} onBlur={() => void resolveItemPrice(idx)} onChange={e => setNewItems(p => p.map((it, i) => i === idx ? {
                     ...it,
                     qty: e.target.value
                   } : it))} placeholder="0" style={{
@@ -1190,7 +1205,7 @@ export default function SalesV2OrdersPage() {
                         </label>
                         <input type="number" value={item.actualUnitPrice} onChange={e => setNewItems(p => p.map((it, i) => i === idx ? {
                     ...it,
-                    actualUnitPrice: e.target.value
+                    actualUnitPrice: e.target.value, _manualPrice: true
                   } : it))} placeholder={item._resolved ? String(item._resolved.unitPrice) : '0'} style={{
                     width: '100%',
                     padding: '6px 8px',
@@ -1426,17 +1441,17 @@ export default function SalesV2OrdersPage() {
                           <SkuBadge code={item.sku_code} />
                         </td>
                         <td>{formatMasterData({ spec_name: item.spec_name }, 'spec_name', item.packaging_spec, lang)} · {formatMasterData({ grade_name: item.grade_name }, 'grade_name', item.grade_code, lang)}</td>
-                        <td className={u.tar}>{Number(item.qty).toLocaleString()}</td>
+                        <td className={u.tar}>{quantityText(item.qty, item.quantity_snapshot)}</td>
                         <td style={{
                   textAlign: 'right',
                   color: 'var(--text-secondary)'
-                }}>{Number(item.resolved_unit_price).toLocaleString()}</td>
+                }}>{Number(item.price_snapshot?.resolvedUnitPrice ?? item.resolved_unit_price).toLocaleString()}</td>
                         <td style={{
                   textAlign: 'right',
                   color: item.below_floor_price ? 'var(--status-danger)' : undefined,
                   fontWeight: item.below_floor_price ? 700 : 400
                 }}>
-                          {Number(item.actual_unit_price).toLocaleString()}
+                          {Number(item.price_snapshot?.actualUnitPrice ?? item.actual_unit_price).toLocaleString()}
                           {item.below_floor_price && ' ⚠'}
                         </td>
                         <td style={{

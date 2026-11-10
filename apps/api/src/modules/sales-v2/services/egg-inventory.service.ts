@@ -1,3 +1,4 @@
+import { savedQuantity, QuantitySnapshot, positiveQuantity, baseQuantity, sharedBatches, lockQuantityPools, assertBatchPool, resolveQuantity } from '../../product-master/services/quantity-contract';
 import { SkuPolicy } from '../../product-master/services/sku-policy';
 import {
   Injectable, Logger, BadRequestException, ConflictException,
@@ -287,7 +288,7 @@ export class EggInventoryService {
     collectionBatchRef?: string;
   }, mgr?: EntityManager): Promise<EggBatch> {
     assertEggDate(params.eggDate);
-    if (params.qty <= 0) throw new BadRequestException('入库数量必须大于 0');
+    positiveQuantity(params.qty, '入库数量');
     if (params.sourceType === 'TEMP_PRODUCTION' && (!params.warehouseCode || !params.locationCode)) {
       throw new BadRequestException('日产蛋入库必须解析到真实 ACTIVE 仓库和库位，禁止使用默认占位码');
     }
@@ -326,7 +327,13 @@ export class EggInventoryService {
 
     const batchNo    = await this.genBatchNo(params.eggDate, mgr);
     const expireDate = this.calcExpireDate(params.eggDate, params.shelfDays ?? DEFAULT_SHELF_DAYS);
-    const qty        = Math.round(params.qty);
+    const [product] = await mgr.query('SELECT unit,unit_zh,status FROM mst_products WHERE product_code=$1 FOR SHARE', [productCode]);
+    const unit = product?.unit_zh || product?.unit;
+    if (!unit || product.status!=='ACTIVE') throw new BadRequestException('产品未启用或基本单位不明确，禁止创建库存');
+    if (skuCode) await resolveQuantity(mgr,{qty:params.qty,skuCode,quantityBasis:'BASE'});
+    const qty = baseQuantity(params.qty, 1, unit);
+    if (gradeCodeStd && gradeCodeStd!==grade) throw new BadRequestException('批次标准等级与生产质量等级不一致');
+    gradeCodeStd = grade;
 
     // Phase H4: INSERT 增加三个 SKU 字段
     // 生产链路收口 Phase 1: source_type 参数化 + 追溯引用列
@@ -338,13 +345,13 @@ export class EggInventoryService {
          source_type, source_no,
          qty, qty_available, status,
          sku_code, grade_code_std, spec_code,
-         packaging_batch_ref, collection_batch_ref,
+         packaging_batch_ref, collection_batch_ref, unit, base_quantity_version,
          created_at, updated_at
        ) VALUES (
          $1,$2,$3,$4,$5,$6,$6,$7,$8,$9,$10,$11,$12,
          $12,'AVAILABLE',
          $13,$14,$15,
-         $16,$17,
+         $16,$17,$18,1,
          NOW(),NOW()
        ) RETURNING *`,
       [
@@ -360,6 +367,7 @@ export class EggInventoryService {
         specCode,
         params.packagingBatchRef ?? null,
         params.collectionBatchRef ?? null,
+        unit,
       ],
     );
 
@@ -485,6 +493,7 @@ export class EggInventoryService {
       /** Phase H4: SKU 优先分配路径 */
       skuCode?:     string;
       fulfillmentWarehouseCode?: string;
+      quantitySnapshot?: QuantitySnapshot | null;
     },
     mgr?: EntityManager,
   ): Promise<FifoAllocation[]> {
@@ -492,14 +501,14 @@ export class EggInventoryService {
     const q = mgr.query.bind(mgr);
     if (params.skuCode !== undefined) await SkuPolicy.requireUsable(mgr, params.skuCode, 'sale-stock');
 
-    if (params.qty <= 0) throw new BadRequestException('分配数量必须大于 0');
+    positiveQuantity(params.qty, '分配数量');
 
     // Advisory Lock 防并发超卖
     // Phase H4: SKU 路径用更细粒度的 lock key，旧路径继续用 productCode
     const lockKey = params.skuCode
       ? `fifo:${params.companyCode}:sku:${params.skuCode}`
       : `fifo:${params.companyCode}:${params.productCode}`;
-    await q(`SELECT pg_advisory_xact_lock(hashtext($1))`, [lockKey]);
+    if (!params.quantitySnapshot) await q(`SELECT pg_advisory_xact_lock(hashtext($1))`, [lockKey]);
 
     // 构建批次查询条件
     // 生产链路收口 Phase 1：legacy_source IS NULL —— 销售只认 Sales V2 可售批次，
@@ -533,7 +542,9 @@ export class EggInventoryService {
       args.push(params.fulfillmentWarehouseCode);
     }
 
-    const batches = await q(
+    const batches = params.quantitySnapshot
+      ? await sharedBatches(mgr, params.companyCode, params.fulfillmentWarehouseCode ? [params.fulfillmentWarehouseCode] : [], params.quantitySnapshot)
+      : await q(
       `SELECT * FROM inv_batches WHERE ${conds.join(' AND ')}
        ORDER BY expire_date ASC NULLS LAST, created_at ASC
        FOR UPDATE`,
@@ -546,7 +557,8 @@ export class EggInventoryService {
     for (const batch of batches) {
       if (remaining <= 0) break;
 
-      if (batch.sku_code != null) await SkuPolicy.requireUsable(mgr, batch.sku_code, 'sale-stock');
+      // Saved physical identity is authoritative, including a return's downgraded grade.
+      if (!params.quantitySnapshot && batch.sku_code != null) await SkuPolicy.requireUsable(mgr, batch.sku_code, 'sale-stock');
       const canTake = Math.min(remaining, Number(batch.qty_available));
       remaining -= canTake;
 
@@ -629,8 +641,9 @@ export class EggInventoryService {
       `SELECT * FROM sal_order_items WHERE sales_order_id = $1`, [orderId],
     );
 
-    for (const item of items) {
-      const qty = Number(item.qty);
+    await lockQuantityPools(mgr, items.map((item: any) => ({ company: companyCode, warehouses: fulfillmentWarehouseCode ? [fulfillmentWarehouseCode] : [], snapshot: item.quantity_snapshot })));
+    for (const item of items.sort((a: any, b: any) => String(a.product_code).localeCompare(String(b.product_code)) || String(a.id).localeCompare(String(b.id)))) {
+      const qty = savedQuantity(item);
       if (qty <= 0) continue;
 
       const existing = await q(
@@ -657,6 +670,7 @@ export class EggInventoryService {
           note:    `销售订单 ${orderNo} 明细 ${item.id}`,
           skuCode: item.sku_code ?? undefined,   // Phase H5: SKU PATH A 优先
           fulfillmentWarehouseCode,
+          quantitySnapshot: item.quantity_snapshot,
       }, mgr);
 
         // 记录分配的批次（取首批次作为主批次，多批次逗号分隔）
@@ -693,7 +707,8 @@ export class EggInventoryService {
     companyCode: string,
     mgr?: EntityManager,
   ): Promise<void> {
-    const q = mgr ? mgr.query.bind(mgr) : this.ds.query.bind(this.ds);
+    if (!mgr) return this.ds.transaction(manager => this.releaseInventory(orderId,orderNo,companyCode,manager));
+    const q = mgr.query.bind(mgr);
 
     const allocations = await q(
       `SELECT a.*,oi.sales_order_id,b.sku_code,b.warehouse_code,b.status,b.qty,b.qty_available
@@ -772,9 +787,10 @@ export class EggInventoryService {
   ): Promise<number> {
     if (!mgr) return this.ds.transaction(manager => this.confirmOutbound(orderId, orderNo, companyCode, deliveryNo, deliveryId, requestedQty, manager));
     const q = mgr.query.bind(mgr);
+    positiveQuantity(requestedQty,'出库基础数量');
 
     const allocations = await q(
-      `SELECT a.*,b.qty,b.expire_date,b.quality_grade,b.sku_code,b.warehouse_code,b.location_code,b.status
+      `SELECT a.*,oi.quantity_snapshot,oi.sku_code AS sale_sku_code,b.product_code,b.grade_code_std,b.unit,b.material_code,b.legacy_source,b.base_quantity_version,b.qty,b.expire_date,b.quality_grade,b.sku_code,b.warehouse_code,b.location_code,b.status
          FROM sal_order_item_batch_allocations a
          JOIN sal_order_items oi ON oi.id=a.sales_order_item_id
          JOIN inv_batches b ON b.batch_no=a.batch_no
@@ -789,7 +805,11 @@ export class EggInventoryService {
       const available = Number(allocation.reserved_qty) - Number(allocation.outbound_qty) - Number(allocation.released_qty);
       const outQty = Math.min(available, remaining);
       if (outQty <= 0) continue;
-      if (allocation.sku_code != null) await SkuPolicy.requireUsable(mgr, allocation.sku_code, 'sale-stock');
+      if (allocation.quantity_snapshot) {
+        await SkuPolicy.requireUsable(mgr, allocation.sale_sku_code, 'sale-stock');
+        assertBatchPool(allocation, allocation.quantity_snapshot);
+        baseQuantity(outQty,1,allocation.quantity_snapshot.baseUnit);
+      } else if (allocation.sku_code != null) await SkuPolicy.requireUsable(mgr, allocation.sku_code, 'sale-stock');
 
         // 正式扣减物理库存（qty）
         const changed = await q(
@@ -800,7 +820,7 @@ export class EggInventoryService {
                 AND company_code=$3
                 AND warehouse_code=$4
                 AND status='AVAILABLE'
-                AND qty >= $1
+                AND qty >= $1 AND (expire_date IS NULL OR expire_date>=CURRENT_DATE)
               RETURNING batch_no
            ) SELECT batch_no FROM changed`,
           [outQty, allocation.batch_no, companyCode, allocation.warehouse_code],
@@ -883,17 +903,17 @@ export class EggInventoryService {
         await q(
           `INSERT INTO inv_batches
              (batch_no, product_code, company_code, qty, qty_available,
-              quality_grade, source_type, source_no, status,
+              quality_grade, source_type, source_no, status, unit, base_quantity_version,
               sku_code, grade_code_std, spec_code, warehouse_code, location_code, inbound_date,
               created_at, updated_at)
-           VALUES ($1,$2,$3,$4,$4,$5,'RETURN',$6,'RETURNED',$7,$8,$9,$10,$11,$12::date,NOW(),NOW())`,
+           VALUES ($1,$2,$3,$4,0,$5,'RETURN',$6,'QUARANTINE',$13,$14,$7,$8,$9,$10,$11,$12::date,NOW(),NOW())`,
           [
             batchNo, item.product_code, companyCode, accepted, returnGrade, returnNo,
             returnSkuCode,
             // Phase H5: returnSkuCode 已从 sal_return_items.sku_code 读取
-            returnSkuCode ? returnGrade : null,
-            returnSkuCode ? item.spec_code ?? null : null,
-            targetWarehouseCode, targetLocationCode, inboundDate,
+            returnGrade,
+            item.quantity_snapshot?.specCode ?? item.packaging_spec ?? null,
+            targetWarehouseCode, targetLocationCode, inboundDate, item.quantity_snapshot?.baseUnit ?? null, item.quantity_snapshot ? 1 : null,
           ],
         );
 

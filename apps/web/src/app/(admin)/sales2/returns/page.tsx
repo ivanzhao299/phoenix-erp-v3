@@ -54,6 +54,7 @@ interface ReturnItem {
   product_name: string | null;
   grade_code: string | null;
   returned_qty: number;
+  quantity_snapshot?: { baseQty: number; baseUnit: string; priceFactor?: number; priceUnit?: string };
   accepted_qty: number;
   damaged_qty: number;
   unit_price: number;
@@ -245,6 +246,15 @@ function Badge({
 
 // ── 创建退货抽屉 ──────────────────────────────────────────────────────────────
 
+interface ReturnDraftLine {
+  productCode: string; productName: string; gradeCode: string; returnedQty: number; unitPrice: number; remark: string;
+  salesOrderItemId?: string; skuCode?: string; originalBaseQty?: number; originalAmount?: number; priceUnit?: string; baseUnit?: string;
+}
+interface OriginalReturnOrder {
+  id: string; order_no: string; company_code: string; customer_code: string; customer_name: string;
+  items: Array<{ id: string; product_code: string; product_name: string; grade_code: string; sku_code?: string; qty: number; amount: number; actual_unit_price: number;
+    quantity_snapshot?: { baseQty: number; baseUnit: string; tradeUnit: string }; price_snapshot?: { actualUnitPrice: number } }>;
+}
 function CreateReturnDrawer({
   open,
   onClose,
@@ -257,6 +267,7 @@ function CreateReturnDrawer({
   const { t } = useLanguage();
   const [form, setForm] = useState({
     salesOrderNo: '',
+    salesOrderId: '',
     customerCode: '',
     customerName: '',
     companyCode: '',
@@ -264,7 +275,7 @@ function CreateReturnDrawer({
     reasonCode: '',
     remark: ''
   });
-  const [items, setItems] = useState([{
+  const [items, setItems] = useState<ReturnDraftLine[]>([{
     productCode: '',
     productName: '',
     gradeCode: '',
@@ -287,7 +298,22 @@ function CreateReturnDrawer({
     ...it,
     [field]: val
   } : it));
+  const loadOriginal = async () => {
+    setLoading(true); setError('');
+    try {
+      const list=await api<{data:Array<{id:string;order_no:string}>}>('GET',`/api/v2/sales/orders?keyword=${encodeURIComponent(form.salesOrderNo.trim())}&limit=200`);
+      const match=list.data.find(row=>row.order_no===form.salesOrderNo.trim());
+      if (!match) throw new Error('未找到可访问的原销售单，请核对完整订单号');
+      const original=await api<OriginalReturnOrder>('GET',`/api/v2/sales/orders/${match.id}`);
+      setForm(p=>({...p,salesOrderId:String(original.id),salesOrderNo:original.order_no,companyCode:original.company_code,customerCode:original.customer_code,customerName:original.customer_name}));
+      setItems(original.items.map(row=>({salesOrderItemId:String(row.id),skuCode:row.sku_code,productCode:row.product_code,productName:row.product_name||'',gradeCode:row.grade_code||'',
+        returnedQty:Number(row.quantity_snapshot?.baseQty??row.qty),originalBaseQty:Number(row.quantity_snapshot?.baseQty??row.qty),originalAmount:Number(row.amount),
+        unitPrice:Number(row.price_snapshot?.actualUnitPrice??row.actual_unit_price),priceUnit:row.quantity_snapshot?.tradeUnit,baseUnit:row.quantity_snapshot?.baseUnit,remark:''})));
+    } catch(e: unknown) { setError(e instanceof Error?e.message:'原单载入失败'); }
+    finally { setLoading(false); }
+  };
   const handleCreate = async () => {
+    if (form.salesOrderNo && !form.salesOrderId) { setError('请先载入原单明细，或清除订单号后按无原单基础数量退货'); return; }
     if (!form.companyCode) {
       setError(t('ui.请填写公司代码','请填写公司代码'));
       return;
@@ -301,11 +327,15 @@ function CreateReturnDrawer({
     try {
       await api('POST', '/api/v2/sales/returns', {
         ...form,
+        salesOrderId: form.salesOrderId || undefined,
         items: items.filter(it => it.productCode).map(it => ({
+          salesOrderItemId: it.salesOrderItemId,
+          skuCode: it.skuCode,
           productCode: it.productCode,
           productName: it.productName || undefined,
           gradeCode: it.gradeCode || undefined,
           returnedQty: Number(it.returnedQty),
+          quantityBasis: 'BASE',
           unitPrice: Number(it.unitPrice),
           remark: it.remark || undefined
         }))
@@ -343,7 +373,7 @@ function CreateReturnDrawer({
             marginBottom: 4
           }}>{t('ui.公司','公司')} *</div>
             {/* G4-C：公司主数据，DataScope 自动过滤 */}
-            <CompanySelector value={form.companyCode} onChange={v => setForm(p => ({
+            <CompanySelector disabled={!!form.salesOrderId} value={form.companyCode} onChange={v => setForm(p => ({
             ...p,
             companyCode: v
           }))} />
@@ -354,7 +384,7 @@ function CreateReturnDrawer({
             color: 'var(--text-secondary)',
             marginBottom: 4
           }}>{t('ui.销售订单号','销售订单号')}</div>
-            <input value={form.salesOrderNo} placeholder="SO-..." onChange={e => setForm(p => ({
+            <input disabled={!!form.salesOrderId} value={form.salesOrderNo} placeholder="SO-..." onChange={e => setForm(p => ({
             ...p,
             salesOrderNo: e.target.value
           }))} style={{
@@ -366,6 +396,9 @@ function CreateReturnDrawer({
             boxSizing: 'border-box'
           }} />
           </div>
+          <div><button disabled={loading || !form.salesOrderNo || !!form.salesOrderId} onClick={loadOriginal}>载入原单明细与成交价</button>
+          {form.salesOrderId && <button onClick={()=>{setForm(p=>({...p,salesOrderId:'',salesOrderNo:''}));setItems([{productCode:'',productName:'',gradeCode:'',returnedQty:1,unitPrice:0,remark:''}]);}}>清除原单</button>}
+          <p>数量统一填写原单基础量（如枚）。原单退货继承成交金额；累计可退量由服务端按已出库量校验。</p></div>
           <div>
             <div style={{
             fontSize: 12,
@@ -373,7 +406,7 @@ function CreateReturnDrawer({
             marginBottom: 4
           }}>{t('ui.客户','客户')} *</div>
             {/* G4-C：客户主数据，自动带出名称 */}
-            <CustomerSelector value={form.customerCode} onChange={v => setForm(p => ({
+            <CustomerSelector disabled={!!form.salesOrderId} value={form.customerCode} onChange={v => setForm(p => ({
             ...p,
             customerCode: v
           }))} onPick={o => setForm(p => ({
@@ -439,7 +472,7 @@ function CreateReturnDrawer({
         marginBottom: 12
       }}>
           <span className={u.fw600}>{t('ui.退货明细','退货明细')}</span>
-          <button onClick={addItem} style={{
+          <button disabled={!!form.salesOrderId} onClick={addItem} style={{
           background: 'var(--color-accent)',
           color: 'var(--text-on-dark)',
           border: 'none',
@@ -462,11 +495,13 @@ function CreateReturnDrawer({
             color: 'var(--color-purple-500)',
             marginBottom: 2
           }}>{t('ui.商品（SKU 主数据）','商品（SKU 主数据）')}*</div>
-              <SkuSelector value={(it as any).skuCode ?? ''} onChange={code => updateItem(i, 'skuCode' as any, code)} onPick={o => {
+              <SkuSelector disabled={!!form.salesOrderId} value={it.skuCode ?? ''} onChange={code => updateItem(i, 'skuCode' as any, code)} onPick={o => {
             const raw = o?.raw;
             updateItem(i, 'productCode', raw?.product_code ?? '');
             updateItem(i, 'productName', raw?.sku_name ?? raw?.product_name ?? '');
             updateItem(i, 'gradeCode', raw?.grade_code ?? '');
+            updateItem(i, 'baseUnit', raw?.base_unit ?? '');
+            updateItem(i, 'priceUnit', raw?.base_unit ?? '');
           }} style={{
             fontSize: 13,
             padding: '6px 8px',
@@ -518,7 +553,7 @@ function CreateReturnDrawer({
               fontSize: 11,
               color: 'var(--text-secondary)',
               marginBottom: 2
-            }}>{t('ui.退货数量','退货数量')} *</div>
+            }}>{t('ui.return_base_quantity','退货基础数量')} {it.baseUnit || '原单单位未记录'} *</div>
                 <input type="number" min={1} value={it.returnedQty} onChange={e => updateItem(i, 'returnedQty', e.target.value)} style={{
               width: '100%',
               padding: '6px 8px',
@@ -533,8 +568,8 @@ function CreateReturnDrawer({
               fontSize: 11,
               color: 'var(--text-secondary)',
               marginBottom: 2
-            }}>{t('ui.单价','单价')}</div>
-                <input type="number" min={0} value={it.unitPrice} onChange={e => updateItem(i, 'unitPrice', e.target.value)} style={{
+            }}>{t('ui.单价','单价')} / {it.priceUnit || '基础量（历史计量）'}</div>
+                <input type="number" readOnly={!!form.salesOrderId} min={0} value={it.unitPrice} onChange={e => updateItem(i, 'unitPrice', e.target.value)} style={{
               width: '100%',
               padding: '6px 8px',
               border: '1px solid var(--border)',
@@ -545,7 +580,7 @@ function CreateReturnDrawer({
               </div>
             </div>
             <div className={u.flexBetween}>
-              <span className={u.muted12}>{t('ui.小计：','小计：')}{fmt(it.returnedQty * it.unitPrice)} {/* currency */}</span>
+              <span className={u.muted12}>{t('ui.小计：','小计：')}{fmt(it.originalBaseQty ? it.returnedQty / it.originalBaseQty * (it.originalAmount || 0) : it.returnedQty * it.unitPrice)}（预计，累计退款以原单为准）</span>
               {items.length > 1 && <button onClick={() => removeItem(i)} style={{
             background: 'color-mix(in srgb, var(--status-danger) 14%, transparent)',
             color: 'var(--status-danger)',
@@ -580,7 +615,7 @@ function InspectionDrawer({
     remark: string;
   }>>((order.items || []).map(it => ({
     itemId: it.id,
-    acceptedQty: Number(it.returned_qty),
+    acceptedQty: Number(it.quantity_snapshot?.baseQty ?? it.returned_qty),
     damagedQty: 0,
     remark: ''
   })));
@@ -623,7 +658,7 @@ function InspectionDrawer({
         marginBottom: 20,
         fontSize: 13
       }}>
-          {t('ui.⚠ 安全约束：accepted_qty + damaged_qty ≤ returned_qty，且破损商品不回库存','⚠ 安全约束：accepted_qty + damaged_qty ≤ returned_qty，且破损商品不回库存')}
+          {t('ui.return_quantity_rule','质检统一填写基础数量：合格 + 破损必须等于申请基础量。原单退款按合格基础量 ÷ 原成交换算系数 × 原成交单价计算。')}
         </div>
         {(order.items || []).map((item, i) => <div key={item.id} style={{
         background: 'var(--bg-muted)',
@@ -656,7 +691,7 @@ function InspectionDrawer({
           color: 'var(--text-secondary)',
           marginBottom: 10
         }}>
-              {t('ui.申请退货数量：','申请退货数量：')}{item.returned_qty} {item.grade_code && `| ${t('ui.等级：','等级：')}${item.grade_code}`}
+              {t('ui.return_base_qty','申请退货基础数量：')}{item.returned_qty} {item.grade_code && `| ${t('ui.等级：','等级：')}${item.grade_code}`}
             </div>
             <div style={{
           display: 'grid',
@@ -1239,7 +1274,7 @@ function InspectionTab() {
             fontSize: 13
           }}>
                       <span>{formatMasterData(item, item.sku_code ? 'sku_name' : 'product_name', item.sku_code ?? item.product_code, lang)}</span>
-                      <span>{t('ui.申请退货：','申请退货：')}{item.returned_qty} {t('ui.件','件')}</span>
+                      <span>{t('ui.申请退货：','申请退货：')}{item.returned_qty} {t('ui.base_quantity','基础数量')}</span>
                     </div>)}
                 </div>
                 {canEdit && <button onClick={() => setInspectOrder(o)} style={{
@@ -1612,10 +1647,10 @@ function AnalysisTab() {
             color: 'var(--text-disabled)',
             marginTop: 2
           }}>
-                <span>{t('ui.退货','退货')} {p.total_qty} {t('ui.件','件')}</span>
+                <span>{t('ui.退货','退货')} {p.total_qty} {t('ui.base_quantity','基础数量')}</span>
                 <span style={{
               color: 'var(--status-danger)'
-            }}>{t('ui.破损','破损')} {p.damaged_qty} {t('ui.件','件')}</span>
+            }}>{t('ui.破损','破损')} {p.damaged_qty} {t('ui.base_quantity','基础数量')}</span>
               </div>
               <div style={{
             height: 6,

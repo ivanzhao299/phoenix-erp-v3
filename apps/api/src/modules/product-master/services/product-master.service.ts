@@ -242,7 +242,11 @@ export class ProductMasterService {
     }
     const where = `WHERE ${conds.join(' AND ')}`;
     return this.em.query(
-      `SELECT * FROM product_skus ${where} ORDER BY product_code, grade_code, spec_code`,
+      `SELECT product_skus.*,
+        (SELECT sp.qty_per_unit FROM packaging_specs sp WHERE sp.spec_code=product_skus.spec_code) AS qty_per_unit,
+        (SELECT sp.base_unit FROM packaging_specs sp WHERE sp.spec_code=product_skus.spec_code) AS base_unit,
+        (SELECT sp.display_unit FROM packaging_specs sp WHERE sp.spec_code=product_skus.spec_code) AS display_unit
+        FROM product_skus ${where} ORDER BY product_code, grade_code, spec_code`,
       args,
     );
   }

@@ -77,6 +77,7 @@ export class GenericCrudController {
   ]);
 
   private checkTableAccess(table: string, req: any, method: string) {
+    if (method !== 'GET' && ['wms_inbound_items','wms_outbound_items','inv_batches','inv_ledger'].includes(table)) throw new ForbiddenException('WMS 明细及快照必须使用专用单据接口，禁止通用修改/删除');
     if (method !== 'GET' && ['mst_products', 'product_skus'].includes(table)) {
       throw new ForbiddenException('产品/SKU 必须使用主数据领域接口，禁止通用 CRUD 写入');
     }
@@ -573,6 +574,7 @@ export class GenericCrudController {
 
   @Post(':table')
   async create(@Param('table') table: string, @Body() body: any, @Req() req: any) {
+    GenericCrudService.assertNoDerivedQuantityFields(body);
     this.checkTableAccess(table, req, 'POST');
     const tableScope = await this.resolveTableScope(table, req, 'POST');
     this.assertNoHouseOwnershipWrite(table, body);
@@ -647,6 +649,7 @@ export class GenericCrudController {
     }
     this.assertWarehouseRowScope(table, existing, tableScope);
     const safeBody = this.filterBlockedFields(table, body);
+    GenericCrudService.assertNoDerivedQuantityFields(body);
     this.assertWmsDocumentMutationAllowed(table, existing, safeBody);
     if (req.user?.username && Object.prototype.hasOwnProperty.call(body, 'operator')
       && ['wms_inbound', 'wms_transfer', 'wms_stocktake', 'wms_loss'].includes(table)) {
@@ -716,6 +719,7 @@ export class GenericCrudController {
     @Body() body: any,
     @Req() req: any,
   ) {
+    GenericCrudService.assertNoDerivedQuantityFields(body);
     console.log(`[CTRL PUT] /${table}/${id} | body=${JSON.stringify(redactSensitive(body))} | user=${req.user?.username}`);
     return this.updateWithColumn(table, getPkColumn(table), id, body, req);
   }

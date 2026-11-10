@@ -661,3 +661,21 @@ describe('GenericCrudController WMS RBAC', () => {
     expect(svc.remove).toHaveBeenCalledWith('wms_inbound', 'id', '23');
   });
 });
+
+describe('Generic HTTP quantity provenance protection', () => {
+  it('rejects administrator snapshot injection before delegating to generic CRUD', async () => {
+    const controller=new GenericCrudController({} as never,{} as never,{} as never,{} as never);
+    await expect(controller.create('wms_inbound_items',{quantity_snapshot:{version:1}},{user:{username:'admin',permissions:['*']}})).rejects.toThrow('快照');
+    await expect(controller.update('wms_outbound_items','1',{base_quantity_version:1},{user:{username:'admin',permissions:['*']}})).rejects.toThrow('快照');
+  });
+});
+
+describe('Administrator generic WMS line mutations', () => {
+  it.each(['wms_inbound_items','wms_outbound_items','inv_batches','inv_ledger'])('blocks plain create/update/delete of %s', async table => {
+    const c=new GenericCrudController({} as never,{} as never,{} as never,{} as never);
+    const admin={user:{username:'admin',permissions:['*'],roles:['ROLE_ADMIN']}};
+    await expect(c.create(table,{qty:1},admin)).rejects.toThrow('专用单据');
+    await expect(c.updateWithColumn(table,'id','1',{product_code:'OTHER'},admin)).rejects.toThrow('专用单据');
+    await expect(c.removeWithColumn(table,'id','1',admin)).rejects.toThrow('专用单据');
+  });
+});

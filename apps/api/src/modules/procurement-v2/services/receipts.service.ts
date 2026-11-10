@@ -177,8 +177,9 @@ export class ReceiptsService {
     ) : [];
     const itemCodes = [...new Set(items.map(i => i.itemCode).filter(Boolean))];
     const names: any[] = itemCodes.length ? await this.ds.query(
-      `SELECT sku_code AS item_code, sku_name, sku_name_en, sku_name_lo
-         FROM product_skus WHERE sku_code = ANY($1::text[])`, [itemCodes],
+      `SELECT material_code AS item_code, material_name AS sku_name, material_name_en AS sku_name_en, material_name_lo AS sku_name_lo
+         FROM mst_materials m WHERE material_code = ANY($1::text[])
+         AND NOT EXISTS (SELECT 1 FROM product_skus s WHERE s.sku_code=m.material_code)`, [itemCodes],
     ) : [];
     const nameMap = new Map(names.map(r => [r.item_code, r]));
     return { ...rcp, ...warehouse, items: items.map(i => ({ ...i, ...nameMap.get(i.itemCode) })), approvals, shipment, po };

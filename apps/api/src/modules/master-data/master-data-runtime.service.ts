@@ -866,6 +866,21 @@ export class MasterDataRuntimeService {
     if (!rule.from.includes(cur)) throw new BadRequestException(`当前状态 ${cur} 不允许执行 ${action}`);
     if (!VALID_STATUS.includes(rule.to)) throw new BadRequestException('非法目标状态');
 
+    if (action === 'archive' && ['MATERIAL','PRODUCT'].includes(c.objectType)) {
+      return this.ds.transaction(async manager => {
+        const [locked] = await manager.query(`SELECT status FROM ${c.table} WHERE ${c.codeCol}=$1 FOR UPDATE NOWAIT`, [code]);
+        if (!locked || !rule.from.includes(locked.status)) throw new BadRequestException('主数据状态已变化，请刷新');
+        await this.refs.lockArchiveReferences(c.objectType, manager);
+        const report = await this.refs.compute(c.objectType, code, manager);
+        if (report.isReferenced) throw new BadRequestException(`归档被阻断：${code} 仍被 ${report.totalReferences} 处业务引用`);
+        await manager.query(`UPDATE ${c.table} SET status='ARCHIVED',updated_at=NOW() WHERE ${c.codeCol}=$1`, [code]);
+        await manager.query(`INSERT INTO mst_audit_trail (object_type,object_code,action,before_json,after_json,operator,reason)
+          VALUES ($1,$2,'ARCHIVE',$3::jsonb,$4::jsonb,$5,$6)`,
+          [c.objectType, code, JSON.stringify({ status: locked.status }), JSON.stringify({ status: 'ARCHIVED' }), operator ?? 'SYS', reason ?? null]);
+        return { status: 'ARCHIVED' };
+      });
+    }
+
     // ── G5.5-D：归档阻断 — 被引用的主数据不允许归档 ─────────────────────────
     if (action === 'archive') {
       const report = await this.refs.compute(c.objectType, code);

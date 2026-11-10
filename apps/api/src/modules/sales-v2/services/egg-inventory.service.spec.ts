@@ -274,6 +274,7 @@ describe('EggInventoryService createProductionBatch SQL contract', () => {
       .mockResolvedValueOnce([{ grade_code: 'GRADE_1' }])
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([{ max_suffix: null }])
+      .mockResolvedValueOnce([{ unit_zh: '枚', status: 'ACTIVE' }])
       .mockResolvedValueOnce([{ batch_no: 'EGG-20260825-00001' }])
       .mockResolvedValueOnce([]);
     const cls = { get: jest.fn().mockReturnValue({ username: 'tester' }) };

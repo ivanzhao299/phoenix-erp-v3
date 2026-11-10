@@ -89,10 +89,13 @@ export default function TransferPage() {
   }, {
     key: "batch_no",
     label: t("ui.批次号", "批次号"),
-    type: "text"
+    type: "batch",
+    onPickKeys: { unit: "unit" }
+  }, {
+    key: "unit", label: t("ui.基本单位", "来源批次基本单位"), type: "readonly"
   }, {
     key: "qty",
-    label: t("ui.调拨数量", "调拨数量"),
+    label: t("ui.调拨基础数量", "调拨基础数量（按来源批次单位）"),
     type: "number",
     required: true
   }, {

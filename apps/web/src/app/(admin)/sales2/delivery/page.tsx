@@ -851,7 +851,7 @@ export default function DeliveryPage() {
                     <span><Package size={10} style={{
                   display: 'inline',
                   marginRight: 3
-                }} />{o.total_orders}{t('ui.单','单')} / {o.total_qty}{t('ui.件','件')}</span>
+                }} />{o.total_orders}{t('ui.单','单')} / {o.total_qty}{t('ui.base_quantity','基础数量')}</span>
                   </div>
                   {o.wave_date && <div style={{
               marginTop: 4,
@@ -1122,8 +1122,8 @@ export default function DeliveryPage() {
                   color: 'var(--text-secondary)',
                   marginTop: 2
                 }}>
-                          {item.customer_name ?? '—'} · {t('ui.计划','计划')} {item.planned_qty} {t('ui.件','件')}
-                          {item.received_qty !== null && ` · ${t('ui.签收','签收')} ${item.received_qty} ${t('ui.件','件')}`}
+                          {item.customer_name ?? '—'} · {t('ui.计划','计划')} {item.planned_qty} {t('ui.base_quantity','基础数量')}
+                          {item.received_qty !== null && ` · ${t('ui.签收','签收')} ${item.received_qty} ${t('ui.base_quantity','基础数量')}`}
                         </div>
                       </div>
                       <div className={u.flexRow8}>
@@ -1200,7 +1200,7 @@ export default function DeliveryPage() {
                   color: 'var(--status-danger)',
                   marginLeft: 8
                 }}>
-                              [{r.exception_type}] {t('ui.异常','异常')} {r.exception_qty} {t('ui.件','件')}
+                              [{r.exception_type}] {t('ui.异常','异常')} {r.exception_qty} {t('ui.base_quantity','基础数量')}
                             </span>}
                         </div>
                         <div className={u.flexRow8}>
@@ -1218,7 +1218,7 @@ export default function DeliveryPage() {
                   color: 'var(--text-secondary)',
                   fontSize: 11
                 }}>
-                            {t('ui.收','收')} {r.received_qty} {t('ui.件','件')} · {new Date(r.signed_at).toLocaleDateString('zh-CN')}
+                            {t('ui.收','收')} {r.received_qty} {t('ui.base_quantity','基础数量')} · {new Date(r.signed_at).toLocaleDateString('zh-CN')}
                           </span>
                         </div>
                       </div>)}

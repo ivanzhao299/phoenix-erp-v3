@@ -1,3 +1,4 @@
+import { resolveQuantity, QuantitySnapshot } from '../../product-master/services/quantity-contract';
 import {
   Injectable, NotFoundException, ForbiddenException, OnApplicationBootstrap,
   BadRequestException, ConflictException, Logger, ServiceUnavailableException,
@@ -129,6 +130,7 @@ export class SalesOrdersService implements OnApplicationBootstrap {
     priceBookNo: string | null;
     belowFloor: boolean;
     skuCode: string | null;
+    quantitySnapshot?: QuantitySnapshot | null;
   }, manager: EntityManager = this.ds.manager) {
     const values = [
       params.salesOrderId,
@@ -148,9 +150,9 @@ export class SalesOrdersService implements OnApplicationBootstrap {
          grade_code, packaging_spec, qty,
          resolved_unit_price, actual_unit_price, unit_price,
          floor_price, ceiling_price, amount,
-         price_book_id, price_book_no, below_floor_price${withSku ? ', sku_code' : ''}
-       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15${withSku ? ',$16' : ''})`,
-      withSku ? values : values.slice(0, 15),
+         price_book_id, price_book_no, below_floor_price${withSku ? ', sku_code' : ''}, quantity_snapshot, price_snapshot
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15${withSku ? ',$16' : ''},$${withSku ? 17 : 16}::jsonb,$${withSku ? 18 : 17}::jsonb)`,
+      [...(withSku ? values : values.slice(0, 15)), params.quantitySnapshot == null ? null : JSON.stringify(params.quantitySnapshot), JSON.stringify({ resolvedUnitPrice: params.resolvedUnitPrice, actualUnitPrice: params.actualUnitPrice, floorPrice: params.floorPrice, ceilingPrice: params.ceilingPrice, amount: params.amount, priceBookId: params.priceBookId, tradeUnit: params.quantitySnapshot?.tradeUnit ?? null })],
     );
   }
 
@@ -289,6 +291,7 @@ export class SalesOrdersService implements OnApplicationBootstrap {
         priceBookId: string | null; priceBookNo: string | null;
         amount: number;
         skuCode: string | null;     // Phase H5
+        quantitySnapshot: QuantitySnapshot | null;
       }> = [];
 
       let anyBelowFloor = false;
@@ -300,6 +303,7 @@ export class SalesOrdersService implements OnApplicationBootstrap {
         const gradeCode = sku ? sku.grade_code : item.gradeCode ?? null;
         const packagingSpec = sku ? sku.spec_code : item.packagingSpec ?? null;
         const skuCode: string | null = sku ? sku.sku_code : null;
+        const quantitySnapshot = await resolveQuantity(mgr, { ...item, skuCode: skuCode ?? undefined });
 
         let resolved: any = {
           unitPrice: 0, floorPrice: null, ceilingPrice: null,
@@ -313,11 +317,12 @@ export class SalesOrdersService implements OnApplicationBootstrap {
             gradeCode:      gradeCode ?? undefined,
             packagingSpec:  packagingSpec ?? undefined,
             qty:            item.qty,
+            quantityBasis: item.quantityBasis,
             customerCode:   dto.customerCode ?? undefined,
             channelCode:    channelCode ?? undefined,
             skuCode:        skuCode ?? undefined,   // Phase H5: sku_code 优先匹配价格
-          });
-        } catch { /* 无价格时用 0 */ }
+          }, mgr);
+        } catch (error) { if (item.quantityBasis !== undefined || error instanceof BadRequestException) throw error; }
 
         const resolvedUnitPrice = Number(resolved.unitPrice ?? 0);
         const actualUnitPrice   = item.actualUnitPrice !== undefined
@@ -346,7 +351,7 @@ export class SalesOrdersService implements OnApplicationBootstrap {
           priceBookId:      resolved.priceBookId ? String(resolved.priceBookId) : null,
           priceBookNo:      resolved.priceBookNo ?? null,
           amount,
-          skuCode,          // Phase H5
+          skuCode, quantitySnapshot, // Phase H5
         });
       }
 
@@ -427,6 +432,10 @@ export class SalesOrdersService implements OnApplicationBootstrap {
       if (!locked || locked.status !== 'DRAFT') throw new ForbiddenException('仅 DRAFT 状态的订单可编辑');
       // 如果 items 传入则重建明细（删旧插新）
       if (dto.items && dto.items.length > 0) {
+        if (dto.items.some(item => item.quantityBasis===undefined)) {
+          const declared=await mgr.query('SELECT quantity_snapshot FROM sal_order_items WHERE sales_order_id=$1 AND quantity_snapshot IS NOT NULL LIMIT 1',[id]);
+          if (declared.some((row: any) => row.quantity_snapshot!=null)) throw new BadRequestException('该草稿已明确计量，请使用明确单位的新客户端编辑，不能丢弃原换算关系');
+        }
 
         let anyBelowFloor = false;
         const resolvedItems: any[] = [];
@@ -439,6 +448,7 @@ export class SalesOrdersService implements OnApplicationBootstrap {
           const gradeCode = sku ? sku.grade_code : item.gradeCode ?? null;
           const packagingSpec = sku ? sku.spec_code : item.packagingSpec ?? null;
           const skuCode: string | null = sku ? sku.sku_code : null;
+        const quantitySnapshot = await resolveQuantity(mgr, { ...item, skuCode: skuCode ?? undefined });
 
           let resolved: any = { unitPrice: 0, floorPrice: null, ceilingPrice: null, priceBookId: null, priceBookNo: null };
           try {
@@ -447,11 +457,12 @@ export class SalesOrdersService implements OnApplicationBootstrap {
               gradeCode:      gradeCode ?? undefined,
               packagingSpec:  packagingSpec ?? undefined,
               qty:            item.qty,
+            quantityBasis: item.quantityBasis,
               customerCode:   dto.customerCode ?? locked.customer_code ?? undefined,
               channelCode:    channelCode ?? undefined,
               skuCode:        skuCode ?? undefined,  // Phase H5
-            });
-          } catch { /* fallback 0 */ }
+            }, mgr);
+          } catch (error) { if (item.quantityBasis !== undefined || error instanceof BadRequestException) throw error; }
 
           const resolvedUnitPrice = Number(resolved.unitPrice ?? 0);
           const actualUnitPrice   = item.actualUnitPrice !== undefined ? Number(item.actualUnitPrice) : resolvedUnitPrice;
@@ -467,7 +478,7 @@ export class SalesOrdersService implements OnApplicationBootstrap {
             qty: Number(item.qty), resolvedUnitPrice, actualUnitPrice, floorPrice, ceilingPrice,
             belowFloor, priceBookId: resolved.priceBookId ? String(resolved.priceBookId) : null,
             priceBookNo: resolved.priceBookNo ?? null, amount,
-            skuCode,  // Phase H5
+            skuCode, quantitySnapshot, // Phase H5
           });
         }
 

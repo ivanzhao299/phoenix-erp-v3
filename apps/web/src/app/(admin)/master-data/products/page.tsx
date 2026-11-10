@@ -37,7 +37,7 @@ export default function ProductRuntimePage() {
         columns={[
           { key: "product_name_zh", label: t('md.nameZh', '中文名') },
           { key: "category_code", label: t('md.category', '品类') },
-          { key: "unit_zh", label: t('md.unit', '单位') },
+          { key: "unit_zh", label: t('md.baseUnit', '库存基本单位（托/箱请建销售规格）') },
           { key: "shelf_life_days", label: t('md.shelfLife', '保质期') },
           { key: "price_retail", label: t('md.priceRetail', '零售价') },
         ]}

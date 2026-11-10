@@ -1,3 +1,4 @@
+import { savedQuantity, positiveQuantity, baseQuantity, QuantityBasis, QuantitySnapshot } from '../../product-master/services/quantity-contract';
 import {
   Injectable, Logger, NotFoundException,
   BadRequestException, ForbiddenException, ConflictException,
@@ -280,12 +281,14 @@ export class ReturnOrdersService {
       gradeCode?:        string;
       packagingSpec?:    string;
       returnedQty:       number;
+      quantityBasis?: QuantityBasis;
       unitPrice:         number;
       remark?:           string;
       /** Phase H5: 可选 SKU，优先从原销售明细自动继承 */
       skuCode?:          string;
     }>;
   }) {
+    if (body.salesOrderNo && !body.salesOrderId) throw new BadRequestException('请关联原销售订单及明细，不能仅用订单号代替原单计量核验');
     if (!body.items?.length) {
       throw new BadRequestException('退货单至少需要一条明细');
     }
@@ -295,6 +298,13 @@ export class ReturnOrdersService {
       throw new BadRequestException(`无效的退货类型: ${body.returnType}`);
     }
 
+    const originalIds = body.items.map(i => i.salesOrderItemId).filter(Boolean);
+    if (new Set(originalIds).size !== originalIds.length) throw new BadRequestException('同一原单明细请合并为一行退货');
+    return this.ds.transaction(async db => {
+    // 原行锁使累计可退额度检查与退货单写入原子化。
+    for (const itemId of [...new Set(body.items.map(i => i.salesOrderItemId).filter(Boolean))].sort()) {
+      await db.query('SELECT id FROM sal_order_items WHERE id=$1 FOR UPDATE', [itemId]);
+    }
     // 如果来自销售订单，自动带入客户信息
     let customerCode = body.customerCode;
     let customerName = body.customerName;
@@ -304,8 +314,8 @@ export class ReturnOrdersService {
     let targetWarehouseCode = body.targetWarehouseCode;
 
     if (body.salesOrderId) {
-      const [order] = await this.ds.query(
-        `SELECT customer_code, customer_name, company_code, company_name, currency_code, fulfillment_warehouse_code
+      const [order] = await db.query(
+        `SELECT order_no, customer_code, customer_name, company_code, company_name, currency_code, fulfillment_warehouse_code
          FROM sal_sales_orders WHERE id = $1`,
         [body.salesOrderId],
       );
@@ -314,13 +324,14 @@ export class ReturnOrdersService {
         if (body.companyCode && body.companyCode !== order.company_code) {
           throw new BadRequestException('销售订单所属公司与退货单公司不一致');
         }
-        customerCode = customerCode ?? order.customer_code;
-        customerName = customerName ?? order.customer_name;
+        body = { ...body, salesOrderNo: order.order_no };
+        customerCode = order.customer_code;
+        customerName = order.customer_name;
         companyCode  = companyCode  ?? order.company_code;
         companyName  = companyName  ?? order.company_name;
-        currencyCode = currencyCode ?? order.currency_code ?? 'LAK';
+        currencyCode = order.currency_code ?? 'LAK';
         targetWarehouseCode = targetWarehouseCode ?? order.fulfillment_warehouse_code ?? undefined;
-      }
+      } else throw new BadRequestException('原销售订单不存在');
     }
 
     this.assertCompanyAllowed(String(companyCode));
@@ -335,9 +346,16 @@ export class ReturnOrdersService {
       unitPrice: number;
       remark?: string;
       skuCode: string | null;
+      quantitySnapshot: QuantitySnapshot | null;
+      valuationSnapshot: { originalBaseQty: number; originalAmount: number } | null;
     }> = [];
     for (const it of body.items) {
-      if (it.returnedQty <= 0) throw new BadRequestException('退货数量必须大于 0');
+      positiveQuantity(it.returnedQty, '退货数量');
+      if (body.salesOrderId && !it.salesOrderItemId) throw new BadRequestException('原单退货必须关联原销售明细');
+      let quantitySnapshot: QuantitySnapshot | null = null;
+      let valuationSnapshot: { originalBaseQty: number; originalAmount: number } | null = null;
+      let returnedQty = it.returnedQty;
+      let unitPrice = Number(it.unitPrice);
       let skuCode: string | null = it.skuCode ?? null;
       let productCode = it.productCode;
       let productName = it.productName;
@@ -347,8 +365,8 @@ export class ReturnOrdersService {
         if (!body.salesOrderId) {
           throw new BadRequestException('退货明细关联销售订单明细时必须提供 salesOrderId');
         }
-        const [origItem] = await this.ds.query(
-          `SELECT sku_code, product_code, product_name, grade_code, packaging_spec
+        const [origItem] = await db.query(
+          `SELECT *
              FROM sal_order_items
             WHERE id=$1 AND sales_order_id=$2
             LIMIT 1`,
@@ -357,25 +375,41 @@ export class ReturnOrdersService {
         if (!origItem) {
           throw new BadRequestException('退货明细不属于当前销售订单');
         }
+        const originalBase = savedQuantity(origItem);
+        const factor = origItem.quantity_snapshot?.factor ?? 1;
+        const unit = origItem.quantity_snapshot?.baseUnit ?? '';
+        const returnBase = baseQuantity(it.returnedQty, it.quantityBasis === 'PACKAGE' ? factor : 1, unit);
+        returnedQty = returnBase;
+        if (origItem.quantity_snapshot) quantitySnapshot = { ...origItem.quantity_snapshot, basis: 'BASE', factor: 1, tradeUnit: unit, baseQty: returnBase, priceFactor: factor, priceUnit: origItem.quantity_snapshot.tradeUnit };
+        unitPrice = Number(origItem.price_snapshot?.actualUnitPrice ?? origItem.actual_unit_price ?? origItem.unit_price);
+        valuationSnapshot = { originalBaseQty: originalBase, originalAmount: Number(origItem.amount ?? origItem.price_snapshot?.amount ?? unitPrice*Number(origItem.qty)) };
+        if (!Number.isFinite(valuationSnapshot.originalAmount) || valuationSnapshot.originalAmount<0) throw new BadRequestException('原行金额快照无效');
+        const [outbound] = await db.query(`SELECT COALESCE(SUM(outbound_qty),0) AS qty FROM sal_order_item_batch_allocations WHERE sales_order_item_id=$1`, [it.salesOrderItemId]);
+        const [prior] = await db.query(`SELECT COALESCE(SUM(COALESCE((i.quantity_snapshot->>'baseQty')::numeric,i.returned_qty)),0) AS qty
+          FROM sal_return_items i JOIN sal_return_orders r ON r.id=i.return_order_id
+          WHERE i.sales_order_item_id=$1 AND r.status NOT IN ('CANCELLED','REJECTED')`, [it.salesOrderItemId]);
+        if (returnBase + Number(prior.qty) > Math.min(originalBase, Number(outbound.qty))) throw new ConflictException('累计退货基础数量超过原单已出库数量，或历史原单缺少可验证分配');
         skuCode = origItem.sku_code ?? null;
         productCode = origItem.product_code;
         productName = origItem.product_name ?? undefined;
         gradeCode = origItem.grade_code ?? undefined;
         packagingSpec = origItem.packaging_spec ?? undefined;
       }
+      if (!it.salesOrderItemId && it.quantityBasis === 'PACKAGE') throw new BadRequestException('无原单退货仅接受基础数量，不按当前规格猜换算');
+      if (!Number.isFinite(unitPrice) || unitPrice < 0) throw new BadRequestException('退货价格无效');
       normalizedItems.push({
         salesOrderItemId: it.salesOrderItemId,
         productCode, productName, gradeCode, packagingSpec,
-        returnedQty: it.returnedQty, unitPrice: it.unitPrice,
+        returnedQty, unitPrice, quantitySnapshot, valuationSnapshot,
         remark: it.remark, skuCode,
       });
     }
 
     const returnNo = await this.genReturnNo();
-    const subtotal = normalizedItems.reduce((s, it) => s + it.returnedQty * it.unitPrice, 0);
+    const subtotal = normalizedItems.reduce((s, it) => s + Math.round((it.valuationSnapshot ? it.returnedQty / it.valuationSnapshot.originalBaseQty * it.valuationSnapshot.originalAmount : it.returnedQty * it.unitPrice)*100)/100, 0);
     const operator = this.currentUser;
 
-    const [ret] = await this.ds.query(
+    const [ret] = await db.query(
       `INSERT INTO sal_return_orders (
          return_no, sales_order_id, sales_order_no, delivery_order_id,
          customer_code, customer_name, company_code, company_name,
@@ -408,16 +442,16 @@ export class ReturnOrdersService {
 
     // 插入明细
     for (const it of normalizedItems) {
-      const amount = it.returnedQty * it.unitPrice;
+      const amount = Math.round((it.valuationSnapshot ? it.returnedQty / it.valuationSnapshot.originalBaseQty * it.valuationSnapshot.originalAmount : it.returnedQty * it.unitPrice)*100)/100;
 
-      await this.ds.query(
+      await db.query(
         `INSERT INTO sal_return_items (
            return_order_id, sales_order_item_id,
            product_code, product_name, grade_code, packaging_spec,
            returned_qty, accepted_qty, damaged_qty,
            unit_price, amount,
-           inspection_result, restock_status, remark, sku_code, created_at
-         ) VALUES ($1,$2,$3,$4,$5,$6,$7,0,0,$8,$9,'PENDING','PENDING',$10,$11,NOW())`,
+           inspection_result, restock_status, remark, sku_code, quantity_snapshot, valuation_snapshot, created_at
+         ) VALUES ($1,$2,$3,$4,$5,$6,$7,0,0,$8,$9,'PENDING','PENDING',$10,$11,$12::jsonb,$13::jsonb,NOW())`,
         [
           ret.id,
           it.salesOrderItemId ?? null,
@@ -429,22 +463,23 @@ export class ReturnOrdersService {
           it.unitPrice,
           amount,
           it.remark ?? null,
-          it.skuCode,   // Phase H5
+          it.skuCode, it.quantitySnapshot == null ? null : JSON.stringify(it.quantitySnapshot), it.valuationSnapshot == null ? null : JSON.stringify(it.valuationSnapshot), // 原单计量快照
         ],
       );
     }
 
     this.logger.log(`[Return] 创建退货单: ${returnNo} (id=${ret.id})`);
     if (ret.sales_order_id && ret.sales_order_no) {
-      await this.ds.transaction((mgr) => this.lifecycle.appendEvent(mgr, {
+      await this.lifecycle.appendEvent(db, {
         salesOrderId: String(ret.sales_order_id), orderNo: String(ret.sales_order_no),
         eventType: 'RETURN_CREATED', actorType: 'USER', actorName: operator,
         fromStatus: null, toStatus: 'DRAFT', sourceEndpoint: '/api/v2/sales/returns',
         sourceModule: 'RETURN', sourceRefType: 'RETURN', sourceRefId: String(ret.id),
         sourceRefNo: returnNo, reasonCode: body.reasonCode ?? null, comment: body.remark ?? null,
-      }));
+      });
     }
-    return this.findById(String(ret.id));
+    return { ...ret, items: await db.query('SELECT * FROM sal_return_items WHERE return_order_id=$1 ORDER BY id', [ret.id]) };
+    });
   }
 
   // ── 4. 提交 ─────────────────────────────────────────────────────────────────
@@ -577,7 +612,7 @@ export class ReturnOrdersService {
     }
     for (const result of inspectionResults) {
       const item = allItems.find((x: any) => String(x.id) === String(result.itemId));
-      if (Number(result.acceptedQty ?? 0) + Number(result.damagedQty ?? 0) !== Number(item.returned_qty)) {
+      if (Math.round(Number(result.acceptedQty ?? 0)*100) + Math.round(Number(result.damagedQty ?? 0)*100) !== Math.round(savedQuantity({ qty: item.returned_qty, quantity_snapshot: item.quantity_snapshot })*100)) {
         throw new BadRequestException(`明细 ${result.itemId}：accepted_qty + damaged_qty 必须等于 returned_qty`);
       }
     }
@@ -585,6 +620,10 @@ export class ReturnOrdersService {
       ? 'RESTOCKING' : 'COMPLETED';
 
     await this.ds.transaction(async (mgr) => {
+      // Same original-line lock as create: serialize accepted base quantity and refund cent allocation.
+      for (const originalId of [...new Set(allItems.map((x: any) => x.sales_order_item_id).filter(Boolean))].sort()) {
+        await mgr.query('SELECT id FROM sal_order_items WHERE id=$1 FOR UPDATE', [originalId]);
+      }
       const [locked] = await mgr.query(`SELECT * FROM sal_return_orders WHERE id=$1 FOR UPDATE`, [id]);
       if (!locked || locked.status !== 'INSPECTING') {
         throw new ConflictException('退货单质检状态已变化，请刷新后重试');
@@ -596,11 +635,14 @@ export class ReturnOrdersService {
       );
       if (!item) throw new NotFoundException(`明细 ${result.itemId} 不存在或不属于本退货单`);
 
-      const acceptedQty = Math.max(0, result.acceptedQty ?? 0);
-      const damagedQty  = Math.max(0, result.damagedQty  ?? 0);
-      const returnedQty = Number(item.returned_qty);
+      const acceptedQty = Number(result.acceptedQty ?? 0);
+      const damagedQty = Number(result.damagedQty ?? 0);
+      if (![acceptedQty,damagedQty].every(Number.isFinite) || acceptedQty<0 || damagedQty<0) throw new BadRequestException('质检数量必须为有限非负基础数量');
+      if (acceptedQty>0) baseQuantity(acceptedQty,1,item.quantity_snapshot?.baseUnit ?? '');
+      if (damagedQty>0) baseQuantity(damagedQty,1,item.quantity_snapshot?.baseUnit ?? '');
+      const returnedQty = savedQuantity({ qty: item.returned_qty, quantity_snapshot: item.quantity_snapshot });
 
-      if (acceptedQty + damagedQty !== returnedQty) {
+      if (Math.round(acceptedQty*100) + Math.round(damagedQty*100) !== Math.round(returnedQty*100)) {
         throw new BadRequestException(
           `明细 ${result.itemId}：accepted_qty + damaged_qty 必须等于 returned_qty(${returnedQty})`,
         );
@@ -618,7 +660,18 @@ export class ReturnOrdersService {
         inspectionResult = 'PARTIAL';
       }
 
-      const itemAmount = acceptedQty * Number(item.unit_price);
+      let itemAmount = Math.round(acceptedQty / (item.quantity_snapshot?.priceFactor ?? 1) * Number(item.unit_price) * 100) / 100;
+      if (item.valuation_snapshot && item.sales_order_item_id) {
+        const v = item.valuation_snapshot;
+        const [prior] = await mgr.query(`SELECT COALESCE(SUM(i.accepted_qty),0) AS accepted,COALESCE(SUM(i.amount),0) AS amount
+          FROM sal_return_items i JOIN sal_return_orders r ON r.id=i.return_order_id
+          WHERE i.sales_order_item_id=$1 AND i.id<>$2 AND r.status NOT IN ('CANCELLED','REJECTED') AND i.inspection_result<>'PENDING'`,
+          [item.sales_order_item_id,item.id]);
+        const cumulative = Number(prior.accepted)+acceptedQty;
+        if (cumulative>Number(v.originalBaseQty)) throw new ConflictException('累计合格退货超过原行基础数量');
+        itemAmount = (Math.round(cumulative / Number(v.originalBaseQty) * Number(v.originalAmount) * 100) - Math.round(Number(prior.amount)*100)) / 100;
+        if (!Number.isFinite(itemAmount) || itemAmount<0 || itemAmount+Number(prior.amount)>Number(v.originalAmount)+1e-8) throw new ConflictException('累计退款金额超过原行金额');
+      }
       totalAccepted += acceptedQty;
       newSubtotal   += itemAmount;
 
@@ -732,17 +785,15 @@ export class ReturnOrdersService {
   // ── 11. 取消 ─────────────────────────────────────────────────────────────────
 
   async cancel(id: string, reason?: string) {
-    const rec = await this.findRaw(id);
-    this.assertNotCompleted(rec.status, 'cancel');
-    if (rec.status === 'RESTOCKING') {
-      throw new ForbiddenException('退货单已进入回库阶段，无法取消');
-    }
-    await this.ds.query(
-      `UPDATE sal_return_orders
-       SET status='CANCELLED', remark=COALESCE($1, remark), updated_at=NOW()
-       WHERE id=$2`,
-      [reason ? `[取消原因] ${reason}` : null, id],
-    );
+    await this.findRaw(id);
+    await this.ds.transaction(async manager => {
+      const lines=await manager.query('SELECT sales_order_item_id FROM sal_return_items WHERE return_order_id=$1 ORDER BY sales_order_item_id',[id]);
+      for (const originalId of [...new Set(lines.map((x: any) => x.sales_order_item_id).filter(Boolean))]) await manager.query('SELECT id FROM sal_order_items WHERE id=$1 FOR UPDATE',[originalId]);
+      const [rec]=await manager.query('SELECT * FROM sal_return_orders WHERE id=$1 FOR UPDATE',[id]);
+      this.assertNotCompleted(rec.status,'cancel');
+      if (rec.status==='RESTOCKING') throw new ForbiddenException('退货单已进入回库阶段，无法取消');
+      await manager.query(`UPDATE sal_return_orders SET status='CANCELLED',remark=COALESCE($1,remark),updated_at=NOW() WHERE id=$2`,[reason ? `[取消原因] ${reason}` : null,id]);
+    });
     return this.findById(id);
   }
 

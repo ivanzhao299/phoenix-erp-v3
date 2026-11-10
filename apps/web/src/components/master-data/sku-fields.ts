@@ -17,7 +17,7 @@ export function updateSkuReference(previous: Form, key: string, code: string, ra
 export function skuFields(t: (key: string, fallback: string) => string): MdField[] {
   return [
     ...(['product', 'grade', 'spec'] as const).map(type => ({
-      key: `${type}_code`, label: t(`md.${type}Code`, { product: '产品', grade: '等级', spec: '规格' }[type]),
+      key: `${type}_code`, label: t(`md.${type}Code`, { product: '产品', grade: '等级', spec: '销售换算规格（同商品共享基础库存）' }[type]),
       type, required: true,
       referenceUpdate: (previous: Form, code: string, raw: Form | null) => updateSkuReference(previous, `${type}_code`, code, raw),
     })),

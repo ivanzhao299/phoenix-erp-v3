@@ -84,7 +84,7 @@ describe('new transaction consumers', () => {
     const f = fixture(); const service = new PriceItemsService(f.ds as any, f.cls as any);
     await service.createItem(price as any);
     const insert = f.query.mock.calls.find(([sql]) => sql.includes('INSERT INTO sal_price_items'))!;
-    expect(insert[1]![1]).toBe('P'); expect(insert[1]!.slice(-2)).toEqual(['G', 'S']); expect(f.ds.transaction).toHaveBeenCalledTimes(1);
+    expect(insert[1]![1]).toBe('P'); expect(insert[1]!.slice(-3)).toEqual(['G', 'S', null]); expect(f.ds.transaction).toHaveBeenCalledTimes(1);
     for (const skuCode of ['', null]) await expect(service.createItem({ ...price, skuCode } as any)).rejects.toMatchObject({ status: 400 });
   });
   it('fails a bulk import explicitly rather than silently skipping an unavailable SKU', async () => {

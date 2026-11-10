@@ -96,7 +96,7 @@ export class SkuPolicy {
          AND c.table_name <> 'product_skus'
          AND (c.column_name IN ('sku_code','item_code')
            OR (LEFT(c.table_name,4)='wms_' AND c.column_name='item')
-           OR (LEFT(c.table_name,4)='pkg_' AND c.data_type IN ('json','jsonb')))
+           OR ((LEFT(c.table_name,4)='pkg_' OR c.column_name='quantity_snapshot') AND c.data_type IN ('json','jsonb')))
        ORDER BY c.table_name,c.column_name`);
     for (const required of ['sal_order_items', 'sal_price_items', 'inv_batches', 'inv_ledger']) {
       if (!columns.some(c => c.table_name === required && c.column_name === 'sku_code')) {

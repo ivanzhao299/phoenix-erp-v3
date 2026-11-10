@@ -215,7 +215,7 @@ export default function OutboundPage() {
   }, [canDeleteInout, canDeleteIssue]);
   const canCreateCurrent = issueOnly ? canCreateIssue : canCreateAny;
   const openNew     = useCallback(() => { if (!canCreateCurrent) return; setEditing(null); setBatchHeader({ date: new Date().toISOString().slice(0, 10), type: issueOnly ? "PRODUCTION_USE" : "SALE", warehouse_code: siteCode ?? "", destination_type: issueOnly ? "HOUSE" : "CUSTOMER" }); setBatchItems([newBatchLine()]); setDrawerOpen(true); }, [canCreateCurrent, issueOnly, siteCode, setBatchHeader, setBatchItems]);
-  const openEdit    = useCallback((row: Row) => { if (!canEditType(row.type)) return; setEditing(row); setDrawerOpen(true); }, [canEditType]);
+  const openEdit    = useCallback((row: Row) => { if (!canEditType(row.type)) return; setEditing(row.quantity_snapshot ? { ...row, qty: (row.quantity_snapshot as { baseQty: number }).baseQty } : row); setDrawerOpen(true); }, [canEditType]);
   const closeDrawer = useCallback(() => setDrawerOpen(false), []);
 
   const handleSave = useCallback(async (values: Row) => {
@@ -238,7 +238,7 @@ export default function OutboundPage() {
           : "/outbound/standalone",
         {
           method: editing ? "PUT" : "POST",
-          body: JSON.stringify(payload),
+          body: JSON.stringify({ ...payload, quantityBasis: values.sku_code || editing?.quantity_snapshot ? "BASE" : undefined }),
         },
       );
       setDrawerOpen(false); refresh();
@@ -297,7 +297,7 @@ export default function OutboundPage() {
     { key: "item", title: t("ui.物料", "物料"), width: 190,
       render: (v, row) => formatMasterData(row, "item_name", v, lang) },
     { key: "qty",             title: t("ui.数量",     "数量"),     width: 80, align: "right",
-      render: v => <span style={moneyCell("default", "md")}>{String(v ?? 0)}</span> },
+      render: (v,row) => <span style={moneyCell("default", "md")}>{String(row.quantity_snapshot ? (row.quantity_snapshot as {baseQty:number}).baseQty : v ?? 0)} {String(row.unit || "单位未记录")}</span> },
     { key: "destination_display_code", title: t("ui.去向", "去向"), width: 190,
       render: (v, row) => formatMasterData(row, "destination_name", v, lang) },
     { key: "operator", title: t("ui.操作员", "操作员"), width: 140,

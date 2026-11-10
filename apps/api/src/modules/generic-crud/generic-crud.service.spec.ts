@@ -409,3 +409,20 @@ describe('GenericCrudService product domain boundary', () => {
     expect(query).not.toHaveBeenCalled();
   });
 });
+
+describe('Server-derived quantity provenance protection', () => {
+  it.each(['quantity_snapshot','base_quantity_version','price_snapshot','valuation_snapshot'])('rejects direct create / update of %s before SQL', async field => {
+    const service=new GenericCrudService({query:jest.fn()} as never);
+    await expect(service.create('wms_inbound_items',{[field]:null})).rejects.toThrow('快照');
+    await expect(service.update('wms_outbound_items','id',1,{[field]:{version:1}})).rejects.toThrow('快照');
+  });
+});
+
+describe('Dedicated WMS line mutation ownership', () => {
+  it.each(['wms_inbound_items','wms_outbound_items','inv_batches','inv_ledger'])('blocks all generic CUD for %s without requiring snapshot fields', async table => {
+    const service=new GenericCrudService({query:jest.fn()} as never);
+    await expect(service.create(table,{qty:1})).rejects.toThrow('专用单据');
+    await expect(service.update(table,'id',1,{product_code:'OTHER'})).rejects.toThrow('专用单据');
+    await expect(service.remove(table,'id',1)).rejects.toThrow('专用单据');
+  });
+});

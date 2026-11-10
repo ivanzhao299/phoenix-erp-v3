@@ -141,7 +141,7 @@ describe('SalesOrdersService draft creation', () => {
     it('uses authoritative SKU identity for prices and stored items', async () => {
       const f = setup(valid);
       await f.save({ skuCode: 'SKU-1', productCode: 'WRONG', gradeCode: 'WRONG', packagingSpec: 'WRONG', qty: 1 });
-      expect(f.priceRuntime.resolvePrice).toHaveBeenCalledWith(expect.objectContaining({ skuCode: 'SKU-1', productCode: 'AUTH-P', gradeCode: 'AUTH-G', packagingSpec: 'AUTH-S' }));
+      expect(f.priceRuntime.resolvePrice).toHaveBeenCalledWith(expect.objectContaining({ skuCode: 'SKU-1', productCode: 'AUTH-P', gradeCode: 'AUTH-G', packagingSpec: 'AUTH-S' }), expect.objectContaining({ query: expect.any(Function) }));
       const insert = f.query.mock.calls.find(([sql]) => sql.includes('INSERT INTO sal_order_items'))!;
       expect((insert as unknown[])[1]).toEqual(expect.arrayContaining(['AUTH-P', 'AUTH-G', 'AUTH-S', 'SKU-1']));
       expect(f.ds.transaction).toHaveBeenCalledTimes(1);
@@ -163,7 +163,7 @@ describe('SalesOrdersService draft creation', () => {
       const f = setup(null);
       await f.save({ productCode: 'LEGACY-P', gradeCode: 'LEGACY-G', packagingSpec: 'LEGACY-S', qty: 1 });
       expect(f.query.mock.calls.some(([sql]) => sql.includes('FROM product_skus'))).toBe(false);
-      expect(f.priceRuntime.resolvePrice).toHaveBeenCalledWith(expect.objectContaining({ productCode: 'LEGACY-P', gradeCode: 'LEGACY-G', packagingSpec: 'LEGACY-S', skuCode: undefined }));
+      expect(f.priceRuntime.resolvePrice).toHaveBeenCalledWith(expect.objectContaining({ productCode: 'LEGACY-P', gradeCode: 'LEGACY-G', packagingSpec: 'LEGACY-S', skuCode: undefined }), expect.objectContaining({ query: expect.any(Function) }));
       expect(f.query.mock.calls.find(([sql]) => sql.includes('INSERT INTO sal_order_items'))![0]).not.toContain('sku_code');
     });
   });

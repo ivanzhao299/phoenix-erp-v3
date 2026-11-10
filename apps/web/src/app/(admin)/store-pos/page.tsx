@@ -39,6 +39,12 @@ function fmtDate(s: string) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface Product {
+  sale_enabled?: boolean;
+  quantity_error?: string;
+  quantity_basis?: 'BASE' | 'PACKAGE';
+  trade_factor?: number;
+  trade_unit?: string;
+  base_unit?: string;
   product_code: string;
   product_name: string;
   grade_code?: string;
@@ -501,6 +507,7 @@ export default function StorePosPage() {
 
   // ── 购物车操作 ───────────────────────────────────────────────────────────
   const addToCart = (p: Product) => {
+    if (!p.sale_enabled) { showToast(p.quantity_error || '请先确认商品计量与价格单位', 'error'); return; }
     setCart(prev => {
       // Phase H5: SKU 路径用 sku_code 去重，旧路径用 product_code+grade_code
       const idx = p.sku_code ? prev.findIndex(c => c.sku_code === p.sku_code) : prev.findIndex(c => !c.sku_code && c.product_code === p.product_code && c.grade_code === p.grade_code);
@@ -554,6 +561,7 @@ export default function StorePosPage() {
 
   // ── 提交销售 ─────────────────────────────────────────────────────────────
   const handleCheckout = async () => {
+    if (cart.some(p => !p.sale_enabled)) { showToast('购物车包含单位未确认的旧商品，请重新选择已维护价格单位的商品', 'error'); return; }
     if (!cart.length) {
       showToast(t('ui.购物车为空','购物车为空'), 'error');
       return;
@@ -596,6 +604,7 @@ export default function StorePosPage() {
           gradeCode: c.grade_code,
           packagingSpec: c.packaging_spec,
           qty: c.qty,
+          quantityBasis: c.quantity_basis,
           unitPrice: c.unit_price,
           amount: c.amount,
           sortOrder: i,
@@ -945,7 +954,7 @@ export default function StorePosPage() {
             gridTemplateColumns: '1fr 1fr',
             gap: 8
           }}>
-                  {filteredProducts.map(p => <button key={p.sku_code ?? `${p.product_code}-${p.grade_code}`} onClick={() => addToCart(p)} style={{
+                  {filteredProducts.map(p => <button key={p.sku_code ?? `${p.product_code}-${p.grade_code}`} disabled={!p.sale_enabled} title={p.quantity_error} onClick={() => addToCart(p)} style={{
               padding: '10px 10px',
               borderRadius: 8,
               border: `1px solid ${p.sku_code ? 'var(--status-special-border)' : 'var(--border-dark-faint)'}`,
@@ -977,7 +986,7 @@ export default function StorePosPage() {
                 fontSize: 15,
                 fontWeight: 700,
                 color: 'var(--status-success)'
-              }}>¥{fmt(p.unit_price)}</div>
+              }}>¥{fmt(p.unit_price)} / {p.trade_unit || '价格单位未确认'}</div>{p.quantity_error && <small>{p.quantity_error}</small>}
                     </button>)}
                 </div>}
             </div>
@@ -1066,7 +1075,7 @@ export default function StorePosPage() {
                 color: 'var(--text-disabled)'
               }}>{item.grade_code}</div>}
                       <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
-                        <span style={{ fontSize: 12, color: 'var(--text-disabled)' }}>¥ {fmt(item.unit_price)} × {item.qty}</span>
+                        <span style={{ fontSize: 12, color: 'var(--text-disabled)' }}>¥ {fmt(item.unit_price)} × {item.qty} {item.trade_unit || '基础量'}{item.trade_factor ? ` = ${item.qty * item.trade_factor} ${item.base_unit}` : ''}</span>
                         <span style={{ fontSize: 10, color: 'var(--text-disabled)' }}>{t('ui.价格本锁价','价格本锁价')}</span>
                       </div>
                     </div>

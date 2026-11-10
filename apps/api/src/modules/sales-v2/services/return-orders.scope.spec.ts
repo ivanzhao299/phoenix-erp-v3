@@ -4,7 +4,7 @@ describe('ReturnOrdersService company scope', () => {
   const make = (scope: Record<string, unknown>) => {
     const query = jest.fn();
     const service = new ReturnOrdersService(
-      { query, transaction: jest.fn() } as any,
+      { query, transaction: jest.fn(fn => fn({ query })) } as any,
       { get: jest.fn((key: string) => key === 'dataScope' ? scope : { username: 'tester' }) } as any,
       {} as any, {} as any, {} as any, {} as any,
     );
@@ -63,7 +63,7 @@ describe('ReturnOrdersService company scope', () => {
 
   it('rejects a return item that belongs to another sales order before creating the return', async () => {
     const { service, query } = make(scoped);
-    query.mockResolvedValueOnce([{
+    query.mockResolvedValueOnce([]).mockResolvedValueOnce([{
       company_code: 'COMP-A', customer_code: 'C-1', customer_name: '客户',
       company_name: '公司', currency_code: 'CNY', fulfillment_warehouse_code: 'WH-1',
     }]);

@@ -193,3 +193,20 @@ describe('StorePosService V1-2 atomic settlement', () => {
     expect(mgr.query.mock.calls.some(([sql]: [string]) => sql.includes("SET status = 'RETURNED'"))).toBe(false);
   });
 });
+
+describe('New POS measured product availability', () => {
+  it('blocks unknown legacy units and mismatched masters; offers confirmed package prices with explicit conversion', async () => {
+    const query=jest.fn().mockResolvedValue([
+      {sku_code:'LEGACY',product_code:'P',unit_price:100},
+      {sku_code:'BAD',product_code:'P',unit_price:100,price_quantity_snapshot:{baseUnit:'枚',factor:30},qty_per_unit:360,base_unit:'kg'},
+      {sku_code:'BOX',product_code:'P',unit_price:1200,price_quantity_snapshot:{version:1,basis:'PACKAGE',productCode:'P',gradeCode:'G',skuCode:'BOX',specCode:'B',baseUnit:'枚',tradeUnit:'箱',factor:360,baseQty:360},qty_per_unit:360,base_unit:'枚',display_unit:'箱'},
+    ]);
+    const scope={resolve:jest.fn().mockResolvedValue({storeCode:'S',companyCode:'C'})};
+    const service=new StorePosService({query} as never,{get:jest.fn()} as never,scope as never,{} as never);
+    const products=await service.getProducts('S','C');
+    expect(products[0]).toMatchObject({sale_enabled:false});
+    expect(products[1]).toMatchObject({sale_enabled:false});
+    expect(products[2]).toMatchObject({sale_enabled:true,quantity_basis:'PACKAGE',trade_factor:360,trade_unit:'箱',unit_price:1200});
+    expect(query.mock.calls[0][0]).toContain('CASE WHEN pi.quantity_snapshot IS NOT NULL THEN 0 ELSE 1 END');
+  });
+});

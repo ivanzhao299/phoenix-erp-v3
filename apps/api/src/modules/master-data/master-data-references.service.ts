@@ -37,6 +37,7 @@ const REFERENCE_MAP: Record<string, Array<{
   refTable: string;
   refDocType: string;
   fkColumn: string;
+  predicate?: string; // Static trusted predicate for exact JSON references.
   noField: string;     // 业务单号字段
   linkPattern: string; // 前端跳转 URL 模式
 }>> = {
@@ -66,8 +67,27 @@ const REFERENCE_MAP: Record<string, Array<{
     { refTable: 'fin_fund_transfers',    refDocType: '资金调拨', fkColumn: 'from_account_id', noField: 'transfer_no', linkPattern: '/finance2/fund-transfers?keyword=:code' },
     { refTable: 'fin_reimbursements',    refDocType: '报销付款', fkColumn: 'cash_account_id', noField: 'reimb_no', linkPattern: '/finance2/reimbursements?keyword=:code' },
   ],
+  MATERIAL: [
+    // Legacy polymorphic item columns have no reliable type: matching code conservatively blocks archival.
+    { refTable:'wms_inbound',refDocType:'入库待办（多态编码待核）',fkColumn:'item',noField:'task_no',linkPattern:'/warehouse/inbound' },
+    { refTable:'wms_inbound_items',refDocType:'入库明细（多态编码待核）',fkColumn:'product_code',noField:'id::text',linkPattern:'/warehouse/inbound' },
+    { refTable:'wms_outbound_items',refDocType:'出库明细（多态编码待核）',fkColumn:'product_code',noField:'id::text',linkPattern:'/warehouse/outbound' },
+
+    { refTable: 'prc2_request_items', refDocType: '采购申请明细', fkColumn: 'item_code', noField: 'id::text', linkPattern: '/procurement2/requests' },
+    { refTable: 'prc2_order_items', refDocType: '采购订单明细', fkColumn: 'item_code', noField: 'id::text', linkPattern: '/procurement2/orders' },
+    { refTable: 'prc2_receipt_items', refDocType: '采购收货明细', fkColumn: 'item_code', noField: 'id::text', linkPattern: '/procurement2/receipts' },
+    { refTable: 'inv_batches', refDocType: '库存批次', fkColumn: 'material_code', noField: 'batch_no', linkPattern: '/warehouse' },
+    { refTable: 'inv_ledger', refDocType: '库存流水', fkColumn: 'material_code', noField: 'id::text', linkPattern: '/warehouse' },
+    { refTable: 'wms_outbound', refDocType: '出库单', fkColumn: 'material_code', noField: 'outbound_no', linkPattern: '/warehouse/outbound' },
+  ],
   PRODUCT: [
+    { refTable:'wms_inbound',refDocType:'入库单（多态编码待核）',fkColumn:'item',noField:'task_no',linkPattern:'/warehouse/inbound' },
+    { refTable:'wms_outbound',refDocType:'出库单（多态编码待核）',fkColumn:'item',noField:'outbound_no',linkPattern:'/warehouse/outbound' },
+    { refTable:'pkg_packing_records',refDocType:'包装产品来源',fkColumn:'batches_json',noField:'code',linkPattern:'/packaging',
+      predicate: `jsonb_path_exists(batches_json,'$.**.productCode ? (@ == $code)',jsonb_build_object('code',to_jsonb($1::text))) OR jsonb_path_exists(batches_json,'$.**.product_code ? (@ == $code)',jsonb_build_object('code',to_jsonb($1::text)))` },
+
     { refTable: 'product_skus', refDocType: 'SKU 档案', fkColumn: 'product_code', noField: 'sku_code', linkPattern: '/master-data/product-skus?keyword=:code' },
+    ...['sal_order_items','sal_store_sale_items','sal_return_items','sal_price_items','inv_batches','wms_inbound_items','wms_outbound_items'].map(refTable => ({ refTable, refDocType: '产品直接引用', fkColumn: 'product_code', noField: 'id::text', linkPattern: '/master-data/products' })),
   ],
   STORE: [
     { refTable: 'pos_sales',       refDocType: 'POS 销售',     fkColumn: 'store_code', noField: 'sale_no', linkPattern: '/store-pos?keyword=:code' },
@@ -121,9 +141,18 @@ export class MasterDataReferencesService {
     try { return await this.em.query(sql, params); } catch (e: any) { console.error("[catch-audit] safe() SQL failed:", e?.message); return []; }
   }
 
-  async compute(objectType: string, objectCode: string): Promise<ReferenceReport> {
+  async lockArchiveReferences(objectType: string, manager: EntityManager): Promise<void> {
+    for (const table of [...new Set((REFERENCE_MAP[objectType] ?? []).map(x => x.refTable))].sort()) {
+      await manager.query(`LOCK TABLE ${table} IN SHARE MODE NOWAIT`);
+    }
+  }
+
+  async compute(objectType: string, objectCode: string, manager: EntityManager = this.em): Promise<ReferenceReport> {
     const normalizedType = objectType.toUpperCase();
     const mappings = REFERENCE_MAP[normalizedType] ?? [];
+    // Product/material safety checks fail closed; keep unrelated historical display behavior unchanged.
+    const query = <T>(sql: string, params: any[]) => ['MATERIAL','PRODUCT'].includes(normalizedType)
+      ? manager.query(sql, params) as Promise<T[]> : this.safe<T>(sql, params);
     const references: ReferenceItem[] = [];
     let total = 0;
     let referenceValue = objectCode;
@@ -133,14 +162,15 @@ export class MasterDataReferencesService {
     }
 
     for (const m of mappings) {
-      const cntRows = await this.safe<{ c: string }>(
-        `SELECT COUNT(*)::text AS c FROM ${m.refTable} WHERE ${m.fkColumn} = $1`,
+      const predicate = m.predicate ?? `${m.fkColumn} = $1`;
+      const cntRows = await query<{ c: string }>(
+        `SELECT COUNT(*)::text AS c FROM ${m.refTable} WHERE (${predicate})`,
         [referenceValue],
       );
       const count = parseInt(cntRows[0]?.c ?? '0', 10);
       if (count > 0) {
-        const exRows = await this.safe<{ no: string }>(
-          `SELECT ${m.noField} AS no FROM ${m.refTable} WHERE ${m.fkColumn} = $1 ORDER BY created_at DESC NULLS LAST LIMIT 5`,
+        const exRows = await query<{ no: string }>(
+          `SELECT ${m.noField} AS no FROM ${m.refTable} WHERE (${predicate}) ORDER BY created_at DESC NULLS LAST LIMIT 5`,
           [referenceValue],
         );
         references.push({

@@ -1,3 +1,4 @@
+import { resolveQuantity, savedQuantity, sharedBatches, lockQuantityPools, QuantityBasis, baseQuantity } from '../../product-master/services/quantity-contract';
 import { SkuPolicy } from '../../product-master/services/sku-policy';
 /**
  * Phoenix ERP V3 — Store POS Service
@@ -29,6 +30,7 @@ import { PriceRuntimeService, ResolvedPrice } from '../../sales-v2/services/pric
 import { finiteCashNumber, returningRow } from '../../finance-v2/services/cash-balance.guard';
 
 export interface SaleItemDto {
+  quantityBasis?: QuantityBasis;
   productCode:    string;
   productName:    string;
   gradeCode?:     string;
@@ -98,6 +100,7 @@ export class StorePosService {
       packagingSpec: item.packagingSpec,
       skuCode: item.skuCode,
       qty: item.qty,
+      quantityBasis: item.quantityBasis,
       currencyCode: dto.currencyCode,
     }, queryable);
   }
@@ -239,7 +242,7 @@ export class StorePosService {
          json_build_object(
            'id', i.id,'product_code',i.product_code,'product_name',i.product_name,
            'grade_code',i.grade_code,'packaging_spec',i.packaging_spec,
-           'qty',i.qty,'unit_price',i.unit_price,'amount',i.amount,'batch_no',i.batch_no
+           'quantity_snapshot',i.quantity_snapshot,'sku_code',i.sku_code,'qty',i.qty,'unit_price',i.unit_price,'amount',i.amount,'batch_no',i.batch_no
          ) ORDER BY i.sort_order
        ) AS items
        FROM sal_store_sales s
@@ -271,11 +274,12 @@ export class StorePosService {
         const sku = supplied.skuCode === undefined ? null : await SkuPolicy.requireUsable(mgr, supplied.skuCode, 'sale-stock');
         const item = sku ? { ...supplied, productCode: sku.product_code, productName: sku.sku_name || sku.product_name,
           gradeCode: sku.grade_code, packagingSpec: sku.spec_code } : supplied;
-        resolvedItems.push({ item, price: await this.resolveItemPrice(dto, item, mgr) });
+        const quantity = await resolveQuantity(mgr, item);
+        resolvedItems.push({ item, quantity, price: await this.resolveItemPrice(dto, item, mgr) });
       }
       // D6: POS 首期不开放改价，客户端 unitPrice 仅兼容接收，不参与权威金额。
-      const subtotal = resolvedItems.reduce((s, x) => s + x.item.qty * x.price.unitPrice, 0);
-      const total = Math.max(0, subtotal - discount);
+      const subtotal = Math.round(resolvedItems.reduce((s, x) => s + Math.round(x.item.qty * x.price.unitPrice * 100) / 100, 0) * 100) / 100;
+      const total = Math.max(0, Math.round((subtotal - discount)*100)/100);
       const currencies = [...new Set(resolvedItems.map(x => x.price.currencyCode))];
       if (currencies.length !== 1) throw new BadRequestException('首期 POS 不开放双币种销售');
       const currencyCode = currencies[0];
@@ -319,19 +323,19 @@ export class StorePosService {
 
       // 插入明细行
       for (let idx = 0; idx < dto.items.length; idx++) {
-        const { item, price } = resolvedItems[idx];
+        const { item, price, quantity } = resolvedItems[idx];
         const amount = Math.round(item.qty * price.unitPrice * 100) / 100;
         await mgr.query(
           `INSERT INTO sal_store_sale_items
             (sale_id, product_code, product_name, grade_code, packaging_spec,
              qty, unit_price, amount, sort_order, sku_code,
-             price_book_id, price_item_id, price_publish_version, price_scope, price_snapshot)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15::jsonb)`,
+             price_book_id, price_item_id, price_publish_version, price_scope, price_snapshot, quantity_snapshot)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15::jsonb,$16::jsonb)`,
           [saleId, item.productCode, item.productName,
            item.gradeCode ?? null, item.packagingSpec ?? null,
            item.qty, price.unitPrice, amount, (idx + 1) * 10,
            item.skuCode ?? null, price.priceBookId, price.priceItemId, price.publishVersion,
-           price.sourceType, JSON.stringify(price)],
+           price.sourceType, JSON.stringify(price), quantity == null ? null : JSON.stringify(quantity)],
         );
       }
 
@@ -398,6 +402,7 @@ export class StorePosService {
           customerCode: sale.customer_code ?? undefined, productCode: item.product_code,
           gradeCode: item.grade_code ?? undefined, packagingSpec: item.packaging_spec ?? undefined,
           skuCode: item.sku_code ?? undefined, qty: Number(item.qty), currencyCode: sale.currency_code,
+          quantityBasis: item.quantity_snapshot?.basis,
         }, mgr);
       } catch { /* D5: 当前价格已失效也只留痕，不阻断收银。 */ }
       if (!current || String(current.priceItemId) !== String(item.price_item_id) ||
@@ -649,11 +654,12 @@ export class StorePosService {
       }
 
       const allocations = await mgr.query(
-        `SELECT a.*,i.product_code,i.sku_code,i.grade_code,i.packaging_spec
+        `SELECT a.*,b.product_code,b.sku_code,b.quality_grade AS grade_code,b.packaging_spec,b.grade_code_std,b.spec_code,b.unit,b.base_quantity_version,b.egg_date,b.expire_date
            FROM store_sale_allocations a
+           JOIN inv_batches b ON b.batch_no=a.batch_no AND b.company_code=$2
            JOIN sal_store_sale_items i ON i.id=a.sale_item_id
-          WHERE a.sale_id=$1 ORDER BY a.id FOR UPDATE`,
-        [id],
+          WHERE a.sale_id=$1 ORDER BY a.id FOR UPDATE OF a,b`,
+        [id, sale.company_code],
       );
       if (!allocations.length) {
         throw new ConflictException('历史销售单缺少批次 allocation，请创建人工退货异常单');
@@ -833,11 +839,13 @@ export class StorePosService {
               pi.floor_price, pi.ceiling_price,   -- POS-P1 改价:价带,前端提示 + 后端兜底校验
               pi.sku_code,          -- Phase H5: SKU 编码
               pi.grade_code_std,    -- Phase H5: 标准等级
-              pi.spec_code          -- Phase H5: 标准规格
+              pi.spec_code, pi.quantity_snapshot AS price_quantity_snapshot,
+              sp.qty_per_unit, sp.base_unit, sp.display_unit, COALESCE(NULLIF(mp.unit_zh,''),mp.unit) AS product_base_unit -- 标准规格
        FROM sal_price_items pi
        INNER JOIN sal_price_books pb ON pb.id = pi.price_book_id
        LEFT JOIN mst_products mp ON mp.product_code = pi.product_code
        LEFT JOIN product_skus ps ON ps.sku_code = pi.sku_code
+       LEFT JOIN packaging_specs sp ON sp.spec_code=ps.spec_code
        WHERE pb.status = 'ACTIVE'
          AND pb.company_code = $1
          AND (pb.store_code = $2 OR (pb.store_code IS NULL AND pb.customer_code IS NULL AND pb.channel_code IS NULL))
@@ -848,6 +856,7 @@ export class StorePosService {
          AND pi.unit_price > 0
          AND (pi.sku_code IS NULL OR (${SkuPolicy.usableSql('ps', 'sale-stock')}))
        ORDER BY COALESCE(pi.sku_code,''),pi.product_code,COALESCE(pi.grade_code,''),COALESCE(pi.packaging_spec,''),
+         CASE WHEN pi.quantity_snapshot IS NOT NULL THEN 0 ELSE 1 END,
          CASE WHEN pb.store_code=$2 THEN 0 ELSE 1 END,
          pb.priority ASC,pb.effective_from DESC NULLS LAST,pb.publish_version DESC,pb.id DESC`,
       [context.companyCode, context.storeCode],
@@ -859,6 +868,17 @@ export class StorePosService {
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
+    }).map(r => {
+      const configured = r.price_quantity_snapshot;
+      if (!configured || !r.sku_code) return { ...r, quantity_basis: undefined, sale_enabled: false, quantity_error: '价格单位未确认，请在价格维护中确认每托/每箱报价' };
+      const factor = Number(r.qty_per_unit);
+      try { savedQuantity({qty:1,quantity_snapshot:configured}); baseQuantity(1,factor,r.base_unit); }
+      catch { return { ...r,sale_enabled:false,quantity_error:'价格或销售规格计量无效，请重新维护' }; }
+      if (!Number.isFinite(factor) || factor<=0 || configured.baseUnit!==r.base_unit || (configured.basis==='PACKAGE' && configured.factor!==factor) || (r.product_base_unit && r.product_base_unit!==r.base_unit)) return { ...r, quantity_basis: undefined, sale_enabled: false, quantity_error: '主档计量不一致，请核对产品与销售规格单位' };
+      const multiplier = factor / Number(configured.factor);
+      return { ...r, sale_enabled: true, quantity_basis: 'PACKAGE', trade_factor: factor, trade_unit: r.display_unit,
+        unit_price: Number(r.unit_price)*multiplier, floor_price: r.floor_price==null ? null : Number(r.floor_price)*multiplier,
+        ceiling_price: r.ceiling_price==null ? null : Number(r.ceiling_price)*multiplier };
     });
   }
 
@@ -874,10 +894,10 @@ export class StorePosService {
 
     const allocs: Array<{ itemId: number; batchNo: string; warehouseCode: string; qty: number }> = [];
 
-    for (const item of items) {
+    await lockQuantityPools(mgr, items.map(item => ({ company: sale.company_code, warehouses: sale.warehouseCodes, snapshot: item.quantity_snapshot })));
+    for (const item of items.sort((a, b) => String(a.product_code).localeCompare(String(b.product_code)) || String(a.id).localeCompare(String(b.id)))) {
       if (!item || !item.product_code) continue;
-      const qty = Number(item.qty);
-      if (qty <= 0) continue;
+      const qty = savedQuantity(item);
 
       // Phase H5: PATH A（sku_code）优先，PATH B（product+grade）回退。
       if (item.sku_code != null) await SkuPolicy.requireUsable(mgr, item.sku_code, 'sale-stock');
@@ -887,14 +907,16 @@ export class StorePosService {
         : `fifo:${sale.company_code}:${sale.warehouseCodes.join(',')}:${item.product_code}`;
 
         // Advisory Lock 防并发超卖
-      await mgr.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [lockKey]);
+      if (!item.quantity_snapshot) await mgr.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [lockKey]);
 
         // FIFO 批次查询
       let batches: any[];
-      if (useSkuPath) {
+      if (item.quantity_snapshot) {
+        batches = await sharedBatches(mgr, sale.company_code, sale.warehouseCodes, item.quantity_snapshot);
+      } else if (useSkuPath) {
           // PATH A: 按 sku_code 精确匹配
           batches = await mgr.query(
-            `SELECT batch_no, warehouse_code, qty_available, expire_date
+            `SELECT batch_no, warehouse_code, qty_available, expire_date, sku_code
              FROM inv_batches
              WHERE sku_code = $1
                AND company_code = $2
@@ -911,7 +933,7 @@ export class StorePosService {
           // PATH B: 旧 product+grade 匹配
           // 安全:grade_code 用绑定参数($3),严禁字符串插值(SQL 注入)
           batches = await mgr.query(
-            `SELECT batch_no, warehouse_code, qty_available, expire_date
+            `SELECT batch_no, warehouse_code, qty_available, expire_date, sku_code
              FROM inv_batches
              WHERE product_code = $1
                AND company_code = $2
@@ -939,11 +961,13 @@ export class StorePosService {
           // 返回稳定的纯行数组，下面的精确一行守卫才能保持 fail-closed。
           const changed = await mgr.query(
             `WITH changed AS (
-               UPDATE inv_batches SET qty_available = qty_available - $1, updated_at=NOW()
-                WHERE batch_no=$2 AND warehouse_code=$3 AND qty_available >= $1
+               UPDATE inv_batches SET qty_available = qty_available - $1, qty = qty - $1, updated_at=NOW()
+                WHERE batch_no=$2 AND warehouse_code=$3 AND qty_available >= $1 AND qty >= $1
+                  AND company_code=$4 AND status='AVAILABLE' AND legacy_source IS NULL
+                  AND (expire_date IS NULL OR expire_date>=CURRENT_DATE)
                 RETURNING batch_no
              ) SELECT batch_no FROM changed`,
-            [canTake, batch.batch_no, batch.warehouse_code],
+            [canTake, batch.batch_no, batch.warehouse_code, sale.company_code],
           );
           if (changed.length !== 1) throw new ConflictException(`批次 ${batch.batch_no} 可用量已变化`);
 
@@ -967,7 +991,7 @@ export class StorePosService {
               sale.store_code,
               sale.sale_no,
               `门店收银 FIFO 出库 ${sale.sale_no} qty=${canTake}`,
-              item.sku_code ?? null,
+              batch.sku_code ?? null,
               sale.company_code,
               batch.warehouse_code,
             ],
@@ -1134,8 +1158,8 @@ export class StorePosService {
       await mgr.query(
         `INSERT INTO inv_batches
            (batch_no, product_code, company_code, qty, qty_available, quality_grade,
-            packaging_spec, source_type, source_no, status, sku_code, warehouse_code, location_code, inbound_date, created_at, updated_at)
-         VALUES ($1,$2,$3,$4,0,$5,$6,'STORE_RETURN',$7,'QUARANTINE',$8,$9,$10,CURRENT_DATE,NOW(),NOW())
+            packaging_spec, source_type, source_no, status, sku_code, warehouse_code, location_code, grade_code_std, spec_code, unit, egg_date, expire_date, base_quantity_version, inbound_date, created_at, updated_at)
+         VALUES ($1,$2,$3,$4,0,$5,$6,'STORE_RETURN',$7,'QUARANTINE',$8,$9,$10,$11,$12,$13,$14,$15,$16,CURRENT_DATE,NOW(),NOW())
          ON CONFLICT (batch_no) DO UPDATE SET
            qty           = inv_batches.qty + EXCLUDED.qty,
            qty_available = 0,
@@ -1146,7 +1170,8 @@ export class StorePosService {
            updated_at    = NOW()`,
         [batchNo, allocation.product_code, sale.company_code, qty,
          allocation.grade_code ?? null, allocation.packaging_spec ?? null, sale.sale_no,
-         allocation.sku_code ?? null, quarantine.warehouse_code, quarantine.location_code],
+         allocation.sku_code ?? null, quarantine.warehouse_code, quarantine.location_code,
+         allocation.grade_code_std ?? null, allocation.spec_code ?? null, allocation.unit ?? null, allocation.egg_date ?? null, allocation.expire_date ?? null, allocation.base_quantity_version ?? null],
       );
       await mgr.query(
         `INSERT INTO inv_ledger

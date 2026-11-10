@@ -612,14 +612,25 @@ export function MaterialSelector(p: BaseProps) {
 }
 
 // ── WMS 统一品目（物料 + 产成品 SKU）─────────────────────────────────────────
-export function InventoryItemSelector(p: BaseProps) {
+export function InventoryItemSelector(p: BaseProps & { itemType?: string }) {
   const { t } = useLanguage();
-  return <ScopedSelect {...p} placeholder={p.placeholder ?? t('ui.请选择库存品目','请选择物料或产成品 SKU')}
-    loader={async () => (await requestLookup('/lookup/inventory-items')).map((r: any) => ({
-      value: r.itemCode,
-      label: `${r.itemName}（${r.itemCode} · ${r.itemType === 'SKU' ? t('ui.产成品','产成品') : t('ui.物料','物料')}${r.unit ? ` · ${r.unit}` : ''}）`,
-      raw: r,
-    }))} />;
+  const [identities, setIdentities] = useState<Array<{ itemType: string; itemCode: string }>>([]);
+  const { itemType, ...base } = p;
+  const matches = identities.filter(r => r.itemCode === p.value);
+  const resolvedType = itemType || (matches.length === 1 ? matches[0].itemType : '');
+  const ambiguous = !!p.value && !itemType && matches.length > 1;
+  return <><ScopedSelect {...base} value={resolvedType && p.value ? `${resolvedType}:${p.value}` : ''}
+    onChange={value => p.onChange(value ? value.slice(value.indexOf(':') + 1) : '')}
+    onPick={option => p.onPick?.(option ? { ...option, value: option.raw.itemCode } : null)}
+    placeholder={ambiguous ? '同码存在多个类型，请重新明确选择物料或 SKU' : p.placeholder ?? t('ui.请选择库存品目','请选择物料或产成品 SKU')}
+    loader={async () => {
+      const rows = await requestLookup('/lookup/inventory-items');
+      setIdentities(rows.map(r => ({ itemType: r.itemType, itemCode: r.itemCode })));
+      return rows.map((r: any) => ({
+        value: `${r.itemType}:${r.itemCode}`,
+        label: `${r.itemName}（${r.itemCode} · ${r.itemType === 'SKU' ? t('ui.产成品','产成品') : t('ui.物料','物料')}${r.unit ? ` · ${r.unit}` : ''}）`, raw: r,
+      }));
+    }} />{ambiguous && <small role="alert">历史品目类型不明确，不能按同码自动归属。</small>}</>;
 }
 
 // ── 成本归集部门（仅 ACTIVE，按公司 DataScope）──────────────────────────────
