@@ -658,7 +658,7 @@ function InspectionDrawer({
         marginBottom: 20,
         fontSize: 13
       }}>
-          {t('ui.return_quantity_rule','质检统一填写基础数量：合格 + 破损必须等于申请基础量。原单退款按合格基础量 ÷ 原成交换算系数 × 原成交单价计算。')}
+          {t('ui.return_quantity_rule','质检统一填写基础数量：合格 + 破损必须等于申请基础量。退款按原单成交总额与累计合格退货比例分摊。')}
         </div>
         {(order.items || []).map((item, i) => <div key={item.id} style={{
         background: 'var(--bg-muted)',
