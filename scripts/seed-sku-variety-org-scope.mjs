@@ -71,6 +71,11 @@ let seeded = 0;
 try {
   await client.query('BEGIN');
 
+  // 0) 兜底：迁移在 isolated bootstrap（无 brd_flocks 表）时跳过加列——真库上确保列存在
+  await client.query(`ALTER TABLE brd_flocks ADD COLUMN IF NOT EXISTS breed_code VARCHAR(64)`).catch(err => {
+    if (!String(err.message).includes('does not exist')) throw err;
+  });
+
   // 1) GRADE_0 等级（product_grades 无 grade_name_en 列——G67 同款列集）
   const g0 = await client.query(`
     INSERT INTO product_grades (grade_code, grade_name, grade_name_lo, weight_range, sort_order, is_saleable, is_storable, status)
@@ -175,7 +180,10 @@ try {
     UPDATE brd_flocks f SET breed_code = m.breed_code
       FROM (VALUES ${STRAIN_TO_BREED.map(r => `('${r[0]}', '${r[1]}')`).join(', ')}) AS m(strain, breed_code)
      WHERE f.strain = m.strain AND (f.breed_code IS NULL OR f.breed_code = '')
-  `);
+  `).catch(err => {
+    if (!String(err.message).includes('does not exist')) throw err;
+    return { rowCount: 0 };
+  });
   seeded += flocks.rowCount ?? 0;
 
   if (dry) {

@@ -115,8 +115,12 @@ export class SkuVarietyOrgScope1794400000000 implements MigrationInterface {
     await queryRunner.query(`ALTER TABLE "product_skus" ADD COLUMN IF NOT EXISTS "variety_code" varchar(64)`);
     await queryRunner.query(`COMMENT ON COLUMN "product_skus"."variety_code" IS '蛋品商业变体（md_product_varieties.variety_code），历史 SKU 为 NULL'`);
     await queryRunner.query(`ALTER TABLE "mst_products" ADD COLUMN IF NOT EXISTS "variety_code" varchar(64)`);
-    await queryRunner.query(`ALTER TABLE "brd_flocks" ADD COLUMN IF NOT EXISTS "breed_code" varchar(64)`);
-    await queryRunner.query(`COMMENT ON COLUMN "brd_flocks"."breed_code" IS '标准品种码（sys_dict BRD_BREED），strain 保留中文名做兼容展示'`);
+    // brd_flocks 由裸 SQL baseline 建；isolated bootstrap（仅 TS 链）没有该表——按 1787551200000
+    // 的 hasTable 惯例守卫，表存在才加列，种子脚本执行时再统一落 breed_code。
+    if (await queryRunner.hasTable('brd_flocks')) {
+      await queryRunner.query(`ALTER TABLE "brd_flocks" ADD COLUMN IF NOT EXISTS "breed_code" varchar(64)`);
+      await queryRunner.query(`COMMENT ON COLUMN "brd_flocks"."breed_code" IS '标准品种码（sys_dict BRD_BREED），strain 保留中文名做兼容展示'`);
+    }
     await queryRunner.query(`ALTER TABLE "inv_batches" ADD COLUMN IF NOT EXISTS "variety_code" varchar(64)`);
     await queryRunner.query(`COMMENT ON COLUMN "inv_batches"."variety_code" IS '品种快照（md_product_varieties.variety_code），历史批次 NULL，TEMP_PRODUCTION 新批必写'`);
     await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_product_skus_variety" ON "product_skus"("variety_code")`);
@@ -127,7 +131,9 @@ export class SkuVarietyOrgScope1794400000000 implements MigrationInterface {
     await queryRunner.query(`DROP INDEX IF EXISTS "idx_inv_batches_variety"`);
     await queryRunner.query(`DROP INDEX IF EXISTS "idx_product_skus_variety"`);
     await queryRunner.query(`ALTER TABLE "inv_batches" DROP COLUMN IF EXISTS "variety_code"`);
-    await queryRunner.query(`ALTER TABLE "brd_flocks" DROP COLUMN IF EXISTS "breed_code"`);
+    if (await queryRunner.hasTable('brd_flocks')) {
+      await queryRunner.query(`ALTER TABLE "brd_flocks" DROP COLUMN IF EXISTS "breed_code"`);
+    }
     await queryRunner.query(`ALTER TABLE "mst_products" DROP COLUMN IF EXISTS "variety_code"`);
     await queryRunner.query(`ALTER TABLE "product_skus" DROP COLUMN IF EXISTS "variety_code"`);
     await queryRunner.query(`DROP TABLE IF EXISTS "md_sku_aliases"`);
