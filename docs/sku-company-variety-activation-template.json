@@ -16,6 +16,14 @@
     ],
     "grade0WeightRule": "待核实"
   },
+  "readonlyOrganizationEvidence": {
+    "workflowRun": 42983144676,
+    "assignments": [
+      { "companyCode": "COMP-LAO-AGRI", "farmCode": "LPH_MENGSAI", "siteCode": "SITE-MENGSAI-LAYER", "classification": "ONE_TO_ONE", "shellMappingApproved": false },
+      { "companyCode": "COMP-LAO-XINGCHI", "farmCode": "FARM-DP", "siteCode": "SITE-DONGPENG-LAYER", "classification": "ONE_TO_ONE", "houseFlockShellMappingApproved": false }
+    ],
+    "note": "只读组织证据不是壳色/鸡种或SKU启用授权"
+  },
   "pilotCompanyCode": null,
   "activationDate": null,
   "grade0WeightRule": null,

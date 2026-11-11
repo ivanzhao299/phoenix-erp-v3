@@ -14629,5 +14629,8 @@
   "auto.literal.8137b0aac7fc": "Invalid master data response format",
   "auto.literal.03e1fc35d353": "Base unit (e.g. egg)",
   "auto.literal.0ce514c357c2": "Sales specification unit (e.g. tray/carton)",
-  "auto.literal.6940ec1620d6": "Unit was not recorded; verification required"
+  "auto.literal.6940ec1620d6": "Unit was not recorded; verification required",
+  "ui.请选择有效鸡群品种": "Explicitly select a valid ACTIVE flock breed; unknown historical values cannot be submitted directly",
+  "ui.选择鸡群品种": "Select a flock breed (required)",
+  "ui.历史品种原值": "Original historical breed value"
 }

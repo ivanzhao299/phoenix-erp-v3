@@ -36,22 +36,39 @@ const dbUrl = process.env.PACKAGING_TEST_DATABASE_URL;
 
   beforeAll(async () => {
     const url = new URL(dbUrl!);
+    const historyFixture = url.pathname === '/packaging_history_test' && url.port === '54329' && url.username === 'phoenix_v3';
     if (process.env.NODE_ENV !== 'test' || !['localhost','127.0.0.1'].includes(url.hostname)
-      || !['/packaging_test','/phoenix_erp'].includes(url.pathname)) throw new Error('Dedicated local/CI test database required');
+      || (!['/packaging_test','/phoenix_erp'].includes(url.pathname) && !historyFixture)) throw new Error('Dedicated local/CI test database required');
     ds = new DataSource({ type: 'postgres', url: dbUrl, extra: { options: `-c search_path=${schema},public` }, entities: [] });
     await ds.initialize();
+    const [database] = await ds.query(`SELECT current_database() name, current_user owner, current_setting('server_version_num')::int version`);
+    expect(database.version).toBeGreaterThanOrEqual(180000);
+    if (historyFixture && (database.name !== 'packaging_history_test' || database.owner !== 'phoenix_v3')) throw new Error('Dedicated history fixture owner required');
     await ds.query(`CREATE SCHEMA ${schema}`);
     for (const table of ['pkg_work_shifts','pkg_source_batches','pkg_grading_records','pkg_grading_source_links',
       'pkg_packing_records','pkg_handover_records','pkg_audit_logs','pkg_exceptions','pkg_label_print_logs',
-      'pkg_qc_inspections','inv_batches','inv_ledger','sal_order_item_batch_allocations','store_sale_allocations','sal_store_sale_items','sal_order_items','sys_dict','brd_houses','wms_inbound','brd_farms','mst_products','product_skus','product_grades','packaging_specs']) {
+      'pkg_qc_inspections','inv_batches','inv_ledger','sal_order_item_batch_allocations','store_sale_allocations','sal_store_sale_items','sal_order_items','sys_dict','brd_houses','wms_inbound','brd_farms','mst_products','product_skus','product_grades','packaging_specs',
+      'sys_organizations','brd_flocks','md_product_varieties','md_variety_breeds','md_sku_org_scope']) {
       await ds.query(`CREATE TABLE ${schema}.${table} (LIKE public.${table} INCLUDING ALL)`);
     }
-    await ds.query("INSERT INTO brd_farms(farm_code,farm_name,company_code,status) VALUES ('FARM-INTEGRATION','Local farm','COMP-INTEGRATION','ACTIVE')");
+    await ds.query(`INSERT INTO sys_organizations(org_code,org_name,org_type,company_code,status) VALUES
+      ('COMP-INTEGRATION','Local company','COMPANY','COMP-INTEGRATION','ACTIVE'),
+      ('SITE-INTEGRATION','Local site','SITE','COMP-INTEGRATION','ACTIVE')`);
+    await ds.query("INSERT INTO brd_farms(farm_code,farm_name,company_code,mapped_site_code,status) VALUES ('FARM-INTEGRATION','Local farm','COMP-INTEGRATION','SITE-INTEGRATION','ACTIVE')");
     await ds.query("INSERT INTO brd_houses(house_code,house_name,farm_code,status) VALUES ('HOUSE-INTEGRATION','Local house','FARM-INTEGRATION','ACTIVE')");
-    await ds.query("INSERT INTO mst_products(product_code,product_name,status) VALUES ('P-INTEGRATION','Local product','ACTIVE')");
+    await ds.query("INSERT INTO sys_dict(dict_type,dict_code,status) VALUES ('BRD_BREED','BREED-INTEGRATION','ACTIVE')");
+    await ds.query("INSERT INTO md_product_varieties(variety_code,variety_name,status) VALUES ('VAR-INTEGRATION','Local variety','ACTIVE')");
+    await ds.query("INSERT INTO md_variety_breeds(variety_code,breed_code,status) VALUES ('VAR-INTEGRATION','BREED-INTEGRATION','ACTIVE')");
+    await ds.query(`INSERT INTO brd_flocks(flock_no,house_code,farm_code,breed_code,status,placement_date,start_date)
+      VALUES ('FLOCK-INTEGRATION','HOUSE-INTEGRATION','FARM-INTEGRATION','BREED-INTEGRATION','LAYING','2020-01-01','2020-01-01')`);
+    await ds.query("INSERT INTO mst_products(product_code,product_name,variety_code,status) VALUES ('P-INTEGRATION','Local product','VAR-INTEGRATION','ACTIVE')");
     await ds.query("INSERT INTO product_grades(grade_code,grade_name,status,is_saleable,is_storable) VALUES ('GRADE_1','Local grade','ACTIVE',true,true)");
     await ds.query("INSERT INTO packaging_specs(spec_code,spec_name,qty_per_unit,status) VALUES ('SPEC-INTEGRATION','Local spec',30,'ACTIVE')");
-    await ds.query("INSERT INTO product_skus(sku_code,sku_name,product_code,grade_code,spec_code,status) VALUES ('SKU-INTEGRATION','Local SKU','P-INTEGRATION','GRADE_1','SPEC-INTEGRATION','ACTIVE')");
+    await ds.query("INSERT INTO product_skus(sku_code,sku_name,product_code,grade_code,spec_code,variety_code,status) VALUES ('SKU-INTEGRATION','Local SKU','P-INTEGRATION','GRADE_1','SPEC-INTEGRATION','VAR-INTEGRATION','ACTIVE')");
+    await ds.query(`INSERT INTO md_sku_org_scope(sku_code,scope_type,scope_code,status,sale_enabled,stock_enabled) VALUES
+      ('SKU-INTEGRATION','COMPANY','COMP-INTEGRATION','ACTIVE',true,true),
+      ('SKU-INTEGRATION','FARM','FARM-INTEGRATION','ACTIVE',true,true),
+      ('SKU-INTEGRATION','SITE','SITE-INTEGRATION','ACTIVE',true,true)`);
     // A legacy row created before this migration keeps all business values.
     const [legacy] = await ds.query(`INSERT INTO pkg_packing_records(code,total_eggs,total_boxes) VALUES ('PKG-LEGACY',30,1) RETURNING id,code,total_eggs,total_boxes`);
     const q = ds.createQueryRunner();
@@ -116,6 +133,10 @@ const dbUrl = process.env.PACKAGING_TEST_DATABASE_URL;
   });
   it('serializes concurrent packing replay and rejects a distinct-key overspend', async () => {
     const payload = packing(gradingCode, realShift, 'real-packing-1', 60);
+    expect((await controller.getReadyCombinations()).data).toEqual([]);
+    expect((await controller.getReadyCombinations(String(realShift), gradingCode, real)).data).toEqual([
+      expect.objectContaining({ grade:'GRADE_1', specCode:'SPEC-INTEGRATION', productCode:'P-INTEGRATION', skuCode:'SKU-INTEGRATION', varietyCode:'VAR-INTEGRATION', qtyPerUnit:30 }),
+    ]);
     const results = await Promise.all([controller.submitPacking(payload, real), controller.submitPacking(payload, real)]);
     expect(results.map(r => r.data.idempotentReplay).sort()).toEqual([false,true]);
     expect(results[0].data.code).toBe(results[1].data.code);

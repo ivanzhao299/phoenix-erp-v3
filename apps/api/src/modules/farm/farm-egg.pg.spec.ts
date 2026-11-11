@@ -216,7 +216,7 @@ describePg('Issue 400 isolated PostgreSQL HTTP inventory chain', () => {
     const address = app.getHttpServer().address() as AddressInfo;
     const web = resolve(process.cwd(), '../web');
     const result = await promisify(execFile)(process.execPath, [resolve(web, 'node_modules/vitest/vitest.mjs'), 'run', 'src/__tests__/daily-inbound-ledger.live.dom.test.tsx', '--maxWorkers=1'], {
-      cwd: web, env: { ...process.env, ISSUE400_API_URL: `http://127.0.0.1:${address.port}` }, timeout: 60000,
+      cwd: web, env: { ...process.env, NODE_ENV: 'test', ISSUE400_API_URL: `http://127.0.0.1:${address.port}` }, timeout: 60000,
     });
     expect(result.stdout).toContain('4 passed');
   }, 70000);

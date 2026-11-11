@@ -18,6 +18,9 @@ describeLive('Issue 400 live API ledger DOM', () => {
   const realFetch = globalThis.fetch;
   beforeEach(() => {
     Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
+    // Freeze only Date, not timers or HTTP, so the initial wider range is reproducible.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-11-11T12:00:00Z'));
     context.canView = true;
     host = document.createElement('div');
     document.body.append(host);
@@ -28,6 +31,7 @@ describeLive('Issue 400 live API ledger DOM', () => {
     await act(async () => root.unmount());
     host.remove();
     vi.unstubAllGlobals();
+    vi.useRealTimers();
   });
 
   it.each(['zh', 'en', 'lo'])('shows nine event codes, translated names and quantities from PG (%s)', async lang => {
@@ -37,8 +41,30 @@ describeLive('Issue 400 live API ledger DOM', () => {
     // making server response order part of this grade-projection regression.
     for (let tries = 0; tries < 100; tries++) {
       await act(async () => { await new Promise(resolve => setTimeout(resolve, 20)); });
-      if (host.querySelectorAll('tbody tr').length > 1 && !(host.querySelector('button') as HTMLButtonElement)?.disabled) break;
+      if (!(host.querySelector('button') as HTMLButtonElement)?.disabled) break;
     }
+    expect((host.querySelector('button') as HTMLButtonElement).disabled).toBe(false);
+
+    // Keep both responses real, but deliver the intermediate wider range last.
+    // Two native change events can flush separately even inside the same act().
+    const fetchLedger = vi.mocked(fetch).getMockImplementation()!;
+    let releaseIntermediate!: () => void;
+    const intermediateGate = new Promise<void>(resolve => { releaseIntermediate = resolve; });
+    let intermediateRequest: Promise<Response> | undefined;
+    let intermediateBody: Promise<{ data: unknown[] }> | undefined;
+    vi.mocked(fetch).mockImplementation((input, init) => {
+      const response = fetchLedger(input, init);
+      const url = new URL(String(input), process.env.ISSUE400_API_URL);
+      if (url.searchParams.get('start') === '2026-10-11' && url.searchParams.get('end') !== '2026-10-11') {
+        intermediateRequest = Promise.resolve(response).then(async result => {
+          intermediateBody = result.clone().json();
+          await intermediateGate;
+          return result;
+        });
+        return intermediateRequest;
+      }
+      return response;
+    });
     const inputs = host.querySelectorAll('input[type=date]');
     await act(async () => {
       for (const input of inputs) {
@@ -51,6 +77,15 @@ describeLive('Issue 400 live API ledger DOM', () => {
       await act(async () => { await new Promise(resolve => setTimeout(resolve, 20)); });
       if (host.querySelectorAll('tbody tr').length === 9) break;
     }
+    expect(fetch).toHaveBeenCalledWith('/api/farm/egg/ledger?start=2026-10-11&end=2026-10-11', expect.any(Object));
+    expect(host.querySelectorAll('tbody tr')).toHaveLength(9);
+    expect(intermediateRequest).toBeDefined();
+    await act(async () => {
+      releaseIntermediate();
+      await intermediateRequest!;
+      // The stale response is genuinely wider; it must not replace the final range.
+      expect((await intermediateBody!).data).toHaveLength(37);
+    });
     const rows = Array.from(host.querySelectorAll('tbody tr'));
     expect(rows).toHaveLength(9);
     const grades = ['GRADE_1', 'GRADE_2', 'GRADE_3', 'GRADE_4', 'GRADE_5', 'DIRTY', 'CRACKED', 'BROKEN', 'DAMAGED'];

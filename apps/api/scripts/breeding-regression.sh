@@ -8,13 +8,32 @@
 #   - 在 brd_farms / brd_houses / brd_flocks 上 seed 一组 UAT-REGR-* 数据
 #   - 每个 fix 至少 1 个断言用例
 #   - 末尾 cleanup（DELETE 测试数据 + ROLLBACK seed）
-set -u
+set -euo pipefail
 
 API="${API_URL:-http://127.0.0.1:3100}"
 ADMIN_U="${ADMIN_USER:-admin}"
 ADMIN_P="${ADMIN_PASS:-admin123}"
-PSQL=${PSQL:-$(which psql)}
-DB=phoenix_erp
+PSQL=${PSQL:-$(command -v psql)}
+DB=${DB_NAME:-${PGDATABASE:-phoenix_erp}}
+
+# Ignore local psqlrc and fail on SQL errors; never continue with a partial seed.
+db_query() { "$PSQL" -X -v ON_ERROR_STOP=1 "$DB" "$@"; }
+
+# Keep HTTP status and the server's rejection reason (curl -f used to hide both).
+# Seed failures are setup errors, not additional regression assertions.
+seed_post() {
+  local table="$1" payload="$2" response code
+  if ! response=$(curl -sS -w $'\n%{http_code}' -X POST "$API/api/crud/$table" \
+    -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d "$payload"); then
+    printf 'Seed %s transport failure: %s\n' "$table" "$response" >&2
+    exit 99
+  fi
+  code=${response##*$'\n'}
+  case "$code" in
+    2[0-9][0-9]) ;;
+    *) printf 'Seed %s failed: HTTP %s — %s\n' "$table" "$code" "${response%$'\n'*}" >&2; exit 99 ;;
+  esac
+}
 
 PASS=0
 FAIL=0
@@ -74,44 +93,59 @@ TOKEN=$(curl -sf -X POST "$API/api/auth/login" \
   -d "{\"username\":\"$ADMIN_U\",\"password\":\"$ADMIN_P\"}" \
   | grep -oE '"token":"[^"]*"' | cut -d'"' -f4) || { red "登录失败"; exit 99; }
 [ -n "$TOKEN" ] || { red "Token 空"; exit 99; }
-green "  ✓ token=${TOKEN:0:30}..."
+green "  ✓ 登录成功（令牌不输出）"
 
 H="-H \"Authorization: Bearer $TOKEN\" -H 'Content-Type: application/json'"
 
 # ──────────────────────────────────────────────────────────────────────────
 cyan ""
 cyan "▶ 1) Seed 测试数据"
-TODAY=$(date +%Y-%m-%d)
+TODAY=$(date -u +%Y-%m-%d)
 FARM=F-REGR-UAT
 HOUSE_A=H-REGR-A01
 HOUSE_B=H-REGR-B01
 FLOCK=FK-REGR-001
 
 # 清理上一轮残留
-$PSQL $DB -q -c "DELETE FROM brd_daily_logs WHERE house_code IN ('$HOUSE_A','$HOUSE_B');"  >/dev/null
-$PSQL $DB -q -c "DELETE FROM brd_flocks WHERE flock_no='$FLOCK';"                          >/dev/null
-$PSQL $DB -q -c "DELETE FROM brd_houses WHERE house_code IN ('$HOUSE_A','$HOUSE_B');"      >/dev/null
-$PSQL $DB -q -c "DELETE FROM brd_farms WHERE farm_code='$FARM';"                           >/dev/null
-$PSQL $DB -q -c "DELETE FROM inv_ledger WHERE ref_no='$FLOCK' OR ref_no LIKE 'SHIFT-REGR%';" >/dev/null
+db_query -q -c "DELETE FROM brd_daily_logs WHERE house_code IN ('$HOUSE_A','$HOUSE_B');"  >/dev/null
+db_query -q -c "DELETE FROM brd_flocks WHERE flock_no='$FLOCK';"                          >/dev/null
+db_query -q -c "DELETE FROM brd_houses WHERE house_code IN ('$HOUSE_A','$HOUSE_B');"      >/dev/null
+db_query -q -c "DELETE FROM brd_farms WHERE farm_code='$FARM';"                           >/dev/null
+db_query -q -c "DELETE FROM inv_ledger WHERE ref_no='$FLOCK' OR ref_no LIKE 'SHIFT-REGR%';" >/dev/null
 
-# 建场
-curl -sf -X POST "$API/api/crud/brd_farms" -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-  -d "{\"farm_code\":\"$FARM\",\"farm_name\":\"回归测试场\",\"location\":\"万象\",\"status\":\"ACTIVE\"}" >/dev/null
-# 建舍 (注意：brd_houses 由 boot migration 决定 house_code 是否 UNIQUE)
-curl -sf -X POST "$API/api/crud/brd_houses" -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-  -d "{\"house_code\":\"$HOUSE_A\",\"house_name\":\"A01\",\"farm_code\":\"$FARM\",\"capacity\":5000,\"status\":\"ACTIVE\"}" >/dev/null
-curl -sf -X POST "$API/api/crud/brd_houses" -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-  -d "{\"house_code\":\"$HOUSE_B\",\"house_name\":\"B01\",\"farm_code\":\"$FARM\",\"capacity\":5000,\"status\":\"ACTIVE\"}" >/dev/null
-# 建鸡群
-curl -sf -X POST "$API/api/crud/brd_flocks" -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-  -d "{\"flock_no\":\"$FLOCK\",\"farm_code\":\"$FARM\",\"house_code\":\"$HOUSE_A\",\"initial_qty\":4800,\"current_qty\":4800,\"status\":\"GROWING\"}" >/dev/null
+# Resolve real ACTIVE master-data context instead of inventing organization/breed codes.
+# The frozen 20260531_org_runtime_phase1 baseline seeds ACTIVE layer-farm
+# SITE rows with parent_id -> COMPANY, but leaves their company_code NULL.
+# Resolve that authoritative parent; reject a conflicting nonempty company_code.
+# Keep all identity fields stable from creation; never relabel a flock after production.
+ORG_CONTEXT=$(db_query -tA -c "
+  SELECT c.org_code || '|' || s.org_code
+    FROM sys_organizations s JOIN sys_organizations c ON c.id=s.parent_id
+   WHERE s.org_type='SITE' AND s.status='ACTIVE'
+     AND c.org_type='COMPANY' AND c.status='ACTIVE'
+     AND (s.company_code IS NULL OR s.company_code='' OR s.company_code=c.org_code)
+   ORDER BY c.org_code, s.org_code LIMIT 1;")
+IFS='|' read -r COMPANY SITE <<< "$ORG_CONTEXT"
+[[ "$COMPANY" =~ ^[A-Za-z0-9_-]+$ && "$SITE" =~ ^[A-Za-z0-9_-]+$ ]] || {
+  red "Seed 失败：找不到 ACTIVE 公司/场站组织上下文"; exit 99;
+}
+BREED=$(db_query -tA -c "SELECT dict_code FROM sys_dict
+  WHERE dict_type='BRD_BREED' AND dict_code='HY_LINE_BROWN' AND status='ACTIVE';")
+[ "$BREED" = HY_LINE_BROWN ] || { red "Seed 失败：HY_LINE_BROWN 不是唯一 ACTIVE BRD_BREED"; exit 99; }
+
+seed_post brd_farms "{\"farm_code\":\"$FARM\",\"farm_name\":\"回归测试场\",\"location\":\"万象\",\"company_code\":\"$COMPANY\",\"mapped_site_code\":\"$SITE\",\"status\":\"ACTIVE\"}"
+# House ownership is derived from farm_code; company/site/store are retired
+# brd_houses columns and GenericCrudService rejects them on write.
+seed_post brd_houses "{\"house_code\":\"$HOUSE_A\",\"house_name\":\"A01\",\"farm_code\":\"$FARM\",\"capacity\":5000,\"status\":\"ACTIVE\"}"
+seed_post brd_houses "{\"house_code\":\"$HOUSE_B\",\"house_name\":\"B01\",\"farm_code\":\"$FARM\",\"capacity\":5000,\"status\":\"ACTIVE\"}"
+seed_post brd_flocks "{\"flock_no\":\"$FLOCK\",\"farm_code\":\"$FARM\",\"house_code\":\"$HOUSE_A\",\"company_code\":\"$COMPANY\",\"site_code\":\"$SITE\",\"breed_code\":\"$BREED\",\"placement_date\":\"$TODAY\",\"start_date\":\"$TODAY\",\"initial_qty\":4800,\"current_qty\":4800,\"status\":\"GROWING\"}"
 
 green "  ✓ seed 完成 (farm=$FARM, house=$HOUSE_A/$HOUSE_B, flock=$FLOCK)"
 
 # 孤儿表基线（用于 B2 增长检测）
-ORPH1_BASE=$($PSQL $DB -tA -c "SELECT COUNT(*) FROM brd_immune_plans;")
-ORPH2_BASE=$($PSQL $DB -tA -c "SELECT COUNT(*) FROM brd_medication_records;")
-ORPH3_BASE=$($PSQL $DB -tA -c "SELECT COUNT(*) FROM brd_withdrawal_alerts;")
+ORPH1_BASE=$(db_query -tA -c "SELECT COUNT(*) FROM brd_immune_plans;")
+ORPH2_BASE=$(db_query -tA -c "SELECT COUNT(*) FROM brd_medication_records;")
+ORPH3_BASE=$(db_query -tA -c "SELECT COUNT(*) FROM brd_withdrawal_alerts;")
 yellow "  孤儿表基线: immune_plans=$ORPH1_BASE  med_records=$ORPH2_BASE  withdrawal_alerts=$ORPH3_BASE"
 
 # ──────────────────────────────────────────────────────────────────────────
@@ -119,33 +153,33 @@ cyan ""
 cyan "▶ A1: brd_daily_logs UNIQUE 含 shift — 早+晚同 house+date 都成功"
 R1=$(curl -s -o /tmp/r1.json -w '%{http_code}' -X POST "$API/api/v3/farm/daily-logs" \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-  -d "{\"house_code\":\"$HOUSE_A\",\"flock_no\":\"$FLOCK\",\"farm_code\":\"$FARM\",\"log_date\":\"$TODAY\",\"shift\":\"早班\",\"eggs_produced\":2000,\"mortality_qty\":5,\"operator\":\"REGR\"}")
+  -d "{\"company_code\":\"$COMPANY\",\"site_code\":\"$SITE\",\"house_code\":\"$HOUSE_A\",\"flock_no\":\"$FLOCK\",\"farm_code\":\"$FARM\",\"log_date\":\"$TODAY\",\"shift\":\"早班\",\"eggs_produced\":2000,\"mortality_qty\":5,\"operator\":\"REGR\"}")
 assert_ok "A1.1 早班 POST 成功" "$R1"
 
 R2=$(curl -s -o /tmp/r2.json -w '%{http_code}' -X POST "$API/api/v3/farm/daily-logs" \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-  -d "{\"house_code\":\"$HOUSE_A\",\"flock_no\":\"$FLOCK\",\"farm_code\":\"$FARM\",\"log_date\":\"$TODAY\",\"shift\":\"晚班\",\"eggs_produced\":1800,\"mortality_qty\":3,\"operator\":\"REGR\"}")
+  -d "{\"company_code\":\"$COMPANY\",\"site_code\":\"$SITE\",\"house_code\":\"$HOUSE_A\",\"flock_no\":\"$FLOCK\",\"farm_code\":\"$FARM\",\"log_date\":\"$TODAY\",\"shift\":\"晚班\",\"eggs_produced\":1800,\"mortality_qty\":3,\"operator\":\"REGR\"}")
 assert_ok "A1.2 晚班 POST 成功" "$R2"
 
-CNT=$($PSQL $DB -tA -c "SELECT COUNT(*) FROM brd_daily_logs WHERE log_date='$TODAY' AND house_code='$HOUSE_A';")
+CNT=$(db_query -tA -c "SELECT COUNT(*) FROM brd_daily_logs WHERE log_date='$TODAY' AND house_code='$HOUSE_A';")
 assert_eq "A1.3 当日 2 班次 = 2 行" "2" "$CNT"
 
 # ──────────────────────────────────────────────────────────────────────────
 cyan ""
 cyan "▶ A2: current_qty 按当日 SUM 重算，不再 diff 双扣"
-CUR=$($PSQL $DB -tA -c "SELECT current_qty FROM brd_flocks WHERE flock_no='$FLOCK';")
+CUR=$(db_query -tA -c "SELECT current_qty FROM brd_flocks WHERE flock_no='$FLOCK';")
 assert_eq "A2.1 4800-(5+3)=4792" "4792" "$CUR"
 
 # 改早班 5→3
-ID_MORN=$($PSQL $DB -tA -c "SELECT id FROM brd_daily_logs WHERE log_date='$TODAY' AND house_code='$HOUSE_A' AND shift='早班' LIMIT 1;")
+ID_MORN=$(db_query -tA -c "SELECT id FROM brd_daily_logs WHERE log_date='$TODAY' AND house_code='$HOUSE_A' AND shift='早班' LIMIT 1;")
 [ -n "$ID_MORN" ] || { red "A2 找不到早班 id"; FAIL=$((FAIL+1)); }
 
 R3=$(curl -s -o /tmp/r3.json -w '%{http_code}' -X PUT "$API/api/v3/farm/daily-logs/$ID_MORN" \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-  -d "{\"house_code\":\"$HOUSE_A\",\"flock_no\":\"$FLOCK\",\"log_date\":\"$TODAY\",\"shift\":\"早班\",\"eggs_produced\":2000,\"mortality_qty\":3}")
+  -d "{\"company_code\":\"$COMPANY\",\"site_code\":\"$SITE\",\"house_code\":\"$HOUSE_A\",\"flock_no\":\"$FLOCK\",\"log_date\":\"$TODAY\",\"shift\":\"早班\",\"eggs_produced\":2000,\"mortality_qty\":3}")
 assert_ok "A2.2 PUT 修改 morning mortality" "$R3"
 
-CUR2=$($PSQL $DB -tA -c "SELECT current_qty FROM brd_flocks WHERE flock_no='$FLOCK';")
+CUR2=$(db_query -tA -c "SELECT current_qty FROM brd_flocks WHERE flock_no='$FLOCK';")
 # 期望 4800-(3+3)=4794，绝不是 4800-(5+3)-(5-3)=4790（diff 双扣）
 assert_eq "A2.3 修后 4800-(3+3)=4794" "4794" "$CUR2"
 
@@ -154,19 +188,19 @@ cyan ""
 cyan "▶ A1.4: 同 (house, date, shift) 二次提交 → ON CONFLICT DO UPDATE"
 R4=$(curl -s -o /tmp/r4.json -w '%{http_code}' -X POST "$API/api/v3/farm/daily-logs" \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-  -d "{\"house_code\":\"$HOUSE_A\",\"flock_no\":\"$FLOCK\",\"farm_code\":\"$FARM\",\"log_date\":\"$TODAY\",\"shift\":\"早班\",\"eggs_produced\":2222,\"mortality_qty\":3,\"operator\":\"REGR\"}")
+  -d "{\"company_code\":\"$COMPANY\",\"site_code\":\"$SITE\",\"house_code\":\"$HOUSE_A\",\"flock_no\":\"$FLOCK\",\"farm_code\":\"$FARM\",\"log_date\":\"$TODAY\",\"shift\":\"早班\",\"eggs_produced\":2222,\"mortality_qty\":3,\"operator\":\"REGR\"}")
 assert_ok "A1.4 同键二次 POST (无 23505)" "$R4"
 
-EGG_AFTER=$($PSQL $DB -tA -c "SELECT eggs_produced FROM brd_daily_logs WHERE log_date='$TODAY' AND house_code='$HOUSE_A' AND shift='早班';")
+EGG_AFTER=$(db_query -tA -c "SELECT eggs_produced FROM brd_daily_logs WHERE log_date='$TODAY' AND house_code='$HOUSE_A' AND shift='早班';")
 assert_eq "A1.5 二次提交后 eggs 被 UPSERT 为 2222" "2222" "$EGG_AFTER"
 
-CNT2=$($PSQL $DB -tA -c "SELECT COUNT(*) FROM brd_daily_logs WHERE log_date='$TODAY' AND house_code='$HOUSE_A';")
+CNT2=$(db_query -tA -c "SELECT COUNT(*) FROM brd_daily_logs WHERE log_date='$TODAY' AND house_code='$HOUSE_A';")
 assert_eq "A1.6 行数仍是 2 (不重复插入)" "2" "$CNT2"
 
 # ──────────────────────────────────────────────────────────────────────────
 cyan ""
 cyan "▶ A3: brd_vaccinations.status 已全大写"
-LOWER=$($PSQL $DB -tA -c "SELECT COUNT(*) FROM brd_vaccinations WHERE status IS NOT NULL AND status <> UPPER(status);")
+LOWER=$(db_query -tA -c "SELECT COUNT(*) FROM brd_vaccinations WHERE status IS NOT NULL AND status <> UPPER(status);")
 assert_eq "A3.1 无小写 status 残留" "0" "$LOWER"
 
 # ──────────────────────────────────────────────────────────────────────────
@@ -176,14 +210,14 @@ cyan "▶ A4: 无 PRD-EGG 批次时日报不阻塞 (真测：临时隐藏 PRD-EG
 # 提交日报，验证 2xx + 无新 FARM_IN ledger 行，最后还原 product_code。
 # 注：service 用 LIKE 'PRD-EGG%' 查询，所以后缀 _HIDDEN 仍会匹配；
 # 必须改前缀（如 X-PRD-EGG-...）才能真正隐藏
-HIDDEN_COUNT=$($PSQL $DB -tA -c "UPDATE inv_batches SET product_code = 'XHIDDEN-' || product_code WHERE product_code LIKE 'PRD-EGG%' RETURNING 1;" | wc -l | tr -d ' ')
+HIDDEN_COUNT=$(db_query -tA -c "UPDATE inv_batches SET product_code = 'XHIDDEN-' || product_code WHERE product_code LIKE 'PRD-EGG%' RETURNING 1;" | wc -l | tr -d ' ')
 yellow "  临时隐藏了 $HIDDEN_COUNT 条 PRD-EGG 批次"
 
-LEDGER_BEFORE=$($PSQL $DB -tA -c "SELECT COUNT(*) FROM inv_ledger WHERE change_type='FARM_IN' AND ref_no='$FLOCK';")
+LEDGER_BEFORE=$(db_query -tA -c "SELECT COUNT(*) FROM inv_ledger WHERE change_type='FARM_IN' AND ref_no='$FLOCK';")
 
 R5=$(curl -s -o /tmp/r5.json -w '%{http_code}' -X POST "$API/api/v3/farm/daily-logs" \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-  -d "{\"house_code\":\"$HOUSE_B\",\"flock_no\":\"$FLOCK\",\"farm_code\":\"$FARM\",\"log_date\":\"$TODAY\",\"shift\":\"早班\",\"eggs_produced\":500,\"mortality_qty\":0,\"operator\":\"REGR\"}")
+  -d "{\"company_code\":\"$COMPANY\",\"site_code\":\"$SITE\",\"house_code\":\"$HOUSE_B\",\"flock_no\":\"$FLOCK\",\"farm_code\":\"$FARM\",\"log_date\":\"$TODAY\",\"shift\":\"早班\",\"eggs_produced\":500,\"mortality_qty\":0,\"operator\":\"REGR\"}")
 assert_ok "A4.1 PRD-EGG 不可用时 POST 仍成功" "$R5"
 
 MSG=$(cat /tmp/r5.json)
@@ -193,11 +227,11 @@ else
   green "  ✓ A4.2 旧错文案不再出现"; PASS=$((PASS+1))
 fi
 
-LEDGER_AFTER=$($PSQL $DB -tA -c "SELECT COUNT(*) FROM inv_ledger WHERE change_type='FARM_IN' AND ref_no='$FLOCK';")
+LEDGER_AFTER=$(db_query -tA -c "SELECT COUNT(*) FROM inv_ledger WHERE change_type='FARM_IN' AND ref_no='$FLOCK';")
 assert_eq "A4.3 ledger 应跳过（无新 FARM_IN 行）" "$LEDGER_BEFORE" "$LEDGER_AFTER"
 
 # 还原（去掉 XHIDDEN- 前缀）
-$PSQL $DB -q -c "UPDATE inv_batches SET product_code = SUBSTRING(product_code FROM 9) WHERE product_code LIKE 'XHIDDEN-PRD-EGG%';" >/dev/null
+db_query -q -c "UPDATE inv_batches SET product_code = SUBSTRING(product_code FROM 9) WHERE product_code LIKE 'XHIDDEN-PRD-EGG%';" >/dev/null
 green "  ✓ PRD-EGG 批次已还原"
 
 # ──────────────────────────────────────────────────────────────────────────
@@ -223,19 +257,19 @@ cyan "▶ B4: SQL 注入面白名单 — 异常字段名被丢弃"
 # 提交一个混入恶意字段名的 payload，看后端是否照样落库 + 不落非法字段
 R6=$(curl -s -o /tmp/r6.json -w '%{http_code}' -X POST "$API/api/v3/farm/daily-logs" \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-  -d "{\"house_code\":\"$HOUSE_A\",\"flock_no\":\"$FLOCK\",\"log_date\":\"$TODAY\",\"shift\":\"中班\",\"eggs_produced\":100,\"hacker_col\":\"DROP TABLE\",\"__proto__\":\"x\",\"';\":\"y\"}")
+  -d "{\"company_code\":\"$COMPANY\",\"site_code\":\"$SITE\",\"house_code\":\"$HOUSE_A\",\"flock_no\":\"$FLOCK\",\"log_date\":\"$TODAY\",\"shift\":\"中班\",\"eggs_produced\":100,\"hacker_col\":\"DROP TABLE\",\"__proto__\":\"x\",\"';\":\"y\"}")
 assert_ok "B4.1 含恶意字段 POST 成功" "$R6"
 # 验证 brd_daily_logs 没新增非法列（schema 不会被改）
-BAD_COL=$($PSQL $DB -tA -c "SELECT COUNT(*) FROM information_schema.columns WHERE table_name='brd_daily_logs' AND column_name IN ('hacker_col','__proto__');")
+BAD_COL=$(db_query -tA -c "SELECT COUNT(*) FROM information_schema.columns WHERE table_name='brd_daily_logs' AND column_name IN ('hacker_col','__proto__');")
 assert_eq "B4.2 非法列未被创建" "0" "$BAD_COL"
 
 # ──────────────────────────────────────────────────────────────────────────
 cyan ""
 cyan "▶ B2: 孤儿表测试期间不增长"
 # 严格断言：测试结束时与 SEED 阶段开始时的行数差应为 0 — V2 历史存量保留，但不应新增
-ORPH1_END=$($PSQL $DB -tA -c "SELECT COUNT(*) FROM brd_immune_plans;")
-ORPH2_END=$($PSQL $DB -tA -c "SELECT COUNT(*) FROM brd_medication_records;")
-ORPH3_END=$($PSQL $DB -tA -c "SELECT COUNT(*) FROM brd_withdrawal_alerts;")
+ORPH1_END=$(db_query -tA -c "SELECT COUNT(*) FROM brd_immune_plans;")
+ORPH2_END=$(db_query -tA -c "SELECT COUNT(*) FROM brd_medication_records;")
+ORPH3_END=$(db_query -tA -c "SELECT COUNT(*) FROM brd_withdrawal_alerts;")
 yellow "  brd_immune_plans=$ORPH1_END (baseline=$ORPH1_BASE)"
 yellow "  brd_medication_records=$ORPH2_END (baseline=$ORPH2_BASE)"
 yellow "  brd_withdrawal_alerts=$ORPH3_END (baseline=$ORPH3_BASE)"
@@ -247,16 +281,16 @@ assert_eq "B2.3 brd_withdrawal_alerts 行数不增长"  "$ORPH3_BASE" "$ORPH3_EN
 cyan ""
 cyan "▶ Phase 6 数据一致性核对"
 # D-01: current_qty 应等于 initial - SUM(mortality_qty)
-EXPECTED=$($PSQL $DB -tA -c "
+EXPECTED=$(db_query -tA -c "
   SELECT f.initial_qty - COALESCE(SUM(l.mortality_qty),0)
   FROM brd_flocks f LEFT JOIN brd_daily_logs l ON l.flock_no = f.flock_no
   WHERE f.flock_no='$FLOCK' GROUP BY f.initial_qty;
 ")
-ACTUAL=$($PSQL $DB -tA -c "SELECT current_qty FROM brd_flocks WHERE flock_no='$FLOCK';")
+ACTUAL=$(db_query -tA -c "SELECT current_qty FROM brd_flocks WHERE flock_no='$FLOCK';")
 assert_eq "D-01 current_qty 守恒 (initial - SUM mortality)" "$EXPECTED" "$ACTUAL"
 
 # D-02: 任意 (date, house, shift) 唯一
-DUP=$($PSQL $DB -tA -c "
+DUP=$(db_query -tA -c "
   SELECT COUNT(*) FROM (
     SELECT log_date, house_code, shift FROM brd_daily_logs
     WHERE house_code IN ('$HOUSE_A','$HOUSE_B')
@@ -266,21 +300,21 @@ DUP=$($PSQL $DB -tA -c "
 assert_eq "D-02 (date,house,shift) 唯一" "0" "$DUP"
 
 # D-03: 免疫状态全大写
-LOWER2=$($PSQL $DB -tA -c "SELECT COUNT(*) FROM brd_vaccinations WHERE status IS NOT NULL AND status <> UPPER(status);")
+LOWER2=$(db_query -tA -c "SELECT COUNT(*) FROM brd_vaccinations WHERE status IS NOT NULL AND status <> UPPER(status);")
 assert_eq "D-03 vaccination status 全 UPPER" "0" "$LOWER2"
 
 # D-04: HOUSE_A 共 3 班次 (早班 / 晚班 / 中班 由 B4 注入) — 每个班次唯一一行
-CNT_FINAL=$($PSQL $DB -tA -c "SELECT COUNT(*) FROM brd_daily_logs WHERE log_date='$TODAY' AND house_code='$HOUSE_A';")
+CNT_FINAL=$(db_query -tA -c "SELECT COUNT(*) FROM brd_daily_logs WHERE log_date='$TODAY' AND house_code='$HOUSE_A';")
 assert_eq "D-04 三班次各一行" "3" "$CNT_FINAL"
 
 # ──────────────────────────────────────────────────────────────────────────
 cyan ""
 cyan "▶ Cleanup"
-$PSQL $DB -q -c "DELETE FROM brd_daily_logs WHERE house_code IN ('$HOUSE_A','$HOUSE_B');" >/dev/null
-$PSQL $DB -q -c "DELETE FROM brd_flocks WHERE flock_no='$FLOCK';"                          >/dev/null
-$PSQL $DB -q -c "DELETE FROM brd_houses WHERE house_code IN ('$HOUSE_A','$HOUSE_B');"      >/dev/null
-$PSQL $DB -q -c "DELETE FROM brd_farms WHERE farm_code='$FARM';"                           >/dev/null
-$PSQL $DB -q -c "DELETE FROM inv_ledger WHERE ref_no='$FLOCK' OR ref_no LIKE 'SHIFT-REGR%';" >/dev/null
+db_query -q -c "DELETE FROM brd_daily_logs WHERE house_code IN ('$HOUSE_A','$HOUSE_B');" >/dev/null
+db_query -q -c "DELETE FROM brd_flocks WHERE flock_no='$FLOCK';"                          >/dev/null
+db_query -q -c "DELETE FROM brd_houses WHERE house_code IN ('$HOUSE_A','$HOUSE_B');"      >/dev/null
+db_query -q -c "DELETE FROM brd_farms WHERE farm_code='$FARM';"                           >/dev/null
+db_query -q -c "DELETE FROM inv_ledger WHERE ref_no='$FLOCK' OR ref_no LIKE 'SHIFT-REGR%';" >/dev/null
 green "  ✓ test data 清理完毕"
 
 # ──────────────────────────────────────────────────────────────────────────

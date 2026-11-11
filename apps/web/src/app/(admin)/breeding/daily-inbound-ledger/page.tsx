@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import PageHeader from '@/components/PageHeader';
 import { usePermission } from '@/hooks/usePermission';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -38,8 +38,10 @@ export default function DailyInboundLedgerPage() {
   const [rows, setRows] = useState<LedgerRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const latestRequest = useRef(0);
 
   const load = useCallback(async () => {
+    const requestId = ++latestRequest.current;
     setLoading(true);
     setError('');
     try {
@@ -49,16 +51,21 @@ export default function DailyInboundLedgerPage() {
         cache: 'no-store',
       });
       const body = await response.json();
+      if (requestId !== latestRequest.current) return;
       if (!response.ok || body.code !== 200) throw new Error(body.message || '加载失败');
       setRows(body.data || []);
     } catch (e) {
-      setError(e instanceof Error ? e.message : '加载失败');
+      if (requestId === latestRequest.current) setError(e instanceof Error ? e.message : '加载失败');
     } finally {
-      setLoading(false);
+      if (requestId === latestRequest.current) setLoading(false);
     }
   }, [start, end]);
 
-  useEffect(() => { if (canView) void load(); }, [canView, load]);
+  useEffect(() => {
+    if (canView) void load();
+    // Invalidate pending success/error callbacks on range/permission changes or unmount.
+    return () => { latestRequest.current++; };
+  }, [canView, load]);
 
   if (!canView) return <div className={u.emptyPad40}>{t('breeding.noPermInbound', '无权限访问日产蛋入库台账')}</div>;
 

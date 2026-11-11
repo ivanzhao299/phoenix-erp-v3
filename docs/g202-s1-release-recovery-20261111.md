@@ -56,7 +56,7 @@ runtimeApi=28142f9f2553b5445c563ef72443de751758c53a
 - seed纯测试12项通过；集成后API/Web `tsc --noEmit --incremental false`均exit0。
 - 完整API单元套件显式NODE_ENV=test：142 suites通过、23 skipped；1596 tests通过、409 skipped。首次失败包含本地bcrypt native binding未构建，构建依赖后真实重跑通过，不记为主分支缺陷。
 - 包装真实PostgreSQL18：history 51/51、readiness 48/48；包装相关5-suite专项158/158。Web专项43/43。
-- quantity专用PG fixture 23/23；farm HTTP/PG 5/5。farm嵌套Web live DOM 3/4，老挝语日期范围项返回37而预期9，尚未证明属于基线或本改动，必须保留为未解决测试项，不能报全绿。
+- quantity专用PG fixture 23/23；farm完整HTTP/PG→Web DOM suite最终6/6，内嵌三语/权限4/4，修复后连续3轮通过。首轮37≠9已确定为旧日期请求响应覆盖新筛选：强化真实HTTP延迟中间37行响应后，未改页面的三语全部稳定失败；页面加入最新请求仲裁后通过，未弱化9行断言。
 - 迁移DML/down/nullable-unique/constraint drift检查通过（94条迁移，未新增schema迁移）。
 
 ## 用户补充业务事实与发布前置
@@ -68,4 +68,11 @@ runtimeApi=28142f9f2553b5445c563ef72443de751758c53a
 
 当前严格运行时代码会拒绝没有品种或COMPANY分配的新增入库；生产现无经确认的全量配置，因此**本分支不能直接全集团部署**，否则会阻断既有业务。现有库存来源模式开关不是SKU rollout开关，不能借它绕过严格校验。安全下一步是明确试点公司与来源映射，并完成启用预检；或先实现精确公司级发布策略（只允许冻结的旧目录继续原协议，新变体只在STRICT公司可用，异常不回退）。
 
-仍需：提交补强PR并监控CI，收口未通过的live DOM场景，确认公司/鸡舍品种配置及试点发布策略后，再按受控floor/API/Web流程发布。没有审核配置前，不执行新SKU业务启用。
+## PR524首轮CI问题修复（进行中）
+
+- 首轮freeze/security标签在PR创建后的事件快照中尚未生效；已记录意图审查，不修改门禁脚本/规则。i18n确有3个新增键缺失，已补三语并通过原始检查。
+- 养殖HTTP回归的flock seed缺breed，公司归属缺失，原脚本吞HTTP失败后仍报告完成，导致current_qty查询为空。已补有效组织/品种/日期上下文及HTTP/SQL失败即停止，并保持原24项及4792/4794断言，新增10个离线契约测试。真实HTTP24项以CI下一轮为准，不把离线测试说成HTTP通过。
+- 包装protection fixture缺公司组织与品种来源链，并发submit均被拒绝；已补真实fixture，独立完整PG18 protection13/13、readiness48/48，共61/61通过。
+- 首轮Web build在未改动的next/font/google loader中报null-match；isolated Web build也在NEXT_BUILD失败。暂时归类为待重试/调查的构建问题，不无证据宣称基线通过，不通过跳过构建放行。
+
+补强代码已推送草稿PR524；仍需监控更新后的全部CI，确认公司/鸡舍品种配置及试点发布策略后，再按受控floor/API/Web流程发布。没有审核配置前，不执行新SKU业务启用。
