@@ -863,18 +863,16 @@ jobs:
               exit "$rc"
             }
             docker() {
+              # db 只读 exec（pg_dump/psql）直通；生命周期仍走 pinned 白名单
               if [ "${1:-}" = compose ] && [ "${2:-}" = exec ] && [ "${3:-}" = -T ] && [ "${4:-}" = db ]; then
-                # 迁移链的只读 DB 工具调用（pg_dump 备份 / psql 校验 / ledger preflight）。
-                # 生命周期操作（up/restart/pull）仍走 pinned compose 白名单；exec 仅限
-                # db 服务，stdin 透传由调用方重定向，不经 runCompose 的 ignore-stdin。
                 shift 4
-                command env -i PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin DOCKER_CONFIG=/home/phoenix-codex-deploy/.docker DOCKER_HOST=unix:///var/run/docker.sock docker compose exec -T db "$@"
+                set -- compose exec -T db "$@"
               elif [ "${1:-}" = compose ]; then
                 shift
                 node scripts/ops/phoenix-production-compose.mjs "$@"
-              else
-                command env -i PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin DOCKER_CONFIG=/home/phoenix-codex-deploy/.docker DOCKER_HOST=unix:///var/run/docker.sock docker "$@"
+                return
               fi
+              command env -i PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin DOCKER_CONFIG=/home/phoenix-codex-deploy/.docker DOCKER_HOST=unix:///var/run/docker.sock docker "$@"
             }
 
             # ── 干净工作树硬门禁:禁止静默 stash/覆盖服务器改动 ───────
