@@ -17,18 +17,15 @@ interface ImmunePlan {
   status: string;
   [key: string]: unknown;
 }
-import { masterNameMap, masterDisplayLabel } from '@/lib/master-display';
-import { MasterLabel } from '@/components/MasterNameCode';
 import PageHeader from '@/components/PageHeader';
 import DataTable from '@/components/DataTable';
 import { StatusBadge } from '@/components/design-system';
 import RightDrawer from '@/components/RightDrawer';
-import { crudApi } from '@/lib/api-client'; // G27-C：useCrud → crudApi
-import { useDictOptions } from '@/hooks/useDictOptions';
+import { crudApi, farmProductionApi } from '@/lib/api-client';
 import { usePermission } from '@/hooks/usePermission';
 import { useToast } from '@/contexts/ToastContext';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { Plus, CheckCircle, AlertTriangle, Edit2 } from 'lucide-react';
+import { Plus, CheckCircle, AlertTriangle, XCircle } from 'lucide-react';
 import s from '@/components/ui/admin-ui.module.css';
 import {
   primaryActionButton, secondaryActionButton, actionPill, toolbarFilterPill, inlineAlert,
@@ -57,21 +54,27 @@ const EMPTY_FORM = {
   dose: '',
   vaccineBatchNo: '',
   flockCount: '',
-  nextDueDate: ''
+  nextDueDate: '',
+  vaccineExpireDate: '',
+  inventoryBatchNo: '',
+  plannedHeads: '',
+  doseValue: ''
+};
+const businessToday = () => {
+  const timeZone = process.env.NEXT_PUBLIC_PHOENIX_BUSINESS_TIMEZONE || 'Asia/Singapore';
+  const parts = new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date());
+  const values = Object.fromEntries(parts.map(part => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}`;
 };
 export default function ImmunePage() {
   const toast = useToast();
   const {
-    t, lang
+    t
   } = useLanguage();
-  const {
-    can
-  } = usePermission();
   // G24-A：can(role[]) → PBAC（MENU_FARM_VET：免疫记录归兽医防疫域）
   const { canCreate: canCreateImm, canEdit: canEditImm } = usePermission('MENU_FARM_VET');
   const [filter, setFilter] = useState('all');
   const [showDrawer, setShowDrawer] = useState(false);
-  const [editId, setEditId] = useState<number | null>(null);
   const [form, setForm] = useState({
     ...EMPTY_FORM
   });
@@ -94,34 +97,40 @@ export default function ImmunePage() {
     SCHEDULED: {
       status: 'default',
       label: t('ui.已计划', '已计划')
+    },
+    PLANNED: {
+      status: 'info',
+      label: t('ui.待执行', '待执行')
+    },
+    EXECUTED: {
+      status: 'success',
+      label: t('status.done', '已完成')
+    },
+    CANCELLED: {
+      status: 'default',
+      label: t('ui.已取消', '已取消')
     }
   };
-  // G27-C：useCrud → crudApi （deprecation 收口示范）
-  const fetchRecords = useCallback(() => crudApi.list('brd_vaccinations', { pageSize: 1000 }).then(r => r.data), []);
+  const unwrapData = (value: unknown): Record<string, unknown>[] => {
+    if (Array.isArray(value)) return value as Record<string, unknown>[];
+    if (value && typeof value === 'object' && 'data' in value && Array.isArray(value.data)) return value.data as Record<string, unknown>[];
+    return [];
+  };
+  const fetchRecords = useCallback(() => farmProductionApi.listImmunePlans().then(unwrapData), []);
   const fetchHouses  = useCallback(() => crudApi.list('brd_houses', { pageSize: 1000 }).then(r => r.data), []);
   const fetchFlocks  = useCallback(() => crudApi.list('brd_flocks', { pageSize: 1000 }).then(r => r.data), []);
   const createRecord = useCallback(async (data: Record<string, unknown>, _msg?: string) => {
-    try { await crudApi.create('brd_vaccinations', data); toast.success(_msg || t('common.success', '操作成功')); return true; }
-    catch { return false; /* G25-B 全局 toast 已捕获 error */ }
-  }, []);
-  const updateRecord = useCallback(async (id: number, data: Record<string, unknown>, _col?: string, _msg?: string) => {
-    try { await crudApi.update('brd_vaccinations', id, data); toast.success(_msg || t('common.success', '操作成功')); return true; }
+    try { await farmProductionApi.createImmunePlan(data); toast.success(_msg || t('common.success', '操作成功')); return true; }
     catch { return false; }
-  }, []);
-  const {
-    options: vaccineOpts
-  } = useDictOptions('BRD_VACCINE_TYPE');
-  const {
-    options: vaccMethodOpts
-  } = useDictOptions('BRD_VACCINATE_METHOD');
+  }, [t, toast]);
   const [plans, setPlans] = useState<ImmunePlan[]>([]);
-  const [houseFacts, setHouseFacts] = useState<Record<string, unknown>[]>([]);
-  const houseNames = useMemo(() => masterNameMap(houseFacts, 'house'), [houseFacts]);
-  const houseOptions = useMemo(() => houseFacts.map(x => ({
-    code: String(x.house_code || x.house_no || ''),
-    label: masterDisplayLabel(houseNames, 'house', x.house_code || x.house_no, lang, x),
-    farm_code: String(x.farm_code || '')
-  })).filter(o => o.code), [houseFacts, houseNames, lang]);
+  const [vaccineOpts, setVaccineOpts] = useState<string[]>([]);
+  const [vaccMethodOpts, setVaccMethodOpts] = useState<string[]>([]);
+  const [houseOptions, setHouseOptions] = useState<{
+    code: string;
+    label: string;
+    farm_code: string;
+  }[]>([]);
   const [flockOptions, setFlockOptions] = useState<{
     code: string;
     label: string;
@@ -129,6 +138,8 @@ export default function ImmunePage() {
   const [flockMap, setFlockMap] = useState<Record<string, {
     house_code: string;
     farm_code: string;
+    site_code?: string;
+    company_code?: string;
   }>>({});
   useEffect(() => {
     if (vaccineOpts.length) setForm(p => ({
@@ -147,8 +158,23 @@ export default function ImmunePage() {
     }
   }, [vaccMethodOpts]);
   useEffect(() => {
+    crudApi.list('brd_medications', { pageSize: 1000, status: 'ACTIVE', product_type: 'VACCINE' }).then(r => {
+      const rows = (r.data || []).filter((x: Record<string, unknown>) => String(x.status || 'ACTIVE').toUpperCase() === 'ACTIVE' && String(x.product_type || '').toUpperCase() === 'VACCINE');
+      setVaccineOpts(rows.map((x: Record<string, unknown>) => String(x.medication_code || '')).filter(Boolean));
+    }).catch(() => {});
+    crudApi.list('sys_dict', { pageSize: 200, dict_type: 'BRD_VACCINATE_METHOD' }).then(r => {
+      setVaccMethodOpts((r.data || []).map((x: Record<string, unknown>) => String(x.dict_code || x.dict_value || x.code || x.value || '')).filter(Boolean));
+    }).catch(() => {});
     fetchHouses().then(h => {
-      setHouseFacts(h || []);
+      setHouseOptions((h || []).map((x: Record<string, unknown>) => ({
+        code: (x.house_code || x.house_no) as string,
+        label: x.house_name ? `${x.house_code} · ${x.house_name}` : String(x.house_code || ''),
+        farm_code: x.farm_code as string || ''
+      })).filter((o: {
+        code: string;
+        label: string;
+        farm_code: string;
+      }) => !!o.code));
     }).catch(() => {});
     fetchFlocks().then(f => {
       setFlockOptions((f || []).map((x: Record<string, unknown>) => ({
@@ -158,11 +184,15 @@ export default function ImmunePage() {
       const map: Record<string, {
         house_code: string;
         farm_code: string;
+        site_code?: string;
+        company_code?: string;
       }> = {};
       (f || []).forEach((x: Record<string, unknown>) => {
         map[x.flock_no as string] = {
           house_code: x.house_code as string || '',
-          farm_code: x.farm_code as string || ''
+          farm_code: x.farm_code as string || '',
+          site_code: x.site_code as string || '',
+          company_code: x.company_code as string || ''
         };
       });
       setFlockMap(map);
@@ -175,29 +205,35 @@ export default function ImmunePage() {
   }, []);
   const loadData = useCallback(async () => {
     const data = await fetchRecords();
-    const now = new Date();
-    const today = new Date(now.toDateString());
-    const soon = new Date(today.getTime() + 3 * 86400000);
+    const today = businessToday();
+    const soon = new Date(`${today}T00:00:00Z`);
+    soon.setUTCDate(soon.getUTCDate() + 3);
+    const soonDate = soon.toISOString().slice(0, 10);
     setPlans(((data || []) as Record<string, unknown>[]).map((d: Record<string, unknown>) => {
-      const planDate = d.plan_date ? new Date(d.plan_date as string) : null;
+      const planDate = d.plan_date ? String(d.plan_date).slice(0, 10) : null;
       let status: string;
       // 大写枚举与 STATUS_CONF 对齐
-      if (d.actual_date) status = 'DONE';else if (!planDate) status = 'PENDING';else if (planDate < today) status = 'OVERDUE';else if (planDate <= soon) status = 'PENDING';else status = 'SCHEDULED';
+      const backendStatus = String(d.effective_status || d.status || '').toUpperCase();
+      if (backendStatus === 'EXECUTED' || d.actual_date) status = 'EXECUTED';else if (backendStatus === 'CANCELLED') status = 'CANCELLED';else if (backendStatus === 'OVERDUE' || (planDate && planDate < today)) status = 'OVERDUE';else if (backendStatus === 'PLANNED' || !planDate || (planDate && planDate <= soonDate)) status = 'PLANNED';else status = 'SCHEDULED';
       return {
         id: d.id,
         batchNo: d.flock_no || t('ui.未知', '未知'),
         farmHouse: d.farm_house || d.house_code || '',
-        houseCode: d.house_code || d.farm_house || '',
-        vaccine: d.vaccine || d.vaccine_name,
+        vaccine: d.vaccine_code || d.vaccine || d.vaccine_name,
         vaccineBatchNo: d.vaccine_batch_no || '',
-        flockCount: d.flock_count || '',
+        flockCount: d.planned_heads || d.flock_count || '',
         planDate: d.plan_date,
         nextDueDate: d.next_due_date || '',
         actualDate: d.actual_date,
         method: d.method || '',
         dose: d.dose || '',
         executor: d.executor || '',
-        status
+        status,
+        vaccineExpireDate: d.vaccine_expire_date || '',
+        inventoryBatchNo: d.inventory_batch_no || '',
+        plannedHeads: d.planned_heads || d.flock_count || '',
+        doseValue: d.dose_value || '',
+        _raw: d
       };
     }));
   }, [fetchRecords, t]);
@@ -205,33 +241,19 @@ export default function ImmunePage() {
     loadData();
   }, [loadData]);
   const handleRecordVaccine = async (row: ImmunePlan) => {
-    const today = new Date().toISOString().slice(0, 10);
-    let user: Record<string, unknown> = {};
+    const raw = (row._raw || row) as Record<string, unknown>;
+    const actual = window.prompt(t('ui.请输入实际免疫头数', '请输入实际免疫头数'), String(raw.actual_heads || raw.planned_heads || row.flockCount || ''));
+    if (!actual) return;
     try {
-      user = JSON.parse(sessionStorage.getItem('phoenix_user') || '{}');
+      await farmProductionApi.executeImmunePlan(Number(row.id), {
+        actual_heads: Number(actual),
+        dose_value: raw.dose_value || undefined,
+        inventory_batch_no: raw.inventory_batch_no || undefined,
+        vaccine_batch_no: raw.vaccine_batch_no || undefined,
+      });
+      toast.success(t('ui.执行成功并已扣减疫苗库存', '执行成功并已扣减疫苗库存'));
+      loadData();
     } catch {}
-    const ok = await updateRecord(row.id as number, {
-      status: 'DONE',
-      actual_date: today,
-      executor: user.realNameZh || user.username || ''
-    }, 'id', t('ui.保存成功', '保存成功'));
-    if (ok) loadData();
-  };
-  const handleEdit = (row: ImmunePlan) => {
-    setEditId(row.id as number);
-    const s = (v: unknown) => String(v ?? '');
-    setForm({
-      batchNo: s(row.batchNo),
-      farmHouse: s(row.farmHouse),
-      vaccine: s(row.vaccine || row.vaccine_name || vaccineOpts[0]),
-      planDate: s(row.planDate),
-      method: s(row.method || vaccMethodOpts[0]),
-      dose: s(row.dose),
-      vaccineBatchNo: s(row.vaccineBatchNo),
-      flockCount: row.flockCount ? String(row.flockCount) : '',
-      nextDueDate: s(row.nextDueDate)
-    });
-    setShowDrawer(true);
   };
   const handleSubmit = async () => {
     if (!form.batchNo) {
@@ -247,27 +269,28 @@ export default function ImmunePage() {
       return;
     }
     const fi = flockMap[form.batchNo] || {};
+    let identity: Record<string, unknown> = {};
+    try { identity = JSON.parse(sessionStorage.getItem('phoenix_user') || '{}'); } catch {}
     const payload = {
       flock_no: form.batchNo,
-      farm_house: form.farmHouse || fi.house_code || null,
       house_code: fi.house_code || form.farmHouse || null,
       farm_code: fi.farm_code || null,
-      vaccine: form.vaccine,
-      flock_count: form.flockCount ? Number(form.flockCount) : null,
+      site_code: String(fi.site_code || identity.siteCode || identity.site_code || identity.storeCode || identity.store_code || '').trim(),
+      company_code: String(fi.company_code || identity.companyCode || identity.company_code || '').trim(),
+      vaccine_code: form.vaccine,
+      vaccine_batch_no: form.vaccineBatchNo || undefined,
+      inventory_batch_no: form.inventoryBatchNo || undefined,
+      vaccine_expire_date: form.vaccineExpireDate || undefined,
+      planned_heads: Number(form.plannedHeads || form.flockCount || 0),
       plan_date: form.planDate,
       next_due_date: form.nextDueDate || null,
-      method: form.method,
-      dose: form.dose
+      method_code: form.method,
+      dose_value: form.doseValue ? Number(form.doseValue) : undefined,
+      dose_unit: 'UNIT'
     };
-    const ok = editId ? await updateRecord(editId, payload, 'id', t('ui.免疫计划更新成功', '免疫计划更新成功！')) : await createRecord({
-      ...payload,
-      actual_date: null,
-      executor: '',
-      status: 'PENDING'
-    }, t('ui.免疫计划制定成功', '免疫计划制定成功！'));
+    const ok = await createRecord(payload, t('ui.免疫计划制定成功', '免疫计划制定成功！'));
     if (ok) {
       setShowDrawer(false);
-      setEditId(null);
       setForm({
         ...EMPTY_FORM,
         batchNo: flockOptions[0]?.code || '',
@@ -280,19 +303,20 @@ export default function ImmunePage() {
   };
 
   // A3 + C5: 统一大写枚举
-  const filterKeys = ['all', 'PENDING', 'OVERDUE', 'SCHEDULED', 'DONE'];
+  const filterKeys = ['all', 'PLANNED', 'OVERDUE', 'EXECUTED', 'CANCELLED'];
   const filterLabels: Record<string, string> = {
     all: t('common.total', '全部'),
-    PENDING: t('ui.待执行', '待执行'),
+    PLANNED: t('ui.待执行', '待执行'),
     OVERDUE: t('ui.逾期', '逾期'),
     SCHEDULED: t('ui.已计划', '已计划'),
-    DONE: t('status.done', '已完成')
+    EXECUTED: t('status.done', '已完成'),
+    CANCELLED: t('ui.已取消', '已取消')
   };
   const filteredData = useMemo(() => filter === 'all' ? plans : plans.filter(p => normStatus(p.status) === filter), [plans, filter]);
   const overdueCnt = useMemo(() => plans.filter(p => normStatus(p.status) === 'OVERDUE').length, [plans]);
-  const pendingCnt = useMemo(() => plans.filter(p => normStatus(p.status) === 'PENDING').length, [plans]);
+  const pendingCnt = useMemo(() => plans.filter(p => ['PENDING', 'PLANNED'].includes(normStatus(p.status))).length, [plans]);
   const scheduledCnt = useMemo(() => plans.filter(p => normStatus(p.status) === 'SCHEDULED').length, [plans]);
-  const doneCnt = useMemo(() => plans.filter(p => normStatus(p.status) === 'DONE').length, [plans]);
+  const doneCnt = useMemo(() => plans.filter(p => ['DONE', 'EXECUTED'].includes(normStatus(p.status))).length, [plans]);
   const columns = [{
     key: 'batchNo',
     title: t('ui.鸡群批次', '鸡群批次'),
@@ -300,8 +324,7 @@ export default function ImmunePage() {
   }, {
     key: 'farmHouse',
     title: t('ui.鸡舍', '鸡舍'),
-    width: '100px',
-    render: (v: unknown, row: ImmunePlan) => <MasterLabel>{masterDisplayLabel(houseNames, 'house', row.houseCode || v, lang)}</MasterLabel>
+    width: '100px'
   }, {
     key: 'vaccine',
     title: t('ui.疫苗名称', '疫苗名称')
@@ -361,10 +384,12 @@ export default function ImmunePage() {
     title: t('common.operation', '操作'),
     width: '120px',
     render: (_: unknown, row: ImmunePlan) => <div className={s.tableActions}>
-        {canEditImm && normStatus(row.status) === 'PENDING' && (
+        {canEditImm && ['PENDING', 'PLANNED', 'OVERDUE'].includes(normStatus(row.status)) && (
           <button type="button" onClick={() => handleRecordVaccine(row)} style={actionPill("success")}><CheckCircle size={12} />{t('ui.执行', '执行')}</button>
         )}
-        {canCreateImm && <button type="button" className={s.btnIcon} onClick={() => handleEdit(row)}><Edit2 size={12} /></button>}
+        {canEditImm && ['PENDING', 'PLANNED', 'OVERDUE'].includes(normStatus(row.status)) && (
+          <button type="button" className={s.btnIcon} onClick={async () => { try { await farmProductionApi.cancelImmunePlan(Number(row.id)); loadData(); } catch {} }} title={t('ui.取消', '取消')}><XCircle size={12} /></button>
+        )}
       </div>
   }];
   const KPI_CARDS: { label: string; val: string; tone: Tone }[] = [
@@ -376,7 +401,7 @@ export default function ImmunePage() {
   return <div className="animate-fade-in">
       <PageHeader title={t('ui.免疫计划', '免疫计划')} subtitle={t('ui.管理所有鸡群的疫苗免疫计划与执行记录', '管理所有鸡群的疫苗免疫计划与执行记录')} breadcrumb={[t('ui.养殖管理', '养殖管理'), t('ui.免疫计划', '免疫计划')]}
         actions={canCreateImm && (
-          <button type="button" onClick={() => { setEditId(null); setForm({ ...EMPTY_FORM, batchNo: flockOptions[0]?.code || '', farmHouse: flockMap[flockOptions[0]?.code || '']?.house_code || '', vaccine: vaccineOpts[0] || '', method: vaccMethodOpts[0] || '', dose: DOSE_BY_METHOD[vaccMethodOpts[0]] || '' }); setShowDrawer(true); }} style={primaryActionButton}>
+          <button type="button" onClick={() => { setForm({ ...EMPTY_FORM, batchNo: flockOptions[0]?.code || '', farmHouse: flockMap[flockOptions[0]?.code || '']?.house_code || '', vaccine: vaccineOpts[0] || '', method: vaccMethodOpts[0] || '', dose: DOSE_BY_METHOD[vaccMethodOpts[0]] || '' }); setShowDrawer(true); }} style={primaryActionButton}>
             <Plus size={14} />{t('ui.新增免疫计划', '新增免疫计划')}
           </button>
         )}
@@ -411,8 +436,7 @@ export default function ImmunePage() {
 
       <RightDrawer isOpen={showDrawer} onClose={() => {
       setShowDrawer(false);
-      setEditId(null);
-    }} title={editId ? t('ui.编辑免疫计划', '编辑免疫计划') : t('ui.新增免疫计划', '新增免疫计划')} width="420px">
+    }} title={t('ui.新增免疫计划', '新增免疫计划')} width="420px">
         <div style={{
         display: 'flex',
         flexDirection: 'column',
@@ -441,7 +465,7 @@ export default function ImmunePage() {
               color: 'var(--color-primary)',
               marginLeft: 6
             }}>{t('ui.随鸡群自动填入', '（随鸡群自动填入）')}</span></label>
-            <select data-i18n-skip="true" value={form.farmHouse} onChange={e => setForm(p => ({
+            <select value={form.farmHouse} onChange={e => setForm(p => ({
             ...p,
             farmHouse: e.target.value
           }))} className={s.inp}>
@@ -509,11 +533,26 @@ export default function ImmunePage() {
             </div>
             <div>
               <label className={s.lbl}>{t('ui.免疫头数只', '免疫头数（只）')}</label>
-              <input type="number" onFocus={e => e.currentTarget.select()} min="1" value={form.flockCount} onChange={e => setForm(p => ({
+              <input type="number" onFocus={e => e.currentTarget.select()} min="1" value={form.plannedHeads || form.flockCount} onChange={e => setForm(p => ({
               ...p,
+              plannedHeads: String(Math.max(0, Math.floor(Number(e.target.value) || 0)) || ''),
               flockCount: String(Math.max(0, Math.floor(Number(e.target.value) || 0)) || '')
             }))} placeholder={t('ui.如5000', '如5000')} className={s.inp} />
             </div>
+          </div>
+          <div className={s.fieldRow}>
+            <div>
+              <label className={s.lbl}>{t('ui.疫苗有效期', '疫苗有效期')}</label>
+              <input type="date" value={form.vaccineExpireDate} onChange={e => setForm(p => ({ ...p, vaccineExpireDate: e.target.value }))} className={s.inp} />
+            </div>
+            <div>
+              <label className={s.lbl}>{t('ui.库存批次', '库存批次')}</label>
+              <input value={form.inventoryBatchNo} onChange={e => setForm(p => ({ ...p, inventoryBatchNo: e.target.value }))} className={s.inp} placeholder={t('ui.执行时扣减', '执行时扣减')} />
+            </div>
+          </div>
+          <div className={s.field}>
+            <label className={s.lbl}>{t('ui.剂量数值', '剂量数值')}</label>
+            <input type="number" min="0" step="0.001" value={form.doseValue} onChange={e => setForm(p => ({ ...p, doseValue: e.target.value }))} className={s.inp} />
           </div>
           <div className={s.field}>
             <label className={s.lbl}>{t('ui.下次免疫日期', '下次免疫日期')}</label>
@@ -527,8 +566,8 @@ export default function ImmunePage() {
           gap: 10,
           marginTop: 6
         }}>
-            <button type="button" onClick={() => { setShowDrawer(false); setEditId(null); }} style={{ ...secondaryActionButton, flex: 1, justifyContent: "center" }}>{t('common.cancel', '取消')}</button>
-            <button type="button" onClick={handleSubmit} style={{ ...primaryActionButton, flex: 2, justifyContent: "center" }}>{editId ? t('ui.保存修改', '保存修改') : t('ui.建立计划', '建立计划')}</button>
+          <button type="button" onClick={() => { setShowDrawer(false); }} style={{ ...secondaryActionButton, flex: 1, justifyContent: "center" }}>{t('common.cancel', '取消')}</button>
+            <button type="button" onClick={handleSubmit} style={{ ...primaryActionButton, flex: 2, justifyContent: "center" }}>{t('ui.建立计划', '建立计划')}</button>
           </div>
         </div>
       </RightDrawer>

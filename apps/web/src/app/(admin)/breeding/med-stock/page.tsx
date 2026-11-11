@@ -2,11 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import u from "@/styles/uix-utils.module.css";
-import { useMasterNames } from '@/hooks/useMasterNames';
-import { masterDisplayLabel } from '@/lib/master-display';
 import PageHeader from '@/components/PageHeader';
 import { usePermission } from '@/hooks/usePermission';
-import { MasterLabel } from '@/components/MasterNameCode';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { formatBusinessEnum } from '@/lib/business-display';
 import { RefreshCw, Search } from 'lucide-react';
@@ -56,14 +53,13 @@ interface MedLedger {
   note: string | null;
   operator: string;
 }
-const HOUSES = ['2号舍', '3号舍', '4号舍', '5号舍', '6号舍', '全场'];
 const today = () => new Date().toISOString().slice(0, 10);
 const addDays = (d: string, n: number) => {
   const dt = new Date(d);
   dt.setDate(dt.getDate() + n);
   return dt.toISOString().slice(0, 10);
 };
-type Tab = 'stock' | 'inbound' | 'outbound' | 'ledger';
+type Tab = 'stock' | 'inbound' | 'ledger';
 interface EntryRow {
   qty: number;
   house_code: string;
@@ -74,7 +70,6 @@ export default function MedStockPage() {
     can
   } = usePermission();
   const { t, lang } = useLanguage();
-  const houseNames = useMasterNames('house');
   // G24-A：PBAC 收口 — 药品库存归 MENU_FARM_VET 域
   const { canEdit } = usePermission('MENU_FARM_VET');
   const [tab, setTab] = useState<Tab>('stock');
@@ -122,7 +117,7 @@ export default function MedStockPage() {
   }, [tab, loadStock, loadLedger]);
   const getEntry = (code: string): EntryRow => entries[code] ?? {
     qty: 0,
-    house_code: HOUSES[0],
+    house_code: '',
     note: ''
   };
   const setEntry = (code: string, patch: Partial<EntryRow>) => {
@@ -144,11 +139,10 @@ export default function MedStockPage() {
       const items = Object.entries(entries).filter(([, e]) => e.qty > 0).map(([code, e]) => ({
         medication_code: code,
         qty: e.qty,
-        house_code: tab === 'outbound' ? e.house_code : undefined,
+        house_code: undefined,
         note: e.note || undefined
       }));
-      const endpoint = tab === 'inbound' ? '/api/farm/medicine/inbound' : '/api/farm/medicine/outbound';
-      await apiPost(endpoint, {
+      await apiPost('/api/farm/medicine/inbound', {
         date: today(),
         items
       });
@@ -174,9 +168,6 @@ export default function MedStockPage() {
     key: 'inbound',
     label: t('ui.今日入库', '今日入库')
   }, {
-    key: 'outbound',
-    label: t('ui.今日出库', '今日出库')
-  }, {
     key: 'ledger',
     label: t('ui.流水台账', '流水台账')
   }];
@@ -196,7 +187,7 @@ export default function MedStockPage() {
           </button>
         ))}
         <div className={u.flex1} />
-        {(tab === 'inbound' || tab === 'outbound') && canEdit && (
+        {tab === 'inbound' && canEdit && (
           <button onClick={handleSave} disabled={saving || !hasChanges} style={{ ...(saved ? secondaryActionButton : primaryActionButton), alignSelf: 'flex-start', marginBottom: 2, opacity: hasChanges ? 1 : 0.5 }}>
             {saving ? t('ui.提交中', '提交中…') : saved ? t('ui.已保存', '已保存') : t('ui.提交', '提交')}
           </button>
@@ -291,7 +282,7 @@ export default function MedStockPage() {
         </>}
 
       {/* ── 入库 / 出库 Tab ── */}
-      {(tab === 'inbound' || tab === 'outbound') && <div style={{
+      {tab === 'inbound' && <div style={{
       background: 'var(--bg-card)',
       borderRadius: 'var(--radius-lg)',
       border: '1px solid var(--border)',
@@ -304,7 +295,6 @@ export default function MedStockPage() {
                 <th>{t('ui.规格', '规格')}</th>
                 <th className={u.tar}>{t('ui.库存', '库存')}</th>
                 <th className={u.tac}>{t('ui.数量', '数量')}</th>
-                {tab === 'outbound' && <th>{t('ui.栋舍', '栋舍')}</th>}
                 <th>{t('ui.备注', '备注')}</th>
               </tr>
             </thead>
@@ -334,20 +324,6 @@ export default function MedStockPage() {
                   fontSize: 13
                 }} /> : e.qty}
                     </td>
-                    {tab === 'outbound' && <td>
-                        {canEdit ? <select value={e.house_code} onChange={ev => setEntry(m.medication_code, {
-                  house_code: ev.target.value
-                })} style={{
-                  padding: '4px 8px',
-                  borderRadius: 6,
-                  border: '1px solid var(--border)',
-                  background: 'var(--bg-page)',
-                  color: 'var(--text-primary)',
-                  fontSize: 13
-                }}>
-                            {HOUSES.map(h => <option key={h} value={h}>{h}</option>)}
-                          </select> : e.house_code}
-                      </td>}
                     <td>
                       {canEdit ? <input type="text" value={e.note} onChange={ev => setEntry(m.medication_code, {
                   note: ev.target.value
@@ -440,7 +416,7 @@ export default function MedStockPage() {
               }}>
                         {e.qty_change > 0 ? '+' : ''}{e.qty_change}
                       </td>
-                      <td className={u.muted}><MasterLabel>{masterDisplayLabel(houseNames, 'house', e.house_code, lang, e)}</MasterLabel></td>
+                      <td className={u.muted}>{e.house_code ?? '—'}</td>
                       <td className={u.muted12}>{e.note ?? '—'}</td>
                       <td className={u.muted}>{e.operator}</td>
                     </tr>)}
