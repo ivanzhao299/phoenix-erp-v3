@@ -15,6 +15,7 @@ import { DataScopeGuard } from '../org/guards/data-scope.guard';
 import { OrgOwnershipService } from '../org/services/org-ownership.service';
 import { EggInventoryService } from '../sales-v2/services/egg-inventory.service';
 import { ProductionInboundService } from '../sales-v2/services/production-inbound.service';
+import { SkuAvailabilityService } from '../product-master/services/sku-availability.service';
 import { InventorySourceController } from '../sales-v2/controllers/inventory-source.controller';
 import { InventorySourceModeService } from '../sales-v2/services/inventory-source-mode.service';
 
@@ -70,7 +71,7 @@ describePg('Issue 400 isolated PostgreSQL HTTP inventory chain', () => {
     await ds.query("INSERT INTO brd_houses VALUES ('HOUSE-A2','House A2','FARM-A','ACTIVE')");
     const eggInv = new EggInventoryService(ds, cls as never);
     const modeSvc = { resolveMode: async () => 'TEMP_PRODUCTION_INBOUND' };
-    const inbound = new ProductionInboundService(ds, cls as never, eggInv, modeSvc as never, new OrgOwnershipService(ds.manager));
+    const inbound = new ProductionInboundService(ds, cls as never, eggInv, modeSvc as never, new OrgOwnershipService(ds.manager), new SkuAvailabilityService(ds));
     const module = await Test.createTestingModule({ controllers: [FarmEggController, InventorySourceController], providers: [
       { provide: FarmEggService, useValue: new FarmEggService(ds, cls as never) },
       { provide: ProductionInboundService, useValue: inbound },
