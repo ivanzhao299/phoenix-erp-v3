@@ -1,9 +1,10 @@
-import { resolveQuantity } from '../../product-master/services/quantity-contract';
+import { resolveQuantity, savedQuantity, QuantitySnapshot } from '../../product-master/services/quantity-contract';
 import {
   Injectable, NotFoundException, ForbiddenException, BadRequestException,
 } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { SkuPolicy } from '../../product-master/services/sku-policy';
+import { validateCompanyCommercialContext } from '../../product-master/services/commercial-context';
 import { DataSource, EntityManager } from 'typeorm';
 import { ClsService } from 'nestjs-cls';
 import { DataScopeContext } from '../../org/services/data-scope.service';
@@ -45,9 +46,38 @@ export class PriceItemsService {
    * Phase H3: 根据 sku_code 查询 product_skus，返回推导出的 productCode/gradeCodeStd/specCode
    * 仅在 dto.skuCode 存在时调用
    */
-  private async resolveSkuInfo(manager: EntityManager, skuCode: unknown) {
-    const sku = await SkuPolicy.requireUsable(manager, skuCode, 'sale');
-    return { productCode: sku.product_code, gradeCodeStd: sku.grade_code, specCode: sku.spec_code };
+  private async resolveSkuInfo(manager: EntityManager, skuCode: unknown, companyCode: string) {
+    // Preparing a price must not require sale_enabled: that flag is only enabled
+    // after a confirmed price exists. Company applicability and a saleable grade
+    // remain mandatory; stock-only COMPANY scope can therefore prepare a price.
+    const code = SkuPolicy.code(skuCode);
+    const [identity] = await manager.query('SELECT org_context_required,variety_code FROM product_skus WHERE sku_code=$1 FOR SHARE', [code]);
+    const managed = identity?.org_context_required === true || identity?.variety_code != null;
+    const context = managed ? await validateCompanyCommercialContext(manager, { companyCode,
+      actor: this.cls.get('dataScope') as DataScopeContext }) : undefined;
+    const sku = await SkuPolicy.requireUsable(manager, code, managed ? 'any' : 'sale', context?.companyCode);
+    if (managed) {
+      const [grade] = await manager.query('SELECT is_saleable FROM product_grades WHERE grade_code=$1 FOR SHARE', [sku.grade_code]);
+      if (grade?.is_saleable !== true) throw new BadRequestException('SKU 等级不可销售，不能维护销售价格');
+    }
+    return { productCode: sku.product_code, gradeCodeStd: sku.grade_code, specCode: sku.spec_code, baseUnit: sku.base_unit,
+      managed: sku.org_context_required === true || sku.variety_code != null };
+  }
+
+  private requireConfirmedInput(managed: boolean, currencyCode: unknown, quantityBasis: unknown) {
+    if (managed && (typeof currencyCode !== 'string' || !currencyCode.trim() || currencyCode !== currencyCode.trim()
+        || !['BASE', 'PACKAGE'].includes(String(quantityBasis)))) {
+      throw new BadRequestException('新 SKU 报价必须明确币种和数量单位，禁止猜测默认值');
+    }
+  }
+
+  private requireConfirmedSnapshot(sku: Awaited<ReturnType<PriceItemsService['resolveSkuInfo']>>, skuCode: string, snapshot: QuantitySnapshot | null) {
+    if (!sku.managed) return;
+    savedQuantity({ qty: 1, quantity_snapshot: snapshot });
+    if (!snapshot || snapshot.skuCode !== skuCode || snapshot.productCode !== sku.productCode
+        || snapshot.gradeCode !== sku.gradeCodeStd || snapshot.specCode !== sku.specCode || snapshot.baseUnit !== sku.baseUnit) {
+      throw new BadRequestException('新 SKU 价格计量快照不完整或身份不符，禁止猜测修复');
+    }
   }
 
   async listItems(q: QueryPriceItemDto) {
@@ -121,7 +151,8 @@ export class PriceItemsService {
       let specCode     = dto.specCode     ?? null;
 
       if (dto.skuCode !== undefined) {
-        const skuInfo = await this.resolveSkuInfo(manager, dto.skuCode);
+        const skuInfo = await this.resolveSkuInfo(manager, dto.skuCode, book.company_code);
+        this.requireConfirmedInput(skuInfo.managed, dto.currencyCode, dto.quantityBasis);
         productCode  = skuInfo.productCode;
         gradeCodeStd = skuInfo.gradeCodeStd;
         specCode     = skuInfo.specCode;
@@ -179,9 +210,16 @@ export class PriceItemsService {
     add('min_qty',       dto.minQty);
     add('max_qty',       dto.maxQty);
     add('currency_code', dto.currencyCode);
+    if (item.sku_code) {
+      const [identity] = await manager.query('SELECT org_context_required,variety_code FROM product_skus WHERE sku_code=$1 FOR SHARE', [item.sku_code]);
+      if (identity?.org_context_required === true || identity?.variety_code != null || dto.quantityBasis !== undefined) {
+        const skuInfo = await this.resolveSkuInfo(manager, item.sku_code, item.company_code);
+        this.requireConfirmedInput(skuInfo.managed, dto.currencyCode ?? item.currency_code, dto.quantityBasis ?? item.quantity_snapshot?.basis);
+        if (dto.quantityBasis === undefined) this.requireConfirmedSnapshot(skuInfo, item.sku_code, item.quantity_snapshot);
+      }
+    }
     if (dto.quantityBasis !== undefined) {
-        if (item.sku_code) await SkuPolicy.requireUsable(manager, item.sku_code, 'sale');
-        add('quantity_snapshot', await resolveQuantity(manager, { qty: 1, skuCode: item.sku_code, quantityBasis: dto.quantityBasis }));
+      add('quantity_snapshot', await resolveQuantity(manager, { qty: 1, skuCode: item.sku_code, quantityBasis: dto.quantityBasis }));
     }
 
     if (!sets.length) return item;
@@ -231,7 +269,8 @@ export class PriceItemsService {
         let specCode     = item.specCode     ?? null;
 
         if (item.skuCode !== undefined) {
-          const skuInfo = await this.resolveSkuInfo(manager, item.skuCode);
+          const skuInfo = await this.resolveSkuInfo(manager, item.skuCode, book.company_code);
+          this.requireConfirmedInput(skuInfo.managed, item.currencyCode, item.quantityBasis);
           productCode = skuInfo.productCode;
           gradeCodeStd = skuInfo.gradeCodeStd;
           specCode = skuInfo.specCode;
@@ -275,8 +314,10 @@ export class PriceItemsService {
       const items = await manager.query(`SELECT * FROM sal_price_items WHERE price_book_id=$1 AND status='ACTIVE' ORDER BY id FOR SHARE`, [sourceBookId]);
       for (const item of items) {
         if (item.sku_code != null) {
-          const sku = await SkuPolicy.requireUsable(manager, item.sku_code, 'sale');
-          item.product_code = sku.product_code; item.grade_code_std = sku.grade_code; item.spec_code = sku.spec_code;
+          const sku = await this.resolveSkuInfo(manager, item.sku_code, targetBook.company_code);
+          this.requireConfirmedInput(sku.managed, item.currency_code, item.quantity_snapshot?.basis);
+          this.requireConfirmedSnapshot(sku, item.sku_code, item.quantity_snapshot);
+          item.product_code = sku.productCode; item.grade_code_std = sku.gradeCodeStd; item.spec_code = sku.specCode;
         }
         await manager.query(`INSERT INTO sal_price_items
           (price_book_id,product_code,grade_code,packaging_spec,currency_code,unit_price,floor_price,ceiling_price,min_qty,max_qty,status,sku_code,grade_code_std,spec_code,quantity_snapshot)

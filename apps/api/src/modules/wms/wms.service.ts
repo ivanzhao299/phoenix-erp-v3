@@ -1587,7 +1587,26 @@ export class WmsService {
 
     if (order.quantity_snapshot) assertBatchPool(batch, order.quantity_snapshot);
     const selectedSku = order.quantity_snapshot?.skuCode ?? batch.sku_code;
-    if (selectedSku != null) await SkuPolicy.requireUsable(manager, selectedSku, this.outboundSkuUsage(order.type || 'SALE'), companyCode);
+    const commercialSku = selectedSku == null ? null
+      : await SkuPolicy.requireUsable(manager, selectedSku, this.outboundSkuUsage(order.type || 'SALE'), companyCode);
+    if (order.quantity_snapshot) {
+      // Only a server-persisted quantity snapshot selects a commercial packaging
+      // SKU separately from the stock SKU. Request-body context grants nothing.
+      const snapshot: QuantitySnapshot = order.quantity_snapshot;
+      if (!commercialSku || commercialSku.product_code !== snapshot.productCode || commercialSku.grade_code !== snapshot.gradeCode
+        || commercialSku.spec_code !== snapshot.specCode || commercialSku.base_unit !== snapshot.baseUnit
+        || !batch.sku_code || batch.company_code !== companyCode
+        || (batch.variety_code ?? null) !== (commercialSku.variety_code ?? null)) {
+        throw new BadRequestException('商业 SKU 计量快照与实物批次产品/等级/基本单位/品种或公司不一致');
+      }
+      const physicalSku = batch.sku_code === selectedSku ? commercialSku
+        : await SkuPolicy.requireUsable(manager, batch.sku_code, 'stock', companyCode);
+      if (physicalSku.product_code !== batch.product_code || physicalSku.grade_code !== batch.grade_code_std
+        || physicalSku.base_unit !== batch.unit || physicalSku.spec_code !== batch.spec_code
+        || (physicalSku.variety_code ?? null) !== (batch.variety_code ?? null)) {
+        throw new BadRequestException('实物 SKU 与批次产品/等级/基本单位/规格或品种不一致');
+      }
+    }
 
     const changed = await manager.query(
       `WITH changed AS (

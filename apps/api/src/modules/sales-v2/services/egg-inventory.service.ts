@@ -1,5 +1,6 @@
 import { savedQuantity, QuantitySnapshot, positiveQuantity, baseQuantity, sharedBatches, lockQuantityPools, assertBatchPool, resolveQuantity } from '../../product-master/services/quantity-contract';
 import { SkuPolicy } from '../../product-master/services/sku-policy';
+import { VerifiedCommercialContext, assertCommercialContext, assertCommercialSkuUsable } from '../../product-master/services/commercial-context';
 import { EggSourceProfile, SkuAvailabilityService } from '../../product-master/services/sku-availability.service';
 import {
   Injectable, Logger, BadRequestException, ConflictException, ForbiddenException,
@@ -615,6 +616,44 @@ export class EggInventoryService {
     return !!sku && sku.variety_code == null && sku.org_context_required !== true;
   }
 
+  private async commercialSelection(mgr: EntityManager, context: VerifiedCommercialContext, company: string,
+    warehouses: readonly string[], skuCode: unknown, snapshot: QuantitySnapshot | null | undefined, price: any) {
+    assertCommercialContext(context, mgr, { companyCode: company, warehouseCodes: warehouses });
+    if (!snapshot || typeof skuCode !== 'string' || snapshot.skuCode !== skuCode) throw new BadRequestException('商业分配必须显式提供 commercial SKU 与计量快照');
+    savedQuantity({ qty: snapshot.baseQty / snapshot.factor, quantity_snapshot: snapshot });
+    if ((snapshot.basis === 'BASE' && snapshot.tradeUnit !== snapshot.baseUnit)
+        || (snapshot.basis === 'PACKAGE' && (typeof snapshot.packageFactor !== 'number' || snapshot.packageFactor !== snapshot.factor))) {
+      throw new BadRequestException('商业计量快照包装换算或单位不一致');
+    }
+    const sku = await assertCommercialSkuUsable(mgr, skuCode, context, 'sale-stock');
+    if (snapshot.productCode !== sku.product_code || snapshot.gradeCode !== sku.grade_code || snapshot.specCode !== sku.spec_code
+        || snapshot.baseUnit !== sku.base_unit) throw new BadRequestException('商业 SKU 与计量快照产品/等级/包装/基本单位不一致');
+    const pq = price?.priceQuantitySnapshot;
+    if (!price || price.version !== 1 || price.companyCode !== company || price.skuCode !== skuCode
+        || typeof price.currencyCode !== 'string' || !price.currencyCode.trim() || !price.priceBookId || !price.priceItemId
+        || !Number.isInteger(price.publishVersion) || price.publishVersion < 1
+        || typeof price.resolvedUnitPrice !== 'number' || !Number.isFinite(price.resolvedUnitPrice) || price.resolvedUnitPrice < 0
+        || typeof price.actualUnitPrice !== 'number' || !Number.isFinite(price.actualUnitPrice) || price.actualUnitPrice < 0 || !pq
+        || pq.skuCode !== skuCode || pq.productCode !== snapshot.productCode || pq.gradeCode !== snapshot.gradeCode
+        || pq.specCode !== snapshot.specCode || pq.baseUnit !== snapshot.baseUnit) throw new BadRequestException('商业分配缺少匹配的公司价格/计量快照');
+    savedQuantity({ qty: pq.baseQty / pq.factor, quantity_snapshot: pq });
+    return sku;
+  }
+
+  private async commercialBatch(mgr: EntityManager, context: VerifiedCommercialContext, company: string, batch: any,
+    snapshot: QuantitySnapshot, commercialSku: any): Promise<void> {
+    assertCommercialContext(context, mgr, { companyCode: company, warehouseCodes: [batch.warehouse_code] });
+    if (batch.company_code !== company || !batch.sku_code) throw new ConflictException('商业库存批次公司或实物 SKU 不明确');
+    assertBatchPool(batch, snapshot);
+    // Physical LOOSE inventory needs STOCK permission only. Its packaging, sale flag and price are not the commercial package.
+    const physical = await assertCommercialSkuUsable(mgr, batch.sku_code, context, 'stock');
+    if (physical.product_code !== commercialSku.product_code || physical.grade_code !== commercialSku.grade_code
+        || physical.base_unit !== snapshot.baseUnit || physical.variety_code !== commercialSku.variety_code
+        || batch.variety_code !== physical.variety_code || batch.spec_code !== physical.spec_code) {
+      throw new ConflictException('商业库存与锁定实物 SKU 产品/等级/基本单位/品种/包装不一致');
+    }
+  }
+
   /**
    * Phase H4 升级：支持 skuCode 优先路径
    *
@@ -640,15 +679,22 @@ export class EggInventoryService {
       skuCode?:     string;
       fulfillmentWarehouseCode?: string;
       quantitySnapshot?: QuantitySnapshot | null;
+      priceSnapshot?: unknown;
     },
     mgr?: EntityManager,
+    commercialContext?: VerifiedCommercialContext,
   ): Promise<FifoAllocation[]> {
-    if (!mgr) return this.ds.transaction(manager => this.allocateByFIFO(params, manager));
+    if (!mgr) return this.ds.transaction(manager => this.allocateByFIFO(params, manager, commercialContext));
     const q = mgr.query.bind(mgr);
-    if (params.skuCode !== undefined) await SkuPolicy.requireUsable(mgr, params.skuCode, 'sale-stock');
-    else if (params.quantitySnapshot) await SkuPolicy.requireUsable(mgr, params.quantitySnapshot.skuCode, 'sale-stock');
+    const commercialSku = commercialContext ? await this.commercialSelection(mgr, commercialContext, params.companyCode,
+      params.fulfillmentWarehouseCode ? [params.fulfillmentWarehouseCode] : [], params.skuCode, params.quantitySnapshot, params.priceSnapshot) : null;
+    if (!commercialContext) {
+      if (params.skuCode !== undefined) await SkuPolicy.requireUsable(mgr, params.skuCode, 'sale-stock');
+      else if (params.quantitySnapshot) await SkuPolicy.requireUsable(mgr, params.quantitySnapshot.skuCode, 'sale-stock');
+    }
 
     positiveQuantity(params.qty, '分配数量');
+    if (commercialContext && params.qty !== params.quantitySnapshot!.baseQty) throw new BadRequestException('商业分配基础数量必须与计量快照一致');
 
     // Advisory Lock 防并发超卖
     // Phase H4: SKU 路径用更细粒度的 lock key，旧路径继续用 productCode
@@ -708,7 +754,10 @@ export class EggInventoryService {
     // under the same transaction's batch FOR UPDATE and SKU FOR SHARE locks.
     const legacyBatches: any[] = [];
     for (const batch of batches) {
-      if (await this.isLegacySaleStock(batch.sku_code, mgr)) legacyBatches.push(batch);
+      if (commercialContext) {
+        await this.commercialBatch(mgr, commercialContext, params.companyCode, batch, params.quantitySnapshot!, commercialSku);
+        legacyBatches.push(batch);
+      } else if (await this.isLegacySaleStock(batch.sku_code, mgr)) legacyBatches.push(batch);
     }
     const allocatableQty = legacyBatches.reduce((sum, batch) => sum + Number(batch.qty_available), 0);
     if (allocatableQty < params.qty) {
@@ -799,9 +848,12 @@ export class EggInventoryService {
     companyCode: string,
     mgr?: EntityManager,
     fulfillmentWarehouseCode?: string,
+    commercialContext?: VerifiedCommercialContext,
   ): Promise<boolean> {
-    if (!mgr) return this.ds.transaction(manager => this.reserveInventory(orderId, orderNo, companyCode, manager, fulfillmentWarehouseCode));
+    if (!mgr) return this.ds.transaction(manager => this.reserveInventory(orderId, orderNo, companyCode, manager, fulfillmentWarehouseCode, commercialContext));
     const q = mgr.query.bind(mgr);
+    if (commercialContext) assertCommercialContext(commercialContext, mgr, { companyCode,
+      warehouseCodes: fulfillmentWarehouseCode ? [fulfillmentWarehouseCode] : [] });
     let createdAny = false;
     await q(`SELECT pg_advisory_xact_lock(hashtext($1))`, [`sales-order-reservation:${orderId}`]);
 
@@ -813,12 +865,17 @@ export class EggInventoryService {
     for (const item of items.sort((a: any, b: any) => String(a.product_code).localeCompare(String(b.product_code)) || String(a.id).localeCompare(String(b.id)))) {
       const qty = savedQuantity(item);
       if (qty <= 0) continue;
-      // Idempotent reservation must not bypass the explicit-SKU sales policy.
-      if (item.sku_code != null) await SkuPolicy.requireUsable(mgr, item.sku_code, 'sale-stock');
-      else if (item.quantity_snapshot) await SkuPolicy.requireUsable(mgr, item.quantity_snapshot.skuCode, 'sale-stock');
+      // An aware order may contain historical lines too; only managed selections opt into the new contract.
+      const itemContext = commercialContext && !await this.isLegacySaleStock(item.sku_code, mgr) ? commercialContext : undefined;
+      const commercialSku = itemContext ? await this.commercialSelection(mgr, itemContext, companyCode,
+        fulfillmentWarehouseCode ? [fulfillmentWarehouseCode] : [], item.sku_code, item.quantity_snapshot, item.price_snapshot) : null;
+      if (!itemContext) {
+        if (item.sku_code != null) await SkuPolicy.requireUsable(mgr, item.sku_code, 'sale-stock');
+        else if (item.quantity_snapshot) await SkuPolicy.requireUsable(mgr, item.quantity_snapshot.skuCode, 'sale-stock');
+      }
 
       const existing = await q(
-        `SELECT a.id,a.batch_no,a.reserved_qty,a.outbound_qty,a.released_qty,b.sku_code
+        `SELECT b.*,a.id,a.batch_no,a.reserved_qty,a.outbound_qty,a.released_qty,b.sku_code
            FROM sal_order_item_batch_allocations a
            JOIN inv_batches b ON b.batch_no=a.batch_no
           WHERE a.sales_order_item_id=$1
@@ -827,7 +884,9 @@ export class EggInventoryService {
       );
       if (existing.length) {
         for (const allocation of existing) {
-          if (!await this.isLegacySaleStock(allocation.sku_code, mgr)) {
+          if (commercialContext) assertCommercialContext(commercialContext, mgr, { companyCode, warehouseCodes: [allocation.warehouse_code] });
+          if (itemContext) await this.commercialBatch(mgr, itemContext, companyCode, allocation, item.quantity_snapshot, commercialSku);
+          else if (!await this.isLegacySaleStock(allocation.sku_code, mgr)) {
             throw new ConflictException('旧销售预留禁止使用公司范围管理或未映射 SKU 库存');
           }
         }
@@ -848,7 +907,8 @@ export class EggInventoryService {
           skuCode: item.sku_code ?? undefined,   // Phase H5: SKU PATH A 优先
           fulfillmentWarehouseCode,
           quantitySnapshot: item.quantity_snapshot,
-      }, mgr);
+          priceSnapshot: item.price_snapshot,
+      }, mgr, itemContext);
 
         // 记录分配的批次（取首批次作为主批次，多批次逗号分隔）
         const batchNos     = allocations.map(a => a.batchNo).join(',');
@@ -961,13 +1021,15 @@ export class EggInventoryService {
     deliveryId: string,
     requestedQty: number,
     mgr?: EntityManager,
+    commercialContext?: VerifiedCommercialContext,
   ): Promise<number> {
-    if (!mgr) return this.ds.transaction(manager => this.confirmOutbound(orderId, orderNo, companyCode, deliveryNo, deliveryId, requestedQty, manager));
+    if (!mgr) return this.ds.transaction(manager => this.confirmOutbound(orderId, orderNo, companyCode, deliveryNo, deliveryId, requestedQty, manager, commercialContext));
     const q = mgr.query.bind(mgr);
     positiveQuantity(requestedQty,'出库基础数量');
+    if (commercialContext) assertCommercialContext(commercialContext, mgr, { companyCode });
 
     const allocations = await q(
-      `SELECT a.*,oi.quantity_snapshot,oi.sku_code AS sale_sku_code,b.product_code,b.grade_code_std,b.unit,b.material_code,b.legacy_source,b.base_quantity_version,b.qty,b.expire_date,b.quality_grade,b.sku_code,b.warehouse_code,b.location_code,b.status
+      `SELECT a.*,oi.quantity_snapshot,oi.price_snapshot,oi.qty AS sale_qty,oi.sku_code AS sale_sku_code,b.company_code,b.variety_code,b.spec_code,b.product_code,b.grade_code_std,b.unit,b.material_code,b.legacy_source,b.base_quantity_version,b.qty,b.expire_date,b.quality_grade,b.sku_code,b.warehouse_code,b.location_code,b.status
          FROM sal_order_item_batch_allocations a
          JOIN sal_order_items oi ON oi.id=a.sales_order_item_id
          JOIN inv_batches b ON b.batch_no=a.batch_no
@@ -982,7 +1044,13 @@ export class EggInventoryService {
     for (const allocation of allocations) {
       const available = Number(allocation.reserved_qty) - Number(allocation.outbound_qty) - Number(allocation.released_qty);
       if (available <= 0) continue;
-      if (!await this.isLegacySaleStock(allocation.sku_code, mgr)
+      if (commercialContext) assertCommercialContext(commercialContext, mgr, { companyCode, warehouseCodes: [allocation.warehouse_code] });
+      if (commercialContext && !await this.isLegacySaleStock(allocation.sale_sku_code, mgr)) {
+        savedQuantity({ qty: allocation.sale_qty, quantity_snapshot: allocation.quantity_snapshot });
+        const sku = await this.commercialSelection(mgr, commercialContext, companyCode, [allocation.warehouse_code],
+          allocation.sale_sku_code, allocation.quantity_snapshot, allocation.price_snapshot);
+        await this.commercialBatch(mgr, commercialContext, companyCode, allocation, allocation.quantity_snapshot, sku);
+      } else if (!await this.isLegacySaleStock(allocation.sku_code, mgr)
           || !await this.isLegacySaleStock(allocation.sale_sku_code, mgr)) {
         throw new ConflictException('旧销售出库禁止使用公司范围管理或未映射 SKU 库存');
       }
@@ -997,7 +1065,9 @@ export class EggInventoryService {
       const outQty = Math.min(available, remaining);
       if (outQty <= 0) continue;
       if (allocation.quantity_snapshot) {
-        await SkuPolicy.requireUsable(mgr, allocation.sale_sku_code, 'sale-stock');
+        if (!commercialContext || await this.isLegacySaleStock(allocation.sale_sku_code, mgr)) {
+          await SkuPolicy.requireUsable(mgr, allocation.sale_sku_code, 'sale-stock');
+        }
         assertBatchPool(allocation, allocation.quantity_snapshot);
         baseQuantity(outQty,1,allocation.quantity_snapshot.baseUnit);
       } else if (allocation.sku_code != null) await SkuPolicy.requireUsable(mgr, allocation.sku_code, 'sale-stock');

@@ -155,6 +155,10 @@ export class ValidatePriceDto {
   @IsOptional() @IsIn(['BASE', 'PACKAGE'])
   quantityBasis?: 'BASE' | 'PACKAGE';
 
+  // Optional for historical ordinary requests; managed SKU consumption requires it in the service.
+  @IsString() @IsOptional() @MaxLength(8)
+  currencyCode?: string;
+
   @IsString() @IsNotEmpty()
   companyCode: string;
 
