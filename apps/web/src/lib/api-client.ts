@@ -282,4 +282,35 @@ export const dictApi = {
     crudApi.list("sys_dict", { dict_type: dictType, limit: 200 }),
 };
 
+// Production management MVP endpoints. These wrappers keep the farm pages on
+// the transactional APIs instead of the deprecated Generic CRUD write paths.
+export const farmProductionApi = {
+  listImmunePlans: (params: Record<string, string> = {}) => {
+    const qs = new URLSearchParams(params);
+    return request<{ code: number; data: Record<string, unknown>[] }>(`/farm/immune/plans${qs.toString() ? `?${qs}` : ''}`);
+  },
+  createImmunePlan: (body: Record<string, unknown>) =>
+    request<{ code: number; data: Record<string, unknown> }>('/farm/immune/plans', { method: 'POST', body: JSON.stringify(body) }),
+  executeImmunePlan: (id: number, body: Record<string, unknown> = {}) =>
+    request<{ code: number; data: Record<string, unknown> }>(`/farm/immune/plans/${id}/execute`, { method: 'POST', body: JSON.stringify(body) }),
+  cancelImmunePlan: (id: number) =>
+    request<{ code: number; data: Record<string, unknown> }>(`/farm/immune/plans/${id}/cancel`, { method: 'POST', body: JSON.stringify({}) }),
+  listMedicationRecords: (params: Record<string, string> = {}) => {
+    const qs = new URLSearchParams(params);
+    return request<{ code: number; data: Record<string, unknown>[] }>(`/farm/medication-records${qs.toString() ? `?${qs}` : ''}`);
+  },
+  listWithdrawals: (params: Record<string, string> = {}) => {
+    const qs = new URLSearchParams(params);
+    return request<{ code: number; data: Record<string, unknown>[] }>(`/farm/medication-records/withdrawals${qs.toString() ? `?${qs}` : ''}`);
+  },
+  createMedicationRecord: (body: Record<string, unknown>) =>
+    request<{ code: number; data: Record<string, unknown> }>('/farm/medication-records', { method: 'POST', body: JSON.stringify(body) }),
+  cancelMedicationRecord: (id: number) =>
+    request<{ code: number; data: Record<string, unknown> }>(`/farm/medication-records/${id}/cancel`, { method: 'POST', body: JSON.stringify({}) }),
+  listMedicineLots: (params: Record<string, string>) => {
+    const qs = new URLSearchParams(params);
+    return request<{ code: number; data: Record<string, unknown>[] }>(`/farm/medicine/lots?${qs}`);
+  },
+};
+
 export default request;

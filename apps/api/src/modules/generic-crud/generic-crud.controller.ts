@@ -8,7 +8,6 @@ import {
   Query,
   Body,
   UseGuards,
-  UseFilters,
   Req,
   ForbiddenException,
   BadRequestException,
@@ -16,20 +15,17 @@ import {
   GoneException,
 } from '@nestjs/common';
 import { ClsService } from 'nestjs-cls';
-import { DAILY_EXPORT_SNAPSHOT, DAILY_EXPORT_MAX_ROWS } from './daily-export-policy';
 import { GenericCrudService } from './generic-crud.service';
-import { AuthSubcodeGuard } from '../../common/guards/auth-subcode.guard';
+import { AuthGuard } from '@nestjs/passport';
 import { ALLOWED_TABLES, BREEDING_SCOPED_TABLES, BreedingScopedTable } from './crud.constants';
 import { hasPerm, PermCode } from '../../auth/permissions.util';
 import { DataScopeContext, DataScopeService } from '../org/services/data-scope.service';
 import { WmsService } from '../wms/wms.service';
 import { WMS_ISSUE_OUTBOUND_TYPES } from '../wms/wms-outbound-policy';
 import { redactSensitive } from '../../common/logging/redact-sensitive';
-import { AuthExceptionFilter } from '../../common/filters/auth-exception.filter';
 
 @Controller('api/crud')
-@UseGuards(AuthSubcodeGuard)
-@UseFilters(AuthExceptionFilter)
+@UseGuards(AuthGuard('jwt'))
 export class GenericCrudController {
   constructor(
     private readonly crudService: GenericCrudService,
@@ -70,16 +66,21 @@ export class GenericCrudController {
     'pos_sale_items',
     'daily_close',
     'store_inventory',
-    // V1-5: receiving is a read-only historical projection. Inventory receipt
-    // writes must go through StoreReplenishmentService -> WmsService.
-    'store_receiving',
-    'store_receiving_items',
+  ]);
+  private static readonly DEDICATED_CORE_WRITE_TABLES = new Set([
+    'brd_vaccinations',
+    'brd_medications',
+    'brd_medication_records',
+    'brd_medication_issue_lines',
+    'inv_batches',
+    'inv_ledger',
   ]);
 
   private checkTableAccess(table: string, req: any, method: string) {
-    if (method !== 'GET' && ['wms_inbound_items','wms_outbound_items','inv_batches','inv_ledger'].includes(table)) throw new ForbiddenException('WMS 明细及快照必须使用专用单据接口，禁止通用修改/删除');
-    if (method !== 'GET' && ['mst_products', 'product_skus'].includes(table)) {
-      throw new ForbiddenException('产品/SKU 必须使用主数据领域接口，禁止通用 CRUD 写入');
+    if (method !== 'GET' && GenericCrudController.DEDICATED_CORE_WRITE_TABLES.has(table)) {
+      throw new ForbiddenException(
+        `核心表 [${table}] 禁止通过 Generic CRUD 写入，请使用专用业务接口`,
+      );
     }
     if (method !== 'GET' && GenericCrudController.RETIRED_STORE_WRITE_TABLES.has(table)) {
       throw new GoneException(
@@ -149,7 +150,6 @@ export class GenericCrudController {
    * F9：表名 → 备选菜单码（OR 关系）。用于 FE/BE 域刻意不同的表，避免持 FE 域权的用户被 BE 误 403。
    */
   private tableToAltMenus(table: string, method: string): string[] {
-    if (method === 'GET' && table === 'product_skus') return ['MENU_MASTER_SKU'];
     // BUG-20260707-0002: 库存总览只读拉取 wms_* 汇总数据时应接受仓储查看权。
     // 保留 MENU_WMS_INOUT 作为 GET 备选，避免已有出入库作业角色因未显式持 MENU_WMS_VIEW 被误挡。
     if (table === 'wms_outbound') {
@@ -323,7 +323,7 @@ export class GenericCrudController {
     if (table === 'mst_products')            return 'MENU_MD_PRODUCT';
     if (table === 'mst_suppliers')           return 'MENU_MD_SUPPLIER';
     if (table === 'mst_customers')           return 'MENU_MD_CUSTOMER';
-    if (table === 'mst_skus' || table === 'product_skus') return 'MENU_MD_SKU';
+    if (table === 'mst_skus')                return 'MENU_MD_SKU';
     if (table.startsWith('mst_'))            return null;
     return null;
   }
@@ -375,45 +375,6 @@ export class GenericCrudController {
     return nextStatus === 'DONE' && currentStatus !== 'DONE';
   }
 
-  /**
-   * WMS documents become inventory evidence when their dedicated confirmation
-   * endpoint completes/approves them.  Generic CRUD may still edit the draft
-   * portion of the workflow, but it must not mutate committed evidence or
-   * manufacture a committed status without the inventory transaction.
-   */
-  private assertWmsDocumentMutationAllowed(table: string, existing: any, body: any) {
-    const currentStatus = String(existing?.status ?? '').trim().toUpperCase();
-    const nextStatus = body && Object.prototype.hasOwnProperty.call(body, 'status')
-      ? String(body.status ?? '').trim().toUpperCase()
-      : null;
-
-    if (table === 'wms_inbound') {
-      if (['COMPLETED', 'CANCELLED'].includes(currentStatus)) {
-        throw new BadRequestException(`入库单状态 ${currentStatus} 已提交，不能通过 Generic CRUD 修改`);
-      }
-      if (nextStatus && nextStatus !== 'COMPLETED') {
-        throw new BadRequestException('入库状态必须通过专用确认接口流转');
-      }
-    }
-
-    if (table === 'wms_stocktake' && currentStatus === 'APPROVED') {
-      throw new BadRequestException('已审核盘点/报损单保留库存审计事实，不能通过 Generic CRUD 修改');
-    }
-    if (table === 'wms_stocktake' && nextStatus === 'APPROVED') {
-      throw new BadRequestException('盘点/报损审批必须通过专用审批接口流转');
-    }
-  }
-
-  private assertWmsDocumentCreateAllowed(table: string, body: any) {
-    const status = String(body?.status ?? '').trim().toUpperCase();
-    if (table === 'wms_inbound' && status && status !== 'PENDING') {
-      throw new BadRequestException('入库单必须以 PENDING 状态创建，并通过专用确认接口写入库存');
-    }
-    if (table === 'wms_stocktake' && status === 'APPROVED') {
-      throw new BadRequestException('盘点/报损单必须通过专用审批接口写入 APPROVED 状态');
-    }
-  }
-
   private buildWmsInboundConfirmPayload(existing: any, body: any) {
     const row = { ...(existing || {}), ...(body || {}) };
     const taskNo = String(row.task_no || row.inbound_no || '').trim();
@@ -439,31 +400,6 @@ export class GenericCrudController {
     }
 
     return { task_no: taskNo, items: [item] };
-  }
-
-  /** Dedicated export gate; reads retain the exact list API's RBAC and DataScope. */
-  @Get('brd_daily_logs/export')
-  @Header('Cache-Control', 'no-store')
-  async exportDailyLogs(@Query() query: Record<string, unknown>, @Req() req: { user?: { permissions?: string[]; username?: string } }) {
-    const permissions: string[] = req.user?.permissions || [];
-    if (req.user?.username !== 'admin' && !hasPerm(permissions, 'MENU_FARM_DAILY', 'X')) {
-      throw new ForbiddenException('MENU_FARM_DAILY:X required');
-    }
-    const date = query.log_date;
-    if (typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date)
-      || !Number.isFinite(Date.parse(`${date}T00:00:00.000Z`))
-      || new Date(`${date}T00:00:00.000Z`).toISOString().slice(0, 10) !== date) {
-      throw new BadRequestException('log_date must be a valid YYYY-MM-DD calendar date');
-    }
-    if (query.house_code != null && typeof query.house_code !== 'string') {
-      throw new BadRequestException('house_code must be a string');
-    }
-    const result = await this.findAll('brd_daily_logs', {
-      log_date: date, [DAILY_EXPORT_SNAPSHOT]: true,
-      ...(query.house_code ? { house_code: query.house_code } : {}),
-    }, req);
-    if (result.data.length > DAILY_EXPORT_MAX_ROWS) throw new BadRequestException('EXPORT_TOO_LARGE');
-    return result;
   }
 
   @Get(':table')
@@ -494,9 +430,7 @@ export class GenericCrudController {
       (req.user?.permissions || []).includes('*') ||
       req.user?.username === 'admin' ||
       roles.some((r) => GLOBAL_ROLES.has(r));
-    const isGlobal = table === 'brd_daily_logs'
-      ? tableScope?.isGlobal === true
-      : (tableScope ? tableScope.isGlobal === true : legacyGlobal);
+    const isGlobal = tableScope ? tableScope.isGlobal === true : legacyGlobal;
 
     // 行级 scope 字段映射（2026-06-06 修）：
     // 历史上 brd_* 一律按 farm_code 过滤，但 userStoreCode 是 SITE 维度（如
@@ -505,11 +439,11 @@ export class GenericCrudController {
     // MDM-1 后 brd_daily_logs 有 site_code、brd_farms 有 mapped_site_code，
     // 改按这些列过滤即可与 userStoreCode 同维度对齐。
     const BRD_SCOPE_FIELD: Record<string, string | null> = {
-      brd_daily_logs:   null, // Authority is the resolved breeding scope below, never legacy storeCode.
+      brd_daily_logs:   'site_code',         // mdm1_05 已加 + 回填
       brd_farms:        'mapped_site_code',  // mdm1_03 已加 + 回填
       brd_medications:        'store_code',  // v3_schema 已有（主档表）
       brd_medication_records: 'site_code',   // G21-4 业务记录表按 site 隔离
-      brd_vaccinations: null,  // G33-C：表无 store_code/site_code 列，注入 SQL 500；scope 留待 schema 补 site_code 列
+      brd_vaccinations: 'site_code',
       // 三张 breeding 主表在下方走 findAllBreedingScoped；这里不再承担其隔离。
       brd_houses:       null,
       brd_flocks:       null,
@@ -552,12 +486,9 @@ export class GenericCrudController {
 
     if (BREEDING_SCOPED_TABLES.includes(table as BreedingScopedTable)) {
       const breedingScope = isGlobal ? null : {
-        farmCodes: table === 'brd_daily_logs'
-          ? (tableScope?.allowedBreedingFarmCodes ?? []) : (tableScope?.allowedFarmCodes ?? []),
-        siteCodes: table === 'brd_daily_logs'
-          ? (tableScope?.allowedBreedingSiteCodes ?? []) : (tableScope?.allowedSiteCodes ?? []),
-        companyCodes: table === 'brd_daily_logs'
-          ? (tableScope?.allowedBreedingCompanyCodes ?? []) : (tableScope?.allowedCompanyCodes ?? []),
+        farmCodes: tableScope?.allowedFarmCodes ?? [],
+        siteCodes: tableScope?.allowedSiteCodes ?? [],
+        companyCodes: tableScope?.allowedCompanyCodes ?? [],
       };
       const data = await this.crudService.findAllBreedingScoped(table as BreedingScopedTable, query, breedingScope);
       return { code: 200, data };
@@ -574,11 +505,9 @@ export class GenericCrudController {
 
   @Post(':table')
   async create(@Param('table') table: string, @Body() body: any, @Req() req: any) {
-    GenericCrudService.assertNoDerivedQuantityFields(body);
     this.checkTableAccess(table, req, 'POST');
     const tableScope = await this.resolveTableScope(table, req, 'POST');
     this.assertNoHouseOwnershipWrite(table, body);
-    this.assertWmsDocumentCreateAllowed(table, body);
     
     // Auto populate store_code if not present, and auto populated created_by
     if (table !== 'brd_houses' && !body.store_code && req.user?.storeCode) {
@@ -649,8 +578,6 @@ export class GenericCrudController {
     }
     this.assertWarehouseRowScope(table, existing, tableScope);
     const safeBody = this.filterBlockedFields(table, body);
-    GenericCrudService.assertNoDerivedQuantityFields(body);
-    this.assertWmsDocumentMutationAllowed(table, existing, safeBody);
     if (req.user?.username && Object.prototype.hasOwnProperty.call(body, 'operator')
       && ['wms_inbound', 'wms_transfer', 'wms_stocktake', 'wms_loss'].includes(table)) {
       safeBody.operator = req.user.username;
@@ -719,7 +646,6 @@ export class GenericCrudController {
     @Body() body: any,
     @Req() req: any,
   ) {
-    GenericCrudService.assertNoDerivedQuantityFields(body);
     console.log(`[CTRL PUT] /${table}/${id} | body=${JSON.stringify(redactSensitive(body))} | user=${req.user?.username}`);
     return this.updateWithColumn(table, getPkColumn(table), id, body, req);
   }
@@ -741,13 +667,6 @@ export class GenericCrudController {
       throw new BadRequestException('Record not found');
     }
     this.assertWarehouseRowScope(table, existing, tableScope);
-    const currentStatus = String(existing?.status ?? '').trim().toUpperCase();
-    if (table === 'wms_inbound' && currentStatus !== 'PENDING') {
-      throw new BadRequestException(`入库单状态 ${currentStatus || '(空)'} 不允许删除`);
-    }
-    if (table === 'wms_stocktake' && currentStatus === 'APPROVED') {
-      throw new BadRequestException('已审核盘点/报损单保留库存审计事实，禁止删除');
-    }
     if (table === 'wms_transfer') {
       throw new BadRequestException('调拨单保留库存审计事实，禁止通过 Generic CRUD 删除');
     }

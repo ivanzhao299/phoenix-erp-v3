@@ -368,10 +368,10 @@ export class GenericCrudService {
       if (this.isControlQueryParam(key)) continue;
       // Support LIKE prefix filter: key ending with __like → column = key minus suffix, value used as-is
       if (key.endsWith('__like')) {
-        const col = key.slice(0, -6);
-        if (!SAFE_KEY.test(col)) continue;
-        this.assertColumnsAllowed(table, [col]);
-        whereClauses.push(`"${col}" LIKE $${paramIndex}`);
+        const column = key.slice(0, -6);
+        if (!SAFE_KEY.test(column)) continue;
+        this.assertColumnsAllowed(table, [column]);
+        whereClauses.push(`"${column}" LIKE $${paramIndex}`);
         queryValues.push(val);
         paramIndex++;
         continue;
