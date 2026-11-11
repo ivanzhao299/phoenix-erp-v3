@@ -1,6 +1,6 @@
 import { PackagingHandoverService } from './packaging-handover.service';
 import { OrgOwnershipService } from '../org/services/org-ownership.service';
-import { listPackagingReadyCombinations, resolvePackagingIdentity, resolvePackagingSourceContext } from './packaging-readiness';
+import { listPackagingReadyCombinations, resolvePackagingIdentity } from './packaging-readiness';
 import { Controller, Get, Post, Put, Patch, Body, Param, Query, UseGuards, Req, BadRequestException, ConflictException, InternalServerErrorException, ForbiddenException, HttpException } from '@nestjs/common';
 import { createHash, randomUUID } from 'crypto';
 import { AuthGuard } from '@nestjs/passport';
@@ -134,12 +134,24 @@ export class DashboardBffController {
     const layingTotal = Number(flockRow?.total) || 0;
     const todayLayRate = layingTotal > 0 ? Number(((todayEggs / layingTotal) * 100).toFixed(1)) : null;
 
-    // 停药期预警（农场域全局表；受限用户跳过，避免跨场泄漏）
-    const withdrawRows = scopeStore ? [] : await safe(
+    // 停药期预警统一读取专用用药记录，并按用户场站范围过滤。
+    const withdrawRows = await safe(
       this.em.query(
-        `SELECT id, batch_no, medicine, farm_house, end_date
-           FROM brd_medications
-          WHERE end_date::date >= CURRENT_DATE AND end_date::date <= CURRENT_DATE + INTERVAL '5 days'`,
+        scopeStore
+          ? `SELECT id, medication_code AS medicine, house_code AS farm_house,
+                    withdraw_until AS end_date
+               FROM brd_medication_records
+              WHERE status <> 'CANCELLED'
+                AND withdraw_until::date >= CURRENT_DATE
+                AND withdraw_until::date <= CURRENT_DATE + INTERVAL '5 days'
+                AND site_code = $1`
+          : `SELECT id, medication_code AS medicine, house_code AS farm_house,
+                    withdraw_until AS end_date
+               FROM brd_medication_records
+              WHERE status <> 'CANCELLED'
+                AND withdraw_until::date >= CURRENT_DATE
+                AND withdraw_until::date <= CURRENT_DATE + INTERVAL '5 days'`,
+        scopeStore ? [scopeStore] : [],
       ),
       [],
     );
@@ -1370,12 +1382,8 @@ export class PackagingTerminalBffController {
   }
 
   @Get('packing/ready-combinations')
-  async getReadyCombinations(@Query('shiftId') shiftId?: string, @Query('gradingCodes') gradingCodes?: string, @Req() req?: any) {
-    if (!shiftId || !gradingCodes) return { code: 200, data: [] };
-    await this.exactShift(shiftId, req);
-    const sourceContext = await resolvePackagingSourceContext(this.em, { shiftId, gradingCodes: gradingCodes.split(',').filter(Boolean) });
-    for (const houseCode of sourceContext.houseCodes) await this.assertActiveHouseScope(houseCode);
-    return { code: 200, data: await listPackagingReadyCombinations(this.em, sourceContext) };
+  async getReadyCombinations() {
+    return { code: 200, data: await listPackagingReadyCombinations(this.em) };
   }
 
   // ── Terminal 全局上下文 ────────────────────────────────────────────────────
@@ -2378,14 +2386,13 @@ export class PackagingTerminalBffController {
           throw new ConflictException('包装数量超过所选分级剩余量，请刷新后重试');
         }
       }
-      const sourceContext = await resolvePackagingSourceContext(manager, { shiftId, gradingCodes });
       const readyBatches = [];
       for (const batch of batches) {
         const ready = await resolvePackagingIdentity(manager, { grade: aliases[batch.grade] || batch.grade,
-          specCode: batch.specId, specName: batch.spec, productCode: batch.productCode, skuCode: batch.skuCode, sourceContext });
+          specCode: batch.specId, specName: batch.spec, productCode: batch.productCode, skuCode: batch.skuCode });
         if (batch.eggs !== batch.boxes * ready.qtyPerUnit) throw new ConflictException('包装枚数与规格箱数不一致');
         readyBatches.push({ ...batch, grade: ready.grade, specId: ready.specCode,
-          productCode: ready.productCode, skuCode: ready.skuCode, varietyCode: ready.varietyCode });
+          productCode: ready.productCode, skuCode: ready.skuCode });
       }
       const code = `PKG-${shift.date_text.replace(/-/g, '')}-${randomUUID().slice(0, 8).toUpperCase()}`;
       await manager.query(`INSERT INTO pkg_packing_records
