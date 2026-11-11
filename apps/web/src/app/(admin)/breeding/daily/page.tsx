@@ -26,26 +26,15 @@ import { usePermission } from '@/hooks/usePermission';
 import { useToast } from '@/contexts/ToastContext';
 import { useDialog } from '@/contexts/DialogContext';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { Save, Cpu, CheckCircle, X as XIcon } from 'lucide-react';
+import { Save, Download, Cpu, CheckCircle, X as XIcon } from 'lucide-react';
 import s from '@/components/ui/admin-ui.module.css';
 import { primaryActionButton, secondaryActionButton } from '@/components/design-system/cockpit-styles';
 import { HouseSelector } from '@/components/shared-selectors/MasterDataSelectors'; // G4-E 鸡舍主数据
-import { useDictOptions } from '@/hooks/useDictOptions';
+import { useDictOptions } from '@/hooks/useDictOptions'; // 班次字典化
 import DictSelect from '@/components/shared-selectors/DictSelect'; // G19-A 死亡/淘汰原因字典化
 import { useProductGrades } from '@/hooks/useProductGrades'; // G14 9 档分级
 import { ModalV2 } from '@/components/design-system/dialogs/ModalV2';
-import { DailyGradeDetails } from '@/components/breeding/DailyGradeDetails';
-import { DailyReportExport } from '@/components/breeding/DailyReportExport';
-import {
-  cullingReasonLabel,
-  dailyReportEggTotal,
-  dailyReportInboundIdempotencyKey,
-  gradeQuantityTotal,
-  hasDailyReportInput,
-  isDailyReportHouseMissing,
-} from '@/lib/breeding-daily';
-import { readProductionInboundResult } from '@/lib/production-inbound-result';
-import { GradeQuantityInput } from '@/components/breeding/GradeQuantityInput';
+import { cullingReasonLabel, hasDailyReportInput, isDailyReportHouseMissing } from '@/lib/breeding-daily';
 
 // 纯数字输入列（分前后两段，中间插入淘汰数+淘汰原因）
 const FIELDS_A = ['eggs', 'dirtyEggs', 'brokenEggs', 'deaths'] as const;
@@ -78,7 +67,7 @@ export default function DailyPage() {
   } = useDialog();
   // G23-B：can(role[]) → PBAC（menu+op）；保留 can 兼容性
   const {
-    can, canCreate, canEdit
+    can, canCreate, canEdit, canExport
   } = usePermission('MENU_FARM_DAILY');
   const {
     t
@@ -109,33 +98,47 @@ export default function DailyPage() {
   const {
     fetchRecords: fetchFlocks
   } = useCrud('brd_flocks');
-  const { fetchRecords } = useCrud('brd_daily_logs');
+  const {
+    fetchRecords,
+    createRecord
+  } = useCrud('brd_daily_logs');
   const [houses, setHouses] = useState<{
     code: string;
     label: string;
   }[]>([]);
   const [selectedHouse, setSelectedHouse] = useState('');
-  // Entry defaults must not silently hide authorized historical records.
-  const [historyHouse, setHistoryHouse] = useState(() => sp.get('historyHouse') || '');
-  const [historyDate, setHistoryDate] = useState(() => sp.get('historyDate') || '');
-  useEffect(() => {
-    // Keep a saved/backdated report addressable across refresh and login return.
-    const url = new URL(window.location.href);
-    if (historyHouse) url.searchParams.set('historyHouse', historyHouse);
-    else url.searchParams.delete('historyHouse');
-    if (historyDate) url.searchParams.set('historyDate', historyDate);
-    else url.searchParams.delete('historyDate');
-    window.history.replaceState(window.history.state, '', url);
-  }, [historyHouse, historyDate]);
   const [flockByHouse, setFlockByHouse] = useState<Record<string, string>>({});
   const [farmCodeByHouse, setFarmCodeByHouse] = useState<Record<string, string>>({});
   const [formDate, setFormDate] = useState(today);
+  // 班次字典化：BRD_SHIFT（G102 统一为中文 早班/晚班）；字典为空时 fallback 同口径
+  const { optionPairs: shiftOptions } = useDictOptions('BRD_SHIFT');
   const { codeMap: cullingReasonCodeMap } = useDictOptions('BRD_CULLING_REASON');
-  // Issue #498: the management page has one daily entry; DAILY is an internal compatibility value.
-  const [rows, setRows] = useState([mkRow(1, 'DAILY')]);
+  const shiftRows = shiftOptions.length > 0
+    ? shiftOptions.map((opt, i) => mkRow(i + 1, opt.value))
+    : [mkRow(1, '早班'), mkRow(2, '晚班')];
+  const [rows, setRows] = useState(shiftRows);
+  // 字典加载完后同步 rows（首次加载从 fallback DAY/NIGHT 切到 dict 实际值）
+  useEffect(() => {
+    if (shiftOptions.length === 0) return;
+    setRows(prev => {
+      if (prev.length === shiftOptions.length && prev.every((r, i) => r.shift === shiftOptions[i].value)) return prev;
+      return shiftOptions.map((opt, i) => mkRow(i + 1, opt.value));
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shiftOptions.length]);
+  // G14：字典加载失败时用内置中文 fallback，避免显示 'BRD_SHIFT_MORNING' 字典码
+  const FALLBACK_SHIFT_LABELS: Record<string, string> = {
+    'BRD_SHIFT_MORNING': '早班', 'BRD_SHIFT_EVENING': '晚班',
+    'BRD_SHIFT_NIGHT':   '夜班', 'BRD_SHIFT_DAY':     '全天',
+    'DAY': '早班', 'NIGHT': '晚班',
+  };
+  const shiftLabel = (code: string) =>
+    shiftOptions.find(o => o.value === code)?.label || FALLBACK_SHIFT_LABELS[code] || code;
   const [submitted, setSubmitted] = useState(false);
   const [approved, setApproved] = useState(false);
   const [reports, setReports] = useState<DailyReport[]>([]);
+  const [historyHouse, setHistoryHouse] = useState('');
+  const [historyDate, setHistoryDate] = useState(today);
   const [deviceHint, setDeviceHint] = useState<Record<string, string> | null>(null);
   const [generating, setGenerating] = useState(false);
   const [genResult, setGenResult] = useState<any>(null);
@@ -144,17 +147,10 @@ export default function DailyPage() {
   const [genHour, setGenHour] = useState<number | ''>(17);
   // G14：当前舍存栏（拉自 brd_flocks.current_qty）+ 9 档 modal
   const [currentQty, setCurrentQty] = useState<number>(0);
+  const [gradeModalRowId, setGradeModalRowId] = useState<number | null>(null);
   const { grades: productGrades } = useProductGrades();
-  const historyRequest = useRef(0);
   const loadData = useCallback(async () => {
-    const generation = ++historyRequest.current;
-    // Filter before the API's page limit; another house cannot crowd this one out.
-    const [data, allHouses] = await Promise.all([fetchRecords({
-      ...(historyHouse ? { house_code: historyHouse } : {}),
-      ...(historyDate ? { log_date: historyDate } : {}),
-      limit: 30,
-    }), fetchHouses()]);
-    if (generation !== historyRequest.current) return;
+    const [data, allHouses] = await Promise.all([fetchRecords(), fetchHouses()]);
     const houseNameMap: Record<string, string> = {};
     (allHouses || []).forEach((h: Record<string, unknown>) => {
       if (h.house_code) houseNameMap[h.house_code as string] = h.house_name as string || h.house_code as string;
@@ -165,7 +161,6 @@ export default function DailyPage() {
       house: d.house_code || d.flock_no || t('ui.未知', '未知'),
       houseName: houseNameMap[d.house_code as string] || houseNameMap[d.flock_no as string] || d.house_code || t('ui.未知', '未知'),
       eggs: d.eggs_produced || 0,
-      eggsByGrade: d.eggs_by_grade,
       dirtyEggs: d.dirty_eggs || 0,
       brokenEggs: d.broken_eggs || 0,
       deaths: d.mortality_qty || 0,
@@ -180,7 +175,7 @@ export default function DailyPage() {
       humidity: d.humidity || 60,
       remark: d.note || ''
     })).reverse());
-  }, [fetchRecords, fetchHouses, historyHouse, historyDate]);
+  }, [fetchRecords, fetchHouses]);
   useEffect(() => {
     Promise.all([fetchHouses(), fetchFlocks()]).then(([houses, flocks]: [Record<string, unknown>[], Record<string, unknown>[]]) => {
       const fromHouses = (houses || []).filter((h: Record<string, unknown>) => h.house_code || h.house_no);
@@ -208,10 +203,8 @@ export default function DailyPage() {
       const isGlobalUser = userStore === 'ALL' || userStore.startsWith('ORG-GROUP');
       setSelectedHouse(isGlobalUser ? '' : (houseList[0]?.code || ''));
     }).catch(() => {});
-  }, []);
-  useEffect(() => {
     loadData();
-  }, [loadData]);
+  }, []);
   // G14：拉当前选中舍的存栏数（brd_flocks.current_qty），供产蛋率实时计算
   useEffect(() => {
     if (!selectedHouse) { setCurrentQty(0); return; }
@@ -258,7 +251,8 @@ export default function DailyPage() {
     [field]: val
   } : r));
   // G14：9 档 sum 计算
-  const gradeSumOf = gradeQuantityTotal;
+  const gradeSumOf = (gradeQty: Record<string, string>): number =>
+    Object.values(gradeQty || {}).reduce((s, v) => s + (Number(v) || 0), 0);
 
   const handleSubmit = async () => {
     if (isDailyReportHouseMissing(selectedHouse)) {
@@ -280,19 +274,38 @@ export default function DailyPage() {
     const user = JSON.parse(typeof window !== 'undefined' ? sessionStorage.getItem('phoenix_user') || '{}' : '{}');
     const eggsByGrade = Object.fromEntries(Object.entries(row.gradeQty).filter(([, value]) => Number(value) > 0).map(([code, value]) => [code, Number(value)]));
     const payload: Record<string, unknown> = {
-      house_code: selectedHouse, flock_no: flockByHouse[selectedHouse] || selectedHouse,
-      farm_code: farmCodeByHouse[selectedHouse] || '', log_date: formDate,
-      feed_consumed: Number(row.feedKg) || 0, water_consumed: Number(row.waterL) || 0,
-      mortality_qty: Number(row.deaths) || 0, mortality_reason: row.mortalityReason || null,
-      elimination_qty: Number(row.elimination) || 0, culling_reason: row.elimReason || null,
-      temp: Number(row.temp) || 25, humidity: Number(row.humidity) || 60, note: row.remark,
-      operator: user.realNameZh || user.username || t('ui.未知操作人', '未知操作人'), eggs_by_grade: eggsByGrade,
+      house_code: selectedHouse,
+      flock_no: flockByHouse[selectedHouse] || selectedHouse,
+      farm_code: farmCodeByHouse[selectedHouse] || '',
+      log_date: formDate,
+      feed_consumed: Number(row.feedKg) || 0,
+      water_consumed: Number(row.waterL) || 0,
+      mortality_qty: Number(row.deaths) || 0,
+      mortality_reason: row.mortalityReason || null,
+      elimination_qty: Number(row.elimination) || 0,
+      culling_reason: row.elimReason || null,
+      temp: Number(row.temp) || 25,
+      humidity: Number(row.humidity) || 60,
+      note: row.remark,
+      operator: user.realNameZh || user.username || t('ui.未知操作人', '未知操作人'),
+      eggs_by_grade: eggsByGrade,
     };
     try {
-      const res = await fetch(`${API_BASE}/api/v3/farm/daily-logs`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify(payload) });
-      if (!res.ok) { const result = await res.json().catch(() => ({ message: res.statusText })); throw new Error(result?.message || result?.msg || `HTTP ${res.status}`); }
-      setHistoryHouse(selectedHouse); setHistoryDate(formDate); await loadData(); setRows([mkRow(1, 'DAILY')]);
-      setSubmitted(true); setTimeout(() => setSubmitted(false), 3000);
+      const res = await fetch(`${API_BASE}/api/v3/farm/daily-logs`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const result = await res.json().catch(() => ({ message: res.statusText }));
+        throw new Error(result?.message || result?.msg || `HTTP ${res.status}`);
+      }
+      setHistoryHouse(selectedHouse);
+      setHistoryDate(formDate);
+      await loadData();
+      setRows([mkRow(1, 'DAILY')]);
+      setSubmitted(true);
+      setTimeout(() => setSubmitted(false), 3000);
     } catch (error: unknown) {
       toast.error(`${t('ui.日报提交失败：', '日报提交失败：')}${error instanceof Error ? error.message : t('ui.未知错误', '未知错误')}`);
     }
@@ -356,9 +369,23 @@ export default function DailyPage() {
     deadCull: rows.reduce((sum, r) => sum + (Number(r.deaths) || 0) + (Number(r.elimination) || 0), 0),
     feedKg: rows.reduce((sum, r) => sum + (Number(r.feedKg) || 0), 0)
   };
-  const visibleReports = reports;
+  const visibleReports = reports.filter(r => !selectedHouse || r.house === selectedHouse).slice(0, 30);
+  const handleExport = () => {
+    const headers = ['date', 'house', 'eggs', 'dirtyEggs', 'brokenEggs', 'deaths', 'elimination', 'cullingReason', 'feedKg', 'temp', 'humidity', 'remark'];
+    const rows = visibleReports.map(report => headers.map(header => {
+      const value = String(report[header] ?? '');
+      return `"${value.replaceAll('"', '""')}"`;
+    }).join(','));
+    const csv = `\uFEFF${headers.join(',')}\n${rows.join('\n')}`;
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `breeding-daily-${historyHouse || selectedHouse || 'all'}-${historyDate || today}.csv`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  };
   return <div className="animate-fade-in">
-      <PageHeader title={t('ui.日生产日报录入', '日生产日报录入')} subtitle={t('ui.一次录入当日生产数据', '一次录入当日生产数据')} breadcrumb={[t('ui.养殖管理', '养殖管理'), t('ui.日生产日报', '日生产日报')]} actions={<div style={{
+      <PageHeader title={t('ui.日生产日报录入', '日生产日报录入')} subtitle={t('ui.按班次录入当日生产数据', '按班次录入当日生产数据')} breadcrumb={[t('ui.养殖管理', '养殖管理'), t('ui.日生产日报', '日生产日报')]} actions={<div style={{
       display: 'flex',
       gap: 10,
       flexWrap: 'wrap'
@@ -366,7 +393,9 @@ export default function DailyPage() {
             <button type="button" style={secondaryActionButton} onClick={() => historyRef.current?.scrollIntoView({
         behavior: 'smooth'
       })}>{t('ui.历史记录', '历史记录')}</button>
-            <DailyReportExport grades={productGrades} />
+            {canExport && <button type="button" style={secondaryActionButton} onClick={handleExport}>
+                <Download size={14} />{t('ui.导出报表', '导出报表')}
+              </button>}
             {canEdit && <button type="button" onClick={() => setShowGenModal(true)} disabled={generating || !selectedHouse} style={{
         opacity: generating || !selectedHouse ? 0.6 : 1,
         cursor: generating || !selectedHouse ? 'not-allowed' : 'pointer',
@@ -462,7 +491,7 @@ export default function DailyPage() {
               <span style={{
             color: 'var(--text-secondary)',
             fontSize: 11
-          }}>（{t('ui.已自动预填当日数据，可手动修改', '已自动预填当日数据，可手动修改')}）</span>
+          }}>（{t('ui.已自动预填所有班次，可手动修改', '已自动预填所有班次，可手动修改')}）</span>
             </div>}
           <div style={{
           marginLeft: 'auto',
@@ -502,14 +531,19 @@ export default function DailyPage() {
         </div>
       </div>
 
-      {/* 单日数据卡片，字段上方内嵌 label，负数自动归零 */}
+      {/* G14 v2：每个班次独立卡片，字段上方内嵌 label，负数自动归零 */}
       <div className={s.card} style={{ marginBottom: 24, overflow: 'hidden' }}>
         <div className={s.cardHeader}>
-          <span className={s.cardTitle} style={{ color: 'var(--color-primary)' }}>{t('ui.单日数据录入', '单日数据录入')}</span>
+          <span className={s.cardTitle} style={{ color: 'var(--color-primary)' }}>{t('ui.班次数据录入', '班次数据录入')}</span>
         </div>
         <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 14 }}>
           {rows.map(row => {
             const gradeSum = gradeSumOf(row.gradeQty);
+            const eggsNum = Number(row.eggs) || 0;
+            const gradeCellAccent = gradeSum > 0
+              ? (eggsNum > 0 && Math.abs(gradeSum - eggsNum) > Math.max(3, eggsNum * 0.03)
+                ? 'var(--status-warning)' : 'var(--status-success)')
+              : 'var(--text-secondary)';
             // G14 v2：number 输入统一封装，min=0 + onChange 拦截负数
             const numInput = (field: keyof typeof row, w = 100) => (
               <input
@@ -544,7 +578,21 @@ export default function DailyPage() {
                 border: '1px solid var(--border)', borderRadius: 10, padding: 14, background: 'var(--bg-page)',
                 display: 'flex', flexDirection: 'column', gap: 12,
               }}>
-                {/* 单日数据：不展示班次，9 档直接在产蛋区录入 */}
+                {/* 班次标题 + 9 档分级按钮 */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--color-primary)', padding: '4px 10px', borderRadius: 6, background: 'color-mix(in srgb, var(--color-primary) 12%, transparent)' }}>
+                      {shiftLabel(row.shift)}
+                    </span>
+                  </div>
+                  <button type="button" onClick={() => setGradeModalRowId(row.id)} style={{
+                    padding: '7px 14px', borderRadius: 6, fontSize: 12, cursor: 'pointer',
+                    background: 'var(--bg-card)', border: `1px solid ${gradeCellAccent}`, color: gradeCellAccent,
+                    display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 600,
+                  }}>
+                    {gradeSum > 0 ? <><CheckCircle size={14} />{t('ui.9 档', '9 档')} {gradeSum}{t('ui.枚', '枚')}</> : <>{t('ui.按 9 档分级', '按 9 档分级')}</>}
+                  </button>
+                </div>
                 {/* G19-A 三组分块 — 产蛋区 / 死淘区 / 环境区 — 用色块区分业务语义 */}
                 {/* 产蛋区（绿） */}
                 <div style={{
@@ -556,12 +604,11 @@ export default function DailyPage() {
                   <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--status-success)', marginBottom: 8, letterSpacing: 0.5 }}>
                     🥚 {t('ui.产蛋区', '产蛋区')}
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: 10 }}>
-                    {productGrades.map(g => <div key={g.grade_code} style={cellStyle}>
-                      <span style={labelStyle}>{g.grade_name} ({g.grade_code})</span>
-                      <GradeQuantityInput aria-label={`${g.grade_name} · ${t('ui.数量(枚)', '数量(枚)')}`} value={row.gradeQty[g.grade_code] ?? ''} onValueChange={safe => setRows(rs => rs.map(r => r.id === row.id ? { ...r, gradeQty: { ...r.gradeQty, [g.grade_code]: safe } } : r))} />
-                    </div>)}
-                    <div style={{ ...cellStyle, fontWeight: 700, color: 'var(--status-success)' }}><span style={labelStyle}>{t('ui.产蛋合计(枚)', '产蛋合计（枚）')}</span><span>{gradeSum.toLocaleString()}</span></div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 10 }}>
+                    <div style={cellStyle}><span style={labelStyle}>{t('ui.产蛋数(枚)', '产蛋数(枚)')}</span>{numInput('eggs', 130)}</div>
+                    <div style={cellStyle}><span style={labelStyle}>🟡 {t('ui.脏蛋(枚)', '脏蛋(枚)')}</span>{numInput('dirtyEggs', 130)}</div>
+                    <div style={cellStyle}><span style={labelStyle}>🔴 {t('ui.破损蛋(枚)', '破损蛋(枚)')}</span>{numInput('brokenEggs', 130)}</div>
+                    <div style={cellStyle}><span style={labelStyle}>{t('ui.自用蛋(枚)', '自用蛋(枚)')}</span>{numInput('selfUse', 130)}</div>
                   </div>
                 </div>
 
@@ -636,7 +683,7 @@ export default function DailyPage() {
       gap: 8
     }}>
         {t('ui.近期日报记录', '近期日报记录')}
-        {historyHouse && <span style={{
+        {selectedHouse && <span style={{
         fontSize: 12,
         fontWeight: 500,
         color: 'var(--text-secondary)',
@@ -644,25 +691,15 @@ export default function DailyPage() {
         border: '1px solid var(--border)',
         borderRadius: 12,
         padding: '2px 10px'
-      }}>{houses.find(h => h.code === historyHouse)?.label || historyHouse}</span>}
+      }}>{houses.find(h => h.code === selectedHouse)?.label || selectedHouse}</span>}
       </h3>
-      <div style={{ display: 'flex', gap: 12, marginBottom: 12, flexWrap: 'wrap' }}>
-        <label>
-          {t('ui.鸡舍', '鸡舍')}
-          <HouseSelector value={historyHouse} onChange={setHistoryHouse} placeholder={t('common.all', '全部')} />
-        </label>
-        <label>
-          {t('common.date', '日期')}
-          <input type="date" value={historyDate} onChange={event => setHistoryDate(event.target.value)} />
-        </label>
-      </div>
       <div className={s.card} style={{
-      overflowX: 'auto'
+      overflow: 'hidden'
     }}>
         <table className={s.table}>
           <thead>
             <tr>
-              {[t('common.date', '日期'), t('ui.鸡舍', '鸡舍'), t('ui.产蛋数', '产蛋数'), t('breeding.daily.gradeDetails', '九档分级明细'), t('ui.脏蛋', '脏蛋'), t('ui.破损蛋', '破损蛋'), t('ui.死亡', '死亡'), t('ui.淘汰', '淘汰'), t('ui.淘汰原因', '淘汰原因'), t('ui.饲料(kg)', '饲料(kg)'), t('ui.温度', '温度'), t('ui.湿度', '湿度'), t('common.remark', '备注')].map(h => <th key={h}>{h}</th>)}
+              {[t('common.date', '日期'), t('ui.鸡舍', '鸡舍'), t('ui.产蛋数', '产蛋数'), t('ui.脏蛋', '脏蛋'), t('ui.破损蛋', '破损蛋'), t('ui.死亡', '死亡'), t('ui.淘汰', '淘汰'), t('ui.淘汰原因', '淘汰原因'), t('ui.饲料(kg)', '饲料(kg)'), t('ui.温度', '温度'), t('ui.湿度', '湿度'), t('common.remark', '备注')].map(h => <th key={h}>{h}</th>)}
             </tr>
           </thead>
           <tbody>
@@ -670,7 +707,6 @@ export default function DailyPage() {
                 <td>{String(r.date ?? '—')}</td>
                 <td>{String(r.houseName ?? r.house ?? '—')}</td>
                 <td className={u.fw600}>{Number(r.eggs ?? 0).toLocaleString()}</td>
-                <td><DailyGradeDetails value={r.eggsByGrade} grades={productGrades} /></td>
                 <td style={{
               color: Number(r.dirtyEggs) > 30 ? 'var(--status-warning)' : 'var(--text-primary)'
             }}>{String(r.dirtyEggs ?? 0)}</td>
@@ -690,7 +726,7 @@ export default function DailyPage() {
                 <td>{String(r.humidity ?? '—')}%</td>
                 <td className={u.muted12}>{String(r.remark ?? '—')}</td>
               </tr>)}
-            {!visibleReports.length && <tr><td colSpan={13} style={{
+            {!visibleReports.length && <tr><td colSpan={12} style={{
               padding: 24,
               textAlign: 'center',
               color: 'var(--text-secondary)',
@@ -700,12 +736,68 @@ export default function DailyPage() {
         </table>
       </div>
 
+      {/* G14：9 档分级录入 modal */}
+      {gradeModalRowId !== null && (() => {
+        const row = rows.find(r => r.id === gradeModalRowId);
+        if (!row) return null;
+        const eggsNum = Number(row.eggs) || 0;
+        const gradeSum = gradeSumOf(row.gradeQty);
+        const diff = gradeSum - eggsNum;
+        const tolerance = Math.max(3, eggsNum * 0.03);
+        const inTolerance = eggsNum === 0 || Math.abs(diff) <= tolerance;
+        return (
+          <ModalV2 open={true} onClose={() => setGradeModalRowId(null)} title={`${shiftLabel(row.shift)} · ${t('ui.9 档分级录入', '9 档分级录入')}`} width={600}>
+              <div style={{ marginBottom: 12, padding: 12, borderRadius: 8, background: 'var(--bg-muted)', fontSize: 13 }}>
+                <div>{t('ui.产蛋总数', '产蛋总数')}：<strong>{eggsNum.toLocaleString()}</strong> {t('ui.枚', '枚')} · {t('ui.9 档 sum', '9 档 sum')}：<strong style={{ color: inTolerance ? 'var(--status-success)' : 'var(--status-warning)' }}>{gradeSum.toLocaleString()}</strong> {t('ui.枚', '枚')}</div>
+                {eggsNum > 0 && !inTolerance && (
+                  <div style={{ marginTop: 6, color: 'var(--status-warning)', fontSize: 12 }}>
+                    ⚠️ {t('ui.差', '差')} {Math.abs(diff)} {t('ui.枚', '枚')}（{t('ui.容差', '容差')} {Math.round(tolerance)}），{t('ui.提交时会弹窗确认', '提交时会弹窗确认')}
+                  </div>
+                )}
+              </div>
+              <table className={s.table} style={{ width: '100%' }}>
+                <thead>
+                  <tr><th>{t('ui.等级', '等级')}</th><th>{t('ui.编码', '编码')}</th><th style={{ textAlign: 'right' }}>{t('ui.数量(枚)', '数量(枚)')}</th></tr>
+                </thead>
+                <tbody>
+                  {productGrades.map(g => (
+                    <tr key={g.grade_code}>
+                      <td style={{ fontWeight: 500 }}>{g.grade_name}</td>
+                      <td style={{ fontFamily: 'monospace', fontSize: 12, color: 'var(--text-secondary)' }}>{g.grade_code}</td>
+                      <td style={{ padding: '6px 8px', textAlign: 'right' }}>
+                        <input type="number" min={0} step={1} value={row.gradeQty[g.grade_code] ?? ''} onChange={e => {
+                          const v = e.target.value;
+                          let safe: string;
+                          if (v === '' || v === '-') safe = '';
+                          else { const n = Number(v); safe = (Number.isNaN(n) || n < 0) ? '0' : v; }
+                          const newGradeQty = { ...row.gradeQty, [g.grade_code]: safe };
+                          setRows(rs => rs.map(r => r.id === row.id ? { ...r, gradeQty: newGradeQty } : r));
+                        }} onFocus={e => e.currentTarget.select()} className={s.inp} style={{ textAlign: 'right', width: 120, padding: '6px 8px' }} placeholder="0" />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
+                <button type="button" style={secondaryActionButton} onClick={() => {
+                  setRows(rs => rs.map(r => r.id === row.id ? { ...r, gradeQty: {} } : r));
+                }}>
+                  {t('ui.清空', '清空')}
+                </button>
+                <button type="button" style={primaryActionButton} onClick={() => setGradeModalRowId(null)}>
+                  {t('ui.确定', '确定')}
+                </button>
+              </div>
+          </ModalV2>
+        );
+      })()}
+
       {/* G16：设备数据一键填入 — 选时点 modal */}
       <ModalV2 open={showGenModal} onClose={() => setShowGenModal(false)} title={t('ui.设备数据一键填入', '设备数据一键填入')} width={520}>
         <div style={{ padding: 12, background: 'var(--bg-muted)', borderRadius: 8, fontSize: 12, color: 'var(--text-secondary)', marginBottom: 16, lineHeight: 1.6 }}>
           <div>· {t('ui.饲料/用水', '饲料/用水')} = {t('ui.今日累计读数 − 昨日累计读数（当日用量）', '今日累计读数 − 昨日累计读数（当日用量）')}</div>
           <div>· {t('ui.温度/湿度', '温度/湿度')} = {t('ui.当日均值', '当日均值')}</div>
-          <div>· {t('ui.填入当日数据行', '填入当日数据行')}</div>
+          <div>· {t('ui.填入晨班行；如需分摊到其它班次请手动拆分', '填入晨班行；如需分摊到其它班次请手动拆分')}</div>
         </div>
         <div style={{ marginBottom: 14 }}>
           <label style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', display: 'block', marginBottom: 6 }}>

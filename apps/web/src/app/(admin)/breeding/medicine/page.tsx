@@ -18,16 +18,15 @@ interface MedicineRecord {
   _raw?: Record<string, unknown>;
   [key: string]: unknown;
 }
-import { useMasterNames } from '@/hooks/useMasterNames';
-import { masterDisplayLabel } from '@/lib/master-display';
 import PageHeader from '@/components/PageHeader';
 import DataTable from '@/components/DataTable';
 import { StatusBadge } from '@/components/design-system';
 import RightDrawer from '@/components/RightDrawer';
-import { useCrud } from '@/hooks/useCrud';
+import { crudApi, farmProductionApi } from '@/lib/api-client';
 import { usePermission } from '@/hooks/usePermission';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { Plus, Edit2 } from 'lucide-react';
+import { useToast } from '@/contexts/ToastContext';
+import { Plus, XCircle } from 'lucide-react';
 import s from '@/components/ui/admin-ui.module.css';
 import {
   primaryActionButton, secondaryActionButton, toolbarFilterPill,
@@ -44,18 +43,27 @@ const EMPTY_FORM = {
   startDate: '',
   daysUsed: '5',
   withdrawDays: '7',
-  dose: ''
+  dose: '',
+  actualQty: '',
+  qtyUnit: 'UNIT',
+  usageRoute: '',
+  inventoryBatchNo: ''
 };
-const todayStr = () => new Date().toISOString().slice(0, 10);
+const todayStr = () => {
+  const timeZone = process.env.NEXT_PUBLIC_PHOENIX_BUSINESS_TIMEZONE || 'Asia/Singapore';
+  const parts = new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date());
+  const values = Object.fromEntries(parts.map(part => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}`;
+};
 export default function MedicinePage() {
+  const toast = useToast();
   // G18-1：从 role check 改为 PBAC menu perm check（宋明光持 MENU_FARM_VET:C,E 但无 ROLE_VET，旧 role check 拒之门外）
   const {
     canCreate, canEdit
   } = usePermission('MENU_FARM_VET');
   const {
-    t, lang
+    t
   } = useLanguage();
-  const houseNames = useMasterNames('house');
   const STATUS_CONF: Record<string, {
     status: string;
     label: string;
@@ -71,6 +79,10 @@ export default function MedicinePage() {
     using: {
       status: 'info',
       label: t('ui.用药中', '用药中')
+    },
+    cancelled: {
+      status: 'default',
+      label: t('ui.已撤销', '已撤销')
     }
   };
   const [filter, setFilter] = useState('all');
@@ -87,15 +99,19 @@ export default function MedicinePage() {
   const [flockMap, setFlockMap] = useState<Record<string, {
     house_code: string;
     farm_code: string;
+    site_code?: string;
+    company_code?: string;
   }>>({});
-  const {
-    fetchRecords,
-    createRecord,
-    updateRecord
-  } = useCrud('brd_medication_records');  // G21-4 切到新建的用药记录表（主档独立）
-  const {
-    fetchRecords: fetchFlocks
-  } = useCrud('brd_flocks');
+  const [medications, setMedications] = useState<Record<string, unknown>[]>([]);
+  const [lots, setLots] = useState<Record<string, unknown>[]>([]);
+  const [busy, setBusy] = useState(false);
+  const unwrap = (value: unknown): Record<string, unknown>[] => {
+    if (Array.isArray(value)) return value as Record<string, unknown>[];
+    if (value && typeof value === 'object' && 'data' in value && Array.isArray(value.data)) return value.data as Record<string, unknown>[];
+    return [];
+  };
+  const fetchRecords = useCallback(() => farmProductionApi.listMedicationRecords().then(unwrap), []);
+  const fetchFlocks = useCallback(() => crudApi.list('brd_flocks', { pageSize: 1000 }).then(r => r.data), []);
   useEffect(() => {
     fetchFlocks().then(flocks => {
       if (!flocks?.length) return;
@@ -106,45 +122,44 @@ export default function MedicinePage() {
       const map: Record<string, {
         house_code: string;
         farm_code: string;
+        site_code?: string;
+        company_code?: string;
       }> = {};
       flocks.forEach((f: Record<string, unknown>) => {
         if (f.flock_no) map[f.flock_no as string] = {
           house_code: f.house_code as string || '',
-          farm_code: f.farm_code as string || ''
+          farm_code: f.farm_code as string || '',
+          site_code: f.site_code as string || '',
+          company_code: f.company_code as string || ''
         };
       });
       setFlockMap(map);
       setForm(p => ({
         ...p,
-        farmHouse: p.farmHouse || flocks[0].flock_no
+        farmHouse: p.farmHouse || String(flocks[0].flock_no || '')
       }));
+    }).catch(() => {});
+    crudApi.list('brd_medications', { pageSize: 1000, status: 'ACTIVE' }).then(r => {
+      setMedications((r.data || []).filter((m: Record<string, unknown>) => String(m.status || 'ACTIVE').toUpperCase() === 'ACTIVE'));
     }).catch(() => {});
   }, []);
   const loadData = useCallback(async () => {
     const data = await fetchRecords();
-    // B6: 前端时区双算 bug — 旧版 new Date(d.clear_date) 受浏览器时区影响，
-    //     后端 cron 走字符串比较（YYYY-MM-DD），跨日界点两边显示不一致。
-    //     改用纯字符串比较（YYYY-MM-DD 字典序即时间序），与后端 cron 对齐。
-    const todayStr = new Date().toISOString().slice(0, 10);
     setRecords(((data || []) as Record<string, unknown>[]).map((d: Record<string, unknown>) => {
-      const clearStr = d.clear_date ? String(d.clear_date).slice(0, 10) : '';
-      const endStr = d.end_date ? String(d.end_date).slice(0, 10) : '';
-      let computedStatus: string = String(d.status || 'using');
-      if (clearStr) {
-        if (todayStr > clearStr) computedStatus = 'cleared';else if (endStr && todayStr > endStr) computedStatus = 'inWithdrawal';else computedStatus = 'using';
-      }
+      const backendStatus = String(d.effective_status || d.status || 'USING').toUpperCase();
+      const computedStatus = backendStatus === 'IN_WITHDRAWAL' ? 'inWithdrawal' : backendStatus === 'CLEARED' ? 'cleared' : backendStatus === 'CANCELLED' ? 'cancelled' : 'using';
       return {
         id: d.id,
-        batchNo: d.batch_no || t('ui.未知', '未知'),
+        batchNo: d.course_no || d.record_no || t('ui.未知', '未知'),
         farmHouse: d.flock_no || d.house_code || '—',  // G21-4 新表用 flock_no/house_code
         medicine: d.medication_code || d.medicine,  // G21-4 新表用 medication_code
-        disease: d.disease,
+        disease: d.indication || d.disease,
         startDate: d.start_date,
         endDate: d.end_date,
         daysUsed: d.days_used,
         withdrawDays: d.withdraw_days,
-        clearDate: d.clear_date,
-        dose: d.dose,
+        clearDate: d.withdraw_until,
+        dose: d.dose_value || d.dose,
         executor: d.executor,
         status: computedStatus,
         _raw: d
@@ -154,51 +169,43 @@ export default function MedicinePage() {
   useEffect(() => {
     loadData();
   }, [loadData]);
-  const handleEdit = (row: MedicineRecord) => {
-    const r = (row._raw || {}) as Record<string, string | number | null>;
-    setEditId(row.id as number);
-    const s = (v: string | number | null, fb = '') => v != null ? String(v) : fb;
-    setForm({
-      batchNo: s(r.batch_no),
-      farmHouse: s(r.farm_house),
-      medicine: s(r.medication_code || r.medicine),  // G21-4
-      disease: s(r.disease),
-      startDate: s(r.start_date),
-      daysUsed: s(r.days_used, '5'),
-      withdrawDays: s(r.withdraw_days, '7'),
-      dose: s(r.dose)
-    });
-    setShowDrawer(true);
+  const handleCancel = async (row: MedicineRecord) => {
+    if (!canEdit || !window.confirm(t('ui.确认撤销该用药记录', '确认撤销该用药记录？'))) return;
+    setBusy(true);
+    try { await farmProductionApi.cancelMedicationRecord(Number(row.id)); await loadData(); } catch {} finally { setBusy(false); }
+  };
+  const createRecord = async (payload: Record<string, unknown>) => {
+    try { await farmProductionApi.createMedicationRecord(payload); return true; } catch { return false; }
   };
   const handleSubmit = async () => {
-    const sDate = form.startDate ? new Date(form.startDate) : new Date(); // ✅ 避免 new Date("") Invalid Date
-    const eDate = new Date(sDate.getTime() + (Number(form.daysUsed) - 1) * 86400000);
-    const cDate = new Date(eDate.getTime() + Number(form.withdrawDays) * 86400000);
+    if (!form.batchNo && !form.farmHouse || !form.medicine || !form.startDate || !form.actualQty || Number(form.actualQty) <= 0 || !form.usageRoute || (form.dose !== '' && Number(form.dose) <= 0) || (form.daysUsed !== '' && Number(form.daysUsed) <= 0) || (form.withdrawDays !== '' && Number(form.withdrawDays) < 0)) {
+      toast.error(t('ui.请补齐药品、开始日期、数量和用药途径', '请补齐药品、开始日期、数量和用药途径'));
+      return;
+    }
     const fi = flockMap[form.batchNo || form.farmHouse] || {};
-    // G21-4：字段映射对齐 brd_medication_records 真实列
-    //   medicine → medication_code、删 farm_house（house_code 已足够）
+    let user: Record<string, unknown> = {};
+    try { user = JSON.parse(sessionStorage.getItem('phoenix_user') || '{}'); } catch {}
     const payload = {
       flock_no:        form.batchNo || form.farmHouse,
-      batch_no:        form.batchNo || form.farmHouse,
-      house_code:      fi.house_code || null,
-      farm_code:       fi.farm_code || null,
+      house_code:      fi.house_code || undefined,
+      farm_code:       fi.farm_code || undefined,
+      site_code:       fi.site_code || user.siteCode || user.site_code || user.storeCode || user.store_code || undefined,
+      company_code:    fi.company_code || user.companyCode || user.company_code || undefined,
       medication_code: form.medicine,
-      disease:         form.disease,
-      start_date:      sDate.toISOString().slice(0, 10),
-      end_date:        eDate.toISOString().slice(0, 10),
-      days_used:       Number(form.daysUsed),
-      withdraw_days:   Number(form.withdrawDays),
-      clear_date:      cDate.toISOString().slice(0, 10),
-      dose:            form.dose,
+      indication:      form.disease || undefined,
+      start_date:      form.startDate,
+      end_date:        form.daysUsed ? new Date(Date.parse(`${form.startDate}T00:00:00Z`) + (Number(form.daysUsed) - 1) * 86400000).toISOString().slice(0, 10) : undefined,
+      dose_value:      form.dose ? Number(form.dose) : undefined,
+      dose_unit:       form.qtyUnit || 'UNIT',
+      actual_qty:      Number(form.actualQty),
+      qty_unit:        form.qtyUnit || 'UNIT',
+      usage_route:     form.usageRoute,
+      withdraw_days:   form.withdrawDays ? Number(form.withdrawDays) : undefined,
+      inventory_batch_no: form.inventoryBatchNo || undefined,
     };
-    const userStr = typeof window !== 'undefined' ? sessionStorage.getItem('phoenix_user') : '{}';
-    const user = userStr ? JSON.parse(userStr) : {};
-    const executorName = user.realNameZh || user.username || t('ui.未知兽医', '未知兽医');
-    const ok = editId ? await updateRecord(editId, payload, 'id', t('ui.用药记录更新成功', '用药记录更新成功！')) : await createRecord({
-      ...payload,
-      executor: executorName,
-      status: 'using'
-    }, t('ui.用药记录创建成功', '用药记录创建成功！'));
+    setBusy(true);
+    const ok = await createRecord(payload);
+    setBusy(false);
     if (ok) {
       setShowDrawer(false);
       setEditId(null);
@@ -229,12 +236,7 @@ export default function MedicinePage() {
     width: '120px'
   }, {
     key: 'farmHouse',
-    title: t('ui.鸡舍', '鸡舍'),
-    render: (v: unknown, row: MedicineRecord) => {
-      const code = row._raw?.house_code || flockMap[String(row._raw?.flock_no ?? '')]?.house_code;
-      const houseLabel = masterDisplayLabel(houseNames, 'house', code, lang);
-      return code ? <div>{row._raw?.flock_no ? <div>{String(row._raw.flock_no)}</div> : null}<div data-i18n-skip="true">{houseLabel}</div></div> : String(v ?? '—');
-    }
+    title: t('ui.鸡舍', '鸡舍')
   }, {
     key: 'medicine',
     title: t('ui.药品名称', '药品名称'),
@@ -288,7 +290,7 @@ export default function MedicinePage() {
     key: 'actions',
     title: t('common.operation', '操作'),
     width: '70px',
-    render: (_: unknown, row: MedicineRecord) => canEdit ? <button type="button" className={s.btnIcon} onClick={() => handleEdit(row)}><Edit2 size={12} /></button> : null
+    render: (_: unknown, row: MedicineRecord) => canEdit && row.status !== 'cancelled' ? <button type="button" className={s.btnIcon} disabled={busy} onClick={() => handleCancel(row)} title={t('ui.撤销', '撤销')}><XCircle size={13} /></button> : null
   }];
   return <div className="animate-fade-in">
       <PageHeader title={t('ui.用药记录', '用药记录')} subtitle={t('ui.记录所有鸡群用药情况及停药期管理', '记录所有鸡群用药情况及停药期管理')} breadcrumb={[t('ui.养殖管理', '养殖管理'), t('ui.用药记录', '用药记录')]}
@@ -337,10 +339,18 @@ export default function MedicinePage() {
             </select>
           </div>
           <div className={s.fieldRow}>
-            <div><label className={s.lbl}>{t('ui.药品名称', '药品名称')}</label><input value={form.medicine} onChange={e => setForm({
-              ...form,
-              medicine: e.target.value
-            })} placeholder={t('ui.如土霉素', '如土霉素')} className={s.inp} /></div>
+            <div><label className={s.lbl}>{t('ui.药品主数据', '药品主数据')} *</label><select value={form.medicine} onChange={async e => {
+              const code = e.target.value;
+              setForm({ ...form, medicine: code, inventoryBatchNo: '' });
+              const fi = flockMap[form.batchNo || form.farmHouse] || {};
+              let user: Record<string, unknown> = {};
+              try { user = JSON.parse(sessionStorage.getItem('phoenix_user') || '{}'); } catch {}
+              const site = String(fi.site_code || user.siteCode || user.site_code || user.storeCode || user.store_code || '');
+              const company = String(fi.company_code || user.companyCode || user.company_code || '');
+              if (code && site && company) {
+                try { const result = await farmProductionApi.listMedicineLots({ medication_code: code, site_code: site, company_code: company }); setLots(unwrap(result)); } catch { setLots([]); }
+              }
+            }} className={s.inp}><option value="">{t('ui.请选择ACTIVE药品', '请选择 ACTIVE 药品')}</option>{medications.map(m => <option key={String(m.medication_code)} value={String(m.medication_code)}>{String(m.medication_name || m.medication_code)}（{String(m.medication_code)}）</option>)}</select></div>
             <div><label className={s.lbl}>{t('ui.治疗疾病', '治疗疾病')}</label><input value={form.disease} onChange={e => setForm({
               ...form,
               disease: e.target.value
@@ -354,14 +364,22 @@ export default function MedicinePage() {
           })} className={s.inp} />
           </div>
           <div className={s.fieldRow}>
-            <div><label className={s.lbl}>{t('ui.连用天数', '连用天数')}</label><input type="number" onFocus={e => e.currentTarget.select()} value={form.daysUsed} onChange={e => setForm({
+            <div><label className={s.lbl}>{t('ui.连用天数', '连用天数')}</label><input type="number" min="1" onFocus={e => e.currentTarget.select()} value={form.daysUsed} onChange={e => setForm({
               ...form,
               daysUsed: e.target.value
             })} className={s.inp} /></div>
-            <div><label className={s.lbl}>{t('ui.停药休药期天', '停药休药期（天）')}</label><input type="number" onFocus={e => e.currentTarget.select()} value={form.withdrawDays} onChange={e => setForm({
+            <div><label className={s.lbl}>{t('ui.停药休药期天', '停药休药期（天）')}</label><input type="number" min="0" onFocus={e => e.currentTarget.select()} value={form.withdrawDays} onChange={e => setForm({
               ...form,
               withdrawDays: e.target.value
             })} className={s.inp} /></div>
+          </div>
+          <div className={s.fieldRow}>
+            <div><label className={s.lbl}>{t('ui.实际用量', '实际用量')} *</label><input type="number" min="0.001" step="0.001" value={form.actualQty} onChange={e => setForm({ ...form, actualQty: e.target.value })} className={s.inp} /></div>
+            <div><label className={s.lbl}>{t('ui.用量单位', '用量单位')}</label><input value={form.qtyUnit} onChange={e => setForm({ ...form, qtyUnit: e.target.value })} className={s.inp} /></div>
+          </div>
+          <div className={s.fieldRow}>
+            <div><label className={s.lbl}>{t('ui.用药途径', '用药途径')} *</label><input value={form.usageRoute} onChange={e => setForm({ ...form, usageRoute: e.target.value })} placeholder={t('ui.如饮水或拌料', '如饮水或拌料')} className={s.inp} /></div>
+            <div><label className={s.lbl}>{t('ui.库存批次', '库存批次')}</label><select value={form.inventoryBatchNo} onChange={e => setForm({ ...form, inventoryBatchNo: e.target.value })} className={s.inp}><option value="">{t('ui.自动按FEFO分配', '自动按 FEFO 分配')}</option>{lots.map(lot => <option key={String(lot.batch_no)} value={String(lot.batch_no)}>{String(lot.batch_no)} · {String(lot.qty_available ?? '')}</option>)}</select></div>
           </div>
           <div className={s.field}>
             <label className={s.lbl}>{t('ui.规定剂量', '规定剂量')}</label>
@@ -376,7 +394,7 @@ export default function MedicinePage() {
           marginTop: 6
         }}>
             <button type="button" onClick={() => { setShowDrawer(false); setEditId(null); }} style={{ ...secondaryActionButton, flex: 1, justifyContent: "center" }}>{t('common.cancel', '取消')}</button>
-            <button type="button" onClick={handleSubmit} style={{ ...primaryActionButton, flex: 2, justifyContent: "center" }}>{editId ? t('ui.保存修改', '保存修改') : t('ui.新增用药', '新增用药')}</button>
+            <button type="button" disabled={busy} onClick={handleSubmit} style={{ ...primaryActionButton, flex: 2, justifyContent: "center" }}>{t('ui.新增用药', '新增用药')}</button>
           </div>
         </div>
       </RightDrawer>
