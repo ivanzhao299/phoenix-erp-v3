@@ -1,5 +1,4 @@
 import { Module } from '@nestjs/common';
-import { NotificationModule } from '../notification/notification.module';
 import { FarmController } from './farm.controller';
 import { FarmService } from './farm.service';
 import { FarmCronService } from './farm.cron';
@@ -11,12 +10,15 @@ import { FarmSalesController } from './farm-sales.controller';
 import { FarmSalesService } from './farm-sales.service';
 import { FarmMedicineController } from './farm-medicine.controller';
 import { FarmMedicineService } from './farm-medicine.service';
+import { MedicationRecordController } from './medication-record.controller';
+import { MedicationRecordService } from './medication-record.service';
+import { ImmuneController } from './immune.controller';
+import { ImmuneService } from './immune.service';
 import { RolesGuard } from '../../common/guards/roles.guard';
 
 @Module({
-  imports: [NotificationModule],
-  controllers: [FarmController, FarmFeedController, FarmEggController, FarmSalesController, FarmMedicineController],
-  providers: [FarmService, FarmCronService, FarmFeedService, FarmEggService, FarmSalesService, FarmMedicineService, RolesGuard],
-  exports: [FarmService, FarmFeedService, FarmEggService, FarmSalesService, FarmMedicineService],
+  controllers: [FarmController, FarmFeedController, FarmEggController, FarmSalesController, FarmMedicineController, MedicationRecordController, ImmuneController],
+  providers: [FarmService, FarmCronService, FarmFeedService, FarmEggService, FarmSalesService, FarmMedicineService, MedicationRecordService, ImmuneService, RolesGuard],
+  exports: [FarmService, FarmFeedService, FarmEggService, FarmSalesService, FarmMedicineService, MedicationRecordService, ImmuneService],
 })
 export class FarmModule {}
