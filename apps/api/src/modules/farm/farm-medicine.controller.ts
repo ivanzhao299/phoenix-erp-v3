@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Query, UseGuards, Req } from '@nestjs/common';
 import { FarmMedicineService } from './farm-medicine.service';
 import { MenuGuard, RequireMenu } from '../../common/guards/menu.guard';
 import { DataScopeGuard } from '../org/guards/data-scope.guard';
@@ -39,18 +39,20 @@ export class FarmMedicineController {
    */
   @Post('inbound')
   @RequireMenu('MENU_FARM_VET', 'E')
-  async inbound(@Body() body: { date?: string; log_date?: string; items?: unknown; operator?: string }) {
-    await this.svc.inbound(body.date ?? body.log_date ?? '', extractItems(body), body.operator ?? 'mobile');
+  async inbound(@Body() body: { date?: string; log_date?: string; items?: unknown }, @Req() req: any) {
+    const operator = req.user?.username || req.user?.name || req.user?.realNameZh || req.user?.userId || req.user?.sub || 'unknown';
+    await this.svc.inbound(body.date ?? body.log_date ?? '', extractItems(body), String(operator));
     return { code: 200, message: '入库成功' };
   }
 
   /** POST /api/farm/medicine/outbound
-   *  { date, items: [{medication_code, qty, house_code?, note?}], operator? }
+   *  Legacy treatment-outbound endpoint. Treatment must use medication-records.
    */
   @Post('outbound')
   @RequireMenu('MENU_FARM_VET', 'E')
-  async outbound(@Body() body: { date?: string; log_date?: string; items?: unknown; operator?: string }) {
-    await this.svc.outbound(body.date ?? body.log_date ?? '', extractItems(body), body.operator ?? 'mobile');
+  async outbound(@Body() body: { date?: string; log_date?: string; items?: unknown }, @Req() req: any) {
+    const operator = req.user?.username || req.user?.name || req.user?.realNameZh || req.user?.userId || req.user?.sub || 'unknown';
+    await this.svc.outbound(body.date ?? body.log_date ?? '', extractItems(body), String(operator));
     return { code: 200, message: '出库成功' };
   }
 }
