@@ -7,19 +7,28 @@ import {
 } from './production-inbound.service';
 import { SkuAvailabilityService } from '../../product-master/services/sku-availability.service';
 
-/** 阶段3 mock：SkuAvailabilityService 走真实逻辑，DB 查询打桩。 */
-const makeSkuAvailability = (skuRows: any[], scopeRows: any[] = [{ scope_type: 'ALL', scope_code: '', sale_enabled: true, stock_enabled: true }]) => {
-  const db = {
-    query: jest.fn(async (sql: string) => {
-      if (sql.includes('FROM product_skus')) return skuRows.map(r => ({ ...r, status: 'ACTIVE' }));
-      if (sql.includes('md_sku_org_scope')) return scopeRows;
-      if (sql.includes('md_variety_breeds')) return [{ variety_code: 'EGG_RED' }];
-      if (sql.includes('brd_flocks')) return [{ breed_code: 'HY_LINE_BROWN' }];
-      return [];
-    }) as any,
-  };
-  return new SkuAvailabilityService(db as never);
-};
+/** Orchestration unit seam; the real policy is covered by its own tests and production-inbound.pg.spec.ts. */
+const makeSkuAvailability = (_skuRows: any[]) => ({
+  resolveSourceProfile: jest.fn(async (input: { companyCode: string; houseCode: string; eggDate: string; farmCode?: string; siteCode?: string }) => {
+    expect(input.houseCode).toBeTruthy();
+    expect(input.eggDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    const varietyCode = _skuRows[0]?.variety_code ?? null;
+    return { ...input, profileCode: `PROFILE-${input.houseCode}`, productMode: varietyCode === null ? 'STANDARD' : 'VARIANT', varietyCode,
+      farmCode: input.farmCode || 'FARM-A', siteCode: input.siteCode || 'SITE-A' };
+  }),
+  resolve: jest.fn(async (input: { companyCode: string; eggDate: string; gradeCode: string; specCode?: string; usage: string }, manager: { query: (sql: string, params: unknown[]) => Promise<any[]> }) => {
+    expect(input.companyCode).toBeTruthy();
+    expect(input.eggDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(input.usage).toBe('stock');
+    const rows = (await manager.query('SELECT * FROM product_skus', [input.gradeCode, input.specCode || 'LOOSE']))
+      .filter(row => row.grade_code === input.gradeCode && row.spec_code === (input.specCode || 'LOOSE'));
+    if (rows.length !== 1) throw new BadRequestException(`档位 ${input.gradeCode} 必须有唯一可用 SKU`);
+    const row = rows[0];
+    return { skuCode: row.sku_code, productCode: row.product_code, gradeCode: row.grade_code, specCode: row.spec_code,
+      varietyCode: row.variety_code ?? null, scopeType: 'COMPANY', scopeCode: input.companyCode,
+      saleEnabled: true, stockEnabled: true };
+  }),
+} as unknown as SkuAvailabilityService);
 
 describe('daily report inventory consistency helpers', () => {
   it('normalizes JSONB grade quantities and ignores malformed values', () => {
@@ -49,10 +58,13 @@ describe('ProductionInboundService master-data resolution', () => {
         { query, transaction: async (run: (manager: any) => unknown) => {
           let selected: any[] = [];
           const manager = { query: async (sql: string, values: unknown[]) => {
-            if (sql.includes('WHERE sku_code=$1 FOR SHARE')) return selected.map(row => ({ ...row, status: 'ACTIVE' }));
-            if (/SELECT \* FROM (mst_products|product_grades|packaging_specs)/.test(sql)) return [{ status: 'ACTIVE', is_storable: true }];
-            if (sql.includes('md_sku_org_scope')) return [{ scope_type: 'ALL', scope_code: '', sale_enabled: true, stock_enabled: true }];
+            if (sql.includes('WHERE sku_code=$1 FOR SHARE')) return selected.map(row => ({ ...row, variety_code: row.variety_code ?? null, status: 'ACTIVE',today:'2026-11-11',effective_date:null,expire_date:null }));
+            if (sql.includes('SELECT * FROM mst_products')) return [{status:'ACTIVE',variety_code:selected[0]?.variety_code ?? null}];
+            if (/SELECT \* FROM (product_grades|packaging_specs)/.test(sql)) return [{ status: 'ACTIVE', variety_code: null, is_storable: true }];
+            if (sql.includes('FROM sys_organizations')) return [{ org_code: values[0] }];
+            if (sql.includes('md_sku_org_scope')) return [{ scope_type: 'COMPANY', scope_code: values[1], status: 'ACTIVE', today: '2026-11-11', effective_date: null, expire_date: null, sale_enabled: false, stock_enabled: true }];
             if (sql.includes('md_variety_breeds')) return [{ variety_code: 'EGG_RED' }];
+            if (sql.includes('FROM md_product_varieties')) return [{variety_code:values[0],status:'ACTIVE',effective_date:'2026-01-01',expire_date:null}];
             if (sql.includes('FROM brd_flocks')) return [{ breed_code: 'HY_LINE_BROWN' }];
             if (sql.includes('FROM product_skus')) {
               // 参数感知：$1=gradeCode，只有档位匹配的 SKU 才是候选（模拟真实 SQL 过滤）
@@ -100,7 +112,7 @@ describe('ProductionInboundService master-data resolution', () => {
       .mockResolvedValueOnce([{ warehouse_code: 'WH-A' }])
       .mockResolvedValueOnce([{ location_code: 'LOC-IN-A' }]);
     const createProductionBatch = jest.fn().mockResolvedValue({ batch_no: 'EGG-1' });
-    // 鸡群品种 HY_LINE_BROWN → EGG_RED 变体 → 红壳 SKU（阶段3品种链路）
+    // Fixture explicitly configures an EGG_RED commercial source; it is not inferred from biological breed.
     const { service } = makeService(query, createProductionBatch, undefined, [
       { sku_code: 'SKU-EGG-1', product_code: 'PROD-EGG', variety_code: 'EGG_RED', grade_code: 'GRADE_1', spec_code: 'LOOSE' },
     ]);
@@ -196,14 +208,14 @@ describe('ProductionInboundService master-data resolution', () => {
       if (sql.includes('sys_organizations')) return [{ '?column?': 1 }];
       if (sql.includes('wms_warehouses')) return [{ warehouse_code: 'WH-A' }];
       if (sql.includes('wms_locations')) return [{ location_code: 'LOC-A' }];
-      if (sql.includes('product_skus')) return [{ sku_code: 'SKU-1', product_code: 'PROD', grade_code: 'GRADE_1', spec_code: 'LOOSE' }];
+      if (sql.includes('product_skus')) return [{ sku_code: 'SKU-1', product_code: 'PROD', variety_code: null, grade_code: 'GRADE_1', spec_code: 'LOOSE' }];
       return [];
     });
     const existing: any[] = [];
     const managerQuery = jest.fn().mockImplementation(async (sql: string) => {
-      if (sql.includes('FROM product_skus')) return [{ sku_code: 'SKU-1', product_code: 'PROD', grade_code: 'GRADE_1', spec_code: 'LOOSE', status: 'ACTIVE' }];
+      if (sql.includes('FROM product_skus')) return [{ sku_code: 'SKU-1', product_code: 'PROD', variety_code: null, grade_code: 'GRADE_1', spec_code: 'LOOSE', status: 'ACTIVE' }];
       if (sql.includes('md_sku_org_scope')) return [{ scope_type: 'ALL', scope_code: '', sale_enabled: true, stock_enabled: true }];
-      if (/SELECT \* FROM (mst_products|product_grades|packaging_specs)/.test(sql)) return [{ status: 'ACTIVE', is_storable: true }];
+      if (/SELECT \* FROM (mst_products|product_grades|packaging_specs)/.test(sql)) return [{ status: 'ACTIVE', variety_code: null, is_storable: true }];
       if (sql.includes('pg_advisory_xact_lock')) return [];
       if (sql.includes('FROM inv_batches')) return existing;
       return [];
@@ -226,7 +238,7 @@ describe('ProductionInboundService master-data resolution', () => {
     expect(transaction).toHaveBeenCalledTimes(1);
     expect(createProductionBatch).toHaveBeenCalledTimes(1);
 
-    existing.push(...first.batches.map(batch => ({ batch_no: batch.batchNo, quality_grade: batch.grade, qty: batch.qty, product_code: batch.productCode, sku_code: 'SKU-1', spec_code: 'LOOSE', egg_date: dto.eggDate, collection_batch_ref: 'HOUSE-HOUSE-A', warehouse_code: 'WH-A', location_code: 'LOC-A' })));
+    existing.push(...first.batches.map(batch => ({ batch_no: batch.batchNo, quality_grade: batch.grade, qty: batch.qty, product_code: batch.productCode, variety_code: batch.varietyCode, sku_code: 'SKU-1', spec_code: 'LOOSE', egg_date: dto.eggDate, collection_batch_ref: 'HOUSE-HOUSE-A', warehouse_code: 'WH-A', location_code: 'LOC-A' })));
     const second = await service.recordProductionInbound(dto);
     expect(second).toMatchObject({ totalInbound, idempotent: true });
     expect(second.batches).toEqual(first.batches);
@@ -255,14 +267,14 @@ describe('ProductionInboundService master-data resolution', () => {
       if (sql.includes('sys_organizations')) return [{ '?column?': 1 }];
       if (sql.includes('wms_warehouses')) return [{ warehouse_code: 'WH-A' }];
       if (sql.includes('wms_locations')) return [{ location_code: 'LOC-A' }];
-      if (sql.includes('product_skus')) return [{ sku_code: 'SKU-1', product_code: 'PROD', grade_code: 'GRADE_1', spec_code: 'LOOSE' }];
+      if (sql.includes('product_skus')) return [{ sku_code: 'SKU-1', product_code: 'PROD', variety_code: null, grade_code: 'GRADE_1', spec_code: 'LOOSE' }];
       return [];
     });
     const existing: any[] = [];
     const managerQuery = jest.fn().mockImplementation(async (sql: string) => {
-      if (sql.includes('FROM product_skus')) return [{ sku_code: 'SKU-1', product_code: 'PROD', grade_code: 'GRADE_1', spec_code: 'LOOSE', status: 'ACTIVE' }];
+      if (sql.includes('FROM product_skus')) return [{ sku_code: 'SKU-1', product_code: 'PROD', variety_code: null, grade_code: 'GRADE_1', spec_code: 'LOOSE', status: 'ACTIVE' }];
       if (sql.includes('md_sku_org_scope')) return [{ scope_type: 'ALL', scope_code: '', sale_enabled: true, stock_enabled: true }];
-      if (/SELECT \* FROM (mst_products|product_grades|packaging_specs)/.test(sql)) return [{ status: 'ACTIVE', is_storable: true }];
+      if (/SELECT \* FROM (mst_products|product_grades|packaging_specs)/.test(sql)) return [{ status: 'ACTIVE', variety_code: null, is_storable: true }];
       if (sql.includes('pg_advisory_xact_lock')) return [];
       if (sql.includes('FOR UPDATE')) return existing;
       return [];
@@ -287,7 +299,7 @@ describe('ProductionInboundService master-data resolution', () => {
     const first = await service.recordProductionInbound({ ...dto, idempotencyKey: 'DAILY-2026-08-25-HOUSE-A-aaaa' });
     expect(first).toMatchObject({ totalInbound: 5, idempotent: false });
 
-    existing.push(...first.batches.map(batch => ({ batch_no: batch.batchNo, quality_grade: batch.grade, qty: batch.qty, product_code: batch.productCode, sku_code: 'SKU-1', spec_code: 'LOOSE', egg_date: dto.eggDate, collection_batch_ref: 'HOUSE-HOUSE-A', warehouse_code: 'WH-A', location_code: 'LOC-A' })));
+    existing.push(...first.batches.map(batch => ({ batch_no: batch.batchNo, quality_grade: batch.grade, qty: batch.qty, product_code: batch.productCode, variety_code: batch.varietyCode, sku_code: 'SKU-1', spec_code: 'LOOSE', egg_date: dto.eggDate, collection_batch_ref: 'HOUSE-HOUSE-A', warehouse_code: 'WH-A', location_code: 'LOC-A' })));
     const second = await service.recordProductionInbound({ ...dto, idempotencyKey: 'DAILY-2026-08-25-HOUSE-A-bbbb' });
     expect(second).toMatchObject({ totalInbound: 5, idempotent: true });
     expect(second.batches).toEqual(first.batches);
@@ -312,13 +324,13 @@ describe('ProductionInboundService master-data resolution', () => {
       if (sql.includes('sys_organizations')) return [{ '?column?': 1 }];
       if (sql.includes('wms_warehouses')) return [{ warehouse_code: 'WH-A' }];
       if (sql.includes('wms_locations')) return [{ location_code: 'LOC-A' }];
-      if (sql.includes('product_skus')) return [{ sku_code: 'SKU-1', product_code: 'PROD', grade_code: 'GRADE_1', spec_code: 'LOOSE' }];
+      if (sql.includes('product_skus')) return [{ sku_code: 'SKU-1', product_code: 'PROD', variety_code: null, grade_code: 'GRADE_1', spec_code: 'LOOSE' }];
       return [];
     });
     const managerQuery = jest.fn().mockImplementation(async (sql: string) => {
-      if (sql.includes('FROM product_skus')) return [{ sku_code: 'SKU-1', product_code: 'PROD', grade_code: 'GRADE_1', spec_code: 'LOOSE', status: 'ACTIVE' }];
+      if (sql.includes('FROM product_skus')) return [{ sku_code: 'SKU-1', product_code: 'PROD', variety_code: null, grade_code: 'GRADE_1', spec_code: 'LOOSE', status: 'ACTIVE' }];
       if (sql.includes('md_sku_org_scope')) return [{ scope_type: 'ALL', scope_code: '', sale_enabled: true, stock_enabled: true }];
-      if (/SELECT \* FROM (mst_products|product_grades|packaging_specs)/.test(sql)) return [{ status: 'ACTIVE', is_storable: true }];
+      if (/SELECT \* FROM (mst_products|product_grades|packaging_specs)/.test(sql)) return [{ status: 'ACTIVE', variety_code: null, is_storable: true }];
       if (sql.includes('pg_advisory_xact_lock')) return [];
       if (sql.includes('FOR UPDATE')) return [];
       if (sql.includes('to_regclass')) return [{ table_name: 'brd_daily_logs' }];

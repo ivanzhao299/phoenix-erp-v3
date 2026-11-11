@@ -4505,6 +4505,8 @@
   "breeding.fetchDailyFailed": "ດຶງຂໍ້ມູນລາຍງານປະຈຳວັນລົ້ມເຫລວ",
   "breeding.enterAtLeastOne": "ກະລຸນາປ້ອນຈຳນວນຢ່າງໜ້ອຍໜຶ່ງລະດັບ",
   "breeding.inboundFailed": "ການນຳເຂົ້າສາງລົ້ມເຫລວ",
+  "breeding.inboundResultUnknown": "ຍັງບໍ່ຢືນຢັນຜົນ. ກະລຸນາກວດສອບບັນຊີຮັບເຂົ້າສາງກ່ອນ ແລະ ຢ່າສົ່ງຊ້ຳ.",
+  "ui.去向名称": "ຊື່ປາຍທາງ",
   "breeding.noPermInbound": "ບໍ່ມີສິດເຂົ້າເຖິງການນຳເຂົ້າໄຂ່ປະຈຳວັນ",
   "breeding.inboundTitle": "ການນຳເຂົ້າໄຂ່ປະຈຳວັນ",
   "breeding.inboundMasterRequired": "ກະລຸນາເລືອກເຮືອນໄກ່, ສາງຮັບເຂົ້າ ແລະ ຈຸດຈັດເກັບ",
@@ -14344,6 +14346,9 @@
   "analytics.col_broken": "ໄຂ່ແຕກ",
   "prc2.kpi_ap_balance_original": "ຍອດໜີ້ຕາມສະກຸນເງິນເດີມ",
   "prc2.kpi_paid_amount_base": "ຈຳນວນຈ່າຍຕາມສະກຸນເງິນຫຼັກ",
+  "warehouse.outbound.validation.destination_required": "ກະລຸນາເລືອກ ຫຼື ປ້ອນປາຍທາງ",
+  "warehouse.outbound.validation.items_required": "ກະລຸນາເພີ່ມລາຍການເບີກອອກ",
+  "warehouse.outbound.validation.item_required": "ກະລຸນາເລືອກລາຍການຈາກຂໍ້ມູນຫຼັກສິນຄ້າຄົງຄັງ",
   "warehouse.transfer.status.pending": "ລໍຖ້າຈັດສົ່ງ",
   "warehouse.transfer.status.in_transit": "ກຳລັງຂົນສົ່ງ",
   "warehouse.transfer.status.received": "ຮັບແລ້ວ ລໍຖ້າດຳເນີນການ",
@@ -14629,5 +14634,8 @@
   "auto.literal.8137b0aac7fc": "ຮູບແບບຂໍ້ມູນຫຼັກທີ່ຕອບກັບບໍ່ຖືກຕ້ອງ",
   "auto.literal.03e1fc35d353": "ຫົວໜ່ວຍພື້ນຖານ (ເຊັ່ນ ໜ່ວຍໄຂ່)",
   "auto.literal.0ce514c357c2": "ຫົວໜ່ວຍຂະໜາດຂາຍ (ເຊັ່ນ ແຜງ/ລັງ)",
-  "auto.literal.6940ec1620d6": "ບໍ່ໄດ້ບັນທຶກຫົວໜ່ວຍ; ຕ້ອງກວດສອບ"
+  "auto.literal.6940ec1620d6": "ບໍ່ໄດ້ບັນທຶກຫົວໜ່ວຍ; ຕ້ອງກວດສອບ",
+  "ui.请选择有效鸡群品种": "ກະລຸນາເລືອກສາຍພັນຝູງໄກ່ທີ່ຖືກຕ້ອງ ແລະ ມີສະຖານະ ACTIVE; ບໍ່ສາມາດສົ່ງຄ່າເກົ່າທີ່ບໍ່ຮູ້ຈັກໄດ້ໂດຍກົງ",
+  "ui.选择鸡群品种": "ເລືອກສາຍພັນຝູງໄກ່ (ຈຳເປັນ)",
+  "ui.历史品种原值": "ຄ່າສາຍພັນເດີມໃນປະຫວັດ"
 }

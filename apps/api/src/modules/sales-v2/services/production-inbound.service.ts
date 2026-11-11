@@ -11,6 +11,7 @@ import { OrgOwnershipService } from '../../org/services/org-ownership.service';
 
 type MasterContext = {
   companyCode: string;
+  farmCode?: string;
   siteCode?: string;
   warehouseCode: string;
   locationCode: string;
@@ -138,7 +139,7 @@ export class ProductionInboundService {
     );
     if (!activeCompany.length) throw new BadRequestException(`公司 ${companyCode} 不存在或已停用`);
     this.assertScope(companyCode);
-    return { companyCode, siteCode };
+    return { companyCode, siteCode, farmCode: house?.farmCode };
   }
 
   private async resolveWarehouse(companyCode: string, siteCode?: string, explicit?: string): Promise<string> {
@@ -183,10 +184,10 @@ export class ProductionInboundService {
   private async resolveMasterContext(dto: {
     companyCode?: string; siteCode?: string; houseCode?: string; warehouseCode?: string; locationCode?: string;
   }): Promise<MasterContext> {
-    const { companyCode, siteCode } = await this.resolveCompanyAndSite(dto);
+    const { companyCode, siteCode, farmCode } = await this.resolveCompanyAndSite(dto);
     const warehouseCode = await this.resolveWarehouse(companyCode, siteCode, dto.warehouseCode?.trim());
     const locationCode = await this.resolveLocation(warehouseCode, dto.locationCode?.trim());
-    return { companyCode, siteCode, warehouseCode, locationCode };
+    return { companyCode, siteCode, farmCode, warehouseCode, locationCode };
   }
 
   /**
@@ -295,7 +296,7 @@ export class ProductionInboundService {
     if (effectiveItems.length === 0) throw new BadRequestException('至少需要一个数量大于 0 的蛋品档位');
 
     const context = await this.resolveMasterContext(dto);
-    const { companyCode, siteCode, warehouseCode, locationCode } = context;
+    const { companyCode, farmCode, siteCode, warehouseCode, locationCode } = context;
 
     // 互斥校验：仅 TEMP_PRODUCTION_INBOUND 模式允许
     const mode = await this.modeSvc.resolveMode({ siteCode, companyCode });
@@ -354,16 +355,22 @@ export class ProductionInboundService {
         }
         return;
       }
-      const grades = [...new Set(effectiveItems.map(item => item.grade))];
-      // 阶段3：SKU 解析收口到 SkuAvailabilityService（品种+组织适用范围，fail-closed）。
-      // 鸡群品种 → 变体 → 公司适用范围 → 唯一 SKU；无品种上下文时只允许无变体产品线。
+      // Commercial source profiles preserve Mengsai STANDARD eggs and explicitly
+      // map Dongpeng houses to RED/PINK, without inventing biological breed data.
+      const sourceProfile = await this.skuAvailability.resolveSourceProfile({
+        companyCode, farmCode, siteCode, houseCode: dto.houseCode || '', eggDate: dto.eggDate,
+      }, mgr);
+      // Missing source policy or company assignment never falls back to a global SKU.
       // 两段式：先解析全部档位（任一失败整单拒绝，不产生任何批次），再统一写库存。
       const resolved = new Map<string, SkuResolveResult>();
       for (const item of effectiveItems) {
         const sku = await this.skuAvailability.resolve({
           companyCode,
+          farmCode,
           siteCode,
           houseCode: dto.houseCode,
+          eggDate: dto.eggDate,
+          sourceProfileCode: sourceProfile.profileCode,
           gradeCode: item.grade,
           specCode: item.spec,
           usage: 'stock',
@@ -371,7 +378,7 @@ export class ProductionInboundService {
         resolved.set(`${item.grade}\u0000${item.spec ?? ''}`, sku);
       }
 
-      for (const sku of resolved.values()) await SkuPolicy.requireUsable(mgr, sku.skuCode, 'stock');
+      for (const sku of resolved.values()) await SkuPolicy.requireUsable(mgr, sku.skuCode, 'stock', companyCode);
       await this.assertDailyReportCapacity(mgr, dto, effectiveItems, collectionRef);
       for (const item of effectiveItems) {
         const { qty, grade } = item;
@@ -381,7 +388,9 @@ export class ProductionInboundService {
           companyCode, warehouseCode, locationCode, eggDate: dto.eggDate,
           qualityGrade: grade, skuCode: sku.skuCode, gradeCodeStd: sku.gradeCode,
           specCode: sku.specCode, packagingSpec: sku.specCode, productCode, qty,
-          varietyCode: sku.varietyCode ?? undefined,
+          varietyCode: sku.varietyCode,
+          sourceProfileCode: sourceProfile.profileCode, houseCode: sourceProfile.houseCode,
+          farmCode: sourceProfile.farmCode, siteCode: sourceProfile.siteCode,
           sourceNo, sourceType: 'TEMP_PRODUCTION', ledgerChangeType: 'TEMP_PRODUCTION_INBOUND',
           collectionBatchRef: collectionRef ?? undefined,
         };

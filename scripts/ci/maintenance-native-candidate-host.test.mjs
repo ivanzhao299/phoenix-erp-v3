@@ -3,9 +3,34 @@ import test from 'node:test';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { requireNativeHostRequest, writeOwnedFixtureReadonlyJson, buildReadableFixturePayload, createOwnedFixturePublicShadow } from './maintenance-native-candidate-host.fixture.mjs';
+import { execFileSync } from 'node:child_process';
+import { requireNativeHostRequest, writeOwnedFixtureReadonlyJson, buildReadableFixturePayload, createOwnedFixturePublicShadow, nativeFd9Denial, nativeFd9Stdio } from './maintenance-native-candidate-host.fixture.mjs';
 import { OwnedErpCandidateCapsule } from './maintenance-erp-candidate.fixture.mjs';
 
+test('FD9 counterexamples require their precise denial rather than any guard failure',()=>{
+  assert.equal(nativeFd9Denial('missing',{code:'EBADF',syscall:'fstat'}),true);
+  assert.equal(nativeFd9Denial('wrong',{message:'CONFIG_HOLD=HOST_LOCK_REQUIRED:1:2:3:4'}),true);
+  assert.equal(nativeFd9Denial('same-inode-unlocked',{message:'CONFIG_HOLD=WORKFLOW_FD9_NOT_LOCK_OWNER'}),true);
+  for(const mode of ['missing','wrong','same-inode-unlocked'])for(const error of [{message:'CONFIG_HOLD=ROOT_ACTIONS_IDENTITY_REQUIRED'},{code:'ENOENT',syscall:'fstat'},{message:'CONFIG_HOLD=HOST_LOCK_REQUIRED'},{message:'unrelated'}])assert.equal(nativeFd9Denial(mode,error),false);
+  assert.deepEqual(nativeFd9Stdio(),['ignore','pipe','pipe','ignore','ignore','ignore','ignore','ignore','ignore',9]);
+});
+test('real local FD9 keeps the same locked open description only with explicit inheritance',t=>{
+  const directory=fs.mkdtempSync(path.join(os.tmpdir(),'phoenix-native-fd9-')),lock=path.join(directory,'mutation.lock');
+  t.after(()=>fs.rmSync(directory,{recursive:true,force:true}));fs.writeFileSync(lock,'',{mode:0o600});
+  const trusted=new URL('../ops/production-trusted-paths.mjs',import.meta.url).href,fixture=new URL('./maintenance-native-candidate-host.fixture.mjs',import.meta.url).href;
+  const program=`import assert from 'node:assert/strict';import fs from 'node:fs';import {execFileSync} from 'node:child_process';
+    import {assertWorkflowFd9Lock} from ${JSON.stringify(trusted)};import {nativeFd9Stdio} from ${JSON.stringify(fixture)};
+    const lock=process.argv[1];assertWorkflowFd9Lock(lock,process.pid);
+    const positive='import {assertWorkflowFd9Lock} from '+JSON.stringify(${JSON.stringify(trusted)})+';assertWorkflowFd9Lock(process.argv[1],process.pid)';
+    execFileSync(process.execPath,['--input-type=module','-e',positive,lock],{stdio:nativeFd9Stdio()});
+    const unlocked='import assert from "node:assert/strict";import {assertWorkflowFd9Lock} from '+JSON.stringify(${JSON.stringify(trusted)})+';assert.throws(()=>assertWorkflowFd9Lock(process.argv[1],process.pid),/WORKFLOW_FD9_NOT_LOCK_OWNER/)';
+    execFileSync('/bin/bash',['-c','exec 9<>"$3"; "$1" --input-type=module -e "$2" "$3"','owned-local-unlocked',process.execPath,unlocked,lock],{stdio:nativeFd9Stdio()});
+    const missing='import assert from "node:assert/strict";import fs from "node:fs";fs.closeSync(9);assert.throws(()=>fs.fstatSync(9),{code:"EBADF",syscall:"fstat"})';
+    execFileSync(process.execPath,['--input-type=module','-e',missing],{stdio:nativeFd9Stdio()});
+    const absent=(()=>{try{execFileSync(process.execPath,['--input-type=module','-e',positive,lock],{stdio:['ignore','pipe','pipe']});return false;}catch{return true;}})();assert.equal(absent,true);
+    assertWorkflowFd9Lock(lock,process.pid);`;
+  execFileSync('/bin/bash',['-c','exec 9<>"$1"; flock -n 9 || exit 6; "$2" --input-type=module -e "$3" "$1"','owned-local-fd9',lock,process.execPath,program],{stdio:['ignore','pipe','pipe']});
+});
 test('native entry refuses an absent hosted fixture request before fixed-path I/O',()=>{
   assert.throws(()=>requireNativeHostRequest({}));
 });

@@ -1,11 +1,13 @@
-/** ONE complete factory exercise in an exclusive disposable hosted VM.
- * Actual old226 source/new source, Docker switch, root/FD9, source readers,
- * PostgreSQL, ingress, snapshots, startup, formal SUCCESS and OPEN. Authority is
- * explicitly synthetic fixture data: no GitHub review or production receipt. */
+/** Synthetic migration-aligned legacy factory exercise in a disposable VM.
+ * First proves actual226 -> target is refused by the real bootstrap migration
+ * gate. Then exercises old226 application bytes at an explicitly derived SHA
+ * whose complete migration inventory matches target. Never exact226 SUCCESS,
+ * GitHub review, production authority or a release receipt. */
 import fs from 'node:fs';import path from 'node:path';import assert from 'node:assert/strict';
 import {execFileSync} from 'node:child_process';import {createHash} from 'node:crypto';import {pathToFileURL} from 'node:url';
 import {OwnedErpCandidateCapsule} from './maintenance-erp-candidate.fixture.mjs';
-const root='/data/phoenix-erp',state='/var/lib/phoenix-erp/production-deployment-state',old='226878864f184d26f41a890e666ebed52547db14',webSha='23c7af86dd122379d01248a3b9542b8165f31498';
+import {createSyntheticLegacyChain,snapshotFixturePrivateState,fixtureSessionFailureDiagnostic,LEGACY_APPLICATION_BASE,SYNTHETIC_LEGACY_PROVENANCE} from './maintenance-full-legacy-source.fixture.mjs';
+const root='/data/phoenix-erp',state='/var/lib/phoenix-erp/production-deployment-state',webSha='23c7af86dd122379d01248a3b9542b8165f31498';
 const output=path.join(root,'artifacts/maintenance-native-candidate-host');
 const hash=bytes=>createHash('sha256').update(bytes).digest('hex');
 const env={PATH:process.env.PATH,DOCKER_HOST:'unix:///var/run/docker.sock',DOCKER_CONFIG:'/home/phoenix-codex-deploy/.docker'};
@@ -20,7 +22,8 @@ const write=(file,value)=>fs.writeFileSync(file,JSON.stringify(value)+'\n',{mode
 const wait=ms=>new Promise(r=>setTimeout(r,ms));
 let fixtureAdmitted=false;
 const result={schema:'phoenix.full-legacy-first-switch-fixture/v1',fixtureOnly:true,productionReceipt:false,productionAuthority:false,
- authority:'SYNTHETIC_ROOT_FIXTURE_ONLY',webImplementation:'OWNED_HTTP_PROTOCOL_PEER_NOT_NEXT_UAT',outcome:'PENDING',fullFactory:true,productionMutation:false};
+ authority:'SYNTHETIC_ROOT_FIXTURE_ONLY',legacyProvenance:SYNTHETIC_LEGACY_PROVENANCE,exactLegacySuccess:false,applicationBase:LEGACY_APPLICATION_BASE,
+ webImplementation:'OWNED_HTTP_PROTOCOL_PEER_NOT_NEXT_UAT',outcome:'PENDING',fullFactory:true,productionMutation:false};
 const save=()=>{fs.mkdirSync(output,{recursive:true,mode:0o700});fs.writeFileSync(path.join(output,'result.json'),JSON.stringify(result,null,2)+'\n',{mode:0o600});};
 let watchdog;
 const armWatchdog=()=>{watchdog=setTimeout(()=>{result.outcome='HOLD';result.failureClass='FIXTURE_TIMEOUT';result.failureAt=new Date().toISOString();save();console.error(result.failureClass);process.exit(124);},120*60*1000);};
@@ -35,21 +38,28 @@ async function main(){
  const sourceHead=marker.sourceSha,major=Number(process.env.NATIVE_FIXTURE_MAJOR),owner=`${Date.now()}-${process.pid}`,baseOwner=`${Date.now()}-${process.pid+1}`;
  assert.ok([16,18].includes(major));Object.assign(result,{sourceHead,major,owner,stage:'BUILD_ACTUAL_SOURCE_IMAGES'});save();
  fs.appendFileSync(path.join(root,'.git/info/exclude'),'\n/artifacts/\n/node_modules\n/apps/api/node_modules\n');
- const current=new OwnedErpCandidateCapsule({owner}),legacy=new OwnedErpCandidateCapsule({owner:baseOwner});
- const prior=process.umask(0o022);try{await current.build();await legacy.build({sourceRevision:old});}finally{process.umask(prior);}
- const currentBase=current.imageId,legacyImage=legacy.imageId,currentBaseTag=`phoenix-${owner}:candidate`;
+ const current=new OwnedErpCandidateCapsule({owner}),legacy=new OwnedErpCandidateCapsule({owner:baseOwner}),exactLegacy=new OwnedErpCandidateCapsule({owner:`${Date.now()}-${process.pid+2}`});
+ let compose=fs.readFileSync(path.join(root,'docker-compose.yml'),'utf8');
+ compose=compose.replace('image: postgres:16-alpine',`image: postgres:${major}-alpine`);
+ const chain=createSyntheticLegacyChain({root,sourceHead,composeSource:compose,temporaryDirectory:state});
+ const old=chain.newOldSha,target=chain.targetSha;
+ git(['update-ref','refs/heads/fixture-synthetic-target',target,'0'.repeat(40)]);
+ git(['update-ref','refs/heads/fixture-synthetic-legacy',old,'0'.repeat(40)]);
+ result.targetSha=target;result.applicationSourceSha=sourceHead;result.syntheticLegacySource=chain.provenance;
+ write(path.join(output,'legacy-source-provenance.json'),chain.provenance);save();
+ const prior=process.umask(0o022);try{
+  await current.build();await exactLegacy.build({sourceRevision:LEGACY_APPLICATION_BASE});
+  await legacy.build({sourceRevision:old,syntheticLegacyTarget:target});
+ }finally{process.umask(prior);}
+ const currentBase=current.imageId,legacyImage=legacy.imageId,exactLegacyImage=exactLegacy.imageId,currentBaseTag=`phoenix-${owner}:candidate`;
  assert.equal(docker(['image','inspect',currentBaseTag,'--format','{{.Id}}']),currentBase);
  // Remove only the capsule's preload *entry command*, not application code.
  // Egress is physically constrained by this owned internal network instead.
  const build=path.join(state,'full-fixture-image-context');fs.mkdirSync(build,{mode:0o700});
- // Fixture-only compose overlays alter no application source and are committed
- // only in this disposable clone. Target/manifest/OCI all bind that exact tree.
- let compose=fs.readFileSync(path.join(root,'docker-compose.yml'),'utf8');
- compose=compose.replace('image: postgres:16-alpine',`image: postgres:${major}-alpine`);
- fs.writeFileSync(path.join(root,'docker-compose.yml'),compose);
- git(['-c','user.name=Owned isolated fixture','-c','user.email=fixture@example.invalid','add','docker-compose.yml']);
- git(['-c','user.name=Owned isolated fixture','-c','user.email=fixture@example.invalid','commit','--allow-empty','-qm','fixture: bind exclusive full first-switch target']);
- const target=git(['rev-parse','HEAD']);result.targetSha=target;result.applicationSourceSha=sourceHead;
+ // The target tree is the exact sourceHead tree plus the fixture Compose
+ // overlay; both sourceHead and the synthetic old floor are actual ancestors.
+ // Plumbing used an alternate index and never edited the runner checkout.
+ assert.equal(git(['rev-parse','HEAD']),sourceHead);
  fs.writeFileSync(path.join(build,'Dockerfile'),`FROM ${currentBaseTag}\nLABEL org.opencontainers.image.revision=${target}\nCMD ["node","dist/main.js"]\n`,{mode:0o600});
  result.stage='BUILD_PINNED_CANDIDATE_IMAGE';save();
  const candidateTag=`phoenix-full-${owner}:candidate`;
@@ -103,7 +113,7 @@ CREATE ROLE erp_candidate_writer LOGIN;GRANT CONNECT ON DATABASE api_bootstrap_f
  result.stage='START_WEB_PEER_AND_OLD_API';save();
  const webId=docker(['run','-d','--name','phoenix-v3-web','--label','com.docker.compose.project=phoenix-erp','--label','com.docker.compose.service=web','--network',network,'--restart=no','-p','127.0.0.1:3000:3000','--health-cmd',"node -e \"fetch('http://127.0.0.1:3000/').then(r=>process.exit(r.ok?0:1))\"",'--health-interval','1s',webTag]);
  // Preserve every existing branch; only this disposable clone gets an old main.
- if(git(['branch','--list','main']))git(['branch','-m','main','fixture-original-main']);git(['switch','-c','main',old]);
+ if(git(['branch','--list','main']))git(['branch','-m','main','fixture-original-main']);git(['switch','-c','fixture-exact226-negative',LEGACY_APPLICATION_BASE]);
  const values={NODE_ENV:'production',APP_ENV:'production',PORT:'3100',DB_HOST:'db',DB_PORT:'5432',DB_USER:'erp_candidate_writer',DB_PASSWORD:'',DB_NAME:'api_bootstrap_fixture',JWT_SECRET:'owned-fixture-secret-at-least-32-characters',CHANJET_SYNC_POLICY:'HOLD',CHANJET_READONLY_SYNC_ENABLED:'false',CHANJET_ERP_INBOUND_SYNC_ENABLED:'false'};
  const envValues={...values,PHOENIX_DATA_MOUNT_GUARD:'true',PHOENIX_PG_DATA_DIR:'/data/maintenance-native-pg',PHOENIX_UPLOADS_DIR:'/data/maintenance-native-uploads'};
  fs.writeFileSync(path.join(root,'.env'),Object.entries(envValues).map(([k,v])=>`${k}=${v}`).join('\n')+'\n',{mode:0o600,flag:'wx'});
@@ -113,15 +123,55 @@ CREATE ROLE erp_candidate_writer LOGIN;GRANT CONNECT ON DATABASE api_bootstrap_f
  // legacy override pins the exact old image, the original command and a
  // node-based healthcheck (the capsule image has no curl).
  const legacyTag=`phoenix-legacy-${owner}:api`;
- docker(['tag',legacyImage,legacyTag]);
+ docker(['tag',exactLegacyImage,legacyTag]);
  const legacyOverride=path.join(state,`full-fixture-legacy-compose-${owner}.json`);
  fs.writeFileSync(legacyOverride,JSON.stringify({services:{api:{image:legacyTag,command:['node','dist/main.js'],
   healthcheck:{test:['CMD','node','-e',"fetch('http://127.0.0.1:3100/api/readiness',{signal:AbortSignal.timeout(3000)}).then(async r=>{const b=await r.json();process.exit(r.ok&&b.status==='READY'&&b.db==='connected'?0:1)}).catch(()=>process.exit(1))"],interval:'1s',timeout:'4s',start_period:'3s',retries:40}}}})+'\n',{mode:0o600,flag:'wx'});
  docker(['compose','--project-name','phoenix-erp','--project-directory',root,'--env-file',path.join(root,'.env'),'-f',path.join(root,'docker-compose.yml'),'-f',legacyOverride,'up','-d','--no-deps','--no-build','api']);
- const apiId=docker(['inspect','phoenix-v3-api','--format','{{.Id}}']);
+ let apiId=docker(['inspect','phoenix-v3-api','--format','{{.Id}}']);
  result.stage='WAIT_OLD_API_HEALTH';save();await healthy(apiId);await healthy(webId);result.stage='READ_ACTUAL_OLD_404';save();
  const http=run('/usr/bin/curl',['-s','-o','/dev/null','--max-time','3','-w','%{http_code}','http://127.0.0.1:3100/api/internal/background/status']).trim();assert.equal(http,'404');result.oldControlHttp=Number(http);result.stage='VERIFY_INSTALLED_OLD_GUARD';save();
- const actual=captureRuntime(),tuple=Object.fromEntries(['PHOENIX_DATA_MOUNT_GUARD','PHOENIX_PG_DATA_DIR','PHOENIX_UPLOADS_DIR','CHANJET_READONLY_SYNC_ENABLED','CHANJET_ERP_INBOUND_SYNC_ENABLED'].map(k=>[k,envValues[k]]));
+ // Actual226 negative scenario reaches the real bootstrap gate before any
+ // floor, approval, deployment marker, authority or recovery material exists.
+ const fixtureProbe=path.join(state,`fixture-image-probe-${owner}.tar`);
+ docker(['image','save','--output',fixtureProbe,candidateTag],{timeout:120000});
+ const fixtureManifest=JSON.parse(run('/usr/bin/tar',['-xOf',fixtureProbe,'manifest.json'],{timeout:30000}));
+ const fixtureConfig=run('/usr/bin/tar',['-xOf',fixtureProbe,fixtureManifest[0].Config],{timeout:30000,buffer:true,maxBuffer:1024*1024});
+ const archiveConfigDigest='sha256:'+hash(fixtureConfig);
+ const archiveLayersAreOciBlobs=Array.isArray(fixtureManifest[0].Layers)&&fixtureManifest[0].Layers.every(name=>/^blobs\/sha256\/[a-f0-9]{64}$/.test(name));
+ fs.rmSync(fixtureProbe,{force:true});
+ const negativeWindow={start:new Date(Date.now()-1000).toISOString(),end:new Date(Date.now()+29*60000).toISOString()};
+ const exactRuntime=captureRuntime();assert.equal(exactRuntime.api.revision,LEGACY_APPLICATION_BASE);assert.equal(exactRuntime.api.imageId,exactLegacyImage);
+ const privateBefore=snapshotFixturePrivateState(state);let migrationRejection;
+ result.stage='ACTUAL226_REAL_BOOTSTRAP_MIGRATION_REJECTION';save();
+ try{await prepareMaintenanceRuntimeMaterials({owner,targetSha:target,previousFloorSha:LEGACY_APPLICATION_BASE,previousWebSha:webSha,window:negativeWindow,image:candidateImage,archiveConfigDigest,archiveLayersAreOciBlobs});}
+ catch(error){migrationRejection=error;}
+ assert.equal(migrationRejection?.message,'MAINTENANCE_HOLD=BOOTSTRAP_MIGRATION_PATH_CHANGED');
+ assert.deepEqual(snapshotFixturePrivateState(state),privateBefore,'Rejected actual226 prepare must not mutate protected state');
+ assert.equal(docker(['inspect',apiId,'--format','{{.State.Running}}']),'true','Denied prepare must leave the actual226 executor running');
+ assert.equal(docker(['inspect',apiId,'--format','{{.Image}}']),exactLegacyImage);
+ for(const name of ['floor.json','active.json','transaction.json','policy-transition.json','maintenance-transaction.json','maintenance-current.json','maintenance-factory-registry.json'])assert.equal(fs.existsSync(path.join(state,name)),false);
+ result.actual226Negative={fixtureOnly:true,productionReceipt:false,outcome:'EXPECTED_HOLD',failureClass:migrationRejection.message,applicationBase:LEGACY_APPLICATION_BASE,
+  oldImageId:exactLegacyImage,oldApiId:apiId,targetSha:target,protectedStateUnchanged:true,productionAdmitted:false,formalSuccess:false};
+ write(path.join(output,'actual226-migration-rejection.json'),result.actual226Negative);save();
+ // No protected marker is removed. The negative admission made no state at
+ // all. Replace only this fixture-owned running container with the separately
+ // built synthetic source image before initializing a new floor.
+ docker(['compose','--project-name','phoenix-erp','--project-directory',root,'--env-file',path.join(root,'.env'),'-f',path.join(root,'docker-compose.yml'),'-f',legacyOverride,'stop','--timeout','35','api'],{timeout:45000});
+ assert.equal(docker(['inspect',apiId,'--format','{{.State.Running}}']),'false');
+ git(['switch','-c','main',old]);docker(['tag',legacyImage,legacyTag]);
+ docker(['compose','--project-name','phoenix-erp','--project-directory',root,'--env-file',path.join(root,'.env'),'-f',path.join(root,'docker-compose.yml'),'-f',legacyOverride,'up','-d','--force-recreate','--no-deps','--no-build','api']);
+ const syntheticApiId=docker(['inspect','phoenix-v3-api','--format','{{.Id}}']);assert.notEqual(syntheticApiId,apiId);apiId=syntheticApiId;await healthy(apiId);
+ assert.equal(docker(['image','inspect',legacyImage,'--format','{{index .Config.Labels "org.opencontainers.image.revision"}}']),old);
+ assert.equal(docker(['image','inspect',legacyImage,'--format','{{index .Config.Labels "phoenix.test.legacy.provenance"}}']),SYNTHETIC_LEGACY_PROVENANCE);
+ assert.equal(run('/usr/bin/curl',['-s','-o','/dev/null','--max-time','3','-w','%{http_code}','http://127.0.0.1:3100/api/internal/background/status']).trim(),'404');
+ const syntheticControlMounts=JSON.parse(docker(['inspect',apiId,'--format','{{json .Mounts}}'])).filter(mount=>mount.Destination==='/run/phoenix-background-control');
+ assert.equal(syntheticControlMounts.length,1);assert.deepEqual(Object.fromEntries(['Type','Source','Destination','RW'].map(key=>[key,syntheticControlMounts[0][key]])),
+  {Type:'bind',Source:'/var/lib/phoenix-background-control',Destination:'/run/phoenix-background-control',RW:false});
+ result.syntheticControlMount={kind:'COMPOSE_CONTROL_MOUNT_OVERLAY',source:'/var/lib/phoenix-background-control',target:'/run/phoenix-background-control',readOnly:true};
+ result.stage='VERIFY_SYNTHETIC_MIGRATION_ALIGNED_OLD_GUARD';save();
+ const actual=captureRuntime();assert.equal(actual.api.revision,old);assert.equal(actual.api.imageId,legacyImage);
+ const tuple=Object.fromEntries(['PHOENIX_DATA_MOUNT_GUARD','PHOENIX_PG_DATA_DIR','PHOENIX_UPLOADS_DIR','CHANJET_READONLY_SYNC_ENABLED','CHANJET_ERP_INBOUND_SYNC_ENABLED'].map(k=>[k,envValues[k]]));
  write(path.join(state,'floor.json'),{version:3,floorSha:old,phase:'READY',chanjetPolicy:'HOLD',readonlyApproval:null,project:'phoenix-erp',operationalTuple:tuple});
  write(path.join(state,'active.json'),{version:3,configSha:old,floorSha:old,outcome:'SUCCESS',active:actual,protectedImages:[actual.api.imageId,actual.web.imageId]});
  verifyInstalledMaintenanceGuard();
@@ -159,15 +209,7 @@ CREATE ROLE erp_candidate_writer LOGIN;GRANT CONNECT ON DATABASE api_bootstrap_f
   fs.writeFileSync(ownershipFile,JSON.stringify(updated)+'\n',{mode:0o600});
  }
  result.stage='ACTUAL_SOURCE_PRE_RECOVERY_AND_FIVE_DOMAIN_BASELINE';save();
- // Mirror the production prepare probe: the archive form pins must come from
- // the same daemon save the recovery reader later verifies byte-for-byte.
- const fixtureProbe=path.join(state,`fixture-image-probe-${owner}.tar`);
- docker(['image','save','--output',fixtureProbe,candidateTag],{timeout:120000});
- const fixtureManifest=JSON.parse(run('/usr/bin/tar',['-xOf',fixtureProbe,'manifest.json'],{timeout:30000}));
- const fixtureConfig=run('/usr/bin/tar',['-xOf',fixtureProbe,fixtureManifest[0].Config],{timeout:30000,buffer:true,maxBuffer:1024*1024});
- const archiveConfigDigest='sha256:'+hash(fixtureConfig);
- const archiveLayersAreOciBlobs=Array.isArray(fixtureManifest[0].Layers)&&fixtureManifest[0].Layers.every(name=>/^blobs\/sha256\/[a-f0-9]{64}$/.test(name));
- fs.rmSync(fixtureProbe,{force:true});
+ // Reuse the same actual candidate daemon archive pins as the negative probe.
  const material=await prepareMaintenanceRuntimeMaterials({owner,targetSha:target,previousFloorSha:old,previousWebSha:webSha,window,image:candidateImage,archiveConfigDigest,archiveLayersAreOciBlobs});
  const {context,packet,recoveryPlan,payload}=material;
  const grant={schema:'phoenix.owner-delegated-maintenance-grant/v1',repository:'ivanzhao299/phoenix-erp-v3',authorityKind:'OWNER_DELEGATED',authorizationOrigin:'TRUSTED_INTERACTIVE_USER',authorizationRef:'OWNER_EXECUTION_ORDER_V2_20261019',authorizationDigest:hash('SYNTHETIC_FIXTURE_ONLY'),delegate:{githubUserId:7245339,githubLogin:'emvia'},context,
@@ -197,4 +239,4 @@ if(process.argv[1]&&path.resolve(process.argv[1])===new URL(import.meta.url).pat
  // Redacted session incident receipt (fixed non-secret schema) so the
  // exported evidence names the true fatal origin on a joined HOLD.
  for(const incidentName of [`maintenance-session-hold-${result.owner}.json`,`maintenance-session-children-unverified-${result.owner}.json`]){
-   try{const incidentPath=path.join(state,incidentName);if(fs.existsSync(incidentPath)){result.sessionIncident=JSON.parse(fs.readFileSync(incidentPath));break;}}catch{}}}result.errorType=error?.name||'Error';result.commandExit=Number.isInteger(error?.status)?error.status:null;result.failedCommand=error.fixtureCommand||null;result.ingressCommand=error.ingressCommand||null;result.ingressFailureClass=error.ingressFailureClass||null;result.ingressUnderlying=error.ingressUnderlying||null;result.preAdmissionDifference=error.preAdmissionDifference||null;result.registryDifference=error.registryDifference||null;result.webDbDifference=error.webDbDifference||null;result.replacementCommandDetail=error.replacementCommandDetail||null;result.unverifiedHostProcess=error.unverifiedHostProcess||null;result.databaseQuiescenceCounts=error.databaseQuiescenceCounts||null;result.databaseClientSummary=error.databaseClientSummary||null;result.sessionChildrenDiagnostic=error.sessionChildrenDiagnostic||null;result.renderedControlVolumes=error.renderedControlVolumes||null;result.composeMountDifference=error.composeMountDifference||null;result.participantUnderlying=error.participantUnderlying||null;result.factoryUnderlying=error.factoryUnderlying||null;result.observationUnderlying=error.observationUnderlying||null;result.closeUnderlying=error.closeUnderlying||null;result.originalUnderlying=error.originalUnderlying||null;result.originalDetail=error.originalDetail||null;result.releaseUnderlying=error.releaseUnderlying||null;result.releasedFields=error.releasedFields||null;result.closeUnderlyingChain=error.closeUnderlyingChain||null;result.ownedUnderlying=error.ownedUnderlying||null;if(/^FULL_FIXTURE_[A-Z_]+$/.test(error?.message||''))result.failureClass=error.message;result.failureFrames=String(error?.stack||'').split('\n').slice(1,9).filter(line=>/^\s+at /.test(line)).map(line=>line.replaceAll(root,'<owned-root>'));if(fixtureAdmitted)save();console.error(result.failureClass);process.exitCode=1;if(fixtureAdmitted)process.exit(1);}
+   try{const incidentPath=path.join(state,incidentName);if(fs.existsSync(incidentPath)){result.sessionIncident=JSON.parse(fs.readFileSync(incidentPath));Object.assign(result,fixtureSessionFailureDiagnostic(result.sessionIncident));break;}}catch{}}}result.errorType=error?.name||'Error';result.commandExit=Number.isInteger(error?.status)?error.status:null;result.failedCommand=error.fixtureCommand||null;result.ingressCommand=error.ingressCommand||null;result.ingressFailureClass=error.ingressFailureClass||null;result.ingressUnderlying=error.ingressUnderlying||null;result.preAdmissionDifference=error.preAdmissionDifference||null;result.registryDifference=error.registryDifference||null;result.webDbDifference=error.webDbDifference||null;result.replacementCommandDetail=error.replacementCommandDetail||null;result.unverifiedHostProcess=error.unverifiedHostProcess||null;result.databaseQuiescenceCounts=error.databaseQuiescenceCounts||null;result.databaseClientSummary=error.databaseClientSummary||null;result.sessionChildrenDiagnostic=error.sessionChildrenDiagnostic||null;result.renderedControlVolumes=error.renderedControlVolumes||null;result.composeMountDifference=error.composeMountDifference||null;result.participantUnderlying=error.participantUnderlying||null;result.factoryUnderlying=error.factoryUnderlying||null;result.observationUnderlying=error.observationUnderlying||null;result.closeUnderlying=error.closeUnderlying||null;result.originalUnderlying=error.originalUnderlying||null;result.originalDetail=error.originalDetail||null;result.releaseUnderlying=error.releaseUnderlying||null;result.releasedFields=error.releasedFields||null;result.closeUnderlyingChain=error.closeUnderlyingChain||null;result.ownedUnderlying=error.ownedUnderlying||null;if(/^FULL_FIXTURE_[A-Z_]+$/.test(error?.message||''))result.failureClass=error.message;result.failureFrames=String(error?.stack||'').split('\n').slice(1,9).filter(line=>/^\s+at /.test(line)).map(line=>line.replaceAll(root,'<owned-root>'));if(fixtureAdmitted)save();console.error(result.primaryFailureClass||result.failureClass);process.exitCode=1;if(fixtureAdmitted)process.exit(1);}

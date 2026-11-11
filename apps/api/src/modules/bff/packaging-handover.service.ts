@@ -8,7 +8,7 @@ import { PackagingBoxService } from './packaging-box.service';
 import { PackagingWorkflowPolicy } from './packaging-workflow-policy';
 import { completePackingSources, originalOutputs, packingEvidence, packingHash } from './packaging-evidence.service';
 import { PackagingInventoryIntegrationService } from '../sales-v2/services/packaging-inventory-integration.service';
-import { resolvePackagingIdentity } from './packaging-readiness';
+import { resolvePackagingIdentity, resolvePackagingSourceContext } from './packaging-readiness';
 import { lockPacking } from './packaging-protection';
 
 export function uuid(value:unknown):string {
@@ -102,11 +102,12 @@ export class PackagingHandoverService {
           : policy.encodingVersion!=='PBX-v1'||!policy.Q||!policy.deviceProfile)throw new ConflictException('ENCODING_NOT_QUALIFIED');
         const expected=outputs.flatMap((o,outputOrdinal)=>Array.from({length:o.boxes},(_,i)=>({outputOrdinal,boxOrdinal:i+1,qty:o.eggs/o.boxes})));
         if(!Array.isArray(body.items)||body.items.length!==expected.length)throw new BadRequestException('INVALID_BOX_SET');
+        const sourceContext=await resolvePackagingSourceContext(db,{packingCode:code});
         const created:any[]=[];
         for(const e of expected){
           const matches=body.items.filter((i:any)=>i.outputOrdinal===e.outputOrdinal&&i.boxOrdinal===e.boxOrdinal);
           if(matches.length!==1||!String(matches[0].declaration||'').trim())throw new BadRequestException('REGISTRATION_EVIDENCE_REQUIRED');
-          const identity=await resolvePackagingIdentity(db,{grade:outputs[e.outputOrdinal].grade,specCode:outputs[e.outputOrdinal].specId,specName:outputs[e.outputOrdinal].spec,skuCode:outputs[e.outputOrdinal].skuCode,productCode:outputs[e.outputOrdinal].productCode});
+          const identity=await resolvePackagingIdentity(db,{grade:outputs[e.outputOrdinal].grade,specCode:outputs[e.outputOrdinal].specId,specName:outputs[e.outputOrdinal].spec,skuCode:outputs[e.outputOrdinal].skuCode,productCode:outputs[e.outputOrdinal].productCode,varietyCode:outputs[e.outputOrdinal].varietyCode,sourceContext});
           if(identity.qtyPerUnit!==e.qty)throw new ConflictException('INVALID_BOX_SET');
           const boxId=randomUUID();await db.query(`INSERT INTO pkg_packing_boxes(id,packing_id,output_ordinal,box_ordinal,original_qty) VALUES($1,$2,$3,$4,$5)`,[boxId,r.id,e.outputOrdinal,e.boxOrdinal,e.qty]);
           created.push({...e,identity,boxId,labelCode:testEncoding?`TEST-${randomUUID()}`:`PBX-${randomUUID().replace(/-/g,'').toUpperCase()}`,observedLabelCode:matches[0].observedLabelCode,declaration:matches[0].declaration});

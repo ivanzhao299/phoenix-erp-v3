@@ -8,8 +8,23 @@ set -u
 API="${API_URL:-http://127.0.0.1:3100}"
 ADMIN_U="${ADMIN_USER:-admin}"
 ADMIN_P="${ADMIN_PASS:-admin123}"
-PSQL=${PSQL:-$(which psql)}
-DB=phoenix_erp
+PSQL=${PSQL:-$(command -v psql)}
+DB=${DB_NAME:-${PGDATABASE:-phoenix_erp}}
+
+# Setup is not an assertion: reject partial/failed fixtures explicitly.
+seed_sql() { "$PSQL" -X -v ON_ERROR_STOP=1 "$DB" "$@"; }
+seed_post() {
+  local route="$1" payload="$2" response code
+  if ! response=$(curl -sS -w $'\n%{http_code}' -X POST "$API/api/$route" \
+    -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d "$payload"); then
+    printf 'Seed %s transport failure: %s\n' "$route" "$response" >&2; exit 99
+  fi
+  code=${response##*$'\n'}
+  case "$code" in
+    2[0-9][0-9]) printf '%s' "${response%$'\n'*}" ;;
+    *) printf 'Seed %s failed: HTTP %s — %s\n' "$route" "$code" "${response%$'\n'*}" >&2; exit 99 ;;
+  esac
+}
 
 PASS=0
 FAIL=0
@@ -45,28 +60,69 @@ TOKEN=$(curl -sf -X POST "$API/api/auth/login" -H 'Content-Type: application/jso
   -d "{\"username\":\"$ADMIN_U\",\"password\":\"$ADMIN_P\"}" \
   | grep -oE '"token":"[^"]*"' | cut -d'"' -f4) || { red "登录失败"; exit 99; }
 [ -n "$TOKEN" ] || { red "Token 空"; exit 99; }
-green "  ✓ token=${TOKEN:0:30}..."
+green "  ✓ 登录成功（令牌不输出）"
 
 # ──────────────────────────────────────────────────────────────────────────
 cyan ""
 cyan "▶ 1) Seed 测试数据"
-TODAY=$(date +%Y-%m-%d)
+TODAY=$(date -u +%Y-%m-%d)
 DATEKEY=$(date -u +%Y%m%d)   # 用 UTC 对齐 API（new Date().toISOString()）
+FARM="F-REGR-PKG"
 HOUSE="H-REGR-PKG"
 SHIFT_NO="SHIFT-REGR-PKG-${DATEKEY}-$(date +%s | tail -c 5)"
 
-# 清理上一轮残留
-$PSQL $DB -q -c "DELETE FROM pkg_tasks WHERE house_code='$HOUSE' OR source_item LIKE '%REGR-PKG%';" >/dev/null
-$PSQL $DB -q -c "DELETE FROM pkg_shifts WHERE house_code='$HOUSE' OR shift_no LIKE 'SHIFT-REGR-PKG%';" >/dev/null
-$PSQL $DB -q -c "DELETE FROM inv_ledger WHERE batch_no LIKE 'EGG-%-${HOUSE}-%' OR batch_no LIKE 'BAT-%-${HOUSE}-%' OR batch_no LIKE 'PACK-%-${HOUSE}-%';" >/dev/null
-$PSQL $DB -q -c "DELETE FROM inv_batches WHERE batch_no LIKE 'EGG-%-${HOUSE}-%' OR batch_no LIKE 'BAT-%-${HOUSE}-%' OR batch_no LIKE 'PACK-%-${HOUSE}-%';" >/dev/null
+# Legacy stock writes are allowed only for a real, uniquely owned source whose
+# company has NEVER configured a source profile (INACTIVE/expired still count).
+# Select existing ACTIVE organization masters; never clear profiles, disable the
+# guard, invent request-only ownership, or substitute ALL/UNKNOWN defaults.
+ORG_CONTEXT=$(seed_sql -tA -c "
+  SELECT c.org_code || '|' || s.org_code
+    FROM sys_organizations s JOIN sys_organizations c ON c.id=s.parent_id
+   WHERE s.org_type='SITE' AND s.status='ACTIVE'
+     AND c.org_type='COMPANY' AND c.status='ACTIVE'
+     AND (s.company_code IS NULL OR s.company_code='' OR s.company_code=c.org_code)
+     AND NOT EXISTS (SELECT 1 FROM md_egg_source_profiles p WHERE p.company_code=c.org_code)
+   ORDER BY c.org_code, s.org_code LIMIT 1;") || exit 99
+IFS='|' read -r COMPANY SITE <<< "$ORG_CONTEXT"
+[[ "$COMPANY" =~ ^[A-Za-z0-9_-]+$ && "$SITE" =~ ^[A-Za-z0-9_-]+$ ]] &&
+  [[ "${COMPANY^^}" != ALL && "${COMPANY^^}" != UNKNOWN && "${COMPANY^^}" != GLOBAL ]] || {
+  red "Seed 失败：无真实 ACTIVE 且从未配置 source profile 的公司/场站；不能运行旧库存协议"; exit 99;
+}
 
-# 建 shift — 走 packaging 专用 API (返 data.id)
-SHIFT_RES=$(curl -s -X POST "$API/api/packaging/shifts" -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-  -d "{\"shift_date\":\"$TODAY\",\"shift_type\":\"MORNING\",\"shift_time\":\"早班\",\"house_code\":\"$HOUSE\",\"operator\":\"REGR\"}")
+# 清理上一轮残留（只删除该回归专属来源，不触碰 profile/组织档案）
+seed_sql -q -c "
+  DELETE FROM pkg_tasks WHERE house_code='$HOUSE' OR source_item LIKE '%REGR-PKG%';
+  DELETE FROM pkg_shifts WHERE house_code='$HOUSE' OR shift_no LIKE 'SHIFT-REGR-PKG%';
+  DELETE FROM inv_ledger WHERE batch_no LIKE 'EGG-%-${HOUSE}-%' OR batch_no LIKE 'BAT-%-${HOUSE}-%' OR batch_no LIKE 'PACK-%-${HOUSE}-%';
+  DELETE FROM inv_batches WHERE batch_no LIKE 'EGG-%-${HOUSE}-%' OR batch_no LIKE 'BAT-%-${HOUSE}-%' OR batch_no LIKE 'PACK-%-${HOUSE}-%';
+  DELETE FROM brd_daily_logs WHERE house_code='$HOUSE';
+  DELETE FROM brd_houses WHERE house_code='$HOUSE';
+  DELETE FROM brd_farms WHERE farm_code='$FARM';
+" >/dev/null || exit 99
+seed_post crud/brd_farms "{\"farm_code\":\"$FARM\",\"farm_name\":\"旧包装回归测试场\",\"company_code\":\"$COMPANY\",\"mapped_site_code\":\"$SITE\",\"status\":\"ACTIVE\"}" >/dev/null
+# House company/site columns are retired: derive them from the persisted farm.
+seed_post crud/brd_houses "{\"house_code\":\"$HOUSE\",\"house_name\":\"旧包装回归鸡舍\",\"farm_code\":\"$FARM\",\"capacity\":5000,\"status\":\"ACTIVE\"}" >/dev/null
+
+# 建真正 legacy pkg_shifts 来源（不能拿不同命名空间的 pkg_work_shifts 代替）
+SHIFT_RES=$(seed_post packaging/shifts "{\"shift_date\":\"$TODAY\",\"shift_type\":\"MORNING\",\"shift_time\":\"早班\",\"house_code\":\"$HOUSE\",\"operator\":\"REGR\"}") || exit 99
 SHIFT_ID=$(printf '%s' "$SHIFT_RES" | grep -oE '"id":[0-9]+' | head -1 | cut -d: -f2)
 [ -n "$SHIFT_ID" ] || { red "建 shift 失败：$SHIFT_RES"; exit 99; }
 green "  ✓ shift_id=$SHIFT_ID"
+
+# Manual PACKING/REMAINDER seeds need their own persisted legacy shift. Sharing
+# the collection shift would change T6's original exact task-count assertion.
+PACK_SHIFT_RES=$(seed_post packaging/shifts "{\"shift_date\":\"$TODAY\",\"shift_type\":\"NIGHT\",\"house_code\":\"$HOUSE\",\"operator\":\"REGR\"}") || exit 99
+PACK_SHIFT_ID=$(printf '%s' "$PACK_SHIFT_RES" | grep -oE '"id":[0-9]+' | head -1 | cut -d: -f2)
+[ -n "$PACK_SHIFT_ID" ] && [ "$PACK_SHIFT_ID" != "$SHIFT_ID" ] || { red "建独立 legacy 包装来源班次失败：$PACK_SHIFT_RES"; exit 99; }
+VALID_SOURCE=$(seed_sql -tA -c "
+  SELECT COUNT(*) FROM pkg_shifts s
+    JOIN brd_houses h ON h.house_code=s.house_code
+    JOIN brd_farms f ON f.farm_code=h.farm_code
+   WHERE s.id IN ($SHIFT_ID,$PACK_SHIFT_ID) AND h.house_code='$HOUSE'
+     AND f.farm_code='$FARM' AND f.company_code='$COMPANY'
+     AND NOT EXISTS (SELECT 1 FROM md_egg_source_profiles p WHERE p.company_code=f.company_code);") || exit 99
+[ "$VALID_SOURCE" = 2 ] || { red "Seed 失败：legacy pkg_shifts/鸡舍/农场来源非唯一，或公司已有 profile"; exit 99; }
+green "  ✓ legacy 来源已持久化 (company=$COMPANY, farm=$FARM, house=$HOUSE)"
 
 # ──────────────────────────────────────────────────────────────────────────
 cyan ""
@@ -165,8 +221,8 @@ cyan "▶ T4: packComplete → inv_batches 用真实 schema (A1)"
 # 建一个 PACKING 任务（直接 INSERT 模拟 — V3 submitGrade 已不自动建）
 PACK_TASK="PACK-REGR-${DATEKEY}-$(date +%s | tail -c 5)"
 $PSQL $DB -q -c "
-  INSERT INTO pkg_tasks (task_no, batch_no, source_item, plan_qty, packed_qty, status, task_type, house_code, grade_results, start_time, created_at, updated_at)
-  VALUES ('$PACK_TASK', 'BAT-REGR-PACK', '回归测试', 1000, 0, 'IN_PROGRESS', 'PACKING', '$HOUSE', '{\"1\":600,\"2\":400}', NOW(), NOW(), NOW());
+  INSERT INTO pkg_tasks (task_no, batch_no, source_item, plan_qty, packed_qty, status, task_type, house_code, shift_id, grade_results, start_time, created_at, updated_at)
+  VALUES ('$PACK_TASK', 'BAT-REGR-PACK', '回归测试', 1000, 0, 'IN_PROGRESS', 'PACKING', '$HOUSE', $PACK_SHIFT_ID, '{\"1\":600,\"2\":400}', NOW(), NOW(), NOW());
 " >/dev/null
 
 P_RES=$(curl -s -X POST "$API/api/packaging/tasks/$PACK_TASK/pack-complete" -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
@@ -279,10 +335,10 @@ cyan "▶ T10: mergeRemainder jsonb '?' 精确匹配 (A5)"
 REM_A="REM-REGR-A-${DATEKEY}-$(date +%s | tail -c 5)"
 REM_AAA="REM-REGR-AAA-${DATEKEY}-$(date +%s | tail -c 4)"
 $PSQL $DB -q -c "
-  INSERT INTO pkg_tasks (task_no, task_type, status, grade_results, remainder_qty, house_code, created_at, updated_at)
+  INSERT INTO pkg_tasks (task_no, task_type, status, grade_results, remainder_qty, house_code, shift_id, created_at, updated_at)
   VALUES
-    ('$REM_A',   'REMAINDER', 'PENDING', '{\"A\":100}',   100, '$HOUSE', NOW(), NOW()),
-    ('$REM_AAA', 'REMAINDER', 'PENDING', '{\"AAA\":200}', 200, '$HOUSE', NOW(), NOW());
+    ('$REM_A',   'REMAINDER', 'PENDING', '{\"A\":100}',   100, '$HOUSE', $PACK_SHIFT_ID, NOW(), NOW()),
+    ('$REM_AAA', 'REMAINDER', 'PENDING', '{\"AAA\":200}', 200, '$HOUSE', $PACK_SHIFT_ID, NOW(), NOW());
 " >/dev/null
 
 MERGE_A=$(curl -s -X POST "$API/api/packaging/tasks/merge-remainder" -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d '{"grade":"A"}')
@@ -316,8 +372,8 @@ $PSQL $DB -q -c "
 # 建 PACKING 任务 — grade_results 含可售 "1"=600 + 不可售 "X"=200
 PACK_V2_TASK="PACK-REGR-V2-${DATEKEY}-$(date +%s | tail -c 5)"
 $PSQL $DB -q -c "
-  INSERT INTO pkg_tasks (task_no, batch_no, source_item, plan_qty, packed_qty, status, task_type, house_code, grade_results, start_time, created_at, updated_at)
-  VALUES ('$PACK_V2_TASK', 'BAT-REGR-V2-PACK', '回归V2测试', 800, 0, 'IN_PROGRESS', 'PACKING', '$HOUSE', '{\"1\":600,\"X\":200}', NOW(), NOW(), NOW());
+  INSERT INTO pkg_tasks (task_no, batch_no, source_item, plan_qty, packed_qty, status, task_type, house_code, shift_id, grade_results, start_time, created_at, updated_at)
+  VALUES ('$PACK_V2_TASK', 'BAT-REGR-V2-PACK', '回归V2测试', 800, 0, 'IN_PROGRESS', 'PACKING', '$HOUSE', $PACK_SHIFT_ID, '{\"1\":600,\"X\":200}', NOW(), NOW(), NOW());
 " >/dev/null
 
 P_V2_RES=$(curl -s -X POST "$API/api/packaging/tasks/$PACK_V2_TASK/pack-complete" -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
@@ -389,12 +445,17 @@ esac
 cyan ""
 cyan "▶ Cleanup"
 $PSQL $DB -q -c "DELETE FROM pkg_tasks WHERE house_code='$HOUSE' OR task_no LIKE 'REM-REGR-%' OR task_no LIKE 'PACK-REGR-%';" >/dev/null
-$PSQL $DB -q -c "DELETE FROM pkg_shifts WHERE id=$SHIFT_ID;" >/dev/null
+seed_sql -q -c "DELETE FROM pkg_shifts WHERE house_code='$HOUSE';" >/dev/null || exit 99
 $PSQL $DB -q -c "DELETE FROM inv_ledger WHERE batch_no LIKE 'EGG-%-${HOUSE}-%' OR batch_no LIKE 'BAT-%-${HOUSE}-%' OR batch_no LIKE 'PACK-%-${HOUSE}-%' OR ref_no LIKE 'SHIFT-${SHIFT_ID}-%' OR ref_no LIKE 'PACK-REGR-%';" >/dev/null
 $PSQL $DB -q -c "DELETE FROM inv_batches WHERE batch_no LIKE 'EGG-%-${HOUSE}-%' OR batch_no LIKE 'BAT-%-${HOUSE}-%' OR batch_no LIKE 'PACK-%-${HOUSE}-%' OR batch_no = 'BAT-REGR-PACK';" >/dev/null
 $PSQL $DB -q -c "DELETE FROM wms_inbound WHERE task_no LIKE 'WMS-IB-PACK-REGR-V2-%';" >/dev/null
 $PSQL $DB -q -c "DELETE FROM sys_dict WHERE dict_type='PKG_EGG_GRADE' AND dict_code='PKG_EGG_GRADE_X';" >/dev/null
 $PSQL $DB -q -c "DELETE FROM product_grades WHERE grade_code='X';" >/dev/null
+seed_sql -q -c "
+  DELETE FROM brd_daily_logs WHERE house_code='$HOUSE';
+  DELETE FROM brd_houses WHERE house_code='$HOUSE';
+  DELETE FROM brd_farms WHERE farm_code='$FARM';
+" >/dev/null || exit 99
 green "  ✓ test data 清理完毕"
 
 # ──────────────────────────────────────────────────────────────────────────

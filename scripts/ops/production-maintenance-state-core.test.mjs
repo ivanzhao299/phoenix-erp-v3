@@ -167,7 +167,16 @@ test('promotion refuses schema paths, real schema gaps, old pins and main drift 
   }
 });
 test('API-only typed promotion and deployment preserve standard marker ordering and immutable maintenance intent', async t => {
-  const f = fixture(t); await f.prepare();
+  const f = fixture(t);const reanchors=[];
+  const fixtureGuard=f.deps.guardProduction;
+  f.deps.guardProduction=(root,directory,actual,expired,options)=>{
+    if(options!==undefined)reanchors.push({root,directory,actual:structuredClone(actual),expired,options:structuredClone(options)});
+    return fixtureGuard(root,directory,actual,expired,options);
+  };
+  await f.prepare();
+  assert.deepEqual(reanchors,[{root:f.request.root,directory:f.directory,
+    actual:Object.fromEntries(['api','web'].map(service=>[service,{imageId:f.context.preSnapshot[service].imageId,revision:f.context.preSnapshot[service].revision}])),expired:undefined,
+    options:{allowFloorReanchor:true,reanchorTarget:f.context.targetSha,previousFloorSha:f.context.previousFloorSha}}]);
   assert.deepEqual(f.writes.slice(0, 6), [`floor-promotion-${f.context.owner}.json`, 'policy-transition.json', 'floor.json', 'active.json', `deploy-${f.context.owner}.json`, 'transaction.json']);
   const state = f.read(path.join(f.directory, `deploy-${f.context.owner}.json`));
   assert.equal(state.deployMode, 'api'); assert.equal(state.switched.api, true); assert.equal(state.switched.web, false); assert.deepEqual(state.migrationPaths, []);

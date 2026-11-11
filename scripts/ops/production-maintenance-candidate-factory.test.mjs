@@ -11,10 +11,13 @@ const participants=[{containerId:'c'.repeat(64),revision:context.targetSha,bootI
 const current={protocolVersion:1,phase:'FENCED',owner:context.owner,generation:2,targetSha:context.targetSha,participants};
 test('predicted completion digest equals the existing actual publisher projection',async()=>{
  let privateValue={protocolVersion:1,owner:context.owner,previousFloorSha:context.previousFloorSha,targetSha:context.targetSha,generation:2,phase:'FENCED',manifestDigest:digest(current)},publicValue=structuredClone(current),checked=false;
- const publisher=new BackgroundManifestPublisher({}, {guard:()=>{},inspect:()=>{},readPrivate:()=>privateValue,writePrivate:v=>{privateValue=v;},readPublic:()=>publicValue,writePublic:v=>{publicValue=v;}});
+ let highWater=2;const highWaterWrites=[];
+ const publisher=new BackgroundManifestPublisher({}, {guard:()=>{},inspect:()=>{},readPrivate:()=>privateValue,writePrivate:v=>{privateValue=v;},readPublic:()=>publicValue,writePublic:v=>{publicValue=v;},
+  readHighWater:()=>highWater,writeHighWater:generation=>{assert.ok(generation>=highWater,'generation high-water cannot regress');highWater=generation;highWaterWrites.push(generation);}});
  const predicted=nextMaintenanceOpenManifest(current,context,participants);
  const opened=await publisher.open(context,participants,async value=>{assert.deepEqual(value.participants,participants);checked=true;return true;});
  assert.equal(checked,true);assert.deepEqual(opened,predicted);assert.equal(privateValue.manifestDigest,digest(predicted));assert.notEqual(digest(predicted),canonicalDigest(predicted));
+ assert.equal(highWater,3);assert.deepEqual(highWaterWrites,[3]);assert.throws(()=>publisher.writeHighWater(2),/cannot regress/);assert.equal(highWater,3);
 });
 test('completion cannot be predicted from wrong owner, target, phase or generation',()=>{
  for(const change of [{owner:'54321-1'},{targetSha:'d'.repeat(40)},{phase:'OPEN'},{generation:1},{generation:3}])assert.throws(()=>nextMaintenanceOpenManifest({...current,...change},context,participants),/OWNED_ADOPTED_FENCE/);

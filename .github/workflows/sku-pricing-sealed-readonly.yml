@@ -1,0 +1,138 @@
+name: SKU Pricing Sealed Readonly
+
+# Preparation only: no pricing decisions, SKU activation, migrations or runtime changes.
+on:
+  workflow_dispatch:
+    inputs:
+      expected_main_sha:
+        description: Exact reviewed merged main SHA (workflow and audit source)
+        required: true
+        type: string
+      public_key_b64:
+        description: Base64 PEM RSA public key, at least 3072 bits (private key stays local)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sku-pricing-sealed-readonly
+  cancel-in-progress: false
+
+jobs:
+  sealed-audit:
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Validate exact reviewed main and recipient key
+        env:
+          TARGET_SHA: ${{ inputs.expected_main_sha }}
+          SEALED_AUDIT_PUBLIC_KEY_B64: ${{ inputs.public_key_b64 }}
+        run: |
+          set -euo pipefail
+          [[ "$TARGET_SHA" =~ ^[a-f0-9]{40}$ ]]
+          [[ "$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" =~ ^[0-9]+-[0-9]+$ ]]
+          [[ "$SEALED_AUDIT_PUBLIC_KEY_B64" =~ ^[A-Za-z0-9+/]+={0,2}$ ]]
+          test "$GITHUB_REPOSITORY" = ivanzhao299/phoenix-erp-v3
+          test "$GITHUB_REF" = refs/heads/main
+          test "$TARGET_SHA" = "$GITHUB_SHA"
+          test "$(git rev-parse HEAD)" = "$TARGET_SHA"
+          test "$(git ls-remote --exit-code origin refs/heads/main | cut -f1)" = "$TARGET_SHA"
+          node --input-type=module <<'NODE'
+          import { validatePublicKey } from './scripts/ops/sku-pricing-sealed-audit.mjs';
+          try { validatePublicKey(Buffer.from(process.env.SEALED_AUDIT_PUBLIC_KEY_B64, 'base64').toString('utf8')); }
+          catch { process.stderr.write('ERR_PUBLIC_KEY\n'); process.exitCode = 1; }
+          NODE
+      - name: Stream encrypted-only evidence through native OpenSSH
+        env:
+          TARGET_SHA: ${{ inputs.expected_main_sha }}
+          SEALED_AUDIT_PUBLIC_KEY_B64: ${{ inputs.public_key_b64 }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -Eeuo pipefail
+          umask 077
+          trap 'printf "%s\n" ERR_SEALED_TRANSPORT >&2' ERR
+          [[ "$TARGET_SHA" =~ ^[a-f0-9]{40}$ ]]
+          [[ "$SEALED_AUDIT_PUBLIC_KEY_B64" =~ ^[A-Za-z0-9+/]+={0,2}$ ]]
+          [[ "$DEPLOY_USER" =~ ^[a-z_][a-z0-9_-]*$ ]]
+          [[ "$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" =~ ^[0-9]+-[0-9]+$ ]]
+          eval "$(ssh-agent -s)" >/dev/null
+          trap 'ssh-agent -k >/dev/null 2>&1 || true' EXIT
+          printf '%s\n' "$DEPLOY_SSH_KEY" | ssh-add - >/dev/null 2>&1
+          unset DEPLOY_SSH_KEY
+          work="$(mktemp -d "$RUNNER_TEMP/sku-sealed.XXXXXX")"
+          ssh-keyscan -T 10 -t ed25519,rsa,ecdsa -p 22 47.236.122.224 >"$work/scanned" 2>/dev/null
+          # Keep only keys matching the fixed independent production fingerprint.
+          while IFS= read -r hostkey; do
+            printf '%s\n' "$hostkey" >"$work/one-key"
+            fingerprint="$(ssh-keygen -lf "$work/one-key" -E sha256 2>/dev/null | awk '{print $2}')"
+            if test "$fingerprint" = SHA256:Y4WEXMJ24a4r1KxOw0det4qcCFNxj65mZeIG9oQOJcI; then
+              printf '%s\n' "$hostkey" >>"$work/known_hosts"
+            fi
+          done <"$work/scanned"
+          test -s "$work/known_hosts"
+          {
+            printf 'export TARGET_SHA=%q\n' "$TARGET_SHA"
+            printf 'export AUDIT_RUN_ID=%q\n' "$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+            printf 'export SEALED_AUDIT_PUBLIC_KEY_B64=%q\n' "$SEALED_AUDIT_PUBLIC_KEY_B64"
+            printf 'export PRODUCTION_CONTRACT_B64=%q\n' "$(base64 -w0 scripts/ops/production-config-contract.json)"
+            printf 'export PRODUCTION_PATH_HELPER_B64=%q\n' "$(base64 -w0 scripts/ops/production-trusted-paths.mjs)"
+            printf 'export PRODUCTION_CONTROL_BOOTSTRAP_B64=%q\n' "$(base64 -w0 scripts/ops/production-control-bootstrap.sh)"
+            cat <<'REMOTE'
+          set -Eeuo pipefail
+          umask 077
+          trap 'printf "%s\n" ERR_REMOTE_STAGE >&2' ERR
+          {
+            cd /data/phoenix-erp
+            export DEPLOY_REPO_ROOT="$(pwd -P)"
+            eval "$(printf '%s' "$PRODUCTION_CONTROL_BOOTSTRAP_B64" | base64 -d)"
+            export STATE_DIR
+            git_safe() { command git -c "safe.directory=$DEPLOY_REPO_ROOT" -c core.hooksPath=/dev/null -c core.fsmonitor=false "$@"; }
+            [[ "$TARGET_SHA" =~ ^[a-f0-9]{40}$ ]]
+            [[ "$AUDIT_RUN_ID" =~ ^[0-9]+-[0-9]+$ ]]
+            [[ "$SEALED_AUDIT_PUBLIC_KEY_B64" =~ ^[A-Za-z0-9+/]+={0,2}$ ]]
+            test "$(git_safe branch --show-current)" = main
+            test -z "$(git_safe status --porcelain --untracked-files=all)"
+            git_safe fetch --no-tags origin main
+            test "$(git_safe rev-parse FETCH_HEAD)" = "$TARGET_SHA"
+            STAGE="$STATE_DIR/sku-sealed-$AUDIT_RUN_ID"
+            test ! -e "$STAGE"
+            mkdir -m 700 "$STAGE"
+            # Read old API/floor is allowed. Never checkout, copy into containers or promote.
+            for helper in sku-pricing-sealed-audit.mjs production-config-guard.mjs production-config-contract.json production-trusted-paths.mjs capture-production-runtime.mjs update-managed-chanjet-env.mjs chanjet-readonly-policy.mjs; do
+              git_safe show "$TARGET_SHA:scripts/ops/$helper" >"$STAGE/$helper"
+              chmod 600 "$STAGE/$helper"
+            done
+          } >/dev/null 2>/dev/null
+          # Node catches all host/pg errors and emits fixed codes; stdout is sealed JSON only.
+          node "$STAGE/sku-pricing-sealed-audit.mjs" --host
+          REMOTE
+          } >"$work/remote-input"
+          # Never use SSH action capture, logs, GITHUB_OUTPUT or GITHUB_ENV for evidence.
+          ssh -p 22 -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$work/known_hosts" \
+            -o LogLevel=QUIET -o ConnectTimeout=15 "$DEPLOY_USER@47.236.122.224" 'bash -s' \
+            <"$work/remote-input" >sealed.json 2>"$work/ssh-status"
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          import { VERSION, publicKeyFingerprint } from './scripts/ops/sku-pricing-sealed-audit.mjs';
+          try {
+            const s=JSON.parse(fs.readFileSync('sealed.json','utf8'));
+            if(s.version!==VERSION || s.public_key_fingerprint!==publicKeyFingerprint(Buffer.from(process.env.SEALED_AUDIT_PUBLIC_KEY_B64,'base64').toString('utf8'))) throw Error();
+            if(Object.keys(s).sort().join(',') !== ['version','public_key_fingerprint','nonce','tag','wrapped_key','ciphertext'].sort().join(',')) throw Error();
+            for(const k of ['nonce','tag','wrapped_key','ciphertext']) if(!/^[A-Za-z0-9+/]+={0,2}$/.test(s[k]||'')) throw Error();
+          } catch { process.stderr.write('ERR_SEALED_OUTPUT\n'); process.exitCode=1; }
+          NODE
+      - name: Upload sealed evidence only
+        uses: actions/upload-artifact@v4
+        with:
+          name: sku-pricing-sealed-${{ github.run_id }}-${{ github.run_attempt }}
+          path: sealed.json
+          if-no-files-found: error
+          retention-days: 3

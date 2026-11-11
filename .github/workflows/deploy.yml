@@ -64,6 +64,14 @@ on:
         description: "旧 API 首切的精确源审查材料 JSON；生产仍须独立的受保护负责人指令及停机窗口"
         type: string
         default: ''
+      sku_source_effective_date:
+        description: "可选：用户确认的来源适用日2026-11-10（须与inspect plan SHA成对，不是执行日）"
+        type: string
+        default: ''
+      sku_source_plan_sha256:
+        description: "可选：精确目标 main 的只读 SKU inspect 回执 plan_sha256"
+        type: string
+        default: ''
       approve_production:
         description: "批准部署到生产环境（必选）"
         type: boolean
@@ -186,6 +194,9 @@ jobs:
           API_OR_DB:   ${{ steps.changes.outputs.api_or_db }}
           MIGRATION_CHANGED: ${{ github.event_name == 'workflow_dispatch' && 'true' || steps.changes.outputs.migration || 'false' }}
           APPROVED_CONFIG_FLOOR_SHA: ${{ inputs.approved_config_floor_sha || '' }}
+          SKU_SOURCE_EFFECTIVE_DATE: ${{ inputs.sku_source_effective_date }}
+          SKU_SOURCE_PLAN_SHA256: ${{ inputs.sku_source_plan_sha256 }}
+          APPROVE_PRODUCTION: ${{ inputs.approve_production }}
           INFRA:       ${{ steps.changes.outputs.infra }}
           OPS_ONLY:    ${{ steps.scope.outputs.ops_only }}
         run: |
@@ -235,6 +246,9 @@ jobs:
             echo "::error::approved_config_floor_sha 只允许 api 模式"
             exit 23
           fi
+
+          DEPLOY_MODE="$MODE" BUILD_API="$([[ "$MODE" = api || "$MODE" = full ]] && echo true || echo false)" \
+            node --input-type=module -e 'import {validateActivationInputs,optionsFromEnv} from "./scripts/ops/sku-source-activation-transport.mjs"; validateActivationInputs(optionsFromEnv(process.env));' || exit 25
 
           # 输出衍生开关
           case "$MODE" in
@@ -784,6 +798,9 @@ jobs:
           MAINTENANCE_RELEASE_INPUT: ${{ inputs.maintenance_release_input }}
           MAINTENANCE_RELEASE_ARTIFACT_ID: ${{ steps.legacy_artifact.outputs.artifact-id }}
           MAINTENANCE_RELEASE_ARTIFACT_DIGEST: ${{ steps.legacy_artifact.outputs.artifact-digest }}
+          SKU_SOURCE_EFFECTIVE_DATE: ${{ inputs.sku_source_effective_date }}
+          SKU_SOURCE_PLAN_SHA256: ${{ inputs.sku_source_plan_sha256 }}
+          APPROVE_PRODUCTION: ${{ inputs.approve_production }}
           GHCR_LOGIN_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GHCR_LOGIN_USER: ${{ github.repository_owner }}
           CHANJET_APP_KEY: ${{ secrets.CHANJET_APP_KEY }}
@@ -798,7 +815,7 @@ jobs:
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           port: 22
           command_timeout: 35m
-          envs: APPROVED_CONFIG_FLOOR_SHA,APPROVED_PREVIOUS_FLOOR_SHA,MAINTENANCE_RELEASE_INPUT,MAINTENANCE_RELEASE_ARTIFACT_ID,MAINTENANCE_RELEASE_ARTIFACT_DIGEST,DEPLOY_MODE,BUILD_WEB,BUILD_API,RUN_MIG,NGINX_CONF,DEPLOY_RUN_ID,DEPLOY_RUN_ATTEMPT,TARGET_SHA,PRESERVE_ARTIFACTS,ROTATE_CHANJET_CREDENTIALS,ONE_TIME_CONFIG_FLOOR_TRANSITION,GHCR_LOGIN_TOKEN,GHCR_LOGIN_USER,CHANJET_APP_KEY,CHANJET_APP_SECRET,CHANJET_ORG_ID,CHANJET_CERT,CHANJET_MSG_SECRET,PRODUCTION_CONTRACT_B64,PRODUCTION_PATH_HELPER_B64,PRODUCTION_CONTROL_BOOTSTRAP_B64
+          envs: APPROVED_CONFIG_FLOOR_SHA,APPROVED_PREVIOUS_FLOOR_SHA,SKU_SOURCE_EFFECTIVE_DATE,SKU_SOURCE_PLAN_SHA256,APPROVE_PRODUCTION,MAINTENANCE_RELEASE_INPUT,MAINTENANCE_RELEASE_ARTIFACT_ID,MAINTENANCE_RELEASE_ARTIFACT_DIGEST,DEPLOY_MODE,BUILD_WEB,BUILD_API,RUN_MIG,NGINX_CONF,DEPLOY_RUN_ID,DEPLOY_RUN_ATTEMPT,TARGET_SHA,PRESERVE_ARTIFACTS,ROTATE_CHANJET_CREDENTIALS,ONE_TIME_CONFIG_FLOOR_TRANSITION,GHCR_LOGIN_TOKEN,GHCR_LOGIN_USER,CHANJET_APP_KEY,CHANJET_APP_SECRET,CHANJET_ORG_ID,CHANJET_CERT,CHANJET_MSG_SECRET,PRODUCTION_CONTRACT_B64,PRODUCTION_PATH_HELPER_B64,PRODUCTION_CONTROL_BOOTSTRAP_B64
           script: |
             set -Eeuo pipefail
             umask 077
@@ -811,10 +828,7 @@ jobs:
               command git -c "safe.directory=$DEPLOY_REPO_ROOT" "$@"
             }
 
-            echo "════════════════════════════════════════════════"
-            echo "  Deploy mode: $DEPLOY_MODE"
-            echo "  build_web=$BUILD_WEB  build_api=$BUILD_API  run_mig=$RUN_MIG"
-            echo "════════════════════════════════════════════════"
+            echo "Deploy mode=$DEPLOY_MODE build_web=$BUILD_WEB build_api=$BUILD_API run_mig=$RUN_MIG"
 
             if [ -n "${APPROVED_CONFIG_FLOOR_SHA:-}" ]; then
               test "$DEPLOY_MODE" = api || { echo "DEPLOY_EVIDENCE_HOLD=FLOOR_SCOPE"; exit 23; }
@@ -823,6 +837,13 @@ jobs:
               test "$RUN_MIG" = false || { echo "DEPLOY_EVIDENCE_HOLD=MIGRATION_FLAG"; exit 24; }
             fi
 
+            if [ -n "${SKU_SOURCE_EFFECTIVE_DATE:-}${SKU_SOURCE_PLAN_SHA256:-}" ]; then
+              test -n "$SKU_SOURCE_EFFECTIVE_DATE" && test -n "$SKU_SOURCE_PLAN_SHA256"
+              test "$APPROVE_PRODUCTION" = true && test "$BUILD_API" = true
+              test "$DEPLOY_MODE" = api -o "$DEPLOY_MODE" = full
+              test -z "${MAINTENANCE_RELEASE_INPUT:-}"
+              if [ "$DEPLOY_MODE" = api ]; then test "$RUN_MIG" = false; fi
+            fi
             if [ "$BUILD_API" = "true" ]; then export PRESERVE_ARTIFACTS=true; fi
             API_SWITCH_STARTED=false
             WEB_SWITCH_STARTED=false
@@ -845,7 +866,7 @@ jobs:
                 exit "$rc"
               fi
               if [ "$CODE_SYNCED" = true ] && [ -f "$STATE_DIR/deploy-${DEPLOY_RUN_ID}.json" ]; then
-                # API below floor is ineligible; no legacy fence exception.
+                # No below-floor rollback.
                 PLAN="$(node scripts/ops/production-deployment-state.mjs rollback-plan)"
                 if [ $? -ne 0 ]; then
                   echo "ROLLBACK=HOLD_OPERATOR_CONTROLLED_RECOVERY_REQUIRED"
@@ -859,7 +880,7 @@ jobs:
                 done
                 node scripts/ops/production-deployment-state.mjs rolled-back || exit "$rc"
               fi
-              # Never automatically restore pre-floor Git, .env, DB, volumes or proxy config.
+              # No pre-floor restore.
               exit "$rc"
             }
             docker() {
@@ -885,9 +906,7 @@ jobs:
             git fetch origin main
             test "$(git rev-parse origin/main)" = "$TARGET_SHA"
             git merge-base --is-ancestor "$PREV_GIT_SHA" "$TARGET_SHA"
-            # A real legacy 404 uses the fixed STOP_AND_RECONCILE factory.
-            # This route owns the whole release and must never fall through to
-            # the modern DRAIN endpoint or execute perform_deployment again.
+            # Legacy first-switch owns the release; never falls through.
             if [ -n "${MAINTENANCE_RELEASE_INPUT:-}" ]; then
               LEGACY_STAGE="$STATE_DIR/legacy-stage-${DEPLOY_RUN_ID}"
               test ! -e "$LEGACY_STAGE"
@@ -1005,12 +1024,21 @@ jobs:
               export API_IMAGE="ghcr.io/${{ github.repository_owner }}/phoenix-erp-v3/api:sha-${TARGET_SHA}"
               docker compose pull api
               node scripts/ops/production-deployment-state.mjs candidate api "$API_IMAGE"
-              # Inventory must come from the candidate image that will execute
-              # TypeORM, never from the currently running API container.
+              # Inventory comes from the candidate, not the running API.
               CANDIDATE_LEDGER_INVENTORY="$(mktemp)"
               trap 'rm -f "$CANDIDATE_LEDGER_INVENTORY"' EXIT
               CANDIDATE_TYPEORM_JSON="$(bash scripts/ci/candidate-typeorm-inventory.sh "$API_IMAGE")"
               node -e 'const fs=require("fs"); const canonicalLegacy=fs.readdirSync("apps/api/migrations").filter(n=>/^2026.*\\.sql$/.test(n)).sort(); const retiredTypeorm=JSON.parse(fs.readFileSync("scripts/ci/retired-typeorm-migrations.json","utf8")); fs.writeFileSync(process.argv[1], JSON.stringify({canonicalTypeorm:JSON.parse(process.argv[2]),canonicalLegacy,retiredTypeorm}));' "$CANDIDATE_LEDGER_INVENTORY" "$CANDIDATE_TYPEORM_JSON"
+            fi
+            if [ -n "${SKU_SOURCE_EFFECTIVE_DATE:-}" ]; then
+              test "${BACKGROUND_DEPLOYMENT_SUPERVISED:-false}" = true
+              SKU_STAGE="$STATE_DIR/run-${DEPLOY_RUN_ID}/sku-activation"
+              mkdir -m 700 "$SKU_STAGE"
+              for helper in sku-source-activation-transport.mjs production-config-guard.mjs production-config-contract.json production-trusted-paths.mjs capture-production-runtime.mjs update-managed-chanjet-env.mjs chanjet-readonly-policy.mjs; do
+                git show "$TARGET_SHA:scripts/ops/$helper" > "$SKU_STAGE/$helper"
+                chmod 600 "$SKU_STAGE/$helper"
+              done
+              SKU_ACTIVATION_MODE=preflight node "$SKU_STAGE/sku-source-activation-transport.mjs"
             fi
             if [ "$BUILD_WEB" = "true" ]; then
               export WEB_IMAGE="ghcr.io/${{ github.repository_owner }}/phoenix-erp-v3/web:sha-${TARGET_SHA}"
@@ -1022,9 +1050,7 @@ jobs:
             echo "✅ DB healthy"
 
             if [ "$RUN_MIG" = "true" ]; then
-              # PostgreSQL must have room for both the custom dump and migration
-              # index/WAL writes. Fail before creating another backup when the
-              # root filesystem has less than 2 GiB available.
+              # Require >=2 GiB before backup and migration.
               AVAILABLE_KB="$(df -Pk / | awk 'NR == 2 { print $4 }')"
               if [ "${AVAILABLE_KB:-0}" -lt 2097152 ]; then
                 echo "::error::Insufficient production disk space before migration: ${AVAILABLE_KB:-0} KiB available (minimum 2097152 KiB)"
@@ -1047,16 +1073,14 @@ jobs:
               chmod 600 "${BACKUP_FILE}.sha256"
               echo "✅ 迁移前备份可读: ${TOC_ENTRIES} objects"
 
-              # Read-only ledger reconciliation. This must block before any
-              # migration SQL if legacy and TypeORM history are inconsistent.
+              # Read-only ledger reconciliation blocks inconsistent history.
               echo "── 迁移前只读 ledger preflight ──"
               test -s "${CANDIDATE_LEDGER_INVENTORY:-}"
               MIG_MODE=prod MIG_DIR=apps/api node scripts/ledger-preflight.mjs --mode pre-migration --inventory "$CANDIDATE_LEDGER_INVENTORY" | tee "${BACKUP_DIR}/ledger-preflight.json"
               node scripts/ci/phase1-generic-deploy-guard.mjs "${BACKUP_DIR}/ledger-preflight.json" scripts/ci/phase1-production-migration-manifest.json
               echo "✅ migration ledger preflight passed"
 
-              # Keep exactly the newest three verified deploy backups. The
-              # individual retained dumps remain untouched and recoverable.
+              # Keep the newest three verified backups intact.
               mapfile -t OBSOLETE_BACKUPS < <(
                 find /opt/phoenix-erp-backups -mindepth 1 -maxdepth 1 -type d \
                   -name 'deploy-pre-migration-*' -printf '%T@ %p\n' \
@@ -1108,9 +1132,7 @@ jobs:
             fi
 
             if [ "$BUILD_API" = "true" ]; then
-              # Resolve the pulled candidate. Run schema-first only when this
-              # change set actually contains migration-affecting paths; a
-              # code-only API deploy must keep PRODUCTION_MIGRATION_REQUIRED=NO.
+              # Schema-first only for migration-affecting paths.
               if [ "$RUN_MIG" = "true" ]; then
                 CANDIDATE_API_IMAGE=$(trap - ERR; bash scripts/deploy-schema-first.sh /opt/phoenix/backups/migration-evidence "$API_IMAGE")
               else
@@ -1121,6 +1143,11 @@ jobs:
               node scripts/ops/production-deployment-state.mjs switch api
               API_SWITCH_STARTED=true
               API_IMAGE="$CANDIDATE_API_IMAGE" docker compose up -d --no-deps --wait api
+              if [ -n "${SKU_SOURCE_EFFECTIVE_DATE:-}" ]; then
+                test "$API_SWITCH_STARTED" = true
+                assert_target_main
+                SKU_ACTIVATION_MODE=apply node "$SKU_STAGE/sku-source-activation-transport.mjs"
+              fi
             fi
 
             if [ "$BUILD_WEB" = "true" ]; then
@@ -1165,14 +1192,10 @@ jobs:
             if { [ "$DEPLOY_MODE" = "api" ] && [ "$BUILD_API" = true ] && [ "$BUILD_WEB" = false ] && [ "$RUN_MIG" = false ]; } || \
                { [ "$DEPLOY_MODE" = "full" ] && [ "$BUILD_API" = true ] && [ "$BUILD_WEB" = true ]; }; then
               if [ "$DEPLOY_MODE" = "api" ]; then
-                # API-only/no-migration releases retain the historical explicit
-                # gate; full keeps the receipt-bound RUN_MIG value above.
+                # Full retains receipt-bound RUN_MIG.
                 RUN_MIG=false
               fi
-              # Stage the exact reviewed target before the fenced API-only or
-              # full release. The supervisor retains a real PostgreSQL lock
-              # session and FD9 across the whole body; migration receipts remain
-              # required by deployment-state begin before this body.
+              # Exact target; supervisor retains DB fence + FD9; begin still requires migration receipts.
               BACKGROUND_STAGE="$STATE_DIR/background-stage-${DEPLOY_RUN_ID}"
               test ! -e "$BACKGROUND_STAGE"
               mkdir -m 700 "$BACKGROUND_STAGE"

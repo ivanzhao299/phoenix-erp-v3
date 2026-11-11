@@ -70,7 +70,7 @@ async function promoteFloorCore(root, env, dependencies, admit, legacy) {
     // during ordinary deploys. During the explicitly bound v3→v3' transition,
     // validate every other production invariant with the reviewed candidate
     // guard and waive only that one mismatch until the new floor is written.
-    guardProduction(root, directory, actual, undefined, {
+    (dependencies.guardProduction || guardProduction)(root, directory, actual, undefined, {
       allowFloorReanchor: true,
       reanchorTarget: target,
       previousFloorSha: previousFloor.floorSha,

@@ -31,34 +31,43 @@ async function joinChildren(children) {
     timer=setTimeout(()=>reject(Error('NATIVE_FIXTURE_HOLD=CHILD_STDIO_CLOSE_UNVERIFIED')),10000);
   })]);}finally{clearTimeout(timer);}assert.ok(children.every(c=>c.closed));
 }
+export function nativeFd9Denial(mode,error) {
+  if(mode==='missing')return error?.code==='EBADF'&&error?.syscall==='fstat';
+  if(mode==='wrong')return /^CONFIG_HOLD=HOST_LOCK_REQUIRED:\d+:\d+:\d+:\d+$/.test(error?.message||'');
+  if(mode==='same-inode-unlocked')return error?.message==='CONFIG_HOLD=WORKFLOW_FD9_NOT_LOCK_OWNER';
+  return false;
+}
+export const nativeFd9Stdio=()=>['ignore','pipe','pipe',...Array(6).fill('ignore'),9];
 function nativeFd9Counterexamples() {
   check();
-  const probe=`import {CONTRACT,verifyContext} from './scripts/ops/production-config-guard.mjs';
+  const probe=`import fs from 'node:fs';
+    import {CONTRACT,verifyContext} from './scripts/ops/production-config-guard.mjs';
+    import {nativeFd9Denial} from './scripts/ci/maintenance-native-candidate-host.fixture.mjs';
+    // Close the inherited fd only after Node has initialized: otherwise Node may
+    // reuse descriptor9 for an eventfd, obscuring the intended missing-fd case.
+    if(process.argv[1]==='missing')fs.closeSync(9);
     try{verifyContext(CONTRACT.repository,CONTRACT.stateDirectory);process.exitCode=3;}
-    catch(e){const missing=e.code==='ENOENT'&&e.path==='/proc/'+process.ppid+'/fd/9';
-      const wrong=e.message==='CONFIG_HOLD=HOST_LOCK_REQUIRED';
-      if((process.argv[1]==='missing'&&missing)||(process.argv[1]==='wrong'&&wrong)){process.stdout.write('EXPECTED_NATIVE_GUARD_DENIAL');process.exitCode=42;}else process.exitCode=4;}`;
+    catch(e){if(nativeFd9Denial(process.argv[1],e)){process.stdout.write('EXPECTED_NATIVE_GUARD_DENIAL');process.exitCode=42;}else process.exitCode=4;}`;
   const other=path.join(CONTRACT.stateDirectory,'native-fixture-negative.lock');fs.writeFileSync(other,'',{mode:0o600,flag:'wx'});
-  for(const mode of ['missing','wrong']) {
+  for(const mode of ['missing','wrong','same-inode-unlocked']) {
     let failure;
-    try{run('/bin/bash',['-c',mode==='missing'
-      ? 'exec 9>&-; "$1" --input-type=module -e "$2" missing; result=$?; exit "$result"'
-      : 'exec 9<>"$3"; flock -n 9 || exit 6; "$1" --input-type=module -e "$2" wrong; result=$?; exit "$result"',
-      'owned-fd9-negative',process.execPath,probe,other],{cwd:CONTRACT.repository});}catch(error){failure=error;}
-    assert.equal(failure?.status,42);assert.equal(String(failure.stdout).trim(),'EXPECTED_NATIVE_GUARD_DENIAL');check();
+    const preparation=mode==='wrong'?'exec 9<>"$3"; flock -n 9 || exit 6; ':mode==='same-inode-unlocked'?'exec 9<>"$3"; ':'';
+    try{run('/bin/bash',['-c',preparation+'"$1" --input-type=module -e "$2" "$4"; result=$?; exit "$result"',
+      'owned-fd9-negative',process.execPath,probe,mode==='same-inode-unlocked'?path.join(CONTRACT.stateDirectory,'mutation.lock'):other,mode],
+      {cwd:CONTRACT.repository,stdio:nativeFd9Stdio()});}catch(error){failure=error;}
+    assert.equal(failure?.status,42,`NATIVE_FD9_COUNTEREXAMPLE_${mode}`);assert.equal(String(failure.stdout).trim(),'EXPECTED_NATIVE_GUARD_DENIAL');check();
   }
-  // An ordinary worker retains the immediate-parent FD9 contract. The fixed
-  // factory additionally passes that same descriptor to its worker's own fd9.
+  // A real child must receive the same open description explicitly on its own9.
   const controllerProbe=`import {CONTRACT,verifyContext} from './scripts/ops/production-config-guard.mjs';
     verifyContext(CONTRACT.repository,CONTRACT.stateDirectory);
     process.stdout.write('ORIGINAL_WORKFLOW_FD9_VERIFIED');`;
-  assert.equal(run(process.execPath,['--input-type=module','-e',controllerProbe],{cwd:CONTRACT.repository}),'ORIGINAL_WORKFLOW_FD9_VERIFIED');
-  // An additional unregistered ancestor cannot choose a more distant lock PID.
+  assert.equal(run(process.execPath,['--input-type=module','-e',controllerProbe],{cwd:CONTRACT.repository,stdio:nativeFd9Stdio()}),'ORIGINAL_WORKFLOW_FD9_VERIFIED');
+  // Merely having a correctly locked ancestor never supplies the child's fd9.
   const extraDepth=`import {spawnSync} from 'node:child_process';
     const result=spawnSync(process.execPath,['--input-type=module','-e',${JSON.stringify(controllerProbe)}],{cwd:process.cwd(),encoding:'utf8'});
     process.exit(result.status===0?42:0);`;
-  run(process.execPath,['--input-type=module','-e',extraDepth],{cwd:CONTRACT.repository});
-  return ['NATIVE_PARENT_FD9_MISSING_REJECTED','NATIVE_PARENT_FD9_WRONG_INODE_REJECTED','ACTUAL_CONTROLLER_ORIGINAL_WORKFLOW_FD9_VERIFIED','EXTRA_UNREGISTERED_ANCESTOR_REJECTED'];
+  run(process.execPath,['--input-type=module','-e',extraDepth],{cwd:CONTRACT.repository,stdio:nativeFd9Stdio()});
+  return ['NATIVE_OWN_FD9_MISSING_REJECTED','NATIVE_OWN_FD9_WRONG_INODE_REJECTED','NATIVE_SAME_INODE_UNLOCKED_DESCRIPTION_REJECTED','ACTUAL_CONTROLLER_ORIGINAL_WORKFLOW_FD9_VERIFIED','ANCESTOR_WITHOUT_EXPLICIT_FD9_INHERITANCE_REJECTED'];
 }
 
 export function requireNativeHostRequest(e=process.env) {
@@ -168,6 +177,7 @@ async function exerciseNative() {
     actualIo:['DEFAULT_ROOT_TRUSTED_PATHS_FD9','DEFAULT_STORAGE_FINDMNT','DEFAULT_PUBLIC_PRIVATE_FILE_READERS','DOCKER_RUNTIME_OCI_MOUNTS','ACTUAL_SOURCE_BUILT_API','ACTUAL_PG_CATALOG_ORIGINAL_ROOT'],
     fullCandidateLease:'NOT_RUN',continuousIngressProof:false,fiveDomainReconciliation:'NOT_RUN',formalDeploymentCompletion:'NOT_RUN',actualWebHttp:'NOT_RUN',resources:'OWNED_VM_RETAINED'};
   try {
+    result.stage='ACTUAL_OWN_FD9_COUNTEREXAMPLES';
     counterexamples.push(...nativeFd9Counterexamples());
     result.stage='BUILD_ACTUAL_SOURCE_IMAGE';result.imageBuild={attempted:true,tag:`phoenix-${owner}:candidate`,state:'BUILD_OUTCOME_UNVERIFIED'};
     // Only runtime build output needs ordinary read/traverse permissions. Host
@@ -307,6 +317,10 @@ async function exerciseNative() {
     releaseSaved=true;
   } catch(error) {
     firstFailure=error;result.failureObservedAt=new Date().toISOString();
+    result.failureStage=result.stage||'NATIVE_PREFLIGHT';
+    result.failureType=['AssertionError','Error','TypeError'].includes(error?.name)?error.name:'UNVERIFIED';
+    result.failureCode=['ERR_ASSERTION','EBADF','ENOENT','EACCES','EPERM'].includes(error?.code)?error.code:null;
+    result.counterexampleMode=/^NATIVE_FD9_COUNTEREXAMPLE_(missing|wrong|same-inode-unlocked)(?=\n|$)/.exec(error?.message||'')?.[1]||null;
     const diagnostic=candidateBindingDiagnosticCode(error);if(diagnostic)result.fixedDiagnosticCode=diagnostic;
     result.outcome='FAIL';result.failureClass=/^[A-Z_]+=([A-Z0-9_]+)$/.exec(error?.message||'')?.[0]||'NATIVE_FIXTURE_UNVERIFIED_FAILURE';
   } finally {

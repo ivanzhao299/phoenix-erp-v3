@@ -5,6 +5,8 @@ import { MasterDataAuditService, MdAction } from '../../master-data/master-data-
 import { SkuPolicy, SKU_IDENTITY_FIELDS } from './sku-policy';
 
 const WRITABLE = ['sku_name', 'sku_name_en', 'sku_name_lo', ...SKU_IDENTITY_FIELDS, 'barcode', 'effective_date', 'expire_date', 'remark'];
+// Parent-derived classification is never a client-writable identity dimension.
+const INTERNAL_DERIVED = ['variety_code', 'org_context_required'];
 type Row = Record<string, any>;
 
 /** One domain writer; both HTTP adapters use this through Runtime. No Nest module dependency. */
@@ -65,11 +67,35 @@ export class SkuWriter {
       const { records, problems } = await this.checkReferences(manager, row, true);
       if (problems.length) throw new BadRequestException(`引用不存在或未启用：${problems.join('、')}`);
       const product = records.product_code;
+      const variety = product.variety_code;
+      // Explicit SQL NULL means STANDARD. Missing metadata must fail closed, not become STANDARD.
+      if (variety !== null && (typeof variety !== 'string' || !variety.trim() || variety !== variety.trim())) {
+        throw new BadRequestException('父产品缺少有效 variety_code 元数据（STANDARD 必须明确 NULL）');
+      }
+      if (variety !== null) {
+        const [active] = await manager.query(
+          `SELECT variety_code FROM md_product_varieties WHERE variety_code=$1 AND status='ACTIVE'
+            AND (effective_date IS NULL OR effective_date<=CURRENT_DATE)
+            AND (expire_date IS NULL OR expire_date>=CURRENT_DATE) FOR SHARE`, [variety],
+        );
+        if (!active) throw new BadRequestException(`父产品品种 ${variety} 不存在、未启用或不在有效期内`);
+      }
+      if (!before || row.product_code !== before.product_code) {
+        row.variety_code = variety;
+        row.org_context_required = true;
+      } else if (row.variety_code !== variety) throw new BadRequestException('SKU variety_code 与父产品不一致，禁止自动重分类');
       if (identityChanged) {
         row.product_name = product.product_name_zh || product.product_name || row.product_code;
         // Existing forms require a user name. Preserve explicit nonempty names; derive only when omitted.
         row.sku_name = dto.sku_name !== undefined ? row.sku_name : `${row.product_name} (${row.grade_code} / ${row.spec_code})`;
       }
+    }
+    if (dto.org_context_required !== undefined && dto.org_context_required !== row.org_context_required) {
+      throw new BadRequestException('org_context_required 为内部派生组织限制，不可手工修改');
+    }
+    if (dto.variety_code !== undefined) {
+      const suppliedVariety = dto.variety_code === '' ? null : dto.variety_code;
+      if (suppliedVariety !== row.variety_code) throw new BadRequestException('variety_code 由父产品派生，不可手工修改');
     }
     if (dto.product_name != null && String(dto.product_name).trim() && dto.product_name !== row.product_name) throw new BadRequestException('product_name 由父产品自动带出，不可手工修改');
     if (typeof row.sku_name !== 'string' || !row.sku_name.trim()) throw new BadRequestException('sku_name 必填');
@@ -117,7 +143,7 @@ export class SkuWriter {
   }
 
   private static async insert(manager: Pick<EntityManager, 'query'>, row: Row, code: string): Promise<Row> {
-    const fields = ['sku_code', 'status', 'product_name', ...WRITABLE.filter(field => row[field] !== undefined)];
+    const fields = ['sku_code', 'status', 'product_name', ...INTERNAL_DERIVED, ...WRITABLE.filter(field => row[field] !== undefined)];
     const values = fields.map(field => field === 'sku_code' ? code : field === 'status' ? 'ACTIVE' : row[field]);
     const [saved] = this.rows(await manager.query(
       `INSERT INTO product_skus (${fields.join(',')}) VALUES (${fields.map((_, i) => `$${i + 1}`).join(',')}) RETURNING *`, values,
@@ -132,6 +158,8 @@ export class SkuWriter {
     const [existing] = await manager.query('SELECT * FROM product_skus WHERE sku_code=$1 FOR UPDATE', [approvedCode]);
     if (existing) {
       if (SKU_IDENTITY_FIELDS.some(field => existing[field] !== dto[field]) || existing.sku_name !== approvedName || existing.status !== 'ACTIVE') throw new ConflictException('已审核 SKU 编码对应的现有身份、名称或状态不一致');
+      // Idempotency must not bless historical NULL/mismatched classification or silently repair it.
+      await this.prepare(manager, { variety_code: dto.variety_code, org_context_required: dto.org_context_required }, existing, true);
       return false;
     }
     const row = await this.prepare(manager, dto);
@@ -154,7 +182,7 @@ export class SkuWriter {
       if (dto.status !== undefined && dto.status !== before.status) throw new BadRequestException('状态变更请使用主数据生命周期接口');
       if (dto.sku_code !== undefined && dto.sku_code !== code) throw new BadRequestException('SKU 编码不可修改');
       const row = await SkuWriter.prepare(manager, dto, before);
-      const changes = Object.fromEntries([...WRITABLE, 'product_name'].filter(field => {
+      const changes = Object.fromEntries([...WRITABLE, ...INTERNAL_DERIVED, 'product_name'].filter(field => {
         if (field === 'effective_date' || field === 'expire_date') return SkuWriter.date(row[field], field) !== SkuWriter.date(before[field], field);
         return row[field] !== before[field];
       }).map(field => [field, row[field]]));

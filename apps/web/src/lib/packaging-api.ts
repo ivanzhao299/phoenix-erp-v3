@@ -144,7 +144,11 @@ export const packagingApi = {
 
   // ── 班次 ────────────────────────────────────────────────────────────────────
   getExactShift: (id: string, date: string) => request<any>('GET', `/api/packaging/terminal/shifts/${requireShiftId(id)}/context?date=${encodeURIComponent(date)}`),
-  getReadyCombinations: () => request<Array<{grade: string; productCode: string; skuCode: string; specCode: string; specName: string; qtyPerUnit: number}>>('GET', '/api/packaging/terminal/packing/ready-combinations'),
+  getReadyCombinations: (shiftId: string | number, gradingCodes: string[]) => {
+    if (!gradingCodes.length) throw new Error('请先完成本班次来源批次接收与分级，再加载包装组合');
+    const query = new URLSearchParams({ shiftId: requireShiftId(shiftId), gradingCodes: gradingCodes.join(',') });
+    return request<Array<{grade: string; productCode: string; skuCode: string; varietyCode: string; specCode: string; specName: string; qtyPerUnit: number}>>('GET', `/api/packaging/terminal/packing/ready-combinations?${query}`);
+  },
   getTodayShifts: () => request<any[]>('GET', '/api/packaging/terminal/shifts/today'),
   getSites: () => request<{ site_id: string; site_name: string }[]>('GET', '/api/packaging/terminal/sites'),
   openShift: (body: Record<string, unknown>) => request<any>('POST', '/api/packaging/terminal/shifts/open', body),

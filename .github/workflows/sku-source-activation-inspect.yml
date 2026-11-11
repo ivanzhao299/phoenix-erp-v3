@@ -1,0 +1,113 @@
+name: SKU Source Activation Inspect
+
+# Schema 95 is applied separately via controlled-pending-migration-apply with receipts.
+# This workflow never applies activation, changes checkout/floor, or writes DB state.
+on:
+  workflow_dispatch:
+    inputs:
+      expected_main_sha:
+        description: 'Exact reviewed merged main SHA (source, manifest and transport)'
+        required: true
+        type: string
+      sku_source_effective_date:
+        description: 'Confirmed source business date: 2026-11-10 (not the execution date)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sku-source-activation-inspect
+  cancel-in-progress: false
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+    steps:
+      - uses: actions/checkout@v5
+        with: { fetch-depth: 0 }
+      - name: Bind reviewed main and bootstrap payload
+        env:
+          EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = refs/heads/main
+          test "$EXPECTED_MAIN_SHA" = "$GITHUB_SHA"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN_SHA"
+          {
+            echo "PRODUCTION_CONTRACT_B64=$(base64 -w0 scripts/ops/production-config-contract.json)"
+            echo "PRODUCTION_PATH_HELPER_B64=$(base64 -w0 scripts/ops/production-trusted-paths.mjs)"
+            echo "PRODUCTION_CONTROL_BOOTSTRAP_B64=$(base64 -w0 scripts/ops/production-control-bootstrap.sh)"
+          } >> "$GITHUB_ENV"
+      - name: Read-only plan on existing API container
+        id: source_inspect
+        uses: appleboy/ssh-action@v1
+        env:
+          TARGET_SHA: ${{ inputs.expected_main_sha }}
+          SKU_SOURCE_EFFECTIVE_DATE: ${{ inputs.sku_source_effective_date }}
+          SKU_ACTIVATION_MODE: inspect
+          INSPECT_RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}
+          PRODUCTION_CONTRACT_B64: ${{ env.PRODUCTION_CONTRACT_B64 }}
+          PRODUCTION_PATH_HELPER_B64: ${{ env.PRODUCTION_PATH_HELPER_B64 }}
+          PRODUCTION_CONTROL_BOOTSTRAP_B64: ${{ env.PRODUCTION_CONTROL_BOOTSTRAP_B64 }}
+        with:
+          host: '47.236.122.224'
+          fingerprint: 'SHA256:Y4WEXMJ24a4r1KxOw0det4qcCFNxj65mZeIG9oQOJcI'
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: 22
+          command_timeout: 5m
+          capture_stdout: true
+          envs: TARGET_SHA,SKU_SOURCE_EFFECTIVE_DATE,SKU_ACTIVATION_MODE,INSPECT_RUN_ID,PRODUCTION_CONTRACT_B64,PRODUCTION_PATH_HELPER_B64,PRODUCTION_CONTROL_BOOTSTRAP_B64
+          script: |
+            set -Eeuo pipefail
+            umask 077
+            cd /data/phoenix-erp
+            export DEPLOY_REPO_ROOT="$(pwd -P)"
+            eval "$(printf '%s' "$PRODUCTION_CONTROL_BOOTSTRAP_B64" | base64 -d)"
+            export STATE_DIR
+            git_safe() { command git -c "safe.directory=$DEPLOY_REPO_ROOT" -c core.hooksPath=/dev/null -c core.fsmonitor=false "$@"; }
+            [[ "$TARGET_SHA" =~ ^[a-f0-9]{40}$ ]]
+            [[ "$INSPECT_RUN_ID" =~ ^[0-9]+-[0-9]+$ ]]
+            test "$(git_safe branch --show-current)" = main
+            test -z "$(git_safe status --porcelain --untracked-files=all)"
+            git_safe fetch --no-tags origin main
+            test "$(git_safe rev-parse FETCH_HEAD)" = "$TARGET_SHA"
+            STAGE="$STATE_DIR/sku-inspect-$INSPECT_RUN_ID"
+            test ! -e "$STAGE"
+            mkdir -m 700 "$STAGE"
+            # Stage only reviewed target blobs outside the checkout. No floor assertion
+            # here: the pre-reanchor floor is valid and inspection must not mutate it.
+            for helper in sku-source-activation-transport.mjs production-config-guard.mjs production-config-contract.json production-trusted-paths.mjs capture-production-runtime.mjs update-managed-chanjet-env.mjs chanjet-readonly-policy.mjs; do
+              git_safe show "$TARGET_SHA:scripts/ops/$helper" > "$STAGE/$helper"
+              chmod 600 "$STAGE/$helper"
+            done
+            RECEIPT="$(node "$STAGE/sku-source-activation-transport.mjs")"
+            printf 'SKU_SOURCE_INSPECT_RECEIPT=%s\n' "$RECEIPT"
+      - name: Preserve exact unmasked read-only plan receipt
+        env:
+          INSPECT_STDOUT: ${{ steps.source_inspect.outputs.stdout }}
+          EXPECTED_TARGET_SHA: ${{ inputs.expected_main_sha }}
+          EXPECTED_EFFECTIVE_DATE: ${{ inputs.sku_source_effective_date }}
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const marker='SKU_SOURCE_INSPECT_RECEIPT=';
+          const rows=(process.env.INSPECT_STDOUT||'').split(/\r?\n/).filter(line=>line.startsWith(marker));
+          if(rows.length!==1) throw Error('SKU_INSPECT_RECEIPT_COUNT');
+          const receipt=JSON.parse(rows[0].slice(marker.length));
+          if(receipt.mode!=='inspect' || receipt.target_sha!==process.env.EXPECTED_TARGET_SHA
+            || receipt.effective_date!==process.env.EXPECTED_EFFECTIVE_DATE
+            || !/^[a-f0-9]{64}$/.test(receipt.plan_sha256||'')
+            || !/^[a-f0-9]{64}$/.test(receipt.db_state_sha256||'')) throw Error('SKU_INSPECT_RECEIPT_BINDING');
+          fs.writeFileSync('sku-source-inspect.json',JSON.stringify(receipt,null,2)+'\n',{mode:0o600});
+          NODE
+      - name: Upload read-only plan receipt
+        uses: actions/upload-artifact@v4
+        with:
+          name: sku-source-inspect-${{ github.run_id }}
+          path: sku-source-inspect.json
+          if-no-files-found: error

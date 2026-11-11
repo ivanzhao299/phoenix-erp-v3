@@ -1,223 +1,149 @@
 #!/usr/bin/env node
 /**
- * SKU 多公司品种适配 · 阶段 0 数据种子脚本（幂等，可重复执行）
- * ════════════════════════════════════════════════════════════════════════
- * 依据：修正版方案一（审批决策 9/10/11）
- *   决策 9  → GRADE_0 特大档恢复为集团标准等级
- *   决策 10 → 只建「红壳蛋/粉壳蛋」两个变体，品种多对一映射
- *   决策 11 → 阶段 0+2+3 最小闭环
- *
- * 前置：1794400000000-SkuVarietyOrgScope.ts 迁移已执行（四张表 + 列已建）。
- *
- * 种子内容（全部 ON CONFLICT DO NOTHING / WHERE NOT EXISTS，幂等）：
- *   1. GRADE_0 特大蛋等级（≥66g，is_saleable=true, is_storable=true）
- *   2. 变体 EGG_RED 红壳蛋 / EGG_PINK 粉壳蛋
- *   3. 品种映射：褐壳系→EGG_RED，白壳/粉壳系→EGG_PINK，本地土鸡→EGG_RED
- *   4. 新产品 PRD-EGG-RED-0..5 / PRD-EGG-PINK-0..5（含 GRADE_0 档，共 12 个）
- *   5. 新 SKU：2 变体 × 6 等级 × 7 规格 = 84 个（SKU-R-{n}-{spec} / SKU-P-{n}-{spec}）
- *      + GRADE_0 补档到既有无变体产品线 PRD-EGG-0：SKU-0-LOOSE…BOX720（礼盒装不补，
- *        散装/托/箱 5 规格，保持与 G68 命名一致）
- *   6. scope 兜底：全部新 SKU 插入 scope_type='ALL' 行（集团共享初始态；
- *      后续由公司管理员在 scope 维护界面收窄）
- *   7. brd_flocks.breed_code 回填：strain 中文名 → BRD_BREED 码
- *
- * 明确不做：
- *   - 不归档 G68 既有 35 个 SKU（PRD-EGG-1..5 是"无变体"产品线，与红/粉壳并存；
- *     是否淘汰由阶段 4 销售切换时决策）
- *   - 不回填 product_skus.variety_code（既有 SKU 属无变体产品线，NULL 即语义）
- *
+ * SKU 壳色目录准备（不启用、不授权、不回填历史）。
+ * 前置：SkuVarietyOrgScope 结构迁移已由受控流程执行；本脚本不补 DDL。
  * 用法：DATABASE_URL=postgres://... node scripts/seed-sku-variety-org-scope.mjs [--dry-run]
- *   （pg 包从 apps/api workspace 解析；若不可用则报错退出——种子必须真连库）
+ * 或显式提供全部 DB_HOST / DB_PORT / DB_USER / DB_PASSWORD / DB_NAME。
+ * --dry-run 真实执行目录 INSERT 后仅 ROLLBACK，不 COMMIT；不是离线预览。
+ *
+ * 当前仅准备 DRAFT 目录。组织分配/品种映射/激活尚未实现：须另行审核含
+ * companyCode、varietyCode、breedCode、sku（或 spec）的 manifest 后独立 apply。
+ * 不推断白壳/本地鸡的商业壳色；不写 md_variety_breeds / md_sku_org_scope。
+ * GRADE_0 保留标识，附件未确认重量边界，weight_range 保持 NULL。
+ * 已有目录只对账不改写；含引用的历史 SKU 和旧 grade-in-product 均不自动迁移。
  */
 import { createRequire } from 'node:module';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import path from 'node:path';
-
-const here = path.dirname(fileURLToPath(import.meta.url));
-// pg 装在 apps/api workspace（根 scripts/ 无直接依赖）——按序尝试：api → 脚本目录 → 动态 import
-const candidates = [
-  createRequire(path.join(here, '..', 'apps', 'api', 'package.json')),
-  createRequire(path.join(here, 'noop.mjs')),
-];
-let pg;
-for (const req of candidates) {
-  try { pg = req('pg'); break; } catch { /* next */ }
-}
-if (!pg) {
-  try { pg = await import('pg'); } catch {
-    console.error('[seed] 缺少 pg 依赖：请先 pnpm install（workspace 含 apps/api）');
-    process.exit(1);
-  }
-}
-
-const dry = process.argv.includes('--dry-run');
-const cfg = process.env.DATABASE_URL
-  ? { connectionString: process.env.DATABASE_URL }
-  : {
-      host: process.env.DB_HOST || 'localhost',
-      port: Number(process.env.DB_PORT || 5432),
-      user: process.env.DB_USER || 'mac',
-      password: process.env.DB_PASSWORD,
-      database: process.env.DB_NAME || 'phoenix_erp',
-    };
 
 const SPECS = [
   ['LOOSE', '散装'], ['TRAY30', '30枚/托'], ['TRAY36', '36枚/托'],
   ['BOX360', '360枚/箱'], ['BOX720', '720枚/箱'], ['GIFT12', '礼盒装 12枚'], ['GIFT24', '礼盒装 24枚'],
 ];
 const GRADES = [
-  ['0', 'GRADE_0', '0号特大蛋', '≥66g'],
-  ['1', 'GRADE_1', '1号蛋', '59-66g'],
-  ['2', 'GRADE_2', '2号蛋', '53-59g'],
-  ['3', 'GRADE_3', '3号蛋', '46-53g'],
-  ['4', 'GRADE_4', '4号蛋', '40-46g'],
-  ['5', 'GRADE_5', '5号蛋', '30-40g'],
+  ['0', 'GRADE_0', '0号特大蛋'], ['1', 'GRADE_1', '1号蛋'], ['2', 'GRADE_2', '2号蛋'],
+  ['3', 'GRADE_3', '3号蛋'], ['4', 'GRADE_4', '4号蛋'], ['5', 'GRADE_5', '5号蛋'],
 ];
 const VARIETIES = [
-  ['EGG_RED', '红壳蛋', 'Red Shell Egg', 'RED'],
-  ['EGG_PINK', '粉壳蛋', 'Pink Shell Egg', 'PINK'],
+  ['EGG_RED', '红壳蛋', 'Red Shell Egg', 'RED', 'R'],
+  ['EGG_PINK', '粉壳蛋', 'Pink Shell Egg', 'PINK', 'P'],
 ];
-const VARIETY_BREEDS = [
-  ['EGG_RED', 'HY_LINE_BROWN'], ['EGG_RED', 'LOHMANN_BROWN'], ['EGG_RED', 'ISA_BROWN'], ['EGG_RED', 'LOCAL'],
-  ['EGG_PINK', 'HY_LINE_WHITE'], ['EGG_PINK', 'LOHMANN_WHITE'], ['EGG_PINK', 'DEKALB_WHITE'],
-];
-const STRAIN_TO_BREED = [
-  ['海兰褐', 'HY_LINE_BROWN'], ['罗曼褐', 'LOHMANN_BROWN'], ['伊莎褐', 'ISA_BROWN'], ['本地土鸡', 'LOCAL'],
-  ['海兰白', 'HY_LINE_WHITE'], ['罗曼白', 'LOHMANN_WHITE'], ['德卡白', 'DEKALB_WHITE'],
-];
+export const CONFIGURATION_NOTICE = '[catalog-only] 配置缺失：尚无已审核的 companyCode/varietyCode/breedCode/sku（或 spec）manifest 及独立 apply。仅准备 DRAFT 目录；不激活、不分配组织、不建立品种映射、不回填鸡群。GRADE_0 重量边界待附件确认。';
 
-const client = new (pg.default?.Client ?? pg.Client)(cfg);
-await client.connect();
-let seeded = 0;
-try {
-  await client.query('BEGIN');
+export function databaseConfig(env) {
+  if (env.DATABASE_URL?.trim()) return { connectionString: env.DATABASE_URL };
+  const required = ['DB_HOST', 'DB_PORT', 'DB_USER', 'DB_PASSWORD', 'DB_NAME'];
+  const missing = required.filter(key => typeof env[key] !== 'string' || !env[key].trim());
+  if (missing.length) throw new Error(`必须显式设置 DATABASE_URL 或完整 DB_*；缺少 ${missing.join(', ')}`);
+  const port = Number(env.DB_PORT);
+  if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('DB_PORT 必须是有效端口');
+  return { host: env.DB_HOST, port, user: env.DB_USER, password: env.DB_PASSWORD, database: env.DB_NAME };
+}
 
-  // 0) 兜底：迁移在 isolated bootstrap（无 brd_flocks 表）时跳过加列——真库上确保列存在
-  await client.query(`ALTER TABLE brd_flocks ADD COLUMN IF NOT EXISTS breed_code VARCHAR(64)`).catch(err => {
-    if (!String(err.message).includes('does not exist')) throw err;
-  });
+export function buildCatalog() {
+  const varieties = VARIETIES.map(([variety_code, variety_name, variety_name_en, shell_color]) => ({
+    variety_code, variety_name, variety_name_en, shell_color, status: 'DRAFT',
+  }));
+  // 产品身份仅为壳色；等级/规格只在 SKU 上，不再新增 PRD-EGG-RED-0..5 等产品。
+  const products = VARIETIES.map(([variety_code, product_name, , shell]) => ({
+    product_code: `PRD-EGG-${shell}`, product_name, product_name_zh: product_name,
+    unit_zh: '枚', category_code: 'EGG', has_grade: true, has_spec: true, status: 'DRAFT', variety_code,
+  }));
+  const skus = VARIETIES.flatMap(([variety_code, name, , shell, letter]) => GRADES.flatMap(([num, grade_code, gradeName]) =>
+    SPECS.map(([spec_code, specName]) => ({
+      sku_code: `SKU-${letter}-${num}-${spec_code}`, product_code: `PRD-EGG-${shell}`,
+      product_name: name, grade_code, spec_code, sku_name: `${name} ${gradeName} ${specName}`, status: 'DRAFT', variety_code,
+    })),
+  ));
+  return {
+    grades: [{ grade_code: 'GRADE_0', grade_name: '0号特大蛋', grade_name_lo: 'ໄຂ່ຊັ້ນ 0', weight_range: null,
+      sort_order: 5, is_saleable: false, is_storable: false, status: 'DRAFT' }],
+    varieties, products, skus,
+  };
+}
 
-  // 1) GRADE_0 等级（product_grades 无 grade_name_en 列——G67 同款列集）
-  const g0 = await client.query(`
-    INSERT INTO product_grades (grade_code, grade_name, grade_name_lo, weight_range, sort_order, is_saleable, is_storable, status)
-    VALUES ('GRADE_0', '0号特大蛋', 'ໄຂ່ຊັ້ນ 0', '≥66g', 5, true, true, 'ACTIVE')
-    ON CONFLICT (grade_code) DO NOTHING
-  `);
-  seeded += g0.rowCount ?? 0;
+export function assertCompatible(existing, desired, label) {
+  if (!existing) return;
+  const differences = Object.keys(desired).filter(key => existing[key] !== desired[key]);
+  if (differences.length) throw new Error(`目录冲突 ${label}：${differences.join(', ')}；保留历史，需独立人工审核，不覆写`);
+}
 
-  // 2) 变体
-  const v = await client.query(`
-    INSERT INTO md_product_varieties (variety_code, variety_name, variety_name_en, shell_color, status)
-    SELECT * FROM (VALUES
-      ('EGG_RED', '红壳蛋', 'Red Shell Egg', 'RED', 'ACTIVE'),
-      ('EGG_PINK', '粉壳蛋', 'Pink Shell Egg', 'PINK', 'ACTIVE')
-    ) AS t(variety_code, variety_name, variety_name_en, shell_color, status)
-    ON CONFLICT (variety_code) DO NOTHING
-  `);
-  seeded += v.rowCount ?? 0;
+// 表/列名完全来自本模块固定计划；所有数据使用参数，不接受外部 SQL 标识符。
+async function insertUnchanged(client, table, key, desired) {
+  const columns = Object.keys(desired);
+  const old = await client.query(`SELECT ${columns.join(', ')} FROM ${table} WHERE ${key} = $1 FOR UPDATE`, [desired[key]]);
+  assertCompatible(old.rows[0], desired, `${table}/${desired[key]}`);
+  if (old.rows.length) return 0;
+  const result = await client.query(
+    `INSERT INTO ${table} (${columns.join(', ')}) VALUES (${columns.map((_, i) => `$${i + 1}`).join(', ')})`,
+    Object.values(desired),
+  );
+  return result.rowCount ?? 0;
+}
 
-  // 3) 品种映射
-  const vb = await client.query(`
-    INSERT INTO md_variety_breeds (variety_code, breed_code)
-    SELECT * FROM (VALUES
-      ${VARIETY_BREEDS.map(r => `('${r[0]}', '${r[1]}')`).join(', ')}
-    ) AS t(variety_code, breed_code)
-    ON CONFLICT (variety_code, breed_code) DO NOTHING
-  `);
-  seeded += vb.rowCount ?? 0;
-
-  // 4) 变体产品线 12 个（2 变体 × 6 等级）
-  const products = [];
-  for (const [vCode, vName] of VARIETIES) {
-    const prefix = vCode === 'EGG_RED' ? 'PRD-EGG-RED' : 'PRD-EGG-PINK';
-    const skuPrefix = vCode === 'EGG_RED' ? 'R' : 'P';
-    for (const [num, gCode, gName] of GRADES) {
-      products.push([`${prefix}-${num}`, `${vName}${num}号${gName.replace(/^\d+号/, '')}`.replace('0号特大蛋', '0号特大'), gCode, vCode, skuPrefix]);
+export async function prepareCatalog(client, { dryRun = false, log = console.log } = {}) {
+  log(CONFIGURATION_NOTICE);
+  const catalog = buildCatalog();
+  let inTransaction = false;
+  try {
+    await client.query('BEGIN');
+    inTransaction = true;
+    // 串行目录准备；并发写入仍由数据库唯一约束保护，冲突即整体回滚。
+    await client.query("SELECT pg_advisory_xact_lock(hashtext('seed-sku-variety-org-scope'))");
+    const legacy = await client.query(`
+      SELECT product_code FROM mst_products
+       WHERE (variety_code IN ('EGG_RED', 'EGG_PINK')
+          AND product_code NOT IN ('PRD-EGG-RED', 'PRD-EGG-PINK'))
+          OR product_code ~ '^PRD-EGG-(RED|PINK)-[0-9]+$'
+    `);
+    if (legacy.rows.length) throw new Error(`目录冲突：已有按等级拆分或非标准壳色产品 ${legacy.rows.map(r => r.product_code).join(', ')}；不迁移、不覆写历史/被引用 SKU`);
+    // 只读检查依赖；缺表/缺列/缺等级/缺规格必须失败，不捕获 missing-table 后继续事务。
+    const grades = await client.query('SELECT grade_code FROM product_grades WHERE grade_code = ANY($1)', [GRADES.slice(1).map(g => g[1])]);
+    const specs = await client.query('SELECT spec_code FROM packaging_specs WHERE spec_code = ANY($1)', [SPECS.map(s => s[0])]);
+    const missing = [
+      ...GRADES.slice(1).filter(g => !grades.rows.some(r => r.grade_code === g[1])).map(g => g[1]),
+      ...SPECS.filter(s => !specs.rows.some(r => r.spec_code === s[0])).map(s => s[0]),
+    ];
+    if (missing.length) throw new Error(`目录依赖缺失：${missing.join(', ')}；请通过独立审核流程准备`);
+    let inserted = 0;
+    for (const [table, key, rows] of [
+      ['product_grades', 'grade_code', catalog.grades],
+      ['md_product_varieties', 'variety_code', catalog.varieties],
+      ['mst_products', 'product_code', catalog.products],
+      ['product_skus', 'sku_code', catalog.skus],
+    ]) {
+      for (const row of rows) inserted += await insertUnchanged(client, table, key, row);
     }
+    await client.query(dryRun ? 'ROLLBACK' : 'COMMIT');
+    inTransaction = false;
+    log(dryRun ? `[dry-run] 目录拟新增 ${inserted} 行，已 ROLLBACK（未启用）` : `[catalog-only] 新增 ${inserted} 行 DRAFT 目录（未启用）`);
+    return inserted;
+  } catch (error) {
+    if (inTransaction) await client.query('ROLLBACK');
+    throw error;
   }
-  // 修正产品名：红壳蛋0号特大 / 红壳蛋1号蛋 …
-  for (const p of products) {
-    p[1] = p[1].includes('特大') ? `${p[3] === 'EGG_RED' ? '红壳' : '粉壳'}蛋0号特大` : `${p[3] === 'EGG_RED' ? '红壳' : '粉壳'}蛋${p[2].replace('GRADE_', '')}号蛋`;
+}
+
+async function main() {
+  const args = process.argv.slice(2);
+  if (args.some(arg => arg !== '--dry-run')) throw new Error('仅支持 [--dry-run]；本脚本不支持 manifest apply/启用/组织授权');
+  // 先验证显式连接配置；import 本模块及纯测试不会加载 pg 或连接数据库。
+  const cfg = databaseConfig(process.env);
+  const here = path.dirname(fileURLToPath(import.meta.url));
+  const require = createRequire(path.join(here, '..', 'apps', 'api', 'package.json'));
+  const { Client } = require('pg');
+  const client = new Client(cfg);
+  try {
+    await client.connect();
+    await prepareCatalog(client, { dryRun: args.includes('--dry-run') });
+  } finally {
+    await client.end();
   }
-  const pr = await client.query(`
-    INSERT INTO mst_products (product_code, product_name, product_name_zh, unit_zh, category_code, has_grade, has_spec, status, variety_code)
-    SELECT * FROM (VALUES
-      ${products.map(p => `('${p[0]}', '${p[1]}', '${p[1]}', '枚', 'EGG', true, true, 'ACTIVE', '${p[3]}')`).join(', ')}
-    ) AS t(product_code, product_name, product_name_zh, unit_zh, category_code, has_grade, has_spec, status, variety_code)
-    ON CONFLICT (product_code) DO NOTHING
-  `);
-  seeded += pr.rowCount ?? 0;
+}
 
-  // 5a) 变体 SKU：2 × 6 × 7 = 84
-  const skus = [];
-  for (const [vCode, , , skuLetter] of VARIETIES.map(x => [x[0], x[1], x[2], x[0] === 'EGG_RED' ? 'R' : 'P'])) {
-    for (const [num, gCode, gName] of GRADES) {
-      const prefix = vCode === 'EGG_RED' ? 'PRD-EGG-RED' : 'PRD-EGG-PINK';
-      for (const [specCode, specName] of SPECS) {
-        skus.push([`SKU-${skuLetter}-${num}-${specCode}`, `${prefix}-${num}`, gName, gCode, specCode, vCode]);
-      }
-    }
-  }
-  const sk = await client.query(`
-    INSERT INTO product_skus (sku_code, product_code, product_name, grade_code, spec_code, sku_name, status, variety_code)
-    SELECT * FROM (VALUES
-      ${skus.map(s => `('${s[0]}', '${s[1]}', '${s[2]}', '${s[3]}', '${s[4]}', '${s[2]} ${SPECS.find(x => x[0] === s[4])[1]}', 'ACTIVE', '${s[5]}')`).join(',\n      ')}
-    ) AS t(sku_code, product_code, product_name, grade_code, spec_code, sku_name, status, variety_code)
-    ON CONFLICT (sku_code) DO NOTHING
-  `);
-  seeded += sk.rowCount ?? 0;
-
-  // 5b) GRADE_0 补档到既有无变体产品线 PRD-EGG-0（散/托/箱 5 规格，与 G68 命名一致）
-  const g0Product = await client.query(`
-    INSERT INTO mst_products (product_code, product_name, product_name_zh, unit_zh, category_code, has_grade, has_spec, status)
-    VALUES ('PRD-EGG-0', '0号特大蛋', '0号特大蛋', '枚', 'EGG', true, true, 'ACTIVE')
-    ON CONFLICT (product_code) DO NOTHING
-  `);
-  seeded += g0Product.rowCount ?? 0;
-  const plainG0 = await client.query(`
-    INSERT INTO product_skus (sku_code, product_code, product_name, grade_code, spec_code, sku_name, status)
-    SELECT 'SKU-0-' || s.spec_code, 'PRD-EGG-0', '0号特大蛋', 'GRADE_0', s.spec_code, '0号特大蛋 ' || s.spec_name, 'ACTIVE'
-    FROM (VALUES ${SPECS.filter(x => x[0] !== 'GIFT12' && x[0] !== 'GIFT24').map(x => `('${x[0]}', '${x[1]}')`).join(', ')}) AS s(spec_code, spec_name)
-    WHERE NOT EXISTS (SELECT 1 FROM product_skus px WHERE px.sku_code = 'SKU-0-' || s.spec_code)
-  `);
-  seeded += plainG0.rowCount ?? 0;
-
-  // 6) scope 兜底：全部 84+5 SKU 插 ALL 行（不覆盖既有行）
-  const scope = await client.query(`
-    INSERT INTO md_sku_org_scope (sku_code, scope_type, scope_code, sale_enabled, stock_enabled, status, default_flag)
-    SELECT ps.sku_code, 'ALL', '', true, true, 'ACTIVE', true
-      FROM product_skus ps
-     WHERE (ps.variety_code IN ('EGG_RED', 'EGG_PINK') OR ps.sku_code LIKE 'SKU-0-%')
-       AND NOT EXISTS (
-         SELECT 1 FROM md_sku_org_scope sc
-          WHERE sc.sku_code = ps.sku_code AND sc.scope_type = 'ALL' AND sc.scope_code = ''
-       )
-    ON CONFLICT (sku_code, scope_type, scope_code) DO NOTHING
-  `);
-  seeded += scope.rowCount ?? 0;
-
-  // 7) brd_flocks.breed_code 回填（strain 中文 → BRD_BREED 码；不动已回填行）
-  const flocks = await client.query(`
-    UPDATE brd_flocks f SET breed_code = m.breed_code
-      FROM (VALUES ${STRAIN_TO_BREED.map(r => `('${r[0]}', '${r[1]}')`).join(', ')}) AS m(strain, breed_code)
-     WHERE f.strain = m.strain AND (f.breed_code IS NULL OR f.breed_code = '')
-  `).catch(err => {
-    if (!String(err.message).includes('does not exist')) throw err;
-    return { rowCount: 0 };
+if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
+  main().catch(error => {
+    console.error('[catalog-only] 失败（停止执行，未启用）：', error.message);
+    process.exitCode = 1;
   });
-  seeded += flocks.rowCount ?? 0;
-
-  if (dry) {
-    await client.query('ROLLBACK');
-    console.log(`[dry-run] 将写入 ${seeded} 行，已回滚`);
-  } else {
-    await client.query('COMMIT');
-    console.log(`[seed] 完成，共写入 ${seeded} 行`);
-  }
-} catch (error) {
-  await client.query('ROLLBACK');
-  console.error('[seed] 失败已回滚：', error.message);
-  process.exitCode = 1;
-} finally {
-  await client.end();
 }

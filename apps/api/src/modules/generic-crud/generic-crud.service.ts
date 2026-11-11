@@ -6,6 +6,7 @@ import { BREEDING_FARMS_TABLE, BreedingScopedTable } from './crud.constants';
 import { OrgOwnershipService } from '../org/services/org-ownership.service';
 import { schemaMismatch } from '../../common/database/schema-compatibility';
 import { redactSensitive } from '../../common/logging/redact-sensitive';
+import { writeFlock } from './flock-write-policy';
 
 @Injectable()
 export class GenericCrudService {
@@ -77,7 +78,11 @@ export class GenericCrudService {
     const { sql, queryValues } = this.buildFindAllSql(table, query);
 
     try {
-      const rows = await this.entityManager.query(sql, queryValues);
+      // Serialize flock DATE fields in PostgreSQL, before node-postgres converts
+      // date-only values into local-midnight Date objects (which shift on JSON).
+      const rows = table === 'brd_flocks'
+        ? (await this.entityManager.query(`SELECT row_to_json(flock_rows) AS flock_fact FROM (${sql}) flock_rows`, queryValues)).map((row: { flock_fact: Record<string, unknown> }) => row.flock_fact)
+        : await this.entityManager.query(sql, queryValues);
       if (table === 'brd_daily_logs') {
         return await this.enrichDailyLogRows(rows);
       }
@@ -304,7 +309,9 @@ export class GenericCrudService {
 
     const { sql, queryValues } = this.buildFindAllSql(table, query, extraWhere, extraValues);
     try {
-      const rows = await this.entityManager.query(sql, queryValues);
+      const rows = table === 'brd_flocks'
+        ? (await this.entityManager.query(`SELECT row_to_json(flock_rows) AS flock_fact FROM (${sql}) flock_rows`, queryValues)).map((row: { flock_fact: Record<string, unknown> }) => row.flock_fact)
+        : await this.entityManager.query(sql, queryValues);
       return table === 'brd_daily_logs' ? await this.enrichDailyLogRows(rows) : rows;
     } catch (e) {
       this.rejectSchemaMismatch(e, table);
@@ -528,6 +535,7 @@ export class GenericCrudService {
     GenericCrudService.assertNoDerivedQuantityFields(body);
     if (['mst_products', 'product_skus'].includes(table)) throw new ForbiddenException('产品/SKU 必须使用主数据领域接口，禁止通用 CRUD 写入');
     if (['pkg_work_shifts','pkg_source_batches','pkg_grading_records','pkg_packing_records','pkg_handover_records','pkg_packing_boxes','pkg_packing_code_registry','pkg_packing_code_claims','pkg_packing_events','pkg_packing_operations'].includes(table)) throw new ForbiddenException('包装链必须使用专用作业接口，禁止通用修改/删除');
+    if (table === 'brd_flocks') return writeFlock(this.entityManager, body);
     if (table === BREEDING_FARMS_TABLE) await this.validateFarmSiteMapping(body);
     const fields = Object.keys(body);
     const values = Object.values(body);
@@ -559,7 +567,9 @@ export class GenericCrudService {
     const packagingFilter = table === 'pkg_handover_records' ? ' AND NOT EXISTS (SELECT 1 FROM pkg_packing_records p WHERE p.code=pkg_handover_records.packing_code AND p.is_test)' : ['pkg_work_shifts','pkg_source_batches','pkg_grading_records','pkg_packing_records'].includes(table) ? ' AND is_test = false' : '';
     const sql = `SELECT * FROM "${table}" WHERE "${pkName}" = $1${packagingFilter} LIMIT 1`;
     try {
-      const rows = await this.entityManager.query(sql, [id]);
+      const rows = table === 'brd_flocks'
+        ? (await this.entityManager.query(`SELECT row_to_json(flock_row) AS flock_fact FROM (${sql}) flock_row`, [id])).map((row: { flock_fact: Record<string, unknown> }) => row.flock_fact)
+        : await this.entityManager.query(sql, [id]);
       return rows[0] ?? null;
     } catch (e) {
       this.rejectSchemaMismatch(e, table);
@@ -572,6 +582,7 @@ export class GenericCrudService {
     GenericCrudService.assertNoDerivedQuantityFields(body);
     if (['mst_products', 'product_skus'].includes(table)) throw new ForbiddenException('产品/SKU 必须使用主数据领域接口，禁止通用 CRUD 写入');
     if (['pkg_work_shifts','pkg_source_batches','pkg_grading_records','pkg_packing_records','pkg_handover_records','pkg_packing_boxes','pkg_packing_code_registry','pkg_packing_code_claims','pkg_packing_events','pkg_packing_operations'].includes(table)) throw new ForbiddenException('包装链必须使用专用作业接口，禁止通用修改/删除');
+    if (table === 'brd_flocks') return writeFlock(this.entityManager, body, { pkName, id });
     console.log(`[SVC Update START] table=${table} pk=${pkName} id=${id} body=${JSON.stringify(redactSensitive(body))}`);
     if (table === BREEDING_FARMS_TABLE) {
       const current = await this.findOneByColumn(table, pkName, id);

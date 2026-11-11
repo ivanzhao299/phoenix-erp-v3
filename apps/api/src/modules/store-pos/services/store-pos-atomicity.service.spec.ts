@@ -50,7 +50,7 @@ describe('StorePosService V1-2 atomic settlement', () => {
     expect(mgr.query.mock.calls[0][1][4]).toBe('BANK-7788');
   });
 
-  it('rejects an insufficient FIFO allocation so the enclosing transaction can roll back', async () => {
+  it('rejects insufficient FIFO before writing any stock, allocation or ledger row', async () => {
     const mgr = { query: jest.fn(async (sql: string) => {
       if (sql.includes('FROM product_skus')) return [{ sku_code: 'SKU-EGG', product_code: 'EGG', grade_code: 'G', spec_code: 'S', status: 'ACTIVE' }];
       if (/SELECT \* FROM (mst_products|product_grades|packaging_specs)/.test(sql)) return [{ status: 'ACTIVE', is_saleable: true, is_storable: true }];
@@ -60,7 +60,7 @@ describe('StorePosService V1-2 atomic settlement', () => {
     }) };
 
     await expect((subject() as any).fifoDeductItems(sale, mgr)).rejects.toBeInstanceOf(ConflictException);
-    expect(mgr.query.mock.calls.some(([sql]) => sql.includes('store_sale_allocations'))).toBe(true);
+    expect(mgr.query.mock.calls.some(([sql]) => /UPDATE inv_batches|INSERT INTO (store_sale_allocations|inv_ledger)/.test(sql))).toBe(false);
   });
 
   it('persists every batch allocation for a multi-batch FIFO deduction', async () => {

@@ -14,6 +14,9 @@ import BatchDocumentEditor, { newBatchLine, type BatchHeader, type BatchLine } f
 import apiRequest from "@/lib/api-client";
 import {
   OUTBOUND_DESTINATIONS,
+  STANDALONE_OUTBOUND_TYPES,
+  constrainOutboundBatchLine,
+  validateOutboundBatch,
   resetOutboundDestination,
   ISSUE_OUTBOUND_TYPES,
   canCreateOutboundType,
@@ -76,6 +79,16 @@ export default function OutboundPage() {
   const canEditIssue = canEdit("MENU_WMS_ISSUE");
   const canDeleteIssue = canDelete("MENU_WMS_ISSUE");
   const canViewIssue = hasPermission("MENU_WMS_ISSUE", "V");
+  const outboundPermissions = useMemo(() => ({ inout: Boolean(canCreateInout), issue: Boolean(canCreateIssue), issueOnly }), [canCreateInout, canCreateIssue, issueOnly]);
+  const allowedBatchTypes = useMemo(() => STANDALONE_OUTBOUND_TYPES.filter(type => canCreateOutboundType(type, outboundPermissions)), [outboundPermissions]);
+  const batchPolicy = useMemo(() => ({
+    typeValues: allowedBatchTypes,
+    destinationValues: (header: BatchHeader) => OUTBOUND_DESTINATIONS[String(header.type)] ?? [],
+    transformHeader: resetOutboundDestination,
+    transformLine: constrainOutboundBatchLine<BatchLine>,
+    validate: (header: BatchHeader, items: BatchLine[]) => validateOutboundBatch(header, items, outboundPermissions),
+    showDestinationName: true,
+  }), [allowedBatchTypes, outboundPermissions]);
   const canCreateAny = canCreateInout || canCreateIssue;
   const canEditAny = canEditInout || canEditIssue;
   const [drawerOpen,   setDrawerOpen]   = useState(false);
@@ -214,7 +227,14 @@ export default function OutboundPage() {
     return ISSUE_TYPES.has(String(type || "")) ? canDeleteIssue : canDeleteInout;
   }, [canDeleteInout, canDeleteIssue]);
   const canCreateCurrent = issueOnly ? canCreateIssue : canCreateAny;
-  const openNew     = useCallback(() => { if (!canCreateCurrent) return; setEditing(null); setBatchHeader({ date: new Date().toISOString().slice(0, 10), type: issueOnly ? "PRODUCTION_USE" : "SALE", warehouse_code: siteCode ?? "", destination_type: issueOnly ? "HOUSE" : "CUSTOMER" }); setBatchItems([newBatchLine()]); setDrawerOpen(true); }, [canCreateCurrent, issueOnly, siteCode, setBatchHeader, setBatchItems]);
+  const openNew = useCallback(() => {
+    if (!canCreateCurrent || !allowedBatchTypes.length) return;
+    const type = allowedBatchTypes[0];
+    setEditing(null);
+    setBatchHeader({ date: new Date().toISOString().slice(0, 10), type, warehouse_code: siteCode ?? "", destination_type: OUTBOUND_DESTINATIONS[type]?.[0] ?? "" });
+    setBatchItems([newBatchLine()]);
+    setDrawerOpen(true);
+  }, [canCreateCurrent, allowedBatchTypes, siteCode, setBatchHeader, setBatchItems]);
   const openEdit    = useCallback((row: Row) => { if (!canEditType(row.type)) return; setEditing(row.quantity_snapshot ? { ...row, qty: (row.quantity_snapshot as { baseQty: number }).baseQty } : row); setDrawerOpen(true); }, [canEditType]);
   const closeDrawer = useCallback(() => setDrawerOpen(false), []);
 
@@ -246,6 +266,7 @@ export default function OutboundPage() {
   }, [canCreateType, canEditType, editing, refresh, siteCode]);
 
   const handleBatchSave = useCallback(async () => {
+    if (batchPolicy.validate(batchHeader, batchItems)) return;
     setSaving(true);
     try {
       const stamp = Date.now().toString().slice(-8);
@@ -254,7 +275,7 @@ export default function OutboundPage() {
       await apiRequest("/outbound/batch", { method: "POST", body: JSON.stringify({ documents: [{ ...batchHeader, outbound_no: outboundNo, status: "PENDING", operator: currentOperator, ...(siteCode ? { site_code: siteCode } : {}), items }] }) });
       setDrawerOpen(false); refresh();
     } finally { setSaving(false); }
-  }, [batchHeader, batchItems, currentOperator, refresh, siteCode]);
+  }, [batchHeader, batchItems, batchPolicy, currentOperator, refresh, siteCode]);
 
   const handleDelete = (row: Row) => {
     if (!canDeleteType(row.type)) return;
@@ -365,7 +386,7 @@ export default function OutboundPage() {
       />
 
       <RightDrawer open={drawerOpen} width={editing ? 520 : "min(1100px, calc(100vw - 32px))"} title={editing ? t("ui.编辑出库单", "编辑出库单") : t("ui.批量新建出库单", "批量新建出库单")} onClose={closeDrawer}>
-        {editing ? <CrudForm transformValues={resetOutboundDestination} fields={FIELDS} batchRefreshKey={refreshKey} initialValues={{ ...(editing ?? {}), operator: currentOperator }} onSubmit={handleSave} onCancel={closeDrawer} loading={saving} /> : <BatchDocumentEditor kind="outbound" header={batchHeader} setHeader={setBatchHeader} items={batchItems} setItems={setBatchItems} onSubmit={handleBatchSave} onCancel={closeDrawer} loading={saving} />}
+        {editing ? <CrudForm transformValues={resetOutboundDestination} fields={FIELDS} batchRefreshKey={refreshKey} initialValues={{ ...(editing ?? {}), operator: currentOperator }} onSubmit={handleSave} onCancel={closeDrawer} loading={saving} /> : <BatchDocumentEditor kind="outbound" policy={batchPolicy} header={batchHeader} setHeader={setBatchHeader} items={batchItems} setItems={setBatchItems} onSubmit={handleBatchSave} onCancel={closeDrawer} loading={saving} />}
       </RightDrawer>
 
       <ConfirmDialog open={confirmOpen} title={t("ui.确认删除", "确认删除")} message={t("ui.删除后不可恢复确认继续", "删除后不可恢复，确认继续？")}

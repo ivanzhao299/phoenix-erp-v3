@@ -52,10 +52,10 @@ test('the rehearsal invokes the preflight with the candidate ledger inventory an
   assert.doesNotMatch(runnerSource, /console\.log\('LEDGER_PREFLIGHT_RUNTIME_SEMANTICS_DIVERGENCE=CONFIRMED'\)/);
 });
 
-test('historical rehearsal accepts only its pinned 93 classes and the exact separate admission migration', () => {
+test('historical rehearsal accepts only its pinned 94 classes and the exact separate admission migration', () => {
   const historical = JSON.parse(fs.readFileSync('scripts/ci/typeorm-ledger-rehearsal-historical-inventory.json','utf8')).entries;
   const current = [...historical, admissionMigration];
-  assert.equal(partitionRehearsalInventory(current).history.length,93);
+  assert.equal(partitionRehearsalInventory(current).history.length,94);
   assert.throws(() => partitionRehearsalInventory(historical));
   assert.throws(() => partitionRehearsalInventory([...current, {...admissionMigration,timestamp:1791878400001}]));
   assert.throws(() => partitionRehearsalInventory([...historical,{...admissionMigration,class_name:'UnreviewedMigration1791878400000'}]));

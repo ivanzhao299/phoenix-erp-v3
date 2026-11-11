@@ -12,13 +12,13 @@ import { StorePosService } from '../../store-pos/services/store-pos.service';
 import { StoreReplenishmentService } from '../../store-pos/services/store-replenishment.service';
 import { resolvePackagingIdentity } from '../../bff/packaging-readiness';
 
-const current = { sku_code: 'SKU-1', product_code: 'P', product_name: '产品', sku_name: '商品', grade_code: 'G', spec_code: 'S', status: 'ACTIVE', today: '2026-11-10', effective_date: '2026-11-10', expire_date: '2026-11-10' };
+const current = { variety_code: null as string | null, sku_code: 'SKU-1', product_code: 'P', product_name: '产品', sku_name: '商品', grade_code: 'G', spec_code: 'S', status: 'ACTIVE', today: '2026-11-10', effective_date: '2026-11-10', expire_date: '2026-11-10' };
 function fixture(options: { sku?: Record<string, unknown> | null; parent?: string; parentStatus?: string | null; saleable?: boolean; storable?: boolean } = {}) {
   const sku = options.sku === null ? null : { ...current, ...options.sku };
   const query = jest.fn(async (sql: string, _values?: unknown[]): Promise<Record<string, any>[]> => {
     if (sql.includes('FROM product_skus')) return sku ? [sku] : [];
     const table = ['mst_products', 'product_grades', 'packaging_specs'].find(table => sql.includes(`FROM ${table}`));
-    if (table) return table === options.parent && options.parentStatus === null ? [] : [{ status: table === options.parent ? options.parentStatus : 'ACTIVE', product_code: 'P', grade_code: 'G', spec_code: 'S', spec_name: '规格', qty_per_unit: 30, base_unit: '枚', is_saleable: options.saleable ?? true, is_storable: options.storable ?? true }];
+    if (table) return table === options.parent && options.parentStatus === null ? [] : [{ variety_code: sku?.variety_code ?? null, status: table === options.parent ? options.parentStatus : 'ACTIVE', product_code: 'P', grade_code: 'G', spec_code: 'S', spec_name: '规格', qty_per_unit: 30, base_unit: '枚', is_saleable: options.saleable ?? true, is_storable: options.storable ?? true }];
     if (sql.includes('FROM sal_price_books')) return [{ id: 1, company_code: 'C', status: 'DRAFT' }];
     if (sql.includes('INSERT INTO')) return [{ id: 1 }];
     return [];
@@ -155,15 +155,36 @@ describe('new transaction consumers', () => {
     const insert = f.query.mock.calls.find(([sql]) => sql.includes('INSERT INTO store_replenishment_request_lines'))!;
     expect(insert[1]![2]).toBe('商品'); expect(f.ds.transaction).toHaveBeenCalledTimes(1);
   });
-  it('keeps packaging ambiguity checks and date checks, and locks SKU before parent rows', async () => {
-    const f = fixture();
-    await expect(resolvePackagingIdentity(f.manager, { grade: 'G', specCode: 'S' })).resolves.toMatchObject({ skuCode: 'SKU-1', qtyPerUnit: 30 });
+  it('keeps packaging ambiguity checks and date checks with authoritative organization/date/variety context', async () => {
+    const sourceContext = { companyCode: 'C', farmCode: 'F', siteCode: 'SITE', eggDate: '2026-11-10', varietyCode: 'VAR', houseCodes: ['HOUSE'],
+      productMode: 'VARIANT' as const, sourceProfileCode: 'PROFILE', sourceProfileRefs: [{ profileCode: 'PROFILE', houseCode: 'HOUSE' }],
+      houseProfiles: { HOUSE: { sourceProfileCode: 'PROFILE', productMode: 'VARIANT' as const, varietyCode: 'VAR' } } };
+    const input = { grade: 'G', specCode: 'S', sourceContext };
+    const packagingFixture = (sku: Record<string, unknown> = {}, duplicate = false) => {
+      const f = fixture({ sku: { variety_code: 'VAR', product_variety_code: 'VAR', ...sku } });
+      const original = f.query.getMockImplementation()!;
+      f.query.mockImplementation(async (sql, values) => {
+        if (sql.includes('FROM sys_organizations')) return [{ org_code: 'C' }];
+        if (sql.includes('FROM brd_houses')) return [{ house_code: 'HOUSE', farm_code: 'F', company_code: 'C', site_code: 'SITE' }];
+        if (sql.includes('FROM md_egg_source_profiles')) return [{ profile_code: 'PROFILE', company_code: 'C', farm_code: 'F', site_code: 'SITE', house_code: 'HOUSE', product_mode: 'VARIANT', variety_code: 'VAR', effective_date: '2026-01-01', status: 'ACTIVE' }];
+        if (sql.includes('FROM brd_flocks')) return [{ flock_no: 'FLOCK', farm_code: 'F', breed_code: 'BREED', status: 'LAYING', placement_date: '2026-01-01' }];
+        if (sql.includes('FROM sys_dict')) return [{ dict_code: 'BREED' }];
+        if (sql.includes('FROM md_variety_breeds')) return [{ variety_code: 'VAR' }];
+        if (sql.includes('FROM md_product_varieties')) return [{ variety_code: 'VAR',status:'ACTIVE',effective_date:'2026-01-01',expire_date:null }];
+        if (sql.includes('FROM md_sku_org_scope')) return [{ scope_type: 'COMPANY', scope_code: 'C', status: 'ACTIVE', sale_enabled: true, stock_enabled: true, today: '2026-11-10' }];
+        const rows = await original(sql, values);
+        return duplicate && sql.includes('FROM product_skus s JOIN') ? [...rows, { ...rows[0], sku_code: 'OTHER' }] : rows;
+      });
+      return f;
+    };
+    const f = packagingFixture();
+    await expect(resolvePackagingIdentity(f.manager, input)).resolves.toMatchObject({ skuCode: 'SKU-1', qtyPerUnit: 30, varietyCode: 'VAR' });
     const locks = f.query.mock.calls.filter(([sql]) => sql.includes('FOR SHARE'));
-    expect(locks[0][0]).toContain('FROM product_skus');
-    const future = fixture({ sku: { effective_date: '2026-11-11' } });
-    await expect(resolvePackagingIdentity(future.manager, { grade: 'G', specCode: 'S' })).rejects.toThrow();
-    const ambiguous = fixture(); const original = ambiguous.query.getMockImplementation()!;
-    ambiguous.query.mockImplementation(async (sql, values) => sql.includes('FROM product_skus') ? [{ ...current }, { ...current, sku_code: 'OTHER' }] : original(sql, values));
-    await expect(resolvePackagingIdentity(ambiguous.manager, { grade: 'G', specCode: 'S' })).rejects.toMatchObject({ response: { code: 'SKU_AMBIGUOUS' } });
+    const skuLock = locks.findIndex(([sql]) => sql.includes('FROM product_skus'));
+    expect(skuLock).toBeGreaterThanOrEqual(0);
+    expect(locks.findIndex(([sql]) => sql.includes('FROM mst_products'))).toBeGreaterThan(skuLock);
+    await expect(resolvePackagingIdentity(packagingFixture({ effective_date: '2026-11-11' }).manager, input)).rejects.toThrow('生效期');
+    await expect(resolvePackagingIdentity(packagingFixture({}, true).manager, input)).rejects.toThrow('多个可用 SKU');
+    await expect(resolvePackagingIdentity(f.manager, { grade: 'G', specCode: 'S' })).rejects.toMatchObject({ response: { code: 'SOURCE_MISSING' } });
   });
 });

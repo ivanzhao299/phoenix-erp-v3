@@ -1,7 +1,7 @@
 {
   "schema": "phoenix.typeorm-historical-rehearsal-inventory/1",
   "baselineSha": "22b47aebb50d2253afb465a25abc66ded26e873f",
-  "historicalCount": 93,
+  "historicalCount": 94,
   "entries": [
     {
       "source_file": "apps/api/dist/database/migrations/1781749821162-CreateTypeormMetadata.js",
@@ -560,6 +560,12 @@
       "class_name": "SkuVarietyOrgScope1794400000000",
       "effective_name": "SkuVarietyOrgScope1794400000000",
       "timestamp": 1794400000000
+    },
+    {
+      "source_file": "apps/api/dist/database/migrations/1794400001000-EggSourceProfiles.js",
+      "class_name": "EggSourceProfiles1794400001000",
+      "effective_name": "EggSourceProfiles1794400001000",
+      "timestamp": 1794400001000
     }
   ]
 }

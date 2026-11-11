@@ -13,15 +13,15 @@ const sorted = entries => [...entries].sort((a,b) => a.timestamp-b.timestamp);
 /** This fixture rehearses the M18 historical ledger, not newly added control DDL. */
 export function partitionRehearsalInventory(entries) {
   assert.equal(pinned.schema, 'phoenix.typeorm-historical-rehearsal-inventory/1');
-  assert.equal(pinned.historicalCount, 93);
-  assert.equal(pinned.entries.length, 93);
-  assert.equal(entries.length, 94, `expected 93 pinned historical + 1 explicitly reviewed admission migration, got ${entries.length}`);
-  assert.equal(new Set(entries.map(e => e.timestamp)).size, 94, 'canonical timestamps must remain unique');
-  assert.equal(new Set(entries.map(e => e.effective_name)).size, 94, 'canonical effective names must remain unique');
+  assert.equal(pinned.historicalCount, 94);
+  assert.equal(pinned.entries.length, 94);
+  assert.equal(entries.length, 95, `expected 94 pinned historical + 1 explicitly reviewed admission migration, got ${entries.length}`);
+  assert.equal(new Set(entries.map(e => e.timestamp)).size, 95, 'canonical timestamps must remain unique');
+  assert.equal(new Set(entries.map(e => e.effective_name)).size, 95, 'canonical effective names must remain unique');
   const added = entries.filter(e => e.timestamp === admissionMigration.timestamp);
   assert.equal(added.length, 1, 'admission migration must be present exactly once');
   assert.deepEqual(added[0], admissionMigration, 'admission class/name/path must match the reviewed control migration');
   const history = entries.filter(e => e.timestamp !== admissionMigration.timestamp);
-  assert.deepEqual(sorted(history), sorted(pinned.entries), 'historical 93-member ledger inventory changed or contains an unknown migration');
+  assert.deepEqual(sorted(history), sorted(pinned.entries), 'historical 94-member ledger inventory changed or contains an unknown migration');
   return { history, admission: added[0] };
 }

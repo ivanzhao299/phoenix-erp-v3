@@ -4482,6 +4482,8 @@
   "breeding.fetchDailyFailed": "拉取日报数据失败",
   "breeding.enterAtLeastOne": "请至少录入一档数量",
   "breeding.inboundFailed": "入库失败",
+  "breeding.inboundResultUnknown": "结果未确认，请先核对入库台账，不要重复提交",
+  "ui.去向名称": "去向名称",
   "breeding.noPermInbound": "无权限访问日产蛋入库",
   "breeding.inboundTitle": "日产蛋入库",
   "breeding.inboundMasterRequired": "请选择鸡舍、入库仓库和入库库位",
@@ -14344,6 +14346,9 @@
   "analytics.col_broken": "破损数",
   "prc2.kpi_ap_balance_original": "应付余额（原币合计）",
   "prc2.kpi_paid_amount_base": "已付金额（本位币）",
+  "warehouse.outbound.validation.destination_required": "请选择或填写去向",
+  "warehouse.outbound.validation.items_required": "请添加出库明细",
+  "warehouse.outbound.validation.item_required": "请选择库存主档品目",
   "warehouse.transfer.status.pending": "待发运",
   "warehouse.transfer.status.in_transit": "在途",
   "warehouse.transfer.status.received": "已签收待处理",
@@ -14629,5 +14634,8 @@
   "auto.literal.8137b0aac7fc": "主数据返回格式错误",
   "auto.literal.03e1fc35d353": "基本单位（如枚）",
   "auto.literal.0ce514c357c2": "销售规格单位（如托/箱）",
-  "auto.literal.6940ec1620d6": "单位未记录，待核实"
+  "auto.literal.6940ec1620d6": "单位未记录，待核实",
+  "ui.请选择有效鸡群品种": "请显式选择有效的 ACTIVE 鸡群品种；历史未知值不能直接提交",
+  "ui.选择鸡群品种": "请选择鸡群品种（必填）",
+  "ui.历史品种原值": "历史品种原值"
 }
