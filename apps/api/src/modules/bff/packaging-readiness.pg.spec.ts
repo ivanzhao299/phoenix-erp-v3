@@ -20,9 +20,9 @@ const url = process.env.PACKAGING_TEST_DATABASE_URL;
     await ds.initialize();await ds.query(`CREATE SCHEMA ${schema}`);
     expect(Number((await ds.query('SHOW server_version_num'))[0].server_version_num)).toBeGreaterThanOrEqual(180000);
     await ds.query(`
-      CREATE TABLE mst_products(product_code text PRIMARY KEY,status text);
+      CREATE TABLE mst_products(product_code text PRIMARY KEY,status text,unit text,unit_zh text);
       CREATE TABLE product_grades(grade_code text PRIMARY KEY,status text,is_saleable boolean,is_storable boolean,sort_order integer);
-      CREATE TABLE packaging_specs(spec_code text PRIMARY KEY,spec_name text,status text,qty_per_unit integer);
+      CREATE TABLE packaging_specs(spec_code text PRIMARY KEY,spec_name text,status text,qty_per_unit integer,base_unit text,display_unit text);
       CREATE TABLE product_skus(sku_code text PRIMARY KEY,product_code text,grade_code text,spec_code text,status text,effective_date date,expire_date date);
       CREATE TABLE brd_farms(farm_code text PRIMARY KEY,company_code text,status text);
       CREATE TABLE brd_houses(house_code text PRIMARY KEY,farm_code text,status text);
@@ -39,13 +39,13 @@ const url = process.env.PACKAGING_TEST_DATABASE_URL;
       CREATE TABLE pkg_audit_logs(entity_type text,entity_id text,action text,after_data jsonb,reason text,operator_id integer);
       CREATE TABLE inv_batches(id serial PRIMARY KEY,batch_no text UNIQUE,product_code text,company_code text,warehouse_code text,location_code text,
         egg_date date,inbound_date date,expire_date date,quality_grade text,packaging_spec text,source_type text,source_no text,qty numeric,qty_available numeric,status text,
-        sku_code text,grade_code_std text,spec_code text,packaging_batch_ref text,collection_batch_ref text,created_at timestamp,updated_at timestamp);
+        sku_code text,grade_code_std text,spec_code text,variety_code text,packaging_batch_ref text,collection_batch_ref text,unit text,base_quantity_version smallint,created_at timestamp,updated_at timestamp);
       CREATE TABLE inv_ledger(id serial PRIMARY KEY,batch_no text,change_type text,qty_change numeric,operator text,store_code text,ref_no text,note text,batch_expire_date date,
         quality_grade text,company_code text,sku_code text,log_date date,warehouse_code text,location_code text);
-      INSERT INTO mst_products VALUES ('REGISTERED-PRODUCT','ACTIVE');
+      INSERT INTO mst_products VALUES ('REGISTERED-PRODUCT','ACTIVE','枚','枚');
       INSERT INTO product_grades VALUES ('GRADE_5','ACTIVE',true,true,50),('GRADE_1','ACTIVE',true,true,10);
-      INSERT INTO packaging_specs VALUES ('SPEC30','30 eggs','ACTIVE',30),('SPEC60','60 eggs','ACTIVE',60);
-      INSERT INTO product_skus VALUES ('SKU5','REGISTERED-PRODUCT','GRADE_5','SPEC30','ACTIVE'),('SKU1','REGISTERED-PRODUCT','GRADE_1','SPEC30','ACTIVE');
+      INSERT INTO packaging_specs VALUES ('SPEC30','30 eggs','ACTIVE',30,'枚','托'),('SPEC60','60 eggs','ACTIVE',60,'枚','托');
+      INSERT INTO product_skus VALUES ('SKU5','REGISTERED-PRODUCT','GRADE_5','SPEC30','ACTIVE',NULL,NULL),('SKU1','REGISTERED-PRODUCT','GRADE_1','SPEC30','ACTIVE',NULL,NULL);
       INSERT INTO brd_farms VALUES ('FARM','COMP','ACTIVE'); INSERT INTO brd_houses VALUES ('HOUSE','FARM','ACTIVE');
       INSERT INTO wms_warehouses VALUES ('WH','COMP','ACTIVE');INSERT INTO wms_locations VALUES ('LOC','WH','NORMAL');
       INSERT INTO pkg_work_shifts VALUES (1,'SHIFT','FARM','2026-09-09','OPEN',false);

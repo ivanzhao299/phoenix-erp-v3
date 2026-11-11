@@ -1,7 +1,7 @@
 {
   "schema": "phoenix.typeorm-historical-rehearsal-inventory/1",
   "baselineSha": "22b47aebb50d2253afb465a25abc66ded26e873f",
-  "historicalCount": 88,
+  "historicalCount": 93,
   "entries": [
     {
       "source_file": "apps/api/dist/database/migrations/1781749821162-CreateTypeormMetadata.js",
@@ -530,6 +530,36 @@
       "class_name": "ConvergeInboundTimestamps1789600300000",
       "effective_name": "ConvergeInboundTimestamps1789600300000",
       "timestamp": 1789600300000
+    },
+    {
+      "source_file": "apps/api/dist/database/migrations/1790000000000-ConsolidateBreedingDailyLogs.js",
+      "class_name": "ConsolidateBreedingDailyLogs1790000000000",
+      "effective_name": "ConsolidateBreedingDailyLogs1790000000000",
+      "timestamp": 1790000000000
+    },
+    {
+      "source_file": "apps/api/dist/database/migrations/1792000000000-EnforceTempProductionSourceIdentity.js",
+      "class_name": "EnforceTempProductionSourceIdentity1792000000000",
+      "effective_name": "EnforceTempProductionSourceIdentity1792000000000",
+      "timestamp": 1792000000000
+    },
+    {
+      "source_file": "apps/api/dist/database/migrations/1793000000000-FarmLedgerPendingNotificationDedup.js",
+      "class_name": "FarmLedgerPendingNotificationDedup1793000000000",
+      "effective_name": "FarmLedgerPendingNotificationDedup1793000000000",
+      "timestamp": 1793000000000
+    },
+    {
+      "source_file": "apps/api/dist/database/migrations/1794268800000-PackageQuantitySnapshots.js",
+      "class_name": "PackageQuantitySnapshots1794268800000",
+      "effective_name": "PackageQuantitySnapshots1794268800000",
+      "timestamp": 1794268800000
+    },
+    {
+      "source_file": "apps/api/dist/database/migrations/1794400000000-SkuVarietyOrgScope.js",
+      "class_name": "SkuVarietyOrgScope1794400000000",
+      "effective_name": "SkuVarietyOrgScope1794400000000",
+      "timestamp": 1794400000000
     }
   ]
 }
