@@ -33,12 +33,17 @@ fixture('Issue 381 real PostgreSQL inbound transactions and retries', () => {
     }
     await db.query(`
       CREATE TABLE IF NOT EXISTS mst_products (product_code text PRIMARY KEY, status text, unit text, unit_zh text);
+      ALTER TABLE mst_products ADD COLUMN IF NOT EXISTS variety_code text;
       CREATE TABLE IF NOT EXISTS packaging_specs (spec_code text PRIMARY KEY, status text, base_unit text, display_unit text, qty_per_unit numeric(10,2));
       CREATE TABLE IF NOT EXISTS product_grades (grade_code text PRIMARY KEY, status text, sort_order int, is_saleable boolean DEFAULT true, is_storable boolean DEFAULT true);
       CREATE TABLE IF NOT EXISTS product_skus (sku_code text PRIMARY KEY, product_code text, grade_code text, spec_code text, status text, effective_date date, expire_date date);
+      ALTER TABLE product_skus ADD COLUMN IF NOT EXISTS variety_code text;
       CREATE TABLE IF NOT EXISTS sys_organizations (org_code text PRIMARY KEY, company_code text, org_type text, status text);
       CREATE TABLE IF NOT EXISTS brd_farms (farm_code text PRIMARY KEY, company_code text, mapped_site_code text, status text);
       CREATE TABLE IF NOT EXISTS brd_houses (house_code text PRIMARY KEY, farm_code text, status text);
+      CREATE TABLE IF NOT EXISTS brd_flocks (flock_no text PRIMARY KEY, house_code text, breed_code text, strain text, status text);
+      CREATE TABLE IF NOT EXISTS md_variety_breeds (variety_code text, breed_code text, status text DEFAULT 'ACTIVE');
+      CREATE TABLE IF NOT EXISTS md_sku_org_scope (sku_code text, scope_type text, scope_code text DEFAULT '', sale_enabled boolean DEFAULT true, stock_enabled boolean DEFAULT true, status text DEFAULT 'ACTIVE', effective_date date, expire_date date);
       CREATE TABLE IF NOT EXISTS brd_daily_logs (id serial PRIMARY KEY, log_date date, house_code text, eggs_by_grade jsonb);
       CREATE TABLE IF NOT EXISTS wms_warehouses (warehouse_code text PRIMARY KEY, company_code text, site_code text, status text, type text, domain text);
       CREATE TABLE IF NOT EXISTS wms_locations (location_code text PRIMARY KEY, warehouse_code text, status text);
@@ -47,6 +52,7 @@ fixture('Issue 381 real PostgreSQL inbound transactions and retries', () => {
         quality_grade text, packaging_spec text, source_type text, source_no text, qty numeric, qty_available numeric,
         status text, sku_code text, grade_code_std text, spec_code text, packaging_batch_ref text,
         collection_batch_ref text, unit text, base_quantity_version smallint, created_at timestamptz, updated_at timestamptz);
+      ALTER TABLE inv_batches ADD COLUMN IF NOT EXISTS variety_code text;
       CREATE TABLE IF NOT EXISTS inv_ledger (id serial PRIMARY KEY, batch_no text REFERENCES inv_batches(batch_no), change_type text,
         qty_change numeric, operator text, store_code text, ref_no text, note text, batch_expire_date date,
         quality_grade text, company_code text, sku_code text, log_date date, warehouse_code text, location_code text);
@@ -55,13 +61,15 @@ fixture('Issue 381 real PostgreSQL inbound transactions and retries', () => {
           COALESCE(sku_code, ''), COALESCE(grade_code_std, quality_grade, ''), COALESCE(spec_code, packaging_spec, ''))
         WHERE source_type = 'TEMP_PRODUCTION' AND source_no IS NOT NULL;
       TRUNCATE inv_ledger, inv_batches, product_skus, product_grades, mst_products, packaging_specs, sys_organizations,
-        brd_farms, brd_houses, brd_daily_logs, wms_warehouses, wms_locations RESTART IDENTITY;
+        brd_farms, brd_houses, brd_flocks, md_variety_breeds, md_sku_org_scope, brd_daily_logs, wms_warehouses, wms_locations RESTART IDENTITY;
     `);
     await db.query("INSERT INTO mst_products VALUES ('PRD-EGG-RAW','ACTIVE','枚','枚')");
     await db.query("INSERT INTO packaging_specs VALUES ('LOOSE','ACTIVE','枚','枚',1)");
     for (const [i, grade] of grades.entries()) {
       await db.query("INSERT INTO product_grades VALUES ($1,'ACTIVE',$2)", [grade, i]);
       await db.query("INSERT INTO product_skus VALUES ($1,'PRD-EGG-RAW',$2,'LOOSE','ACTIVE')", [`SKU-${grade}`, grade]);
+      // 阶段3：全部 fixture SKU 开 ALL scope（无品种上下文 → 无变体产品线兼容通道）
+      await db.query("INSERT INTO md_sku_org_scope (sku_code, scope_type, scope_code) VALUES ($1,'ALL','')", [`SKU-${grade}`]);
     }
     for (const company of ['A', 'B']) {
       await db.query("INSERT INTO sys_organizations VALUES ($1,$1,'COMPANY','ACTIVE')", [`COMP-${company}`]);

@@ -26,19 +26,40 @@
  *     是否淘汰由阶段 4 销售切换时决策）
  *   - 不回填 product_skus.variety_code（既有 SKU 属无变体产品线，NULL 即语义）
  *
- * 用法：node scripts/seed-sku-variety-org-scope.mjs [--dry-run]
- * 环境变量：DB_HOST/DB_PORT/DB_USER/DB_PASSWORD/DB_NAME（默认 localhost:5432/phoenix_erp）
+ * 用法：DATABASE_URL=postgres://... node scripts/seed-sku-variety-org-scope.mjs [--dry-run]
+ *   （pg 包从 apps/api workspace 解析；若不可用则报错退出——种子必须真连库）
  */
-import pg from 'pg';
+import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
+import path from 'node:path';
+
+const here = path.dirname(fileURLToPath(import.meta.url));
+// pg 装在 apps/api workspace（根 scripts/ 无直接依赖）——按序尝试：api → 脚本目录 → 动态 import
+const candidates = [
+  createRequire(path.join(here, '..', 'apps', 'api', 'package.json')),
+  createRequire(path.join(here, 'noop.mjs')),
+];
+let pg;
+for (const req of candidates) {
+  try { pg = req('pg'); break; } catch { /* next */ }
+}
+if (!pg) {
+  try { pg = await import('pg'); } catch {
+    console.error('[seed] 缺少 pg 依赖：请先 pnpm install（workspace 含 apps/api）');
+    process.exit(1);
+  }
+}
 
 const dry = process.argv.includes('--dry-run');
-const cfg = {
-  host: process.env.DB_HOST || 'localhost',
-  port: Number(process.env.DB_PORT || 5432),
-  user: process.env.DB_USER || 'mac',
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME || 'phoenix_erp',
-};
+const cfg = process.env.DATABASE_URL
+  ? { connectionString: process.env.DATABASE_URL }
+  : {
+      host: process.env.DB_HOST || 'localhost',
+      port: Number(process.env.DB_PORT || 5432),
+      user: process.env.DB_USER || 'mac',
+      password: process.env.DB_PASSWORD,
+      database: process.env.DB_NAME || 'phoenix_erp',
+    };
 
 const SPECS = [
   ['LOOSE', '散装'], ['TRAY30', '30枚/托'], ['TRAY36', '36枚/托'],
@@ -65,7 +86,7 @@ const STRAIN_TO_BREED = [
   ['海兰白', 'HY_LINE_WHITE'], ['罗曼白', 'LOHMANN_WHITE'], ['德卡白', 'DEKALB_WHITE'],
 ];
 
-const client = new pg.Client(cfg);
+const client = new (pg.default?.Client ?? pg.Client)(cfg);
 await client.connect();
 let seeded = 0;
 try {
