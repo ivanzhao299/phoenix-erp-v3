@@ -13,6 +13,10 @@
 - 商业SKU资格不依赖鸡舍或当期鸡群。source profile只表达制造/来源；集团调拨后库存owner可变化，原source snapshot仍保留。
 - managed/VAR SKU要求exact COMPANY授权、ACTIVE父档/商业品种及有效日期。原普通legacy商品分支保留；没有上下文的旧泛蛋/旧POS接口仍不能消费新managed库存。
 
+## 验证范围
+
+销售页面现在有真实 React/jsdom 交互覆盖：managed 无报价阻止创建、公司切换清除公司相关状态、旧公司报价响应不会覆盖新公司、普通旧商品手工价控件仍保留。浏览器全链路仍由 CI Playwright 验证；本地 jsdom 不代替真实浏览器和生产环境。
+
 ## 报价与计量
 
 - 新managed交易必须选择明确公司、SKU、币种和BASE/PACKAGE口径。
