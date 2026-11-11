@@ -40,6 +40,11 @@ test('saved flock quantity is rendered from the post-save GET without reloading'
   await expect(breedSelect).toBeEnabled();
   await expect(breedSelect).toHaveValue(BREED_CODE);
   await expect(breedSelect.locator(`option[value="${BREED_CODE}"]`)).toBeEnabled();
+  // DATE values must arrive unchanged from the API, not as midnight timestamps
+  // that the server correctly rejects (and native date inputs render empty).
+  const startDateInput = page.getByRole('dialog').locator('input[type="date"]').first();
+  await expect(startDateInput).toHaveValue(/^\d{4}-\d{2}-\d{2}$/);
+  const startDate = await startDateInput.inputValue();
   const quantityInput = page.locator('label', { hasText: '当前存栏(羽)' }).locator('..').locator('input');
   await quantityInput.fill(String(newQuantity));
 
@@ -61,8 +66,8 @@ test('saved flock quantity is rendered from the post-save GET without reloading'
   );
   await page.getByRole('button', { name: '保存修改' }).click();
   const saveResponse = await saved;
-  expect(saveResponse.ok()).toBe(true);
-  expect(saveResponse.request().postDataJSON()).toMatchObject({ breed_code: BREED_CODE, current_qty: newQuantity });
+  expect(saveResponse.ok(), `flock PUT ${saveResponse.status()}: ${await saveResponse.text()}`).toBe(true);
+  expect(saveResponse.request().postDataJSON()).toMatchObject({ breed_code: BREED_CODE, current_qty: newQuantity, start_date: startDate });
   const refreshResponse = await refreshed;
   expect(refreshResponse.ok()).toBe(true);
   const refreshedBody: unknown = await refreshResponse.json();
@@ -72,7 +77,10 @@ test('saved flock quantity is rendered from the post-save GET without reloading'
     ? refreshedBody
     : ((refreshedBody as { data?: unknown[] } | undefined)?.data || []);
   expect(records).toEqual(expect.arrayContaining([
-    expect.objectContaining({ flock_no: FLOCK_NO, current_qty: newQuantity, breed_code: BREED_CODE }),
+    expect.objectContaining({
+      flock_no: FLOCK_NO, current_qty: newQuantity, breed_code: BREED_CODE, start_date: startDate,
+      company_code: 'E2E-COMPANY', site_code: 'E2E-REPLENISH-SITE',
+    }),
   ]));
   await expect(quantityCell).toHaveText(`${newQuantity.toLocaleString()}羽`);
   expect(browserErrors).toEqual([]);

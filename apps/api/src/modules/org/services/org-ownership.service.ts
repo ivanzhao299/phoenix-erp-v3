@@ -82,6 +82,36 @@ export class OrgOwnershipService {
     return rows.map((row) => row.farm_code).filter(Boolean);
   }
 
+  /**
+   * Resolve persisted ownership identity only, including frozen masters. This is
+   * not an ACTIVE eligibility check: write-policy gates and history classification
+   * must not lose the company merely because a house/farm was disabled.
+   */
+  async resolveHouseIdentity(houseCode: string): Promise<HouseOwnership> {
+    const validCode = (value: unknown): value is string => typeof value === 'string'
+      && value.trim().length > 0 && !['ALL', 'UNKNOWN', 'GLOBAL'].includes(value.trim().toUpperCase());
+    if (!validCode(houseCode)) throw new BadRequestException('鸡舍身份编码缺失或不明确');
+    const code = houseCode.trim();
+    const rows = await this.em.query(
+      `SELECT h.house_code, h.farm_code, f.company_code AS company_code,
+              ${OrgOwnershipService.FARM_SITE_SQL} AS site_code
+         FROM brd_houses h
+         JOIN ${OrgOwnershipService.FARM_TABLE} f ON f.farm_code = h.farm_code
+        WHERE h.house_code = $1`, [code],
+    );
+    if (rows.length !== 1) throw new BadRequestException(`鸡舍 ${code} 缺少唯一归属身份`);
+    const row = rows[0];
+    if (!validCode(row.house_code) || row.house_code.trim() !== code || !validCode(row.farm_code) || !validCode(row.company_code)) {
+      throw new BadRequestException(`鸡舍 ${code} 归属身份缺少真实鸡舍/农场/公司编码`);
+    }
+    return {
+      houseCode: code,
+      farmCode: row.farm_code.trim(),
+      companyCode: row.company_code.trim(),
+      ...(typeof row.site_code === 'string' && row.site_code.trim() ? { siteCode: row.site_code.trim() } : {}),
+    };
+  }
+
   async resolveHouse(houseCode: string): Promise<HouseOwnership> {
     const code = houseCode.trim();
     const rows = await this.em.query(

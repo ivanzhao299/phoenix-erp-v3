@@ -6,6 +6,10 @@ const codes = ['GRADE_0', 'GRADE_1', 'GRADE_2', 'GRADE_3', 'GRADE_4', 'GRADE_5',
 const grades = Object.fromEntries(codes.map((code, i) => [code, i + 1]));
 const saved = { id: 1, log_date: '2026-10-16', house_code: 'FIXTURE-H2', eggs_produced: 55, eggs_by_grade: grades, mortality_qty: 2, elimination_qty: 3, note: '=FORMULA,"quoted"\nsecond line' };
 
+function exportPanel(page: import('@playwright/test').Page) {
+  return page.getByText(/导出已保存的日报|Export saved daily reports/, { exact: false }).locator('../..');
+}
+
 async function readCsv(download: Download) {
   const stream = await download.createReadStream();
   expect(stream).not.toBeNull();
@@ -47,7 +51,7 @@ test('date export reads saved dynamic grades across authorized houses, never uns
   await page.locator('input[type=date]').first().fill('2026-10-20');
   await page.getByRole('spinbutton', { name: '测试-GRADE_0 · 数量(枚)', exact: true }).fill('777');
   await page.getByRole('button', { name: '导出报表', exact: true }).click();
-  const dialog = page.getByRole('dialog');
+  const dialog = exportPanel(page);
   await expect(dialog).toContainText('与录入表单的鸡舍选择无关');
   await dialog.locator('input[type=date]').fill('2026-10-16');
   const downloading = page.waitForEvent('download');
@@ -75,7 +79,7 @@ test('Lao historical labels and English export retain runtime codes and saved qu
   await expect(page.locator('dl dd')).toHaveText(Object.values(grades).map(String));
   await page.locator('select').filter({ has: page.locator('option[value=en]') }).selectOption('en');
   await page.getByRole('button', { name: 'Export report', exact: true }).click();
-  const dialog = page.getByRole('dialog');
+  const dialog = exportPanel(page);
   await dialog.locator('input[type=date]').fill('2026-10-16');
   const downloading = page.waitForEvent('download');
   await dialog.getByRole('button', { name: 'Export report', exact: true }).click();
@@ -94,7 +98,7 @@ test('export refuses response rows outside requested business date instead of do
   });
   await page.goto('/breeding/daily');
   await page.getByRole('button', { name: '导出报表', exact: true }).click();
-  const dialog = page.getByRole('dialog');
+  const dialog = exportPanel(page);
   await dialog.locator('input[type=date]').fill('2026-10-16');
   await dialog.getByRole('button', { name: '导出报表', exact: true }).click();
   await expect(dialog.getByRole('alert')).toContainText('导出失败');
@@ -107,7 +111,7 @@ test('export preserves historical codes absent from ACTIVE master and leaves mis
   }] }));
   await page.goto('/breeding/daily');
   await page.getByRole('button', { name: '导出报表', exact: true }).click();
-  const dialog = page.getByRole('dialog');
+  const dialog = exportPanel(page);
   await dialog.locator('input[type=date]').fill('2026-10-16');
   const downloading = page.waitForEvent('download');
   await dialog.getByRole('button', { name: '导出报表', exact: true }).click();

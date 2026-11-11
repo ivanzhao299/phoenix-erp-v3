@@ -75,5 +75,9 @@ describe('flock business-date reads', () => {
     expect(query.mock.calls[0][0]).toContain('row_to_json(flock_rows)');
     await expect(service.findOneByColumn('brd_flocks', 'flock_no', 'FK1')).resolves.toEqual(fact);
     expect(query.mock.calls[1][0]).toContain('row_to_json(flock_row)');
+    await expect(service.findAllBreedingScoped('brd_flocks', {}, {farmCodes:['F1'],siteCodes:[],companyCodes:[]})).resolves.toEqual([fact]);
+    expect(query.mock.calls[2][0]).toContain('row_to_json(flock_rows)');
+    expect(query.mock.calls[2][0]).toContain('"farm_code" = ANY');
+    expect(query.mock.calls[2][1]).toContainEqual(['F1']);
   });
 });

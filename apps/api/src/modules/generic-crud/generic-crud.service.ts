@@ -309,7 +309,9 @@ export class GenericCrudService {
 
     const { sql, queryValues } = this.buildFindAllSql(table, query, extraWhere, extraValues);
     try {
-      const rows = await this.entityManager.query(sql, queryValues);
+      const rows = table === 'brd_flocks'
+        ? (await this.entityManager.query(`SELECT row_to_json(flock_rows) AS flock_fact FROM (${sql}) flock_rows`, queryValues)).map((row: { flock_fact: Record<string, unknown> }) => row.flock_fact)
+        : await this.entityManager.query(sql, queryValues);
       return table === 'brd_daily_logs' ? await this.enrichDailyLogRows(rows) : rows;
     } catch (e) {
       this.rejectSchemaMismatch(e, table);

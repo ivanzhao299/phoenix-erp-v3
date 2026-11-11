@@ -233,10 +233,14 @@ export class PackagingInventoryIntegrationService {
     if (!existingInventory.length) {
       // pkg_tasks belongs to the old pkg_shifts namespace. Never manufacture a
       // new commercial identity by colliding its ID with pkg_work_shifts.
-      const owners = await this.ds.query(`SELECT f.company_code FROM brd_houses h
-        JOIN brd_farms f ON f.farm_code=h.farm_code WHERE h.house_code=$1`, [task.house_code]);
-      if (owners.length !== 1 || !owners[0].company_code) throw new ConflictException('旧包装任务缺已确认的来源归属，禁止新建库存');
-      const configured = await this.ds.query('SELECT profile_code FROM md_egg_source_profiles WHERE company_code=$1', [owners[0].company_code]);
+      let ownerCompany: string;
+      try {
+        const owner = await new OrgOwnershipService(this.ds.manager).resolveHouseIdentity(task.house_code);
+        ownerCompany = owner.companyCode;
+      } catch {
+        throw new ConflictException('旧包装任务缺已确认的来源归属，禁止新建库存');
+      }
+      const configured = await this.ds.query('SELECT profile_code FROM md_egg_source_profiles WHERE company_code=$1', [ownerCompany]);
       if (configured.length) throw new ConflictException('公司已配置来源档案，旧包装任务禁止新建库存；请使用包装作业中心或经审查的迁移流程');
     }
 

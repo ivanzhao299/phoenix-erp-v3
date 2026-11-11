@@ -154,8 +154,10 @@ export class OwnedErpCandidateCapsule {
     this.sourceSha = sourceRevision??instrumentationSha; assert.match(this.sourceSha, /^[a-f0-9]{40}$/);
     if(this.sourceSha!==instrumentationSha){
       // Exact226 remains the actual legacy fixture. The separate synthetic
-      // no-migration exercise must prove every non-migration byte is still226,
-      // a single direct parent226 and a complete target-matching migration tree.
+      // no-migration exercise must prove every application byte is still226
+      // outside migration paths, plus exactly one verified readonly Compose
+      // control-mount insertion. No other infrastructure exception is allowed;
+      // require a direct parent226 and complete target-matching migration tree.
       // A flag or arbitrary revision can never bypass the archive restriction.
       if(this.sourceSha===LEGACY_APPLICATION_BASE){
         assert.equal(syntheticLegacyTarget,undefined);git(['merge-base','--is-ancestor',this.sourceSha,instrumentationSha]);

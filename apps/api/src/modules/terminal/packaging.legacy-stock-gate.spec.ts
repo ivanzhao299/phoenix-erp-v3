@@ -54,6 +54,27 @@ function fixture() {
 }
 
 describe('terminal legacy stock company gate', () => {
+  it('rejects ALL as an unowned legacy placeholder when no persisted house exists', async () => {
+    const f = fixture();
+    await expect(f.guard([{ company_code: 'ALL' }])).rejects.toMatchObject({ status: 409 });
+    f.noMutation();
+  });
+
+  it('derives the company from a unique persisted house owner when legacy batch company is ALL', async () => {
+    const f = fixture();
+    f.state.batches[0].company_code = 'ALL';
+    await expect(f.guard([{ house_code: 'HOUSE-A', batch_no: 'RAW-A', company_code: 'ALL' }])).resolves.toBeUndefined();
+    f.noMutation();
+  });
+
+  it('still rejects ALL legacy batch rows when the unique house company is configured', async () => {
+    const f = fixture();
+    f.state.batches[0].company_code = 'ALL';
+    f.state.profiles.push({ profile_code: 'SOURCE-A', company_code: 'COMP-A', status: 'INACTIVE' });
+    await expect(f.guard([{ house_code: 'HOUSE-A', batch_no: 'RAW-A', company_code: 'ALL' }])).rejects.toMatchObject({ status: 409 });
+    f.noMutation();
+  });
+
   it('permits a known unconfigured company through the real policy query, not empty ownership metadata', async () => {
     const f = fixture();
     f.state.profiles.push({ profile_code: 'OTHER', company_code: 'COMP-B', status: 'ACTIVE' });
@@ -76,6 +97,12 @@ describe('terminal legacy stock company gate', () => {
     for (const run of calls) {
       await expect(run()).rejects.toMatchObject({ status: 409, message: expect.stringContaining('当前包装作业中心') });
     }
+    f.noMutation();
+  });
+
+  it('rejects a real non-ALL legacy company that disagrees with the house owner', async () => {
+    const f = fixture();
+    await expect(f.guard([{ house_code: 'HOUSE-A', company_code: 'COMP-B' }])).rejects.toMatchObject({ status: 409 });
     f.noMutation();
   });
 

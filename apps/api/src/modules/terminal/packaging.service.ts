@@ -1,4 +1,5 @@
 import { ProductPolicy } from '../product-master/services/product-policy';
+import { OrgOwnershipService } from '../org/services/org-ownership.service';
 import { ConflictException, Injectable } from '@nestjs/common';
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
@@ -34,6 +35,15 @@ export class PackagingService {
       }
       return value.trim();
     };
+    // Legacy inventory rows historically defaulted company_code to ALL. That is
+    // an unowned placeholder, never authorization; only persisted house/farm
+    // ownership can establish the real company. Request context still uses code().
+    const persistedCompany = (value: any): string | undefined => {
+      if (value == null || value === '') return undefined;
+      if (typeof value !== 'string' || !value.trim()) return deny('来源组织不明确');
+      if (value.trim().toUpperCase() === 'ALL') return undefined;
+      return code(value);
+    };
     try {
       if (!records.length) deny('缺少持久来源');
       const companies = new Set<string>();
@@ -55,7 +65,7 @@ export class PackagingService {
         const sourceCompanies = new Set<string>();
         const sourceHouses = new Set<string>();
         for (const source of sources) {
-          const company = code(source.company_code);
+          const company = persistedCompany(source.company_code);
           if (company) sourceCompanies.add(company);
           const house = code(source.house_code);
           if (house) sourceHouses.add(house);
@@ -73,13 +83,8 @@ export class PackagingService {
         for (const house of sourceHouses) {
           // Identity only: do not filter ACTIVE or reclassify frozen history.
           // The authoritative company is the farm, never h.company_code.
-          const owners = await this.em.query(
-            `SELECT h.house_code, h.farm_code, f.company_code
-               FROM brd_houses h JOIN brd_farms f ON f.farm_code = h.farm_code
-              WHERE h.house_code = $1`, [house],
-          );
-          if (owners.length !== 1 || !code(owners[0].company_code)) deny('来源鸡舍缺少唯一公司归属');
-          sourceCompanies.add(code(owners[0].company_code)!);
+          const owner = await new OrgOwnershipService(this.em).resolveHouseIdentity(house);
+          sourceCompanies.add(code(owner.companyCode)!);
           houses.add(house);
         }
         if (sourceCompanies.size !== 1 || sourceHouses.size > 1) deny('来源公司/鸡舍缺失、冲突或混源');

@@ -527,7 +527,7 @@ export class WmsService {
         if (actualQty <= 0 && brokenQty <= 0) continue;
 
         const warehouseCode = item.warehouse_code || item.warehouse || defaultWarehouse;
-        await this.assertWritableWarehouse(warehouseCode, '入库明细');
+        await this.assertWritableWarehouse(warehouseCode, `入库明细 ${this.itemIdentityLabel(item)}`);
         const companyCode = await this.lockWarehouseCompany(manager, warehouseCode);
 
         let productCode = snapshot?.productCode ?? this.nonEmptyString(item.product_code);

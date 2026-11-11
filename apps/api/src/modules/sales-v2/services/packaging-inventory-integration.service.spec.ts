@@ -1,4 +1,5 @@
 import { PackagingInventoryIntegrationService } from './packaging-inventory-integration.service';
+import { ConflictException } from '@nestjs/common';
 
 /** SQL doubles exercise the real readiness/availability services; PG coverage is in packaging-readiness.pg.spec. */
 describe('PackagingInventoryIntegrationService terminal provenance', () => {
@@ -76,5 +77,49 @@ describe('PackagingInventoryIntegrationService terminal provenance', () => {
     const { service, eggInv } = setup();
     await expect(service.generateSaleableFromOutputs('PKG-1', [{ grade: 'L', qty: 30, specCode: 'SPEC' }])).rejects.toThrow('日期');
     expect(eggInv.createProductionBatch).not.toHaveBeenCalled();
+  });
+});
+
+describe('PackagingInventoryIntegrationService legacy owner policy', () => {
+  function fixture(options: { owners?: any[]; configured?: string; existing?: boolean } = {}) {
+    const ownerQuery = jest.fn().mockResolvedValue(options.owners ?? [{ house_code: 'HOUSE', farm_code: 'FARM', company_code: 'COMP', site_code: 'SITE' }]);
+    const query = jest.fn(async (sql: string): Promise<any[]> => {
+      if (sql.includes('FROM pkg_tasks')) return [{ task_no: 'OLD-PACK', house_code: 'HOUSE', shift_id: 7, grade_results: { L: 30 } }];
+      if (sql.includes('FROM inv_batches')) return options.existing ? [{ batch_no: 'SAVED' }] : [];
+      if (sql.includes('FROM md_egg_source_profiles')) return options.configured ? [{ profile_code: 'PROFILE', status: options.configured }] : [];
+      if (sql.includes('FROM pkg_work_shifts')) return [{ site_id: 'FARM', egg_date: '2026-01-01' }];
+      throw new Error(`Unexpected SQL: ${sql}`);
+    });
+    const ds = { query, manager: { query: ownerQuery } };
+    const eggInv = { createProductionBatch: jest.fn() };
+    const service = new PackagingInventoryIntegrationService(ds as never, {} as never, eggInv as never, {} as never);
+    return { service, ds, ownerQuery, eggInv };
+  }
+
+  it.each(['ACTIVE', 'INACTIVE'])('rejects fresh legacy inventory for %s configured company using canonical ownership on ds.manager', async configured => {
+    const f = fixture({ configured });
+    await expect(f.service.completePackagingBatch('OLD-PACK')).rejects.toBeInstanceOf(ConflictException);
+    expect(f.ownerQuery).toHaveBeenCalledWith(expect.stringContaining('FROM brd_houses'), ['HOUSE']);
+    expect(f.ds.query).toHaveBeenCalledWith(expect.stringContaining('FROM md_egg_source_profiles'), ['COMP']);
+    expect(f.eggInv.createProductionBatch).not.toHaveBeenCalled();
+  });
+
+  it.each([{ owners: [] }, { owners: [{ house_code: 'HOUSE', farm_code: 'FARM', company_code: null }] }, { owners: [
+    { house_code: 'HOUSE', farm_code: 'FARM', company_code: 'COMP' },
+    { house_code: 'HOUSE', farm_code: 'OTHER', company_code: 'COMP-B' },
+  ] }])('keeps missing or ambiguous owner failures as HTTP conflicts', async ({ owners }) => {
+    const f = fixture({ owners });
+    await expect(f.service.completePackagingBatch('OLD-PACK')).rejects.toMatchObject({ status: 409 });
+    expect(f.eggInv.createProductionBatch).not.toHaveBeenCalled();
+    expect(f.ds.query.mock.calls.some(([sql]) => sql.includes('FROM md_egg_source_profiles'))).toBe(false);
+  });
+
+  it('skips new owner classification for existing inventory history replay', async () => {
+    const f = fixture({ existing: true, owners: [] });
+    jest.spyOn(f.service, 'generateSaleableFromOutputs').mockResolvedValue({ refNo: 'OLD-PACK', idempotent: true, companyCode: 'COMP', batches: [], skippedNonSaleable: [], totalInbound: 30 });
+    await expect(f.service.completePackagingBatch('OLD-PACK')).resolves.toMatchObject({ taskNo: 'OLD-PACK', idempotent: true });
+    expect(f.ownerQuery).not.toHaveBeenCalled();
+    expect(f.ds.query.mock.calls.some(([sql]) => sql.includes('FROM md_egg_source_profiles'))).toBe(false);
+    expect(f.eggInv.createProductionBatch).not.toHaveBeenCalled();
   });
 });

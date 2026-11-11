@@ -500,6 +500,15 @@ describe('WMS authoritative company context (real SkuPolicy)', () => {
     }
   });
 
+  it('rejects an out-of-scope inbound line warehouse even when the locked document warehouse is authorized', async () => {
+    const f = fixture({ warehouseScope: ['WH-A'] });
+    await expect(f.service.confirmInbound({ task_no: 'IN-1', items: [{ batch_no: 'B-NEW', sku_code: SKU, actual_qty: 2, warehouse_code: 'WH-B' }] }, user)).rejects.toThrow('入库明细 B-NEW（仓库范围不匹配）');
+    expect(f.calls.some(([sql]) => sql.includes('SELECT company_code FROM wms_warehouses'))).toBe(false);
+    expect(f.calls.some(([sql]) => sql.includes('FROM product_skus'))).toBe(false);
+    expect(f.calls.some(([sql]) => /INSERT INTO inv_batches|INSERT INTO inv_ledger/.test(sql))).toBe(false);
+    expect(f.committed).toEqual([]);
+  });
+
   it('retains warehouse scope and outbound menu authorization before variant checks', async () => {
     const denied = fixture({ warehouseScope: ['WH-B'] });
     await expect(denied.service.createStandaloneOutbound(outboundBody, user)).rejects.toThrow('仓库范围不匹配');
