@@ -4482,6 +4482,8 @@
   "breeding.fetchDailyFailed": "拉取日报数据失败",
   "breeding.enterAtLeastOne": "请至少录入一档数量",
   "breeding.inboundFailed": "入库失败",
+  "breeding.inboundResultUnknown": "结果未确认，请先核对入库台账，不要重复提交",
+  "ui.去向名称": "去向名称",
   "breeding.noPermInbound": "无权限访问日产蛋入库",
   "breeding.inboundTitle": "日产蛋入库",
   "breeding.inboundMasterRequired": "请选择鸡舍、入库仓库和入库库位",

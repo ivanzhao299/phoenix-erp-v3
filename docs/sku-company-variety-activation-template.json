@@ -11,16 +11,18 @@
   "businessClarification": {
     "source": "用户于2026-11-11本会话明确补充",
     "companies": [
-      { "companyName": "老挝凤凰农业发展有限公司", "shellDescription": "正常壳颜色", "resolvedVarietyCode": null, "note": "尚不能据此擅自映射红壳/粉壳；先保留原描述" },
-      { "companyName": "老挝东鹏县星驰农业发展有限公司", "confirmedVarietyCodes": ["EGG_RED", "EGG_PINK"], "houseFlockMapping": null, "note": "必须按鸡舍/鸡群或明确分批来源区分，禁止公司级单一默认值" }
+      { "companyName": "老挝凤凰农业发展有限公司", "shellDescription": "正常壳颜色", "productMode": "STANDARD", "resolvedVarietyCode": null, "note": "用户随后明确沿用原鸡蛋目录，不按壳色拆分；NULL为显式普通商业口径，不是缺配置回退" },
+      { "companyName": "老挝东鹏县星驰农业发展有限公司", "confirmedVarietyCodes": ["EGG_RED", "EGG_PINK"], "houseMapping": { "HOUSE_DP_01": "EGG_PINK", "HOUSE_DP_02": "EGG_RED", "HOUSE_DP_03": "EGG_PINK", "HOUSE_DP_04": "EGG_RED", "HOUSE_DP_05": "EGG_PINK" }, "excludedHouses": ["HOUSE_DP_06"], "note": "用户明确按不同鸡舍区分，并给出1/3/5粉、2/4红；不反推鸡种" }
     ],
+    "sourceEffectiveDateConfirmed": "2026-11-10",
+    "sourceDateBasis": "用户明确确认东鹏分舍颜色至少自老挝业务日期2026-11-10起适用；孟赛沿用原普通蛋身份；不改写已入库历史",
     "grade0WeightRule": "待核实"
   },
   "readonlyOrganizationEvidence": {
     "workflowRun": 42983144676,
     "assignments": [
-      { "companyCode": "COMP-LAO-AGRI", "farmCode": "LPH_MENGSAI", "siteCode": "SITE-MENGSAI-LAYER", "classification": "ONE_TO_ONE", "shellMappingApproved": false },
-      { "companyCode": "COMP-LAO-XINGCHI", "farmCode": "FARM-DP", "siteCode": "SITE-DONGPENG-LAYER", "classification": "ONE_TO_ONE", "houseFlockShellMappingApproved": false }
+      { "companyCode": "COMP-LAO-AGRI", "farmCode": "LPH_MENGSAI", "siteCode": "SITE-MENGSAI-LAYER", "classification": "ONE_TO_ONE", "productModeApproved": "STANDARD" },
+      { "companyCode": "COMP-LAO-XINGCHI", "farmCode": "FARM-DP", "siteCode": "SITE-DONGPENG-LAYER", "classification": "ONE_TO_ONE", "houseShellMappingApproved": true }
     ],
     "note": "只读组织证据不是壳色/鸡种或SKU启用授权"
   },

@@ -12,9 +12,31 @@ export interface SkuResolveInput {
   farmCode?: string | null;
   siteCode?: string | null;
   houseCode?: string | null;
-  /** Required with houseCode: the egg business date, never inferred from today's flock. */
+  /** Fresh selections require the house's real egg business date; never infer today's policy. */
   eggDate?: string | null;
+  sourceProfileCode?: string | null;
   usage?: SkuUsage;
+}
+
+export interface EggSourceProfileInput {
+  companyCode: string;
+  houseCode: string;
+  eggDate: string;
+  farmCode?: string | null;
+  siteCode?: string | null;
+  sourceProfileCode?: string | null;
+}
+
+export interface EggSourceProfile {
+  profileCode: string;
+  productMode: 'STANDARD' | 'VARIANT';
+  varietyCode: string | null;
+  companyCode: string;
+  farmCode: string;
+  siteCode: string;
+  houseCode: string;
+  eggDate: string;
+  effectiveDate: string;
 }
 
 export interface SkuResolveResult {
@@ -37,6 +59,10 @@ type SkuRow = {
   sku_code: string; product_code: string; variety_code: string | null; product_variety_code: string | null;
   grade_code: string; spec_code: string;
 };
+type SourceProfileRow = {
+  profile_code: string; company_code: string; farm_code: string; site_code: string; house_code: string;
+  product_mode: string; variety_code: string | null; effective_date: string; expire_date: string | null; status: string;
+};
 
 /**
  * COMPANY is mandatory; FARM/SITE are additional vetoes, never grants. ALL is
@@ -50,7 +76,7 @@ export class SkuAvailabilityService {
 
   private date(value: unknown, label: string): string {
     if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)
-        || !Number.isFinite(Date.parse(`${value}T00:00:00Z`))
+        || value.startsWith('0000-') || !Number.isFinite(Date.parse(`${value}T00:00:00Z`))
         || new Date(`${value}T00:00:00Z`).toISOString().slice(0, 10) !== value) {
       throw new BadRequestException(`${label} 必须为有效的 YYYY-MM-DD 日期`);
     }
@@ -108,7 +134,70 @@ export class SkuAvailabilityService {
     return result;
   }
 
-  /** Full organization/date context is required; a bare house code is not provenance. */
+  /**
+   * Commercial policy is configured per house, never guessed from its breed.
+   * Writers must use the exclusive form of this advisory lock before checking
+   * overlapping ACTIVE closed date intervals and inserting/updating policy rows.
+   */
+  async resolveSourceProfile(input: EggSourceProfileInput, mgr?: Db): Promise<EggSourceProfile> {
+    const db = mgr ?? this.ds;
+    if (typeof input.houseCode !== 'string' || !input.houseCode.trim() || input.houseCode !== input.houseCode.trim()) {
+      throw new BadRequestException('来源档案必须提供有效 houseCode');
+    }
+    const eggDate = this.date(input.eggDate, 'eggDate');
+    const context = await this.context({ ...input, eggDate }, db);
+    await db.query(
+      "SELECT pg_advisory_xact_lock_shared(hashtext('phoenix:egg-source-profile'), hashtext($1))",
+      [`${input.companyCode}:${input.houseCode}`],
+    );
+    // Do not filter by a client-supplied profile code: that would hide overlaps.
+    const rows: SourceProfileRow[] = await db.query(
+      `SELECT profile_code, company_code, farm_code, site_code, house_code,
+              product_mode, variety_code, effective_date::text AS effective_date,
+              expire_date::text AS expire_date, status
+         FROM md_egg_source_profiles
+        WHERE company_code = $1 AND house_code = $2 AND status = 'ACTIVE'
+          AND effective_date <= $3::date AND (expire_date IS NULL OR expire_date >= $3::date)
+        ORDER BY profile_code FOR SHARE`, [input.companyCode, input.houseCode, eggDate],
+    );
+    // Recheck returned state as well: no undefined/malformed policy may grant use.
+    const active = rows.filter(r => r.status === 'ACTIVE'
+      && this.date(r.effective_date, '来源生效日期') <= eggDate
+      && (r.expire_date == null || this.date(r.expire_date, '来源失效日期') >= eggDate));
+    if (active.length !== 1) {
+      throw new BadRequestException(active.length > 1 ? '来源档案生效期重叠，拒绝推导' : '业务日期缺少有效来源档案（未配置、未启用或已过期）');
+    }
+    const row = active[0];
+    if (!row.profile_code || row.profile_code !== row.profile_code.trim()
+        || row.company_code !== input.companyCode || row.house_code !== input.houseCode
+        || !context.siteCode || row.farm_code !== context.farmCode || row.site_code !== context.siteCode
+        || (input.sourceProfileCode != null && input.sourceProfileCode !== row.profile_code)) {
+      throw new BadRequestException('来源档案与 company/farm/site/house/date 或 sourceProfileCode 不一致');
+    }
+    if (row.product_mode === 'STANDARD') {
+      if (row.variety_code !== null) throw new BadRequestException('STANDARD 来源档案品种必须明确 NULL');
+    } else if (row.product_mode === 'VARIANT') {
+      await this.requireVariety(row.variety_code, eggDate, db);
+    } else {
+      throw new BadRequestException('来源档案 productMode 无效');
+    }
+    return {
+      profileCode: row.profile_code, productMode: row.product_mode, varietyCode: row.variety_code,
+      companyCode: input.companyCode, farmCode: row.farm_code, siteCode: row.site_code,
+      houseCode: input.houseCode, eggDate, effectiveDate: row.effective_date,
+    };
+  }
+
+  private async source(input: Context, db: Db): Promise<EggSourceProfile> {
+    const profile = await this.resolveSourceProfile({ ...input, houseCode: input.houseCode!, eggDate: input.eggDate! }, db);
+    // Absence does not assert a variety; a supplied value (including NULL) must agree.
+    if (input.varietyCode !== undefined && input.varietyCode !== profile.varietyCode) {
+      throw new BadRequestException('显式品种与鸡舍来源档案品种不一致');
+    }
+    return profile;
+  }
+
+  /** Independent biological traceability only; full organization/date context is required, never SKU authorization. */
   async resolveVarietiesByHouse(input: Context, mgr?: Db): Promise<string[]> {
     const db = mgr ?? this.ds;
     const context = await this.context(input, db);
@@ -182,27 +271,13 @@ export class SkuAvailabilityService {
     if (!row) throw new BadRequestException(`品种 ${code} 不存在、未启用或不在业务日期有效期内`);
   }
 
-  private async varieties(input: Context, db: Db): Promise<string[]> {
-    let varieties: string[] = [];
-    if (input.houseCode) varieties = await this.houseVarieties(input, db);
-    if (input.varietyCode != null) {
-      await this.requireVariety(input.varietyCode, input.eggDate, db);
-      // A mixed house cannot be made single-variety by an explicit override.
-      if (input.houseCode && (varieties.length !== 1 || varieties[0] !== input.varietyCode)) {
-        throw new BadRequestException('显式品种与鸡舍推导品种不一致');
-      }
-      varieties = [input.varietyCode];
-    }
-    if (!varieties.length) throw new BadRequestException('缺少有效品种，禁止回退全局无变体 SKU');
-    return varieties;
-  }
-
   /** Grade/spec + validated provenance -> exactly one SKU. */
   async resolve(input: SkuResolveInput, mgr?: Db): Promise<SkuResolveResult> {
     const db = mgr ?? this.ds;
     const usage = SkuPolicy.usage(input.usage ?? 'stock');
-    const context = await this.context(input, db);
-    const varieties = await this.varieties(context, db);
+    const profile = await this.source(input, db);
+    const context = { ...input, farmCode: profile.farmCode, siteCode: profile.siteCode };
+    const varieties = profile.varietyCode === null ? [] : [profile.varietyCode];
     const spec = input.specCode?.trim() || 'LOOSE';
     // Include either side so a SKU/product variety mismatch is rejected rather
     // than hidden by a join predicate. Lock every candidate and validate all.
@@ -211,17 +286,23 @@ export class SkuAvailabilityService {
               p.variety_code AS product_variety_code
          FROM product_skus s JOIN mst_products p ON p.product_code = s.product_code
         WHERE s.grade_code = $1 AND s.spec_code = $2
-          AND (p.variety_code = ANY($3::text[]) OR s.variety_code = ANY($3::text[]))
-        ORDER BY s.sku_code FOR SHARE OF s, p`, [input.gradeCode, spec, varieties],
+          AND (p.variety_code = ANY($3::text[]) OR s.variety_code = ANY($3::text[])
+             OR ($4::boolean AND (p.variety_code IS NULL OR s.variety_code IS NULL)))
+        ORDER BY s.sku_code FOR SHARE OF s, p`, [input.gradeCode, spec, varieties, profile.productMode === 'STANDARD'],
     );
     if (!candidates.length) {
-      throw new BadRequestException(`等级 ${input.gradeCode}/${spec} 在品种 ${varieties.join('/')} 下没有可用 SKU`);
+      throw new BadRequestException(`等级 ${input.gradeCode}/${spec} 在品种 ${profile.varietyCode ?? 'STANDARD'} 下没有可用 SKU`);
     }
     const resolved: SkuResolveResult[] = [];
     for (const sku of candidates) {
-      await this.validateSku(sku, varieties, usage, db);
+      this.validateSourceVariety(sku, profile);
       const scope = await this.matchScope(db, sku.sku_code, context, usage);
-      if (scope) resolved.push(this.result(sku, scope));
+      // Another company's same-color SKU is not a grant (or an error) for this
+      // company. Only run the transition gate after exact scope authorization.
+      if (scope) {
+        await this.validateSku(sku, profile, usage, db);
+        resolved.push(this.result(sku, scope));
+      }
     }
     if (!resolved.length) throw new BadRequestException(`候选 SKU 均不适用于公司 ${input.companyCode}（无组织适用范围或用途被禁用）`);
     if (resolved.length > 1) throw new BadRequestException(`等级 ${input.gradeCode}/${spec} 匹配多个可用 SKU：${resolved.map(r => r.skuCode).join('、')}`);
@@ -233,8 +314,8 @@ export class SkuAvailabilityService {
     const db = mgr ?? this.ds;
     skuCode = SkuPolicy.code(skuCode);
     const usage = SkuPolicy.usage(input.usage ?? 'stock');
-    const context = await this.context(input, db);
-    const varieties = await this.varieties(context, db);
+    const profile = await this.source(input, db);
+    const context = { ...input, farmCode: profile.farmCode, siteCode: profile.siteCode };
     const [sku] = await db.query(
       `SELECT s.sku_code, s.product_code, s.variety_code, s.grade_code, s.spec_code,
               p.variety_code AS product_variety_code
@@ -242,18 +323,22 @@ export class SkuAvailabilityService {
         WHERE s.sku_code = $1 FOR SHARE OF s, p`, [skuCode],
     );
     if (!sku) throw new BadRequestException(`SKU ${skuCode} 不存在、未启用或不在生效期内`);
-    await this.validateSku(sku, varieties, usage, db);
+    await this.validateSku(sku, profile, usage, db);
     const scope = await this.matchScope(db, skuCode, context, usage);
     if (!scope) throw new BadRequestException(`SKU ${skuCode} 不适用于公司 ${input.companyCode}（组织范围或用途被禁用）`);
     return this.result(sku, scope);
   }
 
-  private async validateSku(sku: SkuRow, varieties: string[], usage: SkuUsage, db: Db): Promise<void> {
-    if (!sku.variety_code || sku.variety_code !== sku.product_variety_code || !varieties.includes(sku.variety_code)) {
+  private validateSourceVariety(sku: SkuRow, profile: EggSourceProfile): void {
+    if (sku.variety_code !== profile.varietyCode || sku.product_variety_code !== profile.varietyCode) {
       throw new BadRequestException(`SKU ${sku.sku_code} 与产品品种不一致或不符合来源品种`);
     }
+  }
+
+  private async validateSku(sku: SkuRow, profile: EggSourceProfile, usage: SkuUsage, db: Db): Promise<void> {
+    this.validateSourceVariety(sku, profile);
     // Also locks SKU, product, grade and spec; no unlocked EXISTS-only decisions.
-    await SkuPolicy.requireUsable(db, sku.sku_code, usage);
+    await SkuPolicy.requireUsable(db, sku.sku_code, usage, profile.companyCode);
   }
 
   private result(sku: SkuRow, scope: Scope): SkuResolveResult {

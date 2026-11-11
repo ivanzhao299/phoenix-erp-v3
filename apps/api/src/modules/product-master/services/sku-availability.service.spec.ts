@@ -17,24 +17,27 @@ describe('SkuAvailabilityService', () => {
     flock_no: 'FLOCK-A', farm_code: 'FARM-A', breed_code: 'HY_LINE_BROWN',
     status: 'LAYING', placement_date: '2026-01-01', elimination_date: null, ...extra,
   });
-  const base: SkuResolveInput = { companyCode: 'COMP-A', gradeCode: 'GRADE_1', varietyCode: 'EGG_RED', usage: 'stock' };
+  const base: SkuResolveInput = { companyCode: 'COMP-A', gradeCode: 'GRADE_1', varietyCode: 'EGG_RED', usage: 'stock', houseCode: 'HOUSE-A', eggDate: '2026-11-01', sourceProfileCode: 'SRC-A' };
   const house: SkuResolveInput = { companyCode: 'COMP-A', gradeCode: 'GRADE_1', houseCode: 'HOUSE-A', eggDate: '2026-11-01', usage: 'stock' };
 
   const setup = () => {
     const state = {
       company: [{ org_code: 'COMP-A' }],
       ownership: [{ house_code: 'HOUSE-A', farm_code: 'FARM-A', company_code: 'COMP-A', site_code: 'SITE-A' }],
+      profiles: [{ profile_code: 'SRC-A', company_code: 'COMP-A', farm_code: 'FARM-A', site_code: 'SITE-A', house_code: 'HOUSE-A', product_mode: 'VARIANT', variety_code: 'EGG_RED' as string | null, effective_date: '2026-01-01', expire_date: null as string | null, status: 'ACTIVE' }],
       flocks: [flockRow()],
       dict: [{ dict_code: 'HY_LINE_BROWN' }],
       mappings: [{ variety_code: 'EGG_RED' }],
-      varieties: [{ variety_code: 'EGG_RED' }, { variety_code: 'EGG_PINK' }],
+      varieties: ['EGG_RED', 'EGG_PINK'].map(variety_code => ({variety_code,status:'ACTIVE',effective_date:'2026-01-01',expire_date:null})),
       skus: [skuRow()],
       scopes: [scopeRow()],
-      product: { status: 'ACTIVE' },
+      product: { status: 'ACTIVE', variety_code: 'EGG_RED' as string | null },
       grade: { status: 'ACTIVE', is_saleable: true, is_storable: true },
       spec: { status: 'ACTIVE', base_unit: '枚' },
     };
     const query = jest.fn(async (sql: string, params: unknown[] = []) => {
+      if (sql.includes('pg_advisory_xact_lock_shared')) return [];
+      if (sql.includes('FROM md_egg_source_profiles')) return state.profiles;
       if (sql.includes('FROM sys_organizations')) return state.company;
       if (sql.includes('FROM brd_houses') || sql.includes('FROM brd_farms')) return state.ownership;
       if (sql.includes('FROM brd_flocks')) return state.flocks;
@@ -59,7 +62,16 @@ describe('SkuAvailabilityService', () => {
     });
     const [sql, params] = db.query.mock.calls.find(([sql]) => sql.includes('FROM product_skus s'))!;
     expect(sql).toContain('p.variety_code = ANY($3::text[]) OR s.variety_code = ANY($3::text[])');
-    expect(params).toEqual(['GRADE_1', 'LOOSE', ['EGG_RED']]);
+    expect(params).toEqual(['GRADE_1', 'LOOSE', ['EGG_RED'], false]);
+  });
+
+  it('does not let another company same-color SKU block its own authorized SKU', async () => {
+    const { svc, state, db } = setup();
+    state.skus.push(skuRow('SKU-OTHER'));
+    const original = db.query.getMockImplementation()!;
+    db.query.mockImplementation(async (sql, args) => sql.includes('FROM md_sku_org_scope') && args?.[0] === 'SKU-OTHER'
+      ? [scopeRow('COMPANY', 'COMP-B')] : original(sql, args));
+    await expect(svc.resolve(base)).resolves.toMatchObject({ skuCode: 'SKU-R', scopeCode: 'COMP-A' });
   });
 
   it('rejects multiple usable SKUs rather than choosing the first', async () => {
@@ -68,11 +80,11 @@ describe('SkuAvailabilityService', () => {
     await expect(svc.resolve(base)).rejects.toThrow('匹配多个可用 SKU');
   });
 
-  it.each([undefined, null, '', '  '])('rejects absent/blank variety %p without consulting global legacy SKUs', async varietyCode => {
+  it.each([undefined, null, '', '  '])('rejects missing house provenance %p without global fallback', async houseCode => {
     const { svc, state, db } = setup();
     state.skus = [skuRow('LEGACY', null)];
     state.scopes = [scopeRow('ALL', '')];
-    await expect(svc.resolve({ ...base, varietyCode })).rejects.toThrow('品种');
+    await expect(svc.resolve({ ...base, houseCode })).rejects.toThrow('houseCode');
     expect(db.query.mock.calls.some(([sql]) => sql.includes('FROM product_skus'))).toBe(false);
   });
 
@@ -130,10 +142,10 @@ describe('SkuAvailabilityService', () => {
 
   it('assertUsable enforces explicit variety and defaults to stock, not any', async () => {
     const { svc, state } = setup();
-    await expect(svc.assertUsable('SKU-R', { ...base, varietyCode: 'EGG_PINK' })).rejects.toThrow('来源品种');
+    await expect(svc.assertUsable('SKU-R', { ...base, varietyCode: 'EGG_PINK' })).rejects.toThrow('来源档案品种');
     state.scopes = [scopeRow('COMPANY', 'COMP-A', { stock_enabled: false })];
-    await expect(svc.assertUsable('SKU-R', { companyCode: 'COMP-A', varietyCode: 'EGG_RED' })).rejects.toThrow('用途被禁用');
-    await expect(svc.assertUsable('SKU-R', { companyCode: 'COMP-A' })).rejects.toThrow('缺少有效品种');
+    await expect(svc.assertUsable('SKU-R', { ...base, varietyCode: 'EGG_RED' })).rejects.toThrow('用途被禁用');
+    await expect(svc.assertUsable('SKU-R', { companyCode: 'COMP-A' })).rejects.toThrow('houseCode');
   });
 
   it('assertUsable accepts a valid explicit SKU and rejects a missing one', async () => {
@@ -199,7 +211,7 @@ describe('SkuAvailabilityService', () => {
   it.each(['ACTIVE', 'LAYING', 'PEAK', 'DECLINING'])('derives %s flock variety with business date and authoritative ownership', async status => {
     const { svc, state, db } = setup();
     state.flocks = [flockRow({ status })];
-    await expect(svc.resolve(house)).resolves.toMatchObject({ varietyCode: 'EGG_RED' });
+    await expect(svc.resolveVarietiesByHouse(house)).resolves.toEqual(['EGG_RED']);
     const [sql] = db.query.mock.calls.find(([sql]) => sql.includes('FROM brd_flocks'))!;
     expect(sql).not.toContain('breed_code IS NOT NULL');
     expect(sql).not.toContain('status IN');
@@ -221,7 +233,7 @@ describe('SkuAvailabilityService', () => {
   ])('does not discard an uncertain overlapping flock: %p', async bad => {
     const { svc, state } = setup();
     state.flocks.push(flockRow({ flock_no: 'UNKNOWN', ...bad }));
-    await expect(svc.resolve(house)).rejects.toThrow('不确定');
+    await expect(svc.resolveVarietiesByHouse(house)).rejects.toThrow('不确定');
   });
 
   it('excludes only provably non-overlapping flocks, not historical/current guesses', async () => {
@@ -230,56 +242,56 @@ describe('SkuAvailabilityService', () => {
       flockRow({ status: 'ELIMINATED', breed_code: null, elimination_date: '2026-10-31' }),
       flockRow({ breed_code: null, placement_date: '2026-11-02' }),
     );
-    await expect(svc.resolve(house)).resolves.toMatchObject({ varietyCode: 'EGG_RED' });
+    await expect(svc.resolveVarietiesByHouse(house)).resolves.toEqual(['EGG_RED']);
     state.flocks = state.flocks.slice(1);
-    await expect(svc.resolve(house)).rejects.toThrow('没有可确认');
+    await expect(svc.resolveVarietiesByHouse(house)).rejects.toThrow('没有可确认');
   });
 
   it('accepts the flock UI entry date start_date only when placement_date is absent or agrees', async () => {
     const { svc, state, db } = setup();
     state.flocks = [flockRow({ placement_date: null, start_date: '2026-01-01' })];
-    await expect(svc.resolve(house)).resolves.toMatchObject({ varietyCode: 'EGG_RED' });
+    await expect(svc.resolveVarietiesByHouse(house)).resolves.toEqual(['EGG_RED']);
     state.flocks = [flockRow({ start_date: '2026-01-01' })];
-    await expect(svc.resolve(house)).resolves.toMatchObject({ varietyCode: 'EGG_RED' });
+    await expect(svc.resolveVarietiesByHouse(house)).resolves.toEqual(['EGG_RED']);
     expect(db.query.mock.calls.find(([sql]) => sql.includes('FROM brd_flocks'))![0]).toContain('f.start_date::text AS start_date');
   });
 
   it('rejects conflicting historical entry dates rather than choosing the more convenient date', async () => {
     const { svc, state } = setup();
     state.flocks = [flockRow({ placement_date: '2026-01-01', start_date: '2026-11-02' })];
-    await expect(svc.resolve(house)).rejects.toThrow('placement_date/start_date 不一致');
-    await expect(svc.assertUsable('SKU-R', { ...house, varietyCode: 'EGG_RED' })).rejects.toThrow('placement_date/start_date 不一致');
+    await expect(svc.resolveVarietiesByHouse(house)).rejects.toThrow('placement_date/start_date 不一致');
+    await expect(svc.resolveVarietiesByHouse(house)).rejects.toThrow('placement_date/start_date 不一致');
   });
 
   it('uses start_date for provable non-overlap, not as an unconditional fallback to today', async () => {
     const { svc, state } = setup();
     state.flocks = [flockRow({ placement_date: null, start_date: '2026-11-02' })];
-    await expect(svc.resolve(house)).rejects.toThrow('没有可确认');
+    await expect(svc.resolveVarietiesByHouse(house)).rejects.toThrow('没有可确认');
     state.flocks = [flockRow({ placement_date: null, start_date: null })];
-    await expect(svc.resolve(house)).rejects.toThrow('不确定');
+    await expect(svc.resolveVarietiesByHouse(house)).rejects.toThrow('不确定');
   });
 
   it('rejects contradictory flock interval dates', async () => {
     const { svc, state } = setup();
     state.flocks = [flockRow({ placement_date: '2026-12-01', elimination_date: '2026-10-01' })];
-    await expect(svc.resolve(house)).rejects.toThrow('日期矛盾');
+    await expect(svc.resolveVarietiesByHouse(house)).rejects.toThrow('日期矛盾');
   });
 
   it('rejects empty house rather than falling back to global legacy SKU', async () => {
     const { svc, state, db } = setup();
     state.flocks = [];
     state.skus = [skuRow('LEGACY', null)];
-    await expect(svc.resolve(house)).rejects.toThrow('没有可确认');
+    await expect(svc.resolveVarietiesByHouse(house)).rejects.toThrow('没有可确认');
     expect(db.query.mock.calls.some(([sql]) => sql.includes('FROM product_skus'))).toBe(false);
   });
 
   it('requires ACTIVE dictionary breed and ACTIVE mapping for every source breed', async () => {
     const { svc, state, db } = setup();
     state.dict = [];
-    await expect(svc.resolve(house)).rejects.toThrow('BRD_BREED 未启用');
+    await expect(svc.resolveVarietiesByHouse(house)).rejects.toThrow('BRD_BREED 未启用');
     state.dict = [{ dict_code: 'HY_LINE_BROWN' }];
     state.mappings = [];
-    await expect(svc.resolve(house)).rejects.toThrow('未映射有效品种');
+    await expect(svc.resolveVarietiesByHouse(house)).rejects.toThrow('未映射有效品种');
     expect(db.query.mock.calls.find(([sql]) => sql.includes('FROM sys_dict'))![0]).toContain("status = 'ACTIVE'");
     expect(db.query.mock.calls.find(([sql]) => sql.includes('FROM md_variety_breeds'))![0]).toContain("status = 'ACTIVE'");
   });
@@ -289,23 +301,23 @@ describe('SkuAvailabilityService', () => {
     state.flocks.push(flockRow({ breed_code: 'UNKNOWN' }));
     const original = db.query.getMockImplementation()!;
     db.query.mockImplementation(async (sql, params) => sql.includes('FROM md_variety_breeds') && params?.[0] === 'UNKNOWN' ? [] : original(sql, params));
-    await expect(svc.resolve(house)).rejects.toThrow('未映射有效品种');
+    await expect(svc.resolveVarietiesByHouse(house)).rejects.toThrow('未映射有效品种');
   });
 
   it('rejects inactive/out-of-date mapped variety even when another mapping is valid', async () => {
     const { svc, state } = setup();
     state.mappings.push({ variety_code: 'DISABLED' });
-    await expect(svc.resolve(house)).rejects.toThrow('品种 DISABLED');
+    await expect(svc.resolveVarietiesByHouse(house)).rejects.toThrow('品种 DISABLED');
   });
 
-  it('explicit variety cannot bypass house provenance, unknown flocks or mixed varieties', async () => {
-    const { svc, state } = setup();
-    await expect(svc.resolve({ ...house, varietyCode: 'EGG_PINK' })).rejects.toThrow('显式品种与鸡舍');
-    state.mappings.push({ variety_code: 'EGG_PINK' });
-    await expect(svc.resolve({ ...house, varietyCode: 'EGG_RED' })).rejects.toThrow('无法确定单一来源');
-    await expect(svc.resolve(house)).rejects.toThrow('无法确定单一来源');
+  it('commercial profile is authoritative, independent of mixed/unknown biological breeds', async () => {
+    const { svc, state, db } = setup();
     state.flocks.push(flockRow({ breed_code: null }));
-    await expect(svc.assertUsable('SKU-R', { ...house, varietyCode: 'EGG_RED' })).rejects.toThrow('不确定');
+    state.mappings.push({ variety_code: 'EGG_PINK' });
+    await expect(svc.resolve({ ...house, varietyCode: 'EGG_PINK' })).rejects.toThrow('来源档案品种');
+    await expect(svc.resolve(house)).resolves.toMatchObject({ varietyCode: 'EGG_RED' });
+    expect(db.query.mock.calls.some(([sql]) => sql.includes('FROM brd_flocks'))).toBe(false);
+    await expect(svc.resolveVarietiesByHouse(house)).rejects.toThrow('不确定');
   });
 
   it.each([
@@ -325,10 +337,10 @@ describe('SkuAvailabilityService', () => {
   it('checks farm/site authority without house and rejects ambiguous SITE mappings', async () => {
     const { svc, state } = setup();
     state.ownership[0].company_code = 'COMP-B';
-    await expect(svc.resolve({ ...base, farmCode: 'FARM-A' })).rejects.toThrow('不属于指定公司');
+    await expect(svc.resolve({ ...base, farmCode: 'FARM-A' })).rejects.toThrow('权威归属');
     state.ownership[0].company_code = 'COMP-A';
     state.ownership.push({ ...state.ownership[0], farm_code: 'FARM-B' });
-    await expect(svc.resolve({ ...base, siteCode: 'SITE-A' })).rejects.toThrow('映射不唯一');
+    await expect(svc.resolve({ ...base, siteCode: 'SITE-A' })).rejects.toThrow('权威归属');
   });
 
   it('rejects missing/disabled company, house and farm authority', async () => {
@@ -345,7 +357,72 @@ describe('SkuAvailabilityService', () => {
   it('direct house helper requires full provenance instead of a bare house lookup', async () => {
     const { svc } = setup();
     await expect(svc.resolveVarietiesByHouse(house)).resolves.toEqual(['EGG_RED']);
-    await expect(svc.resolveVarietiesByHouse(base)).rejects.toThrow('houseCode');
+    await expect(svc.resolveVarietiesByHouse({ ...base, houseCode: undefined })).rejects.toThrow('houseCode');
+  });
+
+  it('STANDARD uses explicitly NULL product/SKU and exact COMPANY assignment', async () => {
+    const { svc, state } = setup();
+    state.profiles[0].product_mode = 'STANDARD';
+    state.profiles[0].variety_code = null;
+    state.skus = [skuRow('PLAIN', null)];
+    state.product.variety_code = null;
+    await expect(svc.resolve({ ...house, varietyCode: null })).resolves.toMatchObject({ skuCode: 'PLAIN', varietyCode: null });
+    await expect(svc.assertUsable('PLAIN', house)).resolves.toMatchObject({ varietyCode: null });
+    state.scopes = [scopeRow('ALL', '')];
+    await expect(svc.resolve(house)).rejects.toThrow('不适用于公司');
+  });
+
+  it.each(['EGG_RED', 'EGG_PINK'])('STANDARD cannot use colored SKU %s', async variety => {
+    const { svc, state } = setup();
+    state.profiles[0].product_mode = 'STANDARD';
+    state.profiles[0].variety_code = null;
+    state.skus = [skuRow('COLORED', variety)];
+    await expect(svc.resolve(house)).rejects.toThrow('产品品种不一致');
+    await expect(svc.assertUsable('COLORED', house)).rejects.toThrow('产品品种不一致');
+  });
+
+  it('VARIANT cannot use plain SKU or client-declared STANDARD', async () => {
+    const { svc, state } = setup();
+    state.skus = [skuRow('PLAIN', null)];
+    await expect(svc.assertUsable('PLAIN', { ...house, productMode: 'STANDARD' } as never)).rejects.toThrow('产品品种不一致');
+    await expect(svc.resolve({ ...house, varietyCode: null })).rejects.toThrow('来源档案品种');
+  });
+
+  it.each([
+    { profiles: [] }, { profile: { effective_date: '2026-11-02' } },
+    { profile: { expire_date: '2026-10-31' } }, { profile: { status: 'INACTIVE' } },
+  ])('rejects missing/expired/not-yet-effective source %p', async change => {
+    const { svc, state, db } = setup();
+    if (change.profiles) state.profiles = [];
+    if (change.profile) Object.assign(state.profiles[0], change.profile);
+    await expect(svc.resolve(house)).rejects.toThrow('缺少有效来源档案');
+    expect(db.query.mock.calls.some(([sql]) => sql.includes('FROM product_skus'))).toBe(false);
+  });
+
+  it('rejects overlapping profiles even with a client-selected profile code', async () => {
+    const { svc, state, db } = setup();
+    state.profiles.push({ ...state.profiles[0], profile_code: 'SRC-B' });
+    await expect(svc.resolve(base)).rejects.toThrow('重叠');
+    await expect(svc.assertUsable('SKU-R', base)).rejects.toThrow('重叠');
+    const [sql, args] = db.query.mock.calls.find(([sql]) => sql.includes('FROM md_egg_source_profiles'))!;
+    expect(sql).not.toContain('profile_code =');
+    expect(args).toEqual(['COMP-A', 'HOUSE-A', '2026-11-01']);
+  });
+
+  it.each(['company_code', 'farm_code', 'site_code', 'house_code'])('rejects profile %s spoofing', async field => {
+    const { svc, state } = setup();
+    Object.assign(state.profiles[0], { [field]: 'OTHER' });
+    await expect(svc.resolve(base)).rejects.toThrow('来源档案与');
+  });
+
+  it('requires matching profileCode, true date and shared advisory/row locks', async () => {
+    const { svc, db } = setup();
+    await expect(svc.resolve({ ...base, sourceProfileCode: 'OTHER' })).rejects.toThrow('sourceProfileCode');
+    await expect(svc.resolve({ ...base, eggDate: '0000-01-01' })).rejects.toThrow('eggDate');
+    await expect(svc.resolveSourceProfile({ ...house, houseCode: 'HOUSE-A', eggDate: '2026-11-01' })).resolves.toMatchObject({
+      profileCode: 'SRC-A', productMode: 'VARIANT', effectiveDate: '2026-01-01', farmCode: 'FARM-A', siteCode: 'SITE-A',
+    });
+    expect(db.query).toHaveBeenCalledWith(expect.stringContaining('pg_advisory_xact_lock_shared'), ['COMP-A:HOUSE-A']);
   });
 
   it('uses only caller manager and locks all authorization and master decision rows FOR SHARE', async () => {
@@ -355,7 +432,8 @@ describe('SkuAvailabilityService', () => {
     await svc.resolve(house, db as never);
     await svc.assertUsable('SKU-R', { ...house, varietyCode: 'EGG_RED' }, db as never);
     expect(fallback.query).not.toHaveBeenCalled();
-    const tables = ['sys_organizations', 'brd_houses', 'brd_flocks', 'sys_dict', 'md_variety_breeds', 'md_product_varieties',
+    await svc.resolveVarietiesByHouse(house, db as never);
+    const tables = ['md_egg_source_profiles', 'sys_organizations', 'brd_houses', 'brd_flocks', 'sys_dict', 'md_variety_breeds', 'md_product_varieties',
       'product_skus', 'mst_products', 'product_grades', 'packaging_specs', 'md_sku_org_scope'];
     for (const table of tables) {
       const calls = db.query.mock.calls.filter(([sql]) => sql.includes(`FROM ${table}`));

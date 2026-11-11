@@ -25,7 +25,7 @@ import {PackagingHistoryD1cEvidence1789353300496} from '../../database/migration
  f=await packingHistoryFixture(ds);
  const scopes={resolve:async()=>f.scope};history=new PackagingHistoryService(ds.manager,scopes as any);
  policy=new PackagingWorkflowPolicy();policy.get=()=>({version:'TEST',R:true,B:true,P:true,V:true,H:true,Q:true,encodingVersion:'TEST-NON-BUSINESS-v1',receiptMode:'C'});
- const cls={get:()=>({username:'TEST'})};
+ const cls={get:(key:string)=>key==='dataScope'?f.scope:{username:'TEST'}};
  const inv=new PackagingInventoryIntegrationService(ds,cls as any,new EggInventoryService(ds,cls as any),{resolveMode:async()=> 'PACKAGING_INBOUND'} as any);
  workflow=new PackagingHandoverService(history,new PackagingBoxService(),policy,inv);
  });

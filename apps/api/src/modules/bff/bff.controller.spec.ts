@@ -139,9 +139,10 @@ describe('PackagingTerminalBffController', () => {
       if (sql.includes('SELECT g.code FROM pkg_grading_records')) return [{code:'GC-A'}];
       if (sql.includes('SELECT DISTINCT s.house_code')) return [{house_code:'H',farm_code:'F',company_code:'C',egg_date:'2026-08-21',batch_status:'RECEIVED',is_test:false,grading_is_test:false}];
       if (sql.includes('FROM sys_organizations')) return [{org_code:'C'}];
+      if (sql.includes('FROM md_egg_source_profiles')) return [{profile_code:'PROFILE-H',company_code:'C',farm_code:'F',site_code:'SITE',house_code:'H',product_mode:'VARIANT',variety_code:'VAR',effective_date:'2026-01-01',expire_date:null,status:'ACTIVE'}];
       if (sql.includes('FROM brd_flocks')) return [{flock_no:'FLOCK',farm_code:'F',breed_code:'BREED',status:'LAYING',placement_date:'2026-01-01'}];
       if (sql.includes("dict_type = 'BRD_BREED'")) return [{dict_code:'BREED'}];
-      if (sql.includes('FROM md_product_varieties') || sql.includes('FROM md_variety_breeds')) return [{variety_code:'VAR'}];
+      if (sql.includes('FROM md_product_varieties') || sql.includes('FROM md_variety_breeds')) return [{variety_code:'VAR',status:'ACTIVE',effective_date:null,expire_date:null}];
       if (sql.includes('FROM md_sku_org_scope')) return [{scope_type:'COMPANY',scope_code:'C',status:'ACTIVE',sale_enabled:true,stock_enabled:true,today:'2026-11-11'}];
       if (sql.includes('FROM product_grades')) return [{ status:'ACTIVE', is_saleable:true, is_storable:true }];
       if (sql.includes('FROM packaging_specs')) return [{ status:'ACTIVE', spec_code:'SPEC', qty_per_unit:180 }];

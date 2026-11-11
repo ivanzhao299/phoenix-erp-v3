@@ -276,6 +276,7 @@ describe('EggInventoryService createProductionBatch SQL contract', () => {
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([{ max_suffix: null }])
       .mockResolvedValueOnce([{ unit_zh: '枚', status: 'ACTIVE', variety_code: null }])
+      .mockResolvedValueOnce([]) // No ACTIVE source profiles for this legacy company.
       .mockResolvedValueOnce([{ batch_no: 'EGG-20260825-00001' }])
       .mockResolvedValueOnce([]);
     const cls = { get: jest.fn().mockReturnValue({ username: 'tester' }) };
@@ -313,7 +314,7 @@ describe('EggInventoryService direct production variety authorization', () => {
   const request = {
     companyCode: 'COMP-A', eggDate: '2026-11-01', productCode: 'PRD-R', qty: 2,
     skuCode: 'SKU-R', varietyCode: 'EGG_RED', warehouseCode: 'WH-A', locationCode: 'LOC-A',
-    sourceType: 'TEMP_PRODUCTION',
+    sourceType: 'TEMP_PRODUCTION', sourceProfileCode: 'SRC-A', houseCode: 'HOUSE-A',
   };
   const setup = () => {
     const state = {
@@ -322,10 +323,18 @@ describe('EggInventoryService direct production variety authorization', () => {
       product: { product_code: 'PRD-R', status: 'ACTIVE', unit: '枚', unit_zh: '枚', variety_code: 'EGG_RED' as string | null | undefined },
       scopes: [{ scope_type: 'COMPANY', scope_code: 'COMP-A', sale_enabled: true, stock_enabled: true,
         status: 'ACTIVE', effective_date: null, expire_date: null, today: '2026-11-11' }],
-      varieties: [{ variety_code: 'EGG_RED' }],
+      warehouses: [{warehouse_code:'WH-A',company_code:'COMP-A',status:'ACTIVE'}],
+      locations: [{location_code:'LOC-A',warehouse_code:'WH-A',status:'ACTIVE'}],
+      varieties: [{ variety_code: 'EGG_RED', status: 'ACTIVE', effective_date: null, expire_date: null }],
+      profiles: [{ profile_code: 'SRC-A', company_code: 'COMP-A', farm_code: 'FARM-A', site_code: 'SITE-A', house_code: 'HOUSE-A', product_mode: 'VARIANT', variety_code: 'EGG_RED' as string | null, effective_date: '2026-01-01', expire_date: null as string | null, status: 'ACTIVE' }],
     };
     const query = jest.fn(async (sql: string, args: unknown[] = []) => {
+      if (sql.includes('FROM wms_warehouses')) return state.warehouses;
+      if (sql.includes('FROM wms_locations')) return state.locations;
       if (sql.includes('FROM sys_organizations')) return [{ org_code: args[0] }];
+      if (sql.includes('FROM brd_houses')) return [{ house_code: args[0], farm_code: 'FARM-A', company_code: 'COMP-A', site_code: 'SITE-A' }];
+      if (sql.includes('FROM md_egg_source_profiles')) return state.profiles.filter(profile => args.length === 1
+        ? profile.company_code === args[0] : profile.house_code === args[1]);
       if (sql.includes('FROM md_product_varieties')) return state.varieties;
       if (sql.includes('FROM md_sku_org_scope')) return state.scopes;
       if (sql.includes('sp.base_unit')) return [{ ...state.sku, unit: '枚', unit_zh: '枚', base_unit: '枚', display_unit: '枚', qty_per_unit: 1 }];
@@ -337,7 +346,7 @@ describe('EggInventoryService direct production variety authorization', () => {
       if (sql.includes('FROM packaging_specs')) return [{ status: 'ACTIVE', base_unit: '枚' }];
       if (sql.includes('pg_advisory_xact_lock')) return [];
       if (sql.includes('AS max_suffix')) return [{ max_suffix: null }];
-      if (sql.includes('INSERT INTO inv_batches')) return [{ batch_no: args[0], variety_code: args[18] }];
+      if (sql.includes('INSERT INTO inv_batches')) return [{ batch_no: args[0], variety_code: args[18], source_profile_code: args[19], source_profile_snapshot: args[20] ? JSON.parse(String(args[20])) : null }];
       if (sql.includes('INSERT INTO inv_ledger')) return [{ id: 1 }];
       throw new Error(`Unexpected SQL: ${sql}`);
     });
@@ -356,6 +365,7 @@ describe('EggInventoryService direct production variety authorization', () => {
     await expect(service.createProductionBatch(request, mgr as never)).resolves.toMatchObject({ variety_code: 'EGG_RED' });
     expect(assertUsable).toHaveBeenCalledWith('SKU-R', {
       companyCode: 'COMP-A', eggDate: '2026-11-01', varietyCode: 'EGG_RED', usage: 'stock',
+      sourceProfileCode: 'SRC-A', houseCode: 'HOUSE-A', farmCode: 'FARM-A', siteCode: 'SITE-A',
     }, mgr);
     expect(ds.query).not.toHaveBeenCalled();
     expect(ds.transaction).not.toHaveBeenCalled();
@@ -368,7 +378,7 @@ describe('EggInventoryService direct production variety authorization', () => {
 
   it('rejects cross-company direct production even if SKU status is ACTIVE', async () => {
     const { service, expectNoWrites } = setup();
-    await expect(service.createProductionBatch({ ...request, companyCode: 'COMP-B' })).rejects.toThrow('不适用于公司 COMP-B');
+    await expect(service.createProductionBatch({ ...request, companyCode: 'COMP-B' })).rejects.toThrow('真实 ACTIVE 仓库');
     expectNoWrites();
   });
 
@@ -387,7 +397,7 @@ describe('EggInventoryService direct production variety authorization', () => {
 
   it('rejects a variant product without SKU even on the legacy direct route', async () => {
     const { service, expectNoWrites } = setup();
-    await expect(service.createProductionBatch({ ...request, sourceType: 'PRODUCTION', skuCode: undefined, qualityGrade: 'GRADE_1' }))
+    await expect(service.createProductionBatch({ ...request, sourceType: 'PRODUCTION', skuCode: undefined, sourceProfileCode: undefined, houseCode: undefined, qualityGrade: 'GRADE_1' }))
       .rejects.toThrow('有品种的产品必须选择 SKU');
     expectNoWrites();
   });
@@ -397,7 +407,7 @@ describe('EggInventoryService direct production variety authorization', () => {
       const { service, state, expectNoWrites } = setup();
       state.sku.variety_code = skuVariety;
       state.product.variety_code = productVariety;
-      await expect(service.createProductionBatch(request)).rejects.toThrow('SKU 与产品品种不一致');
+      await expect(service.createProductionBatch(request)).rejects.toThrow(/^SKU SKU-R 与父产品商业品种不一致或主档不明确$/);
       expectNoWrites();
     },
   );
@@ -412,16 +422,18 @@ describe('EggInventoryService direct production variety authorization', () => {
   it.each(['product', 'sku'] as const)('does not treat an omitted %s variety column as explicit legacy NULL', async field => {
     const { service, state, expectNoWrites } = setup();
     state[field].variety_code = undefined;
-    await expect(service.createProductionBatch(request)).rejects.toThrow('品种主档不明确');
+    await expect(service.createProductionBatch(request)).rejects.toThrow(field === 'product'
+      ? /^SKU SKU-R 与父产品商业品种不一致或主档不明确$/ : /^产品\/SKU 品种主档不明确，禁止创建库存$/);
     expectNoWrites();
   });
 
   it('preserves only explicitly variety-less legacy direct production without claiming scope isolation', async () => {
     const { service, state, assertUsable } = setup();
+    state.profiles = [];
     state.product.variety_code = null;
     state.sku.variety_code = null;
     await expect(service.createProductionBatch({ ...request, sourceType: 'PRODUCTION',
-      skuCode: undefined, varietyCode: undefined, qualityGrade: 'GRADE_1' })).resolves.toMatchObject({ variety_code: null });
+      skuCode: undefined, varietyCode: undefined, sourceProfileCode: undefined, houseCode: undefined, qualityGrade: 'GRADE_1' })).resolves.toMatchObject({ variety_code: null });
     expect(assertUsable).not.toHaveBeenCalled();
   });
 
@@ -429,11 +441,11 @@ describe('EggInventoryService direct production variety authorization', () => {
     const { service, state, expectNoWrites } = setup();
     state.product.variety_code = null;
     state.sku.variety_code = null;
-    await expect(service.createProductionBatch({ ...request, sourceType: 'PRODUCTION' })).rejects.toThrow('不得写入品种快照');
+    await expect(service.createProductionBatch({ ...request, sourceType: 'PRODUCTION', sourceProfileCode: undefined, houseCode: undefined })).rejects.toThrow('不得写入品种快照');
     expectNoWrites();
   });
 
-  it.each([{ skuCode: undefined }, { varietyCode: undefined }])('requires explicit provenance for TEMP_PRODUCTION %p', async missing => {
+  it.each([{ skuCode: undefined }, { sourceProfileCode: undefined, houseCode: undefined }])('requires explicit provenance for TEMP_PRODUCTION %p', async missing => {
     const { service, ds, expectNoWrites } = setup();
     await expect(service.createProductionBatch({ ...request, ...missing })).rejects.toThrow('必须显式提供已由来源确认');
     expect(ds.transaction).not.toHaveBeenCalled();
@@ -444,9 +456,169 @@ describe('EggInventoryService direct production variety authorization', () => {
     const { service, state, expectNoWrites } = setup();
     state.product.variety_code = null;
     state.sku.variety_code = null;
-    await expect(service.createProductionBatch({ ...request, sourceType: 'PACKAGING', varietyCode: undefined }))
-      .rejects.toThrow('冒用新品种生产通道');
+    await expect(service.createProductionBatch({ ...request, sourceType: 'PACKAGING', varietyCode: undefined, sourceProfileCode: undefined, houseCode: undefined }))
+      .rejects.toThrow('必须显式提供已由来源确认');
     expectNoWrites();
+  });
+
+  it('snapshots STANDARD NULL variety and source identity from the database', async () => {
+    const { service, state, query } = setup();
+    state.profiles[0].product_mode = 'STANDARD';
+    state.profiles[0].variety_code = null;
+    state.product.variety_code = null;
+    state.sku.variety_code = null;
+    await expect(service.createProductionBatch({ ...request, varietyCode: null })).resolves.toMatchObject({
+      variety_code: null, source_profile_code: 'SRC-A',
+      source_profile_snapshot: [{ profileCode: 'SRC-A', houseCode: 'HOUSE-A', productMode: 'STANDARD', varietyCode: null, effectiveDate: '2026-01-01' }],
+    });
+    const [, values] = query.mock.calls.find(([sql]) => sql.includes('INSERT INTO inv_batches'))!;
+    expect(values![18]).toBeNull();
+    expect(values![19]).toBe('SRC-A');
+  });
+
+  it.each(['TEMP_PRODUCTION', 'PACKAGING'])('cannot label a plain SKU as STANDARD without a source profile: %s', async sourceType => {
+    const { service, state, expectNoWrites } = setup();
+    state.product.variety_code = null;
+    state.sku.variety_code = null;
+    await expect(service.createProductionBatch({ ...request, sourceType, varietyCode: null,
+      sourceProfileCode: undefined, houseCode: undefined })).rejects.toThrow('source profile');
+    expectNoWrites();
+  });
+
+  it.each([
+    { sourceProfileCode: 'OTHER' }, { houseCode: 'HOUSE-OTHER' },
+    { eggDate: '2025-12-31' }, { eggDate: '2026-02-30' }, { eggDate: '2026-11-01T00:00:00Z' },
+  ])('core validates profile code/house/business date rather than trusting caller %p', async change => {
+    const { service, expectNoWrites } = setup();
+    await expect(service.createProductionBatch({ ...request, ...change })).rejects.toThrow();
+    expectNoWrites();
+  });
+
+  it('rejects expired or overlapping profile before inventory writes', async () => {
+    const { service, state, expectNoWrites } = setup();
+    state.profiles[0].expire_date = '2026-10-31';
+    await expect(service.createProductionBatch(request)).rejects.toThrow('缺少有效来源档案');
+    state.profiles[0].expire_date = null;
+    state.profiles.push({ ...state.profiles[0], profile_code: 'SRC-B' });
+    await expect(service.createProductionBatch(request)).rejects.toThrow('重叠');
+    expectNoWrites();
+  });
+
+  it('validates every multi-house ref and stores a complete immutable snapshot, not a fake scalar', async () => {
+    const { service, state, assertUsable } = setup();
+    state.profiles.push({ ...state.profiles[0], profile_code: 'SRC-B', house_code: 'HOUSE-B' });
+    const sourceProfileRefs = [{ profileCode: 'SRC-B', houseCode: 'HOUSE-B' }, { profileCode: 'SRC-A', houseCode: 'HOUSE-A' }];
+    await expect(service.createProductionBatch({ ...request, sourceType: 'PACKAGING',
+      sourceProfileCode: undefined, houseCode: undefined, sourceProfileRefs })).resolves.toMatchObject({
+      source_profile_code: null,
+      source_profile_snapshot: [
+        { profileCode: 'SRC-A', houseCode: 'HOUSE-A', productMode: 'VARIANT', varietyCode: 'EGG_RED' },
+        { profileCode: 'SRC-B', houseCode: 'HOUSE-B', productMode: 'VARIANT', varietyCode: 'EGG_RED' },
+      ],
+    });
+    expect(assertUsable).toHaveBeenCalledTimes(2);
+    state.profiles[1].variety_code = 'EGG_PINK';
+    state.varieties.push({ variety_code: 'EGG_PINK', status: 'ACTIVE', effective_date: null, expire_date: null });
+    await expect(service.createProductionBatch({ ...request, sourceProfileCode: undefined, houseCode: undefined, sourceProfileRefs }))
+      .rejects.toThrow('多个来源档案');
+  });
+
+  it.each([
+    { sourceProfileRefs: [] },
+    { sourceProfileRefs: [{ profileCode: 'SRC-A', houseCode: 'HOUSE-A' }, { profileCode: 'SRC-A', houseCode: 'HOUSE-A' }] },
+    { sourceProfileRefs: [{ profileCode: '', houseCode: 'HOUSE-A' }] },
+  ])('rejects empty, duplicate or incomplete refs %p', async ({ sourceProfileRefs }) => {
+    const { service, expectNoWrites } = setup();
+    await expect(service.createProductionBatch({ ...request, sourceProfileCode: undefined, houseCode: undefined, sourceProfileRefs }))
+      .rejects.toThrow('refs');
+    expectNoWrites();
+  });
+
+  it.each([
+    { warehouseCode: undefined }, { locationCode: undefined }, { warehouseCode: '' }, { locationCode: ' ' },
+  ])('requires explicit destinations even for default PRODUCTION with a source: %p', async missing => {
+    const { service, ds, expectNoWrites } = setup();
+    await expect(service.createProductionBatch({ ...request, sourceType: undefined, ...missing })).rejects.toThrow('禁止使用默认占位码');
+    expect(ds.transaction).not.toHaveBeenCalled();
+    expectNoWrites();
+  });
+
+  it.each([
+    { warehouse: { company_code: 'COMP-B' } }, { warehouse: { status: 'INACTIVE' } },
+    { location: { warehouse_code: 'WH-B' } }, { location: { status: 'INACTIVE' } },
+  ])('rejects destination cross-company, cross-warehouse and inactive authority: %p', async change => {
+    const { service, state, expectNoWrites } = setup();
+    if (change.warehouse) Object.assign(state.warehouses[0], change.warehouse);
+    if (change.location) Object.assign(state.locations[0], change.location);
+    await expect(service.createProductionBatch({ ...request, sourceType: undefined })).rejects.toThrow('来源批次');
+    expectNoWrites();
+  });
+
+  it('locks real destination rows in the caller transaction and accepts NORMAL locations', async () => {
+    const { service, state, query, mgr, ds } = setup();
+    state.locations[0].status = 'NORMAL';
+    await expect(service.createProductionBatch(request, mgr as never)).resolves.toMatchObject({ source_profile_code: 'SRC-A' });
+    expect(query).toHaveBeenCalledWith(expect.stringContaining('FROM wms_warehouses'), ['WH-A']);
+    expect(query).toHaveBeenCalledWith(expect.stringContaining('FROM wms_locations'), ['LOC-A', 'WH-A']);
+    for (const [sql] of query.mock.calls.filter(([sql]) => sql.includes('FROM wms_'))) expect(sql).toContain('FOR SHARE');
+    expect(ds.query).not.toHaveBeenCalled();
+  });
+
+  it.each(['ACTIVE', 'INACTIVE'])('does not reopen bare legacy production for a configured company with %s profiles', async status => {
+    const { service, state, query, expectNoWrites } = setup();
+    state.product.variety_code = null;
+    state.sku.variety_code = null;
+    state.profiles[0].effective_date = '2099-01-01';
+    state.profiles[0].status = status;
+    await expect(service.createProductionBatch({ ...request, sourceType: undefined,
+      sourceProfileCode: undefined, houseCode: undefined, skuCode: undefined, varietyCode: null, qualityGrade: 'GRADE_1' }))
+      .rejects.toThrow('公司已启用来源档案');
+    const policyRead = query.mock.calls.find(([sql]) => sql.includes('FROM md_egg_source_profiles'))!;
+    expect(policyRead).toEqual([expect.stringContaining('company_code = $1 FOR SHARE'), ['COMP-A']]);
+    expect(policyRead[0]).not.toContain("status = 'ACTIVE'");
+    expectNoWrites();
+  });
+
+  it.each([
+    false, 'global', {}, { isGlobal: 'true' }, { isGlobal: false },
+    { isGlobal: false, allowedCompanyCodes: ['COMP-A'], allowedWarehouseCodes: [] },
+    { isGlobal: false, allowedCompanyCodes: [], allowedWarehouseCodes: ['WH-A'] },
+    { isGlobal: false, allowedCompanyCodes: ['COMP-A'], allowedWarehouseCodes: 'WH-A' },
+  ])('rejects malformed or ungranted caller dataScope %p', async scope => {
+    const { ds, expectNoWrites } = setup();
+    const service = new EggInventoryService(ds as never, { get: (key: string) => key === 'dataScope' ? scope : undefined } as never);
+    await expect(service.createProductionBatch(request)).rejects.toMatchObject({ status: 403 });
+    expectNoWrites();
+  });
+
+  it('accepts only the caller exact company and warehouse grant, or explicit global scope', async () => {
+    const { ds } = setup();
+    for (const scope of [
+      { isGlobal: false, allowedCompanyCodes: ['COMP-A'], allowedWarehouseCodes: ['WH-A'] }, { isGlobal: true },
+    ]) {
+      const service = new EggInventoryService(ds as never, { get: (key: string) => key === 'dataScope' ? scope : undefined } as never);
+      await expect(service.createProductionBatch(request)).resolves.toMatchObject({ source_profile_code: 'SRC-A' });
+    }
+  });
+
+  it('user A cannot write a fully valid company B source, warehouse and SKU', async () => {
+    const { ds, state, query, expectNoWrites } = setup();
+    Object.assign(state.warehouses[0], {warehouse_code:'WH-B',company_code:'COMP-B'});
+    Object.assign(state.locations[0], {location_code:'LOC-B',warehouse_code:'WH-B'});
+    Object.assign(state.profiles[0], {profile_code:'SRC-B',company_code:'COMP-B',farm_code:'FARM-B',site_code:'SITE-B',house_code:'HOUSE-B'});
+    state.scopes[0].scope_code = 'COMP-B';
+    const original = query.getMockImplementation()!;
+    query.mockImplementation(async (sql, args) => sql.includes('FROM brd_houses')
+      ? [{house_code:'HOUSE-B',farm_code:'FARM-B',site_code:'SITE-B',company_code:'COMP-B'}] : original(sql, args));
+    const other = {...request,companyCode:'COMP-B',warehouseCode:'WH-B',locationCode:'LOC-B',sourceProfileCode:'SRC-B',houseCode:'HOUSE-B'};
+    let scope: {isGlobal:boolean;allowedCompanyCodes?:string[];allowedWarehouseCodes?:string[]} = {
+      isGlobal:false,allowedCompanyCodes:['COMP-A'],allowedWarehouseCodes:['WH-A'],
+    };
+    const service = new EggInventoryService(ds as never, {get:(key:string) => key === 'dataScope' ? scope : undefined} as never);
+    await expect(service.createProductionBatch(other)).rejects.toMatchObject({ status:403 });
+    expectNoWrites();
+    scope = {isGlobal:true};
+    await expect(service.createProductionBatch(other)).resolves.toMatchObject({source_profile_code:'SRC-B'});
   });
 
   it('cannot bypass availability by constructing the service with its legacy two arguments', async () => {

@@ -3,6 +3,11 @@ import { EntityManager } from 'typeorm';
 
 export type SkuUsage = 'any' | 'sale' | 'stock' | 'sale-stock';
 
+type CompanyScopeDecision = {
+  scope_type: string; scope_code: string; status: string; sale_enabled: boolean; stock_enabled: boolean;
+  effective_date: string | null; expire_date: string | null; today: string;
+};
+
 export const SKU_IDENTITY_FIELDS = ['product_code', 'grade_code', 'spec_code'] as const;
 
 /** Shared SKU rules. Call locking methods only inside the caller's transaction. */
@@ -32,8 +37,9 @@ export class SkuPolicy {
     return skuCode;
   }
 
-  static async requireUsable(manager: Pick<EntityManager, 'query'>, skuCode: unknown, usage: SkuUsage = 'any') {
+  static async requireUsable(manager: Pick<EntityManager, 'query'>, skuCode: unknown, usage: SkuUsage = 'any', companyCode?: string) {
     skuCode = this.code(skuCode);
+    usage = this.usage(usage);
     // Lock the SKU before reading its identity, then only its three parent rows.
     // Locks live until the caller's business transaction commits or rolls back.
     const [sku] = await manager.query(
@@ -43,13 +49,54 @@ export class SkuPolicy {
     if (!sku || sku.status !== 'ACTIVE'
         || (sku.effective_date && sku.effective_date > sku.today)
         || (sku.expire_date && sku.expire_date < sku.today)) throw new BadRequestException(`SKU ${skuCode} 不存在、未启用或不在生效期内`);
+    // Phase-4 sales/POS/procurement callers have no organization-aware resolver
+    // yet. Fail closed for new variant SKUs instead of granting global use.
+    const organizationRequired = sku.variety_code != null || sku.org_context_required === true;
+    if (organizationRequired) {
+      if (typeof companyCode !== 'string' || !companyCode.trim() || companyCode !== companyCode.trim()) {
+        throw new BadRequestException('新 SKU 需公司适用范围接口，禁止无公司上下文的新业务');
+      }
+      const companies = await manager.query(
+        `SELECT org_code FROM sys_organizations WHERE org_type = 'COMPANY' AND status = 'ACTIVE'
+          AND COALESCE(company_code, org_code) = $1 FOR SHARE`, [companyCode],
+      );
+      if (!companies.length) throw new BadRequestException(`公司 ${companyCode} 不存在或已停用`);
+      const scopes: CompanyScopeDecision[] = await manager.query(
+        `SELECT scope_type, scope_code, status, sale_enabled, stock_enabled,
+                effective_date::text AS effective_date, expire_date::text AS expire_date,
+                CURRENT_DATE::text AS today
+           FROM md_sku_org_scope WHERE sku_code = $1 AND scope_type = 'COMPANY' AND scope_code = $2
+           FOR SHARE`, [skuCode, companyCode],
+      );
+      const companyScopes = scopes.filter(row => row.scope_type === 'COMPANY' && row.scope_code === companyCode);
+      if (companyScopes.length !== 1 || companyScopes.some(row => row.status !== 'ACTIVE' || !row.today
+          || (row.effective_date && row.effective_date > row.today) || (row.expire_date && row.expire_date < row.today)
+          || ((usage === 'sale' || usage === 'sale-stock') && row.sale_enabled !== true)
+          || ((usage === 'stock' || usage === 'sale-stock') && row.stock_enabled !== true))) {
+        throw new BadRequestException(`SKU ${skuCode} 不适用于公司 ${companyCode}（无有效 COMPANY 适用范围或用途被禁用）`);
+      }
+    }
     for (const [table, key] of [['mst_products', 'product_code'], ['product_grades', 'grade_code'], ['packaging_specs', 'spec_code']]) {
       const [parent] = await manager.query(`SELECT * FROM ${table} WHERE ${key}=$1 FOR SHARE`, [sku[key]]);
       if (!parent || parent.status !== 'ACTIVE') throw new BadRequestException(`SKU ${skuCode} 的 ${key} 不存在或未启用`);
+      if (key === 'product_code' && ((organizationRequired && (sku.variety_code === undefined || parent.variety_code === undefined))
+        || (sku.variety_code !== undefined && parent.variety_code !== undefined && sku.variety_code !== parent.variety_code))) {
+        throw new BadRequestException(`SKU ${skuCode} 与父产品商业品种不一致或主档不明确`);
+      }
       if (key === 'spec_code') sku.base_unit = parent.base_unit;
       if (key === 'grade_code') {
         if ((usage === 'sale' || usage === 'sale-stock') && parent.is_saleable !== true) throw new BadRequestException(`SKU ${skuCode} 等级不可销售`);
         if ((usage === 'stock' || usage === 'sale-stock') && parent.is_storable !== true) throw new BadRequestException(`SKU ${skuCode} 等级不可库存`);
+      }
+    }
+    if (sku.variety_code != null) {
+      const varieties = await manager.query(`SELECT variety_code,status,
+        effective_date::text AS effective_date,expire_date::text AS expire_date
+        FROM md_product_varieties WHERE variety_code=$1 FOR SHARE`, [sku.variety_code]);
+      if (varieties.length !== 1 || varieties[0].variety_code !== sku.variety_code || varieties[0].status !== 'ACTIVE'
+        || (varieties[0].effective_date && varieties[0].effective_date > sku.today)
+        || (varieties[0].expire_date && varieties[0].expire_date < sku.today)) {
+        throw new BadRequestException(`SKU ${skuCode} 的商业品种不存在、未启用或不在生效期内`);
       }
     }
     return sku;

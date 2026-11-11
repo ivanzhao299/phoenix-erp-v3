@@ -4505,6 +4505,8 @@
   "breeding.fetchDailyFailed": "ດຶງຂໍ້ມູນລາຍງານປະຈຳວັນລົ້ມເຫລວ",
   "breeding.enterAtLeastOne": "ກະລຸນາປ້ອນຈຳນວນຢ່າງໜ້ອຍໜຶ່ງລະດັບ",
   "breeding.inboundFailed": "ການນຳເຂົ້າສາງລົ້ມເຫລວ",
+  "breeding.inboundResultUnknown": "ຍັງບໍ່ຢືນຢັນຜົນ. ກະລຸນາກວດສອບບັນຊີຮັບເຂົ້າສາງກ່ອນ ແລະ ຢ່າສົ່ງຊ້ຳ.",
+  "ui.去向名称": "ຊື່ປາຍທາງ",
   "breeding.noPermInbound": "ບໍ່ມີສິດເຂົ້າເຖິງການນຳເຂົ້າໄຂ່ປະຈຳວັນ",
   "breeding.inboundTitle": "ການນຳເຂົ້າໄຂ່ປະຈຳວັນ",
   "breeding.inboundMasterRequired": "ກະລຸນາເລືອກເຮືອນໄກ່, ສາງຮັບເຂົ້າ ແລະ ຈຸດຈັດເກັບ",

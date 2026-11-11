@@ -4,6 +4,7 @@ import { resolve } from 'path';
 import { DataSource } from 'typeorm';
 import { resolveQuantity, savedQuantity, sharedBatches, QuantitySnapshot } from './quantity-contract';
 import { PackageQuantitySnapshots1794268800000 } from '../../../database/migrations/1794268800000-PackageQuantitySnapshots';
+import { EggSourceProfiles1794400001000 } from '../../../database/migrations/1794400001000-EggSourceProfiles';
 import { EggInventoryService } from '../../sales-v2/services/egg-inventory.service';
 import { StorePosService } from '../../store-pos/services/store-pos.service';
 import { ReturnOrdersService } from '../../sales-v2/services/return-orders.service';
@@ -23,10 +24,12 @@ fixture('package quantities: owned disposable PostgreSQL 18 service integration'
   const snapshot = async (skuCode = 'BOX', qty = 1) => db.transaction(m => resolveQuantity(m, { qty, skuCode, quantityBasis: 'PACKAGE' })) as Promise<QuantitySnapshot>;
   beforeAll(async () => {
     const url = new URL(fixtureUrl!);
-    if (url.hostname!=='127.0.0.1' || url.pathname!=='/quantity_fixture' || !process.env.PACKAGE_QUANTITY_FIXTURE_OWNER) throw new Error('Owned loopback fixture required');
+    if (process.env.NODE_ENV!=='test' || url.hostname!=='127.0.0.1' || url.port!=='54329' || url.pathname!=='/quantity_fixture' || !process.env.PACKAGE_QUANTITY_FIXTURE_OWNER) throw new Error('Owned loopback fixture required');
     db = await new DataSource({ type: 'postgres', url: fixtureUrl, synchronize: false, migrationsRun: false, installExtensions: false, extra: { max: 8 } }).initialize();
     const [owner] = await db.query('SELECT owner_key FROM quantity_fixture_owner');
     if (owner?.owner_key!==process.env.PACKAGE_QUANTITY_FIXTURE_OWNER) throw new Error('Fixture ownership mismatch');
+    const [version] = await db.query('SHOW server_version_num');
+    if (Math.floor(Number(version.server_version_num) / 10000)!==18) throw new Error('PostgreSQL 18 fixture required');
     await db.query(`
       CREATE TABLE mst_products (product_code text PRIMARY KEY,product_name text,unit text DEFAULT '个',unit_zh text,status text,variety_code text);
       CREATE TABLE mst_materials (material_code text PRIMARY KEY,material_name text,material_type text,unit text,status text);
@@ -34,6 +37,8 @@ fixture('package quantities: owned disposable PostgreSQL 18 service integration'
       CREATE TABLE product_grades (grade_code text PRIMARY KEY,sort_order int,status text,is_saleable boolean DEFAULT true,is_storable boolean DEFAULT true);
       CREATE TABLE product_skus (sku_code text PRIMARY KEY,product_code text,grade_code text,spec_code text,status text,effective_date date,expire_date date,variety_code text);
       CREATE TABLE sys_organizations (org_code text PRIMARY KEY,company_code text,org_type text,status text);
+      CREATE TABLE brd_farms (farm_code text PRIMARY KEY,company_code text,mapped_site_code text,status text);
+      CREATE TABLE brd_houses (house_code text PRIMARY KEY,farm_code text,status text);
       CREATE TABLE md_product_varieties (variety_code text PRIMARY KEY,status text,effective_date date,expire_date date);
       CREATE TABLE md_sku_org_scope (sku_code text,scope_type text,scope_code text,sale_enabled boolean,stock_enabled boolean,status text,
         effective_date date,expire_date date,PRIMARY KEY(sku_code,scope_type,scope_code));
@@ -75,7 +80,7 @@ fixture('package quantities: owned disposable PostgreSQL 18 service integration'
       CREATE TABLE prc2_receipt_items (id serial PRIMARY KEY,item_code text,created_at timestamptz DEFAULT now());
     `);
     await db.query(`ALTER TABLE wms_warehouses ADD COLUMN type text DEFAULT 'PURCHASE_RECV';
-      ALTER TABLE wms_inbound ADD COLUMN task_no text, ADD COLUMN warehouse_code text,ADD COLUMN operator text,ADD COLUMN store_code text,
+      ALTER TABLE wms_inbound ADD COLUMN task_no text, ADD COLUMN warehouse_code text,ADD COLUMN company_code text,ADD COLUMN operator text,ADD COLUMN store_code text,
         ADD COLUMN status text,ADD COLUMN type text,ADD COLUMN date date,ADD COLUMN updated_at timestamptz;
       ALTER TABLE wms_inbound_items ADD COLUMN task_no text,ADD COLUMN batch_no text,ADD COLUMN qty numeric(18,3),ADD COLUMN actual_qty numeric(18,3),ADD COLUMN broken_qty numeric(18,3);
     `);
@@ -102,15 +107,27 @@ fixture('package quantities: owned disposable PostgreSQL 18 service integration'
     `);
     await migration.up(db.createQueryRunner());
     await migration.up(db.createQueryRunner());
-    await db.query(`INSERT INTO mst_products (product_code,product_name,unit,unit_zh,status,variety_code) VALUES ('P','鸡蛋','个','枚','ACTIVE','EGG_RED');
+    const sourceRunner = db.createQueryRunner();
+    await sourceRunner.connect();
+    try { await new EggSourceProfiles1794400001000().up(sourceRunner); }
+    finally { await sourceRunner.release(); }
+    // Existing quantity/Sales/POS scenarios exercise the STANDARD catalogue,
+    // not the intentionally gated phase-4 VARIANT sales path. Keep a separate
+    // real VARIANT source/SKU for provenance and company-scope rejection cases.
+    await db.query(`INSERT INTO mst_products (product_code,product_name,unit,unit_zh,status,variety_code) VALUES ('P','鸡蛋','个','枚','ACTIVE',NULL),('P-RED','红壳鸡蛋','个','枚','ACTIVE','EGG_RED');
       INSERT INTO sys_organizations VALUES ('C','C','COMPANY','ACTIVE'),('OTHER','OTHER','COMPANY','ACTIVE');
       INSERT INTO md_product_varieties VALUES ('EGG_RED','ACTIVE','2026-01-01',NULL);
       INSERT INTO mst_materials (material_code,material_name,material_type,unit,status) VALUES ('P','鸡蛋','PACKAGING','kg','ACTIVE');
       INSERT INTO packaging_specs VALUES ('T',30,'枚','托','ACTIVE'),('B',360,'枚','箱','ACTIVE');
       INSERT INTO product_grades VALUES ('G',1,'ACTIVE'),('H',2,'ACTIVE');
-      INSERT INTO product_skus (sku_code,product_code,grade_code,spec_code,status,variety_code) VALUES ('TRAY','P','G','T','ACTIVE','EGG_RED'),('BOX','P','G','B','ACTIVE','EGG_RED');
+      INSERT INTO product_skus (sku_code,product_code,grade_code,spec_code,status,variety_code) VALUES ('TRAY','P','G','T','ACTIVE',NULL),('BOX','P','G','B','ACTIVE',NULL),('TRAY-RED','P-RED','G','T','ACTIVE','EGG_RED');
       INSERT INTO md_sku_org_scope (sku_code,scope_type,scope_code,sale_enabled,stock_enabled,status)
-        VALUES ('TRAY','COMPANY','C',true,true,'ACTIVE'),('BOX','COMPANY','C',true,true,'ACTIVE');
+        VALUES ('TRAY','COMPANY','C',true,true,'ACTIVE'),('BOX','COMPANY','C',true,true,'ACTIVE'),('TRAY-RED','COMPANY','C',true,true,'ACTIVE');
+      INSERT INTO brd_farms VALUES ('FARM-C','C','SITE-C','ACTIVE');
+      INSERT INTO brd_houses VALUES ('HOUSE-C','FARM-C','ACTIVE'),('HOUSE-RED','FARM-C','ACTIVE');
+      INSERT INTO md_egg_source_profiles (profile_code,company_code,farm_code,site_code,house_code,product_mode,variety_code,effective_date) VALUES
+        ('SOURCE-C','C','FARM-C','SITE-C','HOUSE-C','STANDARD',NULL,'2026-01-01'),
+        ('SOURCE-RED','C','FARM-C','SITE-C','HOUSE-RED','VARIANT','EGG_RED','2026-01-01');
       INSERT INTO wms_warehouses VALUES ('W','C','OPERATIONAL');
       INSERT INTO wms_zones VALUES ('Q','W','QUARANTINE','ACTIVE');
       INSERT INTO wms_locations VALUES ('Q-L','W','Q','ACTIVE');`);
@@ -126,29 +143,33 @@ fixture('package quantities: owned disposable PostgreSQL 18 service integration'
       UPDATE product_skus SET status='ACTIVE'; UPDATE packaging_specs SET qty_per_unit=CASE WHEN spec_code='T' THEN 30 ELSE 360 END;
       UPDATE md_product_varieties SET status='ACTIVE'; UPDATE md_sku_org_scope SET status='ACTIVE',stock_enabled=true;`);
   });
-  const batch = async (qty=360) => inv.createProductionBatch({ companyCode: 'C',warehouseCode: 'W',eggDate: '2026-11-10',skuCode: 'TRAY',productCode: 'P',varietyCode: 'EGG_RED',qty,shelfDays: 3000 });
+  const batch = async (qty=360) => inv.createProductionBatch({ companyCode: 'C',warehouseCode: 'W',locationCode:'Q-L',eggDate: '2026-11-10',skuCode: 'TRAY',productCode: 'P',varietyCode: null,sourceProfileCode:'SOURCE-C',houseCode:'HOUSE-C',qty,shelfDays: 3000 });
+  const variantBatch = () => inv.createProductionBatch({companyCode:'C',warehouseCode:'W',locationCode:'Q-L',eggDate:'2026-11-10',skuCode:'TRAY-RED',productCode:'P-RED',varietyCode:'EGG_RED',sourceProfileCode:'SOURCE-RED',houseCode:'HOUSE-RED',qty:30});
   const order = async (q: QuantitySnapshot | null, qty=1) => {
     const [o]=await db.query(`INSERT INTO sal_sales_orders (order_no,company_code,currency_code,fulfillment_warehouse_code) VALUES ('SO','C','LAK','W') RETURNING id`);
     const [i]=await db.query(`INSERT INTO sal_order_items (sales_order_id,product_code,grade_code,sku_code,packaging_spec,qty,unit_price,actual_unit_price,amount,quantity_snapshot)
       VALUES ($1,'P','G','BOX','B',$2,3600,3600,3600,$3) RETURNING *`,[o.id,qty,q]); return { orderId: String(o.id),itemId: String(i.id) };
   };
   it('rejects direct variant production without explicit variety or with an unauthorized company before writing stock', async () => {
-    await expect(inv.createProductionBatch({ companyCode:'C',warehouseCode:'W',eggDate:'2026-11-10',skuCode:'TRAY',productCode:'P',qty:30 }))
+    await expect(inv.createProductionBatch({ companyCode:'C',warehouseCode:'W',locationCode:'Q-L',eggDate:'2026-11-10',skuCode:'TRAY-RED',productCode:'P-RED',qty:30 }))
       .rejects.toThrow('显式提供');
-    await expect(inv.createProductionBatch({ companyCode:'OTHER',warehouseCode:'W',eggDate:'2026-11-10',skuCode:'TRAY',productCode:'P',varietyCode:'EGG_RED',qty:30 }))
-      .rejects.toThrow('不适用于公司 OTHER');
+    await expect(inv.createProductionBatch({ companyCode:'C',warehouseCode:'W',locationCode:'Q-L',eggDate:'2026-11-10',skuCode:'TRAY-RED',productCode:'P-RED',sourceProfileCode:'SOURCE-RED',houseCode:'HOUSE-RED',qty:30 }))
+      .rejects.toThrow('显式提供与来源档案一致的品种');
+    await expect(inv.createProductionBatch({ companyCode:'OTHER',warehouseCode:'W',locationCode:'Q-L',eggDate:'2026-11-10',skuCode:'TRAY-RED',productCode:'P-RED',varietyCode:'EGG_RED',sourceProfileCode:'SOURCE-RED',houseCode:'HOUSE-RED',qty:30 }))
+      .rejects.toThrow('真实 ACTIVE 仓库');
     expect((await db.query('SELECT count(*) AS n FROM inv_batches'))[0].n).toBe('0');
     expect((await db.query('SELECT count(*) AS n FROM inv_ledger'))[0].n).toBe('0');
   });
   it('requires company stock scope and ACTIVE variety for the real package source batch', async () => {
-    await db.query("UPDATE md_sku_org_scope SET stock_enabled=false WHERE sku_code='TRAY'");
-    await expect(batch()).rejects.toThrow('用途被禁用');
-    await db.query("UPDATE md_sku_org_scope SET stock_enabled=true WHERE sku_code='TRAY'; UPDATE md_product_varieties SET status='DISABLED'");
-    await expect(batch()).rejects.toThrow('品种 EGG_RED');
+    await db.query("UPDATE md_sku_org_scope SET stock_enabled=false WHERE sku_code='TRAY-RED'");
+    await expect(variantBatch()).rejects.toThrow('用途被禁用');
+    await db.query("UPDATE md_sku_org_scope SET stock_enabled=true WHERE sku_code='TRAY-RED'; UPDATE md_product_varieties SET status='DISABLED'");
+    await expect(variantBatch()).rejects.toThrow('品种 EGG_RED');
     expect((await db.query('SELECT count(*) AS n FROM inv_batches'))[0].n).toBe('0');
   });
   it('1 box is served from tray source batches; source SKU may be stopped without contaminating the physical identity', async () => {
     const b=await batch(); const q=await snapshot(); const o=await order(q);
+    expect(b).toMatchObject({variety_code:null,source_profile_code:'SOURCE-C',source_profile_snapshot:[{profileCode:'SOURCE-C',houseCode:'HOUSE-C',productMode:'STANDARD',varietyCode:null,effectiveDate:'2026-01-01'}]});
     await db.query("UPDATE product_skus SET status='FROZEN' WHERE sku_code='TRAY'");
     await inv.reserveInventory(o.orderId,'SO','C',undefined,'W');
     await inv.confirmOutbound(o.orderId,'SO','C','D','1',360);
@@ -230,7 +251,7 @@ fixture('package quantities: owned disposable PostgreSQL 18 service integration'
     await db.query("INSERT INTO mst_materials (material_code,material_name,material_type,unit,status) VALUES ('BOX','鸡蛋耗材','PACKAGING','件','ACTIVE')");
     await expect(db.transaction(m=>(wms as any).resolveInventoryItem(m,'BOX',null))).rejects.toThrow('同码跨域');
     expect(await db.transaction(m=>(wms as any).resolveInventoryItem(m,'BOX','MATERIAL'))).toMatchObject({itemType:'MATERIAL',unit:'件'});
-    expect(await db.transaction(m=>(wms as any).resolveInventoryItem(m,'BOX','SKU'))).toMatchObject({itemType:'SKU',unit:'枚'});
+    expect(await db.transaction(m=>(wms as any).resolveInventoryItem(m,'BOX','SKU','C'))).toMatchObject({itemType:'SKU',unit:'枚'});
   });
   it('refund cents are allocated cumulatively and finish at the original amount even across 180 partial returns', async () => {
     await batch(); const o=await order(await snapshot());
@@ -256,7 +277,7 @@ fixture('package quantities: owned disposable PostgreSQL 18 service integration'
     expect(Number((await db.query("SELECT qty_available FROM inv_batches WHERE batch_no='M'"))[0].qty_available)).toBe(1.25);
   });
   it('WMS inbound uses the persisted line id to separate BASE/PACKAGE rows of the same SKU and records actual trade/base quantities', async () => {
-    await db.query("INSERT INTO wms_inbound (task_no,warehouse_code,status,type,date) VALUES ('IN','W','PENDING','PURCHASE','2026-11-10')");
+    await db.query("INSERT INTO wms_inbound (task_no,warehouse_code,company_code,status,type,date) VALUES ('IN','W','C','PENDING','PURCHASE','2026-11-10')");
     const b=await snapshot(); const base=(await db.transaction(m=>resolveQuantity(m,{skuCode:'BOX',qty:10,quantityBasis:'BASE'})))!;
     const [first]=await db.query("INSERT INTO wms_inbound_items (task_no,product_code,qty,quantity_snapshot) VALUES ('IN','BOX',1,$1) RETURNING id",[b]);
     const [second]=await db.query("INSERT INTO wms_inbound_items (task_no,product_code,qty,quantity_snapshot) VALUES ('IN','BOX',10,$1) RETURNING id",[base]);

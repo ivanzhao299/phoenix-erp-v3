@@ -1,0 +1,41 @@
+{
+  "manifest_version": "1",
+  "effective_date": null,
+  "source_effective_date": "2026-11-10",
+  "effective_date_policy": "用户明确确认至少从老挝业务日期2026-11-10起已如此；CLI来源生效日必须精确匹配，实际启用时间另记，不改写已入库历史",
+  "approval_basis": "本会话用户明确确认：孟赛标准蛋；东鹏1/3/5粉、2/4红；0号重量待核实",
+  "grade0_weight_rule": "待核实（不设推测重量边界）",
+  "companies": [
+    {
+      "company_code": "COMP-LAO-AGRI",
+      "farm_code": "LPH_MENGSAI",
+      "site_code": "SITE-MENGSAI-LAYER",
+      "houses": ["HOUSE_MS_01", "HOUSE_MS_02", "HOUSE_MS_03", "HOUSE_MS_04", "HOUSE_MS_05", "HOUSE_MS_06"],
+      "mode": "STANDARD",
+      "variety_code": null,
+      "exclude_houses": ["H-DEBUG"]
+    },
+    {
+      "company_code": "COMP-LAO-XINGCHI",
+      "farm_code": "FARM-DP",
+      "site_code": "SITE-DONGPENG-LAYER",
+      "houses": ["HOUSE_DP_01", "HOUSE_DP_03", "HOUSE_DP_05"],
+      "mode": "VARIANT",
+      "variety_code": "EGG_PINK",
+      "exclude_houses": ["HOUSE_DP_06"]
+    },
+    {
+      "company_code": "COMP-LAO-XINGCHI",
+      "farm_code": "FARM-DP",
+      "site_code": "SITE-DONGPENG-LAYER",
+      "houses": ["HOUSE_DP_02", "HOUSE_DP_04"],
+      "mode": "VARIANT",
+      "variety_code": "EGG_RED",
+      "exclude_houses": ["HOUSE_DP_06"]
+    }
+  ],
+  "scope": { "scope_type": "COMPANY", "sale_enabled": false, "legacy_standard_sale_enabled": true, "stock_enabled": true, "status": "ACTIVE" },
+  "spec_codes": ["LOOSE", "TRAY30", "TRAY36", "BOX360", "BOX720", "GIFT12", "GIFT24"],
+  "standard_products": ["PRD-EGG-0", "PRD-EGG-1", "PRD-EGG-2", "PRD-EGG-3", "PRD-EGG-4", "PRD-EGG-5"],
+  "variant_products": ["PRD-EGG-RED", "PRD-EGG-PINK"]
+}

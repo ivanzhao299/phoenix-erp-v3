@@ -2,7 +2,12 @@ import { ProductPolicy } from '../product-master/services/product-policy';
 import { PackagingService } from './packaging.service';
 
 it('requires the fixed product inside shift completion transaction before any shift/inventory mutation', async () => {
-  const query = jest.fn(async (sql: string) => sql.includes('FROM pkg_shifts') ? [{ id: 1, shift_date: '2026-11-10', house_code: 'H1', shift_time: '早班', status: 'PENDING' }] : []);
+  const query = jest.fn(async (sql: string) => {
+    if (sql.includes('FROM pkg_shifts')) return [{ id: 1, shift_date: '2026-11-10', house_code: 'H1', shift_time: '早班', status: 'PENDING' }];
+    if (sql.includes('FROM brd_houses')) return [{ house_code: 'H1', farm_code: 'F1', company_code: 'LEGACY-COMPANY' }];
+    if (sql.includes('FROM md_egg_source_profiles')) return []; // Company is known, but has never configured profiles.
+    return [];
+  });
   const manager = { query: jest.fn() };
   const db = { query, transaction: jest.fn(async (run: any) => run(manager)) };
   const ensure = jest.spyOn(ProductPolicy, 'ensureRawEggProduct').mockRejectedValue(new Error('fixed product invalid'));

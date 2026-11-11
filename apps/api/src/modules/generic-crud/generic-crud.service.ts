@@ -78,7 +78,11 @@ export class GenericCrudService {
     const { sql, queryValues } = this.buildFindAllSql(table, query);
 
     try {
-      const rows = await this.entityManager.query(sql, queryValues);
+      // Serialize flock DATE fields in PostgreSQL, before node-postgres converts
+      // date-only values into local-midnight Date objects (which shift on JSON).
+      const rows = table === 'brd_flocks'
+        ? (await this.entityManager.query(`SELECT row_to_json(flock_rows) AS flock_fact FROM (${sql}) flock_rows`, queryValues)).map((row: { flock_fact: Record<string, unknown> }) => row.flock_fact)
+        : await this.entityManager.query(sql, queryValues);
       if (table === 'brd_daily_logs') {
         return await this.enrichDailyLogRows(rows);
       }
@@ -561,7 +565,9 @@ export class GenericCrudService {
     const packagingFilter = table === 'pkg_handover_records' ? ' AND NOT EXISTS (SELECT 1 FROM pkg_packing_records p WHERE p.code=pkg_handover_records.packing_code AND p.is_test)' : ['pkg_work_shifts','pkg_source_batches','pkg_grading_records','pkg_packing_records'].includes(table) ? ' AND is_test = false' : '';
     const sql = `SELECT * FROM "${table}" WHERE "${pkName}" = $1${packagingFilter} LIMIT 1`;
     try {
-      const rows = await this.entityManager.query(sql, [id]);
+      const rows = table === 'brd_flocks'
+        ? (await this.entityManager.query(`SELECT row_to_json(flock_row) AS flock_fact FROM (${sql}) flock_row`, [id])).map((row: { flock_fact: Record<string, unknown> }) => row.flock_fact)
+        : await this.entityManager.query(sql, [id]);
       return rows[0] ?? null;
     } catch (e) {
       this.rejectSchemaMismatch(e, table);

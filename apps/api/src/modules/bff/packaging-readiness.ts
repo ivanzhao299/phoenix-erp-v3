@@ -11,6 +11,11 @@ export interface PackagingSourceContext {
   eggDate: string;
   varietyCode?: string | null;
   houseCodes: string[];
+  productMode?: 'STANDARD' | 'VARIANT';
+  sourceProfileCode?: string;
+  sourceProfileCodes?: string[];
+  sourceProfileRefs?: Array<{ profileCode: string; houseCode: string }>;
+  houseProfiles?: Record<string, { sourceProfileCode: string; productMode: 'STANDARD' | 'VARIANT'; varietyCode: string | null }>;
 }
 export interface PackagingIdentity {
   grade: string; specCode?: string | null; specName?: string | null;
@@ -71,7 +76,11 @@ export async function resolvePackagingSourceContext(db: Db, input: {
   if (!houses.length || houses.some(h => !h.house_code)) fail('SOURCE_MISSING', '包装缺来源鸡舍');
   const houseCodes = [...new Set<string>(houses.map(h => h.house_code))].sort();
   let context: PackagingSourceContext | undefined;
-  const varieties = new Set<string>();
+  const houseProfiles: NonNullable<PackagingSourceContext['houseProfiles']> = {};
+  const profileCodes = new Set<string>();
+  const identities = new Set<string>();
+  let productMode: 'STANDARD' | 'VARIANT' | undefined;
+  let varietyCode: string | null | undefined;
   const availability = new SkuAvailabilityService(db as DataSource);
   for (const houseCode of houseCodes) {
     const rows = await db.query(`SELECT h.house_code, h.farm_code, f.company_code, ${OrgOwnershipService.FARM_SITE_SQL} AS site_code
@@ -82,38 +91,52 @@ export async function resolvePackagingSourceContext(db: Db, input: {
       || (context && (context.companyCode !== row.company_code || context.farmCode !== row.farm_code))) fail('SOURCE_ORG_MISMATCH', '来源鸡舍与包装班次公司/场站权威归属不一致');
     context = { companyCode: row.company_code, farmCode: row.farm_code, siteCode: row.site_code, eggDate, houseCodes };
     if (!input.historical) {
-      for (const variety of await availability.resolveVarietiesByHouse({ ...context, houseCode }, db)) varieties.add(variety);
+      const profile = await availability.resolveSourceProfile({ ...context, houseCode }, db);
+      productMode = profile.productMode;
+      varietyCode = profile.varietyCode;
+      identities.add(JSON.stringify([productMode, varietyCode]));
+      profileCodes.add(profile.profileCode);
+      houseProfiles[houseCode] = { sourceProfileCode: profile.profileCode, productMode, varietyCode };
     }
   }
-  if (!input.historical && varieties.size !== 1) fail('SOURCE_VARIETY_AMBIGUOUS', '包装来源缺品种或混品种，禁止包装');
-  return { ...context!, varietyCode: input.historical ? undefined : [...varieties][0] };
+  if (input.historical) return context!;
+  if (identities.size !== 1) fail('SOURCE_VARIETY_AMBIGUOUS', '包装来源混品种或混STANDARD/VARIANT模式，禁止包装');
+  const sourceProfileRefs = houseCodes.map(houseCode => ({ houseCode, profileCode: houseProfiles[houseCode].sourceProfileCode }));
+  return { ...context!, varietyCode, productMode, sourceProfileCode: sourceProfileRefs.length === 1 ? sourceProfileRefs[0].profileCode : undefined,
+    sourceProfileCodes: [...profileCodes], sourceProfileRefs, houseProfiles };
 }
 
 /** Fresh writes always validate every source house, including explicit product/SKU selections. */
 export async function resolvePackagingIdentity(db: Db, input: PackagingIdentity) {
   const context = input.sourceContext;
-  if (!context?.companyCode || !context.varietyCode || !context.houseCodes?.length) fail('SOURCE_MISSING', '包装缺权威组织、生产日期或品种来源');
-  if (input.varietyCode != null && input.varietyCode !== context.varietyCode) fail('VARIETY_MISMATCH', '显式品种与权威来源不匹配');
+  if (!context?.companyCode || !context.sourceProfileRefs?.length || !context.productMode || !context.houseCodes?.length
+    || (context.productMode === 'VARIANT' && !context.varietyCode)
+    || (context.productMode === 'STANDARD' && context.varietyCode != null)) fail('SOURCE_MISSING', '包装缺权威组织、生产日期或来源配置');
+  if (input.varietyCode !== undefined && input.varietyCode !== context.varietyCode) fail('VARIETY_MISMATCH', '显式品种与权威来源不匹配');
   if (input.skuCode != null && !input.skuCode.trim()) fail('SKU_MISSING', 'SKU 编码不能为空');
   if (!input.specCode && !input.specName) fail('SPEC_MISSING', '包装规格缺失');
+  // Packaging grants stock operations, not sales authorization; output eligibility remains strict.
+  const grade = one(await db.query('SELECT * FROM product_grades WHERE grade_code=$1 FOR SHARE', [input.grade]), 'GRADE', `等级 ${input.grade} `);
+  if (grade.is_saleable !== true || grade.is_storable !== true) fail('GRADE_INELIGIBLE', '包装等级必须可销售且可库存');
   const spec = one(await db.query(`SELECT * FROM packaging_specs WHERE ${input.specCode ? 'spec_code' : 'spec_name'}=$1 FOR SHARE`, [input.specCode || input.specName]), 'SPEC', `规格 ${input.specCode || input.specName} `);
   if (!(Number(spec.qty_per_unit) > 0)) fail('SPEC_INVALID', '包装规格单位数量无效');
   const availability = new SkuAvailabilityService(db as DataSource);
   let identity: Awaited<ReturnType<SkuAvailabilityService['resolve']>> | undefined;
   for (const houseCode of context.houseCodes) {
-    const sku = await availability.resolve({ ...context, houseCode, gradeCode: input.grade, specCode: spec.spec_code, usage: 'sale-stock' }, db);
+    const sku = await availability.resolve({ ...context, sourceProfileCode: context.houseProfiles?.[houseCode]?.sourceProfileCode ?? context.sourceProfileCode,
+      houseCode, gradeCode: input.grade, specCode: spec.spec_code, usage: 'stock' }, db);
     if ((input.skuCode && sku.skuCode !== input.skuCode) || (input.productCode && sku.productCode !== input.productCode)
       || (identity && sku.skuCode !== identity.skuCode)) fail('SKU_MISMATCH', 'SKU 与来源品种、产品、等级、规格不匹配');
     identity = sku;
   }
   return { grade: input.grade, productCode: identity!.productCode, skuCode: identity!.skuCode,
-    varietyCode: identity!.varietyCode!, specCode: spec.spec_code as string, specName: spec.spec_name as string, qtyPerUnit: Number(spec.qty_per_unit) };
+    varietyCode: identity!.varietyCode ?? null, specCode: spec.spec_code as string, specName: spec.spec_name as string, qtyPerUnit: Number(spec.qty_per_unit) };
 }
 
 /** No context means no options, not a global variant catalogue. */
 export async function listPackagingReadyCombinations(db: Db, context?: PackagingSourceContext) {
   if (!context) return [];
-  const rows = await db.query(`SELECT DISTINCT grade_code, spec_code FROM product_skus WHERE variety_code=$1 ORDER BY grade_code, spec_code`, [context.varietyCode]);
+  const rows = await db.query(`SELECT DISTINCT grade_code, spec_code FROM product_skus WHERE variety_code IS NOT DISTINCT FROM $1 ORDER BY grade_code, spec_code`, [context.varietyCode]);
   const ready = [];
   for (const row of rows) {
     try { ready.push(await resolvePackagingIdentity(db, { grade: row.grade_code, specCode: row.spec_code, sourceContext: context })); }

@@ -6,7 +6,8 @@ import Link from "next/link";
 import { usePermission } from "@/hooks/usePermission";
 import { useProductGrades } from "@/hooks/useProductGrades";
 import PageHeader from "@/components/PageHeader";
-import request from "@/lib/api-client";
+import request, { type ApiError } from "@/lib/api-client";
+import { validateProductionInboundPayload, type InboundReceipt } from '@/lib/production-inbound-result';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { HouseSelector, WarehouseSelector, LocationSelector } from '@/components/shared-selectors/MasterDataSelectors';
 import { dailyReportInboundIdempotencyKey } from '@/lib/breeding-daily';
@@ -136,15 +137,11 @@ export default function DailyInboundPage() {
     }
     if (ownershipError) { setError(ownershipError); return; }
     setSaving(true);
+    const unknownResultMessage = t('breeding.inboundResultUnknown', '结果未确认，请先核对入库台账，不要重复提交');
+    // Snapshot the submitted selection; a returned company alone is not scope evidence.
+    const expectedContext = { eggDate, companyCode, ...(siteCode ? { siteCode } : {}), warehouseCode, locationCode };
     try {
-      const r = await request<{
-        batches: {
-          batchNo: string;
-          grade: string;
-          qty: number;
-        }[];
-        totalInbound: number;
-      }>("/v2/inventory/production-inbound", {
+      const r = await request<InboundReceipt>("/v2/inventory/production-inbound", {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
@@ -160,10 +157,16 @@ export default function DailyInboundPage() {
           items
         })
       });
+      if (validateProductionInboundPayload(r, items, expectedContext).status !== 'success') {
+        setError(unknownResultMessage);
+        return;
+      }
       setResult(r);
       setQtyMap({});
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : t('breeding.inboundFailed', '入库失败'));
+      const status = e instanceof Error ? (e as ApiError).status : undefined;
+      const rejected = status !== undefined && [400, 401, 403, 404, 409, 422].includes(status);
+      setError(rejected && e instanceof Error ? e.message : unknownResultMessage);
     } finally {
       setSaving(false);
     }

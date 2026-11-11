@@ -1,8 +1,8 @@
 import { savedQuantity, QuantitySnapshot, positiveQuantity, baseQuantity, sharedBatches, lockQuantityPools, assertBatchPool, resolveQuantity } from '../../product-master/services/quantity-contract';
 import { SkuPolicy } from '../../product-master/services/sku-policy';
-import { SkuAvailabilityService } from '../../product-master/services/sku-availability.service';
+import { EggSourceProfile, SkuAvailabilityService } from '../../product-master/services/sku-availability.service';
 import {
-  Injectable, Logger, BadRequestException, ConflictException,
+  Injectable, Logger, BadRequestException, ConflictException, ForbiddenException,
 } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
@@ -68,6 +68,8 @@ export interface EggBatch {
   spec_code: string | null;
   /** 阶段3: 品种快照（md_product_varieties.variety_code），历史批次 NULL */
   variety_code: string | null;
+  source_profile_code?: string | null;
+  source_profile_snapshot?: Array<{ profileCode: string; houseCode: string; productMode: 'STANDARD' | 'VARIANT'; varietyCode: string | null; effectiveDate: string }> | null;
   sku_name?: string | null;
   sku_name_en?: string | null;
   sku_name_lo?: string | null;
@@ -248,14 +250,14 @@ export class EggInventoryService {
    * Phase H4: 根据 sku_code 查询 product_skus，返回推导信息
    * 仅在 skuCode 参数存在时调用
    */
-  private async resolveSkuInfo(skuCode: string, mgr?: EntityManager): Promise<{
+  private async resolveSkuInfo(skuCode: string, mgr?: EntityManager, companyCode?: string): Promise<{
     productCode: string;
     gradeCode:   string;
     specCode:    string;
     varietyCode: string | null;
   }> {
     if (!mgr) throw new Error('SKU 校验需要库存写入事务');
-    const sku = await SkuPolicy.requireUsable(mgr, skuCode, 'stock');
+    const sku = await SkuPolicy.requireUsable(mgr, skuCode, 'stock', companyCode);
     return { productCode: sku.product_code, gradeCode: sku.grade_code, specCode: sku.spec_code, varietyCode: sku.variety_code };
   }
 
@@ -284,8 +286,14 @@ export class EggInventoryService {
     skuCode?:       string;
     gradeCodeStd?:  string;
     specCode?:      string;
-    /** 阶段3：品种快照（md_product_varieties.variety_code），TEMP_PRODUCTION 新批必写 */
-    varietyCode?:   string;
+    /** Must agree with the DB source profile; STANDARD has an explicit NULL snapshot. */
+    varietyCode?:   string | null;
+    sourceProfileCode?: string;
+    houseCode?: string;
+    farmCode?: string;
+    siteCode?: string;
+    /** Multi-house packaging retains every source; all must share mode/variety. */
+    sourceProfileRefs?: Array<{ profileCode: string; houseCode: string }>;
     /** 生产链路收口 Phase 1：来源类型（默认 PRODUCTION，包装入库传 PACKAGING） */
     sourceType?:    string;
     /** 生产链路收口 Phase 1：inv_ledger 变动类型（默认 INBOUND，包装入库传 PACKAGING_INBOUND） */
@@ -300,12 +308,76 @@ export class EggInventoryService {
     if (params.sourceType === 'TEMP_PRODUCTION' && (!params.warehouseCode || !params.locationCode)) {
       throw new BadRequestException('日产蛋入库必须解析到真实 ACTIVE 仓库和库位，禁止使用默认占位码');
     }
-    if (params.sourceType === 'TEMP_PRODUCTION' && (!params.skuCode || !params.varietyCode)) {
-      throw new BadRequestException('日产蛋入库必须显式提供已由来源确认的 SKU 和品种，禁止回退旧生产通道');
+    const hasSource = params.sourceProfileRefs !== undefined || params.sourceProfileCode !== undefined || params.houseCode !== undefined;
+    if (hasSource && (typeof params.warehouseCode !== 'string' || !params.warehouseCode.trim()
+        || params.warehouseCode !== params.warehouseCode.trim() || typeof params.locationCode !== 'string'
+        || !params.locationCode.trim() || params.locationCode !== params.locationCode.trim())) {
+      throw new BadRequestException('来源档案批次必须显式提供真实 ACTIVE 仓库和库位，禁止使用默认占位码');
+    }
+    if (hasSource) {
+      const scope: unknown = this.cls.get('dataScope');
+      if (scope != null) {
+        const valid = typeof scope === 'object' && !Array.isArray(scope)
+          ? scope as { isGlobal?: unknown; allowedCompanyCodes?: unknown; allowedWarehouseCodes?: unknown } : undefined;
+        if (!valid || typeof valid.isGlobal !== 'boolean') throw new ForbiddenException('来源批次 dataScope 格式无效');
+        if (!valid.isGlobal && (!Array.isArray(valid.allowedCompanyCodes) || !Array.isArray(valid.allowedWarehouseCodes)
+            || valid.allowedCompanyCodes.some(code => typeof code !== 'string' || !code.trim())
+            || valid.allowedWarehouseCodes.some(code => typeof code !== 'string' || !code.trim())
+            || !valid.allowedCompanyCodes.includes(params.companyCode) || !valid.allowedWarehouseCodes.includes(params.warehouseCode))) {
+          throw new ForbiddenException('无权向指定公司或仓库创建来源批次');
+        }
+      }
+    }
+    if ((params.sourceType === 'TEMP_PRODUCTION' || params.sourceType === 'PACKAGING') && (!params.skuCode || !hasSource)) {
+      throw new BadRequestException('新生产/包装入库必须显式提供已由来源确认的 SKU 和 source profile，禁止回退旧生产通道');
     }
 
     // Keep allocation, batch and ledger atomic even for callers without an existing transaction.
     if (!mgr) return this.ds.transaction(tx => this.createProductionBatch(params, tx));
+
+    const profiles: EggSourceProfile[] = [];
+    if (hasSource) {
+      // A valid house/profile does not authorize an unrelated destination. Keep
+      // these authority locks in the same transaction as the stock/ledger write.
+      const warehouses = await mgr.query(
+        `SELECT warehouse_code, company_code, status FROM wms_warehouses
+          WHERE warehouse_code = $1 FOR SHARE`, [params.warehouseCode],
+      );
+      if (warehouses.length !== 1 || warehouses[0].warehouse_code !== params.warehouseCode
+          || warehouses[0].status !== 'ACTIVE' || warehouses[0].company_code !== params.companyCode) {
+        throw new BadRequestException('来源批次仓库必须为指定公司的真实 ACTIVE 仓库');
+      }
+      const locations = await mgr.query(
+        `SELECT location_code, warehouse_code, status FROM wms_locations
+          WHERE location_code = $1 AND warehouse_code = $2 FOR SHARE`, [params.locationCode, params.warehouseCode],
+      );
+      if (locations.length !== 1 || locations[0].location_code !== params.locationCode
+          || locations[0].warehouse_code !== params.warehouseCode || !['ACTIVE', 'NORMAL'].includes(locations[0].status)) {
+        throw new BadRequestException('来源批次库位必须属于指定仓库且为 ACTIVE/NORMAL');
+      }
+      if (!params.skuCode) throw new BadRequestException('来源档案生产必须选择 SKU');
+      const refs = params.sourceProfileRefs ?? [{ profileCode: params.sourceProfileCode!, houseCode: params.houseCode! }];
+      if (!Array.isArray(refs) || !refs.length || refs.some(ref => !ref || typeof ref.profileCode !== 'string'
+          || !ref.profileCode.trim() || typeof ref.houseCode !== 'string' || !ref.houseCode.trim())
+          || new Set(refs.map(ref => ref.houseCode)).size !== refs.length
+          || new Set(refs.map(ref => ref.profileCode)).size !== refs.length) {
+        throw new BadRequestException('来源档案 refs 必须完整、非空且不得重复 house/profile');
+      }
+      if (params.sourceProfileRefs !== undefined && (params.sourceProfileCode !== undefined || params.houseCode !== undefined)
+          && (refs.length !== 1 || refs[0].profileCode !== params.sourceProfileCode || refs[0].houseCode !== params.houseCode)) {
+        throw new BadRequestException('来源档案 refs 与单一来源参数不一致');
+      }
+      // Stable lock ordering for multi-house packaging, with no first-source shortcut.
+      for (const ref of [...refs].sort((a, b) => a.houseCode.localeCompare(b.houseCode))) {
+        profiles.push(await this.skuAvailability.resolveSourceProfile({
+          companyCode: params.companyCode, houseCode: ref.houseCode, eggDate: params.eggDate,
+          sourceProfileCode: ref.profileCode, farmCode: params.farmCode, siteCode: params.siteCode,
+        }, mgr));
+      }
+      if (profiles.some(profile => profile.productMode !== profiles[0].productMode || profile.varietyCode !== profiles[0].varietyCode)) {
+        throw new BadRequestException('多个来源档案 productMode/variety 不一致，禁止合并库存');
+      }
+    }
 
     // Phase H4 PATH A: 传入 sku_code → 校验并自动推导字段
     let productCode  = params.productCode;
@@ -316,7 +388,7 @@ export class EggInventoryService {
     let varietyCode: string | null = null;
 
     if (params.skuCode !== undefined) {
-      const skuInfo = await this.resolveSkuInfo(params.skuCode!, mgr);
+      const skuInfo = await this.resolveSkuInfo(params.skuCode!, mgr, params.companyCode);
       productCode  = skuInfo.productCode;
       gradeCodeStd = skuInfo.gradeCode;
       specCode     = skuInfo.specCode;
@@ -350,24 +422,43 @@ export class EggInventoryService {
     if (skuCode && skuVariety !== product.variety_code) {
       throw new BadRequestException('SKU 与产品品种不一致，禁止创建库存');
     }
-    if (product.variety_code !== null) {
-      if (!skuCode) throw new BadRequestException('有品种的产品必须选择 SKU，禁止走旧生产通道');
-      if (!params.varietyCode || params.varietyCode !== product.variety_code) {
-        throw new BadRequestException('必须显式提供与 SKU/产品一致的品种，禁止推测或改写品种快照');
+    if (profiles.length) {
+      const profile = profiles[0];
+      if (product.variety_code !== profile.varietyCode || skuVariety !== profile.varietyCode) {
+        throw new BadRequestException('SKU/产品品种与来源档案 productMode/variety 不一致');
       }
-      const available = await this.skuAvailability.assertUsable(skuCode, {
-        companyCode: params.companyCode, eggDate: params.eggDate, varietyCode: params.varietyCode, usage: 'stock',
-      }, mgr);
-      if (available.productCode !== productCode || available.varietyCode !== product.variety_code) {
-        throw new BadRequestException('已验证 SKU/产品品种发生不一致，禁止创建库存');
+      if ((profile.productMode === 'VARIANT' && (!params.varietyCode || params.varietyCode !== profile.varietyCode))
+          || (profile.productMode === 'STANDARD' && params.varietyCode != null)) {
+        throw new BadRequestException('必须显式提供与来源档案一致的品种；STANDARD 必须为空');
       }
-      varietyCode = available.varietyCode;
+      for (const source of profiles) {
+        const available = await this.skuAvailability.assertUsable(skuCode!, {
+          companyCode: params.companyCode, eggDate: params.eggDate, varietyCode: source.varietyCode,
+          houseCode: source.houseCode, sourceProfileCode: source.profileCode,
+          farmCode: source.farmCode, siteCode: source.siteCode, usage: 'stock',
+        }, mgr);
+        if (available.productCode !== productCode || available.varietyCode !== source.varietyCode) {
+          throw new BadRequestException('已验证 SKU/产品品种发生不一致，禁止创建库存');
+        }
+      }
+      varietyCode = profile.varietyCode;
     } else {
-      // Explicitly variety-less legacy production is not company/variety-isolated.
-      // It cannot be relabeled by a request snapshot or used by the new source.
+      if (product.variety_code !== null) {
+        if (!skuCode) throw new BadRequestException('有品种的产品必须选择 SKU，禁止走旧生产通道');
+        throw new BadRequestException('有品种的生产必须显式提供 source profile 和 houseCode，禁止推测来源');
+      }
+      // Only explicitly NULL product/SKU historical production remains compatible.
       if (params.varietyCode != null || (params.sourceType !== undefined && params.sourceType !== 'PRODUCTION')) {
         throw new BadRequestException('无品种历史产品不得写入品种快照或冒用新品种生产通道');
       }
+      // This exception is only for unconfigured legacy companies. Once source
+      // policy has been configured, disabling all its rows must not reopen this
+      // historical exception as a fail-open production path.
+      const configured = await mgr.query(
+        `SELECT profile_code FROM md_egg_source_profiles
+          WHERE company_code = $1 FOR SHARE`, [params.companyCode],
+      );
+      if (configured.length) throw new BadRequestException('公司已启用来源档案，禁止无来源的历史 PRODUCTION 新建通道');
     }
     if (skuCode) await resolveQuantity(mgr,{qty:params.qty,skuCode,quantityBasis:'BASE'});
     const qty = baseQuantity(params.qty, 1, unit);
@@ -383,13 +474,13 @@ export class EggInventoryService {
          egg_date, inbound_date, expire_date, quality_grade, packaging_spec,
          source_type, source_no,
          qty, qty_available, status,
-         sku_code, grade_code_std, spec_code, variety_code,
+         sku_code, grade_code_std, spec_code, variety_code, source_profile_code, source_profile_snapshot,
          packaging_batch_ref, collection_batch_ref, unit, base_quantity_version,
          created_at, updated_at
        ) VALUES (
          $1,$2,$3,$4,$5,$6,$6,$7,$8,$9,$10,$11,$12,
          $12,'AVAILABLE',
-         $13,$14,$15,$19,
+         $13,$14,$15,$19,$20,$21::jsonb,
          $16,$17,$18,1,
          NOW(),NOW()
        ) RETURNING *`,
@@ -408,6 +499,11 @@ export class EggInventoryService {
         params.collectionBatchRef ?? null,
         unit,
         varietyCode,
+        profiles.length === 1 ? profiles[0].profileCode : null,
+        profiles.length ? JSON.stringify(profiles.map(profile => ({
+          profileCode: profile.profileCode, houseCode: profile.houseCode, productMode: profile.productMode,
+          varietyCode: profile.varietyCode, effectiveDate: profile.effectiveDate,
+        }))) : null,
       ],
     );
 
@@ -509,6 +605,16 @@ export class EggInventoryService {
 
   // ── 3. FIFO 分配（预占 qty_available） ──────────────────────────────────────
 
+  /** Legacy sales must not acquire organization-managed stock, even via a saved batch. */
+  private async isLegacySaleStock(skuCode: string | null | undefined, mgr: EntityManager): Promise<boolean> {
+    if (skuCode == null) return true;
+    const [sku] = await mgr.query(
+      `SELECT * FROM product_skus WHERE sku_code=$1 FOR SHARE`, [skuCode],
+    );
+    // A missing mapping is not evidence of a historical, unmanaged SKU.
+    return !!sku && sku.variety_code == null && sku.org_context_required !== true;
+  }
+
   /**
    * Phase H4 升级：支持 skuCode 优先路径
    *
@@ -540,6 +646,7 @@ export class EggInventoryService {
     if (!mgr) return this.ds.transaction(manager => this.allocateByFIFO(params, manager));
     const q = mgr.query.bind(mgr);
     if (params.skuCode !== undefined) await SkuPolicy.requireUsable(mgr, params.skuCode, 'sale-stock');
+    else if (params.quantitySnapshot) await SkuPolicy.requireUsable(mgr, params.quantitySnapshot.skuCode, 'sale-stock');
 
     positiveQuantity(params.qty, '分配数量');
 
@@ -559,6 +666,12 @@ export class EggInventoryService {
       `qty_available > 0`,
       `(expire_date IS NULL OR expire_date >= CURRENT_DATE)`,
       `legacy_source IS NULL`,
+      `(sku_code IS NULL OR EXISTS (
+        SELECT 1 FROM "product_skus" legacy_sku
+         WHERE legacy_sku.sku_code=inv_batches.sku_code
+           AND legacy_sku.variety_code IS NULL
+           AND legacy_sku.org_context_required=false
+      ))`,
     ];
     const args: unknown[] = [params.companyCode];
     let pi = 2;
@@ -591,10 +704,25 @@ export class EggInventoryService {
       args,
     );
 
+    // sharedBatches also serves stock-only flows, so apply the sales gate here,
+    // under the same transaction's batch FOR UPDATE and SKU FOR SHARE locks.
+    const legacyBatches: any[] = [];
+    for (const batch of batches) {
+      if (await this.isLegacySaleStock(batch.sku_code, mgr)) legacyBatches.push(batch);
+    }
+    const allocatableQty = legacyBatches.reduce((sum, batch) => sum + Number(batch.qty_available), 0);
+    if (allocatableQty < params.qty) {
+      const target = params.skuCode ? `sku=${params.skuCode}` : `product=${params.productCode} grade=${params.gradeCode ?? 'ALL'}`;
+      throw new ConflictException(
+        `库存不足：订单公司=${params.companyCode} ${target} `
+        + `需求量=${params.qty} 该公司可分配量=${allocatableQty}`,
+      );
+    }
+
     let remaining = params.qty;
     const allocations: FifoAllocation[] = [];
 
-    for (const batch of batches) {
+    for (const batch of legacyBatches) {
       if (remaining <= 0) break;
 
       // Saved physical identity is authoritative, including a return's downgraded grade.
@@ -685,15 +813,24 @@ export class EggInventoryService {
     for (const item of items.sort((a: any, b: any) => String(a.product_code).localeCompare(String(b.product_code)) || String(a.id).localeCompare(String(b.id)))) {
       const qty = savedQuantity(item);
       if (qty <= 0) continue;
+      // Idempotent reservation must not bypass the explicit-SKU sales policy.
+      if (item.sku_code != null) await SkuPolicy.requireUsable(mgr, item.sku_code, 'sale-stock');
+      else if (item.quantity_snapshot) await SkuPolicy.requireUsable(mgr, item.quantity_snapshot.skuCode, 'sale-stock');
 
       const existing = await q(
-        `SELECT id,batch_no,reserved_qty,outbound_qty,released_qty
-           FROM sal_order_item_batch_allocations
-          WHERE sales_order_item_id=$1
-          ORDER BY id FOR UPDATE`,
+        `SELECT a.id,a.batch_no,a.reserved_qty,a.outbound_qty,a.released_qty,b.sku_code
+           FROM sal_order_item_batch_allocations a
+           JOIN inv_batches b ON b.batch_no=a.batch_no
+          WHERE a.sales_order_item_id=$1
+          ORDER BY a.id FOR UPDATE OF a,b`,
         [item.id],
       );
       if (existing.length) {
+        for (const allocation of existing) {
+          if (!await this.isLegacySaleStock(allocation.sku_code, mgr)) {
+            throw new ConflictException('旧销售预留禁止使用公司范围管理或未映射 SKU 库存');
+          }
+        }
         const reserved = existing.reduce((sum: number, row: any) => sum + Number(row.reserved_qty), 0);
         if (reserved !== qty) {
           throw new ConflictException(`订单明细 ${item.id} 已有分配 ${reserved}，与需求 ${qty} 不一致`);
@@ -838,6 +975,20 @@ export class EggInventoryService {
         ORDER BY a.id FOR UPDATE OF a,b`,
       [orderId],
     );
+
+    // Existing/manual allocation rows are not authorization to consume managed
+    // physical stock. Validate before the first inventory/ledger write.
+    let outboundAvailable = 0;
+    for (const allocation of allocations) {
+      const available = Number(allocation.reserved_qty) - Number(allocation.outbound_qty) - Number(allocation.released_qty);
+      if (available <= 0) continue;
+      if (!await this.isLegacySaleStock(allocation.sku_code, mgr)
+          || !await this.isLegacySaleStock(allocation.sale_sku_code, mgr)) {
+        throw new ConflictException('旧销售出库禁止使用公司范围管理或未映射 SKU 库存');
+      }
+      outboundAvailable += available;
+    }
+    if (outboundAvailable < requestedQty) throw new ConflictException(`订单 ${orderNo} 剩余预留不足，本次需出库 ${requestedQty}`);
 
     let remaining = requestedQty;
     for (const allocation of allocations) {

@@ -4505,6 +4505,8 @@
   "breeding.fetchDailyFailed": "Failed to fetch daily report data",
   "breeding.enterAtLeastOne": "Please enter quantity for at least one grade",
   "breeding.inboundFailed": "Inbound failed",
+  "breeding.inboundResultUnknown": "Result unconfirmed. Check the inbound ledger first; do not submit again.",
+  "ui.去向名称": "Destination name",
   "breeding.noPermInbound": "No permission to access daily egg inbound",
   "breeding.inboundTitle": "Daily Egg Inbound",
   "breeding.inboundMasterRequired": "Select a house, inbound warehouse, and inbound location",

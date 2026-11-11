@@ -97,6 +97,36 @@ export class WmsService {
     }
   }
 
+  /** Warehouse ownership, never request company, is the transaction authority. */
+  private async lockWarehouseCompany(manager: EntityManager, warehouseCode: string, claimedCompany?: unknown): Promise<string> {
+    const [warehouse] = await manager.query(
+      'SELECT company_code FROM wms_warehouses WHERE warehouse_code=$1 FOR SHARE', [warehouseCode],
+    );
+    const company = this.nonEmptyString(warehouse?.company_code);
+    if (!company || company === 'ALL') throw new BadRequestException(`仓库 ${warehouseCode} 缺少有效公司归属`);
+    const claimed = this.nonEmptyString(claimedCompany);
+    if (claimed && claimed !== company) throw new BadRequestException('单据或批次公司与仓库归属不一致；不支持受托代管库存');
+    return company;
+  }
+
+  private assertBatchCompany(batch: any, company: string): void {
+    const owner = this.nonEmptyString(batch.company_code);
+    if (owner && owner !== 'ALL' && owner !== company) {
+      throw new BadRequestException('批次公司与仓库归属不一致；不支持受托代管库存');
+    }
+  }
+
+  private async assertTransferSku(manager: EntityManager, batch: any, fromWarehouse: string, toWarehouse: string): Promise<void> {
+    const sourceCompany = await this.lockWarehouseCompany(manager, fromWarehouse);
+    this.assertBatchCompany(batch, sourceCompany);
+    const targetCompany = await this.lockWarehouseCompany(manager, toWarehouse);
+    if (batch.sku_code != null) {
+      // Transaction companies are not SKU origin: keep identity and check both exact scopes.
+      await SkuPolicy.requireUsable(manager, batch.sku_code, 'stock', sourceCompany);
+      await SkuPolicy.requireUsable(manager, batch.sku_code, 'stock', targetCompany);
+    }
+  }
+
   private async resolveTransferTargetIdentity(
     manager: EntityManager,
     warehouseCode: string,
@@ -107,7 +137,7 @@ export class WmsService {
          FROM wms_warehouses w
          LEFT JOIN store_master sm ON sm.id=w.owner_store_id
         WHERE w.warehouse_code=$1
-        LIMIT 1`,
+        LIMIT 1 FOR SHARE OF w`,
       [warehouseCode],
     );
     if (!target?.company_code || target.company_code === 'ALL') {
@@ -151,6 +181,10 @@ export class WmsService {
     if (!hasPerm(user?.permissions, menu, perm)) {
       throw new ForbiddenException(`缺少 ${menu}:${perm} 权限`);
     }
+  }
+
+  private outboundSkuUsage(type: unknown): 'stock' | 'sale-stock' {
+    return resolveOutboundPolicy(type)?.category === 'SALES' ? 'sale-stock' : 'stock';
   }
 
   private validateStandaloneOutbound(body: any): void {
@@ -317,20 +351,21 @@ export class WmsService {
           created.push({ task_no: taskNo, status: 'PENDING', idempotent: true });
           continue;
         }
+        const companyCode = await this.lockWarehouseCompany(manager, warehouseCode!, doc?.company_code);
         await manager.query(
           `INSERT INTO wms_inbound (task_no,status,warehouse_code,type,item,qty,store_code,operator,attachment_url,date,site_code,company_code,remark,created_at,updated_at)
            VALUES ($1,'PENDING',$2,$3,$4,$5::numeric,$6,$7,$8,$9::date,$10,$11,$12,now(),now())`,
           [taskNo, warehouseCode, String(doc?.type || 'GENERIC').toUpperCase(), this.nonEmptyString(doc?.item || items[0]?.item || items[0]?.product_code),
             Number(doc?.qty || items.reduce((sum: number, it: any) => sum + (Number(it?.qty) || 0), 0)),
             this.nonEmptyString(doc?.store_code) || 'ALL', String(user?.username || doc?.operator || user?.userId || 'SYS'),
-            this.nonEmptyString(doc?.attachment_url), doc?.date || null, this.nonEmptyString(doc?.site_code), this.nonEmptyString(doc?.company_code), this.nonEmptyString(doc?.remark)],
+            this.nonEmptyString(doc?.attachment_url), doc?.date || null, this.nonEmptyString(doc?.site_code), companyCode, this.nonEmptyString(doc?.remark)],
         );
         for (const [line, item] of items.entries()) {
           const qty = Number(item?.qty ?? item?.expected_qty);
           if (!Number.isFinite(qty) || qty <= 0) throw new BadRequestException(`入库单 ${taskNo} 第 ${line + 1} 行数量必须大于 0`);
           const explicitSku = item?.sku_code === undefined ? null : SkuPolicy.code(item.sku_code);
           const quantitySnapshot = await resolveQuantity(manager, { qty, skuCode: explicitSku ?? undefined, quantityBasis: item.quantityBasis });
-          if (explicitSku) await SkuPolicy.requireUsable(manager, explicitSku, 'stock');
+          if (explicitSku) await SkuPolicy.requireUsable(manager, explicitSku, 'stock', companyCode);
           await manager.query(
             `INSERT INTO wms_inbound_items (task_no,batch_no,product_code,qty,actual_qty,broken_qty,quantity_snapshot)
              VALUES ($1,$2,$3,$4::numeric,0,0,$5::jsonb)`,
@@ -491,23 +526,30 @@ export class WmsService {
         const brokenQty = snapshot && brokenTrade > 0 ? baseQuantity(brokenTrade,snapshot.factor,snapshot.baseUnit) : brokenTrade;
         if (actualQty <= 0 && brokenQty <= 0) continue;
 
+        const warehouseCode = item.warehouse_code || item.warehouse || defaultWarehouse;
+        await this.assertWritableWarehouse(warehouseCode, '入库明细');
+        const companyCode = await this.lockWarehouseCompany(manager, warehouseCode);
+
         let productCode = snapshot?.productCode ?? this.nonEmptyString(item.product_code);
         let skuCode = snapshot?.skuCode ?? (item.sku_code === undefined ? null : SkuPolicy.code(item.sku_code));
         let materialCode = this.nonEmptyString(item.material_code);
         let itemType = this.nonEmptyString(item.item_type);
         let materialType = this.nonEmptyString(item.material_type);
+        let varietyCode: string | null = null;
         let unit = this.nonEmptyString(item.unit) || '件';
         if (materialCode || skuCode || itemType) {
           const identity = await this.resolveInventoryItem(
             manager,
             skuCode || materialCode || productCode,
             skuCode ? 'SKU' : itemType,
+            companyCode,
           );
           productCode = identity.productCode;
           skuCode = identity.skuCode;
           materialCode = identity.materialCode;
           itemType = identity.itemType;
           materialType = identity.materialType;
+          varietyCode = identity.varietyCode;
           unit = snapshot?.baseUnit ?? identity.unit;
         }
         if (!skuCode && !materialCode && productCode) {
@@ -516,8 +558,13 @@ export class WmsService {
             UNION ALL SELECT 'PRODUCT' AS item_type FROM mst_products WHERE product_code=$1`, [productCode]);
           if (matches.length>1) throw new BadRequestException('旧品目编码跨域冲突，请明确 item_type 与对应编码');
           if (matches.length===1 && matches[0].item_type==='SKU') {
-            const sku=await SkuPolicy.requireUsable(manager,productCode,'stock');
-            skuCode=sku.sku_code; productCode=sku.product_code; itemType='SKU'; materialType='FINISHED_PRODUCT'; unit=sku.base_unit;
+            const sku=await SkuPolicy.requireUsable(manager,productCode,'stock',companyCode);
+            skuCode=sku.sku_code; productCode=sku.product_code; itemType='SKU'; materialType='FINISHED_PRODUCT'; unit=sku.base_unit; varietyCode=sku.variety_code ?? null;
+          } else if (matches.length===1 && matches[0].item_type==='PRODUCT') {
+            const [product] = await manager.query('SELECT product_mode,variety_code FROM mst_products WHERE product_code=$1 FOR SHARE', [productCode]);
+            if (product?.product_mode === 'VARIANT' || product?.variety_code != null) {
+              throw new BadRequestException('新品种产品入库必须明确 SKU，禁止 PRODUCT 兜底绕过公司适用范围');
+            }
           }
         }
         const inboundPolicyErrors = validateInboundPolicy({
@@ -545,16 +592,6 @@ export class WmsService {
         );
         const baseBatchNo = item.batch_no ||
           `IBN-${new Date().toISOString().slice(0,10).replace(/-/g,'')}-${Math.random().toString(36).slice(2,8).toUpperCase()}`;
-        const warehouseCode = item.warehouse_code || item.warehouse || defaultWarehouse;
-        await this.assertWritableWarehouse(warehouseCode, `入库明细 ${baseBatchNo}`);
-        const [warehouseIdentity] = await manager.query(
-          `SELECT company_code FROM wms_warehouses WHERE warehouse_code = $1 LIMIT 1`,
-          [warehouseCode],
-        );
-        const companyCode = this.nonEmptyString(warehouseIdentity?.company_code);
-        if (!companyCode || companyCode === 'ALL') {
-          throw new BadRequestException(`入库仓 ${warehouseCode} 缺少有效公司归属`);
-        }
         const locationCode  = item.location_code || 'INBOUND-DOCK';
 
         // V2 fidelity: 拦截 EXPIRED / LOCKED / QUARANTINE 已存在批次的累加
@@ -565,7 +602,7 @@ export class WmsService {
           );
           if (existRows.length > 0) {
             if (snapshot) assertBatchPool(existRows[0], snapshot);
-            for (const [key,expected] of Object.entries({ product_code:productCode,sku_code:skuCode,material_code:materialCode,item_type:itemType,unit,warehouse_code:warehouseCode })) {
+            for (const [key,expected] of Object.entries({ product_code:productCode,sku_code:skuCode,material_code:materialCode,item_type:itemType,variety_code:varietyCode,source_profile_code:null,source_profile_snapshot:null,unit,warehouse_code:warehouseCode })) {
               if ((existRows[0][key] ?? null)!==(expected ?? null)) throw new BadRequestException(`批次 ${item.batch_no} 的 ${key} 与入库品目不一致，禁止跨域或改标累加`);
             }
             const exStatus = (existRows[0].status || 'AVAILABLE').toUpperCase();
@@ -581,12 +618,12 @@ export class WmsService {
 
         // 正常入库：actual_qty → AVAILABLE batch
         if (actualQty > 0) {
-          await manager.query(
+          const posted = await manager.query(
           `INSERT INTO inv_batches (
              batch_no, product_code, sku_code, material_code, item_type, material_type,
-             unit, qty, qty_available, status, warehouse_code, location_code, store_code, company_code, inbound_date, grade_code_std, spec_code, base_quantity_version
+             unit, qty, qty_available, status, warehouse_code, location_code, store_code, company_code, inbound_date, grade_code_std, spec_code, base_quantity_version, variety_code, source_profile_code, source_profile_snapshot
            )
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8::numeric, $8::numeric, 'AVAILABLE', $9, $10, $11, $12, $13::date,$14,$15,$16)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8::numeric, $8::numeric, 'AVAILABLE', $9, $10, $11, $12, $13::date,$14,$15,$16,$17,NULL,NULL)
              ON CONFLICT (batch_no) DO UPDATE SET
                product_code = COALESCE(inv_batches.product_code, EXCLUDED.product_code),
                sku_code = COALESCE(inv_batches.sku_code, EXCLUDED.sku_code),
@@ -603,9 +640,21 @@ export class WmsService {
                END,
                qty = inv_batches.qty + EXCLUDED.qty,
                qty_available = COALESCE(inv_batches.qty_available, inv_batches.qty) + EXCLUDED.qty,
-               updated_at = now()`,
-            [baseBatchNo, productCode, skuCode, materialCode, itemType, materialType, unit, actualQty, warehouseCode, locationCode, storeCode, companyCode, task.date || null, snapshot?.gradeCode ?? null, snapshot?.specCode ?? null, snapshot ? 1 : null],
+               updated_at = now()
+              WHERE inv_batches.warehouse_code IS NOT DISTINCT FROM EXCLUDED.warehouse_code
+                AND (inv_batches.company_code IS NULL OR inv_batches.company_code = 'ALL' OR inv_batches.company_code = EXCLUDED.company_code)
+                AND inv_batches.sku_code IS NOT DISTINCT FROM EXCLUDED.sku_code
+                AND inv_batches.variety_code IS NOT DISTINCT FROM EXCLUDED.variety_code
+                AND inv_batches.source_profile_code IS NOT DISTINCT FROM EXCLUDED.source_profile_code
+                AND inv_batches.source_profile_snapshot IS NOT DISTINCT FROM EXCLUDED.source_profile_snapshot
+                AND inv_batches.material_code IS NOT DISTINCT FROM EXCLUDED.material_code
+                AND inv_batches.product_code IS NOT DISTINCT FROM EXCLUDED.product_code
+                AND inv_batches.item_type IS NOT DISTINCT FROM EXCLUDED.item_type
+                AND inv_batches.unit IS NOT DISTINCT FROM EXCLUDED.unit
+              RETURNING batch_no`,
+            [baseBatchNo, productCode, skuCode, materialCode, itemType, materialType, unit, actualQty, warehouseCode, locationCode, storeCode, companyCode, task.date || null, snapshot?.gradeCode ?? null, snapshot?.specCode ?? null, snapshot ? 1 : null, varietyCode],
           );
+          if (posted.length !== 1) throw new BadRequestException('入库批次归属或身份已变化，禁止跨公司累加');
           await manager.query(
             `INSERT INTO inv_ledger (
                batch_no, change_type, qty_change, operator, store_code, ref_no, note,
@@ -626,16 +675,16 @@ export class WmsService {
           const brokenBatchNo = `${baseBatchNo}-BROKEN`;
           const [brokenExisting] = await manager.query('SELECT * FROM inv_batches WHERE batch_no=$1 FOR UPDATE',[brokenBatchNo]);
           if (brokenExisting) {
-            for (const [key,expected] of Object.entries({ product_code:productCode,sku_code:skuCode,material_code:materialCode,item_type:itemType,unit,warehouse_code:warehouseCode,company_code:companyCode })) {
+            for (const [key,expected] of Object.entries({ product_code:productCode,sku_code:skuCode,material_code:materialCode,item_type:itemType,variety_code:varietyCode,source_profile_code:null,source_profile_snapshot:null,unit,warehouse_code:warehouseCode,company_code:companyCode })) {
               if ((brokenExisting[key] ?? null)!==(expected ?? null)) throw new BadRequestException('破损批次身份与入库品目不一致，禁止跨域累加');
             }
           }
-          await manager.query(
+          const posted = await manager.query(
             `INSERT INTO inv_batches (
                batch_no, product_code, sku_code, material_code, item_type, material_type,
-               unit, qty, qty_available, status, warehouse_code, location_code, store_code, company_code, inbound_date, grade_code_std, spec_code, base_quantity_version
+               unit, qty, qty_available, status, warehouse_code, location_code, store_code, company_code, inbound_date, grade_code_std, spec_code, base_quantity_version, variety_code, source_profile_code, source_profile_snapshot
              )
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8::numeric, 0, 'QUARANTINE', $9, $10, $11, $12, $13::date,$14,$15,$16)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8::numeric, 0, 'QUARANTINE', $9, $10, $11, $12, $13::date,$14,$15,$16,$17,NULL,NULL)
              ON CONFLICT (batch_no) DO UPDATE SET
                product_code = COALESCE(inv_batches.product_code, EXCLUDED.product_code),
                sku_code = COALESCE(inv_batches.sku_code, EXCLUDED.sku_code),
@@ -653,9 +702,21 @@ export class WmsService {
                qty = inv_batches.qty + EXCLUDED.qty,
                qty_available = 0,
                status = 'QUARANTINE',
-               updated_at = now()`,
-            [brokenBatchNo, productCode, skuCode, materialCode, itemType, materialType, unit, brokenQty, warehouseCode, 'QUARANTINE-DOCK', storeCode, companyCode, task.date || null, snapshot?.gradeCode ?? null, snapshot?.specCode ?? null, snapshot ? 1 : null],
+               updated_at = now()
+              WHERE inv_batches.warehouse_code IS NOT DISTINCT FROM EXCLUDED.warehouse_code
+                AND (inv_batches.company_code IS NULL OR inv_batches.company_code = 'ALL' OR inv_batches.company_code = EXCLUDED.company_code)
+                AND inv_batches.sku_code IS NOT DISTINCT FROM EXCLUDED.sku_code
+                AND inv_batches.variety_code IS NOT DISTINCT FROM EXCLUDED.variety_code
+                AND inv_batches.source_profile_code IS NOT DISTINCT FROM EXCLUDED.source_profile_code
+                AND inv_batches.source_profile_snapshot IS NOT DISTINCT FROM EXCLUDED.source_profile_snapshot
+                AND inv_batches.material_code IS NOT DISTINCT FROM EXCLUDED.material_code
+                AND inv_batches.product_code IS NOT DISTINCT FROM EXCLUDED.product_code
+                AND inv_batches.item_type IS NOT DISTINCT FROM EXCLUDED.item_type
+                AND inv_batches.unit IS NOT DISTINCT FROM EXCLUDED.unit
+              RETURNING batch_no`,
+            [brokenBatchNo, productCode, skuCode, materialCode, itemType, materialType, unit, brokenQty, warehouseCode, 'QUARANTINE-DOCK', storeCode, companyCode, task.date || null, snapshot?.gradeCode ?? null, snapshot?.specCode ?? null, snapshot ? 1 : null, varietyCode],
           );
+          if (posted.length !== 1) throw new BadRequestException('入库批次归属或身份已变化，禁止跨公司累加');
           await manager.query(
             `INSERT INTO inv_ledger (
                batch_no, change_type, qty_change, operator, store_code, ref_no, note,
@@ -715,6 +776,7 @@ export class WmsService {
     const warehouseCode = ctx.warehouseCode || 'WMS-VTE-MAIN';
     await this.assertPurchaseReceiptWarehouseUsage(manager, warehouseCode);
     await this.assertWritableWarehouse(warehouseCode, `采购收货 ${ctx.refNo}`);
+    const companyCode = await this.lockWarehouseCompany(manager, warehouseCode);
     const batchNos: string[] = [];
     let skipped = 0;
     for (let idx = 0; idx < ctx.items.length; idx++) {
@@ -730,17 +792,25 @@ export class WmsService {
         manager,
         suppliedCode,
         it.skuCode !== undefined ? 'SKU' : this.nonEmptyString(it.itemType),
+        companyCode,
       );
       const productCode = identity.productCode;
       const skuCode = identity.skuCode;
       const batchNo = (it.batchNo || `${ctx.refNo}-${String(idx + 1).padStart(3, '0')}`).slice(0, 64);
       const locationCode = (it.locationCode || 'INBOUND-DOCK').slice(0, 64);
-      await manager.query(
+      const [existing] = await manager.query('SELECT * FROM inv_batches WHERE batch_no=$1 FOR UPDATE', [batchNo]);
+      if (existing) {
+        this.assertBatchCompany(existing, companyCode);
+        for (const [key, expected] of Object.entries({ warehouse_code: warehouseCode, sku_code: skuCode, product_code: productCode, material_code: identity.materialCode, item_type: identity.itemType, variety_code: identity.varietyCode, source_profile_code: null, source_profile_snapshot: null, unit: identity.unit })) {
+          if ((existing[key] ?? null) !== (expected ?? null)) throw new BadRequestException('采购批次身份与入库不一致');
+        }
+      }
+      const posted = await manager.query(
         `INSERT INTO inv_batches (
            batch_no, product_code, sku_code, material_code, item_type, material_type,
-           unit, qty, qty_available, status, warehouse_code, location_code, store_code, inbound_date
+           unit, qty, qty_available, status, warehouse_code, location_code, store_code, inbound_date, company_code, variety_code, source_profile_code, source_profile_snapshot
          )
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8::numeric, $8::numeric, 'AVAILABLE', $9, $10, $11, $12::date)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8::numeric, $8::numeric, 'AVAILABLE', $9, $10, $11, $12::date, $13, $14, NULL, NULL)
          ON CONFLICT (batch_no) DO UPDATE SET
            product_code = COALESCE(inv_batches.product_code, EXCLUDED.product_code),
            sku_code = COALESCE(inv_batches.sku_code, EXCLUDED.sku_code),
@@ -748,6 +818,7 @@ export class WmsService {
            item_type = COALESCE(inv_batches.item_type, EXCLUDED.item_type),
            material_type = COALESCE(inv_batches.material_type, EXCLUDED.material_type),
            unit = COALESCE(inv_batches.unit, EXCLUDED.unit),
+           company_code = COALESCE(NULLIF(inv_batches.company_code, 'ALL'), EXCLUDED.company_code),
            inbound_date = CASE
              WHEN inv_batches.inbound_date IS NULL THEN EXCLUDED.inbound_date
              WHEN EXCLUDED.inbound_date IS NULL THEN inv_batches.inbound_date
@@ -755,22 +826,34 @@ export class WmsService {
            END,
            qty = inv_batches.qty + EXCLUDED.qty,
            qty_available = COALESCE(inv_batches.qty_available, inv_batches.qty) + EXCLUDED.qty,
-           updated_at = now()`,
+           updated_at = now()
+              WHERE inv_batches.warehouse_code IS NOT DISTINCT FROM EXCLUDED.warehouse_code
+                AND (inv_batches.company_code IS NULL OR inv_batches.company_code = 'ALL' OR inv_batches.company_code = EXCLUDED.company_code)
+                AND inv_batches.sku_code IS NOT DISTINCT FROM EXCLUDED.sku_code
+                AND inv_batches.variety_code IS NOT DISTINCT FROM EXCLUDED.variety_code
+                AND inv_batches.source_profile_code IS NOT DISTINCT FROM EXCLUDED.source_profile_code
+                AND inv_batches.source_profile_snapshot IS NOT DISTINCT FROM EXCLUDED.source_profile_snapshot
+                AND inv_batches.material_code IS NOT DISTINCT FROM EXCLUDED.material_code
+                AND inv_batches.product_code IS NOT DISTINCT FROM EXCLUDED.product_code
+                AND inv_batches.item_type IS NOT DISTINCT FROM EXCLUDED.item_type
+                AND inv_batches.unit IS NOT DISTINCT FROM EXCLUDED.unit
+              RETURNING batch_no`,
         [
           batchNo, productCode, skuCode, identity.materialCode, identity.itemType,
-          identity.materialType, identity.unit, qty, warehouseCode, locationCode, storeCode, ctx.inboundDate || null,
+          identity.materialType, identity.unit, qty, warehouseCode, locationCode, storeCode, ctx.inboundDate || null, companyCode, identity.varietyCode,
         ],
       );
+      if (posted.length !== 1) throw new BadRequestException('入库批次归属或身份已变化，禁止跨公司累加');
       await manager.query(
         `INSERT INTO inv_ledger (
            batch_no, change_type, qty_change, operator, store_code, ref_no, note,
-           sku_code, material_code, warehouse_code, business_type, unit
+           sku_code, material_code, warehouse_code, business_type, unit, company_code
          )
-         VALUES ($1, $11, $2::numeric, $3, $4, $5, $6, $7, $8, $9, $12, $10)`,
+         VALUES ($1, $11, $2::numeric, $3, $4, $5, $6, $7, $8, $9, $12, $10, $13)`,
         [batchNo, qty, operator, storeCode, ctx.refNo,
          `采购收货入库 item=${identity.itemCode} type=${identity.itemType} qty=${qty} wh=${warehouseCode}`,
          skuCode, identity.materialCode, warehouseCode, identity.unit,
-         purchasePolicy.ledgerType, purchasePolicy.businessType],
+         purchasePolicy.ledgerType, purchasePolicy.businessType, companyCode],
       );
       batchNos.push(batchNo);
     }
@@ -861,11 +944,13 @@ export class WmsService {
     return await this.em.transaction(async (manager) => {
       const scope = this.orderStoreScope('store_code', 1);
       const ords = await manager.query(
-        `SELECT order_no, status, store_code FROM ord_orders WHERE order_no = $1 AND ${scope.sql}`,
+        `SELECT order_no, status, store_code FROM ord_orders WHERE order_no = $1 AND ${scope.sql} FOR UPDATE`,
         [orderNo, ...scope.params],
       );
       if (!ords.length) return { code: 404, msg: '订单不存在' };
       const order = ords[0];
+      if (String(order.status).toUpperCase() === nextStatus) return { code: 200, msg: `状态已为 ${nextStatus}`, idempotent: true };
+      if (['SHIPPED', 'RECEIVED', 'DELIVERED', 'COMPLETED', 'CANCELLED'].includes(String(order.status).toUpperCase())) throw new BadRequestException('已发运或结束订单不得重复出库');
 
       await manager.query(
         `UPDATE ord_orders SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE order_no = $2`,
@@ -881,16 +966,16 @@ export class WmsService {
           const batchNo = this.nonEmptyString(it.batch_no);
           const skuCode = it.sku_code === undefined ? null : SkuPolicy.code(it.sku_code);
           const productCode = this.nonEmptyString(it.product_code);
-          if (skuCode) await SkuPolicy.requireUsable(manager, skuCode, 'sale-stock');
           if (batchNo) {
             const [batch] = await manager.query(
-              `SELECT batch_no, product_code, sku_code, qty, qty_available, warehouse_code, store_code
+              `SELECT batch_no, product_code, sku_code, qty, qty_available, warehouse_code, store_code, company_code
                  FROM inv_batches WHERE batch_no = $1 FOR UPDATE`,
               [batchNo],
             );
             if (!batch) {
               throw new Error(`batch ${batchNo} 不存在`);
             }
+            if (skuCode && batch.sku_code !== skuCode) throw new BadRequestException('出库批次与请求 SKU 不一致');
             await this.deductOutboundBatch(manager, batch, qty, orderNo, order, user, nextStatus);
             continue;
           }
@@ -942,11 +1027,14 @@ export class WmsService {
           created.push({ outbound_no: outboundNo, status: 'PENDING', idempotent: true });
           continue;
         }
+        const companyCode = await this.lockWarehouseCompany(manager, warehouseCode!, doc?.company_code);
         const firstLine = lines[0];
         const identity = await this.resolveInventoryItem(
           manager,
           doc?.sku_code !== undefined ? SkuPolicy.code(doc.sku_code) : firstLine?.sku_code !== undefined ? SkuPolicy.code(firstLine.sku_code) : this.nonEmptyString(doc?.item || firstLine?.item || firstLine?.product_code || firstLine?.material_code),
           doc?.sku_code !== undefined || firstLine?.sku_code !== undefined ? 'SKU' : this.nonEmptyString(doc?.item_type || firstLine?.item_type),
+          companyCode,
+          this.outboundSkuUsage(doc?.type),
         );
         const destinationCode = resolveOutboundDestinationCode(doc);
         const rows = await manager.query(
@@ -955,12 +1043,12 @@ export class WmsService {
           [outboundNo, doc?.date || new Date().toISOString().slice(0, 10), String(doc?.type).toUpperCase(), warehouseCode,
             identity.itemCode, totalQty, String(doc?.destination_type).toUpperCase(), destinationCode,
             this.nonEmptyString(doc?.store_code) || 'ALL', String(user?.username || user?.userId || 'SYS'), this.nonEmptyString(doc?.ref_no),
-            this.nonEmptyString(doc?.order_no), this.nonEmptyString(doc?.remark), this.nonEmptyString(doc?.company_code)],
+            this.nonEmptyString(doc?.order_no), this.nonEmptyString(doc?.remark), companyCode],
         );
         for (const line of lines) {
           const lineQty = Number(line?.qty);
           if (!Number.isFinite(lineQty) || lineQty <= 0) throw new BadRequestException(`出库单 ${outboundNo} 明细数量必须大于 0`);
-          const lineIdentity = await this.resolveInventoryItem(manager, line?.sku_code !== undefined ? SkuPolicy.code(line.sku_code) : this.nonEmptyString(line?.item || line?.product_code || line?.material_code), line?.sku_code !== undefined ? 'SKU' : this.nonEmptyString(line?.item_type));
+          const lineIdentity = await this.resolveInventoryItem(manager, line?.sku_code !== undefined ? SkuPolicy.code(line.sku_code) : this.nonEmptyString(line?.item || line?.product_code || line?.material_code), line?.sku_code !== undefined ? 'SKU' : this.nonEmptyString(line?.item_type), companyCode, this.outboundSkuUsage(doc?.type));
           const quantitySnapshot = await resolveQuantity(manager, { qty: lineQty, skuCode: lineIdentity.skuCode ?? undefined, quantityBasis: line.quantityBasis });
           await manager.query(
             `INSERT INTO wms_outbound_items (outbound_no,product_code,batch_no,qty,actual_qty,quantity_snapshot)
@@ -1009,18 +1097,16 @@ export class WmsService {
           results.push(await this.confirmStandaloneOutbound(outboundNo, user, manager));
           continue;
         }
-        const [warehouseIdentity] = await manager.query('SELECT company_code FROM wms_warehouses WHERE warehouse_code=$1 FOR SHARE',[order.warehouse_code]);
-        if (!warehouseIdentity?.company_code || (order.company_code && order.company_code!==warehouseIdentity.company_code)) throw new BadRequestException('出库公司与仓库归属不一致');
-        order.company_code=warehouseIdentity.company_code;
+        order.company_code = await this.lockWarehouseCompany(manager, order.warehouse_code, order.company_code);
         await lockQuantityPools(manager,lines.map((line: any) => ({ company: order.company_code, warehouses: [order.warehouse_code], snapshot: line.quantity_snapshot })));
         let totalQty = 0;
         for (const line of lines.sort((a: any,b: any) => String(a.product_code).localeCompare(String(b.product_code)) || String(a.batch_no).localeCompare(String(b.batch_no)) || Number(a.id)-Number(b.id))) {
           const qty = savedQuantity(line);
           if (!Number.isFinite(qty) || qty <= 0) throw new BadRequestException(`出库单 ${outboundNo} 明细数量必须大于 0`);
           if (line.quantity_snapshot && line.product_code!==line.quantity_snapshot.skuCode) throw new BadRequestException('出库明细 SKU 与服务器计量记录不一致');
-          const lineIdentity = await this.resolveInventoryItem(manager, line.product_code, line.quantity_snapshot ? 'SKU' : null);
+          const lineIdentity = await this.resolveInventoryItem(manager, line.product_code, line.quantity_snapshot ? 'SKU' : null, order.company_code, this.outboundSkuUsage(order.type));
           const lineOrder = { ...order, item: line.product_code, item_type: lineIdentity.itemType, qty, batch_no: line.batch_no, quantity_snapshot: line.quantity_snapshot };
-          if (line.quantity_snapshot) await SkuPolicy.requireUsable(manager,line.quantity_snapshot.skuCode,String(order.type).toUpperCase()==='SALE' ? 'sale-stock' : 'stock');
+          if (line.quantity_snapshot) await SkuPolicy.requireUsable(manager,line.quantity_snapshot.skuCode,this.outboundSkuUsage(order.type),order.company_code);
           if (line.quantity_snapshot) await lockQuantityPools(manager,[{ company: order.company_code, warehouses: [order.warehouse_code], snapshot: line.quantity_snapshot }]);
           const batchNo = this.nonEmptyString(line.batch_no);
           if (batchNo) {
@@ -1054,10 +1140,13 @@ export class WmsService {
     await this.assertActiveScopedDestination(body);
 
     return this.em.transaction(async manager => {
+      const companyCode = await this.lockWarehouseCompany(manager, warehouseCode!, body?.company_code);
       const identity = await this.resolveInventoryItem(
         manager,
         body?.sku_code !== undefined ? SkuPolicy.code(body.sku_code) : this.nonEmptyString(body?.item),
         body?.sku_code !== undefined ? 'SKU' : this.nonEmptyString(body?.item_type),
+        companyCode,
+        this.outboundSkuUsage(body?.type),
       );
       this.validateStandaloneOutbound({
         ...body,
@@ -1115,7 +1204,7 @@ export class WmsService {
           this.nonEmptyString(body?.remark),
           this.nonEmptyString(body?.attachment_url),
           this.nonEmptyString(body?.site_code),
-          this.nonEmptyString(body?.company_code),
+          companyCode,
           this.nonEmptyString(body?.store_code) || 'ALL',
           quantitySnapshot == null ? null : JSON.stringify(quantitySnapshot),
         ],
@@ -1145,11 +1234,14 @@ export class WmsService {
       const warehouseCode = this.nonEmptyString(merged.warehouse_code);
       await this.assertWritableWarehouse(warehouseCode, `出库单 ${normalizedNo}`);
       await this.assertActiveScopedDestination(merged);
+      const companyCode = await this.lockWarehouseCompany(manager, warehouseCode!, body?.company_code ?? (warehouseCode === existing.warehouse_code ? existing.company_code : undefined));
       const requestedSku = body?.sku_code !== undefined ? SkuPolicy.code(body.sku_code) : merged.sku_code;
       const identity = await this.resolveInventoryItem(
         manager,
         requestedSku || this.nonEmptyString(merged.item),
         requestedSku ? 'SKU' : this.nonEmptyString(merged.item_type),
+        companyCode,
+        this.outboundSkuUsage(merged.type),
       );
       this.validateStandaloneOutbound({
         ...merged,
@@ -1209,7 +1301,7 @@ export class WmsService {
           this.nonEmptyString(merged.remark),
           this.nonEmptyString(merged.attachment_url),
           this.nonEmptyString(merged.site_code),
-          this.nonEmptyString(merged.company_code),
+          companyCode,
           this.nonEmptyString(merged.store_code) || 'ALL',
           quantitySnapshot == null ? null : JSON.stringify(quantitySnapshot),
         ],
@@ -1222,10 +1314,13 @@ export class WmsService {
     manager: EntityManager,
     itemCode: string | null,
     requestedType: string | null,
+    companyCode?: string,
+    usage: 'stock' | 'sale-stock' = 'stock',
   ): Promise<{
     itemCode: string;
     itemName: string;
     itemType: 'MATERIAL' | 'SKU';
+    varietyCode: string | null;
     materialType: string | null;
     materialCode: string | null;
     skuCode: string | null;
@@ -1238,7 +1333,7 @@ export class WmsService {
       const matches = await manager.query(`SELECT 'MATERIAL' AS item_type FROM mst_materials WHERE material_code=$1
         UNION ALL SELECT 'SKU' AS item_type FROM product_skus WHERE sku_code=$1`, [itemCode]);
       if (matches.length !== 1 || !['SKU','MATERIAL'].includes(matches[0]?.item_type)) throw new BadRequestException('品目类型缺失或同码跨域，请明确 MATERIAL / SKU');
-      return this.resolveInventoryItem(manager,itemCode,matches[0].item_type);
+      return this.resolveInventoryItem(manager,itemCode,matches[0].item_type,companyCode,usage);
     }
     if (!['MATERIAL','SKU'].includes(normalizedType)) throw new BadRequestException('库存类型必须为 MATERIAL / SKU');
     if (!normalizedType || normalizedType === 'MATERIAL') {
@@ -1254,6 +1349,7 @@ export class WmsService {
           itemCode: material.material_code,
           itemName: material.material_name,
           itemType: 'MATERIAL',
+          varietyCode: null,
           materialType: material.material_type || null,
           materialCode: material.material_code,
           skuCode: null,
@@ -1263,12 +1359,13 @@ export class WmsService {
       }
     }
     if (!normalizedType || normalizedType === 'SKU') {
-      const sku = await SkuPolicy.requireUsable(manager, itemCode, 'stock');
+      const sku = await SkuPolicy.requireUsable(manager, itemCode, usage, companyCode);
       if (sku) {
         return {
           itemCode: sku.sku_code,
           itemName: sku.sku_name,
           itemType: 'SKU',
+          varietyCode: sku.variety_code ?? null,
           materialType: 'FINISHED_PRODUCT',
           materialCode: null,
           skuCode: sku.sku_code,
@@ -1323,11 +1420,9 @@ export class WmsService {
         throw new BadRequestException(`出库单 ${normalizedNo} 的出库数量必须大于 0`);
       }
 
+      order.company_code = await this.lockWarehouseCompany(manager, order.warehouse_code, order.company_code);
       if (order.quantity_snapshot) {
-      const [warehouseIdentity] = await manager.query('SELECT company_code FROM wms_warehouses WHERE warehouse_code=$1 FOR SHARE',[order.warehouse_code]);
-      if (!warehouseIdentity?.company_code || (order.company_code && order.company_code!==warehouseIdentity.company_code)) throw new BadRequestException('出库公司与仓库归属不一致');
-      order.company_code=warehouseIdentity.company_code;
-        await SkuPolicy.requireUsable(manager, order.quantity_snapshot.skuCode, String(order.type).toUpperCase()==='SALE' ? 'sale-stock' : 'stock');
+        await SkuPolicy.requireUsable(manager, order.quantity_snapshot.skuCode, this.outboundSkuUsage(order.type), order.company_code);
         await lockQuantityPools(manager,[{ company: order.company_code, warehouses: [order.warehouse_code], snapshot: order.quantity_snapshot }]);
       }
       const batchNo = this.nonEmptyString(order.batch_no);
@@ -1358,7 +1453,7 @@ export class WmsService {
         }
         await this.deductOutboundBatch(manager, batch, qty, normalizedNo, order, user, 'DONE');
       } else if (itemCode) {
-        if (!order.item_type && !order.quantity_snapshot) order.item_type=(await this.resolveInventoryItem(manager,itemCode,null)).itemType;
+        if (!order.item_type && !order.quantity_snapshot) order.item_type=(await this.resolveInventoryItem(manager,itemCode,null,order.company_code,this.outboundSkuUsage(order.type))).itemType;
         await this.deductStandaloneOutboundByItem(
           manager,
           itemCode,
@@ -1478,6 +1573,8 @@ export class WmsService {
     if (!batchNo) throw new Error('出库批次号缺失');
     await this.assertWritableWarehouse(batch.warehouse_code, `出库批次 ${batchNo}`);
 
+    const companyCode = await this.lockWarehouseCompany(manager, batch.warehouse_code, order.company_code);
+    this.assertBatchCompany(batch, companyCode);
     const available = Number(batch.qty_available ?? batch.qty) || 0;
     if (available < qty) {
       throw new Error(`batch ${batchNo} 余量 ${available} 不足 ${qty}`);
@@ -1489,7 +1586,8 @@ export class WmsService {
     }
 
     if (order.quantity_snapshot) assertBatchPool(batch, order.quantity_snapshot);
-    if (!order.quantity_snapshot && batch.sku_code != null) await SkuPolicy.requireUsable(manager, batch.sku_code, String(order.type || 'SALE').toUpperCase() === 'SALE' ? 'sale-stock' : 'stock');
+    const selectedSku = order.quantity_snapshot?.skuCode ?? batch.sku_code;
+    if (selectedSku != null) await SkuPolicy.requireUsable(manager, selectedSku, this.outboundSkuUsage(order.type || 'SALE'), companyCode);
 
     const changed = await manager.query(
       `WITH changed AS (
@@ -1517,7 +1615,7 @@ export class WmsService {
           AND COALESCE(qty_available,qty,0) >= $1::numeric
         RETURNING batch_no
        ) SELECT batch_no FROM changed`,
-      [qty, batchNo, batch.warehouse_code, this.nonEmptyString(order.company_code)],
+      [qty, batchNo, batch.warehouse_code, companyCode],
     );
     if (changed.length !== 1) throw new BadRequestException(`出库批次 ${batchNo} 状态、归属或数量已变化`);
     await manager.query(
@@ -1541,7 +1639,7 @@ export class WmsService {
         resolveOutboundLedgerType(outboundPolicy.type),
         batch.material_code || order.material_code || null,
         batch.warehouse_code || order.warehouse_code || null,
-        order.company_code || null,
+        companyCode,
         outboundPolicy.businessType,
         order.destination_type || null,
         resolveOutboundDestinationCode(order) || null,
@@ -1864,7 +1962,7 @@ export class WmsService {
 
         const [src] = await manager.query(
           `SELECT batch_no, product_code, sku_code, material_code, item_type, material_type,
-                  unit, grade_code_std, spec_code, quality_grade, packaging_spec, egg_date, legacy_source, base_quantity_version, packaging_batch_ref, collection_batch_ref, qty, qty_available, status, expire_date, store_code, warehouse_code, company_code
+                  unit, grade_code_std, spec_code, quality_grade, packaging_spec, egg_date, legacy_source, base_quantity_version, packaging_batch_ref, collection_batch_ref, variety_code, source_profile_code, source_profile_snapshot, qty, qty_available, status, expire_date, store_code, warehouse_code, company_code
              FROM inv_batches WHERE batch_no = $1 FOR UPDATE`,
           [it.batch_no],
         );
@@ -1882,7 +1980,7 @@ export class WmsService {
         if (available < qty) throw new Error(`源 batch ${it.batch_no} 可用量 ${available} 不足 ${qty}`);
 
         if (src.base_quantity_version===1) baseQuantity(qty,1,src.unit);
-        if (src.sku_code != null) await SkuPolicy.requireUsable(manager, src.sku_code, 'stock');
+        await this.assertTransferSku(manager, src, from_warehouse, to_warehouse);
 
         // 源 -
         const changed = await manager.query(
@@ -1924,14 +2022,16 @@ export class WmsService {
         await manager.query(
           `INSERT INTO inv_batches (
              batch_no, product_code, sku_code, material_code, item_type, material_type,
-             unit, qty, qty_available, status, warehouse_code, location_code, expire_date, store_code, company_code, inbound_date,grade_code_std,spec_code,quality_grade,packaging_spec,egg_date,legacy_source,base_quantity_version,packaging_batch_ref,collection_batch_ref
+             unit, qty, qty_available, status, warehouse_code, location_code, expire_date, store_code, company_code, inbound_date,grade_code_std,spec_code,quality_grade,packaging_spec,egg_date,legacy_source,base_quantity_version,packaging_batch_ref,collection_batch_ref,variety_code,source_profile_code,source_profile_snapshot
            )
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8::numeric, $8::numeric, 'AVAILABLE', $9, $10, $11, $12, $13, CURRENT_DATE,$14,$15,$16,$17,$18,$19,$20,$21,$22)`,
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8::numeric, $8::numeric, 'AVAILABLE', $9, $10, $11, $12, $13, CURRENT_DATE,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25::jsonb)`,
           [
             dstBatchNo, src.product_code || null, src.sku_code || null, src.material_code || null,
             src.item_type || null, src.material_type || null, src.unit || null, qty,
             to_warehouse, 'TRANSFER-IN', src.expire_date, targetIdentity.storeCode, targetIdentity.companyCode,
             src.grade_code_std ?? null, src.spec_code ?? null, src.quality_grade ?? null, src.packaging_spec ?? null, src.egg_date ?? null, src.legacy_source ?? null, src.base_quantity_version ?? null, src.packaging_batch_ref ?? null, src.collection_batch_ref ?? null,
+            src.variety_code ?? null, src.source_profile_code ?? null,
+            src.source_profile_snapshot == null ? null : JSON.stringify(src.source_profile_snapshot),
           ],
         );
         await manager.query(
@@ -2026,9 +2126,9 @@ export class WmsService {
       `TR-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
     return this.em.transaction(async manager => {
       for (const item of items) {
-        const [batch] = await manager.query('SELECT sku_code, warehouse_code FROM inv_batches WHERE batch_no=$1 FOR SHARE', [item.batch_no]);
+        const [batch] = await manager.query('SELECT sku_code, warehouse_code, company_code FROM inv_batches WHERE batch_no=$1 FOR SHARE', [item.batch_no]);
         if (!batch || batch.warehouse_code !== fromWarehouse) throw new BadRequestException('调拨批次不存在或不属于源仓');
-        if (batch.sku_code != null) await SkuPolicy.requireUsable(manager, batch.sku_code, 'stock');
+        await this.assertTransferSku(manager, batch, fromWarehouse, toWarehouse);
       }
       await manager.query(
         `INSERT INTO wms_transfer (
@@ -2071,7 +2171,7 @@ export class WmsService {
         const qty = Number(item.expected_qty);
         const [src] = await manager.query(
           `SELECT batch_no,product_code,sku_code,material_code,item_type,material_type,unit,qty,
-                  qty_available,status,expire_date,store_code,warehouse_code,company_code,grade_code_std,spec_code,quality_grade,packaging_spec,egg_date,legacy_source,base_quantity_version,packaging_batch_ref,collection_batch_ref
+                  qty_available,status,expire_date,store_code,warehouse_code,company_code,grade_code_std,spec_code,quality_grade,packaging_spec,egg_date,legacy_source,base_quantity_version,packaging_batch_ref,collection_batch_ref,variety_code,source_profile_code,source_profile_snapshot
              FROM inv_batches WHERE batch_no=$1 FOR UPDATE`, [item.source_batch_no],
         );
         if (!src || src.warehouse_code !== transfer.from_warehouse) throw new BadRequestException(`源 batch ${item.source_batch_no} 不属于源仓库`);
@@ -2079,7 +2179,7 @@ export class WmsService {
         const available = Number(src.qty_available ?? src.qty) || 0;
         if (available < qty) throw new BadRequestException(`源 batch ${item.source_batch_no} 可用量 ${available} 不足 ${qty}`);
         if (src.base_quantity_version===1) baseQuantity(qty,1,src.unit);
-        if (src.sku_code != null) await SkuPolicy.requireUsable(manager, src.sku_code, 'stock');
+        await this.assertTransferSku(manager, src, transfer.from_warehouse, transfer.to_warehouse);
         const changed = await manager.query(
           `WITH changed AS (
            UPDATE inv_batches SET qty=qty-$1::numeric,
@@ -2144,7 +2244,8 @@ export class WmsService {
         const snapshot = typeof item.source_snapshot === 'string' ? JSON.parse(item.source_snapshot) : item.source_snapshot;
         let targetBatchNo: string | null = null;
         if (received > 0) {
-          if (snapshot.sku_code != null) await SkuPolicy.requireUsable(manager, snapshot.sku_code, 'stock');
+          if (!snapshot || snapshot.warehouse_code !== transfer.from_warehouse) throw new BadRequestException('调拨源快照与源仓库不一致');
+          await this.assertTransferSku(manager, snapshot, transfer.from_warehouse, transfer.to_warehouse);
           const targetIdentity = await this.resolveTransferTargetIdentity(
             manager,
             transfer.to_warehouse,
@@ -2153,13 +2254,15 @@ export class WmsService {
           targetBatchNo = `${item.source_batch_no}-T-${Math.random().toString(36).slice(2, 5).toUpperCase()}`;
           await manager.query(
             `INSERT INTO inv_batches (batch_no,product_code,sku_code,material_code,item_type,material_type,
-              unit,qty,qty_available,status,warehouse_code,location_code,expire_date,store_code,company_code,inbound_date,grade_code_std,spec_code,quality_grade,packaging_spec,egg_date,legacy_source,base_quantity_version,packaging_batch_ref,collection_batch_ref)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8::numeric,$8::numeric,'AVAILABLE',$9,$10,$11,$12,$13,CURRENT_DATE,$14,$15,$16,$17,$18,$19,$20,$21,$22)`,
+              unit,qty,qty_available,status,warehouse_code,location_code,expire_date,store_code,company_code,inbound_date,grade_code_std,spec_code,quality_grade,packaging_spec,egg_date,legacy_source,base_quantity_version,packaging_batch_ref,collection_batch_ref,variety_code,source_profile_code,source_profile_snapshot)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8::numeric,$8::numeric,'AVAILABLE',$9,$10,$11,$12,$13,CURRENT_DATE,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25::jsonb)`,
             [targetBatchNo, snapshot.product_code || null, snapshot.sku_code || null, snapshot.material_code || null,
               snapshot.item_type || null, snapshot.material_type || null, snapshot.unit || null, received,
               transfer.to_warehouse, this.nonEmptyString(body?.to_location) || transfer.to_location || 'TRANSFER-IN',
               snapshot.expire_date || null, targetIdentity.storeCode, targetIdentity.companyCode,
-              snapshot.grade_code_std ?? null, snapshot.spec_code ?? null, snapshot.quality_grade ?? null, snapshot.packaging_spec ?? null, snapshot.egg_date ?? null, snapshot.legacy_source ?? null, snapshot.base_quantity_version ?? null, snapshot.packaging_batch_ref ?? null, snapshot.collection_batch_ref ?? null],
+              snapshot.grade_code_std ?? null, snapshot.spec_code ?? null, snapshot.quality_grade ?? null, snapshot.packaging_spec ?? null, snapshot.egg_date ?? null, snapshot.legacy_source ?? null, snapshot.base_quantity_version ?? null, snapshot.packaging_batch_ref ?? null, snapshot.collection_batch_ref ?? null,
+              snapshot.variety_code ?? null, snapshot.source_profile_code ?? null,
+              snapshot.source_profile_snapshot == null ? null : JSON.stringify(snapshot.source_profile_snapshot)],
           );
           await manager.query(
             `INSERT INTO inv_ledger (batch_no,change_type,qty_change,operator,store_code,ref_no,note,

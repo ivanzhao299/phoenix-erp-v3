@@ -187,9 +187,9 @@ export class PackagingInventoryIntegrationService {
     const batches: Array<{ batchNo: string; grade: string; qty: number; productCode: string }> = [];
     const skippedNonSaleable: Array<{ grade: string; qty: number }> = [];
     for (const item of resolved.values()) {
-      if (!item.varietyCode) throw new ConflictException('新包装入库缺有效品种快照');
+      if (!context.sourceProfileRefs?.length || (context.productMode === 'VARIANT' && !item.varietyCode)) throw new ConflictException('新包装入库缺有效来源配置快照');
       batches.push(await this.createSaleableBatch(companyCode, eggDate, item.grade, item.qty, refNo,
-        collectionRef, item.specCode, item.skuCode, item.productCode, item.varietyCode, opts));
+        collectionRef, item.specCode, item.skuCode, item.productCode, item.varietyCode, context.sourceProfileRefs, opts));
     }
 
     const totalInbound = batches.reduce((s, b) => s + b.qty, 0);
@@ -227,6 +227,18 @@ export class PackagingInventoryIntegrationService {
     );
     const task = taskRows[0];
     if (!task) throw new NotFoundException(`包装任务不存在：${taskNo}`);
+    const existingInventory = await this.ds.query(
+      'SELECT batch_no FROM inv_batches WHERE packaging_batch_ref=$1 OR source_no=$1 LIMIT 1', [task.task_no],
+    );
+    if (!existingInventory.length) {
+      // pkg_tasks belongs to the old pkg_shifts namespace. Never manufacture a
+      // new commercial identity by colliding its ID with pkg_work_shifts.
+      const owners = await this.ds.query(`SELECT f.company_code FROM brd_houses h
+        JOIN brd_farms f ON f.farm_code=h.farm_code WHERE h.house_code=$1`, [task.house_code]);
+      if (owners.length !== 1 || !owners[0].company_code) throw new ConflictException('旧包装任务缺已确认的来源归属，禁止新建库存');
+      const configured = await this.ds.query('SELECT profile_code FROM md_egg_source_profiles WHERE company_code=$1', [owners[0].company_code]);
+      if (configured.length) throw new ConflictException('公司已配置来源档案，旧包装任务禁止新建库存；请使用包装作业中心或经审查的迁移流程');
+    }
 
     // 解析等级产出（无明细 → 用 output_qty/packed_qty 整体入等级 A）；规格取 task.pack_spec
     const gr: Record<string, number> = (() => {
@@ -428,7 +440,8 @@ export class PackagingInventoryIntegrationService {
     specCode: string | null,
     skuCode: string | null,
     productCode: string,
-    varietyCode: string,
+    varietyCode: string | null,
+    sourceProfileRefs: Array<{ profileCode: string; houseCode: string }>,
     opts?: { warehouseCode?: string; locationCode?: string; manager?: EntityManager },
   ): Promise<{ batchNo: string; grade: string; qty: number; productCode: string }> {
     const batch = await this.eggInv.createProductionBatch({
@@ -442,6 +455,7 @@ export class PackagingInventoryIntegrationService {
       packagingSpec:      specCode ?? undefined,
       productCode,
       varietyCode,
+      sourceProfileRefs,
       qty,
       sourceNo:           taskNo,
       sourceType:         'PACKAGING',

@@ -48,9 +48,11 @@ export function isStandaloneOutboundType(type: unknown): boolean {
   return (STANDALONE_OUTBOUND_TYPES as readonly string[]).includes(String(type ?? '').trim().toUpperCase());
 }
 
+export type OutboundCreatePermissions = { inout: boolean; issue: boolean; issueOnly?: boolean };
+
 export function canCreateOutboundType(
   type: unknown,
-  permissions: { inout: boolean; issue: boolean; issueOnly?: boolean },
+  permissions: OutboundCreatePermissions,
 ): boolean {
   const normalizedType = String(type ?? '').trim().toUpperCase();
   if (!isStandaloneOutboundType(normalizedType)) return false;
@@ -106,5 +108,34 @@ export function resetOutboundDestination(values: Record<string, unknown>, change
   return { ...values, destination_type: destination,
     destination_house_code: '', destination_customer_code: '', destination_warehouse_code: '',
     destination_store_code: '', department_code: '', project_code: '', receiver_username: '', destination_code: '',
+    destination_name: '', destination_house_name: '', destination_customer_name: '', destination_warehouse_name: '',
+    destination_store_name: '', department_name: '', project_name: '', receiver_name: '',
   };
+}
+
+/** Apply the same item policy to every existing, newly added or picked batch line. */
+export function constrainOutboundBatchLine<T extends Record<string, unknown>>(line: T, header: Record<string, unknown>): T {
+  if (!validateOutboundItem(line.item, { ...line, type: header.type })) return line;
+  return { ...line, item: '', item_name: '', item_type: '', material_type: '', material_code: '',
+    sku_code: '', product_code: '', spec_code: '', grade_code: '', unit: '', batch_no: '', quantityBasis: undefined };
+}
+
+/** Frontend guard only: dictionary options still come from SYS dictionary data. */
+export function validateOutboundBatch(
+  header: Record<string, unknown>,
+  items: readonly Record<string, unknown>[],
+  permissions: OutboundCreatePermissions,
+): string | undefined {
+  if (!canCreateOutboundType(header.type, permissions)) return '该类型必须通过专用业务流程或没有创建权限';
+  const destinationError = validateOutboundDestination(header.type, header.destination_type);
+  if (destinationError) return destinationError;
+  if (!header.date || !header.warehouse_code) return '请选择出库日期和出库仓库';
+  if (!String(header.destination_code ?? '').trim()) return '请选择或填写去向';
+  if (!items.length) return '请添加出库明细';
+  for (const [index, line] of items.entries()) {
+    const error = !line.item || !line.item_type ? '请选择库存主档品目' :
+      validateOutboundItem(line.item, { ...line, type: header.type }) || validateOutboundQuantity(line.qty);
+    if (error) return `第 ${index + 1} 行：${error}`;
+  }
+  return undefined;
 }

@@ -14,13 +14,28 @@ export async function writeFlock(
   if (existing && existing.pkName !== 'flock_no') throw new BadRequestException('鸡群必须使用 flock_no 标识');
   return manager.transaction(async tx => {
     const current = existing
-      ? (await tx.query('SELECT * FROM brd_flocks WHERE flock_no=$1 FOR UPDATE', [existing.id]))[0]
+      ? (await tx.query(`SELECT *, placement_date::text AS placement_date, start_date::text AS start_date,
+          elimination_date::text AS elimination_date FROM brd_flocks WHERE flock_no=$1 FOR UPDATE`, [existing.id]))[0]
       : undefined;
     if (existing && !current) throw new BadRequestException('鸡群不存在');
     if (current && body.flock_no !== undefined && body.flock_no !== current.flock_no) {
       throw new BadRequestException('鸡群编码为稳定身份，禁止修改');
     }
+    const dateFields = ['placement_date', 'start_date', 'elimination_date'];
+    for (const key of dateFields) {
+      const value = body[key];
+      if (value !== undefined && value !== null && (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)
+        || value.startsWith('0000-') || !Number.isFinite(Date.parse(`${value}T00:00:00Z`))
+        || new Date(`${value}T00:00:00Z`).toISOString().slice(0, 10) !== value)) {
+        throw new BadRequestException('鸡群日期必须为真实 YYYY-MM-DD，不接受会跨时区漂移的时间戳');
+      }
+    }
     const merged = { ...current, ...body };
+    const dateChanged = !current || dateFields.some(key => Object.prototype.hasOwnProperty.call(body, key)
+      && String(body[key] ?? '') !== String(current[key] ?? ''));
+    if (dateChanged && merged.placement_date && merged.start_date && merged.placement_date !== merged.start_date) {
+      throw new BadRequestException('鸡群入栏日期与开始日期不一致');
+    }
     if (typeof merged.breed_code !== 'string' || !merged.breed_code.trim() || merged.breed_code !== merged.breed_code.trim()) {
       throw new BadRequestException('请选择标准 BRD_BREED 品种；无法识别的历史名称不得自动代填');
     }
@@ -43,9 +58,15 @@ export async function writeFlock(
       || (merged.site_code && merged.site_code !== owner.mapped_site_code)) {
       throw new BadRequestException('鸡群公司/场站与鸡舍权威归属不一致');
     }
+    // Explicitly selecting the exact existing, unambiguous genetic name may
+    // normalize a missing code; it is not permission to relabel a different breed.
+    const historicalNames = current ? [current.strain, current.breed_type].filter(value => typeof value === 'string' && value.trim()) : [];
+    const normalizingBreed = current && !current.breed_code && historicalNames.length > 0
+      && historicalNames.every(value => value === breeds[0].dict_label_zh || value === merged.breed_code);
     // A breed/house/date correction must not silently relabel already recorded production.
     const identityFields = ['breed_code', 'house_code', 'farm_code', 'placement_date', 'start_date', 'elimination_date'];
-    if (current && identityFields.some(key => Object.prototype.hasOwnProperty.call(body, key) && String(body[key] ?? '') !== String(current[key] ?? ''))) {
+    if (current && identityFields.some(key => !(key === 'breed_code' && normalizingBreed)
+      && Object.prototype.hasOwnProperty.call(body, key) && String(body[key] ?? '') !== String(current[key] ?? ''))) {
       const facts = await tx.query('SELECT 1 FROM brd_daily_logs WHERE flock_no=$1 LIMIT 1', [current.flock_no]);
       if (facts.length) throw new BadRequestException('鸡群已有生产日报，品种/归属/在栏日期修正须走专项追溯治理');
     }

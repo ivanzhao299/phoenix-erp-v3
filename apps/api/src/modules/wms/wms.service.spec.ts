@@ -3,8 +3,8 @@ import { BadRequestException } from '@nestjs/common';
 
 // Active master fixtures for transaction tests; availability rejection is covered separately.
 function masterRows(sql: string) {
-  if (sql.includes('FROM product_skus WHERE sku_code=$1 FOR SHARE')) return [{ sku_code: 'SKU-EGG-A-30', product_code: 'PRD-EGG', grade_code: 'A', spec_code: 'TRAY30', sku_name: '鸡蛋SKU', status: 'ACTIVE' }];
-  if (/SELECT \* FROM (mst_products|product_grades|packaging_specs)/.test(sql)) return [{ status: 'ACTIVE', is_saleable: true, is_storable: true, base_unit: '枚' }];
+  if (sql.includes('FROM product_skus WHERE sku_code=$1 FOR SHARE')) return [{ sku_code: 'SKU-EGG-A-30', product_code: 'PRD-EGG', grade_code: 'A', spec_code: 'TRAY30', sku_name: '鸡蛋SKU', status: 'ACTIVE', variety_code: null, org_context_required: false }];
+  if (/SELECT \* FROM (mst_products|product_grades|packaging_specs)/.test(sql)) return [{ status: 'ACTIVE', is_saleable: true, is_storable: true, base_unit: '枚', product_mode: 'STANDARD', variety_code: null }];
   return undefined;
 }
 
@@ -94,6 +94,8 @@ describe('WmsService inventory read queries', () => {
       query: jest.fn(async (sql: string) => {
         if (sql.includes("SELECT 'SKU' AS item_type") || sql.includes("SELECT 'MATERIAL' AS item_type")) return [{ item_type: 'SKU' }];
         const masters = masterRows(sql); if (masters) return masters;
+        if (sql.includes('INSERT INTO inv_batches')) return [{ batch_no: 'posted' }];
+        if (sql.includes('SELECT company_code FROM wms_warehouses')) return [{ company_code: 'COMP-LAO-AGRI' }];
         if (sql.includes('SELECT type')) return [{ type: 'FEED', domain: 'OPERATIONAL' }];
         if (sql.includes('FROM mst_materials')) return [{
           material_code: 'MAT-FEED-1', material_name: '饲料', material_type: 'FEED_RAW', unit: 'kg',
@@ -203,6 +205,7 @@ describe('WmsService inventory read queries', () => {
       query: jest.fn(async (sql: string, _params?: unknown[]) => {
         if (sql.includes("SELECT 'SKU' AS item_type") || sql.includes("SELECT 'MATERIAL' AS item_type")) return [{ item_type: 'SKU' }];
         const masters = masterRows(sql); if (masters) return masters;
+        if (sql.includes('INSERT INTO inv_batches')) return [{ batch_no: 'posted' }];
         if (sql.includes('SELECT type, domain FROM wms_warehouses')) {
           return [{ type: 'PURCHASE_RECV', domain: 'OPERATIONAL' }];
         }
@@ -271,7 +274,7 @@ describe('WmsService inventory read queries', () => {
       'INBOUND-DOCK',
       'ALL',
       'COMP-LAO-XINGCHI',
-      '2026-09-09', null, null, null,
+      '2026-09-09', null, null, null, null,
     ]);
 
     const insertLedgerCall = manager.query.mock.calls.find(([sql]) =>
@@ -300,6 +303,7 @@ describe('WmsService inventory read queries', () => {
       query: jest.fn(async (sql: string, params?: unknown[]) => {
         if (sql.includes("SELECT 'SKU' AS item_type") || sql.includes("SELECT 'MATERIAL' AS item_type")) return [{ item_type: 'SKU' }];
         const masters = masterRows(sql); if (masters) return masters;
+        if (sql.includes('INSERT INTO inv_batches')) return [{ batch_no: 'posted' }];
         if (sql.includes('SELECT type, domain FROM wms_warehouses')) {
           return [{ type: 'PURCHASE_RECV', domain: 'OPERATIONAL' }];
         }
@@ -353,7 +357,7 @@ describe('WmsService inventory read queries', () => {
         'INBOUND-DOCK',
         'ALL',
         'COMP-LAO-XINGCHI',
-        '2026-09-09', null, null, null,
+        '2026-09-09', null, null, null, null,
       ],
     );
     expect(manager.query).toHaveBeenCalledWith(
@@ -381,6 +385,7 @@ describe('WmsService inventory read queries', () => {
       query: jest.fn(async (sql: string, _params?: unknown[]) => {
         if (sql.includes("SELECT 'SKU' AS item_type") || sql.includes("SELECT 'MATERIAL' AS item_type")) return [{ item_type: 'SKU' }];
         const masters = masterRows(sql); if (masters) return masters;
+        if (sql.includes('INSERT INTO inv_batches')) return [{ batch_no: 'posted' }];
         if (sql.includes('SELECT type, domain FROM wms_warehouses')) {
           return [{ type: 'FEED', domain: 'OPERATIONAL' }];
         }
@@ -431,7 +436,7 @@ describe('WmsService inventory read queries', () => {
     );
     expect(manager.query).toHaveBeenCalledWith(
       expect.stringContaining('INSERT INTO inv_batches'),
-      ['IBN-RECEIVED-2', null, null, 'MAT-FEED-1', 'MATERIAL', 'FEED_RAW', 'kg', 2, 'WH-A', 'INBOUND-DOCK', 'ALL', 'COMP-LAO-XINGCHI', '2026-09-09', null, null, null],
+      ['IBN-RECEIVED-2', null, null, 'MAT-FEED-1', 'MATERIAL', 'FEED_RAW', 'kg', 2, 'WH-A', 'INBOUND-DOCK', 'ALL', 'COMP-LAO-XINGCHI', '2026-09-09', null, null, null, null],
     );
   });
 
@@ -440,6 +445,7 @@ describe('WmsService inventory read queries', () => {
       query: jest.fn(async (sql: string, _params?: unknown[]) => {
         if (sql.includes("SELECT 'SKU' AS item_type") || sql.includes("SELECT 'MATERIAL' AS item_type")) return [{ item_type: 'SKU' }];
         const masters = masterRows(sql); if (masters) return masters;
+        if (sql.includes('SELECT company_code FROM wms_warehouses')) return [{ company_code: 'COMP-LAO-AGRI' }];
         if (sql.includes('SELECT batch_no FROM changed')) return [{ batch_no: 'changed' }];
         if (sql.includes('SELECT order_no, status, store_code FROM ord_orders')) {
           return [{ order_no: 'SO-SKU-1', status: 'ALLOCATED', store_code: 'ALL' }];
@@ -471,8 +477,8 @@ describe('WmsService inventory read queries', () => {
 
     const updateCalls = manager.query.mock.calls.filter(([sql]) => String(sql).includes('UPDATE inv_batches'));
     expect(updateCalls).toHaveLength(2);
-    expect(updateCalls[0][1]).toEqual([5, 'B-SKU-1', 'LPH_MS_EGG_SALES', null]);
-    expect(updateCalls[1][1]).toEqual([7, 'B-SKU-2', 'LPH_MS_EGG_SALES', null]);
+    expect(updateCalls[0][1]).toEqual([5, 'B-SKU-1', 'LPH_MS_EGG_SALES', 'COMP-LAO-AGRI']);
+    expect(updateCalls[1][1]).toEqual([7, 'B-SKU-2', 'LPH_MS_EGG_SALES', 'COMP-LAO-AGRI']);
 
     const ledgerCalls = manager.query.mock.calls.filter(([sql]) =>
       String(sql).includes('INSERT INTO inv_ledger'),
@@ -489,7 +495,7 @@ describe('WmsService inventory read queries', () => {
       'SALE_OUTBOUND',
       null,
       'LPH_MS_EGG_SALES',
-      null,
+      'COMP-LAO-AGRI',
       'SALE',
       null,
       null,
@@ -508,7 +514,7 @@ describe('WmsService inventory read queries', () => {
       'SALE_OUTBOUND',
       null,
       'LPH_MS_EGG_SALES',
-      null,
+      'COMP-LAO-AGRI',
       'SALE',
       null,
       null,
@@ -523,6 +529,7 @@ describe('WmsService inventory read queries', () => {
       query: jest.fn(async (sql: string) => {
         if (sql.includes("SELECT 'SKU' AS item_type") || sql.includes("SELECT 'MATERIAL' AS item_type")) return [{ item_type: 'SKU' }];
         const masters = masterRows(sql); if (masters) return masters;
+        if (sql.includes('SELECT company_code FROM wms_warehouses')) return [{ company_code: 'COMP-LAO-AGRI' }];
         if (sql.includes('SELECT batch_no FROM changed')) return [{ batch_no: 'B-EGG-A-1' }];
         if (sql.includes('FROM wms_outbound')) {
           return [{
@@ -612,6 +619,7 @@ describe('WmsService inventory read queries', () => {
       query: jest.fn(async (sql: string) => {
         if (sql.includes("SELECT 'SKU' AS item_type") || sql.includes("SELECT 'MATERIAL' AS item_type")) return [{ item_type: 'SKU' }];
         const masters = masterRows(sql); if (masters) return masters;
+        if (sql.includes('SELECT company_code FROM wms_warehouses')) return [{ company_code: 'COMP-A' }];
         if (sql.includes('SELECT batch_no FROM changed')) return [{ batch_no: 'IBN-LEGACY-1' }];
         if (sql.includes('FROM wms_outbound')) {
           return [{
@@ -653,6 +661,7 @@ describe('WmsService inventory read queries', () => {
       query: jest.fn(async (sql: string) => {
         if (sql.includes("SELECT 'SKU' AS item_type") || sql.includes("SELECT 'MATERIAL' AS item_type")) return [{ item_type: 'SKU' }];
         const masters = masterRows(sql); if (masters) return masters;
+        if (sql.includes('SELECT company_code FROM wms_warehouses')) return [{ company_code: 'COMP-A' }];
         if (sql.includes('FROM wms_outbound')) return [{
           id: '33', outbound_no: 'WO-OWNER-MISMATCH', status: 'PENDING', type: 'SALE',
           warehouse_code: 'WH-A', company_code: 'COMP-A', store_code: 'ALL',
@@ -672,7 +681,9 @@ describe('WmsService inventory read queries', () => {
 
     await expect(service.confirmStandaloneOutbound('WO-OWNER-MISMATCH', {
       username: 'admin', roles: ['ROLE_ADMIN'],
-    })).rejects.toThrow('出库批次 B-OWNER-MISMATCH 状态、归属或数量已变化');
+    })).rejects.toThrow('批次公司与仓库归属不一致');
+    expect(manager.query).not.toHaveBeenCalledWith(expect.stringContaining('UPDATE inv_batches'), expect.anything());
+    expect(manager.query).not.toHaveBeenCalledWith(expect.stringContaining('INSERT INTO inv_ledger'), expect.anything());
   });
 
   it('creates a minimal valid sale outbound and keeps it pending', async () => {
@@ -680,6 +691,7 @@ describe('WmsService inventory read queries', () => {
       query: jest.fn(async (sql: string) => {
         if (sql.includes("SELECT 'SKU' AS item_type") || sql.includes("SELECT 'MATERIAL' AS item_type")) return [{ item_type: 'SKU' }];
         const masters = masterRows(sql); if (masters) return masters;
+        if (sql.includes('SELECT company_code FROM wms_warehouses')) return [{ company_code: 'COMP-LAO-AGRI' }];
         if (sql.includes('FROM product_skus')) {
           return [{ sku_code: 'SKU-EGG-A-30', product_code: 'PRD-EGG', sku_name: '鸡蛋SKU', unit: '枚' }];
         }
@@ -733,6 +745,7 @@ describe('WmsService inventory read queries', () => {
       query: jest.fn(async (sql: string) => {
         if (sql.includes("SELECT 'SKU' AS item_type") || sql.includes("SELECT 'MATERIAL' AS item_type")) return [{ item_type: 'SKU' }];
         const masters = masterRows(sql); if (masters) return masters;
+        if (sql.includes('SELECT company_code FROM wms_warehouses')) return [{ company_code: 'COMP-LAO-AGRI' }];
         if (sql.includes('FROM wms_outbound')) {
           return [{
             id: '32',
@@ -856,6 +869,7 @@ describe('WmsService inventory read queries', () => {
       query: jest.fn(async (sql: string, _params?: unknown[]) => {
         if (sql.includes("SELECT 'SKU' AS item_type") || sql.includes("SELECT 'MATERIAL' AS item_type")) return [{ item_type: 'SKU' }];
         const masters = masterRows(sql); if (masters) return masters;
+        if (sql.includes('SELECT company_code FROM wms_warehouses')) return [{ company_code: 'COMP-A' }];
         if (sql.includes('SELECT batch_no FROM changed')) return [{ batch_no: 'B-MAT-1' }];
         if (sql.includes('FROM wms_warehouses w')) return [{ company_code: 'COMP-B', store_code: 'STORE-B', store_status: 'ACTIVE' }];
         if (sql.includes('FROM inv_batches WHERE batch_no = $1 FOR UPDATE')) {
@@ -969,7 +983,7 @@ describe('WmsService inventory read queries', () => {
   });
 
   it('creates a PENDING transfer without mutating inventory', async () => {
-    const manager = { query: jest.fn(async (sql: string) => sql.includes('SELECT sku_code, warehouse_code FROM inv_batches') ? [{ warehouse_code: 'WH-A', sku_code: null }] : []) };
+    const manager = { query: jest.fn(async (sql: string) => sql.includes('SELECT sku_code, warehouse_code, company_code FROM inv_batches') ? [{ warehouse_code: 'WH-A', company_code: 'COMP-A', sku_code: null }] : sql.includes('SELECT company_code FROM wms_warehouses') ? [{ company_code: 'COMP-A' }] : []) };
     const em = { transaction: jest.fn(async (cb: any) => cb(manager)) };
     const cls = { get: jest.fn(() => ({ isGlobal: true, allowedWarehouseCodes: [] })) };
     const service = new WmsService(em as any, cls as any);
@@ -993,7 +1007,7 @@ describe('WmsService inventory read queries', () => {
   });
 
   it('allows an orchestrated replenishment target only when it is in the resolved SALES bindings', async () => {
-    const manager = { query: jest.fn(async (sql: string) => sql.includes('SELECT sku_code, warehouse_code FROM inv_batches') ? [{ warehouse_code: 'WH-A', sku_code: null }] : []) };
+    const manager = { query: jest.fn(async (sql: string) => sql.includes('SELECT sku_code, warehouse_code, company_code FROM inv_batches') ? [{ warehouse_code: 'WH-A', company_code: 'COMP-A', sku_code: null }] : sql.includes('SELECT company_code FROM wms_warehouses') ? [{ company_code: 'COMP-A' }] : []) };
     const em = { transaction: jest.fn(async (cb: any) => cb(manager)) };
     const cls = { get: jest.fn(() => ({ isGlobal: false, allowedWarehouseCodes: ['WH-A'] })) };
     const service = new WmsService(em as any, cls as any);
@@ -1013,6 +1027,7 @@ describe('WmsService inventory read queries', () => {
     const manager = { query: jest.fn(async (sql: string) => {
         if (sql.includes("SELECT 'SKU' AS item_type") || sql.includes("SELECT 'MATERIAL' AS item_type")) return [{ item_type: 'SKU' }];
         const masters = masterRows(sql); if (masters) return masters;
+        if (sql.includes('SELECT company_code FROM wms_warehouses')) return [{ company_code: 'COMP-A' }];
       if (sql.includes('SELECT batch_no FROM changed')) return [{ batch_no: 'B-1' }];
       if (sql.includes('FROM wms_transfer WHERE')) return [{ transfer_no: 'TR-2', status: 'PENDING', from_warehouse: 'WH-A', to_warehouse: 'WH-B' }];
       if (sql.includes('FROM wms_transfer_items')) return [{ id: 1, source_batch_no: 'B-1', expected_qty: 3 }];
@@ -1031,6 +1046,7 @@ describe('WmsService inventory read queries', () => {
     const manager = { query: jest.fn(async (sql: string) => {
         if (sql.includes("SELECT 'SKU' AS item_type") || sql.includes("SELECT 'MATERIAL' AS item_type")) return [{ item_type: 'SKU' }];
         const masters = masterRows(sql); if (masters) return masters;
+        if (sql.includes('SELECT company_code FROM wms_warehouses')) return [{ company_code: 'COMP-A' }];
       if (sql.includes('SELECT batch_no FROM changed')) return [{ batch_no: 'B-1' }];
       if (sql.includes('FROM wms_transfer WHERE')) return [{ transfer_no: 'TR-SOURCE', status: 'PENDING', from_warehouse: 'WH-A', to_warehouse: 'WH-B' }];
       if (sql.includes('FROM wms_transfer_items')) return [{ id: 1, source_batch_no: 'B-1', expected_qty: 1 }];
@@ -1063,8 +1079,9 @@ describe('WmsService inventory read queries', () => {
     const manager = { query: jest.fn(async (sql: string) => {
         if (sql.includes("SELECT 'SKU' AS item_type") || sql.includes("SELECT 'MATERIAL' AS item_type")) return [{ item_type: 'SKU' }];
         const masters = masterRows(sql); if (masters) return masters;
+        if (sql.includes('SELECT company_code FROM wms_warehouses')) return [{ company_code: 'COMP-A' }];
       if (sql.includes('FROM wms_transfer WHERE')) return [{ transfer_no: 'TR-3', status: 'IN_TRANSIT', from_warehouse: 'WH-A', to_warehouse: 'WH-B' }];
-      if (sql.includes('FROM wms_transfer_items')) return [{ id: 11, source_batch_no: 'B-1', expected_qty: 5, source_snapshot: {} }];
+      if (sql.includes('FROM wms_transfer_items')) return [{ id: 11, source_batch_no: 'B-1', expected_qty: 5, source_snapshot: { warehouse_code: 'WH-A', company_code: 'COMP-A' } }];
       if (sql.includes('FROM wms_warehouses w')) return [{ company_code: 'COMP-A', store_code: 'STORE-B', store_status: 'ACTIVE' }];
       return [];
     }) };

@@ -12,6 +12,7 @@ import { exerciseActualErpPhaseCorrelation } from './maintenance-erp-phase-corre
 import { selectOwnedComposeSubnet } from './owned-compose-ipam.mjs';
 import { CONTRACT, secureJson, verifyContext } from '../ops/production-config-guard.mjs';
 import {verifyArchivedApiDependencyLock} from './maintenance-api-dependency-lock.fixture.mjs';
+import {validateSyntheticLegacySource,LEGACY_APPLICATION_BASE} from './maintenance-full-legacy-source.fixture.mjs';
 import {assertUnreplacedArchiveStore,readUnreplacedGit,verifyExtractedGitTree} from './maintenance-archived-source.fixture.mjs';
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -147,15 +148,20 @@ export class OwnedErpCandidateCapsule {
     if (!this.resources.some(r => r.id === id)) this.resources.push({ id, role, type }); this.record(); return id;
   }
   labels() { return ['--label', `phoenix.test.owner=${this.owner}`, '--label', `phoenix.test.kind=${KIND}`]; }
-  async build({sourceRevision}={}) {
+  async build({sourceRevision,syntheticLegacyTarget}={}) {
     assertUnreplacedArchiveStore(REPO);
     const instrumentationSha=git(['rev-parse','HEAD']);
     this.sourceSha = sourceRevision??instrumentationSha; assert.match(this.sourceSha, /^[a-f0-9]{40}$/);
     if(this.sourceSha!==instrumentationSha){
-      // The only historical executable in this release exercise is the actual
-      // approved legacy baseline. Never relabel current code as the old API.
-      assert.equal(this.sourceSha,'226878864f184d26f41a890e666ebed52547db14');
-      git(['merge-base','--is-ancestor',this.sourceSha,instrumentationSha]);
+      // Exact226 remains the actual legacy fixture. The separate synthetic
+      // no-migration exercise must prove every non-migration byte is still226,
+      // a single direct parent226 and a complete target-matching migration tree.
+      // A flag or arbitrary revision can never bypass the archive restriction.
+      if(this.sourceSha===LEGACY_APPLICATION_BASE){
+        assert.equal(syntheticLegacyTarget,undefined);git(['merge-base','--is-ancestor',this.sourceSha,instrumentationSha]);
+      }else{
+        this.syntheticLegacyProvenance=validateSyntheticLegacySource({root:REPO,sourceRevision:this.sourceSha,targetRevision:syntheticLegacyTarget});
+      }
       this.archivedDependencyLock=verifyArchivedApiDependencyLock({
         previousLock:git(['show',`${this.sourceSha}:pnpm-lock.yaml`]),currentLock:git(['show',`${instrumentationSha}:pnpm-lock.yaml`]),
         previousManifest:git(['show',`${this.sourceSha}:apps/api/package.json`]),currentManifest:git(['show',`${instrumentationSha}:apps/api/package.json`])});
@@ -186,11 +192,11 @@ export class OwnedErpCandidateCapsule {
     fs.writeFileSync(path.join(context, 'fixture-preload.cjs'), ownedNetworkPreload(this.owner));
     fs.writeFileSync(path.join(context, '.dockerignore'), '*\n!dist\n!dist/**\n!node_modules\n!node_modules/**\n!package.json\n!fixture-preload.cjs\n');
     fs.writeFileSync(path.join(this.root, 'capsule-build.json'), JSON.stringify({ sourceSha: this.sourceSha, sourceTreeHash: this.sourceTreeHash,
-      fixtureScriptSha256: this.fixtureScriptSha256,instrumentationSha,archiveIdentity,archivedDependencyLock:this.archivedDependencyLock??null, pnpmLockSha256: hash(fs.readFileSync(path.join(REPO, 'pnpm-lock.yaml'))),
+      fixtureScriptSha256: this.fixtureScriptSha256,instrumentationSha,archiveIdentity,syntheticLegacyProvenance:this.syntheticLegacyProvenance??null,archivedDependencyLock:this.archivedDependencyLock??null, pnpmLockSha256: hash(fs.readFileSync(path.join(REPO, 'pnpm-lock.yaml'))),
       dependencies, excluded: ['.env', 'keys', 'private directories', 'tests', 'full repository mount'], nodeBaseline: 20 }, null, 2));
     const base = this.docker(['image', 'inspect', 'node:20-bookworm-slim', '--format', '{{.Id}}']);
     const tag = `phoenix-${this.owner}:candidate`;
-    this.docker(['build', '--pull=false', '--network=none', '--build-arg', `SOURCE_SHA=${this.sourceSha}`, '--build-arg', `FIXTURE_OWNER=${this.owner}`,
+    this.docker(['build', '--pull=false', '--network=none',...(this.syntheticLegacyProvenance?['--label',`phoenix.test.legacy.provenance=${this.syntheticLegacyProvenance.kind}`,'--label',`phoenix.test.legacy.application-base=${this.syntheticLegacyProvenance.applicationBase}`]:[]), '--build-arg', `SOURCE_SHA=${this.sourceSha}`, '--build-arg', `FIXTURE_OWNER=${this.owner}`,
       '-f', path.join(REPO, 'scripts/ci/maintenance-erp-candidate.Dockerfile'), '-t', tag, context], { timeout: 180000 });
     this.imageId = this.own(this.docker(['image', 'inspect', tag, '--format', '{{.Id}}']), 'actual-erp-api', 'image');
     const fields = this.docker(['image', 'inspect', this.imageId, '--format', '{{json .Config.Labels}}\t{{json .RootFS.Layers}}']).split('\t').map(JSON.parse);

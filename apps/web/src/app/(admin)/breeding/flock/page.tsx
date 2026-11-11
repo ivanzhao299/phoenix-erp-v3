@@ -10,6 +10,8 @@ interface FlockCard {
   houseName?: string;
   houseCode?: string;
   breed?: string;
+  breedCode?: string;
+  breedSearch?: string;
   inDate?: unknown;
   ageWeeks?: number;
   quantity?: unknown;
@@ -145,7 +147,10 @@ export default function FlockPage() {
       farmName: d.farmName,
       houseCode: d.houseCode,
       houseName: d.houseName,
-      breed: String(d.breed_code || d.strain || d.breed_type || '—'),
+      breedCode: String(d.breed_code || ''),
+      breedSearch: [d.breed_code, d.strain, d.breed_type, breedOptions.find(option => option.value === d.breed_code)?.label].filter(Boolean).join(' '),
+      breed: breedOptions.find(option => option.value === d.breed_code)?.label
+        || String(d.strain || d.breed_type || d.breed_code || '—'),
       inDate: d.start_date,
       ageWeeks: d.start_date ? Math.floor((Number(d.placement_age) || 0) / 7) + Math.floor((flockLoadedAt - new Date(d.start_date as string).getTime()) / (86400000 * 7)) : 0,
       quantity: d.current_qty,
@@ -153,7 +158,7 @@ export default function FlockPage() {
       feedRatio: d.feed_conversion_ratio ?? '—',
       status: String(d.status || 'GROWING'),
       _raw: d
-    })), [flockFacts, flockLoadedAt, farms, houses, lang]);
+    })), [flockFacts, flockLoadedAt, farms, houses, lang, breedOptions]);
   useEffect(() => {
     load();
   }, [load]);
@@ -377,7 +382,7 @@ export default function FlockPage() {
         )}
       />
 
-      <DataTable columns={columns} data={data} searchPlaceholder={t('ui.搜索批次号农场', '搜索批次号农场')} searchKeys={['batchNo', 'farmName', 'farmCode', 'houseName', 'houseCode', 'breed']} rowKey="id" filters={
+      <DataTable columns={columns} data={data} searchPlaceholder={t('ui.搜索批次号农场', '搜索批次号农场')} searchKeys={['batchNo', 'farmName', 'farmCode', 'houseName', 'houseCode', 'breed', 'breedCode', 'breedSearch']} rowKey="id" filters={
         <div style={{ display: 'flex', gap: 6 }}>
           {statusFilters.map(f => (
             <button key={f.key} type="button" onClick={() => setStatusFilter(f.key)} style={toolbarFilterPill(statusFilter === f.key)}>

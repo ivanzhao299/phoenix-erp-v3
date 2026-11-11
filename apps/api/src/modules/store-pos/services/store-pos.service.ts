@@ -901,6 +901,7 @@ export class StorePosService {
 
       // Phase H5: PATH A（sku_code）优先，PATH B（product+grade）回退。
       if (item.sku_code != null) await SkuPolicy.requireUsable(mgr, item.sku_code, 'sale-stock');
+      else if (item.quantity_snapshot) await SkuPolicy.requireUsable(mgr, item.quantity_snapshot.skuCode, 'sale-stock');
       const useSkuPath = !!item.sku_code;
       const lockKey = useSkuPath
         ? `fifo:${sale.company_code}:${sale.warehouseCodes.join(',')}:sku:${item.sku_code}`
@@ -951,9 +952,27 @@ export class StorePosService {
           );
       }
 
+      // This is still the legacy sales path, not an organization-aware SKU
+      // resolver. Check physical identities for every source (including shared
+      // quantity pools), under the same manager's batch and SKU locks. A missing
+      // mapping is not legacy stock; SQL/permission errors must propagate.
+      const legacyBatches: any[] = [];
+      for (const batch of batches) {
+        if (batch.sku_code != null) {
+          const [sku] = await mgr.query(`SELECT * FROM product_skus WHERE sku_code=$1 FOR SHARE`, [batch.sku_code]);
+          if (!sku || sku.variety_code != null || sku.org_context_required === true) continue;
+        }
+        legacyBatches.push(batch);
+      }
+      const allocatableQty = legacyBatches.reduce((sum, batch) => sum + Number(batch.qty_available), 0);
+      if (allocatableQty < qty) {
+        throw new ConflictException(
+          `门店仓库存不足：${useSkuPath ? 'sku=' + item.sku_code : 'product=' + item.product_code} 缺 ${qty - allocatableQty}`,
+        );
+      }
       let remaining = qty;
 
-      for (const batch of batches) {
+      for (const batch of legacyBatches) {
           if (remaining <= 0) break;
           const canTake = Math.min(remaining, Number(batch.qty_available));
           remaining -= canTake;

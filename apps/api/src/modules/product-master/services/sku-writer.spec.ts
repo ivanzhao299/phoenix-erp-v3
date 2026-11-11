@@ -10,7 +10,8 @@ import { ChanjetErpMasterBusinessReviewService } from '../../chanjet/chanjet-erp
 const input = { product_code: 'EGG', grade_code: 'G1', spec_code: 'STD' };
 function fixture() {
   let skus: Record<string, any>[] = [];
-  let products: Record<string, any>[] = [{ product_code: 'EGG', product_name_zh: '鸡蛋', status: 'ACTIVE' }];
+  let products: Record<string, any>[] = [{ product_code: 'EGG', product_name_zh: '鸡蛋', variety_code: null, status: 'ACTIVE' }];
+  const varieties = [{ variety_code: 'EGG_RED', status: 'ACTIVE', effective_date: null as string | null, expire_date: null as string | null }];
   let audits: any[][] = [];
   let sequence = 0;
   const refs = { mst_products: 'ACTIVE', product_grades: 'ACTIVE', packaging_specs: 'ACTIVE' };
@@ -20,6 +21,9 @@ function fixture() {
     if (sql.includes('information_schema.columns')) return ['sal_order_items', 'sal_price_items', 'inv_batches', 'inv_ledger'].map(table_name => ({ table_name, column_name: 'sku_code', data_type: 'character varying' }));
     if (sql.startsWith('SELECT 1 FROM "')) return options.referenced ? [{ one: 1 }] : [];
     if (sql.startsWith('SELECT * FROM product_skus')) return skus.filter(row => row.sku_code === args[0]).map(row => ({ ...row }));
+    if (sql.includes('FROM md_product_varieties')) return varieties.filter(row => row.variety_code === args[0] && row.status === 'ACTIVE'
+      && (!row.effective_date || row.effective_date <= new Date().toISOString().slice(0, 10))
+      && (!row.expire_date || row.expire_date >= new Date().toISOString().slice(0, 10)));
     if (sql.includes('FOR SHARE')) {
       const table = Object.keys(refs).find(name => sql.includes(`FROM ${name} `))! as keyof typeof refs;
       if (options.failReference) throw new Error('reference query unavailable');
@@ -42,7 +46,7 @@ function fixture() {
       return [[{ ...row }], 1];
     }
     if (sql.startsWith('INSERT INTO mst_products')) {
-      const row = { product_code: args[0], product_name: args[1], product_name_zh: args[1], product_name_lo: args[2], unit_zh: '枚', status: 'ACTIVE' };
+      const row = { product_code: args[0], product_name: args[1], product_name_zh: args[1], product_name_lo: args[2], unit_zh: '枚', variety_code: null, status: 'ACTIVE' };
       products.push(row);
       return [[row], 1];
     }
@@ -66,7 +70,7 @@ function fixture() {
   const runtime = new MasterDataRuntimeService(ds as any, codes, audit, {} as any, {} as any, {} as any, {} as any);
   const legacy = new ProductMasterService(ds as any, runtime);
   const writer = new SkuWriter(ds as any, codes, audit);
-  return { ds, manager, query, options, refs, runtime, legacy, writer, skus: () => skus, products: () => products, audits: () => audits };
+  return { ds, manager, query, options, refs, varieties, runtime, legacy, writer, skus: () => skus, products: () => products, audits: () => audits };
 }
 
 const entries = ['runtime', 'legacy', 'quick'] as const;
@@ -235,6 +239,181 @@ describe('SKU lifecycle and internal reviewed import', () => {
     f.options.failAudit = true;
     await expect(f.ds.transaction(manager => SkuWriter.createApproved(manager, input, 'CJ-EGG-ABC', '来源名', 'reviewer'))).rejects.toThrow('audit unavailable');
     expect(f.skus()).toEqual([]);
+  });
+});
+
+describe('parent-derived SKU variety classification', () => {
+  function red(f: ReturnType<typeof fixture>) {
+    f.products().push({ product_code: 'PRD-EGG-RED', product_name_zh: '红壳鸡蛋', variety_code: 'EGG_RED', status: 'ACTIVE' });
+    return { ...input, product_code: 'PRD-EGG-RED' };
+  }
+
+  it.each(entries)('%s persists explicit STANDARD NULL and VAR parent classification', async entry => {
+    const f = fixture();
+    await create(f, entry, { ...input, variety_code: '' });
+    await create(f, entry, { ...red(f), variety_code: 'EGG_RED' });
+    expect(f.skus().map(row => row.variety_code)).toEqual([null, 'EGG_RED']);
+    expect(f.skus().map(row => row.org_context_required)).toEqual([true, true]);
+    const productLocks = f.query.mock.calls.filter(([sql]) => sql.includes('FROM mst_products'));
+    expect(productLocks.every(([sql]) => sql.endsWith('FOR SHARE'))).toBe(true);
+    const [sql, args] = f.query.mock.calls.find(([sql]) => sql.includes('FROM md_product_varieties'))!;
+    expect(sql).toContain("status='ACTIVE'");
+    expect(sql).toContain('effective_date<=CURRENT_DATE');
+    expect(sql).toContain('expire_date>=CURRENT_DATE');
+    expect(sql).toContain('FOR SHARE');
+    expect(args).toEqual(['EGG_RED']);
+  });
+
+  it.each([null, '', 'EGG_PINK', 1, ' EGG_RED'])('rejects spoofed VAR payload %p before writes', async variety_code => {
+    const f = fixture();
+    await expect(f.writer.create({ ...red(f), variety_code })).rejects.toMatchObject({ status: 400 });
+    expect(f.skus()).toEqual([]);
+    expect(f.audits()).toEqual([]);
+  });
+
+  it('accepts same-value VAR legacy edit payload without touching referenced classification', async () => {
+    const f = fixture();
+    await f.writer.create(red(f));
+    f.options.referenced = true;
+    f.refs.mst_products = 'FROZEN';
+    f.query.mockClear();
+    await f.writer.update('SKU-00001', { variety_code: 'EGG_RED', remark: 'same-value legacy payload' });
+    expect(f.skus()[0]).toMatchObject({ variety_code: 'EGG_RED', remark: 'same-value legacy payload' });
+    const [sql] = f.query.mock.calls.find(([sql]) => sql.startsWith('UPDATE product_skus'))!;
+    expect(sql).not.toContain('variety_code=');
+    await expect(f.writer.update('SKU-00001', { variety_code: null })).rejects.toMatchObject({ status: 400 });
+  });
+
+  it('rejects a client classification on a STANDARD parent', async () => {
+    const f = fixture();
+    await expect(f.writer.create({ ...input, variety_code: 'EGG_RED' })).rejects.toMatchObject({ status: 400 });
+    expect(f.skus()).toEqual([]);
+  });
+
+  it.each(['FROZEN', 'missing', 'future', 'expired'])('rejects %s parent variety lifecycle', async condition => {
+    const f = fixture();
+    if (condition === 'missing') f.varieties.splice(0);
+    else if (condition === 'future') f.varieties[0].effective_date = '9999-01-01';
+    else if (condition === 'expired') f.varieties[0].expire_date = '2000-01-01';
+    else f.varieties[0].status = condition;
+    await expect(f.writer.create(red(f))).rejects.toMatchObject({ status: 400 });
+    expect(f.skus()).toEqual([]);
+  });
+
+  it('fails closed when parent variety column is missing rather than treating undefined as NULL', async () => {
+    const f = fixture();
+    delete f.products()[0].variety_code;
+    await expect(f.writer.create(input)).rejects.toThrow('元数据');
+    expect(f.skus()).toEqual([]);
+    expect(f.audits()).toEqual([]);
+  });
+
+  it('persists changed parent variety only after the unchanged reference guard permits identity mutation', async () => {
+    const f = fixture();
+    const changed = red(f);
+    await f.writer.create(input);
+    f.options.referenced = true;
+    f.query.mockClear();
+    await expect(f.writer.update('SKU-00001', changed)).rejects.toMatchObject({ status: 409 });
+    expect(f.query).toHaveBeenCalledWith('SELECT * FROM product_skus WHERE sku_code=$1 FOR UPDATE NOWAIT', ['SKU-00001']);
+    expect(f.query).toHaveBeenCalledWith('SELECT * FROM mst_products WHERE product_code=$1 FOR SHARE', ['PRD-EGG-RED']);
+    expect(f.query.mock.calls.some(([sql]) => sql.startsWith('SELECT 1 FROM "'))).toBe(true);
+    expect(f.query.mock.calls.some(([sql]) => sql.startsWith('UPDATE product_skus'))).toBe(false);
+    expect(f.skus()[0]).toMatchObject({ product_code: 'EGG', variety_code: null });
+    expect(f.audits()).toHaveLength(1);
+    f.options.referenced = false;
+    await f.writer.update('SKU-00001', changed);
+    expect(f.skus()[0]).toMatchObject({ product_code: 'PRD-EGG-RED', variety_code: 'EGG_RED' });
+    await f.writer.update('SKU-00001', input);
+    expect(f.skus()[0]).toMatchObject({ product_code: 'EGG', variety_code: null });
+  });
+
+  it('preserves referenced historical classification on description-only edits with frozen changed parent', async () => {
+    const f = fixture();
+    await f.writer.create(input);
+    f.products()[0].variety_code = 'EGG_RED';
+    f.refs.mst_products = 'FROZEN';
+    f.options.referenced = true;
+    f.query.mockClear();
+    await f.writer.update('SKU-00001', { remark: '历史保留', variety_code: null });
+    expect(f.skus()[0]).toMatchObject({ variety_code: null, remark: '历史保留' });
+    expect(f.query.mock.calls.some(([sql]) => sql.includes('FROM mst_products'))).toBe(false);
+    const [sql] = f.query.mock.calls.find(([sql]) => sql.startsWith('UPDATE product_skus'))!;
+    expect(sql).not.toContain('variety_code=');
+    await expect(f.writer.update('SKU-00001', { variety_code: 'EGG_RED' })).rejects.toMatchObject({ status: 400 });
+    expect(f.skus()[0].variety_code).toBeNull();
+  });
+
+  it.each([null, 'EGG_PINK', undefined])('rejects activation of mismatched existing variety %p without repair', async variety => {
+    const f = fixture();
+    await f.writer.create(red(f));
+    await f.writer.transition('SKU-00001', 'freeze');
+    f.skus()[0].variety_code = variety;
+    await expect(f.writer.transition('SKU-00001', 'restore')).rejects.toMatchObject({ status: 400 });
+    expect(f.skus()[0]).toMatchObject({ status: 'FROZEN', variety_code: variety });
+    expect(f.audits()).toHaveLength(2);
+  });
+
+  it.each([false, null, 'true'])('rejects spoofed new organization restriction %p', async org_context_required => {
+    const f = fixture();
+    await expect(f.writer.create({ ...input, org_context_required })).rejects.toMatchObject({ status: 400 });
+    expect(f.skus()).toEqual([]);
+  });
+
+  it('preserves legacy organization flag on descriptions/activation but requires it for changed product', async () => {
+    const f = fixture();
+    await f.writer.create(input);
+    f.skus()[0].org_context_required = false; // persisted pre-cutover legacy row
+    f.options.referenced = true;
+    f.query.mockClear();
+    await f.writer.update('SKU-00001', { remark: 'legacy', org_context_required: false });
+    const [descriptionSql] = f.query.mock.calls.find(([sql]) => sql.startsWith('UPDATE product_skus'))!;
+    expect(descriptionSql).not.toContain('org_context_required=');
+    await expect(f.writer.update('SKU-00001', { org_context_required: true })).rejects.toMatchObject({ status: 400 });
+    await f.writer.transition('SKU-00001', 'freeze');
+    await f.writer.transition('SKU-00001', 'restore');
+    expect(f.skus()[0].org_context_required).toBe(false);
+    const changed = red(f);
+    await expect(f.writer.update('SKU-00001', changed)).rejects.toMatchObject({ status: 409 });
+    expect(f.skus()[0].org_context_required).toBe(false);
+    f.options.referenced = false;
+    await expect(f.writer.update('SKU-00001', { ...changed, org_context_required: false })).rejects.toMatchObject({ status: 400 });
+    await f.writer.update('SKU-00001', { ...changed, org_context_required: true });
+    expect(f.skus()[0]).toMatchObject({ product_code: 'PRD-EGG-RED', variety_code: 'EGG_RED', org_context_required: true });
+    await expect(f.writer.update('SKU-00001', { org_context_required: false })).rejects.toMatchObject({ status: 400 });
+  });
+
+  it('sets the internal organization restriction on approved creation and preserves legacy retries', async () => {
+    const f = fixture();
+    const call = (dto: Record<string, unknown> = input) => f.ds.transaction(manager => SkuWriter.createApproved(manager, dto, 'CJ-STD', '来源名', 'reviewer'));
+    await expect(call()).resolves.toBe(true);
+    expect(f.skus()[0].org_context_required).toBe(true);
+    await expect(call({ ...input, org_context_required: false })).rejects.toMatchObject({ status: 400 });
+    f.skus()[0].org_context_required = false;
+    await expect(call({ ...input, org_context_required: false })).resolves.toBe(false);
+    expect(f.skus()[0].org_context_required).toBe(false);
+    expect(f.audits()).toHaveLength(1);
+  });
+
+  it('does not reclassify historical NULL on a grade/spec identity edit', async () => {
+    const f = fixture();
+    await f.writer.create(input);
+    f.products()[0].variety_code = 'EGG_RED';
+    await expect(f.writer.update('SKU-00001', { grade_code: 'G2' })).rejects.toMatchObject({ status: 400 });
+    expect(f.skus()[0]).toMatchObject({ grade_code: 'G1', variety_code: null });
+  });
+
+  it('validates derived variety on approved-import retries without silently repairing old NULL', async () => {
+    const f = fixture();
+    const dto = red(f);
+    const call = (payload: Record<string, unknown> = dto) => f.ds.transaction(manager => SkuWriter.createApproved(manager, payload, 'CJ-RED', '红壳来源', 'reviewer'));
+    await expect(call()).resolves.toBe(true);
+    await expect(call()).resolves.toBe(false);
+    await expect(call({ ...dto, variety_code: 'EGG_PINK' })).rejects.toMatchObject({ status: 400 });
+    f.skus()[0].variety_code = null;
+    await expect(call()).rejects.toMatchObject({ status: 400 });
+    expect(f.skus()[0].variety_code).toBeNull();
+    expect(f.audits()).toHaveLength(1);
   });
 });
 

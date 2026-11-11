@@ -1,4 +1,5 @@
 import { DataSource } from 'typeorm';
+import { ensurePackagingSourceProfileSchema } from './packaging-history.fixture';
 import { PackagingTerminalBffController } from './bff.controller';
 import { packagingTestMode, assertPackingCanEnterInventory } from './packaging-protection';
 import { ProtectPackagingVoidAndTestIsolation1789099201000 } from '../../database/migrations/1789099201000-ProtectPackagingVoidAndTestIsolation';
@@ -44,11 +45,12 @@ const dbUrl = process.env.PACKAGING_TEST_DATABASE_URL;
     const [database] = await ds.query(`SELECT current_database() name, current_user owner, current_setting('server_version_num')::int version`);
     expect(database.version).toBeGreaterThanOrEqual(180000);
     if (historyFixture && (database.name !== 'packaging_history_test' || database.owner !== 'phoenix_v3')) throw new Error('Dedicated history fixture owner required');
+    if (historyFixture) await ensurePackagingSourceProfileSchema(ds);
     await ds.query(`CREATE SCHEMA ${schema}`);
     for (const table of ['pkg_work_shifts','pkg_source_batches','pkg_grading_records','pkg_grading_source_links',
       'pkg_packing_records','pkg_handover_records','pkg_audit_logs','pkg_exceptions','pkg_label_print_logs',
       'pkg_qc_inspections','inv_batches','inv_ledger','sal_order_item_batch_allocations','store_sale_allocations','sal_store_sale_items','sal_order_items','sys_dict','brd_houses','wms_inbound','brd_farms','mst_products','product_skus','product_grades','packaging_specs',
-      'sys_organizations','brd_flocks','md_product_varieties','md_variety_breeds','md_sku_org_scope']) {
+      'sys_organizations','brd_flocks','md_product_varieties','md_variety_breeds','md_sku_org_scope','md_egg_source_profiles']) {
       await ds.query(`CREATE TABLE ${schema}.${table} (LIKE public.${table} INCLUDING ALL)`);
     }
     await ds.query(`INSERT INTO sys_organizations(org_code,org_name,org_type,company_code,status) VALUES
@@ -61,14 +63,16 @@ const dbUrl = process.env.PACKAGING_TEST_DATABASE_URL;
     await ds.query("INSERT INTO md_variety_breeds(variety_code,breed_code,status) VALUES ('VAR-INTEGRATION','BREED-INTEGRATION','ACTIVE')");
     await ds.query(`INSERT INTO brd_flocks(flock_no,house_code,farm_code,breed_code,status,placement_date,start_date)
       VALUES ('FLOCK-INTEGRATION','HOUSE-INTEGRATION','FARM-INTEGRATION','BREED-INTEGRATION','LAYING','2020-01-01','2020-01-01')`);
+    await ds.query(`INSERT INTO md_egg_source_profiles(profile_code,company_code,farm_code,site_code,house_code,product_mode,variety_code,effective_date)
+      VALUES('PROFILE-INTEGRATION','COMP-INTEGRATION','FARM-INTEGRATION','SITE-INTEGRATION','HOUSE-INTEGRATION','VARIANT','VAR-INTEGRATION','2020-01-01')`);
     await ds.query("INSERT INTO mst_products(product_code,product_name,variety_code,status) VALUES ('P-INTEGRATION','Local product','VAR-INTEGRATION','ACTIVE')");
     await ds.query("INSERT INTO product_grades(grade_code,grade_name,status,is_saleable,is_storable) VALUES ('GRADE_1','Local grade','ACTIVE',true,true)");
     await ds.query("INSERT INTO packaging_specs(spec_code,spec_name,qty_per_unit,status) VALUES ('SPEC-INTEGRATION','Local spec',30,'ACTIVE')");
     await ds.query("INSERT INTO product_skus(sku_code,sku_name,product_code,grade_code,spec_code,variety_code,status) VALUES ('SKU-INTEGRATION','Local SKU','P-INTEGRATION','GRADE_1','SPEC-INTEGRATION','VAR-INTEGRATION','ACTIVE')");
     await ds.query(`INSERT INTO md_sku_org_scope(sku_code,scope_type,scope_code,status,sale_enabled,stock_enabled) VALUES
-      ('SKU-INTEGRATION','COMPANY','COMP-INTEGRATION','ACTIVE',true,true),
-      ('SKU-INTEGRATION','FARM','FARM-INTEGRATION','ACTIVE',true,true),
-      ('SKU-INTEGRATION','SITE','SITE-INTEGRATION','ACTIVE',true,true)`);
+      ('SKU-INTEGRATION','COMPANY','COMP-INTEGRATION','ACTIVE',false,true),
+      ('SKU-INTEGRATION','FARM','FARM-INTEGRATION','ACTIVE',false,true),
+      ('SKU-INTEGRATION','SITE','SITE-INTEGRATION','ACTIVE',false,true)`);
     // A legacy row created before this migration keeps all business values.
     const [legacy] = await ds.query(`INSERT INTO pkg_packing_records(code,total_eggs,total_boxes) VALUES ('PKG-LEGACY',30,1) RETURNING id,code,total_eggs,total_boxes`);
     const q = ds.createQueryRunner();

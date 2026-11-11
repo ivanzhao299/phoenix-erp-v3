@@ -7,7 +7,7 @@ describe('PackagingInventoryIntegrationService terminal provenance', () => {
     batches_json: [{ grade: 'L', eggs: 30, boxes: 1, specId: 'SPEC' }] };
   function setup(mode = 'PACKAGING_INBOUND', record: any = packing) {
     const sku = { sku_code: 'SKU', product_code: 'PRODUCT', grade_code: 'L', spec_code: 'SPEC',
-      variety_code: 'VAR', product_variety_code: 'VAR', status: 'ACTIVE' };
+      variety_code: 'VAR', product_variety_code: 'VAR', status: 'ACTIVE',today:'2026-11-11',effective_date:null,expire_date:null };
     const query = jest.fn(async (sql: string): Promise<any[]> => {
       if (sql.includes('FROM pkg_packing_records')) return [record];
       if (sql.includes('FROM inv_batches') || sql.includes('FROM inv_ledger')) return [];
@@ -17,11 +17,12 @@ describe('PackagingInventoryIntegrationService terminal provenance', () => {
       if (sql.includes('FROM brd_houses')) return [{ house_code: 'HOUSE', farm_code: 'FARM', site_code: 'SITE', company_code: 'COMP' }];
       if (sql.includes('SELECT company_code FROM')) return [{ company_code: 'COMP' }];
       if (sql.includes('FROM sys_organizations')) return [{ org_code: 'COMP' }];
+      if (sql.includes('FROM md_egg_source_profiles')) return [{ profile_code: 'PROFILE', company_code: 'COMP', farm_code: 'FARM', site_code: 'SITE', house_code: 'HOUSE', product_mode: 'VARIANT', variety_code: 'VAR', effective_date: '2026-01-01', status: 'ACTIVE' }];
       if (sql.includes('FROM brd_flocks')) return [{ flock_no: 'FLOCK', farm_code: 'FARM', breed_code: 'BREED', status: 'LAYING', placement_date: '2026-01-01' }];
       if (sql.includes('FROM md_variety_breeds')) return [{ variety_code: 'VAR' }];
-      if (sql.includes('FROM md_product_varieties')) return [{ variety_code: 'VAR' }];
+      if (sql.includes('FROM md_product_varieties')) return [{ variety_code: 'VAR',status:'ACTIVE',effective_date:'2026-01-01',expire_date:null }];
       if (sql.includes('FROM sys_dict')) return sql.includes("dict_type = 'BRD_BREED'") ? [{ dict_code: 'BREED' }] : [];
-      if (sql.includes('FROM md_sku_org_scope')) return [{ scope_type: 'COMPANY', scope_code: 'COMP', status: 'ACTIVE', sale_enabled: true, stock_enabled: true, today: '2026-11-11' }];
+      if (sql.includes('FROM md_sku_org_scope')) return [{ scope_type: 'COMPANY', scope_code: 'COMP', status: 'ACTIVE', sale_enabled: false, stock_enabled: true, today: '2026-11-11' }];
       if (sql.includes('FROM product_skus')) return [sku];
       if (sql.includes('FROM product_grades')) return [{ grade_code: 'L', is_saleable: true, is_storable: true, status: 'ACTIVE' }];
       if (sql.includes('FROM packaging_specs')) return [{ spec_code: 'SPEC', spec_name: '30 eggs', qty_per_unit: 30, status: 'ACTIVE', base_unit: '枚' }];
@@ -39,7 +40,7 @@ describe('PackagingInventoryIntegrationService terminal provenance', () => {
     const { service, ds, eggInv, modeSvc } = setup();
     await expect(service.completeTerminalPacking('PKG-1', { ...location, manager: ds })).resolves.toMatchObject({ totalInbound: 30, skippedByMode: false });
     expect(modeSvc.resolveMode).toHaveBeenCalledWith({ siteCode: 'FARM', companyCode: 'COMP' }, ds);
-    expect(eggInv.createProductionBatch).toHaveBeenCalledWith(expect.objectContaining({ companyCode: 'COMP', eggDate: '2026-08-06', varietyCode: 'VAR', productCode: 'PRODUCT', skuCode: 'SKU', specCode: 'SPEC', qty: 30, collectionBatchRef: 'SHIFT-9', ...location }), ds);
+    expect(eggInv.createProductionBatch).toHaveBeenCalledWith(expect.objectContaining({ companyCode: 'COMP', eggDate: '2026-08-06', varietyCode: 'VAR', sourceProfileRefs: [{ profileCode: 'PROFILE', houseCode: 'HOUSE' }], productCode: 'PRODUCT', skuCode: 'SKU', specCode: 'SPEC', qty: 30, collectionBatchRef: 'SHIFT-9', ...location }), ds);
     expect(ds.query).toHaveBeenCalledWith(expect.stringContaining('FROM md_sku_org_scope'), ['SKU', 'COMP', 'FARM', 'SITE']);
   });
   it('TEMP mode does not write packaging inventory', async () => {
@@ -47,10 +48,10 @@ describe('PackagingInventoryIntegrationService terminal provenance', () => {
     await expect(service.completeTerminalPacking('PKG-1', location)).resolves.toMatchObject({ totalInbound: 0, skippedByMode: true });
     expect(eggInv.createProductionBatch).not.toHaveBeenCalled();
   });
-  it.each(['scope', 'breed', 'company', 'SKU', 'spec'])('rejects missing %s before a batch write', async kind => {
+  it.each(['scope', 'profile', 'company', 'SKU', 'spec'])('rejects missing %s before a batch write', async kind => {
     const { service, ds, eggInv } = setup();
     const original = ds.query.getMockImplementation();
-    const table = { scope: 'md_sku_org_scope', breed: 'md_variety_breeds', company: 'sys_organizations', SKU: 'product_skus', spec: 'packaging_specs' }[kind];
+    const table = { scope: 'md_sku_org_scope', profile: 'md_egg_source_profiles', company: 'sys_organizations', SKU: 'product_skus', spec: 'packaging_specs' }[kind];
     ds.query.mockImplementation((sql: string) => sql.includes(`FROM ${table}`) ? Promise.resolve([]) : original(sql));
     await expect(service.completeTerminalPacking('PKG-1', location)).rejects.toThrow();
     expect(eggInv.createProductionBatch).not.toHaveBeenCalled();

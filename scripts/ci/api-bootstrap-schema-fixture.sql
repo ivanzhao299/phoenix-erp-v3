@@ -41,6 +41,13 @@ CREATE TABLE IF NOT EXISTS brd_flocks (
   farm_name VARCHAR(100),
   house_code VARCHAR(50),
   farm_code VARCHAR(50),
+  -- This table is created after legacy/TS migrations in an empty bootstrap.
+  -- hasTable guards have already skipped these additions, so declare the
+  -- final domain shape here (20260606 site mapping + SkuVarietyOrgScope).
+  company_code VARCHAR(64),
+  project_code VARCHAR(64),
+  site_code VARCHAR(64),
+  breed_code VARCHAR(64),
   strain VARCHAR(50),
   placement_date DATE,
   placement_age INT,

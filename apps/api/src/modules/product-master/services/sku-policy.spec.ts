@@ -6,7 +6,7 @@ import { GenericCrudService } from '../../generic-crud/generic-crud.service';
 
 function writer(db: any) { return new SkuWriter(db, {} as any, { logInTransaction: jest.fn() } as any); }
 
-const sku = { sku_code: 'SKU-1', product_code: 'P1', grade_code: 'G1', spec_code: 'S1', sku_name: 'Eggs', status: 'ACTIVE' };
+const sku = { sku_code: 'SKU-1', product_code: 'P1', grade_code: 'G1', spec_code: 'S1', sku_name: 'Eggs', variety_code: null, org_context_required: false, status: 'ACTIVE' };
 const core = ['sal_order_items', 'sal_price_items', 'inv_batches', 'inv_ledger'];
 const refs = [...core, 'sal_store_sale_items', 'sal_return_items', 'store_replenishment_request_lines', 'wms_stocktake', 'ord_order_items', 'pkg_packing_records'];
 function fixture(reference?: string, failure?: 'catalog' | 'probe' | 'lock') {
@@ -31,7 +31,7 @@ function fixture(reference?: string, failure?: 'catalog' | 'probe' | 'lock') {
       return [stored];
     }
     if (sql.includes('FOR UPDATE')) return [{ ...stored }];
-    if (sql.includes('FOR SHARE')) return [{ status: 'ACTIVE', product_name: 'Eggs' }];
+    if (sql.includes('FOR SHARE')) return [{ status: 'ACTIVE', product_name: 'Eggs', variety_code: null }];
     return [];
   });
   const manager = { query } as unknown as EntityManager;
@@ -130,6 +130,77 @@ describe('SKU identity protection', () => {
     const f = fixture();
     await expect(writer(f.db).update('SKU-1', { sku_code: 'NEW' })).rejects.toMatchObject({ status: 400 });
     await expect(writer(f.db).update('SKU-1', { spec_code: '' })).rejects.toMatchObject({ status: 400 });
+  });
+});
+
+describe('variant SKU phase-4 transition guard', () => {
+  const setup = () => {
+    const state = {
+      sku: { ...sku, variety_code: 'EGG_RED' as string | null, org_context_required: false, today: '2026-11-11' },
+      product: { status: 'ACTIVE', variety_code: 'EGG_RED' as string | null | undefined },
+      varieties: [{ variety_code: 'EGG_RED', status: 'ACTIVE', effective_date: null as string | null, expire_date: null as string | null }],
+      company: [{ org_code: 'COMP-A' }],
+      scopes: [{ scope_type: 'COMPANY', scope_code: 'COMP-A', status: 'ACTIVE', today: '2026-11-11',
+        effective_date: null as string | null, expire_date: null as string | null, sale_enabled: true, stock_enabled: true }],
+    };
+    const query = jest.fn(async (sql: string) => {
+      if (sql.includes('FROM product_skus')) return [state.sku];
+      if (sql.includes('FROM mst_products')) return [state.product];
+      if (sql.includes('FROM md_product_varieties')) return state.varieties;
+      if (sql.includes('FROM sys_organizations')) return state.company;
+      if (sql.includes('FROM md_sku_org_scope')) return state.scopes;
+      return [{ status: 'ACTIVE', is_saleable: true, is_storable: true }];
+    });
+    return { state, manager: { query } as unknown as Pick<EntityManager, 'query'>, query };
+  };
+
+  it.each(['any', 'stock', 'sale', 'sale-stock'] as const)('rejects variant without company even for %s', async usage => {
+    const { manager } = setup();
+    await expect(SkuPolicy.requireUsable(manager, 'SKU-1', usage)).rejects.toThrow('新 SKU 需公司适用范围接口');
+  });
+
+  it.each([
+    { scope_type: 'ALL' }, { scope_type: 'FARM' }, { scope_code: 'COMP-B' }, { status: 'INACTIVE' },
+    { effective_date: '2026-11-12' }, { expire_date: '2026-11-10' }, { stock_enabled: false },
+  ])('does not accept a company string without a valid exact COMPANY grant %p', async change => {
+    const { state, manager } = setup();
+    Object.assign(state.scopes[0], change);
+    await expect(SkuPolicy.requireUsable(manager, 'SKU-1', 'stock', 'COMP-A')).rejects.toThrow('不适用于公司');
+  });
+
+  it('requires organization-aware consumers for new STANDARD stock without changing legacy SKU behavior', async () => {
+    const { state, manager } = setup();
+    state.sku.variety_code = null; state.product.variety_code = null; state.sku.org_context_required = true;
+    state.scopes[0].sale_enabled = false;
+    await expect(SkuPolicy.requireUsable(manager,'SKU-1','stock')).rejects.toThrow('需公司适用范围接口');
+    await expect(SkuPolicy.requireUsable(manager,'SKU-1','stock','COMP-A')).resolves.toMatchObject({ variety_code:null });
+    await expect(SkuPolicy.requireUsable(manager,'SKU-1','sale-stock','COMP-A')).rejects.toThrow('用途被禁用');
+    state.sku.org_context_required = false;
+    await expect(SkuPolicy.requireUsable(manager,'SKU-1','sale-stock')).resolves.toMatchObject({ variety_code:null });
+  });
+  it.each([
+    {status:'FROZEN'}, {status:'DRAFT'}, {effective_date:'2026-11-12'}, {expire_date:'2026-11-10'},
+  ])('rejects disabled or out-of-date commercial variety in every context-aware consumer %p',async change=>{
+    const {state,manager}=setup(); Object.assign(state.varieties[0],change);
+    await expect(SkuPolicy.requireUsable(manager,'SKU-1','stock','COMP-A')).rejects.toThrow('商业品种');
+  });
+  it('rejects parent-classification mismatch or missing managed classification without repairing it',async()=>{
+    const {state,manager}=setup(); state.product.variety_code='EGG_PINK';
+    await expect(SkuPolicy.requireUsable(manager,'SKU-1','stock','COMP-A')).rejects.toThrow('父产品商业品种');
+    state.product.variety_code=undefined;
+    await expect(SkuPolicy.requireUsable(manager,'SKU-1','stock','COMP-A')).rejects.toThrow('主档不明确');
+  });
+  it('rejects missing company/scope and sale vetoes, locking real authority decisions', async () => {
+    const { state, manager, query } = setup();
+    await expect(SkuPolicy.requireUsable(manager, 'SKU-1', 'sale-stock', 'COMP-A')).resolves.toMatchObject({ variety_code: 'EGG_RED' });
+    expect(query).toHaveBeenCalledWith(expect.stringContaining('FROM md_sku_org_scope'), ['SKU-1', 'COMP-A']);
+    for (const [sql] of query.mock.calls) expect(sql).toContain('FOR SHARE');
+    state.scopes[0].sale_enabled = false;
+    await expect(SkuPolicy.requireUsable(manager, 'SKU-1', 'sale', 'COMP-A')).rejects.toThrow('用途被禁用');
+    state.scopes = [];
+    await expect(SkuPolicy.requireUsable(manager, 'SKU-1', 'any', 'COMP-A')).rejects.toThrow('不适用于公司');
+    state.company = [];
+    await expect(SkuPolicy.requireUsable(manager, 'SKU-1', 'stock', 'COMP-A')).rejects.toThrow('不存在或已停用');
   });
 });
 

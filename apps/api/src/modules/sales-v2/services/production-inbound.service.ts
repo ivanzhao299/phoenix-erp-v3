@@ -355,8 +355,12 @@ export class ProductionInboundService {
         }
         return;
       }
-      // 阶段3：SKU 解析收口到 SkuAvailabilityService（品种+组织适用范围，fail-closed）。
-      // 鸡群品种 → 变体 → 公司适用范围 → 唯一 SKU；缺少品种上下文直接拒绝，不猜全局 SKU。
+      // Commercial source profiles preserve Mengsai STANDARD eggs and explicitly
+      // map Dongpeng houses to RED/PINK, without inventing biological breed data.
+      const sourceProfile = await this.skuAvailability.resolveSourceProfile({
+        companyCode, farmCode, siteCode, houseCode: dto.houseCode || '', eggDate: dto.eggDate,
+      }, mgr);
+      // Missing source policy or company assignment never falls back to a global SKU.
       // 两段式：先解析全部档位（任一失败整单拒绝，不产生任何批次），再统一写库存。
       const resolved = new Map<string, SkuResolveResult>();
       for (const item of effectiveItems) {
@@ -366,6 +370,7 @@ export class ProductionInboundService {
           siteCode,
           houseCode: dto.houseCode,
           eggDate: dto.eggDate,
+          sourceProfileCode: sourceProfile.profileCode,
           gradeCode: item.grade,
           specCode: item.spec,
           usage: 'stock',
@@ -373,7 +378,7 @@ export class ProductionInboundService {
         resolved.set(`${item.grade}\u0000${item.spec ?? ''}`, sku);
       }
 
-      for (const sku of resolved.values()) await SkuPolicy.requireUsable(mgr, sku.skuCode, 'stock');
+      for (const sku of resolved.values()) await SkuPolicy.requireUsable(mgr, sku.skuCode, 'stock', companyCode);
       await this.assertDailyReportCapacity(mgr, dto, effectiveItems, collectionRef);
       for (const item of effectiveItems) {
         const { qty, grade } = item;
@@ -383,7 +388,9 @@ export class ProductionInboundService {
           companyCode, warehouseCode, locationCode, eggDate: dto.eggDate,
           qualityGrade: grade, skuCode: sku.skuCode, gradeCodeStd: sku.gradeCode,
           specCode: sku.specCode, packagingSpec: sku.specCode, productCode, qty,
-          varietyCode: sku.varietyCode ?? undefined,
+          varietyCode: sku.varietyCode,
+          sourceProfileCode: sourceProfile.profileCode, houseCode: sourceProfile.houseCode,
+          farmCode: sourceProfile.farmCode, siteCode: sourceProfile.siteCode,
           sourceNo, sourceType: 'TEMP_PRODUCTION', ledgerChangeType: 'TEMP_PRODUCTION_INBOUND',
           collectionBatchRef: collectionRef ?? undefined,
         };

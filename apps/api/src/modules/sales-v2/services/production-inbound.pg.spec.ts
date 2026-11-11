@@ -4,6 +4,7 @@ import { ProductionInboundService } from './production-inbound.service';
 import { EggInventoryService } from './egg-inventory.service';
 import { OrgOwnershipService } from '../../org/services/org-ownership.service';
 import { SkuAvailabilityService } from '../../product-master/services/sku-availability.service';
+import { EggSourceProfiles1794400001000 } from '../../../database/migrations/1794400001000-EggSourceProfiles';
 
 // Explicit disposable fixture only; never load application environment or migrations.
 const fixtureUrl = process.env.ISSUE381_PG_URL;
@@ -72,6 +73,10 @@ fixture('Issue 381 real PostgreSQL inbound transactions and retries', () => {
       TRUNCATE inv_ledger, inv_batches, product_skus, product_grades, mst_products, packaging_specs, sys_organizations,
         brd_farms, brd_houses, brd_flocks, md_variety_breeds, md_sku_org_scope, brd_daily_logs, wms_warehouses, wms_locations RESTART IDENTITY;
     `);
+    const profileRunner = db.createQueryRunner();
+    try { await new EggSourceProfiles1794400001000().up(profileRunner); }
+    finally { await profileRunner.release(); }
+    await db.query('TRUNCATE md_egg_source_profiles');
     await db.query("INSERT INTO mst_products VALUES ('PRD-EGG-RAW','ACTIVE','枚','枚')");
     await db.query("INSERT INTO packaging_specs VALUES ('LOOSE','ACTIVE','枚','枚',1)");
     for (const [i, grade] of grades.entries()) {
@@ -89,6 +94,8 @@ fixture('Issue 381 real PostgreSQL inbound transactions and retries', () => {
     await db.query("INSERT INTO md_variety_breeds VALUES ('EGG_RED','TEST_RED','ACTIVE')");
     for (const company of ['A', 'B']) {
       await db.query("INSERT INTO brd_flocks(flock_no,house_code,farm_code,breed_code,status,placement_date,start_date) VALUES ($1,$2,$3,'TEST_RED','LAYING','2026-01-01','2026-01-01')", [`FLOCK-${company}`, `HOUSE-${company}`, `FARM-${company}`]);
+      await db.query(`INSERT INTO md_egg_source_profiles(profile_code,company_code,farm_code,site_code,house_code,product_mode,variety_code,effective_date)
+        VALUES ($1,$2,$3,$4,$5,'VARIANT','EGG_RED','2026-01-01')`, [`PROFILE-${company}`, `COMP-${company}`, `FARM-${company}`, `SITE-${company}`, `HOUSE-${company}`]);
       await db.query("INSERT INTO sys_organizations VALUES ($1,$1,'COMPANY','ACTIVE')", [`COMP-${company}`]);
       await db.query("INSERT INTO brd_farms VALUES ($1,$2,$3,'ACTIVE')", [`FARM-${company}`, `COMP-${company}`, `SITE-${company}`]);
       await db.query("INSERT INTO brd_houses VALUES ($1,$2,'ACTIVE')", [`HOUSE-${company}`, `FARM-${company}`]);
@@ -96,6 +103,11 @@ fixture('Issue 381 real PostgreSQL inbound transactions and retries', () => {
       await db.query("INSERT INTO wms_locations VALUES ($1,$2,'ACTIVE')", [`LOC-${company}`, `WH-${company}`]);
     }
     await db.query("INSERT INTO brd_houses VALUES ('HOUSE-A2','FARM-A','ACTIVE')");
+    await db.query("INSERT INTO mst_products(product_code,status,unit,unit_zh,variety_code) VALUES ('PRD-STD','ACTIVE','枚','枚',NULL)");
+    await db.query("INSERT INTO product_skus(sku_code,product_code,grade_code,spec_code,status,variety_code) VALUES ('SKU-STD','PRD-STD','GRADE_1','LOOSE','ACTIVE',NULL)");
+    await db.query("INSERT INTO md_sku_org_scope(sku_code,scope_type,scope_code,sale_enabled,stock_enabled) VALUES ('SKU-STD','COMPANY','COMP-A',false,true)");
+    await db.query(`INSERT INTO md_egg_source_profiles(profile_code,company_code,farm_code,site_code,house_code,product_mode,variety_code,effective_date)
+      VALUES ('PROFILE-A2','COMP-A','FARM-A','SITE-A','HOUSE-A2','STANDARD',NULL,'2026-01-01')`);
     await db.query("INSERT INTO wms_warehouses VALUES ('WH-A2','COMP-A','SITE-A','ACTIVE','EGG_FARM','OPERATIONAL')");
     await db.query("INSERT INTO wms_locations VALUES ('LOC-A2','WH-A2','ACTIVE'), ('LOC-A-OTHER','WH-A','ACTIVE')");
   });
@@ -122,20 +134,42 @@ fixture('Issue 381 real PostgreSQL inbound transactions and retries', () => {
     }
   });
 
-  it('does not drop an unmapped flock and guess a variety from the remaining flock', async () => {
-    await db.query("INSERT INTO brd_flocks(flock_no,house_code,farm_code,status,placement_date,start_date) VALUES ('UNKNOWN','HOUSE-A','FARM-A','PEAK','2026-01-01','2026-01-01')");
+  it('requires an approved house source profile and does not fall back to biological breed mappings', async () => {
+    await db.query("UPDATE md_egg_source_profiles SET status='INACTIVE' WHERE profile_code='PROFILE-A'");
     try {
-      await expect(service.recordProductionInbound(payload())).rejects.toThrow('不确定的鸡群');
+      await expect(service.recordProductionInbound(payload())).rejects.toThrow('缺少有效来源档案');
       expect(await counts()).toEqual({ batches: 0, events: 0 });
-    } finally { await db.query("DELETE FROM brd_flocks WHERE flock_no='UNKNOWN'"); }
+    } finally { await db.query("UPDATE md_egg_source_profiles SET status='ACTIVE' WHERE profile_code='PROFILE-A'"); }
   });
 
-  it('does not use a replacement flock for an earlier egg business date', async () => {
-    await db.query("UPDATE brd_flocks SET placement_date='2026-10-18',start_date='2026-10-18' WHERE flock_no='FLOCK-A'");
+  it('does not apply a newly effective commercial house profile to an earlier egg date', async () => {
+    await db.query("UPDATE md_egg_source_profiles SET effective_date='2026-10-18' WHERE profile_code='PROFILE-A'");
     try {
-      await expect(service.recordProductionInbound(payload())).rejects.toThrow('没有可确认');
+      await expect(service.recordProductionInbound(payload())).rejects.toThrow('缺少有效来源档案');
       expect(await counts()).toEqual({ batches: 0, events: 0 });
-    } finally { await db.query("UPDATE brd_flocks SET placement_date='2026-01-01',start_date='2026-01-01' WHERE flock_no='FLOCK-A'"); }
+    } finally { await db.query("UPDATE md_egg_source_profiles SET effective_date='2026-01-01' WHERE profile_code='PROFILE-A'"); }
+  });
+
+  it('uses the explicit commercial source without inventing a genetic breed for unknown metadata', async () => {
+    await db.query("UPDATE brd_flocks SET breed_code=NULL WHERE flock_no='FLOCK-A'");
+    try {
+      const result = await service.recordProductionInbound(payload());
+      expect(result.batches).toEqual([expect.objectContaining({ varietyCode: 'EGG_RED', qty: 33 })]);
+      const [batch] = await db.query('SELECT source_profile_code,source_profile_snapshot FROM inv_batches');
+      expect(batch.source_profile_code).toBe('PROFILE-A');
+      expect(batch.source_profile_snapshot).toEqual([expect.objectContaining({ profileCode: 'PROFILE-A', houseCode: 'HOUSE-A', productMode: 'VARIANT', varietyCode: 'EGG_RED' })]);
+      expect((await db.query("SELECT breed_code FROM brd_flocks WHERE flock_no='FLOCK-A'"))[0].breed_code).toBeNull();
+    } finally { await db.query("UPDATE brd_flocks SET breed_code='TEST_RED' WHERE flock_no='FLOCK-A'"); }
+  });
+
+  it('preserves ordinary STANDARD egg identity without inventing a shell-color variety', async () => {
+    const request = { ...payload(), houseCode: 'HOUSE-A2' };
+    const first = await service.recordProductionInbound(request);
+    expect(first.batches).toEqual([expect.objectContaining({ productCode: 'PRD-STD', varietyCode: null, qty: 33 })]);
+    const [batch] = await db.query('SELECT sku_code,variety_code,source_profile_code,source_profile_snapshot FROM inv_batches');
+    expect(batch).toMatchObject({ sku_code: 'SKU-STD', variety_code: null, source_profile_code: 'PROFILE-A2',
+      source_profile_snapshot: [expect.objectContaining({ productMode: 'STANDARD', varietyCode: null, houseCode: 'HOUSE-A2' })] });
+    expect((await service.recordProductionInbound(request)).batches).toEqual(first.batches);
   });
 
   it('replays original batch identities and quantities for two shifts sharing a grade', async () => {
@@ -307,7 +341,8 @@ fixture('Issue 381 real PostgreSQL inbound transactions and retries', () => {
     scope.isGlobal = true;
     const core = new EggInventoryService(db, cls as never);
     const direct = { companyCode: 'COMP-A', warehouseCode: 'WH-A', locationCode: 'LOC-A',
-      eggDate: '2026-10-17', productCode: 'PRD-EGG-RAW', skuCode: 'SKU-GRADE_1', varietyCode: 'EGG_RED', qualityGrade: 'GRADE_1', qty: 3 };
+      eggDate: '2026-10-17', productCode: 'PRD-EGG-RAW', skuCode: 'SKU-GRADE_1', varietyCode: 'EGG_RED',
+      sourceProfileCode: 'PROFILE-A', houseCode: 'HOUSE-A', farmCode: 'FARM-A', siteCode: 'SITE-A', qualityGrade: 'GRADE_1', qty: 3 };
     const results = await Promise.all([
       service.recordProductionInbound({ ...payload(), idempotencyKey: 'DAILY-2026-10-17-HOUSE-A-SHARED' }),
       service.recordProductionInbound({ ...payload(), houseCode: 'HOUSE-B', warehouseCode: 'WH-B', locationCode: 'LOC-B', idempotencyKey: 'DAILY-2026-10-17-HOUSE-B-SHARED' }),
@@ -323,8 +358,10 @@ fixture('Issue 381 real PostgreSQL inbound transactions and retries', () => {
   it('rolls back a direct caller batch when its ledger write fails', async () => {
     await db.query('ALTER TABLE inv_ledger ADD CONSTRAINT fixture_reject_second_item CHECK (qty_change <> 22)');
     const core = new EggInventoryService(db, cls as never);
-    await expect(core.createProductionBatch({ companyCode: 'COMP-A', eggDate: '2026-10-17',
-      productCode: 'PRD-EGG-RAW', skuCode: 'SKU-GRADE_1', varietyCode: 'EGG_RED', qualityGrade: 'GRADE_1', qty: 22 })).rejects.toThrow('fixture_reject_second_item');
+    await expect(core.createProductionBatch({ companyCode: 'COMP-A', eggDate: '2026-10-17', warehouseCode: 'WH-A', locationCode: 'LOC-A',
+      productCode: 'PRD-EGG-RAW', skuCode: 'SKU-GRADE_1', varietyCode: 'EGG_RED',
+      sourceProfileCode: 'PROFILE-A', houseCode: 'HOUSE-A', farmCode: 'FARM-A', siteCode: 'SITE-A',
+      qualityGrade: 'GRADE_1', qty: 22 })).rejects.toThrow('fixture_reject_second_item');
     expect(await counts()).toEqual({ batches: 0, events: 0 });
   });
 

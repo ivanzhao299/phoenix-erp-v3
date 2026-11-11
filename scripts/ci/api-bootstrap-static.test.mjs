@@ -70,6 +70,32 @@ test('legacy regression schema fixture refuses production or remote context and 
  assert(!fs.readFileSync('apps/api/src/app.module.ts','utf8').includes('schema-fixture'));
 });
 
+function assertFlockFixtureMigrationContract(sql) {
+ const definition=sql.replace(/--[^\n]*/g,'').match(/CREATE TABLE IF NOT EXISTS brd_flocks\s*\(([\s\S]*?)\n\);/i)?.[1];
+ assert(definition,'canonical fixture must create brd_flocks');
+ const migrations=[
+  'apps/api/migrations/20260606_brd_houses_site_mapping.sql',
+  'apps/api/src/database/migrations/1794400000000-SkuVarietyOrgScope.ts',
+ ];
+ const guardedColumns=new Set(migrations.flatMap(file=>[...fs.readFileSync(file,'utf8').matchAll(/ALTER TABLE\s+"?brd_flocks"?\s+ADD COLUMN IF NOT EXISTS\s+"?(\w+)"?\s+varchar\(64\)/gi)].map(match=>match[1])));
+ assert.deepEqual([...guardedColumns].sort(),['breed_code','company_code','project_code','site_code']);
+ for(const column of guardedColumns) assert.match(definition,new RegExp(`^\\s*${column}\\s+VARCHAR\\(64\\)\\s*,?\\s*$`,'im'),`post-migration fixture missing nullable ${column}`);
+}
+
+test('post-migration flock fixture includes the final guarded provenance and organization columns',()=>{
+ const sql=fs.readFileSync('scripts/ci/api-bootstrap-schema-fixture.sql','utf8');
+ assertFlockFixtureMigrationContract(sql);
+ const bootstrap=fs.readFileSync('scripts/test-db-bootstrap.sh','utf8');
+ assert(bootstrap.indexOf('/db-migrate.sh')<bootstrap.indexOf('/ci/api-bootstrap-schema-fixture.sh'),'test reproduces migrations-before-fixture order');
+ // Each omission formerly survived the guarded migration chain and reached a
+ // runtime INSERT/clone as PostgreSQL 42703. Prove the contract rejects it.
+ for(const column of ['breed_code','company_code','project_code','site_code']) {
+  const mutation=sql.replace(new RegExp(`^  ${column} VARCHAR\\(64\\),\\n`,'gm'),'');
+  assert.notEqual(mutation,sql,column);
+  assert.throws(()=>assertFlockFixtureMigrationContract(mutation),new RegExp(`missing nullable ${column}`));
+ }
+});
+
 function admissionStaticFixture() {
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'bootstrap-admission-static-'));
  const write=(file,text)=>{fs.mkdirSync(path.dirname(path.join(dir,file)),{recursive:true});fs.writeFileSync(path.join(dir,file),text);};

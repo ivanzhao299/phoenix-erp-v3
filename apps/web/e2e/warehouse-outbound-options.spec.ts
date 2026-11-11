@@ -21,11 +21,13 @@ for (const identity of ['admin', 'inout-only', 'issue-only', 'no-create']) {
     const create = page.getByRole('button', { name: '新建出库/领用单', exact: true });
     if (identity === 'no-create') { await expect(create).toHaveCount(0); return; }
     await create.click();
-    const field = (label: string) => page.locator('form label').filter({ hasText: label }).locator('..');
-    const type = field('出库类型').locator('select');
-    const dest = field('去向类型').locator('select');
+    // BatchDocumentEditor has wrapping labels under a div, not the legacy form.
+    const type = page.locator('label').filter({ hasText: '出库类型' }).locator('select');
+    const dest = page.locator('label').filter({ hasText: '去向类型' }).locator('select');
     const expected = identity === 'admin' ? [...STANDALONE_OUTBOUND_TYPES] : identity === 'inout-only' ? ['SALE', 'SCRAP', 'RETURN'] : [...ISSUE_OUTBOUND_TYPES];
     await expect.poll(async () => type.locator('option').evaluateAll(options => options.map(o => (o as HTMLOptionElement).value))).toEqual(expected);
+    await expect(type).toHaveValue(expected[0]);
+    await expect(type.locator('option[value="TRANSFER"], option[value="STOCKTAKE_LOSS"], option[value="INACTIVE_TYPE"]')).toHaveCount(0);
     for (const value of expected) {
       await type.selectOption(value);
       await expect.poll(async () => dest.locator('option').evaluateAll(options => options.map(o => (o as HTMLOptionElement).value))).toEqual([...OUTBOUND_DESTINATIONS[value]]);
@@ -33,10 +35,10 @@ for (const identity of ['admin', 'inout-only', 'issue-only', 'no-create']) {
     }
     if (identity === 'admin' || identity === 'inout-only') {
       await type.selectOption('SCRAP');
-      await field('其他去向').locator('input').fill('stale recipient');
+      await page.getByLabel('去向', { exact: true }).fill('stale recipient');
       await type.selectOption('RETURN');
       await type.selectOption('SCRAP');
-      await expect(field('其他去向').locator('input')).toHaveValue('');
+      await expect(page.getByLabel('去向', { exact: true })).toHaveValue('');
     }
   });
 }

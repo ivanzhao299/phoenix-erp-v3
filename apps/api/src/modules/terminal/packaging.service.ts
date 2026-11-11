@@ -1,5 +1,5 @@
 import { ProductPolicy } from '../product-master/services/product-policy';
-import { Injectable } from '@nestjs/common';
+import { ConflictException, Injectable } from '@nestjs/common';
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
 import { randomBytes } from 'crypto';
@@ -17,6 +17,96 @@ export class PackagingService {
     // 生产链路收口 Phase 1：包装完成 → Sales V2 唯一可售库存入口
     private readonly pkgInv: PackagingInventoryIntegrationService,
   ) {}
+
+  /**
+   * Quarantine the old stock protocol, not historical reads. Never classify by
+   * request context, a global default, or pkg_work_shifts (a different namespace).
+   * An INACTIVE/expired profile still marks a company as configured.
+   */
+  private async assertLegacyStockWriteAllowed(records: any[], body: any = {}): Promise<void> {
+    const deny = (reason: string): never => {
+      throw new ConflictException(`旧包装库存接口已封闭：${reason}；请转当前包装作业中心办理`);
+    };
+    const code = (value: any): string | undefined => {
+      if (value == null || value === '') return undefined;
+      if (typeof value !== 'string' || !value.trim() || ['ALL', 'UNKNOWN', 'GLOBAL'].includes(value.trim().toUpperCase())) {
+        return deny('来源组织或鸡舍不明确');
+      }
+      return value.trim();
+    };
+    try {
+      if (!records.length) deny('缺少持久来源');
+      const companies = new Set<string>();
+      const houses = new Set<string>();
+      for (const record of records) {
+        const sources = [record];
+        if (record.shift_id != null) {
+          const shifts = await this.em.query('SELECT * FROM pkg_shifts WHERE id = $1', [record.shift_id]);
+          if (shifts.length !== 1) deny('原集蛋班次不存在或有歧义');
+          sources.push(shifts[0]);
+        }
+        if (record.batch_no) {
+          const batches = await this.em.query('SELECT * FROM inv_batches WHERE batch_no = $1', [record.batch_no]);
+          if (batches.length > 1) deny('来源批次号有歧义');
+          // Historical collection writes could have skipped a failed batch INSERT.
+          // A real persisted house/shift can still establish ownership below.
+          sources.push(...batches);
+        }
+        const sourceCompanies = new Set<string>();
+        const sourceHouses = new Set<string>();
+        for (const source of sources) {
+          const company = code(source.company_code);
+          if (company) sourceCompanies.add(company);
+          const house = code(source.house_code);
+          if (house) sourceHouses.add(house);
+          if (source.source_profile_snapshot != null) {
+            const snapshots = typeof source.source_profile_snapshot === 'string'
+              ? JSON.parse(source.source_profile_snapshot) : source.source_profile_snapshot;
+            if (!Array.isArray(snapshots) || !snapshots.length) deny('来源批次快照不明确');
+            for (const snapshot of snapshots) {
+              const snapshotHouse = code(snapshot?.houseCode);
+              if (!snapshotHouse) deny('来源批次缺少鸡舍快照');
+              sourceHouses.add(snapshotHouse!);
+            }
+          }
+        }
+        for (const house of sourceHouses) {
+          // Identity only: do not filter ACTIVE or reclassify frozen history.
+          // The authoritative company is the farm, never h.company_code.
+          const owners = await this.em.query(
+            `SELECT h.house_code, h.farm_code, f.company_code
+               FROM brd_houses h JOIN brd_farms f ON f.farm_code = h.farm_code
+              WHERE h.house_code = $1`, [house],
+          );
+          if (owners.length !== 1 || !code(owners[0].company_code)) deny('来源鸡舍缺少唯一公司归属');
+          sourceCompanies.add(code(owners[0].company_code)!);
+          houses.add(house);
+        }
+        if (sourceCompanies.size !== 1 || sourceHouses.size > 1) deny('来源公司/鸡舍缺失、冲突或混源');
+        sourceCompanies.forEach(company => companies.add(company));
+      }
+      if (companies.size !== 1 || houses.size > 1) deny('多个来源公司/鸡舍冲突或混源');
+      const company = [...companies][0];
+      for (const supplied of [body.company_code, body.companyCode, body.sourceContext?.companyCode, body.source_context?.company_code]) {
+        if (supplied != null && code(supplied) !== company) deny('请求公司与持久来源不一致');
+      }
+      for (const supplied of [body.house_code, body.houseCode, body.sourceContext?.houseCode]) {
+        if (supplied != null && (!houses.size || !houses.has(code(supplied)!))) deny('请求鸡舍与持久来源不一致');
+      }
+      const configured = await this.em.query(
+        `SELECT profile_code FROM md_egg_source_profiles WHERE company_code = $1`, [company],
+      );
+      if (configured.length) deny('来源公司已配置 source profile（含停用档案），禁止旧库存协议');
+    } catch (error: any) {
+      if (error instanceof ConflictException) throw error;
+      // Metadata/query failures must not silently opt an unknown company into legacy.
+      deny('无法验证持久来源及公司配置');
+    }
+  }
+
+  private isLegacyTaskCompleted(task: any): boolean {
+    return ['DONE', 'COMPLETED', 'GRADED'].includes(String(task.status || '').toUpperCase());
+  }
 
   // ─── 包装规格配置 ────────────────────────────────────────────────────────────
   async getPackSpecConfig() {
@@ -130,7 +220,9 @@ export class PackagingService {
     if (shift.status === 'DONE' || shift.status === 'COMPLETED') {
       return { code: 400, msg: '该班次已完成，请勿重复提交' };
     }
-    const houseCode = shift.house_code  || 'UNKNOWN';
+    // Outside the legacy catch: policy denial must remain a real HTTP 409.
+    await this.assertLegacyStockWriteAllowed([shift], body);
+    const houseCode = shift.house_code || 'UNKNOWN';
     // shift_date may be returned as a JS Date object by node-postgres — use toISOString() to get YYYY-MM-DD
     const shiftDate = shift.shift_date
       ? (shift.shift_date instanceof Date
@@ -326,6 +418,14 @@ export class PackagingService {
    *   ④ UPDATE pkg_shifts → PENDING
    */
   async reopenShift(id: number, body: any, userId: number) {
+    const shifts = await this.em.query('SELECT * FROM pkg_shifts WHERE id = $1', [id]);
+    if (!shifts[0]) return { code: 404, msg: '集蛋班次不存在' };
+    const sourceTasks = await this.em.query(
+      `SELECT * FROM pkg_tasks WHERE shift_id = $1::bigint
+        AND COALESCE(status, '') <> 'CANCELLED'
+        AND COALESCE(task_type, 'GRADING') = 'GRADING'`, [id],
+    );
+    await this.assertLegacyStockWriteAllowed([...shifts, ...sourceTasks], body);
     try {
       await this.em.transaction(async (mgr) => {
         // ① 找此班次关联的活跃 GRADING 任务
@@ -479,11 +579,14 @@ export class PackagingService {
 
     // 取原任务（拿原 batch_no + house_code 用于后续 inv_batches 关联）
     const tasks = await this.em.query(
-      `SELECT * FROM pkg_tasks WHERE task_no = $1 OR id::text = $1 LIMIT 1`,
+      `SELECT * FROM pkg_tasks WHERE task_no = $1 OR id::text = $1`,
       [taskId],
     );
     if (!tasks[0]) return { code: 404, msg: '分级任务不存在' };
+    if (tasks.length !== 1) throw new ConflictException('旧分级任务标识有歧义；请转当前包装作业中心办理');
     const task = tasks[0];
+    if (this.isLegacyTaskCompleted(task)) return { code: 200, msg: '分级任务已完成', data: task };
+    await this.assertLegacyStockWriteAllowed([task], body);
     const origBatchNo = task.batch_no || '';
     const houseCode   = task.house_code || 'UNKNOWN';
     const today       = new Date().toISOString().slice(0, 10);
@@ -632,6 +735,11 @@ export class PackagingService {
   }
 
   async packComplete(taskId: string, body: any, userId: number) {
+    const tasks = await this.em.query('SELECT * FROM pkg_tasks WHERE task_no = $1 OR id::text = $1', [taskId]);
+    if (!tasks.length) return { code: 404, msg: '包装任务不存在' };
+    if (tasks.length !== 1) throw new ConflictException('旧包装任务标识有歧义；请转当前包装作业中心办理');
+    if (this.isLegacyTaskCompleted(tasks[0])) return { code: 200, msg: '包装任务已完成', data: tasks[0] };
+    await this.assertLegacyStockWriteAllowed(tasks, body);
     try {
       await this.em.query(
         `UPDATE pkg_tasks SET
