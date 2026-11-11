@@ -61,6 +61,11 @@ fixture('Farm pending-ledger notifications on real PostgreSQL', () => {
         flock_no VARCHAR(64) PRIMARY KEY, house_code VARCHAR(64),
         current_qty NUMERIC, initial_qty NUMERIC, current_lay_rate NUMERIC
       );
+      -- The inbound spec may have created brd_flocks first with a narrower
+      -- variety-chain definition; align the columns it needs idempotently.
+      ALTER TABLE brd_flocks ADD COLUMN IF NOT EXISTS current_qty NUMERIC;
+      ALTER TABLE brd_flocks ADD COLUMN IF NOT EXISTS initial_qty NUMERIC;
+      ALTER TABLE brd_flocks ADD COLUMN IF NOT EXISTS current_lay_rate NUMERIC;
       -- The daily-report upsert targets (log_date, house_code, shift); the
       -- narrower inbound fixture table carries no such constraint.
       DO $$ BEGIN

@@ -42,6 +42,9 @@ fixture('Issue 381 real PostgreSQL inbound transactions and retries', () => {
       CREATE TABLE IF NOT EXISTS brd_farms (farm_code text PRIMARY KEY, company_code text, mapped_site_code text, status text);
       CREATE TABLE IF NOT EXISTS brd_houses (house_code text PRIMARY KEY, farm_code text, status text);
       CREATE TABLE IF NOT EXISTS brd_flocks (flock_no text PRIMARY KEY, house_code text, breed_code text, strain text, status text);
+      ALTER TABLE brd_flocks ADD COLUMN IF NOT EXISTS breed_code text;
+      ALTER TABLE brd_flocks ADD COLUMN IF NOT EXISTS strain text;
+      ALTER TABLE brd_flocks ADD COLUMN IF NOT EXISTS status text;
       CREATE TABLE IF NOT EXISTS md_variety_breeds (variety_code text, breed_code text, status text DEFAULT 'ACTIVE');
       CREATE TABLE IF NOT EXISTS md_sku_org_scope (sku_code text, scope_type text, scope_code text DEFAULT '', sale_enabled boolean DEFAULT true, stock_enabled boolean DEFAULT true, status text DEFAULT 'ACTIVE', effective_date date, expire_date date);
       CREATE TABLE IF NOT EXISTS brd_daily_logs (id serial PRIMARY KEY, log_date date, house_code text, eggs_by_grade jsonb);
