@@ -14,7 +14,10 @@ import {PackagingHistoryD1cEvidence1789353300496} from '../../database/migration
 
 (process.env.PACKAGING_HISTORY_PG==='1'?describe:describe.skip)('D1-C isolated full-schema PG18',()=>{
  let ds:DataSource,f:Awaited<ReturnType<typeof packingHistoryFixture>>,history:PackagingHistoryService,workflow:PackagingHandoverService,policy:PackagingWorkflowPolicy;
- beforeAll(async()=>{ds=new DataSource({type:'postgres',host:'127.0.0.1',port:55432,username:'postgres',database:'packaging_history_test',entities:[],logging:false});await ds.initialize();
+ beforeAll(async()=>{
+ const url=process.env.PACKAGING_HISTORY_TEST_DATABASE_URL,parsed=url?new URL(url):null;
+ if(process.env.NODE_ENV!=='test'||!parsed||!['127.0.0.1','localhost'].includes(parsed.hostname)||parsed.port!=='54329'||parsed.pathname!=='/packaging_history_test')throw Error('EXPLICIT_LOCAL_PG18_HISTORY_TEST_URL_REQUIRED');
+ ds=new DataSource({type:'postgres',url,database:'packaging_history_test',entities:[],logging:false});await ds.initialize();
  expect(Number((await ds.query('SHOW server_version_num'))[0].server_version_num)).toBeGreaterThanOrEqual(180000);
  expect((await ds.query('SELECT count(*)::int n FROM migrations'))[0].n).toBeGreaterThanOrEqual(82);});
  afterAll(async()=>{await ds?.destroy();});
@@ -188,7 +191,11 @@ import {PackagingHistoryD1cEvidence1789353300496} from '../../database/migration
    const stock=await ds.query('SELECT batch_no,qty::int FROM inv_batches WHERE batch_no=ANY($1::text[])',[[batch.batch_no,item.target_batch_no]]);expect(stock.reduce((n:any,b:any)=>n+b.qty,0)).toBe(Number(batch.qty));
    const ledger=await ds.query('SELECT qty_change::int,warehouse_code,company_code FROM inv_ledger WHERE ref_no=$1 ORDER BY qty_change',[transferNo]);expect(ledger).toHaveLength(2);expect(ledger.map((l:any)=>l.qty_change)).toEqual([-10,10]);expect(ledger.map((l:any)=>l.warehouse_code)).toEqual([f.warehouse,target]);expect(ledger.every((l:any)=>l.company_code===f.company)).toBe(true);
    const countBefore=await counts();expect(await workflow.command('CONFIRM',f.prefix,key,body,f.req)).toEqual(committed);expect(await counts()).toEqual(countBefore);
-   f.scope.allowedWarehouseCodes=f.scope.allowedWarehouseCodes.filter(w=>w!==target);const restricted=await workflow.detail(f.prefix,f.req);expect(restricted.handover.currentInventoryQuality).toBe('UNKNOWN');expect(JSON.stringify(restricted)).not.toContain(target);expect(JSON.stringify(restricted)).not.toContain(item.target_batch_no);
+   // Current all-evidence scope policy denies the entire record if any target warehouse is no longer authorized.
+    f.scope.allowedWarehouseCodes=f.scope.allowedWarehouseCodes.filter(w=>w!==target);
+    const restricted=await workflow.detail(f.prefix,f.req).then(()=>null,(error:any)=>error);
+    expect(restricted?.getResponse()).toEqual({message:'RECORD_NOT_ACCESSIBLE',error:'Not Found',statusCode:404});
+    expect(JSON.stringify(restricted.getResponse())).not.toContain(target);expect(JSON.stringify(restricted.getResponse())).not.toContain(item.target_batch_no);
  });
  it('typed JSON database checks reject null session purpose',async()=>{
    const op=randomUUID();await ds.query(`INSERT INTO pkg_packing_operations(id,actor_id,action,idempotency_key,packing_id,payload_hash,state) VALUES($1,$2,'SESSION',$3,$4,'TEST','PENDING')`,[op,f.actor,randomUUID(),f.packingId]);

@@ -155,15 +155,32 @@ describe('new transaction consumers', () => {
     const insert = f.query.mock.calls.find(([sql]) => sql.includes('INSERT INTO store_replenishment_request_lines'))!;
     expect(insert[1]![2]).toBe('商品'); expect(f.ds.transaction).toHaveBeenCalledTimes(1);
   });
-  it('keeps packaging ambiguity checks and date checks, and locks SKU before parent rows', async () => {
-    const f = fixture();
-    await expect(resolvePackagingIdentity(f.manager, { grade: 'G', specCode: 'S' })).resolves.toMatchObject({ skuCode: 'SKU-1', qtyPerUnit: 30 });
+  it('keeps packaging ambiguity checks and date checks with authoritative organization/date/variety context', async () => {
+    const sourceContext = { companyCode: 'C', farmCode: 'F', siteCode: 'SITE', eggDate: '2026-11-10', varietyCode: 'VAR', houseCodes: ['HOUSE'] };
+    const input = { grade: 'G', specCode: 'S', sourceContext };
+    const packagingFixture = (sku: Record<string, unknown> = {}, duplicate = false) => {
+      const f = fixture({ sku: { variety_code: 'VAR', product_variety_code: 'VAR', ...sku } });
+      const original = f.query.getMockImplementation()!;
+      f.query.mockImplementation(async (sql, values) => {
+        if (sql.includes('FROM sys_organizations')) return [{ org_code: 'C' }];
+        if (sql.includes('FROM brd_houses')) return [{ house_code: 'HOUSE', farm_code: 'F', company_code: 'C', site_code: 'SITE' }];
+        if (sql.includes('FROM brd_flocks')) return [{ flock_no: 'FLOCK', farm_code: 'F', breed_code: 'BREED', status: 'LAYING', placement_date: '2026-01-01' }];
+        if (sql.includes('FROM sys_dict')) return [{ dict_code: 'BREED' }];
+        if (sql.includes('FROM md_variety_breeds') || sql.includes('FROM md_product_varieties')) return [{ variety_code: 'VAR' }];
+        if (sql.includes('FROM md_sku_org_scope')) return [{ scope_type: 'COMPANY', scope_code: 'C', status: 'ACTIVE', sale_enabled: true, stock_enabled: true, today: '2026-11-10' }];
+        const rows = await original(sql, values);
+        return duplicate && sql.includes('FROM product_skus s JOIN') ? [...rows, { ...rows[0], sku_code: 'OTHER' }] : rows;
+      });
+      return f;
+    };
+    const f = packagingFixture();
+    await expect(resolvePackagingIdentity(f.manager, input)).resolves.toMatchObject({ skuCode: 'SKU-1', qtyPerUnit: 30, varietyCode: 'VAR' });
     const locks = f.query.mock.calls.filter(([sql]) => sql.includes('FOR SHARE'));
-    expect(locks[0][0]).toContain('FROM product_skus');
-    const future = fixture({ sku: { effective_date: '2026-11-11' } });
-    await expect(resolvePackagingIdentity(future.manager, { grade: 'G', specCode: 'S' })).rejects.toThrow();
-    const ambiguous = fixture(); const original = ambiguous.query.getMockImplementation()!;
-    ambiguous.query.mockImplementation(async (sql, values) => sql.includes('FROM product_skus') ? [{ ...current }, { ...current, sku_code: 'OTHER' }] : original(sql, values));
-    await expect(resolvePackagingIdentity(ambiguous.manager, { grade: 'G', specCode: 'S' })).rejects.toMatchObject({ response: { code: 'SKU_AMBIGUOUS' } });
+    const skuLock = locks.findIndex(([sql]) => sql.includes('FROM product_skus'));
+    expect(skuLock).toBeGreaterThanOrEqual(0);
+    expect(locks.findIndex(([sql]) => sql.includes('FROM mst_products'))).toBeGreaterThan(skuLock);
+    await expect(resolvePackagingIdentity(packagingFixture({ effective_date: '2026-11-11' }).manager, input)).rejects.toThrow('生效期');
+    await expect(resolvePackagingIdentity(packagingFixture({}, true).manager, input)).rejects.toThrow('多个可用 SKU');
+    await expect(resolvePackagingIdentity(f.manager, { grade: 'G', specCode: 'S' })).rejects.toMatchObject({ response: { code: 'SOURCE_MISSING' } });
   });
 });

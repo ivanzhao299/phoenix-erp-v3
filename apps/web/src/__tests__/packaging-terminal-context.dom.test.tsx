@@ -3,7 +3,7 @@ import React from 'react';
 import { createRoot, Root } from 'react-dom/client';
 import { act } from 'react-dom/test-utils';
 import { beforeEach, afterEach, expect, it, vi } from 'vitest';
-const mocks = vi.hoisted(() => ({ auth: { user: { id: '7' }, loading: false }, exact: vi.fn(), summary: vi.fn(), report: vi.fn(), active: vi.fn(), close: vi.fn(), t: (_key: string, text: string) => text }));
+const mocks = vi.hoisted(() => ({ auth: { user: { id: '7' }, loading: false }, exact: vi.fn(), summary: vi.fn(), report: vi.fn(), active: vi.fn(), ready: vi.fn(), close: vi.fn(), t: (_key: string, text: string) => text }));
 vi.mock('@/lib/packing-history-api',async original=>({...await original<object>(),packingHistoryRequest:mocks.report}));
 vi.mock('@/contexts/AuthContext', () => ({ useAuth: () => ({ ...mocks.auth, hasPermission: () => true, logout: vi.fn() }) }));
 vi.mock('@/contexts/LanguageContext', () => ({ useLanguage: () => ({ t: mocks.t, lang: 'zh', setAppLanguage: vi.fn() }) }));
@@ -11,7 +11,7 @@ vi.mock('next/navigation', () => ({ useSearchParams: () => new URLSearchParams()
 vi.mock('@/contexts/BrandContext', () => ({ useBrand: () => ({ brand: {} }) }));
 vi.mock('@/hooks/usePackagingDicts', async original => ({ ...await original<object>(), usePackagingDicts: () => ({dicts:{}}) }));
 vi.mock('@/hooks/useProductGrades', () => ({ useProductGrades: () => ({ grades: [{ grade_code:'GRADE_5', grade_name:'5号蛋' }] }) }));
-vi.mock('@/lib/packaging-api', async original => ({ ...await original<object>(), packagingApi: { getExactShift: mocks.exact, getShiftSummary:mocks.summary, getActiveGrading:mocks.active, closeShift:mocks.close, getDicts:vi.fn(async()=>({})), getSites:vi.fn(async()=>[]), getSupervisors:vi.fn(async()=>[]), getReadyCombinations:vi.fn(async()=>[]), getPendingGradingSourceBatches:vi.fn(async()=>[]), getTodaySourceBatches:vi.fn(async()=>[]), getTodayExceptions:vi.fn(async()=>[]) } }));
+vi.mock('@/lib/packaging-api', async original => ({ ...await original<object>(), packagingApi: { getExactShift: mocks.exact, getShiftSummary:mocks.summary, getActiveGrading:mocks.active, closeShift:mocks.close, getDicts:vi.fn(async()=>({})), getSites:vi.fn(async()=>[]), getSupervisors:vi.fn(async()=>[]), getReadyCombinations:mocks.ready, getPendingGradingSourceBatches:vi.fn(async()=>[]), getTodaySourceBatches:vi.fn(async()=>[]), getTodayExceptions:vi.fn(async()=>[]) } }));
 import Layout from '@/app/(terminal)/layout';
 import Page from '@/app/(terminal)/terminal/packaging/shift-close/page';
 import { TerminalContextProvider, useTerminalContext } from '@/hooks/useTerminalContext';
@@ -37,6 +37,7 @@ beforeEach(()=>{ localStorage.clear(); sessionStorage.clear(); vi.clearAllMocks(
   mocks.summary.mockImplementation(async (_d,id)=>({shift:raw(id),receivedQty:30,receivedWeight:1,shiftPackedBoxes:1,shiftPackedEggs:30,shiftWarehousedBoxes:0,shiftWarehousedPallets:0,openExceptionCount:0,closedExceptionCount:0}));
   mocks.report.mockImplementation(async path=>path.startsWith('history?')?{items:[],totalMatching:0,hasMore:false}:({gradingEggs:0,shiftId:new URLSearchParams(path.split('?')[1]).get('shiftId'),dateFrom:'2026-09-10',totalBoxes:1,totalEggs:30,committedBoxes:0}));
   mocks.active.mockImplementation(async id=>({shiftId:Number(id),productionDate:'2026-09-10',outputs:{},remaining:{},packed:{},gradingCodes:[]}));
+  mocks.ready.mockResolvedValue([]);
   Object.defineProperty(document,'fullscreenElement',{configurable:true,value:null});
   host=document.createElement('div');document.body.append(host);root=createRoot(host);
 });
@@ -104,6 +105,21 @@ const consumers: Record<string, () => Promise<{ default: React.ComponentType }>>
   'source-receive': () => import('@/app/(terminal)/terminal/packaging/source-receive/page'),
   'warehouse-handover': () => import('@/app/(terminal)/terminal/packaging/warehouse-handover/page'),
 };
+it('packing requests combinations only for the authoritative active grading source set',async()=>{
+  const Packing=(await consumers.packing()).default;
+  mocks.active.mockResolvedValue({shiftId:56,productionDate:'2026-09-10',outputs:{GRADE_5:30},remaining:{GRADE_5:30},packed:{},gradingCodes:['GR-A','GR-B']});
+  mocks.ready.mockResolvedValue([{grade:'GRADE_5',productCode:'PRODUCT',skuCode:'SKU',varietyCode:'VAR',specCode:'SPEC',specName:'30 eggs',qtyPerUnit:30}]);
+  save();await act(async()=>root.render(<Layout><Probe/><Packing/></Layout>));await fullscreen(true);
+  expect(mocks.ready).toHaveBeenCalledWith(56,['GR-A','GR-B']);
+  expect(host.textContent).not.toContain('没有可用包装组合');
+});
+it('packing explains missing provenance and does not request global combinations',async()=>{
+  const Packing=(await consumers.packing()).default;
+  save();await act(async()=>root.render(<Layout><Probe/><Packing/></Layout>));await fullscreen(true);
+  expect(mocks.ready).not.toHaveBeenCalled();
+  expect(host.textContent).toContain('本班次缺少分级来源，请先完成来源批次接收与分级');
+});
+
 it.each(Object.keys(consumers))('mounts context consumer %s only after hydration, then clears state on account change',async(path)=>{
   const Consumer = (await consumers[path]()).default;
   save();const check=deferred();mocks.exact.mockReturnValueOnce(check.promise);

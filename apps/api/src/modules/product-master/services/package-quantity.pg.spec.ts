@@ -28,17 +28,21 @@ fixture('package quantities: owned disposable PostgreSQL 18 service integration'
     const [owner] = await db.query('SELECT owner_key FROM quantity_fixture_owner');
     if (owner?.owner_key!==process.env.PACKAGE_QUANTITY_FIXTURE_OWNER) throw new Error('Fixture ownership mismatch');
     await db.query(`
-      CREATE TABLE mst_products (product_code text PRIMARY KEY,product_name text,unit text DEFAULT '个',unit_zh text,status text);
+      CREATE TABLE mst_products (product_code text PRIMARY KEY,product_name text,unit text DEFAULT '个',unit_zh text,status text,variety_code text);
       CREATE TABLE mst_materials (material_code text PRIMARY KEY,material_name text,material_type text,unit text,status text);
       CREATE TABLE packaging_specs (spec_code text PRIMARY KEY,qty_per_unit numeric(10,2),base_unit text,display_unit text,status text);
       CREATE TABLE product_grades (grade_code text PRIMARY KEY,sort_order int,status text,is_saleable boolean DEFAULT true,is_storable boolean DEFAULT true);
-      CREATE TABLE product_skus (sku_code text PRIMARY KEY,product_code text,grade_code text,spec_code text,status text,effective_date date,expire_date date);
+      CREATE TABLE product_skus (sku_code text PRIMARY KEY,product_code text,grade_code text,spec_code text,status text,effective_date date,expire_date date,variety_code text);
+      CREATE TABLE sys_organizations (org_code text PRIMARY KEY,company_code text,org_type text,status text);
+      CREATE TABLE md_product_varieties (variety_code text PRIMARY KEY,status text,effective_date date,expire_date date);
+      CREATE TABLE md_sku_org_scope (sku_code text,scope_type text,scope_code text,sale_enabled boolean,stock_enabled boolean,status text,
+        effective_date date,expire_date date,PRIMARY KEY(sku_code,scope_type,scope_code));
       CREATE TABLE wms_warehouses (warehouse_code text PRIMARY KEY,company_code text,domain text DEFAULT 'OPERATIONAL');
       CREATE TABLE wms_zones (zone_code text,warehouse_code text,zone_type text,status text);
       CREATE TABLE wms_locations (location_code text,warehouse_code text,zone_code text,status text);
       CREATE TABLE inv_batches (id serial PRIMARY KEY,batch_no text UNIQUE,product_code text,company_code text,warehouse_code text,location_code text,
         egg_date date,inbound_date date,expire_date date,quality_grade text,packaging_spec text,source_type text,source_no text,
-        qty numeric(14,3),qty_available numeric(14,3),status text,sku_code text,grade_code_std text,spec_code text,unit text,
+        qty numeric(14,3),qty_available numeric(14,3),status text,sku_code text,grade_code_std text,spec_code text,variety_code text,unit text,
         material_code text,item_type text,material_type text,legacy_source text,store_code text,packaging_batch_ref text,collection_batch_ref text,
         created_at timestamptz DEFAULT now(),updated_at timestamptz DEFAULT now());
       CREATE TABLE inv_ledger (id serial PRIMARY KEY,batch_no text,change_type text,qty_change numeric(14,3),operator text,store_code text,ref_no text,note text,
@@ -98,11 +102,15 @@ fixture('package quantities: owned disposable PostgreSQL 18 service integration'
     `);
     await migration.up(db.createQueryRunner());
     await migration.up(db.createQueryRunner());
-    await db.query(`INSERT INTO mst_products (product_code,product_name,unit,unit_zh,status) VALUES ('P','鸡蛋','个','枚','ACTIVE');
+    await db.query(`INSERT INTO mst_products (product_code,product_name,unit,unit_zh,status,variety_code) VALUES ('P','鸡蛋','个','枚','ACTIVE','EGG_RED');
+      INSERT INTO sys_organizations VALUES ('C','C','COMPANY','ACTIVE'),('OTHER','OTHER','COMPANY','ACTIVE');
+      INSERT INTO md_product_varieties VALUES ('EGG_RED','ACTIVE','2026-01-01',NULL);
       INSERT INTO mst_materials (material_code,material_name,material_type,unit,status) VALUES ('P','鸡蛋','PACKAGING','kg','ACTIVE');
       INSERT INTO packaging_specs VALUES ('T',30,'枚','托','ACTIVE'),('B',360,'枚','箱','ACTIVE');
       INSERT INTO product_grades VALUES ('G',1,'ACTIVE'),('H',2,'ACTIVE');
-      INSERT INTO product_skus (sku_code,product_code,grade_code,spec_code,status) VALUES ('TRAY','P','G','T','ACTIVE'),('BOX','P','G','B','ACTIVE');
+      INSERT INTO product_skus (sku_code,product_code,grade_code,spec_code,status,variety_code) VALUES ('TRAY','P','G','T','ACTIVE','EGG_RED'),('BOX','P','G','B','ACTIVE','EGG_RED');
+      INSERT INTO md_sku_org_scope (sku_code,scope_type,scope_code,sale_enabled,stock_enabled,status)
+        VALUES ('TRAY','COMPANY','C',true,true,'ACTIVE'),('BOX','COMPANY','C',true,true,'ACTIVE');
       INSERT INTO wms_warehouses VALUES ('W','C','OPERATIONAL');
       INSERT INTO wms_zones VALUES ('Q','W','QUARANTINE','ACTIVE');
       INSERT INTO wms_locations VALUES ('Q-L','W','Q','ACTIVE');`);
@@ -115,14 +123,30 @@ fixture('package quantities: owned disposable PostgreSQL 18 service integration'
   beforeEach(async () => {
     await db.query(`TRUNCATE inv_ledger,inv_batches,sal_order_items,sal_sales_orders,sal_order_item_batch_allocations,sal_order_item_batch_allocation_actions,
       store_sale_allocations,sal_return_items,sal_return_orders,sal_price_items,sal_price_books,prc2_order_items RESTART IDENTITY;
-      UPDATE product_skus SET status='ACTIVE'; UPDATE packaging_specs SET qty_per_unit=CASE WHEN spec_code='T' THEN 30 ELSE 360 END;`);
+      UPDATE product_skus SET status='ACTIVE'; UPDATE packaging_specs SET qty_per_unit=CASE WHEN spec_code='T' THEN 30 ELSE 360 END;
+      UPDATE md_product_varieties SET status='ACTIVE'; UPDATE md_sku_org_scope SET status='ACTIVE',stock_enabled=true;`);
   });
-  const batch = async (qty=360) => inv.createProductionBatch({ companyCode: 'C',warehouseCode: 'W',eggDate: '2026-11-10',skuCode: 'TRAY',productCode: 'P',qty,shelfDays: 3000 });
+  const batch = async (qty=360) => inv.createProductionBatch({ companyCode: 'C',warehouseCode: 'W',eggDate: '2026-11-10',skuCode: 'TRAY',productCode: 'P',varietyCode: 'EGG_RED',qty,shelfDays: 3000 });
   const order = async (q: QuantitySnapshot | null, qty=1) => {
     const [o]=await db.query(`INSERT INTO sal_sales_orders (order_no,company_code,currency_code,fulfillment_warehouse_code) VALUES ('SO','C','LAK','W') RETURNING id`);
     const [i]=await db.query(`INSERT INTO sal_order_items (sales_order_id,product_code,grade_code,sku_code,packaging_spec,qty,unit_price,actual_unit_price,amount,quantity_snapshot)
       VALUES ($1,'P','G','BOX','B',$2,3600,3600,3600,$3) RETURNING *`,[o.id,qty,q]); return { orderId: String(o.id),itemId: String(i.id) };
   };
+  it('rejects direct variant production without explicit variety or with an unauthorized company before writing stock', async () => {
+    await expect(inv.createProductionBatch({ companyCode:'C',warehouseCode:'W',eggDate:'2026-11-10',skuCode:'TRAY',productCode:'P',qty:30 }))
+      .rejects.toThrow('显式提供');
+    await expect(inv.createProductionBatch({ companyCode:'OTHER',warehouseCode:'W',eggDate:'2026-11-10',skuCode:'TRAY',productCode:'P',varietyCode:'EGG_RED',qty:30 }))
+      .rejects.toThrow('不适用于公司 OTHER');
+    expect((await db.query('SELECT count(*) AS n FROM inv_batches'))[0].n).toBe('0');
+    expect((await db.query('SELECT count(*) AS n FROM inv_ledger'))[0].n).toBe('0');
+  });
+  it('requires company stock scope and ACTIVE variety for the real package source batch', async () => {
+    await db.query("UPDATE md_sku_org_scope SET stock_enabled=false WHERE sku_code='TRAY'");
+    await expect(batch()).rejects.toThrow('用途被禁用');
+    await db.query("UPDATE md_sku_org_scope SET stock_enabled=true WHERE sku_code='TRAY'; UPDATE md_product_varieties SET status='DISABLED'");
+    await expect(batch()).rejects.toThrow('品种 EGG_RED');
+    expect((await db.query('SELECT count(*) AS n FROM inv_batches'))[0].n).toBe('0');
+  });
   it('1 box is served from tray source batches; source SKU may be stopped without contaminating the physical identity', async () => {
     const b=await batch(); const q=await snapshot(); const o=await order(q);
     await db.query("UPDATE product_skus SET status='FROZEN' WHERE sku_code='TRAY'");

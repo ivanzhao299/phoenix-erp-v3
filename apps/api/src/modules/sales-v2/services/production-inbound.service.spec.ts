@@ -7,19 +7,21 @@ import {
 } from './production-inbound.service';
 import { SkuAvailabilityService } from '../../product-master/services/sku-availability.service';
 
-/** 阶段3 mock：SkuAvailabilityService 走真实逻辑，DB 查询打桩。 */
-const makeSkuAvailability = (skuRows: any[], scopeRows: any[] = [{ scope_type: 'ALL', scope_code: '', sale_enabled: true, stock_enabled: true }]) => {
-  const db = {
-    query: jest.fn(async (sql: string) => {
-      if (sql.includes('FROM product_skus')) return skuRows.map(r => ({ ...r, status: 'ACTIVE' }));
-      if (sql.includes('md_sku_org_scope')) return scopeRows;
-      if (sql.includes('md_variety_breeds')) return [{ variety_code: 'EGG_RED' }];
-      if (sql.includes('brd_flocks')) return [{ breed_code: 'HY_LINE_BROWN' }];
-      return [];
-    }) as any,
-  };
-  return new SkuAvailabilityService(db as never);
-};
+/** Orchestration unit seam; the real policy is covered by its own tests and production-inbound.pg.spec.ts. */
+const makeSkuAvailability = (_skuRows: any[]) => ({
+  resolve: jest.fn(async (input: { companyCode: string; eggDate: string; gradeCode: string; specCode?: string; usage: string }, manager: { query: (sql: string, params: unknown[]) => Promise<any[]> }) => {
+    expect(input.companyCode).toBeTruthy();
+    expect(input.eggDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(input.usage).toBe('stock');
+    const rows = (await manager.query('SELECT * FROM product_skus', [input.gradeCode, input.specCode || 'LOOSE']))
+      .filter(row => row.grade_code === input.gradeCode && row.spec_code === (input.specCode || 'LOOSE'));
+    if (rows.length !== 1) throw new BadRequestException(`档位 ${input.gradeCode} 必须有唯一可用 SKU`);
+    const row = rows[0];
+    return { skuCode: row.sku_code, productCode: row.product_code, gradeCode: row.grade_code, specCode: row.spec_code,
+      varietyCode: row.variety_code || 'EGG_RED', scopeType: 'COMPANY', scopeCode: input.companyCode,
+      saleEnabled: true, stockEnabled: true };
+  }),
+} as unknown as SkuAvailabilityService);
 
 describe('daily report inventory consistency helpers', () => {
   it('normalizes JSONB grade quantities and ignores malformed values', () => {
@@ -226,7 +228,7 @@ describe('ProductionInboundService master-data resolution', () => {
     expect(transaction).toHaveBeenCalledTimes(1);
     expect(createProductionBatch).toHaveBeenCalledTimes(1);
 
-    existing.push(...first.batches.map(batch => ({ batch_no: batch.batchNo, quality_grade: batch.grade, qty: batch.qty, product_code: batch.productCode, sku_code: 'SKU-1', spec_code: 'LOOSE', egg_date: dto.eggDate, collection_batch_ref: 'HOUSE-HOUSE-A', warehouse_code: 'WH-A', location_code: 'LOC-A' })));
+    existing.push(...first.batches.map(batch => ({ batch_no: batch.batchNo, quality_grade: batch.grade, qty: batch.qty, product_code: batch.productCode, variety_code: batch.varietyCode, sku_code: 'SKU-1', spec_code: 'LOOSE', egg_date: dto.eggDate, collection_batch_ref: 'HOUSE-HOUSE-A', warehouse_code: 'WH-A', location_code: 'LOC-A' })));
     const second = await service.recordProductionInbound(dto);
     expect(second).toMatchObject({ totalInbound, idempotent: true });
     expect(second.batches).toEqual(first.batches);
@@ -287,7 +289,7 @@ describe('ProductionInboundService master-data resolution', () => {
     const first = await service.recordProductionInbound({ ...dto, idempotencyKey: 'DAILY-2026-08-25-HOUSE-A-aaaa' });
     expect(first).toMatchObject({ totalInbound: 5, idempotent: false });
 
-    existing.push(...first.batches.map(batch => ({ batch_no: batch.batchNo, quality_grade: batch.grade, qty: batch.qty, product_code: batch.productCode, sku_code: 'SKU-1', spec_code: 'LOOSE', egg_date: dto.eggDate, collection_batch_ref: 'HOUSE-HOUSE-A', warehouse_code: 'WH-A', location_code: 'LOC-A' })));
+    existing.push(...first.batches.map(batch => ({ batch_no: batch.batchNo, quality_grade: batch.grade, qty: batch.qty, product_code: batch.productCode, variety_code: batch.varietyCode, sku_code: 'SKU-1', spec_code: 'LOOSE', egg_date: dto.eggDate, collection_batch_ref: 'HOUSE-HOUSE-A', warehouse_code: 'WH-A', location_code: 'LOC-A' })));
     const second = await service.recordProductionInbound({ ...dto, idempotencyKey: 'DAILY-2026-08-25-HOUSE-A-bbbb' });
     expect(second).toMatchObject({ totalInbound: 5, idempotent: true });
     expect(second.batches).toEqual(first.batches);

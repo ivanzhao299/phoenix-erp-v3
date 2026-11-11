@@ -1,4 +1,4 @@
-import { resolvePackagingIdentity, PackagingIdentity } from '../../bff/packaging-readiness';
+import { resolvePackagingIdentity, resolvePackagingSourceContext, PackagingIdentity } from '../../bff/packaging-readiness';
 import { assertPackingCanEnterInventory, lockPacking } from '../../bff/packaging-protection';
 import { Injectable, Logger, NotFoundException, ConflictException } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
@@ -41,31 +41,12 @@ export class PackagingInventoryIntegrationService {
     try { return (this.cls.get('user') as any)?.username ?? 'packaging'; } catch { return 'packaging'; }
   }
 
-  /**
-   * 解析生产公司码（包装表无 company_code 列）：
-   *   1) 显式参数 → 2) 环境变量 PRODUCTION_COMPANY_CODE
-   *   → 3) 系统中唯一的销售客户公司码（单租户 Pilot 自动适配）
-   *   → 4) 'ALL' 兜底
-   */
-  private async resolveCompanyCode(explicit?: string, mgr?: EntityManager): Promise<string> {
-    if (explicit) return explicit;
-    if (process.env.PRODUCTION_COMPANY_CODE) return process.env.PRODUCTION_COMPANY_CODE;
-    try {
-      const rows = await (mgr ?? this.ds).query(
-        `SELECT company_code FROM sal_customers
-          WHERE company_code IS NOT NULL
-          GROUP BY company_code`,
-      );
-      if (rows.length === 1 && rows[0].company_code) return rows[0].company_code;
-    } catch { /* 表不可用时兜底 */ }
-    return 'ALL';
-  }
-
+  /** Ownership reads/replays retain retired masters; fresh writes apply ACTIVE gates in source readiness. */
   private async resolveTerminalCompanyCode(siteCode: string | null, explicit?: string, mgr?: EntityManager): Promise<string> {
     if (siteCode) {
       const rows = await (mgr ?? this.ds).query(
         `SELECT company_code FROM ${OrgOwnershipService.FARM_TABLE}
-          WHERE farm_code = $1 AND status = 'ACTIVE' AND company_code IS NOT NULL
+          WHERE farm_code = $1 AND company_code IS NOT NULL
           LIMIT 1`,
         [siteCode],
       );
@@ -123,34 +104,58 @@ export class PackagingInventoryIntegrationService {
     const terminalRows = await opts.manager.query(`SELECT code FROM pkg_packing_records WHERE code=$1`, [refNo]);
     if (terminalRows.length || refNo.startsWith('PKG-')) await assertPackingCanEnterInventory(opts.manager, refNo);
     const db = opts.manager;
-    const companyCode = await this.resolveCompanyCode(opts.companyCode, db);
-    // Resolve every output before the first inventory write, including historical JSON without identities.
-    const resolved = new Map<string, Awaited<ReturnType<typeof resolvePackagingIdentity>> & { qty: number }>();
+    const existing = await db.query(`SELECT b.*, b.egg_date::text AS egg_date_text, b.inbound_date::text AS inbound_date_text FROM inv_batches b WHERE b.packaging_batch_ref=$1 OR b.source_no=$1`, [refNo]);
+    const ledger = await db.query(`SELECT l.* FROM inv_ledger l WHERE l.change_type='PACKAGING_INBOUND'
+      AND (l.ref_no=$1 OR l.batch_no=ANY($2::text[]))`, [refNo, existing.map((b: any) => b.batch_no)]);
+    const historical = existing.length > 0 || ledger.length > 0;
+    const [task] = terminalRows.length ? [] : await db.query(`SELECT t.house_code, ws.site_id, ws.production_date::text AS egg_date FROM pkg_tasks t JOIN pkg_work_shifts ws ON ws.id=t.shift_id WHERE t.task_no=$1 OR t.id::text=$1 FOR SHARE OF t, ws`, [refNo]);
+    if (!terminalRows.length && (!task?.site_id || task.egg_date !== opts.eggDate)) throw new ConflictException('包装任务缺权威班次或生产日期不匹配');
+    const context = await resolvePackagingSourceContext(db, terminalRows.length
+      ? { packingCode: refNo, eggDate: opts.eggDate, historical }
+      : { houseCode: task?.house_code, eggDate: opts.eggDate, historical });
+    if (task && task.site_id !== context.farmCode) throw new ConflictException('包装任务来源鸡舍与班次场站不匹配');
+    const companyCode = context.companyCode;
+    if (opts.companyCode && opts.companyCode !== companyCode) throw new ConflictException('公司与包装权威来源不匹配');
+    if (opts.siteCode && opts.siteCode !== context.farmCode && opts.siteCode !== context.siteCode) throw new ConflictException('场站与包装权威来源不匹配');
+    // Replays compare persisted identity, never re-derive today's flock or require ACTIVE masters.
+    type PersistedIdentity = Omit<Awaited<ReturnType<typeof resolvePackagingIdentity>>, 'varietyCode'> & { varietyCode: string | null };
+    const resolved = new Map<string, PersistedIdentity & { qty: number }>();
     for (const item of items) {
       if (!Number.isSafeInteger(item.qty) || item.qty <= 0) throw new ConflictException('包装产出数量必须为正整数');
-      const identity = await resolvePackagingIdentity(db, item);
+      let identity: PersistedIdentity;
+      if (historical) {
+        const specs = item.specCode ? [{ spec_code: item.specCode }] : await db.query(`SELECT spec_code FROM packaging_specs WHERE spec_name=$1`, [item.specName]);
+        const matches = existing.filter((b: any) => b.grade_code_std === item.grade && specs.some((s: any) => s.spec_code === b.spec_code)
+          && (!item.skuCode || b.sku_code === item.skuCode) && (!item.productCode || b.product_code === item.productCode)
+          && (!item.varietyCode || b.variety_code === item.varietyCode));
+        if (matches.length !== 1) throw new ConflictException('既有库存身份缺失或与包装产出不匹配');
+        const b = matches[0];
+        identity = { grade: b.grade_code_std, specCode: b.spec_code, specName: item.specName || '', productCode: b.product_code,
+          skuCode: b.sku_code, varietyCode: b.variety_code ?? null, qtyPerUnit: item.boxes ? item.qty / item.boxes : item.qty };
+      } else {
+        identity = await resolvePackagingIdentity(db, { ...item, sourceContext: context });
+      }
       if (item.boxes !== undefined && item.qty !== item.boxes * identity.qtyPerUnit) throw new ConflictException('包装枚数与规格箱数不一致');
       const key = `${identity.skuCode}/${identity.specCode}`;
       const previous = resolved.get(key);
       resolved.set(key, { ...identity, qty: (previous?.qty || 0) + item.qty });
     }
     if (!resolved.size) throw new ConflictException('包装缺有效产出');
-    const existing = await db.query(`SELECT b.*, b.egg_date::text AS egg_date_text, b.inbound_date::text AS inbound_date_text FROM inv_batches b WHERE b.packaging_batch_ref=$1 OR b.source_no=$1`, [refNo]);
-    const ledger = await db.query(`SELECT l.* FROM inv_ledger l WHERE l.change_type='PACKAGING_INBOUND'
-      AND (l.ref_no=$1 OR l.batch_no=ANY($2::text[]))`, [refNo, existing.map((b: any) => b.batch_no)]);
     if (existing.length || ledger.length) {
       const expected = new Map(resolved);
       for (const b of existing) {
         const key = `${b.sku_code}/${b.spec_code}`;
         const item = expected.get(key);
         const entries = ledger.filter((l: any) => l.batch_no === b.batch_no);
+        const warehouseCode = opts.warehouseCode ?? b.warehouse_code;
+        const locationCode = opts.locationCode ?? b.location_code;
         if (!item || b.source_type !== 'PACKAGING' || b.packaging_batch_ref !== refNo
           || (b.egg_date_text !== opts.eggDate || b.inbound_date_text !== opts.eggDate)
-          || b.product_code !== item.productCode || b.grade_code_std !== item.grade || Number(b.qty) !== item.qty
-          || b.company_code !== companyCode || b.warehouse_code !== opts.warehouseCode || b.location_code !== opts.locationCode
+          || (b.variety_code ?? null) !== item.varietyCode || b.product_code !== item.productCode || b.grade_code_std !== item.grade || Number(b.qty) !== item.qty
+          || b.company_code !== companyCode || b.warehouse_code !== warehouseCode || b.location_code !== locationCode
           || entries.length !== 1 || entries.some((l: any) => l.ref_no !== refNo || Number(l.qty_change) !== item.qty
             || l.sku_code !== item.skuCode || l.company_code !== companyCode
-            || l.warehouse_code !== opts.warehouseCode || l.location_code !== opts.locationCode)) {
+            || l.warehouse_code !== warehouseCode || l.location_code !== locationCode)) {
           throw new ConflictException('既有库存或流水与预期逐SKU数量/归属不一致，禁止补余或重建');
         }
         expected.delete(key);
@@ -163,7 +168,7 @@ export class PackagingInventoryIntegrationService {
 
     // 包装完成遵守库存来源模式互斥：TEMP 模式由日产蛋入库负责库存，
     // 成品交接只落交接记录；PACKAGING 模式才由本链路生成可售库存。
-    const modeScope = { siteCode: opts?.siteCode ?? null, companyCode };
+    const modeScope = { siteCode: context.farmCode, companyCode };
     const mode = opts?.manager
       ? await this.modeSvc.resolveMode(modeScope, opts.manager)
       : await this.modeSvc.resolveMode(modeScope);
@@ -182,8 +187,9 @@ export class PackagingInventoryIntegrationService {
     const batches: Array<{ batchNo: string; grade: string; qty: number; productCode: string }> = [];
     const skippedNonSaleable: Array<{ grade: string; qty: number }> = [];
     for (const item of resolved.values()) {
+      if (!item.varietyCode) throw new ConflictException('新包装入库缺有效品种快照');
       batches.push(await this.createSaleableBatch(companyCode, eggDate, item.grade, item.qty, refNo,
-        collectionRef, item.specCode, item.skuCode, item.productCode, opts));
+        collectionRef, item.specCode, item.skuCode, item.productCode, item.varietyCode, opts));
     }
 
     const totalInbound = batches.reduce((s, b) => s + b.qty, 0);
@@ -238,14 +244,14 @@ export class PackagingInventoryIntegrationService {
       if (qty > 0) items = [{ grade: 'L', specName: task.pack_spec ?? null, qty }];
     }
 
-    const eggDate = task.created_at
-      ? new Date(task.created_at).toISOString().slice(0, 10)
-      : undefined;
+    const [shift] = task.shift_id ? await this.ds.query(`SELECT site_id, production_date::text AS egg_date FROM pkg_work_shifts WHERE id=$1`, [task.shift_id]) : [];
+    const eggDate = shift?.egg_date;
+    if (!eggDate || !task.house_code) throw new ConflictException('包装任务缺权威班次生产日期或来源鸡舍');
     const collectionRef = task.shift_id ? `SHIFT-${task.shift_id}` : (task.house_code ?? null);
 
     const r = await this.generateSaleableFromOutputs(taskNo, items, {
       companyCode:   opts?.companyCode,
-      siteCode:      task.house_code ?? null,
+      siteCode:      shift.site_id,
       eggDate,
       collectionRef,
     });
@@ -291,7 +297,7 @@ export class PackagingInventoryIntegrationService {
     }
 
     // R3：完整解析 batches_json（保留 spec），归一化等级码，按 (grade, spec) 形成 items
-    const batchesJson: Array<{ grade?: string; boxes?: number; eggs?: number; spec?: string; specId?: string; productCode?: string; skuCode?: string }> = (() => {
+    const batchesJson: Array<{ grade?: string; boxes?: number; eggs?: number; spec?: string; specId?: string; productCode?: string; skuCode?: string; varietyCode?: string }> = (() => {
       const v = rec.batches_json;
       if (!v) return [];
       try { return typeof v === 'string' ? JSON.parse(v) : v; } catch { return []; }
@@ -303,7 +309,7 @@ export class PackagingInventoryIntegrationService {
       const g = keyMap[b.grade] ?? b.grade;
       const binding=opts.outputBindings?.[ordinal];
       if(opts.outputBindings&&(!binding||binding.outputOrdinal!==ordinal||binding.qty!==Number(b.eggs)||binding.boxes!==b.boxes))throw new ConflictException('OUTPUT_BINDINGS_REQUIRED');
-      items.push({ ...(binding||{}), boxes: b.boxes, productCode: binding?.productCode??b.productCode, skuCode: binding?.skuCode??b.skuCode, grade: g, specCode: binding?.specCode??b.specId ?? null, specName: b.spec ?? null, qty: Number(b.eggs || 0) });
+      items.push({ ...(binding||{}), varietyCode: binding?.varietyCode ?? b.varietyCode, boxes: b.boxes, productCode: binding?.productCode??b.productCode, skuCode: binding?.skuCode??b.skuCode, grade: g, specCode: binding?.specCode??b.specId ?? null, specName: b.spec ?? null, qty: Number(b.eggs || 0) });
     }
 
     const eggDate = rec.production_date_text ?? (typeof rec.production_date === 'string' ? rec.production_date.slice(0,10) : undefined);
@@ -332,7 +338,7 @@ export class PackagingInventoryIntegrationService {
     opts?: { companyCode?: string },
   ): Promise<string> {
     const rec = await this.loadTerminalPackingContext(packingCode);
-    const companyCode = await this.resolveCompanyCode(opts?.companyCode);
+    const companyCode = await this.resolveTerminalCompanyCode(rec?.site_id ?? null, opts?.companyCode);
     return this.modeSvc.resolveMode({
       siteCode: rec?.site_id ?? null,
       companyCode,
@@ -422,6 +428,7 @@ export class PackagingInventoryIntegrationService {
     specCode: string | null,
     skuCode: string | null,
     productCode: string,
+    varietyCode: string,
     opts?: { warehouseCode?: string; locationCode?: string; manager?: EntityManager },
   ): Promise<{ batchNo: string; grade: string; qty: number; productCode: string }> {
     const batch = await this.eggInv.createProductionBatch({
@@ -434,6 +441,7 @@ export class PackagingInventoryIntegrationService {
       specCode:           specCode ?? undefined,
       packagingSpec:      specCode ?? undefined,
       productCode,
+      varietyCode,
       qty,
       sourceNo:           taskNo,
       sourceType:         'PACKAGING',

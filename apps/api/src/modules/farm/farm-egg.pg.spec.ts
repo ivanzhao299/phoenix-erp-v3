@@ -21,7 +21,8 @@ import { InventorySourceModeService } from '../sales-v2/services/inventory-sourc
 
 // Opt-in isolated fixture only: never read .env, DATABASE_URL or application DB_*.
 // docker run --name issue400-pg18 -e POSTGRES_USER=issue400 -e POSTGRES_PASSWORD=issue400-local-fixture -e POSTGRES_DB=issue400 -p 127.0.0.1:15450:5432 postgres:18-alpine
-const describePg = process.env.ISSUE400_PG_PORT ? describe : describe.skip;
+const fixtureUrl = process.env.ISSUE400_PG_URL;
+const describePg = process.env.ISSUE400_PG_PORT || fixtureUrl ? describe : describe.skip;
 const grades = ['GRADE_1', 'GRADE_2', 'GRADE_3', 'GRADE_4', 'GRADE_5', 'DIRTY', 'CRACKED', 'BROKEN', 'DAMAGED'];
 type ApiLedgerRow = Omit<EggLedgerEntry, 'qty_change'> & { qty_change: string };
 const names = ['1号蛋', '2号蛋', '3号蛋', '4号蛋', '5号蛋', '脏蛋', '裂缝蛋', '破损蛋', '损坏蛋'];
@@ -33,16 +34,39 @@ describePg('Issue 400 isolated PostgreSQL HTTP inventory chain', () => {
   const cls = { get: (key: string) => key === 'dataScope' ? scope : { username: 'issue400-fixture' } };
 
   beforeAll(async () => {
-    const port = Number(process.env.ISSUE400_PG_PORT);
-    if (port !== 15450) throw new Error('Issue 400 fixture accepts only its dedicated localhost port 15450');
-    ds = new DataSource({ type: 'postgres', host: '127.0.0.1', port, username: 'issue400',
-      password: 'issue400-local-fixture', database: 'issue400', entities: [], synchronize: false,
-      extra: { options: '-c search_path=issue400' } });
-    await ds.initialize();
+    if (fixtureUrl) {
+      // Explicit owned-test alternative only; never inherit application DB env.
+      const url = new URL(fixtureUrl);
+      if (url.hostname !== '127.0.0.1' || url.port !== '54329' || url.pathname !== '/issue400'
+          || !process.env.ISSUE400_FIXTURE_OWNER) throw new Error('Owned issue400 loopback fixture required');
+      ds = new DataSource({ type: 'postgres', url: fixtureUrl, entities: [], synchronize: false, migrationsRun: false,
+        installExtensions: false, extra: { options: '-c search_path=issue400' } });
+      await ds.initialize();
+      const [owner] = await ds.query('SELECT owner_key FROM public.issue400_fixture_owner');
+      if (owner?.owner_key !== process.env.ISSUE400_FIXTURE_OWNER) throw new Error('Issue 400 fixture ownership mismatch');
+    } else {
+      const port = Number(process.env.ISSUE400_PG_PORT);
+      if (port !== 15450) throw new Error('Issue 400 fixture accepts only its dedicated localhost port 15450');
+      ds = new DataSource({ type: 'postgres', host: '127.0.0.1', port, username: 'issue400',
+        password: 'issue400-local-fixture', database: 'issue400', entities: [], synchronize: false,
+        extra: { options: '-c search_path=issue400' } });
+      await ds.initialize();
+    }
     await ds.query('CREATE SCHEMA IF NOT EXISTS issue400');
     await ds.query(`
       CREATE TABLE IF NOT EXISTS product_grades (grade_code text PRIMARY KEY, grade_name text, grade_name_en text, grade_name_lo text, status text, sort_order int);
       CREATE TABLE IF NOT EXISTS product_skus (sku_code text PRIMARY KEY, product_code text, grade_code text, spec_code text, status text);
+      ALTER TABLE product_skus ADD COLUMN IF NOT EXISTS variety_code text, ADD COLUMN IF NOT EXISTS effective_date date, ADD COLUMN IF NOT EXISTS expire_date date;
+      ALTER TABLE product_grades ADD COLUMN IF NOT EXISTS is_saleable boolean DEFAULT true, ADD COLUMN IF NOT EXISTS is_storable boolean DEFAULT true;
+      CREATE TABLE IF NOT EXISTS mst_products (product_code text PRIMARY KEY,status text,unit text,unit_zh text,variety_code text);
+      CREATE TABLE IF NOT EXISTS packaging_specs (spec_code text PRIMARY KEY,status text,base_unit text,display_unit text,qty_per_unit numeric);
+      CREATE TABLE IF NOT EXISTS brd_flocks (flock_no text PRIMARY KEY,house_code text,farm_code text,breed_code text,status text,
+        placement_date date,start_date date,elimination_date date);
+      CREATE TABLE IF NOT EXISTS sys_dict (dict_type text,dict_code text,status text,PRIMARY KEY(dict_type,dict_code));
+      CREATE TABLE IF NOT EXISTS md_product_varieties (variety_code text PRIMARY KEY,status text,effective_date date,expire_date date);
+      CREATE TABLE IF NOT EXISTS md_variety_breeds (breed_code text,variety_code text,status text,PRIMARY KEY(breed_code,variety_code));
+      CREATE TABLE IF NOT EXISTS md_sku_org_scope (sku_code text,scope_type text,scope_code text,status text,sale_enabled boolean,stock_enabled boolean,
+        effective_date date,expire_date date,PRIMARY KEY(sku_code,scope_type,scope_code));
       CREATE TABLE IF NOT EXISTS sys_organizations (org_code text PRIMARY KEY, company_code text, org_type text, status text);
       CREATE TABLE IF NOT EXISTS brd_farms (farm_code text PRIMARY KEY, company_code text, mapped_site_code text, status text);
       CREATE TABLE IF NOT EXISTS brd_houses (house_code text PRIMARY KEY, house_name text, farm_code text, status text);
@@ -55,11 +79,24 @@ describePg('Issue 400 isolated PostgreSQL HTTP inventory chain', () => {
       CREATE TABLE IF NOT EXISTS inv_ledger (id serial PRIMARY KEY, batch_no text, change_type text, qty_change numeric, operator text, store_code text,
         ref_no text, note text, batch_expire_date date, quality_grade text, company_code text, sku_code text, log_date date, warehouse_code text, location_code text,
         house_code text, customer_no text, created_at timestamptz DEFAULT now());
-      TRUNCATE inv_ledger, inv_batches, product_skus, product_grades, sys_organizations, brd_farms, brd_houses, wms_warehouses, wms_locations RESTART IDENTITY;
+      ALTER TABLE inv_batches ADD COLUMN IF NOT EXISTS variety_code text, ADD COLUMN IF NOT EXISTS unit text,
+        ADD COLUMN IF NOT EXISTS base_quantity_version integer;
+      TRUNCATE inv_ledger, inv_batches, product_skus, product_grades, sys_organizations, brd_farms, brd_houses, wms_warehouses, wms_locations,
+        mst_products,packaging_specs,brd_flocks,sys_dict,md_product_varieties,md_variety_breeds,md_sku_org_scope RESTART IDENTITY;
+      INSERT INTO mst_products VALUES ('PRD-EGG-RAW','ACTIVE','枚','枚','EGG_RED'),('PRD-FEED-1','ACTIVE','kg','kg',NULL);
+      INSERT INTO packaging_specs VALUES ('LOOSE','ACTIVE','枚','枚',1);
+      INSERT INTO sys_dict VALUES ('BRD_BREED','HY_LINE_BROWN','ACTIVE');
+      INSERT INTO md_product_varieties VALUES ('EGG_RED','ACTIVE','2026-01-01',NULL);
+      INSERT INTO md_variety_breeds VALUES ('HY_LINE_BROWN','EGG_RED','ACTIVE');
     `);
     for (const [i, grade] of grades.entries()) {
       await ds.query('INSERT INTO product_grades VALUES ($1,$2,$3,$4,$5,$6)', [grade, names[i], `Grade ${grade}`, `ໄຂ່ ${grade}`, 'ACTIVE', i]);
-      await ds.query('INSERT INTO product_skus VALUES ($1,$2,$3,$4,$5)', [`SKU-${grade}`, 'PRD-EGG-RAW', grade, 'LOOSE', 'ACTIVE']);
+      await ds.query('INSERT INTO product_skus (sku_code,product_code,grade_code,spec_code,status,variety_code) VALUES ($1,$2,$3,$4,$5,$6)',
+        [`SKU-${grade}`, 'PRD-EGG-RAW', grade, 'LOOSE', 'ACTIVE', 'EGG_RED']);
+      for (const company of ['COMP-A', 'COMP-B']) {
+        await ds.query("INSERT INTO md_sku_org_scope (sku_code,scope_type,scope_code,status,sale_enabled,stock_enabled) VALUES ($1,'COMPANY',$2,'ACTIVE',true,true)",
+          [`SKU-${grade}`, company]);
+      }
     }
     for (const company of ['A', 'B']) {
       await ds.query("INSERT INTO sys_organizations VALUES ($1,$1,'COMPANY','ACTIVE')", [`COMP-${company}`]);
@@ -69,6 +106,10 @@ describePg('Issue 400 isolated PostgreSQL HTTP inventory chain', () => {
       await ds.query("INSERT INTO wms_locations VALUES ($1,$2,'ACTIVE')", [`LOC-${company}`, `WH-${company}`]);
     }
     await ds.query("INSERT INTO brd_houses VALUES ('HOUSE-A2','House A2','FARM-A','ACTIVE')");
+    await ds.query(`INSERT INTO brd_flocks (flock_no,house_code,farm_code,breed_code,status,placement_date,start_date)
+      VALUES ('FLOCK-A','HOUSE-A','FARM-A','HY_LINE_BROWN','LAYING','2026-01-01','2026-01-01'),
+        ('FLOCK-A2','HOUSE-A2','FARM-A','HY_LINE_BROWN','PEAK','2026-01-01','2026-01-01'),
+        ('FLOCK-B','HOUSE-B','FARM-B','HY_LINE_BROWN','DECLINING','2026-01-01','2026-01-01')`);
     const eggInv = new EggInventoryService(ds, cls as never);
     const modeSvc = { resolveMode: async () => 'TEMP_PRODUCTION_INBOUND' };
     const inbound = new ProductionInboundService(ds, cls as never, eggInv, modeSvc as never, new OrgOwnershipService(ds.manager), new SkuAvailabilityService(ds));
@@ -119,7 +160,8 @@ describePg('Issue 400 isolated PostgreSQL HTTP inventory chain', () => {
     await inbound('2026-10-12', 'HOUSE-A2').expect(201);
     await inbound('2026-10-12', 'HOUSE-B').expect(201);
     const eggInv = new EggInventoryService(ds, cls as never);
-    await eggInv.createProductionBatch({ companyCode: 'COMP-A', eggDate: '2026-10-12', productCode: 'PRD-EGG-RAW', qualityGrade: 'GRADE_1', qty: 7, sourceType: 'PACKAGING', ledgerChangeType: 'PACKAGING_INBOUND' });
+    await eggInv.createProductionBatch({ companyCode: 'COMP-A', eggDate: '2026-10-12', productCode: 'PRD-EGG-RAW', skuCode: 'SKU-GRADE_1', varietyCode: 'EGG_RED',
+      qualityGrade: 'GRADE_1', qty: 7, sourceType: 'PACKAGING', ledgerChangeType: 'PACKAGING_INBOUND' });
     scope = { isGlobal: false, allowedCompanyCodes: ['COMP-A'], allowedWarehouseCodes: ['WH-A'] };
     const result = await ledger('2026-10-12').expect(200);
     expect(result.body.data).toHaveLength(10);
@@ -155,6 +197,19 @@ describePg('Issue 400 isolated PostgreSQL HTTP inventory chain', () => {
     // Lookup joins may read historical inactive grades; only retired aliases yield to a standard batch code.
     await ds.query("UPDATE product_grades SET status='INACTIVE' WHERE grade_code='CRACKED'");
     expect((await ledger('2026-10-11').expect(200)).body.data.find((r: ApiLedgerRow) => r.grade === 'CRACKED')).toBeDefined();
+  });
+
+  it('fails real HTTP inbound for unknown flock breed or company stock veto without creating inventory', async () => {
+    const send = () => request(app.getHttpServer()).post('/api/v2/inventory/production-inbound')
+      .send({ eggDate: '2026-10-18', houseCode: 'HOUSE-A2', items: [{ grade: 'GRADE_1', qty: 1 }] });
+    await ds.query("UPDATE brd_flocks SET breed_code=NULL WHERE flock_no='FLOCK-A2'");
+    try { await send().expect(400); }
+    finally { await ds.query("UPDATE brd_flocks SET breed_code='HY_LINE_BROWN' WHERE flock_no='FLOCK-A2'"); }
+    await ds.query("UPDATE md_sku_org_scope SET stock_enabled=false WHERE sku_code='SKU-GRADE_1' AND scope_code='COMP-A'");
+    try { await send().expect(400); }
+    finally { await ds.query("UPDATE md_sku_org_scope SET stock_enabled=true WHERE sku_code='SKU-GRADE_1' AND scope_code='COMP-A'"); }
+    expect((await ds.query("SELECT count(*) AS n FROM inv_batches WHERE egg_date='2026-10-18'"))[0].n).toBe('0');
+    expect((await ds.query("SELECT count(*) AS n FROM inv_ledger WHERE log_date='2026-10-18'"))[0].n).toBe('0');
   });
 
   it('renders the actual ledger page from real HTTP/PG responses in all three languages', async () => {

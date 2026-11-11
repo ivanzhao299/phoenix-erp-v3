@@ -35,6 +35,8 @@ import { flockMasterLabels } from '@/lib/flock-display';
 import { formatMasterData } from '@/lib/business-display';
 import { useMasterNames } from '@/hooks/useMasterNames';
 import { SupplierSelector } from '@/components/shared-selectors/MasterDataSelectors';
+import { DictSelect } from '@/components/shared-selectors/DictSelect';
+import { useDictOptions } from '@/hooks/useDictOptions';
 // g200f 模板 token(2026-06-20)
 import { primaryActionButton, secondaryActionButton, toolbarFilterPill } from '@/components/design-system/cockpit-styles';
 const emptyForm = () => ({
@@ -123,16 +125,14 @@ export default function FlockPage() {
   const houses: HouseRow[] = useMemo(() => [...houseMasters.values()].map(row => ({
     ...row, farm_code: String(row.farm_code || ''), house_code: String(row.house_code), house_name: String(row.house_name || ''), status: String(row.status || 'ACTIVE')
   })), [houseMasters]);
-  const [breedOptions, setBreedOptions] = useState<Array<{ code: string; label: string }>>([]);
+  const { optionPairs: breedOptions, loading: breedsLoading } = useDictOptions('BRD_BREED');
+  const [historicalBreed, setHistoricalBreed] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const {
     fetchRecords,
     createRecord,
     updateRecord
   } = useCrud('brd_flocks');
-  const {
-    fetchRecords: fetchDict
-  } = useCrud('sys_dict');
   const load = useCallback(async () => {
     const data = await fetchRecords();
     setFlockFacts(data || []);
@@ -145,7 +145,7 @@ export default function FlockPage() {
       farmName: d.farmName,
       houseCode: d.houseCode,
       houseName: d.houseName,
-      breed: String(d.breed_code || d.breed_type || '—'),
+      breed: String(d.breed_code || d.strain || d.breed_type || '—'),
       inDate: d.start_date,
       ageWeeks: d.start_date ? Math.floor((Number(d.placement_age) || 0) / 7) + Math.floor((flockLoadedAt - new Date(d.start_date as string).getTime()) / (86400000 * 7)) : 0,
       quantity: d.current_qty,
@@ -156,33 +156,14 @@ export default function FlockPage() {
     })), [flockFacts, flockLoadedAt, farms, houses, lang]);
   useEffect(() => {
     load();
-    fetchDict({
-      limit: 1000
-    }).then(d => {
-      // 阶段0：品种下拉切 BRD_BREED 标准字典码（原 BRD_BREED_TYPE 存中文名，无法接 SKU 品种解析）
-      const opts = (d || []).filter((x: Record<string, unknown>) => x.dict_type === 'BRD_BREED' && x.status === 'ACTIVE').map((x: Record<string, unknown>) => ({
-        code: String(x.dict_code),
-        label: String(x.dict_label_zh || x.dict_code)
-      }));
-      if (opts.length) {
-        setBreedOptions(opts);
-        setForm(p => ({
-          ...p,
-          breed: p.breed && opts.some((o: { code: string }) => o.code === p.breed) ? p.breed : opts[0].code
-        }));
-      }
-    }).catch(() => {});
   }, [load]);
   const handleEdit = (row: FlockCard) => {
     const r = (row._raw || {}) as Record<string, string | number | null>;
     setEditId(row.id as string);
     const s = (v: string | number | null, fb = '') => v != null ? String(v) : fb;
-    // 优先标准 breed_code；存量行回退 strain/breed_type 中文名反查码，反查不到给空让用户重选
-    const breedCode = s(r.breed_code)
-      || (r.strain ? breedOptions.find(o => o.label === String(r.strain))?.code : '')
-      || (r.breed_type ? breedOptions.find(o => o.label === String(r.breed_type))?.code : '')
-      || breedOptions[0]?.code
-      || '';
+    // 不猜测历史中文名的标准码，也不默认首项；未知码由 DictSelect 原样展示。
+    const breedCode = s(r.breed_code);
+    setHistoricalBreed([s(r.breed_code), s(r.strain), s(r.breed_type)].filter(Boolean).join(' / '));
     setForm({
       farmCode: s(r.farm_code),
       house: s(r.house_code),
@@ -237,11 +218,16 @@ export default function FlockPage() {
     }
   };
   const handleSubmit = async () => {
+    // 只提交 BRD_BREED ACTIVE 码；缓存不是服务端授权，保存时后端仍须复验。
+    if (breedsLoading || !form.breed || !breedOptions.some(o => o.value === form.breed)) {
+      toast.warning(t('ui.请选择有效鸡群品种', '请显式选择有效的 ACTIVE 鸡群品种；历史未知值不能直接提交'));
+      return;
+    }
     if (form.eliminationDate && form.inDate && form.eliminationDate <= form.inDate) {
       toast.warning(t('ui.淘汰日期必须晚于进雏日期', '预计淘汰日期必须晚于进雏入栏日期'));
       return;
     }
-    const breedLabel = breedOptions.find(o => o.code === form.breed)?.label || form.breed;
+    const breedLabel = breedOptions.find(o => o.value === form.breed)?.label || form.breed;
     const payload = {
       farm_code: form.farmCode,
       farm_name: farms.find(f => f.farm_code === form.farmCode)?.farm_name || form.farmCode,
@@ -287,7 +273,7 @@ export default function FlockPage() {
       setSubmitting(false);
     }
   };
-  const breedLabelOf = useCallback((code: string) => breedOptions.find(o => o.code === code)?.label || code, [breedOptions]);
+  const breedLabelOf = useCallback((code: string) => breedOptions.find(o => o.value === code)?.label || code, [breedOptions]);
   const data = statusFilter === 'all' ? flocks : flocks.filter(f => f.status === statusFilter);
   const columns = [{
     key: 'batchNo',
@@ -385,7 +371,7 @@ export default function FlockPage() {
         subtitle={`${t('ui.当前共', '当前共')} ${flocks.length} ${t('ui.个鸡群批次', '个鸡群批次')}`}
         breadcrumb={[t('ui.养殖管理', '养殖管理'), t('ui.鸡群档案', '鸡群档案')]}
         actions={canEditFlock && (
-          <button type="button" style={primaryActionButton} onClick={() => { setEditId(null); setForm(emptyForm()); setShowDrawer(true); }}>
+          <button type="button" style={primaryActionButton} onClick={() => { setEditId(null); setForm(emptyForm()); setHistoricalBreed(''); setShowDrawer(true); }}>
             <Plus size={14} />{t('ui.新建鸡群档案', '新建鸡群档案')}
           </button>
         )}
@@ -440,12 +426,11 @@ export default function FlockPage() {
           <div className={s.fieldRow}>
             <div>
               <label className={s.lbl}>{t('ui.鸡群品种', '鸡群品种')}</label>
-              <select value={form.breed} onChange={e => setForm({
-              ...form,
-              breed: e.target.value
-            })} className={s.inp}>
-                {breedOptions.map(b => <option key={b.code} value={b.code}>{b.label}</option>)}
-              </select>
+              <DictSelect dictType="BRD_BREED" value={form.breed} onChange={breed => setForm(p => ({ ...p, breed }))}
+                allowEmpty placeholder={t('ui.选择鸡群品种', '请选择鸡群品种（必填）')} className={s.inp} disabled={submitting} />
+              {historicalBreed && <div className={u.muted}>
+                {t('ui.历史品种原值', '历史品种原值')}：{historicalBreed}
+              </div>}
             </div>
             <div><label className={s.lbl}>{t('ui.引种来源种禽企业', '引种来源种禽企业')}</label><SupplierSelector value={form.source} onChange={v => setForm({
               ...form,

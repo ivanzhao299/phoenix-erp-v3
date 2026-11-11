@@ -1,6 +1,6 @@
 import { PackagingHandoverService } from './packaging-handover.service';
 import { OrgOwnershipService } from '../org/services/org-ownership.service';
-import { listPackagingReadyCombinations, resolvePackagingIdentity } from './packaging-readiness';
+import { listPackagingReadyCombinations, resolvePackagingIdentity, resolvePackagingSourceContext } from './packaging-readiness';
 import { Controller, Get, Post, Put, Patch, Body, Param, Query, UseGuards, Req, BadRequestException, ConflictException, InternalServerErrorException, ForbiddenException, HttpException } from '@nestjs/common';
 import { createHash, randomUUID } from 'crypto';
 import { AuthGuard } from '@nestjs/passport';
@@ -1370,8 +1370,12 @@ export class PackagingTerminalBffController {
   }
 
   @Get('packing/ready-combinations')
-  async getReadyCombinations() {
-    return { code: 200, data: await listPackagingReadyCombinations(this.em) };
+  async getReadyCombinations(@Query('shiftId') shiftId?: string, @Query('gradingCodes') gradingCodes?: string, @Req() req?: any) {
+    if (!shiftId || !gradingCodes) return { code: 200, data: [] };
+    await this.exactShift(shiftId, req);
+    const sourceContext = await resolvePackagingSourceContext(this.em, { shiftId, gradingCodes: gradingCodes.split(',').filter(Boolean) });
+    for (const houseCode of sourceContext.houseCodes) await this.assertActiveHouseScope(houseCode);
+    return { code: 200, data: await listPackagingReadyCombinations(this.em, sourceContext) };
   }
 
   // ── Terminal 全局上下文 ────────────────────────────────────────────────────
@@ -2374,13 +2378,14 @@ export class PackagingTerminalBffController {
           throw new ConflictException('包装数量超过所选分级剩余量，请刷新后重试');
         }
       }
+      const sourceContext = await resolvePackagingSourceContext(manager, { shiftId, gradingCodes });
       const readyBatches = [];
       for (const batch of batches) {
         const ready = await resolvePackagingIdentity(manager, { grade: aliases[batch.grade] || batch.grade,
-          specCode: batch.specId, specName: batch.spec, productCode: batch.productCode, skuCode: batch.skuCode });
+          specCode: batch.specId, specName: batch.spec, productCode: batch.productCode, skuCode: batch.skuCode, sourceContext });
         if (batch.eggs !== batch.boxes * ready.qtyPerUnit) throw new ConflictException('包装枚数与规格箱数不一致');
         readyBatches.push({ ...batch, grade: ready.grade, specId: ready.specCode,
-          productCode: ready.productCode, skuCode: ready.skuCode });
+          productCode: ready.productCode, skuCode: ready.skuCode, varietyCode: ready.varietyCode });
       }
       const code = `PKG-${shift.date_text.replace(/-/g, '')}-${randomUUID().slice(0, 8).toUpperCase()}`;
       await manager.query(`INSERT INTO pkg_packing_records

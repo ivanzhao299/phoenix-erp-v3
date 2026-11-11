@@ -1,5 +1,6 @@
 import { ConflictException } from '@nestjs/common';
 import { EggInventoryService } from './egg-inventory.service';
+import { SkuAvailabilityService } from '../../product-master/services/sku-availability.service';
 
 describe('EggInventoryService conditional inventory updates', () => {
   it('fails closed when FIFO candidate no longer matches the guarded update', async () => {
@@ -274,7 +275,7 @@ describe('EggInventoryService createProductionBatch SQL contract', () => {
       .mockResolvedValueOnce([{ grade_code: 'GRADE_1' }])
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([{ max_suffix: null }])
-      .mockResolvedValueOnce([{ unit_zh: '枚', status: 'ACTIVE' }])
+      .mockResolvedValueOnce([{ unit_zh: '枚', status: 'ACTIVE', variety_code: null }])
       .mockResolvedValueOnce([{ batch_no: 'EGG-20260825-00001' }])
       .mockResolvedValueOnce([]);
     const cls = { get: jest.fn().mockReturnValue({ username: 'tester' }) };
@@ -290,8 +291,9 @@ describe('EggInventoryService createProductionBatch SQL contract', () => {
       gradeCodeStd: 'GRADE_1',
       productCode: 'PRD-EGG-GRADE_1',
       qty: 1,
-      sourceType: 'TEMP_PRODUCTION',
-      ledgerChangeType: 'TEMP_PRODUCTION_INBOUND',
+      // This column-alignment fixture is the explicitly variety-less legacy path.
+      sourceType: 'PRODUCTION',
+      ledgerChangeType: 'INBOUND',
     });
 
     expect(transaction).toHaveBeenCalledTimes(1);
@@ -303,5 +305,155 @@ describe('EggInventoryService createProductionBatch SQL contract', () => {
     expect(values).toHaveLength(columns.length);
     const placeholders = [...sql.matchAll(/\$(\d+)/g)].map(match => Number(match[1]));
     expect(Math.max(...placeholders)).toBe(params.length);
+  });
+});
+
+/** Exercise the real availability service; direct core calls cannot bypass scope/provenance. */
+describe('EggInventoryService direct production variety authorization', () => {
+  const request = {
+    companyCode: 'COMP-A', eggDate: '2026-11-01', productCode: 'PRD-R', qty: 2,
+    skuCode: 'SKU-R', varietyCode: 'EGG_RED', warehouseCode: 'WH-A', locationCode: 'LOC-A',
+    sourceType: 'TEMP_PRODUCTION',
+  };
+  const setup = () => {
+    const state = {
+      sku: { sku_code: 'SKU-R', product_code: 'PRD-R', grade_code: 'GRADE_1', spec_code: 'LOOSE',
+        variety_code: 'EGG_RED' as string | null | undefined, status: 'ACTIVE', effective_date: null, expire_date: null, today: '2026-11-11' },
+      product: { product_code: 'PRD-R', status: 'ACTIVE', unit: '枚', unit_zh: '枚', variety_code: 'EGG_RED' as string | null | undefined },
+      scopes: [{ scope_type: 'COMPANY', scope_code: 'COMP-A', sale_enabled: true, stock_enabled: true,
+        status: 'ACTIVE', effective_date: null, expire_date: null, today: '2026-11-11' }],
+      varieties: [{ variety_code: 'EGG_RED' }],
+    };
+    const query = jest.fn(async (sql: string, args: unknown[] = []) => {
+      if (sql.includes('FROM sys_organizations')) return [{ org_code: args[0] }];
+      if (sql.includes('FROM md_product_varieties')) return state.varieties;
+      if (sql.includes('FROM md_sku_org_scope')) return state.scopes;
+      if (sql.includes('sp.base_unit')) return [{ ...state.sku, unit: '枚', unit_zh: '枚', base_unit: '枚', display_unit: '枚', qty_per_unit: 1 }];
+      if (sql.includes('FROM product_skus s')) return [{ ...state.sku, product_variety_code: state.product.variety_code }];
+      if (sql.includes('FROM product_skus')) return [state.sku];
+      if (sql.includes('FROM mst_products')) return [state.product];
+      if (sql.includes('SELECT grade_code FROM product_grades')) return [{ grade_code: 'GRADE_1' }];
+      if (sql.includes('FROM product_grades')) return [{ status: 'ACTIVE', is_storable: true, is_saleable: true }];
+      if (sql.includes('FROM packaging_specs')) return [{ status: 'ACTIVE', base_unit: '枚' }];
+      if (sql.includes('pg_advisory_xact_lock')) return [];
+      if (sql.includes('AS max_suffix')) return [{ max_suffix: null }];
+      if (sql.includes('INSERT INTO inv_batches')) return [{ batch_no: args[0], variety_code: args[18] }];
+      if (sql.includes('INSERT INTO inv_ledger')) return [{ id: 1 }];
+      throw new Error(`Unexpected SQL: ${sql}`);
+    });
+    const mgr = { query };
+    const ds = { query: jest.fn(() => { throw new Error('must use caller manager'); }),
+      transaction: jest.fn(async (run: (tx: unknown) => unknown) => run(mgr)) };
+    const availability = new SkuAvailabilityService(ds as never);
+    const assertUsable = jest.spyOn(availability, 'assertUsable');
+    const service = new EggInventoryService(ds as never, { get: jest.fn() } as never, availability);
+    const expectNoWrites = () => expect(query.mock.calls.some(([sql]) => sql.includes('INSERT INTO inv_'))).toBe(false);
+    return { service, state, query, mgr, ds, assertUsable, expectNoWrites };
+  };
+
+  it('requires real company scope, uses caller transaction and snapshots the validated master variety', async () => {
+    const { service, mgr, query, ds, assertUsable } = setup();
+    await expect(service.createProductionBatch(request, mgr as never)).resolves.toMatchObject({ variety_code: 'EGG_RED' });
+    expect(assertUsable).toHaveBeenCalledWith('SKU-R', {
+      companyCode: 'COMP-A', eggDate: '2026-11-01', varietyCode: 'EGG_RED', usage: 'stock',
+    }, mgr);
+    expect(ds.query).not.toHaveBeenCalled();
+    expect(ds.transaction).not.toHaveBeenCalled();
+    const [sql, values] = query.mock.calls.find(([sql]) => sql.includes('INSERT INTO inv_batches'))!;
+    expect(sql).toContain('variety_code');
+    expect(values).toBeDefined();
+    expect(values![18]).toBe('EGG_RED');
+    expect(query.mock.calls.find(([sql]) => sql.includes('SELECT unit,unit_zh,status,variety_code'))![0]).toContain('FOR SHARE');
+  });
+
+  it('rejects cross-company direct production even if SKU status is ACTIVE', async () => {
+    const { service, expectNoWrites } = setup();
+    await expect(service.createProductionBatch({ ...request, companyCode: 'COMP-B' })).rejects.toThrow('不适用于公司 COMP-B');
+    expectNoWrites();
+  });
+
+  it('rejects direct production when COMPANY stock use is disabled', async () => {
+    const { service, state, expectNoWrites } = setup();
+    state.scopes[0].stock_enabled = false;
+    await expect(service.createProductionBatch(request)).rejects.toThrow('用途被禁用');
+    expectNoWrites();
+  });
+
+  it.each([undefined, '', 'EGG_PINK'])('rejects missing/mismatched variety %p without defaulting from SKU', async varietyCode => {
+    const { service, expectNoWrites } = setup();
+    await expect(service.createProductionBatch({ ...request, sourceType: 'PRODUCTION', varietyCode })).rejects.toThrow('显式提供');
+    expectNoWrites();
+  });
+
+  it('rejects a variant product without SKU even on the legacy direct route', async () => {
+    const { service, expectNoWrites } = setup();
+    await expect(service.createProductionBatch({ ...request, sourceType: 'PRODUCTION', skuCode: undefined, qualityGrade: 'GRADE_1' }))
+      .rejects.toThrow('有品种的产品必须选择 SKU');
+    expectNoWrites();
+  });
+
+  it.each([[null, 'EGG_RED'], ['EGG_RED', null], ['EGG_PINK', 'EGG_RED']])(
+    'rejects inconsistent SKU/product variety %p/%p', async (skuVariety, productVariety) => {
+      const { service, state, expectNoWrites } = setup();
+      state.sku.variety_code = skuVariety;
+      state.product.variety_code = productVariety;
+      await expect(service.createProductionBatch(request)).rejects.toThrow('SKU 与产品品种不一致');
+      expectNoWrites();
+    },
+  );
+
+  it('rejects inactive or out-of-date variety in the real availability gate', async () => {
+    const { service, state, expectNoWrites } = setup();
+    state.varieties = [];
+    await expect(service.createProductionBatch(request)).rejects.toThrow('品种 EGG_RED');
+    expectNoWrites();
+  });
+
+  it.each(['product', 'sku'] as const)('does not treat an omitted %s variety column as explicit legacy NULL', async field => {
+    const { service, state, expectNoWrites } = setup();
+    state[field].variety_code = undefined;
+    await expect(service.createProductionBatch(request)).rejects.toThrow('品种主档不明确');
+    expectNoWrites();
+  });
+
+  it('preserves only explicitly variety-less legacy direct production without claiming scope isolation', async () => {
+    const { service, state, assertUsable } = setup();
+    state.product.variety_code = null;
+    state.sku.variety_code = null;
+    await expect(service.createProductionBatch({ ...request, sourceType: 'PRODUCTION',
+      skuCode: undefined, varietyCode: undefined, qualityGrade: 'GRADE_1' })).resolves.toMatchObject({ variety_code: null });
+    expect(assertUsable).not.toHaveBeenCalled();
+  });
+
+  it('rejects client-authored variety snapshots on explicitly variety-less legacy products', async () => {
+    const { service, state, expectNoWrites } = setup();
+    state.product.variety_code = null;
+    state.sku.variety_code = null;
+    await expect(service.createProductionBatch({ ...request, sourceType: 'PRODUCTION' })).rejects.toThrow('不得写入品种快照');
+    expectNoWrites();
+  });
+
+  it.each([{ skuCode: undefined }, { varietyCode: undefined }])('requires explicit provenance for TEMP_PRODUCTION %p', async missing => {
+    const { service, ds, expectNoWrites } = setup();
+    await expect(service.createProductionBatch({ ...request, ...missing })).rejects.toThrow('必须显式提供已由来源确认');
+    expect(ds.transaction).not.toHaveBeenCalled();
+    expectNoWrites();
+  });
+
+  it('does not allow PACKAGING to reuse the variety-less legacy production exception', async () => {
+    const { service, state, expectNoWrites } = setup();
+    state.product.variety_code = null;
+    state.sku.variety_code = null;
+    await expect(service.createProductionBatch({ ...request, sourceType: 'PACKAGING', varietyCode: undefined }))
+      .rejects.toThrow('冒用新品种生产通道');
+    expectNoWrites();
+  });
+
+  it('cannot bypass availability by constructing the service with its legacy two arguments', async () => {
+    const { ds, state, expectNoWrites } = setup();
+    state.scopes = [];
+    const service = new EggInventoryService(ds as never, { get: jest.fn() } as never);
+    await expect(service.createProductionBatch(request)).rejects.toThrow('不适用于公司');
+    expectNoWrites();
   });
 });

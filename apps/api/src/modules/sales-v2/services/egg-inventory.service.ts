@@ -1,5 +1,6 @@
 import { savedQuantity, QuantitySnapshot, positiveQuantity, baseQuantity, sharedBatches, lockQuantityPools, assertBatchPool, resolveQuantity } from '../../product-master/services/quantity-contract';
 import { SkuPolicy } from '../../product-master/services/sku-policy';
+import { SkuAvailabilityService } from '../../product-master/services/sku-availability.service';
 import {
   Injectable, Logger, BadRequestException, ConflictException,
 } from '@nestjs/common';
@@ -118,6 +119,7 @@ export class EggInventoryService {
   constructor(
     @InjectDataSource() private readonly ds: DataSource,
     private readonly cls: ClsService,
+    private readonly skuAvailability: SkuAvailabilityService = new SkuAvailabilityService(ds),
   ) {}
 
   /** 销售鸡蛋库存的产品族；EGG 是页面使用的族别名，不是精确产品码。 */
@@ -250,10 +252,11 @@ export class EggInventoryService {
     productCode: string;
     gradeCode:   string;
     specCode:    string;
+    varietyCode: string | null;
   }> {
     if (!mgr) throw new Error('SKU 校验需要库存写入事务');
     const sku = await SkuPolicy.requireUsable(mgr, skuCode, 'stock');
-    return { productCode: sku.product_code, gradeCode: sku.grade_code, specCode: sku.spec_code };
+    return { productCode: sku.product_code, gradeCode: sku.grade_code, specCode: sku.spec_code, varietyCode: sku.variety_code };
   }
 
   // ── 1. 创建生产批次 ──────────────────────────────────────────────────────────
@@ -263,7 +266,8 @@ export class EggInventoryService {
    *
    * Phase H4 新增参数：skuCode（可选）
    * - 传入 skuCode 时：自动校验 SKU 存在性，从 product_skus 推导 productCode/grade/spec
-   * - 未传 skuCode 时：使用旧逻辑（productCode + qualityGrade + packagingSpec）
+   * - 未传 skuCode 时：仅明确无品种的旧 PRODUCTION 使用 productCode + qualityGrade + packagingSpec
+   * - 有品种主档必须显式传入一致品种，并在同一事务验证公司 scope/stock 用途；快照只取验证主档
    */
   async createProductionBatch(params: {
     companyCode:    string;
@@ -296,6 +300,9 @@ export class EggInventoryService {
     if (params.sourceType === 'TEMP_PRODUCTION' && (!params.warehouseCode || !params.locationCode)) {
       throw new BadRequestException('日产蛋入库必须解析到真实 ACTIVE 仓库和库位，禁止使用默认占位码');
     }
+    if (params.sourceType === 'TEMP_PRODUCTION' && (!params.skuCode || !params.varietyCode)) {
+      throw new BadRequestException('日产蛋入库必须显式提供已由来源确认的 SKU 和品种，禁止回退旧生产通道');
+    }
 
     // Keep allocation, batch and ledger atomic even for callers without an existing transaction.
     if (!mgr) return this.ds.transaction(tx => this.createProductionBatch(params, tx));
@@ -305,12 +312,15 @@ export class EggInventoryService {
     let gradeCodeStd = params.gradeCodeStd ?? null;
     let specCode     = params.specCode     ?? null;
     let skuCode      = params.skuCode      ?? null;
+    let skuVariety: string | null | undefined;
+    let varietyCode: string | null = null;
 
     if (params.skuCode !== undefined) {
       const skuInfo = await this.resolveSkuInfo(params.skuCode!, mgr);
       productCode  = skuInfo.productCode;
       gradeCodeStd = skuInfo.gradeCode;
       specCode     = skuInfo.specCode;
+      skuVariety   = skuInfo.varietyCode;
       // 兼容写旧字段：quality_grade 对齐标准等级，packaging_spec 对齐标准规格编码
       params = {
         ...params,
@@ -331,9 +341,34 @@ export class EggInventoryService {
 
     const batchNo    = await this.genBatchNo(params.eggDate, mgr);
     const expireDate = this.calcExpireDate(params.eggDate, params.shelfDays ?? DEFAULT_SHELF_DAYS);
-    const [product] = await mgr.query('SELECT unit,unit_zh,status FROM mst_products WHERE product_code=$1 FOR SHARE', [productCode]);
+    const [product] = await mgr.query('SELECT unit,unit_zh,status,variety_code FROM mst_products WHERE product_code=$1 FOR SHARE', [productCode]);
     const unit = product?.unit_zh || product?.unit;
     if (!unit || product.status!=='ACTIVE') throw new BadRequestException('产品未启用或基本单位不明确，禁止创建库存');
+    if (product.variety_code === undefined || (skuCode && skuVariety === undefined)) {
+      throw new BadRequestException('产品/SKU 品种主档不明确，禁止创建库存');
+    }
+    if (skuCode && skuVariety !== product.variety_code) {
+      throw new BadRequestException('SKU 与产品品种不一致，禁止创建库存');
+    }
+    if (product.variety_code !== null) {
+      if (!skuCode) throw new BadRequestException('有品种的产品必须选择 SKU，禁止走旧生产通道');
+      if (!params.varietyCode || params.varietyCode !== product.variety_code) {
+        throw new BadRequestException('必须显式提供与 SKU/产品一致的品种，禁止推测或改写品种快照');
+      }
+      const available = await this.skuAvailability.assertUsable(skuCode, {
+        companyCode: params.companyCode, eggDate: params.eggDate, varietyCode: params.varietyCode, usage: 'stock',
+      }, mgr);
+      if (available.productCode !== productCode || available.varietyCode !== product.variety_code) {
+        throw new BadRequestException('已验证 SKU/产品品种发生不一致，禁止创建库存');
+      }
+      varietyCode = available.varietyCode;
+    } else {
+      // Explicitly variety-less legacy production is not company/variety-isolated.
+      // It cannot be relabeled by a request snapshot or used by the new source.
+      if (params.varietyCode != null || (params.sourceType !== undefined && params.sourceType !== 'PRODUCTION')) {
+        throw new BadRequestException('无品种历史产品不得写入品种快照或冒用新品种生产通道');
+      }
+    }
     if (skuCode) await resolveQuantity(mgr,{qty:params.qty,skuCode,quantityBasis:'BASE'});
     const qty = baseQuantity(params.qty, 1, unit);
     if (gradeCodeStd && gradeCodeStd!==grade) throw new BadRequestException('批次标准等级与生产质量等级不一致');
@@ -372,7 +407,7 @@ export class EggInventoryService {
         params.packagingBatchRef ?? null,
         params.collectionBatchRef ?? null,
         unit,
-        params.varietyCode ?? null,
+        varietyCode,
       ],
     );
 

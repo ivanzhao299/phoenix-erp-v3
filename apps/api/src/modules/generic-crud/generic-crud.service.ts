@@ -6,6 +6,7 @@ import { BREEDING_FARMS_TABLE, BreedingScopedTable } from './crud.constants';
 import { OrgOwnershipService } from '../org/services/org-ownership.service';
 import { schemaMismatch } from '../../common/database/schema-compatibility';
 import { redactSensitive } from '../../common/logging/redact-sensitive';
+import { writeFlock } from './flock-write-policy';
 
 @Injectable()
 export class GenericCrudService {
@@ -528,6 +529,7 @@ export class GenericCrudService {
     GenericCrudService.assertNoDerivedQuantityFields(body);
     if (['mst_products', 'product_skus'].includes(table)) throw new ForbiddenException('产品/SKU 必须使用主数据领域接口，禁止通用 CRUD 写入');
     if (['pkg_work_shifts','pkg_source_batches','pkg_grading_records','pkg_packing_records','pkg_handover_records','pkg_packing_boxes','pkg_packing_code_registry','pkg_packing_code_claims','pkg_packing_events','pkg_packing_operations'].includes(table)) throw new ForbiddenException('包装链必须使用专用作业接口，禁止通用修改/删除');
+    if (table === 'brd_flocks') return writeFlock(this.entityManager, body);
     if (table === BREEDING_FARMS_TABLE) await this.validateFarmSiteMapping(body);
     const fields = Object.keys(body);
     const values = Object.values(body);
@@ -572,6 +574,7 @@ export class GenericCrudService {
     GenericCrudService.assertNoDerivedQuantityFields(body);
     if (['mst_products', 'product_skus'].includes(table)) throw new ForbiddenException('产品/SKU 必须使用主数据领域接口，禁止通用 CRUD 写入');
     if (['pkg_work_shifts','pkg_source_batches','pkg_grading_records','pkg_packing_records','pkg_handover_records','pkg_packing_boxes','pkg_packing_code_registry','pkg_packing_code_claims','pkg_packing_events','pkg_packing_operations'].includes(table)) throw new ForbiddenException('包装链必须使用专用作业接口，禁止通用修改/删除');
+    if (table === 'brd_flocks') return writeFlock(this.entityManager, body, { pkName, id });
     console.log(`[SVC Update START] table=${table} pk=${pkName} id=${id} body=${JSON.stringify(redactSensitive(body))}`);
     if (table === BREEDING_FARMS_TABLE) {
       const current = await this.findOneByColumn(table, pkName, id);

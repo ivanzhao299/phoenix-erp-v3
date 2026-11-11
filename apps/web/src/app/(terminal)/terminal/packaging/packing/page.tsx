@@ -63,12 +63,14 @@ export default function PackingPage() {
   const fetchSnap = async (current = generation.current) => {
     const shiftId = Number(ctx.currentShift?.id);
     if (!validShiftId(ctx.currentShift?.id) || ctx.currentShift?.status !== 'OPEN') {
-      setSnap(null); setLoading(false); return;
+      setSnap(null); setCombinations([]); setSnapError('请先选择已开启的包装班次，并完成来源批次接收与分级'); setLoading(false); return;
     }
     try {
-      const [data, ready] = await Promise.all([packagingApi.getActiveGrading(shiftId), packagingApi.getReadyCombinations()]);
+      const data = await packagingApi.getActiveGrading(shiftId);
+      const ready = data.gradingCodes.length ? await packagingApi.getReadyCombinations(shiftId, data.gradingCodes) : [];
       if (current !== generation.current) return;
-      setSnap(data); setCombinations(ready); setSnapError('');
+      setSnap(data); setCombinations(ready);
+      setSnapError(!data.gradingCodes.length ? '本班次缺少分级来源，请先完成来源批次接收与分级' : !ready.length ? '本班次来源品种没有可用包装组合，请在主数据中心检查品种映射、公司/场站适用范围及SKU启用状态' : '');
     } catch (error) {
       if (current !== generation.current) return;
       setSnap(null); setCombinations([]); setSnapError(error instanceof Error ? error.message : '读取失败');

@@ -132,13 +132,21 @@ describe('PackagingTerminalBffController', () => {
 
   it('inserts packing under a transaction after checking source ownership and remaining quantity', async () => {
     const em: any = { query: jest.fn(async (sql: string) => {
-      if (sql.includes('FROM pkg_work_shifts')) return [{ is_test: false, status: 'OPEN', date_text: '2026-08-21' }];
+      if (sql.includes('FROM pkg_work_shifts')) return [{ id:1, site_id:'F', is_test: false, status: 'OPEN', date_text: '2026-08-21', egg_date:'2026-08-21' }];
+      if (sql.includes('FROM brd_houses')) return [{house_code:'H',farm_code:'F',company_code:'C',site_code:'SITE'}];
       if (sql.includes('FROM brd_farms')) return [{farm_code:'F',company_code:'C'}];
       if (sql.includes('SELECT gr.*')) return [{ code: 'GC-A', shift_id: 1, outputs_json: { A: 360 } }];
+      if (sql.includes('SELECT g.code FROM pkg_grading_records')) return [{code:'GC-A'}];
+      if (sql.includes('SELECT DISTINCT s.house_code')) return [{house_code:'H',farm_code:'F',company_code:'C',egg_date:'2026-08-21',batch_status:'RECEIVED',is_test:false,grading_is_test:false}];
+      if (sql.includes('FROM sys_organizations')) return [{org_code:'C'}];
+      if (sql.includes('FROM brd_flocks')) return [{flock_no:'FLOCK',farm_code:'F',breed_code:'BREED',status:'LAYING',placement_date:'2026-01-01'}];
+      if (sql.includes("dict_type = 'BRD_BREED'")) return [{dict_code:'BREED'}];
+      if (sql.includes('FROM md_product_varieties') || sql.includes('FROM md_variety_breeds')) return [{variety_code:'VAR'}];
+      if (sql.includes('FROM md_sku_org_scope')) return [{scope_type:'COMPANY',scope_code:'C',status:'ACTIVE',sale_enabled:true,stock_enabled:true,today:'2026-11-11'}];
       if (sql.includes('FROM product_grades')) return [{ status:'ACTIVE', is_saleable:true, is_storable:true }];
       if (sql.includes('FROM packaging_specs')) return [{ status:'ACTIVE', spec_code:'SPEC', qty_per_unit:180 }];
-      if (sql.includes('FROM product_skus')) return [{ status:'ACTIVE', sku_code:'SKU', product_code:'P', grade_code:'A', spec_code:'SPEC' }];
-      if (sql.includes('FROM mst_products')) return [{ status:'ACTIVE', product_code:'P' }];
+      if (sql.includes('FROM product_skus')) return [{ status:'ACTIVE', sku_code:'SKU', product_code:'P', grade_code:'A', spec_code:'SPEC', variety_code:'VAR', product_variety_code:'VAR' }];
+      if (sql.includes('FROM mst_products')) return [{ status:'ACTIVE', product_code:'P', variety_code:'VAR' }];
       return [];
     }) };
     em.transaction = (work: any) => work(em);
@@ -147,7 +155,8 @@ describe('PackagingTerminalBffController', () => {
     const result = await controller.submitPacking({ shiftId: 1, gradingCodes: ['GC-A'], batches, idempotencyKey: 'packing-test' }, {user:{id:1}});
     expect(result.data).toMatchObject({ totalBoxes: 2, totalEggs: 360, idempotentReplay: false });
     expect(em.query).toHaveBeenCalledWith(expect.stringContaining('INSERT INTO pkg_packing_records'),
-      [result.data.code, 'GC-A', JSON.stringify(['GC-A']), '2026-08-21', JSON.stringify(batches), 2, 360, 1, false, 'packing-test', expect.any(String)]);
+      [result.data.code, 'GC-A', JSON.stringify(['GC-A']), '2026-08-21', JSON.stringify(batches.map(b=>({...b,varietyCode:'VAR'}))), 2, 360, 1, false, 'packing-test', expect.any(String)]);
+    expect(em.query).toHaveBeenCalledWith(expect.stringContaining('FROM md_sku_org_scope'), ['SKU','C','F','SITE']);
   });
 
   it('allows collection editors to open a collection shift', () => {

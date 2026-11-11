@@ -1,5 +1,24 @@
-import { describe, expect, it } from 'vitest';
-import { assertWarehouseHandoverCommitted } from './packaging-api';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { assertWarehouseHandoverCommitted, packagingApi } from './packaging-api';
+afterEach(() => vi.unstubAllGlobals());
+
+describe('packaging readiness provenance requests', () => {
+  it('sends the exact shift and grading source codes, never an unscoped global lookup', async () => {
+    const fetch = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ code: 200, data: [] }) });
+    vi.stubGlobal('fetch', fetch);
+    await packagingApi.getReadyCombinations(56, ['GR-A', 'GR-B']);
+    const url = new URL(String(fetch.mock.calls[0][0]), 'http://local.test');
+    expect(url.pathname).toBe('/api/packaging/terminal/packing/ready-combinations');
+    expect(url.searchParams.get('shiftId')).toBe('56');
+    expect(url.searchParams.get('gradingCodes')).toBe('GR-A,GR-B');
+  });
+  it('requires source selection and a safe shift before issuing a request', () => {
+    const fetch = vi.fn(); vi.stubGlobal('fetch', fetch);
+    expect(() => packagingApi.getReadyCombinations(56, [])).toThrow('来源批次接收与分级');
+    expect(() => packagingApi.getReadyCombinations('NaN', ['GR-A'])).toThrow('安全正整数');
+    expect(fetch).not.toHaveBeenCalled();
+  });
+});
 
 describe('warehouse handover confirmation', () => {
   it('accepts only a confirmed inventory posting', () => {
