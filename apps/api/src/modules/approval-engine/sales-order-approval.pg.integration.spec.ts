@@ -93,10 +93,39 @@ describePg('SALES_ORDER ApprovalEngine + PostgreSQL integration', () => {
     return { order, instance };
   }
 
+  /**
+   * FIFO 分配走 SKU PATH A 时 requireUsable 需要完整主档（SKU + 产品/等级/规格父行）。
+   * CI 库由迁移链建 schema 但不含业务 seed，这里按事务内 fixture 自建。
+   */
+  async function seedSkuMaster(skuCode: string) {
+    await runner.manager.query(
+      `INSERT INTO mst_products(product_code,product_name,status,unit_zh,has_grade,has_spec)
+       VALUES('PG-PRODUCT','PG 集成测试产品','ACTIVE','枚',true,true)
+       ON CONFLICT (product_code) DO NOTHING`,
+    );
+    await runner.manager.query(
+      `INSERT INTO product_grades(grade_code,grade_name,sort_order,is_saleable,is_storable,status)
+       VALUES('PG-GRADE','PG 等级',1,true,true,'ACTIVE')
+       ON CONFLICT (grade_code) DO NOTHING`,
+    );
+    await runner.manager.query(
+      `INSERT INTO packaging_specs(spec_code,spec_name,qty_per_unit,base_unit,status)
+       VALUES('PG-SPEC','PG 规格',1,'枚','ACTIVE')
+       ON CONFLICT (spec_code) DO NOTHING`,
+    );
+    await runner.manager.query(
+      `INSERT INTO product_skus(sku_code,product_code,product_name,grade_code,spec_code,sku_name,status)
+       VALUES($1,'PG-PRODUCT','PG 集成测试产品','PG-GRADE','PG-SPEC','PG SKU','ACTIVE')
+       ON CONFLICT (sku_code) DO NOTHING`,
+      [skuCode],
+    );
+  }
+
   it('approve reserves 5 across two FIFO batches exactly, then finishLoading writes FIFO_OUT', async () => {
     const { order, instance } = await fixture();
     const suffix = randomUUID().slice(0, 8);
     const skuCode = `SKU-PG-${suffix}`;
+    await seedSkuMaster(skuCode);
     const firstBatch = `B-PG-1-${suffix}`;
     const secondBatch = `B-PG-2-${suffix}`;
     const deliveryNo = `DV-PG-${suffix}`;
@@ -187,6 +216,7 @@ describePg('SALES_ORDER ApprovalEngine + PostgreSQL integration', () => {
     const { order } = await fixture('APPROVED');
     const suffix = randomUUID().slice(0, 8);
     const skuCode = `SKU-PG-${suffix}`;
+    await seedSkuMaster(skuCode);
     const batches = [`B-PG-A-${suffix}`, `B-PG-B-${suffix}`, `B-PG-C-${suffix}`];
     const [item] = await runner.manager.query(
       `INSERT INTO sal_order_items(sales_order_id,product_code,sku_code,qty,unit_price,amount,resolved_unit_price,actual_unit_price)
