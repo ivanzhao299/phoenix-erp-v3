@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ProductMasterService } from './services/product-master.service';
+import { SkuAvailabilityService } from './services/sku-availability.service';
 import { ProductGradesController } from './controllers/product-grades.controller';
 import { PackagingSpecsController } from './controllers/packaging-specs.controller';
 import { ProductSkusController } from './controllers/product-skus.controller';
@@ -29,7 +30,7 @@ import { MasterDataCenterModule } from '../master-data/master-data-center.module
     LookupController,
     MenuAdminController,
   ],
-  providers: [ProductMasterService],
-  exports: [ProductMasterService],
+  providers: [ProductMasterService, SkuAvailabilityService],
+  exports: [ProductMasterService, SkuAvailabilityService],
 })
 export class ProductMasterModule {}

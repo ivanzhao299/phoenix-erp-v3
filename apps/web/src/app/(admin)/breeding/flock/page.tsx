@@ -123,7 +123,7 @@ export default function FlockPage() {
   const houses: HouseRow[] = useMemo(() => [...houseMasters.values()].map(row => ({
     ...row, farm_code: String(row.farm_code || ''), house_code: String(row.house_code), house_name: String(row.house_name || ''), status: String(row.status || 'ACTIVE')
   })), [houseMasters]);
-  const [breedOptions, setBreedOptions] = useState<string[]>([]);
+  const [breedOptions, setBreedOptions] = useState<Array<{ code: string; label: string }>>([]);
   const [submitting, setSubmitting] = useState(false);
   const {
     fetchRecords,
@@ -145,7 +145,7 @@ export default function FlockPage() {
       farmName: d.farmName,
       houseCode: d.houseCode,
       houseName: d.houseName,
-      breed: String(d.breed_type || '—'),
+      breed: String(d.breed_code || d.breed_type || '—'),
       inDate: d.start_date,
       ageWeeks: d.start_date ? Math.floor((Number(d.placement_age) || 0) / 7) + Math.floor((flockLoadedAt - new Date(d.start_date as string).getTime()) / (86400000 * 7)) : 0,
       quantity: d.current_qty,
@@ -159,12 +159,16 @@ export default function FlockPage() {
     fetchDict({
       limit: 1000
     }).then(d => {
-      const opts = (d || []).filter((x: Record<string, unknown>) => x.dict_type === 'BRD_BREED_TYPE' && x.status === 'ACTIVE').map((x: Record<string, unknown>) => x.dict_label_zh as string);
+      // 阶段0：品种下拉切 BRD_BREED 标准字典码（原 BRD_BREED_TYPE 存中文名，无法接 SKU 品种解析）
+      const opts = (d || []).filter((x: Record<string, unknown>) => x.dict_type === 'BRD_BREED' && x.status === 'ACTIVE').map((x: Record<string, unknown>) => ({
+        code: String(x.dict_code),
+        label: String(x.dict_label_zh || x.dict_code)
+      }));
       if (opts.length) {
         setBreedOptions(opts);
         setForm(p => ({
           ...p,
-          breed: p.breed || opts[0]
+          breed: p.breed && opts.some((o: { code: string }) => o.code === p.breed) ? p.breed : opts[0].code
         }));
       }
     }).catch(() => {});
@@ -173,10 +177,16 @@ export default function FlockPage() {
     const r = (row._raw || {}) as Record<string, string | number | null>;
     setEditId(row.id as string);
     const s = (v: string | number | null, fb = '') => v != null ? String(v) : fb;
+    // 优先标准 breed_code；存量行回退 strain/breed_type 中文名反查码，反查不到给空让用户重选
+    const breedCode = s(r.breed_code)
+      || (r.strain ? breedOptions.find(o => o.label === String(r.strain))?.code : '')
+      || (r.breed_type ? breedOptions.find(o => o.label === String(r.breed_type))?.code : '')
+      || breedOptions[0]?.code
+      || '';
     setForm({
       farmCode: s(r.farm_code),
       house: s(r.house_code),
-      breed: s(r.breed_type) || breedOptions[0] || '',
+      breed: breedCode,
       source: s(r.source_farm),
       placementAge: s(r.placement_age, '1'),
       cost: s(r.cost, '0'),
@@ -231,12 +241,15 @@ export default function FlockPage() {
       toast.warning(t('ui.淘汰日期必须晚于进雏日期', '预计淘汰日期必须晚于进雏入栏日期'));
       return;
     }
+    const breedLabel = breedOptions.find(o => o.code === form.breed)?.label || form.breed;
     const payload = {
       farm_code: form.farmCode,
       farm_name: farms.find(f => f.farm_code === form.farmCode)?.farm_name || form.farmCode,
       source_farm: form.source,
       house_code: form.house,
-      breed_type: form.breed,
+      breed_code: form.breed,          // 阶段0：标准 BRD_BREED 码（SKU 品种解析权威源）
+      breed_type: breedLabel,          // 中文名冗余，兼容旧展示
+      strain: breedLabel,              // 旧字段兼容保留
       start_date: form.inDate || new Date().toISOString().slice(0, 10),
       current_qty: Number(form.qty) || 0,
       placement_age: Number(form.placementAge) || 1,
@@ -274,6 +287,7 @@ export default function FlockPage() {
       setSubmitting(false);
     }
   };
+  const breedLabelOf = useCallback((code: string) => breedOptions.find(o => o.code === code)?.label || code, [breedOptions]);
   const data = statusFilter === 'all' ? flocks : flocks.filter(f => f.status === statusFilter);
   const columns = [{
     key: 'batchNo',
@@ -292,7 +306,11 @@ export default function FlockPage() {
   }, {
     key: 'breed',
     title: t('ui.品种', '品种'),
-    width: '80px'
+    width: '80px',
+    render: (_: unknown, row: FlockCard) => {
+      const v = breedLabelOf(String(row.breed ?? ''));
+      return v && v !== '—' ? v : <span className={u.muted}>—</span>;
+    }
   }, {
     key: 'inDate',
     title: t('ui.进雏日期', '进雏日期'),
@@ -426,7 +444,7 @@ export default function FlockPage() {
               ...form,
               breed: e.target.value
             })} className={s.inp}>
-                {breedOptions.map(b => <option key={b} value={b}>{b}</option>)}
+                {breedOptions.map(b => <option key={b.code} value={b.code}>{b.label}</option>)}
               </select>
             </div>
             <div><label className={s.lbl}>{t('ui.引种来源种禽企业', '引种来源种禽企业')}</label><SupplierSelector value={form.source} onChange={v => setForm({

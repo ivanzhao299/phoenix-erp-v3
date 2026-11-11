@@ -1,4 +1,5 @@
 import { SkuPolicy } from '../../product-master/services/sku-policy';
+import { SkuAvailabilityService, SkuResolveResult } from '../../product-master/services/sku-availability.service';
 import { Injectable, Logger, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
@@ -76,6 +77,7 @@ export class ProductionInboundService {
     private readonly eggInv: EggInventoryService,
     private readonly modeSvc: InventorySourceModeService,
     private readonly ownership: OrgOwnershipService,
+    private readonly skuAvailability: SkuAvailabilityService,
   ) {}
 
   private get operator(): string {
@@ -262,7 +264,7 @@ export class ProductionInboundService {
     warehouseCode: string;
     locationCode: string;
     eggDate: string;
-    batches: Array<{ batchNo: string; grade: string; qty: number; productCode: string }>;
+    batches: Array<{ batchNo: string; grade: string; qty: number; productCode: string; varietyCode: string | null }>;
     totalInbound: number;
     idempotent: boolean;
   }> {
@@ -304,7 +306,7 @@ export class ProductionInboundService {
     }
 
     const collectionRef = dto.houseCode ? `HOUSE-${dto.houseCode}` : (siteCode ? `SITE-${siteCode}` : null);
-    const batches: Array<{ batchNo: string; grade: string; qty: number; productCode: string }> = [];
+    const batches: Array<{ batchNo: string; grade: string; qty: number; productCode: string; varietyCode: string | null }> = [];
 
     // Idempotency keys are a daily-report identity, not a free client choice:
     // the date binding was validated up front; an omitted key is derived from
@@ -319,7 +321,7 @@ export class ProductionInboundService {
     const run = async (mgr: any) => {
       await mgr.query('SELECT pg_advisory_xact_lock(hashtext($1))', [dailyScopeLock]);
       const existing = await mgr.query(
-        `SELECT batch_no, quality_grade, qty, product_code, sku_code, spec_code,
+        `SELECT batch_no, quality_grade, qty, product_code, sku_code, spec_code, variety_code,
                 egg_date::text AS egg_date, collection_batch_ref, warehouse_code, location_code
            FROM inv_batches
           WHERE company_code = $1 AND source_type = 'TEMP_PRODUCTION' AND egg_date = $2
@@ -348,46 +350,43 @@ export class ProductionInboundService {
         }
         idempotent = true;
         for (const source of existing) {
-          batches.push({ batchNo: source.batch_no, grade: source.quality_grade, qty: Number(source.qty), productCode: source.product_code });
+          batches.push({ batchNo: source.batch_no, grade: source.quality_grade, qty: Number(source.qty), productCode: source.product_code, varietyCode: source.variety_code ?? null });
         }
         return;
       }
       const grades = [...new Set(effectiveItems.map(item => item.grade))];
-      const skuRows: Array<{ sku_code: string; product_code: string; grade_code: string; spec_code: string }> = grades.length
-        ? await mgr.query(
-          `SELECT sku_code, product_code, grade_code, spec_code FROM product_skus
-            WHERE ${SkuPolicy.usableSql('product_skus', 'stock')} AND grade_code = ANY($1)
-            ORDER BY grade_code, spec_code, sku_code FOR SHARE`,
-          [grades],
-        )
-        : [];
-      const resolved = new Map<string, (typeof skuRows)[number]>();
-      const missing: string[] = [];
-      const ambiguous: string[] = [];
+      // 阶段3：SKU 解析收口到 SkuAvailabilityService（品种+组织适用范围，fail-closed）。
+      // 鸡群品种 → 变体 → 公司适用范围 → 唯一 SKU；无品种上下文时只允许无变体产品线。
+      // 两段式：先解析全部档位（任一失败整单拒绝，不产生任何批次），再统一写库存。
+      const resolved = new Map<string, SkuResolveResult>();
       for (const item of effectiveItems) {
-        const matches = skuRows.filter(row => row.grade_code === item.grade && (!item.spec || row.spec_code === item.spec));
-        if (matches.length === 0) missing.push(item.spec ? `${item.grade}/${item.spec}` : item.grade);
-        else if (matches.length > 1) ambiguous.push(item.spec ? `${item.grade}/${item.spec}` : item.grade);
-        else resolved.set(`${item.grade}\u0000${item.spec ?? ''}`, matches[0]);
+        const sku = await this.skuAvailability.resolve({
+          companyCode,
+          siteCode,
+          houseCode: dto.houseCode,
+          gradeCode: item.grade,
+          specCode: item.spec,
+          usage: 'stock',
+        }, mgr);
+        resolved.set(`${item.grade}\u0000${item.spec ?? ''}`, sku);
       }
-      if (missing.length) throw new BadRequestException(`以下蛋品档位缺少 ACTIVE SKU：${[...new Set(missing)].join('、')}。请先在主数据中心维护`);
-      if (ambiguous.length) throw new BadRequestException(`以下蛋品档位匹配多个 ACTIVE SKU：${[...new Set(ambiguous)].join('、')}。请选择规格后重试`);
 
-      for (const sku of resolved.values()) await SkuPolicy.requireUsable(mgr, sku.sku_code, 'stock');
+      for (const sku of resolved.values()) await SkuPolicy.requireUsable(mgr, sku.skuCode, 'stock');
       await this.assertDailyReportCapacity(mgr, dto, effectiveItems, collectionRef);
       for (const item of effectiveItems) {
         const { qty, grade } = item;
         const sku = resolved.get(`${grade}\u0000${item.spec ?? ''}`)!;
-        const productCode = sku.product_code;
+        const productCode = sku.productCode;
         const params = {
           companyCode, warehouseCode, locationCode, eggDate: dto.eggDate,
-          qualityGrade: grade, skuCode: sku.sku_code, gradeCodeStd: sku.grade_code,
-          specCode: sku.spec_code, packagingSpec: sku.spec_code, productCode, qty,
+          qualityGrade: grade, skuCode: sku.skuCode, gradeCodeStd: sku.gradeCode,
+          specCode: sku.specCode, packagingSpec: sku.specCode, productCode, qty,
+          varietyCode: sku.varietyCode ?? undefined,
           sourceNo, sourceType: 'TEMP_PRODUCTION', ledgerChangeType: 'TEMP_PRODUCTION_INBOUND',
           collectionBatchRef: collectionRef ?? undefined,
         };
         const batch = await this.eggInv.createProductionBatch(params, mgr);
-        batches.push({ batchNo: batch.batch_no, grade, qty, productCode });
+        batches.push({ batchNo: batch.batch_no, grade, qty, productCode, varietyCode: sku.varietyCode ?? null });
       }
     };
     await this.ds.transaction((mgr: any) => run(mgr));

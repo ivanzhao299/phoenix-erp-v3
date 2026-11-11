@@ -5,6 +5,21 @@ import {
   normalizeGradeQuantityMap,
   sumGradeQuantityMaps,
 } from './production-inbound.service';
+import { SkuAvailabilityService } from '../../product-master/services/sku-availability.service';
+
+/** 阶段3 mock：SkuAvailabilityService 走真实逻辑，DB 查询打桩。 */
+const makeSkuAvailability = (skuRows: any[], scopeRows: any[] = [{ scope_type: 'ALL', scope_code: '', sale_enabled: true, stock_enabled: true }]) => {
+  const db = {
+    query: jest.fn(async (sql: string) => {
+      if (sql.includes('FROM product_skus')) return skuRows.map(r => ({ ...r, status: 'ACTIVE' }));
+      if (sql.includes('md_sku_org_scope')) return scopeRows;
+      if (sql.includes('md_variety_breeds')) return [{ variety_code: 'EGG_RED' }];
+      if (sql.includes('brd_flocks')) return [{ breed_code: 'HY_LINE_BROWN' }];
+      return [];
+    }) as any,
+  };
+  return new SkuAvailabilityService(db as never);
+};
 
 describe('daily report inventory consistency helpers', () => {
   it('normalizes JSONB grade quantities and ignores malformed values', () => {
@@ -25,7 +40,8 @@ describe('daily report inventory consistency helpers', () => {
 });
 
 describe('ProductionInboundService master-data resolution', () => {
-  const makeService = (query: jest.Mock, createProductionBatch = jest.fn(), dataScope?: any) => {
+  const defaultSku = { sku_code: 'SKU-1', product_code: 'PROD', variety_code: null, grade_code: 'GRADE_1', spec_code: 'LOOSE' };
+  const makeService = (query: jest.Mock, createProductionBatch = jest.fn(), dataScope?: any, skuRows: any[] = [defaultSku]) => {
     const modeSvc = { resolveMode: jest.fn().mockResolvedValue('TEMP_PRODUCTION_INBOUND') };
     let resolvedCompany = 'COMP-A';
     return {
@@ -35,10 +51,18 @@ describe('ProductionInboundService master-data resolution', () => {
           const manager = { query: async (sql: string, values: unknown[]) => {
             if (sql.includes('WHERE sku_code=$1 FOR SHARE')) return selected.map(row => ({ ...row, status: 'ACTIVE' }));
             if (/SELECT \* FROM (mst_products|product_grades|packaging_specs)/.test(sql)) return [{ status: 'ACTIVE', is_storable: true }];
+            if (sql.includes('md_sku_org_scope')) return [{ scope_type: 'ALL', scope_code: '', sale_enabled: true, stock_enabled: true }];
+            if (sql.includes('md_variety_breeds')) return [{ variety_code: 'EGG_RED' }];
+            if (sql.includes('FROM brd_flocks')) return [{ breed_code: 'HY_LINE_BROWN' }];
+            if (sql.includes('FROM product_skus')) {
+              // 参数感知：$1=gradeCode，只有档位匹配的 SKU 才是候选（模拟真实 SQL 过滤）
+              const grade = values?.[0] as string;
+              const rows = skuRows.filter(r => r.grade_code === grade);
+              selected = rows;
+              return rows;
+            }
             if (sql.includes('pg_advisory_xact_lock') || sql.includes('FROM inv_batches') || sql.includes('to_regclass')) return [];
-            const rows = await query(sql, values);
-            if (sql.includes('FROM product_skus')) selected = rows;
-            return rows;
+            return await query(sql, values);
           } };
           return run(manager);
         } } as never,
@@ -63,6 +87,7 @@ describe('ProductionInboundService master-data resolution', () => {
             companyCode: resolvedCompany,
           })),
         } as never,
+        makeSkuAvailability(skuRows),
       ),
       createProductionBatch,
     };
@@ -73,10 +98,12 @@ describe('ProductionInboundService master-data resolution', () => {
       .mockResolvedValueOnce([{ house_company_code: null, house_site_code: null, farm_code: 'FARM-A', farm_company_code: 'COMP-A', farm_site_code: 'SITE-A' }])
       .mockResolvedValueOnce([{ '?column?': 1 }])
       .mockResolvedValueOnce([{ warehouse_code: 'WH-A' }])
-      .mockResolvedValueOnce([{ location_code: 'LOC-IN-A' }])
-      .mockResolvedValueOnce([{ sku_code: 'SKU-EGG-1', product_code: 'PROD-EGG', grade_code: 'GRADE_1', spec_code: 'LOOSE' }]);
+      .mockResolvedValueOnce([{ location_code: 'LOC-IN-A' }]);
     const createProductionBatch = jest.fn().mockResolvedValue({ batch_no: 'EGG-1' });
-    const { service } = makeService(query, createProductionBatch);
+    // 鸡群品种 HY_LINE_BROWN → EGG_RED 变体 → 红壳 SKU（阶段3品种链路）
+    const { service } = makeService(query, createProductionBatch, undefined, [
+      { sku_code: 'SKU-EGG-1', product_code: 'PROD-EGG', variety_code: 'EGG_RED', grade_code: 'GRADE_1', spec_code: 'LOOSE' },
+    ]);
 
     const result = await service.recordProductionInbound({
       houseCode: 'HOUSE-A', eggDate: '2026-08-25', items: [{ grade: 'GRADE_1', qty: 1 }],
@@ -85,7 +112,7 @@ describe('ProductionInboundService master-data resolution', () => {
     expect(result).toMatchObject({ companyCode: 'COMP-A', siteCode: 'SITE-A', warehouseCode: 'WH-A', locationCode: 'LOC-IN-A' });
     expect(createProductionBatch).toHaveBeenCalledWith(expect.objectContaining({
       companyCode: 'COMP-A', warehouseCode: 'WH-A', locationCode: 'LOC-IN-A',
-      skuCode: 'SKU-EGG-1', productCode: 'PROD-EGG', gradeCodeStd: 'GRADE_1', specCode: 'LOOSE',
+      skuCode: 'SKU-EGG-1', productCode: 'PROD-EGG', gradeCodeStd: 'GRADE_1', specCode: 'LOOSE', varietyCode: 'EGG_RED',
     }), expect.objectContaining({ query: expect.any(Function) }));
   });
 
@@ -94,9 +121,10 @@ describe('ProductionInboundService master-data resolution', () => {
       .mockResolvedValueOnce([{ house_company_code: 'COMP-H', house_site_code: 'SITE-H', farm_code: 'FARM-A', farm_company_code: 'COMP-F', farm_site_code: 'SITE-F' }])
       .mockResolvedValueOnce([{ '?column?': 1 }])
       .mockResolvedValueOnce([{ warehouse_code: 'WH-X' }])
-      .mockResolvedValueOnce([{ location_code: 'LOC-X' }])
-      .mockResolvedValueOnce([{ sku_code: 'SKU-1', product_code: 'PROD', grade_code: 'GRADE_1', spec_code: 'LOOSE' }]);
-    const { service } = makeService(query, jest.fn().mockResolvedValue({ batch_no: 'EGG-X' }));
+      .mockResolvedValueOnce([{ location_code: 'LOC-X' }]);
+    const { service } = makeService(query, jest.fn().mockResolvedValue({ batch_no: 'EGG-X' }), undefined, [
+      { sku_code: 'SKU-1', product_code: 'PROD', variety_code: 'EGG_RED', grade_code: 'GRADE_1', spec_code: 'LOOSE' },
+    ]);
     await expect(service.recordProductionInbound({
       companyCode: 'COMP-X', siteCode: 'SITE-X', houseCode: 'HOUSE-A', warehouseCode: 'WH-X', locationCode: 'LOC-X',
       eggDate: '2026-08-25', items: [{ grade: 'GRADE_1', qty: 1 }],
@@ -142,10 +170,12 @@ describe('ProductionInboundService master-data resolution', () => {
       .mockResolvedValueOnce([{ farm_code: 'FARM-A', farm_company_code: 'COMP-A', farm_site_code: 'SITE-A' }])
       .mockResolvedValueOnce([{ '?column?': 1 }])
       .mockResolvedValueOnce([{ warehouse_code: 'WH-A' }])
-      .mockResolvedValueOnce([{ location_code: 'LOC-A' }])
-      .mockResolvedValueOnce([{ sku_code: 'SKU-1', product_code: 'PROD', grade_code: 'GRADE_1', spec_code: 'LOOSE' }]);
+      .mockResolvedValueOnce([{ location_code: 'LOC-A' }]);
     const createProductionBatch = jest.fn();
-    const { service } = makeService(query, createProductionBatch);
+    // 只提供 GRADE_1 的红壳 SKU；GRADE_2 无 SKU → 整单拒绝
+    const { service } = makeService(query, createProductionBatch, undefined, [
+      { sku_code: 'SKU-R-1-LOOSE', product_code: 'PRD-EGG-RED-1', variety_code: 'EGG_RED', grade_code: 'GRADE_1', spec_code: 'LOOSE' },
+    ]);
     await expect(service.recordProductionInbound({
       houseCode: 'HOUSE-A', eggDate: '2026-08-25',
       items: [{ grade: 'GRADE_1', qty: 1 }, { grade: 'GRADE_2', qty: 1 }],
@@ -172,6 +202,7 @@ describe('ProductionInboundService master-data resolution', () => {
     const existing: any[] = [];
     const managerQuery = jest.fn().mockImplementation(async (sql: string) => {
       if (sql.includes('FROM product_skus')) return [{ sku_code: 'SKU-1', product_code: 'PROD', grade_code: 'GRADE_1', spec_code: 'LOOSE', status: 'ACTIVE' }];
+      if (sql.includes('md_sku_org_scope')) return [{ scope_type: 'ALL', scope_code: '', sale_enabled: true, stock_enabled: true }];
       if (/SELECT \* FROM (mst_products|product_grades|packaging_specs)/.test(sql)) return [{ status: 'ACTIVE', is_storable: true }];
       if (sql.includes('pg_advisory_xact_lock')) return [];
       if (sql.includes('FROM inv_batches')) return existing;
@@ -186,6 +217,7 @@ describe('ProductionInboundService master-data resolution', () => {
       { createProductionBatch } as never,
       modeSvc as never,
       { resolveHouse: jest.fn(async (houseCode: string) => { const [row] = await query('', [houseCode]); return { houseCode, farmCode: row.farm_code, companyCode: row.farm_company_code, siteCode: row.farm_site_code }; }), resolveWarehouse: jest.fn(async (warehouseCode: string) => ({ warehouseCode, companyCode: 'COMP-A' })) } as never,
+      makeSkuAvailability([{ sku_code: 'SKU-1', product_code: 'PROD', variety_code: null, grade_code: 'GRADE_1', spec_code: 'LOOSE' }]),
     );
     const dto = { houseCode: 'HOUSE-A', eggDate: '2026-08-25', items: quantities.map(qty => ({ grade: 'GRADE_1', qty })) };
     const first = await service.recordProductionInbound(dto);
@@ -229,6 +261,7 @@ describe('ProductionInboundService master-data resolution', () => {
     const existing: any[] = [];
     const managerQuery = jest.fn().mockImplementation(async (sql: string) => {
       if (sql.includes('FROM product_skus')) return [{ sku_code: 'SKU-1', product_code: 'PROD', grade_code: 'GRADE_1', spec_code: 'LOOSE', status: 'ACTIVE' }];
+      if (sql.includes('md_sku_org_scope')) return [{ scope_type: 'ALL', scope_code: '', sale_enabled: true, stock_enabled: true }];
       if (/SELECT \* FROM (mst_products|product_grades|packaging_specs)/.test(sql)) return [{ status: 'ACTIVE', is_storable: true }];
       if (sql.includes('pg_advisory_xact_lock')) return [];
       if (sql.includes('FOR UPDATE')) return existing;
@@ -243,6 +276,7 @@ describe('ProductionInboundService master-data resolution', () => {
       { createProductionBatch } as never,
       modeSvc as never,
       { resolveHouse: jest.fn(async (houseCode: string) => { const [row] = await query('', [houseCode]); return { houseCode, farmCode: row.farm_code, companyCode: row.farm_company_code, siteCode: row.farm_site_code }; }), resolveWarehouse: jest.fn(async (warehouseCode: string) => ({ warehouseCode, companyCode: 'COMP-A' })) } as never,
+      makeSkuAvailability([{ sku_code: 'SKU-1', product_code: 'PROD', variety_code: null, grade_code: 'GRADE_1', spec_code: 'LOOSE' }]),
     );
     return { service, managerQuery, createProductionBatch, existing };
   }
@@ -283,6 +317,7 @@ describe('ProductionInboundService master-data resolution', () => {
     });
     const managerQuery = jest.fn().mockImplementation(async (sql: string) => {
       if (sql.includes('FROM product_skus')) return [{ sku_code: 'SKU-1', product_code: 'PROD', grade_code: 'GRADE_1', spec_code: 'LOOSE', status: 'ACTIVE' }];
+      if (sql.includes('md_sku_org_scope')) return [{ scope_type: 'ALL', scope_code: '', sale_enabled: true, stock_enabled: true }];
       if (/SELECT \* FROM (mst_products|product_grades|packaging_specs)/.test(sql)) return [{ status: 'ACTIVE', is_storable: true }];
       if (sql.includes('pg_advisory_xact_lock')) return [];
       if (sql.includes('FOR UPDATE')) return [];
@@ -299,6 +334,7 @@ describe('ProductionInboundService master-data resolution', () => {
       { createProductionBatch: jest.fn() } as never,
       modeSvc as never,
       { resolveHouse: jest.fn(async (houseCode: string) => { const [row] = await query('', [houseCode]); return { houseCode, farmCode: row.farm_code, companyCode: row.farm_company_code, siteCode: row.farm_site_code }; }), resolveWarehouse: jest.fn(async (warehouseCode: string) => ({ warehouseCode, companyCode: 'COMP-A' })) } as never,
+      makeSkuAvailability([{ sku_code: 'SKU-1', product_code: 'PROD', variety_code: null, grade_code: 'GRADE_1', spec_code: 'LOOSE' }]),
     );
     await expect(service.recordProductionInbound({
       houseCode: 'HOUSE-A', eggDate: '2026-08-25', idempotencyKey: 'DAILY-2026-08-25-HOUSE-A-cccc',

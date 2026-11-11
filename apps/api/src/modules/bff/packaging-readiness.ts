@@ -6,6 +6,8 @@ type Db = Pick<EntityManager, 'query'>;
 export interface PackagingIdentity {
   grade: string; specCode?: string | null; specName?: string | null;
   productCode?: string | null; skuCode?: string | null;
+  /** 阶段3：品种上下文（md_product_varieties.variety_code）。提供时把 SKU 候选收窄到该变体产品线。 */
+  varietyCode?: string | null;
 }
 function fail(code: string, message: string): never {
   throw new ConflictException({ code, message });
@@ -24,8 +26,14 @@ export async function resolvePackagingIdentity(db: Db, input: PackagingIdentity)
   if (!grade.is_saleable || !grade.is_storable) fail('GRADE_NOT_STORABLE', `等级 ${input.grade} 不可售或不可库存`);
   if (!input.specCode && !input.specName) fail('SPEC_MISSING', '包装规格缺失');
   let spec = one(await db.query(`SELECT * FROM packaging_specs WHERE ${input.specCode ? 'spec_code' : 'spec_name'}=$1`, [input.specCode || input.specName]), 'SPEC', `规格 ${input.specCode || input.specName} `);
-  const candidates = await db.query(`SELECT *, effective_date::text AS effective_date, expire_date::text AS expire_date, CURRENT_DATE::text AS today FROM product_skus WHERE grade_code=$1 AND spec_code=$2
-    AND ($3::text IS NULL OR product_code=$3)`, [input.grade, spec.spec_code, input.productCode || null]);
+  // 阶段3：品种上下文提供时收窄候选（product_skus.variety_code + mst_products.variety_code 双保险）
+  const varietyFilter = input.varietyCode
+    ? ` AND s.variety_code=$4 AND EXISTS (SELECT 1 FROM mst_products mp WHERE mp.product_code=s.product_code AND mp.variety_code=$4)`
+    : '';
+  const candidates = await db.query(`SELECT s.*, s.effective_date::text AS effective_date, s.expire_date::text AS expire_date, CURRENT_DATE::text AS today FROM product_skus s WHERE s.grade_code=$1 AND s.spec_code=$2
+    AND ($3::text IS NULL OR s.product_code=$3)${varietyFilter}`, input.varietyCode
+      ? [input.grade, spec.spec_code, input.productCode || null, input.varietyCode]
+      : [input.grade, spec.spec_code, input.productCode || null]);
   const sku = one(candidates, 'SKU', `${input.grade}/${spec.spec_code} SKU `);
   if (input.skuCode && sku.sku_code !== input.skuCode) fail('SKU_MISMATCH', 'SKU 与产品、等级、规格不匹配');
   if (input.skuCode !== undefined && input.skuCode !== null) {

@@ -75,7 +75,8 @@ describe('PackagingInventoryIntegrationService terminal handover', () => {
       ['PKG_PACK_SPEC_3'],
     );
     expect(ds.query).toHaveBeenCalledWith(
-      expect.stringContaining('WHERE grade_code=$1 AND spec_code=$2'),
+      // 阶段3：SKU 候选查询带表别名（s.），品种上下文不传时仍是 3 参（grade/spec/product）
+      expect.stringContaining('WHERE s.grade_code=$1 AND s.spec_code=$2'),
       ['L', 'PKG_PACK_SPEC_3', null],
     );
     expect(eggInv.createProductionBatch).toHaveBeenCalledWith(expect.objectContaining({

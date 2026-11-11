@@ -3,6 +3,7 @@ import { DataSource } from 'typeorm';
 import { ProductionInboundService } from './production-inbound.service';
 import { EggInventoryService } from './egg-inventory.service';
 import { OrgOwnershipService } from '../../org/services/org-ownership.service';
+import { SkuAvailabilityService } from '../../product-master/services/sku-availability.service';
 
 // Explicit disposable fixture only; never load application environment or migrations.
 const fixtureUrl = process.env.ISSUE381_PG_URL;
@@ -79,7 +80,8 @@ fixture('Issue 381 real PostgreSQL inbound transactions and retries', () => {
     await db.query('TRUNCATE inv_ledger, inv_batches, brd_daily_logs RESTART IDENTITY');
     scope = { isGlobal: false, allowedCompanyCodes: ['COMP-A'], allowedWarehouseCodes: ['WH-A'] };
     service = new ProductionInboundService(db, cls as never, new EggInventoryService(db, cls as never),
-      { resolveMode: async () => 'TEMP_PRODUCTION_INBOUND' } as never, new OrgOwnershipService(db.manager));
+      { resolveMode: async () => 'TEMP_PRODUCTION_INBOUND' } as never, new OrgOwnershipService(db.manager),
+      new SkuAvailabilityService(db));
   });
   const counts = async () => (await db.query('SELECT (SELECT count(*)::int FROM inv_batches) AS batches, (SELECT count(*)::int FROM inv_ledger) AS events'))[0];
 

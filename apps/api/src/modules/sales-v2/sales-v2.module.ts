@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ProductMasterModule } from '../product-master/product-master.module';
 import { SalesV2Controller }           from './controllers/sales-v2.controller';
 import { SalesCustomersController }    from './controllers/sales-customers.controller';
 import { SalesChannelsController }     from './controllers/sales-channels.controller';
@@ -99,6 +100,7 @@ import {
       SalReturnOrderEntity,
       SalReturnItemEntity,
     ]),
+    ProductMasterModule,  // 阶段3：SkuAvailabilityService（品种+组织适用范围解析）
   ],
   controllers: [
     SalesV2Controller,

@@ -65,6 +65,8 @@ export interface EggBatch {
   grade_code_std: string | null;
   /** Phase H4: 标准规格编码（packaging_specs.spec_code，与旧 packaging_spec 并存） */
   spec_code: string | null;
+  /** 阶段3: 品种快照（md_product_varieties.variety_code），历史批次 NULL */
+  variety_code: string | null;
   sku_name?: string | null;
   sku_name_en?: string | null;
   sku_name_lo?: string | null;
@@ -278,6 +280,8 @@ export class EggInventoryService {
     skuCode?:       string;
     gradeCodeStd?:  string;
     specCode?:      string;
+    /** 阶段3：品种快照（md_product_varieties.variety_code），TEMP_PRODUCTION 新批必写 */
+    varietyCode?:   string;
     /** 生产链路收口 Phase 1：来源类型（默认 PRODUCTION，包装入库传 PACKAGING） */
     sourceType?:    string;
     /** 生产链路收口 Phase 1：inv_ledger 变动类型（默认 INBOUND，包装入库传 PACKAGING_INBOUND） */
@@ -344,13 +348,13 @@ export class EggInventoryService {
          egg_date, inbound_date, expire_date, quality_grade, packaging_spec,
          source_type, source_no,
          qty, qty_available, status,
-         sku_code, grade_code_std, spec_code,
+         sku_code, grade_code_std, spec_code, variety_code,
          packaging_batch_ref, collection_batch_ref, unit, base_quantity_version,
          created_at, updated_at
        ) VALUES (
          $1,$2,$3,$4,$5,$6,$6,$7,$8,$9,$10,$11,$12,
          $12,'AVAILABLE',
-         $13,$14,$15,
+         $13,$14,$15,$19,
          $16,$17,$18,1,
          NOW(),NOW()
        ) RETURNING *`,
@@ -368,6 +372,7 @@ export class EggInventoryService {
         params.packagingBatchRef ?? null,
         params.collectionBatchRef ?? null,
         unit,
+        params.varietyCode ?? null,
       ],
     );
 
