@@ -845,7 +845,7 @@ jobs:
                 exit "$rc"
               fi
               if [ "$CODE_SYNCED" = true ] && [ -f "$STATE_DIR/deploy-${DEPLOY_RUN_ID}.json" ]; then
-                # API below floor is explicitly ineligible. No legacy fence exception is granted here.
+                # API below floor is ineligible; no legacy fence exception.
                 PLAN="$(node scripts/ops/production-deployment-state.mjs rollback-plan)"
                 if [ $? -ne 0 ]; then
                   echo "ROLLBACK=HOLD_OPERATOR_CONTROLLED_RECOVERY_REQUIRED"
@@ -866,13 +866,13 @@ jobs:
               # db 只读 exec（pg_dump/psql）直通；生命周期仍走 pinned 白名单
               if [ "${1:-}" = compose ] && [ "${2:-}" = exec ] && [ "${3:-}" = -T ] && [ "${4:-}" = db ]; then
                 shift 4
-                set -- compose exec -T db "$@"
+                command env -i PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin DOCKER_CONFIG=/home/phoenix-codex-deploy/.docker DOCKER_HOST=unix:///var/run/docker.sock docker compose exec -T db "$@"
               elif [ "${1:-}" = compose ]; then
                 shift
                 node scripts/ops/phoenix-production-compose.mjs "$@"
-                return
+              else
+                command env -i PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin DOCKER_CONFIG=/home/phoenix-codex-deploy/.docker DOCKER_HOST=unix:///var/run/docker.sock docker "$@"
               fi
-              command env -i PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin DOCKER_CONFIG=/home/phoenix-codex-deploy/.docker DOCKER_HOST=unix:///var/run/docker.sock docker "$@"
             }
 
             # ── 干净工作树硬门禁:禁止静默 stash/覆盖服务器改动 ───────
@@ -941,8 +941,7 @@ jobs:
               node "$FLOOR_STAGE/promote-production-config-floor.mjs"
             else
               node scripts/ops/production-config-guard.mjs --target "$TARGET_SHA"
-              # Stage the target evidence module with its entire import closure.
-              # A lone .mjs in STATE_DIR cannot resolve relative shared helpers.
+              # Stage the evidence module with its full import closure.
               EVIDENCE_STAGE="$STATE_DIR/evidence-stage-${DEPLOY_RUN_ID}"
               test ! -e "$EVIDENCE_STAGE"
               mkdir -m 700 "$EVIDENCE_STAGE"
