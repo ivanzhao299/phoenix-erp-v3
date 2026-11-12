@@ -18,6 +18,14 @@ export const LEGACY_SELECTION_POLICY = {
   status: 'ACTIVE', parent_status: 'ACTIVE', base_unit: '枚', category_code_when_present: 'EGG',
   expected_count: 35, preserve_existing_identity: true,
 };
+export const APPROVED_PARENT_RESTORATIONS = [
+  ['PRD-EGG-1','1号普通鸡蛋'], ['PRD-EGG-2','2号普通鸡蛋'], ['PRD-EGG-3','3号普通鸡蛋'],
+  ['PRD-EGG-4','4号普通鸡蛋'], ['PRD-EGG-5','5号普通鸡蛋'],
+].map(([product_code, product_name]) => ({
+  product_code, product_name, unit_zh: '枚',
+  variety_code: null, status: 'ACTIVE', category_code: 'EGG', has_grade: true, has_spec: true,
+  reason: 'MISSING_APPROVED_STANDARD_PARENT',
+}));
 const SOURCE_ROWS = [
   ['COMP-LAO-AGRI', 'LPH_MENGSAI', 'SITE-MENGSAI-LAYER', 'STANDARD', null, ['HOUSE_MS_01','HOUSE_MS_02','HOUSE_MS_03','HOUSE_MS_04','HOUSE_MS_05','HOUSE_MS_06']],
   ['COMP-LAO-XINGCHI', 'FARM-DP', 'SITE-DONGPENG-LAYER', 'VARIANT', 'EGG_PINK', ['HOUSE_DP_01','HOUSE_DP_03','HOUSE_DP_05']],
@@ -44,7 +52,8 @@ export function validateManifest(manifest, effectiveDate) {
   if (!same(manifest.spec_codes, SPECS) || !same(manifest.scope,
     { scope_type: 'COMPANY', sale_enabled: false, legacy_standard_sale_enabled: true, stock_enabled: true, status: 'ACTIVE' })) fail('MANIFEST_SCOPE_OR_SPECS');
   if (!same(manifest.legacy_standard_selection, LEGACY_SELECTION_POLICY) || Object.hasOwn(manifest, 'standard_products')
-    || !same(manifest.variant_products, ['PRD-EGG-RED','PRD-EGG-PINK'])) fail('MANIFEST_CATALOG_POLICY');
+    || !same(manifest.variant_products, ['PRD-EGG-RED','PRD-EGG-PINK'])
+    || !same(manifest.approved_parent_restorations, APPROVED_PARENT_RESTORATIONS)) fail('MANIFEST_CATALOG_POLICY');
   if (!Array.isArray(manifest.companies) || manifest.companies.length !== SOURCE_ROWS.length) fail('MANIFEST_SOURCE_COUNT');
   for (const [index, source] of SOURCE_ROWS.entries()) {
     const [company, farm, site, mode, variety, houses] = source;
@@ -87,25 +96,31 @@ function buildIntent(manifest, effectiveDate) {
 }
 
 /** No code/name patterns or company scope tie-breaks may select an existing identity. */
-export function legacyIdentityMap(state) {
+export function deriveLegacyCatalog(state) {
   if (!Array.isArray(state?.skus) || !Array.isArray(state?.products) || !validDate(state?.database?.today)) fail('LEGACY_CATALOG_STATE_REQUIRED');
-  const selected = [];
+  const selected = [], restorations = new Map();
   for (const grade of LEGACY_GRADES) for (const spec of SPECS) {
     const candidates = state.skus.filter(s => s.grade_code === grade && s.spec_code === spec && s.status === 'ACTIVE');
     const ordinary = [];
     for (const sku of candidates) {
       const parents = state.products.filter(p => p.product_code === sku.product_code);
-      if (parents.length !== 1) fail('LEGACY_PARENT_REQUIRED');
-      const parent = parents[0];
+      if (parents.length > 1) fail('LEGACY_PARENT_REQUIRED');
+      const approved = APPROVED_PARENT_RESTORATIONS.find(p => p.product_code === sku.product_code);
+      const parent = parents[0] || (approved && { ...approved, base_unit: approved.unit_zh });
+      if (!parent) fail('LEGACY_PARENT_REQUIRED');
+      if (!parents.length) {
+        const reviewedGrades={'PRD-EGG-1':'GRADE_1','PRD-EGG-2':'GRADE_2','PRD-EGG-3':'GRADE_3','PRD-EGG-4':'GRADE_4','PRD-EGG-5':'GRADE_5'};
+        if (sku.grade_code!==reviewedGrades[approved.product_code]) fail('RESTORATION_SKU_REFERENCE_CONFLICT');
+        restorations.set(approved.product_code, approved);
+      }
       if (sku.variety_code !== null && parent.variety_code !== null) continue;
-      // A mismatched NULL side is never eligible, nor hidden as a possible runtime competitor.
       if (sku.variety_code !== null || parent.variety_code !== null) fail('LEGACY_VARIETY_MISMATCH');
       if (sku.org_context_required !== false) fail('LEGACY_SKU_POLICY_CHANGED');
       if (parent.status !== 'ACTIVE' || parent.base_unit !== '枚'
         || ((state.schemaColumns || []).some(c=>c.table_name==='mst_products' && c.column_name==='category_code')
           && parent.category_code !== 'EGG')) fail('LEGACY_PARENT_POLICY');
       validity(sku, state.database.today, 'LEGACY_STANDARD');
-      validity(parent, state.database.today, 'LEGACY_STANDARD_PARENT');
+      if (parents.length) validity(parent, state.database.today, 'LEGACY_STANDARD_PARENT');
       ordinary.push({ sku_code: sku.sku_code, product_code: sku.product_code, grade_code: grade, spec_code: spec,
         status: sku.status, variety_code: sku.variety_code, parent_status: parent.status,
         parent_variety_code: parent.variety_code, org_context_required: sku.org_context_required, base_unit: parent.base_unit });
@@ -113,8 +128,14 @@ export function legacyIdentityMap(state) {
     if (ordinary.length !== 1) fail(ordinary.length ? 'LEGACY_STANDARD_TUPLE_AMBIGUOUS' : 'LEGACY_STANDARD_TUPLE_MISSING');
     selected.push(ordinary[0]);
   }
-  return selected.sort((a,b) => a.sku_code.localeCompare(b.sku_code));
+  const unknownMissing = state.skus.filter(s => LEGACY_GRADES.includes(s.grade_code) && SPECS.includes(s.spec_code)
+    && !state.products.some(p => p.product_code === s.product_code)
+    && !APPROVED_PARENT_RESTORATIONS.some(p => p.product_code === s.product_code));
+  if (unknownMissing.length) fail('LEGACY_PARENT_REQUIRED');
+  return { identityMap: selected.sort((a,b) => a.sku_code.localeCompare(b.sku_code)),
+    restorations: [...restorations.values()].sort((a,b) => a.product_code.localeCompare(b.product_code)) };
 }
+export function legacyIdentityMap(state) { return deriveLegacyCatalog(state).identityMap; }
 
 /** An explicitly non-executable, bounded nonfinancial inventory for failed read-only inspection. */
 export function catalogReport(state, reason) {
@@ -131,9 +152,11 @@ export function catalogReport(state, reason) {
 }
 export function buildPlan(manifest, effectiveDate, dbState) {
   const desired = buildIntent(manifest,effectiveDate);
-  const legacy_identity_map = legacyIdentityMap(dbState);
+  const catalog = deriveLegacyCatalog(dbState);
+  const legacy_identity_map = catalog.identityMap;
   // Existing35 are immutable references, never product/SKU insert or draft-activation inputs.
   desired.legacySkus = legacy_identity_map;
+  desired.restorations = catalog.restorations;
   desired.scopes.push(...legacy_identity_map.map(s => ({sku_code:s.sku_code,scope_type:'COMPANY',scope_code:COMPANIES[0],
     sale_enabled:true,stock_enabled:true,status:'ACTIVE',effective_date:effectiveDate,expire_date:null})));
   desired.scopes.sort((a,b)=>a.sku_code.localeCompare(b.sku_code));
@@ -198,7 +221,8 @@ async function loadState(client, desired, lock = false) {
   const productColumn = name => schemaColumns.some(c=>c.table_name==='mst_products' && c.column_name===name)
     ? `p.${name}::text` : 'NULL::text';
   const products = await rows(`SELECT product_code,product_name,${productColumn('product_name_zh')} AS product_name_zh,
-    COALESCE(NULLIF(${productColumn('unit_zh')},''),${productColumn('unit')}) AS base_unit, variety_code, status,
+    COALESCE(NULLIF(${productColumn('unit_zh')},''),${productColumn('unit')}) AS base_unit,
+    ${productColumn('unit_zh')} AS unit_zh, variety_code, status,
     ${productColumn('category_code')} AS category_code,
     ${productColumn('has_grade')} AS has_grade,${productColumn('has_spec')} AS has_spec,
     ${productColumn('effective_date')} AS effective_date,${productColumn('expire_date')} AS expire_date
@@ -305,7 +329,7 @@ async function insertRow(client, table, row) {
 }
 async function applyPlan(client, plan) {
   const { desired: d, dbState: state } = plan;
-  const counts = { inserted: { grades:0,varieties:0,products:0,skus:0,scopes:0,profiles:0 }, activatedDrafts:0, policyUpgrades:0 };
+  const counts = { inserted: { grades:0,varieties:0,products:0,skus:0,scopes:0,profiles:0 }, restoredParents:0, activatedDrafts:0, policyUpgrades:0 };
   const activate = async (table, key, code) => {
     const result = await client.query(`UPDATE ${table} SET status='ACTIVE' WHERE ${key}=$1 AND status='DRAFT'`, [code]);
     if (result.rowCount !== 1) fail(`DRAFT_ACTIVATION_MOVED:${table}/${code}`);
@@ -323,6 +347,14 @@ async function applyPlan(client, plan) {
     const old = by(state.varieties, 'variety_code', variety.variety_code)[0];
     if (!old) counts.inserted.varieties += await insertRow(client, 'md_product_varieties', variety);
     else if (old.status === 'DRAFT') await activate('md_product_varieties','variety_code',variety.variety_code);
+  }
+  for (const restoration of d.restorations || []) {
+    if (by(state.products, 'product_code', restoration.product_code).length) fail('RESTORATION_STATE_MOVED');
+    counts.restoredParents += await insertRow(client, 'mst_products', {
+      product_code: restoration.product_code, product_name: restoration.product_name, product_name_zh: restoration.product_name,
+      unit_zh: restoration.unit_zh, variety_code: restoration.variety_code, status: restoration.status,
+      category_code: restoration.category_code, has_grade: restoration.has_grade, has_spec: restoration.has_spec,
+    });
   }
   for (const product of d.products) {
     const old = by(state.products, 'product_code', product.product_code)[0];
@@ -380,19 +412,29 @@ export async function runActivation(client, { mode, effectiveDate, manifest = re
     // The human explicitly confirmed these house colors from this business date.
     // This admits pending postings; it does not UPDATE any historical batch identity.
     if (mode === 'apply' && effectiveDate > state.database.today) fail('SOURCE_EFFECTIVE_DATE_IS_FUTURE');
+    const approved_parent_restorations=plan.desired.restorations.map(({ product_code, product_name, unit_zh, variety_code, status, category_code, reason }) =>
+      ({ product_code, product_name, unit_zh, variety_code, status, category_code, reason }));
     const result = { mode, plan_ready:true, manifest_sha256:plan.manifest_sha256, plan_sha256:plan.plan_sha256,
       db_state_sha256:plan.db_state_sha256, database:state.database, effective_date:effectiveDate,
       legacy_identity_map:plan.legacy_identity_map, legacy_identity_map_sha256:digest(plan.legacy_identity_map),
+      approved_parent_restoration_count:plan.desired.restorations.length,
+      approved_parent_restorations, approved_parent_restorations_sha256:digest(approved_parent_restorations),
       expectedCounts:{ profiles:11, standardSkus:42, variantSkus:84, scopes:126 },
       existingCounts:Object.fromEntries(['grades','specs','varieties','products','skus','scopes','profiles'].map(key=>[key,state[key].length])) };
     if (mode !== 'inspect') {
       result.rows = await applyPlan(client,plan);
       const after = await loadState(client,intent,true);
       validateState(after,plan.desired);
+      for (const restoration of plan.desired.restorations) {
+        const actual=exactlyOne(by(after.products,'product_code',restoration.product_code),restoration.product_code);
+        if (!keysEqual(actual,restoration,['product_code','product_name','variety_code','status','category_code'])
+          || actual.product_name_zh!==restoration.product_name || actual.base_unit!==restoration.unit_zh || actual.unit_zh!==restoration.unit_zh
+          || actual.has_grade!=='true' || actual.has_spec!=='true') fail('POST_PARENT_RESTORATION');
+      }
       for (const table of ['products','skus']) {
         const key=table==='products'?'product_code':'sku_code';
         const codes=new Set(plan.legacy_identity_map.map(r=>r[key]));
-        if (!same(state[table].filter(r=>codes.has(r[key])),after[table].filter(r=>codes.has(r[key])))) fail('LEGACY_CATALOG_IDENTITY_MOVED');
+        if (!same(state[table].filter(r=>codes.has(r[key])),after[table].filter(r=>codes.has(r[key]) && state[table].some(old=>old[key]===r[key])))) fail('LEGACY_CATALOG_IDENTITY_MOVED');
       }
       for (const [table,key,wanted] of [
         ['profiles','profile_code',plan.desired.profiles], ['skus','sku_code',plan.desired.skus],

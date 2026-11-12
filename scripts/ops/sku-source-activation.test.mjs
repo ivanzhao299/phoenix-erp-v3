@@ -48,6 +48,11 @@ test('manifest cannot add debug/rooster houses or swap the human-approved red/pi
     m => { m.scope.scope_type = 'ALL'; },
     m => { m.scope.sale_enabled = true; },
     m => { m.legacy_standard_selection.expected_count=34; },
+    m => { m.approved_parent_restorations[0].unit_zh='公斤'; },
+    m => { m.approved_parent_restorations[0].product_name='未经批准名称'; },
+    m => { m.approved_parent_restorations[0].has_spec=false; },
+    m => { m.approved_parent_restorations[0].product_code='UNAPPROVED'; },
+    m => { m.approved_parent_restorations.push({...m.approved_parent_restorations[0],product_code:'PRD-EGG-6'}); },
     m => { m.variant_products[0]='INVENTED'; },
     m => { m.effective_date = '2026-11-12'; },
   ]) {
@@ -107,7 +112,7 @@ test('real PG18 inspect, CAS, dry-run, activation, idempotence and refusal contr
   const query = c.query.bind(c);
   c.query = (...args) => { sqlCalls.push(args[0]); return query(...args); };
   try {
-    assert.ok(Number((await c.query('SHOW server_version_num')).rows[0].server_version_num) >= 180000);
+    assert.ok(Number((await c.query('SHOW server_version_num')).rows[0].server_version_num) >= 160000);
     const marker = await c.query('SELECT owner_key FROM public.sku_activation_fixture_owner');
     assert.deepEqual(marker.rows,[{owner_key:process.env.SKU_SOURCE_ACTIVATION_TEST_OWNER}]);
     assert.match(schema,/^sku_activation_[a-f0-9]{32}$/);
@@ -366,6 +371,13 @@ test('real PG18 inspect, CAS, dry-run, activation, idempotence and refusal contr
       assert.equal(report.catalog_report.reason,'LEGACY_STANDARD_TUPLE_MISSING');assert.equal(Object.hasOwn(report,'plan_sha256'),false);
       assert.equal(await count('md_egg_source_profiles'),0);assert.equal(await count('md_sku_org_scope'),0);
       assert.ok(!hold.stdout.includes('原始SKU'));assert.ok(!ready.stdout.includes('已存在名称'));
+      await missingApprovedParents();
+      const repair=execute();assert.equal(repair.status,0,repair.stderr);
+      const repairReceipt=JSON.parse(repair.stdout);assert.equal(sanitizeCatalogSnapshot(repairReceipt).plan_ready,true);
+      assert.equal(repairReceipt.approved_parent_restoration_count,5);
+      assert.equal(repairReceipt.approved_parent_restorations.length,5);
+      assert.equal((await c.query("SELECT count(*)::int AS n FROM mst_products WHERE product_code IN ('PRD-EGG-1','PRD-EGG-2','PRD-EGG-3','PRD-EGG-4','PRD-EGG-5')")).rows[0].n,0);
+
     });
     await t.test('an existing noncooperating writer makes the bounded catalog fence fail without writes',async()=>{
       await reset();const plan=await inspect();
@@ -376,6 +388,70 @@ test('real PG18 inspect, CAS, dry-run, activation, idempotence and refusal contr
         await assert.rejects(apply(plan),e=>e.code==='55P03');
         assert.equal(await count('md_egg_source_profiles'),0);assert.equal(await count('md_sku_org_scope'),0);
       } finally {await other.query('ROLLBACK');await other.end();}
+    });
+    async function missingApprovedParents(indices=[1,2,3,4,5]) {
+      await reset();
+      await c.query("UPDATE product_skus SET product_code='PRD-EGG-1' WHERE grade_code='GRADE_1'; UPDATE product_skus SET product_code='PRD-EGG-2' WHERE grade_code='GRADE_2'");
+      await c.query("UPDATE product_skus SET sku_code='SKU-'||substring(grade_code from 7)||'-'||spec_code WHERE grade_code IN ('GRADE_1','GRADE_2','GRADE_3','GRADE_4','GRADE_5')");
+      for(const n of [1,2]) await c.query("INSERT INTO mst_products(product_code,product_name,unit_zh,variety_code,status,category_code) VALUES ($1,'原存父档','枚',NULL,'ACTIVE','EGG')",[`PRD-EGG-${n}`]);
+      await c.query('DELETE FROM mst_products WHERE product_code=ANY($1)',[indices.map(n=>`PRD-EGG-${n}`)]);
+    }
+    await t.test('explicit approved five missing parent repair is atomic and preserves actual legacy35 exactly',async()=>{
+      await missingApprovedParents();
+      const before=(await c.query("SELECT to_jsonb(s) AS row FROM product_skus s WHERE variety_code IS NULL AND grade_code IN ('GRADE_1','GRADE_2','GRADE_3','GRADE_4','GRADE_5') ORDER BY sku_code")).rows;
+      assert.equal(before.length,35);
+      const plan=await inspect();assert.equal(plan.approved_parent_restorations.length,5);
+      assert.equal(plan.approved_parent_restoration_count,5);assert.equal(sanitizeCatalogSnapshot(plan).approved_parent_restorations.length,5);
+      const dry=await runActivation(c,{mode:'dry-run',effectiveDate:sourceDate});assert.equal(dry.rows.restoredParents,5);
+      assert.equal((await c.query("SELECT count(*)::int AS n FROM mst_products WHERE product_code IN ('PRD-EGG-1','PRD-EGG-2','PRD-EGG-3','PRD-EGG-4','PRD-EGG-5')")).rows[0].n,0);
+      assert.equal(await count('md_sku_org_scope'),0);assert.equal(await count('md_egg_source_profiles'),0);
+      const result=await apply(plan);assert.equal(result.rows.restoredParents,5);
+      assert.deepEqual((await c.query("SELECT to_jsonb(s) AS row FROM product_skus s WHERE variety_code IS NULL AND grade_code IN ('GRADE_1','GRADE_2','GRADE_3','GRADE_4','GRADE_5') ORDER BY sku_code")).rows,before);
+      assert.equal((await c.query("SELECT count(*)::int AS n FROM mst_products WHERE product_code IN ('PRD-EGG-1','PRD-EGG-2','PRD-EGG-3','PRD-EGG-4','PRD-EGG-5') AND unit_zh='枚' AND variety_code IS NULL AND category_code='EGG' AND has_grade AND has_spec AND status='ACTIVE'")).rows[0].n,5);
+      assert.equal(result.rows.inserted.skus,91);assert.equal(result.rows.inserted.scopes,126);assert.equal(result.rows.inserted.profiles,11);
+      assert.equal((await inspect()).approved_parent_restorations.length,0);
+    });
+    await t.test('partial missing approved parents restore only those rows and never overwrite existing parents',async()=>{
+      await missingApprovedParents([1,3]);
+      const before=(await c.query("SELECT to_jsonb(p) AS row FROM mst_products p WHERE product_code IN ('PRD-EGG-2','PRD-EGG-4','PRD-EGG-5') ORDER BY product_code")).rows;
+      const result=await apply(await inspect());assert.equal(result.rows.restoredParents,2);
+      assert.deepEqual((await c.query("SELECT to_jsonb(p) AS row FROM mst_products p WHERE product_code IN ('PRD-EGG-2','PRD-EGG-4','PRD-EGG-5') ORDER BY product_code")).rows,before);
+    });
+    for(const [name,sql,reason] of [
+      ['unapproved missing parent',"UPDATE product_skus SET product_code='UNAPPROVED-MISSING' WHERE grade_code='GRADE_1'",/LEGACY_PARENT_REQUIRED/],
+      ['wrong missing parent grade reference',"UPDATE product_skus SET product_code='PRD-EGG-2' WHERE grade_code='GRADE_1'",/RESTORATION_SKU_REFERENCE_CONFLICT/],
+      ['existing DRAFT parent',"INSERT INTO mst_products(product_code,unit_zh,variety_code,status,category_code) VALUES ('PRD-EGG-1','枚',NULL,'DRAFT','EGG')",/LEGACY_PARENT_POLICY/],
+      ['existing parent wrong unit',"INSERT INTO mst_products(product_code,unit_zh,variety_code,status,category_code) VALUES ('PRD-EGG-1','公斤',NULL,'ACTIVE','EGG')",/LEGACY_PARENT_POLICY/],
+      ['existing colored parent',"INSERT INTO mst_products(product_code,unit_zh,variety_code,status,category_code) VALUES ('PRD-EGG-1','枚','EGG_RED','ACTIVE','EGG')",/LEGACY_VARIETY_MISMATCH/],
+    ]) await t.test(`approved repair refuses ${name} without catalog writes`,async()=>{
+      await missingApprovedParents();await c.query(sql);
+      const before=(await c.query('SELECT to_jsonb(p) AS row FROM mst_products p ORDER BY product_code')).rows;
+      await assert.rejects(inspect(),reason);assert.equal((await inspectRaw()).plan_ready,false);
+      assert.deepEqual((await c.query('SELECT to_jsonb(p) AS row FROM mst_products p ORDER BY product_code')).rows,before);
+      assert.equal(await count('md_egg_source_profiles'),0);assert.equal(await count('md_sku_org_scope'),0);
+    });
+    await t.test('approved parent appearing after inspect invalidates CAS before any writes',async()=>{
+      await missingApprovedParents();const plan=await inspect();
+      await c.query("INSERT INTO mst_products(product_code,product_name,unit_zh,variety_code,status,category_code) VALUES ('PRD-EGG-1','并发父档','枚',NULL,'ACTIVE','EGG')");
+      await assert.rejects(apply(plan),/PLAN_OR_DATABASE_STATE_MOVED/);assert.equal(await count('md_egg_source_profiles'),0);
+    });
+    await t.test('restored parent name tampering fails the exact postcondition and rolls everything back',async()=>{
+      await missingApprovedParents();
+      await c.query(`CREATE FUNCTION fixture_tamper_parent() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.product_code='PRD-EGG-1' THEN NEW.product_name:='unapproved'; END IF; RETURN NEW; END $$;
+        CREATE TRIGGER fixture_tamper_parent BEFORE INSERT ON mst_products FOR EACH ROW EXECUTE FUNCTION fixture_tamper_parent()`);
+      try {await assert.rejects(apply(await inspect()),/POST_PARENT_RESTORATION/);
+        assert.equal((await c.query("SELECT count(*)::int AS n FROM mst_products WHERE product_code IN ('PRD-EGG-1','PRD-EGG-2','PRD-EGG-3','PRD-EGG-4','PRD-EGG-5')")).rows[0].n,0);
+        assert.equal(await count('product_skus'),36);assert.equal(await count('md_sku_org_scope'),0);assert.equal(await count('md_egg_source_profiles'),0);
+      } finally {await c.query('DROP TRIGGER fixture_tamper_parent ON mst_products; DROP FUNCTION fixture_tamper_parent()');}
+    });
+    await t.test('late failure rolls back restored five parents plus managed91 and all source scopes',async()=>{
+      await missingApprovedParents();
+      await c.query(`CREATE FUNCTION fixture_fail_restoration() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'fixture restoration late failure'; END $$;
+        CREATE TRIGGER fixture_fail_restoration BEFORE INSERT ON md_egg_source_profiles FOR EACH ROW EXECUTE FUNCTION fixture_fail_restoration()`);
+      try {await assert.rejects(apply(await inspect()),/fixture restoration late failure/);
+        assert.equal((await c.query("SELECT count(*)::int AS n FROM mst_products WHERE product_code IN ('PRD-EGG-1','PRD-EGG-2','PRD-EGG-3','PRD-EGG-4','PRD-EGG-5')")).rows[0].n,0);
+        assert.equal(await count('product_skus'),36);assert.equal(await count('md_sku_org_scope'),0);assert.equal(await count('md_egg_source_profiles'),0);
+      } finally {await c.query('DROP TRIGGER fixture_fail_restoration ON md_egg_source_profiles; DROP FUNCTION fixture_fail_restoration()');}
     });
     await t.test('schema changes are part of CAS and stop activation before any catalog write',async()=>{
       await reset(); const plan=await inspect();

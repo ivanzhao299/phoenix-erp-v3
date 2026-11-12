@@ -6,7 +6,7 @@ import os from 'node:os';
 import { pathToFileURL } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { runTransport, validateActivationInputs, containerProgram, safeFailureDiagnostic, sanitizeCatalogSnapshot, SOURCE_PATH, MANIFEST_PATH } from './sku-source-activation-transport.mjs';
-import { readManifest, digest } from './sku-source-activation.mjs';
+import { readManifest, digest, APPROVED_PARENT_RESTORATIONS } from './sku-source-activation.mjs';
 const target = 'a'.repeat(40), old = 'b'.repeat(40), sha = 'c'.repeat(64), id = 'd'.repeat(64);
 const base = { mode: 'apply', effectiveDate: '2026-11-11', expectedPlanSha256: sha, approveProduction: true,
   targetSha: target, deployMode: 'api', buildApi: true };
@@ -15,7 +15,7 @@ const legacyMap=Array.from({length:5},(_,i)=>['LOOSE','TRAY30','TRAY36','BOX360'
   grade_code:`GRADE_${i+1}`,spec_code:spec,status:'ACTIVE',variety_code:null,parent_status:'ACTIVE',parent_variety_code:null,
   org_context_required:false,base_unit:'枚'}))).flat();
 const readySnapshot={plan_ready:true,manifest_sha256:sha,db_state_sha256:sha,plan_sha256:sha,
-  legacy_identity_map:legacyMap,legacy_identity_map_sha256:digest(legacyMap)};
+  legacy_identity_map:legacyMap,legacy_identity_map_sha256:digest(legacyMap),approved_parent_restoration_count:0,approved_parent_restorations:[],approved_parent_restorations_sha256:digest([])};
 const missingReport={report_version:'1',plan_ready:false,reason:'LEGACY_STANDARD_TUPLE_MISSING',candidate_count:34,truncated:false,candidates:legacyMap.slice(1).map(r=>({...r,category_code:'EGG',effective_date:'2020-01-02',expire_date:null,parent_effective_date:null,parent_expire_date:null}))};
 const reportSnapshot={plan_ready:false,manifest_sha256:sha,db_state_sha256:sha,catalog_report:missingReport,catalog_report_sha256:digest(missingReport)};
 function fixture(overrides = {}) {
@@ -126,6 +126,20 @@ test('successful catalog map is exact35, digest-bound and strips unrelated recei
     const receipt=structuredClone(readySnapshot);mutate(receipt);
     assert.throws(()=>runTransport(base,fixture({receipt}).deps),/INVALID_CATALOG_SNAPSHOT/);
   }
+});
+test('restoration receipts bind only exact reviewed five parent definitions, count and digest',()=>{
+  const approved=APPROVED_PARENT_RESTORATIONS.map(({product_code,product_name,unit_zh,variety_code,status,category_code,reason})=>
+    ({product_code,product_name,unit_zh,variety_code,status,category_code,reason}));
+  const receipt={...readySnapshot,approved_parent_restorations:approved,approved_parent_restoration_count:5,approved_parent_restorations_sha256:digest(approved)};
+  const result=runTransport(base,fixture({receipt}).deps);assert.deepEqual(result.approved_parent_restorations,approved);
+  for(const change of [r=>r[0].product_code='PRD-EGG-6',r=>r[0].product_name='未经批准名称',r=>r[0].variety_code='EGG_RED',
+    r=>r[0].unit_zh='公斤',r=>r[0].price='secret',r=>r.push({...r[0]}),r=>r[0].reason='OTHER']) {
+    const bad=structuredClone(approved);change(bad);
+    assert.throws(()=>runTransport(base,fixture({receipt:{...receipt,approved_parent_restorations:bad,
+      approved_parent_restoration_count:bad.length,approved_parent_restorations_sha256:digest(bad)}}).deps),/INVALID_CATALOG_SNAPSHOT/);
+  }
+  assert.throws(()=>runTransport(base,fixture({receipt:{...receipt,approved_parent_restoration_count:4}}).deps),/INVALID_CATALOG_SNAPSHOT/);
+  assert.throws(()=>runTransport(base,fixture({receipt:{...receipt,approved_parent_restorations_sha256:'f'.repeat(64)}}).deps),/INVALID_CATALOG_SNAPSHOT/);
 });
 test('read-only report has no executable digest and preflight/apply cannot accept it',()=>{
   const receipt={...reportSnapshot,plan_sha256:undefined};
@@ -291,6 +305,14 @@ test('inspect artifact preserves the full plan hash and rejects duplicated or wr
     for (const bad of [{...report,plan_sha256:sha},{...receipt,plan_ready:undefined},{...report,catalog_report_sha256:'bad'},
       {...receipt,target_sha:old},{...receipt,effective_date:'2026-11-12'},{...receipt,db_state_sha256:'bad'}])
       assert.notEqual(execute(`SKU_SOURCE_INSPECT_RECEIPT=${JSON.stringify(bad)}`).status,0);
+    const restores=APPROVED_PARENT_RESTORATIONS.map(({product_code,product_name,unit_zh,variety_code,status,category_code,reason})=>({product_code,product_name,unit_zh,variety_code,status,category_code,reason}));
+    const repair={...receipt,approved_parent_restorations:restores,approved_parent_restoration_count:5,approved_parent_restorations_sha256:digest(restores)};
+    assert.equal(execute(`SKU_SOURCE_INSPECT_RECEIPT=${JSON.stringify(repair)}`).status,0);
+    for(const mutate of [r=>r[0].product_code='PRD-EGG-6',r=>r[0].product_name='unapproved',r=>r[0].price='secret',r=>r[1]={...r[0]}]) {
+      const badRows=structuredClone(restores);mutate(badRows);
+      const bad={...repair,approved_parent_restorations:badRows,approved_parent_restorations_sha256:digest(badRows)};
+      assert.notEqual(execute(`SKU_SOURCE_INSPECT_RECEIPT=${JSON.stringify(bad)}`).status,0);
+    }
     assert.equal(saved.catalog_report.candidates[0].category_code,'EGG');
     assert.equal(saved.catalog_report.candidates[0].effective_date,'2020-01-02');
     for (const mutate of [

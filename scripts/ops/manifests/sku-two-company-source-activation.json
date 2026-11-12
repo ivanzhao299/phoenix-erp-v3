@@ -50,5 +50,62 @@
     "category_code_when_present": "EGG",
     "expected_count": 35,
     "preserve_existing_identity": true
-  }
+  },
+  "approved_parent_restorations": [
+    {
+      "product_code": "PRD-EGG-1",
+      "product_name": "1号普通鸡蛋",
+      "unit_zh": "枚",
+      "variety_code": null,
+      "status": "ACTIVE",
+      "category_code": "EGG",
+      "has_grade": true,
+      "has_spec": true,
+      "reason": "MISSING_APPROVED_STANDARD_PARENT"
+    },
+    {
+      "product_code": "PRD-EGG-2",
+      "product_name": "2号普通鸡蛋",
+      "unit_zh": "枚",
+      "variety_code": null,
+      "status": "ACTIVE",
+      "category_code": "EGG",
+      "has_grade": true,
+      "has_spec": true,
+      "reason": "MISSING_APPROVED_STANDARD_PARENT"
+    },
+    {
+      "product_code": "PRD-EGG-3",
+      "product_name": "3号普通鸡蛋",
+      "unit_zh": "枚",
+      "variety_code": null,
+      "status": "ACTIVE",
+      "category_code": "EGG",
+      "has_grade": true,
+      "has_spec": true,
+      "reason": "MISSING_APPROVED_STANDARD_PARENT"
+    },
+    {
+      "product_code": "PRD-EGG-4",
+      "product_name": "4号普通鸡蛋",
+      "unit_zh": "枚",
+      "variety_code": null,
+      "status": "ACTIVE",
+      "category_code": "EGG",
+      "has_grade": true,
+      "has_spec": true,
+      "reason": "MISSING_APPROVED_STANDARD_PARENT"
+    },
+    {
+      "product_code": "PRD-EGG-5",
+      "product_name": "5号普通鸡蛋",
+      "unit_zh": "枚",
+      "variety_code": null,
+      "status": "ACTIVE",
+      "category_code": "EGG",
+      "has_grade": true,
+      "has_spec": true,
+      "reason": "MISSING_APPROVED_STANDARD_PARENT"
+    }
+  ]
 }
