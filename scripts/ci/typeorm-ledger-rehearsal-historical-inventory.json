@@ -1,7 +1,7 @@
 {
   "schema": "phoenix.typeorm-historical-rehearsal-inventory/1",
   "baselineSha": "22b47aebb50d2253afb465a25abc66ded26e873f",
-  "historicalCount": 95,
+  "historicalCount": 96,
   "entries": [
     {
       "source_file": "apps/api/dist/database/migrations/1781749821162-CreateTypeormMetadata.js",
@@ -572,6 +572,12 @@
       "class_name": "EggSourceProfiles1794400001000",
       "effective_name": "EggSourceProfiles1794400001000",
       "timestamp": 1794400001000
+    },
+    {
+      "source_file": "apps/api/dist/database/migrations/1794401000000-QuarantineLegacyMedicationIssueLines.js",
+      "class_name": "QuarantineLegacyMedicationIssueLines1794401000000",
+      "effective_name": "QuarantineLegacyMedicationIssueLines1794401000000",
+      "timestamp": 1794401000000
     }
   ]
 }
