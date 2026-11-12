@@ -70,6 +70,7 @@ test('real PG18 inspect, CAS, dry-run, activation, idempotence and refusal contr
   const { Client } = apiRequire('pg');
   const c = new Client({ connectionString:url }); await c.connect();
   const schema = `sku_activation_${randomUUID().replaceAll('-','')}`;
+  let createdSchema = false;
   const sqlCalls = [];
   const query = c.query.bind(c);
   c.query = (...args) => { sqlCalls.push(args[0]); return query(...args); };
@@ -77,7 +78,10 @@ test('real PG18 inspect, CAS, dry-run, activation, idempotence and refusal contr
     assert.ok(Number((await c.query('SHOW server_version_num')).rows[0].server_version_num) >= 180000);
     const marker = await c.query('SELECT owner_key FROM public.sku_activation_fixture_owner');
     assert.deepEqual(marker.rows,[{owner_key:process.env.SKU_SOURCE_ACTIVATION_TEST_OWNER}]);
-    await c.query(`CREATE SCHEMA ${schema}; SET search_path TO ${schema}`);
+    assert.match(schema,/^sku_activation_[a-f0-9]{32}$/);
+    await c.query(`CREATE SCHEMA ${schema}`);
+    createdSchema = true;
+    await c.query(`SET search_path TO ${schema}`);
     await c.query(`
       CREATE TABLE sys_organizations(id serial PRIMARY KEY,org_code text UNIQUE,company_code text,org_type text,status text,parent_id int);
       CREATE TABLE brd_farms(farm_code text PRIMARY KEY,company_code text,mapped_site_code text,status text);
@@ -85,7 +89,7 @@ test('real PG18 inspect, CAS, dry-run, activation, idempotence and refusal contr
       CREATE TABLE product_grades(grade_code text PRIMARY KEY,grade_name text,weight_range text,sort_order int,is_saleable boolean,is_storable boolean,status text);
       CREATE TABLE packaging_specs(spec_code text PRIMARY KEY,qty_per_unit numeric,base_unit text,display_unit text,status text);
       CREATE TABLE md_product_varieties(variety_code text PRIMARY KEY,variety_name text,shell_color text,status text,effective_date date,expire_date date);
-      CREATE TABLE mst_products(product_code text PRIMARY KEY,product_name text,product_name_zh text,unit text,unit_zh text,category_code text,has_grade boolean,has_spec boolean,variety_code text,status text);
+      CREATE TABLE mst_products(product_code text PRIMARY KEY,product_name text,product_name_zh text,unit_zh text,category_code text,has_grade boolean,has_spec boolean,variety_code text,status text);
       CREATE TABLE product_skus(sku_code text PRIMARY KEY,product_code text,grade_code text,spec_code text,variety_code text,product_name text,sku_name text,status text,effective_date date,expire_date date,UNIQUE(product_code,grade_code,spec_code));
       CREATE TABLE md_sku_org_scope(sku_code text,scope_type text,scope_code text,sale_enabled boolean,stock_enabled boolean,status text,effective_date date,expire_date date,UNIQUE(sku_code,scope_type,scope_code));
       CREATE TABLE inv_batches(id serial PRIMARY KEY);
@@ -129,14 +133,42 @@ test('real PG18 inspect, CAS, dry-run, activation, idempotence and refusal contr
     const inspect = () => runActivation(c,{mode:'inspect',effectiveDate:sourceDate});
     const apply = plan => runActivation(c,{mode:'apply',effectiveDate:sourceDate,confirm:CONFIRM,expectedPlanSha256:plan.plan_sha256});
     const count = async table => Number((await c.query(`SELECT count(*)::int AS n FROM ${table}`)).rows[0].n);
-    await t.test('inspect is read-only and dry-run rolls every new catalog/scope/profile row back',async()=>{
-      await reset(); sqlCalls.length=0;
+    await t.test('unit_zh-only production-shaped schema inspects read-only and dry-run rolls every new row back',async()=>{
+      await reset();
+      assert.deepEqual((await c.query("SELECT column_name FROM information_schema.columns WHERE table_schema=current_schema() AND table_name='mst_products' AND column_name IN ('unit','unit_zh') ORDER BY column_name")).rows,
+        [{column_name:'unit_zh'}]);
+      // Reproduce the old projection's concrete failure on the owned fixture,
+      // without exposing PostgreSQL's raw SQL/value-bearing error text.
+      await assert.rejects(c.query("SELECT COALESCE(NULLIF(unit_zh,''),unit) FROM mst_products"), error => error.code === '42703');
+      sqlCalls.length=0;
       const plan=await inspect(); assert.equal(sqlCalls[0],'BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
       assert.equal(await count('md_egg_source_profiles'),0);
       const dry=await runActivation(c,{mode:'dry-run',effectiveDate:sourceDate});
       assert.equal(dry.plan_sha256,plan.plan_sha256);
       assert.equal(dry.rows.inserted.skus,91); assert.equal(dry.rows.inserted.varieties,2); assert.equal(dry.rows.inserted.profiles,11);
       assert.equal(await count('md_egg_source_profiles'),0); assert.equal(await count('product_skus'),36); assert.equal(await count('md_product_varieties'),0);
+      assert.equal(await count('md_sku_org_scope'),0);
+      assert.equal((await c.query("SELECT count(*)::int AS n FROM product_grades WHERE grade_code='GRADE_0'")).rows[0].n,0);
+    });
+    await t.test('absent or blank canonical unit never guesses a semantic unit when legacy column is absent',async()=>{
+      for (const unit of [null,'','公斤']) {
+        await reset();
+        await c.query("UPDATE mst_products SET unit_zh=$1 WHERE product_code='PRD-EGG-1'",[unit]);
+        await assert.rejects(inspect(),/PRODUCT_CONFLICT:PRD-EGG-1/);
+        assert.equal(await count('md_egg_source_profiles'),0);
+      }
+    });
+    await t.test('canonical unit_zh takes precedence and optional legacy unit is read only when canonical is blank',async()=>{
+      await reset();
+      await c.query('ALTER TABLE mst_products ADD COLUMN unit text');
+      try {
+        await c.query("UPDATE mst_products SET unit='公斤'");
+        await inspect(); // Canonical 枚 wins over the conflicting legacy value.
+        await c.query("UPDATE mst_products SET unit_zh='',unit='枚' WHERE product_code='PRD-EGG-1'");
+        await inspect(); // Explicit old-row evidence, not an inferred default.
+        await c.query("UPDATE mst_products SET unit_zh='',unit=NULL WHERE product_code='PRD-EGG-1'");
+        await assert.rejects(inspect(),/PRODUCT_CONFLICT:PRD-EGG-1/);
+      } finally { await c.query('ALTER TABLE mst_products DROP COLUMN unit'); }
     });
     await t.test('apply creates every required master, seven STANDARD grade0 SKUs and exact company assignments',async()=>{
       await reset(); const plan=await inspect(); const result=await apply(plan);
@@ -146,6 +178,8 @@ test('real PG18 inspect, CAS, dry-run, activation, idempotence and refusal contr
       assert.equal((await c.query("SELECT org_context_required FROM product_skus WHERE sku_code='SKU-1-LOOSE'")).rows[0].org_context_required,false);
       assert.equal((await c.query("SELECT count(*)::int AS n FROM md_sku_org_scope WHERE NOT stock_enabled OR scope_type<>'COMPANY'")).rows[0].n,0);
       assert.equal((await c.query('SELECT count(*)::int AS n FROM md_sku_org_scope WHERE sale_enabled')).rows[0].n,35);
+      assert.equal((await c.query('SELECT count(*)::int AS n FROM md_sku_org_scope WHERE NOT sale_enabled AND stock_enabled')).rows[0].n,91);
+      assert.equal((await c.query('SELECT count(*)::int AS n FROM md_egg_source_profiles WHERE effective_date::text=$1',[sourceDate])).rows[0].n,11);
       assert.equal((await c.query('SELECT count(*)::int AS n FROM md_sku_org_scope o JOIN product_skus s USING(sku_code) WHERE o.sale_enabled AND s.org_context_required')).rows[0].n,0);
       assert.equal((await c.query("SELECT weight_range FROM product_grades WHERE grade_code='GRADE_0'")).rows[0].weight_range,null);
       assert.equal((await c.query("SELECT grade_code FROM product_skus WHERE sku_code='SKU-OLD-G0'")).rows[0].grade_code,'GRD-001');
@@ -220,10 +254,14 @@ test('real PG18 inspect, CAS, dry-run, activation, idempotence and refusal contr
       finally { await c.query('ALTER TABLE temporarily_missing RENAME TO md_product_varieties'); }
     });
   } finally {
-    await c.query('ROLLBACK');
-    // schema is generated here, validated before interpolating a destructive fixture-only command.
-    assert.match(schema,/^sku_activation_[a-f0-9]{32}$/);
-    await c.query(`SET search_path TO public; DROP SCHEMA ${schema} CASCADE`);
-    await c.end();
+    try {
+      await c.query('ROLLBACK');
+      // Drop only a schema this invocation actually created after the owner
+      // guard passed, never an existing schema or the database's public data.
+      if (createdSchema) {
+        assert.match(schema,/^sku_activation_[a-f0-9]{32}$/);
+        await c.query(`SET search_path TO public; DROP SCHEMA ${schema} CASCADE`);
+      }
+    } finally { await c.end(); }
   }
 });

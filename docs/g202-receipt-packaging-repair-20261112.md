@@ -15,10 +15,15 @@
 7. 药品入库日期契约测试改为允许 SQL 参数数组的换行，并额外确认归一化日期及 `$9::date`；没有改库存日期语义。
 8. 浏览器停药预警测试改为使用新权威 `/api/farm/medication-records/withdrawals` 与其 joined house_name/withdraw_until/medication_code 字段，保留鸡舍编码/历史名称、不重复显示的原断言，不恢复退役 CRUD 来源。
 
+9. 主分支 b2c08 的生产只读来源预检（43143362054）失败，代码核查发现 `mst_products.unit` 在生产不存在，主档使用 `unit_zh`。来源启用读取改为整行 JSON 安全取键，优先真实 `unit_zh`，没有给缺失单位设默认值。owned PG18 的生产形状反例确认旧表达式 SQLSTATE 42703，新的 inspect/dry-run/apply 均通过；不通过改生产 schema 迁就脚本。
+10. transport 只转发固定阶段和 allowlist 不变量名称或 SQLSTATE，不转发 SQL、消息/详情、参数、环境或命令字符串；仅允许精确、规范、≤512字节的子进程诊断。既保留失败关闭，也不再用通用 HOLD 隐藏可安全识别的根因。
+
 ## 验证
 
 - Node20.20.2，显式 NODE_ENV=test。
 - 真实临时 Git 证明、registry/schema receipt：15/15；含不可变旧文件、损坏证据、缺 ledger、错误 ancestry/source/path 的拒绝。
+- 来源启用/transport：49/49，无跳过，包括22个真实 PG18 子场景；unit_zh-only 形状、旧投影42703复现、无推测单位、CAS/幂等/晚期失败整单回滚，91项库存可用销售关闭、35项原销售许可、126公司范围、11来源档案均保持。
+- acc56721 的 CI 已实证 Playwright、包装 regression、完整类型/构建/基本测试通过（字体失败一次重试后成功）；最新提交仍须独立收集全部 CI 结果，不能用旧 head 绿灯替代。
 - readiness 真 PG18：88/88（原74保持，新增14）。
 - 完整 schema protection 真 PG18：13/13。
 - 完整 schema history 真 PG18：51/51。
