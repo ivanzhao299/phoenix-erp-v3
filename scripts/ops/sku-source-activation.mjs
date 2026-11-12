@@ -11,6 +11,13 @@ export const CONFIRM = 'I_UNDERSTAND_EGG_SOURCE_ACTIVATION_COMPANY_SCOPED';
 export const SPECS = ['LOOSE', 'TRAY30', 'TRAY36', 'BOX360', 'BOX720', 'GIFT12', 'GIFT24'];
 const COMPANIES = ['COMP-LAO-AGRI', 'COMP-LAO-XINGCHI'];
 const GRADES = Array.from({ length: 6 }, (_, n) => `GRADE_${n}`);
+const LEGACY_GRADES = GRADES.slice(1);
+export const LEGACY_SELECTION_POLICY = {
+  version: 'EXISTING_ACTIVE_STANDARD_MATRIX_V1', grade_codes: LEGACY_GRADES, spec_codes: SPECS,
+  sku_variety_code: null, parent_variety_code: null, org_context_required: false,
+  status: 'ACTIVE', parent_status: 'ACTIVE', base_unit: '枚', category_code_when_present: 'EGG',
+  expected_count: 35, preserve_existing_identity: true,
+};
 const SOURCE_ROWS = [
   ['COMP-LAO-AGRI', 'LPH_MENGSAI', 'SITE-MENGSAI-LAYER', 'STANDARD', null, ['HOUSE_MS_01','HOUSE_MS_02','HOUSE_MS_03','HOUSE_MS_04','HOUSE_MS_05','HOUSE_MS_06']],
   ['COMP-LAO-XINGCHI', 'FARM-DP', 'SITE-DONGPENG-LAYER', 'VARIANT', 'EGG_PINK', ['HOUSE_DP_01','HOUSE_DP_03','HOUSE_DP_05']],
@@ -36,6 +43,8 @@ export function validateManifest(manifest, effectiveDate) {
   }
   if (!same(manifest.spec_codes, SPECS) || !same(manifest.scope,
     { scope_type: 'COMPANY', sale_enabled: false, legacy_standard_sale_enabled: true, stock_enabled: true, status: 'ACTIVE' })) fail('MANIFEST_SCOPE_OR_SPECS');
+  if (!same(manifest.legacy_standard_selection, LEGACY_SELECTION_POLICY) || Object.hasOwn(manifest, 'standard_products')
+    || !same(manifest.variant_products, ['PRD-EGG-RED','PRD-EGG-PINK'])) fail('MANIFEST_CATALOG_POLICY');
   if (!Array.isArray(manifest.companies) || manifest.companies.length !== SOURCE_ROWS.length) fail('MANIFEST_SOURCE_COUNT');
   for (const [index, source] of SOURCE_ROWS.entries()) {
     const [company, farm, site, mode, variety, houses] = source;
@@ -45,7 +54,7 @@ export function validateManifest(manifest, effectiveDate) {
   }
   return true;
 }
-export function buildPlan(manifest, effectiveDate, dbState = {}) {
+function buildIntent(manifest, effectiveDate) {
   validateManifest(manifest, effectiveDate);
   const profiles = manifest.companies.flatMap(source => source.houses.map(house => ({
     profile_code: `ESP-${source.company_code}-${house}-${effectiveDate}`,
@@ -54,20 +63,16 @@ export function buildPlan(manifest, effectiveDate, dbState = {}) {
     effective_date: effectiveDate, expire_date: null, status: 'ACTIVE',
   }))).sort((a, b) => a.profile_code.localeCompare(b.profile_code));
   const products = [
-    ...Array.from({ length: 6 }, (_, n) => ({ product_code: `PRD-EGG-${n}`, variety_code: null,
-      product_name: `${n}号${n === 0 ? '特大蛋' : '蛋'}`, unit_zh: '枚', status: 'ACTIVE' })),
+    { product_code: 'PRD-EGG-0', variety_code: null, product_name: '0号特大蛋', unit_zh: '枚', status: 'ACTIVE' },
     { product_code: 'PRD-EGG-RED', variety_code: 'EGG_RED', product_name: '红壳蛋', unit_zh: '枚', status: 'ACTIVE' },
     { product_code: 'PRD-EGG-PINK', variety_code: 'EGG_PINK', product_name: '粉壳蛋', unit_zh: '枚', status: 'ACTIVE' },
   ];
-  const skus = products.flatMap(product => GRADES.flatMap((grade, n) => SPECS.map(spec => ({
-    sku_code: `SKU-${product.variety_code ? `${product.variety_code === 'EGG_RED' ? 'R' : 'P'}-` : ''}${n}-${spec}`,
-    product_code: product.product_code, grade_code: grade, spec_code: spec, variety_code: product.variety_code,
-    sku_name: `${product.product_name} ${grade} ${spec}`, status: 'ACTIVE',
-    org_context_required: product.variety_code !== null || n === 0,
-  })))).filter(sku => {
-    // Existing STANDARD products remain grade-specific identities. Do not duplicate grade across them.
-    return sku.variety_code !== null || sku.product_code === `PRD-EGG-${sku.grade_code.slice(6)}`;
-  }).sort((a, b) => a.sku_code.localeCompare(b.sku_code));
+  const skus = products.flatMap(product => (product.variety_code === null ? ['GRADE_0'] : GRADES)
+    .flatMap(grade => SPECS.map(spec => ({
+      sku_code: `SKU-${product.variety_code ? `${product.variety_code === 'EGG_RED' ? 'R' : 'P'}-` : ''}${grade.slice(6)}-${spec}`,
+      product_code: product.product_code, grade_code: grade, spec_code: spec, variety_code: product.variety_code,
+      sku_name: `${product.product_name} ${grade} ${spec}`, status: 'ACTIVE', org_context_required: true,
+    })))).sort((a, b) => a.sku_code.localeCompare(b.sku_code));
   const scopes = skus.map(sku => ({ sku_code: sku.sku_code, scope_type: 'COMPANY',
     scope_code: sku.variety_code === null ? COMPANIES[0] : COMPANIES[1], sale_enabled: !sku.org_context_required,
     stock_enabled: true, status: 'ACTIVE', effective_date: effectiveDate, expire_date: null,
@@ -78,7 +83,61 @@ export function buildPlan(manifest, effectiveDate, dbState = {}) {
       { variety_code: 'EGG_PINK', variety_name: '粉壳蛋', shell_color: 'PINK', status: 'ACTIVE' },
     ], grade0: { grade_code: 'GRADE_0', grade_name: '0号特大蛋', weight_range: null, sort_order: 5,
       is_saleable: true, is_storable: true, status: 'ACTIVE' } };
-  const body = { manifest_sha256: manifestSha256(manifest), desired, db_state_sha256: digest(dbState), dbState };
+  return desired;
+}
+
+/** No code/name patterns or company scope tie-breaks may select an existing identity. */
+export function legacyIdentityMap(state) {
+  if (!Array.isArray(state?.skus) || !Array.isArray(state?.products) || !validDate(state?.database?.today)) fail('LEGACY_CATALOG_STATE_REQUIRED');
+  const selected = [];
+  for (const grade of LEGACY_GRADES) for (const spec of SPECS) {
+    const candidates = state.skus.filter(s => s.grade_code === grade && s.spec_code === spec && s.status === 'ACTIVE');
+    const ordinary = [];
+    for (const sku of candidates) {
+      const parents = state.products.filter(p => p.product_code === sku.product_code);
+      if (parents.length !== 1) fail('LEGACY_PARENT_REQUIRED');
+      const parent = parents[0];
+      if (sku.variety_code !== null && parent.variety_code !== null) continue;
+      // A mismatched NULL side is never eligible, nor hidden as a possible runtime competitor.
+      if (sku.variety_code !== null || parent.variety_code !== null) fail('LEGACY_VARIETY_MISMATCH');
+      if (sku.org_context_required !== false) fail('LEGACY_SKU_POLICY_CHANGED');
+      if (parent.status !== 'ACTIVE' || parent.base_unit !== '枚'
+        || ((state.schemaColumns || []).some(c=>c.table_name==='mst_products' && c.column_name==='category_code')
+          && parent.category_code !== 'EGG')) fail('LEGACY_PARENT_POLICY');
+      validity(sku, state.database.today, 'LEGACY_STANDARD');
+      validity(parent, state.database.today, 'LEGACY_STANDARD_PARENT');
+      ordinary.push({ sku_code: sku.sku_code, product_code: sku.product_code, grade_code: grade, spec_code: spec,
+        status: sku.status, variety_code: sku.variety_code, parent_status: parent.status,
+        parent_variety_code: parent.variety_code, org_context_required: sku.org_context_required, base_unit: parent.base_unit });
+    }
+    if (ordinary.length !== 1) fail(ordinary.length ? 'LEGACY_STANDARD_TUPLE_AMBIGUOUS' : 'LEGACY_STANDARD_TUPLE_MISSING');
+    selected.push(ordinary[0]);
+  }
+  return selected.sort((a,b) => a.sku_code.localeCompare(b.sku_code));
+}
+
+/** An explicitly non-executable, bounded nonfinancial inventory for failed read-only inspection. */
+export function catalogReport(state, reason) {
+  const candidates = (state?.skus || []).filter(s => LEGACY_GRADES.includes(s.grade_code) && SPECS.includes(s.spec_code));
+  return { report_version:'1', plan_ready:false, reason, candidate_count:candidates.length, truncated:candidates.length > 140,
+    candidates:candidates.slice(0,140).map(s => {
+      const p=(state.products || []).find(p=>p.product_code===s.product_code);
+      return { sku_code:s.sku_code, product_code:s.product_code, grade_code:s.grade_code, spec_code:s.spec_code,
+        status:s.status, variety_code:s.variety_code, org_context_required:s.org_context_required,
+        parent_status:p?.status ?? null, parent_variety_code:p?.variety_code ?? null, base_unit:p?.base_unit ?? null,
+        category_code:p?.category_code ?? null, effective_date:s.effective_date ?? null, expire_date:s.expire_date ?? null,
+        parent_effective_date:p?.effective_date ?? null, parent_expire_date:p?.expire_date ?? null };
+    }) };
+}
+export function buildPlan(manifest, effectiveDate, dbState) {
+  const desired = buildIntent(manifest,effectiveDate);
+  const legacy_identity_map = legacyIdentityMap(dbState);
+  // Existing35 are immutable references, never product/SKU insert or draft-activation inputs.
+  desired.legacySkus = legacy_identity_map;
+  desired.scopes.push(...legacy_identity_map.map(s => ({sku_code:s.sku_code,scope_type:'COMPANY',scope_code:COMPANIES[0],
+    sale_enabled:true,stock_enabled:true,status:'ACTIVE',effective_date:effectiveDate,expire_date:null})));
+  desired.scopes.sort((a,b)=>a.sku_code.localeCompare(b.sku_code));
+  const body = { manifest_sha256: manifestSha256(manifest), desired, legacy_identity_map, db_state_sha256: digest(dbState), dbState };
   return { ...body, plan_sha256: digest(body) };
 }
 
@@ -126,21 +185,28 @@ async function loadState(client, desired, lock = false) {
   const varieties = await rows(`SELECT variety_code, shell_color, status, effective_date::text AS effective_date,
     expire_date::text AS expire_date FROM md_product_varieties WHERE variety_code=ANY($1) ORDER BY variety_code${update}`,
     [['EGG_RED', 'EGG_PINK']]);
-  // Production has canonical unit_zh but not necessarily the legacy unit
-  // column. JSON key lookup tolerates an absent legacy column without inventing
-  // a unit; validateState still requires the reviewed base unit exactly.
-  const products = await rows(`SELECT product_code,product_name,product_name_zh,
-    COALESCE(NULLIF(to_jsonb(p)->>'unit_zh',''),to_jsonb(p)->>'unit') AS base_unit, variety_code, status
-    FROM mst_products p WHERE product_code=ANY($1) ORDER BY product_code${update}`, [productCodes]);
+  // Discover the complete tuple predicate, not just generated codes or pre-existing grants.
   const skus = await rows(`SELECT sku_code,product_code,grade_code,spec_code,variety_code,status,org_context_required,
-    effective_date::text AS effective_date, expire_date::text AS expire_date FROM product_skus
-    WHERE sku_code=ANY($1) OR product_code=ANY($2)
+    sku_name,product_name,effective_date::text AS effective_date, expire_date::text AS expire_date FROM product_skus
+    WHERE (grade_code=ANY($4) AND spec_code=ANY($5)) OR sku_code=ANY($1) OR product_code=ANY($2)
        OR sku_code IN (SELECT sku_code FROM md_sku_org_scope WHERE scope_type='COMPANY' AND scope_code=ANY($3))
-    ORDER BY sku_code${update}`, [skuCodes, productCodes, COMPANIES]);
+    ORDER BY sku_code${update}`, [skuCodes, productCodes, COMPANIES, GRADES, SPECS]);
+  const allSkuCodes = [...new Set([...skuCodes,...skus.map(s=>s.sku_code)])];
+  const allProductCodes = [...new Set([...productCodes,...skus.map(s=>s.product_code)])];
+  // Only fixed nonfinancial columns are ever read. Missing optional columns are
+  // represented explicitly as NULL; never serialize a whole row (which may contain prices).
+  const productColumn = name => schemaColumns.some(c=>c.table_name==='mst_products' && c.column_name===name)
+    ? `p.${name}::text` : 'NULL::text';
+  const products = await rows(`SELECT product_code,product_name,${productColumn('product_name_zh')} AS product_name_zh,
+    COALESCE(NULLIF(${productColumn('unit_zh')},''),${productColumn('unit')}) AS base_unit, variety_code, status,
+    ${productColumn('category_code')} AS category_code,
+    ${productColumn('has_grade')} AS has_grade,${productColumn('has_spec')} AS has_spec,
+    ${productColumn('effective_date')} AS effective_date,${productColumn('expire_date')} AS expire_date
+    FROM mst_products p WHERE product_code=ANY($1) ORDER BY product_code${update}`, [allProductCodes]);
   const scopes = await rows(`SELECT sku_code,scope_type,scope_code,sale_enabled,stock_enabled,status,
     effective_date::text AS effective_date,expire_date::text AS expire_date FROM md_sku_org_scope
     WHERE sku_code=ANY($1) OR (scope_type='COMPANY' AND scope_code=ANY($2))
-    ORDER BY sku_code,scope_type,scope_code${update}`, [skuCodes, COMPANIES]);
+    ORDER BY sku_code,scope_type,scope_code${update}`, [allSkuCodes, COMPANIES]);
   const profiles = await rows(`SELECT profile_code,company_code,farm_code,site_code,house_code,product_mode,variety_code,
     effective_date::text AS effective_date,expire_date::text AS expire_date,status FROM md_egg_source_profiles
     WHERE house_code=ANY($1) OR profile_code=ANY($2) ORDER BY profile_code${update}`,
@@ -203,6 +269,7 @@ function validateState(state, desired) {
     if (found[0].variety_code !== product.variety_code || found[0].base_unit !== '枚'
       || !['ACTIVE','DRAFT'].includes(found[0].status)) fail(`PRODUCT_CONFLICT:${product.product_code}`);
   }
+  if (!same(legacyIdentityMap(state), desired.legacySkus)) fail('LEGACY_CATALOG_IDENTITY_MOVED');
   const identity = ['product_code','grade_code','spec_code','variety_code'];
   for (const sku of desired.skus) {
     const found = by(state.skus, 'sku_code', sku.sku_code);
@@ -290,41 +357,53 @@ async function applyPlan(client, plan) {
 export async function runActivation(client, { mode, effectiveDate, manifest = readManifest(), expectedPlanSha256, confirm } = {}) {
   if (!['inspect','dry-run','apply'].includes(mode)) fail('MODE_REQUIRED');
   if (mode === 'apply' && (confirm !== CONFIRM || !/^[a-f0-9]{64}$/.test(expectedPlanSha256 || ''))) fail('EXPLICIT_APPLY_APPROVAL_AND_PLAN_REQUIRED');
-  const draft = buildPlan(manifest,effectiveDate);
+  const intent = buildIntent(manifest,effectiveDate);
+  let inspectedState;
   let inTransaction = false;
   try {
     await client.query(mode === 'inspect' ? 'BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY' : 'BEGIN ISOLATION LEVEL SERIALIZABLE');
     inTransaction = true;
     if (mode !== 'inspect') {
+      await client.query("SET LOCAL lock_timeout='5s'");
+      await client.query("SET LOCAL statement_timeout='30s'");
+      // Before any SELECT establishes the SERIALIZABLE snapshot: block non-cooperating inserts and parent/scope edits.
+      await client.query('LOCK TABLE mst_products, product_skus, md_sku_org_scope IN SHARE ROW EXCLUSIVE MODE');
       await client.query("SELECT pg_advisory_xact_lock(hashtext('phoenix:sku-source-activation'))");
-      for (const profile of draft.desired.profiles) await client.query(
+      for (const profile of intent.profiles) await client.query(
         "SELECT pg_advisory_xact_lock(hashtext('phoenix:egg-source-profile'),hashtext($1))", [`${profile.company_code}:${profile.house_code}`]);
     }
-    const state = await loadState(client,draft.desired,mode !== 'inspect');
-    validateState(state,draft.desired);
+    const state = await loadState(client,intent,mode !== 'inspect');
+    inspectedState = state;
     const plan = buildPlan(manifest,effectiveDate,state);
+    validateState(state,plan.desired);
     if (mode === 'apply' && expectedPlanSha256 !== plan.plan_sha256) fail('PLAN_OR_DATABASE_STATE_MOVED');
     // The human explicitly confirmed these house colors from this business date.
     // This admits pending postings; it does not UPDATE any historical batch identity.
     if (mode === 'apply' && effectiveDate > state.database.today) fail('SOURCE_EFFECTIVE_DATE_IS_FUTURE');
-    const result = { mode, manifest_sha256:plan.manifest_sha256, plan_sha256:plan.plan_sha256,
+    const result = { mode, plan_ready:true, manifest_sha256:plan.manifest_sha256, plan_sha256:plan.plan_sha256,
       db_state_sha256:plan.db_state_sha256, database:state.database, effective_date:effectiveDate,
+      legacy_identity_map:plan.legacy_identity_map, legacy_identity_map_sha256:digest(plan.legacy_identity_map),
       expectedCounts:{ profiles:11, standardSkus:42, variantSkus:84, scopes:126 },
       existingCounts:Object.fromEntries(['grades','specs','varieties','products','skus','scopes','profiles'].map(key=>[key,state[key].length])) };
     if (mode !== 'inspect') {
       result.rows = await applyPlan(client,plan);
-      const after = await loadState(client,draft.desired,true);
-      validateState(after,draft.desired);
+      const after = await loadState(client,intent,true);
+      validateState(after,plan.desired);
+      for (const table of ['products','skus']) {
+        const key=table==='products'?'product_code':'sku_code';
+        const codes=new Set(plan.legacy_identity_map.map(r=>r[key]));
+        if (!same(state[table].filter(r=>codes.has(r[key])),after[table].filter(r=>codes.has(r[key])))) fail('LEGACY_CATALOG_IDENTITY_MOVED');
+      }
       for (const [table,key,wanted] of [
-        ['profiles','profile_code',draft.desired.profiles], ['skus','sku_code',draft.desired.skus],
-        ['products','product_code',draft.desired.products], ['varieties','variety_code',draft.desired.varieties],
+        ['profiles','profile_code',plan.desired.profiles], ['skus','sku_code',plan.desired.skus],
+        ['products','product_code',plan.desired.products], ['varieties','variety_code',plan.desired.varieties],
       ]) for (const row of wanted) {
         const actual = exactlyOne(by(after[table],key,row[key]),row[key]);
         if (actual.status !== 'ACTIVE') fail(`POST_ACTIVATION_STATUS:${row[key]}`);
       }
       const grade0 = exactlyOne(by(after.grades,'grade_code','GRADE_0'),'GRADE_0');
       if (!grade0.is_saleable || !grade0.is_storable || grade0.status !== 'ACTIVE') fail('POST_GRADE0_USAGE');
-      if (draft.desired.scopes.some(scope => !after.scopes.some(row => keysEqual(row,scope,Object.keys(scope))))) fail('POST_COMPANY_SCOPE');
+      if (plan.desired.scopes.some(scope => !after.scopes.some(row => keysEqual(row,scope,Object.keys(scope))))) fail('POST_COMPANY_SCOPE');
       result.after_state_sha256 = digest(after);
     }
     await client.query(mode === 'dry-run' ? 'ROLLBACK' : 'COMMIT');
@@ -332,6 +411,15 @@ export async function runActivation(client, { mode, effectiveDate, manifest = re
     return result;
   } catch (error) {
     if (inTransaction) await client.query('ROLLBACK');
+    if (mode === 'inspect' && inspectedState) {
+      const reason=/^SKU_ACTIVATION_HOLD=([A-Z0-9_]+)(?::[^\r\n]*)?$/.exec(error?.message || '')?.[1];
+      if (reason) {
+        const catalog_report=catalogReport(inspectedState,reason);
+        return { mode:'inspect',plan_ready:false,effective_date:effectiveDate,manifest_sha256:manifestSha256(manifest),
+          db_state_sha256:digest(inspectedState),database:inspectedState.database,
+          catalog_report,catalog_report_sha256:digest(catalog_report) };
+      }
+    }
     throw error;
   }
 }

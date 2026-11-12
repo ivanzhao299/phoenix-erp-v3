@@ -95,14 +95,55 @@ jobs:
         run: |
           node --input-type=module <<'NODE'
           import fs from 'node:fs';
+          import { createHash } from 'node:crypto';
+          const digest=value=>createHash('sha256').update(JSON.stringify(value,function(key,v){
+            return v && typeof v==='object' && !Array.isArray(v) ? Object.fromEntries(Object.keys(v).sort().map(k=>[k,v[k]])) : v;
+          })).digest('hex');
           const marker='SKU_SOURCE_INSPECT_RECEIPT=';
           const rows=(process.env.INSPECT_STDOUT||'').split(/\r?\n/).filter(line=>line.startsWith(marker));
           if(rows.length!==1) throw Error('SKU_INSPECT_RECEIPT_COUNT');
           const receipt=JSON.parse(rows[0].slice(marker.length));
           if(receipt.mode!=='inspect' || receipt.target_sha!==process.env.EXPECTED_TARGET_SHA
             || receipt.effective_date!==process.env.EXPECTED_EFFECTIVE_DATE
-            || !/^[a-f0-9]{64}$/.test(receipt.plan_sha256||'')
+            || !/^[a-f0-9]{64}$/.test(receipt.manifest_sha256||'')
             || !/^[a-f0-9]{64}$/.test(receipt.db_state_sha256||'')) throw Error('SKU_INSPECT_RECEIPT_BINDING');
+          if(receipt.plan_ready===true) {
+            if(!/^[a-f0-9]{64}$/.test(receipt.plan_sha256||'')
+              || !/^[a-f0-9]{64}$/.test(receipt.legacy_identity_map_sha256||'')
+              || !Array.isArray(receipt.legacy_identity_map) || receipt.legacy_identity_map.length!==35
+              || digest(receipt.legacy_identity_map)!==receipt.legacy_identity_map_sha256
+              || Object.hasOwn(receipt,'catalog_report')) throw Error('SKU_INSPECT_PLAN_BINDING');
+          } else if(receipt.plan_ready===false) {
+            if(Object.hasOwn(receipt,'plan_sha256') || Object.hasOwn(receipt,'legacy_identity_map')
+              || !/^[a-f0-9]{64}$/.test(receipt.catalog_report_sha256||'')
+              || receipt.catalog_report?.plan_ready!==false
+              || !Array.isArray(receipt.catalog_report.candidates) || receipt.catalog_report.candidates.length>140
+              || digest(receipt.catalog_report)!==receipt.catalog_report_sha256)
+              throw Error('SKU_INSPECT_REPORT_BINDING');
+            const report=receipt.catalog_report;
+            const reportKeys=['report_version','plan_ready','reason','candidate_count','truncated','candidates'];
+            const fields=['sku_code','product_code','grade_code','spec_code','status','variety_code','parent_status',
+              'parent_variety_code','org_context_required','base_unit','category_code','effective_date','expire_date',
+              'parent_effective_date','parent_expire_date'];
+            const coded=v=>typeof v==='string' && /^[A-Za-z0-9_.:/-]{1,128}$/.test(v);
+            const date=v=>v===null || (typeof v==='string' && /^\d{4}-\d{2}-\d{2}$/.test(v) && !v.startsWith('0000-')
+              && Number.isFinite(Date.parse(`${v}T00:00:00Z`)) && new Date(`${v}T00:00:00Z`).toISOString().slice(0,10)===v);
+            if(Object.keys(report).length!==reportKeys.length || reportKeys.some(k=>!Object.hasOwn(report,k))
+              || report.report_version!=='1' || !/^[A-Z][A-Z0-9_]{0,63}$/.test(report.reason)
+              || !Number.isSafeInteger(report.candidate_count) || report.candidate_count<0
+              || report.truncated!==(report.candidate_count>140) || report.candidates.length!==Math.min(report.candidate_count,140)
+              || report.candidates.some(r=>!r || Object.keys(r).length!==fields.length || fields.some(k=>!Object.hasOwn(r,k))
+                || !coded(r.sku_code) || !coded(r.product_code) || !/^GRADE_[1-5]$/.test(r.grade_code)
+                || !['LOOSE','TRAY30','TRAY36','BOX360','BOX720','GIFT12','GIFT24'].includes(r.spec_code)
+                || !coded(r.status) || r.status.length>32 || !(r.parent_status===null || (coded(r.parent_status) && r.parent_status.length<=32))
+                || ![r.variety_code,r.parent_variety_code].every(v=>v===null || coded(v))
+                || ![true,false,null].includes(r.org_context_required)
+                || !(r.base_unit===null || (typeof r.base_unit==='string' && r.base_unit.length<=16 && !/[\x00-\x1f]/.test(r.base_unit)))
+                || !(r.category_code===null || (coded(r.category_code) && r.category_code.length<=64))
+                || !['effective_date','expire_date','parent_effective_date','parent_expire_date'].every(k=>date(r[k]))))
+              throw Error('SKU_INSPECT_REPORT_FIELDS');
+            console.log('SKU_SOURCE_ACTIVATION_HOLD=READONLY_CATALOG_REPORT_NOT_EXECUTABLE');
+          } else throw Error('SKU_INSPECT_READINESS_REQUIRED');
           fs.writeFileSync('sku-source-inspect.json',JSON.stringify(receipt,null,2)+'\n',{mode:0o600});
           NODE
       - name: Upload read-only plan receipt

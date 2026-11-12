@@ -5,15 +5,30 @@ import path from 'node:path';
 import Module, { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { randomUUID } from 'node:crypto';
+import { spawnSync } from 'node:child_process';
+import { containerProgram, sanitizeCatalogSnapshot } from './sku-source-activation-transport.mjs';
 import { buildPlan, CONFIRM, explicitDbConfig, manifestSha256, parseArgs, readManifest, runActivation, validDate, validateManifest } from './sku-source-activation.mjs';
 
+const legacyCode=(n,spec='LOOSE')=>`LEGACY-ACTUAL-${n}-${spec}`;
+function mixedState() {
+  const specs=['LOOSE','TRAY30','TRAY36','BOX360','BOX720','GIFT12','GIFT24'];
+  const products=Array.from({length:5},(_,i)=>({product_code:i<2?`PRD-EGG-GRADE_${i+1}`:`PRD-EGG-${i+1}`,
+    product_name:`原始产品${i+1}`,product_name_zh:null,base_unit:'枚',variety_code:null,status:'ACTIVE',category_code:'EGG'}));
+  return {database:{today:'2026-11-12'},products,skus:products.flatMap((p,i)=>specs.map(spec=>({
+    sku_code:legacyCode(i+1,spec),product_code:p.product_code,grade_code:`GRADE_${i+1}`,spec_code:spec,
+    variety_code:null,status:'ACTIVE',org_context_required:false,sku_name:`原始SKU ${i+1} ${spec}`,
+    product_name:p.product_name,effective_date:null,expire_date:null}))) };
+}
+const purePlan=(state=mixedState())=>buildPlan(readManifest(),'2026-11-10',state);
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const apiRequire = createRequire(path.join(root, 'apps/api/package.json'));
 
 test('reviewed manifest defines STANDARD42, VARIANT84, eleven houses and no ALL/sales grants', () => {
-  const p = buildPlan(readManifest(), '2026-11-10');
+  const p = purePlan();
   assert.equal(p.desired.profiles.length, 11);
-  assert.equal(p.desired.skus.length, 126);
+  assert.equal(p.desired.skus.length, 91);
+  assert.equal(p.desired.legacySkus.length,35);
+  assert.equal(p.legacy_identity_map.length,35);
   assert.equal(p.desired.scopes.filter(r => r.scope_code === 'COMP-LAO-AGRI').length, 42);
   assert.equal(p.desired.scopes.filter(r => r.scope_code === 'COMP-LAO-XINGCHI').length, 84);
   assert.ok(p.desired.scopes.every(r => r.scope_type === 'COMPANY' && r.stock_enabled));
@@ -32,6 +47,8 @@ test('manifest cannot add debug/rooster houses or swap the human-approved red/pi
     m => { m.companies[0].variety_code = 'EGG_RED'; },
     m => { m.scope.scope_type = 'ALL'; },
     m => { m.scope.sale_enabled = true; },
+    m => { m.legacy_standard_selection.expected_count=34; },
+    m => { m.variant_products[0]='INVENTED'; },
     m => { m.effective_date = '2026-11-12'; },
   ]) {
     const m = readManifest(); mutate(m);
@@ -41,10 +58,25 @@ test('manifest cannot add debug/rooster houses or swap the human-approved red/pi
 test('valid dates round-trip and the plan includes effective date, manifest and DB state', () => {
   for (const d of ['2026-02-30','0000-01-01','2026/11/11','2026-1-1','2026-11-11T00:00:00Z']) assert.equal(validDate(d), false);
   assert.equal(validDate('2028-02-29'), true);
-  const a = buildPlan(readManifest(), '2026-11-10', { sku_status:'ACTIVE' });
-  assert.notEqual(a.plan_sha256, buildPlan(readManifest(), '2026-11-10', { sku_status:'FROZEN' }).plan_sha256);
-  assert.throws(() => buildPlan(readManifest(), '2026-11-12', { sku_status:'ACTIVE' }), /SOURCE_EFFECTIVE_DATE_NOT_REVIEWED/);
+  const a = purePlan();
+  assert.notEqual(a.plan_sha256, purePlan({...mixedState(),probe:'moved'}).plan_sha256);
+  assert.throws(() => buildPlan(readManifest(), '2026-11-12', mixedState()), /SOURCE_EFFECTIVE_DATE_NOT_REVIEWED/);
   assert.equal(a.manifest_sha256, manifestSha256());
+});
+test('pure plans require complete actual state and never infer legacy naming or choose a first row',()=>{
+  assert.throws(()=>buildPlan(readManifest(),'2026-11-10'),/LEGACY_CATALOG_STATE_REQUIRED/);
+  const a=mixedState(); a.skus[0].sku_code='ARBITRARY-HISTORIC-IDENTITY';
+  assert.equal(purePlan(a).legacy_identity_map.some(r=>r.sku_code==='ARBITRARY-HISTORIC-IDENTITY'),true);
+  for (const [change,reason] of [
+    [s=>s.skus.shift(),/LEGACY_STANDARD_TUPLE_MISSING/],
+    [s=>s.skus.push({...s.skus[0],sku_code:'SECOND-IDENTITY'}),/LEGACY_STANDARD_TUPLE_AMBIGUOUS/],
+    [s=>s.products.shift(),/LEGACY_PARENT_REQUIRED/],
+    [s=>s.skus[0].variety_code='EGG_RED',/LEGACY_VARIETY_MISMATCH/],
+    [s=>s.products[0].variety_code='EGG_RED',/LEGACY_VARIETY_MISMATCH/],
+    [s=>s.skus[0].org_context_required=true,/LEGACY_SKU_POLICY_CHANGED/],
+    [s=>s.skus[0].effective_date='2099-01-01',/MASTER_DATE/],
+    [s=>s.products[0].expire_date='2000-01-01',/MASTER_DATE/],
+  ]) {const state=mixedState();change(state);assert.throws(()=>purePlan(state),reason);}
 });
 test('CLI rejects unknown, duplicate and conflicting arguments before connecting', () => {
   for (const args of [[], ['--apply'], ['--mode','apply','--unknown','x'], ['--mode','inspect','--mode','apply'], ['--mode','inspect','--confirm',CONFIRM], ['--mode','--apply']]) {
@@ -111,7 +143,7 @@ test('real PG18 inspect, CAS, dry-run, activation, idempotence and refusal contr
     assert.ok(sourceDate <= today);
     async function reset() {
       await c.query(`TRUNCATE md_egg_source_profiles,md_sku_org_scope,product_skus,mst_products,md_product_varieties,packaging_specs,product_grades,brd_houses,brd_farms,sys_organizations RESTART IDENTITY`);
-      const d = buildPlan(readManifest(),sourceDate).desired;
+      const d = buildPlan(readManifest(),sourceDate,mixedState()).desired;
       for (const company of ['COMP-LAO-AGRI','COMP-LAO-XINGCHI']) await c.query("INSERT INTO sys_organizations(org_code,company_code,org_type,status) VALUES ($1,$1,'COMPANY','ACTIVE')",[company]);
       for (const row of [readManifest().companies[0],readManifest().companies[1]]) {
         const company = (await c.query('SELECT id FROM sys_organizations WHERE org_code=$1',[row.company_code])).rows[0];
@@ -124,13 +156,19 @@ test('real PG18 inspect, CAS, dry-run, activation, idempotence and refusal contr
       for (const [spec,factor] of [['LOOSE',1],['TRAY30',30],['TRAY36',36],['BOX360',360],['BOX720',720],['GIFT12',12],['GIFT24',24]]) {
         await c.query("INSERT INTO packaging_specs VALUES ($1,$2,'枚','包','ACTIVE')",[spec,factor]);
       }
-      for (const product of d.products.filter(r=>r.variety_code===null)) await c.query(
-        "INSERT INTO mst_products(product_code,product_name,unit_zh,variety_code,status) VALUES ($1,$2,'枚',NULL,'ACTIVE')",[product.product_code,'已存在名称不得改写']);
-      for (const sku of d.skus.filter(r=>r.variety_code===null&&r.grade_code!=='GRADE_0')) await c.query(
-        "INSERT INTO product_skus(sku_code,product_code,grade_code,spec_code,variety_code,status) VALUES ($1,$2,$3,$4,NULL,'ACTIVE')",[sku.sku_code,sku.product_code,sku.grade_code,sku.spec_code]);
+      for (const product of [...mixedState().products,...d.products.filter(r=>r.variety_code===null)]) await c.query(
+        "INSERT INTO mst_products(product_code,product_name,unit_zh,variety_code,status,category_code) VALUES ($1,$2,'枚',NULL,'ACTIVE','EGG')",[product.product_code,'已存在名称不得改写']);
+      for (const sku of mixedState().skus) await c.query(
+        "INSERT INTO product_skus(sku_code,product_code,grade_code,spec_code,variety_code,status,sku_name,product_name,effective_date) VALUES ($1,$2,$3,$4,NULL,'ACTIVE',$5,$6,'2020-01-02')",
+        [sku.sku_code,sku.product_code,sku.grade_code,sku.spec_code,sku.sku_name,'原始冗余名']);
       await c.query("INSERT INTO product_skus(sku_code,product_code,grade_code,spec_code,variety_code,status) VALUES ('SKU-OLD-G0','PRD-EGG-0','GRD-001','LOOSE',NULL,'ACTIVE')");
     }
-    const inspect = () => runActivation(c,{mode:'inspect',effectiveDate:sourceDate});
+    const inspectRaw = () => runActivation(c,{mode:'inspect',effectiveDate:sourceDate});
+    const inspect = async () => {
+      const result=await inspectRaw();
+      if (!result.plan_ready) throw new Error(`SKU_ACTIVATION_HOLD=${result.catalog_report.reason}`);
+      return result;
+    };
     const apply = plan => runActivation(c,{mode:'apply',effectiveDate:sourceDate,confirm:CONFIRM,expectedPlanSha256:plan.plan_sha256});
     const count = async table => Number((await c.query(`SELECT count(*)::int AS n FROM ${table}`)).rows[0].n);
     await t.test('unit_zh-only production-shaped schema inspects read-only and dry-run rolls every new row back',async()=>{
@@ -153,8 +191,8 @@ test('real PG18 inspect, CAS, dry-run, activation, idempotence and refusal contr
     await t.test('absent or blank canonical unit never guesses a semantic unit when legacy column is absent',async()=>{
       for (const unit of [null,'','公斤']) {
         await reset();
-        await c.query("UPDATE mst_products SET unit_zh=$1 WHERE product_code='PRD-EGG-1'",[unit]);
-        await assert.rejects(inspect(),/PRODUCT_CONFLICT:PRD-EGG-1/);
+        await c.query("UPDATE mst_products SET unit_zh=$1 WHERE product_code='PRD-EGG-GRADE_1'",[unit]);
+        await assert.rejects(inspect(),/LEGACY_PARENT_POLICY/);
         assert.equal(await count('md_egg_source_profiles'),0);
       }
     });
@@ -164,18 +202,24 @@ test('real PG18 inspect, CAS, dry-run, activation, idempotence and refusal contr
       try {
         await c.query("UPDATE mst_products SET unit='公斤'");
         await inspect(); // Canonical 枚 wins over the conflicting legacy value.
-        await c.query("UPDATE mst_products SET unit_zh='',unit='枚' WHERE product_code='PRD-EGG-1'");
+        await c.query("UPDATE mst_products SET unit_zh='',unit='枚' WHERE product_code='PRD-EGG-GRADE_1'");
         await inspect(); // Explicit old-row evidence, not an inferred default.
-        await c.query("UPDATE mst_products SET unit_zh='',unit=NULL WHERE product_code='PRD-EGG-1'");
-        await assert.rejects(inspect(),/PRODUCT_CONFLICT:PRD-EGG-1/);
+        await c.query("UPDATE mst_products SET unit_zh='',unit=NULL WHERE product_code='PRD-EGG-GRADE_1'");
+        await assert.rejects(inspect(),/LEGACY_PARENT_POLICY/);
       } finally { await c.query('ALTER TABLE mst_products DROP COLUMN unit'); }
     });
     await t.test('apply creates every required master, seven STANDARD grade0 SKUs and exact company assignments',async()=>{
-      await reset(); const plan=await inspect(); const result=await apply(plan);
+      await reset(); const plan=await inspect();
+      const beforeLegacy=(await c.query("SELECT to_jsonb(s) AS row FROM product_skus s WHERE grade_code IN ('GRADE_1','GRADE_2','GRADE_3','GRADE_4','GRADE_5') ORDER BY sku_code")).rows;
+      const beforeProducts=(await c.query("SELECT to_jsonb(p) AS row FROM mst_products p WHERE product_code<>'PRD-EGG-0' ORDER BY product_code")).rows;
+      const result=await apply(plan);
+      assert.deepEqual((await c.query("SELECT to_jsonb(s) AS row FROM product_skus s WHERE sku_code LIKE 'LEGACY-ACTUAL-%' ORDER BY sku_code")).rows,beforeLegacy);
+      assert.deepEqual((await c.query("SELECT to_jsonb(p) AS row FROM mst_products p WHERE product_code IN ('PRD-EGG-GRADE_1','PRD-EGG-GRADE_2','PRD-EGG-3','PRD-EGG-4','PRD-EGG-5') ORDER BY product_code")).rows,beforeProducts);
+      assert.equal(result.legacy_identity_map.length,35);assert.equal(result.plan_ready,true);
       assert.deepEqual(result.rows.inserted,{grades:1,varieties:2,products:2,skus:91,scopes:126,profiles:11});
       assert.equal(await count('md_egg_source_profiles'),11); assert.equal(await count('md_sku_org_scope'),126);
       assert.equal((await c.query('SELECT count(*)::int AS n FROM product_skus WHERE org_context_required')).rows[0].n,91);
-      assert.equal((await c.query("SELECT org_context_required FROM product_skus WHERE sku_code='SKU-1-LOOSE'")).rows[0].org_context_required,false);
+      assert.equal((await c.query("SELECT org_context_required FROM product_skus WHERE sku_code='LEGACY-ACTUAL-1-LOOSE'")).rows[0].org_context_required,false);
       assert.equal((await c.query("SELECT count(*)::int AS n FROM md_sku_org_scope WHERE NOT stock_enabled OR scope_type<>'COMPANY'")).rows[0].n,0);
       assert.equal((await c.query('SELECT count(*)::int AS n FROM md_sku_org_scope WHERE sale_enabled')).rows[0].n,35);
       assert.equal((await c.query('SELECT count(*)::int AS n FROM md_sku_org_scope WHERE NOT sale_enabled AND stock_enabled')).rows[0].n,91);
@@ -195,11 +239,143 @@ test('real PG18 inspect, CAS, dry-run, activation, idempotence and refusal contr
       const result=await apply(await inspect()); assert.equal(result.rows.policyUpgrades,1);
       const [saved]=(await c.query("SELECT status,org_context_required,product_name FROM product_skus WHERE sku_code='SKU-R-0-LOOSE'")).rows;
       assert.deepEqual(saved,{status:'ACTIVE',org_context_required:true,product_name:'红壳蛋'});
-      assert.equal((await c.query("SELECT org_context_required FROM product_skus WHERE sku_code='SKU-1-LOOSE'")).rows[0].org_context_required,false);
+      assert.equal((await c.query("SELECT org_context_required FROM product_skus WHERE sku_code='LEGACY-ACTUAL-1-LOOSE'")).rows[0].org_context_required,false);
     });
     await t.test('real CAS detects changed dependency after inspect before any write',async()=>{
       await reset(); const plan=await inspect(); await c.query("UPDATE packaging_specs SET qty_per_unit=31 WHERE spec_code='TRAY30'");
       await assert.rejects(apply(plan),/PLAN_OR_DATABASE_STATE_MOVED/); assert.equal(await count('md_egg_source_profiles'),0);
+    });
+    await t.test('inspect failures emit bounded nonfinancial inventory without an executable plan hash',async()=>{
+      await reset();await c.query("DELETE FROM product_skus WHERE sku_code='LEGACY-ACTUAL-1-LOOSE'");
+      const result=await inspectRaw();assert.equal(result.plan_ready,false);
+      assert.equal(result.catalog_report.reason,'LEGACY_STANDARD_TUPLE_MISSING');
+      assert.equal(Object.hasOwn(result,'plan_sha256'),false);
+      assert.equal(result.catalog_report.candidates.length,34);
+      assert.ok(!JSON.stringify(result).includes('原始SKU'));assert.ok(!JSON.stringify(result).includes('已存在名称'));
+      await assert.rejects(apply(result),/EXPLICIT_APPLY/);
+      assert.equal(await count('md_egg_source_profiles'),0);
+    });
+    for (const [name,sql,reason] of [
+      ['cross-product ambiguity',"INSERT INTO mst_products(product_code,unit_zh,variety_code,status,category_code) VALUES ('OTHER-LEGACY','枚',NULL,'ACTIVE','EGG'); INSERT INTO product_skus(sku_code,product_code,grade_code,spec_code,variety_code,status) VALUES ('SECOND-LEGACY','OTHER-LEGACY','GRADE_1','LOOSE',NULL,'ACTIVE')",/LEGACY_STANDARD_TUPLE_AMBIGUOUS/],
+      ['missing parent',"DELETE FROM mst_products WHERE product_code='PRD-EGG-GRADE_1'",/LEGACY_PARENT_REQUIRED/],
+      ['NULL SKU with colored parent',"UPDATE mst_products SET variety_code='EGG_RED' WHERE product_code='PRD-EGG-GRADE_1'",/LEGACY_VARIETY_MISMATCH/],
+      ['colored SKU with NULL parent',"UPDATE product_skus SET variety_code='EGG_RED' WHERE sku_code='LEGACY-ACTUAL-1-LOOSE'",/LEGACY_VARIETY_MISMATCH/],
+      ['inactive parent',"UPDATE mst_products SET status='INACTIVE' WHERE product_code='PRD-EGG-GRADE_1'",/LEGACY_PARENT_POLICY/],
+      ['wrong category',"UPDATE mst_products SET category_code='OTHER' WHERE product_code='PRD-EGG-GRADE_1'",/LEGACY_PARENT_POLICY/],
+      ['NULL authoritative category',"UPDATE mst_products SET category_code=NULL WHERE product_code='PRD-EGG-GRADE_1'",/LEGACY_PARENT_POLICY/],
+      ['future SKU',"UPDATE product_skus SET effective_date='2099-01-01' WHERE sku_code='LEGACY-ACTUAL-1-LOOSE'",/MASTER_DATE/],
+      ['expired SKU',"UPDATE product_skus SET expire_date='2000-01-01' WHERE sku_code='LEGACY-ACTUAL-1-LOOSE'",/MASTER_DATE/],
+      ['legacy org policy changed',"UPDATE product_skus SET org_context_required=true WHERE sku_code='LEGACY-ACTUAL-1-LOOSE'",/LEGACY_SKU_POLICY_CHANGED/],
+    ]) await t.test(`actual catalog refuses ${name}`,async()=>{
+      await reset();await c.query(sql);await assert.rejects(inspect(),reason);
+      assert.equal((await inspectRaw()).plan_ready,false);
+      assert.equal(await count('md_egg_source_profiles'),0);assert.equal(await count('md_sku_org_scope'),0);
+    });
+    await t.test('HOLD report exposes actual coded category and four validity dates without relaxing selection',async()=>{
+      await reset();await c.query('ALTER TABLE mst_products ADD COLUMN effective_date date, ADD COLUMN expire_date date');
+      try {
+        await c.query("UPDATE mst_products SET category_code='OLD-EGG-CATEGORY',effective_date='2020-02-29',expire_date='2026-11-01' WHERE product_code='PRD-EGG-GRADE_1'");
+        await c.query("UPDATE product_skus SET effective_date='2099-01-01',expire_date='2099-12-31' WHERE sku_code='LEGACY-ACTUAL-1-LOOSE'");
+        const report=await inspectRaw();assert.equal(report.plan_ready,false);assert.equal(Object.hasOwn(report,'plan_sha256'),false);
+        const row=report.catalog_report.candidates.find(r=>r.sku_code==='LEGACY-ACTUAL-1-LOOSE');
+        assert.equal(row.category_code,'OLD-EGG-CATEGORY');assert.equal(row.effective_date,'2099-01-01');
+        assert.equal(row.expire_date,'2099-12-31');assert.equal(row.parent_effective_date,'2020-02-29');
+        assert.equal(row.parent_expire_date,'2026-11-01');assert.equal(Object.keys(row).length,15);
+        assert.equal(sanitizeCatalogSnapshot(report).plan_ready,false);
+        await assert.rejects(apply(report),/EXPLICIT_APPLY/);
+        assert.equal(await count('md_egg_source_profiles'),0);assert.equal(await count('md_sku_org_scope'),0);
+      } finally {await c.query('ALTER TABLE mst_products DROP COLUMN effective_date, DROP COLUMN expire_date');}
+    });
+    await t.test('absence of an optional category column never guesses a category or alters existing rows',async()=>{
+      await reset();await c.query('ALTER TABLE mst_products DROP COLUMN category_code');
+      try {assert.equal((await inspect()).plan_ready,true);} finally {await c.query('ALTER TABLE mst_products ADD COLUMN category_code text');}
+    });
+    for (const [name,sql] of [
+      ['actual legacy parent name',"UPDATE mst_products SET product_name='并发修改名称' WHERE product_code='PRD-EGG-GRADE_1'"],
+      ['actual SKU label',"UPDATE product_skus SET sku_name='并发修改名称' WHERE sku_code='LEGACY-ACTUAL-1-LOOSE'"],
+      ['nonselected candidate status',"UPDATE product_skus SET status='FROZEN' WHERE sku_code='UNSCOPED-COLORED'"],
+      ['nonselected candidate parent',"UPDATE mst_products SET product_name='并发修改名称' WHERE product_code='UNSCOPED-PARENT'"],
+      ['known company catalog',"INSERT INTO md_sku_org_scope VALUES ('OUTSIDE-MATRIX','COMPANY','COMP-LAO-AGRI',false,false,'INACTIVE',NULL,NULL)"],
+    ]) await t.test(`CAS includes ${name}`,async()=>{
+      await reset();
+      await c.query("INSERT INTO mst_products(product_code,unit_zh,variety_code,status,category_code) VALUES ('UNSCOPED-PARENT','枚','EGG_PINK','ACTIVE','EGG')");
+      await c.query("INSERT INTO product_skus(sku_code,product_code,grade_code,spec_code,variety_code,status) VALUES ('UNSCOPED-COLORED','UNSCOPED-PARENT','GRADE_1','LOOSE','EGG_PINK','ACTIVE')");
+      const plan=await inspect();await c.query(sql);
+      await assert.rejects(apply(plan),/PLAN_OR_DATABASE_STATE_MOVED/);
+      assert.equal(await count('md_egg_source_profiles'),0);
+    });
+    await t.test('a newly committed arbitrary-parent candidate between inspect/apply is rejected before writes',async()=>{
+      await reset();const plan=await inspect();
+      const other=new Client({connectionString:url});await other.connect();
+      try {
+        await other.query(`SET search_path TO ${schema}`);
+        await other.query("INSERT INTO mst_products(product_code,unit_zh,variety_code,status,category_code) VALUES ('LATE-PARENT','枚',NULL,'ACTIVE','EGG')");
+        await other.query("INSERT INTO product_skus(sku_code,product_code,grade_code,spec_code,variety_code,status) VALUES ('LATE-SKU','LATE-PARENT','GRADE_1','LOOSE',NULL,'ACTIVE')");
+        await assert.rejects(apply(plan),/LEGACY_STANDARD_TUPLE_AMBIGUOUS/);
+        assert.equal(await count('md_egg_source_profiles'),0);
+      } finally {await other.end();}
+    });
+    await t.test('write fence precedes every snapshot and blocks noncooperating SKU/parent/scope writers',async()=>{
+      await reset();const plan=await inspect();
+      const other=new Client({connectionString:url});await other.connect();
+      const prior=c.query;let probed=false;
+      try {
+        await other.query(`SET search_path TO ${schema}`);await other.query("SET lock_timeout='100ms'");
+        c.query=async(sql,...args)=>{
+          if (!probed && sql.startsWith('SELECT table_name,column_name')) {
+            probed=true;
+            for (const statement of [
+              "INSERT INTO product_skus(sku_code,product_code,grade_code,spec_code,variety_code,status) VALUES ('CONCURRENT-SKU','PRD-EGG-GRADE_1','GRADE_2','LOOSE',NULL,'ACTIVE')",
+              "UPDATE mst_products SET product_name='concurrent' WHERE product_code='PRD-EGG-GRADE_1'",
+              "INSERT INTO md_sku_org_scope VALUES ('LEGACY-ACTUAL-1-LOOSE','COMPANY','COMP-LAO-AGRI',true,true,'ACTIVE',NULL,NULL)",
+            ]) await assert.rejects(other.query(statement),e=>e.code==='55P03');
+          }
+          return prior(sql,...args);
+        };
+        sqlCalls.length=0;await apply(plan);assert.equal(probed,true);
+        const fence=sqlCalls.findIndex(s=>s.startsWith('LOCK TABLE mst_products, product_skus, md_sku_org_scope'));
+        const firstSelect=sqlCalls.findIndex(s=>s.startsWith('SELECT'));
+        assert.ok(fence>0 && fence<firstSelect);assert.ok(sqlCalls.includes("SET LOCAL lock_timeout='5s'"));
+        assert.equal((await c.query("SELECT count(*)::int AS n FROM product_skus WHERE sku_code='CONCURRENT-SKU'")).rows[0].n,0);
+      } finally {c.query=prior;await other.end();}
+    });
+    await t.test('exact stdin transport performs real read-only PG18 queries for ready35 and non-executable HOLD reports',async()=>{
+      await reset();
+      const preload=`import Module,{createRequire} from 'node:module';
+        const {Client}=createRequire(${JSON.stringify(path.join(root,'apps/api/package.json'))})('pg');
+        const load=Module._load;
+        Module._load=function(request,parent,...args){
+          if(request==='pg' && parent.filename==='/app/package.json') return {Client:class extends Client {
+            constructor(config){super({...config,options:${JSON.stringify(`-c search_path=${schema} -c default_transaction_read_only=on`)}});}
+          }};
+          return load.call(this,request,parent,...args);
+        };`;
+      const core=fs.readFileSync(path.join(root,'scripts/ops/sku-source-activation.mjs'),'utf8');
+      const execute=()=>spawnSync(process.execPath,['--input-type=module','--import',`data:text/javascript;base64,${Buffer.from(preload).toString('base64')}`],{
+        input:containerProgram(core),encoding:'utf8',env:{PATH:process.env.PATH,
+          DB_HOST:parsed.hostname,DB_PORT:parsed.port,DB_USER:decodeURIComponent(parsed.username),DB_PASSWORD:decodeURIComponent(parsed.password),DB_NAME:parsed.pathname.slice(1),
+          SKU_ACTIVATION_OPTIONS_B64:Buffer.from(JSON.stringify({mode:'inspect',effectiveDate:sourceDate})).toString('base64'),
+          SKU_ACTIVATION_MANIFEST_B64:Buffer.from(JSON.stringify(readManifest())).toString('base64')},
+      });
+      const ready=execute();assert.equal(ready.status,0,ready.stderr);assert.equal(ready.stderr,'');
+      const readyReceipt=JSON.parse(ready.stdout);assert.equal(sanitizeCatalogSnapshot(readyReceipt).plan_ready,true);
+      assert.equal(readyReceipt.legacy_identity_map.length,35);assert.equal(await count('md_sku_org_scope'),0);
+      await c.query("DELETE FROM product_skus WHERE sku_code='LEGACY-ACTUAL-1-LOOSE'");
+      const hold=execute();assert.equal(hold.status,0,hold.stderr);assert.equal(hold.stderr,'');
+      const report=JSON.parse(hold.stdout);assert.equal(sanitizeCatalogSnapshot(report).plan_ready,false);
+      assert.equal(report.catalog_report.reason,'LEGACY_STANDARD_TUPLE_MISSING');assert.equal(Object.hasOwn(report,'plan_sha256'),false);
+      assert.equal(await count('md_egg_source_profiles'),0);assert.equal(await count('md_sku_org_scope'),0);
+      assert.ok(!hold.stdout.includes('原始SKU'));assert.ok(!ready.stdout.includes('已存在名称'));
+    });
+    await t.test('an existing noncooperating writer makes the bounded catalog fence fail without writes',async()=>{
+      await reset();const plan=await inspect();
+      const other=new Client({connectionString:url});await other.connect();
+      try {
+        await other.query(`SET search_path TO ${schema}`);await other.query('BEGIN');
+        await other.query('LOCK TABLE product_skus IN ROW EXCLUSIVE MODE');
+        await assert.rejects(apply(plan),e=>e.code==='55P03');
+        assert.equal(await count('md_egg_source_profiles'),0);assert.equal(await count('md_sku_org_scope'),0);
+      } finally {await other.query('ROLLBACK');await other.end();}
     });
     await t.test('schema changes are part of CAS and stop activation before any catalog write',async()=>{
       await reset(); const plan=await inspect();
@@ -222,9 +398,9 @@ test('real PG18 inspect, CAS, dry-run, activation, idempotence and refusal contr
     });
     await t.test('another company-assigned egg SKU cannot make the reviewed source catalogue ambiguous',async()=>{
       await reset();
-      await c.query("INSERT INTO product_skus(sku_code,product_code,grade_code,spec_code,variety_code,status) VALUES ('UNREVIEWED','PRD-EGG-1','GRADE_2','LOOSE',NULL,'ACTIVE')");
+      await c.query("INSERT INTO product_skus(sku_code,product_code,grade_code,spec_code,variety_code,status) VALUES ('UNREVIEWED','PRD-EGG-GRADE_1','GRADE_2','LOOSE',NULL,'ACTIVE')");
       await c.query(`INSERT INTO md_sku_org_scope VALUES ('UNREVIEWED','COMPANY','COMP-LAO-AGRI',false,true,'ACTIVE','${sourceDate}',NULL)`);
-      await assert.rejects(inspect(),/UNREVIEWED_COMPANY_CATALOG/);
+      await assert.rejects(inspect(),/LEGACY_STANDARD_TUPLE_AMBIGUOUS/);
     });
     for (const [label,sql,reason] of [
       ['house company spoof',"UPDATE brd_farms SET company_code='OTHER' WHERE farm_code='FARM-DP'",/SOURCE_ORGANIZATION/],
@@ -233,10 +409,10 @@ test('real PG18 inspect, CAS, dry-run, activation, idempotence and refusal contr
       ['missing spec',"DELETE FROM packaging_specs WHERE spec_code='BOX720'",/UNIQUE_MASTER_REQUIRED/],
       ['wrong base unit',"UPDATE packaging_specs SET base_unit='公斤' WHERE spec_code='LOOSE'",/SPEC_UNIT/],
       ['frozen grade',"UPDATE product_grades SET status='FROZEN' WHERE grade_code='GRADE_1'",/GRADE_STATUS/],
-      ['SKU identity collision',"UPDATE product_skus SET product_code='PRD-EGG-2' WHERE sku_code='SKU-1-LOOSE'",/SKU_IDENTITY_OR_STATUS/],
-      ['frozen SKU',"UPDATE product_skus SET status='FROZEN' WHERE sku_code='SKU-1-LOOSE'",/SKU_IDENTITY_OR_STATUS/],
-      ['company stock veto',`INSERT INTO md_sku_org_scope VALUES ('SKU-1-LOOSE','COMPANY','COMP-LAO-AGRI',true,false,'ACTIVE','${sourceDate}',NULL)`,/COMPANY_SCOPE_CONFLICT/],
-      ['global grant',"INSERT INTO md_sku_org_scope VALUES ('SKU-1-LOOSE','ALL','',true,true,'ACTIVE',NULL,NULL)",/NONCOMPANY_SCOPE_REQUIRES_REVIEW/],
+      ['SKU identity collision',"UPDATE product_skus SET sku_code='SKU-R-1-LOOSE' WHERE sku_code='LEGACY-ACTUAL-1-LOOSE'",/SKU_IDENTITY_OR_STATUS/],
+      ['frozen SKU',"UPDATE product_skus SET status='FROZEN' WHERE sku_code='LEGACY-ACTUAL-1-LOOSE'",/LEGACY_STANDARD_TUPLE_MISSING/],
+      ['company stock veto',`INSERT INTO md_sku_org_scope VALUES ('LEGACY-ACTUAL-1-LOOSE','COMPANY','COMP-LAO-AGRI',true,false,'ACTIVE','${sourceDate}',NULL)`,/COMPANY_SCOPE_CONFLICT/],
+      ['global grant',"INSERT INTO md_sku_org_scope VALUES ('LEGACY-ACTUAL-1-LOOSE','ALL','',true,true,'ACTIVE',NULL,NULL)",/NONCOMPANY_SCOPE_REQUIRES_REVIEW/],
       ['overlapping profile',`INSERT INTO md_egg_source_profiles(profile_code,company_code,farm_code,site_code,house_code,product_mode,effective_date) VALUES ('OLD','COMP-LAO-AGRI','LPH_MENGSAI','SITE-MENGSAI-LAYER','HOUSE_MS_01','STANDARD','2000-01-01')`,/SOURCE_PERIOD_OVERLAP/],
     ]) await t.test(`reject ${label} without changing catalog identity`,async()=>{
       await reset(); await c.query(sql); const before=await count('product_skus');

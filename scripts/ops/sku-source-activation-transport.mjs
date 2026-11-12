@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 /** Host bridge only: reviewed Git bytes execute on stdin in the existing API. No host pg or container writes. */
+import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -38,6 +39,8 @@ export function safeFailureDiagnostic(error, stage = 'HOST') {
     'DRAFT_ACTIVATION_MOVED', 'GRADE0_ACTIVATION_MOVED', 'SKU_POLICY_MOVED', 'MODE_REQUIRED',
     'EXPLICIT_APPLY_APPROVAL_AND_PLAN_REQUIRED', 'PLAN_OR_DATABASE_STATE_MOVED', 'SOURCE_EFFECTIVE_DATE_IS_FUTURE',
     'POST_ACTIVATION_STATUS', 'POST_GRADE0_USAGE', 'POST_COMPANY_SCOPE', 'INVALID_OR_DUPLICATE_ARGUMENT',
+    'MANIFEST_CATALOG_POLICY','LEGACY_CATALOG_STATE_REQUIRED','LEGACY_PARENT_REQUIRED','LEGACY_VARIETY_MISMATCH',
+    'LEGACY_PARENT_POLICY','LEGACY_STANDARD_TUPLE_AMBIGUOUS','LEGACY_STANDARD_TUPLE_MISSING','LEGACY_CATALOG_IDENTITY_MOVED',
     'APPROVAL_ONLY_FOR_APPLY', 'EXPLICIT_DATABASE_CONFIGURATION_REQUIRED', 'INVALID_DATABASE_PORT',
   ];
   const reason = typeof error?.message === 'string'
@@ -46,6 +49,82 @@ export function safeFailureDiagnostic(error, stage = 'HOST') {
     : typeof error?.code === 'string' && /^[A-Z0-9]{5}$/.test(error.code) ? `sqlstate=${error.code}` : 'reason=OPERATION_FAILED';
   return `SKU_TRANSPORT_HOLD=OPERATION_FAILED;stage=${safeStage};${suffix}`;
 }
+
+/** Self-contained: embedded in stdin and independently rechecked on the host. No free-text/catalog row passthrough. */
+export function sanitizeCatalogSnapshot(result) {
+  const reject=()=>{ throw new Error('SKU_TRANSPORT_HOLD=INVALID_CATALOG_SNAPSHOT'); };
+  const sha=value=>typeof value==='string' && /^[a-f0-9]{64}$/.test(value);
+  const code=value=>typeof value==='string' && /^[A-Za-z0-9_.:/-]{1,128}$/.test(value);
+  const specs=['LOOSE','TRAY30','TRAY36','BOX360','BOX720','GIFT12','GIFT24'];
+  const fields=['sku_code','product_code','grade_code','spec_code','status','variety_code','parent_status',
+    'parent_variety_code','org_context_required','base_unit'];
+  const nullableDate=value=>value===null || (typeof value==='string' && /^\d{4}-\d{2}-\d{2}$/.test(value)
+    && !value.startsWith('0000-') && Number.isFinite(Date.parse(`${value}T00:00:00Z`))
+    && new Date(`${value}T00:00:00Z`).toISOString().slice(0,10)===value);
+  const rows=(input,ready)=>{
+    const rowFields=ready?fields:[...fields,'category_code','effective_date','expire_date','parent_effective_date','parent_expire_date'];
+    if (!Array.isArray(input) || (ready ? input.length!==35 : input.length>140)) reject();
+    const seen=new Set(),skus=new Set();
+    return input.map(row=>{
+      if (!row || typeof row!=='object' || Object.keys(row).length!==rowFields.length || rowFields.some(k=>!Object.hasOwn(row,k))) reject();
+      if (!code(row.sku_code) || !code(row.product_code) || !/^GRADE_[1-5]$/.test(row.grade_code) || !specs.includes(row.spec_code)
+        || !code(row.status) || row.status.length>32 || !(row.parent_status===null || (code(row.parent_status) && row.parent_status.length<=32))
+        || !(row.variety_code===null || code(row.variety_code)) || !(row.parent_variety_code===null || code(row.parent_variety_code))
+        || ![true,false,null].includes(row.org_context_required)
+        || !(row.base_unit===null || (typeof row.base_unit==='string' && row.base_unit.length<=16 && !/[\r\n\x00-\x1f]/.test(row.base_unit)))) reject();
+      if (!ready && (!(row.category_code===null || (code(row.category_code) && row.category_code.length<=64))
+        || ['effective_date','expire_date','parent_effective_date','parent_expire_date'].some(k=>!nullableDate(row[k])))) reject();
+      if (ready) {
+        const tuple=`${row.grade_code}:${row.spec_code}`;
+        if (seen.has(tuple) || skus.has(row.sku_code) || row.status!=='ACTIVE' || row.parent_status!=='ACTIVE'
+          || row.variety_code!==null || row.parent_variety_code!==null || row.org_context_required!==false || row.base_unit!=='枚') reject();
+        seen.add(tuple);skus.add(row.sku_code);
+      }
+      return Object.fromEntries(rowFields.map(k=>[k,row[k]]));
+    });
+  };
+  if (!result || typeof result.plan_ready!=='boolean' || !sha(result.manifest_sha256) || !sha(result.db_state_sha256)) reject();
+  if (result.plan_ready) {
+    if (!sha(result.plan_sha256) || !sha(result.legacy_identity_map_sha256) || Object.hasOwn(result,'catalog_report')) reject();
+    return {plan_ready:true,legacy_identity_map:rows(result.legacy_identity_map,true),legacy_identity_map_sha256:result.legacy_identity_map_sha256};
+  }
+  if (result.mode!=='inspect' || Object.hasOwn(result,'plan_sha256') || Object.hasOwn(result,'legacy_identity_map') || !sha(result.catalog_report_sha256)) reject();
+  const report=result.catalog_report;
+  if (!report || Object.keys(report).length!==6 || report.report_version!=='1' || report.plan_ready!==false
+    || !/^[A-Z][A-Z0-9_]{0,63}$/.test(report.reason) || !Number.isSafeInteger(report.candidate_count) || report.candidate_count<0
+    || typeof report.truncated!=='boolean' || report.truncated!==(report.candidate_count>140)) reject();
+  const candidates=rows(report.candidates,false);
+  if (candidates.length!==Math.min(report.candidate_count,140)) reject();
+  return {plan_ready:false,catalog_report:{report_version:'1',plan_ready:false,reason:report.reason,
+    candidate_count:report.candidate_count,truncated:report.truncated,candidates},catalog_report_sha256:result.catalog_report_sha256};
+}
+/** Keep the remainder of the receipt scalar/count-only, including future child additions. */
+export function safeReceiptMetadata(result) {
+  const reject=()=>{throw new Error('SKU_TRANSPORT_HOLD=INVALID_RECEIPT_METADATA');};
+  const counts=(value,keys)=>{
+    if (value===undefined) return undefined;
+    if (!value || typeof value!=='object' || Array.isArray(value)) reject();
+    return Object.fromEntries(keys.filter(k=>Object.hasOwn(value,k)).map(k=>{
+      if (!Number.isSafeInteger(value[k]) || value[k]<0) reject();return [k,value[k]];
+    }));
+  };
+  let database;
+  if (result.database!==undefined) {
+    database=Object.fromEntries(['name','oid','today','schema','server_version'].map(k=>{
+      const v=result.database?.[k];
+      if (typeof v!=='string' || !v.length || v.length>128 || /[\x00-\x1f\x7f]/.test(v)) reject();return [k,v];
+    }));
+  }
+  if (result.after_state_sha256!==undefined && !/^[a-f0-9]{64}$/.test(result.after_state_sha256)) reject();
+  return {database,existingCounts:counts(result.existingCounts,['grades','specs','varieties','products','skus','scopes','profiles']),
+    expectedCounts:counts(result.expectedCounts,['profiles','standardSkus','variantSkus','scopes']),
+    rows:result.rows===undefined?undefined:{...counts(result.rows,['activatedDrafts','policyUpgrades']),
+      inserted:counts(result.rows?.inserted,['grades','varieties','products','skus','scopes','profiles'])},
+    after_state_sha256:result.after_state_sha256};
+}
+const snapshotDigest=value=>createHash('sha256').update(JSON.stringify(value, function(key,v) {
+  return v && typeof v==='object' && !Array.isArray(v) ? Object.fromEntries(Object.keys(v).sort().map(k=>[k,v[k]])) : v;
+})).digest('hex');
 
 function childFailureDiagnostic(error) {
   const stderr = error?.stderr;
@@ -65,6 +144,8 @@ import { createRequire as transportRequire } from 'node:module';
 let transportClient;
 let transportStage = 'OPTIONS';
 const transportDiagnostic = ${safeFailureDiagnostic.toString()};
+const transportCatalogSnapshot = ${sanitizeCatalogSnapshot.toString()};
+const transportReceiptMetadata = ${safeReceiptMetadata.toString()};
 try {
   const transportOptions = JSON.parse(Buffer.from(process.env.SKU_ACTIVATION_OPTIONS_B64, 'base64').toString('utf8'));
   transportStage = 'MANIFEST';
@@ -83,13 +164,12 @@ try {
   const transportResult = await runActivation(transportClient, { ...transportOptions, manifest: transportManifest,
     confirm: transportOptions.mode === 'apply' ? CONFIRM : undefined });
   transportStage = 'RECEIPT';
-  console.log(JSON.stringify({ mode: transportResult.mode, plan_sha256: transportResult.plan_sha256,
+  const transportCatalog = transportCatalogSnapshot(transportResult);
+  console.log(JSON.stringify({ mode: transportResult.mode, ...transportCatalog,
+    ...(transportResult.plan_ready ? {plan_sha256:transportResult.plan_sha256} : {}),
     manifest_sha256: transportResult.manifest_sha256, db_state_sha256: transportResult.db_state_sha256,
     effective_date: transportResult.effective_date,
-    database: transportResult.database && Object.fromEntries(['name','oid','today','schema','server_version']
-      .map(key => [key, transportResult.database[key]])), existingCounts: transportResult.existingCounts,
-    expectedCounts: transportResult.expectedCounts, rows: transportResult.rows,
-    after_state_sha256: transportResult.after_state_sha256 }));
+    ...transportReceiptMetadata(transportResult) }));
 } catch (error) { console.error(transportDiagnostic(error, transportStage)); process.exitCode = 1; }
 finally { if (transportClient) { try { await transportClient.end(); } catch (error) {
   if (!process.exitCode) console.error(transportDiagnostic(error, 'CLOSE'));
@@ -149,9 +229,17 @@ export function runTransport(options, dependencies = {}) {
     before.Id, 'node', '--input-type=module'], { env, input: containerProgram(source) });
   let result;
   try { result = JSON.parse(stdout); } catch { fail('INVALID_CONTAINER_RECEIPT'); }
-  if (result.mode !== executionMode || result.effective_date !== effectiveDate || !SHA256.test(result.plan_sha256 || '')) fail('RECEIPT_BINDING');
-  if (mode !== 'inspect' && result.plan_sha256 !== expectedPlanSha256) fail('PLAN_OR_DATABASE_STATE_MOVED');
-  return { ...result, mode, target_sha: targetSha, actual_api_revision: actualRevision };
+  if (result.mode !== executionMode || result.effective_date !== effectiveDate) fail('RECEIPT_BINDING');
+  const snapshot = sanitizeCatalogSnapshot(result);
+  if (snapshot.plan_ready) {
+    if (snapshotDigest(snapshot.legacy_identity_map)!==snapshot.legacy_identity_map_sha256) fail('INVALID_CATALOG_SNAPSHOT');
+  } else if (snapshotDigest(snapshot.catalog_report)!==snapshot.catalog_report_sha256) fail('INVALID_CATALOG_SNAPSHOT');
+  if (mode !== 'inspect' && (!snapshot.plan_ready || result.plan_sha256 !== expectedPlanSha256)) fail('PLAN_OR_DATABASE_STATE_MOVED');
+  // Fixed receipt projection prevents a compromised child/accidental field addition exporting rows or secrets.
+  return { mode, ...snapshot, ...(snapshot.plan_ready ? {plan_sha256:result.plan_sha256} : {}),
+    effective_date:result.effective_date, manifest_sha256:result.manifest_sha256,db_state_sha256:result.db_state_sha256,
+    ...safeReceiptMetadata(result),
+    target_sha:targetSha,actual_api_revision:actualRevision };
 }
 export function optionsFromEnv(env) {
   return { mode: env.SKU_ACTIVATION_MODE, effectiveDate: env.SKU_SOURCE_EFFECTIVE_DATE,
