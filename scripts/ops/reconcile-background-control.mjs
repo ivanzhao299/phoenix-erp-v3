@@ -54,7 +54,7 @@ const git = args => execFileSync('git', ['-c', `safe.directory=${root}`, '-c', '
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   try {
-    if (mode !== 'inspect' && mode !== 'reconcile' && mode !== 'revive-participant' && mode !== 'abort-prepared-promotion' && mode !== 'complete-background-open' && mode !== 'rollback-dead-transaction') throw new Error('BACKGROUND_RECONCILIATION=HOLD_USAGE_UNKNOWN_MODE');
+    if (mode !== 'inspect' && mode !== 'reconcile' && mode !== 'revive-participant' && mode !== 'abort-prepared-promotion' && mode !== 'complete-background-open' && mode !== 'rollback-dead-transaction' && mode !== 'reconcile-prepared-public') throw new Error('BACKGROUND_RECONCILIATION=HOLD_USAGE_UNKNOWN_MODE');
     mark('VERIFY_CONTEXT');
     verifyContext(root, stateDirectory);
     mark('CHECKOUT');
@@ -66,6 +66,58 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     mark('REMOTE_MAIN');
     if (targetSha !== git(['ls-remote', 'origin', 'refs/heads/main']).split(/\s/)[0]) hold('REMOTE_MAIN');
     mark('HOLD_SHAPE');
+    if (mode === 'reconcile-prepared-public') {
+      const preparedRunId = process.env.PREPARED_RUN_ID || '';
+      const preparedTargetSha = process.env.PREPARED_TARGET_SHA || '';
+      const preparedPreviousFloorSha = process.env.PREPARED_PREVIOUS_FLOOR_SHA || '';
+      if (!/^\d+-\d+$/.test(preparedRunId) || !/^[a-f0-9]{40}$/.test(preparedTargetSha)
+        || !/^[a-f0-9]{40}$/.test(preparedPreviousFloorSha)) hold('PREPARED_BINDING');
+      const archiveFile = path.join(stateDirectory, `recovery-prepared-${preparedRunId}-complete.json`);
+      if (!fs.existsSync(archiveFile)) hold('PREPARED_ARCHIVE_MISSING');
+      const archive = secureJson(archiveFile);
+      const backgroundSnapshot = archive.archived?.find?.(item => item?.name === 'background-control.json')?.value;
+      if (archive.schema !== 'phoenix.production-prepared-transaction-recovery/1' || archive.targetRunId !== preparedRunId
+        || archive.approvedSha !== preparedTargetSha || archive.previousFloorSha !== preparedPreviousFloorSha
+        || !backgroundSnapshot || backgroundSnapshot.owner !== preparedRunId || backgroundSnapshot.targetSha !== preparedTargetSha
+        || backgroundSnapshot.previousFloorSha !== preparedPreviousFloorSha || backgroundSnapshot.phase !== 'FENCED'
+        || !Number.isSafeInteger(backgroundSnapshot.generation) || backgroundSnapshot.generation < 1
+        || !/^[a-f0-9]{64}$/.test(backgroundSnapshot.manifestDigest)) hold('PREPARED_ARCHIVE_BINDING');
+      for (const name of ['transaction.json', 'policy-transition.json', 'background-control.json']) {
+        if (fs.existsSync(path.join(stateDirectory, name))) hold(`PREPARED_STATE_REMAINS_${name.replace(/[^a-z]/gi, '_').toUpperCase()}`);
+      }
+      const floor = secureJson(path.join(stateDirectory, 'floor.json'));
+      const active = secureJson(path.join(stateDirectory, 'active.json'));
+      if (floor.version !== 3 || floor.phase !== 'READY' || floor.floorSha !== preparedPreviousFloorSha
+        || active.version !== 3 || active.outcome !== 'SUCCESS' || active.floorSha !== preparedPreviousFloorSha) hold('PREPARED_FLOOR');
+      const actual = captureRuntime();
+      if (actual.api.revision !== preparedPreviousFloorSha || actual.web.revision !== preparedPreviousFloorSha) hold('PREPARED_RUNTIME_DRIFT');
+      const readiness = execFileSync('curl', ['-fsSL', '--max-time', '20', '-o', '/dev/null', '-w', '%{http_code}', 'http://127.0.0.1:3100/api/readiness'], { encoding: 'utf8' }).trim();
+      if (readiness !== '200') hold('PREPARED_READINESS');
+      const manifest = readPublicManifest(PUBLIC_DIRECTORY);
+      if (!manifest || manifest.phase !== 'FENCED' || manifest.owner !== preparedRunId || manifest.targetSha !== preparedTargetSha
+        || manifest.generation !== backgroundSnapshot.generation
+        || createHash('sha256').update(JSON.stringify(manifest)).digest('hex') !== backgroundSnapshot.manifestDigest) hold('PREPARED_PUBLIC_BINDING');
+      const generationFile = path.join(stateDirectory, 'background-generation.json');
+      let previousGeneration = 0;
+      if (fs.existsSync(generationFile)) {
+        const highWater = secureJson(generationFile);
+        if (highWater.schema !== 'phoenix.background-generation/1' || !Number.isSafeInteger(highWater.generation) || highWater.generation < 0) hold('PREPARED_GENERATION_STATE');
+        previousGeneration = highWater.generation;
+      }
+      const recovery = {
+        schema: 'phoenix.production-prepared-public-reconciliation/1', reconciledAt: new Date().toISOString(),
+        preparedRunId, preparedTargetSha, preparedPreviousFloorSha, readinessHttp: 200, runtime: actual,
+        archiveSha256: createHash('sha256').update(JSON.stringify(archive)).digest('hex'),
+        publicManifestSha256: createHash('sha256').update(JSON.stringify(manifest)).digest('hex'),
+        publicManifest: manifest, generationBefore: previousGeneration, generationAfter: Math.max(previousGeneration, backgroundSnapshot.generation),
+      };
+      atomicState(path.join(stateDirectory, `recovery-prepared-${preparedRunId}-public-reconciliation.json`), recovery);
+      if (recovery.generationAfter >= 1) atomicState(generationFile, { schema: 'phoenix.background-generation/1', generation: recovery.generationAfter, updatedAt: new Date().toISOString() });
+      fs.unlinkSync(path.join(PUBLIC_DIRECTORY, 'manifest.json'));
+      mark('COMPLETE');
+      console.log(`BACKGROUND_RECONCILIATION=PREPARED_PUBLIC_CLEARED;owner=${preparedRunId};target=${preparedTargetSha};generation=${recovery.generationAfter}`);
+      process.exit(0);
+    }
     if (mode === 'rollback-dead-transaction') {
       // A deployment body that died between `switch` and the container update
       // leaves its transaction marker behind while the runtime still runs the

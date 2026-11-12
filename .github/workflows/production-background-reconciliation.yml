@@ -4,10 +4,10 @@ on:
   workflow_dispatch:
     inputs:
       phase:
-        description: 'inspect = read-only state dump; reconcile = clear the stranded hold'
+        description: 'inspect = read-only state dump; reconcile = clear the stranded hold; reconcile-prepared-public = clear the exact stale public projection after prepared recovery'
         required: true
         type: choice
-        options: [inspect, reconcile, revive-participant, abort-prepared-promotion, complete-background-open, rollback-dead-transaction]
+        options: [inspect, reconcile, reconcile-prepared-public, revive-participant, abort-prepared-promotion, complete-background-open, rollback-dead-transaction]
       confirm_reconciliation:
         description: 'Type RECONCILE_PRODUCTION_BACKGROUND_CONTROL to authorize the targeted recovery'
         required: true
@@ -26,6 +26,18 @@ on:
         type: string
       dead_run_id:
         description: 'rollback-dead-transaction only: the <run>-<attempt> whose transaction marker must be closed'
+        required: false
+        type: string
+      prepared_run_id:
+        description: 'reconcile-prepared-public only: original prepared deploy run id including attempt'
+        required: false
+        type: string
+      prepared_target_sha:
+        description: 'reconcile-prepared-public only: exact prepared candidate SHA'
+        required: false
+        type: string
+      prepared_previous_floor_sha:
+        description: 'reconcile-prepared-public only: exact previous production floor SHA'
         required: false
         type: string
 
@@ -71,6 +83,9 @@ jobs:
           PROMOTION_RUN_ID: ${{ inputs.promotion_run_id }}
           SESSION_OWNER: ${{ inputs.session_owner }}
           DEAD_RUN_ID: ${{ inputs.dead_run_id }}
+          PREPARED_RUN_ID: ${{ inputs.prepared_run_id }}
+          PREPARED_TARGET_SHA: ${{ inputs.prepared_target_sha }}
+          PREPARED_PREVIOUS_FLOOR_SHA: ${{ inputs.prepared_previous_floor_sha }}
           PRODUCTION_CONTRACT_B64: ${{ env.PRODUCTION_CONTRACT_B64 }}
           PRODUCTION_PATH_HELPER_B64: ${{ env.PRODUCTION_PATH_HELPER_B64 }}
           PRODUCTION_CONTROL_BOOTSTRAP_B64: ${{ env.PRODUCTION_CONTROL_BOOTSTRAP_B64 }}
@@ -83,7 +98,7 @@ jobs:
           proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
           proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
           proxy_port: 22
-          envs: TARGET_SHA,PHASE,PROMOTION_RUN_ID,SESSION_OWNER,DEAD_RUN_ID,PRODUCTION_CONTRACT_B64,PRODUCTION_PATH_HELPER_B64,PRODUCTION_CONTROL_BOOTSTRAP_B64
+          envs: TARGET_SHA,PHASE,PROMOTION_RUN_ID,SESSION_OWNER,DEAD_RUN_ID,PREPARED_RUN_ID,PREPARED_TARGET_SHA,PREPARED_PREVIOUS_FLOOR_SHA,PRODUCTION_CONTRACT_B64,PRODUCTION_PATH_HELPER_B64,PRODUCTION_CONTROL_BOOTSTRAP_B64
           command_timeout: 8m
           script: |
             set -Eeuo pipefail
