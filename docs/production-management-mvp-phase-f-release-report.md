@@ -85,3 +85,8 @@
 - 重试 full 部署：workflow run `43218155456`，同一回执门禁再次 HOLD，未执行生产迁移或切流。
 - 受控 inspect：workflow run `43217675497`，只读审计为 GO，ledger digest 为 `c74163b510d97a803c7137e8dcda621f8215aad00501719970957ae18b3a05a3`，旧迁移已在生产 ledger 中，未有 pending migration。
 - 后置迁移 PR 使用新时间戳，待合并后单独执行 inspect/apply，再重新触发 full 部署。
+
+## Receipt source binding
+
+- Restored `1789600400000-AddProductionManagementMvpSchema.ts` from published `0334ddfc7` exactly. The source blob is `4f3cd954e15e11624108d875e95a310aa1053c32`.
+- Quarantine behavior is carried only by `1794401000000-QuarantineLegacyMedicationIssueLines.ts`, so the existing production receipt remains immutable and the new behavior has its own migration identity.
