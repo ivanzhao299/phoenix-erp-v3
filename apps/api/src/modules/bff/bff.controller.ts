@@ -1,6 +1,6 @@
 import { PackagingHandoverService } from './packaging-handover.service';
 import { OrgOwnershipService } from '../org/services/org-ownership.service';
-import { listPackagingReadyCombinations, resolvePackagingIdentity } from './packaging-readiness';
+import { listPackagingReadyCombinations, resolvePackagingIdentity, resolvePackagingSourceContext } from './packaging-readiness';
 import { Controller, Get, Post, Put, Patch, Body, Param, Query, UseGuards, Req, BadRequestException, ConflictException, InternalServerErrorException, ForbiddenException, HttpException } from '@nestjs/common';
 import { createHash, randomUUID } from 'crypto';
 import { AuthGuard } from '@nestjs/passport';
@@ -1382,8 +1382,18 @@ export class PackagingTerminalBffController {
   }
 
   @Get('packing/ready-combinations')
-  async getReadyCombinations() {
-    return { code: 200, data: await listPackagingReadyCombinations(this.em) };
+  async getReadyCombinations(
+    @Query('shiftId') shiftId?: string,
+    @Query('gradingCode') gradingCode?: string,
+    @Req() req?: any,
+  ) {
+    // No context means no options. A caller-provided shift/grading pair is
+    // resolved from persisted production links; req is only for the existing
+    // scope guard path and never supplies commercial identity.
+    const context = shiftId && gradingCode
+      ? await resolvePackagingSourceContext(this.em, { shiftId, gradingCodes: [gradingCode] })
+      : undefined;
+    return { code: 200, data: await listPackagingReadyCombinations(this.em, context) };
   }
 
   // ── Terminal 全局上下文 ────────────────────────────────────────────────────
