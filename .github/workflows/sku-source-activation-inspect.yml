@@ -112,7 +112,18 @@ jobs:
               || !/^[a-f0-9]{64}$/.test(receipt.legacy_identity_map_sha256||'')
               || !Array.isArray(receipt.legacy_identity_map) || receipt.legacy_identity_map.length!==35
               || digest(receipt.legacy_identity_map)!==receipt.legacy_identity_map_sha256
+              || !Array.isArray(receipt.approved_parent_restorations) || receipt.approved_parent_restorations.length>5
+              || receipt.approved_parent_restoration_count!==receipt.approved_parent_restorations.length
+              || !/^[a-f0-9]{64}$/.test(receipt.approved_parent_restorations_sha256||'')
+              || digest(receipt.approved_parent_restorations)!==receipt.approved_parent_restorations_sha256
               || Object.hasOwn(receipt,'catalog_report')) throw Error('SKU_INSPECT_PLAN_BINDING');
+            const restoreKeys=['product_code','product_name','unit_zh','variety_code','status','category_code','reason'];
+            if(new Set(receipt.approved_parent_restorations.map(r=>r.product_code)).size!==receipt.approved_parent_restorations.length
+              || receipt.approved_parent_restorations.some(r=>!r || Object.keys(r).length!==restoreKeys.length
+                || restoreKeys.some(k=>!Object.hasOwn(r,k)) || !/^PRD-EGG-[1-5]$/.test(r.product_code)
+                || r.product_name!==`${r.product_code.slice(-1)}号普通鸡蛋` || r.unit_zh!=='枚' || r.variety_code!==null
+                || r.status!=='ACTIVE' || r.category_code!=='EGG' || r.reason!=='MISSING_APPROVED_STANDARD_PARENT'))
+              throw Error('SKU_INSPECT_RESTORATION_BINDING');
           } else if(receipt.plan_ready===false) {
             if(Object.hasOwn(receipt,'plan_sha256') || Object.hasOwn(receipt,'legacy_identity_map')
               || !/^[a-f0-9]{64}$/.test(receipt.catalog_report_sha256||'')

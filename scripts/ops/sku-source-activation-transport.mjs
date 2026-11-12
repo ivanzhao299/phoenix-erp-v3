@@ -41,6 +41,7 @@ export function safeFailureDiagnostic(error, stage = 'HOST') {
     'POST_ACTIVATION_STATUS', 'POST_GRADE0_USAGE', 'POST_COMPANY_SCOPE', 'INVALID_OR_DUPLICATE_ARGUMENT',
     'MANIFEST_CATALOG_POLICY','LEGACY_CATALOG_STATE_REQUIRED','LEGACY_PARENT_REQUIRED','LEGACY_VARIETY_MISMATCH',
     'LEGACY_PARENT_POLICY','LEGACY_STANDARD_TUPLE_AMBIGUOUS','LEGACY_STANDARD_TUPLE_MISSING','LEGACY_CATALOG_IDENTITY_MOVED',
+    'RESTORATION_STATE_MOVED','POST_PARENT_RESTORATION','RESTORATION_SKU_REFERENCE_CONFLICT',
     'APPROVAL_ONLY_FOR_APPLY', 'EXPLICIT_DATABASE_CONFIGURATION_REQUIRED', 'INVALID_DATABASE_PORT',
   ];
   const reason = typeof error?.message === 'string'
@@ -84,9 +85,27 @@ export function sanitizeCatalogSnapshot(result) {
     });
   };
   if (!result || typeof result.plan_ready!=='boolean' || !sha(result.manifest_sha256) || !sha(result.db_state_sha256)) reject();
+  const restorationRows=input=>{
+    if(!Array.isArray(input) || input.length>5) reject();
+    const seen=new Set();
+    return input.map(row=>{
+      const keys=['product_code','product_name','unit_zh','variety_code','status','category_code','reason'];
+      if(!row || Object.keys(row).length!==keys.length || keys.some(k=>!Object.hasOwn(row,k))
+        || !code(row.product_code) || typeof row.product_name!=='string' || row.product_name.length>128 || row.unit_zh!=='枚'
+        || row.variety_code!==null || row.status!=='ACTIVE' || row.category_code!=='EGG'
+        || !/^PRD-EGG-[1-5]$/.test(row.product_code) || row.product_name!==`${row.product_code.slice(-1)}号普通鸡蛋`
+        || seen.has(row.product_code) || row.reason!=='MISSING_APPROVED_STANDARD_PARENT') reject();
+      seen.add(row.product_code);
+      return Object.fromEntries(keys.map(k=>[k,row[k]]));
+    });
+  };
   if (result.plan_ready) {
-    if (!sha(result.plan_sha256) || !sha(result.legacy_identity_map_sha256) || Object.hasOwn(result,'catalog_report')) reject();
-    return {plan_ready:true,legacy_identity_map:rows(result.legacy_identity_map,true),legacy_identity_map_sha256:result.legacy_identity_map_sha256};
+    if (!sha(result.plan_sha256) || !sha(result.legacy_identity_map_sha256) || !sha(result.approved_parent_restorations_sha256)
+      || Object.hasOwn(result,'catalog_report')) reject();
+    const restorations=restorationRows(result.approved_parent_restorations);
+    if (result.approved_parent_restoration_count!==restorations.length) reject();
+    return {plan_ready:true,legacy_identity_map:rows(result.legacy_identity_map,true),legacy_identity_map_sha256:result.legacy_identity_map_sha256,
+      approved_parent_restoration_count:restorations.length,approved_parent_restorations:restorations,approved_parent_restorations_sha256:result.approved_parent_restorations_sha256};
   }
   if (result.mode!=='inspect' || Object.hasOwn(result,'plan_sha256') || Object.hasOwn(result,'legacy_identity_map') || !sha(result.catalog_report_sha256)) reject();
   const report=result.catalog_report;
@@ -118,7 +137,7 @@ export function safeReceiptMetadata(result) {
   if (result.after_state_sha256!==undefined && !/^[a-f0-9]{64}$/.test(result.after_state_sha256)) reject();
   return {database,existingCounts:counts(result.existingCounts,['grades','specs','varieties','products','skus','scopes','profiles']),
     expectedCounts:counts(result.expectedCounts,['profiles','standardSkus','variantSkus','scopes']),
-    rows:result.rows===undefined?undefined:{...counts(result.rows,['activatedDrafts','policyUpgrades']),
+    rows:result.rows===undefined?undefined:{...counts(result.rows,['activatedDrafts','policyUpgrades','restoredParents']),
       inserted:counts(result.rows?.inserted,['grades','varieties','products','skus','scopes','profiles'])},
     after_state_sha256:result.after_state_sha256};
 }
@@ -232,7 +251,8 @@ export function runTransport(options, dependencies = {}) {
   if (result.mode !== executionMode || result.effective_date !== effectiveDate) fail('RECEIPT_BINDING');
   const snapshot = sanitizeCatalogSnapshot(result);
   if (snapshot.plan_ready) {
-    if (snapshotDigest(snapshot.legacy_identity_map)!==snapshot.legacy_identity_map_sha256) fail('INVALID_CATALOG_SNAPSHOT');
+    if (snapshotDigest(snapshot.legacy_identity_map)!==snapshot.legacy_identity_map_sha256
+      || snapshotDigest(snapshot.approved_parent_restorations)!==snapshot.approved_parent_restorations_sha256) fail('INVALID_CATALOG_SNAPSHOT');
   } else if (snapshotDigest(snapshot.catalog_report)!==snapshot.catalog_report_sha256) fail('INVALID_CATALOG_SNAPSHOT');
   if (mode !== 'inspect' && (!snapshot.plan_ready || result.plan_sha256 !== expectedPlanSha256)) fail('PLAN_OR_DATABASE_STATE_MOVED');
   // Fixed receipt projection prevents a compromised child/accidental field addition exporting rows or secrets.
