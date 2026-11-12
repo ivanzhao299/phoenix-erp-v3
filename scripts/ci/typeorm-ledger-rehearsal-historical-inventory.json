@@ -1,7 +1,7 @@
 {
   "schema": "phoenix.typeorm-historical-rehearsal-inventory/1",
   "baselineSha": "22b47aebb50d2253afb465a25abc66ded26e873f",
-  "historicalCount": 94,
+  "historicalCount": 95,
   "entries": [
     {
       "source_file": "apps/api/dist/database/migrations/1781749821162-CreateTypeormMetadata.js",
@@ -530,6 +530,12 @@
       "class_name": "ConvergeInboundTimestamps1789600300000",
       "effective_name": "ConvergeInboundTimestamps1789600300000",
       "timestamp": 1789600300000
+    },
+    {
+      "source_file": "apps/api/dist/database/migrations/1789600400000-AddProductionManagementMvpSchema.js",
+      "class_name": "AddProductionManagementMvpSchema1789600400000",
+      "effective_name": "AddProductionManagementMvpSchema1789600400000",
+      "timestamp": 1789600400000
     },
     {
       "source_file": "apps/api/dist/database/migrations/1790000000000-ConsolidateBreedingDailyLogs.js",
