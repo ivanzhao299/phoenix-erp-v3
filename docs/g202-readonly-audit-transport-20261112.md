@@ -22,4 +22,6 @@ Node20运行65项审计/SSH/模式/bundle相关测试全部通过，无跳过。
 - 缺成员/重复/path/target/hash/source mode等拒绝；任何成员写入前完成验证。
 - 真实旧命令E2BIG、新完整材料+脚本小于100KB，保留头部空间；单独环境变量的反证防止再次误称INPUT_ENVS超限。
 
+进一步执行与发布CI相同的完整floor/environment/recovery契约：342通过、0失败，9项按原环境gate跳过。CI发现的两个旧测试仍查找已移除的audit tar字符串，已改为读取实际recovery精确SHA Git暂存清单，保留完整闭包/隔离导入断言。另在本机0077 umask下实证Nginx fixture目录0700/marker0600对非root worker不可见；同容器/端口显式设置公开非秘密控制投影0755/0644后，43个POST全部503、白名单GET仍204。仅修fixture权限/可见性预检和路径诊断，未改生产Nginx或放宽断言。
+
 该真实暂存/边界测试加入Node20静态CI门禁；本地成功不替代新提交的CI与后续真实生产只读审计。修复合并前不得宣称当前OCI/floor已通过审计，更不得以HTTP200代替正式运行证据。

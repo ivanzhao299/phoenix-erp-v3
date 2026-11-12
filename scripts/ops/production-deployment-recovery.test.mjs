@@ -239,12 +239,15 @@ test('CLI refuses without explicit execution authorization', async () => {
   assert.match(result.stdout, /DEPLOYMENT_RECOVERY=HOLD_EXECUTION_NOT_AUTHORIZED/);
 });
 
-// ── workflow bundle: manifest must cover the full import closure and unpack cleanly ──
+// ── Recovery uses its own exact-SHA Git staging loop, not audit's removed tar transport. ──
 function recoveryBundleManifest() {
   const workflow = fs.readFileSync('.github/workflows/chanjet-readonly-restoration.yml', 'utf8');
-  const match = workflow.match(/tar -czf "\$RECOVERY_TAR" -C scripts\/ops ([^\n]+)/);
-  assert.ok(match, 'recovery bundle tar manifest must exist in the workflow');
-  return match[1].trim().split(/\s+/);
+  const recovery = workflow.slice(workflow.indexOf('elif [ "$CHANJET_CONFIG_OPERATION" = recovery ]; then'));
+  const match = recovery.match(/for helper in ([^;]+); do\n\s+git show "\$CANDIDATE_MAIN_SHA:scripts\/ops\/\$helper" > "\$RECOVERY_STAGE\/\$helper"/);
+  assert.ok(match, 'actual reviewed recovery Git staging manifest must exist in the workflow');
+  const files = match[1].trim().split(/\s+/);
+  assert.equal(new Set(files).size, files.length, 'recovery staging must not duplicate a member');
+  return files;
 }
 test('recovery bundle manifest covers the full relative-import closure of every bundled module', () => {
   const manifest = recoveryBundleManifest();
