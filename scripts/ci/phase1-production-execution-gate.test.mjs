@@ -7,11 +7,11 @@ const inventory = manifest.map((entry) => ({ effective_name: entry.name, timesta
 const preflight = { pass: true, failures: [] };
 
 test('manifest and candidate identity are exact', () => {
-  assert.equal(manifest.length, 4);
+  assert.equal(manifest.length, 5);
   assert.doesNotThrow(() => validateCandidateInventory(manifest, inventory));
 });
 
-test('pre-execution requires the exact four pending migrations', () => {
+test('pre-execution requires the exact five pending migrations', () => {
   const result = evaluatePhase1PreExecution({ preflight, pending: manifest.map((entry) => entry.name), manifest, candidateInventory: inventory });
   assert.equal(result.pass, true);
   assert.equal(result.phase1PendingExact, true);
@@ -30,7 +30,7 @@ test('registry digest remains authoritative when local image IDs differ', () => 
   assert.throws(() => validateCandidateInventory(manifest, inventory, { imageDigest: digest, executionImageDigest: 'sha256:' + 'd'.repeat(64) }), /CANDIDATE_IMAGE_DIGEST_MISMATCH/);
 });
 
-test('post-migration requires no pending and all four applied', () => {
+test('post-migration requires no pending and all five applied', () => {
   const postflight = { pass: true, failures: [], counts: { canonical_typeorm_pending: 0 } };
   const result = evaluatePhase1PostMigration({ postflight, applied: manifest.map((entry) => entry.name), manifest, candidateInventory: inventory, invariants: { schema: true, data: true } });
   assert.equal(result.pass, true);
