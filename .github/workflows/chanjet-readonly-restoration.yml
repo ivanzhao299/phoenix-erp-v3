@@ -36,6 +36,12 @@ on:
         required: false
         type: string
         default: ''
+      recovery_mode:
+        description: 'Recovery only: case-a or prepared-no-switch'
+        required: false
+        type: choice
+        options: [case-a, prepared-no-switch]
+        default: case-a
       approval_json:
         description: 'Reviewed non-secret book/company/scope/first-period approval; no credentials or payloads'
         type: string
@@ -68,6 +74,7 @@ jobs:
           EXPECTED_PRODUCTION_SHA: ${{ inputs.expected_production_sha }}
           BOUND_RUN_ID: ${{ inputs.bound_run_id }}
           STARTUP_ERROR_RECEIPT: ${{ inputs.startup_error_receipt }}
+          RECOVERY_MODE: ${{ inputs.recovery_mode }}
           CONFIRMATION: ${{ inputs.confirmation }}
           APPROVAL_JSON: ${{ inputs.approval_json }}
         run: |
@@ -141,6 +148,7 @@ jobs:
       - name: Formal production configuration transaction or read-only audit
         uses: appleboy/ssh-action@v1
         env:
+          RECOVERY_MODE: ${{ inputs.recovery_mode }}
           PRODUCTION_CONTRACT_B64: ${{ env.PRODUCTION_CONTRACT_B64 }}
           PRODUCTION_PATH_HELPER_B64: ${{ env.PRODUCTION_PATH_HELPER_B64 }}
           PRODUCTION_CONTROL_BOOTSTRAP_B64: ${{ env.PRODUCTION_CONTROL_BOOTSTRAP_B64 }}
@@ -173,7 +181,7 @@ jobs:
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           port: 22
           fingerprint: 'SHA256:Y4WEXMJ24a4r1KxOw0det4qcCFNxj65mZeIG9oQOJcI'
-          envs: PRODUCTION_CONTRACT_B64,PRODUCTION_PATH_HELPER_B64,PRODUCTION_CONTROL_BOOTSTRAP_B64,AUDIT_PROGRAM_B64,AUDIT_PROGRAM_SHA256,AUDIT_SQL_B64,AUDIT_SQL_SHA256,PRODUCTION_EVIDENCE_PROGRAM_B64,PRODUCTION_EVIDENCE_PROGRAM_SHA256,AUDIT_CLOSURE_MANIFEST_B64,AUDIT_CLOSURE_MANIFEST_SHA256,AUDIT_STAGE_HELPER_B64,AUDIT_STAGE_HELPER_SHA256,RECOVERY_STARTUP_RECEIPT_B64,RECOVERY_STARTUP_RECEIPT_SHA256,CHANJET_CONFIG_OPERATION,CHANJET_APPROVAL_B64,APPROVED_CONFIG_FLOOR_SHA,TARGET_SHA,CANDIDATE_MAIN_SHA,EXPECTED_PRODUCTION_SHA,BOUND_RUN_ID,RECOVERY_TARGET_SHA,RECOVERY_PREVIOUS_FLOOR_SHA,DEPLOY_RUN_ID,CHANJET_SYNC_OPERATOR_TOKEN
+          envs: RECOVERY_MODE,PRODUCTION_CONTRACT_B64,PRODUCTION_PATH_HELPER_B64,PRODUCTION_CONTROL_BOOTSTRAP_B64,AUDIT_PROGRAM_B64,AUDIT_PROGRAM_SHA256,AUDIT_SQL_B64,AUDIT_SQL_SHA256,PRODUCTION_EVIDENCE_PROGRAM_B64,PRODUCTION_EVIDENCE_PROGRAM_SHA256,AUDIT_CLOSURE_MANIFEST_B64,AUDIT_CLOSURE_MANIFEST_SHA256,AUDIT_STAGE_HELPER_B64,AUDIT_STAGE_HELPER_SHA256,RECOVERY_STARTUP_RECEIPT_B64,RECOVERY_STARTUP_RECEIPT_SHA256,CHANJET_CONFIG_OPERATION,CHANJET_APPROVAL_B64,APPROVED_CONFIG_FLOOR_SHA,TARGET_SHA,CANDIDATE_MAIN_SHA,EXPECTED_PRODUCTION_SHA,BOUND_RUN_ID,RECOVERY_TARGET_SHA,RECOVERY_PREVIOUS_FLOOR_SHA,DEPLOY_RUN_ID,CHANJET_SYNC_OPERATOR_TOKEN
           command_timeout: 12m
           script: |
             set -Eeuo pipefail
@@ -239,8 +247,15 @@ jobs:
                 chmod 600 "$RECOVERY_STAGE/$helper"
               done
               AUDIT_STAGE=RECOVERY
-              RECOVERY_EXECUTE=true RECOVERY_TARGET_RUN_ID="$BOUND_RUN_ID" RECOVERY_APPROVED_SHA="$RECOVERY_TARGET_SHA" RECOVERY_PREVIOUS_FLOOR_SHA="$RECOVERY_PREVIOUS_FLOOR_SHA" RECOVERY_RUN_ID="$DEPLOY_RUN_ID" \
-                node "$RECOVERY_STAGE/production-deployment-recovery.mjs"
+              if [ "${RECOVERY_MODE:-case-a}" = prepared-no-switch ]; then
+                git show "$CANDIDATE_MAIN_SHA:scripts/ops/production-prepared-transaction-recovery.mjs" > "$RECOVERY_STAGE/production-prepared-transaction-recovery.mjs"
+                chmod 600 "$RECOVERY_STAGE/production-prepared-transaction-recovery.mjs"
+                RECOVERY_EXECUTE=true RECOVERY_MODE=prepared-no-switch RECOVERY_TARGET_RUN_ID="$BOUND_RUN_ID" RECOVERY_APPROVED_SHA="$RECOVERY_TARGET_SHA" RECOVERY_PREVIOUS_FLOOR_SHA="$RECOVERY_PREVIOUS_FLOOR_SHA" RECOVERY_RUN_ID="$DEPLOY_RUN_ID" \
+                  node "$RECOVERY_STAGE/production-prepared-transaction-recovery.mjs"
+              else
+                RECOVERY_EXECUTE=true RECOVERY_MODE=case-a RECOVERY_TARGET_RUN_ID="$BOUND_RUN_ID" RECOVERY_APPROVED_SHA="$RECOVERY_TARGET_SHA" RECOVERY_PREVIOUS_FLOOR_SHA="$RECOVERY_PREVIOUS_FLOOR_SHA" RECOVERY_RUN_ID="$DEPLOY_RUN_ID" \
+                  node "$RECOVERY_STAGE/production-deployment-recovery.mjs"
+              fi
               AUDIT_STAGE=COMPLETE
             else
               AUDIT_STAGE=CHECKOUT_IDENTITY
