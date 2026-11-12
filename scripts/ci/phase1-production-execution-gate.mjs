@@ -1,12 +1,12 @@
 import fs from 'node:fs';
 
-const PHASE1_COUNT = 4;
+const PHASE1_COUNT = 5;
 const SHA256 = /^sha256:[0-9a-f]{64}$/i;
 
 export function loadPhase1Manifest(file) {
   const manifest = JSON.parse(fs.readFileSync(file, 'utf8'));
   if (!Array.isArray(manifest) || manifest.length !== PHASE1_COUNT) {
-    throw new Error('PHASE1_MANIFEST_INVALID: expected exactly four migrations');
+    throw new Error('PHASE1_MANIFEST_INVALID: expected exactly five migrations');
   }
   const names = new Set();
   const timestamps = new Set();
