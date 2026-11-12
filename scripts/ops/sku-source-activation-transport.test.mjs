@@ -5,11 +5,19 @@ import path from 'node:path';
 import os from 'node:os';
 import { pathToFileURL } from 'node:url';
 import { spawnSync } from 'node:child_process';
-import { runTransport, validateActivationInputs, containerProgram, safeFailureDiagnostic, SOURCE_PATH, MANIFEST_PATH } from './sku-source-activation-transport.mjs';
-import { readManifest } from './sku-source-activation.mjs';
+import { runTransport, validateActivationInputs, containerProgram, safeFailureDiagnostic, sanitizeCatalogSnapshot, SOURCE_PATH, MANIFEST_PATH } from './sku-source-activation-transport.mjs';
+import { readManifest, digest } from './sku-source-activation.mjs';
 const target = 'a'.repeat(40), old = 'b'.repeat(40), sha = 'c'.repeat(64), id = 'd'.repeat(64);
 const base = { mode: 'apply', effectiveDate: '2026-11-11', expectedPlanSha256: sha, approveProduction: true,
   targetSha: target, deployMode: 'api', buildApi: true };
+const legacyMap=Array.from({length:5},(_,i)=>['LOOSE','TRAY30','TRAY36','BOX360','BOX720','GIFT12','GIFT24'].map(spec=>({
+  sku_code:`HISTORIC-${i+1}-${spec}`,product_code:i<2?`PRD-EGG-GRADE_${i+1}`:`PRD-EGG-${i+1}`,
+  grade_code:`GRADE_${i+1}`,spec_code:spec,status:'ACTIVE',variety_code:null,parent_status:'ACTIVE',parent_variety_code:null,
+  org_context_required:false,base_unit:'枚'}))).flat();
+const readySnapshot={plan_ready:true,manifest_sha256:sha,db_state_sha256:sha,plan_sha256:sha,
+  legacy_identity_map:legacyMap,legacy_identity_map_sha256:digest(legacyMap)};
+const missingReport={report_version:'1',plan_ready:false,reason:'LEGACY_STANDARD_TUPLE_MISSING',candidate_count:34,truncated:false,candidates:legacyMap.slice(1).map(r=>({...r,category_code:'EGG',effective_date:'2020-01-02',expire_date:null,parent_effective_date:null,parent_expire_date:null}))};
+const reportSnapshot={plan_ready:false,manifest_sha256:sha,db_state_sha256:sha,catalog_report:missingReport,catalog_report_sha256:digest(missingReport)};
 function fixture(overrides = {}) {
   const calls = [];
   const deps = {
@@ -29,8 +37,9 @@ function fixture(overrides = {}) {
       if (args[0] === 'image') return overrides.actual || target;
       if (args[0] === 'exec') {
         if (overrides.execError) throw overrides.execError;
-        return JSON.stringify({ mode: overrides.mode || 'apply', effective_date: base.effectiveDate, plan_sha256: overrides.plan || sha,
-          expectedCounts: { profiles: 11 }, existingCounts: { profiles: 0 } });
+        return JSON.stringify({ ...readySnapshot,mode: overrides.mode || 'apply', effective_date: base.effectiveDate, plan_sha256: overrides.plan || sha,
+          expectedCounts: { profiles: 11 }, existingCounts: { profiles: 0 }, ...(overrides.receipt || {}),
+          ...(overrides.receipt?.plan_ready===false ? {legacy_identity_map:undefined,legacy_identity_map_sha256:undefined} : {}) });
       }
       throw Error('unexpected execution');
     },
@@ -95,6 +104,62 @@ test('preflight hash drift stops before any apply execution', () => {
   const execs = calls.filter(c => c[0] === 'docker' && c[1][0] === 'exec');
   assert.equal(execs.length, 1);
   assert.equal(JSON.parse(Buffer.from(execs[0][2].env.SKU_ACTIVATION_OPTIONS_B64, 'base64')).mode, 'inspect');
+});
+test('successful catalog map is exact35, digest-bound and strips unrelated receipt fields',()=>{
+  const {deps}=fixture({receipt:{private_customer:'MUST-NOT-EXPORT',existingCounts:{profiles:0,price:'MUST-NOT-EXPORT'},rows:{inserted:{skus:91,customer:'MUST-NOT-EXPORT'},remark:'MUST-NOT-EXPORT'}}});
+  const result=runTransport(base,deps);
+  assert.equal(result.plan_ready,true);assert.equal(result.legacy_identity_map.length,35);
+  assert.equal(Object.hasOwn(result,'private_customer'),false);
+  assert.ok(!JSON.stringify(result).includes('MUST-NOT-EXPORT'));
+  assert.throws(()=>runTransport(base,fixture({receipt:{existingCounts:{profiles:'private-free-text'}}}).deps),/INVALID_RECEIPT_METADATA/);
+  for (const mutate of [
+    r=>r.legacy_identity_map.pop(),
+    r=>r.legacy_identity_map[0].price='private-price',
+    r=>r.legacy_identity_map[0].sku_name='private-name',
+    r=>r.legacy_identity_map[0].category_code='EGG',
+    r=>r.legacy_identity_map[0].base_unit='公斤',
+    r=>r.legacy_identity_map[0].parent_variety_code='EGG_RED',
+    r=>r.legacy_identity_map[1]={...r.legacy_identity_map[0]},
+    r=>r.legacy_identity_map_sha256='f'.repeat(64),
+    r=>r.plan_ready=undefined,
+  ]) {
+    const receipt=structuredClone(readySnapshot);mutate(receipt);
+    assert.throws(()=>runTransport(base,fixture({receipt}).deps),/INVALID_CATALOG_SNAPSHOT/);
+  }
+});
+test('read-only report has no executable digest and preflight/apply cannot accept it',()=>{
+  const receipt={...reportSnapshot,plan_sha256:undefined};
+  const result=runTransport({mode:'inspect',effectiveDate:base.effectiveDate,targetSha:target},fixture({mode:'inspect',receipt}).deps);
+  assert.equal(result.plan_ready,false);assert.equal(Object.hasOwn(result,'plan_sha256'),false);
+  assert.equal(result.catalog_report.candidates.length,34);
+  for (const mode of ['preflight','apply']) assert.throws(()=>runTransport({...base,mode},fixture({mode:mode==='preflight'?'inspect':'apply',receipt}).deps),/INVALID_CATALOG_SNAPSHOT|PLAN_OR_DATABASE_STATE_MOVED/);
+  for (const mutate of [
+    r=>r.plan_sha256=sha,
+    r=>r.catalog_report.candidates[0].remark='private-free-text',
+    r=>r.catalog_report.candidates[0].category_code='x'.repeat(65),
+    r=>r.catalog_report.candidates[0].category_code={private:'secret'},
+    r=>r.catalog_report.candidates[0].parent_status='x'.repeat(33),
+    r=>r.catalog_report.candidates[0].effective_date='2026-02-30',
+    r=>r.catalog_report.candidates[0].expire_date='2026-11-12T12:00:00Z',
+    r=>r.catalog_report.candidates[0].parent_effective_date={private:'secret'},
+    r=>r.catalog_report.candidates[0].parent_expire_date='0000-01-01',
+    r=>r.catalog_report.truncated=true,
+    r=>r.catalog_report.candidate_count=1,
+    r=>r.catalog_report_sha256='f'.repeat(64),
+    r=>r.catalog_report.candidates[0].sku_code='code\nsecret',
+  ]) {
+    const bad=structuredClone(reportSnapshot);mutate(bad);
+    assert.throws(()=>runTransport({mode:'inspect',effectiveDate:base.effectiveDate,targetSha:target},fixture({mode:'inspect',receipt:{...bad,plan_sha256:bad.plan_sha256}}).deps),/INVALID_CATALOG_SNAPSHOT/);
+  }
+  assert.throws(()=>sanitizeCatalogSnapshot({...reportSnapshot,mode:'apply'}),/INVALID_CATALOG_SNAPSHOT/);
+});
+test('report-only category codes and four nullable dates survive exact allowlisting without changing eligibility',()=>{
+  const report=structuredClone(missingReport);Object.assign(report.candidates[0],{category_code:'OLD-EGG-CATEGORY',
+    effective_date:'2099-01-01',expire_date:'2099-12-31',parent_effective_date:'2020-02-29',parent_expire_date:'2026-11-01'});
+  const receipt={...reportSnapshot,mode:'inspect',catalog_report:report,catalog_report_sha256:digest(report),plan_sha256:undefined};
+  const result=runTransport({mode:'inspect',effectiveDate:base.effectiveDate,targetSha:target},fixture({mode:'inspect',receipt}).deps);
+  assert.deepEqual(result.catalog_report.candidates[0],report.candidates[0]);
+  assert.equal(result.plan_ready,false);assert.equal(Object.hasOwn(result,'plan_sha256'),false);
 });
 test('stdin core imports do not execute main and container failures redact secrets', () => {
   const core = fs.readFileSync(new URL('./sku-source-activation.mjs', import.meta.url), 'utf8');
@@ -210,7 +275,7 @@ test('inspect artifact preserves the full plan hash and rejects duplicated or wr
   const workflow=fs.readFileSync(new URL('../../.github/workflows/sku-source-activation-inspect.yml',import.meta.url),'utf8');
   const code=workflow.match(/node --input-type=module <<'NODE'\n([\s\S]*?)\n {10}NODE/)[1].replace(/^ {10}/gm,'');
   const directory=fs.mkdtempSync(path.join(os.tmpdir(),'sku-source-inspect-receipt-'));
-  const receipt={mode:'inspect',target_sha:target,effective_date:'2026-11-11',plan_sha256:`22${'a'.repeat(62)}`,db_state_sha256:sha};
+  const receipt={...readySnapshot,mode:'inspect',target_sha:target,effective_date:'2026-11-11',plan_sha256:`22${'a'.repeat(62)}`};
   const execute=stdout=>spawnSync(process.execPath,['--input-type=module','-e',code],{cwd:directory,encoding:'utf8',env:{...process.env,INSPECT_STDOUT:stdout,EXPECTED_TARGET_SHA:target,EXPECTED_EFFECTIVE_DATE:'2026-11-11'}});
   const line=`SKU_SOURCE_INSPECT_RECEIPT=${JSON.stringify(receipt)}`;
   try {
@@ -219,6 +284,25 @@ test('inspect artifact preserves the full plan hash and rejects duplicated or wr
     assert.notEqual(execute(`${line}\n${line}`).status,0);
     assert.notEqual(execute(`SKU_SOURCE_INSPECT_RECEIPT=${JSON.stringify({...receipt,target_sha:old})}`).status,0);
     assert.notEqual(execute(`SKU_SOURCE_INSPECT_RECEIPT=${JSON.stringify({...receipt,plan_sha256:'***masked'})}`).status,0);
+    const report={...reportSnapshot,mode:'inspect',target_sha:target,effective_date:'2026-11-11'};
+    assert.equal(execute(`SKU_SOURCE_INSPECT_RECEIPT=${JSON.stringify(report)}`).status,0);
+    const saved=JSON.parse(fs.readFileSync(path.join(directory,'sku-source-inspect.json'),'utf8'));
+    assert.equal(saved.plan_ready,false);assert.equal(Object.hasOwn(saved,'plan_sha256'),false);
+    for (const bad of [{...report,plan_sha256:sha},{...receipt,plan_ready:undefined},{...report,catalog_report_sha256:'bad'},
+      {...receipt,target_sha:old},{...receipt,effective_date:'2026-11-12'},{...receipt,db_state_sha256:'bad'}])
+      assert.notEqual(execute(`SKU_SOURCE_INSPECT_RECEIPT=${JSON.stringify(bad)}`).status,0);
+    assert.equal(saved.catalog_report.candidates[0].category_code,'EGG');
+    assert.equal(saved.catalog_report.candidates[0].effective_date,'2020-01-02');
+    for (const mutate of [
+      r=>r.candidates[0].category_code='x'.repeat(65),r=>r.candidates[0].effective_date='2026-02-30',
+      r=>r.candidates[0].expire_date='2026-11-12T00:00:00Z',r=>r.candidates[0].parent_effective_date={private:'secret'},
+      r=>r.candidates[0].parent_expire_date='0000-01-01',r=>r.candidates[0].parent_status='x'.repeat(33),
+      r=>r.candidates[0].remark='private',r=>r.candidates[0].category_code={private:'secret'},
+    ]) {
+      const badReport=structuredClone(missingReport);mutate(badReport);
+      const bad={...report,catalog_report:badReport,catalog_report_sha256:digest(badReport)};
+      assert.notEqual(execute(`SKU_SOURCE_INSPECT_RECEIPT=${JSON.stringify(bad)}`).status,0);
+    }
   } finally {
     assert.equal(path.dirname(fs.realpathSync(directory)),fs.realpathSync(os.tmpdir()));
     assert.match(path.basename(directory),/^sku-source-inspect-receipt-/);

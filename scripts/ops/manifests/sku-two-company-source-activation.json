@@ -36,6 +36,19 @@
   ],
   "scope": { "scope_type": "COMPANY", "sale_enabled": false, "legacy_standard_sale_enabled": true, "stock_enabled": true, "status": "ACTIVE" },
   "spec_codes": ["LOOSE", "TRAY30", "TRAY36", "BOX360", "BOX720", "GIFT12", "GIFT24"],
-  "standard_products": ["PRD-EGG-0", "PRD-EGG-1", "PRD-EGG-2", "PRD-EGG-3", "PRD-EGG-4", "PRD-EGG-5"],
-  "variant_products": ["PRD-EGG-RED", "PRD-EGG-PINK"]
+  "variant_products": ["PRD-EGG-RED", "PRD-EGG-PINK"],
+  "legacy_standard_selection": {
+    "version": "EXISTING_ACTIVE_STANDARD_MATRIX_V1",
+    "grade_codes": ["GRADE_1", "GRADE_2", "GRADE_3", "GRADE_4", "GRADE_5"],
+    "spec_codes": ["LOOSE", "TRAY30", "TRAY36", "BOX360", "BOX720", "GIFT12", "GIFT24"],
+    "sku_variety_code": null,
+    "parent_variety_code": null,
+    "org_context_required": false,
+    "status": "ACTIVE",
+    "parent_status": "ACTIVE",
+    "base_unit": "枚",
+    "category_code_when_present": "EGG",
+    "expected_count": 35,
+    "preserve_existing_identity": true
+  }
 }
