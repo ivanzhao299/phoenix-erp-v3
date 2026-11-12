@@ -36,6 +36,9 @@ jobs:
       - name: Check immutable migration receipt and activation transport evidence
         run: node --test scripts/ops/record-migration-apply-receipt.test.mjs scripts/ops/migration-apply-receipt.test.mjs scripts/ops/chanjet-admission-schema-receipt.test.mjs scripts/ops/sku-source-activation.test.mjs scripts/ops/sku-source-activation-transport.test.mjs
 
+      - name: Exercise actual read-only audit staging and payload boundaries
+        run: node --test scripts/ops/readonly-audit-transport.test.mjs
+
       - name: Install pinned YAML parser for transport gate
         run: npm install --no-save --ignore-scripts js-yaml@4.1.1
 

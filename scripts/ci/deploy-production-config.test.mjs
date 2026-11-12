@@ -69,15 +69,21 @@ test('real Nginx fixture blocks every actual POST route with zero upstream execu
     const location = production.match(/    location \/api\/chanjet\/ \{[\s\S]*?\n    \}/)?.[0].replace('127.0.0.1:3100', '127.0.0.1:8081');
     assert.ok(hold && location);
     fs.writeFileSync(path.join(dir, 'nginx.conf'), `events {}\nhttp { ${maps}\nserver {listen 8080; ${hold}\n${location}\n} server { listen 8081; location / { return 204; } } }`);
-    fs.mkdirSync(path.join(dir, 'control')); fs.writeFileSync(path.join(dir, 'control', 'chanjet-sync-hold'), 'hold\n');
+    const control = path.join(dir, 'control'); const marker = path.join(control, 'chanjet-sync-hold');
+    fs.mkdirSync(control); fs.writeFileSync(marker, 'hold\n');
+    // A restrictive caller umask (e.g. 0077) must not hide the bind-mounted marker from Nginx workers.
+    // chmod after creation: mkdir/writeFile mode options alone are still masked by the caller's umask.
+    fs.chmodSync(control, 0o755); fs.chmodSync(marker, 0o644);
     docker(['run', '-d', '--name', name, '-p', '127.0.0.1::8080', '-v', `${dir}/nginx.conf:/etc/nginx/nginx.conf:ro`, '-v', `${dir}/control:/etc/phoenix/runtime-control:ro`, image]);
     docker(['exec', name, 'nginx', '-t']);
+    docker(['exec', '--user', 'nginx', name, 'test', '-f', '/etc/phoenix/runtime-control/chanjet-sync-hold']);
     const port = docker(['port', name, '8080/tcp']).split(':').at(-1);
     execFileSync('curl', ['-fsS', '--retry', '5', '--retry-connrefused', '--max-time', '5', `http://127.0.0.1:${port}/api/chanjet/integration/alignment/status`], { stdio: 'ignore' });
     const routes = assertFenceCoverage(read('apps/api/src/modules/chanjet/chanjet-callback.controller.ts')).filter(route => route.method === 'POST');
     for (const route of routes) {
-      const status = execFileSync('curl', ['-sS', '--max-time', '5', '-o', '/dev/null', '-w', '%{http_code}', '-X', 'POST', `http://127.0.0.1:${port}${route.path.replace(/:[^/]+/g, 'fixture')}`], { encoding: 'utf8' });
-      assert.equal(status, '503'); // 204 would mean the upstream executed
+      const routePath = route.path.replace(/:[^/]+/g, 'fixture');
+      const status = execFileSync('curl', ['-sS', '--max-time', '5', '-o', '/dev/null', '-w', '%{http_code}', '-X', 'POST', `http://127.0.0.1:${port}${routePath}`], { encoding: 'utf8' });
+      assert.equal(status, '503', `POST ${routePath} via ${name} on 127.0.0.1:${port} must be denied during hold; 204 means upstream execution`);
     }
     const status = execFileSync('curl', ['-sS', '-o', '/dev/null', '-w', '%{http_code}', `http://127.0.0.1:${port}/api/chanjet/integration/alignment/status`], { encoding: 'utf8' }); assert.equal(status, '204');
   } finally { spawnSync('docker', ['rm', '-f', name], { stdio: 'ignore' }); fs.rmSync(dir, { recursive: true, force: true }); }
