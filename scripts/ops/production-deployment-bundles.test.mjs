@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 
 const ops = path.dirname(new URL(import.meta.url).pathname);
@@ -123,11 +124,14 @@ test('v3 re-anchor admits a new critical helper through installed and target val
 test('standalone audit stages its reviewed verifier closure before importing against an older checkout', async t => {
   const restoration = fs.readFileSync('.github/workflows/chanjet-readonly-restoration.yml', 'utf8');
   assert.match(restoration, /if \[ "\$OPERATION" = recovery \] \|\| \[ "\$OPERATION" = audit \]/);
-  const files = restoration.match(/tar -czf "\$RECOVERY_TAR" -C scripts\/ops ([^\n]+)/)[1].trim().split(/\s+/);
+  const { AUDIT_BUNDLE_FILES, auditBundleManifest } = await import('./readonly-audit-bundle-manifest.mjs');
+  const files = AUDIT_BUNDLE_FILES;
   assert.deepEqual([...closure(files)].filter(name => !files.includes(name)), []);
-  const extract = restoration.indexOf('tar -xzf "$AUDIT_BUNDLE_STAGE/verifier-bundle.tgz"');
-  assert.ok(extract > restoration.indexOf('test "$(sha256sum "$AUDIT_BUNDLE_STAGE/verifier-bundle.tgz"'));
-  assert.ok(extract < restoration.indexOf('node "$AUDIT_BUNDLE_STAGE/audit.mjs"'));
+  assert.doesNotMatch(restoration, /RECOVERY_BUNDLE_B64/);
+  assert.match(restoration, /AUDIT_CLOSURE_MANIFEST_B64/);
+  const manifest = auditBundleManifest(ops);
+  assert.equal(manifest.schema, 'phoenix.readonly-audit-closure/1');
+  assert.deepEqual(manifest.files.map(x => x.path), [...files].sort());
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'standalone-audit-stage-'));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   for (const name of files) fs.copyFileSync(path.join(ops, name), path.join(dir, name));
@@ -139,4 +143,35 @@ test('standalone audit stages its reviewed verifier closure before importing aga
   const chain = fs.readFileSync('scripts/ops/chanjet-readonly-production-chain.sh', 'utf8');
   const copied = chain.match(/for helper in ([^;]+); do\n\s+cp "scripts\/ops\/\$helper" "\$AUDIT_DIR\/\$helper"/)[1].split(/\s+/);
   assert.deepEqual([...closure(['chanjet-readonly-production-audit.mjs'])].filter(name => name !== 'chanjet-readonly-production-audit.mjs' && !copied.includes(name)), []);
+});
+
+test('audit transport uses faithful SSH command sizing and rejects tampered staged closure', async t => {
+  const { auditBundleManifest } = await import('./readonly-audit-bundle-manifest.mjs');
+  const { stageReadonlyAuditClosure } = await import('./readonly-audit-bundle-stage.mjs');
+  const target = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
+  const manifest = auditBundleManifest(ops); manifest.targetSha = target;
+  const encodedValues = [
+    'production-config-contract.json', 'production-trusted-paths.mjs', 'production-control-bootstrap.sh',
+    'chanjet-readonly-production-audit.mjs', 'readonly-audits/chanjet-restoration-preflight.sql',
+  ].map(name => Buffer.from(fs.readFileSync(path.join(ops, name))).toString('base64'));
+  encodedValues.push(Buffer.from(JSON.stringify(manifest)).toString('base64'), Buffer.from(fs.readFileSync(path.join(ops, 'readonly-audit-bundle-stage.mjs'))).toString('base64'));
+  const envCommands = encodedValues.map((value, index) => `export AUDIT_PAYLOAD_${index}='${value}'`).join('\\n');
+  const remoteCommand = `${envCommands}\\nnode audit.mjs preflight.sql`;
+  assert.ok(Buffer.byteLength(remoteCommand) < 131072);
+  const oversized = `${remoteCommand}${'x'.repeat(140000)}`;
+  const tooLarge = spawnSync('/bin/true', [oversized], { encoding: 'utf8' });
+  assert.equal(tooLarge.error?.code, 'E2BIG');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'audit-stage-e2e-'));
+  t?.after?.(() => fs.rmSync(dir, { recursive: true, force: true }));
+  fs.writeFileSync(path.join(dir, 'manifest.json'), JSON.stringify(manifest));
+  stageReadonlyAuditClosure(path.join(dir, 'manifest.json'), target, process.cwd(), dir);
+  for (const entry of manifest.files) {
+    const staged = fs.readFileSync(path.join(dir, entry.path));
+    assert.equal(createHash('sha256').update(staged).digest('hex'), entry.sha256);
+    assert.equal(fs.statSync(path.join(dir, entry.path)).mode & 0o777, 0o600);
+  }
+  const tampered = structuredClone(manifest); tampered.files[0].sha256 = '0'.repeat(64);
+  fs.writeFileSync(path.join(dir, 'tampered.json'), JSON.stringify(tampered));
+  assert.throws(() => stageReadonlyAuditClosure(path.join(dir, 'tampered.json'), target, process.cwd(), dir), /AUDIT_BUNDLE_OUTPUT|AUDIT_BUNDLE_HASH/);
+  fs.rmSync(dir, { recursive: true, force: true });
 });
