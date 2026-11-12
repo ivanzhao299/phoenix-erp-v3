@@ -77,3 +77,11 @@
 - 需要完成后置迁移 PR 的 CI/CD，并记录合并提交、受控 migration apply 回执、部署 workflow/run、health 和 smoke。
 - 后置迁移、生产 health 和正式切流在部署链完成前仍未形成成功证据。
 
+
+## 部署尝试记录
+
+- main 合并提交：`e9530f0974e1b87f2a03972ed2f378613634f502`。
+- 首次 full 部署：workflow run `43213082897`，在旧迁移源与历史回执不一致处受控 HOLD，未执行服务切换。
+- 重试 full 部署：workflow run `43218155456`，同一回执门禁再次 HOLD，未执行生产迁移或切流。
+- 受控 inspect：workflow run `43217675497`，只读审计为 GO，ledger digest 为 `c74163b510d97a803c7137e8dcda621f8215aad00501719970957ae18b3a05a3`，旧迁移已在生产 ledger 中，未有 pending migration。
+- 后置迁移 PR 使用新时间戳，待合并后单独执行 inspect/apply，再重新触发 full 部署。
