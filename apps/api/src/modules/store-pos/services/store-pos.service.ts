@@ -1,5 +1,12 @@
-import { resolveQuantity, savedQuantity, sharedBatches, lockQuantityPools, QuantityBasis, baseQuantity } from '../../product-master/services/quantity-contract';
+import { resolveQuantity, savedQuantity, sharedBatches, lockQuantityPools, QuantityBasis, baseQuantity, assertBatchPool } from '../../product-master/services/quantity-contract';
 import { SkuPolicy } from '../../product-master/services/sku-policy';
+import { isDeepStrictEqual } from 'node:util';
+import {
+  assertCommercialContext,
+  assertCommercialSkuUsable,
+  validateStoreCommercialContext,
+  VerifiedCommercialContext,
+} from '../../product-master/services/commercial-context';
 /**
  * Phoenix ERP V3 — Store POS Service
  * Sales V2 Phase 9: 直营店收银作业台
@@ -103,6 +110,41 @@ export class StorePosService {
       quantityBasis: item.quantityBasis,
       currencyCode: dto.currencyCode,
     }, queryable);
+  }
+
+  private isManagedSku(sku: any): boolean {
+    return sku.variety_code != null || sku.org_context_required === true;
+  }
+
+  private async commercialContext(mgr: any, store: { storeCode: string; companyCode: string; warehouseCodes: string[] }) {
+    return validateStoreCommercialContext(mgr, {
+      ...store, actor: this.cls.get('dataScope'),
+    });
+  }
+
+  /** Managed commercial prices never fall back to an unqualified product/ALL price. */
+  private async managedPrice(mgr: any, dto: CreateSaleDto, item: SaleItemDto,
+    quantity: NonNullable<Awaited<ReturnType<typeof resolveQuantity>>>, context: VerifiedCommercialContext): Promise<ResolvedPrice> {
+    assertCommercialContext(context, mgr, { companyCode: dto.companyCode });
+    if (typeof dto.currencyCode !== 'string' || !dto.currencyCode.trim() || dto.currencyCode !== dto.currencyCode.trim()) {
+      throw new BadRequestException('商业 SKU 必须明确报价币种');
+    }
+    const price = await this.priceRuntime.resolvePrice({
+      companyCode: dto.companyCode, storeCode: dto.storeCode, customerCode: dto.customerCode,
+      skuCode: item.skuCode, productCode: item.productCode, gradeCode: item.gradeCode,
+      packagingSpec: item.packagingSpec, qty: item.qty, quantityBasis: quantity.basis,
+      currencyCode: dto.currencyCode,
+    }, mgr, context);
+    const configured = price.priceQuantitySnapshot;
+    if (!configured || price.skuCode !== item.skuCode || !Number.isFinite(price.unitPrice) || price.unitPrice <= 0
+      || !Number.isSafeInteger(price.publishVersion) || price.publishVersion <= 0) throw new BadRequestException('商业 SKU 没有有效、已确认计量的公司精确报价');
+    savedQuantity({ qty: 1, quantity_snapshot: configured });
+    if (configured.skuCode !== quantity.skuCode || configured.productCode !== quantity.productCode
+      || configured.gradeCode !== quantity.gradeCode || configured.specCode !== quantity.specCode
+      || configured.baseUnit !== quantity.baseUnit || (configured.basis === 'PACKAGE' && configured.factor !== quantity.packageFactor)) {
+      throw new BadRequestException('商业 SKU 报价计量身份不匹配');
+    }
+    return price;
   }
 
   // ── 工具 ───────────────────────────────────────────────────────────────────
@@ -270,12 +312,21 @@ export class StorePosService {
     // 事务：插入主表 + 明细行
     return this.ds.transaction(async mgr => {
       const resolvedItems = [];
+      let commercial: VerifiedCommercialContext | undefined;
       for (const supplied of dto.items) {
-        const sku = supplied.skuCode === undefined ? null : await SkuPolicy.requireUsable(mgr, supplied.skuCode, 'sale-stock');
+        const sku = supplied.skuCode === undefined ? null : await SkuPolicy.requireUsable(mgr, supplied.skuCode, 'sale-stock', context.companyCode);
+        const managed = sku && this.isManagedSku(sku);
+        if (managed) {
+          commercial ??= await this.commercialContext(mgr, context);
+          await assertCommercialSkuUsable(mgr, supplied.skuCode!, commercial, 'sale-stock');
+          if (supplied.quantityBasis === undefined) throw new BadRequestException('商业 SKU 必须明确销售数量单位');
+        }
         const item = sku ? { ...supplied, productCode: sku.product_code, productName: sku.sku_name || sku.product_name,
           gradeCode: sku.grade_code, packagingSpec: sku.spec_code } : supplied;
         const quantity = await resolveQuantity(mgr, item);
-        resolvedItems.push({ item, quantity, price: await this.resolveItemPrice(dto, item, mgr) });
+        resolvedItems.push({ item, quantity, price: managed
+          ? await this.managedPrice(mgr, dto, item, quantity!, commercial!)
+          : await this.resolveItemPrice(dto, item, mgr) });
       }
       // D6: POS 首期不开放改价，客户端 unitPrice 仅兼容接收，不参与权威金额。
       const subtotal = Math.round(resolvedItems.reduce((s, x) => s + Math.round(x.item.qty * x.price.unitPrice * 100) / 100, 0) * 100) / 100;
@@ -392,6 +443,39 @@ export class StorePosService {
     return { ...sale, items, shift_id: shift.id, warehouseCodes, idempotentReplay: false };
   }
 
+  /** Called only after idempotent replay returns; no bound context survives a transaction. */
+  private async prepareCommercialPayment(mgr: any, sale: any, store: any): Promise<void> {
+    for (const item of sale.items) {
+      if (item.sku_code == null) continue;
+      const [sku] = await mgr.query(`SELECT * FROM product_skus WHERE sku_code=$1 FOR SHARE`, [item.sku_code]);
+      if (!sku || !this.isManagedSku(sku)) continue;
+      if (!item.quantity_snapshot || !item.price_snapshot) throw new BadRequestException('商业 SKU 缺少服务器报价或数量快照');
+      sale.commercialContext ??= await this.commercialContext(mgr, store);
+      assertCommercialContext(sale.commercialContext, mgr, { companyCode: sale.company_code, warehouseCodes: sale.warehouseCodes });
+      const qualifiedSku = await assertCommercialSkuUsable(mgr, item.sku_code, sale.commercialContext, 'sale-stock');
+      const q = item.quantity_snapshot;
+      savedQuantity(item);
+      if (q.skuCode !== item.sku_code || q.productCode !== item.product_code || q.gradeCode !== item.grade_code
+        || q.specCode !== item.packaging_spec || q.productCode !== sku.product_code || q.gradeCode !== sku.grade_code
+        || q.specCode !== sku.spec_code || q.baseUnit !== qualifiedSku.base_unit) throw new BadRequestException('商业 SKU 身份与数量快照不符');
+      const price = await this.managedPrice(mgr, {
+        companyCode: sale.company_code, storeCode: sale.store_code, customerCode: sale.customer_code,
+        currencyCode: sale.currency_code,
+      } as CreateSaleDto, {
+        skuCode: item.sku_code, productCode: item.product_code, gradeCode: item.grade_code,
+        packagingSpec: item.packaging_spec, qty: Number(item.qty),
+      } as SaleItemDto, q, sale.commercialContext);
+      const saved = item.price_snapshot;
+      if (price.priceBookId !== String(item.price_book_id) || price.priceItemId !== String(item.price_item_id)
+        || price.publishVersion !== Number(item.price_publish_version) || price.unitPrice !== Number(item.unit_price)
+        || saved.priceBookId !== price.priceBookId || saved.priceItemId !== price.priceItemId
+        || saved.publishVersion !== price.publishVersion || saved.currencyCode !== sale.currency_code
+        || saved.unitPrice !== price.unitPrice || saved.skuCode !== item.sku_code
+        || !isDeepStrictEqual(saved.priceQuantitySnapshot, price.priceQuantitySnapshot)
+        || !isDeepStrictEqual(saved.quantitySnapshot, q)) throw new BadRequestException('商业 SKU 报价快照已失效或不匹配，请重新开单');
+    }
+  }
+
   private async auditPriceDrift(mgr: any, sale: any): Promise<void> {
     let drifted = false;
     for (const item of sale.items) {
@@ -440,6 +524,7 @@ export class StorePosService {
     await this.ds.transaction(async mgr => {
       const sale = await this.lockSaleForPayment(mgr, id, dto.idempotencyKey, context.warehouseCodes);
       if (sale.idempotentReplay) return;
+      await this.prepareCommercialPayment(mgr, sale, context);
       await this.auditPriceDrift(mgr, sale);
       const paidAmount = dto.paidAmount ?? Number(sale.total_amount);
       if (paidAmount !== Number(sale.total_amount)) throw new BadRequestException('首期 POS 不开放找零，实收必须等于应收');
@@ -492,6 +577,7 @@ export class StorePosService {
     await this.ds.transaction(async mgr => {
       const sale = await this.lockSaleForPayment(mgr, id, dto.idempotencyKey, context.warehouseCodes);
       if (sale.idempotentReplay) return;
+      await this.prepareCommercialPayment(mgr, sale, context);
       await this.auditPriceDrift(mgr, sale);
       if (!sale.customer_code && !sale.customer_name) {
         throw new BadRequestException('赊销必须填写客户信息');
@@ -539,6 +625,7 @@ export class StorePosService {
     await this.ds.transaction(async mgr => {
       const sale = await this.lockSaleForPayment(mgr, id, dto.idempotencyKey, context.warehouseCodes);
       if (sale.idempotentReplay) return;
+      await this.prepareCommercialPayment(mgr, sale, context);
       await this.auditPriceDrift(mgr, sale);
       const total = Number(sale.total_amount);
       const paid = dto.paidAmount;
@@ -840,6 +927,7 @@ export class StorePosService {
               pi.sku_code,          -- Phase H5: SKU 编码
               pi.grade_code_std,    -- Phase H5: 标准等级
               pi.spec_code, pi.quantity_snapshot AS price_quantity_snapshot,
+               ps.org_context_required, ps.variety_code, pb.publish_version,
               sp.qty_per_unit, sp.base_unit, sp.display_unit, COALESCE(NULLIF(mp.unit_zh,''),mp.unit) AS product_base_unit -- 标准规格
        FROM sal_price_items pi
        INNER JOIN sal_price_books pb ON pb.id = pi.price_book_id
@@ -855,6 +943,20 @@ export class StorePosService {
          AND pi.status = 'ACTIVE'
          AND pi.unit_price > 0
          AND (pi.sku_code IS NULL OR (${SkuPolicy.usableSql('ps', 'sale-stock')}))
+          AND (NOT COALESCE(ps.org_context_required,false) AND ps.variety_code IS NULL OR (
+            (SELECT COUNT(*) FROM md_sku_org_scope sc WHERE sc.sku_code=ps.sku_code
+              AND sc.scope_type='COMPANY' AND sc.scope_code=$1)=1
+            AND EXISTS (SELECT 1 FROM md_sku_org_scope sc WHERE sc.sku_code=ps.sku_code
+              AND sc.scope_type='COMPANY' AND sc.scope_code=$1 AND sc.status='ACTIVE'
+              AND sc.sale_enabled=true AND sc.stock_enabled=true
+              AND (sc.effective_date IS NULL OR sc.effective_date<=CURRENT_DATE)
+              AND (sc.expire_date IS NULL OR sc.expire_date>=CURRENT_DATE))
+            AND pi.product_code=ps.product_code AND pi.grade_code=ps.grade_code AND pi.packaging_spec=ps.spec_code
+            AND mp.variety_code IS NOT DISTINCT FROM ps.variety_code
+            AND (ps.variety_code IS NULL OR EXISTS (SELECT 1 FROM md_product_varieties pv WHERE pv.variety_code=ps.variety_code
+              AND pv.status='ACTIVE' AND (pv.effective_date IS NULL OR pv.effective_date<=CURRENT_DATE)
+              AND (pv.expire_date IS NULL OR pv.expire_date>=CURRENT_DATE)))
+            AND pi.quantity_snapshot IS NOT NULL AND pb.publish_version>0 AND NULLIF(pi.currency_code,'') IS NOT NULL))
        ORDER BY COALESCE(pi.sku_code,''),pi.product_code,COALESCE(pi.grade_code,''),COALESCE(pi.packaging_spec,''),
          CASE WHEN pi.quantity_snapshot IS NOT NULL THEN 0 ELSE 1 END,
          CASE WHEN pb.store_code=$2 THEN 0 ELSE 1 END,
@@ -871,6 +973,11 @@ export class StorePosService {
     }).map(r => {
       const configured = r.price_quantity_snapshot;
       if (!configured || !r.sku_code) return { ...r, quantity_basis: undefined, sale_enabled: false, quantity_error: '价格单位未确认，请在价格维护中确认每托/每箱报价' };
+      if (this.isManagedSku(r) && (configured.skuCode !== r.sku_code || configured.productCode !== r.product_code
+        || configured.gradeCode !== r.grade_code || configured.specCode !== r.spec_code
+        || !r.currency_code || !Number.isSafeInteger(Number(r.publish_version)) || Number(r.publish_version) <= 0)) {
+        return { ...r, sale_enabled: false, quantity_error: '商业 SKU 报价身份、币种或发布版本未确认' };
+      }
       const factor = Number(r.qty_per_unit);
       try { savedQuantity({qty:1,quantity_snapshot:configured}); baseQuantity(1,factor,r.base_unit); }
       catch { return { ...r,sale_enabled:false,quantity_error:'价格或销售规格计量无效，请重新维护' }; }
@@ -900,7 +1007,20 @@ export class StorePosService {
       const qty = savedQuantity(item);
 
       // Phase H5: PATH A（sku_code）优先，PATH B（product+grade）回退。
-      if (item.sku_code != null) await SkuPolicy.requireUsable(mgr, item.sku_code, 'sale-stock');
+      let managedCommercial = false;
+      if (sale.commercialContext && item.sku_code != null && item.quantity_snapshot && item.price_snapshot) {
+        assertCommercialContext(sale.commercialContext, mgr, { companyCode: sale.company_code, warehouseCodes: sale.warehouseCodes });
+        const sku = await SkuPolicy.requireUsable(mgr, item.sku_code, 'sale-stock', sale.commercialContext.companyCode);
+        managedCommercial = this.isManagedSku(sku);
+        if (managedCommercial) {
+          await assertCommercialSkuUsable(mgr, item.sku_code, sale.commercialContext, 'sale-stock');
+          const snapshot = item.quantity_snapshot;
+          if (snapshot.skuCode !== item.sku_code || snapshot.productCode !== item.product_code
+            || snapshot.gradeCode !== item.grade_code || snapshot.specCode !== item.packaging_spec
+            || snapshot.productCode !== sku.product_code || snapshot.gradeCode !== sku.grade_code
+            || snapshot.specCode !== sku.spec_code || snapshot.baseUnit !== sku.base_unit) throw new BadRequestException('商业 SKU 与库存计量快照不符');
+        }
+      } else if (item.sku_code != null) await SkuPolicy.requireUsable(mgr, item.sku_code, 'sale-stock');
       else if (item.quantity_snapshot) await SkuPolicy.requireUsable(mgr, item.quantity_snapshot.skuCode, 'sale-stock');
       const useSkuPath = !!item.sku_code;
       const lockKey = useSkuPath
@@ -958,9 +1078,32 @@ export class StorePosService {
       // mapping is not legacy stock; SQL/permission errors must propagate.
       const legacyBatches: any[] = [];
       for (const batch of batches) {
+        if (managedCommercial) {
+          assertBatchPool(batch, item.quantity_snapshot);
+          assertCommercialContext(sale.commercialContext, mgr, { companyCode: batch.company_code, warehouseCodes: [batch.warehouse_code] });
+        }
         if (batch.sku_code != null) {
           const [sku] = await mgr.query(`SELECT * FROM product_skus WHERE sku_code=$1 FOR SHARE`, [batch.sku_code]);
-          if (!sku || sku.variety_code != null || sku.org_context_required === true) continue;
+          if (!sku) continue;
+          if (managedCommercial) {
+            // Physical LOOSE stock needs STOCK authorization, not its own SALE price.
+            const physicalSku = this.isManagedSku(sku)
+              ? await assertCommercialSkuUsable(mgr, batch.sku_code, sale.commercialContext, 'stock')
+              : await SkuPolicy.requireUsable(mgr, batch.sku_code, 'stock');
+            // Managed commercial pools must agree with the locked physical SKU's complete identity.
+            // Compare persisted batch attributes directly; never infer missing variety/spec from today's masters.
+            const same = (a: unknown, b: unknown) => a === b;
+            if (!same(batch.product_code, physicalSku.product_code)
+              || !same(batch.grade_code_std, physicalSku.grade_code)
+              || !same(batch.unit, physicalSku.base_unit)
+              || !same(batch.variety_code, physicalSku.variety_code)
+              || !same(batch.spec_code, physicalSku.spec_code)
+              || !same(physicalSku.product_code, item.quantity_snapshot.productCode)
+              || !same(physicalSku.grade_code, item.quantity_snapshot.gradeCode)
+              || !same(physicalSku.base_unit, item.quantity_snapshot.baseUnit)) {
+              throw new BadRequestException('实物 SKU 与商业库存池完整身份不符');
+            }
+          } else if (this.isManagedSku(sku)) continue;
         }
         legacyBatches.push(batch);
       }

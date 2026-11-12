@@ -2,7 +2,8 @@ import { resolveQuantity, QuantitySnapshot, savedQuantity } from '../../product-
 import { SkuPolicy } from '../../product-master/services/sku-policy';
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
-import { DataSource } from 'typeorm';
+import { DataSource, EntityManager } from 'typeorm';
+import { VerifiedCommercialContext, validateCompanyCommercialContext, assertCommercialContext } from '../../product-master/services/commercial-context';
 import { ClsService } from 'nestjs-cls';
 import { DataScopeContext } from '../../org/services/data-scope.service';
 import { ResolvePriceDto, ValidatePriceDto } from '../dto/price-item.dto';
@@ -63,15 +64,35 @@ export class PriceRuntimeService {
    *
    * 兼容规则：
    *   - dto.skuCode 为空时，按旧逻辑 product_code + grade_code + packaging_spec 匹配
-   *   - dto.skuCode 非空时，同时尝试 sku_code 精确路径和旧路径，sku_code 路径优先
+   *   - 普通旧 SKU 保留 sku_code 优先、旧路径兼容；新组织/VAR SKU 仅允许精确公司/SKU/币种的已发布价格
+   *   - 第三个参数只能是同事务服务端验证的 context；独立报价请求由 actor DataScope 构造 pricing-only context
    */
-  async resolvePrice(dto: ResolvePriceDto, queryable: Pick<DataSource, 'query'> = this.ds): Promise<ResolvedPrice> {
+  async resolvePrice(dto: ResolvePriceDto, queryable: Pick<DataSource, 'query'> = this.ds, context?: VerifiedCommercialContext): Promise<ResolvedPrice> {
+    let publicLegacySku: any;
+    if (dto.skuCode !== undefined && queryable === this.ds) {
+      const code = SkuPolicy.code(dto.skuCode);
+      const [candidate] = await queryable.query(`SELECT s.* FROM product_skus s WHERE s.sku_code=$1 AND ${SkuPolicy.usableSql('s', 'sale')}`, [code]);
+      if (!candidate) throw new BadRequestException('SKU 不存在、未启用或不适用于销售');
+      if (candidate.org_context_required === true || candidate.variety_code != null) {
+        return this.ds.transaction(manager => this.resolvePrice(dto, manager, context));
+      }
+      // Preserve the existing lock-free ordinary catalog read. New managed
+      // candidates are always rechecked under a real transaction above.
+      publicLegacySku = candidate;
+    }
+    let managed = false;
     if (dto.skuCode !== undefined) {
       const code = SkuPolicy.code(dto.skuCode);
-      const sku = queryable === this.ds
-        ? (await queryable.query(`SELECT s.* FROM product_skus s WHERE s.sku_code=$1 AND ${SkuPolicy.usableSql('s', 'sale')}`, [code]))[0]
-        : await SkuPolicy.requireUsable(queryable, code, 'sale');
-      if (!sku) throw new BadRequestException('SKU 不存在、未启用或不适用于销售');
+      const identity = publicLegacySku ?? (await queryable.query('SELECT org_context_required,variety_code FROM product_skus WHERE sku_code=$1 FOR SHARE', [code]))[0];
+      managed = identity?.org_context_required === true || identity?.variety_code != null;
+      if (managed) {
+        context ??= await validateCompanyCommercialContext(queryable as EntityManager, { companyCode: dto.companyCode,
+          actor: this.cls.get('dataScope') as DataScopeContext });
+        assertCommercialContext(context, queryable as EntityManager, { companyCode: dto.companyCode });
+      }
+      const sku = publicLegacySku ?? await SkuPolicy.requireUsable(queryable, code, 'sale', managed ? context!.companyCode : undefined);
+      if (managed && (typeof dto.currencyCode !== 'string' || !dto.currencyCode.trim() || dto.currencyCode !== dto.currencyCode.trim()
+          || dto.quantityBasis === undefined)) throw new BadRequestException('新 SKU 消费必须明确币种和数量单位');
       dto = { ...dto, productCode: sku.product_code, gradeCode: sku.grade_code, packagingSpec: sku.spec_code };
     }
     const quantity = await resolveQuantity(queryable, { ...dto, qty: dto.qty ?? 1 });
@@ -108,7 +129,10 @@ export class PriceRuntimeService {
       WHERE pb.company_code = $1
         AND pb.status       = 'ACTIVE'
         AND pi.status       = 'ACTIVE'
-        AND (pi.sku_code IS NULL OR EXISTS (SELECT 1 FROM product_skus ps WHERE ps.sku_code=pi.sku_code AND ${SkuPolicy.usableSql('ps', 'sale')}))
+        AND (NOT $14::boolean OR (pi.sku_code=$2 AND pb.publish_version>0 AND pi.currency_code=$9))
+        AND (pi.sku_code IS NULL OR EXISTS (SELECT 1 FROM product_skus ps WHERE ps.sku_code=pi.sku_code
+          AND ((COALESCE(ps.org_context_required,false)=false AND ps.variety_code IS NULL) OR ps.sku_code=$2)
+          AND ${SkuPolicy.usableSql('ps', 'sale')}))
         AND (pb.effective_from IS NULL OR pb.effective_from <= CURRENT_DATE)
         AND (pb.effective_to   IS NULL OR pb.effective_to   >= CURRENT_DATE)
         AND (
@@ -144,7 +168,7 @@ export class PriceRuntimeService {
         pb.effective_from DESC NULLS LAST,
         pb.publish_version DESC,
         pb.id DESC
-      LIMIT 1
+      LIMIT 1 ${managed ? 'FOR SHARE OF pb, pi' : ''}
     `, [
       dto.companyCode,
       skuCode,
@@ -156,10 +180,11 @@ export class PriceRuntimeService {
       dto.channelCode  ?? null,
       dto.currencyCode ?? null,
       dto.storeCode ?? null,
-      !!quantity, quantity?.baseQty ?? null, quantity?.baseUnit ?? null,
+      !!quantity, quantity?.baseQty ?? null, quantity?.baseUnit ?? null, managed,
     ]);
 
     if (!rows?.length) {
+      if (managed) throw new BadRequestException('新 SKU 无精确且当前生效的公司价格，禁止自定义价格回退');
       if (!quantity) {
         const configured = await queryable.query(`SELECT 1 FROM sal_price_items pi JOIN sal_price_books pb ON pb.id=pi.price_book_id
           WHERE (pi.sku_code=$1 OR (pi.product_code=$3 AND (pi.grade_code IS NULL OR pi.grade_code=$4) AND (pi.packaging_spec IS NULL OR pi.packaging_spec=$5)))
@@ -179,6 +204,14 @@ export class PriceRuntimeService {
     }
 
     const r = rows[0];
+    if (managed && (!quantity || r.sku_code !== dto.skuCode || r.currency_code !== dto.currencyCode
+        || !Number.isSafeInteger(Number(r.publish_version)) || Number(r.publish_version) <= 0
+        || !Number.isFinite(Number(r.unit_price)) || Number(r.unit_price) < 0
+        || !r.quantity_snapshot || r.quantity_snapshot.skuCode !== dto.skuCode
+        || r.quantity_snapshot.productCode !== dto.productCode || r.quantity_snapshot.gradeCode !== dto.gradeCode
+        || r.quantity_snapshot.specCode !== dto.packagingSpec || r.quantity_snapshot.baseUnit !== quantity.baseUnit)) {
+      throw new BadRequestException('新 SKU 需要精确公司/SKU/币种的已发布价格及已确认计量快照');
+    }
     if (quantity && !r.quantity_snapshot) throw new BadRequestException('价格单位未确认，请先在价格册维护明确计量口径');
     if (r.quantity_snapshot != null) savedQuantity({ qty: 1, quantity_snapshot: r.quantity_snapshot });
     if (quantity && r.quantity_snapshot?.basis==='PACKAGE' && r.quantity_snapshot.factor!==quantity.packageFactor) throw new BadRequestException('规格换算已变更，请重新维护每托/每箱报价');
@@ -230,6 +263,7 @@ export class PriceRuntimeService {
         skuCode:       dto.skuCode,
         qty:           dto.qty,
         quantityBasis: dto.quantityBasis,
+        currencyCode: dto.currencyCode,
       });
     } catch (error) {
       if (error instanceof BadRequestException || dto.quantityBasis !== undefined || (dto.skuCode !== undefined && !(error instanceof NotFoundException))) throw error;

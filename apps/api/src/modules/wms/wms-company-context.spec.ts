@@ -2,6 +2,7 @@ import { WmsService } from './wms.service';
 import { QuantitySnapshot } from '../product-master/services/quantity-contract';
 
 const SKU = 'SKU-VARIANT-ORIGIN-A';
+const PHYSICAL_SKU = 'SKU-PHYSICAL-LOOSE';
 const snapshot: QuantitySnapshot = {
   version: 1, basis: 'BASE', productCode: 'EGG', gradeCode: 'A', specCode: 'TRAY30',
   skuCode: SKU, baseUnit: '枚', tradeUnit: '枚', factor: 1, baseQty: 2,
@@ -21,25 +22,29 @@ type Options = {
   warehouseScope?: string[]; snapshotWarehouse?: string; rejectUpsert?: boolean;
   origin?: { variety_code: string | null; source_profile_code: string | null; source_profile_snapshot: Record<string, any> | null };
   projectBatchSelect?: boolean; stringSourceSnapshot?: boolean; productOnly?: boolean;
+  physicalPool?: boolean; physicalSale?: boolean; physicalStock?: boolean; orderSku?: string; gradeCode?: string; batchPatch?: Record<string, any>;
 };
 
 /** Strict SQL doubles run the real SkuPolicy, not a requireUsable spy/stub. */
 function fixture(options: Options = {}) {
   const company = options.company === undefined ? 'COMP-A' : options.company;
+  const quantitySnapshot = { ...snapshot, gradeCode: options.gradeCode ?? snapshot.gradeCode };
   const batch = {
     batch_no: 'B-1', product_code: 'EGG', sku_code: SKU, material_code: null,
-    item_type: 'SKU', material_type: 'FINISHED_PRODUCT', unit: '枚', grade_code_std: 'A', spec_code: 'TRAY30',
+    item_type: 'SKU', material_type: 'FINISHED_PRODUCT', unit: '枚', grade_code_std: options.gradeCode ?? 'A', spec_code: 'TRAY30',
     legacy_source: null, base_quantity_version: 1, qty: 10, qty_available: 10, status: 'AVAILABLE',
     warehouse_code: 'WH-A', company_code: options.batchCompany ?? company, store_code: 'ALL',
     variety_code: options.variant === false ? null : 'EGG_PINK', source_profile_code: null, source_profile_snapshot: null,
     ...options.origin,
+    ...(options.physicalPool ? { sku_code: PHYSICAL_SKU, spec_code: 'LOOSE' } : {}),
+    ...options.batchPatch,
   };
   const order = {
     ...outboundBody, id: 1, status: options.done ? 'DONE' : 'PENDING', company_code: company,
-    type: options.outboundType ?? 'SALE',
+    type: options.outboundType ?? 'SALE', item: options.orderSku ?? SKU, sku_code: options.orderSku ?? SKU,
     ...(options.outboundType === 'SCRAP' ? { destination_type: 'OTHER', destination_code: 'DISPOSAL' } : {}),
     batch_no: options.batchSelector === false ? null : 'B-1', store_code: 'ALL',
-    quantity_snapshot: options.quantity ? snapshot : null,
+    quantity_snapshot: options.quantity ? quantitySnapshot : null,
   };
   const calls: Array<[string, any[]]> = [];
   const committed: Array<[string, any[]]> = [];
@@ -48,16 +53,16 @@ function fixture(options: Options = {}) {
     calls.push([sql, args]);
     if (/^\s*(INSERT|UPDATE|WITH changed)/.test(sql)) pending.push([sql, args]);
     if (sql.includes('FROM product_skus WHERE sku_code=$1 FOR SHARE')) return [{
-      sku_code: SKU, sku_name: 'Variant origin remains A', variety_code: options.variant === false ? null : 'EGG_PINK', org_context_required: options.organizationRequired ?? false,
-      product_code: 'EGG', grade_code: 'A', spec_code: 'TRAY30', status: options.skuActive === false ? 'INACTIVE' : 'ACTIVE',
+      sku_code: args[0], sku_name: 'Variant origin remains A', variety_code: options.variant === false ? null : 'EGG_PINK', org_context_required: options.organizationRequired ?? false,
+      product_code: 'EGG', grade_code: options.gradeCode ?? 'A', spec_code: args[0] === PHYSICAL_SKU ? 'LOOSE' : 'TRAY30', status: options.skuActive === false ? 'INACTIVE' : 'ACTIVE',
       today: '2026-11-11', effective_date: null, expire_date: null,
     }];
     if (sql.includes('FROM md_product_varieties')) return [{ variety_code: 'EGG_PINK', status: 'ACTIVE', effective_date: null, expire_date: null, today: '2026-11-11' }];
     if (sql.includes('FROM sys_organizations')) return options.companyActive === false ? [] : [{ org_code: args[0] }];
     if (sql.includes('FROM md_sku_org_scope')) {
       const enabled = args[1] === 'COMP-A' ? options.scopeA !== false : args[1] === 'COMP-B' && options.scopeB !== false;
-      return enabled ? [{ scope_type: 'COMPANY', scope_code: args[1], status: 'ACTIVE', stock_enabled: true,
-        sale_enabled: args[1] === 'COMP-A' ? options.saleA !== false : options.saleB !== false, today: '2026-11-11', effective_date: null, expire_date: null }] : [];
+      return enabled ? [{ scope_type: 'COMPANY', scope_code: args[1], status: 'ACTIVE', stock_enabled: args[0] !== PHYSICAL_SKU || options.physicalStock !== false,
+        sale_enabled: args[0] === PHYSICAL_SKU ? options.physicalSale === true : args[1] === 'COMP-A' ? options.saleA !== false : options.saleB !== false, today: '2026-11-11', effective_date: null, expire_date: null }] : [];
     }
     if (/SELECT \* FROM (mst_products|product_grades|packaging_specs)/.test(sql)) return [{ status: 'ACTIVE', is_saleable: options.gradeSaleable !== false, is_storable: true, base_unit: '枚', product_mode: options.variant === false ? 'STANDARD' : 'VARIANT', variety_code: options.variant === false ? null : 'EGG_PINK' }];
     if (sql.includes('SELECT product_mode,variety_code FROM mst_products')) return [{ product_mode: 'VARIANT', variety_code: 'EGG_PINK' }];
@@ -73,7 +78,7 @@ function fixture(options: Options = {}) {
     if (sql.includes('FROM wms_inbound_items')) return [];
     if (sql.includes('SELECT task_no,status FROM wms_inbound')) return [];
     if (sql.includes('SELECT outbound_no,status FROM wms_outbound')) return [];
-    if (sql.includes('FROM wms_outbound_items')) return [{ id: 2, product_code: SKU, batch_no: 'B-1', qty: 2, quantity_snapshot: options.quantity ? snapshot : null }];
+    if (sql.includes('FROM wms_outbound_items')) return [{ id: 2, product_code: SKU, batch_no: 'B-1', qty: 2, quantity_snapshot: options.quantity ? quantitySnapshot : null }];
     if (sql.includes('FROM wms_outbound')) return [{ ...order }];
     if (sql.includes('FROM ord_orders')) return [{ order_no: 'SO-1', status: options.orderStatus ?? (options.done ? 'SHIPPED' : 'ALLOCATED'), store_code: 'ALL' }];
     if (sql.includes('FROM wms_transfer_items')) {
@@ -507,6 +512,49 @@ describe('WMS authoritative company context (real SkuPolicy)', () => {
     expect(f.calls.some(([sql]) => sql.includes('FROM product_skus'))).toBe(false);
     expect(f.calls.some(([sql]) => /INSERT INTO inv_batches|INSERT INTO inv_ledger/.test(sql))).toBe(false);
     expect(f.committed).toEqual([]);
+  });
+
+  it.each(cases.filter(([name]) => /quantity outbound/.test(name)))('%s consumes stock-only LOOSE for an authorized commercial TRAY SKU', async (_name, run, options) => {
+    for (const identity of [{ variant: true }, { variant: false, organizationRequired: true, gradeCode: '0' }]) {
+      const f = fixture({ ...options, ...identity, physicalPool: true, physicalSale: false });
+      await expect(run(f)).resolves.toMatchObject({ code: 200 });
+      expect(scopeCalls(f).map(([, args]) => args)).toEqual(expect.arrayContaining([[SKU, 'COMP-A'], [PHYSICAL_SKU, 'COMP-A']]));
+      expect(f.calls.some(([sql]) => /price_book|price_item|price_runtime/.test(sql))).toBe(false);
+      expect(inventoryWrites(f).length).toBeGreaterThan(0);
+      const deniedSale = fixture({ ...options, ...identity, physicalPool: true, physicalSale: true, saleA: false });
+      await expect(run(deniedSale)).rejects.toThrow('不适用于公司 COMP-A');
+      expect(inventoryWrites(deniedSale)).toEqual([]);
+      const deniedStock = fixture({ ...options, ...identity, physicalPool: true, physicalSale: false, physicalStock: false });
+      await expect(run(deniedStock)).rejects.toThrow('不适用于公司 COMP-A');
+      expect(inventoryWrites(deniedStock)).toEqual([]);
+    }
+  });
+
+  it.each([
+    { product_code: 'OTHER-PRODUCT' }, { grade_code_std: 'B' }, { unit: 'kg' },
+    { variety_code: 'EGG_RED' }, { spec_code: 'WRONG-PHYSICAL-SPEC' }, { warehouse_code: 'WH-B' },
+  ])('commercial snapshots cannot consume physically mismatched pools %j', async batchPatch => {
+    const f = fixture({ quantity: true, physicalPool: true, batchPatch });
+    await expect(f.service.confirmStandaloneOutbound('OUT-1', user)).rejects.toThrow();
+    expect(inventoryWrites(f)).toEqual([]);
+    expect(f.calls.some(([sql]) => sql.includes('INSERT INTO inv_ledger'))).toBe(false);
+  });
+
+  it('manual SALE without a persisted commercial snapshot must sell the physical SKU itself', async () => {
+    const f = fixture({ physicalPool: true, orderSku: PHYSICAL_SKU, physicalSale: false });
+    await expect(f.service.confirmStandaloneOutbound('OUT-1', user)).rejects.toThrow('不适用于公司 COMP-A');
+    expect(scopeCalls(f).map(([, args]) => args[0])).toContain(PHYSICAL_SKU);
+    expect(scopeCalls(f).map(([, args]) => args[0])).not.toContain(SKU);
+    expect(inventoryWrites(f)).toEqual([]);
+  });
+
+  it('request-body snapshot or commercial context cannot launder a stock-only physical SKU into SALE', async () => {
+    const f = fixture({ physicalPool: true, physicalSale: false });
+    await expect(f.service.createStandaloneOutbound({ ...outboundBody, item: PHYSICAL_SKU, sku_code: PHYSICAL_SKU,
+      quantity_snapshot: snapshot, commercialContext: { companyCode: 'COMP-A', warehouseCodes: ['WH-A'] }, scope: { isGlobal: true },
+    }, user)).rejects.toThrow('不适用于公司 COMP-A');
+    expect(inventoryWrites(f)).toEqual([]);
+    expect(scopeCalls(f).map(([, args]) => args[0])).not.toContain(SKU);
   });
 
   it('retains warehouse scope and outbound menu authorization before variant checks', async () => {

@@ -16,6 +16,7 @@ import { EggInventoryService } from './egg-inventory.service';      // Phase 7
 import { SalesOrderLifecycleService } from './sales-order-lifecycle.service';
 import { WorkflowBizRegistryService } from '../../approval-engine/workflow-biz-registry.service';
 import { SkuPolicy } from '../../product-master/services/sku-policy';
+import { VerifiedCommercialContext, validateCommercialStockContext, storedApprovedSalesOrderContext } from '../../product-master/services/commercial-context';
 import { CreditCustomerMasterNotFoundException } from './credit-domain.errors';
 import {
   CreateSalesOrderDto, UpdateSalesOrderDto, QuerySalesOrderDto,
@@ -69,18 +70,19 @@ export class SalesOrdersService implements OnApplicationBootstrap {
     };
   }
 
-  private async assertFulfillmentWarehouse(companyCode: string, warehouseCode: string): Promise<void> {
-    const rows = await this.ds.query(
+  private async assertFulfillmentWarehouse(companyCode: string, warehouseCode: string, queryable: Pick<DataSource, 'query'> = this.ds, checkActor = true): Promise<void> {
+    const rows = await queryable.query(
       `SELECT warehouse_code FROM wms_warehouses w
         WHERE warehouse_code=$1 AND company_code=$2 AND status='ACTIVE' AND domain='OPERATIONAL'
           AND owner_store_id IS NULL
           AND NOT EXISTS (SELECT 1 FROM store_warehouse_bindings b WHERE b.warehouse_code=w.warehouse_code
-            AND b.purpose='SALES' AND b.status='ACTIVE' AND b.effective_to IS NULL)`,
+            AND b.purpose='SALES' AND b.status='ACTIVE' AND b.effective_to IS NULL)
+          ${queryable === this.ds ? '' : 'FOR SHARE OF w'}`,
       [warehouseCode, companyCode],
     );
     if (!rows.length) throw new BadRequestException(`履约仓 ${warehouseCode} 不存在、不可用、公司不匹配或属于门店 SALES 仓`);
     const user = this.currentUser();
-    if (!user.scopeAll && !user.warehouseCodes.includes(warehouseCode)) {
+    if (checkActor && !user.scopeAll && !user.warehouseCodes.includes(warehouseCode)) {
       throw new ForbiddenException(`无权使用履约仓 ${warehouseCode}`);
     }
   }
@@ -131,6 +133,7 @@ export class SalesOrdersService implements OnApplicationBootstrap {
     belowFloor: boolean;
     skuCode: string | null;
     quantitySnapshot?: QuantitySnapshot | null;
+    commercialPriceSnapshot?: Record<string, unknown>;
   }, manager: EntityManager = this.ds.manager) {
     const values = [
       params.salesOrderId,
@@ -152,8 +155,39 @@ export class SalesOrdersService implements OnApplicationBootstrap {
          floor_price, ceiling_price, amount,
          price_book_id, price_book_no, below_floor_price${withSku ? ', sku_code' : ''}, quantity_snapshot, price_snapshot
        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15${withSku ? ',$16' : ''},$${withSku ? 17 : 16}::jsonb,$${withSku ? 18 : 17}::jsonb)`,
-      [...(withSku ? values : values.slice(0, 15)), params.quantitySnapshot == null ? null : JSON.stringify(params.quantitySnapshot), JSON.stringify({ resolvedUnitPrice: params.resolvedUnitPrice, actualUnitPrice: params.actualUnitPrice, floorPrice: params.floorPrice, ceilingPrice: params.ceilingPrice, amount: params.amount, priceBookId: params.priceBookId, tradeUnit: params.quantitySnapshot?.tradeUnit ?? null })],
+      [...(withSku ? values : values.slice(0, 15)), params.quantitySnapshot == null ? null : JSON.stringify(params.quantitySnapshot), JSON.stringify({ resolvedUnitPrice: params.resolvedUnitPrice, actualUnitPrice: params.actualUnitPrice, floorPrice: params.floorPrice, ceilingPrice: params.ceilingPrice, amount: params.amount, priceBookId: params.priceBookId, tradeUnit: params.quantitySnapshot?.tradeUnit ?? null, ...params.commercialPriceSnapshot })],
     );
+  }
+
+  private async resolveOrderSku(manager: EntityManager, skuCode: unknown, companyCode: string, warehouseCode: string) {
+    const code = SkuPolicy.code(skuCode);
+    const [identity] = await manager.query('SELECT org_context_required,variety_code FROM product_skus WHERE sku_code=$1 FOR SHARE', [code]);
+    const managed = identity?.org_context_required === true || identity?.variety_code != null;
+    let context: VerifiedCommercialContext | undefined;
+    if (managed) {
+      // Revalidate the actual fulfillment warehouse under this transaction, not
+      // a body flag or a company hint from the SKU selector.
+      await this.assertFulfillmentWarehouse(companyCode, warehouseCode, manager);
+      context = await validateCommercialStockContext(manager, { companyCode, warehouseCodes: [warehouseCode],
+        actor: this.cls.get('dataScope') as DataScopeContext });
+    }
+    const sku = await SkuPolicy.requireUsable(manager, code, managed ? 'sale-stock' : 'sale', context?.companyCode);
+    return { sku, context };
+  }
+
+  private resolveOrderPrice(dto: Parameters<PriceRuntimeService['resolvePrice']>[0], manager: EntityManager, context?: VerifiedCommercialContext) {
+    return context ? this.priceRuntime.resolvePrice(dto, manager, context) : this.priceRuntime.resolvePrice(dto, manager);
+  }
+
+  private commercialPriceSnapshot(sku: any, resolved: any, companyCode: string, currencyCode: unknown, quantity: QuantitySnapshot | null) {
+    if (!sku || (sku.org_context_required !== true && sku.variety_code == null)) return undefined;
+    if (!quantity || typeof currencyCode !== 'string' || !currencyCode.trim() || currencyCode !== currencyCode.trim()
+        || resolved.skuCode !== sku.sku_code || resolved.currencyCode !== currencyCode
+        || !resolved.priceBookId || !resolved.priceItemId || !Number.isSafeInteger(resolved.publishVersion) || resolved.publishVersion <= 0
+        || !resolved.priceQuantitySnapshot) throw new BadRequestException('新 SKU 必须具有精确公司报价、币种、发布版本及已确认计量快照');
+    return { version: 1, companyCode, skuCode: sku.sku_code, currencyCode,
+      priceItemId: resolved.priceItemId, publishVersion: resolved.publishVersion,
+      priceQuantitySnapshot: resolved.priceQuantitySnapshot };
   }
 
   // ── 1. 列表 ───────────────────────────────────────────────────────────────
@@ -292,13 +326,15 @@ export class SalesOrdersService implements OnApplicationBootstrap {
         amount: number;
         skuCode: string | null;     // Phase H5
         quantitySnapshot: QuantitySnapshot | null;
+        commercialPriceSnapshot?: Record<string, unknown>;
       }> = [];
 
       let anyBelowFloor = false;
 
       for (const item of dto.items) {
         // Missing skuCode alone keeps the legacy product/grade/spec path.
-        const sku = item.skuCode === undefined ? null : await SkuPolicy.requireUsable(mgr, item.skuCode, 'sale');
+        const selection = item.skuCode === undefined ? null : await this.resolveOrderSku(mgr, item.skuCode, dto.companyCode, dto.fulfillmentWarehouseCode);
+        const sku = selection?.sku ?? null;
         const productCode = sku ? sku.product_code : item.productCode;
         const gradeCode = sku ? sku.grade_code : item.gradeCode ?? null;
         const packagingSpec = sku ? sku.spec_code : item.packagingSpec ?? null;
@@ -311,18 +347,19 @@ export class SalesOrdersService implements OnApplicationBootstrap {
         };
 
         try {
-          resolved = await this.priceRuntime.resolvePrice({
+          resolved = await this.resolveOrderPrice({
             companyCode:    dto.companyCode,
             productCode,
             gradeCode:      gradeCode ?? undefined,
             packagingSpec:  packagingSpec ?? undefined,
             qty:            item.qty,
             quantityBasis: item.quantityBasis,
+            currencyCode: selection?.context ? dto.currencyCode : undefined,
             customerCode:   dto.customerCode ?? undefined,
             channelCode:    channelCode ?? undefined,
             skuCode:        skuCode ?? undefined,   // Phase H5: sku_code 优先匹配价格
-          }, mgr);
-        } catch (error) { if (item.quantityBasis !== undefined || error instanceof BadRequestException) throw error; }
+          }, mgr, selection?.context);
+        } catch (error) { if (selection?.context || item.quantityBasis !== undefined || error instanceof BadRequestException) throw error; }
 
         const resolvedUnitPrice = Number(resolved.unitPrice ?? 0);
         const actualUnitPrice   = item.actualUnitPrice !== undefined
@@ -352,6 +389,7 @@ export class SalesOrdersService implements OnApplicationBootstrap {
           priceBookNo:      resolved.priceBookNo ?? null,
           amount,
           skuCode, quantitySnapshot, // Phase H5
+          commercialPriceSnapshot: this.commercialPriceSnapshot(sku, resolved, dto.companyCode, dto.currencyCode, quantitySnapshot),
         });
       }
 
@@ -430,6 +468,11 @@ export class SalesOrdersService implements OnApplicationBootstrap {
     return this.ds.transaction(async mgr => {
       const [locked] = await mgr.query('SELECT * FROM sal_sales_orders WHERE id=$1 FOR UPDATE', [id]);
       if (!locked || locked.status !== 'DRAFT') throw new ForbiddenException('仅 DRAFT 状态的订单可编辑');
+      if (dto.currencyCode !== undefined && dto.currencyCode !== locked.currency_code && !dto.items?.length) {
+        const managed = await mgr.query(`SELECT 1 FROM sal_order_items i JOIN product_skus s ON s.sku_code=i.sku_code
+          WHERE i.sales_order_id=$1 AND (s.org_context_required=true OR s.variety_code IS NOT NULL) LIMIT 1`, [id]);
+        if (managed.length) throw new BadRequestException('新 SKU 修改币种必须同时重建明细并重新解析精确报价');
+      }
       // 如果 items 传入则重建明细（删旧插新）
       if (dto.items && dto.items.length > 0) {
         if (dto.items.some(item => item.quantityBasis===undefined)) {
@@ -443,7 +486,8 @@ export class SalesOrdersService implements OnApplicationBootstrap {
         const channelCode = dto.channelCode ?? locked.channel_code ?? null;
 
         for (const item of dto.items) {
-          const sku = item.skuCode === undefined ? null : await SkuPolicy.requireUsable(mgr, item.skuCode, 'sale');
+          const selection = item.skuCode === undefined ? null : await this.resolveOrderSku(mgr, item.skuCode, locked.company_code, locked.fulfillment_warehouse_code);
+          const sku = selection?.sku ?? null;
           const productCode = sku ? sku.product_code : item.productCode;
           const gradeCode = sku ? sku.grade_code : item.gradeCode ?? null;
           const packagingSpec = sku ? sku.spec_code : item.packagingSpec ?? null;
@@ -452,17 +496,18 @@ export class SalesOrdersService implements OnApplicationBootstrap {
 
           let resolved: any = { unitPrice: 0, floorPrice: null, ceilingPrice: null, priceBookId: null, priceBookNo: null };
           try {
-            resolved = await this.priceRuntime.resolvePrice({
+            resolved = await this.resolveOrderPrice({
               companyCode, productCode,
               gradeCode:      gradeCode ?? undefined,
               packagingSpec:  packagingSpec ?? undefined,
               qty:            item.qty,
-            quantityBasis: item.quantityBasis,
+              quantityBasis: item.quantityBasis,
+              currencyCode: selection?.context ? dto.currencyCode ?? locked.currency_code : undefined,
               customerCode:   dto.customerCode ?? locked.customer_code ?? undefined,
               channelCode:    channelCode ?? undefined,
               skuCode:        skuCode ?? undefined,  // Phase H5
-            }, mgr);
-          } catch (error) { if (item.quantityBasis !== undefined || error instanceof BadRequestException) throw error; }
+            }, mgr, selection?.context);
+          } catch (error) { if (selection?.context || item.quantityBasis !== undefined || error instanceof BadRequestException) throw error; }
 
           const resolvedUnitPrice = Number(resolved.unitPrice ?? 0);
           const actualUnitPrice   = item.actualUnitPrice !== undefined ? Number(item.actualUnitPrice) : resolvedUnitPrice;
@@ -479,6 +524,7 @@ export class SalesOrdersService implements OnApplicationBootstrap {
             belowFloor, priceBookId: resolved.priceBookId ? String(resolved.priceBookId) : null,
             priceBookNo: resolved.priceBookNo ?? null, amount,
             skuCode, quantitySnapshot, // Phase H5
+            commercialPriceSnapshot: this.commercialPriceSnapshot(sku, resolved, companyCode, dto.currencyCode ?? locked.currency_code, quantitySnapshot),
           });
         }
 
@@ -729,13 +775,20 @@ export class SalesOrdersService implements OnApplicationBootstrap {
     mgr: EntityManager,
   ): Promise<void> {
     if (fulfillmentWarehouseCode) {
-      await this.assertFulfillmentWarehouse(companyCode, fulfillmentWarehouseCode);
+      await this.assertFulfillmentWarehouse(companyCode, fulfillmentWarehouseCode, mgr, false);
     } else {
       await mgr.query(`UPDATE sal_sales_orders SET warehouse_governance_pending=TRUE WHERE id=$1`, [orderId]);
     }
-    const created = await this.eggInventory.reserveInventory(
-      orderId, orderNo, companyCode, mgr, fulfillmentWarehouseCode ?? undefined,
-    );
+    const managedItems = await mgr.query(`SELECT TRUE AS managed FROM sal_order_items i JOIN product_skus s ON s.sku_code=i.sku_code
+      WHERE i.sales_order_id=$1 AND (s.org_context_required=true OR s.variety_code IS NOT NULL) LIMIT 1`, [orderId]);
+    // This function is invoked only after the real workflow/status transition.
+    // Its authority comes from the persisted approved order, never absent actor
+    // => global, nor any approval boolean supplied by the caller.
+    const context = managedItems.some((r: any) => r.managed === true)
+      ? await storedApprovedSalesOrderContext(mgr, orderId) : undefined;
+    const created = context
+      ? await this.eggInventory.reserveInventory(orderId, orderNo, companyCode, mgr, fulfillmentWarehouseCode ?? undefined, context)
+      : await this.eggInventory.reserveInventory(orderId, orderNo, companyCode, mgr, fulfillmentWarehouseCode ?? undefined);
     if (!created) return;
     await this.lifecycle.appendEvent(mgr, {
       salesOrderId: orderId, orderNo, eventType: 'INVENTORY_RESERVED',

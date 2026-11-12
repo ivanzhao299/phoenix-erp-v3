@@ -1,7 +1,7 @@
 'use client';
 
 import { QuantityBasisInput, quantityText, type QuantitySnapshot, type QuantityBasis } from '@/components/shared-selectors/QuantityBasisInput';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import u from "@/styles/uix-utils.module.css";
 import { useMasterNames } from '@/hooks/useMasterNames';
@@ -19,6 +19,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { normalizeSalesOrdersPage } from '@/lib/sales-orders-response';
 import styles from './orders.module.css';
 import { formatBusinessEnum, formatMasterData } from '@/lib/business-display';
+import { isManagedCommercialSku, managedItemNeedsQuote, resetItemsForCompanyChange } from './sales-order-commercial';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -286,7 +287,12 @@ interface PriceResult {
   unitPrice: number;
   floorPrice: number | null;
   priceBookId: string | null;
+  currencyCode?: string;
+  publishVersion?: number;
+  priceBookNo?: string;
+  priceItemId?: string;
 }
+
 // Phase H5: SKU 主数据
 interface SkuItem {
   sku_code: string;
@@ -370,7 +376,8 @@ export default function SalesV2OrdersPage() {
     channelCode: '',
     remark: '',
     expectedDeliveryDate: '',
-    deliveryAddress: ''
+    deliveryAddress: '',
+    currencyCode: ''
   });
   const [newItems, setNewItems] = useState<Array<{
     productCode: string;
@@ -378,6 +385,8 @@ export default function SalesV2OrdersPage() {
     qty: string;
     actualUnitPrice: string;
     _manualPrice?: boolean;
+    _managed?: boolean;
+    _quoteError?: string;
     quantityBasis?: QuantityBasis;
     _unit?: { qty_per_unit: number; base_unit: string; display_unit: string };
     skuCode?: string; // Phase H5
@@ -392,6 +401,7 @@ export default function SalesV2OrdersPage() {
   const [creditInfo, setCreditInfo] = useState<any>(null);
   // Phase H5: SKU 主数据
   const [skus, setSkus] = useState<SkuItem[]>([]);
+  const quoteRequestRef = useRef(0);
 
   // ── 数据加载 ────────────────────────────────────────────────────────────────
 
@@ -488,6 +498,16 @@ export default function SalesV2OrdersPage() {
     } : null));
   }, [newForm.customerCode, customers]);
 
+  useEffect(() => {
+    quoteRequestRef.current++;
+    setNewItems(prev => prev.map(item => ({
+      ...item,
+      _resolved: undefined,
+      _quoteError: undefined,
+      actualUnitPrice: item._managed ? '' : item.actualUnitPrice
+    })));
+  }, [newForm.companyCode, newForm.currencyCode, newForm.customerCode, newForm.channelCode]);
+
   // ── 加载详情 ────────────────────────────────────────────────────────────────
 
   const openDetail = async (id: string) => {
@@ -515,27 +535,40 @@ export default function SalesV2OrdersPage() {
   const resolveItemPrice = async (idx: number, picked?: (typeof newItems)[number]) => {
     const item = picked ?? newItems[idx];
     if (!item.productCode || !newForm.companyCode) return;
+    const requestId = ++quoteRequestRef.current;
+    const requestCompany = newForm.companyCode;
+    const requestCurrency = newForm.currencyCode;
     try {
       const r = await api<any>('POST', '/api/v2/sales/pricing/resolve-price', {
-        companyCode: newForm.companyCode,
+        companyCode: requestCompany,
         productCode: item.productCode,
         skuCode: item.skuCode,
         gradeCode: item.gradeCode || undefined,
         qty: Number(item.qty) || 1,
         quantityBasis: item.quantityBasis,
+        currencyCode: requestCurrency || undefined,
         customerCode: newForm.customerCode || undefined,
         channelCode: newForm.channelCode || undefined
       });
+      if (requestId !== quoteRequestRef.current || requestCompany !== newForm.companyCode || requestCurrency !== newForm.currencyCode) return;
       setNewItems(prev => prev.map((it, i) => i === idx && it.skuCode===item.skuCode && it.quantityBasis===item.quantityBasis && it.qty===item.qty ? {
         ...it,
+        _quoteError: undefined,
         _resolved: {
-          unitPrice: r.unitPrice,
-          floorPrice: r.floorPrice,
-          priceBookId: r.priceBookId
+          unitPrice: Number(r.unitPrice),
+          floorPrice: r.floorPrice == null ? null : Number(r.floorPrice),
+          priceBookId: r.priceBookId ?? null,
+          currencyCode: r.currencyCode,
+          publishVersion: r.publishVersion,
+          priceBookNo: r.priceBookNo,
+          priceItemId: r.priceItemId
         },
-        actualUnitPrice: it._manualPrice ? it.actualUnitPrice : String(r.unitPrice ?? '')
+        actualUnitPrice: it._managed ? String(r.unitPrice ?? '') : (it._manualPrice ? it.actualUnitPrice : String(r.unitPrice ?? ''))
       } : it));
-    } catch {/* fallback */}
+    } catch (e: any) {
+      if (requestId !== quoteRequestRef.current) return;
+      setNewItems(prev => prev.map((it, i) => i === idx ? { ...it, _resolved: undefined, actualUnitPrice: it._managed ? '' : it.actualUnitPrice, _quoteError: it._managed ? (e?.message || t('ui.报价解析失败，请重选依赖后重试','报价解析失败，请重选依赖后重试')) : undefined } : it));
+    }
   };
 
   // ── 新建订单 ────────────────────────────────────────────────────────────────
@@ -549,9 +582,18 @@ export default function SalesV2OrdersPage() {
       setActionError(t('ui.请选择履约仓','请选择履约仓'));
       return;
     }
+    if (!newForm.currencyCode) {
+      setActionError(t('ui.请选择币种','请选择币种'));
+      return;
+    }
     const validItems = newItems.filter(i => i.productCode && Number(i.qty) > 0);
     if (!validItems.length) {
       setActionError(t('ui.请至少添加一行有效明细','请至少添加一行有效明细'));
+      return;
+    }
+    const managedWithoutQuote = validItems.find(i => managedItemNeedsQuote(i) || !i._resolved?.currencyCode);
+    if (managedWithoutQuote) {
+      setActionError(managedWithoutQuote._quoteError || t('ui.新 SKU 必须先取得有效已发布报价','新 SKU 必须先取得有效已发布报价'));
       return;
     }
     setActionLoading(true);
@@ -561,6 +603,7 @@ export default function SalesV2OrdersPage() {
       await api('POST', '/api/v2/sales/orders', {
         companyCode: newForm.companyCode,
         fulfillmentWarehouseCode: newForm.fulfillmentWarehouseCode,
+         currencyCode: newForm.currencyCode,
         customerCode: newForm.customerCode || undefined,
         channelCode: newForm.channelCode || undefined,
         remark: newForm.remark || undefined,
@@ -573,7 +616,7 @@ export default function SalesV2OrdersPage() {
           gradeCode: i.gradeCode || undefined,
           qty: Number(i.qty),
           quantityBasis: i.quantityBasis,
-          actualUnitPrice: i._manualPrice && i.actualUnitPrice ? Number(i.actualUnitPrice) : undefined
+          actualUnitPrice: i._managed && i.actualUnitPrice ? Number(i.actualUnitPrice) : (i._manualPrice && i.actualUnitPrice ? Number(i.actualUnitPrice) : undefined)
         }))
       });
       setShowCreate(false);
@@ -584,7 +627,8 @@ export default function SalesV2OrdersPage() {
         channelCode: '',
         remark: '',
         expectedDeliveryDate: '',
-        deliveryAddress: ''
+        deliveryAddress: '',
+    currencyCode: ''
       });
       setNewItems([{
         productCode: '',
@@ -879,14 +923,25 @@ export default function SalesV2OrdersPage() {
               marginBottom: 4
             }}>{t('ui.公司 *','公司 *')}</label>
                 {/* G4-C：公司主数据，DataScope 自动过滤 */}
-                <CompanySelector value={newForm.companyCode} onChange={v => setNewForm(p => ({
+                <CompanySelector value={newForm.companyCode} onChange={v => { quoteRequestRef.current++; setNewForm(p => ({
               ...p,
-              companyCode: v
-            }))} />
+              companyCode: v,
+              fulfillmentWarehouseCode: ''
+            })); setNewItems(() => resetItemsForCompanyChange(newItems)); }} />
               </div>
               <div>
                 <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>
-                  {t('ui.履约仓 *','履约仓 *')}
+                  {t('ui.币种 *','币种 *')}
+                 </label>
+                 <DictSelect dictType="SYS_CURRENCY" value={newForm.currencyCode} allowEmpty={false} onChange={v => {
+                   quoteRequestRef.current++;
+                   setNewForm(p => ({ ...p, currencyCode: v }));
+                   setNewItems(p => p.map(it => ({ ...it, _resolved: undefined, _quoteError: undefined, actualUnitPrice: it._managed ? '' : it.actualUnitPrice })));
+                 }} />
+               </div>
+               <div>
+                 <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>
+                   {t('ui.履约仓 *','履约仓 *')}
                 </label>
                 <WarehouseSelector
                   value={newForm.fulfillmentWarehouseCode}
@@ -1102,7 +1157,7 @@ export default function SalesV2OrdersPage() {
                   display: 'block',
                   marginBottom: 2
                 }}>{t('ui.商品（SKU 主数据）*','商品（SKU 主数据）*')}</label>
-                      <SkuSelector usage="sale" value={item.skuCode ?? ''} onChange={code => setNewItems(p => p.map((it, i) => i === idx ? {
+                      <SkuSelector usage="sale-stock" companyCode={newForm.companyCode || undefined} value={item.skuCode ?? ''} onChange={code => setNewItems(p => p.map((it, i) => i === idx ? {
                   ...it,
                   skuCode: code,
                   _resolved: undefined
@@ -1114,6 +1169,7 @@ export default function SalesV2OrdersPage() {
                     productCode: raw?.product_code ?? '',
                     gradeCode: raw?.grade_code ?? '',
                     quantityBasis: 'PACKAGE' as const,
+                     _managed: isManagedCommercialSku(raw),
                     actualUnitPrice: '', _manualPrice: false,
                     _unit: raw ? { qty_per_unit: Number(raw.qty_per_unit), base_unit: String(raw.base_unit || ''), display_unit: String(raw.display_unit || '') } : undefined,
                     _resolved: undefined
@@ -1181,7 +1237,7 @@ export default function SalesV2OrdersPage() {
                     display: 'block',
                     marginBottom: 2
                   }}>{t('ui.数量','数量')}</label>
-                        <input type="number" value={item.qty} onBlur={() => void resolveItemPrice(idx)} onChange={e => setNewItems(p => p.map((it, i) => i === idx ? {
+                        <input aria-label={t('ui.数量','数量')} type="number" value={item.qty} onBlur={() => void resolveItemPrice(idx)} onChange={e => setNewItems(p => p.map((it, i) => i === idx ? {
                     ...it,
                     qty: e.target.value
                   } : it))} placeholder="0" style={{
@@ -1203,7 +1259,7 @@ export default function SalesV2OrdersPage() {
                   }}>
                           {t('ui.实际单价','实际单价')} {item._resolved?.floorPrice != null ? `(${t('ui.底价:','底价:')} ${item._resolved.floorPrice})` : ''}
                         </label>
-                        <input type="number" value={item.actualUnitPrice} onChange={e => setNewItems(p => p.map((it, i) => i === idx ? {
+                        <input aria-label={t('ui.实际单价','实际单价')} type="number" value={item.actualUnitPrice} readOnly={item._managed} onChange={e => setNewItems(p => p.map((it, i) => i === idx ? {
                     ...it,
                     actualUnitPrice: e.target.value, _manualPrice: true
                   } : it))} placeholder={item._resolved ? String(item._resolved.unitPrice) : '0'} style={{
@@ -1232,7 +1288,8 @@ export default function SalesV2OrdersPage() {
                         <X size={14} />
                       </button>
                     </div>
-                    {item._resolved && <div style={{
+                    {item._quoteError && <div style={{ color: 'var(--status-danger)', fontSize: 11, marginTop: 4 }}>{item._quoteError}</div>}
+                       {item._resolved && <div style={{
                 fontSize: 11,
                 color: 'var(--text-secondary)',
                 marginTop: 4

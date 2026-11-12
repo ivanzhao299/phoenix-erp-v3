@@ -1,6 +1,8 @@
-import { Injectable, ConflictException, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, ConflictException, NotFoundException, BadRequestException, ForbiddenException, Optional } from '@nestjs/common';
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
+import { ClsService } from 'nestjs-cls';
+import { assertCommercialSkuUsable, validateCompanyCommercialContext } from './commercial-context';
 import { SkuPolicy, SkuUsage } from './sku-policy';
 import { MasterDataRuntimeService } from '../../master-data/master-data-runtime.service';
 
@@ -79,6 +81,7 @@ export class ProductMasterService {
   constructor(
     @InjectEntityManager() private readonly em: EntityManager,
     private readonly runtime: MasterDataRuntimeService,
+    @Optional() private readonly cls?: ClsService,
   ) {}
 
   // ── product_grades ──────────────────────────────────────────────
@@ -249,6 +252,50 @@ export class ProductMasterService {
         FROM product_skus ${where} ORDER BY product_code, grade_code, spec_code`,
       args,
     );
+  }
+
+  /** Business reference candidates, not a replacement for the global MDM registry.
+   * New managed catalog entries require exact company eligibility; legacy shared
+   * ordinary entries retain their existing catalog behavior and actor boundary.
+   */
+  async listCommercialSkus(filters: { companyCode: string; product_code?: string; grade_code?: string; spec_code?: string; usage?: SkuUsage }): Promise<ProductSku[]> {
+    const usage = SkuPolicy.usage(filters.usage ?? 'sale-stock');
+    return this.em.transaction(async manager => {
+      const context = await validateCompanyCommercialContext(manager, {
+        companyCode: filters.companyCode, actor: this.cls?.get('dataScope'),
+      });
+      const values: string[] = [];
+      const conditions = [SkuPolicy.usableSql('s', usage)];
+      for (const key of ['product_code', 'grade_code', 'spec_code'] as const) {
+        if (filters[key] !== undefined) {
+          const value = filters[key];
+          if (typeof value !== 'string' || !value.trim() || value !== value.trim()) throw new BadRequestException('SKU 候选筛选编码必须明确且无首尾空格');
+          values.push(value); conditions.push(`s.${key}=$${values.length}`);
+        }
+      }
+      const rows: Array<ProductSku & { variety_code: string | null; org_context_required: boolean }> = await manager.query(
+        `SELECT s.*, sp.qty_per_unit,sp.base_unit,sp.display_unit FROM product_skus s
+          JOIN packaging_specs sp ON sp.spec_code=s.spec_code
+          WHERE ${conditions.join(' AND ')} ORDER BY s.product_code,s.grade_code,s.spec_code,s.sku_code`, values,
+      );
+      const selected: ProductSku[] = [];
+      for (const row of rows) {
+        try {
+          const skuCode = SkuPolicy.code(row.sku_code);
+          if (row.variety_code != null || row.org_context_required === true) {
+            await assertCommercialSkuUsable(manager,skuCode,context,usage);
+          } else {
+            await SkuPolicy.requireUsable(manager,skuCode,usage);
+          }
+          selected.push(row);
+        } catch (error) {
+          if (!(error instanceof BadRequestException) && !(error instanceof ForbiddenException)) throw error;
+          // An ineligible candidate is not a grant. SQL/permission read failures
+          // are never converted into an empty successful catalog.
+        }
+      }
+      return selected;
+    });
   }
 
   async getSku(skuCode: string): Promise<ProductSku> {

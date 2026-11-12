@@ -572,17 +572,19 @@ export function ShiftSelector(p: BaseProps) {
 
 // ── SKU（物料主数据，仅 ACTIVE）──────────────────────────────────────────────
 /** value = sku_code；onPick 回传 raw（包含 product_code/product_name/grade_code/spec_code/sku_name） */
-export function SkuSelector(p: BaseProps & { productCode?: string; gradeCode?: string; usage?: 'any' | 'sale' | 'stock' | 'sale-stock' }) {
+export function SkuSelector(p: BaseProps & { companyCode?: string; productCode?: string; gradeCode?: string; usage?: 'any' | 'sale' | 'stock' | 'sale-stock' }) {
   const { t, lang } = useLanguage();
-  const { productCode, gradeCode, usage = 'any', ...rest } = p;
-  return <ScopedSelect {...rest} preserveValue reloadDeps={[productCode, gradeCode, usage, lang]} placeholder={p.placeholder ?? t('ui.请选择物料','请选择物料')}
+  const { companyCode, productCode, gradeCode, usage = 'any', ...rest } = p;
+  return <ScopedSelect {...rest} preserveValue={!companyCode} reloadDeps={[companyCode, productCode, gradeCode, usage, lang]} placeholder={p.placeholder ?? t('ui.请选择物料','请选择物料')}
     emptyMessage={t('ui.暂无可用SKU', '暂无可用 SKU')}
     errorMessage={t('ui.SKU加载失败，请重试', 'SKU 加载失败，请重试')}
     loader={async () => {
       const params = new URLSearchParams({ status: 'ACTIVE', usage });
+      if (companyCode) params.set('companyCode', companyCode);
       if (productCode) params.set('product_code', productCode);
       if (gradeCode) params.set('grade_code', gradeCode);
-      const r = await request<any>(`/product-master/skus?${params}`);
+      const resource = companyCode ? '/product-master/skus/commercial-candidates' : '/product-master/skus';
+      const r = await request<any>(`${resource}?${params}`);
       const list: any[] = Array.isArray(r) ? r : (r?.data ?? []);
       return list
         .filter(s => (s.status ?? 'ACTIVE') === 'ACTIVE')

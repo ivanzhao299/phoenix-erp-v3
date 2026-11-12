@@ -7,6 +7,7 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { ClsService } from 'nestjs-cls';
 import { DataScopeContext } from '../../org/services/data-scope.service';
+import { storedApprovedSalesOrderContext } from '../../product-master/services/commercial-context';
 import { EggInventoryService } from './egg-inventory.service';      // Phase 7
 import { SalesOrderLifecycleService } from './sales-order-lifecycle.service';
 import {
@@ -421,9 +422,11 @@ export class DeliveryOrdersService {
 
     await this.ds.transaction(async (mgr) => {
       const [locked] = await mgr.query(
-        `SELECT id,delivery_no,status FROM sal_delivery_orders WHERE id=$1 FOR UPDATE`, [id],
+        `SELECT id,delivery_no,status,company_code,fulfillment_warehouse_code FROM sal_delivery_orders WHERE id=$1 FOR UPDATE`, [id],
       );
       if (!locked) throw new NotFoundException(`配送单 ${id} 不存在`);
+      const actor = this.currentUser();
+      if (!actor.scopeAll && !actor.companyCodes.includes(locked.company_code)) throw new ForbiddenException('无权完成当前公司配送单装车');
       if (locked.status !== 'LOADING') {
         throw new ConflictException(`配送单 ${locked.delivery_no} 状态已变为 ${locked.status}，不可重复完成装车`);
       }
@@ -436,21 +439,30 @@ export class DeliveryOrdersService {
       );
       if (changed.length !== 1) throw new ConflictException(`配送单 ${locked.delivery_no} 装车状态冲突`);
       const soItems = await mgr.query(
-      `SELECT doi.id AS delivery_item_id,doi.sales_order_id,doi.planned_qty,so.order_no,so.company_code,so.status
+      `SELECT doi.id AS delivery_item_id,doi.sales_order_id,doi.planned_qty,so.order_no,so.company_code,so.status,
+              EXISTS (SELECT 1 FROM sal_order_items oi JOIN product_skus ps ON ps.sku_code=oi.sku_code
+                WHERE oi.sales_order_id=doi.sales_order_id
+                  AND (ps.org_context_required=true OR ps.variety_code IS NOT NULL)) AS managed_commercial
        FROM sal_delivery_order_items doi
        JOIN sal_sales_orders so ON so.id = doi.sales_order_id
        WHERE doi.delivery_order_id=$1`, [id],
       );
       for (const item of soItems) {
-        const outboundQty = await this.eggInventory.confirmOutbound(
-          String(item.sales_order_id),
-          String(item.order_no),
-          String(item.company_code ?? 'ALL'),
-          String(locked.delivery_no),
-          id,
-          Number(item.planned_qty),
-          mgr,
-        );
+        const context = item.managed_commercial === true
+          ? await storedApprovedSalesOrderContext(mgr, String(item.sales_order_id)) : undefined;
+        if (context && (context.companyCode !== locked.company_code
+          || (locked.fulfillment_warehouse_code && !context.warehouseCodes.includes(locked.fulfillment_warehouse_code)))) {
+          throw new ConflictException('配送单与已批准销售订单公司/履约仓不一致');
+        }
+        const outboundQty = context
+          ? await this.eggInventory.confirmOutbound(
+            String(item.sales_order_id), String(item.order_no), context.companyCode,
+            String(locked.delivery_no), id, Number(item.planned_qty), mgr, context,
+          )
+          : await this.eggInventory.confirmOutbound(
+            String(item.sales_order_id), String(item.order_no), String(item.company_code ?? 'ALL'),
+            String(locked.delivery_no), id, Number(item.planned_qty), mgr,
+          );
         await mgr.query(
           `UPDATE sal_delivery_order_items SET loaded_qty=$1,outbound_qty=$1,updated_at=NOW() WHERE id=$2`,
           [outboundQty, item.delivery_item_id],
