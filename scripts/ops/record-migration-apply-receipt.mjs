@@ -13,6 +13,18 @@ import { RECEIPT_DIRECTORY, digest, readProductionLedger } from './chanjet-admis
 
 const hold = reason => { throw new Error(`MIGRATION_RECEIPT=HOLD_${reason}`); };
 
+/**
+ * A prior successful receipt is immutable evidence of the migration identity.
+ * Run/ledger timing fields naturally differ when a later reviewed target
+ * replays receipt recording; accepting those differences must not permit a
+ * different source blob, path, timestamp or outcome.
+ */
+export function isCompatibleReceipt(existing, expected) {
+  const immutable = ['schema', 'outcome', 'migrationPath', 'migrationTimestamp',
+    'migrationName', 'sourceSha', 'sourceBlob'];
+  return immutable.every(key => existing?.[key] === expected?.[key]);
+}
+
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   try {
     const root = CONTRACT.repository;
@@ -47,8 +59,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       const file = path.join(CONTRACT.stateDirectory, RECEIPT_DIRECTORY, `${name}.json`);
       const existing = secureJsonOptional(file);
       if (existing) {
-        const core = value => { const { runId: _r, appliedAt: _a, ...rest } = value; return rest; };
-        if (JSON.stringify(core(existing)) === JSON.stringify(core(receipt))) {
+        if (isCompatibleReceipt(existing, receipt)) {
           console.log(`MIGRATION_RECEIPT=ALREADY_RECORDED;migration=${name}`);
           continue;
         }
