@@ -55,7 +55,7 @@ async function main() {
     const { dataSourceOptions } = require(${JSON.stringify(dataSource)});
     const entries = ${JSON.stringify(entries)};
     module.exports.rehearsal = new DataSource({...dataSourceOptions, migrations: entries.map(e => require(${JSON.stringify(root)}+'/'+e.source_file)[e.class_name])});\n`, { mode:0o600 });
-  console.log('HISTORICAL_CANONICAL_INVENTORY=95;ADMISSION_EXCLUDED_FROM_LEDGER_REHEARSAL=YES');
+  console.log('HISTORICAL_CANONICAL_INVENTORY=96;ADMISSION_EXCLUDED_FROM_LEDGER_REHEARSAL=YES');
   const legacyFiles = fs.readdirSync(path.join(root, 'apps/api/migrations')).filter((name) => /^2026.*\.sql$/.test(name)).sort();
   assert.equal(legacyFiles.length, 169, `expected 169 legacy SQL migrations, got ${legacyFiles.length}`);
   const client = new Client(pgEnv);
@@ -100,7 +100,7 @@ async function main() {
     for (const entry of entries.filter((entry) => !phase1Timestamps.has(entry.timestamp))) await q('INSERT INTO migrations(timestamp, name) VALUES ($1, $2)', [entry.timestamp, entry.effective_name]);
     await q('INSERT INTO migrations(timestamp, name) VALUES ($1, $2)', [retired.timestamp, retired.name]);
     assert.equal((await q('SELECT count(*)::int AS n FROM schema_migrations')).rows[0].n, 169);
-    assert.equal((await q('SELECT count(*)::int AS n FROM migrations')).rows[0].n, 92);  // 95 pinned - 4 phase1 + 1 retired
+    assert.equal((await q('SELECT count(*)::int AS n FROM migrations')).rows[0].n, 93);  // 96 pinned - 4 phase1 + 1 retired
     assert.equal((await q('SELECT count(*)::int AS n FROM migrations WHERE name=$1 OR timestamp=$2', [admission.effective_name,admission.timestamp])).rows[0].n, 0);
     console.log('INITIAL_LEDGER=PASS');
 
@@ -163,7 +163,7 @@ async function main() {
     const runOutput = runCli(['migration:run', '--transaction', 'all']);
     for (const entry of phase1) assert.match(runOutput, new RegExp(entry.effective_name));
     assert.doesNotMatch(runOutput, new RegExp(retired.name));
-    assert.equal((await q('SELECT count(*)::int AS n FROM migrations')).rows[0].n, 96);  // 92 + 4 phase1 applied
+    assert.equal((await q('SELECT count(*)::int AS n FROM migrations')).rows[0].n, 97);  // 93 + 4 phase1 applied
     assert.equal((await q('SELECT count(*)::int AS n FROM migrations WHERE name=$1 OR timestamp=$2', [admission.effective_name,admission.timestamp])).rows[0].n, 0);
     assert.equal((await q("SELECT to_regclass('public.chanjet_execution_admissions') AS admission_table")).rows[0].admission_table, null);
     console.log('ADMISSION_NOT_MARKED_APPLIED_OR_EXECUTED=PASS;REAL_ADMISSION_DDL_PROOF=SEPARATE_PG_JOB');

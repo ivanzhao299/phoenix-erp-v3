@@ -6,7 +6,7 @@
 
 ## 结论
 
-**正式发布：待 CI/CD 部署链完成。** 本发布分支基于已包含 MVP 的 `origin/main`，并修复历史 issue-lines 约束风险。隔离 PostgreSQL 18 fixture 已验证迁移 `up()`、重复 `up()` 和 `down()`。生产迁移、health、smoke 和正式切流在本报告更新前仍未执行。
+**正式发布：待后置迁移回执与部署链完成。** 本发布分支基于已包含 MVP 的 `origin/main`，并修复历史 issue-lines 约束风险。隔离 PostgreSQL 18 fixture 已验证迁移 `up()`、重复 `up()` 和 `down()`。首次 full 部署因旧迁移源回执不匹配而被受控门禁拒绝，未切流。后置迁移回执和重新部署仍待完成。
 
 冻结边界和安全回归门禁在当前工作区失败。失败来自 A-E 及其他并行改动命中冻结路径和动态 DDL 检查，需由发布审查人确认后以受控的 `ALLOW_FREEZE_TOUCH=true`、`ALLOW_SECURITY_TOUCH=true` 重跑。
 
@@ -36,10 +36,10 @@
 
 ## 迁移演练审查
 
-目标迁移为 `apps/api/src/database/migrations/1789600400000-AddProductionManagementMvpSchema.ts`。
+已发布基线迁移为 `apps/api/src/database/migrations/1789600400000-AddProductionManagementMvpSchema.ts`，历史回执保持不变。新增修复迁移为 `apps/api/src/database/migrations/1794401000000-QuarantineLegacyMedicationIssueLines.ts`。
 
 - `up()` 含历史数据回填、约束、索引和外键，文件头已声明 `@allow-data-dml`。
-- `brd_medication_issue_lines` 先回填 `inventory_batch_no`、`medication_code`、`qty`、`unit_code`，再把缺失或孤儿的用药记录、库存批次、库存流水行写入 `brd_medication_issue_lines_quarantine`，最后删除原行并设置 `NOT NULL` 与外键。隔离行保留原始字段和原因，便于审计复核。
+- 已发布的 1789600400000 迁移源文件保持不变，以便复用既有受控回执。1794401000000 后置迁移将缺失或孤儿的用药记录、库存批次、库存流水行写入 `brd_medication_issue_lines_quarantine`，再删除原行并重新确认 `NOT NULL` 与外键。隔离行保留原始字段和原因，便于审计复核。
 - `down()` 会删除 issue-lines 表，并从既有核心表删除新增列和约束。该回滚是破坏性 schema 回退，只能在已验证备份可恢复的条件下使用，不能当作无损回滚。
 
 ## 发布前清单
@@ -74,6 +74,14 @@
 ## 未解决项与依赖
 
 - 需要本地或 CI 提供 PostgreSQL 18 客户端或容器，以完成真实 up/down fixture。
-- 需要完成本发布分支 PR 的 CI/CD，并记录合并提交、部署 workflow/run、迁移结果、health 和 smoke。
-- 生产迁移、生产 health 和正式切流在部署链完成前仍未形成成功证据。
+- 需要完成后置迁移 PR 的 CI/CD，并记录合并提交、受控 migration apply 回执、部署 workflow/run、health 和 smoke。
+- 后置迁移、生产 health 和正式切流在部署链完成前仍未形成成功证据。
 
+
+## 部署尝试记录
+
+- main 合并提交：`e9530f0974e1b87f2a03972ed2f378613634f502`。
+- 首次 full 部署：workflow run `43213082897`，在旧迁移源与历史回执不一致处受控 HOLD，未执行服务切换。
+- 重试 full 部署：workflow run `43218155456`，同一回执门禁再次 HOLD，未执行生产迁移或切流。
+- 受控 inspect：workflow run `43217675497`，只读审计为 GO，ledger digest 为 `c74163b510d97a803c7137e8dcda621f8215aad00501719970957ae18b3a05a3`，旧迁移已在生产 ledger 中，未有 pending migration。
+- 后置迁移 PR 使用新时间戳，待合并后单独执行 inspect/apply，再重新触发 full 部署。
