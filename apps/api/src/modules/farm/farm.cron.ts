@@ -1,3 +1,4 @@
+import { BackgroundTaskService } from '../background-control/background-task.service';
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectEntityManager } from '@nestjs/typeorm';
@@ -12,10 +13,15 @@ export class FarmCronService {
     @InjectEntityManager()
     private readonly entityManager: EntityManager,
     private readonly cronMon: CronMonitorService,
+    private readonly backgroundTasks: BackgroundTaskService,
   ) {}
 
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
   async updateMedicationStatus() {
+    await this.backgroundTasks.runScheduled('farm.medication-status', 'LOCAL', () => this.updateAdmittedMedicationStatus());
+  }
+
+  private async updateAdmittedMedicationStatus() {
     this.logger.log('Starting daily medication status update cron job...');
     const timeZone = process.env.PHOENIX_BUSINESS_TIMEZONE || 'Asia/Singapore';
     const parts = new Intl.DateTimeFormat('en-CA', {

@@ -1,6 +1,6 @@
 import { PackagingHandoverService } from './packaging-handover.service';
 import { OrgOwnershipService } from '../org/services/org-ownership.service';
-import { listPackagingReadyCombinations, resolvePackagingIdentity } from './packaging-readiness';
+import { listPackagingReadyCombinations, resolvePackagingIdentity, resolvePackagingSourceContext } from './packaging-readiness';
 import { Controller, Get, Post, Put, Patch, Body, Param, Query, UseGuards, Req, BadRequestException, ConflictException, InternalServerErrorException, ForbiddenException, HttpException } from '@nestjs/common';
 import { createHash, randomUUID } from 'crypto';
 import { AuthGuard } from '@nestjs/passport';
@@ -1382,8 +1382,44 @@ export class PackagingTerminalBffController {
   }
 
   @Get('packing/ready-combinations')
-  async getReadyCombinations() {
-    return { code: 200, data: await listPackagingReadyCombinations(this.em) };
+  async getReadyCombinations(
+    @Query('shiftId') shiftId?: string,
+    @Query('gradingCodes') gradingCodesQuery?: string,
+    @Req() req?: any,
+    @Query('gradingCode') gradingCode?: string,
+  ) {
+    // The client sends a comma-separated selection. Missing context is never a
+    // global catalogue, and malformed/repeated query parameters fail closed.
+    if (shiftId === undefined && gradingCodesQuery === undefined && gradingCode === undefined) {
+      return { code: 200, data: [] };
+    }
+    if (typeof shiftId !== 'string' || !/^[1-9][0-9]*$/.test(shiftId) || !Number.isSafeInteger(Number(shiftId))) {
+      throw new BadRequestException('shiftId 必须是安全正整数');
+    }
+    const parseCodes = (value: unknown, plural: boolean): string[] => {
+      if (typeof value !== 'string' || !value.trim()) throw new BadRequestException('gradingCodes 必须是非空编码列表');
+      const codes = value.split(',').map(code => code.trim());
+      if ((!plural && codes.length !== 1) || codes.some(code => !code || /\s/.test(code)) || new Set(codes).size !== codes.length) {
+        throw new BadRequestException('gradingCodes 包含无效或重复编码');
+      }
+      return codes.sort();
+    };
+    const gradingCodes = gradingCodesQuery === undefined ? parseCodes(gradingCode, false) : parseCodes(gradingCodesQuery, true);
+    if (gradingCodesQuery !== undefined && gradingCode !== undefined
+      && JSON.stringify(gradingCodes) !== JSON.stringify(parseCodes(gradingCode, false))) {
+      throw new BadRequestException('gradingCode 与 gradingCodes 冲突');
+    }
+    // Scope/mode are request authority only; product/variety always come from
+    // persisted selected sources, with their SHARE locks held through lookup.
+    const scope = await this.packagingScope(req);
+    return this.em.transaction(async manager => {
+      await manager.query('SELECT id FROM pkg_work_shifts WHERE id=$1 FOR SHARE', [Number(shiftId)]);
+      await this.exactShift(shiftId, req, undefined, manager);
+      const context = await resolvePackagingSourceContext(manager, { shiftId, gradingCodes });
+      if (!scope.isGlobal && (!scope.allowedCompanyCodes.includes(context.companyCode)
+        || !scope.allowedFarmCodes.includes(context.farmCode))) throw new ForbiddenException('包装来源超出当前数据范围');
+      return { code: 200, data: await listPackagingReadyCombinations(manager, context) };
+    });
   }
 
   // ── Terminal 全局上下文 ────────────────────────────────────────────────────
@@ -2386,13 +2422,15 @@ export class PackagingTerminalBffController {
           throw new ConflictException('包装数量超过所选分级剩余量，请刷新后重试');
         }
       }
+      const sourceContext = await resolvePackagingSourceContext(manager, { shiftId, gradingCodes });
       const readyBatches = [];
       for (const batch of batches) {
         const ready = await resolvePackagingIdentity(manager, { grade: aliases[batch.grade] || batch.grade,
-          specCode: batch.specId, specName: batch.spec, productCode: batch.productCode, skuCode: batch.skuCode });
+          specCode: batch.specId, specName: batch.spec, productCode: batch.productCode, skuCode: batch.skuCode,
+          sourceContext });
         if (batch.eggs !== batch.boxes * ready.qtyPerUnit) throw new ConflictException('包装枚数与规格箱数不一致');
         readyBatches.push({ ...batch, grade: ready.grade, specId: ready.specCode,
-          productCode: ready.productCode, skuCode: ready.skuCode });
+          productCode: ready.productCode, skuCode: ready.skuCode, varietyCode: ready.varietyCode ?? null });
       }
       const code = `PKG-${shift.date_text.replace(/-/g, '')}-${randomUUID().slice(0, 8).toUpperCase()}`;
       await manager.query(`INSERT INTO pkg_packing_records

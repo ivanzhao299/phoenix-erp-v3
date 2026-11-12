@@ -142,6 +142,55 @@ const url = process.env.PACKAGING_TEST_DATABASE_URL;
     const [packing]=await ds.query('SELECT batches_json FROM pkg_packing_records WHERE code=$1',[result.data.code]);
     expect(packing.batches_json[0]).toMatchObject({productCode:'REGISTERED-PRODUCT',skuCode:'SKU5',varietyCode:'VAR'});
   });
+  it('loads frontend plural selections and legacy singular from persisted provenance in a transaction',async()=>{
+    await ds.query(`INSERT INTO pkg_grading_records VALUES(2,'GR2',1,'2026-09-09','ACTIVE',false,'{"GRADE_5":30}');
+      INSERT INTO pkg_grading_source_links VALUES(2,1)`);
+    const expected=[expect.objectContaining({skuCode:'SKU1',varietyCode:'VAR'}),expect.objectContaining({skuCode:'SKU5',varietyCode:'VAR'})];
+    expect((await controller.getReadyCombinations('1','GR,GR2',req)).data).toEqual(expected);
+    expect((await controller.getReadyCombinations('1',undefined,req,'GR')).data).toEqual(expected);
+    expect((await controller.getReadyCombinations('1','GR',req,'GR')).data).toEqual(expected);
+    expect((await controller.getReadyCombinations('1','GR',{...req,query:{varietyCode:'OTHER',companyCode:'OTHER'},body:{varietyCode:'OTHER'}})).data).toEqual(expected);
+    await ds.query("UPDATE md_sku_org_scope SET stock_enabled=false");
+    expect((await controller.getReadyCombinations('1','GR,GR2',req)).data).toEqual([]);
+    expect(await counts()).toEqual(zero);
+  });
+  it.each(['company','farm','test','foreign-source','selected-foreign-source','selected-test','missing-grading','void-grading','void-source','source-date','source-mode','missing-profile'])('GET rejects %s before SKU candidate lookup',async(kind)=>{
+    if(kind==='company')scope.allowedCompanyCodes=[];
+    if(kind==='farm')scope.allowedFarmCodes=[];
+    if(kind==='test')await ds.query('UPDATE pkg_work_shifts SET is_test=true');
+    if(kind==='foreign-source')await ds.query("INSERT INTO brd_farms VALUES('FOREIGN','OTHER','ACTIVE','OTHER'); UPDATE brd_houses SET farm_code='FOREIGN'");
+    if(kind==='selected-foreign-source')await ds.query(`INSERT INTO brd_farms VALUES('FOREIGN','OTHER','ACTIVE','OTHER');
+      INSERT INTO brd_houses VALUES('FOREIGN-HOUSE','FOREIGN','ACTIVE');
+      INSERT INTO pkg_work_shifts VALUES(2,'FOREIGN-SHIFT','FOREIGN','2026-09-09','OPEN',false);
+      INSERT INTO pkg_source_batches VALUES(2,'FOREIGN-HOUSE',2,'2026-09-09','RECEIVED',false,30,1);
+      INSERT INTO pkg_grading_records VALUES(2,'GR2',2,'2026-09-09','ACTIVE',false,'{"GRADE_5":30}');
+      INSERT INTO pkg_grading_source_links VALUES(2,2)`);
+    if(kind==='selected-test')await ds.query(`INSERT INTO pkg_grading_records VALUES(2,'GR2',1,'2026-09-09','ACTIVE',true,'{"GRADE_5":30}');
+      INSERT INTO pkg_grading_source_links VALUES(2,1)`);
+    if(kind==='void-grading')await ds.query("UPDATE pkg_grading_records SET status='VOID'");
+    if(kind==='void-source')await ds.query("UPDATE pkg_source_batches SET batch_status='VOID'");
+    if(kind==='source-date')await ds.query("UPDATE pkg_source_batches SET production_date='2026-09-08'");
+    if(kind==='source-mode')await ds.query('UPDATE pkg_source_batches SET is_test=true');
+    if(kind==='missing-profile')await ds.query('DELETE FROM md_egg_source_profiles');
+    // A candidate-table access would produce this diagnostic instead of a
+    // provenance/authorization error, proving rejection happens beforehand.
+    await ds.query('ALTER TABLE product_skus RENAME TO candidate_lookup_must_not_run');
+    let error: any;
+    const codes=kind==='missing-grading'?'UNKNOWN':kind.startsWith('selected-')?'GR,GR2':'GR';
+    try { await controller.getReadyCombinations('1',codes,req); } catch(caught) { error=caught; }
+    expect(error).toBeDefined();
+    expect(error.message).not.toContain('product_skus');
+    expect(await counts()).toEqual(zero);
+  });
+  it('persists explicit NULL STANDARD variety on fresh submit rather than an absent or caller snapshot',async()=>{
+    await ds.query(`UPDATE md_egg_source_profiles SET product_mode='STANDARD',variety_code=NULL;
+      UPDATE mst_products SET variety_code=NULL; UPDATE product_skus SET variety_code=NULL`);
+    expect((await controller.getReadyCombinations('1','GR',req)).data).toHaveLength(2);
+    const result=await controller.submitPacking({shiftId:1,gradingCodes:['GR'],batches:[{...item,varietyCode:'FORGED'}],idempotencyKey:'standard-submit'},req);
+    const [packing]=await ds.query('SELECT batches_json FROM pkg_packing_records WHERE code=$1',[result.data.code]);
+    expect(packing.batches_json[0]).toEqual({...item,productCode:'REGISTERED-PRODUCT',skuCode:'SKU5',varietyCode:null});
+    expect(await counts()).toEqual(zero);
+  });
   it('requires exact safe IDs, date, mode, OPEN and scoped ownership for active reads',async()=>{
     for(const id of ['NaN','0','-1','1.5','9007199254740992',''])await expect(controller.getActiveGrading(id,req)).rejects.toThrow();
     await expect(controller.getExactShift('1','2026-09-10',req)).rejects.toThrow('日期');

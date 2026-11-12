@@ -126,8 +126,12 @@ async function loadState(client, desired, lock = false) {
   const varieties = await rows(`SELECT variety_code, shell_color, status, effective_date::text AS effective_date,
     expire_date::text AS expire_date FROM md_product_varieties WHERE variety_code=ANY($1) ORDER BY variety_code${update}`,
     [['EGG_RED', 'EGG_PINK']]);
-  const products = await rows(`SELECT product_code,product_name,product_name_zh, COALESCE(NULLIF(unit_zh,''),unit) AS base_unit, variety_code, status
-    FROM mst_products WHERE product_code=ANY($1) ORDER BY product_code${update}`, [productCodes]);
+  // Production has canonical unit_zh but not necessarily the legacy unit
+  // column. JSON key lookup tolerates an absent legacy column without inventing
+  // a unit; validateState still requires the reviewed base unit exactly.
+  const products = await rows(`SELECT product_code,product_name,product_name_zh,
+    COALESCE(NULLIF(to_jsonb(p)->>'unit_zh',''),to_jsonb(p)->>'unit') AS base_unit, variety_code, status
+    FROM mst_products p WHERE product_code=ANY($1) ORDER BY product_code${update}`, [productCodes]);
   const skus = await rows(`SELECT sku_code,product_code,grade_code,spec_code,variety_code,status,org_context_required,
     effective_date::text AS effective_date, expire_date::text AS expire_date FROM product_skus
     WHERE sku_code=ANY($1) OR product_code=ANY($2)
