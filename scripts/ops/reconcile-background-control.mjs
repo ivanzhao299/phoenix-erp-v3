@@ -34,6 +34,7 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
+import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { CONTRACT, secureJson, verifyContext } from './production-config-guard.mjs';
