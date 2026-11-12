@@ -268,9 +268,11 @@ test('breeding alerts distinguish a house code from a historical name without du
   await authenticate(page);
   await page.route('**/api/**', route => route.fulfill({ json: { data: [], total: 0 } }));
   const soon = new Date(Date.now() + 2 * 86400000).toISOString().slice(0, 10);
-  await page.route('**/api/crud/brd_medications**', route => route.fulfill({ json: { data: [
-    { id: 1, house_code: 'H-1', farm_house: '正式鸡舍', medicine: '药品甲', clear_date: soon },
-    { id: 2, farm_house: '历史鸡舍名称', medicine: '药品乙', clear_date: soon },
+  // The merged medication MVP owns withdrawal alerts. Match its scoped
+  // response (including joined house_name), not the retired CRUD read.
+  await page.route('**/api/farm/medication-records/withdrawals', route => route.fulfill({ json: { data: [
+    { id: 1, house_code: 'H-1', house_name: '正式鸡舍', medication_code: '药品甲', withdraw_until: soon },
+    { id: 2, house_name: '历史鸡舍名称', medication_code: '药品乙', withdraw_until: soon },
   ] } }));
   await page.route('**/api/lookup/houses**', route => route.fulfill({ json: { data: [{ houseCode: 'H-1', houseName: '正式鸡舍' }] } }));
   await page.goto('/breeding');

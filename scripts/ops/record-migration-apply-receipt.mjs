@@ -9,7 +9,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { CONTRACT, git, secureJson, verifyContext } from './production-config-guard.mjs';
 import { atomicState } from './production-atomic-state.mjs';
-import { RECEIPT_DIRECTORY, digest, readProductionLedger } from './chanjet-admission-schema-receipt.mjs';
+import { RECEIPT_DIRECTORY, digest, readProductionLedger, validateRegistryReceipt } from './chanjet-admission-schema-receipt.mjs';
 
 const hold = reason => { throw new Error(`MIGRATION_RECEIPT=HOLD_${reason}`); };
 
@@ -19,10 +19,32 @@ const hold = reason => { throw new Error(`MIGRATION_RECEIPT=HOLD_${reason}`); };
  * replays receipt recording; accepting those differences must not permit a
  * different source blob, path, timestamp or outcome.
  */
-export function isCompatibleReceipt(existing, expected) {
+export function isCompatibleReceipt(existing, expected, dependencies = {}) {
   const immutable = ['schema', 'outcome', 'migrationPath', 'migrationTimestamp',
-    'migrationName', 'sourceSha', 'sourceBlob'];
-  return immutable.every(key => existing?.[key] === expected?.[key]);
+    'migrationName', 'sourceBlob'];
+  if (!immutable.every(key => existing?.[key] === expected?.[key])) return false;
+  try {
+    // Reuse the production registry validator; no reduced replay-only schema.
+    validateRegistryReceipt(expected, expected);
+    validateRegistryReceipt(existing, expected);
+    if (!/^[a-f0-9]{40}$/.test(expected.sourceBlob || '')) return false;
+    const root = dependencies.root || CONTRACT.repository;
+    const sourceGit = dependencies.git || git;
+    for (const sha of [existing.sourceSha, expected.sourceSha]) {
+      if (sourceGit(root, ['cat-file', '-t', sha]) !== 'commit') return false;
+      const blob = sourceGit(root, ['rev-parse', `${sha}:${expected.migrationPath}`]);
+      if (blob !== expected.sourceBlob || sourceGit(root, ['cat-file', '-t', blob]) !== 'blob') return false;
+    }
+    sourceGit(root, ['merge-base', '--is-ancestor', existing.sourceSha, expected.sourceSha]);
+    const ledger = dependencies.ledger ?? readProductionLedger();
+    return Array.isArray(ledger?.typeorm) && ledger.typeorm.some(row =>
+      String(row.timestamp) === String(expected.migrationTimestamp)
+      && (row.name === expected.migrationName || row.name === `${expected.migrationName}${expected.migrationTimestamp}`));
+  } catch {
+    // Missing objects, unverifiable ancestry, invalid receipts or ledger read
+    // errors all refuse reuse. The caller holds rather than replacing evidence.
+    return false;
+  }
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
@@ -58,8 +80,8 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       };
       const file = path.join(CONTRACT.stateDirectory, RECEIPT_DIRECTORY, `${name}.json`);
       const existing = secureJsonOptional(file);
-      if (existing) {
-        if (isCompatibleReceipt(existing, receipt)) {
+      if (existing !== undefined) {
+        if (isCompatibleReceipt(existing, receipt, { root, ledger })) {
           console.log(`MIGRATION_RECEIPT=ALREADY_RECORDED;migration=${name}`);
           continue;
         }
@@ -77,6 +99,15 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     process.exitCode = 1;
   }
 }
-function secureJsonOptional(file) {
-  try { return secureJson(file); } catch { return null; }
+export function secureJsonOptional(file, dependencies = {}) {
+  // secureJson intentionally wraps filesystem failures in a trusted-path HOLD.
+  // Probe absence separately: only lstat ENOENT means there is no receipt.
+  // Never reinterpret a failed secure read or JSON null/false as permission to
+  // replace an existing receipt (including a dangling symlink).
+  try { (dependencies.lstat || fs.lstatSync)(file); }
+  catch (error) {
+    if (error?.code === 'ENOENT') return undefined;
+    throw error;
+  }
+  return (dependencies.readJson || secureJson)(file);
 }

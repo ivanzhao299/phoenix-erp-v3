@@ -430,7 +430,10 @@ export class GenericCrudController {
       (req.user?.permissions || []).includes('*') ||
       req.user?.username === 'admin' ||
       roles.some((r) => GLOBAL_ROLES.has(r));
-    const isGlobal = tableScope ? tableScope.isGlobal === true : legacyGlobal;
+    // Daily reports require resolved identity; a legacy ALL snapshot is not a scope grant.
+    const isGlobal = table === 'brd_daily_logs'
+      ? tableScope?.isGlobal === true
+      : (tableScope ? tableScope.isGlobal === true : legacyGlobal);
 
     // 行级 scope 字段映射（2026-06-06 修）：
     // 历史上 brd_* 一律按 farm_code 过滤，但 userStoreCode 是 SITE 维度（如
@@ -485,7 +488,13 @@ export class GenericCrudController {
     }
 
     if (BREEDING_SCOPED_TABLES.includes(table as BreedingScopedTable)) {
-      const breedingScope = isGlobal ? null : {
+      // Daily-log grants are ORed by the service: generic company projections
+      // must not widen a SITE-only grant to every farm in its parent company.
+      const breedingScope = isGlobal ? null : table === 'brd_daily_logs' ? {
+        farmCodes: tableScope?.allowedBreedingFarmCodes ?? [],
+        siteCodes: tableScope?.allowedBreedingSiteCodes ?? [],
+        companyCodes: tableScope?.allowedBreedingCompanyCodes ?? [],
+      } : {
         farmCodes: tableScope?.allowedFarmCodes ?? [],
         siteCodes: tableScope?.allowedSiteCodes ?? [],
         companyCodes: tableScope?.allowedCompanyCodes ?? [],

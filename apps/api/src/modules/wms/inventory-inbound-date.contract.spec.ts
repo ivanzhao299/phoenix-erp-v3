@@ -31,7 +31,11 @@ describe('inventory inbound-date write-path contract', () => {
     expect(returns).toContain("new Date().toISOString().slice(0, 10), mgr");
     const posBatchColumns = storePos.match(/INSERT INTO inv_batches\s*\(([^)]+)\)/)?.[1].split(',').map(column => column.trim());
     expect(posBatchColumns).toEqual(expect.arrayContaining(['location_code', 'inbound_date', 'created_at']));
-    expect(medicine).toContain("'MED_INBOUND', safeDate");
+    // The persisted inbound date is parameter $9; formatting the argument list
+    // across lines must not change this contract or substitute a creation date.
+    expect(medicine).toMatch(/'MED_INBOUND',\s*safeDate,\s*expireDate/);
+    expect(medicine).toMatch(/'AVAILABLE',\s*\$9::date,\s*\$10::date,\s*NOW\(\),\s*NOW\(\)/);
+    expect(medicine).toContain('const safeDate = normalizeDate(logDate)');
   });
 
   it('records unknown legacy and packaging dates as NULL without created-at fallback', () => {

@@ -29,6 +29,13 @@ jobs:
         with:
           fetch-depth: 0
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Check immutable migration receipt evidence
+        run: node --test scripts/ops/record-migration-apply-receipt.test.mjs scripts/ops/migration-apply-receipt.test.mjs scripts/ops/chanjet-admission-schema-receipt.test.mjs
+
       - name: Install pinned YAML parser for transport gate
         run: npm install --no-save --ignore-scripts js-yaml@4.1.1
 
