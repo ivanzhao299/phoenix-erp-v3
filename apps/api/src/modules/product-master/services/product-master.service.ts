@@ -30,6 +30,10 @@ export interface ProductGrade {
   sort_order?: number;
   is_saleable?: boolean;
   is_storable?: boolean;
+  /** Canonical Issue #532 policy fields; legacy aliases remain supported. */
+  stock_managed?: boolean;
+  sale_enabled?: boolean;
+  default_stock_status?: 'AVAILABLE' | 'RESERVED' | 'QUARANTINE' | 'DAMAGED' | 'FROZEN';
   status?: string;
   remark?: string;
   created_at?: string;
@@ -117,15 +121,18 @@ export class ProductMasterService {
       [dto.grade_code],
     );
     if (exists.length) throw new ConflictException(`grade_code ${dto.grade_code} already exists`);
+    const saleEnabled = dto.sale_enabled ?? dto.is_saleable ?? true;
+    const stockManaged = dto.stock_managed ?? dto.is_storable ?? true;
+    const defaultStockStatus = dto.default_stock_status ?? (saleEnabled ? 'AVAILABLE' : 'QUARANTINE');
     const rows = await this.em.query(
       `INSERT INTO product_grades
-         (grade_code, grade_name, grade_name_lo, sort_order, is_saleable, is_storable, status, remark, created_at, updated_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,NOW(),NOW())
+         (grade_code, grade_name, grade_name_lo, sort_order, is_saleable, is_storable, stock_managed, sale_enabled, default_stock_status, status, remark, created_at, updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$6,$5,$7,$8,$9,NOW(),NOW())
        RETURNING *`,
       [
         dto.grade_code, dto.grade_name, dto.grade_name_lo ?? null,
         dto.sort_order ?? 99,
-        dto.is_saleable ?? true, dto.is_storable ?? true,
+        saleEnabled, stockManaged, defaultStockStatus,
         dto.status ?? 'ACTIVE', dto.remark ?? null,
       ],
     );
@@ -139,8 +146,17 @@ export class ProductMasterService {
     if (dto.grade_name     !== undefined) { sets.push(`grade_name=$${i++}`);     args.push(dto.grade_name); }
     if (dto.grade_name_lo  !== undefined) { sets.push(`grade_name_lo=$${i++}`);  args.push(dto.grade_name_lo); }
     if (dto.sort_order     !== undefined) { sets.push(`sort_order=$${i++}`);     args.push(dto.sort_order); }
-    if (dto.is_saleable    !== undefined) { sets.push(`is_saleable=$${i++}`);    args.push(dto.is_saleable); }
-    if (dto.is_storable    !== undefined) { sets.push(`is_storable=$${i++}`);    args.push(dto.is_storable); }
+    const saleEnabled = dto.sale_enabled ?? dto.is_saleable;
+    const stockManaged = dto.stock_managed ?? dto.is_storable;
+    if (saleEnabled !== undefined) {
+      sets.push(`is_saleable=$${i++}`); args.push(saleEnabled);
+      sets.push(`sale_enabled=$${i++}`); args.push(saleEnabled);
+    }
+    if (stockManaged !== undefined) {
+      sets.push(`is_storable=$${i++}`); args.push(stockManaged);
+      sets.push(`stock_managed=$${i++}`); args.push(stockManaged);
+    }
+    if (dto.default_stock_status !== undefined) { sets.push(`default_stock_status=$${i++}`); args.push(dto.default_stock_status); }
     if (dto.status         !== undefined) { sets.push(`status=$${i++}`);         args.push(dto.status); }
     if (dto.remark         !== undefined) { sets.push(`remark=$${i++}`);         args.push(dto.remark); }
     if (!sets.length) return this.getGrade(gradeCode);
