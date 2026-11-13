@@ -1,6 +1,6 @@
 name: Daily Egg Overpost Repair
 
-"on":
+on:
   workflow_dispatch:
     inputs:
       phase:
@@ -69,14 +69,8 @@ jobs:
             test "$(git_safe rev-parse FETCH_HEAD)" = "$TARGET_SHA"
             git_safe show "$TARGET_SHA:scripts/ops/repair-daily-egg-inbound-overpost.sql" > "$STAGE/repair.sql"
             if [ "$PHASE" = preflight ] || [ "$PHASE" = verify ]; then
-              docker exec -i -e PGOPTIONS='-c default_transaction_read_only=on -c statement_timeout=60000' phoenix-v3-db sh -c 'exec psql -X -v ON_ERROR_STOP=1 -tA -U "$POSTGRES_USER" -d "$POSTGRES_DB"' <<'SQL'
-SELECT jsonb_agg(to_jsonb(x)) FROM (
- SELECT b.batch_no,b.qty,b.qty_available,b.status,b.source_type,b.source_no,b.company_code,b.quality_grade,b.grade_code_std,
-        COALESCE((SELECT sum(l.qty_change) FROM inv_ledger l WHERE l.batch_no=b.batch_no),0) AS ledger_qty
- FROM inv_batches b WHERE b.batch_no IN ('EGG-20261105-00002','EGG-20261107-00002','EGG-20261107-00001')
- ORDER BY b.batch_no
-) x;
-SQL
+              git_safe show "$TARGET_SHA:scripts/ops/verify-daily-egg-inbound-overpost.sql" \
+                | docker exec -i -e PGOPTIONS='-c default_transaction_read_only=on -c statement_timeout=60000' phoenix-v3-db sh -c 'exec psql -X -v ON_ERROR_STOP=1 -tA -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
               exit 0
             fi
             docker exec -i phoenix-v3-db sh -c 'exec psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < "$STAGE/repair.sql"

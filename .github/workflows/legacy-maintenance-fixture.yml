@@ -126,6 +126,17 @@ jobs:
               sudo install -m 0600 -o "$(id -u)" -g "$(id -g)" "$native_root/$native_name" "$native_export/$native_name" || exit 66
             fi
           done
+          # The same fixed non-secret receipts are printed on failure; without
+          # them a red job shows only NATIVE_CANDIDATE_HOST_FIXTURE_FAILED.
+          if [ "$native_result" -ne 0 ]; then
+            echo "::error::native candidate fixture failed (exit $native_result); fixed receipts:"
+            for native_name in process-result.json result.json progress.json; do
+              if sudo test -f "$native_root/$native_name"; then
+                echo "── $native_name ──"
+                sudo cat "$native_root/$native_name" | tail -n 40 || true
+              fi
+            done
+          fi
           exit "$native_result"
       - name: Retain full fixture progress on cancellation
         if: always()
@@ -205,6 +216,17 @@ jobs:
               sudo install -m 0600 -o "$(id -u)" -g "$(id -g)" "$native_root/$native_name" "$native_export/$native_name" || exit 66
             fi
           done
+          # The same fixed non-secret receipts are printed on failure; without
+          # them a red job shows only NATIVE_CANDIDATE_HOST_FIXTURE_FAILED.
+          if [ "$native_result" -ne 0 ]; then
+            echo "::error::full first switch fixture failed (exit $native_result); fixed receipts:"
+            for native_name in process-result.json result.json progress.json; do
+              if sudo test -f "$native_root/$native_name"; then
+                echo "── $native_name ──"
+                sudo cat "$native_root/$native_name" | tail -n 40 || true
+              fi
+            done
+          fi
           exit "$native_result"
       - name: Retain native allowlisted evidence
         if: always()
