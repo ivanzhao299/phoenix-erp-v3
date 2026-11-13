@@ -4,7 +4,7 @@ import { Injectable, Logger, ForbiddenException, BadRequestException } from '@ne
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { ClsService } from 'nestjs-cls';
-import { EggInventoryService, assertEggDate } from './egg-inventory.service';
+import { EggInventoryService, assertEggDate, GradeStockStatus } from './egg-inventory.service';
 import { InventorySourceModeService } from './inventory-source-mode.service';
 import { DataScopeContext } from '../../org/services/data-scope.service';
 import { OrgOwnershipService } from '../../org/services/org-ownership.service';
@@ -18,6 +18,13 @@ type MasterContext = {
 };
 
 export type GradeQuantityMap = Record<string, number>;
+
+class SkuReadinessException extends BadRequestException {
+  constructor(message: string, details: { companyCode: string; sourceProfileCode: string; items: Array<{ gradeCode: string; specCode: string; reason: string }> }) {
+    super(message);
+    (this as any).response = { statusCode: 400, code: 'SKU_NOT_READY', message, details };
+  }
+}
 
 /** Parse a JSONB value without allowing malformed historical rows to widen stock. */
 export function normalizeGradeQuantityMap(value: unknown): GradeQuantityMap {
@@ -265,7 +272,7 @@ export class ProductionInboundService {
     warehouseCode: string;
     locationCode: string;
     eggDate: string;
-    batches: Array<{ batchNo: string; grade: string; qty: number; productCode: string; varietyCode: string | null }>;
+    batches: Array<{ batchNo: string; grade: string; qty: number; productCode: string; varietyCode: string | null; status: GradeStockStatus }>;
     totalInbound: number;
     idempotent: boolean;
   }> {
@@ -307,7 +314,7 @@ export class ProductionInboundService {
     }
 
     const collectionRef = dto.houseCode ? `HOUSE-${dto.houseCode}` : (siteCode ? `SITE-${siteCode}` : null);
-    const batches: Array<{ batchNo: string; grade: string; qty: number; productCode: string; varietyCode: string | null }> = [];
+    const batches: Array<{ batchNo: string; grade: string; qty: number; productCode: string; varietyCode: string | null; status: GradeStockStatus }> = [];
 
     // Idempotency keys are a daily-report identity, not a free client choice:
     // the date binding was validated up front; an omitted key is derived from
@@ -322,7 +329,7 @@ export class ProductionInboundService {
     const run = async (mgr: any) => {
       await mgr.query('SELECT pg_advisory_xact_lock(hashtext($1))', [dailyScopeLock]);
       const existing = await mgr.query(
-        `SELECT batch_no, quality_grade, qty, product_code, sku_code, spec_code, variety_code,
+        `SELECT batch_no, quality_grade, qty, product_code, sku_code, spec_code, variety_code, status,
                 egg_date::text AS egg_date, collection_batch_ref, warehouse_code, location_code
            FROM inv_batches
           WHERE company_code = $1 AND source_type = 'TEMP_PRODUCTION' AND egg_date = $2
@@ -351,7 +358,7 @@ export class ProductionInboundService {
         }
         idempotent = true;
         for (const source of existing) {
-          batches.push({ batchNo: source.batch_no, grade: source.quality_grade, qty: Number(source.qty), productCode: source.product_code, varietyCode: source.variety_code ?? null });
+          batches.push({ batchNo: source.batch_no, grade: source.quality_grade, qty: Number(source.qty), productCode: source.product_code, varietyCode: source.variety_code ?? null, status: source.status ?? 'AVAILABLE' });
         }
         return;
       }
@@ -362,27 +369,56 @@ export class ProductionInboundService {
       }, mgr);
       // Missing source policy or company assignment never falls back to a global SKU.
       // 两段式：先解析全部档位（任一失败整单拒绝，不产生任何批次），再统一写库存。
+      const gradePolicies = typeof (this.eggInv as any).getGradePoliciesForInbound === 'function'
+        ? await this.eggInv.getGradePoliciesForInbound(mgr)
+        : Object.fromEntries(effectiveItems.map(item => [item.grade, {
+          gradeCode: item.grade, stockManaged: true, saleEnabled: true, defaultStockStatus: 'AVAILABLE' as GradeStockStatus,
+        }]));
       const resolved = new Map<string, SkuResolveResult>();
+      const skuReadinessErrors: Array<{ gradeCode: string; specCode: string; reason: string }> = [];
       for (const item of effectiveItems) {
-        const sku = await this.skuAvailability.resolve({
-          companyCode,
-          farmCode,
-          siteCode,
-          houseCode: dto.houseCode,
-          eggDate: dto.eggDate,
-          sourceProfileCode: sourceProfile.profileCode,
-          gradeCode: item.grade,
-          specCode: item.spec,
-          usage: 'stock',
-        }, mgr);
+        const policy = gradePolicies[item.grade];
+        if (!policy || !policy.stockManaged) {
+          skuReadinessErrors.push({ gradeCode: item.grade, specCode: item.spec, reason: '等级未启用库存管理' });
+          continue;
+        }
+        let sku: SkuResolveResult;
+        try {
+          sku = await this.skuAvailability.resolve({
+            companyCode,
+            farmCode,
+            siteCode,
+            houseCode: dto.houseCode,
+            eggDate: dto.eggDate,
+            sourceProfileCode: sourceProfile.profileCode,
+            gradeCode: item.grade,
+            specCode: item.spec,
+            usage: 'stock',
+          }, mgr);
+        } catch (error) {
+          skuReadinessErrors.push({ gradeCode: item.grade, specCode: item.spec, reason: error instanceof Error ? error.message : 'SKU 未就绪' });
+          continue;
+        }
         resolved.set(`${item.grade}\u0000${item.spec ?? ''}`, sku);
       }
 
-      for (const sku of resolved.values()) await SkuPolicy.requireUsable(mgr, sku.skuCode, 'stock', companyCode);
+      for (const sku of resolved.values()) {
+        try {
+          await SkuPolicy.requireUsable(mgr, sku.skuCode, 'stock', companyCode);
+        } catch (error) {
+          const item = effectiveItems.find(candidate => resolved.get(`${candidate.grade}\u0000${candidate.spec ?? ''}`)?.skuCode === sku.skuCode);
+          skuReadinessErrors.push({ gradeCode: item?.grade ?? sku.gradeCode, specCode: item?.spec ?? sku.specCode, reason: error instanceof Error ? error.message : 'SKU 未就绪' });
+        }
+      }
+      if (skuReadinessErrors.length > 0) {
+        const detail = skuReadinessErrors.map(item => `${item.gradeCode}/${item.specCode}: ${item.reason}`).join('；');
+        throw new SkuReadinessException(`SKU 就绪检查失败：${detail}`, { companyCode, sourceProfileCode: sourceProfile.profileCode, items: skuReadinessErrors });
+      }
       await this.assertDailyReportCapacity(mgr, dto, effectiveItems, collectionRef);
       for (const item of effectiveItems) {
         const { qty, grade } = item;
         const sku = resolved.get(`${grade}\u0000${item.spec ?? ''}`)!;
+        const policy = gradePolicies[grade]!;
         const productCode = sku.productCode;
         const params = {
           companyCode, warehouseCode, locationCode, eggDate: dto.eggDate,
@@ -393,9 +429,11 @@ export class ProductionInboundService {
           farmCode: sourceProfile.farmCode, siteCode: sourceProfile.siteCode,
           sourceNo, sourceType: 'TEMP_PRODUCTION', ledgerChangeType: 'TEMP_PRODUCTION_INBOUND',
           collectionBatchRef: collectionRef ?? undefined,
+          inventoryStatus: policy.defaultStockStatus,
         };
         const batch = await this.eggInv.createProductionBatch(params, mgr);
-        batches.push({ batchNo: batch.batch_no, grade, qty, productCode, varietyCode: sku.varietyCode ?? null });
+        batches.push({ batchNo: batch.batch_no, grade, qty, productCode, varietyCode: sku.varietyCode ?? null,
+          status: (batch.status ?? policy.defaultStockStatus) as GradeStockStatus });
       }
     };
     await this.ds.transaction((mgr: any) => run(mgr));

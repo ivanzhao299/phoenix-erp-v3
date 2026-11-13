@@ -85,6 +85,18 @@ export class SalesOrdersService implements OnApplicationBootstrap {
     }
   }
 
+  /** Legacy product/grade order lines must still resolve to a sale-enabled grade. */
+  private async assertSaleGrade(manager: Pick<EntityManager, 'query'>, gradeCode: string | null | undefined): Promise<void> {
+    if (!gradeCode) return;
+    const rows = await manager.query(
+      `SELECT * FROM product_grades
+        WHERE grade_code=$1 AND status='ACTIVE'
+          AND COALESCE(sale_enabled, is_saleable)=TRUE
+        FOR SHARE`, [gradeCode],
+    );
+    if (!rows.length) throw new BadRequestException(`等级 ${gradeCode} 不可销售或不存在`);
+  }
+
   // ── DataScope 断言 ────────────────────────────────────────────────────────
 
   private async assertOwnership(id: string): Promise<any> {
@@ -301,6 +313,7 @@ export class SalesOrdersService implements OnApplicationBootstrap {
         const sku = item.skuCode === undefined ? null : await SkuPolicy.requireUsable(mgr, item.skuCode, 'sale', dto.companyCode);
         const productCode = sku ? sku.product_code : item.productCode;
         const gradeCode = sku ? sku.grade_code : item.gradeCode ?? null;
+        if (!sku) await this.assertSaleGrade(mgr, gradeCode);
         const packagingSpec = sku ? sku.spec_code : item.packagingSpec ?? null;
         const skuCode: string | null = sku ? sku.sku_code : null;
         const quantitySnapshot = await resolveQuantity(mgr, { ...item, skuCode: skuCode ?? undefined });
@@ -446,6 +459,7 @@ export class SalesOrdersService implements OnApplicationBootstrap {
           const sku = item.skuCode === undefined ? null : await SkuPolicy.requireUsable(mgr, item.skuCode, 'sale', companyCode);
           const productCode = sku ? sku.product_code : item.productCode;
           const gradeCode = sku ? sku.grade_code : item.gradeCode ?? null;
+          if (!sku) await this.assertSaleGrade(mgr, gradeCode);
           const packagingSpec = sku ? sku.spec_code : item.packagingSpec ?? null;
           const skuCode: string | null = sku ? sku.sku_code : null;
         const quantitySnapshot = await resolveQuantity(mgr, { ...item, skuCode: skuCode ?? undefined });

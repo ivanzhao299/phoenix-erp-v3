@@ -90,7 +90,7 @@ export class PackagingInventoryIntegrationService {
     refNo: string;
     idempotent: boolean;
     companyCode: string;
-    batches: Array<{ batchNo: string; grade: string; qty: number; productCode: string }>;
+    batches: Array<{ batchNo: string; grade: string; qty: number; productCode: string; stockStatus?: string }>;
     skippedNonSaleable: Array<{ grade: string; qty: number }>;
     totalInbound: number;
     /** P1A：当前来源模式；skippedByMode=true 表示非包装入库模式，本次未生成可售库存（互斥） */
@@ -131,7 +131,7 @@ export class PackagingInventoryIntegrationService {
         if (matches.length !== 1) throw new ConflictException('既有库存身份缺失或与包装产出不匹配');
         const b = matches[0];
         identity = { grade: b.grade_code_std, specCode: b.spec_code, specName: item.specName || '', productCode: b.product_code,
-          skuCode: b.sku_code, varietyCode: b.variety_code ?? null, qtyPerUnit: item.boxes ? item.qty / item.boxes : item.qty };
+          skuCode: b.sku_code, varietyCode: b.variety_code ?? null, stockStatus: b.status, qtyPerUnit: item.boxes ? item.qty / item.boxes : item.qty };
       } else {
         identity = await resolvePackagingIdentity(db, { ...item, sourceContext: context });
       }
@@ -152,6 +152,7 @@ export class PackagingInventoryIntegrationService {
         if (!item || b.source_type !== 'PACKAGING' || b.packaging_batch_ref !== refNo
           || (b.egg_date_text !== opts.eggDate || b.inbound_date_text !== opts.eggDate)
           || (b.variety_code ?? null) !== item.varietyCode || b.product_code !== item.productCode || b.grade_code_std !== item.grade || Number(b.qty) !== item.qty
+          || (item.stockStatus && b.status !== item.stockStatus)
           || b.company_code !== companyCode || b.warehouse_code !== warehouseCode || b.location_code !== locationCode
           || entries.length !== 1 || entries.some((l: any) => l.ref_no !== refNo || Number(l.qty_change) !== item.qty
             || l.sku_code !== item.skuCode || l.company_code !== companyCode
@@ -184,12 +185,12 @@ export class PackagingInventoryIntegrationService {
 
     const eggDate = opts.eggDate;
     const collectionRef = opts?.collectionRef ?? null;
-    const batches: Array<{ batchNo: string; grade: string; qty: number; productCode: string }> = [];
+    const batches: Array<{ batchNo: string; grade: string; qty: number; productCode: string; stockStatus?: string }> = [];
     const skippedNonSaleable: Array<{ grade: string; qty: number }> = [];
     for (const item of resolved.values()) {
       if (!context.sourceProfileRefs?.length || (context.productMode === 'VARIANT' && !item.varietyCode)) throw new ConflictException('新包装入库缺有效来源配置快照');
       batches.push(await this.createSaleableBatch(companyCode, eggDate, item.grade, item.qty, refNo,
-        collectionRef, item.specCode, item.skuCode, item.productCode, item.varietyCode, context.sourceProfileRefs, opts));
+        collectionRef, item.specCode, item.skuCode, item.productCode, item.varietyCode, context.sourceProfileRefs, item.stockStatus, opts));
     }
 
     const totalInbound = batches.reduce((s, b) => s + b.qty, 0);
@@ -211,7 +212,7 @@ export class PackagingInventoryIntegrationService {
     taskNo: string;
     idempotent: boolean;
     companyCode: string;
-    batches: Array<{ batchNo: string; grade: string; qty: number; productCode: string }>;
+    batches: Array<{ batchNo: string; grade: string; qty: number; productCode: string; stockStatus?: string }>;
     skippedNonSaleable: Array<{ grade: string; qty: number }>;
     totalInbound: number;
     mode?: string;
@@ -295,7 +296,7 @@ export class PackagingInventoryIntegrationService {
     refNo: string;
     idempotent: boolean;
     companyCode: string;
-    batches: Array<{ batchNo: string; grade: string; qty: number; productCode: string }>;
+    batches: Array<{ batchNo: string; grade: string; qty: number; productCode: string; stockStatus?: string }>;
     skippedNonSaleable: Array<{ grade: string; qty: number }>;
     totalInbound: number;
     mode?: string;
@@ -453,8 +454,9 @@ export class PackagingInventoryIntegrationService {
     productCode: string,
     varietyCode: string | null,
     sourceProfileRefs: Array<{ profileCode: string; houseCode: string }>,
+    stockStatus: PackagingIdentity['stockStatus'],
     opts?: { warehouseCode?: string; locationCode?: string; manager?: EntityManager },
-  ): Promise<{ batchNo: string; grade: string; qty: number; productCode: string }> {
+  ): Promise<{ batchNo: string; grade: string; qty: number; productCode: string; stockStatus?: string }> {
     const batch = await this.eggInv.createProductionBatch({
       companyCode,
       warehouseCode: opts?.warehouseCode,
@@ -474,7 +476,8 @@ export class PackagingInventoryIntegrationService {
       packagingBatchRef:  taskNo,
       collectionBatchRef: collectionRef ?? undefined,
       skuCode:            skuCode ?? undefined,
+      stockStatus,
     }, opts?.manager);
-    return { batchNo: batch.batch_no, grade: gradeCode, qty, productCode };
+    return { batchNo: batch.batch_no, grade: gradeCode, qty, productCode, stockStatus };
   }
 }

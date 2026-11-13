@@ -72,4 +72,11 @@ export class OutboundController {
   async receiveSign(@Param('order_no') orderNo: string, @Body() body: any, @Req() req: any) {
     return await this.wmsService.receiveSignOrder(orderNo, body, req.user);
   }
+
+  /** Compatibility alias for warehouse clients that group internal actions under outbound. */
+  @Post('defect-disposition')
+  @RequireMenu('MENU_WMS_ISSUE', 'E', ['MENU_INV_BATCH'])
+  async disposeDefectInventory(@Body() body: any, @Req() req: any) {
+    return await this.wmsService.disposeDefectInventory(body, req.user);
+  }
 }

@@ -34,8 +34,8 @@ export default function DailyInboundPage() {
     canView,
     canCreate
   } = usePermission("MENU_PROD_INBOUND");
-  // 日产蛋入库默认仅展示可销售等级（脏/裂/破/损走另外的次品/废损通道）
-  const { grades: productGrades, loading: gradesLoading } = useProductGrades({ onlySaleable: true });
+  // 日报的 9 档都必须进入库存台账；sale_enabled 只影响销售 FIFO，不能把缺陷档从入库表单丢掉。
+  const { grades: productGrades, loading: gradesLoading } = useProductGrades({ onlyStorable: true });
   const labelMap = useMemo(
     () => Object.fromEntries(productGrades.map(g => [g.grade_code, g.grade_name])),
     [productGrades]
@@ -73,6 +73,8 @@ export default function DailyInboundPage() {
         logs: number;
         missingBreakdownLogs: number;
         reportedEggs: number;
+        reportedGradeTotal?: number;
+        saleableTotal?: number;
       }>(`/v3/farm/daily-logs/eggs-breakdown?${qs.toString()}`);
       if (r.missingBreakdownLogs > 0) {
         setError(
@@ -84,15 +86,15 @@ export default function DailyInboundPage() {
         );
         return;
       }
-      if (!r.logs || r.total === 0) {
+      if (!r.logs || (r.total === 0 && r.reportedEggs === 0)) {
         setError(`${eggDate}${houseCode ? ` · ${houseCode}` : ''} ${t('breeding.noDailyOr9Grade', '暂无日报或未按 9 档录入')}`);
         return;
       }
-      // 用 eggsByGrade 覆盖现有 qtyMap（仅 productGrades 中已知 grade）
+      // 逐档写入（包括显式 0），避免缺陷档或已全部入库的档位在预填时消失。
       const next: Record<string, string> = {};
       for (const g of productGrades) {
         const q = r.eggsByGrade[g.grade_code];
-        if (q != null && q > 0) next[g.grade_code] = String(q);
+        next[g.grade_code] = q == null ? (qtyMap[g.grade_code] ?? '') : String(Math.max(0, q));
       }
       setQtyMap(next);
     } catch (e: unknown) {
@@ -100,7 +102,7 @@ export default function DailyInboundPage() {
     } finally {
       setPrefilling(false);
     }
-  }, [eggDate, houseCode, productGrades]);
+  }, [eggDate, houseCode, productGrades, qtyMap, t]);
 
   const loadMode = useCallback(async () => {
     setLoadingMode(true);

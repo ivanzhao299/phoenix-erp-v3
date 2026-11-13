@@ -58,8 +58,14 @@ describe('ProductionInboundService master-data resolution', () => {
         { query, transaction: async (run: (manager: any) => unknown) => {
           let selected: any[] = [];
           const manager = { query: async (sql: string, values: unknown[]) => {
-            if (sql.includes('WHERE sku_code=$1 FOR SHARE')) return selected.map(row => ({ ...row, variety_code: row.variety_code ?? null, status: 'ACTIVE',today:'2026-11-11',effective_date:null,expire_date:null }));
-            if (sql.includes('SELECT * FROM mst_products')) return [{status:'ACTIVE',variety_code:selected[0]?.variety_code ?? null}];
+            if (sql.includes('WHERE sku_code=$1 FOR SHARE')) {
+              const sku = skuRows.find(row => row.sku_code === values?.[0]);
+              return sku ? [{ ...sku, variety_code: sku.variety_code ?? null, status: 'ACTIVE', today: '2026-11-11', effective_date: null, expire_date: null }] : [];
+            }
+            if (sql.includes('SELECT * FROM mst_products')) {
+              const product = skuRows.find(row => row.product_code === values?.[0]);
+              return [{ status: 'ACTIVE', variety_code: product?.variety_code ?? null }];
+            }
             if (/SELECT \* FROM (product_grades|packaging_specs)/.test(sql)) return [{ status: 'ACTIVE', variety_code: null, is_storable: true }];
             if (sql.includes('FROM sys_organizations')) return [{ org_code: values[0] }];
             if (sql.includes('md_sku_org_scope')) return [{ scope_type: 'COMPANY', scope_code: values[1], status: 'ACTIVE', today: '2026-11-11', effective_date: null, expire_date: null, sale_enabled: false, stock_enabled: true }];
@@ -191,7 +197,14 @@ describe('ProductionInboundService master-data resolution', () => {
     await expect(service.recordProductionInbound({
       houseCode: 'HOUSE-A', eggDate: '2026-08-25',
       items: [{ grade: 'GRADE_1', qty: 1 }, { grade: 'GRADE_2', qty: 1 }],
-    })).rejects.toThrow('GRADE_2');
+    })).rejects.toMatchObject({
+      response: expect.objectContaining({
+        code: 'SKU_NOT_READY',
+        details: expect.objectContaining({
+          items: [expect.objectContaining({ gradeCode: 'GRADE_2', specCode: 'LOOSE' })],
+        }),
+      }),
+    });
     expect(createProductionBatch).not.toHaveBeenCalled();
   });
 

@@ -32,6 +32,9 @@ export interface ProductGrade {
   sort_order: number;
   is_saleable: boolean;
   is_storable: boolean;
+  stock_managed?: boolean | null;
+  sale_enabled?: boolean | null;
+  default_stock_status?: 'AVAILABLE' | 'RESERVED' | 'QUARANTINE' | 'DAMAGED' | 'FROZEN' | null;
   status: string;
   remark?: string | null;
 }

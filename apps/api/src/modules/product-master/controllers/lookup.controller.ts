@@ -94,7 +94,7 @@ export class LookupController {
   /** GET /api/lookup/product-grades — 仅 ACTIVE 等级，供前端下拉 */
   @Get('product-grades')
   async productGrades() {
-    const data = await this.em.query(`SELECT grade_code, grade_name, grade_name_lo, is_saleable, is_storable, status FROM product_grades WHERE status='ACTIVE' ORDER BY sort_order, grade_code`);
+    const data = await this.em.query(`SELECT grade_code, grade_name, grade_name_lo, is_saleable, is_storable, stock_managed, sale_enabled, default_stock_status, status FROM product_grades WHERE status='ACTIVE' ORDER BY sort_order, grade_code`);
     return { code: 200, data };
   }
 

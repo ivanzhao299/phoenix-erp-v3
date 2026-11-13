@@ -304,8 +304,10 @@ staged('ledger collection staging (prod transport) + offline evaluation adapter'
     assert.equal(verdict.schema, 'phoenix.ledger-offline-evaluation/v1');
     // the mapping is REAL: non-zero counts on both tables
     assert.equal(verdict.result.counts.legacy_applied_total, collection.schema_migrations.length);
-    // canonical TS 迁移总数 = 迁移目录实际条目数
-    assert.equal(verdict.result.counts.canonical_typeorm_total, 98);
+    // canonical TS 迁移总数 must follow the reviewed inventory generated from
+    // this checkout; new feature migrations legitimately increase the count.
+    const inventory = JSON.parse(fs.readFileSync(runtimeInventory(), 'utf8'));
+    assert.equal(verdict.result.counts.canonical_typeorm_total, inventory.canonicalTypeorm.length);
     assert.ok(verdict.result.counts.canonical_typeorm_applied > 0, 'canonical applied must not be vacuous');
   });
 

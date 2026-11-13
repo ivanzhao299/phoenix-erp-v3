@@ -21,6 +21,8 @@ export interface PackagingIdentity {
   grade: string; specCode?: string | null; specName?: string | null;
   productCode?: string | null; skuCode?: string | null;
   varietyCode?: string | null;
+  /** Initial inventory state from the grade policy; defects stay stock-managed but non-saleable. */
+  stockStatus?: 'AVAILABLE' | 'RESERVED' | 'QUARANTINE' | 'DAMAGED' | 'FROZEN';
   sourceContext?: PackagingSourceContext;
 }
 function fail(code: string, message: string): never {
@@ -115,9 +117,23 @@ export async function resolvePackagingIdentity(db: Db, input: PackagingIdentity)
   if (input.varietyCode !== undefined && input.varietyCode !== context.varietyCode) fail('VARIETY_MISMATCH', '显式品种与权威来源不匹配');
   if (input.skuCode != null && !input.skuCode.trim()) fail('SKU_MISSING', 'SKU 编码不能为空');
   if (!input.specCode && !input.specName) fail('SPEC_MISSING', '包装规格缺失');
-  // Packaging grants stock operations, not sales authorization; output eligibility remains strict.
+  // Packaging grants stock operations, not sales authorization. The nine-grade
+  // policy deliberately keeps defect grades in inventory with an internal
+  // status (QUARANTINE/DAMAGED), so only stock management must be enabled here.
   const grade = one(await db.query('SELECT * FROM product_grades WHERE grade_code=$1 FOR SHARE', [input.grade]), 'GRADE', `等级 ${input.grade} `);
-  if (grade.is_saleable !== true || grade.is_storable !== true) fail('GRADE_INELIGIBLE', '包装等级必须可销售且可库存');
+  const stockManaged = grade.stock_managed ?? (grade.default_stock_status ? true : grade.is_storable);
+  if (stockManaged !== true) fail('GRADE_INELIGIBLE', '包装等级未启用库存管理');
+  // A non-saleable grade is only accepted when the reviewed policy has
+  // assigned an explicit internal status. This keeps a pre-seed legacy row
+  // from silently changing behavior during the migration window.
+  if ((grade.sale_enabled ?? grade.is_saleable) !== true && !grade.default_stock_status) {
+    fail('GRADE_POLICY_MISSING', '不可售等级缺少内部库存状态策略');
+  }
+  const stockStatus = grade.default_stock_status
+    ?? ((grade.sale_enabled ?? grade.is_saleable) === true ? 'AVAILABLE' : 'QUARANTINE');
+  if (!['AVAILABLE', 'RESERVED', 'QUARANTINE', 'DAMAGED', 'FROZEN'].includes(stockStatus)) {
+    fail('GRADE_POLICY_INVALID', `等级 ${input.grade} 的库存状态策略无效`);
+  }
   const spec = one(await db.query(`SELECT * FROM packaging_specs WHERE ${input.specCode ? 'spec_code' : 'spec_name'}=$1 FOR SHARE`, [input.specCode || input.specName]), 'SPEC', `规格 ${input.specCode || input.specName} `);
   if (!(Number(spec.qty_per_unit) > 0)) fail('SPEC_INVALID', '包装规格单位数量无效');
   const availability = new SkuAvailabilityService(db as DataSource);
@@ -130,7 +146,8 @@ export async function resolvePackagingIdentity(db: Db, input: PackagingIdentity)
     identity = sku;
   }
   return { grade: input.grade, productCode: identity!.productCode, skuCode: identity!.skuCode,
-    varietyCode: identity!.varietyCode ?? null, specCode: spec.spec_code as string, specName: spec.spec_name as string, qtyPerUnit: Number(spec.qty_per_unit) };
+    varietyCode: identity!.varietyCode ?? null, specCode: spec.spec_code as string, specName: spec.spec_name as string,
+    stockStatus: stockStatus as PackagingIdentity['stockStatus'], qtyPerUnit: Number(spec.qty_per_unit) };
 }
 
 /** No context means no options, not a global variant catalogue. */

@@ -19,6 +19,11 @@ import {
   validateInboundPolicy,
   validateInboundWorkflow,
 } from './wms-inbound-policy';
+import {
+  normalizeDefectDispositionAction,
+  normalizeDefectGrade,
+  validateDefectDisposition,
+} from './wms-defect-disposition-policy';
 
 /**
  * V3 WmsService
@@ -180,6 +185,15 @@ export class WmsService {
     const menu = isIssueOutboundType(type) ? 'MENU_WMS_ISSUE' : 'MENU_WMS_INOUT';
     if (!hasPerm(user?.permissions, menu, perm)) {
       throw new ForbiddenException(`缺少 ${menu}:${perm} 权限`);
+    }
+  }
+
+  private assertDefectDispositionPermission(user: any): void {
+    const permissions = Array.isArray(user?.permissions) ? user.permissions : [];
+    const roles = Array.isArray(user?.roles) ? user.roles : [user?.role].filter(Boolean);
+    if (roles.includes('ROLE_ADMIN')) return;
+    if (!hasPerm(permissions, 'MENU_INV_BATCH', 'E') && !hasPerm(permissions, 'MENU_WMS_ISSUE', 'E')) {
+      throw new ForbiddenException('缺少 MENU_INV_BATCH:E 或 MENU_WMS_ISSUE:E 权限');
     }
   }
 
@@ -1213,6 +1227,157 @@ export class WmsService {
         ],
       );
       return { code: 200, msg: '出库单已创建，待确认扣减库存', data: rows[0] };
+    });
+  }
+
+  /**
+   * Internal handling of non-saleable egg grades. The disposition envelope is
+   * persisted before the inventory mutation so retries with the same number are
+   * idempotent, while the batch and both ledger legs stay in one transaction.
+   */
+  async disposeDefectInventory(body: any, user: any) {
+    this.assertDefectDispositionPermission(user);
+    const errors = validateDefectDisposition(body || {});
+    if (errors.length) throw new BadRequestException({ code: 400, msg: '缺陷库存处置校验失败', errors });
+
+    const dispositionNo = this.nonEmptyString(body?.disposition_no || body?.idempotency_key)!;
+    const batchNo = this.nonEmptyString(body?.batch_no)!;
+    const action = normalizeDefectDispositionAction(body?.action)!;
+    const requestedQty = Number(body?.qty);
+    const reason = String(body?.reason).trim();
+
+    return this.em.transaction(async manager => {
+      const [prior] = await manager.query(
+        `SELECT disposition_no,status,batch_no,qty,action FROM wms_defect_dispositions WHERE disposition_no=$1 FOR UPDATE`,
+        [dispositionNo],
+      );
+      if (prior) {
+        if (prior.status === 'DONE') {
+          return { code: 200, msg: `缺陷库存处置 ${dispositionNo} 已完成`, idempotent: true, data: prior };
+        }
+        throw new BadRequestException(`缺陷库存处置 ${dispositionNo} 已在处理中或参数冲突`);
+      }
+
+      const [batch] = await manager.query(
+        `SELECT batch_no, product_code, sku_code, material_code, item_type, material_type, unit,
+                qty, qty_available, status, quality_grade, grade_code_std, warehouse_code,
+                location_code, store_code, company_code, expire_date, egg_date, packaging_spec,
+                spec_code, source_type, source_no, inbound_date
+           FROM inv_batches WHERE batch_no=$1 FOR UPDATE`,
+        [batchNo],
+      );
+      if (!batch) throw new BadRequestException(`库存批次 ${batchNo} 不存在`);
+      const grade = normalizeDefectGrade(batch.grade_code_std || batch.quality_grade);
+      if (!grade) throw new BadRequestException(`批次 ${batchNo} 不是 DIRTY/CRACKED/BROKEN/DAMAGED 缺陷库存`);
+      const claimedGrade = body?.grade_code == null ? null : normalizeDefectGrade(body.grade_code);
+      if (body?.grade_code != null && (!claimedGrade || claimedGrade !== grade)) {
+        throw new BadRequestException(`批次 ${batchNo} 等级与请求不一致`);
+      }
+      const status = String(batch.status || '').toUpperCase();
+      if (!['QUARANTINE', 'DAMAGED'].includes(status)) {
+        throw new BadRequestException(`批次 ${batchNo} 当前状态 ${status || '(空)'} 不允许缺陷处置`);
+      }
+      if (!batch.warehouse_code) throw new ForbiddenException(`批次 ${batchNo} 缺少仓库归属`);
+      await this.assertWritableWarehouse(batch.warehouse_code, `缺陷批次 ${batchNo}`);
+      const companyCode = await this.lockWarehouseCompany(manager, batch.warehouse_code, batch.company_code);
+      this.assertBatchCompany(batch, companyCode);
+      const available = Number(batch.qty_available);
+      if (!Number.isFinite(available) || available < 0) throw new BadRequestException(`批次 ${batchNo} 可用库存无效`);
+      if (available < requestedQty) throw new BadRequestException(`批次 ${batchNo} 可用量 ${available} 不足 ${requestedQty}`);
+
+      const targetWarehouse = this.nonEmptyString(body?.target_warehouse_code);
+      const targetLocation = this.nonEmptyString(body?.target_location_code) || 'DEFECT-TRANSFER';
+      let targetCompany: string | null = null;
+      if (action === 'TRANSFER') {
+        if (targetWarehouse === batch.warehouse_code) throw new BadRequestException('TRANSFER 的目标仓库必须不同于源仓库');
+        await this.assertWritableWarehouse(targetWarehouse, '缺陷调拨目标仓库');
+        targetCompany = await this.lockWarehouseCompany(manager, targetWarehouse!, undefined);
+      }
+
+      const inserted = await manager.query(
+        `INSERT INTO wms_defect_dispositions
+          (disposition_no,batch_no,grade_code,action,qty,warehouse_code,company_code,
+           target_warehouse_code,target_location_code,reason,source_reference,operator,status,created_at,updated_at)
+         VALUES ($1,$2,$3,$4,$5::numeric,$6,$7,$8,$9,$10,$11,$12,'PROCESSING',now(),now())
+         ON CONFLICT (disposition_no) DO NOTHING
+         RETURNING id`,
+        [dispositionNo, batchNo, grade, action, requestedQty, batch.warehouse_code, companyCode,
+          targetWarehouse, targetLocation, reason, this.nonEmptyString(body?.source_reference),
+          String(user?.username || user?.userId || 'SYS')],
+      );
+      if (!inserted.length) {
+        const [existing] = await manager.query(
+          `SELECT disposition_no,status,batch_no,qty,action FROM wms_defect_dispositions WHERE disposition_no=$1 FOR UPDATE`,
+          [dispositionNo],
+        );
+        if (existing?.status === 'DONE') {
+          return { code: 200, msg: `缺陷库存处置 ${dispositionNo} 已完成`, idempotent: true, data: existing };
+        }
+        throw new BadRequestException(`缺陷库存处置 ${dispositionNo} 已在处理中或参数冲突`);
+      }
+
+      const changed = await manager.query(
+        `WITH changed AS (
+           UPDATE inv_batches
+              SET qty=GREATEST(COALESCE(qty,0)-$1::numeric,0),
+                  qty_available=GREATEST(qty_available-$1::numeric,0), updated_at=now()
+            WHERE batch_no=$2 AND warehouse_code=$3
+              AND COALESCE(status,'') IN ('QUARANTINE','DAMAGED')
+              AND qty_available >= $1::numeric
+            RETURNING batch_no
+         ) SELECT batch_no FROM changed`,
+        [requestedQty, batchNo, batch.warehouse_code],
+      );
+      if (changed.length !== 1) throw new BadRequestException(`批次 ${batchNo} 状态、归属或数量已变化`);
+
+      const ledgerType = action === 'TRANSFER' ? 'DEFECT_TRANSFER_OUT' : `DEFECT_${action}`;
+      await manager.query(
+        `INSERT INTO inv_ledger
+          (batch_no,change_type,qty_change,operator,store_code,ref_no,note,quality_grade,
+           sku_code,material_code,warehouse_code,company_code,business_type,unit)
+         VALUES ($1,$2,-$3::numeric,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
+        [batchNo, ledgerType, requestedQty, String(user?.username || user?.userId || 'SYS'),
+          batch.store_code || 'ALL', dispositionNo,
+          `缺陷处置 action=${action} reason=${reason}`, grade, batch.sku_code || null,
+          batch.material_code || null, batch.warehouse_code, companyCode, 'DEFECT_DISPOSITION', batch.unit || null],
+      );
+
+      let targetBatchNo: string | null = null;
+      if (action === 'TRANSFER') {
+        targetBatchNo = `${batchNo}-D-${dispositionNo}`.slice(0, 100);
+        const targetRows = await manager.query(
+          `INSERT INTO inv_batches
+            (batch_no,product_code,sku_code,material_code,item_type,material_type,unit,qty,qty_available,
+             status,warehouse_code,location_code,store_code,company_code,quality_grade,grade_code_std,
+             packaging_spec,spec_code,egg_date,expire_date,source_type,source_no,inbound_date)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8::numeric,$8::numeric,'QUARANTINE',$9,$10,$11,$12,$13,$13,$14,$15,$16,$17,'DEFECT_TRANSFER',$18,CURRENT_DATE)
+           ON CONFLICT (batch_no) DO NOTHING RETURNING batch_no`,
+          [targetBatchNo, batch.product_code || null, batch.sku_code || null, batch.material_code || null,
+            batch.item_type || null, batch.material_type || null, batch.unit || null, requestedQty,
+            targetWarehouse, targetLocation, batch.store_code || 'ALL', targetCompany, grade,
+            batch.packaging_spec || null, batch.spec_code || null, batch.egg_date || null,
+            batch.expire_date || null, dispositionNo],
+        );
+        if (targetRows.length !== 1) throw new BadRequestException(`目标缺陷批次 ${targetBatchNo} 已存在，拒绝重复入账`);
+        await manager.query(
+          `INSERT INTO inv_ledger
+            (batch_no,change_type,qty_change,operator,store_code,ref_no,note,quality_grade,
+             sku_code,material_code,warehouse_code,company_code,business_type,unit)
+           VALUES ($1,'DEFECT_TRANSFER_IN',$2::numeric,$3,$4,$5,$6,$7,$8,$9,$10,$11,'DEFECT_DISPOSITION',$12)`,
+          [targetBatchNo, requestedQty, String(user?.username || user?.userId || 'SYS'), batch.store_code || 'ALL',
+            dispositionNo, `缺陷调拨入库 source=${batchNo} reason=${reason}`, grade,
+            batch.sku_code || null, batch.material_code || null, targetWarehouse, targetCompany, batch.unit || null],
+        );
+      }
+
+      const [done] = await manager.query(
+        `UPDATE wms_defect_dispositions
+            SET batch_no=$2,grade_code=$3,warehouse_code=$4,company_code=$5,target_batch_no=$6,status='DONE',updated_at=now()
+          WHERE disposition_no=$1 AND status='PROCESSING'
+          RETURNING *`,
+        [dispositionNo, batchNo, grade, batch.warehouse_code, companyCode, targetBatchNo],
+      );
+      return { code: 200, msg: '缺陷库存处置完成', idempotent: false, data: done };
     });
   }
 

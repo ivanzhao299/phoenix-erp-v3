@@ -97,6 +97,15 @@ export interface FifoAllocation {
   reservationLedgerId: number;
 }
 
+export type GradeStockStatus = 'AVAILABLE' | 'RESERVED' | 'QUARANTINE' | 'DAMAGED' | 'FROZEN';
+
+export interface GradeInventoryPolicy {
+  gradeCode: string;
+  stockManaged: boolean;
+  saleEnabled: boolean;
+  defaultStockStatus: GradeStockStatus;
+}
+
 /** 默认保质期：30 天 */
 const DEFAULT_SHELF_DAYS = 30;
 /** 临期预警阈值：7 天 */
@@ -117,6 +126,7 @@ export class EggInventoryService {
 
   /** 等级缓存：5 分钟 TTL，运维改 product_grades 后 ≤5min 生效 */
   private _gradeCache: { codes: string[]; expireAt: number } = { codes: [], expireAt: 0 };
+  private _gradePolicyCache: { policies: Record<string, GradeInventoryPolicy>; expireAt: number } = { policies: {}, expireAt: 0 };
 
   constructor(
     @InjectDataSource() private readonly ds: DataSource,
@@ -127,6 +137,31 @@ export class EggInventoryService {
   /** 销售鸡蛋库存的产品族；EGG 是页面使用的族别名，不是精确产品码。 */
   private eggFamilyCondition(alias = 'b'): string {
     return `(${alias}.product_code = 'EGG' OR ${alias}.product_code LIKE 'PRD-EGG-%')`;
+  }
+
+  /** Only sale-enabled grades may enter a sales availability/FIFO path. */
+  private saleGradeCondition(alias = 'b'): string {
+    return `EXISTS (
+      SELECT 1 FROM product_grades sale_grade
+       WHERE sale_grade.grade_code = COALESCE(
+         ${alias}.quality_grade,
+         ${alias}.grade_code_std,
+         (SELECT sku_grade.grade_code FROM product_skus sku_grade WHERE sku_grade.sku_code = ${alias}.sku_code)
+       )
+         AND sale_grade.status = 'ACTIVE'
+         AND COALESCE(sale_grade.sale_enabled, sale_grade.is_saleable) = TRUE
+    )`;
+  }
+
+  private async assertSaleGrade(mgr: EntityManager, gradeCode: string | null | undefined): Promise<void> {
+    if (!gradeCode) return;
+    const rows = await mgr.query(
+      `SELECT * FROM product_grades
+        WHERE grade_code=$1 AND status='ACTIVE'
+          AND COALESCE(sale_enabled, is_saleable)=TRUE
+        FOR SHARE`, [gradeCode],
+    );
+    if (!rows.length) throw new BadRequestException(`等级 ${gradeCode} 不可销售或不存在`);
   }
 
   /** 统一页面查询的公司范围；null 表示全局，[] 表示拒绝访问。 */
@@ -140,30 +175,70 @@ export class EggInventoryService {
 
   // ── 内部工具 ─────────────────────────────────────────────────────────────────
 
-  /**
-   * 从 product_grades 主数据动态读取合法等级集合（带 5min 缓存）。
-   * 兼容历史：若旧批次写入了 0-5 数字蛋档（P1A 临时生产入库遗留），
-   * 这些值已不在 product_grades 中 → 新写入会被拦截，旧批次读取不受影响。
-   */
-  private async getValidGrades(mgr?: EntityManager): Promise<string[]> {
+  /** Read the grade policy used by every fresh inventory write. */
+  private async getGradePolicies(mgr?: EntityManager): Promise<Record<string, GradeInventoryPolicy>> {
     const now = Date.now();
-    if (this._gradeCache.codes.length > 0 && this._gradeCache.expireAt > now) {
-      return this._gradeCache.codes;
+    if (Object.keys(this._gradePolicyCache.policies).length > 0 && this._gradePolicyCache.expireAt > now) {
+      return this._gradePolicyCache.policies;
     }
     try {
-      const rows: Array<{ grade_code: string }> = await (mgr ?? this.ds).query(
-        `SELECT grade_code FROM product_grades WHERE status='ACTIVE' ORDER BY sort_order`,
-      );
-      const codes = rows.map(r => r.grade_code).filter(Boolean);
-      if (codes.length > 0) {
-        this._gradeCache = { codes, expireAt: now + 5 * 60 * 1000 };
-        return codes;
+      let rows: Array<{ grade_code: string; stock_managed?: boolean | null; sale_enabled?: boolean | null;
+        is_storable?: boolean | null; is_saleable?: boolean | null; default_stock_status?: GradeStockStatus | null }>;
+      try {
+        rows = await (mgr ?? this.ds).query(
+          `SELECT to_jsonb(g) AS grade_row
+             FROM product_grades g WHERE g.status='ACTIVE' ORDER BY g.sort_order, g.grade_code`,
+        );
+      } catch (error) {
+        // Baseline/fixture schemas may predate Issue #532. Read the legacy flags
+        // during the migration window; once policy columns exist they are authoritative.
+        if (!/column .* does not exist/i.test(String((error as Error)?.message ?? error))) throw error;
+        rows = await (mgr ?? this.ds).query(
+          `SELECT grade_code, is_storable, is_saleable
+             FROM product_grades WHERE status='ACTIVE' ORDER BY sort_order, grade_code`,
+        );
+      }
+      rows = rows.map(row => (row as any).grade_row && typeof (row as any).grade_row === 'object'
+        ? (row as any).grade_row : row);
+      if (rows.length === 0 || !rows.some(row => String(row.grade_code ?? '').trim())) {
+        // Keep SQL-contract/unit doubles that only expose the historical grade
+        // projection compatible while still failing closed on a truly empty master.
+        rows = await (mgr ?? this.ds).query(
+          `SELECT grade_code FROM product_grades WHERE status='ACTIVE' ORDER BY sort_order, grade_code`,
+        );
+      }
+      const policies: Record<string, GradeInventoryPolicy> = {};
+      for (const row of rows) {
+        const gradeCode = String(row.grade_code ?? '').trim();
+        if (!gradeCode) continue;
+        const stockManaged = row.stock_managed ?? row.is_storable ?? true;
+        const saleEnabled = row.sale_enabled ?? row.is_saleable ?? true;
+        const defaultStockStatus = row.default_stock_status ?? (saleEnabled ? 'AVAILABLE' : 'QUARANTINE');
+        if (!['AVAILABLE', 'RESERVED', 'QUARANTINE', 'DAMAGED', 'FROZEN'].includes(defaultStockStatus)) {
+          throw new BadRequestException(`等级 ${gradeCode} 的库存状态策略无效`);
+        }
+        policies[gradeCode] = { gradeCode, stockManaged: stockManaged === true, saleEnabled: saleEnabled === true, defaultStockStatus };
+      }
+      if (Object.keys(policies).length > 0) {
+        this._gradePolicyCache = { policies, expireAt: now + 5 * 60 * 1000 };
+        this._gradeCache = { codes: Object.keys(policies), expireAt: now + 5 * 60 * 1000 };
+        return policies;
       }
     } catch (e) {
-      this.logger.error(`getValidGrades failed closed: ${(e as Error).message}`);
+      if (e instanceof BadRequestException) throw e;
+      this.logger.error(`getGradePolicies failed closed: ${(e as Error).message}`);
       throw new BadRequestException('等级主数据不可用，禁止创建库存');
     }
     throw new BadRequestException('等级主数据为空，禁止创建库存');
+  }
+
+  private async getValidGrades(mgr?: EntityManager): Promise<string[]> {
+    return Object.keys(await this.getGradePolicies(mgr));
+  }
+
+  /** Public transaction seam for the production inbound orchestrator. */
+  async getGradePoliciesForInbound(mgr?: EntityManager): Promise<Record<string, GradeInventoryPolicy>> {
+    return this.getGradePolicies(mgr);
   }
 
   private get operator(): string {
@@ -302,6 +377,10 @@ export class EggInventoryService {
     packagingBatchRef?:  string;
     /** 生产链路收口 Phase 1：集蛋批次追溯引用 */
     collectionBatchRef?: string;
+    /** Grade policy status; production-inbound cannot override the policy. */
+    inventoryStatus?: GradeStockStatus;
+    /** Packaging integration alias for the grade policy status. */
+    stockStatus?: GradeStockStatus;
   }, mgr?: EntityManager): Promise<EggBatch> {
     assertEggDate(params.eggDate);
     positiveQuantity(params.qty, '入库数量');
@@ -405,11 +484,18 @@ export class EggInventoryService {
 
     // 质量等级校验（2026-06-06 收口）：从 product_grades 权威源动态读取，弃用
     // 硬编码 14 档混杂表（含历史遗留 0-5 数字蛋档）。带 5 分钟模块级缓存。
-    const validGrades = await this.getValidGrades(mgr);
+    const gradePolicies = await this.getGradePolicies(mgr);
+    const validGrades = Object.keys(gradePolicies);
     const grade = params.qualityGrade;
     if (!grade) throw new BadRequestException('必须显式提供质量等级，禁止使用默认等级');
-    if (!validGrades.includes(grade)) {
+    const gradePolicy = gradePolicies[grade];
+    if (!gradePolicy) {
       throw new BadRequestException(`无效的质量等级: ${grade}，有效值：${validGrades.join('/')}`);
+    }
+    if (!gradePolicy.stockManaged) throw new BadRequestException(`等级 ${grade} 未启用库存管理`);
+    const inventoryStatus = params.inventoryStatus ?? params.stockStatus ?? gradePolicy.defaultStockStatus;
+    if (inventoryStatus !== gradePolicy.defaultStockStatus) {
+      throw new BadRequestException(`等级 ${grade} 的库存状态必须为 ${gradePolicy.defaultStockStatus}`);
     }
 
     const batchNo    = await this.genBatchNo(params.eggDate, mgr);
@@ -479,8 +565,8 @@ export class EggInventoryService {
          packaging_batch_ref, collection_batch_ref, unit, base_quantity_version,
          created_at, updated_at
        ) VALUES (
-         $1,$2,$3,$4,$5,$6,$6,$7,$8,$9,$10,$11,$12,
-         $12,'AVAILABLE',
+         $1,$2,$3,$4,$5,$6,$6,$7,$8,$9,$10,$11,$12::numeric,
+         CASE WHEN $22 = 'AVAILABLE' THEN $12::numeric ELSE 0::numeric END,$22,
          $13,$14,$15,$19,$20,$21::jsonb,
          $16,$17,$18,1,
          NOW(),NOW()
@@ -505,6 +591,7 @@ export class EggInventoryService {
           profileCode: profile.profileCode, houseCode: profile.houseCode, productMode: profile.productMode,
           varietyCode: profile.varietyCode, effectiveDate: profile.effectiveDate,
         }))) : null,
+        inventoryStatus,
       ],
     );
 
@@ -543,7 +630,11 @@ export class EggInventoryService {
     /** Phase H4: 按 SKU 精确过滤（优先于 productCode + gradeCode） */
     skuCode?:           string;
   }): Promise<EggBatch[]> {
-    const conds: string[] = [`b.status = 'AVAILABLE'`, `b.qty_available > 0`];
+    const conds: string[] = [
+      `b.status = 'AVAILABLE'`,
+      `b.qty_available > 0`,
+      this.saleGradeCondition('b'),
+    ];
     const args: unknown[] = [];
     let pi = 1;
 
@@ -559,7 +650,7 @@ export class EggInventoryService {
         conds.push(`b.product_code = $${pi++}`);
         args.push(params.productCode);
       }
-      if (params.gradeCode)   { conds.push(`b.quality_grade = $${pi++}`); args.push(params.gradeCode); }
+      if (params.gradeCode)   { conds.push(`COALESCE(b.quality_grade, b.grade_code_std) = $${pi++}`); args.push(params.gradeCode); }
     }
 
     const companyCodes = this.companyScope(params.companyCode);
@@ -673,6 +764,7 @@ export class EggInventoryService {
            AND legacy_sku.variety_code IS NULL
            AND legacy_sku.org_context_required=false
       ))`,
+      this.saleGradeCondition('inv_batches'),
     ];
     const args: unknown[] = [params.companyCode];
     let pi = 2;
@@ -687,7 +779,7 @@ export class EggInventoryService {
       conds.push(`product_code = $${pi++}`);
       args.push(params.productCode);
       if (params.gradeCode) {
-        conds.push(`quality_grade = $${pi++}`);
+        conds.push(`COALESCE(quality_grade, grade_code_std) = $${pi++}`);
         args.push(params.gradeCode);
       }
     }
@@ -819,7 +911,8 @@ export class EggInventoryService {
       else if (item.quantity_snapshot) await SkuPolicy.requireUsable(mgr, item.quantity_snapshot.skuCode, 'sale-stock');
 
       const existing = await q(
-        `SELECT a.id,a.batch_no,a.reserved_qty,a.outbound_qty,a.released_qty,b.sku_code
+        `SELECT a.id,a.batch_no,a.reserved_qty,a.outbound_qty,a.released_qty,
+                b.sku_code,b.status,b.grade_code_std,b.quality_grade
            FROM sal_order_item_batch_allocations a
            JOIN inv_batches b ON b.batch_no=a.batch_no
           WHERE a.sales_order_item_id=$1
@@ -828,6 +921,10 @@ export class EggInventoryService {
       );
       if (existing.length) {
         for (const allocation of existing) {
+          if (allocation.status !== undefined && allocation.status !== 'AVAILABLE') {
+            throw new ConflictException(`订单明细 ${item.id} 已分配批次不可销售`);
+          }
+          await this.assertSaleGrade(mgr, allocation.grade_code_std ?? allocation.quality_grade);
           if (!await this.isLegacySaleStock(allocation.sku_code, mgr)) {
             throw new ConflictException('旧销售预留禁止使用公司范围管理或未映射 SKU 库存');
           }

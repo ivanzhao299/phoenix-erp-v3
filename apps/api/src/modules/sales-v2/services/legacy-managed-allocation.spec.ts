@@ -33,6 +33,9 @@ class AllocationSqlFixture {
   failLedgerAt = 0;
   failSkuRead: Error | undefined;
   reclassifyAfterSelection: string | undefined;
+  readonly saleGrades = new Map([
+    ['G', true], ['DIRTY', false], ['CRACKED', false], ['BROKEN', false], ['DAMAGED', false],
+  ]);
   readonly skus = new Map([
     ['OLD', { sku_code: 'OLD', product_code: 'PRD-EGG-X', grade_code: 'G', spec_code: 'S', status: 'ACTIVE', variety_code: null, org_context_required: false }],
     ['STD0', { sku_code: 'STD0', product_code: 'PRD-EGG-X', grade_code: 'G', spec_code: 'S', status: 'ACTIVE', variety_code: null, org_context_required: true }],
@@ -68,6 +71,9 @@ class AllocationSqlFixture {
       if (!s.endsWith('FOR UPDATE')) throw new Error('candidate rows must be locked');
       let rows = this.batches.filter(b => b.status === 'AVAILABLE' && b.qty_available > 0
         && (!b.expire_date || b.expire_date >= '2026-11-11') && b.legacy_source == null);
+      rows = rows.filter(b => this.saleGrades.get(b.quality_grade || b.grade_code_std) !== false);
+      const grade = s.match(/COALESCE\(quality_grade, grade_code_std\)\s*=\s*\$(\d+)/);
+      if (grade) rows = rows.filter(b => (b.quality_grade || b.grade_code_std) === args[Number(grade[1]) - 1]);
       for (const column of ['company_code', 'product_code', 'sku_code', 'quality_grade', 'warehouse_code', 'grade_code_std', 'unit'] as const) {
         const match = s.match(new RegExp(`(?:WHERE |AND )${column}\\s*=\\s*\\$(\\d+)`));
         if (match) rows = rows.filter(b => b[column] === args[Number(match[1]) - 1]);
@@ -203,6 +209,20 @@ describe('legacy sales managed-stock allocation gate (behavioral SQL fixture)', 
       stock('LATER', 'OLD', { expire_date: null }), stock('FIRST', null, { expire_date: '2090-01-01', qty_available: 3 })];
     expect((await f.allocate({ gradeCode: 'G' })).map(a => [a.batchNo, a.allocatedQty])).toEqual([['FIRST', 3], ['LATER', 2]]);
     expect(f.selected).toEqual([['FIRST', 'LATER']]);
+  });
+
+  it.each(['DIRTY', 'CRACKED', 'BROKEN', 'DAMAGED'])('rejects defect grade %s from sales reservation', async grade => {
+    const f = new AllocationSqlFixture();
+    f.batches = [stock(`DEFECT-${grade}`, null, { quality_grade: grade, grade_code_std: grade, qty_available: 5 })];
+    await expect(f.allocate({ gradeCode: grade, qty: 1 })).rejects.toThrow('需求量=1 该公司可分配量=0');
+    expect(f.writes).toBe(0);
+    expect(f.ledger).toEqual([]);
+  });
+
+  it('falls back to grade_code_std when quality_grade is null', async () => {
+    const f = new AllocationSqlFixture();
+    f.batches = [stock('STD-FALLBACK', null, { quality_grade: null as any, grade_code_std: 'G', qty_available: 2 })];
+    await expect(f.allocate({ gradeCode: 'G', qty: 1 })).resolves.toHaveLength(1);
   });
 
   it('filters managed and unknown physical SKUs from the shared quantity pool too', async () => {

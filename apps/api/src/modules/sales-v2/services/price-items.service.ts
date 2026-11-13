@@ -57,7 +57,12 @@ export class PriceItemsService {
     const offset = (page - 1) * limit;
 
     const params: any[] = [];
-    const where: string[] = [`pi.status != 'DELETED'`, `(pi.sku_code IS NULL OR EXISTS (
+    const where: string[] = [`pi.status != 'DELETED'`, `(pi.sku_code IS NOT NULL OR EXISTS (
+      SELECT 1 FROM product_grades sale_grade
+       WHERE sale_grade.grade_code = COALESCE(pi.grade_code_std, pi.grade_code)
+         AND sale_grade.status = 'ACTIVE'
+         AND COALESCE(sale_grade.sale_enabled, sale_grade.is_saleable) = TRUE
+    ))`, `(pi.sku_code IS NULL OR EXISTS (
       SELECT 1 FROM product_skus ps
        WHERE ps.sku_code = pi.sku_code
          AND ${SkuPolicy.usableSql('ps', 'sale')}

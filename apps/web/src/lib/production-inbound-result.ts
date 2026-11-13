@@ -1,4 +1,5 @@
 export type InboundItem = { grade: string; qty: number };
+export type InboundStockStatus = 'AVAILABLE' | 'RESERVED' | 'QUARANTINE' | 'DAMAGED' | 'FROZEN';
 export type InboundResult = { status: 'success' } | { status: 'rejected'; message: string } | { status: 'unknown' };
 export type InboundContext = {
   companyCode?: string;
@@ -9,7 +10,7 @@ export type InboundContext = {
 };
 export type InboundReceipt = {
   mode: string;
-  batches: Array<InboundItem & { batchNo: string }>;
+  batches: Array<InboundItem & { batchNo: string; status?: InboundStockStatus }>;
   totalInbound: number;
 } & InboundContext;
 

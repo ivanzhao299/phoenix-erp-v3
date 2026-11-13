@@ -134,7 +134,9 @@ test('prefill reads saved day/house grades and keeps warehouse/location scope', 
     await route.fallback();
   });
   await prepareInbound(page);
-  await expect(page.locator('table tbody input')).toHaveCount(6);
+  // All stock-managed grades, including defect grades, are now visible in the
+  // daily inbound form. Keep the assertion coupled to the fixture catalog.
+  await expect(page.locator('table tbody input')).toHaveCount(codes.length);
   const location = selectorFor(page, 'FIXTURE-L1');
   await expect(location.locator('option[value=OTHER-WAREHOUSE]')).toHaveCount(0);
   await expect(location.locator('option[value=INACTIVE-LOCATION]')).toHaveCount(0);

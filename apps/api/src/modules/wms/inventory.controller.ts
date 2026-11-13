@@ -116,4 +116,11 @@ export class InventoryController {
   async approveLoss(@Body() body: any, @Req() req: any) {
     return await this.wmsService.approveLoss(body, req.user);
   }
+
+  /** DIRTY/CRACKED/BROKEN/DAMAGED 内部处置，统一扣减 inv_batches 并写 inv_ledger。 */
+  @Post('defect-disposition')
+  @RequireMenu('MENU_INV_BATCH', 'E', ['MENU_WMS_ISSUE'])
+  async disposeDefectInventory(@Body() body: any, @Req() req: any) {
+    return await this.wmsService.disposeDefectInventory(body, req.user);
+  }
 }

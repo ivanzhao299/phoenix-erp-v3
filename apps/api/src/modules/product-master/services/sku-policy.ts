@@ -20,7 +20,7 @@ export class SkuPolicy {
       AND (${alias}.effective_date IS NULL OR ${alias}.effective_date <= CURRENT_DATE)
       AND (${alias}.expire_date IS NULL OR ${alias}.expire_date >= CURRENT_DATE)
       AND EXISTS (SELECT 1 FROM mst_products p WHERE p.product_code=${alias}.product_code AND p.status='ACTIVE')
-      AND EXISTS (SELECT 1 FROM product_grades g WHERE g.grade_code=${alias}.grade_code AND g.status='ACTIVE'${sale ? ' AND g.is_saleable=true' : ''}${stock ? ' AND g.is_storable=true' : ''})
+      AND EXISTS (SELECT 1 FROM product_grades g WHERE g.grade_code=${alias}.grade_code AND g.status='ACTIVE'${sale ? ' AND COALESCE(g.sale_enabled, g.is_saleable)=true' : ''}${stock ? ' AND COALESCE(g.stock_managed, g.is_storable)=true' : ''})
       AND EXISTS (SELECT 1 FROM packaging_specs sp WHERE sp.spec_code=${alias}.spec_code AND sp.status='ACTIVE')`;
   }
 
@@ -97,8 +97,10 @@ export class SkuPolicy {
       }
       if (key === 'spec_code') sku.base_unit = parent.base_unit;
       if (key === 'grade_code') {
-        if ((usage === 'sale' || usage === 'sale-stock') && parent.is_saleable !== true) throw new BadRequestException(`SKU ${skuCode} 等级不可销售`);
-        if ((usage === 'stock' || usage === 'sale-stock') && parent.is_storable !== true) throw new BadRequestException(`SKU ${skuCode} 等级不可库存`);
+        const saleEnabled = parent.sale_enabled ?? parent.is_saleable;
+        const stockManaged = parent.stock_managed ?? parent.is_storable;
+        if ((usage === 'sale' || usage === 'sale-stock') && saleEnabled !== true) throw new BadRequestException(`SKU ${skuCode} 等级不可销售`);
+        if ((usage === 'stock' || usage === 'sale-stock') && stockManaged !== true) throw new BadRequestException(`SKU ${skuCode} 等级不可库存`);
       }
     }
     if (sku.variety_code != null) {

@@ -159,7 +159,7 @@ const TYPES: Record<string, MdTypeConfig> = {
     // FIX UAT-1 2026-06-04: 表实际列含 grade_name_lo/is_saleable/is_storable；effective_date 由迁移补
     table: 'product_grades', codeCol: 'grade_code', nameCol: 'grade_name',
     prefix: 'GRD', objectType: 'GRADE',
-    writableCols: ['grade_name','grade_name_en','grade_name_lo','sort_order','is_saleable','is_storable','remark'],
+    writableCols: ['grade_name','grade_name_en','grade_name_lo','sort_order','is_saleable','is_storable','stock_managed','sale_enabled','default_stock_status','remark'],
     approvalOnCreate: false,   // G92：运营类 → 免审批快建
   },
   spec: {
