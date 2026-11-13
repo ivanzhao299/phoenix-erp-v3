@@ -561,8 +561,8 @@ export class EggInventoryService {
          packaging_batch_ref, collection_batch_ref, unit, base_quantity_version,
          created_at, updated_at
        ) VALUES (
-         $1,$2,$3,$4,$5,$6,$6,$7,$8,$9,$10,$11,$12,
-         CASE WHEN $22 = 'AVAILABLE' THEN $12 ELSE 0 END,$22,
+         $1,$2,$3,$4,$5,$6,$6,$7,$8,$9,$10,$11,$12::numeric,
+         CASE WHEN $22 = 'AVAILABLE' THEN $12::numeric ELSE 0::numeric END,$22,
          $13,$14,$15,$19,$20,$21::jsonb,
          $16,$17,$18,1,
          NOW(),NOW()
