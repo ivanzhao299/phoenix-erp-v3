@@ -163,7 +163,7 @@ export class ImmuneService {
     if (scope.allowedCompanyCodes.length === 0 || !scope.allowedCompanyCodes.includes(companyCode)) {
       throw new ForbiddenException('无权访问疫苗数据（公司范围不匹配）');
     }
-    if (scope.allowedSiteCodes.length > 0 && !scope.allowedSiteCodes.includes(siteCode)) {
+    if (scope.allowedSiteCodes.length === 0 || !scope.allowedSiteCodes.includes(siteCode)) {
       throw new ForbiddenException('无权访问疫苗数据（场站范围不匹配）');
     }
   }
@@ -295,8 +295,7 @@ export class ImmuneService {
       // A site filter is optional for global users, but when supplied it is
       // still applied to store-scoped vaccine master data.
     } else {
-      if (scope.allowedCompanyCodes.length === 0) return [];
-      if (!siteCode && scope.allowedSiteCodes.length === 0) return [];
+      if (scope.allowedCompanyCodes.length === 0 || scope.allowedSiteCodes.length === 0) return [];
       if (companyCode && !scope.allowedCompanyCodes.includes(companyCode)) {
         throw new ForbiddenException('无权访问疫苗数据（公司范围不匹配）');
       }
