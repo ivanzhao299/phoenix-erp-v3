@@ -68,9 +68,7 @@ export class PriceRuntimeService {
   async resolvePrice(dto: ResolvePriceDto, queryable: Pick<DataSource, 'query'> = this.ds): Promise<ResolvedPrice> {
     if (dto.skuCode !== undefined) {
       const code = SkuPolicy.code(dto.skuCode);
-      const sku = queryable === this.ds
-        ? (await queryable.query(`SELECT s.* FROM product_skus s WHERE s.sku_code=$1 AND ${SkuPolicy.usableSql('s', 'sale')}`, [code]))[0]
-        : await SkuPolicy.requireUsable(queryable, code, 'sale');
+      const sku = await SkuPolicy.requireUsable(queryable as any, code, 'sale', dto.companyCode);
       if (!sku) throw new BadRequestException('SKU 不存在、未启用或不适用于销售');
       dto = { ...dto, productCode: sku.product_code, gradeCode: sku.grade_code, packagingSpec: sku.spec_code };
     }
@@ -108,7 +106,14 @@ export class PriceRuntimeService {
       WHERE pb.company_code = $1
         AND pb.status       = 'ACTIVE'
         AND pi.status       = 'ACTIVE'
-        AND (pi.sku_code IS NULL OR EXISTS (SELECT 1 FROM product_skus ps WHERE ps.sku_code=pi.sku_code AND ${SkuPolicy.usableSql('ps', 'sale')}))
+        AND (pi.sku_code IS NULL OR EXISTS (SELECT 1 FROM product_skus ps WHERE ps.sku_code=pi.sku_code AND ${SkuPolicy.usableSql('ps', 'sale')}
+          AND ((ps.variety_code IS NULL AND COALESCE(ps.org_context_required, FALSE) = FALSE) OR EXISTS (
+            SELECT 1 FROM md_sku_org_scope os
+             WHERE os.sku_code=ps.sku_code AND os.scope_type='COMPANY' AND os.scope_code=$1
+               AND os.status='ACTIVE' AND os.sale_enabled=TRUE
+               AND (os.effective_date IS NULL OR os.effective_date <= CURRENT_DATE)
+               AND (os.expire_date IS NULL OR os.expire_date >= CURRENT_DATE)
+          ))))
         AND (pb.effective_from IS NULL OR pb.effective_from <= CURRENT_DATE)
         AND (pb.effective_to   IS NULL OR pb.effective_to   >= CURRENT_DATE)
         AND (
@@ -232,7 +237,7 @@ export class PriceRuntimeService {
         quantityBasis: dto.quantityBasis,
       });
     } catch (error) {
-      if (error instanceof BadRequestException || dto.quantityBasis !== undefined || (dto.skuCode !== undefined && !(error instanceof NotFoundException))) throw error;
+      if (error instanceof BadRequestException || dto.quantityBasis !== undefined || dto.skuCode !== undefined) throw error;
       // 无价格配置 → 通过（但记录警告）
       return {
         passed:       true,
@@ -318,6 +323,18 @@ export class PriceRuntimeService {
         AND pi.status = 'ACTIVE'
         AND (pb.effective_from IS NULL OR pb.effective_from <= CURRENT_DATE)
         AND (pb.effective_to   IS NULL OR pb.effective_to   >= CURRENT_DATE)
+        AND (pi.sku_code IS NULL OR EXISTS (
+          SELECT 1 FROM product_skus ps
+           WHERE ps.sku_code = pi.sku_code
+             AND ${SkuPolicy.usableSql('ps', 'sale')}
+             AND ((ps.variety_code IS NULL AND COALESCE(ps.org_context_required, FALSE) = FALSE) OR EXISTS (
+               SELECT 1 FROM md_sku_org_scope os
+                WHERE os.sku_code = ps.sku_code AND os.scope_type='COMPANY'
+                  AND os.scope_code = pb.company_code AND os.status='ACTIVE' AND os.sale_enabled=TRUE
+                  AND (os.effective_date IS NULL OR os.effective_date <= CURRENT_DATE)
+                  AND (os.expire_date IS NULL OR os.expire_date >= CURRENT_DATE)
+             )))
+        ))
         ${companyFilter}
       ORDER BY pi.product_code, COALESCE(pi.grade_code,''), COALESCE(pi.packaging_spec,''),
                tier ASC, pb.priority ASC

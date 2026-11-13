@@ -100,11 +100,13 @@ describe('new transaction consumers', () => {
   });
   it('rejects an invalid SKU price request before trying legacy prices or successful validation fallback', async () => {
     const f = fixture({ sku: null });
-    // The public read path uses the same SQL predicate; no FOR SHARE outside a transaction.
+    // Explicit SKU requests use the authoritative locked identity read; they
+    // must reject before any legacy price fallback or product-code fallback.
     const service = new PriceRuntimeService({ query: f.query } as any, f.cls as any);
     await expect(service.validatePrice({ skuCode: 'BAD', productCode: 'FALLBACK', companyCode: 'C', unitPrice: 10 } as any)).rejects.toMatchObject({ status: 400 });
     expect(f.query.mock.calls.some(([sql]) => sql.includes('FROM sal_price_items'))).toBe(false);
-    expect(f.query.mock.calls[0][0]).toContain(SkuPolicy.usableSql('s', 'sale'));
+    expect(f.query.mock.calls[0][0]).toContain('FROM product_skus');
+    expect(f.query.mock.calls[0][0]).toContain('FOR SHARE');
   });
   it('rejects newly approved SKU mappings after a parent freezes and saves valid mappings with the lock manager', async () => {
     for (const frozen of [false, true]) {

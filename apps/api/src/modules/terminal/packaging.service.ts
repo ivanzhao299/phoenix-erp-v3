@@ -1,9 +1,7 @@
-import { ProductPolicy } from '../product-master/services/product-policy';
 import { OrgOwnershipService } from '../org/services/org-ownership.service';
 import { ConflictException, Injectable } from '@nestjs/common';
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
-import { randomBytes } from 'crypto';
 import { PackagingInventoryIntegrationService } from '../sales-v2/services/packaging-inventory-integration.service'; // 生产链路收口 Phase 1
 
 /**
@@ -200,13 +198,12 @@ export class PackagingService {
   }
 
   /**
-   * 集蛋班次完成 — 完整复刻 V2 phoenix-backend/src/routes/packaging.js#/shifts/:id/complete 5 步事务
+   * 集蛋班次完成 — 事务内完成班次/日报/分级任务记录
    * ① UPDATE pkg_shifts → DONE
    * ② INSERT/UPDATE brd_daily_logs（产蛋日报，按日期+鸡舍+班次去重累加）
-   * ③ INSERT mst_products PRD-EGG-RAW（鲜蛋原料产品，幂等）
-   * ④ INSERT inv_batches 鲜蛋批次 + inv_ledger EGG_IN 流水（保质 7 天）
-   * ⑤ INSERT pkg_tasks 分级任务（task_no=GRADE-..., status=IN_PROGRESS,
+   * ③ INSERT pkg_tasks 分级任务（task_no=GRADE-..., status=IN_PROGRESS,
    *    source_item="鸡舍名·班次"，触发分级作业页显示）
+   * 库存批次与流水必须由 source-aware 生产入库生成，此处不得直写。
    */
   async completeShift(id: number, body: any, userId: number) {
     const qty    = Number(body.total_qty ?? body.eggs_collected ?? 0);
@@ -270,12 +267,10 @@ export class PackagingService {
     const dateKey = shiftDate.replace(/-/g, '');
     const batchNo = `EGG-${dateKey}-${houseCode}-${ts5}`;
     const taskNo  = `GRADE-${dateKey}-${houseCode}-${ts5}`;
-    const expireDate = new Date(Date.now() + 7 * 86400 * 1000).toISOString().slice(0, 10);
 
     try {
       // ── 事务：5 步原子提交 ──────────────────────────────────────
       await this.em.transaction(async (mgr) => {
-        await ProductPolicy.ensureRawEggProduct(mgr, userId ? String(userId) : undefined);
         // ① pkg_shifts → DONE
         // 显式 ::int 类型 cast，避免 V2 老列(TEXT) + V3 新列(INT) 让 pg 类型推断失败
         // completed_time 是 V2 历史 TEXT 列，用 to_char 而非 NOW() 防类型不匹配
@@ -330,40 +325,8 @@ export class PackagingService {
           console.warn('[completeShift][WARN] brd_daily_logs skipped:', e?.message);
         }
 
-        // ③ inv_batches 鲜蛋批次（V3 实际 schema 仅 batch_no/product_code/qty/expire_date/store_code/warehouse_code）
-        await mgr.query('SAVEPOINT sp_inv_batches');
-        try {
-          // batch_no 带毫秒级时间戳后缀天然唯一；表上无 UNIQUE 约束，不需要 ON CONFLICT
-          await mgr.query(
-            `INSERT INTO inv_batches
-               (batch_no, product_code, qty, expire_date, store_code, warehouse_code, inbound_date)
-             VALUES ($1, 'PRD-EGG-RAW', $2::int, $3, 'FACTORY', 'WMS-VTE-MAIN', $4::date)`,
-            [batchNo, goodQty, expireDate, shiftDate],
-          );
-          await mgr.query('RELEASE SAVEPOINT sp_inv_batches');
-        } catch (e: any) {
-          await mgr.query('ROLLBACK TO SAVEPOINT sp_inv_batches');
-          console.warn('[completeShift][WARN] inv_batches skipped:', e?.message);
-        }
-
-        // ④ inv_ledger EGG_IN 流水
-        await mgr.query('SAVEPOINT sp_inv_ledger');
-        try {
-          await mgr.query(
-            `INSERT INTO inv_ledger
-               (batch_no, change_type, qty_change, operator, store_code, ref_no, note)
-             VALUES ($1, 'EGG_IN', $2::int, $3, 'FACTORY', $4, $5)`,
-            [
-              batchNo, goodQty, String(userId || 'SYS'),
-              shift.shift_no || `SHIFT-${id}`,
-              `集蛋入库 | 鸡舍:${houseCode} | ${shiftTime} | 合格:${goodQty}枚 破损:${badQty}枚`,
-            ],
-          );
-          await mgr.query('RELEASE SAVEPOINT sp_inv_ledger');
-        } catch (e: any) {
-          await mgr.query('ROLLBACK TO SAVEPOINT sp_inv_ledger');
-          console.warn('[completeShift][WARN] inv_ledger skipped:', e?.message);
-        }
+        // ③ 集蛋完成只记录班次/日报/分级任务；库存必须由 source-aware 生产入库生成。
+        // 不得在此写 PRD-EGG-RAW 批次、EGG_IN 流水或固定 FACTORY/WMS-VTE-MAIN 归属。
 
         // ⑤ pkg_tasks 分级任务（V2 兼容：GRADE-... + source_item + IN_PROGRESS）
         // 这一步是最关键的（决定分级作业页能不能看到新任务）；用 SAVEPOINT 保证即使
@@ -411,16 +374,13 @@ export class PackagingService {
    *
    * 旧实现 (V2/V3 早期) 只 UPDATE pkg_shifts.status，**不清理 completeShift 已产生的副作用**：
    *   - pkg_tasks GRADE-... 行（继续躺在分级列表里）
-   *   - inv_batches EGG-... 行（继续占库存）
-   *   - inv_ledger EGG_IN 流水（继续累计产量）
    * 操作员重新提交时，completeShift 又会插入第二份 → 分级列表出现 2 条重复任务。
    *
-   * 本次修复：reopen 必须在同一事务内完成下列清理：
+   * 本次修复：reopen 在同一事务内完成清理：
    *   ① 把此 shift 的活跃 pkg_tasks 全部置 CANCELLED（保留行做审计；
    *      getGradingTasks 已过滤 CANCELLED，不会在列表显示）
-   *   ② 对每个被作废的 batch_no 写一条 EGG_REVERSED 反向流水（审计可追溯）
-   *   ③ 把 inv_batches.qty 清零（避免库存被双计；记录本身保留）
-   *   ④ UPDATE pkg_shifts → PENDING
+   *   ② UPDATE pkg_shifts → PENDING
+   * 集蛋完成本就不写库存；reopen 也不得对其他受控流程的库存做清零或反向流水。
    */
   async reopenShift(id: number, body: any, userId: number) {
     const shifts = await this.em.query('SELECT * FROM pkg_shifts WHERE id = $1', [id]);
@@ -434,9 +394,9 @@ export class PackagingService {
     try {
       await this.em.transaction(async (mgr) => {
         // ① 找此班次关联的活跃 GRADING 任务
-        const tasks: Array<{ id: number; task_no: string; batch_no: string; plan_qty: number }> =
+        const tasks: Array<{ id: number; task_no: string }> =
           await mgr.query(
-            `SELECT id, task_no, batch_no, plan_qty
+            `SELECT id, task_no
                FROM pkg_tasks
               WHERE shift_id = $1::bigint
                 AND COALESCE(status, '') <> 'CANCELLED'
@@ -457,33 +417,8 @@ export class PackagingService {
           );
         }
 
-        // ③ 对每条被作废的 batch 做反向流水 + qty 清零
-        for (const t of tasks) {
-          if (!t.batch_no) continue;
-          await mgr.query('SAVEPOINT sp_reopen_void');
-          try {
-            await mgr.query(
-              `INSERT INTO inv_ledger
-                 (batch_no, change_type, qty_change, operator, store_code, ref_no, note)
-               VALUES ($1, 'EGG_REVERSED', -$2::int, $3, 'FACTORY', $4, $5)`,
-              [
-                t.batch_no,
-                Number(t.plan_qty) || 0,
-                String(userId || 'SYS'),
-                `SHIFT-${id}-REOPEN`,
-                `集蛋班次重开作废 | 原任务=${t.task_no} | 原因=${body.reason || '未填'}`,
-              ],
-            );
-            await mgr.query(
-              `UPDATE inv_batches SET qty = 0, updated_at = NOW() WHERE batch_no = $1`,
-              [t.batch_no],
-            );
-            await mgr.query('RELEASE SAVEPOINT sp_reopen_void');
-          } catch (e: any) {
-            await mgr.query('ROLLBACK TO SAVEPOINT sp_reopen_void');
-            console.warn('[reopenShift][WARN] void batch skipped:', t.batch_no, e?.message);
-          }
-        }
+        // ③ 集蛋完成不再写库存；重开也只作废任务，不产生补偿性库存/流水。
+        // 任何既有库存行都属于其他受控流程，不得在此清零或反向。
 
         // ④ 班次状态拨回
         await mgr.query(
@@ -592,13 +527,6 @@ export class PackagingService {
     const task = tasks[0];
     if (this.isLegacyTaskCompleted(task)) return { code: 200, msg: '分级任务已完成', data: task };
     await this.assertLegacyStockWriteAllowed([task], body);
-    const origBatchNo = task.batch_no || '';
-    const houseCode   = task.house_code || 'UNKNOWN';
-    const today       = new Date().toISOString().slice(0, 10);
-    const dateKey     = today.replace(/-/g, '');
-    const expireDate  = new Date(Date.now() + 7 * 86400 * 1000).toISOString().slice(0, 10);
-
-    const gradeBatches: Array<{ grade: string; qty: number; batch_no: string; status?: string }> = [];
 
     // ── P0-1: 计算 4 个派生字段（V2 同款语义，让 done 卡片数字不再是 0） ───
     // packed_qty       = Σ grade_results          (实际分级出货量)
@@ -614,12 +542,15 @@ export class PackagingService {
       const gradeRows: Array<{ grade_code: string; is_saleable: boolean }> = await this.em.query(
         `SELECT grade_code, is_saleable FROM product_grades WHERE status = 'ACTIVE'`,
       );
+      if (!gradeRows.length) throw new Error('active grade master is empty');
       for (const r of gradeRows) {
         if (!r.is_saleable) {
           nonSaleableCodes.add(r.grade_code);
         }
       }
-    } catch { /* product_grades 不可用时 nonSaleable 为空，breakage 只计预分拣破损 */ }
+    } catch (error: any) {
+      throw new ConflictException(`等级主数据不可用，禁止提交分级结果: ${error?.message || 'unknown error'}`);
+    }
     const nonSaleableQty = Object.entries(gr).reduce(
       (s, [code, v]) => s + (nonSaleableCodes.has(code) ? Math.max(0, Number(v) || 0) : 0),
       0,
@@ -628,6 +559,7 @@ export class PackagingService {
     const planQty = Math.max(0, Number(task.plan_qty) || 0);
     const breakageRate = planQty > 0 ? breakageQty / planQty : 0;
     const discrepancyQty = planQty - packedQty - presortTotal;  // 正=少 负=多
+    const gradeBatches: Array<{ grade: string; qty: number; batch_no: string; status?: string }> = [];
 
     try {
       await this.em.transaction(async (mgr) => {
@@ -653,50 +585,9 @@ export class PackagingService {
            packedQty, breakageQty, breakageRate, discrepancyQty, userId || null, taskId],
         );
 
-        // ② + ③ 对每个非零等级生成 inv_batches + inv_ledger（V2 同款行为）
-        // V2 fidelity: 非可售等级 (saleable=false) → status=QUARANTINE qty_available=0
-        // 食品安全：破损/不合格蛋必须可追溯但不可流入销售
-        let counter = 0;
-        for (const [gradeCode, qtyValue] of Object.entries(gr)) {
-          const qty = Math.max(0, Number(qtyValue) || 0);
-          if (qty === 0) continue;
-          counter++;
-          // P1-3: batch_no 加 4 字节 hex 随机后缀，毫秒级循环也不会重复
-          const newBatchNo = `BAT-${dateKey}-${houseCode}-G${gradeCode}-${String(Date.now()).slice(-4)}${counter}-${randomBytes(2).toString('hex')}`;
-          const productCode = `PRD-EGG-${gradeCode}`;
-          const isQuarantine = nonSaleableCodes.has(gradeCode);
-          const batchStatus = isQuarantine ? 'QUARANTINE' : 'AVAILABLE';
-          const qtyAvailable = isQuarantine ? 0 : qty;
-
-          await mgr.query('SAVEPOINT sp_grade_batch');
-          try {
-            await mgr.query(
-              `INSERT INTO inv_batches
-                 (batch_no, product_code, qty, qty_available, status, expire_date, store_code, warehouse_code, inbound_date)
-               VALUES ($1, $2, $3::int, $4::int, $5, $6, 'FACTORY', 'WMS-VTE-MAIN', NULL)`,
-              [newBatchNo, productCode, qty, qtyAvailable, batchStatus, expireDate],
-            );
-            await mgr.query(
-              `INSERT INTO inv_ledger
-                 (batch_no, change_type, qty_change, operator, store_code, ref_no, note)
-               VALUES ($1, $2, $3::int, $4, 'FACTORY', $5, $6)`,
-              [
-                newBatchNo,
-                isQuarantine ? 'EGG_GRADED_QUARANTINE' : 'EGG_GRADED',
-                qty, String(userId || 'SYS'),
-                origBatchNo || taskId,
-                isQuarantine
-                  ? `分级隔离 from ${origBatchNo} | 等级${gradeCode}(不可售) | ${qty}枚`
-                  : `分级入库 from ${origBatchNo} | 等级${gradeCode} | ${qty}枚`,
-              ],
-            );
-            await mgr.query('RELEASE SAVEPOINT sp_grade_batch');
-            gradeBatches.push({ grade: gradeCode, qty, batch_no: newBatchNo, status: batchStatus });
-          } catch (e: any) {
-            await mgr.query('ROLLBACK TO SAVEPOINT sp_grade_batch');
-            console.warn(`[submitGrade][WARN] grade ${gradeCode} batch skipped:`, e?.message);
-          }
-        }
+        // 分级只确认任务结果；新库存必须由 packComplete 通过 source-aware
+        // PackagingInventoryIntegrationService 生成，避免伪造产品/仓库身份。
+        // 这样任一来源/SKU/等级主数据失败都会抛出并回滚整个任务更新。
 
         // P0-5: 移除自动建 PACKING 任务的逻辑 —
         //   V2 不在分级提交时自动创建包装任务（包装是独立流程，按需手动开任务）。
@@ -746,147 +637,30 @@ export class PackagingService {
     if (this.isLegacyTaskCompleted(tasks[0])) return { code: 200, msg: '包装任务已完成', data: tasks[0] };
     await this.assertLegacyStockWriteAllowed(tasks, body);
     try {
-      await this.em.query(
-        `UPDATE pkg_tasks SET
-           packed_qty   = $1,
-           output_qty   = $2,
-           pack_spec    = $3,
-           status       = 'COMPLETED',
-           completed_at = NOW(),
-           completed_by = $4
-         WHERE task_no = $5 OR id::text = $5`,
-        [body.packed_qty, body.output_qty, body.pack_spec, userId, taskId],
-      );
-      // A1 修正：原 INSERT 用了 inv_batches 不存在的列 (sku_code / pack_type / grading_date / status)
-      //          → SQL 必失败但 catch 静默吞错 → 用户看似包装成功实际仓库零库存。
-      // B4 修正：按 grade_results 拆分多条 inv_batches，不再把整个 JSON 塞 sku_code 丢失多等级信息。
-      // V2 fidelity:
-      //   - 非可售等级 (saleable=false) → 写 QUARANTINE 隔离 batch (qty_available=0)
-      //   - packComplete 完成后自动创建 wms_inbound 任务，等待仓库验收上架
-      const packBatches: Array<{ batch_no: string; qty: number; status: string }> = [];
-      try {
-        const task = await this.em.query(
-          `SELECT task_no, batch_no, grade_results, house_code FROM pkg_tasks
-           WHERE task_no = $1 OR id::text = $1 LIMIT 1`,
-          [taskId],
+      // 新包装库存必须经 source-aware integration；旧协议只允许显式历史重放。
+      const taskNoForInv = tasks[0].task_no || taskId;
+      const result = await this.em.transaction(async manager => {
+        const saleableResult = await this.pkgInv.completePackagingBatch(taskNoForInv, {
+          companyCode: body.company_code ?? body.companyCode, operator: String(userId || 'SYS'), manager,
+        });
+        const packBatches = (saleableResult.batches ?? []).map((batch: any) => ({
+          batch_no: batch.batchNo, qty: batch.qty, status: 'AVAILABLE',
+        }));
+        // Mark the task complete only after source-aware inventory succeeds;
+        // the task update and inventory ledger share one transaction.
+        await manager.query(
+          `UPDATE pkg_tasks SET
+             packed_qty=$1, output_qty=$2, pack_spec=$3,
+             status='COMPLETED', completed_at=NOW(), completed_by=$4
+           WHERE task_no=$5 OR id::text=$5`,
+          [body.packed_qty, body.output_qty, body.pack_spec, userId, taskId],
         );
-        if (task[0]) {
-          const gr: Record<string, number> = (() => {
-            const v = task[0].grade_results;
-            if (!v) return {};
-            try { return typeof v === 'string' ? JSON.parse(v) : v; } catch { return {}; }
-          })();
-          const houseCode = task[0].house_code || 'UNKNOWN';
-          const dateKey = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-          const expireDate = new Date(Date.now() + 7 * 86400 * 1000).toISOString().slice(0, 10);
-
-          // [Fix Pack 1 — HIGH-4] 从 product_grades 主数据表读取非可售等级
-          let packNonSaleable = new Set<string>();
-          try {
-            const gradeRows: Array<{ grade_code: string; is_saleable: boolean }> = await this.em.query(
-              `SELECT grade_code, is_saleable FROM product_grades WHERE status = 'ACTIVE'`,
-            );
-            for (const r of gradeRows) {
-              if (!r.is_saleable) {
-                packNonSaleable.add(r.grade_code);
-              }
-            }
-          } catch { /* product_grades 不可用时视为全部可售 */ }
-
-          const grades = Object.entries(gr).filter(([, v]) => Number(v) > 0);
-          if (grades.length === 0) {
-            // 无等级明细 → 用 packed_qty 整体入一条 (默认 AVAILABLE)
-            const batchNo = `PACK-${dateKey}-${houseCode}-${String(Date.now()).slice(-4)}-${randomBytes(2).toString('hex')}`;
-            const totalQty = Number(body.packed_qty) || 0;
-            // 生产链路收口 Phase 1：PRD-EGG-* 仅为包装中间态，标 legacy_source，FIFO 排除（不作为最终销售库存）
-            await this.em.query(
-              `INSERT INTO inv_batches (batch_no, product_code, qty, qty_available, status, expire_date, store_code, warehouse_code, legacy_source, packaging_batch_ref, inbound_date)
-               VALUES ($1, 'PRD-EGG-PACKED', $2::int, $2::int, 'AVAILABLE', $3, 'FACTORY', 'WMS-VTE-MAIN', 'PACKAGING_INTERMEDIATE', $4, NULL)`,
-              [batchNo, totalQty, expireDate, task[0].task_no || taskId],
-            );
-            packBatches.push({ batch_no: batchNo, qty: totalQty, status: 'AVAILABLE' });
-          } else {
-            // 多等级 → 拆多条 inv_batches + 每条配一条 inv_ledger PACK_DONE 流水
-            // 注：packComplete 主流程不在 transaction() 内（外层只有 UPDATE pkg_tasks 一条），
-            //     所以这里不能用 SAVEPOINT（会报 "can only be used in transaction blocks"）。
-            //     改为 per-grade try/catch — 单等级失败不影响其它等级。
-            for (const [gradeCode, qtyValue] of grades) {
-              const qty = Math.max(0, Number(qtyValue) || 0);
-              if (qty === 0) continue;
-              const isQuarantine = packNonSaleable.has(gradeCode);
-              const batchStatus = isQuarantine ? 'QUARANTINE' : 'AVAILABLE';
-              const qtyAvailable = isQuarantine ? 0 : qty;
-              const batchNo = `PACK-${dateKey}-${houseCode}-G${gradeCode}-${String(Date.now()).slice(-4)}-${randomBytes(2).toString('hex')}`;
-              try {
-                // 生产链路收口 Phase 1：PRD-EGG-*-PACK 仅为包装中间态，标 legacy_source，FIFO 排除
-                await this.em.query(
-                  `INSERT INTO inv_batches
-                     (batch_no, product_code, qty, qty_available, status, expire_date, store_code, warehouse_code, legacy_source, packaging_batch_ref, inbound_date)
-                   VALUES ($1, $2, $3::int, $4::int, $5, $6, 'FACTORY', 'WMS-VTE-MAIN', 'PACKAGING_INTERMEDIATE', $7, NULL)`,
-                  [batchNo, `PRD-EGG-${gradeCode}-PACK`, qty, qtyAvailable, batchStatus, expireDate, task[0].task_no || taskId],
-                );
-                await this.em.query(
-                  `INSERT INTO inv_ledger (batch_no, change_type, qty_change, operator, store_code, ref_no, note)
-                   VALUES ($1, $2, $3::int, $4, 'FACTORY', $5, $6)`,
-                  [
-                    batchNo,
-                    isQuarantine ? 'PACK_DONE_QUARANTINE' : 'PACK_DONE',
-                    qty, String(userId || 'SYS'),
-                    task[0].task_no || taskId,
-                    isQuarantine
-                      ? `包装隔离 等级${gradeCode}(不可售) ${qty}枚`
-                      : `包装入库 等级${gradeCode} ${qty}枚`,
-                  ],
-                );
-                packBatches.push({ batch_no: batchNo, qty, status: batchStatus });
-              } catch (e: any) {
-                console.warn('[packComplete][WARN] pack batch skipped:', gradeCode, e?.message);
-              }
-            }
-          }
-
-          // V2 fidelity: 包装完结 → 自动建 wms_inbound PENDING 任务，等待仓库上架收货
-          // 只对 AVAILABLE 批次建任务（QUARANTINE 不进 WMS 主流通）
-          const availableBatches = packBatches.filter(b => b.status === 'AVAILABLE');
-          if (availableBatches.length > 0) {
-            const wmsTaskNo = `WMS-IB-${task[0].task_no || taskId}-${randomBytes(2).toString('hex')}`;
-            const totalAvailQty = availableBatches.reduce((s, b) => s + b.qty, 0);
-            try {
-              await this.em.query(
-                `INSERT INTO wms_inbound (task_no, status, warehouse_code, type, item, qty, store_code, operator, created_at)
-                 VALUES ($1, 'PENDING', 'WMS-VTE-MAIN', 'PACKING', $2, $3::int, 'ALL', $4, now())`,
-                [wmsTaskNo, `PKG-${task[0].task_no}-完成入库`, totalAvailQty, String(userId || 'SYS')],
-              );
-            } catch (e: any) {
-              console.warn('[packComplete][WARN] wms_inbound 自建跳过:', e?.message);
-            }
-          }
-        }
-      } catch (e: any) {
-        // 不再静默吞错 — 上次审计就是这种 catch {} 把列错误 bug 埋了 N 个月
-        console.error('[packComplete][ERR] inv_batches write failed:', e?.message);
-      }
-
-      // 生产链路收口 Phase 1：包装完成 = 唯一库存入口
-      //   调用 PackagingInventoryIntegrationService 生成 Sales V2 统一可售批次
-      //   （EGG-YYYYMMDD-*，PACKAGING_INBOUND，进 FIFO；幂等，重复点击不重复入库）
-      let saleableResult: any = null;
-      try {
-        const taskNoForInv =
-          (await this.em.query(
-            `SELECT task_no FROM pkg_tasks WHERE task_no = $1 OR id::text = $1 LIMIT 1`,
-            [taskId],
-          ))?.[0]?.task_no || taskId;
-        saleableResult = await this.pkgInv.completePackagingBatch(taskNoForInv, {});
-      } catch (e: any) {
-        console.error('[packComplete][ERR] 可售批次生成失败:', e?.message);
-        saleableResult = { error: e?.message ?? '可售批次生成失败' };
-      }
-
+        return { packBatches, saleableInventory: saleableResult };
+      });
       return {
         code: 200,
         msg: '包装结单成功',
-        data: { pack_batches: packBatches, saleable_inventory: saleableResult },
+        data: { pack_batches: result.packBatches, saleable_inventory: result.saleableInventory },
       };
     } catch (e: any) {
       return { code: 500, msg: e?.message || '结单失败' };

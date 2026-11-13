@@ -45,8 +45,8 @@ export class PriceItemsService {
    * Phase H3: 根据 sku_code 查询 product_skus，返回推导出的 productCode/gradeCodeStd/specCode
    * 仅在 dto.skuCode 存在时调用
    */
-  private async resolveSkuInfo(manager: EntityManager, skuCode: unknown) {
-    const sku = await SkuPolicy.requireUsable(manager, skuCode, 'sale');
+  private async resolveSkuInfo(manager: EntityManager, skuCode: unknown, companyCode: string) {
+    const sku = await SkuPolicy.requireUsable(manager, skuCode, 'sale', companyCode);
     return { productCode: sku.product_code, gradeCodeStd: sku.grade_code, specCode: sku.spec_code };
   }
 
@@ -57,7 +57,18 @@ export class PriceItemsService {
     const offset = (page - 1) * limit;
 
     const params: any[] = [];
-    const where: string[] = ['pi.status != \'DELETED\''];
+    const where: string[] = [`pi.status != 'DELETED'`, `(pi.sku_code IS NULL OR EXISTS (
+      SELECT 1 FROM product_skus ps
+       WHERE ps.sku_code = pi.sku_code
+         AND ${SkuPolicy.usableSql('ps', 'sale')}
+         AND ((ps.variety_code IS NULL AND COALESCE(ps.org_context_required, FALSE) = FALSE) OR EXISTS (
+           SELECT 1 FROM md_sku_org_scope os
+            WHERE os.sku_code = ps.sku_code AND os.scope_type='COMPANY'
+              AND os.scope_code = pb.company_code AND os.status='ACTIVE' AND os.sale_enabled=TRUE
+              AND (os.effective_date IS NULL OR os.effective_date <= CURRENT_DATE)
+              AND (os.expire_date IS NULL OR os.expire_date >= CURRENT_DATE)
+         )))
+    ))`] ;
 
     if (q.priceBookId)  { params.push(q.priceBookId);  where.push(`pi.price_book_id = $${params.length}`); }
     if (q.productCode)  { params.push(q.productCode);  where.push(`pi.product_code = $${params.length}`); }
@@ -121,7 +132,7 @@ export class PriceItemsService {
       let specCode     = dto.specCode     ?? null;
 
       if (dto.skuCode !== undefined) {
-        const skuInfo = await this.resolveSkuInfo(manager, dto.skuCode);
+        const skuInfo = await this.resolveSkuInfo(manager, dto.skuCode, book.company_code);
         productCode  = skuInfo.productCode;
         gradeCodeStd = skuInfo.gradeCodeStd;
         specCode     = skuInfo.specCode;
@@ -180,7 +191,7 @@ export class PriceItemsService {
     add('max_qty',       dto.maxQty);
     add('currency_code', dto.currencyCode);
     if (dto.quantityBasis !== undefined) {
-        if (item.sku_code) await SkuPolicy.requireUsable(manager, item.sku_code, 'sale');
+        if (item.sku_code) await SkuPolicy.requireUsable(manager, item.sku_code, 'sale', item.company_code);
         add('quantity_snapshot', await resolveQuantity(manager, { qty: 1, skuCode: item.sku_code, quantityBasis: dto.quantityBasis }));
     }
 
@@ -231,7 +242,7 @@ export class PriceItemsService {
         let specCode     = item.specCode     ?? null;
 
         if (item.skuCode !== undefined) {
-          const skuInfo = await this.resolveSkuInfo(manager, item.skuCode);
+          const skuInfo = await this.resolveSkuInfo(manager, item.skuCode, book.company_code);
           productCode = skuInfo.productCode;
           gradeCodeStd = skuInfo.gradeCodeStd;
           specCode = skuInfo.specCode;
@@ -275,7 +286,7 @@ export class PriceItemsService {
       const items = await manager.query(`SELECT * FROM sal_price_items WHERE price_book_id=$1 AND status='ACTIVE' ORDER BY id FOR SHARE`, [sourceBookId]);
       for (const item of items) {
         if (item.sku_code != null) {
-          const sku = await SkuPolicy.requireUsable(manager, item.sku_code, 'sale');
+          const sku = await SkuPolicy.requireUsable(manager, item.sku_code, 'sale', targetBook.company_code);
           item.product_code = sku.product_code; item.grade_code_std = sku.grade_code; item.spec_code = sku.spec_code;
         }
         await manager.query(`INSERT INTO sal_price_items

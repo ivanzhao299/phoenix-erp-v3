@@ -2817,7 +2817,8 @@ export class PackagingTerminalBffController {
         sort_order: number; is_saleable: boolean; is_storable: boolean; weight_range: string | null;
       }> = await this.safe(
         this.em.query(
-          // G69：只取可售（1~5号），缺陷走 PKG_EGG_DEFECT
+          // Read all ACTIVE saleable grade masters, including GRADE_0.
+          // A NULL weight_range is authoritative “待核实”, never an empty guess.
           `SELECT grade_code, grade_name, grade_name_lo, sort_order, is_saleable, is_storable, weight_range
              FROM product_grades WHERE status='ACTIVE' AND is_saleable=true ORDER BY sort_order, grade_code`,
         ),
@@ -2832,7 +2833,7 @@ export class PackagingTerminalBffController {
         isTerminalGrade: true,
         saleable:        r.is_saleable,
         storable:        r.is_storable,
-        weightRange:     r.weight_range || '',   // G67 透传重量段
+        weightRange:     r.weight_range ?? null,
         icon:            '🥚',
       }));
       requested = requested.filter(t => t !== 'PKG_EGG_GRADE');

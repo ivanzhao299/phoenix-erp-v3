@@ -10,7 +10,7 @@
 
 | 决策 | 内容 | 落地 |
 |---|---|---|
-| 9 | GRADE_0 特大档恢复为集团标准等级 | 种子脚本 1)：`GRADE_0 0号特大蛋 ≥66g sort_order=5`（G67 GRADE_1..5 之后、缺陷档之前） |
+| 9 | GRADE_0 特大档恢复为集团标准等级 | 来源启用 manifest 明确三模式矩阵：孟赛 STANDARD NULL、星驰 EGG_RED/EGG_PINK；21 个 GRADE_0 SKU（每模式 7 规格），`weight_range=NULL`，不设推测重量边界 |
 | 10 | 只建「红壳蛋/粉壳蛋」两个变体，品种多对一映射 | 种子脚本 2)3)：`md_product_varieties` EGG_RED/EGG_PINK + `md_variety_breeds` 褐壳系→红、白/粉壳系→粉、本地土鸡→红 |
 | 11 | 先做阶段 0+2+3，销售/POS/采购放二期 | 本次交付不含销售/POS/采购改造；`md_sku_aliases` 表结构先建（阶段 4 POS 条码用） |
 
@@ -35,11 +35,11 @@
 
 `scripts/seed-sku-variety-org-scope.mjs`（支持 `--dry-run`）
 
-1. GRADE_0 等级（≥66g，可售可存）
+1. GRADE_0 等级（可售可存，`weight_range=NULL`，重量待核实）
 2. 变体 EGG_RED 红壳蛋 / EGG_PINK 粉壳蛋
 3. 品种映射：HY_LINE_BROWN/LOHMANN_BROWN/ISA_BROWN/LOCAL→EGG_RED；HY_LINE_WHITE/LOHMANN_WHITE/DEKALB_WHITE→EGG_PINK
 4. 变体产品 12 个：PRD-EGG-RED-0..5 / PRD-EGG-PINK-0..5
-5. 变体 SKU 84 个：SKU-R-{0..5}-{7规格} / SKU-P-{0..5}-{7规格}；另有 PRD-EGG-0 无变体产品线补档 5 个（SKU-0-LOOSE…BOX720，与 G68 命名一致）
+5. 变体 SKU 84 个：SKU-R-{0..5}-{7规格} / SKU-P-{0..5}-{7规格}；来源启用另生成 GRADE_0 三模式矩阵 21 个（普通/红/粉各 7 规格），显示标签为`0号特大蛋·普通`/`0号特大蛋·红`/`0号特大蛋·粉`，不把 NULL 重量折算成数值
 6. scope 兜底：全部新 SKU 插 `scope_type='ALL'` 行（集团共享初始态，后续由公司管理员收窄）
 7. `brd_flocks.breed_code` 回填：strain 中文名→BRD_BREED 码（不动已回填行）
 

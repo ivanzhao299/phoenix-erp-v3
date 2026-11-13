@@ -1,22 +1,22 @@
-import { ProductPolicy } from '../product-master/services/product-policy';
 import { PackagingService } from './packaging.service';
 
-it('requires the fixed product inside shift completion transaction before any shift/inventory mutation', async () => {
+it('completes shift records without manufacturing raw-egg product or inventory', async () => {
   const query = jest.fn(async (sql: string) => {
     if (sql.includes('FROM pkg_shifts')) return [{ id: 1, shift_date: '2026-11-10', house_code: 'H1', shift_time: '早班', status: 'PENDING' }];
     if (sql.includes('FROM brd_houses')) return [{ house_code: 'H1', farm_code: 'F1', company_code: 'LEGACY-COMPANY' }];
     if (sql.includes('FROM md_egg_source_profiles')) return []; // Company is known, but has never configured profiles.
     return [];
   });
-  const manager = { query: jest.fn() };
+  const manager = { query: jest.fn(async () => []) };
   const db = { query, transaction: jest.fn(async (run: any) => run(manager)) };
-  const ensure = jest.spyOn(ProductPolicy, 'ensureRawEggProduct').mockRejectedValue(new Error('fixed product invalid'));
-  const log = jest.spyOn(console, 'error').mockImplementation(() => {});
-  try {
-    const svc = new PackagingService(db as any, {} as any);
-    await expect(svc.completeShift(1, { total_qty: 30 }, 7)).resolves.toMatchObject({ code: 500, msg: 'fixed product invalid' });
-    expect(ensure).toHaveBeenCalledWith(manager, '7');
-    expect(manager.query).not.toHaveBeenCalled();
-    expect(query.mock.calls.every(([sql]) => !sql.includes('INSERT INTO mst_products'))).toBe(true);
-  } finally { ensure.mockRestore(); log.mockRestore(); }
+  const svc = new PackagingService(db as any, {} as any);
+  const result = await svc.completeShift(1, { total_qty: 30 }, 7);
+  expect(result).toMatchObject({ code: 200 });
+  const executed = [...query.mock.calls, ...manager.query.mock.calls].map(([sql]) => String(sql));
+  expect(executed.some(sql => sql.includes('INSERT INTO mst_products'))).toBe(false);
+  expect(executed.some(sql => sql.includes('INSERT INTO inv_batches'))).toBe(false);
+  expect(executed.some(sql => sql.includes('INSERT INTO inv_ledger'))).toBe(false);
+  expect(executed.some(sql => sql.includes('PRD-EGG-RAW'))).toBe(false);
+  expect(executed.some(sql => sql.includes('INSERT INTO pkg_tasks'))).toBe(true);
+  expect(executed.some(sql => sql.includes('INSERT INTO brd_daily_logs') || sql.includes('UPDATE brd_daily_logs'))).toBe(true);
 });

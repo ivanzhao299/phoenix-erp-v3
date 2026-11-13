@@ -18,6 +18,11 @@ export const LEGACY_SELECTION_POLICY = {
   status: 'ACTIVE', parent_status: 'ACTIVE', base_unit: '枚', category_code_when_present: 'EGG',
   expected_count: 35, preserve_existing_identity: true,
 };
+export const GRADE0_MATRIX = [
+  { company_code: 'COMP-LAO-AGRI', mode: 'STANDARD', variety_code: null, product_code: 'PRD-EGG-0', display_label: '0号特大蛋·普通', weight_range: null, spec_count: SPECS.length },
+  { company_code: 'COMP-LAO-XINGCHI', mode: 'VARIANT', variety_code: 'EGG_RED', product_code: 'PRD-EGG-RED', display_label: '0号特大蛋·红', weight_range: null, spec_count: SPECS.length },
+  { company_code: 'COMP-LAO-XINGCHI', mode: 'VARIANT', variety_code: 'EGG_PINK', product_code: 'PRD-EGG-PINK', display_label: '0号特大蛋·粉', weight_range: null, spec_count: SPECS.length },
+];
 export const APPROVED_PARENT_RESTORATIONS = [
   ['PRD-EGG-1','1号普通鸡蛋'], ['PRD-EGG-2','2号普通鸡蛋'], ['PRD-EGG-3','3号普通鸡蛋'],
   ['PRD-EGG-4','4号普通鸡蛋'], ['PRD-EGG-5','5号普通鸡蛋'],
@@ -53,7 +58,8 @@ export function validateManifest(manifest, effectiveDate) {
     { scope_type: 'COMPANY', sale_enabled: false, legacy_standard_sale_enabled: true, stock_enabled: true, status: 'ACTIVE' })) fail('MANIFEST_SCOPE_OR_SPECS');
   if (!same(manifest.legacy_standard_selection, LEGACY_SELECTION_POLICY) || Object.hasOwn(manifest, 'standard_products')
     || !same(manifest.variant_products, ['PRD-EGG-RED','PRD-EGG-PINK'])
-    || !same(manifest.approved_parent_restorations, APPROVED_PARENT_RESTORATIONS)) fail('MANIFEST_CATALOG_POLICY');
+    || !same(manifest.grade0_matrix, GRADE0_MATRIX)
+     || !same(manifest.approved_parent_restorations, APPROVED_PARENT_RESTORATIONS)) fail('MANIFEST_CATALOG_POLICY');
   if (!Array.isArray(manifest.companies) || manifest.companies.length !== SOURCE_ROWS.length) fail('MANIFEST_SOURCE_COUNT');
   for (const [index, source] of SOURCE_ROWS.entries()) {
     const [company, farm, site, mode, variety, houses] = source;
@@ -76,17 +82,18 @@ function buildIntent(manifest, effectiveDate) {
     { product_code: 'PRD-EGG-RED', variety_code: 'EGG_RED', product_name: '红壳蛋', unit_zh: '枚', status: 'ACTIVE' },
     { product_code: 'PRD-EGG-PINK', variety_code: 'EGG_PINK', product_name: '粉壳蛋', unit_zh: '枚', status: 'ACTIVE' },
   ];
+  const grade0Labels = new Map(GRADE0_MATRIX.map(row => [row.product_code, row.display_label]));
   const skus = products.flatMap(product => (product.variety_code === null ? ['GRADE_0'] : GRADES)
     .flatMap(grade => SPECS.map(spec => ({
       sku_code: `SKU-${product.variety_code ? `${product.variety_code === 'EGG_RED' ? 'R' : 'P'}-` : ''}${grade.slice(6)}-${spec}`,
       product_code: product.product_code, grade_code: grade, spec_code: spec, variety_code: product.variety_code,
-      sku_name: `${product.product_name} ${grade} ${spec}`, status: 'ACTIVE', org_context_required: true,
+      sku_name: `${grade === 'GRADE_0' ? grade0Labels.get(product.product_code) : product.product_name} ${spec}`, status: 'ACTIVE', org_context_required: true,
     })))).sort((a, b) => a.sku_code.localeCompare(b.sku_code));
   const scopes = skus.map(sku => ({ sku_code: sku.sku_code, scope_type: 'COMPANY',
     scope_code: sku.variety_code === null ? COMPANIES[0] : COMPANIES[1], sale_enabled: !sku.org_context_required,
     stock_enabled: true, status: 'ACTIVE', effective_date: effectiveDate, expire_date: null,
   }));
-  const desired = { effective_date: effectiveDate, profiles, products, skus, scopes,
+  const desired = { effective_date: effectiveDate, profiles, products, skus, scopes, grade0Matrix: GRADE0_MATRIX,
     varieties: [
       { variety_code: 'EGG_RED', variety_name: '红壳蛋', shell_color: 'RED', status: 'ACTIVE' },
       { variety_code: 'EGG_PINK', variety_name: '粉壳蛋', shell_color: 'PINK', status: 'ACTIVE' },

@@ -39,7 +39,13 @@ describe('inventory inbound-date write-path contract', () => {
   });
 
   it('records unknown legacy and packaging dates as NULL without created-at fallback', () => {
-    expect(packaging).toContain("warehouse_code, inbound_date)\n               VALUES ($1, $2, $3::int, $4::int, $5, $6, 'FACTORY', 'WMS-VTE-MAIN', NULL)");
+    // The retired terminal grading/pack completion no longer writes inventory:
+    // raw-egg collection keeps only shift/daily-log/task records, while fresh
+    // batches come from source-aware integration with authoritative dates.
+    expect(packaging).not.toContain("INSERT INTO inv_batches");
+    expect(packaging).not.toContain("INSERT INTO inv_ledger");
+    expect(packaging).not.toContain("'PRD-EGG-RAW'");
+    expect(packaging).toContain('completePackagingBatch');
     expect(legacyProcurement).toContain('location_code, inbound_date)');
     expect(legacyProcurement).toContain('VALUES ($1, $2, $3, $4, $5, NULL)');
     expect([wms, receipt, egg, packaging, storePos, medicine, legacyProcurement].join('\n'))

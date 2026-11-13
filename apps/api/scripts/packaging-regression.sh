@@ -143,13 +143,11 @@ BATCH_NO=$(printf '%s' "$COMPLETE_RES" | grep -oE '"batch_no":"[^"]*"' | head -1
 SHIFT_STATUS=$($PSQL $DB -tA -c "SELECT status FROM pkg_shifts WHERE id=$SHIFT_ID;")
 assert_eq "T1.4 pkg_shifts.status=DONE" "DONE" "$SHIFT_STATUS"
 
-# inv_batches 有原料批次
-INV_BATCH=$($PSQL $DB -tA -c "SELECT qty::integer FROM inv_batches WHERE batch_no='$BATCH_NO';")
-assert_eq "T1.5 inv_batches 鲜蛋批次 qty=2950" "2950" "$INV_BATCH"
-
-# inv_ledger FARM_IN
-LEDGER_IN=$($PSQL $DB -tA -c "SELECT qty_change::integer FROM inv_ledger WHERE batch_no='$BATCH_NO' AND change_type='EGG_IN' LIMIT 1;")
-assert_eq "T1.6 inv_ledger EGG_IN +2950" "2950" "$LEDGER_IN"
+# 集蛋完成只记录班次/日报/分级任务；库存必须由 source-aware 生产入库生成。
+RAW_INV_CNT=$($PSQL $DB -tA -c "SELECT COUNT(*) FROM inv_batches WHERE batch_no='$BATCH_NO';")
+assert_eq "T1.5 集蛋完成不直写 inv_batches" "0" "$RAW_INV_CNT"
+RAW_LEDGER_CNT=$($PSQL $DB -tA -c "SELECT COUNT(*) FROM inv_ledger WHERE batch_no='$BATCH_NO';")
+assert_eq "T1.6 集蛋完成不直写 inv_ledger" "0" "$RAW_LEDGER_CNT"
 
 # pkg_tasks 自动建分级任务
 GRADING_TASK=$($PSQL $DB -tA -c "SELECT task_no FROM pkg_tasks WHERE shift_id=$SHIFT_ID AND task_type='GRADING';")
@@ -211,43 +209,39 @@ assert_gt "T3.3 breakage_qty >= presortBroken (50)" "49" "$BREAKAGE"
 assert_eq "T3.4 discrepancy_qty = plan - packed - presort = 50" "50" "$DISCR"
 assert_eq "T3.5 status → DONE" "DONE" "$ST"
 
-# grade_batches 多等级拆分 → 每个非零等级应有 inv_batches BAT-... 行
+# 新契约：submitGrade 只计算并保存任务结果；不得直接创建库存批次或流水。
 BAT_CNT=$($PSQL $DB -tA -c "SELECT COUNT(*) FROM inv_batches WHERE batch_no LIKE 'BAT-${DATEKEY}-${HOUSE}-G%';")
-assert_eq "T3.6 多等级拆分 inv_batches=4 行 (B4)" "4" "$BAT_CNT"
+assert_eq "T3.6 submitGrade 不直接写 inv_batches" "0" "$BAT_CNT"
+GRADE_LEDGER_CNT=$($PSQL $DB -tA -c "SELECT COUNT(*) FROM inv_ledger WHERE ref_no='$GRADING_TASK' OR batch_no LIKE 'BAT-${DATEKEY}-${HOUSE}-G%';")
+assert_eq "T3.7 submitGrade 不直接写库存流水" "0" "$GRADE_LEDGER_CNT"
 
 # ──────────────────────────────────────────────────────────────────────────
 cyan ""
-cyan "▶ T4: packComplete → inv_batches 用真实 schema (A1)"
-# 建一个 PACKING 任务（直接 INSERT 模拟 — V3 submitGrade 已不自动建）
+cyan "▶ T4: packComplete 旧任务拒绝且零部分写入"
+# 旧 pkg_shifts 任务没有 source/profile/SKU 上下文；新契约必须拒绝，不能旁路写库存。
 PACK_TASK="PACK-REGR-${DATEKEY}-$(date +%s | tail -c 5)"
 $PSQL $DB -q -c "
   INSERT INTO pkg_tasks (task_no, batch_no, source_item, plan_qty, packed_qty, status, task_type, house_code, shift_id, grade_results, start_time, created_at, updated_at)
   VALUES ('$PACK_TASK', 'BAT-REGR-PACK', '回归测试', 1000, 0, 'IN_PROGRESS', 'PACKING', '$HOUSE', $PACK_SHIFT_ID, '{\"1\":600,\"2\":400}', NOW(), NOW(), NOW());
 " >/dev/null
-
+PACK_INV_BEFORE=$($PSQL $DB -tA -c "SELECT COUNT(*) FROM inv_batches WHERE batch_no LIKE 'PACK-${DATEKEY}-${HOUSE}-%';")
+PACK_LEDGER_BEFORE=$($PSQL $DB -tA -c "SELECT COUNT(*) FROM inv_ledger WHERE ref_no='$PACK_TASK';")
 P_RES=$(curl -s -X POST "$API/api/packaging/tasks/$PACK_TASK/pack-complete" -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   -d '{"packed_qty":1000,"output_qty":1000,"pack_spec":"30 枚装"}')
 P_CODE=$(printf '%s' "$P_RES" | grep -oE '"code":[0-9]+' | head -1 | cut -d: -f2)
-assert_eq "T4.1 packComplete 业务码 200" "200" "$P_CODE"
-
-# 新建的 inv_batches PACK-* 行 — A1 修后应有真实数据
-PACK_INV=$($PSQL $DB -tA -c "SELECT COUNT(*) FROM inv_batches WHERE batch_no LIKE 'PACK-${DATEKEY}-${HOUSE}-%';")
-assert_gt "T4.2 packComplete 写入 inv_batches PACK-* 行 (A1)" "0" "$PACK_INV"
-
-# 多等级拆分（{1:600, 2:400}）应有 2 条 PACK-* 行 (B4)
-PACK_BAT_CNT=$($PSQL $DB -tA -c "SELECT COUNT(*) FROM inv_batches WHERE batch_no LIKE 'PACK-${DATEKEY}-${HOUSE}-G%';")
-assert_eq "T4.3 多等级 packComplete 拆 2 行 (B4)" "2" "$PACK_BAT_CNT"
-
-# inv_ledger 配套 PACK_DONE
-PACK_LEDGER=$($PSQL $DB -tA -c "SELECT COUNT(*) FROM inv_ledger WHERE ref_no='$PACK_TASK' AND change_type='PACK_DONE';")
-assert_eq "T4.4 inv_ledger PACK_DONE 2 行" "2" "$PACK_LEDGER"
+assert_eq "T4.1 packComplete 旧任务明确拒绝" "500" "$P_CODE"
+PACK_STATUS=$($PSQL $DB -tA -c "SELECT status FROM pkg_tasks WHERE task_no='$PACK_TASK';")
+assert_eq "T4.2 拒绝后任务仍未完成" "IN_PROGRESS" "$PACK_STATUS"
+PACK_INV_AFTER=$($PSQL $DB -tA -c "SELECT COUNT(*) FROM inv_batches WHERE batch_no LIKE 'PACK-${DATEKEY}-${HOUSE}-%';")
+assert_eq "T4.3 拒绝后无 PACK inv_batches 部分写入" "$PACK_INV_BEFORE" "$PACK_INV_AFTER"
+PACK_LEDGER_AFTER=$($PSQL $DB -tA -c "SELECT COUNT(*) FROM inv_ledger WHERE ref_no='$PACK_TASK';")
+assert_eq "T4.4 拒绝后无 PACK ledger 部分写入" "$PACK_LEDGER_BEFORE" "$PACK_LEDGER_AFTER"
 
 # ──────────────────────────────────────────────────────────────────────────
 cyan ""
 cyan "▶ T5: reopenShift 副作用清理 (commit d584979)"
 # 看现在的活跃 GRADING 任务（应有 1 条 from T1）
 ACTIVE_BEFORE=$($PSQL $DB -tA -c "SELECT COUNT(*) FROM pkg_tasks WHERE shift_id=$SHIFT_ID AND status<>'CANCELLED' AND task_type='GRADING';")
-INV_BEFORE=$($PSQL $DB -tA -c "SELECT qty::integer FROM inv_batches WHERE batch_no='$BATCH_NO';")
 
 # reopen
 RE_RES=$(curl -s -X POST "$API/api/packaging/shifts/$SHIFT_ID/reopen" -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d '{"reason":"regression test"}')
@@ -258,13 +252,11 @@ assert_eq "T5.1 reopen 业务码 200" "200" "$R_CODE"
 ACTIVE_AFTER=$($PSQL $DB -tA -c "SELECT COUNT(*) FROM pkg_tasks WHERE shift_id=$SHIFT_ID AND status<>'CANCELLED' AND task_type='GRADING';")
 assert_eq "T5.2 reopen 后无活跃 GRADING 任务" "0" "$ACTIVE_AFTER"
 
-# inv_batches.qty=0
-INV_AFTER=$($PSQL $DB -tA -c "SELECT qty::integer FROM inv_batches WHERE batch_no='$BATCH_NO';")
-assert_eq "T5.3 reopen 后 inv_batches.qty=0" "0" "$INV_AFTER"
-
-# 反向 EGG_REVERSED ledger
-REV=$($PSQL $DB -tA -c "SELECT qty_change::integer FROM inv_ledger WHERE batch_no='$BATCH_NO' AND change_type='EGG_REVERSED' LIMIT 1;")
-assert_eq "T5.4 EGG_REVERSED 反向 ledger -2950" "-2950" "$REV"
+# 集蛋完成本就不写库存：reopen 后仍无批次/流水，不允许补偿性写入
+REOPEN_INV_CNT=$($PSQL $DB -tA -c "SELECT COUNT(*) FROM inv_batches WHERE batch_no='$BATCH_NO';")
+assert_eq "T5.3 reopen 后仍无 inv_batches" "0" "$REOPEN_INV_CNT"
+REOPEN_REV_CNT=$($PSQL $DB -tA -c "SELECT COUNT(*) FROM inv_ledger WHERE batch_no='$BATCH_NO';")
+assert_eq "T5.4 reopen 后仍无 inv_ledger" "0" "$REOPEN_REV_CNT"
 
 # shift 回 PENDING
 SHIFT_STATUS2=$($PSQL $DB -tA -c "SELECT status FROM pkg_shifts WHERE id=$SHIFT_ID;")
@@ -299,22 +291,16 @@ assert_eq "T7.2 末项日期 = today" "$TODAY" "$LAST_DATE"
 
 # ──────────────────────────────────────────────────────────────────────────
 cyan ""
-cyan "▶ T8: daily-report by_grade jsonb 聚合 (A2)"
-# 这里用 PACK_TASK 之前的 grade_results={"1":600, "2":400} 触发
-# packComplete 写入 pkg_tasks.completed_at — 应被聚合到 byGrade
+cyan "▶ T8: daily-report 不聚合被拒绝的旧 PACKING 任务 (A2)"
+# PACK_TASK 的 packComplete 被 source-aware 门禁拒绝，completed_at 必须保持为空，
+# 因而日报不能把其 grade_results 当成已完成包装产出。
 SINGLE_RES=$(curl -sf "$API/api/packaging/daily-report?date=$TODAY" -H "Authorization: Bearer $TOKEN")
-# 应至少有 1/2 两个等级 group
-BY_GRADE_KEYS=$(printf '%s' "$SINGLE_RES" | python3 -c "
+PACK_REPORT_TASKS=$(printf '%s' "$SINGLE_RES" | python3 -c "
 import sys, json
 d = json.load(sys.stdin)
-keys = sorted([r['grade'] for r in d.get('data',{}).get('by_grade',[])])
-print(','.join(keys))
+print(int(d.get('data',{}).get('summary',{}).get('total_tasks',0) or 0))
 ")
-# 包含 1 和 2 即可（其他等级是当日历史数据）
-case "$BY_GRADE_KEYS" in
-  *1*) green "  ✓ T8.1 by_grade 含 grade=1 ($BY_GRADE_KEYS)"; PASS=$((PASS+1)) ;;
-  *)   red "  ✗ T8.1 by_grade 缺 grade=1"; FAIL=$((FAIL+1)); FAILURES+=("T8.1 by_grade=$BY_GRADE_KEYS") ;;
-esac
+assert_eq "T8.1 日报不计入被拒绝 PACKING 任务" "0" "$PACK_REPORT_TASKS"
 
 # ──────────────────────────────────────────────────────────────────────────
 cyan ""
@@ -356,7 +342,7 @@ assert_eq "T10.3 REM_AAA 不被误合 (PENDING)" "PENDING" "$AAA_STATUS"
 # 食品安全：不可售等级 (saleable=false) 必须 QUARANTINE 隔离
 # ══════════════════════════════════════════════════════════════════════════
 cyan ""
-cyan "▶ Phase V2-PKG V2 fidelity — packComplete QUARANTINE + wms_inbound"
+cyan "▶ Phase V2-PKG V2 fidelity — legacy refusal preserves QUARANTINE boundary"
 
 # Seed: 加一个 saleable=false 的"X 号蛋" (破损/不合格)
 # Fix Pack 1 (HIGH-4) 后 packComplete 读 product_grades（权威数据源），必须两表同步 seed
@@ -375,43 +361,28 @@ $PSQL $DB -q -c "
   INSERT INTO pkg_tasks (task_no, batch_no, source_item, plan_qty, packed_qty, status, task_type, house_code, shift_id, grade_results, start_time, created_at, updated_at)
   VALUES ('$PACK_V2_TASK', 'BAT-REGR-V2-PACK', '回归V2测试', 800, 0, 'IN_PROGRESS', 'PACKING', '$HOUSE', $PACK_SHIFT_ID, '{\"1\":600,\"X\":200}', NOW(), NOW(), NOW());
 " >/dev/null
+V2_INV_BEFORE=$($PSQL $DB -tA -c "SELECT COUNT(*) FROM inv_batches WHERE batch_no LIKE 'PACK-${DATEKEY}-${HOUSE}-%';")
+V2_LEDGER_BEFORE=$($PSQL $DB -tA -c "SELECT COUNT(*) FROM inv_ledger WHERE ref_no='$PACK_V2_TASK';")
+V2_IB_BEFORE=$($PSQL $DB -tA -c "SELECT COUNT(*) FROM wms_inbound WHERE task_no LIKE 'WMS-IB-$PACK_V2_TASK-%';")
 
 P_V2_RES=$(curl -s -X POST "$API/api/packaging/tasks/$PACK_V2_TASK/pack-complete" -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   -d '{"packed_qty":800,"output_qty":800,"pack_spec":"30 枚装"}')
 P_V2_CODE=$(printf '%s' "$P_V2_RES" | grep -oE '"code":[0-9]+' | head -1 | cut -d: -f2)
-assert_eq "T11-V2.1 packComplete V2 业务码 200" "200" "$P_V2_CODE"
+assert_eq "T11-V2.1 legacy packComplete 拒绝" "500" "$P_V2_CODE"
+V2_STATUS=$($PSQL $DB -tA -c "SELECT status FROM pkg_tasks WHERE task_no='$PACK_V2_TASK';")
+assert_eq "T11-V2.2 拒绝后任务仍 IN_PROGRESS" "IN_PROGRESS" "$V2_STATUS"
 
-# X 号蛋应入 QUARANTINE batch (qty=200, qty_available=0, status=QUARANTINE)
+# Legacy refusal must leave both saleable and QUARANTINE inventory untouched.
 X_BATCH_CNT=$($PSQL $DB -tA -c "SELECT COUNT(*) FROM inv_batches WHERE batch_no LIKE 'PACK-${DATEKEY}-${HOUSE}-GX-%';")
-assert_eq "T11-V2.2 X 等级生成 1 个 batch" "1" "$X_BATCH_CNT"
-X_STATUS=$($PSQL $DB -tA -c "SELECT status FROM inv_batches WHERE batch_no LIKE 'PACK-${DATEKEY}-${HOUSE}-GX-%' LIMIT 1;")
-assert_eq "T11-V2.3 X batch.status=QUARANTINE" "QUARANTINE" "$X_STATUS"
-X_AVAIL=$($PSQL $DB -tA -c "SELECT qty_available::integer FROM inv_batches WHERE batch_no LIKE 'PACK-${DATEKEY}-${HOUSE}-GX-%' LIMIT 1;")
-assert_eq "T11-V2.4 X batch.qty_available=0" "0" "$X_AVAIL"
-X_QTY=$($PSQL $DB -tA -c "SELECT qty::integer FROM inv_batches WHERE batch_no LIKE 'PACK-${DATEKEY}-${HOUSE}-GX-%' LIMIT 1;")
-assert_eq "T11-V2.5 X batch.qty=200" "200" "$X_QTY"
+assert_eq "T11-V2.3 无 QUARANTINE batch 部分写入" "0" "$X_BATCH_CNT"
+PACK_INV_AFTER=$($PSQL $DB -tA -c "SELECT COUNT(*) FROM inv_batches WHERE batch_no LIKE 'PACK-${DATEKEY}-${HOUSE}-%';")
+assert_eq "T11-V2.4 无 AVAILABLE batch 部分写入" "$V2_INV_BEFORE" "$PACK_INV_AFTER"
 
-# 1 号蛋应入 AVAILABLE batch
-ONE_STATUS=$($PSQL $DB -tA -c "SELECT status FROM inv_batches WHERE batch_no LIKE 'PACK-${DATEKEY}-${HOUSE}-G1-%' AND batch_no NOT LIKE '%-G1%-${HOUSE}%' LIMIT 1;")
-# 兼容多次 PACK-..-G1 行 (T4 也写了 G1)，按 task 关联挑出本次的
-ONE_STATUS=$($PSQL $DB -tA -c "SELECT b.status FROM inv_batches b JOIN inv_ledger l ON l.batch_no=b.batch_no WHERE l.ref_no='$PACK_V2_TASK' AND b.batch_no LIKE 'PACK-${DATEKEY}-${HOUSE}-G1-%' LIMIT 1;")
-assert_eq "T11-V2.6 1 batch.status=AVAILABLE" "AVAILABLE" "$ONE_STATUS"
-
-# wms_inbound 应自动建一个 PENDING 任务，qty=600 (仅 AVAILABLE 部分)
-WMS_IB_CNT=$($PSQL $DB -tA -c "SELECT COUNT(*) FROM wms_inbound WHERE task_no LIKE 'WMS-IB-$PACK_V2_TASK-%';")
-assert_eq "T11-V2.7 wms_inbound 自动建 1 单" "1" "$WMS_IB_CNT"
-WMS_IB_QTY=$($PSQL $DB -tA -c "SELECT qty::int FROM wms_inbound WHERE task_no LIKE 'WMS-IB-$PACK_V2_TASK-%' LIMIT 1;")
-assert_eq "T11-V2.8 wms_inbound.qty=600 (仅 AVAILABLE 部分)" "600" "$WMS_IB_QTY"
-WMS_IB_STATUS=$($PSQL $DB -tA -c "SELECT status FROM wms_inbound WHERE task_no LIKE 'WMS-IB-$PACK_V2_TASK-%' LIMIT 1;")
-assert_eq "T11-V2.9 wms_inbound.status=PENDING" "PENDING" "$WMS_IB_STATUS"
-
-# QUARANTINE 不应进 wms_inbound 流通
-WMS_IB_HAS_BROKEN=$($PSQL $DB -tA -c "SELECT COUNT(*) FROM wms_inbound WHERE task_no LIKE 'WMS-IB-$PACK_V2_TASK-%' AND qty::int >= 800;")
-assert_eq "T11-V2.10 wms_inbound 不含 QUARANTINE 数量" "0" "$WMS_IB_HAS_BROKEN"
-
-# inv_ledger 应有 PACK_DONE_QUARANTINE 流水
-LEDGER_Q=$($PSQL $DB -tA -c "SELECT COUNT(*) FROM inv_ledger WHERE ref_no='$PACK_V2_TASK' AND change_type='PACK_DONE_QUARANTINE';")
-assert_eq "T11-V2.11 inv_ledger PACK_DONE_QUARANTINE 1 行" "1" "$LEDGER_Q"
+# The legacy task is refused before any source-aware SKU/inventory work.
+WMS_IB_AFTER=$($PSQL $DB -tA -c "SELECT COUNT(*) FROM wms_inbound WHERE task_no LIKE 'WMS-IB-$PACK_V2_TASK-%';")
+assert_eq "T11-V2.6 无 wms_inbound 部分写入" "$V2_IB_BEFORE" "$WMS_IB_AFTER"
+LEDGER_AFTER=$($PSQL $DB -tA -c "SELECT COUNT(*) FROM inv_ledger WHERE ref_no='$PACK_V2_TASK';")
+assert_eq "T11-V2.7 无 ledger 部分写入" "$V2_LEDGER_BEFORE" "$LEDGER_AFTER"
 
 # ──────────────────────────────────────────────────────────────────────────
 cyan ""

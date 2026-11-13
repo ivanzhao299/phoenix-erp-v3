@@ -271,7 +271,7 @@ export class StorePosService {
     return this.ds.transaction(async mgr => {
       const resolvedItems = [];
       for (const supplied of dto.items) {
-        const sku = supplied.skuCode === undefined ? null : await SkuPolicy.requireUsable(mgr, supplied.skuCode, 'sale-stock');
+        const sku = supplied.skuCode === undefined ? null : await SkuPolicy.requireUsable(mgr, supplied.skuCode, 'sale-stock', dto.companyCode);
         const item = sku ? { ...supplied, productCode: sku.product_code, productName: sku.sku_name || sku.product_name,
           gradeCode: sku.grade_code, packagingSpec: sku.spec_code } : supplied;
         const quantity = await resolveQuantity(mgr, item);
@@ -854,7 +854,7 @@ export class StorePosService {
          AND (pb.effective_to IS NULL OR pb.effective_to >= CURRENT_DATE)
          AND pi.status = 'ACTIVE'
          AND pi.unit_price > 0
-         AND (pi.sku_code IS NULL OR (${SkuPolicy.usableSql('ps', 'sale-stock')}))
+         AND (pi.sku_code IS NULL OR (${SkuPolicy.usableSql('ps', 'sale-stock')} AND ((ps.variety_code IS NULL AND COALESCE(ps.org_context_required, FALSE) = FALSE) OR EXISTS (SELECT 1 FROM md_sku_org_scope os WHERE os.sku_code = ps.sku_code AND os.scope_type = 'COMPANY' AND os.scope_code = $1 AND os.status = 'ACTIVE' AND os.sale_enabled = TRUE AND os.stock_enabled = TRUE AND (os.effective_date IS NULL OR os.effective_date <= CURRENT_DATE) AND (os.expire_date IS NULL OR os.expire_date >= CURRENT_DATE))))
        ORDER BY COALESCE(pi.sku_code,''),pi.product_code,COALESCE(pi.grade_code,''),COALESCE(pi.packaging_spec,''),
          CASE WHEN pi.quantity_snapshot IS NOT NULL THEN 0 ELSE 1 END,
          CASE WHEN pb.store_code=$2 THEN 0 ELSE 1 END,
