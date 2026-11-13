@@ -60,7 +60,7 @@ const BOOK_STATUSES: Record<string, {
 
 /** Phase H3 前：旧 grade_code 数字值集兼容显示（旧数据保留，新数据用 product_grades 主数据） */
 const LEGACY_GRADE_NAMES: Record<string, string> = {
-  "0": "0号特大蛋",
+  "0": "GRADE_0",
   "1": "1号蛋",
   "2": "2号蛋",
   "3": "3号蛋",
