@@ -39,7 +39,11 @@ describe('inventory inbound-date write-path contract', () => {
   });
 
   it('records unknown legacy and packaging dates as NULL without created-at fallback', () => {
-    expect(packaging).toContain("warehouse_code, inbound_date)\n               VALUES ($1, $2, $3::int, $4::int, $5, $6, 'FACTORY', 'WMS-VTE-MAIN', NULL)");
+    // The retired legacy terminal path must not manufacture inventory with
+    // hardcoded product/warehouse identities. The source-aware integration owns
+    // the batch schema and persists its authoritative inbound date.
+    expect(packaging).not.toContain("INSERT INTO inv_batches");
+    expect(packaging).toContain('completePackagingBatch');
     expect(legacyProcurement).toContain('location_code, inbound_date)');
     expect(legacyProcurement).toContain('VALUES ($1, $2, $3, $4, $5, NULL)');
     expect([wms, receipt, egg, packaging, storePos, medicine, legacyProcurement].join('\n'))
