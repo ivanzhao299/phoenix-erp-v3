@@ -19,6 +19,21 @@ export class ImmuneController {
     return { code: 200, data: await this.service.list(query) };
   }
 
+  @Get('immune/vaccines')
+  async vaccines(@Query() query: { site_code?: string; company_code?: string }) {
+    return { code: 200, data: await this.service.listVaccines(query) };
+  }
+
+  @Get('immune/lots')
+  async lots(
+    @Query('vaccine_code') vaccineCode: string,
+    @Query('site_code') siteCode: string,
+    @Query('company_code') companyCode: string,
+    @Query('warehouse_code') warehouseCode?: string,
+  ) {
+    return { code: 200, data: await this.service.getLots(vaccineCode, siteCode, companyCode, warehouseCode) };
+  }
+
   @Post('immune/plans')
   @RequireMenu('MENU_FARM_VET', 'C')
   async create(@Body() body: any, @Req() req: any) {
