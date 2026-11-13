@@ -82,7 +82,8 @@ describe('outbound batch policy', () => {
     expect(issue).toMatchObject({ destination_type: 'HOUSE', destination_code: '', destination_name: '', destination_customer_code: '' });
     const constrained = lines.map(line => constrainOutboundBatchLine(line, issue));
     for (const [index, line] of constrained.entries()) {
-      expect(line).toMatchObject({ _key: String(index + 1), qty: '2', item: '', item_type: '', item_name: '', sku_code: '', product_code: '', batch_no: '', unit: '', quantityBasis: undefined });
+      // 身份键清空后必须缺省（undefined），空串会被后端当成脏 SKU 编码拒绝。
+      expect(line).toMatchObject({ _key: String(index + 1), qty: '2', item: '', item_type: '', item_name: '', sku_code: undefined, product_code: undefined, batch_no: '', unit: '', quantityBasis: undefined });
     }
     expect(validateOutboundBatch({ ...issue, destination_code: 'H-1' }, constrained, permissions)).toContain('第 1 行');
     // A newly added line cannot bypass the current type's policy by picking SKU.
@@ -90,7 +91,7 @@ describe('outbound batch policy', () => {
     const materials = constrained.map((line, i) => constrainOutboundBatchLine({ ...line, item: `M-${i}`, item_type: 'MATERIAL', material_code: `M-${i}` }, issue));
     expect(materials.every(line => !!line.item)).toBe(true);
     expect(validateOutboundBatch({ ...issue, destination_code: 'H-1' }, materials, permissions)).toBeUndefined();
-    expect(materials.map(line => constrainOutboundBatchLine(line, header)).every(line => line.item === '' && line.material_code === '')).toBe(true);
+    expect(materials.map(line => constrainOutboundBatchLine(line, header)).every(line => line.item === '' && line.material_code === undefined)).toBe(true);
   });
 
   it('checks every row, finite quantities and required master-data identity before submit', () => {

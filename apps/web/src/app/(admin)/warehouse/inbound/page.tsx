@@ -18,6 +18,7 @@ import {
 import { formatMasterData } from "@/lib/business-display";
 import { invalidateBatchLookups } from "@/lib/request-cache";
 import { masterNameWithCode } from "@/lib/localized-master-data";
+import { omitEmptyIdentityFields } from "@/lib/selector-pick";
 // g200e 模板 token(2026-06-20)
 import {
   primaryActionButton, actionPill, toolbarFilterPill, moneyCell,
@@ -114,7 +115,7 @@ export default function InboundPage() {
   const handleSave = useCallback(async (values: Row) => {
     setSaving(true);
     try {
-      const payload = buildWarehouseInboundSavePayload(values, { isEditing: Boolean(editing?.id) });
+      const payload = omitEmptyIdentityFields(buildWarehouseInboundSavePayload(values, { isEditing: Boolean(editing?.id) }));
       editing?.id
         ? await crudApi.update(TABLE, editing.id as number, payload)
         : await crudApi.create(TABLE, payload);
@@ -127,7 +128,7 @@ export default function InboundPage() {
     try {
       const stamp = Date.now().toString().slice(-8);
       const taskNo = String(batchHeader.inbound_no || `WI-${stamp}`);
-      const items = batchItems.map(({ _key, ...item }) => ({ ...item, product_code: item.product_code || item.item || item.sku_code, actual_qty: Number(item.qty), expected_qty: Number(item.qty) }));
+      const items = batchItems.map(({ _key, ...item }) => omitEmptyIdentityFields({ ...item, product_code: item.product_code || item.item || item.sku_code, actual_qty: Number(item.qty), expected_qty: Number(item.qty) }));
       await request("/inbound/batch", { method: "POST", body: JSON.stringify({ documents: [{ ...batchHeader, task_no: taskNo, inbound_no: taskNo, status: "PENDING", operator: currentOperator, items }] }) });
       setDrawerOpen(false); refresh();
     } finally { setSaving(false); }

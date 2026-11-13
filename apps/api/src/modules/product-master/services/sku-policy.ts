@@ -37,6 +37,18 @@ export class SkuPolicy {
     return skuCode;
   }
 
+  /**
+   * 可选 SKU 编码：undefined/null/空串/纯空格 视为"未提供"（物料/legacy 路径），
+   * 返回 null；非空但含首尾空格仍走 code() 拒绝，防漂移护栏不放松。
+   * 前端 JSON 里 "" 是"无值"的事实表示（mappedPickValue 的 `?? ""` 约定），
+   * 与"字段缺省"必须等价对待，否则物料行永远进不了 legacy 兼容路径。
+   */
+  static optionalCode(skuCode: unknown): string | null {
+    if (skuCode === undefined || skuCode === null) return null;
+    if (typeof skuCode === 'string' && !skuCode.trim()) return null;
+    return this.code(skuCode);
+  }
+
   static async requireUsable(manager: Pick<EntityManager, 'query'>, skuCode: unknown, usage: SkuUsage = 'any', companyCode?: string) {
     skuCode = this.code(skuCode);
     usage = this.usage(usage);

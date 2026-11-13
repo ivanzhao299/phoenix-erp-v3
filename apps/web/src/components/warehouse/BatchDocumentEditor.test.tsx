@@ -14,7 +14,9 @@ vi.mock('@/components/shared-selectors/MasterDataSelectors', () => {
   const InventoryItemSelector = (p: SelectorProps) => createElement('select', { 'data-item': true, value: p.value, onChange: (e: { target: { value: string } }) => {
     const itemType = e.target.value.startsWith('SKU') ? 'SKU' : 'MATERIAL';
     p.onChange(e.target.value);
-    p.onPick?.({ value: e.target.value, raw: { itemType, itemName: `名称-${e.target.value}`, unit: '个', skuCode: itemType === 'SKU' ? e.target.value : '', materialCode: itemType === 'MATERIAL' ? e.target.value : '' } });
+    // 与真实 /lookup/inventory-items 对齐：不适用的一侧是 null（后端 SQL NULL::varchar），
+    // 绝不是空串——空串会被后端当成脏 SKU 编码拒绝。
+    p.onPick?.({ value: e.target.value, raw: { itemType, itemName: `名称-${e.target.value}`, unit: '个', skuCode: itemType === 'SKU' ? e.target.value : null, materialCode: itemType === 'MATERIAL' ? e.target.value : null } });
   } }, ['', 'SKU-1', 'M-1'].map(value => createElement('option', { key: value, value }, value)));
   return { InventoryItemSelector, WarehouseSelector: Selector, CustomerSelector: Selector, StoreSelector: Selector, DepartmentSelector: Selector, ProjectSelector: Selector, UserSelector: Selector, SupplierSelector: Selector, HouseSelector: Selector };
 });
@@ -60,7 +62,7 @@ describe('BatchDocumentEditor opt-in outbound policy DOM', () => {
     await change(type, 'PRODUCTION_USE');
     expect(values(field(host, '去向类型'))).toEqual(['HOUSE', 'DEPARTMENT', 'PROJECT']);
     expect(state().header).toMatchObject({ destination_type: 'HOUSE', destination_code: '', destination_name: '' });
-    expect(state().items.every(line => line.item === '' && line.sku_code === '' && line.item_name === '')).toBe(true);
+    expect(state().items.every(line => line.item === '' && line.sku_code === undefined && line.item_name === '')).toBe(true);
     const add = Array.from(host.querySelectorAll('button')).find(button => button.textContent === '新增明细')!;
     await act(async () => add.click());
     expect(state().items).toHaveLength(3);
@@ -68,9 +70,13 @@ describe('BatchDocumentEditor opt-in outbound policy DOM', () => {
     expect(state().items.every(line => line.item === '')).toBe(true);
     for (const select of host.querySelectorAll<HTMLSelectElement>('select[data-item]')) await change(select, 'M-1');
     expect(state().items.every(line => line.item === 'M-1' && line.item_name === '名称-M-1' && line.item_type === 'MATERIAL')).toBe(true);
+    // 契约（2026-11-13 生产 400 回归）：物料行只能带 material_code 身份；
+    // sku_code 必须缺省（JSON 序列化后不含该键），否则后端按脏 SKU 编码拒绝。
+    expect(state().items.every(line => line.material_code === 'M-1' && line.sku_code === undefined)).toBe(true);
+    expect(JSON.parse(JSON.stringify(state().items)).every((line: Record<string, unknown>) => !('sku_code' in line))).toBe(true);
     expect(host.querySelectorAll('tbody input[readonly]')).toHaveLength(6);
     await change(type, 'SALE');
-    expect(state().items.every(line => line.item === '' && line.material_code === '')).toBe(true);
+    expect(state().items.every(line => line.item === '' && line.material_code === undefined)).toBe(true);
     expect(submit).not.toHaveBeenCalled();
   });
 

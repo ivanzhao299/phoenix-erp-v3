@@ -135,9 +135,13 @@ describe('new transaction consumers', () => {
     const f = fixture({ sku: null }); const service = new WmsService({ query: f.query, transaction: f.ds.transaction } as any, f.cls as any);
     await expect((service as any).resolveInventoryItem(f.manager, 'SKU-1', 'SKU')).rejects.toMatchObject({ status: 400 });
     expect(f.query.mock.calls.some(([sql]) => sql.includes('mst_materials'))).toBe(false);
+    // 契约修订（2026-11-13 生产 400 回归）：表单侧约定 ""/null 表示“无值”，
+    // 后端必须按缺省（legacy 路径）处理——空串不再触发 400，流程继续走到任务查询（mock 无任务 → 404）；
+    // 但带首尾空格的非空编码仍是脏数据，必须拒绝。
     for (const sku_code of ['', null]) {
-      await expect(service.confirmInbound({ task_no: 'WI', items: [{ sku_code, product_code: 'P', qty: 1 }] }, {})).rejects.toMatchObject({ status: 400 });
+      await expect(service.confirmInbound({ task_no: 'WI', items: [{ sku_code, product_code: 'P', qty: 1 }] }, {})).resolves.toMatchObject({ code: 404 });
     }
+    await expect(service.confirmInbound({ task_no: 'WI', items: [{ sku_code: ' P ', product_code: 'P', qty: 1 }] }, {})).rejects.toMatchObject({ status: 400 });
   });
   it('keeps the locked spec base unit when resolving a non-egg inventory SKU', async () => {
     const f = fixture(); const original = f.query.getMockImplementation()!;

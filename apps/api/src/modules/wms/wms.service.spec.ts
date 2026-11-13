@@ -116,6 +116,75 @@ describe('WmsService inventory read queries', () => {
     expect(manager.query).toHaveBeenCalledWith(expect.stringContaining('INSERT INTO inv_batches'), expect.any(Array));
   });
 
+  // 契约回归（2026-11-13 生产 400）：前端表单约定用 "" 表示“无值”，后端必须把
+  // 空串 sku_code 当作缺省（物料/legacy 路径），而不是脏编码拒绝。
+  it('accepts material inbound batch lines carrying an empty sku_code string', async () => {
+    const manager = {
+      query: jest.fn(async (sql: string) => {
+        if (sql.includes('SELECT task_no,status FROM wms_inbound')) return [];
+        if (sql.includes('SELECT company_code FROM wms_warehouses')) return [{ company_code: 'COMP-LAO-AGRI' }];
+        return [];
+      }),
+    };
+    const em = {
+      query: jest.fn().mockResolvedValue([{ domain: 'OPERATIONAL' }]),
+      transaction: jest.fn(async (cb: (m: unknown) => Promise<unknown>) => cb(manager)),
+    };
+    const cls = { get: jest.fn(() => ({ isGlobal: true, allowedWarehouseCodes: [] })) };
+    const service = new WmsService(em as any, cls as any);
+
+    await expect(service.createBatchInbound({
+      documents: [{
+        task_no: 'WI-MAT-EMPTY-SKU', warehouse_code: 'LPH_DP_MEDICINE', type: 'PURCHASE', date: '2026-11-13',
+        items: [{ item: 'MAT-VET-NDV', item_type: 'MATERIAL', material_code: 'MAT-VET-NDV', sku_code: '', qty: 10 }],
+      }],
+    }, { username: 'vet' })).resolves.toEqual({
+      code: 200, msg: '批量入库单创建成功',
+      data: [{ task_no: 'WI-MAT-EMPTY-SKU', status: 'PENDING', idempotent: false }],
+    });
+    const insertLine = (manager.query.mock.calls as any[][]).find(call => String(call[0]).includes('INSERT INTO wms_inbound_items'));
+    expect(insertLine).toBeTruthy();
+    // 物料身份必须落入 product_code（legacy 兼容），快照为空，不能被当成 SKU。
+    expect(insertLine![1]).toEqual(['WI-MAT-EMPTY-SKU', null, 'MAT-VET-NDV', 10, null]);
+  });
+
+  it('accepts material outbound batch lines carrying an empty sku_code string', async () => {
+    const manager = {
+      query: jest.fn(async (sql: string) => {
+        if (sql.includes('INSERT INTO wms_outbound_items')) return [];
+        if (sql.includes('INSERT INTO wms_outbound')) return [{ id: 7, outbound_no: 'WO-MAT-EMPTY-SKU' }];
+        if (sql.includes('SELECT outbound_no,status FROM wms_outbound')) return [];
+        if (sql.includes('SELECT company_code FROM wms_warehouses')) return [{ company_code: 'COMP-LAO-AGRI' }];
+        if (sql.includes('FROM mst_materials')) return [{ material_code: 'MAT-VET-NDV', material_name: '新城疫苗', material_type: 'VET_DRUG', unit: '瓶' }];
+        return [];
+      }),
+    };
+    const em = {
+      query: jest.fn(async (sql: string) => sql.includes('SELECT domain FROM wms_warehouses')
+        ? [{ domain: 'OPERATIONAL' }]
+        : [1]),
+      transaction: jest.fn(async (cb: (m: unknown) => Promise<unknown>) => cb(manager)),
+    };
+    const cls = { get: jest.fn(() => ({ isGlobal: true, allowedWarehouseCodes: [] })) };
+    const service = new WmsService(em as any, cls as any);
+
+    await expect(service.createBatchStandaloneOutbound({
+      documents: [{
+        outbound_no: 'WO-MAT-EMPTY-SKU', type: 'MEDICINE_DISTRIBUTION',
+        warehouse_code: 'LPH_DP_MEDICINE', destination_type: 'HOUSE', destination_code: 'H-1',
+        date: '2026-11-13',
+        items: [{ item: 'MAT-VET-NDV', item_type: 'MATERIAL', material_type: 'VET_DRUG', material_code: 'MAT-VET-NDV', sku_code: '', qty: 10 }],
+      }],
+    }, { username: 'vet', roles: ['ROLE_ADMIN'] })).resolves.toMatchObject({
+      code: 200, msg: '批量出库单创建成功',
+      data: [{ outbound_no: 'WO-MAT-EMPTY-SKU', idempotent: false }],
+    });
+    const insertLine = (manager.query.mock.calls as any[][]).find(call => String(call[0]).includes('INSERT INTO wms_outbound_items'));
+    expect(insertLine).toBeTruthy();
+    // 物料行走 material_code 身份，绝不因空串 sku_code 被当成 SKU 校验。
+    expect(insertLine![1]).toEqual(['WO-MAT-EMPTY-SKU', 'MAT-VET-NDV', null, 10, null]);
+  });
+
   it('uses qty_available fallback and projects warehouse display name when reading visible inventory batches', async () => {
     const { service, em } = buildService([{ batch_no: 'B1', qty: 0, qty_available: 12, warehouse_name: '孟赛鸡蛋销售成品仓' }]);
 
