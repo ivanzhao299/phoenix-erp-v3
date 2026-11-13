@@ -285,6 +285,14 @@ export const dictApi = {
 // Production management MVP endpoints. These wrappers keep the farm pages on
 // the transactional APIs instead of the deprecated Generic CRUD write paths.
 export const farmProductionApi = {
+  listImmuneVaccines: (params: Record<string, string> = {}) => {
+    const qs = new URLSearchParams(params);
+    return request<{ code: number; data: Record<string, unknown>[] }>(`/farm/immune/vaccines${qs.toString() ? `?${qs}` : ''}`);
+  },
+  listImmuneInventoryBatches: (params: Record<string, string> = {}) => {
+    const qs = new URLSearchParams(params);
+    return request<{ code: number; data: Record<string, unknown>[] }>(`/farm/immune/lots${qs.toString() ? `?${qs}` : ''}`);
+  },
   listImmunePlans: (params: Record<string, string> = {}) => {
     const qs = new URLSearchParams(params);
     return request<{ code: number; data: Record<string, unknown>[] }>(`/farm/immune/plans${qs.toString() ? `?${qs}` : ''}`);

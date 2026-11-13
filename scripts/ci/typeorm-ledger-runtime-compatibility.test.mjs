@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { partitionRehearsalInventory, admissionMigration } from './typeorm-ledger-rehearsal-inventory.mjs';
+import { partitionRehearsalInventory, admissionMigration, featureMigrations } from './typeorm-ledger-rehearsal-inventory.mjs';
 
 test('runtime rehearsal is disposable and uses the real TypeORM CLI', () => {
   const source = fs.readFileSync('scripts/ci/run-typeorm-ledger-runtime-compatibility-fixture.mjs', 'utf8');
@@ -54,7 +54,7 @@ test('the rehearsal invokes the preflight with the candidate ledger inventory an
 
 test('historical rehearsal accepts only its pinned 96 classes and the exact separate admission migration', () => {
   const historical = JSON.parse(fs.readFileSync('scripts/ci/typeorm-ledger-rehearsal-historical-inventory.json','utf8')).entries;
-  const current = [...historical, admissionMigration];
+  const current = [...historical, admissionMigration, ...featureMigrations];
   assert.equal(partitionRehearsalInventory(current).history.length,96);
   assert.throws(() => partitionRehearsalInventory(historical));
   assert.throws(() => partitionRehearsalInventory([...current, {...admissionMigration,timestamp:1791878400001}]));

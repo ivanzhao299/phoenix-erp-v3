@@ -14652,5 +14652,13 @@
   "auto.literal.6940ec1620d6": "Unit was not recorded; verification required",
   "ui.请选择有效鸡群品种": "Explicitly select a valid ACTIVE flock breed; unknown historical values cannot be submitted directly",
   "ui.选择鸡群品种": "Select a flock breed (required)",
-  "ui.历史品种原值": "Original historical breed value"
+  "ui.历史品种原值": "Original historical breed value",
+  "ui.请选择疫苗": "Select vaccine",
+  "ui.厂商批号": "Manufacturer lot",
+  "ui.ERP库存批次分配": "ERP inventory batch allocation",
+  "ui.执行时按批次扣减并写入库存流水": "Deduct by batch and write inventory ledger on execution",
+  "ui.请选择库存批次": "Select inventory batch",
+  "ui.暂无可用库存批次": "No available inventory batches",
+  "ui.删除批次行": "Remove batch line",
+  "ui.增加库存批次": "Add inventory batch"
 }

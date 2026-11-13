@@ -61,6 +61,21 @@ describe('ImmuneService', () => {
     expect(String(insert[0])).toContain('vaccine_code');
   });
 
+  it('lists only active vaccines through the dedicated scoped query', async () => {
+    const { service, ds } = build({
+      isGlobal: false,
+      allowedCompanyCodes: ['COMP-A'],
+      allowedSiteCodes: ['SITE-A'],
+      allowedFarmCodes: [],
+      allowedWarehouseCodes: ['WH-A'],
+    });
+    ds.query.mockResolvedValue([{ medication_code: 'VAC-A', medication_name: '疫苗A', product_type: 'VACCINE', status: 'ACTIVE' }]);
+
+    await expect(service.listVaccines({ site_code: 'SITE-A', company_code: 'COMP-A' })).resolves.toHaveLength(1);
+    expect(String(ds.query.mock.calls[0][0])).toContain("m.status = 'ACTIVE'");
+    expect(String(ds.query.mock.calls[0][0])).toContain('m.store_code = $1');
+  });
+
   it('rejects a plan outside the caller data scope before opening a transaction', async () => {
     const { service, ds } = build({
       isGlobal: false,
@@ -102,7 +117,27 @@ describe('ImmuneService', () => {
       expect.objectContaining({ batch_no: 'V-EXP-2', qty: 6 }),
     ]);
     expect(manager.query.mock.calls.filter(call => String(call[0]).includes('INSERT INTO inv_ledger'))).toHaveLength(2);
+    expect(manager.query.mock.calls.filter(call => String(call[0]).includes('INSERT INTO brd_vaccination_issue_lines'))).toHaveLength(2);
     expect(manager.query.mock.calls.filter(call => String(call[0]).includes('COALESCE(qty_available, qty, 0) >= $1::numeric'))).toHaveLength(2);
+  });
+
+  it('honors validated multi-batch issue lines and preserves the manufacturer lot', async () => {
+    const { service, manager } = build();
+    manager.query.mockImplementation(async (sql: string) => {
+      if (sql.includes('SELECT * FROM brd_vaccinations')) return [{ id: 7, record_no: 'VAC-1', status: 'PLANNED', actual_date: null, site_code: 'SITE-A', company_code: 'COMP-A', farm_code: 'FARM-A', flock_no: 'FLOCK-A', house_code: 'HOUSE-A', vaccine_code: 'VAC-A', planned_heads: 10, dose_value: 1, vaccine_batch_no: 'MAN-001' }];
+      if (sql.includes('FROM brd_flocks')) return [{ flock_no: 'FLOCK-A', house_code: 'HOUSE-A', farm_code: 'FARM-A', current_qty: 20, status: 'ACTIVE', mapped_site_code: 'SITE-A', farm_company_code: 'COMP-A' }];
+      if (sql.includes('FROM inv_batches')) return [{ batch_no: 'V-REQ', product_code: 'VAC-A', qty: 10, qty_available: 10, expire_date: '2027-01-01', inbound_date: '2026-10-01', warehouse_code: 'WH-A', store_code: 'SITE-A', company_code: 'COMP-A', warehouse_site_code: 'SITE-A', warehouse_company_code: 'COMP-A', warehouse_status: 'ACTIVE', warehouse_type: 'MEDICINE', status: 'AVAILABLE' }];
+      if (sql.includes('SELECT medication_code, medication_name')) return [{ medication_code: 'VAC-A', medication_name: '疫苗A', unit_code: 'DOSE', product_type: 'VACCINE' }];
+      if (sql.includes('UPDATE inv_batches')) return [{ batch_no: 'V-REQ' }];
+      if (sql.includes('INSERT INTO inv_ledger')) return [{ id: 101 }];
+      if (sql.includes('UPDATE brd_vaccinations')) return [{ id: 7, status: 'EXECUTED', actual_heads: 10 }];
+      return [];
+    });
+
+    await service.execute(7, { issue_lines: [{ inventory_batch_no: 'V-REQ', qty: 10 }], actual_heads: 10, vaccine_batch_no: 'MAN-001' }, 'jwt-user');
+    const issue = manager.query.mock.calls.find(call => String(call[0]).includes('INSERT INTO brd_vaccination_issue_lines'));
+    expect(issue).toBeDefined();
+    expect(issue[1]).toEqual(expect.arrayContaining(['V-REQ', 'VAC-A', 10, 101, 'MAN-001']));
   });
 
   it('returns the locked executed plan without touching inventory on a retry', async () => {

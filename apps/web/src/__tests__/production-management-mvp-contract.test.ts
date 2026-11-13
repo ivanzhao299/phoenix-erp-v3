@@ -16,6 +16,10 @@ describe('production management MVP web contracts', () => {
     expect(page).toContain('farmProductionApi.executeImmunePlan');
     expect(page).toContain('inventory_batch_no');
     expect(page).toContain('vaccine_batch_no');
+    expect(client).toContain("/farm/immune/vaccines");
+    expect(client).toContain("/farm/immune/lots");
+    expect(page).toContain('DictSelect dictType="BRD_VACCINATE_METHOD"');
+    expect(page).toContain('issue_lines');
     expect(page).not.toContain("crudApi.create('brd_vaccinations'");
   });
 
