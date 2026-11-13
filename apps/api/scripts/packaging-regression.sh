@@ -384,9 +384,10 @@ PACK_INV_AFTER=$($PSQL $DB -tA -c "SELECT COUNT(*) FROM inv_batches WHERE batch_
 assert_eq "T11-V2.4 无 AVAILABLE batch 部分写入" "$V2_INV_BEFORE" "$PACK_INV_AFTER"
 
 # The legacy task is refused before any source-aware SKU/inventory work.
-assert_eq "T11-V2.6 无 AVAILABLE batch 部分写入" "$V2_INV_BEFORE" "$PACK_INV_AFTER"
-assert_eq "T11-V2.7 无 wms_inbound 部分写入" "$V2_IB_BEFORE" "$WMS_IB_CNT"
-assert_eq "T11-V2.8 无 ledger 部分写入" "$V2_LEDGER_BEFORE" "$V2_LEDGER_BEFORE"
+WMS_IB_AFTER=$($PSQL $DB -tA -c "SELECT COUNT(*) FROM wms_inbound WHERE task_no LIKE 'WMS-IB-$PACK_V2_TASK-%';")
+assert_eq "T11-V2.6 无 wms_inbound 部分写入" "$V2_IB_BEFORE" "$WMS_IB_AFTER"
+LEDGER_AFTER=$($PSQL $DB -tA -c "SELECT COUNT(*) FROM inv_ledger WHERE ref_no='$PACK_V2_TASK';")
+assert_eq "T11-V2.7 无 ledger 部分写入" "$V2_LEDGER_BEFORE" "$LEDGER_AFTER"
 
 # ──────────────────────────────────────────────────────────────────────────
 cyan ""
