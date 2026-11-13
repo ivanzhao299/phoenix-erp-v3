@@ -701,6 +701,10 @@ export class FarmService {
     logs: number;
     missingBreakdownLogs: number;
     reportedEggs: number;
+    /** Sum of every stock-managed grade in the report (physical total). */
+    reportedGradeTotal: number;
+    /** Saleable subset retained for the legacy eggs_produced/lay-rate field. */
+    saleableTotal: number;
   }> {
     if (!date) throw new BadRequestException('date 参数必填');
 
@@ -710,6 +714,7 @@ export class FarmService {
       `SELECT grade_code
        FROM product_grades
        WHERE status = 'ACTIVE'
+         AND COALESCE(stock_managed, is_storable, true) = true
        ORDER BY sort_order, grade_code`,
     );
 
@@ -751,6 +756,7 @@ export class FarmService {
     );
     let missingBreakdownLogs = 0;
     let reportedEggs = 0;
+    let reportedGradeTotal = 0;
     const alreadyInboundByHouse = new Map<string, Record<string, number>>();
     for (const r of rows) {
       const eggs = Math.max(0, Number(r.eggs_produced) || 0);
@@ -768,6 +774,7 @@ export class FarmService {
       for (const [grade, qty] of Object.entries(ebg as Record<string, unknown>)) {
         const n = Math.max(0, Number(qty) || 0);
         aggregated[grade] = (aggregated[grade] || 0) + n;
+        reportedGradeTotal += n;
       }
 
       // A production inbound batch is the durable marker that a reported quantity
@@ -802,6 +809,8 @@ export class FarmService {
       logs: rows.length,
       missingBreakdownLogs,
       reportedEggs,
+      reportedGradeTotal,
+      saleableTotal: reportedEggs,
     };
   }
 

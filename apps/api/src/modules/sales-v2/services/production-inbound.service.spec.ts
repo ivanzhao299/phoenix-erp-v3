@@ -191,7 +191,14 @@ describe('ProductionInboundService master-data resolution', () => {
     await expect(service.recordProductionInbound({
       houseCode: 'HOUSE-A', eggDate: '2026-08-25',
       items: [{ grade: 'GRADE_1', qty: 1 }, { grade: 'GRADE_2', qty: 1 }],
-    })).rejects.toThrow('GRADE_2');
+    })).rejects.toMatchObject({
+      response: expect.objectContaining({
+        code: 'SKU_NOT_READY',
+        details: expect.objectContaining({
+          items: [expect.objectContaining({ gradeCode: 'GRADE_2', specCode: 'LOOSE' })],
+        }),
+      }),
+    });
     expect(createProductionBatch).not.toHaveBeenCalled();
   });
 
