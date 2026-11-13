@@ -32,6 +32,7 @@ const GRADE_MAP: Record<string, string> = (() => {
   for (const [k, v] of Object.entries(GRADE_LABEL)) {
     if (!m[k]) m[k] = v as string;
   }
+  if (!m.GRADE_0) m.GRADE_0 = '0号特大蛋';
   return m;
 })();
 function gradeDisplay(grade: string): string {
@@ -45,6 +46,7 @@ function addDays(dateStr: string, days: number): string {
 
 // 等级 → 2-3位英文码，用于企业条码标识
 const GRADE_CODE_MAP: Record<string, string> = {
+  GRADE_0: 'G0',
   GRADE_1: 'G1',
   GRADE_2: 'G2',
   GRADE_3: 'G3',
@@ -262,7 +264,7 @@ function LegacyLabelPrintPage() {
     const H = cfg.labelH * ppm;
     const fs = ppm * 1.05;
     const sampleGrade = boxes[0]?.grade ?? 'GRADE_1';
-    const sampleSpec = boxes[0]?.spec ?? t('ui.标准装样例', '标准装 59-66g');
+    const sampleSpec = boxes[0]?.spec ?? t('ui.标准装样例', '标准装');
     const sampleBatch = ctx.packingCode ?? 'PKG-20260519-887208';
     const batchNum = sampleBatch.replace(/\D/g, '').slice(-6).padStart(6, '0');
     const sampleCode = `PH-${batchNum}-${toGradeCode(sampleGrade)}-001`;

@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { randomUUID } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { containerProgram, sanitizeCatalogSnapshot } from './sku-source-activation-transport.mjs';
-import { buildPlan, CONFIRM, explicitDbConfig, manifestSha256, parseArgs, readManifest, runActivation, validDate, validateManifest } from './sku-source-activation.mjs';
+import { buildPlan, CONFIRM, explicitDbConfig, GRADE0_MATRIX, manifestSha256, parseArgs, readManifest, runActivation, validDate, validateManifest } from './sku-source-activation.mjs';
 
 const legacyCode=(n,spec='LOOSE')=>`LEGACY-ACTUAL-${n}-${spec}`;
 function mixedState() {
@@ -36,7 +36,13 @@ test('reviewed manifest defines STANDARD42, VARIANT84, eleven houses and no ALL/
   assert.ok(p.desired.scopes.filter(r=>r.sale_enabled).every(r=>r.scope_code==='COMP-LAO-AGRI'));
   assert.equal(p.desired.grade0.weight_range, null);
   assert.equal(p.desired.skus.filter(row=>row.org_context_required).length,91);
+  assert.equal(p.desired.skus.filter(r => r.grade_code === 'GRADE_0').length, 21);
   assert.equal(p.desired.skus.filter(r => r.grade_code === 'GRADE_0' && r.variety_code === null).length, 7);
+  assert.equal(p.desired.skus.filter(r => r.grade_code === 'GRADE_0' && r.variety_code === 'EGG_RED').length, 7);
+  assert.equal(p.desired.skus.filter(r => r.grade_code === 'GRADE_0' && r.variety_code === 'EGG_PINK').length, 7);
+  assert.deepEqual(p.desired.grade0Matrix, GRADE0_MATRIX);
+  assert.ok(p.desired.grade0Matrix.every(row => row.weight_range === null && row.spec_count === 7));
+  assert.ok(p.desired.skus.filter(r => r.grade_code === 'GRADE_0').every(r => !/>=|66g|59-66/.test(r.sku_name)));
   assert.deepEqual(p.desired.profiles.filter(r => r.variety_code === 'EGG_PINK').map(r => r.house_code), ['HOUSE_DP_01','HOUSE_DP_03','HOUSE_DP_05']);
 });
 test('manifest cannot add debug/rooster houses or swap the human-approved red/pink assignment', () => {

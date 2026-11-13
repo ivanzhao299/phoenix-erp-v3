@@ -206,7 +206,7 @@ export class PackagingInventoryIntegrationService {
    */
   async completePackagingBatch(
     taskNo: string,
-    opts?: { companyCode?: string; operator?: string },
+    opts?: { companyCode?: string; operator?: string; manager?: EntityManager },
   ): Promise<{
     taskNo: string;
     idempotent: boolean;
@@ -217,7 +217,11 @@ export class PackagingInventoryIntegrationService {
     mode?: string;
     skippedByMode?: boolean;
   }> {
-    const taskRows = await this.ds.query(
+    if (!opts?.manager && typeof this.ds.transaction === 'function') {
+      return this.ds.transaction(manager => this.completePackagingBatch(taskNo, { ...opts, manager }));
+    }
+    const db = opts?.manager ?? this.ds;
+    const taskRows = await db.query(
       `SELECT task_no, grade_results, house_code, pack_spec, packed_qty, output_qty,
               created_at, shift_id
          FROM pkg_tasks
@@ -227,7 +231,7 @@ export class PackagingInventoryIntegrationService {
     );
     const task = taskRows[0];
     if (!task) throw new NotFoundException(`包装任务不存在：${taskNo}`);
-    const existingInventory = await this.ds.query(
+    const existingInventory = await db.query(
       'SELECT batch_no FROM inv_batches WHERE packaging_batch_ref=$1 OR source_no=$1 LIMIT 1', [task.task_no],
     );
     if (!existingInventory.length) {
@@ -235,12 +239,13 @@ export class PackagingInventoryIntegrationService {
       // new commercial identity by colliding its ID with pkg_work_shifts.
       let ownerCompany: string;
       try {
-        const owner = await new OrgOwnershipService(this.ds.manager).resolveHouseIdentity(task.house_code);
+        const ownerDb = opts?.manager ?? this.ds.manager ?? db;
+        const owner = await new OrgOwnershipService(ownerDb).resolveHouseIdentity(task.house_code);
         ownerCompany = owner.companyCode;
       } catch {
         throw new ConflictException('旧包装任务缺已确认的来源归属，禁止新建库存');
       }
-      const configured = await this.ds.query('SELECT profile_code FROM md_egg_source_profiles WHERE company_code=$1', [ownerCompany]);
+      const configured = await db.query('SELECT profile_code FROM md_egg_source_profiles WHERE company_code=$1', [ownerCompany]);
       if (configured.length) throw new ConflictException('公司已配置来源档案，旧包装任务禁止新建库存；请使用包装作业中心或经审查的迁移流程');
     }
 
@@ -256,11 +261,12 @@ export class PackagingInventoryIntegrationService {
         .map(([k, v]) => ({ grade: k, specName: task.pack_spec ?? null, qty: Number(v) }));
     if (items.length === 0) {
       const qty = Number(task.output_qty) || Number(task.packed_qty) || 0;
-      // 默认 'L'（一号蛋）— 2026-06-06 product_grades 回归孟赛业务口径后主流销售档
-      if (qty > 0) items = [{ grade: 'L', specName: task.pack_spec ?? null, qty }];
+      // No grade means no authoritative SKU/source identity. Never infer a
+      // legacy L grade or a product code from the task; replay only.
+      if (qty > 0) throw new ConflictException('包装任务缺权威等级明细，禁止推测库存 SKU');
     }
 
-    const [shift] = task.shift_id ? await this.ds.query(`SELECT site_id, production_date::text AS egg_date FROM pkg_work_shifts WHERE id=$1`, [task.shift_id]) : [];
+    const [shift] = task.shift_id ? await db.query(`SELECT site_id, production_date::text AS egg_date FROM pkg_work_shifts WHERE id=$1`, [task.shift_id]) : [];
     const eggDate = shift?.egg_date;
     if (!eggDate || !task.house_code) throw new ConflictException('包装任务缺权威班次生产日期或来源鸡舍');
     const collectionRef = task.shift_id ? `SHIFT-${task.shift_id}` : (task.house_code ?? null);
@@ -270,6 +276,7 @@ export class PackagingInventoryIntegrationService {
       siteCode:      shift.site_id,
       eggDate,
       collectionRef,
+      manager: opts?.manager,
     });
     return { ...r, taskNo: r.refNo };
   }

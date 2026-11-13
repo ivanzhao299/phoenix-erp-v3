@@ -160,10 +160,10 @@ export class EggInventoryService {
         return codes;
       }
     } catch (e) {
-      this.logger.warn(`getValidGrades fallback to defaults: ${(e as Error).message}`);
+      this.logger.error(`getValidGrades failed closed: ${(e as Error).message}`);
+      throw new BadRequestException('等级主数据不可用，禁止创建库存');
     }
-    // 兜底（product_grades 表不可用 / CI 测试库）：孟赛业务尺寸档 + 异常档
-    return ['XL', 'L', 'M', 'S', 'XS', 'DIRTY', 'CRACKED', 'BROKEN', 'DAMAGED'];
+    throw new BadRequestException('等级主数据为空，禁止创建库存');
   }
 
   private get operator(): string {
@@ -305,8 +305,9 @@ export class EggInventoryService {
   }, mgr?: EntityManager): Promise<EggBatch> {
     assertEggDate(params.eggDate);
     positiveQuantity(params.qty, '入库数量');
-    if (params.sourceType === 'TEMP_PRODUCTION' && (!params.warehouseCode || !params.locationCode)) {
-      throw new BadRequestException('日产蛋入库必须解析到真实 ACTIVE 仓库和库位，禁止使用默认占位码');
+    if ((params.sourceType === 'TEMP_PRODUCTION' || params.sourceType === 'PACKAGING')
+      && (!params.warehouseCode || !params.locationCode)) {
+      throw new BadRequestException('新生产/包装入库必须提供真实 ACTIVE 仓库和库位，禁止使用默认占位码');
     }
     const hasSource = params.sourceProfileRefs !== undefined || params.sourceProfileCode !== undefined || params.houseCode !== undefined;
     if (hasSource && (typeof params.warehouseCode !== 'string' || !params.warehouseCode.trim()
@@ -405,8 +406,8 @@ export class EggInventoryService {
     // 质量等级校验（2026-06-06 收口）：从 product_grades 权威源动态读取，弃用
     // 硬编码 14 档混杂表（含历史遗留 0-5 数字蛋档）。带 5 分钟模块级缓存。
     const validGrades = await this.getValidGrades(mgr);
-    // 默认 'L'（一号蛋）— 孟赛主流销售档；非孟赛业务建议显式传 qualityGrade
-    const grade = params.qualityGrade ?? 'L';
+    const grade = params.qualityGrade;
+    if (!grade) throw new BadRequestException('必须显式提供质量等级，禁止使用默认等级');
     if (!validGrades.includes(grade)) {
       throw new BadRequestException(`无效的质量等级: ${grade}，有效值：${validGrades.join('/')}`);
     }

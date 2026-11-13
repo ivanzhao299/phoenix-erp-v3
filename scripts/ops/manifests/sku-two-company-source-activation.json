@@ -5,6 +5,35 @@
   "effective_date_policy": "用户明确确认至少从老挝业务日期2026-11-10起已如此；CLI来源生效日必须精确匹配，实际启用时间另记，不改写已入库历史",
   "approval_basis": "本会话用户明确确认：孟赛标准蛋；东鹏1/3/5粉、2/4红；0号重量待核实",
   "grade0_weight_rule": "待核实（不设推测重量边界）",
+  "grade0_matrix": [
+    {
+      "company_code": "COMP-LAO-AGRI",
+      "mode": "STANDARD",
+      "variety_code": null,
+      "product_code": "PRD-EGG-0",
+      "display_label": "0号特大蛋·普通",
+      "weight_range": null,
+      "spec_count": 7
+    },
+    {
+      "company_code": "COMP-LAO-XINGCHI",
+      "mode": "VARIANT",
+      "variety_code": "EGG_RED",
+      "product_code": "PRD-EGG-RED",
+      "display_label": "0号特大蛋·红",
+      "weight_range": null,
+      "spec_count": 7
+    },
+    {
+      "company_code": "COMP-LAO-XINGCHI",
+      "mode": "VARIANT",
+      "variety_code": "EGG_PINK",
+      "product_code": "PRD-EGG-PINK",
+      "display_label": "0号特大蛋·粉",
+      "weight_range": null,
+      "spec_count": 7
+    }
+  ],
   "companies": [
     {
       "company_code": "COMP-LAO-AGRI",

@@ -168,6 +168,32 @@ describe('SalesOrdersService draft creation', () => {
     });
   });
 
+  it.each(['STANDARD', 'RED', 'PINK'])('rejects %s zero-variant SKU when company sale scope is disabled', async varietyCode => {
+    const query = jest.fn(async (sql: string) => {
+      if (sql.includes('FROM wms_warehouses')) return [{ warehouse_code: 'WH-A' }];
+      if (sql.includes('FROM product_skus')) return [{
+        sku_code: `SKU-${varietyCode}`, product_code: `PRD-${varietyCode}`, grade_code: 'G1', spec_code: 'S1',
+        variety_code: varietyCode, org_context_required: true, status: 'ACTIVE', today: '2026-11-10',
+      }];
+      if (sql.includes('FROM sys_organizations')) return [{ org_code: 'COMP-A' }];
+      if (sql.includes('FROM md_sku_org_scope')) return [{
+        scope_type: 'COMPANY', scope_code: 'COMP-A', status: 'ACTIVE', sale_enabled: false, stock_enabled: true,
+        today: '2026-11-10', effective_date: null, expire_date: null,
+      }];
+      if (/SELECT \* FROM (mst_products|product_grades|packaging_specs)/.test(sql)) return [{ status: 'ACTIVE', is_saleable: true, is_storable: true }];
+      return [];
+    });
+    const { service, priceRuntime, ds } = makeService(query);
+
+    await expect(service.createDraft({
+      companyCode: 'COMP-A', fulfillmentWarehouseCode: 'WH-A',
+      items: [{ skuCode: `SKU-${varietyCode}`, productCode: 'FORGED', qty: 1 }],
+    } as any)).rejects.toMatchObject({ status: 400 });
+    expect(priceRuntime.resolvePrice).not.toHaveBeenCalled();
+    expect(query.mock.calls.some(([sql]) => /^(INSERT|UPDATE|DELETE)/.test(String(sql).trim()))).toBe(false);
+    expect(ds.transaction).toHaveBeenCalledTimes(1);
+  });
+
   it('resolves a legacy customer code through the canonical sal_customers columns', async () => {
     const query = jest.fn(async (sql: string, params?: unknown[]) => {
       if (sql.includes('FROM wms_warehouses')) return [{ warehouse_code: 'WH-LAO-AGRI' }];

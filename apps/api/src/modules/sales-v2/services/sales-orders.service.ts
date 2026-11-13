@@ -298,7 +298,7 @@ export class SalesOrdersService implements OnApplicationBootstrap {
 
       for (const item of dto.items) {
         // Missing skuCode alone keeps the legacy product/grade/spec path.
-        const sku = item.skuCode === undefined ? null : await SkuPolicy.requireUsable(mgr, item.skuCode, 'sale');
+        const sku = item.skuCode === undefined ? null : await SkuPolicy.requireUsable(mgr, item.skuCode, 'sale', dto.companyCode);
         const productCode = sku ? sku.product_code : item.productCode;
         const gradeCode = sku ? sku.grade_code : item.gradeCode ?? null;
         const packagingSpec = sku ? sku.spec_code : item.packagingSpec ?? null;
@@ -443,7 +443,7 @@ export class SalesOrdersService implements OnApplicationBootstrap {
         const channelCode = dto.channelCode ?? locked.channel_code ?? null;
 
         for (const item of dto.items) {
-          const sku = item.skuCode === undefined ? null : await SkuPolicy.requireUsable(mgr, item.skuCode, 'sale');
+          const sku = item.skuCode === undefined ? null : await SkuPolicy.requireUsable(mgr, item.skuCode, 'sale', companyCode);
           const productCode = sku ? sku.product_code : item.productCode;
           const gradeCode = sku ? sku.grade_code : item.gradeCode ?? null;
           const packagingSpec = sku ? sku.spec_code : item.packagingSpec ?? null;
