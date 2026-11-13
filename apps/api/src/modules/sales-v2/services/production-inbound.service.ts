@@ -432,7 +432,8 @@ export class ProductionInboundService {
           inventoryStatus: policy.defaultStockStatus,
         };
         const batch = await this.eggInv.createProductionBatch(params, mgr);
-        batches.push({ batchNo: batch.batch_no, grade, qty, productCode, varietyCode: sku.varietyCode ?? null, status: batch.status as GradeStockStatus });
+        batches.push({ batchNo: batch.batch_no, grade, qty, productCode, varietyCode: sku.varietyCode ?? null,
+          status: (batch.status ?? policy.defaultStockStatus) as GradeStockStatus });
       }
     };
     await this.ds.transaction((mgr: any) => run(mgr));
