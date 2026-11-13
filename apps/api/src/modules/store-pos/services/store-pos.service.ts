@@ -854,6 +854,12 @@ export class StorePosService {
          AND (pb.effective_to IS NULL OR pb.effective_to >= CURRENT_DATE)
          AND pi.status = 'ACTIVE'
          AND pi.unit_price > 0
+         AND (pi.sku_code IS NOT NULL OR EXISTS (
+           SELECT 1 FROM product_grades sale_grade
+            WHERE sale_grade.grade_code = COALESCE(pi.grade_code_std, pi.grade_code)
+              AND sale_grade.status = 'ACTIVE'
+              AND COALESCE(sale_grade.sale_enabled, sale_grade.is_saleable) = TRUE
+         ))
          AND (pi.sku_code IS NULL OR (${SkuPolicy.usableSql('ps', 'sale-stock')} AND ((ps.variety_code IS NULL AND COALESCE(ps.org_context_required, FALSE) = FALSE) OR EXISTS (SELECT 1 FROM md_sku_org_scope os WHERE os.sku_code = ps.sku_code AND os.scope_type = 'COMPANY' AND os.scope_code = $1 AND os.status = 'ACTIVE' AND os.sale_enabled = TRUE AND os.stock_enabled = TRUE AND (os.effective_date IS NULL OR os.effective_date <= CURRENT_DATE) AND (os.expire_date IS NULL OR os.expire_date >= CURRENT_DATE))))
        ORDER BY COALESCE(pi.sku_code,''),pi.product_code,COALESCE(pi.grade_code,''),COALESCE(pi.packaging_spec,''),
          CASE WHEN pi.quantity_snapshot IS NOT NULL THEN 0 ELSE 1 END,
@@ -926,6 +932,12 @@ export class StorePosService {
                AND qty_available > 0
                AND (expire_date IS NULL OR expire_date >= CURRENT_DATE)
                AND legacy_source IS NULL
+             AND EXISTS (
+               SELECT 1 FROM product_grades sale_grade
+                WHERE sale_grade.grade_code = COALESCE(inv_batches.quality_grade, inv_batches.grade_code_std)
+                  AND sale_grade.status = 'ACTIVE'
+                  AND COALESCE(sale_grade.sale_enabled, sale_grade.is_saleable) = TRUE
+             )
              ORDER BY expire_date ASC NULLS LAST, created_at ASC, batch_no ASC
              FOR UPDATE`,
             [item.sku_code, sale.company_code, sale.warehouseCodes],
@@ -943,7 +955,13 @@ export class StorePosService {
                AND qty_available > 0
                AND (expire_date IS NULL OR expire_date >= CURRENT_DATE)
                AND legacy_source IS NULL
-               ${item.grade_code ? `AND quality_grade = $4` : ''}
+               AND EXISTS (
+                 SELECT 1 FROM product_grades sale_grade
+                  WHERE sale_grade.grade_code = COALESCE(inv_batches.quality_grade, inv_batches.grade_code_std)
+                    AND sale_grade.status = 'ACTIVE'
+                    AND COALESCE(sale_grade.sale_enabled, sale_grade.is_saleable) = TRUE
+               )
+               ${item.grade_code ? `AND COALESCE(quality_grade, grade_code_std) = $4` : ''}
              ORDER BY expire_date ASC NULLS LAST, created_at ASC, batch_no ASC
              FOR UPDATE`,
             item.grade_code

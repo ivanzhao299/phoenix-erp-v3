@@ -23,6 +23,9 @@ class PosSqlFixture {
   writes = 0;
   failLedgerAt = 0;
   failSkuRead: Error | undefined;
+  readonly saleGrades = new Map([
+    ['G', true], ['DIRTY', false], ['CRACKED', false], ['BROKEN', false], ['DAMAGED', false],
+  ]);
   readonly skus = new Map([
     ['OLD', { sku_code: 'OLD', product_code: 'PRD-EGG-X', grade_code: 'G', spec_code: 'S', status: 'ACTIVE', variety_code: null, org_context_required: false }],
     ['STD0', { sku_code: 'STD0', product_code: 'PRD-EGG-X', grade_code: 'G', spec_code: 'S', status: 'ACTIVE', variety_code: null, org_context_required: true }],
@@ -45,12 +48,17 @@ class PosSqlFixture {
       return sku ? [{ ...sku, today: '2026-11-11', effective_date: null, expire_date: null }] : [];
     }
     if (/^SELECT \* FROM (mst_products|product_grades|packaging_specs) /.test(s)) {
-      return [{ status: 'ACTIVE', variety_code: null, is_saleable: true, is_storable: true, base_unit: '枚' }];
+      const grade = String(args[0] ?? '');
+      const saleable = !s.includes('product_grades') || this.saleGrades.get(grade) !== false;
+      return [{ status: 'ACTIVE', variety_code: null, is_saleable: saleable, sale_enabled: saleable, is_storable: true, stock_managed: true, base_unit: '枚' }];
     }
     if (s.startsWith('SELECT ') && s.includes(' FROM inv_batches WHERE ')) {
       if (!s.endsWith('FOR UPDATE')) throw new Error('FIFO candidates must be locked');
       let rows = this.batches.filter(b => b.status === 'AVAILABLE' && b.qty_available > 0
         && (!b.expire_date || b.expire_date >= '2026-11-11') && b.legacy_source == null);
+      rows = rows.filter(b => this.saleGrades.get(b.quality_grade || b.grade_code_std) !== false);
+      const grade = s.match(/COALESCE\(quality_grade, grade_code_std\)\s*=\s*\$(\d+)/);
+      if (grade) rows = rows.filter(b => (b.quality_grade || b.grade_code_std) === args[Number(grade[1]) - 1]);
       for (const column of ['company_code', 'product_code', 'sku_code', 'quality_grade', 'grade_code_std', 'unit'] as const) {
         const match = s.match(new RegExp(`(?:WHERE |AND )${column}\\s*=\\s*\\$(\\d+)`));
         if (match) rows = rows.filter(b => b[column] === args[Number(match[1]) - 1]);
@@ -130,6 +138,22 @@ describe('legacy POS managed-stock gate (behavioral SQL fixture)', () => {
     const result = await f.settle([{ id: 1, product_code: 'PRD-EGG-X', sku_code: 'OLD', qty: 5 }]);
     expect(result.map((a: any) => a.batchNo)).toEqual(['02-OLD']);
     expect(f.selected).toEqual([['02-OLD']]);
+  });
+
+  it.each(['DIRTY', 'CRACKED', 'BROKEN', 'DAMAGED'])('never allocates defect grade %s through the legacy product fallback', async grade => {
+    const f = new PosSqlFixture();
+    f.batches = [stock(`DEFECT-${grade}`, null, { quality_grade: grade, grade_code_std: grade, qty_available: 5 })];
+    await expect(f.settle([{ id: 1, product_code: 'PRD-EGG-X', grade_code: grade, qty: 1 }])).rejects.toThrow('缺 1');
+    expect(f.writes).toBe(0);
+    expect(f.allocations).toEqual([]);
+    expect(f.ledger).toEqual([]);
+  });
+
+  it('uses grade_code_std when quality_grade is missing in the legacy fallback', async () => {
+    const f = new PosSqlFixture();
+    f.batches = [stock('STD-FALLBACK', null, { quality_grade: null as any, grade_code_std: 'G', qty_available: 2 })];
+    const result = await f.settle([{ id: 1, product_code: 'PRD-EGG-X', grade_code: 'G', qty: 1 }]);
+    expect(result.map((a: any) => a.batchNo)).toEqual(['STD-FALLBACK']);
   });
 
   it('filters physical managed identities from a saved shared quantity pool', async () => {

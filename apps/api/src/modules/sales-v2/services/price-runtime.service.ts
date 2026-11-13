@@ -106,6 +106,12 @@ export class PriceRuntimeService {
       WHERE pb.company_code = $1
         AND pb.status       = 'ACTIVE'
         AND pi.status       = 'ACTIVE'
+        AND (pi.sku_code IS NOT NULL OR EXISTS (
+          SELECT 1 FROM product_grades sale_grade
+           WHERE sale_grade.grade_code = COALESCE(pi.grade_code_std, pi.grade_code)
+             AND sale_grade.status = 'ACTIVE'
+             AND COALESCE(sale_grade.sale_enabled, sale_grade.is_saleable) = TRUE
+        ))
         AND (pi.sku_code IS NULL OR EXISTS (SELECT 1 FROM product_skus ps WHERE ps.sku_code=pi.sku_code AND ${SkuPolicy.usableSql('ps', 'sale')}
           AND ((ps.variety_code IS NULL AND COALESCE(ps.org_context_required, FALSE) = FALSE) OR EXISTS (
             SELECT 1 FROM md_sku_org_scope os
@@ -124,8 +130,8 @@ export class PriceRuntimeService {
           (
             ($2::varchar IS NULL OR pi.sku_code IS NULL)
             AND pi.product_code = $3
-            AND (pi.grade_code     IS NULL OR pi.grade_code     = $4)
-            AND (pi.packaging_spec IS NULL OR pi.packaging_spec = $5)
+            AND (COALESCE(pi.grade_code_std, pi.grade_code) IS NULL OR COALESCE(pi.grade_code_std, pi.grade_code) = $4)
+            AND (COALESCE(pi.spec_code, pi.packaging_spec) IS NULL OR COALESCE(pi.spec_code, pi.packaging_spec) = $5)
           )
         )
         AND ($11::boolean OR pi.quantity_snapshot IS NULL OR (pi.quantity_snapshot->>'basis'='BASE' AND pi.quantity_snapshot->>'factor'='1'))
@@ -167,7 +173,13 @@ export class PriceRuntimeService {
     if (!rows?.length) {
       if (!quantity) {
         const configured = await queryable.query(`SELECT 1 FROM sal_price_items pi JOIN sal_price_books pb ON pb.id=pi.price_book_id
-          WHERE (pi.sku_code=$1 OR (pi.product_code=$3 AND (pi.grade_code IS NULL OR pi.grade_code=$4) AND (pi.packaging_spec IS NULL OR pi.packaging_spec=$5)))
+          WHERE (pi.sku_code=$1 OR (pi.product_code=$3 AND (COALESCE(pi.grade_code_std, pi.grade_code) IS NULL OR COALESCE(pi.grade_code_std, pi.grade_code)=$4) AND (COALESCE(pi.spec_code, pi.packaging_spec) IS NULL OR COALESCE(pi.spec_code, pi.packaging_spec)=$5)))
+          AND (pi.sku_code IS NOT NULL OR EXISTS (
+            SELECT 1 FROM product_grades sale_grade
+             WHERE sale_grade.grade_code = COALESCE(pi.grade_code_std, pi.grade_code)
+               AND sale_grade.status = 'ACTIVE'
+               AND COALESCE(sale_grade.sale_enabled, sale_grade.is_saleable) = TRUE
+          ))
           AND pb.company_code=$2 AND pi.status='ACTIVE' AND pb.status='ACTIVE'
           AND pi.quantity_snapshot IS NOT NULL LIMIT 1`, [dto.skuCode ?? null,dto.companyCode,dto.productCode,dto.gradeCode ?? null,dto.packagingSpec ?? null]);
         if (configured.length) throw new BadRequestException('该 SKU 已明确价格计量，请使用明确数量单位的新客户端');
@@ -323,6 +335,12 @@ export class PriceRuntimeService {
         AND pi.status = 'ACTIVE'
         AND (pb.effective_from IS NULL OR pb.effective_from <= CURRENT_DATE)
         AND (pb.effective_to   IS NULL OR pb.effective_to   >= CURRENT_DATE)
+        AND (pi.sku_code IS NOT NULL OR EXISTS (
+          SELECT 1 FROM product_grades sale_grade
+           WHERE sale_grade.grade_code = COALESCE(pi.grade_code_std, pi.grade_code)
+             AND sale_grade.status = 'ACTIVE'
+             AND COALESCE(sale_grade.sale_enabled, sale_grade.is_saleable) = TRUE
+        ))
         AND (pi.sku_code IS NULL OR EXISTS (
           SELECT 1 FROM product_skus ps
            WHERE ps.sku_code = pi.sku_code

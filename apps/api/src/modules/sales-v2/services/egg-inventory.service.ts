@@ -139,6 +139,27 @@ export class EggInventoryService {
     return `(${alias}.product_code = 'EGG' OR ${alias}.product_code LIKE 'PRD-EGG-%')`;
   }
 
+  /** Only sale-enabled grades may enter a sales availability/FIFO path. */
+  private saleGradeCondition(alias = 'b'): string {
+    return `EXISTS (
+      SELECT 1 FROM product_grades sale_grade
+       WHERE sale_grade.grade_code = COALESCE(${alias}.quality_grade, ${alias}.grade_code_std)
+         AND sale_grade.status = 'ACTIVE'
+         AND COALESCE(sale_grade.sale_enabled, sale_grade.is_saleable) = TRUE
+    )`;
+  }
+
+  private async assertSaleGrade(mgr: EntityManager, gradeCode: string | null | undefined): Promise<void> {
+    if (!gradeCode) return;
+    const rows = await mgr.query(
+      `SELECT * FROM product_grades
+        WHERE grade_code=$1 AND status='ACTIVE'
+          AND COALESCE(sale_enabled, is_saleable)=TRUE
+        FOR SHARE`, [gradeCode],
+    );
+    if (!rows.length) throw new BadRequestException(`等级 ${gradeCode} 不可销售或不存在`);
+  }
+
   /** 统一页面查询的公司范围；null 表示全局，[] 表示拒绝访问。 */
   private companyScope(requested?: string): string[] | null {
     const scope = this.cls.get('dataScope');
@@ -603,7 +624,11 @@ export class EggInventoryService {
     /** Phase H4: 按 SKU 精确过滤（优先于 productCode + gradeCode） */
     skuCode?:           string;
   }): Promise<EggBatch[]> {
-    const conds: string[] = [`b.status = 'AVAILABLE'`, `b.qty_available > 0`];
+    const conds: string[] = [
+      `b.status = 'AVAILABLE'`,
+      `b.qty_available > 0`,
+      this.saleGradeCondition('b'),
+    ];
     const args: unknown[] = [];
     let pi = 1;
 
@@ -619,7 +644,7 @@ export class EggInventoryService {
         conds.push(`b.product_code = $${pi++}`);
         args.push(params.productCode);
       }
-      if (params.gradeCode)   { conds.push(`b.quality_grade = $${pi++}`); args.push(params.gradeCode); }
+      if (params.gradeCode)   { conds.push(`COALESCE(b.quality_grade, b.grade_code_std) = $${pi++}`); args.push(params.gradeCode); }
     }
 
     const companyCodes = this.companyScope(params.companyCode);
@@ -733,6 +758,7 @@ export class EggInventoryService {
            AND legacy_sku.variety_code IS NULL
            AND legacy_sku.org_context_required=false
       ))`,
+      this.saleGradeCondition('inv_batches'),
     ];
     const args: unknown[] = [params.companyCode];
     let pi = 2;
@@ -747,7 +773,7 @@ export class EggInventoryService {
       conds.push(`product_code = $${pi++}`);
       args.push(params.productCode);
       if (params.gradeCode) {
-        conds.push(`quality_grade = $${pi++}`);
+        conds.push(`COALESCE(quality_grade, grade_code_std) = $${pi++}`);
         args.push(params.gradeCode);
       }
     }
@@ -879,7 +905,8 @@ export class EggInventoryService {
       else if (item.quantity_snapshot) await SkuPolicy.requireUsable(mgr, item.quantity_snapshot.skuCode, 'sale-stock');
 
       const existing = await q(
-        `SELECT a.id,a.batch_no,a.reserved_qty,a.outbound_qty,a.released_qty,b.sku_code
+        `SELECT a.id,a.batch_no,a.reserved_qty,a.outbound_qty,a.released_qty,
+                b.sku_code,b.status,b.grade_code_std,b.quality_grade
            FROM sal_order_item_batch_allocations a
            JOIN inv_batches b ON b.batch_no=a.batch_no
           WHERE a.sales_order_item_id=$1
@@ -888,6 +915,10 @@ export class EggInventoryService {
       );
       if (existing.length) {
         for (const allocation of existing) {
+          if (allocation.status !== undefined && allocation.status !== 'AVAILABLE') {
+            throw new ConflictException(`订单明细 ${item.id} 已分配批次不可销售`);
+          }
+          await this.assertSaleGrade(mgr, allocation.grade_code_std ?? allocation.quality_grade);
           if (!await this.isLegacySaleStock(allocation.sku_code, mgr)) {
             throw new ConflictException('旧销售预留禁止使用公司范围管理或未映射 SKU 库存');
           }

@@ -79,9 +79,20 @@ describe('EggInventoryService conditional inventory updates', () => {
     expect(candidateSql).toContain('qty_available > 0');
     expect(candidateSql).toContain('expire_date >= CURRENT_DATE');
     expect(candidateSql).toContain('legacy_source IS NULL');
+    expect(candidateSql).toContain('sale_grade.sale_enabled');
     expect(candidateSql).toContain('sku_code = $2');
     expect(candidateSql).toContain('ORDER BY expire_date ASC NULLS LAST, created_at ASC');
     expect(candidateSql).toContain('FOR UPDATE');
+  });
+
+  it('uses sale-enabled grade policy and grade_code_std fallback for product FIFO', async () => {
+    const query = jest.fn().mockResolvedValue([]);
+    const service = new EggInventoryService({ query, transaction: async (run: (manager: any) => unknown) => run({ query }) } as never, { get: jest.fn() } as never);
+    await service.getAvailableBatches({ productCode: 'EGG', gradeCode: 'G' });
+    const sql = String(query.mock.calls[0][0]);
+    expect(sql).toContain("COALESCE(b.quality_grade, b.grade_code_std) = $1");
+    expect(sql).toContain("COALESCE(sale_grade.sale_enabled, sale_grade.is_saleable) = TRUE");
+    expect(sql).toContain("sale_grade.status = 'ACTIVE'");
   });
 });
 
