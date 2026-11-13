@@ -14,6 +14,18 @@ export const featureMigrations = Object.freeze([
     effective_name: 'AddImmuneIssueLines1794402000000',
     timestamp: 1794402000000,
   }),
+  Object.freeze({
+    source_file: 'apps/api/dist/database/migrations/1794403000000-AddGradeInventoryPolicy.js',
+    class_name: 'AddGradeInventoryPolicy1794403000000',
+    effective_name: 'AddGradeInventoryPolicy1794403000000',
+    timestamp: 1794403000000,
+  }),
+  Object.freeze({
+    source_file: 'apps/api/dist/database/migrations/1794405000000-AddWmsDefectDisposition.js',
+    class_name: 'AddWmsDefectDisposition1794405000000',
+    effective_name: 'AddWmsDefectDisposition1794405000000',
+    timestamp: 1794405000000,
+  }),
 ]);
 const pinned = JSON.parse(fs.readFileSync(new URL('./typeorm-ledger-rehearsal-historical-inventory.json', import.meta.url), 'utf8'));
 const sorted = entries => [...entries].sort((a,b) => a.timestamp-b.timestamp);
