@@ -32,7 +32,7 @@ const GRADE_MAP: Record<string, string> = (() => {
   for (const [k, v] of Object.entries(GRADE_LABEL)) {
     if (!m[k]) m[k] = v as string;
   }
-  if (!m.GRADE_0) m.GRADE_0 = '0号特大蛋';
+  if (!m.GRADE_0) m.GRADE_0 = 'GRADE_0';
   return m;
 })();
 function gradeDisplay(grade: string): string {
