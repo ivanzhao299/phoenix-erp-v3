@@ -15,15 +15,27 @@ printf '%s\n' "$image_id" > "$dir/candidate-image.txt"
 export API_IMAGE="$image_id"
 echo "migration evidence: $dir" >&2
 # No service ports, dependencies, AppModule, cleanup or default chown entrypoint.
-docker compose run --no-deps -T --name "$name" --user phoenix \
+# Logs stay in the evidence dir on success; on failure the fixed log tail becomes
+# part of the deploy output so the host-side cause is visible from CI alone.
+if ! docker compose run --no-deps -T --name "$name" --user phoenix \
   -e PGOPTIONS='-c lock_timeout=5s -c statement_timeout=120s' \
   --entrypoint ./node_modules/.bin/typeorm api \
-  -d dist/database/data-source.js migration:run --transaction all > "$dir/run.log" 2>&1
-docker compose run --no-deps -T --name "$name-show" --user phoenix \
+  -d dist/database/data-source.js migration:run --transaction all > "$dir/run.log" 2>&1; then
+  echo "::error::candidate migration:run failed; tail of $dir/run.log:" >&2
+  tail -n 60 "$dir/run.log" >&2 || true
+  exit 1
+fi
+if ! docker compose run --no-deps -T --name "$name-show" --user phoenix \
   --entrypoint ./node_modules/.bin/typeorm api \
-  -d dist/database/data-source.js migration:show > "$dir/show.log" 2>&1
+  -d dist/database/data-source.js migration:show > "$dir/show.log" 2>&1; then
+  echo "::error::candidate migration:show failed; tail of $dir/show.log:" >&2
+  tail -n 60 "$dir/show.log" >&2 || true
+  exit 1
+fi
 if grep -Fq '[ ]' "$dir/show.log" || ! grep -Fq '[X]' "$dir/show.log"; then
-  echo '::error::pending or missing migration verification'; exit 1
+  echo "::error::pending or missing migration verification; tail of $dir/show.log:" >&2
+  tail -n 60 "$dir/show.log" >&2 || true
+  exit 1
 fi
 printf '%s\n' "$image_id" > "$dir/verified-image.txt"
 echo 'candidate migrations verified; application switch may now proceed' >&2
