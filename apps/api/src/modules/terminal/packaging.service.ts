@@ -1,9 +1,7 @@
-import { ProductPolicy } from '../product-master/services/product-policy';
 import { OrgOwnershipService } from '../org/services/org-ownership.service';
 import { ConflictException, Injectable } from '@nestjs/common';
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
-import { randomBytes } from 'crypto';
 import { PackagingInventoryIntegrationService } from '../sales-v2/services/packaging-inventory-integration.service'; // 生产链路收口 Phase 1
 
 /**
@@ -200,13 +198,12 @@ export class PackagingService {
   }
 
   /**
-   * 集蛋班次完成 — 完整复刻 V2 phoenix-backend/src/routes/packaging.js#/shifts/:id/complete 5 步事务
+   * 集蛋班次完成 — 事务内完成班次/日报/分级任务记录
    * ① UPDATE pkg_shifts → DONE
    * ② INSERT/UPDATE brd_daily_logs（产蛋日报，按日期+鸡舍+班次去重累加）
-   * ③ INSERT mst_products PRD-EGG-RAW（鲜蛋原料产品，幂等）
-   * ④ INSERT inv_batches 鲜蛋批次 + inv_ledger EGG_IN 流水（保质 7 天）
-   * ⑤ INSERT pkg_tasks 分级任务（task_no=GRADE-..., status=IN_PROGRESS,
+   * ③ INSERT pkg_tasks 分级任务（task_no=GRADE-..., status=IN_PROGRESS,
    *    source_item="鸡舍名·班次"，触发分级作业页显示）
+   * 库存批次与流水必须由 source-aware 生产入库生成，此处不得直写。
    */
   async completeShift(id: number, body: any, userId: number) {
     const qty    = Number(body.total_qty ?? body.eggs_collected ?? 0);
@@ -270,12 +267,10 @@ export class PackagingService {
     const dateKey = shiftDate.replace(/-/g, '');
     const batchNo = `EGG-${dateKey}-${houseCode}-${ts5}`;
     const taskNo  = `GRADE-${dateKey}-${houseCode}-${ts5}`;
-    const expireDate = new Date(Date.now() + 7 * 86400 * 1000).toISOString().slice(0, 10);
 
     try {
       // ── 事务：5 步原子提交 ──────────────────────────────────────
       await this.em.transaction(async (mgr) => {
-        await ProductPolicy.ensureRawEggProduct(mgr, userId ? String(userId) : undefined);
         // ① pkg_shifts → DONE
         // 显式 ::int 类型 cast，避免 V2 老列(TEXT) + V3 新列(INT) 让 pg 类型推断失败
         // completed_time 是 V2 历史 TEXT 列，用 to_char 而非 NOW() 防类型不匹配
@@ -330,40 +325,8 @@ export class PackagingService {
           console.warn('[completeShift][WARN] brd_daily_logs skipped:', e?.message);
         }
 
-        // ③ inv_batches 鲜蛋批次（V3 实际 schema 仅 batch_no/product_code/qty/expire_date/store_code/warehouse_code）
-        await mgr.query('SAVEPOINT sp_inv_batches');
-        try {
-          // batch_no 带毫秒级时间戳后缀天然唯一；表上无 UNIQUE 约束，不需要 ON CONFLICT
-          await mgr.query(
-            `INSERT INTO inv_batches
-               (batch_no, product_code, qty, expire_date, store_code, warehouse_code, inbound_date)
-             VALUES ($1, 'PRD-EGG-RAW', $2::int, $3, 'FACTORY', 'WMS-VTE-MAIN', $4::date)`,
-            [batchNo, goodQty, expireDate, shiftDate],
-          );
-          await mgr.query('RELEASE SAVEPOINT sp_inv_batches');
-        } catch (e: any) {
-          await mgr.query('ROLLBACK TO SAVEPOINT sp_inv_batches');
-          console.warn('[completeShift][WARN] inv_batches skipped:', e?.message);
-        }
-
-        // ④ inv_ledger EGG_IN 流水
-        await mgr.query('SAVEPOINT sp_inv_ledger');
-        try {
-          await mgr.query(
-            `INSERT INTO inv_ledger
-               (batch_no, change_type, qty_change, operator, store_code, ref_no, note)
-             VALUES ($1, 'EGG_IN', $2::int, $3, 'FACTORY', $4, $5)`,
-            [
-              batchNo, goodQty, String(userId || 'SYS'),
-              shift.shift_no || `SHIFT-${id}`,
-              `集蛋入库 | 鸡舍:${houseCode} | ${shiftTime} | 合格:${goodQty}枚 破损:${badQty}枚`,
-            ],
-          );
-          await mgr.query('RELEASE SAVEPOINT sp_inv_ledger');
-        } catch (e: any) {
-          await mgr.query('ROLLBACK TO SAVEPOINT sp_inv_ledger');
-          console.warn('[completeShift][WARN] inv_ledger skipped:', e?.message);
-        }
+        // ③ 集蛋完成只记录班次/日报/分级任务；库存必须由 source-aware 生产入库生成。
+        // 不得在此写 PRD-EGG-RAW 批次、EGG_IN 流水或固定 FACTORY/WMS-VTE-MAIN 归属。
 
         // ⑤ pkg_tasks 分级任务（V2 兼容：GRADE-... + source_item + IN_PROGRESS）
         // 这一步是最关键的（决定分级作业页能不能看到新任务）；用 SAVEPOINT 保证即使
@@ -411,16 +374,13 @@ export class PackagingService {
    *
    * 旧实现 (V2/V3 早期) 只 UPDATE pkg_shifts.status，**不清理 completeShift 已产生的副作用**：
    *   - pkg_tasks GRADE-... 行（继续躺在分级列表里）
-   *   - inv_batches EGG-... 行（继续占库存）
-   *   - inv_ledger EGG_IN 流水（继续累计产量）
    * 操作员重新提交时，completeShift 又会插入第二份 → 分级列表出现 2 条重复任务。
    *
-   * 本次修复：reopen 必须在同一事务内完成下列清理：
+   * 本次修复：reopen 在同一事务内完成清理：
    *   ① 把此 shift 的活跃 pkg_tasks 全部置 CANCELLED（保留行做审计；
    *      getGradingTasks 已过滤 CANCELLED，不会在列表显示）
-   *   ② 对每个被作废的 batch_no 写一条 EGG_REVERSED 反向流水（审计可追溯）
-   *   ③ 把 inv_batches.qty 清零（避免库存被双计；记录本身保留）
-   *   ④ UPDATE pkg_shifts → PENDING
+   *   ② UPDATE pkg_shifts → PENDING
+   * 集蛋完成本就不写库存；reopen 也不得对其他受控流程的库存做清零或反向流水。
    */
   async reopenShift(id: number, body: any, userId: number) {
     const shifts = await this.em.query('SELECT * FROM pkg_shifts WHERE id = $1', [id]);
@@ -434,9 +394,9 @@ export class PackagingService {
     try {
       await this.em.transaction(async (mgr) => {
         // ① 找此班次关联的活跃 GRADING 任务
-        const tasks: Array<{ id: number; task_no: string; batch_no: string; plan_qty: number }> =
+        const tasks: Array<{ id: number; task_no: string }> =
           await mgr.query(
-            `SELECT id, task_no, batch_no, plan_qty
+            `SELECT id, task_no
                FROM pkg_tasks
               WHERE shift_id = $1::bigint
                 AND COALESCE(status, '') <> 'CANCELLED'
@@ -457,33 +417,8 @@ export class PackagingService {
           );
         }
 
-        // ③ 对每条被作废的 batch 做反向流水 + qty 清零
-        for (const t of tasks) {
-          if (!t.batch_no) continue;
-          await mgr.query('SAVEPOINT sp_reopen_void');
-          try {
-            await mgr.query(
-              `INSERT INTO inv_ledger
-                 (batch_no, change_type, qty_change, operator, store_code, ref_no, note)
-               VALUES ($1, 'EGG_REVERSED', -$2::int, $3, 'FACTORY', $4, $5)`,
-              [
-                t.batch_no,
-                Number(t.plan_qty) || 0,
-                String(userId || 'SYS'),
-                `SHIFT-${id}-REOPEN`,
-                `集蛋班次重开作废 | 原任务=${t.task_no} | 原因=${body.reason || '未填'}`,
-              ],
-            );
-            await mgr.query(
-              `UPDATE inv_batches SET qty = 0, updated_at = NOW() WHERE batch_no = $1`,
-              [t.batch_no],
-            );
-            await mgr.query('RELEASE SAVEPOINT sp_reopen_void');
-          } catch (e: any) {
-            await mgr.query('ROLLBACK TO SAVEPOINT sp_reopen_void');
-            console.warn('[reopenShift][WARN] void batch skipped:', t.batch_no, e?.message);
-          }
-        }
+        // ③ 集蛋完成不再写库存；重开也只作废任务，不产生补偿性库存/流水。
+        // 任何既有库存行都属于其他受控流程，不得在此清零或反向。
 
         // ④ 班次状态拨回
         await mgr.query(

@@ -143,13 +143,11 @@ BATCH_NO=$(printf '%s' "$COMPLETE_RES" | grep -oE '"batch_no":"[^"]*"' | head -1
 SHIFT_STATUS=$($PSQL $DB -tA -c "SELECT status FROM pkg_shifts WHERE id=$SHIFT_ID;")
 assert_eq "T1.4 pkg_shifts.status=DONE" "DONE" "$SHIFT_STATUS"
 
-# inv_batches 有原料批次
-INV_BATCH=$($PSQL $DB -tA -c "SELECT qty::integer FROM inv_batches WHERE batch_no='$BATCH_NO';")
-assert_eq "T1.5 inv_batches 鲜蛋批次 qty=2950" "2950" "$INV_BATCH"
-
-# inv_ledger FARM_IN
-LEDGER_IN=$($PSQL $DB -tA -c "SELECT qty_change::integer FROM inv_ledger WHERE batch_no='$BATCH_NO' AND change_type='EGG_IN' LIMIT 1;")
-assert_eq "T1.6 inv_ledger EGG_IN +2950" "2950" "$LEDGER_IN"
+# 集蛋完成只记录班次/日报/分级任务；库存必须由 source-aware 生产入库生成。
+RAW_INV_CNT=$($PSQL $DB -tA -c "SELECT COUNT(*) FROM inv_batches WHERE batch_no='$BATCH_NO';")
+assert_eq "T1.5 集蛋完成不直写 inv_batches" "0" "$RAW_INV_CNT"
+RAW_LEDGER_CNT=$($PSQL $DB -tA -c "SELECT COUNT(*) FROM inv_ledger WHERE batch_no='$BATCH_NO';")
+assert_eq "T1.6 集蛋完成不直写 inv_ledger" "0" "$RAW_LEDGER_CNT"
 
 # pkg_tasks 自动建分级任务
 GRADING_TASK=$($PSQL $DB -tA -c "SELECT task_no FROM pkg_tasks WHERE shift_id=$SHIFT_ID AND task_type='GRADING';")
@@ -244,7 +242,6 @@ cyan ""
 cyan "▶ T5: reopenShift 副作用清理 (commit d584979)"
 # 看现在的活跃 GRADING 任务（应有 1 条 from T1）
 ACTIVE_BEFORE=$($PSQL $DB -tA -c "SELECT COUNT(*) FROM pkg_tasks WHERE shift_id=$SHIFT_ID AND status<>'CANCELLED' AND task_type='GRADING';")
-INV_BEFORE=$($PSQL $DB -tA -c "SELECT qty::integer FROM inv_batches WHERE batch_no='$BATCH_NO';")
 
 # reopen
 RE_RES=$(curl -s -X POST "$API/api/packaging/shifts/$SHIFT_ID/reopen" -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d '{"reason":"regression test"}')
@@ -255,13 +252,11 @@ assert_eq "T5.1 reopen 业务码 200" "200" "$R_CODE"
 ACTIVE_AFTER=$($PSQL $DB -tA -c "SELECT COUNT(*) FROM pkg_tasks WHERE shift_id=$SHIFT_ID AND status<>'CANCELLED' AND task_type='GRADING';")
 assert_eq "T5.2 reopen 后无活跃 GRADING 任务" "0" "$ACTIVE_AFTER"
 
-# inv_batches.qty=0
-INV_AFTER=$($PSQL $DB -tA -c "SELECT qty::integer FROM inv_batches WHERE batch_no='$BATCH_NO';")
-assert_eq "T5.3 reopen 后 inv_batches.qty=0" "0" "$INV_AFTER"
-
-# 反向 EGG_REVERSED ledger
-REV=$($PSQL $DB -tA -c "SELECT qty_change::integer FROM inv_ledger WHERE batch_no='$BATCH_NO' AND change_type='EGG_REVERSED' LIMIT 1;")
-assert_eq "T5.4 EGG_REVERSED 反向 ledger -2950" "-2950" "$REV"
+# 集蛋完成本就不写库存：reopen 后仍无批次/流水，不允许补偿性写入
+REOPEN_INV_CNT=$($PSQL $DB -tA -c "SELECT COUNT(*) FROM inv_batches WHERE batch_no='$BATCH_NO';")
+assert_eq "T5.3 reopen 后仍无 inv_batches" "0" "$REOPEN_INV_CNT"
+REOPEN_REV_CNT=$($PSQL $DB -tA -c "SELECT COUNT(*) FROM inv_ledger WHERE batch_no='$BATCH_NO';")
+assert_eq "T5.4 reopen 后仍无 inv_ledger" "0" "$REOPEN_REV_CNT"
 
 # shift 回 PENDING
 SHIFT_STATUS2=$($PSQL $DB -tA -c "SELECT status FROM pkg_shifts WHERE id=$SHIFT_ID;")

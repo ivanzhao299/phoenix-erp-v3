@@ -39,10 +39,12 @@ describe('inventory inbound-date write-path contract', () => {
   });
 
   it('records unknown legacy and packaging dates as NULL without created-at fallback', () => {
-    // The retired legacy terminal path must not manufacture inventory with
-    // hardcoded product/warehouse identities. The source-aware integration owns
-    // the batch schema and persists its authoritative inbound date.
+    // The retired terminal grading/pack completion no longer writes inventory:
+    // raw-egg collection keeps only shift/daily-log/task records, while fresh
+    // batches come from source-aware integration with authoritative dates.
     expect(packaging).not.toContain("INSERT INTO inv_batches");
+    expect(packaging).not.toContain("INSERT INTO inv_ledger");
+    expect(packaging).not.toContain("'PRD-EGG-RAW'");
     expect(packaging).toContain('completePackagingBatch');
     expect(legacyProcurement).toContain('location_code, inbound_date)');
     expect(legacyProcurement).toContain('VALUES ($1, $2, $3, $4, $5, NULL)');
