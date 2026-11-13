@@ -34,7 +34,9 @@ type Props = {
 const inputStyle: CSSProperties = { width: "100%", boxSizing: "border-box", padding: "7px 8px", border: "1px solid var(--border-subtle)", borderRadius: 6, background: "var(--bg-surface)" };
 
 export function newBatchLine(): BatchLine {
-  return { _key: `${Date.now()}-${Math.random().toString(36).slice(2)}`, item: "", item_name: "", item_type: "", material_code: "", sku_code: "", unit: "", qty: "" };
+  // 注意：不预置 sku_code / material_code 种子。后端契约是“字段缺省 = 物料/legacy
+  // 路径，传值 = 明确身份”，预置空串会让物料行被当成脏 SKU 编码拒绝（400）。
+  return { _key: `${Date.now()}-${Math.random().toString(36).slice(2)}`, item: "", item_name: "", item_type: "", unit: "", qty: "" };
 }
 
 export default function BatchDocumentEditor({ kind, header, setHeader, items, setItems, onSubmit, onCancel, loading, policy }: Props) {
@@ -77,7 +79,23 @@ export default function BatchDocumentEditor({ kind, header, setHeader, items, se
       <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 700 }}>
         <thead><tr>{[t("ui.库存品目", "库存品目"), t("ui.品目名称", "品目名称"), t("ui.基本计量单位", "库存基本单位"), isInbound ? t("ui.入库数量", "入库数量") : t("ui.出库数量", "出库数量"), t("common.operation", "操作")].map(label => <th key={label} style={{ textAlign: "left", padding: 8, fontSize: 12, background: "var(--bg-muted)" }}>{label}</th>)}</tr></thead>
         <tbody>{items.map(line => <tr key={line._key}>
-          <td style={{ padding: 7 }}><InventoryItemSelector itemType={String(line.item_type ?? "")} value={String(line.item ?? "")} onChange={value => updateLine(line._key, { item: value })} onPick={option => updateLine(line._key, { item: option?.value ?? "", item_name: option?.raw?.itemName ?? option?.raw?.item_name ?? "", item_type: option?.raw?.itemType ?? option?.raw?.item_type ?? "", material_code: option?.raw?.materialCode ?? option?.raw?.material_code ?? "", sku_code: option?.raw?.skuCode ?? option?.raw?.sku_code ?? "", unit: option?.raw?.unit ?? "", quantityBasis: option?.raw?.itemType === "SKU" ? "BASE" : undefined })} /></td>
+          <td style={{ padding: 7 }}><InventoryItemSelector itemType={String(line.item_type ?? "")} value={String(line.item ?? "")} onChange={value => updateLine(line._key, { item: value })} onPick={option => {
+            const raw = (option?.raw ?? {}) as Record<string, unknown>;
+            const itemType = String(raw.itemType ?? raw.item_type ?? "");
+            const isSku = itemType === "SKU";
+            // 身份键条件化：SKU 行只带 sku_code，物料行只带 material_code，
+            // 不适用的一侧置 undefined（JSON 序列化时自动缺省，与后端 legacy 契约对齐）。
+            updateLine(line._key, {
+              item: option?.value ?? "",
+              item_name: String(raw.itemName ?? raw.item_name ?? ""),
+              item_type: itemType,
+              unit: String(raw.unit ?? ""),
+              ...(isSku
+                ? { sku_code: String(raw.skuCode ?? raw.sku_code ?? ""), material_code: undefined }
+                : { material_code: String(raw.materialCode ?? raw.material_code ?? ""), sku_code: undefined }),
+              quantityBasis: isSku ? "BASE" : undefined,
+            });
+          }} /></td>
           <td style={{ padding: 7 }}><input value={String(line.item_name ?? "")} readOnly style={{ ...inputStyle, background: "var(--bg-muted)" }} /></td>
           <td style={{ padding: 7, width: 100 }}><input value={String(line.unit ?? "")} readOnly style={{ ...inputStyle, background: "var(--bg-muted)" }} /></td>
           <td style={{ padding: 7, width: 130 }}><input type="number" min="0" step="0.001" value={String(line.qty ?? "")} onChange={e => updateLine(line._key, { qty: e.target.value })} style={inputStyle} required /></td>

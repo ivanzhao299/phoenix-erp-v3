@@ -116,8 +116,11 @@ export function resetOutboundDestination(values: Record<string, unknown>, change
 /** Apply the same item policy to every existing, newly added or picked batch line. */
 export function constrainOutboundBatchLine<T extends Record<string, unknown>>(line: T, header: Record<string, unknown>): T {
   if (!validateOutboundItem(line.item, { ...line, type: header.type })) return line;
-  return { ...line, item: '', item_name: '', item_type: '', material_type: '', material_code: '',
-    sku_code: '', product_code: '', spec_code: '', grade_code: '', unit: '', batch_no: '', quantityBasis: undefined };
+  // 身份键（material_code/sku_code/product_code）重置为 undefined 而非 ""：
+  // 后端契约是“缺省 = legacy 物料路径”，空串会被当成脏 SKU 编码拒绝（400）。
+  return { ...line, item: '', item_name: '', item_type: '', material_type: '',
+    material_code: undefined, sku_code: undefined, product_code: undefined,
+    spec_code: '', grade_code: '', unit: '', batch_no: '', quantityBasis: undefined };
 }
 
 /** Frontend guard only: dictionary options still come from SYS dictionary data. */

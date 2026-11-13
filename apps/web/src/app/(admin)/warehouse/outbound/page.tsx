@@ -28,6 +28,7 @@ import {
 import { formatMasterData } from "@/lib/business-display";
 import { masterNameWithCode } from "@/lib/localized-master-data";
 import { invalidateBatchLookups } from "@/lib/request-cache";
+import { omitEmptyIdentityFields } from "@/lib/selector-pick";
 // g200e 模板 token(2026-06-20)
 import {
   primaryActionButton, actionPill, toolbarFilterPill, moneyCell,
@@ -244,13 +245,13 @@ export default function OutboundPage() {
       // G17：outbound_no 后端 UNIQUE 约束护底；前端兜底生成；site_code 自动注入
       if (!canCreateType(values.type) && !editing) return;
       if (!canEditType(values.type) && editing) return;
-      const payload = {
+      const payload = omitEmptyIdentityFields({
         ...values,
         outbound_no: values.outbound_no || ("WO-" + Date.now().toString().slice(-8)),
         status:      values.status || "PENDING",
         date:        values.date   || new Date().toISOString().slice(0, 10),
         ...(siteCode ? { site_code: siteCode } : {}),
-      };
+      });
       const outboundNo = encodeURIComponent(String(payload.outbound_no));
       await apiRequest(
         editing
@@ -271,7 +272,7 @@ export default function OutboundPage() {
     try {
       const stamp = Date.now().toString().slice(-8);
       const outboundNo = String(batchHeader.outbound_no || `WO-${stamp}`);
-      const items = batchItems.map(({ _key, ...item }) => ({ ...item, item: item.item || item.product_code || item.sku_code || item.material_code }));
+      const items = batchItems.map(({ _key, ...item }) => omitEmptyIdentityFields({ ...item, item: item.item || item.product_code || item.sku_code || item.material_code }));
       await apiRequest("/outbound/batch", { method: "POST", body: JSON.stringify({ documents: [{ ...batchHeader, outbound_no: outboundNo, status: "PENDING", operator: currentOperator, ...(siteCode ? { site_code: siteCode } : {}), items }] }) });
       setDrawerOpen(false); refresh();
     } finally { setSaving(false); }
