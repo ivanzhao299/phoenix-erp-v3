@@ -375,6 +375,8 @@ export class EggInventoryService {
     collectionBatchRef?: string;
     /** Grade policy status; production-inbound cannot override the policy. */
     inventoryStatus?: GradeStockStatus;
+    /** Packaging integration alias for the grade policy status. */
+    stockStatus?: GradeStockStatus;
   }, mgr?: EntityManager): Promise<EggBatch> {
     assertEggDate(params.eggDate);
     positiveQuantity(params.qty, '入库数量');
@@ -487,7 +489,7 @@ export class EggInventoryService {
       throw new BadRequestException(`无效的质量等级: ${grade}，有效值：${validGrades.join('/')}`);
     }
     if (!gradePolicy.stockManaged) throw new BadRequestException(`等级 ${grade} 未启用库存管理`);
-    const inventoryStatus = params.inventoryStatus ?? gradePolicy.defaultStockStatus;
+    const inventoryStatus = params.inventoryStatus ?? params.stockStatus ?? gradePolicy.defaultStockStatus;
     if (inventoryStatus !== gradePolicy.defaultStockStatus) {
       throw new BadRequestException(`等级 ${grade} 的库存状态必须为 ${gradePolicy.defaultStockStatus}`);
     }
