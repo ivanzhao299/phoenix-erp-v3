@@ -5,7 +5,7 @@ import { SkuAvailabilityService } from '../../product-master/services/sku-availa
 describe('EggInventoryService conditional inventory updates', () => {
   it('fails closed when FIFO candidate no longer matches the guarded update', async () => {
     const query = jest.fn(async (sql: string) => {
-      if (sql.includes('FROM product_skus')) return [{ sku_code: 'SKU-1', product_code: 'P-1', grade_code: 'G', spec_code: 'S', status: 'ACTIVE' }];
+      if (sql.includes('FROM product_skus WHERE sku_code')) return [{ sku_code: 'SKU-1', product_code: 'P-1', grade_code: 'G', spec_code: 'S', status: 'ACTIVE' }];
       if (/SELECT \* FROM (mst_products|product_grades|packaging_specs)/.test(sql)) return [{ status: 'ACTIVE', is_saleable: true, is_storable: true }];
       if (sql.includes('pg_advisory_xact_lock')) return [];
       if (sql.includes('SELECT * FROM inv_batches')) return [{
@@ -29,7 +29,7 @@ describe('EggInventoryService conditional inventory updates', () => {
 
   it('reports company, SKU, requested qty and company-allocatable qty without warehouse details', async () => {
     const query = jest.fn(async (sql: string) => {
-      if (sql.includes('FROM product_skus')) return [{ sku_code: 'SKU-1', product_code: 'P-1', grade_code: 'G', spec_code: 'S', status: 'ACTIVE' }];
+      if (sql.includes('FROM product_skus WHERE sku_code')) return [{ sku_code: 'SKU-1', product_code: 'P-1', grade_code: 'G', spec_code: 'S', status: 'ACTIVE' }];
       if (/SELECT \* FROM (mst_products|product_grades|packaging_specs)/.test(sql)) return [{ status: 'ACTIVE', is_saleable: true, is_storable: true }];
       if (sql.includes('pg_advisory_xact_lock')) return [];
       if (sql.includes('SELECT * FROM inv_batches')) return [{
@@ -59,7 +59,7 @@ describe('EggInventoryService conditional inventory updates', () => {
 
   it('keeps the complete FIFO company/status/expiry/legacy matrix and SKU path in SQL', async () => {
     const query = jest.fn(async (sql: string) => {
-      if (sql.includes('FROM product_skus')) return [{ sku_code: 'SKU-1', product_code: 'P-1', grade_code: 'G', spec_code: 'S', status: 'ACTIVE' }];
+      if (sql.includes('FROM product_skus WHERE sku_code')) return [{ sku_code: 'SKU-1', product_code: 'P-1', grade_code: 'G', spec_code: 'S', status: 'ACTIVE' }];
       if (/SELECT \* FROM (mst_products|product_grades|packaging_specs)/.test(sql)) return [{ status: 'ACTIVE', is_saleable: true, is_storable: true }];
       if (sql.includes('pg_advisory_xact_lock')) return [];
       if (sql.includes('SELECT * FROM inv_batches')) return [{
@@ -189,7 +189,7 @@ describe('EggInventoryService inventory list/dashboard parity', () => {
 
   it('keeps active batch count and quantity on the exact list status/qty/expiry scope', async () => {
     const query = jest.fn(async (sql: string) => {
-      if (sql.includes('FROM product_skus')) return [{ sku_code: 'SKU-1', product_code: 'P-1', grade_code: 'G', spec_code: 'S', status: 'ACTIVE' }];
+      if (sql.includes('FROM product_skus WHERE sku_code')) return [{ sku_code: 'SKU-1', product_code: 'P-1', grade_code: 'G', spec_code: 'S', status: 'ACTIVE' }];
       if (/SELECT \* FROM (mst_products|product_grades|packaging_specs)/.test(sql)) return [{ status: 'ACTIVE', is_saleable: true, is_storable: true }];
       if (sql.includes("inventory.expiring_warn_days")) return [];
       if (sql.includes('FROM inv_batches b')) return [{
@@ -350,7 +350,7 @@ describe('EggInventoryService direct production variety authorization', () => {
       if (sql.includes('FROM md_sku_org_scope')) return state.scopes;
       if (sql.includes('sp.base_unit')) return [{ ...state.sku, unit: '枚', unit_zh: '枚', base_unit: '枚', display_unit: '枚', qty_per_unit: 1 }];
       if (sql.includes('FROM product_skus s')) return [{ ...state.sku, product_variety_code: state.product.variety_code }];
-      if (sql.includes('FROM product_skus')) return [state.sku];
+      if (sql.includes('FROM product_skus WHERE sku_code')) return [state.sku];
       if (sql.includes('FROM mst_products')) return [state.product];
       if (sql.includes('SELECT grade_code FROM product_grades')) return [{ grade_code: 'GRADE_1' }];
       if (sql.includes('FROM product_grades')) return [{ status: 'ACTIVE', is_storable: true, is_saleable: true }];

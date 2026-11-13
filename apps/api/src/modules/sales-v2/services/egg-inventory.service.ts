@@ -143,7 +143,11 @@ export class EggInventoryService {
   private saleGradeCondition(alias = 'b'): string {
     return `EXISTS (
       SELECT 1 FROM product_grades sale_grade
-       WHERE sale_grade.grade_code = COALESCE(${alias}.quality_grade, ${alias}.grade_code_std)
+       WHERE sale_grade.grade_code = COALESCE(
+         ${alias}.quality_grade,
+         ${alias}.grade_code_std,
+         (SELECT sku_grade.grade_code FROM product_skus sku_grade WHERE sku_grade.sku_code = ${alias}.sku_code)
+       )
          AND sale_grade.status = 'ACTIVE'
          AND COALESCE(sale_grade.sale_enabled, sale_grade.is_saleable) = TRUE
     )`;
