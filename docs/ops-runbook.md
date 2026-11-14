@@ -172,3 +172,70 @@ K8s readinessProbe 用，执行 `SELECT 1`：成功 `{status:'READY', db:'connec
 - 恢复：`scripts/ops/restore-runner.sh`（默认演练校验到临时库，`CONFIRM=RESTORE` 才正式恢复，生产库另需 `ALLOW_PROD=yes`）。
 - DR 演练 SOP：[ops/DR_RESTORE_DRILL.md](./ops/DR_RESTORE_DRILL.md)；本次新增的端到端演练脚本：`scripts/dr-rehearsal.sh`（DRY-RUN 默认，串联 backup→restore-drill→migrate→smoke）。
 - 回滚：见 [ROLLBACK.md](./ROLLBACK.md)。
+
+---
+
+## 6. 生产主机 Git 属主治理（root 部署账号 vs 受限诊断账号）
+
+> 背景：部署控制面以 root 经 SSH 执行（契约 `executionUid: 0`，`scripts/ops/production-config-contract.json`；`assertRootIdentity` 在 `scripts/ops/production-trusted-paths.mjs` 于 `production-control-bootstrap.sh` 第一步强制），而人肉只读诊断使用受限账号 `phoenix-codex-deploy`（uid 1002，docker 组，无 sudo）。两个账号交替操作 `/data/phoenix-erp` 造成属主混层，本节记录现状、约束与治理方案。**本节所有生产写操作均需协调代理批准后执行。**
+
+### 6.1 现状证据（2026-11-14 生产实测）
+
+- 部署工作流（deploy.yml 等）经 `appleboy/ssh-action` 以 `secrets.DEPLOY_USER`（root）登录，script 开头 `umask 077`（deploy.yml:820-821）。root 跑 `git fetch/merge` → loose object 以 **0444 & ~077 = 0400、root:root** 落盘；checkout 文件以 0600、root 落盘。
+- 实测（uid 1002 只读巡检 + 只读 docker 挂载）：
+  - `/data/phoenix-erp/.git/objects` 下 **2022 个 root 属主 loose object（0400）**、542 个非 root；
+  - 工作树 **774 个 root 属主文件**，含 `docker-compose.yml`（root 0600）与 `apps/api/src/common/database/api-bootstrap-schema-check.ts`（uid 1002 连 `stat` 都 Permission denied）；
+  - `.git` 目录层属主却是 `phoenix-codex-deploy`（1002）——早期以该账号部署的遗迹（契约 `legacyStateDirectory: /home/phoenix-codex-deploy/production-deployment-state` 佐证）；
+  - `core.sharedRepository` **未设置**（`git config --get` 无值）；
+  - `/var/lib/phoenix-erp` 为 0700 root-only（`verifyContext` 在 `production-config-guard.mjs` 要求状态目录属主=执行 uid 且 0700，这是刻意的安全边界）。
+- 受限账号症状：读 root 0400 object 报 `unable to open loose object …: Permission denied / could not get object info`，对外常表现为 "Could not parse object"。
+
+### 6.2 约束（为什么不能"统一属主"了事）
+
+1. **部署必须 root**：`executionUid: 0` 是 floor 契约，`assertRootIdentity`/`bootstrapPreflight`/`verifyContext` 全链强制 → 工作流统一到 uid 1002 需重写契约，不可行。
+2. **`docker-compose.yml` 必须 root**：maintenance replacement 路径 `verifySource`（`production-maintenance-replacement.mjs`）要求该文件 `uid === 0` → 工作树不能整体 chown 给 1002。
+3. **`.env` 必须 0600**（`production-config-guard.mjs` `ENV_PERMISSIONS`）。
+4. **`/var/lib/phoenix-erp` 保持 root-only 0700**，不放宽。
+5. root 部署每次都会写新的 root 属主对象 → 只做一次性 chown 必然复发，防复发配置才是主体。
+
+### 6.3 一次性修复【需批准，root 执行】
+
+```bash
+cd /data/phoenix-erp
+# 审计 .git 内是否有机密（remote url / hooks），再决定 .git/config 是否保持 0600
+docker run --rm -v /data/phoenix-erp:/repo:ro alpine sh -c 'cat /repo/.git/config; ls -la /repo/.git'
+# 防复发配置（见 6.4）+ 把 2022 个 0400 loose object 收进 pack（pack 按 shared perm 补齐可读位）
+git config core.sharedRepository everybody
+git -c safe.directory=/data/phoenix-erp repack -a -d -q
+git -c safe.directory=/data/phoenix-erp fsck --no-dangling
+# 兜底：refs/logs 等仍以单文件存在的可读位补齐（.git/config 视审计结果决定是否豁免）
+find .git -type f ! -perm -o=r ! -path './.git/config' -exec chmod o+r {} +
+```
+
+验证（uid 1002）：`git -C /data/phoenix-erp log --oneline -5` / `git fsck --no-dangling` / `git status` 全部可读可解析；随后跑一次常规 web-only 发布确认 root 部署无回归。
+
+### 6.4 防复发配置（修复主体）
+
+- `git config core.sharedRepository everybody`：git 对新对象/目录执行 `adjust_shared_perm`，即使 root 在 umask 077 下写入，对象最终仍补齐全员可读位（0444）。这是仓库属性，不改任何受 floor 契约保护的仓库文件。
+- 工作树新增 root 文件（0600）**可接受不治**：root 部署读写不受影响；uid 1002 诊断读源码走 6.5 的只读容器通道。若未来需要 1002 直接读工作树，再评估部署 shell 内对 git 子进程局部放宽 umask（注意 deploy.yml 是 criticalFiles，改动须走 floor 重锚定流程）。
+- 每次部署后复核项见 6.6。
+
+### 6.5 应急容器 git 通道（已批准的 runbook 操作形态）
+
+受限账号 phoenix-codex-deploy 在 docker 组内，可挂载宿主路径跑容器 git——该账号本身已等同 root（可挂载宿主根），容器通道不新增权限面，但限定用途：
+
+```bash
+# 只读诊断（默认形态，:ro 挂载）
+docker run --rm -v /data/phoenix-erp:/repo:ro alpine/git -C /repo log --oneline -5
+docker run --rm -v /data/phoenix-erp:/repo:ro alpine/git -C /repo fsck --no-dangling
+# 修复类操作（去 :ro，需协调代理逐次批准）
+docker run --rm -v /data/phoenix-erp:/repo alpine/git -C /repo repack -a -d -q
+```
+
+### 6.6 复核清单（每次部署后 / 周期巡检）
+
+- [ ] `git -C /data/phoenix-erp log --oneline -1`（uid 1002 可读，无 "Could not parse object"）
+- [ ] `find /data/phoenix-erp/.git/objects -type f ! -perm -o=r | wc -l` == 0（sharedRepository 生效证据）
+- [ ] `git -C /data/phoenix-erp config --get core.sharedRepository` == `everybody`
+- [ ] `.git/config` 与 `.env` 权限未放宽（0600）；`/var/lib/phoenix-erp` 仍 0700 root
+- [ ] 工作树 `docker-compose.yml` 仍 root 属主（maintenance replacement 的 `verifySource` 依赖）
