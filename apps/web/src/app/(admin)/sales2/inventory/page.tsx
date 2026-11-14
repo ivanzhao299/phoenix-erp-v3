@@ -571,7 +571,8 @@ function BatchesTab() {
               color: 'var(--gray-400)'
             } : {})
           }}>
-                {['AA', 'A', 'B', 'DIRTY', 'CRACKED', 'DAMAGED'].map(g => <option key={g} value={g}>{g}</option>)}
+                {/* AA/A/B 为历史批次筛选保留；缺陷档按 8 档制只列 DIRTY/BROKEN（CRACKED/DAMAGED 已永久退役） */}
+                {['AA', 'A', 'B', 'DIRTY', 'BROKEN'].map(g => <option key={g} value={g}>{g}</option>)}
               </select>
             </label>
           </div>

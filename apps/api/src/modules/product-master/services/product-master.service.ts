@@ -116,6 +116,7 @@ export class ProductMasterService {
     if (!dto?.grade_code || !dto?.grade_name) {
       throw new BadRequestException('grade_code / grade_name 必填');
     }
+    this.assertGradeStatus(dto.status, `createGrade ${dto.grade_code}`);
     const exists = await this.em.query(
       `SELECT 1 FROM product_grades WHERE grade_code = $1`,
       [dto.grade_code],
@@ -139,10 +140,21 @@ export class ProductMasterService {
     return rows[0];
   }
 
+  /** 等级 status 生命周期白名单（应用层友好校验；硬防线在 DB 触发器
+   *  FreezeRetiredEggGrades1794500000000，退役码改回 ACTIVE 会被数据库直接拒绝）。 */
+  private static readonly GRADE_STATUS_VALUES = ['ACTIVE', 'DEPRECATED', 'DRAFT'] as const;
+
+  private assertGradeStatus(status: unknown, where: string): void {
+    if (status !== undefined && !(this.constructor as typeof ProductMasterService).GRADE_STATUS_VALUES.includes(status as never)) {
+      throw new BadRequestException(`product_grades.status 仅允许 ${(this.constructor as typeof ProductMasterService).GRADE_STATUS_VALUES.join('/')}（${where}）`);
+    }
+  }
+
   async updateGrade(gradeCode: string, dto: Partial<ProductGrade>): Promise<ProductGrade> {
     const sets: string[] = [];
     const args: unknown[] = [];
     let i = 1;
+    this.assertGradeStatus(dto.status, `updateGrade ${gradeCode}`);
     if (dto.grade_name     !== undefined) { sets.push(`grade_name=$${i++}`);     args.push(dto.grade_name); }
     if (dto.grade_name_lo  !== undefined) { sets.push(`grade_name_lo=$${i++}`);  args.push(dto.grade_name_lo); }
     if (dto.sort_order     !== undefined) { sets.push(`sort_order=$${i++}`);     args.push(dto.sort_order); }

@@ -1,16 +1,22 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { DEFECT_GRADES, DEFECT_LINES, DEFECT_SPEC_CODE, defectSkuMatrix, databaseConfig, readReadiness, applyMatrix } from './seed-defect-sku-matrix.mjs';
+import { DEFECT_GRADES, DEFECT_LINES, RETIRED_DEFECT_GRADES, DEFECT_SPEC_CODE, defectSkuMatrix, databaseConfig, readReadiness, applyMatrix } from './seed-defect-sku-matrix.mjs';
 
-test('matrix covers three lines x four defect grades with LOOSE spec only', () => {
+test('matrix covers three lines x two live defect grades with LOOSE spec only', () => {
   const matrix = defectSkuMatrix();
-  assert.equal(matrix.length, 12);
+  assert.equal(matrix.length, 6);
   assert.deepEqual([...new Set(matrix.map(row => row.spec_code))], [DEFECT_SPEC_CODE]);
   assert.deepEqual(matrix.map(row => row.sku_code), [
-    'SKU-0-DIRTY-LOOSE', 'SKU-0-CRACKED-LOOSE', 'SKU-0-BROKEN-LOOSE', 'SKU-0-DAMAGED-LOOSE',
-    'SKU-R-DIRTY-LOOSE', 'SKU-R-CRACKED-LOOSE', 'SKU-R-BROKEN-LOOSE', 'SKU-R-DAMAGED-LOOSE',
-    'SKU-P-DIRTY-LOOSE', 'SKU-P-CRACKED-LOOSE', 'SKU-P-BROKEN-LOOSE', 'SKU-P-DAMAGED-LOOSE',
+    'SKU-0-DIRTY-LOOSE', 'SKU-0-BROKEN-LOOSE',
+    'SKU-R-DIRTY-LOOSE', 'SKU-R-BROKEN-LOOSE',
+    'SKU-P-DIRTY-LOOSE', 'SKU-P-BROKEN-LOOSE',
   ]);
+});
+
+test('retired defect grades never re-enter the matrix', () => {
+  assert.deepEqual(RETIRED_DEFECT_GRADES, ['CRACKED', 'DAMAGED']);
+  assert.deepEqual(DEFECT_GRADES.map(row => row.grade_code), ['DIRTY', 'BROKEN']);
+  assert.ok(defectSkuMatrix().every(row => !RETIRED_DEFECT_GRADES.includes(row.grade_code)));
 });
 
 test('every defect SKU is stock-scoped, never sale-enabled, org-gated', () => {
@@ -30,7 +36,6 @@ test('lines mirror the approved activation catalog companies and varieties', () 
     ['PRD-EGG-RED', 'EGG_RED', 'COMP-LAO-XINGCHI'],
     ['PRD-EGG-PINK', 'EGG_PINK', 'COMP-LAO-XINGCHI'],
   ]);
-  assert.deepEqual(DEFECT_GRADES.map(row => row.grade_code), ['DIRTY', 'CRACKED', 'BROKEN', 'DAMAGED']);
 });
 
 test('database configuration has no implicit credentials', () => {
@@ -39,7 +44,6 @@ test('database configuration has no implicit credentials', () => {
 });
 
 function readyClient() {
-  const desired = defectSkuMatrix();
   return {
     async query(sql, values = []) {
       if (sql.includes('FROM mst_products WHERE product_code')) {
@@ -54,6 +58,7 @@ function readyClient() {
       }
       if (sql.includes('FROM product_skus WHERE sku_code')) return { rows: [] };
       if (sql.includes('FROM md_sku_org_scope WHERE sku_code')) return { rows: [] };
+      if (sql.includes("grade_code = ANY($1) AND status = 'ACTIVE'")) return { rows: [] };
       if (sql.startsWith('INSERT INTO product_skus')) return { rowCount: 1 };
       if (sql.startsWith('INSERT INTO md_sku_org_scope')) return { rowCount: 1 };
       return { rows: [] };
@@ -66,14 +71,14 @@ test('dry-run inserts missing matrix then rolls back', async () => {
   const client = { query: async (sql, values) => { calls.push(sql); return readyClient().query(sql, values); } };
   const result = await applyMatrix(client, { dryRun: true, log() {} });
   assert.equal(result.applied, false);
-  assert.equal(result.insertedSkus, 12);
-  assert.equal(result.insertedScopes, 12);
+  assert.equal(result.insertedSkus, 6);
+  assert.equal(result.insertedScopes, 6);
   assert.equal(calls.at(-1), 'ROLLBACK');
-  assert.equal(calls.filter(sql => sql.startsWith('INSERT INTO product_skus')).length, 12);
-  assert.equal(calls.filter(sql => sql.startsWith('INSERT INTO md_sku_org_scope')).length, 12);
+  assert.equal(calls.filter(sql => sql.startsWith('INSERT INTO product_skus')).length, 6);
+  assert.equal(calls.filter(sql => sql.startsWith('INSERT INTO md_sku_org_scope')).length, 6);
 });
 
-test('apply fails closed when a defect grade is not stock-managed yet', async () => {
+test('apply fails closed when a live defect grade is not stock-managed yet', async () => {
   const base = readyClient();
   const client = {
     async query(sql, values) {
@@ -101,4 +106,21 @@ test('readiness reports conflict when an existing SKU identity differs', async (
   assert.equal(readiness.ready, false);
   assert.equal(readiness.conflicts.length, 1);
   assert.match(readiness.conflicts[0].detail, /身份与期望不一致/);
+});
+
+test('readiness reports conflict when a retired-grade SKU is still ACTIVE', async () => {
+  const base = readyClient();
+  const client = {
+    async query(sql, values) {
+      if (sql.includes("grade_code = ANY($1) AND status = 'ACTIVE'")) {
+        return { rows: [{ sku_code: 'SKU-R-CRACKED-LOOSE' }] };
+      }
+      return base.query(sql, values);
+    },
+  };
+  const readiness = await readReadiness(client);
+  assert.equal(readiness.ready, false);
+  assert.equal(readiness.retiredSkuConflicts.length, 1);
+  assert.match(readiness.retiredSkuConflicts[0].detail, /FreezeRetiredEggGrades/);
+  await assert.rejects(() => applyMatrix(client, { dryRun: true, log() {} }), /退役等级 SKU 冲突/);
 });

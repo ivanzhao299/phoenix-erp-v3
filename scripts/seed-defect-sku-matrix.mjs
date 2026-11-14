@@ -1,11 +1,15 @@
 #!/usr/bin/env node
 /**
- * Defect-grade SKU matrix seed/audit (issue #532 follow-up, 2026-11-14).
+ * Defect-grade SKU matrix seed/audit (issue #532 follow-up; 8 档制终态 2026-11-14).
  *
  * 日产蛋入库 / 包装缺陷入库对每一档都强制走 SkuAvailabilityService.resolve()，
  * 而已审批的 sku-two-company-source-activation 目录只建了 GRADE_0..5 的 SKU，
- * 缺陷档（DIRTY/CRACKED/BROKEN/DAMAGED）一个 SKU 都没有 → 缺陷蛋无法入库。
- * 本脚本按同一目录惯例补齐缺陷档 LOOSE 规格 SKU 矩阵（破损蛋不装托盘，仅散装）：
+ * 缺陷档一个 SKU 都没有 → 缺陷蛋无法入库。本脚本按同一目录惯例补齐缺陷档
+ * LOOSE 规格 SKU 矩阵（破损蛋不装托盘，仅散装）。
+ *
+ * 8 档制终态（业务裁定 2026-11-14）：缺陷档只有 脏蛋 DIRTY + 破损蛋 BROKEN 两档；
+ * CRACKED/DAMAGED 已由迁移 FreezeRetiredEggGrades1794500000000 永久退役
+ * （DB 触发器拒绝复活），本脚本同时审计其残留 SKU 是否已随之废弃。
  *
  *   普通线 PRD-EGG-0   (variety NULL)   → COMP-LAO-AGRI    SKU-0-{grade}-LOOSE
  *   红壳线 PRD-EGG-RED (EGG_RED)        → COMP-LAO-XINGCHI SKU-R-{grade}-LOOSE
@@ -26,10 +30,11 @@ import path from 'node:path';
 
 export const DEFECT_GRADES = [
   { grade_code: 'DIRTY', grade_name: '脏蛋', default_stock_status: 'QUARANTINE' },
-  { grade_code: 'CRACKED', grade_name: '裂缝蛋', default_stock_status: 'QUARANTINE' },
   { grade_code: 'BROKEN', grade_name: '破损蛋', default_stock_status: 'DAMAGED' },
-  { grade_code: 'DAMAGED', grade_name: '损坏蛋', default_stock_status: 'DAMAGED' },
 ];
+
+/** 已永久退役的缺陷档码：其 SKU 若仍 ACTIVE 视为冲突（应已随冻结迁移废弃）。 */
+export const RETIRED_DEFECT_GRADES = ['CRACKED', 'DAMAGED'];
 
 /** 与 sku-two-company-source-activation 的产品线/scope 惯例一一对应。 */
 export const DEFECT_LINES = [
@@ -40,7 +45,7 @@ export const DEFECT_LINES = [
 
 export const DEFECT_SPEC_CODE = 'LOOSE';
 
-/** 12 个期望 SKU 的完整定义（不含运行时校验信息）。 */
+/** 6 个期望 SKU 的完整定义（不含运行时校验信息）。 */
 export function defectSkuMatrix() {
   return DEFECT_LINES.flatMap(line => DEFECT_GRADES.map(grade => ({
     sku_code: `SKU-${line.prefix}-${grade.grade_code}-${DEFECT_SPEC_CODE}`,
@@ -141,13 +146,27 @@ export async function readReadiness(client) {
     }
     return { ...row, state: 'READY' };
   });
+  const retiredConflicts = await retiredSkuConflicts(client);
   return {
     missingPrerequisites,
     skus,
-    ready: missingPrerequisites.length === 0 && skus.every(row => row.state === 'READY'),
+    ready: missingPrerequisites.length === 0 && skus.every(row => row.state === 'READY') && retiredConflicts.length === 0,
     missing: skus.filter(row => row.state === 'MISSING').length,
     conflicts: skus.filter(row => row.state === 'CONFLICT').map(row => ({ sku_code: row.sku_code, detail: row.detail })),
+    retiredSkuConflicts: retiredConflicts,
   };
+}
+
+/** 退役缺陷档(CRACKED/DAMAGED)的 SKU 若仍 ACTIVE → 冲突(应已随冻结迁移废弃)。 */
+async function retiredSkuConflicts(client) {
+  const rows = await client.query(
+    `SELECT sku_code FROM product_skus WHERE grade_code = ANY($1) AND status = 'ACTIVE' ORDER BY sku_code`,
+    [RETIRED_DEFECT_GRADES],
+  );
+  return rows.rows.map(row => ({
+    sku_code: row.sku_code,
+    detail: '退役等级(CRACKED/DAMAGED)的 SKU 仍为 ACTIVE，应随迁移 FreezeRetiredEggGrades1794500000000 废弃',
+  }));
 }
 
 export async function applyMatrix(client, { dryRun = false, log = console.log } = {}) {
@@ -158,6 +177,9 @@ export async function applyMatrix(client, { dryRun = false, log = console.log } 
     if (readiness.missingPrerequisites.length) throw new Error(`前置条件不满足：${readiness.missingPrerequisites.join('；')}`);
     if (readiness.conflicts.length) {
       throw new Error(`SKU 冲突，拒绝改写既有目录：${readiness.conflicts.map(row => `${row.sku_code}（${row.detail}）`).join('；')}`);
+    }
+    if (readiness.retiredSkuConflicts.length) {
+      throw new Error(`退役等级 SKU 冲突：${readiness.retiredSkuConflicts.map(row => `${row.sku_code}（${row.detail}）`).join('；')}`);
     }
     const parents = await client.query(
       `SELECT product_code, COALESCE(NULLIF(product_name_zh, ''), product_name) AS product_name
