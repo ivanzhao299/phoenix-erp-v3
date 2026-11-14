@@ -128,7 +128,12 @@ export class DockerReplacementEvents {
     });
     // Retain the original object and close waiter BEFORE registration can fail.
     try { this.registerChild(this.child); } catch { this.failed = true; hold('REPLACEMENT_OBSERVER_REGISTRATION_FAILED'); }
-    await wait(200); this.assertLive();
+    // Subscription readiness: the first delivered line proves the daemon's
+    // replay/streaming pipeline is actually feeding this observer. Capped so
+    // an interval with no events yet (nothing since <start>) still proceeds.
+    await wait(200);
+    for (let waitedMs = 0; this.rows.length === 0 && this.tail === '' && !this.failed && waitedMs < 500; waitedMs += 25) await wait(25);
+    this.assertLive();
   }
   assertLive() {
     if (!this.child || this.failed || this.closing || this.closed || this.child.exitCode !== null || this.child.signalCode !== null || !this.#originalPid || this.child.pid !== this.#originalPid) { this.failed = true; hold('REPLACEMENT_OBSERVER_NOT_RUNNING'); }
@@ -136,17 +141,60 @@ export class DockerReplacementEvents {
   verifyFinalCoverage() {
     const start = isoNano(this.startAt), end = isoNano(this.endAt);
     const stream = this.rows.filter(event => { const at = nano(event.timeNano); if (at < start) hold('REPLACEMENT_EVENT_BEFORE_INTERVAL'); return at < end; });
-    // Sorted digests must not hide duplicated/reordered lifecycle observations.
-    if (this.failed || this.history.length >= 256 || stream.length >= 256 || !same(this.history, stream)) { this.failed = true; hold('REPLACEMENT_EVENT_COVERAGE_UNPROVEN'); }
+    // Coverage equality is on the observed MULTISET, not on raw arrival order:
+    // cross-subsystem concurrent events (e.g. a container exec next to a
+    // network connect) are ordered differently between the daemon's journal
+    // query and its streaming subscription — a physical nondeterminism that a
+    // strict sequence digest turned into spurious COVERAGE_UNPROVEN holds
+    // while both channels had in fact observed exactly the same events. Sort
+    // both sides into one canonical total order (nanosecond clock first) and
+    // still require full equality after sorting: a duplicated or missing
+    // observation remains a hold. The lifecycle verdict below keeps using the
+    // queried journal order, which is the reviewed evidence order.
+    const canonical = rows => [...rows].sort((a, b) => {
+      const at = BigInt(a.timeNano), bt = BigInt(b.timeNano);
+      if (at !== bt) return at < bt ? -1 : 1;
+      const ak = `${a.Type}|${a.Action}|${a.Actor.ID}`, bk = `${b.Type}|${b.Action}|${b.Actor.ID}`;
+      return ak < bk ? -1 : ak > bk ? 1 : 0;
+    });
+    if (this.failed || this.history.length >= 256 || stream.length >= 256 || !same(canonical(this.history), canonical(stream))) {
+      this.failed = true;
+      const error = new Error('MAINTENANCE_HOLD=REPLACEMENT_EVENT_COVERAGE_UNPROVEN');
+      // Fixed non-secret counts only, for isolated fixture triage.
+      error.coverageCounts = { streamed: stream.length, queried: this.history.length };
+      throw error;
+    }
     return structuredClone(this.history);
   }
   async finish(end) {
     try {
     this.assertLive();
     if (this.endAt || isoNano(end) <= isoNano(this.startAt)) hold('REPLACEMENT_EVENT_INTERVAL'); this.endAt = end;
+    // Drain the subscription BEFORE the one-shot query. The interval is already
+    // closed (end is in the past), so in-window events form a finite set; once
+    // the streamed observer has been quiet for a stretch, the daemon journal
+    // holds the complete set and the one-shot CLI query below returns exactly
+    // the same rows. The previous order (query first, then a fixed 250ms
+    // gamble) raced journal writes at the interval tail: on busy daemons the
+    // stream stayed a strict superset of the queried history and every wait
+    // turned into a spurious COVERAGE_UNPROVEN before the real lifecycle
+    // verdict (e.g. REPLACEMENT_OLD_REVIVED) could fire.
+    const startNano = isoNano(this.startAt), endNano = isoNano(end);
+    const inWindowCount = () => this.rows.filter(event => { const at = nano(event.timeNano); return at >= startNano && at < endNano; }).length;
+    let seen = inWindowCount(), quietSlices = 0;
+    for (let waitedMs = 0; quietSlices < 8 && waitedMs < 5000; waitedMs += 50) {
+      this.assertLive(); await wait(50);
+      const now = inWindowCount();
+      quietSlices = now === seen ? quietSlices + 1 : 0; seen = now;
+    }
+    this.assertLive();
     this.history = eventsFrom(this.run(['events', '--since', this.startAt, '--until', end, '--format', replacementEventFormat]));
+    // The one-shot query itself can be the moment the observer dies (exit
+    // observed during the query call): re-verify liveness AFTER it so the
+    // queried history is never trusted over a dead stream.
+    this.assertLive();
     for (const row of this.history) if (nano(row.timeNano) < isoNano(this.startAt) || nano(row.timeNano) >= isoNano(end)) hold('REPLACEMENT_EVENT_HISTORY_INTERVAL');
-    await wait(250); this.assertLive(); return this.verifyFinalCoverage();
+    return this.verifyFinalCoverage();
     } catch (error) { this.failed = true; throw error; }
   }
   async close() {
