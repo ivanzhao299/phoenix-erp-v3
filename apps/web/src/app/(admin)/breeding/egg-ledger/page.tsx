@@ -5,7 +5,7 @@
  * ════════════════════════════════════════════════════════════════════════
  * 业务方明确：废弃此页（实测 inv_batches.warehouse_code='FARM_EGG' 0 行，
  * 业务方未实际使用）。蛋品流向收口为：
- *   · 养殖统计 → /breeding/daily（含可选 9 档 JSONB）
+ *   · 养殖统计 → /breeding/daily（含可选分级 JSONB）
  *   · 销售入库 → /breeding/daily-inbound（TEMP_PRODUCTION_INBOUND 模式）
  *
  * 路由保留作为外链兼容，自动跳转到 /breeding/daily。

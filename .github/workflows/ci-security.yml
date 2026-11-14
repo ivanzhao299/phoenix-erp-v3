@@ -83,6 +83,14 @@ jobs:
         if: always()
         run: node scripts/ci/check-i18n-hardcoded-literals.mjs --fail-on-uncovered
 
+      - name: Check retired egg grade codes stay retired (8-grade terminal state)
+        if: always()
+        env:
+          RETIRED_GRADE_BASE_REF: ${{ github.base_ref || 'main' }}
+        run: |
+          node --test scripts/ci/check-retired-grade-codes.test.mjs
+          node scripts/ci/check-retired-grade-codes.mjs
+
       - name: Check background producer protected-file coverage
         if: always()
         run: |

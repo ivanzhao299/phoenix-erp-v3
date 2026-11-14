@@ -34,7 +34,7 @@ import { useEggSourceProfile, varietyShortLabel } from '@/hooks/useEggSourceProf
 import { SourceProfileBanner } from '@/components/breeding/SourceProfileBanner';
 import { useDictOptions } from '@/hooks/useDictOptions';
 import DictSelect from '@/components/shared-selectors/DictSelect'; // G19-A 死亡/淘汰原因字典化
-import { useProductGrades } from '@/hooks/useProductGrades'; // G14 9 档分级
+import { useProductGrades } from '@/hooks/useProductGrades'; // G14 分级录入（8 档制终态）
 import { ModalV2 } from '@/components/design-system/dialogs/ModalV2';
 import { DailyGradeDetails } from '@/components/breeding/DailyGradeDetails';
 import { DailyReportExport } from '@/components/breeding/DailyReportExport';
@@ -69,7 +69,7 @@ const mkRow = (id: number, shift: string) => ({
   temp: '',
   humidity: '',
   remark: '',
-  // G14：按 9 档分解的产蛋数量（可选；填了则提交时携带 eggs_by_grade JSON）
+  // G14：按等级分解的产蛋数量（可选；填了则提交时携带 eggs_by_grade JSON）
   gradeQty: {} as Record<string, string>,
 });
 export default function DailyPage() {
@@ -103,7 +103,7 @@ export default function DailyPage() {
   }, []);
 
   // G14：表头分两行 — 第一行业务核心 6 列，第二行次要 5 列
-  const HEADS_ROW1 = [t('ui.班次', '班次'), t('ui.产蛋数(枚)', '产蛋数(枚)'), `🟡${t('ui.脏蛋(枚)', '脏蛋(枚)')}`, `🔴${t('ui.破损蛋(枚)', '破损蛋(枚)')}`, t('ui.死亡(羽)', '死亡(羽)'), t('ui.淘汰(羽)', '淘汰(羽)'), t('ui.淘汰原因', '淘汰原因'), t('ui.9 档分级', '9 档分级')];
+  const HEADS_ROW1 = [t('ui.班次', '班次'), t('ui.产蛋数(枚)', '产蛋数(枚)'), `🟡${t('ui.脏蛋(枚)', '脏蛋(枚)')}`, `🔴${t('ui.破损蛋(枚)', '破损蛋(枚)')}`, t('ui.死亡(羽)', '死亡(羽)'), t('ui.淘汰(羽)', '淘汰(羽)'), t('ui.淘汰原因', '淘汰原因'), t('ui.9 档分级', '分级')];
   const HEADS_ROW2 = [t('ui.饲料(kg)', '饲料(kg)'), t('ui.用水(L)', '用水(L)'), t('ui.自用蛋(枚)', '自用蛋(枚)'), t('ui.温度(℃)', '温度(℃)'), t('ui.湿度(%)', '湿度(%)'), `${t('common.remark', '备注')}...`];
   const {
     fetchRecords: fetchHouses
@@ -144,7 +144,7 @@ export default function DailyPage() {
   // G16：设备一键填入 — 选时点（默认 17:00 集蛋后）
   const [showGenModal, setShowGenModal] = useState(false);
   const [genHour, setGenHour] = useState<number | ''>(17);
-  // G14：当前舍存栏（拉自 brd_flocks.current_qty）+ 9 档 modal
+  // G14：当前舍存栏（拉自 brd_flocks.current_qty）+ 分级 modal
   const [currentQty, setCurrentQty] = useState<number>(0);
   const { grades: productGrades } = useProductGrades();
   // 鸡舍来源档案：东鹏 VARIANT 舍（红/粉壳）在录入区明示品种，孟赛 STANDARD 走普通分级。
@@ -262,7 +262,7 @@ export default function DailyPage() {
     ...r,
     [field]: val
   } : r));
-  // G14：9 档 sum 计算
+  // G14：分级 sum 计算
   const gradeSumOf = gradeQuantityTotal;
 
   const handleSubmit = async () => {
@@ -278,7 +278,7 @@ export default function DailyPage() {
     }
     const invalidGrade = Object.values(row.gradeQty || {}).some(value => value !== '' && (!Number.isSafeInteger(Number(value)) || Number(value) < 0));
     if (invalidGrade) {
-      toast.error(t('breeding.daily.gradeIntegerRequired', '九档数量必须为非负整数'));
+      toast.error(t('breeding.daily.gradeIntegerRequired', '分级数量必须为非负整数'));
       return;
     }
     const token = typeof window !== 'undefined' ? sessionStorage.getItem('phoenix_token') : '';
@@ -551,7 +551,7 @@ export default function DailyPage() {
                 border: '1px solid var(--border)', borderRadius: 10, padding: 14, background: 'var(--bg-page)',
                 display: 'flex', flexDirection: 'column', gap: 12,
               }}>
-                {/* 单日数据：不展示班次，9 档直接在产蛋区录入 */}
+                {/* 单日数据：不展示班次，分级直接在产蛋区录入 */}
                 {/* G19-A 三组分块 — 产蛋区 / 死淘区 / 环境区 — 用色块区分业务语义 */}
                 {/* 产蛋区（绿） */}
                 <div style={{
@@ -669,7 +669,7 @@ export default function DailyPage() {
         <table className={s.table}>
           <thead>
             <tr>
-              {[t('common.date', '日期'), t('ui.鸡舍', '鸡舍'), t('ui.产蛋数', '产蛋数'), t('breeding.daily.gradeDetails', '九档分级明细'), t('ui.脏蛋', '脏蛋'), t('ui.破损蛋', '破损蛋'), t('ui.死亡', '死亡'), t('ui.淘汰', '淘汰'), t('ui.淘汰原因', '淘汰原因'), t('ui.饲料(kg)', '饲料(kg)'), t('ui.温度', '温度'), t('ui.湿度', '湿度'), t('common.remark', '备注')].map(h => <th key={h}>{h}</th>)}
+              {[t('common.date', '日期'), t('ui.鸡舍', '鸡舍'), t('ui.产蛋数', '产蛋数'), t('breeding.daily.gradeDetails', '分级明细'), t('ui.脏蛋', '脏蛋'), t('ui.破损蛋', '破损蛋'), t('ui.死亡', '死亡'), t('ui.淘汰', '淘汰'), t('ui.淘汰原因', '淘汰原因'), t('ui.饲料(kg)', '饲料(kg)'), t('ui.温度', '温度'), t('ui.湿度', '湿度'), t('common.remark', '备注')].map(h => <th key={h}>{h}</th>)}
             </tr>
           </thead>
           <tbody>

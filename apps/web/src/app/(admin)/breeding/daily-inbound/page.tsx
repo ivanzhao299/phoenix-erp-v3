@@ -36,7 +36,7 @@ export default function DailyInboundPage() {
     canView,
     canCreate
   } = usePermission("MENU_PROD_INBOUND");
-  // 日报的 9 档都必须进入库存台账；sale_enabled 只影响销售 FIFO，不能把缺陷档从入库表单丢掉。
+  // 日报的全部等级（8 档制终态）都必须进入库存台账；sale_enabled 只影响销售 FIFO，不能把缺陷档从入库表单丢掉。
   const { grades: productGrades, loading: gradesLoading } = useProductGrades({ onlyStorable: true });
   const labelMap = useMemo(
     () => Object.fromEntries(productGrades.map(g => [g.grade_code, g.grade_name])),
@@ -88,13 +88,13 @@ export default function DailyInboundPage() {
           `${eggDate}${houseCode ? ` · ${houseCode}` : ''} `
           + t(
             'breeding.dailyBreakdownMissing',
-            '日报已存在，但有班次未录九档分级，请先返回日报补齐',
+            '日报已存在，但有班次未录分级明细，请先返回日报补齐',
           ),
         );
         return;
       }
       if (!r.logs || (r.total === 0 && r.reportedEggs === 0)) {
-        setError(`${eggDate}${houseCode ? ` · ${houseCode}` : ''} ${t('breeding.noDailyOr9Grade', '暂无日报或未按 9 档录入')}`);
+        setError(`${eggDate}${houseCode ? ` · ${houseCode}` : ''} ${t('breeding.noDailyOr9Grade', '暂无日报或未录分级')}`);
         return;
       }
       // 逐档写入（包括显式 0），避免缺陷档或已全部入库的档位在预填时消失。
@@ -318,7 +318,7 @@ export default function DailyInboundPage() {
           fontSize: 13,
           cursor: prefilling ? "not-allowed" : "pointer",
           opacity: prefilling ? 0.6 : 1,
-        }} title={t('breeding.prefillTitle', '从所选日期+鸡舍的当日生产日报拉取按 9 档分解的产蛋数量，预填到下方表格')}>
+        }} title={t('breeding.prefillTitle', '从所选日期+鸡舍的当日生产日报拉取按等级分解的产蛋数量，预填到下方表格')}>
               <FileDown size={13} /> {prefilling ? t('breeding.fetching', '拉取中...') : t('breeding.prefillFromDaily', '从日报预填')}
             </button>
           </div>

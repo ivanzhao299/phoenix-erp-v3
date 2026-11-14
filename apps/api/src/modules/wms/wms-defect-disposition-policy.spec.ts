@@ -7,12 +7,15 @@ import {
 } from './wms-defect-disposition-policy';
 
 describe('WMS defect disposition policy', () => {
-  it('keeps the four defect grades and five internal actions explicit', () => {
-    expect(DEFECT_GRADES).toEqual(['DIRTY', 'CRACKED', 'BROKEN', 'DAMAGED']);
+  it('keeps the two live defect grades and five internal actions explicit', () => {
+    // 8 档制终态：缺陷档只有 DIRTY/BROKEN；CRACKED/DAMAGED 已永久退役并拒绝归一化
+    expect(DEFECT_GRADES).toEqual(['DIRTY', 'BROKEN']);
     expect(DEFECT_DISPOSITION_ACTIONS).toEqual([
       'PROCESSING', 'CLEANING_RECHECK', 'TRANSFER', 'WASTE', 'RETURN_TO_SOURCE',
     ]);
     expect(normalizeDefectGrade(' dirty ')).toBe('DIRTY');
+    expect(normalizeDefectGrade('CRACKED')).toBeNull();
+    expect(normalizeDefectGrade('DAMAGED')).toBeNull();
     expect(normalizeDefectDispositionAction('transfer')).toBe('TRANSFER');
   });
 

@@ -109,7 +109,7 @@ test('fractional inline grade is rejected before any report or inventory mutatio
   await page.goto('/breeding/daily');
   await page.getByRole('spinbutton', { name: 'GRADE_1 · 数量(枚)', exact: true }).fill('1.5');
   await page.getByRole('button', { name: '提交日报', exact: true }).first().click();
-  await expect(page.getByText('九档数量必须为非负整数', { exact: true })).toBeVisible();
+  await expect(page.getByText('分级数量必须为非负整数', { exact: true })).toBeVisible();
   expect(mutations).toEqual([]);
   await expect(page.getByRole('spinbutton', { name: 'GRADE_1 · 数量(枚)', exact: true })).toHaveValue('1.5');
 });

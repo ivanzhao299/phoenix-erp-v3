@@ -94,6 +94,27 @@ test('wrapper forbids raw config/exec/build/routing/down and requires a single c
   for (const args of [['config', '--format', 'json'], ['exec', 'db', 'psql'], ['down'], ['up', '--build', 'api'], ['up', '-d'], ['-f', '/tmp/other.yml', 'up']]) assert.throws(() => composeArguments('/data/phoenix-erp', args, 'phoenix-fixture'), /UNSUPPORTED_OPERATION/);
   const args = composeArguments('/data/phoenix-erp', ['up', '-d', '--no-deps', '--wait', 'api'], 'phoenix-fixture'); assert.ok(args.includes('never')); assert.ok(args.includes('--no-build'));
 });
+test('wrapper admits only the exact candidate one-off migration run shapes', () => {
+  // deploy-schema-first.sh derives the container name via tr '[:upper:].' → '[:lower:]-',
+  // so real names are lowercase-dash only (e.g. schema-first.tfxdeguX → schema-first-tfxdegux).
+  const name = 'phoenix-migrate-schema-first-tfxdegux';
+  // deploy-schema-first.sh migration:run (with PGOPTIONS) and migration:show (no env)
+  const run = composeArguments('/data/phoenix-erp', ['run', '--no-deps', '-T', '--name', name, '--user', 'phoenix', '-e', 'PGOPTIONS=-c lock_timeout=5s -c statement_timeout=120s', '--entrypoint', './node_modules/.bin/typeorm', 'api', '-d', 'dist/database/data-source.js', 'migration:run', '--transaction', 'all'], 'phoenix-fixture');
+  const show = composeArguments('/data/phoenix-erp', ['run', '--no-deps', '-T', '--name', `${name}-show`, '--user', 'phoenix', '--entrypoint', './node_modules/.bin/typeorm', 'api', '-d', 'dist/database/data-source.js', 'migration:show'], 'phoenix-fixture');
+  assert.ok(run.includes('migration:run') && run.includes('--transaction') && run.includes('all'));
+  assert.ok(show.includes('migration:show'));
+  // Anything else shaped like run is still refused: arbitrary entrypoints/commands/services,
+  // dropped flags, extra volume mounts, other users, or a foreign container name.
+  for (const args of [
+    ['run', '--no-deps', '-T', '--name', name, '--user', 'root', '--entrypoint', 'sh', 'api', '-c', 'id'],
+    ['run', '--no-deps', '-T', '--name', 'phoenix-migrate-x', '--user', 'phoenix', '--entrypoint', './node_modules/.bin/typeorm', 'api', '-d', 'dist/database/data-source.js', 'migration:revert'],
+    ['run', '--no-deps', '-T', '--name', 'phoenix-migrate-x', '--user', 'phoenix', '--entrypoint', './node_modules/.bin/typeorm', 'web', '-d', 'dist/database/data-source.js', 'migration:show'],
+    ['run', '--no-deps', '-T', '--name', 'evil', '--user', 'phoenix', '--entrypoint', './node_modules/.bin/typeorm', 'api', '-d', 'dist/database/data-source.js', 'migration:show'],
+    ['run', '-T', '--name', name, '--user', 'phoenix', '--entrypoint', './node_modules/.bin/typeorm', 'api', '-d', 'dist/database/data-source.js', 'migration:show'],
+    ['run', '--no-deps', '-T', '--name', name, '--user', 'phoenix', '-v', '/:/host', '--entrypoint', './node_modules/.bin/typeorm', 'api', '-d', 'dist/database/data-source.js', 'migration:show'],
+    ['run', '--no-deps', '-T', '--name', name, '--user', 'phoenix', '--entrypoint', './node_modules/.bin/typeorm', 'api', '-d', 'dist/other.js', 'migration:run', '--transaction', 'all'],
+  ]) assert.throws(() => composeArguments('/data/phoenix-erp', args, 'phoenix-fixture'), /UNSUPPORTED_OPERATION/);
+});
 test('production config validates simultaneous bind paths and explicit independent hold values', () => {
   const tuple = { PHOENIX_DATA_MOUNT_GUARD: 'true', PHOENIX_PG_DATA_DIR: '/data/test/postgres', PHOENIX_UPLOADS_DIR: '/data/test/uploads', CHANJET_READONLY_SYNC_ENABLED: 'false', CHANJET_ERP_INBOUND_SYNC_ENABLED: 'false' };
   const config = { services: { db: { volumes: [{ type: 'bind', source: tuple.PHOENIX_PG_DATA_DIR, target: '/var/lib/postgresql/data' }] }, api: { environment: { CHANJET_READONLY_SYNC_ENABLED: 'false', CHANJET_ERP_INBOUND_SYNC_ENABLED: 'false' }, volumes: [{ type: 'bind', source: tuple.PHOENIX_UPLOADS_DIR, target: '/app/uploads' }] } } };

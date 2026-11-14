@@ -1268,7 +1268,7 @@ export class WmsService {
       );
       if (!batch) throw new BadRequestException(`库存批次 ${batchNo} 不存在`);
       const grade = normalizeDefectGrade(batch.grade_code_std || batch.quality_grade);
-      if (!grade) throw new BadRequestException(`批次 ${batchNo} 不是 DIRTY/CRACKED/BROKEN/DAMAGED 缺陷库存`);
+      if (!grade) throw new BadRequestException(`批次 ${batchNo} 不是 DIRTY/BROKEN 缺陷库存（8 档制终态；CRACKED/DAMAGED 已永久退役）`);
       const claimedGrade = body?.grade_code == null ? null : normalizeDefectGrade(body.grade_code);
       if (body?.grade_code != null && (!claimedGrade || claimedGrade !== grade)) {
         throw new BadRequestException(`批次 ${batchNo} 等级与请求不一致`);

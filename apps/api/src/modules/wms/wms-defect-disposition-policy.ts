@@ -1,4 +1,9 @@
-export const DEFECT_GRADES = ['DIRTY', 'CRACKED', 'BROKEN', 'DAMAGED'] as const;
+/**
+ * 8 档制终态（业务裁定 2026-11-14）：缺陷档只有 脏蛋 DIRTY + 破损蛋 BROKEN。
+ * CRACKED/DAMAGED 已由迁移 FreezeRetiredEggGrades1794500000000 永久退役
+ * （生产历史批次/处置/台账中其存量为 0，收紧无兼容包袱）。
+ */
+export const DEFECT_GRADES = ['DIRTY', 'BROKEN'] as const;
 export type DefectGrade = typeof DEFECT_GRADES[number];
 
 export const DEFECT_DISPOSITION_ACTIONS = [
