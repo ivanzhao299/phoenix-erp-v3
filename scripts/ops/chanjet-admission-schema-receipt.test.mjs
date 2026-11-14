@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { validateSchemaReceipt, ADMISSION_PATH, ADMISSION_NAME } from './chanjet-admission-schema-receipt.mjs';
+import { validateSchemaReceipt, ADMISSION_PATH, ADMISSION_NAME, assertScopeMigrationsReceipted, MIGRATION_TOOLING_PATHS } from './chanjet-admission-schema-receipt.mjs';
 import { promotionPlan } from './promote-production-config-floor.mjs';
 const scope={baseline:'a'.repeat(40),target:'b'.repeat(40),changed:[ADMISSION_PATH]};
 const receipt={schema:'phoenix.chanjet-admission-schema/v1',outcome:'SUCCESS',baseline:scope.baseline,sourceSha:'c'.repeat(40),sourceBlob:'d'.repeat(40),migrationPath:ADMISSION_PATH,migrationName:ADMISSION_NAME,runId:'123-1',backupSha256:'e'.repeat(64),beforeLedgerSha256:'f'.repeat(64),afterLedgerSha256:'1'.repeat(64)};
@@ -14,4 +14,8 @@ test('migration scope still blocks floor promotion without verified schema recei
   const input={previousFloor:{version:3,phase:'READY',floorSha:scope.baseline,chanjetPolicy:'HOLD',readonlyApproval:null,operationalTuple:{CHANJET_READONLY_SYNC_ENABLED:'false',CHANJET_ERP_INBOUND_SYNC_ENABLED:'false'}},previousActive:{version:3,floorSha:scope.baseline,outcome:'SUCCESS',active:actual},actual,target:scope.target,approvedSha:scope.target,runId:'123-1',scope,criticalFilesChanged:true,expectedPreviousFloorSha:scope.baseline};
   assert.throws(()=>promotionPlan(input));
   assert.equal(promotionPlan({...input,schemaApplied:true}).floor.floorSha,scope.target);
+});
+test('migration tooling paths remain scope-visible without fake TypeORM receipts',()=>{
+  assert.deepEqual([...MIGRATION_TOOLING_PATHS].sort(), ['scripts/db-migrate.sh', 'scripts/deploy-schema-first.sh']);
+  assert.equal(assertScopeMigrationsReceipted('/unused', {changed:['scripts/deploy-schema-first.sh'],target:'4d74b3db7d80fdd848cb6ae22897b2be294f2673'}), true);
 });

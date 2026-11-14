@@ -39,6 +39,12 @@ export function assertAdmissionSchemaApplied(root, scope) {
  * and the production ledger still matches the digest recorded at apply time.
  * The chanjet admission migration keeps its dedicated legacy receipt. */
 export const RECEIPT_DIRECTORY = 'migration-apply-receipts';
+// These files are part of the migration execution boundary and therefore stay
+// in MIGRATION_PATHS for floor-scope detection, but they are tooling rather
+// than database migration units. They cannot have TypeORM timestamp/class
+// receipts; the reviewed deploy target and the API migration receipts remain
+// the authority for a floor re-anchor.
+export const MIGRATION_TOOLING_PATHS = new Set(['scripts/db-migrate.sh', 'scripts/deploy-schema-first.sh']);
 export const LEDGER_SQL = `SELECT jsonb_build_object('legacy',coalesce((SELECT jsonb_agg(jsonb_build_object('filename',filename,'applied_at',extract(epoch from applied_at)*1000) ORDER BY filename) FROM schema_migrations),'[]'::jsonb),'typeorm',coalesce((SELECT jsonb_agg(jsonb_build_object('timestamp',timestamp,'name',name) ORDER BY timestamp,name) FROM migrations),'[]'::jsonb))::text;`;
 export function readProductionLedger() {
   const out = execFileSync('docker', ['exec','-i','-e','PGOPTIONS=-c default_transaction_read_only=on -c statement_timeout=5000 -c lock_timeout=1000','phoenix-v3-db','sh','-c','exec psql -X -At -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "${POSTGRES_DB:-$POSTGRES_USER}"'], {
@@ -61,10 +67,12 @@ export function validateRegistryReceipt(receipt, { migrationPath, sourceBlob }) 
 export function assertScopeMigrationsReceipted(root, scope) {
   if (!scope.changed.length) return false;
   if (scope.changed.length === 1 && scope.changed[0] === ADMISSION_PATH) return assertAdmissionSchemaApplied(root, scope);
+  const receiptPaths = scope.changed.filter(migrationPath => !MIGRATION_TOOLING_PATHS.has(migrationPath));
+  if (!receiptPaths.length) return true;
   const ledger = readProductionLedger();
   const isApplied = (timestamp, fileClassName) => ledger.typeorm.some(
     row => String(row.timestamp) === String(timestamp) && (row.name === fileClassName || row.name === `${fileClassName}${timestamp}`));
-  for (const migrationPath of scope.changed) {
+  for (const migrationPath of receiptPaths) {
     const name = path.basename(migrationPath, '.ts');
     const match = /^(\d+)-([A-Za-z0-9]+)$/.exec(name);
     if (!match) throw Error(`MIGRATION_SCOPE=HOLD:MIGRATION_NAME_UNPARSEABLE:${name}`);
@@ -75,13 +83,13 @@ export function assertScopeMigrationsReceipted(root, scope) {
     if (git(root, ['rev-parse', `${receipt.sourceSha}:${migrationPath}`]) !== receipt.sourceBlob) throw Error('MIGRATION_SCOPE=HOLD:MIGRATION_SOURCE_BLOB_DRIFT');
     if (!isApplied(match[1], match[2])) throw Error(`MIGRATION_SCOPE=HOLD:MIGRATION_NOT_APPLIED:${name}`);
   }
-  if (digest(JSON.stringify(ledger)) !== receiptLedgerDigest(scope, root)) throw Error('MIGRATION_SCOPE=HOLD:APPLIED_LEDGER_DRIFT');
+  if (digest(JSON.stringify(ledger)) !== receiptLedgerDigest(receiptPaths, root)) throw Error('MIGRATION_SCOPE=HOLD:APPLIED_LEDGER_DRIFT');
   return true;
 }
-function receiptLedgerDigest(scope, root) {
+function receiptLedgerDigest(receiptPaths, root) {
   // The freshest receipt pins the ledger digest the promotion must observe.
   let freshest = null;
-  for (const migrationPath of scope.changed) {
+  for (const migrationPath of receiptPaths) {
     const name = path.basename(migrationPath, '.ts');
     const receipt = secureJson(path.join(CONTRACT.stateDirectory, RECEIPT_DIRECTORY, `${name}.json`));
     if (!freshest || String(receipt.appliedAt) > String(freshest.appliedAt)) freshest = receipt;
