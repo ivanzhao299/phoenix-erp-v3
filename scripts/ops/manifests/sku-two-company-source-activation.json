@@ -11,7 +11,7 @@
       "mode": "STANDARD",
       "variety_code": null,
       "product_code": "PRD-EGG-0",
-      "display_label": "0号特大蛋·普通",
+      "display_label": "0号蛋·普通",
       "weight_range": null,
       "spec_count": 7
     },
@@ -20,7 +20,7 @@
       "mode": "VARIANT",
       "variety_code": "EGG_RED",
       "product_code": "PRD-EGG-RED",
-      "display_label": "0号特大蛋·红",
+      "display_label": "0号蛋·红",
       "weight_range": null,
       "spec_count": 7
     },
@@ -29,7 +29,7 @@
       "mode": "VARIANT",
       "variety_code": "EGG_PINK",
       "product_code": "PRD-EGG-PINK",
-      "display_label": "0号特大蛋·粉",
+      "display_label": "0号蛋·粉",
       "weight_range": null,
       "spec_count": 7
     }

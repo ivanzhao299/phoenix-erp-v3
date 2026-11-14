@@ -19,9 +19,9 @@ export const LEGACY_SELECTION_POLICY = {
   expected_count: 35, preserve_existing_identity: true,
 };
 export const GRADE0_MATRIX = [
-  { company_code: 'COMP-LAO-AGRI', mode: 'STANDARD', variety_code: null, product_code: 'PRD-EGG-0', display_label: '0号特大蛋·普通', weight_range: null, spec_count: SPECS.length },
-  { company_code: 'COMP-LAO-XINGCHI', mode: 'VARIANT', variety_code: 'EGG_RED', product_code: 'PRD-EGG-RED', display_label: '0号特大蛋·红', weight_range: null, spec_count: SPECS.length },
-  { company_code: 'COMP-LAO-XINGCHI', mode: 'VARIANT', variety_code: 'EGG_PINK', product_code: 'PRD-EGG-PINK', display_label: '0号特大蛋·粉', weight_range: null, spec_count: SPECS.length },
+  { company_code: 'COMP-LAO-AGRI', mode: 'STANDARD', variety_code: null, product_code: 'PRD-EGG-0', display_label: '0号蛋·普通', weight_range: null, spec_count: SPECS.length },
+  { company_code: 'COMP-LAO-XINGCHI', mode: 'VARIANT', variety_code: 'EGG_RED', product_code: 'PRD-EGG-RED', display_label: '0号蛋·红', weight_range: null, spec_count: SPECS.length },
+  { company_code: 'COMP-LAO-XINGCHI', mode: 'VARIANT', variety_code: 'EGG_PINK', product_code: 'PRD-EGG-PINK', display_label: '0号蛋·粉', weight_range: null, spec_count: SPECS.length },
 ];
 export const APPROVED_PARENT_RESTORATIONS = [
   ['PRD-EGG-1','1号普通鸡蛋'], ['PRD-EGG-2','2号普通鸡蛋'], ['PRD-EGG-3','3号普通鸡蛋'],
@@ -78,7 +78,7 @@ function buildIntent(manifest, effectiveDate) {
     effective_date: effectiveDate, expire_date: null, status: 'ACTIVE',
   }))).sort((a, b) => a.profile_code.localeCompare(b.profile_code));
   const products = [
-    { product_code: 'PRD-EGG-0', variety_code: null, product_name: '0号特大蛋', unit_zh: '枚', status: 'ACTIVE' },
+    { product_code: 'PRD-EGG-0', variety_code: null, product_name: '0号蛋', unit_zh: '枚', status: 'ACTIVE' },
     { product_code: 'PRD-EGG-RED', variety_code: 'EGG_RED', product_name: '红壳蛋', unit_zh: '枚', status: 'ACTIVE' },
     { product_code: 'PRD-EGG-PINK', variety_code: 'EGG_PINK', product_name: '粉壳蛋', unit_zh: '枚', status: 'ACTIVE' },
   ];
@@ -97,7 +97,7 @@ function buildIntent(manifest, effectiveDate) {
     varieties: [
       { variety_code: 'EGG_RED', variety_name: '红壳蛋', shell_color: 'RED', status: 'ACTIVE' },
       { variety_code: 'EGG_PINK', variety_name: '粉壳蛋', shell_color: 'PINK', status: 'ACTIVE' },
-    ], grade0: { grade_code: 'GRADE_0', grade_name: '0号特大蛋', weight_range: null, sort_order: 5,
+    ], grade0: { grade_code: 'GRADE_0', grade_name: '0号蛋', weight_range: null, sort_order: 5,
       is_saleable: true, is_storable: true, status: 'ACTIVE' } };
   return desired;
 }
