@@ -40,7 +40,11 @@ env_value() {
 network=$(docker inspect phoenix-v3-db --format '{{range $k, $v := .NetworkSettings.Networks}}{{$k}}{{end}}')
 [[ "$network" =~ ^[a-zA-Z0-9][a-zA-Z0-9_.-]*$ ]] || { echo "::error::db network unresolved: $network"; exit 1; }
 DB_USER_VALUE=$(env_value DB_USER); DB_PASSWORD_VALUE=$(env_value DB_PASSWORD); DB_NAME_VALUE=$(env_value DB_NAME)
-{ [ -n "$DB_USER_VALUE" ] && [ -n "$DB_PASSWORD_VALUE" ] && [ -n "$DB_NAME_VALUE" ]; } || { echo '::error::DB_USER/DB_PASSWORD/DB_NAME missing in repo .env'; exit 1; }
+# Mirror the compose api-service defaults (docker-compose.yml: DB_USER:-phoenix_v3,
+# DB_PASSWORD:-phoenix_v3_pass, DB_NAME:-phoenix_erp): production .env may only
+# pin DB_PASSWORD and rely on these defaults for user/name.
+: "${DB_USER_VALUE:=phoenix_v3}" "${DB_NAME_VALUE:=phoenix_erp}"
+[ -n "$DB_PASSWORD_VALUE" ] || { echo '::error::DB_PASSWORD missing in repo .env'; exit 1; }
 # No service ports, dependencies, AppModule, cleanup or default chown entrypoint.
 # Logs stay in the evidence dir on success; on failure the fixed log tail becomes
 # part of the deploy output so the host-side cause is visible from CI alone.
