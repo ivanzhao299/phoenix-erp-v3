@@ -13864,6 +13864,8 @@
   "breeding.dailyBreakdownMissing": "日报已存在，但有班次未录九档分级，请先返回日报补齐",
   "ui.红壳蛋": "红壳蛋",
   "ui.粉壳蛋": "粉壳蛋",
+  "ui.红壳": "红壳",
+  "ui.粉壳": "粉壳",
   "breeding.sourceProfile.loading": "来源档案加载中…",
   "breeding.sourceProfile.missing": "该鸡舍无蛋品来源档案，提交将被服务端拒绝。请先在主数据为该鸡舍配置 md_egg_source_profiles。",
   "breeding.sourceProfile.variant": "来源档案",

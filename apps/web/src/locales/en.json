@@ -13864,6 +13864,8 @@
   "breeding.dailyBreakdownMissing": "The daily report exists, but one or more shifts are missing the nine-grade breakdown. Complete the report first.",
   "ui.红壳蛋": "Red-shell eggs",
   "ui.粉壳蛋": "Pink-shell eggs",
+  "ui.红壳": "Red shell",
+  "ui.粉壳": "Pink shell",
   "breeding.sourceProfile.loading": "Loading egg source profile…",
   "breeding.sourceProfile.missing": "No egg source profile for this house. Submission will be rejected by the server. Configure md_egg_source_profiles for this house in master data first.",
   "breeding.sourceProfile.variant": "Source profile",
