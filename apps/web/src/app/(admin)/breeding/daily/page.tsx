@@ -30,6 +30,8 @@ import { Save, Cpu, CheckCircle, X as XIcon } from 'lucide-react';
 import s from '@/components/ui/admin-ui.module.css';
 import { primaryActionButton, secondaryActionButton } from '@/components/design-system/cockpit-styles';
 import { HouseSelector } from '@/components/shared-selectors/MasterDataSelectors'; // G4-E 鸡舍主数据
+import { useEggSourceProfile, varietyShortLabel } from '@/hooks/useEggSourceProfile';
+import { SourceProfileBanner } from '@/components/breeding/SourceProfileBanner';
 import { useDictOptions } from '@/hooks/useDictOptions';
 import DictSelect from '@/components/shared-selectors/DictSelect'; // G19-A 死亡/淘汰原因字典化
 import { useProductGrades } from '@/hooks/useProductGrades'; // G14 9 档分级
@@ -145,6 +147,9 @@ export default function DailyPage() {
   // G14：当前舍存栏（拉自 brd_flocks.current_qty）+ 9 档 modal
   const [currentQty, setCurrentQty] = useState<number>(0);
   const { grades: productGrades } = useProductGrades();
+  // 鸡舍来源档案：东鹏 VARIANT 舍（红/粉壳）在录入区明示品种，孟赛 STANDARD 走普通分级。
+  const { profile: sourceProfile, loading: sourceProfileLoading } = useEggSourceProfile(selectedHouse, formDate);
+  const varietyShort = varietyShortLabel(sourceProfile);
   const historyRequest = useRef(0);
   const loadData = useCallback(async () => {
     const generation = ++historyRequest.current;
@@ -442,6 +447,8 @@ export default function DailyPage() {
             {/* G4-E：从 brd_houses 主数据加载，仅 ACTIVE */}
             <HouseSelector value={selectedHouse} onChange={setSelectedHouse} placeholder={t('ui.请选择鸡舍', '请选择鸡舍')} />
           </div>
+          {/* 鸡舍来源档案横幅：东鹏红/粉壳 · 孟赛普通分级 · 无档案警示（整行） */}
+          <SourceProfileBanner profile={sourceProfile} loading={sourceProfileLoading} houseCode={selectedHouse} style={{ flex: '1 1 100%' }} />
           {deviceHint && <div style={{
           display: 'flex',
           alignItems: 'center',
@@ -558,7 +565,7 @@ export default function DailyPage() {
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: 10 }}>
                     {productGrades.map(g => <div key={g.grade_code} style={cellStyle}>
-                      <span style={labelStyle}>{g.grade_name} ({g.grade_code})</span>
+                      <span style={labelStyle}>{varietyShort ? `${g.grade_name}(${varietyShort})` : g.grade_name} ({g.grade_code})</span>
                       <GradeQuantityInput aria-label={`${g.grade_name} · ${t('ui.数量(枚)', '数量(枚)')}`} value={row.gradeQty[g.grade_code] ?? ''} onValueChange={safe => setRows(rs => rs.map(r => r.id === row.id ? { ...r, gradeQty: { ...r.gradeQty, [g.grade_code]: safe } } : r))} />
                     </div>)}
                     <div style={{ ...cellStyle, fontWeight: 700, color: 'var(--status-success)' }}><span style={labelStyle}>{t('ui.产蛋合计(枚)', '产蛋合计（枚）')}</span><span>{gradeSum.toLocaleString()}</span></div>

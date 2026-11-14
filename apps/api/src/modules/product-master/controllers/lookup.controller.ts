@@ -673,6 +673,53 @@ export class LookupController {
     return { code: 200, data: rows };
   }
 
+  /** GET /api/lookup/egg-source-profile?houseCode=&eggDate= — 鸡舍蛋品来源档案
+   *   md_egg_source_profiles 记录了鸡舍→商业产品模式（STANDARD 普通分级 / VARIANT 红/粉壳）
+   *   的权威映射（孟赛 6 舍 STANDARD；东鹏 01/03/05 粉壳、02/04 红壳）。
+   *   此前端点只存在于服务端入库/SKU 解析内部，日产蛋入库/日生产日报表单无法跟随鸡舍
+   *   展示品种信息 —— 本端点把档案只读暴露给录入页（品种由档案决定，前端不传值防伪造）。
+   *   无档案返回 data:null，前端据此提示"提交将被服务端拒绝"（resolve fail-closed）。
+   */
+  @Get('egg-source-profile')
+  async eggSourceProfile(@Query('houseCode') houseCode?: string, @Query('eggDate') eggDate?: string) {
+    const house = (houseCode ?? '').trim();
+    if (!house) throw new BadRequestException('houseCode 必填');
+    const day = (eggDate ?? '').trim();
+    if (day && !/^\d{4}-\d{2}-\d{2}$/.test(day)) throw new BadRequestException('eggDate 必须是 YYYY-MM-DD');
+    const scope = await this.resolveCompanyScope('MENU_BREEDING');
+    if (!scope.isGlobal && scope.companyCodes.length === 0) return { code: 200, data: null };
+    const params: any[] = [house, day || null];
+    const conds = [
+      `p.status='ACTIVE'`,
+      `p.house_code=$1`,
+      `p.effective_date <= COALESCE($2::date, CURRENT_DATE)`,
+      `(p.expire_date IS NULL OR p.expire_date >= COALESCE($2::date, CURRENT_DATE))`,
+    ];
+    if (!scope.isGlobal) {
+      params.push(scope.companyCodes);
+      conds.push(`p.company_code = ANY($${params.length})`);
+    }
+    const rows = await this.em.query(
+      `SELECT p.profile_code AS "profileCode",
+              p.company_code AS "companyCode",
+              p.farm_code AS "farmCode",
+              p.site_code AS "siteCode",
+              p.house_code AS "houseCode",
+              p.product_mode AS "productMode",
+              p.variety_code AS "varietyCode",
+              v.variety_name AS "varietyName",
+              v.shell_color AS "shellColor"
+         FROM md_egg_source_profiles p
+         LEFT JOIN md_product_varieties v
+           ON v.variety_code = p.variety_code AND v.status='ACTIVE'
+        WHERE ${conds.join(' AND ')}
+        ORDER BY p.effective_date DESC, p.profile_code DESC
+        LIMIT 1`,
+      params,
+    );
+    return { code: 200, data: rows[0] ?? null };
+  }
+
   /** GET /api/lookup/flocks?houseCode=&farmCode=&siteCode= — 鸡群下拉 */
   @Get('flocks')
   async flocks(@Query('houseCode') houseCode?: string, @Query('farmCode') farmCode?: string, @Query('siteCode') siteCode?: string) {

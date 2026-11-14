@@ -6,11 +6,17 @@ import request from '@/lib/api-client';
  * useProductGrades — 全局等级权威源 hook（2026-06-06 收口）
  * ════════════════════════════════════════════════════════════════════════
  * 数据源：/api/lookup/product-grades（product_grades 主数据表，仅 ACTIVE）
- *   · grade_code   — 现行等级码（G67 统一到包装方案）：GRADE_1..5 + DIRTY/CRACKED/BROKEN/DAMAGED（9 档）
- *   · grade_name   — 中文名：1号蛋 / 2号蛋 / 3号蛋 / 4号蛋 / 5号蛋（可售，带 weight_range 重量段）
- *                    + 脏蛋 / 裂缝蛋 / 破损蛋 / 损坏蛋（缺陷）
- *   · is_saleable  — 是否可销售（脏/裂/破/损为 false）
- *   · is_storable  — 是否可入库
+ *   · grade_code   — 现行等级码：GRADE_0..5 + DIRTY/CRACKED/BROKEN/DAMAGED（10 档；
+ *                    GRADE_0 为集团标准特大档，Issue #532 起九档全部纳入库存管理）
+ *   · grade_name   — 中文名：0号蛋 / 1号蛋..5号蛋（可售）+ 脏蛋 / 裂缝蛋 / 破损蛋 / 损坏蛋（缺陷）
+ *   · stock_managed / sale_enabled — Issue #532 策略列（库存管理 / 销售授权），优先于 legacy 列
+ *   · is_saleable / is_storable — legacy 标志（迁移窗口期兜底）
+ *
+ * 过滤语义与 API 对齐（egg-inventory.service 的 COALESCE(stock_managed, is_storable)）：
+ *   onlyStorable  → stock_managed ?? is_storable
+ *   onlySaleable  → sale_enabled ?? is_saleable
+ * 缺陷档（脏/裂/破/损）stock_managed=true 但 sale_enabled=false：
+ * 入库表单必须显示（sale_enabled 只影响销售 FIFO），销售侧才按 onlySaleable 过滤。
  *
  * 替代历史多源（均已统一到 product_grades）：
  *   ✗ 硬编码 EGG_GRADES 0-5（已废）
@@ -21,8 +27,8 @@ import request from '@/lib/api-client';
  *
  * 用法：
  *   const { grades } = useProductGrades();                    // 全部 ACTIVE 等级
- *   const { grades } = useProductGrades({ onlySaleable: true }); // 仅可售（生产入库默认）
- *   const { grades } = useProductGrades({ onlyStorable: true }); // 仅可库（含脏/裂蛋）
+ *   const { grades } = useProductGrades({ onlySaleable: true }); // 仅可售（销售侧）
+ *   const { grades } = useProductGrades({ onlyStorable: true }); // 仅可入库（含脏/裂/破/损，生产入库用）
  */
 
 export interface ProductGrade {
@@ -52,18 +58,31 @@ const _cache: { data: ProductGrade[] | null; expireAt: number; promise: Promise<
 };
 const TTL_MS = 5 * 60 * 1000;
 
-/** 兜底：API 失败时与权威源 product_grades 同款（G67 统一方案 GRADE_1..5 + 4 缺陷）。
- *  2026-06-10 修：原兜底误用旧 realign 方案(XL/L/M/S/XS)，与权威源 GRADE_1..5 漂移，已对齐。 */
+/** 兜底：API 失败时与权威源 product_grades 同款（GRADE_0..5 + 4 缺陷，Issue #532 策略）。
+ *  2026-06-10 修：原兜底误用旧 realign 方案(XL/L/M/S/XS)，已对齐 GRADE_1..5。
+ *  2026-11-14 修：补 GRADE_0（此前 API 失败时 0 号档静默消失）；缺陷档 BROKEN/DAMAGED
+ *  按 Issue #532 策略 stock_managed=true（破损蛋/损坏蛋必须能从日产蛋入库登记）。 */
 const FALLBACK: ProductGrade[] = [
-  { grade_code: 'GRADE_1', grade_name: '1号蛋', sort_order: 10, is_saleable: true,  is_storable: true,  status: 'ACTIVE' },
-  { grade_code: 'GRADE_2', grade_name: '2号蛋', sort_order: 20, is_saleable: true,  is_storable: true,  status: 'ACTIVE' },
-  { grade_code: 'GRADE_3', grade_name: '3号蛋', sort_order: 30, is_saleable: true,  is_storable: true,  status: 'ACTIVE' },
-  { grade_code: 'GRADE_4', grade_name: '4号蛋', sort_order: 40, is_saleable: true,  is_storable: true,  status: 'ACTIVE' },
-  { grade_code: 'GRADE_5', grade_name: '5号蛋', sort_order: 50, is_saleable: true,  is_storable: true,  status: 'ACTIVE' },
-  { grade_code: 'DIRTY',   grade_name: '脏蛋',   sort_order: 60, is_saleable: false, is_storable: true,  status: 'ACTIVE' },
-  { grade_code: 'CRACKED', grade_name: '裂缝蛋', sort_order: 70, is_saleable: false, is_storable: true,  status: 'ACTIVE' },
-  { grade_code: 'BROKEN',  grade_name: '破损蛋', sort_order: 80, is_saleable: false, is_storable: false, status: 'ACTIVE' },
-  { grade_code: 'DAMAGED', grade_name: '损坏蛋', sort_order: 90, is_saleable: false, is_storable: false, status: 'ACTIVE' },
+  { grade_code: 'GRADE_0', grade_name: '0号蛋', sort_order: 5, is_saleable: true, is_storable: true,
+    stock_managed: true, sale_enabled: true, default_stock_status: 'AVAILABLE', status: 'ACTIVE' },
+  { grade_code: 'GRADE_1', grade_name: '1号蛋', sort_order: 10, is_saleable: true, is_storable: true,
+    stock_managed: true, sale_enabled: true, default_stock_status: 'AVAILABLE', status: 'ACTIVE' },
+  { grade_code: 'GRADE_2', grade_name: '2号蛋', sort_order: 20, is_saleable: true, is_storable: true,
+    stock_managed: true, sale_enabled: true, default_stock_status: 'AVAILABLE', status: 'ACTIVE' },
+  { grade_code: 'GRADE_3', grade_name: '3号蛋', sort_order: 30, is_saleable: true, is_storable: true,
+    stock_managed: true, sale_enabled: true, default_stock_status: 'AVAILABLE', status: 'ACTIVE' },
+  { grade_code: 'GRADE_4', grade_name: '4号蛋', sort_order: 40, is_saleable: true, is_storable: true,
+    stock_managed: true, sale_enabled: true, default_stock_status: 'AVAILABLE', status: 'ACTIVE' },
+  { grade_code: 'GRADE_5', grade_name: '5号蛋', sort_order: 50, is_saleable: true, is_storable: true,
+    stock_managed: true, sale_enabled: true, default_stock_status: 'AVAILABLE', status: 'ACTIVE' },
+  { grade_code: 'DIRTY',   grade_name: '脏蛋',   sort_order: 60, is_saleable: false, is_storable: true,
+    stock_managed: true, sale_enabled: false, default_stock_status: 'QUARANTINE', status: 'ACTIVE' },
+  { grade_code: 'CRACKED', grade_name: '裂缝蛋', sort_order: 70, is_saleable: false, is_storable: true,
+    stock_managed: true, sale_enabled: false, default_stock_status: 'QUARANTINE', status: 'ACTIVE' },
+  { grade_code: 'BROKEN',  grade_name: '破损蛋', sort_order: 80, is_saleable: false, is_storable: true,
+    stock_managed: true, sale_enabled: false, default_stock_status: 'DAMAGED', status: 'ACTIVE' },
+  { grade_code: 'DAMAGED', grade_name: '损坏蛋', sort_order: 90, is_saleable: false, is_storable: true,
+    stock_managed: true, sale_enabled: false, default_stock_status: 'DAMAGED', status: 'ACTIVE' },
 ];
 
 export function useProductGrades(opts: UseProductGradesOpts = {}) {
@@ -99,8 +118,9 @@ export function useProductGrades(opts: UseProductGradesOpts = {}) {
   const grades = useMemo(() => {
     return raw
       .filter(g => {
-        if (opts.onlySaleable && !g.is_saleable) return false;
-        if (opts.onlyStorable && !g.is_storable) return false;
+        // 与 API 的 COALESCE 新列优先语义一致（Issue #532）；迁移窗口期旧列兜底。
+        if (opts.onlySaleable && !((g.sale_enabled ?? g.is_saleable) !== false)) return false;
+        if (opts.onlyStorable && !((g.stock_managed ?? g.is_storable) !== false)) return false;
         return true;
       })
       .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));

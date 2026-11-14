@@ -21,7 +21,7 @@ const SPECS = [
   ['BOX360', '360枚/箱'], ['BOX720', '720枚/箱'], ['GIFT12', '礼盒装 12枚'], ['GIFT24', '礼盒装 24枚'],
 ];
 const GRADES = [
-  ['0', 'GRADE_0', '0号特大蛋'], ['1', 'GRADE_1', '1号蛋'], ['2', 'GRADE_2', '2号蛋'],
+  ['0', 'GRADE_0', '0号蛋'], ['1', 'GRADE_1', '1号蛋'], ['2', 'GRADE_2', '2号蛋'],
   ['3', 'GRADE_3', '3号蛋'], ['4', 'GRADE_4', '4号蛋'], ['5', 'GRADE_5', '5号蛋'],
 ];
 const VARIETIES = [
@@ -56,7 +56,7 @@ export function buildCatalog() {
     })),
   ));
   return {
-    grades: [{ grade_code: 'GRADE_0', grade_name: '0号特大蛋', grade_name_lo: 'ໄຂ່ຊັ້ນ 0', weight_range: null,
+    grades: [{ grade_code: 'GRADE_0', grade_name: '0号蛋', grade_name_lo: 'ໄຂ່ຊັ້ນ 0', weight_range: null,
       sort_order: 5, is_saleable: false, is_storable: false, status: 'DRAFT' }],
     varieties, products, skus,
   };
