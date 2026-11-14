@@ -5,6 +5,8 @@ import { Egg, Save, RefreshCw, AlertTriangle, Package, FileDown } from "lucide-r
 import Link from "next/link";
 import { usePermission } from "@/hooks/usePermission";
 import { useProductGrades } from "@/hooks/useProductGrades";
+import { useEggSourceProfile, varietyShortLabel } from "@/hooks/useEggSourceProfile";
+import { SourceProfileBanner } from "@/components/breeding/SourceProfileBanner";
 import PageHeader from "@/components/PageHeader";
 import request, { type ApiError } from "@/lib/api-client";
 import { validateProductionInboundPayload, type InboundReceipt } from '@/lib/production-inbound-result';
@@ -49,6 +51,11 @@ export default function DailyInboundPage() {
   const [ownershipError, setOwnershipError] = useState("");
   const [warehouseCode, setWarehouseCode] = useState("");
   const [locationCode, setLocationCode] = useState("");
+  // 鸡舍来源档案：东鹏 VARIANT 舍（红/粉壳）在表单明示品种，孟赛 STANDARD 走普通分级。
+  // 品种由服务端档案决定，前端只展示；提交时不传 variety，防伪造。
+  const { profile: sourceProfile, loading: sourceProfileLoading } = useEggSourceProfile(houseCode, eggDate);
+  const varietyShort = varietyShortLabel(sourceProfile);
+  const gradeCellLabel = (name: string) => (varietyShort ? `${name}(${varietyShort})` : name);
   const [qtyMap, setQtyMap] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [prefilling, setPrefilling] = useState(false);
@@ -316,6 +323,9 @@ export default function DailyInboundPage() {
             </button>
           </div>
 
+          {/* 鸡舍来源档案横幅：东鹏红/粉壳 · 孟赛普通分级 · 无档案警示 */}
+          <SourceProfileBanner profile={sourceProfile} loading={sourceProfileLoading} houseCode={houseCode} style={{ marginBottom: 12 }} />
+
           {/* 汇总（明细表上方合计） */}
           <div style={{
         display: "flex",
@@ -388,7 +398,7 @@ export default function DailyInboundPage() {
                       padding: "8px 14px",
                       fontWeight: 500,
                       color: "var(--text-primary)"
-                    }}>{g.grade_name}</td>
+                    }}>{gradeCellLabel(g.grade_name)}</td>
                     <td style={{
                       padding: "8px 14px",
                       fontFamily: "monospace",
