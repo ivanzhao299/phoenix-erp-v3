@@ -60,40 +60,9 @@ export function composeArguments(root, args, project) {
       ['up', '-d', '--no-deps', '--wait', service], ['up', '-d', '--wait', service], ['restart', service],
     ]),
   ];
-  if (!exact.some(profile => JSON.stringify(profile) === JSON.stringify(args)) && !isCandidateMigrationRun(args)) {
-    throw new Error('COMPOSE_HOLD=UNSUPPORTED_OPERATION');
-  }
+  if (!exact.some(profile => JSON.stringify(profile) === JSON.stringify(args))) throw new Error('COMPOSE_HOLD=UNSUPPORTED_OPERATION');
   return ['compose', '--project-name', project, '--env-file', path.join(root, '.env'), '-f', path.join(root, 'docker-compose.yml'), ...args,
     ...(args[0] === 'up' ? ['--no-build', '--pull', 'never', '--no-deps'] : [])];
-}
-
-/**
- * Candidate one-off migration profile — the exact argument shapes issued by
- * scripts/deploy-schema-first.sh and nothing else. The container name is the
- * only variable part (evidence-dir suffix). Without this profile every deploy
- * carrying a new migration fails at the compose allowlist (COMPOSE_HOLD=
- * UNSUPPORTED_OPERATION) before TypeORM ever runs.
- */
-export function isCandidateMigrationRun(args) {
-  if (!Array.isArray(args) || args[0] !== 'run') return false;
-  // --entrypoint pins the executable to the in-image TypeORM CLI; the trailing
-  // command is fixed to the reviewed data source and subcommand.
-  const typeorm = './node_modules/.bin/typeorm';
-  const runShape = ['--no-deps', '-T', '--name', /^phoenix-migrate-[a-z0-9-]+$/, '--user', 'phoenix'];
-  const pgoptions = ['-e', /^PGOPTIONS=-c lock_timeout=\d+s -c statement_timeout=\d+s$/];
-  const suffixes = [
-    ['--entrypoint', typeorm, 'api', '-d', 'dist/database/data-source.js', 'migration:run', '--transaction', 'all'],
-    ['--entrypoint', typeorm, 'api', '-d', 'dist/database/data-source.js', 'migration:show'],
-  ];
-  for (const suffix of suffixes) {
-    const withLockTimeout = [...runShape, ...pgoptions, ...suffix];
-    const withoutLockTimeout = [...runShape, ...suffix];
-    for (const shape of [withLockTimeout, withoutLockTimeout]) {
-      if (args.length !== shape.length + 1) continue;
-      if (shape.every((expected, index) => expected instanceof RegExp ? expected.test(args[index + 1]) : args[index + 1] === expected)) return true;
-    }
-  }
-  return false;
 }
 export function runCompose(args, dependencies = {}) {
   const root = dependencies.root || fs.realpathSync(process.cwd()); const directory = dependencies.directory || CONTRACT.stateDirectory;
