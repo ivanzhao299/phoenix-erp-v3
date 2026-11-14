@@ -65,9 +65,10 @@ export function canarySources(policyModule, matrixModule) {
   ];
 }
 
-/** 合法出现 CRACKED 的文件（历史 fixture / 迁移冻结清单 / legacy 映射 / 本门禁）。 */
+/** 合法出现 CRACKED 的文件（历史 fixture / 迁移冻结清单 / legacy 映射 / 文档示例 / 本门禁）。 */
 export function isAllowlistedForRetiredCode(file) {
   return /\.(spec|test)\.[cm]?[jt]sx?$/.test(file)
+    || file.startsWith('docs/') || file.endsWith('.md')
     || /(^|\/)(migrations|database\/migrations)\//.test(file)
     || file === 'apps/api/src/modules/sales-v2/services/egg-inventory.service.ts' // legacy degradeGrade 历史映射
     || file === 'scripts/ci/check-retired-grade-codes.mjs'

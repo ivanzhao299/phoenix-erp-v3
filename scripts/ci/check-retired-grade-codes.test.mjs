@@ -14,7 +14,7 @@ const OTHER = [1];`;
   assert.throws(() => extractGradeCodesFromTsArray(source, 'const MISSING = ['), /ANCHOR_MISSING/);
 });
 
-test('allowlist covers fixtures, migrations, legacy mapping and the gate itself', () => {
+test('allowlist covers fixtures, migrations, legacy mapping, docs and the gate itself', () => {
   for (const file of [
     'apps/api/src/modules/farm/farm.service.spec.ts',
     'apps/web/src/__tests__/daily-grade-export.dom.test.tsx',
@@ -23,6 +23,8 @@ test('allowlist covers fixtures, migrations, legacy mapping and the gate itself'
     'apps/api/src/modules/sales-v2/services/egg-inventory.service.ts',
     'scripts/ci/check-retired-grade-codes.mjs',
     'scripts/seed-defect-sku-matrix.mjs',
+    'docs/egg-grade-defect-fix-runbook.md',
+    'README.md',
   ]) assert.equal(isAllowlistedForRetiredCode(file), true, file);
   for (const file of [
     'apps/web/src/hooks/useProductGrades.ts',
