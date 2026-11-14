@@ -189,6 +189,10 @@ export class DockerReplacementEvents {
     }
     this.assertLive();
     this.history = eventsFrom(this.run(['events', '--since', this.startAt, '--until', end, '--format', replacementEventFormat]));
+    // The one-shot query itself can be the moment the observer dies (exit
+    // observed during the query call): re-verify liveness AFTER it so the
+    // queried history is never trusted over a dead stream.
+    this.assertLive();
     for (const row of this.history) if (nano(row.timeNano) < isoNano(this.startAt) || nano(row.timeNano) >= isoNano(end)) hold('REPLACEMENT_EVENT_HISTORY_INTERVAL');
     return this.verifyFinalCoverage();
     } catch (error) { this.failed = true; throw error; }
