@@ -128,6 +128,23 @@ function seedDatabase(sql) {
   assert.equal(seed.status, 0, `seed failed: ${seed.stderr}`);
 }
 
+// A group-killed descendant can stay briefly visible after SIGKILL (zombie
+// until its adoptive reaper collects it), so a single fixed-delay pgrep probe
+// races the reaper under load. Poll to a fixed deadline instead — the "no
+// survivor" contract is unchanged, only the wait becomes deterministic. The
+// pattern is ANCHORED: an unanchored `pgrep -f 'sleep 30'` substring-matches
+// unrelated command lines (for example any `sh -c '…sleep 30…'` wrapper from a
+// concurrent run) and turns scheduler noise into a false failure.
+async function waitForProcessGone(pattern, { deadlineMs = 5000, intervalMs = 100 } = {}) {
+  const anchored = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  for (let waited = 0; ; waited += intervalMs) {
+    const probe = spawnSync('pgrep', ['-f', anchored], { encoding: 'utf8' });
+    if (probe.status !== 0) return true;
+    if (waited + intervalMs >= deadlineMs) return false;
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+  }
+}
+
 chain('production ledger collection chain (no production network, local transport)', () => {
   let work;
   before(async () => {
@@ -264,13 +281,13 @@ chain('production ledger collection chain (no production network, local transpor
     assert.ok(elapsed < 30_000, `the hung transport was not bounded (${elapsed}ms)`);
     assert.match(run.stdout, /LEDGER_COLLECTION_CHAIN=code:3/);
     assert.match(fs.readFileSync(path.join(evidence, 'FAILURE.txt'), 'utf8'), /stage=collect/);
-    // the marker proves the transport STARTED; its disappearance within a
-    // short window proves the kill actually reached it (spawnSync timeout +
-    // SIGKILL) — the chain never waits for the 60s sleep
+    // the marker proves the transport STARTED; its disappearance proves the
+    // kill actually reached it (spawnSync timeout + SIGKILL) — the chain never
+    // waits for the 60s sleep. Same reaper-race hardening as lifecycle 1: poll
+    // to a deadline, anchor on the script path suffix so both the interpreter
+    // process and the `sh -c` wrapper are covered without matching bystanders.
     assert.ok(fs.existsSync(marker), 'the hung transport never started');
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    const leftover = spawnSync('pgrep', ['-f', 'ledger-hang-transport'], { encoding: 'utf8' });
-    assert.notEqual(leftover.status, 0, 'the hung transport process survived the unified cleanup');
+    assert.equal(await waitForProcessGone('/ledger-hang-transport$'), true, 'the hung transport process survived the unified cleanup');
   }, 120_000);
 
   test('provisioning/failure-cleanup zero-modification: a SENTINEL database on the same instance is untouched across every chain entry', () => {
@@ -317,13 +334,14 @@ chain('production ledger collection chain (no production network, local transpor
   // hang remains covered by the transport-timeout test above)
   test('lifecycle 1 — leader exits early, descendants still alive: the result stays OPEN until the bound group-kills them', async () => {
     const marker = path.join(work, 'lifecycle1-started');
-    const run = await chainModule.runBoundedGroup('sh', ['-c', `touch ${JSON.stringify(marker)}; sleep 30 & exit 0`], { timeoutMs: 1200 });
+    const run = await chainModule.runBoundedGroup('sh', ['-c', `touch ${JSON.stringify(marker)}; sleep 30 & exit 0`], { timeoutMs: 3000 });
     assert.ok(fs.existsSync(marker), 'the command never started');
     assert.equal(run.killed, true, 'the bound must fire — the descendant holds the pipes open after the leader exited');
     assert.equal(run.status, null, 'a group-killed run reports no exit status (it never completed on its own)');
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    const leftover = spawnSync('pgrep', ['-f', 'sleep 30'], { encoding: 'utf8' });
-    assert.notEqual(leftover.status, 0, 'the descendant survived the group kill');
+    // Anchored exact match: the descendant's full command line IS `sleep 30`;
+    // the wrapper `sh -c 'touch …; sleep 30 & exit 0'` must never satisfy the
+    // probe, and the reaper race is absorbed by the polling deadline.
+    assert.equal(await waitForProcessGone('^sleep 30$'), true, 'the descendant survived the group kill');
   }, 15_000);
 
   test('lifecycle 2 — late stdout: output written by a descendant AFTER the leader exited is still fully captured', async () => {
