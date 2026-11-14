@@ -15,13 +15,18 @@ export class FreezeRetiredEggGrades1794500000000 implements MigrationInterface {
     'CRACKED', 'DAMAGED', 'AA', 'A', 'B', 'C', 'XL', 'L', 'M', 'S', 'XS', 'GRD-001',
   ];
 
+  /** SQL 数组字面量（单引号元素，防注入：码表为静态常量）。 */
+  private static frozenCodesSql(): string {
+    return `ARRAY[${FreezeRetiredEggGrades1794500000000.FROZEN_GRADE_CODES.map(code => `'${code}'`).join(', ')}]::varchar[]`;
+  }
+
   public async up(queryRunner: QueryRunner): Promise<void> {
     // 1) 永久防线：任何把冻结清单内等级改回/插入为 ACTIVE 的写操作直接报错。
     //    覆盖一切通道：应用 API、运维脚本、误跑的种子、手工 SQL。
     await queryRunner.query(`
       CREATE OR REPLACE FUNCTION phoenix_guard_retired_grade_status() RETURNS trigger AS $$
       BEGIN
-        IF NEW.grade_code = ANY(${JSON.stringify(FreezeRetiredEggGrades1794500000000.FROZEN_GRADE_CODES)}::varchar[])
+        IF NEW.grade_code = ANY(${FreezeRetiredEggGrades1794500000000.frozenCodesSql()})
            AND NEW.status = 'ACTIVE' THEN
           RAISE EXCEPTION 'GRADE_FROZEN: 等级 % 已永久退役，禁止激活（8 档制终态，见 FreezeRetiredEggGrades1794500000000）', NEW.grade_code
             USING ERRCODE = 'check_violation';
