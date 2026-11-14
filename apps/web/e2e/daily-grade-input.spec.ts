@@ -26,7 +26,7 @@ test('nine inline grade inputs suppress arrow stepping and spinner, not ordinary
   await page.goto('/breeding/daily');
   const inputs = page.locator('input[type=number][aria-label]');
   await expect(inputs).toHaveCount(9);
-  await expect(page.getByRole('button', { name: '按 9 档分级', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '按等级分级', exact: true })).toHaveCount(0);
   await expect(page.getByRole('dialog')).toHaveCount(0);
   for (const input of await inputs.all()) {
     await input.fill('12');

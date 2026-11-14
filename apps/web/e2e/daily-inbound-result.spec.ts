@@ -153,7 +153,7 @@ test('missing saved breakdown cannot silently replace manually entered inbound q
   await page.route('**/api/v3/farm/daily-logs/eggs-breakdown?**', route => route.fulfill({ json: { eggsByGrade: {}, total: 0, logs: 1, missingBreakdownLogs: 1, reportedEggs: 11 } }));
   await prepareInbound(page);
   await page.getByRole('button', { name: '从日报预填', exact: true }).click();
-  await expect(page.getByText(/日报已存在，但有班次未录九档分级/)).toBeVisible();
+  await expect(page.getByText(/日报已存在，但有班次未录分级明细/)).toBeVisible();
   await expect(inputFor(page)).toHaveValue('11');
   await expect(page.getByText(/入库成功 · 合计/)).toHaveCount(0);
 });
