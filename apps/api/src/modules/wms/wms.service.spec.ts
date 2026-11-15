@@ -123,6 +123,9 @@ describe('WmsService inventory read queries', () => {
       query: jest.fn(async (sql: string) => {
         if (sql.includes('SELECT task_no,status FROM wms_inbound')) return [];
         if (sql.includes('SELECT company_code FROM wms_warehouses')) return [{ company_code: 'COMP-LAO-AGRI' }];
+        if (sql.includes('information_schema.columns')) return [
+          'item_type', 'material_code', 'sku_code', 'material_type', 'unit', 'identity_snapshot',
+        ].map(column_name => ({ column_name }));
         if (sql.includes('FROM mst_materials')) return [{ material_code: 'MAT-VET-NDV', material_name: '新城疫苗', material_type: 'VET_DRUG', unit: '瓶' }];
         return [];
       }),

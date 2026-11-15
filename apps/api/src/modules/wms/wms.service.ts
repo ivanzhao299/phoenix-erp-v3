@@ -346,6 +346,17 @@ export class WmsService {
     if (!documents.length) throw new BadRequestException('documents 必须至少包含一条入库单');
     return this.em.transaction(async manager => {
       const created: any[] = [];
+      const identityColumns = ['item_type', 'material_code', 'sku_code', 'material_type', 'unit', 'identity_snapshot'];
+      const identityColumnRows = await manager.query(
+        `SELECT column_name
+           FROM information_schema.columns
+          WHERE table_schema = current_schema()
+            AND table_name = 'wms_inbound_items'
+            AND column_name = ANY($1::text[])`,
+        [identityColumns],
+      );
+      const supportsCanonicalIdentity = Array.isArray(identityColumnRows)
+        && new Set(identityColumnRows.map((row: any) => row.column_name)).size === identityColumns.length;
       for (const [index, doc] of documents.entries()) {
         const taskNo = this.nonEmptyString(doc?.task_no || doc?.inbound_no);
         if (!taskNo) throw new BadRequestException(`第 ${index + 1} 张入库单 task_no 必填`);
@@ -394,19 +405,28 @@ export class WmsService {
             this.nonEmptyString(doc?.attachment_url), doc?.date || null, this.nonEmptyString(doc?.site_code), companyCode, this.nonEmptyString(doc?.remark)],
         );
         for (const { input: item, identity, qty, quantitySnapshot } of resolvedItems) {
-          await manager.query(
-            `INSERT INTO wms_inbound_items (
-               task_no,batch_no,product_code,item_type,material_code,sku_code,material_type,unit,
-               qty,actual_qty,broken_qty,quantity_snapshot,identity_snapshot
-             )
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::numeric,0,0,$10::jsonb,$11::jsonb)`,
-            [
-              taskNo, this.nonEmptyString(item?.batch_no), identity.productCode,
-              identity.itemType, identity.materialCode, identity.skuCode, identity.materialType, identity.unit,
-              qty, quantitySnapshot == null ? null : JSON.stringify(quantitySnapshot),
-              JSON.stringify({ itemType: identity.itemType, materialCode: identity.materialCode, skuCode: identity.skuCode, productCode: identity.productCode, materialType: identity.materialType, unit: identity.unit }),
-            ],
-          );
+          if (supportsCanonicalIdentity) {
+            await manager.query(
+              `INSERT INTO wms_inbound_items (
+                 task_no,batch_no,product_code,item_type,material_code,sku_code,material_type,unit,
+                 qty,actual_qty,broken_qty,quantity_snapshot,identity_snapshot
+               )
+               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::numeric,0,0,$10::jsonb,$11::jsonb)`,
+              [
+                taskNo, this.nonEmptyString(item?.batch_no), identity.productCode,
+                identity.itemType, identity.materialCode, identity.skuCode, identity.materialType, identity.unit,
+                qty, quantitySnapshot == null ? null : JSON.stringify(quantitySnapshot),
+                JSON.stringify({ itemType: identity.itemType, materialCode: identity.materialCode, skuCode: identity.skuCode, productCode: identity.productCode, materialType: identity.materialType, unit: identity.unit }),
+              ],
+            );
+          } else {
+            await manager.query(
+              `INSERT INTO wms_inbound_items (task_no,batch_no,product_code,qty,actual_qty,broken_qty,quantity_snapshot)
+               VALUES ($1,$2,$3,$4::numeric,0,0,$5::jsonb)`,
+              [taskNo, this.nonEmptyString(item?.batch_no), identity.productCode || identity.skuCode || identity.materialCode,
+                qty, quantitySnapshot == null ? null : JSON.stringify(quantitySnapshot)],
+            );
+          }
         }
         created.push({ task_no: taskNo, status: 'PENDING', idempotent: false });
       }
@@ -580,7 +600,11 @@ export class WmsService {
                $4::bigint IS NULL
                AND (
                  ($2::text IS NOT NULL AND batch_no=$2)
-                 OR ($2::text IS NULL AND (product_code=$3 OR material_code=$3 OR sku_code=$3))
+                 OR ($2::text IS NULL AND (
+                   product_code=$3
+                   OR COALESCE(to_jsonb(wms_inbound_items)->>'material_code','')=$3
+                   OR COALESCE(to_jsonb(wms_inbound_items)->>'sku_code','')=$3
+                 ))
                )
              )
            )
