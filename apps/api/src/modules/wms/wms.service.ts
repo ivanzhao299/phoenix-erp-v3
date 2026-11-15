@@ -584,6 +584,17 @@ export class WmsService {
       const defaultWarehouse = task.warehouse_code || 'WMS-VTE-MAIN';
       const operator = String(user?.userId || user?.username || task.operator || 'SYS');
       const storeCode = task.store_code || 'ALL';
+      const identityColumnRows = await manager.query(
+        `SELECT column_name
+           FROM information_schema.columns
+          WHERE table_schema = current_schema()
+            AND table_name = 'wms_inbound_items'
+            AND column_name = ANY($1::text[])`,
+        [['item_type', 'material_code', 'sku_code', 'material_type', 'unit', 'identity_snapshot']],
+      );
+      const strictPersistedLine = requirePersistedLine
+        && Array.isArray(identityColumnRows)
+        && new Set(identityColumnRows.map((row: any) => row.column_name)).size === 6;
 
       for (const item of items) {
         const savedLines = await manager.query(`SELECT id,quantity_snapshot,qty,product_code,
@@ -612,7 +623,7 @@ export class WmsService {
           [task_no, this.nonEmptyString(item.batch_no), this.nonEmptyString(item.sku_code || item.product_code || item.material_code), item.id ?? null]);
         if (savedLines.length>1) throw new BadRequestException('入库明细身份不唯一，请按持久化明细 id 确认');
         if (savedLines.length!==1) {
-          if (requirePersistedLine || item.id) throw new BadRequestException('入库明细不存在或不属于当前入库单');
+          if (strictPersistedLine || item.id) throw new BadRequestException('入库明细不存在或不属于当前入库单');
         }
         const savedLine = savedLines[0];
         const persistedCodes = savedLine ? [savedLine.material_code, savedLine.sku_code, savedLine.product_code].map(value => this.nonEmptyString(value)).filter(Boolean) as string[] : [];

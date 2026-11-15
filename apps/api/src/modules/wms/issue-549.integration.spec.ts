@@ -95,6 +95,9 @@ describe('issue 549 inbound identity integration contracts', () => {
         if (sql.includes('SELECT type, domain FROM wms_warehouses')) return [{ type: 'MEDICINE', domain: 'OPERATIONAL' }];
         if (sql.includes('SELECT company_code FROM wms_warehouses')) return [{ company_code: 'COMP-LAO-AGRI' }];
         if (sql.includes('FROM wms_inbound_items')) return [];
+        if (sql.includes('information_schema.columns')) return [
+          'item_type', 'material_code', 'sku_code', 'material_type', 'unit', 'identity_snapshot',
+        ].map(column_name => ({ column_name }));
         if (sql.includes("SELECT 'SKU' AS item_type FROM product_skus")) return [{ item_type: 'MATERIAL' }];
         if (sql.includes('FROM mst_materials') && sql.includes("status = 'ACTIVE'")) return [{ material_code: 'MAT-VET-NDV', material_name: '新城疫苗', material_type: 'VET_DRUG', unit: '瓶' }];
         if (sql.includes('INSERT INTO inv_batches') || sql.includes('INSERT INTO inv_ledger')) writes.push(sql);
