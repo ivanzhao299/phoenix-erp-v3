@@ -650,9 +650,7 @@ export class GenericCrudController {
       const payload = this.buildWmsInboundConfirmPayload(existing, detailFields);
       // The strict flag forces the WMS service to resolve the persisted detail
       // row instead of accepting a caller-supplied identity that is not stored.
-      const result = await (this.wmsService.confirmInbound as any).call(
-        this.wmsService, payload, req.user, undefined, true,
-      );
+      const result = await this.wmsService.confirmInbound(payload, req.user, undefined, true);
       if (Object.keys(detailFields).length > 0) {
         await this.crudService.update(table, idColumn, id, detailFields);
       }
