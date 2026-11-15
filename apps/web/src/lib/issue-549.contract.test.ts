@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import { buildWarehouseInboundConfirmPayload } from './warehouse-inbound';
 
 describe('issue 549 inbound identity contract', () => {

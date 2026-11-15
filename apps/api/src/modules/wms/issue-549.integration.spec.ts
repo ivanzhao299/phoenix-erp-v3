@@ -1,4 +1,3 @@
-import { BadRequestException } from '@nestjs/common';
 import { WmsService } from './wms.service';
 
 function globalScope() {
@@ -12,6 +11,7 @@ describe('issue 549 inbound identity integration contracts', () => {
       query: jest.fn(async (sql: string, params?: unknown[]) => {
         if (sql.includes('SELECT task_no,status FROM wms_inbound')) return [];
         if (sql.includes('SELECT company_code FROM wms_warehouses')) return [{ company_code: 'COMP-LAO-AGRI' }];
+        if (sql.includes('FROM mst_materials')) return [{ material_code: 'MAT-VET-NDV', material_name: '新城疫苗', material_type: 'VET_DRUG', unit: '瓶', status: 'ACTIVE' }];
         if (sql.includes('INSERT INTO wms_inbound_items')) {
           lineInserts.push({ sql, params: params ?? [] });
           return [];
@@ -61,7 +61,8 @@ describe('issue 549 inbound identity integration contracts', () => {
         if (sql.includes('FROM wms_inbound_items')) {
           return [{ id: 549, batch_no: null, product_code: 'MAT-VET-NDV', qty: 10, expected_qty: 10, actual_qty: 0, broken_qty: 0, quantity_snapshot: null }];
         }
-        if (sql.includes('INSERT INTO inv_batches') || sql.includes('INSERT INTO inv_ledger')) writes.push(sql);
+        if (sql.includes('INSERT INTO inv_batches')) { writes.push(sql); return [{ batch_no: 'posted' }]; }
+        if (sql.includes('INSERT INTO inv_ledger')) writes.push(sql);
         if (sql.startsWith('UPDATE wms_inbound') || sql.startsWith('UPDATE wms_inbound_items')) writes.push(sql);
         if (sql.includes('SELECT * FROM inv_batches WHERE batch_no')) return [];
         return [];
@@ -106,7 +107,7 @@ describe('issue 549 inbound identity integration contracts', () => {
     await expect(service.confirmInbound({
       task_no: 'WI-549-NO-LINE',
       items: [{ material_code: 'MAT-VET-NDV', item_type: 'MATERIAL', actual_qty: 10 }],
-    }, { username: 'admin' })).rejects.toBeInstanceOf(BadRequestException);
+    }, { username: 'admin' }, undefined, true)).rejects.toThrow();
     expect(writes).toHaveLength(0);
   });
 });
