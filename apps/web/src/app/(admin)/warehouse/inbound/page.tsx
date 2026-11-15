@@ -36,13 +36,13 @@ type InboundConfirmResponse = { code?: number; msg?: string; message?: string };
 
 export default function InboundPage() {
   const { t, lang } = useLanguage();
-  const { user, canCreate, canEdit, canDelete, canApprove, hasPermission } = useAuth();
+  const { user, canCreate, canEdit, canDelete, hasPermission } = useAuth();
   const currentOperator = masterNameWithCode(String(user?.name || ""), String(user?.username || ""));
   const canCreateInout = canCreate("MENU_WMS_INOUT");
   const canEditInout = canEdit("MENU_WMS_INOUT");
   const canDeleteInout = canDelete("MENU_WMS_INOUT");
-  const canApproveInout = canApprove("MENU_WMS_INOUT");
-  const canConfirmInout = canApproveInout || canCreateInout;
+  // Confirming an inbound document posts inventory and therefore requires edit (E), not create (C).
+  const canConfirmInout = hasPermission("MENU_WMS_INOUT", "E");
   const canViewInventory = hasPermission("MENU_WMS_VIEW", "V");
   const [drawerOpen,    setDrawerOpen]    = useState(false);
   const [editing,       setEditing]       = useState<Row | null>(null);

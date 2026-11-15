@@ -434,6 +434,8 @@ describe('GenericCrudController WMS RBAC', () => {
         }],
       },
       expect.objectContaining({ username: 'wangweihua' }),
+      undefined,
+      true,
     );
     expect(cls.set).toHaveBeenCalledWith(
       'dataScope',
@@ -442,7 +444,63 @@ describe('GenericCrudController WMS RBAC', () => {
     expect(svc.update).not.toHaveBeenCalled();
   });
 
-  it('persists inbound detail edits before WMS confirmation without directly completing the row', async () => {
+  it('canonicalizes material identity fields and confirms before mirroring header edits', async () => {
+    svc.findOneByColumn.mockResolvedValueOnce({
+      id: 81,
+      task_no: 'WI-MAT-549',
+      status: 'PENDING',
+      item: 'MAT-VET-NDV',
+      qty: 10,
+      warehouse_code: 'LPH_DP_MEDICINE',
+      location_code: 'MED-DOCK',
+    });
+
+    await expect(
+      controller.updateWithColumn(
+        'wms_inbound',
+        'id',
+        '81',
+        {
+          status: 'COMPLETED',
+          materialCode: 'MAT-VET-NDV',
+          itemType: 'MATERIAL',
+          materialType: 'VET_DRUG',
+          unit: '瓶',
+          actual_qty: 10,
+        },
+        req(['MENU_WMS_INOUT:E']),
+      ),
+    ).resolves.toEqual({ code: 200, msg: '入库确认成功' });
+
+    expect(wmsService.confirmInbound).toHaveBeenCalledWith(
+      expect.objectContaining({
+        task_no: 'WI-MAT-549',
+        items: [expect.objectContaining({
+          material_code: 'MAT-VET-NDV',
+          item_type: 'MATERIAL',
+          material_type: 'VET_DRUG',
+          unit: '瓶',
+        })],
+      }),
+      expect.objectContaining({ username: 'wangweihua' }),
+      undefined,
+      true,
+    );
+    expect(svc.update).toHaveBeenCalledWith(
+      'wms_inbound',
+      'id',
+      '81',
+      expect.objectContaining({
+        material_code: 'MAT-VET-NDV',
+        item_type: 'MATERIAL',
+        material_type: 'VET_DRUG',
+      }),
+    );
+    expect(wmsService.confirmInbound.mock.invocationCallOrder[0])
+      .toBeLessThan(svc.update.mock.invocationCallOrder[0]);
+  });
+
+  it('persists inbound detail edits after WMS confirmation without directly completing the row', async () => {
     svc.findOneByColumn.mockResolvedValueOnce({
       id: 8,
       task_no: 'WI-535598',
@@ -498,6 +556,8 @@ describe('GenericCrudController WMS RBAC', () => {
         }],
       },
       expect.objectContaining({ username: 'wangweihua' }),
+      undefined,
+      true,
     );
   });
 
@@ -539,6 +599,8 @@ describe('GenericCrudController WMS RBAC', () => {
         }],
       },
       expect.objectContaining({ username: 'wangweihua' }),
+      undefined,
+      true,
     );
   });
 

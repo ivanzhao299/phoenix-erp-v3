@@ -1,11 +1,49 @@
 import { describe, expect, it } from "vitest";
 import {
   buildWarehouseInboundConfirmPayload,
+  canonicalizeWarehouseInboundIdentity,
   buildWarehouseInboundSavePayload,
   getWarehouseInboundConfirmKeyword,
 } from "./warehouse-inbound";
 
 describe("warehouse inbound helpers", () => {
+
+  it("canonicalizes selector camelCase identity keys before CRUD save", () => {
+    expect(canonicalizeWarehouseInboundIdentity({
+      item: "MAT-VET-NDV",
+      itemType: "MATERIAL",
+      materialCode: "MAT-VET-NDV",
+      materialType: "VET_DRUG",
+      unit: "瓶",
+    })).toEqual({
+      item: "MAT-VET-NDV",
+      item_type: "MATERIAL",
+      material_code: "MAT-VET-NDV",
+      material_type: "VET_DRUG",
+      unit: "瓶",
+    });
+  });
+
+  it("accepts legacy camelCase identity keys when building confirm payloads", () => {
+    expect(buildWarehouseInboundConfirmPayload({
+      task_no: "WI-MAT-CAMEL",
+      item: "MAT-VET-NDV",
+      itemType: "MATERIAL",
+      materialCode: "MAT-VET-NDV",
+      materialType: "VET_DRUG",
+      qty: 10,
+    })).toMatchObject({
+      ok: true,
+      payload: {
+        items: [{
+          material_code: "MAT-VET-NDV",
+          item_type: "MATERIAL",
+          material_type: "VET_DRUG",
+          actual_qty: 10,
+        }],
+      },
+    });
+  });
   it("forces new rows to pending so inventory changes only through confirm", () => {
     expect(buildWarehouseInboundSavePayload({
       item: "PRD-EGG-1",

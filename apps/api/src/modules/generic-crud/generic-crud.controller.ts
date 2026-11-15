@@ -375,6 +375,26 @@ export class GenericCrudController {
     return nextStatus === 'DONE' && currentStatus !== 'DONE';
   }
 
+  private canonicalizeWmsInboundBody(body: any): Record<string, any> {
+    const result = { ...(body || {}) };
+    const aliases: Array<[string, string]> = [
+      ['item_type', 'itemType'],
+      ['material_type', 'materialType'],
+      ['material_code', 'materialCode'],
+      ['sku_code', 'skuCode'],
+      ['product_code', 'productCode'],
+      ['item_name', 'itemName'],
+    ];
+    for (const [canonical, legacy] of aliases) {
+      if ((result[canonical] === undefined || result[canonical] === null || result[canonical] === '')
+        && result[legacy] !== undefined && result[legacy] !== null && result[legacy] !== '') {
+        result[canonical] = result[legacy];
+      }
+      delete result[legacy];
+    }
+    return result;
+  }
+
   private buildWmsInboundConfirmPayload(existing: any, body: any) {
     const row = { ...(existing || {}), ...(body || {}) };
     const taskNo = String(row.task_no || row.inbound_no || '').trim();
@@ -383,8 +403,11 @@ export class GenericCrudController {
     }
 
     const qty = Number(row.actual_qty ?? row.qty ?? row.expected_qty) || 0;
-    const productCode = row.product_code || (!row.sku_code ? row.item : undefined);
-    const skuCode = row.sku_code;
+    const skuCode = row.sku_code ?? row.skuCode;
+    const materialCode = row.material_code ?? row.materialCode;
+    const productCode = row.product_code ?? row.productCode ?? (!skuCode && !materialCode ? row.item : undefined);
+    const itemType = row.item_type ?? row.itemType;
+    const materialType = row.material_type ?? row.materialType;
     const item: Record<string, any> = {
       product_code: productCode,
       sku_code: skuCode,
@@ -395,6 +418,10 @@ export class GenericCrudController {
       warehouse_code: row.warehouse_code,
       location_code: row.location_code,
     };
+    if (materialCode !== undefined && materialCode !== null && materialCode !== '') item.material_code = materialCode;
+    if (itemType !== undefined && itemType !== null && itemType !== '') item.item_type = itemType;
+    if (materialType !== undefined && materialType !== null && materialType !== '') item.material_type = materialType;
+    if (row.unit !== undefined && row.unit !== null && row.unit !== '') item.unit = row.unit;
     if (row.batch_no || row.batch_code) {
       item.batch_no = row.batch_no || row.batch_code;
     }
@@ -516,6 +543,9 @@ export class GenericCrudController {
   async create(@Param('table') table: string, @Body() body: any, @Req() req: any) {
     this.checkTableAccess(table, req, 'POST');
     const tableScope = await this.resolveTableScope(table, req, 'POST');
+    if (table === 'wms_inbound') {
+      body = this.canonicalizeWmsInboundBody(body);
+    }
     this.assertNoHouseOwnershipWrite(table, body);
     
     // Auto populate store_code if not present, and auto populated created_by
@@ -586,7 +616,9 @@ export class GenericCrudController {
       throw new BadRequestException('Record not found');
     }
     this.assertWarehouseRowScope(table, existing, tableScope);
-    const safeBody = this.filterBlockedFields(table, body);
+    const safeBody = table === 'wms_inbound'
+      ? this.canonicalizeWmsInboundBody(this.filterBlockedFields(table, body))
+      : this.filterBlockedFields(table, body);
     if (req.user?.username && Object.prototype.hasOwnProperty.call(body, 'operator')
       && ['wms_inbound', 'wms_transfer', 'wms_stocktake', 'wms_loss'].includes(table)) {
       safeBody.operator = req.user.username;
@@ -609,14 +641,22 @@ export class GenericCrudController {
     if (this.isCompletingWmsInbound(table, existing, safeBody)) {
       const detailFields = { ...safeBody };
       delete detailFields.status;
-      if (Object.keys(detailFields).length > 0) {
-        await this.crudService.update(table, idColumn, id, detailFields);
-      }
       if (tableScope) {
         this.cls.set('dataScope', tableScope);
       }
+      // Inventory confirmation is the authoritative state transition. Persisting
+      // editable header fields first could leave a mutated document when posting
+      // fails; confirm first and only then mirror the successful edit to CRUD.
       const payload = this.buildWmsInboundConfirmPayload(existing, detailFields);
-      return await this.wmsService.confirmInbound(payload, req.user);
+      // The strict flag forces the WMS service to resolve the persisted detail
+      // row instead of accepting a caller-supplied identity that is not stored.
+      const result = await (this.wmsService.confirmInbound as any).call(
+        this.wmsService, payload, req.user, undefined, true,
+      );
+      if (Object.keys(detailFields).length > 0) {
+        await this.crudService.update(table, idColumn, id, detailFields);
+      }
+      return result;
     }
 
     if (this.isCompletingWmsOutbound(table, existing, safeBody)) {
