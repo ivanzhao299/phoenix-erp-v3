@@ -5,6 +5,7 @@ import { DataSource } from 'typeorm';
 import { resolveQuantity, savedQuantity, sharedBatches, QuantitySnapshot } from './quantity-contract';
 import { PackageQuantitySnapshots1794268800000 } from '../../../database/migrations/1794268800000-PackageQuantitySnapshots';
 import { EggSourceProfiles1794400001000 } from '../../../database/migrations/1794400001000-EggSourceProfiles';
+import { AddMstProductsUnitColumn1794700000000 } from '../../../database/migrations/1794700000000-AddMstProductsUnitColumn';
 import { EggInventoryService } from '../../sales-v2/services/egg-inventory.service';
 import { StorePosService } from '../../store-pos/services/store-pos.service';
 import { ReturnOrdersService } from '../../sales-v2/services/return-orders.service';
@@ -135,6 +136,29 @@ fixture('package quantities: owned disposable PostgreSQL 18 service integration'
     pos=new StorePosService(db,cls as never,{} as never,price);
     returns=new ReturnOrdersService(db,cls as never,{} as never,{} as never,inv,{ appendEvent: async () => undefined } as never);
     wms=new WmsService(db.manager,cls as never);
+  });
+  it('issue #550: repairs the baseline drift where legacy mst_products never had unit (inbound BASE lines stop 42703)', async () => {
+    const unitFix = new AddMstProductsUnitColumn1794700000000();
+    const runner = db.createQueryRunner();
+    await runner.startTransaction();
+    // 同一事务同一连接:复刻生产漂移(存量表从未有 unit)→ 迁移修复 → BASE 解析恢复。
+    const shim = { query: (sql: string, params?: unknown[]) => runner.query(sql, params) };
+    try {
+      await runner.query('ALTER TABLE mst_products RENAME TO fixture_saved_products');
+      await runner.query('CREATE TABLE mst_products (product_code text PRIMARY KEY, product_name text, unit_zh text, status text)');
+      await runner.query("INSERT INTO mst_products VALUES ('P','鸡蛋','枚','ACTIVE')");
+      await runner.query('SAVEPOINT pre_unit_fix');
+      await expect(resolveQuantity(shim, { qty: 1, skuCode: 'BOX', quantityBasis: 'BASE' })).rejects.toThrow(/unit/);
+      await runner.query('ROLLBACK TO SAVEPOINT pre_unit_fix');
+      await unitFix.up(runner);
+      const snap = await resolveQuantity(shim, { qty: 2, skuCode: 'BOX', quantityBasis: 'BASE' });
+      expect(snap).toMatchObject({ basis: 'BASE', factor: 1, baseQty: 2, baseUnit: '枚', tradeUnit: '枚' });
+      const [row] = await runner.query("SELECT unit FROM mst_products WHERE product_code='P'");
+      expect(row.unit).toBe('枚');
+    } finally {
+      await runner.rollbackTransaction();
+      await runner.release();
+    }
   });
   afterAll(async () => { if (db?.isInitialized) await db.destroy(); });
   beforeEach(async () => {
