@@ -241,7 +241,7 @@ export default function InboundPage() {
       <DataTable
         table={TABLE}
         columns={COLUMNS}
-        params={typeFilter ? { type: typeFilter } as any : undefined}
+        params={typeFilter ? { type: typeFilter } : undefined}
         onNew={canCreateInout ? openNew : undefined}
         onEdit={canEditInout ? openEdit : undefined}
         onDelete={canDeleteInout ? handleDelete : undefined}
