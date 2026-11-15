@@ -572,8 +572,19 @@ export class WmsService {
           to_jsonb(wms_inbound_items)->>'sku_code' AS sku_code,
           to_jsonb(wms_inbound_items)->>'material_type' AS material_type,
           to_jsonb(wms_inbound_items)->>'unit' AS unit
-          FROM wms_inbound_items WHERE task_no=$1
-          AND (($4::bigint IS NOT NULL AND id=$4) OR ($4::bigint IS NULL AND (($2::text IS NOT NULL AND batch_no=$2) OR ($2::text IS NULL AND (product_code=$3 OR material_code=$3 OR sku_code=$3)))) FOR UPDATE`,
+          FROM wms_inbound_items
+         WHERE task_no=$1
+           AND (
+             ($4::bigint IS NOT NULL AND id=$4)
+             OR (
+               $4::bigint IS NULL
+               AND (
+                 ($2::text IS NOT NULL AND batch_no=$2)
+                 OR ($2::text IS NULL AND (product_code=$3 OR material_code=$3 OR sku_code=$3))
+               )
+             )
+           )
+         FOR UPDATE`,
           [task_no, this.nonEmptyString(item.batch_no), this.nonEmptyString(item.sku_code || item.product_code || item.material_code), item.id ?? null]);
         if (savedLines.length>1) throw new BadRequestException('入库明细身份不唯一，请按持久化明细 id 确认');
         if (savedLines.length!==1) {
