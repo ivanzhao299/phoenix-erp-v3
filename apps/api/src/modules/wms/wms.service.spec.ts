@@ -123,6 +123,10 @@ describe('WmsService inventory read queries', () => {
       query: jest.fn(async (sql: string) => {
         if (sql.includes('SELECT task_no,status FROM wms_inbound')) return [];
         if (sql.includes('SELECT company_code FROM wms_warehouses')) return [{ company_code: 'COMP-LAO-AGRI' }];
+        if (sql.includes('information_schema.columns')) return [
+          'item_type', 'material_code', 'sku_code', 'material_type', 'unit', 'identity_snapshot',
+        ].map(column_name => ({ column_name }));
+        if (sql.includes('FROM mst_materials')) return [{ material_code: 'MAT-VET-NDV', material_name: '新城疫苗', material_type: 'VET_DRUG', unit: '瓶' }];
         return [];
       }),
     };
@@ -144,8 +148,43 @@ describe('WmsService inventory read queries', () => {
     });
     const insertLine = (manager.query.mock.calls as any[][]).find(call => String(call[0]).includes('INSERT INTO wms_inbound_items'));
     expect(insertLine).toBeTruthy();
-    // 物料身份必须落入 product_code（legacy 兼容），快照为空，不能被当成 SKU。
-    expect(insertLine![1]).toEqual(['WI-MAT-EMPTY-SKU', null, 'MAT-VET-NDV', 10, null]);
+    expect(insertLine![0]).toContain('item_type');
+    // 物料身份同时落入 canonical 列和 identity snapshot，不能被当成 SKU。
+    expect(insertLine![1]).toEqual(expect.arrayContaining([
+      'WI-MAT-EMPTY-SKU', null, null, 'MATERIAL', 'MAT-VET-NDV', null, 'VET_DRUG', '瓶', 10,
+    ]));
+  });
+
+  it('confirms a persisted legacy material line by resolving MATERIAL identity before posting stock', async () => {
+    const manager = {
+      query: jest.fn(async (sql: string) => {
+        if (sql.includes('SELECT warehouse_code, operator, store_code, status, type, date FROM wms_inbound')) {
+          return [{ warehouse_code: 'LPH_DP_MEDICINE', operator: 'vet', store_code: 'ALL', status: 'PENDING', type: 'PURCHASE', date: '2026-11-13' }];
+        }
+        if (sql.includes('FROM wms_inbound_items') && sql.includes('to_jsonb')) {
+          return [{ id: 1, batch_no: 'B-MAT-NDV', product_code: 'MAT-VET-NDV', qty: 10, quantity_snapshot: null, item_type: null, material_code: null, sku_code: null }];
+        }
+        if (sql.includes("SELECT 'SKU' AS item_type")) return [{ item_type: 'MATERIAL' }];
+        if (sql.includes('FROM mst_materials')) return [{ material_code: 'MAT-VET-NDV', material_name: '新城疫苗', material_type: 'VET_DRUG', unit: '瓶' }];
+        if (sql.includes('SELECT company_code FROM wms_warehouses')) return [{ company_code: 'COMP-LAO-AGRI' }];
+        if (sql.includes('SELECT type, domain FROM wms_warehouses')) return [{ type: 'MEDICINE', domain: 'OPERATIONAL' }];
+        if (sql.includes('INSERT INTO inv_batches')) return [{ batch_no: 'B-MAT-NDV' }];
+        return [];
+      }),
+    };
+    const em = {
+      query: jest.fn().mockResolvedValue([{ domain: 'OPERATIONAL' }]),
+      transaction: jest.fn(async (cb: (m: typeof manager) => Promise<unknown>) => cb(manager)),
+    };
+    const cls = { get: jest.fn(() => ({ isGlobal: true, allowedWarehouseCodes: [] })) };
+    const service = new WmsService(em as any, cls as any);
+
+    await expect(service.confirmBatchInbound({ documents: [{ task_no: 'WI-MAT-NDV' }] }, { username: 'vet' }))
+      .resolves.toMatchObject({ code: 200, data: [{ data: { task_no: 'WI-MAT-NDV', status: 'COMPLETED' } }] });
+
+    expect(manager.query).toHaveBeenCalledWith(expect.stringContaining('INSERT INTO inv_batches'), expect.arrayContaining([
+      'B-MAT-NDV', null, null, 'MAT-VET-NDV', 'MATERIAL', 'VET_DRUG', '瓶', 10,
+    ]));
   });
 
   it('accepts material outbound batch lines carrying an empty sku_code string', async () => {

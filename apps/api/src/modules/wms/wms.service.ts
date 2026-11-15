@@ -346,6 +346,24 @@ export class WmsService {
     if (!documents.length) throw new BadRequestException('documents 必须至少包含一条入库单');
     return this.em.transaction(async manager => {
       const created: any[] = [];
+      const identityColumns = ['item_type', 'material_code', 'sku_code', 'material_type', 'unit', 'identity_snapshot'];
+      let identityColumnRows: any[] = [];
+      try {
+        identityColumnRows = await manager.query(
+          `SELECT column_name
+             FROM information_schema.columns
+            WHERE table_schema = current_schema()
+              AND table_name = 'wms_inbound_items'
+              AND column_name = ANY($1::text[])`,
+          [identityColumns],
+        );
+      } catch {
+        // Legacy test doubles and pre-migration adapters may not model metadata
+        // inspection; retain the product_code compatibility path in that case.
+        identityColumnRows = [];
+      }
+      const supportsCanonicalIdentity = Array.isArray(identityColumnRows)
+        && new Set(identityColumnRows.map((row: any) => row.column_name)).size === identityColumns.length;
       for (const [index, doc] of documents.entries()) {
         const taskNo = this.nonEmptyString(doc?.task_no || doc?.inbound_no);
         if (!taskNo) throw new BadRequestException(`第 ${index + 1} 张入库单 task_no 必填`);
@@ -366,25 +384,56 @@ export class WmsService {
           continue;
         }
         const companyCode = await this.lockWarehouseCompany(manager, warehouseCode!, doc?.company_code);
-        await manager.query(
-          `INSERT INTO wms_inbound (task_no,status,warehouse_code,type,item,qty,store_code,operator,attachment_url,date,site_code,company_code,remark,created_at,updated_at)
-           VALUES ($1,'PENDING',$2,$3,$4,$5::numeric,$6,$7,$8,$9::date,$10,$11,$12,now(),now())`,
-          [taskNo, warehouseCode, String(doc?.type || 'GENERIC').toUpperCase(), this.nonEmptyString(doc?.item || items[0]?.item || items[0]?.product_code),
-            Number(doc?.qty || items.reduce((sum: number, it: any) => sum + (Number(it?.qty) || 0), 0)),
-            this.nonEmptyString(doc?.store_code) || 'ALL', String(user?.username || doc?.operator || user?.userId || 'SYS'),
-            this.nonEmptyString(doc?.attachment_url), doc?.date || null, this.nonEmptyString(doc?.site_code), companyCode, this.nonEmptyString(doc?.remark)],
-        );
+        // Resolve every line before writing the document.  The legacy detail table
+        // only has product_code, so the canonical identity must be validated here
+        // and mirrored to the header for display until the detail migration lands.
+        const resolvedItems = [] as Array<{ input: any; identity: Awaited<ReturnType<WmsService['resolveInventoryItem']>>; qty: number; quantitySnapshot: QuantitySnapshot | null }>;
         for (const [line, item] of items.entries()) {
           const qty = Number(item?.qty ?? item?.expected_qty);
           if (!Number.isFinite(qty) || qty <= 0) throw new BadRequestException(`入库单 ${taskNo} 第 ${line + 1} 行数量必须大于 0`);
           const explicitSku = SkuPolicy.optionalCode(item?.sku_code);
-          const quantitySnapshot = await resolveQuantity(manager, { qty, skuCode: explicitSku ?? undefined, quantityBasis: item.quantityBasis });
-          if (explicitSku) await SkuPolicy.requireUsable(manager, explicitSku, 'stock', companyCode);
-          await manager.query(
-            `INSERT INTO wms_inbound_items (task_no,batch_no,product_code,qty,actual_qty,broken_qty,quantity_snapshot)
-             VALUES ($1,$2,$3,$4::numeric,0,0,$5::jsonb)`,
-            [taskNo, this.nonEmptyString(item?.batch_no), explicitSku || this.nonEmptyString(item?.product_code || item?.material_code), qty, quantitySnapshot == null ? null : JSON.stringify(quantitySnapshot)],
-          );
+          const materialCode = this.nonEmptyString(item?.material_code);
+          const requestedType = this.nonEmptyString(item?.item_type) || (explicitSku ? 'SKU' : materialCode ? 'MATERIAL' : null);
+          const suppliedCode = explicitSku || materialCode || this.nonEmptyString(item?.product_code || item?.item);
+          const identity = await this.resolveInventoryItem(manager, suppliedCode, requestedType, companyCode);
+          const quantitySnapshot = await resolveQuantity(manager, { qty, skuCode: identity.skuCode ?? undefined, quantityBasis: item.quantityBasis });
+          resolvedItems.push({ input: item, identity, qty, quantitySnapshot });
+        }
+        const headerIdentity = resolvedItems.length === 1 ? resolvedItems[0].identity : null;
+        await manager.query(
+          `INSERT INTO wms_inbound (task_no,status,warehouse_code,type,item,item_name,item_type,material_type,material_code,sku_code,unit,qty,store_code,operator,attachment_url,date,site_code,company_code,remark,created_at,updated_at)
+           VALUES ($1,'PENDING',$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::numeric,$12,$13,$14,$15::date,$16,$17,$18,now(),now())`,
+          [taskNo, warehouseCode, String(doc?.type || 'GENERIC').toUpperCase(), this.nonEmptyString(doc?.item || items[0]?.item || items[0]?.product_code),
+            headerIdentity?.itemName ?? this.nonEmptyString(doc?.item_name), headerIdentity?.itemType ?? null,
+            headerIdentity?.materialType ?? null, headerIdentity?.materialCode ?? null, headerIdentity?.skuCode ?? null,
+            headerIdentity?.unit ?? null,
+            Number(doc?.qty || resolvedItems.reduce((sum, row) => sum + row.qty, 0)),
+            this.nonEmptyString(doc?.store_code) || 'ALL', String(user?.username || doc?.operator || user?.userId || 'SYS'),
+            this.nonEmptyString(doc?.attachment_url), doc?.date || null, this.nonEmptyString(doc?.site_code), companyCode, this.nonEmptyString(doc?.remark)],
+        );
+        for (const { input: item, identity, qty, quantitySnapshot } of resolvedItems) {
+          if (supportsCanonicalIdentity) {
+            await manager.query(
+              `INSERT INTO wms_inbound_items (
+                 task_no,batch_no,product_code,item_type,material_code,sku_code,material_type,unit,
+                 qty,actual_qty,broken_qty,quantity_snapshot,identity_snapshot
+               )
+               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::numeric,0,0,$10::jsonb,$11::jsonb)`,
+              [
+                taskNo, this.nonEmptyString(item?.batch_no), identity.productCode,
+                identity.itemType, identity.materialCode, identity.skuCode, identity.materialType, identity.unit,
+                qty, quantitySnapshot == null ? null : JSON.stringify(quantitySnapshot),
+                JSON.stringify({ itemType: identity.itemType, materialCode: identity.materialCode, skuCode: identity.skuCode, productCode: identity.productCode, materialType: identity.materialType, unit: identity.unit }),
+              ],
+            );
+          } else {
+            await manager.query(
+              `INSERT INTO wms_inbound_items (task_no,batch_no,product_code,qty,actual_qty,broken_qty,quantity_snapshot)
+               VALUES ($1,$2,$3,$4::numeric,0,0,$5::jsonb)`,
+              [taskNo, this.nonEmptyString(item?.batch_no), identity.productCode || identity.skuCode || identity.materialCode,
+                qty, quantitySnapshot == null ? null : JSON.stringify(quantitySnapshot)],
+            );
+          }
         }
         created.push({ task_no: taskNo, status: 'PENDING', idempotent: false });
       }
@@ -404,20 +453,44 @@ export class WmsService {
       for (const doc of documents) {
         const taskNo = this.nonEmptyString(doc?.task_no || doc?.inbound_no);
         if (!taskNo) throw new BadRequestException('入库确认缺少 task_no');
-        const persistedRows = Array.isArray(doc?.items) && doc.items.length
-          ? doc.items
-          : await manager.query(
-            `SELECT id,batch_no, product_code, qty, expected_qty, actual_qty, broken_qty, warehouse_code, location_code
-               FROM wms_inbound_items WHERE task_no = $1 ORDER BY id ASC`,
-            [taskNo],
-          );
+        if (Array.isArray(doc?.items) && doc.items.length === 0) {
+          // Preserve the canonical validation response for an explicitly empty
+          // confirmation request; do not turn it into a persistence error.
+          results.push(await this.confirmInbound({ ...doc, task_no: taskNo, items: [] }, user, manager));
+          continue;
+        }
+        const persistedRows = await manager.query(
+          `SELECT id,batch_no, product_code, qty, expected_qty, actual_qty, broken_qty, warehouse_code, location_code,
+                  to_jsonb(wms_inbound_items)->>'item_type' AS item_type,
+                  to_jsonb(wms_inbound_items)->>'material_code' AS material_code,
+                  to_jsonb(wms_inbound_items)->>'sku_code' AS sku_code,
+                  to_jsonb(wms_inbound_items)->>'material_type' AS material_type,
+                  to_jsonb(wms_inbound_items)->>'unit' AS unit,
+                  quantity_snapshot
+             FROM wms_inbound_items WHERE task_no = $1 ORDER BY id ASC FOR UPDATE`,
+          [taskNo],
+        );
         const persisted = Array.isArray(persistedRows) ? persistedRows : [];
-        const items = persisted.map((item: any) => ({
-          ...item,
-          actual_qty: item.actual_qty && Number(item.actual_qty) > 0 ? item.actual_qty : item.qty,
-          expected_qty: item.expected_qty && Number(item.expected_qty) > 0 ? item.expected_qty : item.qty,
-        }));
-        results.push(await this.confirmInbound({ ...doc, task_no: taskNo, items }, user, manager));
+        if (!persisted.length) throw new BadRequestException(`入库单 ${taskNo} 没有持久化明细，禁止确认`);
+        const requested = Array.isArray(doc?.items) && doc.items.length ? doc.items : null;
+        if (requested) {
+          if (requested.some((item: any) => !item?.id)) throw new BadRequestException('入库确认明细必须携带持久化明细 id');
+          const persistedIds = new Set(persisted.map((item: any) => String(item.id)));
+          if (requested.some((item: any) => !persistedIds.has(String(item.id))) || requested.length !== persisted.length) {
+            throw new BadRequestException('入库确认明细与持久化明细不一致');
+          }
+        }
+        const requestedById = new Map<string, any>((requested || []).map((item: any) => [String(item.id), item]));
+        const items = persisted.map((saved: any) => {
+          const input = requestedById.get(String(saved.id));
+          return {
+            ...saved,
+            ...(input ? { actual_qty: input.actual_qty, broken_qty: input.broken_qty, expected_qty: input.expected_qty } : {}),
+            actual_qty: (input?.actual_qty ?? saved.actual_qty) && Number(input?.actual_qty ?? saved.actual_qty) > 0 ? (input?.actual_qty ?? saved.actual_qty) : saved.qty,
+            expected_qty: (input?.expected_qty ?? saved.expected_qty) && Number(input?.expected_qty ?? saved.expected_qty) > 0 ? (input?.expected_qty ?? saved.expected_qty) : saved.qty,
+          };
+        });
+        results.push(await this.confirmInbound({ ...doc, task_no: taskNo, items }, user, manager, true));
       }
       return { code: 200, msg: '批量入库确认成功', data: results };
     });
@@ -437,7 +510,7 @@ export class WmsService {
    *
    * 注：硬编码 'INBOUND-DOCK' 库位与 'WH-B' 兜底仓库改为前端传入或用 task 字段
    */
-  async confirmInbound(body: any, user: any, managerOverride?: EntityManager) {
+  async confirmInbound(body: any, user: any, managerOverride?: EntityManager, requirePersistedLine = false) {
     const { task_no, items = [] } = body;
     if (!task_no) throw new BadRequestException('task_no 必填');
 
@@ -483,9 +556,10 @@ export class WmsService {
 
     const execute = async (manager: EntityManager) => {
       // V2 fidelity: 幂等 — 仅 PENDING/PROCESSING 状态允许确认
+      const taskScope = this.warehouseScope('warehouse_code', 1);
       const tasks = await manager.query(
-        `SELECT warehouse_code, operator, store_code, status, type, date FROM wms_inbound WHERE task_no = $1 FOR UPDATE`,
-        [task_no],
+        `SELECT warehouse_code, operator, store_code, status, type, date FROM wms_inbound WHERE task_no = $1 AND ${taskScope.sql} FOR UPDATE`,
+        [task_no, ...taskScope.params],
       );
       if (tasks.length === 0) {
         return { code: 404, msg: `入库单 ${task_no} 不存在` };
@@ -517,19 +591,55 @@ export class WmsService {
       const defaultWarehouse = task.warehouse_code || 'WMS-VTE-MAIN';
       const operator = String(user?.userId || user?.username || task.operator || 'SYS');
       const storeCode = task.store_code || 'ALL';
-
-      await manager.query(
-        `UPDATE wms_inbound SET status = 'COMPLETED', updated_at = CURRENT_TIMESTAMP WHERE task_no = $1`,
-        [task_no],
-      );
+      let strictPersistedLine = false;
+      if (requirePersistedLine) {
+        const identityColumnRows = await manager.query(
+          `SELECT column_name
+             FROM information_schema.columns
+            WHERE table_schema = current_schema()
+              AND table_name = 'wms_inbound_items'
+              AND column_name = ANY($1::text[])`,
+          [['item_type', 'material_code', 'sku_code', 'material_type', 'unit', 'identity_snapshot']],
+        );
+        strictPersistedLine = Array.isArray(identityColumnRows)
+          && new Set(identityColumnRows.map((row: any) => row.column_name)).size === 6;
+      }
 
       for (const item of items) {
-        const savedLines = await manager.query(`SELECT id,quantity_snapshot,qty,product_code FROM wms_inbound_items WHERE task_no=$1
-          AND (($4::bigint IS NOT NULL AND id=$4) OR ($4::bigint IS NULL AND (($2::text IS NOT NULL AND batch_no=$2) OR ($2::text IS NULL AND product_code=$3)))) FOR UPDATE`,
+        const savedLines = await manager.query(`SELECT id,quantity_snapshot,qty,product_code,
+          to_jsonb(wms_inbound_items)->>'item_type' AS item_type,
+          to_jsonb(wms_inbound_items)->>'material_code' AS material_code,
+          to_jsonb(wms_inbound_items)->>'sku_code' AS sku_code,
+          to_jsonb(wms_inbound_items)->>'material_type' AS material_type,
+          to_jsonb(wms_inbound_items)->>'unit' AS unit
+          FROM wms_inbound_items
+         WHERE task_no=$1
+           AND (
+             ($4::bigint IS NOT NULL AND id=$4)
+             OR (
+               $4::bigint IS NULL
+               AND (
+                 ($2::text IS NOT NULL AND batch_no=$2)
+                 OR ($2::text IS NULL AND (
+                   product_code=$3
+                   OR COALESCE(to_jsonb(wms_inbound_items)->>'material_code','')=$3
+                   OR COALESCE(to_jsonb(wms_inbound_items)->>'sku_code','')=$3
+                 ))
+               )
+             )
+           )
+         FOR UPDATE`,
           [task_no, this.nonEmptyString(item.batch_no), this.nonEmptyString(item.sku_code || item.product_code || item.material_code), item.id ?? null]);
         if (savedLines.length>1) throw new BadRequestException('入库明细身份不唯一，请按持久化明细 id 确认');
-        if (item.id && savedLines.length!==1) throw new BadRequestException('入库明细不属于当前入库单');
+        if (savedLines.length!==1) {
+          if (strictPersistedLine || item.id) throw new BadRequestException('入库明细不存在或不属于当前入库单');
+        }
         const savedLine = savedLines[0];
+        const persistedCodes = savedLine ? [savedLine.material_code, savedLine.sku_code, savedLine.product_code].map(value => this.nonEmptyString(value)).filter(Boolean) as string[] : [];
+        const requestedCodes = [item.material_code, item.sku_code, item.product_code].map(value => this.nonEmptyString(value)).filter(Boolean) as string[];
+        if (requestedCodes.length > 0 && persistedCodes.length > 0 && requestedCodes.some(code => !persistedCodes.includes(code))) {
+          throw new BadRequestException('入库明细品目与持久化身份不一致');
+        }
         const snapshot: QuantitySnapshot | null = savedLine?.quantity_snapshot ?? null;
         if (snapshot) savedQuantity(savedLine);
         if (item.quantityBasis !== undefined && !snapshot) throw new BadRequestException('请先创建带明确计量的入库明细，再确认实际数量');
@@ -544,13 +654,13 @@ export class WmsService {
         await this.assertWritableWarehouse(warehouseCode, `入库明细 ${this.itemIdentityLabel(item)}`);
         const companyCode = await this.lockWarehouseCompany(manager, warehouseCode);
 
-        let productCode = snapshot?.productCode ?? this.nonEmptyString(item.product_code);
-        let skuCode = snapshot?.skuCode ?? SkuPolicy.optionalCode(item.sku_code);
-        let materialCode = this.nonEmptyString(item.material_code);
-        let itemType = this.nonEmptyString(item.item_type);
-        let materialType = this.nonEmptyString(item.material_type);
+        let productCode = snapshot?.productCode ?? this.nonEmptyString(savedLine?.product_code) ?? this.nonEmptyString(item.product_code);
+        let skuCode = snapshot?.skuCode ?? SkuPolicy.optionalCode(savedLine?.sku_code) ?? SkuPolicy.optionalCode(item.sku_code);
+        let materialCode = this.nonEmptyString(savedLine?.material_code) ?? this.nonEmptyString(item.material_code);
+        let itemType = this.nonEmptyString(savedLine?.item_type) ?? this.nonEmptyString(item.item_type);
+        let materialType = this.nonEmptyString(savedLine?.material_type) ?? this.nonEmptyString(item.material_type);
         let varietyCode: string | null = null;
-        let unit = this.nonEmptyString(item.unit) || '件';
+        let unit = this.nonEmptyString(savedLine?.unit) || this.nonEmptyString(item.unit) || '件';
         if (materialCode || skuCode || itemType) {
           const identity = await this.resolveInventoryItem(
             manager,
@@ -571,9 +681,15 @@ export class WmsService {
             UNION ALL SELECT 'MATERIAL' AS item_type FROM mst_materials WHERE material_code=$1
             UNION ALL SELECT 'PRODUCT' AS item_type FROM mst_products WHERE product_code=$1`, [productCode]);
           if (matches.length>1) throw new BadRequestException('旧品目编码跨域冲突，请明确 item_type 与对应编码');
-          if (matches.length===1 && matches[0].item_type==='SKU') {
-            const sku=await SkuPolicy.requireUsable(manager,productCode,'stock',companyCode);
-            skuCode=sku.sku_code; productCode=sku.product_code; itemType='SKU'; materialType='FINISHED_PRODUCT'; unit=sku.base_unit; varietyCode=sku.variety_code ?? null;
+          if (matches.length===1 && (matches[0].item_type==='SKU' || matches[0].item_type==='MATERIAL')) {
+            const identity = await this.resolveInventoryItem(manager, productCode, matches[0].item_type, companyCode);
+            skuCode = identity.skuCode;
+            productCode = identity.productCode;
+            materialCode = identity.materialCode;
+            itemType = identity.itemType;
+            materialType = identity.materialType;
+            unit = identity.unit;
+            varietyCode = identity.varietyCode;
           } else if (matches.length===1 && matches[0].item_type==='PRODUCT') {
             const [product] = await manager.query('SELECT product_mode,variety_code FROM mst_products WHERE product_code=$1 FOR SHARE', [productCode]);
             if (product?.product_mode === 'VARIANT' || product?.variety_code != null) {
@@ -746,6 +862,10 @@ export class WmsService {
           );
         }
       }
+      await manager.query(
+        `UPDATE wms_inbound SET status = 'COMPLETED', updated_at = CURRENT_TIMESTAMP WHERE task_no = $1`,
+        [task_no],
+      );
       return { code: 200, msg: '入库确认成功', data: { task_no, status: 'COMPLETED' } };
     };
     return managerOverride ? execute(managerOverride) : this.em.transaction(execute);
