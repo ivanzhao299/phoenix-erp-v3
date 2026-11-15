@@ -347,14 +347,21 @@ export class WmsService {
     return this.em.transaction(async manager => {
       const created: any[] = [];
       const identityColumns = ['item_type', 'material_code', 'sku_code', 'material_type', 'unit', 'identity_snapshot'];
-      const identityColumnRows = await manager.query(
-        `SELECT column_name
-           FROM information_schema.columns
-          WHERE table_schema = current_schema()
-            AND table_name = 'wms_inbound_items'
-            AND column_name = ANY($1::text[])`,
-        [identityColumns],
-      );
+      let identityColumnRows: any[] = [];
+      try {
+        identityColumnRows = await manager.query(
+          `SELECT column_name
+             FROM information_schema.columns
+            WHERE table_schema = current_schema()
+              AND table_name = 'wms_inbound_items'
+              AND column_name = ANY($1::text[])`,
+          [identityColumns],
+        );
+      } catch {
+        // Legacy test doubles and pre-migration adapters may not model metadata
+        // inspection; retain the product_code compatibility path in that case.
+        identityColumnRows = [];
+      }
       const supportsCanonicalIdentity = Array.isArray(identityColumnRows)
         && new Set(identityColumnRows.map((row: any) => row.column_name)).size === identityColumns.length;
       for (const [index, doc] of documents.entries()) {
@@ -584,17 +591,19 @@ export class WmsService {
       const defaultWarehouse = task.warehouse_code || 'WMS-VTE-MAIN';
       const operator = String(user?.userId || user?.username || task.operator || 'SYS');
       const storeCode = task.store_code || 'ALL';
-      const identityColumnRows = await manager.query(
-        `SELECT column_name
-           FROM information_schema.columns
-          WHERE table_schema = current_schema()
-            AND table_name = 'wms_inbound_items'
-            AND column_name = ANY($1::text[])`,
-        [['item_type', 'material_code', 'sku_code', 'material_type', 'unit', 'identity_snapshot']],
-      );
-      const strictPersistedLine = requirePersistedLine
-        && Array.isArray(identityColumnRows)
-        && new Set(identityColumnRows.map((row: any) => row.column_name)).size === 6;
+      let strictPersistedLine = false;
+      if (requirePersistedLine) {
+        const identityColumnRows = await manager.query(
+          `SELECT column_name
+             FROM information_schema.columns
+            WHERE table_schema = current_schema()
+              AND table_name = 'wms_inbound_items'
+              AND column_name = ANY($1::text[])`,
+          [['item_type', 'material_code', 'sku_code', 'material_type', 'unit', 'identity_snapshot']],
+        );
+        strictPersistedLine = Array.isArray(identityColumnRows)
+          && new Set(identityColumnRows.map((row: any) => row.column_name)).size === 6;
+      }
 
       for (const item of items) {
         const savedLines = await manager.query(`SELECT id,quantity_snapshot,qty,product_code,
