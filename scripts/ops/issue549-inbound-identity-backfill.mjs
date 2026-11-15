@@ -202,7 +202,7 @@ async function main() {
           unit: identity.unit,
         };
         if (apply) {
-          await client.query(
+          const updated = await client.query(
             `UPDATE wms_inbound_items
                 SET item_type = $1,
                     material_code = $2,
@@ -217,6 +217,9 @@ async function main() {
             [identity.item_type, identity.material_code, identity.sku_code,
               identity.material_type, identity.unit, JSON.stringify(snapshot), row.id],
           );
+          if (updated.rowCount !== 1) {
+            throw new Error(`ROW_CHANGED_DURING_BACKFILL:${row.id}`);
+          }
         }
         report.resolved += 1;
         addRow(row, 'RESOLVED', decision.reason, identity);
