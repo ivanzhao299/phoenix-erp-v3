@@ -14,7 +14,7 @@ export const LIVE_EGG_GRADES = [
 ] as const;
 /** Historical standard grade codes may remain on legacy WMS batches; they map
  * to STANDARD for classification but are not reactivated in product_grades. */
-export const LEGACY_STANDARD_GRADES = ['AA', 'A', 'B', 'C', 'XL', 'L', 'M', 'S', 'XS', 'GRD-001'] as const;
+export const LEGACY_STANDARD_GRADES = ['1', '2', '3', '4', '5', 'AA', 'AAA', 'A', 'B', 'C', 'XL', 'L', 'M', 'S', 'XS', 'GRD-001'] as const;
 
 function normalize(value: unknown): string {
   return String(value ?? '').trim().toUpperCase();
