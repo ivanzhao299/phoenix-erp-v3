@@ -63,6 +63,7 @@ fixture('Issue 381 real PostgreSQL inbound transactions and retries', () => {
         status text, sku_code text, grade_code_std text, spec_code text, packaging_batch_ref text,
         collection_batch_ref text, unit text, base_quantity_version smallint, created_at timestamptz, updated_at timestamptz);
       ALTER TABLE inv_batches ADD COLUMN IF NOT EXISTS variety_code text;
+      ALTER TABLE inv_batches ADD COLUMN IF NOT EXISTS inventory_class text NOT NULL DEFAULT 'STANDARD';
       CREATE TABLE IF NOT EXISTS inv_ledger (id serial PRIMARY KEY, batch_no text REFERENCES inv_batches(batch_no), change_type text,
         qty_change numeric, operator text, store_code text, ref_no text, note text, batch_expire_date date,
         quality_grade text, company_code text, sku_code text, log_date date, warehouse_code text, location_code text);
