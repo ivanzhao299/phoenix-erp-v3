@@ -75,9 +75,14 @@ describePg('SALES_ORDER ApprovalEngine + PostgreSQL integration', () => {
 
   async function fixture(status = 'PENDING_APPROVAL') {
     const suffix = randomUUID().slice(0, 8);
+    await runner.manager.query(
+      `INSERT INTO wms_warehouses(warehouse_code,warehouse_name,company_code,type,status,domain)
+       VALUES('PG-WH','PG integration farm warehouse','PG-IT','EGG_FARM','ACTIVE','OPERATIONAL')
+       ON CONFLICT (warehouse_code) DO NOTHING`,
+    );
     const [order] = await runner.manager.query(
-      `INSERT INTO sal_sales_orders(order_no,company_code,currency_code,status,total_amount)
-       VALUES($1,'PG-IT','LAK',$2,100) RETURNING id,order_no`, [`SO-PG-${suffix}`, status],
+      `INSERT INTO sal_sales_orders(order_no,company_code,currency_code,status,total_amount,fulfillment_warehouse_code)
+       VALUES($1,'PG-IT','LAK',$2,100,'PG-WH') RETURNING id,order_no`, [`SO-PG-${suffix}`, status],
     );
     const [instance] = await runner.manager.query(
       `INSERT INTO wf_approval_instances(instance_no,module_code,biz_type,biz_id,biz_no,total_steps,current_step_no,status,trigger_codes,context_snapshot)
