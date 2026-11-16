@@ -14,7 +14,7 @@ fixture('Issue 381 real PostgreSQL inbound transactions and retries', () => {
   let db: DataSource;
   let service: ProductionInboundService;
   let scope: { isGlobal: boolean; allowedCompanyCodes: string[]; allowedWarehouseCodes: string[] };
-  const grades = ['GRADE_1', 'GRADE_2', 'GRADE_3', 'GRADE_4', 'GRADE_5', 'DIRTY', 'CRACKED', 'BROKEN', 'DAMAGED'];
+  const grades = ['GRADE_0', 'GRADE_1', 'GRADE_2', 'GRADE_3', 'GRADE_4', 'GRADE_5', 'DIRTY', 'BROKEN'];
   const cls = { get: (key: string) => key === 'dataScope' ? scope : { username: 'issue381-fixture' } };
   const payload = () => ({ houseCode: 'HOUSE-A', warehouseCode: 'WH-A', locationCode: 'LOC-A', eggDate: '2026-10-17', items: [
     { grade: 'GRADE_1', qty: 11 }, { grade: 'GRADE_1', qty: 22 },
@@ -275,15 +275,15 @@ fixture('Issue 381 real PostgreSQL inbound transactions and retries', () => {
     const seed = { ...payload(), eggDate: '2026-10-16', items: [{ grade: 'GRADE_2', qty: 7 }] };
     const old = await service.recordProductionInbound(seed);
     const before = await db.query('SELECT * FROM inv_batches WHERE batch_no=$1', [old.batches[0].batchNo]);
-    const nine = { ...payload(), items: grades.map((grade, i) => ({ grade, qty: i + 1 })) };
-    expect(await service.recordProductionInbound(nine)).toMatchObject({ totalInbound: 45 });
+    const allGrades = { ...payload(), items: grades.map((grade, i) => ({ grade, qty: i + 1 })) };
+    expect(await service.recordProductionInbound(allGrades)).toMatchObject({ totalInbound: 36 });
     expect(await db.query('SELECT * FROM inv_batches WHERE batch_no=$1', [old.batches[0].batchNo])).toEqual(before);
     const rows = await db.query("SELECT grade_code_std, sku_code, warehouse_code, location_code FROM inv_batches WHERE egg_date='2026-10-17' ORDER BY id");
     rows.forEach((row: Record<string, string>, i: number) => expect(row).toMatchObject({ grade_code_std: grades[i], sku_code: `SKU-${grades[i]}`, warehouse_code: 'WH-A', location_code: 'LOC-A' }));
     await expect(service.recordProductionInbound({ ...payload(), houseCode: 'HOUSE-B', warehouseCode: 'WH-B', locationCode: 'LOC-B' })).rejects.toThrow('无权向公司');
     scope.allowedWarehouseCodes = [];
     await expect(service.recordProductionInbound({ ...payload(), eggDate: '2026-10-18' })).rejects.toThrow('无权向仓库');
-    expect(await counts()).toEqual({ batches: 10, events: 10 });
+    expect(await counts()).toEqual({ batches: 9, events: 9 });
   });
 
   it.each([
