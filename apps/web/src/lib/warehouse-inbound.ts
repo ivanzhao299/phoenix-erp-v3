@@ -29,6 +29,30 @@ export type WarehouseInboundConfirmBuildResult =
 
 type InboundRow = Record<string, unknown> | null | undefined;
 
+const IDENTITY_ALIASES = [
+  ["item_type", "itemType"],
+  ["material_type", "materialType"],
+  ["material_code", "materialCode"],
+  ["sku_code", "skuCode"],
+  ["product_code", "productCode"],
+  ["item_name", "itemName"],
+] as const;
+
+/** Normalize legacy selector camelCase keys to the API's canonical snake_case contract. */
+export function canonicalizeWarehouseInboundIdentity<T extends Record<string, unknown>>(values: T): T {
+  const payload = { ...values } as Record<string, unknown>;
+  for (const [canonical, legacy] of IDENTITY_ALIASES) {
+    const canonicalValue = payload[canonical];
+    const legacyValue = payload[legacy];
+    if ((canonicalValue === undefined || canonicalValue === null || canonicalValue === "")
+      && legacyValue !== undefined && legacyValue !== null && legacyValue !== "") {
+      payload[canonical] = legacyValue;
+    }
+    delete payload[legacy];
+  }
+  return payload as T;
+}
+
 function stringValue(value: unknown): string {
   return String(value ?? "").trim();
 }
@@ -52,7 +76,7 @@ export function buildWarehouseInboundSavePayload(
   values: Record<string, unknown>,
   options: WarehouseInboundSaveOptions = {},
 ): Record<string, unknown> {
-  const payload = { ...values };
+  const payload = canonicalizeWarehouseInboundIdentity(values);
   delete payload.status;
   if (options.isEditing) return payload;
 
@@ -71,9 +95,9 @@ export function buildWarehouseInboundConfirmPayload(row: InboundRow): WarehouseI
   const taskNo = stringValue(row?.task_no);
   if (!taskNo) return { ok: false, reason: "missing_task_no" };
 
-  const productCode = stringValue(row?.product_code);
-  const skuCode = stringValue(row?.sku_code);
-  const materialCode = stringValue(row?.material_code);
+  const productCode = stringValue(row?.product_code ?? row?.productCode);
+  const skuCode = stringValue(row?.sku_code ?? row?.skuCode);
+  const materialCode = stringValue(row?.material_code ?? row?.materialCode);
   const fallbackItem = stringValue(row?.item);
   if (!productCode && !skuCode && !materialCode && !fallbackItem) {
     return { ok: false, reason: "missing_product_code" };
@@ -90,8 +114,8 @@ export function buildWarehouseInboundConfirmPayload(row: InboundRow): WarehouseI
   if (skuCode) item.sku_code = skuCode;
   if (materialCode) item.material_code = materialCode;
   if (!productCode && !skuCode && !materialCode) item.product_code = fallbackItem;
-  const itemType = stringValue(row?.item_type);
-  const materialType = stringValue(row?.material_type);
+  const itemType = stringValue(row?.item_type ?? row?.itemType);
+  const materialType = stringValue(row?.material_type ?? row?.materialType);
   const unit = stringValue(row?.unit);
   if (itemType) item.item_type = itemType;
   if (materialType) item.material_type = materialType;
@@ -108,9 +132,9 @@ export function buildWarehouseInboundConfirmPayload(row: InboundRow): WarehouseI
 }
 
 export function getWarehouseInboundConfirmKeyword(row: InboundRow): string {
-  return stringValue(row?.material_code)
-    || stringValue(row?.sku_code)
-    || stringValue(row?.product_code)
+  return stringValue(row?.material_code ?? row?.materialCode)
+    || stringValue(row?.sku_code ?? row?.skuCode)
+    || stringValue(row?.product_code ?? row?.productCode)
     || stringValue(row?.item)
     || stringValue(row?.inbound_no)
     || stringValue(row?.task_no);
