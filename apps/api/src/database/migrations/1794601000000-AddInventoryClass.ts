@@ -5,8 +5,8 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * model. Existing business data is classified by the controlled ops script;
  * this migration is schema-only.
  */
-export class AddInventoryClass1794600000000 implements MigrationInterface {
-  name = 'AddInventoryClass1794600000000';
+export class AddInventoryClass1794601000000 implements MigrationInterface {
+  name = 'AddInventoryClass1794601000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     if (!(await queryRunner.hasTable('inv_batches'))) return;
