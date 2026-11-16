@@ -7,8 +7,10 @@ test('policy covers the eight live grades and separates sale from inventory', ()
     'GRADE_0', 'GRADE_1', 'GRADE_2', 'GRADE_3', 'GRADE_4', 'GRADE_5', 'DIRTY', 'BROKEN',
   ]);
   assert.ok(GRADE_POLICY.every(row => row.stock_managed === true));
-  assert.deepEqual(GRADE_POLICY.filter(row => row.sale_enabled).map(row => row.grade_code), ['GRADE_0', 'GRADE_1', 'GRADE_2', 'GRADE_3', 'GRADE_4', 'GRADE_5']);
-  assert.deepEqual(GRADE_POLICY.filter(row => !row.sale_enabled).map(row => row.default_stock_status), ['QUARANTINE', 'DAMAGED']);
+  assert.deepEqual(GRADE_POLICY.filter(row => row.sale_enabled).map(row => row.grade_code), [
+    'GRADE_0', 'GRADE_1', 'GRADE_2', 'GRADE_3', 'GRADE_4', 'GRADE_5', 'DIRTY', 'BROKEN',
+  ]);
+  assert.ok(GRADE_POLICY.every(row => row.default_stock_status === 'AVAILABLE'));
   // 8 档制终态：退役码绝不再出现在策略里
   assert.deepEqual(RETIRED_GRADES, ['CRACKED', 'DAMAGED']);
   assert.ok(GRADE_POLICY.every(row => !RETIRED_GRADES.includes(row.grade_code)));

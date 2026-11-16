@@ -28,6 +28,9 @@ export interface WarehouseQueryBatch {
   sku_name_en?: string;
   sku_name_lo?: string;
   status?: string;
+  quality_grade?: string | null;
+  grade_code_std?: string | null;
+  inventory_class?: "STANDARD" | "DEFECT_SALE" | string | null;
   inbound_date?: string;
 }
 
@@ -120,6 +123,9 @@ export function filterWarehouseBatchRows(rows: WarehouseQueryBatch[], keyword: s
     row.location_code,
     row.store_code,
     row.status,
+    row.quality_grade,
+    row.grade_code_std,
+    row.inventory_class,
   ].some((value) => String(value ?? "").toLowerCase().includes(q)));
 }
 

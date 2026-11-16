@@ -8,9 +8,10 @@ describe('EggInventoryService conditional inventory updates', () => {
       if (sql.includes('FROM product_skus WHERE sku_code')) return [{ sku_code: 'SKU-1', product_code: 'P-1', grade_code: 'G', spec_code: 'S', status: 'ACTIVE' }];
       if (/SELECT \* FROM (mst_products|product_grades|packaging_specs)/.test(sql)) return [{ status: 'ACTIVE', is_saleable: true, is_storable: true }];
       if (sql.includes('pg_advisory_xact_lock')) return [];
+      if (sql.includes('SELECT type, domain, status, owner_store_id')) return [{ type: 'EGG_FARM', domain: 'OPERATIONAL', status: 'ACTIVE', owner_store_id: null }];
       if (sql.includes('SELECT * FROM inv_batches')) return [{
         batch_no: 'B-1', company_code: 'COMP-A', warehouse_code: 'WH-A',
-        status: 'AVAILABLE', qty_available: 5, sku_code: 'SKU-1', legacy_source: null,
+        status: 'AVAILABLE', qty_available: 5, sku_code: 'SKU-1', inventory_class: 'STANDARD', legacy_source: null,
       }];
       if (sql.includes('SELECT batch_no FROM changed')) return [];
       return [];
@@ -19,12 +20,10 @@ describe('EggInventoryService conditional inventory updates', () => {
 
     await expect(service.allocateByFIFO({
       productCode: 'P-1', skuCode: 'SKU-1', companyCode: 'COMP-A', qty: 2,
-      refNo: 'SO-1', note: 'test',
+      refNo: 'SO-1', note: 'test', salesContext: 'FARM_SALES', fulfillmentWarehouseCode: 'WH-A',
     })).rejects.toBeInstanceOf(ConflictException);
-    expect(query).toHaveBeenCalledWith(
-      expect.stringContaining("AND warehouse_code=$4"),
-      [2, 'B-1', 'COMP-A', 'WH-A'],
-    );
+    const guardedUpdate = (query.mock.calls as any[][]).find(([sql]) => String(sql).includes('SELECT batch_no FROM changed')) as [string, unknown[]] | undefined;
+    expect(guardedUpdate?.[1]).toEqual([2, 'B-1', 'COMP-A', 'WH-A']);
   });
 
   it('reports company, SKU, requested qty and company-allocatable qty without warehouse details', async () => {
@@ -32,9 +31,10 @@ describe('EggInventoryService conditional inventory updates', () => {
       if (sql.includes('FROM product_skus WHERE sku_code')) return [{ sku_code: 'SKU-1', product_code: 'P-1', grade_code: 'G', spec_code: 'S', status: 'ACTIVE' }];
       if (/SELECT \* FROM (mst_products|product_grades|packaging_specs)/.test(sql)) return [{ status: 'ACTIVE', is_saleable: true, is_storable: true }];
       if (sql.includes('pg_advisory_xact_lock')) return [];
+      if (sql.includes('SELECT type, domain, status, owner_store_id')) return [{ type: 'EGG_FARM', domain: 'OPERATIONAL', status: 'ACTIVE', owner_store_id: null }];
       if (sql.includes('SELECT * FROM inv_batches')) return [{
         batch_no: 'B-1', company_code: 'COMP-A', warehouse_code: 'WH-SECRET',
-        status: 'AVAILABLE', qty_available: 3, sku_code: 'SKU-1', legacy_source: null,
+        status: 'AVAILABLE', qty_available: 3, sku_code: 'SKU-1', inventory_class: 'STANDARD', legacy_source: null,
       }];
       if (sql.includes('SELECT batch_no FROM changed')) return [{ batch_no: 'B-1' }];
       return [];
@@ -43,13 +43,13 @@ describe('EggInventoryService conditional inventory updates', () => {
 
     await expect(service.allocateByFIFO({
       productCode: 'P-1', skuCode: 'SKU-1', companyCode: 'COMP-A', qty: 5,
-      refNo: 'SO-1', note: 'test',
+      refNo: 'SO-1', note: 'test', salesContext: 'FARM_SALES', fulfillmentWarehouseCode: 'WH-SECRET',
     })).rejects.toThrow('库存不足：订单公司=COMP-A sku=SKU-1 需求量=5 该公司可分配量=3');
 
     try {
       await service.allocateByFIFO({
         productCode: 'P-1', skuCode: 'SKU-1', companyCode: 'COMP-A', qty: 5,
-        refNo: 'SO-1', note: 'test',
+        refNo: 'SO-1', note: 'test', salesContext: 'FARM_SALES', fulfillmentWarehouseCode: 'WH-SECRET',
       });
     } catch (error) {
       expect(String((error as Error).message)).not.toContain('WH-SECRET');
@@ -62,8 +62,9 @@ describe('EggInventoryService conditional inventory updates', () => {
       if (sql.includes('FROM product_skus WHERE sku_code')) return [{ sku_code: 'SKU-1', product_code: 'P-1', grade_code: 'G', spec_code: 'S', status: 'ACTIVE' }];
       if (/SELECT \* FROM (mst_products|product_grades|packaging_specs)/.test(sql)) return [{ status: 'ACTIVE', is_saleable: true, is_storable: true }];
       if (sql.includes('pg_advisory_xact_lock')) return [];
+      if (sql.includes('SELECT type, domain, status, owner_store_id')) return [{ type: 'EGG_FARM', domain: 'OPERATIONAL', status: 'ACTIVE', owner_store_id: null }];
       if (sql.includes('SELECT * FROM inv_batches')) return [{
-        batch_no: 'B-1', warehouse_code: 'WH-A', qty_available: 1, sku_code: 'SKU-1',
+        batch_no: 'B-1', warehouse_code: 'WH-A', qty_available: 1, sku_code: 'SKU-1', inventory_class: 'STANDARD',
       }];
       if (sql.includes('SELECT batch_no FROM changed')) return [{ batch_no: 'B-1' }];
       return [];
@@ -71,7 +72,7 @@ describe('EggInventoryService conditional inventory updates', () => {
     const service = new EggInventoryService({ query, transaction: async (run: (manager: any) => unknown) => run({ query }) } as never, { get: jest.fn() } as never);
     await service.allocateByFIFO({
       productCode: 'P-1', skuCode: 'SKU-1', companyCode: 'COMP-A', qty: 1,
-      refNo: 'SO-1', note: 'test',
+      refNo: 'SO-1', note: 'test', salesContext: 'FARM_SALES', fulfillmentWarehouseCode: 'WH-A',
     });
     const candidateSql = String(query.mock.calls.find(([sql]) => String(sql).includes('SELECT * FROM inv_batches'))?.[0]);
     expect(candidateSql).toContain('company_code = $1');
@@ -88,7 +89,7 @@ describe('EggInventoryService conditional inventory updates', () => {
   it('uses sale-enabled grade policy and grade_code_std fallback for product FIFO', async () => {
     const query = jest.fn().mockResolvedValue([]);
     const service = new EggInventoryService({ query, transaction: async (run: (manager: any) => unknown) => run({ query }) } as never, { get: jest.fn() } as never);
-    await service.getAvailableBatches({ productCode: 'EGG', gradeCode: 'G' });
+    await service.getAvailableBatches({ productCode: 'EGG', gradeCode: 'G', salesContext: 'FARM_SALES', warehouseCode: 'WH-FARM' });
     const sql = String(query.mock.calls[0][0]);
     expect(sql).toContain("COALESCE(b.quality_grade, b.grade_code_std) = $1");
     expect(sql).toContain("COALESCE(sale_grade.sale_enabled, sale_grade.is_saleable) = TRUE");
@@ -140,6 +141,62 @@ describe('EggInventoryService getExpiringBatches DataScope', () => {
   });
 });
 
+describe('EggInventoryService inventory-class sales scope', () => {
+  it('allows both inventory classes only on the farm sales surface', async () => {
+    const query = jest.fn().mockResolvedValue([]);
+    const service = new EggInventoryService({ query, transaction: async (run: (manager: any) => unknown) => run({ query }) } as never, { get: jest.fn() } as never);
+    await service.getAvailableBatches({ productCode: 'EGG', salesContext: 'FARM_SALES' });
+    const sql = String(query.mock.calls[0][0]);
+    expect(sql).toContain("inventory_class IN ('STANDARD','DEFECT_SALE')");
+    expect(sql).toContain("sales_wh.type = 'EGG_FARM'");
+    expect(sql).toContain("sales_wh.owner_store_id IS NULL");
+  });
+
+  it('restricts STORE_POS to STANDARD inventory', async () => {
+    const query = jest.fn().mockResolvedValue([]);
+    const service = new EggInventoryService({ query, transaction: async (run: (manager: any) => unknown) => run({ query }) } as never, { get: jest.fn() } as never);
+    await service.getAvailableBatches({ productCode: 'EGG', salesContext: 'STORE_POS', warehouseCode: 'WH-STORE' });
+    const sql = String(query.mock.calls[0][0]);
+    expect(sql).toContain("inventory_class = 'STANDARD'");
+    expect(sql).toContain('store_wh.owner_store_id IS NOT NULL');
+    expect(sql).not.toContain("inventory_class IN ('STANDARD','DEFECT_SALE')");
+  });
+
+  it('derives context from a server-side fulfillment warehouse when omitted', async () => {
+    const query = jest.fn(async (sql: string) => {
+      if (sql.includes('SELECT type, domain, status, owner_store_id')) return [{ type: 'EGG_FARM', domain: 'OPERATIONAL', status: 'ACTIVE', owner_store_id: null }];
+      if (sql.includes('SELECT * FROM inv_batches')) return [];
+      return [];
+    });
+    const service = new EggInventoryService({ query, transaction: async (run: (manager: any) => unknown) => run({ query }) } as never, { get: jest.fn() } as never);
+    await expect(service.allocateByFIFO({
+      productCode: 'EGG', companyCode: 'COMP-A', qty: 1, refNo: 'SO-1', note: 'farm', fulfillmentWarehouseCode: 'WH-FARM',
+    })).rejects.toThrow('库存不足');
+    const sql = String(query.mock.calls.find(([statement]) => String(statement).includes('SELECT * FROM inv_batches'))?.[0]);
+    expect(sql).toContain("inventory_class IN ('STANDARD','DEFECT_SALE')");
+  });
+
+  it('fails closed when FIFO has no trusted context or fulfillment warehouse', async () => {
+    const query = jest.fn().mockResolvedValue([]);
+    const service = new EggInventoryService({ query, transaction: async (run: (manager: any) => unknown) => run({ query }) } as never, { get: jest.fn() } as never);
+    await expect(service.allocateByFIFO({
+      productCode: 'EGG', companyCode: 'COMP-A', qty: 1, refNo: 'SO-1', note: 'unknown',
+    })).rejects.toThrow('必须提供履约仓库');
+  });
+
+  it('rejects a requested farm context when the server warehouse is store-owned', async () => {
+    const query = jest.fn(async (sql: string) => {
+      if (sql.includes('SELECT type, domain, status, owner_store_id')) return [{ type: 'EGG_SALES', domain: 'OPERATIONAL', status: 'ACTIVE', owner_store_id: 7 }];
+      return [];
+    });
+    const service = new EggInventoryService({ query, transaction: async (run: (manager: any) => unknown) => run({ query }) } as never, { get: jest.fn() } as never);
+    await expect(service.allocateByFIFO({
+      productCode: 'EGG', companyCode: 'COMP-A', qty: 1, refNo: 'SO-1', note: 'mismatch',
+      fulfillmentWarehouseCode: 'WH-STORE', salesContext: 'FARM_SALES',
+    })).rejects.toThrow('上下文');
+  });
+});
+
 describe('EggInventoryService inventory list/dashboard parity', () => {
   it('treats EGG as the legacy-plus-PRD-EGG product family and preserves unmapped rows', async () => {
     const rows = [{
@@ -149,7 +206,7 @@ describe('EggInventoryService inventory list/dashboard parity', () => {
     const query = jest.fn().mockResolvedValue(rows);
     const service = new EggInventoryService({ query, transaction: async (run: (manager: any) => unknown) => run({ query }) } as never, { get: jest.fn() } as never);
 
-    await expect(service.getAvailableBatches({ productCode: 'EGG' })).resolves.toEqual(rows);
+    await expect(service.getAvailableBatches({ productCode: 'EGG', salesContext: 'FARM_SALES', warehouseCode: 'WH-FARM' })).resolves.toEqual(rows);
 
     const [sql, args] = query.mock.calls[0] as [string, unknown[]];
     expect(sql).toContain("b.product_code = 'EGG' OR b.product_code LIKE 'PRD-EGG-%'");
@@ -160,7 +217,7 @@ describe('EggInventoryService inventory list/dashboard parity', () => {
     expect(sql).toContain('LEFT JOIN mst_products');
     expect(sql).toContain('COALESCE(p.product_name_zh, sku.sku_name, b.product_code)');
     expect(sql).toContain('ORDER BY b.egg_date DESC NULLS LAST, b.batch_no DESC, b.id DESC');
-    expect(args).toEqual([]);
+    expect(args).toEqual(['WH-FARM']);
   });
 
   it('keeps same-production-date pagination deterministic and non-overlapping', () => {

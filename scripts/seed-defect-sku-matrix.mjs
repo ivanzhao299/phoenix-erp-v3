@@ -15,8 +15,9 @@
  *   红壳线 PRD-EGG-RED (EGG_RED)        → COMP-LAO-XINGCHI SKU-R-{grade}-LOOSE
  *   粉壳线 PRD-EGG-PINK(EGG_PINK)       → COMP-LAO-XINGCHI SKU-P-{grade}-LOOSE
  *
- * 每个 SKU 配 md_sku_org_scope COMPANY 行：stock_enabled=true / sale_enabled=false
- * （缺陷档只进受控库存，销售 FIFO 的 saleGradeCondition 天然隔离）。
+ * 每个 SKU 配 md_sku_org_scope COMPANY 行：stock_enabled=true / sale_enabled=true
+ * （养鸡场库存处理沿用普通客户/普通销售流程；直营门店/POS 由
+ * inventory_class=DEFECT_SALE 的服务端销售上下文统一隔离）。
  * 前置依赖 scripts/seed-grade-inventory-policy.mjs --apply（缺陷档 stock_managed=true）。
  *
  * Usage:
@@ -29,8 +30,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import path from 'node:path';
 
 export const DEFECT_GRADES = [
-  { grade_code: 'DIRTY', grade_name: '脏蛋', default_stock_status: 'QUARANTINE' },
-  { grade_code: 'BROKEN', grade_name: '破损蛋', default_stock_status: 'DAMAGED' },
+  { grade_code: 'DIRTY', grade_name: '脏蛋', default_stock_status: 'AVAILABLE' },
+  { grade_code: 'BROKEN', grade_name: '破损蛋', default_stock_status: 'AVAILABLE' },
 ];
 
 /** 已永久退役的缺陷档码：其 SKU 若仍 ACTIVE 视为冲突（应已随冻结迁移废弃）。 */
@@ -56,7 +57,7 @@ export function defectSkuMatrix() {
     sku_name: `${grade.grade_name}(${line.line_label}) ${DEFECT_SPEC_CODE}`,
     status: 'ACTIVE',
     org_context_required: true,
-    scope: { scope_type: 'COMPANY', scope_code: line.company_code, sale_enabled: false, stock_enabled: true, status: 'ACTIVE' },
+    scope: { scope_type: 'COMPANY', scope_code: line.company_code, sale_enabled: true, stock_enabled: true, status: 'ACTIVE' },
   })));
 }
 
@@ -136,7 +137,7 @@ export async function readReadiness(client) {
     const scopes = scopeRows.rows.filter(candidate => candidate.sku_code === row.sku_code);
     const expectedScope = scopes.find(candidate => candidate.scope_type === 'COMPANY'
       && candidate.scope_code === row.scope.scope_code
-      && candidate.status === 'ACTIVE' && candidate.stock_enabled === true && candidate.sale_enabled === false);
+      && candidate.status === 'ACTIVE' && candidate.stock_enabled === true && candidate.sale_enabled === true);
     const extraScopes = scopes.filter(candidate => candidate !== expectedScope);
     if (!expectedScope) {
       return { ...row, state: 'CONFLICT', detail: `缺少预期的 COMPANY/${row.scope.scope_code} 库存范围行` };
@@ -200,7 +201,7 @@ export async function applyMatrix(client, { dryRun = false, log = console.log } 
       insertedSkus++;
       const scopeResult = await client.query(
         `INSERT INTO md_sku_org_scope (sku_code, scope_type, scope_code, sale_enabled, stock_enabled, status, effective_date, expire_date)
-         VALUES ($1,'COMPANY',$2,false,true,'ACTIVE',NULL,NULL)`,
+         VALUES ($1,'COMPANY',$2,true,true,'ACTIVE',NULL,NULL)`,
         [row.sku_code, row.scope.scope_code],
       );
       if (scopeResult.rowCount !== 1) throw new Error(`INSERT_NOT_ACKNOWLEDGED:md_sku_org_scope/${row.sku_code}`);

@@ -1,112 +1,143 @@
-# 蛋品等级三问题修复 — 生产执行 Runbook（2026-11-14）
+# Issue #532：8 档蛋品与养鸡场缺陷销售库存 Runbook
 
-> 对应分支:`codex/fix-egg-grade-defect-20261114`(基线 `2a55e3824`)
-> 三个问题的根因分析与代码修复已合入该分支;本文档是**生产数据侧**的受控执行步骤。
-> 所有 `--apply` 均为生产数据库写入,执行前需业务负责人确认;顺序不可调换。
+> 本 Runbook 以 `origin/main` 的 8 档终态和“养鸡场缺陷库存按普通库存销售”批准口径为准。
+> 质量等级仍为 `GRADE_0..GRADE_5 + DIRTY + BROKEN`；库存销售分类只有 `STANDARD` 和 `DEFECT_SALE`。
+> `CRACKED`、`DAMAGED` 继续退役，不得重新激活。
 
-## 背景(为什么需要这些步骤)
+## 业务目标
 
-| 问题 | 根因 | 代码修复 | 数据侧动作 |
-|---|---|---|---|
-| ① 破损蛋不显示/入不了库 | #532 策略种子未落实(迁移只加列);缺陷档无 SKU,入库强制 SKU 解析必败 | 前端过滤对齐 `stock_managed`;新增缺陷 SKU 矩阵种子脚本 | 步骤 1 + 2 |
-| ② "0号特大蛋"命名 | 种子链把 GRADE_0 命名为"0号特大蛋" | 仓库内种子/契约已同步改名 | 步骤 3 |
-| ③ 等级不跟随鸡舍 | `md_egg_source_profiles` 无 HTTP 端点,前端全局等级表 | 新增 lookup 端点 + 两页联动 | 无(档案已激活) |
+| 质量等级 | inventory_class | 养鸡场销售 | 直营门店/POS |
+|---|---|---:|---:|
+| `GRADE_0..GRADE_5` | `STANDARD` | 允许 | 允许 |
+| `DIRTY` | `DEFECT_SALE` | 允许 | 禁止 |
+| `BROKEN` | `DEFECT_SALE` | 允许 | 禁止 |
 
-## 前置检查
+客户、价格、订单、出库、结算和收款均复用普通客户及普通销售流程，不新增缺陷客户或独立缺陷销售单据。
+
+## 发布前置条件
 
 ```bash
-# 在部署了本分支代码的环境执行;DATABASE_URL 显式传入,脚本无隐式凭据
 export DATABASE_URL='postgresql://<user>:<pass>@<host>:5432/<db>'
-node -e "console.log('node ok')" && git log --oneline -1   # 确认在修复分支
+node -e "console.log('node ok')"
+git log --oneline -1
 ```
 
-## 步骤 1 — 九档库存策略种子(#532 收尾)
+确认部署代码包含库存分类迁移、统一分类解析、养鸡场销售上下文和门店/POS `STANDARD` 限制。生产环境只允许受控发布流程执行 migration；不得在应用启动时自动写库。
+
+## 步骤 1：等级与 SKU 策略审计
 
 ```bash
-node scripts/seed-grade-inventory-policy.mjs --audit     # 看 mismatches / missingGrades
-node scripts/seed-grade-inventory-policy.mjs --dry-run   # 事务内验证后回滚
-node scripts/seed-grade-inventory-policy.mjs --apply     # 提交:9 档 stock_managed/is_storable 全真
+node scripts/seed-grade-inventory-policy.mjs --audit
+node scripts/seed-grade-inventory-policy.mjs --dry-run
 ```
 
-**验收**:audit 输出 `mismatches: []`、`missingGrades: []`。
-此步是问题①的第一层:入库页表单从此显示脏/裂/破/损四档。
+验收要求：
 
-## 步骤 2 — 缺陷档 SKU 矩阵(问题①的第二层,依赖步骤 1)
+- `product_grades` 恰有 8 行 `ACTIVE`；
+- `DIRTY/BROKEN` 的 `stock_managed=true`、`sale_enabled=true`、`default_stock_status=AVAILABLE`；
+- `CRACKED/DAMAGED` 不得为 `ACTIVE`；
+- 8 档 SKU 均存在且具备库存使用范围；
+- 缺陷 SKU 的养鸡场销售范围已启用。
+
+策略脚本的 `--apply` 必须在业务负责人确认 audit 输出后执行。脚本不得创建未经批准的公司、仓库或客户范围。
+
+## 步骤 2：库存分类迁移与历史数据审计
+
+应用 TypeORM schema migration 后执行受控审计/回填脚本：
 
 ```bash
-node scripts/seed-defect-sku-matrix.mjs --audit     # 12 个 SKU 状态:MISSING/READY/CONFLICT
-node scripts/seed-defect-sku-matrix.mjs --dry-run
-node scripts/seed-defect-sku-matrix.mjs --apply
+node scripts/backfill-inventory-class.mjs --audit
+node scripts/backfill-inventory-class.mjs --dry-run
 ```
 
-写入 12 个 SKU(全部 LOOSE 规格)及 COMPANY scope(stock_enabled=true, sale_enabled=false):
+分类规则：
 
-- 孟赛普通线 `PRD-EGG-0` → `SKU-0-{DIRTY|CRACKED|BROKEN|DAMAGED}-LOOSE`(COMP-LAO-AGRI)
-- 东鹏红壳线 `PRD-EGG-RED` → `SKU-R-…-LOOSE`、粉壳线 `PRD-EGG-PINK` → `SKU-P-…-LOOSE`(COMP-LAO-XINGCHI)
+```text
+GRADE_0..GRADE_5 -> STANDARD
+DIRTY/BROKEN     -> DEFECT_SALE
+```
 
-**验收**:audit 显示 12 × READY;CONFLICT 非空时停止并人工评审(脚本绝不改写既有行)。
-此步之后,日产蛋入库提交含 BROKEN 的数量才能通过服务端 SKU 解析。
+分类脚本只回填库存分类，不会改变数量或状态；只有满足以下条件的批次才可作为可销售缺陷库存：
 
-## 步骤 3 — 显示名统一(0号特大蛋→0号蛋;破蛋→破损蛋)
+```text
+grade_code_std IN ('DIRTY','BROKEN')
+status = 'AVAILABLE'
+warehouse 属于养鸡场库存范围
+批次未过期
+公司、仓库和 SKU 归属明确
+```
+
+`QUARANTINE`、`DAMAGED`、`FROZEN`、等级为空、归属不明或已过期批次即使被标记为 `DEFECT_SALE`，也必须继续保持不可销售状态并进入人工复核清单，不得通过分类回填直接放开销售。
+
+只有在 audit 输出确认无异常、且业务负责人批准后，才可执行：
 
 ```bash
-node scripts/rename-grade0-broken.mjs --audit     # 各维度当前值/待更新行数/样例
-node scripts/rename-grade0-broken.mjs --dry-run
-node scripts/rename-grade0-broken.mjs --apply
+node scripts/backfill-inventory-class.mjs --apply
 ```
 
-改动范围:product_grades 2 行、mst_products 1 行(PRD-EGG-0)、product_skus 中含"0号特大蛋"的 sku_name(约 21 行)。**不改任何 code 列**,幂等(已是目标名的行不更新)。
+## 步骤 3：生产与 WMS 入库核验
 
-**验收**:audit 中 `needsUpdate` 全 false、`skus.matchingLegacyName = 0`。
+抽测生产日报、WMS 收货和包装入库各一笔：
 
-## 步骤 4 — 激活目录复验(防漂移)
-
-```bash
-node scripts/ops/sku-source-activation.mjs inspect
+```text
+正常等级：status=AVAILABLE, qty_available=qty, inventory_class=STANDARD
+DIRTY：status=AVAILABLE, qty_available=qty, inventory_class=DEFECT_SALE
+BROKEN：status=AVAILABLE, qty_available=qty, inventory_class=DEFECT_SALE
 ```
 
-确认无 `SKU_ACTIVATION_HOLD`。若出现 `LEGACY_CATALOG_IDENTITY_MOVED` 之类 HOLD,停下评审,不得 force。
+WMS `broken_qty` 生成的批次必须明确写入 `quality_grade=BROKEN`、`grade_code_std=BROKEN`，不得出现空等级或 `qty_available=0` 的新销售批次。
 
-## 步骤 5 — 冒烟验证
+每笔入库必须同时存在对应的 `inv_ledger` 入库记录，且等级、分类、SKU、公司和仓库一致。
 
-1. **日产蛋入库页**:任选孟赛舍(如 HOUSE_MS_01)→ 表单应出现 8 档(0-5 号 + 脏蛋/破损蛋),提交含破损蛋的一笔;东鹏舍(HOUSE_DP_01)→ 横幅显示"来源档案:粉壳蛋(EGG_PINK)",等级行带"(粉壳)"后缀,同样提交含破损蛋一笔。
-2. **库存核对**:`inv_batches` 新批次 BROKEN 行 `status='DAMAGED'`、`qty_available=0`(缺陷档不进可售池);台账 `inv_ledger` 有 TEMP_PRODUCTION_INBOUND 行。
-3. **销售隔离抽测**:POS/销售可用库存查询不应出现缺陷批次。
-4. **日生产日报页**:选东鹏舍看到品种横幅;录分级(含破损蛋)→ 从日报预填到入库页,破损蛋数量应带回。
+## 步骤 4：养鸡场普通销售核验
 
-## 附:8 档制终态裁定与执行记录(2026-11-14 第二轮)
+使用现有客户、现有销售订单和现有出库确认流程：
 
-**业务裁定**:现行等级体系为 **8 档 = GRADE_0..5 + DIRTY(脏蛋)+ BROKEN(破损蛋)**。
-"9 档/九档/nine-grade"是 G67 时代(5 可售+4 缺陷)的历史计数,数量与成员均已失真。
-CRACKED(裂缝蛋)/DAMAGED(损坏蛋)源自 Phase H2 基线的设计期枚举,从未被业务确认。
+1. 选择养鸡场库存仓库；
+2. 选择普通客户；
+3. 创建标准销售订单；
+4. 执行批次/FIFO；
+5. 确认普通销售出库；
+6. 核对销售单、批次和库存台账。
 
-**执行偏差记录(第一轮)**:
-- 第一轮 ops 曾按当时仓库策略(#532 九档)把生产中 status='FROZEN' 的
-  CRACKED/DAMAGED 解除冻结并补建 6 个 CD SKU——该 FROZEN 状态实为业务此前的
-  手工抑制,本次裁定将其推翻并永久退役;
-- 另发现 GRD-001(旧编码"0号蛋")与 GRADE_0 并存(用户看到"0号蛋/0号特大蛋"
-  两行的真正根源),已按 G67 模式连同 SKU-0003/0004 一并 DEPRECATED。
+养鸡场销售允许 `STANDARD` 与 `DEFECT_SALE`。建议排序为过期日期、入库日期、库存分类，其中 `STANDARD` 默认优先；具体优先级必须由服务端固定，前端不得自行决定。
 
-**终态防线(三道)**:
-1. **DB 触发器**(迁移 `1794500000000-FreezeRetiredEggGrades`):冻结清单内等级码
-  (CRACKED/DAMAGED/AA/A/B/C/XL/L/M/S/XS/GRD-001)任何 INSERT/UPDATE 回 ACTIVE 直接报错
-  `GRADE_FROZEN`;
-2. **应用层**:`product-master.service` create/updateGrade 增加 status 生命周期白名单
-  (ACTIVE/DEPRECATED/DRAFT);
-3. **CI 金丝雀**(`scripts/ci/check-retired-grade-codes.mjs`):四个权威等级枚举源
-  必须恰为 8 档制;diff 新增行不得在白名单之外引入 'CRACKED'。
+## 步骤 5：直营门店和 POS 隔离核验
 
-**生产验证清单**:product_grades 恰 8 行 ACTIVE;`UPDATE product_grades SET
-status='ACTIVE' WHERE grade_code='CRACKED'` 应报 GRADE_FROZEN;CD 的 6 个 SKU
-DEPRECATED;入库页/日报页/包装终端缺陷字典只见 脏蛋/破损蛋。
+使用门店/POS 销售入口查询同一仓库范围：
 
-## 回滚
+- `DEFECT_SALE` 不得出现在可售批次列表；
+- FIFO 不得锁定 `DEFECT_SALE`；
+- 手工传入缺陷批次号必须由后端拒绝；
+- 门店库存查询和销售报表不得包含缺陷销售库存。
 
-- 步骤 1/2/3 均为幂等 UPDATE/INSERT,无 schema 变更;如需回滚按 dry-run 报告的行数反向手工处理(缺陷 SKU 可 `UPDATE product_skus SET status='INACTIVE' WHERE sku_code LIKE 'SKU-_-___-__-LOOSE' AND grade_code IN ('DIRTY','CRACKED','BROKEN','DAMAGED')`,需 DBA 复核)。
-- 代码回滚 = 分支不合并或 revert,生产部署链自动跟随 main。
+场景由服务端根据销售入口、仓库域和用户 DataScope 推导，禁止信任客户端传入的销售上下文参数。
 
-## 明确不做
+## 步骤 6：异常库存处置
 
-- 不新增 TypeORM 迁移(本次全部为主数据运维,遵循 g197-H:业务数据走 ops 脚本)。
-- 不动 WMS 手工入库/缺陷处置(缺陷入口在生产链,WMS 负责处置)。
-- 缺陷处置 Web UI 另行立项。
+缺陷处置 API 仅用于非销售例外：报废、退回源头、清洗复检、加工处理和历史隔离批次。正常 `AVAILABLE + DEFECT_SALE` 批次优先走普通销售流程。
+
+销售和处置必须锁定同一批次并使用同一 `qty_available`，保证并发情况下不会重复扣减。所有动作必须写入 `inv_ledger` 并保留来源单号、批次号和操作员。
+
+## 回滚与暂停条件
+
+以下任一条件出现时暂停发布或回滚应用版本：
+
+- 8 档 ACTIVE 集合不一致；
+- `CRACKED/DAMAGED` 被重新激活；
+- `DIRTY/BROKEN` 批次缺少 `inventory_class`；
+- 养鸡场销售看不到已批准的 `DEFECT_SALE`；
+- 门店/POS 能看到或销售 `DEFECT_SALE`；
+- 销售和处置台账不守恒；
+- 历史 `QUARANTINE/DAMAGED` 批次被自动放开。
+
+代码回滚使用受控版本回退；生产数据库已执行的数据回填不得通过破坏性回滚处理，必须走新的前向修复脚本。
+
+## 禁止事项
+
+- 不恢复 `CRACKED`、`DAMAGED` 为 ACTIVE；
+- 不新增缺陷客户或缺陷销售订单体系；
+- 不让客户端决定 `FARM_SALES` 或 `STORE_POS`；
+- 不把 `DEFECT_SALE` 写入直营门店库存；
+- 不把业务数据回填写入 schema migration；
+- 不通过 `qty_available=0` 表示正常可销售缺陷库存。

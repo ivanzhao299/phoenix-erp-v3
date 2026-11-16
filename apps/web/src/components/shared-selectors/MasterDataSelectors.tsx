@@ -456,7 +456,7 @@ export function BatchSelector(p: BaseProps) {
       return (Array.isArray(list) ? list : [])
         .map(b => ({
           value: b.batch_no,
-          label: `${b.batch_no}｜${b.material_code ?? b.sku_code ?? b.product_code ?? ''} 可用${b.qty_available ?? ''}${b.unit ? ` ${b.unit}` : ''}`,
+          label: `${b.batch_no}｜${b.material_code ?? b.sku_code ?? b.product_code ?? ''}${b.inventory_class === 'DEFECT_SALE' ? ' · 缺陷销售库存' : ''} 可用${b.qty_available ?? ''}${b.unit ? ` ${b.unit}` : ''}`,
           raw: {
             ...b,
             inventory_item_code: b.material_code ?? b.sku_code ?? b.product_code ?? '',

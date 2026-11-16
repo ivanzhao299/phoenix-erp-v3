@@ -142,11 +142,48 @@ function scopeCalls(f: Fixture) { return f.calls.filter(([sql]) => sql.includes(
 function inventoryWrites(f: Fixture) { return f.committed.filter(([sql]) => /(?:INSERT INTO inv_|UPDATE inv_batches)/.test(sql)); }
 
 // Decode actual INSERT column -> VALUES placeholder -> bound argument, not substring presence.
+function splitSqlList(value: string): string[] {
+  const out: string[] = [];
+  let start = 0;
+  let depth = 0;
+  let quote = false;
+  for (let i = 0; i < value.length; i += 1) {
+    const ch = value[i];
+    if (ch === "'" && value[i - 1] !== '\\') quote = !quote;
+    if (quote) continue;
+    if (ch === '(') depth += 1;
+    else if (ch === ')') depth -= 1;
+    else if (ch === ',' && depth === 0) {
+      out.push(value.slice(start, i).trim());
+      start = i + 1;
+    }
+  }
+  out.push(value.slice(start).trim());
+  return out;
+}
+
+function parenthesized(sql: string, open: number): string {
+  let depth = 0;
+  let quote = false;
+  for (let i = open; i < sql.length; i += 1) {
+    const ch = sql[i];
+    if (ch === "'" && sql[i - 1] !== '\\') quote = !quote;
+    if (quote) continue;
+    if (ch === '(') depth += 1;
+    else if (ch === ')' && --depth === 0) return sql.slice(open + 1, i);
+  }
+  throw new Error('unclosed SQL parenthesis in fixture');
+}
+
 function insertedBatch([sql, args]: [string, any[]]): Record<string, any> {
-  const insert = sql.match(/INSERT INTO inv_batches\s*\(([\s\S]*?)\)\s*VALUES\s*\(([\s\S]*?)\)/)!;
-  expect(insert).not.toBeNull();
-  const columns = insert[1].split(',').map(value => value.trim());
-  const values = insert[2].split(',').map(value => value.trim());
+  const marker = sql.indexOf('INSERT INTO inv_batches');
+  const columnsOpen = sql.indexOf('(', marker);
+  const columnsText = parenthesized(sql, columnsOpen);
+  const valuesMarker = sql.indexOf('VALUES', columnsOpen);
+  const valuesOpen = sql.indexOf('(', valuesMarker);
+  const valuesText = parenthesized(sql, valuesOpen);
+  const columns = splitSqlList(columnsText);
+  const values = splitSqlList(valuesText);
   expect(values).toHaveLength(columns.length);
   const placeholders = values.map(value => value.match(/^\$(\d+)/)).filter(Boolean);
   expect(Math.max(...placeholders.map(match => Number(match![1])))).toBe(args.length);

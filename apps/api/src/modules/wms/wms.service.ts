@@ -102,6 +102,38 @@ export class WmsService {
     }
   }
 
+  /** DEFECT_SALE is ordinary sale stock only for farm/wholesale flows. */
+  private async assertDefectSaleOutboundAllowed(manager: EntityManager, batch: any, order: any): Promise<void> {
+    if (String(batch?.inventory_class || '').toUpperCase() !== 'DEFECT_SALE') return;
+    if (String(order?.type || '').toUpperCase() !== 'SALE') return;
+    const destinationType = String(order?.destination_type || '').toUpperCase();
+    if (destinationType === 'STORE' || destinationType === 'POS' || this.nonEmptyString(order?.destination_store_code)) {
+      throw new BadRequestException('直营门店/POS 出库不允许使用 DEFECT_SALE 缺陷销售库存');
+    }
+    const [warehouse] = await manager.query(
+      `SELECT type, domain, owner_store_id FROM wms_warehouses WHERE warehouse_code=$1 LIMIT 1`,
+      [batch.warehouse_code],
+    );
+    if (!warehouse) throw new BadRequestException(`库存批次 ${batch.batch_no} 所属仓库不存在`);
+    if (warehouse.owner_store_id || String(warehouse.type || '').toUpperCase() === 'STORE') {
+      throw new BadRequestException('门店仓库不允许销售 DEFECT_SALE 缺陷库存');
+    }
+    if (String(warehouse.domain || '').toUpperCase() !== 'OPERATIONAL') {
+      throw new BadRequestException(`仓库 ${batch.warehouse_code} 非养鸡场销售仓，禁止使用 DEFECT_SALE 库存`);
+    }
+  }
+
+  private async canUseDefectSaleBatch(manager: EntityManager, batch: any, order: any): Promise<boolean> {
+    if (String(batch?.inventory_class || '').toUpperCase() !== 'DEFECT_SALE') return true;
+    try {
+      await this.assertDefectSaleOutboundAllowed(manager, batch, order);
+      return true;
+    } catch (error) {
+      if (error instanceof BadRequestException) return false;
+      throw error;
+    }
+  }
+
   /** Warehouse ownership, never request company, is the transaction authority. */
   private async lockWarehouseCompany(manager: EntityManager, warehouseCode: string, claimedCompany?: unknown): Promise<string> {
     const [warehouse] = await manager.query(
@@ -635,9 +667,9 @@ export class WmsService {
           const posted = await manager.query(
           `INSERT INTO inv_batches (
              batch_no, product_code, sku_code, material_code, item_type, material_type,
-             unit, qty, qty_available, status, warehouse_code, location_code, store_code, company_code, inbound_date, grade_code_std, spec_code, base_quantity_version, variety_code, source_profile_code, source_profile_snapshot
+             unit, qty, qty_available, status, inventory_class, warehouse_code, location_code, store_code, company_code, inbound_date, grade_code_std, spec_code, base_quantity_version, variety_code, source_profile_code, source_profile_snapshot
            )
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8::numeric, $8::numeric, 'AVAILABLE', $9, $10, $11, $12, $13::date,$14,$15,$16,$17,NULL,NULL)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8::numeric, $8::numeric, 'AVAILABLE', 'STANDARD', $9, $10, $11, $12, $13::date,$14,$15,$16,$17,NULL,NULL)
              ON CONFLICT (batch_no) DO UPDATE SET
                product_code = COALESCE(inv_batches.product_code, EXCLUDED.product_code),
                sku_code = COALESCE(inv_batches.sku_code, EXCLUDED.sku_code),
@@ -654,6 +686,7 @@ export class WmsService {
                END,
                qty = inv_batches.qty + EXCLUDED.qty,
                qty_available = COALESCE(inv_batches.qty_available, inv_batches.qty) + EXCLUDED.qty,
+               inventory_class = COALESCE(inv_batches.inventory_class, EXCLUDED.inventory_class),
                updated_at = now()
               WHERE inv_batches.warehouse_code IS NOT DISTINCT FROM EXCLUDED.warehouse_code
                 AND (inv_batches.company_code IS NULL OR inv_batches.company_code = 'ALL' OR inv_batches.company_code = EXCLUDED.company_code)
@@ -684,7 +717,7 @@ export class WmsService {
           );
         }
 
-        // V2 fidelity: 破损 → 独立 QUARANTINE batch（qty_available=0，可追溯但不可销售）
+        // 破损蛋按批准口径进入 DEFECT_SALE，沿用普通养鸡场销售流程。
         if (brokenQty > 0) {
           const brokenBatchNo = `${baseBatchNo}-BROKEN`;
           const [brokenExisting] = await manager.query('SELECT * FROM inv_batches WHERE batch_no=$1 FOR UPDATE',[brokenBatchNo]);
@@ -696,9 +729,9 @@ export class WmsService {
           const posted = await manager.query(
             `INSERT INTO inv_batches (
                batch_no, product_code, sku_code, material_code, item_type, material_type,
-               unit, qty, qty_available, status, warehouse_code, location_code, store_code, company_code, inbound_date, grade_code_std, spec_code, base_quantity_version, variety_code, source_profile_code, source_profile_snapshot
+               unit, qty, qty_available, status, quality_grade, grade_code_std, inventory_class, warehouse_code, location_code, store_code, company_code, inbound_date, spec_code, base_quantity_version, variety_code, source_profile_code, source_profile_snapshot
              )
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8::numeric, 0, 'QUARANTINE', $9, $10, $11, $12, $13::date,$14,$15,$16,$17,NULL,NULL)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8::numeric, $8::numeric, 'AVAILABLE', 'BROKEN', 'BROKEN', 'DEFECT_SALE', $9, $10, $11, $12, $13::date,$14,$15,$16,NULL,NULL)
              ON CONFLICT (batch_no) DO UPDATE SET
                product_code = COALESCE(inv_batches.product_code, EXCLUDED.product_code),
                sku_code = COALESCE(inv_batches.sku_code, EXCLUDED.sku_code),
@@ -714,8 +747,11 @@ export class WmsService {
                  ELSE LEAST(inv_batches.inbound_date, EXCLUDED.inbound_date)
                END,
                qty = inv_batches.qty + EXCLUDED.qty,
-               qty_available = 0,
-               status = 'QUARANTINE',
+               qty_available = COALESCE(inv_batches.qty_available, inv_batches.qty) + EXCLUDED.qty,
+               quality_grade = 'BROKEN',
+               grade_code_std = 'BROKEN',
+               inventory_class = 'DEFECT_SALE',
+               status = 'AVAILABLE',
                updated_at = now()
               WHERE inv_batches.warehouse_code IS NOT DISTINCT FROM EXCLUDED.warehouse_code
                 AND (inv_batches.company_code IS NULL OR inv_batches.company_code = 'ALL' OR inv_batches.company_code = EXCLUDED.company_code)
@@ -728,7 +764,7 @@ export class WmsService {
                 AND inv_batches.item_type IS NOT DISTINCT FROM EXCLUDED.item_type
                 AND inv_batches.unit IS NOT DISTINCT FROM EXCLUDED.unit
               RETURNING batch_no`,
-            [brokenBatchNo, productCode, skuCode, materialCode, itemType, materialType, unit, brokenQty, warehouseCode, 'QUARANTINE-DOCK', storeCode, companyCode, task.date || null, snapshot?.gradeCode ?? null, snapshot?.specCode ?? null, snapshot ? 1 : null, varietyCode],
+            [brokenBatchNo, productCode, skuCode, materialCode, itemType, materialType, unit, brokenQty, warehouseCode, 'QUARANTINE-DOCK', storeCode, companyCode, task.date || null, snapshot?.specCode ?? null, snapshot ? 1 : null, varietyCode],
           );
           if (posted.length !== 1) throw new BadRequestException('入库批次归属或身份已变化，禁止跨公司累加');
           await manager.query(
@@ -822,9 +858,9 @@ export class WmsService {
       const posted = await manager.query(
         `INSERT INTO inv_batches (
            batch_no, product_code, sku_code, material_code, item_type, material_type,
-           unit, qty, qty_available, status, warehouse_code, location_code, store_code, inbound_date, company_code, variety_code, source_profile_code, source_profile_snapshot
+           unit, qty, qty_available, status, inventory_class, warehouse_code, location_code, store_code, inbound_date, company_code, variety_code, source_profile_code, source_profile_snapshot
          )
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8::numeric, $8::numeric, 'AVAILABLE', $9, $10, $11, $12::date, $13, $14, NULL, NULL)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8::numeric, $8::numeric, 'AVAILABLE', 'STANDARD', $9, $10, $11, $12::date, $13, $14, NULL, NULL)
          ON CONFLICT (batch_no) DO UPDATE SET
            product_code = COALESCE(inv_batches.product_code, EXCLUDED.product_code),
            sku_code = COALESCE(inv_batches.sku_code, EXCLUDED.sku_code),
@@ -840,6 +876,7 @@ export class WmsService {
            END,
            qty = inv_batches.qty + EXCLUDED.qty,
            qty_available = COALESCE(inv_batches.qty_available, inv_batches.qty) + EXCLUDED.qty,
+           inventory_class = COALESCE(inv_batches.inventory_class, EXCLUDED.inventory_class),
            updated_at = now()
               WHERE inv_batches.warehouse_code IS NOT DISTINCT FROM EXCLUDED.warehouse_code
                 AND (inv_batches.company_code IS NULL OR inv_batches.company_code = 'ALL' OR inv_batches.company_code = EXCLUDED.company_code)
@@ -1703,7 +1740,7 @@ export class WmsService {
     const label = `${column}=${value}`;
     const batches = await manager.query(
       `SELECT batch_no, product_code, sku_code, material_code, item_type,
-              material_type, unit, grade_code_std, spec_code, legacy_source, base_quantity_version, qty, qty_available, warehouse_code, store_code, company_code
+              material_type, unit, grade_code_std, spec_code, legacy_source, base_quantity_version, inventory_class, qty, qty_available, warehouse_code, store_code, company_code
          FROM inv_batches
         WHERE ${column} = $1
           AND COALESCE(qty_available, qty, 0) > 0
@@ -1752,6 +1789,7 @@ export class WmsService {
     if (!outboundPolicy) {
       throw new BadRequestException(`不支持的出库类型：${order.type || '(空)'}`);
     }
+    await this.assertDefectSaleOutboundAllowed(manager, batch, order);
 
     if (order.quantity_snapshot) assertBatchPool(batch, order.quantity_snapshot);
     const selectedSku = order.quantity_snapshot?.skuCode ?? batch.sku_code;
@@ -1866,7 +1904,7 @@ export class WmsService {
       const data = await this.em.query(
         `SELECT b.id, b.batch_no, b.product_code, b.sku_code, b.material_code,
                 b.item_type, b.material_type, b.unit, b.qty, b.qty_available,
-                b.status, b.warehouse_code, b.location_code, b.store_code,
+                b.status, b.inventory_class, b.warehouse_code, b.location_code, b.store_code,
                 b.company_code, b.egg_date, b.inbound_date, b.expire_date,
                 b.quality_grade, b.packaging_spec, b.source_type, b.source_no,
                 b.grade_code_std, b.spec_code, b.packaging_batch_ref,
@@ -2130,7 +2168,7 @@ export class WmsService {
 
         const [src] = await manager.query(
           `SELECT batch_no, product_code, sku_code, material_code, item_type, material_type,
-                  unit, grade_code_std, spec_code, quality_grade, packaging_spec, egg_date, legacy_source, base_quantity_version, packaging_batch_ref, collection_batch_ref, variety_code, source_profile_code, source_profile_snapshot, qty, qty_available, status, expire_date, store_code, warehouse_code, company_code
+                  unit, grade_code_std, spec_code, quality_grade, packaging_spec, egg_date, legacy_source, base_quantity_version, packaging_batch_ref, collection_batch_ref, variety_code, source_profile_code, source_profile_snapshot, qty, qty_available, status, inventory_class, expire_date, store_code, warehouse_code, company_code
              FROM inv_batches WHERE batch_no = $1 FOR UPDATE`,
           [it.batch_no],
         );
@@ -2143,6 +2181,9 @@ export class WmsService {
         }
         if (String(src.status || 'AVAILABLE').toUpperCase() !== 'AVAILABLE') {
           throw new BadRequestException(`源 batch ${it.batch_no} 状态 ${src.status} 不允许调拨`);
+        }
+        if (String(src.inventory_class || '').toUpperCase() === 'DEFECT_SALE') {
+          throw new BadRequestException('DEFECT_SALE 缺陷销售库存不能通过普通调拨');
         }
         const available = Number(src.qty_available ?? src.qty) || 0;
         if (available < qty) throw new Error(`源 batch ${it.batch_no} 可用量 ${available} 不足 ${qty}`);
@@ -2190,14 +2231,14 @@ export class WmsService {
         await manager.query(
           `INSERT INTO inv_batches (
              batch_no, product_code, sku_code, material_code, item_type, material_type,
-             unit, qty, qty_available, status, warehouse_code, location_code, expire_date, store_code, company_code, inbound_date,grade_code_std,spec_code,quality_grade,packaging_spec,egg_date,legacy_source,base_quantity_version,packaging_batch_ref,collection_batch_ref,variety_code,source_profile_code,source_profile_snapshot
+             unit, qty, qty_available, status, inventory_class, warehouse_code, location_code, expire_date, store_code, company_code, inbound_date,grade_code_std,spec_code,quality_grade,packaging_spec,egg_date,legacy_source,base_quantity_version,packaging_batch_ref,collection_batch_ref,variety_code,source_profile_code,source_profile_snapshot
            )
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8::numeric, $8::numeric, 'AVAILABLE', $9, $10, $11, $12, $13, CURRENT_DATE,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25::jsonb)`,
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8::numeric, $8::numeric, 'AVAILABLE', COALESCE($14,'STANDARD'), $9, $10, $11, $12, $13, CURRENT_DATE,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26::jsonb)`,
           [
             dstBatchNo, src.product_code || null, src.sku_code || null, src.material_code || null,
             src.item_type || null, src.material_type || null, src.unit || null, qty,
             to_warehouse, 'TRANSFER-IN', src.expire_date, targetIdentity.storeCode, targetIdentity.companyCode,
-            src.grade_code_std ?? null, src.spec_code ?? null, src.quality_grade ?? null, src.packaging_spec ?? null, src.egg_date ?? null, src.legacy_source ?? null, src.base_quantity_version ?? null, src.packaging_batch_ref ?? null, src.collection_batch_ref ?? null,
+            src.inventory_class ?? 'STANDARD', src.grade_code_std ?? null, src.spec_code ?? null, src.quality_grade ?? null, src.packaging_spec ?? null, src.egg_date ?? null, src.legacy_source ?? null, src.base_quantity_version ?? null, src.packaging_batch_ref ?? null, src.collection_batch_ref ?? null,
             src.variety_code ?? null, src.source_profile_code ?? null,
             src.source_profile_snapshot == null ? null : JSON.stringify(src.source_profile_snapshot),
           ],
@@ -2339,11 +2380,14 @@ export class WmsService {
         const qty = Number(item.expected_qty);
         const [src] = await manager.query(
           `SELECT batch_no,product_code,sku_code,material_code,item_type,material_type,unit,qty,
-                  qty_available,status,expire_date,store_code,warehouse_code,company_code,grade_code_std,spec_code,quality_grade,packaging_spec,egg_date,legacy_source,base_quantity_version,packaging_batch_ref,collection_batch_ref,variety_code,source_profile_code,source_profile_snapshot
+                  qty_available,status,inventory_class,expire_date,store_code,warehouse_code,company_code,grade_code_std,spec_code,quality_grade,packaging_spec,egg_date,legacy_source,base_quantity_version,packaging_batch_ref,collection_batch_ref,variety_code,source_profile_code,source_profile_snapshot
              FROM inv_batches WHERE batch_no=$1 FOR UPDATE`, [item.source_batch_no],
         );
         if (!src || src.warehouse_code !== transfer.from_warehouse) throw new BadRequestException(`源 batch ${item.source_batch_no} 不属于源仓库`);
         if (String(src.status).toUpperCase() !== 'AVAILABLE') throw new BadRequestException(`源 batch ${item.source_batch_no} 状态不允许调拨`);
+        if (String(src.inventory_class || '').toUpperCase() === 'DEFECT_SALE') {
+          throw new BadRequestException('DEFECT_SALE 缺陷销售库存不能通过普通调拨');
+        }
         const available = Number(src.qty_available ?? src.qty) || 0;
         if (available < qty) throw new BadRequestException(`源 batch ${item.source_batch_no} 可用量 ${available} 不足 ${qty}`);
         if (src.base_quantity_version===1) baseQuantity(qty,1,src.unit);
@@ -2422,11 +2466,11 @@ export class WmsService {
           targetBatchNo = `${item.source_batch_no}-T-${Math.random().toString(36).slice(2, 5).toUpperCase()}`;
           await manager.query(
             `INSERT INTO inv_batches (batch_no,product_code,sku_code,material_code,item_type,material_type,
-              unit,qty,qty_available,status,warehouse_code,location_code,expire_date,store_code,company_code,inbound_date,grade_code_std,spec_code,quality_grade,packaging_spec,egg_date,legacy_source,base_quantity_version,packaging_batch_ref,collection_batch_ref,variety_code,source_profile_code,source_profile_snapshot)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8::numeric,$8::numeric,'AVAILABLE',$9,$10,$11,$12,$13,CURRENT_DATE,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25::jsonb)`,
+            unit,qty,qty_available,status,inventory_class,warehouse_code,location_code,expire_date,store_code,company_code,inbound_date,grade_code_std,spec_code,quality_grade,packaging_spec,egg_date,legacy_source,base_quantity_version,packaging_batch_ref,collection_batch_ref,variety_code,source_profile_code,source_profile_snapshot)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8::numeric,$8::numeric,'AVAILABLE',$9,$10,$11,$12,$13,$14,CURRENT_DATE,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26::jsonb)`,
             [targetBatchNo, snapshot.product_code || null, snapshot.sku_code || null, snapshot.material_code || null,
               snapshot.item_type || null, snapshot.material_type || null, snapshot.unit || null, received,
-              transfer.to_warehouse, this.nonEmptyString(body?.to_location) || transfer.to_location || 'TRANSFER-IN',
+              snapshot.inventory_class || 'STANDARD', transfer.to_warehouse, this.nonEmptyString(body?.to_location) || transfer.to_location || 'TRANSFER-IN',
               snapshot.expire_date || null, targetIdentity.storeCode, targetIdentity.companyCode,
               snapshot.grade_code_std ?? null, snapshot.spec_code ?? null, snapshot.quality_grade ?? null, snapshot.packaging_spec ?? null, snapshot.egg_date ?? null, snapshot.legacy_source ?? null, snapshot.base_quantity_version ?? null, snapshot.packaging_batch_ref ?? null, snapshot.collection_batch_ref ?? null,
               snapshot.variety_code ?? null, snapshot.source_profile_code ?? null,
@@ -2438,6 +2482,34 @@ export class WmsService {
              VALUES ($1,$2,$3::numeric,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
             [targetBatchNo, inboundPolicy.ledgerType, received, String(user?.username || 'SYS'),
               targetIdentity.storeCode, transferNo, `调拨签收 ← ${transfer.from_warehouse} 源 batch=${item.source_batch_no}`,
+              snapshot.sku_code || null, snapshot.material_code || null, transfer.to_warehouse,
+              inboundPolicy.businessType, snapshot.unit || null, targetIdentity.companyCode],
+          );
+        }
+        if (damaged > 0) {
+          if (!snapshot || snapshot.warehouse_code !== transfer.from_warehouse) {
+            throw new BadRequestException('调拨源快照与源仓库不一致');
+          }
+          const targetIdentity = await this.resolveTransferTargetIdentity(manager, transfer.to_warehouse, snapshot.store_code);
+          const damagedBatchNo = `${item.source_batch_no}-BROKEN-${Math.random().toString(36).slice(2, 5).toUpperCase()}`;
+          await manager.query(
+            `INSERT INTO inv_batches (
+               batch_no,product_code,sku_code,material_code,item_type,material_type,
+               unit,qty,qty_available,status,quality_grade,grade_code_std,inventory_class,
+               warehouse_code,location_code,expire_date,store_code,company_code,inbound_date)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8::numeric,$8::numeric,'AVAILABLE','BROKEN','BROKEN','DEFECT_SALE',
+                     $9,$10,$11,$12,$13,CURRENT_DATE)`,
+            [damagedBatchNo, snapshot.product_code || null, snapshot.sku_code || null, snapshot.material_code || null,
+              snapshot.item_type || null, snapshot.material_type || null, snapshot.unit || null, damaged,
+              transfer.to_warehouse, this.nonEmptyString(body?.to_location) || transfer.to_location || 'TRANSFER-IN',
+              snapshot.expire_date || null, targetIdentity.storeCode, targetIdentity.companyCode],
+          );
+          await manager.query(
+            `INSERT INTO inv_ledger (batch_no,change_type,qty_change,operator,store_code,ref_no,note,
+              quality_grade,sku_code,material_code,warehouse_code,business_type,unit,company_code)
+             VALUES ($1,'TRANSFER_DAMAGE_INBOUND',$2::numeric,$3,$4,$5,$6,'BROKEN',$7,$8,$9,$10,$11,$12)`,
+            [damagedBatchNo, damaged, String(user?.username || 'SYS'), targetIdentity.storeCode,
+              transferNo, `调拨途中破损 → 缺陷销售库存 source=${item.source_batch_no}`,
               snapshot.sku_code || null, snapshot.material_code || null, transfer.to_warehouse,
               inboundPolicy.businessType, snapshot.unit || null, targetIdentity.companyCode],
           );

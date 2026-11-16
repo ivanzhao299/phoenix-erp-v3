@@ -30,8 +30,10 @@ export const GRADE_POLICY = [
     grade_code: `GRADE_${n}`, stock_managed: true, sale_enabled: true,
     default_stock_status: 'AVAILABLE', sort_order: (n + 1) * 10,
   })),
-  { grade_code: 'DIRTY', stock_managed: true, sale_enabled: false, default_stock_status: 'QUARANTINE', sort_order: 60 },
-  { grade_code: 'BROKEN', stock_managed: true, sale_enabled: false, default_stock_status: 'DAMAGED', sort_order: 80 },
+  // Farm inventory processing sells both defect grades through the ordinary
+  // wholesale sales flow. inventory_class keeps them out of Store/POS paths.
+  { grade_code: 'DIRTY', stock_managed: true, sale_enabled: true, default_stock_status: 'AVAILABLE', sort_order: 60 },
+  { grade_code: 'BROKEN', stock_managed: true, sale_enabled: true, default_stock_status: 'AVAILABLE', sort_order: 80 },
 ];
 
 export function databaseConfig(env) {

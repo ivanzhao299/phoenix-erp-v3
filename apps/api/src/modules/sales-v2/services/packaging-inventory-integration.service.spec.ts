@@ -78,6 +78,21 @@ describe('PackagingInventoryIntegrationService terminal provenance', () => {
     await expect(service.generateSaleableFromOutputs('PKG-1', [{ grade: 'L', qty: 30, specCode: 'SPEC' }])).rejects.toThrow('日期');
     expect(eggInv.createProductionBatch).not.toHaveBeenCalled();
   });
+
+  it('forwards DIRTY/BROKEN quality identity as an available farm inventory batch', async () => {
+    const { service, eggInv } = setup();
+    eggInv.createProductionBatch.mockResolvedValue({ batch_no: 'DEFECT-BATCH-1' });
+    const result = await (service as any).createSaleableBatch(
+      'COMP', '2026-11-11', 'DIRTY', 12, 'PKG-DEFECT-1', 'SHIFT-1',
+      'LOOSE', 'SKU-DIRTY', 'PRD-EGG', null, [{ profileCode: 'PROFILE', houseCode: 'HOUSE' }],
+      'AVAILABLE', { warehouseCode: 'WH-FARM', locationCode: 'LOC-FARM' },
+    );
+    expect(result).toMatchObject({ batchNo: 'DEFECT-BATCH-1', grade: 'DIRTY', qty: 12, stockStatus: 'AVAILABLE' });
+    expect(eggInv.createProductionBatch).toHaveBeenCalledWith(expect.objectContaining({
+      qualityGrade: 'DIRTY', gradeCodeStd: 'DIRTY', stockStatus: 'AVAILABLE',
+      sourceType: 'PACKAGING', warehouseCode: 'WH-FARM', locationCode: 'LOC-FARM',
+    }), undefined);
+  });
 });
 
 describe('PackagingInventoryIntegrationService legacy owner policy', () => {

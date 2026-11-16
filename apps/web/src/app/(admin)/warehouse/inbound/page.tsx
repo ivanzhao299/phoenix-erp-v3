@@ -187,6 +187,12 @@ export default function InboundPage() {
       render: (v, row) => formatMasterData(row, "item_name", v, lang) },
     { key: "qty",            title: t("ui.入库数量", "入库数量"),  width: 90, align: "right",
       render: v => { const n = Number(v ?? 0); return <span style={moneyCell(n > 0 ? "success" : "default", "md")}>{n}</span>; } },
+    { key: "quality_grade", title: t("ui.质量等级", "质量等级"), width: 100,
+      render: v => String(v || "—") },
+    { key: "inventory_class", title: t("ui.库存分类", "库存分类"), width: 130,
+      render: v => String(v || "STANDARD").toUpperCase() === "DEFECT_SALE"
+        ? t("ui.缺陷销售库存", "缺陷销售库存")
+        : t("ui.普通销售库存", "普通销售库存") },
     { key: "status",         title: t("common.status", "状态"),    width: 90, align: "center",
       render: v => {
         const cfg = STATUS_BADGE[String(v)] ?? { tone: "default" as BadgeTone, label: String(v ?? "—") };
