@@ -13,6 +13,7 @@ export const DEFECT_GRADES = ['DIRTY', 'BROKEN'];
 export const LIVE_GRADES = [
   'GRADE_0', 'GRADE_1', 'GRADE_2', 'GRADE_3', 'GRADE_4', 'GRADE_5',
   'DIRTY', 'BROKEN',
+  'AA', 'A', 'B', 'C', 'XL', 'L', 'M', 'S', 'XS', 'GRD-001',
 ];
 
 export function databaseConfig(env) {

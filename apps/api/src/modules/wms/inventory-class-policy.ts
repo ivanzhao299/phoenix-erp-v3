@@ -12,6 +12,9 @@ export const LIVE_EGG_GRADES = [
   'GRADE_0', 'GRADE_1', 'GRADE_2', 'GRADE_3', 'GRADE_4', 'GRADE_5',
   ...DEFECT_SALE_GRADES,
 ] as const;
+/** Historical standard grade codes may remain on legacy WMS batches; they map
+ * to STANDARD for classification but are not reactivated in product_grades. */
+export const LEGACY_STANDARD_GRADES = ['AA', 'A', 'B', 'C', 'XL', 'L', 'M', 'S', 'XS', 'GRD-001'] as const;
 
 function normalize(value: unknown): string {
   return String(value ?? '').trim().toUpperCase();
@@ -20,7 +23,8 @@ function normalize(value: unknown): string {
 export function resolveInventoryClass(gradeCode: unknown): InventoryClass {
   const normalized = normalize(gradeCode);
   if (!normalized) return 'STANDARD';
-  if (!(LIVE_EGG_GRADES as readonly string[]).includes(normalized)) {
+  if (!(LIVE_EGG_GRADES as readonly string[]).includes(normalized)
+      && !(LEGACY_STANDARD_GRADES as readonly string[]).includes(normalized)) {
     throw new Error(`未知鸡蛋等级，禁止推导库存分类: ${normalized}`);
   }
   return (DEFECT_SALE_GRADES as readonly string[]).includes(normalized)

@@ -24,6 +24,7 @@ import {
   normalizeDefectGrade,
   validateDefectDisposition,
 } from './wms-defect-disposition-policy';
+import { resolveInventoryClass } from './inventory-class-policy';
 
 /**
  * V3 WmsService
@@ -583,6 +584,7 @@ export class WmsService {
         let materialType = this.nonEmptyString(item.material_type);
         let varietyCode: string | null = null;
         let unit = this.nonEmptyString(item.unit) || '件';
+        let gradeCode: string | null = snapshot?.gradeCode ?? null;
         if (materialCode || skuCode || itemType) {
           const identity = await this.resolveInventoryItem(
             manager,
@@ -597,6 +599,7 @@ export class WmsService {
           materialType = identity.materialType;
           varietyCode = identity.varietyCode;
           unit = snapshot?.baseUnit ?? identity.unit;
+          gradeCode = gradeCode ?? identity.gradeCode;
         }
         if (!skuCode && !materialCode && productCode) {
           const matches = await manager.query(`SELECT 'SKU' AS item_type FROM product_skus WHERE sku_code=$1
@@ -605,7 +608,7 @@ export class WmsService {
           if (matches.length>1) throw new BadRequestException('旧品目编码跨域冲突，请明确 item_type 与对应编码');
           if (matches.length===1 && matches[0].item_type==='SKU') {
             const sku=await SkuPolicy.requireUsable(manager,productCode,'stock',companyCode);
-            skuCode=sku.sku_code; productCode=sku.product_code; itemType='SKU'; materialType='FINISHED_PRODUCT'; unit=sku.base_unit; varietyCode=sku.variety_code ?? null;
+            skuCode=sku.sku_code; productCode=sku.product_code; itemType='SKU'; materialType='FINISHED_PRODUCT'; unit=sku.base_unit; varietyCode=sku.variety_code ?? null; gradeCode=gradeCode ?? sku.grade_code;
           } else if (matches.length===1 && matches[0].item_type==='PRODUCT') {
             const [product] = await manager.query('SELECT product_mode,variety_code FROM mst_products WHERE product_code=$1 FOR SHARE', [productCode]);
             if (product?.product_mode === 'VARIANT' || product?.variety_code != null) {
@@ -664,12 +667,13 @@ export class WmsService {
 
         // 正常入库：actual_qty → AVAILABLE batch
         if (actualQty > 0) {
+          const inventoryClass = resolveInventoryClass(gradeCode);
           const posted = await manager.query(
           `INSERT INTO inv_batches (
              batch_no, product_code, sku_code, material_code, item_type, material_type,
              unit, qty, qty_available, status, inventory_class, warehouse_code, location_code, store_code, company_code, inbound_date, grade_code_std, spec_code, base_quantity_version, variety_code, source_profile_code, source_profile_snapshot
            )
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8::numeric, $8::numeric, 'AVAILABLE', 'STANDARD', $9, $10, $11, $12, $13::date,$14,$15,$16,$17,NULL,NULL)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8::numeric, $8::numeric, 'AVAILABLE', $18, $9, $10, $11, $12, $13::date,$14,$15,$16,$17,NULL,NULL)
              ON CONFLICT (batch_no) DO UPDATE SET
                product_code = COALESCE(inv_batches.product_code, EXCLUDED.product_code),
                sku_code = COALESCE(inv_batches.sku_code, EXCLUDED.sku_code),
@@ -699,7 +703,7 @@ export class WmsService {
                 AND inv_batches.item_type IS NOT DISTINCT FROM EXCLUDED.item_type
                 AND inv_batches.unit IS NOT DISTINCT FROM EXCLUDED.unit
               RETURNING batch_no`,
-            [baseBatchNo, productCode, skuCode, materialCode, itemType, materialType, unit, actualQty, warehouseCode, locationCode, storeCode, companyCode, task.date || null, snapshot?.gradeCode ?? null, snapshot?.specCode ?? null, snapshot ? 1 : null, varietyCode],
+            [baseBatchNo, productCode, skuCode, materialCode, itemType, materialType, unit, actualQty, warehouseCode, locationCode, storeCode, companyCode, task.date || null, snapshot?.gradeCode ?? gradeCode ?? null, snapshot?.specCode ?? null, snapshot ? 1 : null, varietyCode, inventoryClass],
           );
           if (posted.length !== 1) throw new BadRequestException('入库批次归属或身份已变化，禁止跨公司累加');
           await manager.query(
@@ -846,6 +850,7 @@ export class WmsService {
       );
       const productCode = identity.productCode;
       const skuCode = identity.skuCode;
+      const inventoryClass = resolveInventoryClass(identity.gradeCode);
       const batchNo = (it.batchNo || `${ctx.refNo}-${String(idx + 1).padStart(3, '0')}`).slice(0, 64);
       const locationCode = (it.locationCode || 'INBOUND-DOCK').slice(0, 64);
       const [existing] = await manager.query('SELECT * FROM inv_batches WHERE batch_no=$1 FOR UPDATE', [batchNo]);
@@ -860,7 +865,7 @@ export class WmsService {
            batch_no, product_code, sku_code, material_code, item_type, material_type,
            unit, qty, qty_available, status, inventory_class, warehouse_code, location_code, store_code, inbound_date, company_code, variety_code, source_profile_code, source_profile_snapshot
          )
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8::numeric, $8::numeric, 'AVAILABLE', 'STANDARD', $9, $10, $11, $12::date, $13, $14, NULL, NULL)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8::numeric, $8::numeric, 'AVAILABLE', $15, $9, $10, $11, $12::date, $13, $14, NULL, NULL)
          ON CONFLICT (batch_no) DO UPDATE SET
            product_code = COALESCE(inv_batches.product_code, EXCLUDED.product_code),
            sku_code = COALESCE(inv_batches.sku_code, EXCLUDED.sku_code),
@@ -891,7 +896,7 @@ export class WmsService {
               RETURNING batch_no`,
         [
           batchNo, productCode, skuCode, identity.materialCode, identity.itemType,
-          identity.materialType, identity.unit, qty, warehouseCode, locationCode, storeCode, ctx.inboundDate || null, companyCode, identity.varietyCode,
+          identity.materialType, identity.unit, qty, warehouseCode, locationCode, storeCode, ctx.inboundDate || null, companyCode, identity.varietyCode, inventoryClass,
         ],
       );
       if (posted.length !== 1) throw new BadRequestException('入库批次归属或身份已变化，禁止跨公司累加');
@@ -1530,6 +1535,7 @@ export class WmsService {
     materialCode: string | null;
     skuCode: string | null;
     productCode: string | null;
+    gradeCode: string | null;
     unit: string;
   }> {
     if (!itemCode) throw new BadRequestException('物料或 SKU 必填');
@@ -1559,6 +1565,7 @@ export class WmsService {
           materialCode: material.material_code,
           skuCode: null,
           productCode: null,
+          gradeCode: null,
           unit: material.unit || '件',
         };
       }
@@ -1575,6 +1582,7 @@ export class WmsService {
           materialCode: null,
           skuCode: sku.sku_code,
           productCode: sku.product_code || null,
+          gradeCode: sku.grade_code || null,
           unit: sku.base_unit || '枚',
         };
       }

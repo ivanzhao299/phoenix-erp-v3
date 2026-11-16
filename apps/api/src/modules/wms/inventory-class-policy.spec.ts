@@ -9,6 +9,7 @@ describe('inventory class policy', () => {
     expect(resolveInventoryClass(' dirty ')).toBe('DEFECT_SALE');
     expect(resolveInventoryClass('BROKEN')).toBe('DEFECT_SALE');
     expect(resolveInventoryClass('GRADE_5')).toBe('STANDARD');
+    expect(resolveInventoryClass('A')).toBe('STANDARD');
     expect(resolveInventoryClass('')).toBe('STANDARD');
     expect(() => resolveInventoryClass('CRACKED')).toThrow('未知鸡蛋等级');
   });
