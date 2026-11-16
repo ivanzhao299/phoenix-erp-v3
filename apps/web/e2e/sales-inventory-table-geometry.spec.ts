@@ -61,7 +61,7 @@ for (const viewport of [{ width: 2784, height: 1511 }, { width: 1440, height: 90
     await expect(page.getByText(companyDisplay, { exact: true }).first()).toBeVisible();
     await expect(page.locator('tbody tr').filter({ hasText: 'EGG-20260908-00001' })).toContainText('PRD-EGG-GRADE_1');
     await page.screenshot({ path: testInfo.outputPath(`inventory-${viewport.width}x${viewport.height}.png`), fullPage: true });
-    const batchGeometry = await assertDesktopGeometry(page.locator('tbody tr').filter({ hasText: 'BATCH-GEOMETRY-20260906' }), 4, 5, 6);
+    const batchGeometry = await assertDesktopGeometry(page.locator('tbody tr').filter({ hasText: 'BATCH-GEOMETRY-20260906' }), 5, 6, 7);
     await page.getByRole('button', { name: '临期库存' }).click();
     const expiringGeometry = await assertDesktopGeometry(page.locator('tbody tr').filter({ hasText: 'BATCH-GEOMETRY-20260906' }), 4, 5);
     await testInfo.attach('cell-geometry.json', { body: JSON.stringify({ viewport, batchGeometry, expiringGeometry }, null, 2), contentType: 'application/json' });
