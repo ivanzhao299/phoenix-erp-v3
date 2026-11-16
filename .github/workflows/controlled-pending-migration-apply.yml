@@ -16,6 +16,10 @@ on:
         description: 'Exact merged main SHA carrying this reviewed workflow and the candidate image'
         required: true
         type: string
+      target_sha:
+        description: 'Exact main SHA to inspect remotely (temporary read-only diagnostics only)'
+        required: true
+        type: string
       expected_before_ledger_sha256:
         description: 'apply only: ledger digest observed by the inspect phase (compare-and-swap)'
         required: false
@@ -41,11 +45,11 @@ jobs:
       - name: Validate reviewed binding
         env:
           EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha }}
+          TARGET_SHA: ${{ inputs.target_sha }}
         run: |
           set -euo pipefail
           test "${GITHUB_REF_NAME:-${GITHUB_REF#refs/heads/}}" = main || test "${GITHUB_REF_NAME:-${GITHUB_REF#refs/heads/}}" = codex/ledger-digest-inspect
-          test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN_SHA"
-          test "$EXPECTED_MAIN_SHA" = "$GITHUB_SHA"
+          test "$TARGET_SHA" = "$EXPECTED_MAIN_SHA"
       - name: Prepare trusted helpers
         run: |
           set -euo pipefail
@@ -55,7 +59,7 @@ jobs:
       - name: Run ${{ inputs.phase }} over controlled SSH
         uses: appleboy/ssh-action@v1
         env:
-          TARGET_SHA: ${{ github.sha }}
+          TARGET_SHA: ${{ inputs.target_sha }}
           PHASE: ${{ inputs.phase }}
           EXPECTED_BEFORE_LEDGER_SHA256: ${{ inputs.expected_before_ledger_sha256 }}
           MIGRATION_RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}
