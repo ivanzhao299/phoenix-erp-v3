@@ -50,7 +50,24 @@ export async function readAudit(client) {
       COUNT(*) FILTER (WHERE UPPER(COALESCE(NULLIF(BTRIM(grade_code_std), ''), NULLIF(BTRIM(quality_grade), ''), '')) <> ALL($2)
                         AND inventory_class <> 'STANDARD')::int AS standard_mismatches,
       COUNT(*) FILTER (WHERE inventory_class IS NULL)::int AS null_classes,
-      COUNT(*) FILTER (WHERE inventory_class NOT IN ('STANDARD', 'DEFECT_SALE'))::int AS invalid_classes
+      COUNT(*) FILTER (WHERE inventory_class NOT IN ('STANDARD', 'DEFECT_SALE'))::int AS invalid_classes,
+      COUNT(*) FILTER (
+        WHERE UPPER(COALESCE(NULLIF(BTRIM(grade_code_std), ''), NULLIF(BTRIM(quality_grade), ''), '')) = ANY($1)
+          AND NOT (
+            status = 'AVAILABLE'
+            AND (expire_date IS NULL OR expire_date >= CURRENT_DATE)
+            AND NULLIF(BTRIM(company_code), '') IS NOT NULL
+            AND NULLIF(BTRIM(warehouse_code), '') IS NOT NULL
+            AND NULLIF(BTRIM(sku_code), '') IS NOT NULL
+            AND EXISTS (
+              SELECT 1 FROM wms_warehouses w
+               WHERE w.warehouse_code = inv_batches.warehouse_code
+                 AND w.status = 'ACTIVE'
+                 AND w.domain = 'OPERATIONAL'
+                 AND (w.type = 'EGG_FARM' OR (w.type = 'EGG_SALES' AND w.owner_store_id IS NULL))
+            )
+          )
+      )::int AS unsafe_defect_batches
     FROM inv_batches
   `, [DEFECT_GRADES, LIVE_GRADES]);
   return result.rows[0] ?? {};
@@ -62,8 +79,9 @@ export async function applyBackfill(client, { dryRun = false, log = console.log 
     await client.query("SELECT pg_advisory_xact_lock(hashtext('inventory-class-backfill'))");
     const audit = await readAudit(client);
     if (Number(audit.null_classes) > 0 || Number(audit.invalid_classes) > 0
-      || Number(audit.grade_conflicts) > 0 || Number(audit.unknown_grade_batches) > 0) {
-      throw new Error('存在库存分类为空/非法、等级字段冲突或未知等级，先完成数据审计后再执行回填');
+      || Number(audit.grade_conflicts) > 0 || Number(audit.unknown_grade_batches) > 0
+      || Number(audit.unsafe_defect_batches) > 0) {
+      throw new Error('存在库存分类为空/非法、等级字段冲突、未知等级或不满足养鸡场可售条件的缺陷批次，先完成数据审计后再执行回填');
     }
     await client.query(`
       UPDATE inv_batches
