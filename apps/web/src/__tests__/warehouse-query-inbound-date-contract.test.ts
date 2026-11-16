@@ -13,6 +13,6 @@ describe('warehouse inventory inbound-date column contract', () => {
     expect(status).toBeLessThan(inbound);
     expect(inbound).toBeLessThan(expiry);
     expect(page).toContain('formatWarehouseBatchDate(row.inbound_date)');
-    expect(page.match(/colSpan=\{9\}/g)).toHaveLength(2);
+    expect(page.match(/colSpan=\{11\}/g)).toHaveLength(2);
   });
 });

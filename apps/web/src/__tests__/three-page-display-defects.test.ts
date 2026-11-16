@@ -68,7 +68,7 @@ describe('three-page display defect regressions', () => {
     const css = read('src/app/(admin)/sales2/inventory/inventory.module.css');
     const fixture = '老挝凤凰农业发展有限公司（COMP-LAO-AGRI）';
     expect(fixture).toContain('COMP-LAO-AGRI');
-    expect(page.match(/<col className=\{styles\.(?:batchNo|sku|product|grade|company|availableQty|totalQty|status|productionDate|expiryDate|source)Col\} \/>/g)).toHaveLength(11);
+    expect(page.match(/<col className=\{styles\.(?:batchNo|sku|product|grade|company|availableQty|totalQty|status|productionDate|expiryDate|source)Col\} \/>/g)).toHaveLength(12);
     expect(page.match(/<col className=\{styles\.expiring(?:BatchNo|Sku|Product|Grade|Company|Qty|Date|Days|Status)Col\} \/>/g)).toHaveLength(9);
     expect(css).toContain('width: 1520px; min-width: 1520px');
     expect(css).toContain('width: 1210px; min-width: 1210px');

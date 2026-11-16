@@ -75,9 +75,14 @@ describePg('SALES_ORDER ApprovalEngine + PostgreSQL integration', () => {
 
   async function fixture(status = 'PENDING_APPROVAL') {
     const suffix = randomUUID().slice(0, 8);
+    await runner.manager.query(
+      `INSERT INTO wms_warehouses(warehouse_code,warehouse_name,company_code,type,status,domain)
+       VALUES('PG-WH','PG integration farm warehouse','PG-IT','EGG_FARM','ACTIVE','OPERATIONAL')
+       ON CONFLICT (warehouse_code) DO NOTHING`,
+    );
     const [order] = await runner.manager.query(
-      `INSERT INTO sal_sales_orders(order_no,company_code,currency_code,status,total_amount)
-       VALUES($1,'PG-IT','LAK',$2,100) RETURNING id,order_no`, [`SO-PG-${suffix}`, status],
+      `INSERT INTO sal_sales_orders(order_no,company_code,currency_code,status,total_amount,fulfillment_warehouse_code)
+       VALUES($1,'PG-IT','LAK',$2,100,'PG-WH') RETURNING id,order_no`, [`SO-PG-${suffix}`, status],
     );
     const [instance] = await runner.manager.query(
       `INSERT INTO wf_approval_instances(instance_no,module_code,biz_type,biz_id,biz_no,total_steps,current_step_no,status,trigger_codes,context_snapshot)
@@ -152,7 +157,7 @@ describePg('SALES_ORDER ApprovalEngine + PostgreSQL integration', () => {
     registry.register('SALES_ORDER', {
       ...registry.get('SALES_ORDER')!,
       onApproved: async (bizId, mgr) => {
-        await inventory.reserveInventory(String(bizId), order.order_no, 'PG-IT', mgr);
+        await inventory.reserveInventory(String(bizId), order.order_no, 'PG-IT', mgr, 'PG-WH');
         await mgr.query(
           `INSERT INTO sal_order_lifecycle_events(event_id,sales_order_id,order_no,event_type,actor_type,source_module)
            VALUES($1,$2,$3,'APPROVED','WORKFLOW','WORKFLOW')`, [randomUUID(), bizId, order.order_no],
@@ -231,7 +236,7 @@ describePg('SALES_ORDER ApprovalEngine + PostgreSQL integration', () => {
     );
     const txDataSource = { query: (...args: any[]) => runner.manager.query(args[0], args[1]) } as DataSource;
     const inventory = new EggInventoryService(txDataSource, { get: jest.fn() } as any);
-    await inventory.reserveInventory(String(order.id), order.order_no, 'PG-IT', runner.manager);
+    await inventory.reserveInventory(String(order.id), order.order_no, 'PG-IT', runner.manager, 'PG-WH');
     await inventory.releaseInventory(String(order.id), order.order_no, 'PG-IT', runner.manager);
     await inventory.releaseInventory(String(order.id), order.order_no, 'PG-IT', runner.manager);
     const rows = await runner.manager.query(
