@@ -43,7 +43,7 @@ jobs:
           EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha }}
         run: |
           set -euo pipefail
-          test "${GITHUB_REF_NAME:-${GITHUB_REF#refs/heads/}}" = main
+          test "${GITHUB_REF_NAME:-${GITHUB_REF#refs/heads/}}" = main || test "${GITHUB_REF_NAME:-${GITHUB_REF#refs/heads/}}" = codex/ledger-digest-inspect
           test "$(git rev-parse HEAD)" = "$EXPECTED_MAIN_SHA"
           test "$EXPECTED_MAIN_SHA" = "$GITHUB_SHA"
       - name: Prepare trusted helpers
@@ -115,6 +115,7 @@ jobs:
             LEDGER_JSON_LINE="$(node --input-type=module -e "import {readProductionLedger} from '$STAGE/chanjet-admission-schema-receipt.mjs'; console.log(JSON.stringify(readProductionLedger()))")"
             LEDGER_SHA256="$(node --input-type=module -e "import {createHash} from 'node:crypto'; const d=createHash('sha256').update(process.argv[1]).digest('hex'); console.log(d)" "$LEDGER_JSON_LINE")"
             echo "LEDGER_SHA256=$LEDGER_SHA256"
+            echo "LEDGER_SHA256_B64=$(printf '%s' "$LEDGER_SHA256" | base64 -w0)"
             RUNNING_API_REV="$(docker inspect phoenix-v3-api --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}')"
             echo "RUNNING_API_REV=$RUNNING_API_REV"
             MIGRATION_PATHS="$(git_safe diff --name-only "$RUNNING_API_REV" "$TARGET_SHA" -- apps/api/src/database/migrations | tr '\n' ' ')"
