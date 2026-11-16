@@ -40,7 +40,7 @@ const url = process.env.PACKAGING_TEST_DATABASE_URL;
       CREATE TABLE pkg_audit_logs(entity_type text,entity_id text,action text,after_data jsonb,reason text,operator_id integer);
       CREATE TABLE inv_batches(id serial PRIMARY KEY,batch_no text UNIQUE,product_code text,company_code text,warehouse_code text,location_code text,
         egg_date date,inbound_date date,expire_date date,quality_grade text,packaging_spec text,source_type text,source_no text,qty numeric,qty_available numeric,status text,
-        sku_code text,grade_code_std text,spec_code text,variety_code text,source_profile_code text,source_profile_snapshot jsonb,packaging_batch_ref text,collection_batch_ref text,unit text,base_quantity_version smallint,created_at timestamp,updated_at timestamp);
+        sku_code text,grade_code_std text,spec_code text,variety_code text,source_profile_code text,source_profile_snapshot jsonb,packaging_batch_ref text,collection_batch_ref text,unit text,base_quantity_version smallint,inventory_class text DEFAULT 'STANDARD',created_at timestamp,updated_at timestamp);
       CREATE TABLE inv_ledger(id serial PRIMARY KEY,batch_no text,change_type text,qty_change numeric,operator text,store_code text,ref_no text,note text,batch_expire_date date,
         quality_grade text,company_code text,sku_code text,log_date date,warehouse_code text,location_code text);
       INSERT INTO mst_products VALUES ('REGISTERED-PRODUCT','ACTIVE','枚','枚');
