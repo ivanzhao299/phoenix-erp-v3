@@ -211,7 +211,7 @@ case "$R_V2_1" in 4*) green "  ✓ T8-V2.1 校验失败拦截 (HTTP $R_V2_1)"; P
 V2_TASK_STATUS=$($PSQL $DB -tA -c "SELECT status FROM wms_inbound WHERE task_no='$TASK_V2';")
 assert_eq "T8-V2.1.1 task 仍 PENDING" "PENDING" "$V2_TASK_STATUS"
 
-# T8-V2.2 正确入库 — actual=80 broken=20 expected=100 → AVAILABLE batch +80 + QUARANTINE batch +20
+# T8-V2.2 正确入库 — actual=80 broken=20 expected=100 → STANDARD batch +80 + DEFECT_SALE batch +20
 R_V2_2=$(curl -s -o /tmp/v2_ib2.json -w '%{http_code}' -X POST "$API/api/inbound/confirm" \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   -d "{\"task_no\":\"$TASK_V2\",\"items\":[{\"batch_no\":\"$BATCH_V2\",\"material_code\":\"$MATERIAL_CODE\",\"item_type\":\"MATERIAL\",\"actual_qty\":80,\"broken_qty\":20,\"expected_qty\":100,\"warehouse_code\":\"$WH_A\"}]}")
@@ -224,11 +224,11 @@ assert_eq "T8-V2.2.1 AVAILABLE batch qty=80" "80" "$QTY_AV"
 STAT_AV=$($PSQL $DB -tA -c "SELECT status FROM inv_batches WHERE batch_no='$BATCH_V2';")
 assert_eq "T8-V2.2.2 AVAILABLE batch.status=AVAILABLE" "AVAILABLE" "$STAT_AV"
 QTY_BRK=$($PSQL $DB -tA -c "SELECT qty::integer FROM inv_batches WHERE batch_no='$BATCH_V2-BROKEN';")
-assert_eq "T8-V2.2.3 QUARANTINE batch qty=20" "20" "$QTY_BRK"
+assert_eq "T8-V2.2.3 DEFECT_SALE batch qty=20" "20" "$QTY_BRK"
 STAT_BRK=$($PSQL $DB -tA -c "SELECT status FROM inv_batches WHERE batch_no='$BATCH_V2-BROKEN';")
-assert_eq "T8-V2.2.4 QUARANTINE batch.status=QUARANTINE" "QUARANTINE" "$STAT_BRK"
+assert_eq "T8-V2.2.4 DEFECT_SALE batch.status=AVAILABLE" "AVAILABLE" "$STAT_BRK"
 AVAIL_BRK=$($PSQL $DB -tA -c "SELECT qty_available::integer FROM inv_batches WHERE batch_no='$BATCH_V2-BROKEN';")
-assert_eq "T8-V2.2.5 QUARANTINE batch.qty_available=0" "0" "$AVAIL_BRK"
+assert_eq "T8-V2.2.5 DEFECT_SALE batch.qty_available=20" "20" "$AVAIL_BRK"
 
 # T8-V2.3 幂等：再次 confirmInbound → 拒绝
 R_V2_3=$(curl -s -o /tmp/v2_ib3.json -w '%{http_code}' -X POST "$API/api/inbound/confirm" \
