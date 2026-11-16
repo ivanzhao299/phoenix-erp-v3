@@ -43,6 +43,16 @@ describe('StoreInventoryQueryService', () => {
     expect(rowsSql).toContain('ledger.change_type AS ledger_change_type');
   });
 
+  it('keeps DEFECT_SALE batches out of the store inventory query', async () => {
+    const { service, ds } = setup();
+    await service.query({ storeCode: 'STORE-A' });
+    const inventoryQueries = ds.query.mock.calls
+      .map((call: any[]) => String(call[0]))
+      .filter((sql: string) => sql.includes('FROM inv_batches'));
+    expect(inventoryQueries.length).toBeGreaterThanOrEqual(2);
+    expect(inventoryQueries.every((sql: string) => /COALESCE\(b\.inventory_class,'STANDARD'\)='STANDARD'/i.test(sql))).toBe(true);
+  });
+
   it('projects localized names and searches all three SKU name fields without dropping code search', async () => {
     const { service, ds } = setup();
     await service.query({ storeCode: 'STORE-A', sku: 'ໄຂ່' });

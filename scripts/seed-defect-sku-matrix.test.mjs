@@ -19,13 +19,13 @@ test('retired defect grades never re-enter the matrix', () => {
   assert.ok(defectSkuMatrix().every(row => !RETIRED_DEFECT_GRADES.includes(row.grade_code)));
 });
 
-test('every defect SKU is stock-scoped, never sale-enabled, org-gated', () => {
+test('every defect SKU is stock-scoped and sale-enabled for farm ordinary sales', () => {
   for (const row of defectSkuMatrix()) {
     assert.equal(row.status, 'ACTIVE');
     assert.equal(row.org_context_required, true);
     assert.equal(row.scope.scope_type, 'COMPANY');
     assert.equal(row.scope.stock_enabled, true);
-    assert.equal(row.scope.sale_enabled, false);
+    assert.equal(row.scope.sale_enabled, true);
     assert.equal(row.scope.status, 'ACTIVE');
   }
 });

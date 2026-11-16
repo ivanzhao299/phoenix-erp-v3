@@ -18,8 +18,7 @@ import request from '@/lib/api-client';
  * 过滤语义与 API 对齐（egg-inventory.service 的 COALESCE(stock_managed, is_storable)）：
  *   onlyStorable  → stock_managed ?? is_storable
  *   onlySaleable  → sale_enabled ?? is_saleable
- * 缺陷档（脏/破）stock_managed=true 但 sale_enabled=false：
- * 入库表单必须显示（sale_enabled 只影响销售 FIFO），销售侧才按 onlySaleable 过滤。
+ * 缺陷档（脏/破）也可进入养鸡场普通销售；直营门店/POS 由后端 inventory_class=DEFECT_SALE 拦截。
  *
  * 替代历史多源（均已统一到 product_grades）：
  *   ✗ 硬编码 EGG_GRADES 0-5（已废）
@@ -78,10 +77,10 @@ const FALLBACK: ProductGrade[] = [
     stock_managed: true, sale_enabled: true, default_stock_status: 'AVAILABLE', status: 'ACTIVE' },
   { grade_code: 'GRADE_5', grade_name: '5号蛋', sort_order: 50, is_saleable: true, is_storable: true,
     stock_managed: true, sale_enabled: true, default_stock_status: 'AVAILABLE', status: 'ACTIVE' },
-  { grade_code: 'DIRTY',   grade_name: '脏蛋',   sort_order: 60, is_saleable: false, is_storable: true,
-    stock_managed: true, sale_enabled: false, default_stock_status: 'QUARANTINE', status: 'ACTIVE' },
-  { grade_code: 'BROKEN',  grade_name: '破损蛋', sort_order: 80, is_saleable: false, is_storable: true,
-    stock_managed: true, sale_enabled: false, default_stock_status: 'DAMAGED', status: 'ACTIVE' },
+  { grade_code: 'DIRTY',   grade_name: '脏蛋',   sort_order: 60, is_saleable: true, is_storable: true,
+    stock_managed: true, sale_enabled: true, default_stock_status: 'AVAILABLE', status: 'ACTIVE' },
+  { grade_code: 'BROKEN',  grade_name: '破损蛋', sort_order: 80, is_saleable: true, is_storable: true,
+    stock_managed: true, sale_enabled: true, default_stock_status: 'AVAILABLE', status: 'ACTIVE' },
 ];
 
 export function useProductGrades(opts: UseProductGradesOpts = {}) {

@@ -919,7 +919,10 @@ export class StorePosService {
         // FIFO 批次查询
       let batches: any[];
       if (item.quantity_snapshot) {
-        batches = await sharedBatches(mgr, sale.company_code, sale.warehouseCodes, item.quantity_snapshot);
+        const shared = await sharedBatches(mgr, sale.company_code, sale.warehouseCodes, item.quantity_snapshot);
+        // sharedBatches is also used by farm sales and therefore cannot carry
+        // the store-only pool restriction itself.  POS must fail closed here.
+        batches = shared.filter((batch: any) => String(batch.inventory_class || 'STANDARD').toUpperCase() === 'STANDARD');
       } else if (useSkuPath) {
           // PATH A: 按 sku_code 精确匹配
           batches = await mgr.query(
@@ -929,6 +932,7 @@ export class StorePosService {
                AND company_code = $2
                AND warehouse_code = ANY($3::varchar[])
                AND status = 'AVAILABLE'
+               AND COALESCE(inventory_class, 'STANDARD') = 'STANDARD'
                AND qty_available > 0
                AND (expire_date IS NULL OR expire_date >= CURRENT_DATE)
                AND legacy_source IS NULL
@@ -952,6 +956,7 @@ export class StorePosService {
                AND company_code = $2
                AND warehouse_code = ANY($3::varchar[])
                AND status = 'AVAILABLE'
+               AND COALESCE(inventory_class, 'STANDARD') = 'STANDARD'
                AND qty_available > 0
                AND (expire_date IS NULL OR expire_date >= CURRENT_DATE)
                AND legacy_source IS NULL
@@ -1194,9 +1199,11 @@ export class StorePosService {
       const batchNo = `RET-${sale.sale_no}-${allocation.id}`;
       await mgr.query(
         `INSERT INTO inv_batches
-           (batch_no, product_code, company_code, qty, qty_available, quality_grade,
+           (batch_no, product_code, company_code, qty, qty_available, quality_grade, inventory_class,
             packaging_spec, source_type, source_no, status, sku_code, warehouse_code, location_code, grade_code_std, spec_code, unit, egg_date, expire_date, base_quantity_version, inbound_date, created_at, updated_at)
-         VALUES ($1,$2,$3,$4,0,$5,$6,'STORE_RETURN',$7,'QUARANTINE',$8,$9,$10,$11,$12,$13,$14,$15,$16,CURRENT_DATE,NOW(),NOW())
+         VALUES ($1,$2,$3,$4,0,$5,
+           CASE WHEN UPPER(COALESCE($5,'')) IN ('DIRTY','BROKEN') THEN 'DEFECT_SALE' ELSE 'STANDARD' END,
+           $6,'STORE_RETURN',$7,'QUARANTINE',$8,$9,$10,$11,$12,$13,$14,$15,$16,CURRENT_DATE,NOW(),NOW())
          ON CONFLICT (batch_no) DO UPDATE SET
            qty           = inv_batches.qty + EXCLUDED.qty,
            qty_available = 0,

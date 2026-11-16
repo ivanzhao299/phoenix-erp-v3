@@ -20,6 +20,7 @@ interface InvBatch {
   company_code: string;
   qty: number;
   qty_available: number;
+  inventory_class?: 'STANDARD' | 'DEFECT_SALE' | string | null;
   status: string;
   egg_date: string | null;
   expire_date: string | null;
@@ -149,12 +150,14 @@ function fmtDate(value: string | null | undefined): string {
 }
 function gradeColor(grade: string | null): string {
   const map: Record<string, string> = {
-    AA: 'var(--color-accent)',
-    A: 'var(--status-success)',
-    B: 'var(--status-warning)',
+    GRADE_0: 'var(--color-accent)',
+    GRADE_1: 'var(--status-success)',
+    GRADE_2: 'var(--status-success)',
+    GRADE_3: 'var(--status-warning)',
+    GRADE_4: 'var(--status-warning)',
+    GRADE_5: 'var(--status-warning)',
     DIRTY: 'var(--color-purple-600)',
-    CRACKED: 'var(--status-danger)',
-    DAMAGED: 'var(--status-danger)'
+    BROKEN: 'var(--status-danger)'
   };
   return map[grade ?? ''] ?? 'var(--gray-500)';
 }
@@ -334,7 +337,7 @@ function BatchesTab() {
   const [error, setError] = useState('');
   const [productCode, setProductCode] = useState('EGG');
   const [gradeCode, setGradeCode] = useState('');
-  const { grades: productGrades } = useProductGrades(); // G20-1 9 档权威源
+  const { grades: productGrades } = useProductGrades(); // 8 档权威源
   const [companyCode, setCompanyCode] = useState('');
   const [skuCodeFilter, setSkuCodeFilter] = useState('');
 
@@ -344,7 +347,7 @@ function BatchesTab() {
   const [form, setForm] = useState({
     companyCode: '',
     eggDate: '',
-    qualityGrade: 'AA',
+    qualityGrade: 'GRADE_0',
     packagingSpec: '',
     productCode: 'EGG',
     qty: '',
@@ -439,7 +442,7 @@ function BatchesTab() {
   return <div>
       {/* 搜索栏 */}
       <div className={styles.filters}>
-        {/* G20-1：SKU 过滤器加 sku_name 显示；等级走 product_grades 9 档而非硬编码枚举 */}
+        {/* SKU 过滤器加 sku_name 显示；等级走 product_grades 8 档而非硬编码枚举 */}
         <select value={skuCodeFilter} onChange={e => {
         setSkuCodeFilter(e.target.value);
       }} style={{
@@ -571,8 +574,7 @@ function BatchesTab() {
               color: 'var(--gray-400)'
             } : {})
           }}>
-                {/* AA/A/B 为历史批次筛选保留；缺陷档按 8 档制只列 DIRTY/BROKEN（CRACKED/DAMAGED 已永久退役） */}
-                {['AA', 'A', 'B', 'DIRTY', 'BROKEN'].map(g => <option key={g} value={g}>{g}</option>)}
+                {productGrades.map(g => <option key={g.grade_code} value={g.grade_code}>{g.grade_name || g.grade_code}</option>)}
               </select>
             </label>
           </div>
@@ -606,6 +608,7 @@ function BatchesTab() {
               <col className={styles.skuCol} />
               <col className={styles.productCol} />
               <col className={styles.gradeCol} />
+              <col className={styles.gradeCol} />
               <col className={styles.companyCol} />
               <col className={styles.availableQtyCol} />
               <col className={styles.totalQtyCol} />
@@ -616,11 +619,11 @@ function BatchesTab() {
             </colgroup>
             <thead>
               <tr>
-                {[t('ui.批次号','批次号'), t('ui.商品组合','商品组合'), t('ui.产品代码','产品代码'), t('ui.等级','等级'), t('ui.公司','公司'), t('ui.可用量','可用量'), t('ui.总量','总量'), t('ui.状态','状态'), t('ui.生产日期','生产日期'), t('ui.到期日','到期日'), t('ui.来源','来源')].map(h => <th key={h}>{h}</th>)}
+                {[t('ui.批次号','批次号'), t('ui.商品组合','商品组合'), t('ui.产品代码','产品代码'), t('ui.等级','等级'), t('ui.库存分类','库存分类'), t('ui.公司','公司'), t('ui.可用量','可用量'), t('ui.总量','总量'), t('ui.状态','状态'), t('ui.生产日期','生产日期'), t('ui.到期日','到期日'), t('ui.来源','来源')].map(h => <th key={h}>{h}</th>)}
               </tr>
             </thead>
             <tbody>
-              {batches.length === 0 && <tr><td colSpan={11} style={{
+              {batches.length === 0 && <tr><td colSpan={12} style={{
               textAlign: 'center',
               color: 'var(--gray-400)',
               padding: 40
@@ -637,6 +640,11 @@ function BatchesTab() {
                       {b.quality_grade ?? '—'}
                     </span>
                   </td>
+                  <td style={compactCellStyle}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', borderRadius: 999, padding: '2px 7px', fontSize: 11, fontWeight: 700, color: b.inventory_class === 'DEFECT_SALE' ? 'var(--status-warning-dark)' : 'var(--status-success-dark)', background: b.inventory_class === 'DEFECT_SALE' ? 'var(--status-warning-bg-page)' : 'var(--status-success-bg-page)' }}>
+                      {b.inventory_class === 'DEFECT_SALE' ? t('ui.缺陷销售库存','缺陷销售库存') : t('ui.普通销售库存','普通销售库存')}
+                    </span>
+                  </td>
                   <td style={compactCellStyle}><span className={styles.companyCell} title={formatMasterData(b as unknown as Record<string, unknown>, 'company_name', b.company_code, lang)}>{formatMasterData(b as unknown as Record<string, unknown>, 'company_name', b.company_code, lang)}</span></td>
                   <td className={`${styles.numericCell} ${styles.numericAccent}`}>{fmt(b.qty_available)}</td>
                   <td className={styles.numericCell}>{fmt(b.qty)}</td>
@@ -651,7 +659,7 @@ function BatchesTab() {
                 </tr>)}
             </tbody>
           </table>
-        </div><div className={styles.mobileCards}>{batches.length === 0 ? <div className={styles.emptyCard}>{t('ui.暂无数据','暂无数据')}</div> : batches.map(b => <article key={b.batch_no} className={styles.mobileCard}><header><SkuBadge skuCode={b.sku_code} row={b as unknown as Record<string, unknown>} lang={lang}/>{statusBadge(b.status,lang)}</header><code>{b.batch_no}</code><strong>{fmt(b.qty_available)} / {fmt(b.qty)}</strong><p>{formatMasterData(b as unknown as Record<string, unknown>,'product_name',b.product_code,lang)} · {b.quality_grade ?? '—'}</p><p>{formatMasterData(b as unknown as Record<string, unknown>,'company_name',b.company_code,lang)}</p><small>{fmtDate(b.egg_date)} → {fmtDate(b.expire_date)}</small><InventorySourceTrace batch={b}/></article>)}</div></>}
+        </div><div className={styles.mobileCards}>{batches.length === 0 ? <div className={styles.emptyCard}>{t('ui.暂无数据','暂无数据')}</div> : batches.map(b => <article key={b.batch_no} className={styles.mobileCard}><header><SkuBadge skuCode={b.sku_code} row={b as unknown as Record<string, unknown>} lang={lang}/>{statusBadge(b.status,lang)}</header><code>{b.batch_no}</code><strong>{fmt(b.qty_available)} / {fmt(b.qty)}</strong><p>{formatMasterData(b as unknown as Record<string, unknown>,'product_name',b.product_code,lang)} · {b.quality_grade ?? '—'}</p><p>{b.inventory_class === 'DEFECT_SALE' ? t('ui.缺陷销售库存','缺陷销售库存') : t('ui.普通销售库存','普通销售库存')} · {formatMasterData(b as unknown as Record<string, unknown>,'company_name',b.company_code,lang)}</p><small>{fmtDate(b.egg_date)} → {fmtDate(b.expire_date)}</small><InventorySourceTrace batch={b}/></article>)}</div></>}
     </div>;
 }
 
@@ -765,6 +773,7 @@ function ExpiringTab() {
 
 function FifoTab() {
   const { t } = useLanguage();
+  const { grades: productGrades } = useProductGrades();
   const [skus, setSkus] = useState<SkuItem[]>([]);
   const [form, setForm] = useState({
     productCode: 'EGG',
@@ -895,7 +904,7 @@ function FifoTab() {
           gradeCode: e.target.value
         }))} style={inputStyle}>
               <option value="">{t('ui.不限等级','不限等级')}</option>
-              {['AA', 'A', 'B'].map(g => <option key={g} value={g}>{g}</option>)}
+              {productGrades.map(g => <option key={g.grade_code} value={g.grade_code}>{g.grade_name || g.grade_code}</option>)}
             </select>
           </label>}
       </div>

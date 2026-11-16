@@ -7,6 +7,7 @@ import {
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
 import { ClsService } from 'nestjs-cls';
+import { resolveInventoryClass } from '../../wms/inventory-class-policy';
 
 /**
  * EggInventoryService — Sales V2 Phase 7 + Phase H4
@@ -58,6 +59,7 @@ export interface EggBatch {
   source_no: string | null;
   qty: number;
   qty_available: number;
+  inventory_class?: 'STANDARD' | 'DEFECT_SALE' | string | null;
   status: string;
   created_at: string;
   /** Phase H4: 关联 product_skus.sku_code（可选） */
@@ -111,6 +113,8 @@ const DEFAULT_SHELF_DAYS = 30;
 /** 临期预警阈值：7 天 */
 const EXPIRING_WARN_DAYS = 7;
 
+export type SalesInventoryContext = 'FARM_SALES' | 'STORE_POS';
+
 /** Validate before deriving the shared date namespace or writing inventory. */
 export function assertEggDate(value: string): void {
   if (typeof value !== 'string' || !/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(value)
@@ -137,6 +141,59 @@ export class EggInventoryService {
   /** 销售鸡蛋库存的产品族；EGG 是页面使用的族别名，不是精确产品码。 */
   private eggFamilyCondition(alias = 'b'): string {
     return `(${alias}.product_code = 'EGG' OR ${alias}.product_code LIKE 'PRD-EGG-%')`;
+  }
+
+  /** Farm/wholesale sales may consume both pools; store-owned warehouses are excluded. */
+  private farmWarehouseCondition(alias = 'b'): string {
+    return `EXISTS (
+      SELECT 1 FROM wms_warehouses sales_wh
+       WHERE sales_wh.warehouse_code = ${alias}.warehouse_code
+         AND sales_wh.status = 'ACTIVE'
+         AND sales_wh.domain = 'OPERATIONAL'
+         AND (sales_wh.type = 'EGG_FARM'
+              OR (sales_wh.type = 'EGG_SALES' AND sales_wh.owner_store_id IS NULL))
+    )`;
+  }
+
+  private inventoryClassCondition(context: SalesInventoryContext, alias = 'b'): string {
+    if (context === 'STORE_POS') {
+      return `${alias}.inventory_class = 'STANDARD' AND EXISTS (
+        SELECT 1 FROM wms_warehouses store_wh
+         WHERE store_wh.warehouse_code = ${alias}.warehouse_code
+           AND store_wh.status = 'ACTIVE'
+           AND store_wh.domain = 'OPERATIONAL'
+           AND store_wh.owner_store_id IS NOT NULL
+      )`;
+    }
+    if (context === 'FARM_SALES') {
+      return `${alias}.inventory_class IN ('STANDARD','DEFECT_SALE') AND ${this.farmWarehouseCondition(alias)}`;
+    }
+    throw new BadRequestException(`不支持的销售库存上下文: ${String(context)}`);
+  }
+
+  /** Resolve context from server-side warehouse metadata when callers omit it. */
+  private async resolveSalesContext(
+    mgr: EntityManager,
+    requested?: SalesInventoryContext,
+    warehouseCode?: string,
+  ): Promise<SalesInventoryContext> {
+    if (!warehouseCode) throw new BadRequestException('销售分配必须提供履约仓库，无法安全判定销售库存上下文');
+    const [warehouse] = await mgr.query(
+      `SELECT type, domain, status, owner_store_id FROM wms_warehouses WHERE warehouse_code=$1 FOR SHARE`,
+      [warehouseCode],
+    );
+    if (!warehouse || warehouse.status !== 'ACTIVE' || warehouse.domain !== 'OPERATIONAL') {
+      throw new BadRequestException(`履约仓库 ${warehouseCode} 不存在或不可用于销售`);
+    }
+    let derived: SalesInventoryContext;
+    if (warehouse.owner_store_id != null) derived = 'STORE_POS';
+    else if (warehouse.type === 'EGG_FARM' || warehouse.type === 'EGG_SALES') derived = 'FARM_SALES';
+    else throw new BadRequestException(`履约仓库 ${warehouseCode} 类型不支持销售库存分配`);
+    if (requested && requested !== derived) {
+      throw new ForbiddenException(`履约仓库 ${warehouseCode} 与销售库存上下文 ${requested} 不一致`);
+    }
+    if (requested) return requested;
+    return derived;
   }
 
   /** Only sale-enabled grades may enter a sales availability/FIFO path. */
@@ -555,19 +612,20 @@ export class EggInventoryService {
     // Phase H4: INSERT 增加三个 SKU 字段
     // 生产链路收口 Phase 1: source_type 参数化 + 追溯引用列
     const sourceType = params.sourceType ?? 'PRODUCTION';
+    const inventoryClass = resolveInventoryClass(grade);
     const [batch] = await (mgr ?? this.ds).query(
       `INSERT INTO inv_batches (
          batch_no, product_code, company_code, warehouse_code, location_code,
          egg_date, inbound_date, expire_date, quality_grade, packaging_spec,
          source_type, source_no,
          qty, qty_available, status,
-         sku_code, grade_code_std, spec_code, variety_code, source_profile_code, source_profile_snapshot,
+         sku_code, grade_code_std, spec_code, variety_code, source_profile_code, source_profile_snapshot, inventory_class,
          packaging_batch_ref, collection_batch_ref, unit, base_quantity_version,
          created_at, updated_at
        ) VALUES (
          $1,$2,$3,$4,$5,$6,$6,$7,$8,$9,$10,$11,$12::numeric,
          CASE WHEN $22 = 'AVAILABLE' THEN $12::numeric ELSE 0::numeric END,$22,
-         $13,$14,$15,$19,$20,$21::jsonb,
+         $13,$14,$15,$19,$20,$21::jsonb,$23,
          $16,$17,$18,1,
          NOW(),NOW()
        ) RETURNING *`,
@@ -592,6 +650,7 @@ export class EggInventoryService {
           varietyCode: profile.varietyCode, effectiveDate: profile.effectiveDate,
         }))) : null,
         inventoryStatus,
+        inventoryClass,
       ],
     );
 
@@ -629,11 +688,18 @@ export class EggInventoryService {
     includingExpiring?: boolean;
     /** Phase H4: 按 SKU 精确过滤（优先于 productCode + gradeCode） */
     skuCode?:           string;
+    salesContext?:      SalesInventoryContext;
+    warehouseCode?:     string;
   }): Promise<EggBatch[]> {
+    // Direct service callers without a trusted context fail closed to STANDARD;
+    // the farm sales controller supplies FARM_SALES explicitly.
+    const salesContext = params.salesContext ?? 'STORE_POS';
+    if (salesContext === 'STORE_POS' && !params.warehouseCode) return [];
     const conds: string[] = [
       `b.status = 'AVAILABLE'`,
       `b.qty_available > 0`,
       this.saleGradeCondition('b'),
+      this.inventoryClassCondition(salesContext),
     ];
     const args: unknown[] = [];
     let pi = 1;
@@ -651,6 +717,11 @@ export class EggInventoryService {
         args.push(params.productCode);
       }
       if (params.gradeCode)   { conds.push(`COALESCE(b.quality_grade, b.grade_code_std) = $${pi++}`); args.push(params.gradeCode); }
+    }
+
+    if (params.warehouseCode) {
+      conds.push(`b.warehouse_code = $${pi++}`);
+      args.push(params.warehouseCode);
     }
 
     const companyCodes = this.companyScope(params.companyCode);
@@ -732,11 +803,13 @@ export class EggInventoryService {
       skuCode?:     string;
       fulfillmentWarehouseCode?: string;
       quantitySnapshot?: QuantitySnapshot | null;
+      salesContext?: SalesInventoryContext;
     },
     mgr?: EntityManager,
   ): Promise<FifoAllocation[]> {
     if (!mgr) return this.ds.transaction(manager => this.allocateByFIFO(params, manager));
     const q = mgr.query.bind(mgr);
+    const salesContext = await this.resolveSalesContext(mgr, params.salesContext, params.fulfillmentWarehouseCode);
     if (params.skuCode !== undefined) await SkuPolicy.requireUsable(mgr, params.skuCode, 'sale-stock');
     else if (params.quantitySnapshot) await SkuPolicy.requireUsable(mgr, params.quantitySnapshot.skuCode, 'sale-stock');
 
@@ -765,6 +838,7 @@ export class EggInventoryService {
            AND legacy_sku.org_context_required=false
       ))`,
       this.saleGradeCondition('inv_batches'),
+      this.inventoryClassCondition(salesContext, 'inv_batches'),
     ];
     const args: unknown[] = [params.companyCode];
     let pi = 2;
@@ -799,8 +873,16 @@ export class EggInventoryService {
 
     // sharedBatches also serves stock-only flows, so apply the sales gate here,
     // under the same transaction's batch FOR UPDATE and SKU FOR SHARE locks.
+    // sharedBatches is a quantity-contract helper and does not know sales
+    // context; enforce the same inventory-class gate again before allocation.
+    const scopedBatches = batches.filter((batch: any) => {
+      const inventoryClass = String(batch.inventory_class ?? '').toUpperCase();
+      return salesContext === 'STORE_POS'
+        ? inventoryClass === 'STANDARD'
+        : inventoryClass === 'STANDARD' || inventoryClass === 'DEFECT_SALE';
+    });
     const legacyBatches: any[] = [];
-    for (const batch of batches) {
+    for (const batch of scopedBatches) {
       if (await this.isLegacySaleStock(batch.sku_code, mgr)) legacyBatches.push(batch);
     }
     const allocatableQty = legacyBatches.reduce((sum, batch) => sum + Number(batch.qty_available), 0);
@@ -826,7 +908,7 @@ export class EggInventoryService {
       // 扣减 qty_available（预留）
       const changed = await q(
         `WITH changed AS (
-           UPDATE inv_batches
+           UPDATE inv_batches AS inv_batches
               SET qty_available = qty_available - $1, updated_at=NOW()
             WHERE batch_no=$2
               AND company_code=$3
@@ -835,6 +917,7 @@ export class EggInventoryService {
               AND qty_available >= $1
               AND (expire_date IS NULL OR expire_date >= CURRENT_DATE)
               AND legacy_source IS NULL
+              AND ${this.inventoryClassCondition(salesContext, 'inv_batches')}
             RETURNING batch_no
          ) SELECT batch_no FROM changed`,
         [canTake, batch.batch_no, params.companyCode, batch.warehouse_code],
@@ -892,8 +975,9 @@ export class EggInventoryService {
     companyCode: string,
     mgr?: EntityManager,
     fulfillmentWarehouseCode?: string,
+    salesContext?: SalesInventoryContext,
   ): Promise<boolean> {
-    if (!mgr) return this.ds.transaction(manager => this.reserveInventory(orderId, orderNo, companyCode, manager, fulfillmentWarehouseCode));
+    if (!mgr) return this.ds.transaction(manager => this.reserveInventory(orderId, orderNo, companyCode, manager, fulfillmentWarehouseCode, salesContext));
     const q = mgr.query.bind(mgr);
     let createdAny = false;
     await q(`SELECT pg_advisory_xact_lock(hashtext($1))`, [`sales-order-reservation:${orderId}`]);
@@ -945,6 +1029,7 @@ export class EggInventoryService {
           note:    `销售订单 ${orderNo} 明细 ${item.id}`,
           skuCode: item.sku_code ?? undefined,   // Phase H5: SKU PATH A 优先
           fulfillmentWarehouseCode,
+          salesContext,
           quantitySnapshot: item.quantity_snapshot,
       }, mgr);
 
@@ -1192,10 +1277,10 @@ export class EggInventoryService {
         await q(
           `INSERT INTO inv_batches
              (batch_no, product_code, company_code, qty, qty_available,
-              quality_grade, source_type, source_no, status, unit, base_quantity_version,
+              quality_grade, source_type, source_no, status, inventory_class, unit, base_quantity_version,
               sku_code, grade_code_std, spec_code, warehouse_code, location_code, inbound_date,
               created_at, updated_at)
-           VALUES ($1,$2,$3,$4,0,$5,'RETURN',$6,'QUARANTINE',$13,$14,$7,$8,$9,$10,$11,$12::date,NOW(),NOW())`,
+           VALUES ($1,$2,$3,$4,0,$5,'RETURN',$6,'QUARANTINE',$15,$13,$14,$7,$8,$9,$10,$11,$12::date,NOW(),NOW())`,
           [
             batchNo, item.product_code, companyCode, accepted, returnGrade, returnNo,
             returnSkuCode,
@@ -1203,6 +1288,7 @@ export class EggInventoryService {
             returnGrade,
             item.quantity_snapshot?.specCode ?? item.packaging_spec ?? null,
             targetWarehouseCode, targetLocationCode, inboundDate, item.quantity_snapshot?.baseUnit ?? null, item.quantity_snapshot ? 1 : null,
+            resolveInventoryClass(returnGrade),
           ],
         );
 

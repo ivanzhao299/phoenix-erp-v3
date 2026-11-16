@@ -111,7 +111,9 @@ export class StoreReplenishmentService {
     for (const line of lines) {
       let needed = Number(line.requested_qty);
       const batches = await this.ds.query<any[]>(`SELECT batch_no,COALESCE(qty_available,qty) available FROM inv_batches
-        WHERE warehouse_code=$1 AND sku_code=$2 AND status='AVAILABLE' AND COALESCE(qty_available,qty)>0
+        WHERE warehouse_code=$1 AND sku_code=$2 AND status='AVAILABLE'
+          AND COALESCE(inventory_class,'STANDARD')='STANDARD'
+          AND COALESCE(qty_available,qty)>0
         ORDER BY expire_date NULLS LAST,created_at,batch_no`, [source, line.sku_code]);
       for (const batch of batches) {
         if (needed <= 0) break;

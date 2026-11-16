@@ -3,6 +3,7 @@ import { ConflictException, Injectable } from '@nestjs/common';
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
 import { PackagingInventoryIntegrationService } from '../sales-v2/services/packaging-inventory-integration.service'; // 生产链路收口 Phase 1
+import { resolveInventoryClass } from '../wms/inventory-class-policy';
 
 /**
  * PackagingService — V3 包装模块业务服务
@@ -535,24 +536,10 @@ export class PackagingService {
     // discrepancy_qty  = plan_qty - packed - presortTotal (差额；正=少 负=多)
     const packedQty = Object.values(gr).reduce((s, v) => s + Math.max(0, Number(v) || 0), 0);
     const presortTotal = presortXl + presortDirty + presortBrk;
-    // [Fix Pack 1 — HIGH-4] 从 product_grades 主数据表读取非可售等级，
-    // 不再读取 sys_dict PKG_EGG_GRADE（已迁移至 product_grades.is_saleable）
-    let nonSaleableCodes = new Set<string>();
-    try {
-      const gradeRows: Array<{ grade_code: string; is_saleable: boolean }> = await this.em.query(
-        `SELECT grade_code, is_saleable FROM product_grades WHERE status = 'ACTIVE'`,
-      );
-      if (!gradeRows.length) throw new Error('active grade master is empty');
-      for (const r of gradeRows) {
-        if (!r.is_saleable) {
-          nonSaleableCodes.add(r.grade_code);
-        }
-      }
-    } catch (error: any) {
-      throw new ConflictException(`等级主数据不可用，禁止提交分级结果: ${error?.message || 'unknown error'}`);
-    }
+    // 8 档口径下 DIRTY/BROKEN 进入统一 DEFECT_SALE 销售库存，不再按
+    // is_saleable=false 判定为不可售隔离等级。
     const nonSaleableQty = Object.entries(gr).reduce(
-      (s, [code, v]) => s + (nonSaleableCodes.has(code) ? Math.max(0, Number(v) || 0) : 0),
+      (s, [code, v]) => s + (resolveInventoryClass(code) === 'DEFECT_SALE' ? Math.max(0, Number(v) || 0) : 0),
       0,
     );
     const breakageQty = nonSaleableQty + presortBrk;

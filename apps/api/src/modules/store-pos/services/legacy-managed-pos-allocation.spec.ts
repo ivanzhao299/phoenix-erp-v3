@@ -5,11 +5,12 @@ type PosStock = {
   batch_no: string; sku_code: string | null; product_code: string; quality_grade: string; grade_code_std: string;
   company_code: string; warehouse_code: string; qty: number; qty_available: number; status: string;
   expire_date: string | null; created_at: string; legacy_source: string | null; unit: string; material_code: null; base_quantity_version: number;
+  inventory_class: 'STANDARD' | 'DEFECT_SALE';
 };
 const stock = (batch_no: string, sku_code: string | null, patch: Partial<PosStock> = {}): PosStock => ({
   batch_no, sku_code, product_code: 'PRD-EGG-X', quality_grade: 'G', grade_code_std: 'G', company_code: 'C', warehouse_code: 'W',
   qty: 10, qty_available: 10, status: 'AVAILABLE', expire_date: '2099-01-01', created_at: batch_no, legacy_source: null,
-  unit: '枚', material_code: null, base_quantity_version: 1, ...patch,
+  unit: '枚', material_code: null, base_quantity_version: 1, inventory_class: 'STANDARD', ...patch,
 });
 const snapshot: QuantitySnapshot = { version: 1, basis: 'BASE', skuCode: 'OLD', productCode: 'PRD-EGG-X', gradeCode: 'G', specCode: 'S', baseUnit: '枚', tradeUnit: '枚', factor: 1, baseQty: 5 };
 
@@ -56,6 +57,7 @@ class PosSqlFixture {
       if (!s.endsWith('FOR UPDATE')) throw new Error('FIFO candidates must be locked');
       let rows = this.batches.filter(b => b.status === 'AVAILABLE' && b.qty_available > 0
         && (!b.expire_date || b.expire_date >= '2026-11-11') && b.legacy_source == null);
+      rows = rows.filter(b => b.inventory_class !== 'DEFECT_SALE');
       rows = rows.filter(b => this.saleGrades.get(b.quality_grade || b.grade_code_std) !== false);
       const grade = s.match(/COALESCE\(quality_grade, grade_code_std\)\s*=\s*\$(\d+)/);
       if (grade) rows = rows.filter(b => (b.quality_grade || b.grade_code_std) === args[Number(grade[1]) - 1]);
@@ -144,6 +146,18 @@ describe('legacy POS managed-stock gate (behavioral SQL fixture)', () => {
     const f = new PosSqlFixture();
     f.batches = [stock(`DEFECT-${grade}`, null, { quality_grade: grade, grade_code_std: grade, qty_available: 5 })];
     await expect(f.settle([{ id: 1, product_code: 'PRD-EGG-X', grade_code: grade, qty: 1 }])).rejects.toThrow('缺 1');
+    expect(f.writes).toBe(0);
+    expect(f.allocations).toEqual([]);
+    expect(f.ledger).toEqual([]);
+  });
+
+  it('never allocates DEFECT_SALE through POS even if the grade master is sale-enabled', async () => {
+    const f = new PosSqlFixture();
+    f.saleGrades.set('DIRTY', true);
+    f.batches = [stock('DEFECT-CLASS', null, {
+      quality_grade: 'DIRTY', grade_code_std: 'DIRTY', inventory_class: 'DEFECT_SALE', qty_available: 5,
+    })];
+    await expect(f.settle([{ id: 1, product_code: 'PRD-EGG-X', grade_code: 'DIRTY', qty: 1 }])).rejects.toThrow('缺 1');
     expect(f.writes).toBe(0);
     expect(f.allocations).toEqual([]);
     expect(f.ledger).toEqual([]);

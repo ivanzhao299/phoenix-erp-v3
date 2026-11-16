@@ -64,7 +64,7 @@ describe('StoreReplenishmentService approver scope', () => {
       id: 7, status: 'SUBMITTED', request_no: 'SR-HS-1', store_code: 'STORE-HS-001',
       source_warehouse_code: null, target_warehouse_code: 'HS-STORE-WH',
     };
-    const { service, storeScope, wms } = build({ rows: [request] });
+    const { service, storeScope, wms, ds } = build({ rows: [request] });
 
     await expect(service.approve(7, { sourceWarehouseCode: 'DP-01' }, { username: 'liushanjun' }))
       .resolves.toMatchObject({ status: 'APPROVED' });
@@ -75,6 +75,8 @@ describe('StoreReplenishmentService approver scope', () => {
       expect.objectContaining({ storeCode: 'STORE-HS-001', warehouseCodes: ['HS-STORE-WH'] }),
     );
     expect(wms.createTransfer).not.toHaveBeenCalled();
+    const stockQuery = (ds.query.mock.calls as any[]).find(([sql]) => String(sql).includes('FROM inv_batches'));
+    expect(String(stockQuery?.[0])).toContain("COALESCE(inventory_class,'STANDARD')='STANDARD'");
   });
 
   it('rejects approval when the source warehouse is outside the approver scope', async () => {

@@ -48,6 +48,7 @@ export class EggInventoryController {
     @Query('companyCode')     companyCode?:     string,
     @Query('gradeCode')       gradeCode?:       string,
     @Query('includeExpiring') includeExpiring?: string,
+    @Query('warehouseCode')    warehouseCode?:    string,
     /** Phase H4: SKU 精确过滤（优先于 productCode + gradeCode） */
     @Query('skuCode')         skuCode?:         string,
   ) {
@@ -57,6 +58,10 @@ export class EggInventoryController {
       gradeCode,
       includingExpiring: includeExpiring === 'true',
       skuCode,
+      warehouseCode,
+      // This route is the farm/wholesale sales inventory surface. POS callers
+      // must use their own server-side context and cannot spoof it here.
+      salesContext: 'FARM_SALES',
     });
   }
 
@@ -120,6 +125,7 @@ export class EggInventoryController {
     qty:          number;
     refNo:        string;
     note?:        string;
+    warehouseCode?: string;
     /** Phase H4: SKU 优先分配路径 */
     skuCode?:     string;
   }) {
@@ -131,6 +137,8 @@ export class EggInventoryController {
       refNo:       body.refNo,
       note:        body.note ?? '手动分配',
       skuCode:     body.skuCode,
+      fulfillmentWarehouseCode: body.warehouseCode,
+      salesContext: 'FARM_SALES',
     });
   }
 

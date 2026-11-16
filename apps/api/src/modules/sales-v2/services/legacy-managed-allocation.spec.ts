@@ -5,7 +5,7 @@ type Stock = {
   batch_no: string; sku_code: string | null; product_code: string;
   company_code: string; warehouse_code: string; qty: number; qty_available: number;
   status: string; expire_date: string | null; created_at: string; legacy_source: string | null;
-  quality_grade: string; grade_code_std: string; unit: string; material_code: null; base_quantity_version: number;
+  quality_grade: string; grade_code_std: string; inventory_class: 'STANDARD' | 'DEFECT_SALE'; unit: string; material_code: null; base_quantity_version: number;
 };
 type Allocation = {
   id: string; sales_order_item_id: string; batch_no: string;
@@ -14,7 +14,7 @@ type Allocation = {
 const stock = (batch_no: string, sku_code: string | null, patch: Partial<Stock> = {}): Stock => ({
   batch_no, sku_code, product_code: 'PRD-EGG-X', company_code: 'C', warehouse_code: 'W',
   qty: 10, qty_available: 10, status: 'AVAILABLE', expire_date: '2099-01-01', created_at: batch_no,
-  legacy_source: null, quality_grade: 'G', grade_code_std: 'G', unit: '枚', material_code: null, base_quantity_version: 1,
+  legacy_source: null, quality_grade: 'G', grade_code_std: 'G', inventory_class: 'STANDARD', unit: '枚', material_code: null, base_quantity_version: 1,
   ...patch,
 });
 
@@ -59,6 +59,9 @@ class AllocationSqlFixture {
   private async execute(sql: string, args: unknown[]): Promise<any[]> {
     const s = sql.replace(/\s+/g, ' ').trim();
     if (s.includes('pg_advisory_xact_lock')) return [];
+    if (s.includes('SELECT type, domain, status, owner_store_id FROM wms_warehouses')) {
+      return [{ type: 'EGG_FARM', domain: 'OPERATIONAL', status: 'ACTIVE', owner_store_id: null }];
+    }
     if (/^SELECT .* FROM product_skus WHERE sku_code=\$1 FOR SHARE$/.test(s)) {
       if (this.failSkuRead) throw this.failSkuRead;
       const sku = this.skus.get(String(args[0]));
@@ -276,7 +279,7 @@ describe('legacy sales managed-stock allocation gate (behavioral SQL fixture)', 
   it.each(['VAR', 'STD0', 'MASKED'])('rejects manually selected %s stock during existing reservation and outbound', async skuCode => {
     const f = new AllocationSqlFixture();
     f.savedAllocation(skuCode);
-    await expect(f.service.reserveInventory('O', 'SO', 'C')).rejects.toThrow('旧销售预留禁止');
+    await expect(f.service.reserveInventory('O', 'SO', 'C', undefined, 'W')).rejects.toThrow('旧销售预留禁止');
     await expect(f.service.confirmOutbound('O', 'SO', 'C', 'D', 'D1', 5)).rejects.toThrow('旧销售出库禁止');
     expect(f.writes).toBe(0);
     expect(f.batches[0].qty).toBe(10);
@@ -287,7 +290,7 @@ describe('legacy sales managed-stock allocation gate (behavioral SQL fixture)', 
   it.each(['OLD', null])('retains existing reservation/outbound for ordinary stock %p', async skuCode => {
     const f = new AllocationSqlFixture();
     f.savedAllocation(skuCode);
-    await expect(f.service.reserveInventory('O', 'SO', 'C')).resolves.toBe(false);
+    await expect(f.service.reserveInventory('O', 'SO', 'C', undefined, 'W')).resolves.toBe(false);
     await expect(f.service.confirmOutbound('O', 'SO', 'C', 'D', 'D1', 5)).resolves.toBe(5);
     expect(f.batches[0].qty).toBe(5);
     expect(f.allocations[0].outbound_qty).toBe(5);
@@ -297,7 +300,7 @@ describe('legacy sales managed-stock allocation gate (behavioral SQL fixture)', 
     const f = new AllocationSqlFixture();
     f.savedAllocation('OLD');
     f.items[0].sku_code = skuCode;
-    await expect(f.service.reserveInventory('O', 'SO', 'C')).rejects.toThrow();
+    await expect(f.service.reserveInventory('O', 'SO', 'C', undefined, 'W')).rejects.toThrow();
     await expect(f.service.confirmOutbound('O', 'SO', 'C', 'D', 'D1', 5)).rejects.toThrow('旧销售出库禁止');
     expect(f.writes).toBe(0);
     expect(f.ledger).toEqual([]);
@@ -316,7 +319,7 @@ describe('legacy sales managed-stock allocation gate (behavioral SQL fixture)', 
     f.batches = [stock('OLD', 'OLD', { qty_available: 5 })];
     f.items = [{ id: 'I1', sales_order_id: 'O', product_code: 'PRD-EGG-X', qty: 3 },
       { id: 'I2', sales_order_id: 'O', product_code: 'PRD-EGG-X', qty: 3 }];
-    await expect(f.service.reserveInventory('O', 'SO', 'C')).rejects.toThrow('库存不足');
+    await expect(f.service.reserveInventory('O', 'SO', 'C', undefined, 'W')).rejects.toThrow('库存不足');
     expect(f.writes).toBe(1);
     expect(f.batches[0].qty_available).toBe(5);
     expect(f.allocations).toEqual([]);

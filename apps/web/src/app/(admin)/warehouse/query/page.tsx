@@ -27,6 +27,7 @@ export default function StockQueryPage() {
     const q = new URLSearchParams(window.location.search).get("q") ?? "";
     return q.trim() ? q : "";
   });
+  const [inventoryClass, setInventoryClass] = useState<"ALL" | "STANDARD" | "DEFECT_SALE">("ALL");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -56,8 +57,10 @@ export default function StockQueryPage() {
   }, [load]);
 
   const filteredRows = useMemo(() => {
-    return filterWarehouseBatchRows(rows, keyword);
-  }, [rows, keyword]);
+    const keywordRows = filterWarehouseBatchRows(rows, keyword);
+    if (inventoryClass === "ALL") return keywordRows;
+    return keywordRows.filter((row) => String(row.inventory_class || "STANDARD").toUpperCase() === inventoryClass);
+  }, [rows, keyword, inventoryClass]);
 
   const quantityGroups = useMemo(() => groupWarehouseQuantitiesByUnit(filteredRows), [filteredRows]);
 
@@ -113,6 +116,16 @@ export default function StockQueryPage() {
             fontSize: 14,
           }}
         />
+        <select
+          value={inventoryClass}
+          onChange={(e) => setInventoryClass(e.target.value as typeof inventoryClass)}
+          aria-label={t("ui.库存分类", "库存分类")}
+          style={{ border: "1px solid var(--border)", borderRadius: 8, background: "var(--bg-card)", color: "var(--text-primary)", padding: "8px 10px", minWidth: 150 }}
+        >
+          <option value="ALL">{t("ui.全部库存", "全部库存")}</option>
+          <option value="STANDARD">{t("ui.普通销售库存", "普通销售库存")}</option>
+          <option value="DEFECT_SALE">{t("ui.缺陷销售库存", "缺陷销售库存")}</option>
+        </select>
         <button type="button" onClick={load} disabled={loading} style={buttonStyle}>
           <RefreshCw size={15} />
           {loading ? t("ui.刷新中", "刷新中") : t("ui.刷新", "刷新")}
@@ -128,11 +141,13 @@ export default function StockQueryPage() {
         overflow: "hidden",
       }}>
         <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", minWidth: 860, borderCollapse: "collapse", fontSize: 13 }}>
+          <table style={{ width: "100%", minWidth: 1040, borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
               <tr style={{ background: "var(--bg-muted)", color: "var(--text-secondary)" }}>
                 <th style={thStyle}>{t("ui.批次号", "批次号")}</th>
                 <th style={thStyle}>{t("ui.库存品目", "库存品目")}</th>
+                <th style={thStyle}>{t("ui.质量等级", "质量等级")}</th>
+                <th style={thStyle}>{t("ui.库存分类", "库存分类")}</th>
                 <th style={thStyle}>{t("ui.仓库", "仓库")}</th>
                 <th style={thStyle}>{t("ui.库位", "库位")}</th>
                 <th style={thRightStyle}>{t("ui.库存数量", "库存数量")}</th>
@@ -144,9 +159,9 @@ export default function StockQueryPage() {
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={9} style={emptyStyle}>{t("ui.库存数据加载中", "库存数据加载中")}...</td></tr>
+                <tr><td colSpan={11} style={emptyStyle}>{t("ui.库存数据加载中", "库存数据加载中")}...</td></tr>
               ) : filteredRows.length === 0 ? (
-                <tr><td colSpan={9} style={emptyStyle}>
+                <tr><td colSpan={11} style={emptyStyle}>
                   <Warehouse size={24} />
                   {error ? t("ui.请先处理上方提示", "请先处理上方提示") : t("ui.当前权限范围内暂无库存批次", "当前权限范围内暂无库存批次")}
                 </td></tr>
@@ -167,6 +182,12 @@ export default function StockQueryPage() {
                       <div style={{ color: "var(--text-secondary)", fontSize: 11, marginTop: 2 }}>
                         {[row.item_type, row.material_type, row.unit].filter(Boolean).join(" · ") || "—"}
                       </div>
+                    </td>
+                    <td style={tdStyle}>{row.quality_grade || row.grade_code_std || "—"}</td>
+                    <td style={tdStyle}>
+                      <span style={statusPillStyle}>
+                        {String(row.inventory_class || "STANDARD").toUpperCase() === "DEFECT_SALE" ? t("ui.缺陷销售库存", "缺陷销售库存") : t("ui.普通销售库存", "普通销售库存")}
+                      </span>
                     </td>
                     <td style={tdStyle}>{formatMasterData(row as Record<string, unknown>, "warehouse_name", row.warehouse_code, lang)}</td>
                     <td style={tdStyle}>{formatMasterData(row as Record<string, unknown>, "location_name", row.location_code, lang)}</td>

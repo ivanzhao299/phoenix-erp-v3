@@ -382,7 +382,7 @@ describe('WmsService inventory read queries', () => {
       'INBOUND-DOCK',
       'ALL',
       'COMP-LAO-XINGCHI',
-      '2026-09-09', null, null, null, null,
+      '2026-09-09', 'A', null, null, null, 'STANDARD',
     ]);
 
     const insertLedgerCall = manager.query.mock.calls.find(([sql]) =>
@@ -465,7 +465,7 @@ describe('WmsService inventory read queries', () => {
         'INBOUND-DOCK',
         'ALL',
         'COMP-LAO-XINGCHI',
-        '2026-09-09', null, null, null, null,
+        '2026-09-09', 'A', null, null, null, 'STANDARD',
       ],
     );
     expect(manager.query).toHaveBeenCalledWith(
@@ -544,7 +544,7 @@ describe('WmsService inventory read queries', () => {
     );
     expect(manager.query).toHaveBeenCalledWith(
       expect.stringContaining('INSERT INTO inv_batches'),
-      ['IBN-RECEIVED-2', null, null, 'MAT-FEED-1', 'MATERIAL', 'FEED_RAW', 'kg', 2, 'WH-A', 'INBOUND-DOCK', 'ALL', 'COMP-LAO-XINGCHI', '2026-09-09', null, null, null, null],
+      ['IBN-RECEIVED-2', null, null, 'MAT-FEED-1', 'MATERIAL', 'FEED_RAW', 'kg', 2, 'WH-A', 'INBOUND-DOCK', 'ALL', 'COMP-LAO-XINGCHI', '2026-09-09', null, null, null, null, 'STANDARD'],
     );
   });
 
