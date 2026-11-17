@@ -935,7 +935,7 @@ export class StorePosService {
       } else if (useSkuPath) {
           // PATH A: 按 sku_code 精确匹配
           batches = await mgr.query(
-            `SELECT batch_no, warehouse_code, qty_available, expire_date, sku_code
+            `SELECT batch_no, warehouse_code, qty_available, expire_date, sku_code, unit_cost
              FROM inv_batches
              WHERE sku_code = $1
                AND company_code = $2
@@ -959,7 +959,7 @@ export class StorePosService {
           // PATH B: 旧 product+grade 匹配
           // 安全:grade_code 用绑定参数($3),严禁字符串插值(SQL 注入)
           batches = await mgr.query(
-            `SELECT batch_no, warehouse_code, qty_available, expire_date, sku_code
+            `SELECT batch_no, warehouse_code, qty_available, expire_date, sku_code, unit_cost
              FROM inv_batches
              WHERE product_code = $1
                AND company_code = $2
@@ -1044,6 +1044,9 @@ export class StorePosService {
             skuCode: batch.sku_code ?? null,
             companyCode: sale.company_code,
             warehouseCode: batch.warehouse_code,
+            // INV-401：POS 收银出库结转 = -canTake × 批次 unit_cost（批次成本法；
+            // sharedBatches 为 SELECT * 已含 unit_cost，历史批次 0 挂账）
+            costChange: -(canTake * Number(batch.unit_cost ?? 0)),
           });
       }
 
