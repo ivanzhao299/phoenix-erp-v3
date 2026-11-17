@@ -34,7 +34,7 @@ describeLive('Issue 400 live API ledger DOM', () => {
     vi.useRealTimers();
   });
 
-  it.each(['zh', 'en', 'lo'])('shows nine event codes, translated names and quantities from PG (%s)', async lang => {
+  it.each(['zh', 'en', 'lo'])('shows eight event codes, translated names and quantities from PG (%s)', async lang => {
     context.lang = lang;
     await act(async () => root.render(<DailyInboundLedgerPage />));
     // Finish the initial real request before changing the range; this avoids
@@ -75,21 +75,21 @@ describeLive('Issue 400 live API ledger DOM', () => {
     // Poll only DOM/network completion; no fixture response is substituted.
     for (let tries = 0; tries < 100; tries++) {
       await act(async () => { await new Promise(resolve => setTimeout(resolve, 20)); });
-      if (host.querySelectorAll('tbody tr').length === 9) break;
+      if (host.querySelectorAll('tbody tr').length === 8) break;
     }
     expect(fetch).toHaveBeenCalledWith('/api/farm/egg/ledger?start=2026-10-11&end=2026-10-11', expect.any(Object));
-    expect(host.querySelectorAll('tbody tr')).toHaveLength(9);
+    expect(host.querySelectorAll('tbody tr')).toHaveLength(8);
     expect(intermediateRequest).toBeDefined();
     await act(async () => {
       releaseIntermediate();
       await intermediateRequest!;
       // The stale response is genuinely wider; it must not replace the final range.
-      expect((await intermediateBody!).data).toHaveLength(37);
+      expect((await intermediateBody!).data).toHaveLength(33); // 8 档宽度的 stale 响应
     });
     const rows = Array.from(host.querySelectorAll('tbody tr'));
-    expect(rows).toHaveLength(9);
-    const grades = ['GRADE_1', 'GRADE_2', 'GRADE_3', 'GRADE_4', 'GRADE_5', 'DIRTY', 'CRACKED', 'BROKEN', 'DAMAGED'];
-    const names = ['1号蛋', '2号蛋', '3号蛋', '4号蛋', '5号蛋', '脏蛋', '裂缝蛋', '破损蛋', '损坏蛋'];
+    expect(rows).toHaveLength(8);
+    const grades = ['GRADE_0', 'GRADE_1', 'GRADE_2', 'GRADE_3', 'GRADE_4', 'GRADE_5', 'DIRTY', 'BROKEN'];
+    const names = ['0号蛋', '1号蛋', '2号蛋', '3号蛋', '4号蛋', '5号蛋', '脏蛋', '破损蛋'];
     grades.forEach((grade, i) => {
       const row = rows.find(row => row.children[2]?.textContent?.includes(`（${grade}）`));
       expect(row).toBeDefined();

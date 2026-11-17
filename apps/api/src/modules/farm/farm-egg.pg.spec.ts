@@ -24,9 +24,9 @@ import { InventorySourceModeService } from '../sales-v2/services/inventory-sourc
 // docker run --name issue400-pg18 -e POSTGRES_USER=issue400 -e POSTGRES_PASSWORD=issue400-local-fixture -e POSTGRES_DB=issue400 -p 127.0.0.1:15450:5432 postgres:18-alpine
 const fixtureUrl = process.env.ISSUE400_PG_URL;
 const describePg = process.env.ISSUE400_PG_PORT || fixtureUrl ? describe : describe.skip;
-const grades = ['GRADE_1', 'GRADE_2', 'GRADE_3', 'GRADE_4', 'GRADE_5', 'DIRTY', 'CRACKED', 'BROKEN', 'DAMAGED'];
+const grades = ['GRADE_0', 'GRADE_1', 'GRADE_2', 'GRADE_3', 'GRADE_4', 'GRADE_5', 'DIRTY', 'BROKEN'];
 type ApiLedgerRow = Omit<EggLedgerEntry, 'qty_change'> & { qty_change: string };
-const names = ['1号蛋', '2号蛋', '3号蛋', '4号蛋', '5号蛋', '脏蛋', '裂缝蛋', '破损蛋', '损坏蛋'];
+const names = ['0号蛋', '1号蛋', '2号蛋', '3号蛋', '4号蛋', '5号蛋', '脏蛋', '破损蛋'];
 
 describePg('Issue 400 isolated PostgreSQL HTTP inventory chain', () => {
   let ds: DataSource;
@@ -62,6 +62,7 @@ describePg('Issue 400 isolated PostgreSQL HTTP inventory chain', () => {
       CREATE TABLE IF NOT EXISTS product_skus (sku_code text PRIMARY KEY, product_code text, grade_code text, spec_code text, status text);
       ALTER TABLE product_skus ADD COLUMN IF NOT EXISTS variety_code text, ADD COLUMN IF NOT EXISTS effective_date date, ADD COLUMN IF NOT EXISTS expire_date date;
       ALTER TABLE product_grades ADD COLUMN IF NOT EXISTS is_saleable boolean DEFAULT true, ADD COLUMN IF NOT EXISTS is_storable boolean DEFAULT true;
+      ALTER TABLE product_grades ADD COLUMN IF NOT EXISTS stock_managed boolean, ADD COLUMN IF NOT EXISTS sale_enabled boolean, ADD COLUMN IF NOT EXISTS default_stock_status varchar(16); -- AddGradeInventoryPolicy 末态
       CREATE TABLE IF NOT EXISTS mst_products (product_code text PRIMARY KEY,status text,unit text,unit_zh text,variety_code text);
       CREATE TABLE IF NOT EXISTS packaging_specs (spec_code text PRIMARY KEY,status text,base_unit text,display_unit text,qty_per_unit numeric);
       CREATE TABLE IF NOT EXISTS brd_flocks (flock_no text PRIMARY KEY,house_code text,farm_code text,breed_code text,status text,
@@ -83,10 +84,12 @@ describePg('Issue 400 isolated PostgreSQL HTTP inventory chain', () => {
       CREATE TABLE IF NOT EXISTS inv_ledger (id serial PRIMARY KEY, batch_no text, change_type text, qty_change numeric, operator text, store_code text,
         ref_no text, note text, batch_expire_date date, quality_grade text, company_code text, sku_code text, log_date date, warehouse_code text, location_code text,
         house_code text, customer_no text, created_at timestamptz DEFAULT now());
-      -- inv-opt 批次 4：跟随迁移末态（InvEggCostingColumns）
+      -- inv-opt：跟随迁移末态（issue532 AddInventoryClass + 批次 4 InvEggCostingColumns）
       ALTER TABLE inv_ledger ADD COLUMN IF NOT EXISTS cost_change numeric(18,6);
       ALTER TABLE inv_batches ADD COLUMN IF NOT EXISTS variety_code text, ADD COLUMN IF NOT EXISTS unit text,
-        ADD COLUMN IF NOT EXISTS base_quantity_version integer;
+        ADD COLUMN IF NOT EXISTS base_quantity_version integer,
+        ADD COLUMN IF NOT EXISTS inventory_class text NOT NULL DEFAULT 'STANDARD',
+        ADD COLUMN IF NOT EXISTS unit_cost numeric(18,6) NOT NULL DEFAULT 0;
     `);
     const sourceRunner = ds.createQueryRunner();
     await sourceRunner.connect();
@@ -149,17 +152,17 @@ describePg('Issue 400 isolated PostgreSQL HTTP inventory chain', () => {
     .send({ eggDate: date, houseCode: house, items: grades.map((grade, i) => ({ grade, qty: (i + 1) * 11 })) });
   const ledger = (date: string) => request(app.getHttpServer()).get('/api/farm/egg/ledger').query({ start: date, end: date });
 
-  it('writes all nine grades and quantities to real batches and event rows and reads their names', async () => {
+  it('writes all eight grades and quantities to real batches and event rows and reads their names', async () => {
     const saved = await inbound('2026-10-10').expect(201);
-    expect(saved.body.totalInbound).toBe(495);
+    expect(saved.body.totalInbound).toBe(396);
     const rows = await ds.query<Array<{ grade_code_std: string; quality_grade: string; qty: string; event_grade: string; qty_change: string }>>('SELECT b.grade_code_std, b.quality_grade, b.qty, l.quality_grade AS event_grade, l.qty_change FROM inv_batches b JOIN inv_ledger l USING(batch_no) ORDER BY b.id');
-    expect(rows).toHaveLength(9);
+    expect(rows).toHaveLength(8);
     const sources = await ds.query('SELECT variety_code,source_profile_code,source_profile_snapshot FROM inv_batches ORDER BY id');
-    expect(sources).toHaveLength(9);
+    expect(sources).toHaveLength(8);
     for (const source of sources) expect(source).toMatchObject({variety_code:null,source_profile_code:'SOURCE-A',source_profile_snapshot:[{profileCode:'SOURCE-A',houseCode:'HOUSE-A',productMode:'STANDARD',varietyCode:null,effectiveDate:'2026-01-01'}]});
     rows.forEach((row, i) => expect(row).toMatchObject({ grade_code_std: grades[i], quality_grade: grades[i], qty: String((i + 1) * 11), event_grade: grades[i], qty_change: String((i + 1) * 11) }));
     const result = await ledger('2026-10-10').expect(200);
-    expect(result.body.data).toHaveLength(9);
+    expect(result.body.data).toHaveLength(8);
     for (const [i, grade] of grades.entries()) {
       const row = result.body.data.find((r: ApiLedgerRow) => r.grade === grade);
       expect(row).toMatchObject({ grade_name: names[i], grade_name_en: `Grade ${grade}`, grade_name_lo: `ໄຂ່ ${grade}`, qty_change: String((i + 1) * 11) });
@@ -167,13 +170,13 @@ describePg('Issue 400 isolated PostgreSQL HTTP inventory chain', () => {
     }
   });
 
-  it('never replaces nine historical event grades with the current batch grade', async () => {
+  it('never replaces eight historical event grades with the current batch grade', async () => {
     await inbound('2026-10-11').expect(201);
     // Model the disputed boundary explicitly; this is fixture data, not a production repair.
     await ds.query("UPDATE inv_batches SET grade_code_std = 'BROKEN', quality_grade = 'BROKEN' WHERE egg_date = '2026-10-11'");
     const result = await ledger('2026-10-11').expect(200);
     expect(result.body.data.map((r: ApiLedgerRow) => r.grade).sort()).toEqual([...grades].sort());
-    expect(result.body.data.reduce((sum: number, r: ApiLedgerRow) => sum + Number(r.qty_change), 0)).toBe(495);
+    expect(result.body.data.reduce((sum: number, r: ApiLedgerRow) => sum + Number(r.qty_change), 0)).toBe(396);
   });
 
   it('keeps dates, houses, sources and company boundaries without widening the product-family filter', async () => {
@@ -184,7 +187,7 @@ describePg('Issue 400 isolated PostgreSQL HTTP inventory chain', () => {
       warehouseCode:'WH-A',locationCode:'LOC-A',qualityGrade: 'GRADE_1', qty: 7, sourceType: 'PACKAGING', ledgerChangeType: 'PACKAGING_INBOUND' });
     scope = { isGlobal: false, allowedCompanyCodes: ['COMP-A'], allowedWarehouseCodes: ['WH-A'] };
     const result = await ledger('2026-10-12').expect(200);
-    expect(result.body.data).toHaveLength(10);
+    expect(result.body.data).toHaveLength(9); // 8 档 daily + 1 packaging
     const daily = result.body.data.filter((r: ApiLedgerRow) => r.change_type === 'TEMP_PRODUCTION_INBOUND');
     expect(daily.every((r: ApiLedgerRow) => r.house_code === 'HOUSE-A2' && r.house_name === 'House A2' && r.log_date === '2026-10-12')).toBe(true);
     expect(result.body.data.find((r: ApiLedgerRow) => r.change_type === 'PACKAGING_INBOUND')).toMatchObject({ grade: 'GRADE_1', qty_change: '7' });
@@ -192,7 +195,7 @@ describePg('Issue 400 isolated PostgreSQL HTTP inventory chain', () => {
     scope = { isGlobal: false, allowedCompanyCodes: [], allowedWarehouseCodes: [] };
     expect((await ledger('2026-10-12').expect(200)).body.data).toEqual([]);
     scope = { isGlobal: true, allowedCompanyCodes: [], allowedWarehouseCodes: [] };
-    expect((await ledger('2026-10-12').expect(200)).body.data).toHaveLength(19);
+    expect((await ledger('2026-10-12').expect(200)).body.data).toHaveLength(17); // 两批 8 档 daily + packaging
     expect((await ledger('2026-10-13').expect(200)).body.data).toEqual([]);
   });
 
@@ -221,15 +224,15 @@ describePg('Issue 400 isolated PostgreSQL HTTP inventory chain', () => {
       VALUES ('LEGACY-FEED-1','INBOUND',8,'issue400-fixture','COMP-A','LEGACY-FEED-1','COMP-A','GRADE_1',
         '2026-11-13','2026-10-14','WH-A','LOC-A')`);
     const result = await ledger('2026-10-14').expect(200);
-    expect(result.body.data).toHaveLength(9);
+    expect(result.body.data).toHaveLength(8);
     expect(result.body.data.map((r: ApiLedgerRow) => r.grade).sort()).toEqual([...grades].sort());
     expect(result.body.data.every((r: ApiLedgerRow) => r.house_name === null && r.house_code === null)).toBe(true);
     // Preserve the existing event-date display for later non-inbound movements.
     expect(result.body.data.find((r: ApiLedgerRow) => r.id === events[0].id)).toMatchObject({ change_type: 'RESERVED', log_date: '2026-10-16' });
     expect(result.body.data.filter((r: ApiLedgerRow) => r.id !== events[0].id).every((r: ApiLedgerRow) => r.log_date === '2026-10-14')).toBe(true);
     // Lookup joins may read historical inactive grades; only retired aliases yield to a standard batch code.
-    await ds.query("UPDATE product_grades SET status='INACTIVE' WHERE grade_code='CRACKED'");
-    expect((await ledger('2026-10-11').expect(200)).body.data.find((r: ApiLedgerRow) => r.grade === 'CRACKED')).toBeDefined();
+    await ds.query("UPDATE product_grades SET status='INACTIVE' WHERE grade_code='BROKEN'");
+    expect((await ledger('2026-10-11').expect(200)).body.data.find((r: ApiLedgerRow) => r.grade === 'BROKEN')).toBeDefined();
   });
 
   it('keeps biological traceability independent and rejects missing profile or company stock veto without creating inventory', async () => {

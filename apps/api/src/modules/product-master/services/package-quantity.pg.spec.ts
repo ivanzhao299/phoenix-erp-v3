@@ -36,6 +36,7 @@ fixture('package quantities: owned disposable PostgreSQL 18 service integration'
       CREATE TABLE mst_materials (material_code text PRIMARY KEY,material_name text,material_type text,unit text,status text);
       CREATE TABLE packaging_specs (spec_code text PRIMARY KEY,qty_per_unit numeric(10,2),base_unit text,display_unit text,status text);
       CREATE TABLE product_grades (grade_code text PRIMARY KEY,sort_order int,status text,is_saleable boolean DEFAULT true,is_storable boolean DEFAULT true);
+      ALTER TABLE product_grades ADD COLUMN IF NOT EXISTS stock_managed boolean, ADD COLUMN IF NOT EXISTS sale_enabled boolean, ADD COLUMN IF NOT EXISTS default_stock_status varchar(16); -- AddGradeInventoryPolicy 末态
       CREATE TABLE product_skus (sku_code text PRIMARY KEY,product_code text,grade_code text,spec_code text,status text,effective_date date,expire_date date,variety_code text);
       CREATE TABLE sys_organizations (org_code text PRIMARY KEY,company_code text,org_type text,status text);
       CREATE TABLE brd_farms (farm_code text PRIMARY KEY,company_code text,mapped_site_code text,status text);
@@ -54,9 +55,10 @@ fixture('package quantities: owned disposable PostgreSQL 18 service integration'
       CREATE TABLE inv_ledger (id serial PRIMARY KEY,batch_no text,change_type text,qty_change numeric(14,3),operator text,store_code text,ref_no text,note text,
         batch_expire_date date,quality_grade text,company_code text,sku_code text,material_code text,log_date date,warehouse_code text,location_code text,
         business_type text,destination_type text,destination_code text,project_code text,department_code text,unit text,created_at timestamptz DEFAULT now());
-      -- inv-opt 批次 4：跟随迁移末态（InvEggCostingColumns）
+      -- inv-opt：跟随迁移末态（issue532 AddInventoryClass + 批次 4 InvEggCostingColumns）
       ALTER TABLE inv_ledger ADD COLUMN IF NOT EXISTS cost_change numeric(18,6);
       ALTER TABLE inv_batches ADD COLUMN IF NOT EXISTS unit_cost numeric(18,6) NOT NULL DEFAULT 0;
+      ALTER TABLE inv_batches ADD COLUMN IF NOT EXISTS inventory_class text NOT NULL DEFAULT 'STANDARD';
       CREATE TABLE sal_sales_orders (id serial PRIMARY KEY,order_no text,company_code text,company_name text,customer_code text,customer_name text,currency_code text,fulfillment_warehouse_code text);
       CREATE TABLE sal_order_items (id serial PRIMARY KEY,sales_order_id int,product_code text,product_name text,grade_code text,packaging_spec text,sku_code text,
         qty numeric(18,2),allocated_qty numeric(18,2),allocated_batch_no text,unit_price numeric(18,2),actual_unit_price numeric(18,2),amount numeric(18,2),created_at timestamptz DEFAULT now());
@@ -123,8 +125,8 @@ fixture('package quantities: owned disposable PostgreSQL 18 service integration'
       INSERT INTO md_product_varieties VALUES ('EGG_RED','ACTIVE','2026-01-01',NULL);
       INSERT INTO mst_materials (material_code,material_name,material_type,unit,status) VALUES ('P','鸡蛋','PACKAGING','kg','ACTIVE');
       INSERT INTO packaging_specs VALUES ('T',30,'枚','托','ACTIVE'),('B',360,'枚','箱','ACTIVE');
-      INSERT INTO product_grades VALUES ('G',1,'ACTIVE'),('H',2,'ACTIVE');
-      INSERT INTO product_skus (sku_code,product_code,grade_code,spec_code,status,variety_code) VALUES ('TRAY','P','G','T','ACTIVE',NULL),('BOX','P','G','B','ACTIVE',NULL),('TRAY-RED','P-RED','G','T','ACTIVE','EGG_RED');
+      INSERT INTO product_grades VALUES ('A',1,'ACTIVE'),('B',2,'ACTIVE');
+      INSERT INTO product_skus (sku_code,product_code,grade_code,spec_code,status,variety_code) VALUES ('TRAY','P','A','T','ACTIVE',NULL),('BOX','P','A','B','ACTIVE',NULL),('TRAY-RED','P-RED','A','T','ACTIVE','EGG_RED');
       INSERT INTO md_sku_org_scope (sku_code,scope_type,scope_code,sale_enabled,stock_enabled,status)
         VALUES ('TRAY','COMPANY','C',true,true,'ACTIVE'),('BOX','COMPANY','C',true,true,'ACTIVE'),('TRAY-RED','COMPANY','C',true,true,'ACTIVE');
       INSERT INTO brd_farms VALUES ('FARM-C','C','SITE-C','ACTIVE');
@@ -132,7 +134,7 @@ fixture('package quantities: owned disposable PostgreSQL 18 service integration'
       INSERT INTO md_egg_source_profiles (profile_code,company_code,farm_code,site_code,house_code,product_mode,variety_code,effective_date) VALUES
         ('SOURCE-C','C','FARM-C','SITE-C','HOUSE-C','STANDARD',NULL,'2026-01-01'),
         ('SOURCE-RED','C','FARM-C','SITE-C','HOUSE-RED','VARIANT','EGG_RED','2026-01-01');
-      INSERT INTO wms_warehouses VALUES ('W','C','OPERATIONAL');
+      INSERT INTO wms_warehouses (warehouse_code,company_code,domain,type) VALUES ('W','C','OPERATIONAL','EGG_SALES'); -- g202 仓库类型→销售上下文推导
       INSERT INTO wms_zones VALUES ('Q','W','QUARANTINE','ACTIVE');
       INSERT INTO wms_locations VALUES ('Q-L','W','Q','ACTIVE');`);
     inv = new EggInventoryService(db,cls as never); price=new PriceRuntimeService(db,cls as never);
@@ -175,7 +177,7 @@ fixture('package quantities: owned disposable PostgreSQL 18 service integration'
   const order = async (q: QuantitySnapshot | null, qty=1) => {
     const [o]=await db.query(`INSERT INTO sal_sales_orders (order_no,company_code,currency_code,fulfillment_warehouse_code) VALUES ('SO','C','LAK','W') RETURNING id`);
     const [i]=await db.query(`INSERT INTO sal_order_items (sales_order_id,product_code,grade_code,sku_code,packaging_spec,qty,unit_price,actual_unit_price,amount,quantity_snapshot)
-      VALUES ($1,'P','G','BOX','B',$2,3600,3600,3600,$3) RETURNING *`,[o.id,qty,q]); return { orderId: String(o.id),itemId: String(i.id) };
+      VALUES ($1,'P','A','BOX','B',$2,3600,3600,3600,$3) RETURNING *`,[o.id,qty,q]); return { orderId: String(o.id),itemId: String(i.id) };
   };
   it('rejects direct variant production without explicit variety or with an unauthorized company before writing stock', async () => {
     await expect(inv.createProductionBatch({ companyCode:'C',warehouseCode:'W',locationCode:'Q-L',eggDate:'2026-11-10',skuCode:'TRAY-RED',productCode:'P-RED',qty:30 }))
@@ -207,9 +209,9 @@ fixture('package quantities: owned disposable PostgreSQL 18 service integration'
   it('shared candidates isolate different product/grade/unit and reject unknown historical measurement', async () => {
     const b=await batch(30); const q=await snapshot('TRAY');
     await db.query(`INSERT INTO inv_batches (batch_no,product_code,grade_code_std,unit,base_quantity_version,qty,qty_available,company_code,warehouse_code,status)
-      VALUES ('other-grade','P','H','枚',1,360,360,'C','W','AVAILABLE'),('unknown','P','G','枚',NULL,360,360,'C','W','AVAILABLE'),
-        ('other-company','P','G','枚',1,360,360,'UNAUTH','W','AVAILABLE'),('other-warehouse','P','G','枚',1,360,360,'C','OTHER-WH','AVAILABLE'),
-        ('other-unit','P','G','kg',1,360,360,'C','W','AVAILABLE'),('other-product','X','G','枚',1,360,360,'C','W','AVAILABLE')`);
+      VALUES ('other-grade','P','B','枚',1,360,360,'C','W','AVAILABLE'),('unknown','P','A','枚',NULL,360,360,'C','W','AVAILABLE'),
+        ('other-company','P','A','枚',1,360,360,'UNAUTH','W','AVAILABLE'),('other-warehouse','P','A','枚',1,360,360,'C','OTHER-WH','AVAILABLE'),
+        ('other-unit','P','A','kg',1,360,360,'C','W','AVAILABLE'),('other-product','X','A','枚',1,360,360,'C','W','AVAILABLE')`);
     expect((await db.transaction(m=>sharedBatches(m,'C',['W'],q))).map((x:any)=>x.batch_no)).toEqual([b.batch_no]);
   });
   it('tray / box concurrent requests compete for the same pool; shortage rolls all writes back', async () => {
@@ -304,6 +306,8 @@ fixture('package quantities: owned disposable PostgreSQL 18 service integration'
     expect(Number((await db.query("SELECT qty_available FROM inv_batches WHERE batch_no='M'"))[0].qty_available)).toBe(1.25);
   });
   it('WMS inbound uses the persisted line id to separate BASE/PACKAGE rows of the same SKU and records actual trade/base quantities', async () => {
+    // 本用例走采购收货语境：W 需为 PURCHASE_RECEIPT 允许类型（其它用例为 EGG_SALES 分配语境）
+    await db.query("UPDATE wms_warehouses SET type='PURCHASE_RECV' WHERE warehouse_code='W'");
     await db.query("INSERT INTO wms_inbound (task_no,warehouse_code,company_code,status,type,date) VALUES ('IN','W','C','PENDING','PURCHASE','2026-11-10')");
     const b=await snapshot(); const base=(await db.transaction(m=>resolveQuantity(m,{skuCode:'BOX',qty:10,quantityBasis:'BASE'})))!;
     const [first]=await db.query("INSERT INTO wms_inbound_items (task_no,product_code,qty,quantity_snapshot) VALUES ('IN','BOX',1,$1) RETURNING id",[b]);
@@ -313,7 +317,9 @@ fixture('package quantities: owned disposable PostgreSQL 18 service integration'
     const [sum]=await db.query("SELECT sum(qty) AS qty FROM inv_batches WHERE source_type IS NULL");
     expect(Number(sum.qty)).toBe(370);
     expect((await db.query("SELECT actual_qty FROM wms_inbound_items WHERE task_no='IN' ORDER BY id")).map((r:any)=>Number(r.actual_qty))).toEqual([1,10]);
-    expect((await db.query("SELECT grade_code_std,unit,base_quantity_version FROM inv_batches WHERE source_type IS NULL"))).toEqual(expect.arrayContaining([{grade_code_std:'G',unit:'枚',base_quantity_version:1}]));
+    expect((await db.query("SELECT grade_code_std,unit,base_quantity_version FROM inv_batches WHERE source_type IS NULL"))).toEqual(expect.arrayContaining([{grade_code_std:'A',unit:'枚',base_quantity_version:1}]));
+    // 恢复 W 为 EGG_SALES 分配语境并清理本用例的单据（beforeEach 不覆盖 wms_inbound）
+    await db.query("DELETE FROM wms_inbound_items WHERE task_no='IN'; DELETE FROM wms_inbound WHERE task_no='IN'; UPDATE wms_warehouses SET type='EGG_SALES' WHERE warehouse_code='W'");
   });
   it('persists the real 18,2-price order via create/update and refunds the original 1.00 amount despite a rounded base unit price', async () => {
     await batch(); const q=await snapshot();
@@ -352,7 +358,7 @@ fixture('package quantities: owned disposable PostgreSQL 18 service integration'
     await db.query("INSERT INTO wms_warehouses (warehouse_code,company_code) VALUES ('W2','C')");
     await wms.confirmTransfer({from_warehouse:'W',to_warehouse:'W2',items:[{batch_no:b.batch_no,qty:30}]},{username:'fixture'});
     const [target]=await db.query("SELECT sku_code,grade_code_std,spec_code,unit,base_quantity_version,packaging_batch_ref,collection_batch_ref,qty FROM inv_batches WHERE warehouse_code='W2'");
-    expect(target).toEqual({sku_code:'TRAY',grade_code_std:'G',spec_code:'T',unit:'枚',base_quantity_version:1,packaging_batch_ref:'PK',collection_batch_ref:'COL',qty:'30.000'});
+    expect(target).toEqual({sku_code:'TRAY',grade_code_std:'A',spec_code:'T',unit:'枚',base_quantity_version:1,packaging_batch_ref:'PK',collection_batch_ref:'COL',qty:'30.000'});
   });
   it('candidate audit SQL is read only and does not merge same-name product/material fixtures', async () => {
     const before=(await db.query('SELECT count(*) AS count FROM mst_materials'))[0].count;
