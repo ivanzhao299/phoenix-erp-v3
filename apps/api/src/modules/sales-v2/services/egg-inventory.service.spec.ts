@@ -916,3 +916,53 @@ describe('EggInventoryService writeLedger store_code (INV-104)', () => {
     expect(ledger[1][0]).toBe('B-CLEAN');
   });
 });
+
+describe('EggInventoryService processReturnInventory damage ledger batch (INV-201a)', () => {
+  const makeQuery = (items: any[]) => jest.fn(async (sql: string) => {
+    if (sql.includes('FROM sal_return_items')) return items;
+    if (sql.includes('INSERT INTO inv_ledger')) return [{ id: 11 }];
+    return [];
+  });
+
+  it('attaches DAMAGE_WRITEOFF to the RET batch and never writes a DMG- pseudo batch', async () => {
+    const query = makeQuery([
+      { id: 'ri-1', product_code: 'EGG', grade_code: 'A', sku_code: 'SKU-1', accepted_qty: '2', damaged_qty: '1', restock_status: 'PENDING', quantity_snapshot: null, packaging_spec: null },
+    ]);
+    const service = new EggInventoryService({ query } as never, { get: jest.fn() } as never);
+
+    await service.processReturnInventory('ret-1', 'RET-2026-0001', 'COMP-A', 'WH-A', 'ZONE-A', 'LOC-A', '2026-11-17');
+
+    const ledgerCalls = (query.mock.calls as any[][]).filter(([sql]) => String(sql).includes('INSERT INTO inv_ledger'));
+    expect(ledgerCalls).toHaveLength(2);
+    const damageLedger = ledgerCalls.find(([sql, params]: any[]) => params[1] === 'DAMAGE_WRITEOFF')!;
+    // The write-off must reference the real RET batch row (FK target), not a DMG- pseudo number.
+    expect(damageLedger[1][0]).toBe('RET-RET-2026-0001-ri-1');
+    expect(String(damageLedger[1][6])).toContain('damaged=1');
+    for (const [sql, params] of query.mock.calls as any[][]) {
+      expect(String(sql)).not.toContain('DMG-');
+      expect(JSON.stringify(params ?? [])).not.toContain('DMG-');
+    }
+    // Mixed accepted+damaged item ends RESTOCKED_WITH_WRITEOFF.
+    const statusUpdate = (query.mock.calls as any[][]).find(([sql]) => String(sql).includes("SET restock_status=$1"))!;
+    expect(statusUpdate[1]).toEqual(['RESTOCKED_WITH_WRITEOFF', 'ri-1']);
+  });
+
+  it('creates a DAMAGED-state RET batch first when only damaged quantity is returned', async () => {
+    const query = makeQuery([
+      { id: 'ri-2', product_code: 'EGG', grade_code: 'A', sku_code: null, accepted_qty: '0', damaged_qty: '3', restock_status: 'PENDING', quantity_snapshot: null, packaging_spec: null },
+    ]);
+    const service = new EggInventoryService({ query } as never, { get: jest.fn() } as never);
+
+    await service.processReturnInventory('ret-2', 'RET-2026-0002', 'COMP-A', 'WH-A', 'ZONE-A', 'LOC-A', '2026-11-17');
+
+    const batchInsert = (query.mock.calls as any[][]).find(([sql]) => String(sql).includes('INSERT INTO inv_batches'))!;
+    // $1 batch_no, $2 product, $3 company, $4 qty, ... $6 source_no ... status literal 'DAMAGED'
+    expect(batchInsert[1][0]).toBe('RET-RET-2026-0002-ri-2');
+    expect(batchInsert[1][3]).toBe(3);
+    expect(String(batchInsert[0])).toContain("'DAMAGED'");
+    const damageLedger = (query.mock.calls as any[][]).find(([sql, params]: any[]) => String(sql).includes('INSERT INTO inv_ledger') && params[1] === 'DAMAGE_WRITEOFF')!;
+    expect(damageLedger[1][0]).toBe('RET-RET-2026-0002-ri-2');
+    const statusUpdate = (query.mock.calls as any[][]).find(([sql]) => String(sql).includes("SET restock_status=$1"))!;
+    expect(statusUpdate[1]).toEqual(['WRITTEN_OFF', 'ri-2']);
+  });
+});

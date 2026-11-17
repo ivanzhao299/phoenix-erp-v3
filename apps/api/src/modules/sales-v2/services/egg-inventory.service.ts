@@ -1284,14 +1284,15 @@ export class EggInventoryService {
       const accepted = Number(item.accepted_qty);
       const damaged  = Number(item.damaged_qty);
       const batchNo  = `RET-${returnNo}-${item.id}`;
+      const originalGrade = item.grade_code ?? 'A';
+      const returnGrade   = this.degradeGrade(originalGrade);
 
       // Phase H5: sal_return_items 已有 sku_code（从原销售明细继承）
       const returnSkuCode: string | null = item.sku_code ?? null;
 
       // ── accepted_qty：回库（RETURNED 状态，需重新质检） ──────────────────────
+      let returnBatchCreated = false;
       if (accepted > 0) {
-        const originalGrade = item.grade_code ?? 'A';
-        const returnGrade   = this.degradeGrade(originalGrade);
 
         await q(
           `INSERT INTO inv_batches
@@ -1328,13 +1329,35 @@ export class EggInventoryService {
         if (damaged === 0) {
           await q(`UPDATE sal_return_items SET restock_status='RESTOCKED' WHERE id=$1`, [item.id]);
         }
+        returnBatchCreated = true;
       }
 
-      // ── damaged_qty：损耗（仅写 inv_ledger，不回库） ─────────────────────────
+      // ── damaged_qty：损耗（不回可售库存，台账挂 RET 真实批次行） ─────────────
+      // INV-201a：此前写 DMG-{returnNo}-{product} 伪批次号但从不建 inv_batches 行，
+      // inv_ledger.batch_no 的 FK（fk_inv_ledger_batch，见 InvBatchesIntegrityConstraints
+      // 迁移）会在首次破损退货时报错。改挂对应 RET-{returnNo}-{itemId} 真实批次；
+      // accepted=0 的纯破损明细先补建 DAMAGED 态隔离批次（qty_available=0）作为挂靠行。
       if (damaged > 0) {
-        const damageBatch = `DMG-${returnNo}-${item.product_code}`;
+        if (!returnBatchCreated) {
+          await q(
+            `INSERT INTO inv_batches
+               (batch_no, product_code, company_code, qty, qty_available,
+                quality_grade, source_type, source_no, status, inventory_class, unit, base_quantity_version,
+                sku_code, grade_code_std, spec_code, warehouse_code, location_code, inbound_date,
+                created_at, updated_at)
+             VALUES ($1,$2,$3,$4,0,$5,'RETURN',$6,'DAMAGED',$15,$13,$14,$7,$8,$9,$10,$11,$12::date,NOW(),NOW())`,
+            [
+              batchNo, item.product_code, companyCode, damaged, returnGrade, returnNo,
+              returnSkuCode,
+              returnGrade,
+              item.quantity_snapshot?.specCode ?? item.packaging_spec ?? null,
+              targetWarehouseCode, targetLocationCode, inboundDate, item.quantity_snapshot?.baseUnit ?? null, item.quantity_snapshot ? 1 : null,
+              resolveInventoryClass(returnGrade),
+            ],
+          );
+        }
         await this.writeLedger({
-          batchNo:     damageBatch,
+          batchNo:     batchNo,
           changeType:  'DAMAGE_WRITEOFF',
           qtyChange:   damaged,
           operator:    this.operator,
