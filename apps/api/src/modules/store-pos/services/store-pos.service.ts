@@ -27,6 +27,7 @@ import { ClsService } from 'nestjs-cls';
 import { hasPerm } from '../../../auth/permissions.util';
 import { StoreScopePolicy, StoreWarehousePurpose } from './store-scope-policy.service';
 import { INV_LEDGER_CHANGE_TYPE } from '../../wms/inv-ledger-change-types';
+import { fifoLockKey, fifoItemKey } from '../../wms/inventory-lock.util';
 import { PriceRuntimeService, ResolvedPrice } from '../../sales-v2/services/price-runtime.service';
 import { finiteCashNumber, returningRow } from '../../finance-v2/services/cash-balance.guard';
 
@@ -910,9 +911,14 @@ export class StorePosService {
       if (item.sku_code != null) await SkuPolicy.requireUsable(mgr, item.sku_code, 'sale-stock');
       else if (item.quantity_snapshot) await SkuPolicy.requireUsable(mgr, item.quantity_snapshot.skuCode, 'sale-stock');
       const useSkuPath = !!item.sku_code;
-      const lockKey = useSkuPath
-        ? `fifo:${sale.company_code}:${sale.warehouseCodes.join(',')}:sku:${item.sku_code}`
-        : `fifo:${sale.company_code}:${sale.warehouseCodes.join(',')}:${item.product_code}`;
+      // INV-204：egg 与 POS 两路 FIFO 共用 inv:fifo:{company}:{warehouse}:{itemKey}
+      // 命名空间（见 wms/inventory-lock.util.ts）；快照池锁（physical-stock-v1，
+      // 上方 lockQuantityPools）池语义不同，保持不动。
+      const lockKey = fifoLockKey(
+        sale.company_code,
+        sale.warehouseCodes.join(','),
+        fifoItemKey({ skuCode: item.sku_code, productCode: item.product_code, gradeCode: item.grade_code }),
+      );
 
         // Advisory Lock 防并发超卖
       if (!item.quantity_snapshot) await mgr.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [lockKey]);

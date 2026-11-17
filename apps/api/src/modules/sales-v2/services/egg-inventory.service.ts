@@ -9,6 +9,7 @@ import { DataSource, EntityManager } from 'typeorm';
 import { ClsService } from 'nestjs-cls';
 import { resolveInventoryClass } from '../../wms/inventory-class-policy';
 import { INV_LEDGER_CHANGE_TYPE } from '../../wms/inv-ledger-change-types';
+import { fifoLockKey, fifoItemKey } from '../../wms/inventory-lock.util';
 import { NotificationService } from '../../notification/notification.service';
 import { ScopedNotificationRecipientService } from '../../notification/scoped-notification-recipient.service';
 
@@ -805,11 +806,11 @@ export class EggInventoryService {
    * Phase H4 升级：支持 skuCode 优先路径
    *
    * PATH A（sku_code 精确）：当 skuCode 参数存在时，只从该 SKU 批次中分配
-   *   - Advisory Lock key: `fifo:${companyCode}:sku:${skuCode}`（更细粒度）
+   *   - Advisory Lock key: `inv:fifo:{company}:{warehouse}:{skuCode}`（INV-204 统一命名空间）
    *   - WHERE sku_code = $N
    *
    * PATH B（旧 product+grade）：回退逻辑，向后兼容旧批次
-   *   - Advisory Lock key: `fifo:${companyCode}:${productCode}`（原有）
+   *   - Advisory Lock key: `inv:fifo:{company}:{warehouse}:p:{product}:g:{grade}`（INV-204）
    *   - WHERE product_code = $1 [AND quality_grade = $N]
    *
    * 注意：PATH B 中 gradeCode 参数仍用 quality_grade 列（旧字段），不改 FIFO 逻辑
@@ -842,10 +843,14 @@ export class EggInventoryService {
     positiveQuantity(params.qty, '分配数量');
 
     // Advisory Lock 防并发超卖
-    // Phase H4: SKU 路径用更细粒度的 lock key，旧路径继续用 productCode
-    const lockKey = params.skuCode
-      ? `fifo:${params.companyCode}:sku:${params.skuCode}`
-      : `fifo:${params.companyCode}:${params.productCode}`;
+    // INV-204：egg 与 POS 两路 FIFO 共用 inv:fifo:{company}:{warehouse}:{itemKey}
+    // 命名空间（见 wms/inventory-lock.util.ts），跨引擎争抢同批次时串行化；
+    // 快照池锁（quantity-contract physical-stock-v1）池语义不同，保持不动。
+    const lockKey = fifoLockKey(
+      params.companyCode,
+      params.fulfillmentWarehouseCode,
+      fifoItemKey({ skuCode: params.skuCode, productCode: params.productCode, gradeCode: params.gradeCode }),
+    );
     if (!params.quantitySnapshot) await q(`SELECT pg_advisory_xact_lock(hashtext($1))`, [lockKey]);
 
     // 构建批次查询条件
