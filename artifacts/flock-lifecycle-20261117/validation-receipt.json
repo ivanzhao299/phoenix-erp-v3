@@ -1,13 +1,13 @@
 {
-  "asOf": "2026-11-17T12:54:35.420892+00:00",
+  "asOf": "2026-11-17T13:21:57.872083+00:00",
   "baseMain": "a7c0045b9f6d1a475b5a10710184e66d9c494aa0",
   "candidateParent": "4cf46971cc1a1a2dba5be30838eaf75369cabf9c",
-  "sourceFingerprintSha256": "faa36c558c4e1594682a04a937d3134867f6c8b2405f9fafa3d7f90aee30f21a",
-  "sourceFileCount": 85,
+  "sourceFingerprintSha256": "6490390418031aaf114a4edc0245c927b8767cf8d17bae560795c458506f3697",
+  "sourceFileCount": 100,
   "checks": {
     "api": {
       "suitesPassed": 168,
-      "testsPassed": 2128,
+      "testsPassed": 2129,
       "suitesSkipped": 22,
       "testsSkipped": 433
     },
@@ -212,11 +212,483 @@
       "fifoTransportPg": 41,
       "legacyRegressionLive": 24,
       "legacySetupOffline": 8,
-      "schedulerDiagnosticTests": 12,
+      "schedulerDiagnosticTests": 15,
       "maintenanceRelatedTests": 30,
       "pdfReadable": "strict PDF parsing; one page; exact evidence text; browser exact bytes and safe filename",
-      "remoteFinalCi": "pending; no merge or deployment"
-    }
+      "remoteFinalCi": "pending; second-layer diagnostic does not change scheduler acceptance",
+      "packagingSetupOffline": 6,
+      "packagingRegressionLive": 45,
+      "genericCrudController": 24,
+      "e2eSqlSeed": "actual full fixture seed exit 0 after fresh chain",
+      "businessRecorderRealPg16Pg18": 13,
+      "fonts": {
+        "localAssets": 7,
+        "originalFontFacesPreserved": 42,
+        "unmodifiedAssetSha256": "apps/web/public/fonts/inter/source.json",
+        "build": "exit 0 with HTTP/HTTPS proxies pointed to loopback refused port",
+        "browser": "4 actual viewport/theme combinations; Inter loaded; local resources; no font 404 or Google font requests"
+      }
+    },
+    "appearance": [
+      {
+        "name": "pc-dark",
+        "colors": [
+          {
+            "tag": "BUTTON",
+            "color": "rgb(250, 250, 250)",
+            "background": "rgb(44, 44, 44)",
+            "contrast": 13.379643174818774
+          },
+          {
+            "tag": "BUTTON",
+            "color": "rgb(250, 250, 250)",
+            "background": "rgb(44, 44, 44)",
+            "contrast": 13.379643174818774
+          },
+          {
+            "tag": "SELECT",
+            "color": "rgb(250, 250, 250)",
+            "background": "rgb(30, 30, 30)",
+            "contrast": 15.972132744959842
+          },
+          {
+            "tag": "SELECT",
+            "color": "rgb(250, 250, 250)",
+            "background": "rgb(30, 30, 30)",
+            "contrast": 15.972132744959842
+          },
+          {
+            "tag": "SELECT",
+            "color": "rgb(250, 250, 250)",
+            "background": "rgb(30, 30, 30)",
+            "contrast": 15.972132744959842
+          },
+          {
+            "tag": "INPUT",
+            "color": "rgb(250, 250, 250)",
+            "background": "rgb(30, 30, 30)",
+            "contrast": 15.972132744959842
+          },
+          {
+            "tag": "INPUT",
+            "color": "rgb(250, 250, 250)",
+            "background": "rgb(30, 30, 30)",
+            "contrast": 15.972132744959842
+          },
+          {
+            "tag": "INPUT",
+            "color": "rgb(250, 250, 250)",
+            "background": "rgb(44, 44, 44)",
+            "contrast": 13.379643174818774
+          },
+          {
+            "tag": "INPUT",
+            "color": "rgb(250, 250, 250)",
+            "background": "rgb(30, 30, 30)",
+            "contrast": 15.972132744959842
+          },
+          {
+            "tag": "INPUT",
+            "color": "rgb(250, 250, 250)",
+            "background": "rgb(30, 30, 30)",
+            "contrast": 15.972132744959842
+          },
+          {
+            "tag": "SELECT",
+            "color": "rgb(250, 250, 250)",
+            "background": "rgb(30, 30, 30)",
+            "contrast": 15.972132744959842
+          },
+          {
+            "tag": "SELECT",
+            "color": "rgb(250, 250, 250)",
+            "background": "rgb(30, 30, 30)",
+            "contrast": 15.972132744959842
+          },
+          {
+            "tag": "TEXTAREA",
+            "color": "rgb(250, 250, 250)",
+            "background": "rgb(30, 30, 30)",
+            "contrast": 15.972132744959842
+          },
+          {
+            "tag": "BUTTON",
+            "color": "rgb(189, 189, 189)",
+            "background": "rgba(0, 0, 0, 0)",
+            "contrast": 11.177626417098676
+          },
+          {
+            "tag": "BUTTON",
+            "color": "rgb(189, 189, 189)",
+            "background": "rgb(30, 30, 30)",
+            "contrast": 8.873521964116527
+          },
+          {
+            "tag": "BUTTON",
+            "color": "rgb(189, 189, 189)",
+            "background": "rgb(30, 30, 30)",
+            "contrast": 8.873521964116527
+          }
+        ],
+        "overflow": false,
+        "errors": [],
+        "fonts": {
+          "family": "Inter, system-ui, -apple-system, sans-serif",
+          "loaded": [
+            "400",
+            "600",
+            "700",
+            "800"
+          ],
+          "resources": [
+            "e4af272ccee01ff0-s.p.woff2"
+          ]
+        }
+      },
+      {
+        "name": "mobile-dark",
+        "colors": [
+          {
+            "tag": "BUTTON",
+            "color": "rgb(250, 250, 250)",
+            "background": "rgb(44, 44, 44)",
+            "contrast": 13.379643174818774
+          },
+          {
+            "tag": "BUTTON",
+            "color": "rgb(250, 250, 250)",
+            "background": "rgb(44, 44, 44)",
+            "contrast": 13.379643174818774
+          },
+          {
+            "tag": "SELECT",
+            "color": "rgb(250, 250, 250)",
+            "background": "rgb(30, 30, 30)",
+            "contrast": 15.972132744959842
+          },
+          {
+            "tag": "SELECT",
+            "color": "rgb(250, 250, 250)",
+            "background": "rgb(30, 30, 30)",
+            "contrast": 15.972132744959842
+          },
+          {
+            "tag": "SELECT",
+            "color": "rgb(250, 250, 250)",
+            "background": "rgb(30, 30, 30)",
+            "contrast": 15.972132744959842
+          },
+          {
+            "tag": "INPUT",
+            "color": "rgb(250, 250, 250)",
+            "background": "rgb(30, 30, 30)",
+            "contrast": 15.972132744959842
+          },
+          {
+            "tag": "INPUT",
+            "color": "rgb(250, 250, 250)",
+            "background": "rgb(30, 30, 30)",
+            "contrast": 15.972132744959842
+          },
+          {
+            "tag": "INPUT",
+            "color": "rgb(250, 250, 250)",
+            "background": "rgb(44, 44, 44)",
+            "contrast": 13.379643174818774
+          },
+          {
+            "tag": "INPUT",
+            "color": "rgb(250, 250, 250)",
+            "background": "rgb(30, 30, 30)",
+            "contrast": 15.972132744959842
+          },
+          {
+            "tag": "INPUT",
+            "color": "rgb(250, 250, 250)",
+            "background": "rgb(30, 30, 30)",
+            "contrast": 15.972132744959842
+          },
+          {
+            "tag": "SELECT",
+            "color": "rgb(250, 250, 250)",
+            "background": "rgb(30, 30, 30)",
+            "contrast": 15.972132744959842
+          },
+          {
+            "tag": "SELECT",
+            "color": "rgb(250, 250, 250)",
+            "background": "rgb(30, 30, 30)",
+            "contrast": 15.972132744959842
+          },
+          {
+            "tag": "TEXTAREA",
+            "color": "rgb(250, 250, 250)",
+            "background": "rgb(30, 30, 30)",
+            "contrast": 15.972132744959842
+          },
+          {
+            "tag": "BUTTON",
+            "color": "rgb(189, 189, 189)",
+            "background": "rgba(0, 0, 0, 0)",
+            "contrast": 11.177626417098676
+          },
+          {
+            "tag": "BUTTON",
+            "color": "rgb(189, 189, 189)",
+            "background": "rgb(30, 30, 30)",
+            "contrast": 8.873521964116527
+          },
+          {
+            "tag": "BUTTON",
+            "color": "rgb(189, 189, 189)",
+            "background": "rgb(30, 30, 30)",
+            "contrast": 8.873521964116527
+          }
+        ],
+        "overflow": false,
+        "errors": [],
+        "fonts": {
+          "family": "Inter, system-ui, -apple-system, sans-serif",
+          "loaded": [
+            "400",
+            "700",
+            "800"
+          ],
+          "resources": [
+            "e4af272ccee01ff0-s.p.woff2"
+          ]
+        }
+      },
+      {
+        "name": "pc-light",
+        "colors": [
+          {
+            "tag": "BUTTON",
+            "color": "rgb(33, 33, 33)",
+            "background": "rgb(245, 245, 245)",
+            "contrast": 14.769522972831433
+          },
+          {
+            "tag": "BUTTON",
+            "color": "rgb(33, 33, 33)",
+            "background": "rgb(245, 245, 245)",
+            "contrast": 14.769522972831433
+          },
+          {
+            "tag": "SELECT",
+            "color": "rgb(33, 33, 33)",
+            "background": "rgb(255, 255, 255)",
+            "contrast": 16.102191704447957
+          },
+          {
+            "tag": "SELECT",
+            "color": "rgb(33, 33, 33)",
+            "background": "rgb(255, 255, 255)",
+            "contrast": 16.102191704447957
+          },
+          {
+            "tag": "SELECT",
+            "color": "rgb(33, 33, 33)",
+            "background": "rgb(255, 255, 255)",
+            "contrast": 16.102191704447957
+          },
+          {
+            "tag": "INPUT",
+            "color": "rgb(33, 33, 33)",
+            "background": "rgb(255, 255, 255)",
+            "contrast": 16.102191704447957
+          },
+          {
+            "tag": "INPUT",
+            "color": "rgb(33, 33, 33)",
+            "background": "rgb(255, 255, 255)",
+            "contrast": 16.102191704447957
+          },
+          {
+            "tag": "INPUT",
+            "color": "rgb(33, 33, 33)",
+            "background": "rgb(245, 245, 245)",
+            "contrast": 14.769522972831433
+          },
+          {
+            "tag": "INPUT",
+            "color": "rgb(33, 33, 33)",
+            "background": "rgb(255, 255, 255)",
+            "contrast": 16.102191704447957
+          },
+          {
+            "tag": "INPUT",
+            "color": "rgb(33, 33, 33)",
+            "background": "rgb(255, 255, 255)",
+            "contrast": 16.102191704447957
+          },
+          {
+            "tag": "SELECT",
+            "color": "rgb(33, 33, 33)",
+            "background": "rgb(255, 255, 255)",
+            "contrast": 16.102191704447957
+          },
+          {
+            "tag": "SELECT",
+            "color": "rgb(33, 33, 33)",
+            "background": "rgb(255, 255, 255)",
+            "contrast": 16.102191704447957
+          },
+          {
+            "tag": "TEXTAREA",
+            "color": "rgb(33, 33, 33)",
+            "background": "rgb(255, 255, 255)",
+            "contrast": 16.102191704447957
+          },
+          {
+            "tag": "BUTTON",
+            "color": "rgb(117, 117, 117)",
+            "background": "rgba(0, 0, 0, 0)",
+            "contrast": 4.557768319672582
+          },
+          {
+            "tag": "BUTTON",
+            "color": "rgb(117, 117, 117)",
+            "background": "rgb(255, 255, 255)",
+            "contrast": 4.607518093747377
+          },
+          {
+            "tag": "BUTTON",
+            "color": "rgb(117, 117, 117)",
+            "background": "rgb(255, 255, 255)",
+            "contrast": 4.607518093747377
+          }
+        ],
+        "overflow": false,
+        "errors": [],
+        "fonts": {
+          "family": "Inter, system-ui, -apple-system, sans-serif",
+          "loaded": [
+            "400",
+            "600",
+            "700",
+            "800"
+          ],
+          "resources": [
+            "e4af272ccee01ff0-s.p.woff2"
+          ]
+        }
+      },
+      {
+        "name": "mobile-light",
+        "colors": [
+          {
+            "tag": "BUTTON",
+            "color": "rgb(33, 33, 33)",
+            "background": "rgb(245, 245, 245)",
+            "contrast": 14.769522972831433
+          },
+          {
+            "tag": "BUTTON",
+            "color": "rgb(33, 33, 33)",
+            "background": "rgb(245, 245, 245)",
+            "contrast": 14.769522972831433
+          },
+          {
+            "tag": "SELECT",
+            "color": "rgb(33, 33, 33)",
+            "background": "rgb(255, 255, 255)",
+            "contrast": 16.102191704447957
+          },
+          {
+            "tag": "SELECT",
+            "color": "rgb(33, 33, 33)",
+            "background": "rgb(255, 255, 255)",
+            "contrast": 16.102191704447957
+          },
+          {
+            "tag": "SELECT",
+            "color": "rgb(33, 33, 33)",
+            "background": "rgb(255, 255, 255)",
+            "contrast": 16.102191704447957
+          },
+          {
+            "tag": "INPUT",
+            "color": "rgb(33, 33, 33)",
+            "background": "rgb(255, 255, 255)",
+            "contrast": 16.102191704447957
+          },
+          {
+            "tag": "INPUT",
+            "color": "rgb(33, 33, 33)",
+            "background": "rgb(255, 255, 255)",
+            "contrast": 16.102191704447957
+          },
+          {
+            "tag": "INPUT",
+            "color": "rgb(33, 33, 33)",
+            "background": "rgb(245, 245, 245)",
+            "contrast": 14.769522972831433
+          },
+          {
+            "tag": "INPUT",
+            "color": "rgb(33, 33, 33)",
+            "background": "rgb(255, 255, 255)",
+            "contrast": 16.102191704447957
+          },
+          {
+            "tag": "INPUT",
+            "color": "rgb(33, 33, 33)",
+            "background": "rgb(255, 255, 255)",
+            "contrast": 16.102191704447957
+          },
+          {
+            "tag": "SELECT",
+            "color": "rgb(33, 33, 33)",
+            "background": "rgb(255, 255, 255)",
+            "contrast": 16.102191704447957
+          },
+          {
+            "tag": "SELECT",
+            "color": "rgb(33, 33, 33)",
+            "background": "rgb(255, 255, 255)",
+            "contrast": 16.102191704447957
+          },
+          {
+            "tag": "TEXTAREA",
+            "color": "rgb(33, 33, 33)",
+            "background": "rgb(255, 255, 255)",
+            "contrast": 16.102191704447957
+          },
+          {
+            "tag": "BUTTON",
+            "color": "rgb(117, 117, 117)",
+            "background": "rgba(0, 0, 0, 0)",
+            "contrast": 4.557768319672582
+          },
+          {
+            "tag": "BUTTON",
+            "color": "rgb(117, 117, 117)",
+            "background": "rgb(255, 255, 255)",
+            "contrast": 4.607518093747377
+          },
+          {
+            "tag": "BUTTON",
+            "color": "rgb(117, 117, 117)",
+            "background": "rgb(255, 255, 255)",
+            "contrast": 4.607518093747377
+          }
+        ],
+        "overflow": false,
+        "errors": [],
+        "fonts": {
+          "family": "Inter, system-ui, -apple-system, sans-serif",
+          "loaded": [
+            "400",
+            "700",
+            "800"
+          ],
+          "resources": [
+            "e4af272ccee01ff0-s.p.woff2"
+          ]
+        }
+      }
+    ]
   },
   "release": {
     "candidateOnly": true,
@@ -226,39 +698,44 @@
     "tagDeferredUntilSuccessfulMainDeployment": true,
     "historicalFlocksActivated": false,
     "actualTwoCompanyPilot": "Pending real physical counts and signed evidence",
-    "candidateCommit": "96bc792069461ecf5c351aa416af2c871f5e5b8a",
+    "candidateCommit": "fbc7c52fb730caa2b8205bfdf5e7f5868605760a",
     "pullRequest": "https://github.com/ivanzhao299/phoenix-erp-v3/pull/574",
-    "reviewStatus": "Prior boundary COMMENT bound a383; final test-only head independent reconfirmation pending"
+    "reviewStatus": "New source boundary reconfirmation pending; second-level diagnostic still rejects the symlink"
   },
   "localLogSha256": {
-    "ci-fix-api-tests.log": "871c8449c3b6d6ed1b98bcc3bd4171b653f1bef811883d61ad377d648f7f5c07",
-    "ci-fix-web-tests.log": "28646ee4aebd29f4a7bf1d357eb64bcc2c365408684a43fb8d892cf253a5fafe",
-    "ci-fix-api-types.log": "6ebe93a83eb82a9a554ba4bbc56a7042f70d71391261c6209eca269921da72f5",
-    "ci-fix-web-types.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-    "ci-fix-api-build.log": "5b1549b60bee4e750040adfb6abec0fc90883af4fd742416eb44b5e3c8cbe21b",
-    "ci-fix-web-build.log": "c0467ba1eabfbd3f44be793129707765e088b59ee2be658ee8a35c25efdca244",
-    "ci-fix-api-lint.log": "68880c6c49453eff4961deb6eebc2d9a554c087686c26332fb800e2b9cb8ad53",
-    "ci-fix-web-lint-changed.log": "5f8feffbe5448d5dbd7b3bed35007e4cc2c1c328de70bf3f10d2b1a0c2a756b8",
-    "ci-fix-web-lint-ratchet.log": "4287d4554bfa357508d8a260789ba1525468f63e1f255cfb6cd4e9718e328e26",
+    "ci-final-api-tests.log": "cf568aaad97f7f887b956acb5ab094027b2c96eba290625919e2afe2d7e2a79c",
+    "ci-final-web-tests.log": "37df203e39ea4d929a8d769d18f1fd1c1846c116f533dc079804fb6a74fbe903",
+    "ci-final-api-types.log": "6ebe93a83eb82a9a554ba4bbc56a7042f70d71391261c6209eca269921da72f5",
+    "ci-final-web-types.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "ci-final-api-build.log": "5b1549b60bee4e750040adfb6abec0fc90883af4fd742416eb44b5e3c8cbe21b",
+    "ci-final-web-build.log": "a94e2e4de49c5cc2fc23b394ced7c012611bbb8d156ef41b7988d63123695b52",
+    "ci-final-api-lint.log": "95d9f3834964d9d67b245068390b512eebfae8e42b0d3c11effd2b153af02ccb",
+    "ci-final-web-lint.log": "5c3934e7c9f47cde11a2751ad12b7ef01a2855f1aea93cb294b12d055e6a2ed6",
+    "ci-final-web-ratchet.log": "4287d4554bfa357508d8a260789ba1525468f63e1f255cfb6cd4e9718e328e26",
     "ci-fix-http-utc.log": "587aec2109447ffd9b87d21429c1dfadb94205111cfc0ecc386c4ccb9155688d",
     "ci-fix-http-sg.log": "7d0c81685414de8049abd1d38e3650e949cdf5729b70f6aede1e17857dda409d",
-    "ci-fix-migration-compat.log": "7b2b7e29fbc946d7e18e31b62923542423bc5cb9f896de76e6fb3647385fe7be",
+    "ci-final-http-browser-host.log": "9a83846066991291db23dd9c9f288f9864544848da2c72de0dff41c3d24a06f7",
+    "ci-final-migration-compat.log": "7b2b7e29fbc946d7e18e31b62923542423bc5cb9f896de76e6fb3647385fe7be",
     "ci-fix-ledger-rehearsal.log": "7853a2e187124d234f5dab499968a18bc30a0994ecd9c073ca554d72dd35d146",
     "ci-fifo-pg.log": "d7b6fe1334b8899fae48d5ae7230c05bfee84d5b27e822f6b1aced7a24d9d18a",
-    "ci-fix-constraint-drift.log": "251c7a9981b2a298339af47ad1ad1448439cb4f52e03fcfbb7aabb4fbd1118f1",
-    "ci-fix-nullable.log": "4b95d58d9a67a8a178ee64e48dc6050ae865d08f8ff86c8ab5491ad17d79eb65",
-    "ci-fix-migration-dml.log": "fcd5d053f3a80cbf190e3947816e3794cfca5a7973ff3ca4d881039400f2d83e",
-    "ci-fix-migration-down.log": "603e5915366804c4aeaf18ae8aec1ead0440ee048ec7fd100594438ef53246c6",
-    "ci-fix-w5.log": "9e98208c4a47f496938eb0b39edf107d59dc65c70087a68ee0303d43149957a5",
-    "ci-fix-i18n-keys.log": "94778b72aa74c88428f178f00a7631adc0cea537e608bdce5a58b2ae9ec0a88b",
-    "ci-fix-i18n-literals.log": "9e3dcad0682987bf3305545268de5ed2e91fbd5d3969871d7425216cf9e7e6e2",
-    "ci-fix-browser.log": "06004bc369d567d2acd19e607d1662bf45f6dcbadc458c217f431c6d262746fa",
-    "ci-fix-appearance.log": "da1599c81a57e641a1b381ca3b1c3bf47d143a1f34e07bc2b200690b0b16a091",
+    "ci-final-constraint.log": "c8f206e0d5e6a2adfb4f1ef2cc23a28382cdc98cfee046294fb0cc03ed3c66dd",
+    "ci-final-nullable.log": "4b95d58d9a67a8a178ee64e48dc6050ae865d08f8ff86c8ab5491ad17d79eb65",
+    "ci-final-migration-dml.log": "fcd5d053f3a80cbf190e3947816e3794cfca5a7973ff3ca4d881039400f2d83e",
+    "ci-final-migration-down.log": "603e5915366804c4aeaf18ae8aec1ead0440ee048ec7fd100594438ef53246c6",
+    "ci-final-w5.log": "9e98208c4a47f496938eb0b39edf107d59dc65c70087a68ee0303d43149957a5",
+    "ci-final-i18n-keys.log": "94778b72aa74c88428f178f00a7631adc0cea537e608bdce5a58b2ae9ec0a88b",
+    "ci-final-i18n-literals.log": "9e3dcad0682987bf3305545268de5ed2e91fbd5d3969871d7425216cf9e7e6e2",
+    "ci-final-browser.log": "fc8e06f189998eacb145d537cefe0507d81dc21a00af6e493910bcb6bcea07ec",
+    "ci-final-appearance.log": "da1599c81a57e641a1b381ca3b1c3bf47d143a1f34e07bc2b200690b0b16a091",
     "ci-fix-pdf-readable.log": "da3346a55a1ee6b75eba35b392418c845b80a31e83b2983867fe74f3865f306b",
     "ci-fix-breeding-live.log": "4b45fb7a4d8b2a5c686798ffe0a2d8934a6426c6f5da1870a14fbfa3089f5721",
-    "ci-fix-breeding-setup.log": "f27248f4df4a2dfdd938ab214337ce74d596bfc2d37f3bf4c4c9196f61da9137",
-    "ci-fix-scheduler-diagnostic.log": "cd34fb9a08ef5befdded297374c310c073817c69a9af829a2e802ca44346026d",
-    "ci-fix-maintenance-tests.log": "c5e051cbf24996ec163fdd5551513da00710605ae9d3fb709973cfe82bad2143",
+    "ci-final-regression-setup.log": "a2774bf800f938cf1f3bfd43fb690e47758a1903db7701988864c178316aa4a3",
+    "ci-final-packaging-live.log": "ce396d90f39d3395a62f61b548b0bc3bd6c0f4a9901c818b1ebf45af8e66acda",
+    "ci-final-e2e-seed.log": "2562941c5dc1c1e99575d3c1a3b881592d6f314d6ee85ff43b731885c456f754",
+    "ci-final-crud-house-identity.log": "e7bcedcd74cbae18c56536298c8374ca4567c3ede2e22ba1ddaa4a32092c320f",
+    "ci-final-scheduler-diagnostic.log": "f5b75c624203a7548b96f0f0d7db1d872945b8978368b92865e3595b21beeeee",
+    "ci-final-maintenance-tests.log": "2cd3f53e36270ef5e3ac326e41aba6e4ab04b2d951c83e1d5660ae2f57e1149b",
+    "ci-final-business-recorder-pg.log": "c20008f06ae9c3800b22741779ac5525f5f901c892ac2780e9df04706ab53798",
     "ci-fix-ci-contracts.log": "c9397a87152837871c19c58fa72b3c9c289f65862808f0386a102e6578ead795",
     "ci-fix-ssh-tests.log": "28402e1365a422f0dde08423e75b158d553a899825d2363f38f139d5229c797d",
     "ci-fix-ssh-gate.log": "187c4ba05773c1260cdc4081260d349fdba7f553668a3337d4884a0b7d60d288"
@@ -269,12 +746,14 @@
   },
   "sourceFingerprintAlgorithm": {
     "baseCommit": "4cf46971cc1a1a2dba5be30838eaf75369cabf9c",
-    "sourceCommit": "96bc792069461ecf5c351aa416af2c871f5e5b8a",
+    "sourceCommit": "fbc7c52fb730caa2b8205bfdf5e7f5868605760a",
     "paths": [
       ".github/workflows/deploy.yml",
       ".github/workflows/regression.yml",
       "apps/api/scripts/breeding-regression.sh",
+      "apps/api/scripts/packaging-regression.sh",
       "apps/api/scripts/test_breeding_regression.py",
+      "apps/api/scripts/test_packaging_regression.py",
       "apps/api/src/database/migrations/1794899000000-FlockBaseSchema.ts",
       "apps/api/src/database/migrations/1794900000000-FlockLifecycleLedger.ts",
       "apps/api/src/database/migrations/1794901000000-FlockProductionProvenance.ts",
@@ -309,6 +788,7 @@
       "apps/api/src/modules/generic-crud/flock-safety.spec.ts",
       "apps/api/src/modules/generic-crud/flock-write-policy.spec.ts",
       "apps/api/src/modules/generic-crud/flock-write-policy.ts",
+      "apps/api/src/modules/generic-crud/generic-crud.controller.spec.ts",
       "apps/api/src/modules/generic-crud/generic-crud.controller.ts",
       "apps/api/src/modules/generic-crud/generic-crud.service.ts",
       "apps/api/src/modules/generic-crud/henhouse-write-policy.ts",
@@ -327,6 +807,15 @@
       "apps/api/src/modules/wms/wms-company-context.spec.ts",
       "apps/api/src/modules/wms/wms.service.ts",
       "apps/api/src/test-fixtures/flock-business-clock.ts",
+      "apps/web/public/fonts/inter/19cfc7226ec3afaa-s.woff2",
+      "apps/web/public/fonts/inter/21350d82a1f187e9-s.woff2",
+      "apps/web/public/fonts/inter/8e9860b6e62d6359-s.woff2",
+      "apps/web/public/fonts/inter/OFL.txt",
+      "apps/web/public/fonts/inter/ba9851c3c22cd980-s.woff2",
+      "apps/web/public/fonts/inter/c5fe6dc8356a8c31-s.woff2",
+      "apps/web/public/fonts/inter/df0a9ae256c0569c-s.woff2",
+      "apps/web/public/fonts/inter/e4af272ccee01ff0-s.p.woff2",
+      "apps/web/public/fonts/inter/source.json",
       "apps/web/src/__tests__/attachments.test.ts",
       "apps/web/src/app/(admin)/breeding/daily/page.tsx",
       "apps/web/src/app/(admin)/breeding/device/[houseCode]/page.tsx",
@@ -337,6 +826,8 @@
       "apps/web/src/app/(admin)/traceability/page.tsx",
       "apps/web/src/app/(mobile)/mobile/flock-lifecycle/page.tsx",
       "apps/web/src/app/(mobile)/mobile/mortality/page.tsx",
+      "apps/web/src/app/inter.css",
+      "apps/web/src/app/layout.tsx",
       "apps/web/src/components/FlockLifecycle.module.css",
       "apps/web/src/components/FlockLifecycle.tsx",
       "apps/web/src/components/design-system/forms/AttachmentUploader.tsx",
@@ -349,6 +840,7 @@
       "apps/web/src/locales/lo.json",
       "apps/web/src/locales/zh.json",
       "scripts/ci/maintenance-full-first-switch.fixture.mjs",
+      "scripts/ci/maintenance-isolated-business-recorder.test.mjs",
       "scripts/ci/typeorm-ledger-rehearsal-inventory.mjs",
       "scripts/ops/flock-lifecycle-diagnostic.cjs",
       "scripts/ops/production-maintenance-root-readers.mjs",
@@ -415,6 +907,13 @@
     "relatedMaintenance30": 0,
     "browser9": 0,
     "appearance4": 0,
-    "W5": 0
-  }
+    "W5": 0,
+    "packaging45": 0,
+    "packagingSetup6": 0,
+    "e2eSqlSeed": 0,
+    "genericCrudController24": 0,
+    "schedulerDiagnostic15": 0,
+    "businessRecorderRealPg16Pg18": 0
+  },
+  "verbatimVendorLicenseNote": "OFL.txt copied unmodified from upstream, including its existing trailing whitespace"
 }

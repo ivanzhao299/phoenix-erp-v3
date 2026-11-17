@@ -1,37 +1,36 @@
-Source commit: 96bc792069461ecf5c351aa416af2c871f5e5b8a
-Source fingerprint: faa36c558c4e1594682a04a937d3134867f6c8b2405f9fafa3d7f90aee30f21a (85 paths, apps/scripts/.github)
-All listed command sessions completed with exit 0. Web typecheck reran with --incremental false after TS2683 receiver fix.
-Prior a383 Web typecheck PASS claim is withdrawn; see correctedValidation in receipt.
-Remote final CI and release remain pending.
+Source commit: fbc7c52fb730caa2b8205bfdf5e7f5868605760a
+Source fingerprint: 6490390418031aaf114a4edc0245c927b8767cf8d17bae560795c458506f3697 (100 paths, apps/scripts/.github)
+All listed checks completed; command exit codes are bound in validation-receipt.json.
+Second-level scheduler diagnostics preserve the original HOLD; remote CI/release remain pending.
 
-ci-fix-api-tests.log sha256=871c8449c3b6d6ed1b98bcc3bd4171b653f1bef811883d61ad377d648f7f5c07
+ci-final-api-tests.log sha256=cf568aaad97f7f887b956acb5ab094027b2c96eba290625919e2afe2d7e2a79c
 Test Suites: 22 skipped, 168 passed, 168 of 190 total
-Tests:       433 skipped, 2128 passed, 2561 total
+Tests:       433 skipped, 2129 passed, 2562 total
 
-ci-fix-web-tests.log sha256=28646ee4aebd29f4a7bf1d357eb64bcc2c365408684a43fb8d892cf253a5fafe
+ci-final-web-tests.log sha256=37df203e39ea4d929a8d769d18f1fd1c1846c116f533dc079804fb6a74fbe903
  ↓ src/__tests__/daily-inbound-ledger.live.dom.test.tsx (4 tests | 4 skipped)
  Test Files  139 passed | 1 skipped (140)
       Tests  835 passed | 4 skipped (839)
-   Duration  6.54s (transform 12.36s, setup 0ms, collect 34.14s, tests 13.79s, environment 13.48s, prepare 14.93s)
+   Duration  7.66s (transform 13.58s, setup 0ms, collect 38.51s, tests 16.46s, environment 15.17s, prepare 17.35s)
 
-ci-fix-api-types.log sha256=6ebe93a83eb82a9a554ba4bbc56a7042f70d71391261c6209eca269921da72f5
+ci-final-api-types.log sha256=6ebe93a83eb82a9a554ba4bbc56a7042f70d71391261c6209eca269921da72f5
 
-ci-fix-web-types.log sha256=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+ci-final-web-types.log sha256=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
 
-ci-fix-api-build.log sha256=5b1549b60bee4e750040adfb6abec0fc90883af4fd742416eb44b5e3c8cbe21b
+ci-final-api-build.log sha256=5b1549b60bee4e750040adfb6abec0fc90883af4fd742416eb44b5e3c8cbe21b
 
-ci-fix-web-build.log sha256=c0467ba1eabfbd3f44be793129707765e088b59ee2be658ee8a35c25efdca244
-✓ Compiled successfully in 29.7s
+ci-final-web-build.log sha256=a94e2e4de49c5cc2fc23b394ced7c012611bbb8d156ef41b7988d63123695b52
+✓ Compiled successfully in 31.7s
 
-ci-fix-api-lint.log sha256=68880c6c49453eff4961deb6eebc2d9a554c087686c26332fb800e2b9cb8ad53
+ci-final-api-lint.log sha256=95d9f3834964d9d67b245068390b512eebfae8e42b0d3c11effd2b153af02ccb
 ✖ 3176 problems (0 errors, 3176 warnings)
   0 errors and 5 warnings potentially fixable with the `--fix` option.
 
-ci-fix-web-lint-changed.log sha256=5f8feffbe5448d5dbd7b3bed35007e4cc2c1c328de70bf3f10d2b1a0c2a756b8
-62 errors / 27 warnings
+ci-final-web-lint.log sha256=5c3934e7c9f47cde11a2751ad12b7ef01a2855f1aea93cb294b12d055e6a2ed6
+62 errors / 28 warnings
 PASS: changed files did not increase lint debt
 
-ci-fix-web-lint-ratchet.log sha256=4287d4554bfa357508d8a260789ba1525468f63e1f255cfb6cd4e9718e328e26
+ci-final-web-ratchet.log sha256=4287d4554bfa357508d8a260789ba1525468f63e1f255cfb6cd4e9718e328e26
 815 errors / 467 warnings / 195 error files; inventory: cache/lint/web-current.json
 PASS: no file/rule error count increased
 
@@ -43,7 +42,9 @@ ci-fix-http-sg.log sha256=7d0c81685414de8049abd1d38e3650e949cdf5729b70f6aede1e17
 Test Suites: 1 passed, 1 total
 Tests:       5 passed, 5 total
 
-ci-fix-migration-compat.log sha256=7b2b7e29fbc946d7e18e31b62923542423bc5cb9f896de76e6fb3647385fe7be
+ci-final-http-browser-host.log sha256=9a83846066991291db23dd9c9f288f9864544848da2c72de0dff41c3d24a06f7
+
+ci-final-migration-compat.log sha256=7b2b7e29fbc946d7e18e31b62923542423bc5cb9f896de76e6fb3647385fe7be
 
 ci-fix-ledger-rehearsal.log sha256=7853a2e187124d234f5dab499968a18bc30a0994ecd9c073ca554d72dd35d146
 INITIAL_LEDGER=PASS
@@ -63,17 +64,17 @@ ci-fifo-pg.log sha256=d7b6fe1334b8899fae48d5ae7230c05bfee84d5b27e822f6b1aced7a24
 Test Suites: 1 passed, 1 total
 Tests:       41 passed, 41 total
 
-ci-fix-constraint-drift.log sha256=251c7a9981b2a298339af47ad1ad1448439cb4f52e03fcfbb7aabb4fbd1118f1
+ci-final-constraint.log sha256=c8f206e0d5e6a2adfb4f1ef2cc23a28382cdc98cfee046294fb0cc03ed3c66dd
 ✅ check-constraint-drift: 0 new drift(s); 0 allowlisted; 0 warning(s)
 
-ci-fix-nullable.log sha256=4b95d58d9a67a8a178ee64e48dc6050ae865d08f8ff86c8ab5491ad17d79eb65
+ci-final-nullable.log sha256=4b95d58d9a67a8a178ee64e48dc6050ae865d08f8ff86c8ab5491ad17d79eb65
 
-ci-fix-migration-dml.log sha256=fcd5d053f3a80cbf190e3947816e3794cfca5a7973ff3ca4d881039400f2d83e
+ci-final-migration-dml.log sha256=fcd5d053f3a80cbf190e3947816e3794cfca5a7973ff3ca4d881039400f2d83e
 🟡 1788408000000-AddSalesOrderBatchAllocations.ts: 豁免 DML 检查 — rebuild open sales-order batch allocations from the original per-batch RESERVED ledger; fail closed on ambiguous outboun
 
-ci-fix-migration-down.log sha256=603e5915366804c4aeaf18ae8aec1ead0440ee048ec7fd100594438ef53246c6
+ci-final-migration-down.log sha256=603e5915366804c4aeaf18ae8aec1ead0440ee048ec7fd100594438ef53246c6
 
-ci-fix-w5.log sha256=9e98208c4a47f496938eb0b39edf107d59dc65c70087a68ee0303d43149957a5
+ci-final-w5.log sha256=9e98208c4a47f496938eb0b39edf107d59dc65c70087a68ee0303d43149957a5
 PASS: Phase 0 operating docs exist
 PASS: PR template exists
 PASS: migration down() gate script exists
@@ -97,14 +98,14 @@ PASS: sys_alert source coverage gate passes
 PASS: product page quality contracts pass
 Result: PASS. W5 closeout static gates passed.
 
-ci-fix-i18n-keys.log sha256=94778b72aa74c88428f178f00a7631adc0cea537e608bdce5a58b2ae9ec0a88b
+ci-final-i18n-keys.log sha256=94778b72aa74c88428f178f00a7631adc0cea537e608bdce5a58b2ae9ec0a88b
 
-ci-fix-i18n-literals.log sha256=9e3dcad0682987bf3305545268de5ed2e91fbd5d3969871d7425216cf9e7e6e2
+ci-final-i18n-literals.log sha256=9e3dcad0682987bf3305545268de5ed2e91fbd5d3969871d7425216cf9e7e6e2
 i18n-hardcoded-literals: scanned=3915 covered=3915 uncovered=0 locale_quality=0 files=211
 
-ci-fix-browser.log sha256=06004bc369d567d2acd19e607d1662bf45f6dcbadc458c217f431c6d262746fa
+ci-final-browser.log sha256=fc8e06f189998eacb145d537cefe0507d81dc21a00af6e493910bcb6bcea07ec
 
-ci-fix-appearance.log sha256=da1599c81a57e641a1b381ca3b1c3bf47d143a1f34e07bc2b200690b0b16a091
+ci-final-appearance.log sha256=da1599c81a57e641a1b381ca3b1c3bf47d143a1f34e07bc2b200690b0b16a091
 
 ci-fix-pdf-readable.log sha256=da3346a55a1ee6b75eba35b392418c845b80a31e83b2983867fe74f3865f306b
 Protected PDF download: valid PDF, 1 page, expected evidence text extracted
@@ -112,22 +113,37 @@ Protected PDF download: valid PDF, 1 page, expected evidence text extracted
 ci-fix-breeding-live.log sha256=4b45fb7a4d8b2a5c686798ffe0a2d8934a6426c6f5da1870a14fbfa3089f5721
 ✅ 全部 24 项 PASS
 
-ci-fix-breeding-setup.log sha256=f27248f4df4a2dfdd938ab214337ce74d596bfc2d37f3bf4c4c9196f61da9137
-Ran 8 tests in 1.787s
+ci-final-regression-setup.log sha256=a2774bf800f938cf1f3bfd43fb690e47758a1903db7701988864c178316aa4a3
+Ran 14 tests in 3.355s
 OK
 
-ci-fix-scheduler-diagnostic.log sha256=cd34fb9a08ef5befdded297374c310c073817c69a9af829a2e802ca44346026d
-✔ unknown states, ambiguous duplicates and malformed identifiers fail closed (0.354016ms)
-ℹ tests 12
-ℹ pass 12
+ci-final-packaging-live.log sha256=ce396d90f39d3395a62f61b548b0bc3bd6c0f4a9901c818b1ebf45af8e66acda
+✅ 全部 45 项 PASS
+
+ci-final-e2e-seed.log sha256=2562941c5dc1c1e99575d3c1a3b881592d6f314d6ee85ff43b731885c456f754
+
+ci-final-crud-house-identity.log sha256=e7bcedcd74cbae18c56536298c8374ca4567c3ede2e22ba1ddaa4a32092c320f
+Test Suites: 1 passed, 1 total
+Tests:       24 passed, 24 total
+
+ci-final-scheduler-diagnostic.log sha256=f5b75c624203a7548b96f0f0d7db1d872945b8978368b92865e3595b21beeeee
+✔ unknown states, ambiguous duplicates and malformed identifiers fail closed (0.330616ms)
+ℹ tests 15
+ℹ pass 15
 ℹ fail 0
 ℹ skipped 0
 
-ci-fix-maintenance-tests.log sha256=c5e051cbf24996ec163fdd5551513da00710605ae9d3fb709973cfe82bad2143
-ℹ tests 30
-ℹ pass 30
+ci-final-maintenance-tests.log sha256=2cd3f53e36270ef5e3ac326e41aba6e4ab04b2d951c83e1d5660ae2f57e1149b
+ℹ tests 41
+ℹ pass 40
 ℹ fail 0
-ℹ skipped 0
+ℹ skipped 1
+
+ci-final-business-recorder-pg.log sha256=c20008f06ae9c3800b22741779ac5525f5f901c892ac2780e9df04706ab53798
+# tests 13
+# pass 13
+# fail 0
+# skipped 0
 
 ci-fix-ci-contracts.log sha256=c9397a87152837871c19c58fa72b3c9c289f65862808f0386a102e6578ead795
 ✔ malformed source and duplicate pins fail closed without exposing source text (0.60776ms)

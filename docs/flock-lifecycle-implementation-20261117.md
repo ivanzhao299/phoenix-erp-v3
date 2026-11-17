@@ -37,10 +37,10 @@
 | 检查 | 最终真实结果 | 证据/边界 |
 |---|---|---|
 | API/Web类型检查及构建 | 全部退出0 | typecheck.log、api-typecheck-final.log、api-build.log、web-build.log；父协调另做无缓存API/Web类型检查 |
-| API完整测试 | 168套、2128通过；22套433跳过 | ci-fix-api-tests.log，apps/api目录运行；跳过不计通过 |
+| API完整测试 | 168套、2129通过；22套433跳过 | ci-fix-api-tests.log，apps/api目录运行；跳过不计通过 |
 | Web完整测试 | 139套、835通过；1套4跳过 | ci-fix-web-tests.log |
 | API lint | 0错误；警告见日志 | api-lint.log，未降低规则 |
-| Web changed/全仓ratchet | 均退出0、无债务增长 | web-lint-changed.log：62历史错误/27警告；web-lint-ratchet.log：815历史错误/467警告。新增文件零错误，未修改baseline |
+| Web changed/全仓ratchet | 均退出0、无债务增长 | web-lint-changed.log：62历史错误/28警告；web-lint-ratchet.log：815历史错误/467警告。新增文件零错误，未修改baseline |
 | 事件账、期间、并发、幂等、回滚、关闭、批准更正/补录、未知值 | 当前33项纳入最终全API通过 | 直接ledger-pg.log为前一轮32项；父协调32项独立通过。最后新增旧余额NULL保护用例纳入全API |
 | 实际WMS正常+破损签收、来源继承、失败整体回滚、来源授权与真实健康转舍 | 4项通过并独立复跑 | downstream-pg.log；真实服务发运/签收/免疫/用药/转舍/休药阻断。未把fixture缺失的标签/销售财务表称为端到端通过 |
 | 实际生产入库与包装批次写入并发 | 25项纳入最终全API通过 | production-chain-pg.log及api-full-test.log；一条路径获胜、另一条原子拒绝，无双写死锁 |
@@ -110,7 +110,7 @@
 - W5通过；冻结与安全路径需独立审查后按现有PR标签协议复验，未改变门禁规则。scheduler预检只增加来源/原因固定枚举诊断，原HOLD/判定/稳定读取/符号链接及容量保护保留；诊断不是修复或放行，需新CI事实定位。
 - 远端旧head曾在Next Google Inter字体加载以及维护scheduler预检失败。字体本地完整构建复验成功；两者仍须最终head远端通过，不能以“既有问题”当作PASS。未合并、未部署、未打发布tag。
 
-最终CI修复源码：`96bc792069461ecf5c351aa416af2c871f5e5b8a`；apps/scripts/.github共85个改动路径源指纹 `faa36c558c4e1594682a04a937d3134867f6c8b2405f9fafa3d7f90aee30f21a`。最终日志哈希与可复现算法见validation-receipt.json；远端CI、合并和实际部署仍待完成。
+最终CI修复源码：`fbc7c52fb730caa2b8205bfdf5e7f5868605760a`；apps/scripts/.github共100个改动路径源指纹 `6490390418031aaf114a4edc0245c927b8767cf8d17bae560795c458506f3697`。最终日志哈希与可复现算法见validation-receipt.json；远端CI、合并和实际部署仍待完成。
 
 更正取证：a383的Web类型通过表述撤回，新增下载测试的this缺显式类型（TS2683）已在`96bc792069461ecf5c351aa416af2c871f5e5b8a`修复。本地先前读取的是未完成输出；本轮已等待实际exit 0，Web无缓存类型检查及835项Web测试通过。该修复不改运行时行为，需按新head重新绑定独立边界审查。
 
@@ -122,3 +122,5 @@
 - Google Inter loader:122在远端再次失败。现从本地成功build保存相同7个WOFF2字节、全部42条原font-face/Unicode范围/6档权重，保留既有globals字体栈与Latin preload，附官方OFL与来源/hash；移除构建期Google fetch，不升级依赖。禁用代理可用性的完整build exit0，PC/移动明暗4组证实Inter实际loaded、只用本地资源、无字体404，浏览器9项通过。
 - 真实CI诊断已确证PG16/18均为SYSTEMD_FRAGMENT/SYMLINK，不能据此认定合法alias。第二层只补loadState/直接target类别/type/单跳及稳定性固定枚举，白名单复制，异常不覆盖原HOLD。没有放宽任何symlink接受条件；路径类别并不证明祖先目录可信或安全读取。15项诊断测试通过，等待新远端事实再审兼容方案。
 - 维护business recorder的CI启动docker run超5秒；仅该测试启动调用改30秒，其余原5秒/SQL及安全判断不变。真实独立PG16/18 recorder 13项通过，生产代码不变。
+
+本轮源码`fbc7c52fb730caa2b8205bfdf5e7f5868605760a`及100路径指纹`6490390418031aaf114a4edc0245c927b8767cf8d17bae560795c458506f3697`已绑定36份日志哈希；所有进程实际完成后确认exit0。原OFL许可逐字保留，含上游既有一处行末空格。当前仍待独立新head审查及新远端CI/第二层诊断结果，未合并、未部署、未打tag。
