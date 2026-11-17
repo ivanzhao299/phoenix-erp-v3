@@ -9,6 +9,7 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { ClsService } from 'nestjs-cls';
 import { DataSource } from 'typeorm';
 import { DataScopeContext } from '../org/services/data-scope.service';
+import { INV_LEDGER_CHANGE_TYPE } from '../wms/inv-ledger-change-types';
 
 type Queryable = { query: (sql: string, params?: unknown[]) => Promise<any[]> };
 
@@ -204,7 +205,7 @@ export class ImmuneService {
     },
   ): Promise<number | null> {
     const names = ['batch_no', 'change_type', 'qty_change'];
-    const values: unknown[] = [input.batchNo, 'VACCINE_OUTBOUND', -input.qty];
+    const values: unknown[] = [input.batchNo, INV_LEDGER_CHANGE_TYPE.VACCINE_OUTBOUND, -input.qty];
     const optional: Record<string, unknown> = {
       log_date: input.logDate,
       warehouse_code: input.warehouseCode,

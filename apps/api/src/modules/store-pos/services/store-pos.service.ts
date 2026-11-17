@@ -26,6 +26,7 @@ import { DataSource } from 'typeorm';
 import { ClsService } from 'nestjs-cls';
 import { hasPerm } from '../../../auth/permissions.util';
 import { StoreScopePolicy, StoreWarehousePurpose } from './store-scope-policy.service';
+import { INV_LEDGER_CHANGE_TYPE } from '../../wms/inv-ledger-change-types';
 import { PriceRuntimeService, ResolvedPrice } from '../../sales-v2/services/price-runtime.service';
 import { finiteCashNumber, returningRow } from '../../finance-v2/services/cash-balance.guard';
 
@@ -1025,7 +1026,7 @@ export class StorePosService {
           await mgr.query(
             `INSERT INTO inv_ledger
                (batch_no, change_type, qty_change, operator, store_code, ref_no, note, sku_code, company_code, warehouse_code, created_at)
-             VALUES ($1,'FIFO_OUT',$2,$3,$4,$5,$6,$7,$8,$9,NOW())`,
+             VALUES ($1,'${INV_LEDGER_CHANGE_TYPE.FIFO_OUT}',$2,$3,$4,$5,$6,$7,$8,$9,NOW())`,
             [
               batch.batch_no,
               -canTake,
@@ -1220,7 +1221,7 @@ export class StorePosService {
       await mgr.query(
         `INSERT INTO inv_ledger
            (batch_no, change_type, qty_change, operator, store_code, ref_no, note, company_code, sku_code, warehouse_code, location_code, created_at)
-         VALUES ($1,'SALE_RETURN',$2,$3,$4,$5,$6,$7,$8,$9,$10,NOW())`,
+         VALUES ($1,'${INV_LEDGER_CHANGE_TYPE.SALE_RETURN}',$2,$3,$4,$5,$6,$7,$8,$9,$10,NOW())`,
         [batchNo, qty, this.currentUser?.username ?? 'pos', sale.store_code, sale.sale_no,
          `按 allocation ${allocation.id} 退货入隔离批 ${sale.sale_no} qty=${qty}`, sale.company_code,
          allocation.sku_code ?? null, quarantine.warehouse_code, quarantine.location_code],

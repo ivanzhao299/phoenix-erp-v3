@@ -6,6 +6,7 @@ import { DataSource } from 'typeorm';
 import { ClsService } from 'nestjs-cls';
 import { EggInventoryService, assertEggDate, GradeStockStatus } from './egg-inventory.service';
 import { InventorySourceModeService } from './inventory-source-mode.service';
+import { INV_LEDGER_CHANGE_TYPE } from '../../wms/inv-ledger-change-types';
 import { DataScopeContext } from '../../org/services/data-scope.service';
 import { OrgOwnershipService } from '../../org/services/org-ownership.service';
 
@@ -427,7 +428,7 @@ export class ProductionInboundService {
           varietyCode: sku.varietyCode,
           sourceProfileCode: sourceProfile.profileCode, houseCode: sourceProfile.houseCode,
           farmCode: sourceProfile.farmCode, siteCode: sourceProfile.siteCode,
-          sourceNo, sourceType: 'TEMP_PRODUCTION', ledgerChangeType: 'TEMP_PRODUCTION_INBOUND',
+          sourceNo, sourceType: 'TEMP_PRODUCTION', ledgerChangeType: INV_LEDGER_CHANGE_TYPE.TEMP_PRODUCTION_INBOUND,
           collectionBatchRef: collectionRef ?? undefined,
           inventoryStatus: policy.defaultStockStatus,
         };

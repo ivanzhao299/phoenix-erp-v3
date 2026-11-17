@@ -8,6 +8,7 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
 import { ClsService } from 'nestjs-cls';
 import { resolveInventoryClass } from '../../wms/inventory-class-policy';
+import { INV_LEDGER_CHANGE_TYPE } from '../../wms/inv-ledger-change-types';
 import { NotificationService } from '../../notification/notification.service';
 import { ScopedNotificationRecipientService } from '../../notification/scoped-notification-recipient.service';
 
@@ -672,7 +673,7 @@ export class EggInventoryService {
 
     await this.writeLedger({
       batchNo,
-      changeType:  params.ledgerChangeType ?? 'INBOUND',
+      changeType:  params.ledgerChangeType ?? INV_LEDGER_CHANGE_TYPE.INBOUND,
       qtyChange:   qty,
       operator:    this.operator,
       companyCode: params.companyCode,
@@ -948,7 +949,7 @@ export class EggInventoryService {
       // 写 inv_ledger RESERVED（Phase H4: 传递 sku_code）
       const reservationLedgerId = await this.writeLedger({
         batchNo:         batch.batch_no,
-        changeType:      'RESERVED',
+        changeType:      INV_LEDGER_CHANGE_TYPE.RESERVED,
         qtyChange:       -canTake,
         operator:        this.operator,
         companyCode:     params.companyCode,
@@ -1120,7 +1121,7 @@ export class EggInventoryService {
 
       const ledgerId = await this.writeLedger({
           batchNo:     allocation.batch_no,
-          changeType:  'RELEASED',
+          changeType:  INV_LEDGER_CHANGE_TYPE.RELEASED,
           qtyChange:   releaseQty,
           operator:    this.operator,
           companyCode,
@@ -1222,7 +1223,7 @@ export class EggInventoryService {
 
       const ledgerId = await this.writeLedger({
           batchNo:         allocation.batch_no,
-          changeType:      'FIFO_OUT',
+          changeType:      INV_LEDGER_CHANGE_TYPE.FIFO_OUT,
           qtyChange:       -outQty,
           operator:        this.operator,
           companyCode,
@@ -1314,7 +1315,7 @@ export class EggInventoryService {
 
         await this.writeLedger({
           batchNo,
-          changeType:  'SALE_RETURN',
+          changeType:  INV_LEDGER_CHANGE_TYPE.SALE_RETURN,
           qtyChange:   accepted,
           operator:    this.operator,
           companyCode,
@@ -1358,7 +1359,7 @@ export class EggInventoryService {
         }
         await this.writeLedger({
           batchNo:     batchNo,
-          changeType:  'DAMAGE_WRITEOFF',
+          changeType:  INV_LEDGER_CHANGE_TYPE.DAMAGE_WRITEOFF,
           qtyChange:   damaged,
           operator:    this.operator,
           companyCode,
@@ -1456,7 +1457,7 @@ export class EggInventoryService {
         // ④ EXPIRE_WRITEOFF 同事务写入（Phase H4: 传递 sku_code；INV-104: 无门店上下文显式传 null）
         await this.writeLedger({
           batchNo:         batch.batch_no,
-          changeType:      'EXPIRE_WRITEOFF',
+          changeType:      INV_LEDGER_CHANGE_TYPE.EXPIRE_WRITEOFF,
           qtyChange:       -Number(batch.qty),
           operator:        'system:scheduler',
           companyCode:     batch.company_code,

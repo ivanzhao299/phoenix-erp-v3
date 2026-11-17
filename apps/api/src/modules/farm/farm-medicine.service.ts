@@ -4,6 +4,7 @@ import { DataSource } from 'typeorm';
 import { ClsService } from 'nestjs-cls';
 import { DataScopeHelper } from '../org/helpers/data-scope.helper';
 import { DataScopeContext } from '../org/services/data-scope.service';
+import { INV_LEDGER_CHANGE_TYPE } from '../wms/inv-ledger-change-types';
 
 const SOURCE_TYPE = 'FARM_MEDICINE';
 
@@ -420,7 +421,7 @@ export class FarmMedicineService {
         }
         await this.insertLedger(manager, ledgerColumns, {
           batchNo: bn,
-          changeType: 'MED_INBOUND',
+          changeType: INV_LEDGER_CHANGE_TYPE.MED_INBOUND,
           qtyChange: qty,
           logDate: safeDate,
           warehouseCode: identity.warehouseCode,

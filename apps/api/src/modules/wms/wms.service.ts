@@ -5,6 +5,7 @@ import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
 import { ClsService } from 'nestjs-cls';
 import { DataScopeContext } from '../org/services/data-scope.service';
+import { INV_LEDGER_CHANGE_TYPE } from './inv-ledger-change-types';
 import { OrgOwnershipService } from '../org/services/org-ownership.service';
 import { hasPerm, PermCode } from '../../auth/permissions.util';
 import {
@@ -898,7 +899,7 @@ export class WmsService {
                batch_no, change_type, qty_change, operator, store_code, ref_no, note,
                sku_code, material_code, warehouse_code, business_type, unit, company_code
              )
-             VALUES ($1, 'INBOUND_BROKEN', $2::numeric, $3, $4, $5, $6, $7, $8, $9, $11, $10, $12)`,
+             VALUES ($1, '${INV_LEDGER_CHANGE_TYPE.INBOUND_BROKEN}', $2::numeric, $3, $4, $5, $6, $7, $8, $9, $11, $10, $12)`,
             [
               brokenBatchNo, brokenQty, operator, storeCode, task_no,
               `破损入隔离 product=${productCode || '-'} sku=${skuCode || '-'} material=${materialCode || '-'} broken=${brokenQty}`,
@@ -1500,7 +1501,7 @@ export class WmsService {
       );
       if (changed.length !== 1) throw new BadRequestException(`批次 ${batchNo} 状态、归属或数量已变化`);
 
-      const ledgerType = action === 'TRANSFER' ? 'DEFECT_TRANSFER_OUT' : `DEFECT_${action}`;
+      const ledgerType = action === 'TRANSFER' ? INV_LEDGER_CHANGE_TYPE.DEFECT_TRANSFER_OUT : `DEFECT_${action}`;
       await manager.query(
         `INSERT INTO inv_ledger
           (batch_no,change_type,qty_change,operator,store_code,ref_no,note,quality_grade,
@@ -1533,7 +1534,7 @@ export class WmsService {
           `INSERT INTO inv_ledger
             (batch_no,change_type,qty_change,operator,store_code,ref_no,note,quality_grade,
              sku_code,material_code,warehouse_code,company_code,business_type,unit)
-           VALUES ($1,'DEFECT_TRANSFER_IN',$2::numeric,$3,$4,$5,$6,$7,$8,$9,$10,$11,'DEFECT_DISPOSITION',$12)`,
+           VALUES ($1,'${INV_LEDGER_CHANGE_TYPE.DEFECT_TRANSFER_IN}',$2::numeric,$3,$4,$5,$6,$7,$8,$9,$10,$11,'DEFECT_DISPOSITION',$12)`,
           [targetBatchNo, requestedQty, String(user?.username || user?.userId || 'SYS'), batch.store_code || 'ALL',
             dispositionNo, `缺陷调拨入库 source=${batchNo} reason=${reason}`, grade,
             batch.sku_code || null, batch.material_code || null, targetWarehouse, targetCompany, batch.unit || null],
@@ -2019,7 +2020,7 @@ export class WmsService {
            VALUES ($1, $2, $3::int, $4, $5, $6, $7)`,
           [
             it.batch_no,
-            diff > 0 ? 'RECEIVE_OVER' : 'RECEIVE_SHORT',
+            diff > 0 ? INV_LEDGER_CHANGE_TYPE.RECEIVE_OVER : INV_LEDGER_CHANGE_TYPE.RECEIVE_SHORT,
             diff,
             receiver,
             result[0].store_code || 'ALL',
@@ -2645,7 +2646,7 @@ export class WmsService {
           await manager.query(
             `INSERT INTO inv_ledger (batch_no,change_type,qty_change,operator,store_code,ref_no,note,
               quality_grade,sku_code,material_code,warehouse_code,business_type,unit,company_code)
-             VALUES ($1,'TRANSFER_DAMAGE_INBOUND',$2::numeric,$3,$4,$5,$6,'BROKEN',$7,$8,$9,$10,$11,$12)`,
+             VALUES ($1,'${INV_LEDGER_CHANGE_TYPE.TRANSFER_DAMAGE_INBOUND}',$2::numeric,$3,$4,$5,$6,'BROKEN',$7,$8,$9,$10,$11,$12)`,
             [damagedBatchNo, damaged, String(user?.username || 'SYS'), targetIdentity.storeCode,
               transferNo, `调拨途中破损 → 缺陷销售库存 source=${item.source_batch_no}`,
               snapshot.sku_code || null, snapshot.material_code || null, transfer.to_warehouse,
@@ -2779,7 +2780,7 @@ export class WmsService {
            VALUES ($1, $2, $3::numeric, $4, $5, $6, $7, $8)`,
           [
             batch_no,
-            diff > 0 ? 'STOCKTAKE_UP' : 'STOCKTAKE_DOWN',
+            diff > 0 ? INV_LEDGER_CHANGE_TYPE.STOCKTAKE_UP : INV_LEDGER_CHANGE_TYPE.STOCKTAKE_DOWN,
             diff,
             opName,
             batch.store_code || 'ALL',
@@ -2844,7 +2845,7 @@ export class WmsService {
           await manager.query(
             `INSERT INTO inv_ledger (batch_no, change_type, qty_change, operator, store_code, ref_no, note)
              VALUES ($1, $2, $3::int, $4, $5, $6, $7)`,
-            [batchNo, diff > 0 ? 'STOCKTAKE_UP' : 'STOCKTAKE_DOWN', diff, op, storeCode, stNo,
+            [batchNo, diff > 0 ? INV_LEDGER_CHANGE_TYPE.STOCKTAKE_UP : INV_LEDGER_CHANGE_TYPE.STOCKTAKE_DOWN, diff, op, storeCode, stNo,
              `PDA盘点 sys=${sysQty} act=${counted} diff=${diff}`],
           );
         }
@@ -2991,7 +2992,7 @@ export class WmsService {
           `INSERT INTO inv_ledger (
              batch_no, change_type, qty_change, operator, store_code, ref_no, note, business_type
            )
-           VALUES ($1, 'LOSS', -$2::numeric, $3, $4, $5, $6, 'SCRAP')`,
+           VALUES ($1, '${INV_LEDGER_CHANGE_TYPE.LOSS}', -$2::numeric, $3, $4, $5, $6, 'SCRAP')`,
           [batch_no, qty, opName, batch.store_code || 'ALL', loss_no, `损耗 ${reason || '未填'} qty=${qty}`],
         );
       }

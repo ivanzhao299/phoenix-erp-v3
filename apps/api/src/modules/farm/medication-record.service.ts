@@ -9,6 +9,7 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { ClsService } from 'nestjs-cls';
 import { DataScopeContext } from '../org/services/data-scope.service';
+import { INV_LEDGER_CHANGE_TYPE } from '../wms/inv-ledger-change-types';
 
 type Queryable = { query: (sql: string, params?: unknown[]) => Promise<any[]> };
 
@@ -284,7 +285,7 @@ export class MedicationRecordService {
     },
   ): Promise<number | null> {
     const names = ['batch_no', 'change_type', 'qty_change'];
-    const values: unknown[] = [input.batchNo, input.qty < 0 ? 'MED_OUTBOUND' : 'MED_INBOUND', input.qty];
+    const values: unknown[] = [input.batchNo, input.qty < 0 ? INV_LEDGER_CHANGE_TYPE.MED_OUTBOUND : INV_LEDGER_CHANGE_TYPE.MED_INBOUND, input.qty];
     const optional: Record<string, unknown> = {
       log_date: input.logDate,
       warehouse_code: input.warehouseCode ?? null,

@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, BadRequestException, Optional, Inject } 
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
 import { OrgOwnershipService } from '../org/services/org-ownership.service';
+import { INV_LEDGER_CHANGE_TYPE } from '../wms/inv-ledger-change-types';
 import { ScopedNotificationRecipientService } from '../notification/scoped-notification-recipient.service';
 
 /**
@@ -285,7 +286,7 @@ export class FarmService {
     const batchNo = await this.findLegacyEggBatch(manager, input.companyCode, input.logDate);
     await manager.query(
       `INSERT INTO inv_ledger (batch_no, change_type, qty_change, operator, store_code, ref_no, note, log_date, company_code)
-       VALUES ($1, 'FARM_REVERSED', $2::int, $3, 'FACTORY', $4, $5, $6::date, $7)`,
+       VALUES ($1, '${INV_LEDGER_CHANGE_TYPE.FARM_REVERSED}', $2::int, $3, 'FACTORY', $4, $5, $6::date, $7)`,
       [batchNo, input.amount, input.operator || 'SYS', refNo, `日报补录分级：冲销历史 FARM_IN ${input.amount}枚${identity}`, input.logDate, input.companyCode ?? null],
     );
   }
@@ -550,7 +551,7 @@ export class FarmService {
         if (batchNo) {
           await manager.query(
             `INSERT INTO inv_ledger (batch_no, change_type, qty_change, operator, store_code, ref_no, note, log_date, company_code)
-             VALUES ($1, 'FARM_IN', $2::int, $3, 'FACTORY', $4, $5, $6::date, $7)`,
+             VALUES ($1, '${INV_LEDGER_CHANGE_TYPE.FARM_IN}', $2::int, $3, 'FACTORY', $4, $5, $6::date, $7)`,
             [batchNo, eggs, body.operator || 'SYS', flock_no || '', `日报产蛋入账 ${eggs}枚`, body.log_date, body.company_code ?? null],
           );
         } else {
@@ -660,7 +661,7 @@ export class FarmService {
              VALUES ($1, $2, $3::int, $4, 'FACTORY', $5, $6, $7::date, $8)`,
             [
               batchNo,
-              eggsDiff > 0 ? 'FARM_IN' : 'FARM_REVERSED',
+              eggsDiff > 0 ? INV_LEDGER_CHANGE_TYPE.FARM_IN : INV_LEDGER_CHANGE_TYPE.FARM_REVERSED,
               Math.abs(eggsDiff),
               body.operator || 'SYS',
               effectiveFlockNo || '',
