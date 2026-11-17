@@ -114,33 +114,10 @@ export class EggInventoryController {
     return this.eggInv.createProductionBatch(body);
   }
 
-  // ── FIFO 手动分配（测试/调整用） ─────────────────────────────────────────
-
-  @Post('allocate')
-  @RequireMenu('MENU_SALES2_INVENTORY', 'E')
-  allocate(@Body() body: {
-    productCode:  string;
-    gradeCode?:   string;
-    companyCode:  string;
-    qty:          number;
-    refNo:        string;
-    note?:        string;
-    warehouseCode?: string;
-    /** Phase H4: SKU 优先分配路径 */
-    skuCode?:     string;
-  }) {
-    return this.eggInv.allocateByFIFO({
-      productCode: body.productCode,
-      gradeCode:   body.gradeCode,
-      companyCode: body.companyCode,
-      qty:         body.qty,
-      refNo:       body.refNo,
-      note:        body.note ?? '手动分配',
-      skuCode:     body.skuCode,
-      fulfillmentWarehouseCode: body.warehouseCode,
-      salesContext: 'FARM_SALES',
-    });
-  }
+  // ── FIFO 手动分配端点已下线（INV-102，用户裁决） ──────────────────────────
+  // 旧 POST /allocate 人工预占不落 sal_order_item_batch_allocations，永不可释放，
+  // 每次调用漏占一批库存且无冲正端点。allocateByFIFO 方法保留，仅供
+  // reserveInventory 内部调用（订单审批 → FIFO 预留，allocation 落行可释放）。
 
   // ── 手动标记过期（管理员） ────────────────────────────────────────────────
 
