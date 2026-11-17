@@ -94,7 +94,7 @@ describe('downloadProtectedPdf', () => {
     vi.useFakeTimers();
     const create = vi.fn(() => 'blob:owned-pdf'), revoke = vi.fn();
     vi.stubGlobal('URL', { createObjectURL: create, revokeObjectURL: revoke });
-    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function () {
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
       expect(this.href).toBe('blob:owned-pdf');
       expect(this.download).toBe('flock-evidence-1.pdf');
     });
