@@ -26,10 +26,9 @@ import { StatusBadge } from '@/components/design-system';
 import RightDrawer from '@/components/RightDrawer';
 import { useCrud } from '@/hooks/useCrud';
 import { usePermission } from '@/hooks/usePermission';
-import { useDialog } from '@/contexts/DialogContext';
 import { useToast } from '@/contexts/ToastContext';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { Plus, Edit2, Trash2 } from 'lucide-react';
+import { Plus, Edit2 } from 'lucide-react';
 import s from '@/components/ui/admin-ui.module.css';
 import u from "@/styles/uix-utils.module.css";
 import MasterNameCode from '@/components/MasterNameCode';
@@ -57,7 +56,6 @@ const emptyForm = () => ({
   flockStatus: 'GROWING'
 });
 export default function FlockPage() {
-  const { showConfirm } = useDialog();
   const toast = useToast();
   const {
     can
@@ -186,42 +184,6 @@ export default function FlockPage() {
     });
     setShowDrawer(true);
   };
-  const handleDelete = async (row: FlockCard) => {
-    const currentQty = Number(row.quantity ?? 0);
-    if (currentQty > 0) {
-      toast.warning(`${t('ui.鸡群', '鸡群')}「${row.batchNo}」${t('ui.仍有', '仍有')} ${currentQty.toLocaleString()} ${t('ui.只在栏，请先办理出栏 (status=RETIRED) 后再删除档案', '只在栏，请先办理出栏 (status=RETIRED) 后再删除档案')}`);
-      return;
-    }
-    const ok = await showConfirm({
-      icon: '🗑️',
-      type: 'danger',
-      title: t('common.confirm', '确认') + t('common.delete', '删除'),
-      message: `${t('ui.确认删除鸡群档案', '确认删除鸡群档案')}: ${row.batchNo}？`,
-      confirmLabel: t('ui.确认删除', '确认删除')
-    });
-    if (ok) {
-      const token = typeof window !== 'undefined' ? sessionStorage.getItem('phoenix_token') : null;
-      const apiBase = (process.env.NEXT_PUBLIC_API_BASE || '') + '/api/crud';
-      const ctrl = new AbortController();
-      const tid = setTimeout(() => ctrl.abort(), 10000);
-      const res = await fetch(`${apiBase}/brd_flocks/flock_no/${row.id}`, {
-        method: 'DELETE',
-        signal: ctrl.signal,
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? {
-            Authorization: `Bearer ${token}`
-          } : {})
-        }
-      }).finally(() => clearTimeout(tid));
-      if (res.ok) {
-        await load();
-      } else {
-        const err = await res.json().catch(() => ({}));
-        toast.error(err.msg || err.message || t('crud.err.deleteFail', '删除失败，请稍后重试'));
-      }
-    }
-  };
   const handleSubmit = async () => {
     // 只提交 BRD_BREED ACTIVE 码；缓存不是服务端授权，保存时后端仍须复验。
     if (breedsLoading || !form.breed || !breedOptions.some(o => o.value === form.breed)) {
@@ -238,11 +200,10 @@ export default function FlockPage() {
       farm_name: farms.find(f => f.farm_code === form.farmCode)?.farm_name || form.farmCode,
       source_farm: form.source,
       house_code: form.house,
-      breed_code: form.breed,          // 阶段0：标准 BRD_BREED 码（SKU 品种解析权威源）
+      breed_code: form.breed,          // 阶段0：标准 BRD_BREED 码（生物品种追溯；商品按来源档案解析）
       breed_type: breedLabel,          // 中文名冗余，兼容旧展示
       strain: breedLabel,              // 旧字段兼容保留
       start_date: form.inDate || new Date().toISOString().slice(0, 10),
-      current_qty: Number(form.qty) || 0,
       placement_age: Number(form.placementAge) || 1,
       cost: Number(form.cost) || 0,
       target_weeks: Number(form.targetWeeks) || 80,
@@ -263,6 +224,7 @@ export default function FlockPage() {
           ...payload,
           flock_no: flockNo,
           batch_no: flockNo,
+          current_qty: Number(form.qty) || 0,
           initial_qty: Number(form.qty) || 0
         });
       }
@@ -367,7 +329,6 @@ export default function FlockPage() {
     width: '100px',
     render: (_: unknown, row: FlockCard) => canEditFlock ? <div className={s.tableActions}>
         <button type="button" className={s.btnIcon} onClick={() => handleEdit(row)}><Edit2 size={12} /></button>
-        <button type="button" className={s.btnIconDanger} onClick={() => handleDelete(row)}><Trash2 size={12} /></button>
       </div> : null
   }];
   return <div className="animate-fade-in">
@@ -375,7 +336,7 @@ export default function FlockPage() {
         title={t('ui.鸡群档案', '鸡群档案')}
         subtitle={`${t('ui.当前共', '当前共')} ${flocks.length} ${t('ui.个鸡群批次', '个鸡群批次')}`}
         breadcrumb={[t('ui.养殖管理', '养殖管理'), t('ui.鸡群档案', '鸡群档案')]}
-        actions={canEditFlock && (
+        actions={canCreateFlock && (
           <button type="button" style={primaryActionButton} onClick={() => { setEditId(null); setForm(emptyForm()); setHistoricalBreed(''); setShowDrawer(true); }}>
             <Plus size={14} />{t('ui.新建鸡群档案', '新建鸡群档案')}
           </button>
@@ -457,7 +418,7 @@ export default function FlockPage() {
               ...form,
               inDate: e.target.value
             })} className={s.inp} /></div>
-            <div><label className={s.lbl}>{editId ? t('ui.当前存栏(羽)', '当前存栏(羽)') : t('ui.初始存栏(羽)', '初始存栏(羽)')}</label><input type="number" onFocus={e => e.currentTarget.select()} value={form.qty} onChange={e => setForm({
+            <div><label className={s.lbl}>{editId ? t('ui.当前存栏(羽)', '当前存栏(羽)') : t('ui.初始存栏(羽)', '初始存栏(羽)')}</label><input type="number" onFocus={e => e.currentTarget.select()} value={form.qty} readOnly={!!editId} style={editId ? { background: 'var(--bg-muted)', cursor: 'not-allowed' } : undefined} onChange={e => setForm({
               ...form,
               qty: e.target.value
             })} placeholder={t('ui.如8000', '如8000')} className={s.inp} /></div>

@@ -29,9 +29,8 @@ import { useCrud } from '@/hooks/useCrud';
 import { useDictOptions } from '@/hooks/useDictOptions';
 import { usePermission } from '@/hooks/usePermission';
 import { useToast } from '@/contexts/ToastContext';
-import { useDialog } from '@/contexts/DialogContext';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { Plus, Edit2, Trash2, Activity, Building2, Users, CheckCircle, AlertTriangle } from 'lucide-react';
+import { Plus, Edit2, Activity, Building2, Users, CheckCircle, AlertTriangle } from 'lucide-react';
 import s from '@/components/ui/admin-ui.module.css';
 import {
   primaryActionButton, secondaryActionButton, toolbarFilterPill,
@@ -49,9 +48,6 @@ const emptyForm = () => ({
 export default function HenHousePage() {
   const router = useRouter();
   const toast = useToast();
-  const {
-    showConfirm
-  } = useDialog();
   const {
     hasPerm
   } = usePermission();
@@ -71,8 +67,7 @@ export default function HenHousePage() {
   const {
     fetchRecords,
     createRecord,
-    updateRecord,
-    deleteRecord
+    updateRecord
   } = useCrud('brd_houses');
   const {
     fetchRecords: fetchFarms
@@ -168,23 +163,6 @@ export default function HenHousePage() {
       capacity: row.capacity != null ? String(row.capacity) : ''
     });
     setShowDrawer(true);
-  };
-  const handleDelete = async (row: HouseCard) => {
-    if (Number(row.current || 0) > 0) {
-      toast.error(`${t('ui.该鸡舍仍有', '该鸡舍仍有')} ${Number(row.current).toLocaleString()} ${t('ui.羽在栏鸡群，无法删除。请先办理鸡群出栏。', '羽在栏鸡群，无法删除。请先办理鸡群出栏。')}`);
-      return;
-    }
-    const ok = await showConfirm({
-      icon: '🗑️',
-      type: 'danger',
-      title: t('ui.确认解散', '确认解散'),
-      message: `${t('ui.确认拆除鸡舍', '确认拆除鸡舍')}: ${row.name}（${row.code}）`,
-      confirmLabel: t('ui.确认解散', '确认解散')
-    });
-    if (ok) {
-      const ok2 = await deleteRecord(row.id, 'house_code', t('ui.鸡舍删除成功', '鸡舍删除成功'));
-      if (ok2) loadData();
-    }
   };
   const handleSave = async () => {
     if (!form.farmName) {
@@ -334,7 +312,6 @@ export default function HenHousePage() {
           </button>}
         {canEditHouse && <>
           <button type="button" className={s.btnIcon} onClick={() => handleEdit(row)}><Edit2 size={12} /></button>
-          <button type="button" className={s.btnIconDanger} onClick={() => handleDelete(row)}><Trash2 size={12} /></button>
         </>}
       </div>
   }];

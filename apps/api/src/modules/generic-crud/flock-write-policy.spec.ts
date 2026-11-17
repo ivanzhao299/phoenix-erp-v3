@@ -5,6 +5,7 @@ describe('flock provenance writes', () => {
   const payload = { flock_no: 'FK1', farm_code: 'F1', house_code: 'H1', breed_code: 'B1' };
   function fixture(current?: Record<string, unknown>, facts: unknown[] = []) {
     const query = jest.fn(async (sql: string) => {
+      if (sql.includes('SELECT house_code FROM brd_flocks')) return current ? [current] : [];
       if (sql.includes('FROM brd_flocks') && sql.includes('FOR UPDATE')) return current ? [current] : [];
       if (sql.includes('FROM sys_dict')) return [{ dict_code: 'B1', dict_label_zh: '已核实品种' }];
       if (sql.includes('FROM brd_houses')) return [{ farm_code: 'F1', company_code: 'C1', mapped_site_code: 'S1' }];
@@ -21,7 +22,7 @@ describe('flock provenance writes', () => {
     expect(f.query.mock.calls.some(([sql]) => sql.startsWith('INSERT'))).toBe(false);
   });
   it('rejects inactive/missing breed at the backend', async () => {
-    const f = fixture(); f.query.mockImplementation(async () => []);
+    const f = fixture(); f.query.mockImplementation(async (sql: string) => sql.includes('BRD_FLOCK_STATUS') ? [{ dict_code: 'GROWING' }] : []);
     await expect(writeFlock(f.manager, payload)).rejects.toThrow('唯一有效');
   });
   it('rejects a spoofed company or mismatched farm before writing', async () => {
@@ -55,8 +56,8 @@ describe('flock provenance writes', () => {
       await expect(writeFlock(f.manager, { ...payload, start_date })).rejects.toThrow('YYYY-MM-DD');
     }
     const f = fixture({ ...payload, start_date: '2026-01-01', placement_date: '2026-01-01' }, [{ exists: 1 }]);
-    await expect(writeFlock(f.manager, { start_date: '2026-01-01', current_qty: 20 }, { pkName: 'flock_no', id: 'FK1' })).resolves.toMatchObject({ msg: 'Updated successfully' });
-    expect(f.query.mock.calls[0][0]).toContain('start_date::text AS start_date');
+    await expect(writeFlock(f.manager, { start_date: '2026-01-01' }, { pkName: 'flock_no', id: 'FK1' })).resolves.toMatchObject({ msg: 'Updated successfully' });
+    expect(f.query.mock.calls.some(([sql])=>sql.includes('start_date::text AS start_date'))).toBe(true);
   });
   it('does not allow another primary key or unsafe field names', async () => {
     const f = fixture();

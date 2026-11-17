@@ -531,6 +531,7 @@ export class GenericCrudService {
   }
 
   async create(table: string, body: any) {
+    if (table === 'brd_daily_logs') throw new ForbiddenException('日报必须使用专用日报接口，禁止通用写入');
     if (['wms_inbound_items','wms_outbound_items','inv_batches','inv_ledger'].includes(table)) throw new ForbiddenException('WMS 明细及快照必须使用专用单据接口，禁止通用修改/删除');
     GenericCrudService.assertNoDerivedQuantityFields(body);
     if (['mst_products', 'product_skus'].includes(table)) throw new ForbiddenException('产品/SKU 必须使用主数据领域接口，禁止通用 CRUD 写入');
@@ -578,11 +579,22 @@ export class GenericCrudService {
   }
 
   async update(table: string, pkName: string, id: any, body: any) {
+    if (table === 'brd_daily_logs') throw new ForbiddenException('日报必须使用专用日报接口，禁止通用写入');
     if (['wms_inbound_items','wms_outbound_items','inv_batches','inv_ledger'].includes(table)) throw new ForbiddenException('WMS 明细及快照必须使用专用单据接口，禁止通用修改/删除');
     GenericCrudService.assertNoDerivedQuantityFields(body);
     if (['mst_products', 'product_skus'].includes(table)) throw new ForbiddenException('产品/SKU 必须使用主数据领域接口，禁止通用 CRUD 写入');
     if (['pkg_work_shifts','pkg_source_batches','pkg_grading_records','pkg_packing_records','pkg_handover_records','pkg_packing_boxes','pkg_packing_code_registry','pkg_packing_code_claims','pkg_packing_events','pkg_packing_operations'].includes(table)) throw new ForbiddenException('包装链必须使用专用作业接口，禁止通用修改/删除');
     if (table === 'brd_flocks') return writeFlock(this.entityManager, body, { pkName, id });
+    if (table === 'brd_houses') {
+      this.assertColumnsAllowed(table, [pkName, ...Object.keys(body || {})]);
+      const current = await this.findOneByColumn(table, pkName, id);
+      if (!current) throw new BadRequestException('Record not found');
+      for (const field of ['house_code','farm_code']) {
+        if (body[field] !== undefined && body[field] !== current[field]) {
+          throw new BadRequestException('鸡舍编码及农场归属不可直接变更，须核对追溯关系');
+        }
+      }
+    }
     console.log(`[SVC Update START] table=${table} pk=${pkName} id=${id} body=${JSON.stringify(redactSensitive(body))}`);
     if (table === BREEDING_FARMS_TABLE) {
       const current = await this.findOneByColumn(table, pkName, id);
@@ -628,6 +640,8 @@ export class GenericCrudService {
   }
 
   async remove(table: string, pkName: string, id: any) {
+    if (['brd_flocks','brd_houses'].includes(table)) throw new ForbiddenException('鸡群与鸡舍须保留追溯档案，禁止物理删除');
+    if (table === 'brd_daily_logs') throw new ForbiddenException('日报必须使用专用日报接口，禁止通用写入');
     if (['wms_inbound_items','wms_outbound_items','inv_batches','inv_ledger'].includes(table)) throw new ForbiddenException('WMS 明细及快照必须使用专用单据接口，禁止通用修改/删除');
     if (['mst_products', 'product_skus'].includes(table)) throw new ForbiddenException('产品/SKU 必须使用主数据领域接口，禁止通用 CRUD 写入');
     if (['pkg_work_shifts','pkg_source_batches','pkg_grading_records','pkg_packing_records','pkg_handover_records','pkg_packing_boxes','pkg_packing_code_registry','pkg_packing_code_claims','pkg_packing_events','pkg_packing_operations'].includes(table)) throw new ForbiddenException('包装链必须使用专用作业接口，禁止通用修改/删除');

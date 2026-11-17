@@ -68,6 +68,7 @@ export class GenericCrudController {
     'store_inventory',
   ]);
   private static readonly DEDICATED_CORE_WRITE_TABLES = new Set([
+    'brd_daily_logs',
     'brd_vaccinations',
     'brd_medications',
     'brd_medication_records',
@@ -77,6 +78,7 @@ export class GenericCrudController {
   ]);
 
   private checkTableAccess(table: string, req: any, method: string) {
+    if (method === 'DELETE' && ['brd_flocks','brd_houses'].includes(table)) throw new ForbiddenException('鸡群与鸡舍须保留追溯档案，禁止物理删除');
     if (method !== 'GET' && GenericCrudController.DEDICATED_CORE_WRITE_TABLES.has(table)) {
       throw new ForbiddenException(
         `核心表 [${table}] 禁止通过 Generic CRUD 写入，请使用专用业务接口`,
@@ -208,6 +210,32 @@ export class GenericCrudController {
     const perms: string[] = req.user?.permissions || [];
     if (!fallbackMenu || hasPerm(perms, fallbackMenu, requiredOp)) return fallbackMenu;
     return this.tableToAltMenus(table, method).find((alt) => hasPerm(perms, alt, requiredOp)) ?? fallbackMenu;
+  }
+
+  private async assertBreedingWriteScope(table: string, row: any, scope: DataScopeContext | null) {
+    if (!['brd_houses','brd_flocks'].includes(table)) return;
+    if (scope?.isGlobal) return;
+    if (!scope) throw new ForbiddenException('养殖数据范围无法解析');
+    const allowed = {
+      farmCodes: scope.allowedBreedingFarmCodes ?? scope.allowedFarmCodes ?? [],
+      siteCodes: scope.allowedBreedingSiteCodes ?? scope.allowedSiteCodes ?? [],
+      companyCodes: scope.allowedBreedingCompanyCodes ?? scope.allowedCompanyCodes ?? [],
+    };
+    const rows = await this.crudService.findAllBreedingScoped(table as BreedingScopedTable,
+      table === 'brd_flocks' ? { flock_no: row.flock_no } : { house_code: row.house_code }, allowed);
+    if (!rows.length) throw new ForbiddenException('无权修改该鸡群或鸡舍');
+  }
+
+  private async assertBreedingDestination(table: string, body: any, scope: DataScopeContext | null) {
+    if (!['brd_houses','brd_flocks'].includes(table)) return;
+    if (scope?.isGlobal) return;
+    if (!scope || !body.farm_code) throw new ForbiddenException('养殖数据缺少授权农场');
+    const rows = await this.crudService.findAllBreedingScoped('brd_farms', { farm_code: body.farm_code }, {
+      farmCodes: scope.allowedBreedingFarmCodes ?? scope.allowedFarmCodes ?? [],
+      siteCodes: scope.allowedBreedingSiteCodes ?? scope.allowedSiteCodes ?? [],
+      companyCodes: scope.allowedBreedingCompanyCodes ?? scope.allowedCompanyCodes ?? [],
+    });
+    if (!rows.length) throw new ForbiddenException('无权写入目标农场');
   }
 
   private applyWarehouseScope(table: string, query: any, scope: DataScopeContext | null) {
@@ -547,6 +575,7 @@ export class GenericCrudController {
       body = this.canonicalizeWmsInboundBody(body);
     }
     this.assertNoHouseOwnershipWrite(table, body);
+    await this.assertBreedingDestination(table, body, tableScope);
     
     // Auto populate store_code if not present, and auto populated created_by
     if (table !== 'brd_houses' && !body.store_code && req.user?.storeCode) {
@@ -616,6 +645,7 @@ export class GenericCrudController {
       throw new BadRequestException('Record not found');
     }
     this.assertWarehouseRowScope(table, existing, tableScope);
+    await this.assertBreedingWriteScope(table, existing, tableScope);
     const safeBody = table === 'wms_inbound'
       ? this.canonicalizeWmsInboundBody(this.filterBlockedFields(table, body))
       : this.filterBlockedFields(table, body);
@@ -624,6 +654,7 @@ export class GenericCrudController {
       safeBody.operator = req.user.username;
     }
     this.assertNoHouseOwnershipWrite(table, safeBody);
+    await this.assertBreedingDestination(table, { ...existing, ...safeBody }, tableScope);
     await this.assertWarehouseWriteScope(table, safeBody, tableScope, false);
     if (table === 'wms_warehouses') {
       await this.wmsService.assertWarehouseOwnership(safeBody, existing);

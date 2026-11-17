@@ -5,6 +5,7 @@ import u from "@/styles/uix-utils.module.css";
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, RefreshCw, Save, ChevronLeft, ChevronRight, Plus, Minus, Sun, Moon } from 'lucide-react';
 import { mobileApi, FarmLog } from '@/lib/mobile-api';
+import { buildMortalityRequest } from '@/lib/mortality-payload';
 import { useMobileTheme } from '@/contexts/MobileThemeContext';
 import { useMobilePermission } from '@/hooks/useMobilePermission';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -190,36 +191,33 @@ export default function MortalityPage() {
     const API_BASE = process.env.NEXT_PUBLIC_API_BASE || '';
     const token = typeof window !== 'undefined' ? sessionStorage.getItem('phoenix_token') || '' : '';
     try {
-      const results = await Promise.allSettled(houseList.map(house => {
-        const existingEggs = logs.filter(l => (l.house_code || l.flock_no) === house).reduce((s, r) => s + Number(r.eggs_produced || 0), 0);
-        return fetch(`${API_BASE}/api/v3/farm/daily-logs`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            flock_no: house,
-            house_code: house,
-            log_date: date,
-            shift: 'ALL',
-            eggs_produced: existingEggs,
-            mortality_qty: mortEdits[house] ?? 0,
-            mortality_reason: reasonEdits[house] || null,  // G22-4：与 PC G19-A 对齐
-            elimination_qty: elimEdits[house] ?? 0,
-            culling_reason: reasonEdits[house] || null,    // mobile 死淘共用一个 reason 字段
-            operator: 'mobile'
-          })
-        }).then(r => r.json());
+      // Validate the whole selection before issuing any request: a daily total
+      // cannot safely be redistributed across historical shifts here.
+      const requests = houseList.map(house => buildMortalityRequest(logs, house, date, {
+        mortality_qty: mortEdits[house] ?? 0,
+        elimination_qty: elimEdits[house] ?? 0,
+        reason: reasonEdits[house] || null,
       }));
-      const anyFail = results.some(r => r.status === 'rejected' || r.status === 'fulfilled' && r.value?.code && r.value.code !== 200);
+      const results = await Promise.allSettled(requests.map(async request => {
+        const response = await fetch(`${API_BASE}${request.path}`, {
+          method: request.method,
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify(request.body),
+        });
+        const result = await response.json();
+        if (!response.ok || result.code !== 200) throw new Error(result.message || result.msg || '保存失败');
+        return result;
+      }));
+      const failure = results.find(result => result.status === 'rejected');
+      const anyFail = Boolean(failure);
       if (!anyFail) {
         haptic('success');
         toast.success(tr('mob.brd.mortality_save_ok', '死淘记录保存成功'));
+        await loadData(date);
         setSaved(true);
         setTimeout(() => setSaved(false), 3000);
       } else {
-        setError(tr('mob.brd.partial_save_fail', '部分记录保存失败，请重试'));
+        setError(failure?.status === 'rejected' ? String(failure.reason?.message || failure.reason) : tr('mob.brd.partial_save_fail', '部分记录保存失败，请重试'));
       }
     } catch (e: any) {
       haptic('error');

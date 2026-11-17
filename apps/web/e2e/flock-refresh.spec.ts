@@ -6,7 +6,7 @@ const BREED_CODE = 'HY_LINE_BROWN';
 const USERNAME = process.env.FLOCK_E2E_USER || 'admin';
 const PASSWORD = process.env.FLOCK_E2E_PASSWORD || 'admin123';
 
-test('saved flock quantity is rendered from the post-save GET without reloading', async ({ page }) => {
+test('flock edit preserves read-only stock and refreshes the saved record', async ({ page }) => {
   const browserErrors: string[] = [];
   page.on('pageerror', error => browserErrors.push(error.message));
 
@@ -31,7 +31,7 @@ test('saved flock quantity is rendered from the post-save GET without reloading'
   await expect(row).toBeVisible();
   const quantityCell = row.locator('td').nth(6);
   const oldQuantity = Number((await quantityCell.innerText()).replace(/[^\d.-]/g, ''));
-  const newQuantity = oldQuantity === 900 ? 212 : 900;
+  const newQuantity = oldQuantity;
 
   await row.locator('button').first().click();
   const breedSelect = page.getByRole('dialog').locator('label', { hasText: '鸡群品种' }).locator('..').locator('select');
@@ -46,7 +46,7 @@ test('saved flock quantity is rendered from the post-save GET without reloading'
   await expect(startDateInput).toHaveValue(/^\d{4}-\d{2}-\d{2}$/);
   const startDate = await startDateInput.inputValue();
   const quantityInput = page.locator('label', { hasText: '当前存栏(羽)' }).locator('..').locator('input');
-  await quantityInput.fill(String(newQuantity));
+  await expect(quantityInput).toHaveAttribute('readonly', '');
 
   let mutationCompleted = false;
   page.on('response', response => {
@@ -67,7 +67,8 @@ test('saved flock quantity is rendered from the post-save GET without reloading'
   await page.getByRole('button', { name: '保存修改' }).click();
   const saveResponse = await saved;
   expect(saveResponse.ok(), `flock PUT ${saveResponse.status()}: ${await saveResponse.text()}`).toBe(true);
-  expect(saveResponse.request().postDataJSON()).toMatchObject({ breed_code: BREED_CODE, current_qty: newQuantity, start_date: startDate });
+  expect(saveResponse.request().postDataJSON()).toMatchObject({ breed_code: BREED_CODE, start_date: startDate });
+  expect(saveResponse.request().postDataJSON()).not.toHaveProperty('current_qty');
   const refreshResponse = await refreshed;
   expect(refreshResponse.ok()).toBe(true);
   const refreshedBody: unknown = await refreshResponse.json();

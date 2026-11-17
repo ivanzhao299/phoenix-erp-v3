@@ -11,6 +11,7 @@ import { FarmService } from './farm.service';
  */
 const fixtureUrl = process.env.ISSUE381_PG_URL;
 const fixture = fixtureUrl ? describe : describe.skip;
+const scope = { isGlobal: true, farmCode: null, siteCode: null };
 
 fixture('Farm pending-ledger notifications on real PostgreSQL', () => {
   let db: DataSource;
@@ -57,6 +58,11 @@ fixture('Farm pending-ledger notifications on real PostgreSQL', () => {
       ALTER TABLE brd_daily_logs ADD COLUMN IF NOT EXISTS eggs_produced NUMERIC;
       ALTER TABLE brd_daily_logs ADD COLUMN IF NOT EXISTS mortality_qty NUMERIC;
       ALTER TABLE brd_daily_logs ADD COLUMN IF NOT EXISTS business_date DATE;
+      ALTER TABLE brd_daily_logs ADD COLUMN IF NOT EXISTS site_code text;
+      ALTER TABLE brd_daily_logs ADD COLUMN IF NOT EXISTS elimination_qty int;
+      ALTER TABLE brd_daily_logs ADD COLUMN IF NOT EXISTS opening_qty int;
+      ALTER TABLE brd_daily_logs ADD COLUMN IF NOT EXISTS closing_qty int;
+      ALTER TABLE brd_daily_logs ADD COLUMN IF NOT EXISTS lay_rate numeric;
       CREATE TABLE IF NOT EXISTS brd_flocks (
         flock_no VARCHAR(64) PRIMARY KEY, house_code VARCHAR(64),
         current_qty NUMERIC, initial_qty NUMERIC, current_lay_rate NUMERIC
@@ -66,6 +72,12 @@ fixture('Farm pending-ledger notifications on real PostgreSQL', () => {
       ALTER TABLE brd_flocks ADD COLUMN IF NOT EXISTS current_qty NUMERIC;
       ALTER TABLE brd_flocks ADD COLUMN IF NOT EXISTS initial_qty NUMERIC;
       ALTER TABLE brd_flocks ADD COLUMN IF NOT EXISTS current_lay_rate NUMERIC;
+      ALTER TABLE brd_flocks ADD COLUMN IF NOT EXISTS farm_code text;
+      ALTER TABLE brd_flocks ADD COLUMN IF NOT EXISTS status text;
+      ALTER TABLE brd_flocks ADD COLUMN IF NOT EXISTS start_date date;
+      ALTER TABLE brd_flocks ADD COLUMN IF NOT EXISTS updated_at timestamptz;
+      CREATE TABLE IF NOT EXISTS inv_batches (batch_no text PRIMARY KEY, product_code text, company_code text,
+        egg_date date, status text, qty_available numeric, created_at timestamptz);
       -- The daily-report upsert targets (log_date, house_code, shift); the
       -- narrower inbound fixture table carries no such constraint.
       DO $$ BEGIN
@@ -82,25 +94,14 @@ fixture('Farm pending-ledger notifications on real PostgreSQL', () => {
   afterAll(async () => { if (db?.isInitialized) await db.destroy(); });
 
   beforeEach(async () => {
-    await db.query('TRUNCATE sys_notifications, brd_daily_logs RESTART IDENTITY');
+    await db.query(`TRUNCATE sys_notifications, brd_daily_logs RESTART IDENTITY;
+      DELETE FROM brd_flocks WHERE flock_no IN ('FLOCK-1','FLOCK-2');
+      INSERT INTO brd_flocks(flock_no,house_code,farm_code,status,start_date,initial_qty,current_qty)
+      VALUES ('FLOCK-1','H1','FARM-A','LAYING','2026-01-01',1000,1000),('FLOCK-2','H2','FARM-B','LAYING','2026-01-01',1000,1000)`);
     resolve.mockClear();
-    // Minimal ownership: house H1 resolves to company COMP-A.
-    const entityManager = {
-      query: jest.fn(async (sql: string, params?: unknown[]) => {
-        if (!sql) return [{ farm_code: 'FARM-A', site_code: 'SITE-A', company_code: 'COMP-A' }];
-        return [];
-      }),
-    };
-    svc = new FarmService(entityManager as never, {
+    svc = new FarmService(db.manager, {
       resolveHouse: jest.fn(async (houseCode: string) => ({ houseCode, farmCode: 'FARM-A', siteCode: 'SITE-A', companyCode: 'COMP-A' })),
     } as never, { resolve } as never);
-    // The service shares the entity manager only for scope derivation; the
-    // transaction body runs against the real database through this wrapper.
-    (svc as any).entityManager = {
-      query: (sql: string, params?: unknown[]) => db.query(sql, params),
-      transaction: async (cb: (manager: { query: (sql: string, params?: unknown[]) => Promise<any[]> }) => Promise<unknown>) =>
-        cb({ query: (sql: string, params?: unknown[]) => db.query(sql, params) }),
-    };
   });
 
   type NoticeRow = { user_id: string; biz_no: string; title: string; content: string };
@@ -113,7 +114,7 @@ fixture('Farm pending-ledger notifications on real PostgreSQL', () => {
     const result = await svc.submitBreedingDailyLog({
       log_date: '2026-10-20', shift: '早班', house_code: 'H1', company_code: 'COMP-A',
       eggs_produced: 120, mortality_qty: 0,
-    });
+    }, scope);
     expect(result.ledgerSkipped).toBe(true);
     const rows = await notices();
     expect(rows.map((row: { user_id: string }) => row.user_id).sort()).toEqual(['7', '9']);
@@ -128,7 +129,7 @@ fixture('Farm pending-ledger notifications on real PostgreSQL', () => {
     const result = await svc.updateBreedingDailyLog(Number(inserted[0].id), {
       house_code: 'H1', flock_no: 'FLOCK-1', log_date: '2026-10-20', company_code: 'COMP-A',
       eggs_produced: 500, mortality_qty: 0,
-    });
+    }, scope);
     expect(result.ledgerSkipped).toBe(true);
     const rows = await notices();
     expect(rows).toHaveLength(2);
@@ -141,37 +142,37 @@ fixture('Farm pending-ledger notifications on real PostgreSQL', () => {
     // Two concurrent submits of the same (company, date, house): the daily
     // row is upserted by both, and the partial unique index plus ON CONFLICT
     // inference must leave one notice per recipient, never duplicates.
-    await Promise.allSettled([
-      svc.submitBreedingDailyLog(payload),
-      svc.submitBreedingDailyLog(payload),
+    await Promise.all([
+      svc.submitBreedingDailyLog(payload, scope),
+      svc.submitBreedingDailyLog(payload, scope),
     ]);
     const rows = await notices();
     expect(rows).toHaveLength(2); // one per recipient (7, 9), no duplicates
     expect(new Set(rows.map((row: { user_id: string }) => row.user_id)).size).toBe(2);
   });
 
-  it('separates notices of two companies sharing one house code', async () => {
+  it('separates notices of two companies with their own authoritative houses', async () => {
     const resultA = await svc.submitBreedingDailyLog({
       log_date: '2026-10-22', shift: '早班', house_code: 'H1', company_code: 'COMP-A',
       eggs_produced: 50, mortality_qty: 0,
-    });
-    const entityManagerB = { query: jest.fn(async () => []) };
+    }, scope);
+    const entityManagerB = db.manager;
     const svcB = new FarmService(entityManagerB as never, {
-      resolveHouse: jest.fn(async () => ({ houseCode: 'H1', farmCode: 'FARM-B', siteCode: 'SITE-B', companyCode: 'COMP-B' })),
+      resolveHouse: jest.fn(async () => ({ houseCode: 'H2', farmCode: 'FARM-B', siteCode: 'SITE-B', companyCode: 'COMP-B' })),
     } as never, { resolve } as never);
     (svcB as any).entityManager = (svc as any).entityManager;
     const resultB = await svcB.submitBreedingDailyLog({
-      log_date: '2026-10-22', shift: '早班', house_code: 'H1', company_code: 'COMP-B',
+      log_date: '2026-10-22', shift: '早班', house_code: 'H2', company_code: 'COMP-B',
       eggs_produced: 60, mortality_qty: 0,
-    });
+    }, scope);
     expect(resultA.ledgerSkipped).toBe(true);
     expect(resultB.ledgerSkipped).toBe(true);
     const rows = await notices();
     expect(rows.map((row: { biz_no: string }) => row.biz_no).sort()).toEqual([
       'FARM_LEDGER_PENDING:COMP-A:2026-10-22:H1',
-      'FARM_LEDGER_PENDING:COMP-B:2026-10-22:H1',
+      'FARM_LEDGER_PENDING:COMP-B:2026-10-22:H2',
       'FARM_LEDGER_PENDING:COMP-A:2026-10-22:H1',
-      'FARM_LEDGER_PENDING:COMP-B:2026-10-22:H1',
+      'FARM_LEDGER_PENDING:COMP-B:2026-10-22:H2',
     ].sort());
   });
 });

@@ -1,4 +1,6 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { deriveOrgScope } from '../farm/farm.service';
+import { DataScopeGuard } from '../org/guards/data-scope.guard';
+import { Req, Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { MenuGuard, RequireMenu } from '../../common/guards/menu.guard';
 import { GroupAnalyticsService } from './services/group-analytics.service';
@@ -37,7 +39,7 @@ export class AnalyticsController {
   @Get('finance')       finance_(@Query() q: any) { return this.finance.compute(q); }
   @Get('sales')         sales_(@Query() q: any) { return this.sales.compute(q); }
   @Get('inventory')     inventory_(@Query() q: any) { return this.inventory.compute(q); }
-  @Get('production')    production_(@Query() q: any) { return this.production.compute(q); }
+  @Get('production') @UseGuards(DataScopeGuard) production_(@Query() q: any, @Req() req: any) { return this.production.compute(q, deriveOrgScope(req)); }
   @Get('shareholders')  shareholders_(@Query() q: any) { return this.shareholders.compute(q); }
   @Get('exceptions')    exceptions_() { return this.exceptions.list(); }
   @Get('forecast')      forecast_(@Query() q: any) { return this.forecast.compute(q); }

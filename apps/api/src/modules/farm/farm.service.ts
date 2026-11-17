@@ -1,9 +1,10 @@
-import { Injectable, NotFoundException, BadRequestException, Optional, Inject } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Optional, Inject, ForbiddenException } from '@nestjs/common';
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
 import { OrgOwnershipService } from '../org/services/org-ownership.service';
 import { INV_LEDGER_CHANGE_TYPE } from '../wms/inv-ledger-change-types';
 import { writeInvLedger } from '../wms/inventory-ledger.writer';
+import { birdCount, lockDailyFlock, persistDailyBalance, prepareDailyBalances } from './daily-stock-policy';
 import { ScopedNotificationRecipientService } from '../notification/scoped-notification-recipient.service';
 
 /**
@@ -14,7 +15,7 @@ import { ScopedNotificationRecipientService } from '../notification/scoped-notif
  *   - A1: brd_daily_logs UNIQUE(log_date, house_code) 与"多班次"业务模型冲突 →
  *         INSERT 用 ON CONFLICT (log_date, house_code, shift) DO UPDATE
  *         (前提：migration 已把 UNIQUE 扩到含 shift)
- *   - A2: current_qty 双扣 → 提交/更新都重新按"当日总死淘"计算，不再用 diff
+ *   - A2: 日报与鸡群锁内按前后死淘差额更新存栏；不改写历史盘点基线
  *   - A4: 无 PRD-EGG 批次时不再抛 400 阻塞日报，改为告警 + ledger 跳过
  *   - B4: 动态字段名拼接加白名单校验，杜绝 SQL 注入
  */
@@ -39,9 +40,9 @@ export interface OrgScope {
 /**
  * G98：把 OrgScope 转成 SQL 过滤片段（农场/站点/公司多维并集）。
  *   非全局时按 (farm_code OR site_code OR company_code) 并集过滤——
- *   场长(farm/site)行为不变；股东/高层(company)新可见其公司农场。无任何维度则不加过滤（保持旧行为）。
+ *   场长(farm/site)行为不变；股东/高层(company)新可见其公司农场。非全局且无任何维度时拒绝可见范围。
  *   alias 用于列前缀（''=无前缀）。params 原地追加，返回**裸 OR 组**（如 `(farm_code=$2 OR company_code=ANY($3))`），
- *   无任何维度或全局则返回空串；调用方自行用 ' AND ' 拼接或 push 进 where[]。
+ *   全局返回空串；非全局空范围返回 1=0；调用方自行用 ' AND ' 拼接或 push 进 where[]。
  */
 export function scopeWhere(scope: OrgScope, params: any[], alias = ''): string {
   if (scope.isGlobal) return '';
@@ -53,7 +54,7 @@ export function scopeWhere(scope: OrgScope, params: any[], alias = ''): string {
   if (farms.length)     { params.push(farms);     ors.push(`${alias}farm_code = ANY($${params.length})`); }
   if (sites.length)     { params.push(sites);     ors.push(`${alias}site_code = ANY($${params.length})`); }
   if (companies.length) { params.push(companies); ors.push(`${alias}company_code = ANY($${params.length})`); }
-  return ors.length ? `(${ors.join(' OR ')})` : '';
+  return ors.length ? `(${ors.join(' OR ')})` : '1=0';
 }
 
 /**
@@ -83,7 +84,7 @@ export function dailyLogScopeWhere(
     params.push(companies);
     ors.push(`COALESCE(${logAlias}company_code, ${farmAlias}.company_code) = ANY($${params.length})`);
   }
-  return ors.length ? `(${ors.join(' OR ')})` : '';
+  return ors.length ? `(${ors.join(' OR ')})` : '1=0';
 }
 
 /**
@@ -96,8 +97,8 @@ export function dailyLogScopeWhere(
  *   现以 DataScopeGuard 解析并挂到 req.dataScope 的**真实数据范围**为权威：
  *     · isGlobal（ROLE_ADMIN / GROUP / GROUP 级绑定）→ 看全部；
  *     · allowedFarmCodes / allowedSiteCodes / allowedCompanyCodes → 多场聚合；
- *   再 ∪ 遗留单 storeCode（向后兼容单场场长——其 storeCode=本场而无 farmScope 行）。
- *   req.dataScope 缺失时仅保留显式 legacyGlobal；其余一律 fail-closed。
+ *   已解析的 DataScope 不再合并遗留 storeCode，避免扩大权限；仅缺少 DataScope 时兼容。
+ *   req.dataScope 缺失时兼容显式 legacyGlobal 或遗留 farm/site；其余 fail-closed。
  */
 export function deriveOrgScope(req: any): OrgScope {
   const storeCode: string | undefined = req.user?.storeCode;
@@ -110,7 +111,7 @@ export function deriveOrgScope(req: any): OrgScope {
     req.user?.username === 'admin';
 
   const ds = req?.dataScope as
-    | { isGlobal?: boolean; allowedCompanyCodes?: string[]; allowedFarmCodes?: string[]; allowedSiteCodes?: string[] }
+    | { isGlobal?: boolean; allowedCompanyCodes?: string[]; allowedFarmCodes?: string[]; allowedSiteCodes?: string[]; allowedBreedingFarmCodes?: string[]; allowedBreedingSiteCodes?: string[]; allowedBreedingCompanyCodes?: string[] }
     | undefined;
 
   // 全局：真实 DataScope 判全局 或 遗留判全局 → 不加任何过滤
@@ -121,12 +122,12 @@ export function deriveOrgScope(req: any): OrgScope {
     return { isGlobal: true, farmCode: null, siteCode: null, farmCodes: [], siteCodes: [], companyCodes: [] };
   }
 
-  // 非全局：合并真实多场范围 ∪ 遗留单场
-  const farmCodes = [...(ds?.allowedFarmCodes ?? [])];
-  const siteCodes = [...(ds?.allowedSiteCodes ?? [])];
-  const companyCodes = [...(ds?.allowedCompanyCodes ?? [])];
-  if (isFarm && !farmCodes.includes(storeCode!)) farmCodes.push(storeCode!);
-  if (isSite && !siteCodes.includes(storeCode!)) siteCodes.push(storeCode!);
+  // 非全局：优先显式养殖授权；仅无 DataScope 时使用遗留单场。
+  const farmCodes = [...(ds?.allowedBreedingFarmCodes ?? ds?.allowedFarmCodes ?? [])];
+  const siteCodes = [...(ds?.allowedBreedingSiteCodes ?? ds?.allowedSiteCodes ?? [])];
+  const companyCodes = [...(ds?.allowedBreedingCompanyCodes ?? ds?.allowedCompanyCodes ?? [])];
+  if (!ds && isFarm && !farmCodes.includes(storeCode!)) farmCodes.push(storeCode!);
+  if (!ds && isSite && !siteCodes.includes(storeCode!)) siteCodes.push(storeCode!);
 
   return {
     isGlobal: false,
@@ -362,338 +363,130 @@ export class FarmService {
     }
   }
 
-  async submitBreedingDailyLog(body: any, scope: OrgScope = { isGlobal: true, farmCode: null, siteCode: null }) {
-    if (!body || typeof body !== 'object') {
-      throw new BadRequestException(MISSING_HOUSE_MESSAGE);
-    }
-    const houseCode = typeof body.house_code === 'string' ? body.house_code.trim() : body.house_code;
-    if (typeof houseCode !== 'string' || houseCode === '' || houseCode.startsWith('加载中')) {
-      throw new BadRequestException(MISSING_HOUSE_MESSAGE);
-    }
-    body.house_code = houseCode;
-    // Issue #498: management daily reports use one canonical internal row.
-    body.shift = body.shift || 'DAILY';
-
-    // 2026-06-06: 若提供了 eggs_by_grade，自动派生 eggs_produced/dirty_eggs/broken_eggs
-    // 保持向后兼容；权威字段是 eggs_by_grade（与 product_grades 同源）。
-    let hasGradeBreakdown = false;
-    if (body.eggs_by_grade && typeof body.eggs_by_grade === 'object') {
-      const ebg = body.eggs_by_grade as Record<string, unknown>;
-      const num = (k: string) => Math.max(0, Number(ebg[k]) || 0);
-      hasGradeBreakdown = hasPositiveGradeBreakdown(ebg);
-      // G67 已将可售编码从 XL/L/M/S/XS 切换为 GRADE_1..5；以 ACTIVE
-      // 等级主数据判断可售档，避免旧硬编码将日报总产蛋数算成 0。
-      const saleableRows: Array<{ grade_code: string }> = await this.entityManager.query(
-        `SELECT grade_code FROM product_grades WHERE status = 'ACTIVE' AND is_saleable = true`,
-      );
-      const saleableSum = saleableRows.reduce((sum, { grade_code }) => sum + num(grade_code), 0);
-      // 仅在前端未显式传 eggs_produced/dirty/broken 时回填，避免覆盖业务方手动校正
-      body.eggs_produced = saleableSum;
-      body.dirty_eggs = num('DIRTY');
-      body.broken_eggs = num('BROKEN');
-      // 序列化为 JSON 字符串供 INSERT JSONB 列
-      body.eggs_by_grade = JSON.stringify(ebg);
-    }
-
-    const eggs = Number(body.eggs_produced) || 0;
-    const mortality = Number(body.mortality_qty) || 0;
-    const elimination = Number(body.elimination_qty) || 0;
-    const flock_no = body.flock_no || body.house_code;
-
-    // G9 自动派生 opening_qty / closing_qty / lay_rate（业务方无需手动算）
-    // opening = 前一天同舍 closing（或 brd_flocks.current_qty）
-    // closing = opening - mortality - elimination
-    // lay_rate = eggs_produced / closing × 100
-    // business_date 默认 = log_date
-    if (body.opening_qty == null && body.house_code) {
-      try {
-        const prev: Array<{ closing_qty: number }> = await this.entityManager.query(
-          `SELECT closing_qty FROM brd_daily_logs
-            WHERE house_code=$1 AND log_date < $2 AND closing_qty IS NOT NULL
-            ORDER BY log_date DESC, shift DESC LIMIT 1`,
-          [body.house_code, body.log_date],
-        );
-        if (prev.length > 0 && prev[0].closing_qty) {
-          body.opening_qty = Number(prev[0].closing_qty);
-        } else {
-          // 首日 / 无历史：从 brd_flocks.current_qty 取
-          const flockRow: Array<{ current_qty: number }> = await this.entityManager.query(
-            `SELECT current_qty FROM brd_flocks WHERE house_code=$1 OR flock_no=$1 LIMIT 1`,
-            [body.house_code],
-          );
-          if (flockRow.length > 0) body.opening_qty = Number(flockRow[0].current_qty) || 0;
-        }
-      } catch { /* 派生失败不阻塞，留 NULL */ }
-    }
-    if (body.opening_qty != null && body.closing_qty == null) {
-      body.closing_qty = Math.max(0, Number(body.opening_qty) - mortality - elimination);
-    }
-    if (body.lay_rate == null && body.closing_qty && Number(body.closing_qty) > 0 && eggs > 0) {
-      body.lay_rate = +((eggs / Number(body.closing_qty)) * 100).toFixed(2);
-    }
-    if (body.business_date == null) body.business_date = body.log_date;
-
-    // G16-2 安全校验：从 house_code 经 ACTIVE farm 反查唯一归属，
-    //   再用 scope.farmCode / scope.siteCode 比对真实归属，避免把 SITE-*
-    //   误当 LPH_* 比较导致同农场用户被拒。
-    if (!scope.isGlobal && body.house_code) {
-      const house = await this.ownership.resolveHouse(body.house_code);
-      const realFarm = house.farmCode;
-      const realSite = house.siteCode;
-      const realCompany = house.companyCode;
-      const allowedFarms = (scope.farmCodes?.length ? scope.farmCodes : (scope.farmCode ? [scope.farmCode] : [])).filter(Boolean);
-      const allowedSites = (scope.siteCodes?.length ? scope.siteCodes : (scope.siteCode ? [scope.siteCode] : [])).filter(Boolean);
-      if (!scope.isGlobal && allowedFarms.length && realFarm && !allowedFarms.includes(realFarm)) {
-        throw new BadRequestException(`无权写入其他农场的数据（鸡舍 ${body.house_code} 属于 ${realFarm}）`);
-      }
-      if (!scope.isGlobal && allowedSites.length && realSite && !allowedSites.includes(realSite)) {
-        throw new BadRequestException(`无权写入其他场区的数据（鸡舍 ${body.house_code} 属于 ${realSite}）`);
-      }
-      // 公司维度强校验：鸡舍归属公司必须在用户数据域内（farm/site 同农场但跨公司时兜底拦截，堵住静默越权）
-      const allowedCompanies = (scope.companyCodes ?? []).filter(Boolean);
-      if (!scope.isGlobal && allowedCompanies.length && realCompany && !allowedCompanies.includes(realCompany)) {
-        throw new BadRequestException(`无权写入其他公司的数据（鸡舍 ${body.house_code} 属于 ${realCompany}）`);
-      }
-      if (!realFarm && !realSite && !realCompany) {
-        throw new BadRequestException(`鸡舍 ${body.house_code} 尚未配置农场、场区或公司归属`);
-      }
-      // 强绑定：farm/site/company 一律以鸡舍权威值落库，不信前端传值（防跨公司错绑/漏绑）
-      if (realFarm) body.farm_code = realFarm;
-      if (realSite) body.site_code = realSite;
-      if (realCompany) body.company_code = realCompany;
-    }
-
-    if (eggs < 0 || mortality < 0) {
-      throw new BadRequestException('产蛋数和死淘数不能为负数！');
-    }
-
-    return await this.entityManager.transaction(async (manager) => {
-      // Grade-transition detection needs the row this submit will upsert:
-      // adding grades must retire the legacy FARM_IN posting at exactly the
-      // old amount, and removing grades that already feed TEMP_PRODUCTION
-      // stock must be refused before anything is written.
-      const priorRows = (await manager.query(
-        `SELECT eggs_by_grade, eggs_produced FROM brd_daily_logs
-          WHERE log_date = $1 AND house_code = $2 AND shift = $3`,
-        [body.log_date, body.house_code, body.shift ?? ''],
-      )) ?? [];
-      const prior = priorRows[0];
-      const priorHasGrades = hasPositiveGradeBreakdown(prior?.eggs_by_grade);
-      const priorEggs = Number(prior?.eggs_produced) || 0;
-
-      // Stripping grades from a report whose eggs already exist as
-      // TEMP_PRODUCTION stock would resurrect double counting; refuse before
-      // the report row is rewritten at all.
-      if (prior && priorHasGrades && !hasGradeBreakdown) {
-        await this.assertNoTempProductionForReport(manager, body.log_date, body.house_code);
-      }
-
-      const { fields, values } = this.sanitize(body);
-      if (fields.length === 0) {
-        throw new BadRequestException('提交数据为空或全部字段非法');
-      }
-      const placeholders = fields.map((_, i) => `$${i + 1}`).join(',');
-      const quotedFields = fields.map(f => `"${f}"`).join(',');
-
-      // A1: ON CONFLICT 兜底 — 同一 (log_date, house_code, shift) 重复提交不再 23505 失败
-      // 用 EXCLUDED 表示新值；保留 id 自增
-      const updateCols = fields
-        .filter(f => f !== 'flock_no' && f !== 'log_date' && f !== 'house_code' && f !== 'shift')
-        .map(f => `"${f}" = EXCLUDED."${f}"`)
-        .join(',');
-      const conflictClause = updateCols
-        ? `ON CONFLICT (log_date, house_code, shift) DO UPDATE SET ${updateCols}`
-        : `ON CONFLICT DO NOTHING`;
-
-      await manager.query(
-        `INSERT INTO "brd_daily_logs" (${quotedFields}) VALUES (${placeholders}) ${conflictClause}`,
-        values,
-      );
-
-      // A2: 业务钩子 — 按"当日总死淘"重算 current_qty，避免 diff 双扣
-      if (flock_no && (mortality > 0 || eggs > 0)) {
-        const sum = await manager.query(
-          `SELECT
-             COALESCE(SUM(mortality_qty), 0) AS total_mortality,
-             COALESCE(SUM(eggs_produced), 0) AS total_eggs
-           FROM brd_daily_logs
-           WHERE log_date = $1 AND (flock_no = $2 OR house_code = $2)`,
-          [body.log_date, flock_no],
-        );
-        const totalMortalityToday = Number(sum[0]?.total_mortality ?? 0);
-        const totalEggsToday = Number(sum[0]?.total_eggs ?? 0);
-
-        const flocks = await manager.query(
-          `SELECT current_qty, initial_qty FROM "brd_flocks" WHERE flock_no = $1 OR house_code = $1`,
-          [flock_no],
-        );
-        if (flocks.length > 0) {
-          const initialQty = Number(flocks[0].initial_qty) || Number(flocks[0].current_qty) || 0;
-          const newCurrentQty = Math.max(0, initialQty - totalMortalityToday);
-          const layRate = newCurrentQty > 0
-            ? ((totalEggsToday / newCurrentQty) * 100).toFixed(2)
-            : '0.00';
-          await manager.query(
-            `UPDATE "brd_flocks" SET current_qty = $1, current_lay_rate = $2 WHERE flock_no = $3 OR house_code = $3`,
-            [newCurrentQty, layRate, flock_no],
-          );
-        }
-      }
-
-      // A4: 分级状态迁移与旧记账路径。
-      // 无分级 → 有分级：旧 FARM_IN 必须按原始数量精确冲销，之后该批蛋
-      //   只能经 production-inbound 的 TEMP_PRODUCTION 台账入库。
-      if (prior && !priorHasGrades && hasGradeBreakdown && priorEggs > 0) {
-        await this.reverseLegacyFarmIn(manager, {
-          flockNo: flock_no || '', logDate: String(body.log_date), houseCode: body.house_code,
-          shift: body.shift, amount: priorEggs, companyCode: body.company_code as string | undefined, operator: body.operator,
-        });
-      }
-      // 无分级明细的旧日报才写 FARM_IN；有分级时由用户确认后的
-      // production-inbound 统一写库存，避免同一批蛋被日报和分级各记一次。
-      // 批次按公司+日期+可用量精确定位。找不到批次时保持产品契约"日报
-      // 不阻塞"，但绝不静默：返回体携带 ledgerSkipped 警告，等待补账。
-      let ledgerSkipped = false;
-      if (eggs > 0 && !hasGradeBreakdown) {
-        const batchNo = await this.lookupLegacyEggBatch(manager, body.company_code as string | undefined, body.log_date);
-        if (batchNo) {
-          // INV-301a：统一共享写入器
-          await writeInvLedger(manager, {
-            batchNo,
-            changeType: INV_LEDGER_CHANGE_TYPE.FARM_IN,
-            qtyChange: eggs,
-            operator: body.operator || 'SYS',
-            storeCode: 'FACTORY',
-            refNo: flock_no || '',
-            note: `日报产蛋入账 ${eggs}枚`,
-            logDate: body.log_date,
-            companyCode: body.company_code ?? null,
-          });
-        } else {
-          ledgerSkipped = true;
-          console.warn('[FarmService][WARN] 无可用 PRD-EGG 批次，FARM_IN 记账跳过（已持久化待补账通知）：', { flock_no, eggs, log_date: body.log_date });
-          await this.recordPendingLedgerNotification(manager, {
-            logDate: String(body.log_date), houseCode: body.house_code, eggs,
-            companyCode: (body.company_code as string | undefined) ?? null, flockNo: flock_no || '',
-          });
-        }
-      }
-
-      return {
-        code: 200,
-        msg: ledgerSkipped ? '日报提交成功（警告：无可用 PRD-EGG 批次，本次 FARM_IN 未记账，待补账通知已发给库存管理员）' : '日报提交成功',
-        ledgerSkipped,
-      };
-    });
+  async submitBreedingDailyLog(body: any, scope: OrgScope = { isGlobal: false, farmCode: null, siteCode: null }) {
+    return this.saveDailyLog(body, scope);
   }
 
-  async updateBreedingDailyLog(id: number, body: any) {
-    const eggs = Number(body.eggs_produced) || 0;
-    const mortality = Number(body.mortality_qty) || 0;
-    const flock_no = body.flock_no || body.house_code;
+  async updateBreedingDailyLog(id: number, body: any, scope: OrgScope = { isGlobal: false, farmCode: null, siteCode: null }) {
+    return this.saveDailyLog(body, scope, id);
+  }
 
-    if (eggs < 0 || mortality < 0) {
-      throw new BadRequestException('产蛋数和死淘数不能为负数！');
-    }
-
-    return await this.entityManager.transaction(async (manager) => {
-      const oldRecords = await manager.query(
-        `SELECT eggs_produced, mortality_qty, log_date, flock_no, house_code, company_code, shift, eggs_by_grade
-         FROM brd_daily_logs WHERE id = $1`,
-        [id],
-      );
-      if (oldRecords.length === 0) {
-        throw new NotFoundException('Daily log not found');
+  private async saveDailyLog(input: any, scope: OrgScope, id?: number) {
+    if (!input || typeof input !== 'object' || Array.isArray(input)) throw new BadRequestException(MISSING_HOUSE_MESSAGE);
+    return this.entityManager.transaction(async manager => {
+      // Read identity only, then acquire the same house -> flock -> report locks on both routes.
+      const identity = id === undefined ? undefined : (await manager.query(
+        'SELECT house_code, log_date::text AS log_date FROM brd_daily_logs WHERE id=$1', [id],
+      ))[0];
+      if (id !== undefined && !identity) throw new NotFoundException('Daily log not found');
+      const houseCode = String(identity?.house_code ?? input.house_code ?? '').trim();
+      if (!houseCode || houseCode.startsWith('加载中')) throw new BadRequestException(MISSING_HOUSE_MESSAGE);
+      const logDate = identity?.log_date ?? input.log_date;
+      if (typeof logDate !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(logDate)
+          || !Number.isFinite(Date.parse(logDate)) || new Date(logDate).toISOString().slice(0,10) !== logDate) {
+        throw new BadRequestException('日报日期必须为真实 YYYY-MM-DD');
       }
-      const old = oldRecords[0];
-      const oldEggs = Number(old.eggs_produced) || 0;
-      const oldHasGrades = hasPositiveGradeBreakdown(old.eggs_by_grade);
-      const hasGradeBreakdown = hasPositiveGradeBreakdown(body.eggs_by_grade !== undefined ? body.eggs_by_grade : old.eggs_by_grade);
-
-      // Stripping grades from a report whose eggs already exist as
-      // TEMP_PRODUCTION stock would resurrect double counting; refuse before
-      // the report row is rewritten at all.
-      if (oldHasGrades && !hasGradeBreakdown) {
-        await this.assertNoTempProductionForReport(manager, body.log_date ?? old.log_date, old.house_code);
+      const house = await this.ownership.resolveHouse(houseCode);
+      const farms = scope.farmCodes?.length ? scope.farmCodes : [scope.farmCode].filter(Boolean);
+      const sites = scope.siteCodes?.length ? scope.siteCodes : [scope.siteCode].filter(Boolean);
+      const companies = scope.companyCodes ?? [];
+      if (!scope.isGlobal && !(farms.includes(house.farmCode) || sites.includes(house.siteCode || '') || companies.includes(house.companyCode))) {
+        throw new ForbiddenException('无权写入该鸡舍的日报');
       }
-
+      const owner = { farm_code: house.farmCode, site_code: house.siteCode || null, company_code: house.companyCode };
+      const flock = await lockDailyFlock(manager, { house_code: houseCode, log_date: logDate, farm_code: house.farmCode, company_code: house.companyCode,
+        flock_no: input.flock_no });
+      const prior = (await manager.query(
+        `SELECT *, log_date::text AS log_date FROM brd_daily_logs WHERE ${id === undefined
+          ? 'log_date=$1 AND house_code=$2 AND shift=$3' : 'id=$1'} FOR UPDATE`,
+        id === undefined ? [logDate, houseCode, input.shift || 'DAILY'] : [id],
+      ))[0];
+      if (id !== undefined && !prior) throw new NotFoundException('Daily log not found');
+      if (prior) {
+        if (prior.flock_no !== flock.flock_no || prior.house_code !== houseCode || prior.log_date !== logDate) {
+          throw new BadRequestException('历史日报鸡群身份不明确或已变化，须先核对来源');
+        }
+        for (const field of ['house_code','flock_no','log_date','shift','farm_code','company_code','site_code']) {
+          if (input[field] !== undefined && String(input[field] ?? '') !== String(prior[field] ?? '')) {
+            throw new BadRequestException('禁止通过修改日报变更鸡群、日期或组织归属');
+          }
+        }
+      }
+      const body = { ...prior, ...input, ...owner, house_code: houseCode, flock_no: flock.flock_no,
+        log_date: logDate, shift: prior?.shift ?? input.shift ?? 'DAILY', business_date: logDate };
+      // Normalise partial edits from persisted values, never treat an omitted count as zero.
+      for (const field of ['mortality_qty','elimination_qty','eggs_produced']) {
+        body[field] = birdCount(input[field] === null ? null : body[field] ?? 0, field);
+      }
+      if (input.eggs_by_grade !== undefined) {
+        const grades = input.eggs_by_grade;
+        if (!grades || typeof grades !== 'object' || Array.isArray(grades)) throw new BadRequestException('分级明细必须为数量对象');
+        const active = await manager.query("SELECT grade_code, is_saleable FROM product_grades WHERE status='ACTIVE'");
+        for (const [code, value] of Object.entries(grades)) {
+          birdCount(value, code);
+          if (!active.some((row: any) => row.grade_code === code)) throw new BadRequestException('分级明细包含未启用等级');
+        }
+        body.eggs_produced = active.filter((row: any) => row.is_saleable).reduce((sum: number, row: any) => sum + Number(grades[row.grade_code] ?? 0), 0);
+        body.dirty_eggs = Number(grades.DIRTY ?? 0);
+        body.broken_eggs = Number(grades.BROKEN ?? 0);
+        body.eggs_by_grade = JSON.stringify(grades);
+      } else if (hasPositiveGradeBreakdown(prior?.eggs_by_grade) && input.eggs_produced !== undefined
+          && Number(input.eggs_produced) !== Number(prior.eggs_produced)) {
+        throw new BadRequestException('有分级的日报请修改分级明细，不可单独修改产蛋合计');
+      }
+      const oldHasGrades = hasPositiveGradeBreakdown(prior?.eggs_by_grade);
+      const hasGrades = hasPositiveGradeBreakdown(body.eggs_by_grade);
+      if (oldHasGrades && !hasGrades) await this.assertNoTempProductionForReport(manager, logDate, houseCode);
+      if (input.eggs_by_grade !== undefined && hasGrades) {
+        const posted = await manager.query(`SELECT COALESCE(grade_code_std,quality_grade) AS grade, SUM(qty)::numeric AS qty
+          FROM inv_batches WHERE source_type='TEMP_PRODUCTION' AND company_code=$1 AND egg_date=$2
+            AND collection_batch_ref=$3 GROUP BY COALESCE(grade_code_std,quality_grade)`,
+          [house.companyCode, logDate, `HOUSE-${houseCode}`]);
+        const others = await manager.query(`SELECT eggs_by_grade FROM brd_daily_logs
+          WHERE house_code=$1 AND log_date=$2 AND shift<>$3`, [houseCode, logDate, body.shift]);
+        const totals: Record<string, number> = { ...JSON.parse(body.eggs_by_grade) };
+        for (const row of others) {
+          const map = typeof row.eggs_by_grade === 'string' ? JSON.parse(row.eggs_by_grade) : row.eggs_by_grade;
+          for (const [grade, qty] of Object.entries(map ?? {})) totals[grade] = (totals[grade] ?? 0) + Number(qty);
+        }
+        if (posted.some((row: any) => Number(row.qty) > (totals[row.grade] ?? 0))) {
+          throw new BadRequestException('日报分级不能少于已入库数量，请先处理库存单据');
+        }
+      }
+      const balance = await prepareDailyBalances(manager, flock, prior, body);
+      body.opening_qty = balance.opening;
+      body.closing_qty = balance.closing;
+      body.lay_rate = balance.closing == null ? null : balance.closing > 0 ? +(body.eggs_produced*100/balance.closing).toFixed(2) : 0;
       const { fields, values } = this.sanitize(body);
-      if (fields.length === 0) {
-        throw new BadRequestException('更新数据为空或全部字段非法');
-      }
-      const setClauses = fields.map((f, i) => `"${f}" = $${i + 1}`).join(',');
-      values.push(id);
-      await manager.query(
-        `UPDATE "brd_daily_logs" SET ${setClauses} WHERE id = $${fields.length + 1}`,
-        values,
-      );
+      const updates = fields.filter(f => !['flock_no','log_date','house_code','shift'].includes(f))
+        .map(f => `"${f}"=EXCLUDED."${f}"`).join(',');
+      await manager.query(`INSERT INTO "brd_daily_logs" (${fields.map(f => `"${f}"`).join(',')})
+        VALUES (${values.map((_, i) => `$${i+1}`).join(',')})
+        ON CONFLICT (log_date,house_code,shift) DO UPDATE SET ${updates}`, values);
+      await persistDailyBalance(manager, flock.flock_no, balance.quantity, balance.following);
 
-      // A2: 重新按当日总和覆写 current_qty
-      const effectiveFlockNo = flock_no || old.flock_no || old.house_code;
-      const logDate = body.log_date || old.log_date;
-      if (effectiveFlockNo && logDate) {
-        const sum = await manager.query(
-          `SELECT COALESCE(SUM(mortality_qty),0) AS total_mortality,
-                  COALESCE(SUM(eggs_produced),0) AS total_eggs
-           FROM brd_daily_logs
-           WHERE log_date = $1 AND (flock_no = $2 OR house_code = $2)`,
-          [logDate, effectiveFlockNo],
-        );
-        const totalMortality = Number(sum[0]?.total_mortality ?? 0);
-        const totalEggs = Number(sum[0]?.total_eggs ?? 0);
-        const flocks = await manager.query(
-          `SELECT current_qty, initial_qty FROM brd_flocks WHERE flock_no = $1 OR house_code = $1`,
-          [effectiveFlockNo],
-        );
-        if (flocks.length > 0) {
-          const initialQty = Number(flocks[0].initial_qty) || Number(flocks[0].current_qty) || 0;
-          const newQty = Math.max(0, initialQty - totalMortality);
-          const layRate = newQty > 0 ? ((totalEggs / newQty) * 100).toFixed(2) : '0.00';
-          await manager.query(
-            `UPDATE brd_flocks SET current_qty = $1, current_lay_rate = $2 WHERE flock_no = $3 OR house_code = $3`,
-            [newQty, layRate, effectiveFlockNo],
-          );
-        }
+      const oldEggs = Number(prior?.eggs_produced ?? 0);
+      if (prior && !oldHasGrades && hasGrades && oldEggs > 0) {
+        await this.reverseLegacyFarmIn(manager, { flockNo: flock.flock_no, logDate, houseCode,
+          shift: body.shift, amount: oldEggs, companyCode: house.companyCode, operator: body.operator });
       }
-
-      // A4: 分级状态迁移与库存差额记账。
-      const eggsDiff = eggs - oldEggs;
-      if (!oldHasGrades && hasGradeBreakdown && oldEggs > 0) {
-        // 无分级 → 有分级：旧 FARM_IN 按原始数量精确冲销（带存在性/净额/
-        // 幂等三重校验），此后该日报只经 TEMP_PRODUCTION 台账入库。
-        await this.reverseLegacyFarmIn(manager, {
-          flockNo: effectiveFlockNo || '', logDate: String(logDate), houseCode: old.house_code,
-          shift: (body.shift ?? old.shift) as string | undefined, amount: oldEggs,
-          companyCode: (body.company_code ?? old.company_code) as string | undefined, operator: body.operator,
-        });
-      } else if (eggsDiff !== 0 && !hasGradeBreakdown) {
-        // 纯无分级路径：按差额记账；批次按公司+日期+可用量精确定位，
-        // 找不到时保持"更新不阻塞"契约但显式警告。
-        const batchNo = await this.lookupLegacyEggBatch(manager, (body.company_code ?? old.company_code) as string | undefined, logDate);
+      let ledgerSkipped = false;
+      const diff = body.eggs_produced - oldEggs;
+      if (!hasGrades && diff !== 0) {
+        const batchNo = await this.lookupLegacyEggBatch(manager, house.companyCode, logDate);
         if (batchNo) {
-          // INV-301a：统一共享写入器
-          await writeInvLedger(manager, {
-            batchNo,
-            changeType: eggsDiff > 0 ? INV_LEDGER_CHANGE_TYPE.FARM_IN : INV_LEDGER_CHANGE_TYPE.FARM_REVERSED,
-            qtyChange: Math.abs(eggsDiff),
-            operator: body.operator || 'SYS',
-            storeCode: 'FACTORY',
-            refNo: effectiveFlockNo || '',
-            note: `日报修改差额 ${eggsDiff > 0 ? '+' : ''}${eggsDiff}`,
-            logDate,
-            companyCode: (body.company_code ?? old.company_code) ?? null,
-          });
+          await writeInvLedger(manager, { batchNo, changeType: diff > 0 ? INV_LEDGER_CHANGE_TYPE.FARM_IN : INV_LEDGER_CHANGE_TYPE.FARM_REVERSED,
+            qtyChange: Math.abs(diff), operator: body.operator || 'SYS', storeCode: 'FACTORY', refNo: flock.flock_no,
+            note: prior ? `日报修改差额 ${diff > 0 ? '+' : ''}${diff}` : `日报产蛋入账 ${diff}枚`, logDate, companyCode: house.companyCode });
         } else {
-          console.warn('[FarmService][WARN] 无可用 PRD-EGG 批次，修改差额记账跳过（已持久化待补账通知）：', { flock_no: effectiveFlockNo, eggsDiff, log_date: logDate });
-          await this.recordPendingLedgerNotification(manager, {
-            logDate: String(logDate), houseCode: old.house_code, eggs: Math.abs(eggsDiff),
-            companyCode: (body.company_code ?? old.company_code) ?? null, flockNo: effectiveFlockNo || '',
-          });
-          return { code: 200, msg: '日报更新成功（警告：无可用 PRD-EGG 批次，本次差额未记账，待补账通知已发给库存管理员）', ledgerSkipped: true };
+          ledgerSkipped = true;
+          await this.recordPendingLedgerNotification(manager, { logDate, houseCode, eggs: Math.abs(diff),
+            companyCode: house.companyCode, flockNo: flock.flock_no });
         }
       }
-
-      return { code: 200, msg: '日报更新成功' };
+      const msg = id === undefined ? '日报提交成功' : '日报更新成功';
+      return { code: 200, msg: ledgerSkipped ? `${msg}（警告：无可用 PRD-EGG 批次，本次未记账，待补账通知已发给库存管理员）` : msg,
+        ...(id === undefined || ledgerSkipped ? { ledgerSkipped } : {}) };
     });
   }
 

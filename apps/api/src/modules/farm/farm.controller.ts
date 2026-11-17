@@ -35,8 +35,8 @@ export class FarmController {
 
   @Put('daily-logs/:id')
   @RequireMenu('MENU_FARM_DAILY', 'E')
-  async updateBreedingDailyLog(@Param('id') id: number, @Body() body: any) {
-    return await this.farmService.updateBreedingDailyLog(id, body);
+  async updateBreedingDailyLog(@Param('id') id: number, @Body() body: any, @Req() req: any) {
+    return await this.farmService.updateBreedingDailyLog(id, body, this.getScope(req));
   }
 
   /**

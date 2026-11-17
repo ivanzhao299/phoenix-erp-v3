@@ -1,4 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
+import { birdCount } from '../farm/daily-stock-policy';
 import { EntityManager } from 'typeorm';
 
 /** Validate and persist flock provenance in one transaction. Legacy names are display only. */
@@ -13,6 +14,10 @@ export async function writeFlock(
   }
   if (existing && existing.pkName !== 'flock_no') throw new BadRequestException('鸡群必须使用 flock_no 标识');
   return manager.transaction(async tx => {
+    const identity = existing ? (await tx.query('SELECT house_code FROM brd_flocks WHERE flock_no=$1', [existing.id]))[0] : undefined;
+    for (const houseCode of [...new Set([identity?.house_code, body.house_code].filter(Boolean))].sort()) {
+      await tx.query("SELECT pg_advisory_xact_lock(hashtext('phoenix:daily-house'), hashtext($1))", [houseCode]);
+    }
     const current = existing
       ? (await tx.query(`SELECT *, placement_date::text AS placement_date, start_date::text AS start_date,
           elimination_date::text AS elimination_date FROM brd_flocks WHERE flock_no=$1 FOR UPDATE`, [existing.id]))[0]
@@ -20,6 +25,39 @@ export async function writeFlock(
     if (existing && !current) throw new BadRequestException('鸡群不存在');
     if (current && body.flock_no !== undefined && body.flock_no !== current.flock_no) {
       throw new BadRequestException('鸡群编码为稳定身份，禁止修改');
+    }
+    if (current) {
+      for (const field of ['current_qty', 'initial_qty', 'current_lay_rate']) {
+        if (body[field] !== undefined) throw new BadRequestException('存栏及当前产蛋率由日报维护，档案禁止直接修改');
+      }
+      if (body.status === 'RETIRED' && Number(current.current_qty) !== 0) {
+        throw new BadRequestException('在栏数量未归零，不能关闭鸡群');
+      }
+      if (current.status === 'RETIRED' && body.status !== undefined && body.status !== current.status) {
+        throw new BadRequestException('已关闭鸡群不可重新启用，请建立新批次');
+      }
+    } else {
+      const initial = birdCount(body.initial_qty ?? body.current_qty ?? 0, '初始存栏');
+      if (body.current_qty !== undefined && birdCount(body.current_qty, '初始存栏') !== initial) {
+        throw new BadRequestException('新鸡群初始存栏与当前存栏必须一致');
+      }
+      body = { ...body, initial_qty: initial, current_qty: initial };
+      if (body.status === 'RETIRED' && initial > 0) throw new BadRequestException('在栏数量未归零，不能关闭鸡群');
+    }
+    const nextStatus = body.status ?? current?.status ?? 'GROWING';
+    // ACTIVE is read-only legacy compatibility; new/changed values use the governed five states.
+    if ((!current || body.status !== undefined && body.status !== current.status)) {
+      if (!['GROWING','LAYING','PEAK','DECLINING','RETIRED'].includes(String(nextStatus))) throw new BadRequestException('鸡群状态无效');
+      const states = await tx.query("SELECT dict_code FROM sys_dict WHERE dict_type='BRD_FLOCK_STATUS' AND dict_code=$1 AND status='ACTIVE'", [nextStatus]);
+      if (!states.length) throw new BadRequestException('鸡群状态未启用');
+    }
+    if (!current) body.status = nextStatus;
+    if (current && body.house_code !== undefined && body.house_code !== current.house_code) {
+      throw new BadRequestException('鸡群转舍必须使用生命周期流程，档案禁止直接变更鸡舍');
+    }
+    if (!current && nextStatus !== 'RETIRED') {
+      const occupied = await tx.query("SELECT 1 FROM brd_flocks WHERE house_code=$1 AND (status IS DISTINCT FROM 'RETIRED' OR COALESCE(current_qty,0)>0) LIMIT 1", [body.house_code]);
+      if (occupied.length) throw new BadRequestException('鸡舍已有在栏鸡群，请先办理出栏关闭；混群需分栏模型');
     }
     const dateFields = ['placement_date', 'start_date', 'elimination_date'];
     for (const key of dateFields) {
