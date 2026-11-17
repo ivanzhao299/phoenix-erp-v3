@@ -1,7 +1,7 @@
-Source commit: b27b6563914a6573725434ddc4b8c2b060008a2e
-Source fingerprint: c55d59bf9a9309684471d9988af8537bb38f6f6cad94f00ad58fddae95fd2c91 (104 paths, apps/scripts/.github)
+Source commit: 9d1a5186d1069ed01dd869841aaa3893a8aa7348
+Source fingerprint: 67c70c7e4c4fd03ca5333b73f9ef739540f6e6b402292a17e5e7dbb85e089ae2 (107 paths, apps/scripts/.github)
 Validation command exit codes are bound in validation-receipt.json. The held browser host is readiness evidence only; it stopped on SIGUSR2 (exit 140) and is not counted as a passing validation.
-Second-level scheduler diagnostics preserve the original HOLD; remote CI/release remain pending.
+Exact dracut vendor candidate: local 73 checks passed; real root/systemd PG16/18 CI pending. Coordinator uncommitted protocol work excluded. Production audit HOLD persists; no migration apply or data repair.
 
 ci-final-api-tests.log sha256=cf568aaad97f7f887b956acb5ab094027b2c96eba290625919e2afe2d7e2a79c
 Test Suites: 22 skipped, 168 passed, 168 of 190 total
@@ -174,3 +174,15 @@ ci-locator-contracts.log sha256=9cc875af8327ab21d43d3d3965e736dcfd2cd294256d3a40
 
 ci-locator-ssh-gate.log sha256=187c4ba05773c1260cdc4081260d349fdba7f553668a3337d4884a0b7d60d288
 PRODUCTION_SSH_ENTRY=PASS deploy=3 restoration=1
+
+vendor-fragment-final.log sha256=575558f53b2ad3989748d031cfaae3527362e36a849927da7cc3fe4a5e5fb3e8
+tests 73; pass 73; fail 0; skipped 0; actual Node20 exit 0
+
+egg-evidence-input-validation.log sha256=a7fb3c00bec44bf3c2abb0ee82a7b205b315714eb39b7c709284fddb9549130d
+Actual command exit 0; owned/readonly fixture evidence only, not production row proof
+
+egg-evidence-owned-validation.log sha256=3e497241e02712f95ad625d4586a849fc61af92f666ab7b4227858b7012eee08
+Actual command exit 0; owned/readonly fixture evidence only, not production row proof
+
+egg-evidence-owned-positive.log sha256=708b22f106375cf770c18eea29255b34d0060f9aafb1acff69d72f9911971de3
+Actual command exit 0; owned/readonly fixture evidence only, not production row proof

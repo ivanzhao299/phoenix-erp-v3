@@ -1,9 +1,9 @@
 {
-  "asOf": "2026-11-17T13:52:40.985617+00:00",
+  "asOf": "2026-11-17T14:31:08.427105+00:00",
   "baseMain": "a7c0045b9f6d1a475b5a10710184e66d9c494aa0",
   "candidateParent": "4cf46971cc1a1a2dba5be30838eaf75369cabf9c",
-  "sourceFingerprintSha256": "c55d59bf9a9309684471d9988af8537bb38f6f6cad94f00ad58fddae95fd2c91",
-  "sourceFileCount": 104,
+  "sourceFingerprintSha256": "67c70c7e4c4fd03ca5333b73f9ef739540f6e6b402292a17e5e7dbb85e089ae2",
+  "sourceFileCount": 107,
   "checks": {
     "api": {
       "suitesPassed": 168,
@@ -200,7 +200,7 @@
       "scopeAudit": "PASS"
     },
     "ciRecovery": {
-      "W5": "PASS with independently reviewed boundary flags; PR labels pending final head review",
+      "W5": "Existing boundary rules unchanged; new source awaiting exact-head independent review before relying on labels",
       "i18n": {
         "keysEachLanguage": 14823,
         "referencedKeys": 7814,
@@ -215,7 +215,7 @@
       "schedulerDiagnosticTests": 15,
       "maintenanceRelatedTests": 30,
       "pdfReadable": "strict PDF parsing; one page; exact evidence text; browser exact bytes and safe filename",
-      "remoteFinalCi": "pending; second-layer diagnostic does not change scheduler acceptance",
+      "remoteFinalCi": "Pending source 9d1a5186d; real PG16/18 host first-switch acceptance must be observed",
       "packagingSetupOffline": 6,
       "packagingRegressionLive": 45,
       "genericCrudController": 24,
@@ -230,7 +230,22 @@
       },
       "hydratorBrowserActual": 18,
       "ciOnlyLocatorContracts": 9,
-      "remotePriorHead": "1fcc: formal build/core regression/Admission/security and long Legacy passed; browser 76/77 with old editable-stock contract now fixed; first-switch OTHER symlink remains HOLD"
+      "remotePriorHead": "6393: all app/build/browser77/77 and other workflows passed; two PG16/18 first-switch jobs HOLD on observed dracut vendor symlinks",
+      "vendorFragmentLocal": {
+        "nodeMajor": 20,
+        "passed": 73,
+        "failed": 0,
+        "newVendorTests": 20,
+        "actualHostAccepted": false,
+        "scope": "exact nine protected fragment paths; descriptor, ownership, ACL, raw link/ancestor and capture wiring checks"
+      },
+      "dailyEggReadonlySql": {
+        "inputValidationExit": 0,
+        "ownedPg18ReadOnlyExit": 0,
+        "ownedPositiveFixtureExit": 0,
+        "actualProductionRawDailyJson": "pending formal readonly workflow",
+        "beforeHistory": "not proven"
+      }
     },
     "appearance": [
       {
@@ -695,15 +710,15 @@
   },
   "release": {
     "candidateOnly": true,
-    "pushed": true,
     "merged": false,
     "deployed": false,
     "tagDeferredUntilSuccessfulMainDeployment": true,
     "historicalFlocksActivated": false,
     "actualTwoCompanyPilot": "Pending real physical counts and signed evidence",
-    "candidateCommit": "b27b6563914a6573725434ddc4b8c2b060008a2e",
+    "candidateCommit": "9d1a5186d1069ed01dd869841aaa3893a8aa7348",
     "pullRequest": "https://github.com/ivanzhao299/phoenix-erp-v3/pull/574",
-    "reviewStatus": "New test and CI-only post-failure observation head awaiting exact-head reconfirmation; production reader acceptance unchanged"
+    "reviewStatus": "Dracut candidate independently reviewed; exact combined source head reconfirmation and real host CI remain pending",
+    "pushStatus": "At receipt creation source is local; confirm ordinary branch push and remote head separately"
   },
   "localLogSha256": {
     "ci-final-api-tests.log": "cf568aaad97f7f887b956acb5ab094027b2c96eba290625919e2afe2d7e2a79c",
@@ -745,7 +760,11 @@
     "ci-i18n-browser.log": "65be4d80e74a7e545ffe043bfb7a15447a7d3c5e24df7c921ac9f0ea7d63a960",
     "ci-i18n-web-types.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "ci-locator-contracts.log": "9cc875af8327ab21d43d3d3965e736dcfd2cd294256d3a40281995b810a3233a",
-    "ci-locator-ssh-gate.log": "187c4ba05773c1260cdc4081260d349fdba7f553668a3337d4884a0b7d60d288"
+    "ci-locator-ssh-gate.log": "187c4ba05773c1260cdc4081260d349fdba7f553668a3337d4884a0b7d60d288",
+    "vendor-fragment-final.log": "575558f53b2ad3989748d031cfaae3527362e36a849927da7cc3fe4a5e5fb3e8",
+    "egg-evidence-input-validation.log": "a7fb3c00bec44bf3c2abb0ee82a7b205b315714eb39b7c709284fddb9549130d",
+    "egg-evidence-owned-validation.log": "3e497241e02712f95ad625d4586a849fc61af92f666ab7b4227858b7012eee08",
+    "egg-evidence-owned-positive.log": "708b22f106375cf770c18eea29255b34d0060f9aafb1acff69d72f9911971de3"
   },
   "apiLintCounts": {
     "errors": 0,
@@ -753,7 +772,7 @@
   },
   "sourceFingerprintAlgorithm": {
     "baseCommit": "4cf46971cc1a1a2dba5be30838eaf75369cabf9c",
-    "sourceCommit": "b27b6563914a6573725434ddc4b8c2b060008a2e",
+    "sourceCommit": "9d1a5186d1069ed01dd869841aaa3893a8aa7348",
     "paths": [
       ".github/workflows/deploy.yml",
       ".github/workflows/legacy-maintenance-fixture.yml",
@@ -856,6 +875,9 @@
       "scripts/ops/flock-lifecycle-diagnostic.cjs",
       "scripts/ops/production-maintenance-root-readers.mjs",
       "scripts/ops/production-maintenance-scheduler-inventory.test.mjs",
+      "scripts/ops/production-maintenance-vendor-fragment.test.mjs",
+      "scripts/ops/production-trusted-paths.mjs",
+      "scripts/ops/readonly-audits/daily-egg-grade-evidence-20261117.sql",
       "scripts/test/flock-browser-appearance.cjs",
       "scripts/test/flock-browser.cjs",
       "scripts/test/flock-migration-compatibility.cjs"
@@ -866,25 +888,49 @@
     "scope": "git diff --name-only BASE SOURCE -- apps scripts .github"
   },
   "previousValidation": {
-    "sourceCommit": "1080b634b7afa260da7002e3914117de057827c6",
-    "sourceFingerprintSha256": "12c546366ca06a88119200a1281f851a15d4935fd1b2022605a500c73f891233",
+    "sourceCommit": "b27b6563914a6573725434ddc4b8c2b060008a2e",
+    "sourceFingerprintSha256": "c55d59bf9a9309684471d9988af8537bb38f6f6cad94f00ad58fddae95fd2c91",
     "localLogSha256": {
-      "api-full-test.log": "266deddd3cbf9f5c3f668ef242b683329783fc1c56d16fc860a3bfcab9ebd380",
-      "web-test.log": "547132e78e6fedc28b507126bd363199837daa04890d10a561df96a35420614f",
-      "typecheck.log": "afcfa323cc6668a35b0e0bfc55cbc9c9965cc07a38e886047762cdc547496a7e",
-      "api-typecheck-final.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "api-build.log": "1e503e759093860fc5e3c5c5ce08568556b3156320b751c2e6a9b12a8daea3e9",
-      "web-build.log": "f6c5653994dff64909a1ba60adb950de39164126494707c96b9d6c43bedcd6da",
-      "api-lint.log": "d5e871c7bd1c77f971f4e66027ab93432614e94185aec5482814dd888b42a7f5",
-      "web-lint-changed.log": "c6b7d18f57c8c52a5468bbdb5290badef83a0b8907ca4d94714fd4b5e52630f4",
-      "web-lint-ratchet.log": "4287d4554bfa357508d8a260789ba1525468f63e1f255cfb6cd4e9718e328e26",
-      "lifecycle-http-utc.log": "c246f96707f298da83523b2ef7ff5f05c715e79b7e2fd37754437a6d6d789a5f",
-      "lifecycle-http-sg.log": "ffa48b012a346c66f3623693f1500dde45a6dbd0e866a1144c9b51e4572e52c7",
-      "migration-compatibility.log": "7b2b7e29fbc946d7e18e31b62923542423bc5cb9f896de76e6fb3647385fe7be",
-      "constraint-drift.log": "974258ccb561f72cfd371070d8b51ea88ecf815537d391fcc304afab69ffeddd",
-      "nullable-in-unique.log": "4b95d58d9a67a8a178ee64e48dc6050ae865d08f8ff86c8ab5491ad17d79eb65",
-      "migration-dml.log": "fcd5d053f3a80cbf190e3947816e3794cfca5a7973ff3ca4d881039400f2d83e",
-      "migration-down.log": "603e5915366804c4aeaf18ae8aec1ead0440ee048ec7fd100594438ef53246c6"
+      "ci-final-api-tests.log": "cf568aaad97f7f887b956acb5ab094027b2c96eba290625919e2afe2d7e2a79c",
+      "ci-final-web-tests.log": "37df203e39ea4d929a8d769d18f1fd1c1846c116f533dc079804fb6a74fbe903",
+      "ci-final-api-types.log": "6ebe93a83eb82a9a554ba4bbc56a7042f70d71391261c6209eca269921da72f5",
+      "ci-final-web-types.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ci-final-api-build.log": "5b1549b60bee4e750040adfb6abec0fc90883af4fd742416eb44b5e3c8cbe21b",
+      "ci-final-web-build.log": "a94e2e4de49c5cc2fc23b394ced7c012611bbb8d156ef41b7988d63123695b52",
+      "ci-final-api-lint.log": "95d9f3834964d9d67b245068390b512eebfae8e42b0d3c11effd2b153af02ccb",
+      "ci-final-web-lint.log": "5c3934e7c9f47cde11a2751ad12b7ef01a2855f1aea93cb294b12d055e6a2ed6",
+      "ci-final-web-ratchet.log": "4287d4554bfa357508d8a260789ba1525468f63e1f255cfb6cd4e9718e328e26",
+      "ci-fix-http-utc.log": "587aec2109447ffd9b87d21429c1dfadb94205111cfc0ecc386c4ccb9155688d",
+      "ci-fix-http-sg.log": "7d0c81685414de8049abd1d38e3650e949cdf5729b70f6aede1e17857dda409d",
+      "ci-final-http-browser-host.log": "9a83846066991291db23dd9c9f288f9864544848da2c72de0dff41c3d24a06f7",
+      "ci-final-migration-compat.log": "7b2b7e29fbc946d7e18e31b62923542423bc5cb9f896de76e6fb3647385fe7be",
+      "ci-fix-ledger-rehearsal.log": "7853a2e187124d234f5dab499968a18bc30a0994ecd9c073ca554d72dd35d146",
+      "ci-fifo-pg.log": "d7b6fe1334b8899fae48d5ae7230c05bfee84d5b27e822f6b1aced7a24d9d18a",
+      "ci-final-constraint.log": "c8f206e0d5e6a2adfb4f1ef2cc23a28382cdc98cfee046294fb0cc03ed3c66dd",
+      "ci-final-nullable.log": "4b95d58d9a67a8a178ee64e48dc6050ae865d08f8ff86c8ab5491ad17d79eb65",
+      "ci-final-migration-dml.log": "fcd5d053f3a80cbf190e3947816e3794cfca5a7973ff3ca4d881039400f2d83e",
+      "ci-final-migration-down.log": "603e5915366804c4aeaf18ae8aec1ead0440ee048ec7fd100594438ef53246c6",
+      "ci-final-w5.log": "9e98208c4a47f496938eb0b39edf107d59dc65c70087a68ee0303d43149957a5",
+      "ci-final-i18n-keys.log": "94778b72aa74c88428f178f00a7631adc0cea537e608bdce5a58b2ae9ec0a88b",
+      "ci-final-i18n-literals.log": "9e3dcad0682987bf3305545268de5ed2e91fbd5d3969871d7425216cf9e7e6e2",
+      "ci-final-browser.log": "fc8e06f189998eacb145d537cefe0507d81dc21a00af6e493910bcb6bcea07ec",
+      "ci-final-appearance.log": "da1599c81a57e641a1b381ca3b1c3bf47d143a1f34e07bc2b200690b0b16a091",
+      "ci-fix-pdf-readable.log": "da3346a55a1ee6b75eba35b392418c845b80a31e83b2983867fe74f3865f306b",
+      "ci-fix-breeding-live.log": "4b45fb7a4d8b2a5c686798ffe0a2d8934a6426c6f5da1870a14fbfa3089f5721",
+      "ci-final-regression-setup.log": "a2774bf800f938cf1f3bfd43fb690e47758a1903db7701988864c178316aa4a3",
+      "ci-final-packaging-live.log": "ce396d90f39d3395a62f61b548b0bc3bd6c0f4a9901c818b1ebf45af8e66acda",
+      "ci-final-e2e-seed.log": "2562941c5dc1c1e99575d3c1a3b881592d6f314d6ee85ff43b731885c456f754",
+      "ci-final-crud-house-identity.log": "e7bcedcd74cbae18c56536298c8374ca4567c3ede2e22ba1ddaa4a32092c320f",
+      "ci-final-scheduler-diagnostic.log": "f5b75c624203a7548b96f0f0d7db1d872945b8978368b92865e3595b21beeeee",
+      "ci-final-maintenance-tests.log": "2cd3f53e36270ef5e3ac326e41aba6e4ab04b2d951c83e1d5660ae2f57e1149b",
+      "ci-final-business-recorder-pg.log": "c20008f06ae9c3800b22741779ac5525f5f901c892ac2780e9df04706ab53798",
+      "ci-fix-ci-contracts.log": "c9397a87152837871c19c58fa72b3c9c289f65862808f0386a102e6578ead795",
+      "ci-fix-ssh-tests.log": "28402e1365a422f0dde08423e75b158d553a899825d2363f38f139d5229c797d",
+      "ci-fix-ssh-gate.log": "187c4ba05773c1260cdc4081260d349fdba7f553668a3337d4884a0b7d60d288",
+      "ci-i18n-browser.log": "65be4d80e74a7e545ffe043bfb7a15447a7d3c5e24df7c921ac9f0ea7d63a960",
+      "ci-i18n-web-types.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ci-locator-contracts.log": "9cc875af8327ab21d43d3d3965e736dcfd2cd294256d3a40281995b810a3233a",
+      "ci-locator-ssh-gate.log": "187c4ba05773c1260cdc4081260d349fdba7f553668a3337d4884a0b7d60d288"
     }
   },
   "correctedValidation": {
@@ -928,7 +974,11 @@
     "hydratorBrowser18": 0,
     "webTypesAfterE2eEdit": 0,
     "ciLocatorContracts9": 0,
-    "ciLocatorSshGate": 0
+    "ciLocatorSshGate": 0,
+    "vendorFragmentTargeted": 0,
+    "dailyEggReadonlyInputs": 0,
+    "dailyEggReadonlyOwnedPg18": 0,
+    "dailyEggReadonlyOwnedPositive": 0
   },
   "verbatimVendorLicenseNote": "OFL.txt copied unmodified from upstream, including its existing trailing whitespace",
   "serviceLifecycle": {
@@ -941,20 +991,25 @@
     "independentHttpValidation": "ci-fix-http-utc.log and ci-fix-http-sg.log each completed 5 assertions with exit 0"
   },
   "priorRemoteCiSummary": {
-    "head": "1fccd182f4c19e9b2608e49d85adf9950c7edcb7",
-    "fullAppCoreRun": "44092025017",
-    "fullAppCore": "success",
-    "buildRun": "44092024750",
+    "head": "6393cf1ff6b1e81a8c5a8c254a575b8c59b64ce8",
+    "buildRun": "44097151154",
     "build": "success",
-    "legacyMainJob": "134069316774",
-    "legacyMain": "success",
-    "playwrightRun": "44092024760",
+    "playwrightRun": "44097151299",
     "playwright": {
-      "passed": 76,
-      "failed": 1,
-      "cause": "outdated editable-stock test; production readonly behavior preserved"
+      "passed": 77,
+      "failed": 0
     },
-    "firstSwitchRun": "44092024850",
-    "firstSwitch": "HOLD; LOADED/OTHER/REGULAR/SINGLE/STABLE; does not authorize symlink acceptance"
+    "firstSwitchRun": "44097151164",
+    "firstSwitchJobs": [
+      "134087182437",
+      "134087182130"
+    ],
+    "firstSwitch": "failure: original scheduler HOLD on package-installed dracut symlinks; no owned candidate created",
+    "otherWorkflows": "success"
+  },
+  "workspaceExclusion": {
+    "sourceBasis": "Only committed Git blobs at sourceCommit; working tree is intentionally not globally clean",
+    "uncommittedCoordinatorWork": "F/R deployment protocol changes and corresponding tests are excluded from this source and receipt",
+    "coordinatorProtocolValidationClaimed": false
   }
 }

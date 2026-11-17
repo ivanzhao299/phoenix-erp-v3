@@ -1,0 +1,111 @@
+{
+  "asOf": "2026-11-17 14:29:05 UTC",
+  "productionWritesPerformed": false,
+  "identity": {
+    "runId": 44099756016,
+    "jobId": 134096289689,
+    "workflow": "production-identity-diagnostic.yml",
+    "reviewedSource": "a7c0045b9f6d1a475b5a10710184e66d9c494aa0",
+    "workflowConclusion": "failure",
+    "exitCode": 34,
+    "result": "RELEASE_NOT_ALIGNED",
+    "failure": "HEAD_MISMATCH",
+    "checkout": "cb42966edfa717b0984936951143d84973c1a263",
+    "apiRevision": "cb42966edfa717b0984936951143d84973c1a263",
+    "webRevision": "cb42966edfa717b0984936951143d84973c1a263",
+    "floor": "101916efbcd60956c9f8321d4859931049f966c3",
+    "branch": "main",
+    "worktreeClean": true
+  },
+  "migrationInspect": {
+    "runId": 44099755930,
+    "jobId": 134096289055,
+    "workflow": "controlled-pending-migration-apply.yml",
+    "phase": "inspect",
+    "workflowConclusion": "success",
+    "ledgerSha256": "d29182e52966beed98d4f38f85c2e4e9add4edf9b732e64ce8dbefac0e1a2397",
+    "pending": [
+      "1794879957217-InvBatchesIntegrityConstraints",
+      "1794880267031-InvLedgerChangeTypeDictSeed",
+      "1794885912725-InvEggCostingColumns"
+    ],
+    "auditConclusion": "HOLD",
+    "applyPerformed": false
+  },
+  "eggPreflight": {
+    "runId": 44100859989,
+    "jobId": 134100177993,
+    "workflow": "daily-egg-inbound-repair.yml",
+    "phase": "preflight",
+    "repairKind": "overpost",
+    "reviewedSource": "a7c0045b9f6d1a475b5a10710184e66d9c494aa0",
+    "workflowConclusion": "success",
+    "auditConclusion": "HOLD",
+    "duplicateDailyGroups": 0,
+    "duplicateSourceGroups": 0,
+    "unbalancedProductionBatches": 0,
+    "overpostedGradeGroups": 2,
+    "legacyDailyFarmInRows": 54,
+    "retiredDuplicateBatches": 10,
+    "groups": [
+      {
+        "date": "2026-11-17",
+        "house": "HOUSE_MS_01",
+        "grade": "GRADE_4",
+        "reported": 0,
+        "inbound": 30,
+        "excess": 30,
+        "batches": [
+          {
+            "id": 413,
+            "batch": "EGG-20261117-00005",
+            "qty": 30,
+            "available": 30,
+            "source": "DAILY-2026-11-17-HOUSE_MS_01-4c5f2ca",
+            "company": "COMP-LAO-AGRI"
+          }
+        ],
+        "ledger": [
+          {
+            "id": 649,
+            "batch": "EGG-20261117-00005",
+            "qty": 30,
+            "ref": "DAILY-2026-11-17-HOUSE_MS_01-4c5f2ca",
+            "type": "TEMP_PRODUCTION_INBOUND"
+          }
+        ]
+      },
+      {
+        "date": "2026-11-17",
+        "house": "HOUSE_MS_01",
+        "grade": "GRADE_5",
+        "reported": 0,
+        "inbound": 30,
+        "excess": 30,
+        "batches": [
+          {
+            "id": 415,
+            "batch": "EGG-20261117-00007",
+            "qty": 30,
+            "available": 30,
+            "source": "DAILY-2026-11-17-HOUSE_MS_01-4c5f2ca",
+            "company": "COMP-LAO-AGRI"
+          }
+        ],
+        "ledger": [
+          {
+            "id": 651,
+            "batch": "EGG-20261117-00007",
+            "qty": 30,
+            "ref": "DAILY-2026-11-17-HOUSE_MS_01-4c5f2ca",
+            "type": "TEMP_PRODUCTION_INBOUND"
+          }
+        ]
+      }
+    ],
+    "rawDailyJsonObserved": false,
+    "beforeHistoryObserved": false,
+    "repairPerformed": false,
+    "scriptEligibleMarkerIsRepairApproval": false
+  }
+}

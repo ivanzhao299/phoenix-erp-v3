@@ -133,3 +133,25 @@
 PG16/18第一切换预检第二层事实一致：SYSTEMD_FRAGMENT/SYMLINK、LOADED、OTHER、REGULAR、SINGLE、STABLE，仍HOLD且owned未创建。未将OTHER视为合法或放宽reader。为定位真实宿主公开配置链接，本批增加仅失败后运行的CI locator：固定systemctl只取Id/LoadState/FragmentPath，限定真实hosted full-first-switch及原root600 host-intent/SHA；32条/32KiB、严格unit/普通绝对路径、包名筛选、无内容/命令/环境/原stderr。stdout仅CI诊断，不进入生产receipt/pin，无法据多个观察候选认定原失败对象；原native_result始终保留。模板与实例混合、越界/不安全元数据、scope/intent/本地调用拒绝、变更/读取失败等9项本地测试通过，并接入现有pure契约CI。
 
 本批源码`b27b6563914a6573725434ddc4b8c2b060008a2e`，104路径指纹`c55d59bf9a9309684471d9988af8537bb38f6f6cad94f00ad58fddae95fd2c91`、40份日志绑定；独立hydrator Chromium18/18和CI-only locator9/9通过，host停止140单独披露不计验证通过。仍未合并/部署/tag。
+
+## 实际发布前置核查与精确vendor候选（尚未发布）
+
+上文“不连接生产”描述的是早期本地验证阶段。本轮仅通过既有production工作流执行正式只读诊断，没有直接连接生产数据库或执行apply。
+
+- identity run `44099756016` / job `134096289689`：工作区main/clean，实际checkout/API/Web均`cb42966edfa717b0984936951143d84973c1a263`，配置floor为`101916efbcd60956c9f8321d4859931049f966c3`。预期main为`a7c0045b9f6d1a475b5a10710184e66d9c494aa0`，因此以`HEAD_MISMATCH`退出34；该failure不表示当前功能已发布。
+- controlled migration inspect run `44099755930` / job `134096289055`成功，只读ledger hash `d29182e52966beed98d4f38f85c2e4e9add4edf9b732e64ce8dbefac0e1a2397`。当前main已有3条待迁移：InvBatchesIntegrityConstraints、InvLedgerChangeTypeDictSeed、InvEggCostingColumns；本方案另5条待合并后核对。首条NOT VALID约束不扫描旧行，dict为工具表，cost_change历史仍NULL；本方案不修写历史日报/库存数据。正式apply仍要求既有audit GO，不能因为DDL不涉及差异就跳过。
+- 只读egg preflight run `44100859989` / job `134100177993`成功，结果仍HOLD：重复日报/重复来源/不平衡生产批次均0，超额分级组2。均为2026-11-17、HOUSE_MS_01、COMP-LAO-AGRI；GRADE_4的batch413/EGG-20261117-00005与ledger649、GRADE_5的batch415/EGG-20261117-00007与ledger651均30枚、可用30，日报按当前JSON聚合额度0。共同source/ref为`DAILY-2026-11-17-HOUSE_MS_01-4c5f2ca`。这只证明审计不一致，不能据总蛋数、物料或库存倒推应补GRADE_4/5各30。`PREFLIGHT=REPAIR_ELIGIBLE`是脚本分类，不是修数审批。
+- 原始日报JSON及历史变更尚未核实。当前`updated_at`只表示当前最后更新时间；OperationLogInterceptor规则不覆盖farm/generic daily，旧AuditLogInterceptor数据库保存被注释，不能宣称已有完整日报before-history。
+
+远端`6393cf1ff`的Playwright77项和其余工作流均已通过，仅两项PG16/18 first-switch仍因原scheduler HOLD失败。CI-only locator在两个真实hosted runner独立观察到9个dracut-core单跳regular稳定目标；initqueue明确属于77initqueue，其余8项属于77dracut-systemd。这是已核对的九精确映射，不代表任意OTHER或symlink合法。
+
+候选提交`0b391a6956ad3323e7da85ef94630a3d47fde458`仅调整root reader、可信ACL读取上限及新增vendor测试：
+
+- 九个精确fragment路径必须具有准确Id、loaded状态和SYSTEMD_FRAGMENT来源；缺失、普通文件替换、错误Id/来源/状态或mask均HOLD。其它cron/drop-in/链接仍沿原拒绝规则。
+- 链接原文可为绝对或相对，解析后必须精确匹配该项唯一目标；保留原文与源link身份。原文途经的目录（含`..`前目录）、规范目标所有祖先均必须为root所有实际目录，无symlink、特殊位、组/其他写位及扩展ACL；regular目标也须满足同样所有权/模式/ACL要求。Linux symlink自身不支持POSIX ACL，实际本机读取返回ENOTSUP，因此不把它当regular目标检查，也不将目标ACL不可读当无ACL。
+- 目标必须单跳regular、nlink1、最多1MiB；O_NOFOLLOW/O_NONBLOCK打开，fstat必须与lstat同一身份，只读取已知长度加1字节哨兵。读取前后复核fd/路径/源link原文与身份/目录及ACL，所有路径关闭fd。身份pin包括精确映射、原文、link/target/祖先身份和内容hash，不能仅相同字节就替代对象。
+- 独立只读reviewer指出并复核关闭了regular、ENOENT及mask降级；Node20针对性73项全部通过。新增20项包含九映射、相对路径、恶意路径/ACL/ownership/FIFO/链/超限/替换/关闭，以及使用原capture函数体隔离IO的真实接线回归。该隔离接线测试不能替代真实root/systemd PG16/18远端first-switch，仍待新head实际复验。
+
+正式发布仍受未通过的实际CI、F/R配置与运行时分离前置、audit HOLD、正常合并及真实部署证据约束；本轮没有执行迁移apply、生产修数、业务激活或发布tag。
+
+本批已提交源`9d1a5186d1069ed01dd869841aaa3893a8aa7348`（dracut + 有界只读SQL），107个apps/scripts/.github路径指纹`67c70c7e4c4fd03ca5333b73f9ef739540f6e6b402292a17e5e7dbb85e089ae2`，44份日志哈希。指纹只取该提交Git blobs，协调者仍在工作树内开发的F/R协议和测试完全排除，不能据本回执宣称全工作树clean或该协议已通过验证。只读SQL在owned PG18验证语法/当前JSON保真/异舍排除通过，生产原JSON取证仍待既有正式readonly workflow实际执行。
