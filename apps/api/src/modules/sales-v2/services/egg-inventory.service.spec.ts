@@ -213,11 +213,45 @@ describe('EggInventoryService inventory list/dashboard parity', () => {
     expect(sql).toContain("b.status = 'AVAILABLE'");
     expect(sql).toContain('b.qty_available > 0');
     expect(sql).toContain('b.expire_date IS NULL OR b.expire_date >= CURRENT_DATE');
+    // INV-203：展示口径对齐分配口径（legacy_source IS NULL），且 PATH B 排除 SKU 批次。
+    expect(sql).toContain('b.legacy_source IS NULL');
+    expect(sql).toContain('b.sku_code IS NULL');
     expect(sql).toContain('LEFT JOIN product_skus');
     expect(sql).toContain('LEFT JOIN mst_products');
     expect(sql).toContain('COALESCE(p.product_name_zh, sku.sku_name, b.product_code)');
     expect(sql).toContain('ORDER BY b.egg_date DESC NULLS LAST, b.batch_no DESC, b.id DESC');
     expect(args).toEqual(['WH-FARM']);
+  });
+
+  it('excludes legacy_source batches from both SKU and product paths (INV-203)', async () => {
+    const query = jest.fn().mockResolvedValue([]);
+    const service = new EggInventoryService({ query, transaction: async (run: (manager: any) => unknown) => run({ query }) } as never, { get: jest.fn() } as never);
+
+    await service.getAvailableBatches({ skuCode: 'SKU-1', salesContext: 'FARM_SALES', warehouseCode: 'WH-FARM' });
+    await service.getAvailableBatches({ productCode: 'EGG', salesContext: 'FARM_SALES', warehouseCode: 'WH-FARM' });
+
+    const skuPathSql = String(query.mock.calls[0][0]);
+    const productPathSql = String(query.mock.calls[1][0]);
+    // 展示口径对齐 allocateByFIFO：legacy 批次（不可分配的旧库存）不出现。
+    expect(skuPathSql).toContain('b.legacy_source IS NULL');
+    expect(productPathSql).toContain('b.legacy_source IS NULL');
+  });
+
+  it('does not double-count SKU batches in the product+grade path (INV-203)', async () => {
+    const query = jest.fn().mockResolvedValue([]);
+    const service = new EggInventoryService({ query, transaction: async (run: (manager: any) => unknown) => run({ query }) } as never, { get: jest.fn() } as never);
+
+    await service.getAvailableBatches({ productCode: 'EGG', salesContext: 'FARM_SALES', warehouseCode: 'WH-FARM' });
+    await service.getAvailableBatches({ skuCode: 'SKU-1', salesContext: 'FARM_SALES', warehouseCode: 'WH-FARM' });
+
+    const productPathSql = String(query.mock.calls[0][0]);
+    const skuPathSql = String(query.mock.calls[1][0]);
+    // PATH B 只展示未 SKU 化存量：SKU 批次被排除（`sku_code IS NULL`）。
+    expect(productPathSql).toContain('b.sku_code IS NULL');
+    expect(productPathSql).not.toContain('b.sku_code = $');
+    // PATH A 仍按 SKU 精确匹配，不附带 IS NULL 排除。
+    expect(skuPathSql).toContain('b.sku_code = $1');
+    expect(skuPathSql).not.toContain('b.sku_code IS NULL');
   });
 
   it('keeps same-production-date pagination deterministic and non-overlapping', () => {

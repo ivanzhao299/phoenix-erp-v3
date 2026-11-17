@@ -715,6 +715,9 @@ export class EggInventoryService {
     const conds: string[] = [
       `b.status = 'AVAILABLE'`,
       `b.qty_available > 0`,
+      // INV-203：与 allocateByFIFO 分配口径对齐——展示只认 Sales V2 可售批次，
+      // 排除 legacy_source 旧库存（展示数字会下降，属口径修正而非丢库存）。
+      `b.legacy_source IS NULL`,
       this.saleGradeCondition('b'),
       this.inventoryClassCondition(salesContext),
     ];
@@ -727,6 +730,9 @@ export class EggInventoryService {
       args.push(params.skuCode);
     } else {
       // PATH B: 旧逻辑（product+grade 匹配，向后兼容）
+      // INV-203：SKU 批次（sku_code IS NOT NULL）从 PATH B 排除，避免与
+      // PATH A（SKU 视图）双计；PATH B 语义变为「未 SKU 化存量」。
+      conds.push(`b.sku_code IS NULL`);
       if (params.productCode === 'EGG') {
         conds.push(this.eggFamilyCondition());
       } else if (params.productCode) {
