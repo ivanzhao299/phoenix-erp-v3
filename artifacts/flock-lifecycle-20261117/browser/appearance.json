@@ -100,7 +100,19 @@
       }
     ],
     "overflow": false,
-    "errors": []
+    "errors": [],
+    "fonts": {
+      "family": "Inter, system-ui, -apple-system, sans-serif",
+      "loaded": [
+        "400",
+        "600",
+        "700",
+        "800"
+      ],
+      "resources": [
+        "e4af272ccee01ff0-s.p.woff2"
+      ]
+    }
   },
   {
     "name": "mobile-dark",
@@ -203,7 +215,18 @@
       }
     ],
     "overflow": false,
-    "errors": []
+    "errors": [],
+    "fonts": {
+      "family": "Inter, system-ui, -apple-system, sans-serif",
+      "loaded": [
+        "400",
+        "700",
+        "800"
+      ],
+      "resources": [
+        "e4af272ccee01ff0-s.p.woff2"
+      ]
+    }
   },
   {
     "name": "pc-light",
@@ -306,7 +329,19 @@
       }
     ],
     "overflow": false,
-    "errors": []
+    "errors": [],
+    "fonts": {
+      "family": "Inter, system-ui, -apple-system, sans-serif",
+      "loaded": [
+        "400",
+        "600",
+        "700",
+        "800"
+      ],
+      "resources": [
+        "e4af272ccee01ff0-s.p.woff2"
+      ]
+    }
   },
   {
     "name": "mobile-light",
@@ -409,6 +444,17 @@
       }
     ],
     "overflow": false,
-    "errors": []
+    "errors": [],
+    "fonts": {
+      "family": "Inter, system-ui, -apple-system, sans-serif",
+      "loaded": [
+        "400",
+        "700",
+        "800"
+      ],
+      "resources": [
+        "e4af272ccee01ff0-s.p.woff2"
+      ]
+    }
   }
 ]

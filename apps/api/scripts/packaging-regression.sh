@@ -11,8 +11,17 @@ ADMIN_P="${ADMIN_PASS:-admin123}"
 PSQL=${PSQL:-$(command -v psql)}
 DB=${DB_NAME:-${PGDATABASE:-phoenix_erp}}
 
+# This mutating legacy regression is restricted to the same marked CI database
+# as the preceding breeding regression; never point its HTTP side at a remote API.
+if [[ ! "$API" =~ ^http://(127\.0\.0\.1|localhost)(:[0-9]+)?$ || "${CI:-}" != true || "${PGHOST:-}" != 127.0.0.1 || ! "$DB" =~ ^(phoenix_erp|phoenix_flock_compat)$ ]]; then
+  printf 'PACKAGING_DISPOSABLE_CI_FIXTURE_REQUIRED\n' >&2; exit 99
+fi
+
 # Setup is not an assertion: reject partial/failed fixtures explicitly.
 seed_sql() { "$PSQL" -X -v ON_ERROR_STOP=1 "$DB" "$@"; }
+FIXTURE_OWNER=$(seed_sql -tA -c "SELECT shobj_description(oid,'pg_database') FROM pg_database WHERE datname=current_database();") || exit 99
+[ "$FIXTURE_OWNER" = 'phoenix-ci-breeding-regression' ] || { printf 'PACKAGING_DISPOSABLE_DATABASE_OWNER_REQUIRED\n' >&2; exit 99; }
+
 seed_post() {
   local route="$1" payload="$2" response code
   if ! response=$(curl -sS -w $'\n%{http_code}' -X POST "$API/api/$route" \
@@ -91,17 +100,19 @@ IFS='|' read -r COMPANY SITE <<< "$ORG_CONTEXT"
 
 # 清理上一轮残留（只删除该回归专属来源，不触碰 profile/组织档案）
 seed_sql -q -c "
-  DELETE FROM pkg_tasks WHERE house_code='$HOUSE' OR source_item LIKE '%REGR-PKG%';
-  DELETE FROM pkg_shifts WHERE house_code='$HOUSE' OR shift_no LIKE 'SHIFT-REGR-PKG%';
+  DELETE FROM pkg_tasks WHERE house_code IN (SELECT house_code FROM brd_houses WHERE farm_code='$FARM') OR house_code='$HOUSE' OR source_item LIKE '%REGR-PKG%';
+  DELETE FROM pkg_shifts WHERE house_code IN (SELECT house_code FROM brd_houses WHERE farm_code='$FARM') OR house_code='$HOUSE' OR shift_no LIKE 'SHIFT-REGR-PKG%';
   DELETE FROM inv_ledger WHERE batch_no LIKE 'EGG-%-${HOUSE}-%' OR batch_no LIKE 'BAT-%-${HOUSE}-%' OR batch_no LIKE 'PACK-%-${HOUSE}-%';
   DELETE FROM inv_batches WHERE batch_no LIKE 'EGG-%-${HOUSE}-%' OR batch_no LIKE 'BAT-%-${HOUSE}-%' OR batch_no LIKE 'PACK-%-${HOUSE}-%';
-  DELETE FROM brd_daily_logs WHERE house_code='$HOUSE';
-  DELETE FROM brd_houses WHERE house_code='$HOUSE';
+  DELETE FROM brd_daily_logs WHERE house_code IN (SELECT house_code FROM brd_houses WHERE farm_code='$FARM') OR house_code='$HOUSE';
+  DELETE FROM brd_houses WHERE farm_code='$FARM' OR house_code='$HOUSE';
   DELETE FROM brd_farms WHERE farm_code='$FARM';
 " >/dev/null || exit 99
 seed_post crud/brd_farms "{\"farm_code\":\"$FARM\",\"farm_name\":\"旧包装回归测试场\",\"company_code\":\"$COMPANY\",\"mapped_site_code\":\"$SITE\",\"status\":\"ACTIVE\"}" >/dev/null
 # House company/site columns are retired: derive them from the persisted farm.
-seed_post crud/brd_houses "{\"house_code\":\"$HOUSE\",\"house_name\":\"旧包装回归鸡舍\",\"farm_code\":\"$FARM\",\"capacity\":5000,\"status\":\"ACTIVE\"}" >/dev/null
+HOUSE_RES=$(seed_post crud/brd_houses "{\"house_name\":\"旧包装回归鸡舍\",\"farm_code\":\"$FARM\",\"capacity\":5000,\"status\":\"ACTIVE\"}") || exit 99
+HOUSE=$(printf '%s' "$HOUSE_RES" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("houseCode", ""))') || exit 99
+[[ "$HOUSE" =~ ^HSE-[A-F0-9]{20}$ ]] || { printf 'Seed house generated identity missing\n' >&2; exit 99; }
 
 # 建真正 legacy pkg_shifts 来源（不能拿不同命名空间的 pkg_work_shifts 代替）
 SHIFT_RES=$(seed_post packaging/shifts "{\"shift_date\":\"$TODAY\",\"shift_type\":\"MORNING\",\"shift_time\":\"早班\",\"house_code\":\"$HOUSE\",\"operator\":\"REGR\"}") || exit 99

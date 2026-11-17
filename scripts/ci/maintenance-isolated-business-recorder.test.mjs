@@ -91,7 +91,7 @@ test('actual isolated PG16/18 with independent durable local sink distinguishes 
     const sql=statement=>{owned();return docker(['exec',db,'psql','-U','postgres','-d','maintenance_business','-X','-qAt','-v','ON_ERROR_STOP=1','-c',statement]);};
     try {
       db=docker(['run','-d','--pull=never','--network=none','--restart=no','--label','phoenix.test.kind=maintenance-business-evidence','--label',`phoenix.test.owner=${input.context.owner}`,
-        '--tmpfs',major===18?'/var/lib/postgresql:rw':'/var/lib/postgresql/data:rw','-e','POSTGRES_HOST_AUTH_METHOD=trust','-e','POSTGRES_DB=maintenance_business',`postgres:${major}-alpine`,'-c','max_prepared_transactions=5']);
+        '--tmpfs',major===18?'/var/lib/postgresql:rw':'/var/lib/postgresql/data:rw','-e','POSTGRES_HOST_AUTH_METHOD=trust','-e','POSTGRES_DB=maintenance_business',`postgres:${major}-alpine`,'-c','max_prepared_transactions=5'],{timeout:30000});
       resources.push({id:db,kind:'OWNED_ISOLATED_POSTGRES',stopped:false});save();assert.match(db,/^[a-f0-9]{64}$/);
       for(let n=0;;n++){try{if(sql('SELECT 1')==='1')break;}catch{}assert.ok(n<50);await pause(100);}
       const serverVersionNum=Number(sql("SELECT current_setting('server_version_num')"));assert.equal(Math.floor(serverVersionNum/10000),major);resources[0].serverVersionNum=serverVersionNum;

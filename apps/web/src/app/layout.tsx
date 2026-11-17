@@ -1,14 +1,7 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
 import { Providers } from "@/providers/providers";
+import "./inter.css";
 import "./globals.css";
-
-const inter = Inter({
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700", "800"],
-  display: "swap",
-  preload: true,
-});
 
 export const metadata: Metadata = {
   title: "金凤凰 ERP — Phoenix ERP V3",
@@ -40,8 +33,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="zh-CN" data-theme="light" suppressHydrationWarning className={inter.className}>
+    <html lang="zh-CN" data-theme="light" suppressHydrationWarning>
       <head>
+        <link rel="preload" href="/fonts/inter/e4af272ccee01ff0-s.p.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
         {/* runtime-design-system.css — UI 样式热更新通道(globals.css 之后,确保覆盖优先级)。
             nginx 拦截优先 host /opt/phoenix/static-overrides/ 覆盖文件,no-cache 重验证。
             部署:fast-css 模式 scp 即可 3-10s 上线,见 docs/deployment-tiers.md */}

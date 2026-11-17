@@ -628,6 +628,9 @@ export class GenericCrudController {
     }
 
     const result = await this.crudService.create(table, body);
+    if (table === 'brd_houses' && 'houseCode' in result && typeof result.houseCode === 'string') {
+      return { code: 200, msg: result.msg, houseCode: result.houseCode };
+    }
     return { code: 200, msg: result.msg };
   }
 

@@ -59,6 +59,16 @@ describe('GenericCrudController WMS RBAC', () => {
     );
   });
 
+  it('returns the generated house identity after the existing write and scope checks', async () => {
+    const houseCode = 'HSE-00000000000000000001';
+    const created = { msg: 'Created successfully', houseCode };
+    svc.create.mockResolvedValueOnce(created);
+    await expect(controller.create('brd_houses', {
+      house_name: 'New house', farm_code: 'FARM-A', capacity: 5000,
+    }, req(['MENU_FARM_MASTER:C']))).resolves.toEqual({ code: 200, msg: 'Created successfully', houseCode });
+    expect(svc.create).toHaveBeenCalledWith('brd_houses', { house_name: 'New house', farm_code: 'FARM-A', capacity: 5000 });
+  });
+
   it('marks generic CRUD list responses as non-cacheable', () => {
     const headers = Reflect.getMetadata(
       HEADERS_METADATA,

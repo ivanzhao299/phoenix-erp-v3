@@ -125,9 +125,35 @@ export function maintenanceSchedulerRejectionDiagnostic(stat,source){
   const reason=stat.isSymbolicLink()?'SYMLINK':stat.isDirectory()?'DIRECTORY':!stat.isFile()?'OTHER_SPECIAL':stat.size>1024*1024?'OVERSIZE':null;
   return reason?{source,reason}:null;
 }
+const SCHEDULER_LINK_ENUMS={loadStateClass:new Set(['LOADED','OTHER']),targetClass:new Set(['SYSTEM_UNIT_DIR','RUNTIME_UNIT_DIR','OTHER','UNRESOLVED']),targetType:new Set(['REGULAR','SYMLINK','DIRECTORY','OTHER','MISSING','UNREADABLE']),linkShape:new Set(['SINGLE','CHAIN','UNRESOLVED']),stability:new Set(['STABLE','CHANGED','UNVERIFIED'])};
+export function classifyMaintenanceSchedulerTarget(target){
+ const normalized=path.resolve(target);
+ const within=root=>normalized.startsWith(root+'/');
+ if(['/usr/lib/systemd/system','/lib/systemd/system','/etc/systemd/system'].some(within))return 'SYSTEM_UNIT_DIR';
+ return within('/run/systemd/system')?'RUNTIME_UNIT_DIR':'OTHER';
+}
+/** Observe only direct link/stat metadata for a rejected fragment. Never accepts
+ * the link, follows a chain, reads target content or emits a filesystem name. */
+export function observeMaintenanceSchedulerLinkDiagnostic(name,initial,loaded){
+ const result={loadStateClass:loaded?'LOADED':'OTHER',targetClass:'UNRESOLVED',targetType:'UNREADABLE',linkShape:'UNRESOLVED',stability:'UNVERIFIED'};
+ const pin=stat=>[stat.dev,stat.ino,stat.mode,stat.nlink,stat.size,stat.mtimeMs,stat.ctimeMs];
+ try{
+  const link=fs.readlinkSync(name);if(link.includes('\0'))return result;
+  const target=path.resolve(path.dirname(name),link);result.targetClass=classifyMaintenanceSchedulerTarget(target);
+  let before;try{before=fs.lstatSync(target);}catch(error){result.targetType=error.code==='ENOENT'?'MISSING':'UNREADABLE';return result;}
+  result.targetType=before.isSymbolicLink()?'SYMLINK':before.isDirectory()?'DIRECTORY':before.isFile()?'REGULAR':'OTHER';
+  result.linkShape=before.isSymbolicLink()?'CHAIN':'SINGLE';
+  const afterLink=fs.readlinkSync(name),afterSource=fs.lstatSync(name),afterTarget=fs.lstatSync(target);
+  result.stability=link===afterLink&&JSON.stringify(pin(initial))===JSON.stringify(pin(afterSource))&&JSON.stringify(pin(before))===JSON.stringify(pin(afterTarget))?'STABLE':'CHANGED';
+ }catch{/* Diagnostic failure never replaces the original rejection. */}
+ return result;
+}
 export function readMaintenanceSchedulerDiagnostic(error){
-  const value=error?.schedulerFileDiagnostic;
-  return SCHEDULER_SOURCES.has(value?.source)&&SCHEDULER_REASONS.has(value?.reason)?{source:value.source,reason:value.reason}:null;
+ const value=error?.schedulerFileDiagnostic;
+ if(!SCHEDULER_SOURCES.has(value?.source)||!SCHEDULER_REASONS.has(value?.reason))return null;
+ const result={source:value.source,reason:value.reason};
+ for(const [key,values]of Object.entries(SCHEDULER_LINK_ENUMS))if(values.has(value[key]))result[key]=value[key];
+ return result;
 }
 
 /** Fixed scheduler discovery. Definitions are hashed in memory; command lines
@@ -136,11 +162,15 @@ export function readMaintenanceSchedulerDiagnostic(error){
 export function captureMaintenanceSchedulers(){
   guard();const rows=[];
   const add=(id,bytes)=>rows.push({id,classification:'SYSTEM_PINNED',erpControlReference:bytes.includes(Buffer.from(CONTRACT.repository))||bytes.includes(Buffer.from('phoenix-v3-api')),identitySha256:hash(bytes)});
-  const file=(name,source)=>{
+  const file=(name,source,loaded=false)=>{
     let stat;try{stat=fs.lstatSync(name);}catch(error){if(error.code==='ENOENT')return;throw error;}
     if(!stat.isFile()||stat.isSymbolicLink()||stat.size>1024*1024){
       try{hold('ROOT_READER_SCHEDULER_FILE_UNVERIFIED');}
-      catch(error){error.schedulerFileDiagnostic=maintenanceSchedulerRejectionDiagnostic(stat,source);throw error;}
+      catch(error){
+        error.schedulerFileDiagnostic=maintenanceSchedulerRejectionDiagnostic(stat,source);
+        if(source==='SYSTEMD_FRAGMENT'&&stat.isSymbolicLink())try{Object.assign(error.schedulerFileDiagnostic,observeMaintenanceSchedulerLinkDiagnostic(name,stat,loaded));}catch{}
+        throw error;
+      }
     }
     const bytes=fs.readFileSync(name),after=fs.lstatSync(name);
     if(stat.ino!==after.ino||stat.mtimeMs!==after.mtimeMs||stat.size!==after.size)hold('ROOT_READER_SCHEDULER_CHANGED');add(name,bytes);
@@ -180,7 +210,7 @@ export function captureMaintenanceSchedulers(){
         for(const line of lines.filter(line=>line.startsWith('FragmentPath=')||line.startsWith('DropInPaths=')))
           for(const full of line.slice(line.indexOf('=')+1).split(' ').filter(Boolean)){
             if(isMaintenanceSystemdMask(full,lines))continue;
-            file(full,line.startsWith('FragmentPath=')?'SYSTEMD_FRAGMENT':'SYSTEMD_DROPIN');
+            file(full,line.startsWith('FragmentPath=')?'SYSTEMD_FRAGMENT':'SYSTEMD_DROPIN',lines.includes('LoadState=loaded'));
           }
       }
     }

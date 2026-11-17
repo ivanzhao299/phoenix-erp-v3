@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import assert from 'node:assert/strict';
-import {partitionMaintenanceSchedulerUnits,isMaintenanceSystemdMask,normalizeMaintenanceSystemdDefinition,maintenanceSchedulerRejectionDiagnostic,readMaintenanceSchedulerDiagnostic} from './production-maintenance-root-readers.mjs';
+import {partitionMaintenanceSchedulerUnits,isMaintenanceSystemdMask,normalizeMaintenanceSystemdDefinition,maintenanceSchedulerRejectionDiagnostic,readMaintenanceSchedulerDiagnostic,classifyMaintenanceSchedulerTarget,observeMaintenanceSchedulerLinkDiagnostic} from './production-maintenance-root-readers.mjs';
 
 test('actual uninstantiated template does not abort ordinary unit properties or disappear',()=>{
  const result=partitionMaintenanceSchedulerUnits('apport-coredump-hook@.service static -\ncron.service enabled enabled\ngetty@tty1.service enabled enabled\n');
@@ -88,9 +88,41 @@ test('diagnosis retains exact scheduler rejection and stable-read safeguards',()
  const reader=fs.readFileSync(new URL('./production-maintenance-root-readers.mjs',import.meta.url),'utf8');
  assert.match(reader,/if\(!stat\.isFile\(\)\|\|stat\.isSymbolicLink\(\)\|\|stat\.size>1024\*1024\)\{/);
  assert.match(reader,/hold\('ROOT_READER_SCHEDULER_FILE_UNVERIFIED'\)/);
- assert.match(reader,/schedulerFileDiagnostic=maintenanceSchedulerRejectionDiagnostic\(stat,source\);throw error/);
+ assert.match(reader,/schedulerFileDiagnostic=maintenanceSchedulerRejectionDiagnostic\(stat,source\)/);
+ assert.match(reader,/if\(source==='SYSTEMD_FRAGMENT'&&stat\.isSymbolicLink\(\)\)/);
  assert.match(reader,/stat\.ino!==after\.ino\|\|stat\.mtimeMs!==after\.mtimeMs\|\|stat\.size!==after\.size/);
  assert.match(reader,/if\(stat\.isDirectory\(\)&&directory==='\/var\/spool\/cron'\)continue/);
  const fixture=fs.readFileSync(new URL('../ci/maintenance-full-first-switch.fixture.mjs',import.meta.url),'utf8');
  assert.match(fixture,/result\.schedulerFileDiagnostic=readMaintenanceSchedulerDiagnostic\(error\)/);
+});
+
+
+test('fragment diagnostics classify fixed roots without path-prefix confusion or escapes',()=>{
+ for(const root of ['/usr/lib/systemd/system','/lib/systemd/system','/etc/systemd/system'])assert.equal(classifyMaintenanceSchedulerTarget(root+'/unit.service'),'SYSTEM_UNIT_DIR');
+ assert.equal(classifyMaintenanceSchedulerTarget('/run/systemd/system/unit.service'),'RUNTIME_UNIT_DIR');
+ for(const name of ['/usr/lib/systemd/system-evil/unit','/usr/lib/systemd/system/../../private/unit','/private/unit'])assert.equal(classifyMaintenanceSchedulerTarget(name),'OTHER');
+});
+test('rejected fragment link diagnostics reveal only bounded enums, including broken and chained links',()=>{
+ const directory=fs.mkdtempSync(path.resolve('artifacts/scheduler-diagnostic-')),target=path.join(directory,'target'),link=path.join(directory,'link'),chain=path.join(directory,'chain');
+ try{
+  fs.writeFileSync(target,'SYNTHETIC PRIVATE CONTENT');fs.symlinkSync('target',link);fs.symlinkSync('link',chain);
+  const original=fs.lstatSync(link),value=observeMaintenanceSchedulerLinkDiagnostic(link,original,true);
+  assert.deepEqual(value,{loadStateClass:'LOADED',targetClass:'OTHER',targetType:'REGULAR',linkShape:'SINGLE',stability:'STABLE'});
+  assert.equal(observeMaintenanceSchedulerLinkDiagnostic(chain,fs.lstatSync(chain),false).linkShape,'CHAIN');
+  fs.unlinkSync(target);assert.equal(observeMaintenanceSchedulerLinkDiagnostic(link,fs.lstatSync(link),true).targetType,'MISSING');
+  const safe=readMaintenanceSchedulerDiagnostic({schedulerFileDiagnostic:{source:'SYSTEMD_FRAGMENT',reason:'SYMLINK',...value,path:link,targetText:'PRIVATE',uid:123,hash:'PRIVATE'}});
+  assert.deepEqual(safe,{source:'SYSTEMD_FRAGMENT',reason:'SYMLINK',...value});
+  assert.doesNotMatch(JSON.stringify(safe),/PRIVATE|scheduler-diagnostic|uid|hash|path|targetText/);
+  const invalid=readMaintenanceSchedulerDiagnostic({schedulerFileDiagnostic:{...safe,targetType:'/private/value'}});assert.equal(invalid.targetType,undefined);
+ }finally{for(const name of [chain,link,target])if(fs.existsSync(name)||(()=>{try{return fs.lstatSync(name).isSymbolicLink();}catch{return false;}})())fs.unlinkSync(name);fs.rmdirSync(directory);}
+});
+test('fragment diagnostic catches link replacement and never propagates observation failures',()=>{
+ const directory=fs.mkdtempSync(path.resolve('artifacts/scheduler-diagnostic-')),target=path.join(directory,'target'),other=path.join(directory,'other'),link=path.join(directory,'link'),readlink=fs.readlinkSync;
+ try{
+  fs.writeFileSync(target,'A');fs.writeFileSync(other,'B');fs.symlinkSync('target',link);const initial=fs.lstatSync(link);let changed=false;
+  fs.readlinkSync=(name,...args)=>{const text=readlink(name,...args);if(name===link&&!changed){changed=true;fs.unlinkSync(link);fs.symlinkSync('other',link);}return text;};
+  assert.equal(observeMaintenanceSchedulerLinkDiagnostic(link,initial,true).stability,'CHANGED');
+  fs.readlinkSync=()=>{throw Error('PRIVATE FAILURE');};
+  assert.deepEqual(observeMaintenanceSchedulerLinkDiagnostic(link,initial,true),{loadStateClass:'LOADED',targetClass:'UNRESOLVED',targetType:'UNREADABLE',linkShape:'UNRESOLVED',stability:'UNVERIFIED'});
+ }finally{fs.readlinkSync=readlink;for(const name of [link,target,other])fs.unlinkSync(name);fs.rmdirSync(directory);}
 });

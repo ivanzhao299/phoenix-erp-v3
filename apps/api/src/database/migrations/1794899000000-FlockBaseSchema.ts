@@ -7,11 +7,11 @@ import {MigrationInterface,QueryRunner} from 'typeorm';
 export class FlockBaseSchema1794899000000 implements MigrationInterface {
   private readonly marker='FlockBaseSchema1794899000000';
   private readonly tables:Record<string,Record<string,string>>={
-    brd_farms:{farm_code:'varchar(64) PRIMARY KEY',farm_name:'varchar(255)',location:'varchar(255)',manager:'varchar(128)',houses:'integer',capacity:'integer',company_code:'varchar(64)',mapped_site_code:'varchar(64)',
+    brd_farms:{farm_code:'varchar(64) PRIMARY KEY',farm_name:'varchar(255)',store_code:'varchar(64)',location:'varchar(255)',manager:'varchar(128)',houses:'integer',capacity:'integer',company_code:'varchar(64)',mapped_site_code:'varchar(64)',
       status:"varchar(32) NOT NULL DEFAULT 'ACTIVE'",created_at:'timestamptz NOT NULL DEFAULT now()',updated_at:'timestamptz NOT NULL DEFAULT now()'},
     brd_houses:{house_code:'varchar(64) PRIMARY KEY',house_name:'varchar(255)',farm_code:'varchar(64)',farm_name:'varchar(255)',house_type:'varchar(64)',
       max_capacity:'integer',capacity:'integer',current_birds:'integer',status:"varchar(32) NOT NULL DEFAULT 'ACTIVE'",created_at:'timestamptz NOT NULL DEFAULT now()',updated_at:'timestamptz NOT NULL DEFAULT now()'},
-    brd_flocks:{flock_no:'varchar(64) PRIMARY KEY',house_code:'varchar(64)',farm_code:'varchar(64)',farm_name:'varchar(255)',company_code:'varchar(64)',site_code:'varchar(64)',
+    brd_flocks:{flock_no:'varchar(64) PRIMARY KEY',store_code:'varchar(64)',house_code:'varchar(64)',farm_code:'varchar(64)',farm_name:'varchar(255)',company_code:'varchar(64)',site_code:'varchar(64)',
       breed_code:'varchar(64)',breed_type:'varchar(255)',strain:'varchar(255)',source_farm:'varchar(255)',placement_date:'date',start_date:'date',
       elimination_date:'date',placement_age:'integer',initial_qty:'integer',current_qty:'integer',current_lay_rate:'numeric',peak_lay_rate:'numeric',
       target_weeks:'integer',feed_conversion_ratio:'numeric',cost:'numeric',status:"varchar(32) NOT NULL DEFAULT 'GROWING'",

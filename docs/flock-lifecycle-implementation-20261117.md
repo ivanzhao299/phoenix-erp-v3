@@ -113,3 +113,12 @@
 最终CI修复源码：`96bc792069461ecf5c351aa416af2c871f5e5b8a`；apps/scripts/.github共85个改动路径源指纹 `faa36c558c4e1594682a04a937d3134867f6c8b2405f9fafa3d7f90aee30f21a`。最终日志哈希与可复现算法见validation-receipt.json；远端CI、合并和实际部署仍待完成。
 
 更正取证：a383的Web类型通过表述撤回，新增下载测试的this缺显式类型（TS2683）已在`96bc792069461ecf5c351aa416af2c871f5e5b8a`修复。本地先前读取的是未完成输出；本轮已等待实际exit 0，Web无缓存类型检查及835项Web测试通过。该修复不改运行时行为，需按新head重新绑定独立边界审查。
+
+
+## 第二轮远端阻塞收口（待新head远端确认）
+
+- 新装兼容补齐仍被真实fixture/旧通用回执使用的farm.store_code、flock.store_code，均nullable、不填历史值；不复活house退休的company/site/store列。195冻结SQL+113 TS及实际服务/correction/down重跑通过，真实E2E seed通过。
+- 包装回归沿用服务器生成HSE编码。GenericCrudController原回执丢弃服务返回的houseCode，现仅成功brd_houses响应增加该字符串字段，既有guard/scope/写策略及其他表响应保留。24项controller契约及实际45项包装回归通过；认证另由HTTP专项验证。回归脚本限定已标记隔离CI DB及loopback API，失败前置检查/生成码校验共6项离线测试通过；历史养殖setup8项继续通过。
+- Google Inter loader:122在远端再次失败。现从本地成功build保存相同7个WOFF2字节、全部42条原font-face/Unicode范围/6档权重，保留既有globals字体栈与Latin preload，附官方OFL与来源/hash；移除构建期Google fetch，不升级依赖。禁用代理可用性的完整build exit0，PC/移动明暗4组证实Inter实际loaded、只用本地资源、无字体404，浏览器9项通过。
+- 真实CI诊断已确证PG16/18均为SYSTEMD_FRAGMENT/SYMLINK，不能据此认定合法alias。第二层只补loadState/直接target类别/type/单跳及稳定性固定枚举，白名单复制，异常不覆盖原HOLD。没有放宽任何symlink接受条件；路径类别并不证明祖先目录可信或安全读取。15项诊断测试通过，等待新远端事实再审兼容方案。
+- 维护business recorder的CI启动docker run超5秒；仅该测试启动调用改30秒，其余原5秒/SQL及安全判断不变。真实独立PG16/18 recorder 13项通过，生产代码不变。
