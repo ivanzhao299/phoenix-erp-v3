@@ -227,6 +227,17 @@ jobs:
               fi
             done
           fi
+          # Observe ordinary host link metadata only after this disposable fixture failed.
+          # The original failure code below remains authoritative; no production reader changes.
+          if [ "$native_result" -ne 0 ]; then
+            /usr/bin/timeout --signal=TERM --kill-after=5s 30s \
+            sudo /usr/bin/env -i PATH="$(dirname "$native_node"):/usr/bin:/bin" \
+              CI="$CI" GITHUB_ACTIONS="$GITHUB_ACTIONS" RUNNER_ENVIRONMENT="$RUNNER_ENVIRONMENT" \
+              GITHUB_REPOSITORY="$GITHUB_REPOSITORY" GITHUB_JOB="$GITHUB_JOB" GITHUB_SHA="$GITHUB_SHA" GITHUB_RUN_ID="$GITHUB_RUN_ID" \
+              RUNNER_TEMP="$RUNNER_TEMP" NATIVE_FIXTURE_MAJOR="$NATIVE_PG_MAJOR" \
+              NATIVE_FIXTURE_SOURCE="$GITHUB_WORKSPACE" NATIVE_FIXTURE_OUTPUT="$native_root" NATIVE_SCHEDULER_FAILURE_EXIT="$native_result" \
+              "$native_node" "$GITHUB_WORKSPACE/scripts/ci/maintenance-scheduler-link-observation.mjs" || true
+          fi
           exit "$native_result"
       - name: Retain native allowlisted evidence
         if: always()
@@ -266,6 +277,7 @@ jobs:
           scripts/ci/maintenance-fixture-authority.test.mjs
           scripts/ci/maintenance-isolated-authority-participant.test.mjs
           scripts/ci/maintenance-isolated-business-recorder.test.mjs
+          scripts/ci/maintenance-scheduler-link-observation.test.mjs
       - name: Actual registered Git and inherited FD9 in an owned isolated image
         run: |
           set -euo pipefail

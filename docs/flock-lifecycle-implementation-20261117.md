@@ -123,4 +123,11 @@
 - 真实CI诊断已确证PG16/18均为SYSTEMD_FRAGMENT/SYMLINK，不能据此认定合法alias。第二层只补loadState/直接target类别/type/单跳及稳定性固定枚举，白名单复制，异常不覆盖原HOLD。没有放宽任何symlink接受条件；路径类别并不证明祖先目录可信或安全读取。15项诊断测试通过，等待新远端事实再审兼容方案。
 - 维护business recorder的CI启动docker run超5秒；仅该测试启动调用改30秒，其余原5秒/SQL及安全判断不变。真实独立PG16/18 recorder 13项通过，生产代码不变。
 
-本轮源码`fbc7c52fb730caa2b8205bfdf5e7f5868605760a`及100路径指纹`6490390418031aaf114a4edc0245c927b8767cf8d17bae560795c458506f3697`已绑定36份日志哈希；所有进程实际完成后确认exit0。原OFL许可逐字保留，含上游既有一处行末空格。当前仍待独立新head审查及新远端CI/第二层诊断结果，未合并、未部署、未打tag。
+本轮源码`fbc7c52fb730caa2b8205bfdf5e7f5868605760a`及100路径指纹`6490390418031aaf114a4edc0245c927b8767cf8d17bae560795c458506f3697`已绑定36份日志哈希；所列验证命令实际完成后确认exit0；browser待命host按SIGUSR2停止（exit140），不计为验证通过。原OFL许可逐字保留，含上游既有一处行末空格。当前仍待独立新head审查及新远端CI/第二层诊断结果，未合并、未部署、未打tag。
+
+
+## 最后两类远端阻塞与本批边界
+
+1fcc远端正式CI/CD、AI Build、迁移/实体门禁、system/breeding/packaging/wms/finance、Web/Admission与长Legacy实ERP均通过。Playwright真实运行77项，唯一失败是旧测试要求档案页直接改存栏。已仅更新测试：当前150保持readonly，PUT不含current_qty/initial_qty，真实可编辑计划周数80→90并跨Lao/中文保留最新显示；整份hydrator文件18项及无缓存Web types实际exit0，生产页未改。
+
+PG16/18第一切换预检第二层事实一致：SYSTEMD_FRAGMENT/SYMLINK、LOADED、OTHER、REGULAR、SINGLE、STABLE，仍HOLD且owned未创建。未将OTHER视为合法或放宽reader。为定位真实宿主公开配置链接，本批增加仅失败后运行的CI locator：固定systemctl只取Id/LoadState/FragmentPath，限定真实hosted full-first-switch及原root600 host-intent/SHA；32条/32KiB、严格unit/普通绝对路径、包名筛选、无内容/命令/环境/原stderr。stdout仅CI诊断，不进入生产receipt/pin，无法据多个观察候选认定原失败对象；原native_result始终保留。模板与实例混合、越界/不安全元数据、scope/intent/本地调用拒绝、变更/读取失败等9项本地测试通过，并接入现有pure契约CI。
