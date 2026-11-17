@@ -69,10 +69,11 @@ export function savedQuantity(row: { qty?: unknown; quantity_snapshot?: Quantity
   return Number(s.baseQty);
 }
 
-export function poolKey(company: string, warehouse: string, s: QuantitySnapshot): string {
+export type QuantityPoolIdentity = Pick<QuantitySnapshot, 'productCode' | 'gradeCode' | 'baseUnit'>;
+export function poolKey(company: string, warehouse: string, s: QuantityPoolIdentity): string {
   return JSON.stringify(['physical-stock-v1', company, warehouse, s.productCode, s.gradeCode, s.baseUnit]);
 }
-export async function lockQuantityPools(db: Queryable, requests: Array<{ company: string; warehouses: string[]; snapshot: QuantitySnapshot | null }>): Promise<void> {
+export async function lockQuantityPools(db: Queryable, requests: Array<{ company: string; warehouses: string[]; snapshot: QuantityPoolIdentity | null }>): Promise<void> {
   const keys: string[] = [];
   for (const r of requests) {
     if (!r.snapshot) continue;

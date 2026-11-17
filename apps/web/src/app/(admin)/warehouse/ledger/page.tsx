@@ -6,6 +6,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { moneyCell, actionPill } from "@/components/design-system/cockpit-styles";
 import {
   formatWarehouseLedgerChangeType,
+  formatWarehouseLedgerNote,
   getWarehouseLedgerChangeTone,
 } from "@/lib/warehouse-ledger-change-type";
 import { formatMasterData } from "@/lib/business-display";
@@ -36,7 +37,7 @@ export default function LedgerPage() {
       render: v => v ? String(v).slice(0,16).replace("T"," ") : "—" },
     { key: "batch_no",    title: t("ui.批次号", "批次号"),   width: 200 },
     { key: "change_type", title: t("ui.事务类型", "事务类型"), width: 130,
-      render: v => <span title={String(v ?? "")} style={actionPill(getWarehouseLedgerChangeTone(v))}>{formatWarehouseLedgerChangeType(v)}</span> },
+      render: v => <span title={String(v ?? "")} style={actionPill(getWarehouseLedgerChangeTone(v))}>{String(v)==='TEMP_PRODUCTION_REVERSAL' ? t('warehouse.change_type.temp_production_reversal','误入库冲销') : formatWarehouseLedgerChangeType(v)}</span> },
     { key: "qty_change",  title: t("ui.数量变动", "数量变动"), width: 100, align: "right",
       render: v => <span style={moneyCell(Number(v) >= 0 ? "success" : "danger", "md")}>{Number(v) >= 0 ? `+${v}` : String(v)}</span> },
     { key: "ref_no",      title: t("ui.关联单据", "关联单据"), width: 160 },
@@ -44,7 +45,8 @@ export default function LedgerPage() {
       render: (v, row) => masterNameWithCode(row.operator_name, String(v || "")) || "—" },
     { key: "store_code", title: t("ui.门店", "门店"), width: 170,
       render: (v, row) => formatMasterData(row, "store_name", v, lang) },
-    { key: "note",        title: t("common.remark", "备注"),     width: 220 },
+    { key: "note",        title: t("common.remark", "备注"),     width: 220,
+      render: (v, row) => formatWarehouseLedgerNote(v, row.change_type, t) },
   ];
 
   return (

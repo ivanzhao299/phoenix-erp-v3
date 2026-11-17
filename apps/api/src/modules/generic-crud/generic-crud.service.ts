@@ -1,6 +1,6 @@
 import { writeHenhouse } from './henhouse-write-policy';
 import { DAILY_EXPORT_SNAPSHOT, DAILY_EXPORT_MAX_ROWS } from './daily-export-policy';
-import { Injectable, BadRequestException, ForbiddenException, InternalServerErrorException, Logger } from '@nestjs/common';
+import { Injectable, BadRequestException, ConflictException, ForbiddenException, InternalServerErrorException, Logger } from '@nestjs/common';
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
 import { BREEDING_FARMS_TABLE, BreedingScopedTable } from './crud.constants';
@@ -8,9 +8,16 @@ import { OrgOwnershipService } from '../org/services/org-ownership.service';
 import { schemaMismatch } from '../../common/database/schema-compatibility';
 import { redactSensitive } from '../../common/logging/redact-sensitive';
 import { writeFlock } from './flock-write-policy';
+import { lockTempProductionReferences } from '../wms/temp-production-reversal';
 
 @Injectable()
 export class GenericCrudService {
+  /** New operational obligations/references. Historical QA inspection reads are unchanged. */
+  private static readonly BATCH_REFERENCE_FIELDS: Readonly<Record<string, readonly string[]>> = {
+    wms_outbound: ['batch_no'], wms_stocktake: ['item', 'batch_no'],
+    store_receiving_items: ['batch_no'], qa_non_conformance: ['batch_no'], qa_product_inspections: ['batch_no'],
+    ord_order_items: ['batch_no'],
+  };
   private static readonly RETIRED_COLUMNS: Readonly<Record<string, ReadonlySet<string>>> = {
     brd_houses: new Set(['company_code', 'site_code', 'store_code']),
   };
@@ -552,9 +559,15 @@ export class GenericCrudService {
     const sql = `INSERT INTO "${table}" (${quotedFields}) VALUES (${placeholders})`;
 
     try {
-      await this.entityManager.query(sql, values);
+      const references = GenericCrudService.BATCH_REFERENCE_FIELDS[table];
+      if (references) await this.entityManager.transaction(async manager => {
+        await lockTempProductionReferences(manager, references.map(field => body[field]));
+        await manager.query(sql, values);
+      });
+      else await this.entityManager.query(sql, values);
       return { msg: 'Created successfully' };
     } catch (e) {
+      if (e instanceof ConflictException) throw e;
       this.rejectSchemaMismatch(e, table);
       this.handleConstraintError(e, table);
       throw new InternalServerErrorException((e as Error).message);
@@ -624,11 +637,20 @@ export class GenericCrudService {
     console.log(`[CRUD Update] ${table} WHERE ${pkName}=${id} | fields: ${fields.join(',')}`);
 
     try {
-      const raw = await this.entityManager.query(finalSql, values);
+      const references = GenericCrudService.BATCH_REFERENCE_FIELDS[table];
+      const execute = async (manager: EntityManager) => {
+        if (references) {
+          const [current] = await manager.query(`SELECT * FROM "${table}" WHERE "${pkName}"=$1 FOR UPDATE`, [id]);
+          if (!current) throw new BadRequestException('Record not found');
+          await lockTempProductionReferences(manager, references.flatMap(field => [current[field], body[field]]));
+        }
+        return manager.query(finalSql, values);
+      };
+      const raw = references ? await this.entityManager.transaction(execute) : await execute(this.entityManager);
       if (this.extractRows(raw).length === 0) throw new BadRequestException('Record not found');
       return { msg: 'Updated successfully' };
     } catch (e) {
-      if (e instanceof BadRequestException) throw e;
+      if (e instanceof BadRequestException || e instanceof ConflictException) throw e;
       this.rejectSchemaMismatch(e, table);
       this.handleConstraintError(e, table);
       throw new InternalServerErrorException((e as Error).message);
@@ -653,14 +675,23 @@ export class GenericCrudService {
     const sql = `DELETE FROM "${table}" WHERE "${pkName}" = $1 RETURNING "${pkName}"`;
     console.log(`[CRUD Delete] ${table} WHERE ${pkName}=${id}`);
     try {
-      const raw = await this.entityManager.query(sql, [id]);
+      const references = GenericCrudService.BATCH_REFERENCE_FIELDS[table];
+      const execute = async (manager: EntityManager) => {
+        if (references) {
+          const [current] = await manager.query(`SELECT * FROM "${table}" WHERE "${pkName}"=$1 FOR UPDATE`, [id]);
+          if (!current) throw new BadRequestException('Record not found');
+          await lockTempProductionReferences(manager, references.map(field => current[field]));
+        }
+        return manager.query(sql, [id]);
+      };
+      const raw = references ? await this.entityManager.transaction(execute) : await execute(this.entityManager);
       if (this.extractRows(raw).length === 0) {
         throw new BadRequestException('Record not found');
       }
       console.log(`[CRUD Delete] ✅ success`);
       return { msg: 'Deleted successfully' };
     } catch (e) {
-      if (e instanceof BadRequestException) throw e;
+      if (e instanceof BadRequestException || e instanceof ConflictException) throw e;
       this.rejectSchemaMismatch(e, table);
       this.handleConstraintError(e, table);
       throw new InternalServerErrorException((e as Error).message);

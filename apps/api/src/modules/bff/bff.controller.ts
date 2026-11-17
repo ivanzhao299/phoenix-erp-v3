@@ -16,7 +16,7 @@ import {
   normalizeUserRoleAssignments,
   UserRoleAssignmentValidationError,
 } from './user-role-assignment';
-import { packagingTestMode, assertPackagingMode, lockPacking, assertNoPackingDownstream, assertPackingCanEnterInventory } from './packaging-protection';
+import { packagingTestMode, assertPackagingMode, lockPacking, assertNoPackingDownstream, assertPackingCanEnterInventory, guardPackagingSourceReferences, guardPackingSourceReferences } from './packaging-protection';
 import { SubmitGradingDto } from './dto/grading.dto';
 
 // ═══════════════════════════════════════════════════════════════
@@ -1640,6 +1640,8 @@ export class PackagingTerminalBffController {
     assertPackagingMode(shift, isTest);
     if (shift.status !== 'OPEN') throw new ConflictException('当前班次已关闭');
     if (isTest && (body.sourceInboundNo || body.source_inbound_no)) throw new BadRequestException('测试来源不能引用真实入库单');
+    if (!isTest) await guardPackagingSourceReferences(manager, [{ batch_code: batchCode,
+      source_inbound_no: body.sourceInboundNo || body.source_inbound_no, house_code: houseCode }]);
     // 检查是否已接收（仅检查 status != PENDING_RECEIVE 的记录，避免误判种子数据）
     const [existing] = await manager.query(
         `SELECT id, is_test FROM pkg_source_batches WHERE batch_code = $1 AND batch_status != 'PENDING_RECEIVE'`,
@@ -1649,12 +1651,13 @@ export class PackagingTerminalBffController {
 
     // 如果已有 PENDING_RECEIVE 记录（种子/手工），直接 UPDATE；否则 INSERT
     const [pendingRow] = await manager.query(
-        `SELECT id, is_test FROM pkg_source_batches WHERE batch_code = $1 AND batch_status = 'PENDING_RECEIVE'`,
+        `SELECT id, is_test, batch_code, source_inbound_no, house_code FROM pkg_source_batches WHERE batch_code = $1 AND batch_status = 'PENDING_RECEIVE' FOR UPDATE`,
         [batchCode],
     );
 
     if (pendingRow) {
       assertPackagingMode(pendingRow, isTest);
+      if (!isTest) await guardPackagingSourceReferences(manager, [pendingRow]);
       await manager.query(
         `UPDATE pkg_source_batches
          SET batch_status='RECEIVED', total_qty=$1, dirty_qty=$2, cracked_qty=$3,
@@ -1684,7 +1687,7 @@ export class PackagingTerminalBffController {
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,'RECEIVED',NOW(),NOW(),${isTest})`,
         [
           batchCode,
-          body.sourceInboundNo || batchCode,
+          body.sourceInboundNo || body.source_inbound_no || batchCode,
           today,
           houseCode,
           body.flockCode || body.flock_code || '',
@@ -1890,7 +1893,11 @@ export class PackagingTerminalBffController {
   async recordPrintLog(@Body() body: any, @Req() req: any) {
     const isTest = packagingTestMode(req);
     if (isTest) throw new ConflictException('测试模式禁止此交接/库存/辅助业务入口');
-    await assertPackingCanEnterInventory(this.em, String(body.packagingBatchId || body.packaging_batch_id || body.packingCode || ''));
+    const packingCode = String(body.packagingBatchId || body.packaging_batch_id || body.packingCode || '');
+    return this.em.transaction(async manager => {
+    await lockPacking(manager, packingCode);
+    await assertPackingCanEnterInventory(manager, packingCode);
+    await guardPackingSourceReferences(manager, packingCode, 'PRINT');
     if(this.historyWorkflow){
       const d=await this.historyWorkflow.detail(String(body.packagingBatchId || body.packaging_batch_id || body.packingCode || ''),req);
       await this.historyWorkflow.boxes.resolve(this.em,d.record.id,body.boxCode||body.box_code);
@@ -1898,7 +1905,7 @@ export class PackagingTerminalBffController {
 
     const printedBy = req.user?.name || req.user?.username || '';
 
-    await this.em.query(
+    await manager.query(
       `INSERT INTO pkg_label_print_logs
        (box_code, packaging_batch_id, print_type, printer_id,
         printed_by, reprint_reason, print_status, printed_at, created_at)
@@ -1914,6 +1921,7 @@ export class PackagingTerminalBffController {
     ).catch((e: any) => { throw new Error(e.message); });
 
     return { code: 200, msg: '打印记录已保存' };
+    });
   }
 
   // ── 打印日志查询 ─────────────────────────────────────────────────────────────
@@ -2130,7 +2138,7 @@ export class PackagingTerminalBffController {
         throw new ConflictException('当前班次不存在或已关闭，禁止分级');
       }
       const sourceRows = await manager.query<any[]>(
-        `SELECT id, batch_code, shift_id, house_code,
+        `SELECT id, batch_code, source_inbound_no, shift_id, house_code,
                 GREATEST(COALESCE(NULLIF(total_qty, 0), NULLIF(received_qty, 0), 0)
                   - COALESCE(dirty_qty, 0) - COALESCE(cracked_qty, 0), 0)::int AS net_qty
            FROM pkg_source_batches
@@ -2143,6 +2151,7 @@ export class PackagingTerminalBffController {
         throw new ConflictException('来源批次不存在或不属于当前班次');
       }
       for (const row of sourceRows) await this.assertActiveHouseScope(String(row.house_code));
+      if (!isTest) await guardPackagingSourceReferences(manager, sourceRows);
       const usedRows = await manager.query<any[]>(
         `SELECT gsl.source_batch_id, COALESCE(SUM(gsl.input_qty), 0)::int AS used_qty
            FROM pkg_grading_source_links gsl
@@ -2330,6 +2339,12 @@ export class PackagingTerminalBffController {
       if (owners.length !== gradingCodes.length) throw new ConflictException('存在无有效来源关联的分级记录，禁止包装');
       const sourceHouses = await manager.query(`SELECT DISTINCT s.house_code FROM pkg_grading_source_links l JOIN pkg_source_batches s ON s.id=l.source_batch_id JOIN pkg_grading_records g ON g.id=l.grading_id WHERE g.code=ANY($1::varchar[])`, [gradingCodes]);
       for (const row of sourceHouses) await this.assertActiveHouseScope(String(row.house_code));
+      if (!isTest) {
+        const sources = await manager.query(`SELECT DISTINCT s.id,s.batch_code,s.source_inbound_no,s.house_code
+          FROM pkg_grading_source_links l JOIN pkg_source_batches s ON s.id=l.source_batch_id
+          JOIN pkg_grading_records g ON g.id=l.grading_id WHERE g.code=ANY($1::varchar[]) ORDER BY s.id`, [gradingCodes]);
+        await guardPackagingSourceReferences(manager, sources);
+      }
       const cross = owners.filter((r: any) => Number(r.shift_id) !== shiftId);
       if (cross.length && !reason) throw new ConflictException('跨班次包装必须填写 crossShiftReason 以生成审计记录');
       const dict = await manager.query(`SELECT dict_code, config_json FROM sys_dict WHERE dict_type IN ('PKG_EGG_GRADE','PKG_EGG_DEFECT')`);
@@ -2626,6 +2641,7 @@ export class PackagingTerminalBffController {
         await manager.query(`SELECT pg_advisory_xact_lock(hashtextextended($1,0))`, ['packaging-chain:false']);
         await lockPacking(manager, packingCode);
         const packing = await assertPackingCanEnterInventory(manager, packingCode);
+        await guardPackingSourceReferences(manager, packingCode, 'INVENTORY');
         const shift = await this.exactShift(packing.shift_id, req, undefined, manager);
         const productionDate = shift.date_text;
         const packingDate = packing.production_date_text ?? String(packing.production_date).slice(0,10);

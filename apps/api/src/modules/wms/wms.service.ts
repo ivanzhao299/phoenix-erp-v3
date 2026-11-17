@@ -1,13 +1,16 @@
 import { inheritFlockProductionSources } from '../farm/flock-production-source';
 import { resolveQuantity, savedQuantity, sharedBatches, assertBatchPool, baseQuantity, QuantitySnapshot, lockQuantityPools } from '../product-master/services/quantity-contract';
 import { SkuPolicy } from '../product-master/services/sku-policy';
-import { Injectable, BadRequestException, ForbiddenException, Logger } from '@nestjs/common';
+import { Injectable, BadRequestException, ConflictException, ForbiddenException, Logger, Inject, Optional } from '@nestjs/common';
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
 import { ClsService } from 'nestjs-cls';
 import { DataScopeContext } from '../org/services/data-scope.service';
 import { INV_LEDGER_CHANGE_TYPE, InvLedgerChangeType } from './inv-ledger-change-types';
 import { writeInvLedger } from './inventory-ledger.writer';
+import { assertTempProductionReferenceAllowed, lockTempProductionReferences, readTempProductionReversalState, TEMP_PRODUCTION_REVERSAL_CASE } from './temp-production-reversal';
+import { inspectTempProductionReversal, TempReversalPlan, TempReversalApprovalVerifier, TEMP_REVERSAL_APPROVAL_VERIFIER,
+  assertReversalAuthorityBinding, correctionLedgerParameters, withCorrectionLedgerWrites } from './temp-production-reversal-case';
 import { OrgOwnershipService } from '../org/services/org-ownership.service';
 import { hasPerm, PermCode } from '../../auth/permissions.util';
 import {
@@ -46,7 +49,67 @@ export class WmsService {
     @InjectEntityManager()
     private readonly em: EntityManager,
     private readonly cls: ClsService,
+    @Optional() @Inject(TEMP_REVERSAL_APPROVAL_VERIFIER)
+    private readonly tempCorrectionAuthority?: TempReversalApprovalVerifier,
   ) {}
+
+  /** No HTTP controller. Production has no approval provider and therefore holds. */
+  async reverseReviewedTempProductionInbound(plan: TempReversalPlan) {
+    const c=TEMP_PRODUCTION_REVERSAL_CASE;
+    if(plan?.schema!=='phoenix.temp-production-reversal-plan/v1'||plan.caseId!==c.id
+      || !/^[a-f0-9]{64}$/.test(plan.planSha256||'')) throw new ConflictException('TEMP_REVERSAL_PLAN_HOLD');
+    return this.em.transaction(async manager=>{
+      await manager.query("SET LOCAL lock_timeout='5s'");
+      await manager.query("SET LOCAL statement_timeout='15s'");
+      await manager.query("SELECT pg_advisory_xact_lock(hashtext('phoenix:daily-house'),hashtext($1))",[c.houseCode]);
+      await manager.query('SELECT pg_advisory_xact_lock(hashtext($1))',[`${c.companyCode}|TEMP_PRODUCTION_DAILY|${c.originalDate}|${c.collectionRef}`]);
+      await lockQuantityPools(manager,c.targets.map(target=>({company:c.companyCode,warehouses:[c.warehouseCode],
+        snapshot:{productCode:target.product,gradeCode:target.grade,baseUnit:'枚'}})));
+      const nos=c.targets.map(target=>target.batchNo);
+      await manager.query('SELECT batch_no FROM inv_batches WHERE batch_no=ANY($1::text[]) ORDER BY batch_no FOR UPDATE',[nos]);
+      await manager.query('SELECT id FROM inv_ledger WHERE batch_no=ANY($1::text[]) ORDER BY id FOR UPDATE',[nos]);
+      const fresh=await inspectTempProductionReversal(manager,plan.releaseSha);
+      if(fresh.state==='REVERSED') {
+        const existing=await manager.query("SELECT note FROM inv_ledger WHERE batch_no=ANY($1::text[]) AND change_type='TEMP_PRODUCTION_REVERSAL' ORDER BY id",[nos]);
+        if(existing.length!==2 || existing.some((row:{note:string})=>JSON.parse(row.note).plan_sha256!==plan.planSha256)) {
+          throw new ConflictException('TEMP_REVERSAL_IDEMPOTENCY_HOLD: completed under a different plan');
+        }
+        if(fresh.localStatus!=='CLEAR') return {outcome:'HOLD_POST_STATE' as const,previousOutcome:'COMPLETED' as const,
+          caseId:c.id,planSha256:plan.planSha256,batches:nos,checks:fresh.checks.filter(check=>!['CLEAR','NOT_APPLICABLE'].includes(check.status))};
+        if(fresh.migrationLedgerSha256!==plan.migrationLedgerSha256 || this.tempCorrectionAuthority?.runningReleaseSha!==plan.releaseSha) {
+          return {outcome:'HOLD_CONTEXT_DRIFT' as const,previousOutcome:'COMPLETED' as const,caseId:c.id,planSha256:plan.planSha256,
+            batches:nos,currentMigrationLedgerSha256:fresh.migrationLedgerSha256,runtimeReleaseSha:this.tempCorrectionAuthority?.runningReleaseSha??null};
+        }
+        return {outcome:'ALREADY_COMPLETED' as const,caseId:c.id,planSha256:plan.planSha256,batches:nos};
+      }
+      if(!this.tempCorrectionAuthority)throw new ConflictException('TEMP_REVERSAL_APPLY_HOLD: sealed business approval, financial authority and backup verifier not integrated');
+      const authority=await this.tempCorrectionAuthority.verify(plan);
+      assertReversalAuthorityBinding(plan,authority);
+      if(this.tempCorrectionAuthority.runningReleaseSha!==plan.releaseSha)throw new ConflictException('TEMP_REVERSAL_RUNTIME_RELEASE_HOLD');
+      if(fresh.localStatus!=='CLEAR' || fresh.state!=='OPEN' || fresh.snapshotSha256!==plan.snapshotSha256
+        || fresh.migrationLedgerSha256!==plan.migrationLedgerSha256 || fresh.planSha256!==plan.planSha256) {
+        throw new ConflictException('TEMP_REVERSAL_CAS_HOLD: stock, references, daily, schema ledger or financial classification changed');
+      }
+      const ledgerIds: number[]=[];
+      await withCorrectionLedgerWrites(manager,plan,authority,async()=>{
+        for(const target of c.targets) {
+          const changed=await manager.query(`WITH changed AS (UPDATE inv_batches SET qty=qty-$3::numeric,qty_available=qty_available-$3::numeric,updated_at=now()
+            WHERE id=$1 AND batch_no=$2 AND qty=$3::numeric AND qty_available=$3::numeric AND status='AVAILABLE'
+              AND company_code=$4 AND warehouse_code=$5 AND location_code=$6 AND source_no=$7
+            RETURNING batch_no) SELECT batch_no FROM changed`,[target.id,target.batchNo,target.qty,c.companyCode,c.warehouseCode,c.locationCode,c.sourceNo]);
+          if(changed.length!==1)throw new ConflictException('TEMP_REVERSAL_QUANTITY_CAS_HOLD');
+        }
+        for(const params of correctionLedgerParameters(plan,authority)) {
+          const id=await writeInvLedger(manager,params);
+          if(!Number.isSafeInteger(id)||id<=0)throw new ConflictException('TEMP_REVERSAL_LEDGER_HOLD');
+          ledgerIds.push(id);
+        }
+        if(await readTempProductionReversalState(manager)!=='REVERSED')throw new ConflictException('TEMP_REVERSAL_PAIR_HOLD');
+      });
+      return {outcome:'COMPLETED' as const,caseId:c.id,planSha256:plan.planSha256,batches:nos,ledgerIds,
+        executionDate:authority.executionDate,financialCostStatus:'UNKNOWN_PRE_SCHEMA' as const};
+    });
+  }
 
   async assertWarehouseOwnership(input: Record<string, any>, existing?: Record<string, any>): Promise<void> {
     const ownerStoreId = input.owner_store_id ?? existing?.owner_store_id;
@@ -386,6 +449,7 @@ export class WmsService {
       : Array.isArray(body?.items) ? [body] : [];
     if (!documents.length) throw new BadRequestException('documents 必须至少包含一条入库单');
     return this.em.transaction(async manager => {
+      await lockTempProductionReferences(manager, documents.flatMap((doc: any) => (Array.isArray(doc?.items) ? doc.items : []).map((item: any) => item?.batch_no)));
       const created: any[] = [];
       const identityColumns = ['item_type', 'material_code', 'sku_code', 'material_type', 'unit', 'identity_snapshot'];
       let identityColumnRows: any[] = [];
@@ -647,7 +711,7 @@ export class WmsService {
       }
 
       for (const item of items) {
-        const savedLines = await manager.query(`SELECT id,quantity_snapshot,qty,product_code,
+        const savedLines = await manager.query(`SELECT id,batch_no,quantity_snapshot,qty,product_code,
           to_jsonb(wms_inbound_items)->>'item_type' AS item_type,
           to_jsonb(wms_inbound_items)->>'material_code' AS material_code,
           to_jsonb(wms_inbound_items)->>'sku_code' AS sku_code,
@@ -677,6 +741,7 @@ export class WmsService {
           if (strictPersistedLine || item.id) throw new BadRequestException('入库明细不存在或不属于当前入库单');
         }
         const savedLine = savedLines[0];
+        await lockTempProductionReferences(manager, [savedLine?.batch_no, item.batch_no]);
         const persistedCodes = savedLine ? [savedLine.material_code, savedLine.sku_code, savedLine.product_code].map(value => this.nonEmptyString(value)).filter(Boolean) as string[] : [];
         const requestedCodes = [item.material_code, item.sku_code, item.product_code].map(value => this.nonEmptyString(value)).filter(Boolean) as string[];
         if (requestedCodes.length > 0 && persistedCodes.length > 0 && requestedCodes.some(code => !persistedCodes.includes(code))) {
@@ -964,6 +1029,7 @@ export class WmsService {
       }[];
     },
   ): Promise<{ batchNos: string[]; skipped: number }> {
+    await lockTempProductionReferences(manager, ctx.items.map(item => item.batchNo));
     const purchasePolicy = resolveInboundPolicy('PURCHASE');
     const workflowErrors = validateInboundWorkflow('PURCHASE', 'PURCHASE_RECEIPT');
     if (!purchasePolicy || workflowErrors.length > 0) {
@@ -1006,6 +1072,7 @@ export class WmsService {
         ? Number(it.unitCost)
         : 0;
       const [existing] = await manager.query('SELECT * FROM inv_batches WHERE batch_no=$1 FOR UPDATE', [batchNo]);
+      await assertTempProductionReferenceAllowed(manager, [batchNo]);
       if (existing) {
         this.assertBatchCompany(existing, companyCode);
         for (const [key, expected] of Object.entries({ warehouse_code: warehouseCode, sku_code: skuCode, product_code: productCode, material_code: identity.materialCode, item_type: identity.itemType, variety_code: identity.varietyCode, source_profile_code: null, source_profile_snapshot: null, unit: identity.unit })) {
@@ -1225,6 +1292,7 @@ export class WmsService {
       : Array.isArray(body?.items) ? [body] : [];
     if (!documents.length) throw new BadRequestException('documents 必须至少包含一条出库单');
     return this.em.transaction(async manager => {
+      await lockTempProductionReferences(manager, documents.flatMap((doc: any) => [doc?.batch_no, ...(Array.isArray(doc?.items) ? doc.items.map((item: any) => item?.batch_no) : [])]));
       const created: any[] = [];
       for (const [index, doc] of documents.entries()) {
         const outboundNo = this.nonEmptyString(doc?.outbound_no);
@@ -1358,6 +1426,7 @@ export class WmsService {
     await this.assertActiveScopedDestination(body);
 
     return this.em.transaction(async manager => {
+      await lockTempProductionReferences(manager, [body?.batch_no]);
       const companyCode = await this.lockWarehouseCompany(manager, warehouseCode!, body?.company_code);
       const createSku = SkuPolicy.optionalCode(body?.sku_code);
       const identity = await this.resolveInventoryItem(
@@ -1469,6 +1538,7 @@ export class WmsService {
         [batchNo],
       );
       if (!batch) throw new BadRequestException(`库存批次 ${batchNo} 不存在`);
+      await assertTempProductionReferenceAllowed(manager, [batchNo]);
       const grade = normalizeDefectGrade(batch.grade_code_std || batch.quality_grade);
       if (!grade) throw new BadRequestException(`批次 ${batchNo} 不是 DIRTY/BROKEN 缺陷库存（8 档制终态；CRACKED/DAMAGED 已永久退役）`);
       const claimedGrade = body?.grade_code == null ? null : normalizeDefectGrade(body.grade_code);
@@ -1614,6 +1684,7 @@ export class WmsService {
       }
 
       const merged = { ...existing, ...body, outbound_no: normalizedNo };
+      await lockTempProductionReferences(manager, [existing.batch_no, merged.batch_no]);
       this.assertOutboundPermission(existing.type, user, 'E');
       this.assertOutboundPermission(merged.type, user, 'E');
       this.validateStandaloneOutbound(merged);
@@ -1960,6 +2031,8 @@ export class WmsService {
   ): Promise<void> {
     const batchNo = this.nonEmptyString(batch.batch_no);
     if (!batchNo) throw new Error('出库批次号缺失');
+    // Every caller acquired its pool (if any) and this row before entering.
+    await assertTempProductionReferenceAllowed(manager, [batchNo]);
     await this.assertWritableWarehouse(batch.warehouse_code, `出库批次 ${batchNo}`);
 
     const companyCode = await this.lockWarehouseCompany(manager, batch.warehouse_code, order.company_code);
@@ -2037,6 +2110,7 @@ export class WmsService {
   async receiveSignOrder(orderNo: string, body: any, user: any) {
     const receiver = body?.receiver || user?.username || 'SYS';
     return await this.em.transaction(async (manager) => {
+      await lockTempProductionReferences(manager, (Array.isArray(body?.items) ? body.items : []).map((item: any) => item.batch_no));
       const scope = this.orderStoreScope('store_code', 1);
       const result = await manager.query(
         `UPDATE ord_orders SET status='received', updated_at=CURRENT_TIMESTAMP
@@ -2318,6 +2392,7 @@ export class WmsService {
 
     return await this.em.transaction(async (manager) => {
       // 1) 主表
+      await lockTempProductionReferences(manager, items.map((item: any) => item.batch_no));
       await manager.query(
         `INSERT INTO wms_transfer (
            transfer_no, from_warehouse, to_warehouse, from_zone, to_zone,
@@ -2514,6 +2589,7 @@ export class WmsService {
     const transferNo = body.transfer_no ||
       `TR-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
     return this.em.transaction(async manager => {
+      await lockTempProductionReferences(manager, items.map(item => item.batch_no));
       for (const item of items) {
         const [batch] = await manager.query('SELECT sku_code, warehouse_code, company_code FROM inv_batches WHERE batch_no=$1 FOR SHARE', [item.batch_no]);
         if (!batch || batch.warehouse_code !== fromWarehouse) throw new BadRequestException('调拨批次不存在或不属于源仓');
@@ -2553,6 +2629,7 @@ export class WmsService {
         `SELECT * FROM wms_transfer_items WHERE transfer_no=$1 ORDER BY id FOR UPDATE`, [transferNo],
       );
       if (!items.length) throw new BadRequestException('调拨明细不存在');
+      await lockTempProductionReferences(manager, items.map((item: any) => item.source_batch_no));
       const policy = resolveOutboundPolicy('TRANSFER');
       if (!policy) throw new BadRequestException('库存调拨出库策略不可用');
       let total = 0;
@@ -2626,6 +2703,7 @@ export class WmsService {
       if (transfer.status !== 'IN_TRANSIT') throw new BadRequestException(`调拨单状态 ${transfer.status} 不允许签收`);
       await this.assertWritableWarehouse(transfer.to_warehouse, '库存调拨目标仓库');
       const items = await manager.query(`SELECT * FROM wms_transfer_items WHERE transfer_no=$1 ORDER BY id FOR UPDATE`, [transferNo]);
+      await lockTempProductionReferences(manager, items.map((item: any) => item.source_batch_no));
       const receivedInput = new Map((Array.isArray(body?.items) ? body.items : []).map((x: any) => [String(x.batch_no), x]));
       const inboundPolicy = resolveInboundPolicy('TRANSFER_RECEIVE');
       if (!inboundPolicy) throw new BadRequestException('库存调拨入库策略不可用');
@@ -2815,6 +2893,7 @@ export class WmsService {
       if (stocktakeRows.length === 0) throw new BadRequestException(`盘点单 ${stocktake_no} 不存在`);
       await this.assertWritableWarehouse(stocktakeRows[0].warehouse_code || null, `盘点单 ${stocktake_no}`);
       const stocktake = stocktakeRows[0];
+      await lockTempProductionReferences(manager, [batch_no]);
       if (String(stocktake.status || '').toUpperCase() === 'APPROVED') {
         throw new BadRequestException(`盘点单 ${stocktake_no} 已审核，不能重复审批`);
       }
@@ -2882,6 +2961,7 @@ export class WmsService {
     const stamp = Date.now().toString(36).toUpperCase();
 
     return await this.em.transaction(async (manager) => {
+      await lockTempProductionReferences(manager, lines.map(line => line.batch_no));
       const results: any[] = [];
       let idx = 0;
       for (const ln of lines) {
@@ -2943,14 +3023,16 @@ export class WmsService {
   async getDailyCloseSummary(date: string) {
     const d = date || new Date().toISOString().slice(0, 10);
     try {
-      const [agg]: Array<{ inbound_qty: string; outbound_qty: string }> = await this.em.query(
+      const [agg]: Array<{ inbound_qty: string; outbound_qty: string; correction_net_qty: string }> = await this.em.query(
         `SELECT
-           COALESCE(SUM(CASE WHEN qty_change > 0 THEN qty_change ELSE 0 END), 0) AS inbound_qty,
-           COALESCE(SUM(CASE WHEN qty_change < 0 THEN -qty_change ELSE 0 END), 0) AS outbound_qty
+           COALESCE(SUM(CASE WHEN qty_change > 0 AND change_type IS DISTINCT FROM $2 THEN qty_change ELSE 0 END), 0) AS inbound_qty,
+           COALESCE(SUM(CASE WHEN qty_change < 0 AND change_type IS DISTINCT FROM $2 THEN -qty_change ELSE 0 END), 0) AS outbound_qty,
+           COALESCE(SUM(CASE WHEN change_type=$2 THEN qty_change ELSE 0 END), 0) AS correction_net_qty
          FROM inv_ledger
-         WHERE DATE(created_at::timestamp) = $1::date`,
-        [d],
-      ).catch(() => [{ inbound_qty: '0', outbound_qty: '0' }]);
+         WHERE CASE WHEN change_type=$2 THEN log_date=$1::date
+                    ELSE DATE(created_at::timestamp)=$1::date END`,
+        [d, INV_LEDGER_CHANGE_TYPE.TEMP_PRODUCTION_REVERSAL],
+      ).catch(() => [{ inbound_qty: '0', outbound_qty: '0', correction_net_qty: '0' }]);
       const [stk]: Array<{ stock: string }> = await this.em.query(
         `SELECT COALESCE(SUM(qty), 0) AS stock FROM inv_batches WHERE qty > 0`,
       ).catch(() => [{ stock: '0' }]);
@@ -2971,6 +3053,7 @@ export class WmsService {
         data: {
           inbound_qty: Number(agg.inbound_qty) || 0,
           outbound_qty: Number(agg.outbound_qty) || 0,
+          correction_net_qty: Number(agg.correction_net_qty) || 0,
           current_stock: Number(stk.stock) || 0,
           closed_today: closedRows.length > 0 ? closedRows[0] : null,
           last_stocktake: lastStocktake.length > 0 ? lastStocktake[0] : null,
@@ -2978,7 +3061,7 @@ export class WmsService {
       };
     } catch (e: any) {
       console.warn('[getDailyCloseSummary][WARN]', e?.message);
-      return { code: 200, data: { inbound_qty: 0, outbound_qty: 0, current_stock: 0, closed_today: null, last_stocktake: null } };
+      return { code: 200, data: { inbound_qty: 0, outbound_qty: 0, correction_net_qty: 0, current_stock: 0, closed_today: null, last_stocktake: null } };
     }
   }
 
@@ -3029,6 +3112,7 @@ export class WmsService {
       if (lossRows.length === 0) throw new BadRequestException(`损耗单 ${loss_no} 不存在`);
       await this.assertWritableWarehouse(lossRows[0].warehouse_code || null, `损耗单 ${loss_no}`);
       const loss = lossRows[0];
+      await lockTempProductionReferences(manager, [batch_no]);
       if (String(loss.status || '').toUpperCase() === 'APPROVED') {
         throw new BadRequestException(`损耗单 ${loss_no} 已审批，不能重复审批`);
       }

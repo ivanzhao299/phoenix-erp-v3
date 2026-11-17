@@ -1,0 +1,283 @@
+{
+  "asOf": "2026-11-17T19:42:16.066575+00:00",
+  "productionQuery": false,
+  "productionWrite": false,
+  "committed": false,
+  "pushed": false,
+  "merged": false,
+  "deployed": false,
+  "applyStatus": "HOLD_SEALED_APPROVAL_ADAPTER_NOT_INTEGRATED",
+  "sourceManifest": "artifacts/flock-lifecycle-20261117/reversal-core-packaging-v4-frozen-snapshot.json",
+  "sourceManifestSha256": "001e7583bee20d50bb987c4b050e3085d9f4bd91fc55c99f0c578f829f8f5921",
+  "sourceFingerprint": "1d49833a51ee91d08fe0d76bc7de0a08aa316ead326bc957a86b68f93536f615",
+  "all1204HashesStillMatch": true,
+  "dependencies": [
+    {
+      "path": "docs/schema-snapshot.sql",
+      "sha256": "067ea62f07bc1b5789c87ce511941f61c46952cff230d746229f1d07b165e08e"
+    },
+    {
+      "path": "scripts/ops/chanjet-admission-schema-receipt.mjs",
+      "sha256": "a45a1c3bd4a399576805ed19efa1aebd96e0644885f7390885aa4539a0bdaa32"
+    },
+    {
+      "path": "package.json",
+      "sha256": "f027b6d3e7f9ae8b328d47215538126566a1f0815192a4a816a52162a7d2a874"
+    },
+    {
+      "path": "pnpm-lock.yaml",
+      "sha256": "4c8bf755f8b64d8df924b7d2a2e3a22d9282238286f85cf6029f7736dcd51a87"
+    },
+    {
+      "path": "pnpm-workspace.yaml",
+      "sha256": "8c16883cabfec136a377b1c98ceecc24321d3e345ddfbc1cb5aa64983967e7d4"
+    }
+  ],
+  "webFiles": [
+    {
+      "path": "apps/web/src/app/(admin)/warehouse/daily-close/page.tsx",
+      "sha256": "f0a7062d4a1f31deded3d3fcb9ceab9553c905c6a029a70d75b4603db0187a0a"
+    },
+    {
+      "path": "apps/web/src/app/(admin)/warehouse/ledger/page.tsx",
+      "sha256": "661208d10d72a0a5ea44d7bb53c1938b9f6de97f84a36c9eb0766f86bf5740ba"
+    },
+    {
+      "path": "apps/web/src/lib/warehouse-ledger-change-type.ts",
+      "sha256": "041d9cf9ab7f5a6acd0c4e6f3a524b480dc68f8968debea2c73c3bb2623e7d85"
+    },
+    {
+      "path": "apps/web/src/locales/en.json",
+      "sha256": "5bb726a322ec8f02900dfa70af0d27c6b979ffa1d0ec13e6b310cca67fd4c031"
+    },
+    {
+      "path": "apps/web/src/locales/lo.json",
+      "sha256": "9d54043ad47992f6f35536e53c37233fee81cda6ab41547736d54f1c14ead135"
+    },
+    {
+      "path": "apps/web/src/locales/zh.json",
+      "sha256": "c80575b9f977aa267dab90d1fa5f7a469c64a35995e85e681a4a24f366b9c56e"
+    },
+    {
+      "path": "apps/web/src/__tests__/warehouse-reversal-summary.dom.test.tsx",
+      "sha256": "cd11aad5bc821477bc2f5e9d26056918cae4585f0e27fa88b95f66b2e3e5ff6e"
+    }
+  ],
+  "core": {
+    "suitesPassed": 4,
+    "testsPassed": 70,
+    "skipped": 0,
+    "seconds": 12.376
+  },
+  "apiFull": {
+    "suitesPassed": 166,
+    "suitesSkipped": 27,
+    "testsPassed": 2108,
+    "testsSkipped": 517,
+    "seconds": 39.857,
+    "sourceDifferenceToFinal": "Only stronger assertion in one case test; no production source change",
+    "otherOptInPgSuitesRerun": false
+  },
+  "apiLint": {
+    "errors": 0,
+    "warnings": 3190
+  },
+  "webFull": {
+    "filesPassed": 140,
+    "filesSkipped": 1,
+    "testsPassed": 840,
+    "testsSkipped": 4,
+    "scope": "Earlier full Web regression before note summary refinement; final refinement has targeted DOM/typecheck/changed lint/ratchet passes"
+  },
+  "webLint": {
+    "ratchet": "PASS",
+    "globalErrors": 815,
+    "globalWarnings": 467
+  },
+  "image": {
+    "tag": "phoenix-temp-reversal-cli:owned-v3-20261118",
+    "revision": "owned-uncommitted-reversal-v3-review",
+    "id": "sha256:8435950b52ad33826ddc55258b2117237eae6adff744078806c84b2863b7780e",
+    "contextManifest": "artifacts/flock-lifecycle-20261117/reversal-image-context-v3-manifest.json",
+    "contextManifestSha256": "8bba631f3c11308a883ad5c51c0fedf248dc94fce62704bc3c53f7e50212b1c2",
+    "differenceToFinal": [
+      "apps/api/src/modules/wms/temp-production-reversal-case.pg.spec.ts"
+    ],
+    "differenceExcludedFromProductionCompile": true,
+    "uploaded": false,
+    "network": "none",
+    "readOnlyFilesystem": true,
+    "user": "phoenix",
+    "productionSourceFingerprint": "7936bb1650acb19ef1204557f0f1a8b05a37d319c4ed2de2137775d082238cb7",
+    "productionSourceFileCount": 702,
+    "productionSourceFingerprintScope": "Copied apps/api/src/**/*.ts excluding *.spec.ts and *.test.ts; includes actual migration and compiled CLI source",
+    "buildInputsExcludingSpecsFingerprint": "8d27d2a4759b3a0e4b0d378ff3d816112d152649ed749dd0cbd3e2e938c6979c",
+    "buildInputCount": 1013,
+    "fingerprintEncoding": "sha256 of sorted manifest records path+NUL+file sha256+LF",
+    "dockerfileSha256": "bdea2437d3635250317588e3696a3cd3afe5762db2816792cbbb5ab61e2df1a0",
+    "productionSourceMatchesFrozenV4": true,
+    "gitShaImagePendingAfterCommit": true
+  },
+  "receipts": {
+    "core": {
+      "path": "artifacts/flock-lifecycle-20261117/reversal-core-packaging-v4.log",
+      "sha256": "c9f9a590be80ea5d346d22515350915be34ea493ce193f38c504a6a6d4f6649e",
+      "exitCode": 0
+    },
+    "apiTypecheck": {
+      "path": "artifacts/flock-lifecycle-20261117/reversal-api-types-v4.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "exitCode": 0
+    },
+    "apiFull": {
+      "path": "artifacts/flock-lifecycle-20261117/reversal-api-full-v3.log",
+      "sha256": "322631fe93cca45892b3d1be98a6fe32c85a3af6336743c55c66c4feaf35b967",
+      "exitCode": 0
+    },
+    "apiLint": {
+      "path": "artifacts/flock-lifecycle-20261117/reversal-api-lint-v3.review.log",
+      "sha256": "44b75835c9e0ebaceb8f43382bd61f5e8cbb237dc0f9dbc8423f80c0e1c64958",
+      "exitCode": 0,
+      "rawPath": "artifacts/flock-lifecycle-20261117/reversal-api-lint-v3.log",
+      "rawSha256": "b76283c93f97e4ba5cab9b9a0e440241faf801d9a1207f278cf8eceb3dbe2245",
+      "reviewNormalization": "Trailing line whitespace and extra blank EOF lines removed; raw log preserved unchanged"
+    },
+    "webTypecheck": {
+      "path": "artifacts/flock-lifecycle-20261117/reversal-web-note-types-v5.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "exitCode": 0
+    },
+    "webFull": {
+      "path": "artifacts/flock-lifecycle-20261117/reversal-web-full.review.log",
+      "sha256": "6a10f968df3592cef6a1741e0ca5200c85ba9041ab675462639bf1f1b3d36844",
+      "exitCode": 0,
+      "rawPath": "artifacts/flock-lifecycle-20261117/reversal-web-full.log",
+      "rawSha256": "b18f46812d558048de8601b302b6a9c0091c2f0fb4fe613b7ad9717a188bdc7c",
+      "reviewNormalization": "Trailing line whitespace and extra blank EOF lines removed; raw log preserved unchanged"
+    },
+    "webSummaryDom": {
+      "path": "artifacts/flock-lifecycle-20261117/reversal-web-note-dom-v5.review.log",
+      "sha256": "a06941ec91c3bf97c6461222a930348370f284c91429a9ab5217be68b9ff7815",
+      "exitCode": 0,
+      "rawPath": "artifacts/flock-lifecycle-20261117/reversal-web-note-dom-v5.log",
+      "rawSha256": "ea3488cc37001c2bfe2bd018a9f4f589af11ec598310a5857da770440cf7dd86",
+      "reviewNormalization": "Trailing line whitespace and extra blank EOF lines removed; raw log preserved unchanged"
+    },
+    "webLintChanged": {
+      "path": "artifacts/flock-lifecycle-20261117/reversal-web-note-lint-changed-v5.log",
+      "sha256": "fc04395adf3c038291080568024e400cc4f7c9fafbe89804e44fb24fac294c78",
+      "exitCode": 0
+    },
+    "webLintRatchet": {
+      "path": "artifacts/flock-lifecycle-20261117/reversal-web-note-lint-ratchet-v5.log",
+      "sha256": "5451b9440dca91e435930e9722d294c5efc87905262ed3651b58559a11a19fd0",
+      "exitCode": 0
+    },
+    "constraint": {
+      "path": "artifacts/flock-lifecycle-20261117/reversal-constraint-drift.log",
+      "sha256": "20228dba44b587eed4bac7911272684f03ef388e18c9a1303c67a00d655ea2ec",
+      "exitCode": 0
+    },
+    "nullUnique": {
+      "path": "artifacts/flock-lifecycle-20261117/reversal-null-unique.log",
+      "sha256": "4b95d58d9a67a8a178ee64e48dc6050ae865d08f8ff86c8ab5491ad17d79eb65",
+      "exitCode": 0
+    },
+    "migrationDown": {
+      "path": "artifacts/flock-lifecycle-20261117/reversal-migration-down-gate.log",
+      "sha256": "c34481009d2cad8b0ffba17e03490a5fe408c29fb2fb4ef3aa6135f1bb27c39b",
+      "exitCode": 0
+    },
+    "migrationDml": {
+      "path": "artifacts/flock-lifecycle-20261117/reversal-migration-dml-gate.log",
+      "sha256": "f103425d213b27f9bb3250a3b626b800c45dc3b0c4c06c7208b417cfea3247cc",
+      "exitCode": 0
+    },
+    "scopeAudit": {
+      "path": "artifacts/flock-lifecycle-20261117/reversal-scope-audit.log",
+      "sha256": "c5fc814f7800cf33e7ca335f3992f6a342de4bc73d0ebf07d09edcf333c1c097",
+      "exitCode": 0
+    },
+    "imageBuild": {
+      "path": "artifacts/flock-lifecycle-20261117/reversal-production-image-build-v3.review.log",
+      "sha256": "22cbf61ba9a163579ebb72a1740716a1164f9e2eab0877b7c4d340e57d1ded21",
+      "exitCode": 0,
+      "rawPath": "artifacts/flock-lifecycle-20261117/reversal-production-image-build-v3.log",
+      "rawSha256": "4c9e074cecbde6827272a3473bb084f6eeebc3008ea7babddbf5061d5e223c95",
+      "reviewNormalization": "Trailing line whitespace and extra blank EOF lines removed; raw log preserved unchanged"
+    },
+    "imageSelfCheck": {
+      "path": "artifacts/flock-lifecycle-20261117/reversal-production-image-self-check-v3.log",
+      "sha256": "f2d68fea88cac1a797bdde61a17698bcbfd19f97cd14000092a1bd0f18cbabd9",
+      "exitCode": 0
+    },
+    "imageModuleCheck": {
+      "path": "artifacts/flock-lifecycle-20261117/reversal-production-image-module-check-v3.log",
+      "sha256": "dcfd69d5cd2abd3db21af5a87107c6ae5196646a9046070e78acdec426079c0c",
+      "exitCode": 0
+    },
+    "imageApplyHold": {
+      "path": "artifacts/flock-lifecycle-20261117/reversal-production-image-apply-hold-v3.log",
+      "sha256": "ea10f9b0e3ec9650e18be4f6f2c663c1904740c88008a514d2aefd5e2dad3542",
+      "exitCode": 2
+    },
+    "imageSingaporeDate": {
+      "path": "artifacts/flock-lifecycle-20261117/reversal-production-runtime-date-v3.log",
+      "sha256": "32986bcb9f2e19be233a0349a8c66ee509338101ba1fe73c0ecd551174e64ba3",
+      "exitCode": 0
+    }
+  },
+  "uncovered": [
+    "No production apply, deploy or new production query",
+    "External financial/voucher/inventory period authority remains pending",
+    "No complete trusted approval adapter",
+    "Legacy Labels cold schema incompatible: label_no NOT NULL/no default and code absent; ordinary zero positive only lean legacy model",
+    "Not all controllers and medicine cancellation paths have new real-PG endpoint tests",
+    "Packaging membership does not grant stock/quantity authorization",
+    "No production backup restore drill"
+  ],
+  "supersedes": "artifacts/flock-lifecycle-20261117/reversal-implementation-validation-v4.json",
+  "webSummaryDom": {
+    "testsPassed": 8,
+    "filesPassed": 1,
+    "skipped": 0,
+    "realLedgerTable": true,
+    "languages": [
+      "zh",
+      "en",
+      "lo"
+    ],
+    "covers": [
+      "signed daily correction",
+      "old API fallback",
+      "reversal note business reference without technical trace",
+      "malformed or missing required trace fields show pending review",
+      "ordinary note unchanged"
+    ],
+    "storedNoteUnchanged": true
+  },
+  "independent": {
+    "apiCore": {
+      "originalPath": "artifacts/flock-lifecycle-supervision-20261117/reversal-packaging-v4-independent-0tama0m1/receipt.json",
+      "preservedCopy": "artifacts/flock-lifecycle-20261117/reversal-independent-pg-v4-receipt.json",
+      "sha256": "0c12cdd1a3c364037854f267d5b1f9d9c95d348c6149bb288d425b1c5daab1a8",
+      "testsPassed": 70,
+      "suitesPassed": 4,
+      "skipped": 0,
+      "seconds": 15.123,
+      "logSha256": "5b3d89fc03cb6547d3c014b03f79e3e7353bff3a73292998fc12b8a82106ef77"
+    },
+    "apiTypecheck": {
+      "originalPath": "artifacts/flock-lifecycle-supervision-20261117/reversal-v3-api-types-tkjsd8tu/receipt.json",
+      "preservedCopy": "artifacts/flock-lifecycle-20261117/reversal-independent-api-types-receipt.json",
+      "sha256": "0a9ded856b28e7d83b2db39ad824f68fe07746f636dd4c95d2af51345aa0a45b"
+    },
+    "image": {
+      "originalPath": "artifacts/flock-lifecycle-supervision-20261117/reversal-image-independent-9eulbnnh/receipt.json",
+      "preservedCopy": "artifacts/flock-lifecycle-20261117/reversal-independent-image-receipt.json",
+      "sha256": "daae0700515b1dca0817415f80f2ef0860a8eb65994812f730533430e38a5f63"
+    }
+  },
+  "localCommitAuthorizedByCoordinator": true,
+  "productionAuthorization": false
+}

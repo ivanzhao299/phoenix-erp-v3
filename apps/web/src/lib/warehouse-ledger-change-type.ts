@@ -23,6 +23,7 @@ const CHANGE_TYPE_LABELS: Record<string, string> = {
   SALE_OUT: "销售出库",
   SCRAP: "报废",
   TEMP_PRODUCTION_INBOUND: "临时生产入库",
+  TEMP_PRODUCTION_REVERSAL: "误入库冲销",
   TRANSFER_IN: "调拨入库",
   TRANSFER_OUT: "调拨出库",
 };
@@ -50,6 +51,7 @@ const CHANGE_TYPE_TONES: Record<string, WarehouseLedgerChangeTone> = {
   SALE_OUT: "danger",
   SCRAP: "default",
   TEMP_PRODUCTION_INBOUND: "success",
+  TEMP_PRODUCTION_REVERSAL: "warning",
   TRANSFER_IN: "info",
   TRANSFER_OUT: "warning",
 };
@@ -67,4 +69,28 @@ export function getWarehouseLedgerChangeTone(value: unknown): WarehouseLedgerCha
   if (code.endsWith("_OUT") || code.endsWith("_OUTBOUND")) return "danger";
   if (code.includes("TRANSFER")) return "warning";
   return "default";
+}
+
+/** Keep the stored trace intact; the ledger shows only its business reference. */
+export function formatWarehouseLedgerNote(
+  value: unknown,
+  changeType: unknown,
+  t: (key: string, fallback: string) => string,
+): string {
+  if (changeType !== "TEMP_PRODUCTION_REVERSAL") return String(value ?? "—");
+  let trace: unknown;
+  try {
+    trace = typeof value === "string" ? JSON.parse(value) : undefined;
+  } catch {
+    trace = undefined;
+  }
+  if (trace && typeof trace === "object" && !Array.isArray(trace)) {
+    const record = trace as Record<string, unknown>;
+    if (record.version === 1 && typeof record.case_id === "string" && record.case_id.trim()
+      && typeof record.original_ledger_id === "number" && Number.isSafeInteger(record.original_ledger_id) && record.original_ledger_id > 0) {
+      return t("warehouse.note.temp_production_reversal", "误入库冲销 · 原入库流水 #{id}")
+        .replace("{id}", String(record.original_ledger_id));
+    }
+  }
+  return t("warehouse.note.temp_production_reversal_pending", "误入库冲销 · 备注待核验");
 }

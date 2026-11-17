@@ -31,6 +31,8 @@ export const INV_LEDGER_CHANGE_TYPE = {
   EXPIRE_WRITEOFF: 'EXPIRE_WRITEOFF',
   /** 临时生产入库（production-inbound） */
   TEMP_PRODUCTION_INBOUND: 'TEMP_PRODUCTION_INBOUND',
+  /** 已审核的限定误入库更正；不计正常出库或盘亏 */
+  TEMP_PRODUCTION_REVERSAL: 'TEMP_PRODUCTION_REVERSAL',
   /** 包装入库（packaging-inventory-integration） */
   PACKAGING_INBOUND: 'PACKAGING_INBOUND',
 

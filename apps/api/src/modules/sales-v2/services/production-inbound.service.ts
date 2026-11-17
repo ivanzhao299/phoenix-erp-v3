@@ -7,6 +7,7 @@ import { ClsService } from 'nestjs-cls';
 import { EggInventoryService, assertEggDate, GradeStockStatus } from './egg-inventory.service';
 import { InventorySourceModeService } from './inventory-source-mode.service';
 import { INV_LEDGER_CHANGE_TYPE } from '../../wms/inv-ledger-change-types';
+import { readTempProductionReversalState, TEMP_PRODUCTION_REVERSAL_CASE } from '../../wms/temp-production-reversal';
 import { DataScopeContext } from '../../org/services/data-scope.service';
 import { OrgOwnershipService } from '../../org/services/org-ownership.service';
 
@@ -330,7 +331,7 @@ export class ProductionInboundService {
     const run = async (mgr: any) => {
       if (dto.houseCode) await mgr.query("SELECT pg_advisory_xact_lock(hashtext('phoenix:daily-house'),hashtext($1))",[dto.houseCode]);
       await mgr.query('SELECT pg_advisory_xact_lock(hashtext($1))', [dailyScopeLock]);
-      const existing = await mgr.query(
+      let existing = await mgr.query(
         `SELECT batch_no, quality_grade, qty, product_code, sku_code, spec_code, variety_code, status,
                 egg_date::text AS egg_date, collection_batch_ref, warehouse_code, location_code
            FROM inv_batches
@@ -339,6 +340,15 @@ export class ProductionInboundService {
           ORDER BY batch_no FOR UPDATE`,
         [companyCode, dto.eggDate, collectionRef],
       );
+      if (existing.some((row: any) => TEMP_PRODUCTION_REVERSAL_CASE.targets.some(target => target.batchNo === row.batch_no))) {
+        // Existing source rows are already locked in the daily-house transaction.
+        // A strict complete incident is the sole zero-row exclusion; ordinary
+        // sold-out/BROKEN rows remain part of the original exact replay check.
+        if (await readTempProductionReversalState(mgr) === 'REVERSED') {
+          existing = existing.filter((row: any) => !TEMP_PRODUCTION_REVERSAL_CASE.targets.some(target => target.batchNo === row.batch_no));
+          if (!existing.length) throw new BadRequestException('该来源仅有已更正的误入库记录，禁止自动重建或补余');
+        }
+      }
       if (existing.length > 0) {
         // A source key identifies the complete inbound context. Never expose a batch
         // from another date/house/location, including historic rows missing provenance.

@@ -4,6 +4,7 @@ import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
 import { PackagingInventoryIntegrationService } from '../sales-v2/services/packaging-inventory-integration.service'; // 生产链路收口 Phase 1
 import { resolveInventoryClass } from '../wms/inventory-class-policy';
+import { lockTempProductionReferences } from '../wms/temp-production-reversal';
 
 /**
  * PackagingService — V3 包装模块业务服务
@@ -692,12 +693,14 @@ export class PackagingService {
   // 任务上次打印 >= 2 次时触发；写一条 lbl_records 条目 label_type='reprint_reason'
   async reprintLog(taskId: string, body: any, userId: number) {
     try {
-      const task = await this.em.query(
-        `SELECT task_no, batch_no FROM pkg_tasks WHERE task_no = $1 OR id::text = $1 LIMIT 1`,
+      await this.em.transaction(async manager => {
+      const task = await manager.query(
+        `SELECT task_no, batch_no FROM pkg_tasks WHERE task_no = $1 OR id::text = $1 LIMIT 1 FOR SHARE`,
         [taskId],
       );
       const batchNo = task[0]?.batch_no || task[0]?.task_no || taskId;
-      await this.em.query(
+      await lockTempProductionReferences(manager, [batchNo]);
+      await manager.query(
         `INSERT INTO lbl_records (
            code, label_type, batch_no, qty_printed, desc_text, printed_by
          ) VALUES ($1, 'reprint_reason', $2, $3, $4, $5)`,
@@ -709,6 +712,7 @@ export class PackagingService {
           userId || null,
         ],
       );
+      });
       return { code: 200, msg: '补打记录已保存' };
     } catch (e: any) {
       return { code: 500, msg: e?.message || '保存失败' };

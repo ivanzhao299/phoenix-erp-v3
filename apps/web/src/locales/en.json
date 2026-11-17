@@ -14821,5 +14821,8 @@
   "ui.办理入栏与生命周期": "Manage placement and flock lifecycle",
   "auto.literal.flock.c0254956b7e9": "Unsupported attachment format",
   "auto.literal.flock.bf0a6e0b5b54": "Close attachment preview",
-  "auto.literal.flock.a413edf82edd": "Evidence preview"
+  "auto.literal.flock.a413edf82edd": "Evidence preview",
+  "warehouse.change_type.temp_production_reversal": "Erroneous inbound reversal",
+  "warehouse.note.temp_production_reversal": "Erroneous inbound reversal · Original inbound entry #{id}",
+  "warehouse.note.temp_production_reversal_pending": "Erroneous inbound reversal · Note needs review"
 }

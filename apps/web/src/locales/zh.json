@@ -14821,5 +14821,8 @@
   "ui.办理入栏与生命周期": "办理入栏与生命周期",
   "auto.literal.flock.c0254956b7e9": "附件格式不受支持",
   "auto.literal.flock.bf0a6e0b5b54": "关闭附件预览",
-  "auto.literal.flock.a413edf82edd": "业务证据预览"
+  "auto.literal.flock.a413edf82edd": "业务证据预览",
+  "warehouse.change_type.temp_production_reversal": "误入库冲销",
+  "warehouse.note.temp_production_reversal": "误入库冲销 · 原入库流水 #{id}",
+  "warehouse.note.temp_production_reversal_pending": "误入库冲销 · 备注待核验"
 }

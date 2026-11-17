@@ -1,0 +1,11 @@
+{
+  "testExitCode": 0,
+  "sourceFileCount": 1204,
+  "sourceFingerprintSha256": "1d49833a51ee91d08fe0d76bc7de0a08aa316ead326bc957a86b68f93536f615",
+  "manifestSha256": "001e7583bee20d50bb987c4b050e3085d9f4bd91fc55c99f0c578f829f8f5921",
+  "manifestUnchanged": true,
+  "sourceMismatchesAfter": [],
+  "apiTypecheckReuse": "reversal-v3-api-types-tkjsd8tu, only tsconfig-excluded case spec changed",
+  "logSha256": "5b3d89fc03cb6547d3c014b03f79e3e7353bff3a73292998fc12b8a82106ef77",
+  "scope": "owned PostgreSQL and pure tests; no production authority/permission grant"
+}

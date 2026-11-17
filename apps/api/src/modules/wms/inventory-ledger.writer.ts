@@ -1,4 +1,6 @@
 import { InvLedgerChangeType } from './inv-ledger-change-types';
+import { assertTempProductionReferenceAllowed, REVERSAL_TYPE } from './temp-production-reversal';
+import { consumeCorrectionLedgerWrite } from './temp-production-reversal-case';
 
 /**
  * inv_ledger 统一写入器（INV-301 步骤 3a）。
@@ -151,6 +153,8 @@ export async function writeInvLedger(
   em: InvLedgerExecutor,
   params: WriteInvLedgerParams,
 ): Promise<number> {
+  if(params.changeType===REVERSAL_TYPE)consumeCorrectionLedgerWrite(em,{...params});
+  else await assertTempProductionReferenceAllowed(em,[params.batchNo]);
   const columns: string[] = [
     'batch_no', 'change_type', 'qty_change', 'operator', 'store_code', 'ref_no', 'note',
   ];

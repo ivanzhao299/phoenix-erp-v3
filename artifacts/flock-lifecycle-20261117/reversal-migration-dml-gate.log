@@ -1,0 +1,47 @@
+🟡 1781835697682-FixChanjetArDeptCodeNotNull.ts: 豁免 DML 检查 — 清 dept_code NULL→'' 占位 + 去重(NOT NULL 前置必需)
+🟡 1781837624060-FixChanjetArSnapshotRemainingNullableUq.ts: 豁免 DML 检查 — 清 NULL→'' 占位 + 去重(NOT NULL 前置必需)
+🟡 1781837624061-FixPrc2ProjectsCompanyCodeNotNull.ts: 豁免 DML 检查 — 清 company_code NULL→'' 占位 + 去重(NOT NULL 前置必需)
+🟡 1782000000000-W4MasterDataFoundation.ts: 豁免 DML 检查 — 新建 sys_organization_type_rules 配置表 + 初始 9 条治理规则 seed
+🟡 1782044418112-SeedMaterialCodePrefix.ts: 豁免 DML 检查 — 注册物料快建所需 MAT 编码前缀，修复采购新增物料 codeGen.next('MAT') 缺前缀导致 500
+🟡 1782045418112-SeedWorkflowAtomicMenus.ts: 豁免 DML 检查 — 注册审批中心原子菜单码，并从 legacy MENU_WORKFLOW 拆分过渡角色授权
+🟡 1782046418112-SeedSettingsAtomicPermissionMenus.ts: 豁免 DML 检查 — 注册系统设置下角色权限/权限集原子菜单码，并从 MENU_SETTINGS_IT 平滑继承授权
+🟡 1782047418112-SeedSettingsOperationalAtomicMenus.ts: 豁免 DML 检查 — 注册系统设置运营类原子菜单码，并从 MENU_SETTINGS_IT 平滑继承授权
+🟡 1782048418112-SeedSettingsConfigAtomicMenus.ts: 豁免 DML 检查 — 注册系统配置/菜单注册/好业财配置原子菜单码，并从 MENU_SYS_CONFIG 平滑继承授权
+🟡 1782049418112-SeedOrgDataScopeAtomicMenus.ts: 豁免 DML 检查 — 注册组织/公司/事业群/数据范围原子菜单码，并从 MENU_SYS_ORG 平滑继承授权
+🟡 1782050418112-SeedQualityMobileAtomicMenus.ts: 豁免 DML 检查 — 注册质检标准/移动配送原子菜单码，并从旧质检/配送权限最小继承授权
+🟡 1782051418112-SeedOnlineUsersAtomicMenu.ts: 豁免 DML 检查 — 注册在线用户原子菜单码，并从 MENU_SYS_MONITOR 平滑继承 V 权限
+🟡 1782052418112-RepairRolePermissionMatrixAtomicity.ts: 豁免 DML 检查 — 将非管理员角色的粗粒度父菜单授权转换为原子菜单授权，并移除父授权以避免跨权限展示
+🟡 1782053418112-SeedMasterDataCenterMenu.ts: 豁免 DML 检查 — 补 seed 漏掉的 MENU_MD_CENTER(sys_menu)+ 对应角色授权,修复部署后主数据中心 403
+🟡 1782054418112-GrantMasterDataProjectMenu.ts: 豁免 DML 检查 — 补 MENU_MD_PROJECT 授权(1782052 转授映射漏了项目分支),修复部署后项目激活/新建 403
+🟡 1782055418112-GrantAllMasterDataAtomicMenus.ts: 豁免 DML 检查 — 补齐主数据原子码授权(Option B 纯原子化),根治部署后主数据中心/各实体 403
+🟡 1782056418112-FixBizProjectsCompanyTrigger.ts: 豁免 DML 检查 — CREATE OR REPLACE FUNCTION(非数据 DML;函数体含 TG_OP='UPDATE' 文本仅为触发器逻辑)
+🟡 1782633382333-GrantDeviceMonitorFactoryMgr.ts: 豁免 DML 检查 — 给 ROLE_FACTORY_MGR(场区经理/生产厂长)授予 MENU_DEVICE_MONITOR:V(设备监控只读)。
+🟡 1782639127220-CleanupVestigialMenuGrants.ts: 豁免 DML 检查 — 治理卫生(W1/W2)——删除已确认 vestigial 的粗父/旧别名 RBAC 授权。
+🟡 1782645332018-GrantWmsOpInoutEdit.ts: 豁免 DML 检查 — 给 ROLE_WMS_OP(仓管理货员)的 MENU_WMS_INOUT 补 E(编辑)权限位。
+🟡 1782710000000-FixReimburseMenuAndSourceModeGrants.ts: 豁免 DML 检查 — 修复两处已验证的生产 RBAC 缺陷（task #27 逐用户烟测 F2 + F5）。
+🟡 1782720000000-SeedStorePaymentAndSales2DashboardMenus.ts: 豁免 DML 检查 — 修复 task #27 烟测 F1 + F6 两处「菜单码从未 seeded → 403/FE 死码」。
+🟡 1782750500000-CreateBugReports.ts: 豁免 DML 检查 — seed MENU_BUG_REPORT into RBAC config tables for bug intake management.
+🟡 1784042679000-AllowChanjetSourceOnlyMatchStatus.ts: 豁免 DML 检查 — down() converts SOURCE_ONLY rows back to PENDING before restoring the legacy constraint.
+🟡 1784120000000-EnforceSingleVisiblePrimaryUserRole.ts: 豁免 DML 检查 — 约束建立前将历史多有效主角色归一为唯一主角色，保留全部角色授权和启停状态。
+🟡 1785200000000-AddWmsIssueOutboundGovernance.ts: 豁免 DML 检查 — register WMS issue-outbound dictionaries, atomic menu and least-privilege role grants.
+🟡 1785410000000-EnforceChanjetMappingSourceIdentity.ts: 豁免 DML 检查 — archive and remove only deterministic pending duplicates before enforcing source identity
+🟡 1785420000000-AddChanjetWmsMappingEntityType.ts: 豁免 DML 检查 — backfill deterministic ERP target entity type for existing reviewed WMS mappings
+🟡 1787961600000-TightenStoreSiteAndWarehouseOwnership.ts: 豁免 DML 检查 — alias_type SITE -> STORE_SITE is a schema-enum compatibility conversion.
+🟡 1788134400000-CreateStoreReplenishmentOrchestration.ts: 豁免 DML 检查 — V1-3 新菜单及标准角色的最小权限种子，业务单据不做任何回填
+🟡 1788220800000-ImplementStorePosV14TenderSettlement.ts: 豁免 DML 检查 — V1-4 新菜单及 MENU_FIN2_AR_LEDGER 当前生产授权集合的收紧式平移
+🟡 1788253200000-AddSalesOrderLifecycleEvents.ts: 豁免 DML 检查 — seed override permission and one truthful MIGRATED_SNAPSHOT baseline per existing order
+🟡 1788337017420-AddSalesOrderApprovalContext.ts: 豁免 DML 检查 — deploy two disabled SALES_ORDER example rules; activation remains an explicit administrator action
+🟡 1788408000000-AddSalesOrderBatchAllocations.ts: 豁免 DML 检查 — rebuild open sales-order batch allocations from the original per-batch RESERVED ledger; fail closed on ambiguous outboun
+🟡 1788411600000-AddSalesFulfillmentWarehouseAndPartialDelivery.ts: 豁免 DML 检查 — mark historical open orders without a fulfillment warehouse for explicit governance
+🟡 1788501600000-GovernSupplierWarehouseTypeDomains.ts: 豁免 DML 检查 — sys_dict is governed configuration data; business-row mapping is kept in the approved production workflow.
+🟡 1789012800000-GovernPackagingGradingSubmissions.ts: 豁免 DML 检查 — 为历史分级记录补唯一幂等占位键与载荷摘要，随后收紧为 NOT NULL。
+🟡 1789353300496-PackagingHistoryD1cEvidence.ts: 豁免 DML 检查 — DDL-only CREATE TRIGGER event clauses UPDATE ON / UPDATE OR are regex false positives; up contains no business-data DML.
+🟡 1789600400000-AddProductionManagementMvpSchema.ts: 豁免 DML 检查 — backfill legacy breeding records into required MVP keys and quarantine ambiguous values
+🟡 1791878400000-CreateChanjetExecutionAdmissions.ts: 豁免 DML 检查 — DDL-only trigger event UPDATE OR/DELETE ON is a regex false positive; no data DML in up().
+🟡 1794401000000-QuarantineLegacyMedicationIssueLines.ts: 豁免 DML 检查 — quarantine legacy medication issue lines before reasserting MVP foreign keys
+🟡 1794500000000-FreezeRetiredEggGrades.ts: 豁免 DML 检查 — 退役 CRACKED/DAMAGED 缺陷档为 8 档制终态（业务裁定 2026-11-14：
+🟡 1794700000000-AddMstProductsUnitColumn.ts: 豁免 DML 检查 — 回填 mst_products.unit ← unit_zh——冻结基线(v3_schema_complete
+🟡 1794900000000-FlockLifecycleLedger.ts: 豁免 DML 检查 — DDL-only immutable/overlap trigger event UPDATE OR DELETE is a scanner false positive; up has no business data DML.
+🟡 1794901000000-FlockProductionProvenance.ts: 豁免 DML 检查 — DDL-only immutable/overlap trigger event UPDATE OR DELETE is a scanner false positive; up has no business data DML.
+🟡 1794902000000-FlockActivitySources.ts: 豁免 DML 检查 — DDL-only immutable/overlap trigger event UPDATE OR DELETE is a scanner false positive; up has no business data DML.
+✅ 114 条 TS 迁移检查通过(46 条文件级豁免)

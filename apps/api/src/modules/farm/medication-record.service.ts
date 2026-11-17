@@ -1,5 +1,6 @@
 import { deriveOrgScope,scopeWhere } from './farm.service';
 import { lockManagedActivity,recordFlockActivity } from './flock-activity-source';
+import { lockTempProductionReferences } from '../wms/temp-production-reversal';
 import {
   BadRequestException,
   ConflictException,
@@ -636,6 +637,7 @@ export class MedicationRecordService {
         [numericId],
       );
       const reverseRef = generatedKey('MED-CANCEL');
+      await lockTempProductionReferences(manager, lines.map((line: any) => line.inventory_batch_no));
       for (const line of lines) {
         const quantity = positiveNumber(line.qty, 'issue line qty');
         if ((line.store_code && line.store_code !== 'ALL' && line.store_code !== record.site_code)

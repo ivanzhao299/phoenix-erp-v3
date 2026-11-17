@@ -1,6 +1,7 @@
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
+import { lockTempProductionReferences } from '../wms/temp-production-reversal';
 
 /**
  * QualityService — V2 fidelity 质量追溯 + 质检记录 + 不合格品 NCR
@@ -301,12 +302,16 @@ export class QualityService {
     const { issue_type, severity, batch_no, store_code, description, action_taken } = body || {};
     if (!issue_type || !severity) throw new BadRequestException('issue_type / severity 必填');
     const ncNo = `NC-${Date.now()}`;
-    await this.em.query(
+    await this.em.transaction(async manager => {
+    // New OPEN non-conformance is a business obligation. Historical reads stay unchanged.
+    await lockTempProductionReferences(manager, [batch_no]);
+    await manager.query(
       `INSERT INTO qa_non_conformance
          (nc_no, issue_type, severity, batch_no, store_code, description, action_taken, status, created_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7, 'OPEN', now())`,
       [ncNo, issue_type, severity, batch_no || null, store_code || null, description || '', action_taken || ''],
     );
+    });
     return { code: 200, msg: '不合格品记录已创建', data: { nc_no: ncNo } };
   }
 

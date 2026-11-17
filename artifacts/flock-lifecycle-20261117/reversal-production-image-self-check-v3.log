@@ -1,0 +1,3 @@
+TEMP_PRODUCTION_REVERSAL_CLI=READY
+Modes: preflight --release-sha <40-hex>
+Production apply: HOLD, sealed business/financial authority integration pending
