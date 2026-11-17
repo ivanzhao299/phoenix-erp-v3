@@ -383,6 +383,7 @@ describe('WmsService inventory read queries', () => {
       'ALL',
       'COMP-LAO-XINGCHI',
       '2026-09-09', 'A', null, null, null, 'STANDARD',
+      0, // INV-401：PURCHASE 批次 unit_cost（wms_inbound_items.unit_cost 缺行/0 → 0 挂账）
     ]);
 
     const insertLedgerCall = manager.query.mock.calls.find(([sql]) =>
@@ -467,6 +468,7 @@ describe('WmsService inventory read queries', () => {
         'ALL',
         'COMP-LAO-XINGCHI',
         '2026-09-09', 'A', null, null, null, 'STANDARD',
+        0, // INV-401：PURCHASE 批次 unit_cost（wms_inbound_items.unit_cost 缺行/0 → 0 挂账）
       ],
     );
     expect(manager.query).toHaveBeenCalledWith(
@@ -545,7 +547,7 @@ describe('WmsService inventory read queries', () => {
     );
     expect(manager.query).toHaveBeenCalledWith(
       expect.stringContaining('INSERT INTO inv_batches'),
-      ['IBN-RECEIVED-2', null, null, 'MAT-FEED-1', 'MATERIAL', 'FEED_RAW', 'kg', 2, 'WH-A', 'INBOUND-DOCK', 'ALL', 'COMP-LAO-XINGCHI', '2026-09-09', null, null, null, null, 'STANDARD'],
+      ['IBN-RECEIVED-2', null, null, 'MAT-FEED-1', 'MATERIAL', 'FEED_RAW', 'kg', 2, 'WH-A', 'INBOUND-DOCK', 'ALL', 'COMP-LAO-XINGCHI', '2026-09-09', null, null, null, null, 'STANDARD', 0], // 末位 0 = INV-401 unit_cost
     );
   });
 

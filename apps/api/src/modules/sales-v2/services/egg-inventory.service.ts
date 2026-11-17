@@ -448,9 +448,19 @@ export class EggInventoryService {
     inventoryStatus?: GradeStockStatus;
     /** Packaging integration alias for the grade policy status. */
     stockStatus?: GradeStockStatus;
+    /**
+     * INV-401 批次单位成本（批次成本法，默认 0）。生产入库成本来源 F1 待财务
+     * 确认：brd_daily_logs 无成本列（仅数量/环境字段），当前生产链路传 0 挂账。
+     */
+    unitCost?: number;
   }, mgr?: EntityManager): Promise<EggBatch> {
     assertEggDate(params.eggDate);
     positiveQuantity(params.qty, '入库数量');
+    // INV-401：批次成本法——unit_cost 必须为有限非负数（0 = 挂账，F1/F2 决策记录）
+    const unitCost = params.unitCost ?? 0;
+    if (!Number.isFinite(unitCost) || unitCost < 0) {
+      throw new BadRequestException('批次单位成本必须为非负有限数');
+    }
     if ((params.sourceType === 'TEMP_PRODUCTION' || params.sourceType === 'PACKAGING')
       && (!params.warehouseCode || !params.locationCode)) {
       throw new BadRequestException('新生产/包装入库必须提供真实 ACTIVE 仓库和库位，禁止使用默认占位码');
@@ -634,13 +644,13 @@ export class EggInventoryService {
          source_type, source_no,
          qty, qty_available, status,
          sku_code, grade_code_std, spec_code, variety_code, source_profile_code, source_profile_snapshot, inventory_class,
-         packaging_batch_ref, collection_batch_ref, unit, base_quantity_version,
+         packaging_batch_ref, collection_batch_ref, unit, base_quantity_version, unit_cost,
          created_at, updated_at
        ) VALUES (
          $1,$2,$3,$4,$5,$6,$6,$7,$8,$9,$10,$11,$12::numeric,
          CASE WHEN $22 = 'AVAILABLE' THEN $12::numeric ELSE 0::numeric END,$22,
          $13,$14,$15,$19,$20,$21::jsonb,$23,
-         $16,$17,$18,1,
+         $16,$17,$18,1,$24::numeric,
          NOW(),NOW()
        ) RETURNING *`,
       [
@@ -665,6 +675,7 @@ export class EggInventoryService {
         }))) : null,
         inventoryStatus,
         inventoryClass,
+        unitCost,
       ],
     );
 

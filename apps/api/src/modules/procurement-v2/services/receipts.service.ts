@@ -307,6 +307,8 @@ export class ReceiptsService {
       if (!po) throw new NotFoundException(`关联 PO ID=${rcp.poId} 不存在`);
 
       // ── 3. 累加 order_items.received_qty，并检查超收 ─────────────────────
+      // INV-401：同步收集 PO 明细单价，供第 9 步库存入账写批次 unit_cost
+      const unitPriceByPoItem = new Map<string, number>();
       for (const item of items) {
         if (!item.poItemId) {
           throw new BadRequestException(`物品「${item.itemName}」缺少 poItemId，无法确认收货`);
@@ -323,6 +325,12 @@ export class ReceiptsService {
         }
 
         const newReceivedQty = Number(poi.receivedQty) + Number(item.actualQty);
+        unitPriceByPoItem.set(
+          String(item.poItemId),
+          Number.isFinite(Number(poi.unitPrice)) && Number(poi.unitPrice) >= 0
+            ? Number(poi.unitPrice)
+            : 0,
+        );
         if (newReceivedQty > Number(poi.qty) + 0.0001) {
           throw new BadRequestException(
             `物品「${item.itemName}」超收：计划 ${poi.qty}，已收 ${poi.receivedQty}，本次 ${item.actualQty}`,
@@ -382,6 +390,9 @@ export class ReceiptsService {
         items: items.map(i => ({
           itemCode:    i.itemCode,
           qty:         Number(i.actualQty),
+          // INV-401：采购批次成本 = PO 明细单价（prc2_order_items.unit_price，
+          // numeric(18,4) DEFAULT 0）；缺失时 WMS 侧安全回退 0
+          unitCost:    unitPriceByPoItem.get(String(i.poItemId)) ?? 0,
         })),
       });
 

@@ -651,7 +651,8 @@ export class WmsService {
           to_jsonb(wms_inbound_items)->>'material_code' AS material_code,
           to_jsonb(wms_inbound_items)->>'sku_code' AS sku_code,
           to_jsonb(wms_inbound_items)->>'material_type' AS material_type,
-          to_jsonb(wms_inbound_items)->>'unit' AS unit
+          to_jsonb(wms_inbound_items)->>'unit' AS unit,
+          to_jsonb(wms_inbound_items)->>'unit_cost' AS unit_cost
           FROM wms_inbound_items
          WHERE task_no=$1
            AND (
@@ -792,12 +793,18 @@ export class WmsService {
         // 正常入库：actual_qty → AVAILABLE batch
         if (actualQty > 0) {
           const inventoryClass = resolveInventoryClass(gradeCode);
+          // INV-401：采购入库计价——PURCHASE 从 wms_inbound_items.unit_cost
+          // （基线建表列 DECIMAL(18,4) DEFAULT 0）取收货单价；其余入库类型按 0
+          // （与列默认一致，语义不变）。to_jsonb 投影缺列/NULL 环境安全回退 0。
+          const purchaseUnitCost = String(task.type ?? '').toUpperCase() === 'PURCHASE'
+            ? Math.max(0, Number(savedLine?.unit_cost) || 0)
+            : 0;
           const posted = await manager.query(
           `INSERT INTO inv_batches (
              batch_no, product_code, sku_code, material_code, item_type, material_type,
-             unit, qty, qty_available, status, inventory_class, warehouse_code, location_code, store_code, company_code, inbound_date, grade_code_std, spec_code, base_quantity_version, variety_code, source_profile_code, source_profile_snapshot
+             unit, qty, qty_available, status, inventory_class, warehouse_code, location_code, store_code, company_code, inbound_date, grade_code_std, spec_code, base_quantity_version, variety_code, source_profile_code, source_profile_snapshot, unit_cost
            )
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8::numeric, $8::numeric, 'AVAILABLE', $18, $9, $10, $11, $12, $13::date,$14,$15,$16,$17,NULL,NULL)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8::numeric, $8::numeric, 'AVAILABLE', $18, $9, $10, $11, $12, $13::date,$14,$15,$16,$17,NULL,NULL,$19::numeric)
              ON CONFLICT (batch_no) DO UPDATE SET
                product_code = COALESCE(inv_batches.product_code, EXCLUDED.product_code),
                sku_code = COALESCE(inv_batches.sku_code, EXCLUDED.sku_code),
@@ -815,6 +822,7 @@ export class WmsService {
                qty = inv_batches.qty + EXCLUDED.qty,
                qty_available = COALESCE(inv_batches.qty_available, inv_batches.qty) + EXCLUDED.qty,
                inventory_class = COALESCE(inv_batches.inventory_class, EXCLUDED.inventory_class),
+               unit_cost = CASE WHEN inv_batches.unit_cost > 0 THEN inv_batches.unit_cost ELSE EXCLUDED.unit_cost END,
                updated_at = now()
               WHERE inv_batches.warehouse_code IS NOT DISTINCT FROM EXCLUDED.warehouse_code
                 AND (inv_batches.company_code IS NULL OR inv_batches.company_code = 'ALL' OR inv_batches.company_code = EXCLUDED.company_code)
@@ -827,7 +835,7 @@ export class WmsService {
                 AND inv_batches.item_type IS NOT DISTINCT FROM EXCLUDED.item_type
                 AND inv_batches.unit IS NOT DISTINCT FROM EXCLUDED.unit
               RETURNING batch_no`,
-            [baseBatchNo, productCode, skuCode, materialCode, itemType, materialType, unit, actualQty, warehouseCode, locationCode, storeCode, companyCode, task.date || null, snapshot?.gradeCode ?? gradeCode ?? null, snapshot?.specCode ?? null, snapshot ? 1 : null, varietyCode, inventoryClass],
+            [baseBatchNo, productCode, skuCode, materialCode, itemType, materialType, unit, actualQty, warehouseCode, locationCode, storeCode, companyCode, task.date || null, snapshot?.gradeCode ?? gradeCode ?? null, snapshot?.specCode ?? null, snapshot ? 1 : null, varietyCode, inventoryClass, purchaseUnitCost],
           );
           if (posted.length !== 1) throw new BadRequestException('入库批次归属或身份已变化，禁止跨公司累加');
           // INV-301a：统一共享写入器（旧手写 SQL 占位符乱序：$1,$11,$2,...）
@@ -947,6 +955,11 @@ export class WmsService {
         qty: number;
         batchNo?: string;
         locationCode?: string;
+        /**
+         * INV-401 批次单位成本（采购收货单明细单价，>=0）。可选——调用方无
+         * 可靠单价来源时不传，批次按 0 挂账（与列默认一致）。
+         */
+        unitCost?: number;
       }[];
     },
   ): Promise<{ batchNos: string[]; skipped: number }> {
@@ -987,6 +1000,10 @@ export class WmsService {
       const inventoryClass = resolveInventoryClass(identity.gradeCode);
       const batchNo = (it.batchNo || `${ctx.refNo}-${String(idx + 1).padStart(3, '0')}`).slice(0, 64);
       const locationCode = (it.locationCode || 'INBOUND-DOCK').slice(0, 64);
+      // INV-401：采购收货计价（非法/负数单价安全回退 0，不阻断收货）
+      const receiptUnitCost = Number.isFinite(Number(it.unitCost)) && Number(it.unitCost) >= 0
+        ? Number(it.unitCost)
+        : 0;
       const [existing] = await manager.query('SELECT * FROM inv_batches WHERE batch_no=$1 FOR UPDATE', [batchNo]);
       if (existing) {
         this.assertBatchCompany(existing, companyCode);
@@ -997,9 +1014,9 @@ export class WmsService {
       const posted = await manager.query(
         `INSERT INTO inv_batches (
            batch_no, product_code, sku_code, material_code, item_type, material_type,
-           unit, qty, qty_available, status, inventory_class, warehouse_code, location_code, store_code, inbound_date, company_code, variety_code, source_profile_code, source_profile_snapshot
+           unit, qty, qty_available, status, inventory_class, warehouse_code, location_code, store_code, inbound_date, company_code, variety_code, source_profile_code, source_profile_snapshot, unit_cost
          )
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8::numeric, $8::numeric, 'AVAILABLE', $15, $9, $10, $11, $12::date, $13, $14, NULL, NULL)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8::numeric, $8::numeric, 'AVAILABLE', $15, $9, $10, $11, $12::date, $13, $14, NULL, NULL, $16::numeric)
          ON CONFLICT (batch_no) DO UPDATE SET
            product_code = COALESCE(inv_batches.product_code, EXCLUDED.product_code),
            sku_code = COALESCE(inv_batches.sku_code, EXCLUDED.sku_code),
@@ -1016,6 +1033,7 @@ export class WmsService {
            qty = inv_batches.qty + EXCLUDED.qty,
            qty_available = COALESCE(inv_batches.qty_available, inv_batches.qty) + EXCLUDED.qty,
            inventory_class = COALESCE(inv_batches.inventory_class, EXCLUDED.inventory_class),
+           unit_cost = CASE WHEN inv_batches.unit_cost > 0 THEN inv_batches.unit_cost ELSE EXCLUDED.unit_cost END,
            updated_at = now()
               WHERE inv_batches.warehouse_code IS NOT DISTINCT FROM EXCLUDED.warehouse_code
                 AND (inv_batches.company_code IS NULL OR inv_batches.company_code = 'ALL' OR inv_batches.company_code = EXCLUDED.company_code)
@@ -1030,7 +1048,7 @@ export class WmsService {
               RETURNING batch_no`,
         [
           batchNo, productCode, skuCode, identity.materialCode, identity.itemType,
-          identity.materialType, identity.unit, qty, warehouseCode, locationCode, storeCode, ctx.inboundDate || null, companyCode, identity.varietyCode, inventoryClass,
+          identity.materialType, identity.unit, qty, warehouseCode, locationCode, storeCode, ctx.inboundDate || null, companyCode, identity.varietyCode, inventoryClass, receiptUnitCost,
         ],
       );
       if (posted.length !== 1) throw new BadRequestException('入库批次归属或身份已变化，禁止跨公司累加');
