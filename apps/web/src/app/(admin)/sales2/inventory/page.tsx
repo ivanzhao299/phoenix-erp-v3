@@ -769,176 +769,6 @@ function ExpiringTab() {
     </div>;
 }
 
-// ── Tab: FIFO 出库 ────────────────────────────────────────────────────────────
-
-function FifoTab() {
-  const { t } = useLanguage();
-  const { grades: productGrades } = useProductGrades();
-  const [skus, setSkus] = useState<SkuItem[]>([]);
-  const [form, setForm] = useState({
-    productCode: 'EGG',
-    gradeCode: '',
-    companyCode: '',
-    qty: '',
-    refNo: '',
-    note: '',
-    // Phase H4
-    skuCode: ''
-  });
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [result, setResult] = useState<Record<string, unknown> | null>(null);
-  useEffect(() => {
-    loadSkus().then(setSkus);
-  }, []);
-
-  /** Phase H4: 选择 SKU → 自动填充 productCode */
-  const handleSkuSelect = (skuCode: string) => {
-    const sku = skus.find(x => x.sku_code === skuCode);
-    if (sku) {
-      setForm(f => ({
-        ...f,
-        skuCode,
-        productCode: sku.product_code,
-        gradeCode: sku.grade_code
-      }));
-    } else {
-      setForm(f => ({
-        ...f,
-        skuCode
-      }));
-    }
-  };
-  const handleAllocate = async () => {
-    if (!form.companyCode || !form.qty || !form.refNo) {
-      setError(t('ui.请填写公司代码、数量和单号','请填写公司代码、数量和单号'));
-      return;
-    }
-    if (!form.skuCode && !form.productCode) {
-      setError(t('ui.请选择商品组合或填写产品代码','请选择商品组合或填写产品代码'));
-      return;
-    }
-    setLoading(true);
-    setError('');
-    setResult(null);
-    try {
-      const data = await api<Record<string, unknown>>('POST', '/allocate', {
-        productCode: form.productCode,
-        gradeCode: form.gradeCode || undefined,
-        companyCode: form.companyCode,
-        qty: Number(form.qty),
-        refNo: form.refNo,
-        note: form.note || '手动分配',
-        // Phase H4
-        skuCode: form.skuCode || undefined
-      });
-      setResult(data);
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setLoading(false);
-    }
-  };
-  return <div style={{
-    maxWidth: 560
-  }}>
-      <h4 style={{
-      marginTop: 0,
-      color: 'var(--gray-700)'
-    }}>{t('ui.手动 FIFO 分配（测试 / 调整用）','手动 FIFO 分配（测试 / 调整用）')}</h4>
-      <p style={{
-      fontSize: 13,
-      color: 'var(--gray-500)',
-      marginBottom: 16
-    }}>
-        {t('ui.系统在销售订单审批通过时自动执行 FIFO 预留，此页面仅供管理员手动调整。','系统在销售订单审批通过时自动执行 FIFO 预留，此页面仅供管理员手动调整。')}
-        {t('ui.支持按商品组合（SKU）精确分配。','支持按商品组合（SKU）精确分配。')}
-      </p>
-
-      {/* Phase H4: SKU 快捷选择 */}
-      {skus.length > 0 && <div className={u.mb16}>
-          <label style={{
-        fontSize: 13,
-        display: 'block',
-        marginBottom: 4
-      }}>
-            {t('ui.商品组合（SKU）优先分配','商品组合（SKU）优先分配')}
-          </label>
-          <select value={form.skuCode} onChange={e => handleSkuSelect(e.target.value)} style={{
-        ...inputStyle,
-        width: '100%'
-      }}>
-            <option value="">{t('ui.— 不使用 SKU 路径，手动填写产品代码 —','— 不使用 SKU 路径，手动填写产品代码 —')}</option>
-            {skus.filter(x => x.status === 'ACTIVE').map(x => <option key={x.sku_code} value={x.sku_code}>{x.sku_code}</option>)}
-          </select>
-        </div>}
-
-      <div className={styles.fifoGrid}>
-        {([[t('ui.产品代码','产品代码'), 'productCode', 'text'], [t('ui.公司代码','公司代码'), 'companyCode', 'text'], [t('ui.分配数量','分配数量'), 'qty', 'number'], [t('ui.参考单号','参考单号'), 'refNo', 'text'], [t('ui.备注','备注'), 'note', 'text']] as const).map(([label, key, type]) => <label key={key} style={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 3,
-        fontSize: 13
-      }}>
-            {label}
-            <input type={type} value={(form as any)[key]} disabled={!!form.skuCode && key === 'productCode'} onChange={e => setForm(p => ({
-          ...p,
-          [key]: e.target.value
-        }))} style={{
-          ...inputStyle,
-          ...(form.skuCode && key === 'productCode' ? {
-            background: 'var(--gray-100)',
-            color: 'var(--gray-400)'
-          } : {})
-        }} />
-          </label>)}
-        {!form.skuCode && <label style={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 3,
-        fontSize: 13
-      }}>
-            {t('ui.质量等级（可选）','质量等级（可选）')}
-            <select value={form.gradeCode} onChange={e => setForm(p => ({
-          ...p,
-          gradeCode: e.target.value
-        }))} style={inputStyle}>
-              <option value="">{t('ui.不限等级','不限等级')}</option>
-              {productGrades.map(g => <option key={g.grade_code} value={g.grade_code}>{g.grade_name || g.grade_code}</option>)}
-            </select>
-          </label>}
-      </div>
-      {error && <div style={{
-      color: 'var(--status-danger)',
-      marginTop: 10
-    }}>{error}</div>}
-      <button onClick={handleAllocate} disabled={loading} style={{
-      ...btnStyle('var(--color-accent)'),
-      marginTop: 16
-    }}>
-        {loading ? t('ui.分配中...','分配中...') : t('ui.执行 FIFO 分配','执行 FIFO 分配')}
-      </button>
-      {result && <div style={{
-      marginTop: 16,
-      background: 'var(--status-success-bg-page)',
-      border: '1px solid var(--status-success)',
-      borderRadius: 8,
-      padding: 16,
-      fontSize: 13
-    }}>
-          <strong style={{
-        color: 'var(--status-success-dark)'
-      }}>{t('ui.分配成功','分配成功')}</strong>
-          <pre style={{
-        margin: '8px 0 0',
-        fontSize: 12,
-        overflow: 'auto'
-      }}>
-            {JSON.stringify(result, null, 2)}
-          </pre>
-        </div>}
-    </div>;
-}
 
 // ── Tab: 损耗分析 ─────────────────────────────────────────────────────────────
 
@@ -1090,9 +920,6 @@ const TABS = [{
   key: 'expiring',
   label: '临期库存'
 }, {
-  key: 'fifo',
-  label: 'FIFO 出库'
-}, {
   key: 'loss',
   label: '损耗分析'
 }];
@@ -1140,7 +967,6 @@ export default function InventoryPage() {
       <div className={styles.content}>
         {tab === 'batches' && <BatchesTab />}
         {tab === 'expiring' && <ExpiringTab />}
-        {tab === 'fifo' && <FifoTab />}
         {tab === 'loss' && <LossTab />}
       </div>
     </div>;
