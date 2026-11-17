@@ -141,6 +141,21 @@ suite('flock lifecycle real JWT, persisted roles, DataScope, uploads and Postgre
   expect((await db.query('SELECT COUNT(*)::int AS n FROM brd_flock_documents'))[0].n).toBe(0);
   for(const id of [4,5,7])expect((await api(id,'get','/documents').expect(200)).body.data).toHaveLength(0);
  });
+ it('retains controlled historical evidence upload for disabled masters without widening scope',async()=>{
+  await db.query("UPDATE brd_houses SET status='INACTIVE' WHERE house_code='HA'");
+  try {
+   const file=await upload(1).expect(201);expect(file.body.fileId).toMatch(/^FILE-/);
+   await db.query("UPDATE brd_farms SET status='INACTIVE' WHERE farm_code='A'");
+   // Explicit farm grants retain their existing ACTIVE eligibility. A current
+   // company grant can authorize controlled historical evidence for that company.
+   scopeService.invalidate('1');await upload(1).expect(400);
+   await db.query("INSERT INTO sys_user_orgs(user_id,org_id,data_scope_level,is_primary) VALUES(1,1,'COMPANY',true)");scopeService.invalidate('1');
+   await upload(1).expect(201);
+   for(const id of [4,5,7])await upload(id).expect(400);
+   await upload(1,'HA','CB','SA').expect(400);
+   await upload(1,'HA','CA','FORGED').expect(400);
+  } finally {await db.query("DELETE FROM sys_user_orgs WHERE user_id=1 AND org_id=1;UPDATE brd_houses SET status='ACTIVE' WHERE house_code='HA';UPDATE brd_farms SET status='ACTIVE' WHERE farm_code='A'");scopeService.invalidate('1');}
+ });
  it('rejects fake, pending, disabled, foreign-owner and other-uploader evidence',async()=>{
   const f=(await upload().expect(201)).body.fileId;
   await api(1,'post','/documents').send(payload({evidence:['FILE-forged']})).expect(400);

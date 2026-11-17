@@ -44,7 +44,7 @@
 | 事件账、期间、并发、幂等、回滚、关闭、批准更正/补录、未知值 | 当前33项纳入最终全API通过 | 直接ledger-pg.log为前一轮32项；父协调32项独立通过。最后新增旧余额NULL保护用例纳入全API |
 | 实际WMS正常+破损签收、来源继承、失败整体回滚、来源授权与真实健康转舍 | 4项通过并独立复跑 | downstream-pg.log；真实服务发运/签收/免疫/用药/转舍/休药阻断。未把fixture缺失的标签/销售财务表称为端到端通过 |
 | 实际生产入库与包装批次写入并发 | 25项纳入最终全API通过 | production-chain-pg.log及api-full-test.log；一条路径获胜、另一条原子拒绝，无双写死锁 |
-| 真实JWT/DB角色/DataScope/上传PDF/独立审核/过账/预览 | UTC及Asia/Singapore各4项通过 | lifecycle-http-utc.log、lifecycle-http-sg.log；跨公司、同公司他场、空授权、伪造/失效/其他上传人附件拒绝 |
+| 真实JWT/DB角色/DataScope/上传PDF/独立审核/过账/预览 | UTC及Asia/Singapore各5项通过 | lifecycle-http-utc.log、lifecycle-http-sg.log；跨公司、同公司他场、空授权、伪造/失效/其他上传人附件拒绝 |
 | 真实scope-audit | 通过 | scope-audit.json：原始input逐一检查、动作守卫及实际HTTP/PG越权证据 |
 | PC/移动真实流程 | 9项通过 | browser/receipt.json，含批准补录、NULL料水、计划日期保存重载；browser/appearance.json：明暗PC/移动4组，文字对比度>=4.5、无横向溢出 |
 | 约束/nullable unique/迁移DML/down门禁 | 退出0 | constraint-drift.log、nullable-in-unique.log、migration-dml.log、migration-down.log；DDL触发器静态误报豁免有明确说明，无新增业务数据DML |
@@ -102,10 +102,10 @@
 
 - 三语各补146项，保持现有运行时翻译方式；14823键平齐，7814引用命中，3915条硬编码可见文案覆盖，未覆盖/翻译质量错误均0。
 - 附件仅接受PDF/JPEG/PNG/WebP，禁止HTML及脚本。PDF由授权Blob安全下载（严格MIME/文件名），有效PDF精确字节与安全文件名实测通过，pypdf strict解析1页及证据文字通过；图片页面内预览，真实480×180图片已解码显示，关闭后blob不可再读。9项PC/移动流程及4主题/视口外观实测通过。
-- 上传归属复用OrgOwnershipService ACTIVE权威入口；无稳定来源的旧追溯不再将今日农场归属当历史事实。旧主表跨模块引用回到7（24处，基线33/7），没有提高baseline。
+- 上传归属复用OrgOwnershipService.resolveHouseIdentity持久归属入口（允许停用设施的受控历史证据，业务过账eligibility另判）；无稳定来源的旧追溯不再将今日农场归属当历史事实。旧主表跨模块引用回到7（24处，基线33/7），没有提高baseline。
 - 新装补现有农场表单实际使用的location/manager/houses/capacity nullable列；既有列不覆盖、不填历史业务值。195冻结SQL+113 TS完整新装/真实服务/幂等/安全down重跑通过。
 - 历史迁移演练显式登记9条已审功能迁移（4库存+5本方案），保留96历史类逐项deepEqual及唯一校验。真实PG18演练通过。
 - Chanjet生产代码不变：以可控时钟证明取消中间排队者不能缩短间隔，真实HTTP/PG仍验证发送顺序、超时无发送及receipt；41项通过。
-- 旧养殖回归只在CI=true、loopback API/数据库及精确数据库fixture归属标记下创建合成未接续历史群。禁止重新开放业务CRUD入栏；A4按真实第二群核对流水，数量临时隐藏通过EXIT恢复且保留FK身份。8项离线setup测试及真实FarmController/PG18全部24项回归通过。该轻量回归未覆盖认证，真实JWT/角色/DataScope由独立HTTP专项验证。
+- 旧养殖回归只在CI=true、loopback API/数据库及精确数据库fixture归属标记下创建合成未接续历史群。禁止重新开放业务CRUD入栏；A4按真实第二群核对流水，数量临时隐藏通过EXIT恢复且保留FK身份。8项离线setup测试及真实FarmController/PG18全部24项回归通过。该轻量回归未覆盖认证，真实JWT/角色/DataScope由独立HTTP专项验证（当前5项，含停用主数据历史证据及跨范围拒绝）。
 - W5通过；冻结与安全路径需独立审查后按现有PR标签协议复验，未改变门禁规则。scheduler预检只增加来源/原因固定枚举诊断，原HOLD/判定/稳定读取/符号链接及容量保护保留；诊断不是修复或放行，需新CI事实定位。
 - 远端旧head曾在Next Google Inter字体加载以及维护scheduler预检失败。字体本地完整构建复验成功；两者仍须最终head远端通过，不能以“既有问题”当作PASS。未合并、未部署、未打发布tag。

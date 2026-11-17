@@ -105,7 +105,7 @@ export class UploadController {
     if(moduleCode!=='FLOCK_LIFECYCLE' && !isAdmin && !originalMenus.some(menu=>hasPerm(req.user?.permissions,menu,'E'))) throw new BadRequestException('养殖上传权限仅可用于鸡群业务附件');
     if(moduleCode==='FLOCK_LIFECYCLE') {
       if(!isAdmin && !hasPerm(req.user?.permissions,'MENU_FLOCK_CREATE','E')) throw new BadRequestException('缺少养殖制单附件权限');
-      const owner=await new OrgOwnershipService(this.fileMetadataRepo.manager).resolveHouse(ownerId);
+      const owner=await new OrgOwnershipService(this.fileMetadataRepo.manager).resolveHouseIdentity(ownerId);
       const house={farm_code:owner.farmCode,company_code:owner.companyCode,site_code:owner.siteCode??''};
       const scope=deriveOrgScope(req);
       if(!house || ownerType!=='HOUSE' || house.company_code!==companyCode || house.site_code!==storeCode || !scope.isGlobal && !(
