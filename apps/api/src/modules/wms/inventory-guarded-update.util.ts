@@ -1,3 +1,5 @@
+import { INV_BATCH_STATUSES } from './inventory-status-machine';
+
 /**
  * inv_batches 守卫化批量更新统一入口（INV-301 步骤 3b）。
  *
@@ -37,8 +39,8 @@
  *
  * ## status 用字面量而非绑定参数的原因
  * 各引擎现行 SQL 与 SQL-contract spec 均钉死 `status='AVAILABLE'` 字面量形态；
- * status 是封闭枚举（本文件先本地校验，301c 起改由 inventory-status-machine 的
- * 合法状态集校验），不是用户输入，字面量无注入面，且能与既有 contract
+ * status 是封闭枚举（以 inventory-status-machine 的 INV_BATCH_STATUSES 为
+ * 唯一来源校验），不是用户输入，字面量无注入面，且能与既有 contract
  * fixture 逐字对照。
  *
  * ## 返回值与 fail-closed 语义
@@ -61,10 +63,11 @@ export type GuardedUpdateExecutor = {
   query(sql: string, parameters?: unknown[]): Promise<any>;
 };
 
-/** requireStatus 合法值（301c 起以 inventory-status-machine 为唯一来源）。 */
-const KNOWN_GUARD_STATUSES = [
-  'AVAILABLE', 'RESERVED', 'QUARANTINE', 'DAMAGED', 'FROZEN', 'EXPIRED',
-] as const;
+/**
+ * requireStatus 合法值。INV-301c 起以 inventory-status-machine 为唯一来源
+ * （sys_dict INV_STOCK_STATUS 5 态 + 代码实际写入的 EXPIRED）。
+ */
+const KNOWN_GUARD_STATUSES: readonly string[] = INV_BATCH_STATUSES;
 
 export interface GuardedBatchUpdateSpec {
   /** 目标批次号（inv_batches.batch_no，必填） */
@@ -123,7 +126,7 @@ export async function guardedBatchUpdate(
     const statuses = Array.isArray(spec.requireStatus) ? spec.requireStatus : [spec.requireStatus];
     if (!statuses.length) throw new Error('guardedBatchUpdate: requireStatus must not be empty');
     for (const status of statuses) {
-      if (!(KNOWN_GUARD_STATUSES as readonly string[]).includes(status)) {
+      if (!KNOWN_GUARD_STATUSES.includes(status)) {
         throw new Error(`guardedBatchUpdate: unknown status guard '${status}' (known: ${KNOWN_GUARD_STATUSES.join('/')})`);
       }
     }

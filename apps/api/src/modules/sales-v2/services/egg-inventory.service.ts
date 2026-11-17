@@ -11,6 +11,7 @@ import { resolveInventoryClass } from '../../wms/inventory-class-policy';
 import { INV_LEDGER_CHANGE_TYPE, InvLedgerChangeType } from '../../wms/inv-ledger-change-types';
 import { writeInvLedger } from '../../wms/inventory-ledger.writer';
 import { guardedBatchUpdate } from '../../wms/inventory-guarded-update.util';
+import { assertStatusTransition } from '../../wms/inventory-status-machine';
 import { fifoLockKey, fifoItemKey } from '../../wms/inventory-lock.util';
 import { NotificationService } from '../../notification/notification.service';
 import { ScopedNotificationRecipientService } from '../../notification/scoped-notification-recipient.service';
@@ -1392,6 +1393,11 @@ export class EggInventoryService {
     const scopedCompany = this.assertWriteCompanyScope(companyCode);
 
     const run = async (em: EntityManager) => {
+      // INV-301c：状态机断言（from/to 为常量，一次断言覆盖整个循环）——
+      // 下方守卫 UPDATE 的 requireStatus('AVAILABLE') 与 SET status='EXPIRED'
+      // 必须是白名单迁移对；白名单若收紧，这里先于任何写入 fail-closed。
+      assertStatusTransition('AVAILABLE', 'EXPIRED', 'egg-inventory markExpiredBatches 过期任务（INV-101）');
+
       // ② 候选查询：参数化 + 排除在途预占 + SKIP LOCKED
       const candidates = await em.query(
         `SELECT b.batch_no, b.qty, b.company_code, b.expire_date, b.quality_grade, b.sku_code
