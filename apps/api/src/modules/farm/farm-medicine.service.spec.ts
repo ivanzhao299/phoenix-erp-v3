@@ -91,8 +91,9 @@ describe('FarmMedicineService', () => {
     expect(manager.query.mock.calls[0][1]).toEqual([
       'MED-NEW-1', 'MED001', 12, 'WH-MED-A', 'SITE-A', 'COMP-A', 'FARM_MEDICINE', 'MED_INBOUND', '2026-07-07', '2026-12-31',
     ]);
+    // INV-301a 共享写入器列序：核心七列（store_code=场站码 SITE-A）+ company_code, log_date, warehouse_code
     expect(manager.query.mock.calls[1][1]).toEqual([
-      'MED-NEW-1', 'MED_INBOUND', 12, '2026-07-07', 'WH-MED-A', 'COMP-A', 'SITE-A', 'admin', 'MED_INBOUND', null, '采购入库',
+      'MED-NEW-1', 'MED_INBOUND', 12, 'admin', 'SITE-A', 'MED_INBOUND', '采购入库', 'COMP-A', '2026-07-07', 'WH-MED-A',
     ]);
   });
 

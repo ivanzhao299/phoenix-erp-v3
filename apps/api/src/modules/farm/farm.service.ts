@@ -3,6 +3,7 @@ import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
 import { OrgOwnershipService } from '../org/services/org-ownership.service';
 import { INV_LEDGER_CHANGE_TYPE } from '../wms/inv-ledger-change-types';
+import { writeInvLedger } from '../wms/inventory-ledger.writer';
 import { ScopedNotificationRecipientService } from '../notification/scoped-notification-recipient.service';
 
 /**
@@ -284,11 +285,18 @@ export class FarmService {
       );
     }
     const batchNo = await this.findLegacyEggBatch(manager, input.companyCode, input.logDate);
-    await manager.query(
-      `INSERT INTO inv_ledger (batch_no, change_type, qty_change, operator, store_code, ref_no, note, log_date, company_code)
-       VALUES ($1, '${INV_LEDGER_CHANGE_TYPE.FARM_REVERSED}', $2::int, $3, 'FACTORY', $4, $5, $6::date, $7)`,
-      [batchNo, input.amount, input.operator || 'SYS', refNo, `日报补录分级：冲销历史 FARM_IN ${input.amount}枚${identity}`, input.logDate, input.companyCode ?? null],
-    );
+    // INV-301a：统一共享写入器（store_code 沿用 farm 日报既有 'FACTORY' 占位约定）
+    await writeInvLedger(manager, {
+      batchNo,
+      changeType: INV_LEDGER_CHANGE_TYPE.FARM_REVERSED,
+      qtyChange: input.amount,
+      operator: input.operator || 'SYS',
+      storeCode: 'FACTORY',
+      refNo,
+      note: `日报补录分级：冲销历史 FARM_IN ${input.amount}枚${identity}`,
+      logDate: input.logDate,
+      companyCode: input.companyCode ?? null,
+    });
   }
 
   /**
@@ -549,11 +557,18 @@ export class FarmService {
       if (eggs > 0 && !hasGradeBreakdown) {
         const batchNo = await this.lookupLegacyEggBatch(manager, body.company_code as string | undefined, body.log_date);
         if (batchNo) {
-          await manager.query(
-            `INSERT INTO inv_ledger (batch_no, change_type, qty_change, operator, store_code, ref_no, note, log_date, company_code)
-             VALUES ($1, '${INV_LEDGER_CHANGE_TYPE.FARM_IN}', $2::int, $3, 'FACTORY', $4, $5, $6::date, $7)`,
-            [batchNo, eggs, body.operator || 'SYS', flock_no || '', `日报产蛋入账 ${eggs}枚`, body.log_date, body.company_code ?? null],
-          );
+          // INV-301a：统一共享写入器
+          await writeInvLedger(manager, {
+            batchNo,
+            changeType: INV_LEDGER_CHANGE_TYPE.FARM_IN,
+            qtyChange: eggs,
+            operator: body.operator || 'SYS',
+            storeCode: 'FACTORY',
+            refNo: flock_no || '',
+            note: `日报产蛋入账 ${eggs}枚`,
+            logDate: body.log_date,
+            companyCode: body.company_code ?? null,
+          });
         } else {
           ledgerSkipped = true;
           console.warn('[FarmService][WARN] 无可用 PRD-EGG 批次，FARM_IN 记账跳过（已持久化待补账通知）：', { flock_no, eggs, log_date: body.log_date });
@@ -656,20 +671,18 @@ export class FarmService {
         // 找不到时保持"更新不阻塞"契约但显式警告。
         const batchNo = await this.lookupLegacyEggBatch(manager, (body.company_code ?? old.company_code) as string | undefined, logDate);
         if (batchNo) {
-          await manager.query(
-            `INSERT INTO inv_ledger (batch_no, change_type, qty_change, operator, store_code, ref_no, note, log_date, company_code)
-             VALUES ($1, $2, $3::int, $4, 'FACTORY', $5, $6, $7::date, $8)`,
-            [
-              batchNo,
-              eggsDiff > 0 ? INV_LEDGER_CHANGE_TYPE.FARM_IN : INV_LEDGER_CHANGE_TYPE.FARM_REVERSED,
-              Math.abs(eggsDiff),
-              body.operator || 'SYS',
-              effectiveFlockNo || '',
-              `日报修改差额 ${eggsDiff > 0 ? '+' : ''}${eggsDiff}`,
-              logDate,
-              (body.company_code ?? old.company_code) ?? null,
-            ],
-          );
+          // INV-301a：统一共享写入器
+          await writeInvLedger(manager, {
+            batchNo,
+            changeType: eggsDiff > 0 ? INV_LEDGER_CHANGE_TYPE.FARM_IN : INV_LEDGER_CHANGE_TYPE.FARM_REVERSED,
+            qtyChange: Math.abs(eggsDiff),
+            operator: body.operator || 'SYS',
+            storeCode: 'FACTORY',
+            refNo: effectiveFlockNo || '',
+            note: `日报修改差额 ${eggsDiff > 0 ? '+' : ''}${eggsDiff}`,
+            logDate,
+            companyCode: (body.company_code ?? old.company_code) ?? null,
+          });
         } else {
           console.warn('[FarmService][WARN] 无可用 PRD-EGG 批次，修改差额记账跳过（已持久化待补账通知）：', { flock_no: effectiveFlockNo, eggsDiff, log_date: logDate });
           await this.recordPendingLedgerNotification(manager, {

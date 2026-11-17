@@ -1,4 +1,3 @@
-import { EntityManager, QueryRunner } from 'typeorm';
 import { InvLedgerChangeType } from './inv-ledger-change-types';
 
 /**
@@ -56,8 +55,13 @@ import { InvLedgerChangeType } from './inv-ledger-change-types';
  * 真实 PG 必返回 id，FK 关联缺真实 id 时 fail-closed）。
  */
 
-/** writer 接受的执行句柄：事务中的 EntityManager / QueryRunner 均可 */
-export type InvLedgerExecutor = Pick<EntityManager, 'query'> | Pick<QueryRunner, 'query'>;
+/**
+ * writer 接受的执行句柄：事务中的 EntityManager / QueryRunner / farm 引擎的
+ * Queryable 均可（结构化最小接口，避免 pg QueryResult 与 any[] 返回形态差异）。
+ */
+export type InvLedgerExecutor = {
+  query(sql: string, parameters?: unknown[]): Promise<any>;
+};
 
 export interface WriteInvLedgerParams {
   /** 批次号（inv_batches.batch_no，必填） */

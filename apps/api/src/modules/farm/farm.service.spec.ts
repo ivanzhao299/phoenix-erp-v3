@@ -180,10 +180,11 @@ describe('FarmService', () => {
         eggs_by_grade: { GRADE_1: 150, GRADE_2: 150 }, mortality_qty: 0, opening_qty: 1000,
       });
 
-      const reversal = manager.query.mock.calls.find(([query]) => String(query).includes("INSERT INTO inv_ledger") && String(query).includes("'FARM_REVERSED'"));
+      // INV-301a：change_type 已参数化（$2），按参数位识别
+      const reversal = manager.query.mock.calls.find(([query, params]) => String(query).includes('INSERT INTO inv_ledger') && (params as unknown[])[1] === 'FARM_REVERSED');
       expect(reversal).toBeTruthy();
       expect(reversal![1]).toEqual(expect.arrayContaining(['PRD-EGG-OLD', 300, 'SYS']));
-      expect(String(reversal![1][4])).toContain('冲销历史 FARM_IN 300枚');
+      expect(String(reversal![1][6])).toContain('冲销历史 FARM_IN 300枚');
       expect(manager.query.mock.calls.some(([query]) => String(query).includes('INSERT INTO inv_ledger') && String(query).includes("'FARM_IN'"))).toBe(false);
     });
 
@@ -295,7 +296,7 @@ describe('FarmService', () => {
         if (sql.includes('net_farm_in')) return [{ net_farm_in: 800 }];
         if (sql.includes('SELECT batch_no FROM inv_batches')) return [{ batch_no: 'PRD-EGG-OLD' }];
         if (String(sql).includes('INSERT INTO inv_ledger')) {
-          reversals.push({ note: String(params?.[4]), amount: Number(params?.[1]) });
+          reversals.push({ note: String(params?.[6]), amount: Number(params?.[2]) });
           return [];
         }
         return [];
@@ -493,10 +494,11 @@ describe('FarmService', () => {
       eggs_by_grade: { GRADE_1: 200, GRADE_2: 200 }, mortality_qty: 0,
     })).resolves.toEqual({ code: 200, msg: '日报更新成功' });
 
-    const reversal = manager.query.mock.calls.find(([query]) => String(query).includes("INSERT INTO inv_ledger") && String(query).includes("'FARM_REVERSED'"));
+    // INV-301a：change_type 已参数化（$2），按参数位识别
+      const reversal = manager.query.mock.calls.find(([query, params]) => String(query).includes('INSERT INTO inv_ledger') && (params as unknown[])[1] === 'FARM_REVERSED');
     expect(reversal).toBeTruthy();
     expect(reversal![1]).toEqual(expect.arrayContaining(['PRD-EGG-OLD', 400]));
-    expect(String(reversal![1][4])).toContain('冲销历史 FARM_IN 400枚（2026-07-16 H001）');
+    expect(String(reversal![1][6])).toContain('冲销历史 FARM_IN 400枚（2026-07-16 H001）');
     expect(manager.query.mock.calls.some(([query]) => String(query).includes('INSERT INTO inv_ledger') && String(query).includes("'FARM_IN'"))).toBe(false);
   });
 

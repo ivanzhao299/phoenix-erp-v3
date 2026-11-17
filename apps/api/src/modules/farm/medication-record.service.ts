@@ -10,6 +10,7 @@ import { DataSource } from 'typeorm';
 import { ClsService } from 'nestjs-cls';
 import { DataScopeContext } from '../org/services/data-scope.service';
 import { INV_LEDGER_CHANGE_TYPE } from '../wms/inv-ledger-change-types';
+import { writeInvLedger } from '../wms/inventory-ledger.writer';
 
 type Queryable = { query: (sql: string, params?: unknown[]) => Promise<any[]> };
 
@@ -114,8 +115,6 @@ function stockConflict(code: StockErrorCode, message: string): ConflictException
 
 @Injectable()
 export class MedicationRecordService {
-  private invLedgerColumnsPromise: Promise<Set<string>> | null = null;
-
   constructor(
     @InjectDataSource() private readonly ds: DataSource,
     private readonly cls: ClsService,
@@ -256,21 +255,14 @@ export class MedicationRecordService {
     return clauses.join(' AND ');
   }
 
-  private async getInvLedgerColumns(): Promise<Set<string>> {
-    if (!this.invLedgerColumnsPromise) {
-      this.invLedgerColumnsPromise = this.ds
-        .query<Array<{ column_name: string }>>(
-          `SELECT column_name FROM information_schema.columns
-             WHERE table_schema = current_schema() AND table_name = 'inv_ledger'`,
-        )
-        .then(rows => new Set(rows.map(row => row.column_name)));
-    }
-    return this.invLedgerColumnsPromise;
-  }
-
+  /**
+   * 写用药流水（INV-301a：改调共享写入器，替换 information_schema 动态列
+   * 拼接写法；列集合 = 旧动态写法的全量列，store_code 沿用场站码约定）。
+   * house_code 不在任何迁移链内、部分环境可能缺列，writer 仅在有值时写入
+   * （旧动态门控下无值/缺列时同样不产生该列，DB 结果同为 NULL）。
+   */
   private async insertLedger(
     queryable: Queryable,
-    columns: Set<string>,
     input: {
       batchNo: string;
       qty: number;
@@ -284,31 +276,20 @@ export class MedicationRecordService {
       houseCode?: string | null;
     },
   ): Promise<number | null> {
-    const names = ['batch_no', 'change_type', 'qty_change'];
-    const values: unknown[] = [input.batchNo, input.qty < 0 ? INV_LEDGER_CHANGE_TYPE.MED_OUTBOUND : INV_LEDGER_CHANGE_TYPE.MED_INBOUND, input.qty];
-    const optional: Record<string, unknown> = {
-      log_date: input.logDate,
-      warehouse_code: input.warehouseCode ?? null,
-      company_code: input.companyCode,
-      store_code: input.storeCode,
+    return writeInvLedger(queryable, {
+      batchNo: input.batchNo,
+      changeType: input.qty < 0 ? INV_LEDGER_CHANGE_TYPE.MED_OUTBOUND : INV_LEDGER_CHANGE_TYPE.MED_INBOUND,
+      qtyChange: input.qty,
       operator: input.operator,
-      ref_no: input.refNo,
-      business_type: 'FARM_MEDICATION',
+      storeCode: input.storeCode,
+      refNo: input.refNo,
       note: input.note,
-      house_code: input.houseCode ?? null,
-    };
-    for (const [column, value] of Object.entries(optional)) {
-      if (columns.has(column)) {
-        names.push(column);
-        values.push(value);
-      }
-    }
-    const placeholders = names.map((_, index) => `$${index + 1}`).join(', ');
-    const rows = await queryable.query(
-      `INSERT INTO inv_ledger (${names.join(', ')}) VALUES (${placeholders}) RETURNING id`,
-      values,
-    );
-    return rows[0]?.id ? Number(rows[0].id) : null;
+      logDate: input.logDate,
+      warehouseCode: input.warehouseCode ?? null,
+      companyCode: input.companyCode,
+      businessType: 'FARM_MEDICATION',
+      houseCode: input.houseCode ?? null,
+    });
   }
 
   private async resolveLots(
@@ -502,7 +483,6 @@ export class MedicationRecordService {
     const quantity = positiveNumber(normalized.actual_qty, 'actual_qty');
     const doseValue = normalized.dose_value === undefined || normalized.dose_value === '' ? null : positiveNumber(normalized.dose_value, 'dose_value');
     const safeOperator = String(operator ?? '').trim() || 'unknown';
-    const ledgerColumns = await this.getInvLedgerColumns();
     const recordNo = String(normalized.record_no ?? '').trim() || generatedKey('MED');
     const courseNo = String(normalized.course_no ?? '').trim() || generatedKey('COURSE');
 
@@ -575,7 +555,7 @@ export class MedicationRecordService {
           [allocation.qty, allocation.batch_no],
         );
         if (updated.length === 0) throw new ConflictException(`库存批次 ${allocation.batch_no} 可用量不足`);
-        const ledgerId = await this.insertLedger(manager, ledgerColumns, {
+        const ledgerId = await this.insertLedger(manager, {
           batchNo: allocation.batch_no,
           qty: -allocation.qty,
           companyCode: normalized.company_code,
@@ -655,7 +635,6 @@ export class MedicationRecordService {
   async cancel(id: number, operator: string) {
     const numericId = Number(id);
     if (!Number.isInteger(numericId) || numericId <= 0) throw new BadRequestException('用药记录 id 无效');
-    const ledgerColumns = await this.getInvLedgerColumns();
     const safeOperator = String(operator ?? '').trim() || 'unknown';
     return this.ds.transaction(async manager => {
       const rows = await manager.query(`SELECT * FROM brd_medication_records WHERE id = $1 FOR UPDATE`, [numericId]);
@@ -699,7 +678,7 @@ export class MedicationRecordService {
           restoreParams,
         );
         if (updated.length === 0) throw new BadRequestException(`库存批次 ${line.inventory_batch_no} 不存在，无法撤销`);
-        await this.insertLedger(manager, ledgerColumns, {
+        await this.insertLedger(manager, {
           batchNo: line.inventory_batch_no,
           qty: quantity,
           companyCode: record.company_code,
