@@ -13,6 +13,8 @@ import { FarmController } from '../farm/farm.controller';
 import { FarmService } from '../farm/farm.service';
 import { InventorySourceController } from '../sales-v2/controllers/inventory-source.controller';
 import { ProductionInboundService } from '../sales-v2/services/production-inbound.service';
+import { EggSourceProfiles1794400001000 } from '../../database/migrations/1794400001000-EggSourceProfiles';
+import { SkuAvailabilityService } from '../product-master/services/sku-availability.service';
 import { EggInventoryService } from '../sales-v2/services/egg-inventory.service';
 import { InventorySourceModeService } from '../sales-v2/services/inventory-source-mode.service';
 import { WmsService } from '../wms/wms.service';
@@ -96,9 +98,20 @@ pgDescribe('MANUAL-122 real PostgreSQL, HTTP, roles and organization scope', () 
       CREATE TABLE IF NOT EXISTS inv_ledger (id serial PRIMARY KEY, batch_no text REFERENCES inv_batches(batch_no), change_type text,
         qty_change numeric, operator text, store_code text, ref_no text, note text, batch_expire_date date,
         quality_grade text, company_code text, sku_code text, log_date date, warehouse_code text, location_code text);
-      -- inv-opt 批次 4：跟随迁移末态（InvEggCostingColumns）
+      -- SkuAvailabilityService SKU 就绪链所需主数据（g202 末态）
+      ALTER TABLE product_skus ADD COLUMN IF NOT EXISTS variety_code text, ADD COLUMN IF NOT EXISTS org_context_required boolean NOT NULL DEFAULT false, ADD COLUMN IF NOT EXISTS effective_date date, ADD COLUMN IF NOT EXISTS expire_date date;
+      CREATE TABLE IF NOT EXISTS mst_products (product_code text PRIMARY KEY, status text, unit text, unit_zh text, variety_code text);
+      ALTER TABLE product_grades ADD COLUMN IF NOT EXISTS is_saleable boolean DEFAULT true, ADD COLUMN IF NOT EXISTS is_storable boolean DEFAULT true,
+        ADD COLUMN IF NOT EXISTS stock_managed boolean, ADD COLUMN IF NOT EXISTS sale_enabled boolean, ADD COLUMN IF NOT EXISTS default_stock_status varchar(16);
+      CREATE TABLE IF NOT EXISTS packaging_specs (spec_code text PRIMARY KEY, status text, base_unit text, display_unit text, qty_per_unit numeric(10,2));
+      CREATE TABLE IF NOT EXISTS md_product_varieties (variety_code text PRIMARY KEY, status text);
+      CREATE TABLE IF NOT EXISTS md_variety_breeds (id serial PRIMARY KEY, variety_code text, breed_code text);
+      CREATE TABLE IF NOT EXISTS md_sku_org_scope (sku_code text, scope_type text, scope_code text, status text DEFAULT 'ACTIVE', sale_enabled boolean DEFAULT true, stock_enabled boolean DEFAULT true, effective_date date, expire_date date, PRIMARY KEY(sku_code, scope_type, scope_code));
+      -- inv-opt：跟随迁移末态（variety 维度 + issue532 + 批次 4 InvEggCostingColumns）
       ALTER TABLE inv_ledger ADD COLUMN IF NOT EXISTS cost_change numeric(18,6);
       ALTER TABLE inv_batches ADD COLUMN IF NOT EXISTS unit_cost numeric(18,6) NOT NULL DEFAULT 0;
+      ALTER TABLE inv_batches ADD COLUMN IF NOT EXISTS variety_code text;
+      ALTER TABLE inv_batches ADD COLUMN IF NOT EXISTS inventory_class text NOT NULL DEFAULT 'STANDARD', ADD COLUMN IF NOT EXISTS unit text, ADD COLUMN IF NOT EXISTS base_quantity_version integer;
       INSERT INTO product_grades (grade_code,status,sort_order) VALUES ('GRADE_1','ACTIVE',1) ON CONFLICT DO NOTHING;
       INSERT INTO product_skus VALUES ('SKU-1','PRD-EGG-RAW','GRADE_1','LOOSE','ACTIVE') ON CONFLICT DO NOTHING;
       INSERT INTO wms_warehouses VALUES ('WH-A','COMP-A','ACTIVE','OPERATIONAL','SITE-A','EGG_FARM') ON CONFLICT DO NOTHING;
@@ -108,6 +121,26 @@ pgDescribe('MANUAL-122 real PostgreSQL, HTTP, roles and organization scope', () 
       INSERT INTO brd_flocks VALUES ('FLOCK-A','HOUSE-A',100,100,0) ON CONFLICT DO NOTHING;
       INSERT INTO fixture_role_permissions VALUES ('ROLE_FARM_REPORTER','MENU_FARM_DATA:V'),('ROLE_FARM_REPORTER','MENU_FARM_DAILY:E'),('ROLE_FARM_REPORTER','MENU_PROD_INBOUND:C'),('ROLE_ADMIN','*') ON CONFLICT DO NOTHING;
     `);
+    // SkuAvailabilityService（2026-11-11 起 ProductionInboundService 依赖）需要 source profile 表：
+    // 复用 EggSourceProfiles 迁移类建表，与 farm-egg.pg.spec 同一模式。
+    {
+      const sourceRunner = db.createQueryRunner();
+      await sourceRunner.connect();
+      try { if (!(await sourceRunner.hasTable('md_egg_source_profiles'))) await new EggSourceProfiles1794400001000().up(sourceRunner); }
+      finally { await sourceRunner.release(); }
+    }
+    await db.query(`INSERT INTO mst_products VALUES ('PRD-EGG-RAW','ACTIVE','枚','枚',NULL) ON CONFLICT DO NOTHING;
+      INSERT INTO product_grades VALUES ('GRADE_1','ACTIVE',1,true) ON CONFLICT DO NOTHING;
+      INSERT INTO packaging_specs VALUES ('LOOSE','ACTIVE','枚','枚',1) ON CONFLICT DO NOTHING`);
+    // SKU 就绪链：GRADE_1/LOOSE 需有适用 COMP-A 的 SKU（与 farm-egg 同构）
+    await db.query(`INSERT INTO product_skus (sku_code,product_code,grade_code,spec_code,status,variety_code)
+      VALUES ('SKU-GRADE_1','PRD-EGG-RAW','GRADE_1','LOOSE','ACTIVE',NULL) ON CONFLICT DO NOTHING`);
+    await db.query(`INSERT INTO md_sku_org_scope (sku_code,scope_type,scope_code,status,sale_enabled,stock_enabled)
+      VALUES ('SKU-GRADE_1','COMPANY','COMP-A','ACTIVE',true,true) ON CONFLICT DO NOTHING`);
+    // HOUSE-A 的生产入库需要已批准的 source profile（SkuAvailabilityService.resolveSourceProfile fail-closed）
+    await db.query(`INSERT INTO md_egg_source_profiles (profile_code,company_code,farm_code,site_code,house_code,product_mode,variety_code,effective_date)
+      VALUES ('SOURCE-HA','COMP-A','LPH_FARM_A','SITE-A','HOUSE-A','STANDARD',NULL,'2026-01-01') ON CONFLICT DO NOTHING`);
+
     for (const user of users) await db.query('INSERT INTO fixture_users VALUES ($1,$2,$3,$4) ON CONFLICT DO NOTHING', [user.id, user.username, user.role, user.storeCode]);
     for (const [i, company] of ['COMP-A', 'COMP-B'].entries()) {
       await db.query(`INSERT INTO sys_organizations (id,org_code,org_name,org_type,level,status,company_code,sort_order)
@@ -147,7 +180,7 @@ pgDescribe('MANUAL-122 real PostgreSQL, HTTP, roles and organization scope', () 
     const module = await Test.createTestingModule({
       imports: [PassportModule, ClsModule.forRoot({ global: true, middleware: { mount: true } })],
       controllers: [GenericCrudController, FarmController, InventorySourceController],
-      providers: [FixtureJwtStrategy, GenericCrudService, FarmService, OrgOwnershipService, ProductionInboundService, EggInventoryService,
+      providers: [FixtureJwtStrategy, GenericCrudService, FarmService, OrgOwnershipService, ProductionInboundService, EggInventoryService, SkuAvailabilityService, // 2026-11-11 起 ProductionInboundService 依赖（DI 缺口修复）
         { provide: DataSource, useValue: db },
         { provide: InventorySourceModeService, useValue: { resolveMode: async () => 'TEMP_PRODUCTION_INBOUND' } },
         { provide: EntityManager, useValue: db.manager }, { provide: WmsService, useValue: {} },
@@ -198,9 +231,11 @@ pgDescribe('MANUAL-122 real PostgreSQL, HTTP, roles and organization scope', () 
     const retry = (await inbound().expect(201)).body;
     expect(first).toMatchObject({idempotent:false,totalInbound:33});
     expect(retry).toMatchObject({idempotent:true,totalInbound:33,batches:first.batches});
-    expect(new Set(retry.batches.map((row:{batchNo:string})=>row.batchNo)).size).toBe(2);
-    expect((await db.query('SELECT count(*)::int AS count FROM inv_batches'))[0].count).toBe(2);
-    expect((await db.query('SELECT count(*)::int AS count FROM inv_ledger'))[0].count).toBe(2);
+    // source identity 唯一 + upsert 累加（1792000000000-EnforceTempProductionSourceIdentity）：
+    // 同日同等级同规格的两条目合并为一批 33（一行台账）
+    expect(new Set(retry.batches.map((row:{batchNo:string})=>row.batchNo)).size).toBe(1);
+    expect((await db.query('SELECT count(*)::int AS count FROM inv_batches'))[0].count).toBe(1);
+    expect((await db.query('SELECT count(*)::int AS count FROM inv_ledger'))[0].count).toBe(1);
     expect((await read(40101,query).expect(200)).body.data).toEqual(saved);
     expect((await read(40103,query).expect(200)).body.data).toEqual([]);
     await request(app.getHttpServer()).post('/api/v2/inventory/production-inbound').auth(token(40101),{type:'bearer'})
