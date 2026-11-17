@@ -1,11 +1,126 @@
 {
   "nativeInputsInspected": 19,
   "manualMasterDataInputs": 0,
+  "inputs": [
+    {
+      "line": 114,
+      "value": "{form.businessDate}",
+      "type": "\"date\"",
+      "readOnly": "{form.kind==='REPORT_CORRECTION'&&form.dailyLogId!=='0'}"
+    },
+    {
+      "line": 115,
+      "value": "{form.quantity}",
+      "type": "\"number\"",
+      "readOnly": false
+    },
+    {
+      "line": 116,
+      "value": "{balance?String(balance.quantity):'未接续，须实盘签认'}",
+      "type": "text",
+      "readOnly": true
+    },
+    {
+      "line": 117,
+      "value": "{form.sourceReceipt}",
+      "type": "text",
+      "readOnly": false
+    },
+    {
+      "line": 117,
+      "value": "{form.placementAge}",
+      "type": "\"number\"",
+      "readOnly": false
+    },
+    {
+      "line": 117,
+      "value": "{form.plannedEliminationDate}",
+      "type": "\"date\"",
+      "readOnly": false
+    },
+    {
+      "line": 118,
+      "value": "{form.disposalMethod}",
+      "type": "text",
+      "readOnly": false
+    },
+    {
+      "line": 118,
+      "value": "{form.receiver}",
+      "type": "text",
+      "readOnly": false
+    },
+    {
+      "line": 119,
+      "value": "{form.positionCode}",
+      "type": "text",
+      "readOnly": false
+    },
+    {
+      "line": 122,
+      "value": "{form.unitPrice}",
+      "type": "\"number\"",
+      "readOnly": false
+    },
+    {
+      "line": 122,
+      "value": "{form.salesRef}",
+      "type": "text",
+      "readOnly": false
+    },
+    {
+      "line": 122,
+      "value": "{form.receiver}",
+      "type": "text",
+      "readOnly": false
+    },
+    {
+      "line": 124,
+      "value": "{form.replacementQuantity}",
+      "type": "\"number\"",
+      "readOnly": false
+    },
+    {
+      "line": 128,
+      "value": "{value}",
+      "type": "\"number\"",
+      "readOnly": false
+    },
+    {
+      "line": 130,
+      "value": "{form.reportFeed}",
+      "type": "\"number\"",
+      "readOnly": false
+    },
+    {
+      "line": 130,
+      "value": "{form.reportWater}",
+      "type": "\"number\"",
+      "readOnly": false
+    },
+    {
+      "line": 131,
+      "value": "{form.periodFrom}",
+      "type": "\"date\"",
+      "readOnly": false
+    },
+    {
+      "line": 131,
+      "value": "{form.periodTo}",
+      "type": "\"date\"",
+      "readOnly": false
+    },
+    {
+      "line": 151,
+      "value": "{actualHeads[String(p.id)]??''}",
+      "type": "\"number\"",
+      "readOnly": false
+    }
+  ],
   "controllerMenuAndDataScopeGuards": true,
   "actualAuthorizationEvidence": [
-    "lifecycle-http-utc.log: 4 passed",
-    "lifecycle-http-sg.log: 4 passed",
-    "downstream-pg.log: original farm scope and current caretaker guards; also included in final full API run"
+    "ci-fix-http-downstream.log: real JWT/persisted roles/DataScope/upload HTTP 4 + current caretaker/provenance PG 4 passed",
+    "ci-fix-browser.log: PC/mobile 8 passed including valid controlled image preview"
   ],
   "scopeAudit": "PASS"
 }

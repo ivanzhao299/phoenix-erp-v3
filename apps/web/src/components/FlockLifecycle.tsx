@@ -1,4 +1,5 @@
 'use client';
+import {downloadProtectedPdf} from '@/lib/attachments';
 import {useCallback,useEffect,useMemo,useState} from 'react';
 import request,{farmProductionApi} from '@/lib/api-client';
 import {usePermission} from '@/hooks/usePermission';
@@ -43,6 +44,8 @@ export default function FlockLifecycle(){
   const [reports,setReports]=useState<Row[]>([]),[reportGrades,setReportGrades]=useState<Record<string,string>>({});
   const [care,setCare]=useState<{plans:Row[];medications:Row[]}>({plans:[],medications:[]});const [actualHeads,setActualHeads]=useState<Record<string,string>>({});
   const [docs,setDocs]=useState<Doc[]>([]),[form,setForm]=useState(blank),[evidence,setEvidence]=useState<string[]>([]);
+  const [previewUrl,setPreviewUrl]=useState('');
+  useEffect(()=>()=>{if(previewUrl)URL.revokeObjectURL(previewUrl);},[previewUrl]);
   const [sourceKey,setSourceKey]=useState(''),[busy,setBusy]=useState(false),[message,setMessage]=useState(''),[detail,setDetail]=useState<Row|null>(null);
   const loadData=useCallback(()=>Promise.all([
       request<{data:Row[]}>(`${endpoint}/houses`),request<{data:Row[]}>(`${endpoint}/balances`),request<{data:Row[]}>(`${endpoint}/held`),
@@ -161,9 +164,13 @@ export default function FlockLifecycle(){
       <h3>审核记录</h3>{((detail.audits as Row[])??[]).map(a=><p key={String(a.id)}>{({CREATE:'制单',SUBMIT:'提交审核',APPROVE:'审核通过',POST:'过账',CANCEL:'取消'} as Record<string,string>)[String(a.action)]??String(a.action)} · {String(a.actor)} · {new Date(String(a.recorded_at)).toLocaleString('zh-CN',{timeZone:'Asia/Singapore'})}</p>)}
       <h3>业务证据</h3>{(((detail.payload as Row)?.evidence as string[])??[]).map((id,index)=><button key={id} disabled={busy} onClick={()=>run(async()=>{
         const token=sessionStorage.getItem('phoenix_token');const res=await fetch(`/api${endpoint}/documents/${String(detail.id)}/evidence/${encodeURIComponent(id)}`,{headers:token?{Authorization:`Bearer ${token}`}:{}});
-        if(!res.ok)throw new Error('附件不可访问或已失效，请核对权限');const url=URL.createObjectURL(await res.blob());window.open(url,'_blank','noopener');setTimeout(()=>URL.revokeObjectURL(url),60000);
-      },'已打开受控附件。')}>查看证据{index+1}</button>)}
+        if(!res.ok)throw new Error('附件不可访问或已失效，请核对权限');
+        const blob=await res.blob();if(!/^(application\/pdf|image\/(jpeg|png|webp))$/.test(blob.type))throw new Error('附件格式不受支持');
+        if(blob.type==='application/pdf'){downloadProtectedPdf(blob,`flock-evidence-${index+1}.pdf`);return;}
+        setPreviewUrl(URL.createObjectURL(blob));
+      },'操作成功')}>查看证据{index+1}</button>)}
     </section>}
+    {previewUrl&&<section className={css.panel}><button onClick={()=>setPreviewUrl('')}>关闭附件预览</button><iframe title="业务证据预览" src={previewUrl} sandbox="allow-same-origin" referrerPolicy="no-referrer" style={{width:'100%',height:'70vh',border:0}}/></section>}
 
   </main>;
 }

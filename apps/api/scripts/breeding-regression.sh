@@ -4,6 +4,8 @@
 # 用法：API_URL=http://127.0.0.1:3100 ADMIN_USER=admin ADMIN_PASS=admin123 bash breeding-regression.sh
 # 退出码 = 失败用例数
 #
+# 测试模型：未激活历史群兼容性；新群入栏由 flock lifecycle HTTP/PG 专项验证。
+# 本脚本仅允许显式 CI loopback 隔离数据库，禁止在业务/生产数据库运行。
 # 测试模型：
 #   - 在 brd_farms / brd_houses / brd_flocks 上 seed 一组 UAT-REGR-* 数据
 #   - 每个 fix 至少 1 个断言用例
@@ -16,24 +18,27 @@ ADMIN_P="${ADMIN_PASS:-admin123}"
 PSQL=${PSQL:-$(command -v psql)}
 DB=${DB_NAME:-${PGDATABASE:-phoenix_erp}}
 
+if [[ ! "$API" =~ ^http://(127\.0\.0\.1|localhost)(:[0-9]+)?$ || "${CI:-}" != true || "${PGHOST:-}" != 127.0.0.1 || ! "$DB" =~ ^(phoenix_erp|phoenix_flock_compat)$ ]]; then
+  printf 'BREEDING_DISPOSABLE_CI_FIXTURE_REQUIRED: CI=true, PGHOST=127.0.0.1 and isolated fixture database required\n' >&2
+  exit 99
+fi
+
 # Ignore local psqlrc and fail on SQL errors; never continue with a partial seed.
 db_query() { "$PSQL" -X -v ON_ERROR_STOP=1 "$DB" "$@"; }
 
-# Keep HTTP status and the server's rejection reason (curl -f used to hide both).
-# Seed failures are setup errors, not additional regression assertions.
-seed_post() {
-  local table="$1" payload="$2" response code
-  if ! response=$(curl -sS -w $'\n%{http_code}' -X POST "$API/api/crud/$table" \
-    -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d "$payload"); then
-    printf 'Seed %s transport failure: %s\n' "$table" "$response" >&2
-    exit 99
+FIXTURE_OWNER=$(db_query -tA -c "SELECT shobj_description(oid,'pg_database') FROM pg_database WHERE datname=current_database();")
+if [ "$FIXTURE_OWNER" != 'phoenix-ci-breeding-regression' ]; then
+  printf 'BREEDING_DISPOSABLE_DATABASE_OWNER_REQUIRED\n' >&2; exit 99
+fi
+
+RESTORE_BATCHES=''
+restore_batches() {
+  if [ -n "$RESTORE_BATCHES" ]; then
+    db_query -q -c "UPDATE inv_batches b SET qty_available=v.qty FROM (VALUES $RESTORE_BATCHES) v(id,qty) WHERE b.id=v.id;" >/dev/null
+    RESTORE_BATCHES=''
   fi
-  code=${response##*$'\n'}
-  case "$code" in
-    2[0-9][0-9]) ;;
-    *) printf 'Seed %s failed: HTTP %s — %s\n' "$table" "$code" "${response%$'\n'*}" >&2; exit 99 ;;
-  esac
 }
+trap restore_batches EXIT
 
 PASS=0
 FAIL=0
@@ -100,15 +105,16 @@ H="-H \"Authorization: Bearer $TOKEN\" -H 'Content-Type: application/json'"
 # ──────────────────────────────────────────────────────────────────────────
 cyan ""
 cyan "▶ 1) Seed 测试数据"
-TODAY=$(date -u +%Y-%m-%d)
+TODAY=$(TZ=Asia/Singapore date +%Y-%m-%d)
 FARM=F-REGR-UAT
 HOUSE_A=H-REGR-A01
 HOUSE_B=H-REGR-B01
 FLOCK=FK-REGR-001
+FLOCK_B=FK-REGR-002
 
 # 清理上一轮残留
 db_query -q -c "DELETE FROM brd_daily_logs WHERE house_code IN ('$HOUSE_A','$HOUSE_B');"  >/dev/null
-db_query -q -c "DELETE FROM brd_flocks WHERE flock_no='$FLOCK';"                          >/dev/null
+db_query -q -c "DELETE FROM brd_flocks WHERE flock_no IN ('$FLOCK','$FLOCK_B');"                          >/dev/null
 db_query -q -c "DELETE FROM brd_houses WHERE house_code IN ('$HOUSE_A','$HOUSE_B');"      >/dev/null
 db_query -q -c "DELETE FROM brd_farms WHERE farm_code='$FARM';"                           >/dev/null
 db_query -q -c "DELETE FROM inv_ledger WHERE ref_no='$FLOCK' OR ref_no LIKE 'SHIFT-REGR%';" >/dev/null
@@ -133,12 +139,17 @@ BREED=$(db_query -tA -c "SELECT dict_code FROM sys_dict
   WHERE dict_type='BRD_BREED' AND dict_code='HY_LINE_BROWN' AND status='ACTIVE';")
 [ "$BREED" = HY_LINE_BROWN ] || { red "Seed 失败：HY_LINE_BROWN 不是唯一 ACTIVE BRD_BREED"; exit 99; }
 
-seed_post brd_farms "{\"farm_code\":\"$FARM\",\"farm_name\":\"回归测试场\",\"location\":\"万象\",\"company_code\":\"$COMPANY\",\"mapped_site_code\":\"$SITE\",\"status\":\"ACTIVE\"}"
-# House ownership is derived from farm_code; company/site/store are retired
-# brd_houses columns and GenericCrudService rejects them on write.
-seed_post brd_houses "{\"house_code\":\"$HOUSE_A\",\"house_name\":\"A01\",\"farm_code\":\"$FARM\",\"capacity\":5000,\"status\":\"ACTIVE\"}"
-seed_post brd_houses "{\"house_code\":\"$HOUSE_B\",\"house_name\":\"B01\",\"farm_code\":\"$FARM\",\"capacity\":5000,\"status\":\"ACTIVE\"}"
-seed_post brd_flocks "{\"flock_no\":\"$FLOCK\",\"farm_code\":\"$FARM\",\"house_code\":\"$HOUSE_A\",\"company_code\":\"$COMPANY\",\"site_code\":\"$SITE\",\"breed_code\":\"$BREED\",\"placement_date\":\"$TODAY\",\"start_date\":\"$TODAY\",\"initial_qty\":4800,\"current_qty\":4800,\"status\":\"GROWING\"}"
+# Synthetic pre-lifecycle legacy fixtures are inserted only in this guarded disposable DB.
+# The runtime must continue rejecting new-flock CRUD and hand-entered house codes.
+db_query -q -c "
+  INSERT INTO brd_farms(farm_code,farm_name,location,company_code,mapped_site_code,status)
+    VALUES('$FARM','回归测试场','万象','$COMPANY','$SITE','ACTIVE');
+  INSERT INTO brd_houses(house_code,house_name,farm_code,capacity,max_capacity,status)
+    VALUES('$HOUSE_A','A01','$FARM',5000,5000,'ACTIVE'),('$HOUSE_B','B01','$FARM',5000,5000,'ACTIVE');
+  INSERT INTO brd_flocks(flock_no,farm_code,house_code,company_code,site_code,breed_code,placement_date,start_date,initial_qty,current_qty,status)
+    VALUES('$FLOCK','$FARM','$HOUSE_A','$COMPANY','$SITE','$BREED','$TODAY','$TODAY',4800,4800,'GROWING'),
+          ('$FLOCK_B','$FARM','$HOUSE_B','$COMPANY','$SITE','$BREED','$TODAY','$TODAY',1000,1000,'GROWING');
+" >/dev/null
 
 green "  ✓ seed 完成 (farm=$FARM, house=$HOUSE_A/$HOUSE_B, flock=$FLOCK)"
 
@@ -206,18 +217,16 @@ assert_eq "A3.1 无小写 status 残留" "0" "$LOWER"
 # ──────────────────────────────────────────────────────────────────────────
 cyan ""
 cyan "▶ A4: 无 PRD-EGG 批次时日报不阻塞 (真测：临时隐藏 PRD-EGG)"
-# 真测策略：把所有 PRD-EGG 批次的 product_code 加 _HIDDEN 后缀，确保查询 LIKE 'PRD-EGG%' 找不到。
-# 提交日报，验证 2xx + 无新 FARM_IN ledger 行，最后还原 product_code。
-# 注：service 用 LIKE 'PRD-EGG%' 查询，所以后缀 _HIDDEN 仍会匹配；
-# 必须改前缀（如 X-PRD-EGG-...）才能真正隐藏
-HIDDEN_COUNT=$(db_query -tA -c "UPDATE inv_batches SET product_code = 'XHIDDEN-' || product_code WHERE product_code LIKE 'PRD-EGG%' RETURNING 1;" | wc -l | tr -d ' ')
-yellow "  临时隐藏了 $HIDDEN_COUNT 条 PRD-EGG 批次"
+# Temporarily zero availability; preserve product identity and every FK.
+# The EXIT trap restores the exact original values even when a later check fails.
+RESTORE_BATCHES=$(db_query -tA -c "SELECT COALESCE(string_agg(format('(%L::bigint,%L::numeric)',id,qty_available),','),'') FROM inv_batches WHERE product_code LIKE 'PRD-EGG%';")
+db_query -q -c "UPDATE inv_batches SET qty_available=0 WHERE product_code LIKE 'PRD-EGG%';" >/dev/null
 
-LEDGER_BEFORE=$(db_query -tA -c "SELECT COUNT(*) FROM inv_ledger WHERE change_type='FARM_IN' AND ref_no='$FLOCK';")
+LEDGER_BEFORE=$(db_query -tA -c "SELECT COUNT(*) FROM inv_ledger WHERE change_type='FARM_IN' AND ref_no='$FLOCK_B';")
 
 R5=$(curl -s -o /tmp/r5.json -w '%{http_code}' -X POST "$API/api/v3/farm/daily-logs" \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-  -d "{\"company_code\":\"$COMPANY\",\"site_code\":\"$SITE\",\"house_code\":\"$HOUSE_B\",\"flock_no\":\"$FLOCK\",\"farm_code\":\"$FARM\",\"log_date\":\"$TODAY\",\"shift\":\"早班\",\"eggs_produced\":500,\"mortality_qty\":0,\"operator\":\"REGR\"}")
+  -d "{\"company_code\":\"$COMPANY\",\"site_code\":\"$SITE\",\"house_code\":\"$HOUSE_B\",\"flock_no\":\"$FLOCK_B\",\"farm_code\":\"$FARM\",\"log_date\":\"$TODAY\",\"shift\":\"早班\",\"eggs_produced\":500,\"mortality_qty\":0,\"operator\":\"REGR\"}")
 assert_ok "A4.1 PRD-EGG 不可用时 POST 仍成功" "$R5"
 
 MSG=$(cat /tmp/r5.json)
@@ -227,12 +236,11 @@ else
   green "  ✓ A4.2 旧错文案不再出现"; PASS=$((PASS+1))
 fi
 
-LEDGER_AFTER=$(db_query -tA -c "SELECT COUNT(*) FROM inv_ledger WHERE change_type='FARM_IN' AND ref_no='$FLOCK';")
+LEDGER_AFTER=$(db_query -tA -c "SELECT COUNT(*) FROM inv_ledger WHERE change_type='FARM_IN' AND ref_no='$FLOCK_B';")
 assert_eq "A4.3 ledger 应跳过（无新 FARM_IN 行）" "$LEDGER_BEFORE" "$LEDGER_AFTER"
 
-# 还原（去掉 XHIDDEN- 前缀）
-db_query -q -c "UPDATE inv_batches SET product_code = SUBSTRING(product_code FROM 9) WHERE product_code LIKE 'XHIDDEN-PRD-EGG%';" >/dev/null
-green "  ✓ PRD-EGG 批次已还原"
+restore_batches
+green "  ✓ PRD-EGG 批次可用量已还原"
 
 # ──────────────────────────────────────────────────────────────────────────
 cyan ""
@@ -311,7 +319,7 @@ assert_eq "D-04 三班次各一行" "3" "$CNT_FINAL"
 cyan ""
 cyan "▶ Cleanup"
 db_query -q -c "DELETE FROM brd_daily_logs WHERE house_code IN ('$HOUSE_A','$HOUSE_B');" >/dev/null
-db_query -q -c "DELETE FROM brd_flocks WHERE flock_no='$FLOCK';"                          >/dev/null
+db_query -q -c "DELETE FROM brd_flocks WHERE flock_no IN ('$FLOCK','$FLOCK_B');"                          >/dev/null
 db_query -q -c "DELETE FROM brd_houses WHERE house_code IN ('$HOUSE_A','$HOUSE_B');"      >/dev/null
 db_query -q -c "DELETE FROM brd_farms WHERE farm_code='$FARM';"                           >/dev/null
 db_query -q -c "DELETE FROM inv_ledger WHERE ref_no='$FLOCK' OR ref_no LIKE 'SHIFT-REGR%';" >/dev/null

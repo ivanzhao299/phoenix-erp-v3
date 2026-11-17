@@ -5,6 +5,10 @@
       "result": "passed"
     },
     {
+      "case": "Protected PNG renders readable evidence and closing revokes the blob URL",
+      "result": "passed"
+    },
+    {
       "case": "Independent reviewer reads structured business fields/evidence and approves",
       "result": "passed"
     },
@@ -21,6 +25,10 @@
       "result": "passed"
     },
     {
+      "case": "Protected valid PDF downloads with safe filename and exact readable source bytes",
+      "result": "passed"
+    },
+    {
       "case": "Independent approved report supplement preserves original occupancy, business day and unknown feed/water",
       "result": "passed"
     },
@@ -29,5 +37,5 @@
       "result": "passed"
     }
   ],
-  "complete": true
+  "complete": false
 }

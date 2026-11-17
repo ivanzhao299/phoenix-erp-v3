@@ -31,7 +31,7 @@ const {DataSource}=apiRequire('typeorm');
   }
   console.log('TypeORM TS chain applied:',migrations.length);
   for(const table of ['brd_farms','brd_houses','brd_flocks','brd_daily_logs','brd_flock_documents','inv_flock_source_links'])if(!await q.hasTable(table))throw Error('Fresh installation missing '+table);
-  for(const [table,col] of [['brd_houses','max_capacity'],['brd_flocks','breed_code'],['brd_flocks','planned_elimination_date'],['brd_daily_logs','occupancy_id']])if(!await q.hasColumn(table,col))throw Error('Fresh installation missing '+table+'.'+col);
+  for(const [table,col] of [['brd_farms','location'],['brd_farms','manager'],['brd_farms','houses'],['brd_farms','capacity'],['brd_houses','max_capacity'],['brd_flocks','breed_code'],['brd_flocks','planned_elimination_date'],['brd_daily_logs','occupancy_id']])if(!await q.hasColumn(table,col))throw Error('Fresh installation missing '+table+'.'+col);
   console.log('Fresh lifecycle tables and required columns verified');
   const {FlockLifecycleService}=require(resolve('apps/api/dist/modules/farm/flock-lifecycle.service.js'));
   const {FarmService}=require(resolve('apps/api/dist/modules/farm/farm.service.js'));

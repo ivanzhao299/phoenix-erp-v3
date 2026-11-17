@@ -1,3 +1,4 @@
+import { OrgOwnershipService } from '../org/services/org-ownership.service';
 import { DataScopeGuard } from '../org/guards/data-scope.guard';
 import { deriveOrgScope } from '../farm/farm.service';
 import { hasPerm } from '../../auth/permissions.util';
@@ -104,7 +105,8 @@ export class UploadController {
     if(moduleCode!=='FLOCK_LIFECYCLE' && !isAdmin && !originalMenus.some(menu=>hasPerm(req.user?.permissions,menu,'E'))) throw new BadRequestException('养殖上传权限仅可用于鸡群业务附件');
     if(moduleCode==='FLOCK_LIFECYCLE') {
       if(!isAdmin && !hasPerm(req.user?.permissions,'MENU_FLOCK_CREATE','E')) throw new BadRequestException('缺少养殖制单附件权限');
-      const [house]=await this.fileMetadataRepo.manager.query(`SELECT h.farm_code,f.company_code,COALESCE(f.mapped_site_code,'') AS site_code FROM brd_houses h JOIN brd_farms f ON f.farm_code=h.farm_code WHERE h.house_code=$1`,[ownerId]);
+      const owner=await new OrgOwnershipService(this.fileMetadataRepo.manager).resolveHouse(ownerId);
+      const house={farm_code:owner.farmCode,company_code:owner.companyCode,site_code:owner.siteCode??''};
       const scope=deriveOrgScope(req);
       if(!house || ownerType!=='HOUSE' || house.company_code!==companyCode || house.site_code!==storeCode || !scope.isGlobal && !(
         (scope.farmCodes??[]).includes(house.farm_code) || (scope.siteCodes??[]).includes(house.site_code) || (scope.companyCodes??[]).includes(house.company_code))) throw new BadRequestException('附件鸡舍权威归属或数据范围不匹配');

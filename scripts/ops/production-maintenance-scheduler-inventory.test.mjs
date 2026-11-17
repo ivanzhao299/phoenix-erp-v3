@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import assert from 'node:assert/strict';
-import {partitionMaintenanceSchedulerUnits,isMaintenanceSystemdMask,normalizeMaintenanceSystemdDefinition} from './production-maintenance-root-readers.mjs';
+import {partitionMaintenanceSchedulerUnits,isMaintenanceSystemdMask,normalizeMaintenanceSystemdDefinition,maintenanceSchedulerRejectionDiagnostic,readMaintenanceSchedulerDiagnostic} from './production-maintenance-root-readers.mjs';
 
 test('actual uninstantiated template does not abort ordinary unit properties or disappear',()=>{
  const result=partitionMaintenanceSchedulerUnits('apport-coredump-hook@.service static -\ncron.service enabled enabled\ngetty@tty1.service enabled enabled\n');
@@ -69,4 +69,28 @@ test('typed D-Bus fallback preserves compound commands and argv sentinel bytes w
  const later=structuredClone(typed);later.data[0][3]=123456789;later.data[0][7]=1234;assert.equal(output,normalizeMaintenanceSystemdDefinition(block,later));
  later.data[0][1][2]+=' CHANGED';assert.notEqual(output,normalizeMaintenanceSystemdDefinition(block,later));
  for(const value of [{type:'unknown',data:[command]},{type:typed.type,data:[]},{type:typed.type,data:[command.slice(0,9)]},{type:typed.type,data:[command.map((v,i)=>i===2?'false':v)]}])assert.throws(()=>normalizeMaintenanceSystemdDefinition(block,value),/SYSTEMD_TYPED_EXEC_FORMAT/);
+});
+
+
+test('scheduler HOLD diagnostics contain only fixed source/reason enums',()=>{
+ const sources=['CRONTAB','CRON_D','USER_CRONTABS','CRON_SPOOL','SYSTEMD_FRAGMENT','SYSTEMD_DROPIN'];
+ const stat=(kind,size=1)=>({isSymbolicLink:()=>kind==='link',isDirectory:()=>kind==='directory',isFile:()=>kind==='file',size});
+ for(const source of sources)for(const [kind,size,reason] of [['link',1,'SYMLINK'],['directory',1,'DIRECTORY'],['socket',1,'OTHER_SPECIAL'],['file',1048577,'OVERSIZE']]){
+  const value=maintenanceSchedulerRejectionDiagnostic(stat(kind,size),source);
+  assert.deepEqual(value,{source,reason});
+  assert.deepEqual(readMaintenanceSchedulerDiagnostic({schedulerFileDiagnostic:{...value,path:'/private/secret',uid:123,content:'PRIVATE'}}),{source,reason});
+ }
+ assert.equal(maintenanceSchedulerRejectionDiagnostic(stat('file',1048576),'CRON_D'),null);
+ assert.equal(maintenanceSchedulerRejectionDiagnostic(stat('link'),'/private/path'),null);
+ for(const value of [undefined,{source:'PATH=/private',reason:'SYMLINK'},{source:'CRON_D',reason:'PRIVATE'}])assert.equal(readMaintenanceSchedulerDiagnostic({schedulerFileDiagnostic:value}),null);
+});
+test('diagnosis retains exact scheduler rejection and stable-read safeguards',()=>{
+ const reader=fs.readFileSync(new URL('./production-maintenance-root-readers.mjs',import.meta.url),'utf8');
+ assert.match(reader,/if\(!stat\.isFile\(\)\|\|stat\.isSymbolicLink\(\)\|\|stat\.size>1024\*1024\)\{/);
+ assert.match(reader,/hold\('ROOT_READER_SCHEDULER_FILE_UNVERIFIED'\)/);
+ assert.match(reader,/schedulerFileDiagnostic=maintenanceSchedulerRejectionDiagnostic\(stat,source\);throw error/);
+ assert.match(reader,/stat\.ino!==after\.ino\|\|stat\.mtimeMs!==after\.mtimeMs\|\|stat\.size!==after\.size/);
+ assert.match(reader,/if\(stat\.isDirectory\(\)&&directory==='\/var\/spool\/cron'\)continue/);
+ const fixture=fs.readFileSync(new URL('../ci/maintenance-full-first-switch.fixture.mjs',import.meta.url),'utf8');
+ assert.match(fixture,/result\.schedulerFileDiagnostic=readMaintenanceSchedulerDiagnostic\(error\)/);
 });

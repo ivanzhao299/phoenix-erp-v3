@@ -117,25 +117,41 @@ export function normalizeMaintenanceSystemdDefinition(block,typed){
  }).join('\n');
 }
 
+const SCHEDULER_SOURCES=new Set(['CRONTAB','CRON_D','USER_CRONTABS','CRON_SPOOL','SYSTEMD_FRAGMENT','SYSTEMD_DROPIN']);
+const SCHEDULER_REASONS=new Set(['SYMLINK','DIRECTORY','OTHER_SPECIAL','OVERSIZE']);
+/** Diagnostic enums only: never serialize a path, stat object or error details. */
+export function maintenanceSchedulerRejectionDiagnostic(stat,source){
+  if(!SCHEDULER_SOURCES.has(source))return null;
+  const reason=stat.isSymbolicLink()?'SYMLINK':stat.isDirectory()?'DIRECTORY':!stat.isFile()?'OTHER_SPECIAL':stat.size>1024*1024?'OVERSIZE':null;
+  return reason?{source,reason}:null;
+}
+export function readMaintenanceSchedulerDiagnostic(error){
+  const value=error?.schedulerFileDiagnostic;
+  return SCHEDULER_SOURCES.has(value?.source)&&SCHEDULER_REASONS.has(value?.reason)?{source:value.source,reason:value.reason}:null;
+}
+
 /** Fixed scheduler discovery. Definitions are hashed in memory; command lines
  * and crontab bytes are never emitted. All listed files must remain readable,
  * regular and stable for this capture; absence of a service tool is explicit. */
 export function captureMaintenanceSchedulers(){
   guard();const rows=[];
   const add=(id,bytes)=>rows.push({id,classification:'SYSTEM_PINNED',erpControlReference:bytes.includes(Buffer.from(CONTRACT.repository))||bytes.includes(Buffer.from('phoenix-v3-api')),identitySha256:hash(bytes)});
-  const file=name=>{
+  const file=(name,source)=>{
     let stat;try{stat=fs.lstatSync(name);}catch(error){if(error.code==='ENOENT')return;throw error;}
-    if(!stat.isFile()||stat.isSymbolicLink()||stat.size>1024*1024)hold('ROOT_READER_SCHEDULER_FILE_UNVERIFIED');
+    if(!stat.isFile()||stat.isSymbolicLink()||stat.size>1024*1024){
+      try{hold('ROOT_READER_SCHEDULER_FILE_UNVERIFIED');}
+      catch(error){error.schedulerFileDiagnostic=maintenanceSchedulerRejectionDiagnostic(stat,source);throw error;}
+    }
     const bytes=fs.readFileSync(name),after=fs.lstatSync(name);
     if(stat.ino!==after.ino||stat.mtimeMs!==after.mtimeMs||stat.size!==after.size)hold('ROOT_READER_SCHEDULER_CHANGED');add(name,bytes);
   };
-  file('/etc/crontab');
+  file('/etc/crontab','CRONTAB');
   for(const directory of ['/etc/cron.d','/var/spool/cron/crontabs','/var/spool/cron']){
     let names;try{names=fs.readdirSync(directory);}catch(error){if(error.code==='ENOENT')continue;throw error;}
     for(const name of names.sort()){
       const full=path.join(directory,name),stat=fs.lstatSync(full);
       if(stat.isDirectory()&&directory==='/var/spool/cron')continue;
-      file(full);
+      file(full,directory==='/etc/cron.d'?'CRON_D':directory==='/var/spool/cron/crontabs'?'USER_CRONTABS':'CRON_SPOOL');
     }
   }
   const systemctl='/usr/bin/systemctl';
@@ -164,7 +180,7 @@ export function captureMaintenanceSchedulers(){
         for(const line of lines.filter(line=>line.startsWith('FragmentPath=')||line.startsWith('DropInPaths=')))
           for(const full of line.slice(line.indexOf('=')+1).split(' ').filter(Boolean)){
             if(isMaintenanceSystemdMask(full,lines))continue;
-            file(full);
+            file(full,line.startsWith('FragmentPath=')?'SYSTEMD_FRAGMENT':'SYSTEMD_DROPIN');
           }
       }
     }

@@ -1,9 +1,11 @@
-import { describe, it, expect } from 'vitest';
+// @vitest-environment jsdom
+import { describe, it, expect, vi } from 'vitest';
 import {
   parseAttachmentRefs,
   serializeAttachmentRefs,
   isUnsafeAttachmentRef,
   isProtectedFileRef,
+  downloadProtectedPdf,
 } from '@/lib/attachments';
 
 /**
@@ -83,5 +85,31 @@ describe('isProtectedFileRef', () => {
     expect(isProtectedFileRef('https://cdn/x')).toBe(false);
     expect(isProtectedFileRef('not-a-file-ref')).toBe(false);
     expect(isProtectedFileRef('')).toBe(false);
+  });
+});
+
+
+describe('downloadProtectedPdf', () => {
+  it('downloads the authorized bytes using a safe name and revokes its blob URL', () => {
+    vi.useFakeTimers();
+    const create = vi.fn(() => 'blob:owned-pdf'), revoke = vi.fn();
+    vi.stubGlobal('URL', { createObjectURL: create, revokeObjectURL: revoke });
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function () {
+      expect(this.href).toBe('blob:owned-pdf');
+      expect(this.download).toBe('flock-evidence-1.pdf');
+    });
+    try {
+      const blob = new Blob(['%PDF-1.4'], { type: 'application/pdf' });
+      downloadProtectedPdf(blob, 'flock-evidence-1.pdf');
+      expect(create).toHaveBeenCalledWith(blob);
+      expect(click).toHaveBeenCalledOnce();
+      expect(document.querySelector('a')).toBeNull();
+      vi.advanceTimersByTime(60_000);
+      expect(revoke).toHaveBeenCalledWith('blob:owned-pdf');
+      for (const [bytes,name] of [[new Blob(['<script/>'],{type:'text/html'}),'evidence.pdf'],[blob,'../unsafe.pdf'],[blob,'https://evil/file.pdf']] as const) {
+        expect(() => downloadProtectedPdf(bytes,name)).toThrow('Unsupported PDF attachment');
+      }
+      expect(create).toHaveBeenCalledTimes(1);
+    } finally { click.mockRestore();vi.unstubAllGlobals();vi.useRealTimers(); }
   });
 });

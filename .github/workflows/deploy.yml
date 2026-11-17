@@ -520,7 +520,9 @@ jobs:
         run: pnpm test:regr:system
       - name: Regression — breeding
         working-directory: apps/api
-        run: pnpm test:regr:breeding
+        run: |
+          psql -X -v ON_ERROR_STOP=1 -c "COMMENT ON DATABASE phoenix_erp IS 'phoenix-ci-breeding-regression'"
+          pnpm test:regr:breeding
       - name: Regression — packaging
         working-directory: apps/api
         run: pnpm test:regr:packaging

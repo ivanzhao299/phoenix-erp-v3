@@ -118,6 +118,37 @@ function createService(fixtureBase: string, manager?: unknown) {
   return service;
 }
 
+describe('traffic FIFO interval with a controlled clock', () => {
+  it('an expired middle caller retains its full slot before the next caller', async () => {
+    jest.useFakeTimers({ now: new Date('2026-11-17T00:00:00Z') });
+    const service = createService('http://127.0.0.1');
+    (service['cfg'].get as jest.Mock).mockImplementation((key: string, fallback: string) => key === 'CHANJET_MIN_REQUEST_INTERVAL_MS' ? '100' : fallback);
+    const slots = service as unknown as { waitForTrafficSlot(deadlineAt?: Date): Promise<void> };
+    const completed: string[] = [];
+    try {
+      // Exercise the production minimum of 100ms without wall-clock jitter.
+      const a = slots.waitForTrafficSlot().then(() => { completed.push('A'); });
+      const b = slots.waitForTrafficSlot(new Date(Date.now() + 150));
+      const rejected = expect(b).rejects.toThrow('CHANJET_EXECUTION_DEADLINE');
+      const c = slots.waitForTrafficSlot().then(() => { completed.push('C'); });
+      await jest.advanceTimersByTimeAsync(100);
+      expect(completed).toEqual(['A']);
+      await jest.advanceTimersByTimeAsync(50);
+      await rejected;
+      // Cancellation at 150 must not release B early: C's slot ends at 300.
+      await jest.advanceTimersByTimeAsync(149);
+      expect(completed).toEqual(['A']);
+      await jest.advanceTimersByTimeAsync(1);
+      await Promise.all([a, c]);
+      expect(completed).toEqual(['A', 'C']);
+    } finally {
+      jest.useRealTimers();
+      delete process.env.CHANJET_MIN_REQUEST_INTERVAL_MS;
+      delete process.env.CHANJET_PROVIDER_BASE_URL;
+    }
+  });
+});
+
 database('execution transport wiring (real PG18 admission + local HTTP fixture, no provider)', () => {
   jest.setTimeout(120_000);
   let ds: DataSource;
@@ -785,11 +816,11 @@ database('execution transport wiring (real PG18 admission + local HTTP fixture, 
       const c = timedCall(scopeC.state, '/c');
       await expect(b).rejects.toThrow('CHANJET_EXECUTION_DEADLINE');
       await Promise.all([a, c]);
-      const elapsedA = times['/a'] - t0;
       const elapsedC = times['/c'] - t0;
-      // C must NOT jump ahead of A's remaining interval (the round-2 bug:
-      // C released at ~260ms while A waited until ~400ms)
-      expect(elapsedC - elapsedA).toBeGreaterThanOrEqual(180);
+      // Real HTTP/PG completion includes variable receipt acknowledgement time.
+      // Assert actual send order here; the controlled-clock test above proves
+      // that cancellation cannot collapse the required traffic intervals.
+      expect(fixture.hits.findIndex(h => h.path === '/a')).toBeLessThan(fixture.hits.findIndex(h => h.path === '/c'));
       // ...and the queue is not wedged: C completes promptly after A's slot
       expect(elapsedC).toBeLessThan(1_500);
       expect(hitsByUrl('/b')).toHaveLength(0);

@@ -190,8 +190,7 @@ export class TraceabilityService {
     const houseCodes=[...new Set([...provenance.map((x:any)=>x.house_code),...source.map((x:any)=>x.house_code)].filter(Boolean))];
     let houses: any[] = [], flocks: any[] = [], dailyLogs: any[] = [];
     if(provenance.length)houses=[...new Map(provenance.map((r:any)=>[r.house_code+'|'+r.farm_code,{house_code:r.house_code,farm_code:r.farm_code}])).values()];
-    else if(houseCodes.length)houses=await this.q(`SELECT h.house_code,h.farm_code,f.farm_name FROM brd_houses h
-      LEFT JOIN brd_farms f ON f.farm_code=h.farm_code WHERE h.house_code=ANY($1)`,[houseCodes]);
+    else if(houseCodes.length)houses=await this.q(`SELECT h.house_code,NULL::text AS farm_code FROM brd_houses h WHERE h.house_code=ANY($1)`,[houseCodes]);
     const flockCodes=[...new Set((provenance.length?provenance.map((x:any)=>x.flock_no):source.map((x:any)=>x.flock_code)).filter(Boolean))];
     if(flockCodes.length)flocks=await this.q(`SELECT flock_no,breed_type,breed_code
       FROM brd_flocks WHERE flock_no=ANY($1)`,[flockCodes]);

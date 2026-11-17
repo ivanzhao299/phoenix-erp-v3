@@ -50,6 +50,60 @@ export const featureMigrations = Object.freeze([
     effective_name: 'AddWmsInboundItemIdentity1794800000000',
     timestamp: 1794800000000,
   }),
+  Object.freeze({
+    source_file: 'apps/api/dist/database/migrations/1794601000000-AddInventoryClass.js',
+    class_name: 'AddInventoryClass1794601000000',
+    effective_name: 'AddInventoryClass1794601000000',
+    timestamp: 1794601000000,
+  }),
+  Object.freeze({
+    source_file: 'apps/api/dist/database/migrations/1794879957217-InvBatchesIntegrityConstraints.js',
+    class_name: 'InvBatchesIntegrityConstraints1794879957217',
+    effective_name: 'InvBatchesIntegrityConstraints1794879957217',
+    timestamp: 1794879957217,
+  }),
+  Object.freeze({
+    source_file: 'apps/api/dist/database/migrations/1794880267031-InvLedgerChangeTypeDictSeed.js',
+    class_name: 'InvLedgerChangeTypeDictSeed1794880267031',
+    effective_name: 'InvLedgerChangeTypeDictSeed1794880267031',
+    timestamp: 1794880267031,
+  }),
+  Object.freeze({
+    source_file: 'apps/api/dist/database/migrations/1794885912725-InvEggCostingColumns.js',
+    class_name: 'InvEggCostingColumns1794885912725',
+    effective_name: 'InvEggCostingColumns1794885912725',
+    timestamp: 1794885912725,
+  }),
+  Object.freeze({
+    source_file: 'apps/api/dist/database/migrations/1794899000000-FlockBaseSchema.js',
+    class_name: 'FlockBaseSchema1794899000000',
+    effective_name: 'FlockBaseSchema1794899000000',
+    timestamp: 1794899000000,
+  }),
+  Object.freeze({
+    source_file: 'apps/api/dist/database/migrations/1794900000000-FlockLifecycleLedger.js',
+    class_name: 'FlockLifecycleLedger1794900000000',
+    effective_name: 'FlockLifecycleLedger1794900000000',
+    timestamp: 1794900000000,
+  }),
+  Object.freeze({
+    source_file: 'apps/api/dist/database/migrations/1794901000000-FlockProductionProvenance.js',
+    class_name: 'FlockProductionProvenance1794901000000',
+    effective_name: 'FlockProductionProvenance1794901000000',
+    timestamp: 1794901000000,
+  }),
+  Object.freeze({
+    source_file: 'apps/api/dist/database/migrations/1794902000000-FlockActivitySources.js',
+    class_name: 'FlockActivitySources1794902000000',
+    effective_name: 'FlockActivitySources1794902000000',
+    timestamp: 1794902000000,
+  }),
+  Object.freeze({
+    source_file: 'apps/api/dist/database/migrations/1794903000000-FlockReportCorrection.js',
+    class_name: 'FlockReportCorrection1794903000000',
+    effective_name: 'FlockReportCorrection1794903000000',
+    timestamp: 1794903000000,
+  }),
 ]);
 const pinned = JSON.parse(fs.readFileSync(new URL('./typeorm-ledger-rehearsal-historical-inventory.json', import.meta.url), 'utf8'));
 const sorted = entries => [...entries].sort((a,b) => a.timestamp-b.timestamp);

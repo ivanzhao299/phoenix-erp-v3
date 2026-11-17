@@ -32,3 +32,20 @@ export function isUnsafeAttachmentRef(ref: string) {
 export function isProtectedFileRef(ref: string) {
   return /^FILE-[A-Za-z0-9._:-]+$/.test(String(ref ?? '').trim());
 }
+
+/** Download only an already-authorized PDF blob; never accepts a remote/raw URL. */
+export function downloadProtectedPdf(blob: Blob, filename: string): void {
+  if (blob.type !== 'application/pdf' || !/^[A-Za-z0-9][A-Za-z0-9._-]*\.pdf$/.test(filename)) {
+    throw new Error('Unsupported PDF attachment');
+  }
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.rel = 'noopener';
+  document.body.appendChild(link);
+  try { link.click(); } finally {
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  }
+}

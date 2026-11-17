@@ -28,13 +28,17 @@ if pathlib.Path(sys.argv[0]).name == 'psql':
         print('mock SQL error', file=sys.stderr)
         sys.exit(3)
     sql = args[args.index('-c') + 1]
-    if 'FROM sys_organizations' in sql:
+    if 'obj_description' in sql:
+        print(os.environ.get('FIXTURE_OWNER', 'phoenix-ci-breeding-regression'))
+    elif 'FROM sys_organizations' in sql:
         print(os.environ.get('ORG_CONTEXT', 'COMP-TEST|SITE-TEST'))
     elif "dict_type='BRD_BREED'" in sql:
         print(os.environ.get('BREED', 'HY_LINE_BROWN'))
     sys.exit(0)
 url = next(a for a in args if a.startswith('http://'))
 if url.endswith('/auth/login'):
+    if os.environ.get('TRANSPORT_FAIL'):
+        sys.exit(7)
     print('{"token":"offline-unit-token"}')
     sys.exit(0)
 rows = [json.loads(line) for line in record.read_text().splitlines()]
@@ -62,14 +66,14 @@ class BreedingSetupTest(unittest.TestCase):
             record = root / "calls.jsonl"
             env = {**os.environ, "PATH": f"{root}:{os.environ['PATH']}",
                    "PSQL": str(root / "psql"), "MOCK_RECORD": str(record),
-                   "API_URL": "http://offline-unit.invalid", "DB_NAME": "isolated_unit_db"}
+                   "API_URL": "http://127.0.0.1:3100", "DB_NAME": "phoenix_flock_compat", "CI": "true", "PGHOST": "127.0.0.1"}
             # Do not inherit fixture overrides from a caller's environment.
-            for key in ("FAIL_AT", "SQL_FAIL", "ORG_CONTEXT", "BREED", "HTTP_OK", "HTTP_FAIL", "TRANSPORT_FAIL"):
+            for key in ("FAIL_AT", "SQL_FAIL", "ORG_CONTEXT", "BREED", "HTTP_OK", "HTTP_FAIL", "TRANSPORT_FAIL", "FIXTURE_OWNER"):
                 env.pop(key, None)
             env.update(overrides)
             result = subprocess.run(["bash", "-c", SETUP], env=env,
                                     capture_output=True, text=True, timeout=15)
-            rows = [json.loads(line) for line in record.read_text().splitlines()]
+            rows = [json.loads(line) for line in record.read_text().splitlines()] if record.exists() else []
             return result, rows
 
     def seed_calls(self, rows):
@@ -79,35 +83,21 @@ class BreedingSetupTest(unittest.TestCase):
         result, rows = self.run_setup()
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("seed 完成", result.stdout)
-        calls = self.seed_calls(rows)
-        self.assertEqual(len(calls), 4)
-        payloads = [json.loads(r["args"][r["args"].index("-d") + 1]) for r in calls]
-        farm, house_a, house_b, flock = payloads
-        self.assertEqual(farm["status"], "ACTIVE")
-        for house in (house_a, house_b):
-            self.assertEqual(house["status"], "ACTIVE")
-            self.assertEqual(house["farm_code"], farm["farm_code"])
-        self.assertEqual(flock["house_code"], house_a["house_code"])
-        self.assertEqual(flock["farm_code"], farm["farm_code"])
-        self.assertEqual(flock["breed_code"], "HY_LINE_BROWN")
-        for payload in (farm, flock):
-            self.assertEqual(payload["company_code"], "COMP-TEST")
-        self.assertEqual(farm["mapped_site_code"], "SITE-TEST")
-        self.assertEqual(flock["site_code"], "SITE-TEST")
-        for house in (house_a, house_b):
-            for retired in ("company_code", "site_code", "store_code"):
-                self.assertNotIn(retired, house)
-        self.assertEqual(flock["initial_qty"], 4800)
-        self.assertEqual(flock["current_qty"], 4800)
-        today = datetime.datetime.now(datetime.timezone.utc).date().isoformat()
-        self.assertEqual(flock["placement_date"], today)
-        self.assertEqual(flock["start_date"], today)
+        self.assertFalse(self.seed_calls(rows), 'legacy setup must never reopen CRUD admission')
+        seed = next(r['args'][r['args'].index('-c')+1] for r in rows if r['tool']=='psql' and 'INSERT INTO brd_flocks' in r['args'][r['args'].index('-c')+1])
+        with sqlite3.connect(':memory:') as db:
+            db.executescript('CREATE TABLE brd_farms(farm_code,farm_name,location,company_code,mapped_site_code,status);CREATE TABLE brd_houses(house_code,house_name,farm_code,capacity,max_capacity,status);CREATE TABLE brd_flocks(flock_no,farm_code,house_code,company_code,site_code,breed_code,placement_date,start_date,initial_qty,current_qty,status);')
+            db.executescript(seed)
+            self.assertEqual(db.execute('SELECT company_code,mapped_site_code,status FROM brd_farms').fetchall(), [('COMP-TEST','SITE-TEST','ACTIVE')])
+            self.assertEqual(db.execute('SELECT house_code,current_qty,breed_code FROM brd_flocks ORDER BY flock_no').fetchall(), [('H-REGR-A01',4800,'HY_LINE_BROWN'),('H-REGR-B01',1000,'HY_LINE_BROWN')])
+            today = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=8))).date().isoformat()
+            self.assertEqual(db.execute('SELECT DISTINCT placement_date,start_date FROM brd_flocks').fetchall(), [(today,today)])
         queries = [r["args"][r["args"].index("-c") + 1] for r in rows if r["tool"] == "psql"]
         self.assertTrue(any("s.status='ACTIVE'" in q and "c.status='ACTIVE'" in q for q in queries))
         self.assertTrue(any("dict_type='BRD_BREED'" in q and "status='ACTIVE'" in q for q in queries))
         for row in rows:
             if row["tool"] == "psql":
-                self.assertIn("isolated_unit_db", row["args"])
+                self.assertIn("phoenix_flock_compat", row["args"])
                 self.assertIn("ON_ERROR_STOP=1", row["args"])
                 self.assertIn("-X", row["args"])
 
@@ -132,35 +122,22 @@ class BreedingSetupTest(unittest.TestCase):
             db.execute("UPDATE sys_organizations SET status='INACTIVE' WHERE id=1")
             self.assertEqual(db.execute(sql).fetchall(), [])
 
-    def test_each_http_seed_rejection_stops_and_reports_body(self):
-        for index, table in enumerate(("brd_farms", "brd_houses", "brd_houses", "brd_flocks"), 1):
-            with self.subTest(index=index):
-                result, rows = self.run_setup(FAIL_AT=str(index))
-                self.assertEqual(result.returncode, 99)
-                self.assertIn(f"Seed {table} failed: HTTP 400", result.stderr)
-                self.assertIn("请选择标准 BRD_BREED 品种", result.stderr)
-                self.assertNotIn("seed 完成", result.stdout)
-                self.assertEqual(len(self.seed_calls(rows)), index)
+    def test_nonlocal_api_or_unowned_database_is_rejected_before_access(self):
+        for overrides in ({'API_URL':'https://remote.invalid'}, {'API_URL':'http://127.0.0.1.evil.invalid'}, {'API_URL':'http://localhost:3100/path'}, {'CI':'false'}, {'PGHOST':'remote.invalid'}, {'DB_NAME':'business_db'}):
+            with self.subTest(overrides=overrides):
+                result, rows = self.run_setup(**overrides)
+                self.assertEqual(result.returncode,99)
+                self.assertFalse(rows)
+        result, rows = self.run_setup(FIXTURE_OWNER='not-owned')
+        self.assertEqual(result.returncode,99)
+        self.assertFalse(any(r['tool']=='curl' for r in rows))
+        self.assertFalse(any('DELETE' in str(r['args']) for r in rows))
 
-    def test_server_error_is_not_success(self):
-        result, _ = self.run_setup(FAIL_AT="4", HTTP_FAIL="500")
-        self.assertEqual(result.returncode, 99)
-        self.assertIn("HTTP 500", result.stderr)
-        self.assertNotIn("seed 完成", result.stdout)
-
-    def test_transport_error_is_not_success(self):
-        result, rows = self.run_setup(FAIL_AT="1", TRANSPORT_FAIL="1")
-        self.assertEqual(result.returncode, 99)
-        self.assertIn("transport failure", result.stderr)
-        self.assertNotIn("seed 完成", result.stdout)
-        self.assertEqual(len(self.seed_calls(rows)), 1)
-
-    def test_all_success_statuses_are_accepted(self):
-        for status in ("200", "201", "204"):
-            with self.subTest(status=status):
-                result, _ = self.run_setup(HTTP_OK=status)
-                self.assertEqual(result.returncode, 0, result.stderr)
-                self.assertIn("seed 完成", result.stdout)
+    def test_http_login_transport_error_is_not_success(self):
+        result, rows = self.run_setup(TRANSPORT_FAIL='1')
+        self.assertEqual(result.returncode,99)
+        self.assertNotIn('seed 完成', result.stdout)
+        self.assertFalse(any('DELETE' in str(r['args']) for r in rows))
 
     def test_missing_or_unsafe_organization_fails_before_http_seed(self):
         for context in ("", "COMP-TEST|", '|SITE-TEST', 'COMP-TEST|SITE-"bad'):
@@ -191,6 +168,9 @@ class BreedingSetupTest(unittest.TestCase):
         # A4 deliberately exercises the legacy ungraded path; adding grades
         # would bypass FARM_IN and stop testing the original regression.
         self.assertNotIn("eggs_by_grade", SOURCE)
+        self.assertIn("AND ref_no='$FLOCK_B'", SOURCE)
+        self.assertIn('trap restore_batches EXIT', SOURCE)
+        self.assertNotIn('XHIDDEN-', SOURCE)
 
 
 if __name__ == "__main__":
