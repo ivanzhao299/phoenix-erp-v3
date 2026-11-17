@@ -40,8 +40,8 @@ import { pathToFileURL } from 'node:url';
 import { CONTRACT, secureJson, verifyContext } from './production-config-guard.mjs';
 import { atomicState } from './production-atomic-state.mjs';
 import { captureRuntime } from './capture-production-runtime.mjs';
-import { PUBLIC_DIRECTORY, readPublicManifest, BackgroundManifestPublisher } from './background-control-manifest.mjs';
-import { verifyCompletedDeployment } from './background-control-coordinator.mjs';
+import { PUBLIC_DIRECTORY, readPublicManifest, BackgroundManifestPublisher, bindingFromPrivateRecord, validateBinding } from './background-control-manifest.mjs';
+import { verifyCompletedDeployment, assertReanchorPromotion } from './background-control-coordinator.mjs';
 import { discoverParticipants } from './background-deployment-session.mjs';
 
 const hold = reason => { throw new Error(`BACKGROUND_RECONCILIATION=HOLD_${reason}`); };
@@ -52,6 +52,21 @@ const stateDirectory = CONTRACT.stateDirectory;
 const mode = process.argv[2] ?? '';
 const targetSha = process.env.TARGET_SHA || '';
 const git = args => execFileSync('git', ['-c', `safe.directory=${root}`, '-c', 'core.hooksPath=/dev/null', ...args], { cwd: root, encoding: 'utf8' }).trim();
+
+export function assertReanchorAbortRuntime(record, promotion, actual) {
+  const binding = bindingFromPrivateRecord(record);
+  assertReanchorPromotion(binding, promotion);
+  if (JSON.stringify(actual) !== JSON.stringify(promotion.previousActive.active)) hold('RUNTIME_DRIFT');
+  return true;
+}
+export function assertReanchorStrandedRuntime(record, floor, active, actual) {
+  validateBinding(record);
+  if (!Object.hasOwn(record, 'previousConfigFloorSha')) return false;
+  if (record.previousConfigFloorSha !== floor.floorSha || active.floorSha !== floor.floorSha
+    || active.active?.api?.revision !== record.previousFloorSha || active.active?.web?.revision !== record.previousFloorSha
+    || JSON.stringify(actual) !== JSON.stringify(active.active) || record.targetSha === floor.floorSha) hold('DESCENDANT_REANCHOR_RUNTIME_BINDING');
+  return true;
+}
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   try {
@@ -77,6 +92,9 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       if (!fs.existsSync(archiveFile)) hold('PREPARED_ARCHIVE_MISSING');
       const archive = secureJson(archiveFile);
       const backgroundSnapshot = archive.archived?.find?.(item => item?.name === 'background-control.json')?.value;
+      // This historical recovery archive only authorizes F=R. Modern
+      // descendant re-anchors use abort-prepared-promotion or verified OPEN.
+      if (backgroundSnapshot && Object.hasOwn(backgroundSnapshot, 'previousConfigFloorSha')) hold('PREPARED_DESCENDANT_USE_PROMOTION_RECOVERY');
       if (archive.schema !== 'phoenix.production-prepared-transaction-recovery/1' || archive.targetRunId !== preparedRunId
         || archive.approvedSha !== preparedTargetSha || archive.previousFloorSha !== preparedPreviousFloorSha
         || !backgroundSnapshot || backgroundSnapshot.owner !== preparedRunId || backgroundSnapshot.targetSha !== preparedTargetSha
@@ -195,8 +213,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       const actual = captureRuntime();
       if (actual.api.revision !== record.targetSha || (mode === 'full' && actual.web.revision !== record.targetSha)
         || JSON.stringify(actual) !== JSON.stringify(active.active)) hold('RUNTIME_DRIFT');
-      const binding = { owner: record.owner, previousFloorSha: record.previousFloorSha, targetSha: record.targetSha,
-        ...(mode === 'full' ? { deployMode: 'full', configFloorSha } : {}) };
+      const binding = bindingFromPrivateRecord(record);
       mark('OPEN');
       // The old session's control session is gone with it; the formal OPEN
       // only needs the independent SUCCESS verifier plus the publisher.
@@ -233,7 +250,12 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
        if (transaction && (transaction.runId !== promotionRunId || transaction.phase !== 'IN_PROGRESS' || transaction.target !== marker.target)) hold('DEPLOYMENT_TRANSACTION_BINDING');
       mark('RUNTIME_BINDING');
       const actualAbort = captureRuntime();
-      if (actualAbort.api.revision !== record.previousFloor.floorSha
+      const abortPrivate = path.join(stateDirectory, 'background-control.json');
+      const abortRecord = fs.existsSync(abortPrivate) ? secureJson(abortPrivate) : null;
+      if (abortRecord && Object.hasOwn(abortRecord, 'previousConfigFloorSha')) {
+        if (abortRecord.owner !== promotionRunId) hold('PROMOTION_BINDING');
+        assertReanchorAbortRuntime(abortRecord, record, actualAbort);
+      } else if (actualAbort.api.revision !== record.previousFloor.floorSha
         || actualAbort.web.revision !== record.previousActive.active.web.revision) hold('RUNTIME_DRIFT');
       if (transaction) {
          atomicState(transactionFile, { ...transaction, phase: 'ROLLED_BACK', outcome: 'ROLLED_BACK', rolledBackBy: 'reconcile-background-control/abort-prepared-promotion', rolledBackAt: new Date().toISOString(), rollbackProof: { runtime: actualAbort, previous: record.previousActive } });
@@ -249,8 +271,6 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
         try { fs.unlinkSync(file); } catch (error) { if (error.code !== 'ENOENT') hold('UNLINK_FAILED'); }
       }
       mark('CLEAR_HOLD');
-      const abortPrivate = path.join(stateDirectory, 'background-control.json');
-      const abortRecord = fs.existsSync(abortPrivate) ? secureJson(abortPrivate) : null;
       if (abortRecord && String(abortRecord.owner) === promotionRunId) {
         const generationFile = path.join(stateDirectory, 'background-generation.json');
         const highWater = Math.max(abortRecord.generation || 0, abortHighWater);
@@ -308,6 +328,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
         privateRecord: {
           phase: record.phase, owner: record.owner, generation: record.generation,
           previousFloorSha: record.previousFloorSha ?? null, targetSha: record.targetSha,
+          ...(Object.hasOwn(record, 'previousConfigFloorSha') ? { previousConfigFloorSha: record.previousConfigFloorSha, deployMode: record.deployMode } : {}),
           holdReason: record.holdReason ?? null, updatedAt: record.updatedAt ?? null,
         },
         publicManifest: manifest ? {
@@ -330,7 +351,8 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     mark('RUNTIME_BINDING');
     const actual = captureRuntime();
     const fullRecord = record.deployMode === 'full';
-    const expectedApi = fullRecord ? active.active.api.revision : floor.floorSha;
+    const descendantReanchor = assertReanchorStrandedRuntime(record, floor, active, actual);
+    const expectedApi = fullRecord || descendantReanchor ? active.active.api.revision : floor.floorSha;
     const expectedWeb = fullRecord ? active.active.web.revision : active.active.web.revision;
     if (actual.api.revision !== expectedApi || actual.web.revision !== expectedWeb) hold('RUNTIME_DRIFT');
     if (!fullRecord && record.targetSha === floor.floorSha) hold('TARGET_ACTIVE_USE_DEPLOYMENT_RECOVERY');

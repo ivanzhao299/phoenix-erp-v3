@@ -57,4 +57,6 @@ BASELINE过账前重新校验旧余额、唯一在栏、标准品种、容量、
 
 只用现有受控CI/CD发布，生产不手工DDL/DML。迁移为空安装可down，任何草稿、审核、事件、占栏、认领、健康活动或结算事实/引用均拒绝自动删除。回退须停写并核备份；已启用后优先兼容前进修复，不回旧代码继续手改存栏。
 
+本次运行基线与配置floor不同，顺序为重新inspect且审计GO → 新鲜备份及恢复性验证 → 受控应用实际8条待迁移并保存回执 → API-only重锚定F/R/T → API正式SUCCESS且OPEN后对同T做Web-only。不能改为一次full，也不能以run_migrations=false绕过schema应用回执。API失败不切Web，Web失败保留正式PREPARED状态并按既有流程核对；完整abort未在隔离测试中执行，不能宣称已演练。详见`docs/ops/flock-descendant-floor-reanchor-20261117.md`。
+
 发布回执必须记录候选SHA、CI结果、备份和回退核验、真实运行SHA、迁移状态、健康和关键冒烟。两家公司各自试点需真实操作及盘点签认；若缺少这些，代码可受控发布但旧群保持未激活，不能宣称试点完成。

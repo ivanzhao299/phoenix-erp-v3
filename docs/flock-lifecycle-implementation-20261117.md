@@ -60,7 +60,7 @@
 ## 发布门槛与回退
 
 - 发布前重新fetch核对main，核对并发发布任务和CI；不得强推或绕过平台审批。
-- 既有deploy.yml限定main/production环境门禁；手动触发需approve_production。流程负责备份、只读preflight、迁移、新镜像启动和readiness/快照。
+- 既有deploy.yml限定main/production环境门禁；手动触发需approve_production。本次按正式inspect审计GO、新鲜备份、受控8迁移回执、API-only重锚定F/R/T、同T Web-only顺序执行；不能称一次full。独立migration apply的evidence目录不代表数据库备份，执行前须实际备份及恢复性验证。
 - 发布后收集真实运行SHA、migration状态、健康、关键冒烟及受控未激活状态。平台实际审批/凭据缺失如实阻塞。
 - 已生成新事件后不得回旧代码继续手改数量；停写后按受控回退方案处理，优先兼容前进修复。结构down仅在确认无新事实或经备份治理后执行。
 
@@ -155,3 +155,9 @@ PG16/18第一切换预检第二层事实一致：SYSTEMD_FRAGMENT/SYMLINK、LOAD
 正式发布仍受未通过的实际CI、F/R配置与运行时分离前置、audit HOLD、正常合并及真实部署证据约束；本轮没有执行迁移apply、生产修数、业务激活或发布tag。
 
 本批已提交源`9d1a5186d1069ed01dd869841aaa3893a8aa7348`（dracut + 有界只读SQL），107个apps/scripts/.github路径指纹`67c70c7e4c4fd03ca5333b73f9ef739540f6e6b402292a17e5e7dbb85e089ae2`，44份日志哈希。指纹只取该提交Git blobs，协调者仍在工作树内开发的F/R协议和测试完全排除，不能据本回执宣称全工作树clean或该协议已通过验证。只读SQL在owned PG18验证语法/当前JSON保真/异舍排除通过，生产原JSON取证仍待既有正式readonly workflow实际执行。
+
+正式readonly run `44104170804` / audit job `134112002841`已在精确候选head `e23809a5b96260a673499b7f16a1f56bcfd931b0`执行成功。SQL明确回显session+transaction均READ ONLY：唯一日报id106、DAILY、FK-MUXSEJUAGOI、LPH_MENGSAI、COMP-LAO-AGRI，created_at=2026-11-17T01:02:51.503976、updated_at=NULL。原eggs_by_grade为DIRTY540、BROKEN230、GRADE_0 540、GRADE_1 11880、GRADE_2 32760、GRADE_3 1980，总和47930与eggs_produced47930一致，没有GRADE_4/5；两批各30可用仍在。缺少历史before-image，不能据入库倒填分级或自动批准冲销。
+
+本次执行范围有一项已披露偏差：虽然dispatch显式传HTTP空值，GitHub将其回填为默认sales-order-lifecycle.http.json。实际运行了默认HTTP准备（PGOPTIONS只读的Nest context、查询登录信息并在内存生成短期token），两项process-log检查均NO_SAMPLE/no-data-sample，未发送实际HTTP请求。实际cb源码login方法没有DML/保存/last_login写入；helper最后的PRODUCTION_BUSINESS_WRITES=0是其marker，不是独立完整DB写追踪。该run不能表述为“仅SQL”；不再为此重复调生产查询。下一必要候选批次增加精确NONE哨兵，经校验归一为空，避免空字段默认回填；既有默认和其它路径校验不变。
+
+候选e238远端21项checks为SUCCESS，另3项构建/部署按PR事件条件SKIPPED，零pending/failed；跳过不计为通过，也不表示已发布。真实host PG16 job134111476455、PG18 job134111476133（run44104051532）均FULL_FACTORY_COMPLETED/PASS，lease释放及原participants关闭已验证；实际226旧应用依旧EXPECTED_HOLD且protectedStateUnchanged=true，不把合成aligned旧应用成功称为exactLegacySuccess。CI实际checkout为PR merge6d328cde6d207db8e47354fd46f5c8fbdce5c1f8，已通过GitHub Git对象独立核验其tree与e238同为11c850e0e0ab59aeca5ba9b2aed98522d8f3264f。fixture内target为合成SHA，Web为owned HTTP health peer；productionAuthority/Receipt均false，不能当作生产发布回执。精确证据及固定receipt摘要见e238-ci-observation.json。此轮dracut真实接受链已闭合；后续F/R协议代码若形成新source仍须相应验证与新head审查，生产audit HOLD未消失。

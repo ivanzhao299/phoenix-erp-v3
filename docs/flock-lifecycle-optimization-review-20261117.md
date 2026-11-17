@@ -205,6 +205,19 @@ flowchart LR
 
 新结构仅走 `apps/api/src/database/migrations/` 的TypeORM TS迁移，包含down和约束验证；业务数据接续走经审查的治理脚本及回执，不把任意业务DML塞入结构迁移。回滚不能直接恢复旧代码后继续允许手改存栏；已产生新事件时需保持兼容读写或停写后受控回退。
 
+### 发布执行顺序（正式只读核查后的更新）
+
+当前生产配置基线F=`101916efbcd60956c9f8321d4859931049f966c3`，实际API/Web运行R=`cb42966edfa717b0984936951143d84973c1a263`，两者不同。最终正常合并的main记为T；main自动构建不是生产发布，不能将本次安排为一次full部署。
+
+1. 完成最终源码的独立审查和CI，正常合并为精确T；重新正式inspect并绑定最新ledger摘要。已观察的GRADE_4/5各30枚超额必须依据真实业务凭据核对，审计HOLD不能绕过，也不能从库存反推日报应填数。
+2. 审计GO后，在任何生产DDL前取得受控新鲜备份及完整性/可恢复性验证。当前pending-migration apply内的migration-evidence目录仅保存迁移日志，不是数据库备份，不能替代该前置。
+3. 用现有受控迁移apply核验并执行实际待迁移集合（观察时既有3条＋本方案5条），保存实际应用回执；并发导致ledger或集合变化时重新inspect。
+4. 对T显式API-only重锚定，保留F配置授权、R实际执行身份及T目标的精确关系。`mode=api`、`run_migrations=false`只表示schema已由上一步受控应用，不能跳过迁移回执。须核对实际API镜像、正式证据、后台SUCCESS及OPEN。
+5. 只有API阶段完整成功后，才显式对同一T做Web-only发布；API失败保持阻断，不切Web。Web失败按既有恢复流程保留PREPARED，不自动清理或伪报成功。
+6. 最终API/Web/floor均为T，备份、迁移、健康、真实页面/业务冒烟和正式完成证据齐全后，才给实际已部署的T打tag。没有真实旧群盘点及两公司签认仍保持未激活。
+
+具体F/R/T、失败恢复及隔离验证范围见[发布前置设计](ops/flock-descendant-floor-reanchor-20261117.md)。合成Compose场景、owned Web health peer和证据适配器不能替代完整ERP发布或生产receipt；完整正式abort尚未执行，仅验证恢复授权。
+
 ## 11. 验收清单
 
 1. 甲、乙公司同类产品可独立管理；场区用户不能读写同公司其他未授权农场，集团授权可汇总。

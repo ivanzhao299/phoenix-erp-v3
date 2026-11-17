@@ -8,7 +8,7 @@ import { CONTRACT, guardProduction, secureJson, assertStateVersion, rollbackElig
 import { assertModernReleaseAdmission } from './production-maintenance-admission.mjs';
 import { executionEnv, IMAGE_ID, captureRuntime } from './capture-production-runtime.mjs';
 import { transactionFile, inspectCandidate } from './production-deployment-state.mjs';
-import { inspectPublicDirectory, readPublicManifest, PUBLIC_DIRECTORY } from './background-control-manifest.mjs';
+import { inspectPublicDirectory, readPublicManifest, PUBLIC_DIRECTORY, assertSameBinding } from './background-control-manifest.mjs';
 import { metadataFor } from './production-deployment-evidence.mjs';
 export function assertBackgroundFence(directory = CONTRACT.stateDirectory, dependencies = {}) {
   const env = dependencies.env || process.env;
@@ -22,6 +22,7 @@ export function assertBackgroundFence(directory = CONTRACT.stateDirectory, depen
   catch (error) { fail(`missing=background-drain-${env.DEPLOY_RUN_ID}.json;cause=${String(error?.message || 'read-failed').replace(/\s+/g, '_')}`); }
   try { manifest = (dependencies.readManifest || readPublicManifest)(); }
   catch (error) { fail(`missing=manifest.json;cause=${String(error?.message || 'read-failed').replace(/\s+/g, '_')}`); }
+  try { assertSameBinding(record, proof); } catch { fail('mismatch=private_binding'); }
   if (!record || !proof || !manifest || record.protocolVersion !== 1 || proof.protocolVersion !== 1 || manifest.protocolVersion !== 1
     || !['FENCED', 'CODE_HOLD'].includes(record.phase) || record.holdReason || manifest.phase !== record.phase
     || record.owner !== env.DEPLOY_RUN_ID || proof.owner !== record.owner || manifest.owner !== record.owner

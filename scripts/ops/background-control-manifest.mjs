@@ -15,7 +15,31 @@ const projectionDigest = manifest => createHash('sha256').update(JSON.stringify(
 export const fail = reason => { throw new Error(`BACKGROUND_HOLD=${reason}`); };
 export function validateBinding(binding) {
   if (!binding || !/^\d+-\d+$/.test(binding.owner) || !sha(binding.previousFloorSha) || !sha(binding.targetSha)) fail('EXACT_RUN_AND_DOUBLE_SHA_REQUIRED');
+  // previousFloorSha is the previous executor revision (also used by full
+  // releases). Descendant API re-anchors separately bind the old config floor.
+  if (Object.hasOwn(binding, 'previousConfigFloorSha') && (binding.deployMode !== 'api'
+    || !sha(binding.previousConfigFloorSha) || binding.previousConfigFloorSha === binding.previousFloorSha
+    || binding.previousFloorSha === binding.targetSha || binding.previousConfigFloorSha === binding.targetSha
+    || Object.hasOwn(binding, 'configFloorSha'))) fail('API_REANCHOR_CONFIG_FLOOR_BINDING');
   return binding;
+}
+/** Preserve presence as well as value across private receipts. An omitted
+ * extension must never silently turn a new authorization into a legacy one. */
+export function assertSameBinding(actual, expected) {
+  validateBinding(expected);
+  try { validateBinding(actual); } catch { fail('OWNER_OR_TRANSACTION_MISMATCH'); }
+  for (const key of ['owner', 'previousFloorSha', 'targetSha', 'deployMode', 'configFloorSha', 'previousConfigFloorSha']) {
+    if (Object.hasOwn(actual, key) !== Object.hasOwn(expected, key) || actual[key] !== expected[key]) fail('OWNER_OR_TRANSACTION_MISMATCH');
+  }
+  return true;
+}
+export function bindingFromPrivateRecord(record) {
+  validateBinding(record);
+  const binding = { owner: record.owner, previousFloorSha: record.previousFloorSha, targetSha: record.targetSha };
+  for (const key of ['deployMode', 'configFloorSha', 'previousConfigFloorSha']) {
+    if (Object.hasOwn(record, key)) binding[key] = record[key];
+  }
+  return validateBinding(binding);
 }
 export function validateParticipants(participants, { targetSha, allowChanjet = false } = {}) {
   if (!Array.isArray(participants) || participants.length < 1 || participants.length > 128) fail('PARTICIPANT_INVENTORY_REQUIRED');
@@ -141,6 +165,7 @@ export class BackgroundManifestPublisher {
   assertOwned(binding) {
     validateBinding(binding); this.guard();
     const record = this.readPrivate();
+    assertSameBinding(record, binding);
     if (!record || record.owner !== binding.owner || record.previousFloorSha !== binding.previousFloorSha || record.targetSha !== binding.targetSha
       || !['FENCED', 'CODE_HOLD'].includes(record.phase)) fail('OWNER_OR_TRANSACTION_MISMATCH');
     const manifest = this.readPublic();

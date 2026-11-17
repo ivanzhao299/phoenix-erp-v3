@@ -17,6 +17,7 @@ const digest = value => createHash('sha256').update(JSON.stringify(value)).diges
 export async function assessLegacyTransition(input, { verifyApproval = async () => false, verifyEvidence = async () => false, now = Date.now } = {}) {
   const reasons = [];
   try { validateBinding(input?.binding); } catch { reasons.push('EXACT_RUN_AND_DOUBLE_SHA_REQUIRED'); }
+  if (input?.binding && Object.hasOwn(input.binding, 'previousConfigFloorSha')) reasons.push('MODERN_REANCHOR_BINDING_NOT_LEGACY');
   if (input?.schema !== LEGACY_TRANSITION_SCHEMA || input?.protocol !== 'STOP_AND_RECONCILE') reasons.push('LEGACY_PROTOCOL_REQUIRED');
   const approval = input?.approval;
   if (!approval || approval.decision !== 'APPROVED' || !SHA256.test(approval.contentSha256) || !ISO(approval.approvedAt)

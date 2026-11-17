@@ -37,8 +37,32 @@ export function exactReanchorBinding(env, floor, active) {
     || active.outcome !== 'SUCCESS' || active.floorSha !== floor.floorSha) fail('FLOOR_HOLD_PRECONDITION');
   const binding = { owner: env.DEPLOY_RUN_ID, previousFloorSha: env.APPROVED_PREVIOUS_FLOOR_SHA, targetSha: env.TARGET_SHA };
   validateBinding(binding);
-  if (binding.previousFloorSha !== floor.floorSha || active.active?.api?.revision !== floor.floorSha) fail('OLD_FLOOR_RUNTIME_BINDING');
+  const runtime = active.active?.api?.revision;
+  if (binding.previousFloorSha !== floor.floorSha || !/^[a-f0-9]{40}$/.test(runtime || '') || runtime === env.TARGET_SHA) fail('OLD_FLOOR_RUNTIME_BINDING');
+  if (runtime !== floor.floorSha) {
+    if (active.active?.web?.revision !== runtime) fail('REANCHOR_RUNTIME_PAIR_REQUIRED');
+    return validateBinding({ ...binding, previousFloorSha: runtime, deployMode: 'api', previousConfigFloorSha: floor.floorSha });
+  }
   return binding;
+}
+
+/** New API re-anchors keep F -> R -> T explicit before any public fence. */
+export function assertReanchorLineage(binding, { root = CONTRACT.repository, probe = git,
+  readScope = migrationScope, verifyReceipts = assertScopeMigrationsReceipted } = {}) {
+  validateBinding(binding);
+  if (!Object.hasOwn(binding, 'previousConfigFloorSha')) return true;
+  try {
+    probe(root, ['merge-base', '--is-ancestor', binding.previousConfigFloorSha, binding.previousFloorSha]);
+    probe(root, ['merge-base', '--is-ancestor', binding.previousFloorSha, binding.targetSha]);
+  } catch { fail('REANCHOR_LINEAGE_UNVERIFIED'); }
+  let scope;
+  try { scope = readScope(root, binding.previousFloorSha, binding.targetSha); }
+  catch { fail('REANCHOR_MIGRATION_SCOPE_UNREADABLE'); }
+  if (scope.changed.length) {
+    try { if (verifyReceipts(root, scope) !== true) fail('REANCHOR_MIGRATION_RECEIPT_REQUIRED'); }
+    catch { fail('REANCHOR_MIGRATION_RECEIPT_REQUIRED'); }
+  }
+  return true;
 }
 
 /** Full releases use the same fenced session and lock proof as API-only
@@ -214,6 +238,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     } else {
       installed.guardProduction(CONTRACT.repository, CONTRACT.stateDirectory, actual);
     }
+    assertReanchorLineage(binding);
     const participants = discoverParticipants(floor.project);
     const script = fs.readFileSync(0, 'utf8');
     const result = await executeFencedDeployment({ binding, project: floor.project, participants, script });
