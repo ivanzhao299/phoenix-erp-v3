@@ -311,9 +311,10 @@ describe('WMS authoritative company context (real SkuPolicy)', () => {
     expect(target[1][12]).toBe('COMP-B');
     const ledgers = f.calls.filter(([sql]) => sql.includes('INSERT INTO inv_ledger'));
     expect(ledgers).toHaveLength(2);
-    expect(ledgers[0][1][12]).toBe('COMP-A');
-    expect(ledgers[1][1][12]).toBe('COMP-B');
-    expect(ledgers.every(([, args]) => args[7] === SKU)).toBe(true);
+    // INV-301a 共享写入器列序：核心七列后依次 company_code($8) / sku_code($9)
+    expect(ledgers[0][1][7]).toBe('COMP-A');
+    expect(ledgers[1][1][7]).toBe('COMP-B');
+    expect(ledgers.every(([, args]) => args[8] === SKU)).toBe(true);
   });
 
   it('persists warehouse ownership rather than a request default in new outbound documents', async () => {

@@ -389,20 +389,21 @@ describe('WmsService inventory read queries', () => {
       String(sql).includes('INSERT INTO inv_ledger') && String(sql).includes('sku_code'),
     );
     expect(insertLedgerCall).toBeDefined();
+    // INV-301a 共享写入器列序：核心七列 + company_code, sku_code, warehouse_code, material_code, business_type, unit
     expect(insertLedgerCall?.[1]).toEqual([
       'IBN-SKU-ONLY-B1',
+      'PURCHASE_INBOUND',
       8,
       'admin',
       'ALL',
       'WI-SKU-ONLY',
       '入库确认 product=PRD-EGG sku=SKU-EGG-A-30 material=- actual=8 warehouse=LPH_MS_EGG_SALES',
-      'SKU-EGG-A-30',
-      null,
-      'LPH_MS_EGG_SALES',
-      '枚',
-      'PURCHASE_INBOUND',
-      'PURCHASE',
       'COMP-LAO-XINGCHI',
+      'SKU-EGG-A-30',
+      'LPH_MS_EGG_SALES',
+      null,
+      'PURCHASE',
+      '枚',
     ]);
   });
 
@@ -472,18 +473,18 @@ describe('WmsService inventory read queries', () => {
       expect.stringContaining('INSERT INTO inv_ledger'),
       [
         'IBN-LEGACY-SKU-B1',
+        'PURCHASE_INBOUND',
         4,
         'admin',
         'ALL',
         'WI-LEGACY-SKU',
         '入库确认 product=PRD-EGG sku=SKU-EGG-A-30 material=- actual=4 warehouse=LPH_MS_EGG_SALES',
-        'SKU-EGG-A-30',
-        null,
-        'LPH_MS_EGG_SALES',
-        '枚',
-        'PURCHASE_INBOUND',
-        'PURCHASE',
         'COMP-LAO-XINGCHI',
+        'SKU-EGG-A-30',
+        'LPH_MS_EGG_SALES',
+        null,
+        'PURCHASE',
+        '枚',
       ],
     );
   });
@@ -592,18 +593,20 @@ describe('WmsService inventory read queries', () => {
       String(sql).includes('INSERT INTO inv_ledger'),
     );
     expect(ledgerCalls).toHaveLength(2);
+    // INV-301a 共享写入器列序：核心七列 + company_code, sku_code, warehouse_code,
+    // material_code, business_type, unit, destination_type, destination_code, project_code, department_code
     expect(ledgerCalls[0][1]).toEqual([
       'B-SKU-1',
-      5,
+      'SALE_OUTBOUND',
+      -5,
       'admin',
       'ALL',
       'SO-SKU-1',
       '出库 type=SALE status=SHIPPED batch=B-SKU-1 product=- sku=SKU-EGG-A-30 material=- qty=5',
-      'SKU-EGG-A-30',
-      'SALE_OUTBOUND',
-      null,
-      'LPH_MS_EGG_SALES',
       'COMP-LAO-AGRI',
+      'SKU-EGG-A-30',
+      'LPH_MS_EGG_SALES',
+      null,
       'SALE',
       null,
       null,
@@ -613,16 +616,16 @@ describe('WmsService inventory read queries', () => {
     ]);
     expect(ledgerCalls[1][1]).toEqual([
       'B-SKU-2',
-      7,
+      'SALE_OUTBOUND',
+      -7,
       'admin',
       'ALL',
       'SO-SKU-1',
       '出库 type=SALE status=SHIPPED batch=B-SKU-2 product=- sku=SKU-EGG-A-30 material=- qty=7',
-      'SKU-EGG-A-30',
-      'SALE_OUTBOUND',
-      null,
-      'LPH_MS_EGG_SALES',
       'COMP-LAO-AGRI',
+      'SKU-EGG-A-30',
+      'LPH_MS_EGG_SALES',
+      null,
       'SALE',
       null,
       null,
@@ -698,22 +701,22 @@ describe('WmsService inventory read queries', () => {
       expect.stringContaining('INSERT INTO inv_ledger'),
       [
         'B-EGG-A-1',
-        12,
+        'SALE_OUTBOUND',
+        -12,
         'warehouse-admin',
         'ALL',
         'WO-20260725-001',
         '出库 type=SALE status=DONE batch=B-EGG-A-1 product=PRD-EGG sku=SKU-EGG-A-30 material=- qty=12',
-        'SKU-EGG-A-30',
-        'SALE_OUTBOUND',
-        null,
-        'LPH_MS_EGG_SALES',
         'COMP-LAO-AGRI',
+        'SKU-EGG-A-30',
+        'LPH_MS_EGG_SALES',
+        null,
         'SALE',
+        '枚',
         'CUSTOMER',
         'CUS-1',
         null,
         null,
-        '枚',
       ],
     );
     expect(manager.query).toHaveBeenCalledWith(
@@ -1042,9 +1045,10 @@ describe('WmsService inventory read queries', () => {
       String(sql).includes('INSERT INTO inv_ledger'),
     );
     expect(ledgerCalls).toHaveLength(2);
+    // INV-301a：qty_change 现由 writer 参数直接携带符号（出库 -2.5）
     expect(ledgerCalls[0][1]).toEqual(expect.arrayContaining([
       'B-MAT-1',
-      2.5,
+      -2.5,
       'TRANSFER_OUT',
       'MAT-SPARE-1',
       'WH-A',
@@ -1206,7 +1210,8 @@ describe('WmsService inventory read queries', () => {
       expect.arrayContaining(['WH-B', 'STORE-B', 'COMP-A']),
     );
     expect(manager.query).toHaveBeenCalledWith(
-      expect.stringContaining('business_type,unit,company_code'),
+      // INV-301a：writer 列序（business_type, unit 为固定尾段，company_code 前移至核心列后）
+      expect.stringContaining('business_type, unit'),
       expect.arrayContaining(['STORE-B', 'WH-B', 'COMP-A']),
     );
     expect(manager.query).not.toHaveBeenCalledWith(expect.stringContaining("SET status='COMPLETED'"), expect.anything());

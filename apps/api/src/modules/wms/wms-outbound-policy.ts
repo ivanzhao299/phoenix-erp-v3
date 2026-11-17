@@ -1,3 +1,5 @@
+import { InvLedgerChangeType } from './inv-ledger-change-types';
+
 export const WMS_OUTBOUND_TYPES = [
   'SALE',
   'TRANSFER',
@@ -37,7 +39,7 @@ export interface WmsOutboundTypePolicy {
   source: string;
   category: WmsOutboundCategory;
   businessType: string;
-  ledgerType: string;
+  ledgerType: InvLedgerChangeType;
   destinations: readonly string[];
   allowedItemTypes: readonly ('MATERIAL' | 'SKU')[];
   materialTypes?: readonly string[];
@@ -216,7 +218,7 @@ export function isIssueOutboundType(type: unknown): boolean {
   return WMS_ISSUE_OUTBOUND_TYPES.has(value(type).toUpperCase() as WmsOutboundType);
 }
 
-export function resolveOutboundLedgerType(type: unknown): string {
+export function resolveOutboundLedgerType(type: unknown): InvLedgerChangeType {
   return resolveOutboundPolicy(type)?.ledgerType ?? 'OUTBOUND';
 }
 
