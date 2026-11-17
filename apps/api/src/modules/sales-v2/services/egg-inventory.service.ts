@@ -334,6 +334,10 @@ export class EggInventoryService {
   /**
    * 写 inv_ledger 流水（内部）
    * Phase H4：新增 skuCode 传递，支持按 SKU 维度追溯
+   * INV-104：新增 storeCode；$5（store_code 列）此前误传 companyCode，
+   * 导致门店归因与 generic-crud.service.ts 的 store JOIN 失效。
+   * 有门店上下文的调用方传真实 storeCode；egg 引擎各路径（农口销售/生产/
+   * 过期核销）本就无门店上下文，传 null（mst_stores LEFT JOIN 对 NULL 自然短路）。
    */
   private async writeLedger(
     params: {
@@ -348,6 +352,8 @@ export class EggInventoryService {
       qualityGrade?:   string | null;
       /** Phase H4: 从批次传递 sku_code，写入 inv_ledger 便于追溯 */
       skuCode?:        string | null;
+      /** INV-104: 门店归因码；无门店上下文传 null，禁止回退传公司码 */
+      storeCode?:      string | null;
       logDate?:        string | null;
       warehouseCode?:  string | null;
       locationCode?:   string | null;
@@ -367,7 +373,7 @@ export class EggInventoryService {
         params.changeType,
         params.qtyChange,
         params.operator,
-        params.companyCode,
+        params.storeCode ?? null,
         params.refNo,
         params.note,
         params.batchExpireDate ?? null,
@@ -1424,7 +1430,7 @@ export class EggInventoryService {
         );
         if (changed.length !== 1) continue;
 
-        // ④ EXPIRE_WRITEOFF 同事务写入（Phase H4: 传递 sku_code）
+        // ④ EXPIRE_WRITEOFF 同事务写入（Phase H4: 传递 sku_code；INV-104: 无门店上下文显式传 null）
         await this.writeLedger({
           batchNo:         batch.batch_no,
           changeType:      'EXPIRE_WRITEOFF',
@@ -1436,6 +1442,7 @@ export class EggInventoryService {
           batchExpireDate: batch.expire_date ?? null,
           qualityGrade:    batch.quality_grade ?? null,
           skuCode:         batch.sku_code ?? null,
+          storeCode:       null,
         }, em);
         written++;
       }

@@ -890,3 +890,29 @@ describe('EggInventoryService write-path company DataScope (INV-103)', () => {
     }
   });
 });
+
+describe('EggInventoryService writeLedger store_code (INV-104)', () => {
+  it('binds a null store_code instead of the company code and keeps company_code at $10', async () => {
+    const query = jest.fn(async (sql: string) => {
+      if (sql.includes('FOR UPDATE OF b SKIP LOCKED')) return [
+        { batch_no: 'B-CLEAN', qty: '10', company_code: 'COMP-A', expire_date: '2026-11-01', quality_grade: 'A', sku_code: 'SKU-1' },
+      ];
+      if (sql.includes('GROUP BY b.batch_no')) return [];
+      if (sql.includes("SET status='EXPIRED'")) return [{ batch_no: 'B-CLEAN' }];
+      if (sql.includes('INSERT INTO inv_ledger')) return [{ id: 9 }];
+      return [];
+    });
+    const transaction = jest.fn(async (run: (tx: unknown) => Promise<unknown>) => run({ query }));
+    const service = new EggInventoryService({ query, transaction } as never, { get: jest.fn().mockReturnValue(undefined) } as never);
+
+    await service.markExpiredBatches('COMP-A');
+
+    const ledger = (query.mock.calls as any[][]).find(([sql]) => String(sql).includes('INSERT INTO inv_ledger'))!;
+    // Column order: batch_no, change_type, qty_change, operator, store_code($5), ref_no,
+    // note, batch_expire_date, quality_grade, company_code($10), sku_code, ...
+    expect(ledger[0]).toContain('(batch_no, change_type, qty_change, operator, store_code, ref_no, note,');
+    expect(ledger[1][4]).toBeNull();       // $5 store_code — must no longer receive the company code
+    expect(ledger[1][9]).toBe('COMP-A');   // $10 company_code stays authoritative
+    expect(ledger[1][0]).toBe('B-CLEAN');
+  });
+});
