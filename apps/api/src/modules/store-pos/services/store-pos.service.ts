@@ -27,6 +27,7 @@ import { ClsService } from 'nestjs-cls';
 import { hasPerm } from '../../../auth/permissions.util';
 import { StoreScopePolicy, StoreWarehousePurpose } from './store-scope-policy.service';
 import { INV_LEDGER_CHANGE_TYPE } from '../../wms/inv-ledger-change-types';
+import { writeInvLedger } from '../../wms/inventory-ledger.writer';
 import { fifoLockKey, fifoItemKey } from '../../wms/inventory-lock.util';
 import { PriceRuntimeService, ResolvedPrice } from '../../sales-v2/services/price-runtime.service';
 import { finiteCashNumber, returningRow } from '../../finance-v2/services/cash-balance.guard';
@@ -1029,22 +1030,20 @@ export class StorePosService {
           allocs.push({ itemId: item.id, batchNo: batch.batch_no, warehouseCode: batch.warehouse_code, qty: canTake });
 
           // 写 inv_ledger FIFO_OUT（Phase H5: 传递 sku_code）
-          await mgr.query(
-            `INSERT INTO inv_ledger
-               (batch_no, change_type, qty_change, operator, store_code, ref_no, note, sku_code, company_code, warehouse_code, created_at)
-             VALUES ($1,'${INV_LEDGER_CHANGE_TYPE.FIFO_OUT}',$2,$3,$4,$5,$6,$7,$8,$9,NOW())`,
-            [
-              batch.batch_no,
-              -canTake,
-              this.currentUser?.username ?? 'pos',
-              sale.store_code,
-              sale.sale_no,
-              `门店收银 FIFO 出库 ${sale.sale_no} qty=${canTake}`,
-              batch.sku_code ?? null,
-              sale.company_code,
-              batch.warehouse_code,
-            ],
-          );
+          // INV-301a：统一共享写入器（旧 SQL 显式 created_at=NOW() 与列默认
+          // CURRENT_TIMESTAMP 同为事务开始时间，省略后语义等价）
+          await writeInvLedger(mgr, {
+            batchNo: batch.batch_no,
+            changeType: INV_LEDGER_CHANGE_TYPE.FIFO_OUT,
+            qtyChange: -canTake,
+            operator: this.currentUser?.username ?? 'pos',
+            storeCode: sale.store_code,
+            refNo: sale.sale_no,
+            note: `门店收银 FIFO 出库 ${sale.sale_no} qty=${canTake}`,
+            skuCode: batch.sku_code ?? null,
+            companyCode: sale.company_code,
+            warehouseCode: batch.warehouse_code,
+          });
       }
 
       if (remaining > 0) {
@@ -1224,14 +1223,20 @@ export class StorePosService {
          allocation.sku_code ?? null, quarantine.warehouse_code, quarantine.location_code,
          allocation.grade_code_std ?? null, allocation.spec_code ?? null, allocation.unit ?? null, allocation.egg_date ?? null, allocation.expire_date ?? null, allocation.base_quantity_version ?? null],
       );
-      await mgr.query(
-        `INSERT INTO inv_ledger
-           (batch_no, change_type, qty_change, operator, store_code, ref_no, note, company_code, sku_code, warehouse_code, location_code, created_at)
-         VALUES ($1,'${INV_LEDGER_CHANGE_TYPE.SALE_RETURN}',$2,$3,$4,$5,$6,$7,$8,$9,$10,NOW())`,
-        [batchNo, qty, this.currentUser?.username ?? 'pos', sale.store_code, sale.sale_no,
-         `按 allocation ${allocation.id} 退货入隔离批 ${sale.sale_no} qty=${qty}`, sale.company_code,
-         allocation.sku_code ?? null, quarantine.warehouse_code, quarantine.location_code],
-      );
+      // INV-301a：统一共享写入器（created_at 省略走列默认，语义等价）
+      await writeInvLedger(mgr, {
+        batchNo,
+        changeType: INV_LEDGER_CHANGE_TYPE.SALE_RETURN,
+        qtyChange: qty,
+        operator: this.currentUser?.username ?? 'pos',
+        storeCode: sale.store_code,
+        refNo: sale.sale_no,
+        note: `按 allocation ${allocation.id} 退货入隔离批 ${sale.sale_no} qty=${qty}`,
+        companyCode: sale.company_code,
+        skuCode: allocation.sku_code ?? null,
+        warehouseCode: quarantine.warehouse_code,
+        locationCode: quarantine.location_code,
+      });
       await mgr.query(
         `UPDATE store_sale_allocations SET returned_qty=allocated_qty,updated_at=NOW()
           WHERE id=$1 AND returned_qty < allocated_qty`,
