@@ -23,8 +23,8 @@ describe('EggInventoryService conditional inventory updates', () => {
       refNo: 'SO-1', note: 'test', salesContext: 'FARM_SALES', fulfillmentWarehouseCode: 'WH-A',
     })).rejects.toBeInstanceOf(ConflictException);
     const guardedUpdate = (query.mock.calls as any[][]).find(([sql]) => String(sql).includes('SELECT batch_no FROM changed')) as [string, unknown[]] | undefined;
-    // INV-301b guardedBatchUpdate canonical layout: $1=batchNo $2=company $3=warehouse $4=deltaAvailable（负数=扣减）
-    expect(guardedUpdate?.[1]).toEqual(['B-1', 'COMP-A', 'WH-A', -2]);
+    // INV-301b guardedBatchUpdate canonical layout: $1=batchNo $2=company $3=warehouse $4=deltaAvailable（Math.abs 绝对值，方向在 SQL 符号）
+    expect(guardedUpdate?.[1]).toEqual(['B-1', 'COMP-A', 'WH-A', 2]);
   });
 
   it('reports company, SKU, requested qty and company-allocatable qty without warehouse details', async () => {

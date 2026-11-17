@@ -2,6 +2,8 @@ import { guardedBatchUpdate, GuardedBatchUpdateSpec } from './inventory-guarded-
 
 /**
  * INV-301b 守卫化 UPDATE 统一入口契约：SQL 形态钉死。
+ * 参数语义：delta 带符号（方向），占位符绑定 Math.abs(delta)——杜绝双重取负
+ * （曾致 PG 真库 ck_inv_batches_qty 违例：SET x - $n 收到负数变加法且守卫永真）。
  *
  * 每个守卫维度生成的 SET/WHERE 片段与占位符布局都必须逐字稳定——
  * legacy-managed-allocation / legacy-managed-pos-allocation 两个行为型
@@ -41,7 +43,7 @@ describe('guardedBatchUpdate (INV-301b shared guard util)', () => {
               AND (inv_batches.inventory_class IN ('STANDARD','DEFECT_SALE'))
             RETURNING batch_no
          ) SELECT batch_no FROM changed`);
-    expect(params).toEqual(['B-1', 'COMP-A', 'WH-A', -3]);
+    expect(params).toEqual(['B-1', 'COMP-A', 'WH-A', 3]); // 负 delta → 绑定绝对值（方向在 SQL 符号）
     // Behavioral SQL fixtures (legacy-managed-*) normalize whitespace and match
     // on this prefix — the CTE-wrapped UPDATE form is part of the contract.
     const normalized = String(sql).replace(/\s+/g, ' ').trim();
@@ -86,7 +88,7 @@ describe('guardedBatchUpdate (INV-301b shared guard util)', () => {
     expect(String(sql)).toContain('SET qty = qty - $4, updated_at=NOW()');
     expect(String(sql)).toContain('AND qty >= $4');
     expect(String(sql)).not.toContain('qty_available');
-    expect(params).toEqual(['B-3', 'COMP-A', 'WH-A', -2]);
+    expect(params).toEqual(['B-3', 'COMP-A', 'WH-A', 2]); // 负 delta → 绝对值
   });
 
   it('pins the POS fifoDeductItems shape (both deltas share the batch row, available keeps $5)', async () => {
@@ -115,7 +117,7 @@ describe('guardedBatchUpdate (INV-301b shared guard util)', () => {
               AND legacy_source IS NULL
             RETURNING batch_no
          ) SELECT batch_no FROM changed`);
-    expect(params).toEqual(['B-4', 'COMP-A', 'WH-A', -3, -3]);
+    expect(params).toEqual(['B-4', 'COMP-A', 'WH-A', 3, 3]); // 双负 delta → 双绝对值
   });
 
   it('emits a positive qty delta without a lower-bound guard and an IN list for multi-status guards', async () => {
@@ -150,7 +152,7 @@ describe('guardedBatchUpdate (INV-301b shared guard util)', () => {
     const [sql, params] = query.mock.calls[0];
     expect(String(sql)).toContain('AND (inv_batches.inventory_class = $6)');
     expect(String(sql)).toContain('AND (EXISTS (SELECT 1 FROM t WHERE t.x = $7))');
-    expect(params).toEqual(['B-6', 'COMP-A', 'WH-A', -1, -1, 'STANDARD', 9]);
+    expect(params).toEqual(['B-6', 'COMP-A', 'WH-A', 1, 1, 'STANDARD', 9]); // 双负 delta → 绝对值
   });
 
   it('fails fast on invalid specs instead of emitting a silently-matching guard', async () => {

@@ -137,13 +137,15 @@ export async function guardedBatchUpdate(
 
   // 数量守卫：占位符分配顺序固定 qty 在前、available 在后（$4/$5 布局的确定性来源）
   if (spec.deltaQty !== undefined && spec.deltaQty !== 0) {
-    params.push(spec.deltaQty);
+    // 参数绑定绝对值、方向由符号决定——调用方传带符号增量（如 -canTake）时
+    // SET 用 + $abs / WHERE 用 >= $abs，杜绝「减负数=加法 + 守卫永真」的双重取负
+    params.push(Math.abs(spec.deltaQty));
     const placeholder = `$${params.length}`;
     setClauses.push(spec.deltaQty < 0 ? `qty = qty - ${placeholder}` : `qty = qty + ${placeholder}`);
     if (spec.deltaQty < 0) whereClauses.push(`qty >= ${placeholder}`);
   }
   if (spec.deltaAvailable !== undefined && spec.deltaAvailable !== 0) {
-    params.push(spec.deltaAvailable);
+    params.push(Math.abs(spec.deltaAvailable));
     const placeholder = `$${params.length}`;
     setClauses.push(spec.deltaAvailable < 0
       ? `qty_available = qty_available - ${placeholder}`
