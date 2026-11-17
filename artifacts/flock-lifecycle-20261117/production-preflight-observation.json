@@ -1,6 +1,7 @@
 {
-  "asOf": "2026-11-17 14:29:05 UTC",
-  "productionWritesPerformed": false,
+  "asOf": "2026-11-17T15:16:09.033102+00:00",
+  "productionDatabaseWritesPerformed": false,
+  "temporaryWorkflowStaging": "Existing controlled workflows stage helpers and collect logs; no migration apply, data repair or deployment performed",
   "identity": {
     "runId": 44099756016,
     "jobId": 134096289689,
@@ -103,9 +104,78 @@
         ]
       }
     ],
-    "rawDailyJsonObserved": false,
+    "rawDailyJsonObserved": true,
     "beforeHistoryObserved": false,
     "repairPerformed": false,
-    "scriptEligibleMarkerIsRepairApproval": false
+    "scriptEligibleMarkerIsRepairApproval": false,
+    "unbalancedCountCoverage": "Old predicate legacy_source NOT LIKE omitted NULL sources; zero was the old script count, not proof of all production batches. Source-only COALESCE fix awaits new candidate controlled audit.",
+    "targetBatchBalanceIndependentlyObserved": {
+      "413": {
+        "qty": 30,
+        "inboundLedgerSum": 30
+      },
+      "415": {
+        "qty": 30,
+        "inboundLedgerSum": 30
+      }
+    }
+  },
+  "dailyRawEvidence": {
+    "runId": 44104170804,
+    "jobId": 134112002841,
+    "workflow": "production-readonly-audit.yml",
+    "workflowConclusion": "success",
+    "sourceCommit": "e23809a5b96260a673499b7f16a1f56bcfd931b0",
+    "productionCheckout": "cb42966edfa717b0984936951143d84973c1a263",
+    "readonlySessionAndTransaction": true,
+    "matchingDailyRows": 1,
+    "currentDaily": {
+      "id": 106,
+      "shift": "DAILY",
+      "flock_no": "FK-MUXSEJUAGOI",
+      "log_date": "2026-11-17",
+      "farm_code": "LPH_MENGSAI",
+      "created_at": "2026-11-17T01:02:51.503976",
+      "house_code": "HOUSE_MS_01",
+      "updated_at": null,
+      "company_code": "COMP-LAO-AGRI",
+      "eggs_by_grade": {
+        "DIRTY": 540,
+        "BROKEN": 230,
+        "GRADE_0": 540,
+        "GRADE_1": 11880,
+        "GRADE_2": 32760,
+        "GRADE_3": 1980
+      },
+      "eggs_produced": 47930,
+      "grade_json_bytes": 98
+    },
+    "gradeJsonSum": 47930,
+    "grade4And5Present": false,
+    "beforeHistoryObserved": false,
+    "httpInputDeviation": {
+      "requested": "",
+      "effective": "scripts/ops/readonly-audits/sales-order-lifecycle.http.json",
+      "reason": "GitHub replaced blank input with workflow default",
+      "actualPreparation": "Readonly Nest application context and in-memory short-lived token generation ran before no-sample decisions",
+      "actualHttpRequestsSent": 0,
+      "results": {
+        "process-log-real-order-envelope": "NO_SAMPLE no-data-sample",
+        "process-log-cross-company-denied": "NO_SAMPLE no-data-sample"
+      },
+      "helperBusinessWritesMarker": "PASS PRODUCTION_BUSINESS_WRITES=0",
+      "markerLimitation": "A helper marker is not an independent complete database write trace",
+      "scopeClaim": "This run must not be described as SQL-only"
+    },
+    "repairApproved": false,
+    "repairPerformed": false
+  },
+  "businessDisposition": {
+    "relayedUserConfirmation": "The extra 60 eggs were confirmed test entries or mistakes",
+    "authorization": "Prepare a reversal proposal for review only",
+    "actualReversalAuthorized": false,
+    "actualReversalPerformed": false,
+    "daily47930AndOriginalGradesRemain": true,
+    "scope": "Only the two identified 30-egg batches; no authority to alter other grades or unrelated rows"
   }
 }

@@ -1,9 +1,9 @@
 {
-  "asOf": "2026-11-17T14:31:08.427105+00:00",
+  "asOf": "2026-11-17T16:06:27.192802+00:00",
   "baseMain": "a7c0045b9f6d1a475b5a10710184e66d9c494aa0",
   "candidateParent": "4cf46971cc1a1a2dba5be30838eaf75369cabf9c",
-  "sourceFingerprintSha256": "67c70c7e4c4fd03ca5333b73f9ef739540f6e6b402292a17e5e7dbb85e089ae2",
-  "sourceFileCount": 107,
+  "sourceFingerprintSha256": "56040bba700f44ba13361554624ece580243c58b3ee9999608d9c345c5851dae",
+  "sourceFileCount": 129,
   "checks": {
     "api": {
       "suitesPassed": 168,
@@ -215,7 +215,7 @@
       "schedulerDiagnosticTests": 15,
       "maintenanceRelatedTests": 30,
       "pdfReadable": "strict PDF parsing; one page; exact evidence text; browser exact bytes and safe filename",
-      "remoteFinalCi": "Pending source 9d1a5186d; real PG16/18 host first-switch acceptance must be observed",
+      "remoteFinalCi": "New source d947 pending remote CI. Prior exact e238 had21 SUCCESS +3 PR-event build/deploy SKIPPED; not a result for the new protocol/backup head.",
       "packagingSetupOffline": 6,
       "packagingRegressionLive": 45,
       "genericCrudController": 24,
@@ -236,15 +236,26 @@
         "passed": 73,
         "failed": 0,
         "newVendorTests": 20,
-        "actualHostAccepted": false,
-        "scope": "exact nine protected fragment paths; descriptor, ownership, ACL, raw link/ancestor and capture wiring checks"
+        "actualHostAccepted": true,
+        "scope": "exact nine protected fragment paths; descriptor, ownership, ACL, raw link/ancestor and capture wiring checks",
+        "actualHostEvidence": {
+          "prHead": "e23809a5b96260a673499b7f16a1f56bcfd931b0",
+          "checkoutMerge": "6d328cde6d207db8e47354fd46f5c8fbdce5c1f8",
+          "run": 44104051532,
+          "PG16": 134111476455,
+          "PG18": 134111476133,
+          "fullFactory": "PASS on both",
+          "productionAuthority": false,
+          "exactLegacySuccess": false
+        }
       },
       "dailyEggReadonlySql": {
         "inputValidationExit": 0,
         "ownedPg18ReadOnlyExit": 0,
         "ownedPositiveFixtureExit": 0,
-        "actualProductionRawDailyJson": "pending formal readonly workflow",
-        "beforeHistory": "not proven"
+        "actualProductionRawDailyJson": "Observed current id106 JSON via existing controlled readonly workflow44104170804; no GRADE4/5; total matches47930",
+        "beforeHistory": "not proven",
+        "executionScope": "Not SQL-only: blank HTTP input defaulted; readonly app context/token preparation ran; both default checks NO_SAMPLE; zero actual HTTP requests"
       }
     },
     "appearance": [
@@ -706,7 +717,336 @@
           ]
         }
       }
-    ]
+    ],
+    "productionReadonlyObservation": {
+      "runId": 44104170804,
+      "jobId": 134112002841,
+      "workflow": "production-readonly-audit.yml",
+      "workflowConclusion": "success",
+      "sourceCommit": "e23809a5b96260a673499b7f16a1f56bcfd931b0",
+      "productionCheckout": "cb42966edfa717b0984936951143d84973c1a263",
+      "readonlySessionAndTransaction": true,
+      "matchingDailyRows": 1,
+      "currentDaily": {
+        "id": 106,
+        "shift": "DAILY",
+        "flock_no": "FK-MUXSEJUAGOI",
+        "log_date": "2026-11-17",
+        "farm_code": "LPH_MENGSAI",
+        "created_at": "2026-11-17T01:02:51.503976",
+        "house_code": "HOUSE_MS_01",
+        "updated_at": null,
+        "company_code": "COMP-LAO-AGRI",
+        "eggs_by_grade": {
+          "DIRTY": 540,
+          "BROKEN": 230,
+          "GRADE_0": 540,
+          "GRADE_1": 11880,
+          "GRADE_2": 32760,
+          "GRADE_3": 1980
+        },
+        "eggs_produced": 47930,
+        "grade_json_bytes": 98
+      },
+      "gradeJsonSum": 47930,
+      "grade4And5Present": false,
+      "beforeHistoryObserved": false,
+      "httpInputDeviation": {
+        "requested": "",
+        "effective": "scripts/ops/readonly-audits/sales-order-lifecycle.http.json",
+        "reason": "GitHub replaced blank input with workflow default",
+        "actualPreparation": "Readonly Nest application context and in-memory short-lived token generation ran before no-sample decisions",
+        "actualHttpRequestsSent": 0,
+        "results": {
+          "process-log-real-order-envelope": "NO_SAMPLE no-data-sample",
+          "process-log-cross-company-denied": "NO_SAMPLE no-data-sample"
+        },
+        "helperBusinessWritesMarker": "PASS PRODUCTION_BUSINESS_WRITES=0",
+        "markerLimitation": "A helper marker is not an independent complete database write trace",
+        "scopeClaim": "This run must not be described as SQL-only"
+      },
+      "repairApproved": false,
+      "repairPerformed": false
+    },
+    "remoteCandidateCi": {
+      "asOf": "2026-11-17T14:55:48.945915+00:00",
+      "pullRequest": 574,
+      "prHead": "e23809a5b96260a673499b7f16a1f56bcfd931b0",
+      "workflowCheckoutMerge": "6d328cde6d207db8e47354fd46f5c8fbdce5c1f8",
+      "verifiedEqualTree": "11c850e0e0ab59aeca5ba9b2aed98522d8f3264f",
+      "passedChecks": 21,
+      "expectedSkippedDeployChecks": 3,
+      "failedChecks": 0,
+      "pendingChecks": 0,
+      "firstSwitchRunId": 44104051532,
+      "firstSwitch": [
+        {
+          "major": 16,
+          "jobId": 134111476455,
+          "outcome": "PASS",
+          "stage": "FULL_FACTORY_COMPLETED",
+          "sourceHead": "6d328cde6d207db8e47354fd46f5c8fbdce5c1f8",
+          "syntheticTargetSha": "316dd5ba5384da96972e4fa55e8620113b75b6da",
+          "sessionOutcome": "SUCCESS",
+          "leaseRelease": "VERIFIED_RELEASED",
+          "participantRelease": "VERIFIED_ORIGINAL_CLOSES",
+          "actual226Outcome": "EXPECTED_HOLD",
+          "protectedStateUnchanged": true,
+          "actual226FormalSuccess": false,
+          "fixtureOnly": true,
+          "productionReceipt": false,
+          "productionAuthority": false,
+          "exactLegacySuccess": false,
+          "webImplementation": "OWNED_HTTP_PROTOCOL_PEER_NOT_NEXT_UAT",
+          "receiptHashes": {
+            "result.json": "42e75da86758522768415d472ead7a01043080b0decdaa5801b7a979672080cb",
+            "host-intent.json": "4a649770efa83201a581d537ce83275e6783bba7d066f1a8a9ce1af5f7c2b5ae",
+            "actual226-migration-rejection.json": "5d675e5b25f433f312dc42b973a2d5614b6c0fb812ae79f005f1fb4af3260daa"
+          }
+        },
+        {
+          "major": 18,
+          "jobId": 134111476133,
+          "outcome": "PASS",
+          "stage": "FULL_FACTORY_COMPLETED",
+          "sourceHead": "6d328cde6d207db8e47354fd46f5c8fbdce5c1f8",
+          "syntheticTargetSha": "8fe88f523b372ed28d53c67afde5cb5fcd7ca025",
+          "sessionOutcome": "SUCCESS",
+          "leaseRelease": "VERIFIED_RELEASED",
+          "participantRelease": "VERIFIED_ORIGINAL_CLOSES",
+          "actual226Outcome": "EXPECTED_HOLD",
+          "protectedStateUnchanged": true,
+          "actual226FormalSuccess": false,
+          "fixtureOnly": true,
+          "productionReceipt": false,
+          "productionAuthority": false,
+          "exactLegacySuccess": false,
+          "webImplementation": "OWNED_HTTP_PROTOCOL_PEER_NOT_NEXT_UAT",
+          "receiptHashes": {
+            "result.json": "fe74c24ffef69dfe55117c7e598318a8f874c2b70a2589edee2073a4f181d6d2",
+            "host-intent.json": "38be4a9fce44d3c84af54751fdb7683e7d39923fa53d0c68a57f3ec4a67794c3",
+            "actual226-migration-rejection.json": "51e705ebf6db7a45271fd3a5d98e8dc921456898668d1ea6c6834229800d4263"
+          }
+        }
+      ],
+      "checks": [
+        {
+          "name": "Typecheck, Build, Basic Tests",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/44104051598/job/134111475919"
+        },
+        {
+          "name": "Static Security And Freeze Gates",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/44104051551/job/134111475243"
+        },
+        {
+          "name": "Runtime Smoke",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/44104051615/job/134111476847"
+        },
+        {
+          "name": "PG16 PG18 Fence And Drain",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/44104051750/job/134111476793"
+        },
+        {
+          "name": "Playwright Chromium (isolated PG16)",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/44104051994/job/134111477231"
+        },
+        {
+          "name": "Vitest (apps/web)",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/44104051708/job/134111476524"
+        },
+        {
+          "name": "Detect change scope",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/44104051942/job/134111477600"
+        },
+        {
+          "name": "Owned Kernel Ingress PG16",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/44104051532/job/134111476473"
+        },
+        {
+          "name": "fixture",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/44104051977/job/134111476691"
+        },
+        {
+          "name": "fixture",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/44104051978/job/134111475799"
+        },
+        {
+          "name": "rehearsal",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/44104051607/job/134111476068"
+        },
+        {
+          "name": "regression",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/44104051863/job/134111475494"
+        },
+        {
+          "name": "Actual Next Compose Web-only Evidence",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/44104051944/job/134111476605"
+        },
+        {
+          "name": "Owned Kernel Ingress PG18",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/44104051532/job/134111476272"
+        },
+        {
+          "name": "Type-check & Regression",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/44104051942/job/134111595793"
+        },
+        {
+          "name": "Native Default Candidate Collector PG16",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/44104051532/job/134111476118"
+        },
+        {
+          "name": "Real PostgreSQL18 Admission Invariants",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/44104051607/job/134111476616"
+        },
+        {
+          "name": "Native Default Candidate Collector PG18",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/44104051532/job/134111476493"
+        },
+        {
+          "name": "Deploy · fast-css (CSS hot patch)",
+          "conclusion": "SKIPPED",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/44104051942/job/134111599125"
+        },
+        {
+          "name": "Synthetic Migration-Aligned Legacy First Switch PG16",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/44104051532/job/134111476455"
+        },
+        {
+          "name": "Synthetic Migration-Aligned Legacy First Switch PG18",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/44104051532/job/134111476133"
+        },
+        {
+          "name": "Build & Push ${{ matrix.target }}",
+          "conclusion": "SKIPPED",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/44104051942/job/134115130202"
+        },
+        {
+          "name": "Legacy Maintenance PG16 PG18 And Real ERP",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/44104051532/job/134111475777"
+        },
+        {
+          "name": "Deploy · ${{ needs.detect-changes.outputs.mode }}",
+          "conclusion": "SKIPPED",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/44104051942/job/134115131381"
+        }
+      ],
+      "merged": false,
+      "deployed": false,
+      "newerUncommittedProtocolIncluded": false
+    },
+    "descendantReanchor": {
+      "asOf": "2026-11-17T15:05:53.850691+00:00",
+      "sourceCommit": "060c90a239c1e21b7d0b46c3bdd2799b495bdde6",
+      "fixtureOnly": true,
+      "productionReceipt": false,
+      "productionDeployed": false,
+      "scope": "REAL_BACKGROUND_COMPONENTS_PG_COMPOSE_WEB_HEALTH_PEER",
+      "formalProductionRootAndEvidence": "OWNED_ADAPTERS_ONLY",
+      "scenarioOutcomes": [
+        {
+          "name": "API_BODY_FAILURE_NO_WEB_SWITCH",
+          "outcome": "PASS",
+          "publicPhase": "FENCED",
+          "restoreAuthorizationVerified": true
+        },
+        {
+          "name": "WEB_IMAGE_FAILURE_STAYS_INCOMPLETE_API_UNCHANGED",
+          "outcome": "PASS",
+          "finalReleaseComplete": false
+        },
+        {
+          "name": "DESCENDANT_DRAIN_PROMOTION_API_OPEN_THEN_WEB",
+          "outcome": "PASS"
+        }
+      ],
+      "actualSnapshotComparisons": "API stage preserves Web/DB; Web stage preserves API/DB; final owned active pins equal actual runtime",
+      "webScope": "Owned HTTP health peer; not Next/ERP UAT",
+      "formalAbortExecuted": false,
+      "restoreAuthorizationVerified": true,
+      "syntheticRevisions": true,
+      "coordinatorObservedExitCode": 0,
+      "coordinatorObservedCleanup": "Complete for owned containers, network and public volume",
+      "reportSha256": "6f90958cf10866fd922c800b55dc1245f56427b7e2dd571ae7bf4849580083c4",
+      "fixtureLogSha256": "52a3ff6d2aead4ea47fe4acf73927d3df9eea6e1ddc31b0cb70439effa30350a",
+      "fixtureSourceSha256": {
+        "scripts/test/flock-reanchor-compose.mjs": "2e82d9f140c60a7d9b85397e3b21d78092f00897dae3145fde3d81d17efc2b7c",
+        "scripts/test/flock-reanchor-compose-body.mjs": "4603212718799e1d08445540e120a356303ebef76157d9a6923a445a0d6f1976",
+        "scripts/test/flock-reanchor-api.cjs": "f96eeaa1e1fa21403b8f79cd11bac651090f0af687958c675e675f88f04b000a"
+      },
+      "postSourceExtendedTests": {
+        "sourceCommit": "060c90a239c1e21b7d0b46c3bdd2799b495bdde6",
+        "total": 246,
+        "passed": 237,
+        "skippedOptIn": 9,
+        "failed": 0,
+        "exitCode": 0
+      },
+      "postSourceRealPgTests": {
+        "passed": 9,
+        "skipped": 0,
+        "failed": 0,
+        "exitCode": 0
+      },
+      "candidateSourceCommit": "d947bf0b4591e830dd46c021a9a9800ad5c4b11f",
+      "componentBytesUnchangedAtCandidate": true
+    },
+    "backupAndNullAudit": {
+      "sourceCommit": "d947bf0b4591e830dd46c021a9a9800ad5c4b11f",
+      "combinedPassed": 13,
+      "skipped": 0,
+      "failed": 0,
+      "actualExitCode": 0,
+      "independentCombinedPassed": 13,
+      "independentSkipped": 0,
+      "independentAuditPassed": 4,
+      "realArchivePgMajors": [
+        16,
+        18
+      ],
+      "pathScope": "Actual trusted validator with owned metadata models; actual nonroot CLI rejection; archive PG tests use explicit owned path adapters",
+      "productionRootExt4Accepted": false,
+      "productionBackupPerformed": false,
+      "fullArchiveParseIsDatabaseRestore": false,
+      "diskThreshold": "2GiB minimum only; not a total backup size guarantee",
+      "defaultGuard": "verifyContext/FD9 and trusted STAGE before any backup namespace or pin mutation",
+      "failureHistory": "Initial fixture lacked explicit DB user/name; independent PG16 temporary Unix-server readiness failure; both withdrawn as PASS and fixed using explicit env and final-server TCP readiness; final actual 13/13 exit0"
+    },
+    "schedulerAndReadonlyInputsAtCandidate": {
+      "passed": 76,
+      "failed": 0,
+      "skipped": 0,
+      "exitCode": 0,
+      "sourceCommit": "d947bf0b4591e830dd46c021a9a9800ad5c4b11f"
+    },
+    "expandedReadonlySql": {
+      "inputValidation": "NONE actual exit0",
+      "ownedPg18ReadOnly": "actual exit0; query/schema validation only",
+      "productionRun": "Not yet dispatched for new dictionary/dimension/column/check evidence",
+      "scope": "two dict codes; batch413/415; ledger649/651; exact original source grade summary; inv_ledger.change_type metadata",
+      "actualDictionaryState": "unknown pending controlled readonly evidence"
+    },
+    "priorAppValidationScope": "API/Web apps blobs unchanged from b27; existing actual type/build/test logs retained. New 129-source head remote CI still required."
   },
   "release": {
     "candidateOnly": true,
@@ -715,10 +1055,21 @@
     "tagDeferredUntilSuccessfulMainDeployment": true,
     "historicalFlocksActivated": false,
     "actualTwoCompanyPilot": "Pending real physical counts and signed evidence",
-    "candidateCommit": "9d1a5186d1069ed01dd869841aaa3893a8aa7348",
+    "candidateCommit": "d947bf0b4591e830dd46c021a9a9800ad5c4b11f",
     "pullRequest": "https://github.com/ivanzhao299/phoenix-erp-v3/pull/574",
-    "reviewStatus": "Dracut candidate independently reviewed; exact combined source head reconfirmation and real host CI remain pending",
-    "pushStatus": "At receipt creation source is local; confirm ordinary branch push and remote head separately"
+    "reviewStatus": "Source reviewed for local/CI candidate only; exact metadata head awaiting independent rehash",
+    "pushStatus": "At receipt creation d947 local; ordinary branch push and remote head must be confirmed separately",
+    "businessReversalAuthorized": false,
+    "businessReversalPerformed": false,
+    "releaseSequence": [
+      "exact main T after normal merge",
+      "fresh controlled inspect and corrected audit GO",
+      "trusted verified backup",
+      "actual pending migrations and receipts",
+      "API-only config F/runtime R/target T reanchor",
+      "same-T Web-only after complete API success",
+      "actual runtime/health/business/evidence verification then deployed-T tag"
+    ]
   },
   "localLogSha256": {
     "ci-final-api-tests.log": "cf568aaad97f7f887b956acb5ab094027b2c96eba290625919e2afe2d7e2a79c",
@@ -764,7 +1115,20 @@
     "vendor-fragment-final.log": "575558f53b2ad3989748d031cfaae3527362e36a849927da7cc3fe4a5e5fb3e8",
     "egg-evidence-input-validation.log": "a7fb3c00bec44bf3c2abb0ee82a7b205b315714eb39b7c709284fddb9549130d",
     "egg-evidence-owned-validation.log": "3e497241e02712f95ad625d4586a849fc61af92f666ab7b4227858b7012eee08",
-    "egg-evidence-owned-positive.log": "708b22f106375cf770c18eea29255b34d0060f9aafb1acff69d72f9911971de3"
+    "egg-evidence-owned-positive.log": "708b22f106375cf770c18eea29255b34d0060f9aafb1acff69d72f9911971de3",
+    "production-daily-grade-allowlisted.log.txt": "1505f6d076c7a3f0b45c1f22587e5fb79de7841d627405b39d82948248e57295",
+    "readonly-none-inputs.log": "47d9c75106018339f120be4cf6445f24d3a61152f48efc9efb5c45ff7e7f752f",
+    "post-reanchor-scheduler-readonly.log": "491a30649b065b12ab44778924047d042ab7ffadcba1c45ab0147046b3ee028f",
+    "backup-paths-null-final.log": "2d08314756a76ecee0dc9f16563e6b3f79027e89a1000cd9d24c3dcaa2f44663",
+    "pending-backup-workflow-syntax.log": "ae1c9db2421d424180e4884e615604c2d34c354e53215603d6edadc0394e9876",
+    "pending-backup-ssh-gate.log": "187c4ba05773c1260cdc4081260d349fdba7f553668a3337d4884a0b7d60d288",
+    "reversal-evidence-sql-inputs.log": "a7fb3c00bec44bf3c2abb0ee82a7b205b315714eb39b7c709284fddb9549130d",
+    "reversal-evidence-owned.log": "e3105a850412b461c58b3694e80b19a85021068145f30e27056fb08bb5f8ee5b",
+    "final-reanchor-targeted.log": "14b52c19c392d0c5b9bdb78a693122c5e94da10dd2a4df88b796418a835cc730",
+    "final-reanchor-pg.log": "4c9a4abf8fa5c55f04007db8a161216a623d88f766b2b4ac08066e88c9017ae4",
+    "final-reanchor-compose.log": "52a3ff6d2aead4ea47fe4acf73927d3df9eea6e1ddc31b0cb70439effa30350a",
+    "independent-backup-null.log": "918d108158647159027e06575f466ac6eef9fb12e0044175233d3fb741e97c2a",
+    "independent-audit-null.log": "d7ede813435d1a7e302a399c74b897c85035b218a3541a1c7fe6cf73eb7e784a"
   },
   "apiLintCounts": {
     "errors": 0,
@@ -772,10 +1136,12 @@
   },
   "sourceFingerprintAlgorithm": {
     "baseCommit": "4cf46971cc1a1a2dba5be30838eaf75369cabf9c",
-    "sourceCommit": "9d1a5186d1069ed01dd869841aaa3893a8aa7348",
+    "sourceCommit": "d947bf0b4591e830dd46c021a9a9800ad5c4b11f",
     "paths": [
+      ".github/workflows/controlled-pending-migration-apply.yml",
       ".github/workflows/deploy.yml",
       ".github/workflows/legacy-maintenance-fixture.yml",
+      ".github/workflows/production-readonly-audit.yml",
       ".github/workflows/regression.yml",
       "apps/api/scripts/breeding-regression.sh",
       "apps/api/scripts/packaging-regression.sh",
@@ -872,15 +1238,35 @@
       "scripts/ci/maintenance-scheduler-link-observation.mjs",
       "scripts/ci/maintenance-scheduler-link-observation.test.mjs",
       "scripts/ci/typeorm-ledger-rehearsal-inventory.mjs",
+      "scripts/ops/audit-daily-egg-inbound.mjs",
+      "scripts/ops/audit-daily-egg-inbound.test.mjs",
+      "scripts/ops/background-control-coordinator.mjs",
+      "scripts/ops/background-control-legacy-transition.mjs",
+      "scripts/ops/background-control-manifest.mjs",
+      "scripts/ops/background-control-pg.test.mjs",
+      "scripts/ops/background-deployment-session.mjs",
+      "scripts/ops/background-deployment-session.test.mjs",
       "scripts/ops/flock-lifecycle-diagnostic.cjs",
+      "scripts/ops/pending-migration-backup-paths.mjs",
+      "scripts/ops/phoenix-production-compose.mjs",
+      "scripts/ops/production-maintenance-backup-paths.test.mjs",
+      "scripts/ops/production-maintenance-pending-backup.test.mjs",
+      "scripts/ops/production-maintenance-readonly-inputs.test.mjs",
       "scripts/ops/production-maintenance-root-readers.mjs",
       "scripts/ops/production-maintenance-scheduler-inventory.test.mjs",
       "scripts/ops/production-maintenance-vendor-fragment.test.mjs",
       "scripts/ops/production-trusted-paths.mjs",
+      "scripts/ops/promote-production-config-floor.contract.test.mjs",
       "scripts/ops/readonly-audits/daily-egg-grade-evidence-20261117.sql",
+      "scripts/ops/reconcile-background-control.contract.test.mjs",
+      "scripts/ops/reconcile-background-control.mjs",
+      "scripts/ops/run-production-readonly-audit.sh",
       "scripts/test/flock-browser-appearance.cjs",
       "scripts/test/flock-browser.cjs",
-      "scripts/test/flock-migration-compatibility.cjs"
+      "scripts/test/flock-migration-compatibility.cjs",
+      "scripts/test/flock-reanchor-api.cjs",
+      "scripts/test/flock-reanchor-compose-body.mjs",
+      "scripts/test/flock-reanchor-compose.mjs"
     ],
     "order": "lexicographic path order",
     "entry": "UTF-8(path) + NUL + lowercase hex SHA256(git blob bytes) + LF",
@@ -888,8 +1274,8 @@
     "scope": "git diff --name-only BASE SOURCE -- apps scripts .github"
   },
   "previousValidation": {
-    "sourceCommit": "b27b6563914a6573725434ddc4b8c2b060008a2e",
-    "sourceFingerprintSha256": "c55d59bf9a9309684471d9988af8537bb38f6f6cad94f00ad58fddae95fd2c91",
+    "sourceCommit": "9d1a5186d1069ed01dd869841aaa3893a8aa7348",
+    "sourceFingerprintSha256": "67c70c7e4c4fd03ca5333b73f9ef739540f6e6b402292a17e5e7dbb85e089ae2",
     "localLogSha256": {
       "ci-final-api-tests.log": "cf568aaad97f7f887b956acb5ab094027b2c96eba290625919e2afe2d7e2a79c",
       "ci-final-web-tests.log": "37df203e39ea4d929a8d769d18f1fd1c1846c116f533dc079804fb6a74fbe903",
@@ -930,7 +1316,12 @@
       "ci-i18n-browser.log": "65be4d80e74a7e545ffe043bfb7a15447a7d3c5e24df7c921ac9f0ea7d63a960",
       "ci-i18n-web-types.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "ci-locator-contracts.log": "9cc875af8327ab21d43d3d3965e736dcfd2cd294256d3a40281995b810a3233a",
-      "ci-locator-ssh-gate.log": "187c4ba05773c1260cdc4081260d349fdba7f553668a3337d4884a0b7d60d288"
+      "ci-locator-ssh-gate.log": "187c4ba05773c1260cdc4081260d349fdba7f553668a3337d4884a0b7d60d288",
+      "vendor-fragment-final.log": "575558f53b2ad3989748d031cfaae3527362e36a849927da7cc3fe4a5e5fb3e8",
+      "egg-evidence-input-validation.log": "a7fb3c00bec44bf3c2abb0ee82a7b205b315714eb39b7c709284fddb9549130d",
+      "egg-evidence-owned-validation.log": "3e497241e02712f95ad625d4586a849fc61af92f666ab7b4227858b7012eee08",
+      "egg-evidence-owned-positive.log": "708b22f106375cf770c18eea29255b34d0060f9aafb1acff69d72f9911971de3",
+      "production-daily-grade-allowlisted.log.txt": "1505f6d076c7a3f0b45c1f22587e5fb79de7841d627405b39d82948248e57295"
     }
   },
   "correctedValidation": {
@@ -978,7 +1369,16 @@
     "vendorFragmentTargeted": 0,
     "dailyEggReadonlyInputs": 0,
     "dailyEggReadonlyOwnedPg18": 0,
-    "dailyEggReadonlyOwnedPositive": 0
+    "dailyEggReadonlyOwnedPositive": 0,
+    "combinedSchedulerReadonlyAtCandidate": 0,
+    "trustedBackupNullActualPg": 0,
+    "independentTrustedBackupNull": 0,
+    "independentNullAudit": 0,
+    "expandedReadonlySqlOwned": 0,
+    "backupWorkflowSyntax": 0,
+    "protocolExtendedAt060": 0,
+    "protocolRealPgAt060": 0,
+    "protocolEquivalentCompose": 0
   },
   "verbatimVendorLicenseNote": "OFL.txt copied unmodified from upstream, including its existing trailing whitespace",
   "serviceLifecycle": {
@@ -991,25 +1391,26 @@
     "independentHttpValidation": "ci-fix-http-utc.log and ci-fix-http-sg.log each completed 5 assertions with exit 0"
   },
   "priorRemoteCiSummary": {
-    "head": "6393cf1ff6b1e81a8c5a8c254a575b8c59b64ce8",
-    "buildRun": "44097151154",
-    "build": "success",
-    "playwrightRun": "44097151299",
-    "playwright": {
-      "passed": 77,
-      "failed": 0
-    },
-    "firstSwitchRun": "44097151164",
-    "firstSwitchJobs": [
-      "134087182437",
-      "134087182130"
-    ],
-    "firstSwitch": "failure: original scheduler HOLD on package-installed dracut symlinks; no owned candidate created",
-    "otherWorkflows": "success"
+    "head": "e23809a5b96260a673499b7f16a1f56bcfd931b0",
+    "checkoutMerge": "6d328cde6d207db8e47354fd46f5c8fbdce5c1f8",
+    "tree": "11c850e0e0ab59aeca5ba9b2aed98522d8f3264f",
+    "passed": 21,
+    "skippedBuildDeploy": 3,
+    "failed": 0,
+    "pending": 0,
+    "legacyFirstSwitchRun": 44104051532,
+    "productionDeployed": false
   },
   "workspaceExclusion": {
-    "sourceBasis": "Only committed Git blobs at sourceCommit; working tree is intentionally not globally clean",
-    "uncommittedCoordinatorWork": "F/R deployment protocol changes and corresponding tests are excluded from this source and receipt",
-    "coordinatorProtocolValidationClaimed": false
+    "sourceBasis": "Committed Git blobs only; apps/scripts/.github tracked bytes equal sourceCommit at receipt creation",
+    "coordinatorProtocolIncluded": true,
+    "excluded": "Local raw artifacts and uncommitted reversal review draft; WMS reversal execution package not implemented/included"
+  },
+  "evidenceArtifactsSha256": {
+    "production-preflight-observation.json": "382c0f5c77617c3fccc20f095d9cd0d1b0501219cc4e5cb30dfbba8cc5907f46",
+    "production-daily-grade-allowlisted.log.txt": "1505f6d076c7a3f0b45c1f22587e5fb79de7841d627405b39d82948248e57295",
+    "e238-ci-observation.json": "f50961f96660c8f325e217973cc11c8d0892437f037ce55c9346c3677003c56a",
+    "e238-check-snapshot.json": "3dd5f3df2d5000bbaef0478ac47462bd4243496986fcc9d57e7e3b372487c0c1",
+    "descendant-reanchor-validation.json": "6b561ba6d36418b9184426f5d833c0226f01e515571b078d63bdf52c494cb574"
   }
 }

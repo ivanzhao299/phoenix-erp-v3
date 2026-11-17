@@ -177,3 +177,5 @@ controlled-pending-migration-apply在实际DDL前补入固定run-attempt命名�
 修订后的路径/备份/NULL检查本地13/13、无跳过、exit0，独立复跑亦13/13、exit0；另独立NULL审计4/4。路径检查用实际trusted utility与明确的owned元数据模型，并实测非root CLI拒绝；真实PG16/18负责归档读写和完整parse，未将其path adapter冒充生产root/ext4全流程。独立复跑曾出现PG16容器初始化临时Unix server就绪竞态，实际FAIL已保留；ready探针改为容器内TCP 127.0.0.1，只有最终server开放TCP后才通过，未添加盲sleep或重试业务SQL。2GiB只是最小空间下限，不是归档容量保证；全parse不是实际数据库恢复。
 
 源码060的HEAD绑定扩展检查已实际246项中237通过、9 opt-in跳过、0失败，真实隔离PG16/18为9/9通过；本执行会话在该提交上合并scheduler/只读输入等76/76通过。扩充的精确只读SQL仅准备字典、两批维度/成本存在性、原流水白名单、同来源grade汇总及change_type列/CHECK元数据，已在owned PG18 READ ONLY验证，尚未把本地结果当真实生产枚举。新候选必须独立绑定后，才使用明确NONE做正式只读取证，再确定受控WMS冲销合同；实际冲销、迁移apply和生产部署均未执行。
+
+本批源码`d947bf0b4591e830dd46c021a9a9800ad5c4b11f`，129个apps/scripts/.github路径指纹`56040bba700f44ba13361554624ece580243c58b3ee9999608d9c345c5851dae`，57份日志hash；仅已提交Git blobs，冲销执行包尚未实现，实际类型/维度仍待新候选正式只读证据。协议060的13组件字节与本候选相同，新backup/NULL实际13/13及独立13/13、候选scheduler/readonly76/76已核验；新head远端CI仍待执行，不能引用e238结果代替。
