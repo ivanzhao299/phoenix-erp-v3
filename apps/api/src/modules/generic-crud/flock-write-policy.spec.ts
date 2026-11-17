@@ -3,7 +3,7 @@ import { GenericCrudService } from './generic-crud.service';
 
 describe('flock provenance writes', () => {
   const payload = { flock_no: 'FK1', farm_code: 'F1', house_code: 'H1', breed_code: 'B1' };
-  function fixture(current?: Record<string, unknown>, facts: unknown[] = []) {
+  function fixture(current: Record<string, unknown> = { ...payload, status:'GROWING', current_qty:0 }, facts: unknown[] = []) {
     const query = jest.fn(async (sql: string) => {
       if (sql.includes('SELECT house_code FROM brd_flocks')) return current ? [current] : [];
       if (sql.includes('FROM brd_flocks') && sql.includes('FOR UPDATE')) return current ? [current] : [];
@@ -16,24 +16,28 @@ describe('flock provenance writes', () => {
     const transaction = jest.fn(async (run: (manager: typeof tx) => unknown) => run(tx));
     return { manager: { transaction } as never, query, transaction };
   }
+  it('rejects direct master admission even for otherwise valid provenance',async()=>{
+    const f=fixture();await expect(writeFlock(f.manager,payload)).rejects.toThrow('生命周期入栏');
+    expect(f.transaction).not.toHaveBeenCalled();
+  });
   it('requires a standard breed rather than accepting a display name as identity', async () => {
     const f = fixture();
-    await expect(writeFlock(f.manager, { ...payload, breed_code: '', strain: '海兰褐' })).rejects.toThrow('标准');
+    await expect(writeFlock(f.manager, { ...payload, breed_code: '', strain: '海兰褐' }, {pkName:'flock_no',id:'FK1'})).rejects.toThrow('标准');
     expect(f.query.mock.calls.some(([sql]) => sql.startsWith('INSERT'))).toBe(false);
   });
   it('rejects inactive/missing breed at the backend', async () => {
-    const f = fixture(); f.query.mockImplementation(async (sql: string) => sql.includes('BRD_FLOCK_STATUS') ? [{ dict_code: 'GROWING' }] : []);
-    await expect(writeFlock(f.manager, payload)).rejects.toThrow('唯一有效');
+    const f = fixture(); const original=f.query.getMockImplementation()!;f.query.mockImplementation(async(sql:string)=>sql.includes('BRD_BREED')?[]:original(sql));
+    await expect(writeFlock(f.manager, payload, {pkName:'flock_no',id:'FK1'})).rejects.toThrow('唯一有效');
   });
   it('rejects a spoofed company or mismatched farm before writing', async () => {
     const f = fixture();
-    await expect(writeFlock(f.manager, { ...payload, company_code: 'OTHER' })).rejects.toThrow('权威归属');
-    await expect(writeFlock(f.manager, { ...payload, farm_code: 'OTHER' })).rejects.toThrow('归属不一致');
+    await expect(writeFlock(f.manager, { ...payload, company_code: 'OTHER' }, {pkName:'flock_no',id:'FK1'})).rejects.toThrow('权威归属');
+    await expect(writeFlock(f.manager, { ...payload, farm_code: 'OTHER' }, {pkName:'flock_no',id:'FK1'})).rejects.toThrow('归属不一致');
   });
   it('takes the canonical breed display and organisation from locked masters', async () => {
     const f = fixture();
-    await expect(writeFlock(f.manager, { ...payload, strain: 'wrong' })).resolves.toMatchObject({ msg: 'Created successfully' });
-    const call = f.query.mock.calls.find(([sql]) => sql.startsWith('INSERT')) as unknown as [string, unknown[]];
+    await expect(writeFlock(f.manager, { ...payload, strain: 'wrong' }, {pkName:'flock_no',id:'FK1'})).resolves.toMatchObject({ msg: 'Updated successfully' });
+    const call = f.query.mock.calls.find(([sql]) => sql.startsWith('UPDATE')) as unknown as [string, unknown[]];
     expect(call[0]).toContain('company_code');
     expect(call[1]).toContain('已核实品种');
     expect(call[1]).toContain('C1');
@@ -53,7 +57,7 @@ describe('flock provenance writes', () => {
   it('rejects invalid or timestamp dates rather than shifting date-only provenance', async () => {
     for (const start_date of ['2026-02-30', '2025-12-31T16:00:00.000Z']) {
       const f = fixture();
-      await expect(writeFlock(f.manager, { ...payload, start_date })).rejects.toThrow('YYYY-MM-DD');
+      await expect(writeFlock(f.manager, { ...payload, start_date }, {pkName:'flock_no',id:'FK1'})).rejects.toThrow('YYYY-MM-DD');
     }
     const f = fixture({ ...payload, start_date: '2026-01-01', placement_date: '2026-01-01' }, [{ exists: 1 }]);
     await expect(writeFlock(f.manager, { start_date: '2026-01-01' }, { pkName: 'flock_no', id: 'FK1' })).resolves.toMatchObject({ msg: 'Updated successfully' });

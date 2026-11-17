@@ -23,6 +23,8 @@ export interface FileAccessPolicy {
   companyCode?: string;
   storeCode?: string;
   requiredMenu: string;
+  /** Set only by the flock service after authoritative house DataScope validation. */
+  canonicalBreedingHouseScopeVerified?: boolean;
 }
 
 export interface ProtectedFileResult {
@@ -163,6 +165,7 @@ export class FileAccessService {
     if (this.isAdmin()) return;
     const scope = this.cls.get<DataScopeContext | undefined>('dataScope');
     if (scope?.isGlobal) return;
+    if(file.moduleCode==='FLOCK_LIFECYCLE' && file.ownerType==='HOUSE' && policy.canonicalBreedingHouseScopeVerified===true) return;
 
     const allowedStores = new Set([
       ...this.splitCodes(this.user().storeCode),

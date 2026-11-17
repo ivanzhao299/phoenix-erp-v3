@@ -19,14 +19,15 @@ export class TraceabilityController {
   private scope(req: any): string[] | undefined {
     const s = req?.dataScope ?? req?.user?.dataScope;
     const codes = s?.allowedCompanyCodes ?? s?.companyCodes;
-    if (!codes || !Array.isArray(codes) || codes.length === 0) return undefined; // 不限制（admin/全局）
+    if(s?.isGlobal===true)return undefined;
+    if (!codes || !Array.isArray(codes) || codes.length === 0) return []; // Missing/empty scope fails closed.
     return codes;
   }
 
   @Get('batch/:batchNo')
   @RequireMenu('MENU_TRACEABILITY_VIEW', 'V')
   byBatch(@Param('batchNo') batchNo: string, @Req() req: any) {
-    return this.trace.traceByBatch(batchNo, this.scope(req));
+    return this.trace.traceByBatch(batchNo, this.scope(req),req.dataScope??req.user?.dataScope);
   }
 
   @Get('packaging/:packingCode')
@@ -38,13 +39,13 @@ export class TraceabilityController {
   @Get('label/:labelCode')
   @RequireMenu('MENU_TRACEABILITY_VIEW', 'V')
   byLabel(@Param('labelCode') labelCode: string, @Req() req: any) {
-    return this.trace.traceByLabel(labelCode, this.scope(req));
+    return this.trace.traceByLabel(labelCode, this.scope(req),req.dataScope??req.user?.dataScope);
   }
 
   @Get('sales-order/:orderNo')
   @RequireMenu('MENU_TRACEABILITY_VIEW', 'V')
   bySalesOrder(@Param('orderNo') orderNo: string, @Req() req: any) {
-    return this.trace.traceBySalesOrder(orderNo, this.scope(req));
+    return this.trace.traceBySalesOrder(orderNo, this.scope(req),req.dataScope??req.user?.dataScope);
   }
 
   @Get('customer/:customerCode')

@@ -53,7 +53,7 @@ describe('flock and house mutation boundaries',()=>{
       [{status:'LAYING',current_qty:10},{current_qty:9},'禁止直接修改'],
       [{status:'LAYING',current_qty:10},{initial_qty:20},'禁止直接修改'],
       [{status:'LAYING',current_qty:10},{status:'ELIMINATED'},'状态无效'],
-      [{status:'LAYING',current_qty:10},{status:'RETIRED'},'未归零'],
+      [{status:'LAYING',current_qty:10},{status:'RETIRED'},'生命周期关闭单'],
       [{status:'RETIRED',current_qty:0},{status:'LAYING'},'不可重新启用'],
     ] as const){
       const query=jest.fn(async(sql:string)=>sql.includes('FROM brd_flocks') ? [{flock_no:'FA',house_code:'HA',...current}] : []);

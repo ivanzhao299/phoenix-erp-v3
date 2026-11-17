@@ -1,3 +1,4 @@
+import { deriveOrgScope,OrgScope } from '../farm/farm.service';
 import { PackagingHistoryService } from '../bff/packaging-history.service';
 import { DataScopeContext } from '../org/services/data-scope.service';
 import { NotFoundException } from '@nestjs/common';
@@ -33,19 +34,19 @@ export class TraceabilityService {
   }
 
   // ── 入口 1：按库存批次（EGG-YYYYMMDD-NNNNN）──────────────────────────────────
-  async traceByBatch(batchNo: string, companyScope?: string[]): Promise<any> {
+  async traceByBatch(batchNo: string, companyScope?: string[], dataScope?: DataScopeContext): Promise<any> {
     const [batch] = await this.q(
       `SELECT batch_no, product_code, sku_code, grade_code_std, quality_grade, spec_code, packaging_spec,
-              qty, qty_available, egg_date, expire_date, company_code, source_type, source_no,
+              qty, qty_available, egg_date::text AS egg_date, expire_date::text AS expire_date, company_code, source_type, source_no,
               packaging_batch_ref, collection_batch_ref, status, created_at
          FROM inv_batches WHERE batch_no = $1 LIMIT 1`,
       [batchNo],
     );
     if (!batch) return { found: false, entry: 'batch', key: batchNo };
-    if (companyScope && companyScope.length && !companyScope.includes(batch.company_code)) {
+    if (companyScope && !companyScope.includes(batch.company_code)) {
       return { found: false, denied: true, reason: '无权查看该公司数据', entry: 'batch', key: batchNo };
     }
-    return this.assembleTree(batch);
+    return this.assembleTree(batch,companyScope,dataScope);
   }
 
   // ── 入口 2：按包装批次（PKG-YYYYMMDD-XXXX）──────────────────────────────────
@@ -65,18 +66,18 @@ export class TraceabilityService {
   }
 
   // ── 入口 3：按标签/箱码（label_no）──────────────────────────────────────────
-  async traceByLabel(labelCode: string, companyScope?: string[]): Promise<any> {
+  async traceByLabel(labelCode: string, companyScope?: string[], dataScope?: DataScopeContext): Promise<any> {
     const [lbl] = await this.q(
       `SELECT label_no, batch_no, product_code, qty, status, printed_at FROM lbl_records WHERE label_no = $1 LIMIT 1`,
       [labelCode],
     );
     if (!lbl) return { found: false, entry: 'label', key: labelCode };
-    const tree = lbl.batch_no ? await this.traceByBatch(lbl.batch_no, companyScope) : { found: false };
-    return { found: true, entry: 'label', key: labelCode, label: lbl, trace: tree };
+    const tree = lbl.batch_no ? await this.traceByBatch(lbl.batch_no, companyScope,dataScope) : { found: false };
+    return { found: tree.found, entry: 'label', key: labelCode, label: tree.found?lbl:null, trace: tree };
   }
 
   // ── 入口 4：按销售订单（order_no）──────────────────────────────────────────
-  async traceBySalesOrder(orderNo: string, companyScope?: string[]): Promise<any> {
+  async traceBySalesOrder(orderNo: string, companyScope?: string[], dataScope?: DataScopeContext): Promise<any> {
     const [order] = await this.q(
       `SELECT id, order_no, customer_code, customer_name, company_code, status, total_amount,
               delivered_at, received_at, ar_invoice_id
@@ -84,7 +85,7 @@ export class TraceabilityService {
       [orderNo],
     );
     if (!order) return { found: false, entry: 'sales-order', key: orderNo };
-    if (companyScope && companyScope.length && !companyScope.includes(order.company_code)) {
+    if (companyScope && !companyScope.includes(order.company_code)) {
       return { found: false, denied: true, reason: '无权查看该公司数据', entry: 'sales-order', key: orderNo };
     }
     const items = await this.q(
@@ -100,13 +101,14 @@ export class TraceabilityService {
     }
     // P1-3 性能快修：N+1 串行 → Promise.all 并行
     const traces = await Promise.all(
-      Array.from(batchNos).map(b => this.traceByBatch(b, companyScope))
+      Array.from(batchNos).map(b => this.traceByBatch(b, companyScope,dataScope))
     );
     return { found: true, entry: 'sales-order', key: orderNo, order, items, traces };
   }
 
   // ── 入口 5：按客户（customer_code）→ 历史购买批次 ──────────────────────────
   async traceByCustomer(customerCode: string, companyScope?: string[]): Promise<any> {
+    if(companyScope && !companyScope.length)return {found:false,denied:true,entry:'customer',key:customerCode};
     const orders = await this.q(
       `SELECT order_no, company_code, status, total_amount, created_at
          FROM sal_sales_orders WHERE customer_code = $1
@@ -118,15 +120,15 @@ export class TraceabilityService {
     const storeBatches = await this.q(
       `SELECT DISTINCT i.batch_no, i.product_code, i.grade_code, i.sku_code, s.sale_no, s.completed_at
          FROM sal_store_sale_items i JOIN sal_store_sales s ON s.id = i.sale_id
-        WHERE s.customer_code = $1 AND i.batch_no IS NOT NULL
+        WHERE s.customer_code = $1 AND i.batch_no IS NOT NULL ${companyScope?'AND s.company_code=ANY($2)':''}
         ORDER BY s.completed_at DESC LIMIT 50`,
-      [customerCode],
+      companyScope?[customerCode,companyScope]:[customerCode],
     );
     return { found: orders.length > 0 || storeBatches.length > 0, entry: 'customer', key: customerCode, orders, storeBatches };
   }
 
   // ── 核心：从库存批次组装完整追溯树 ─────────────────────────────────────────
-  private async assembleTree(batch: any): Promise<any> {
+  private async assembleTree(batch: any,companyScope?: string[],dataScope?: DataScopeContext): Promise<any> {
     const packingCode = batch.packaging_batch_ref as string | null;
 
     // 包装段
@@ -134,7 +136,7 @@ export class TraceabilityService {
     let shiftId: number | null = null;
     if (packingCode) {
       const [pkg] = await this.q(
-        `SELECT code, production_date, grading_code, grading_codes_json, batches_json,
+        `SELECT code, production_date::text AS production_date, grading_code, grading_codes_json, batches_json,
                 total_boxes, total_eggs, shift_id, status, void_reason
            FROM pkg_packing_records WHERE is_test = false AND code = $1 LIMIT 1`,
         [packingCode],
@@ -147,7 +149,7 @@ export class TraceabilityService {
     let shift: any = null;
     if (shiftId) {
       const [ws] = await this.q(
-        `SELECT id, shift_code, site_id, line_id, operator_name, supervisor_name, production_date
+        `SELECT id, shift_code, site_id, line_id, operator_name, supervisor_name, production_date::text AS production_date
            FROM pkg_work_shifts WHERE is_test = false AND id = $1 LIMIT 1`,
         [shiftId],
       );
@@ -155,47 +157,47 @@ export class TraceabilityService {
     }
 
     // 分级段（仅原包装显式关联）
-    const grading = packaging?.production_date
+    let grading = packaging?.production_date
       ? await this.q(
-          `SELECT code, source_batch_code, production_date, outputs_json, total_output, status
+          `SELECT code, source_batch_code, production_date::text AS production_date, outputs_json, total_output, status
              FROM pkg_grading_records WHERE is_test = false AND code IN (SELECT jsonb_array_elements_text(CASE WHEN jsonb_typeof(grading_codes_json)='array' AND jsonb_array_length(grading_codes_json)>0 THEN grading_codes_json ELSE jsonb_build_array(grading_code) END) FROM pkg_packing_records WHERE code=$1) ORDER BY created_at ASC`,
           [packingCode],
         )
       : [];
 
     // 集蛋/原蛋来源 + 鸡舍
-    const source = packaging?.production_date
+    let source = packaging?.production_date
       ? await this.q(
-          `SELECT batch_code, house_code, flock_code, lay_date, production_date, received_qty, batch_status
+          `SELECT batch_code, house_code, flock_code, lay_date::text AS lay_date, production_date::text AS production_date, received_qty, batch_status
              FROM pkg_source_batches WHERE is_test = false AND id IN (SELECT sl.source_batch_id FROM pkg_grading_source_links sl JOIN pkg_grading_records g ON g.id=sl.grading_id WHERE NOT g.is_test AND g.code IN (SELECT jsonb_array_elements_text(CASE WHEN jsonb_typeof(grading_codes_json)='array' AND jsonb_array_length(grading_codes_json)>0 THEN grading_codes_json ELSE jsonb_build_array(grading_code) END) FROM pkg_packing_records WHERE code=$1)) ORDER BY created_at ASC`,
           [packingCode],
         )
       : [];
 
-    // 生产域：鸡舍 → 场站；鸡群；日产蛋
-    const houseCodes = [...new Set(source.map((s: any) => s.house_code).filter(Boolean))];
-    let houses: any[] = [], flocks: any[] = [], dailyLogs: any[] = [];
-    if (houseCodes.length) {
-      houses = await this.q(
-        `SELECT h.house_code, h.farm_code, f.farm_name
-           FROM brd_houses h LEFT JOIN brd_farms f ON f.farm_code = h.farm_code
-          WHERE h.house_code = ANY($1)`,
-        [houseCodes],
-      );
-      flocks = await this.q(
-        `SELECT flock_no, house_code, farm_code, current_qty, breed_type
-           FROM brd_flocks WHERE house_code = ANY($1) LIMIT 20`,
-        [houseCodes],
-      );
-      if (packaging?.production_date) {
-        dailyLogs = await this.q(
-          `SELECT house_code, flock_no, log_date, eggs_produced
-             FROM brd_daily_logs WHERE house_code = ANY($1) AND log_date = $2 LIMIT 20`,
-          [houseCodes, packaging.production_date],
-        );
-      }
+    // Stable biological provenance follows the batch, including transfers and returns.
+    const [schema]=await this.ds.query("SELECT to_regclass('inv_flock_source_links') AS links");
+    const allProvenance=schema?.links?await this.ds.query(`SELECT l.*,l.production_date::text AS production_date,o.farm_code,o.site_code,o.began_on::text AS began_on,o.ended_on::text AS ended_on
+      FROM inv_flock_source_links l JOIN brd_flock_occupancies o ON o.id=l.occupancy_id WHERE l.batch_no=$1 ORDER BY l.id`,[batch.batch_no]):[];
+    const scope: OrgScope=dataScope?deriveOrgScope({dataScope}):{isGlobal:companyScope===undefined,farmCode:null,siteCode:null,companyCodes:companyScope??[],farmCodes:[],siteCodes:[]};
+    const canRead=(r:any)=>scope.isGlobal || scope.companyCodes?.includes(r.company_code) || scope.farmCodes?.includes(r.farm_code) || scope.siteCodes?.includes(r.site_code);
+    const provenance=allProvenance.filter(canRead);
+    let restrictedSourceCount=allProvenance.length-provenance.length;
+    if(restrictedSourceCount){source=[];grading=[];packaging=null;shift=null;}
+    // No immutable biological link means the historical owner cannot be proven from today's house master.
+    if(!allProvenance.length && !scope.isGlobal && (source.length||packaging)) {
+      restrictedSourceCount+=Math.max(source.length,1);source=[];grading=[];packaging=null;shift=null;
     }
-
+    const houseCodes=[...new Set([...provenance.map((x:any)=>x.house_code),...source.map((x:any)=>x.house_code)].filter(Boolean))];
+    let houses: any[] = [], flocks: any[] = [], dailyLogs: any[] = [];
+    if(provenance.length)houses=[...new Map(provenance.map((r:any)=>[r.house_code+'|'+r.farm_code,{house_code:r.house_code,farm_code:r.farm_code}])).values()];
+    else if(houseCodes.length)houses=await this.q(`SELECT h.house_code,h.farm_code,f.farm_name FROM brd_houses h
+      LEFT JOIN brd_farms f ON f.farm_code=h.farm_code WHERE h.house_code=ANY($1)`,[houseCodes]);
+    const flockCodes=[...new Set((provenance.length?provenance.map((x:any)=>x.flock_no):source.map((x:any)=>x.flock_code)).filter(Boolean))];
+    if(flockCodes.length)flocks=await this.q(`SELECT flock_no,breed_type,breed_code
+      FROM brd_flocks WHERE flock_no=ANY($1)`,[flockCodes]);
+    if(provenance.length)dailyLogs=await this.ds.query(`SELECT id,house_code,flock_no,occupancy_id,log_date::text AS log_date,eggs_produced
+      FROM brd_daily_logs WHERE id=ANY($1::bigint[])`,[[...new Set(provenance.map((x:any)=>x.daily_log_id))]]);
+    // Old rows remain explicitly unverified; never infer a former flock from today's house occupant.
     // 标签
     const labels = await this.q(
       `SELECT label_no, batch_no, qty, status, printed_at FROM lbl_records WHERE batch_no = $1 ORDER BY printed_at DESC LIMIT 50`,
@@ -214,17 +216,18 @@ export class TraceabilityService {
       `SELECT DISTINCT o.order_no, o.customer_code, o.customer_name, o.company_code, o.status,
               o.delivered_at, o.received_at, o.ar_invoice_id, i.allocated_qty
          FROM sal_order_items i JOIN sal_sales_orders o ON o.id = i.sales_order_id
-        WHERE i.allocated_batch_no LIKE $1
+        WHERE EXISTS(SELECT 1 FROM regexp_split_to_table(COALESCE(i.allocated_batch_no,''),E'\\s*,\\s*') AS exact_batch WHERE exact_batch=$1)
+          AND ($2::text[] IS NULL OR o.company_code=ANY($2))
         ORDER BY o.order_no DESC LIMIT 50`,
-      [`%${batch.batch_no}%`],
+      [batch.batch_no,companyScope??null],
     );
     // 门店 POS 去向
     const storeSales = await this.q(
       `SELECT DISTINCT s.sale_no, s.store_code, s.customer_code, s.company_code, s.total_amount,
               s.payment_method, s.ar_invoice_id, s.cash_account_id, s.completed_at, i.qty
          FROM sal_store_sale_items i JOIN sal_store_sales s ON s.id = i.sale_id
-        WHERE i.batch_no = $1 ORDER BY s.completed_at DESC LIMIT 50`,
-      [batch.batch_no],
+        WHERE i.batch_no = $1 AND ($2::text[] IS NULL OR s.company_code=ANY($2)) ORDER BY s.completed_at DESC LIMIT 50`,
+      [batch.batch_no,companyScope??null],
     );
 
     // 财务：AR + 现金（按销售单/门店单 source_no）
@@ -236,13 +239,13 @@ export class TraceabilityService {
     if (sourceNos.length) {
       ar = await this.q(
         `SELECT source_type, source_no, amount_original, balance_amount_original, status, collection_status
-           FROM fin_ar_invoices WHERE source_no = ANY($1) LIMIT 50`,
-        [sourceNos],
+           FROM fin_ar_invoices WHERE source_no = ANY($1) AND ($2::text[] IS NULL OR company_code=ANY($2)) LIMIT 50`,
+        [sourceNos,companyScope??null],
       );
       cash = await this.q(
         `SELECT txn_no, direction, amount, source_type, source_no, created_at
-           FROM fin_cash_transactions WHERE source_no = ANY($1) LIMIT 50`,
-        [sourceNos],
+           FROM fin_cash_transactions WHERE source_no = ANY($1) AND ($2::text[] IS NULL OR company_code=ANY($2)) LIMIT 50`,
+        [sourceNos,companyScope??null],
       );
     }
 
@@ -257,7 +260,7 @@ export class TraceabilityService {
       found: true,
       entry: 'batch',
       key: batch.batch_no,
-      production: { site: shift?.site_id ?? null, line: shift?.line_id ?? null, houses, flocks, dailyLogs, source, productionDate: packaging?.production_date ?? batch.egg_date },
+      production: { provenanceStatus:restrictedSourceCount?'RESTRICTED_SOURCE':provenance.length?'VERIFIED_OCCUPANCY':'UNVERIFIED_LEGACY',restrictedSourceCount,provenance,allocationPrecision:provenance.every((x:any)=>x.precision==='EXACT')&&provenance.length?'EXACT':'RELATED_INPUT_OR_INHERITED', site: shift?.site_id ?? null, line: shift?.line_id ?? null, houses, flocks, dailyLogs, source, productionDate: packaging?.production_date ?? batch.egg_date },
       packaging: packaging ? {
         packingCode, gradingCode: packaging.grading_code, grading,
         totalBoxes: packaging.total_boxes, totalEggs: packaging.total_eggs,

@@ -85,7 +85,7 @@ export default function DailyPage() {
   const {
     t
   } = useLanguage();
-  const today = new Date().toISOString().split('T')[0];
+  const today = new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Singapore'}).format(new Date());
   const historyRef = useRef<HTMLHeadingElement>(null);
   const formRef = useRef<HTMLDivElement>(null);
 
@@ -117,6 +117,8 @@ export default function DailyPage() {
     label: string;
   }[]>([]);
   const [selectedHouse, setSelectedHouse] = useState('');
+  const [managedHouse,setManagedHouse]=useState<boolean|null>(null);
+  const [confirmedDaily,setConfirmedDaily]=useState(false);
   // Entry defaults must not silently hide authorized historical records.
   const [historyHouse, setHistoryHouse] = useState(() => sp.get('historyHouse') || '');
   const [historyDate, setHistoryDate] = useState(() => sp.get('historyDate') || '');
@@ -179,8 +181,8 @@ export default function DailyPage() {
       // 手机端 mortality 写入
       cullingReason: d.culling_reason || '',
       // 手机端 mortality 写入
-      feedKg: d.feed_consumed || 0,
-      waterL: d.water_consumed || 0,
+      feedKg: d.feed_consumed ?? '',
+      waterL: d.water_consumed ?? '',
       temp: d.temp || 25,
       humidity: d.humidity || 60,
       remark: d.note || ''
@@ -217,14 +219,14 @@ export default function DailyPage() {
   useEffect(() => {
     loadData();
   }, [loadData]);
-  // G14：拉当前选中舍的存栏数（brd_flocks.current_qty），供产蛋率实时计算
-  useEffect(() => {
-    if (!selectedHouse) { setCurrentQty(0); return; }
-    fetchFlocks().then((flocks: Record<string, unknown>[]) => {
-      const flock = (flocks || []).find(f => f.house_code === selectedHouse);
-      setCurrentQty(Number(flock?.current_qty) || 0);
-    }).catch(() => setCurrentQty(0));
-  }, [selectedHouse, fetchFlocks]);
+  // Business-day occupancy and event balance remain valid across transfers/closure.
+  useEffect(()=>{
+    let alive=true;
+    Promise.resolve().then(()=>{if(!alive)return;if(!selectedHouse){setManagedHouse(false);setCurrentQty(0);return;}setManagedHouse(null);const token=sessionStorage.getItem('phoenix_token');
+    return fetch(`${API_BASE}/api/v3/farm/daily-hen-report?date=${encodeURIComponent(formDate)}`,{headers:token?{Authorization:`Bearer ${token}`}:{}})
+      .then(async r=>{if(!r.ok)throw new Error('日报占栏无法核实');return r.json();}).then(data=>{if(!alive)return;const r=(data.rows??[]).find((r:{house_code:string})=>r.house_code===selectedHouse);setManagedHouse(!!r?.occupancy_id);setConfirmedDaily(!!r?.has_daily_log);setCurrentQty(Number(r?.current_qty??0));}).catch(()=>{if(alive){setManagedHouse(null);setCurrentQty(0);}});});
+    return()=>{alive=false;};
+  },[selectedHouse,formDate,API_BASE]);
   useEffect(() => {
     if (!selectedHouse) return;
     const token = typeof window !== 'undefined' ? sessionStorage.getItem('phoenix_token') : '';
@@ -242,16 +244,13 @@ export default function DailyPage() {
       const hint: Record<string, string> = {};
       if (byCode['2001']?.value) hint.temp = Number(byCode['2001'].value).toFixed(1);
       if (byCode['2083']?.value) hint.humidity = Number(byCode['2083'].value).toFixed(0);
-      if (byCode['2488']?.value) hint.feedKg = Number(byCode['2488'].value).toFixed(1);
-      if (byCode['2484']?.value) hint.waterL = Number(byCode['2484'].value * 1000).toFixed(0);
+      // A realtime cumulative counter is not a daily consumption measurement. Use the dated generation action for actual advice.
       if (Object.keys(hint).length) {
         setDeviceHint(hint);
         setRows(prev => prev.map(r => ({
           ...r,
           temp: !r.temp && hint.temp ? hint.temp : r.temp,
-          humidity: !r.humidity && hint.humidity ? hint.humidity : r.humidity,
-          feedKg: !r.feedKg && hint.feedKg ? hint.feedKg : r.feedKg,
-          waterL: !r.waterL && hint.waterL ? hint.waterL : r.waterL
+          humidity: !r.humidity && hint.humidity ? hint.humidity : r.humidity
         })));
       } else {
         setDeviceHint(null);
@@ -276,6 +275,7 @@ export default function DailyPage() {
       toast.error(t('ui.请至少录入一项数据（产蛋数、死淘或饲料用量）后再提交', '请至少录入一项数据（产蛋数、死淘或饲料用量）后再提交'));
       return;
     }
+    if(managedHouse===null){toast.error('占栏来源尚未核实，请刷新后再提交');return;}
     const invalidGrade = Object.values(row.gradeQty || {}).some(value => value !== '' && (!Number.isSafeInteger(Number(value)) || Number(value) < 0));
     if (invalidGrade) {
       toast.error(t('breeding.daily.gradeIntegerRequired', '分级数量必须为非负整数'));
@@ -287,12 +287,13 @@ export default function DailyPage() {
     const payload: Record<string, unknown> = {
       house_code: selectedHouse, flock_no: flockByHouse[selectedHouse] || selectedHouse,
       farm_code: farmCodeByHouse[selectedHouse] || '', log_date: formDate,
-      feed_consumed: Number(row.feedKg) || 0, water_consumed: Number(row.waterL) || 0,
+      feed_consumed: row.feedKg===''||row.feedKg==null?null:Number(row.feedKg), water_consumed:row.waterL===''||row.waterL==null?null:Number(row.waterL),
       mortality_qty: Number(row.deaths) || 0, mortality_reason: row.mortalityReason || null,
       elimination_qty: Number(row.elimination) || 0, culling_reason: row.elimReason || null,
       temp: Number(row.temp) || 25, humidity: Number(row.humidity) || 60, note: row.remark,
       operator: user.realNameZh || user.username || t('ui.未知操作人', '未知操作人'), eggs_by_grade: eggsByGrade,
     };
+    if(managedHouse)for(const k of ['mortality_qty','elimination_qty','mortality_reason','culling_reason'])delete payload[k];
     try {
       const res = await fetch(`${API_BASE}/api/v3/farm/daily-logs`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify(payload) });
       if (!res.ok) { const result = await res.json().catch(() => ({ message: res.statusText })); throw new Error(result?.message || result?.msg || `HTTP ${res.status}`); }
@@ -419,13 +420,14 @@ export default function DailyPage() {
       alignItems: 'center',
       gap: 8
     }}>
-          <Cpu size={14} />{genResult.message}
+          <Cpu size={14} />{genResult.message}{genResult.usageStatus==='INCOMPLETE_OR_COUNTER_RESET'&&<strong> · 料水读数缺失或计数器回零；未知值未填为零，请实测核对。</strong>}
           {genResult.feedKg != null && ` · ${t('ui.耗料', '耗料')}: ${genResult.feedKg}kg`}
           {genResult.waterL != null && ` · ${t('ui.用水', '用水')}: ${genResult.waterL}L`}
           {genResult.avgTemp != null && ` · ${t('ui.均温', '均温')}: ${Number(genResult.avgTemp).toFixed(1)}℃`}
           {genResult.avgHum != null && ` · ${t('ui.湿度', '湿度')}: ${Number(genResult.avgHum).toFixed(1)}%`}
         </div>}
 
+      {managedHouse&&<p role="status">已接续事件账：死淘请使用生命周期单据；{confirmedDaily?'本日报已确认，修改须独立审核。':'首次提交即确认实际日报。'} <a href="/breeding/flock-lifecycle">办理业务或历史日报更正</a></p>}
       {/* 表单头部 */}
       <div ref={formRef} className={`${s.card} ${u.mb16}`}>
         <div className={s.cardBody} style={{
@@ -583,14 +585,14 @@ export default function DailyPage() {
                     ⚠️ {t('ui.死淘区', '死淘登记区')}
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 10 }}>
-                    <div style={cellStyle}><span style={labelStyle}>{t('ui.死亡(羽)', '死亡(羽)')}</span>{numInput('deaths', 130)}</div>
+                    <div style={cellStyle}><span style={labelStyle}>{t('ui.死亡(羽)', '死亡(羽)')}</span>{managedHouse!==false?<span>事件账汇总</span>:numInput('deaths',130)}</div>
                     <div style={cellStyle}><span style={labelStyle}>{t('ui.死亡原因', '死亡原因')}</span>
                       <DictSelect dictType="BRD_MORTALITY_REASON"
                         value={String(row.mortalityReason ?? '')}
                         onChange={v => updateRow(row.id, 'mortalityReason', v)}
                         placeholder={t('ui.请选择', '请选择')} />
                     </div>
-                    <div style={cellStyle}><span style={labelStyle}>{t('ui.淘汰(羽)', '淘汰(羽)')}</span>{numInput('elimination', 130)}</div>
+                    <div style={cellStyle}><span style={labelStyle}>{t('ui.淘汰(羽)', '淘汰(羽)')}</span>{managedHouse!==false?<span>事件账汇总</span>:numInput('elimination',130)}</div>
                     <div style={cellStyle}><span style={labelStyle}>{t('ui.淘汰原因', '淘汰原因')}</span>
                       <DictSelect dictType="BRD_CULLING_REASON"
                         value={String(row.elimReason ?? '')}

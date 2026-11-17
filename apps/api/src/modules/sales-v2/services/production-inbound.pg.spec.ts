@@ -1,3 +1,8 @@
+import {FlockLifecycleLedger1794900000000} from '../../../database/migrations/1794900000000-FlockLifecycleLedger';
+import {FlockProductionProvenance1794901000000} from '../../../database/migrations/1794901000000-FlockProductionProvenance';
+import {FlockActivitySources1794902000000} from '../../../database/migrations/1794902000000-FlockActivitySources';
+import {FlockLifecycleService} from '../../farm/flock-lifecycle.service';
+import {PackagingInventoryIntegrationService} from './packaging-inventory-integration.service';
 import 'reflect-metadata';
 import { DataSource } from 'typeorm';
 import { ProductionInboundService } from './production-inbound.service';
@@ -114,11 +119,30 @@ fixture('Issue 381 real PostgreSQL inbound transactions and retries', () => {
       VALUES ('PROFILE-A2','COMP-A','FARM-A','SITE-A','HOUSE-A2','STANDARD',NULL,'2026-01-01')`);
     await db.query("INSERT INTO wms_warehouses VALUES ('WH-A2','COMP-A','SITE-A','ACTIVE','EGG_FARM','OPERATIONAL')");
     await db.query("INSERT INTO wms_locations VALUES ('LOC-A2','WH-A2','ACTIVE'), ('LOC-A-OTHER','WH-A','ACTIVE')");
+    await db.query(`ALTER TABLE brd_houses ADD COLUMN IF NOT EXISTS max_capacity int DEFAULT 5000;
+      ALTER TABLE brd_flocks ADD COLUMN IF NOT EXISTS initial_qty int DEFAULT 1000,ADD COLUMN IF NOT EXISTS current_qty int DEFAULT 1000,
+        ADD COLUMN IF NOT EXISTS company_code text,ADD COLUMN IF NOT EXISTS site_code text,ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT now();
+      ALTER TABLE brd_daily_logs ADD COLUMN IF NOT EXISTS flock_no text,ADD COLUMN IF NOT EXISTS shift text DEFAULT 'DAILY',
+        ADD COLUMN IF NOT EXISTS mortality_qty int DEFAULT 0,ADD COLUMN IF NOT EXISTS elimination_qty int DEFAULT 0,
+        ADD COLUMN IF NOT EXISTS opening_qty int,ADD COLUMN IF NOT EXISTS closing_qty int,ADD COLUMN IF NOT EXISTS eggs_produced int DEFAULT 0,ADD COLUMN IF NOT EXISTS lay_rate numeric;
+      ALTER TABLE sys_dict ADD COLUMN IF NOT EXISTS dict_label_zh text,ADD COLUMN IF NOT EXISTS dict_label_en text,ADD COLUMN IF NOT EXISTS sort_no int;
+      CREATE UNIQUE INDEX IF NOT EXISTS fixture_dict_unique ON sys_dict(dict_type,dict_code);
+      CREATE TABLE IF NOT EXISTS file_metadata(file_id text PRIMARY KEY,status text,deleted_at timestamptz,visibility text,mime_type text,module_code text,owner_type text,owner_id text,company_code text,store_code text,uploaded_by text);
+      CREATE TABLE IF NOT EXISTS pkg_source_batches(id int PRIMARY KEY,house_code text,flock_code text,received_qty int,production_date date,lay_date date,is_test boolean);
+      CREATE TABLE IF NOT EXISTS pkg_grading_records(id int PRIMARY KEY,code text,is_test boolean);
+      CREATE TABLE IF NOT EXISTS pkg_grading_source_links(grading_id int,source_batch_id int,input_qty int);
+      CREATE TABLE IF NOT EXISTS pkg_packing_records(code text PRIMARY KEY,grading_code text,grading_codes_json jsonb,is_test boolean);
+      INSERT INTO file_metadata VALUES('FILE-count','ACTIVE',NULL,'PROTECTED','application/pdf','FLOCK_LIFECYCLE','HOUSE','HOUSE-A','COMP-A','SITE-A','fixture-system') ON CONFLICT DO NOTHING;`);
+    const flockRunner=db.createQueryRunner();await new FlockLifecycleLedger1794900000000().up(flockRunner);
+    await new FlockProductionProvenance1794901000000().up(flockRunner);await new FlockActivitySources1794902000000().up(flockRunner);await flockRunner.release();
   });
   afterAll(async () => { if (db?.isInitialized) await db.destroy(); });
   beforeEach(async () => {
     await db.query('ALTER TABLE inv_ledger DROP CONSTRAINT IF EXISTS fixture_reject_second_item');
-    await db.query('TRUNCATE inv_ledger, inv_batches, brd_daily_logs RESTART IDENTITY');
+    await db.query(`TRUNCATE inv_ledger,inv_batches,brd_daily_logs,inv_flock_source_links,brd_egg_source_receipts,brd_egg_day_routes,
+      brd_flock_events,brd_flock_document_audits,brd_flock_daily_balances,brd_flock_balances,brd_flock_occupancies,brd_flock_held_balances,
+      brd_flock_house_states,brd_flock_documents,pkg_source_batches,pkg_grading_records,pkg_grading_source_links,pkg_packing_records RESTART IDENTITY CASCADE;
+      UPDATE brd_flocks SET current_qty=1000;`);
     scope = { isGlobal: false, allowedCompanyCodes: ['COMP-A'], allowedWarehouseCodes: ['WH-A'] };
     service = new ProductionInboundService(db, cls as never, new EggInventoryService(db, cls as never),
       { resolveMode: async () => 'TEMP_PRODUCTION_INBOUND' } as never, new OrgOwnershipService(db.manager),
@@ -381,6 +405,44 @@ fixture('Issue 381 real PostgreSQL inbound transactions and retries', () => {
     await db.query('INSERT INTO inv_batches(batch_no) VALUES ($1)', [`EGG-20261017-${'9'.repeat(51)}`]);
     await expect(service.recordProductionInbound(payload())).rejects.toThrow('批号已超出允许范围');
     expect(await counts()).toEqual({ batches: 1, events: 0 });
+  });
+
+  async function activateSource(){
+    const lifecycle=new FlockLifecycleService(db.manager);const system={id:'fixture-system',admin:true},reviewer={id:'fixture-reviewer',admin:true};
+    const global={isGlobal:true,farmCode:null,siteCode:null};
+    let d=await lifecycle.create({kind:'BASELINE',sourceKey:'approved-count',houseCode:'HOUSE-A',flockNo:'FLOCK-A',businessDate:'2026-11-10',quantity:1000,expectedLegacyQty:1000,expectedVersion:0,
+      evidence:['FILE-count'],responsible:'fixture-system',reason:'owned physical-count fixture',differenceReceipt:'COUNT-RECEIPT'},global,system);
+    d=await lifecycle.transition(d.id,'submit',0,global,system);d=await lifecycle.transition(d.id,'approve',d.version,global,reviewer);await lifecycle.transition(d.id,'post',d.version,global,system);
+    await db.query(`INSERT INTO brd_daily_logs(log_date,house_code,flock_no,shift,eggs_by_grade,eggs_produced,occupancy_id)
+      SELECT '2026-11-11','HOUSE-A','FLOCK-A','DAILY','{"GRADE_1":100}',100,id FROM brd_flock_occupancies WHERE flock_no='FLOCK-A';
+      INSERT INTO pkg_source_batches VALUES(1,'HOUSE-A','FLOCK-A',50,'2026-11-11','2026-11-11',false);
+      INSERT INTO pkg_grading_records VALUES(1,'FIXTURE-GRADING',false);INSERT INTO pkg_grading_source_links VALUES(1,1,50);
+      INSERT INTO pkg_packing_records VALUES('FIXTURE-PACKING','FIXTURE-GRADING','["FIXTURE-GRADING"]',false);`);
+  }
+  it('serializes the actual production orchestrator and packaging batch writer without deadlock, rejecting the second source route atomically',async()=>{
+    await activateSource();const core=new EggInventoryService(db,cls as never);
+    const packing=new PackagingInventoryIntegrationService(db,cls as never,core,{resolveMode:async()=> 'PACKAGING_INBOUND'} as never);
+    const production=service.recordProductionInbound({...payload(),eggDate:'2026-11-11',items:[{grade:'GRADE_1',qty:50}]});
+    const packaged=db.transaction(async manager=>{
+      await manager.query("SET LOCAL statement_timeout='8s'");
+      return (packing as any).createSaleableBatch('COMP-A','2026-11-11','GRADE_1',50,'FIXTURE-PACKING',null,'LOOSE','SKU-GRADE_1','PRD-EGG-RAW','EGG_RED',
+        [{profileCode:'PROFILE-A',houseCode:'HOUSE-A'}],'AVAILABLE',{manager,warehouseCode:'WH-A',locationCode:'LOC-A'});
+    });
+    const results=await Promise.allSettled([production,packaged]);expect(results.filter(r=>r.status==='fulfilled')).toHaveLength(1);
+    const failure=results.find(r=>r.status==='rejected') as PromiseRejectedResult;expect(String(failure.reason.message)).toContain('两路重复入账');
+    expect(await counts()).toEqual({batches:1,events:1});
+    expect(Number((await db.query('SELECT COUNT(*) AS n FROM inv_flock_source_links'))[0].n)).toBe(1);
+    expect((await db.query('SELECT quantity FROM brd_egg_source_receipts'))).toHaveLength(1);
+  });
+  it('binds actual production stock to the exact report and occupancy and refuses another farm grant',async()=>{
+    await activateSource();
+    Object.assign(scope,{allowedBreedingCompanyCodes:[],allowedBreedingSiteCodes:[],allowedBreedingFarmCodes:['FARM-B']});
+    await expect(service.recordProductionInbound({...payload(),eggDate:'2026-11-11',items:[{grade:'GRADE_1',qty:50}]})).rejects.toThrow('无权认领');expect(await counts()).toEqual({batches:0,events:0});
+    Object.assign(scope,{allowedBreedingFarmCodes:['FARM-A']});
+    await service.recordProductionInbound({...payload(),eggDate:'2026-11-11',items:[{grade:'GRADE_1',qty:50}]});
+    const [link]=await db.query('SELECT * FROM inv_flock_source_links');expect(link).toMatchObject({flock_no:'FLOCK-A',house_code:'HOUSE-A',precision:'EXACT'});
+    expect(link.allocated_output_qty).toBe('50');expect(link.occupancy_id).toBe((await db.query("SELECT id FROM brd_flock_occupancies WHERE flock_no='FLOCK-A'"))[0].id);
+    expect((await db.query('SELECT breed_code FROM brd_flocks WHERE flock_no=$1',['FLOCK-A']))[0].breed_code).toBe('TEST_RED');
   });
 
 });

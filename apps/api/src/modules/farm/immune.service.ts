@@ -1,3 +1,5 @@
+import { deriveOrgScope,scopeWhere } from './farm.service';
+import { lockManagedActivity,recordFlockActivity } from './flock-activity-source';
 import {
   BadRequestException,
   ConflictException,
@@ -112,49 +114,31 @@ export class ImmuneService {
   }
 
   private assertWriteScope(input: Pick<ImmunePlanCreateInput, 'site_code' | 'farm_code' | 'company_code'>): void {
-    const scope = this.scope();
-    if (!scope || scope.isGlobal) return;
-    if (scope.allowedCompanyCodes.length === 0 || !scope.allowedCompanyCodes.includes(input.company_code)) {
-      throw new ForbiddenException('无权写入该免疫计划（公司范围不匹配）');
+    const context=this.scope();
+    if(!context)throw new ForbiddenException('缺少养殖数据范围');
+    if(!['allowedBreedingCompanyCodes','allowedBreedingSiteCodes','allowedBreedingFarmCodes'].some(key=>Object.prototype.hasOwnProperty.call(context,key))) {
+      if(context.isGlobal)return;
+      if(!context.allowedCompanyCodes.includes(input.company_code) || context.allowedSiteCodes.length>0&&!context.allowedSiteCodes.includes(input.site_code) || context.allowedFarmCodes.length>0&&!context.allowedFarmCodes.includes(input.farm_code)) throw new ForbiddenException('无权写入该公司/场区/农场养殖记录');
+      return;
     }
-    if (scope.allowedSiteCodes.length > 0 && !scope.allowedSiteCodes.includes(input.site_code)) {
-      throw new ForbiddenException('无权写入该免疫计划（场站范围不匹配）');
-    }
-    if (scope.allowedFarmCodes.length > 0 && !scope.allowedFarmCodes.includes(input.farm_code)) {
-      throw new ForbiddenException('无权写入该免疫计划（农场范围不匹配）');
-    }
+    const scope=deriveOrgScope({dataScope:context});
+    if(scope.isGlobal || scope.companyCodes?.includes(input.company_code) || scope.farmCodes?.includes(input.farm_code) || scope.siteCodes?.includes(input.site_code))return;
+    throw new ForbiddenException('无权写入该公司/场区/农场养殖记录');
   }
 
   private assertReadScope(row: { site_code?: string | null; farm_code?: string | null; company_code?: string | null }): void {
-    const scope = this.scope();
-    if (!scope || scope.isGlobal) return;
-    if (scope.allowedCompanyCodes.length === 0 || !row.company_code || !scope.allowedCompanyCodes.includes(row.company_code)) {
-      throw new ForbiddenException('无权访问该免疫计划（公司范围不匹配）');
-    }
-    if (scope.allowedSiteCodes.length > 0 && row.site_code && !scope.allowedSiteCodes.includes(row.site_code)) {
-      throw new ForbiddenException('无权访问该免疫计划（场站范围不匹配）');
-    }
-    if (scope.allowedFarmCodes.length > 0 && row.farm_code && !scope.allowedFarmCodes.includes(row.farm_code)) {
-      throw new ForbiddenException('无权访问该免疫计划（农场范围不匹配）');
-    }
+    this.assertWriteScope({company_code:row.company_code??'',farm_code:row.farm_code??'',site_code:row.site_code??''});
   }
 
   private buildScope(alias: string, params: unknown[]): string {
-    const scope = this.scope();
-    if (!scope || scope.isGlobal) return '1=1';
-    if (scope.allowedCompanyCodes.length === 0) return '1=0';
-    const clauses: string[] = [];
-    params.push(scope.allowedCompanyCodes);
-    clauses.push(`${alias}.company_code = ANY($${params.length})`);
-    if (scope.allowedSiteCodes.length > 0) {
-      params.push(scope.allowedSiteCodes);
-      clauses.push(`${alias}.site_code = ANY($${params.length})`);
+    const context=this.scope();if(!context)return '1=0';
+    if(!['allowedBreedingCompanyCodes','allowedBreedingSiteCodes','allowedBreedingFarmCodes'].some(key=>Object.prototype.hasOwnProperty.call(context,key))) {
+      if(context.isGlobal)return '1=1';if(!context.allowedCompanyCodes.length)return '1=0';
+      const filters=[];for(const [key,codes] of [['company_code',context.allowedCompanyCodes],['site_code',context.allowedSiteCodes],['farm_code',context.allowedFarmCodes]] as const) if(codes.length){params.push(codes);filters.push(`${alias}.${key}=ANY($${params.length})`);}
+      return filters.join(' AND ');
     }
-    if (scope.allowedFarmCodes.length > 0) {
-      params.push(scope.allowedFarmCodes);
-      clauses.push(`${alias}.farm_code = ANY($${params.length})`);
-    }
-    return clauses.join(' AND ');
+    const scope=deriveOrgScope({dataScope:context});
+    return scopeWhere(scope,params,`${alias}.`) || '1=1';
   }
 
   private assertSiteCompanyScope(siteCode: string, companyCode: string): void {
@@ -230,7 +214,7 @@ export class ImmuneService {
     const flock = rows[0];
     if (!flock) throw new BadRequestException(`鸡群 ${input.flock_no} 不存在`);
     const flockStatus = String(flock.status ?? 'ACTIVE').toUpperCase();
-    if (['INACTIVE', 'CANCELLED', 'CLOSED', 'DELETED'].includes(flockStatus)) {
+    if (['INACTIVE', 'CANCELLED', 'CLOSED', 'DELETED', 'RETIRED'].includes(flockStatus)) {
       throw new BadRequestException(`鸡群 ${input.flock_no} 不可用于免疫`);
     }
     if (flock.farm_code && String(flock.farm_code) !== input.farm_code) {
@@ -343,6 +327,7 @@ export class ImmuneService {
     const status = planDate < todayString() ? 'OVERDUE' : 'PLANNED';
 
     return this.ds.transaction(async manager => {
+      const occupancy=await lockManagedActivity(manager,normalized.flock_no);
       await this.assertFlock(manager, normalized, plannedHeads);
       const vaccine = await this.resolveVaccine(manager, normalized.vaccine_code!, normalized.site_code);
       if (inventoryBatchNo) {
@@ -387,6 +372,7 @@ export class ImmuneService {
         ],
       );
       if (!rows[0]) throw new BadRequestException('免疫计划创建失败');
+      await recordFlockActivity(manager,'IMMUNE_PLAN',rows[0].id,occupancy,todayString());
       return rows[0];
     });
   }
@@ -655,15 +641,23 @@ export class ImmuneService {
     if (!Number.isInteger(numericId) || numericId <= 0) throw new BadRequestException('免疫计划 id 无效');
     const safeOperator = String(operator ?? '').trim() || 'unknown';
     return this.ds.transaction(async manager => {
+      const [identity]=await manager.query('SELECT flock_no FROM brd_vaccinations WHERE id=$1',[numericId]);
+      const occupancy=identity?await lockManagedActivity(manager,identity.flock_no):null;
       const rows = await manager.query(`SELECT * FROM brd_vaccinations WHERE id = $1 FOR UPDATE`, [numericId]);
       const plan = rows[0];
       if (!plan) throw new NotFoundException('免疫计划不存在');
-      this.assertReadScope(plan);
+      if(occupancy)this.assertReadScope(occupancy);else this.assertReadScope(plan);
       if (plan.status === 'EXECUTED' || plan.actual_date) return plan;
       if (plan.status === 'CANCELLED') throw new BadRequestException('已取消的免疫计划不能执行');
       const actualHeads = nonNegativeInteger(input.actual_heads, 'actual_heads', Number(plan.planned_heads ?? 0));
       if (actualHeads <= 0) throw new BadRequestException('actual_heads必须大于 0');
-      await this.assertFlock(manager, plan, actualHeads);
+      if(occupancy) {
+        const current={...plan,house_code:occupancy.house_code,farm_code:occupancy.farm_code,site_code:occupancy.site_code,company_code:occupancy.company_code};
+        this.assertReadScope(current);
+        await this.assertFlock(manager,current,actualHeads);
+        // Keep plan's original location; execution location is an immutable separate fact.
+        plan.house_code=current.house_code;plan.farm_code=current.farm_code;plan.site_code=current.site_code;
+      } else await this.assertFlock(manager, plan, actualHeads);
       const vaccineCode = String(plan.vaccine_code ?? plan.vaccine ?? '').trim();
       if (!vaccineCode) throw new BadRequestException('免疫计划缺少疫苗编码');
       const vaccine = await this.resolveVaccine(manager, vaccineCode, String(plan.site_code));
@@ -733,6 +727,7 @@ export class ImmuneService {
         [actualDate, actualHeads, doseValue, allocations[0]?.batch_no ?? requestedBatchNo ?? null, manufacturerBatchNo, sourceIssueNo, safeOperator, numericId],
       );
       if (updatedRows.length === 0) throw new ConflictException('免疫计划已被其他请求执行');
+      await recordFlockActivity(manager,'IMMUNE_EXECUTION',numericId,occupancy,actualDate);
       return { ...updatedRows[0], allocated: allocations, vaccine_name: vaccine.medication_name };
     });
   }
@@ -742,10 +737,12 @@ export class ImmuneService {
     if (!Number.isInteger(numericId) || numericId <= 0) throw new BadRequestException('免疫计划 id 无效');
     const safeOperator = String(operator ?? '').trim() || 'unknown';
     return this.ds.transaction(async manager => {
+      const [identity]=await manager.query('SELECT flock_no FROM brd_vaccinations WHERE id=$1',[numericId]);
+      const occupancy=identity?await lockManagedActivity(manager,identity.flock_no):null;
       const rows = await manager.query(`SELECT * FROM brd_vaccinations WHERE id = $1 FOR UPDATE`, [numericId]);
       const plan = rows[0];
       if (!plan) throw new NotFoundException('免疫计划不存在');
-      this.assertReadScope(plan);
+      if(occupancy)this.assertReadScope(occupancy);else this.assertReadScope(plan);
       if (plan.status === 'CANCELLED') return plan;
       if (plan.status === 'EXECUTED' || plan.actual_date) throw new BadRequestException('已执行的免疫计划不能直接取消');
       const updated = await manager.query(

@@ -47,8 +47,9 @@ function aggregateByHouse(logs: FarmLog[]) {
 }
 function NumStepper({
   value,
-  onChange
+  onChange,disabled=false
 }: {
+  disabled?: boolean;
   value: number;
   onChange: (v: number) => void;
 }) {
@@ -56,7 +57,7 @@ function NumStepper({
     t
   } = useMobileTheme();
   return <div className={u.flexRow}>
-      <button onClick={() => onChange(Math.max(0, value - 1))} style={{
+      <button disabled={disabled} onClick={() => onChange(Math.max(0, value - 1))} style={{
       width: 32,
       height: 32,
       borderRadius: 8,
@@ -70,7 +71,7 @@ function NumStepper({
     }}>
         <Minus size={14} />
       </button>
-      <input type="number" inputMode="numeric" min="0" value={value || ''} onChange={e => onChange(Math.max(0, Number(e.target.value) || 0))} placeholder="0" style={{
+      <input disabled={disabled} type="number" inputMode="numeric" min="0" value={value || ''} onChange={e => onChange(Math.max(0, Number(e.target.value) || 0))} placeholder="0" style={{
       width: 64,
       height: 32,
       textAlign: 'center',
@@ -83,7 +84,7 @@ function NumStepper({
       outline: 'none',
       WebkitAppearance: 'none'
     }} />
-      <button onClick={() => onChange(value + 1)} style={{
+      <button disabled={disabled} onClick={() => onChange(value + 1)} style={{
       width: 32,
       height: 32,
       borderRadius: 8,
@@ -193,7 +194,7 @@ export default function MortalityPage() {
     try {
       // Validate the whole selection before issuing any request: a daily total
       // cannot safely be redistributed across historical shifts here.
-      const requests = houseList.map(house => buildMortalityRequest(logs, house, date, {
+      const requests = houseList.filter(house=>!logs.some(row=>row.house_code===house&&row.occupancy_id)).map(house => buildMortalityRequest(logs, house, date, {
         mortality_qty: mortEdits[house] ?? 0,
         elimination_qty: elimEdits[house] ?? 0,
         reason: reasonEdits[house] || null,
@@ -261,6 +262,7 @@ export default function MortalityPage() {
         color: t.text,
         flex: 1
       }}>💀 {tr('mob.brd.mortality_quick_entry', '死淘快录')}</span>
+        <a href="/mobile/flock-lifecycle" style={{color:t.text,fontSize:13}}>办理死淘单</a>
         <button onClick={() => loadData(date)} style={{
         background: 'none',
         border: 'none',
@@ -451,6 +453,7 @@ export default function MortalityPage() {
           const mort = mortEdits[house] ?? 0;
           const elim = elimEdits[house] ?? 0;
           const hasLoss = mort > 0 || elim > 0;
+          const managed=logs.some(row=>row.house_code===house&&row.occupancy_id);
           return <div key={house} style={{
             padding: '14px 16px',
             borderRadius: 14,
@@ -464,7 +467,7 @@ export default function MortalityPage() {
               fontWeight: 700,
               color: t.text,
               marginBottom: 12
-            }}>{house}</div>
+            }}>{house}{managed&&<p>已接续事件账：本页只读，请用“办理死淘单”。</p>}</div>
 
                   {/* 死亡行 */}
                   <div style={{
@@ -484,7 +487,7 @@ export default function MortalityPage() {
                   color: 'var(--status-danger)'
                 }}>⚠ {tr('mob.brd.large_qty', '数量较大')}</span>}
                     </div>
-                    <NumStepper value={mort} onChange={v => {
+                    <NumStepper disabled={managed} value={mort} onChange={v => {
                 setMortEdits(p => ({
                   ...p,
                   [house]: v
@@ -507,7 +510,7 @@ export default function MortalityPage() {
                   color: elim > 0 ? 'var(--status-warning)' : t.textSub
                 }}>{tr('mob.brd.elimination', '淘汰')}</span>
                     </div>
-                    <NumStepper value={elim} onChange={v => {
+                    <NumStepper disabled={managed} value={elim} onChange={v => {
                 setElimEdits(p => ({
                   ...p,
                   [house]: v

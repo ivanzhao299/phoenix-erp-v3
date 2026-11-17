@@ -1,5 +1,5 @@
 import { OrgOwnershipService } from '../org/services/org-ownership.service';
-import { ConflictException, Injectable } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable } from '@nestjs/common';
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
 import { PackagingInventoryIntegrationService } from '../sales-v2/services/packaging-inventory-integration.service'; // 生产链路收口 Phase 1
@@ -272,6 +272,9 @@ export class PackagingService {
     try {
       // ── 事务：5 步原子提交 ──────────────────────────────────────
       await this.em.transaction(async (mgr) => {
+        await mgr.query("SELECT pg_advisory_xact_lock(hashtext('phoenix:daily-house'),hashtext($1))",[houseCode]);
+        const [schema]=await mgr.query("SELECT to_regclass('brd_flock_house_states') AS ledger");
+        if(schema?.ledger && (await mgr.query('SELECT 1 FROM brd_flock_house_states WHERE house_code=$1',[houseCode])).length) throw new BadRequestException('已接续鸡舍请使用舍日分级日报和包装作业中心，旧班次入口不能重复生成日报');
         // ① pkg_shifts → DONE
         // 显式 ::int 类型 cast，避免 V2 老列(TEXT) + V3 新列(INT) 让 pg 类型推断失败
         // completed_time 是 V2 历史 TEXT 列，用 to_char 而非 NOW() 防类型不匹配

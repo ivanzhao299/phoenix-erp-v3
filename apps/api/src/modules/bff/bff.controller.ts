@@ -1,3 +1,6 @@
+import {FarmService,deriveOrgScope,scopeWhere} from '../farm/farm.service';
+import {DataScopeGuard} from '../org/guards/data-scope.guard';
+import {ProductionAnalyticsService} from '../analytics/services/production-analytics.service';
 import { PackagingHandoverService } from './packaging-handover.service';
 import { OrgOwnershipService } from '../org/services/org-ownership.service';
 import { listPackagingReadyCombinations, resolvePackagingIdentity, resolvePackagingSourceContext } from './packaging-readiness';
@@ -23,10 +26,10 @@ import { SubmitGradingDto } from './dto/grading.dto';
 
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 @Controller('api/dashboard')
-@UseGuards(AuthGuard('jwt'), MenuGuard)
+@UseGuards(AuthGuard('jwt'), MenuGuard,DataScopeGuard)
 @RequireMenu('MENU_DASHBOARD', 'V')
 export class DashboardBffController {
-  constructor(@InjectEntityManager() private readonly em: EntityManager) {}
+  constructor(@InjectEntityManager() private readonly em: EntityManager,private readonly farm:FarmService) {}
 
   // ═══ V2 fidelity: 主仪表盘 KPI ═══════════════════════════════════════════
   // 来源：_archive/phoenix-backend-v2-sqlite/src/routes/dashboard.js (kpi)
@@ -34,18 +37,16 @@ export class DashboardBffController {
   async getKpi(@Req() req: any) {
     // ── 组织隔离 scope ────────────────────────────────────────────
     const userStoreCode: string | undefined = req.user?.storeCode;
-    const isGlobalKpi =
-      !userStoreCode ||
-      userStoreCode === 'ALL' ||
+    const isGlobalKpi = req.dataScope ? req.dataScope.isGlobal===true :
       (req.user?.permissions || []).includes('*') ||
       req.user?.username === 'admin';
-    const farmKpiCode = isGlobalKpi ? null : userStoreCode;
+
     // D2（2026-06-28）：非全局用户（如场区经理）只看本场区/本店数据，绝不显示集团口径。
     //   商业类 KPI（库存/POS/直销/预警）统一按 store_code 收口；收口只会"收窄"，永不泄漏集团。
     //   设备/停药等农场域全局查询对受限用户直接跳过（避免跨场泄漏；设备有独立监控页）。
-    const scopeStore: string | null = isGlobalKpi ? null : (userStoreCode || null);
+    const scopeStore: string | null = isGlobalKpi ? null : (userStoreCode || '__NO_AUTHORIZED_STORE__');
 
-    const today = new Date().toISOString().slice(0, 10);
+    const today = new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Singapore'}).format(new Date());
     const safe = async <T,>(p: Promise<T>, fb: T): Promise<T> => { try { return await p; } catch { return fb; } };
 
     const [stockRow] = await safe(
@@ -108,53 +109,20 @@ export class DashboardBffController {
       [{ total: 0 }],
     );
 
-    // 今日产蛋
-    const [eggsRow] = await safe(
-      this.em.query(
-        farmKpiCode
-          ? `SELECT COALESCE(SUM(eggs_produced),0)::int AS today_eggs
-               FROM brd_daily_logs WHERE log_date::text = $1 AND farm_code = $2`
-          : `SELECT COALESCE(SUM(eggs_produced),0)::int AS today_eggs
-               FROM brd_daily_logs WHERE log_date::text = $1`,
-        farmKpiCode ? [today, farmKpiCode] : [today],
-      ),
-      [{ today_eggs: 0 }],
-    );
-    const todayEggs = Number(eggsRow?.today_eggs) || 0;
-    // Keep all laying flock population aligned with /api/v3/farm overview/trend.
-    const [flockRow] = await safe(
-      this.em.query(
-        farmKpiCode
-          ? `SELECT COALESCE(SUM(current_qty),0)::int AS total FROM brd_flocks WHERE UPPER(status) IN ('LAYING','PEAK','DECLINING') AND farm_code = $1`
-          : `SELECT COALESCE(SUM(current_qty),0)::int AS total FROM brd_flocks WHERE UPPER(status) IN ('LAYING','PEAK','DECLINING')`,
-        farmKpiCode ? [farmKpiCode] : [],
-      ),
-      [{ total: 0 }],
-    );
-    const layingTotal = Number(flockRow?.total) || 0;
-    const todayLayRate = layingTotal > 0 ? Number(((todayEggs / layingTotal) * 100).toFixed(1)) : null;
+    const report=await this.farm.getDailyHenReport(today,deriveOrgScope(req));
+    const layingRows=report.rows.filter((r:any)=>['LAYING','PEAK','DECLINING'].includes(r.current_flock_status??r.production_stage));
+    const todayEggs=layingRows.reduce((n:number,r:any)=>n+Number(r.eggs??0),0);
+    const layingTotal=layingRows.every((r:any)=>r.current_qty!=null)?layingRows.reduce((n:number,r:any)=>n+Number(r.current_qty??0),0):null;
+    const todayLayRate=layingRows.length&&layingRows.every((r:any)=>r.has_daily_log&&r.current_qty!=null)&&layingTotal!=null&&layingTotal>0?Number((todayEggs*100/layingTotal).toFixed(1)):null;
 
     // 停药期预警统一读取专用用药记录，并按用户场站范围过滤。
-    const withdrawRows = await safe(
-      this.em.query(
-        scopeStore
-          ? `SELECT id, medication_code AS medicine, house_code AS farm_house,
-                    withdraw_until AS end_date
-               FROM brd_medication_records
-              WHERE status <> 'CANCELLED'
-                AND withdraw_until::date >= CURRENT_DATE
-                AND withdraw_until::date <= CURRENT_DATE + INTERVAL '5 days'
-                AND site_code = $1`
-          : `SELECT id, medication_code AS medicine, house_code AS farm_house,
-                    withdraw_until AS end_date
-               FROM brd_medication_records
-              WHERE status <> 'CANCELLED'
-                AND withdraw_until::date >= CURRENT_DATE
-                AND withdraw_until::date <= CURRENT_DATE + INTERVAL '5 days'`,
-        scopeStore ? [scopeStore] : [],
-      ),
-      [],
-    );
+    const vetAllowed=(req.user?.permissions??[]).some((p:string)=>p==='*'||p==='MENU_FARM_VET:V')||req.user?.username==='admin';
+    const careParams:any[]=[];const careScope=scopeWhere(deriveOrgScope(req),careParams,'owner.');
+    const withdrawRows=vetAllowed?await this.em.query(`SELECT r.id,r.medication_code AS medicine,COALESCE(b.house_code,r.house_code) AS farm_house,r.withdraw_until::text AS end_date
+      FROM brd_medication_records r LEFT JOIN brd_flock_balances b ON b.flock_no=r.flock_no
+      JOIN LATERAL (SELECT COALESCE(b.farm_code,r.farm_code) AS farm_code,COALESCE(b.site_code,r.site_code) AS site_code,COALESCE(b.company_code,r.company_code) AS company_code) owner ON true
+      WHERE r.status<>'CANCELLED' AND r.withdraw_until::date>=(CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Singapore')::date
+      AND r.withdraw_until::date<=(CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Singapore')::date+5 ${careScope?'AND '+careScope:''}`,careParams):[];
 
     // 设备环境快报（全局；受限用户跳过——设备有独立监控页 /breeding/device，避免跨场泄漏）
     const [deviceAlertRow] = scopeStore ? [{ cnt: 0 }] : await safe(
@@ -248,21 +216,8 @@ export class DashboardBffController {
       const d = new Date(); d.setDate(d.getDate() - (6 - i));
       return d.toISOString().slice(0, 10);
     });
-    const eggChartRows: any[] = await safe(
-      this.em.query(
-        farmKpiCode
-          ? `SELECT log_date::text AS day, COALESCE(SUM(eggs_produced),0)::int AS eggs
-               FROM brd_daily_logs
-              WHERE log_date >= (CURRENT_DATE - INTERVAL '6 days') AND farm_code = $1
-              GROUP BY day ORDER BY day`
-          : `SELECT log_date::text AS day, COALESCE(SUM(eggs_produced),0)::int AS eggs
-               FROM brd_daily_logs
-              WHERE log_date >= (CURRENT_DATE - INTERVAL '6 days')
-              GROUP BY day ORDER BY day`,
-        farmKpiCode ? [farmKpiCode] : [],
-      ),
-      [],
-    );
+    const production=await new ProductionAnalyticsService(this.em).compute({dateFrom:last7[0],dateTo:today},deriveOrgScope(req));
+    const eggChartRows=production.trend30Day.map((r:any)=>({day:r.day,eggs:r.eggs}));
     const mergedChart = last7.map(dateStr => {
       const dow  = new Date(dateStr).getDay();
       const posR  = chartRows.find((r: any) => Number(r.dow) === dow);
@@ -282,7 +237,7 @@ export class DashboardBffController {
         stats: {
           eggs:      { value: todayEggs.toLocaleString(), unit: '枚', trend: null },
           stock:     {
-            value: layingTotal.toLocaleString('zh-CN'),
+            value: layingTotal==null?'待核实':layingTotal.toLocaleString('zh-CN'),
             unit: '羽',
             trend: null,
           },
@@ -932,18 +887,19 @@ export class UsersBffController {
 
 // ── Analytics ─────────────────────────────────────────────────────────────────
 @Controller('api/analytics')
-@UseGuards(AuthGuard('jwt'), MenuGuard)
+@UseGuards(AuthGuard('jwt'), MenuGuard,DataScopeGuard)
 @RequireMenu('MENU_DASHBOARD', 'V', ['MENU_ANALYTICS'])
 export class AnalyticsBffController {
   constructor(@InjectEntityManager() private readonly em: EntityManager) {}
 
   // ═══ BI 驾驶舱一次聚合接口（替代前端 5 次裸 CRUD）═══════════════════════
   @Get('dashboard')
-  async getDashboard() {
+  async getDashboard(@Req() req:any) {
     const safe = async <T,>(p: Promise<T>, fb: T): Promise<T> => {
       try { return await p; } catch { return fb; }
     };
     const today = new Date().toISOString().slice(0, 10);
+    const canonicalProduction=await new ProductionAnalyticsService(this.em).compute({},deriveOrgScope(req));
     const in14  = new Date(Date.now() + 14 * 86400_000).toISOString().slice(0, 10);
 
     const [
@@ -959,11 +915,7 @@ export class AnalyticsBffController {
       expiryBatches,
       pendingOrders,
     ] = await Promise.all([
-      // 近 30 天集蛋总量
-      safe(this.em.query(
-        `SELECT COALESCE(SUM(COALESCE(egg_count,eggs_produced,0)),0)::bigint AS total
-           FROM brd_daily_logs WHERE log_date >= CURRENT_DATE - INTERVAL '30 days'`
-      ), [{ total: 0 }]),
+      Promise.resolve([{total:canonicalProduction.totalEggs30Day}]),
       // 今日入库数量
       safe(this.em.query(
         `SELECT COALESCE(SUM(qty),0)::bigint AS total FROM wms_inbound
@@ -987,19 +939,8 @@ export class AnalyticsBffController {
         `SELECT COUNT(*)::int AS total FROM inv_batches
            WHERE expire_date BETWEEN $1 AND $2 AND qty_available > 0`, [today, in14]
       ), [{ total: 0 }]),
-      // 近 30 天死淘
-      safe(this.em.query(
-        `SELECT COALESCE(SUM(COALESCE(mortality_qty,0)),0)::int AS total
-           FROM brd_daily_logs WHERE log_date >= CURRENT_DATE - INTERVAL '30 days'`
-      ), [{ total: 0 }]),
-      // 近 7 天集蛋趋势
-      safe(this.em.query(
-        `SELECT log_date::text AS date,
-                COALESCE(SUM(COALESCE(egg_count,eggs_produced,0)),0)::bigint AS value
-           FROM brd_daily_logs
-           WHERE log_date >= CURRENT_DATE - INTERVAL '7 days'
-           GROUP BY log_date ORDER BY log_date`
-      ), []),
+      Promise.resolve([{total:canonicalProduction.trend30Day.reduce((n:number,r:any)=>n+Number(r.deaths??0)+Number(r.elimination??0),0)}]),
+      Promise.resolve(canonicalProduction.trend30Day.slice(-7).map((r:any)=>({date:r.day,value:r.eggs}))),
       // 近 7 天出库趋势
       safe(this.em.query(
         `SELECT DATE(created_at)::text AS date,
@@ -1045,14 +986,19 @@ export class AnalyticsBffController {
   }
 
   @Get('overview')
-  async getOverview() {
+  async getOverview(@Req() req:any) {
+    const params:any[]=[];const farmScope=scopeWhere(deriveOrgScope(req),params,'owner.');
+    const [flockCount]=await this.em.query(`SELECT COUNT(*)::int AS cnt FROM brd_flocks f JOIN brd_houses h ON h.house_code=f.house_code
+      JOIN (SELECT farm_code,company_code,mapped_site_code AS site_code FROM brd_farms WHERE status='ACTIVE') owner ON owner.farm_code=h.farm_code
+      WHERE UPPER(f.status) IN ('ACTIVE','GROWING','LAYING','PEAK','DECLINING') ${farmScope?'AND '+farmScope:''}`,params);
+    if(!deriveOrgScope(req).isGlobal)return {code:200,data:{month_sales:null,month_orders:null,total_members:null,active_flocks:Number(flockCount?.cnt??0)},commercialScopeStatus:'GLOBAL_AGGREGATE_NOT_AUTHORIZED'};
     try {
       const thisMonth = new Date().toISOString().slice(0, 7);
       const [[sales], [orders], [members], [flocks]] = await Promise.all([
         this.em.query(`SELECT COALESCE(SUM(total_amount),0) AS total FROM pos_sales WHERE TO_CHAR(created_at,'YYYY-MM')=$1`, [thisMonth]),
         this.em.query(`SELECT COUNT(*) AS cnt FROM ord_orders WHERE TO_CHAR(created_at,'YYYY-MM')=$1`, [thisMonth]),
         this.em.query(`SELECT COUNT(*) AS cnt FROM crm_members`),
-        this.em.query(`SELECT COUNT(*) AS cnt FROM brd_flocks WHERE status='active'`),
+        Promise.resolve([{cnt:flockCount?.cnt??0}]),
       ]);
       return { code: 200, data: {
         month_sales:   Number(sales?.total || 0),
@@ -1064,20 +1010,12 @@ export class AnalyticsBffController {
   }
 
   @Get('production')
-  async getProduction() {
-    try {
-      const data = await this.em.query(`
-        SELECT TO_CHAR(log_date,'YYYY-MM') AS month,
-               SUM(egg_count)    AS eggs,
-               SUM(feed_kg)      AS feed_kg,
-               SUM(death_count)  AS deaths
-        FROM brd_daily_logs
-        WHERE log_date >= CURRENT_DATE - INTERVAL '6 months'
-        GROUP BY TO_CHAR(log_date,'YYYY-MM')
-        ORDER BY month
-      `).catch(() => []);
-      return { code: 200, data };
-    } catch { return { code: 200, data: [] }; }
+  async getProduction(@Req() req:any) {
+    const now=new Date();const from=new Date(now);from.setUTCMonth(from.getUTCMonth()-6);
+    const result=await new ProductionAnalyticsService(this.em).compute({dateFrom:from.toISOString().slice(0,10),dateTo:new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Singapore'}).format(now)},deriveOrgScope(req));
+    const months=new Map<string,any>();
+    for(const row of result.trend30Day){const month=String(row.day).slice(0,7);const value=months.get(month)??{month,eggs:0,feed_kg:0,water_l:0,deaths:0,elimination:0};for(const key of ['eggs','feed_kg','water_l','deaths','elimination'])value[key]+=Number(row[key]??0);months.set(month,value);}
+    return {code:200,data:[...months.values()],denominatorBasis:result.denominatorBasis};
   }
 
   @Get('inventory')

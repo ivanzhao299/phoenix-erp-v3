@@ -1,0 +1,11 @@
+{
+  "nativeInputsInspected": 19,
+  "manualMasterDataInputs": 0,
+  "controllerMenuAndDataScopeGuards": true,
+  "actualAuthorizationEvidence": [
+    "lifecycle-http-utc.log: 4 passed",
+    "lifecycle-http-sg.log: 4 passed",
+    "downstream-pg.log: original farm scope and current caretaker guards; also included in final full API run"
+  ],
+  "scopeAudit": "PASS"
+}

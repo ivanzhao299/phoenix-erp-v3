@@ -321,7 +321,7 @@ export default function HouseDetailPage() {
 
       // G16：拉饲料/水的日差额
       try {
-        const today = new Date().toISOString().slice(0, 10);
+        const today = new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Singapore'}).format(new Date());
         const dRes = await fetch(`${API}/daily-report/generate`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', ...hdr() },

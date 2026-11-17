@@ -14,9 +14,10 @@ export interface AttachmentUploaderProps {
   readOnly?: boolean;
   label?: string;
   apiBase?: string;
+  ownership?: {moduleCode: string;ownerType: string;ownerId: string;companyCode: string;storeCode?: string};
 }
 
-export function AttachmentUploader({ value, onChange, readOnly, label, apiBase }: AttachmentUploaderProps) {
+export function AttachmentUploader({ value, onChange, readOnly, label, apiBase, ownership }: AttachmentUploaderProps) {
   const { t } = useLanguage();
   const resolvedLabel = label ?? t('ui.上传附件（PDF/图片 ≤15MB）', '上传附件（PDF/图片 ≤15MB）');
   const [uploading, setUploading] = useState(false);
@@ -61,6 +62,7 @@ export function AttachmentUploader({ value, onChange, readOnly, label, apiBase }
         }
         const fd = new FormData();
         fd.append('file', file);
+        for(const [key,value] of Object.entries(ownership??{})) if(value) fd.append(key,value);
         const res = await fetch(`${base}/api/upload/contract`, { method: 'POST', headers: token ? { Authorization: `Bearer ${token}` } : undefined, body: fd });
         // G30：5xx 返 text/HTML，不强 JSON.parse（防 "Unexpected token 'I'" 报错）
         const ct = res.headers.get('content-type') || '';
@@ -82,7 +84,7 @@ export function AttachmentUploader({ value, onChange, readOnly, label, apiBase }
       }
       if (added.length) onChange([...value, ...added]);
       if (errs.length) setErr(errs.join('；'));
-    } catch (e: any) { setErr(e?.message || t('ui.上传失败','上传失败')); }
+    } catch (e: unknown) { setErr((e instanceof Error ? e.message : '') || t('ui.上传失败','上传失败')); }
     finally { setUploading(false); }
   };
 
@@ -123,8 +125,8 @@ export function AttachmentUploader({ value, onChange, readOnly, label, apiBase }
       }
       setCameraReady(true);
       await loadVideoDevices();
-    } catch (e: any) {
-      setErr(e?.message || t('ui.无法打开摄像头，请检查浏览器权限或改用文件上传','无法打开摄像头，请检查浏览器权限或改用文件上传'));
+    } catch (e: unknown) {
+      setErr((e instanceof Error ? e.message : '') || t('ui.无法打开摄像头，请检查浏览器权限或改用文件上传','无法打开摄像头，请检查浏览器权限或改用文件上传'));
       setCameraOpen(false);
     } finally {
       setCameraBusy(false);

@@ -60,8 +60,9 @@ export default function FlockPage() {
   const {
     can
   } = usePermission('MENU_FARM_DATA');
+  const {canEdit:canCreateFlock}=usePermission('MENU_FLOCK_CREATE');
   // G23-B：can(role[]) → PBAC
-  const { canCreate: canCreateFlock, canEdit: canEditFlock } = usePermission('MENU_FARM_DATA');
+  const { canEdit: canEditFlock } = usePermission('MENU_FARM_DATA');
   const {
     t, lang
   } = useLanguage();
@@ -177,7 +178,7 @@ export default function FlockPage() {
       inDate: s(r.start_date),
       qty: s(r.current_qty),
       targetWeeks: s(r.target_weeks, '80'),
-      eliminationDate: s(r.elimination_date),
+      eliminationDate: s(r.planned_elimination_date),
       peakLayRate: s(r.peak_lay_rate),
       feedConvRatio: s(r.feed_conversion_ratio),
       flockStatus: s(r.status, 'GROWING')
@@ -208,7 +209,7 @@ export default function FlockPage() {
       cost: Number(form.cost) || 0,
       target_weeks: Number(form.targetWeeks) || 80,
       status: form.flockStatus,
-      elimination_date: form.eliminationDate || null,
+      planned_elimination_date: form.eliminationDate || null,
       peak_lay_rate: form.peakLayRate ? Number(form.peakLayRate) : null,
       feed_conversion_ratio: form.feedConvRatio ? Number(form.feedConvRatio) : null
     };
@@ -309,7 +310,7 @@ export default function FlockPage() {
     width: '100px',
     /* g200f:ISO 字符串 → 本地日期 */
     render: (_: unknown, row: FlockCard) => {
-      const d = row._raw?.elimination_date;
+      const d = row._raw?.planned_elimination_date;
       return d ? new Date(String(d)).toLocaleDateString('zh-CN') : '—';
     }
   }, {
@@ -328,7 +329,7 @@ export default function FlockPage() {
     title: t('common.operation', '操作'),
     width: '100px',
     render: (_: unknown, row: FlockCard) => canEditFlock ? <div className={s.tableActions}>
-        <button type="button" className={s.btnIcon} onClick={() => handleEdit(row)}><Edit2 size={12} /></button>
+        <button type="button" className={s.btnIcon} aria-label={`编辑鸡群 ${String(row.id)}`} onClick={() => handleEdit(row)}><Edit2 size={12} /></button>
       </div> : null
   }];
   return <div className="animate-fade-in">
@@ -337,8 +338,8 @@ export default function FlockPage() {
         subtitle={`${t('ui.当前共', '当前共')} ${flocks.length} ${t('ui.个鸡群批次', '个鸡群批次')}`}
         breadcrumb={[t('ui.养殖管理', '养殖管理'), t('ui.鸡群档案', '鸡群档案')]}
         actions={canCreateFlock && (
-          <button type="button" style={primaryActionButton} onClick={() => { setEditId(null); setForm(emptyForm()); setHistoricalBreed(''); setShowDrawer(true); }}>
-            <Plus size={14} />{t('ui.新建鸡群档案', '新建鸡群档案')}
+          <button type="button" style={primaryActionButton} onClick={() => { window.location.href='/breeding/flock-lifecycle'; }}>
+            <Plus size={14} />{t('ui.办理入栏与生命周期', '办理入栏与生命周期')}
           </button>
         )}
       />
@@ -428,7 +429,7 @@ export default function FlockPage() {
               ...form,
               targetWeeks: e.target.value
             })} className={s.inp} /></div>
-            <div><label className={s.lbl}>{t('ui.计划淘汰日期', '计划淘汰日期')}</label><input type="date" value={form.eliminationDate} onChange={e => setForm({
+            <div><label className={s.lbl}>{t('ui.计划淘汰日期', '计划淘汰日期')}</label><input type="date" aria-label="计划淘汰日期" value={form.eliminationDate} onChange={e => setForm({
               ...form,
               eliminationDate: e.target.value
             })} className={s.inp} /></div>
@@ -461,16 +462,8 @@ export default function FlockPage() {
           </div>
           <div className={s.field}>
             <label className={s.lbl}>{t('ui.鸡群状态', '鸡群状态')}</label>
-            <select value={form.flockStatus} onChange={e => setForm({
-            ...form,
-            flockStatus: e.target.value
-          })} className={s.inp}>
-              <option value="GROWING">🐣 {t('ui.育雏/育成期', '育雏/育成期')}</option>
-              <option value="LAYING">🥚 {t('ui.产蛋期', '产蛋期')}</option>
-              <option value="PEAK">📈 {t('ui.产蛋高峰期', '产蛋高峰期')}</option>
-              <option value="DECLINING">📉 {t('ui.产蛋下降期', '产蛋下降期')}</option>
-              <option value="RETIRED">🏁 {t('ui.已淘汰', '已淘汰')}</option>
-            </select>
+            <DictSelect dictType="BRD_FLOCK_STATUS" value={form.flockStatus} allowedValues={['GROWING','LAYING','PEAK','DECLINING']} disabled={form.flockStatus==='RETIRED'} onChange={flockStatus=>setForm(p=>({...p,flockStatus}))} className={s.inp}/>
+            <small>关闭鸡群请使用生命周期关闭单；已关闭群保留原状态。</small>
           </div>
           <div style={{
           display: 'flex',

@@ -8,11 +8,14 @@ export async function writeFlock(
   body: Record<string, unknown>,
   existing?: { pkName: string; id: unknown },
 ): Promise<{ msg: string }> {
+  if (body.elimination_date !== undefined) throw new BadRequestException('旧淘汰日期含义待核实，仅可维护计划日期，实际关闭须走生命周期单据');
   const safe = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
   if (!body || !Object.keys(body).length || Object.keys(body).some(key => !safe.test(key))) {
     throw new BadRequestException('鸡群写入字段无效');
   }
   if (existing && existing.pkName !== 'flock_no') throw new BadRequestException('鸡群必须使用 flock_no 标识');
+  if (!existing) throw new BadRequestException('新鸡群请办理生命周期入栏单，禁止档案直接建立存栏');
+
   return manager.transaction(async tx => {
     const identity = existing ? (await tx.query('SELECT house_code FROM brd_flocks WHERE flock_no=$1', [existing.id]))[0] : undefined;
     for (const houseCode of [...new Set([identity?.house_code, body.house_code].filter(Boolean))].sort()) {
@@ -27,8 +30,14 @@ export async function writeFlock(
       throw new BadRequestException('鸡群编码为稳定身份，禁止修改');
     }
     if (current) {
+      if (body.status === 'RETIRED' && current.status !== 'RETIRED') throw new BadRequestException('关闭鸡群请办理生命周期关闭单');
+      const [schema] = await tx.query("SELECT to_regclass('brd_flock_balances') AS ledger");
+      const managed = schema?.ledger && (await tx.query('SELECT 1 FROM brd_flock_balances WHERE flock_no=$1', [current.flock_no])).length;
+      if (managed && ['status','breed_code','farm_code','company_code','site_code','placement_date','start_date'].some(key => body[key] !== undefined && String(body[key] ?? '') !== String(current[key] ?? '') && !(key === 'status' && body.status !== 'RETIRED'))) {
+        throw new BadRequestException('已接续事件账的身份/关闭信息须走生命周期流程');
+      }
       for (const field of ['current_qty', 'initial_qty', 'current_lay_rate']) {
-        if (body[field] !== undefined) throw new BadRequestException('存栏及当前产蛋率由日报维护，档案禁止直接修改');
+        if (body[field] !== undefined) throw new BadRequestException('存栏由受控业务账维护，档案禁止直接修改');
       }
       if (body.status === 'RETIRED' && Number(current.current_qty) !== 0) {
         throw new BadRequestException('在栏数量未归零，不能关闭鸡群');
@@ -59,7 +68,7 @@ export async function writeFlock(
       const occupied = await tx.query("SELECT 1 FROM brd_flocks WHERE house_code=$1 AND (status IS DISTINCT FROM 'RETIRED' OR COALESCE(current_qty,0)>0) LIMIT 1", [body.house_code]);
       if (occupied.length) throw new BadRequestException('鸡舍已有在栏鸡群，请先办理出栏关闭；混群需分栏模型');
     }
-    const dateFields = ['placement_date', 'start_date', 'elimination_date'];
+    const dateFields = ['placement_date', 'start_date', 'planned_elimination_date'];
     for (const key of dateFields) {
       const value = body[key];
       if (value !== undefined && value !== null && (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)

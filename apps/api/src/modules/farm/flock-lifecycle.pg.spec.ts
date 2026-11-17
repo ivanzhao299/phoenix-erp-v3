@@ -1,3 +1,4 @@
+import {freezeOwnedFlockClock} from '../../test-fixtures/flock-business-clock';
 import 'reflect-metadata';
 import { DataSource } from 'typeorm';
 import { FarmService, OrgScope } from './farm.service';
@@ -10,6 +11,7 @@ const suite = url ? describe : describe.skip;
 const global: OrgScope = { isGlobal: true, farmCode: null, siteCode: null };
 const scopeA: OrgScope = { isGlobal: false, farmCode: null, siteCode: null, companyCodes: ['CA'] };
 suite('flock daily correction on PostgreSQL', () => {
+ let releaseBusinessClock:(()=>void)|undefined;
   let db: DataSource;
   let service: FarmService;
   const report = (extra: Record<string, any> = {}) => ({ house_code: 'HA', flock_no: 'FA', log_date: '2026-11-10',
@@ -22,6 +24,7 @@ suite('flock daily correction on PostgreSQL', () => {
     const parsed = new URL(url!);
     if (parsed.hostname !== '127.0.0.1' || parsed.pathname !== '/phoenix_flock_review') throw new Error('Owned local flock fixture required');
     db = await new DataSource({ type: 'postgres', url, synchronize: false, migrationsRun: false, installExtensions: false }).initialize();
+  releaseBusinessClock=freezeOwnedFlockClock(url!);
     await db.query(`
       CREATE TABLE IF NOT EXISTS brd_farms(farm_code text PRIMARY KEY,company_code text,mapped_site_code text,status text);
       CREATE TABLE IF NOT EXISTS brd_houses(house_code text PRIMARY KEY,farm_code text,house_name text,status text);
@@ -44,15 +47,16 @@ suite('flock daily correction on PostgreSQL', () => {
       CREATE UNIQUE INDEX IF NOT EXISTS flock_test_notice ON sys_notifications(user_id,biz_type,biz_no)
         WHERE biz_type='FARM_LEDGER_PENDING' AND biz_no IS NOT NULL;
     `);
+    await db.query('ALTER TABLE brd_flocks ADD COLUMN IF NOT EXISTS placement_date date;ALTER TABLE brd_daily_logs ADD COLUMN IF NOT EXISTS feed_consumed numeric,ADD COLUMN IF NOT EXISTS water_consumed numeric');
     service = new FarmService(db.manager, new OrgOwnershipService(db.manager), { resolve: async () => ['7'] });
   });
-  afterAll(async () => { if (db?.isInitialized) await db.destroy(); });
+  afterAll(async () => { if (db?.isInitialized) await db.destroy();releaseBusinessClock?.(); });
   beforeEach(async () => {
     await db.query(`TRUNCATE brd_farms,brd_houses,brd_flocks,brd_daily_logs,product_grades,inv_batches,inv_ledger,
       sys_organizations,sys_user,sys_notifications RESTART IDENTITY;
       INSERT INTO brd_farms VALUES('A','CA','SA','ACTIVE'),('B','CB','SB','ACTIVE');
       INSERT INTO brd_houses VALUES('HA','A','house A','ACTIVE'),('HB','B','house B','ACTIVE');
-      INSERT INTO brd_flocks VALUES('FA','HA','A','LAYING','2026-01-01',10000,10000,0,now()),('FB','HB','B','LAYING','2026-01-01',5000,5000,0,now());
+      INSERT INTO brd_flocks(flock_no,house_code,farm_code,status,start_date,initial_qty,current_qty,current_lay_rate,updated_at) VALUES('FA','HA','A','LAYING','2026-01-01',10000,10000,0,now()),('FB','HB','B','LAYING','2026-01-01',5000,5000,0,now());
       INSERT INTO product_grades VALUES('GRADE_1',true,'ACTIVE'),('DIRTY',false,'ACTIVE'),('BROKEN',false,'ACTIVE');
       INSERT INTO sys_user VALUES('7','keeper',1);
     `);

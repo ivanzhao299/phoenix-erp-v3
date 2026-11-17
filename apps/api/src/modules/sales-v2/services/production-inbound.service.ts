@@ -328,6 +328,7 @@ export class ProductionInboundService {
     const dailyScopeLock = `${companyCode}|TEMP_PRODUCTION_DAILY|${dto.eggDate}|${collectionRef ?? siteCode ?? companyCode}`;
     let idempotent = false;
     const run = async (mgr: any) => {
+      if (dto.houseCode) await mgr.query("SELECT pg_advisory_xact_lock(hashtext('phoenix:daily-house'),hashtext($1))",[dto.houseCode]);
       await mgr.query('SELECT pg_advisory_xact_lock(hashtext($1))', [dailyScopeLock]);
       const existing = await mgr.query(
         `SELECT batch_no, quality_grade, qty, product_code, sku_code, spec_code, variety_code, status,

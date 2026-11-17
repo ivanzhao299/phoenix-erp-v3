@@ -1,3 +1,5 @@
+import { deriveOrgScope } from '../../farm/farm.service';
+import { inheritFlockProductionSources, recordFlockProductionSources } from '../../farm/flock-production-source';
 import { savedQuantity, QuantitySnapshot, positiveQuantity, baseQuantity, sharedBatches, lockQuantityPools, assertBatchPool, resolveQuantity } from '../../product-master/services/quantity-contract';
 import { SkuPolicy } from '../../product-master/services/sku-policy';
 import { EggSourceProfile, SkuAvailabilityService } from '../../product-master/services/sku-availability.service';
@@ -537,6 +539,8 @@ export class EggInventoryService {
           && (refs.length !== 1 || refs[0].profileCode !== params.sourceProfileCode || refs[0].houseCode !== params.houseCode)) {
         throw new BadRequestException('来源档案 refs 与单一来源参数不一致');
       }
+      // All house domains precede master/number/batch locks on every entry path.
+      for(const code of [...refs].map(x=>x.houseCode).sort()) await mgr.query("SELECT pg_advisory_xact_lock(hashtext('phoenix:daily-house'),hashtext($1))",[code]);
       // Stable lock ordering for multi-house packaging, with no first-source shortcut.
       for (const ref of [...refs].sort((a, b) => a.houseCode.localeCompare(b.houseCode))) {
         profiles.push(await this.skuAvailability.resolveSourceProfile({
@@ -588,6 +592,7 @@ export class EggInventoryService {
       throw new BadRequestException(`等级 ${grade} 的库存状态必须为 ${gradePolicy.defaultStockStatus}`);
     }
 
+    for(const houseCode of [...new Set(profiles.map(x=>x.houseCode))].sort()) await mgr.query("SELECT pg_advisory_xact_lock(hashtext('phoenix:daily-house'),hashtext($1))",[houseCode]);
     const batchNo    = await this.genBatchNo(params.eggDate, mgr);
     const expireDate = this.calcExpireDate(params.eggDate, params.shelfDays ?? DEFAULT_SHELF_DAYS);
     const [product] = await mgr.query('SELECT unit,unit_zh,status,variety_code FROM mst_products WHERE product_code=$1 FOR SHARE', [productCode]);
@@ -688,6 +693,7 @@ export class EggInventoryService {
       ],
     );
 
+    await recordFlockProductionSources(mgr,params,batchNo,profiles,deriveOrgScope({dataScope:this.cls.get('dataScope')}));
     await this.writeLedger({
       batchNo,
       changeType:  params.ledgerChangeType ?? INV_LEDGER_CHANGE_TYPE.INBOUND,
@@ -1391,6 +1397,15 @@ export class EggInventoryService {
       }
     }
 
+    const [sourceSchema]=await q("SELECT to_regclass('inv_flock_source_links') AS links");
+    if(sourceSchema?.links) for(const item of items) {
+      const returnBatch=`RET-${returnNo}-${item.id}`;
+      const [batch]=await q('SELECT qty FROM inv_batches WHERE batch_no=$1',[returnBatch]);
+      if(batch && item.sales_order_item_id) {
+        const origins=await q('SELECT DISTINCT batch_no FROM sal_order_item_batch_allocations WHERE sales_order_item_id=$1 AND outbound_qty>0',[item.sales_order_item_id]);
+        for(const origin of origins) await inheritFlockProductionSources({query:q},origin.batch_no,returnBatch,Number(batch.qty));
+      }
+    }
     this.logger.log(`[EggInv] 退货回库处理完成: return=${returnNo}`);
   }
 

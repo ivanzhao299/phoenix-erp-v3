@@ -1,0 +1,33 @@
+{
+  "cases": [
+    {
+      "case": "PC real protected evidence -> baseline draft -> submit",
+      "result": "passed"
+    },
+    {
+      "case": "Independent reviewer reads structured business fields/evidence and approves",
+      "result": "passed"
+    },
+    {
+      "case": "Mobile independent poster -> atomic posting -> live quantity 100 without horizontal overflow",
+      "result": "passed"
+    },
+    {
+      "case": "Browser reload preserves posted stock projection",
+      "result": "passed"
+    },
+    {
+      "case": "Other farm cannot see HA lifecycle documents",
+      "result": "passed"
+    },
+    {
+      "case": "Independent approved report supplement preserves original occupancy, business day and unknown feed/water",
+      "result": "passed"
+    },
+    {
+      "case": "Flock planned date edit and reload retains exact YYYY-MM-DD in Singapore browser",
+      "result": "passed"
+    }
+  ],
+  "complete": true
+}

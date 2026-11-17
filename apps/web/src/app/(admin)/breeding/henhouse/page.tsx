@@ -173,12 +173,8 @@ export default function HenHousePage() {
       toast.error(t('ui.请填写鸡舍名称', '请填写鸡舍名称'));
       return;
     }
-    if (!editId && !form.code.trim()) {
-      toast.error(t('ui.请填写鸡舍编码', '请填写鸡舍编码'));
-      return;
-    }
-    const cap = parseInt(form.capacity);
-    if (form.capacity !== '' && (isNaN(cap) || cap < 0)) {
+    const cap = Number(form.capacity);
+    if (!Number.isSafeInteger(cap) || cap<1) {
       toast.error(t('ui.容量不能为负', '容量不能为负'));
       return;
     }
@@ -188,12 +184,12 @@ export default function HenHousePage() {
       farm_name: farmInfo?.farm_name || form.farmName,
       house_name: form.name.trim(),
       house_type: form.type,
-      capacity: isNaN(cap) ? 0 : cap,
+      max_capacity:cap,capacity:cap,
       status: 'ACTIVE'
     };
     const ok = editId ? await updateRecord(editId, payload, 'house_code', t('ui.鸡舍信息已更新', '鸡舍信息已更新')) : await createRecord({
       ...payload,
-      house_code: form.code.trim(),
+
       current_birds: 0
     }, t('ui.鸡舍注册成功', '鸡舍注册成功'));
     if (ok) {
@@ -386,14 +382,7 @@ export default function HenHousePage() {
                 fontWeight: 400
               }}>（{t('ui.编辑时不可修改', '编辑时不可修改')}）</span>}
               </label>
-              <input value={form.code} readOnly={!!editId} onChange={e => setForm({
-              ...form,
-              code: e.target.value
-            })} placeholder={t('ui.例 A001', '例 A001')} className={s.inp} style={{
-              backgroundColor: editId ? 'var(--bg-muted)' : '',
-              color: editId ? 'var(--text-secondary)' : '',
-              cursor: editId ? 'not-allowed' : ''
-            }} />
+              <input value={editId?form.code:'保存时自动生成'} readOnly className={s.inp} style={{backgroundColor:'var(--bg-muted)',cursor:'not-allowed'}} />
             </div>
             <div>
               <label className={s.lbl}>{t('ui.鸡舍名称', '鸡舍名称')} <span style={{

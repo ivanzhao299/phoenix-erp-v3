@@ -1,3 +1,4 @@
+import {freezeOwnedFlockClock} from '../../test-fixtures/flock-business-clock';
 import 'reflect-metadata';
 import { DataSource } from 'typeorm';
 import { FarmService } from './farm.service';
@@ -14,6 +15,7 @@ const fixture = fixtureUrl ? describe : describe.skip;
 const scope = { isGlobal: true, farmCode: null, siteCode: null };
 
 fixture('Farm pending-ledger notifications on real PostgreSQL', () => {
+ let releaseBusinessClock:(()=>void)|undefined;
   let db: DataSource;
   let svc: FarmService;
   const resolve = jest.fn().mockResolvedValue(['7', '9']);
@@ -29,6 +31,7 @@ fixture('Farm pending-ledger notifications on real PostgreSQL', () => {
     if (owners.length !== 1 || owners[0].owner_key !== process.env.ISSUE381_FIXTURE_OWNER) {
       throw new Error('Fixture ownership mismatch');
     }
+  releaseBusinessClock=freezeOwnedFlockClock(fixtureUrl!);
     await db.query(`
       CREATE TABLE IF NOT EXISTS sys_notifications (
         id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -91,10 +94,11 @@ fixture('Farm pending-ledger notifications on real PostgreSQL', () => {
     `);
   });
 
-  afterAll(async () => { if (db?.isInitialized) await db.destroy(); });
+  afterAll(async () => { if (db?.isInitialized) await db.destroy();releaseBusinessClock?.(); });
 
   beforeEach(async () => {
     await db.query(`TRUNCATE sys_notifications, brd_daily_logs RESTART IDENTITY;
+      UPDATE inv_batches SET qty_available=0 WHERE product_code LIKE 'PRD-EGG%'; -- No eligible batch for this suite; retain referenced rows and real foreign keys from other owned fixture suites.
       DELETE FROM brd_flocks WHERE flock_no IN ('FLOCK-1','FLOCK-2');
       INSERT INTO brd_flocks(flock_no,house_code,farm_code,status,start_date,initial_qty,current_qty)
       VALUES ('FLOCK-1','H1','FARM-A','LAYING','2026-01-01',1000,1000),('FLOCK-2','H2','FARM-B','LAYING','2026-01-01',1000,1000)`);
@@ -112,33 +116,33 @@ fixture('Farm pending-ledger notifications on real PostgreSQL', () => {
 
   it('persists per-recipient notices from the submit skip path against the real schema', async () => {
     const result = await svc.submitBreedingDailyLog({
-      log_date: '2026-10-20', shift: '早班', house_code: 'H1', company_code: 'COMP-A',
+      log_date: '2026-11-10', shift: '早班', house_code: 'H1', company_code: 'COMP-A',
       eggs_produced: 120, mortality_qty: 0,
     }, scope);
     expect(result.ledgerSkipped).toBe(true);
     const rows = await notices();
     expect(rows.map((row: { user_id: string }) => row.user_id).sort()).toEqual(['7', '9']);
-    for (const row of rows as Array<{ biz_no: string }>) expect(row.biz_no).toBe('FARM_LEDGER_PENDING:COMP-A:2026-10-20:H1');
+    for (const row of rows as Array<{ biz_no: string }>) expect(row.biz_no).toBe('FARM_LEDGER_PENDING:COMP-A:2026-11-10:H1');
   });
 
   it('persists the diff notice from the update skip path', async () => {
     const inserted = await db.query(
       `INSERT INTO brd_daily_logs (log_date, house_code, shift, flock_no, company_code, eggs_produced, mortality_qty)
-       VALUES ('2026-10-20', 'H1', '早班', 'FLOCK-1', 'COMP-A', 300, 0) RETURNING id`,
+       VALUES ('2026-11-10', 'H1', '早班', 'FLOCK-1', 'COMP-A', 300, 0) RETURNING id`,
     );
     const result = await svc.updateBreedingDailyLog(Number(inserted[0].id), {
-      house_code: 'H1', flock_no: 'FLOCK-1', log_date: '2026-10-20', company_code: 'COMP-A',
+      house_code: 'H1', flock_no: 'FLOCK-1', log_date: '2026-11-10', company_code: 'COMP-A',
       eggs_produced: 500, mortality_qty: 0,
     }, scope);
     expect(result.ledgerSkipped).toBe(true);
     const rows = await notices();
     expect(rows).toHaveLength(2);
     expect(rows[0].content).toContain('200 枚');
-    expect(rows[0].biz_no).toBe('FARM_LEDGER_PENDING:COMP-A:2026-10-20:H1');
+    expect(rows[0].biz_no).toBe('FARM_LEDGER_PENDING:COMP-A:2026-11-10:H1');
   });
 
   it('keeps exactly one notice per recipient when the same skip fires concurrently', async () => {
-    const payload = { log_date: '2026-10-21', shift: '早班', house_code: 'H1', company_code: 'COMP-A', eggs_produced: 80, mortality_qty: 0 };
+    const payload = { log_date: '2026-11-11', shift: '早班', house_code: 'H1', company_code: 'COMP-A', eggs_produced: 80, mortality_qty: 0 };
     // Two concurrent submits of the same (company, date, house): the daily
     // row is upserted by both, and the partial unique index plus ON CONFLICT
     // inference must leave one notice per recipient, never duplicates.
@@ -153,7 +157,7 @@ fixture('Farm pending-ledger notifications on real PostgreSQL', () => {
 
   it('separates notices of two companies with their own authoritative houses', async () => {
     const resultA = await svc.submitBreedingDailyLog({
-      log_date: '2026-10-22', shift: '早班', house_code: 'H1', company_code: 'COMP-A',
+      log_date: '2026-11-12', shift: '早班', house_code: 'H1', company_code: 'COMP-A',
       eggs_produced: 50, mortality_qty: 0,
     }, scope);
     const entityManagerB = db.manager;
@@ -162,17 +166,17 @@ fixture('Farm pending-ledger notifications on real PostgreSQL', () => {
     } as never, { resolve } as never);
     (svcB as any).entityManager = (svc as any).entityManager;
     const resultB = await svcB.submitBreedingDailyLog({
-      log_date: '2026-10-22', shift: '早班', house_code: 'H2', company_code: 'COMP-B',
+      log_date: '2026-11-12', shift: '早班', house_code: 'H2', company_code: 'COMP-B',
       eggs_produced: 60, mortality_qty: 0,
     }, scope);
     expect(resultA.ledgerSkipped).toBe(true);
     expect(resultB.ledgerSkipped).toBe(true);
     const rows = await notices();
     expect(rows.map((row: { biz_no: string }) => row.biz_no).sort()).toEqual([
-      'FARM_LEDGER_PENDING:COMP-A:2026-10-22:H1',
-      'FARM_LEDGER_PENDING:COMP-B:2026-10-22:H2',
-      'FARM_LEDGER_PENDING:COMP-A:2026-10-22:H1',
-      'FARM_LEDGER_PENDING:COMP-B:2026-10-22:H2',
+      'FARM_LEDGER_PENDING:COMP-A:2026-11-12:H1',
+      'FARM_LEDGER_PENDING:COMP-B:2026-11-12:H2',
+      'FARM_LEDGER_PENDING:COMP-A:2026-11-12:H1',
+      'FARM_LEDGER_PENDING:COMP-B:2026-11-12:H2',
     ].sort());
   });
 });

@@ -1,0 +1,52 @@
+api-full-test.log sha256=266deddd3cbf9f5c3f668ef242b683329783fc1c56d16fc860a3bfcab9ebd380
+Test Suites: 23 skipped, 167 passed, 167 of 190 total
+Tests:       432 skipped, 2127 passed, 2559 total
+
+web-test.log sha256=547132e78e6fedc28b507126bd363199837daa04890d10a561df96a35420614f
+ Test Files  139 passed | 1 skipped (140)
+      Tests  834 passed | 4 skipped (838)
+
+typecheck.log sha256=afcfa323cc6668a35b0e0bfc55cbc9c9965cc07a38e886047762cdc547496a7e
+
+api-typecheck-final.log sha256=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+
+api-build.log sha256=1e503e759093860fc5e3c5c5ce08568556b3156320b751c2e6a9b12a8daea3e9
+
+web-build.log sha256=f6c5653994dff64909a1ba60adb950de39164126494707c96b9d6c43bedcd6da
+
+api-lint.log sha256=d5e871c7bd1c77f971f4e66027ab93432614e94185aec5482814dd888b42a7f5
+
+web-lint-changed.log sha256=c6b7d18f57c8c52a5468bbdb5290badef83a0b8907ca4d94714fd4b5e52630f4
+PASS: changed files did not increase lint debt
+
+web-lint-ratchet.log sha256=4287d4554bfa357508d8a260789ba1525468f63e1f255cfb6cd4e9718e328e26
+PASS: no file/rule error count increased
+
+lifecycle-http-utc.log sha256=c246f96707f298da83523b2ef7ff5f05c715e79b7e2fd37754437a6d6d789a5f
+Test Suites: 1 passed, 1 total
+Tests:       4 passed, 4 total
+
+lifecycle-http-sg.log sha256=ffa48b012a346c66f3623693f1500dde45a6dbd0e866a1144c9b51e4572e52c7
+Test Suites: 1 passed, 1 total
+Tests:       4 passed, 4 total
+
+migration-compatibility.log sha256=7b2b7e29fbc946d7e18e31b62923542423bc5cb9f896de76e6fb3647385fe7be
+Frozen baseline SQL installed: 195
+TypeORM TS chain applied: 113
+Fresh lifecycle tables and required columns verified
+Fresh approved report correction preserves quantity 97 and unknown consumption
+Fresh real service smoke passed: clean/admit, idempotent DAILY UPSERT, mortality/event/balance/report=97
+Flock additive upgrade is idempotent
+Unused flock installation reverted without removing historical business tables
+
+constraint-drift.log sha256=974258ccb561f72cfd371070d8b51ea88ecf815537d391fcc304afab69ffeddd
+✅ check-constraint-drift: 0 new drift(s); 0 allowlisted; 0 warning(s)
+
+nullable-in-unique.log sha256=4b95d58d9a67a8a178ee64e48dc6050ae865d08f8ff86c8ab5491ad17d79eb65
+✅ check-nullable-in-unique: 0 处违规(1 处在白名单)
+
+migration-dml.log sha256=fcd5d053f3a80cbf190e3947816e3794cfca5a7973ff3ca4d881039400f2d83e
+✅ 113 条 TS 迁移检查通过(46 条文件级豁免)
+
+migration-down.log sha256=603e5915366804c4aeaf18ae8aec1ead0440ee048ec7fd100594438ef53246c6
+✅ 所有 113 条 TS 迁移的 down() 已落实

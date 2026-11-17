@@ -55,8 +55,9 @@ export class FarmController {
   }
 
   @Get('daily-hen-report')
+  @RequireMenu('MENU_FARM_DAILY','V',['MENU_FARM_DATA'])
   async getDailyHenReport(@Query('date') date: string, @Req() req: any) {
-    const d = date || new Date().toISOString().slice(0, 10);
+    const d = date || new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Singapore'}).format(new Date());
     return await this.farmService.getDailyHenReport(d, this.getScope(req));
   }
 

@@ -38,6 +38,7 @@ async function lookupArr<T = any>(path: string): Promise<T[]> {
 }
 
 interface BaseProps {
+  ariaLabel?: string;
   value: string;
   onChange: (value: string) => void;
   onPick?: (opt: Opt | null) => void;
@@ -58,7 +59,7 @@ const selStyle: React.CSSProperties = {
 
 /** 通用：从端点加载 {value,label} 选项的下拉 */
 function ScopedSelect({
-  value, onChange, onPick, placeholder, disabled, className, style,
+  value, onChange, onPick, placeholder, disabled, className, style, ariaLabel,
   loader, reloadDeps, emptyMessage, errorMessage, refreshKey, preserveValue,
 }: BaseProps & {
   loader: () => Promise<Opt[]>;
@@ -92,7 +93,7 @@ function ScopedSelect({
 
   const statusMessage = !loading && (failed ? errorMessage : (!opts.length ? emptyMessage : undefined));
   return <>
-    <select data-i18n-skip="true" className={mergedClassName} style={{ ...selStyle, ...style }} value={value} disabled={disabled || loading}
+    <select aria-label={ariaLabel} data-i18n-skip="true" className={mergedClassName} style={{ ...selStyle, ...style }} value={value} disabled={disabled || loading}
       onChange={e => { onChange(e.target.value); onPick?.(opts.find(o => o.value === e.target.value) ?? null); }}>
       <option value="">{loading ? t('ui.加载中…','加载中…') : resolvedPlaceholder}</option>
       {preserveValue && value && !opts.some(o => o.value === value) && <option value={value} disabled>{value}（{t('ui.历史值或当前不可用', '历史值或当前不可用')}）</option>}

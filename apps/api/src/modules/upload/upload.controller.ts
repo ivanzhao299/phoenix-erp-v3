@@ -1,3 +1,6 @@
+import { DataScopeGuard } from '../org/guards/data-scope.guard';
+import { deriveOrgScope } from '../farm/farm.service';
+import { hasPerm } from '../../auth/permissions.util';
 import {
   Controller, Post, UseGuards, UseInterceptors,
   UploadedFile, BadRequestException, Body, Req,
@@ -32,7 +35,7 @@ interface LegacyUploadBody {
 }
 
 @Controller('api/upload')
-@UseGuards(AuthGuard('jwt'), MenuGuard)
+@UseGuards(AuthGuard('jwt'), MenuGuard, DataScopeGuard)
 export class UploadController {
   constructor(
     @InjectRepository(FileMetadataEntity)
@@ -54,6 +57,7 @@ export class UploadController {
     'MENU_FIN2_AP',
     'MENU_STORE_PAYMENT',
     'MENU_WORKFLOW_FORM',
+    'MENU_FLOCK_CREATE',
   ])
   @UseInterceptors(
     FileInterceptor('file', {
@@ -93,8 +97,19 @@ export class UploadController {
     const moduleCode = this.safeCode(body.moduleCode ?? body.module_code, LEGACY_MODULE_CODE, 64);
     const ownerType = this.safeCode(body.ownerType ?? body.owner_type, LEGACY_PENDING, 64);
     const ownerId = this.safeCode(body.ownerId ?? body.owner_id, LEGACY_PENDING, 128);
-    const companyCode = this.safeCode(body.companyCode ?? body.company_code, '', 64);
-    const storeCode = this.safeCode(body.storeCode ?? body.store_code, '', 64);
+    let companyCode = this.safeCode(body.companyCode ?? body.company_code, '', 64);
+    let storeCode = this.safeCode(body.storeCode ?? body.store_code, '', 64);
+    const isAdmin=req.user?.roles?.includes('ROLE_ADMIN') || req.user?.role==='ROLE_ADMIN' || req.user?.permissions?.includes('*');
+    const originalMenus=['MENU_PRC2_ORDER','MENU_PRC2_REQUEST','MENU_PRC2_PAYMENT','MENU_FIN2_SHAREHOLDER','MENU_FIN2_EXPENSE','MENU_FIN2_REIMBURSE','MENU_FIN2_AP','MENU_STORE_PAYMENT','MENU_WORKFLOW_FORM'];
+    if(moduleCode!=='FLOCK_LIFECYCLE' && !isAdmin && !originalMenus.some(menu=>hasPerm(req.user?.permissions,menu,'E'))) throw new BadRequestException('养殖上传权限仅可用于鸡群业务附件');
+    if(moduleCode==='FLOCK_LIFECYCLE') {
+      if(!isAdmin && !hasPerm(req.user?.permissions,'MENU_FLOCK_CREATE','E')) throw new BadRequestException('缺少养殖制单附件权限');
+      const [house]=await this.fileMetadataRepo.manager.query(`SELECT h.farm_code,f.company_code,COALESCE(f.mapped_site_code,'') AS site_code FROM brd_houses h JOIN brd_farms f ON f.farm_code=h.farm_code WHERE h.house_code=$1`,[ownerId]);
+      const scope=deriveOrgScope(req);
+      if(!house || ownerType!=='HOUSE' || house.company_code!==companyCode || house.site_code!==storeCode || !scope.isGlobal && !(
+        (scope.farmCodes??[]).includes(house.farm_code) || (scope.siteCodes??[]).includes(house.site_code) || (scope.companyCodes??[]).includes(house.company_code))) throw new BadRequestException('附件鸡舍权威归属或数据范围不匹配');
+      companyCode=house.company_code;storeCode=house.site_code;
+    }
     const ownerAssigned = moduleCode !== LEGACY_MODULE_CODE && ownerType !== LEGACY_PENDING && ownerId !== LEGACY_PENDING;
     const metadata = await this.fileMetadataRepo.save(this.fileMetadataRepo.create({
       fileId,

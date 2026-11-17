@@ -45,27 +45,20 @@ describe('DashboardBffController', () => {
       }),
     };
 
-    return {
-      controller: new DashboardBffController(em as never),
-      em,
-    };
+    const farm={getDailyHenReport:jest.fn().mockResolvedValue({rows:[{current_flock_status:'LAYING',current_qty:1200,eggs:100,has_daily_log:true}]})};
+    return {controller:new DashboardBffController(em as never,farm as never),em,farm};
   }
 
   describe('getKpi', () => {
-    it('uses all laying flock statuses for group KPI population', async () => {
-      const { controller, em } = buildController();
-
-      const res = await controller.getKpi({
-        user: { username: 'admin', storeCode: 'ALL', permissions: ['*'] },
-      });
-
-      const flockCall = em.query.mock.calls.find(([sql]) => String(sql).includes('FROM brd_flocks'));
-      expect(flockCall).toBeDefined();
-      expect(String(flockCall?.[0])).toContain("UPPER(status) IN ('LAYING','PEAK','DECLINING')");
-      expect(flockCall?.[1]).toEqual([]);
-      expect(res.data.meta.layingTotal).toBe(1200);
+    it('reads daily scoped cohort balances and a same-day production denominator', async()=>{
+      const {controller,farm}=buildController();const res=await controller.getKpi({user:{username:'admin',permissions:['*']},dataScope:{isGlobal:true}});
+      expect(farm.getDailyHenReport).toHaveBeenCalledWith(expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),expect.objectContaining({isGlobal:true}));
+      expect(res.data.meta.layingTotal).toBe(1200);expect(res.data.meta.todayLayRate).toBe(8.3);
     });
 
+    it('keeps an unverified missing stock quantity unknown in the dashboard',async()=>{
+      const {controller,farm}=buildController();farm.getDailyHenReport.mockResolvedValue({rows:[{current_flock_status:'LAYING',current_qty:null,eggs:0,has_daily_log:false}]} as never);const res=await controller.getKpi({user:{username:'admin',permissions:['*']},dataScope:{isGlobal:true}});expect(res.data.stats.stock.value).toBe('待核实');expect(res.data.meta.layingTotal).toBeNull();expect(res.data.meta.todayLayRate).toBeNull();
+    });
     it('reports dashboard stock from flock population instead of egg inventory balance', async () => {
       const { controller } = buildController();
 
@@ -79,29 +72,15 @@ describe('DashboardBffController', () => {
       expect(res.data.meta.eggInventoryMetricSource).toBe('inv_batches.status=AVAILABLE SUM(qty_available)');
     });
 
-    it('keeps farm scope while counting all laying flocks for restricted KPI population', async () => {
-      const { controller, em } = buildController();
-
-      await controller.getKpi({
-        user: { username: 'farm-manager', storeCode: 'LPH_MENGSAI', permissions: [] },
-      });
-
-      const flockCall = em.query.mock.calls.find(([sql]) => String(sql).includes('FROM brd_flocks'));
-      expect(flockCall).toBeDefined();
-      expect(String(flockCall?.[0])).toContain("UPPER(status) IN ('LAYING','PEAK','DECLINING')");
-      expect(String(flockCall?.[0])).toContain('farm_code = $1');
-      expect(flockCall?.[1]).toEqual(['LPH_MENGSAI']);
+    it('uses resolved farm scope when the legacy store field is missing',async()=>{
+      const {controller,farm}=buildController();await controller.getKpi({user:{username:'manager',permissions:[]},dataScope:{isGlobal:false,allowedBreedingFarmCodes:['FARM-A'],allowedBreedingCompanyCodes:[]}});
+      expect(farm.getDailyHenReport).toHaveBeenCalledWith(expect.any(String),expect.objectContaining({isGlobal:false,farmCodes:['FARM-A'],companyCodes:[]}));
+    });
+    it('reads current cohort withdrawal alerts only with veterinary permission and explicit site scope',async()=>{
+      const {controller,em}=buildController();await controller.getKpi({user:{username:'manager',storeCode:'SITE-A',permissions:['MENU_FARM_VET:V']},dataScope:{isGlobal:false,allowedBreedingSiteCodes:['SITE-A'],allowedBreedingCompanyCodes:[]}});
+      const call=em.query.mock.calls.find(([sql])=>String(sql).includes('FROM brd_medication_records'));expect(call).toBeDefined();expect(String(call?.[0])).toContain('COALESCE(b.house_code,r.house_code)');expect(call?.[1]).toEqual([['SITE-A']]);
     });
 
-    it('reads withdrawal alerts from medication records and applies site scope', async () => {
-      const { controller, em } = buildController();
-      await controller.getKpi({ user: { username: 'farm-manager', storeCode: 'SITE-A', permissions: [] } });
-      const withdrawalCall = em.query.mock.calls.find(([sql]) => String(sql).includes('FROM brd_medication_records'));
-      expect(withdrawalCall).toBeDefined();
-      expect(String(withdrawalCall?.[0])).toContain("status <> 'CANCELLED'");
-      expect(String(withdrawalCall?.[0])).toContain('site_code = $1');
-      expect(withdrawalCall?.[1]).toEqual(['SITE-A']);
-    });
   });
 });
 

@@ -1,3 +1,4 @@
+import { inheritFlockProductionSources } from '../farm/flock-production-source';
 import { resolveQuantity, savedQuantity, sharedBatches, assertBatchPool, baseQuantity, QuantitySnapshot, lockQuantityPools } from '../product-master/services/quantity-contract';
 import { SkuPolicy } from '../product-master/services/sku-policy';
 import { Injectable, BadRequestException, ForbiddenException, Logger } from '@nestjs/common';
@@ -838,7 +839,7 @@ export class WmsService {
             [baseBatchNo, productCode, skuCode, materialCode, itemType, materialType, unit, actualQty, warehouseCode, locationCode, storeCode, companyCode, task.date || null, snapshot?.gradeCode ?? gradeCode ?? null, snapshot?.specCode ?? null, snapshot ? 1 : null, varietyCode, inventoryClass, purchaseUnitCost],
           );
           if (posted.length !== 1) throw new BadRequestException('入库批次归属或身份已变化，禁止跨公司累加');
-          // INV-301a：统一共享写入器（旧手写 SQL 占位符乱序：$1,$11,$2,...）
+        // INV-301a：统一共享写入器（旧手写 SQL 占位符乱序：$1,$11,$2,...）
           await writeInvLedger(manager, {
             batchNo: baseBatchNo,
             changeType: inboundPolicy.ledgerType,
@@ -1567,6 +1568,7 @@ export class WmsService {
             batch.expire_date || null, dispositionNo],
         );
         if (targetRows.length !== 1) throw new BadRequestException(`目标缺陷批次 ${targetBatchNo} 已存在，拒绝重复入账`);
+        await inheritFlockProductionSources(manager,batchNo,targetBatchNo,requestedQty);
         // INV-301a：统一共享写入器
         await writeInvLedger(manager, {
           batchNo: targetBatchNo,
@@ -2417,6 +2419,7 @@ export class WmsService {
             src.source_profile_snapshot == null ? null : JSON.stringify(src.source_profile_snapshot),
           ],
         );
+        await inheritFlockProductionSources(manager,it.batch_no,dstBatchNo,qty);
         // INV-301a：统一共享写入器（旧手写 SQL 占位符乱序：$1,$7,$2,...）
         await writeInvLedger(manager, {
           batchNo: dstBatchNo,
@@ -2660,6 +2663,7 @@ export class WmsService {
               snapshot.variety_code ?? null, snapshot.source_profile_code ?? null,
               snapshot.source_profile_snapshot == null ? null : JSON.stringify(snapshot.source_profile_snapshot)],
           );
+          await inheritFlockProductionSources(manager,item.source_batch_no,targetBatchNo,received);
           // INV-301a：统一共享写入器
           await writeInvLedger(manager, {
             batchNo: targetBatchNo,
@@ -2682,6 +2686,16 @@ export class WmsService {
             throw new BadRequestException('调拨源快照与源仓库不一致');
           }
           const targetIdentity = await this.resolveTransferTargetIdentity(manager, transfer.to_warehouse, snapshot.store_code);
+          let damagedSku:string|null=null;
+          if(snapshot.sku_code){
+            const original=await SkuPolicy.requireUsable(manager,snapshot.sku_code,'stock',targetIdentity.companyCode);
+            const candidates=await manager.query(`SELECT sku_code FROM product_skus WHERE product_code=$1 AND grade_code='BROKEN' AND spec_code=$2
+              AND variety_code IS NOT DISTINCT FROM $3 AND status='ACTIVE' ORDER BY sku_code FOR SHARE`,[original.product_code,original.spec_code,original.variety_code??null]);
+            if(candidates.length!==1)throw new BadRequestException('途中破损须有同产品/商业品种/规格的唯一有效BROKEN SKU，请先核对主数据');
+            const broken=await SkuPolicy.requireUsable(manager,candidates[0].sku_code,'stock',targetIdentity.companyCode);
+            if(broken.grade_code!=='BROKEN')throw new BadRequestException('破损库存SKU等级不一致');
+            damagedSku=broken.sku_code;
+          }
           const damagedBatchNo = `${item.source_batch_no}-BROKEN-${Math.random().toString(36).slice(2, 5).toUpperCase()}`;
           await manager.query(
             `INSERT INTO inv_batches (
@@ -2690,11 +2704,15 @@ export class WmsService {
                warehouse_code,location_code,expire_date,store_code,company_code,inbound_date)
              VALUES ($1,$2,$3,$4,$5,$6,$7,$8::numeric,$8::numeric,'AVAILABLE','BROKEN','BROKEN','DEFECT_SALE',
                      $9,$10,$11,$12,$13,CURRENT_DATE)`,
-            [damagedBatchNo, snapshot.product_code || null, snapshot.sku_code || null, snapshot.material_code || null,
+            [damagedBatchNo, snapshot.product_code || null, damagedSku, snapshot.material_code || null,
               snapshot.item_type || null, snapshot.material_type || null, snapshot.unit || null, damaged,
               transfer.to_warehouse, this.nonEmptyString(body?.to_location) || transfer.to_location || 'TRANSFER-IN',
               snapshot.expire_date || null, targetIdentity.storeCode, targetIdentity.companyCode],
           );
+          await manager.query(`UPDATE inv_batches SET variety_code=$2,source_profile_code=$3,source_profile_snapshot=$4::jsonb,egg_date=$5,
+            packaging_batch_ref=$6,collection_batch_ref=$7,spec_code=$8,packaging_spec=$9,base_quantity_version=$10,legacy_source=$11 WHERE batch_no=$1`,[damagedBatchNo,snapshot.variety_code??null,snapshot.source_profile_code??null,
+            snapshot.source_profile_snapshot==null?null:JSON.stringify(snapshot.source_profile_snapshot),snapshot.egg_date??null,snapshot.packaging_batch_ref??null,snapshot.collection_batch_ref??null,snapshot.spec_code??null,snapshot.packaging_spec??null,snapshot.base_quantity_version??null,snapshot.legacy_source??null]);
+          await inheritFlockProductionSources(manager,item.source_batch_no,damagedBatchNo,damaged);
           // INV-301a：统一共享写入器
           await writeInvLedger(manager, {
             batchNo: damagedBatchNo,
@@ -2705,7 +2723,7 @@ export class WmsService {
             refNo: transferNo,
             note: `调拨途中破损 → 缺陷销售库存 source=${item.source_batch_no}`,
             qualityGrade: 'BROKEN',
-            skuCode: snapshot.sku_code || null,
+            skuCode: damagedSku,
             materialCode: snapshot.material_code || null,
             warehouseCode: transfer.to_warehouse,
             businessType: inboundPolicy.businessType,

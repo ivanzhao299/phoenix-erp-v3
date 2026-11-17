@@ -170,6 +170,9 @@ export default function TraceabilityPage() {
       fi = t.finance || {};
     return <div>
         <Section icon={<Factory size={14} />} title={tFn('ui.生产域（场站 / 鸡舍 / 鸡群 / 日产蛋）','生产域（场站 / 鸡舍 / 鸡群 / 日产蛋）')}>
+          <KV k="来源核验" v={p.provenanceStatus==='VERIFIED_OCCUPANCY'?'已核验历史占栏':p.provenanceStatus==='RESTRICTED_SOURCE'?'来源未接续或范围受限，生产明细不展示':'旧来源未接续，不能按当前鸡舍推定历史群'} />
+          <KV k="数量精度" v={p.allocationPrecision==='EXACT'?'日报等级数量精确关联':'投入关联或继承关系；不代表逐群产出精确分摊'} />
+          <Table rows={p.provenance} cols={[{k:'flock_no',label:'来源鸡群'},{k:'house_code',label:'发生时鸡舍'},{k:'production_date',label:'产蛋日'},{k:'source_input_qty',label:'原始投入量'},{k:'allocated_output_qty',label:'已证实输出分配（空值表示未分摊）'}]} />
           <KV k="场站" v={p.site} /><KV k="产线" v={p.line} /><KV k="生产日期" v={p.productionDate} />
           <div style={{
           marginTop: 6
@@ -188,12 +191,6 @@ export default function TraceabilityPage() {
         }}><Table rows={p.flocks} cols={[{
             k: "flock_no",
             label: "鸡群"
-          }, {
-            k: "house_code",
-            label: "鸡舍"
-          }, {
-            k: "current_qty",
-            label: "存栏"
           }, {
             k: "breed_type",
             label: "品种"

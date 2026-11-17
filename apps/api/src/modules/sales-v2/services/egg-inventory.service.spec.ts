@@ -8,6 +8,7 @@ describe('EggInventoryService conditional inventory updates', () => {
       if (sql.includes('FROM product_skus WHERE sku_code')) return [{ sku_code: 'SKU-1', product_code: 'P-1', grade_code: 'G', spec_code: 'S', status: 'ACTIVE' }];
       if (/SELECT \* FROM (mst_products|product_grades|packaging_specs)/.test(sql)) return [{ status: 'ACTIVE', is_saleable: true, is_storable: true }];
       if (sql.includes('pg_advisory_xact_lock')) return [];
+      if(sql.includes("to_regclass('inv_flock_source_links')"))return [{links:null}];
       if (sql.includes('SELECT type, domain, status, owner_store_id')) return [{ type: 'EGG_FARM', domain: 'OPERATIONAL', status: 'ACTIVE', owner_store_id: null }];
       if (sql.includes('SELECT * FROM inv_batches')) return [{
         batch_no: 'B-1', company_code: 'COMP-A', warehouse_code: 'WH-A',
@@ -32,6 +33,7 @@ describe('EggInventoryService conditional inventory updates', () => {
       if (sql.includes('FROM product_skus WHERE sku_code')) return [{ sku_code: 'SKU-1', product_code: 'P-1', grade_code: 'G', spec_code: 'S', status: 'ACTIVE' }];
       if (/SELECT \* FROM (mst_products|product_grades|packaging_specs)/.test(sql)) return [{ status: 'ACTIVE', is_saleable: true, is_storable: true }];
       if (sql.includes('pg_advisory_xact_lock')) return [];
+      if(sql.includes("to_regclass('inv_flock_source_links')"))return [{links:null}];
       if (sql.includes('SELECT type, domain, status, owner_store_id')) return [{ type: 'EGG_FARM', domain: 'OPERATIONAL', status: 'ACTIVE', owner_store_id: null }];
       if (sql.includes('SELECT * FROM inv_batches')) return [{
         batch_no: 'B-1', company_code: 'COMP-A', warehouse_code: 'WH-SECRET',
@@ -63,6 +65,7 @@ describe('EggInventoryService conditional inventory updates', () => {
       if (sql.includes('FROM product_skus WHERE sku_code')) return [{ sku_code: 'SKU-1', product_code: 'P-1', grade_code: 'G', spec_code: 'S', status: 'ACTIVE' }];
       if (/SELECT \* FROM (mst_products|product_grades|packaging_specs)/.test(sql)) return [{ status: 'ACTIVE', is_saleable: true, is_storable: true }];
       if (sql.includes('pg_advisory_xact_lock')) return [];
+      if(sql.includes("to_regclass('inv_flock_source_links')"))return [{links:null}];
       if (sql.includes('SELECT type, domain, status, owner_store_id')) return [{ type: 'EGG_FARM', domain: 'OPERATIONAL', status: 'ACTIVE', owner_store_id: null }];
       if (sql.includes('SELECT * FROM inv_batches')) return [{
         batch_no: 'B-1', warehouse_code: 'WH-A', qty_available: 1, sku_code: 'SKU-1', inventory_class: 'STANDARD',
@@ -448,6 +451,7 @@ describe('EggInventoryService direct production variety authorization', () => {
       if (sql.includes('FROM product_grades')) return [{ status: 'ACTIVE', is_storable: true, is_saleable: true }];
       if (sql.includes('FROM packaging_specs')) return [{ status: 'ACTIVE', base_unit: '枚' }];
       if (sql.includes('pg_advisory_xact_lock')) return [];
+      if(sql.includes("to_regclass('inv_flock_source_links')"))return [{links:null}];
       if (sql.includes('AS max_suffix')) return [{ max_suffix: null }];
       if (sql.includes('INSERT INTO inv_batches')) return [{ batch_no: args[0], variety_code: args[18], source_profile_code: args[19], source_profile_snapshot: args[20] ? JSON.parse(String(args[20])) : null }];
       if (sql.includes('INSERT INTO inv_ledger')) return [{ id: 1 }];

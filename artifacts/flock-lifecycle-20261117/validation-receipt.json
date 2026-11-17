@@ -1,0 +1,106 @@
+{
+  "asOf": "2026-11-17T12:02:24.666152+00:00",
+  "baseMain": "a7c0045b9f6d1a475b5a10710184e66d9c494aa0",
+  "candidateParent": "4cf46971cc1a1a2dba5be30838eaf75369cabf9c",
+  "sourceFingerprintSha256": "12c546366ca06a88119200a1281f851a15d4935fd1b2022605a500c73f891233",
+  "sourceFileCount": 74,
+  "checks": {
+    "api": {
+      "suitesPassed": 167,
+      "testsPassed": 2127,
+      "suitesSkipped": 23,
+      "testsSkipped": 432
+    },
+    "web": {
+      "filesPassed": 139,
+      "testsPassed": 834,
+      "filesSkipped": 1,
+      "testsSkipped": 4
+    },
+    "typesAndBuilds": "API and Web exit 0",
+    "lint": "API 0 errors; Web changed and full ratchet no growth; existing global debt disclosed",
+    "migrations": {
+      "frozenSql": 195,
+      "typeormTs": 113,
+      "freshRealWriteAndCorrection": true,
+      "idempotentUpgrade": true,
+      "safeUnusedDown": true
+    },
+    "authorizationHttp": {
+      "UTC": 4,
+      "Asia/Singapore": 4
+    },
+    "browser": {
+      "cases": [
+        {
+          "case": "PC real protected evidence -> baseline draft -> submit",
+          "result": "passed"
+        },
+        {
+          "case": "Independent reviewer reads structured business fields/evidence and approves",
+          "result": "passed"
+        },
+        {
+          "case": "Mobile independent poster -> atomic posting -> live quantity 100 without horizontal overflow",
+          "result": "passed"
+        },
+        {
+          "case": "Browser reload preserves posted stock projection",
+          "result": "passed"
+        },
+        {
+          "case": "Other farm cannot see HA lifecycle documents",
+          "result": "passed"
+        },
+        {
+          "case": "Independent approved report supplement preserves original occupancy, business day and unknown feed/water",
+          "result": "passed"
+        },
+        {
+          "case": "Flock planned date edit and reload retains exact YYYY-MM-DD in Singapore browser",
+          "result": "passed"
+        }
+      ],
+      "complete": true
+    },
+    "appearanceVariants": 4,
+    "scopeAudit": {
+      "nativeInputsInspected": 19,
+      "manualMasterDataInputs": 0,
+      "controllerMenuAndDataScopeGuards": true,
+      "actualAuthorizationEvidence": [
+        "lifecycle-http-utc.log: 4 passed",
+        "lifecycle-http-sg.log: 4 passed",
+        "downstream-pg.log: original farm scope and current caretaker guards; also included in final full API run"
+      ],
+      "scopeAudit": "PASS"
+    }
+  },
+  "release": {
+    "candidateOnly": true,
+    "pushed": false,
+    "merged": false,
+    "deployed": false,
+    "tagDeferredUntilSuccessfulMainDeployment": true,
+    "historicalFlocksActivated": false,
+    "actualTwoCompanyPilot": "Pending real physical counts and signed evidence"
+  },
+  "localLogSha256": {
+    "api-full-test.log": "266deddd3cbf9f5c3f668ef242b683329783fc1c56d16fc860a3bfcab9ebd380",
+    "web-test.log": "547132e78e6fedc28b507126bd363199837daa04890d10a561df96a35420614f",
+    "typecheck.log": "afcfa323cc6668a35b0e0bfc55cbc9c9965cc07a38e886047762cdc547496a7e",
+    "api-typecheck-final.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "api-build.log": "1e503e759093860fc5e3c5c5ce08568556b3156320b751c2e6a9b12a8daea3e9",
+    "web-build.log": "f6c5653994dff64909a1ba60adb950de39164126494707c96b9d6c43bedcd6da",
+    "api-lint.log": "d5e871c7bd1c77f971f4e66027ab93432614e94185aec5482814dd888b42a7f5",
+    "web-lint-changed.log": "c6b7d18f57c8c52a5468bbdb5290badef83a0b8907ca4d94714fd4b5e52630f4",
+    "web-lint-ratchet.log": "4287d4554bfa357508d8a260789ba1525468f63e1f255cfb6cd4e9718e328e26",
+    "lifecycle-http-utc.log": "c246f96707f298da83523b2ef7ff5f05c715e79b7e2fd37754437a6d6d789a5f",
+    "lifecycle-http-sg.log": "ffa48b012a346c66f3623693f1500dde45a6dbd0e866a1144c9b51e4572e52c7",
+    "migration-compatibility.log": "7b2b7e29fbc946d7e18e31b62923542423bc5cb9f896de76e6fb3647385fe7be",
+    "constraint-drift.log": "974258ccb561f72cfd371070d8b51ea88ecf815537d391fcc304afab69ffeddd",
+    "nullable-in-unique.log": "4b95d58d9a67a8a178ee64e48dc6050ae865d08f8ff86c8ab5491ad17d79eb65",
+    "migration-dml.log": "fcd5d053f3a80cbf190e3947816e3794cfca5a7973ff3ca4d881039400f2d83e",
+    "migration-down.log": "603e5915366804c4aeaf18ae8aec1ead0440ee048ec7fd100594438ef53246c6"
+  }
+}

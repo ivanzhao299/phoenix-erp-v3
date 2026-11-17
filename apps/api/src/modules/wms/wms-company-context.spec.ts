@@ -45,6 +45,7 @@ function fixture(options: Options = {}) {
   const committed: Array<[string, any[]]> = [];
   let pending: Array<[string, any[]]> = [];
   const manager = { query: jest.fn(async (sql: string, args: any[] = []): Promise<any[]> => {
+    if(sql.includes("to_regclass('inv_flock_source_links')"))return [{links:null}]; // Legacy-only fixture; exact lineage is tested on real PostgreSQL.
     calls.push([sql, args]);
     if (/^\s*(INSERT|UPDATE|WITH changed)/.test(sql)) pending.push([sql, args]);
     if (sql.includes('FROM product_skus WHERE sku_code=$1 FOR SHARE')) return [{

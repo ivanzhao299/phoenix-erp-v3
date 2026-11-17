@@ -209,7 +209,11 @@ export class SkuAvailabilityService {
     const eggDate = this.date(input.eggDate, 'eggDate');
     // Do not filter breed/status in SQL: doing so silently discards uncertain
     // overlapping flocks and can turn a mixed/unknown house into a single variety.
-    const flocks = await db.query(
+    const [schema]=await db.query("SELECT to_regclass('brd_flock_occupancies') AS ledger");
+    const managed=schema?.ledger && (await db.query('SELECT 1 FROM brd_flock_house_states WHERE house_code=$1',[input.houseCode])).length;
+    const flocks = managed ? await db.query(`SELECT f.flock_no,o.farm_code,f.breed_code,true AS lifecycle_trusted
+      FROM brd_flock_occupancies o JOIN brd_flocks f ON f.flock_no=o.flock_no
+      WHERE o.house_code=$1 AND o.began_on<=$2 AND (o.ended_on IS NULL OR o.ended_on>$2)`,[input.houseCode,eggDate]) : await db.query(
       `SELECT f.flock_no, f.farm_code, f.breed_code, f.status,
               f.placement_date::text AS placement_date, f.start_date::text AS start_date,
               f.elimination_date::text AS elimination_date
@@ -217,17 +221,20 @@ export class SkuAvailabilityService {
     );
     const breeds = new Set<string>();
     for (const flock of flocks) {
+      if (flock.lifecycle_trusted) {
+        if(flock.farm_code!==input.farmCode || !flock.breed_code) throw new BadRequestException('历史占栏归属/品种不确定');
+        breeds.add(flock.breed_code);continue;
+      }
       const placement = flock.placement_date == null ? null : this.date(flock.placement_date, '鸡群入栏日期');
       // The flock UI explicitly persists its entry date as start_date. Accept
       // that established field only when it does not contradict placement_date.
       const start = flock.start_date == null ? null : this.date(flock.start_date, '鸡群开始日期');
       if (placement && start && placement !== start) throw new BadRequestException('鸡群入栏日期 placement_date/start_date 不一致，无法确定来源');
       const placed = placement ?? start;
-      const ended = flock.elimination_date == null ? null : this.date(flock.elimination_date, '鸡群退群日期');
-      if (placed && ended && ended < placed) throw new BadRequestException('鸡群入栏/退群日期矛盾，无法确定来源');
-      if ((placed && placed > eggDate) || (ended && ended < eggDate)) continue;
+      if (flock.elimination_date != null) throw new BadRequestException('旧elimination_date计划/实际含义未签认，无法确定生物来源');
+      if (placed && placed > eggDate) continue;
       // Date-only exit cannot establish whether this day's eggs precede exit.
-      if (!placed || ended === eggDate || flock.farm_code !== input.farmCode
+      if (!placed || flock.farm_code !== input.farmCode
           || !['ACTIVE', 'LAYING', 'PEAK', 'DECLINING'].includes(flock.status)
           || typeof flock.breed_code !== 'string' || !flock.breed_code.trim()
           || flock.breed_code !== flock.breed_code.trim()) {

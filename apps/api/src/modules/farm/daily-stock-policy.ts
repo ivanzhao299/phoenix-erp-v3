@@ -24,7 +24,11 @@ export async function lockDailyFlock(manager: EntityManager, body: Record<string
   await manager.query("SELECT pg_advisory_xact_lock(hashtext('phoenix:daily-house'), hashtext($1))", [body.house_code]);
   await manager.query('SELECT pg_advisory_xact_lock(hashtext($1))',
     [`${body.company_code}|TEMP_PRODUCTION_DAILY|${body.log_date}|HOUSE-${body.house_code}`]);
-  const rows = await manager.query(
+  const [schema]=await manager.query("SELECT to_regclass('brd_flock_occupancies') AS ledger");
+  const managed=schema?.ledger && (await manager.query('SELECT 1 FROM brd_flock_house_states WHERE house_code=$1',[body.house_code])).length;
+  const rows = managed ? await manager.query(`SELECT f.flock_no,o.house_code,o.farm_code,f.current_qty,f.status,
+    o.company_code,o.began_on::text AS start_date,true AS lifecycle_managed FROM brd_flock_occupancies o JOIN brd_flocks f ON f.flock_no=o.flock_no
+    WHERE o.house_code=$1 AND o.began_on<=$2 AND (o.ended_on IS NULL OR o.ended_on>$2) FOR UPDATE OF f`,[body.house_code,body.log_date]) : await manager.query(
     `SELECT flock_no, house_code, farm_code, current_qty, status,
             start_date::text AS start_date
        FROM brd_flocks WHERE house_code=$1
@@ -35,11 +39,12 @@ export async function lockDailyFlock(manager: EntityManager, body: Record<string
   // The current report key is house/date/shift, so accepting one of multiple flocks
   // would still overwrite another flock's report. Mixed housing needs the next schema phase.
   if (rows.length !== 1 || !rows[0].start_date
-      || !['ACTIVE','GROWING','LAYING','PEAK','DECLINING'].includes(rows[0].status)
+      || !rows[0].lifecycle_managed && !['ACTIVE','GROWING','LAYING','PEAK','DECLINING'].includes(rows[0].status)
       || (body.flock_no && body.flock_no !== rows[0].flock_no)) {
     throw new BadRequestException('日报必须绑定该鸡舍唯一在栏鸡群；缺失、错配或多群需先核对档案');
   }
   if (rows[0].farm_code !== body.farm_code) throw new BadRequestException('鸡群与鸡舍农场归属不一致');
+  if(rows[0].lifecycle_managed&&rows[0].company_code!==body.company_code)throw new BadRequestException('历史占栏与当前鸡舍公司归属不一致，须先核对档案，不可重新归属日报');
   return rows[0];
 }
 

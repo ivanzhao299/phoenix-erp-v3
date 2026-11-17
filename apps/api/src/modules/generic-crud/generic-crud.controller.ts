@@ -78,6 +78,7 @@ export class GenericCrudController {
   ]);
 
   private checkTableAccess(table: string, req: any, method: string) {
+    if (['brd_flock_','brd_egg_','inv_flock_'].some(prefix=>table.startsWith(prefix))) throw new ForbiddenException('鸡群事件账仅可通过专用范围接口访问');
     if (method === 'DELETE' && ['brd_flocks','brd_houses'].includes(table)) throw new ForbiddenException('鸡群与鸡舍须保留追溯档案，禁止物理删除');
     if (method !== 'GET' && GenericCrudController.DEDICATED_CORE_WRITE_TABLES.has(table)) {
       throw new ForbiddenException(

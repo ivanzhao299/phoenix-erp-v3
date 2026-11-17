@@ -109,6 +109,7 @@ export interface FarmLog {
   id:              number;
   flock_no:        string;
   house_code?:     string;
+  occupancy_id?:   string | null;
   log_date:        string;
   shift?:          string;
   eggs_produced:   number | string;

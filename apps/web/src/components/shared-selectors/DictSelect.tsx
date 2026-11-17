@@ -15,6 +15,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
  */
 export interface DictSelectProps {
   dictType: string;
+  ariaLabel?: string;
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
@@ -26,7 +27,7 @@ export interface DictSelectProps {
 }
 
 export function DictSelect({
-  dictType, value, onChange,
+  dictType, ariaLabel, value, onChange,
   placeholder, disabled = false, allowEmpty = true,
   className, style, allowedValues,
 }: DictSelectProps) {
@@ -37,6 +38,7 @@ export function DictSelect({
 
   return (
     <select
+      aria-label={ariaLabel}
       className={mergedClassName}
       style={style}
       value={value}
