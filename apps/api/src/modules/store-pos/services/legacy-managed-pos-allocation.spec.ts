@@ -73,7 +73,10 @@ class PosSqlFixture {
       return rows.map(b => ({ ...b }));
     }
     if (s.startsWith('WITH changed AS ( UPDATE inv_batches')) {
-      const [qty, batchNo, warehouse, company] = args as [number, string, string, string];
+      // INV-301b guardedBatchUpdate canonical layout: $1=batchNo $2=company
+      // $3=warehouse $4=deltaQty $5=deltaAvailable（绑定 Math.abs 绝对值，POS 双扣同值）。
+      const [batchNo, company, warehouse, deltaQty, deltaAvailable] = args as [string, string, string, number, number];
+      const qty = Math.min(Math.abs(deltaQty), Math.abs(deltaAvailable));
       const b = this.batches.find(row => row.batch_no === batchNo && row.warehouse_code === warehouse && row.company_code === company
         && row.qty >= qty && row.qty_available >= qty && row.status === 'AVAILABLE' && row.legacy_source == null
         && (!row.expire_date || row.expire_date >= '2026-11-11'));

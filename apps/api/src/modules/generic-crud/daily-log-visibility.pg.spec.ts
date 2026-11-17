@@ -96,6 +96,9 @@ pgDescribe('MANUAL-122 real PostgreSQL, HTTP, roles and organization scope', () 
       CREATE TABLE IF NOT EXISTS inv_ledger (id serial PRIMARY KEY, batch_no text REFERENCES inv_batches(batch_no), change_type text,
         qty_change numeric, operator text, store_code text, ref_no text, note text, batch_expire_date date,
         quality_grade text, company_code text, sku_code text, log_date date, warehouse_code text, location_code text);
+      -- inv-opt 批次 4：跟随迁移末态（InvEggCostingColumns）
+      ALTER TABLE inv_ledger ADD COLUMN IF NOT EXISTS cost_change numeric(18,6);
+      ALTER TABLE inv_batches ADD COLUMN IF NOT EXISTS unit_cost numeric(18,6) NOT NULL DEFAULT 0;
       INSERT INTO product_grades (grade_code,status,sort_order) VALUES ('GRADE_1','ACTIVE',1) ON CONFLICT DO NOTHING;
       INSERT INTO product_skus VALUES ('SKU-1','PRD-EGG-RAW','GRADE_1','LOOSE','ACTIVE') ON CONFLICT DO NOTHING;
       INSERT INTO wms_warehouses VALUES ('WH-A','COMP-A','ACTIVE','OPERATIONAL','SITE-A','EGG_FARM') ON CONFLICT DO NOTHING;

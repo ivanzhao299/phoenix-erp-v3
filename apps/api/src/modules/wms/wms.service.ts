@@ -1,10 +1,12 @@
 import { resolveQuantity, savedQuantity, sharedBatches, assertBatchPool, baseQuantity, QuantitySnapshot, lockQuantityPools } from '../product-master/services/quantity-contract';
 import { SkuPolicy } from '../product-master/services/sku-policy';
-import { Injectable, BadRequestException, ForbiddenException } from '@nestjs/common';
+import { Injectable, BadRequestException, ForbiddenException, Logger } from '@nestjs/common';
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
 import { ClsService } from 'nestjs-cls';
 import { DataScopeContext } from '../org/services/data-scope.service';
+import { INV_LEDGER_CHANGE_TYPE, InvLedgerChangeType } from './inv-ledger-change-types';
+import { writeInvLedger } from './inventory-ledger.writer';
 import { OrgOwnershipService } from '../org/services/org-ownership.service';
 import { hasPerm, PermCode } from '../../auth/permissions.util';
 import {
@@ -35,6 +37,9 @@ export class WmsService {
   private static readonly PURCHASE_RECEIPT_WAREHOUSE_TYPES = new Set([
     'FEED', 'MEDICINE', 'PURCHASE_RECV', 'RAW_MATERIAL',
   ]);
+
+  /** INV-105: 看板静默降级时记录错误，DB 故障不再被误读为"无待办" */
+  private readonly logger = new Logger(WmsService.name);
 
   constructor(
     @InjectEntityManager()
@@ -317,7 +322,8 @@ export class WmsService {
           completed_today: 0,
         },
       };
-    } catch {
+    } catch (e) {
+      this.logger.error(`getInboundDashboard 看板查询失败，降级返回空数据: ${(e as Error).message}`);
       return { code: 200, data: { pending: 0, processing: 0, completed_today: 0 } };
     }
   }
@@ -335,7 +341,8 @@ export class WmsService {
         scope.params,
       );
       return { code: 200, data };
-    } catch {
+    } catch (e) {
+      this.logger.error(`getPendingInbound 查询失败，降级返回空列表: ${(e as Error).message}`);
       return { code: 200, data: [] };
     }
   }
@@ -644,7 +651,8 @@ export class WmsService {
           to_jsonb(wms_inbound_items)->>'material_code' AS material_code,
           to_jsonb(wms_inbound_items)->>'sku_code' AS sku_code,
           to_jsonb(wms_inbound_items)->>'material_type' AS material_type,
-          to_jsonb(wms_inbound_items)->>'unit' AS unit
+          to_jsonb(wms_inbound_items)->>'unit' AS unit,
+          to_jsonb(wms_inbound_items)->>'unit_cost' AS unit_cost
           FROM wms_inbound_items
          WHERE task_no=$1
            AND (
@@ -785,12 +793,18 @@ export class WmsService {
         // 正常入库：actual_qty → AVAILABLE batch
         if (actualQty > 0) {
           const inventoryClass = resolveInventoryClass(gradeCode);
+          // INV-401：采购入库计价——PURCHASE 从 wms_inbound_items.unit_cost
+          // （基线建表列 DECIMAL(18,4) DEFAULT 0）取收货单价；其余入库类型按 0
+          // （与列默认一致，语义不变）。to_jsonb 投影缺列/NULL 环境安全回退 0。
+          const purchaseUnitCost = String(task.type ?? '').toUpperCase() === 'PURCHASE'
+            ? Math.max(0, Number(savedLine?.unit_cost) || 0)
+            : 0;
           const posted = await manager.query(
           `INSERT INTO inv_batches (
              batch_no, product_code, sku_code, material_code, item_type, material_type,
-             unit, qty, qty_available, status, inventory_class, warehouse_code, location_code, store_code, company_code, inbound_date, grade_code_std, spec_code, base_quantity_version, variety_code, source_profile_code, source_profile_snapshot
+             unit, qty, qty_available, status, inventory_class, warehouse_code, location_code, store_code, company_code, inbound_date, grade_code_std, spec_code, base_quantity_version, variety_code, source_profile_code, source_profile_snapshot, unit_cost
            )
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8::numeric, $8::numeric, 'AVAILABLE', $18, $9, $10, $11, $12, $13::date,$14,$15,$16,$17,NULL,NULL)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8::numeric, $8::numeric, 'AVAILABLE', $18, $9, $10, $11, $12, $13::date,$14,$15,$16,$17,NULL,NULL,$19::numeric)
              ON CONFLICT (batch_no) DO UPDATE SET
                product_code = COALESCE(inv_batches.product_code, EXCLUDED.product_code),
                sku_code = COALESCE(inv_batches.sku_code, EXCLUDED.sku_code),
@@ -808,6 +822,7 @@ export class WmsService {
                qty = inv_batches.qty + EXCLUDED.qty,
                qty_available = COALESCE(inv_batches.qty_available, inv_batches.qty) + EXCLUDED.qty,
                inventory_class = COALESCE(inv_batches.inventory_class, EXCLUDED.inventory_class),
+               unit_cost = CASE WHEN inv_batches.unit_cost > 0 THEN inv_batches.unit_cost ELSE EXCLUDED.unit_cost END,
                updated_at = now()
               WHERE inv_batches.warehouse_code IS NOT DISTINCT FROM EXCLUDED.warehouse_code
                 AND (inv_batches.company_code IS NULL OR inv_batches.company_code = 'ALL' OR inv_batches.company_code = EXCLUDED.company_code)
@@ -820,22 +835,25 @@ export class WmsService {
                 AND inv_batches.item_type IS NOT DISTINCT FROM EXCLUDED.item_type
                 AND inv_batches.unit IS NOT DISTINCT FROM EXCLUDED.unit
               RETURNING batch_no`,
-            [baseBatchNo, productCode, skuCode, materialCode, itemType, materialType, unit, actualQty, warehouseCode, locationCode, storeCode, companyCode, task.date || null, snapshot?.gradeCode ?? gradeCode ?? null, snapshot?.specCode ?? null, snapshot ? 1 : null, varietyCode, inventoryClass],
+            [baseBatchNo, productCode, skuCode, materialCode, itemType, materialType, unit, actualQty, warehouseCode, locationCode, storeCode, companyCode, task.date || null, snapshot?.gradeCode ?? gradeCode ?? null, snapshot?.specCode ?? null, snapshot ? 1 : null, varietyCode, inventoryClass, purchaseUnitCost],
           );
           if (posted.length !== 1) throw new BadRequestException('入库批次归属或身份已变化，禁止跨公司累加');
-          await manager.query(
-            `INSERT INTO inv_ledger (
-               batch_no, change_type, qty_change, operator, store_code, ref_no, note,
-               sku_code, material_code, warehouse_code, business_type, unit, company_code
-             )
-             VALUES ($1, $11, $2::numeric, $3, $4, $5, $6, $7, $8, $9, $12, $10, $13)`,
-            [
-              baseBatchNo, actualQty, operator, storeCode, task_no,
-              `入库确认 product=${productCode || '-'} sku=${skuCode || '-'} material=${materialCode || '-'} actual=${actualQty} warehouse=${warehouseCode}`,
-              skuCode, materialCode, warehouseCode, unit,
-              inboundPolicy.ledgerType, inboundPolicy.businessType, companyCode,
-            ],
-          );
+          // INV-301a：统一共享写入器（旧手写 SQL 占位符乱序：$1,$11,$2,...）
+          await writeInvLedger(manager, {
+            batchNo: baseBatchNo,
+            changeType: inboundPolicy.ledgerType,
+            qtyChange: actualQty,
+            operator,
+            storeCode,
+            refNo: task_no,
+            note: `入库确认 product=${productCode || '-'} sku=${skuCode || '-'} material=${materialCode || '-'} actual=${actualQty} warehouse=${warehouseCode}`,
+            skuCode: skuCode ?? null,
+            materialCode: materialCode ?? null,
+            warehouseCode,
+            businessType: inboundPolicy.businessType,
+            unit: unit ?? null,
+            companyCode,
+          });
         }
 
         // 破损蛋按批准口径进入 DEFECT_SALE，沿用普通养鸡场销售流程。
@@ -888,19 +906,22 @@ export class WmsService {
             [brokenBatchNo, productCode, skuCode, materialCode, itemType, materialType, unit, brokenQty, warehouseCode, 'QUARANTINE-DOCK', storeCode, companyCode, task.date || null, snapshot?.specCode ?? null, snapshot ? 1 : null, varietyCode],
           );
           if (posted.length !== 1) throw new BadRequestException('入库批次归属或身份已变化，禁止跨公司累加');
-          await manager.query(
-            `INSERT INTO inv_ledger (
-               batch_no, change_type, qty_change, operator, store_code, ref_no, note,
-               sku_code, material_code, warehouse_code, business_type, unit, company_code
-             )
-             VALUES ($1, 'INBOUND_BROKEN', $2::numeric, $3, $4, $5, $6, $7, $8, $9, $11, $10, $12)`,
-            [
-              brokenBatchNo, brokenQty, operator, storeCode, task_no,
-              `破损入隔离 product=${productCode || '-'} sku=${skuCode || '-'} material=${materialCode || '-'} broken=${brokenQty}`,
-              skuCode, materialCode, warehouseCode, unit,
-              `${inboundPolicy.businessType}_BROKEN`, companyCode,
-            ],
-          );
+          // INV-301a：统一共享写入器
+          await writeInvLedger(manager, {
+            batchNo: brokenBatchNo,
+            changeType: INV_LEDGER_CHANGE_TYPE.INBOUND_BROKEN,
+            qtyChange: brokenQty,
+            operator,
+            storeCode,
+            refNo: task_no,
+            note: `破损入隔离 product=${productCode || '-'} sku=${skuCode || '-'} material=${materialCode || '-'} broken=${brokenQty}`,
+            skuCode: skuCode ?? null,
+            materialCode: materialCode ?? null,
+            warehouseCode,
+            businessType: `${inboundPolicy.businessType}_BROKEN`,
+            unit: unit ?? null,
+            companyCode,
+          });
         }
       }
       await manager.query(
@@ -934,6 +955,11 @@ export class WmsService {
         qty: number;
         batchNo?: string;
         locationCode?: string;
+        /**
+         * INV-401 批次单位成本（采购收货单明细单价，>=0）。可选——调用方无
+         * 可靠单价来源时不传，批次按 0 挂账（与列默认一致）。
+         */
+        unitCost?: number;
       }[];
     },
   ): Promise<{ batchNos: string[]; skipped: number }> {
@@ -974,6 +1000,10 @@ export class WmsService {
       const inventoryClass = resolveInventoryClass(identity.gradeCode);
       const batchNo = (it.batchNo || `${ctx.refNo}-${String(idx + 1).padStart(3, '0')}`).slice(0, 64);
       const locationCode = (it.locationCode || 'INBOUND-DOCK').slice(0, 64);
+      // INV-401：采购收货计价（非法/负数单价安全回退 0，不阻断收货）
+      const receiptUnitCost = Number.isFinite(Number(it.unitCost)) && Number(it.unitCost) >= 0
+        ? Number(it.unitCost)
+        : 0;
       const [existing] = await manager.query('SELECT * FROM inv_batches WHERE batch_no=$1 FOR UPDATE', [batchNo]);
       if (existing) {
         this.assertBatchCompany(existing, companyCode);
@@ -984,9 +1014,9 @@ export class WmsService {
       const posted = await manager.query(
         `INSERT INTO inv_batches (
            batch_no, product_code, sku_code, material_code, item_type, material_type,
-           unit, qty, qty_available, status, inventory_class, warehouse_code, location_code, store_code, inbound_date, company_code, variety_code, source_profile_code, source_profile_snapshot
+           unit, qty, qty_available, status, inventory_class, warehouse_code, location_code, store_code, inbound_date, company_code, variety_code, source_profile_code, source_profile_snapshot, unit_cost
          )
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8::numeric, $8::numeric, 'AVAILABLE', $15, $9, $10, $11, $12::date, $13, $14, NULL, NULL)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8::numeric, $8::numeric, 'AVAILABLE', $15, $9, $10, $11, $12::date, $13, $14, NULL, NULL, $16::numeric)
          ON CONFLICT (batch_no) DO UPDATE SET
            product_code = COALESCE(inv_batches.product_code, EXCLUDED.product_code),
            sku_code = COALESCE(inv_batches.sku_code, EXCLUDED.sku_code),
@@ -1003,6 +1033,7 @@ export class WmsService {
            qty = inv_batches.qty + EXCLUDED.qty,
            qty_available = COALESCE(inv_batches.qty_available, inv_batches.qty) + EXCLUDED.qty,
            inventory_class = COALESCE(inv_batches.inventory_class, EXCLUDED.inventory_class),
+           unit_cost = CASE WHEN inv_batches.unit_cost > 0 THEN inv_batches.unit_cost ELSE EXCLUDED.unit_cost END,
            updated_at = now()
               WHERE inv_batches.warehouse_code IS NOT DISTINCT FROM EXCLUDED.warehouse_code
                 AND (inv_batches.company_code IS NULL OR inv_batches.company_code = 'ALL' OR inv_batches.company_code = EXCLUDED.company_code)
@@ -1017,21 +1048,26 @@ export class WmsService {
               RETURNING batch_no`,
         [
           batchNo, productCode, skuCode, identity.materialCode, identity.itemType,
-          identity.materialType, identity.unit, qty, warehouseCode, locationCode, storeCode, ctx.inboundDate || null, companyCode, identity.varietyCode, inventoryClass,
+          identity.materialType, identity.unit, qty, warehouseCode, locationCode, storeCode, ctx.inboundDate || null, companyCode, identity.varietyCode, inventoryClass, receiptUnitCost,
         ],
       );
       if (posted.length !== 1) throw new BadRequestException('入库批次归属或身份已变化，禁止跨公司累加');
-      await manager.query(
-        `INSERT INTO inv_ledger (
-           batch_no, change_type, qty_change, operator, store_code, ref_no, note,
-           sku_code, material_code, warehouse_code, business_type, unit, company_code
-         )
-         VALUES ($1, $11, $2::numeric, $3, $4, $5, $6, $7, $8, $9, $12, $10, $13)`,
-        [batchNo, qty, operator, storeCode, ctx.refNo,
-         `采购收货入库 item=${identity.itemCode} type=${identity.itemType} qty=${qty} wh=${warehouseCode}`,
-         skuCode, identity.materialCode, warehouseCode, identity.unit,
-         purchasePolicy.ledgerType, purchasePolicy.businessType, companyCode],
-      );
+      // INV-301a：统一共享写入器（旧手写 SQL 占位符乱序：$1,$11,$2,...）
+      await writeInvLedger(manager, {
+        batchNo,
+        changeType: purchasePolicy.ledgerType,
+        qtyChange: qty,
+        operator,
+        storeCode,
+        refNo: ctx.refNo,
+        note: `采购收货入库 item=${identity.itemCode} type=${identity.itemType} qty=${qty} wh=${warehouseCode}`,
+        skuCode: skuCode ?? null,
+        materialCode: identity.materialCode ?? null,
+        warehouseCode,
+        businessType: purchasePolicy.businessType,
+        unit: identity.unit ?? null,
+        companyCode,
+      });
       batchNos.push(batchNo);
     }
     return { batchNos, skipped };
@@ -1053,7 +1089,8 @@ export class WmsService {
         code: 200,
         data: { pending: parseInt(pending.count), allocated: parseInt(allocated.count), shipped_today: 0 },
       };
-    } catch {
+    } catch (e) {
+      this.logger.error(`getOutboundDashboard 看板查询失败，降级返回空数据: ${(e as Error).message}`);
       return { code: 200, data: { pending: 0, allocated: 0, shipped_today: 0 } };
     }
   }
@@ -1072,7 +1109,8 @@ export class WmsService {
         scope.params,
       );
       return { code: 200, data };
-    } catch {
+    } catch (e) {
+      this.logger.error(`getPendingOutbound 查询失败，降级返回空列表: ${(e as Error).message}`);
       return { code: 200, data: [] };
     }
   }
@@ -1493,17 +1531,24 @@ export class WmsService {
       );
       if (changed.length !== 1) throw new BadRequestException(`批次 ${batchNo} 状态、归属或数量已变化`);
 
-      const ledgerType = action === 'TRANSFER' ? 'DEFECT_TRANSFER_OUT' : `DEFECT_${action}`;
-      await manager.query(
-        `INSERT INTO inv_ledger
-          (batch_no,change_type,qty_change,operator,store_code,ref_no,note,quality_grade,
-           sku_code,material_code,warehouse_code,company_code,business_type,unit)
-         VALUES ($1,$2,-$3::numeric,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
-        [batchNo, ledgerType, requestedQty, String(user?.username || user?.userId || 'SYS'),
-          batch.store_code || 'ALL', dispositionNo,
-          `缺陷处置 action=${action} reason=${reason}`, grade, batch.sku_code || null,
-          batch.material_code || null, batch.warehouse_code, companyCode, 'DEFECT_DISPOSITION', batch.unit || null],
-      );
+      const ledgerType = action === 'TRANSFER' ? INV_LEDGER_CHANGE_TYPE.DEFECT_TRANSFER_OUT : `DEFECT_${action}`;
+      // INV-301a：统一共享写入器
+      await writeInvLedger(manager, {
+        batchNo,
+        changeType: ledgerType as InvLedgerChangeType,
+        qtyChange: -requestedQty,
+        operator: String(user?.username || user?.userId || 'SYS'),
+        storeCode: batch.store_code || 'ALL',
+        refNo: dispositionNo,
+        note: `缺陷处置 action=${action} reason=${reason}`,
+        qualityGrade: grade,
+        skuCode: batch.sku_code || null,
+        materialCode: batch.material_code || null,
+        warehouseCode: batch.warehouse_code,
+        companyCode,
+        businessType: 'DEFECT_DISPOSITION',
+        unit: batch.unit || null,
+      });
 
       let targetBatchNo: string | null = null;
       if (action === 'TRANSFER') {
@@ -1522,15 +1567,23 @@ export class WmsService {
             batch.expire_date || null, dispositionNo],
         );
         if (targetRows.length !== 1) throw new BadRequestException(`目标缺陷批次 ${targetBatchNo} 已存在，拒绝重复入账`);
-        await manager.query(
-          `INSERT INTO inv_ledger
-            (batch_no,change_type,qty_change,operator,store_code,ref_no,note,quality_grade,
-             sku_code,material_code,warehouse_code,company_code,business_type,unit)
-           VALUES ($1,'DEFECT_TRANSFER_IN',$2::numeric,$3,$4,$5,$6,$7,$8,$9,$10,$11,'DEFECT_DISPOSITION',$12)`,
-          [targetBatchNo, requestedQty, String(user?.username || user?.userId || 'SYS'), batch.store_code || 'ALL',
-            dispositionNo, `缺陷调拨入库 source=${batchNo} reason=${reason}`, grade,
-            batch.sku_code || null, batch.material_code || null, targetWarehouse, targetCompany, batch.unit || null],
-        );
+        // INV-301a：统一共享写入器
+        await writeInvLedger(manager, {
+          batchNo: targetBatchNo,
+          changeType: INV_LEDGER_CHANGE_TYPE.DEFECT_TRANSFER_IN,
+          qtyChange: requestedQty,
+          operator: String(user?.username || user?.userId || 'SYS'),
+          storeCode: batch.store_code || 'ALL',
+          refNo: dispositionNo,
+          note: `缺陷调拨入库 source=${batchNo} reason=${reason}`,
+          qualityGrade: grade,
+          skuCode: batch.sku_code || null,
+          materialCode: batch.material_code || null,
+          warehouseCode: targetWarehouse,
+          companyCode: targetCompany,
+          businessType: 'DEFECT_DISPOSITION',
+          unit: batch.unit || null,
+        });
       }
 
       const [done] = await manager.query(
@@ -1953,36 +2006,26 @@ export class WmsService {
       [qty, batchNo, batch.warehouse_code, companyCode],
     );
     if (changed.length !== 1) throw new BadRequestException(`出库批次 ${batchNo} 状态、归属或数量已变化`);
-    await manager.query(
-      `INSERT INTO inv_ledger (
-         batch_no, change_type, qty_change, operator, store_code, ref_no, note,
-         sku_code, material_code, warehouse_code, company_code, business_type,
-         destination_type, destination_code, project_code, department_code, unit
-       )
-       VALUES (
-         $1, $8, -$2::numeric, $3, $4, $5, $6, $7, $9, $10, $11, $12,
-         $13, $14, $15, $16, $17
-       )`,
-      [
-        batchNo,
-        qty,
-        String(user?.userId || user?.username || 'SYS'),
-        order.store_code || batch.store_code || 'ALL',
-        orderNo,
-        `出库 type=${outboundPolicy.type} status=${nextStatus} batch=${batchNo} product=${batch.product_code || '-'} sku=${batch.sku_code || '-'} material=${batch.material_code || '-'} qty=${qty}`,
-        batch.sku_code || null,
-        resolveOutboundLedgerType(outboundPolicy.type),
-        batch.material_code || order.material_code || null,
-        batch.warehouse_code || order.warehouse_code || null,
-        companyCode,
-        outboundPolicy.businessType,
-        order.destination_type || null,
-        resolveOutboundDestinationCode(order) || null,
-        order.project_code || null,
-        order.department_code || null,
-        batch.unit || order.unit || null,
-      ],
-    );
+    // INV-301a：统一共享写入器（旧手写 SQL 占位符乱序：$1,$8,-$2,...）
+    await writeInvLedger(manager, {
+      batchNo,
+      changeType: resolveOutboundLedgerType(outboundPolicy.type),
+      qtyChange: -qty,
+      operator: String(user?.userId || user?.username || 'SYS'),
+      storeCode: order.store_code || batch.store_code || 'ALL',
+      refNo: orderNo,
+      note: `出库 type=${outboundPolicy.type} status=${nextStatus} batch=${batchNo} product=${batch.product_code || '-'} sku=${batch.sku_code || '-'} material=${batch.material_code || '-'} qty=${qty}`,
+      skuCode: batch.sku_code || null,
+      materialCode: batch.material_code || order.material_code || null,
+      warehouseCode: batch.warehouse_code || order.warehouse_code || null,
+      companyCode,
+      businessType: outboundPolicy.businessType,
+      destinationType: order.destination_type || null,
+      destinationCode: resolveOutboundDestinationCode(order) || null,
+      projectCode: order.project_code || null,
+      departmentCode: order.department_code || null,
+      unit: batch.unit || order.unit || null,
+    });
   }
 
   /**
@@ -2007,19 +2050,16 @@ export class WmsService {
       for (const it of items) {
         const diff = Number(it.actual_qty || 0) - Number(it.expected_qty || 0);
         if (diff === 0 || !it.batch_no) continue;
-        await manager.query(
-          `INSERT INTO inv_ledger (batch_no, change_type, qty_change, operator, store_code, ref_no, note)
-           VALUES ($1, $2, $3::int, $4, $5, $6, $7)`,
-          [
-            it.batch_no,
-            diff > 0 ? 'RECEIVE_OVER' : 'RECEIVE_SHORT',
-            diff,
-            receiver,
-            result[0].store_code || 'ALL',
-            orderNo,
-            `签收差异 expected=${it.expected_qty} actual=${it.actual_qty} diff=${diff}`,
-          ],
-        );
+        // INV-301a：统一共享写入器
+        await writeInvLedger(manager, {
+          batchNo: it.batch_no,
+          changeType: diff > 0 ? INV_LEDGER_CHANGE_TYPE.RECEIVE_OVER : INV_LEDGER_CHANGE_TYPE.RECEIVE_SHORT,
+          qtyChange: diff,
+          operator: receiver,
+          storeCode: result[0].store_code || 'ALL',
+          refNo: orderNo,
+          note: `签收差异 expected=${it.expected_qty} actual=${it.actual_qty} diff=${diff}`,
+        });
       }
 
       return { code: 200, msg: '签收成功' };
@@ -2056,7 +2096,8 @@ export class WmsService {
         scope.params,
       );
       return { code: 200, data };
-    } catch {
+    } catch (e) {
+      this.logger.error(`getInventoryBatches 查询失败，降级返回空列表: ${(e as Error).message}`);
       return { code: 200, data: [] };
     }
   }
@@ -2114,7 +2155,8 @@ export class WmsService {
         })
         .slice(0, 10);
       return { code: 200, data: { totalCount: rows.length, activeCount, totalQtyKg, expiringCount, gradeBuckets, recent } };
-    } catch {
+    } catch (e) {
+      this.logger.error(`getInventoryBatchesSummary 查询失败，降级返回空汇总: ${(e as Error).message}`);
       return { code: 200, data: empty };
     }
   }
@@ -2340,19 +2382,22 @@ export class WmsService {
           [qty, it.batch_no, from_warehouse],
         );
         if (changed.length !== 1) throw new BadRequestException(`源 batch ${it.batch_no} 状态、归属或数量已变化`);
-        await manager.query(
-          `INSERT INTO inv_ledger (
-             batch_no, change_type, qty_change, operator, store_code, ref_no, note,
-             sku_code, material_code, warehouse_code, business_type, unit, company_code
-           )
-           VALUES ($1, $7, -$2::numeric, $3, $4, $5, $6, $8, $9, $10, $11, $12, $13)`,
-          [
-            it.batch_no, qty, opName, src.store_code || 'ALL', transferNo,
-            `调拨出 → ${to_warehouse}`, transferOutPolicy.ledgerType,
-            src.sku_code || null, src.material_code || null, from_warehouse,
-            transferOutPolicy.businessType, src.unit || null, src.company_code,
-          ],
-        );
+        // INV-301a：统一共享写入器（旧手写 SQL 占位符乱序：$1,$7,-$2,...）
+        await writeInvLedger(manager, {
+          batchNo: it.batch_no,
+          changeType: transferOutPolicy.ledgerType,
+          qtyChange: -qty,
+          operator: opName,
+          storeCode: src.store_code || 'ALL',
+          refNo: transferNo,
+          note: `调拨出 → ${to_warehouse}`,
+          skuCode: src.sku_code || null,
+          materialCode: src.material_code || null,
+          warehouseCode: from_warehouse,
+          businessType: transferOutPolicy.businessType,
+          unit: src.unit || null,
+          companyCode: src.company_code,
+        });
 
         // 目标 + （新建一条目标 batch，追溯链保留）
         const targetIdentity = await this.resolveTransferTargetIdentity(manager, to_warehouse, src.store_code);
@@ -2372,19 +2417,22 @@ export class WmsService {
             src.source_profile_snapshot == null ? null : JSON.stringify(src.source_profile_snapshot),
           ],
         );
-        await manager.query(
-          `INSERT INTO inv_ledger (
-             batch_no, change_type, qty_change, operator, store_code, ref_no, note,
-             sku_code, material_code, warehouse_code, business_type, unit, company_code
-           )
-           VALUES ($1, $7, $2::numeric, $3, $4, $5, $6, $8, $9, $10, $11, $12, $13)`,
-          [
-            dstBatchNo, qty, opName, targetIdentity.storeCode, transferNo,
-            `调拨入 ← ${from_warehouse} 源 batch=${it.batch_no}`, transferInPolicy.ledgerType,
-            src.sku_code || null, src.material_code || null, to_warehouse,
-            transferInPolicy.businessType, src.unit || null, targetIdentity.companyCode,
-          ],
-        );
+        // INV-301a：统一共享写入器（旧手写 SQL 占位符乱序：$1,$7,$2,...）
+        await writeInvLedger(manager, {
+          batchNo: dstBatchNo,
+          changeType: transferInPolicy.ledgerType,
+          qtyChange: qty,
+          operator: opName,
+          storeCode: targetIdentity.storeCode,
+          refNo: transferNo,
+          note: `调拨入 ← ${from_warehouse} 源 batch=${it.batch_no}`,
+          skuCode: src.sku_code || null,
+          materialCode: src.material_code || null,
+          warehouseCode: to_warehouse,
+          businessType: transferInPolicy.businessType,
+          unit: src.unit || null,
+          companyCode: targetIdentity.companyCode,
+        });
         await manager.query(
           `INSERT INTO wms_transfer_items (
              transfer_no,source_batch_no,target_batch_no,expected_qty,received_qty,difference_qty,source_snapshot
@@ -2540,15 +2588,22 @@ export class WmsService {
           `UPDATE wms_transfer_items SET source_snapshot=$2::jsonb,updated_at=now() WHERE id=$1`,
           [item.id, JSON.stringify(src)],
         );
-        await manager.query(
-          `INSERT INTO inv_ledger (batch_no,change_type,qty_change,operator,store_code,ref_no,note,
-             sku_code,material_code,warehouse_code,business_type,unit,company_code)
-           VALUES ($1,$2,-$3::numeric,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
-          [item.source_batch_no, policy.ledgerType, qty, String(user?.username || 'SYS'),
-            src.store_code || 'ALL', transferNo, `调拨发运 → ${transfer.to_warehouse}（在途）`,
-            src.sku_code || null, src.material_code || null, transfer.from_warehouse,
-            policy.businessType, src.unit || null, src.company_code],
-        );
+        // INV-301a：统一共享写入器
+        await writeInvLedger(manager, {
+          batchNo: item.source_batch_no,
+          changeType: policy.ledgerType,
+          qtyChange: -qty,
+          operator: String(user?.username || 'SYS'),
+          storeCode: src.store_code || 'ALL',
+          refNo: transferNo,
+          note: `调拨发运 → ${transfer.to_warehouse}（在途）`,
+          skuCode: src.sku_code || null,
+          materialCode: src.material_code || null,
+          warehouseCode: transfer.from_warehouse,
+          businessType: policy.businessType,
+          unit: src.unit || null,
+          companyCode: src.company_code,
+        });
         total += qty;
       }
       await manager.query(
@@ -2605,15 +2660,22 @@ export class WmsService {
               snapshot.variety_code ?? null, snapshot.source_profile_code ?? null,
               snapshot.source_profile_snapshot == null ? null : JSON.stringify(snapshot.source_profile_snapshot)],
           );
-          await manager.query(
-            `INSERT INTO inv_ledger (batch_no,change_type,qty_change,operator,store_code,ref_no,note,
-              sku_code,material_code,warehouse_code,business_type,unit,company_code)
-             VALUES ($1,$2,$3::numeric,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
-            [targetBatchNo, inboundPolicy.ledgerType, received, String(user?.username || 'SYS'),
-              targetIdentity.storeCode, transferNo, `调拨签收 ← ${transfer.from_warehouse} 源 batch=${item.source_batch_no}`,
-              snapshot.sku_code || null, snapshot.material_code || null, transfer.to_warehouse,
-              inboundPolicy.businessType, snapshot.unit || null, targetIdentity.companyCode],
-          );
+          // INV-301a：统一共享写入器
+          await writeInvLedger(manager, {
+            batchNo: targetBatchNo,
+            changeType: inboundPolicy.ledgerType,
+            qtyChange: received,
+            operator: String(user?.username || 'SYS'),
+            storeCode: targetIdentity.storeCode,
+            refNo: transferNo,
+            note: `调拨签收 ← ${transfer.from_warehouse} 源 batch=${item.source_batch_no}`,
+            skuCode: snapshot.sku_code || null,
+            materialCode: snapshot.material_code || null,
+            warehouseCode: transfer.to_warehouse,
+            businessType: inboundPolicy.businessType,
+            unit: snapshot.unit || null,
+            companyCode: targetIdentity.companyCode,
+          });
         }
         if (damaged > 0) {
           if (!snapshot || snapshot.warehouse_code !== transfer.from_warehouse) {
@@ -2633,15 +2695,23 @@ export class WmsService {
               transfer.to_warehouse, this.nonEmptyString(body?.to_location) || transfer.to_location || 'TRANSFER-IN',
               snapshot.expire_date || null, targetIdentity.storeCode, targetIdentity.companyCode],
           );
-          await manager.query(
-            `INSERT INTO inv_ledger (batch_no,change_type,qty_change,operator,store_code,ref_no,note,
-              quality_grade,sku_code,material_code,warehouse_code,business_type,unit,company_code)
-             VALUES ($1,'TRANSFER_DAMAGE_INBOUND',$2::numeric,$3,$4,$5,$6,'BROKEN',$7,$8,$9,$10,$11,$12)`,
-            [damagedBatchNo, damaged, String(user?.username || 'SYS'), targetIdentity.storeCode,
-              transferNo, `调拨途中破损 → 缺陷销售库存 source=${item.source_batch_no}`,
-              snapshot.sku_code || null, snapshot.material_code || null, transfer.to_warehouse,
-              inboundPolicy.businessType, snapshot.unit || null, targetIdentity.companyCode],
-          );
+          // INV-301a：统一共享写入器
+          await writeInvLedger(manager, {
+            batchNo: damagedBatchNo,
+            changeType: INV_LEDGER_CHANGE_TYPE.TRANSFER_DAMAGE_INBOUND,
+            qtyChange: damaged,
+            operator: String(user?.username || 'SYS'),
+            storeCode: targetIdentity.storeCode,
+            refNo: transferNo,
+            note: `调拨途中破损 → 缺陷销售库存 source=${item.source_batch_no}`,
+            qualityGrade: 'BROKEN',
+            skuCode: snapshot.sku_code || null,
+            materialCode: snapshot.material_code || null,
+            warehouseCode: transfer.to_warehouse,
+            businessType: inboundPolicy.businessType,
+            unit: snapshot.unit || null,
+            companyCode: targetIdentity.companyCode,
+          });
         }
         await manager.query(
           `UPDATE wms_transfer_items SET target_batch_no=$2,received_qty=$3::numeric,
@@ -2763,22 +2833,17 @@ export class WmsService {
             WHERE batch_no = $2`,
           [diff, batch_no],
         );
-        await manager.query(
-          `INSERT INTO inv_ledger (
-             batch_no, change_type, qty_change, operator, store_code, ref_no, note, business_type
-           )
-           VALUES ($1, $2, $3::numeric, $4, $5, $6, $7, $8)`,
-          [
-            batch_no,
-            diff > 0 ? 'STOCKTAKE_UP' : 'STOCKTAKE_DOWN',
-            diff,
-            opName,
-            batch.store_code || 'ALL',
-            stocktake_no,
-            `盘点差额 item=${item || '—'} diff=${diff}`,
-            diff > 0 ? 'STOCKTAKE_GAIN' : 'STOCKTAKE_LOSS',
-          ],
-        );
+        // INV-301a：统一共享写入器
+        await writeInvLedger(manager, {
+          batchNo: batch_no,
+          changeType: diff > 0 ? INV_LEDGER_CHANGE_TYPE.STOCKTAKE_UP : INV_LEDGER_CHANGE_TYPE.STOCKTAKE_DOWN,
+          qtyChange: diff,
+          operator: opName,
+          storeCode: batch.store_code || 'ALL',
+          refNo: stocktake_no,
+          note: `盘点差额 item=${item || '—'} diff=${diff}`,
+          businessType: diff > 0 ? 'STOCKTAKE_GAIN' : 'STOCKTAKE_LOSS',
+        });
       }
 
       return { code: 200, msg: `盘点单 ${stocktake_no} 已审核`, diff_applied: diff };
@@ -2832,12 +2897,16 @@ export class WmsService {
             `UPDATE inv_batches SET qty = qty + $1::int, updated_at = now() WHERE batch_no = $2`,
             [diff, batchNo],
           );
-          await manager.query(
-            `INSERT INTO inv_ledger (batch_no, change_type, qty_change, operator, store_code, ref_no, note)
-             VALUES ($1, $2, $3::int, $4, $5, $6, $7)`,
-            [batchNo, diff > 0 ? 'STOCKTAKE_UP' : 'STOCKTAKE_DOWN', diff, op, storeCode, stNo,
-             `PDA盘点 sys=${sysQty} act=${counted} diff=${diff}`],
-          );
+          // INV-301a：统一共享写入器
+          await writeInvLedger(manager, {
+            batchNo,
+            changeType: diff > 0 ? INV_LEDGER_CHANGE_TYPE.STOCKTAKE_UP : INV_LEDGER_CHANGE_TYPE.STOCKTAKE_DOWN,
+            qtyChange: diff,
+            operator: op,
+            storeCode,
+            refNo: stNo,
+            note: `PDA盘点 sys=${sysQty} act=${counted} diff=${diff}`,
+          });
         }
         results.push({ batch_no: batchNo, sys_qty: sysQty, act_qty: counted, diff_qty: diff, stocktake_no: stNo });
       }
@@ -2978,13 +3047,17 @@ export class WmsService {
             WHERE batch_no = $2`,
           [qty, batch_no],
         );
-        await manager.query(
-          `INSERT INTO inv_ledger (
-             batch_no, change_type, qty_change, operator, store_code, ref_no, note, business_type
-           )
-           VALUES ($1, 'LOSS', -$2::numeric, $3, $4, $5, $6, 'SCRAP')`,
-          [batch_no, qty, opName, batch.store_code || 'ALL', loss_no, `损耗 ${reason || '未填'} qty=${qty}`],
-        );
+        // INV-301a：统一共享写入器
+        await writeInvLedger(manager, {
+          batchNo: batch_no,
+          changeType: INV_LEDGER_CHANGE_TYPE.LOSS,
+          qtyChange: -qty,
+          operator: opName,
+          storeCode: batch.store_code || 'ALL',
+          refNo: loss_no,
+          note: `损耗 ${reason || '未填'} qty=${qty}`,
+          businessType: 'SCRAP',
+        });
       }
 
       return { code: 200, msg: `损耗单 ${loss_no} 已审批`, applied_qty: qty };

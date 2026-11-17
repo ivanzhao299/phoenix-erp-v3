@@ -26,6 +26,10 @@ import { DataSource } from 'typeorm';
 import { ClsService } from 'nestjs-cls';
 import { hasPerm } from '../../../auth/permissions.util';
 import { StoreScopePolicy, StoreWarehousePurpose } from './store-scope-policy.service';
+import { INV_LEDGER_CHANGE_TYPE } from '../../wms/inv-ledger-change-types';
+import { writeInvLedger } from '../../wms/inventory-ledger.writer';
+import { guardedBatchUpdate } from '../../wms/inventory-guarded-update.util';
+import { fifoLockKey, fifoItemKey } from '../../wms/inventory-lock.util';
 import { PriceRuntimeService, ResolvedPrice } from '../../sales-v2/services/price-runtime.service';
 import { finiteCashNumber, returningRow } from '../../finance-v2/services/cash-balance.guard';
 
@@ -909,9 +913,14 @@ export class StorePosService {
       if (item.sku_code != null) await SkuPolicy.requireUsable(mgr, item.sku_code, 'sale-stock');
       else if (item.quantity_snapshot) await SkuPolicy.requireUsable(mgr, item.quantity_snapshot.skuCode, 'sale-stock');
       const useSkuPath = !!item.sku_code;
-      const lockKey = useSkuPath
-        ? `fifo:${sale.company_code}:${sale.warehouseCodes.join(',')}:sku:${item.sku_code}`
-        : `fifo:${sale.company_code}:${sale.warehouseCodes.join(',')}:${item.product_code}`;
+      // INV-204：egg 与 POS 两路 FIFO 共用 inv:fifo:{company}:{warehouse}:{itemKey}
+      // 命名空间（见 wms/inventory-lock.util.ts）；快照池锁（physical-stock-v1，
+      // 上方 lockQuantityPools）池语义不同，保持不动。
+      const lockKey = fifoLockKey(
+        sale.company_code,
+        sale.warehouseCodes.join(','),
+        fifoItemKey({ skuCode: item.sku_code, productCode: item.product_code, gradeCode: item.grade_code }),
+      );
 
         // Advisory Lock 防并发超卖
       if (!item.quantity_snapshot) await mgr.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [lockKey]);
@@ -926,7 +935,7 @@ export class StorePosService {
       } else if (useSkuPath) {
           // PATH A: 按 sku_code 精确匹配
           batches = await mgr.query(
-            `SELECT batch_no, warehouse_code, qty_available, expire_date, sku_code
+            `SELECT batch_no, warehouse_code, qty_available, expire_date, sku_code, unit_cost
              FROM inv_batches
              WHERE sku_code = $1
                AND company_code = $2
@@ -950,7 +959,7 @@ export class StorePosService {
           // PATH B: 旧 product+grade 匹配
           // 安全:grade_code 用绑定参数($3),严禁字符串插值(SQL 注入)
           batches = await mgr.query(
-            `SELECT batch_no, warehouse_code, qty_available, expire_date, sku_code
+            `SELECT batch_no, warehouse_code, qty_available, expire_date, sku_code, unit_cost
              FROM inv_batches
              WHERE product_code = $1
                AND company_code = $2
@@ -999,19 +1008,19 @@ export class StorePosService {
           if (remaining <= 0) break;
           const canTake = Math.min(remaining, Number(batch.qty_available));
           remaining -= canTake;
-          // TypeORM/Postgres 的裸 UPDATE 返回 [[rows], rowCount]；包成 SELECT CTE 后
-          // 返回稳定的纯行数组，下面的精确一行守卫才能保持 fail-closed。
-          const changed = await mgr.query(
-            `WITH changed AS (
-               UPDATE inv_batches SET qty_available = qty_available - $1, qty = qty - $1, updated_at=NOW()
-                WHERE batch_no=$2 AND warehouse_code=$3 AND qty_available >= $1 AND qty >= $1
-                  AND company_code=$4 AND status='AVAILABLE' AND legacy_source IS NULL
-                  AND (expire_date IS NULL OR expire_date>=CURRENT_DATE)
-                RETURNING batch_no
-             ) SELECT batch_no FROM changed`,
-            [canTake, batch.batch_no, batch.warehouse_code, sale.company_code],
-          );
-          if (changed.length !== 1) throw new ConflictException(`批次 ${batch.batch_no} 可用量已变化`);
+          // INV-301b：守卫化 UPDATE 走统一入口（CTE 化消解 TypeORM 裸 UPDATE
+          // 的 [[rows], rowCount] 返回形态，changed!==1 保持 fail-closed）。
+          const changed = await guardedBatchUpdate(mgr, {
+            batchNo:        batch.batch_no,
+            companyCode:    sale.company_code,
+            warehouseCode:  batch.warehouse_code,
+            deltaQty:       -canTake,
+            deltaAvailable: -canTake,
+            requireStatus:  'AVAILABLE',
+            expireGuard:    true,
+            excludeLegacy:  true,
+          });
+          if (changed !== 1) throw new ConflictException(`批次 ${batch.batch_no} 可用量已变化`);
 
           await mgr.query(
             `INSERT INTO store_sale_allocations
@@ -1022,22 +1031,23 @@ export class StorePosService {
           allocs.push({ itemId: item.id, batchNo: batch.batch_no, warehouseCode: batch.warehouse_code, qty: canTake });
 
           // 写 inv_ledger FIFO_OUT（Phase H5: 传递 sku_code）
-          await mgr.query(
-            `INSERT INTO inv_ledger
-               (batch_no, change_type, qty_change, operator, store_code, ref_no, note, sku_code, company_code, warehouse_code, created_at)
-             VALUES ($1,'FIFO_OUT',$2,$3,$4,$5,$6,$7,$8,$9,NOW())`,
-            [
-              batch.batch_no,
-              -canTake,
-              this.currentUser?.username ?? 'pos',
-              sale.store_code,
-              sale.sale_no,
-              `门店收银 FIFO 出库 ${sale.sale_no} qty=${canTake}`,
-              batch.sku_code ?? null,
-              sale.company_code,
-              batch.warehouse_code,
-            ],
-          );
+          // INV-301a：统一共享写入器（旧 SQL 显式 created_at=NOW() 与列默认
+          // CURRENT_TIMESTAMP 同为事务开始时间，省略后语义等价）
+          await writeInvLedger(mgr, {
+            batchNo: batch.batch_no,
+            changeType: INV_LEDGER_CHANGE_TYPE.FIFO_OUT,
+            qtyChange: -canTake,
+            operator: this.currentUser?.username ?? 'pos',
+            storeCode: sale.store_code,
+            refNo: sale.sale_no,
+            note: `门店收银 FIFO 出库 ${sale.sale_no} qty=${canTake}`,
+            skuCode: batch.sku_code ?? null,
+            companyCode: sale.company_code,
+            warehouseCode: batch.warehouse_code,
+            // INV-401：POS 收银出库结转 = -canTake × 批次 unit_cost（批次成本法；
+            // sharedBatches 为 SELECT * 已含 unit_cost，历史批次 0 挂账）
+            costChange: -(canTake * Number(batch.unit_cost ?? 0)),
+          });
       }
 
       if (remaining > 0) {
@@ -1217,14 +1227,20 @@ export class StorePosService {
          allocation.sku_code ?? null, quarantine.warehouse_code, quarantine.location_code,
          allocation.grade_code_std ?? null, allocation.spec_code ?? null, allocation.unit ?? null, allocation.egg_date ?? null, allocation.expire_date ?? null, allocation.base_quantity_version ?? null],
       );
-      await mgr.query(
-        `INSERT INTO inv_ledger
-           (batch_no, change_type, qty_change, operator, store_code, ref_no, note, company_code, sku_code, warehouse_code, location_code, created_at)
-         VALUES ($1,'SALE_RETURN',$2,$3,$4,$5,$6,$7,$8,$9,$10,NOW())`,
-        [batchNo, qty, this.currentUser?.username ?? 'pos', sale.store_code, sale.sale_no,
-         `按 allocation ${allocation.id} 退货入隔离批 ${sale.sale_no} qty=${qty}`, sale.company_code,
-         allocation.sku_code ?? null, quarantine.warehouse_code, quarantine.location_code],
-      );
+      // INV-301a：统一共享写入器（created_at 省略走列默认，语义等价）
+      await writeInvLedger(mgr, {
+        batchNo,
+        changeType: INV_LEDGER_CHANGE_TYPE.SALE_RETURN,
+        qtyChange: qty,
+        operator: this.currentUser?.username ?? 'pos',
+        storeCode: sale.store_code,
+        refNo: sale.sale_no,
+        note: `按 allocation ${allocation.id} 退货入隔离批 ${sale.sale_no} qty=${qty}`,
+        companyCode: sale.company_code,
+        skuCode: allocation.sku_code ?? null,
+        warehouseCode: quarantine.warehouse_code,
+        locationCode: quarantine.location_code,
+      });
       await mgr.query(
         `UPDATE store_sale_allocations SET returned_qty=allocated_qty,updated_at=NOW()
           WHERE id=$1 AND returned_qty < allocated_qty`,

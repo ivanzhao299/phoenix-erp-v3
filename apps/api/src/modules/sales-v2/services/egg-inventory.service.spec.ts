@@ -23,7 +23,8 @@ describe('EggInventoryService conditional inventory updates', () => {
       refNo: 'SO-1', note: 'test', salesContext: 'FARM_SALES', fulfillmentWarehouseCode: 'WH-A',
     })).rejects.toBeInstanceOf(ConflictException);
     const guardedUpdate = (query.mock.calls as any[][]).find(([sql]) => String(sql).includes('SELECT batch_no FROM changed')) as [string, unknown[]] | undefined;
-    expect(guardedUpdate?.[1]).toEqual([2, 'B-1', 'COMP-A', 'WH-A']);
+    // INV-301b guardedBatchUpdate canonical layout: $1=batchNo $2=company $3=warehouse $4=deltaAvailable（Math.abs 绝对值，方向在 SQL 符号）
+    expect(guardedUpdate?.[1]).toEqual(['B-1', 'COMP-A', 'WH-A', 2]);
   });
 
   it('reports company, SKU, requested qty and company-allocatable qty without warehouse details', async () => {
@@ -213,11 +214,45 @@ describe('EggInventoryService inventory list/dashboard parity', () => {
     expect(sql).toContain("b.status = 'AVAILABLE'");
     expect(sql).toContain('b.qty_available > 0');
     expect(sql).toContain('b.expire_date IS NULL OR b.expire_date >= CURRENT_DATE');
+    // INV-203：展示口径对齐分配口径（legacy_source IS NULL），且 PATH B 排除 SKU 批次。
+    expect(sql).toContain('b.legacy_source IS NULL');
+    expect(sql).toContain('b.sku_code IS NULL');
     expect(sql).toContain('LEFT JOIN product_skus');
     expect(sql).toContain('LEFT JOIN mst_products');
     expect(sql).toContain('COALESCE(p.product_name_zh, sku.sku_name, b.product_code)');
     expect(sql).toContain('ORDER BY b.egg_date DESC NULLS LAST, b.batch_no DESC, b.id DESC');
     expect(args).toEqual(['WH-FARM']);
+  });
+
+  it('excludes legacy_source batches from both SKU and product paths (INV-203)', async () => {
+    const query = jest.fn().mockResolvedValue([]);
+    const service = new EggInventoryService({ query, transaction: async (run: (manager: any) => unknown) => run({ query }) } as never, { get: jest.fn() } as never);
+
+    await service.getAvailableBatches({ skuCode: 'SKU-1', salesContext: 'FARM_SALES', warehouseCode: 'WH-FARM' });
+    await service.getAvailableBatches({ productCode: 'EGG', salesContext: 'FARM_SALES', warehouseCode: 'WH-FARM' });
+
+    const skuPathSql = String(query.mock.calls[0][0]);
+    const productPathSql = String(query.mock.calls[1][0]);
+    // 展示口径对齐 allocateByFIFO：legacy 批次（不可分配的旧库存）不出现。
+    expect(skuPathSql).toContain('b.legacy_source IS NULL');
+    expect(productPathSql).toContain('b.legacy_source IS NULL');
+  });
+
+  it('does not double-count SKU batches in the product+grade path (INV-203)', async () => {
+    const query = jest.fn().mockResolvedValue([]);
+    const service = new EggInventoryService({ query, transaction: async (run: (manager: any) => unknown) => run({ query }) } as never, { get: jest.fn() } as never);
+
+    await service.getAvailableBatches({ productCode: 'EGG', salesContext: 'FARM_SALES', warehouseCode: 'WH-FARM' });
+    await service.getAvailableBatches({ skuCode: 'SKU-1', salesContext: 'FARM_SALES', warehouseCode: 'WH-FARM' });
+
+    const productPathSql = String(query.mock.calls[0][0]);
+    const skuPathSql = String(query.mock.calls[1][0]);
+    // PATH B 只展示未 SKU 化存量：SKU 批次被排除（`sku_code IS NULL`）。
+    expect(productPathSql).toContain('b.sku_code IS NULL');
+    expect(productPathSql).not.toContain('b.sku_code = $');
+    // PATH A 仍按 SKU 精确匹配，不附带 IS NULL 排除。
+    expect(skuPathSql).toContain('b.sku_code = $1');
+    expect(skuPathSql).not.toContain('b.sku_code IS NULL');
   });
 
   it('keeps same-production-date pagination deterministic and non-overlapping', () => {
@@ -347,7 +382,7 @@ describe('EggInventoryService createProductionBatch SQL contract', () => {
       .mockResolvedValueOnce([]) // No ACTIVE source profiles for this legacy company.
       .mockResolvedValueOnce([{ batch_no: 'EGG-20260825-00001' }])
       .mockResolvedValueOnce([]);
-    const cls = { get: jest.fn().mockReturnValue({ username: 'tester' }) };
+    const cls = { get: jest.fn((key: string) => key === 'user' ? { username: 'tester' } : undefined) };
     const transaction = jest.fn(async (run: (manager: unknown) => Promise<unknown>) => run({ query }));
     const service = new EggInventoryService({ query, transaction } as never, cls as never);
 
@@ -695,5 +730,355 @@ describe('EggInventoryService direct production variety authorization', () => {
     const service = new EggInventoryService(ds as never, { get: jest.fn() } as never);
     await expect(service.createProductionBatch(request)).rejects.toThrow('不适用于公司');
     expectNoWrites();
+  });
+});
+
+describe('EggInventoryService markExpiredBatches (INV-101)', () => {
+  const makeService = (query: jest.Mock, cls: unknown = { get: jest.fn().mockReturnValue(undefined) },
+    recipients?: { resolve: jest.Mock }, notif?: { create: jest.Mock }) => {
+    const transaction = jest.fn(async (run: (tx: unknown) => Promise<unknown>) => run({ query }));
+    const ds = { query: jest.fn(), transaction };
+    const service = new EggInventoryService(
+      ds as never, cls as never, undefined as never, recipients as never, notif as never,
+    );
+    return { service, ds, transaction };
+  };
+
+  it('treats an injected companyCode as a literal bind parameter, never SQL text', async () => {
+    const evil = `COMP-A' OR '1'='1`;
+    const query = jest.fn(async () => []);
+    const { service } = makeService(query as never);
+
+    await expect(service.markExpiredBatches(evil)).resolves.toEqual({ expired: 0, written: 0, skippedInUse: [] });
+
+    for (const [sql, args] of query.mock.calls as any[][]) {
+      expect(String(sql)).not.toContain(evil);
+      expect(String(sql)).not.toContain("company_code='");
+    }
+    const candidate = (query.mock.calls as any[][]).find(([sql]: any) => String(sql).includes('FOR UPDATE OF b SKIP LOCKED'))!;
+    expect(String(candidate[0])).toContain('($1::text IS NULL OR b.company_code = $1)');
+    expect(candidate[1]).toEqual([evil]);
+    const skippedQuery = (query.mock.calls as any[][]).find(([sql]: any) => String(sql).includes('GROUP BY b.batch_no'))!;
+    expect(skippedQuery[1]).toEqual([evil]);
+  });
+
+  it('skips batches with open allocations, reports them in skippedInUse and notifies reviewers', async () => {
+    const query = jest.fn(async (sql: string) => {
+      if (sql.includes('FOR UPDATE OF b SKIP LOCKED')) return [
+        { batch_no: 'B-CLEAN', qty: '10', company_code: 'COMP-A', expire_date: '2026-11-01', quality_grade: 'A', sku_code: 'SKU-1' },
+      ];
+      if (sql.includes('GROUP BY b.batch_no')) return [
+        { batch_no: 'B-INUSE', company_code: 'COMP-A', open_allocations: '12' },
+      ];
+      if (sql.includes("SET status='EXPIRED'")) return [{ batch_no: 'B-CLEAN' }];
+      if (sql.includes('INSERT INTO inv_ledger')) return [{ id: 7 }];
+      return [];
+    });
+    const recipients = { resolve: jest.fn().mockResolvedValue(['user-1', 'user-2']) };
+    const notif = { create: jest.fn().mockResolvedValue({}) };
+    const { service } = makeService(query as never, undefined, recipients, notif);
+
+    const result = await service.markExpiredBatches('COMP-A');
+
+    expect(result).toEqual({
+      expired: 1, written: 1,
+      skippedInUse: [{ batchNo: 'B-INUSE', companyCode: 'COMP-A', openAllocations: 12 }],
+    });
+    // The guarded update keeps status='AVAILABLE' as the idempotency guard.
+    const update = (query.mock.calls as any[][]).find(([sql]: any) => String(sql).includes("SET status='EXPIRED'"))!;
+    expect(String(update[0])).toContain("WHERE batch_no=$1 AND status='AVAILABLE'");
+    expect(update[1]).toEqual(['B-CLEAN']);
+    // EXPIRE_WRITEOFF ledger is written inside the same transaction manager.
+    const ledger = (query.mock.calls as any[][]).find(([sql]: any) => String(sql).includes('INSERT INTO inv_ledger'))!;
+    expect(ledger[1][0]).toBe('B-CLEAN');
+    expect(ledger[1][1]).toBe('EXPIRE_WRITEOFF');
+    // Manual-review notification follows the ar-reconciliation pattern.
+    expect(recipients.resolve).toHaveBeenCalledWith('COMP-A', ['MENU_SALES2_INVENTORY']);
+    expect(notif.create).toHaveBeenCalledTimes(2);
+    expect(notif.create.mock.calls[0][0]).toMatchObject({
+      userId: 'user-1', notificationType: 'INVENTORY_EXPIRE_REVIEW', bizType: 'INV_EXPIRE_REVIEW',
+    });
+    expect(String(notif.create.mock.calls[0][0].content)).toContain('B-INUSE');
+  });
+
+  it('rolls the whole sweep back when a ledger write fails mid-way', async () => {
+    const query = jest.fn(async (sql: string) => {
+      if (sql.includes('FOR UPDATE OF b SKIP LOCKED')) return [
+        { batch_no: 'B-1', qty: '5', company_code: 'COMP-A', expire_date: '2026-11-01', quality_grade: 'A', sku_code: null },
+        { batch_no: 'B-2', qty: '6', company_code: 'COMP-A', expire_date: '2026-11-01', quality_grade: 'A', sku_code: null },
+      ];
+      if (sql.includes('GROUP BY b.batch_no')) return [];
+      if (sql.includes("SET status='EXPIRED'")) return [{ batch_no: 'ok' }];
+      if (sql.includes('INSERT INTO inv_ledger')) throw new Error('ledger down');
+      return [];
+    });
+    const state = { rolledBack: false };
+    const ds = {
+      query: jest.fn(),
+      transaction: jest.fn(async (run: (tx: unknown) => Promise<unknown>) => {
+        try {
+          return await run({ query });
+        } catch (error) {
+          state.rolledBack = true;
+          throw error;
+        }
+      }),
+    };
+    const service = new EggInventoryService(ds as never, { get: jest.fn().mockReturnValue(undefined) } as never);
+
+    await expect(service.markExpiredBatches()).rejects.toThrow('ledger down');
+    expect(state.rolledBack).toBe(true);
+    // B-1's guarded UPDATE and its failing ledger write both ran inside the
+    // rolled-back transaction; B-2 was never touched.
+    expect((query.mock.calls as any[][]).filter(([sql]: any) => String(sql).includes("SET status='EXPIRED'"))).toHaveLength(1);
+    expect((query.mock.calls as any[][]).filter(([sql]: any) => String(sql).includes('INSERT INTO inv_ledger'))).toHaveLength(1);
+  });
+
+  it('continues past batches whose guarded update no longer matches (idempotent re-run)', async () => {
+    let updateCalls = 0;
+    const query = jest.fn(async (sql: string) => {
+      if (sql.includes('FOR UPDATE OF b SKIP LOCKED')) return [
+        { batch_no: 'B-1', qty: '5', company_code: 'COMP-A', expire_date: '2026-11-01', quality_grade: 'A', sku_code: null },
+        { batch_no: 'B-2', qty: '6', company_code: 'COMP-A', expire_date: '2026-11-01', quality_grade: 'A', sku_code: null },
+      ];
+      if (sql.includes('GROUP BY b.batch_no')) return [];
+      if (sql.includes("SET status='EXPIRED'")) {
+        updateCalls += 1;
+        return updateCalls === 1 ? [{ batch_no: 'B-1' }] : []; // B-2 already flipped by a concurrent worker
+      }
+      if (sql.includes('INSERT INTO inv_ledger')) return [{ id: 1 }];
+      return [];
+    });
+    const { service } = makeService(query as never);
+
+    const result = await service.markExpiredBatches('COMP-A');
+
+    expect(result).toEqual({ expired: 2, written: 1, skippedInUse: [] });
+    const ledgerCalls = (query.mock.calls as any[][]).filter(([sql]: any) => String(sql).includes('INSERT INTO inv_ledger'));
+    expect(ledgerCalls).toHaveLength(1);
+    expect(ledgerCalls[0][1][0]).toBe('B-1');
+  });
+});
+
+describe('EggInventoryService write-path company DataScope (INV-103)', () => {
+  const scopedCls = { get: jest.fn().mockReturnValue({ isGlobal: false, allowedCompanyCodes: ['COMP-A'] }) };
+  const makeDs = () => ({
+    query: jest.fn(),
+    transaction: jest.fn(async (run: (tx: unknown) => Promise<unknown>) => run({ query: jest.fn() })),
+  });
+
+  it('rejects markExpiredBatches for a company outside the caller scope', async () => {
+    const ds = makeDs();
+    const service = new EggInventoryService(ds as never, scopedCls as never);
+    await expect(service.markExpiredBatches('COMP-B')).rejects.toMatchObject({ status: 403 });
+    expect(ds.transaction).not.toHaveBeenCalled();
+    expect(ds.query).not.toHaveBeenCalled();
+  });
+
+  it('rejects a scoped caller who sweeps all companies without naming one', async () => {
+    const ds = makeDs();
+    const service = new EggInventoryService(ds as never, scopedCls as never);
+    await expect(service.markExpiredBatches()).rejects.toMatchObject({ status: 403 });
+    expect(ds.transaction).not.toHaveBeenCalled();
+  });
+
+  it('rejects allocateByFIFO for a company outside the caller scope', async () => {
+    const ds = makeDs();
+    const service = new EggInventoryService(ds as never, scopedCls as never);
+    await expect(service.allocateByFIFO({
+      productCode: 'EGG', companyCode: 'COMP-B', qty: 1, refNo: 'SO-1', note: 'test',
+      fulfillmentWarehouseCode: 'WH-A', salesContext: 'FARM_SALES',
+    })).rejects.toMatchObject({ status: 403 });
+    expect(ds.transaction).not.toHaveBeenCalled();
+    expect(ds.query).not.toHaveBeenCalled();
+  });
+
+  it('rejects the legacy no-source createProductionBatch for a company outside the caller scope', async () => {
+    const ds = makeDs();
+    const service = new EggInventoryService(ds as never, scopedCls as never);
+    await expect(service.createProductionBatch({
+      companyCode: 'COMP-B', eggDate: '2026-11-17', productCode: 'PRD-LEGACY',
+      qualityGrade: 'GRADE_1', qty: 1, sourceType: 'PRODUCTION',
+    })).rejects.toMatchObject({ status: 403 });
+    expect(ds.transaction).not.toHaveBeenCalled();
+    expect(ds.query).not.toHaveBeenCalled();
+  });
+
+  it('still lets global and scope-less system flows allocate the granted company', async () => {
+    const query = jest.fn(async (sql: string) => {
+      if (sql.includes('SELECT type, domain, status, owner_store_id')) return [{ type: 'EGG_FARM', domain: 'OPERATIONAL', status: 'ACTIVE', owner_store_id: null }];
+      return [];
+    });
+    const transaction = jest.fn(async (run: (tx: unknown) => Promise<unknown>) => run({ query }));
+    for (const cls of [
+      { get: jest.fn().mockReturnValue({ isGlobal: true }) },
+      { get: jest.fn().mockReturnValue(undefined) },
+      scopedCls,
+    ]) {
+      const service = new EggInventoryService({ query, transaction } as never, cls as never);
+      // COMP-A is granted to the scoped caller; the sweep fails later on stock
+      // availability, never on authorization.
+      await expect(service.allocateByFIFO({
+        productCode: 'EGG', companyCode: 'COMP-A', qty: 1, refNo: 'SO-1', note: 'ok',
+        fulfillmentWarehouseCode: 'WH-A', salesContext: 'FARM_SALES',
+      })).rejects.toThrow('库存不足');
+    }
+  });
+});
+
+describe('EggInventoryService writeLedger store_code (INV-104)', () => {
+  it('binds a null store_code instead of the company code and keeps company_code at $10', async () => {
+    const query = jest.fn(async (sql: string) => {
+      if (sql.includes('FOR UPDATE OF b SKIP LOCKED')) return [
+        { batch_no: 'B-CLEAN', qty: '10', company_code: 'COMP-A', expire_date: '2026-11-01', quality_grade: 'A', sku_code: 'SKU-1', unit_cost: '1.5' },
+      ];
+      if (sql.includes('GROUP BY b.batch_no')) return [];
+      if (sql.includes("SET status='EXPIRED'")) return [{ batch_no: 'B-CLEAN' }];
+      if (sql.includes('INSERT INTO inv_ledger')) return [{ id: 9 }];
+      return [];
+    });
+    const transaction = jest.fn(async (run: (tx: unknown) => Promise<unknown>) => run({ query }));
+    const service = new EggInventoryService({ query, transaction } as never, { get: jest.fn().mockReturnValue(undefined) } as never);
+
+    await service.markExpiredBatches('COMP-A');
+
+    const ledger = (query.mock.calls as any[][]).find(([sql]) => String(sql).includes('INSERT INTO inv_ledger'))!;
+    // Column order: batch_no, change_type, qty_change, operator, store_code($5), ref_no,
+    // note, batch_expire_date, quality_grade, company_code($10), sku_code, ...
+    expect(ledger[0]).toContain('(batch_no, change_type, qty_change, operator, store_code, ref_no, note,');
+    expect(ledger[1][4]).toBeNull();       // $5 store_code — must no longer receive the company code
+    expect(ledger[1][9]).toBe('COMP-A');   // $10 company_code stays authoritative
+    expect(ledger[1][0]).toBe('B-CLEAN');
+    // INV-401：过期核销结转 cost_change = -(qty × unit_cost) = -(10 × 1.5)
+    expect(String(ledger[0])).toContain('cost_change');
+    expect((ledger[1] as unknown[])[(ledger[1] as unknown[]).length - 1]).toBe(-15);
+  });
+});
+
+describe('EggInventoryService processReturnInventory damage ledger batch (INV-201a)', () => {
+  const makeQuery = (items: any[]) => jest.fn(async (sql: string) => {
+    if (sql.includes('FROM sal_return_items')) return items;
+    if (sql.includes('INSERT INTO inv_ledger')) return [{ id: 11 }];
+    return [];
+  });
+
+  it('attaches DAMAGE_WRITEOFF to the RET batch and never writes a DMG- pseudo batch', async () => {
+    const query = makeQuery([
+      { id: 'ri-1', product_code: 'EGG', grade_code: 'A', sku_code: 'SKU-1', accepted_qty: '2', damaged_qty: '1', restock_status: 'PENDING', quantity_snapshot: null, packaging_spec: null },
+    ]);
+    const service = new EggInventoryService({ query } as never, { get: jest.fn() } as never);
+
+    await service.processReturnInventory('ret-1', 'RET-2026-0001', 'COMP-A', 'WH-A', 'ZONE-A', 'LOC-A', '2026-11-17');
+
+    const ledgerCalls = (query.mock.calls as any[][]).filter(([sql]) => String(sql).includes('INSERT INTO inv_ledger'));
+    expect(ledgerCalls).toHaveLength(2);
+    const damageLedger = ledgerCalls.find(([sql, params]: any[]) => params[1] === 'DAMAGE_WRITEOFF')!;
+    // The write-off must reference the real RET batch row (FK target), not a DMG- pseudo number.
+    expect(damageLedger[1][0]).toBe('RET-RET-2026-0001-ri-1');
+    expect(String(damageLedger[1][6])).toContain('damaged=1');
+    for (const [sql, params] of query.mock.calls as any[][]) {
+      expect(String(sql)).not.toContain('DMG-');
+      expect(JSON.stringify(params ?? [])).not.toContain('DMG-');
+    }
+    // Mixed accepted+damaged item ends RESTOCKED_WITH_WRITEOFF.
+    const statusUpdate = (query.mock.calls as any[][]).find(([sql]) => String(sql).includes("SET restock_status=$1"))!;
+    expect(statusUpdate[1]).toEqual(['RESTOCKED_WITH_WRITEOFF', 'ri-1']);
+  });
+
+  it('creates a DAMAGED-state RET batch first when only damaged quantity is returned', async () => {
+    const query = makeQuery([
+      { id: 'ri-2', product_code: 'EGG', grade_code: 'A', sku_code: null, accepted_qty: '0', damaged_qty: '3', restock_status: 'PENDING', quantity_snapshot: null, packaging_spec: null },
+    ]);
+    const service = new EggInventoryService({ query } as never, { get: jest.fn() } as never);
+
+    await service.processReturnInventory('ret-2', 'RET-2026-0002', 'COMP-A', 'WH-A', 'ZONE-A', 'LOC-A', '2026-11-17');
+
+    const batchInsert = (query.mock.calls as any[][]).find(([sql]) => String(sql).includes('INSERT INTO inv_batches'))!;
+    // $1 batch_no, $2 product, $3 company, $4 qty, ... $6 source_no ... status literal 'DAMAGED'
+    expect(batchInsert[1][0]).toBe('RET-RET-2026-0002-ri-2');
+    expect(batchInsert[1][3]).toBe(3);
+    expect(String(batchInsert[0])).toContain("'DAMAGED'");
+    const damageLedger = (query.mock.calls as any[][]).find(([sql, params]: any[]) => String(sql).includes('INSERT INTO inv_ledger') && params[1] === 'DAMAGE_WRITEOFF')!;
+    expect(damageLedger[1][0]).toBe('RET-RET-2026-0002-ri-2');
+    const statusUpdate = (query.mock.calls as any[][]).find(([sql]) => String(sql).includes("SET restock_status=$1"))!;
+    expect(statusUpdate[1]).toEqual(['WRITTEN_OFF', 'ri-2']);
+  });
+
+  it('carries SALE_RETURN at an explicit zero cost (F3 pending) and DAMAGE_WRITEOFF without cost dimension', async () => {
+    const query = makeQuery([
+      { id: 'ri-3', product_code: 'EGG', grade_code: 'A', sku_code: 'SKU-1', accepted_qty: '2', damaged_qty: '1', restock_status: 'PENDING', quantity_snapshot: null, packaging_spec: null },
+    ]);
+    const service = new EggInventoryService({ query } as never, { get: jest.fn() } as never);
+
+    await service.processReturnInventory('ret-3', 'RET-2026-0003', 'COMP-A', 'WH-A', 'ZONE-A', 'LOC-A', '2026-11-17');
+
+    const ledgerCalls = (query.mock.calls as any[][]).filter(([sql]) => String(sql).includes('INSERT INTO inv_ledger'));
+    const saleReturn = ledgerCalls.find(([, params]: any[]) => params[1] === 'SALE_RETURN')!;
+    const damage = ledgerCalls.find(([, params]: any[]) => params[1] === 'DAMAGE_WRITEOFF')!;
+    // SALE_RETURN：显式 0 结转留痕（退货成本冲减留待 F3）
+    expect(String(saleReturn[0])).toContain('cost_change');
+    expect((saleReturn[1] as unknown[])[(saleReturn[1] as unknown[]).length - 1]).toBe(0);
+    // DAMAGE_WRITEOFF：本期无成本维度 → 省列
+    expect(String(damage[0])).not.toContain('cost_change');
+  });
+});
+
+describe('EggInventoryService getInventoryValuation (INV-401)', () => {
+  it('aggregates company×warehouse×item buckets with legacy_source and status-bucket filters for a scoped user', async () => {
+    const query = jest.fn(async () => [
+      { company_code: 'COMP-A', warehouse_code: 'WH-1', item_code: 'SKU-1', bucket: 'VALUABLE', qty: 100, total_cost: 250.5, batch_count: 2 },
+      { company_code: 'COMP-A', warehouse_code: 'WH-1', item_code: 'SKU-1', bucket: 'FROZEN_LIKE', qty: 10, total_cost: 12, batch_count: 1 },
+    ]);
+    const clsGet = jest.fn((key: string) => (key === 'dataScope'
+      ? { isGlobal: false, allowedCompanyCodes: ['COMP-A'] }
+      : undefined));
+    const service = new EggInventoryService({ query } as never, { get: clsGet } as never);
+
+    const result = await service.getInventoryValuation({ companyCode: 'COMP-A', warehouseCode: 'WH-1' });
+
+    const [sql, params] = (query.mock.calls as any[][])[0];
+    // SQL 形态：持有存货三态入 VALUABLE，其余（DAMAGED/FROZEN/EXPIRED…）入 FROZEN_LIKE
+    expect(String(sql)).toContain("b.status IN ('AVAILABLE','RESERVED','QUARANTINE')");
+    expect(String(sql)).toContain("'FROZEN_LIKE'");
+    // INV-203 口径：排除 legacy_source 旧库存
+    expect(String(sql)).toContain('b.legacy_source IS NULL');
+    expect(String(sql)).toContain('SUM(b.qty * b.unit_cost)');
+    expect(String(sql)).toMatch(/GROUP BY b\.company_code, b\.warehouse_code/);
+    // scope 过滤与仓库过滤均走绑定参数（$1 公司数组 / $2 仓库）
+    expect(params[0]).toEqual(['COMP-A']);
+    expect(params[1]).toBe('WH-1');
+    // 分桶汇总
+    expect(result.summary.valuable).toEqual({ qty: 100, totalCost: 250.5, batchCount: 2 });
+    expect(result.summary.frozenLike).toEqual({ qty: 10, totalCost: 12, batchCount: 1 });
+    expect(result.rows).toHaveLength(2);
+    expect(result.rows[0].bucket).toBe('VALUABLE');
+    expect(result.rows[1].bucket).toBe('FROZEN_LIKE');
+  });
+
+  it('fails closed to an empty summary when a scoped user requests an out-of-scope company', async () => {
+    const query = jest.fn(async () => { throw new Error('must not query'); });
+    const clsGet = jest.fn((key: string) => (key === 'dataScope'
+      ? { isGlobal: false, allowedCompanyCodes: ['COMP-A'] }
+      : undefined));
+    const service = new EggInventoryService({ query } as never, { get: clsGet } as never);
+
+    const result = await service.getInventoryValuation({ companyCode: 'COMP-OTHER' });
+
+    expect(query).not.toHaveBeenCalled();
+    expect(result.rows).toEqual([]);
+    expect(result.summary.valuable).toEqual({ qty: 0, totalCost: 0, batchCount: 0 });
+    expect(result.summary.frozenLike).toEqual({ qty: 0, totalCost: 0, batchCount: 0 });
+  });
+
+  it('queries globally without company binding when the caller is unscoped (system flows)', async () => {
+    const query = jest.fn(async () => []);
+    const service = new EggInventoryService({ query } as never, { get: jest.fn().mockReturnValue(undefined) } as never);
+
+    await service.getInventoryValuation({});
+
+    const [sql, params] = (query.mock.calls as any[][])[0];
+    expect(String(sql)).toContain('($1::text[] IS NULL OR b.company_code = ANY($1))');
+    expect(params[0]).toBeNull();
+    expect(params[1]).toBeNull();
   });
 });

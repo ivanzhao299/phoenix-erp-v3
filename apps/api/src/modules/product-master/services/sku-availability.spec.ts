@@ -127,7 +127,7 @@ describe('new transaction consumers', () => {
   });
   it('rejects unavailable production SKU before batch or ledger writes', async () => {
     const f = fixture({ parent: 'packaging_specs', parentStatus: 'FROZEN' });
-    const service = Object.assign(Object.create(EggInventoryService.prototype), { ds: f.ds });
+    const service = Object.assign(Object.create(EggInventoryService.prototype), { ds: f.ds, cls: f.cls });
     await expect(service.createProductionBatch({ skuCode: 'SKU-1', productCode: 'FALLBACK', companyCode: 'C', qty: 1, eggDate: '2026-11-10' })).rejects.toMatchObject({ status: 400 });
     expect(f.query.mock.calls.some(([sql]) => sql.includes('INSERT INTO'))).toBe(false);
   });

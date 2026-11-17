@@ -6,6 +6,7 @@ import { DataSource, EntityManager } from 'typeorm';
 import { ClsService } from 'nestjs-cls';
 import { EggInventoryService } from './egg-inventory.service';
 import { InventorySourceModeService } from './inventory-source-mode.service'; // P1A 互斥门控
+import { INV_LEDGER_CHANGE_TYPE } from '../../wms/inv-ledger-change-types';
 import { OrgOwnershipService } from '../../org/services/org-ownership.service';
 
 /**
@@ -472,7 +473,7 @@ export class PackagingInventoryIntegrationService {
       qty,
       sourceNo:           taskNo,
       sourceType:         'PACKAGING',
-      ledgerChangeType:   'PACKAGING_INBOUND',
+      ledgerChangeType:   INV_LEDGER_CHANGE_TYPE.PACKAGING_INBOUND,
       packagingBatchRef:  taskNo,
       collectionBatchRef: collectionRef ?? undefined,
       skuCode:            skuCode ?? undefined,

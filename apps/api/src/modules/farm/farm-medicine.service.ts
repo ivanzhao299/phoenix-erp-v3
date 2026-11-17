@@ -4,6 +4,8 @@ import { DataSource } from 'typeorm';
 import { ClsService } from 'nestjs-cls';
 import { DataScopeHelper } from '../org/helpers/data-scope.helper';
 import { DataScopeContext } from '../org/services/data-scope.service';
+import { INV_LEDGER_CHANGE_TYPE } from '../wms/inv-ledger-change-types';
+import { writeInvLedger } from '../wms/inventory-ledger.writer';
 
 const SOURCE_TYPE = 'FARM_MEDICINE';
 
@@ -256,29 +258,26 @@ export class FarmMedicineService {
     return this.invLedgerColumnsPromise;
   }
 
-  private async insertLedger(queryable: Queryable, columns: Set<string>, entry: LedgerWrite): Promise<void> {
-    const insertColumns = ['batch_no', 'change_type', 'qty_change'];
-    const values: unknown[] = [entry.batchNo, entry.changeType, entry.qtyChange];
-    const addIfPresent = (column: string, value: unknown) => {
-      if (!columns.has(column)) return;
-      insertColumns.push(column);
-      values.push(value);
-    };
-
-    addIfPresent('log_date', entry.logDate);
-    addIfPresent('warehouse_code', entry.warehouseCode);
-    addIfPresent('company_code', entry.companyCode);
-    addIfPresent('store_code', entry.storeCode);
-    addIfPresent('operator', entry.operator);
-    addIfPresent('ref_no', entry.refNo);
-    addIfPresent('house_code', entry.houseCode ?? null);
-    addIfPresent('note', entry.note);
-
-    const placeholders = insertColumns.map((_, index) => `$${index + 1}`).join(', ');
-    await queryable.query(
-      `INSERT INTO inv_ledger (${insertColumns.join(', ')}) VALUES (${placeholders})`,
-      values,
-    );
+  /**
+   * 写药品流水（INV-301a：改调共享写入器，替换 information_schema 动态列
+   * 拼接写法；列集合 = 旧动态写法的全量列。house_code 不在迁移链内、部分
+   * 环境缺列，writer 仅在有值时写入（旧门控无值时同样不产生该列）。
+   * 读侧 getLedger 的列门控保留，不受影响。
+   */
+  private async insertLedger(queryable: Queryable, entry: LedgerWrite): Promise<void> {
+    await writeInvLedger(queryable, {
+      batchNo: entry.batchNo,
+      changeType: entry.changeType,
+      qtyChange: entry.qtyChange,
+      operator: entry.operator,
+      storeCode: entry.storeCode,
+      refNo: entry.refNo,
+      note: entry.note,
+      logDate: entry.logDate,
+      warehouseCode: entry.warehouseCode,
+      companyCode: entry.companyCode,
+      houseCode: entry.houseCode ?? null,
+    });
   }
 
   /** 药品目录 */
@@ -364,7 +363,6 @@ export class FarmMedicineService {
   ): Promise<void> {
     const safeDate = normalizeDate(logDate);
     const safeItems = normalizeItems(items);
-    const ledgerColumns = await this.getInvLedgerColumns();
 
     await this.ds.transaction(async manager => {
       for (const item of safeItems) {
@@ -418,9 +416,9 @@ export class FarmMedicineService {
         if (rows.length === 0) {
           throw new BadRequestException(`药品 ${item.medication_code} 不存在或已停用`);
         }
-        await this.insertLedger(manager, ledgerColumns, {
+        await this.insertLedger(manager, {
           batchNo: bn,
-          changeType: 'MED_INBOUND',
+          changeType: INV_LEDGER_CHANGE_TYPE.MED_INBOUND,
           qtyChange: qty,
           logDate: safeDate,
           warehouseCode: identity.warehouseCode,

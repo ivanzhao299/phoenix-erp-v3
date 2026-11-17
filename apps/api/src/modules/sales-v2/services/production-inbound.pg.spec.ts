@@ -64,9 +64,12 @@ fixture('Issue 381 real PostgreSQL inbound transactions and retries', () => {
         collection_batch_ref text, unit text, base_quantity_version smallint, created_at timestamptz, updated_at timestamptz);
       ALTER TABLE inv_batches ADD COLUMN IF NOT EXISTS variety_code text;
       ALTER TABLE inv_batches ADD COLUMN IF NOT EXISTS inventory_class text NOT NULL DEFAULT 'STANDARD';
+      -- inv-opt 批次 4：跟随迁移末态（InvEggCostingColumns）
+      ALTER TABLE inv_batches ADD COLUMN IF NOT EXISTS unit_cost numeric(18,6) NOT NULL DEFAULT 0;
       CREATE TABLE IF NOT EXISTS inv_ledger (id serial PRIMARY KEY, batch_no text REFERENCES inv_batches(batch_no), change_type text,
         qty_change numeric, operator text, store_code text, ref_no text, note text, batch_expire_date date,
         quality_grade text, company_code text, sku_code text, log_date date, warehouse_code text, location_code text);
+      ALTER TABLE inv_ledger ADD COLUMN IF NOT EXISTS cost_change numeric(18,6); -- inv-opt 批次 4 迁移末态
       CREATE UNIQUE INDEX IF NOT EXISTS uq_inv_batches_temp_production_source_identity
         ON inv_batches (company_code, source_type, source_no,
           COALESCE(sku_code, ''), COALESCE(grade_code_std, quality_grade, ''), COALESCE(spec_code, packaging_spec, ''))

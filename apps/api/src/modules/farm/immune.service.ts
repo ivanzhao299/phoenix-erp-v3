@@ -9,6 +9,8 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { ClsService } from 'nestjs-cls';
 import { DataSource } from 'typeorm';
 import { DataScopeContext } from '../org/services/data-scope.service';
+import { INV_LEDGER_CHANGE_TYPE } from '../wms/inv-ledger-change-types';
+import { writeInvLedger } from '../wms/inventory-ledger.writer';
 
 type Queryable = { query: (sql: string, params?: unknown[]) => Promise<any[]> };
 
@@ -100,8 +102,6 @@ function generatedKey(prefix: string): string {
 
 @Injectable()
 export class ImmuneService {
-  private invLedgerColumnsPromise: Promise<Set<string>> | null = null;
-
   constructor(
     @InjectDataSource() private readonly ds: DataSource,
     private readonly cls: ClsService,
@@ -176,21 +176,15 @@ export class ImmuneService {
     }
   }
 
-  private async getInvLedgerColumns(): Promise<Set<string>> {
-    if (!this.invLedgerColumnsPromise) {
-      this.invLedgerColumnsPromise = this.ds
-        .query<Array<{ column_name: string }>>(
-          `SELECT column_name FROM information_schema.columns
-             WHERE table_schema = current_schema() AND table_name = 'inv_ledger'`,
-        )
-        .then(rows => new Set(rows.map(row => row.column_name)));
-    }
-    return this.invLedgerColumnsPromise;
-  }
-
+  /**
+   * 写疫苗出库流水（INV-301a：改调共享写入器，替换 information_schema 动态
+   * 列拼接写法；列集合 = 旧动态写法的全量列，store_code 沿用场站码约定）。
+   * 旧实现按 DB 实存列门控写入；所涉及列均被 egg/wms 引擎静态写入生产库，
+   * 显式列形态是更安全的选择。返回值语义保持：mock 无行 → 0（旧为 null，
+   * 真实 PG 必返回 id，FK 消费方不受影响）。
+   */
   private async insertLedger(
     queryable: Queryable,
-    columns: Set<string>,
     input: {
       batchNo: string;
       qty: number;
@@ -203,30 +197,19 @@ export class ImmuneService {
       logDate: string;
     },
   ): Promise<number | null> {
-    const names = ['batch_no', 'change_type', 'qty_change'];
-    const values: unknown[] = [input.batchNo, 'VACCINE_OUTBOUND', -input.qty];
-    const optional: Record<string, unknown> = {
-      log_date: input.logDate,
-      warehouse_code: input.warehouseCode,
-      company_code: input.companyCode,
-      store_code: input.siteCode,
+    return writeInvLedger(queryable, {
+      batchNo: input.batchNo,
+      changeType: INV_LEDGER_CHANGE_TYPE.VACCINE_OUTBOUND,
+      qtyChange: -input.qty,
       operator: input.operator,
-      ref_no: input.refNo,
-      business_type: 'FARM_IMMUNIZATION',
+      storeCode: input.siteCode,
+      refNo: input.refNo,
       note: input.note,
-    };
-    for (const [column, value] of Object.entries(optional)) {
-      if (columns.has(column)) {
-        names.push(column);
-        values.push(value);
-      }
-    }
-    const placeholders = names.map((_, index) => `$${index + 1}`).join(', ');
-    const rows = await queryable.query(
-      `INSERT INTO inv_ledger (${names.join(', ')}) VALUES (${placeholders}) RETURNING id`,
-      values,
-    );
-    return rows[0]?.id ? Number(rows[0].id) : null;
+      logDate: input.logDate,
+      warehouseCode: input.warehouseCode ?? null,
+      companyCode: input.companyCode,
+      businessType: 'FARM_IMMUNIZATION',
+    });
   }
 
   private async assertFlock(
@@ -671,7 +654,6 @@ export class ImmuneService {
     const numericId = Number(id);
     if (!Number.isInteger(numericId) || numericId <= 0) throw new BadRequestException('免疫计划 id 无效');
     const safeOperator = String(operator ?? '').trim() || 'unknown';
-    const ledgerColumns = await this.getInvLedgerColumns();
     return this.ds.transaction(async manager => {
       const rows = await manager.query(`SELECT * FROM brd_vaccinations WHERE id = $1 FOR UPDATE`, [numericId]);
       const plan = rows[0];
@@ -716,7 +698,7 @@ export class ImmuneService {
           [allocation.qty, allocation.batch_no],
         );
         if (updated.length === 0) throw new ConflictException(`疫苗库存批次 ${allocation.batch_no} 可用量不足`);
-        const ledgerId = await this.insertLedger(manager, ledgerColumns, {
+        const ledgerId = await this.insertLedger(manager, {
           batchNo: allocation.batch_no,
           qty: allocation.qty,
           companyCode: String(plan.company_code),

@@ -69,14 +69,15 @@ export class EggInventorySchedulerService {
   private async runMaintenance(): Promise<{
     expiredBatches: number;
     expireWriteOff: number;
+    expireSkippedInUse: number;
     expiringBatches: number;
     expiringNotifications: number;
     durationMs: number;
   }> {
     const start = Date.now();
 
-    // 1. 标记过期批次
-    const { expired, written } = await this.eggInventory.markExpiredBatches();
+    // 1. 标记过期批次（INV-101：在途预占批次跳过并进入人工复核通知）
+    const { expired, written, skippedInUse } = await this.eggInventory.markExpiredBatches();
 
     // 2. 扫描临期库存并写通知
     // [Phase R2 — Config Governance] 预警天数从 sys_configs 读取
@@ -119,6 +120,7 @@ export class EggInventorySchedulerService {
     return {
       expiredBatches:        expired,
       expireWriteOff:        written,
+      expireSkippedInUse:    skippedInUse.length,
       expiringBatches:       expiringBatches.length,
       expiringNotifications: notifications,
       durationMs:            Date.now() - start,

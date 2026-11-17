@@ -14003,6 +14003,7 @@
   "ui.来源未关联": "Source not linked",
   "ui.外部对账待核验": "External reconciliation pending",
   "ui.库存来源融合说明": "Current quantities come from the ERP business inventory ledger, with source documents shown per batch. External finance inventory is reconciliation-only; without difference evidence the status remains pending rather than assuming agreement.",
+  "ui.库存展示口径说明": "Displayed quantities match allocatable stock: unallocatable legacy batches are excluded; product queries count only stock not yet SKU-mapped — use the SKU filter to view SKU batches.",
   "ui.门店库存来源说明": "This page shows ERP store inventory. External finance inventory is a reconciliation reference only; without difference evidence the status remains pending and never silently overwrites store inventory.",
   "terminal.wms_business_source": "Business source",
   "terminal.wms_purchase_order": "Purchase order",

@@ -1,3 +1,5 @@
+import { InvLedgerChangeType } from './inv-ledger-change-types';
+
 export const WMS_INBOUND_TYPES = [
   'PURCHASE',
   'PRODUCTION',
@@ -30,7 +32,7 @@ export interface WmsInboundTypePolicy {
   source: string;
   category: WmsInboundCategory;
   businessType: string;
-  ledgerType: string;
+  ledgerType: InvLedgerChangeType;
   allowedItemTypes: readonly ('MATERIAL' | 'SKU')[];
   managedBy: readonly WmsInboundWorkflow[];
 }

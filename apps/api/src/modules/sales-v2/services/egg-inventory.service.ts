@@ -2,12 +2,19 @@ import { savedQuantity, QuantitySnapshot, positiveQuantity, baseQuantity, shared
 import { SkuPolicy } from '../../product-master/services/sku-policy';
 import { EggSourceProfile, SkuAvailabilityService } from '../../product-master/services/sku-availability.service';
 import {
-  Injectable, Logger, BadRequestException, ConflictException, ForbiddenException,
+  Injectable, Logger, BadRequestException, ConflictException, ForbiddenException, Optional,
 } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
 import { ClsService } from 'nestjs-cls';
 import { resolveInventoryClass } from '../../wms/inventory-class-policy';
+import { INV_LEDGER_CHANGE_TYPE, InvLedgerChangeType } from '../../wms/inv-ledger-change-types';
+import { writeInvLedger } from '../../wms/inventory-ledger.writer';
+import { guardedBatchUpdate } from '../../wms/inventory-guarded-update.util';
+import { assertStatusTransition } from '../../wms/inventory-status-machine';
+import { fifoLockKey, fifoItemKey } from '../../wms/inventory-lock.util';
+import { NotificationService } from '../../notification/notification.service';
+import { ScopedNotificationRecipientService } from '../../notification/scoped-notification-recipient.service';
 
 /**
  * EggInventoryService — Sales V2 Phase 7 + Phase H4
@@ -136,6 +143,10 @@ export class EggInventoryService {
     @InjectDataSource() private readonly ds: DataSource,
     private readonly cls: ClsService,
     private readonly skuAvailability: SkuAvailabilityService = new SkuAvailabilityService(ds),
+    /** INV-101: 在途预占批次的过期复核通知（NotificationModule 是 @Global，
+     *  运行时必注入；@Optional 保证单测/旧式构造兼容）。 */
+    @Optional() private readonly notifyRecipients?: ScopedNotificationRecipientService,
+    @Optional() private readonly notify?: NotificationService,
   ) {}
 
   /** 销售鸡蛋库存的产品族；EGG 是页面使用的族别名，不是精确产品码。 */
@@ -328,6 +339,10 @@ export class EggInventoryService {
   /**
    * 写 inv_ledger 流水（内部）
    * Phase H4：新增 skuCode 传递，支持按 SKU 维度追溯
+   * INV-104：新增 storeCode；$5（store_code 列）此前误传 companyCode，
+   * 导致门店归因与 generic-crud.service.ts 的 store JOIN 失效。
+   * 有门店上下文的调用方传真实 storeCode；egg 引擎各路径（农口销售/生产/
+   * 过期核销）本就无门店上下文，传 null（mst_stores LEFT JOIN 对 NULL 自然短路）。
    */
   private async writeLedger(
     params: {
@@ -342,40 +357,44 @@ export class EggInventoryService {
       qualityGrade?:   string | null;
       /** Phase H4: 从批次传递 sku_code，写入 inv_ledger 便于追溯 */
       skuCode?:        string | null;
+      /** INV-104: 门店归因码；无门店上下文传 null，禁止回退传公司码 */
+      storeCode?:      string | null;
       logDate?:        string | null;
       warehouseCode?:  string | null;
       locationCode?:   string | null;
+      /**
+       * INV-401 出库结转金额（qty_change × 批次 unit_cost，带符号）。
+       * undefined = 省列（入库/历史语义）；数值 = 写入 cost_change；
+       * SALE_RETURN 暂传 0（退货成本冲减留待 F3）。
+       */
+      costChange?:     number | null;
     },
     mgr?: EntityManager,
   ) {
-    const q = mgr ? mgr.query.bind(mgr) : this.ds.query.bind(this.ds);
-    const [ledger] = await q(
-      `INSERT INTO inv_ledger
-         (batch_no, change_type, qty_change, operator, store_code, ref_no, note,
-          batch_expire_date, quality_grade, company_code, sku_code,
-          log_date, warehouse_code, location_code)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
-       RETURNING id`,
-      [
-        params.batchNo,
-        params.changeType,
-        params.qtyChange,
-        params.operator,
-        params.companyCode,
-        params.refNo,
-        params.note,
-        params.batchExpireDate ?? null,
-        params.qualityGrade ?? null,
-        params.companyCode,
-        params.skuCode ?? null,
-        params.logDate ?? null,
-        params.warehouseCode ?? null,
-        params.locationCode ?? null,
-      ],
-    );
+    // INV-301a：统一走共享写入器（列/参数由 writer 单一有序数组生成，结构上
+    // 不可能错位）。egg 引擎 14 列形态保持不变：所有可选参数 `?? null` 归一，
+    // 列集合与旧手写 SQL 完全一致，调用方与行为零变化。
     // Query mocks used by SQL-contract unit tests return no row; PostgreSQL always
     // returns the persisted id and the allocation FK makes a missing real id fail closed.
-    return Number(ledger?.id ?? 0);
+    return writeInvLedger(mgr ?? this.ds, {
+      batchNo: params.batchNo,
+      changeType: params.changeType as InvLedgerChangeType,
+      qtyChange: params.qtyChange,
+      operator: params.operator,
+      storeCode: params.storeCode ?? null,
+      refNo: params.refNo,
+      note: params.note,
+      batchExpireDate: params.batchExpireDate ?? null,
+      qualityGrade: params.qualityGrade ?? null,
+      companyCode: params.companyCode,
+      skuCode: params.skuCode ?? null,
+      logDate: params.logDate ?? null,
+      warehouseCode: params.warehouseCode ?? null,
+      locationCode: params.locationCode ?? null,
+      // INV-401：costChange 为"省列语义"参数——undefined 时保持省列
+      // （不得 `?? null` 归一，否则历史调用方会显式写 NULL 改变列集合）。
+      costChange: params.costChange,
+    });
   }
 
   /**
@@ -438,9 +457,19 @@ export class EggInventoryService {
     inventoryStatus?: GradeStockStatus;
     /** Packaging integration alias for the grade policy status. */
     stockStatus?: GradeStockStatus;
+    /**
+     * INV-401 批次单位成本（批次成本法，默认 0）。生产入库成本来源 F1 待财务
+     * 确认：brd_daily_logs 无成本列（仅数量/环境字段），当前生产链路传 0 挂账。
+     */
+    unitCost?: number;
   }, mgr?: EntityManager): Promise<EggBatch> {
     assertEggDate(params.eggDate);
     positiveQuantity(params.qty, '入库数量');
+    // INV-401：批次成本法——unit_cost 必须为有限非负数（0 = 挂账，F1/F2 决策记录）
+    const unitCost = params.unitCost ?? 0;
+    if (!Number.isFinite(unitCost) || unitCost < 0) {
+      throw new BadRequestException('批次单位成本必须为非负有限数');
+    }
     if ((params.sourceType === 'TEMP_PRODUCTION' || params.sourceType === 'PACKAGING')
       && (!params.warehouseCode || !params.locationCode)) {
       throw new BadRequestException('新生产/包装入库必须提供真实 ACTIVE 仓库和库位，禁止使用默认占位码');
@@ -464,6 +493,10 @@ export class EggInventoryService {
           throw new ForbiddenException('无权向指定公司或仓库创建来源批次');
         }
       }
+    } else {
+      // INV-103：legacy 无 source 路径补同等公司授权（对齐上方 hasSource 分支，
+      // fail-closed；无 CLS dataScope 的系统流与 isGlobal 放行）。
+      this.assertWriteCompanyScope(params.companyCode);
     }
     if ((params.sourceType === 'TEMP_PRODUCTION' || params.sourceType === 'PACKAGING') && (!params.skuCode || !hasSource)) {
       throw new BadRequestException('新生产/包装入库必须显式提供已由来源确认的 SKU 和 source profile，禁止回退旧生产通道');
@@ -620,13 +653,13 @@ export class EggInventoryService {
          source_type, source_no,
          qty, qty_available, status,
          sku_code, grade_code_std, spec_code, variety_code, source_profile_code, source_profile_snapshot, inventory_class,
-         packaging_batch_ref, collection_batch_ref, unit, base_quantity_version,
+         packaging_batch_ref, collection_batch_ref, unit, base_quantity_version, unit_cost,
          created_at, updated_at
        ) VALUES (
          $1,$2,$3,$4,$5,$6,$6,$7,$8,$9,$10,$11,$12::numeric,
          CASE WHEN $22 = 'AVAILABLE' THEN $12::numeric ELSE 0::numeric END,$22,
          $13,$14,$15,$19,$20,$21::jsonb,$23,
-         $16,$17,$18,1,
+         $16,$17,$18,1,$24::numeric,
          NOW(),NOW()
        ) RETURNING *`,
       [
@@ -651,12 +684,13 @@ export class EggInventoryService {
         }))) : null,
         inventoryStatus,
         inventoryClass,
+        unitCost,
       ],
     );
 
     await this.writeLedger({
       batchNo,
-      changeType:  params.ledgerChangeType ?? 'INBOUND',
+      changeType:  params.ledgerChangeType ?? INV_LEDGER_CHANGE_TYPE.INBOUND,
       qtyChange:   qty,
       operator:    this.operator,
       companyCode: params.companyCode,
@@ -698,6 +732,9 @@ export class EggInventoryService {
     const conds: string[] = [
       `b.status = 'AVAILABLE'`,
       `b.qty_available > 0`,
+      // INV-203：与 allocateByFIFO 分配口径对齐——展示只认 Sales V2 可售批次，
+      // 排除 legacy_source 旧库存（展示数字会下降，属口径修正而非丢库存）。
+      `b.legacy_source IS NULL`,
       this.saleGradeCondition('b'),
       this.inventoryClassCondition(salesContext),
     ];
@@ -710,6 +747,9 @@ export class EggInventoryService {
       args.push(params.skuCode);
     } else {
       // PATH B: 旧逻辑（product+grade 匹配，向后兼容）
+      // INV-203：SKU 批次（sku_code IS NOT NULL）从 PATH B 排除，避免与
+      // PATH A（SKU 视图）双计；PATH B 语义变为「未 SKU 化存量」。
+      conds.push(`b.sku_code IS NULL`);
       if (params.productCode === 'EGG') {
         conds.push(this.eggFamilyCondition());
       } else if (params.productCode) {
@@ -782,11 +822,11 @@ export class EggInventoryService {
    * Phase H4 升级：支持 skuCode 优先路径
    *
    * PATH A（sku_code 精确）：当 skuCode 参数存在时，只从该 SKU 批次中分配
-   *   - Advisory Lock key: `fifo:${companyCode}:sku:${skuCode}`（更细粒度）
+   *   - Advisory Lock key: `inv:fifo:{company}:{warehouse}:{skuCode}`（INV-204 统一命名空间）
    *   - WHERE sku_code = $N
    *
    * PATH B（旧 product+grade）：回退逻辑，向后兼容旧批次
-   *   - Advisory Lock key: `fifo:${companyCode}:${productCode}`（原有）
+   *   - Advisory Lock key: `inv:fifo:{company}:{warehouse}:p:{product}:g:{grade}`（INV-204）
    *   - WHERE product_code = $1 [AND quality_grade = $N]
    *
    * 注意：PATH B 中 gradeCode 参数仍用 quality_grade 列（旧字段），不改 FIFO 逻辑
@@ -807,6 +847,9 @@ export class EggInventoryService {
     },
     mgr?: EntityManager,
   ): Promise<FifoAllocation[]> {
+    // INV-103：写路径公司授权（fail-closed）。即使端点下线，内部调用链同样防御；
+    // 无 CLS dataScope 的系统流与 isGlobal 放行。
+    this.assertWriteCompanyScope(params.companyCode);
     if (!mgr) return this.ds.transaction(manager => this.allocateByFIFO(params, manager));
     const q = mgr.query.bind(mgr);
     const salesContext = await this.resolveSalesContext(mgr, params.salesContext, params.fulfillmentWarehouseCode);
@@ -816,10 +859,14 @@ export class EggInventoryService {
     positiveQuantity(params.qty, '分配数量');
 
     // Advisory Lock 防并发超卖
-    // Phase H4: SKU 路径用更细粒度的 lock key，旧路径继续用 productCode
-    const lockKey = params.skuCode
-      ? `fifo:${params.companyCode}:sku:${params.skuCode}`
-      : `fifo:${params.companyCode}:${params.productCode}`;
+    // INV-204：egg 与 POS 两路 FIFO 共用 inv:fifo:{company}:{warehouse}:{itemKey}
+    // 命名空间（见 wms/inventory-lock.util.ts），跨引擎争抢同批次时串行化；
+    // 快照池锁（quantity-contract physical-stock-v1）池语义不同，保持不动。
+    const lockKey = fifoLockKey(
+      params.companyCode,
+      params.fulfillmentWarehouseCode,
+      fifoItemKey({ skuCode: params.skuCode, productCode: params.productCode, gradeCode: params.gradeCode }),
+    );
     if (!params.quantitySnapshot) await q(`SELECT pg_advisory_xact_lock(hashtext($1))`, [lockKey]);
 
     // 构建批次查询条件
@@ -905,31 +952,25 @@ export class EggInventoryService {
       const canTake = Math.min(remaining, Number(batch.qty_available));
       remaining -= canTake;
 
-      // 扣减 qty_available（预留）
-      const changed = await q(
-        `WITH changed AS (
-           UPDATE inv_batches AS inv_batches
-              SET qty_available = qty_available - $1, updated_at=NOW()
-            WHERE batch_no=$2
-              AND company_code=$3
-              AND warehouse_code=$4
-              AND status='AVAILABLE'
-              AND qty_available >= $1
-              AND (expire_date IS NULL OR expire_date >= CURRENT_DATE)
-              AND legacy_source IS NULL
-              AND ${this.inventoryClassCondition(salesContext, 'inv_batches')}
-            RETURNING batch_no
-         ) SELECT batch_no FROM changed`,
-        [canTake, batch.batch_no, params.companyCode, batch.warehouse_code],
-      );
-      if (changed.length !== 1) {
+      // 扣减 qty_available（预留）—— INV-301b：守卫化 UPDATE 走统一入口
+      const changed = await guardedBatchUpdate(mgr, {
+        batchNo:        batch.batch_no,
+        companyCode:    params.companyCode,
+        warehouseCode:  batch.warehouse_code,
+        deltaAvailable: -canTake,
+        requireStatus:  'AVAILABLE',
+        expireGuard:    true,
+        excludeLegacy:  true,
+        extraWheres:    [{ sql: this.inventoryClassCondition(salesContext, 'inv_batches') }],
+      });
+      if (changed !== 1) {
         throw new ConflictException(`批次 ${batch.batch_no} 状态、归属或可用量已变化`);
       }
 
       // 写 inv_ledger RESERVED（Phase H4: 传递 sku_code）
       const reservationLedgerId = await this.writeLedger({
         batchNo:         batch.batch_no,
-        changeType:      'RESERVED',
+        changeType:      INV_LEDGER_CHANGE_TYPE.RESERVED,
         qtyChange:       -canTake,
         operator:        this.operator,
         companyCode:     params.companyCode,
@@ -1084,24 +1125,19 @@ export class EggInventoryService {
       const releaseQty = Number(allocation.reserved_qty) - Number(allocation.outbound_qty) - Number(allocation.released_qty);
       if (releaseQty <= 0) continue;
 
-        const changed = await q(
-          `WITH changed AS (
-             UPDATE inv_batches
-                SET qty_available = qty_available + $1, updated_at=NOW()
-              WHERE batch_no=$2
-                AND company_code=$3
-                AND warehouse_code=$4
-                AND status='AVAILABLE'
-                AND qty_available + $1 <= qty
-              RETURNING batch_no
-           ) SELECT batch_no FROM changed`,
-          [releaseQty, allocation.batch_no, companyCode, allocation.warehouse_code],
-        );
-      if (changed.length !== 1) throw new ConflictException(`释放批次 ${allocation.batch_no} 状态、归属或数量已变化`);
+        // INV-301b：守卫化 UPDATE 走统一入口（正数 delta 自动带 qty_available+n<=qty 防超账面守卫）
+        const changed = await guardedBatchUpdate(mgr, {
+          batchNo:        allocation.batch_no,
+          companyCode,
+          warehouseCode:  allocation.warehouse_code,
+          deltaAvailable: releaseQty,
+          requireStatus:  'AVAILABLE',
+        });
+      if (changed !== 1) throw new ConflictException(`释放批次 ${allocation.batch_no} 状态、归属或数量已变化`);
 
       const ledgerId = await this.writeLedger({
           batchNo:     allocation.batch_no,
-          changeType:  'RELEASED',
+          changeType:  INV_LEDGER_CHANGE_TYPE.RELEASED,
           qtyChange:   releaseQty,
           operator:    this.operator,
           companyCode,
@@ -1150,7 +1186,7 @@ export class EggInventoryService {
     positiveQuantity(requestedQty,'出库基础数量');
 
     const allocations = await q(
-      `SELECT a.*,oi.quantity_snapshot,oi.sku_code AS sale_sku_code,b.product_code,b.grade_code_std,b.unit,b.material_code,b.legacy_source,b.base_quantity_version,b.qty,b.expire_date,b.quality_grade,b.sku_code,b.warehouse_code,b.location_code,b.status
+      `SELECT a.*,oi.quantity_snapshot,oi.sku_code AS sale_sku_code,b.product_code,b.grade_code_std,b.unit,b.material_code,b.legacy_source,b.base_quantity_version,b.qty,b.expire_date,b.quality_grade,b.sku_code,b.warehouse_code,b.location_code,b.status,b.unit_cost
          FROM sal_order_item_batch_allocations a
          JOIN sal_order_items oi ON oi.id=a.sales_order_item_id
          JOIN inv_batches b ON b.batch_no=a.batch_no
@@ -1185,25 +1221,20 @@ export class EggInventoryService {
         baseQuantity(outQty,1,allocation.quantity_snapshot.baseUnit);
       } else if (allocation.sku_code != null) await SkuPolicy.requireUsable(mgr, allocation.sku_code, 'sale-stock');
 
-        // 正式扣减物理库存（qty）
-        const changed = await q(
-          `WITH changed AS (
-             UPDATE inv_batches
-                SET qty = qty - $1, updated_at=NOW()
-              WHERE batch_no=$2
-                AND company_code=$3
-                AND warehouse_code=$4
-                AND status='AVAILABLE'
-                AND qty >= $1 AND (expire_date IS NULL OR expire_date>=CURRENT_DATE)
-              RETURNING batch_no
-           ) SELECT batch_no FROM changed`,
-          [outQty, allocation.batch_no, companyCode, allocation.warehouse_code],
-        );
-      if (changed.length !== 1) throw new ConflictException(`出库批次 ${allocation.batch_no} 状态、归属或数量已变化`);
+        // 正式扣减物理库存（qty）—— INV-301b：守卫化 UPDATE 走统一入口
+        const changed = await guardedBatchUpdate(mgr, {
+          batchNo:       allocation.batch_no,
+          companyCode,
+          warehouseCode: allocation.warehouse_code,
+          deltaQty:      -outQty,
+          requireStatus: 'AVAILABLE',
+          expireGuard:   true,
+        });
+      if (changed !== 1) throw new ConflictException(`出库批次 ${allocation.batch_no} 状态、归属或数量已变化`);
 
       const ledgerId = await this.writeLedger({
           batchNo:         allocation.batch_no,
-          changeType:      'FIFO_OUT',
+          changeType:      INV_LEDGER_CHANGE_TYPE.FIFO_OUT,
           qtyChange:       -outQty,
           operator:        this.operator,
           companyCode,
@@ -1213,6 +1244,9 @@ export class EggInventoryService {
           qualityGrade:    allocation.quality_grade ?? null,
           skuCode:         allocation.sku_code ?? null,
           warehouseCode: allocation.warehouse_code, locationCode: allocation.location_code,
+          // INV-401：出库结转 = -outQty × 批次 unit_cost（批次成本法；历史
+          // 批次 unit_cost=0 → 结转 0，F2 挂账口径）
+          costChange:      -(outQty * Number(allocation.unit_cost ?? 0)),
         }, mgr);
 
       await q(
@@ -1265,14 +1299,15 @@ export class EggInventoryService {
       const accepted = Number(item.accepted_qty);
       const damaged  = Number(item.damaged_qty);
       const batchNo  = `RET-${returnNo}-${item.id}`;
+      const originalGrade = item.grade_code ?? 'A';
+      const returnGrade   = this.degradeGrade(originalGrade);
 
       // Phase H5: sal_return_items 已有 sku_code（从原销售明细继承）
       const returnSkuCode: string | null = item.sku_code ?? null;
 
       // ── accepted_qty：回库（RETURNED 状态，需重新质检） ──────────────────────
+      let returnBatchCreated = false;
       if (accepted > 0) {
-        const originalGrade = item.grade_code ?? 'A';
-        const returnGrade   = this.degradeGrade(originalGrade);
 
         await q(
           `INSERT INTO inv_batches
@@ -1294,7 +1329,7 @@ export class EggInventoryService {
 
         await this.writeLedger({
           batchNo,
-          changeType:  'SALE_RETURN',
+          changeType:  INV_LEDGER_CHANGE_TYPE.SALE_RETURN,
           qtyChange:   accepted,
           operator:    this.operator,
           companyCode,
@@ -1304,19 +1339,43 @@ export class EggInventoryService {
           warehouseCode: targetWarehouseCode,
           locationCode: targetLocationCode,
           note:        `退货回库 return=${returnNo} product=${item.product_code} accepted=${accepted} grade=${returnGrade} zone=${targetZoneCode}`,
+          // INV-401：退货暂按 0 结转（显式 0 留痕），退货成本冲减留待 F3
+          costChange:  0,
         }, mgr);
 
         if (damaged === 0) {
           await q(`UPDATE sal_return_items SET restock_status='RESTOCKED' WHERE id=$1`, [item.id]);
         }
+        returnBatchCreated = true;
       }
 
-      // ── damaged_qty：损耗（仅写 inv_ledger，不回库） ─────────────────────────
+      // ── damaged_qty：损耗（不回可售库存，台账挂 RET 真实批次行） ─────────────
+      // INV-201a：此前写 DMG-{returnNo}-{product} 伪批次号但从不建 inv_batches 行，
+      // inv_ledger.batch_no 的 FK（fk_inv_ledger_batch，见 InvBatchesIntegrityConstraints
+      // 迁移）会在首次破损退货时报错。改挂对应 RET-{returnNo}-{itemId} 真实批次；
+      // accepted=0 的纯破损明细先补建 DAMAGED 态隔离批次（qty_available=0）作为挂靠行。
       if (damaged > 0) {
-        const damageBatch = `DMG-${returnNo}-${item.product_code}`;
+        if (!returnBatchCreated) {
+          await q(
+            `INSERT INTO inv_batches
+               (batch_no, product_code, company_code, qty, qty_available,
+                quality_grade, source_type, source_no, status, inventory_class, unit, base_quantity_version,
+                sku_code, grade_code_std, spec_code, warehouse_code, location_code, inbound_date,
+                created_at, updated_at)
+             VALUES ($1,$2,$3,$4,0,$5,'RETURN',$6,'DAMAGED',$15,$13,$14,$7,$8,$9,$10,$11,$12::date,NOW(),NOW())`,
+            [
+              batchNo, item.product_code, companyCode, damaged, returnGrade, returnNo,
+              returnSkuCode,
+              returnGrade,
+              item.quantity_snapshot?.specCode ?? item.packaging_spec ?? null,
+              targetWarehouseCode, targetLocationCode, inboundDate, item.quantity_snapshot?.baseUnit ?? null, item.quantity_snapshot ? 1 : null,
+              resolveInventoryClass(returnGrade),
+            ],
+          );
+        }
         await this.writeLedger({
-          batchNo:     damageBatch,
-          changeType:  'DAMAGE_WRITEOFF',
+          batchNo:     batchNo,
+          changeType:  INV_LEDGER_CHANGE_TYPE.DAMAGE_WRITEOFF,
           qtyChange:   damaged,
           operator:    this.operator,
           companyCode,
@@ -1337,47 +1396,268 @@ export class EggInventoryService {
 
   // ── 8. 标记过期批次 ──────────────────────────────────────────────────────────
 
-  async markExpiredBatches(companyCode?: string): Promise<{ expired: number; written: number }> {
-    const cond = companyCode ? `AND company_code='${companyCode}'` : '';
+  /**
+   * 过期批次核销（INV-101 重写）
+   *
+   * - 参数化 SQL：companyCode 只作为 $1 字面量绑定，消除字符串拼接注入
+   * - 整体单事务：候选锁定 → 守卫化 UPDATE → EXPIRE_WRITEOFF ledger 同事务写入，
+   *   部分失败整体回滚（传入 mgr 时复用调用方事务）
+   * - 候选排除在途预占（allocation 的 reserved_qty > outbound_qty + released_qty），
+   *   避免过期×预占死锁；被跳过批次发站内通知进入人工复核，不自动强退预占
+   * - FOR UPDATE OF b SKIP LOCKED：多实例调度器并发安全
+   * - 守卫化 UPDATE（WHERE batch_no=$1 AND status='AVAILABLE'）：并发改状态时
+   *   跳过该批次而非抛错（幂等容错）
+   */
+  async markExpiredBatches(companyCode?: string, mgr?: EntityManager): Promise<{
+    expired: number;
+    written: number;
+    skippedInUse: Array<{ batchNo: string; companyCode: string | null; openAllocations: number }>;
+  }> {
+    // INV-101 ①（同时修 INV-103 的 /mark-expired 面）：写路径公司授权，fail-closed；
+    // 无 CLS dataScope 的调度/系统流与 isGlobal 放行，scopedCompany=null 表示全公司扫描。
+    const scopedCompany = this.assertWriteCompanyScope(companyCode);
 
-    const expiredBatches = await this.ds.query(
-      `SELECT * FROM inv_batches
-       WHERE expire_date < CURRENT_DATE
-         AND status = 'AVAILABLE'
-         AND qty > 0
-         ${cond}`,
-    );
+    const run = async (em: EntityManager) => {
+      // INV-301c：状态机断言（from/to 为常量，一次断言覆盖整个循环）——
+      // 下方守卫 UPDATE 的 requireStatus('AVAILABLE') 与 SET status='EXPIRED'
+      // 必须是白名单迁移对；白名单若收紧，这里先于任何写入 fail-closed。
+      assertStatusTransition('AVAILABLE', 'EXPIRED', 'egg-inventory markExpiredBatches 过期任务（INV-101）');
 
-    let written = 0;
-    for (const batch of expiredBatches) {
-      const qty = Number(batch.qty);
-
-      await this.ds.query(
-        `UPDATE inv_batches
-         SET status='EXPIRED', qty_available=0, updated_at=NOW()
-         WHERE batch_no=$1`,
-        [batch.batch_no],
+      // ② 候选查询：参数化 + 排除在途预占 + SKIP LOCKED
+      const candidates = await em.query(
+        `SELECT b.batch_no, b.qty, b.company_code, b.expire_date, b.quality_grade, b.sku_code, b.unit_cost
+           FROM inv_batches b
+          WHERE b.expire_date < CURRENT_DATE
+            AND b.status = 'AVAILABLE'
+            AND b.qty > 0
+            AND ($1::text IS NULL OR b.company_code = $1)
+            AND NOT EXISTS (
+                  SELECT 1 FROM sal_order_item_batch_allocations a
+                   WHERE a.batch_no = b.batch_no
+                     AND a.reserved_qty > a.outbound_qty + a.released_qty)
+          ORDER BY b.batch_no
+          FOR UPDATE OF b SKIP LOCKED`,
+        [scopedCompany],
       );
 
-      // Phase H4: 过期报废时传递 sku_code
-      await this.writeLedger({
-        batchNo:         batch.batch_no,
-        changeType:      'EXPIRE_WRITEOFF',
-        qtyChange:       -qty,
-        operator:        'scheduler',
-        companyCode:     batch.company_code ?? companyCode ?? 'ALL',
-        refNo:           batch.batch_no,
-        note:            `过期自动报废 batch=${batch.batch_no} expire=${batch.expire_date} qty=${qty}`,
-        batchExpireDate: batch.expire_date,
-        qualityGrade:    batch.quality_grade,
-        skuCode:         batch.sku_code ?? null,
-      });
+      // 在途预占的过期批次：跳过核销，输出清单供人工复核（用户裁决：不自动强退）
+      const skippedRows = await em.query(
+        `SELECT b.batch_no, b.company_code,
+                COALESCE(SUM(a.reserved_qty - a.outbound_qty - a.released_qty), 0) AS open_allocations
+           FROM inv_batches b
+           JOIN sal_order_item_batch_allocations a ON a.batch_no = b.batch_no
+          WHERE b.expire_date < CURRENT_DATE
+            AND b.status = 'AVAILABLE'
+            AND b.qty > 0
+            AND ($1::text IS NULL OR b.company_code = $1)
+            AND a.reserved_qty > a.outbound_qty + a.released_qty
+          GROUP BY b.batch_no, b.company_code
+          ORDER BY b.batch_no`,
+        [scopedCompany],
+      );
+      const skippedInUse = skippedRows.map((row: any) => ({
+        batchNo: String(row.batch_no),
+        companyCode: row.company_code ?? null,
+        openAllocations: Number(row.open_allocations ?? 0),
+      }));
 
-      written += qty;
+      let written = 0;
+      for (const batch of candidates) {
+        // ③ 守卫化 UPDATE：changed!==1 说明并发已改状态，跳过（幂等容错）
+        const changed = await em.query(
+          `WITH c AS (
+             UPDATE inv_batches
+                SET status='EXPIRED', qty_available=0, updated_at=NOW()
+              WHERE batch_no=$1 AND status='AVAILABLE'
+              RETURNING batch_no
+           ) SELECT batch_no FROM c`,
+          [batch.batch_no],
+        );
+        if (changed.length !== 1) continue;
+
+        // ④ EXPIRE_WRITEOFF 同事务写入（Phase H4: 传递 sku_code；INV-104: 无门店上下文显式传 null）
+        await this.writeLedger({
+          batchNo:         batch.batch_no,
+          changeType:      INV_LEDGER_CHANGE_TYPE.EXPIRE_WRITEOFF,
+          qtyChange:       -Number(batch.qty),
+          operator:        'system:scheduler',
+          companyCode:     batch.company_code,
+          refNo:           batch.batch_no,
+          note:            `过期自动核销（跳过在途预占批次） batch=${batch.batch_no} expire=${batch.expire_date} qty=${batch.qty}`,
+          batchExpireDate: batch.expire_date ?? null,
+          qualityGrade:    batch.quality_grade ?? null,
+          skuCode:         batch.sku_code ?? null,
+          storeCode:       null,
+          // INV-401：过期核销结转 = -qty × 批次 unit_cost（历史批次 0 挂账）
+          costChange:      -(Number(batch.qty) * Number(batch.unit_cost ?? 0)),
+        }, em);
+        written++;
+      }
+      return { expired: candidates.length, written, skippedInUse };
+    };
+
+    const result = mgr ? await run(mgr) : await this.ds.transaction(run);
+
+    // 在途预占批次 → MENU_SALES2_INVENTORY:V 用户人工复核通知（事务提交后发送）
+    if (result.skippedInUse.length) await this.notifyExpireReview(result.skippedInUse);
+
+    this.logger.log(
+      `[EggInv] 过期处理: 候选=${result.expired} 核销=${result.written} 在途预占跳过=${result.skippedInUse.length}`,
+    );
+    return result;
+  }
+
+  /**
+   * INV-101/INV-103：库存写路径公司授权（fail-closed，语义对齐 companyScope()）。
+   * 无 CLS dataScope（调度/系统流）或 isGlobal 放行；否则必须显式命中
+   * allowedCompanyCodes，越权/缺省抛 ForbiddenException。返回实际生效的公司过滤
+   * （null = 全公司扫描，仅限前述放行路径）。
+   */
+  private assertWriteCompanyScope(requested?: string): string | null {
+    const scope: unknown = this.cls.get('dataScope');
+    if (scope == null) return requested ?? null;
+    const valid = typeof scope === 'object' && !Array.isArray(scope)
+      ? scope as { isGlobal?: unknown; allowedCompanyCodes?: unknown }
+      : undefined;
+    if (!valid || typeof valid.isGlobal !== 'boolean') throw new ForbiddenException('库存写入 dataScope 格式无效');
+    if (valid.isGlobal) return requested ?? null;
+    if (!requested || !Array.isArray(valid.allowedCompanyCodes) || !valid.allowedCompanyCodes.includes(requested)) {
+      throw new ForbiddenException(`无权对公司 ${requested ?? '(未指定)'} 执行库存写入`);
     }
+    return requested;
+  }
 
-    this.logger.log(`[EggInv] 过期处理: ${expiredBatches.length} 批次 ${written} 个报废`);
-    return { expired: expiredBatches.length, written };
+  /**
+   * INV-101：在途预占的过期批次跳过核销后，向 MENU_SALES2_INVENTORY:V 用户发
+   * 站内通知进入人工复核（参考 ar-reconciliation cronMonthlyReconciliation 的
+   * 通知模式；通知失败只记日志，不影响过期处理主流程）。
+   */
+  private async notifyExpireReview(
+    skipped: Array<{ batchNo: string; companyCode: string | null; openAllocations: number }>,
+  ): Promise<void> {
+    if (!this.notifyRecipients || !this.notify) {
+      this.logger.warn(
+        `[EggInv] ${skipped.length} 个过期批次存在在途预占待人工复核: ${skipped.map(row => row.batchNo).join(',')}`,
+      );
+      return;
+    }
+    const byCompany = new Map<string, typeof skipped>();
+    for (const row of skipped) {
+      const key = row.companyCode ?? '';
+      if (!byCompany.has(key)) byCompany.set(key, []);
+      byCompany.get(key)!.push(row);
+    }
+    for (const [companyCode, rows] of byCompany) {
+      try {
+        const userIds = await this.notifyRecipients.resolve(companyCode, ['MENU_SALES2_INVENTORY']);
+        for (const userId of userIds) {
+          try {
+            await this.notify.create({
+              userId,
+              notificationType: 'INVENTORY_EXPIRE_REVIEW',
+              title: `过期批次待人工复核：${rows.length} 批存在在途预占`,
+              content: '以下过期批次存在未出库/未释放的订单预占，已跳过自动核销；请人工复核处理订单预占后再执行过期报废：\n'
+                + rows.map(row => `  • ${row.batchNo}（在途预占 ${row.openAllocations}）`).join('\n'),
+              linkType: 'PAGE',
+              linkId: '/sales2/inventory',
+              bizType: 'INV_EXPIRE_REVIEW',
+              bizNo: new Date().toISOString().slice(0, 10),
+            });
+          } catch (err) {
+            this.logger.warn(`[EggInv] 过期复核通知 user=${userId} 发送失败: ${(err as Error).message}`);
+          }
+        }
+      } catch (err) {
+        this.logger.error(`[EggInv] 过期复核通知接收者解析失败 company=${companyCode}: ${(err as Error).message}`);
+      }
+    }
+  }
+
+  // ── 8.5 存货金额汇总（INV-401，只读） ───────────────────────────────────────
+
+  /**
+   * 存货金额汇总（INV-401，批次成本法只读聚合，按 公司×仓库×品目 分桶）。
+   *
+   * 口径：
+   * - VALUABLE 桶：status IN ('AVAILABLE','RESERVED','QUARANTINE')——正常持有
+   *   存货（含待检隔离），SUM(qty)、SUM(qty×unit_cost)、批次数；
+   * - FROZEN_LIKE 桶：DAMAGED/FROZEN/EXPIRED（及其它非持有态）单独汇总，
+   *   不并入持有存货口径；
+   * - legacy_source IS NULL（与 INV-203 可售口径一致，排除 legacy 旧库存）；
+   * - 公司范围走 companyScope() fail-closed（越权请求返回空汇总而非全库）；
+   * - 历史批次与生产批次 unit_cost=0（F1/F2 挂账），金额属保守口径，财务
+   *   确认回填方案前仅供趋势参考。
+   */
+  async getInventoryValuation(params: {
+    companyCode?: string;
+    warehouseCode?: string;
+  }): Promise<{
+    rows: Array<{
+      companyCode: string | null;
+      warehouseCode: string | null;
+      itemCode: string | null;
+      bucket: 'VALUABLE' | 'FROZEN_LIKE';
+      qty: number;
+      totalCost: number;
+      batchCount: number;
+    }>;
+    summary: {
+      valuable: { qty: number; totalCost: number; batchCount: number };
+      frozenLike: { qty: number; totalCost: number; batchCount: number };
+    };
+  }> {
+    const empty = {
+      rows: [] as Array<{ companyCode: string | null; warehouseCode: string | null; itemCode: string | null; bucket: 'VALUABLE' | 'FROZEN_LIKE'; qty: number; totalCost: number; batchCount: number }>,
+      summary: {
+        valuable: { qty: 0, totalCost: 0, batchCount: 0 },
+        frozenLike: { qty: 0, totalCost: 0, batchCount: 0 },
+      },
+    };
+    const companyCodes = this.companyScope(params.companyCode);
+    // companyScope 空数组 = scoped 用户请求了范围外公司：fail-closed 返回空汇总
+    if (companyCodes?.length === 0) return empty;
+
+    const rows = await this.ds.query(
+      `SELECT b.company_code,
+              b.warehouse_code,
+              COALESCE(b.sku_code, b.product_code) AS item_code,
+              CASE WHEN b.status IN ('AVAILABLE','RESERVED','QUARANTINE')
+                   THEN 'VALUABLE' ELSE 'FROZEN_LIKE' END AS bucket,
+              SUM(b.qty)::float8 AS qty,
+              SUM(b.qty * b.unit_cost)::float8 AS total_cost,
+              COUNT(*)::int AS batch_count
+         FROM inv_batches b
+        WHERE b.legacy_source IS NULL
+          AND ($1::text[] IS NULL OR b.company_code = ANY($1))
+          AND ($2::text IS NULL OR b.warehouse_code = $2)
+        GROUP BY b.company_code, b.warehouse_code, COALESCE(b.sku_code, b.product_code),
+                 CASE WHEN b.status IN ('AVAILABLE','RESERVED','QUARANTINE')
+                      THEN 'VALUABLE' ELSE 'FROZEN_LIKE' END
+        ORDER BY b.company_code, b.warehouse_code, item_code, bucket`,
+      [companyCodes ?? null, params.warehouseCode ?? null],
+    );
+
+    const summary = {
+      valuable: { qty: 0, totalCost: 0, batchCount: 0 },
+      frozenLike: { qty: 0, totalCost: 0, batchCount: 0 },
+    };
+    const mapped = (rows as any[]).map(row => {
+      const entry = {
+        companyCode: row.company_code ?? null,
+        warehouseCode: row.warehouse_code ?? null,
+        itemCode: row.item_code ?? null,
+        bucket: String(row.bucket) === 'FROZEN_LIKE' ? 'FROZEN_LIKE' as const : 'VALUABLE' as const,
+        qty: Number(row.qty) || 0,
+        totalCost: Number(row.total_cost) || 0,
+        batchCount: Number(row.batch_count) || 0,
+      };
+      const target = entry.bucket === 'VALUABLE' ? summary.valuable : summary.frozenLike;
+      target.qty += entry.qty;
+      target.totalCost += entry.totalCost;
+      target.batchCount += entry.batchCount;
+      return entry;
+    });
+    return { rows: mapped, summary };
   }
 
   // ── 9. 查询临期库存 ──────────────────────────────────────────────────────────
