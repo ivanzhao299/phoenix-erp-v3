@@ -1,0 +1,61 @@
+{
+  "sourceCommit": "e27ebf651caa1e6b51eb506a5210d6f9c92205c9",
+  "domExitCode": 0,
+  "webTypesExitCode": 0,
+  "webHashes": [
+    {
+      "path": "apps/web/src/app/(admin)/warehouse/daily-close/page.tsx",
+      "sha256": "f0a7062d4a1f31deded3d3fcb9ceab9553c905c6a029a70d75b4603db0187a0a"
+    },
+    {
+      "path": "apps/web/src/app/(admin)/warehouse/ledger/page.tsx",
+      "sha256": "661208d10d72a0a5ea44d7bb53c1938b9f6de97f84a36c9eb0766f86bf5740ba"
+    },
+    {
+      "path": "apps/web/src/lib/warehouse-ledger-change-type.ts",
+      "sha256": "041d9cf9ab7f5a6acd0c4e6f3a524b480dc68f8968debea2c73c3bb2623e7d85"
+    },
+    {
+      "path": "apps/web/src/locales/en.json",
+      "sha256": "5bb726a322ec8f02900dfa70af0d27c6b979ffa1d0ec13e6b310cca67fd4c031"
+    },
+    {
+      "path": "apps/web/src/locales/lo.json",
+      "sha256": "9d54043ad47992f6f35536e53c37233fee81cda6ab41547736d54f1c14ead135"
+    },
+    {
+      "path": "apps/web/src/locales/zh.json",
+      "sha256": "c80575b9f977aa267dab90d1fa5f7a469c64a35995e85e681a4a24f366b9c56e"
+    },
+    {
+      "path": "apps/web/src/__tests__/warehouse-reversal-summary.dom.test.tsx",
+      "sha256": "cd11aad5bc821477bc2f5e9d26056918cae4585f0e27fa88b95f66b2e3e5ff6e"
+    }
+  ],
+  "sourceMismatchesAfter": [],
+  "selectedCommitBlobsMatch": true,
+  "rawReviewMappings": [
+    {
+      "receipt": "apiLint",
+      "rawHashMatches": true,
+      "normalizationMatches": true
+    },
+    {
+      "receipt": "webFull",
+      "rawHashMatches": true,
+      "normalizationMatches": true
+    },
+    {
+      "receipt": "webSummaryDom",
+      "rawHashMatches": true,
+      "normalizationMatches": true
+    },
+    {
+      "receipt": "imageBuild",
+      "rawHashMatches": true,
+      "normalizationMatches": true
+    }
+  ],
+  "domLogSha256": "fba14540058540d42676172ab0b5ee4bbed9fb0f2101f511b5ae173e13bc3abe",
+  "typeLogSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

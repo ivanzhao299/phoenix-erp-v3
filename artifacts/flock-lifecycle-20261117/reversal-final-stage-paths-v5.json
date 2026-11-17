@@ -1,0 +1,253 @@
+{
+  "baseHead": "a6e27b53b78ec0b8387d7014179456350462be34",
+  "fileCount": 59,
+  "sourceAndOwnReportCount": 33,
+  "evidenceCount": 26,
+  "sourceManifestSha256": "001e7583bee20d50bb987c4b050e3085d9f4bd91fc55c99f0c578f829f8f5921",
+  "webFingerprintSha256": "329de8c75fe0793afb83649d03cf4e066f72771e0f6e371e99b465a1e0d7b3ec",
+  "validationReceiptSha256": "f6cbeb75335fe8a267109c540f128f44db8fdc2fde9e8665d2ef2019ef4e5fbb",
+  "files": [
+    {
+      "path": "apps/api/src/database/migrations/1794904000000-TempProductionReversalDictSeed.ts",
+      "sha256": "7458a9adfb44318b14972a5ece3643449baf50573342275ed06cca8de63d1050"
+    },
+    {
+      "path": "apps/api/src/modules/bff/bff.controller.ts",
+      "sha256": "9f7586f38d59333a8412ea8a7cb565561383b0fc4700c1618dbb777e2e439a12"
+    },
+    {
+      "path": "apps/api/src/modules/bff/packaging-handover.service.ts",
+      "sha256": "5223a318f77ed664fbb43c1eee57518fddf9acda27ab70c534cd0dd00f0b2314"
+    },
+    {
+      "path": "apps/api/src/modules/bff/packaging-protection.ts",
+      "sha256": "fc6b533cf8e56c7eae1340deb6fbcba7dc2f0a40b54c2fa6b79e743014ada330"
+    },
+    {
+      "path": "apps/api/src/modules/farm/farm-medicine.service.ts",
+      "sha256": "ebdb620366eae9e6bc22ccd7f8a84eb587802fa9de242d4884adc5606ccd3afe"
+    },
+    {
+      "path": "apps/api/src/modules/farm/medication-record.service.ts",
+      "sha256": "e6ae688009b60967d2765eb397205a0f445c9072c5021edf0fede7edd89bc8b6"
+    },
+    {
+      "path": "apps/api/src/modules/generic-crud/generic-crud.service.ts",
+      "sha256": "a2885d1d3168f6de9c6d0ce89a5794a03855faf09fa3b014d3811ea27fd14e2b"
+    },
+    {
+      "path": "apps/api/src/modules/product-master/services/quantity-contract.ts",
+      "sha256": "9c02fbf868204838f79eb71b6db9fe8b6d881519bdfd5cbeb9484f933f668161"
+    },
+    {
+      "path": "apps/api/src/modules/quality/quality.service.ts",
+      "sha256": "027b949037697abe3ae5cf0971509b868c4d133324fb1d468e4689756dfe0bc6"
+    },
+    {
+      "path": "apps/api/src/modules/sales-v2/services/production-inbound.service.ts",
+      "sha256": "81bb859b6578998c15b35888cd2d8212756d5b5309919a0f25e713a00dac1b66"
+    },
+    {
+      "path": "apps/api/src/modules/terminal/labels.service.ts",
+      "sha256": "c24879cca1d0da0be66efbb961611ed2c434ef9fe82a48afe63ba5625cee9f9c"
+    },
+    {
+      "path": "apps/api/src/modules/terminal/packaging.service.ts",
+      "sha256": "29af44159d5d1813ea11d3a1294b27b9712a9d9fc85b9806fd811ce7fdd00780"
+    },
+    {
+      "path": "apps/api/src/modules/wms/inv-ledger-change-types.ts",
+      "sha256": "4688855d524b7bb9add4c26672ac93d8eda5e2d30d77c210093b447261d7acdf"
+    },
+    {
+      "path": "apps/api/src/modules/wms/inventory-ledger.writer.spec.ts",
+      "sha256": "6c44aa5fd3d4a17eb6776a765f65927269a287019ce4a7771df361c599df237d"
+    },
+    {
+      "path": "apps/api/src/modules/wms/inventory-ledger.writer.ts",
+      "sha256": "3da78d5bddcb348dd80f935bea1ede4176a18174bd309721302d16ffb2a7a3ff"
+    },
+    {
+      "path": "apps/api/src/modules/wms/temp-production-reversal-case.pg.spec.ts",
+      "sha256": "44b53a49301bb33d53b6ea8e1a9bb65db39be5a6c266efc5a26e4d8d2da907b8"
+    },
+    {
+      "path": "apps/api/src/modules/wms/temp-production-reversal-case.ts",
+      "sha256": "a669382d8889e10b3bae6ccb21be70aba32c774897d01b77f6f42d44182a9e59"
+    },
+    {
+      "path": "apps/api/src/modules/wms/temp-production-reversal.pg.spec.ts",
+      "sha256": "0ca281866bbf011baf44078c0ee0a92a326ac41cf64a7bfd9c6279a6f8c7947e"
+    },
+    {
+      "path": "apps/api/src/modules/wms/temp-production-reversal.spec.ts",
+      "sha256": "7b954d4a767ac824924fc03d52a791599f168916d82a7d8267c8d12b6e976c3e"
+    },
+    {
+      "path": "apps/api/src/modules/wms/temp-production-reversal.ts",
+      "sha256": "87d13575c4bfc7ad403f3bc21293a40b73f6fd2b0a92a99539d8c91b3b70f607"
+    },
+    {
+      "path": "apps/api/src/modules/wms/wms.service.ts",
+      "sha256": "fb05f0231df9fbf3db8291d22752012473cbcaced985019418bc08c7d5011323"
+    },
+    {
+      "path": "apps/api/src/scripts/temp-production-reversal-case.ts",
+      "sha256": "f242183b8655667c2daab3a883cb129632d2cb2f0c0eaac3e0149aad23ff10cc"
+    },
+    {
+      "path": "apps/web/src/__tests__/warehouse-reversal-summary.dom.test.tsx",
+      "sha256": "cd11aad5bc821477bc2f5e9d26056918cae4585f0e27fa88b95f66b2e3e5ff6e"
+    },
+    {
+      "path": "apps/web/src/app/(admin)/warehouse/daily-close/page.tsx",
+      "sha256": "f0a7062d4a1f31deded3d3fcb9ceab9553c905c6a029a70d75b4603db0187a0a"
+    },
+    {
+      "path": "apps/web/src/app/(admin)/warehouse/ledger/page.tsx",
+      "sha256": "661208d10d72a0a5ea44d7bb53c1938b9f6de97f84a36c9eb0766f86bf5740ba"
+    },
+    {
+      "path": "apps/web/src/lib/warehouse-ledger-change-type.ts",
+      "sha256": "041d9cf9ab7f5a6acd0c4e6f3a524b480dc68f8968debea2c73c3bb2623e7d85"
+    },
+    {
+      "path": "apps/web/src/locales/en.json",
+      "sha256": "5bb726a322ec8f02900dfa70af0d27c6b979ffa1d0ec13e6b310cca67fd4c031"
+    },
+    {
+      "path": "apps/web/src/locales/lo.json",
+      "sha256": "9d54043ad47992f6f35536e53c37233fee81cda6ab41547736d54f1c14ead135"
+    },
+    {
+      "path": "apps/web/src/locales/zh.json",
+      "sha256": "c80575b9f977aa267dab90d1fa5f7a469c64a35995e85e681a4a24f366b9c56e"
+    },
+    {
+      "path": "artifacts/flock-lifecycle-20261117/reversal-api-full-v3.log",
+      "sha256": "322631fe93cca45892b3d1be98a6fe32c85a3af6336743c55c66c4feaf35b967"
+    },
+    {
+      "path": "artifacts/flock-lifecycle-20261117/reversal-api-lint-v3.review.log",
+      "sha256": "44b75835c9e0ebaceb8f43382bd61f5e8cbb237dc0f9dbc8423f80c0e1c64958"
+    },
+    {
+      "path": "artifacts/flock-lifecycle-20261117/reversal-api-types-v4.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/flock-lifecycle-20261117/reversal-constraint-drift.log",
+      "sha256": "20228dba44b587eed4bac7911272684f03ef388e18c9a1303c67a00d655ea2ec"
+    },
+    {
+      "path": "artifacts/flock-lifecycle-20261117/reversal-core-packaging-v4-frozen-snapshot.json",
+      "sha256": "001e7583bee20d50bb987c4b050e3085d9f4bd91fc55c99f0c578f829f8f5921"
+    },
+    {
+      "path": "artifacts/flock-lifecycle-20261117/reversal-core-packaging-v4.log",
+      "sha256": "c9f9a590be80ea5d346d22515350915be34ea493ce193f38c504a6a6d4f6649e"
+    },
+    {
+      "path": "artifacts/flock-lifecycle-20261117/reversal-image-context-v3-manifest.json",
+      "sha256": "8bba631f3c11308a883ad5c51c0fedf248dc94fce62704bc3c53f7e50212b1c2"
+    },
+    {
+      "path": "artifacts/flock-lifecycle-20261117/reversal-implementation-validation-v5.json",
+      "sha256": "f6cbeb75335fe8a267109c540f128f44db8fdc2fde9e8665d2ef2019ef4e5fbb"
+    },
+    {
+      "path": "artifacts/flock-lifecycle-20261117/reversal-independent-api-types-receipt.json",
+      "sha256": "0a9ded856b28e7d83b2db39ad824f68fe07746f636dd4c95d2af51345aa0a45b"
+    },
+    {
+      "path": "artifacts/flock-lifecycle-20261117/reversal-independent-image-receipt.json",
+      "sha256": "daae0700515b1dca0817415f80f2ef0860a8eb65994812f730533430e38a5f63"
+    },
+    {
+      "path": "artifacts/flock-lifecycle-20261117/reversal-independent-pg-v4-receipt.json",
+      "sha256": "0c12cdd1a3c364037854f267d5b1f9d9c95d348c6149bb288d425b1c5daab1a8"
+    },
+    {
+      "path": "artifacts/flock-lifecycle-20261117/reversal-migration-dml-gate.log",
+      "sha256": "f103425d213b27f9bb3250a3b626b800c45dc3b0c4c06c7208b417cfea3247cc"
+    },
+    {
+      "path": "artifacts/flock-lifecycle-20261117/reversal-migration-down-gate.log",
+      "sha256": "c34481009d2cad8b0ffba17e03490a5fe408c29fb2fb4ef3aa6135f1bb27c39b"
+    },
+    {
+      "path": "artifacts/flock-lifecycle-20261117/reversal-null-unique.log",
+      "sha256": "4b95d58d9a67a8a178ee64e48dc6050ae865d08f8ff86c8ab5491ad17d79eb65"
+    },
+    {
+      "path": "artifacts/flock-lifecycle-20261117/reversal-production-image-apply-hold-v3.log",
+      "sha256": "ea10f9b0e3ec9650e18be4f6f2c663c1904740c88008a514d2aefd5e2dad3542"
+    },
+    {
+      "path": "artifacts/flock-lifecycle-20261117/reversal-production-image-build-v3.review.log",
+      "sha256": "22cbf61ba9a163579ebb72a1740716a1164f9e2eab0877b7c4d340e57d1ded21"
+    },
+    {
+      "path": "artifacts/flock-lifecycle-20261117/reversal-production-image-module-check-v3.log",
+      "sha256": "dcfd69d5cd2abd3db21af5a87107c6ae5196646a9046070e78acdec426079c0c"
+    },
+    {
+      "path": "artifacts/flock-lifecycle-20261117/reversal-production-image-self-check-v3.log",
+      "sha256": "f2d68fea88cac1a797bdde61a17698bcbfd19f97cd14000092a1bd0f18cbabd9"
+    },
+    {
+      "path": "artifacts/flock-lifecycle-20261117/reversal-production-metadata-observation.json",
+      "sha256": "116bcb042c1f1103b6c1c02ee7b452c0cec59a9b67290693b77cdaaa19152d4b"
+    },
+    {
+      "path": "artifacts/flock-lifecycle-20261117/reversal-production-runtime-date-v3.log",
+      "sha256": "32986bcb9f2e19be233a0349a8c66ee509338101ba1fe73c0ecd551174e64ba3"
+    },
+    {
+      "path": "artifacts/flock-lifecycle-20261117/reversal-scope-audit.log",
+      "sha256": "c5fc814f7800cf33e7ca335f3992f6a342de4bc73d0ebf07d09edcf333c1c097"
+    },
+    {
+      "path": "artifacts/flock-lifecycle-20261117/reversal-web-full.review.log",
+      "sha256": "6a10f968df3592cef6a1741e0ca5200c85ba9041ab675462639bf1f1b3d36844"
+    },
+    {
+      "path": "artifacts/flock-lifecycle-20261117/reversal-web-note-dom-v5.review.log",
+      "sha256": "a06941ec91c3bf97c6461222a930348370f284c91429a9ab5217be68b9ff7815"
+    },
+    {
+      "path": "artifacts/flock-lifecycle-20261117/reversal-web-note-lint-changed-v5.log",
+      "sha256": "fc04395adf3c038291080568024e400cc4f7c9fafbe89804e44fb24fac294c78"
+    },
+    {
+      "path": "artifacts/flock-lifecycle-20261117/reversal-web-note-lint-ratchet-v5.log",
+      "sha256": "5451b9440dca91e435930e9722d294c5efc87905262ed3651b58559a11a19fd0"
+    },
+    {
+      "path": "artifacts/flock-lifecycle-20261117/reversal-web-note-types-v5.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "docs/flock-test-inbound-reversal-implementation-20261118.md",
+      "sha256": "c433bce8bc63c07bc8c6d69098911410737048462a9876dc15800f8d4ea59d7b"
+    },
+    {
+      "path": "scripts/ops/audit-daily-egg-inbound.mjs",
+      "sha256": "133c9a65178376494729bc350f661e81f7184773e8175814900db58bc55d8f2a"
+    },
+    {
+      "path": "scripts/ops/audit-daily-egg-inbound.test.mjs",
+      "sha256": "4c1cb5483c95e10ea35ac71c58421445669ac0e7d447298e883cdb0cd18ccf69"
+    },
+    {
+      "path": "scripts/test/temp-production-reversal-baseline.cjs",
+      "sha256": "c192a6b53ad6f4e7ed04f9e49d56664eb53b651b61c7eccea30668673a9ebc18"
+    }
+  ],
+  "committedHead": "e27ebf651caa1e6b51eb506a5210d6f9c92205c9",
+  "verifiedAt": "2026-11-17T19:45:42.370569+00:00",
+  "allSelectedCommitBlobsMatch": true,
+  "all1204ApiCommitBlobsMatch": true,
+  "pushed": false,
+  "productionActions": false
+}

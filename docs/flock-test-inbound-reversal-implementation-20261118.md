@@ -63,7 +63,9 @@ WMS 入库草稿/确认、出库草稿/确认/签收、调拨、盘点、损失�
 
 ## 7. 验证回执
 
-API 候选冻结清单：`artifacts/flock-lifecycle-20261117/reversal-core-packaging-v4-frozen-snapshot.json`，1204 个文件；按每行 `path + NUL + sha256 + LF` 计算源码摘要 `1d49833a51ee91d08fe0d76bc7de0a08aa316ead326bc957a86b68f93536f615`。清单自身 SHA-256 `001e7583bee20d50bb987c4b050e3085d9f4bd91fc55c99f0c578f829f8f5921`。这是工作树候选，不是已提交、已合并或已部署版本。
+API 候选冻结清单：`artifacts/flock-lifecycle-20261117/reversal-core-packaging-v4-frozen-snapshot.json`，1204 个文件；按每行 `path + NUL + sha256 + LF` 计算源码摘要 `1d49833a51ee91d08fe0d76bc7de0a08aa316ead326bc957a86b68f93536f615`。清单自身 SHA-256 `001e7583bee20d50bb987c4b050e3085d9f4bd91fc55c99f0c578f829f8f5921`。在该清单及 v5 验证回执的 asOf 时点，候选尚为未提交工作树；这些 JSON 中的历史状态保留原样。
+
+当前源码已本地提交为 `S=e27ebf651caa1e6b51eb506a5210d6f9c92205c9`，父提交为 A6。协调方已逐一确认 S 的 1204 个 API committed blob 与冻结清单匹配、7 个 Web 文件与 v5 匹配。尚未推送、合并或部署；之后仅补充文档/证据的提交不改变本段 S 指代的实现源码。
 
 | 检查 | 实际结果 | 说明 |
 |---|---|---|
@@ -79,14 +81,18 @@ API 候选冻结清单：`artifacts/flock-lifecycle-20261117/reversal-core-packa
 
 旧 68 例冻结快照与独立回执保留，仅适用于旧源码。协调方已独立运行 v4：4 suites / 70 tests / 0 skip / actual exit 0，15.123 秒，1204 文件前后摘要全匹配。独立日志摘要 `5b3d89fc03cb6547d3c014b03f79e3e7353bff3a73292998fc12b8a82106ef77`，回执在 `artifacts/flock-lifecycle-supervision-20261117/reversal-packaging-v4-independent-0tama0m1/receipt.json`。另有独立 API 类型检查 exit 0；包装新逻辑的只读子代理核验没有发现实质阻塞，该源码审查不冒充独立运行。
 
+S 的最终 Web 也已完成协调方独立运行：真实 LedgerPage/DataTable 三语 DOM 8/8、0 skip、exit 0；Web `tsc --noEmit --incremental false` exit 0；7 个文件前后摘要全匹配。原样回执副本保存为 `reversal-independent-web-v5-receipt.json`，摘要 `7bfd31b1cd1143cdb4fc06bbaed7b85f20e9d727a8ddba1428a5f3f97dd0f3cc`。这证明已列出的本地展示与类型边界，不代表全部控制器、生产业务或财务验收。
+
 最终生产源码使用实际 `apps/api/Dockerfile` 从白名单源码构建本地镜像 `phoenix-temp-reversal-cli:owned-v3-20261118`，revision 为 `owned-uncommitted-reversal-v3-review`，不是已部署 SHA。v4 相对镜像上下文只改变一个被生产编译排除的测试文件，生产源码与最终候选一致。镜像在只读文件系统、无网络、无附加权限、phoenix 用户下运行，self-check 退出 0，未加载 AppModule，也未包含 fixture verifier/spec；apply 退出 2，明确 databaseInitialized=false；真实 Node20 Alpine 验证新加坡午夜边界通过。完整日志与摘要见独立 validation receipt。该镜像未上传，不等于完成生产发布、生产预检或生产冲销。
 
 镜像 ID `sha256:8435950b52ad33826ddc55258b2117237eae6adff744078806c84b2863b7780e` 绑定 702 个 API 非测试源文件指纹 `7936bb1650acb19ef1204557f0f1a8b05a37d319c4ed2de2137775d082238cb7`、实际 Dockerfile 摘要及完整构建输入清单。协调方也独立以该 ID 运行 self-check/apply，通过 hook 确认两者均未初始化 DataSource、未加载 AppModule；回执位于 `reversal-image-independent-9eulbnnh/receipt.json`。这些均为 owned/local candidate 证据，最终 Git SHA 镜像仍待提交后的正式链。
 
-最终 Web 摘要及独立复核回执汇总在 `artifacts/flock-lifecycle-20261117/reversal-implementation-validation-v5.json`。四份工具原日志含行尾空白或末尾多余空行，提交的 `.review.log` 只去掉这些空白；清单同时保留原日志路径与原 SHA-256，原始日志未改写，源码和 staged diff 检查均为 exit 0。
+最终 Web 摘要及独立复核回执汇总在 `artifacts/flock-lifecycle-20261117/reversal-implementation-validation-v5.json`。四份工具原日志含行尾空白或末尾多余空行，提交的 `.review.log` 只去掉这些空白；清单同时保留原日志路径与原 SHA-256，原始日志未改写。四份 raw log 未入 Git，仅凭提交树只能复核规范化副本；raw hash 是工作区保留原件的外部摘要，须独立持有 raw 原件才能重验，不能从提交树单独还原 raw。协调方已持工作区原件逐一确认 raw SHA 与去行尾空白/末尾多余空行后等于 review 副本。未修改 whitespace 规则；源码和 staged diff 检查均为 exit 0。
 
 ## 8. 尚未完成与执行前提
 
 本次没有逐一真实调用所有控制器、药品撤销与全部库存变体；其余入口只完成源码核验/类型检查及现有回归覆盖，仍须按风险补充独立核验。没有生产冲销后的实际业务、打印、财务或日报验收；没有真实生产灾备恢复演练。
+
+既有日结日期仍有后续待办：前端默认客户端本地日，服务默认查询与 POST 确认使用 UTC 日；此次新增更正按明确 log_date 分类已测，不等于旧日结确认流程全已统一为新加坡日期。同一控制器兼容 `/api/inventory/daily-close` 与 `/api/stocktake/daily-close`，不存在因旧注释所述前缀而直接推定的 404。默认/确认日期一致性及新加坡午夜的完整业务验收另行处理，此次元数据补充不修改既有源码。
 
 实际执行仍需：用户批准具体方案及迁移路线；可信批准/财务权威 adapter 与执行契约；执行当日新鲜只读范围预检、版本和完整迁移账本绑定；受控备份与校验回执；必要业务写入围栏及正式受控迁移/发布；随后仅对两条指定批次执行并核对四条正负流水、净更正、正常等级不变及重试回执。任何 UNKNOWN、差异、缺签核或身份不符继续 HOLD，不能靠本地 fixture 权限绕过。
