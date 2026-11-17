@@ -58,7 +58,7 @@
 ## 6. 未完成项（诚实声明）
 
 - **CI 遗留红（与本次无关，#568/#569 同样红）**：rehearsal（Phase1 fixture，触发路径与本 PR 无交集）、Synthetic Migration-Aligned PG16/18（MAINTENANCE_HOLD=ROOT_READER_SCHEDULER_FILE_UNVERIFIED）、Legacy Maintenance（runner docker ETIMEDOUT flake）
-- **既有 DI 缺口（本地严格 owned fixture 真跑暴露）**：farm-egg / package-quantity / daily-log-visibility 三个 pg.spec 的 test module 未跟上 ProductionInboundService 2026-11-11 新增的 SkuAvailabilityService 依赖（main 基线同样挂，已对照验证）——建议独立小 PR 补 providers
+- ~~**既有 DI 缺口**~~ **已修复（PR #571，b34b577d6）**：farm-egg / package-quantity / daily-log-visibility 三个严格 owned fixture spec 全面修复——DI 补 SkuAvailabilityService；fixture 幂等 ALTER 对齐迁移末态（inventory_class/unit_cost/unit/variety/sale_enabled 族/SKU 生效期/md_sku_org_scope/source profiles/SKU 就绪主数据）；九级退役词汇重构为八级终态（含串联 web live-DOM）；combine 用例断言更新为 source-identity 合并语义。本地 PG18 真跑：6/6 + 24/24 + 15/15
 - **执行中发现并修复的回归（本次引入、当场修复）**：guardedBatchUpdate 双重取负（a90cd1d5a，CI 真 PG 抓获，本地 PG18 复现链修复验证）；4 个自建 fixture 缺 unit_cost/cost_change 列（b83c7d175）
 
 - B 类生产数据修复、VALIDATE 窗口：待 A 类预检 + 签字（交接清单）
