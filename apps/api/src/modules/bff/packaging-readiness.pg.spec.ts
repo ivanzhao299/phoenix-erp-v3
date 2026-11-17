@@ -43,6 +43,9 @@ const url = process.env.PACKAGING_TEST_DATABASE_URL;
         sku_code text,grade_code_std text,spec_code text,variety_code text,source_profile_code text,source_profile_snapshot jsonb,packaging_batch_ref text,collection_batch_ref text,unit text,base_quantity_version smallint,inventory_class text DEFAULT 'STANDARD',created_at timestamp,updated_at timestamp);
       CREATE TABLE inv_ledger(id serial PRIMARY KEY,batch_no text,change_type text,qty_change numeric,operator text,store_code text,ref_no text,note text,batch_expire_date date,
         quality_grade text,company_code text,sku_code text,log_date date,warehouse_code text,location_code text);
+      -- inv-opt 批次 4：跟随迁移末态（InvEggCostingColumns）
+      ALTER TABLE inv_ledger ADD COLUMN IF NOT EXISTS cost_change numeric(18,6);
+      ALTER TABLE inv_batches ADD COLUMN IF NOT EXISTS unit_cost numeric(18,6) NOT NULL DEFAULT 0;
       INSERT INTO mst_products VALUES ('REGISTERED-PRODUCT','ACTIVE','枚','枚');
       INSERT INTO product_grades VALUES ('GRADE_5','ACTIVE',true,true,50),('GRADE_1','ACTIVE',true,true,10);
       INSERT INTO packaging_specs VALUES ('SPEC30','30 eggs','ACTIVE',30,'枚','托'),('SPEC60','60 eggs','ACTIVE',60,'枚','托');

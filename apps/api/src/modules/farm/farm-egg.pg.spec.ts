@@ -83,6 +83,8 @@ describePg('Issue 400 isolated PostgreSQL HTTP inventory chain', () => {
       CREATE TABLE IF NOT EXISTS inv_ledger (id serial PRIMARY KEY, batch_no text, change_type text, qty_change numeric, operator text, store_code text,
         ref_no text, note text, batch_expire_date date, quality_grade text, company_code text, sku_code text, log_date date, warehouse_code text, location_code text,
         house_code text, customer_no text, created_at timestamptz DEFAULT now());
+      -- inv-opt 批次 4：跟随迁移末态（InvEggCostingColumns）
+      ALTER TABLE inv_ledger ADD COLUMN IF NOT EXISTS cost_change numeric(18,6);
       ALTER TABLE inv_batches ADD COLUMN IF NOT EXISTS variety_code text, ADD COLUMN IF NOT EXISTS unit text,
         ADD COLUMN IF NOT EXISTS base_quantity_version integer;
     `);

@@ -54,6 +54,9 @@ fixture('package quantities: owned disposable PostgreSQL 18 service integration'
       CREATE TABLE inv_ledger (id serial PRIMARY KEY,batch_no text,change_type text,qty_change numeric(14,3),operator text,store_code text,ref_no text,note text,
         batch_expire_date date,quality_grade text,company_code text,sku_code text,material_code text,log_date date,warehouse_code text,location_code text,
         business_type text,destination_type text,destination_code text,project_code text,department_code text,unit text,created_at timestamptz DEFAULT now());
+      -- inv-opt 批次 4：跟随迁移末态（InvEggCostingColumns）
+      ALTER TABLE inv_ledger ADD COLUMN IF NOT EXISTS cost_change numeric(18,6);
+      ALTER TABLE inv_batches ADD COLUMN IF NOT EXISTS unit_cost numeric(18,6) NOT NULL DEFAULT 0;
       CREATE TABLE sal_sales_orders (id serial PRIMARY KEY,order_no text,company_code text,company_name text,customer_code text,customer_name text,currency_code text,fulfillment_warehouse_code text);
       CREATE TABLE sal_order_items (id serial PRIMARY KEY,sales_order_id int,product_code text,product_name text,grade_code text,packaging_spec text,sku_code text,
         qty numeric(18,2),allocated_qty numeric(18,2),allocated_batch_no text,unit_price numeric(18,2),actual_unit_price numeric(18,2),amount numeric(18,2),created_at timestamptz DEFAULT now());
