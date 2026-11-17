@@ -362,6 +362,12 @@ export class EggInventoryService {
       logDate?:        string | null;
       warehouseCode?:  string | null;
       locationCode?:   string | null;
+      /**
+       * INV-401 出库结转金额（qty_change × 批次 unit_cost，带符号）。
+       * undefined = 省列（入库/历史语义）；数值 = 写入 cost_change；
+       * SALE_RETURN 暂传 0（退货成本冲减留待 F3）。
+       */
+      costChange?:     number | null;
     },
     mgr?: EntityManager,
   ) {
@@ -385,6 +391,9 @@ export class EggInventoryService {
       logDate: params.logDate ?? null,
       warehouseCode: params.warehouseCode ?? null,
       locationCode: params.locationCode ?? null,
+      // INV-401：costChange 为"省列语义"参数——undefined 时保持省列
+      // （不得 `?? null` 归一，否则历史调用方会显式写 NULL 改变列集合）。
+      costChange: params.costChange,
     });
   }
 
@@ -1177,7 +1186,7 @@ export class EggInventoryService {
     positiveQuantity(requestedQty,'出库基础数量');
 
     const allocations = await q(
-      `SELECT a.*,oi.quantity_snapshot,oi.sku_code AS sale_sku_code,b.product_code,b.grade_code_std,b.unit,b.material_code,b.legacy_source,b.base_quantity_version,b.qty,b.expire_date,b.quality_grade,b.sku_code,b.warehouse_code,b.location_code,b.status
+      `SELECT a.*,oi.quantity_snapshot,oi.sku_code AS sale_sku_code,b.product_code,b.grade_code_std,b.unit,b.material_code,b.legacy_source,b.base_quantity_version,b.qty,b.expire_date,b.quality_grade,b.sku_code,b.warehouse_code,b.location_code,b.status,b.unit_cost
          FROM sal_order_item_batch_allocations a
          JOIN sal_order_items oi ON oi.id=a.sales_order_item_id
          JOIN inv_batches b ON b.batch_no=a.batch_no
@@ -1235,6 +1244,9 @@ export class EggInventoryService {
           qualityGrade:    allocation.quality_grade ?? null,
           skuCode:         allocation.sku_code ?? null,
           warehouseCode: allocation.warehouse_code, locationCode: allocation.location_code,
+          // INV-401：出库结转 = -outQty × 批次 unit_cost（批次成本法；历史
+          // 批次 unit_cost=0 → 结转 0，F2 挂账口径）
+          costChange:      -(outQty * Number(allocation.unit_cost ?? 0)),
         }, mgr);
 
       await q(
@@ -1327,6 +1339,8 @@ export class EggInventoryService {
           warehouseCode: targetWarehouseCode,
           locationCode: targetLocationCode,
           note:        `退货回库 return=${returnNo} product=${item.product_code} accepted=${accepted} grade=${returnGrade} zone=${targetZoneCode}`,
+          // INV-401：退货暂按 0 结转（显式 0 留痕），退货成本冲减留待 F3
+          costChange:  0,
         }, mgr);
 
         if (damaged === 0) {
@@ -1411,7 +1425,7 @@ export class EggInventoryService {
 
       // ② 候选查询：参数化 + 排除在途预占 + SKIP LOCKED
       const candidates = await em.query(
-        `SELECT b.batch_no, b.qty, b.company_code, b.expire_date, b.quality_grade, b.sku_code
+        `SELECT b.batch_no, b.qty, b.company_code, b.expire_date, b.quality_grade, b.sku_code, b.unit_cost
            FROM inv_batches b
           WHERE b.expire_date < CURRENT_DATE
             AND b.status = 'AVAILABLE'
@@ -1474,6 +1488,8 @@ export class EggInventoryService {
           qualityGrade:    batch.quality_grade ?? null,
           skuCode:         batch.sku_code ?? null,
           storeCode:       null,
+          // INV-401：过期核销结转 = -qty × 批次 unit_cost（历史批次 0 挂账）
+          costChange:      -(Number(batch.qty) * Number(batch.unit_cost ?? 0)),
         }, em);
         written++;
       }

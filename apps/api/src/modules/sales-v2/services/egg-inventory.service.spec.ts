@@ -930,7 +930,7 @@ describe('EggInventoryService writeLedger store_code (INV-104)', () => {
   it('binds a null store_code instead of the company code and keeps company_code at $10', async () => {
     const query = jest.fn(async (sql: string) => {
       if (sql.includes('FOR UPDATE OF b SKIP LOCKED')) return [
-        { batch_no: 'B-CLEAN', qty: '10', company_code: 'COMP-A', expire_date: '2026-11-01', quality_grade: 'A', sku_code: 'SKU-1' },
+        { batch_no: 'B-CLEAN', qty: '10', company_code: 'COMP-A', expire_date: '2026-11-01', quality_grade: 'A', sku_code: 'SKU-1', unit_cost: '1.5' },
       ];
       if (sql.includes('GROUP BY b.batch_no')) return [];
       if (sql.includes("SET status='EXPIRED'")) return [{ batch_no: 'B-CLEAN' }];
@@ -949,6 +949,9 @@ describe('EggInventoryService writeLedger store_code (INV-104)', () => {
     expect(ledger[1][4]).toBeNull();       // $5 store_code — must no longer receive the company code
     expect(ledger[1][9]).toBe('COMP-A');   // $10 company_code stays authoritative
     expect(ledger[1][0]).toBe('B-CLEAN');
+    // INV-401：过期核销结转 cost_change = -(qty × unit_cost) = -(10 × 1.5)
+    expect(String(ledger[0])).toContain('cost_change');
+    expect((ledger[1] as unknown[])[(ledger[1] as unknown[]).length - 1]).toBe(-15);
   });
 });
 
@@ -999,5 +1002,23 @@ describe('EggInventoryService processReturnInventory damage ledger batch (INV-20
     expect(damageLedger[1][0]).toBe('RET-RET-2026-0002-ri-2');
     const statusUpdate = (query.mock.calls as any[][]).find(([sql]) => String(sql).includes("SET restock_status=$1"))!;
     expect(statusUpdate[1]).toEqual(['WRITTEN_OFF', 'ri-2']);
+  });
+
+  it('carries SALE_RETURN at an explicit zero cost (F3 pending) and DAMAGE_WRITEOFF without cost dimension', async () => {
+    const query = makeQuery([
+      { id: 'ri-3', product_code: 'EGG', grade_code: 'A', sku_code: 'SKU-1', accepted_qty: '2', damaged_qty: '1', restock_status: 'PENDING', quantity_snapshot: null, packaging_spec: null },
+    ]);
+    const service = new EggInventoryService({ query } as never, { get: jest.fn() } as never);
+
+    await service.processReturnInventory('ret-3', 'RET-2026-0003', 'COMP-A', 'WH-A', 'ZONE-A', 'LOC-A', '2026-11-17');
+
+    const ledgerCalls = (query.mock.calls as any[][]).filter(([sql]) => String(sql).includes('INSERT INTO inv_ledger'));
+    const saleReturn = ledgerCalls.find(([, params]: any[]) => params[1] === 'SALE_RETURN')!;
+    const damage = ledgerCalls.find(([, params]: any[]) => params[1] === 'DAMAGE_WRITEOFF')!;
+    // SALE_RETURN：显式 0 结转留痕（退货成本冲减留待 F3）
+    expect(String(saleReturn[0])).toContain('cost_change');
+    expect((saleReturn[1] as unknown[])[(saleReturn[1] as unknown[]).length - 1]).toBe(0);
+    // DAMAGE_WRITEOFF：本期无成本维度 → 省列
+    expect(String(damage[0])).not.toContain('cost_change');
   });
 });
