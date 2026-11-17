@@ -84,6 +84,19 @@ export class EggInventoryController {
     return this.eggInv.getDashboardStats(companyCode);
   }
 
+  // ── 存货金额汇总（INV-401，只读） ────────────────────────────────────────
+
+  @Get('valuation')
+  @RequireMenu('MENU_SALES2_INVENTORY', 'V', ['MENU_WMS_VIEW', 'MENU_INV_BATCH'])
+  getValuation(
+    @Query('companyCode')   companyCode?:   string,
+    @Query('warehouseCode') warehouseCode?: string,
+  ) {
+    // INV-401：存货金额汇总（只读）。公司范围 fail-closed 在 service 内经
+    // companyScope() 收口（scoped 用户越权请求 → 空汇总而非全库）。
+    return this.eggInv.getInventoryValuation({ companyCode, warehouseCode });
+  }
+
   // ── 损耗分析 ──────────────────────────────────────────────────────────────
 
   @Get('loss-analysis')

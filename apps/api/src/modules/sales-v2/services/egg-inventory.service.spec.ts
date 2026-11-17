@@ -1022,3 +1022,63 @@ describe('EggInventoryService processReturnInventory damage ledger batch (INV-20
     expect(String(damage[0])).not.toContain('cost_change');
   });
 });
+
+describe('EggInventoryService getInventoryValuation (INV-401)', () => {
+  it('aggregates company×warehouse×item buckets with legacy_source and status-bucket filters for a scoped user', async () => {
+    const query = jest.fn(async () => [
+      { company_code: 'COMP-A', warehouse_code: 'WH-1', item_code: 'SKU-1', bucket: 'VALUABLE', qty: 100, total_cost: 250.5, batch_count: 2 },
+      { company_code: 'COMP-A', warehouse_code: 'WH-1', item_code: 'SKU-1', bucket: 'FROZEN_LIKE', qty: 10, total_cost: 12, batch_count: 1 },
+    ]);
+    const clsGet = jest.fn((key: string) => (key === 'dataScope'
+      ? { isGlobal: false, allowedCompanyCodes: ['COMP-A'] }
+      : undefined));
+    const service = new EggInventoryService({ query } as never, { get: clsGet } as never);
+
+    const result = await service.getInventoryValuation({ companyCode: 'COMP-A', warehouseCode: 'WH-1' });
+
+    const [sql, params] = (query.mock.calls as any[][])[0];
+    // SQL 形态：持有存货三态入 VALUABLE，其余（DAMAGED/FROZEN/EXPIRED…）入 FROZEN_LIKE
+    expect(String(sql)).toContain("b.status IN ('AVAILABLE','RESERVED','QUARANTINE')");
+    expect(String(sql)).toContain("'FROZEN_LIKE'");
+    // INV-203 口径：排除 legacy_source 旧库存
+    expect(String(sql)).toContain('b.legacy_source IS NULL');
+    expect(String(sql)).toContain('SUM(b.qty * b.unit_cost)');
+    expect(String(sql)).toMatch(/GROUP BY b\.company_code, b\.warehouse_code/);
+    // scope 过滤与仓库过滤均走绑定参数（$1 公司数组 / $2 仓库）
+    expect(params[0]).toEqual(['COMP-A']);
+    expect(params[1]).toBe('WH-1');
+    // 分桶汇总
+    expect(result.summary.valuable).toEqual({ qty: 100, totalCost: 250.5, batchCount: 2 });
+    expect(result.summary.frozenLike).toEqual({ qty: 10, totalCost: 12, batchCount: 1 });
+    expect(result.rows).toHaveLength(2);
+    expect(result.rows[0].bucket).toBe('VALUABLE');
+    expect(result.rows[1].bucket).toBe('FROZEN_LIKE');
+  });
+
+  it('fails closed to an empty summary when a scoped user requests an out-of-scope company', async () => {
+    const query = jest.fn(async () => { throw new Error('must not query'); });
+    const clsGet = jest.fn((key: string) => (key === 'dataScope'
+      ? { isGlobal: false, allowedCompanyCodes: ['COMP-A'] }
+      : undefined));
+    const service = new EggInventoryService({ query } as never, { get: clsGet } as never);
+
+    const result = await service.getInventoryValuation({ companyCode: 'COMP-OTHER' });
+
+    expect(query).not.toHaveBeenCalled();
+    expect(result.rows).toEqual([]);
+    expect(result.summary.valuable).toEqual({ qty: 0, totalCost: 0, batchCount: 0 });
+    expect(result.summary.frozenLike).toEqual({ qty: 0, totalCost: 0, batchCount: 0 });
+  });
+
+  it('queries globally without company binding when the caller is unscoped (system flows)', async () => {
+    const query = jest.fn(async () => []);
+    const service = new EggInventoryService({ query } as never, { get: jest.fn().mockReturnValue(undefined) } as never);
+
+    await service.getInventoryValuation({});
+
+    const [sql, params] = (query.mock.calls as any[][])[0];
+    expect(String(sql)).toContain('($1::text[] IS NULL OR b.company_code = ANY($1))');
+    expect(params[0]).toBeNull();
+    expect(params[1]).toBeNull();
+  });
+});

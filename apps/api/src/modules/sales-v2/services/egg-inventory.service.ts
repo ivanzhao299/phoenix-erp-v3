@@ -1573,6 +1573,93 @@ export class EggInventoryService {
     }
   }
 
+  // ── 8.5 存货金额汇总（INV-401，只读） ───────────────────────────────────────
+
+  /**
+   * 存货金额汇总（INV-401，批次成本法只读聚合，按 公司×仓库×品目 分桶）。
+   *
+   * 口径：
+   * - VALUABLE 桶：status IN ('AVAILABLE','RESERVED','QUARANTINE')——正常持有
+   *   存货（含待检隔离），SUM(qty)、SUM(qty×unit_cost)、批次数；
+   * - FROZEN_LIKE 桶：DAMAGED/FROZEN/EXPIRED（及其它非持有态）单独汇总，
+   *   不并入持有存货口径；
+   * - legacy_source IS NULL（与 INV-203 可售口径一致，排除 legacy 旧库存）；
+   * - 公司范围走 companyScope() fail-closed（越权请求返回空汇总而非全库）；
+   * - 历史批次与生产批次 unit_cost=0（F1/F2 挂账），金额属保守口径，财务
+   *   确认回填方案前仅供趋势参考。
+   */
+  async getInventoryValuation(params: {
+    companyCode?: string;
+    warehouseCode?: string;
+  }): Promise<{
+    rows: Array<{
+      companyCode: string | null;
+      warehouseCode: string | null;
+      itemCode: string | null;
+      bucket: 'VALUABLE' | 'FROZEN_LIKE';
+      qty: number;
+      totalCost: number;
+      batchCount: number;
+    }>;
+    summary: {
+      valuable: { qty: number; totalCost: number; batchCount: number };
+      frozenLike: { qty: number; totalCost: number; batchCount: number };
+    };
+  }> {
+    const empty = {
+      rows: [] as Array<{ companyCode: string | null; warehouseCode: string | null; itemCode: string | null; bucket: 'VALUABLE' | 'FROZEN_LIKE'; qty: number; totalCost: number; batchCount: number }>,
+      summary: {
+        valuable: { qty: 0, totalCost: 0, batchCount: 0 },
+        frozenLike: { qty: 0, totalCost: 0, batchCount: 0 },
+      },
+    };
+    const companyCodes = this.companyScope(params.companyCode);
+    // companyScope 空数组 = scoped 用户请求了范围外公司：fail-closed 返回空汇总
+    if (companyCodes?.length === 0) return empty;
+
+    const rows = await this.ds.query(
+      `SELECT b.company_code,
+              b.warehouse_code,
+              COALESCE(b.sku_code, b.product_code) AS item_code,
+              CASE WHEN b.status IN ('AVAILABLE','RESERVED','QUARANTINE')
+                   THEN 'VALUABLE' ELSE 'FROZEN_LIKE' END AS bucket,
+              SUM(b.qty)::float8 AS qty,
+              SUM(b.qty * b.unit_cost)::float8 AS total_cost,
+              COUNT(*)::int AS batch_count
+         FROM inv_batches b
+        WHERE b.legacy_source IS NULL
+          AND ($1::text[] IS NULL OR b.company_code = ANY($1))
+          AND ($2::text IS NULL OR b.warehouse_code = $2)
+        GROUP BY b.company_code, b.warehouse_code, COALESCE(b.sku_code, b.product_code),
+                 CASE WHEN b.status IN ('AVAILABLE','RESERVED','QUARANTINE')
+                      THEN 'VALUABLE' ELSE 'FROZEN_LIKE' END
+        ORDER BY b.company_code, b.warehouse_code, item_code, bucket`,
+      [companyCodes ?? null, params.warehouseCode ?? null],
+    );
+
+    const summary = {
+      valuable: { qty: 0, totalCost: 0, batchCount: 0 },
+      frozenLike: { qty: 0, totalCost: 0, batchCount: 0 },
+    };
+    const mapped = (rows as any[]).map(row => {
+      const entry = {
+        companyCode: row.company_code ?? null,
+        warehouseCode: row.warehouse_code ?? null,
+        itemCode: row.item_code ?? null,
+        bucket: String(row.bucket) === 'FROZEN_LIKE' ? 'FROZEN_LIKE' as const : 'VALUABLE' as const,
+        qty: Number(row.qty) || 0,
+        totalCost: Number(row.total_cost) || 0,
+        batchCount: Number(row.batch_count) || 0,
+      };
+      const target = entry.bucket === 'VALUABLE' ? summary.valuable : summary.frozenLike;
+      target.qty += entry.qty;
+      target.totalCost += entry.totalCost;
+      target.batchCount += entry.batchCount;
+      return entry;
+    });
+    return { rows: mapped, summary };
+  }
+
   // ── 9. 查询临期库存 ──────────────────────────────────────────────────────────
 
   async getExpiringBatches(params: {
