@@ -1,19 +1,19 @@
 {
-  "asOf": "2026-11-17T12:12:31.534623+00:00",
+  "asOf": "2026-11-17T12:48:40.282891+00:00",
   "baseMain": "a7c0045b9f6d1a475b5a10710184e66d9c494aa0",
   "candidateParent": "4cf46971cc1a1a2dba5be30838eaf75369cabf9c",
-  "sourceFingerprintSha256": "12c546366ca06a88119200a1281f851a15d4935fd1b2022605a500c73f891233",
-  "sourceFileCount": 74,
+  "sourceFingerprintSha256": "11eb78a6855395d4a9d743c6899f3407971647ffb0b45d8b50a9e860cf4b08cb",
+  "sourceFileCount": 85,
   "checks": {
     "api": {
-      "suitesPassed": 167,
-      "testsPassed": 2127,
-      "suitesSkipped": 23,
-      "testsSkipped": 432
+      "suitesPassed": 168,
+      "testsPassed": 2128,
+      "suitesSkipped": 22,
+      "testsSkipped": 433
     },
     "web": {
       "filesPassed": 139,
-      "testsPassed": 834,
+      "testsPassed": 835,
       "filesSkipped": 1,
       "testsSkipped": 4
     },
@@ -27,13 +27,17 @@
       "safeUnusedDown": true
     },
     "authorizationHttp": {
-      "UTC": 4,
-      "Asia/Singapore": 4
+      "UTC": 5,
+      "Asia/Singapore": 5
     },
     "browser": {
       "cases": [
         {
           "case": "PC real protected evidence -> baseline draft -> submit",
+          "result": "passed"
+        },
+        {
+          "case": "Protected PNG renders readable evidence and closing revokes the blob URL",
           "result": "passed"
         },
         {
@@ -53,6 +57,10 @@
           "result": "passed"
         },
         {
+          "case": "Protected valid PDF downloads with safe filename and exact readable source bytes",
+          "result": "passed"
+        },
+        {
           "case": "Independent approved report supplement preserves original occupancy, business day and unknown feed/water",
           "result": "passed"
         },
@@ -61,19 +69,153 @@
           "result": "passed"
         }
       ],
-      "complete": true
+      "complete": false
     },
     "appearanceVariants": 4,
     "scopeAudit": {
       "nativeInputsInspected": 19,
       "manualMasterDataInputs": 0,
+      "inputs": [
+        {
+          "line": 115,
+          "value": "{form.businessDate}",
+          "type": "\"date\"",
+          "readOnly": "{form.kind==='REPORT_CORRECTION'&&form.dailyLogId!=='0'}"
+        },
+        {
+          "line": 116,
+          "value": "{form.quantity}",
+          "type": "\"number\"",
+          "readOnly": false
+        },
+        {
+          "line": 117,
+          "value": "{balance?String(balance.quantity):'未接续，须实盘签认'}",
+          "type": "text",
+          "readOnly": true
+        },
+        {
+          "line": 118,
+          "value": "{form.sourceReceipt}",
+          "type": "text",
+          "readOnly": false
+        },
+        {
+          "line": 118,
+          "value": "{form.placementAge}",
+          "type": "\"number\"",
+          "readOnly": false
+        },
+        {
+          "line": 118,
+          "value": "{form.plannedEliminationDate}",
+          "type": "\"date\"",
+          "readOnly": false
+        },
+        {
+          "line": 119,
+          "value": "{form.disposalMethod}",
+          "type": "text",
+          "readOnly": false
+        },
+        {
+          "line": 119,
+          "value": "{form.receiver}",
+          "type": "text",
+          "readOnly": false
+        },
+        {
+          "line": 120,
+          "value": "{form.positionCode}",
+          "type": "text",
+          "readOnly": false
+        },
+        {
+          "line": 123,
+          "value": "{form.unitPrice}",
+          "type": "\"number\"",
+          "readOnly": false
+        },
+        {
+          "line": 123,
+          "value": "{form.salesRef}",
+          "type": "text",
+          "readOnly": false
+        },
+        {
+          "line": 123,
+          "value": "{form.receiver}",
+          "type": "text",
+          "readOnly": false
+        },
+        {
+          "line": 125,
+          "value": "{form.replacementQuantity}",
+          "type": "\"number\"",
+          "readOnly": false
+        },
+        {
+          "line": 129,
+          "value": "{value}",
+          "type": "\"number\"",
+          "readOnly": false
+        },
+        {
+          "line": 131,
+          "value": "{form.reportFeed}",
+          "type": "\"number\"",
+          "readOnly": false
+        },
+        {
+          "line": 131,
+          "value": "{form.reportWater}",
+          "type": "\"number\"",
+          "readOnly": false
+        },
+        {
+          "line": 132,
+          "value": "{form.periodFrom}",
+          "type": "\"date\"",
+          "readOnly": false
+        },
+        {
+          "line": 132,
+          "value": "{form.periodTo}",
+          "type": "\"date\"",
+          "readOnly": false
+        },
+        {
+          "line": 152,
+          "value": "{actualHeads[String(p.id)]??''}",
+          "type": "\"number\"",
+          "readOnly": false
+        }
+      ],
       "controllerMenuAndDataScopeGuards": true,
       "actualAuthorizationEvidence": [
-        "lifecycle-http-utc.log: 4 passed",
-        "lifecycle-http-sg.log: 4 passed",
-        "downstream-pg.log: original farm scope and current caretaker guards; also included in final full API run"
+        "ci-fix-http-utc.log and ci-fix-http-sg.log: 5 each, actual JWT/roles/DataScope; inactive house and inactive farm current company authority checked",
+        "ci-fix-api-tests.log: actual downstream 4 passed; source/current caretaker scope",
+        "ci-fix-browser.log: 9 cases including PNG decode/revoke and valid PDF exact download"
       ],
       "scopeAudit": "PASS"
+    },
+    "ciRecovery": {
+      "W5": "PASS with independently reviewed boundary flags; PR labels pending final head review",
+      "i18n": {
+        "keysEachLanguage": 14823,
+        "referencedKeys": 7814,
+        "literals": 3915,
+        "uncovered": 0,
+        "qualityErrors": 0
+      },
+      "historicalRehearsal": "real PG18 PASS; pinned 96 preserved; 9 exact reviewed feature entries added",
+      "fifoTransportPg": 41,
+      "legacyRegressionLive": 24,
+      "legacySetupOffline": 8,
+      "schedulerDiagnosticTests": 12,
+      "maintenanceRelatedTests": 30,
+      "pdfReadable": "strict PDF parsing; one page; exact evidence text; browser exact bytes and safe filename",
+      "remoteFinalCi": "pending; no merge or deployment"
     }
   },
   "release": {
@@ -84,26 +226,42 @@
     "tagDeferredUntilSuccessfulMainDeployment": true,
     "historicalFlocksActivated": false,
     "actualTwoCompanyPilot": "Pending real physical counts and signed evidence",
-    "candidateCommit": "1080b634b7afa260da7002e3914117de057827c6",
-    "pullRequest": "https://github.com/ivanzhao299/phoenix-erp-v3/pull/574"
+    "candidateCommit": "4dd7dd548406d0b18d74a958af4ca394b5fb15c4",
+    "pullRequest": "https://github.com/ivanzhao299/phoenix-erp-v3/pull/574",
+    "reviewStatus": "Final head independent boundary review pending"
   },
   "localLogSha256": {
-    "api-full-test.log": "266deddd3cbf9f5c3f668ef242b683329783fc1c56d16fc860a3bfcab9ebd380",
-    "web-test.log": "547132e78e6fedc28b507126bd363199837daa04890d10a561df96a35420614f",
-    "typecheck.log": "afcfa323cc6668a35b0e0bfc55cbc9c9965cc07a38e886047762cdc547496a7e",
-    "api-typecheck-final.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-    "api-build.log": "1e503e759093860fc5e3c5c5ce08568556b3156320b751c2e6a9b12a8daea3e9",
-    "web-build.log": "f6c5653994dff64909a1ba60adb950de39164126494707c96b9d6c43bedcd6da",
-    "api-lint.log": "d5e871c7bd1c77f971f4e66027ab93432614e94185aec5482814dd888b42a7f5",
-    "web-lint-changed.log": "c6b7d18f57c8c52a5468bbdb5290badef83a0b8907ca4d94714fd4b5e52630f4",
-    "web-lint-ratchet.log": "4287d4554bfa357508d8a260789ba1525468f63e1f255cfb6cd4e9718e328e26",
-    "lifecycle-http-utc.log": "c246f96707f298da83523b2ef7ff5f05c715e79b7e2fd37754437a6d6d789a5f",
-    "lifecycle-http-sg.log": "ffa48b012a346c66f3623693f1500dde45a6dbd0e866a1144c9b51e4572e52c7",
-    "migration-compatibility.log": "7b2b7e29fbc946d7e18e31b62923542423bc5cb9f896de76e6fb3647385fe7be",
-    "constraint-drift.log": "974258ccb561f72cfd371070d8b51ea88ecf815537d391fcc304afab69ffeddd",
-    "nullable-in-unique.log": "4b95d58d9a67a8a178ee64e48dc6050ae865d08f8ff86c8ab5491ad17d79eb65",
-    "migration-dml.log": "fcd5d053f3a80cbf190e3947816e3794cfca5a7973ff3ca4d881039400f2d83e",
-    "migration-down.log": "603e5915366804c4aeaf18ae8aec1ead0440ee048ec7fd100594438ef53246c6"
+    "ci-fix-api-tests.log": "871c8449c3b6d6ed1b98bcc3bd4171b653f1bef811883d61ad377d648f7f5c07",
+    "ci-fix-web-tests.log": "2f5f9ee425f1c0466c70c1a90f7b5141bd136604b68c9eed4285939564cd5b94",
+    "ci-fix-api-types.log": "6ebe93a83eb82a9a554ba4bbc56a7042f70d71391261c6209eca269921da72f5",
+    "ci-fix-web-types.log": "03f10231f4b4a670a816e4c6da78ef4ca67a21c2b7ac5a9fa5cb39dc2de65bad",
+    "ci-fix-api-build.log": "5b1549b60bee4e750040adfb6abec0fc90883af4fd742416eb44b5e3c8cbe21b",
+    "ci-fix-web-build.log": "c0467ba1eabfbd3f44be793129707765e088b59ee2be658ee8a35c25efdca244",
+    "ci-fix-api-lint.log": "68880c6c49453eff4961deb6eebc2d9a554c087686c26332fb800e2b9cb8ad53",
+    "ci-fix-web-lint-changed.log": "5f8feffbe5448d5dbd7b3bed35007e4cc2c1c328de70bf3f10d2b1a0c2a756b8",
+    "ci-fix-web-lint-ratchet.log": "4287d4554bfa357508d8a260789ba1525468f63e1f255cfb6cd4e9718e328e26",
+    "ci-fix-http-utc.log": "587aec2109447ffd9b87d21429c1dfadb94205111cfc0ecc386c4ccb9155688d",
+    "ci-fix-http-sg.log": "7d0c81685414de8049abd1d38e3650e949cdf5729b70f6aede1e17857dda409d",
+    "ci-fix-migration-compat.log": "7b2b7e29fbc946d7e18e31b62923542423bc5cb9f896de76e6fb3647385fe7be",
+    "ci-fix-ledger-rehearsal.log": "7853a2e187124d234f5dab499968a18bc30a0994ecd9c073ca554d72dd35d146",
+    "ci-fifo-pg.log": "d7b6fe1334b8899fae48d5ae7230c05bfee84d5b27e822f6b1aced7a24d9d18a",
+    "ci-fix-constraint-drift.log": "251c7a9981b2a298339af47ad1ad1448439cb4f52e03fcfbb7aabb4fbd1118f1",
+    "ci-fix-nullable.log": "4b95d58d9a67a8a178ee64e48dc6050ae865d08f8ff86c8ab5491ad17d79eb65",
+    "ci-fix-migration-dml.log": "fcd5d053f3a80cbf190e3947816e3794cfca5a7973ff3ca4d881039400f2d83e",
+    "ci-fix-migration-down.log": "603e5915366804c4aeaf18ae8aec1ead0440ee048ec7fd100594438ef53246c6",
+    "ci-fix-w5.log": "9e98208c4a47f496938eb0b39edf107d59dc65c70087a68ee0303d43149957a5",
+    "ci-fix-i18n-keys.log": "94778b72aa74c88428f178f00a7631adc0cea537e608bdce5a58b2ae9ec0a88b",
+    "ci-fix-i18n-literals.log": "9e3dcad0682987bf3305545268de5ed2e91fbd5d3969871d7425216cf9e7e6e2",
+    "ci-fix-browser.log": "06004bc369d567d2acd19e607d1662bf45f6dcbadc458c217f431c6d262746fa",
+    "ci-fix-appearance.log": "da1599c81a57e641a1b381ca3b1c3bf47d143a1f34e07bc2b200690b0b16a091",
+    "ci-fix-pdf-readable.log": "da3346a55a1ee6b75eba35b392418c845b80a31e83b2983867fe74f3865f306b",
+    "ci-fix-breeding-live.log": "4b45fb7a4d8b2a5c686798ffe0a2d8934a6426c6f5da1870a14fbfa3089f5721",
+    "ci-fix-breeding-setup.log": "f27248f4df4a2dfdd938ab214337ce74d596bfc2d37f3bf4c4c9196f61da9137",
+    "ci-fix-scheduler-diagnostic.log": "cd34fb9a08ef5befdded297374c310c073817c69a9af829a2e802ca44346026d",
+    "ci-fix-maintenance-tests.log": "c5e051cbf24996ec163fdd5551513da00710605ae9d3fb709973cfe82bad2143",
+    "ci-fix-ci-contracts.log": "c9397a87152837871c19c58fa72b3c9c289f65862808f0386a102e6578ead795",
+    "ci-fix-ssh-tests.log": "28402e1365a422f0dde08423e75b158d553a899825d2363f38f139d5229c797d",
+    "ci-fix-ssh-gate.log": "187c4ba05773c1260cdc4081260d349fdba7f553668a3337d4884a0b7d60d288"
   },
   "apiLintCounts": {
     "errors": 0,
@@ -111,8 +269,12 @@
   },
   "sourceFingerprintAlgorithm": {
     "baseCommit": "4cf46971cc1a1a2dba5be30838eaf75369cabf9c",
-    "sourceCommit": "1080b634b7afa260da7002e3914117de057827c6",
+    "sourceCommit": "4dd7dd548406d0b18d74a958af4ca394b5fb15c4",
     "paths": [
+      ".github/workflows/deploy.yml",
+      ".github/workflows/regression.yml",
+      "apps/api/scripts/breeding-regression.sh",
+      "apps/api/scripts/test_breeding_regression.py",
       "apps/api/src/database/migrations/1794899000000-FlockBaseSchema.ts",
       "apps/api/src/database/migrations/1794900000000-FlockLifecycleLedger.ts",
       "apps/api/src/database/migrations/1794901000000-FlockProductionProvenance.ts",
@@ -124,6 +286,7 @@
       "apps/api/src/modules/bff/bff.controller.ts",
       "apps/api/src/modules/bff/bff.module.ts",
       "apps/api/src/modules/bff/packaging-readiness.ts",
+      "apps/api/src/modules/chanjet/chanjet-execution-transport.spec.ts",
       "apps/api/src/modules/farm/daily-stock-policy.ts",
       "apps/api/src/modules/farm/farm-pending-notification.pg.spec.ts",
       "apps/api/src/modules/farm/farm.controller.ts",
@@ -164,6 +327,7 @@
       "apps/api/src/modules/wms/wms-company-context.spec.ts",
       "apps/api/src/modules/wms/wms.service.ts",
       "apps/api/src/test-fixtures/flock-business-clock.ts",
+      "apps/web/src/__tests__/attachments.test.ts",
       "apps/web/src/app/(admin)/breeding/daily/page.tsx",
       "apps/web/src/app/(admin)/breeding/device/[houseCode]/page.tsx",
       "apps/web/src/app/(admin)/breeding/flock-lifecycle/page.tsx",
@@ -179,17 +343,45 @@
       "apps/web/src/components/layout/Sidebar.tsx",
       "apps/web/src/components/shared-selectors/DictSelect.tsx",
       "apps/web/src/components/shared-selectors/MasterDataSelectors.tsx",
+      "apps/web/src/lib/attachments.ts",
       "apps/web/src/lib/mobile-api.ts",
       "apps/web/src/locales/en.json",
       "apps/web/src/locales/lo.json",
       "apps/web/src/locales/zh.json",
+      "scripts/ci/maintenance-full-first-switch.fixture.mjs",
+      "scripts/ci/typeorm-ledger-rehearsal-inventory.mjs",
       "scripts/ops/flock-lifecycle-diagnostic.cjs",
+      "scripts/ops/production-maintenance-root-readers.mjs",
+      "scripts/ops/production-maintenance-scheduler-inventory.test.mjs",
       "scripts/test/flock-browser-appearance.cjs",
       "scripts/test/flock-browser.cjs",
       "scripts/test/flock-migration-compatibility.cjs"
     ],
     "order": "lexicographic path order",
     "entry": "UTF-8(path) + NUL + lowercase hex SHA256(git blob bytes) + LF",
-    "digest": "lowercase hex SHA256(concatenated entries)"
+    "digest": "lowercase hex SHA256(concatenated entries)",
+    "scope": "git diff --name-only BASE SOURCE -- apps scripts .github"
+  },
+  "previousValidation": {
+    "sourceCommit": "1080b634b7afa260da7002e3914117de057827c6",
+    "sourceFingerprintSha256": "12c546366ca06a88119200a1281f851a15d4935fd1b2022605a500c73f891233",
+    "localLogSha256": {
+      "api-full-test.log": "266deddd3cbf9f5c3f668ef242b683329783fc1c56d16fc860a3bfcab9ebd380",
+      "web-test.log": "547132e78e6fedc28b507126bd363199837daa04890d10a561df96a35420614f",
+      "typecheck.log": "afcfa323cc6668a35b0e0bfc55cbc9c9965cc07a38e886047762cdc547496a7e",
+      "api-typecheck-final.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "api-build.log": "1e503e759093860fc5e3c5c5ce08568556b3156320b751c2e6a9b12a8daea3e9",
+      "web-build.log": "f6c5653994dff64909a1ba60adb950de39164126494707c96b9d6c43bedcd6da",
+      "api-lint.log": "d5e871c7bd1c77f971f4e66027ab93432614e94185aec5482814dd888b42a7f5",
+      "web-lint-changed.log": "c6b7d18f57c8c52a5468bbdb5290badef83a0b8907ca4d94714fd4b5e52630f4",
+      "web-lint-ratchet.log": "4287d4554bfa357508d8a260789ba1525468f63e1f255cfb6cd4e9718e328e26",
+      "lifecycle-http-utc.log": "c246f96707f298da83523b2ef7ff5f05c715e79b7e2fd37754437a6d6d789a5f",
+      "lifecycle-http-sg.log": "ffa48b012a346c66f3623693f1500dde45a6dbd0e866a1144c9b51e4572e52c7",
+      "migration-compatibility.log": "7b2b7e29fbc946d7e18e31b62923542423bc5cb9f896de76e6fb3647385fe7be",
+      "constraint-drift.log": "974258ccb561f72cfd371070d8b51ea88ecf815537d391fcc304afab69ffeddd",
+      "nullable-in-unique.log": "4b95d58d9a67a8a178ee64e48dc6050ae865d08f8ff86c8ab5491ad17d79eb65",
+      "migration-dml.log": "fcd5d053f3a80cbf190e3947816e3794cfca5a7973ff3ca4d881039400f2d83e",
+      "migration-down.log": "603e5915366804c4aeaf18ae8aec1ead0440ee048ec7fd100594438ef53246c6"
+    }
   }
 }

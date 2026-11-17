@@ -37,10 +37,10 @@
 | 检查 | 最终真实结果 | 证据/边界 |
 |---|---|---|
 | API/Web类型检查及构建 | 全部退出0 | typecheck.log、api-typecheck-final.log、api-build.log、web-build.log；父协调另做无缓存API/Web类型检查 |
-| API完整测试 | 168套、2128通过；22套432跳过 | ci-fix-api-tests.log，apps/api目录运行；跳过不计通过 |
+| API完整测试 | 168套、2128通过；22套433跳过 | ci-fix-api-tests.log，apps/api目录运行；跳过不计通过 |
 | Web完整测试 | 139套、835通过；1套4跳过 | ci-fix-web-tests.log |
 | API lint | 0错误；警告见日志 | api-lint.log，未降低规则 |
-| Web changed/全仓ratchet | 均退出0、无债务增长 | web-lint-changed.log：62历史错误/28警告；web-lint-ratchet.log：815历史错误/467警告。新增文件零错误，未修改baseline |
+| Web changed/全仓ratchet | 均退出0、无债务增长 | web-lint-changed.log：62历史错误/27警告；web-lint-ratchet.log：815历史错误/467警告。新增文件零错误，未修改baseline |
 | 事件账、期间、并发、幂等、回滚、关闭、批准更正/补录、未知值 | 当前33项纳入最终全API通过 | 直接ledger-pg.log为前一轮32项；父协调32项独立通过。最后新增旧余额NULL保护用例纳入全API |
 | 实际WMS正常+破损签收、来源继承、失败整体回滚、来源授权与真实健康转舍 | 4项通过并独立复跑 | downstream-pg.log；真实服务发运/签收/免疫/用药/转舍/休药阻断。未把fixture缺失的标签/销售财务表称为端到端通过 |
 | 实际生产入库与包装批次写入并发 | 25项纳入最终全API通过 | production-chain-pg.log及api-full-test.log；一条路径获胜、另一条原子拒绝，无双写死锁 |
@@ -109,3 +109,5 @@
 - 旧养殖回归只在CI=true、loopback API/数据库及精确数据库fixture归属标记下创建合成未接续历史群。禁止重新开放业务CRUD入栏；A4按真实第二群核对流水，数量临时隐藏通过EXIT恢复且保留FK身份。8项离线setup测试及真实FarmController/PG18全部24项回归通过。该轻量回归未覆盖认证，真实JWT/角色/DataScope由独立HTTP专项验证（当前5项，含停用主数据历史证据及跨范围拒绝）。
 - W5通过；冻结与安全路径需独立审查后按现有PR标签协议复验，未改变门禁规则。scheduler预检只增加来源/原因固定枚举诊断，原HOLD/判定/稳定读取/符号链接及容量保护保留；诊断不是修复或放行，需新CI事实定位。
 - 远端旧head曾在Next Google Inter字体加载以及维护scheduler预检失败。字体本地完整构建复验成功；两者仍须最终head远端通过，不能以“既有问题”当作PASS。未合并、未部署、未打发布tag。
+
+最终CI修复源码：`4dd7dd548406d0b18d74a958af4ca394b5fb15c4`；apps/scripts/.github共85个改动路径源指纹 `11eb78a6855395d4a9d743c6899f3407971647ffb0b45d8b50a9e860cf4b08cb`。最终日志哈希与可复现算法见validation-receipt.json；远端CI、合并和实际部署仍待完成。
