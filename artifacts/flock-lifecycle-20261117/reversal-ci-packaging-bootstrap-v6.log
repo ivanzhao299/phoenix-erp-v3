@@ -1,0 +1,19 @@
+CREATE TABLE
+CREATE TABLE
+NOTICE:  relation "brd_farms" already exists, skipping
+CREATE TABLE
+NOTICE:  relation "brd_houses" already exists, skipping
+CREATE TABLE
+NOTICE:  relation "brd_flocks" already exists, skipping
+CREATE TABLE
+NOTICE:  relation "brd_vaccinations" already exists, skipping
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE

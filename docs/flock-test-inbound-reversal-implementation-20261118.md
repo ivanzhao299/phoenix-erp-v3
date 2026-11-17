@@ -96,3 +96,18 @@ S 的最终 Web 也已完成协调方独立运行：真实 LedgerPage/DataTable 
 既有日结日期仍有后续待办：前端默认客户端本地日，服务默认查询与 POST 确认使用 UTC 日；此次新增更正按明确 log_date 分类已测，不等于旧日结确认流程全已统一为新加坡日期。`/api/stocktake/daily-close` 由 `StocktakeController` 真实提供；不能依据 WmsService 内旧注释误判该路径不存在，也不声称 `/api/inventory` 存在同名别名（`apps/api/src/modules/wms/inventory.controller.ts:8,13,19`）。默认/确认日期一致性及新加坡午夜的完整业务验收另行处理，此次元数据补充不修改既有源码。
 
 实际执行仍需：用户批准具体方案及迁移路线；可信批准/财务权威 adapter 与执行契约；执行当日新鲜只读范围预检、版本和完整迁移账本绑定；受控备份与校验回执；必要业务写入围栏及正式受控迁移/发布；随后仅对两条指定批次执行并核对四条正负流水、净更正、正常等级不变及重试回执。任何 UNKNOWN、差异、缺签核或身份不符继续 HOLD，不能靠本地 fixture 权限绕过。
+
+## 9. E 候选远端失败与 CI 模型修复
+
+普通任务分支推送至 `E=6089bf497f107b7a4fb5003fcc95746b4a0700a2` 并保持草稿 PR 后，远端暴露两个失败，不能把 E 报为全绿：
+
+- TypeORM run 44166139805 / job 134332585640：演练固定历史/已审迁移清单漏登记新字典迁移，实际 114 项被预期 113 项拒绝，clean 与 injected 两例均在前置中断。仅向演练的 featureMigrations 显式增加完整 source_file/class_name/effective_name/timestamp tuple；历史 96-member deepEqual、admission 精确身份、唯一性与 expectedTotal 公式全部保留。补充同长度四字段变异、丢 seed、重复及未知历史替换反例，不放宽生产迁移准入。
+- V3 run 44166139780 / job 134332585211：packaging-readiness 的 lean 测试表缺少真实既有 batch_code/source_inbound_no，新引用保护查询因此报 42703。仅补测试模型的 varchar(80) 字段，batch_code 保持 NOT NULL 且各 fixture 显式给 SRC 编码，不加假默认值；移除单例内重复 ADD COLUMN。生产 guard、API/Web、字典 migration 及原断言均不改。日志中另一条 status 缺列是已有 summary 用例刻意 rename-and-reject，保持该负例。
+
+Node 20.20.2 实际验证：纯契约 4/4、真实 owned PG18 clean/injected gate 2/2、原 V3 两套包装 PG 101/101，均 0 skip、exit 0。显式使用 Node20 PATH；默认 Node24 初轮另存，不冒充 CI20。迁移演练在新建的专属 phoenix_ledger_rehearsal 中运行，包装在新建 packaging_test 中运行；没有触碰原 baseline、原事件 fixture 或协调方容器。
+
+包装首次只从冷装 template 克隆时，readiness 已通过，但 protection 因 public.pkg_audit_logs 缺失而总计 93 pass / 8 fail；该轮保留为未通过记录。随后只向新包装 DB 应用未改的 `scripts/ci/api-bootstrap-schema-fixture.sql`（真实 CI 在迁移后执行的 fixture SQL），补齐 CI 模型，再跑两套得到 101/101。没有运行限制 DB/user 名称的 bootstrap wrapper，也不声称该 wrapper 守卫通过；原冷装 UNKNOWN/HOLD 结论不改变。
+
+三处 CI/test 修复冻结回执为 `artifacts/flock-lifecycle-20261117/reversal-ci-repairs-v7-frozen-receipt.json`。相对旧 1204 API 清单仅无关 packaging-readiness.pg.spec.ts 改变；702 个 API 非测试源文件及 7 个 Web 文件逐 hash 未变。原 core70、镜像及 UI8 证据仅在这些明确未变的依赖范围复用；新完整阶段 source fingerprint 与新 HEAD 仍须重新绑定，修复后的远端 CI 不能由本地结果替代。
+
+协调方已独立复跑三项：Node20 纯契约 4/4、真实 clean/injected gate 2/2、两套包装 PG 101/101，全部 0 skip、实际 exit 0；三源、bootstrap SQL、五个演练依赖及全阶段 152 路径前后摘要均匹配。原样独立回执保存为 `reversal-ci-repairs-v7-independent-receipt.json`，SHA-256 `1641118ffeff840d5a8ad0c0769c0eb8a5722579ff70a0698068b4f4aad8c66b`。完整阶段仍按 base4cf→候选、apps/scripts/.github、排序 path+NUL+文件摘要+LF 算法，152 路径指纹为 `3da00704a798f9192ad8b3e6d511c2cdb6f4f3c225750f0a9b9257cf82930ac0`；这不是实际生产回执，也不是旧 E 的失败工作流已转绿。

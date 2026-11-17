@@ -1,0 +1,79 @@
+{
+  "asOf": "2026-11-17T20:16:52.994248+00:00",
+  "baseHead": "6089bf497f107b7a4fb5003fcc95746b4a0700a2",
+  "scope": "TypeORM rehearsal strict inventory only; no production/API/Web code change",
+  "sources": [
+    {
+      "path": "scripts/ci/typeorm-ledger-rehearsal-inventory.mjs",
+      "sha256": "1bd2d742db3e3883b414b512ba99c4db999231f9004d5533a5b4f6afc500d1d9"
+    },
+    {
+      "path": "scripts/ci/typeorm-ledger-runtime-compatibility.test.mjs",
+      "sha256": "e0d21691c748233b6167730a58508f06bb1591889a15a8f19821d9c86a4b1dda"
+    }
+  ],
+  "fingerprintSha256": "c92a2794edc029ba4228d00a32fecd83b88be9eaf25c2b17397d5698a8e7698d",
+  "unchangedDependencies": [
+    {
+      "path": "scripts/ci/typeorm-ledger-rehearsal-historical-inventory.json",
+      "sha256": "bd2c5bf55fd53db6e588e04ce0139f8876b4e6203cb1ab336d52aa0034dc8c90"
+    },
+    {
+      "path": "scripts/ci/run-typeorm-ledger-runtime-compatibility-fixture.mjs",
+      "sha256": "85785dcd68118cb097c150ea4b924c69a92537611cf9a329f17d0ed7dfadc6c8"
+    },
+    {
+      "path": "scripts/ci/ledger-rehearsal-gate.test.mjs",
+      "sha256": "16706080be429a4e7e52df7b277b3103629810f76a97df5d9013456f7b204fd7"
+    },
+    {
+      "path": "scripts/ci/typeorm-migration-inventory.mjs",
+      "sha256": "9e066cdf6b03de80e291e02c974f6a60f129b57ce5a75c880ea52f0a6cc0e4cc"
+    },
+    {
+      "path": "apps/api/src/database/migrations/1794904000000-TempProductionReversalDictSeed.ts",
+      "sha256": "7458a9adfb44318b14972a5ece3643449baf50573342275ed06cca8de63d1050"
+    }
+  ],
+  "runtime": "v20.20.2",
+  "postgres": {
+    "ownedContainer": "phoenix-temp-reversal-20261118",
+    "port": 44889,
+    "database": "phoenix_ledger_rehearsal",
+    "createdOnlyAfterVerifiedAbsent": true,
+    "baselineFixtureAndRootDatabasesUnchanged": true
+  },
+  "compiledInventory": {
+    "members": 114,
+    "canonicalJsonSha256": "1a9e0e3c31d9f80b528352a387270d21c6f426a283e4cb4415f2c9e21932b2c9"
+  },
+  "validation": {
+    "pure": {
+      "testsPassed": 4,
+      "skipped": 0,
+      "exitCode": 0,
+      "log": "artifacts/flock-lifecycle-20261117/reversal-ci-rehearsal-pure-v6-node20.log",
+      "sha256": "9c462a05f4f7a2eea3f341757177538b25b61f934ce5953e8b7f9072cafc0541"
+    },
+    "realGate": {
+      "testsPassed": 2,
+      "skipped": 0,
+      "exitCode": 0,
+      "milliseconds": 4158.285816,
+      "clean": "PASS",
+      "injectedMissingLegacyRow": "BLOCK_AND_NONZERO_ASSERTED",
+      "log": "artifacts/flock-lifecycle-20261117/reversal-ci-rehearsal-real-gate-v6-node20.log",
+      "sha256": "fcdc27ead666ed3f74b16196ea7faec55f66405ae58008fe15cbfd6b35e3b646"
+    }
+  },
+  "originalFailure": {
+    "head": "6089bf497f107b7a4fb5003fcc95746b4a0700a2",
+    "run": 44166139805,
+    "job": 134332585640,
+    "step": 13,
+    "message": "expected 113 pinned historical/reviewed migrations, got 114"
+  },
+  "productionActions": false,
+  "committed": false,
+  "pushed": false
+}

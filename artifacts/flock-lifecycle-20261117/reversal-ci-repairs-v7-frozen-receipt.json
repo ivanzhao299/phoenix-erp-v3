@@ -1,0 +1,699 @@
+{
+  "asOf": "2026-11-17T20:22:06.538957+00:00",
+  "baseHead": "6089bf497f107b7a4fb5003fcc95746b4a0700a2",
+  "scope": "Three CI/test-only repairs, production apply and schema admission unchanged",
+  "sourceFiles": [
+    {
+      "path": "apps/api/src/modules/bff/packaging-readiness.pg.spec.ts",
+      "sha256": "e67360f1b12ecfa0a18b3df9c3ff5dee4f77cf2ef28b8a4c5e0d17e277f4d894"
+    },
+    {
+      "path": "scripts/ci/typeorm-ledger-rehearsal-inventory.mjs",
+      "sha256": "1bd2d742db3e3883b414b512ba99c4db999231f9004d5533a5b4f6afc500d1d9"
+    },
+    {
+      "path": "scripts/ci/typeorm-ledger-runtime-compatibility.test.mjs",
+      "sha256": "e0d21691c748233b6167730a58508f06bb1591889a15a8f19821d9c86a4b1dda"
+    }
+  ],
+  "repairFingerprintSha256": "21189d529d76a479de8d69a880594b53a9621c71f87a89ac41d7617dcac55f69",
+  "fullPhaseSource": {
+    "base": "4cf46971cc1a1a2dba5be30838eaf75369cabf9c",
+    "target": "frozen uncommitted worktree",
+    "scope": [
+      "apps",
+      "scripts",
+      ".github"
+    ],
+    "algorithm": "sorted path+NUL+sha256(file bytes)+LF",
+    "fileCount": 152,
+    "fingerprintSha256": "3da00704a798f9192ad8b3e6d511c2cdb6f4f3c225750f0a9b9257cf82930ac0",
+    "files": [
+      {
+        "path": ".github/workflows/controlled-pending-migration-apply.yml",
+        "sha256": "04a2008c139ba18175a0417e92ed50d5ed6dae683b374e3ec223d327242ebac6"
+      },
+      {
+        "path": ".github/workflows/deploy.yml",
+        "sha256": "33cd28670902ecaff18775daa52ff9e0efbf24aba58029561fcbcbcbee89da4d"
+      },
+      {
+        "path": ".github/workflows/legacy-maintenance-fixture.yml",
+        "sha256": "d3d2787dfa65187cb7091fbce464b3460c1ffbb98558e05cbfda2d70ea0f59dc"
+      },
+      {
+        "path": ".github/workflows/production-readonly-audit.yml",
+        "sha256": "cf3d3d4a8be663b08cc0c3d6d66466728052354aaa92f5ea12f725ed12bc2bcd"
+      },
+      {
+        "path": ".github/workflows/regression.yml",
+        "sha256": "acf3f1f240549e7d067611a2973fe401613a1d26d524a30d7b16fcc78434957d"
+      },
+      {
+        "path": "apps/api/scripts/breeding-regression.sh",
+        "sha256": "2f1c83a0dafdad7b52e4d0f1ce3698de2a6ed07c27da09aae0df6e7048c1d197"
+      },
+      {
+        "path": "apps/api/scripts/packaging-regression.sh",
+        "sha256": "9b828f194d71dd814c6775527c3b7620ff93e8975626ad3b399db2e725ea7207"
+      },
+      {
+        "path": "apps/api/scripts/test_breeding_regression.py",
+        "sha256": "c97e7d9f92a1be15725fa953c2db63dc896df51c082bc8c420145c69c4e66aaf"
+      },
+      {
+        "path": "apps/api/scripts/test_packaging_regression.py",
+        "sha256": "1313ff18b6a897316e0805599056dc63fe9fb489b8d182c65558169cfd15c140"
+      },
+      {
+        "path": "apps/api/src/database/migrations/1794899000000-FlockBaseSchema.ts",
+        "sha256": "31a058522ba54fc00260b03992dedd116c1506b5893a9e5c2b0c5ac841c6e8bd"
+      },
+      {
+        "path": "apps/api/src/database/migrations/1794900000000-FlockLifecycleLedger.ts",
+        "sha256": "d43f5ba9d5d406241e187892a37ba75168261b4856a98ca29b78e00aefe3b277"
+      },
+      {
+        "path": "apps/api/src/database/migrations/1794901000000-FlockProductionProvenance.ts",
+        "sha256": "8d602f9c48b78e84a37340d379050f1abd0645ae90e6f6d0f7e446038e309661"
+      },
+      {
+        "path": "apps/api/src/database/migrations/1794902000000-FlockActivitySources.ts",
+        "sha256": "6d10f83556344e404d3afea1bd0dab3b98610d3ec248b375f015a399d4c7b5e8"
+      },
+      {
+        "path": "apps/api/src/database/migrations/1794903000000-FlockReportCorrection.ts",
+        "sha256": "497d1585ebcdd2d34eeb177f32faaeb9a95cff1540c8e8f1a452bfc4abb4dff0"
+      },
+      {
+        "path": "apps/api/src/database/migrations/1794904000000-TempProductionReversalDictSeed.ts",
+        "sha256": "7458a9adfb44318b14972a5ece3643449baf50573342275ed06cca8de63d1050"
+      },
+      {
+        "path": "apps/api/src/modules/analytics/services/production-analytics.service.ts",
+        "sha256": "0143a0abdc898c83f92e4fd59841afe5b0bdf16e4817c081d34c917912ad9244"
+      },
+      {
+        "path": "apps/api/src/modules/analytics/services/production-localized-names.contract.spec.ts",
+        "sha256": "fd9f8dfd23179a74d27842cbda92ae0fb760a3d83343c205c3dd8301f5e38755"
+      },
+      {
+        "path": "apps/api/src/modules/bff/bff.controller.spec.ts",
+        "sha256": "d43b6ec426ad7aaa2b0687dd60f00bc5e4b434d79aaed4f2ae8af15b957e14ed"
+      },
+      {
+        "path": "apps/api/src/modules/bff/bff.controller.ts",
+        "sha256": "9f7586f38d59333a8412ea8a7cb565561383b0fc4700c1618dbb777e2e439a12"
+      },
+      {
+        "path": "apps/api/src/modules/bff/bff.module.ts",
+        "sha256": "ff485d7a4e56e152e70edcc894f4d5671da5f43b2216b3613fe64fe5385d5c84"
+      },
+      {
+        "path": "apps/api/src/modules/bff/packaging-handover.service.ts",
+        "sha256": "5223a318f77ed664fbb43c1eee57518fddf9acda27ab70c534cd0dd00f0b2314"
+      },
+      {
+        "path": "apps/api/src/modules/bff/packaging-protection.ts",
+        "sha256": "fc6b533cf8e56c7eae1340deb6fbcba7dc2f0a40b54c2fa6b79e743014ada330"
+      },
+      {
+        "path": "apps/api/src/modules/bff/packaging-readiness.pg.spec.ts",
+        "sha256": "e67360f1b12ecfa0a18b3df9c3ff5dee4f77cf2ef28b8a4c5e0d17e277f4d894"
+      },
+      {
+        "path": "apps/api/src/modules/bff/packaging-readiness.ts",
+        "sha256": "e297a214d3f73f25c5e03fe1a331435c27e0c71ad1dab3a25cdec5a343724836"
+      },
+      {
+        "path": "apps/api/src/modules/chanjet/chanjet-execution-transport.spec.ts",
+        "sha256": "b210e3e76da6fc546930832099a666f2e066e6c463a6b983944d5fc8f64f947b"
+      },
+      {
+        "path": "apps/api/src/modules/farm/daily-stock-policy.ts",
+        "sha256": "8b59dc96bca987744202249de2df053b8c668608b8f39510fbf97bd50eafd4b6"
+      },
+      {
+        "path": "apps/api/src/modules/farm/farm-medicine.service.ts",
+        "sha256": "ebdb620366eae9e6bc22ccd7f8a84eb587802fa9de242d4884adc5606ccd3afe"
+      },
+      {
+        "path": "apps/api/src/modules/farm/farm-pending-notification.pg.spec.ts",
+        "sha256": "19d8cb1a8dc3315a879291e11d97ca3dccbb68db2f3695e8f13d493dccbf63ee"
+      },
+      {
+        "path": "apps/api/src/modules/farm/farm.controller.ts",
+        "sha256": "93834242f4ce02be19e7b908f84499a22d940acdc1c4acf03aefe296d0e1cc27"
+      },
+      {
+        "path": "apps/api/src/modules/farm/farm.module.ts",
+        "sha256": "f1453d2ac9ee9dcb15e1c8bb34ddffa992cc3eddc746b560d5bb2a7402817863"
+      },
+      {
+        "path": "apps/api/src/modules/farm/farm.service.spec.ts",
+        "sha256": "a498e28c7afea6d625dd8100bf2bdae507cf1629514e18bfa9ed29d5128357db"
+      },
+      {
+        "path": "apps/api/src/modules/farm/farm.service.ts",
+        "sha256": "b032cc398eaf7da88581354c04fd9f15eef56695f67115d93114866ba1e68708"
+      },
+      {
+        "path": "apps/api/src/modules/farm/flock-activity-source.ts",
+        "sha256": "8ed51d80d474b59ba0fd9567dc7caa6d049e24af8bf768e1052aac3dd4a14919"
+      },
+      {
+        "path": "apps/api/src/modules/farm/flock-downstream.pg.spec.ts",
+        "sha256": "70ac703b039a788f96df7dbcce76ff54937a6501f8ede15337b4c7dbf6f70621"
+      },
+      {
+        "path": "apps/api/src/modules/farm/flock-ledger.pg.spec.ts",
+        "sha256": "f72aac2549ea79ea62009318acb36330cf08a0cdd72efd06e6e8d9a95d8279de"
+      },
+      {
+        "path": "apps/api/src/modules/farm/flock-lifecycle-daily.ts",
+        "sha256": "cadf8d46679140664fb4285289b67e16d0da9240741b9f7b01c4f18fe85a1647"
+      },
+      {
+        "path": "apps/api/src/modules/farm/flock-lifecycle-http.pg.spec.ts",
+        "sha256": "8f202843ded9d4129f90102078c1dcaaabe753a50d3df644a935f6c298e8fa87"
+      },
+      {
+        "path": "apps/api/src/modules/farm/flock-lifecycle.controller.ts",
+        "sha256": "58ae236703ccc2b05c116b79da473be54fbb837a002d131e436f5a191796eec1"
+      },
+      {
+        "path": "apps/api/src/modules/farm/flock-lifecycle.pg.spec.ts",
+        "sha256": "0e699b090030019a16977cdca48737bddc761e66d6040c94f2e9de5ce2e6f26b"
+      },
+      {
+        "path": "apps/api/src/modules/farm/flock-lifecycle.service.ts",
+        "sha256": "26a87ae01e9c1823d8575e0be7c105de8c8b4fb70222f6ced24e53ef37941b76"
+      },
+      {
+        "path": "apps/api/src/modules/farm/flock-production-source.ts",
+        "sha256": "3ebee431826b1f05c83036a8a7bfb3ae48066750c9880ec883840699bb08c813"
+      },
+      {
+        "path": "apps/api/src/modules/farm/immune.service.spec.ts",
+        "sha256": "356b52c7c3e450e0ca965a2c4e518e34719577da7e95cac8a5d46a742dab93ad"
+      },
+      {
+        "path": "apps/api/src/modules/farm/immune.service.ts",
+        "sha256": "41ac7f9803f83d812deacb1d5352b8b253f619fe075cc7b58fe115f29b5d1433"
+      },
+      {
+        "path": "apps/api/src/modules/farm/medication-record.service.ts",
+        "sha256": "e6ae688009b60967d2765eb397205a0f445c9072c5021edf0fede7edd89bc8b6"
+      },
+      {
+        "path": "apps/api/src/modules/file/file-access.service.ts",
+        "sha256": "24027d264a9a44c7d6479dca3064ddd9b584211505c24d203c2209bb6f111ee3"
+      },
+      {
+        "path": "apps/api/src/modules/generic-crud/flock-safety.spec.ts",
+        "sha256": "8b4c1b1f2755cfd2c7fd8d4e542c0d5f313539cb15e2031fac454a7b6c7dddf4"
+      },
+      {
+        "path": "apps/api/src/modules/generic-crud/flock-write-policy.spec.ts",
+        "sha256": "de8a79f618625fc74773ca89ecf58b50584bc8071d4cce560c66449a937f62a6"
+      },
+      {
+        "path": "apps/api/src/modules/generic-crud/flock-write-policy.ts",
+        "sha256": "ce2a2c7deb6e57cfdeada06b564b721d3460cf9f1559d985ddd2456e9c36769b"
+      },
+      {
+        "path": "apps/api/src/modules/generic-crud/generic-crud.controller.spec.ts",
+        "sha256": "fe6fd90cd40c4bc3e5ee0413631088052d07bfbe62a580372df53da74da91f7b"
+      },
+      {
+        "path": "apps/api/src/modules/generic-crud/generic-crud.controller.ts",
+        "sha256": "c2282153de781c6fd58ce3dddd9cc84730842d83cc045d7e23f6b9209dcd9814"
+      },
+      {
+        "path": "apps/api/src/modules/generic-crud/generic-crud.service.ts",
+        "sha256": "a2885d1d3168f6de9c6d0ce89a5794a03855faf09fa3b014d3811ea27fd14e2b"
+      },
+      {
+        "path": "apps/api/src/modules/generic-crud/henhouse-write-policy.ts",
+        "sha256": "2a4a357e9cc22503cbed1ddfa501b01b9a712505e0f6e503117422cd3996d42d"
+      },
+      {
+        "path": "apps/api/src/modules/iot/mon-device.service.ts",
+        "sha256": "39af300fd06ac44fd4a1d81653f02989b5495b3838200747e1894e3bef9869b5"
+      },
+      {
+        "path": "apps/api/src/modules/product-master/services/quantity-contract.ts",
+        "sha256": "9c02fbf868204838f79eb71b6db9fe8b6d881519bdfd5cbeb9484f933f668161"
+      },
+      {
+        "path": "apps/api/src/modules/product-master/services/sku-availability.service.spec.ts",
+        "sha256": "53a07cd9f167bb45baf0c4864f250c6c699bb2c3a658bf79846a96e0f2d14cb4"
+      },
+      {
+        "path": "apps/api/src/modules/product-master/services/sku-availability.service.ts",
+        "sha256": "c726afe61df179bf86ae8b127e8fc8724bf2011633eaf13e6dd69e1c3c1ffaea"
+      },
+      {
+        "path": "apps/api/src/modules/quality/quality.service.ts",
+        "sha256": "027b949037697abe3ae5cf0971509b868c4d133324fb1d468e4689756dfe0bc6"
+      },
+      {
+        "path": "apps/api/src/modules/sales-v2/services/egg-inventory.service.spec.ts",
+        "sha256": "c55724f047fac9973a6178688e5b8d1bda8929ad247e855cc32c896c45c4a292"
+      },
+      {
+        "path": "apps/api/src/modules/sales-v2/services/egg-inventory.service.ts",
+        "sha256": "bfcd8d40f3a13ff097f0e766ae259371d5b177aab4e863036174799e8f2d851f"
+      },
+      {
+        "path": "apps/api/src/modules/sales-v2/services/production-inbound.pg.spec.ts",
+        "sha256": "aba2b57268955d6c6f5ffb4ae54e6290617fcda879bbcda0a792c92ebd3463b6"
+      },
+      {
+        "path": "apps/api/src/modules/sales-v2/services/production-inbound.service.spec.ts",
+        "sha256": "b075e6617e6f059f9095a594cd549a7cdf0440da769c536fd2a842b937e03231"
+      },
+      {
+        "path": "apps/api/src/modules/sales-v2/services/production-inbound.service.ts",
+        "sha256": "81bb859b6578998c15b35888cd2d8212756d5b5309919a0f25e713a00dac1b66"
+      },
+      {
+        "path": "apps/api/src/modules/terminal/labels.service.ts",
+        "sha256": "c24879cca1d0da0be66efbb961611ed2c434ef9fe82a48afe63ba5625cee9f9c"
+      },
+      {
+        "path": "apps/api/src/modules/terminal/packaging.service.ts",
+        "sha256": "29af44159d5d1813ea11d3a1294b27b9712a9d9fc85b9806fd811ce7fdd00780"
+      },
+      {
+        "path": "apps/api/src/modules/traceability/traceability.controller.ts",
+        "sha256": "58375b26f0cf3ffec52abac42823d6b826ea47d2b3f898950237164988be3be9"
+      },
+      {
+        "path": "apps/api/src/modules/traceability/traceability.service.ts",
+        "sha256": "126157a429d2142c7f745f0fd8b48cdebfed125142d48a14a44422ea87594d38"
+      },
+      {
+        "path": "apps/api/src/modules/upload/upload.controller.ts",
+        "sha256": "0b2fd568d5a38af31b555a63f6b74da7d326f4932b5e17bfa41d9d96020dc172"
+      },
+      {
+        "path": "apps/api/src/modules/wms/inv-ledger-change-types.ts",
+        "sha256": "4688855d524b7bb9add4c26672ac93d8eda5e2d30d77c210093b447261d7acdf"
+      },
+      {
+        "path": "apps/api/src/modules/wms/inventory-ledger.writer.spec.ts",
+        "sha256": "6c44aa5fd3d4a17eb6776a765f65927269a287019ce4a7771df361c599df237d"
+      },
+      {
+        "path": "apps/api/src/modules/wms/inventory-ledger.writer.ts",
+        "sha256": "3da78d5bddcb348dd80f935bea1ede4176a18174bd309721302d16ffb2a7a3ff"
+      },
+      {
+        "path": "apps/api/src/modules/wms/temp-production-reversal-case.pg.spec.ts",
+        "sha256": "44b53a49301bb33d53b6ea8e1a9bb65db39be5a6c266efc5a26e4d8d2da907b8"
+      },
+      {
+        "path": "apps/api/src/modules/wms/temp-production-reversal-case.ts",
+        "sha256": "a669382d8889e10b3bae6ccb21be70aba32c774897d01b77f6f42d44182a9e59"
+      },
+      {
+        "path": "apps/api/src/modules/wms/temp-production-reversal.pg.spec.ts",
+        "sha256": "0ca281866bbf011baf44078c0ee0a92a326ac41cf64a7bfd9c6279a6f8c7947e"
+      },
+      {
+        "path": "apps/api/src/modules/wms/temp-production-reversal.spec.ts",
+        "sha256": "7b954d4a767ac824924fc03d52a791599f168916d82a7d8267c8d12b6e976c3e"
+      },
+      {
+        "path": "apps/api/src/modules/wms/temp-production-reversal.ts",
+        "sha256": "87d13575c4bfc7ad403f3bc21293a40b73f6fd2b0a92a99539d8c91b3b70f607"
+      },
+      {
+        "path": "apps/api/src/modules/wms/wms-company-context.spec.ts",
+        "sha256": "edcd4b5ba333fbb3e1cf9923c2d8a46f6a98967b3de228c77a9e117b06ede04f"
+      },
+      {
+        "path": "apps/api/src/modules/wms/wms.service.ts",
+        "sha256": "fb05f0231df9fbf3db8291d22752012473cbcaced985019418bc08c7d5011323"
+      },
+      {
+        "path": "apps/api/src/scripts/temp-production-reversal-case.ts",
+        "sha256": "f242183b8655667c2daab3a883cb129632d2cb2f0c0eaac3e0149aad23ff10cc"
+      },
+      {
+        "path": "apps/api/src/test-fixtures/flock-business-clock.ts",
+        "sha256": "a3f3545f6b94899bd1f3ff55b03fd902dd38ba7054a5475c46ecb21e4454e1e0"
+      },
+      {
+        "path": "apps/web/e2e/sitewide-i18n-hydrator.spec.ts",
+        "sha256": "91820ff0d13fd4ba6e17d126758e0cda86fe904d8a263e8957da05480fd9243c"
+      },
+      {
+        "path": "apps/web/public/fonts/inter/19cfc7226ec3afaa-s.woff2",
+        "sha256": "46dd4cdca58c26ae87cc6927657bf83b2e8abfc39ffd0ab176e301a8d28d22bf"
+      },
+      {
+        "path": "apps/web/public/fonts/inter/21350d82a1f187e9-s.woff2",
+        "sha256": "aebf2ab4a4ce6810d73c1ac7be7cafb4e5ec4cee2d6db5fb3e09691747ec4bd6"
+      },
+      {
+        "path": "apps/web/public/fonts/inter/8e9860b6e62d6359-s.woff2",
+        "sha256": "a28eb6d3ccb534ae0c94ca999371df024aab60b08c3c8a5720ee9e32fa0faaa2"
+      },
+      {
+        "path": "apps/web/public/fonts/inter/OFL.txt",
+        "sha256": "5b9321a4298cfeb6b34354164a1c3afc3db114569984c502b9b35d988fd58c57"
+      },
+      {
+        "path": "apps/web/public/fonts/inter/ba9851c3c22cd980-s.woff2",
+        "sha256": "fccca918fea40089dacadc7045861314d1a6bc91f1f323cc1eeb22ebcdb321b5"
+      },
+      {
+        "path": "apps/web/public/fonts/inter/c5fe6dc8356a8c31-s.woff2",
+        "sha256": "a2e2c783ca6f9c20486e81e72a279203e86730bbf8f01ff6a5ee9dbd09e1c271"
+      },
+      {
+        "path": "apps/web/public/fonts/inter/df0a9ae256c0569c-s.woff2",
+        "sha256": "8db00ff46c67b22cda8bed865acf7077651cac8d2841d5b40980556b48961931"
+      },
+      {
+        "path": "apps/web/public/fonts/inter/e4af272ccee01ff0-s.p.woff2",
+        "sha256": "c940764593d0fe5d596be327ca7558855e018039fb78509aa21921fd3644c3e4"
+      },
+      {
+        "path": "apps/web/public/fonts/inter/source.json",
+        "sha256": "8b6915c837ba04b40ab5a9a1653ac51c2143a16fc12c1cc47e3e2d795b22092f"
+      },
+      {
+        "path": "apps/web/src/__tests__/attachments.test.ts",
+        "sha256": "d91169724916a2063c791d9e4e0e657bea2580bbcf1756f5f354a3fbca8091da"
+      },
+      {
+        "path": "apps/web/src/__tests__/warehouse-reversal-summary.dom.test.tsx",
+        "sha256": "cd11aad5bc821477bc2f5e9d26056918cae4585f0e27fa88b95f66b2e3e5ff6e"
+      },
+      {
+        "path": "apps/web/src/app/(admin)/breeding/daily/page.tsx",
+        "sha256": "4a020bbc98186114173647b3a14baaaa822baa4cf3be47e0f496af9ec5b52e48"
+      },
+      {
+        "path": "apps/web/src/app/(admin)/breeding/device/[houseCode]/page.tsx",
+        "sha256": "7b2d914a9a178a377d933f24ae97d375f41561463fd4ba6f74086964538c645d"
+      },
+      {
+        "path": "apps/web/src/app/(admin)/breeding/flock-lifecycle/page.tsx",
+        "sha256": "b142f70237d1cb47477c317a6d627dcbb4a2144c4a257e452668c6a2452bfe70"
+      },
+      {
+        "path": "apps/web/src/app/(admin)/breeding/flock/page.tsx",
+        "sha256": "e69e671f7252f7b44b0d84d116bc901a373e81122d9aecf9ea952b43e5f8d4f2"
+      },
+      {
+        "path": "apps/web/src/app/(admin)/breeding/henhouse/page.tsx",
+        "sha256": "17acbf47e4e1edaa3475b1110355d5aa1c2345f03f0f86a7e8f78f361d6932fc"
+      },
+      {
+        "path": "apps/web/src/app/(admin)/layout.tsx",
+        "sha256": "5111477bd9cc1219bc2f3ea68a397badc29b95496f9ebc12d5c854d02fe84059"
+      },
+      {
+        "path": "apps/web/src/app/(admin)/traceability/page.tsx",
+        "sha256": "b4572341c50fc3272646803f2bfa8b7bf66e3e8382def1ddcbfc87adcd0c7cbc"
+      },
+      {
+        "path": "apps/web/src/app/(admin)/warehouse/daily-close/page.tsx",
+        "sha256": "f0a7062d4a1f31deded3d3fcb9ceab9553c905c6a029a70d75b4603db0187a0a"
+      },
+      {
+        "path": "apps/web/src/app/(admin)/warehouse/ledger/page.tsx",
+        "sha256": "661208d10d72a0a5ea44d7bb53c1938b9f6de97f84a36c9eb0766f86bf5740ba"
+      },
+      {
+        "path": "apps/web/src/app/(mobile)/mobile/flock-lifecycle/page.tsx",
+        "sha256": "b142f70237d1cb47477c317a6d627dcbb4a2144c4a257e452668c6a2452bfe70"
+      },
+      {
+        "path": "apps/web/src/app/(mobile)/mobile/mortality/page.tsx",
+        "sha256": "fff909c9b55f5ef778375901ee3e7f8ed9c943e13cc0cb95201aa78d8e3d55df"
+      },
+      {
+        "path": "apps/web/src/app/inter.css",
+        "sha256": "cc8eafeadc4317e6b5d2b02bbe602e088a74e2f4067f3895d11c85cc6fef7425"
+      },
+      {
+        "path": "apps/web/src/app/layout.tsx",
+        "sha256": "063a921422a1582239a8a88a8489f41c705f3d8601a02a803bb43986c5f271af"
+      },
+      {
+        "path": "apps/web/src/components/FlockLifecycle.module.css",
+        "sha256": "c177d42618a0ce1b78667f75d7b15c9c4dcff854f8fda48d773ba378d54dd268"
+      },
+      {
+        "path": "apps/web/src/components/FlockLifecycle.tsx",
+        "sha256": "5384556f29518dd710f90492c578b9a2aa5bbe246e5138d30c3585165756e0af"
+      },
+      {
+        "path": "apps/web/src/components/design-system/forms/AttachmentUploader.tsx",
+        "sha256": "0d0350e1c17d39c735775237125e8f66e369c21cc1986e5ccecbab5c19bd18f1"
+      },
+      {
+        "path": "apps/web/src/components/layout/Sidebar.tsx",
+        "sha256": "298d4b072d403950b776389589ae829850e73786cfc190286b92f63d5b92252b"
+      },
+      {
+        "path": "apps/web/src/components/shared-selectors/DictSelect.tsx",
+        "sha256": "a9fa75f1c73896f95fb76337d30bc9a9e48b6f28e06b2db5ffd70ddd2558839d"
+      },
+      {
+        "path": "apps/web/src/components/shared-selectors/MasterDataSelectors.tsx",
+        "sha256": "1c7074368dad9f6f6114a1d6546324741200fb3f50af971b34f4fc67c95640b7"
+      },
+      {
+        "path": "apps/web/src/lib/attachments.ts",
+        "sha256": "d5b00f0faf5887863313ed26ba03dd4f4df7ca4e3557747abd3d1880257e62d6"
+      },
+      {
+        "path": "apps/web/src/lib/mobile-api.ts",
+        "sha256": "3a7fac2f359576320694a638581a9a70c9560ba1b8fae907a7fa04af716d7c55"
+      },
+      {
+        "path": "apps/web/src/lib/warehouse-ledger-change-type.ts",
+        "sha256": "041d9cf9ab7f5a6acd0c4e6f3a524b480dc68f8968debea2c73c3bb2623e7d85"
+      },
+      {
+        "path": "apps/web/src/locales/en.json",
+        "sha256": "5bb726a322ec8f02900dfa70af0d27c6b979ffa1d0ec13e6b310cca67fd4c031"
+      },
+      {
+        "path": "apps/web/src/locales/lo.json",
+        "sha256": "9d54043ad47992f6f35536e53c37233fee81cda6ab41547736d54f1c14ead135"
+      },
+      {
+        "path": "apps/web/src/locales/zh.json",
+        "sha256": "c80575b9f977aa267dab90d1fa5f7a469c64a35995e85e681a4a24f366b9c56e"
+      },
+      {
+        "path": "scripts/ci/maintenance-full-first-switch.fixture.mjs",
+        "sha256": "fc67ba175e757231b55d5e8fab20c863fd47533dbcc974062ccc82c6399adc31"
+      },
+      {
+        "path": "scripts/ci/maintenance-isolated-business-recorder.test.mjs",
+        "sha256": "921f1ca4b375cdefb3e2b972c4c23e051e0b6ba85b1ef87f77fb32458dad2cfe"
+      },
+      {
+        "path": "scripts/ci/maintenance-scheduler-link-observation.mjs",
+        "sha256": "acc9fbe88fd40f9b03b1cbdf1f95bdc65a3c5ec11de54055ac09f70ae1d3a12b"
+      },
+      {
+        "path": "scripts/ci/maintenance-scheduler-link-observation.test.mjs",
+        "sha256": "8fb78839c5676e0203c18177c1377856da63cdb0b1af7be27267b481018d678f"
+      },
+      {
+        "path": "scripts/ci/typeorm-ledger-rehearsal-inventory.mjs",
+        "sha256": "1bd2d742db3e3883b414b512ba99c4db999231f9004d5533a5b4f6afc500d1d9"
+      },
+      {
+        "path": "scripts/ci/typeorm-ledger-runtime-compatibility.test.mjs",
+        "sha256": "e0d21691c748233b6167730a58508f06bb1591889a15a8f19821d9c86a4b1dda"
+      },
+      {
+        "path": "scripts/ops/audit-daily-egg-inbound.mjs",
+        "sha256": "133c9a65178376494729bc350f661e81f7184773e8175814900db58bc55d8f2a"
+      },
+      {
+        "path": "scripts/ops/audit-daily-egg-inbound.test.mjs",
+        "sha256": "4c1cb5483c95e10ea35ac71c58421445669ac0e7d447298e883cdb0cd18ccf69"
+      },
+      {
+        "path": "scripts/ops/background-control-coordinator.mjs",
+        "sha256": "35ac5620c84b104b46cd9488c09c9cb982c8e15f2130fd309204bc687dd59435"
+      },
+      {
+        "path": "scripts/ops/background-control-legacy-transition.mjs",
+        "sha256": "26f6b551d3203109e480e798c758db379594b811340325b905fef8b467d84459"
+      },
+      {
+        "path": "scripts/ops/background-control-manifest.mjs",
+        "sha256": "e289edc9f51ee4ecda4812e03cfbe3c8c807c599829a31ac47084b4d7fbd672b"
+      },
+      {
+        "path": "scripts/ops/background-control-pg.test.mjs",
+        "sha256": "c8079b46990f1842413e39b7172ebd129a337e9896e4af7dc2f594743be46dac"
+      },
+      {
+        "path": "scripts/ops/background-deployment-session.mjs",
+        "sha256": "4ff8c6f5ba736436c7f45adb170aa89e80e5b1c37cd16055d76868f03def0e01"
+      },
+      {
+        "path": "scripts/ops/background-deployment-session.test.mjs",
+        "sha256": "9130f3f6a27951608efdc0f4366122ea3813ca24e72db4277bc40fe7daa66174"
+      },
+      {
+        "path": "scripts/ops/flock-lifecycle-diagnostic.cjs",
+        "sha256": "3bd4a4e05edbaf080a155c38e5cdc1eb4b974585a0f674abfa00cfb56edd0927"
+      },
+      {
+        "path": "scripts/ops/pending-migration-backup-paths.mjs",
+        "sha256": "2c1ff55d7cbbfff1add071c353e5e17c4863b256b31d0d8a0b01225588c72311"
+      },
+      {
+        "path": "scripts/ops/phoenix-production-compose.mjs",
+        "sha256": "5be25294887910b1b3fb57829e50997a01f0b174536f6ce9c726605566931cea"
+      },
+      {
+        "path": "scripts/ops/production-maintenance-backup-paths.test.mjs",
+        "sha256": "d12ac087f5a7497e2b57f8a6d451ad32f10c9a01d845d6ff533a1a2ebff5cc92"
+      },
+      {
+        "path": "scripts/ops/production-maintenance-pending-backup.test.mjs",
+        "sha256": "2f7394345d104ba3a28c5541105b6e549f933d1634d338313583782d7e973ee7"
+      },
+      {
+        "path": "scripts/ops/production-maintenance-readonly-inputs.test.mjs",
+        "sha256": "2655e4b7a6226c7c334d860a76f47e2bc151216cc563272e6c0b56e7f8985ff2"
+      },
+      {
+        "path": "scripts/ops/production-maintenance-root-readers.mjs",
+        "sha256": "3dd75bdd4cdfe12ec3d305d44eb76bfe960174d16379d6ab159676f8e32be2bf"
+      },
+      {
+        "path": "scripts/ops/production-maintenance-scheduler-inventory.test.mjs",
+        "sha256": "c13bbe6f9305447a29b1cfbd5a8035415d14cb818a27a3afe4b7c474e2934cf9"
+      },
+      {
+        "path": "scripts/ops/production-maintenance-vendor-fragment.test.mjs",
+        "sha256": "9059df2b8eccf2dc4b0a9ab95a4089a838f7106f1b6f2cb6c9d53883dbfe1fad"
+      },
+      {
+        "path": "scripts/ops/production-trusted-paths.mjs",
+        "sha256": "98c01ad1dd94980aa1d9a0001224bfad8ef0c9149f2fd0734d220dc2dada3dfb"
+      },
+      {
+        "path": "scripts/ops/promote-production-config-floor.contract.test.mjs",
+        "sha256": "cef590bf73333a2d4cd01f1d7ba2804aac979d83afbc69c93cc1ebd0ce17a7d0"
+      },
+      {
+        "path": "scripts/ops/readonly-audits/daily-egg-grade-evidence-20261117.sql",
+        "sha256": "09c6cc77db256b2d7441d923dd5cf0bdef165418fe53ec8aa1a6f8a6676cc3fd"
+      },
+      {
+        "path": "scripts/ops/reconcile-background-control.contract.test.mjs",
+        "sha256": "339a4335c16324f5f52dc163154e2c690ac2ef167ce5ff19702ef5834ed68943"
+      },
+      {
+        "path": "scripts/ops/reconcile-background-control.mjs",
+        "sha256": "b283f8d7e2ff00661107e14b3ad26ed496c49b81bfeebc8b573bc877c25ef521"
+      },
+      {
+        "path": "scripts/ops/run-production-readonly-audit.sh",
+        "sha256": "4f458d882ac81918ddea2c7ac16439245a142a79b81fb84df62d3b3cf18761b8"
+      },
+      {
+        "path": "scripts/test/flock-browser-appearance.cjs",
+        "sha256": "45957e5602595395959330780ff2ee1a648c03760510978090b607a9ce8c16eb"
+      },
+      {
+        "path": "scripts/test/flock-browser.cjs",
+        "sha256": "a31501b9dee52f3426bd97d9d72ca7a6a0bcfe24f8c12b8dfd9629714d7670cb"
+      },
+      {
+        "path": "scripts/test/flock-migration-compatibility.cjs",
+        "sha256": "3ac02ac443d82db0243e464d8873b67f2cbcb25f0356eaaf278e419088068bf3"
+      },
+      {
+        "path": "scripts/test/flock-reanchor-api.cjs",
+        "sha256": "f96eeaa1e1fa21403b8f79cd11bac651090f0af687958c675e675f88f04b000a"
+      },
+      {
+        "path": "scripts/test/flock-reanchor-compose-body.mjs",
+        "sha256": "4603212718799e1d08445540e120a356303ebef76157d9a6923a445a0d6f1976"
+      },
+      {
+        "path": "scripts/test/flock-reanchor-compose.mjs",
+        "sha256": "2e82d9f140c60a7d9b85397e3b21d78092f00897dae3145fde3d81d17efc2b7c"
+      },
+      {
+        "path": "scripts/test/temp-production-reversal-baseline.cjs",
+        "sha256": "c192a6b53ad6f4e7ed04f9e49d56664eb53b651b61c7eccea30668673a9ebc18"
+      }
+    ]
+  },
+  "apiDeltaFromIndependentlyVerified1204": [
+    "apps/api/src/modules/bff/packaging-readiness.pg.spec.ts"
+  ],
+  "unchangedApiProductionSource": {
+    "fileCount": 702,
+    "fingerprintSha256": "7936bb1650acb19ef1204557f0f1a8b05a37d319c4ed2de2137775d082238cb7",
+    "allHashesMatch": true
+  },
+  "web7Unchanged": true,
+  "core70ProofReusedOnlyForUnchangedDependencies": true,
+  "runtime": "v20.20.2",
+  "packagingFixture": {
+    "container": "phoenix-temp-reversal-20261118",
+    "database": "packaging_test",
+    "port": 44889,
+    "createdAfterVerifiedAbsent": true,
+    "coldTemplate": "phoenix_temp_reversal_baseline_v2",
+    "baselineModified": false,
+    "ciBootstrapSql": "scripts/ci/api-bootstrap-schema-fixture.sql",
+    "ciBootstrapSqlSha256": "5754339dd076e930788f7c70f695028c2ba5405eaab6e935aad674c6706ad067",
+    "setupAppliedExactSqlViaOwnedDockerPsql": true,
+    "bootstrapWrapperRun": false,
+    "setupLog": "artifacts/flock-lifecycle-20261117/reversal-ci-packaging-bootstrap-v6.log",
+    "setupLogSha256": "8dd437dcd4d5f0d1400bf831810168dc5a07de500ba5b623a8c4036c13e731f2",
+    "testsPassed": 101,
+    "suitesPassed": 2,
+    "skipped": 0,
+    "exitCode": 0,
+    "seconds": 12.656,
+    "log": "artifacts/flock-lifecycle-20261117/reversal-ci-packaging-v7-node20.log",
+    "logSha256": "def54c79bc70997af90b6130f65903c508452ac197b9997b0f676711dcd99140",
+    "statusMissingColumn": "Deliberate existing rename-and-reject counterexample retained unchanged"
+  },
+  "typeormReceipt": {
+    "path": "artifacts/flock-lifecycle-20261117/reversal-ci-rehearsal-v6-frozen-receipt.json",
+    "sha256": "258e16b9bf57ee7e0021aef0ab96511219bb901e4b905a4e30630c786b872cd5",
+    "purePass": 4,
+    "realGatePass": 2,
+    "skipped": 0,
+    "exitCode": 0
+  },
+  "historicalFailedRuns": {
+    "head": "6089bf497f107b7a4fb5003fcc95746b4a0700a2",
+    "typeormRun": 44166139805,
+    "typeormJob": 134332585640,
+    "v3Run": 44166139780,
+    "v3Job": 134332585211
+  },
+  "initialLocalPackagingAttempt": {
+    "log": "artifacts/flock-lifecycle-20261117/reversal-ci-packaging-v6-node20.log",
+    "passed": 93,
+    "failed": 8,
+    "reason": "Cold-only template lacked CI public.pkg_audit_logs; not a source failure or successful full run"
+  },
+  "productionActions": false,
+  "committed": false,
+  "pushed": false
+}

@@ -63,3 +63,29 @@ test('historical rehearsal accepts only its pinned 96 classes and the exact sepa
   assert.throws(() => partitionRehearsalInventory([...historical.slice(1),historical[1],admissionMigration]));
 });
 
+test('the reviewed reversal seed has an exact tuple and cannot hide unknown or changed inventory members', () => {
+  const historical = JSON.parse(fs.readFileSync('scripts/ci/typeorm-ledger-rehearsal-historical-inventory.json','utf8')).entries;
+  const seed = featureMigrations.find(entry => entry.timestamp === 1794904000000);
+  assert.deepEqual(seed, {
+    source_file: 'apps/api/dist/database/migrations/1794904000000-TempProductionReversalDictSeed.js',
+    class_name: 'TempProductionReversalDictSeed1794904000000',
+    effective_name: 'TempProductionReversalDictSeed1794904000000',
+    timestamp: 1794904000000,
+  });
+  const current = [...historical, admissionMigration, ...featureMigrations];
+  assert.equal(partitionRehearsalInventory(current).history.length, 96);
+  for (const change of [
+    { source_file: 'apps/api/dist/database/migrations/unreviewed.js' },
+    { class_name: 'Unreviewed1794904000000' },
+    { effective_name: 'Unreviewed1794904000000' },
+    { timestamp: 1794904000001 },
+  ]) {
+    const substituted = current.map(entry => entry === seed ? { ...entry, ...change } : entry);
+    assert.throws(() => partitionRehearsalInventory(substituted));
+  }
+  assert.throws(() => partitionRehearsalInventory(current.filter(entry => entry !== seed)));
+  assert.throws(() => partitionRehearsalInventory([...current, seed]));
+  assert.throws(() => partitionRehearsalInventory(current.map(entry => entry === historical[0] ? historical[1] : entry)));
+  assert.throws(() => partitionRehearsalInventory(current.map(entry => entry === historical[0] ? { ...entry, effective_name: 'UnknownHistoricalName' } : entry)));
+});
+

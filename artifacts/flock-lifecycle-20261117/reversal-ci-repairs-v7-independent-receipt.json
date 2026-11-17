@@ -1,0 +1,60 @@
+{
+  "source": "Root independent actual Node20 execution, local owned PG18 only",
+  "baseHead": "6089bf497f107b7a4fb5003fcc95746b4a0700a2",
+  "v7ReceiptSha256": "f00087d75aed90edf24175eeb9b296e27264dbc0bbb69437521a87262ea4bd9c",
+  "sourceBeforeAfterMatch": true,
+  "fullPhaseFiles": 152,
+  "fullPhaseFingerprint": "3da00704a798f9192ad8b3e6d511c2cdb6f4f3c225750f0a9b9257cf82930ac0",
+  "results": [
+    {
+      "name": "pure",
+      "exit": 0,
+      "seconds": 0.069,
+      "runtime": "v20.20.2",
+      "sha256": "94245e4ba28fc372fdcf145acf60ac1ee8a5205b4b8489a0643e59b562ede3e7",
+      "log": "/home/jinhuit/PhenixCodebase/phoenix-erp-v3/.worktrees/flock-lifecycle-review-20261117/artifacts/flock-lifecycle-supervision-20261117/ci-repairs-v7-independent-7dw83hoj/pure.log",
+      "command": [
+        "node",
+        "--test",
+        "scripts/ci/typeorm-ledger-runtime-compatibility.test.mjs"
+      ]
+    },
+    {
+      "name": "gate",
+      "exit": 0,
+      "seconds": 4.343,
+      "runtime": "v20.20.2",
+      "sha256": "20b22099932295d04ac27e73a468717663b987b6714001359000891349ba5895",
+      "log": "/home/jinhuit/PhenixCodebase/phoenix-erp-v3/.worktrees/flock-lifecycle-review-20261117/artifacts/flock-lifecycle-supervision-20261117/ci-repairs-v7-independent-7dw83hoj/gate.log",
+      "command": [
+        "node",
+        "--test",
+        "scripts/ci/ledger-rehearsal-gate.test.mjs"
+      ]
+    },
+    {
+      "name": "packaging",
+      "exit": 0,
+      "seconds": 16.633,
+      "runtime": "v20.20.2",
+      "sha256": "fcc92f7f151efc31e381376e5e2e7c15a3d934f6d1130c7b79c8981168ac061b",
+      "log": "/home/jinhuit/PhenixCodebase/phoenix-erp-v3/.worktrees/flock-lifecycle-review-20261117/artifacts/flock-lifecycle-supervision-20261117/ci-repairs-v7-independent-7dw83hoj/packaging.log",
+      "command": [
+        "./node_modules/.bin/jest",
+        "--runInBand",
+        "--cacheDirectory",
+        "/home/jinhuit/PhenixCodebase/phoenix-erp-v3/.worktrees/flock-lifecycle-review-20261117/artifacts/flock-lifecycle-supervision-20261117/ci-repairs-v7-independent-7dw83hoj/jest-cache",
+        "src/modules/bff/packaging-protection.spec.ts",
+        "src/modules/bff/packaging-readiness.pg.spec.ts"
+      ]
+    }
+  ],
+  "passes": {
+    "pure": 4,
+    "realGate": 2,
+    "packaging": 101
+  },
+  "skipped": 0,
+  "productionActions": false,
+  "scopeLimit": "CI/test-only repairs; does not grant schema-admission or actual business apply approval"
+}
