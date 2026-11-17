@@ -1,6 +1,6 @@
 import { resolveQuantity, savedQuantity, sharedBatches, assertBatchPool, baseQuantity, QuantitySnapshot, lockQuantityPools } from '../product-master/services/quantity-contract';
 import { SkuPolicy } from '../product-master/services/sku-policy';
-import { Injectable, BadRequestException, ForbiddenException } from '@nestjs/common';
+import { Injectable, BadRequestException, ForbiddenException, Logger } from '@nestjs/common';
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
 import { ClsService } from 'nestjs-cls';
@@ -35,6 +35,9 @@ export class WmsService {
   private static readonly PURCHASE_RECEIPT_WAREHOUSE_TYPES = new Set([
     'FEED', 'MEDICINE', 'PURCHASE_RECV', 'RAW_MATERIAL',
   ]);
+
+  /** INV-105: 看板静默降级时记录错误，DB 故障不再被误读为"无待办" */
+  private readonly logger = new Logger(WmsService.name);
 
   constructor(
     @InjectEntityManager()
@@ -317,7 +320,8 @@ export class WmsService {
           completed_today: 0,
         },
       };
-    } catch {
+    } catch (e) {
+      this.logger.error(`getInboundDashboard 看板查询失败，降级返回空数据: ${(e as Error).message}`);
       return { code: 200, data: { pending: 0, processing: 0, completed_today: 0 } };
     }
   }
@@ -335,7 +339,8 @@ export class WmsService {
         scope.params,
       );
       return { code: 200, data };
-    } catch {
+    } catch (e) {
+      this.logger.error(`getPendingInbound 查询失败，降级返回空列表: ${(e as Error).message}`);
       return { code: 200, data: [] };
     }
   }
@@ -1053,7 +1058,8 @@ export class WmsService {
         code: 200,
         data: { pending: parseInt(pending.count), allocated: parseInt(allocated.count), shipped_today: 0 },
       };
-    } catch {
+    } catch (e) {
+      this.logger.error(`getOutboundDashboard 看板查询失败，降级返回空数据: ${(e as Error).message}`);
       return { code: 200, data: { pending: 0, allocated: 0, shipped_today: 0 } };
     }
   }
@@ -1072,7 +1078,8 @@ export class WmsService {
         scope.params,
       );
       return { code: 200, data };
-    } catch {
+    } catch (e) {
+      this.logger.error(`getPendingOutbound 查询失败，降级返回空列表: ${(e as Error).message}`);
       return { code: 200, data: [] };
     }
   }
@@ -2056,7 +2063,8 @@ export class WmsService {
         scope.params,
       );
       return { code: 200, data };
-    } catch {
+    } catch (e) {
+      this.logger.error(`getInventoryBatches 查询失败，降级返回空列表: ${(e as Error).message}`);
       return { code: 200, data: [] };
     }
   }
@@ -2114,7 +2122,8 @@ export class WmsService {
         })
         .slice(0, 10);
       return { code: 200, data: { totalCount: rows.length, activeCount, totalQtyKg, expiringCount, gradeBuckets, recent } };
-    } catch {
+    } catch (e) {
+      this.logger.error(`getInventoryBatchesSummary 查询失败，降级返回空汇总: ${(e as Error).message}`);
       return { code: 200, data: empty };
     }
   }
