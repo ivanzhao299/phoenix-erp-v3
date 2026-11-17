@@ -1,9 +1,9 @@
 {
-  "asOf": "2026-11-17T13:21:57.872083+00:00",
+  "asOf": "2026-11-17T13:52:40.985617+00:00",
   "baseMain": "a7c0045b9f6d1a475b5a10710184e66d9c494aa0",
   "candidateParent": "4cf46971cc1a1a2dba5be30838eaf75369cabf9c",
-  "sourceFingerprintSha256": "6490390418031aaf114a4edc0245c927b8767cf8d17bae560795c458506f3697",
-  "sourceFileCount": 100,
+  "sourceFingerprintSha256": "c55d59bf9a9309684471d9988af8537bb38f6f6cad94f00ad58fddae95fd2c91",
+  "sourceFileCount": 104,
   "checks": {
     "api": {
       "suitesPassed": 168,
@@ -227,7 +227,10 @@
         "unmodifiedAssetSha256": "apps/web/public/fonts/inter/source.json",
         "build": "exit 0 with HTTP/HTTPS proxies pointed to loopback refused port",
         "browser": "4 actual viewport/theme combinations; Inter loaded; local resources; no font 404 or Google font requests"
-      }
+      },
+      "hydratorBrowserActual": 18,
+      "ciOnlyLocatorContracts": 9,
+      "remotePriorHead": "1fcc: formal build/core regression/Admission/security and long Legacy passed; browser 76/77 with old editable-stock contract now fixed; first-switch OTHER symlink remains HOLD"
     },
     "appearance": [
       {
@@ -698,9 +701,9 @@
     "tagDeferredUntilSuccessfulMainDeployment": true,
     "historicalFlocksActivated": false,
     "actualTwoCompanyPilot": "Pending real physical counts and signed evidence",
-    "candidateCommit": "fbc7c52fb730caa2b8205bfdf5e7f5868605760a",
+    "candidateCommit": "b27b6563914a6573725434ddc4b8c2b060008a2e",
     "pullRequest": "https://github.com/ivanzhao299/phoenix-erp-v3/pull/574",
-    "reviewStatus": "New source boundary reconfirmation pending; second-level diagnostic still rejects the symlink"
+    "reviewStatus": "New test and CI-only post-failure observation head awaiting exact-head reconfirmation; production reader acceptance unchanged"
   },
   "localLogSha256": {
     "ci-final-api-tests.log": "cf568aaad97f7f887b956acb5ab094027b2c96eba290625919e2afe2d7e2a79c",
@@ -738,7 +741,11 @@
     "ci-final-business-recorder-pg.log": "c20008f06ae9c3800b22741779ac5525f5f901c892ac2780e9df04706ab53798",
     "ci-fix-ci-contracts.log": "c9397a87152837871c19c58fa72b3c9c289f65862808f0386a102e6578ead795",
     "ci-fix-ssh-tests.log": "28402e1365a422f0dde08423e75b158d553a899825d2363f38f139d5229c797d",
-    "ci-fix-ssh-gate.log": "187c4ba05773c1260cdc4081260d349fdba7f553668a3337d4884a0b7d60d288"
+    "ci-fix-ssh-gate.log": "187c4ba05773c1260cdc4081260d349fdba7f553668a3337d4884a0b7d60d288",
+    "ci-i18n-browser.log": "65be4d80e74a7e545ffe043bfb7a15447a7d3c5e24df7c921ac9f0ea7d63a960",
+    "ci-i18n-web-types.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "ci-locator-contracts.log": "9cc875af8327ab21d43d3d3965e736dcfd2cd294256d3a40281995b810a3233a",
+    "ci-locator-ssh-gate.log": "187c4ba05773c1260cdc4081260d349fdba7f553668a3337d4884a0b7d60d288"
   },
   "apiLintCounts": {
     "errors": 0,
@@ -746,9 +753,10 @@
   },
   "sourceFingerprintAlgorithm": {
     "baseCommit": "4cf46971cc1a1a2dba5be30838eaf75369cabf9c",
-    "sourceCommit": "fbc7c52fb730caa2b8205bfdf5e7f5868605760a",
+    "sourceCommit": "b27b6563914a6573725434ddc4b8c2b060008a2e",
     "paths": [
       ".github/workflows/deploy.yml",
+      ".github/workflows/legacy-maintenance-fixture.yml",
       ".github/workflows/regression.yml",
       "apps/api/scripts/breeding-regression.sh",
       "apps/api/scripts/packaging-regression.sh",
@@ -807,6 +815,7 @@
       "apps/api/src/modules/wms/wms-company-context.spec.ts",
       "apps/api/src/modules/wms/wms.service.ts",
       "apps/api/src/test-fixtures/flock-business-clock.ts",
+      "apps/web/e2e/sitewide-i18n-hydrator.spec.ts",
       "apps/web/public/fonts/inter/19cfc7226ec3afaa-s.woff2",
       "apps/web/public/fonts/inter/21350d82a1f187e9-s.woff2",
       "apps/web/public/fonts/inter/8e9860b6e62d6359-s.woff2",
@@ -841,6 +850,8 @@
       "apps/web/src/locales/zh.json",
       "scripts/ci/maintenance-full-first-switch.fixture.mjs",
       "scripts/ci/maintenance-isolated-business-recorder.test.mjs",
+      "scripts/ci/maintenance-scheduler-link-observation.mjs",
+      "scripts/ci/maintenance-scheduler-link-observation.test.mjs",
       "scripts/ci/typeorm-ledger-rehearsal-inventory.mjs",
       "scripts/ops/flock-lifecycle-diagnostic.cjs",
       "scripts/ops/production-maintenance-root-readers.mjs",
@@ -913,7 +924,37 @@
     "e2eSqlSeed": 0,
     "genericCrudController24": 0,
     "schedulerDiagnostic15": 0,
-    "businessRecorderRealPg16Pg18": 0
+    "businessRecorderRealPg16Pg18": 0,
+    "hydratorBrowser18": 0,
+    "webTypesAfterE2eEdit": 0,
+    "ciLocatorContracts9": 0,
+    "ciLocatorSshGate": 0
   },
-  "verbatimVendorLicenseNote": "OFL.txt copied unmodified from upstream, including its existing trailing whitespace"
+  "verbatimVendorLicenseNote": "OFL.txt copied unmodified from upstream, including its existing trailing whitespace",
+  "serviceLifecycle": {
+    "ci-final-http-browser-host.log": {
+      "purpose": "Readiness of a held local browser fixture, not a completed validation command",
+      "stoppedWith": "SIGUSR2",
+      "processExitCode": 140,
+      "countedAsPassingValidation": false
+    },
+    "independentHttpValidation": "ci-fix-http-utc.log and ci-fix-http-sg.log each completed 5 assertions with exit 0"
+  },
+  "priorRemoteCiSummary": {
+    "head": "1fccd182f4c19e9b2608e49d85adf9950c7edcb7",
+    "fullAppCoreRun": "44092025017",
+    "fullAppCore": "success",
+    "buildRun": "44092024750",
+    "build": "success",
+    "legacyMainJob": "134069316774",
+    "legacyMain": "success",
+    "playwrightRun": "44092024760",
+    "playwright": {
+      "passed": 76,
+      "failed": 1,
+      "cause": "outdated editable-stock test; production readonly behavior preserved"
+    },
+    "firstSwitchRun": "44092024850",
+    "firstSwitch": "HOLD; LOADED/OTHER/REGULAR/SINGLE/STABLE; does not authorize symlink acceptance"
+  }
 }

@@ -1,6 +1,6 @@
-Source commit: fbc7c52fb730caa2b8205bfdf5e7f5868605760a
-Source fingerprint: 6490390418031aaf114a4edc0245c927b8767cf8d17bae560795c458506f3697 (100 paths, apps/scripts/.github)
-All listed checks completed; command exit codes are bound in validation-receipt.json.
+Source commit: b27b6563914a6573725434ddc4b8c2b060008a2e
+Source fingerprint: c55d59bf9a9309684471d9988af8537bb38f6f6cad94f00ad58fddae95fd2c91 (104 paths, apps/scripts/.github)
+Validation command exit codes are bound in validation-receipt.json. The held browser host is readiness evidence only; it stopped on SIGUSR2 (exit 140) and is not counted as a passing validation.
 Second-level scheduler diagnostics preserve the original HOLD; remote CI/release remain pending.
 
 ci-final-api-tests.log sha256=cf568aaad97f7f887b956acb5ab094027b2c96eba290625919e2afe2d7e2a79c
@@ -160,4 +160,17 @@ ci-fix-ssh-tests.log sha256=28402e1365a422f0dde08423e75b158d553a899825d2363f38f1
 ℹ skipped 0
 
 ci-fix-ssh-gate.log sha256=187c4ba05773c1260cdc4081260d349fdba7f553668a3337d4884a0b7d60d288
+PRODUCTION_SSH_ENTRY=PASS deploy=3 restoration=1
+
+ci-i18n-browser.log sha256=65be4d80e74a7e545ffe043bfb7a15447a7d3c5e24df7c921ac9f0ea7d63a960
+  18 passed (44.5s)
+
+ci-i18n-web-types.log sha256=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+
+
+ci-locator-contracts.log sha256=9cc875af8327ab21d43d3d3965e736dcfd2cd294256d3a40281995b810a3233a
+ℹ pass 9
+ℹ fail 0
+
+ci-locator-ssh-gate.log sha256=187c4ba05773c1260cdc4081260d349fdba7f553668a3337d4884a0b7d60d288
 PRODUCTION_SSH_ENTRY=PASS deploy=3 restoration=1

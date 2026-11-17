@@ -110,7 +110,7 @@
 - W5通过；冻结与安全路径需独立审查后按现有PR标签协议复验，未改变门禁规则。scheduler预检只增加来源/原因固定枚举诊断，原HOLD/判定/稳定读取/符号链接及容量保护保留；诊断不是修复或放行，需新CI事实定位。
 - 远端旧head曾在Next Google Inter字体加载以及维护scheduler预检失败。字体本地完整构建复验成功；两者仍须最终head远端通过，不能以“既有问题”当作PASS。未合并、未部署、未打发布tag。
 
-最终CI修复源码：`fbc7c52fb730caa2b8205bfdf5e7f5868605760a`；apps/scripts/.github共100个改动路径源指纹 `6490390418031aaf114a4edc0245c927b8767cf8d17bae560795c458506f3697`。最终日志哈希与可复现算法见validation-receipt.json；远端CI、合并和实际部署仍待完成。
+最终CI修复源码：`b27b6563914a6573725434ddc4b8c2b060008a2e`；apps/scripts/.github共104个改动路径源指纹 `c55d59bf9a9309684471d9988af8537bb38f6f6cad94f00ad58fddae95fd2c91`。最终日志哈希与可复现算法见validation-receipt.json；远端CI、合并和实际部署仍待完成。
 
 更正取证：a383的Web类型通过表述撤回，新增下载测试的this缺显式类型（TS2683）已在`96bc792069461ecf5c351aa416af2c871f5e5b8a`修复。本地先前读取的是未完成输出；本轮已等待实际exit 0，Web无缓存类型检查及835项Web测试通过。该修复不改运行时行为，需按新head重新绑定独立边界审查。
 
@@ -131,3 +131,5 @@
 1fcc远端正式CI/CD、AI Build、迁移/实体门禁、system/breeding/packaging/wms/finance、Web/Admission与长Legacy实ERP均通过。Playwright真实运行77项，唯一失败是旧测试要求档案页直接改存栏。已仅更新测试：当前150保持readonly，PUT不含current_qty/initial_qty，真实可编辑计划周数80→90并跨Lao/中文保留最新显示；整份hydrator文件18项及无缓存Web types实际exit0，生产页未改。
 
 PG16/18第一切换预检第二层事实一致：SYSTEMD_FRAGMENT/SYMLINK、LOADED、OTHER、REGULAR、SINGLE、STABLE，仍HOLD且owned未创建。未将OTHER视为合法或放宽reader。为定位真实宿主公开配置链接，本批增加仅失败后运行的CI locator：固定systemctl只取Id/LoadState/FragmentPath，限定真实hosted full-first-switch及原root600 host-intent/SHA；32条/32KiB、严格unit/普通绝对路径、包名筛选、无内容/命令/环境/原stderr。stdout仅CI诊断，不进入生产receipt/pin，无法据多个观察候选认定原失败对象；原native_result始终保留。模板与实例混合、越界/不安全元数据、scope/intent/本地调用拒绝、变更/读取失败等9项本地测试通过，并接入现有pure契约CI。
+
+本批源码`b27b6563914a6573725434ddc4b8c2b060008a2e`，104路径指纹`c55d59bf9a9309684471d9988af8537bb38f6f6cad94f00ad58fddae95fd2c91`、40份日志绑定；独立hydrator Chromium18/18和CI-only locator9/9通过，host停止140单独披露不计验证通过。仍未合并/部署/tag。
