@@ -105,17 +105,20 @@ class AllocationSqlFixture {
         });
     }
     if (s.startsWith('WITH changed AS ( UPDATE inv_batches')) {
-      const [qty, batchNo, company, warehouse] = args as [number, string, string, string];
+      // INV-301b guardedBatchUpdate canonical layout: $1=batchNo $2=company
+      // $3=warehouse $4=deltaQty/$4=deltaAvailable (negative = deduct).
+      const [batchNo, company, warehouse] = args as [string, string, string];
+      const delta = Number(args[3]);
       const b = this.batches.find(row => row.batch_no === batchNo && row.company_code === company && row.warehouse_code === warehouse
         && row.status === 'AVAILABLE' && (!row.expire_date || row.expire_date >= '2026-11-11')
         && (!s.includes('legacy_source IS NULL') || row.legacy_source == null));
       if (!b) return [];
-      if (s.includes('SET qty_available = qty_available - $1')) {
-        if (b.qty_available < qty) return [];
-        b.qty_available -= qty;
-      } else if (s.includes('SET qty = qty - $1')) {
-        if (b.qty < qty) return [];
-        b.qty -= qty;
+      if (s.includes('SET qty_available = qty_available - $4')) {
+        if (b.qty_available < -delta) return [];
+        b.qty_available -= -delta;
+      } else if (s.includes('SET qty = qty - $4')) {
+        if (b.qty < -delta) return [];
+        b.qty -= -delta;
       } else throw new Error(`unsupported inventory update: ${s}`);
       this.writes++;
       return [{ batch_no: batchNo }];

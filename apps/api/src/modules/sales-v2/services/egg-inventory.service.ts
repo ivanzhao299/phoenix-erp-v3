@@ -10,6 +10,7 @@ import { ClsService } from 'nestjs-cls';
 import { resolveInventoryClass } from '../../wms/inventory-class-policy';
 import { INV_LEDGER_CHANGE_TYPE, InvLedgerChangeType } from '../../wms/inv-ledger-change-types';
 import { writeInvLedger } from '../../wms/inventory-ledger.writer';
+import { guardedBatchUpdate } from '../../wms/inventory-guarded-update.util';
 import { fifoLockKey, fifoItemKey } from '../../wms/inventory-lock.util';
 import { NotificationService } from '../../notification/notification.service';
 import { ScopedNotificationRecipientService } from '../../notification/scoped-notification-recipient.service';
@@ -930,24 +931,18 @@ export class EggInventoryService {
       const canTake = Math.min(remaining, Number(batch.qty_available));
       remaining -= canTake;
 
-      // 扣减 qty_available（预留）
-      const changed = await q(
-        `WITH changed AS (
-           UPDATE inv_batches AS inv_batches
-              SET qty_available = qty_available - $1, updated_at=NOW()
-            WHERE batch_no=$2
-              AND company_code=$3
-              AND warehouse_code=$4
-              AND status='AVAILABLE'
-              AND qty_available >= $1
-              AND (expire_date IS NULL OR expire_date >= CURRENT_DATE)
-              AND legacy_source IS NULL
-              AND ${this.inventoryClassCondition(salesContext, 'inv_batches')}
-            RETURNING batch_no
-         ) SELECT batch_no FROM changed`,
-        [canTake, batch.batch_no, params.companyCode, batch.warehouse_code],
-      );
-      if (changed.length !== 1) {
+      // 扣减 qty_available（预留）—— INV-301b：守卫化 UPDATE 走统一入口
+      const changed = await guardedBatchUpdate(mgr, {
+        batchNo:        batch.batch_no,
+        companyCode:    params.companyCode,
+        warehouseCode:  batch.warehouse_code,
+        deltaAvailable: -canTake,
+        requireStatus:  'AVAILABLE',
+        expireGuard:    true,
+        excludeLegacy:  true,
+        extraWheres:    [{ sql: this.inventoryClassCondition(salesContext, 'inv_batches') }],
+      });
+      if (changed !== 1) {
         throw new ConflictException(`批次 ${batch.batch_no} 状态、归属或可用量已变化`);
       }
 
@@ -1109,20 +1104,15 @@ export class EggInventoryService {
       const releaseQty = Number(allocation.reserved_qty) - Number(allocation.outbound_qty) - Number(allocation.released_qty);
       if (releaseQty <= 0) continue;
 
-        const changed = await q(
-          `WITH changed AS (
-             UPDATE inv_batches
-                SET qty_available = qty_available + $1, updated_at=NOW()
-              WHERE batch_no=$2
-                AND company_code=$3
-                AND warehouse_code=$4
-                AND status='AVAILABLE'
-                AND qty_available + $1 <= qty
-              RETURNING batch_no
-           ) SELECT batch_no FROM changed`,
-          [releaseQty, allocation.batch_no, companyCode, allocation.warehouse_code],
-        );
-      if (changed.length !== 1) throw new ConflictException(`释放批次 ${allocation.batch_no} 状态、归属或数量已变化`);
+        // INV-301b：守卫化 UPDATE 走统一入口（正数 delta 自动带 qty_available+n<=qty 防超账面守卫）
+        const changed = await guardedBatchUpdate(mgr, {
+          batchNo:        allocation.batch_no,
+          companyCode,
+          warehouseCode:  allocation.warehouse_code,
+          deltaAvailable: releaseQty,
+          requireStatus:  'AVAILABLE',
+        });
+      if (changed !== 1) throw new ConflictException(`释放批次 ${allocation.batch_no} 状态、归属或数量已变化`);
 
       const ledgerId = await this.writeLedger({
           batchNo:     allocation.batch_no,
@@ -1210,21 +1200,16 @@ export class EggInventoryService {
         baseQuantity(outQty,1,allocation.quantity_snapshot.baseUnit);
       } else if (allocation.sku_code != null) await SkuPolicy.requireUsable(mgr, allocation.sku_code, 'sale-stock');
 
-        // 正式扣减物理库存（qty）
-        const changed = await q(
-          `WITH changed AS (
-             UPDATE inv_batches
-                SET qty = qty - $1, updated_at=NOW()
-              WHERE batch_no=$2
-                AND company_code=$3
-                AND warehouse_code=$4
-                AND status='AVAILABLE'
-                AND qty >= $1 AND (expire_date IS NULL OR expire_date>=CURRENT_DATE)
-              RETURNING batch_no
-           ) SELECT batch_no FROM changed`,
-          [outQty, allocation.batch_no, companyCode, allocation.warehouse_code],
-        );
-      if (changed.length !== 1) throw new ConflictException(`出库批次 ${allocation.batch_no} 状态、归属或数量已变化`);
+        // 正式扣减物理库存（qty）—— INV-301b：守卫化 UPDATE 走统一入口
+        const changed = await guardedBatchUpdate(mgr, {
+          batchNo:       allocation.batch_no,
+          companyCode,
+          warehouseCode: allocation.warehouse_code,
+          deltaQty:      -outQty,
+          requireStatus: 'AVAILABLE',
+          expireGuard:   true,
+        });
+      if (changed !== 1) throw new ConflictException(`出库批次 ${allocation.batch_no} 状态、归属或数量已变化`);
 
       const ledgerId = await this.writeLedger({
           batchNo:         allocation.batch_no,
