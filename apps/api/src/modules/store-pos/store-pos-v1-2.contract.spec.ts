@@ -19,8 +19,11 @@ describe('Store POS V1-2 database contract', () => {
   });
 
   it('checks guarded UPDATE row counts through SELECT CTE results, not TypeORM raw UPDATE tuples', () => {
-    expect(service.match(/WITH changed AS \(/g)).toHaveLength(5);
-    expect(service).toContain(') SELECT batch_no FROM changed');
+    // INV-301b: fifoDeductItems 的 inv_batches 守卫 UPDATE 迁入共享
+    // wms/inventory-guarded-update.util（CTE 形态由该 util 的契约单测钉死），
+    // 源内保留的 4 处 WITH changed AS ( 均为 sal_store_sales 状态迁移守卫。
+    expect(service.match(/WITH changed AS \(/g)).toHaveLength(4);
+    expect(service).toContain('guardedBatchUpdate(');
     expect(service.match(/\) SELECT id FROM changed/g)).toHaveLength(4);
   });
 });

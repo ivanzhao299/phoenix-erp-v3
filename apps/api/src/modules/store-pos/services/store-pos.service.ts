@@ -28,6 +28,7 @@ import { hasPerm } from '../../../auth/permissions.util';
 import { StoreScopePolicy, StoreWarehousePurpose } from './store-scope-policy.service';
 import { INV_LEDGER_CHANGE_TYPE } from '../../wms/inv-ledger-change-types';
 import { writeInvLedger } from '../../wms/inventory-ledger.writer';
+import { guardedBatchUpdate } from '../../wms/inventory-guarded-update.util';
 import { fifoLockKey, fifoItemKey } from '../../wms/inventory-lock.util';
 import { PriceRuntimeService, ResolvedPrice } from '../../sales-v2/services/price-runtime.service';
 import { finiteCashNumber, returningRow } from '../../finance-v2/services/cash-balance.guard';
@@ -1007,19 +1008,19 @@ export class StorePosService {
           if (remaining <= 0) break;
           const canTake = Math.min(remaining, Number(batch.qty_available));
           remaining -= canTake;
-          // TypeORM/Postgres 的裸 UPDATE 返回 [[rows], rowCount]；包成 SELECT CTE 后
-          // 返回稳定的纯行数组，下面的精确一行守卫才能保持 fail-closed。
-          const changed = await mgr.query(
-            `WITH changed AS (
-               UPDATE inv_batches SET qty_available = qty_available - $1, qty = qty - $1, updated_at=NOW()
-                WHERE batch_no=$2 AND warehouse_code=$3 AND qty_available >= $1 AND qty >= $1
-                  AND company_code=$4 AND status='AVAILABLE' AND legacy_source IS NULL
-                  AND (expire_date IS NULL OR expire_date>=CURRENT_DATE)
-                RETURNING batch_no
-             ) SELECT batch_no FROM changed`,
-            [canTake, batch.batch_no, batch.warehouse_code, sale.company_code],
-          );
-          if (changed.length !== 1) throw new ConflictException(`批次 ${batch.batch_no} 可用量已变化`);
+          // INV-301b：守卫化 UPDATE 走统一入口（CTE 化消解 TypeORM 裸 UPDATE
+          // 的 [[rows], rowCount] 返回形态，changed!==1 保持 fail-closed）。
+          const changed = await guardedBatchUpdate(mgr, {
+            batchNo:        batch.batch_no,
+            companyCode:    sale.company_code,
+            warehouseCode:  batch.warehouse_code,
+            deltaQty:       -canTake,
+            deltaAvailable: -canTake,
+            requireStatus:  'AVAILABLE',
+            expireGuard:    true,
+            excludeLegacy:  true,
+          });
+          if (changed !== 1) throw new ConflictException(`批次 ${batch.batch_no} 可用量已变化`);
 
           await mgr.query(
             `INSERT INTO store_sale_allocations
