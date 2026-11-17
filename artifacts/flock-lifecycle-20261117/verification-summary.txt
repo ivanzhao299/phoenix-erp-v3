@@ -1,20 +1,22 @@
-Source commit: 4dd7dd548406d0b18d74a958af4ca394b5fb15c4
-Source fingerprint: 11eb78a6855395d4a9d743c6899f3407971647ffb0b45d8b50a9e860cf4b08cb (85 paths, apps/scripts/.github)
+Source commit: 96bc792069461ecf5c351aa416af2c871f5e5b8a
+Source fingerprint: faa36c558c4e1594682a04a937d3134867f6c8b2405f9fafa3d7f90aee30f21a (85 paths, apps/scripts/.github)
+All listed command sessions completed with exit 0. Web typecheck reran with --incremental false after TS2683 receiver fix.
+Prior a383 Web typecheck PASS claim is withdrawn; see correctedValidation in receipt.
 Remote final CI and release remain pending.
 
 ci-fix-api-tests.log sha256=871c8449c3b6d6ed1b98bcc3bd4171b653f1bef811883d61ad377d648f7f5c07
 Test Suites: 22 skipped, 168 passed, 168 of 190 total
 Tests:       433 skipped, 2128 passed, 2561 total
 
-ci-fix-web-tests.log sha256=2f5f9ee425f1c0466c70c1a90f7b5141bd136604b68c9eed4285939564cd5b94
+ci-fix-web-tests.log sha256=28646ee4aebd29f4a7bf1d357eb64bcc2c365408684a43fb8d892cf253a5fafe
  ↓ src/__tests__/daily-inbound-ledger.live.dom.test.tsx (4 tests | 4 skipped)
  Test Files  139 passed | 1 skipped (140)
       Tests  835 passed | 4 skipped (839)
-   Duration  7.74s (transform 15.77s, setup 0ms, collect 40.67s, tests 16.59s, environment 15.29s, prepare 18.63s)
+   Duration  6.54s (transform 12.36s, setup 0ms, collect 34.14s, tests 13.79s, environment 13.48s, prepare 14.93s)
 
 ci-fix-api-types.log sha256=6ebe93a83eb82a9a554ba4bbc56a7042f70d71391261c6209eca269921da72f5
 
-ci-fix-web-types.log sha256=03f10231f4b4a670a816e4c6da78ef4ca67a21c2b7ac5a9fa5cb39dc2de65bad
+ci-fix-web-types.log sha256=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
 
 ci-fix-api-build.log sha256=5b1549b60bee4e750040adfb6abec0fc90883af4fd742416eb44b5e3c8cbe21b
 
@@ -143,4 +145,3 @@ ci-fix-ssh-tests.log sha256=28402e1365a422f0dde08423e75b158d553a899825d2363f38f1
 
 ci-fix-ssh-gate.log sha256=187c4ba05773c1260cdc4081260d349fdba7f553668a3337d4884a0b7d60d288
 PRODUCTION_SSH_ENTRY=PASS deploy=3 restoration=1
-

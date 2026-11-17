@@ -110,4 +110,6 @@
 - W5通过；冻结与安全路径需独立审查后按现有PR标签协议复验，未改变门禁规则。scheduler预检只增加来源/原因固定枚举诊断，原HOLD/判定/稳定读取/符号链接及容量保护保留；诊断不是修复或放行，需新CI事实定位。
 - 远端旧head曾在Next Google Inter字体加载以及维护scheduler预检失败。字体本地完整构建复验成功；两者仍须最终head远端通过，不能以“既有问题”当作PASS。未合并、未部署、未打发布tag。
 
-最终CI修复源码：`4dd7dd548406d0b18d74a958af4ca394b5fb15c4`；apps/scripts/.github共85个改动路径源指纹 `11eb78a6855395d4a9d743c6899f3407971647ffb0b45d8b50a9e860cf4b08cb`。最终日志哈希与可复现算法见validation-receipt.json；远端CI、合并和实际部署仍待完成。
+最终CI修复源码：`96bc792069461ecf5c351aa416af2c871f5e5b8a`；apps/scripts/.github共85个改动路径源指纹 `faa36c558c4e1594682a04a937d3134867f6c8b2405f9fafa3d7f90aee30f21a`。最终日志哈希与可复现算法见validation-receipt.json；远端CI、合并和实际部署仍待完成。
+
+更正取证：a383的Web类型通过表述撤回，新增下载测试的this缺显式类型（TS2683）已在`96bc792069461ecf5c351aa416af2c871f5e5b8a`修复。本地先前读取的是未完成输出；本轮已等待实际exit 0，Web无缓存类型检查及835项Web测试通过。该修复不改运行时行为，需按新head重新绑定独立边界审查。

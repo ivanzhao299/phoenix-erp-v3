@@ -1,8 +1,8 @@
 {
-  "asOf": "2026-11-17T12:48:40.282891+00:00",
+  "asOf": "2026-11-17T12:54:35.420892+00:00",
   "baseMain": "a7c0045b9f6d1a475b5a10710184e66d9c494aa0",
   "candidateParent": "4cf46971cc1a1a2dba5be30838eaf75369cabf9c",
-  "sourceFingerprintSha256": "11eb78a6855395d4a9d743c6899f3407971647ffb0b45d8b50a9e860cf4b08cb",
+  "sourceFingerprintSha256": "faa36c558c4e1594682a04a937d3134867f6c8b2405f9fafa3d7f90aee30f21a",
   "sourceFileCount": 85,
   "checks": {
     "api": {
@@ -226,15 +226,15 @@
     "tagDeferredUntilSuccessfulMainDeployment": true,
     "historicalFlocksActivated": false,
     "actualTwoCompanyPilot": "Pending real physical counts and signed evidence",
-    "candidateCommit": "4dd7dd548406d0b18d74a958af4ca394b5fb15c4",
+    "candidateCommit": "96bc792069461ecf5c351aa416af2c871f5e5b8a",
     "pullRequest": "https://github.com/ivanzhao299/phoenix-erp-v3/pull/574",
-    "reviewStatus": "Final head independent boundary review pending"
+    "reviewStatus": "Prior boundary COMMENT bound a383; final test-only head independent reconfirmation pending"
   },
   "localLogSha256": {
     "ci-fix-api-tests.log": "871c8449c3b6d6ed1b98bcc3bd4171b653f1bef811883d61ad377d648f7f5c07",
-    "ci-fix-web-tests.log": "2f5f9ee425f1c0466c70c1a90f7b5141bd136604b68c9eed4285939564cd5b94",
+    "ci-fix-web-tests.log": "28646ee4aebd29f4a7bf1d357eb64bcc2c365408684a43fb8d892cf253a5fafe",
     "ci-fix-api-types.log": "6ebe93a83eb82a9a554ba4bbc56a7042f70d71391261c6209eca269921da72f5",
-    "ci-fix-web-types.log": "03f10231f4b4a670a816e4c6da78ef4ca67a21c2b7ac5a9fa5cb39dc2de65bad",
+    "ci-fix-web-types.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "ci-fix-api-build.log": "5b1549b60bee4e750040adfb6abec0fc90883af4fd742416eb44b5e3c8cbe21b",
     "ci-fix-web-build.log": "c0467ba1eabfbd3f44be793129707765e088b59ee2be658ee8a35c25efdca244",
     "ci-fix-api-lint.log": "68880c6c49453eff4961deb6eebc2d9a554c087686c26332fb800e2b9cb8ad53",
@@ -269,7 +269,7 @@
   },
   "sourceFingerprintAlgorithm": {
     "baseCommit": "4cf46971cc1a1a2dba5be30838eaf75369cabf9c",
-    "sourceCommit": "4dd7dd548406d0b18d74a958af4ca394b5fb15c4",
+    "sourceCommit": "96bc792069461ecf5c351aa416af2c871f5e5b8a",
     "paths": [
       ".github/workflows/deploy.yml",
       ".github/workflows/regression.yml",
@@ -383,5 +383,38 @@
       "migration-dml.log": "fcd5d053f3a80cbf190e3947816e3794cfca5a7973ff3ca4d881039400f2d83e",
       "migration-down.log": "603e5915366804c4aeaf18ae8aec1ead0440ee048ec7fd100594438ef53246c6"
     }
+  },
+  "correctedValidation": {
+    "supersedesHead": "a383c76eaa67e9880616fbc82e4f9e9c9152e57b",
+    "withdrawnClaim": "Web typecheck PASS: the prior local process had not completed when its partial output was inspected; completed log and remote CI both showed TS2683",
+    "fix": "Explicit HTMLAnchorElement this type in download mock; no runtime/permission change",
+    "verifiedCommands": {
+      "webTypes": "tsc --noEmit --incremental false; completed exit 0",
+      "webFullTests": "139 files, 835 tests passed; completed exit 0"
+    },
+    "sourceCommit": "96bc792069461ecf5c351aa416af2c871f5e5b8a"
+  },
+  "verifiedExitCodes": {
+    "apiFullTests": 0,
+    "webFullTests": 0,
+    "apiTypes": 0,
+    "webTypesNoIncremental": 0,
+    "apiBuild": 0,
+    "webBuild": 0,
+    "apiLint": 0,
+    "webChangedLint": 0,
+    "webRatchet": 0,
+    "httpUtc": 0,
+    "httpSingapore": 0,
+    "freshMigrationCompatibility": 0,
+    "historicalLedgerRehearsal": 0,
+    "fifoPg41": 0,
+    "breedingLegacy24": 0,
+    "breedingSetup8": 0,
+    "schedulerDiagnostic12": 0,
+    "relatedMaintenance30": 0,
+    "browser9": 0,
+    "appearance4": 0,
+    "W5": 0
   }
 }
