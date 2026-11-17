@@ -107,7 +107,7 @@ WITH report_grade AS (
       ON l.batch_no = b.batch_no
      AND l.change_type IN ('TEMP_PRODUCTION_INBOUND', 'TEMP_PRODUCTION_REVERSAL')
    WHERE b.source_type = 'TEMP_PRODUCTION'
-     AND b.legacy_source NOT LIKE '%DAILY_EGG_DUPLICATE_RETIRED%'
+     AND COALESCE(b.legacy_source, '') NOT LIKE '%DAILY_EGG_DUPLICATE_RETIRED%'
      -- Outbound/adjustment flows rewrite batch qty; only untouched batches
      -- must still match the original production ledger exactly.
      AND NOT EXISTS (

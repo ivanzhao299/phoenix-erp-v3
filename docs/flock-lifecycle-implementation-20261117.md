@@ -161,3 +161,19 @@ PG16/18第一切换预检第二层事实一致：SYSTEMD_FRAGMENT/SYMLINK、LOAD
 本次执行范围有一项已披露偏差：虽然dispatch显式传HTTP空值，GitHub将其回填为默认sales-order-lifecycle.http.json。实际运行了默认HTTP准备（PGOPTIONS只读的Nest context、查询登录信息并在内存生成短期token），两项process-log检查均NO_SAMPLE/no-data-sample，未发送实际HTTP请求。实际cb源码login方法没有DML/保存/last_login写入；helper最后的PRODUCTION_BUSINESS_WRITES=0是其marker，不是独立完整DB写追踪。该run不能表述为“仅SQL”；不再为此重复调生产查询。下一必要候选批次增加精确NONE哨兵，经校验归一为空，避免空字段默认回填；既有默认和其它路径校验不变。
 
 候选e238远端21项checks为SUCCESS，另3项构建/部署按PR事件条件SKIPPED，零pending/failed；跳过不计为通过，也不表示已发布。真实host PG16 job134111476455、PG18 job134111476133（run44104051532）均FULL_FACTORY_COMPLETED/PASS，lease释放及原participants关闭已验证；实际226旧应用依旧EXPECTED_HOLD且protectedStateUnchanged=true，不把合成aligned旧应用成功称为exactLegacySuccess。CI实际checkout为PR merge6d328cde6d207db8e47354fd46f5c8fbdce5c1f8，已通过GitHub Git对象独立核验其tree与e238同为11c850e0e0ab59aeca5ba9b2aed98522d8f3264f。fixture内target为合成SHA，Web为owned HTTP health peer；productionAuthority/Receipt均false，不能当作生产发布回执。精确证据及固定receipt摘要见e238-ci-observation.json。此轮dracut真实接受链已闭合；后续F/R协议代码若形成新source仍须相应验证与新head审查，生产audit HOLD未消失。
+
+## 后续发布安全增量与业务审查边界
+
+用户已确认两批额外60枚为测试或误录，并要求准备冲销方案供审查；该事实不是实际冲销授权。原日报47930及原分级不变，不执行apply/repair或库存写入，也不扩大到其它等级、整组source或未知差异。
+
+独立复核发现旧audit的`legacy_source NOT LIKE retired`会排除NULL来源，旧unbalanced=0只是该旧谓词的计数，不是所有现代生产批次平衡证明。两目标批次各qty30/唯一入库流水+30已单独取证。最小COALESCE修复仅扩大正确只读检查分母，不修数据、不解除overpost HOLD；真实PG18以原SQL全文验证了平衡/不平衡NULL、retired排除和已消耗批次口径。
+
+controlled-pending-migration-apply在实际DDL前补入固定run-attempt命名备份：保留既有ledger CAS与audit GO、至少2GiB空间、私有700目录/600文件、custom dump非空、TOC、无`-d`的`pg_restore --file=/dev/null`全归档解析及SHA复核。目录已存在即拒绝覆盖，所有旧备份保留。全归档可解析不等于在生产还原数据库，也没有执行实际生产备份或DDL。
+
+该增量实际自有PG16/18验证有效dump、权限、TOC、全parse及SHA，并验证空dump、TOC可读但数据截断、低空间、重复run与旧备份保留；与实际PG18 NULL审计合并7项、无跳过、exit0。原workflow YAML经已有js-yaml解析、真实SSH正文bash-n通过。首次fixture缺POSTGRES_USER/DB造成role root错误未计通过，随后补齐明确自有环境并实际重跑；没有安装或升级依赖。新增源码及其最终远端CI仍待独立审查后绑定新提交。
+
+独立审查随后拒绝仅靠700子目录的备份实现：不可信的上级目录仍可替换路径。最终增量复用CONTRACT及inspectTrustedDirectory，默认真实verifyContext验证维护锁/可信上下文，先验证已有私有STAGE，再检查/opt；仅缺失的parent由exclusive mkdir0700创建，已有symlink/非root/可写/ACL未知/额外挂载均HOLD，不自动chmod修复。新run目录独占创建，wx600记录原祖先/run/STAGE pins；dump前、dump后及实际DDL紧前均须与原pins一致。独立挂载若不在既有CONTRACT允许集合内，必须另行审查，不能跳过。
+
+修订后的路径/备份/NULL检查本地13/13、无跳过、exit0，独立复跑亦13/13、exit0；另独立NULL审计4/4。路径检查用实际trusted utility与明确的owned元数据模型，并实测非root CLI拒绝；真实PG16/18负责归档读写和完整parse，未将其path adapter冒充生产root/ext4全流程。独立复跑曾出现PG16容器初始化临时Unix server就绪竞态，实际FAIL已保留；ready探针改为容器内TCP 127.0.0.1，只有最终server开放TCP后才通过，未添加盲sleep或重试业务SQL。2GiB只是最小空间下限，不是归档容量保证；全parse不是实际数据库恢复。
+
+源码060的HEAD绑定扩展检查已实际246项中237通过、9 opt-in跳过、0失败，真实隔离PG16/18为9/9通过；本执行会话在该提交上合并scheduler/只读输入等76/76通过。扩充的精确只读SQL仅准备字典、两批维度/成本存在性、原流水白名单、同来源grade汇总及change_type列/CHECK元数据，已在owned PG18 READ ONLY验证，尚未把本地结果当真实生产枚举。新候选必须独立绑定后，才使用明确NONE做正式只读取证，再确定受控WMS冲销合同；实际冲销、迁移apply和生产部署均未执行。
