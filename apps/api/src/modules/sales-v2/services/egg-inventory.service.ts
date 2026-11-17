@@ -2,12 +2,14 @@ import { savedQuantity, QuantitySnapshot, positiveQuantity, baseQuantity, shared
 import { SkuPolicy } from '../../product-master/services/sku-policy';
 import { EggSourceProfile, SkuAvailabilityService } from '../../product-master/services/sku-availability.service';
 import {
-  Injectable, Logger, BadRequestException, ConflictException, ForbiddenException,
+  Injectable, Logger, BadRequestException, ConflictException, ForbiddenException, Optional,
 } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
 import { ClsService } from 'nestjs-cls';
 import { resolveInventoryClass } from '../../wms/inventory-class-policy';
+import { NotificationService } from '../../notification/notification.service';
+import { ScopedNotificationRecipientService } from '../../notification/scoped-notification-recipient.service';
 
 /**
  * EggInventoryService — Sales V2 Phase 7 + Phase H4
@@ -136,6 +138,10 @@ export class EggInventoryService {
     @InjectDataSource() private readonly ds: DataSource,
     private readonly cls: ClsService,
     private readonly skuAvailability: SkuAvailabilityService = new SkuAvailabilityService(ds),
+    /** INV-101: 在途预占批次的过期复核通知（NotificationModule 是 @Global，
+     *  运行时必注入；@Optional 保证单测/旧式构造兼容）。 */
+    @Optional() private readonly notifyRecipients?: ScopedNotificationRecipientService,
+    @Optional() private readonly notify?: NotificationService,
   ) {}
 
   /** 销售鸡蛋库存的产品族；EGG 是页面使用的族别名，不是精确产品码。 */
@@ -1337,47 +1343,173 @@ export class EggInventoryService {
 
   // ── 8. 标记过期批次 ──────────────────────────────────────────────────────────
 
-  async markExpiredBatches(companyCode?: string): Promise<{ expired: number; written: number }> {
-    const cond = companyCode ? `AND company_code='${companyCode}'` : '';
+  /**
+   * 过期批次核销（INV-101 重写）
+   *
+   * - 参数化 SQL：companyCode 只作为 $1 字面量绑定，消除字符串拼接注入
+   * - 整体单事务：候选锁定 → 守卫化 UPDATE → EXPIRE_WRITEOFF ledger 同事务写入，
+   *   部分失败整体回滚（传入 mgr 时复用调用方事务）
+   * - 候选排除在途预占（allocation 的 reserved_qty > outbound_qty + released_qty），
+   *   避免过期×预占死锁；被跳过批次发站内通知进入人工复核，不自动强退预占
+   * - FOR UPDATE OF b SKIP LOCKED：多实例调度器并发安全
+   * - 守卫化 UPDATE（WHERE batch_no=$1 AND status='AVAILABLE'）：并发改状态时
+   *   跳过该批次而非抛错（幂等容错）
+   */
+  async markExpiredBatches(companyCode?: string, mgr?: EntityManager): Promise<{
+    expired: number;
+    written: number;
+    skippedInUse: Array<{ batchNo: string; companyCode: string | null; openAllocations: number }>;
+  }> {
+    // INV-101 ①（同时修 INV-103 的 /mark-expired 面）：写路径公司授权，fail-closed；
+    // 无 CLS dataScope 的调度/系统流与 isGlobal 放行，scopedCompany=null 表示全公司扫描。
+    const scopedCompany = this.assertWriteCompanyScope(companyCode);
 
-    const expiredBatches = await this.ds.query(
-      `SELECT * FROM inv_batches
-       WHERE expire_date < CURRENT_DATE
-         AND status = 'AVAILABLE'
-         AND qty > 0
-         ${cond}`,
-    );
-
-    let written = 0;
-    for (const batch of expiredBatches) {
-      const qty = Number(batch.qty);
-
-      await this.ds.query(
-        `UPDATE inv_batches
-         SET status='EXPIRED', qty_available=0, updated_at=NOW()
-         WHERE batch_no=$1`,
-        [batch.batch_no],
+    const run = async (em: EntityManager) => {
+      // ② 候选查询：参数化 + 排除在途预占 + SKIP LOCKED
+      const candidates = await em.query(
+        `SELECT b.batch_no, b.qty, b.company_code, b.expire_date, b.quality_grade, b.sku_code
+           FROM inv_batches b
+          WHERE b.expire_date < CURRENT_DATE
+            AND b.status = 'AVAILABLE'
+            AND b.qty > 0
+            AND ($1::text IS NULL OR b.company_code = $1)
+            AND NOT EXISTS (
+                  SELECT 1 FROM sal_order_item_batch_allocations a
+                   WHERE a.batch_no = b.batch_no
+                     AND a.reserved_qty > a.outbound_qty + a.released_qty)
+          ORDER BY b.batch_no
+          FOR UPDATE OF b SKIP LOCKED`,
+        [scopedCompany],
       );
 
-      // Phase H4: 过期报废时传递 sku_code
-      await this.writeLedger({
-        batchNo:         batch.batch_no,
-        changeType:      'EXPIRE_WRITEOFF',
-        qtyChange:       -qty,
-        operator:        'scheduler',
-        companyCode:     batch.company_code ?? companyCode ?? 'ALL',
-        refNo:           batch.batch_no,
-        note:            `过期自动报废 batch=${batch.batch_no} expire=${batch.expire_date} qty=${qty}`,
-        batchExpireDate: batch.expire_date,
-        qualityGrade:    batch.quality_grade,
-        skuCode:         batch.sku_code ?? null,
-      });
+      // 在途预占的过期批次：跳过核销，输出清单供人工复核（用户裁决：不自动强退）
+      const skippedRows = await em.query(
+        `SELECT b.batch_no, b.company_code,
+                COALESCE(SUM(a.reserved_qty - a.outbound_qty - a.released_qty), 0) AS open_allocations
+           FROM inv_batches b
+           JOIN sal_order_item_batch_allocations a ON a.batch_no = b.batch_no
+          WHERE b.expire_date < CURRENT_DATE
+            AND b.status = 'AVAILABLE'
+            AND b.qty > 0
+            AND ($1::text IS NULL OR b.company_code = $1)
+            AND a.reserved_qty > a.outbound_qty + a.released_qty
+          GROUP BY b.batch_no, b.company_code
+          ORDER BY b.batch_no`,
+        [scopedCompany],
+      );
+      const skippedInUse = skippedRows.map((row: any) => ({
+        batchNo: String(row.batch_no),
+        companyCode: row.company_code ?? null,
+        openAllocations: Number(row.open_allocations ?? 0),
+      }));
 
-      written += qty;
+      let written = 0;
+      for (const batch of candidates) {
+        // ③ 守卫化 UPDATE：changed!==1 说明并发已改状态，跳过（幂等容错）
+        const changed = await em.query(
+          `WITH c AS (
+             UPDATE inv_batches
+                SET status='EXPIRED', qty_available=0, updated_at=NOW()
+              WHERE batch_no=$1 AND status='AVAILABLE'
+              RETURNING batch_no
+           ) SELECT batch_no FROM c`,
+          [batch.batch_no],
+        );
+        if (changed.length !== 1) continue;
+
+        // ④ EXPIRE_WRITEOFF 同事务写入（Phase H4: 传递 sku_code）
+        await this.writeLedger({
+          batchNo:         batch.batch_no,
+          changeType:      'EXPIRE_WRITEOFF',
+          qtyChange:       -Number(batch.qty),
+          operator:        'system:scheduler',
+          companyCode:     batch.company_code,
+          refNo:           batch.batch_no,
+          note:            `过期自动核销（跳过在途预占批次） batch=${batch.batch_no} expire=${batch.expire_date} qty=${batch.qty}`,
+          batchExpireDate: batch.expire_date ?? null,
+          qualityGrade:    batch.quality_grade ?? null,
+          skuCode:         batch.sku_code ?? null,
+        }, em);
+        written++;
+      }
+      return { expired: candidates.length, written, skippedInUse };
+    };
+
+    const result = mgr ? await run(mgr) : await this.ds.transaction(run);
+
+    // 在途预占批次 → MENU_SALES2_INVENTORY:V 用户人工复核通知（事务提交后发送）
+    if (result.skippedInUse.length) await this.notifyExpireReview(result.skippedInUse);
+
+    this.logger.log(
+      `[EggInv] 过期处理: 候选=${result.expired} 核销=${result.written} 在途预占跳过=${result.skippedInUse.length}`,
+    );
+    return result;
+  }
+
+  /**
+   * INV-101/INV-103：库存写路径公司授权（fail-closed，语义对齐 companyScope()）。
+   * 无 CLS dataScope（调度/系统流）或 isGlobal 放行；否则必须显式命中
+   * allowedCompanyCodes，越权/缺省抛 ForbiddenException。返回实际生效的公司过滤
+   * （null = 全公司扫描，仅限前述放行路径）。
+   */
+  private assertWriteCompanyScope(requested?: string): string | null {
+    const scope: unknown = this.cls.get('dataScope');
+    if (scope == null) return requested ?? null;
+    const valid = typeof scope === 'object' && !Array.isArray(scope)
+      ? scope as { isGlobal?: unknown; allowedCompanyCodes?: unknown }
+      : undefined;
+    if (!valid || typeof valid.isGlobal !== 'boolean') throw new ForbiddenException('库存写入 dataScope 格式无效');
+    if (valid.isGlobal) return requested ?? null;
+    if (!requested || !Array.isArray(valid.allowedCompanyCodes) || !valid.allowedCompanyCodes.includes(requested)) {
+      throw new ForbiddenException(`无权对公司 ${requested ?? '(未指定)'} 执行库存写入`);
     }
+    return requested;
+  }
 
-    this.logger.log(`[EggInv] 过期处理: ${expiredBatches.length} 批次 ${written} 个报废`);
-    return { expired: expiredBatches.length, written };
+  /**
+   * INV-101：在途预占的过期批次跳过核销后，向 MENU_SALES2_INVENTORY:V 用户发
+   * 站内通知进入人工复核（参考 ar-reconciliation cronMonthlyReconciliation 的
+   * 通知模式；通知失败只记日志，不影响过期处理主流程）。
+   */
+  private async notifyExpireReview(
+    skipped: Array<{ batchNo: string; companyCode: string | null; openAllocations: number }>,
+  ): Promise<void> {
+    if (!this.notifyRecipients || !this.notify) {
+      this.logger.warn(
+        `[EggInv] ${skipped.length} 个过期批次存在在途预占待人工复核: ${skipped.map(row => row.batchNo).join(',')}`,
+      );
+      return;
+    }
+    const byCompany = new Map<string, typeof skipped>();
+    for (const row of skipped) {
+      const key = row.companyCode ?? '';
+      if (!byCompany.has(key)) byCompany.set(key, []);
+      byCompany.get(key)!.push(row);
+    }
+    for (const [companyCode, rows] of byCompany) {
+      try {
+        const userIds = await this.notifyRecipients.resolve(companyCode, ['MENU_SALES2_INVENTORY']);
+        for (const userId of userIds) {
+          try {
+            await this.notify.create({
+              userId,
+              notificationType: 'INVENTORY_EXPIRE_REVIEW',
+              title: `过期批次待人工复核：${rows.length} 批存在在途预占`,
+              content: '以下过期批次存在未出库/未释放的订单预占，已跳过自动核销；请人工复核处理订单预占后再执行过期报废：\n'
+                + rows.map(row => `  • ${row.batchNo}（在途预占 ${row.openAllocations}）`).join('\n'),
+              linkType: 'PAGE',
+              linkId: '/sales2/inventory',
+              bizType: 'INV_EXPIRE_REVIEW',
+              bizNo: new Date().toISOString().slice(0, 10),
+            });
+          } catch (err) {
+            this.logger.warn(`[EggInv] 过期复核通知 user=${userId} 发送失败: ${(err as Error).message}`);
+          }
+        }
+      } catch (err) {
+        this.logger.error(`[EggInv] 过期复核通知接收者解析失败 company=${companyCode}: ${(err as Error).message}`);
+      }
+    }
   }
 
   // ── 9. 查询临期库存 ──────────────────────────────────────────────────────────

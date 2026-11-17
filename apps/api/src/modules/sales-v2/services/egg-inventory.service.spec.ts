@@ -697,3 +697,130 @@ describe('EggInventoryService direct production variety authorization', () => {
     expectNoWrites();
   });
 });
+
+describe('EggInventoryService markExpiredBatches (INV-101)', () => {
+  const makeService = (query: jest.Mock, cls: unknown = { get: jest.fn().mockReturnValue(undefined) },
+    recipients?: { resolve: jest.Mock }, notif?: { create: jest.Mock }) => {
+    const transaction = jest.fn(async (run: (tx: unknown) => Promise<unknown>) => run({ query }));
+    const ds = { query: jest.fn(), transaction };
+    const service = new EggInventoryService(
+      ds as never, cls as never, undefined as never, recipients as never, notif as never,
+    );
+    return { service, ds, transaction };
+  };
+
+  it('treats an injected companyCode as a literal bind parameter, never SQL text', async () => {
+    const evil = `COMP-A' OR '1'='1`;
+    const query = jest.fn(async () => []);
+    const { service } = makeService(query as never);
+
+    await expect(service.markExpiredBatches(evil)).resolves.toEqual({ expired: 0, written: 0, skippedInUse: [] });
+
+    for (const [sql, args] of query.mock.calls as any[][]) {
+      expect(String(sql)).not.toContain(evil);
+      expect(String(sql)).not.toContain("company_code='");
+    }
+    const candidate = (query.mock.calls as any[][]).find(([sql]: any) => String(sql).includes('FOR UPDATE OF b SKIP LOCKED'))!;
+    expect(String(candidate[0])).toContain('($1::text IS NULL OR b.company_code = $1)');
+    expect(candidate[1]).toEqual([evil]);
+    const skippedQuery = (query.mock.calls as any[][]).find(([sql]: any) => String(sql).includes('GROUP BY b.batch_no'))!;
+    expect(skippedQuery[1]).toEqual([evil]);
+  });
+
+  it('skips batches with open allocations, reports them in skippedInUse and notifies reviewers', async () => {
+    const query = jest.fn(async (sql: string) => {
+      if (sql.includes('FOR UPDATE OF b SKIP LOCKED')) return [
+        { batch_no: 'B-CLEAN', qty: '10', company_code: 'COMP-A', expire_date: '2026-11-01', quality_grade: 'A', sku_code: 'SKU-1' },
+      ];
+      if (sql.includes('GROUP BY b.batch_no')) return [
+        { batch_no: 'B-INUSE', company_code: 'COMP-A', open_allocations: '12' },
+      ];
+      if (sql.includes("SET status='EXPIRED'")) return [{ batch_no: 'B-CLEAN' }];
+      if (sql.includes('INSERT INTO inv_ledger')) return [{ id: 7 }];
+      return [];
+    });
+    const recipients = { resolve: jest.fn().mockResolvedValue(['user-1', 'user-2']) };
+    const notif = { create: jest.fn().mockResolvedValue({}) };
+    const { service } = makeService(query as never, undefined, recipients, notif);
+
+    const result = await service.markExpiredBatches('COMP-A');
+
+    expect(result).toEqual({
+      expired: 1, written: 1,
+      skippedInUse: [{ batchNo: 'B-INUSE', companyCode: 'COMP-A', openAllocations: 12 }],
+    });
+    // The guarded update keeps status='AVAILABLE' as the idempotency guard.
+    const update = (query.mock.calls as any[][]).find(([sql]: any) => String(sql).includes("SET status='EXPIRED'"))!;
+    expect(String(update[0])).toContain("WHERE batch_no=$1 AND status='AVAILABLE'");
+    expect(update[1]).toEqual(['B-CLEAN']);
+    // EXPIRE_WRITEOFF ledger is written inside the same transaction manager.
+    const ledger = (query.mock.calls as any[][]).find(([sql]: any) => String(sql).includes('INSERT INTO inv_ledger'))!;
+    expect(ledger[1][0]).toBe('B-CLEAN');
+    expect(ledger[1][1]).toBe('EXPIRE_WRITEOFF');
+    // Manual-review notification follows the ar-reconciliation pattern.
+    expect(recipients.resolve).toHaveBeenCalledWith('COMP-A', ['MENU_SALES2_INVENTORY']);
+    expect(notif.create).toHaveBeenCalledTimes(2);
+    expect(notif.create.mock.calls[0][0]).toMatchObject({
+      userId: 'user-1', notificationType: 'INVENTORY_EXPIRE_REVIEW', bizType: 'INV_EXPIRE_REVIEW',
+    });
+    expect(String(notif.create.mock.calls[0][0].content)).toContain('B-INUSE');
+  });
+
+  it('rolls the whole sweep back when a ledger write fails mid-way', async () => {
+    const query = jest.fn(async (sql: string) => {
+      if (sql.includes('FOR UPDATE OF b SKIP LOCKED')) return [
+        { batch_no: 'B-1', qty: '5', company_code: 'COMP-A', expire_date: '2026-11-01', quality_grade: 'A', sku_code: null },
+        { batch_no: 'B-2', qty: '6', company_code: 'COMP-A', expire_date: '2026-11-01', quality_grade: 'A', sku_code: null },
+      ];
+      if (sql.includes('GROUP BY b.batch_no')) return [];
+      if (sql.includes("SET status='EXPIRED'")) return [{ batch_no: 'ok' }];
+      if (sql.includes('INSERT INTO inv_ledger')) throw new Error('ledger down');
+      return [];
+    });
+    const state = { rolledBack: false };
+    const ds = {
+      query: jest.fn(),
+      transaction: jest.fn(async (run: (tx: unknown) => Promise<unknown>) => {
+        try {
+          return await run({ query });
+        } catch (error) {
+          state.rolledBack = true;
+          throw error;
+        }
+      }),
+    };
+    const service = new EggInventoryService(ds as never, { get: jest.fn().mockReturnValue(undefined) } as never);
+
+    await expect(service.markExpiredBatches()).rejects.toThrow('ledger down');
+    expect(state.rolledBack).toBe(true);
+    // B-1's guarded UPDATE and its failing ledger write both ran inside the
+    // rolled-back transaction; B-2 was never touched.
+    expect((query.mock.calls as any[][]).filter(([sql]: any) => String(sql).includes("SET status='EXPIRED'"))).toHaveLength(1);
+    expect((query.mock.calls as any[][]).filter(([sql]: any) => String(sql).includes('INSERT INTO inv_ledger'))).toHaveLength(1);
+  });
+
+  it('continues past batches whose guarded update no longer matches (idempotent re-run)', async () => {
+    let updateCalls = 0;
+    const query = jest.fn(async (sql: string) => {
+      if (sql.includes('FOR UPDATE OF b SKIP LOCKED')) return [
+        { batch_no: 'B-1', qty: '5', company_code: 'COMP-A', expire_date: '2026-11-01', quality_grade: 'A', sku_code: null },
+        { batch_no: 'B-2', qty: '6', company_code: 'COMP-A', expire_date: '2026-11-01', quality_grade: 'A', sku_code: null },
+      ];
+      if (sql.includes('GROUP BY b.batch_no')) return [];
+      if (sql.includes("SET status='EXPIRED'")) {
+        updateCalls += 1;
+        return updateCalls === 1 ? [{ batch_no: 'B-1' }] : []; // B-2 already flipped by a concurrent worker
+      }
+      if (sql.includes('INSERT INTO inv_ledger')) return [{ id: 1 }];
+      return [];
+    });
+    const { service } = makeService(query as never);
+
+    const result = await service.markExpiredBatches('COMP-A');
+
+    expect(result).toEqual({ expired: 2, written: 1, skippedInUse: [] });
+    const ledgerCalls = (query.mock.calls as any[][]).filter(([sql]: any) => String(sql).includes('INSERT INTO inv_ledger'));
+    expect(ledgerCalls).toHaveLength(1);
+    expect(ledgerCalls[0][1][0]).toBe('B-1');
+  });
+});
