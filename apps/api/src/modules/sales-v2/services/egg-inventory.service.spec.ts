@@ -347,7 +347,7 @@ describe('EggInventoryService createProductionBatch SQL contract', () => {
       .mockResolvedValueOnce([]) // No ACTIVE source profiles for this legacy company.
       .mockResolvedValueOnce([{ batch_no: 'EGG-20260825-00001' }])
       .mockResolvedValueOnce([]);
-    const cls = { get: jest.fn().mockReturnValue({ username: 'tester' }) };
+    const cls = { get: jest.fn((key: string) => key === 'user' ? { username: 'tester' } : undefined) };
     const transaction = jest.fn(async (run: (manager: unknown) => Promise<unknown>) => run({ query }));
     const service = new EggInventoryService({ query, transaction } as never, cls as never);
 
@@ -822,5 +822,71 @@ describe('EggInventoryService markExpiredBatches (INV-101)', () => {
     const ledgerCalls = (query.mock.calls as any[][]).filter(([sql]: any) => String(sql).includes('INSERT INTO inv_ledger'));
     expect(ledgerCalls).toHaveLength(1);
     expect(ledgerCalls[0][1][0]).toBe('B-1');
+  });
+});
+
+describe('EggInventoryService write-path company DataScope (INV-103)', () => {
+  const scopedCls = { get: jest.fn().mockReturnValue({ isGlobal: false, allowedCompanyCodes: ['COMP-A'] }) };
+  const makeDs = () => ({
+    query: jest.fn(),
+    transaction: jest.fn(async (run: (tx: unknown) => Promise<unknown>) => run({ query: jest.fn() })),
+  });
+
+  it('rejects markExpiredBatches for a company outside the caller scope', async () => {
+    const ds = makeDs();
+    const service = new EggInventoryService(ds as never, scopedCls as never);
+    await expect(service.markExpiredBatches('COMP-B')).rejects.toMatchObject({ status: 403 });
+    expect(ds.transaction).not.toHaveBeenCalled();
+    expect(ds.query).not.toHaveBeenCalled();
+  });
+
+  it('rejects a scoped caller who sweeps all companies without naming one', async () => {
+    const ds = makeDs();
+    const service = new EggInventoryService(ds as never, scopedCls as never);
+    await expect(service.markExpiredBatches()).rejects.toMatchObject({ status: 403 });
+    expect(ds.transaction).not.toHaveBeenCalled();
+  });
+
+  it('rejects allocateByFIFO for a company outside the caller scope', async () => {
+    const ds = makeDs();
+    const service = new EggInventoryService(ds as never, scopedCls as never);
+    await expect(service.allocateByFIFO({
+      productCode: 'EGG', companyCode: 'COMP-B', qty: 1, refNo: 'SO-1', note: 'test',
+      fulfillmentWarehouseCode: 'WH-A', salesContext: 'FARM_SALES',
+    })).rejects.toMatchObject({ status: 403 });
+    expect(ds.transaction).not.toHaveBeenCalled();
+    expect(ds.query).not.toHaveBeenCalled();
+  });
+
+  it('rejects the legacy no-source createProductionBatch for a company outside the caller scope', async () => {
+    const ds = makeDs();
+    const service = new EggInventoryService(ds as never, scopedCls as never);
+    await expect(service.createProductionBatch({
+      companyCode: 'COMP-B', eggDate: '2026-11-17', productCode: 'PRD-LEGACY',
+      qualityGrade: 'GRADE_1', qty: 1, sourceType: 'PRODUCTION',
+    })).rejects.toMatchObject({ status: 403 });
+    expect(ds.transaction).not.toHaveBeenCalled();
+    expect(ds.query).not.toHaveBeenCalled();
+  });
+
+  it('still lets global and scope-less system flows allocate the granted company', async () => {
+    const query = jest.fn(async (sql: string) => {
+      if (sql.includes('SELECT type, domain, status, owner_store_id')) return [{ type: 'EGG_FARM', domain: 'OPERATIONAL', status: 'ACTIVE', owner_store_id: null }];
+      return [];
+    });
+    const transaction = jest.fn(async (run: (tx: unknown) => Promise<unknown>) => run({ query }));
+    for (const cls of [
+      { get: jest.fn().mockReturnValue({ isGlobal: true }) },
+      { get: jest.fn().mockReturnValue(undefined) },
+      scopedCls,
+    ]) {
+      const service = new EggInventoryService({ query, transaction } as never, cls as never);
+      // COMP-A is granted to the scoped caller; the sweep fails later on stock
+      // availability, never on authorization.
+      await expect(service.allocateByFIFO({
+        productCode: 'EGG', companyCode: 'COMP-A', qty: 1, refNo: 'SO-1', note: 'ok',
+        fulfillmentWarehouseCode: 'WH-A', salesContext: 'FARM_SALES',
+      })).rejects.toThrow('库存不足');
+    }
   });
 });

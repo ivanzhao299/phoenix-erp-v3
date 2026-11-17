@@ -470,6 +470,10 @@ export class EggInventoryService {
           throw new ForbiddenException('无权向指定公司或仓库创建来源批次');
         }
       }
+    } else {
+      // INV-103：legacy 无 source 路径补同等公司授权（对齐上方 hasSource 分支，
+      // fail-closed；无 CLS dataScope 的系统流与 isGlobal 放行）。
+      this.assertWriteCompanyScope(params.companyCode);
     }
     if ((params.sourceType === 'TEMP_PRODUCTION' || params.sourceType === 'PACKAGING') && (!params.skuCode || !hasSource)) {
       throw new BadRequestException('新生产/包装入库必须显式提供已由来源确认的 SKU 和 source profile，禁止回退旧生产通道');
@@ -813,6 +817,9 @@ export class EggInventoryService {
     },
     mgr?: EntityManager,
   ): Promise<FifoAllocation[]> {
+    // INV-103：写路径公司授权（fail-closed）。即使端点下线，内部调用链同样防御；
+    // 无 CLS dataScope 的系统流与 isGlobal 放行。
+    this.assertWriteCompanyScope(params.companyCode);
     if (!mgr) return this.ds.transaction(manager => this.allocateByFIFO(params, manager));
     const q = mgr.query.bind(mgr);
     const salesContext = await this.resolveSalesContext(mgr, params.salesContext, params.fulfillmentWarehouseCode);
