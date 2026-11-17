@@ -8,7 +8,8 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
 import { ClsService } from 'nestjs-cls';
 import { resolveInventoryClass } from '../../wms/inventory-class-policy';
-import { INV_LEDGER_CHANGE_TYPE } from '../../wms/inv-ledger-change-types';
+import { INV_LEDGER_CHANGE_TYPE, InvLedgerChangeType } from '../../wms/inv-ledger-change-types';
+import { writeInvLedger } from '../../wms/inventory-ledger.writer';
 import { fifoLockKey, fifoItemKey } from '../../wms/inventory-lock.util';
 import { NotificationService } from '../../notification/notification.service';
 import { ScopedNotificationRecipientService } from '../../notification/scoped-notification-recipient.service';
@@ -362,34 +363,27 @@ export class EggInventoryService {
     },
     mgr?: EntityManager,
   ) {
-    const q = mgr ? mgr.query.bind(mgr) : this.ds.query.bind(this.ds);
-    const [ledger] = await q(
-      `INSERT INTO inv_ledger
-         (batch_no, change_type, qty_change, operator, store_code, ref_no, note,
-          batch_expire_date, quality_grade, company_code, sku_code,
-          log_date, warehouse_code, location_code)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
-       RETURNING id`,
-      [
-        params.batchNo,
-        params.changeType,
-        params.qtyChange,
-        params.operator,
-        params.storeCode ?? null,
-        params.refNo,
-        params.note,
-        params.batchExpireDate ?? null,
-        params.qualityGrade ?? null,
-        params.companyCode,
-        params.skuCode ?? null,
-        params.logDate ?? null,
-        params.warehouseCode ?? null,
-        params.locationCode ?? null,
-      ],
-    );
+    // INV-301a：统一走共享写入器（列/参数由 writer 单一有序数组生成，结构上
+    // 不可能错位）。egg 引擎 14 列形态保持不变：所有可选参数 `?? null` 归一，
+    // 列集合与旧手写 SQL 完全一致，调用方与行为零变化。
     // Query mocks used by SQL-contract unit tests return no row; PostgreSQL always
     // returns the persisted id and the allocation FK makes a missing real id fail closed.
-    return Number(ledger?.id ?? 0);
+    return writeInvLedger(mgr ?? this.ds, {
+      batchNo: params.batchNo,
+      changeType: params.changeType as InvLedgerChangeType,
+      qtyChange: params.qtyChange,
+      operator: params.operator,
+      storeCode: params.storeCode ?? null,
+      refNo: params.refNo,
+      note: params.note,
+      batchExpireDate: params.batchExpireDate ?? null,
+      qualityGrade: params.qualityGrade ?? null,
+      companyCode: params.companyCode,
+      skuCode: params.skuCode ?? null,
+      logDate: params.logDate ?? null,
+      warehouseCode: params.warehouseCode ?? null,
+      locationCode: params.locationCode ?? null,
+    });
   }
 
   /**
