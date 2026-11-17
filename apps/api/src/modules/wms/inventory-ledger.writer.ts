@@ -114,6 +114,13 @@ export interface WriteInvLedgerParams {
    * 缺列，因此仅在非空时写入（null 时省略列，DB 结果同为 NULL）。
    */
   houseCode?: string | null;
+  /**
+   * 出库结转金额（INV-401，qty_change × 批次 unit_cost，带符号）。
+   * undefined = 该行无成本维度（省列，兼容历史写入方）；数值 = 写入列；
+   * null = 显式写 NULL（历史行语义）。入库行不传；SALE_RETURN 暂传 0
+   * （退货成本冲减留待 F3）。
+   */
+  costChange?: number | null;
 }
 
 /** 可选列的固定追加顺序（egg 14 列形态在前，wms/farm 扩展列在后） */
@@ -133,6 +140,7 @@ const OPTIONAL_COLUMNS: Array<{ column: string; key: keyof WriteInvLedgerParams;
   { column: 'project_code', key: 'projectCode' },
   { column: 'department_code', key: 'departmentCode' },
   { column: 'house_code', key: 'houseCode', houseOnlyWhenValue: true },
+  { column: 'cost_change', key: 'costChange' },
 ];
 
 /**

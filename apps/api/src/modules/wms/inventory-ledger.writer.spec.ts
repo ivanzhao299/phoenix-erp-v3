@@ -107,6 +107,33 @@ describe('writeInvLedger (INV-301a shared writer)', () => {
     expect(params[params.length - 1]).toBe('HOUSE-1');
   });
 
+  it('omits cost_change when undefined (INV-401: legacy callers keep no cost dimension)', async () => {
+    const { em, query } = makeEm();
+    await writeInvLedger(em, {
+      batchNo: 'B-6', changeType: 'FIFO_OUT', qtyChange: -2, operator: 'op',
+      refNo: 'R', note: 'n', companyCode: 'COMP-A', skuCode: 'SKU-1',
+    });
+    const [sql, params] = query.mock.calls[0];
+    expect(String(sql)).not.toContain('cost_change');
+    // 尾列仍是 sku_code（cost_change 省列时列集合与 INV-401 前完全一致）
+    expect(params[params.length - 1]).toBe('SKU-1');
+  });
+
+  it('appends cost_change after house_code when a numeric value is passed (INV-401 outbound carry)', async () => {
+    const { em, query } = makeEm();
+    await writeInvLedger(em, {
+      batchNo: 'B-7', changeType: 'FIFO_OUT', qtyChange: -3, operator: 'op',
+      refNo: 'R', note: 'n', houseCode: 'HOUSE-1', costChange: -12.5,
+    });
+    const [sql, params] = query.mock.calls[0];
+    expect(String(sql)).toContain(', house_code, cost_change)');
+    expect(params[params.length - 1]).toBe(-12.5);
+    // 数值入参：占位符连续且位于最末
+    const placeholders = String(sql).match(/VALUES \(([^)]+)\)/)![1].split(',').map(p => p.trim());
+    expect(placeholders[placeholders.length - 1]).toBe(`$${placeholders.length}`);
+    expect(params.length).toBe(placeholders.length);
+  });
+
   it('returns the numeric id and falls back to 0 for SQL-contract mocks without rows', async () => {
     const { em } = makeEm([{ id: '12345' }]);
     await expect(writeInvLedger(em, {
