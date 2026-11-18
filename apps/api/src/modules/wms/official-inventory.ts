@@ -16,8 +16,17 @@ export function officialInventoryWritablePredicate(alias = 'b'): string {
 /** A numeric zero placeholder is not a confirmed cost for a newly qualified source. */
 export function officialInventoryCostKnownPredicate(alias = 'b'): string {
   if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(alias)) throw new Error('Invalid SQL batch alias');
-  return `(${alias}.unit_cost IS NOT NULL AND NOT EXISTS(SELECT 1 FROM production_batch_qualifications cost_q
-    WHERE cost_q.batch_no=${alias}.batch_no AND cost_q.disposition='QUALIFIED' AND cost_q.cost_status='UNKNOWN'))`;
+  return `(${alias}.unit_cost IS NOT NULL AND NOT EXISTS(SELECT 1 FROM production_batch_qualifications cost_q JOIN production_cutover_scopes cost_scope ON cost_scope.id=cost_q.scope_id
+    WHERE cost_scope.state<>'DRAFT' AND cost_q.batch_no=${alias}.batch_no AND cost_q.disposition='QUALIFIED' AND cost_q.cost_status='UNKNOWN'))`;
+}
+
+/** Never present incomplete qualified inventory as a fully valued zero-cost total. */
+export function officialInventoryCostAggregate(alias='inv_batches'):string {
+  const known=officialInventoryCostKnownPredicate(alias);
+  return `CASE WHEN COUNT(*) FILTER(WHERE ${alias}.qty>0 AND NOT ${known})>0 THEN NULL
+    ELSE COALESCE(SUM(${alias}.qty*${alias}.unit_cost),0) END::text AS value,
+    COUNT(*) FILTER(WHERE ${alias}.qty>0 AND NOT ${known})::int AS cost_pending_batches,
+    COALESCE(SUM(${alias}.qty) FILTER(WHERE ${alias}.qty>0 AND NOT ${known}),0)::text AS cost_pending_quantity`;
 }
 
 /** Caller retains its normal company/warehouse authorization and transaction/lock order. */

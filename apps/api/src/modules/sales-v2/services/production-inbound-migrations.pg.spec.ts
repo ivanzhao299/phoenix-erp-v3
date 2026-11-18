@@ -1,0 +1,55 @@
+import 'reflect-metadata';
+import { DataSource } from 'typeorm';
+import { installProductionInboundFixture } from './production-inbound.pg-fixture';
+import { OfficialInventoryCutover1794971000000 } from '../../../database/migrations/1794971000000-OfficialInventoryCutover';
+import { ProductionInboundDocuments1794972000000 } from '../../../database/migrations/1794972000000-ProductionInboundDocuments';
+import { ProductionHandoverAndPeriods1794973000000 } from '../../../database/migrations/1794973000000-ProductionHandoverAndPeriods';
+import { ProductionInstallmentDictionaries1794974000000 } from '../../../database/migrations/1794974000000-ProductionInstallmentDictionaries';
+const url=process.env.OFFICIAL_INVENTORY_PG_URL;const suite=url?describe:describe.skip;
+suite('formal installment migration reversals — owned PostgreSQL 18',()=>{
+  let db:DataSource;const schema=`inbound_migrations_${process.pid}`;
+  const chain=[new OfficialInventoryCutover1794971000000(),new ProductionInboundDocuments1794972000000(),
+    new ProductionHandoverAndPeriods1794973000000(),new ProductionInstallmentDictionaries1794974000000()];
+  beforeAll(async()=>{
+    const u=new URL(url!);if(u.hostname!=='127.0.0.1'||!['/phoenix_temp_reversal_fixture','/installments_fixture'].includes(u.pathname))throw Error('Owned loopback fixture required');
+    db=await new DataSource({type:'postgres',url,entities:[],synchronize:false,migrationsRun:false,installExtensions:false,extra:{options:`-c search_path=${schema}`,max:5}}).initialize();
+    if(!(await db.query('SHOW server_version'))[0].server_version.startsWith('18.'))throw Error('PostgreSQL 18 required');
+    await db.query(`CREATE SCHEMA "${schema}"`);await installProductionInboundFixture(db,['GRADE_1']);
+  });
+  afterEach(async()=>{await db.query('TRUNCATE production_posting_period_events');});
+  afterAll(async()=>{if(db?.isInitialized){await db.query(`DROP SCHEMA "${schema}" CASCADE`);await db.destroy();}});
+  it('empty OFF expansion reverses in order and reinstalls without scope activation',async()=>{
+    const q=db.createQueryRunner();await q.connect();try{
+      for(const migration of [...chain].reverse())await migration.down(q);
+      for(const migration of chain)await migration.up(q);
+      expect((await q.query('SELECT count(*)::int AS n FROM production_cutover_scopes'))[0].n).toBe(0);
+      expect((await q.query("SELECT count(*)::int AS n FROM sys_dict WHERE dict_type='PRODUCTION_INBOUND_DOCUMENT_STATE'"))[0].n).toBe(5);
+    }finally{await q.release();}
+  });
+  it('retains both dictionaries and schema when an independent signed period event exists',async()=>{
+    await db.query(`INSERT INTO production_posting_period_events(id,company_code,period_month,state,version,signed_by,
+      evidence_file_id,evidence_checksum,reason) VALUES('40000000-0000-0000-0000-000000000001','COMP-A','2026-11','CLOSED',1,'fixture','SYNTHETIC',repeat('a',64),'Synthetic signed event')`);
+    const q=db.createQueryRunner();await q.connect();try{
+      await expect(chain[3].down(q)).rejects.toThrow('PRODUCTION_DICTIONARY_DOWN_HOLD');
+      await expect(chain[2].down(q)).rejects.toThrow('PRODUCTION_HANDOVER_PERIOD_DOWN_HOLD');
+      expect((await q.query("SELECT count(*)::int AS n FROM sys_dict WHERE dict_type='PRODUCTION_POSTING_PERIOD_STATE'"))[0].n).toBe(2);
+      expect((await q.query('SELECT count(*)::int AS n FROM production_posting_period_events'))[0].n).toBe(1);
+    }finally{await q.release();}
+  });
+  it('waits for an in-flight signed fact and rechecks it before dictionary deletion',async()=>{
+    const writer=db.createQueryRunner(),rollback=db.createQueryRunner();await writer.connect();await rollback.connect();
+    await writer.startTransaction();let pending:Promise<void>|undefined;
+    try{
+      await writer.query(`INSERT INTO production_posting_period_events(id,company_code,period_month,state,version,signed_by,
+        evidence_file_id,evidence_checksum,reason) VALUES('40000000-0000-0000-0000-000000000002','COMP-A','2026-11','OPEN',1,'fixture','SYNTHETIC',repeat('b',64),'Synthetic in-flight signed event')`);
+      const [{pid:rollbackPid}]=await rollback.query('SELECT pg_backend_pid() AS pid');
+      pending=chain[3].down(rollback);const result=pending.then(()=>null,error=>error);
+      let blocked=false;for(let i=0;i<100&&!blocked;i++){
+        blocked=(await writer.query('SELECT cardinality(pg_blocking_pids($1))>0 AS blocked',[rollbackPid]))[0].blocked;
+        if(!blocked)await new Promise(done=>setTimeout(done,10));
+      }
+      expect(blocked).toBe(true);await writer.commitTransaction();expect(String(await result)).toContain('PRODUCTION_DICTIONARY_DOWN_HOLD');
+      expect((await db.query("SELECT count(*)::int AS n FROM sys_dict WHERE dict_type='PRODUCTION_POSTING_PERIOD_STATE'"))[0].n).toBe(2);
+    }finally{if(writer.isTransactionActive)await writer.rollbackTransaction();if(pending)await pending.catch(()=>{});await writer.release();await rollback.release();}
+  });
+});

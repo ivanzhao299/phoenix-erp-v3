@@ -1209,7 +1209,7 @@ export class StorePosService {
       const qty = Number(allocation.allocated_qty) - Number(allocation.returned_qty);
       if (qty <= 0) throw new ConflictException(`allocation ${allocation.id} 已无可退数量`);
       const batchNo = `RET-${sale.sale_no}-${allocation.id}`;
-      await qualifyDerivedInventory(mgr,[{batch_no:allocation.batch_no}],{batchNo,companyCode:sale.company_code,
+      await qualifyDerivedInventory(mgr,[{batch_no:allocation.batch_no}],{batchNo,companyCode:sale.company_code,warehouseCode:quarantine.warehouse_code,
         productCode:allocation.product_code,skuCode:allocation.sku_code,sourceType:'STORE_RETURN',sourceNo:sale.sale_no,
         actor:this.currentUser?.username??'pos'});
       await mgr.query(

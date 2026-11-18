@@ -1,4 +1,4 @@
-import { officialInventoryPredicate } from '../../wms/official-inventory';
+import { officialInventoryPredicate, officialInventoryCostAggregate } from '../../wms/official-inventory';
 import { Injectable } from '@nestjs/common';
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
@@ -8,7 +8,9 @@ export interface GroupKpis {
   grossProfit:       number;  // 毛利
   netProfit:         number;  // 净利润（粗算 = 收入 - 费用 - 报损 - 应付）
   cashBalance:       number;  // 现金余额（所有资金账户合计）
-  inventoryValue:    number;  // 库存金额
+  inventoryValue:    number|null;
+  inventoryCostPendingBatches:number;
+  inventoryCostPendingQuantity:number;  // 库存金额
   receivable:        number;  // 应收余额
   payable:           number;  // 应付余额
   shareholderInput:  number;  // 股东累计投入
@@ -67,11 +69,11 @@ export class GroupAnalyticsService {
     );
     const cashBalance = parseFloat(cashRows[0]?.v ?? '0');
 
-    const invRows = await this.safe<{ v: string }>(
-      `SELECT COALESCE(SUM(qty * COALESCE(unit_cost,0)),0)::text AS v
-         FROM inv_batches WHERE ${officialInventoryPredicate('inv_batches')} AND COALESCE(status,'AVAILABLE') IN ('AVAILABLE','RESERVED','QUARANTINE')`,
+    const invRows = await this.safe<{ value:string|null;cost_pending_batches:number;cost_pending_quantity:string }>(
+      `SELECT ${officialInventoryCostAggregate('inv_batches')}
+         FROM inv_batches WHERE ${officialInventoryPredicate('inv_batches')} AND COALESCE(status,'AVAILABLE') IN ('AVAILABLE','RESERVED','QUARANTINE') ${companyFilter}`,
     );
-    const inventoryValue = parseFloat(invRows[0]?.v ?? '0');
+    const inventoryValue=invRows[0]?.value===null?null:parseFloat(invRows[0]?.value??'0');
 
     const arRows = await this.safe<{ v: string }>(
       `SELECT COALESCE(SUM(balance_amount_original),0)::text AS v FROM fin_ar_invoices
@@ -113,6 +115,7 @@ export class GroupAnalyticsService {
 
     return {
       revenue, grossProfit, netProfit, cashBalance, inventoryValue,
+      inventoryCostPendingBatches:invRows[0]?.cost_pending_batches??0,inventoryCostPendingQuantity:Number(invRows[0]?.cost_pending_quantity??0),
       receivable, payable, shareholderInput, projectRevenue,
       asOf: new Date().toISOString(),
       dimensions: dims,

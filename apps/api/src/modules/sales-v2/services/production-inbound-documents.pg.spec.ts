@@ -1,4 +1,6 @@
 import 'reflect-metadata';
+import { spawnSync } from 'node:child_process';
+import { resolve } from 'node:path';
 import { randomUUID } from 'crypto';
 import { DataSource } from 'typeorm';
 import { installProductionInboundFixture } from './production-inbound.pg-fixture';
@@ -7,6 +9,13 @@ import { ProductionInboundService } from './production-inbound.service';
 import { EggInventoryService } from './egg-inventory.service';
 import { OrgOwnershipService } from '../../org/services/org-ownership.service';
 import { SkuAvailabilityService } from '../../product-master/services/sku-availability.service';
+import { AlignWmsTransactionForms1787731200000 } from '../../../database/migrations/1787731200000-AlignWmsTransactionForms';
+import { UpgradeWmsTransferLifecycle1787965200000 } from '../../../database/migrations/1787965200000-UpgradeWmsTransferLifecycle';
+import { purchaseReceiptBatchNo } from '../../wms/purchase-inventory-qualification';
+import { sharedBatches } from '../../product-master/services/quantity-contract';
+import { AddWmsDefectDisposition1794405000000 } from '../../../database/migrations/1794405000000-AddWmsDefectDisposition';
+import { WmsService } from '../../wms/wms.service';
+import { InventoryAnalyticsService } from '../../analytics/services/inventory-analytics.service';
 import { effectiveExactProductionByGrade, effectiveProductionReceiptQuantity } from '../../farm/effective-production-source';
 
 const url = process.env.OFFICIAL_INVENTORY_PG_URL;
@@ -29,6 +38,14 @@ fixture('formal installment documents — actual PostgreSQL 18 inventory and pro
     const [{ server_version:version }] = await db.query('SHOW server_version');
     if (!version.startsWith('18.')) throw new Error('PostgreSQL 18 required');
     await db.query(`CREATE SCHEMA "${schema}"`); await installProductionInboundFixture(db,grades);
+    await db.query(`CREATE TABLE wms_stocktake(id bigserial PRIMARY KEY,stocktake_no text,date date,act_qty numeric,diff_qty numeric,status text,created_at timestamptz DEFAULT now());
+      CREATE TABLE store_master(id bigint PRIMARY KEY,store_code text,status text);
+      ALTER TABLE wms_warehouses ADD COLUMN owner_store_id bigint;
+      CREATE TABLE mst_materials(material_code text PRIMARY KEY,material_name text,material_type text,unit text,status text);
+      CREATE TABLE prc2_receipts(id bigint PRIMARY KEY,receipt_no text,company_code text,warehouse_code text,status text);
+      CREATE TABLE prc2_receipt_items(id bigint PRIMARY KEY,receipt_id bigint REFERENCES prc2_receipts(id),item_code text,actual_qty numeric,unit text);`);
+    const transfer=db.createQueryRunner();await transfer.connect();try{await new AlignWmsTransactionForms1787731200000().up(transfer);await new UpgradeWmsTransferLifecycle1787965200000().up(transfer);}finally{await transfer.release();}
+    const defect=db.createQueryRunner();await defect.connect();try{await new AddWmsDefectDisposition1794405000000().up(defect);}finally{await defect.release();}
     await db.query(`CREATE TABLE inv_source_mode(scope_level text,scope_code text,mode text);
       INSERT INTO inv_source_mode VALUES('GROUP','ALL','TEMP_PRODUCTION_INBOUND');
       CREATE TABLE brd_medication_records(flock_no text,status text,start_date date,withdraw_until date);
@@ -46,7 +63,7 @@ fixture('formal installment documents — actual PostgreSQL 18 inventory and pro
   });
   afterAll(async () => { if (db?.isInitialized) { await db.query(`DROP SCHEMA "${schema}" CASCADE`); await db.destroy(); } });
   beforeEach(async () => {
-    await db.query(`TRUNCATE production_physical_handovers,production_posting_periods,production_posting_period_events,production_inbound_allocations,production_inbound_lines,production_inbound_documents,
+    await db.query(`TRUNCATE prc2_receipt_items,prc2_receipts,wms_transfer_discrepancies,wms_transfer_items,wms_transfer,wms_stocktake,wms_defect_dispositions,production_physical_handovers,production_posting_periods,production_posting_period_events,production_inbound_allocations,production_inbound_lines,production_inbound_documents,
       production_opening_receipts,production_inbound_days,production_batch_roots,production_batch_qualifications,
       production_inventory_domains,production_cutover_scopes,inv_ledger,inv_batches,brd_daily_logs,inv_flock_source_links,
       brd_egg_source_receipts,brd_egg_day_routes,brd_flock_occupancies,brd_flock_documents RESTART IDENTITY CASCADE;
@@ -240,6 +257,9 @@ fixture('formal installment documents — actual PostgreSQL 18 inventory and pro
       const value=await inv.getInventoryValuation({companyCode:'COMP-A',warehouseCode:'WH-A'});
       expect(value.summary.costPending).toEqual({qty:80,batchCount:1});
       expect(value.rows[0].totalCost).toBeNull();
+      const kpis=await new InventoryAnalyticsService(db.manager).compute({companyCode:'COMP-A',warehouseCode:'WH-A'});
+      expect(kpis.capitalOccupation).toBeNull();expect(kpis.costPendingBatches).toBe(1);expect(kpis.costPendingQuantity).toBe(80);
+      expect((await new InventoryAnalyticsService(db.manager).compute({companyCode:'COMP-B',warehouseCode:'WH-A'})).capitalOccupation).toBe(0);
     } finally { await db.query('UPDATE inv_batches SET unit_cost=0; ALTER TABLE inv_batches ALTER COLUMN unit_cost SET NOT NULL'); }
   });
 
@@ -273,6 +293,86 @@ fixture('formal installment documents — actual PostgreSQL 18 inventory and pro
     const p=input();await physical(p);const first=await service.create(p);await service.cancel(first.id,first.version);
     const second=await service.create({...p,intentKey:randomUUID()});expect(second.id).not.toBe(first.id);
     expect((await service.create(p)).id).toBe(first.id);
+  });
+
+  it('audits immutable posted net/source facts, accepts sales depletion and holds an orphan reversal without changing the global audit', async () => {
+    const d=await ready();const receipt=await post(d);const batch=receipt.batches[0].batchNo;
+    await db.query('UPDATE inv_batches SET qty=qty-40,qty_available=qty_available-40 WHERE batch_no=$1',[batch]);
+    await db.query("INSERT INTO inv_ledger(batch_no,change_type,qty_change,ref_no) VALUES($1,'SALES',-40,'SYNTHETIC-AUDIT-SALE')",[batch]);
+    const audit=()=>{
+      const child=spawnSync(process.execPath,[resolve(__dirname,'../../../../../..','scripts/ops/audit-production-installments.mjs'),
+        '--database-url-env','OFFICIAL_INVENTORY_PG_URL','--schema',schema],{env:{...process.env,OFFICIAL_INVENTORY_PG_URL:url!},encoding:'utf8'});
+      return {status:child.status,result:JSON.parse(child.stdout||child.stderr)};
+    };
+    const good=audit();expect(good.status).toBe(0);expect(good.result.integrityStatus).toBe('PASS');expect(good.result.releaseAdmission).toBe(false);
+    expect(good.result.transaction).toMatchObject({read_only:'on',isolation:'repeatable read'});
+    expect(good.result.counts).toMatchObject({posted_inbound:1,posted_reversals:0});
+    await db.query("INSERT INTO inv_ledger(batch_no,change_type,qty_change,ref_no) VALUES($1,'PRODUCTION_INBOUND_REVERSAL',-1,'SYNTHETIC-ORPHAN-REVERSAL')",[batch]);
+    const held=audit();expect(held.status).toBe(2);expect(held.result.integrityStatus).toBe('HOLD');
+    expect(held.result.checks.find((c:any)=>c.name==='orphanReversalLedger').count).toBe(1);
+    expect((await post(d)).totalInbound).toBe(100);expect((await db.query('SELECT qty FROM inv_batches WHERE batch_no=$1',[batch]))[0].qty).toBe('60');
+  });
+
+  async function purchase(unit='枚') {
+    scope.allowedWarehouseCodes.push('WH-A2');await db.query("UPDATE wms_warehouses SET type='PURCHASE_RECV' WHERE warehouse_code='WH-A2'");
+    await db.query("INSERT INTO prc2_receipts VALUES(10,'SYNTHETIC-PURCHASE','COMP-A','WH-A2','CONFIRMED')");
+    await db.query("INSERT INTO prc2_receipt_items VALUES(11,10,'SKU-GRADE_1',100,$1)",[unit]);
+    const wms=new WmsService(db.manager,cls as any);
+    const r=await db.transaction(m=>wms.inboundFromReceipt(m,{refNo:'SYNTHETIC-PURCHASE',warehouseCode:'WH-A2',operator:'maker',inboundDate:day,
+      items:[{receiptItemId:'11',itemCode:'SKU-GRADE_1',qty:100,unit,unitCost:2}]}));
+    return {wms,batch:r.batchNos[0]};
+  }
+  it('admits a real persisted base-unit purchase only when its actual transfer enters the approved domain', async () => {
+    const {wms,batch}=await purchase();expect(batch).toBe(purchaseReceiptBatchNo('SYNTHETIC-PURCHASE','11'));
+    expect((await db.query('SELECT count(*)::int AS n FROM production_batch_qualifications'))[0].n).toBe(0);
+    await wms.confirmTransfer({transfer_no:'PURCHASE-TO-FARM',from_warehouse:'WH-A2',to_warehouse:'WH-A',items:[{batch_no:batch,qty:20}]},{username:'maker'});
+    const [root]=await db.query('SELECT * FROM production_batch_qualifications WHERE batch_no=$1',[batch]);expect(root).toMatchObject({origin_kind:'PURCHASE',origin_ref:'SYNTHETIC-PURCHASE:11',company_code:'COMP-A'});
+    const [child]=await db.query("SELECT * FROM inv_batches WHERE source_type='TRANSFER' AND source_no='PURCHASE-TO-FARM'");
+    expect(child).toMatchObject({qty:'20',grade_code_std:'GRADE_1',spec_code:'LOOSE',base_quantity_version:1,sku_code:'SKU-GRADE_1'});
+    expect((await db.query('SELECT root_batch_no FROM production_batch_roots WHERE batch_no=$1',[child.batch_no]))[0].root_batch_no).toBe(batch);
+    expect((await db.query('SELECT SUM(qty)::int AS n FROM inv_batches'))[0].n).toBe(100);
+    const pool=await db.transaction(m=>sharedBatches(m,'COMP-A',['WH-A'],{version:1,basis:'BASE',productCode:'PRD-EGG-RAW',gradeCode:'GRADE_1',
+      skuCode:'SKU-GRADE_1',specCode:'LOOSE',baseUnit:'枚',tradeUnit:'枚',factor:1,baseQty:20}));
+    expect(pool.map((b:{batch_no:string})=>b.batch_no)).toEqual([child.batch_no]);
+    expect((await service.balance('COMP-A','HOUSE-A',day,'WH-A')).grades.GRADE_1.posted).toBe(0);
+  });
+  it('rolls back the complete transfer when a confirmed purchase has no verified base-unit quantity', async () => {
+    const {wms,batch}=await purchase('箱');
+    await expect(wms.confirmTransfer({transfer_no:'UNVERIFIED-UNIT',from_warehouse:'WH-A2',to_warehouse:'WH-A',items:[{batch_no:batch,qty:20}]},{username:'maker'})).rejects.toThrow('正式采购来源');
+    expect((await db.query('SELECT qty FROM inv_batches WHERE batch_no=$1',[batch]))[0].qty).toBe('100');
+    expect((await db.query('SELECT count(*)::int AS n FROM inv_ledger'))[0].n).toBe(1);
+    expect((await db.query('SELECT count(*)::int AS n FROM production_batch_qualifications'))[0].n).toBe(0);
+    expect((await db.query('SELECT count(*)::int AS n FROM wms_transfer'))[0].n).toBe(0);
+  });
+
+  it('moves genuine zero-available restricted stock without changing its state, grade, root or source profile', async () => {
+    await db.query(`UPDATE brd_daily_logs SET eggs_by_grade='{"DIRTY":100,"BROKEN":100}'`);
+    scope.allowedWarehouseCodes.push('WH-A2');const wms=new WmsService(db.manager,cls as any);
+    for(const [grade,status] of [['DIRTY','QUARANTINE'],['BROKEN','DAMAGED']]) {
+      const original=await post(await ready(input(100,grade)));const batch=original.batches[0].batchNo;
+      const [before]=await db.query('SELECT * FROM inv_batches WHERE batch_no=$1',[batch]);expect(before.qty_available).toBe('0');
+      const body={disposition_no:`FIXTURE-${grade}`,batch_no:batch,qty:20,action:'TRANSFER',target_warehouse_code:'WH-A2',target_location_code:'LOC-A2',reason:'Synthetic actual restricted stock transfer'};
+      const result=await wms.disposeDefectInventory(body,{username:'maker',permissions:['MENU_INV_BATCH:E']});expect(result.code).toBe(200);
+      const [source]=await db.query('SELECT qty,qty_available FROM inv_batches WHERE batch_no=$1',[batch]);expect(source).toEqual({qty:'80',qty_available:'0'});
+      const [child]=await db.query("SELECT * FROM inv_batches WHERE source_type='DEFECT_TRANSFER' AND source_no=$1",[body.disposition_no]);
+      expect(child).toMatchObject({status,qty:'20',qty_available:'0',grade_code_std:grade,sku_code:before.sku_code,
+        variety_code:before.variety_code,source_profile_code:before.source_profile_code,source_profile_snapshot:before.source_profile_snapshot,base_quantity_version:1,inventory_class:'DEFECT_SALE'});
+      expect((await db.query('SELECT root_batch_no FROM production_batch_roots WHERE batch_no=$1',[child.batch_no])).map((r:any)=>r.root_batch_no)).toEqual([batch]);
+      expect((await wms.disposeDefectInventory(body,{username:'maker',permissions:['MENU_INV_BATCH:E']})).idempotent).toBe(true);
+    }
+  });
+
+  it('never moves or writes ledger facts for an archived restricted source, including a warehouse outside the initial domain', async () => {
+    scope.allowedWarehouseCodes.push('WH-A2');
+    await db.query(`INSERT INTO inv_batches(batch_no,company_code,warehouse_code,location_code,product_code,sku_code,grade_code_std,quality_grade,
+      status,qty,qty_available,source_type,source_no) VALUES('SYNTHETIC-OLD-DIRTY','COMP-A','WH-A2','LOC-A2','PRD-EGG-RAW','SKU-DIRTY','DIRTY','DIRTY','QUARANTINE',30,0,'LEGACY_TEST','OLD');
+      INSERT INTO production_batch_qualifications(batch_no,scope_id,company_code,product_code,sku_code,disposition,origin_kind,origin_ref,evidence_sha256,created_by)
+      VALUES('SYNTHETIC-OLD-DIRTY','20000000-0000-0000-0000-000000000001','COMP-A','PRD-EGG-RAW','SKU-DIRTY','ARCHIVED_TEST','PRODUCTION','OLD-SYNTHETIC',repeat('a',64),'fixture');`);
+    await expect(new WmsService(db.manager,cls as any).disposeDefectInventory({disposition_no:'ARCHIVE-BLOCK',batch_no:'SYNTHETIC-OLD-DIRTY',qty:10,
+      action:'TRANSFER',target_warehouse_code:'WH-A',reason:'Synthetic archive must hold'}, {username:'maker',permissions:['MENU_INV_BATCH:E']})).rejects.toThrow('OFFICIAL_INVENTORY_SOURCE_REJECTED');
+    expect((await db.query("SELECT qty FROM inv_batches WHERE batch_no='SYNTHETIC-OLD-DIRTY'"))[0].qty).toBe('30');
+    expect((await db.query('SELECT count(*)::int AS n FROM inv_ledger'))[0].n).toBe(0);
+    expect((await db.query('SELECT count(*)::int AS n FROM wms_defect_dispositions'))[0].n).toBe(0);
   });
 
   it('requires the approved warehouse domain even when the caller has another same-company warehouse', async () => {

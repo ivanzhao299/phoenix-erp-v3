@@ -14902,5 +14902,8 @@
   "productionInstallments.remaining": "ໂຄຕາຄົງເຫຼືອ",
   "productionInstallments.shift": "ກະລາຍງານ",
   "productionInstallments.useFormal": "ໂຮງໄກ່ນີ້ເຂົ້າສູ່ໄລຍະທາງການແລ້ວ. ໃຫ້ໃຊ້ການຮັບເຂົ້າເປັນງວດ.",
-  "ui.正式分次生产入库": "ຮັບໄຂ່ເຂົ້າສາງເປັນງວດ"
+  "ui.正式分次生产入库": "ຮັບໄຂ່ເຂົ້າສາງເປັນງວດ",
+  "productionInstallments.resumeDraft": "ກັບໄປຫາການສົ່ງມອບທີ່ບັນທຶກໄວ້",
+  "productionInstallments.recoverHandover": "ຄົ້ນຫາດ້ວຍເລກທີສົ່ງມອບຈາກອຸປະກອນອື່ນ",
+  "productionInstallments.financeProof": "ເບິ່ງຫຼັກຖານກວດສອບການເງິນນີ້"
 }

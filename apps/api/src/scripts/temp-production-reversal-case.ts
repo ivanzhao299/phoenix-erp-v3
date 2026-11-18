@@ -6,12 +6,12 @@ import { inspectTempProductionReversal } from '../modules/wms/temp-production-re
 async function main(): Promise<void> {
   const args=process.argv.slice(2);
   if (args.length===1 && (args[0]==='--help' || args[0]==='--self-check')) {
-    process.stdout.write('TEMP_PRODUCTION_REVERSAL_CLI=READY\nModes: preflight --release-sha <40-hex>\nProduction apply: HOLD, sealed business/financial authority integration pending\n');
+    process.stdout.write('TEMP_PRODUCTION_REVERSAL_CLI=READY\nModes: preflight --release-sha <40-hex>\nProduction apply: RETIRED; historical test records are retained without the fixed 60-egg correction\n');
     return;
   }
   if (args[0]==='apply') {
-    process.stderr.write(`${JSON.stringify({status:'HOLD',reason:'SEALED_APPROVAL_ADAPTER_NOT_INTEGRATED',
-      missing:['BUSINESS_APPROVAL','FINANCIAL_AUTHORITY','FRESH_BACKUP_RECEIPT'],databaseInitialized:false})}\n`);
+    process.stderr.write(`${JSON.stringify({status:'HOLD',reason:'HISTORICAL_TEST_CORRECTION_RETIRED',
+      disposition:'HISTORICAL_TEST_RECORDS_ONLY',databaseInitialized:false})}\n`);
     process.exitCode=2;return;
   }
   if (args.length!==3 || args[0]!=='preflight' || args[1]!=='--release-sha' || !/^[a-f0-9]{40}$/.test(args[2])) throw new Error('Invalid arguments; use --help');
@@ -26,8 +26,8 @@ async function main(): Promise<void> {
       await manager.query('SET TRANSACTION READ ONLY');
       return inspectTempProductionReversal(manager,args[2]);
     });
-    process.stdout.write(`${JSON.stringify(plan,null,2)}\n`);
+    process.stdout.write(`${JSON.stringify({...plan,applyStatus:'RETIRED',disposition:'HISTORICAL_TEST_RECORDS_ONLY'},null,2)}\n`);
     process.exitCode=plan.localStatus==='CLEAR'?0:2;
   } finally { if(ds.isInitialized)await ds.destroy(); }
 }
-main().catch(()=>{process.stderr.write('TEMP_PRODUCTION_REVERSAL_CLI=HOLD: preflight unavailable or apply authority pending; no application/background tasks started\n');process.exitCode=2;});
+main().catch(()=>{process.stderr.write('TEMP_PRODUCTION_REVERSAL_CLI=HOLD: preflight unavailable; fixed-case apply is retired; no application/background tasks started\n');process.exitCode=2;});

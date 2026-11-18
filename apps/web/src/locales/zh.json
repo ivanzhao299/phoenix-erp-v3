@@ -14902,5 +14902,8 @@
   "productionInstallments.remaining": "剩余额度",
   "productionInstallments.shift": "日报班次",
   "productionInstallments.useFormal": "该鸡舍已切换正式期间，请从正式分次入库办理。",
-  "ui.正式分次生产入库": "正式分次生产入库"
+  "ui.正式分次生产入库": "正式分次生产入库",
+  "productionInstallments.resumeDraft": "返回暂存交接",
+  "productionInstallments.recoverHandover": "按实物交接号找回（跨设备）",
+  "productionInstallments.financeProof": "查看此财务签认原据"
 }

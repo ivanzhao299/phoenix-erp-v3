@@ -1,6 +1,6 @@
 import { qualifyDerivedInventory } from './derived-inventory-qualification';
-import { qualifyPurchaseInventory } from './purchase-inventory-qualification';
-import { officialInventoryPredicate } from './official-inventory';
+import { qualifyPurchaseInventory,purchaseReceiptBatchNo } from './purchase-inventory-qualification';
+import { officialInventoryPredicate, officialLedgerPredicate } from './official-inventory';
 import { inheritFlockProductionSources } from '../farm/flock-production-source';
 import { resolveQuantity, savedQuantity, sharedBatches, assertBatchPool, baseQuantity, QuantitySnapshot, lockQuantityPools } from '../product-master/services/quantity-contract';
 import { SkuPolicy } from '../product-master/services/sku-policy';
@@ -56,7 +56,7 @@ export class WmsService {
     private readonly tempCorrectionAuthority?: TempReversalApprovalVerifier,
   ) {}
 
-  /** No HTTP controller. Production has no approval provider and therefore holds. */
+  /** Historical protocol retained for forensic fixtures only. The production CLI apply entry is retired; archived batches also fail database admission. */
   async reverseReviewedTempProductionInbound(plan: TempReversalPlan) {
     const c=TEMP_PRODUCTION_REVERSAL_CASE;
     if(plan?.schema!=='phoenix.temp-production-reversal-plan/v1'||plan.caseId!==c.id
@@ -1017,7 +1017,7 @@ export class WmsService {
       operator?: string;
       inboundDate?: string | null;
       items: {
-        receiptItemId?:string;
+        receiptItemId?:string;unit?:string;
         itemCode?: string;
         itemType?: string;
         productCode?: string;
@@ -1069,7 +1069,7 @@ export class WmsService {
       const productCode = identity.productCode;
       const skuCode = identity.skuCode;
       const inventoryClass = resolveInventoryClass(identity.gradeCode);
-      const batchNo = (it.batchNo || `${ctx.refNo}-${String(idx + 1).padStart(3, '0')}`).slice(0, 64);
+      const batchNo = (it.batchNo || (it.receiptItemId?purchaseReceiptBatchNo(ctx.refNo,it.receiptItemId):`${ctx.refNo}-${String(idx + 1).padStart(3, '0')}`)).slice(0,64);
       const locationCode = (it.locationCode || 'INBOUND-DOCK').slice(0, 64);
       // INV-401：采购收货计价（非法/负数单价安全回退 0，不阻断收货）
       const receiptUnitCost = Number.isFinite(Number(it.unitCost)) && Number(it.unitCost) >= 0
@@ -1084,13 +1084,13 @@ export class WmsService {
         }
       }
       await qualifyPurchaseInventory(manager,{batchNo,companyCode,warehouseCode,productCode,skuCode,receiptNo:ctx.refNo,
-        receiptItemId:it.receiptItemId,itemCode:suppliedCode,quantity:qty,unitCost:receiptUnitCost,actor:operator});
+        receiptItemId:it.receiptItemId,itemCode:suppliedCode,quantity:qty,unitCost:receiptUnitCost,actor:operator,baseUnit:identity.unit});
       const posted = await manager.query(
         `INSERT INTO inv_batches (
            batch_no, product_code, sku_code, material_code, item_type, material_type,
-           unit, qty, qty_available, status, inventory_class, warehouse_code, location_code, store_code, inbound_date, company_code, variety_code, source_profile_code, source_profile_snapshot, unit_cost,source_type,source_no
+           unit, qty, qty_available, status, inventory_class, warehouse_code, location_code, store_code, inbound_date, company_code, variety_code, source_profile_code, source_profile_snapshot, unit_cost,source_type,source_no,grade_code_std,spec_code,base_quantity_version
          )
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8::numeric, $8::numeric, 'AVAILABLE', $15, $9, $10, $11, $12::date, $13, $14, NULL, NULL, $16::numeric,'PURCHASE',$17)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8::numeric, $8::numeric, 'AVAILABLE', $15, $9, $10, $11, $12::date, $13, $14, NULL, NULL, $16::numeric,'PURCHASE',$17,$18,$19,$20)
          ON CONFLICT (batch_no) DO UPDATE SET
            product_code = COALESCE(inv_batches.product_code, EXCLUDED.product_code),
            sku_code = COALESCE(inv_batches.sku_code, EXCLUDED.sku_code),
@@ -1123,6 +1123,8 @@ export class WmsService {
         [
           batchNo, productCode, skuCode, identity.materialCode, identity.itemType,
           identity.materialType, identity.unit, qty, warehouseCode, locationCode, storeCode, ctx.inboundDate || null, companyCode, identity.varietyCode, inventoryClass, receiptUnitCost,ctx.refNo,
+          it.unit===identity.unit&&identity.itemType==='SKU'?identity.gradeCode:null,it.unit===identity.unit&&identity.itemType==='SKU'?identity.specCode:null,
+          it.unit===identity.unit&&identity.itemType==='SKU'?1:null,
         ],
       );
       if (posted.length !== 1) throw new BadRequestException('入库批次归属或身份已变化，禁止跨公司累加');
@@ -1539,7 +1541,8 @@ export class WmsService {
         `SELECT batch_no, product_code, sku_code, material_code, item_type, material_type, unit,
                 qty, qty_available, status, quality_grade, grade_code_std, warehouse_code,
                 location_code, store_code, company_code, expire_date, egg_date, packaging_spec,
-                spec_code, source_type, source_no, inbound_date
+                spec_code, source_type, source_no, inbound_date,base_quantity_version,inventory_class,variety_code,
+                source_profile_code,source_profile_snapshot,packaging_batch_ref,collection_batch_ref
            FROM inv_batches WHERE batch_no=$1 FOR UPDATE`,
         [batchNo],
       );
@@ -1559,9 +1562,14 @@ export class WmsService {
       await this.assertWritableWarehouse(batch.warehouse_code, `缺陷批次 ${batchNo}`);
       const companyCode = await this.lockWarehouseCompany(manager, batch.warehouse_code, batch.company_code);
       this.assertBatchCompany(batch, companyCode);
-      const available = Number(batch.qty_available);
-      if (!Number.isFinite(available) || available < 0) throw new BadRequestException(`批次 ${batchNo} 可用库存无效`);
-      if (available < requestedQty) throw new BadRequestException(`批次 ${batchNo} 可用量 ${available} 不足 ${requestedQty}`);
+      const available = Number(batch.qty_available),physical=Number(batch.qty);
+      if (!Number.isFinite(physical)||physical<0||!Number.isFinite(available)||available<0||available>physical)throw new BadRequestException(`批次 ${batchNo} 实存或可用库存无效`);
+      if(physical<requestedQty)throw new BadRequestException(`批次 ${batchNo} 实存 ${physical} 不足 ${requestedQty}`);
+      // Restricted batches legitimately have zero saleable availability. Disposal consumes physical stock,
+      // but never a still-reserved sales segment; reservation writers share this batch lock.
+      const [allocationSchema]=await manager.query("SELECT to_regclass('sal_order_item_batch_allocations') AS allocations");
+      if(allocationSchema?.allocations&&(await manager.query(`SELECT 1 FROM sal_order_item_batch_allocations
+        WHERE batch_no=$1 AND reserved_qty>outbound_qty+released_qty LIMIT 1`,[batchNo])).length)throw new ConflictException('缺陷批次仍有未释放销售预占，请先解除原单');
 
       const targetWarehouse = this.nonEmptyString(body?.target_warehouse_code);
       const targetLocation = this.nonEmptyString(body?.target_location_code) || 'DEFECT-TRANSFER';
@@ -1570,6 +1578,7 @@ export class WmsService {
         if (targetWarehouse === batch.warehouse_code) throw new BadRequestException('TRANSFER 的目标仓库必须不同于源仓库');
         await this.assertWritableWarehouse(targetWarehouse, '缺陷调拨目标仓库');
         targetCompany = await this.lockWarehouseCompany(manager, targetWarehouse!, undefined);
+        await this.assertTransferSku(manager,batch,batch.warehouse_code,targetWarehouse!);
       }
 
       const inserted = await manager.query(
@@ -1601,7 +1610,7 @@ export class WmsService {
                   qty_available=GREATEST(qty_available-$1::numeric,0), updated_at=now()
             WHERE batch_no=$2 AND warehouse_code=$3
               AND COALESCE(status,'') IN ('QUARANTINE','DAMAGED')
-              AND qty_available >= $1::numeric
+              AND qty >= $1::numeric AND qty_available>=0 AND qty_available<=qty
             RETURNING batch_no
          ) SELECT batch_no FROM changed`,
         [requestedQty, batchNo, batch.warehouse_code],
@@ -1630,20 +1639,24 @@ export class WmsService {
       let targetBatchNo: string | null = null;
       if (action === 'TRANSFER') {
         targetBatchNo = `${batchNo}-D-${dispositionNo}`.slice(0, 100);
-        await qualifyDerivedInventory(manager,[{batch_no:batchNo}],{batchNo:targetBatchNo,companyCode:targetCompany!,
-          productCode:batch.product_code,skuCode:batch.sku_code,sourceType:'DEFECT_TRANSFER',sourceNo:dispositionNo,actor:String(user?.username||'SYS')});
+        await qualifyDerivedInventory(manager,[{batch_no:batchNo}],{batchNo:targetBatchNo,companyCode:targetCompany!,warehouseCode:targetWarehouse!,
+          productCode:batch.product_code,skuCode:batch.sku_code,sourceType:'DEFECT_TRANSFER',sourceNo:dispositionNo,ownershipTransfer:true,actor:String(user?.username||'SYS')});
         const targetRows = await manager.query(
           `INSERT INTO inv_batches
             (batch_no,product_code,sku_code,material_code,item_type,material_type,unit,qty,qty_available,
-             status,warehouse_code,location_code,store_code,company_code,quality_grade,grade_code_std,
-             packaging_spec,spec_code,egg_date,expire_date,source_type,source_no,inbound_date)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8::numeric,$8::numeric,'QUARANTINE',$9,$10,$11,$12,$13,$13,$14,$15,$16,$17,'DEFECT_TRANSFER',$18,CURRENT_DATE)
+             warehouse_code,location_code,store_code,company_code,quality_grade,grade_code_std,
+             packaging_spec,spec_code,egg_date,expire_date,source_type,source_no,inbound_date,status,
+             base_quantity_version,inventory_class,variety_code,source_profile_code,source_profile_snapshot,packaging_batch_ref,collection_batch_ref)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8::numeric,0,$9,$10,$11,$12,$13,$13,$14,$15,$16,$17,'DEFECT_TRANSFER',$18,CURRENT_DATE,$19,
+             $20,$21,$22,$23,$24::jsonb,$25,$26)
            ON CONFLICT (batch_no) DO NOTHING RETURNING batch_no`,
           [targetBatchNo, batch.product_code || null, batch.sku_code || null, batch.material_code || null,
             batch.item_type || null, batch.material_type || null, batch.unit || null, requestedQty,
             targetWarehouse, targetLocation, batch.store_code || 'ALL', targetCompany, grade,
             batch.packaging_spec || null, batch.spec_code || null, batch.egg_date || null,
-            batch.expire_date || null, dispositionNo],
+            batch.expire_date || null, dispositionNo,status,batch.base_quantity_version??null,batch.inventory_class??resolveInventoryClass(grade),
+            batch.variety_code??null,batch.source_profile_code??null,batch.source_profile_snapshot?JSON.stringify(batch.source_profile_snapshot):null,
+            batch.packaging_batch_ref??null,batch.collection_batch_ref??null],
         );
         if (targetRows.length !== 1) throw new BadRequestException(`目标缺陷批次 ${targetBatchNo} 已存在，拒绝重复入账`);
         await inheritFlockProductionSources(manager,batchNo,targetBatchNo,requestedQty);
@@ -1791,6 +1804,7 @@ export class WmsService {
     skuCode: string | null;
     productCode: string | null;
     gradeCode: string | null;
+    specCode:string|null;
     unit: string;
   }> {
     if (!itemCode) throw new BadRequestException('物料或 SKU 必填');
@@ -1821,6 +1835,7 @@ export class WmsService {
           skuCode: null,
           productCode: null,
           gradeCode: null,
+          specCode:null,
           unit: material.unit || '件',
         };
       }
@@ -1838,6 +1853,7 @@ export class WmsService {
           skuCode: sku.sku_code,
           productCode: sku.product_code || null,
           gradeCode: sku.grade_code || null,
+          specCode:sku.spec_code||null,
           unit: sku.base_unit || '枚',
         };
       }
@@ -2487,8 +2503,8 @@ export class WmsService {
         // 目标 + （新建一条目标 batch，追溯链保留）
         const targetIdentity = await this.resolveTransferTargetIdentity(manager, to_warehouse, src.store_code);
         const dstBatchNo = `${it.batch_no}-T-${Math.random().toString(36).slice(2,5).toUpperCase()}`;
-        await qualifyDerivedInventory(manager,[{batch_no:it.batch_no}],{batchNo:dstBatchNo,companyCode:targetIdentity.companyCode,
-          productCode:src.product_code,skuCode:src.sku_code,sourceType:'TRANSFER',sourceNo:transferNo,actor:opName});
+        await qualifyDerivedInventory(manager,[{batch_no:it.batch_no}],{batchNo:dstBatchNo,companyCode:targetIdentity.companyCode,warehouseCode:to_warehouse,
+          productCode:src.product_code,skuCode:src.sku_code,sourceType:'TRANSFER',sourceNo:transferNo,ownershipTransfer:true,actor:opName});
         await manager.query(
           `INSERT INTO inv_batches (
              batch_no, product_code, sku_code, material_code, item_type, material_type,
@@ -2739,8 +2755,8 @@ export class WmsService {
             snapshot.store_code,
           );
           targetBatchNo = `${item.source_batch_no}-T-${Math.random().toString(36).slice(2, 5).toUpperCase()}`;
-          await qualifyDerivedInventory(manager,[{batch_no:item.source_batch_no}],{batchNo:targetBatchNo,companyCode:targetIdentity.companyCode,
-            productCode:snapshot.product_code,skuCode:snapshot.sku_code,sourceType:'TRANSFER',sourceNo:transferNo,actor:String(user?.username||'SYS')});
+          await qualifyDerivedInventory(manager,[{batch_no:item.source_batch_no}],{batchNo:targetBatchNo,companyCode:targetIdentity.companyCode,warehouseCode:transfer.to_warehouse,
+            productCode:snapshot.product_code,skuCode:snapshot.sku_code,sourceType:'TRANSFER',sourceNo:transferNo,ownershipTransfer:true,actor:String(user?.username||'SYS')});
           await manager.query(
             `INSERT INTO inv_batches (batch_no,product_code,sku_code,material_code,item_type,material_type,
             unit,qty,qty_available,status,inventory_class,warehouse_code,location_code,expire_date,store_code,company_code,inbound_date,grade_code_std,spec_code,quality_grade,packaging_spec,egg_date,legacy_source,base_quantity_version,packaging_batch_ref,collection_batch_ref,variety_code,source_profile_code,source_profile_snapshot,source_type,source_no)
@@ -2787,8 +2803,8 @@ export class WmsService {
             damagedSku=broken.sku_code;
           }
           const damagedBatchNo = `${item.source_batch_no}-BROKEN-${Math.random().toString(36).slice(2, 5).toUpperCase()}`;
-          await qualifyDerivedInventory(manager,[{batch_no:item.source_batch_no}],{batchNo:damagedBatchNo,companyCode:targetIdentity.companyCode,
-            productCode:snapshot.product_code,skuCode:damagedSku,sourceType:'TRANSFER_DAMAGE',sourceNo:transferNo,actor:String(user?.username||'SYS')});
+          await qualifyDerivedInventory(manager,[{batch_no:item.source_batch_no}],{batchNo:damagedBatchNo,companyCode:targetIdentity.companyCode,warehouseCode:transfer.to_warehouse,
+            productCode:snapshot.product_code,skuCode:damagedSku,sourceType:'TRANSFER_DAMAGE',sourceNo:transferNo,ownershipTransfer:true,allowSkuConversion:true,actor:String(user?.username||'SYS')});
           await manager.query(
             `INSERT INTO inv_batches (
                batch_no,product_code,sku_code,material_code,item_type,material_type,
@@ -3037,18 +3053,19 @@ export class WmsService {
   async getDailyCloseSummary(date: string) {
     const d = date || new Date().toISOString().slice(0, 10);
     try {
+      const corrections=[INV_LEDGER_CHANGE_TYPE.TEMP_PRODUCTION_REVERSAL,INV_LEDGER_CHANGE_TYPE.PRODUCTION_INBOUND_REVERSAL];
       const [agg]: Array<{ inbound_qty: string; outbound_qty: string; correction_net_qty: string }> = await this.em.query(
         `SELECT
-           COALESCE(SUM(CASE WHEN qty_change > 0 AND change_type IS DISTINCT FROM $2 THEN qty_change ELSE 0 END), 0) AS inbound_qty,
-           COALESCE(SUM(CASE WHEN qty_change < 0 AND change_type IS DISTINCT FROM $2 THEN -qty_change ELSE 0 END), 0) AS outbound_qty,
-           COALESCE(SUM(CASE WHEN change_type=$2 THEN qty_change ELSE 0 END), 0) AS correction_net_qty
+           COALESCE(SUM(CASE WHEN qty_change > 0 AND (change_type IS NULL OR change_type<>ALL($2::text[])) THEN qty_change ELSE 0 END), 0) AS inbound_qty,
+           COALESCE(SUM(CASE WHEN qty_change < 0 AND (change_type IS NULL OR change_type<>ALL($2::text[])) THEN -qty_change ELSE 0 END), 0) AS outbound_qty,
+           COALESCE(SUM(CASE WHEN change_type=ANY($2::text[]) THEN qty_change ELSE 0 END), 0) AS correction_net_qty
          FROM inv_ledger
-         WHERE CASE WHEN change_type=$2 THEN log_date=$1::date
+         WHERE ${officialLedgerPredicate()} AND CASE WHEN change_type=ANY($2::text[]) THEN log_date=$1::date
                     ELSE DATE(created_at::timestamp)=$1::date END`,
-        [d, INV_LEDGER_CHANGE_TYPE.TEMP_PRODUCTION_REVERSAL],
+        [d,corrections],
       ).catch(() => [{ inbound_qty: '0', outbound_qty: '0', correction_net_qty: '0' }]);
       const [stk]: Array<{ stock: string }> = await this.em.query(
-        `SELECT COALESCE(SUM(qty), 0) AS stock FROM inv_batches WHERE qty > 0`,
+        `SELECT COALESCE(SUM(qty), 0) AS stock FROM inv_batches WHERE qty > 0 AND ${officialInventoryPredicate('inv_batches')}`,
       ).catch(() => [{ stock: '0' }]);
       // 复用 wms_stocktake 表存日结记录 (stocktake_no 以 DC- 开头)
       const closedRows = await this.em.query(

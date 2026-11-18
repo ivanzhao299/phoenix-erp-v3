@@ -40,14 +40,15 @@ export async function installProductionInboundFixture(db: DataSource, grades: st
         quality_grade text, packaging_spec text, source_type text, source_no text, qty numeric, qty_available numeric,
         status text, sku_code text, grade_code_std text, spec_code text, packaging_batch_ref text,
         collection_batch_ref text, unit text, material_code text, legacy_source text, base_quantity_version smallint, created_at timestamptz, updated_at timestamptz);
-      ALTER TABLE inv_batches ADD COLUMN IF NOT EXISTS variety_code text;
+      ALTER TABLE inv_batches ADD COLUMN IF NOT EXISTS variety_code text,ADD COLUMN IF NOT EXISTS item_type text,
+        ADD COLUMN IF NOT EXISTS material_type text,ADD COLUMN IF NOT EXISTS store_code text;
       ALTER TABLE inv_batches ADD COLUMN IF NOT EXISTS inventory_class text NOT NULL DEFAULT 'STANDARD';
       -- inv-opt 批次 4：跟随迁移末态（InvEggCostingColumns）
       ALTER TABLE inv_batches ADD COLUMN IF NOT EXISTS unit_cost numeric(18,6) NOT NULL DEFAULT 0;
       CREATE TABLE IF NOT EXISTS inv_ledger (id serial PRIMARY KEY, batch_no text REFERENCES inv_batches(batch_no), change_type text,
         qty_change numeric, operator text, store_code text, ref_no text, note text, batch_expire_date date,
         quality_grade text, company_code text, sku_code text, log_date date, warehouse_code text, location_code text);
-      ALTER TABLE inv_ledger ADD COLUMN IF NOT EXISTS cost_change numeric(18,6); -- inv-opt 批次 4 迁移末态
+      ALTER TABLE inv_ledger ADD COLUMN IF NOT EXISTS cost_change numeric(18,6),ADD COLUMN IF NOT EXISTS created_at timestamptz DEFAULT now(),ADD COLUMN IF NOT EXISTS material_code text; -- inv-opt 批次 4 迁移末态
       CREATE UNIQUE INDEX IF NOT EXISTS uq_inv_batches_temp_production_source_identity
         ON inv_batches (company_code, source_type, source_no,
           COALESCE(sku_code, ''), COALESCE(grade_code_std, quality_grade, ''), COALESCE(spec_code, packaging_spec, ''))
@@ -98,7 +99,7 @@ export async function installProductionInboundFixture(db: DataSource, grades: st
       ALTER TABLE brd_daily_logs ADD COLUMN IF NOT EXISTS flock_no text,ADD COLUMN IF NOT EXISTS shift text DEFAULT 'DAILY',
         ADD COLUMN IF NOT EXISTS mortality_qty int DEFAULT 0,ADD COLUMN IF NOT EXISTS elimination_qty int DEFAULT 0,
         ADD COLUMN IF NOT EXISTS opening_qty int,ADD COLUMN IF NOT EXISTS closing_qty int,ADD COLUMN IF NOT EXISTS eggs_produced int DEFAULT 0,ADD COLUMN IF NOT EXISTS lay_rate numeric;
-      ALTER TABLE sys_dict ADD COLUMN IF NOT EXISTS dict_label_zh text,ADD COLUMN IF NOT EXISTS dict_label_en text,ADD COLUMN IF NOT EXISTS sort_no int;
+      ALTER TABLE sys_dict ADD COLUMN IF NOT EXISTS dict_label_zh text,ADD COLUMN IF NOT EXISTS dict_label_en text,ADD COLUMN IF NOT EXISTS dict_label_lo text,ADD COLUMN IF NOT EXISTS sort_no int;
       CREATE UNIQUE INDEX IF NOT EXISTS fixture_dict_unique ON sys_dict(dict_type,dict_code);
       CREATE TABLE IF NOT EXISTS file_metadata(file_id text PRIMARY KEY,status text,deleted_at timestamptz,visibility text,mime_type text,module_code text,owner_type text,owner_id text,company_code text,store_code text,uploaded_by text);
       CREATE TABLE IF NOT EXISTS pkg_source_batches(id int PRIMARY KEY,house_code text,flock_code text,received_qty int,production_date date,lay_date date,is_test boolean);

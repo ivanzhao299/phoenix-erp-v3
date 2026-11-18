@@ -164,6 +164,11 @@ const NAV_CARDS: NavCard[] = [{
   soon: false,
   pageKey: 'egglog'
 }, {
+  icon: <Package size={28} />,
+  titleZh: '正式分次生产入库',titleEn: 'Production installments',titleLo: 'ຮັບໄຂ່ເຂົ້າສາງເປັນງວດ',
+  desc: '实物交接、分次入库与原单回执',descKey: 'productionInstallments.subtitle',
+  color: 'var(--status-success)',href: '/mobile/production-inbound',soon: false,pageKey: 'production_inbound'
+}, {
   icon: <LineChart size={28} />,
   titleZh: '生产趋势',
   titleEn: 'Analytics',

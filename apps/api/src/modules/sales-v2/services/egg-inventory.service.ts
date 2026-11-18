@@ -1325,7 +1325,7 @@ export class EggInventoryService {
       const returnSkuCode: string | null = item.sku_code ?? null;
       const origins=item.sales_order_item_id ? await q(`SELECT DISTINCT batch_no FROM sal_order_item_batch_allocations
         WHERE sales_order_item_id=$1 AND outbound_qty>0 ORDER BY batch_no`,[item.sales_order_item_id]):[];
-      await qualifyDerivedInventory(mgr,origins,{batchNo,companyCode,productCode:item.product_code,skuCode:returnSkuCode,
+      await qualifyDerivedInventory(mgr,origins,{batchNo,companyCode,warehouseCode:targetWarehouseCode,productCode:item.product_code,skuCode:returnSkuCode,
         sourceType:'RETURN',sourceNo:returnNo,actor:this.operator});
 
       // ── accepted_qty：回库（RETURNED 状态，需重新质检） ──────────────────────

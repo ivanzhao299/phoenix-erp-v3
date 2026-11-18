@@ -71,7 +71,7 @@ export class ProductionHandoverAndPeriods1794973000000 implements MigrationInter
     const own=!q.isTransactionActive; if (own) await q.startTransaction();
     try {
       await q.query('LOCK TABLE production_physical_handovers,production_handover_cancellations,production_posting_periods,production_posting_period_events,production_financial_clearances IN ACCESS EXCLUSIVE MODE');
-      for(const table of ['production_physical_handovers','production_posting_periods','production_financial_clearances']) {
+      for(const table of ['production_physical_handovers','production_handover_cancellations','production_posting_periods','production_posting_period_events','production_financial_clearances']) {
         if((await q.query(`SELECT 1 FROM ${table} LIMIT 1`)).length)throw new Error('PRODUCTION_HANDOVER_PERIOD_DOWN_HOLD: signed facts exist');
       }
       await q.query(`ALTER TABLE production_financial_clearances DROP COLUMN IF EXISTS period_versions;

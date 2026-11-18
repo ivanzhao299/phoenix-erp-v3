@@ -76,6 +76,17 @@ export class ProductionInboundDocumentsService {
       FROM production_cutover_scopes WHERE company_code=$1 AND house_code=$2 AND state<>'DRAFT'`,[company,house]);
     return {state:scope?.state??'OFF',firstProductionDate:scope?.first_production_date??null};
   }
+  async locations(company:string,house:string,warehouse:string) {
+    text(company,'公司');text(house,'鸡舍');text(warehouse,'仓库');this.authorize(company,warehouse);
+    const rows=await this.db.query(`SELECT l.location_code,l.warehouse_code,l.status,
+      to_jsonb(l)->>'location_name' AS location_name,to_jsonb(l)->>'zone_code' AS zone_code
+      FROM wms_locations l JOIN wms_warehouses w ON w.warehouse_code=l.warehouse_code
+      WHERE l.warehouse_code=$3 AND w.company_code=$1 AND w.status='ACTIVE' AND l.status IN ('ACTIVE','NORMAL')
+      AND EXISTS(SELECT 1 FROM production_inventory_domains d JOIN production_cutover_scopes s ON s.id=d.scope_id
+        WHERE s.company_code=$1 AND s.house_code=$2 AND s.state IN ('ACTIVE','SUSPENDED')
+        AND d.company_code=$1 AND d.warehouse_code=$3) ORDER BY l.location_code LIMIT 500`,[company,house,warehouse]);
+    return rows;
+  }
   async postingPeriod(company: string,month: string) {
     this.authorize(company);if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(month))throw new BadRequestException('期间无效');
     const [period]=await this.db.query('SELECT company_code,period_month,state,version FROM production_posting_periods WHERE company_code=$1 AND period_month=$2',[company,month]);

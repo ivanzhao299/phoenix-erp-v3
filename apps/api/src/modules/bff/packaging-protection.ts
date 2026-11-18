@@ -27,7 +27,9 @@ async function caseBatchReferences(manager: Pick<EntityManager, 'query'>, source
       WHERE h.task_no=ANY($1::text[]) AND i.batch_no IS NOT NULL`,[headers.map((row:{task_no:string})=>row.task_no)]) : [];
   const linked = details.filter(row => known.includes(row.batch_no as typeof known[number]));
   const mixedHeader = linked.some(row => details.some(detail => detail.task_no === row.task_no && !known.includes(detail.batch_no as typeof known[number])));
-  const result = [...new Set([...refs, ...details.map(row => row.batch_no)])];
+  // Collection codes are not inventory batch numbers. Resolve real rows before taking inventory/house locks.
+  const actual:Array<{batch_no:string}>=await manager.query('SELECT batch_no FROM inv_batches WHERE batch_no=ANY($1::text[]) ORDER BY batch_no',[refs]);
+  const result = [...new Set([...actual.map(row=>row.batch_no), ...details.map(row => row.batch_no)])];
   const hasCaseReference = (source: SourceReference) => [source.batch_code, source.source_inbound_no].some(value => {
     const ref=typeof value==='string'?value.trim():value;
     return direct.includes(String(ref)) || linked.some(row => ref===row.task_no || ref===row.inbound_no);

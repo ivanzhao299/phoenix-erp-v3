@@ -14902,5 +14902,8 @@
   "productionInstallments.remaining": "Remaining capacity",
   "productionInstallments.shift": "Report shift",
   "productionInstallments.useFormal": "This house has switched to the formal period. Use production installments.",
-  "ui.正式分次生产入库": "Formal production installments"
+  "ui.正式分次生产入库": "Formal production installments",
+  "productionInstallments.resumeDraft": "Resume saved handover",
+  "productionInstallments.recoverHandover": "Recover by physical handover reference (any device)",
+  "productionInstallments.financeProof": "View this finance verification evidence"
 }

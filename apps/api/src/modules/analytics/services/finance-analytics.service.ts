@@ -1,4 +1,4 @@
-import { officialInventoryPredicate } from '../../wms/official-inventory';
+import { officialInventoryPredicate, officialInventoryCostAggregate } from '../../wms/official-inventory';
 import { Injectable } from '@nestjs/common';
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
@@ -9,7 +9,7 @@ export interface FinanceKpis {
   apAging:            Array<{ bucket: string; amount: number; count: number }>;
   expenseByType:      Array<{ type: string; amount: number; count: number }>;
   profitStructure:    { revenue: number; cost: number; expense: number; profit: number };
-  capitalOccupation:  { receivable: number; inventory: number; total: number };
+  capitalOccupation:  { receivable: number; inventory: number|null; total: number|null; costPendingBatches:number;costPendingQuantity:number };
   asOf: string;
 }
 
@@ -69,11 +69,11 @@ export class FinanceAnalyticsService {
     const recRows = await this.safe<{ v: string }>(
       `SELECT COALESCE(SUM(balance_amount_original),0)::text AS v FROM fin_ar_invoices ${cFilter ? 'WHERE 1=1 '+cFilter : ''}`,
     );
-    const invRows = await this.safe<{ v: string }>(
-      `SELECT COALESCE(SUM(qty*COALESCE(unit_cost,0)),0)::text AS v FROM inv_batches WHERE ${officialInventoryPredicate('inv_batches')}`,
+    const invRows = await this.safe<{ value:string|null;cost_pending_batches:number;cost_pending_quantity:string }>(
+      `SELECT ${officialInventoryCostAggregate('inv_batches')} FROM inv_batches WHERE ${officialInventoryPredicate('inv_batches')} ${cFilter}`,
     );
     const receivable = parseFloat(recRows[0]?.v ?? '0');
-    const inventoryV = parseFloat(invRows[0]?.v ?? '0');
+    const inventoryV=invRows[0]?.value===null?null:parseFloat(invRows[0]?.value??'0');
 
     return {
       cashFlow: { inflow, outflow, net: inflow - outflow },
@@ -81,7 +81,7 @@ export class FinanceAnalyticsService {
       apAging:        apAging.map(r => ({ bucket: r.bucket, amount: parseFloat(r.amount), count: parseInt(r.count, 10) })),
       expenseByType:  exp.map(r => ({ type: r.expense_type, amount: parseFloat(r.amount), count: parseInt(r.count, 10) })),
       profitStructure: { revenue, cost, expense: expenseSum, profit },
-      capitalOccupation: { receivable, inventory: inventoryV, total: receivable + inventoryV },
+      capitalOccupation: { receivable, inventory: inventoryV, total:inventoryV===null?null:receivable+inventoryV,costPendingBatches:invRows[0]?.cost_pending_batches??0,costPendingQuantity:Number(invRows[0]?.cost_pending_quantity??0) },
       asOf: new Date().toISOString(),
     };
   }

@@ -1,5 +1,6 @@
 import 'reflect-metadata';
 import { DataSource, EntityManager, QueryRunner } from 'typeorm';
+import { OfficialInventoryCutover1794971000000 } from '../../database/migrations/1794971000000-OfficialInventoryCutover';
 import { LabelsService } from '../terminal/labels.service';
 import {
   assertTempProductionReferenceAllowed, lockTempProductionReferences, readTempProductionReversalState,
@@ -40,6 +41,8 @@ suite('exact correction reference guard on owned PostgreSQL', () => {
       CREATE TABLE lbl_records(id bigserial PRIMARY KEY,code text,label_type text,grade_code text,grade_name text,pack_name text,
         batch_no text,produce_date date,expiry_date date,price numeric,show_price int,show_expiry int,qty_printed int,
         label_w numeric,label_h numeric,desc_text text,operator text,printed_by bigint,created_at timestamptz DEFAULT now());`);
+    await db.query('CREATE TABLE product_skus(sku_code text PRIMARY KEY,product_code text)');
+    const cutover=db.createQueryRunner();await cutover.connect();try{await new OfficialInventoryCutover1794971000000().up(cutover);}finally{await cutover.release();}
     reference = db.createQueryRunner(); correction = db.createQueryRunner();
     await reference.connect(); await correction.connect();
   });

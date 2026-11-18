@@ -317,13 +317,14 @@ export function ZoneSelector(p: BaseProps & { warehouseCode?: string }) {
 }
 
 // ── 货位（wms_locations）─────────────────────────────────────────────────────
-export function LocationSelector(p: BaseProps & { warehouseCode?: string; zoneCode?: string }) {
+export function LocationSelector(p: BaseProps & { warehouseCode?: string; zoneCode?: string; lookupEndpoint?: string }) {
   const { t } = useLanguage();
-  const { warehouseCode, zoneCode, ...rest } = p;
-  return <ScopedSelect {...rest} reloadDeps={[warehouseCode, zoneCode]} placeholder={p.placeholder ?? t('ui.请选择货位','请选择货位')}
+  const { warehouseCode, zoneCode, lookupEndpoint, ...rest } = p;
+  return <ScopedSelect {...rest} reloadDeps={[warehouseCode, zoneCode, lookupEndpoint]} placeholder={p.placeholder ?? t('ui.请选择货位','请选择货位')}
     loader={async () => {
+      if(lookupEndpoint&&!warehouseCode)return [];
       // Generic CRUD 的 status=ACTIVE 是精确等值，会在客户端过滤前滤光 NORMAL 库位。
-      const r = await request<any>('/crud/wms_locations?pageSize=500');
+      const r = await request<any>(lookupEndpoint || '/crud/wms_locations?pageSize=500');
       const list: any[] = Array.isArray(r) ? r : (r?.data?.items ?? r?.data ?? r?.items ?? []);
       return list
         .filter(l => ['ACTIVE', 'NORMAL'].includes(l.status ?? 'ACTIVE'))

@@ -10,6 +10,7 @@ import { LabelsService } from '../terminal/labels.service';
 import { guardPackagingSourceReferences, guardPackingSourceReferences } from '../bff/packaging-protection';
 import { resolvePackagingSourceContext } from '../bff/packaging-readiness';
 import { ProductionInboundService } from '../sales-v2/services/production-inbound.service';
+import { OfficialInventoryCutover1794971000000 } from '../../database/migrations/1794971000000-OfficialInventoryCutover';
 import { TempProductionReversalDictSeed1794904000000 } from '../../database/migrations/1794904000000-TempProductionReversalDictSeed';
 import { GenericCrudService } from '../generic-crud/generic-crud.service';
 import { inspectTempProductionReversal, TempReversalPlan, TempReversalApprovalVerifier } from './temp-production-reversal-case';
@@ -64,6 +65,7 @@ suite('WmsService exact correction on owned PostgreSQL',()=>{
       const ddl=snapshot.match(new RegExp(`CREATE TABLE public\\.${table} \\([\\s\\S]*?\\n\\);`))?.[0];
       if(!ddl)throw Error('Documented legacy DDL missing: '+table);await db.query(ddl);
     }
+    const cutover=db.createQueryRunner();await cutover.connect();try{await new OfficialInventoryCutover1794971000000().up(cutover);}finally{await cutover.release();}
     await db.query('TRUNCATE inv_ledger,inv_batches,brd_daily_logs CASCADE');
     for(const t of c.targets){
       await db.query(`INSERT INTO inv_batches(id,batch_no,qty,qty_available,company_code,warehouse_code,location_code,source_type,source_no,

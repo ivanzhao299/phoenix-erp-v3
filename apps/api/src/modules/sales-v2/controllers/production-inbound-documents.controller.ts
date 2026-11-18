@@ -14,6 +14,10 @@ export class ProductionInboundDocumentsController {
   constructor(private readonly documents: ProductionInboundDocumentsService) {}
   @Get('context') @RequireMenu('MENU_PROD_INBOUND','V',['MENU_FARM_DAILY'])
   context(@Query('companyCode') company:string,@Query('houseCode') house:string) { return this.documents.context(company,house); }
+  @Get('locations') @RequireMenu('MENU_PROD_INBOUND','V')
+  locations(@Query('companyCode') company:string,@Query('houseCode') house:string,@Query('warehouseCode') warehouse:string) {
+    return this.documents.locations(company,house,warehouse);
+  }
   @Get('posting-period') @RequireMenu('MENU_FIN2_AR_LEDGER','E')
   postingPeriod(@Query('companyCode') company:string,@Query('periodMonth') month:string) { return this.documents.postingPeriod(company,month); }
   @Get('handovers/:id/evidence/:fileId') @RequireMenu('MENU_PROD_INBOUND','V')

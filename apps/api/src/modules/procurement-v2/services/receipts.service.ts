@@ -388,7 +388,7 @@ export class ReceiptsService {
         inboundDate:   rcp.receiptDate,
         operator:      this.userId(),
         items: items.map(i => ({
-          receiptItemId:i.id,
+          receiptItemId:i.id,unit:i.unit??undefined,
           itemCode:    i.itemCode,
           qty:         Number(i.actualQty),
           // INV-401：采购批次成本 = PO 明细单价（prc2_order_items.unit_price，
