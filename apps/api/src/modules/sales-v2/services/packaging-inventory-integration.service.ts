@@ -1,6 +1,6 @@
 import { resolvePackagingIdentity, resolvePackagingSourceContext, PackagingIdentity } from '../../bff/packaging-readiness';
 import { assertPackingCanEnterInventory, lockPacking } from '../../bff/packaging-protection';
-import { Injectable, Logger, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, ConflictException, ForbiddenException } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
 import { ClsService } from 'nestjs-cls';
@@ -105,9 +105,11 @@ export class PackagingInventoryIntegrationService {
     const terminalRows = await opts.manager.query(`SELECT code FROM pkg_packing_records WHERE code=$1`, [refNo]);
     if (terminalRows.length || refNo.startsWith('PKG-')) await assertPackingCanEnterInventory(opts.manager, refNo);
     const db = opts.manager;
-    const existing = await db.query(`SELECT b.*, b.egg_date::text AS egg_date_text, b.inbound_date::text AS inbound_date_text FROM inv_batches b WHERE b.packaging_batch_ref=$1 OR b.source_no=$1`, [refNo]);
-    const ledger = await db.query(`SELECT l.* FROM inv_ledger l WHERE l.change_type='PACKAGING_INBOUND'
-      AND (l.ref_no=$1 OR l.batch_no=ANY($2::text[]))`, [refNo, existing.map((b: any) => b.batch_no)]);
+    const batchSql=`SELECT b.*, b.egg_date::text AS egg_date_text, b.inbound_date::text AS inbound_date_text FROM inv_batches b WHERE b.packaging_batch_ref=$1 OR b.source_no=$1`;
+    const ledgerSql=`SELECT l.* FROM inv_ledger l WHERE l.change_type='PACKAGING_INBOUND'
+      AND (l.ref_no=$1 OR l.batch_no=ANY($2::text[]))`;
+    let existing=await db.query(batchSql,[refNo]);
+    let ledger=await db.query(ledgerSql,[refNo,existing.map((b:any)=>b.batch_no)]);
     const historical = existing.length > 0 || ledger.length > 0;
     const [task] = terminalRows.length ? [] : await db.query(`SELECT t.house_code, ws.site_id, ws.production_date::text AS egg_date FROM pkg_tasks t JOIN pkg_work_shifts ws ON ws.id=t.shift_id WHERE t.task_no=$1 OR t.id::text=$1 FOR SHARE OF t, ws`, [refNo]);
     if (!terminalRows.length && (!task?.site_id || task.egg_date !== opts.eggDate)) throw new ConflictException('包装任务缺权威班次或生产日期不匹配');
@@ -118,6 +120,15 @@ export class PackagingInventoryIntegrationService {
     const companyCode = context.companyCode;
     if (opts.companyCode && opts.companyCode !== companyCode) throw new ConflictException('公司与包装权威来源不匹配');
     if (opts.siteCode && opts.siteCode !== context.farmCode && opts.siteCode !== context.siteCode) throw new ConflictException('场站与包装权威来源不匹配');
+    if(historical){
+      // House locks above precede stock locks. Hold the actual stock rows while comparing their physical ledger in a later statement.
+      existing=await db.query(batchSql+' ORDER BY b.batch_no FOR SHARE OF b',[refNo]);
+      ledger=await db.query(ledgerSql,[refNo,existing.map((b:any)=>b.batch_no)]);
+      const scope=this.cls.get('dataScope') as {isGlobal?:boolean;allowedCompanyCodes?:string[];allowedWarehouseCodes?:string[]}|undefined;
+      if(scope!=null&&(typeof scope.isGlobal!=='boolean'||!scope.isGlobal&&(!Array.isArray(scope.allowedCompanyCodes)||!Array.isArray(scope.allowedWarehouseCodes)||!scope.allowedCompanyCodes.includes(companyCode)
+        ||existing.some((b:any)=>!scope.allowedCompanyCodes?.includes(b.company_code)||!scope.allowedWarehouseCodes?.includes(b.warehouse_code)))))
+        throw new ForbiddenException('无权读取该包装原回执的公司或实际仓库');
+    }
     // Replays compare persisted identity, never re-derive today's flock or require ACTIVE masters.
     type PersistedIdentity = Omit<Awaited<ReturnType<typeof resolvePackagingIdentity>>, 'varietyCode'> & { varietyCode: string | null };
     const resolved = new Map<string, PersistedIdentity & { qty: number }>();
@@ -144,6 +155,7 @@ export class PackagingInventoryIntegrationService {
     if (!resolved.size) throw new ConflictException('包装缺有效产出');
     if (existing.length || ledger.length) {
       const expected = new Map(resolved);
+      const originalBatches:Array<{batchNo:string;grade:string;qty:number;productCode:string}>=[];
       for (const b of existing) {
         const key = `${b.sku_code}/${b.spec_code}`;
         const item = expected.get(key);
@@ -152,7 +164,7 @@ export class PackagingInventoryIntegrationService {
         const locationCode = opts.locationCode ?? b.location_code;
         if (!item || b.source_type !== 'PACKAGING' || b.packaging_batch_ref !== refNo
           || (b.egg_date_text !== opts.eggDate || b.inbound_date_text !== opts.eggDate)
-          || (b.variety_code ?? null) !== item.varietyCode || b.product_code !== item.productCode || b.grade_code_std !== item.grade || Number(b.qty) !== item.qty
+          || (b.variety_code ?? null) !== item.varietyCode || b.product_code !== item.productCode || b.grade_code_std !== item.grade
           || (item.stockStatus && b.status !== item.stockStatus)
           || b.company_code !== companyCode || b.warehouse_code !== warehouseCode || b.location_code !== locationCode
           || entries.length !== 1 || entries.some((l: any) => l.ref_no !== refNo || Number(l.qty_change) !== item.qty
@@ -160,12 +172,21 @@ export class PackagingInventoryIntegrationService {
             || l.warehouse_code !== warehouseCode || l.location_code !== locationCode)) {
           throw new ConflictException('既有库存或流水与预期逐SKU数量/归属不一致，禁止补余或重建');
         }
+        if(Number(b.qty)!==item.qty){
+          const [flow]=await db.query(`SELECT COALESCE(SUM(qty_change),0)::text AS balance,
+              COALESCE(SUM(qty_change) FILTER(WHERE qty_change>0),0)::text AS admitted
+            FROM inv_ledger WHERE batch_no=$1 AND change_type NOT IN ('RESERVED','RELEASED')`,[b.batch_no]);
+          if(!flow||!Number.isSafeInteger(Number(b.qty))||Number(b.qty)<0||Number(b.qty)>item.qty
+            ||Number(flow.balance)!==Number(b.qty)||Number(flow.admitted)!==item.qty)
+            throw new ConflictException('包装后实物变化缺匹配流水，禁止把现存量当作原入库量或自动修复');
+        }
+        originalBatches.push({batchNo:b.batch_no,grade:b.grade_code_std,qty:item.qty,productCode:b.product_code});
         expected.delete(key);
       }
       if (expected.size || ledger.length !== existing.length) throw new ConflictException('既有入库证据不完整，禁止补余或重建');
       return { refNo, idempotent: true, companyCode,
-        batches: existing.map((b: any) => ({ batchNo: b.batch_no, grade: b.grade_code_std, qty: Number(b.qty), productCode: b.product_code })),
-        skippedNonSaleable: [], totalInbound: existing.reduce((sum: number, b: any) => sum + Number(b.qty), 0) };
+        batches: originalBatches,
+        skippedNonSaleable: [], totalInbound: originalBatches.reduce((sum,b)=>sum+b.qty,0) };
     }
 
     // 包装完成遵守库存来源模式互斥：TEMP 模式由日产蛋入库负责库存，

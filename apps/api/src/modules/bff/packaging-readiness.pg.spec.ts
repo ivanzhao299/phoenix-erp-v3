@@ -100,6 +100,42 @@ const url = process.env.PACKAGING_TEST_DATABASE_URL;
     await ds.query('UPDATE inv_batches SET qty_available=7');
     expect((await controller.confirmHandover(body,req)).data.code).toBe(a.data.code);expect(await counts()).toEqual({batches:1,ledgers:1,handovers:1});
   });
+  it.each([10,30])('replays the original thirty after a balanced physical outbound of %s without creating a remainder receipt',async(outbound)=>{
+    await controller.confirmHandover(body,req);
+    await ds.transaction(async m=>{
+      const [batch]=await m.query('WITH changed AS(UPDATE inv_batches SET qty=qty-$1,qty_available=qty_available-$1 RETURNING batch_no) SELECT batch_no FROM changed',[outbound]);
+      await m.query(`INSERT INTO inv_ledger(batch_no,change_type,qty_change,operator,ref_no,company_code,warehouse_code,sku_code)
+        VALUES($1,'FIFO_OUT',$2,'owned-physical-outbound','SYNTHETIC-PACKAGING-SALE','COMP','WH','SKU5')`,[batch.batch_no,-outbound]);
+    });
+    const before=await counts();
+    const [a,b]=await Promise.all([service.completeTerminalPacking('PKG-LOCAL',{warehouseCode:'WH',locationCode:'LOC'}),
+      service.completeTerminalPacking('PKG-LOCAL',{warehouseCode:'WH',locationCode:'LOC'})]);
+    for(const receipt of [a,b])expect(receipt).toMatchObject({idempotent:true,totalInbound:30,batches:[{qty:30,productCode:'REGISTERED-PRODUCT',grade:'GRADE_5'}]});
+    expect(await counts()).toEqual(before);expect(Number((await ds.query('SELECT qty FROM inv_batches'))[0].qty)).toBe(30-outbound);
+    await expect(controller.confirmHandover(body,req)).resolves.toMatchObject({code:200});expect(await counts()).toEqual(before);
+  });
+  it('holds stock stable during receipt replay and allows a later balanced movement after the reading transaction commits',async()=>{
+    await controller.confirmHandover(body,req);
+    const reader=ds.createQueryRunner(),writer=ds.createQueryRunner();await reader.connect();await writer.connect();await reader.startTransaction();
+    try{
+      const receipt=await service.completeTerminalPacking('PKG-LOCAL',{warehouseCode:'WH',locationCode:'LOC',manager:reader.manager});
+      expect(receipt.totalInbound).toBe(30);const batchNo=receipt.batches[0].batchNo;
+      await writer.startTransaction();await writer.query("SET LOCAL lock_timeout='100ms'");
+      await expect(writer.query('UPDATE inv_batches SET qty=qty-5,qty_available=qty_available-5 WHERE batch_no=$1',[batchNo])).rejects.toThrow('lock timeout');
+      await writer.rollbackTransaction();await reader.commitTransaction();await writer.startTransaction();
+      await writer.query('UPDATE inv_batches SET qty=qty-5,qty_available=qty_available-5 WHERE batch_no=$1',[batchNo]);
+      await writer.query("INSERT INTO inv_ledger(batch_no,change_type,qty_change,ref_no) VALUES($1,'FIFO_OUT',-5,'SYNTHETIC-AFTER-REPLAY')",[batchNo]);
+      await writer.commitTransaction();
+      expect((await service.completeTerminalPacking('PKG-LOCAL',{warehouseCode:'WH',locationCode:'LOC'})).totalInbound).toBe(30);
+      expect(Number((await ds.query('SELECT qty FROM inv_batches'))[0].qty)).toBe(25);
+    }finally{if(reader.isTransactionActive)await reader.rollbackTransaction();if(writer.isTransactionActive)await writer.rollbackTransaction();await reader.release();await writer.release();}
+  });
+  it.each(['company','warehouse'])('does not return an original packaging receipt outside the current %s scope',async(kind)=>{
+    await controller.confirmHandover(body,req);const before=await counts();
+    if(kind==='company')scope.allowedCompanyCodes=['OTHER'];else scope.allowedWarehouseCodes=['OTHER'];
+    await expect(service.completeTerminalPacking('PKG-LOCAL',{warehouseCode:'WH',locationCode:'LOC'})).rejects.toMatchObject({status:403});
+    expect(await counts()).toEqual(before);
+  });
   it.each(['missing','inactive','ambiguous','orphan','spec','product'])('blocks %s master data before any write',async(kind)=>{
     if(kind==='missing')await ds.query("UPDATE product_skus SET spec_code='OTHER' WHERE sku_code='SKU5'");
     if(kind==='inactive')await ds.query("UPDATE product_skus SET status='DISABLED'");
