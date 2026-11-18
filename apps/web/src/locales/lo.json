@@ -14971,5 +14971,10 @@
   "productionCutover.signReason": "ຫຼັກຖານການລົງນາມ",
   "productionCutover.sign": "ລົງນາມເອກະສານເດີມທີ່ລັອກ",
   "productionCutover.existing": "ລາຍການກວດນັບເດີມ",
-  "menu.production-cutovers": "ກວດນັບກ່ອນເປີດສາງທາງການ"
+  "menu.production-cutovers": "ກວດນັບກ່ອນເປີດສາງທາງການ",
+  "productionCutover.transferProofs": "ການໂອນລະຫວ່າງບໍລິສັດທີ່ກວດສອບແລ້ວ",
+  "productionCutover.transferProofHelp": "ກວດສອບຕາມລາຍການໂອນຕົວຈິງຂອງບໍລິສັດນີ້ ແລະ ແຫຼ່ງທີ່ມາເດີມ. ທຸກການລົງນາມໃໝ່ຈະກວດສອບຫຼັກຖານອີກຄັ້ງ.",
+  "productionCutover.received": "ຮັບຕົວຈິງແລ້ວ",
+  "productionCutover.dispatched": "ສົ່ງຕົວຈິງແລ້ວ",
+  "productionCutover.localBatch": "ລັອດຂອງບໍລິສັດນີ້"
 }

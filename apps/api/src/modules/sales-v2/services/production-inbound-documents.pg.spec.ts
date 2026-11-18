@@ -1,6 +1,8 @@
 import 'reflect-metadata';
 import { assertOfficialInventoryBatches, officialInventoryCostKnownPredicate } from '../../wms/official-inventory';
 import { inspectProductionCutoverEvidence, readProductionCutoverEvidence } from '../../wms/production-cutover-evidence';
+import { cutoverEvidenceHash } from '../../wms/production-cutover-evidence';
+import { CutoverProvenanceSigner, proveCrossCompanyTransfer } from '../../wms/cutover-cross-company-proof';
 import { spawnSync } from 'node:child_process';
 import { resolve } from 'node:path';
 import { randomUUID } from 'crypto';
@@ -31,6 +33,7 @@ fixture('formal installment documents — actual PostgreSQL 18 inventory and pro
   let scope: any; let actor: any;
   const cls = { get:(key: string) => key === 'dataScope' ? scope : actor };
   const day = '2026-11-18';
+  const proofSigner:CutoverProvenanceSigner={key:'SYNTHETIC-OWNED-CUTOVER-TRANSFER-PROOF-KEY',keyId:'owned-test-v1'};
   const input = (quantity = 100, gradeCode = 'GRADE_1'): InboundDraftInput => ({ companyCode:'COMP-A',houseCode:'HOUSE-A',
     eggDate:day,warehouseCode:'WH-A',locationCode:'LOC-A',intentKey:randomUUID(),handoverRef:`FIXTURE-${randomUUID()}`,
     evidenceFileIds:['FILE-HANDOVER'],items:[{ gradeCode,quantity,specCode:'LOOSE' }] });
@@ -43,7 +46,7 @@ fixture('formal installment documents — actual PostgreSQL 18 inventory and pro
     if (!version.startsWith('18.')) throw new Error('PostgreSQL 18 required');
     await db.query(`CREATE SCHEMA "${schema}"`); await installProductionInboundFixture(db,grades);
     await db.query(`CREATE TABLE wms_stocktake(id bigserial PRIMARY KEY,stocktake_no text,date date,act_qty numeric,diff_qty numeric,status text,created_at timestamptz DEFAULT now());
-      CREATE TABLE store_master(id bigint PRIMARY KEY,store_code text,status text);
+      CREATE TABLE store_master(id bigint PRIMARY KEY,store_code text,status text,company_code text);
       ALTER TABLE wms_warehouses ADD COLUMN owner_store_id bigint;
       CREATE TABLE mst_materials(material_code text PRIMARY KEY,material_name text,material_type text,unit text,status text);
       CREATE TABLE prc2_receipts(id bigint PRIMARY KEY,receipt_no text,company_code text,warehouse_code text,status text);
@@ -141,10 +144,75 @@ fixture('formal installment documents — actual PostgreSQL 18 inventory and pro
     await db.query(`INSERT INTO inv_batches(batch_no,company_code,warehouse_code,product_code,sku_code,source_type,source_no,qty,qty_available)
       VALUES('OTHER-COMPANY','COMP-B','WH-A','PRD-EGG-RAW','SKU-GRADE_1','PURCHASE','UNRELATED',3,3)`);
     const p={companyCode:'COMP-A',warehouseCode:'WH-A',productCodes:['PRD-EGG-RAW'],houses:[{houseCode:'HOUSE-A',firstProductionDate:'2026-11-19'}]};
-    const result=await inspectProductionCutoverEvidence(db,p);expect(result.snapshot.batches.map(b=>b.batch_no)).not.toContain('OTHER-COMPANY');
-    expect(result.snapshot.batches.map(b=>b.batch_no)).toContain(child.batch_no);
+    const result=await inspectProductionCutoverEvidence(db,p,{signer:{key:'',keyId:'unconfigured'}});expect(result.snapshot.batches.map(b=>b.batch_no)).not.toContain('OTHER-COMPANY');
+    expect(result.snapshot.batches.map(b=>b.batch_no)).not.toContain(child.batch_no);
     expect(result.snapshot.warnings).toContain('CROSS_COMPANY_DESCENDANTS_REQUIRE_SEPARATE_AUTHORITY');
     expect(result.snapshot.boundary.productCodes).toEqual(['PRD-EGG-RAW']);expect(result.assessment).toBe('EVIDENCE_ONLY');
+  });
+  it('seals a received cross-company handover without exposing the foreign root or changing its proof when the foreign remainder is sold',async()=>{
+    const posted=await post(await ready()),root=posted.batches[0].batchNo;
+    scope.allowedCompanyCodes.push('COMP-B');scope.allowedWarehouseCodes.push('WH-B');
+    const wms=new WmsService(db.manager,cls as any);
+    await wms.confirmTransfer({transfer_no:'SYNTHETIC-PRIVATE-RECEIPT',from_warehouse:'WH-A',to_warehouse:'WH-B',items:[{batch_no:root,qty:20}]},{username:'maker'});
+    const [child]=await db.query("SELECT * FROM inv_batches WHERE source_no='SYNTHETIC-PRIVATE-RECEIPT'");
+    const boundary={companyCode:'COMP-B',warehouseCode:'WH-B',productCodes:['PRD-EGG-RAW'],houses:[{houseCode:'HOUSE-B',firstProductionDate:'2026-11-19'}]};
+    const before=await inspectProductionCutoverEvidence(db,boundary,{signer:proofSigner});
+    expect(before.snapshot.crossCompanyProofs).toHaveLength(1);expect(before.snapshot.crossCompanyProofs[0]).toMatchObject({direction:'RECEIVED',batchNo:child.batch_no,quantity:20,unit:'枚'});
+    expect(before.snapshot.warnings.filter(w=>w.startsWith('CROSS_COMPANY_'))).toEqual([]);
+    expect(before.snapshot.batches.map(b=>b.batch_no)).toEqual([child.batch_no]);
+    const visible=JSON.stringify(before.snapshot);
+    expect(visible).not.toContain('HOUSE-A');expect(visible).not.toContain('FILE-HANDOVER');expect(visible).not.toContain('source_snapshot');
+    expect(visible).not.toContain(root);expect(visible).not.toContain('evidence_sha256');
+    expect(before.snapshot.ledger[0].operator).toBeNull();expect(before.snapshot.qualification[0]).not.toHaveProperty('scope_id');
+    await db.transaction(async m=>{
+      await m.query('UPDATE inv_batches SET qty=qty-5,qty_available=qty_available-5 WHERE batch_no=$1',[root]);
+      await writeInvLedger(m,{batchNo:root,changeType:INV_LEDGER_CHANGE_TYPE.FIFO_OUT,qtyChange:-5,costChange:0,operator:'maker',
+        companyCode:'COMP-A',warehouseCode:'WH-A',refNo:'SYNTHETIC-FOREIGN-REMAINDER-SALE',note:'Foreign private customer sale'});
+    });
+    const after=await inspectProductionCutoverEvidence(db,boundary,{signer:proofSigner});
+    expect(after.snapshotSha256).toBe(before.snapshotSha256);
+    expect(after.snapshot.crossCompanyProofs).toEqual(before.snapshot.crossCompanyProofs);
+    await db.query("UPDATE production_cutover_scopes SET state='SUSPENDED'");
+    const paused=await inspectProductionCutoverEvidence(db,boundary,{signer:proofSigner});
+    expect(paused.snapshot.warnings).toContain('CROSS_COMPANY_SOURCE_PROOF_REQUIRED');expect(paused.snapshot.crossCompanyProofs).toEqual([]);
+    expect(JSON.stringify(paused.snapshot.batches)).not.toContain(root+'"');
+  });
+  it('revalidates a cross-company purchase through its real intermediate transfer and holds cancelled receipts or unmatched received quantities',async()=>{
+    const {wms,batch}=await purchase();scope.allowedCompanyCodes.push('COMP-B');scope.allowedWarehouseCodes.push('WH-B');
+    await wms.confirmTransfer({transfer_no:'SYNTHETIC-PURCHASE-ANCESTOR',from_warehouse:'WH-A2',to_warehouse:'WH-A',items:[{batch_no:batch,qty:20}]},{username:'maker'});
+    const [parent]=await db.query("SELECT batch_no FROM inv_batches WHERE source_no='SYNTHETIC-PURCHASE-ANCESTOR'");
+    await wms.confirmTransfer({transfer_no:'SYNTHETIC-PURCHASE-CROSS',from_warehouse:'WH-A',to_warehouse:'WH-B',items:[{batch_no:parent.batch_no,qty:10}]},{username:'maker'});
+    const [child]=await db.query("SELECT batch_no FROM inv_batches WHERE source_no='SYNTHETIC-PURCHASE-CROSS'");
+    const proof=(signer=proofSigner)=>db.transaction('REPEATABLE READ',async m=>{
+      await m.query('SET TRANSACTION READ ONLY');
+      const [local]=await m.query('SELECT to_jsonb(b) AS fact FROM inv_batches b WHERE batch_no=$1',[child.batch_no]);
+      const [foreign]=await m.query('SELECT to_jsonb(b) AS fact FROM inv_batches b WHERE batch_no=$1',[parent.batch_no]);
+      return proveCrossCompanyTransfer(m,local.fact,foreign.fact,cutoverEvidenceHash,false,signer);
+    });
+    const original=await proof();expect(original.publicProof).toMatchObject({batchNo:child.batch_no,quantity:10});expect(original.rootNos).toEqual([batch]);
+    await expect(proof({key:'',keyId:'unconfigured'})).rejects.toThrow('SIGNER_UNAVAILABLE');
+    await db.query("UPDATE prc2_receipts SET status='CANCELLED' WHERE receipt_no='SYNTHETIC-PURCHASE'");
+    await expect(proof()).rejects.toThrow('SOURCE_HOLD');
+    await db.query("UPDATE prc2_receipts SET status='CONFIRMED' WHERE receipt_no='SYNTHETIC-PURCHASE'");
+    expect((await proof()).publicProof.proofSha256).toBe(original.publicProof.proofSha256);
+    await db.query("UPDATE wms_transfer_items SET received_qty=9 WHERE transfer_no='SYNTHETIC-PURCHASE-CROSS'");
+    await expect(proof()).rejects.toThrow('SOURCE_HOLD');
+  });
+  it('holds the actual completed transfer head and line against a concurrent received-quantity edit during signed-source validation',async()=>{
+    const posted=await post(await ready());scope.allowedCompanyCodes.push('COMP-B');scope.allowedWarehouseCodes.push('WH-B');
+    const wms=new WmsService(db.manager,cls as any);
+    await wms.confirmTransfer({transfer_no:'SYNTHETIC-LOCKED-CROSS',from_warehouse:'WH-A',to_warehouse:'WH-B',items:[{batch_no:posted.batches[0].batchNo,qty:20}]},{username:'maker'});
+    const reader=db.createQueryRunner(),writer=db.createQueryRunner();await reader.connect();await writer.connect();await reader.startTransaction();
+    try{
+      const [local]=await reader.query("SELECT to_jsonb(b) AS fact FROM inv_batches b WHERE source_no='SYNTHETIC-LOCKED-CROSS'");
+      const [foreign]=await reader.query('SELECT to_jsonb(b) AS fact FROM inv_batches b WHERE batch_no=$1',[posted.batches[0].batchNo]);
+      await proveCrossCompanyTransfer(reader.manager,local.fact,foreign.fact,cutoverEvidenceHash,true,proofSigner);
+      await writer.startTransaction();await writer.query("SET LOCAL lock_timeout='100ms'");
+      await expect(writer.query("UPDATE wms_transfer_items SET received_qty=19 WHERE transfer_no='SYNTHETIC-LOCKED-CROSS'")).rejects.toThrow('lock timeout');
+      await writer.rollbackTransaction();await reader.commitTransaction();
+      await writer.query("UPDATE wms_transfer_items SET received_qty=19 WHERE transfer_no='SYNTHETIC-LOCKED-CROSS'");
+      await expect(db.transaction(m=>proveCrossCompanyTransfer(m,local.fact,foreign.fact,cutoverEvidenceHash,true,proofSigner))).rejects.toThrow('SOURCE_HOLD');
+    }finally{if(reader.isTransactionActive)await reader.rollbackTransaction();if(writer.isTransactionActive)await writer.rollbackTransaction();await reader.release();await writer.release();}
   });
   it('1000 → 100 → sell 40 → 900; original receipt stays 100 and stock is 960', async () => {
     const p = input(100); const d = await ready(p); const first = await post(d);

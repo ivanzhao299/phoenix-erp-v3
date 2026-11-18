@@ -21,6 +21,7 @@ type Options = {
   warehouseScope?: string[]; snapshotWarehouse?: string; rejectUpsert?: boolean;
   origin?: { variety_code: string | null; source_profile_code: string | null; source_profile_snapshot: Record<string, any> | null };
   projectBatchSelect?: boolean; stringSourceSnapshot?: boolean; productOnly?: boolean;
+  targetStoreCompany?:string;targetStore?:string|null;sourceStore?:string;
 };
 
 /** Strict SQL doubles run the real SkuPolicy, not a requireUsable spy/stub. */
@@ -30,7 +31,7 @@ function fixture(options: Options = {}) {
     batch_no: 'B-1', product_code: 'EGG', sku_code: SKU, material_code: null,
     item_type: 'SKU', material_type: 'FINISHED_PRODUCT', unit: '枚', grade_code_std: 'A', spec_code: 'TRAY30',
     legacy_source: null, base_quantity_version: 1, qty: 10, qty_available: 10, status: 'AVAILABLE',
-    warehouse_code: 'WH-A', company_code: options.batchCompany ?? company, store_code: 'ALL',
+    warehouse_code: 'WH-A', company_code: options.batchCompany ?? company, store_code: options.sourceStore??'ALL',
     variety_code: options.variant === false ? null : 'EGG_PINK', source_profile_code: null, source_profile_snapshot: null,
     ...options.origin,
   };
@@ -66,7 +67,7 @@ function fixture(options: Options = {}) {
     if (sql.includes('SELECT product_mode,variety_code FROM mst_products')) return [{ product_mode: 'VARIANT', variety_code: 'EGG_PINK' }];
     if (sql.includes('FROM product_skus s JOIN')) return [{ product_code: 'EGG', grade_code: 'A', spec_code: 'TRAY30', unit: '枚', base_unit: '枚', display_unit: '托', qty_per_unit: 30 }];
     if (sql.startsWith('SELECT company_code FROM wms_warehouses')) return [{ company_code: args[0] === 'WH-A' ? company : 'COMP-B' }];
-    if (sql.includes('FROM wms_warehouses w')) return [{ company_code: 'COMP-B', store_code: 'STORE-B', store_status: 'ACTIVE' }];
+    if (sql.includes('FROM wms_warehouses w')) return [{ company_code: 'COMP-B', store_code: options.targetStore===undefined?'STORE-B':options.targetStore, store_status: 'ACTIVE', store_company_code: options.targetStoreCompany??'COMP-B' }];
     if (sql.includes('SELECT type, domain FROM wms_warehouses')) return [{ type: 'PURCHASE_RECV', domain: 'OPERATIONAL' }];
     if (sql.includes('SELECT pg_advisory_xact_lock')) return [];
     if (sql.includes("SELECT 'MATERIAL' AS item_type") || sql.includes("SELECT 'SKU' AS item_type")) return [{ item_type: options.productOnly ? 'PRODUCT' : 'SKU' }];
@@ -314,12 +315,23 @@ describe('WMS authoritative company context (real SkuPolicy)', () => {
     expect(target[1][2]).toBe(SKU);
     expect(target[1][8]).toBe('WH-B');
     expect(target[1][12]).toBe('COMP-B');
+    expect(target[1][0]).toMatch(/^XFR-[a-f0-9]{32}$/);expect(target[1][0]).not.toContain('B-1');
     const ledgers = f.calls.filter(([sql]) => sql.includes('INSERT INTO inv_ledger'));
     expect(ledgers).toHaveLength(2);
     // INV-301a 共享写入器列序：核心七列后依次 company_code($8) / sku_code($9)
     expect(ledgers[0][1][7]).toBe('COMP-A');
     expect(ledgers[1][1][7]).toBe('COMP-B');
     expect(ledgers.every(([, args]) => args[8] === SKU)).toBe(true);
+  });
+  it('does not copy the sender store into an unowned warehouse of another company',async()=>{
+    const f=fixture({sourceStore:'A-PRIVATE-STORE',targetStore:null});await f.service.confirmTransfer(transferBody,user);
+    expect(batchRows(f)[0].store_code).toBe('ALL');
+    const incoming=f.calls.filter(([sql])=>sql.includes('INSERT INTO inv_ledger'))[1];expect(incoming[1][4]).toBe('ALL');
+  });
+  it('rolls back a target warehouse whose owner store belongs to a different company',async()=>{
+    const f=fixture({targetStoreCompany:'COMP-A'});
+    await expect(f.service.confirmTransfer(transferBody,user)).rejects.toThrow('门店归属与仓库公司不一致');
+    expect(f.committed).toEqual([]);
   });
 
   it('persists warehouse ownership rather than a request default in new outbound documents', async () => {

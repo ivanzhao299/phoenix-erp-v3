@@ -7,6 +7,8 @@ export async function installManagedSalesFixture(db:DataSource){
     ALTER TABLE product_skus ADD COLUMN IF NOT EXISTS org_context_required boolean DEFAULT false;
     ALTER TABLE sal_sales_orders ADD COLUMN fulfillment_warehouse_code text;
     ALTER TABLE sal_order_items ADD COLUMN product_code text,ADD COLUMN grade_code text,ADD COLUMN sku_code text;
+    ALTER TABLE sal_return_items ADD COLUMN product_code text,ADD COLUMN grade_code text,ADD COLUMN sku_code text,
+      ADD COLUMN accepted_qty numeric,ADD COLUMN damaged_qty numeric,ADD COLUMN quantity_snapshot jsonb,ADD COLUMN packaging_spec text;
     CREATE SEQUENCE fixture_sales_allocation_id;
     ALTER TABLE sal_order_item_batch_allocations ALTER COLUMN id SET DEFAULT nextval('fixture_sales_allocation_id'),
       ALTER COLUMN outbound_qty SET DEFAULT 0,ALTER COLUMN released_qty SET DEFAULT 0,
@@ -64,7 +66,7 @@ export async function installManagedSalesFixture(db:DataSource){
   `);
 }
 export async function resetManagedSalesFixture(db:DataSource){
-  await db.query(`TRUNCATE sal_order_lifecycle_events,sal_receipts,sal_drivers,sal_vehicles,sal_order_item_batch_allocation_actions,sal_delivery_orders,sal_delivery_order_items,
+  await db.query(`TRUNCATE sal_return_items,sal_return_orders,sal_order_lifecycle_events,sal_receipts,sal_drivers,sal_vehicles,sal_order_item_batch_allocation_actions,sal_delivery_orders,sal_delivery_order_items,
     sal_store_sales,sal_store_sale_items,store_sale_allocations,store_master,mst_stores,store_memberships,store_warehouse_bindings,
     sal_store_shift_closings,sal_store_price_drift_events,sal_store_sale_tenders,fin_cash_transactions,sal_price_items,sal_price_books RESTART IDENTITY CASCADE;
     UPDATE wms_warehouses SET owner_store_id=NULL;

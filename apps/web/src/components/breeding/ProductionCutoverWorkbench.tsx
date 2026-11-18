@@ -19,7 +19,8 @@ interface ReferenceDecision {table:string;rowSha256:string;classification:string
 interface Line {skuCode:string;productCode:string;gradeCode:string;specCode:string;locationCode:string;quantity:string;stockStatus:string;productionDate:string;expireDate:string;costStatus:string;unitCost:string;qualityConfirmed:boolean}
 interface Form {companyCode:string;warehouseCode:string;intentKey:string;postingDate:string;houses:Array<{houseCode:string;firstProductionDate:string}>;
   products:Array<{productCode:string;quantity:string}>;openingLines:Line[];decisions:Decision[];referenceDecisions:ReferenceDecision[];evidenceFileIds:string[]}
-interface Evidence {snapshotSha256:string;references:Array<{table:string;rowSha256:string;fact:Fact}>;snapshot:{batches:Fact[];missingTables:string[];warnings:string[]}}
+interface TransferProof {direction:'RECEIVED'|'DISPATCHED';batchNo:string;transferNo:string;transferLineId:string;skuCode:string;unit:string;quantity:number}
+interface Evidence {snapshotSha256:string;references:Array<{table:string;rowSha256:string;fact:Fact}>;snapshot:{batches:Fact[];missingTables:string[];warnings:string[];crossCompanyProofs?:TransferProof[]}}
 interface Document {id:string;document_no:string;company_code:string;warehouse_code:string;intent_key:string;state:string;version:number;created_by:string;content_hash:string;snapshot_sha256:string;
   boundary:{houses:Form['houses'];productCodes:string[]};payload:{postingDate:string;physicalTotals:Array<{productCode:string;quantity:number}>;openingLines:Array<Omit<Line,'quantity'|'unitCost'|'productionDate'|'expireDate'>&{quantity:number;unitCost:number|null;productionDate:string|null;expireDate:string|null}>;decisions:Decision[];referenceDecisions:ReferenceDecision[];evidenceFileIds:string[]};
   references?:Evidence['references'];signatures:Array<{signature_role:string;signed_by:string;evidence_file_id:string;signed_at:string}>;snapshot:Evidence['snapshot']|null}
@@ -67,10 +68,20 @@ export default function ProductionCutoverWorkbench(){
     if(!response.ok)throw Error(label('previewFailed','附件不可访问。'));const url=URL.createObjectURL(await response.blob());window.open(url,'_blank','noopener,noreferrer');setTimeout(()=>URL.revokeObjectURL(url),60000);}
   if(!p.canView&&!p.canApprove&&!finance.canEdit)return <div className={s.page}>{label('denied','无权查看盘点交接。')}</div>;
   const sourceBatches=evidence?.snapshot.batches??selected?.snapshot?.batches??[];
+  const transferProofs=evidence?.snapshot.crossCompanyProofs??selected?.snapshot?.crossCompanyProofs??[];
   return <main className={s.page} data-i18n-skip="true">
     <PageHeader title={label('title','正式库存切换盘点')} subtitle={label('subtitle','按真实现场盘点准备交接，保留原始证据。')}/>
     <p className={s.notice}>{label('off','当前仅开放盘点准备和签认。签认不启用业务，也不代表发布批准。请按实际盘点填写；没有现场依据时保留草稿。')}</p>
     {error&&<p role="alert" className={`${s.notice} ${s.error}`}>{error}</p>}
+    {transferProofs.length>0&&<section className={s.card} aria-label={label('transferProofs','已核验跨公司调拨')}>
+      <h2>{label('transferProofs','已核验跨公司调拨')}</h2>
+      <p>{label('transferProofHelp','按本公司实际调拨流水及原始来源核验；每次新增签认都会复核。')}</p>
+      {transferProofs.map(proof=><div key={`${proof.batchNo}:${proof.transferLineId}`} className={s.card}>
+        <p>{proof.direction==='RECEIVED'?label('received','实际接收'):label('dispatched','实际发出')} · {proof.transferNo}</p>
+        <p>{label('localBatch','本公司批次')} · {proof.batchNo}</p>
+        <p>{label('sku','实物 SKU')} · {proof.skuCode} · {proof.quantity} {label('eggs','枚')}</p>
+      </div>)}
+    </section>}
     <section className={s.card}>
       <div className={s.grid}>
         <label className={s.field}>{label('company','公司')}<CompanySelector ariaLabel={label('company','公司')} value={form.companyCode} disabled={!editable||!!selected} onChange={companyCode=>{setEvidence(null);patch({...blank(),intentKey:crypto.randomUUID(),companyCode});}}/></label>

@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException } from '@nestjs/common';
 import { createHash } from 'crypto';
 import { DataSource, EntityManager } from 'typeorm';
+import { CrossCompanyCutoverProof, CutoverProvenanceSigner, proveCrossCompanyTransfer } from './cutover-cross-company-proof';
 
 export interface CutoverEvidenceBoundary {
   companyCode:string;warehouseCode:string;productCodes:string[];
@@ -34,7 +35,7 @@ function boundary(input:CutoverEvidenceBoundary):CutoverEvidenceBoundary {
 }
 
 /** Read-only evidence, never an activation decision. All callers must keep these facts internal until scoped/redacted for their actor. */
-export async function readProductionCutoverEvidence(m:EntityManager,input:CutoverEvidenceBoundary) {
+export async function readProductionCutoverEvidence(m:EntityManager,input:CutoverEvidenceBoundary,options:{signer?:CutoverProvenanceSigner;lockCrossCompanyRoots?:boolean}={}) {
   if(!m.queryRunner?.isTransactionActive)throw new ConflictException('CUTOVER_EVIDENCE_TRANSACTION_REQUIRED');
   const scope=boundary(input),houses=scope.houses.map(h=>h.houseCode),missing:string[]=[],warnings:string[]=[];
   const catalog=await m.query(`SELECT c.relname,array_agg(a.attname::text) FILTER(WHERE a.attnum>0 AND NOT a.attisdropped) AS columns FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
@@ -70,7 +71,12 @@ export async function readProductionCutoverEvidence(m:EntityManager,input:Cutove
         CASE WHEN jsonb_typeof(to_jsonb(b)->'source_profile_snapshot')='array' THEN to_jsonb(b)->'source_profile_snapshot' ELSE '[]'::jsonb END) p
         WHERE p->>'houseCode'=ANY($5::text[])))`,[scope.companyCode,scope.warehouseCode,scope.productCodes,houses.map(h=>`HOUSE-${h}`),houses,flockNos]):[];
   const byBatch=new Map<string,Record<string,unknown>>(batches.map((b:{fact:Record<string,unknown>})=>[String(b.fact.batch_no),b.fact]));
-  // Every explicit child edge is traversed, including a child moved outside the counted warehouse/company.
+  const foreignByBatch=new Map<string,Record<string,unknown>>();
+  const addBatch=(fact:Record<string,unknown>)=>{
+    if(fact.company_code&&fact.company_code!=='ALL'&&fact.company_code!==scope.companyCode){foreignByBatch.set(String(fact.batch_no),fact);return false;}
+    if(byBatch.has(String(fact.batch_no)))return false;byBatch.set(String(fact.batch_no),fact);return true;
+  };
+  // Cross a company boundary only inside private handover validation; never expand its remaining stock into this count.
   const edges=[['production_batch_roots','root_batch_no','batch_no'],['inv_flock_source_links','origin_batch_no','batch_no'],
     ['wms_transfer_items','source_batch_no','target_batch_no'],['wms_defect_dispositions','batch_no','target_batch_no']] as const;
   const lineage:Record<string,Record<string,unknown>[]>={};
@@ -88,25 +94,59 @@ export async function readProductionCutoverEvidence(m:EntityManager,input:Cutove
   while(expanded){expanded=false;const tokens=[...byBatch.keys()].sort();
     for(const [table,parent,child] of edges){
       const facts=await rows(table,`to_jsonb(f)->>'${parent}'=ANY($1::text[]) OR to_jsonb(f)->>'${child}'=ANY($1::text[])`,[tokens]);lineage[table]=facts;
-      const children=[...new Set(facts.flatMap(f=>[String(f[parent]??''),String(f[child]??'')]).filter(c=>c&&!byBatch.has(c)))];
+      const children=[...new Set(facts.flatMap(f=>[String(f[parent]??''),String(f[child]??'')]).filter(c=>c&&!byBatch.has(c)&&!foreignByBatch.has(c)))];
       if(children.length&&exists('inv_batches')){
         const actual=await rows('inv_batches','f.batch_no=ANY($1::text[])',[children]);
-        for(const fact of actual){byBatch.set(String(fact.batch_no),fact);expanded=true;}
+        for(const fact of actual)if(addBatch(fact))expanded=true;
         if(actual.length!==children.length)warnings.push(`MISSING_LINEAGE_BATCH:${table}`);
       }
     }
     packaging=await packagingFor([...new Set([...byBatch.keys(),...[...byBatch.values()].map(b=>String(b.packaging_batch_ref??'')).filter(Boolean)])]);
     if(exists('inv_batches')){
       const outputs=await rows('inv_batches',"to_jsonb(f)->>'packaging_batch_ref'=ANY($1::text[])",[packaging.packing.map(f=>String(f.code))]);
-      for(const output of outputs)if(!byBatch.has(String(output.batch_no))){byBatch.set(String(output.batch_no),output);expanded=true;}
+      for(const output of outputs)if(addBatch(output))expanded=true;
     }
     if(byBatch.size>50000)throw new ConflictException('CUTOVER_EVIDENCE_SCOPE_TOO_LARGE');
   }
-  const selected=sortFacts([...byBatch.values()]),batchNos=[...byBatch.keys()].sort();
-  if(selected.some(b=>b.company_code&&b.company_code!=='ALL'&&b.company_code!==scope.companyCode))warnings.push('CROSS_COMPANY_DESCENDANTS_REQUIRE_SEPARATE_AUTHORITY');
+  // Missing physical ancestors cannot be assigned an owner safely. Never return their raw lineage to a scoped caller.
+  if(warnings.some(w=>w.startsWith('MISSING_LINEAGE_BATCH:')))throw new ConflictException('CUTOVER_LINEAGE_OWNERSHIP_UNRESOLVED');
+  const crossCompanyProofs:CrossCompanyCutoverProof[]=[],provenForeign=new Set<string>();
+  const crossLocalBatches=new Set<string>(),proofByTransferLine=new Map<string,CrossCompanyCutoverProof>();
+  for(const transfer of lineage.wms_transfer_items??[]){
+    const source=String(transfer.source_batch_no??''),target=String(transfer.target_batch_no??'');
+    const local=byBatch.get(source)??byBatch.get(target),foreign=foreignByBatch.get(source)??foreignByBatch.get(target);
+    if(!local||!foreign)continue;
+    await m.query('SAVEPOINT cutover_cross_proof');
+    try{
+      const validation=await proveCrossCompanyTransfer(m,local,foreign,cutoverEvidenceHash,!!options.lockCrossCompanyRoots,options.signer);
+      crossCompanyProofs.push(validation.publicProof);proofByTransferLine.set(String(transfer.id),validation.publicProof);
+      if(validation.publicProof.direction==='RECEIVED')crossLocalBatches.add(String(local.batch_no));provenForeign.add(validation.foreignBatchNo);
+      for(const root of validation.rootNos)provenForeign.add(root);
+      await m.query('RELEASE SAVEPOINT cutover_cross_proof');
+    }catch{await m.query('ROLLBACK TO SAVEPOINT cutover_cross_proof');await m.query('RELEASE SAVEPOINT cutover_cross_proof');warnings.push('CROSS_COMPANY_SOURCE_PROOF_REQUIRED');}
+  }
+  const inheritedForeign=(lineage.production_batch_roots??[]).filter(r=>foreignByBatch.has(String(r.root_batch_no)));
+  for(const root of inheritedForeign){const no=String(root.batch_no);if(!provenForeign.has(String(root.root_batch_no)))continue;
+    const local=byBatch.get(no);if(!local||crossLocalBatches.has(no))continue;
+    const incoming=(lineage.wms_transfer_items??[]).filter(r=>r.target_batch_no===no),parent=incoming.length===1?byBatch.get(String(incoming[0].source_batch_no)):undefined;
+    if(!parent){warnings.push('CROSS_COMPANY_SOURCE_PROOF_REQUIRED');continue;}
+    await m.query('SAVEPOINT cutover_cross_proof');
+    try{const validation=await proveCrossCompanyTransfer(m,local,parent,cutoverEvidenceHash,!!options.lockCrossCompanyRoots,options.signer);
+      crossCompanyProofs.push(validation.publicProof);proofByTransferLine.set(String(incoming[0].id),validation.publicProof);crossLocalBatches.add(no);
+      await m.query('RELEASE SAVEPOINT cutover_cross_proof');
+    }catch{await m.query('ROLLBACK TO SAVEPOINT cutover_cross_proof');await m.query('RELEASE SAVEPOINT cutover_cross_proof');warnings.push('CROSS_COMPANY_SOURCE_PROOF_REQUIRED');}
+  }
+  if([...foreignByBatch.keys()].some(no=>!provenForeign.has(no)))warnings.push('CROSS_COMPANY_DESCENDANTS_REQUIRE_SEPARATE_AUTHORITY');
+  for(const [table,parent,child] of edges){
+    lineage[table]=(lineage[table]??[]).filter(f=>!foreignByBatch.has(String(f[parent]??''))&&!foreignByBatch.has(String(f[child]??'')));
+  }
+  const selected=sortFacts([...byBatch.values()].map(b=>crossLocalBatches.has(String(b.batch_no))?{...b,
+    collection_batch_ref:null,source_profile_code:null,source_profile_snapshot:null}:b)),batchNos=[...byBatch.keys()].sort();
   if(selected.some(b=>!b.company_code||b.company_code==='ALL'))warnings.push('UNCONFIRMED_LEGACY_STOCK_OWNERSHIP');
   if(selected.some(b=>b.product_code&&!scope.productCodes.includes(String(b.product_code))))warnings.push('UNDECLARED_RELATED_PRODUCT_BOUNDARY');
-  const ledger=await rows('inv_ledger','f.batch_no=ANY($1::text[])',[batchNos]);
+  const privateHandoverLedgerIds=new Set(crossCompanyProofs.flatMap(p=>p.localLedgerIds));
+  const ledger=(await rows('inv_ledger','f.batch_no=ANY($1::text[])',[batchNos])).map(l=>crossLocalBatches.has(String(l.batch_no))
+    ?{...l,note:null,...(privateHandoverLedgerIds.has(String(l.id))?{operator:null}:{})}:l);
   const sourceTokens=[...new Set([...batchNos,...selected.flatMap(b=>[b.source_no,b.packaging_batch_ref]).filter((v):v is string=>typeof v==='string'&&!!v)])].sort();
   const obligations:Record<string,Record<string,unknown>[]>={};
   for(const [table,fields] of Object.entries(references)){
@@ -156,7 +196,12 @@ export async function readProductionCutoverEvidence(m:EntityManager,input:Cutove
     encode(sha256(convert_to(to_jsonb(f)::text,'UTF8')),'hex') AS row_sha256 FROM chanjet_writeback_outbox f
     WHERE to_jsonb(f)->>'draft_id'=ANY($1::text[])`,[(finance.chanjet_voucher_drafts??[]).map(r=>String(r.id))]));
   if(Object.values(finance).flat().some(r=>r.company_code&&r.company_code!==scope.companyCode))warnings.push('CROSS_COMPANY_FINANCIAL_REFERENCES_REQUIRE_SEPARATE_AUTHORITY');
-  const qualification=await rows('production_batch_qualifications','f.batch_no=ANY($1::text[])',[batchNos]);
+  const proofByBatch=new Map(crossCompanyProofs.map(p=>[p.batchNo,p]));
+  const qualification=(await rows('production_batch_qualifications','f.batch_no=ANY($1::text[])',[batchNos]))
+    .map(q=>crossLocalBatches.has(String(q.batch_no))?{
+      batch_no:q.batch_no,company_code:q.company_code,product_code:q.product_code,sku_code:q.sku_code,
+      disposition:q.disposition,origin_kind:q.origin_kind,source_type:q.source_type,source_no:q.source_no,cost_status:q.cost_status,
+      proof_sha256:proofByBatch.get(String(q.batch_no))?.proofSha256}:q);
   const sourceEvents=await rows('production_source_state_events','f.root_batch_no=ANY($1::text[])',[batchNos]);
   const sourceCompanies=[...new Set([scope.companyCode,...selected.map(b=>String(b.company_code??''))])];
   const sourceWarehouses=[...new Set([scope.warehouseCode,...selected.map(b=>String(b.warehouse_code??'')),...qualification.map(q=>String(q.source_warehouse_code??''))])];
@@ -164,12 +209,39 @@ export async function readProductionCutoverEvidence(m:EntityManager,input:Cutove
   const openingClaims=await rows('production_opening_domain_claims',"f.domain_id::text=ANY($1::text[])",[inventoryDomains.map(d=>String(d.id))]);
   const cutovers=await rows('production_cutover_scopes',"f.company_code=$1 AND (f.house_code=ANY($2::text[]) OR f.id::text=ANY($3::text[]))",[scope.companyCode,houses,qualification.map(q=>String(q.scope_id))]);
   const domains=await rows('production_inventory_domains','f.company_code=$1 AND f.warehouse_code=$2',[scope.companyCode,scope.warehouseCode]);
-  const snapshot={version:1,boundary:scope,warehouse,owners,masters,flocks,reports,batches:selected,ledger,lineage,obligations,
-    packaging,finance,qualification,sourceEvents,inventoryDomains,openingClaims,cutovers,domains,
+  const receiptByNo=new Map(crossCompanyProofs.map(p=>[p.transferNo,p]));
+  obligations.wms_transfer_items=(obligations.wms_transfer_items??[]).map(row=>{
+    const proof=proofByTransferLine.get(String(row.id));if(!proof)return row;
+    return {id:row.id,transfer_no:proof.transferNo,company_code:scope.companyCode,warehouse_code:scope.warehouseCode,
+      [proof.direction==='RECEIVED'?'target_batch_no':'source_batch_no']:proof.batchNo,
+      expected_qty:proof.quantity,received_qty:proof.quantity,damaged_qty:0,difference_qty:0,remaining_quantity:0,
+      proof_kind:'CROSS_COMPANY_VERIFIED',proof_sha256:proof.proofSha256};
+  });
+  obligations.wms_transfer=(obligations.wms_transfer??[]).map(row=>{
+    const proof=receiptByNo.get(String(row.transfer_no));return proof?{transfer_no:proof.transferNo,status:row.status,
+      company_code:scope.companyCode,warehouse_code:scope.warehouseCode,proof_kind:'CROSS_COMPANY_VERIFIED',proof_sha256:proof.proofSha256}:row;
+  });
+  lineage.wms_transfer_items=obligations.wms_transfer_items;
+  const publicGroups:Record<string,Record<string,unknown>[]>[]=[obligations,packaging,finance];
+  for(const bucket of publicGroups)for(const [table,facts] of Object.entries(bucket)){
+    bucket[table]=facts.filter(f=>{
+      const owner=f.company_code??f.companyCode;
+      if(owner&&owner!=='ALL'&&owner!==scope.companyCode){warnings.push('CROSS_COMPANY_REFERENCE_REQUIRES_SEPARATE_AUTHORITY');return false;}return true;
+    });
+  }
+  crossCompanyProofs.sort((a,b)=>a.batchNo.localeCompare(b.batchNo)||a.transferLineId.localeCompare(b.transferLineId));
+  const stores=new Set<string>();
+  if(columns.get('store_master')?.has('company_code')&&columns.get('store_master')?.has('store_code')){
+    const codes=[...new Set([...selected,...ledger].filter(f=>crossLocalBatches.has(String(f.batch_no))).map(f=>f.store_code).filter(Boolean))];
+    for(const row of await m.query('SELECT store_code FROM store_master WHERE company_code=$1 AND store_code=ANY($2::text[])',[scope.companyCode,codes]))stores.add(row.store_code);
+  }
+  const storeProjection=(f:Record<string,unknown>)=>crossLocalBatches.has(String(f.batch_no))&&f.store_code&&f.store_code!=='ALL'&&!stores.has(String(f.store_code))?{...f,store_code:null}:f;
+  const snapshot={version:1,boundary:scope,warehouse,owners,masters,flocks,reports,batches:selected.map(storeProjection),ledger:ledger.map(storeProjection),lineage,obligations,
+    packaging,finance,qualification,sourceEvents,inventoryDomains,openingClaims,cutovers,domains,crossCompanyProofs,
     missingTables:[...new Set(missing)].sort(),warnings:[...new Set(warnings)].sort()};
   return {snapshot,snapshotSha256:cutoverEvidenceHash(snapshot),releaseAdmission:false,activationAuthorized:false,
     assessment:'EVIDENCE_ONLY' as const};
 }
-export async function inspectProductionCutoverEvidence(db:DataSource,input:CutoverEvidenceBoundary){
-  return db.transaction('REPEATABLE READ',async m=>{await m.query('SET TRANSACTION READ ONLY');return readProductionCutoverEvidence(m,input);});
+export async function inspectProductionCutoverEvidence(db:DataSource,input:CutoverEvidenceBoundary,options:{signer?:CutoverProvenanceSigner;lockCrossCompanyRoots?:boolean}={}){
+  return db.transaction('REPEATABLE READ',async m=>{await m.query('SET TRANSACTION READ ONLY');return readProductionCutoverEvidence(m,input,options);});
 }

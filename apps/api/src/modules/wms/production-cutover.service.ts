@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, Optional } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Inject, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { ClsService } from 'nestjs-cls';
 import { DataSource, EntityManager } from 'typeorm';
 import { InjectDataSource } from '@nestjs/typeorm';
@@ -9,6 +9,7 @@ import { DataScopeContext, DataScopeService } from '../org/services/data-scope.s
 import { OrgOwnershipService } from '../org/services/org-ownership.service';
 import { assertOfficialInventoryBatches } from './official-inventory';
 import { cutoverEvidenceHash, CutoverEvidenceBoundary, inspectProductionCutoverEvidence, readProductionCutoverEvidence } from './production-cutover-evidence';
+import { CUTOVER_PROVENANCE_SIGNER, CutoverProvenanceSigner } from './cutover-cross-company-proof';
 
 export interface CutoverCountLine {
   skuCode:string;productCode:string;gradeCode:string;specCode:string;locationCode:string;quantity:number;
@@ -28,7 +29,8 @@ const text=(value:unknown,label:string,max=128):string=>{
 /** Preparation records only. It deliberately has no activation/apply method. A signed count is not a release admission. */
 @Injectable()
 export class ProductionCutoverService {
-  constructor(@InjectDataSource() private readonly db:DataSource,private readonly cls:ClsService,@Optional() private readonly files?:FileAccessService,@Optional() private readonly dataScopes?:DataScopeService){}
+  constructor(@InjectDataSource() private readonly db:DataSource,private readonly cls:ClsService,@Optional() private readonly files?:FileAccessService,@Optional() private readonly dataScopes?:DataScopeService,
+    @Optional() @Inject(CUTOVER_PROVENANCE_SIGNER) private readonly provenanceSigner?:CutoverProvenanceSigner){}
   private authorize(company:string,warehouse:string,operation:PermCode='V',finance=false,override?:DataScopeContext){
     const user=this.cls.get('user') as any,scope=override??this.cls.get('dataScope') as DataScopeContext|undefined;
     if(!(operation==='V'?(hasPerm(user?.permissions,'MENU_PROD_INBOUND','V')||hasPerm(user?.permissions,'MENU_PROD_INBOUND','A')||hasPerm(user?.permissions,'MENU_FIN2_AR_LEDGER','E')):hasPerm(user?.permissions,finance?'MENU_FIN2_AR_LEDGER':'MENU_PROD_INBOUND',operation)))throw new ForbiddenException('缺少盘点交接操作权限');
@@ -55,6 +57,18 @@ export class ProductionCutoverService {
     if(!scope.isGlobal&&facts.some((f:any)=>!scope.allowedCompanyCodes.includes(f.company_code)
       ||!scope.allowedWarehouseCodes.includes(f.source_warehouse_code??f.warehouse_code)))
       throw new ConflictException('相关来源涉及尚未授权的公司或仓库，须先取得独立核验权限');
+  }
+  private async verifyCurrentCrossCompanyProofs(m:EntityManager,boundary:CutoverEvidenceBoundary,expected:unknown[]){
+    // Includes an empty receiving boundary: inventory INSERT/UPDATE/DELETE triggers take the matching shared lock.
+    // Hold it through the signature/READY commit so a first receipt cannot arrive after this sample.
+    for(const product of [...new Set(boundary.productCodes)].sort()){
+      const [row]=await m.query("SELECT pg_try_advisory_xact_lock(hashtext('phoenix:inventory-product'),hashtext($1)) AS locked",[`${boundary.companyCode}:${product}`]);
+      if(row?.locked!==true)throw new ConflictException('盘点产品仍有实物业务处理中，请待完成后重新核验');
+    }
+    const current=await readProductionCutoverEvidence(m,boundary,{signer:this.provenanceSigner,lockCrossCompanyRoots:true});
+    if(current.snapshot.missingTables.length||current.snapshot.warnings.some(w=>w.startsWith('CROSS_COMPANY_'))
+      ||cutoverEvidenceHash(current.snapshot.crossCompanyProofs)!==cutoverEvidenceHash(expected))
+      throw new ConflictException('跨公司接收来源或边界已变化/待核，须重新核验盘点后再冻结或签认');
   }
   private normalize(input:CutoverPreparation):CutoverPreparation{
     if(!input||typeof input!=='object'||!input.boundary)throw new BadRequestException('缺少盘点范围');
@@ -103,7 +117,7 @@ export class ProductionCutoverService {
   async inspect(boundary:CutoverEvidenceBoundary){
     await this.boundaryAuthority(boundary);
     return this.db.transaction('REPEATABLE READ',async m=>{
-      await m.query('SET TRANSACTION READ ONLY');const e=await readProductionCutoverEvidence(m,boundary);
+      await m.query('SET TRANSACTION READ ONLY');const e=await readProductionCutoverEvidence(m,boundary,{signer:this.provenanceSigner});
       // A company-scoped preparer must never receive another company's descendant stock or operational documents.
       if(e.snapshot.warnings.some(w=>w.startsWith('CROSS_COMPANY_')))
         throw new ConflictException('存在跨公司来源后代，须先按独立授权范围核验；当前范围未返回他公司资料');
@@ -143,7 +157,7 @@ export class ProductionCutoverService {
       await m.query("SELECT pg_advisory_xact_lock(hashtext('phoenix:cutover-intent'),hashtext($1))",[`${input.boundary.companyCode}:${input.intentKey}`]);
       const [prior]=await m.query('SELECT * FROM production_cutover_manifests WHERE company_code=$1 AND intent_key=$2',[input.boundary.companyCode,input.intentKey]);
       if(prior){if(prior.creation_hash!==creationHash)throw new ConflictException('相同创建意图已用于不同盘点内容');return prior;}
-      const evidence=await readProductionCutoverEvidence(m,input.boundary);
+      const evidence=await readProductionCutoverEvidence(m,input.boundary,{signer:this.provenanceSigner});
       if(evidence.snapshot.warnings.some(w=>['CROSS_COMPANY_DESCENDANTS_REQUIRE_SEPARATE_AUTHORITY','HOUSE_COMPANY_IDENTITY_UNRESOLVED','WAREHOUSE_COMPANY_IDENTITY_UNRESOLVED'].includes(w)||w.startsWith('CROSS_COMPANY_')))
         throw new ConflictException('盘点边界归属未确认或涉及他公司后代，请先分别核验');
       await this.proofs(m,{company_code:input.boundary.companyCode,warehouse_code:input.boundary.warehouseCode},input.evidenceFileIds);
@@ -161,7 +175,7 @@ export class ProductionCutoverService {
     return this.db.transaction(async m=>{
       const [d]=await m.query('SELECT * FROM production_cutover_manifests WHERE id=$1 FOR UPDATE',[id]);
       if(d.state!=='DRAFT'||d.version!==version)throw new ConflictException('盘点版本或状态已变化');
-      const e=await readProductionCutoverEvidence(m,input.boundary);this.evidenceAuthority(e.snapshot);
+      const e=await readProductionCutoverEvidence(m,input.boundary,{signer:this.provenanceSigner});this.evidenceAuthority(e.snapshot);
       if(e.snapshot.warnings.some(w=>w.startsWith('CROSS_COMPANY_')||w.includes('IDENTITY_UNRESOLVED')))throw new ConflictException('盘点归属或他公司关联须先独立核验');
       await this.proofs(m,d,input.evidenceFileIds);const {boundary,...payload}=input;
       const [updated]=await m.query(`WITH changed AS(UPDATE production_cutover_manifests SET version=version+1,boundary=$2,payload=$3 WHERE id=$1 RETURNING *) SELECT * FROM changed`,
@@ -170,13 +184,14 @@ export class ProductionCutoverService {
   }
   async freeze(id:string,version:number){
     const identity=await this.identity(id);this.authorize(identity.company_code,identity.warehouse_code,'E');
-    const captured=await inspectProductionCutoverEvidence(this.db,identity.boundary);
+    const captured=await inspectProductionCutoverEvidence(this.db,identity.boundary,{signer:this.provenanceSigner});
     return this.db.transaction(async m=>{
       const [d]=await m.query('SELECT * FROM production_cutover_manifests WHERE id=$1 FOR UPDATE',[id]);
       if(d.version!==version||d.state!=='DRAFT')throw new ConflictException('盘点版本或状态已变化');
       const e=captured;this.evidenceAuthority(e.snapshot);
       if(e.snapshot.missingTables.length)throw new ConflictException('必查资料尚未齐备，禁止冻结或签认空盘点');
       if(e.snapshot.warnings.length)throw new ConflictException({code:'CUTOVER_BOUNDARY_HOLD',warnings:e.snapshot.warnings});
+      await this.verifyCurrentCrossCompanyProofs(m,d.boundary,e.snapshot.crossCompanyProofs);
       const ids=[...new Set<string>([...d.payload.evidenceFileIds,...d.payload.decisions.map((r:any)=>r.evidenceFileId),...d.payload.referenceDecisions.map((r:any)=>r.evidenceFileId)])];
       const proofs=await this.proofs(m,d,ids);
       const batches=e.snapshot.batches,decisions=d.payload.decisions as CutoverPreparation['decisions'];
@@ -257,6 +272,7 @@ export class ProductionCutoverService {
       if(prior){if(prior.signed_by!==actor.actor||prior.evidence_file_id!==input.evidenceFileId||prior.reason!==input.reason)throw new ConflictException('该角色已由不同实名依据签认');return prior;}
       this.evidenceAuthority(d.snapshot,roleScope);
       if(d.state!=='READY'||d.created_by===actor.actor)throw new ConflictException('须由盘点制单人以外的业务及财务负责人签认');
+      await this.verifyCurrentCrossCompanyProofs(m,d.boundary,d.snapshot?.crossCompanyProofs??[]);
       const originals=await this.proofs(m,d,d.payload.proofs.map((f:any)=>f.file_id));
       if(cutoverEvidenceHash(originals)!==cutoverEvidenceHash(d.payload.proofs))throw new ConflictException('冻结盘点的原始附件身份或摘要已改变');
       const [file]=await this.proofs(m,d,[input.evidenceFileId],actor.username);

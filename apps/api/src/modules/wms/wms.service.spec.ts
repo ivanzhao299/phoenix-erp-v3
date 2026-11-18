@@ -984,7 +984,7 @@ describe('WmsService inventory read queries', () => {
         const masters = masterRows(sql); if (masters) return masters;
         if (sql.includes('SELECT company_code FROM wms_warehouses')) return [{ company_code: 'COMP-A' }];
         if (sql.includes('SELECT batch_no FROM changed')) return [{ batch_no: 'B-MAT-1' }];
-        if (sql.includes('FROM wms_warehouses w')) return [{ company_code: 'COMP-B', store_code: 'STORE-B', store_status: 'ACTIVE' }];
+        if (sql.includes('FROM wms_warehouses w')) return [{ company_code: 'COMP-B', store_code: 'STORE-B', store_status: 'ACTIVE', store_company_code: 'COMP-B' }];
         if (sql.includes('FROM inv_batches WHERE batch_no = $1 FOR UPDATE')) {
           return [{
             batch_no: 'B-MAT-1',
@@ -1196,7 +1196,7 @@ describe('WmsService inventory read queries', () => {
         if (sql.includes('SELECT company_code FROM wms_warehouses')) return [{ company_code: 'COMP-A' }];
       if (sql.includes('FROM wms_transfer WHERE')) return [{ transfer_no: 'TR-3', status: 'IN_TRANSIT', from_warehouse: 'WH-A', to_warehouse: 'WH-B' }];
       if (sql.includes('FROM wms_transfer_items')) return [{ id: 11, source_batch_no: 'B-1', expected_qty: 5, source_snapshot: { warehouse_code: 'WH-A', company_code: 'COMP-A' } }];
-      if (sql.includes('FROM wms_warehouses w')) return [{ company_code: 'COMP-A', store_code: 'STORE-B', store_status: 'ACTIVE' }];
+      if (sql.includes('FROM wms_warehouses w')) return [{ company_code: 'COMP-A', store_code: 'STORE-B', store_status: 'ACTIVE', store_company_code: 'COMP-A' }];
       return [];
     }) };
     const em = { transaction: jest.fn(async (cb: any) => cb(manager)) };

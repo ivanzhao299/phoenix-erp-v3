@@ -104,7 +104,7 @@ fixture('package quantities: owned disposable PostgreSQL 18 service integration'
       ALTER TABLE mst_materials ADD COLUMN spec text;
       ALTER TABLE mst_products ADD COLUMN specs text;
       ALTER TABLE product_skus ADD COLUMN sku_name text;
-      CREATE TABLE store_master (id serial PRIMARY KEY,store_code text,status text);
+      CREATE TABLE store_master (id serial PRIMARY KEY,store_code text,status text,company_code text);
       CREATE TABLE wms_transfer (id serial PRIMARY KEY,transfer_no text,from_warehouse text,to_warehouse text,from_zone text,to_zone text,from_location text,to_location text,
         batch_no text,qty numeric(14,3),reason text,attachment_url text,operator text,status text,operator_id int,created_at timestamptz,updated_at timestamptz,
         in_transit_qty numeric,received_qty numeric,dispatched_at timestamptz,dispatched_by text,received_at timestamptz,received_by text,completed_at timestamptz);

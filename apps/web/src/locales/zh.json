@@ -14971,5 +14971,10 @@
   "productionCutover.signReason": "签认依据",
   "productionCutover.sign": "签认冻结原单",
   "productionCutover.existing": "已有盘点",
-  "menu.production-cutovers": "正式库存切换盘点"
+  "menu.production-cutovers": "正式库存切换盘点",
+  "productionCutover.transferProofs": "已核验跨公司调拨",
+  "productionCutover.transferProofHelp": "按本公司实际调拨流水及原始来源核验；每次新增签认都会复核。",
+  "productionCutover.received": "实际接收",
+  "productionCutover.dispatched": "实际发出",
+  "productionCutover.localBatch": "本公司批次"
 }

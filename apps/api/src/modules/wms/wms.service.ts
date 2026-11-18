@@ -34,6 +34,7 @@ import {
   validateDefectDisposition,
 } from './wms-defect-disposition-policy';
 import { resolveInventoryClass } from './inventory-class-policy';
+import { randomUUID } from 'crypto';
 
 /**
  * V3 WmsService
@@ -317,9 +318,10 @@ export class WmsService {
     manager: EntityManager,
     warehouseCode: string,
     sourceStoreCode: string | null | undefined,
+    sourceCompanyCode: string | null | undefined,
   ): Promise<{ companyCode: string; storeCode: string }> {
     const [target] = await manager.query(
-      `SELECT w.company_code,sm.store_code,sm.status AS store_status
+      `SELECT w.company_code,sm.store_code,sm.status AS store_status,sm.company_code AS store_company_code
          FROM wms_warehouses w
          LEFT JOIN store_master sm ON sm.id=w.owner_store_id
         WHERE w.warehouse_code=$1
@@ -332,9 +334,10 @@ export class WmsService {
     if (target.store_code && target.store_status !== 'ACTIVE') {
       throw new BadRequestException(`调拨目标仓 ${warehouseCode} 的 owner store 非 ACTIVE`);
     }
+    if(target.store_code&&target.store_company_code!==target.company_code)throw new BadRequestException('调拨目标仓门店归属与仓库公司不一致');
     return {
       companyCode: target.company_code,
-      storeCode: target.store_code || sourceStoreCode || 'ALL',
+      storeCode: target.store_code || (target.company_code===sourceCompanyCode?sourceStoreCode:null) || 'ALL',
     };
   }
 
@@ -2577,8 +2580,8 @@ export class WmsService {
         });
 
         // 目标 + （新建一条目标 batch，追溯链保留）
-        const targetIdentity = await this.resolveTransferTargetIdentity(manager, to_warehouse, src.store_code);
-        const dstBatchNo = `${it.batch_no}-T-${Math.random().toString(36).slice(2,5).toUpperCase()}`;
+        const targetIdentity = await this.resolveTransferTargetIdentity(manager, to_warehouse, src.store_code,src.company_code);
+        const dstBatchNo = targetIdentity.companyCode!==src.company_code?`XFR-${randomUUID().replace(/-/g,'')}`:`${it.batch_no}-T-${Math.random().toString(36).slice(2,5).toUpperCase()}`;
         await qualifyDerivedInventory(manager,[{batch_no:it.batch_no}],{batchNo:dstBatchNo,companyCode:targetIdentity.companyCode,warehouseCode:to_warehouse,
           productCode:src.product_code,skuCode:src.sku_code,sourceType:'TRANSFER',sourceNo:transferNo,ownershipTransfer:true,actor:opName});
         await manager.query(
@@ -2834,8 +2837,9 @@ export class WmsService {
             manager,
             transfer.to_warehouse,
             snapshot.store_code,
+            snapshot.company_code,
           );
-          targetBatchNo = `${item.source_batch_no}-T-${Math.random().toString(36).slice(2, 5).toUpperCase()}`;
+          targetBatchNo = targetIdentity.companyCode!==snapshot.company_code?`XFR-${randomUUID().replace(/-/g,'')}`:`${item.source_batch_no}-T-${Math.random().toString(36).slice(2, 5).toUpperCase()}`;
           await qualifyDerivedInventory(manager,[{batch_no:item.source_batch_no}],{batchNo:targetBatchNo,companyCode:targetIdentity.companyCode,warehouseCode:transfer.to_warehouse,
             productCode:snapshot.product_code,skuCode:snapshot.sku_code,sourceType:'TRANSFER',sourceNo:transferNo,ownershipTransfer:true,actor:String(user?.username||'SYS')});
           await manager.query(
@@ -2872,7 +2876,7 @@ export class WmsService {
           if (!snapshot || snapshot.warehouse_code !== transfer.from_warehouse) {
             throw new BadRequestException('调拨源快照与源仓库不一致');
           }
-          const targetIdentity = await this.resolveTransferTargetIdentity(manager, transfer.to_warehouse, snapshot.store_code);
+          const targetIdentity = await this.resolveTransferTargetIdentity(manager, transfer.to_warehouse, snapshot.store_code,snapshot.company_code);
           let damagedSku:string|null=null;
           if(snapshot.sku_code){
             const original=await SkuPolicy.requireUsable(manager,snapshot.sku_code,'stock',targetIdentity.companyCode);
@@ -2883,7 +2887,7 @@ export class WmsService {
             if(broken.grade_code!=='BROKEN')throw new BadRequestException('破损库存SKU等级不一致');
             damagedSku=broken.sku_code;
           }
-          const damagedBatchNo = `${item.source_batch_no}-BROKEN-${Math.random().toString(36).slice(2, 5).toUpperCase()}`;
+          const damagedBatchNo = targetIdentity.companyCode!==snapshot.company_code?`XFR-D-${randomUUID().replace(/-/g,'')}`:`${item.source_batch_no}-BROKEN-${Math.random().toString(36).slice(2, 5).toUpperCase()}`;
           await qualifyDerivedInventory(manager,[{batch_no:item.source_batch_no}],{batchNo:damagedBatchNo,companyCode:targetIdentity.companyCode,warehouseCode:transfer.to_warehouse,
             productCode:snapshot.product_code,skuCode:damagedSku,sourceType:'TRANSFER_DAMAGE',sourceNo:transferNo,ownershipTransfer:true,allowSkuConversion:true,actor:String(user?.username||'SYS')});
           await manager.query(

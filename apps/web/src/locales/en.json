@@ -14971,5 +14971,10 @@
   "productionCutover.signReason": "Signature basis",
   "productionCutover.sign": "Sign the frozen original",
   "productionCutover.existing": "Existing counts",
-  "menu.production-cutovers": "Formal inventory cutover count"
+  "menu.production-cutovers": "Formal inventory cutover count",
+  "productionCutover.transferProofs": "Verified intercompany transfers",
+  "productionCutover.transferProofHelp": "Verified against this company’s actual transfer entries and original sources. Each new signature rechecks the evidence.",
+  "productionCutover.received": "Actually received",
+  "productionCutover.dispatched": "Actually dispatched",
+  "productionCutover.localBatch": "This company’s batch"
 }

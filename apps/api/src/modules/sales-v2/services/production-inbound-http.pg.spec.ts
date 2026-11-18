@@ -5,6 +5,10 @@ import { StoreScopePolicy } from '../../store-pos/services/store-scope-policy.se
 import { PriceRuntimeService } from './price-runtime.service';
 import { DeliveryOrdersService } from './delivery-orders.service';
 import { SalesOrderLifecycleService } from './sales-order-lifecycle.service';
+import { AlignWmsTransactionForms1787731200000 } from '../../../database/migrations/1787731200000-AlignWmsTransactionForms';
+import { UpgradeWmsTransferLifecycle1787965200000 } from '../../../database/migrations/1787965200000-UpgradeWmsTransferLifecycle';
+import { CUTOVER_PROVENANCE_SIGNER } from '../../wms/cutover-cross-company-proof';
+import { WmsService } from '../../wms/wms.service';
 import 'reflect-metadata';
 import { AnalyticsController } from '../../analytics/analytics.controller';
 import { GroupAnalyticsService } from '../../analytics/services/group-analytics.service';
@@ -82,13 +86,14 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
       CREATE TABLE sys_user(user_id int PRIMARY KEY,username text,status int DEFAULT 1,role_code text);
       CREATE TABLE fixture_permissions(role_code text,permission text);
       INSERT INTO sys_user VALUES(1,'maker',1,'MAKER'),(2,'reviewer',1,'REVIEWER'),(3,'receiver',1,'RECEIVER'),
-        (4,'view_only',1,'VIEWER'),(5,'unbound_all',1,'MAKER'),(6,'foreign',1,'MAKER'),(7,'wrong_warehouse',1,'MAKER'),(8,'create_only',1,'CREATOR'),(9,'farm_reporter',1,'FARM_REPORTER'),(10,'farm_only',1,'FARM_REPORTER'),(11,'finance_only',1,'FINANCE_ONLY'),(12,'analyst_a',1,'ANALYST'),(13,'analyst_b',1,'ANALYST'),(14,'analyst_warehouse',1,'ANALYST');
+        (4,'view_only',1,'VIEWER'),(5,'unbound_all',1,'MAKER'),(6,'foreign',1,'MAKER'),(7,'wrong_warehouse',1,'MAKER'),(8,'create_only',1,'CREATOR'),(9,'farm_reporter',1,'FARM_REPORTER'),(10,'farm_only',1,'FARM_REPORTER'),(11,'finance_only',1,'FINANCE_ONLY'),(12,'analyst_a',1,'ANALYST'),(13,'analyst_b',1,'ANALYST'),(14,'analyst_warehouse',1,'ANALYST'),(15,'cross_company_operator',1,'MAKER'),(16,'company_b_reviewer',1,'REVIEWER');
       INSERT INTO sys_role SELECT DISTINCT role_code,'ACTIVE' FROM sys_user;
       INSERT INTO fixture_permissions VALUES('MAKER','MENU_PROD_INBOUND:V,C,E'),('REVIEWER','MENU_PROD_INBOUND:V,E,A'),
         ('REVIEWER','MENU_FIN2_AR_LEDGER:V,E,A'),('RECEIVER','MENU_PROD_INBOUND:V,E'),('VIEWER','MENU_PROD_INBOUND:V'),('CREATOR','MENU_PROD_INBOUND:V,C'),('FARM_REPORTER','MENU_FARM_DAILY:V,E'),('FINANCE_ONLY','MENU_FIN2_AR_LEDGER:E'),('ANALYST','MENU_ANALYTICS:V');
       INSERT INTO sys_menu VALUES('MENU_PROD_INBOUND'),('MENU_PRC2_ORDER'),('MENU_FIN2_AR_LEDGER'),('MENU_FARM_DAILY'),('MENU_DASHBOARD'),('MENU_ANALYTICS');
       INSERT INTO sys_user_orgs(user_id,org_id,data_scope_level) SELECT u.user_id,o.id,'COMPANY' FROM sys_user u JOIN sys_organizations o
-        ON o.org_code=CASE WHEN u.user_id IN (6,13) THEN 'COMP-B' ELSE 'COMP-A' END WHERE u.user_id IN (1,2,3,4,6,8,9,11,12,13);
+        ON o.org_code=CASE WHEN u.user_id IN (6,13,16) THEN 'COMP-B' ELSE 'COMP-A' END WHERE u.user_id IN (1,2,3,4,6,8,9,11,12,13,15,16);
+      INSERT INTO sys_user_orgs(user_id,org_id,data_scope_level) SELECT 15,id,'COMPANY' FROM sys_organizations WHERE org_code='COMP-B';
       INSERT INTO sys_user_farm_scopes(user_id,farm_code) VALUES(10,'FARM-A');
       INSERT INTO sys_organizations(org_code,org_name,org_type,company_code,status,warehouse_code,parent_id)
         SELECT 'SITE-A','Restricted site','SITE','COMP-A','ACTIVE',NULL,id FROM sys_organizations WHERE org_code='COMP-A';
@@ -104,6 +109,10 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
       INSERT INTO inv_source_mode VALUES('GROUP','ALL','TEMP_PRODUCTION_INBOUND');
       CREATE TABLE brd_medication_records(flock_no text,status text,start_date date,withdraw_until date);`);
     await installEmptyCutoverClosureFixture(db);
+    // Replace only the empty closure contracts with the real owned transfer schema for actual handovers.
+    await db.query('DROP TABLE wms_transfer_items;DROP TABLE wms_transfer');
+    const transfers=db.createQueryRunner();await transfers.connect();
+    try{await new AlignWmsTransactionForms1787731200000().up(transfers);await new UpgradeWmsTransferLifecycle1787965200000().up(transfers);}finally{await transfers.release();}
     await db.query(`ALTER TABLE sal_sales_orders ADD COLUMN company_code text,ADD COLUMN currency_code text,ADD COLUMN total_amount numeric,
         ADD COLUMN customer_code text,ADD COLUMN created_at timestamptz DEFAULT now(),ADD COLUMN project_code text;
       ALTER TABLE sal_order_items ADD COLUMN qty numeric,ADD COLUMN amount numeric,ADD COLUMN quantity_snapshot jsonb,ADD COLUMN allocated_qty numeric;
@@ -143,6 +152,7 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
     const module=await Test.createTestingModule({imports:[PassportModule,ClsModule.forRoot({global:true,middleware:{mount:true}})],
       controllers:[AnalyticsController,ProductionCutoverController,FarmController,ProductionInboundDocumentsController,UploadController,FixtureLogin,FixtureLookups,FixtureDictionary,FixtureSkus],providers:[FixtureJwt,
         GroupAnalyticsService,...[FinanceAnalyticsService,SalesAnalyticsAggregatorService,InventoryAnalyticsService,ProductionAnalyticsService,ShareholderAnalyticsService,ExceptionAnalyticsService,ForecastAnalyticsService].map(provide=>({provide,useValue:{}})),ProductionCutoverService,FarmService,ProductionInboundDocumentsService,ProductionInboundService,EggInventoryService,SkuAvailabilityService,InventorySourceModeService,FileAccessService,OrgOwnershipService,
+        {provide:CUTOVER_PROVENANCE_SIGNER,useValue:{key:'SYNTHETIC-OWNED-CUTOVER-TRANSFER-PROOF-KEY',keyId:'owned-test-v1'}},
         {provide:EntityManager,useValue:db.manager},{provide:DataSource,useValue:db},
         {provide:getRepositoryToken(FileMetadataEntity),useValue:db.getRepository(FileMetadataEntity)},
         {provide:DataScopeService,inject:[ClsService,OrgOwnershipService],useFactory:(cls:ClsService,own:OrgOwnershipService)=>new DataScopeService(
@@ -154,7 +164,7 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
   },30000);
   async function resetState(emptyReports=false){
     await resetManagedSalesFixture(db);
-    await db.query(`TRUNCATE prc2_receipt_items,prc2_receipts,prc2_order_items,prc2_purchase_orders,fin_cash_accounts,fin_ar_invoices,fin_ap_invoices,fin_shareholder_contributions,fin_expense_requests,qa_inspections,qa_non_conformance,chanjet_writeback_outbox,chanjet_voucher_drafts,sal_order_items,sal_sales_orders,sal_order_item_batch_allocations,production_cutover_manifests,production_inventory_domain_states,production_handover_cancellations,production_physical_handovers,production_financial_clearances,production_posting_periods,
+    await db.query(`TRUNCATE wms_transfer_discrepancies,wms_transfer_items,wms_transfer,prc2_receipt_items,prc2_receipts,prc2_order_items,prc2_purchase_orders,fin_cash_accounts,fin_ar_invoices,fin_ap_invoices,fin_shareholder_contributions,fin_expense_requests,qa_inspections,qa_non_conformance,chanjet_writeback_outbox,chanjet_voucher_drafts,sal_order_items,sal_sales_orders,sal_order_item_batch_allocations,production_cutover_manifests,production_inventory_domain_states,production_handover_cancellations,production_physical_handovers,production_financial_clearances,production_posting_periods,
       production_posting_period_events,production_inbound_allocations,production_inbound_lines,production_inbound_documents,production_opening_receipts,
       production_inbound_days,production_batch_roots,production_batch_qualifications,production_inventory_domains,production_cutover_scopes,inv_batches,
       inv_ledger,brd_flock_events,brd_flock_balances,brd_flock_daily_balances,brd_flock_house_states,brd_daily_logs,inv_flock_source_links,brd_egg_source_receipts,brd_egg_day_routes,brd_flock_occupancies,brd_flock_documents RESTART IDENTITY CASCADE;
@@ -176,11 +186,18 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
         VALUES('HOUSE-A','FLOCK-A','2026-11-18','DAILY','{"GRADE_1":1000,"GRADE_2":100}','HTTP-OCC','COMP-A','FARM-A','SITE-A');`}
 
       UPDATE product_skus SET status='ACTIVE';UPDATE file_metadata SET status='ACTIVE';UPDATE sys_user SET status=1;`);
-    for(let id=1;id<=14;id++)scopes.invalidate(String(id));
+    for(let id=1;id<=16;id++)scopes.invalidate(String(id));
   }
   beforeEach(()=>resetState());
   afterAll(async()=>{
-    if(process.env.INSTALLMENT_HTTP_HOLD==='1'){await resetState(process.env.INSTALLMENT_HTTP_GRAIN==='1');console.log('Owned installment HTTP fixture ready');await new Promise<void>(done=>{releaseBrowser=done;});}
+    if(process.env.INSTALLMENT_HTTP_HOLD==='1'){
+      await resetState(process.env.INSTALLMENT_HTTP_GRAIN==='1');
+      if(process.env.INSTALLMENT_HTTP_CROSS==='1'){
+        await crossCompanyReceipt();const {payload}=await companyBCount();const d=(await cutoverApi(6,'').send(payload).expect(201)).body;
+        await cutoverApi(6,`/${d.id}/freeze`).send({version:0}).expect(201);
+      }
+      console.log('Owned installment HTTP fixture ready');await new Promise<void>(done=>{releaseBrowser=done;});
+    }
     await app?.close();if(db?.isInitialized){await db.query(`DROP SCHEMA "${schema}" CASCADE`);await db.destroy();}
   },process.env.INSTALLMENT_HTTP_HOLD==='1'?21600000:30000);
   async function signedDraft(quantity=100){const p=draft(quantity);const file=(await upload(1).expect(201)).body.fileId;p.evidenceFileIds=[file];
@@ -201,6 +218,143 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
   const cutoverBoundary=()=>({companyCode:'COMP-A',warehouseCode:'WH-A',productCodes:['PRD-EGG-RAW'],houses:[{houseCode:'HOUSE-A',firstProductionDate:'2026-11-19'}]});
   const emptyCount=(fileId:string)=>({boundary:cutoverBoundary(),intentKey:randomUUID(),postingDate:new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Singapore'}).format(new Date()),
     evidenceFileIds:[fileId],physicalTotals:[{productCode:'PRD-EGG-RAW',quantity:0}],openingLines:[],decisions:[],referenceDecisions:[]});
+  const companyBBoundary=()=>({...cutoverBoundary(),companyCode:'COMP-B',warehouseCode:'WH-B',houses:[{houseCode:'HOUSE-B',firstProductionDate:'2026-11-19'}]});
+  async function crossCompanyReceipt(){
+    const {ready}=await signedDraft(),posted=(await api(1,'post',`/${ready.id}/post`).send({submitKey:ready.submit_key,contentHash:ready.content_hash}).expect(201)).body;
+    await asInventoryActor(15,async cls=>new WmsService(db.manager,cls).confirmTransfer({transfer_no:'SYNTHETIC-B-RECEIPT',from_warehouse:'WH-A',to_warehouse:'WH-B',
+      items:[{batch_no:posted.batches[0].batchNo,qty:20}]},{username:'cross_company_operator'}));
+    const [child]=await db.query("SELECT batch_no FROM inv_batches WHERE source_no='SYNTHETIC-B-RECEIPT'");
+    return {root:posted.batches[0].batchNo,child:child.batch_no};
+  }
+  async function companyBCount(){
+    const file=(await cutoverUpload(6,'WH-B','COMP-B').expect(201)).body.fileId;
+    const inspected=(await cutoverApi(6,'/inspect').send(companyBBoundary()).expect(201)).body;
+    const payload={...emptyCount(file),boundary:companyBBoundary(),physicalTotals:[{productCode:'PRD-EGG-RAW',quantity:20}],
+      decisions:inspected.snapshot.batches.map((b:any)=>({batchNo:b.batch_no,disposition:'CARRY_FORWARD',evidenceFileId:file,reason:'Synthetic verified own received physical stock'})),
+      referenceDecisions:inspected.references.map((r:any)=>({table:r.table,rowSha256:r.rowSha256,classification:'RESOLVED',evidenceFileId:file,reason:'Synthetic actual completed handover'}))};
+    return {payload,inspected};
+  }
+  it('lets a B-only maker freeze twenty received units with zero new opening, protects A private facts and revalidates each new signer',async()=>{
+    const {root,child}=await crossCompanyReceipt(),{payload,inspected}=await companyBCount();
+    expect(inspected.snapshot.batches.map((b:any)=>b.batch_no)).toEqual([child]);
+    expect(child).toMatch(/^XFR-[a-f0-9]{32}$/);expect(JSON.stringify(inspected)).not.toContain(root);
+    expect(JSON.stringify(inspected)).not.toContain('HOUSE-A');expect(JSON.stringify(inspected)).not.toContain('source_snapshot');
+    expect(inspected.snapshot.qualification[0]).not.toHaveProperty('evidence_sha256');
+    const d=(await cutoverApi(6,'').send(payload).expect(201)).body;
+    const frozen=(await cutoverApi(6,`/${d.id}/freeze`).send({version:0}).expect(201)).body;
+    expect(frozen.payload.openingLines).toEqual([]);expect(frozen.payload.physicalTotals).toEqual([{productCode:'PRD-EGG-RAW',quantity:20}]);
+    const file=(await cutoverUpload(16,'WH-B','COMP-B').expect(201)).body.fileId;
+    const signature={role:'BUSINESS',contentHash:frozen.content_hash,snapshotSha256:frozen.snapshot_sha256,evidenceFileId:file,reason:'Synthetic B-only independent confirmation'};
+    await cutoverApi(16,`/${d.id}/sign`).send(signature).expect(201);
+    await db.query("UPDATE production_cutover_scopes SET state='SUSPENDED'");
+    await cutoverApi(16,`/${d.id}/sign`).send({...signature,role:'FINANCE'}).expect(409);
+    await db.query("UPDATE production_cutover_scopes SET state='ACTIVE';UPDATE wms_transfer_items SET received_qty=19 WHERE transfer_no='SYNTHETIC-B-RECEIPT'");
+    await cutoverApi(16,`/${d.id}/sign`).send({...signature,role:'FINANCE'}).expect(409);
+    await db.query("UPDATE wms_transfer_items SET received_qty=20 WHERE transfer_no='SYNTHETIC-B-RECEIPT'");
+    const order=async(id:number,qty:number)=>{
+      const quantity=await db.transaction(m=>resolveQuantity(m,{qty,skuCode:'SKU-GRADE_1',quantityBasis:'BASE'}));
+      await db.query(`INSERT INTO sal_sales_orders(id,order_no,status,company_code,fulfillment_warehouse_code)
+        VALUES($1,$2,'APPROVED','COMP-A','WH-A')`,[id,`SYNTHETIC-A-ORDER-${id}`]);
+      await db.query(`INSERT INTO sal_order_items(id,sales_order_id,product_code,grade_code,sku_code,qty,amount,quantity_snapshot)
+        VALUES($1,$1,'PRD-EGG-RAW','GRADE_1','SKU-GRADE_1',$2::numeric,$2::numeric*2,$3)`,[id,qty,JSON.stringify(quantity)]);return quantity;
+    };
+    await order(987,75);
+    await asInventoryActor(1,()=>app.get(EggInventoryService).reserveInventory('987','SYNTHETIC-A-ORDER-987','COMP-A',undefined,'WH-A'));
+    const next=await signedDraft();await api(1,'post',`/${next.ready.id}/post`).send({submitKey:next.ready.submit_key,contentHash:next.ready.content_hash}).expect(201);
+    const quantity=await order(988,10);
+    await asInventoryActor(1,async cls=>{
+      const inventory=app.get(EggInventoryService);await inventory.reserveInventory('988','SYNTHETIC-A-ORDER-988','COMP-A',undefined,'WH-A');
+      await db.query(`INSERT INTO sal_delivery_orders(id,delivery_no,status,company_code,fulfillment_warehouse_code)
+          VALUES(988,'SYNTHETIC-A-MIXED-SALE','PLANNED','COMP-A','WH-A');
+        INSERT INTO sal_delivery_order_items(id,delivery_order_id,sales_order_id,planned_qty,sales_order_no,status)
+          VALUES(988,988,988,10,'SYNTHETIC-A-ORDER-988','PENDING');UPDATE sal_sales_orders SET status='ALLOCATED' WHERE id=988`);
+      const deliveries=new DeliveryOrdersService(db,cls,inventory,new SalesOrderLifecycleService(db));
+      await deliveries.startLoading('988',{});await deliveries.finishLoading('988',{});
+      expect((await db.query('SELECT outbound_qty::text FROM sal_order_item_batch_allocations WHERE sales_order_item_id=988 ORDER BY id')).map((a:any)=>a.outbound_qty)).toEqual(['5','5']);
+      await db.query(`INSERT INTO sal_return_items(id,return_order_id,sales_order_item_id,restock_status,product_code,grade_code,sku_code,accepted_qty,damaged_qty,quantity_snapshot)
+        VALUES(988,988,988,'PENDING','PRD-EGG-RAW','GRADE_1','SKU-GRADE_1',10,0,$1)`,[JSON.stringify(quantity)]);
+      await inventory.processReturnInventory('988','SYNTHETIC-A-MIXED-RETURN','COMP-A','WH-A','ZONE-A','LOC-A',day);
+    });
+    expect((await db.query('SELECT count(*)::int AS n FROM production_batch_roots WHERE batch_no=$1',['RET-SYNTHETIC-A-MIXED-RETURN-988']))[0].n).toBe(2);
+    const after=(await cutoverApi(6,'/inspect').send(companyBBoundary()).expect(201)).body;
+    expect(after.snapshotSha256).toBe(inspected.snapshotSha256);
+    await cutoverApi(16,`/${d.id}/sign`).send({...signature,role:'FINANCE'}).expect(201);
+    const original=(await cutoverApi(6,`/${d.id}`,'get').expect(200)).body;
+    expect(original.state).toBe('APPROVED');expect(original.activationAuthorized).toBe(false);expect(JSON.stringify(original)).not.toContain(root);
+    expect((await db.query("SELECT count(*)::int AS n FROM production_cutover_scopes WHERE company_code='COMP-B'"))[0].n).toBe(0);
+    expect((await db.query('SELECT count(*)::int AS n FROM production_opening_receipts'))[0].n).toBe(0);
+    // Owned historical-shape fixture: an old receiving ID embedded the sender's batch ID. No alias is invented for it.
+    const legacy=`${root}-T-OLD`;
+    await db.transaction(async m=>{
+      await m.query("SET LOCAL session_replication_role='replica'");
+      for(const table of ['inv_batches','inv_ledger','production_batch_qualifications','production_batch_roots','inv_flock_source_links'])
+        await m.query(`UPDATE ${table} SET batch_no=$2 WHERE batch_no=$1`,[child,legacy]);
+      await m.query('UPDATE wms_transfer_items SET target_batch_no=$2 WHERE target_batch_no=$1',[child,legacy]);
+      await m.query("SET LOCAL session_replication_role='origin'");
+    });
+    const held=await cutoverApi(6,'/inspect').send(companyBBoundary()).expect(409);expect(JSON.stringify(held.body)).not.toContain(root);
+  });
+  it('holds new signatures when the first foreign receipt arrives after an empty freeze even if its proof signer is unavailable',async()=>{
+    const file=(await cutoverUpload(6,'WH-B','COMP-B').expect(201)).body.fileId;
+    const d=(await cutoverApi(6,'').send({...emptyCount(file),boundary:companyBBoundary()}).expect(201)).body;
+    const frozen=(await cutoverApi(6,`/${d.id}/freeze`).send({version:0}).expect(201)).body;
+    expect(frozen.snapshot.crossCompanyProofs).toEqual([]);await crossCompanyReceipt();
+    const signFile=(await cutoverUpload(16,'WH-B','COMP-B').expect(201)).body.fileId;
+    const signature={role:'BUSINESS',contentHash:frozen.content_hash,snapshotSha256:frozen.snapshot_sha256,evidenceFileId:signFile,reason:'Synthetic stale empty boundary'};
+    const signer=app.get(CUTOVER_PROVENANCE_SIGNER);signer.key='';
+    try{await cutoverApi(16,`/${d.id}/sign`).send(signature).expect(409);}
+    finally{signer.key='SYNTHETIC-OWNED-CUTOVER-TRANSFER-PROOF-KEY';}
+    await cutoverApi(16,`/${d.id}/sign`).send(signature).expect(409);
+    expect((await db.query('SELECT count(*)::int AS n FROM production_cutover_signatures WHERE manifest_id=$1',[d.id]))[0].n).toBe(0);
+  });
+  it('rechecks the received source under locks before READY if it is paused after the read-only capture',async()=>{
+    await crossCompanyReceipt();const {payload}=await companyBCount();
+    const d=(await cutoverApi(6,'').send(payload).expect(201)).body;
+    const original=db.transaction.bind(db);let armed=true;
+    (db as any).transaction=async(...args:any[])=>{
+      const result=await (original as any)(...args);
+      if(armed&&args[0]==='REPEATABLE READ'){armed=false;await db.query("UPDATE production_cutover_scopes SET state='SUSPENDED'");}
+      return result;
+    };
+    try{await cutoverApi(6,`/${d.id}/freeze`).send({version:0}).expect(409);}
+    finally{db.transaction=original;await db.query("UPDATE production_cutover_scopes SET state='ACTIVE'");}
+    expect(armed).toBe(false);
+    expect((await db.query('SELECT state,version FROM production_cutover_manifests WHERE id=$1',[d.id]))[0]).toEqual({state:'DRAFT',version:0});
+  });
+  it('keeps a first foreign receipt out until the final signature commits, including an empty receiving boundary',async()=>{
+    const {ready}=await signedDraft(),posted=(await api(1,'post',`/${ready.id}/post`).send({submitKey:ready.submit_key,contentHash:ready.content_hash}).expect(201)).body;
+    const file=(await cutoverUpload(6,'WH-B','COMP-B').expect(201)).body.fileId;
+    const d=(await cutoverApi(6,'').send({...emptyCount(file),boundary:companyBBoundary()}).expect(201)).body;
+    const frozen=(await cutoverApi(6,`/${d.id}/freeze`).send({version:0}).expect(201)).body;
+    const signFile=(await cutoverUpload(16,'WH-B','COMP-B').expect(201)).body.fileId;
+    const signature={role:'BUSINESS',contentHash:frozen.content_hash,snapshotSha256:frozen.snapshot_sha256,evidenceFileId:signFile,reason:'Synthetic concurrent receipt boundary'};
+    await cutoverApi(16,`/${d.id}/sign`).send(signature).expect(201);
+    const transfer=()=>asInventoryActor(15,async cls=>new WmsService(db.manager,cls).confirmTransfer({transfer_no:'SYNTHETIC-CONCURRENT-FIRST-RECEIPT',
+      from_warehouse:'WH-A',to_warehouse:'WH-B',items:[{batch_no:posted.batches[0].batchNo,qty:20}]},{username:'cross_company_operator'}));
+    const service=app.get(ProductionCutoverService) as any,original=service.proofs.bind(service);let attempted=false;
+    service.proofs=async(...args:any[])=>{
+      const facts=await original(...args);
+      if(!attempted){attempted=true;await expect(transfer()).rejects.toThrow('OFFICIAL_INVENTORY_PRODUCT_BUSY');
+        expect((await db.query("SELECT count(*)::int AS n FROM inv_batches WHERE warehouse_code='WH-B'"))[0].n).toBe(0);
+        expect(Number((await db.query('SELECT qty FROM inv_batches WHERE batch_no=$1',[posted.batches[0].batchNo]))[0].qty)).toBe(100);}
+      return facts;
+    };
+    try{await cutoverApi(16,`/${d.id}/sign`).send({...signature,role:'FINANCE'}).expect(201);}
+    finally{service.proofs=original;}
+    expect(attempted).toBe(true);expect((await cutoverApi(6,`/${d.id}`,'get').expect(200)).body.state).toBe('APPROVED');
+    await transfer();expect(Number((await db.query("SELECT qty FROM inv_batches WHERE warehouse_code='WH-B'"))[0].qty)).toBe(20);
+    expect((await cutoverApi(6,`/${d.id}`,'get').expect(200)).body.snapshot.crossCompanyProofs).toEqual([]);
+  });
+  it('holds a missing physical source before a B-only caller can read its retained foreign lineage',async()=>{
+    const {root}=await crossCompanyReceipt();
+    await db.transaction(async m=>{await m.query("SET LOCAL session_replication_role='replica'");await m.query('DELETE FROM inv_batches WHERE batch_no=$1',[root]);});
+    expect((await db.query('SELECT count(*)::int AS n FROM production_batch_qualifications WHERE batch_no=$1',[root]))[0].n).toBe(1);
+    const held=await cutoverApi(6,'/inspect').send(companyBBoundary()).expect(409);
+    expect(JSON.stringify(held.body)).not.toContain(root);expect(JSON.stringify(held.body)).not.toContain('HOUSE-A');
+    const file=(await cutoverUpload(6,'WH-B','COMP-B').expect(201)).body.fileId;
+    const rejected=await cutoverApi(6,'').send({...emptyCount(file),boundary:companyBBoundary()}).expect(409);
+    expect(JSON.stringify(rejected.body)).not.toContain(root);
+  });
   it('prepares, freezes and role-signs a real uploaded count without enabling any house or physical domain',async()=>{
     const file=(await cutoverUpload(1).expect(201)).body.fileId,p=emptyCount(file);
     const d=(await cutoverApi(1,'').send(p).expect(201)).body;
