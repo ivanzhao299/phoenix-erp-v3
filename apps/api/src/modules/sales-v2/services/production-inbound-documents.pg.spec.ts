@@ -69,18 +69,18 @@ fixture('formal installment documents — actual PostgreSQL 18 inventory and pro
       VALUES('FILE-FINANCE','ACTIVE','PROTECTED','application/pdf','PRODUCTION_INBOUND','HOUSE','HOUSE-A','COMP-A','SITE-A','approver',repeat('f',64));`);
   });
   afterAll(async () => { if (db?.isInitialized) { await db.query(`DROP SCHEMA "${schema}" CASCADE`); await db.destroy(); } });
-  async function resetFixture(mode:"DAILY"|"AMPM"="DAILY",reportDay:"2026-11-17"|"2026-11-18"=day) {
+  async function resetFixture(mode:"DAILY"|"AMPM"="DAILY",reportDay:string=day,baselineDay='2026-11-17') {
     await db.query(`TRUNCATE production_source_state_events,production_inventory_domain_states,prc2_receipt_items,prc2_receipts,wms_transfer_discrepancies,wms_transfer_items,wms_transfer,wms_stocktake,wms_defect_dispositions,production_physical_handovers,production_posting_periods,production_posting_period_events,production_inbound_allocations,production_inbound_lines,production_inbound_documents,
       production_opening_receipts,production_inbound_days,production_batch_roots,production_batch_qualifications,
       production_inventory_domains,production_cutover_scopes,inv_ledger,inv_batches,brd_daily_logs,inv_flock_source_links,
       brd_egg_source_receipts,brd_egg_day_routes,brd_flock_occupancies,brd_flock_documents RESTART IDENTITY CASCADE;
       INSERT INTO brd_flock_documents(id,source_key,content_hash,kind,company_code,farm_code,house_code,business_date,payload,status,created_by)
-      VALUES('SYNTHETIC-BASELINE','SYNTHETIC-COUNT',repeat('b',64),'BASELINE','COMP-A','FARM-A','HOUSE-A','2026-11-17','{}','POSTED','fixture');
+      VALUES('SYNTHETIC-BASELINE','SYNTHETIC-COUNT',repeat('b',64),'BASELINE','COMP-A','FARM-A','HOUSE-A','${baselineDay}','{}','POSTED','fixture');
       INSERT INTO brd_flock_occupancies(id,flock_no,house_code,company_code,farm_code,site_code,began_on,capacity_snapshot,opened_document_id)
-      VALUES('SYNTHETIC-OCC','FLOCK-A','HOUSE-A','COMP-A','FARM-A','SITE-A','2026-11-17',5000,'SYNTHETIC-BASELINE');
+      VALUES('SYNTHETIC-OCC','FLOCK-A','HOUSE-A','COMP-A','FARM-A','SITE-A','${baselineDay}',5000,'SYNTHETIC-BASELINE');
       INSERT INTO production_cutover_scopes(id,company_code,house_code,version,first_production_date,state,
         warehouse_code,flock_id,source_profile_code,manifest_sha256,evidence,confirmed_by)
-      VALUES('20000000-0000-0000-0000-000000000001','COMP-A','HOUSE-A',1,'2026-11-17','DRAFT','WH-A',
+      VALUES('20000000-0000-0000-0000-000000000001','COMP-A','HOUSE-A',1,'${baselineDay}','DRAFT','WH-A',
         'FLOCK-A','PROFILE-A',repeat('c',64),'{"synthetic":true}','fixture');
       INSERT INTO production_inventory_domains VALUES('20000000-0000-0000-0000-000000000001','COMP-A','WH-A','PRD-EGG-RAW');
       UPDATE production_cutover_scopes SET state='FENCED';
@@ -213,6 +213,103 @@ fixture('formal installment documents — actual PostgreSQL 18 inventory and pro
       await writer.query("UPDATE wms_transfer_items SET received_qty=19 WHERE transfer_no='SYNTHETIC-LOCKED-CROSS'");
       await expect(db.transaction(m=>proveCrossCompanyTransfer(m,local.fact,foreign.fact,cutoverEvidenceHash,true,proofSigner))).rejects.toThrow('SOURCE_HOLD');
     }finally{if(reader.isTransactionActive)await reader.rollbackTransaction();if(writer.isTransactionActive)await writer.rollbackTransaction();await reader.release();await writer.release();}
+  });
+  it('freezes expired qualified physical stock without inventing a disposal or changing its original receipt',async()=>{
+    await resetFixture('DAILY','2026-10-01','2026-09-30');
+    const d=await ready({...input(),eggDate:'2026-10-01'}),original=await post(d),batchNo=original.batches[0].batchNo;
+    // Empty actual allocation columns used by the scheduler's reservation exclusion.
+    await db.query('CREATE TABLE sal_order_item_batch_allocations(id bigint,batch_no text,reserved_qty numeric,outbound_qty numeric,released_qty numeric)');
+    try{
+    const inventory=new EggInventoryService(db,cls as any,new SkuAvailabilityService(db));
+    const before=await db.query('SELECT to_jsonb(l) AS fact FROM inv_ledger l ORDER BY id');
+    await db.query("UPDATE production_cutover_scopes SET state='SUSPENDED'");
+    expect((await inventory.markExpiredBatches('COMP-A')).expired).toBe(0);
+    expect((await db.query('SELECT status FROM inv_batches WHERE batch_no=$1',[batchNo]))[0].status).toBe('AVAILABLE');
+    await db.query("UPDATE production_cutover_scopes SET state='ACTIVE'");
+    await expect(inventory.markExpiredBatches('COMP-A',db.manager)).rejects.toThrow('实际事务');
+    await expect(db.transaction(async m=>{
+      expect((await inventory.markExpiredBatches('COMP-A',m)).frozenForReview).toEqual([{batchNo,companyCode:'COMP-A',warehouseCode:'WH-A'}]);
+      expect((await m.query('SELECT status FROM inv_batches WHERE batch_no=$1',[batchNo]))[0].status).toBe('FROZEN');
+      throw new Error('Synthetic outer transaction abort');
+    })).rejects.toThrow('Synthetic outer transaction abort');
+    expect((await db.query('SELECT status FROM inv_batches WHERE batch_no=$1',[batchNo]))[0].status).toBe('AVAILABLE');
+    const result=await inventory.markExpiredBatches('COMP-A');
+    expect(result).toMatchObject({written:0,frozenForReview:[{batchNo,companyCode:'COMP-A',warehouseCode:'WH-A'}]});
+    expect((await db.query('SELECT qty::text,qty_available::text,status FROM inv_batches WHERE batch_no=$1',[batchNo]))[0])
+      .toEqual({qty:'100',qty_available:'0',status:'FROZEN'});
+    expect(await db.query('SELECT to_jsonb(l) AS fact FROM inv_ledger l ORDER BY id')).toEqual(before);
+    expect(await post(d)).toEqual(original);expect((await inventory.markExpiredBatches('COMP-A')).expired).toBe(0);
+    expect((await service.balance('COMP-A','HOUSE-A','2026-10-01','WH-A')).grades.GRADE_1).toEqual({reported:1000,posted:100,remaining:900});
+    expect((await db.query("SELECT qty-SUM(l.qty_change) AS difference FROM inv_batches b JOIN inv_ledger l USING(batch_no) WHERE batch_no=$1 GROUP BY b.qty",[batchNo]))[0].difference).toBe('0');
+    }finally{await db.query('DROP TABLE sal_order_item_batch_allocations');}
+  });
+  it('keeps expiry within warehouse scope and reclassifies an actual purchase admitted after the candidate snapshot',async()=>{
+    const {batch:batchNo}=await purchase();
+    await db.query("UPDATE inv_batches SET expire_date='2026-10-31' WHERE batch_no=$1",[batchNo]);
+    await db.query('CREATE TABLE sal_order_item_batch_allocations(id bigint,batch_no text,reserved_qty numeric,outbound_qty numeric,released_qty numeric)');
+    try{
+      const inventory=new EggInventoryService(db,cls as any,new SkuAvailabilityService(db));
+      scope.allowedWarehouseCodes=['WH-A'];expect((await inventory.markExpiredBatches('COMP-A')).expired).toBe(0);
+      expect((await db.query('SELECT status FROM inv_batches WHERE batch_no=$1',[batchNo]))[0].status).toBe('AVAILABLE');
+      scope.allowedWarehouseCodes.push('WH-A2');let admitted=false;
+      const result=await db.transaction(async m=>{
+        const query=m.query.bind(m);m.query=async(sql:string,parameters?:any[])=>{
+          const rows=await query(sql,parameters);
+          if(!admitted&&sql.includes('FOR UPDATE OF b SKIP LOCKED')){
+            expect((await db.query('SELECT count(*)::int AS n FROM production_batch_qualifications WHERE batch_no=$1',[batchNo]))[0].n).toBe(0);
+            await db.transaction(other=>qualifyPurchaseInventory(other,{batchNo,companyCode:'COMP-A',warehouseCode:'WH-A2',productCode:'PRD-EGG-RAW',skuCode:'SKU-GRADE_1',
+              receiptNo:'SYNTHETIC-PURCHASE',receiptItemId:'11',itemCode:'SKU-GRADE_1',quantity:100,unitCost:2,actor:'maker',baseUnit:'枚',
+              admission:{scopeId:'20000000-0000-0000-0000-000000000001',companyCode:'COMP-A',warehouseCode:'WH-A',productCode:'PRD-EGG-RAW'}}));
+            admitted=true;
+          }
+          return rows;
+        };
+        return inventory.markExpiredBatches('COMP-A',m);
+      });
+      expect(admitted).toBe(true);expect(result).toMatchObject({written:0,frozenForReview:[{batchNo,warehouseCode:'WH-A2'}]});
+      expect((await db.query('SELECT qty::text,status FROM inv_batches WHERE batch_no=$1',[batchNo]))[0]).toEqual({qty:'100',status:'FROZEN'});
+      expect((await db.query("SELECT count(*)::int AS n FROM inv_ledger WHERE batch_no=$1 AND change_type='EXPIRE_WRITEOFF'",[batchNo]))[0].n).toBe(0);
+    }finally{await db.query('DROP TABLE sal_order_item_batch_allocations');}
+  });
+  it('skips a busy formal product without rolling back unrelated OFF-company expiry and retries the formal hold later',async()=>{
+    await resetFixture('DAILY','2026-10-01','2026-09-30');const original=await post(await ready({...input(),eggDate:'2026-10-01'})),batchNo=original.batches[0].batchNo;
+    await db.query('CREATE TABLE sal_order_item_batch_allocations(id bigint,batch_no text,reserved_qty numeric,outbound_qty numeric,released_qty numeric)');
+    await db.query(`INSERT INTO inv_batches(batch_no,company_code,warehouse_code,material_code,source_type,source_no,unit,qty,qty_available,status,expire_date)
+      VALUES('SYNTHETIC-OFF-MATERIAL','COMP-B','WH-B','SYNTHETIC-MATERIAL','PURCHASE','SYNTHETIC-OFF-RECEIPT','盒',7,7,'AVAILABLE','2026-10-31')`);
+    const lock=db.createQueryRunner();await lock.connect();await lock.startTransaction();
+    try{
+      await lock.query("SELECT pg_advisory_xact_lock(hashtext('phoenix:inventory-product'),hashtext('COMP-A:PRD-EGG-RAW'))");
+      const scheduler=new EggInventoryService(db,{get:()=>undefined} as any,new SkuAvailabilityService(db));
+      const result=await scheduler.markExpiredBatches();expect(result).toMatchObject({written:1,skippedBusy:[{batchNo,companyCode:'COMP-A'}]});
+      expect((await db.query('SELECT qty::text,status FROM inv_batches WHERE batch_no=$1',[batchNo]))[0]).toEqual({qty:'100',status:'AVAILABLE'});
+      expect((await db.query("SELECT status FROM inv_batches WHERE batch_no='SYNTHETIC-OFF-MATERIAL'"))[0].status).toBe('EXPIRED');
+      await lock.rollbackTransaction();expect((await scheduler.markExpiredBatches('COMP-A')).frozenForReview).toEqual([{batchNo,companyCode:'COMP-A',warehouseCode:'WH-A'}]);
+    }finally{if(lock.isTransactionActive)await lock.rollbackTransaction();await lock.release();await db.query('DROP TABLE sal_order_item_batch_allocations');}
+  });
+  it('keeps a suspended expired allocation read-only and sends warehouse-scoped review without authorizing disposal',async()=>{
+    await resetFixture('DAILY','2026-10-01','2026-09-30');const original=await post(await ready({...input(),eggDate:'2026-10-01'})),batchNo=original.batches[0].batchNo;
+    await db.query('CREATE TABLE sal_order_item_batch_allocations(id bigint,batch_no text,reserved_qty numeric,outbound_qty numeric,released_qty numeric)');
+    try{
+      // Owned open-reservation facts; the scheduled review must never release or dispose them.
+      await db.transaction(async m=>{
+        await m.query('UPDATE inv_batches SET qty_available=qty_available-10 WHERE batch_no=$1',[batchNo]);
+        await writeInvLedger(m,{batchNo,changeType:INV_LEDGER_CHANGE_TYPE.RESERVED,qtyChange:-10,costChange:0,companyCode:'COMP-A',warehouseCode:'WH-A',
+          operator:'maker',refNo:'SYNTHETIC-OPEN-RESERVATION',note:'Synthetic persisted open allocation'});
+        await m.query('INSERT INTO sal_order_item_batch_allocations VALUES(1,$1,10,0,0)',[batchNo]);
+      });
+      await db.query("UPDATE production_cutover_scopes SET state='SUSPENDED'");
+      const recipients={resolve:jest.fn().mockResolvedValue(['synthetic-authorized-reader'])},notifications={create:jest.fn().mockResolvedValue(undefined)};
+      const inventory=new EggInventoryService(db,cls as any,new SkuAvailabilityService(db),recipients as any,notifications as any);
+      const before=await db.query('SELECT to_jsonb(l) AS fact FROM inv_ledger l ORDER BY id');
+      const result=await inventory.markExpiredBatches('COMP-A');
+      expect(result).toMatchObject({expired:0,written:0,skippedInUse:[{batchNo,companyCode:'COMP-A',warehouseCode:'WH-A',openAllocations:10}]});
+      expect((await db.query('SELECT qty::text,qty_available::text,status FROM inv_batches WHERE batch_no=$1',[batchNo]))[0])
+        .toEqual({qty:'100',qty_available:'90',status:'AVAILABLE'});
+      expect(await db.query('SELECT to_jsonb(l) AS fact FROM inv_ledger l ORDER BY id')).toEqual(before);
+      expect(recipients.resolve).toHaveBeenCalledWith('COMP-A',['MENU_SALES2_INVENTORY'],'WH-A');
+      const content=notifications.create.mock.calls[0][0].content;expect(content).toContain('不授予暂停来源写入权限');expect(content).not.toContain('再执行过期报废');
+      expect((await db.query('SELECT state FROM production_cutover_scopes'))[0].state).toBe('SUSPENDED');
+    }finally{await db.query('DROP TABLE sal_order_item_batch_allocations');}
   });
   it('1000 → 100 → sell 40 → 900; original receipt stays 100 and stock is 960', async () => {
     const p = input(100); const d = await ready(p); const first = await post(d);

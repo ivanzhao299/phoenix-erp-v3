@@ -21,16 +21,17 @@ import { BadRequestException } from '@nestjs/common';
  * | RESERVED | 无（预占用 qty_available 减量 + sal_order_item_batch_allocations 台账建模，不落批次状态） | 无 |
  * | QUARANTINE | egg processReturnInventory 退货批、POS returnSale 退货批、wms 缺陷处置调拨目标批 | 无（无复检放行代码路径） |
  * | DAMAGED | egg processReturnInventory 纯破损批 | 无（无处置终态代码路径） |
- * | FROZEN | 无 | 无（冻结/解冻仅是批次 4 INV-402 能力缺口，代码无写入） |
+ * | FROZEN | 受限实物期初 | 已资格化正式库存过期冻结（保留实物，待实际处置） |
  * | EXPIRED | 无 | egg markExpiredBatches（唯一写入方） |
  *
  * ## 迁移白名单（只收录当前代码实际发生过的迁移，不凭空发明）
  * | from → to | 来源 |
  * |---|---|
  * | AVAILABLE → EXPIRED | egg-inventory `markExpiredBatches` 守卫 UPDATE（`WHERE status='AVAILABLE'` + `SET status='EXPIRED', qty_available=0`，INV-101；调度入口 egg-inventory-scheduler） |
+ * | AVAILABLE → FROZEN | 已资格化正式库存过期只冻结待真实处置，保留实物数量和流水（markExpiredBatches）；旧 OFF 路径仍保持 EXPIRED |
  * | AVAILABLE → AVAILABLE | farm `medication-record.cancel` 撤销还入 `SET status='AVAILABLE'`（用药扣减侧守卫要求 AVAILABLE，正常流自环再断言）；farm-medicine 入库 upsert 冲突腿同样重申 AVAILABLE。两处 from 侧未 SELECT 校验（保持现状，见批次 3c 报告），正常流均为 AVAILABLE 自环 |
  *
- * 其余迁移对（如 QUARANTINE→AVAILABLE 复检放行、AVAILABLE→FROZEN 冻结、
+ * 其余迁移对（如 QUARANTINE→AVAILABLE 复检放行、FROZEN→AVAILABLE 解冻、
  * →DAMAGED 破损、EXPIRED→AVAILABLE 复活）当前代码**没有**写入路径；
  * 新引擎路径需要时先在此登记来源，再在写入点接 assertStatusTransition——
  * 白名单是 fail-closed 的：未登记即非法。
@@ -49,12 +50,12 @@ export type InvBatchStatus = (typeof INV_BATCH_STATUSES)[number];
  * 每条的来源注释见文件头迁移白名单表。
  */
 export const INV_BATCH_STATUS_TRANSITIONS: Readonly<Record<InvBatchStatus, readonly InvBatchStatus[]>> = {
-  // 唯一代码迁移：egg 过期任务（INV-101）；AVAILABLE 自环：farm 用药撤销/入库重申
-  AVAILABLE: ['AVAILABLE', 'EXPIRED'],
+  // Legacy expiry, qualified physical expiry hold, and medication/inbound self-loop.
+  AVAILABLE: ['AVAILABLE', 'EXPIRED', 'FROZEN'],
   RESERVED: [],      // 字典态；预占建模不走批次状态，无出边
   QUARANTINE: [],    // 退货/缺陷隔离入口态；复检放行路径尚未存在（INV-301 报告"保持现状"）
   DAMAGED: [],       // 破损终态；处置路径尚未存在
-  FROZEN: [],        // 冻结能力缺口（批次 4 INV-402），无写入亦无出边
+  FROZEN: [],        // 受限期初/正式过期冻结；未提供通用解冻出边
   EXPIRED: [],       // 过期核销终态，禁止复活（重新入库须走新批次号）
 };
 

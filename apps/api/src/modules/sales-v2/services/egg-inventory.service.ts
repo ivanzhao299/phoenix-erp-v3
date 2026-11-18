@@ -1489,7 +1489,9 @@ export class EggInventoryService {
   async markExpiredBatches(companyCode?: string, mgr?: EntityManager): Promise<{
     expired: number;
     written: number;
-    skippedInUse: Array<{ batchNo: string; companyCode: string | null; openAllocations: number }>;
+    skippedInUse: Array<{ batchNo: string; companyCode: string | null; openAllocations: number;warehouseCode?:string }>;
+    frozenForReview?: Array<{ batchNo: string; companyCode: string | null;warehouseCode:string }>;
+    skippedBusy?:Array<{batchNo:string;companyCode:string|null}>;
   }> {
     // INV-101 ①（同时修 INV-103 的 /mark-expired 面）：写路径公司授权，fail-closed；
     // 无 CLS dataScope 的调度/系统流与 isGlobal 放行，scopedCompany=null 表示全公司扫描。
@@ -1500,47 +1502,99 @@ export class EggInventoryService {
       // 下方守卫 UPDATE 的 requireStatus('AVAILABLE') 与 SET status='EXPIRED'
       // 必须是白名单迁移对；白名单若收紧，这里先于任何写入 fail-closed。
       assertStatusTransition('AVAILABLE', 'EXPIRED', 'egg-inventory markExpiredBatches 过期任务（INV-101）');
+      const [schema]=await em.query("SELECT to_regprocedure('official_inventory_qualification_controlled(text)') AS control");
+      if(schema?.control&&!em.queryRunner?.isTransactionActive)throw new ConflictException('正式库存过期处理必须处于实际事务内');
+      const controlled=schema?.control?'official_inventory_qualification_controlled(b.batch_no)':'false';
+      const allowed=schema?.control?officialInventoryPredicate('b'):'true';
+      const expiryDay=schema?.control?`CASE WHEN ${controlled} THEN (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Singapore')::date ELSE CURRENT_DATE END`:'CURRENT_DATE';
+      const initialExpiryDay=schema?.control?"GREATEST(CURRENT_DATE,(CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Singapore')::date)":'CURRENT_DATE';
+      const scope=this.cls.get('dataScope') as {isGlobal?:boolean;allowedWarehouseCodes?:string[]}|undefined;
+      const restrictWarehouses=!!schema?.control&&!!scope&&!scope.isGlobal;
+      const warehouseFilter=restrictWarehouses?'AND b.warehouse_code=ANY($2::text[])':'';
+      const bindings=restrictWarehouses?[scopedCompany,Array.isArray(scope?.allowedWarehouseCodes)?scope.allowedWarehouseCodes:[]]:[scopedCompany];
 
       // ② 候选查询：参数化 + 排除在途预占 + SKIP LOCKED
       const candidates = await em.query(
-        `SELECT b.batch_no, b.qty, b.company_code, b.expire_date, b.quality_grade, b.sku_code, b.unit_cost
+        `SELECT b.batch_no, b.qty, b.company_code, b.expire_date, b.quality_grade, b.sku_code, b.unit_cost,b.warehouse_code
            FROM inv_batches b
-          WHERE b.expire_date < CURRENT_DATE
+          WHERE b.expire_date < ${initialExpiryDay}
             AND b.status = 'AVAILABLE'
             AND b.qty > 0
             AND ($1::text IS NULL OR b.company_code = $1)
+            ${warehouseFilter}
+            AND ${allowed}
             AND NOT EXISTS (
                   SELECT 1 FROM sal_order_item_batch_allocations a
                    WHERE a.batch_no = b.batch_no
                      AND a.reserved_qty > a.outbound_qty + a.released_qty)
           ORDER BY b.batch_no
           FOR UPDATE OF b SKIP LOCKED`,
-        [scopedCompany],
+        bindings,
       );
 
-      // 在途预占的过期批次：跳过核销，输出清单供人工复核（用户裁决：不自动强退）
+      // Read-only review includes visible suspended sources with open allocations; it grants no write/disposal permission.
       const skippedRows = await em.query(
-        `SELECT b.batch_no, b.company_code,
+        `SELECT b.batch_no, b.company_code${schema?.control?',b.warehouse_code':''},
                 COALESCE(SUM(a.reserved_qty - a.outbound_qty - a.released_qty), 0) AS open_allocations
            FROM inv_batches b
            JOIN sal_order_item_batch_allocations a ON a.batch_no = b.batch_no
-          WHERE b.expire_date < CURRENT_DATE
+          WHERE b.expire_date < ${expiryDay}
             AND b.status = 'AVAILABLE'
             AND b.qty > 0
             AND ($1::text IS NULL OR b.company_code = $1)
+            ${warehouseFilter}
+            AND ${allowed}
             AND a.reserved_qty > a.outbound_qty + a.released_qty
-          GROUP BY b.batch_no, b.company_code
+          GROUP BY b.batch_no, b.company_code${schema?.control?',b.warehouse_code':''}
           ORDER BY b.batch_no`,
-        [scopedCompany],
+        bindings,
       );
-      const skippedInUse = skippedRows.map((row: any) => ({
+      const skippedInUse:Array<{batchNo:string;companyCode:string|null;openAllocations:number;warehouseCode?:string}> = skippedRows.map((row: any) => ({
         batchNo: String(row.batch_no),
         companyCode: row.company_code ?? null,
         openAllocations: Number(row.open_allocations ?? 0),
+        ...(schema?.control?{warehouseCode:String(row.warehouse_code??'')}:{}),
       }));
 
       let written = 0;
-      for (const batch of candidates) {
+      const frozenForReview:Array<{batchNo:string;companyCode:string|null;warehouseCode:string}>=[];
+      const skippedBusy:Array<{batchNo:string;companyCode:string|null}>=[];let eligible=0;
+      for (let batch of candidates) {
+        if(schema?.control){
+          await em.query('SAVEPOINT inventory_expiry_candidate');
+          try{
+            await em.query(`SELECT official_inventory_lock_operation(batch_no,company_code,warehouse_code,product_code,sku_code,material_code,to_jsonb(b))
+              FROM inv_batches b WHERE batch_no=$1`,[batch.batch_no]);
+            // New READ COMMITTED statement after the root/product locks: never classify a fresh qualification from the candidate query's old snapshot.
+            const [fresh]=await em.query(`SELECT b.*,${controlled} AS controlled,${officialInventoryWritablePredicate('b')} AS writable,
+                b.expire_date<${expiryDay} AS expired,
+                (SELECT COALESCE(SUM(a.reserved_qty-a.outbound_qty-a.released_qty),0) FROM sal_order_item_batch_allocations a
+                  WHERE a.batch_no=b.batch_no AND a.reserved_qty>a.outbound_qty+a.released_qty) AS open_allocations
+              FROM inv_batches b WHERE b.batch_no=$1`,[batch.batch_no]);
+            await em.query('RELEASE SAVEPOINT inventory_expiry_candidate');
+            if(!fresh||fresh.writable!==true||fresh.expired!==true||fresh.status!=='AVAILABLE'||Number(fresh.qty)<=0)continue;
+            if(Number(fresh.open_allocations)>0){
+              if(!skippedInUse.some(b=>b.batchNo===fresh.batch_no))skippedInUse.push({batchNo:fresh.batch_no,companyCode:fresh.company_code,warehouseCode:fresh.warehouse_code,openAllocations:Number(fresh.open_allocations)});
+              continue;
+            }
+            batch=fresh;
+          }catch(error){
+            await em.query('ROLLBACK TO SAVEPOINT inventory_expiry_candidate');await em.query('RELEASE SAVEPOINT inventory_expiry_candidate');
+            if(/OFFICIAL_INVENTORY_(PRODUCT|DOMAIN|ROOT)_BUSY/.test(error instanceof Error?error.message:'')){
+              skippedBusy.push({batchNo:String(batch.batch_no),companyCode:batch.company_code??null});continue;
+            }
+            throw error;
+          }
+        }
+        eligible++;
+        if(batch.controlled===true){
+          assertStatusTransition('AVAILABLE','FROZEN','正式来源过期，实物待核验处置');
+          const frozen=await em.query(`WITH changed AS(UPDATE inv_batches SET status='FROZEN',qty_available=0,updated_at=now()
+            WHERE batch_no=$1 AND status='AVAILABLE' RETURNING batch_no) SELECT batch_no FROM changed`,[batch.batch_no]);
+          if(frozen.length===1)frozenForReview.push({batchNo:String(batch.batch_no),companyCode:batch.company_code??null,warehouseCode:String(batch.warehouse_code)});
+          // Expiry is not a physical disposal. Preserve quantity and the complete original ledger until a real disposition posts.
+          continue;
+        }
         // ③ 守卫化 UPDATE：changed!==1 说明并发已改状态，跳过（幂等容错）
         const changed = await em.query(
           `WITH c AS (
@@ -1571,16 +1625,18 @@ export class EggInventoryService {
         }, em);
         written++;
       }
-      return { expired: candidates.length, written, skippedInUse };
+      return { expired: schema?.control?eligible:candidates.length, written, skippedInUse,...(frozenForReview.length?{frozenForReview}:{}),...(skippedBusy.length?{skippedBusy}:{}) };
     };
 
     const result = mgr ? await run(mgr) : await this.ds.transaction(run);
 
     // 在途预占批次 → MENU_SALES2_INVENTORY:V 用户人工复核通知（事务提交后发送）
-    if (result.skippedInUse.length) await this.notifyExpireReview(result.skippedInUse);
+    if (!mgr&&result.skippedInUse.length) await this.notifyExpireReview(result.skippedInUse);
+    // An outer transaction owns its commit; return the review facts without notifying before that commit.
+    if(!mgr&&result.frozenForReview?.length)await this.notifyExpireReview(result.frozenForReview.map(b=>({...b,openAllocations:0})),'CONTROLLED_EXPIRY');
 
     this.logger.log(
-      `[EggInv] 过期处理: 候选=${result.expired} 核销=${result.written} 在途预占跳过=${result.skippedInUse.length}`,
+      `[EggInv] 过期处理: 候选=${result.expired} 核销=${result.written} 正式实物冻结=${result.frozenForReview?.length??0} 在途预占跳过=${result.skippedInUse.length}`,
     );
     return result;
   }
@@ -1611,31 +1667,37 @@ export class EggInventoryService {
    * 通知模式；通知失败只记日志，不影响过期处理主流程）。
    */
   private async notifyExpireReview(
-    skipped: Array<{ batchNo: string; companyCode: string | null; openAllocations: number }>,
+    skipped: Array<{ batchNo: string; companyCode: string | null; openAllocations: number;warehouseCode?:string }>,
+    kind:'ALLOCATION'|'CONTROLLED_EXPIRY'='ALLOCATION',
   ): Promise<void> {
     if (!this.notifyRecipients || !this.notify) {
       this.logger.warn(
-        `[EggInv] ${skipped.length} 个过期批次存在在途预占待人工复核: ${skipped.map(row => row.batchNo).join(',')}`,
+        `[EggInv] ${skipped.length} 个过期批次待人工复核 (${kind}): ${skipped.map(row => row.batchNo).join(',')}`,
       );
       return;
     }
     const byCompany = new Map<string, typeof skipped>();
     for (const row of skipped) {
-      const key = row.companyCode ?? '';
+      const key = JSON.stringify([row.companyCode??'',row.warehouseCode??null]);
       if (!byCompany.has(key)) byCompany.set(key, []);
       byCompany.get(key)!.push(row);
     }
-    for (const [companyCode, rows] of byCompany) {
+    for (const rows of byCompany.values()) {
+      const companyCode=rows[0].companyCode??'';
       try {
-        const userIds = await this.notifyRecipients.resolve(companyCode, ['MENU_SALES2_INVENTORY']);
+        const userIds = kind==='CONTROLLED_EXPIRY'||rows[0].warehouseCode!==undefined
+          ?await this.notifyRecipients.resolve(companyCode,['MENU_SALES2_INVENTORY'],rows[0].warehouseCode??'')
+          :await this.notifyRecipients.resolve(companyCode, ['MENU_SALES2_INVENTORY']);
         for (const userId of userIds) {
           try {
             await this.notify.create({
               userId,
               notificationType: 'INVENTORY_EXPIRE_REVIEW',
-              title: `过期批次待人工复核：${rows.length} 批存在在途预占`,
-              content: '以下过期批次存在未出库/未释放的订单预占，已跳过自动核销；请人工复核处理订单预占后再执行过期报废：\n'
-                + rows.map(row => `  • ${row.batchNo}（在途预占 ${row.openAllocations}）`).join('\n'),
+              title: kind==='CONTROLLED_EXPIRY'?`正式过期库存已冻结：${rows.length} 批待处置`:`过期批次待人工复核：${rows.length} 批存在在途预占`,
+              content: kind==='CONTROLLED_EXPIRY'?'以下正式库存已冻结，实物数量和原始流水保留；请按实际质检、损耗及财务证据完成处置：\n'+rows.map(row=>`  • ${row.batchNo}`).join('\n')
+                :(rows[0].warehouseCode!==undefined?'以下过期批次存在订单预占，保持实物与原流水，未自动处置。请按授权核验预占和来源状态，再凭真实质检、损耗及财务依据处置；本通知不授予暂停来源写入权限：\n'
+                  :'以下过期批次存在未出库/未释放的订单预占，已跳过自动核销；请人工复核处理订单预占后再执行过期报废：\n')
+                  + rows.map(row => `  • ${row.batchNo}（在途预占 ${row.openAllocations}）`).join('\n'),
               linkType: 'PAGE',
               linkId: '/sales2/inventory',
               bizType: 'INV_EXPIRE_REVIEW',
