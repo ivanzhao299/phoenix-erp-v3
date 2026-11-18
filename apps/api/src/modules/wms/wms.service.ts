@@ -1,3 +1,5 @@
+import { beginApprovedConversionOutput,completeApprovedConversionOutput } from './official-conversion-context';
+import { bindTransferDamageBatch } from './inventory-derivation-proof';
 import { qualifyDerivedInventory } from './derived-inventory-qualification';
 import { qualifyPurchaseInventory,purchaseReceiptBatchNo } from './purchase-inventory-qualification';
 import { assertOfficialInventoryBatches, officialInventoryPredicate, officialLedgerPredicate } from './official-inventory';
@@ -33,7 +35,7 @@ import {
   normalizeDefectGrade,
   validateDefectDisposition,
 } from './wms-defect-disposition-policy';
-import { resolveInventoryClass } from './inventory-class-policy';
+import { resolveInventoryClass,allowedInventoryClassesForSales } from './inventory-class-policy';
 import { randomUUID } from 'crypto';
 
 /**
@@ -131,6 +133,66 @@ export class WmsService {
     }
     return {manifestId:manifest.id,documentNo:manifest.document_no,contentHash:manifest.content_hash,postingDate,
       totalOpening:output.reduce((n,l)=>n+Number(l.quantity),0),batches:output,domains:claims.map((c:any)=>({domainId:c.domain_id,productCode:c.product_code,openingReceiptId:c.opening_receipt_id}))};
+  }
+
+  /** Only the approved conversion orchestrator can bind the actual transaction capability. */
+  async postApprovedConversionOutput(manager:EntityManager,documentId:string,lineNo:number){
+    const {document,planned:line,actorId,username}=beginApprovedConversionOutput(manager,documentId,lineNo);
+    const scope=this.cls.get<DataScopeContext|undefined>('dataScope'),user=this.cls.get('user') as any;
+    if(!user||!hasPerm(user.permissions,'MENU_PROD_INBOUND','E')||String(user.userId??user.id??'')!==actorId
+      ||!scope||!scope.isGlobal&&(!scope.allowedCompanyCodes.includes(document.company_code)||!scope.allowedWarehouseCodes.includes(document.warehouse_code)))
+      throw new ForbiddenException('无权向该公司及仓库办理实际转换产出');
+    const [warehouse]=await manager.query('SELECT company_code,status,domain FROM wms_warehouses WHERE warehouse_code=$1 FOR SHARE',[document.warehouse_code]);
+    if(warehouse?.company_code!==document.company_code||warehouse.status!=='ACTIVE'||warehouse.domain!=='OPERATIONAL')throw new ConflictException('转换产出必须进入本公司的实际作业仓');
+    const identity=await this.resolveInventoryItem(manager,line.skuCode,'SKU',document.company_code);
+    if(identity.itemType!=='SKU'||identity.unit!=='枚'||identity.productCode!==document.product_code||identity.gradeCode!==line.gradeCode
+      ||identity.specCode!==line.specCode||!Number.isSafeInteger(line.quantity)||line.quantity<=0)throw new ConflictException('转换产出的实际SKU、等级、规格或枚数已变化');
+    const [location]=await manager.query("SELECT 1 FROM wms_locations WHERE location_code=$1 AND warehouse_code=$2 AND status IN('ACTIVE','NORMAL') FOR SHARE",[line.locationCode,document.warehouse_code]);
+    const [domain]=await manager.query(`SELECT domain.scope_id FROM production_inventory_domains domain JOIN production_cutover_scopes scope ON scope.id=domain.scope_id
+      LEFT JOIN production_inventory_domain_states state ON state.company_code=domain.company_code AND state.warehouse_code=domain.warehouse_code AND state.product_code=domain.product_code
+      WHERE domain.company_code=$1 AND domain.warehouse_code=$2 AND domain.product_code=$3 AND scope.state IN('ACTIVE','SUSPENDED')
+        AND(scope.state='ACTIVE' AND state.id IS NULL OR state.state='ACTIVE')
+      ORDER BY domain.scope_id LIMIT 1 FOR SHARE OF scope`,[document.company_code,document.warehouse_code,document.product_code]);
+    if(!location||!domain||!['AVAILABLE','QUARANTINE','DAMAGED'].includes(line.inventoryStatus))throw new ConflictException('转换仓位、实物域或按档库存状态未核实');
+    const roots=await manager.query(`SELECT q.batch_no AS root FROM production_conversion_inputs input JOIN production_batch_qualifications q ON q.batch_no=input.parent_batch_no
+      WHERE input.document_id=$1 AND q.origin_kind<>'DERIVED' UNION SELECT root.root_batch_no AS root FROM production_batch_roots root
+      JOIN production_conversion_inputs input ON input.parent_batch_no=root.batch_no WHERE input.document_id=$1 ORDER BY root`,[documentId]);
+    const rawRoots=await manager.query(`SELECT raw_segment_id FROM production_conversion_inputs WHERE document_id=$1 AND raw_segment_id IS NOT NULL
+      UNION SELECT root.raw_segment_id FROM production_batch_raw_roots root JOIN production_conversion_inputs input ON input.parent_batch_no=root.batch_no WHERE input.document_id=$1
+      ORDER BY raw_segment_id`,[documentId]);
+    if(!roots.length&&!rawRoots.length)throw new ConflictException('转换缺少实际原始根，不能无投入创建库存');
+    const batchNo=`CVT-${documentId.replace(/-/g,'')}-${lineNo}`;
+    await manager.query(`INSERT INTO production_batch_qualifications(batch_no,scope_id,company_code,product_code,sku_code,disposition,origin_kind,origin_ref,
+      source_type,source_no,cost_status,evidence_sha256,created_by,processing_stage,conversion_document_id,conversion_output_no)
+      VALUES($1,$2,$3,$4,$5,'QUALIFIED','DERIVED',$6,'CONVERSION',$7,'UNKNOWN',$8,$9,$10,$11,$12)`,
+      [batchNo,domain.scope_id,document.company_code,identity.productCode,identity.skuCode,`${document.document_no}:${lineNo}`,document.document_no,
+        document.content_hash,actorId,line.outputKind==='WIP'?'WIP':'FINISHED',documentId,lineNo]);
+    for(const root of roots)await manager.query('INSERT INTO production_batch_roots(batch_no,root_batch_no) VALUES($1,$2)',[batchNo,root.root]);
+    for(const root of rawRoots)await manager.query('INSERT INTO production_batch_raw_roots(batch_no,raw_segment_id) VALUES($1,$2)',[batchNo,root.raw_segment_id]);
+    await manager.query(`INSERT INTO inv_batches(batch_no,company_code,warehouse_code,location_code,product_code,sku_code,item_type,unit,qty,qty_available,status,
+      inventory_class,grade_code_std,quality_grade,spec_code,packaging_spec,base_quantity_version,variety_code,source_type,source_no,egg_date,inbound_date,expire_date,unit_cost,created_at,updated_at)
+      VALUES($1,$2,$3,$4,$5,$6,'SKU','枚',$7,$8,$9,$10,$11,$11,$12,$12,1,$13,'CONVERSION',$14,$15,$16,$17,0,now(),now())`,
+      [batchNo,document.company_code,document.warehouse_code,line.locationCode,identity.productCode,identity.skuCode,line.quantity,
+        line.inventoryStatus==='AVAILABLE'?line.quantity:0,line.inventoryStatus,line.outputKind==='WIP'?'WIP':resolveInventoryClass(identity.gradeCode),
+        identity.gradeCode,identity.specCode,identity.varietyCode,document.document_no,line.eggDate,document.expected_posting_date,line.expireDate]);
+    const ledgerId=await writeInvLedger(manager,{batchNo,changeType:INV_LEDGER_CHANGE_TYPE.CONVERSION_IN,qtyChange:line.quantity,operator:username,
+      refNo:document.document_no,companyCode:document.company_code,warehouseCode:document.warehouse_code,locationCode:line.locationCode,
+      skuCode:identity.skuCode,qualityGrade:identity.gradeCode,unit:'枚',businessType:'PRODUCTION_CONVERSION',logDate:document.expected_posting_date,
+      costChange:null,note:`Approved physical conversion ${document.document_no} output ${lineNo}`});
+    if(!ledgerId)throw new ConflictException('转换产出缺少真实入账流水');
+    const directRaw=await manager.query(`SELECT segment.*,receipt.production_date::text AS production_date,receipt.house_code,receipt.payload->'profile' AS profile,
+      input.quantity AS actual_input_quantity FROM production_conversion_inputs input JOIN production_raw_receipt_segments segment ON segment.id=input.raw_segment_id
+      JOIN production_raw_receipts receipt ON receipt.id=segment.receipt_id WHERE input.document_id=$1 ORDER BY input.line_no`,[documentId]);
+    for(const source of directRaw)await manager.query(`INSERT INTO inv_flock_source_links(id,batch_no,daily_log_id,occupancy_id,flock_no,house_code,company_code,
+      production_date,source_key,grading_code,source_input_qty,batch_output_qty,allocated_output_qty,precision,source_profile_snapshot,origin_batch_no)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,NULL,'RELATED_INPUT',$13,$2) ON CONFLICT(batch_no,daily_log_id,source_key,grading_code) DO NOTHING`,
+      [randomUUID(),batchNo,source.daily_log_id,source.occupancy_id,source.flock_no,source.house_code,document.company_code,source.production_date,
+        source.source_key,document.document_no,source.actual_input_quantity,line.quantity,JSON.stringify(source.profile)]);
+    const parents=await manager.query('SELECT parent_batch_no FROM production_conversion_inputs WHERE document_id=$1 AND parent_batch_no IS NOT NULL ORDER BY parent_batch_no',[documentId]);
+    for(const parent of parents)await inheritFlockProductionSources(manager,parent.parent_batch_no,batchNo,line.quantity);
+    completeApprovedConversionOutput(manager,lineNo);
+    return {batchNo,inventoryLedgerId:ledgerId,outputKind:line.outputKind,skuCode:identity.skuCode,gradeCode:identity.gradeCode,quantity:line.quantity,
+      warehouseCode:document.warehouse_code,locationCode:line.locationCode};
   }
 
   /** Historical protocol retained for forensic fixtures only. The production CLI apply entry is retired; archived batches also fail database admission. */
@@ -254,6 +316,8 @@ export class WmsService {
 
   /** DEFECT_SALE is ordinary sale stock only for farm/wholesale flows. */
   private async assertDefectSaleOutboundAllowed(manager: EntityManager, batch: any, order: any): Promise<void> {
+    if(String(order?.type||'').toUpperCase()==='SALE'&&!allowedInventoryClassesForSales('FARM_SALES').some(kind=>kind===String(batch?.inventory_class||'STANDARD').toUpperCase()))
+      throw new BadRequestException('在制品须先完成实际包装转换，不能按销售出库');
     if (String(batch?.inventory_class || '').toUpperCase() !== 'DEFECT_SALE') return;
     if (String(order?.type || '').toUpperCase() !== 'SALE') return;
     const destinationType = String(order?.destination_type || '').toUpperCase();
@@ -274,6 +338,7 @@ export class WmsService {
   }
 
   private async canUseDefectSaleBatch(manager: EntityManager, batch: any, order: any): Promise<boolean> {
+    if(String(order?.type||'').toUpperCase()==='SALE'&&!allowedInventoryClassesForSales('FARM_SALES').some(kind=>kind===String(batch?.inventory_class||'STANDARD').toUpperCase()))return false;
     if (String(batch?.inventory_class || '').toUpperCase() !== 'DEFECT_SALE') return true;
     try {
       await this.assertDefectSaleOutboundAllowed(manager, batch, order);
@@ -307,6 +372,12 @@ export class WmsService {
     const sourceCompany = await this.lockWarehouseCompany(manager, fromWarehouse);
     this.assertBatchCompany(batch, sourceCompany);
     const targetCompany = await this.lockWarehouseCompany(manager, toWarehouse);
+    if(sourceCompany!==targetCompany){
+      const [schema]=await manager.query("SELECT to_regclass('production_batch_raw_roots') AS raw_roots");
+      if(schema?.raw_roots&&(String(batch.inventory_class)==='WIP'||(await manager.query(`SELECT 1 WHERE official_inventory_conversion_related($1)
+        OR EXISTS(SELECT 1 FROM production_batch_raw_roots WHERE batch_no=$1)`,[batch.batch_no])).length))
+        throw new ConflictException('原始收蛋、加工产出或在制品的跨公司接收证明尚未完备，不能先扣减发运');
+    }
     if (batch.sku_code != null) {
       // Transaction companies are not SKU origin: keep identity and check both exact scopes.
       await SkuPolicy.requireUsable(manager, batch.sku_code, 'stock', sourceCompany);
@@ -1484,7 +1555,7 @@ export class WmsService {
           const batchNo = this.nonEmptyString(line.batch_no);
           if (batchNo) {
             const [batch] = await manager.query(
-              `SELECT batch_no, product_code, sku_code, material_code, item_type, material_type, unit, grade_code_std, spec_code, legacy_source, base_quantity_version, qty, qty_available, warehouse_code, store_code, company_code
+              `SELECT batch_no, product_code, sku_code, material_code, item_type, material_type, unit, grade_code_std, spec_code, legacy_source, base_quantity_version, inventory_class, qty, qty_available, warehouse_code, store_code, company_code
                  FROM inv_batches WHERE batch_no = $1 FOR UPDATE`,
               [batchNo],
             );
@@ -1993,7 +2064,7 @@ export class WmsService {
       if (batchNo) {
         const [batch] = await manager.query(
           `SELECT batch_no, product_code, sku_code, material_code, item_type,
-                  material_type, unit, grade_code_std, spec_code, legacy_source, base_quantity_version, qty, qty_available, warehouse_code, store_code, company_code
+                  material_type, unit, grade_code_std, spec_code, legacy_source, base_quantity_version, inventory_class, qty, qty_available, warehouse_code, store_code, company_code
              FROM inv_batches
             WHERE batch_no = $1
             FOR UPDATE`,
@@ -2066,6 +2137,7 @@ export class WmsService {
     let remaining = qty;
     for (const batch of batches) {
       if (remaining <= 0) break;
+      if(String(order?.type||'').toUpperCase()==='SALE'&&!allowedInventoryClassesForSales('FARM_SALES').some(kind=>kind===String(batch.inventory_class||'STANDARD').toUpperCase()))continue;
       const available = Number(batch.qty_available ?? batch.qty) || 0;
       if (available <= 0) continue;
       const deductQty = Math.min(remaining, available);
@@ -2101,6 +2173,7 @@ export class WmsService {
               material_type, unit, grade_code_std, spec_code, legacy_source, base_quantity_version, inventory_class, qty, qty_available, warehouse_code, store_code, company_code
          FROM inv_batches
         WHERE ${column} = $1
+          ${String(order?.type||'').toUpperCase()==='SALE'?"AND COALESCE(inventory_class,'STANDARD') IN('STANDARD','DEFECT_SALE')":''}
           AND COALESCE(qty_available, qty, 0) > 0
           AND COALESCE(status, 'AVAILABLE') = 'AVAILABLE'
         ORDER BY expire_date NULLS LAST, created_at ASC, batch_no ASC
@@ -2906,6 +2979,7 @@ export class WmsService {
               snapshot.packaging_spec??null,snapshot.base_quantity_version??null,snapshot.legacy_source??null],
           );
           await inheritFlockProductionSources(manager,item.source_batch_no,damagedBatchNo,damaged);
+          await bindTransferDamageBatch(manager,item.id,damagedBatchNo);
           // INV-301a：统一共享写入器
           await writeInvLedger(manager, {
             batchNo: damagedBatchNo,

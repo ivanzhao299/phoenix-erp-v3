@@ -9,8 +9,9 @@ export async function qualifyDerivedInventory(m: EntityManager, parents: Array<{
   batchNo:string;companyCode:string;warehouseCode:string;productCode:string|null;skuCode:string|null;sourceType:string;sourceNo:string;actor:string;ownershipTransfer?:boolean;allowSkuConversion?:boolean;
 }): Promise<void> {
   const parentNos=[...new Set(parents.map(p=>p.batch_no))].sort();
-  const metadata=await m.query("SELECT to_regclass('production_inventory_domain_states') AS domains");
+  const metadata=await m.query("SELECT to_regclass('production_inventory_domain_states') AS domains,to_regclass('production_batch_raw_roots') AS raw_roots");
   const modern=Array.isArray(metadata)&&!!metadata[0]?.domains;
+  const rawEnabled=Array.isArray(metadata)&&!!metadata[0]?.raw_roots;
   const known=await m.query(`SELECT q.batch_no,q.scope_id AS official_scope_id FROM production_batch_qualifications q
     JOIN production_cutover_scopes s ON s.id=q.scope_id WHERE q.batch_no=ANY($1::text[]) AND ${modern?'official_inventory_qualification_controlled(q.batch_no)':"s.state<>'DRAFT'"}`,[parentNos]);
   if(!parentNos.length||known.length!==parentNos.length) {
@@ -60,19 +61,35 @@ export async function qualifyDerivedInventory(m: EntityManager, parents: Array<{
   const roots=await m.query(`SELECT q.batch_no AS root FROM production_batch_qualifications q
     WHERE q.batch_no=ANY($1::text[]) AND q.origin_kind<>'DERIVED'
     UNION SELECT r.root_batch_no AS root FROM production_batch_roots r WHERE r.batch_no=ANY($1::text[]) ORDER BY root`,[parentNos]);
-  if (!roots.length) throw new ConflictException('派生库存缺少完整原始根');
+  const rawRoots=rawEnabled?await m.query(`SELECT DISTINCT r.raw_segment_id FROM production_batch_raw_roots r
+    WHERE r.batch_no=ANY($1::text[]) ORDER BY r.raw_segment_id`,[parentNos]):[];
+  if(!roots.length&&!rawRoots.length)throw new ConflictException('派生库存缺少完整原始根');
+  if(rawRoots.length&&(await m.query(`SELECT 1 FROM production_raw_receipt_segments segment JOIN production_raw_receipts receipt ON receipt.id=segment.receipt_id
+    WHERE segment.id=ANY($1::uuid[]) AND receipt.company_code<>$2 LIMIT 1`,[rawRoots.map((r:any)=>r.raw_segment_id),target.companyCode])).length)
+    throw new ConflictException('原始收蛋的跨公司派生须先完成独立接收证明与受控转换，不能使用旧派生入口');
+  const processingStage=qualified.some((q:any)=>q.processing_stage==='WIP')?'WIP':'FINISHED';
+  const conversionRelated=rawEnabled&&(await m.query('SELECT 1 FROM production_batch_qualifications WHERE batch_no=ANY($1::text[]) AND official_inventory_conversion_related(batch_no) LIMIT 1',[parentNos])).length>0;
+  if(conversionRelated&&qualified.some((q:any)=>q.company_code!==target.companyCode))throw new ConflictException('加工来源的跨公司派生尚缺独立接收证明，不能使用原派生入口');
   const existing=await m.query('SELECT * FROM production_batch_qualifications WHERE batch_no=$1',[target.batchNo]);
   if (existing.length) {
     const q=existing[0]; const prior=await m.query('SELECT root_batch_no AS root FROM production_batch_roots WHERE batch_no=$1 ORDER BY root',[target.batchNo]);
     if (q.company_code!==target.companyCode||q.product_code!==target.productCode||q.sku_code!==target.skuCode
       ||q.origin_kind!=='DERIVED'||q.source_type!==target.sourceType||q.source_no!==target.sourceNo
       ||JSON.stringify(prior)!==JSON.stringify(roots)) throw new ConflictException('派生批次已被不同交接或根来源占用');
+    if(rawEnabled){
+      const priorRaw=await m.query('SELECT raw_segment_id FROM production_batch_raw_roots WHERE batch_no=$1 ORDER BY raw_segment_id',[target.batchNo]);
+      if(q.processing_stage!==processingStage||JSON.stringify(priorRaw)!==JSON.stringify(rawRoots))throw new ConflictException('派生批次加工阶段或原始收蛋根已被另一转换占用');
+      if(rawRoots.length||processingStage==='WIP'||conversionRelated){const priorParents=await m.query('SELECT parent_batch_no FROM production_batch_derivation_parents WHERE batch_no=$1 ORDER BY parent_batch_no',[target.batchNo]);
+        if(JSON.stringify(priorParents.map((p:any)=>p.parent_batch_no))!==JSON.stringify(parentNos))throw new ConflictException('派生批次实际父批与原交接不一致');}
+    }
     return;
   }
-  const evidence=createHash('sha256').update(JSON.stringify({ target,parentNos,roots })).digest('hex');
+  const evidence=createHash('sha256').update(JSON.stringify({ target,parentNos,roots,...(rawEnabled?{rawRoots,processingStage}:{}) })).digest('hex');
   await m.query(`INSERT INTO production_batch_qualifications(batch_no,scope_id,company_code,product_code,sku_code,
-    disposition,origin_kind,origin_ref,source_type,source_no,evidence_sha256,created_by)
-    VALUES($1,$2,$3,$4,$5,'QUALIFIED','DERIVED',$6,$7,$6,$8,$9)`,
-  [target.batchNo,qualified[0].scope_id,target.companyCode,target.productCode,target.skuCode,target.sourceNo,target.sourceType,evidence,target.actor]);
+    disposition,origin_kind,origin_ref,source_type,source_no,evidence_sha256,created_by${rawEnabled?',processing_stage':''})
+    VALUES($1,$2,$3,$4,$5,'QUALIFIED','DERIVED',$6,$7,$6,$8,$9${rawEnabled?',$10':''})`,
+  [target.batchNo,qualified[0].scope_id,target.companyCode,target.productCode,target.skuCode,target.sourceNo,target.sourceType,evidence,target.actor,...(rawEnabled?[processingStage]:[])]);
   for (const { root } of roots) await m.query('INSERT INTO production_batch_roots(batch_no,root_batch_no) VALUES($1,$2)',[target.batchNo,root]);
+  for(const root of rawRoots)await m.query('INSERT INTO production_batch_raw_roots(batch_no,raw_segment_id) VALUES($1,$2)',[target.batchNo,root.raw_segment_id]);
+  if(rawEnabled&&(rawRoots.length||processingStage==='WIP'||conversionRelated))for(const parent of parentNos)await m.query('INSERT INTO production_batch_derivation_parents(batch_no,parent_batch_no) VALUES($1,$2)',[target.batchNo,parent]);
 }

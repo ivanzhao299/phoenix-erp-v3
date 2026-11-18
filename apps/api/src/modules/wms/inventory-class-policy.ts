@@ -4,7 +4,7 @@
  * Quality grade remains the source-of-truth for traceability, while the
  * inventory class decides which sales context may consume a batch.
  */
-export const INVENTORY_CLASSES = ['STANDARD', 'DEFECT_SALE'] as const;
+export const INVENTORY_CLASSES = ['STANDARD', 'DEFECT_SALE', 'WIP'] as const;
 export type InventoryClass = typeof INVENTORY_CLASSES[number];
 
 export const DEFECT_SALE_GRADES = ['DIRTY', 'BROKEN'] as const;

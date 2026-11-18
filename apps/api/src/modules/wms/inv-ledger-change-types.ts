@@ -37,6 +37,9 @@ export const INV_LEDGER_CHANGE_TYPE = {
   PRODUCTION_INBOUND_REVERSAL: 'PRODUCTION_INBOUND_REVERSAL',
   /** 包装入库（packaging-inventory-integration） */
   PACKAGING_INBOUND: 'PACKAGING_INBOUND',
+  /** Actual input consumption and physical output of one approved conversion. */
+  CONVERSION_OUT: 'CONVERSION_OUT',
+  CONVERSION_IN: 'CONVERSION_IN',
 
   // ── wms 引擎 ───────────────────────────────────────────────────────────────
   /** 采购收货入库 */

@@ -99,6 +99,8 @@ function fixture(options: Options = {}) {
     if (sql.includes('INSERT INTO wms_outbound') && sql.includes('RETURNING')) return [{ ...order }];
     if (/^\s*(INSERT|UPDATE)/.test(sql)) return [];
     if(sql==="SELECT to_regclass('production_inventory_domain_states') AS domains")return [{domains:null}];
+    if(sql==="SELECT to_regclass('production_inventory_domain_states') AS domains,to_regclass('production_batch_raw_roots') AS raw_roots")return [{domains:null,raw_roots:null}];
+    if(sql==="SELECT to_regclass('production_batch_raw_roots') AS raw_roots")return [{raw_roots:null}];
     throw new Error(`Unmodeled SQL: ${sql}`);
   }) };
   const em = {

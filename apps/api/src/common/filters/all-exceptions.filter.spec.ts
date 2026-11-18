@@ -183,5 +183,12 @@ describe('exception side effects use actual background admission and settlement'
     expect(JSON.stringify(f.response.json.mock.calls)).not.toContain(message);expect(f.log.writeLog).not.toHaveBeenCalled();expect(fetchMock).not.toHaveBeenCalled();
     await f.tasks.shutdown(1000);
   });
+  it.each(['OFFICIAL_CONVERSION_RETURN_BUSY','OFFICIAL_CONVERSION_BUSINESS_TARGET_HOLD'])('returns a private conversion conflict for %s without leaking source facts',async message=>{
+    const f=fixture();f.filter.catch({message:`${message}: private parent detail`,driverError:{code:'23514'}},f.host);
+    expect(f.response.status).toHaveBeenCalledWith(409);expect(f.response.json).toHaveBeenCalledWith({code:'OFFICIAL_INVENTORY_CONVERSION_HOLD',
+      msg:'实际加工来源、实物交接或记账期间需核验，请保留原单并查询原回执后重试'});
+    expect(JSON.stringify(f.response.json.mock.calls)).not.toContain('private parent');expect(f.log.writeLog).not.toHaveBeenCalled();expect(fetchMock).not.toHaveBeenCalled();
+    await f.tasks.shutdown(1000);
+  });
 
 });
