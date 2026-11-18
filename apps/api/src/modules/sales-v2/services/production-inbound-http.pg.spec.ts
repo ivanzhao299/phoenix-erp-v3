@@ -1,4 +1,13 @@
 import 'reflect-metadata';
+import { AnalyticsController } from '../../analytics/analytics.controller';
+import { GroupAnalyticsService } from '../../analytics/services/group-analytics.service';
+import { FinanceAnalyticsService } from '../../analytics/services/finance-analytics.service';
+import { SalesAnalyticsAggregatorService } from '../../analytics/services/sales-analytics-aggregator.service';
+import { InventoryAnalyticsService } from '../../analytics/services/inventory-analytics.service';
+import { ProductionAnalyticsService } from '../../analytics/services/production-analytics.service';
+import { ShareholderAnalyticsService } from '../../analytics/services/shareholder-analytics.service';
+import { ExceptionAnalyticsService } from '../../analytics/services/exception-analytics.service';
+import { ForecastAnalyticsService } from '../../analytics/services/forecast-analytics.service';
 import { installEmptyCutoverClosureFixture } from './production-cutover-closure.pg-fixture';
 import { ProductionCutoverController } from '../../wms/production-cutover.controller';
 import { ProductionCutoverService } from '../../wms/production-cutover.service';
@@ -66,18 +75,19 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
       CREATE TABLE sys_user(user_id int PRIMARY KEY,username text,status int DEFAULT 1,role_code text);
       CREATE TABLE fixture_permissions(role_code text,permission text);
       INSERT INTO sys_user VALUES(1,'maker',1,'MAKER'),(2,'reviewer',1,'REVIEWER'),(3,'receiver',1,'RECEIVER'),
-        (4,'view_only',1,'VIEWER'),(5,'unbound_all',1,'MAKER'),(6,'foreign',1,'MAKER'),(7,'wrong_warehouse',1,'MAKER'),(8,'create_only',1,'CREATOR'),(9,'farm_reporter',1,'FARM_REPORTER'),(10,'farm_only',1,'FARM_REPORTER'),(11,'finance_only',1,'FINANCE_ONLY');
+        (4,'view_only',1,'VIEWER'),(5,'unbound_all',1,'MAKER'),(6,'foreign',1,'MAKER'),(7,'wrong_warehouse',1,'MAKER'),(8,'create_only',1,'CREATOR'),(9,'farm_reporter',1,'FARM_REPORTER'),(10,'farm_only',1,'FARM_REPORTER'),(11,'finance_only',1,'FINANCE_ONLY'),(12,'analyst_a',1,'ANALYST'),(13,'analyst_b',1,'ANALYST'),(14,'analyst_warehouse',1,'ANALYST');
       INSERT INTO sys_role SELECT DISTINCT role_code,'ACTIVE' FROM sys_user;
       INSERT INTO fixture_permissions VALUES('MAKER','MENU_PROD_INBOUND:V,C,E'),('REVIEWER','MENU_PROD_INBOUND:V,E,A'),
-        ('REVIEWER','MENU_FIN2_AR_LEDGER:V,E,A'),('RECEIVER','MENU_PROD_INBOUND:V,E'),('VIEWER','MENU_PROD_INBOUND:V'),('CREATOR','MENU_PROD_INBOUND:V,C'),('FARM_REPORTER','MENU_FARM_DAILY:V,E'),('FINANCE_ONLY','MENU_FIN2_AR_LEDGER:E');
-      INSERT INTO sys_menu VALUES('MENU_PROD_INBOUND'),('MENU_PRC2_ORDER'),('MENU_FIN2_AR_LEDGER'),('MENU_FARM_DAILY');
+        ('REVIEWER','MENU_FIN2_AR_LEDGER:V,E,A'),('RECEIVER','MENU_PROD_INBOUND:V,E'),('VIEWER','MENU_PROD_INBOUND:V'),('CREATOR','MENU_PROD_INBOUND:V,C'),('FARM_REPORTER','MENU_FARM_DAILY:V,E'),('FINANCE_ONLY','MENU_FIN2_AR_LEDGER:E'),('ANALYST','MENU_ANALYTICS:V');
+      INSERT INTO sys_menu VALUES('MENU_PROD_INBOUND'),('MENU_PRC2_ORDER'),('MENU_FIN2_AR_LEDGER'),('MENU_FARM_DAILY'),('MENU_DASHBOARD'),('MENU_ANALYTICS');
       INSERT INTO sys_user_orgs(user_id,org_id,data_scope_level) SELECT u.user_id,o.id,'COMPANY' FROM sys_user u JOIN sys_organizations o
-        ON o.org_code=CASE WHEN u.user_id=6 THEN 'COMP-B' ELSE 'COMP-A' END WHERE u.user_id IN (1,2,3,4,6,8,9,11);
+        ON o.org_code=CASE WHEN u.user_id IN (6,13) THEN 'COMP-B' ELSE 'COMP-A' END WHERE u.user_id IN (1,2,3,4,6,8,9,11,12,13);
       INSERT INTO sys_user_farm_scopes(user_id,farm_code) VALUES(10,'FARM-A');
       INSERT INTO sys_organizations(org_code,org_name,org_type,company_code,status,warehouse_code,parent_id)
         SELECT 'SITE-A','Restricted site','SITE','COMP-A','ACTIVE',NULL,id FROM sys_organizations WHERE org_code='COMP-A';
       INSERT INTO sys_user_orgs(user_id,org_id,data_scope_level) SELECT 7,id,'SELF' FROM sys_organizations WHERE org_code='SITE-A';
-      INSERT INTO sys_user_warehouse_scopes(user_id,warehouse_code) VALUES(7,'WH-A2');
+      INSERT INTO sys_user_warehouse_scopes(user_id,warehouse_code) VALUES(7,'WH-A2'),(14,'WH-A2');
+      INSERT INTO sys_user_orgs(user_id,org_id,data_scope_level) SELECT 14,id,'SELF' FROM sys_organizations WHERE org_code='SITE-A';
       ALTER TABLE file_metadata ADD COLUMN id bigserial UNIQUE,ADD COLUMN original_name text,ADD COLUMN stored_name text,ADD COLUMN storage_path text,
         ADD COLUMN size_bytes bigint,ADD COLUMN checksum text,ADD COLUMN created_at timestamptz DEFAULT now(),ADD COLUMN updated_at timestamptz DEFAULT now();
       ALTER TABLE product_grades ADD COLUMN grade_name text,ADD COLUMN stock_managed boolean DEFAULT true,ADD COLUMN sale_enabled boolean DEFAULT true,
@@ -87,6 +97,18 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
       INSERT INTO inv_source_mode VALUES('GROUP','ALL','TEMP_PRODUCTION_INBOUND');
       CREATE TABLE brd_medication_records(flock_no text,status text,start_date date,withdraw_until date);`);
     await installEmptyCutoverClosureFixture(db);
+    await db.query(`ALTER TABLE sal_sales_orders ADD COLUMN company_code text,ADD COLUMN currency_code text,ADD COLUMN total_amount numeric,
+        ADD COLUMN customer_code text,ADD COLUMN created_at timestamptz DEFAULT now(),ADD COLUMN project_code text;
+      ALTER TABLE sal_order_items ADD COLUMN qty numeric,ADD COLUMN amount numeric,ADD COLUMN quantity_snapshot jsonb,ADD COLUMN allocated_qty numeric;
+      CREATE TABLE fin_cash_accounts(company_code text,current_balance numeric,status text);
+      CREATE TABLE fin_ar_invoices(company_code text,balance_amount_original numeric,collection_status text);
+      CREATE TABLE fin_ap_invoices(company_code text,balance_amount_original numeric,payment_status text);
+      CREATE TABLE fin_shareholder_contributions(company_code text,amount_original numeric,status text);
+      CREATE TABLE fin_expense_requests(company_code text,amount_original numeric,status text,currency_code text,expense_date date,project_code text);
+      CREATE TABLE prc2_purchase_orders(id bigint PRIMARY KEY,company_code text,currency_code text);
+      CREATE TABLE prc2_order_items(id bigint PRIMARY KEY,po_id bigint,unit_price numeric);
+      CREATE TABLE prc2_receipts(id bigint PRIMARY KEY,receipt_no text,company_code text,warehouse_code text,status text,po_id bigint);
+      CREATE TABLE prc2_receipt_items(id bigint PRIMARY KEY,receipt_id bigint,item_code text,actual_qty numeric,unit text,po_item_id bigint);`);
     async function userInfo(id:number){const [u]=await db.query('SELECT * FROM sys_user WHERE user_id=$1 AND status=1',[id]);if(!u)return null;
       return {userId:String(u.user_id),username:u.username,roles:[u.role_code],role:u.role_code,storeCode:'ALL',
         permissions:(await db.query('SELECT permission FROM fixture_permissions WHERE role_code=$1',[u.role_code])).map((r:any)=>r.permission)};}
@@ -111,8 +133,8 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
       @Get('sys_dict')async dict(@Query('dict_type') type:string){return db.query("SELECT * FROM sys_dict WHERE dict_type=$1 AND status='ACTIVE'",[type]);}
     }
     const module=await Test.createTestingModule({imports:[PassportModule,ClsModule.forRoot({global:true,middleware:{mount:true}})],
-      controllers:[ProductionCutoverController,FarmController,ProductionInboundDocumentsController,UploadController,FixtureLogin,FixtureLookups,FixtureDictionary,FixtureSkus],providers:[FixtureJwt,
-        ProductionCutoverService,FarmService,ProductionInboundDocumentsService,ProductionInboundService,EggInventoryService,SkuAvailabilityService,InventorySourceModeService,FileAccessService,OrgOwnershipService,
+      controllers:[AnalyticsController,ProductionCutoverController,FarmController,ProductionInboundDocumentsController,UploadController,FixtureLogin,FixtureLookups,FixtureDictionary,FixtureSkus],providers:[FixtureJwt,
+        GroupAnalyticsService,...[FinanceAnalyticsService,SalesAnalyticsAggregatorService,InventoryAnalyticsService,ProductionAnalyticsService,ShareholderAnalyticsService,ExceptionAnalyticsService,ForecastAnalyticsService].map(provide=>({provide,useValue:{}})),ProductionCutoverService,FarmService,ProductionInboundDocumentsService,ProductionInboundService,EggInventoryService,SkuAvailabilityService,InventorySourceModeService,FileAccessService,OrgOwnershipService,
         {provide:EntityManager,useValue:db.manager},{provide:DataSource,useValue:db},
         {provide:getRepositoryToken(FileMetadataEntity),useValue:db.getRepository(FileMetadataEntity)},
         {provide:DataScopeService,inject:[ClsService,OrgOwnershipService],useFactory:(cls:ClsService,own:OrgOwnershipService)=>new DataScopeService(
@@ -123,7 +145,7 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
     if(process.env.INSTALLMENT_HTTP_PORT)await app.listen(Number(process.env.INSTALLMENT_HTTP_PORT),'127.0.0.1');
   },30000);
   async function resetState(emptyReports=false){
-    await db.query(`TRUNCATE qa_inspections,qa_non_conformance,chanjet_writeback_outbox,chanjet_voucher_drafts,sal_order_items,sal_sales_orders,sal_order_item_batch_allocations,production_cutover_manifests,production_inventory_domain_states,production_handover_cancellations,production_physical_handovers,production_financial_clearances,production_posting_periods,
+    await db.query(`TRUNCATE prc2_receipt_items,prc2_receipts,prc2_order_items,prc2_purchase_orders,fin_cash_accounts,fin_ar_invoices,fin_ap_invoices,fin_shareholder_contributions,fin_expense_requests,qa_inspections,qa_non_conformance,chanjet_writeback_outbox,chanjet_voucher_drafts,sal_order_items,sal_sales_orders,sal_order_item_batch_allocations,production_cutover_manifests,production_inventory_domain_states,production_handover_cancellations,production_physical_handovers,production_financial_clearances,production_posting_periods,
       production_posting_period_events,production_inbound_allocations,production_inbound_lines,production_inbound_documents,production_opening_receipts,
       production_inbound_days,production_batch_roots,production_batch_qualifications,production_inventory_domains,production_cutover_scopes,inv_batches,
       inv_ledger,brd_flock_events,brd_flock_balances,brd_flock_daily_balances,brd_flock_house_states,brd_daily_logs,inv_flock_source_links,brd_egg_source_receipts,brd_egg_day_routes,brd_flock_occupancies,brd_flock_documents RESTART IDENTITY CASCADE;
@@ -145,7 +167,7 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
         VALUES('HOUSE-A','FLOCK-A','2026-11-18','DAILY','{"GRADE_1":1000,"GRADE_2":100}','HTTP-OCC','COMP-A','FARM-A','SITE-A');`}
 
       UPDATE product_skus SET status='ACTIVE';UPDATE file_metadata SET status='ACTIVE';UPDATE sys_user SET status=1;`);
-    for(let id=1;id<=11;id++)scopes.invalidate(String(id));
+    for(let id=1;id<=14;id++)scopes.invalidate(String(id));
   }
   beforeEach(()=>resetState());
   afterAll(async()=>{
@@ -251,10 +273,26 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
       VALUES('SYNTHETIC-LEGACY-COUNT','COMP-A','WH-A2','LOC-A2','PRD-EGG-RAW','SKU-GRADE_1','PURCHASE','SYNTHETIC-OLD-COUNT','枚',$1,$1,'AVAILABLE')`,[quantity]);
     return {...emptyCount(file),boundary:{...cutoverBoundary(),warehouseCode:'WH-A2'},decisions:[{batchNo:'SYNTHETIC-LEGACY-COUNT',disposition:'ARCHIVED_TEST',evidenceFileId:file,reason:'Explicit synthetic historical test classification'}]};
   }
+  it('keeps pending DRAFT source metadata from proving carry-forward while cost read and write agree',async()=>{
+    const file=(await cutoverUpload(1,'WH-A2').expect(201)).body.fileId,p=await legacyCountStock(file,5);
+    const pending=(await cutoverApi(1,'').send({...emptyCount(file),boundary:p.boundary}).expect(201)).body;
+    await db.query(`INSERT INTO production_cutover_scopes(id,company_code,house_code,version,first_production_date,state,warehouse_code,flock_id,source_profile_code,manifest_sha256,evidence,confirmed_by)
+      VALUES('30000000-0000-0000-0000-000000000002','COMP-A','HOUSE-A',2,'2026-11-19','DRAFT','WH-A2','FLOCK-A','PROFILE-A',repeat('c',64),'{}','fixture')`);
+    await db.query(`INSERT INTO production_batch_qualifications(batch_no,scope_id,company_code,product_code,sku_code,disposition,origin_kind,origin_ref,source_type,source_no,
+        evidence_sha256,created_by,opening_manifest_id,source_warehouse_code,source_quantity,source_unit)
+      VALUES('SYNTHETIC-LEGACY-COUNT','30000000-0000-0000-0000-000000000002','COMP-A','PRD-EGG-RAW','SKU-GRADE_1','QUALIFIED','OPENING','SYNTHETIC-PENDING:1',
+        'PURCHASE','SYNTHETIC-OLD-COUNT',repeat('d',64),'1',$1,'WH-A2',5,'枚')`,[pending.id]);
+    await db.query(`INSERT INTO inv_ledger(batch_no,change_type,qty_change,cost_change,ref_no) VALUES('SYNTHETIC-LEGACY-COUNT','OPENING_INBOUND',5,0,'SYNTHETIC-OLD-COUNT')`);
+    const [cost]=await db.query(`SELECT official_inventory_cost_known('SYNTHETIC-LEGACY-COUNT') AS known,cost_change FROM inv_ledger WHERE batch_no='SYNTHETIC-LEGACY-COUNT'`);
+    expect(cost).toEqual({known:false,cost_change:null});
+    const d=(await cutoverApi(1,'').send({...p,physicalTotals:[{productCode:'PRD-EGG-RAW',quantity:5}],decisions:[{...p.decisions[0],disposition:'CARRY_FORWARD'}]}).expect(201)).body;
+    await cutoverApi(1,`/${d.id}/freeze`).send({version:0}).expect(409);
+    expect((await cutoverApi(1,`/${d.id}`,'get').expect(200)).body.state).toBe('DRAFT');
+  });
   it('follows QA JSON and voucher-outbox foreign keys and resolves fully released real reservation facts without labelling them TEST',async()=>{
     const file=(await cutoverUpload(1,'WH-A2').expect(201)).body.fileId,p=await legacyCountStock(file);
-    await db.query(`INSERT INTO sal_sales_orders VALUES(1,'SYNTHETIC-RESOLVED','CANCELLED');
-      INSERT INTO sal_order_items VALUES(2,1,'SYNTHETIC-LEGACY-COUNT');
+    await db.query(`INSERT INTO sal_sales_orders(id,order_no,status) VALUES(1,'SYNTHETIC-RESOLVED','CANCELLED');
+      INSERT INTO sal_order_items(id,sales_order_id,allocated_batch_no) VALUES(2,1,'SYNTHETIC-LEGACY-COUNT');
       INSERT INTO sal_order_item_batch_allocations VALUES(3,2,'SYNTHETIC-LEGACY-COUNT',10,0,10);
       INSERT INTO chanjet_voucher_drafts VALUES(4,'CANCELLED','COMP-A','SYNTHETIC','SYNTHETIC-OLD-COUNT','{"privateMarker":"SYNTHETIC-NONPUBLIC"}');
       INSERT INTO chanjet_writeback_outbox VALUES(5,4,'CANCELLED')`);
@@ -288,6 +326,91 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
       expect(frozen.snapshot.ledger.reduce((n:number,l:any)=>n+Number(l.qty_change),0)).toBe(100);
       expect((await db.query("SELECT qty FROM inv_batches WHERE batch_no='SYNTHETIC-LEGACY-COUNT'"))[0].qty).toBe('60');
     }finally{spy.mockRestore();}
+  });
+  const groupApi=(id:number,query='')=>request(app.getHttpServer()).get('/api/v2/analytics/group'+query).auth(token(id),{type:'bearer'});
+  async function groupFacts(){
+    await db.query(`INSERT INTO inv_batches(batch_no,company_code,warehouse_code,product_code,sku_code,source_type,source_no,unit,qty,qty_available,status,unit_cost)
+      VALUES('SYNTHETIC-GROUP-COST-1','COMP-A','WH-A2','PRD-EGG-RAW','SKU-GRADE_1','PURCHASE','SYNTHETIC-OLD-COST-1','枚',100,90,'AVAILABLE',2),
+        ('SYNTHETIC-GROUP-COST-2','COMP-A','WH-A2','PRD-EGG-RAW','SKU-GRADE_1','PURCHASE','SYNTHETIC-OLD-COST-2','枚',100,100,'AVAILABLE',4),
+        ('SYNTHETIC-OTHER-WAREHOUSE','COMP-A','WH-A','PRD-STD','SKU-STD','PURCHASE','SYNTHETIC-OTHER','枚',3,3,'AVAILABLE',7);
+      INSERT INTO sal_sales_orders(id,order_no,status,company_code,currency_code,total_amount,customer_code)
+        VALUES(1,'SYNTHETIC-GROUP-A','APPROVED','COMP-A','CNY',100,'CUSTOMER-A'),(2,'SYNTHETIC-GROUP-B','APPROVED','COMP-B','CNY',900,'CUSTOMER-B');
+      INSERT INTO sal_order_items(id,sales_order_id,allocated_batch_no,allocated_qty,qty,amount)
+        VALUES(1,1,'SYNTHETIC-GROUP-COST-1',10,10,100);
+      INSERT INTO sal_order_item_batch_allocations(id,sales_order_item_id,batch_no,reserved_qty,outbound_qty,released_qty)
+        VALUES(1,1,'SYNTHETIC-GROUP-COST-1',10,0,0);
+      INSERT INTO fin_cash_accounts VALUES('COMP-A',31,'ACTIVE'),('COMP-B',901,'ACTIVE');
+      INSERT INTO fin_ar_invoices VALUES('COMP-A',7,'UNPAID'),('COMP-B',700,'UNPAID');
+      INSERT INTO fin_ap_invoices VALUES('COMP-A',3,'UNPAID'),('COMP-B',300,'UNPAID');
+      INSERT INTO fin_shareholder_contributions VALUES('COMP-A',2,'CONFIRMED'),('COMP-B',200,'CONFIRMED');
+      INSERT INTO fin_expense_requests(company_code,amount_original,status,currency_code,expense_date)
+        VALUES('COMP-A',5,'APPROVED','CNY','2026-11-18'),('COMP-B',500,'APPROVED','CNY','2026-11-18');
+      INSERT INTO prc2_purchase_orders VALUES(1,'COMP-A','CNY');
+      INSERT INTO prc2_order_items VALUES(1,1,2),(2,1,4);
+      INSERT INTO prc2_receipts VALUES(1,'SYNTHETIC-OLD-COST-1','COMP-A','WH-A2','CONFIRMED',1),(2,'SYNTHETIC-OLD-COST-2','COMP-A','WH-A2','CONFIRMED',1);
+      INSERT INTO prc2_receipt_items VALUES(1,1,'SKU-GRADE_1',100,'枚',1),(2,2,'SKU-GRADE_1',100,'枚',2);
+      INSERT INTO inv_ledger(batch_no,change_type,qty_change,ref_no,company_code,warehouse_code)
+        VALUES('SYNTHETIC-GROUP-COST-1','PURCHASE_INBOUND',100,'SYNTHETIC-OLD-COST-1','COMP-A','WH-A2'),
+          ('SYNTHETIC-GROUP-COST-2','PURCHASE_INBOUND',100,'SYNTHETIC-OLD-COST-2','COMP-A','WH-A2')`);
+  }
+  it('reads expected order margin from actual allocation fields while respecting real company and stock warehouse scope',async()=>{
+    await groupFacts();await groupApi(1).expect(403);await groupApi(12,'?companyCode=COMP-B').expect(403);await groupApi(13,'?companyCode=COMP-A').expect(403);
+    const result=(await groupApi(12).expect(200)).body;
+    expect(result).toMatchObject({revenue:100,grossProfit:80,netProfit:75,cashBalance:31,receivable:7,payable:3,shareholderInput:2,
+      grossProfitStatus:'COMPLETE',grossProfitCostPendingLines:0,grossProfitCurrency:'CNY',grossProfitBasis:'ORDER_ESTIMATE',inventoryValue:621});
+    expect(result.dimensions).toEqual({companyCount:1,projectCount:0,customerCount:1});
+    const scoped=(await groupApi(14).expect(200)).body;expect(scoped.inventoryValue).toBe(600);expect(scoped.grossProfit).toBe(80);
+    await db.query("UPDATE inv_batches SET warehouse_code=NULL WHERE batch_no='SYNTHETIC-GROUP-COST-1'");
+    expect((await groupApi(14).expect(200)).body).toMatchObject({grossProfit:null,netProfit:null,grossProfitStatus:'COST_PENDING'});
+  });
+  it('keeps cross-currency or unproven costs unknown and applies complete end dates to order and expense estimates',async()=>{
+    await groupFacts();await db.query("UPDATE sal_sales_orders SET created_at='2026-11-18 16:30:00+08'");
+    expect((await groupApi(12,'?dateFrom=2026-11-18&dateTo=2026-11-18').expect(200)).body).toMatchObject({revenue:100,grossProfit:80,netProfit:75});
+    await db.query("UPDATE sal_sales_orders SET created_at='2026-11-18 00:30:00+08'");
+    expect((await groupApi(12,'?dateFrom=2026-11-18&dateTo=2026-11-18').expect(200)).body).toMatchObject({revenue:100,grossProfit:80,netProfit:75});
+    await db.query("UPDATE sal_sales_orders SET created_at='2026-11-19 00:30:00+08'");
+    expect((await groupApi(12,'?dateFrom=2026-11-18&dateTo=2026-11-18').expect(200)).body).toMatchObject({revenue:0,grossProfit:0});
+    await db.query("UPDATE fin_expense_requests SET currency_code='LAK' WHERE company_code='COMP-A'");
+    expect((await groupApi(12).expect(200)).body).toMatchObject({grossProfit:80,netProfit:null});
+    await db.query("UPDATE prc2_purchase_orders SET currency_code='LAK'");
+    expect((await groupApi(12).expect(200)).body).toMatchObject({grossProfit:null,netProfit:null,grossProfitStatus:'COST_PENDING'});
+    await db.query("UPDATE prc2_purchase_orders SET currency_code='CNY'");
+    expect((await groupApi(12).expect(200)).body.grossProfit).toBe(80);
+    await db.query("DELETE FROM prc2_receipts");
+    expect((await groupApi(12).expect(200)).body.grossProfit).toBeNull();
+  });
+  it('deducts only the selected project expenses from its estimate',async()=>{
+    await groupFacts();await db.query(`UPDATE sal_sales_orders SET project_code='PROJECT-A' WHERE company_code='COMP-A';
+      UPDATE fin_expense_requests SET project_code='PROJECT-A' WHERE company_code='COMP-A';
+      INSERT INTO fin_expense_requests VALUES('COMP-A',15,'APPROVED','CNY','2026-11-18','PROJECT-B')`);
+    expect((await groupApi(12,'?projectCode=PROJECT-A').expect(200)).body).toMatchObject({revenue:100,grossProfit:80,netProfit:75});
+  });
+  it('aggregates each order amount once and keeps incomplete, invalid saved quantity and legacy mixed allocations unknown',async()=>{
+    await groupFacts();await db.query(`UPDATE sal_order_item_batch_allocations SET reserved_qty=6 WHERE id=1;
+      INSERT INTO sal_order_item_batch_allocations VALUES(2,1,'SYNTHETIC-GROUP-COST-2',4,0,0)`);
+    expect((await groupApi(12).expect(200)).body.grossProfit).toBe(72);
+    await db.query("INSERT INTO sal_order_item_batch_allocations VALUES(3,1,'SYNTHETIC-OTHER-WAREHOUSE',1,0,1)");
+    expect((await groupApi(14).expect(200)).body.grossProfit).toBe(72);
+    await db.query('UPDATE sal_order_item_batch_allocations SET released_qty=1 WHERE id=2');
+    expect((await groupApi(12).expect(200)).body).toMatchObject({grossProfit:null,netProfit:null,grossProfitCostPendingLines:1});
+    await db.query(`DELETE FROM sal_order_item_batch_allocations;UPDATE sal_order_items SET allocated_batch_no='SYNTHETIC-GROUP-COST-1,SYNTHETIC-GROUP-COST-2' WHERE id=1`);
+    expect((await groupApi(12).expect(200)).body.grossProfit).toBeNull();
+    await db.query(`UPDATE sal_order_items SET allocated_batch_no='SYNTHETIC-GROUP-COST-1' WHERE id=1`);
+    expect((await groupApi(12).expect(200)).body.grossProfit).toBe(80);
+    await db.query(`UPDATE sal_order_items SET quantity_snapshot='{"version":1,"basis":"BASE","baseQty":999,"factor":1}' WHERE id=1`);
+    expect((await groupApi(12).expect(200)).body.grossProfit).toBeNull();
+  });
+  it('does not treat a qualified unknown production cost or failed cost query as a zero-margin result',async()=>{
+    const {ready}=await signedDraft();const posted=(await api(1,'post',`/${ready.id}/post`).send({submitKey:ready.submit_key,contentHash:ready.content_hash}).expect(201)).body;
+    const batch=posted.batches[0].batchNo;
+    await db.query(`INSERT INTO sal_sales_orders(id,order_no,status,company_code,currency_code,total_amount) VALUES(1,'SYNTHETIC-UNKNOWN-COST','APPROVED','COMP-A','CNY',100);
+      INSERT INTO sal_order_items(id,sales_order_id,qty,amount) VALUES(1,1,10,100)`);
+    await db.query('INSERT INTO sal_order_item_batch_allocations VALUES(1,1,$1,10,0,0)',[batch]);
+    const pending=(await groupApi(12).expect(200)).body;
+    expect(pending).toMatchObject({grossProfit:null,netProfit:null,grossProfitStatus:'COST_PENDING',grossProfitCostPendingLines:1});
+    await db.query('ALTER TABLE sal_order_item_batch_allocations RENAME TO fixture_missing_cost_allocations');
+    try{expect((await groupApi(12).expect(200)).body).toMatchObject({grossProfit:null,netProfit:null,grossProfitStatus:'UNAVAILABLE',grossProfitCostPendingLines:null});}
+    finally{await db.query('ALTER TABLE fixture_missing_cost_allocations RENAME TO sal_order_item_batch_allocations');}
   });
   it('enforces real JWT, operation permissions, strict DTO and canonical company/warehouse scope',async()=>{
     await request(app.getHttpServer()).get(endpoint).expect(401);

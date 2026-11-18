@@ -35,7 +35,7 @@ export class AnalyticsController {
     private readonly forecast:     ForecastAnalyticsService,
   ) {}
 
-  @Get('group')         group_(@Query() q: any) { return this.group.compute(q); }
+  @Get('group') @UseGuards(DataScopeGuard) group_(@Query() q: any,@Req() req:any) { return this.group.compute(q,req.dataScope); }
   @Get('finance')       finance_(@Query() q: any) { return this.finance.compute(q); }
   @Get('sales')         sales_(@Query() q: any) { return this.sales.compute(q); }
   @Get('inventory')     inventory_(@Query() q: any) { return this.inventory.compute(q); }

@@ -121,8 +121,9 @@ export interface WriteInvLedgerParams {
    * undefined = 该行无成本维度（省列，兼容历史写入方）；数值 = 写入列；
    * null = 显式写 NULL（历史行语义）。入库行不传；SALE_RETURN 暂传 0
    * （退货成本冲减留待 F3）。
+   * Decimal strings preserve PostgreSQL numeric precision for confirmed financial movements.
    */
-  costChange?: number | null;
+  costChange?: number | string | null;
 }
 
 /** 可选列的固定追加顺序（egg 14 列形态在前，wms/farm 扩展列在后） */

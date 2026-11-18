@@ -1,3 +1,4 @@
+import { OfficialInventoryLedgerCost1794977000000 } from '../../../database/migrations/1794977000000-OfficialInventoryLedgerCost';
 import { DataSource } from 'typeorm';
 import { ProductionCutoverManifests1794976000000 } from '../../../database/migrations/1794976000000-ProductionCutoverManifests';
 import { FlockReportCorrection1794903000000 } from '../../../database/migrations/1794903000000-FlockReportCorrection';
@@ -124,7 +125,7 @@ export async function installProductionInboundFixture(db: DataSource, grades: st
       await new ProductionInstallmentDictionaries1794974000000().up(officialRunner);
       await new FlockBaseSchema1794899000000().up(officialRunner);
       if(options.reportGrain!==false)await new OfficialProductionReportGrain1794975000000().up(officialRunner);
-      if(options.cutoverManifests!==false)await new ProductionCutoverManifests1794976000000().up(officialRunner);
+      if(options.cutoverManifests!==false){await new ProductionCutoverManifests1794976000000().up(officialRunner);await new OfficialInventoryLedgerCost1794977000000().up(officialRunner);}
       await db.query('ALTER TABLE inv_ledger ADD COLUMN IF NOT EXISTS unit text,ADD COLUMN IF NOT EXISTS business_type text');
     } finally { await officialRunner.release(); }
 }

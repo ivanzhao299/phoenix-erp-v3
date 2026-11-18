@@ -719,7 +719,8 @@ export class ProductionInboundDocumentsService {
         const originalCost=recordedCost(b.unit_cost);
         if (!c||!['UNKNOWN','CONFIRMED'].includes(c.costStatus)
           || c.unitCost!==originalCost||c.costStatus==='CONFIRMED'&&originalCost===null) throw new ConflictException('财务核验成本与原批记录不一致');
-        return { batchNo:b.batch_no,costStatus:c.costStatus,recordedUnitCost:c.unitCost };
+        return { batchNo:b.batch_no,costStatus:c.costStatus,recordedUnitCost:c.unitCost,
+          recordedUnitCostDecimal:b.unit_cost==null?null:String(b.unit_cost) };
       });
       const [reviewer]=await m.query('SELECT username FROM sys_user WHERE user_id::text=$1',[actor]);
       const [file]=await m.query(`SELECT file_id,checksum FROM file_metadata WHERE file_id=$1 AND status='ACTIVE' AND deleted_at IS NULL
@@ -754,6 +755,7 @@ export class ProductionInboundDocumentsService {
       [d.payload.items.map((i:any)=>i.batchNo)]);
     if (clearance.costs.length!==batches.length||batches.some((b:any)=>!clearance.costs.some((c:any)=>c.batchNo===b.batch_no
       && c.recordedUnitCost===recordedCost(b.unit_cost)&&['UNKNOWN','CONFIRMED'].includes(c.costStatus)
+      && (c.recordedUnitCostDecimal===undefined||c.recordedUnitCostDecimal===(b.unit_cost==null?null:String(b.unit_cost)))
       && (c.costStatus!=='CONFIRMED'||c.recordedUnitCost!==null)))) throw new ConflictException('原成本快照已变化，须重新财务核验');
     return clearance;
   }
@@ -790,13 +792,14 @@ export class ProductionInboundDocumentsService {
       const n=await guardedBatchUpdate(m,{ batchNo:item.batchNo,companyCode:d.company_code,warehouseCode:d.payload.warehouseCode,
         deltaQty:-item.quantity,deltaAvailable:item.inventoryStatus==='AVAILABLE'?-item.quantity:undefined,requireStatus:item.inventoryStatus });
       if (n!==1) throw new ConflictException('原批数量已变化，请重新核对');
+      const confirmed=clearance.costs.find((c:any)=>c.batchNo===item.batchNo)?.costStatus==='CONFIRMED';
+      const costChange=confirmed?(await m.query('SELECT (-$1::numeric*unit_cost)::text AS amount FROM inv_batches WHERE batch_no=$2',[item.quantity,item.batchNo]))[0].amount:null;
       const ledgerId=await writeInvLedger(m,{ batchNo:item.batchNo,changeType:INV_LEDGER_CHANGE_TYPE.PRODUCTION_INBOUND_REVERSAL,
         qtyChange:-item.quantity,operator:actor,storeCode:null,companyCode:d.company_code,warehouseCode:d.payload.warehouseCode,
         locationCode:d.payload.locationCode,refNo:d.document_no,note:JSON.stringify({ originalDocumentId:d.original_document_id,
           originalLineNo:item.originalLineNo,contentHash:d.content_hash,approvedBy:d.approved_by,approvalEvidence:d.approval_evidence }),
         qualityGrade:item.gradeCode,skuCode:item.skuCode,unit:batch.unit,logDate:d.expected_posting_date,
-        costChange:clearance.costs.find((c:any)=>c.batchNo===item.batchNo)?.costStatus==='CONFIRMED'
-          ?-item.quantity*Number(batch.unit_cost):null,businessType:'FORMAL_PRODUCTION_REVERSAL' });
+        costChange,businessType:'FORMAL_PRODUCTION_REVERSAL' });
       if (!Number.isSafeInteger(ledgerId)||ledgerId<=0) throw new ConflictException('冲销库存原流水未持久化');
       await m.query(`INSERT INTO production_inbound_lines(document_id,line_no,grade_code,sku_code,product_code,spec_code,
         quantity,warehouse_code,location_code,batch_no,inventory_ledger_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,

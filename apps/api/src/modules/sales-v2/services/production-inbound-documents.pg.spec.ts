@@ -4,7 +4,7 @@ import { inspectProductionCutoverEvidence, readProductionCutoverEvidence } from 
 import { spawnSync } from 'node:child_process';
 import { resolve } from 'node:path';
 import { randomUUID } from 'crypto';
-import { DataSource } from 'typeorm';
+import { DataSource, EntityManager } from 'typeorm';
 import { installProductionInboundFixture } from './production-inbound.pg-fixture';
 import { ProductionInboundDocumentsService, InboundDraftInput } from './production-inbound-documents.service';
 import { ProductionInboundService } from './production-inbound.service';
@@ -16,6 +16,8 @@ import { UpgradeWmsTransferLifecycle1787965200000 } from '../../../database/migr
 import { qualifyPurchaseInventory, purchaseReceiptBatchNo } from '../../wms/purchase-inventory-qualification';
 import { sharedBatches } from '../../product-master/services/quantity-contract';
 import { AddWmsDefectDisposition1794405000000 } from '../../../database/migrations/1794405000000-AddWmsDefectDisposition';
+import { writeInvLedger } from '../../wms/inventory-ledger.writer';
+import { INV_LEDGER_CHANGE_TYPE } from '../../wms/inv-ledger-change-types';
 import { WmsService } from '../../wms/wms.service';
 import { InventoryAnalyticsService } from '../../analytics/services/inventory-analytics.service';
 import { effectiveExactProductionByGrade, effectiveProductionReceiptQuantity } from '../../farm/effective-production-source';
@@ -296,6 +298,24 @@ fixture('formal installment documents — actual PostgreSQL 18 inventory and pro
       costs:[{batchNo:line.batch_no,costStatus:'CONFIRMED',unitCost:0}]});
     await post(await service.approveReversal(r.id,r.version,r.content_hash,c.id));
     expect((await db.query("SELECT cost_change::numeric AS value FROM inv_ledger WHERE change_type='PRODUCTION_INBOUND_REVERSAL'"))[0].value).toBe('0.000000');
+    await expect(db.query(`INSERT INTO inv_ledger(batch_no,company_code,warehouse_code,change_type,qty_change,cost_change,ref_no)
+      VALUES($1,'COMP-A','WH-A','PRODUCTION_INBOUND_REVERSAL',-20,0,$2)`,[line.batch_no,r.document_no])).rejects.toThrow('COST_CLEARANCE_HOLD');
+  });
+  it('uses exact decimal original costs and rejects duplicate or orphaned approved reversal ledgers',async()=>{
+    const d=await ready();await post(d);const [a]=await db.query('SELECT id FROM production_inbound_allocations WHERE document_id=$1',[d.id]);
+    const [line]=await db.query('SELECT batch_no FROM production_inbound_lines WHERE document_id=$1',[d.id]);
+    await db.query("UPDATE inv_batches SET unit_cost='100000000000.000020' WHERE batch_no=$1",[line.batch_no]);
+    const draft=await service.createReversal(d.id,{intentKey:randomUUID(),reason:'Synthetic exact decimal cost',segments:[{allocationId:a.id,quantity:4}],evidenceFileIds:['FILE-HANDOVER']});
+    const r=await service.ready(draft.id,draft.version,randomUUID());actor={userId:2,username:'approver',permissions:['MENU_PROD_INBOUND:V,C,E,A','MENU_FIN2_AR_LEDGER:E']};
+    const c=await service.recordFinancialClearance(r.id,{contentHash:r.content_hash,financialEvidenceFileId:'FILE-FINANCE',periodStatus:'OPEN',
+      costs:[{batchNo:line.batch_no,costStatus:'CONFIRMED',unitCost:100000000000.00002}]});
+    const approved=await service.approveReversal(r.id,r.version,r.content_hash,c.id);
+    const raw=(m:EntityManager)=>m.query(`INSERT INTO inv_ledger(batch_no,company_code,warehouse_code,change_type,qty_change,cost_change,ref_no)
+      VALUES($1,'COMP-A','WH-A','PRODUCTION_INBOUND_REVERSAL',-4,'-400000000000.000080',$2)`,[line.batch_no,r.document_no]);
+    await expect(db.transaction(async m=>{await raw(m);await raw(m);})).rejects.toThrow('uq_official_reversal_ledger_source');
+    await expect(db.transaction(raw)).rejects.toThrow('REVERSAL_LEDGER_LINE_HOLD');
+    await post(approved);
+    expect((await db.query("SELECT cost_change::text AS value FROM inv_ledger WHERE change_type='PRODUCTION_INBOUND_REVERSAL'"))[0].value).toBe('-400000000000.000080');
   });
 
   it('keeps production date separate from frozen booking date and denies fresh posts to a V-only user', async () => {
@@ -331,7 +351,14 @@ fixture('formal installment documents — actual PostgreSQL 18 inventory and pro
     const good=audit();expect(good.status).toBe(0);expect(good.result.integrityStatus).toBe('PASS');expect(good.result.releaseAdmission).toBe(false);
     expect(good.result.transaction).toMatchObject({read_only:'on',isolation:'repeatable read'});
     expect(good.result.counts).toMatchObject({posted_inbound:1,posted_reversals:0});
-    await db.query("INSERT INTO inv_ledger(batch_no,change_type,qty_change,ref_no) VALUES($1,'PRODUCTION_INBOUND_REVERSAL',-1,'SYNTHETIC-ORPHAN-REVERSAL')",[batch]);
+    const orphan="INSERT INTO inv_ledger(batch_no,change_type,qty_change,ref_no) VALUES($1,'PRODUCTION_INBOUND_REVERSAL',-1,'SYNTHETIC-ORPHAN-REVERSAL')";
+    await expect(db.query(orphan,[batch])).rejects.toThrow('COST_CLEARANCE_HOLD');
+    // Deliberate pre-guard corruption in this owned schema: the read-only audit must still diagnose historical drift.
+    await db.transaction(async m=>{
+      await m.query('ALTER TABLE inv_ledger DISABLE TRIGGER trg_official_inventory_ledger_cost;ALTER TABLE inv_ledger DISABLE TRIGGER trg_official_reversal_ledger_line');
+      await m.query(orphan,[batch]);
+      await m.query('ALTER TABLE inv_ledger ENABLE TRIGGER trg_official_inventory_ledger_cost;ALTER TABLE inv_ledger ENABLE TRIGGER trg_official_reversal_ledger_line');
+    });
     const held=audit();expect(held.status).toBe(2);expect(held.result.integrityStatus).toBe('HOLD');
     expect(held.result.checks.find((c:any)=>c.name==='orphanReversalLedger').count).toBe(1);
     expect((await post(d)).totalInbound).toBe(100);expect((await db.query('SELECT qty FROM inv_batches WHERE batch_no=$1',[batch]))[0].qty).toBe('60');
@@ -422,6 +449,59 @@ fixture('formal installment documents — actual PostgreSQL 18 inventory and pro
       VALUES('OTHER-PRODUCT','COMP-A','WH-A','PRD-STD','SKU-STD','PURCHASE','UNRELATED',3,3)`);
     await expect(assertOfficialInventoryBatches(db,['OTHER-PRODUCT'])).resolves.toBeUndefined();
   });
+  it('records an ordinary sale cost as unknown while retaining a proven zero for availability-only movements',async()=>{
+    const posted=await post(await ready()),batch=posted.batches[0].batchNo;
+    await db.transaction(async m=>{
+      await m.query('UPDATE inv_batches SET qty=qty-10,qty_available=qty_available-10 WHERE batch_no=$1',[batch]);
+      await writeInvLedger(m,{batchNo:batch,changeType:INV_LEDGER_CHANGE_TYPE.FIFO_OUT,qtyChange:-10,costChange:0,operator:'maker',companyCode:'COMP-A',warehouseCode:'WH-A',refNo:'SYNTHETIC-SALE',note:'Synthetic ordinary sale using the shared actual writer'});
+      await m.query('UPDATE inv_batches SET qty_available=qty_available-5 WHERE batch_no=$1',[batch]);
+      await writeInvLedger(m,{batchNo:batch,changeType:INV_LEDGER_CHANGE_TYPE.RESERVED,qtyChange:-5,costChange:0,operator:'maker',companyCode:'COMP-A',warehouseCode:'WH-A',refNo:'SYNTHETIC-RESERVATION',note:'Availability only; no physical cost movement'});
+    });
+    const entries=await db.query("SELECT change_type,cost_change::text AS cost FROM inv_ledger WHERE batch_no=$1 AND change_type IN ('FIFO_OUT','RESERVED') ORDER BY id",[batch]);
+    expect(entries).toEqual([{change_type:'FIFO_OUT',cost:null},{change_type:'RESERVED',cost:'0.000000'}]);
+    const [known]=await db.query(`SELECT official_inventory_cost_known(b.batch_no) AS persisted,${officialInventoryCostKnownPredicate('b')} AS queried FROM inv_batches b WHERE batch_no=$1`,[batch]);
+    expect(known).toEqual({persisted:false,queried:false});
+    await expect(db.query("UPDATE inv_ledger SET cost_change=0 WHERE batch_no=$1 AND change_type='FIFO_OUT'",[batch])).rejects.toThrow('LEDGER_HISTORY_IMMUTABLE');
+    await expect(db.query("DELETE FROM inv_ledger WHERE batch_no=$1 AND change_type='FIFO_OUT'",[batch])).rejects.toThrow('LEDGER_HISTORY_IMMUTABLE');
+    await db.query("INSERT INTO inv_ledger(batch_no,change_type,qty_change,cost_change,ref_no) VALUES($1,'TEMP_PRODUCTION_INBOUND',0,0,'SYNTHETIC-OLD-WRITER-BOUNDARY')",[batch]);
+    expect((await db.query("SELECT cost_change FROM inv_ledger WHERE ref_no='SYNTHETIC-OLD-WRITER-BOUNDARY'"))[0].cost_change).toBeNull();
+  });
+  it('does not turn an ordinary unknown-cost row into a finance-confirmed reversal by changing only its type',async()=>{
+    const d=await post(await ready());
+    await expect(db.query(`INSERT INTO inv_ledger(batch_no,company_code,change_type,qty_change,cost_change,ref_no)
+      VALUES($1,'COMP-A','PRODUCTION_INBOUND_REVERSAL',-1,0,'SYNTHETIC-UNAPPROVED-COST')`,[d.batches[0].batchNo])).rejects.toThrow('COST_CLEARANCE_HOLD');
+    expect((await db.query('SELECT count(*)::int AS n FROM inv_ledger'))[0].n).toBe(1);
+  });
+  it('retains unrelated OFF stock financial zeros without admitting it to a formal scope',async()=>{
+    await db.query(`INSERT INTO inv_batches(batch_no,company_code,warehouse_code,product_code,sku_code,source_type,source_no,qty,qty_available,unit_cost)
+      VALUES('SYNTHETIC-OFF-COST','COMP-B','WH-B','PRD-EGG-RAW','SKU-GRADE_1','PURCHASE','SYNTHETIC-OFF',10,10,0);
+      INSERT INTO inv_ledger(batch_no,change_type,qty_change,cost_change,ref_no) VALUES('SYNTHETIC-OFF-COST','PURCHASE_INBOUND',10,0,'SYNTHETIC-OFF')`);
+    expect((await db.query("SELECT cost_change::text AS cost FROM inv_ledger WHERE batch_no='SYNTHETIC-OFF-COST'"))[0].cost).toBe('0.000000');
+    await db.query("UPDATE inv_ledger SET cost_change=1 WHERE batch_no='SYNTHETIC-OFF-COST'");
+    expect((await db.query("SELECT cost_change::text AS cost FROM inv_ledger WHERE batch_no='SYNTHETIC-OFF-COST'"))[0].cost).toBe('1.000000');
+    await expect(db.transaction('REPEATABLE READ',m=>m.query("UPDATE inv_ledger SET cost_change=2 WHERE batch_no='SYNTHETIC-OFF-COST'"))).rejects.toThrow('ISOLATION_HOLD');
+  });
+  it('shares qualification locks with maintenance of preexisting orphan history even without a physical batch',async()=>{
+    // Owned fault fixture for a preexisting NOT VALID foreign-key orphan; ordinary inserts remain guarded.
+    await db.transaction(async m=>{
+      await m.query('ALTER TABLE inv_ledger DISABLE TRIGGER ALL');
+      await m.query("INSERT INTO inv_ledger(batch_no,change_type,qty_change,cost_change,ref_no) VALUES('SYNTHETIC-MISSING-BATCH','FIFO_OUT',-1,0,'SYNTHETIC-HISTORICAL-ORPHAN')");
+      await m.query('ALTER TABLE inv_ledger ENABLE TRIGGER ALL');
+    });
+    const registration=`INSERT INTO production_batch_qualifications(batch_no,scope_id,company_code,product_code,sku_code,disposition,origin_kind,origin_ref,evidence_sha256,created_by)
+      VALUES('SYNTHETIC-MISSING-BATCH','20000000-0000-0000-0000-000000000001','COMP-A','PRD-EGG-RAW','SKU-GRADE_1',
+        'ARCHIVED_TEST','PRODUCTION','SYNTHETIC-HISTORICAL-ORPHAN',repeat('a',64),'fixture')`;
+    const writer=db.createQueryRunner();await writer.connect();await writer.startTransaction();
+    try{
+      await writer.query("UPDATE inv_ledger SET cost_change=1 WHERE batch_no='SYNTHETIC-MISSING-BATCH'");
+      await expect(db.query(registration)).rejects.toThrow('ROOT_BUSY');
+      await writer.rollbackTransaction();await writer.startTransaction();await writer.query(registration);
+      await expect(db.query("DELETE FROM inv_ledger WHERE batch_no='SYNTHETIC-MISSING-BATCH'")).rejects.toThrow('ROOT_BUSY');
+      await writer.commitTransaction();
+      await expect(db.query("UPDATE inv_ledger SET cost_change=2 WHERE batch_no='SYNTHETIC-MISSING-BATCH'")).rejects.toThrow('LEDGER_HISTORY_IMMUTABLE');
+      expect((await db.query("SELECT cost_change::text AS cost FROM inv_ledger WHERE batch_no='SYNTHETIC-MISSING-BATCH'"))[0].cost).toBe('0.000000');
+    }finally{if(writer.isTransactionActive)await writer.rollbackTransaction();await writer.release();}
+  });
   it('posts approved counted opening once through WMS with unknown versus confirmed zero cost and no daily quota',async()=>{
     await db.query(`INSERT INTO sys_dict(dict_type,dict_code,status) VALUES('INV_STOCK_STATUS','AVAILABLE','ACTIVE'),('INV_STOCK_STATUS','QUARANTINE','ACTIVE') ON CONFLICT DO NOTHING`);
     const wms=new WmsService(db.manager,cls as any),postingDate=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Singapore'}).format(new Date());
@@ -442,6 +522,12 @@ fixture('formal installment documents — actual PostgreSQL 18 inventory and pro
     await db.query("UPDATE product_skus SET status='DISABLED'; UPDATE file_metadata SET status='DISABLED'");
     expect(await db.transaction(m=>wms.postApprovedOpening(m,manifestId))).toEqual(posted);
     expect((await db.query('SELECT count(*)::int AS n FROM inv_ledger'))[0].n).toBe(2);
+    await db.query("UPDATE product_skus SET status='ACTIVE'; UPDATE file_metadata SET status='ACTIVE'");
+    await db.transaction(async m=>{
+      const batch=posted.batches[1].batchNo;await m.query('UPDATE inv_batches SET qty=qty-1,qty_available=qty_available-1 WHERE batch_no=$1',[batch]);
+      await writeInvLedger(m,{batchNo:batch,changeType:INV_LEDGER_CHANGE_TYPE.FIFO_OUT,qtyChange:-1,costChange:0,operator:'maker',companyCode:'COMP-A',warehouseCode:'WH-A',refNo:'SYNTHETIC-KNOWN-ZERO-SALE',note:'Confirmed actual zero remains zero'});
+    });
+    expect((await db.query("SELECT cost_change::text AS cost FROM inv_ledger WHERE ref_no='SYNTHETIC-KNOWN-ZERO-SALE'"))[0].cost).toBe('0.000000');
   });
   it('rejects a forged second opening root even when it copies an actual signed manifest/domain',async()=>{
     await syntheticActiveDomain('50000000-0000-0000-0000-000000000001','WH-A');

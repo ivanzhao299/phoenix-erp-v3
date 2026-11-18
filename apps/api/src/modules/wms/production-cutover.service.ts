@@ -191,6 +191,12 @@ export class ProductionCutoverService {
         if(b.status==='RESERVED'||b.status==='AVAILABLE'&&Number(b.qty)!==Number(b.qty_available))throw new ConflictException('尚有真实预占或受限数量，须先核对和处理该实物边界');
       }
       await assertOfficialInventoryBatches(m,decisions.filter(r=>r.disposition==='CARRY_FORWARD').map(r=>r.batchNo),false);
+      const unproven=await m.query(`SELECT q.batch_no FROM production_batch_qualifications q WHERE q.batch_no=ANY($1::text[]) AND (
+        q.origin_kind<>'DERIVED' AND NOT official_inventory_source_allowed(q.batch_no,false)
+        OR q.origin_kind='DERIVED' AND (NOT EXISTS(SELECT 1 FROM production_batch_roots r WHERE r.batch_no=q.batch_no)
+          OR EXISTS(SELECT 1 FROM production_batch_roots r WHERE r.batch_no=q.batch_no AND NOT official_inventory_source_allowed(r.root_batch_no,false)))) LIMIT 1`,
+        [decisions.filter(r=>r.disposition==='CARRY_FORWARD').map(r=>r.batchNo)]);
+      if(unproven.length)throw new ConflictException('待启用或来源尚未获准的资格不能作为合法实物接续');
       for(const product of d.boundary.productCodes){
         const totals=d.payload.physicalTotals.filter((t:any)=>t.productCode===product);
         const carry=batches.filter(b=>b.warehouse_code===d.warehouse_code&&b.product_code===product&&decisions.find(r=>r.batchNo===b.batch_no)?.disposition==='CARRY_FORWARD')
