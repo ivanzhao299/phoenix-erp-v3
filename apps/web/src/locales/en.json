@@ -14976,5 +14976,19 @@
   "productionCutover.transferProofHelp": "Verified against this company’s actual transfer entries and original sources. Each new signature rechecks the evidence.",
   "productionCutover.received": "Actually received",
   "productionCutover.dispatched": "Actually dispatched",
-  "productionCutover.localBatch": "This company’s batch"
+  "productionCutover.localBatch": "This company’s batch",
+  "productionRaw.title": "Raw egg collection receipts",
+  "productionRaw.hint": "Receive the complete collection and report segments signed by both parties. This receipt preserves provenance and creates no inventory. Grading and packing require separate records of actual consumption and conversion.",
+  "productionRaw.source": "Actual collection row (packing route)",
+  "productionRaw.direct": "Direct inventory handover",
+  "productionRaw.create": "Save or recover collection draft",
+  "productionRaw.document": "Collection receipt",
+  "productionRaw.ready": "Verify and freeze sources",
+  "productionRaw.approve": "Independently approve sources",
+  "productionRaw.post": "Confirm this collection",
+  "productionRaw.replay": "Recover original collection receipt",
+  "productionRaw.cancel": "Cancel unconfirmed collection",
+  "productionRaw.receipt": "Original collection receipt",
+  "productionRaw.noStock": "Inventory has not been created",
+  "productionInstallments.received": "Net received (including unstocked collection)"
 }

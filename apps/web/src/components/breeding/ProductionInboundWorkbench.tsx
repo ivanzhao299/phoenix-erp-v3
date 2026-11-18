@@ -13,14 +13,15 @@ import { useDictOptions } from '@/hooks/useDictOptions';
 import request from '@/lib/api-client';
 import { localizedMasterName } from '@/lib/localized-master-data';
 import s from './ProductionInboundWorkbench.module.css';
+import RawCollectionReceipts,{RawCollectionSourcePicker,type RawSource} from './RawCollectionReceipts';
 
 const endpoint='/v2/inventory/production-inbound-documents';
 const businessDay=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Singapore'}).format(new Date());
 const key=()=>crypto.randomUUID();
 interface Item { id:string;gradeCode:string;specCode:string;quantity:string;dailyLogId:string }
-interface Form { companyCode:string;houseCode:string;siteCode:string;eggDate:string;warehouseCode:string;locationCode:string;intentKey:string;handoverRef:string;replacesId?:string;items:Item[];remark:string;evidenceFileIds:string[] }
+interface Form { companyCode:string;houseCode:string;siteCode:string;eggDate:string;warehouseCode:string;locationCode:string;intentKey:string;handoverRef:string;replacesId?:string;rawCollectionSourceId?:string;items:Item[];remark:string;evidenceFileIds:string[] }
 interface Source { id:string;dailyLogId:number;gradeCode:string;quantity:number;evidenceFileId:string;shift:string }
-interface Handover { id:string;state:string;version:number;handover_ref:string;content_hash:string;created_by:string;confirmed_by:string|null;replaces_id:string|null;payload:{sources:Source[];warehouseCode:string} }
+interface Handover { id:string;state:string;version:number;handover_ref:string;content_hash:string;created_by:string;confirmed_by:string|null;replaces_id:string|null;payload:{sources:Source[];warehouseCode:string;rawCollection?:{sourceBatchId:string;batchCode:string;shiftId:string;sourceSnapshot:{received_qty:string}}} }
 interface Allocation { id:string;daily_log_id:string;quantity:number;reversed_quantity:number }
 interface Line { line_no:number;batch_no:string;grade_code:string;quantity:number;current_quantity:string;current_available:string;allocations:Allocation[] }
 interface Document { id:string;document_no:string;state:string;kind:string;version:number;intent_key:string;handover_ref:string;company_code:string;house_code:string;production_date:string;content_hash:string;submit_key:string;created_by:string;original_document_id?:string;expected_posting_date:string;payload:{warehouseCode:string;locationCode:string;remark?:string;evidenceFileIds?:string[];items:Array<{gradeCode:string;specCode:string;quantity:number;allocations?:Array<{dailyLogId:number;quantity:number}>;batchNo?:string;sources?:Array<{dailyLogId:number;quantity:number}>}>};siteCode?:string;receipt?:Record<string,unknown>;lines?:Line[];clearances?:Array<{id:string;signed_by:string;signed_at:string;evidence_file_id:string}>;originalBatches?:Array<{batch_no:string;unit_cost:string|null;cost_status:string}> }
@@ -43,6 +44,7 @@ export default function ProductionInboundWorkbench({mobile=false}:{mobile?:boole
   const {codeMap:kinds}=useDictOptions('PRODUCTION_INBOUND_KIND');const {codeMap:handoverStates}=useDictOptions('PRODUCTION_HANDOVER_STATE');
   const {codeMap:shifts}=useDictOptions('PRODUCTION_REPORT_SHIFT');
   const [form,setForm]=useState<Form>(emptyForm);const [restoredKey,setRestoredKey]=useState('');const [scope,setScope]=useState<string>('');
+  const [rawSources,setRawSources]=useState<RawSource[]>([]);
   const [balance,setBalance]=useState<Balance|null>(null);const [handovers,setHandovers]=useState<Handover[]>([]);const [documents,setDocuments]=useState<Document[]>([]);
   const [selected,setSelected]=useState<Document|null>(null);const [error,setError]=useState('');const [notice,setNotice]=useState('');const [busy,setBusy]=useState(false);
   const [savedIntents,setSavedIntents]=useState<Form[]>([]);
@@ -83,6 +85,10 @@ export default function ProductionInboundWorkbench({mobile=false}:{mobile?:boole
     if(form.warehouseCode&&scope&&scope!=='OFF'){
       qs.set('warehouseCode',form.warehouseCode);const result=await request<Balance>(`${endpoint}/balance?${qs}`);if(turn===generation.current)setBalance(result);
     }else setBalance(null);
+    if(form.warehouseCode&&scope&&scope!=='OFF'){
+      const rawQs=new URLSearchParams({companyCode:form.companyCode,houseCode:form.houseCode,productionDate:form.eggDate,warehouseCode:form.warehouseCode});
+      const sources=await request<RawSource[]>(`/v2/inventory/raw-collection-receipts/sources?${rawQs}`);if(turn===generation.current)setRawSources(sources);
+    }else setRawSources([]);
   },[form.companyCode,form.houseCode,form.eggDate,form.warehouseCode,scope]);
   useEffect(()=>{if(!restored||!p.canView)return;Promise.resolve().then(refresh).catch(e=>setError(e instanceof Error?e.message:String(e)));},[refresh,restored,p.canView]);
   useEffect(()=>{let alive=true;Promise.resolve().then(async()=>{
@@ -106,8 +112,8 @@ export default function ProductionInboundWorkbench({mobile=false}:{mobile?:boole
       item.quantity+=quantity;grouped.set(id,item);
     }return [...grouped.values()];
   };
-  const payload=()=>({...form,siteCode:undefined,replacesId:undefined,items:items()});
-  const newIntent=()=>{setSelected(null);setReverseQty({});setProof([]);patch({intentKey:key(),handoverRef:'',replacesId:undefined,items:[],remark:'',evidenceFileIds:[]});history.replaceState(null,'',location.pathname);};
+  const payload=()=>({...form,siteCode:undefined,replacesId:undefined,rawCollectionSourceId:undefined,items:items()});
+  const newIntent=()=>{setSelected(null);setReverseQty({});setProof([]);patch({intentKey:key(),handoverRef:'',replacesId:undefined,rawCollectionSourceId:undefined,items:[],remark:'',evidenceFileIds:[]});history.replaceState(null,'',location.pathname);};
   const freeze=async(d:Document)=>{const submit=submitKeys.current[d.id]??key();submitKeys.current[d.id]=submit;
     sessionStorage.setItem(storageKey,JSON.stringify({form,submitKeys:submitKeys.current}));await send(`/${d.id}/ready`,{version:d.version,submitKey:submit});await load(d.id);};
   const updateItem=(id:string,next:Partial<Item>)=>patch({items:form.items.map(i=>i.id===id?{...i,...next}:i)});
@@ -128,19 +134,20 @@ export default function ProductionInboundWorkbench({mobile=false}:{mobile?:boole
     {error&&<p role="alert" className={`${s.notice} ${s.error}`}>{error}</p>}{notice&&<p role="status" className={s.notice}>{notice}</p>}
     {!!savedIntents.length&&<div className={s.actions}>{savedIntents.map(d=><button key={d.intentKey} disabled={busy} onClick={()=>{setForm(d);setSelected(null);setReverseQty({});}}>{label('resumeDraft','返回暂存交接')} · {d.handoverRef||d.houseCode}</button>)}</div>}
     <section className={s.card} aria-label={label('context','交库范围')}><div className={s.grid}>
-      <label className={s.field}>{label('house','鸡舍')}<HouseSelector ariaLabel={label('house','鸡舍')} value={form.houseCode} onChange={v=>patch({houseCode:v,companyCode:'',siteCode:'',warehouseCode:'',locationCode:''})}
+      <label className={s.field}>{label('house','鸡舍')}<HouseSelector ariaLabel={label('house','鸡舍')} value={form.houseCode} onChange={v=>patch({houseCode:v,companyCode:'',siteCode:'',warehouseCode:'',locationCode:'',rawCollectionSourceId:undefined})}
         onPick={opt=>patch({companyCode:String(opt?.raw?.companyCode??''),siteCode:String(opt?.raw?.siteCode??'')})} /></label>
       <label className={s.field}>{label('company','归属公司')}<input readOnly value={form.companyCode} style={{background:'var(--bg-muted)',cursor:'not-allowed'}} /></label>
-      <label className={s.field}>{label('productionDate','生产日期')}<input type="date" value={form.eggDate} onChange={e=>patch({eggDate:e.target.value})}/></label>
-      <label className={s.field}>{label('warehouse','交库仓库')}<WarehouseSelector ariaLabel={label('warehouse','交库仓库')} value={form.warehouseCode} companyCode={form.companyCode} siteCode={form.siteCode} type="EGG_FARM" disabled={!form.companyCode} onChange={v=>patch({warehouseCode:v,locationCode:''})}/></label>
+      <label className={s.field}>{label('productionDate','生产日期')}<input type="date" value={form.eggDate} onChange={e=>patch({eggDate:e.target.value,rawCollectionSourceId:undefined})}/></label>
+      <label className={s.field}>{label('warehouse','交库仓库')}<WarehouseSelector ariaLabel={label('warehouse','交库仓库')} value={form.warehouseCode} companyCode={form.companyCode} siteCode={form.siteCode} type="EGG_FARM" disabled={!form.companyCode} onChange={v=>patch({warehouseCode:v,locationCode:'',rawCollectionSourceId:undefined})}/></label>
       <label className={s.field}>{label('location','库位')}<LocationSelector ariaLabel={label('location','库位')} value={form.locationCode} lookupEndpoint={`${endpoint}/locations?${new URLSearchParams({companyCode:form.companyCode,houseCode:form.houseCode,warehouseCode:form.warehouseCode})}`} warehouseCode={form.warehouseCode} disabled={!form.warehouseCode} onChange={v=>patch({locationCode:v})}/></label>
     </div>{scope==='OFF'&&<p role="status" className={s.notice}>{label('off','该鸡舍尚未启用正式入库。现场盘点及切换确认后才能办理。')}</p>}
     {scope&&scope!=='OFF'&&scope!=='ACTIVE'&&<p className={s.notice}>{label('suspended','该范围暂停新写入，历史回执仍可查看。')}</p>}</section>
     {balance&&<section className={s.card}><h2>{label('balance','当日产蛋、正式净入与当前库存')}</h2><p className={s.muted}>{label('stockHint','当前库存为该生产日在所选仓的正式批次及其派生批次实存；销售不会返还可入额度。')}</p>
-      <div className={s.scroll}><table className={s.table}><thead><tr>{['grade','reported','posted','remaining','current'].map((n,i)=><th key={n}>{label(n,['档位','日报量','已过账净量','剩余额度','当前实存'][i])}</th>)}</tr></thead>
+      <div className={s.scroll}><table className={s.table}><thead><tr>{['grade','reported','received','remaining','current'].map((n,i)=><th key={n}>{label(n,['档位','日报量','已确认净量','剩余额度','当前实存'][i])}</th>)}</tr></thead>
       <tbody>{Object.entries(balance.grades).map(([grade,n])=><tr key={grade}><td>{gradeName(grade)}</td><td>{n.reported}</td><td>{n.posted}</td><td>{n.remaining}</td><td>{balance.currentStock[grade]??0}</td></tr>)}</tbody></table></div></section>}
     <section className={s.card}><h2>{label('thisDelivery','本次实际交接')}</h2><div className={s.grid}>
       <label className={s.field}>{label('handoverRef','实物交接编号')}<input value={form.handoverRef} maxLength={100} onChange={e=>patch({handoverRef:e.target.value})}/></label>
+      <RawCollectionSourcePicker sources={rawSources} value={form.rawCollectionSourceId??''} disabled={busy||!canWrite||!p.canCreate} onChange={v=>patch({rawCollectionSourceId:v||undefined})}/>
       <label className={s.field}>{t('common.remark','备注')}<input value={form.remark} maxLength={1000} onChange={e=>patch({remark:e.target.value})}/></label></div>
       {form.replacesId&&<p>{label('replaces','重新签认的原交接')}：{form.replacesId}</p>}
       {form.items.map(i=><div key={i.id} className={s.line}>
@@ -157,19 +164,21 @@ export default function ProductionInboundWorkbench({mobile=false}:{mobile?:boole
           if(!form.evidenceFileIds.length)throw new Error(label('proofRequired','请上传实际交接依据。'));
           const segments:Record<string,{dailyLogId:number;gradeCode:string;quantity:number;evidenceFileId:string}>={};for(const i of items()){
             for(const a of i.allocations){const id=`${a.dailyLogId}:${i.gradeCode}`;const row=segments[id]??={dailyLogId:a.dailyLogId,gradeCode:i.gradeCode,quantity:0,evidenceFileId:form.evidenceFileIds[0]};row.quantity+=a.quantity;}}
-          await send('/handovers',{companyCode:form.companyCode,houseCode:form.houseCode,eggDate:form.eggDate,warehouseCode:form.warehouseCode,handoverRef:form.handoverRef,replacesId:form.replacesId,segments:Object.values(segments)});
+          await send('/handovers',{companyCode:form.companyCode,houseCode:form.houseCode,eggDate:form.eggDate,warehouseCode:form.warehouseCode,handoverRef:form.handoverRef,replacesId:form.replacesId,rawCollectionSourceId:form.rawCollectionSourceId,segments:Object.values(segments)});
           setNotice(label('receiverNeeded','交接已登记，请由另一名实际接收人核对分段并签认。'));})}>{label('registerPhysical','登记实物交接')}</button>
-        <button disabled={busy||!canWrite||!p.canCreate} onClick={()=>run(async()=>{const d=await send<Document>('',payload());await load(d.id);})}>{label('saveDraft','保存或找回本意图草稿')}</button>
+        <button disabled={busy||!canWrite||!p.canCreate||!!form.rawCollectionSourceId} onClick={()=>run(async()=>{const d=await send<Document>('',payload());await load(d.id);})}>{label('saveDraft','保存或找回本意图草稿')}</button>
         {selected?.state==='DRAFT'&&selected.kind==='INBOUND'&&<button disabled={busy||!canWrite||!p.canEdit} onClick={()=>run(async()=>{
           if(form.intentKey!==selected.intent_key)throw new Error(label('loadDraftFirst','请先载入此草稿。'));await send(`/${selected.id}`,{...payload(),version:selected.version},'PATCH');await load(selected.id);})}>{label('saveChanges','保存草稿修改')}</button>}
       </div><p className={s.muted}>{label('intentHint','刷新后保留原意图。改变交接身份请新建意图；未确认结果前先找回原单。')}</p>
     </section>
     <section className={s.card}><h2>{label('physicalHistory','实物交接签认')}</h2>{handovers.map(h=><article key={h.id} className={s.card}>
+      {h.payload.rawCollection&&<p>{t('productionRaw.source','原始采集原行（包装路径）')}：{h.payload.rawCollection.batchCode} · #{h.payload.rawCollection.shiftId} · {h.payload.rawCollection.sourceSnapshot.received_qty}</p>}
       <strong>{h.handover_ref} · {handoverStates[h.state]??h.state}</strong><p>{label('parties','登记人 / 接收人')}：{h.created_by} / {h.confirmed_by??'—'}</p>
       {h.payload.sources.map(a=><p key={a.id}>{shifts[a.shift]??a.shift} #{a.dailyLogId} · {gradeName(a.gradeCode)} · {a.quantity} <button onClick={()=>run(()=>preview('handovers',h.id,a.evidenceFileId))}>{label('proof','查看原证据')}</button></p>)}
       <div className={s.actions}>{h.state==='DRAFT'&&h.created_by!==actor&&<button disabled={busy||!canWrite||!p.canEdit} onClick={()=>run(async()=>{await send(`/handovers/${h.id}/confirm`,{version:h.version,contentHash:h.content_hash});})}>{label('receive','核对并实名签收')}</button>}
       {h.state!=='CANCELLED'&&<button disabled={busy||!p.canEdit&&!p.canApprove&&!p.canCreate} onClick={()=>run(async()=>{await send(`/handovers/${h.id}/cancel`,{version:h.version,reason,evidenceFileIds:proof});})}>{label('cancelPhysical','按差异依据废止未过账交接')}</button>}
       {h.state==='CANCELLED'&&<button disabled={busy||!canWrite||!p.canCreate} onClick={()=>{newIntent();patch({handoverRef:h.handover_ref,replacesId:h.id});}}>{label('resign','据原交接重新签认')}</button>}</div></article>)}</section>
+    {scope&&scope!=='OFF'&&<RawCollectionReceipts company={form.companyCode} house={form.houseCode} date={form.eggDate} warehouse={form.warehouseCode} active={canWrite} busy={busy} handovers={handovers} run={run}/>}
     <section className={s.card}><h2>{label('history','分次入库及冲销历史')}</h2><div className={s.actions}>
       <button disabled={busy||!form.companyCode} onClick={()=>run(async()=>{const docs=await request<Document[]>(`${endpoint}/recover?${new URLSearchParams({companyCode:form.companyCode,intentKey:form.intentKey})}`);if(docs[0])await load(docs[0].id);else setNotice(label('notFound','尚未找到该意图的单据，可保留原意图重试。'));})}>{label('recover','找回原意图结果')}</button>
       <button disabled={busy||!form.companyCode||!form.handoverRef} onClick={()=>run(async()=>{const found=await request<Document[]>(`${endpoint}/recover?${new URLSearchParams({companyCode:form.companyCode,handoverRef:form.handoverRef})}`);

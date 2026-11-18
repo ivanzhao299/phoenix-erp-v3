@@ -35,6 +35,8 @@ import { InventorySourceModeService }        from './services/inventory-source-m
 import { ProductionInboundService }          from './services/production-inbound.service';           // 库存来源模式 P1A
 import { ProductionInboundDocumentsService } from './services/production-inbound-documents.service';
 import { ProductionInboundDocumentsController } from './controllers/production-inbound-documents.controller';
+import { OfficialRawCollectionController } from './controllers/official-raw-collection.controller';
+import { OfficialRawCollectionService } from './services/official-raw-collection.service';
 import { SalesAnalyticsService }             from './services/sales-analytics.service';            // Phase 8
 import { FinanceArAdapter }                  from './adapters/finance-ar.adapter';
 import { FinanceCreditNoteAdapter }          from './adapters/finance-credit-note.adapter';       // Phase 6
@@ -118,6 +120,7 @@ import {
     EggInventoryController,      // Phase 7
     InventorySourceController,   // 库存来源模式 P1A
     ProductionInboundDocumentsController,
+    OfficialRawCollectionController,
     SalesAnalyticsController,    // Phase 8
     MobileDeliveryController,    // Mobile
   ],
@@ -141,6 +144,7 @@ import {
     InventorySourceModeService,           // 库存来源模式 P1A
     ProductionInboundService,             // 库存来源模式 P1A
     ProductionInboundDocumentsService,
+    OfficialRawCollectionService,
     SalesAnalyticsService,                // Phase 8
     FinanceArAdapter,
     FinanceCreditNoteAdapter,             // Phase 6

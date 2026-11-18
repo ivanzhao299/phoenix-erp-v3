@@ -14976,5 +14976,19 @@
   "productionCutover.transferProofHelp": "ກວດສອບຕາມລາຍການໂອນຕົວຈິງຂອງບໍລິສັດນີ້ ແລະ ແຫຼ່ງທີ່ມາເດີມ. ທຸກການລົງນາມໃໝ່ຈະກວດສອບຫຼັກຖານອີກຄັ້ງ.",
   "productionCutover.received": "ຮັບຕົວຈິງແລ້ວ",
   "productionCutover.dispatched": "ສົ່ງຕົວຈິງແລ້ວ",
-  "productionCutover.localBatch": "ລັອດຂອງບໍລິສັດນີ້"
+  "productionCutover.localBatch": "ລັອດຂອງບໍລິສັດນີ້",
+  "productionRaw.title": "ໃບຮັບໄຂ່ດິບ",
+  "productionRaw.hint": "ຮັບຍອດເກັບໄຂ່ແລະລາຍງານທີ່ທັງສອງຝ່າຍເຊັນຮັບຮອງຄົບຖ້ວນ. ໃບຮັບນີ້ເກັບຮັກສາແຫຼ່ງທີ່ມາ ແລະຍັງບໍ່ສ້າງສິນຄ້າຄົງຄັງ. ການຄັດແລະບັນຈຸຕ້ອງມີໃບແປຮູບຕາມການໃຊ້ຈິງ.",
+  "productionRaw.source": "ລາຍການເກັບໄຂ່ຈິງ (ເສັ້ນທາງບັນຈຸ)",
+  "productionRaw.direct": "ສົ່ງມອບເຂົ້າຄັງໂດຍກົງ",
+  "productionRaw.create": "ບັນທຶກ ຫຼືຄົ້ນໃບຮັບສະບັບຮ່າງ",
+  "productionRaw.document": "ໃບຮັບໄຂ່",
+  "productionRaw.ready": "ກວດແລະລັອກແຫຼ່ງທີ່ມາ",
+  "productionRaw.approve": "ອະນຸມັດແຫຼ່ງທີ່ມາໂດຍຜູ້ກວດອິດສະຫຼະ",
+  "productionRaw.post": "ຢືນຢັນການຮັບຄັ້ງນີ້",
+  "productionRaw.replay": "ຄົ້ນໃບຮັບເດີມ",
+  "productionRaw.cancel": "ຍົກເລີກໃບຮັບທີ່ຍັງບໍ່ຢືນຢັນ",
+  "productionRaw.receipt": "ໃບຮັບເດີມ",
+  "productionRaw.noStock": "ຍັງບໍ່ສ້າງສິນຄ້າຄົງຄັງ",
+  "productionInstallments.received": "ຮັບສຸດທິ (ລວມໄຂ່ທີ່ຍັງບໍ່ເຂົ້າຄັງ)"
 }

@@ -1,3 +1,4 @@
+import { OfficialRawCollectionReceipts1795005390930 } from '../../../database/migrations/1795005390930-OfficialRawCollectionReceipts';
 import 'reflect-metadata';
 import { WmsService } from '../../wms/wms.service';
 import { OfficialInventoryLedgerCost1794977000000 } from '../../../database/migrations/1794977000000-OfficialInventoryLedgerCost';
@@ -13,12 +14,17 @@ const url=process.env.OFFICIAL_INVENTORY_PG_URL;const suite=url?describe:describ
 suite('formal installment migration reversals — owned PostgreSQL 18',()=>{
   let db:DataSource;const schema=`inbound_migrations_${process.pid}`;
   const chain=[new OfficialInventoryCutover1794971000000(),new ProductionInboundDocuments1794972000000(),
-    new ProductionHandoverAndPeriods1794973000000(),new ProductionInstallmentDictionaries1794974000000(),new OfficialProductionReportGrain1794975000000(),new ProductionCutoverManifests1794976000000(),new OfficialInventoryLedgerCost1794977000000()];
+    new ProductionHandoverAndPeriods1794973000000(),new ProductionInstallmentDictionaries1794974000000(),new OfficialProductionReportGrain1794975000000(),new ProductionCutoverManifests1794976000000(),new OfficialInventoryLedgerCost1794977000000(),new OfficialRawCollectionReceipts1795005390930()];
   beforeAll(async()=>{
     const u=new URL(url!);if(u.hostname!=='127.0.0.1'||!['/phoenix_temp_reversal_fixture','/installments_fixture'].includes(u.pathname))throw Error('Owned loopback fixture required');
     db=await new DataSource({type:'postgres',url,entities:[],synchronize:false,migrationsRun:false,installExtensions:false,extra:{options:`-c search_path=${schema}`,max:5}}).initialize();
     if(!(await db.query('SHOW server_version'))[0].server_version.startsWith('18.'))throw Error('PostgreSQL 18 required');
     await db.query(`CREATE SCHEMA "${schema}"`);await installProductionInboundFixture(db,['GRADE_1']);
+    await db.query(`ALTER TABLE pkg_source_batches ADD COLUMN batch_code text,ADD COLUMN source_inbound_no text,ADD COLUMN shift_id int,
+      ADD COLUMN total_qty int,ADD COLUMN dirty_qty int DEFAULT 0,ADD COLUMN cracked_qty int DEFAULT 0,ADD COLUMN batch_status text;
+      CREATE TABLE pkg_work_shifts(id int PRIMARY KEY,site_id text,production_date date,is_test boolean);
+      CREATE TABLE inv_source_mode(scope_level text,scope_code text,mode text);`);
+    const raw=db.createQueryRunner();await raw.connect();try{await chain[7].up(raw);}finally{await raw.release();}
   });
   afterEach(async()=>{await db.query('TRUNCATE production_posting_period_events');});
   afterAll(async()=>{if(db?.isInitialized){await db.query(`DROP SCHEMA "${schema}" CASCADE`);await db.destroy();}});
@@ -28,6 +34,7 @@ suite('formal installment migration reversals — owned PostgreSQL 18',()=>{
       for(const migration of chain)await migration.up(q);
       expect((await q.query('SELECT count(*)::int AS n FROM production_cutover_scopes'))[0].n).toBe(0);
       expect((await q.query("SELECT count(*)::int AS n FROM sys_dict WHERE dict_type='PRODUCTION_INBOUND_DOCUMENT_STATE'"))[0].n).toBe(5);
+      expect((await q.query("SELECT count(*)::int AS n FROM sys_dict WHERE dict_type='PRODUCTION_RAW_RECEIPT_STATE'"))[0].n).toBe(5);
     }finally{await q.release();}
   });
   it('retains both dictionaries and schema when an independent signed period event exists',async()=>{

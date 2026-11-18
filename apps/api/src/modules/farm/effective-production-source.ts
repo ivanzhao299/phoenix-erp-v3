@@ -33,6 +33,12 @@ export async function effectiveExactProductionByGrade(m: Db, dailyLogId: number)
   const compensated = await productionSourceCompensations(m,dailyLogId);
   const result = new Map<string,number>();
   for (const row of rows) result.set(row.grade_code,Number(row.n ?? 0));
+  const [rawSchema]=await m.query("SELECT to_regclass('production_raw_receipt_segments') AS raw");
+  if(rawSchema?.raw){
+    const raw=await m.query(`SELECT s.grade_code,SUM(s.quantity)::int AS n FROM production_raw_receipt_segments s
+      JOIN production_raw_receipts r ON r.id=s.receipt_id AND r.state='POSTED' WHERE s.daily_log_id=$1 GROUP BY s.grade_code`,[dailyLogId]);
+    for(const row of raw)result.set(row.grade_code,(result.get(row.grade_code)??0)+Number(row.n));
+  }
   for (const [key,quantity] of compensated) {
     const grade = key.slice(key.lastIndexOf(':')+1);
     result.set(grade,(result.get(grade) ?? 0)-quantity);

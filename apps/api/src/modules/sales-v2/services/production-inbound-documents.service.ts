@@ -2,7 +2,10 @@ import { BadRequestException, ConflictException, ForbiddenException, Injectable,
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
 import { ClsService } from 'nestjs-cls';
-import { createHash, randomUUID } from 'crypto';
+import { randomUUID } from 'crypto';
+import { stableProductionJson,productionContentHash,lockProductionSourceReports,lockProductionHandoverEvidence,assertHandoverNotClaimedByRaw,
+  lockProductionEntryMode,lockRawCollectionReference,assertRawCollectionTotals } from './production-source-facts';
+export { stableProductionJson,productionContentHash } from './production-source-facts';
 import { EggInventoryService, assertEggDate } from './egg-inventory.service';
 import { ProductionInboundService } from './production-inbound.service';
 import { SkuAvailabilityService } from '../../product-master/services/sku-availability.service';
@@ -32,12 +35,6 @@ type Document = Record<string, any>;
 type FrozenItem = InboundDraftItem & { skuCode: string; productCode: string; specCode: string;
   varietyCode: string | null; inventoryStatus: string; sources: FormalSourceAllocation[] };
 
-export function stableProductionJson(value: any): string {
-  if (Array.isArray(value)) return `[${value.map(stableProductionJson).join(',')}]`;
-  if (value && typeof value === 'object') return `{${Object.keys(value).sort().map(k => `${JSON.stringify(k)}:${stableProductionJson(value[k])}`).join(',')}}`;
-  return JSON.stringify(value);
-}
-export const productionContentHash = (value: unknown) => createHash('sha256').update(stableProductionJson(value)).digest('hex');
 const text = (value: unknown, name: string, max = 100): string => {
   if (typeof value !== 'string' || !value.trim() || value !== value.trim() || value.length > max) throw new BadRequestException(`${name}无效`);
   return value;
@@ -158,27 +155,23 @@ export class ProductionInboundDocumentsService {
     return scope;
   }
   private async reports(m: EntityManager, d: Document) {
-    const reports: any[] = await m.query(`SELECT d.id,d.house_code,d.flock_no,d.occupancy_id,d.eggs_by_grade,d.shift,
-      d.log_date::text AS production_date,o.company_code,o.farm_code,o.site_code
-      FROM brd_daily_logs d JOIN brd_flock_occupancies o ON o.id=d.occupancy_id
-        AND o.flock_no=d.flock_no AND o.house_code=d.house_code AND o.company_code=$1
-        AND o.began_on<=d.log_date AND (o.ended_on IS NULL OR o.ended_on>d.log_date)
-      WHERE d.house_code=$2 AND d.log_date=$3 ORDER BY d.id FOR UPDATE OF d`, [d.company_code,d.house_code,d.production_date]);
-    if (!reports.length || reports.some(r => r.shift === 'DAILY') && reports.length > 1) {
-      throw new ConflictException('缺少已确认且占栏明确的分级日报，或DAILY与班次日报重复覆盖');
-    }
-    if (reports.some(r => !r.eggs_by_grade || typeof r.eggs_by_grade !== 'object'
-      || Array.isArray(r.eggs_by_grade) || Object.values(r.eggs_by_grade).some(v => !Number.isSafeInteger(v) || Number(v)<0))) {
-      throw new ConflictException('日报分级数量必须为非负整数，不能猜测来源');
-    }
-    return reports.map(r => ({ ...r,report_hash: productionContentHash(r) }));
+    return lockProductionSourceReports(m,{companyCode:d.company_code,houseCode:d.house_code,productionDate:d.production_date});
   }
   private async usage(m: Pick<DataSource,'query'>, d: Document) {
-    return m.query(`SELECT a.daily_log_id::text,l.grade_code,SUM(a.quantity*a.direction)::int AS quantity
+    const rows=await m.query(`SELECT a.daily_log_id::text,l.grade_code,SUM(a.quantity*a.direction)::int AS quantity
       FROM production_inbound_allocations a JOIN production_inbound_lines l ON l.document_id=a.document_id AND l.line_no=a.line_no
       JOIN production_inbound_documents doc ON doc.id=a.document_id
       WHERE doc.company_code=$1 AND doc.house_code=$2 AND doc.production_date=$3 AND doc.state='POSTED'
       GROUP BY a.daily_log_id,l.grade_code`, [d.company_code,d.house_code,d.production_date]);
+    const [schema]=await m.query("SELECT to_regclass('production_raw_receipt_segments') AS raw");
+    if(schema?.raw){
+      const raw=await m.query(`SELECT s.daily_log_id::text,s.grade_code,SUM(s.quantity)::int AS quantity FROM production_raw_receipt_segments s
+        JOIN production_raw_receipts r ON r.id=s.receipt_id WHERE r.company_code=$1 AND r.house_code=$2 AND r.production_date=$3
+          AND r.state='POSTED' GROUP BY s.daily_log_id,s.grade_code`,[d.company_code,d.house_code,d.production_date]);
+      for(const item of raw){const existing=rows.find((r:any)=>r.daily_log_id===item.daily_log_id&&r.grade_code===item.grade_code);
+        if(existing)existing.quantity+=item.quantity;else rows.push(item);}
+    }
+    return rows;
   }
   private async currentDocument(m: EntityManager, id: string) {
     const [d] = await m.query('SELECT *,production_date::text AS production_date,expected_posting_date::text AS expected_posting_date FROM production_inbound_documents WHERE id=$1 FOR UPDATE',[id]);
@@ -192,23 +185,16 @@ export class ProductionInboundDocumentsService {
     for (const key of keys) await m.query('SELECT pg_advisory_xact_lock(hashtext($1))',[key]);
   }
   private async handoverEvidence(m: EntityManager,d: Document,sources: any[],creator: string) {
-    const [user]=await m.query('SELECT username FROM sys_user WHERE user_id::text=$1',[creator]);
-    for(const a of sources) {
-      const [file]=await m.query(`SELECT file_id,checksum FROM file_metadata WHERE file_id=$1 AND status='ACTIVE' AND deleted_at IS NULL
-        AND visibility IN ('PROTECTED','PRIVATE') AND mime_type IN ('application/pdf','image/png','image/jpeg','image/webp')
-        AND module_code='PRODUCTION_INBOUND' AND owner_type='HOUSE' AND owner_id=$2 AND company_code=$3
-        AND uploaded_by=$4 AND checksum ~ '^[a-f0-9]{64}$' FOR SHARE`,[a.evidenceFileId,d.house_code,d.company_code,user?.username ?? '']);
-      if(!file||a.evidenceChecksum&&a.evidenceChecksum!==file.checksum)throw new ConflictException('交接分段的原证据失效或摘要已改变');
-      a.evidenceChecksum=file.checksum;
-    }
+    return lockProductionHandoverEvidence(m,{companyCode:d.company_code,houseCode:d.house_code},sources,creator);
   }
   async createPhysicalHandover(input: { companyCode:string;houseCode:string;eggDate:string;warehouseCode:string;handoverRef:string;
-    replacesId?:string;segments:Array<{ dailyLogId:number;gradeCode:string;quantity:number;evidenceFileId:string }> }) {
+    rawCollectionSourceId?:string;replacesId?:string;segments:Array<{ dailyLogId:number;gradeCode:string;quantity:number;evidenceFileId:string }> }) {
     this.authorize(input.companyCode,input.warehouseCode);assertEggDate(input.eggDate);text(input.handoverRef,'实物交接号');
     const actor=this.actor(); const creationHash=productionContentHash(input);
     if(!Array.isArray(input.segments)||!input.segments.length||input.segments.length>100)throw new BadRequestException('交接须明确列出实际班次、档位及数量');
     if(new Set(input.segments.map(s=>`${s.dailyLogId}:${s.gradeCode}`)).size!==input.segments.length)throw new BadRequestException('交接来源班次和档位重复');
     return this.db.transaction(async m=>{
+      if(input.rawCollectionSourceId)await m.query("SELECT pg_advisory_xact_lock(hashtextextended('packaging-chain:false',0))");
       await this.lockCreation(m,input.companyCode,`physical:${input.handoverRef}`,input.handoverRef);
       const history=await m.query('SELECT *,production_date::text AS production_date FROM production_physical_handovers WHERE company_code=$1 AND handover_ref=$2 ORDER BY created_at',[input.companyCode,input.handoverRef]);
       const prior=history.find((d:any)=>d.creation_hash===creationHash);
@@ -228,7 +214,15 @@ export class ProductionInboundDocumentsService {
           houseCode:r.house_code,productionDate:r.production_date,shift:r.shift};
       });
       await this.handoverEvidence(m,identity,sources,actor);
-      const payload={warehouseCode:input.warehouseCode,sources};const hash=productionContentHash({company:input.companyCode,
+      let rawCollection:Record<string,any>|undefined;
+      if(input.rawCollectionSourceId){
+        if((await m.query(`SELECT 1 FROM production_inbound_documents WHERE company_code=$1 AND handover_ref=$2 AND kind='INBOUND'
+          AND state<>'CANCELLED' LIMIT 1`,[input.companyCode,input.handoverRef])).length)throw new ConflictException('该实物交接号已被库存单引用，请先取消未过账单并核验原路径');
+        const source=await lockRawCollectionReference(m,input.rawCollectionSourceId,{companyCode:input.companyCode,houseCode:input.houseCode,productionDate:input.eggDate});
+        assertRawCollectionTotals(source,sources);
+        rawCollection={sourceBatchId:source.id,batchCode:source.batch_code,shiftId:source.shift_id,sourceHash:productionContentHash(source),sourceSnapshot:source};
+      }
+      const payload={warehouseCode:input.warehouseCode,sources,...(rawCollection?{rawCollection}:{})};const hash=productionContentHash({company:input.companyCode,
         house:input.houseCode,day:input.eggDate,handoverRef:input.handoverRef,payload});
       const [doc]=await m.query(`INSERT INTO production_physical_handovers(id,company_code,house_code,production_date,scope_id,
         handover_ref,content_hash,creation_hash,payload,created_by,replaces_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
@@ -240,10 +234,17 @@ export class ProductionInboundDocumentsService {
     if(!before)throw new NotFoundException('实物交接记录不存在');this.authorize(before.company_code,before.payload.warehouseCode);
     const actor=this.actor();if(!hasPerm((this.cls.get('user') as any)?.permissions,'MENU_PROD_INBOUND','E'))throw new ForbiddenException('缺少交接接收确认权限');
     return this.db.transaction(async m=>{
+      if(before.payload.rawCollection)await m.query("SELECT pg_advisory_xact_lock(hashtextextended('packaging-chain:false',0))");
       await this.lockDay(m,before);const reports=await this.reports(m,before);
       const [d]=await m.query('SELECT *,production_date::text AS production_date FROM production_physical_handovers WHERE id=$1 FOR UPDATE',[id]);
       this.authorize(d.company_code,d.payload.warehouseCode);this.version(d,version);
       if(d.state!=='DRAFT'||d.content_hash!==contentHash||d.created_by===actor)throw new ConflictException('交接须由另一名实名接收人确认原始分段摘要');
+      if(d.payload.rawCollection){
+        if((await m.query(`SELECT 1 FROM production_inbound_documents WHERE company_code=$1 AND handover_ref=$2 AND kind='INBOUND'
+          AND state<>'CANCELLED' LIMIT 1`,[d.company_code,d.handover_ref])).length)throw new ConflictException('该交接已被库存单引用，不能按原始收蛋签认');
+        const source=await lockRawCollectionReference(m,d.payload.rawCollection.sourceBatchId,
+        {companyCode:d.company_code,houseCode:d.house_code,productionDate:before.production_date});
+        if(productionContentHash(source)!==d.payload.rawCollection.sourceHash)throw new ConflictException('接收前实际采集原行或包装班次已变化，须重新交接');}
       await this.handoverEvidence(m,d,d.payload.sources,d.created_by);
       const confirmed=await m.query(`SELECT payload FROM production_physical_handovers WHERE company_code=$1 AND house_code=$2
         AND production_date=$3 AND state='CONFIRMED'`,[d.company_code,d.house_code,d.production_date]);
@@ -282,6 +283,7 @@ export class ProductionInboundDocumentsService {
       const mayCancel=d.state==='DRAFT'?d.created_by===actor&&hasPerm(user?.permissions,'MENU_PROD_INBOUND','C')
         :d.confirmed_by===actor&&hasPerm(user?.permissions,'MENU_PROD_INBOUND','E');
       if(d.state==='CANCELLED'||!mayCancel&&!hasPerm(user?.permissions,'MENU_PROD_INBOUND','A'))throw new ForbiddenException('仅原登记/接收人或独立审核人可废止未过账交接');
+      await assertHandoverNotClaimedByRaw(m,d.company_code,d.handover_ref);
       if((await m.query(`SELECT 1 FROM production_inbound_documents WHERE company_code=$1 AND handover_ref=$2
         AND kind='INBOUND' AND state<>'CANCELLED' LIMIT 1`,[d.company_code,d.handover_ref])).length)throw new ConflictException('先取消未过账入库单；已过账交接必须走原单冲销，不能废止或复用');
       const evidence=[...new Set(evidenceFileIds)].map(fileId=>({evidenceFileId:fileId}));
@@ -361,6 +363,7 @@ export class ProductionInboundDocumentsService {
       const identity = { company_code:p.companyCode,house_code:p.houseCode,production_date:p.eggDate,payload:p.payload };
       const scope = await this.lockDay(m,identity);
       const existing = await findExisting(m); if (existing.length) return recover(existing);
+      if(p.handoverRef)await assertHandoverNotClaimedByRaw(m,p.companyCode,p.handoverRef,true);
       const id = randomUUID();
       const [d] = await m.query(`INSERT INTO production_inbound_documents(id,document_no,company_code,house_code,
         production_date,scope_id,kind,intent_key,handover_ref,payload,created_by,creation_hash)
@@ -421,10 +424,9 @@ export class ProductionInboundDocumentsService {
     const context = await this.master.resolveMasterContext({ companyCode:d.company_code,houseCode:d.house_code,
       warehouseCode:d.payload.warehouseCode,locationCode:d.payload.locationCode },m);
     if (context.companyCode !== d.company_code) throw new ConflictException('鸡舍归属已变化，请核对原交接');
-    const modes = await m.query(`SELECT mode FROM inv_source_mode WHERE (scope_level='SITE' AND scope_code=$1)
-      OR (scope_level='COMPANY' AND scope_code=$2) OR (scope_level='GROUP' AND scope_code='ALL')
-      ORDER BY CASE scope_level WHEN 'SITE' THEN 1 WHEN 'COMPANY' THEN 2 ELSE 3 END LIMIT 1 FOR SHARE`, [context.siteCode ?? '',d.company_code]);
-    if (modes[0]?.mode !== 'TEMP_PRODUCTION_INBOUND') throw new ConflictException('正式交库须先明确启用临时生产入库模式；包装路径不能重复交库');
+    if(d.handover_ref)await assertHandoverNotClaimedByRaw(m,d.company_code,d.handover_ref,true);
+    const mode=await lockProductionEntryMode(m,context.farmCode,d.company_code);
+    if (mode !== 'TEMP_PRODUCTION_INBOUND') throw new ConflictException('正式交库须先明确启用临时生产入库模式；包装路径不能重复交库');
     const profile = await this.skus.resolveSourceProfile({ companyCode:d.company_code,houseCode:d.house_code,
       eggDate:d.production_date,farmCode:context.farmCode,siteCode:context.siteCode },m);
     const medicines = await m.query(`SELECT 1 FROM brd_medication_records WHERE flock_no=ANY($1::text[])

@@ -76,6 +76,7 @@ export class PhysicalHandoverSegmentDto {
   @IsString() @MaxLength(100) evidenceFileId!: string;
 }
 export class CreatePhysicalHandoverDto {
+  @IsOptional() @Matches(/^[1-9]\d{0,18}$/) rawCollectionSourceId?:string;
   @IsOptional() @IsUUID() replacesId?: string;
   @IsString() @MaxLength(100) companyCode!: string;
   @IsString() @MaxLength(100) houseCode!: string;

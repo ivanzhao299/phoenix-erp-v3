@@ -10,6 +10,16 @@ export async function recordFlockProductionSources(m: Db,p: {
 }, batchNo: string, profiles: Array<{houseCode: string; profileCode: string; [key: string]: any}>,scope: OrgScope={isGlobal:false,farmCode:null,siteCode:null}) {
   const [schema]=await m.query("SELECT to_regclass('inv_flock_source_links') AS links");
   if (!schema?.links || !profiles.length) return;
+  if(p.sourceType==='PACKAGING'&&p.packagingBatchRef){
+    const [rawSchema]=await m.query("SELECT to_regclass('production_raw_receipts') AS raw");
+    if(rawSchema?.raw&&(await m.query(`SELECT 1 FROM production_raw_receipts r
+      JOIN pkg_grading_source_links l ON l.source_batch_id=r.source_batch_id JOIN pkg_grading_records g ON g.id=l.grading_id
+      JOIN pkg_packing_records pk ON g.code IN(SELECT jsonb_array_elements_text(CASE
+        WHEN jsonb_typeof(pk.grading_codes_json)='array' AND jsonb_array_length(pk.grading_codes_json)>0
+        THEN pk.grading_codes_json ELSE jsonb_build_array(pk.grading_code) END))
+      WHERE pk.code=$1 AND r.state<>'CANCELLED' LIMIT 1`,[p.packagingBatchRef])).length)
+      throw new ConflictException('该包装来源已进入正式原始收蛋，须按受控实耗转换，禁止旧路径重复认领');
+  }
   const houses=[...new Set(profiles.map(x=>x.houseCode))].sort();
   for (const code of houses) await m.query("SELECT pg_advisory_xact_lock(hashtext('phoenix:daily-house'),hashtext($1))",[code]);
   const states=await m.query('SELECT house_code FROM brd_flock_house_states WHERE house_code=ANY($1)',[houses]);

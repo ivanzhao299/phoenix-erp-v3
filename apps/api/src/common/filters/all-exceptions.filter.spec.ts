@@ -176,4 +176,12 @@ describe('exception side effects use actual background admission and settlement'
     expect(f.log.writeLog).toHaveBeenCalledTimes(1); expect(f.alerts.createAlert).toHaveBeenCalledTimes(1); expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(f.tasks.status().inFlight).toBe(0); await f.tasks.shutdown(1000);
   });
+  it.each(['RAW_RECEIPT_SOURCE_REFERENCE_BUSY','RAW_ORIGIN_ISOLATION_HOLD'])('returns a private RAW conflict for %s without an alert cascade',async message=>{
+    const f=fixture();f.filter.catch({message,driverError:{code:'23514'}},f.host);
+    expect(f.response.status).toHaveBeenCalledWith(409);expect(f.response.json).toHaveBeenCalledWith({code:'OFFICIAL_RAW_COLLECTION_HOLD',
+      msg:'原始收蛋来源已变化、已被占用或正在核验，请保留原意图并先查询原单'});
+    expect(JSON.stringify(f.response.json.mock.calls)).not.toContain(message);expect(f.log.writeLog).not.toHaveBeenCalled();expect(fetchMock).not.toHaveBeenCalled();
+    await f.tasks.shutdown(1000);
+  });
+
 });

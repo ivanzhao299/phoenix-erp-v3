@@ -14976,5 +14976,19 @@
   "productionCutover.transferProofHelp": "按本公司实际调拨流水及原始来源核验；每次新增签认都会复核。",
   "productionCutover.received": "实际接收",
   "productionCutover.dispatched": "实际发出",
-  "productionCutover.localBatch": "本公司批次"
+  "productionCutover.localBatch": "本公司批次",
+  "productionRaw.title": "原始收蛋凭证",
+  "productionRaw.hint": "完整承接双方已签认的实际采集与日报分段。收蛋凭证保留原始来源，不生成库存；分级、包装实耗须另有实际转换凭证。",
+  "productionRaw.source": "原始采集原行（包装路径）",
+  "productionRaw.direct": "直接库存交接",
+  "productionRaw.create": "保存或找回原始收蛋草稿",
+  "productionRaw.document": "原始收蛋单",
+  "productionRaw.ready": "核对并冻结来源",
+  "productionRaw.approve": "独立审核原始来源",
+  "productionRaw.post": "确认本次原始收蛋",
+  "productionRaw.replay": "找回原收蛋回执",
+  "productionRaw.cancel": "取消未确认收蛋单",
+  "productionRaw.receipt": "原收蛋回执",
+  "productionRaw.noStock": "尚未生成库存",
+  "productionInstallments.received": "已确认净量（含未入库收蛋）"
 }

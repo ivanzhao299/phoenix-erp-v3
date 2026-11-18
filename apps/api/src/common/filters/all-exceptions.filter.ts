@@ -81,6 +81,9 @@ export class AllExceptionsFilter implements ExceptionFilter {
     if((pgCode??err?.driverError?.code)==='23514'&&String(err?.message??'').includes('OFFICIAL_REPORT_')) {
       return res.status(409).json({code:'OFFICIAL_PRODUCTION_REPORT_HOLD',msg:'日报期间已归档、来源冲突或范围正在切换，请保留原单核对后重试'});
     }
+    if((pgCode??err?.driverError?.code)==='23514'&&/^RAW_(RECEIPT|ORIGIN)_/.test(String(err?.message??''))) {
+      return res.status(409).json({code:'OFFICIAL_RAW_COLLECTION_HOLD',msg:'原始收蛋来源已变化、已被占用或正在核验，请保留原意图并先查询原单'});
+    }
     if (pgCode && PG_ERROR_MAP[pgCode]) {
       const msg = PG_ERROR_MAP[pgCode];
       this.logger.warn(`[DB] PG${pgCode} on ${req.method} ${req.url} — ${err?.message} col:${err?.column}`);

@@ -1,3 +1,6 @@
+import { OfficialRawCollectionReceipts1795005390930 } from '../../../database/migrations/1795005390930-OfficialRawCollectionReceipts';
+import { OfficialRawCollectionController } from '../controllers/official-raw-collection.controller';
+import { OfficialRawCollectionService } from './official-raw-collection.service';
 import { installManagedSalesFixture, resetManagedSalesFixture } from './production-managed-sales.pg-fixture';
 import { resolveQuantity } from '../../product-master/services/quantity-contract';
 import { StorePosService } from '../../store-pos/services/store-pos.service';
@@ -108,6 +111,11 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
       CREATE TABLE inv_source_mode(scope_level text,scope_code text,mode text);
       INSERT INTO inv_source_mode VALUES('GROUP','ALL','TEMP_PRODUCTION_INBOUND');
       CREATE TABLE brd_medication_records(flock_no text,status text,start_date date,withdraw_until date);`);
+    await db.query(`ALTER TABLE pkg_source_batches ADD COLUMN batch_code text,ADD COLUMN source_inbound_no text,ADD COLUMN shift_id int,
+      ADD COLUMN total_qty int,ADD COLUMN dirty_qty int DEFAULT 0,ADD COLUMN cracked_qty int DEFAULT 0,ADD COLUMN batch_status text;
+      CREATE TABLE pkg_work_shifts(id int PRIMARY KEY,site_id text,production_date date,is_test boolean);`);
+    const rawMigration=db.createQueryRunner();await rawMigration.connect();
+    try{await new OfficialRawCollectionReceipts1795005390930().up(rawMigration);}finally{await rawMigration.release();}
     await installEmptyCutoverClosureFixture(db);
     // Replace only the empty closure contracts with the real owned transfer schema for actual handovers.
     await db.query('DROP TABLE wms_transfer_items;DROP TABLE wms_transfer');
@@ -150,7 +158,7 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
       @Get('sys_dict')async dict(@Query('dict_type') type:string){return db.query("SELECT * FROM sys_dict WHERE dict_type=$1 AND status='ACTIVE'",[type]);}
     }
     const module=await Test.createTestingModule({imports:[PassportModule,ClsModule.forRoot({global:true,middleware:{mount:true}})],
-      controllers:[AnalyticsController,ProductionCutoverController,FarmController,ProductionInboundDocumentsController,UploadController,FixtureLogin,FixtureLookups,FixtureDictionary,FixtureSkus],providers:[FixtureJwt,
+      controllers:[OfficialRawCollectionController,AnalyticsController,ProductionCutoverController,FarmController,ProductionInboundDocumentsController,UploadController,FixtureLogin,FixtureLookups,FixtureDictionary,FixtureSkus],providers:[OfficialRawCollectionService,FixtureJwt,
         GroupAnalyticsService,...[FinanceAnalyticsService,SalesAnalyticsAggregatorService,InventoryAnalyticsService,ProductionAnalyticsService,ShareholderAnalyticsService,ExceptionAnalyticsService,ForecastAnalyticsService].map(provide=>({provide,useValue:{}})),ProductionCutoverService,FarmService,ProductionInboundDocumentsService,ProductionInboundService,EggInventoryService,SkuAvailabilityService,InventorySourceModeService,FileAccessService,OrgOwnershipService,
         {provide:CUTOVER_PROVENANCE_SIGNER,useValue:{key:'SYNTHETIC-OWNED-CUTOVER-TRANSFER-PROOF-KEY',keyId:'owned-test-v1'}},
         {provide:EntityManager,useValue:db.manager},{provide:DataSource,useValue:db},
@@ -164,7 +172,8 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
   },30000);
   async function resetState(emptyReports=false){
     await resetManagedSalesFixture(db);
-    await db.query(`TRUNCATE wms_transfer_discrepancies,wms_transfer_items,wms_transfer,prc2_receipt_items,prc2_receipts,prc2_order_items,prc2_purchase_orders,fin_cash_accounts,fin_ar_invoices,fin_ap_invoices,fin_shareholder_contributions,fin_expense_requests,qa_inspections,qa_non_conformance,chanjet_writeback_outbox,chanjet_voucher_drafts,sal_order_items,sal_sales_orders,sal_order_item_batch_allocations,production_cutover_manifests,production_inventory_domain_states,production_handover_cancellations,production_physical_handovers,production_financial_clearances,production_posting_periods,
+    await db.query("UPDATE inv_source_mode SET mode='TEMP_PRODUCTION_INBOUND';UPDATE md_egg_source_profiles SET status='ACTIVE'");
+    await db.query(`TRUNCATE production_raw_receipt_segments,production_raw_receipts,pkg_source_batches,pkg_work_shifts,wms_transfer_discrepancies,wms_transfer_items,wms_transfer,prc2_receipt_items,prc2_receipts,prc2_order_items,prc2_purchase_orders,fin_cash_accounts,fin_ar_invoices,fin_ap_invoices,fin_shareholder_contributions,fin_expense_requests,qa_inspections,qa_non_conformance,chanjet_writeback_outbox,chanjet_voucher_drafts,sal_order_items,sal_sales_orders,sal_order_item_batch_allocations,production_cutover_manifests,production_inventory_domain_states,production_handover_cancellations,production_physical_handovers,production_financial_clearances,production_posting_periods,
       production_posting_period_events,production_inbound_allocations,production_inbound_lines,production_inbound_documents,production_opening_receipts,
       production_inbound_days,production_batch_roots,production_batch_qualifications,production_inventory_domains,production_cutover_scopes,inv_batches,
       inv_ledger,brd_flock_events,brd_flock_balances,brd_flock_daily_balances,brd_flock_house_states,brd_daily_logs,inv_flock_source_links,brd_egg_source_receipts,brd_egg_day_routes,brd_flock_occupancies,brd_flock_documents RESTART IDENTITY CASCADE;
@@ -196,6 +205,7 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
         await crossCompanyReceipt();const {payload}=await companyBCount();const d=(await cutoverApi(6,'').send(payload).expect(201)).body;
         await cutoverApi(6,`/${d.id}/freeze`).send({version:0}).expect(201);
       }
+      if(process.env.INSTALLMENT_HTTP_RAW==='1')await seedRaw();
       console.log('Owned installment HTTP fixture ready');await new Promise<void>(done=>{releaseBrowser=done;});
     }
     await app?.close();if(db?.isInitialized){await db.query(`DROP SCHEMA "${schema}" CASCADE`);await db.destroy();}
@@ -234,6 +244,43 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
       referenceDecisions:inspected.references.map((r:any)=>({table:r.table,rowSha256:r.rowSha256,classification:'RESOLVED',evidenceFileId:file,reason:'Synthetic actual completed handover'}))};
     return {payload,inspected};
   }
+  const rawEndpoint='/api/v2/inventory/raw-collection-receipts';
+  const rawApi=(id:number,path='',method:'get'|'post'='post')=>request(app.getHttpServer())[method](rawEndpoint+path).auth(token(id),{type:'bearer'});
+  async function seedRaw(){
+    await db.query(`UPDATE inv_source_mode SET mode='PACKAGING_INBOUND';UPDATE brd_daily_logs SET eggs_by_grade=
+      '{"GRADE_0":0,"GRADE_1":1000,"GRADE_2":100,"GRADE_3":0,"GRADE_4":0,"GRADE_5":0,"DIRTY":0,"BROKEN":0}';
+      INSERT INTO pkg_work_shifts VALUES(1,'FARM-A','2026-11-18',false);
+      INSERT INTO pkg_source_batches(id,house_code,flock_code,received_qty,production_date,lay_date,is_test,batch_code,source_inbound_no,shift_id,total_qty,batch_status)
+        VALUES(1,'HOUSE-A','FLOCK-A',100,'2026-11-18','2026-11-18',false,'SYNTHETIC-HTTP-RAW','SYNTHETIC-HTTP-RAW',1,100,'RECEIVED');`);
+  }
+  async function signedRaw(){
+    await seedRaw();
+    const file=(await upload(1).expect(201)).body.fileId,[report]=await db.query('SELECT id FROM brd_daily_logs ORDER BY id');
+    const input={companyCode:'COMP-A',houseCode:'HOUSE-A',eggDate:day,warehouseCode:'WH-A',handoverRef:randomUUID(),rawCollectionSourceId:'1',
+      segments:[{dailyLogId:report.id,gradeCode:'GRADE_1',quantity:100,evidenceFileId:file}]};
+    const h=(await api(1,'post','/handovers').send(input).expect(201)).body;
+    await api(3,'post',`/handovers/${h.id}/confirm`).send({version:h.version,contentHash:h.content_hash}).expect(201);
+    return {companyCode:'COMP-A',houseCode:'HOUSE-A',productionDate:day,warehouseCode:'WH-A',sourceBatchId:'1',handoverId:h.id,intentKey:randomUUID()};
+  }
+  it('RAW actual HTTP validates DTO, separates maker/approval, enforces company/warehouse scope and replays the original receipt with view permission',async()=>{
+    const input=await signedRaw();await rawApi(1).send({...input,sourceBatchId:'0'}).expect(400);
+    await rawApi(1).send({...input,sourceType:'PACKAGING'}).expect(400);
+    const d=(await rawApi(1).send(input).expect(201)).body;
+    await rawApi(6,`/${d.id}`,'get').expect(403);await rawApi(7,`/${d.id}`,'get').expect(403);
+    await rawApi(8,`/${d.id}/ready`).send({version:0,submitKey:randomUUID()}).expect(403);
+    const frozen=(await rawApi(1,`/${d.id}/ready`).send({version:0,submitKey:randomUUID()}).expect(201)).body;
+    await rawApi(1,`/${d.id}/approve`).send({version:frozen.version,contentHash:frozen.content_hash}).expect(403);
+    const approved=(await rawApi(2,`/${d.id}/approve`).send({version:frozen.version,contentHash:frozen.content_hash}).expect(201)).body;
+    const posting={submitKey:approved.submit_key,contentHash:approved.content_hash};
+    await rawApi(4,`/${d.id}/post`).send(posting).expect(403);
+    const receipt=(await rawApi(1,`/${d.id}/post`).send(posting).expect(201)).body;
+    expect(receipt).toMatchObject({documentId:d.id,quantity:100,inventoryCreated:false});
+    await db.query("UPDATE production_cutover_scopes SET state='SUSPENDED';UPDATE md_egg_source_profiles SET status='INACTIVE'");
+    expect((await rawApi(4,`/${d.id}/post`).send(posting).expect(201)).body).toEqual(receipt);
+    expect((await rawApi(4,`/${d.id}`,'get').expect(200)).body.segments).toHaveLength(1);
+    expect((await db.query('SELECT count(*)::int AS n FROM inv_batches'))[0].n).toBe(0);
+    expect((await db.query('SELECT count(*)::int AS n FROM inv_ledger'))[0].n).toBe(0);
+  });
   it('lets a B-only maker freeze twenty received units with zero new opening, protects A private facts and revalidates each new signer',async()=>{
     const {root,child}=await crossCompanyReceipt(),{payload,inspected}=await companyBCount();
     expect(inspected.snapshot.batches.map((b:any)=>b.batch_no)).toEqual([child]);
