@@ -1,4 +1,5 @@
 import 'reflect-metadata';
+import { ProductionCutoverManifests1794976000000 } from '../../../database/migrations/1794976000000-ProductionCutoverManifests';
 import { OfficialProductionReportGrain1794975000000 } from '../../../database/migrations/1794975000000-OfficialProductionReportGrain';
 import { DataSource } from 'typeorm';
 import { installProductionInboundFixture } from './production-inbound.pg-fixture';
@@ -10,7 +11,7 @@ const url=process.env.OFFICIAL_INVENTORY_PG_URL;const suite=url?describe:describ
 suite('formal installment migration reversals — owned PostgreSQL 18',()=>{
   let db:DataSource;const schema=`inbound_migrations_${process.pid}`;
   const chain=[new OfficialInventoryCutover1794971000000(),new ProductionInboundDocuments1794972000000(),
-    new ProductionHandoverAndPeriods1794973000000(),new ProductionInstallmentDictionaries1794974000000(),new OfficialProductionReportGrain1794975000000()];
+    new ProductionHandoverAndPeriods1794973000000(),new ProductionInstallmentDictionaries1794974000000(),new OfficialProductionReportGrain1794975000000(),new ProductionCutoverManifests1794976000000()];
   beforeAll(async()=>{
     const u=new URL(url!);if(u.hostname!=='127.0.0.1'||!['/phoenix_temp_reversal_fixture','/installments_fixture'].includes(u.pathname))throw Error('Owned loopback fixture required');
     db=await new DataSource({type:'postgres',url,entities:[],synchronize:false,migrationsRun:false,installExtensions:false,extra:{options:`-c search_path=${schema}`,max:5}}).initialize();

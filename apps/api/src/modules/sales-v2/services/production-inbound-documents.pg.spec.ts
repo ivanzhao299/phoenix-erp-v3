@@ -1,4 +1,6 @@
 import 'reflect-metadata';
+import { assertOfficialInventoryBatches, officialInventoryCostKnownPredicate } from '../../wms/official-inventory';
+import { inspectProductionCutoverEvidence, readProductionCutoverEvidence } from '../../wms/production-cutover-evidence';
 import { spawnSync } from 'node:child_process';
 import { resolve } from 'node:path';
 import { randomUUID } from 'crypto';
@@ -11,7 +13,7 @@ import { OrgOwnershipService } from '../../org/services/org-ownership.service';
 import { SkuAvailabilityService } from '../../product-master/services/sku-availability.service';
 import { AlignWmsTransactionForms1787731200000 } from '../../../database/migrations/1787731200000-AlignWmsTransactionForms';
 import { UpgradeWmsTransferLifecycle1787965200000 } from '../../../database/migrations/1787965200000-UpgradeWmsTransferLifecycle';
-import { purchaseReceiptBatchNo } from '../../wms/purchase-inventory-qualification';
+import { qualifyPurchaseInventory, purchaseReceiptBatchNo } from '../../wms/purchase-inventory-qualification';
 import { sharedBatches } from '../../product-master/services/quantity-contract';
 import { AddWmsDefectDisposition1794405000000 } from '../../../database/migrations/1794405000000-AddWmsDefectDisposition';
 import { WmsService } from '../../wms/wms.service';
@@ -63,7 +65,7 @@ fixture('formal installment documents — actual PostgreSQL 18 inventory and pro
   });
   afterAll(async () => { if (db?.isInitialized) { await db.query(`DROP SCHEMA "${schema}" CASCADE`); await db.destroy(); } });
   async function resetFixture(mode:"DAILY"|"AMPM"="DAILY",reportDay:"2026-11-17"|"2026-11-18"=day) {
-    await db.query(`TRUNCATE prc2_receipt_items,prc2_receipts,wms_transfer_discrepancies,wms_transfer_items,wms_transfer,wms_stocktake,wms_defect_dispositions,production_physical_handovers,production_posting_periods,production_posting_period_events,production_inbound_allocations,production_inbound_lines,production_inbound_documents,
+    await db.query(`TRUNCATE production_source_state_events,production_inventory_domain_states,prc2_receipt_items,prc2_receipts,wms_transfer_discrepancies,wms_transfer_items,wms_transfer,wms_stocktake,wms_defect_dispositions,production_physical_handovers,production_posting_periods,production_posting_period_events,production_inbound_allocations,production_inbound_lines,production_inbound_documents,
       production_opening_receipts,production_inbound_days,production_batch_roots,production_batch_qualifications,
       production_inventory_domains,production_cutover_scopes,inv_ledger,inv_batches,brd_daily_logs,inv_flock_source_links,
       brd_egg_source_receipts,brd_egg_day_routes,brd_flock_occupancies,brd_flock_documents RESTART IDENTITY CASCADE;
@@ -118,6 +120,30 @@ fixture('formal installment documents — actual PostgreSQL 18 inventory and pro
     (SELECT count(*)::int FROM inv_ledger) AS ledgers,(SELECT count(*)::int FROM production_inbound_lines) AS lines,
     (SELECT count(*)::int FROM brd_egg_source_receipts) AS receipts,(SELECT count(*)::int FROM inv_flock_source_links) AS links`))[0];
 
+  it('captures a stable read-only cutover snapshot including consumed stock and explicit missing closure tables',async()=>{
+    const posted=await post(await ready());const target={companyCode:'COMP-A',warehouseCode:'WH-A',productCodes:['PRD-EGG-RAW'],houses:[{houseCode:'HOUSE-A',firstProductionDate:'2026-11-19'}]};
+    const before=await totals();const a=await inspectProductionCutoverEvidence(db,target),b=await inspectProductionCutoverEvidence(db,target);
+    expect(a.snapshotSha256).toBe(b.snapshotSha256);expect(a.releaseAdmission).toBe(false);expect(a.activationAuthorized).toBe(false);
+    expect(a.snapshot.batches.map(r=>r.batch_no)).toContain(posted.batches[0].batchNo);
+    expect(a.snapshot.missingTables).toContain('sal_order_item_batch_allocations');expect(await totals()).toEqual(before);
+    await db.query('UPDATE inv_batches SET qty=qty-40,qty_available=qty_available-40 WHERE batch_no=$1',[posted.batches[0].batchNo]);
+    await db.query("INSERT INTO inv_ledger(batch_no,change_type,qty_change,ref_no) VALUES($1,'FIFO_OUT',-40,'SYNTHETIC-SALE')",[posted.batches[0].batchNo]);
+    const changed=await inspectProductionCutoverEvidence(db,target);expect(changed.snapshotSha256).not.toBe(a.snapshotSha256);
+    expect(changed.snapshot.batches.find(r=>r.batch_no===posted.batches[0].batchNo)?.qty).toBe(60);
+    await expect(readProductionCutoverEvidence(db.manager,target)).rejects.toThrow('TRANSACTION_REQUIRED');
+  });
+  it('follows a real transfer child across company boundaries while excluding unrelated other-company stock',async()=>{
+    const posted=await post(await ready());scope.allowedCompanyCodes.push('COMP-B');scope.allowedWarehouseCodes.push('WH-B');
+    const wms=new WmsService(db.manager,cls as any);await wms.confirmTransfer({transfer_no:'EVIDENCE-CROSS-COMPANY',from_warehouse:'WH-A',to_warehouse:'WH-B',items:[{batch_no:posted.batches[0].batchNo,qty:20}]},{username:'maker'});
+    const [child]=await db.query("SELECT batch_no FROM inv_batches WHERE source_no='EVIDENCE-CROSS-COMPANY'");
+    await db.query(`INSERT INTO inv_batches(batch_no,company_code,warehouse_code,product_code,sku_code,source_type,source_no,qty,qty_available)
+      VALUES('OTHER-COMPANY','COMP-B','WH-A','PRD-EGG-RAW','SKU-GRADE_1','PURCHASE','UNRELATED',3,3)`);
+    const p={companyCode:'COMP-A',warehouseCode:'WH-A',productCodes:['PRD-EGG-RAW'],houses:[{houseCode:'HOUSE-A',firstProductionDate:'2026-11-19'}]};
+    const result=await inspectProductionCutoverEvidence(db,p);expect(result.snapshot.batches.map(b=>b.batch_no)).not.toContain('OTHER-COMPANY');
+    expect(result.snapshot.batches.map(b=>b.batch_no)).toContain(child.batch_no);
+    expect(result.snapshot.warnings).toContain('CROSS_COMPANY_DESCENDANTS_REQUIRE_SEPARATE_AUTHORITY');
+    expect(result.snapshot.boundary.productCodes).toEqual(['PRD-EGG-RAW']);expect(result.assessment).toBe('EVIDENCE_ONLY');
+  });
   it('1000 → 100 → sell 40 → 900; original receipt stays 100 and stock is 960', async () => {
     const p = input(100); const d = await ready(p); const first = await post(d);
     await db.query('UPDATE inv_batches SET qty=qty-40,qty_available=qty_available-40 WHERE batch_no=$1',[first.batches[0].batchNo]);
@@ -311,15 +337,190 @@ fixture('formal installment documents — actual PostgreSQL 18 inventory and pro
     expect((await post(d)).totalInbound).toBe(100);expect((await db.query('SELECT qty FROM inv_batches WHERE batch_no=$1',[batch]))[0].qty).toBe('60');
   });
 
-  async function purchase(unit='枚') {
+  async function purchase(unit='枚',unitCost=2) {
     scope.allowedWarehouseCodes.push('WH-A2');await db.query("UPDATE wms_warehouses SET type='PURCHASE_RECV' WHERE warehouse_code='WH-A2'");
     await db.query("INSERT INTO prc2_receipts VALUES(10,'SYNTHETIC-PURCHASE','COMP-A','WH-A2','CONFIRMED')");
     await db.query("INSERT INTO prc2_receipt_items VALUES(11,10,'SKU-GRADE_1',100,$1)",[unit]);
     const wms=new WmsService(db.manager,cls as any);
     const r=await db.transaction(m=>wms.inboundFromReceipt(m,{refNo:'SYNTHETIC-PURCHASE',warehouseCode:'WH-A2',operator:'maker',inboundDate:day,
-      items:[{receiptItemId:'11',itemCode:'SKU-GRADE_1',qty:100,unit,unitCost:2}]}));
+      items:[{receiptItemId:'11',itemCode:'SKU-GRADE_1',qty:100,unit,unitCost}]}));
     return {wms,batch:r.batchNos[0]};
   }
+  async function setSyntheticDomainState(id:string,state:'ACTIVE'|'SUSPENDED'){
+    await db.transaction(async m=>{
+      const [d]=await m.query('SELECT * FROM production_inventory_domain_states WHERE id=$1',[id]);
+      const file=`FILE-DOMAIN-${d.warehouse_code}`;
+      await m.query(`INSERT INTO file_metadata(file_id,status,visibility,mime_type,module_code,owner_type,owner_id,company_code,store_code,uploaded_by,checksum)
+        VALUES($1,'ACTIVE','PROTECTED','application/pdf','PRODUCTION_CUTOVER','WAREHOUSE',$2,'COMP-A','SITE-A','maker',repeat('d',64)) ON CONFLICT DO NOTHING`,[file,d.warehouse_code]);
+      await m.query(`INSERT INTO production_inventory_domain_events(id,domain_id,state,version,intent_key,content_hash,reason,signed_by,evidence_file_id,evidence_checksum)
+        VALUES($1,$2,$3,$4,$5,repeat('d',64),'Isolated synthetic state operation','1',$6,repeat('d',64))`,[randomUUID(),id,state,d.version+1,randomUUID(),file]);
+      await m.query('UPDATE production_inventory_domain_states SET state=$2,version=version+1 WHERE id=$1',[id,state]);
+    });
+  }
+  async function syntheticActiveDomain(id:string,warehouse:string,openingLines:any[]=[],writeOpening?:(m:any,manifestId:string)=>Promise<any>){
+    await db.transaction(async m=>{
+      const manifest=randomUUID();
+      await m.query(`INSERT INTO production_cutover_manifests(id,document_no,company_code,warehouse_code,intent_key,creation_hash,boundary,payload,created_by)
+        VALUES($1,$2,'COMP-A',$3,$2,repeat('d',64),$4,$5,'isolated count maker')`,[manifest,`COUNT-${manifest}`,warehouse,
+          JSON.stringify({productCodes:['PRD-EGG-RAW'],houses:[{houseCode:'HOUSE-A',firstProductionDate:'2026-11-17'}]}),JSON.stringify({openingLines,postingDate:new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Singapore'}).format(new Date())})]);
+      await m.query(`UPDATE production_cutover_manifests SET state='READY',version=version+1,snapshot='{}',snapshot_sha256=repeat('d',64),content_hash=repeat('d',64) WHERE id=$1`,[manifest]);
+      for(const [role,actor,name] of [['BUSINESS','1','maker'],['FINANCE','2','approver']]){
+        const file=`FILE-COUNT-${warehouse}-${role}`;
+        await m.query(`INSERT INTO file_metadata(file_id,status,visibility,mime_type,module_code,owner_type,owner_id,company_code,store_code,uploaded_by,checksum)
+          VALUES($1,'ACTIVE','PROTECTED','application/pdf','PRODUCTION_CUTOVER','WAREHOUSE',$2,'COMP-A','SITE-A',$3,repeat('d',64)) ON CONFLICT DO NOTHING`,[file,warehouse,name]);
+        await m.query(`INSERT INTO production_cutover_signatures(id,manifest_id,signature_role,content_hash,snapshot_sha256,signed_by,evidence_file_id,evidence_checksum,reason)
+          VALUES($1,$2,$3,repeat('d',64),repeat('d',64),$4,$5,repeat('d',64),'Isolated synthetic count signature')`,[randomUUID(),manifest,role,actor,file]);
+      }
+      await m.query(`UPDATE production_cutover_manifests SET state='APPROVED',version=version+1 WHERE id=$1`,[manifest]);
+      await m.query(`INSERT INTO production_inventory_domain_states(id,company_code,warehouse_code,product_code,created_by)
+        VALUES($1,'COMP-A',$2,'PRD-EGG-RAW','isolated count maker')`,[id,warehouse]);
+      const openingReceipt=randomUUID();
+      for(const [state,version] of [['FENCED',1],['ACTIVE',2]]){
+        await m.query(`INSERT INTO production_inventory_domain_events(id,domain_id,state,version,manifest_id,intent_key,content_hash,reason,signed_by,evidence_file_id,evidence_checksum)
+          VALUES($1::uuid,$2,$3,$4,$5,$1::text,repeat('d',64),'Synthetic zero opening state operation','1',$6,repeat('d',64))`,
+          [randomUUID(),id,state,version,manifest,`FILE-COUNT-${warehouse}-BUSINESS`]);
+        await m.query('UPDATE production_inventory_domain_states SET state=$2,version=$3 WHERE id=$1',[id,state,version]);
+        if(state==='FENCED')await m.query(`INSERT INTO production_opening_domain_claims(domain_id,manifest_id,opening_receipt_id,scope_id,content_hash,claimed_by)
+          VALUES($1,$2,$3,'20000000-0000-0000-0000-000000000001',repeat('d',64),'1')`,[id,manifest,openingReceipt]);
+      }
+      const receipt=writeOpening?await writeOpening(m,manifest):{synthetic:true,totalOpening:0,batches:[]};
+      await m.query(`INSERT INTO production_opening_receipts(id,handover_ref,company_code,warehouse_code,scope_id,evidence_sha256,manifest,created_by,receipt)
+        VALUES($1,$2,'COMP-A',$3,'20000000-0000-0000-0000-000000000001',repeat('d',64),$4,'1',$5)`,[openingReceipt,`SYNTHETIC-ZERO-${manifest}`,warehouse,JSON.stringify({manifestId:manifest}),JSON.stringify(receipt)]);
+      await m.query(`UPDATE production_cutover_manifests SET state='APPLIED',version=version+1,applied_at=now(),receipt=$2 WHERE id=$1`,[manifest,JSON.stringify(receipt)]);
+    });
+  }
+  it('separates a shared inventory-domain pause from a house pause and a purchase-source pause',async()=>{
+    await syntheticActiveDomain('50000000-0000-0000-0000-000000000001','WH-A');
+    const production=await post(await ready());const {wms,batch}=await purchase();
+    await wms.confirmTransfer({transfer_no:'SHARED-PURCHASE',from_warehouse:'WH-A2',to_warehouse:'WH-A',items:[{batch_no:batch,qty:20}]},{username:'maker'});
+    const [child]=await db.query("SELECT batch_no FROM inv_batches WHERE source_no='SHARED-PURCHASE'");
+    await db.query("UPDATE production_cutover_scopes SET state='SUSPENDED'");
+    await expect(assertOfficialInventoryBatches(db,[production.batches[0].batchNo])).rejects.toThrow();
+    await expect(wms.createTransfer({transfer_no:'PAUSED-PENDING',from_warehouse:'WH-A',to_warehouse:'WH-A2',items:[{batch_no:production.batches[0].batchNo,qty:1}]},{username:'maker'})).rejects.toThrow('测试期');
+    await expect(assertOfficialInventoryBatches(db,[child.batch_no])).resolves.toBeUndefined();
+    await wms.confirmTransfer({transfer_no:'SHARED-PURCHASE-NEXT',from_warehouse:'WH-A',to_warehouse:'WH-A2',items:[{batch_no:child.batch_no,qty:10}]},{username:'maker'});
+    const [grandchild]=await db.query("SELECT batch_no FROM inv_batches WHERE source_no='SHARED-PURCHASE-NEXT'");
+    await setSyntheticDomainState('50000000-0000-0000-0000-000000000001','SUSPENDED');
+    await expect(assertOfficialInventoryBatches(db,[child.batch_no])).rejects.toThrow();
+    await expect(assertOfficialInventoryBatches(db,[batch,grandchild.batch_no])).resolves.toBeUndefined();
+    await setSyntheticDomainState('50000000-0000-0000-0000-000000000001','ACTIVE');
+    await syntheticActiveDomain('50000000-0000-0000-0000-000000000002','WH-A2');
+    await setSyntheticDomainState('50000000-0000-0000-0000-000000000002','SUSPENDED');
+    await expect(assertOfficialInventoryBatches(db,[child.batch_no])).resolves.toBeUndefined();
+    await expect(assertOfficialInventoryBatches(db,[batch,grandchild.batch_no])).rejects.toThrow();
+    await setSyntheticDomainState('50000000-0000-0000-0000-000000000002','ACTIVE');
+    await db.query(`INSERT INTO file_metadata(file_id,status,visibility,mime_type,module_code,owner_type,owner_id,company_code,store_code,uploaded_by,checksum)
+      VALUES('FILE-SOURCE-PAUSE','ACTIVE','PROTECTED','application/pdf','INVENTORY_SOURCE_CONTROL','BATCH',$1,'COMP-A','SITE-A','maker',repeat('a',64))`,[batch]);
+    await db.query(`INSERT INTO production_source_state_events(id,root_batch_no,company_code,source_warehouse_code,state,version,intent_key,
+      content_hash,reason,signed_by,evidence_file_id,evidence_checksum) VALUES($1,$2,'COMP-A','WH-A2','SUSPENDED',1,'SOURCE-PAUSE',repeat('a',64),
+      'Synthetic isolated source-control fact','1','FILE-SOURCE-PAUSE',repeat('a',64))`,[randomUUID(),batch]);
+    for(const no of [batch,child.batch_no,grandchild.batch_no]){
+      await expect(assertOfficialInventoryBatches(db,[no])).rejects.toThrow();
+      await expect(assertOfficialInventoryBatches(db,[no],false)).resolves.toBeUndefined();
+    }
+    await db.query(`INSERT INTO inv_batches(batch_no,company_code,warehouse_code,product_code,sku_code,source_type,source_no,qty,qty_available)
+      VALUES('OTHER-PRODUCT','COMP-A','WH-A','PRD-STD','SKU-STD','PURCHASE','UNRELATED',3,3)`);
+    await expect(assertOfficialInventoryBatches(db,['OTHER-PRODUCT'])).resolves.toBeUndefined();
+  });
+  it('posts approved counted opening once through WMS with unknown versus confirmed zero cost and no daily quota',async()=>{
+    await db.query(`INSERT INTO sys_dict(dict_type,dict_code,status) VALUES('INV_STOCK_STATUS','AVAILABLE','ACTIVE'),('INV_STOCK_STATUS','QUARANTINE','ACTIVE') ON CONFLICT DO NOTHING`);
+    const wms=new WmsService(db.manager,cls as any),postingDate=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Singapore'}).format(new Date());
+    const common={skuCode:'SKU-GRADE_1',productCode:'PRD-EGG-RAW',gradeCode:'GRADE_1',specCode:'LOOSE',locationCode:'LOC-A',productionDate:'2026-11-17',expireDate:'2099-12-31'};
+    let posted:any,manifestId='';
+    await syntheticActiveDomain('50000000-0000-0000-0000-000000000001','WH-A',[
+      {...common,quantity:50,stockStatus:'QUARANTINE',costStatus:'UNKNOWN',unitCost:null,qualityConfirmed:false},
+      {...common,quantity:20,stockStatus:'AVAILABLE',costStatus:'CONFIRMED',unitCost:0,qualityConfirmed:true}],async(m,id)=>{
+        manifestId=id;posted=await wms.postApprovedOpening(m,id);return posted;
+      });
+    expect(posted).toMatchObject({totalOpening:70,postingDate});
+    const rows=await db.query(`SELECT b.qty,b.qty_available,b.source_type,b.collection_batch_ref,b.source_profile_code,
+      q.cost_status,${officialInventoryCostKnownPredicate('b')} AS cost_known FROM inv_batches b JOIN production_batch_qualifications q USING(batch_no) ORDER BY b.batch_no`);
+    expect(rows).toEqual([expect.objectContaining({qty:'50',qty_available:'0',source_type:'OPENING',collection_batch_ref:null,source_profile_code:null,cost_status:'UNKNOWN',cost_known:false}),
+      expect.objectContaining({qty:'20',qty_available:'20',cost_status:'CONFIRMED',cost_known:true})]);
+    expect((await service.balance('COMP-A','HOUSE-A',day,'WH-A')).grades.GRADE_1.posted).toBe(0);
+    expect(await totals()).toEqual({batches:2,ledgers:2,lines:0,receipts:0,links:0});
+    await db.query("UPDATE product_skus SET status='DISABLED'; UPDATE file_metadata SET status='DISABLED'");
+    expect(await db.transaction(m=>wms.postApprovedOpening(m,manifestId))).toEqual(posted);
+    expect((await db.query('SELECT count(*)::int AS n FROM inv_ledger'))[0].n).toBe(2);
+  });
+  it('rejects a forged second opening root even when it copies an actual signed manifest/domain',async()=>{
+    await syntheticActiveDomain('50000000-0000-0000-0000-000000000001','WH-A');
+    const [manifest]=await db.query('SELECT * FROM production_cutover_manifests');
+    await expect(db.transaction(async m=>{
+      await m.query(`INSERT INTO production_batch_qualifications(batch_no,scope_id,company_code,product_code,sku_code,disposition,origin_kind,origin_ref,
+        evidence_sha256,created_by,source_type,source_no,cost_status,inventory_domain_id,source_warehouse_code,source_quantity,source_unit,opening_manifest_id)
+        VALUES('FORGED-OPENING','20000000-0000-0000-0000-000000000001','COMP-A','PRD-EGG-RAW','SKU-GRADE_1','QUALIFIED','OPENING','COPIED-SECOND-LINE',
+          repeat('d',64),'1','OPENING',$1,'UNKNOWN','50000000-0000-0000-0000-000000000001','WH-A',100,'枚',$2)`,[manifest.document_no,manifest.id]);
+      await m.query(`INSERT INTO inv_batches(batch_no,company_code,warehouse_code,product_code,sku_code,source_type,source_no,unit,qty,qty_available)
+        VALUES('FORGED-OPENING','COMP-A','WH-A','PRD-EGG-RAW','SKU-GRADE_1','OPENING',$1,'枚',100,100)`,[manifest.document_no]);
+    })).rejects.toThrow('SOURCE_REJECTED');
+    expect((await db.query('SELECT count(*)::int AS n FROM production_batch_qualifications'))[0].n).toBe(0);
+  });
+  it('rejects raw state shortcuts and a domain event committed without its matching projection',async()=>{
+    await expect(db.query(`INSERT INTO production_inventory_domain_states(id,company_code,warehouse_code,product_code,state,created_by)
+      VALUES($1,'COMP-A','WH-A','PRD-EGG-RAW','ACTIVE','fixture')`,[randomUUID()])).rejects.toThrow('INITIAL_STATE');
+    await syntheticActiveDomain('50000000-0000-0000-0000-000000000001','WH-A');
+    await expect(db.query(`INSERT INTO production_inventory_domain_events(id,domain_id,state,version,intent_key,content_hash,reason,signed_by,evidence_file_id,evidence_checksum)
+      VALUES($1,'50000000-0000-0000-0000-000000000001','SUSPENDED',3,'BARE-EVENT',repeat('d',64),'Synthetic missing projection','1','FILE-COUNT-WH-A-BUSINESS',repeat('d',64))`,[randomUUID()]))
+      .rejects.toThrow('EVENT_PROJECTION_REQUIRED');
+    expect((await db.query('SELECT count(*)::int AS n FROM production_inventory_domain_events'))[0].n).toBe(2);
+  });
+  it('holds first-domain fencing behind a prior stock writer even when no domain row existed at the write',async()=>{
+    const writer=db.createQueryRunner();await writer.connect();await writer.startTransaction();
+    try{
+      await writer.query(`INSERT INTO inv_batches(batch_no,company_code,warehouse_code,product_code,sku_code,source_type,source_no,qty,qty_available)
+        VALUES('BEFORE-FIRST-DOMAIN','COMP-A','WH-A2','PRD-EGG-RAW','SKU-GRADE_1','PURCHASE','SYNTHETIC-OFF',10,10)`);
+      await expect(syntheticActiveDomain('50000000-0000-0000-0000-000000000002','WH-A2')).rejects.toThrow('PRODUCT_BUSY');
+      expect((await db.query('SELECT count(*)::int AS n FROM production_inventory_domain_states'))[0].n).toBe(0);
+      await writer.rollbackTransaction();
+      await syntheticActiveDomain('50000000-0000-0000-0000-000000000002','WH-A2');
+    }finally{if(writer.isTransactionActive)await writer.rollbackTransaction();await writer.release();}
+  });
+  it('fences late purchase qualification behind an existing source-only operation on an unqualified root',async()=>{
+    const {batch}=await purchase();const reader=db.createQueryRunner();await reader.connect();await reader.startTransaction();
+    const admit=()=>db.transaction(m=>qualifyPurchaseInventory(m,{batchNo:batch,companyCode:'COMP-A',warehouseCode:'WH-A2',productCode:'PRD-EGG-RAW',skuCode:'SKU-GRADE_1',
+      receiptNo:'SYNTHETIC-PURCHASE',receiptItemId:'11',itemCode:'SKU-GRADE_1',quantity:100,unitCost:2,actor:'maker',baseUnit:'枚',
+      admission:{scopeId:'20000000-0000-0000-0000-000000000001',companyCode:'COMP-A',warehouseCode:'WH-A',productCode:'PRD-EGG-RAW'}}));
+    try{
+      await assertOfficialInventoryBatches(reader.manager,[batch]);
+      await expect(admit()).rejects.toThrow('ROOT_BUSY');
+      await reader.commitTransaction();await admit();
+      await expect(assertOfficialInventoryBatches(db,[batch])).resolves.toBeUndefined();
+    }finally{if(reader.isTransactionActive)await reader.rollbackTransaction();await reader.release();}
+  });
+  it('keeps independent purchase admission, descendants and unknown-cost valuation controlled with a DRAFT house audit anchor',async()=>{
+    await syntheticActiveDomain('50000000-0000-0000-0000-000000000002','WH-A2');
+    await db.query(`INSERT INTO production_cutover_scopes(id,company_code,house_code,version,first_production_date,state,warehouse_code,flock_id,source_profile_code,manifest_sha256,evidence,confirmed_by)
+      VALUES('20000000-0000-0000-0000-000000000002','COMP-A','HOUSE-A',2,'2026-11-19','DRAFT','WH-A2','FLOCK-A','PROFILE-A',repeat('c',64),'{}','fixture');
+      INSERT INTO production_inventory_domains(scope_id,company_code,warehouse_code,product_code,inventory_domain_id)
+        VALUES('20000000-0000-0000-0000-000000000002','COMP-A','WH-A2','PRD-EGG-RAW','50000000-0000-0000-0000-000000000002')`);
+    const {wms,batch}=await purchase('枚',0);
+    const [q]=await db.query('SELECT * FROM production_batch_qualifications WHERE batch_no=$1',[batch]);
+    expect(q).toMatchObject({scope_id:'20000000-0000-0000-0000-000000000002',cost_status:'UNKNOWN',origin_kind:'PURCHASE'});
+    await wms.confirmTransfer({transfer_no:'DRAFT-ANCHOR-CHILD',from_warehouse:'WH-A2',to_warehouse:'WH-A',items:[{batch_no:batch,qty:20}]},{username:'maker'});
+    const [child]=await db.query("SELECT batch_no FROM inv_batches WHERE source_no='DRAFT-ANCHOR-CHILD'");
+    await wms.confirmTransfer({transfer_no:'DRAFT-ANCHOR-GRANDCHILD',from_warehouse:'WH-A',to_warehouse:'WH-A2',items:[{batch_no:child.batch_no,qty:10}]},{username:'maker'});
+    const costs=await db.query(`SELECT ${officialInventoryCostKnownPredicate('b')} AS known FROM inv_batches b`);
+    expect(costs).toHaveLength(3);expect(costs.every((c:any)=>c.known===false)).toBe(true);
+    await expect(db.query("UPDATE inv_batches SET source_no='FORGED-RECEIPT' WHERE batch_no=$1",[batch])).rejects.toThrow('IDENTITY_IMMUTABLE');
+  });
+  it('checks NEW purchase-root quantity and identity before a raw batch mutation can commit',async()=>{
+    const {wms,batch}=await purchase();
+    await wms.confirmTransfer({transfer_no:'TUPLE-BASELINE',from_warehouse:'WH-A2',to_warehouse:'WH-A',items:[{batch_no:batch,qty:20}]},{username:'maker'});
+    for(const sql of ["qty=101,qty_available=101","unit='kg'","warehouse_code='WH-A'","source_no='COPIED-OTHER-RECEIPT'"])
+      await expect(db.query(`UPDATE inv_batches SET ${sql} WHERE batch_no=$1`,[batch])).rejects.toThrow(/SOURCE_QUANTITY_IDENTITY_HOLD|IDENTITY_IMMUTABLE|SOURCE_IDENTITY_MISMATCH/);
+    expect((await db.query('SELECT qty FROM inv_batches WHERE batch_no=$1',[batch]))[0].qty).toBe('80');
+  });
+  it('rejects fractional base eggs at real in-transit receipt and rolls back every target fact',async()=>{
+    const original=await post(await ready()),wms=new WmsService(db.manager,cls as any);scope.allowedWarehouseCodes.push('WH-A2');
+    const batch=original.batches[0].batchNo;
+    await wms.createTransfer({transfer_no:'FRACTIONAL-RECEIPT',from_warehouse:'WH-A',to_warehouse:'WH-A2',items:[{batch_no:batch,qty:10}]},{username:'maker'});
+    await wms.dispatchTransfer('FRACTIONAL-RECEIPT',{username:'maker'});
+    await expect(wms.receiveTransfer('FRACTIONAL-RECEIPT',{items:[{batch_no:batch,received_qty:0.5,damaged_qty:0}]},{username:'maker'})).rejects.toThrow();
+    expect((await db.query("SELECT status FROM wms_transfer WHERE transfer_no='FRACTIONAL-RECEIPT'"))[0].status).toBe('IN_TRANSIT');
+    expect((await db.query("SELECT count(*)::int AS n FROM inv_batches WHERE source_type='TRANSFER'"))[0].n).toBe(0);
+    const received=await wms.receiveTransfer('FRACTIONAL-RECEIPT',{receive_all:true},{username:'maker'});expect(received.code).toBe(200);
+  });
   it('admits a real persisted base-unit purchase only when its actual transfer enters the approved domain', async () => {
     const {wms,batch}=await purchase();expect(batch).toBe(purchaseReceiptBatchNo('SYNTHETIC-PURCHASE','11'));
     expect((await db.query('SELECT count(*)::int AS n FROM production_batch_qualifications'))[0].n).toBe(0);
@@ -333,6 +534,36 @@ fixture('formal installment documents — actual PostgreSQL 18 inventory and pro
       skuCode:'SKU-GRADE_1',specCode:'LOOSE',baseUnit:'枚',tradeUnit:'枚',factor:1,baseQty:20}));
     expect(pool.map((b:{batch_no:string})=>b.batch_no)).toEqual([child.batch_no]);
     expect((await service.balance('COMP-A','HOUSE-A',day,'WH-A')).grades.GRADE_1.posted).toBe(0);
+  });
+  it('rejects a legacy unknown batch that merely copies a receipt label, preserving admission for the real original',async()=>{
+    const {wms,batch}=await purchase();await db.query(`INSERT INTO inv_batches(batch_no,company_code,warehouse_code,product_code,sku_code,
+      grade_code_std,spec_code,unit,base_quantity_version,status,qty,qty_available,source_type,source_no)
+      VALUES('UNPROVEN-OLD-NUMBER','COMP-A','WH-A2','PRD-EGG-RAW','SKU-GRADE_1','GRADE_1','LOOSE','枚',1,'AVAILABLE',30,30,'PURCHASE','SYNTHETIC-PURCHASE')`);
+    await db.query("INSERT INTO inv_ledger(batch_no,qty_change,change_type,ref_no) VALUES('UNPROVEN-OLD-NUMBER',30,'PURCHASE_INBOUND','SYNTHETIC-PURCHASE')");
+    await expect(wms.confirmTransfer({transfer_no:'UNKNOWN-RECEIPT-LABEL',from_warehouse:'WH-A2',to_warehouse:'WH-A',items:[{batch_no:'UNPROVEN-OLD-NUMBER',qty:20}]},{username:'maker'})).rejects.toThrow('采购根原行');
+    expect((await db.query('SELECT count(*)::int AS n FROM production_batch_qualifications'))[0].n).toBe(0);
+    await wms.confirmTransfer({transfer_no:'PROVEN-ORIGINAL',from_warehouse:'WH-A2',to_warehouse:'WH-A',items:[{batch_no:batch,qty:20}]},{username:'maker'});
+    expect((await db.query("SELECT batch_no FROM production_batch_qualifications WHERE origin_kind='PURCHASE'"))[0].batch_no).toBe(batch);
+  });
+  for(const withLedger of [false,true])it(`does not hide an over-receipt root by deducting before admission (extra ledger=${withLedger})`,async()=>{
+    const {wms,batch}=await purchase();await db.query('UPDATE inv_batches SET qty=120,qty_available=120 WHERE batch_no=$1',[batch]);
+    if(withLedger)await db.query("INSERT INTO inv_ledger(batch_no,qty_change,change_type,ref_no) VALUES($1,20,'STOCKTAKE_UP','SYNTHETIC-EXTRA')",[batch]);
+    await expect(wms.confirmTransfer({transfer_no:'OVER-RECEIPT',from_warehouse:'WH-A2',to_warehouse:'WH-A',items:[{batch_no:batch,qty:30}]},{username:'maker'})).rejects.toThrow('初始入库、余额或额外入账');
+    expect((await db.query('SELECT qty FROM inv_batches WHERE batch_no=$1',[batch]))[0].qty).toBe('120');
+    expect((await db.query('SELECT count(*)::int AS n FROM production_batch_qualifications'))[0].n).toBe(0);
+    expect((await db.query('SELECT count(*)::int AS n FROM wms_transfer'))[0].n).toBe(0);
+  });
+  it('closes either conflicting product identity while preserving a material with the same code',async()=>{
+    for(const [product,sku] of [['PRD-EGG-RAW','SKU-STD'],['PRD-STD','SKU-GRADE_1']]){
+      await expect(db.query(`INSERT INTO inv_batches(batch_no,company_code,warehouse_code,product_code,sku_code,source_type,source_no,qty,qty_available)
+        VALUES($1,'COMP-A','WH-A',$2,$3,'PURCHASE','UNPROVEN',1,1)`,[`MISMATCH-${sku}`,product,sku])).rejects.toThrow('OFFICIAL_INVENTORY_SOURCE_REJECTED');
+    }
+    for(const company of [null,'ALL'])await expect(db.query(`INSERT INTO inv_batches(batch_no,company_code,warehouse_code,product_code,sku_code,source_type,source_no,qty,qty_available)
+      VALUES($1,$2,'WH-A','PRD-EGG-RAW','SKU-GRADE_1','PURCHASE','UNOWNED',1,1)`,[`UNOWNED-${company}`,company])).rejects.toThrow('OFFICIAL_INVENTORY_SOURCE_REJECTED');
+    await db.query(`INSERT INTO mst_materials(material_code,material_name,material_type,unit,status) VALUES('PRD-EGG-RAW','Distinct material namespace','PACKAGING','kg','ACTIVE');
+      INSERT INTO inv_batches(batch_no,company_code,warehouse_code,product_code,sku_code,material_code,item_type,unit,source_type,source_no,qty,qty_available)
+      VALUES('ACTUAL-MATERIAL','COMP-A','WH-A',NULL,NULL,'PRD-EGG-RAW','MATERIAL','kg','MATERIAL','UNRELATED',3,3)`);
+    await expect(assertOfficialInventoryBatches(db,['ACTUAL-MATERIAL'])).resolves.toBeUndefined();
   });
   it('rolls back the complete transfer when a confirmed purchase has no verified base-unit quantity', async () => {
     const {wms,batch}=await purchase('箱');

@@ -55,7 +55,7 @@ export class UploadController {
     ...['MENU_PRC2_ORDER','MENU_PRC2_REQUEST','MENU_PRC2_PAYMENT','MENU_FIN2_SHAREHOLDER','MENU_FIN2_EXPENSE',
       'MENU_FIN2_REIMBURSE','MENU_FIN2_AP','MENU_STORE_PAYMENT','MENU_WORKFLOW_FORM','MENU_FLOCK_CREATE',
       'MENU_FIN2_AR_LEDGER','MENU_PROD_INBOUND'].map(menu=>({menu,perm:'E' as const})),
-    {menu:'MENU_PROD_INBOUND',perm:'C'},
+    {menu:'MENU_PROD_INBOUND',perm:'C'},{menu:'MENU_PROD_INBOUND',perm:'A'},{menu:'MENU_INV_BATCH',perm:'E'},
   ])
   @UseInterceptors(
     FileInterceptor('file', {
@@ -99,7 +99,38 @@ export class UploadController {
     let storeCode = this.safeCode(body.storeCode ?? body.store_code, '', 64);
     const isAdmin=req.user?.roles?.includes('ROLE_ADMIN') || req.user?.role==='ROLE_ADMIN' || req.user?.permissions?.includes('*');
     const originalMenus=['MENU_PRC2_ORDER','MENU_PRC2_REQUEST','MENU_PRC2_PAYMENT','MENU_FIN2_SHAREHOLDER','MENU_FIN2_EXPENSE','MENU_FIN2_REIMBURSE','MENU_FIN2_AP','MENU_STORE_PAYMENT','MENU_WORKFLOW_FORM'];
-    if(!['FLOCK_LIFECYCLE','PRODUCTION_INBOUND'].includes(moduleCode) && !isAdmin && !originalMenus.some(menu=>hasPerm(req.user?.permissions,menu,'E'))) throw new BadRequestException('养殖或生产交库上传权限仅可用于对应业务附件');
+    if(!['FLOCK_LIFECYCLE','PRODUCTION_INBOUND','PRODUCTION_CUTOVER','INVENTORY_SOURCE_CONTROL'].includes(moduleCode) && !isAdmin && !originalMenus.some(menu=>hasPerm(req.user?.permissions,menu,'E'))) throw new BadRequestException('养殖或生产交库上传权限仅可用于对应业务附件');
+    if(['PRODUCTION_CUTOVER','INVENTORY_SOURCE_CONTROL'].includes(moduleCode)) {
+      if(!this.dataScopes)throw new BadRequestException('缺少有效盘点或来源附件数据范围');
+      const requirements=moduleCode==='PRODUCTION_CUTOVER'
+        ? [{menu:'MENU_PROD_INBOUND',perm:'C' as const},{menu:'MENU_PROD_INBOUND',perm:'E' as const},
+          {menu:'MENU_PROD_INBOUND',perm:'A' as const},{menu:'MENU_FIN2_AR_LEDGER',perm:'E' as const}]
+        : [{menu:'MENU_INV_BATCH',perm:'E' as const}];
+      const allowed=requirements.filter(r=>isAdmin||hasPerm(req.user?.permissions,r.menu,r.perm));
+      if(!allowed.length)throw new BadRequestException('缺少对应盘点或库存来源附件权限');
+      let canonicalCompany:string,canonicalWarehouse:string;
+      if(moduleCode==='PRODUCTION_CUTOVER') {
+        if(ownerType!=='WAREHOUSE')throw new BadRequestException('盘点附件须绑定实际仓库');
+        const [warehouse]=await this.fileMetadataRepo.manager.query("SELECT company_code,warehouse_code FROM wms_warehouses WHERE warehouse_code=$1 AND status='ACTIVE' AND domain='OPERATIONAL'",[ownerId]);
+        if(!warehouse)throw new BadRequestException('盘点仓库不是启用的实际作业仓');
+        canonicalCompany=warehouse.company_code;canonicalWarehouse=warehouse.warehouse_code;
+      }else{
+        if(ownerType!=='BATCH')throw new BadRequestException('来源控制附件须绑定实际原始批次');
+        const [root]=await this.fileMetadataRepo.manager.query(`SELECT q.company_code,COALESCE(q.source_warehouse_code,b.warehouse_code) AS warehouse_code
+          FROM production_batch_qualifications q JOIN inv_batches b ON b.batch_no=q.batch_no
+          WHERE q.batch_no=$1 AND q.disposition='QUALIFIED' AND q.origin_kind<>'DERIVED'`,[ownerId]);
+        if(!root)throw new BadRequestException('附件批次不是具有实际来源的原始批次');
+        canonicalCompany=root.company_code;canonicalWarehouse=root.warehouse_code;
+      }
+      if(!canonicalCompany||companyCode!==canonicalCompany)throw new BadRequestException('附件公司与实物权威归属不一致');
+      const [warehouse]=await this.fileMetadataRepo.manager.query('SELECT company_code,site_code FROM wms_warehouses WHERE warehouse_code=$1',[canonicalWarehouse]);
+      if(!warehouse||warehouse.company_code!==canonicalCompany||storeCode&&storeCode!==(warehouse.site_code??''))throw new BadRequestException('附件仓库及场站权威归属不一致');
+      const user=req.user,roles=user?.roles??(user?.role?[user.role]:[]);
+      const scopes=await Promise.all([...new Set(allowed.map(r=>r.menu))].map(menu=>this.dataScopes!.resolve(String(user?.userId??user?.id??''),roles,menu,user?.perms_version)));
+      if(!scopes.some(s=>s.isGlobal||s.allowedCompanyCodes.includes(canonicalCompany)&&s.allowedWarehouseCodes.includes(canonicalWarehouse)))
+        throw new BadRequestException('附件不在实际公司及仓库业务授权范围内');
+      companyCode=canonicalCompany;storeCode=warehouse.site_code??'';
+    }
     if(['FLOCK_LIFECYCLE','PRODUCTION_INBOUND'].includes(moduleCode)) {
       const allowed=moduleCode==='PRODUCTION_INBOUND'
         ? hasPerm(req.user?.permissions,'MENU_PROD_INBOUND','C')||hasPerm(req.user?.permissions,'MENU_PROD_INBOUND','E')||hasPerm(req.user?.permissions,'MENU_FIN2_AR_LEDGER','E')

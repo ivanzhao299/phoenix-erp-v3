@@ -41,6 +41,7 @@ export class GenericCrudController {
    * 即使某个表被意外加入 ALLOWED_TABLES，此处也会拦截。
    */
   private static readonly RUNTIME_V2_PREFIXES = [
+    'production_',        // Formal inventory provenance/cutover facts use dedicated scoped workflows only.
     'prc2_',              // Procurement V2 Runtime
     'sal_',               // Sales V2 Runtime (sal_orders, sal_price_books 等)
     'wf_approval_',       // Approval Engine Runtime

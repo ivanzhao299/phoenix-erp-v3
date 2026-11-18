@@ -85,6 +85,7 @@ function fixture(options: Options = {}) {
     }
     if (sql.includes('FROM wms_transfer WHERE')) return [{ transfer_no: 'TR-1', from_warehouse: 'WH-A', to_warehouse: 'WH-B', status: options.transferStatus ?? 'PENDING' }];
     if (/SELECT \* FROM inv_batches WHERE batch_no\s*=\s*\$1/.test(sql) && args[0] !== 'B-1') return [];
+    if (sql.includes('AND NOT (official_inventory_writable(')) return []; // This fixture is explicitly outside any formal cutover.
     if (sql.includes('FROM inv_batches')) {
       if (options.projectBatchSelect) {
         const projection = sql.match(/^\s*SELECT\s+([\s\S]*?)\s+FROM inv_batches/)!;
@@ -96,6 +97,7 @@ function fixture(options: Options = {}) {
     if (sql.includes('INSERT INTO inv_batches') && sql.includes('ON CONFLICT')) return options.rejectUpsert ? [] : [{ batch_no: args[0] }];
     if (sql.includes('INSERT INTO wms_outbound') && sql.includes('RETURNING')) return [{ ...order }];
     if (/^\s*(INSERT|UPDATE)/.test(sql)) return [];
+    if(sql==="SELECT to_regclass('production_inventory_domain_states') AS domains")return [{domains:null}];
     throw new Error(`Unmodeled SQL: ${sql}`);
   }) };
   const em = {

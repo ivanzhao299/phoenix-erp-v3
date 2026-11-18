@@ -83,7 +83,7 @@ export const formalInstallmentChecks={
       OR c.posting_date IS DISTINCT FROM d.expected_posting_date OR c.period_status IS DISTINCT FROM 'OPEN' OR c.period_versions='[]'::jsonb)`,
   inventoryLedgerBalance:`SELECT b.batch_no,b.qty,COALESCE(SUM(v.qty_change),0) AS ledger_quantity FROM inv_batches b
     JOIN production_inbound_lines l ON l.batch_no=b.batch_no JOIN production_inbound_documents d ON d.id=l.document_id AND d.state='POSTED' AND d.kind='INBOUND'
-    LEFT JOIN inv_ledger v ON v.batch_no=b.batch_no GROUP BY b.batch_no,b.qty HAVING b.qty IS NULL OR b.qty<0 OR b.qty IS DISTINCT FROM COALESCE(SUM(v.qty_change),0)`,
+    LEFT JOIN inv_ledger v ON v.batch_no=b.batch_no AND v.change_type IS DISTINCT FROM 'RESERVED' AND v.change_type IS DISTINCT FROM 'RELEASED' GROUP BY b.batch_no,b.qty HAVING b.qty IS NULL OR b.qty<0 OR b.qty IS DISTINCT FROM COALESCE(SUM(v.qty_change),0)`,
   orphanReversalLedger:`SELECT v.id,v.batch_no,v.ref_no FROM inv_ledger v WHERE v.change_type='PRODUCTION_INBOUND_REVERSAL'
     AND NOT EXISTS(SELECT 1 FROM production_inbound_lines l JOIN production_inbound_documents d ON d.id=l.document_id
       WHERE l.inventory_ledger_id=v.id AND d.state='POSTED' AND d.kind='REVERSAL')`,

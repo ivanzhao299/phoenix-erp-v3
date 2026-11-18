@@ -123,7 +123,7 @@ export default function ProductionInboundWorkbench({mobile=false}:{mobile?:boole
   return <main className={s.page}>
     {mobile&&<Link href="/mobile/home">{t('common.back','返回')}</Link>}
     <PageHeader title={label('title','正式分次生产入库')} subtitle={label('subtitle','按实际交接逐次入库，保留原单及不可改写的过账回执。')} />
-    <div className={s.actions}><Link href={mobile?"/mobile/production-reports":"/breeding/daily"}>{label('daily','产蛋日报')}</Link>{!mobile&&<Link href="/breeding/daily-inbound-ledger">{label('legacy','历史入库资料')}</Link>}
+    <div className={s.actions}><Link href={mobile?"/mobile/production-cutovers":"/breeding/production-cutovers"}>{t('productionCutover.title','正式库存切换盘点')}</Link><Link href={mobile?"/mobile/production-reports":"/breeding/daily"}>{label('daily','产蛋日报')}</Link>{!mobile&&<Link href="/breeding/daily-inbound-ledger">{label('legacy','历史入库资料')}</Link>}
       <button disabled={busy} onClick={()=>run(refresh)}>{t('common.refresh','刷新')}</button><button disabled={busy} onClick={newIntent}>{label('new','新交接意图')}</button></div>
     {error&&<p role="alert" className={`${s.notice} ${s.error}`}>{error}</p>}{notice&&<p role="status" className={s.notice}>{notice}</p>}
     {!!savedIntents.length&&<div className={s.actions}>{savedIntents.map(d=><button key={d.intentKey} disabled={busy} onClick={()=>{setForm(d);setSelected(null);setReverseQty({});}}>{label('resumeDraft','返回暂存交接')} · {d.handoverRef||d.houseCode}</button>)}</div>}

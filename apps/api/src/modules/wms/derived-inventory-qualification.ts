@@ -9,11 +9,14 @@ export async function qualifyDerivedInventory(m: EntityManager, parents: Array<{
   batchNo:string;companyCode:string;warehouseCode:string;productCode:string|null;skuCode:string|null;sourceType:string;sourceNo:string;actor:string;ownershipTransfer?:boolean;allowSkuConversion?:boolean;
 }): Promise<void> {
   const parentNos=[...new Set(parents.map(p=>p.batch_no))].sort();
+  const metadata=await m.query("SELECT to_regclass('production_inventory_domain_states') AS domains");
+  const modern=Array.isArray(metadata)&&!!metadata[0]?.domains;
   const known=await m.query(`SELECT q.batch_no,q.scope_id AS official_scope_id FROM production_batch_qualifications q
-    JOIN production_cutover_scopes s ON s.id=q.scope_id WHERE q.batch_no=ANY($1::text[]) AND s.state<>'DRAFT'`,[parentNos]);
+    JOIN production_cutover_scopes s ON s.id=q.scope_id WHERE q.batch_no=ANY($1::text[]) AND ${modern?'official_inventory_qualification_controlled(q.batch_no)':"s.state<>'DRAFT'"}`,[parentNos]);
   if(!parentNos.length||known.length!==parentNos.length) {
     const [domain]=await m.query(`SELECT d.scope_id FROM production_inventory_domains d JOIN production_cutover_scopes s ON s.id=d.scope_id
-      WHERE d.company_code=$1 AND d.warehouse_code=$2 AND d.product_code=$3 AND s.state='ACTIVE' ORDER BY d.scope_id LIMIT 1`,
+      ${modern?'LEFT JOIN production_inventory_domain_states domain ON domain.company_code=d.company_code AND domain.warehouse_code=d.warehouse_code AND domain.product_code=d.product_code':''}
+      WHERE d.company_code=$1 AND d.warehouse_code=$2 AND d.product_code=$3 AND ${modern?"(domain.id IS NULL AND s.state='ACTIVE' OR domain.state='ACTIVE')":"s.state='ACTIVE'"} ORDER BY d.scope_id LIMIT 1`,
       [target.companyCode,target.warehouseCode,target.productCode]);
     if(!domain&&!known.length)return;
     if(domain) {
@@ -28,8 +31,19 @@ export async function qualifyDerivedInventory(m: EntityManager, parents: Array<{
           AND i.item_code=ANY($4::text[]) FOR SHARE OF i,r`,[batch.source_no,batch.company_code,batch.warehouse_code,
           [batch.sku_code,batch.product_code,batch.material_code].filter(Boolean)]);
         const exact=candidates.filter((i:any)=>purchaseReceiptBatchNo(batch.source_no,String(i.id))===batchNo);
-        const line=exact.length===1?exact[0]:candidates.length===1?candidates[0]:null;
+        const line=exact.length===1?exact[0]:null;
         if(!line||Number(batch.qty)<0||Number(batch.qty)>Number(line.actual_qty)||batch.product_code!==target.productCode)throw new ConflictException('采购根原行、数量或商品不明确，请取得逐行实际来源证据');
+        // The source may already have been dispatched. Check the complete original ledger, not only the deducted remainder.
+        const [flow]=await m.query(`SELECT
+          COALESCE(SUM(qty_change) FILTER(WHERE change_type='PURCHASE_INBOUND' AND ref_no=$2),0)::numeric AS admitted,
+          COALESCE(SUM(qty_change) FILTER(WHERE change_type NOT IN ('RESERVED','RELEASED')),0)::numeric AS balance,
+          COUNT(*) FILTER(WHERE qty_change>0 AND change_type NOT IN ('PURCHASE_INBOUND','RELEASED'))::int AS other_credits,
+          COUNT(*) FILTER(WHERE change_type='PURCHASE_INBOUND' AND ref_no IS DISTINCT FROM $2)::int AS other_receipts
+          FROM inv_ledger WHERE batch_no=$1`,[batchNo,batch.source_no]);
+        if(!flow||Number(flow.admitted)!==Number(line.actual_qty)||Number(flow.balance)!==Number(batch.qty)
+          ||Number(flow.other_credits)!==0||Number(flow.other_receipts)!==0||Number(batch.qty_available)<0
+          ||batch.qty_available==null||Number(batch.qty_available)>Number(batch.qty))
+          throw new ConflictException('采购原批的初始入库、余额或额外入账无法与收货行核对，须先独立核验');
         await qualifyPurchaseInventory(m,{batchNo,companyCode:batch.company_code,warehouseCode:batch.warehouse_code,
           productCode:batch.product_code,skuCode:batch.sku_code,receiptNo:batch.source_no,receiptItemId:String(line.id),itemCode:line.item_code,
           quantity:Number(line.actual_qty),unitCost:Number(batch.unit_cost),actor:target.actor,baseUnit:batch.unit,

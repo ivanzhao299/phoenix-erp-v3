@@ -1,6 +1,6 @@
 import { qualifyDerivedInventory } from './derived-inventory-qualification';
 import { qualifyPurchaseInventory,purchaseReceiptBatchNo } from './purchase-inventory-qualification';
-import { officialInventoryPredicate, officialLedgerPredicate } from './official-inventory';
+import { assertOfficialInventoryBatches, officialInventoryPredicate, officialLedgerPredicate } from './official-inventory';
 import { inheritFlockProductionSources } from '../farm/flock-production-source';
 import { resolveQuantity, savedQuantity, sharedBatches, assertBatchPool, baseQuantity, QuantitySnapshot, lockQuantityPools } from '../product-master/services/quantity-contract';
 import { SkuPolicy } from '../product-master/services/sku-policy';
@@ -55,6 +55,82 @@ export class WmsService {
     @Optional() @Inject(TEMP_REVERSAL_APPROVAL_VERIFIER)
     private readonly tempCorrectionAuthority?: TempReversalApprovalVerifier,
   ) {}
+
+  /** Internal approved opening entry. Never accepts stock values, source flags or actor identity from an HTTP body. */
+  async postApprovedOpening(manager:EntityManager,manifestId:string):Promise<Record<string,unknown>> {
+    if(!manager.queryRunner?.isTransactionActive)throw new ConflictException('OPENING_TRANSACTION_REQUIRED');
+    const user=this.cls.get('user') as any,scope=this.cls.get('dataScope') as DataScopeContext|undefined;
+    if(!user||!hasPerm(user.permissions,'MENU_PROD_INBOUND','E'))throw new ForbiddenException('缺少正式期初过账权限');
+    const actor=String(user.userId??user.id??'');if(!actor)throw new ForbiddenException('缺少实名过账人');
+    const [manifest]=await manager.query('SELECT * FROM production_cutover_manifests WHERE id=$1 FOR UPDATE',[manifestId]);
+    if(!manifest)throw new BadRequestException('切换盘点单不存在');
+    if(!scope||!scope.isGlobal&&(!scope.allowedCompanyCodes.includes(manifest.company_code)||!scope.allowedWarehouseCodes.includes(manifest.warehouse_code)))
+      throw new ForbiddenException('无权操作该公司或仓库的期初');
+    if(manifest.state==='APPLIED')return manifest.receipt;
+    if(manifest.state!=='APPROVED')throw new ConflictException('期初须先取得同摘要业务及财务签认');
+    const signatures=await manager.query(`SELECT s.* FROM production_cutover_signatures s JOIN file_metadata f ON f.file_id=s.evidence_file_id
+      JOIN sys_user u ON u.user_id::text=s.signed_by AND u.username=f.uploaded_by
+      WHERE s.manifest_id=$1 AND s.content_hash=$2 AND s.snapshot_sha256=$3 AND f.checksum=s.evidence_checksum
+        AND COALESCE(to_jsonb(u)->>'status','') IN ('1','ACTIVE') AND f.module_code='PRODUCTION_CUTOVER'
+        AND f.owner_type='WAREHOUSE' AND f.owner_id=$4 AND f.company_code=$5
+        AND f.status='ACTIVE' AND f.deleted_at IS NULL AND f.visibility IN ('PROTECTED','PRIVATE') FOR SHARE OF s,f`,
+      [manifest.id,manifest.content_hash,manifest.snapshot_sha256,manifest.warehouse_code,manifest.company_code]);
+    if(new Set(signatures.map((s:any)=>s.signature_role)).size!==2)throw new ConflictException('期初签认或原保护附件已失效');
+    await this.lockWarehouseCompany(manager,manifest.warehouse_code,manifest.company_code);
+    const [warehouse]=await manager.query(`SELECT status,domain FROM wms_warehouses WHERE warehouse_code=$1 FOR SHARE`,[manifest.warehouse_code]);
+    if(warehouse?.status!=='ACTIVE'||warehouse.domain!=='OPERATIONAL')throw new BadRequestException('期初仓库必须为启用的实体作业仓');
+    const postingDate=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Singapore'}).format(new Date());
+    if(manifest.payload.postingDate!==postingDate)throw new ConflictException('期初冻结记账日已变化，请保留原单重新核对签认');
+    const claims=await manager.query(`SELECT c.*,d.product_code,d.state FROM production_opening_domain_claims c
+      JOIN production_inventory_domain_states d ON d.id=c.domain_id WHERE c.manifest_id=$1 ORDER BY c.domain_id FOR SHARE OF c,d`,[manifestId]);
+    if(claims.length!==manifest.boundary.productCodes.length||claims.some((c:any)=>c.state!=='ACTIVE'||c.content_hash!==manifest.content_hash))
+      throw new ConflictException('期初实物边界尚未完整认领并受控启用');
+    const lines=manifest.payload.openingLines;
+    if(!Array.isArray(lines))throw new ConflictException('期初冻结明细缺失');
+    const output:Array<Record<string,unknown>>=[];
+    for(const [index,line] of lines.entries()){
+      const identity=await this.resolveInventoryItem(manager,line.skuCode,'SKU',manifest.company_code);
+      const quantity=Number(line.quantity);baseQuantity(quantity,1,identity.unit);
+      if(identity.itemType!=='SKU'||identity.unit!=='枚'||!Number.isSafeInteger(quantity)||quantity<=0
+        ||identity.productCode!==line.productCode||identity.gradeCode!==line.gradeCode||identity.specCode!==line.specCode)
+        throw new ConflictException('期初 SKU、品类、分级、规格或基本数量已变化');
+      const claim=claims.find((c:any)=>c.product_code===identity.productCode);if(!claim)throw new ConflictException('期初明细超出已认领实物域');
+      const [location]=await manager.query("SELECT 1 FROM wms_locations WHERE location_code=$1 AND warehouse_code=$2 AND status='ACTIVE' FOR SHARE",[line.locationCode,manifest.warehouse_code]);
+      const [status]=await manager.query("SELECT 1 FROM sys_dict WHERE dict_type='INV_STOCK_STATUS' AND dict_code=$1 AND status='ACTIVE'",[line.stockStatus]);
+      if(!location||!status||line.stockStatus==='RESERVED')throw new ConflictException('期初仓位或状态无效，真实预占须先核对处理');
+      const known=line.costStatus==='CONFIRMED';
+      if(!['CONFIRMED','UNKNOWN'].includes(line.costStatus)||known&&(typeof line.unitCost!=='number'||!Number.isFinite(line.unitCost)||line.unitCost<0)
+        ||!known&&line.unitCost!==null)throw new ConflictException('期初成本须区分财务核定值与未知');
+      const realDate=(d:unknown)=>typeof d==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(d)&&Number.isFinite(Date.parse(d))&&new Date(d).toISOString().slice(0,10)===d;
+      if(line.productionDate!==null&&(!realDate(line.productionDate)||line.productionDate>postingDate)
+        ||line.expireDate!==null&&(!realDate(line.expireDate)||line.productionDate&&line.expireDate<line.productionDate))throw new ConflictException('期初生产日或效期无效');
+      if(line.stockStatus==='AVAILABLE'&&(!known||line.qualityConfirmed!==true||!line.productionDate||!line.expireDate||line.expireDate<postingDate))
+        throw new ConflictException('成本、质检或日期未确认的期初实物只能受限登记');
+      const [grade]=await manager.query("SELECT * FROM product_grades WHERE grade_code=$1 AND status='ACTIVE'",[identity.gradeCode]);
+      if(grade?.default_stock_status&&grade.default_stock_status!=='AVAILABLE'&&line.stockStatus==='AVAILABLE')throw new ConflictException('缺陷档不能以可售状态开账');
+      const batchNo=`OPN-${manifest.id.replace(/-/g,'')}-${index+1}`;
+      await manager.query(`INSERT INTO production_batch_qualifications(batch_no,scope_id,company_code,product_code,sku_code,disposition,origin_kind,
+        origin_ref,evidence_sha256,created_by,source_type,source_no,cost_status,inventory_domain_id,source_warehouse_code,source_quantity,source_unit,opening_manifest_id)
+        VALUES($1,$2,$3,$4,$5,'QUALIFIED','OPENING',$6,$7,$8,'OPENING',$9,$10,$11,$12,$13,'枚',$14)`,
+        [batchNo,claim.scope_id,manifest.company_code,identity.productCode,identity.skuCode,`${manifest.document_no}:${index+1}`,manifest.content_hash,actor,
+          manifest.document_no,line.costStatus,claim.domain_id,manifest.warehouse_code,quantity,manifest.id]);
+      await manager.query(`INSERT INTO inv_batches(batch_no,company_code,warehouse_code,location_code,product_code,sku_code,item_type,unit,
+        qty,qty_available,status,inventory_class,grade_code_std,quality_grade,spec_code,packaging_spec,base_quantity_version,variety_code,
+        source_type,source_no,egg_date,inbound_date,expire_date,unit_cost,created_at,updated_at)
+        VALUES($1,$2,$3,$4,$5,$6,'SKU','枚',$7,$8,$9,$10,$11,$11,$12,$12,1,$13,'OPENING',$14,$15,$16,$17,$18,now(),now())`,
+        [batchNo,manifest.company_code,manifest.warehouse_code,line.locationCode,identity.productCode,identity.skuCode,quantity,
+          line.stockStatus==='AVAILABLE'?quantity:0,line.stockStatus,resolveInventoryClass(identity.gradeCode),identity.gradeCode,identity.specCode,
+          identity.varietyCode,manifest.document_no,line.productionDate,postingDate,line.expireDate,known?line.unitCost:0]);
+      const ledgerId=await writeInvLedger(manager,{batchNo,changeType:INV_LEDGER_CHANGE_TYPE.OPENING_INBOUND,qtyChange:quantity,
+        refNo:manifest.document_no,operator:String(user.username??actor),companyCode:manifest.company_code,warehouseCode:manifest.warehouse_code,
+        locationCode:line.locationCode,skuCode:identity.skuCode,qualityGrade:identity.gradeCode,unit:'枚',businessType:'OPENING',logDate:postingDate,
+        costChange:known?quantity*line.unitCost:null,note:`Approved counted opening ${manifest.document_no} line ${index+1}`});
+      if(!ledgerId)throw new ConflictException('期初原流水缺少真实身份');
+      output.push({batchNo,quantity,inventoryLedgerId:ledgerId,costStatus:line.costStatus,unitCost:line.unitCost,stockStatus:line.stockStatus});
+    }
+    return {manifestId:manifest.id,documentNo:manifest.document_no,contentHash:manifest.content_hash,postingDate,
+      totalOpening:output.reduce((n,l)=>n+Number(l.quantity),0),batches:output,domains:claims.map((c:any)=>({domainId:c.domain_id,productCode:c.product_code,openingReceiptId:c.opening_receipt_id}))};
+  }
 
   /** Historical protocol retained for forensic fixtures only. The production CLI apply entry is retired; archived batches also fail database admission. */
   async reverseReviewedTempProductionInbound(plan: TempReversalPlan) {
@@ -2616,6 +2692,7 @@ export class WmsService {
       `TR-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
     return this.em.transaction(async manager => {
       await lockTempProductionReferences(manager, items.map(item => item.batch_no));
+      await assertOfficialInventoryBatches(manager,items.map(item=>item.batch_no));
       for (const item of items) {
         const [batch] = await manager.query('SELECT sku_code, warehouse_code, company_code FROM inv_batches WHERE batch_no=$1 FOR SHARE', [item.batch_no]);
         if (!batch || batch.warehouse_code !== fromWarehouse) throw new BadRequestException('调拨批次不存在或不属于源仓');
@@ -2745,6 +2822,10 @@ export class WmsService {
         }
         const shortage = expected - received - damaged;
         const snapshot = typeof item.source_snapshot === 'string' ? JSON.parse(item.source_snapshot) : item.source_snapshot;
+        if (!snapshot || snapshot.warehouse_code !== transfer.from_warehouse) throw new BadRequestException('调拨源快照与源仓库不一致');
+        if (snapshot.base_quantity_version === 1 || snapshot.unit === '枚') {
+          for (const amount of [received, damaged, shortage]) if (amount > 0) baseQuantity(amount, 1, snapshot.unit);
+        }
         let targetBatchNo: string | null = null;
         if (received > 0) {
           if (!snapshot || snapshot.warehouse_code !== transfer.from_warehouse) throw new BadRequestException('调拨源快照与源仓库不一致');

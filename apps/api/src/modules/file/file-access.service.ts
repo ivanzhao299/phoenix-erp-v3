@@ -10,7 +10,7 @@ import { createReadStream, existsSync, statSync } from 'fs';
 import { basename, isAbsolute, relative, resolve, sep } from 'path';
 import { ClsService } from 'nestjs-cls';
 import { Repository } from 'typeorm';
-import { hasPerm } from '../../auth/permissions.util';
+import { hasPerm, PermCode } from '../../auth/permissions.util';
 import { DataScopeContext } from '../org/services/data-scope.service';
 import { FileMetadataEntity } from './entities/file-metadata.entity';
 
@@ -23,6 +23,7 @@ export interface FileAccessPolicy {
   companyCode?: string;
   storeCode?: string;
   requiredMenu: string;
+  requiredOperation?: PermCode;
   /** Set only by the flock service after authoritative house DataScope validation. */
   canonicalBreedingHouseScopeVerified?: boolean;
 }
@@ -156,7 +157,7 @@ export class FileAccessService {
   private assertRbac(file: FileMetadataEntity, policy: FileAccessPolicy, mode: ProtectedFileMode) {
     const user = this.user();
     if (this.isAdmin()) return;
-    if (hasPerm(user.permissions, policy.requiredMenu, 'V')) return;
+    if (hasPerm(user.permissions, policy.requiredMenu, policy.requiredOperation ?? 'V')) return;
     this.logDenied(file, policy, mode, 'FILE_RBAC_DENIED');
     throw new ForbiddenException('FILE_RBAC_DENIED');
   }
