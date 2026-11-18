@@ -2,6 +2,7 @@
  * This module never changes state, runs Docker, or accepts an environment bypass.
  * Call it immediately before the typed effect while retaining the same FD 9. */
 import {isOwnerDelegatedMaintenanceApproval} from './production-maintenance-owner-authority.mjs';
+import {assertNoCutoverControlFiles} from './background-control-manifest.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import { CONTRACT, verifyContext } from './production-config-guard.mjs';
@@ -44,6 +45,7 @@ function dependencies(options, overrides) {
   };
   return { directory, guard, inspect, io, expectedUid, store, read };
 }
+function noCutover(d) { return assertNoCutoverControlFiles(d.directory,{exists:file=>!!optionalLstat(file,d.io),read:d.read}); }
 function existingNames(d) {
   try {
     const names = d.io.readdirSync(d.directory);
@@ -63,7 +65,7 @@ function pinnedState(d, context) {
 /** Every ordinary modern release remains blocked for the whole maintenance
  * lifecycle, including gaps between individual operation transaction markers. */
 export function assertModernReleaseAdmission(options = {}, overrides = {}) {
-  const d = dependencies(options, overrides); d.guard(); const before = d.inspect(d.directory);
+  const d = dependencies(options, overrides); d.guard(); noCutover(d); const before = d.inspect(d.directory);
   for (const name of ['maintenance-current.json', 'maintenance-transaction.json']) {
     if (optionalLstat(path.join(d.directory, name), d.io)) hold('MAINTENANCE_LIFECYCLE_ACTIVE');
   }
@@ -83,7 +85,7 @@ export function assertModernReleaseAdmission(options = {}, overrides = {}) {
   for (const name of ['maintenance-current.json', 'maintenance-transaction.json']) {
     if (optionalLstat(path.join(d.directory, name), d.io)) hold('MAINTENANCE_LIFECYCLE_ACTIVE');
   }
-  assertSameDirectory(before, d.inspect(d.directory)); d.guard();
+  noCutover(d); assertSameDirectory(before, d.inspect(d.directory)); d.guard();
   return { schema: 'phoenix.maintenance-admission/v1', mode: 'MODERN_RELEASE', result: 'ADMITTED' };
 }
 
@@ -121,7 +123,7 @@ export async function assertLegacyMaintenanceAdmission(options, overrides = {}) 
   if (!ownerPattern.test(options.context.owner)) hold('MAINTENANCE_OWNER_MISMATCH');
   const context = structuredClone(options.context), d = dependencies(options, overrides), now = overrides.now || Date.now;
   const verifyAuthority = overrides.verifyAuthority || (async () => false);
-  deadline(context, options.requiredBudgetMs, now()); d.guard(); const beforeDirectory = d.inspect(d.directory);
+  deadline(context, options.requiredBudgetMs, now()); d.guard(); noCutover(d); const beforeDirectory = d.inspect(d.directory);
   const before = readLegacy(d, context, options, now());
   const approval = options.approval, profile = profiles[options.operation];
   const expected = { purpose: 'MAINTENANCE', operation: options.operation, intentOperation: profile.intent,
@@ -136,7 +138,7 @@ export async function assertLegacyMaintenanceAdmission(options, overrides = {}) 
     ||!approval.payload.operations.includes(options.operation)||!approval.payload.operations.includes(profile.intent)||!authorized)hold('INDEPENDENT_MAINTENANCE_AUTHORITY_REQUIRED');
   // Authority retrieval can await remote service calls. Re-read all identities
   // and the owned intent after it, rather than using a stale approval snapshot.
-  deadline(context, options.requiredBudgetMs, now()); d.guard();
+  deadline(context, options.requiredBudgetMs, now()); d.guard(); noCutover(d);
   const after = readLegacy(d, context, options, now());
   if (!same(before, after)) hold('MAINTENANCE_ADMISSION_CHANGED');
   assertSameDirectory(beforeDirectory, d.inspect(d.directory)); deadline(context, options.requiredBudgetMs, now());

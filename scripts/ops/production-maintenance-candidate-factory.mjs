@@ -14,7 +14,7 @@ import {collectCandidateServerBinding} from './production-maintenance-candidate-
 import {readLegacyProjection} from './production-maintenance-public-control.mjs';
 import {inspectDockerRuntime} from './production-maintenance-runtime.mjs';
 import {completeLegacyMaintenanceDeployment} from './production-deployment-state.mjs';
-import {BackgroundManifestPublisher,HOLD_KINDS,PUBLIC_DIRECTORY,readPublicManifest,inspectPublicDirectory,validateParticipants} from './background-control-manifest.mjs';
+import {BackgroundManifestPublisher,HOLD_KINDS,PUBLIC_DIRECTORY,readPublicManifest,inspectPublicDirectory,validateParticipants,assertNoCutoverControlFiles} from './background-control-manifest.mjs';
 
 const pinKeys=['id','imageId','revision','startedAt','restartCount'];
 const pinEqual=(a,b)=>pinKeys.every(key=>a?.[key]===b?.[key]);
@@ -214,14 +214,14 @@ export function createMaintenanceCandidateFactory({plan,store,issue,verifyEviden
    return request.stateDigest===state().stateDigest&&same(request.participants,participants())&&pinEqual(body.api,envelope.body.api)&&body.bootId===envelope.body.bootId&&same(body.controlSession,envelope.body.controlSession);
   },
   async verifyFormalOpen(){
-   guard();if(!root||!candidate)return false;const completed=formal(),manifest=readPublicManifest(PUBLIC_DIRECTORY),privateValue=store.read(path.join(store.directory,'background-control.json'));
+   guard();assertNoCutoverControlFiles(store.directory,{read:file=>store.read(file)});if(!root||!candidate)return false;const completed=formal(),manifest=readPublicManifest(PUBLIC_DIRECTORY),privateValue=store.read(path.join(store.directory,'background-control.json'));
    if(manifest.phase!=='OPEN'||manifest.owner!==owner||manifest.targetSha!==context.targetSha||manifest.generation!==3||!same(manifest.participants,participants())
     ||privateValue.phase!=='OPEN'||privateValue.manifestDigest!==manifestDigest(manifest)||privateValue.owner!==owner||privateValue.generation!==3
     ||privateValue.targetSha!==context.targetSha||privateValue.previousFloorSha!==context.previousFloorSha||privateValue.maintenanceContextDigest!==digest
     ||completed.active.api.imageId!==candidate.api.imageId||completed.active.api.revision!==candidate.api.revision)return false;
    const actual=inspectDockerRuntime(candidate.api.id);if(!pinEqual(actual,candidate.api)||actual.running!==true||actual.health!=='healthy')return false;
    verifyCompanions();if(await verifyExecutorInventory({phase:'COMPLETED_OPEN',candidateId:candidate.api.id})!==true)return false;
-   root.assertHeld();const observed=await root.observe({timeoutMs:60000});return observed.mode==='HELD'&&observed.contextDigest===digest
+   root.assertHeld();const observed=await root.observe({timeoutMs:60000});assertNoCutoverControlFiles(store.directory,{read:file=>store.read(file)});return observed.mode==='HELD'&&observed.contextDigest===digest
     &&same(observed.database,root.database)&&observed.observation.backends.length===1&&observed.observation.backends[0].applicationName===`phoenix-maintenance-control:${owner}`;
   },
   cleanupDebt(){return {captures:captures.debt(),ingress:ingress.status(),candidateQueue:queue?.cleanupDebt()||null,unregisteredRoot:root!==null&&queue===null};},

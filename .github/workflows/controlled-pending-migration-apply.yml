@@ -86,17 +86,28 @@ jobs:
             test -z "$(git_safe status --porcelain --untracked-files=all)"
             git_safe fetch --no-tags origin main
             test "$(git_safe rev-parse FETCH_HEAD)" = "$TARGET_SHA"
-            for marker in transaction.json policy-transition.json; do
-              test ! -e "$STATE_DIR/$marker" || { echo "MIGRATION_APPLY=HOLD_IN_FLIGHT_$marker"; exit 1; }
+            for marker in transaction.json policy-transition.json cutover-pending.json; do
+              test ! -e "$STATE_DIR/$marker" && test ! -L "$STATE_DIR/$marker" || { echo "MIGRATION_APPLY=HOLD_IN_FLIGHT_$marker"; exit 1; }
             done
             # OPEN is the normal post-release admission state, not an
             # in-flight deployment. Continue rejecting fenced/publishing or
             # malformed records before schema-first migration.
-            if [ -e "$STATE_DIR/background-control.json" ]; then
+            if [ -e "$STATE_DIR/background-control.json" ] || [ -L "$STATE_DIR/background-control.json" ]; then
               node --input-type=module -e '
                 import fs from "node:fs";
-                const record = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
-                if (record?.phase !== "OPEN") process.exit(1);
+                try {
+                const file=process.argv[1],expected=fs.lstatSync(file);
+                const regular=s=>s.isFile()&&!s.isSymbolicLink()&&s.uid===0&&(s.mode&0o7777)===0o600&&s.nlink===1&&s.size<=65536;
+                if(!regular(expected))process.exit(1);
+                const fd=fs.openSync(file,fs.constants.O_RDONLY|fs.constants.O_NOFOLLOW);
+                const opened=fs.fstatSync(fd);
+                const identity=s=>JSON.stringify([s.dev,s.ino,s.size,s.mtimeMs,s.ctimeMs]);
+                if(!regular(opened)||identity(expected)!==identity(opened))process.exit(1);
+                const record=JSON.parse(fs.readFileSync(fd,"utf8"));
+                const after=fs.fstatSync(fd),named=fs.lstatSync(file);fs.closeSync(fd);
+                if(!regular(after)||!regular(named)||identity(opened)!==identity(after)||identity(after)!==identity(named))process.exit(1);
+                if (record?.phase !== "OPEN" || Object.hasOwn(record,"purpose") || Object.hasOwn(record,"cutover")) process.exit(1);
+                } catch { process.stderr.write("MIGRATION_APPLY=HOLD_CONTROL_METADATA\n");process.exitCode=1; }
               ' "$STATE_DIR/background-control.json" \
                 || { echo 'MIGRATION_APPLY=HOLD_IN_FLIGHT_background-control.json'; exit 1; }
             fi

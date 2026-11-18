@@ -81,14 +81,14 @@ export class LegacyMaintenancePublicControl {
     this.expectedUid = dependencies.expectedUid ?? 0;
   }
   state(phase, operation, expectedDigest) {
-    this.guard(); this.protocol.checkWindow(); this.store.assertCurrent();
+    this.guard(); if (exists(path.join(this.store.directory,'cutover-pending.json'))) hold('CUTOVER_DEDICATED_RECOVERY_REQUIRED'); this.protocol.checkWindow(); this.store.assertCurrent();
     const state = this.store.readState();
     if (!state || state.contextDigest !== this.contextDigest || !same(state.context, this.context) || state.phase !== phase
       || state.status !== 'FENCED' || state.legacyDrainResult !== 'UNSUPPORTED' || (expectedDigest && state.stateDigest !== expectedDigest)) hold('PUBLIC_CONTROL_STATE_MISMATCH');
     this.store.assertOwnedIntent(operation, phase, state.stateDigest);
     return state;
   }
-  absentModern() { if (exists(this.modernPrivate)) hold('EXISTING_MODERN_BACKGROUND_OWNER'); }
+  absentModern() { if (exists(path.join(this.store.directory,'cutover-pending.json'))) hold('CUTOVER_DEDICATED_RECOVERY_REQUIRED'); if (exists(this.modernPrivate)) hold('EXISTING_MODERN_BACKGROUND_OWNER'); }
   async bootstrap() {
     const state = this.state('LEGACY_RECONCILED', 'PREPARE_PROMOTION');
     await this.protocol.authorityStillValid(state);

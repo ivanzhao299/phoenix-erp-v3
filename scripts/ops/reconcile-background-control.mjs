@@ -40,7 +40,7 @@ import { pathToFileURL } from 'node:url';
 import { CONTRACT, secureJson, verifyContext } from './production-config-guard.mjs';
 import { atomicState } from './production-atomic-state.mjs';
 import { captureRuntime } from './capture-production-runtime.mjs';
-import { PUBLIC_DIRECTORY, readPublicManifest, BackgroundManifestPublisher, bindingFromPrivateRecord, validateBinding } from './background-control-manifest.mjs';
+import { PUBLIC_DIRECTORY, readPublicManifest, BackgroundManifestPublisher, bindingFromPrivateRecord, validateBinding, assertNoCutoverControlFiles, assertNoCutoverControlState } from './background-control-manifest.mjs';
 import { verifyCompletedDeployment, assertReanchorPromotion } from './background-control-coordinator.mjs';
 import { discoverParticipants } from './background-deployment-session.mjs';
 
@@ -73,6 +73,12 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     if (mode !== 'inspect' && mode !== 'reconcile' && mode !== 'revive-participant' && mode !== 'abort-prepared-promotion' && mode !== 'complete-background-open' && mode !== 'rollback-dead-transaction' && mode !== 'reconcile-prepared-public') throw new Error('BACKGROUND_RECONCILIATION=HOLD_USAGE_UNKNOWN_MODE');
     mark('VERIFY_CONTEXT');
     verifyContext(root, stateDirectory);
+    if (mode !== 'inspect') assertNoCutoverControlFiles(stateDirectory);
+    let cutoverPending = false;
+    if (mode === 'inspect') {
+      try { fs.lstatSync(path.join(stateDirectory,'cutover-pending.json')); cutoverPending = true; }
+      catch (error) { if (error.code !== 'ENOENT') throw error; }
+    }
     mark('CHECKOUT');
     if (!/^[a-f0-9]{40}$/.test(targetSha)) hold('TARGET_SHA');
     if (git(['branch', '--show-current']) !== 'main' || git(['status', '--porcelain', '--untracked-files=all'])) hold('WORKTREE_NOT_CLEAN_MAIN');
@@ -92,6 +98,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       if (!fs.existsSync(archiveFile)) hold('PREPARED_ARCHIVE_MISSING');
       const archive = secureJson(archiveFile);
       const backgroundSnapshot = archive.archived?.find?.(item => item?.name === 'background-control.json')?.value;
+      assertNoCutoverControlState(backgroundSnapshot);
       // This historical recovery archive only authorizes F=R. Modern
       // descendant re-anchors use abort-prepared-promotion or verified OPEN.
       if (backgroundSnapshot && Object.hasOwn(backgroundSnapshot, 'previousConfigFloorSha')) hold('PREPARED_DESCENDANT_USE_PROMOTION_RECOVERY');
@@ -318,7 +325,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       process.exit(0);
     }
     const privateFile = path.join(stateDirectory, 'background-control.json');
-    if (!fs.existsSync(privateFile)) { console.log('BACKGROUND_RECONCILIATION=NOOP'); process.exit(0); }
+    if (!fs.existsSync(privateFile)) { console.log(cutoverPending ? 'BACKGROUND_RECONCILIATION=CUTOVER_PENDING' : 'BACKGROUND_RECONCILIATION=NOOP'); process.exit(0); }
     const record = secureJson(privateFile);
     const manifest = readPublicManifest(PUBLIC_DIRECTORY);
     if (!record || !/^\d+-\d+$/.test(record.owner || '') || !/^[a-f0-9]{40}$/.test(record.targetSha || '')
@@ -327,6 +334,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       console.log(JSON.stringify({
         privateRecord: {
           phase: record.phase, owner: record.owner, generation: record.generation,
+          purpose: record.purpose ?? null, cutoverPending,
           previousFloorSha: record.previousFloorSha ?? null, targetSha: record.targetSha,
           ...(Object.hasOwn(record, 'previousConfigFloorSha') ? { previousConfigFloorSha: record.previousConfigFloorSha, deployMode: record.deployMode } : {}),
           holdReason: record.holdReason ?? null, updatedAt: record.updatedAt ?? null,

@@ -13,6 +13,40 @@ const sha = value => typeof value === 'string' && /^[a-f0-9]{40}$/.test(value);
 const token = value => typeof value === 'string' && /^[A-Za-z0-9_.:-]{1,160}$/.test(value);
 const projectionDigest = manifest => createHash('sha256').update(JSON.stringify(manifest)).digest('hex');
 export const fail = reason => { throw new Error(`BACKGROUND_HOLD=${reason}`); };
+export const CUTOVER_PURPOSE = 'PRODUCTION_CUTOVER';
+const cutoverKeys = ['admissionId','contentHash','manifestId','manifestVersion','mode','snapshotSha256'];
+const uuid = value => typeof value === 'string' && /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(value);
+const hash = value => typeof value === 'string' && /^[a-f0-9]{64}$/.test(value);
+function cutoverIdentity(value) { return JSON.stringify(cutoverKeys.map(key => value?.[key])); }
+export function assertNoCutoverControlState(record, pending = null) {
+  // Even a malformed/partly persisted marker must retain the deny. This is not a receipt verifier.
+  if (pending !== null || record && (Object.hasOwn(record, 'purpose') || Object.hasOwn(record, 'cutover'))) fail('CUTOVER_DEDICATED_RECOVERY_REQUIRED');
+  return true;
+}
+export function readCutoverPending(directory = CONTRACT.stateDirectory, dependencies = {}) {
+  const file = path.join(directory,'cutover-pending.json');
+  try { (dependencies.lstat || fs.lstatSync)(file); } catch (error) { if (error.code === 'ENOENT') return null; throw error; }
+  let value;try { value = (dependencies.read || secureJson)(file); } catch { fail('CUTOVER_PENDING_INVALID'); }
+  if (value === null || value === undefined) fail('CUTOVER_PENDING_INVALID');
+  return value;
+}
+export function readBackgroundPrivate(directory = CONTRACT.stateDirectory, dependencies = {}) {
+  const file = path.join(directory,'background-control.json');
+  try { (dependencies.lstat || fs.lstatSync)(file); } catch (error) { if (error.code === 'ENOENT') return null; throw error; }
+  let record;try { record = (dependencies.read || secureJson)(file); } catch { fail('CONTROL_RECORD_INVALID'); }
+  if (!record || typeof record !== 'object' || Array.isArray(record)) fail('CONTROL_RECORD_INVALID');
+  return record;
+}
+export function assertNoCutoverControlFiles(directory = CONTRACT.stateDirectory, dependencies = {}) {
+  const exists = dependencies.exists || (file => { try { fs.lstatSync(file); return true; } catch (error) { if (error.code === 'ENOENT') return false; throw error; } });
+  const read = dependencies.read || secureJson;
+  if (exists(path.join(directory, 'cutover-pending.json'))) fail('CUTOVER_DEDICATED_RECOVERY_REQUIRED');
+  const file = path.join(directory, 'background-control.json');
+  if (!exists(file)) return true;
+  let record;try { record = read(file); } catch { fail('CONTROL_RECORD_INVALID'); }
+  if (!record || typeof record !== 'object' || Array.isArray(record)) fail('CONTROL_RECORD_INVALID');
+  return assertNoCutoverControlState(record);
+}
 export function validateBinding(binding) {
   if (!binding || !/^\d+-\d+$/.test(binding.owner) || !sha(binding.previousFloorSha) || !sha(binding.targetSha)) fail('EXACT_RUN_AND_DOUBLE_SHA_REQUIRED');
   // previousFloorSha is the previous executor revision (also used by full
@@ -21,6 +55,14 @@ export function validateBinding(binding) {
     || !sha(binding.previousConfigFloorSha) || binding.previousConfigFloorSha === binding.previousFloorSha
     || binding.previousFloorSha === binding.targetSha || binding.previousConfigFloorSha === binding.targetSha
     || Object.hasOwn(binding, 'configFloorSha'))) fail('API_REANCHOR_CONFIG_FLOOR_BINDING');
+  if (Object.hasOwn(binding, 'purpose') || Object.hasOwn(binding, 'cutover')) {
+    const c = binding.cutover;
+    if (binding.purpose !== CUTOVER_PURPOSE || !c || typeof c !== 'object' || Array.isArray(c)
+      || JSON.stringify(Object.keys(c).sort()) !== JSON.stringify(cutoverKeys) || !uuid(c.manifestId) || !uuid(c.admissionId)
+      || !Number.isSafeInteger(c.manifestVersion) || c.manifestVersion < 0 || !hash(c.contentHash) || !hash(c.snapshotSha256)
+      || !['INIT','ATTACH'].includes(c.mode) || binding.previousFloorSha !== binding.targetSha
+      || ['deployMode','configFloorSha','previousConfigFloorSha'].some(key => Object.hasOwn(binding,key))) fail('CUTOVER_BINDING_REQUIRED');
+  }
   return binding;
 }
 /** Preserve presence as well as value across private receipts. An omitted
@@ -28,9 +70,11 @@ export function validateBinding(binding) {
 export function assertSameBinding(actual, expected) {
   validateBinding(expected);
   try { validateBinding(actual); } catch { fail('OWNER_OR_TRANSACTION_MISMATCH'); }
-  for (const key of ['owner', 'previousFloorSha', 'targetSha', 'deployMode', 'configFloorSha', 'previousConfigFloorSha']) {
+  for (const key of ['owner', 'previousFloorSha', 'targetSha', 'deployMode', 'configFloorSha', 'previousConfigFloorSha', 'purpose']) {
     if (Object.hasOwn(actual, key) !== Object.hasOwn(expected, key) || actual[key] !== expected[key]) fail('OWNER_OR_TRANSACTION_MISMATCH');
   }
+  if (Object.hasOwn(actual, 'cutover') !== Object.hasOwn(expected, 'cutover')
+    || cutoverIdentity(actual.cutover) !== cutoverIdentity(expected.cutover)) fail('OWNER_OR_TRANSACTION_MISMATCH');
   return true;
 }
 export function bindingFromPrivateRecord(record) {
@@ -39,6 +83,8 @@ export function bindingFromPrivateRecord(record) {
   for (const key of ['deployMode', 'configFloorSha', 'previousConfigFloorSha']) {
     if (Object.hasOwn(record, key)) binding[key] = record[key];
   }
+  if (Object.hasOwn(record,'purpose')) binding.purpose = record.purpose;
+  if (Object.hasOwn(record,'cutover')) binding.cutover = structuredClone(record.cutover);
   return validateBinding(binding);
 }
 export function validateParticipants(participants, { targetSha, allowChanjet = false } = {}) {
@@ -141,10 +187,11 @@ export class BackgroundManifestPublisher {
     this.generationFile = path.join(this.stateDirectory, 'background-generation.json');
     this.guard = dependencies.guard || (() => verifyContext(CONTRACT.repository, this.stateDirectory));
     this.inspect = dependencies.inspect || inspectPublicDirectory;
-    this.readPrivate = dependencies.readPrivate || (() => fs.existsSync(this.privateFile) ? secureJson(this.privateFile) : null);
+    this.readPrivate = dependencies.readPrivate || (() => readBackgroundPrivate(this.stateDirectory));
     this.writePrivate = dependencies.writePrivate || (value => atomicState(this.privateFile, value));
     this.writePublic = dependencies.writePublic || (value => atomicPublicManifest(this.directory, value, this.inspect));
     this.readPublic = dependencies.readPublic || (() => readPublicManifest(this.directory, this.inspect));
+    this.readCutoverPending = dependencies.readCutoverPending || (() => readCutoverPending(this.stateDirectory));
     // The durable generation high-water mark survives hold reconciliation.
     // Without it, clearing a stranded record resets the next fence to
     // generation 1 while live participants still watermark the stranded
@@ -176,6 +223,11 @@ export class BackgroundManifestPublisher {
   fence(binding, participants) {
     validateBinding(binding); validateParticipants(participants, { targetSha: binding.previousFloorSha }); this.guard(); this.inspect(this.directory);
     const previous = this.readPrivate(); const publicPrevious = this.readPublic();
+    const pending = this.readCutoverPending();
+    if (binding.purpose === CUTOVER_PURPOSE) {
+      if (!pending || pending.schema !== 'phoenix.production-cutover-pending/1' || pending.phase !== 'PREPARED') fail('CUTOVER_PENDING_AUTHORITY_REQUIRED');
+      assertSameBinding(pending,binding);
+    } else assertNoCutoverControlState(previous,pending);
     if (previous && previous.phase !== 'OPEN') fail('UNFINISHED_BACKGROUND_TRANSACTION');
     if (publicPrevious && (publicPrevious.phase !== 'OPEN' || !previous || previous.generation !== publicPrevious.generation
       || previous.owner !== publicPrevious.owner || previous.targetSha !== publicPrevious.targetSha
@@ -198,9 +250,12 @@ export class BackgroundManifestPublisher {
   }
   async open(binding, participants, verifySuccess) {
     const { record } = this.assertOwned(binding);
+    assertNoCutoverControlState(record,this.readCutoverPending());
     validateParticipants(participants, { targetSha: binding.targetSha });
     if (typeof verifySuccess !== 'function' || await verifySuccess({ ...binding, participants }) !== true) fail('SUCCESS_RECEIPT_REQUIRED');
-    this.assertOwned(binding); // Verification may take time; recheck exact owner/generation.
+    const verified = this.assertOwned(binding); // Verification may take time; recheck exact owner/generation.
+    assertNoCutoverControlState(verified.record,this.readCutoverPending());
+    if (verified.record.generation !== record.generation || verified.record.manifestDigest !== record.manifestDigest) fail('OPEN_AUTHORITY_CHANGED');
     const generation = record.generation + 1;
     if (!Number.isSafeInteger(generation)) fail('GENERATION_EXHAUSTED');
     const manifest = { protocolVersion: 1, phase: 'OPEN', owner: binding.owner, generation, targetSha: binding.targetSha, participants };

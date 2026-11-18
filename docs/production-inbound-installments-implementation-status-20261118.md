@@ -210,6 +210,16 @@
 - 自有 PG18 冷装 `phoenix_temp_reversal_conversion_cold_v6` 实际 **195 SQL＋125 TS**；未改动 114 TS 基线克隆至 `phoenix_temp_reversal_conversion_upgrade_v6`，实际执行 11 条新增迁移。两库 ledger 294、pending=false，scope/RAW/conversion/opening 和 environment/admission/apply-result 均为 0，迁移指纹同为 `0342a0223907c7724eb7f3e47c739bd880fd65c79e43f06755384c7467431cd2`。v5 为中间构建证据，未覆盖或当作本轮最终版本。冻结方案 SHA 仍为 `f3e6dfa834b582306b655862c2a6a57b078f8edf931cf3cf7c8c8201cc0635c8`。
 - 独立只读核验闭合 NULL 资格、角色继承/换代、旧快照、额外库存/草稿和并发接续发现；主代理修改并实测。全角色 RC 的上述运维兼容问题、跨公司 125 全链、实际宿主/镜像/部署/现场事实及以下其他发布阻塞保留。未测试服务器开启 2PC 时的实际分支、Alpine 原生运行环境或生产账号权限；没有连接生产、推送、部署、启用或 GO 回执。
 
+## 第十五开发检查点：通用宿主恢复不能接管切换（2026-11-19，保持 OFF）
+
+- 私有后台绑定增加严格 `purpose=PRODUCTION_CUTOVER` 与单号、版本、内容/快照摘要、预分配 admission ID、INIT/ATTACH 六项身份；完整传输、字段存在性和逐值比较，不能省掉扩展降级为旧部署绑定。切换只绑定同一个已运行源码 SHA，不借一次部署授权同时切业务。公开 manifest 不暴露这些业务身份。
+- 切换围栏需要自身 PREPARED 私有标记与相同绑定；普通 fence/OPEN、modern/legacy 共同准入都拒绝切换用途或 `cutover-pending.json`。即便只剩标记、内容为 null/损坏/非对象、悬空链接或权限不可读，也不视为不存在。异步 OPEN 验真后重新查标记、实际 owner/generation 与原公开摘要，期间出现切换标记则仍保留 FENCED，先于任何 OPEN 写入拒绝。
+- 所有通用 reconcile 变更模式、独立 prepared recovery、旧维护 bootstrap/直接公开投影/最终物理入口释放验真、runtime pin 修复和受控 pending migration 入口加闸。只有切换用途的归档原件也不能走旧 prepared-public 清理。只读 inspect 可显示 pending 存在与用途，pending-only 不再误报 NOOP。未改旧 maintenance root lease SQL 白名单。此处只封旁路，没有清除切换标记、切换 OPEN 或生产 apply 的新路径。
+- Publisher 默认私有读取只将 lstat ENOENT 视为缺失。受控迁移入口用 O_NOFOLLOW、root/mode/nlink/大小与前后 fd/命名路径身份核对，不跟随私有控制文件符号链接；读取/解析失败只报固定码。新增导入同步到 runtime-pin workflow 的暂存清单；按三个实际恢复工作流的清单复制本地 helper 并实际导入，未连接生产或执行 CLI 效果。
+- 状态采集及选读历史恢复 JSON 递归导出白名单：切换节点只保留控制状态，删除私有业务绑定，嵌套归档同样脱敏。直接运行工作流中的同一导出程序，验证有效原件/嵌套原件不含四项私有 ID/摘要；损坏单行 JSON 的 stdout 为空、stderr 仅固定错误码，避免解析异常将原文片段带入 Actions 产物。没有实际外发、上传或生产日志采集。
+- 本地 Node 控制/维护套件 **122/122**，另工作流/部署/FD9 合同套件 **56/56**，合计 **178/178**；均与真实生产 workflow 执行区分。三份修改 workflow 的 YAML、9 个 shell 片段和内联私有读取程序语法通过；恢复 helper 暂存导入闭包通过。API/Web 类型检查通过；实际四工作台窄字段审计仍为 3 个只读主数据 input、0 裸输入、15 个 Selector、10 个 DictSelect、5 个上传器，65 个盘点文案键三语齐全。源码仅变更宿主脚本/工作流与报告，未新增迁移或改变 API/Web 业务代码；未重复计入第十四检查点的 PG、构建或浏览器结果。
+- 独立只读核验已闭合标记 null 误判、异步 OPEN 重验、旁路入口、暂存依赖、私有文件符号链接及诊断原文外发风险，主代理修改并实际执行本地检查。**专用切换宿主、原连接业务 apply 编排、独立 issuer 通道、提交结果不明的真实恢复，以及第十四节的运维隔离兼容整改仍未实现/验收。** 保持全部既有发布阻塞，不表示生产 GO。
+
 ## 未完成的发布阻塞
 
 1. 独立 RAW 集蛋凭证、库存父批与内部实际转换事实已区分；RAW→分级/包装/重包装业务 API/页面已形成第十二 OFF 检查点；已过账 RAW/转换的受控更正补偿、成本分摊、合法退货/跨公司加工交接及质检处置尚未完成。旧包装入口仍需接入明确实际投入与实耗，不能只挂 DERIVED 资格造成双计。包装、在途/退货/POS、跨公司和混源的全链成对回归，以及合法盘盈新来源仍需完成；受控 managed SKU 销售/配送/POS 正向及 UNKNOWN 持久化已有第五、六检查点证据，仍须与包装、退货和最终切换全链合并验收。不能用“全部拦住”代替合法链路验收。

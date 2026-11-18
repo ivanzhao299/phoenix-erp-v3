@@ -68,6 +68,25 @@ jobs:
             test "$(git -C "$DEPLOY_PATH" status --porcelain --untracked-files=all)" = ''
             tmp="$(mktemp -d)"
             trap 'rm -rf "$tmp"' EXIT
+            redacted_json() {
+              node --input-type=module -e '
+                import fs from "node:fs";
+                try {
+                const keys=["protocolVersion","phase","owner","generation","previousFloorSha","targetSha","purpose","holdReason","updatedAt"];
+                const scrub=value=>{
+                  if(Array.isArray(value))return value.map(scrub);
+                  if(!value||typeof value!=="object")return value;
+                  if(Object.hasOwn(value,"cutover")||value.purpose==="PRODUCTION_CUTOVER"||value.schema==="phoenix.production-cutover-pending/1"){
+                    const projected={cutoverRedacted:true};
+                    for(const key of keys)if(value[key]===null||["string","number","boolean"].includes(typeof value[key]))projected[key]=value[key];
+                    return projected;
+                  }
+                  return Object.fromEntries(Object.entries(value).map(([key,child])=>[key,scrub(child)]));
+                };
+                process.stdout.write(JSON.stringify(scrub(JSON.parse(fs.readFileSync(process.argv[1],"utf8"))))+"\n");
+                } catch { process.stderr.write("STATE_EXPORT=HOLD_INVALID_JSON\n");process.exitCode=1; }
+              ' "$1"
+            }
             for name in floor.json active.json transaction.json policy-transition.json background-control.json; do
               if [ -f "$STATE_DIR/$name" ]; then cp -p "$STATE_DIR/$name" "$tmp/$name"; fi
             done
@@ -80,7 +99,7 @@ jobs:
               case "$name" in
                 floor.json) jq -c '{version,phase,floorSha,chanjetPolicy,readonlyApproval}' "$STATE_DIR/$name" ;;
                 active.json) jq -c '{version,floorSha,outcome,active:{api:{revision,imageId},web:{revision,imageId}}}' "$STATE_DIR/$name" ;;
-                *) jq -c . "$STATE_DIR/$name" ;;
+                *) redacted_json "$STATE_DIR/$name" ;;
               esac
             done
             find "$STATE_DIR" -maxdepth 1 -type f \( -name 'deploy-*.json' -o -name 'recovery-*.json' \) -print0 | sort -z | while IFS= read -r -d '' file; do
@@ -89,7 +108,7 @@ jobs:
             if [ -n "$RECORD_NAME" ]; then
               case "$RECORD_NAME" in recovery-*.json|deploy-*.json|background-body-output.log|run-*/background-body-output.log|tmp-*.log) ;; *) echo INVALID_RECORD_NAME; exit 2 ;; esac
               printf 'SELECTED_RECORD=%s\n' "$RECORD_NAME"
-              if [[ "$RECORD_NAME" == *.json ]]; then jq -c . "$STATE_DIR/$RECORD_NAME"; else
+              if [[ "$RECORD_NAME" == *.json ]]; then redacted_json "$STATE_DIR/$RECORD_NAME"; else
                 selected_path="$STATE_DIR/$RECORD_NAME"
                 case "$RECORD_NAME" in tmp-*.log) selected_path="/tmp/${RECORD_NAME#tmp-}" ;; esac
                 tail -200 "$selected_path" | sed 's/^/BODY_LOG: /'
