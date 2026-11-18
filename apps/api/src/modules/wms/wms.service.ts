@@ -93,7 +93,7 @@ export class WmsService {
     if(!Array.isArray(lines))throw new ConflictException('期初冻结明细缺失');
     const output:Array<Record<string,unknown>>=[];
     for(const [index,line] of lines.entries()){
-      const identity=await this.resolveInventoryItem(manager,line.skuCode,'SKU',manifest.company_code);
+      const identity=await this.resolveInventoryItem(manager,line.skuCode,'SKU',manifest.company_code,'stock',postingDate);
       const quantity=Number(line.quantity);baseQuantity(quantity,1,identity.unit);
       if(identity.itemType!=='SKU'||identity.unit!=='枚'||!Number.isSafeInteger(quantity)||quantity<=0
         ||identity.productCode!==line.productCode||identity.gradeCode!==line.gradeCode||identity.specCode!==line.specCode)
@@ -1947,6 +1947,7 @@ export class WmsService {
     requestedType: string | null,
     companyCode?: string,
     usage: 'stock' | 'sale-stock' = 'stock',
+    eligibilityDate?:string,
   ): Promise<{
     itemCode: string;
     itemName: string;
@@ -1966,7 +1967,7 @@ export class WmsService {
       const matches = await manager.query(`SELECT 'MATERIAL' AS item_type FROM mst_materials WHERE material_code=$1
         UNION ALL SELECT 'SKU' AS item_type FROM product_skus WHERE sku_code=$1`, [itemCode]);
       if (matches.length !== 1 || !['SKU','MATERIAL'].includes(matches[0]?.item_type)) throw new BadRequestException('品目类型缺失或同码跨域，请明确 MATERIAL / SKU');
-      return this.resolveInventoryItem(manager,itemCode,matches[0].item_type,companyCode,usage);
+      return this.resolveInventoryItem(manager,itemCode,matches[0].item_type,companyCode,usage,eligibilityDate);
     }
     if (!['MATERIAL','SKU'].includes(normalizedType)) throw new BadRequestException('库存类型必须为 MATERIAL / SKU');
     if (!normalizedType || normalizedType === 'MATERIAL') {
@@ -1994,7 +1995,7 @@ export class WmsService {
       }
     }
     if (!normalizedType || normalizedType === 'SKU') {
-      const sku = await SkuPolicy.requireUsable(manager, itemCode, usage, companyCode);
+      const sku = await SkuPolicy.requireUsable(manager, itemCode, usage, companyCode,eligibilityDate);
       if (sku) {
         return {
           itemCode: sku.sku_code,

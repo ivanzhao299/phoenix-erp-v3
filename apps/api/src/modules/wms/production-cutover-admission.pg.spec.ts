@@ -10,6 +10,13 @@ import { CutoverCountLine,ProductionCutoverService } from './production-cutover.
 import { DataScopeService } from '../org/services/data-scope.service';
 import { singaporeBusinessDate } from './temp-production-reversal';
 import { WmsService } from './wms.service';
+import { CUTOVER_OPERATOR_ENTITIES,withCutoverOperator } from './production-cutover-operator';
+import { loadPermissionSources } from '../../auth/permission-sources';
+import { resolvePermissions } from '../../auth/permissions-resolver';
+import { SkuPolicy } from '../product-master/services/sku-policy';
+import { SkuAvailabilityService } from '../product-master/services/sku-availability.service';
+import { readProductionCutoverEvidence } from './production-cutover-evidence';
+import { applyApprovedProductionCutover } from './production-cutover-executor';
 
 const url=process.env.OFFICIAL_INVENTORY_PG_URL;
 (url?describe:describe.skip)('trusted cutover admission — isolated roles and actual PostgreSQL 18 connections',()=>{
@@ -24,7 +31,7 @@ const url=process.env.OFFICIAL_INVENTORY_PG_URL;
       ||!['/phoenix_temp_reversal_fixture','/installments_fixture'].includes(parsed.pathname))throw Error('Owned loopback fixture required');
     const label=execFileSync('docker',['inspect','--format','{{index .Config.Labels "phoenix.fixture"}}','phoenix-temp-reversal-20261118'],{encoding:'utf8'}).trim();
     if(label!=='temp-reversal')throw Error('Owned disposable PostgreSQL container required before creating test roles');
-    db=await new DataSource({type:'postgres',url,entities:[],synchronize:false,migrationsRun:false,installExtensions:false,
+    db=await new DataSource({type:'postgres',url,entities:CUTOVER_OPERATOR_ENTITIES,synchronize:false,migrationsRun:false,installExtensions:false,
       extra:{options:`-c search_path=${schema}`,max:8}}).initialize();
     if(!(await db.query('SHOW server_version'))[0].server_version.startsWith('18.'))throw Error('PostgreSQL 18 required');
     await db.query(`CREATE SCHEMA ${identifier(schema)}`);await installProductionConversionFixture(db);
@@ -32,6 +39,27 @@ const url=process.env.OFFICIAL_INVENTORY_PG_URL;
     await installEmptyCutoverClosureFixture({query:(sql:string)=>db.query(sql.replace(/CREATE TABLE /g,'CREATE TABLE IF NOT EXISTS '))} as DataSource);
     await db.query(`INSERT INTO sys_dict(dict_type,dict_code,dict_value,status) VALUES('INV_STOCK_STATUS','QUARANTINE','QUARANTINE','ACTIVE') ON CONFLICT DO NOTHING`);
     await db.query("ALTER TABLE mst_products ADD COLUMN IF NOT EXISTS category_code text;UPDATE mst_products SET category_code='EGG'");
+    await db.query(`ALTER TABLE sys_user ADD COLUMN perms_version bigint NOT NULL DEFAULT 1,ADD COLUMN store_code text NOT NULL DEFAULT 'ALL';
+      ALTER TABLE sys_organizations ADD COLUMN id bigserial UNIQUE,ADD COLUMN parent_id bigint,ADD COLUMN project_code text,ADD COLUMN warehouse_code text,ADD COLUMN site_code text;
+      CREATE TABLE sys_data_scopes(id bigserial PRIMARY KEY,role_code text,module_code text,scope_type text,enabled boolean,created_at timestamptz DEFAULT now());
+      CREATE TABLE sys_user_orgs(id bigserial PRIMARY KEY,user_id bigint,org_id bigint,is_primary boolean DEFAULT false,data_scope_level text);
+      CREATE TABLE sys_user_project_scopes(id bigserial PRIMARY KEY,user_id bigint,project_code text,created_at timestamptz DEFAULT now());
+      CREATE TABLE sys_user_warehouse_scopes(id bigserial PRIMARY KEY,user_id bigint,warehouse_code text,created_at timestamptz DEFAULT now());
+      CREATE TABLE sys_user_farm_scopes(id bigserial PRIMARY KEY,user_id bigint,farm_code text,created_at timestamptz DEFAULT now());
+      CREATE TABLE sys_role(role_id bigserial PRIMARY KEY,role_code text UNIQUE,status text,approval_level int DEFAULT 0);
+      CREATE TABLE sys_user_role(user_id bigint,role_id bigint,is_visible boolean DEFAULT true,is_primary boolean DEFAULT false,PRIMARY KEY(user_id,role_id));
+      CREATE TABLE sys_menu(menu_id bigserial PRIMARY KEY,menu_code text UNIQUE);
+      CREATE TABLE sys_role_menu_permission(role_id bigint,menu_id bigint,perm_codes text,deny_codes text,scope_type text,scope_value text);
+      CREATE TABLE sys_permission_set(set_id bigint PRIMARY KEY);INSERT INTO sys_permission_set VALUES(5);
+      CREATE TABLE sys_role_permission_set(role_id bigint,set_id bigint);
+      CREATE TABLE sys_permission_set_item(set_id bigint,menu_id bigint,perm_codes text,deny_codes text,scope_type text,scope_value text);
+      CREATE TABLE sys_user_permission_set(user_id bigint,set_id bigint);
+      INSERT INTO sys_role(role_code,status,approval_level) VALUES('OWNED_PROD_OPERATOR','ACTIVE',10),('OWNED_DISABLED','INACTIVE',1);
+      INSERT INTO sys_user_role(user_id,role_id) SELECT 1,role_id FROM sys_role;
+      INSERT INTO sys_menu(menu_code) VALUES('MENU_PROD_INBOUND'),('OWNED_DISABLED_MENU');
+      INSERT INTO sys_role_menu_permission(role_id,menu_id,perm_codes) SELECT role_id,menu_id,'E' FROM sys_role CROSS JOIN sys_menu
+        WHERE role_code='OWNED_PROD_OPERATOR' AND menu_code='MENU_PROD_INBOUND' OR role_code='OWNED_DISABLED' AND menu_code='OWNED_DISABLED_MENU';
+      INSERT INTO sys_user_orgs(user_id,org_id,data_scope_level) SELECT 1,id,'COMPANY' FROM sys_organizations WHERE org_type='COMPANY';`);
     // Match the frozen baseline: ledger.batch_no has no FK; the namespace guard must close that real race itself.
     for(const row of await db.query("SELECT conname FROM pg_constraint WHERE conrelid='inv_ledger'::regclass AND confrelid='inv_batches'::regclass AND contype='f'"))
       await db.query(`ALTER TABLE inv_ledger DROP CONSTRAINT ${identifier(row.conname)}`);
@@ -67,7 +95,7 @@ const url=process.env.OFFICIAL_INVENTORY_PG_URL;
   });
   async function connect(role:string){
     const parsed=new URL(url!);parsed.username=role;parsed.password='';
-    const connection=await new DataSource({type:'postgres',url:parsed.toString(),entities:[],synchronize:false,migrationsRun:false,installExtensions:false,
+    const connection=await new DataSource({type:'postgres',url:parsed.toString(),entities:CUTOVER_OPERATOR_ENTITIES,synchronize:false,migrationsRun:false,installExtensions:false,
       extra:{options:`-c search_path=${schema}`,max:3}}).initialize();connections.push(connection);return connection;
   }
   async function bootstrap(){
@@ -83,6 +111,7 @@ const url=process.env.OFFICIAL_INVENTORY_PG_URL;
       GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA ${identifier(schema)} TO ${identifier(roles.api)};
       GRANT SELECT ON ALL TABLES IN SCHEMA ${identifier(schema)} TO ${identifier(roles.executor)};
       GRANT USAGE ON ALL SEQUENCES IN SCHEMA ${identifier(schema)} TO ${identifier(roles.api)},${identifier(roles.executor)};`);
+    for(const table of (migration as unknown as{authorityTables:string[]}).authorityTables)await db.query(`GRANT UPDATE ON ${table} TO ${identifier(roles.owner)}`);
     const inserts=(migration as unknown as{executorInserts:string[]}).executorInserts;
     const updates=(migration as unknown as{executorUpdates:string[]}).executorUpdates;
     for(const table of inserts)await db.query(`GRANT INSERT ON ${table} TO ${identifier(roles.executor)}`);
@@ -93,11 +122,11 @@ const url=process.env.OFFICIAL_INVENTORY_PG_URL;
         GRANT SELECT ON ${table} TO ${identifier(roles.issuer)},${identifier(roles.executor)}`);
     }
     const names=['assert_cutover_control_environment','guard_cutover_control_environment','guard_cutover_apply_admission','consume_production_cutover_admission',
-      'current_production_cutover_admission','guard_cutover_runtime_admission','guard_cutover_apply_result','record_production_cutover_apply_result','check_cutover_apply_completion','guard_cutover_result_seal','guard_trusted_opening_namespace','guard_cutover_counted_history','guard_cutover_executor_write'];
+      'current_production_cutover_admission','guard_cutover_runtime_admission','guard_cutover_apply_result','record_production_cutover_apply_result','check_cutover_apply_completion','guard_cutover_result_seal','guard_trusted_opening_namespace','guard_cutover_counted_history','guard_cutover_executor_write','lock_production_cutover_authority'];
     for(const row of await db.query('SELECT oid::regprocedure::text AS signature FROM pg_proc WHERE pronamespace=current_schema()::regnamespace AND proname=ANY($1::text[])',[names]))
       await db.query(`ALTER FUNCTION ${row.signature} OWNER TO ${identifier(roles.owner)}`);
     await db.query(`GRANT INSERT ON production_cutover_apply_admissions TO ${identifier(roles.issuer)};
-      GRANT EXECUTE ON FUNCTION consume_production_cutover_admission(uuid,text),record_production_cutover_apply_result(uuid) TO ${identifier(roles.executor)}`);
+      GRANT EXECUTE ON FUNCTION consume_production_cutover_admission(uuid,text),record_production_cutover_apply_result(uuid),lock_production_cutover_authority(uuid) TO ${identifier(roles.executor)}`);
     const roleOids=new Map((await db.query('SELECT rolname,oid FROM pg_roles WHERE rolname=ANY($1::text[])',[Object.values(roles)])).map((r:{rolname:string;oid:number})=>[r.rolname,r.oid]));
     const register=`INSERT INTO production_cutover_control_environments(environment_id,generation,control_owner,control_owner_oid,issuer_role,issuer_role_oid,executor_role,executor_role_oid,
       api_roles,api_role_oids,database_name,database_oid,schema_oid,cluster_identifier,deployment_evidence_sha256)
@@ -121,7 +150,7 @@ const url=process.env.OFFICIAL_INVENTORY_PG_URL;
   });
   let actor={userId:3,username:'receiver',permissions:['MENU_PROD_INBOUND:V,C,E,A','MENU_FIN2_AR_LEDGER:E']};
   const scope={isGlobal:true},cls={get:(key:string)=>key==='dataScope'?scope:actor};
-  async function approvedCount(house='HOUSE-A',options:{company?:string;warehouse?:string;openingLines?:CutoverCountLine[];carry?:boolean}={}){
+  async function approvedCount(house='HOUSE-A',options:{company?:string;warehouse?:string;openingLines?:CutoverCountLine[];carry?:boolean;products?:string[];houses?:string[]}={}){
     const company=options.company??'COMP-A',warehouse=options.warehouse??'WH-A',lines=options.openingLines??[];
     const proof={count:'ADMIT-COUNT-'+warehouse,business:'ADMIT-BUSINESS-'+warehouse,finance:'ADMIT-FINANCE-'+warehouse};
     for(const [file,name] of [[proof.count,'receiver'],[proof.business,'maker'],[proof.finance,'reviewer']])await apiDb.query(`
@@ -130,10 +159,10 @@ const url=process.env.OFFICIAL_INVENTORY_PG_URL;
     actor={...actor,userId:3,username:'receiver'};
     const cutovers=new ProductionCutoverService(apiDb,cls as never,undefined,{resolve:async()=>scope} as unknown as DataScopeService);
     const tomorrow=new Date(singaporeBusinessDate()+'T00:00:00Z');tomorrow.setUTCDate(tomorrow.getUTCDate()+1);
-    const boundary={companyCode:company,warehouseCode:warehouse,productCodes:['PRD-EGG-RAW'],houses:[{houseCode:house,firstProductionDate:tomorrow.toISOString().slice(0,10)}]};
+    const boundary={companyCode:company,warehouseCode:warehouse,productCodes:options.products??['PRD-EGG-RAW'],houses:(options.houses??[house]).map(houseCode=>({houseCode,firstProductionDate:tomorrow.toISOString().slice(0,10)}))};
     const inspected=await cutovers.inspect(boundary);expect(inspected.snapshot.missingTables).toEqual([]);expect(inspected.snapshot.warnings).toEqual([]);
     const draft=await cutovers.create({boundary,intentKey:randomUUID(),postingDate:singaporeBusinessDate(),evidenceFileIds:[proof.count],
-      physicalTotals:[{productCode:'PRD-EGG-RAW',quantity:lines.reduce((sum,line)=>sum+line.quantity,0)+(options.carry?inspected.snapshot.batches.filter(batch=>batch.warehouse_code===warehouse).reduce((sum,batch)=>sum+Number(batch.qty),0):0)}],openingLines:lines,rawCounts:[],decisions:inspected.snapshot.batches.map(batch=>({
+      physicalTotals:boundary.productCodes.map(productCode=>({productCode,quantity:lines.filter(line=>line.productCode===productCode).reduce((sum,line)=>sum+line.quantity,0)+(options.carry?inspected.snapshot.batches.filter(batch=>batch.warehouse_code===warehouse&&batch.product_code===productCode).reduce((sum,batch)=>sum+Number(batch.qty),0):0)})),openingLines:lines,rawCounts:[],decisions:inspected.snapshot.batches.map(batch=>({
         batchNo:String(batch.batch_no),disposition:options.carry?'CARRY_FORWARD' as const:'ARCHIVED_TEST' as const,evidenceFileId:proof.count,reason:options.carry?'Owned actual qualified purchase/opening stock':'Owned synthetic historical test row, no real counted stock'})),referenceDecisions:[]});
     const frozen=await cutovers.freeze(draft.id,0);
     actor={...actor,userId:1,username:'maker'};await cutovers.sign(draft.id,{role:'BUSINESS',contentHash:frozen.content_hash,snapshotSha256:frozen.snapshot_sha256,evidenceFileId:proof.business,reason:'Owned synthetic physical count'});
@@ -148,13 +177,13 @@ const url=process.env.OFFICIAL_INVENTORY_PG_URL;
     if(q.isTransactionActive)await q.rollbackTransaction();
     await q.query('SELECT pg_advisory_unlock(17455,2)');await q.query('SELECT pg_advisory_unlock(17455,1)');await q.release();
   }
-  async function issue(q:QueryRunner,document:Record<string,any>,mode='INIT'){
+  async function issue(q:QueryRunner,document:Record<string,any>,mode='INIT',operator='1'){
     const [backend]=await q.query(`SELECT pg_backend_pid() AS pid,backend_start::text AS backend_start,pg_postmaster_start_time()::text AS postmaster_start
       FROM pg_stat_activity WHERE pid=pg_backend_pid()`);
     return(await issuerDb.query(`INSERT INTO production_cutover_apply_admissions(id,environment_id,environment_generation,manifest_id,manifest_version,
       content_hash,snapshot_sha256,mode,source_sha,fence_owner,fence_generation,authority_sha256,operator_id,backend_pid,backend_start,postmaster_start,expires_at)
-      VALUES($1,'OWNED-CUTOVER',1,$2,$3,$4,$5,$9,repeat('a',40),'OWNED-NO-HOST-ADMISSION',1,repeat('c',64),'1',$6,$7,$8,clock_timestamp()+interval '5 minutes') RETURNING id,admission_digest`,
-      [randomUUID(),document.id,document.version,document.content_hash,document.snapshot_sha256,backend.pid,backend.backend_start,backend.postmaster_start,mode]))[0];
+      VALUES($1,'OWNED-CUTOVER',1,$2,$3,$4,$5,$9,repeat('a',40),'OWNED-NO-HOST-ADMISSION',1,repeat('c',64),$10,$6,$7,$8,clock_timestamp()+interval '5 minutes') RETURNING id,admission_digest`,
+      [randomUUID(),document.id,document.version,document.content_hash,document.snapshot_sha256,backend.pid,backend.backend_start,backend.postmaster_start,mode,operator]))[0];
   }
   it('rolls back a consumed permit without a complete cutover result, preserving the original permit for its same backend',async()=>{
     const {document}=await approvedCount(),q=await holdExecutor();
@@ -213,6 +242,56 @@ const url=process.env.OFFICIAL_INVENTORY_PG_URL;
       await foreign.query(`SET ROLE ${identifier(roles.executor)}`);
       await expect(foreign.query("UPDATE mst_products SET status='INACTIVE' WHERE product_code='PRD-EGG-RAW'")).rejects.toThrow('CUTOVER_EXECUTOR_RETIRED_OR_INHERITED_HOLD');
     }finally{await foreign.query('RESET ROLE');await foreign.release();await releaseExecutor(q);await db.query(`REVOKE ${identifier(roles.executor)} FROM ${identifier(helper)}`);}
+  });
+  it('resolves the consumed operator through actual active permissions, DENY rules, organization scope and isolated CLS',async()=>{
+    const defaults=resolvePermissions(await loadPermissionSources(apiDb.manager,'1'));
+    const active=resolvePermissions(await loadPermissionSources(apiDb.manager,'1',{activeRolesOnly:true}));
+    expect(defaults).toContain('OWNED_DISABLED_MENU:E');expect(active).not.toContain('OWNED_DISABLED_MENU:E');
+    expect(active).toContain('MENU_PROD_INBOUND:E');
+    const {document}=await approvedCount(),q=await holdExecutor();
+    try{
+      const admission=await issue(q,document);await q.startTransaction('READ COMMITTED');
+      await expect(withCutoverOperator(q.manager,admission.id,async()=>true)).rejects.toThrow('CUTOVER_EXECUTOR_CONSUMED_ADMISSION_REQUIRED');
+      await q.query('SELECT consume_production_cutover_admission($1,$2)',[admission.id,admission.admission_digest]);
+      const actual=await withCutoverOperator(q.manager,admission.id,async context=>({
+        id:context.operatorId,manifest:context.manifestId,user:context.cls.get('user'),scope:context.cls.get('dataScope')}));
+      expect(actual.id).toBe('1');expect(actual.manifest).toBe(document.id);
+      expect(actual.user).toMatchObject({userId:'1',username:'maker',roles:['OWNED_PROD_OPERATOR'],permissions:['MENU_PROD_INBOUND:E']});
+      expect(actual.scope).toMatchObject({isGlobal:false,userId:'1',allowedCompanyCodes:expect.arrayContaining(['COMP-A','COMP-B']),allowedWarehouseCodes:expect.arrayContaining(['WH-A','WH-B'])});
+      const revoker=apiDb.createQueryRunner();await revoker.connect();
+      try{
+        await revoker.startTransaction('READ COMMITTED');await revoker.query("SET LOCAL lock_timeout='100ms'");
+        await expect(revoker.query("UPDATE sys_role_menu_permission SET perm_codes='V' WHERE role_id IN(SELECT role_id FROM sys_role WHERE role_code='OWNED_PROD_OPERATOR')"))
+          .rejects.toMatchObject({code:'55P03'});
+      }finally{if(revoker.isTransactionActive)await revoker.rollbackTransaction();await revoker.release();}
+      await q.rollbackTransaction();
+      const earlier=apiDb.createQueryRunner();await earlier.connect();
+      try{
+        await earlier.startTransaction('READ COMMITTED');await earlier.query("UPDATE sys_role_menu_permission SET perm_codes='V' WHERE role_id IN(SELECT role_id FROM sys_role WHERE role_code='OWNED_PROD_OPERATOR')");
+        await q.startTransaction('READ COMMITTED');await q.query('SELECT consume_production_cutover_admission($1,$2)',[admission.id,admission.admission_digest]);
+        let acted=false;await expect(withCutoverOperator(q.manager,admission.id,async()=>{acted=true;return true;})).rejects.toThrow('CUTOVER_OPERATOR_AUTHORITY_BUSY');expect(acted).toBe(false);
+      }finally{if(q.isTransactionActive)await q.rollbackTransaction();if(earlier.isTransactionActive)await earlier.rollbackTransaction();await earlier.release();}
+
+      for(const fault of ['hidden-role','inactive-role','deny-edit','scope-revoked']){
+        if(fault==='hidden-role')await apiDb.query("UPDATE sys_user_role SET is_visible=false WHERE role_id IN(SELECT role_id FROM sys_role WHERE role_code='OWNED_PROD_OPERATOR')");
+        if(fault==='inactive-role')await apiDb.query("UPDATE sys_role SET status='INACTIVE' WHERE role_code='OWNED_PROD_OPERATOR'");
+        if(fault==='deny-edit')await apiDb.query(`INSERT INTO sys_user_permission_set VALUES(1,5);INSERT INTO sys_permission_set_item(set_id,menu_id,perm_codes,deny_codes)
+          SELECT 5,menu_id,'','E' FROM sys_menu WHERE menu_code='MENU_PROD_INBOUND'`);
+        if(fault==='scope-revoked')await apiDb.query('DELETE FROM sys_user_orgs WHERE user_id=1');
+        try{
+          await q.startTransaction('READ COMMITTED');await q.query('SELECT consume_production_cutover_admission($1,$2)',[admission.id,admission.admission_digest]);
+          let acted=false;
+          await expect(withCutoverOperator(q.manager,admission.id,async()=>{acted=true;return true;})).rejects.toThrow(
+            fault==='scope-revoked'?'CUTOVER_OPERATOR_SCOPE_REQUIRED':'CUTOVER_OPERATOR_EDIT_PERMISSION_REQUIRED');
+          expect(acted).toBe(false);
+        }finally{
+          if(q.isTransactionActive)await q.rollbackTransaction();
+          await apiDb.query("UPDATE sys_user_role SET is_visible=true;UPDATE sys_role SET status='ACTIVE' WHERE role_code='OWNED_PROD_OPERATOR';DELETE FROM sys_permission_set_item WHERE set_id=5;DELETE FROM sys_user_permission_set WHERE set_id=5");
+          if(fault==='scope-revoked')await apiDb.query("INSERT INTO sys_user_orgs(user_id,org_id,data_scope_level) SELECT 1,id,'COMPANY' FROM sys_organizations WHERE org_type='COMPANY'");
+        }
+      }
+      expect((await issuerDb.query('SELECT consumed_xid FROM production_cutover_apply_admissions WHERE id=$1',[admission.id]))[0].consumed_xid).toBeNull();
+    }finally{await releaseExecutor(q);}
   });
   it('refuses a non-egg authoritative category even when the product code has an egg prefix',async()=>{
     await apiDb.query("UPDATE mst_products SET category_code='MATERIAL' WHERE product_code='PRD-EGG-RAW'");
@@ -475,6 +554,182 @@ const url=process.env.OFFICIAL_INVENTORY_PG_URL;
     }finally{await releaseExecutor(q);}
   });
 
+  it('executes the real compiled INIT body with actual receiver permissions and rolls back a failed opening before retrying the same admission',async()=>{
+    await apiDb.query(`INSERT INTO brd_houses VALUES('HOUSE-A3','FARM-A','ACTIVE');
+      INSERT INTO brd_flocks(flock_no,house_code,farm_code,breed_code,status,placement_date,start_date,company_code,site_code)
+        VALUES('FLOCK-A3','HOUSE-A3','FARM-A','TEST_RED','LAYING','2026-01-01','2026-01-01','COMP-A','SITE-A');
+      INSERT INTO md_egg_source_profiles(profile_code,company_code,farm_code,site_code,house_code,product_mode,variety_code,effective_date)
+        VALUES('PROFILE-A3','COMP-A','FARM-A','SITE-A','HOUSE-A3','VARIANT','EGG_RED','2026-01-01');
+      INSERT INTO sys_user_role(user_id,role_id) SELECT 3,role_id FROM sys_role WHERE role_code='OWNED_PROD_OPERATOR';
+      INSERT INTO sys_user_orgs(user_id,org_id,data_scope_level) SELECT 3,id,'COMPANY' FROM sys_organizations WHERE org_code='COMP-A';`);
+    const line:CutoverCountLine={skuCode:'SKU-GRADE_1',productCode:'PRD-EGG-RAW',gradeCode:'GRADE_1',specCode:'LOOSE',locationCode:'LOC-A2',quantity:5,
+      stockStatus:'QUARANTINE',productionDate:null,expireDate:null,costStatus:'CONFIRMED',unitCost:'2.500000',qualityConfirmed:false};
+    const {document}=await approvedCount('HOUSE-A3',{warehouse:'WH-A2',openingLines:[line]}),q=await holdExecutor();
+    try{
+      const admission=await issue(q,document,'INIT','3'),request={admissionId:admission.id,admissionDigest:admission.admission_digest};
+      await expect(applyApprovedProductionCutover(q,request)).rejects.toThrow('CUTOVER_EXECUTOR_TRANSACTION_REQUIRED');
+      await q.startTransaction('READ COMMITTED');
+      const original=q.manager.query.bind(q.manager);let interrupted=false;
+      q.manager.query=(async(sql:string,args?:unknown[])=>{if(sql.includes('INSERT INTO inv_ledger')){interrupted=true;throw Error('OWNED_FAILURE_AFTER_OPENING_BATCH');}return original(sql,args);}) as typeof q.manager.query;
+      try{await expect(applyApprovedProductionCutover(q,request)).rejects.toThrow('OWNED_FAILURE_AFTER_OPENING_BATCH');}finally{q.manager.query=original;}
+      expect(interrupted).toBe(true);await q.rollbackTransaction();
+      expect(await apiDb.query("SELECT 1 FROM inv_batches WHERE warehouse_code='WH-A2'")).toHaveLength(0);
+      expect(await apiDb.query("SELECT 1 FROM production_cutover_scopes WHERE warehouse_code='WH-A2'")).toHaveLength(0);
+      expect((await issuerDb.query('SELECT consumed_xid FROM production_cutover_apply_admissions WHERE id=$1',[admission.id]))[0].consumed_xid).toBeNull();
+      await q.startTransaction('READ COMMITTED');const result=await applyApprovedProductionCutover(q,request);
+      expect(q.isTransactionActive).toBe(true);expect(result).toMatchObject({manifestId:document.id,mode:'INIT',totalOpening:5});
+      await q.commitTransaction();
+      expect((await apiDb.query('SELECT state,receipt FROM production_cutover_manifests WHERE id=$1',[document.id]))[0]).toEqual({state:'APPLIED',receipt:result});
+      expect((await apiDb.query("SELECT batch.qty,batch.qty_available,batch.unit_cost,journal.cost_change FROM inv_batches batch JOIN inv_ledger journal USING(batch_no) WHERE batch.warehouse_code='WH-A2'"))[0])
+        .toEqual({qty:'5',qty_available:'0',unit_cost:'2.500000',cost_change:'12.500000'});
+      expect((await apiDb.query('SELECT created_by FROM production_opening_receipts WHERE cutover_manifest_id=$1',[document.id]))[0].created_by).toBe('3');
+      expect((await apiDb.query("SELECT evidence FROM production_cutover_scopes WHERE house_code='HOUSE-A3'"))[0].evidence).not.toHaveProperty('admissionId');
+    }finally{await releaseExecutor(q);}
+  });
+  it('executes actual ATTACH once with the original opening and refuses a non-operational or inactive target warehouse',async()=>{
+    await apiDb.query(`INSERT INTO brd_houses VALUES('HOUSE-A4','FARM-A','ACTIVE');
+      INSERT INTO brd_flocks(flock_no,house_code,farm_code,breed_code,status,placement_date,start_date,company_code,site_code)
+        VALUES('FLOCK-A4','HOUSE-A4','FARM-A','TEST_RED','LAYING','2026-01-01','2026-01-01','COMP-A','SITE-A');
+      INSERT INTO md_egg_source_profiles(profile_code,company_code,farm_code,site_code,house_code,product_mode,variety_code,effective_date)
+        VALUES('PROFILE-A4','COMP-A','FARM-A','SITE-A','HOUSE-A4','VARIANT','EGG_RED','2026-01-01');
+      INSERT INTO sys_role(role_code,status,approval_level) VALUES('ROLE_ADMIN','ACTIVE',100);
+      INSERT INTO sys_user_role(user_id,role_id) SELECT 3,role_id FROM sys_role WHERE role_code='ROLE_ADMIN';`);
+    const normal={warehouse:'WH-A2',carry:true};
+    for(const invalid of [{status:'INACTIVE',domain:'OPERATIONAL'},{status:'ACTIVE',domain:'VIRTUAL'}]){
+      await apiDb.query('UPDATE wms_warehouses SET status=$1,domain=$2 WHERE warehouse_code=$3',[invalid.status,invalid.domain,'WH-A2']);
+      const {document}=await approvedCount('HOUSE-A4',normal),q=await holdExecutor();
+      try{
+        const admission=await issue(q,document,'ATTACH','3');await q.startTransaction('READ COMMITTED');
+        await expect(applyApprovedProductionCutover(q,{admissionId:admission.id,admissionDigest:admission.admission_digest})).rejects.toThrow('CUTOVER_EXECUTOR_WAREHOUSE_HOLD');
+        await q.rollbackTransaction();expect((await apiDb.query("SELECT count(*)::int AS n FROM production_cutover_scopes WHERE house_code='HOUSE-A4'"))[0].n).toBe(0);
+      }finally{await releaseExecutor(q);}
+    }
+    await apiDb.query("UPDATE wms_warehouses SET status='ACTIVE',domain='OPERATIONAL' WHERE warehouse_code='WH-A2';DELETE FROM sys_user_role WHERE user_id=3 AND role_id IN(SELECT role_id FROM sys_role WHERE role_code='ROLE_ADMIN')");
+    const {document}=await approvedCount('HOUSE-A4',normal),q=await holdExecutor();
+    try{
+      const [opening]=await apiDb.query("SELECT id FROM production_opening_receipts WHERE warehouse_code='WH-A2'");
+      const admission=await issue(q,document,'ATTACH','3');
+      const locker=apiDb.createQueryRunner();await locker.connect();
+      try{
+        await locker.startTransaction('READ COMMITTED');await locker.query("SELECT variety_code FROM md_product_varieties WHERE variety_code='EGG_RED' FOR UPDATE");
+        await q.startTransaction('READ COMMITTED');await q.query("SET LOCAL lock_timeout='500ms'");
+        await expect(applyApprovedProductionCutover(q,{admissionId:admission.id,admissionDigest:admission.admission_digest})).rejects.toThrow('could not obtain lock on row');
+      }finally{if(q.isTransactionActive)await q.rollbackTransaction();if(locker.isTransactionActive)await locker.rollbackTransaction();await locker.release();}
+      await q.startTransaction('READ COMMITTED');
+      const result=await applyApprovedProductionCutover(q,{admissionId:admission.id,admissionDigest:admission.admission_digest});
+      expect(result).toMatchObject({mode:'ATTACH',totalOpening:0,batches:[],domains:[{openingReceiptId:opening.id}]});
+      await q.commitTransaction();expect((await apiDb.query("SELECT count(*)::int AS n FROM production_opening_receipts WHERE warehouse_code='WH-A2'"))[0].n).toBe(1);
+      expect((await apiDb.query("SELECT qty FROM inv_batches WHERE warehouse_code='WH-A2'"))[0].qty).toBe('5');
+    }finally{await releaseExecutor(q);}
+  });
+  it('requires a real usable source product per house and permits different source varieties to share one zero-opened warehouse',async()=>{
+    await apiDb.query(`INSERT INTO wms_warehouses(warehouse_code,company_code,site_code,status,type,domain) VALUES('WH-A5','COMP-A','SITE-A','ACTIVE','EGG_FARM','OPERATIONAL');
+      INSERT INTO brd_houses VALUES('HOUSE-A5','FARM-A','ACTIVE'),('HOUSE-A6','FARM-A','ACTIVE');
+      INSERT INTO brd_flocks(flock_no,house_code,farm_code,breed_code,status,placement_date,start_date,company_code,site_code) VALUES
+        ('FLOCK-A5','HOUSE-A5','FARM-A','TEST_RED','LAYING','2026-01-01','2026-01-01','COMP-A','SITE-A'),
+        ('FLOCK-A6','HOUSE-A6','FARM-A','TEST_RED','LAYING','2026-01-01','2026-01-01','COMP-A','SITE-A');
+      INSERT INTO md_egg_source_profiles(profile_code,company_code,farm_code,site_code,house_code,product_mode,variety_code,effective_date) VALUES
+        ('PROFILE-A5','COMP-A','FARM-A','SITE-A','HOUSE-A5','VARIANT','EGG_RED','2026-01-01'),
+        ('PROFILE-A6','COMP-A','FARM-A','SITE-A','HOUSE-A6','STANDARD',NULL,'2026-01-01');`);
+    const wrong=await approvedCount('HOUSE-A5',{warehouse:'WH-A5',products:['PRD-STD']}),q=await holdExecutor();
+    try{
+      const admission=await issue(q,wrong.document,'INIT','3');await q.startTransaction('READ COMMITTED');
+      await expect(applyApprovedProductionCutover(q,{admissionId:admission.id,admissionDigest:admission.admission_digest})).rejects.toThrow('CUTOVER_EXECUTOR_SOURCE_PRODUCT_HOLD');
+      await q.rollbackTransaction();expect(await apiDb.query("SELECT 1 FROM production_cutover_scopes WHERE warehouse_code='WH-A5'")).toHaveLength(0);
+      const shared=await approvedCount('HOUSE-A5',{warehouse:'WH-A5',products:['PRD-EGG-RAW','PRD-STD'],houses:['HOUSE-A5','HOUSE-A6']});
+      const valid=await issue(q,shared.document,'INIT','3');await q.startTransaction('READ COMMITTED');
+      const result=await applyApprovedProductionCutover(q,{admissionId:valid.id,admissionDigest:valid.admission_digest});await q.commitTransaction();
+      expect(result).toMatchObject({mode:'INIT',totalOpening:0,batches:[]});expect((result.domains as unknown[])).toHaveLength(2);
+      expect((await apiDb.query("SELECT count(*)::int AS n FROM production_cutover_scopes WHERE warehouse_code='WH-A5' AND state='ACTIVE'"))[0].n).toBe(2);
+      expect((await apiDb.query("SELECT count(*)::int AS n FROM production_opening_receipts WHERE warehouse_code='WH-A5'"))[0].n).toBe(1);
+      expect(await apiDb.query("SELECT 1 FROM inv_batches WHERE warehouse_code='WH-A5'")).toHaveLength(0);
+    }finally{await releaseExecutor(q);}
+  });
+  it('uses the actual grade/spec resolver and refuses a warehouse whose only production choice is ambiguous',async()=>{
+    await apiDb.query(`INSERT INTO wms_warehouses(warehouse_code,company_code,site_code,status,type,domain) VALUES('WH-A7','COMP-A','SITE-A','ACTIVE','EGG_FARM','OPERATIONAL');
+      INSERT INTO brd_houses VALUES('HOUSE-A7','FARM-A','ACTIVE');
+      INSERT INTO brd_flocks(flock_no,house_code,farm_code,breed_code,status,placement_date,start_date,company_code,site_code)
+        VALUES('FLOCK-A7','HOUSE-A7','FARM-A','TEST_RED','LAYING','2026-01-01','2026-01-01','COMP-A','SITE-A');
+      INSERT INTO md_egg_source_profiles(profile_code,company_code,farm_code,site_code,house_code,product_mode,variety_code,effective_date)
+        VALUES('PROFILE-A7','COMP-A','FARM-A','SITE-A','HOUSE-A7','STANDARD',NULL,'2026-01-01');
+      INSERT INTO mst_products(product_code,status,unit,unit_zh,variety_code,category_code) VALUES('OTHER-STD','ACTIVE','枚','枚',NULL,'EGG');
+      INSERT INTO product_skus(sku_code,product_code,grade_code,spec_code,status,variety_code) VALUES('SKU-OTHER-STD','OTHER-STD','GRADE_1','LOOSE','ACTIVE',NULL);
+      INSERT INTO md_sku_org_scope(sku_code,scope_type,scope_code,stock_enabled) VALUES('SKU-OTHER-STD','COMPANY','COMP-A',true);`);
+    const {document}=await approvedCount('HOUSE-A7',{warehouse:'WH-A7',products:['PRD-STD']}),q=await holdExecutor();
+    try{
+      const admission=await issue(q,document,'INIT','3'),request={admissionId:admission.id,admissionDigest:admission.admission_digest};
+      await q.startTransaction('READ COMMITTED');await expect(applyApprovedProductionCutover(q,request)).rejects.toThrow('CUTOVER_EXECUTOR_SOURCE_PRODUCT_HOLD');await q.rollbackTransaction();
+      expect(await apiDb.query("SELECT 1 FROM production_cutover_scopes WHERE warehouse_code='WH-A7'")).toHaveLength(0);
+      await apiDb.query("UPDATE md_sku_org_scope SET stock_enabled=false WHERE sku_code='SKU-OTHER-STD'");
+      await q.startTransaction('READ COMMITTED');const result=await applyApprovedProductionCutover(q,request);await q.commitTransaction();
+      expect(result).toMatchObject({mode:'INIT',totalOpening:0,batches:[]});
+    }finally{await releaseExecutor(q);}
+  });
+  it('refuses zero INIT and ATTACH when the actual production unit conflicts with the native product unit',async()=>{
+    await apiDb.query(`INSERT INTO wms_warehouses(warehouse_code,company_code,site_code,status,type,domain) VALUES('WH-A8','COMP-A','SITE-A','ACTIVE','EGG_FARM','OPERATIONAL');
+      INSERT INTO brd_houses VALUES('HOUSE-A8','FARM-A','ACTIVE');
+      INSERT INTO brd_flocks(flock_no,house_code,farm_code,breed_code,status,placement_date,start_date,company_code,site_code)
+        VALUES('FLOCK-A8','HOUSE-A8','FARM-A','TEST_RED','LAYING','2026-01-01','2026-01-01','COMP-A','SITE-A');
+      INSERT INTO md_egg_source_profiles(profile_code,company_code,farm_code,site_code,house_code,product_mode,variety_code,effective_date)
+        VALUES('PROFILE-A8','COMP-A','FARM-A','SITE-A','HOUSE-A8','STANDARD',NULL,'2026-01-01');
+      UPDATE mst_products SET unit_zh='公斤' WHERE product_code='PRD-STD';`);
+    const q=await holdExecutor();
+    try{
+      for(const [warehouse,mode] of [['WH-A8','INIT'],['WH-A5','ATTACH']]){
+        const {document}=await approvedCount('HOUSE-A8',{warehouse,products:['PRD-STD']});
+        const admission=await issue(q,document,mode,'3');await q.startTransaction('READ COMMITTED');
+        await expect(applyApprovedProductionCutover(q,{admissionId:admission.id,admissionDigest:admission.admission_digest})).rejects.toThrow('CUTOVER_EXECUTOR_SOURCE_PRODUCT_HOLD');
+        await q.rollbackTransaction();expect((await issuerDb.query('SELECT consumed_xid FROM production_cutover_apply_admissions WHERE id=$1',[admission.id]))[0].consumed_xid).toBeNull();
+      }
+      expect(await apiDb.query("SELECT 1 FROM production_cutover_scopes WHERE house_code='HOUSE-A8'")).toHaveLength(0);
+    }finally{await releaseExecutor(q);await apiDb.query("UPDATE mst_products SET unit_zh='枚' WHERE product_code='PRD-STD'");}
+  });
+  it('requires a real BASE measurement in eggs and can use another valid grade/spec instead of a conflicting specification',async()=>{
+    await apiDb.query(`INSERT INTO wms_warehouses(warehouse_code,company_code,site_code,status,type,domain) VALUES('WH-A9','COMP-A','SITE-A','ACTIVE','EGG_FARM','OPERATIONAL');
+      INSERT INTO brd_houses VALUES('HOUSE-A9','FARM-A','ACTIVE');
+      INSERT INTO brd_flocks(flock_no,house_code,farm_code,breed_code,status,placement_date,start_date,company_code,site_code)
+        VALUES('FLOCK-A9','HOUSE-A9','FARM-A','TEST_RED','LAYING','2026-01-01','2026-01-01','COMP-A','SITE-A');
+      INSERT INTO md_egg_source_profiles(profile_code,company_code,farm_code,site_code,house_code,product_mode,variety_code,effective_date)
+        VALUES('PROFILE-A9','COMP-A','FARM-A','SITE-A','HOUSE-A9','VARIANT','EGG_RED','2026-01-01');
+      INSERT INTO mst_products(product_code,status,unit,unit_zh,variety_code,category_code) VALUES('PRD-MEASUREMENT','ACTIVE','枚','枚','EGG_RED','EGG');
+      INSERT INTO packaging_specs VALUES('KG-ONLY','ACTIVE','公斤','公斤',1);
+      INSERT INTO product_skus(sku_code,product_code,grade_code,spec_code,status,variety_code) VALUES('SKU-KG-ONLY','PRD-MEASUREMENT','GRADE_1','KG-ONLY','ACTIVE','EGG_RED');
+      INSERT INTO md_sku_org_scope(sku_code,scope_type,scope_code,stock_enabled) VALUES('SKU-KG-ONLY','COMPANY','COMP-A',true);`);
+    const q=await holdExecutor();
+    try{
+      const invalid=await approvedCount('HOUSE-A9',{warehouse:'WH-A9',products:['PRD-MEASUREMENT']});
+      const rejected=await issue(q,invalid.document,'INIT','3');await q.startTransaction('READ COMMITTED');
+      await expect(applyApprovedProductionCutover(q,{admissionId:rejected.id,admissionDigest:rejected.admission_digest})).rejects.toThrow('CUTOVER_EXECUTOR_SOURCE_PRODUCT_HOLD');
+      await q.rollbackTransaction();expect(await apiDb.query("SELECT 1 FROM production_cutover_scopes WHERE warehouse_code='WH-A9'")).toHaveLength(0);
+      await apiDb.query(`INSERT INTO packaging_specs VALUES('EGG-VALID','ACTIVE','枚','枚',1);
+        INSERT INTO product_skus(sku_code,product_code,grade_code,spec_code,status,variety_code) VALUES('SKU-EGG-VALID','PRD-MEASUREMENT','GRADE_1','EGG-VALID','ACTIVE','EGG_RED');
+        INSERT INTO md_sku_org_scope(sku_code,scope_type,scope_code,stock_enabled) VALUES('SKU-EGG-VALID','COMPANY','COMP-A',true);`);
+      const valid=await approvedCount('HOUSE-A9',{warehouse:'WH-A9',products:['PRD-MEASUREMENT']});
+      const admission=await issue(q,valid.document,'INIT','3');await q.startTransaction('READ COMMITTED');
+      const result=await applyApprovedProductionCutover(q,{admissionId:admission.id,admissionDigest:admission.admission_digest});await q.commitTransaction();
+      expect(result).toMatchObject({mode:'INIT',totalOpening:0,batches:[]});
+      expect((await apiDb.query("SELECT count(*)::int AS n FROM production_opening_receipts WHERE warehouse_code='WH-A9'"))[0].n).toBe(1);
+    }finally{await releaseExecutor(q);}
+  });
+  it('restores the caller timezone after evidence and uses explicit business dates for SKU and company-scope expiry',async()=>{
+    const q=apiDb.createQueryRunner();await q.connect();await q.startTransaction('READ COMMITTED');
+    try{
+      const boundary={companyCode:'COMP-A',warehouseCode:'WH-A',productCodes:['PRD-EGG-RAW'],houses:[{houseCode:'HOUSE-A',firstProductionDate:'2026-11-20'}]};
+      await q.query("SET LOCAL TIME ZONE 'Asia/Singapore'");const singapore=await readProductionCutoverEvidence(q.manager,boundary);
+      expect((await q.query('SHOW TimeZone'))[0].TimeZone).toBe('Asia/Singapore');
+      await q.query("SET LOCAL TIME ZONE 'UTC'");const utc=await readProductionCutoverEvidence(q.manager,boundary);
+      expect((await q.query('SHOW TimeZone'))[0].TimeZone).toBe('UTC');expect(utc.snapshotSha256).toBe(singapore.snapshotSha256);
+      await q.query("UPDATE md_sku_org_scope SET effective_date=NULL,expire_date='2026-11-18' WHERE sku_code='SKU-GRADE_1' AND scope_type='COMPANY' AND scope_code='COMP-A'");
+      await expect(SkuPolicy.requireUsable(q.manager,'SKU-GRADE_1','stock','COMP-A','2026-11-19')).rejects.toThrow('COMPANY');
+      expect((await SkuPolicy.requireUsable(q.manager,'SKU-GRADE_1','stock','COMP-A','2026-11-18')).sku_code).toBe('SKU-GRADE_1');
+      const availability=new SkuAvailabilityService(apiDb),context={companyCode:'COMP-A',houseCode:'HOUSE-A',eggDate:'2026-11-19',gradeCode:'GRADE_1',specCode:'LOOSE',usage:'stock' as const};
+      await expect(availability.resolve(context,q.manager,'2026-11-19')).rejects.toThrow();
+      expect((await availability.resolve(context,q.manager,'2026-11-18')).skuCode).toBe('SKU-GRADE_1');
+      await q.query("UPDATE md_sku_org_scope SET expire_date=NULL WHERE sku_code='SKU-GRADE_1' AND scope_type='COMPANY' AND scope_code='COMP-A';UPDATE product_skus SET effective_date='2026-11-19',expire_date=NULL WHERE sku_code='SKU-GRADE_1'");
+      await expect(SkuPolicy.requireUsable(q.manager,'SKU-GRADE_1','stock','COMP-A','2026-11-18')).rejects.toThrow('SKU-GRADE_1');
+      expect((await SkuPolicy.requireUsable(q.manager,'SKU-GRADE_1','stock','COMP-A','2026-11-19')).sku_code).toBe('SKU-GRADE_1');
+    }finally{await q.rollbackTransaction();await q.release();}
+  });
   it('keeps a retired executor from falling through to ordinary writes after a new environment generation',async()=>{
     const replacement=prefix+'replacement';await db.query(`CREATE ROLE ${identifier(replacement)} LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS`);createdRoles.push(replacement);
     await db.query(`GRANT USAGE ON SCHEMA ${identifier(schema)} TO ${identifier(replacement)}`);

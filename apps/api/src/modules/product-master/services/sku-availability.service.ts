@@ -279,8 +279,9 @@ export class SkuAvailabilityService {
   }
 
   /** Grade/spec + validated provenance -> exactly one SKU. */
-  async resolve(input: SkuResolveInput, mgr?: Db): Promise<SkuResolveResult> {
+  async resolve(input: SkuResolveInput, mgr?: Db, eligibilityDate?:string): Promise<SkuResolveResult> {
     const db = mgr ?? this.ds;
+    if(eligibilityDate!==undefined)this.date(eligibilityDate,'库存授权日期');
     const usage = SkuPolicy.usage(input.usage ?? 'stock');
     const profile = await this.source(input, db);
     const context = { ...input, farmCode: profile.farmCode, siteCode: profile.siteCode };
@@ -303,11 +304,11 @@ export class SkuAvailabilityService {
     const resolved: SkuResolveResult[] = [];
     for (const sku of candidates) {
       this.validateSourceVariety(sku, profile);
-      const scope = await this.matchScope(db, sku.sku_code, context, usage);
+      const scope = await this.matchScope(db, sku.sku_code, context, usage,eligibilityDate);
       // Another company's same-color SKU is not a grant (or an error) for this
       // company. Only run the transition gate after exact scope authorization.
       if (scope) {
-        await this.validateSku(sku, profile, usage, db);
+        await this.validateSku(sku, profile, usage, db,eligibilityDate);
         resolved.push(this.result(sku, scope));
       }
     }
@@ -317,8 +318,9 @@ export class SkuAvailabilityService {
   }
 
   /** Explicit SKU selections obey the same provenance, parent and usage gates. */
-  async assertUsable(skuCode: string, input: Context, mgr?: Db): Promise<SkuResolveResult> {
+  async assertUsable(skuCode: string, input: Context, mgr?: Db, eligibilityDate?:string): Promise<SkuResolveResult> {
     const db = mgr ?? this.ds;
+    if(eligibilityDate!==undefined)this.date(eligibilityDate,'库存授权日期');
     skuCode = SkuPolicy.code(skuCode);
     const usage = SkuPolicy.usage(input.usage ?? 'stock');
     const profile = await this.source(input, db);
@@ -330,8 +332,8 @@ export class SkuAvailabilityService {
         WHERE s.sku_code = $1 FOR SHARE OF s, p`, [skuCode],
     );
     if (!sku) throw new BadRequestException(`SKU ${skuCode} 不存在、未启用或不在生效期内`);
-    await this.validateSku(sku, profile, usage, db);
-    const scope = await this.matchScope(db, skuCode, context, usage);
+    await this.validateSku(sku, profile, usage, db,eligibilityDate);
+    const scope = await this.matchScope(db, skuCode, context, usage,eligibilityDate);
     if (!scope) throw new BadRequestException(`SKU ${skuCode} 不适用于公司 ${input.companyCode}（组织范围或用途被禁用）`);
     return this.result(sku, scope);
   }
@@ -342,10 +344,10 @@ export class SkuAvailabilityService {
     }
   }
 
-  private async validateSku(sku: SkuRow, profile: EggSourceProfile, usage: SkuUsage, db: Db): Promise<void> {
+  private async validateSku(sku: SkuRow, profile: EggSourceProfile, usage: SkuUsage, db: Db, eligibilityDate?:string): Promise<void> {
     this.validateSourceVariety(sku, profile);
     // Also locks SKU, product, grade and spec; no unlocked EXISTS-only decisions.
-    await SkuPolicy.requireUsable(db, sku.sku_code, usage, profile.companyCode);
+    await SkuPolicy.requireUsable(db, sku.sku_code, usage, profile.companyCode,eligibilityDate);
   }
 
   private result(sku: SkuRow, scope: Scope): SkuResolveResult {
@@ -357,18 +359,18 @@ export class SkuAvailabilityService {
     };
   }
 
-  private async matchScope(db: Db, skuCode: string, input: Context, usage: SkuUsage): Promise<Scope | null> {
+  private async matchScope(db: Db, skuCode: string, input: Context, usage: SkuUsage, eligibilityDate?:string): Promise<Scope | null> {
     // Read inactive/expired rows too: a more specific veto must not disappear.
     const rows: ScopeRow[] = await db.query(
       `SELECT scope_type, scope_code, sale_enabled, stock_enabled, status,
               effective_date::text AS effective_date, expire_date::text AS expire_date,
-              CURRENT_DATE::text AS today
+              ${eligibilityDate===undefined?'CURRENT_DATE':'$5::date'}::text AS today
          FROM md_sku_org_scope WHERE sku_code = $1
           AND ((scope_type = 'COMPANY' AND scope_code = $2)
             OR (scope_type = 'FARM' AND scope_code = $3 AND $3 <> '')
             OR (scope_type = 'SITE' AND scope_code = $4 AND $4 <> ''))
          ORDER BY scope_type, scope_code FOR SHARE`,
-      [skuCode, input.companyCode, input.farmCode ?? '', input.siteCode ?? ''],
+      [skuCode,input.companyCode,input.farmCode??'',input.siteCode??'',...(eligibilityDate===undefined?[]:[eligibilityDate])],
     );
     const applicable = rows.filter(r => (r.scope_type === 'COMPANY' && r.scope_code === input.companyCode)
       || (r.scope_type === 'FARM' && !!input.farmCode && r.scope_code === input.farmCode)

@@ -15,7 +15,7 @@ export class ProductionCutoverExecutionAdmissions1795029621917 implements Migrat
   private readonly functions=['assert_cutover_control_environment','guard_cutover_control_environment','guard_cutover_apply_admission',
     'consume_production_cutover_admission','current_production_cutover_admission','guard_cutover_runtime_admission',
     'guard_cutover_apply_result','record_production_cutover_apply_result','check_cutover_apply_completion','guard_cutover_result_seal','guard_trusted_opening_namespace',
-    'guard_cutover_counted_history','guard_cutover_executor_write'];
+    'guard_cutover_counted_history','guard_cutover_executor_write','lock_production_cutover_authority'];
   private readonly sealedTables=['production_cutover_scopes','production_inventory_domain_states','production_inventory_domains',
     'production_inventory_domain_events','production_opening_domain_claims','production_opening_receipts','production_cutover_manifests',
     'production_cutover_signatures','production_batch_qualifications','production_batch_roots','production_source_state_events',
@@ -27,8 +27,13 @@ export class ProductionCutoverExecutionAdmissions1795029621917 implements Migrat
   // UPDATE permission is required by PostgreSQL FOR SHARE, but the row guard forbids physical writes to read-only facts.
   private readonly executorUpdates=['production_cutover_scopes','production_inventory_domain_states','production_inventory_domains','production_cutover_manifests',
     'inv_batches','inv_ledger','md_egg_source_profiles','mst_products','product_skus','production_raw_receipt_segments','production_cutover_signatures',
-    'file_metadata','wms_warehouses','production_opening_domain_claims','wms_locations','sys_organizations','md_sku_org_scope','product_grades','packaging_specs','md_product_varieties','pkg_source_batches',
+    'file_metadata','wms_warehouses','production_opening_domain_claims','wms_locations','sys_organizations','md_sku_org_scope','product_grades','packaging_specs','md_product_varieties','pkg_source_batches','brd_flocks','brd_houses','brd_farms',
     'production_batch_qualifications','wms_transfer','wms_transfer_items','prc2_receipts','prc2_receipt_items'];
+  private readonly authorityTables=['sys_user','sys_role','sys_user_role','sys_role_menu_permission','sys_role_permission_set',
+    'sys_permission_set','sys_permission_set_item','sys_user_permission_set','sys_menu','sys_dict','md_sku_org_scope','sys_data_scopes','sys_user_orgs','sys_user_project_scopes',
+    'sys_user_warehouse_scopes','sys_user_farm_scopes','sys_organizations','wms_warehouses','brd_farms','file_metadata','production_cutover_signatures',
+    'mst_products','product_skus','product_grades','packaging_specs','md_product_varieties','md_egg_source_profiles','brd_houses','brd_flocks',
+    'brd_flock_occupancies','brd_flock_house_states'];
   async up(q:QueryRunner):Promise<void>{
     if((await q.query('SHOW transaction_isolation'))[0].transaction_isolation!=='read committed')throw new Error('OFFICIAL_MIGRATION_ISOLATION_HOLD');
     const own=!q.isTransactionActive;if(own)await q.startTransaction();
@@ -114,6 +119,10 @@ export class ProductionCutoverExecutionAdmissions1795029621917 implements Migrat
             OR privileged.rolreplication OR privileged.rolbypassrls OR privileged.rolname IN('pg_read_server_files','pg_write_server_files','pg_execute_server_program'))
             AND pg_has_role(owner_id,privileged.oid,'MEMBER')) THEN
           RAISE EXCEPTION 'CUTOVER_CONTROL_OWNER_IDENTITY_HOLD' USING ERRCODE='23514';END IF;
+        FOREACH required_table IN ARRAY ARRAY[${this.authorityTables.map(table=>"'"+table+"'").join(',')}] LOOP
+          IF NOT has_table_privilege(owner_id,format('%I.%I',${literal},required_table),'UPDATE') THEN
+            RAISE EXCEPTION 'CUTOVER_CONTROL_AUTHORITY_LOCK_PRIVILEGES_HOLD' USING ERRCODE='23514';END IF;
+        END LOOP;
         IF NOT pg_try_advisory_xact_lock_shared(hashtext('phoenix:cutover-control-environment'),hashtext(p.database_oid::text||':'||p.schema_oid::text)) THEN
           RAISE EXCEPTION 'CUTOVER_CONTROL_CONFIGURATION_BUSY' USING ERRCODE='23514';END IF;
         IF p.generation IS DISTINCT FROM(COALESCE((SELECT MAX(generation) FROM ${schema}.production_cutover_control_environments
@@ -149,7 +158,7 @@ export class ProductionCutoverExecutionAdmissions1795029621917 implements Migrat
           IF EXISTS(SELECT 1 FROM pg_class c WHERE c.relnamespace=schema_id AND pg_has_role(role_id,c.relowner,'MEMBER'))
             OR EXISTS(SELECT 1 FROM pg_proc f WHERE f.pronamespace=schema_id AND pg_has_role(role_id,f.proowner,'MEMBER'))
             OR EXISTS(SELECT 1 FROM pg_proc f WHERE f.pronamespace=schema_id AND f.prosecdef AND has_function_privilege(role_id,f.oid,'EXECUTE')
-              AND f.proname NOT IN('consume_production_cutover_admission','record_production_cutover_apply_result')) THEN
+              AND f.proname NOT IN('consume_production_cutover_admission','record_production_cutover_apply_result','lock_production_cutover_authority')) THEN
             RAISE EXCEPTION 'CUTOVER_CONTROL_OBJECT_OWNERSHIP_HOLD' USING ERRCODE='23514';END IF;
           FOREACH required_table IN ARRAY ARRAY['production_cutover_control_environments','production_cutover_apply_admissions','production_cutover_apply_results'] LOOP
             IF has_table_privilege(role_id,format('%I.%I',${literal},required_table),'UPDATE,DELETE,TRUNCATE,TRIGGER,REFERENCES')
@@ -167,7 +176,8 @@ export class ProductionCutoverExecutionAdmissions1795029621917 implements Migrat
               AND(has_table_privilege(role_id,c.oid,'UPDATE') OR has_any_column_privilege(role_id,c.oid,'UPDATE'))))) THEN
             RAISE EXCEPTION 'CUTOVER_EXECUTOR_WRITE_ACL_HOLD' USING ERRCODE='23514';END IF;
           IF principal<>p.executor_role_oid AND(has_function_privilege(role_id,'${schema}.consume_production_cutover_admission(uuid,text)','EXECUTE')
-            OR has_function_privilege(role_id,'${schema}.record_production_cutover_apply_result(uuid)','EXECUTE')) THEN
+            OR has_function_privilege(role_id,'${schema}.record_production_cutover_apply_result(uuid)','EXECUTE')
+            OR has_function_privilege(role_id,'${schema}.lock_production_cutover_authority(uuid)','EXECUTE')) THEN
             RAISE EXCEPTION 'CUTOVER_CONTROL_CONSUMER_ACL_HOLD' USING ERRCODE='23514';END IF;
           IF EXISTS(SELECT 1 FROM pg_class c WHERE c.relnamespace=schema_id AND c.relkind IN('r','p') AND has_table_privilege(role_id,c.oid,'TRUNCATE,TRIGGER')) THEN
             RAISE EXCEPTION 'CUTOVER_CONTROL_TRIGGER_BYPASS_HOLD' USING ERRCODE='23514';END IF;
@@ -305,6 +315,21 @@ export class ProductionCutoverExecutionAdmissions1795029621917 implements Migrat
     END $body$;`);
   }
   private async runtime(q:QueryRunner,schema:string,security:string):Promise<void>{
+    await q.query(`CREATE FUNCTION lock_production_cutover_authority(p_admission uuid) RETURNS void LANGUAGE plpgsql ${security} AS $body$
+    DECLARE a ${schema}.production_cutover_apply_admissions;
+    BEGIN
+      a:=${schema}.current_production_cutover_admission();
+      IF a.id IS DISTINCT FROM p_admission THEN RAISE EXCEPTION 'CUTOVER_AUTHORITY_ADMISSION_HOLD' USING ERRCODE='23514';END IF;
+      LOCK TABLE ${this.authorityTables.map(table=>schema+'.'+table).join(',')} IN SHARE MODE NOWAIT;
+      PERFORM signature.id FROM ${schema}.production_cutover_signatures signature WHERE signature.manifest_id=a.manifest_id ORDER BY signature.id FOR SHARE NOWAIT;
+      PERFORM file.file_id FROM ${schema}.file_metadata file WHERE file.file_id IN(
+        SELECT proof->>'file_id' FROM ${schema}.production_cutover_manifests manifest CROSS JOIN LATERAL jsonb_array_elements(manifest.payload->'proofs') proof WHERE manifest.id=a.manifest_id
+        UNION SELECT signature.evidence_file_id FROM ${schema}.production_cutover_signatures signature WHERE signature.manifest_id=a.manifest_id)
+        ORDER BY file.file_id FOR SHARE NOWAIT;
+
+      PERFORM ${schema}.current_production_cutover_admission(a.manifest_id);
+    END $body$;`);
+
     await q.query(`CREATE FUNCTION guard_cutover_runtime_admission() RETURNS trigger LANGUAGE plpgsql ${security} AS $body$
     DECLARE a ${schema}.production_cutover_apply_admissions;d record;current_domain record;s record;
     BEGIN
@@ -324,7 +349,8 @@ export class ProductionCutoverExecutionAdmissions1795029621917 implements Migrat
         IF EXISTS(SELECT 1 FROM jsonb_array_elements_text(d.boundary->'productCodes') requested WHERE NOT EXISTS(
           SELECT 1 FROM ${schema}.mst_products product WHERE product.product_code=requested AND product.status='ACTIVE'
             AND to_jsonb(product)->>'category_code'='EGG'
-            AND COALESCE(NULLIF(to_jsonb(product)->>'unit',''),to_jsonb(product)->>'unit_zh')='枚')) THEN
+            AND COALESCE(NULLIF(to_jsonb(product)->>'unit',''),to_jsonb(product)->>'unit_zh')='枚'
+            AND COALESCE(NULLIF(to_jsonb(product)->>'unit_zh',''),to_jsonb(product)->>'unit')='枚')) THEN
           RAISE EXCEPTION 'CUTOVER_SCOPE_REQUIRES_ACTIVE_EGG_PRODUCT' USING ERRCODE='23514';END IF;
         IF NEW.company_code<>d.company_code OR NEW.warehouse_code<>d.warehouse_code OR NEW.manifest_sha256 IS DISTINCT FROM d.content_hash
           OR NOT EXISTS(SELECT 1 FROM jsonb_array_elements(d.boundary->'houses') h WHERE h->>'houseCode'=NEW.house_code
@@ -338,6 +364,15 @@ export class ProductionCutoverExecutionAdmissions1795029621917 implements Migrat
               AND(profile->>'effective_date')::date<=NEW.first_production_date
               AND(profile->>'expire_date' IS NULL OR(profile->>'expire_date')::date>=NEW.first_production_date)) THEN
           RAISE EXCEPTION 'CUTOVER_SCOPE_SOURCE_FACTS_HOLD' USING ERRCODE='23514';END IF;
+        IF NOT EXISTS(SELECT 1 FROM jsonb_array_elements(d.snapshot->'masters'->'profiles') profile
+          JOIN ${schema}.mst_products product ON EXISTS(SELECT 1 FROM jsonb_array_elements_text(d.boundary->'productCodes') p WHERE p=product.product_code)
+          JOIN ${schema}.product_skus sku ON sku.product_code=product.product_code
+          JOIN ${schema}.packaging_specs spec ON spec.spec_code=sku.spec_code AND spec.status='ACTIVE' AND spec.base_unit='枚'
+          WHERE profile->>'profile_code'=NEW.source_profile_code AND sku.status='ACTIVE'
+            AND product.variety_code IS NOT DISTINCT FROM(profile->>'variety_code') AND sku.variety_code IS NOT DISTINCT FROM product.variety_code
+            AND(profile->>'product_mode'='STANDARD' AND profile->>'variety_code' IS NULL
+              OR profile->>'product_mode'='VARIANT' AND NULLIF(profile->>'variety_code','') IS NOT NULL)) THEN
+          RAISE EXCEPTION 'CUTOVER_SCOPE_SOURCE_PRODUCT_HOLD' USING ERRCODE='23514';END IF;
         IF EXISTS(SELECT 1 FROM ${schema}.production_inventory_domains membership
           LEFT JOIN ${schema}.production_inventory_domain_states domain ON domain.id=membership.inventory_domain_id
           WHERE membership.scope_id=NEW.id AND(membership.company_code<>d.company_code OR membership.warehouse_code<>d.warehouse_code

@@ -63,14 +63,16 @@ export class SkuPolicy {
     return this.code(skuCode);
   }
 
-  static async requireUsable(manager: Pick<EntityManager, 'query'>, skuCode: unknown, usage: SkuUsage = 'any', companyCode?: string) {
+  static async requireUsable(manager: Pick<EntityManager, 'query'>, skuCode: unknown, usage: SkuUsage = 'any', companyCode?: string, businessDate?: string) {
+    if(businessDate!==undefined&&(typeof businessDate!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(businessDate)||businessDate.startsWith('0000-')
+      ||!Number.isFinite(Date.parse(businessDate))||new Date(businessDate).toISOString().slice(0,10)!==businessDate))throw new BadRequestException('库存授权日期无效');
     skuCode = this.code(skuCode);
     usage = this.usage(usage);
     // Lock the SKU before reading its identity, then only its three parent rows.
     // Locks live until the caller's business transaction commits or rolls back.
     const [sku] = await manager.query(
-      `SELECT *, effective_date::text AS effective_date, expire_date::text AS expire_date, CURRENT_DATE::text AS today
-         FROM product_skus WHERE sku_code=$1 FOR SHARE`, [skuCode],
+      `SELECT *, effective_date::text AS effective_date, expire_date::text AS expire_date, ${businessDate===undefined?'CURRENT_DATE':'$2::date'}::text AS today
+         FROM product_skus WHERE sku_code=$1 FOR SHARE`, businessDate===undefined?[skuCode]:[skuCode,businessDate],
     );
     if (!sku || sku.status !== 'ACTIVE'
         || (sku.effective_date && sku.effective_date > sku.today)
@@ -90,9 +92,9 @@ export class SkuPolicy {
       const scopes: CompanyScopeDecision[] = await manager.query(
         `SELECT scope_type, scope_code, status, sale_enabled, stock_enabled,
                 effective_date::text AS effective_date, expire_date::text AS expire_date,
-                CURRENT_DATE::text AS today
+                ${businessDate===undefined?'CURRENT_DATE':'$3::date'}::text AS today
            FROM md_sku_org_scope WHERE sku_code = $1 AND scope_type = 'COMPANY' AND scope_code = $2
-           FOR SHARE`, [skuCode, companyCode],
+           FOR SHARE`, businessDate===undefined?[skuCode,companyCode]:[skuCode,companyCode,businessDate],
       );
       const companyScopes = scopes.filter(row => row.scope_type === 'COMPANY' && row.scope_code === companyCode);
       if (companyScopes.length !== 1 || companyScopes.some(row => row.status !== 'ACTIVE' || !row.today

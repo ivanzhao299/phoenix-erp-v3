@@ -37,10 +37,8 @@ function boundary(input:CutoverEvidenceBoundary):CutoverEvidenceBoundary {
 }
 
 /** Read-only evidence, never an activation decision. All callers must keep these facts internal until scoped/redacted for their actor. */
-export async function readProductionCutoverEvidence(m:EntityManager,input:CutoverEvidenceBoundary,options:{signer?:CutoverProvenanceSigner;lockCrossCompanyRoots?:boolean}={}) {
+async function readProductionCutoverEvidenceUtc(m:EntityManager,input:CutoverEvidenceBoundary,options:{signer?:CutoverProvenanceSigner;lockCrossCompanyRoots?:boolean}={}) {
   if(!m.queryRunner?.isTransactionActive)throw new ConflictException('CUTOVER_EVIDENCE_TRANSACTION_REQUIRED');
-  // Evidence timestamps must serialize identically for API and executor roles with different login timezones.
-  await m.query("SELECT set_config('TimeZone','UTC',true)");
   const scope=boundary(input),houses=scope.houses.map(h=>h.houseCode),missing:string[]=[],warnings:string[]=[];
   const catalog=await m.query(`SELECT c.relname,array_agg(a.attname::text) FILTER(WHERE a.attnum>0 AND NOT a.attisdropped) AS columns FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
     LEFT JOIN pg_attribute a ON a.attrelid=c.oid WHERE n.nspname=current_schema() AND c.relkind IN ('r','p') GROUP BY c.relname`);
@@ -268,6 +266,21 @@ export async function readProductionCutoverEvidence(m:EntityManager,input:Cutove
     processing:processing.evidence,missingTables:[...new Set(missing)].sort(),warnings:[...new Set(warnings)].sort()};
   return {snapshot,snapshotSha256:cutoverEvidenceHash(snapshot),releaseAdmission:false,activationAuthorized:false,
     assessment:'EVIDENCE_ONLY' as const};
+}
+/** UTC belongs to the evidence serialization scope; never leak it into subsequent business eligibility checks. */
+export async function readProductionCutoverEvidence(m:EntityManager,input:CutoverEvidenceBoundary,options:{signer?:CutoverProvenanceSigner;lockCrossCompanyRoots?:boolean}={}){
+  if(!m.queryRunner?.isTransactionActive)throw new ConflictException('CUTOVER_EVIDENCE_TRANSACTION_REQUIRED');
+  const [previous]=await m.query("SELECT current_setting('TimeZone') AS zone");
+  if(typeof previous?.zone!=='string'||!previous.zone)throw new ConflictException('CUTOVER_EVIDENCE_TIMEZONE_REQUIRED');
+  await m.query("SELECT set_config('TimeZone','UTC',true)");
+  let evidence:Awaited<ReturnType<typeof readProductionCutoverEvidenceUtc>>;
+  try{evidence=await readProductionCutoverEvidenceUtc(m,input,options);}
+  catch(error){
+    // An aborted SQL transaction cannot restore settings; preserve the original failure for its owner to roll back.
+    try{await m.query("SELECT set_config('TimeZone',$1,true)",[previous.zone]);}catch{/* rollback restores the transaction-local setting */}
+    throw error;
+  }
+  await m.query("SELECT set_config('TimeZone',$1,true)",[previous.zone]);return evidence;
 }
 export async function inspectProductionCutoverEvidence(db:DataSource,input:CutoverEvidenceBoundary,options:{signer?:CutoverProvenanceSigner;lockCrossCompanyRoots?:boolean}={}){
   return db.transaction('REPEATABLE READ',async m=>{await m.query('SET TRANSACTION READ ONLY');return readProductionCutoverEvidence(m,input,options);});

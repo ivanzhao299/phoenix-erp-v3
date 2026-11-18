@@ -109,6 +109,20 @@ export class ProductionCutoverService {
       throw new ConflictException('盘点库存、RAW剩余、转换、主档或关联事实已变化/待核，须重新核验盘点后再冻结或签认');
     return current;
   }
+  /** Internal only: database consumption must already belong to this exact backend and transaction. No HTTP route. */
+  async verifyForControlledApply(m:EntityManager,manifestId:string,admissionId:string){
+    if(!m.queryRunner?.isTransactionActive)throw new ConflictException('CUTOVER_EXECUTOR_TRANSACTION_REQUIRED');
+    const [permit]=await m.query(`SELECT operator_id,manifest_version,content_hash,snapshot_sha256 FROM production_cutover_apply_admissions
+      WHERE id=$1 AND manifest_id=$2 AND backend_pid=pg_backend_pid() AND consumed_xid=pg_current_xact_id_if_assigned() AND expires_at>clock_timestamp()`,[admissionId,manifestId]);
+    const [document]=await m.query('SELECT * FROM production_cutover_manifests WHERE id=$1 FOR UPDATE NOWAIT',[manifestId]);
+    const user=this.cls.get('user') as {userId?:string|number}|undefined;
+    if(!permit||!document||document.state!=='APPROVED'||document.version!==permit.manifest_version
+      ||document.content_hash!==permit.content_hash||document.snapshot_sha256!==permit.snapshot_sha256
+      ||String(user?.userId??'')!==permit.operator_id)throw new ConflictException('CUTOVER_EXECUTOR_MANIFEST_HOLD');
+    this.authorize(document.company_code,document.warehouse_code,'E');
+    await this.verifyCurrentEvidence(m,document.boundary,document.snapshot,document.snapshot_sha256);
+    return document;
+  }
   private normalize(input:CutoverPreparation):CutoverPreparation{
     if(!input||typeof input!=='object'||!input.boundary)throw new BadRequestException('缺少盘点范围');
     text(input.intentKey,'创建意图');
