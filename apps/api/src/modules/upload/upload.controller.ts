@@ -1,10 +1,11 @@
+import { DataScopeService } from '../org/services/data-scope.service';
 import { OrgOwnershipService } from '../org/services/org-ownership.service';
 import { DataScopeGuard } from '../org/guards/data-scope.guard';
 import { deriveOrgScope } from '../farm/farm.service';
 import { hasPerm } from '../../auth/permissions.util';
 import {
   Controller, Post, UseGuards, UseInterceptors,
-  UploadedFile, BadRequestException, Body, Req,
+  UploadedFile, BadRequestException, Body, Req, Optional,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -15,7 +16,7 @@ import { extname, join } from 'path';
 import { mkdirSync, readFileSync } from 'fs';
 import { Repository } from 'typeorm';
 import { FileMetadataEntity } from '../file/entities/file-metadata.entity';
-import { MenuGuard, RequireMenu } from '../../common/guards/menu.guard';
+import { MenuGuard, RequireAnyMenu } from '../../common/guards/menu.guard';
 
 const ALLOWED_EXTS  = ['.pdf', '.jpg', '.jpeg', '.png', '.webp'];
 const MAX_SIZE_BYTES = 15 * 1024 * 1024; // 15 MB（前端已压缩图片；PDF 接受原始大小）
@@ -41,6 +42,7 @@ export class UploadController {
   constructor(
     @InjectRepository(FileMetadataEntity)
     private readonly fileMetadataRepo: Repository<FileMetadataEntity>,
+    @Optional() private readonly dataScopes?: DataScopeService,
   ) {}
 
   /**
@@ -49,16 +51,11 @@ export class UploadController {
    * 返回 file_metadata 受控引用；兼容字段 url 返回 fileId，不返回裸文件路径。
    */
   @Post('contract')
-  @RequireMenu('MENU_PRC2_ORDER', 'E', [
-    'MENU_PRC2_REQUEST',
-    'MENU_PRC2_PAYMENT',
-    'MENU_FIN2_SHAREHOLDER',
-    'MENU_FIN2_EXPENSE',
-    'MENU_FIN2_REIMBURSE',
-    'MENU_FIN2_AP',
-    'MENU_STORE_PAYMENT',
-    'MENU_WORKFLOW_FORM',
-    'MENU_FLOCK_CREATE',
+  @RequireAnyMenu([
+    ...['MENU_PRC2_ORDER','MENU_PRC2_REQUEST','MENU_PRC2_PAYMENT','MENU_FIN2_SHAREHOLDER','MENU_FIN2_EXPENSE',
+      'MENU_FIN2_REIMBURSE','MENU_FIN2_AP','MENU_STORE_PAYMENT','MENU_WORKFLOW_FORM','MENU_FLOCK_CREATE',
+      'MENU_FIN2_AR_LEDGER','MENU_PROD_INBOUND'].map(menu=>({menu,perm:'E' as const})),
+    {menu:'MENU_PROD_INBOUND',perm:'C'},
   ])
   @UseInterceptors(
     FileInterceptor('file', {
@@ -102,12 +99,26 @@ export class UploadController {
     let storeCode = this.safeCode(body.storeCode ?? body.store_code, '', 64);
     const isAdmin=req.user?.roles?.includes('ROLE_ADMIN') || req.user?.role==='ROLE_ADMIN' || req.user?.permissions?.includes('*');
     const originalMenus=['MENU_PRC2_ORDER','MENU_PRC2_REQUEST','MENU_PRC2_PAYMENT','MENU_FIN2_SHAREHOLDER','MENU_FIN2_EXPENSE','MENU_FIN2_REIMBURSE','MENU_FIN2_AP','MENU_STORE_PAYMENT','MENU_WORKFLOW_FORM'];
-    if(moduleCode!=='FLOCK_LIFECYCLE' && !isAdmin && !originalMenus.some(menu=>hasPerm(req.user?.permissions,menu,'E'))) throw new BadRequestException('养殖上传权限仅可用于鸡群业务附件');
-    if(moduleCode==='FLOCK_LIFECYCLE') {
-      if(!isAdmin && !hasPerm(req.user?.permissions,'MENU_FLOCK_CREATE','E')) throw new BadRequestException('缺少养殖制单附件权限');
+    if(!['FLOCK_LIFECYCLE','PRODUCTION_INBOUND'].includes(moduleCode) && !isAdmin && !originalMenus.some(menu=>hasPerm(req.user?.permissions,menu,'E'))) throw new BadRequestException('养殖或生产交库上传权限仅可用于对应业务附件');
+    if(['FLOCK_LIFECYCLE','PRODUCTION_INBOUND'].includes(moduleCode)) {
+      const allowed=moduleCode==='PRODUCTION_INBOUND'
+        ? hasPerm(req.user?.permissions,'MENU_PROD_INBOUND','C')||hasPerm(req.user?.permissions,'MENU_PROD_INBOUND','E')||hasPerm(req.user?.permissions,'MENU_FIN2_AR_LEDGER','E')
+        : hasPerm(req.user?.permissions,'MENU_FLOCK_CREATE','E');
+      if(!isAdmin && !allowed) throw new BadRequestException('缺少对应业务附件上传权限');
       const owner=await new OrgOwnershipService(this.fileMetadataRepo.manager).resolveHouseIdentity(ownerId);
       const house={farm_code:owner.farmCode,company_code:owner.companyCode,site_code:owner.siteCode??''};
-      const scope=deriveOrgScope(req);
+      let scope=deriveOrgScope(req);
+      if(moduleCode==='PRODUCTION_INBOUND') {
+        if(!this.dataScopes)throw new BadRequestException('缺少有效附件数据范围');
+        const user=req.user;const roles=user?.roles??(user?.role?[user.role]:[]);
+        const menus=['MENU_PROD_INBOUND','MENU_FIN2_AR_LEDGER'].filter(menu=>isAdmin||hasPerm(user?.permissions,menu,'E')
+          ||menu==='MENU_PROD_INBOUND'&&hasPerm(user?.permissions,menu,'C'));
+        const candidates=await Promise.all(menus.map(menu=>this.dataScopes!.resolve(String(user?.userId??user?.id??''),roles,menu,user?.perms_version)));
+        const matched=candidates.find(s=>s.isGlobal||s.allowedCompanyCodes.includes(house.company_code)
+          ||s.allowedFarmCodes.includes(house.farm_code)||s.allowedSiteCodes.includes(house.site_code));
+        if(!matched)throw new BadRequestException('附件鸡舍不在实际业务授权范围内');
+        scope={isGlobal:matched.isGlobal,farmCode:'',siteCode:'',farmCodes:matched.allowedFarmCodes,siteCodes:matched.allowedSiteCodes,companyCodes:matched.allowedCompanyCodes};
+      }
       if(!house || ownerType!=='HOUSE' || house.company_code!==companyCode || house.site_code!==storeCode || !scope.isGlobal && !(
         (scope.farmCodes??[]).includes(house.farm_code) || (scope.siteCodes??[]).includes(house.site_code) || (scope.companyCodes??[]).includes(house.company_code))) throw new BadRequestException('附件鸡舍权威归属或数据范围不匹配');
       companyCode=house.company_code;storeCode=house.site_code;

@@ -1,8 +1,8 @@
 import { SkuPolicy } from '../../product-master/services/sku-policy';
 import { SkuAvailabilityService, SkuResolveResult } from '../../product-master/services/sku-availability.service';
-import { Injectable, Logger, ForbiddenException, BadRequestException } from '@nestjs/common';
+import { Injectable, Logger, ForbiddenException, BadRequestException, ConflictException } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
-import { DataSource } from 'typeorm';
+import { DataSource, EntityManager } from 'typeorm';
 import { ClsService } from 'nestjs-cls';
 import { EggInventoryService, assertEggDate, GradeStockStatus } from './egg-inventory.service';
 import { InventorySourceModeService } from './inventory-source-mode.service';
@@ -105,10 +105,11 @@ export class ProductionInboundService {
     }
   }
 
-  private async resolveCompanyAndSite(dto: { companyCode?: string; siteCode?: string; houseCode?: string }) {
+  private async resolveCompanyAndSite(dto: { companyCode?: string; siteCode?: string; houseCode?: string }, mgr?: EntityManager) {
+    const db=mgr ?? this.ds; const ownership=mgr?new OrgOwnershipService(mgr):this.ownership;
     let house: { farmCode: string; companyCode: string; siteCode?: string } | undefined;
     if (dto.houseCode) {
-      house = await this.ownership.resolveHouse(dto.houseCode);
+      house = await ownership.resolveHouse(dto.houseCode);
     }
 
     // 选择鸡舍后，以 house→farm 的权威归属覆盖请求值，禁止前端把鸡舍绑到另一公司/SITE。
@@ -117,7 +118,7 @@ export class ProductionInboundService {
     const siteCode = house?.siteCode?.trim()
       || dto.siteCode?.trim();
     if (!companyCode && siteCode) {
-      const rows = await this.ds.query(
+      const rows = await db.query(
         `SELECT DISTINCT NULLIF(f.company_code, '') AS company_code
            FROM brd_houses h
            ${OrgOwnershipService.ACTIVE_FARM_JOIN}
@@ -140,7 +141,7 @@ export class ProductionInboundService {
       }
       throw new BadRequestException('无法解析真实公司：请显式选择公司/场站，或选择已维护归属的 ACTIVE 鸡舍');
     }
-    const activeCompany = await this.ds.query(
+    const activeCompany = await db.query(
       `SELECT 1 FROM sys_organizations
         WHERE org_type = 'COMPANY' AND status = 'ACTIVE'
           AND COALESCE(company_code, org_code) = $1 LIMIT 1`,
@@ -151,7 +152,8 @@ export class ProductionInboundService {
     return { companyCode, siteCode, farmCode: house?.farmCode };
   }
 
-  private async resolveWarehouse(companyCode: string, siteCode?: string, explicit?: string): Promise<string> {
+  private async resolveWarehouse(companyCode: string, siteCode?: string, explicit?: string, mgr?: EntityManager): Promise<string> {
+    const db=mgr ?? this.ds; const ownership=mgr?new OrgOwnershipService(mgr):this.ownership;
     const params: unknown[] = [companyCode];
     let sql = `SELECT warehouse_code FROM wms_warehouses
       WHERE company_code = $1 AND status = 'ACTIVE' AND type = 'EGG_FARM'
@@ -159,14 +161,14 @@ export class ProductionInboundService {
     if (explicit) { params.push(explicit); sql += ` AND warehouse_code = $2`; }
     else if (siteCode) { params.push(siteCode); sql += ` AND (site_code = $2 OR site_code IS NULL)`; }
     sql += ` ORDER BY warehouse_code`;
-    const rows = await this.ds.query(sql, params);
+    const rows = await db.query(sql, params);
     if (explicit && rows.length === 0) throw new BadRequestException(`仓库 ${explicit} 不属于公司 ${companyCode} 或未启用`);
     if (!explicit && rows.length === 0) throw new BadRequestException(`公司 ${companyCode} 没有可用的 ACTIVE 仓库，请先维护仓库主数据`);
     if (!explicit && rows.length > 1) {
       throw new BadRequestException(`公司 ${companyCode} 存在多个 ACTIVE 仓库（${rows.map((r: any) => r.warehouse_code).join('、')}），请选择入库仓库`);
     }
     const warehouseCode = rows[0].warehouse_code;
-    const warehouse = await this.ownership.resolveWarehouse(warehouseCode);
+    const warehouse = await ownership.resolveWarehouse(warehouseCode);
     if (warehouse.companyCode !== companyCode) {
       throw new BadRequestException(`仓库 ${warehouseCode} 不属于公司 ${companyCode}`);
     }
@@ -174,8 +176,9 @@ export class ProductionInboundService {
     return warehouseCode;
   }
 
-  private async resolveLocation(warehouseCode: string, explicit?: string): Promise<string> {
-    const rows = await this.ds.query(
+  private async resolveLocation(warehouseCode: string, explicit?: string, mgr?: EntityManager): Promise<string> {
+    const db=mgr ?? this.ds;
+    const rows = await db.query(
       `SELECT location_code FROM wms_locations
         WHERE warehouse_code = $1 AND status IN ('ACTIVE', 'NORMAL')
           ${explicit ? 'AND location_code = $2' : ''}
@@ -190,12 +193,12 @@ export class ProductionInboundService {
     return rows[0].location_code;
   }
 
-  private async resolveMasterContext(dto: {
+  async resolveMasterContext(dto: {
     companyCode?: string; siteCode?: string; houseCode?: string; warehouseCode?: string; locationCode?: string;
-  }): Promise<MasterContext> {
-    const { companyCode, siteCode, farmCode } = await this.resolveCompanyAndSite(dto);
-    const warehouseCode = await this.resolveWarehouse(companyCode, siteCode, dto.warehouseCode?.trim());
-    const locationCode = await this.resolveLocation(warehouseCode, dto.locationCode?.trim());
+  }, mgr?: EntityManager): Promise<MasterContext> {
+    const { companyCode, siteCode, farmCode } = await this.resolveCompanyAndSite(dto,mgr);
+    const warehouseCode = await this.resolveWarehouse(companyCode, siteCode, dto.warehouseCode?.trim(),mgr);
+    const locationCode = await this.resolveLocation(warehouseCode, dto.locationCode?.trim(),mgr);
     return { companyCode, siteCode, farmCode, warehouseCode, locationCode };
   }
 
@@ -330,6 +333,13 @@ export class ProductionInboundService {
     let idempotent = false;
     const run = async (mgr: any) => {
       if (dto.houseCode) await mgr.query("SELECT pg_advisory_xact_lock(hashtext('phoenix:daily-house'),hashtext($1))",[dto.houseCode]);
+      if (dto.houseCode) {
+        const [schema]=await mgr.query("SELECT to_regclass('production_cutover_scopes') AS scopes");
+        if (schema?.scopes && (await mgr.query(`SELECT id FROM production_cutover_scopes
+          WHERE company_code=$1 AND house_code=$2 AND state<>'DRAFT' FOR SHARE`,[companyCode,dto.houseCode])).length) {
+          throw new ConflictException('测试期旧入口已封闭，请按实物交接新建正式分次入库单，旧回执请查历史视图');
+        }
+      }
       await mgr.query('SELECT pg_advisory_xact_lock(hashtext($1))', [dailyScopeLock]);
       let existing = await mgr.query(
         `SELECT batch_no, quality_grade, qty, product_code, sku_code, spec_code, variety_code, status,

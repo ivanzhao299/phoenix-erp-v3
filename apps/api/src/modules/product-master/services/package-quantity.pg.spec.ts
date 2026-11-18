@@ -2,6 +2,7 @@ import 'reflect-metadata';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import { DataSource } from 'typeorm';
+import { OfficialInventoryCutover1794971000000 } from '../../../database/migrations/1794971000000-OfficialInventoryCutover';
 import { resolveQuantity, savedQuantity, sharedBatches, QuantitySnapshot } from './quantity-contract';
 import { PackageQuantitySnapshots1794268800000 } from '../../../database/migrations/1794268800000-PackageQuantitySnapshots';
 import { EggSourceProfiles1794400001000 } from '../../../database/migrations/1794400001000-EggSourceProfiles';
@@ -115,7 +116,7 @@ fixture('package quantities: owned disposable PostgreSQL 18 service integration'
     await migration.up(db.createQueryRunner());
     const sourceRunner = db.createQueryRunner();
     await sourceRunner.connect();
-    try { await new EggSourceProfiles1794400001000().up(sourceRunner); }
+    try { await new EggSourceProfiles1794400001000().up(sourceRunner); await new OfficialInventoryCutover1794971000000().up(sourceRunner); }
     finally { await sourceRunner.release(); }
     // Existing quantity/Sales/POS scenarios exercise the STANDARD catalogue,
     // not the intentionally gated phase-4 VARIANT sales path. Keep a separate

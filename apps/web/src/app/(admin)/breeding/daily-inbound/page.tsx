@@ -55,6 +55,13 @@ export default function DailyInboundPage() {
   // 品种由服务端档案决定，前端只展示；提交时不传 variety，防伪造。
   const { profile: sourceProfile, loading: sourceProfileLoading } = useEggSourceProfile(houseCode, eggDate);
   const varietyShort = varietyShortLabel(sourceProfile);
+  const [officialScope,setOfficialScope]=useState<{house:string;state:string}|null>(null);
+  useEffect(()=>{let alive=true;if(!sourceProfile)return;
+    request<{state:string}>(`/v2/inventory/production-inbound-documents/context?${new URLSearchParams({companyCode:sourceProfile.companyCode,houseCode})}`)
+      .then(c=>{if(alive)setOfficialScope({house:houseCode,state:c.state});}).catch(()=>{if(alive)setOfficialScope(null);});
+    return()=>{alive=false;};
+  },[sourceProfile,houseCode]);
+  const requiresFormal=officialScope?.house===houseCode&&officialScope.state!=='OFF';
   const gradeCellLabel = (name: string) => (varietyShort ? `${name}(${varietyShort})` : name);
   const [qtyMap, setQtyMap] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
@@ -133,6 +140,7 @@ export default function DailyInboundPage() {
   const submit = async () => {
     setError("");
     setResult(null);
+    if(requiresFormal){setError(t('productionInstallments.useFormal','该鸡舍已切换正式期间，请从正式分次入库办理。'));return;}
     const items = productGrades
       .filter(g => Number(qtyMap[g.grade_code]) > 0)
       .map(g => ({ grade: g.grade_code, qty: Number(qtyMap[g.grade_code]) }));
@@ -186,6 +194,8 @@ export default function DailyInboundPage() {
   }}>
       <PageHeader title={t('breeding.inboundTitle', '日产蛋入库')} subtitle={t('breeding.inboundSubtitle', '临时生产入库模式 · 日产蛋直接形成销售库存（统一进入 FIFO 库存体系）')} breadcrumb={[t('breeding.prodMgmt', '生产管理'), t('breeding.inboundTitle', '日产蛋入库')]} />
 
+      <p><Link href="/breeding/production-inbound">{t('productionInstallments.title','正式分次生产入库')}</Link></p>
+      {requiresFormal&&<p role="status">{t('productionInstallments.useFormal','该鸡舍已切换正式期间，请从正式分次入库办理。')}</p>}
       {/* 模式状态条 */}
       {loadingMode ? <div style={{
       padding: 14,

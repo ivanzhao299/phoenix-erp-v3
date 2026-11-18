@@ -1,3 +1,4 @@
+import { refreshDailyFlockLayRate } from './effective-production-source';
 import { Injectable, NotFoundException, BadRequestException, Optional, Inject, ForbiddenException } from '@nestjs/common';
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
@@ -477,7 +478,7 @@ export class FarmService {
         VALUES (${values.map((_, i) => `$${i+1}`).join(',')})
         ON CONFLICT (log_date,house_code,shift) DO UPDATE SET ${updates}`, values);
       if (!managedBalance) await persistDailyBalance(manager, flock.flock_no, balance.quantity, balance.following);
-      else await manager.query(`UPDATE brd_flocks SET current_lay_rate=COALESCE((SELECT lay_rate FROM brd_daily_logs WHERE flock_no=$1 ORDER BY log_date DESC,id DESC LIMIT 1),0) WHERE flock_no=$1`,[flock.flock_no]);
+      else await refreshDailyFlockLayRate(manager,flock.flock_no);
 
       const oldEggs = Number(prior?.eggs_produced ?? 0);
       if (prior && !oldHasGrades && hasGrades && oldEggs > 0) {

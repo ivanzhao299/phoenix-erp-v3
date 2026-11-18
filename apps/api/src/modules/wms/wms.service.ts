@@ -1,3 +1,6 @@
+import { qualifyDerivedInventory } from './derived-inventory-qualification';
+import { qualifyPurchaseInventory } from './purchase-inventory-qualification';
+import { officialInventoryPredicate } from './official-inventory';
 import { inheritFlockProductionSources } from '../farm/flock-production-source';
 import { resolveQuantity, savedQuantity, sharedBatches, assertBatchPool, baseQuantity, QuantitySnapshot, lockQuantityPools } from '../product-master/services/quantity-contract';
 import { SkuPolicy } from '../product-master/services/sku-policy';
@@ -1014,6 +1017,7 @@ export class WmsService {
       operator?: string;
       inboundDate?: string | null;
       items: {
+        receiptItemId?:string;
         itemCode?: string;
         itemType?: string;
         productCode?: string;
@@ -1079,12 +1083,14 @@ export class WmsService {
           if ((existing[key] ?? null) !== (expected ?? null)) throw new BadRequestException('采购批次身份与入库不一致');
         }
       }
+      await qualifyPurchaseInventory(manager,{batchNo,companyCode,warehouseCode,productCode,skuCode,receiptNo:ctx.refNo,
+        receiptItemId:it.receiptItemId,itemCode:suppliedCode,quantity:qty,unitCost:receiptUnitCost,actor:operator});
       const posted = await manager.query(
         `INSERT INTO inv_batches (
            batch_no, product_code, sku_code, material_code, item_type, material_type,
-           unit, qty, qty_available, status, inventory_class, warehouse_code, location_code, store_code, inbound_date, company_code, variety_code, source_profile_code, source_profile_snapshot, unit_cost
+           unit, qty, qty_available, status, inventory_class, warehouse_code, location_code, store_code, inbound_date, company_code, variety_code, source_profile_code, source_profile_snapshot, unit_cost,source_type,source_no
          )
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8::numeric, $8::numeric, 'AVAILABLE', $15, $9, $10, $11, $12::date, $13, $14, NULL, NULL, $16::numeric)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8::numeric, $8::numeric, 'AVAILABLE', $15, $9, $10, $11, $12::date, $13, $14, NULL, NULL, $16::numeric,'PURCHASE',$17)
          ON CONFLICT (batch_no) DO UPDATE SET
            product_code = COALESCE(inv_batches.product_code, EXCLUDED.product_code),
            sku_code = COALESCE(inv_batches.sku_code, EXCLUDED.sku_code),
@@ -1116,7 +1122,7 @@ export class WmsService {
               RETURNING batch_no`,
         [
           batchNo, productCode, skuCode, identity.materialCode, identity.itemType,
-          identity.materialType, identity.unit, qty, warehouseCode, locationCode, storeCode, ctx.inboundDate || null, companyCode, identity.varietyCode, inventoryClass, receiptUnitCost,
+          identity.materialType, identity.unit, qty, warehouseCode, locationCode, storeCode, ctx.inboundDate || null, companyCode, identity.varietyCode, inventoryClass, receiptUnitCost,ctx.refNo,
         ],
       );
       if (posted.length !== 1) throw new BadRequestException('入库批次归属或身份已变化，禁止跨公司累加');
@@ -1624,6 +1630,8 @@ export class WmsService {
       let targetBatchNo: string | null = null;
       if (action === 'TRANSFER') {
         targetBatchNo = `${batchNo}-D-${dispositionNo}`.slice(0, 100);
+        await qualifyDerivedInventory(manager,[{batch_no:batchNo}],{batchNo:targetBatchNo,companyCode:targetCompany!,
+          productCode:batch.product_code,skuCode:batch.sku_code,sourceType:'DEFECT_TRANSFER',sourceNo:dispositionNo,actor:String(user?.username||'SYS')});
         const targetRows = await manager.query(
           `INSERT INTO inv_batches
             (batch_no,product_code,sku_code,material_code,item_type,material_type,unit,qty,qty_available,
@@ -1956,7 +1964,7 @@ export class WmsService {
       ? await sharedBatches(manager, order.company_code, [order.warehouse_code], order.quantity_snapshot)
       : await manager.query(`SELECT * FROM inv_batches WHERE ${column}=$1 AND warehouse_code=$2
           AND company_code=(SELECT company_code FROM wms_warehouses WHERE warehouse_code=$2)
-          AND COALESCE(qty_available,qty,0)>0 AND status='AVAILABLE'
+          AND COALESCE(qty_available,qty,0)>0 AND status='AVAILABLE' AND ${officialInventoryPredicate('inv_batches')}
           AND (expire_date IS NULL OR expire_date>=CURRENT_DATE)
           ORDER BY expire_date NULLS LAST,created_at,batch_no FOR UPDATE`, [itemCode, order.warehouse_code]);
 
@@ -2167,7 +2175,7 @@ export class WmsService {
            LEFT JOIN mst_products prod ON b.product_code IS NOT NULL AND prod.product_code = b.product_code
            LEFT JOIN wms_locations loc ON loc.location_code = b.location_code
            LEFT JOIN mst_stores store ON store.store_code = b.store_code
-          WHERE COALESCE(b.qty_available, b.qty, 0) > 0 AND ${scope.sql}
+          WHERE COALESCE(b.qty_available, b.qty, 0) > 0 AND ${officialInventoryPredicate('b')} AND ${scope.sql}
           ORDER BY b.inbound_date DESC NULLS LAST, b.batch_no DESC, b.id DESC LIMIT 200`,
         scope.params,
       );
@@ -2199,7 +2207,7 @@ export class WmsService {
            LEFT JOIN product_skus sku ON sku.sku_code = b.sku_code
            LEFT JOIN wms_locations loc ON loc.location_code = b.location_code
            LEFT JOIN mst_stores store ON store.store_code = b.store_code
-          WHERE COALESCE(b.qty_available, b.qty, 0) > 0 AND ${scope.sql}`,
+          WHERE COALESCE(b.qty_available, b.qty, 0) > 0 AND ${officialInventoryPredicate('b')} AND ${scope.sql}`,
         scope.params,
       );
       const isActive = (s?: string) => !s || s === 'AVAILABLE' || s === 'LOCKED';
@@ -2479,19 +2487,21 @@ export class WmsService {
         // 目标 + （新建一条目标 batch，追溯链保留）
         const targetIdentity = await this.resolveTransferTargetIdentity(manager, to_warehouse, src.store_code);
         const dstBatchNo = `${it.batch_no}-T-${Math.random().toString(36).slice(2,5).toUpperCase()}`;
+        await qualifyDerivedInventory(manager,[{batch_no:it.batch_no}],{batchNo:dstBatchNo,companyCode:targetIdentity.companyCode,
+          productCode:src.product_code,skuCode:src.sku_code,sourceType:'TRANSFER',sourceNo:transferNo,actor:opName});
         await manager.query(
           `INSERT INTO inv_batches (
              batch_no, product_code, sku_code, material_code, item_type, material_type,
-             unit, qty, qty_available, status, inventory_class, warehouse_code, location_code, expire_date, store_code, company_code, inbound_date,grade_code_std,spec_code,quality_grade,packaging_spec,egg_date,legacy_source,base_quantity_version,packaging_batch_ref,collection_batch_ref,variety_code,source_profile_code,source_profile_snapshot
+             unit, qty, qty_available, status, inventory_class, warehouse_code, location_code, expire_date, store_code, company_code, inbound_date,grade_code_std,spec_code,quality_grade,packaging_spec,egg_date,legacy_source,base_quantity_version,packaging_batch_ref,collection_batch_ref,variety_code,source_profile_code,source_profile_snapshot,source_type,source_no
            )
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8::numeric, $8::numeric, 'AVAILABLE', COALESCE($14,'STANDARD'), $9, $10, $11, $12, $13, CURRENT_DATE,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26::jsonb)`,
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8::numeric, $8::numeric, 'AVAILABLE', COALESCE($14,'STANDARD'), $9, $10, $11, $12, $13, CURRENT_DATE,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26::jsonb,'TRANSFER',$27)`,
           [
             dstBatchNo, src.product_code || null, src.sku_code || null, src.material_code || null,
             src.item_type || null, src.material_type || null, src.unit || null, qty,
             to_warehouse, 'TRANSFER-IN', src.expire_date, targetIdentity.storeCode, targetIdentity.companyCode,
             src.inventory_class ?? 'STANDARD', src.grade_code_std ?? null, src.spec_code ?? null, src.quality_grade ?? null, src.packaging_spec ?? null, src.egg_date ?? null, src.legacy_source ?? null, src.base_quantity_version ?? null, src.packaging_batch_ref ?? null, src.collection_batch_ref ?? null,
             src.variety_code ?? null, src.source_profile_code ?? null,
-            src.source_profile_snapshot == null ? null : JSON.stringify(src.source_profile_snapshot),
+            src.source_profile_snapshot == null ? null : JSON.stringify(src.source_profile_snapshot),transferNo,
           ],
         );
         await inheritFlockProductionSources(manager,it.batch_no,dstBatchNo,qty);
@@ -2729,17 +2739,19 @@ export class WmsService {
             snapshot.store_code,
           );
           targetBatchNo = `${item.source_batch_no}-T-${Math.random().toString(36).slice(2, 5).toUpperCase()}`;
+          await qualifyDerivedInventory(manager,[{batch_no:item.source_batch_no}],{batchNo:targetBatchNo,companyCode:targetIdentity.companyCode,
+            productCode:snapshot.product_code,skuCode:snapshot.sku_code,sourceType:'TRANSFER',sourceNo:transferNo,actor:String(user?.username||'SYS')});
           await manager.query(
             `INSERT INTO inv_batches (batch_no,product_code,sku_code,material_code,item_type,material_type,
-            unit,qty,qty_available,status,inventory_class,warehouse_code,location_code,expire_date,store_code,company_code,inbound_date,grade_code_std,spec_code,quality_grade,packaging_spec,egg_date,legacy_source,base_quantity_version,packaging_batch_ref,collection_batch_ref,variety_code,source_profile_code,source_profile_snapshot)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8::numeric,$8::numeric,'AVAILABLE',$9,$10,$11,$12,$13,$14,CURRENT_DATE,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26::jsonb)`,
+            unit,qty,qty_available,status,inventory_class,warehouse_code,location_code,expire_date,store_code,company_code,inbound_date,grade_code_std,spec_code,quality_grade,packaging_spec,egg_date,legacy_source,base_quantity_version,packaging_batch_ref,collection_batch_ref,variety_code,source_profile_code,source_profile_snapshot,source_type,source_no)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8::numeric,$8::numeric,'AVAILABLE',$9,$10,$11,$12,$13,$14,CURRENT_DATE,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26::jsonb,'TRANSFER',$27)`,
             [targetBatchNo, snapshot.product_code || null, snapshot.sku_code || null, snapshot.material_code || null,
               snapshot.item_type || null, snapshot.material_type || null, snapshot.unit || null, received,
               snapshot.inventory_class || 'STANDARD', transfer.to_warehouse, this.nonEmptyString(body?.to_location) || transfer.to_location || 'TRANSFER-IN',
               snapshot.expire_date || null, targetIdentity.storeCode, targetIdentity.companyCode,
               snapshot.grade_code_std ?? null, snapshot.spec_code ?? null, snapshot.quality_grade ?? null, snapshot.packaging_spec ?? null, snapshot.egg_date ?? null, snapshot.legacy_source ?? null, snapshot.base_quantity_version ?? null, snapshot.packaging_batch_ref ?? null, snapshot.collection_batch_ref ?? null,
               snapshot.variety_code ?? null, snapshot.source_profile_code ?? null,
-              snapshot.source_profile_snapshot == null ? null : JSON.stringify(snapshot.source_profile_snapshot)],
+              snapshot.source_profile_snapshot == null ? null : JSON.stringify(snapshot.source_profile_snapshot),transferNo],
           );
           await inheritFlockProductionSources(manager,item.source_batch_no,targetBatchNo,received);
           // INV-301a：统一共享写入器
@@ -2775,21 +2787,23 @@ export class WmsService {
             damagedSku=broken.sku_code;
           }
           const damagedBatchNo = `${item.source_batch_no}-BROKEN-${Math.random().toString(36).slice(2, 5).toUpperCase()}`;
+          await qualifyDerivedInventory(manager,[{batch_no:item.source_batch_no}],{batchNo:damagedBatchNo,companyCode:targetIdentity.companyCode,
+            productCode:snapshot.product_code,skuCode:damagedSku,sourceType:'TRANSFER_DAMAGE',sourceNo:transferNo,actor:String(user?.username||'SYS')});
           await manager.query(
             `INSERT INTO inv_batches (
                batch_no,product_code,sku_code,material_code,item_type,material_type,
                unit,qty,qty_available,status,quality_grade,grade_code_std,inventory_class,
-               warehouse_code,location_code,expire_date,store_code,company_code,inbound_date)
+               warehouse_code,location_code,expire_date,store_code,company_code,inbound_date,source_type,source_no,variety_code,source_profile_code,source_profile_snapshot,egg_date,packaging_batch_ref,collection_batch_ref,spec_code,packaging_spec,base_quantity_version,legacy_source)
              VALUES ($1,$2,$3,$4,$5,$6,$7,$8::numeric,$8::numeric,'AVAILABLE','BROKEN','BROKEN','DEFECT_SALE',
-                     $9,$10,$11,$12,$13,CURRENT_DATE)`,
+                     $9,$10,$11,$12,$13,CURRENT_DATE,'TRANSFER_DAMAGE',$14,$15,$16,$17::jsonb,$18,$19,$20,$21,$22,$23,$24)`,
             [damagedBatchNo, snapshot.product_code || null, damagedSku, snapshot.material_code || null,
               snapshot.item_type || null, snapshot.material_type || null, snapshot.unit || null, damaged,
               transfer.to_warehouse, this.nonEmptyString(body?.to_location) || transfer.to_location || 'TRANSFER-IN',
-              snapshot.expire_date || null, targetIdentity.storeCode, targetIdentity.companyCode],
+              snapshot.expire_date || null, targetIdentity.storeCode, targetIdentity.companyCode,transferNo,snapshot.variety_code??null,
+              snapshot.source_profile_code??null,snapshot.source_profile_snapshot==null?null:JSON.stringify(snapshot.source_profile_snapshot),
+              snapshot.egg_date??null,snapshot.packaging_batch_ref??null,snapshot.collection_batch_ref??null,snapshot.spec_code??null,
+              snapshot.packaging_spec??null,snapshot.base_quantity_version??null,snapshot.legacy_source??null],
           );
-          await manager.query(`UPDATE inv_batches SET variety_code=$2,source_profile_code=$3,source_profile_snapshot=$4::jsonb,egg_date=$5,
-            packaging_batch_ref=$6,collection_batch_ref=$7,spec_code=$8,packaging_spec=$9,base_quantity_version=$10,legacy_source=$11 WHERE batch_no=$1`,[damagedBatchNo,snapshot.variety_code??null,snapshot.source_profile_code??null,
-            snapshot.source_profile_snapshot==null?null:JSON.stringify(snapshot.source_profile_snapshot),snapshot.egg_date??null,snapshot.packaging_batch_ref??null,snapshot.collection_batch_ref??null,snapshot.spec_code??null,snapshot.packaging_spec??null,snapshot.base_quantity_version??null,snapshot.legacy_source??null]);
           await inheritFlockProductionSources(manager,item.source_batch_no,damagedBatchNo,damaged);
           // INV-301a：统一共享写入器
           await writeInvLedger(manager, {

@@ -1,3 +1,6 @@
+import { officialInventoryPredicate, officialInventoryCostKnownPredicate } from '../../wms/official-inventory';
+import { qualifyFormalProductionBatch, recordFormalProductionSources } from '../../wms/formal-production-context';
+import { qualifyDerivedInventory } from '../../wms/derived-inventory-qualification';
 import { deriveOrgScope } from '../../farm/farm.service';
 import { inheritFlockProductionSources, recordFlockProductionSources } from '../../farm/flock-production-source';
 import { savedQuantity, QuantitySnapshot, positiveQuantity, baseQuantity, sharedBatches, lockQuantityPools, assertBatchPool, resolveQuantity } from '../../product-master/services/quantity-contract';
@@ -429,6 +432,8 @@ export class EggInventoryService {
     warehouseCode?: string;
     locationCode?: string;
     eggDate:        string;
+    /** Internal formal orchestration freezes the Singapore booking date separately. */
+    postingDate?: string;
     qualityGrade?:  string;
     packagingSpec?: string;
     productCode:    string;
@@ -466,6 +471,7 @@ export class EggInventoryService {
     unitCost?: number;
   }, mgr?: EntityManager): Promise<EggBatch> {
     assertEggDate(params.eggDate);
+    if (params.postingDate !== undefined) assertEggDate(params.postingDate);
     positiveQuantity(params.qty, '入库数量');
     // INV-401：批次成本法——unit_cost 必须为有限非负数（0 = 挂账，F1/F2 决策记录）
     const unitCost = params.unitCost ?? 0;
@@ -651,6 +657,7 @@ export class EggInventoryService {
     // 生产链路收口 Phase 1: source_type 参数化 + 追溯引用列
     const sourceType = params.sourceType ?? 'PRODUCTION';
     const inventoryClass = resolveInventoryClass(grade);
+    await qualifyFormalProductionBatch(mgr, batchNo, { ...params, productCode, skuCode, grade });
     const [batch] = await (mgr ?? this.ds).query(
       `INSERT INTO inv_batches (
          batch_no, product_code, company_code, warehouse_code, location_code,
@@ -661,7 +668,7 @@ export class EggInventoryService {
          packaging_batch_ref, collection_batch_ref, unit, base_quantity_version, unit_cost,
          created_at, updated_at
        ) VALUES (
-         $1,$2,$3,$4,$5,$6,$6,$7,$8,$9,$10,$11,$12::numeric,
+         $1,$2,$3,$4,$5,$6,$25::date,$7,$8,$9,$10,$11,$12::numeric,
          CASE WHEN $22 = 'AVAILABLE' THEN $12::numeric ELSE 0::numeric END,$22,
          $13,$14,$15,$19,$20,$21::jsonb,$23,
          $16,$17,$18,1,$24::numeric,
@@ -690,10 +697,13 @@ export class EggInventoryService {
         inventoryStatus,
         inventoryClass,
         unitCost,
+        params.postingDate ?? params.eggDate,
       ],
     );
 
-    await recordFlockProductionSources(mgr,params,batchNo,profiles,deriveOrgScope({dataScope:this.cls.get('dataScope')}));
+    if (!(await recordFormalProductionSources(mgr, batchNo, profiles))) {
+      await recordFlockProductionSources(mgr,params,batchNo,profiles,deriveOrgScope({dataScope:this.cls.get('dataScope')}));
+    }
     await this.writeLedger({
       batchNo,
       changeType:  params.ledgerChangeType ?? INV_LEDGER_CHANGE_TYPE.INBOUND,
@@ -705,7 +715,7 @@ export class EggInventoryService {
       batchExpireDate: expireDate,
       qualityGrade:    grade,
       skuCode,
-      logDate:         params.eggDate,
+      logDate:         params.postingDate ?? params.eggDate,
       warehouseCode:   params.warehouseCode ?? 'WMS-VTE-MAIN',
       locationCode:    params.locationCode ?? 'INBOUND-DOCK',
     }, mgr);
@@ -741,6 +751,7 @@ export class EggInventoryService {
       // INV-203：与 allocateByFIFO 分配口径对齐——展示只认 Sales V2 可售批次，
       // 排除 legacy_source 旧库存（展示数字会下降，属口径修正而非丢库存）。
       `b.legacy_source IS NULL`,
+      officialInventoryPredicate('b'),
       this.saleGradeCondition('b'),
       this.inventoryClassCondition(salesContext),
     ];
@@ -884,6 +895,7 @@ export class EggInventoryService {
       `qty_available > 0`,
       `(expire_date IS NULL OR expire_date >= CURRENT_DATE)`,
       `legacy_source IS NULL`,
+      officialInventoryPredicate('inv_batches'),
       `(sku_code IS NULL OR EXISTS (
         SELECT 1 FROM "product_skus" legacy_sku
          WHERE legacy_sku.sku_code=inv_batches.sku_code
@@ -1292,6 +1304,7 @@ export class EggInventoryService {
     inboundDate: string,
     mgr?:        EntityManager,
   ): Promise<void> {
+    if (!mgr) return this.ds.transaction(tx => this.processReturnInventory(returnId,returnNo,companyCode,targetWarehouseCode,targetZoneCode,targetLocationCode,inboundDate,tx));
     const q = mgr ? mgr.query.bind(mgr) : this.ds.query.bind(this.ds);
 
     const items = await q(
@@ -1310,6 +1323,10 @@ export class EggInventoryService {
 
       // Phase H5: sal_return_items 已有 sku_code（从原销售明细继承）
       const returnSkuCode: string | null = item.sku_code ?? null;
+      const origins=item.sales_order_item_id ? await q(`SELECT DISTINCT batch_no FROM sal_order_item_batch_allocations
+        WHERE sales_order_item_id=$1 AND outbound_qty>0 ORDER BY batch_no`,[item.sales_order_item_id]):[];
+      await qualifyDerivedInventory(mgr,origins,{batchNo,companyCode,productCode:item.product_code,skuCode:returnSkuCode,
+        sourceType:'RETURN',sourceNo:returnNo,actor:this.operator});
 
       // ── accepted_qty：回库（RETURNED 状态，需重新质检） ──────────────────────
       let returnBatchCreated = false;
@@ -1611,21 +1628,23 @@ export class EggInventoryService {
       companyCode: string | null;
       warehouseCode: string | null;
       itemCode: string | null;
-      bucket: 'VALUABLE' | 'FROZEN_LIKE';
+      bucket: 'VALUABLE' | 'FROZEN_LIKE' | 'COST_PENDING';
       qty: number;
-      totalCost: number;
+      totalCost: number | null;
       batchCount: number;
     }>;
     summary: {
       valuable: { qty: number; totalCost: number; batchCount: number };
       frozenLike: { qty: number; totalCost: number; batchCount: number };
+      costPending: { qty: number; batchCount: number };
     };
   }> {
     const empty = {
-      rows: [] as Array<{ companyCode: string | null; warehouseCode: string | null; itemCode: string | null; bucket: 'VALUABLE' | 'FROZEN_LIKE'; qty: number; totalCost: number; batchCount: number }>,
+      rows: [] as Array<{ companyCode: string | null; warehouseCode: string | null; itemCode: string | null; bucket: 'VALUABLE' | 'FROZEN_LIKE' | 'COST_PENDING'; qty: number; totalCost: number | null; batchCount: number }>,
       summary: {
         valuable: { qty: 0, totalCost: 0, batchCount: 0 },
         frozenLike: { qty: 0, totalCost: 0, batchCount: 0 },
+        costPending: { qty: 0, batchCount: 0 },
       },
     };
     const companyCodes = this.companyScope(params.companyCode);
@@ -1636,17 +1655,19 @@ export class EggInventoryService {
       `SELECT b.company_code,
               b.warehouse_code,
               COALESCE(b.sku_code, b.product_code) AS item_code,
-              CASE WHEN b.status IN ('AVAILABLE','RESERVED','QUARANTINE')
+              CASE WHEN NOT ${officialInventoryCostKnownPredicate('b')} THEN 'COST_PENDING'
+                   WHEN b.status IN ('AVAILABLE','RESERVED','QUARANTINE')
                    THEN 'VALUABLE' ELSE 'FROZEN_LIKE' END AS bucket,
               SUM(b.qty)::float8 AS qty,
-              SUM(b.qty * b.unit_cost)::float8 AS total_cost,
+              CASE WHEN ${officialInventoryCostKnownPredicate('b')} THEN SUM(b.qty * b.unit_cost)::float8 ELSE NULL END AS total_cost,
               COUNT(*)::int AS batch_count
          FROM inv_batches b
-        WHERE b.legacy_source IS NULL
+        WHERE b.legacy_source IS NULL AND ${officialInventoryPredicate('b')}
           AND ($1::text[] IS NULL OR b.company_code = ANY($1))
           AND ($2::text IS NULL OR b.warehouse_code = $2)
-        GROUP BY b.company_code, b.warehouse_code, COALESCE(b.sku_code, b.product_code),
-                 CASE WHEN b.status IN ('AVAILABLE','RESERVED','QUARANTINE')
+        GROUP BY b.company_code, b.warehouse_code, COALESCE(b.sku_code, b.product_code),${officialInventoryCostKnownPredicate('b')},
+                 CASE WHEN NOT ${officialInventoryCostKnownPredicate('b')} THEN 'COST_PENDING'
+                   WHEN b.status IN ('AVAILABLE','RESERVED','QUARANTINE')
                       THEN 'VALUABLE' ELSE 'FROZEN_LIKE' END
         ORDER BY b.company_code, b.warehouse_code, item_code, bucket`,
       [companyCodes ?? null, params.warehouseCode ?? null],
@@ -1655,20 +1676,22 @@ export class EggInventoryService {
     const summary = {
       valuable: { qty: 0, totalCost: 0, batchCount: 0 },
       frozenLike: { qty: 0, totalCost: 0, batchCount: 0 },
+      costPending: { qty: 0, batchCount: 0 },
     };
     const mapped = (rows as any[]).map(row => {
       const entry = {
         companyCode: row.company_code ?? null,
         warehouseCode: row.warehouse_code ?? null,
         itemCode: row.item_code ?? null,
-        bucket: String(row.bucket) === 'FROZEN_LIKE' ? 'FROZEN_LIKE' as const : 'VALUABLE' as const,
+        bucket: String(row.bucket)==='COST_PENDING' ? 'COST_PENDING' as const : String(row.bucket) === 'FROZEN_LIKE' ? 'FROZEN_LIKE' as const : 'VALUABLE' as const,
         qty: Number(row.qty) || 0,
-        totalCost: Number(row.total_cost) || 0,
+        totalCost: String(row.bucket)==='COST_PENDING' ? null : Number(row.total_cost) || 0,
         batchCount: Number(row.batch_count) || 0,
       };
+      if (entry.bucket==='COST_PENDING') { summary.costPending.qty+=entry.qty; summary.costPending.batchCount+=entry.batchCount; return entry; }
       const target = entry.bucket === 'VALUABLE' ? summary.valuable : summary.frozenLike;
       target.qty += entry.qty;
-      target.totalCost += entry.totalCost;
+      target.totalCost += entry.totalCost ?? 0;
       target.batchCount += entry.batchCount;
       return entry;
     });
@@ -1710,7 +1733,7 @@ export class EggInventoryService {
           WHERE o.org_type = 'COMPANY' AND COALESCE(o.company_code, o.org_code) = b.company_code
           ORDER BY o.org_code LIMIT 1
        ) company ON TRUE
-       WHERE b.status = 'AVAILABLE'
+       WHERE b.status = 'AVAILABLE' AND ${officialInventoryPredicate('b')}
          AND b.qty_available > 0
          AND ${this.eggFamilyCondition()}
          AND b.expire_date IS NOT NULL
@@ -1764,7 +1787,7 @@ export class EggInventoryService {
           AND b.qty_available > 0
           AND (b.expire_date IS NULL OR b.expire_date >= CURRENT_DATE))          AS sku_linked_batches
       FROM inv_batches b
-      WHERE ${this.eggFamilyCondition()} ${batchCompanyCond}
+      WHERE ${this.eggFamilyCondition()} AND ${officialInventoryPredicate('b')} ${batchCompanyCond}
     `, batchArgs);
 
     const ledgerArgs: unknown[] = [];

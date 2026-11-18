@@ -33,6 +33,8 @@ export const INV_LEDGER_CHANGE_TYPE = {
   TEMP_PRODUCTION_INBOUND: 'TEMP_PRODUCTION_INBOUND',
   /** 已审核的限定误入库更正；不计正常出库或盘亏 */
   TEMP_PRODUCTION_REVERSAL: 'TEMP_PRODUCTION_REVERSAL',
+  /** Approved formal installment correction, always bound to original allocations. */
+  PRODUCTION_INBOUND_REVERSAL: 'PRODUCTION_INBOUND_REVERSAL',
   /** 包装入库（packaging-inventory-integration） */
   PACKAGING_INBOUND: 'PACKAGING_INBOUND',
 

@@ -1,3 +1,4 @@
+import { officialInventoryPredicate } from '../../wms/official-inventory';
 import { Injectable } from '@nestjs/common';
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
@@ -55,7 +56,7 @@ export class GroupAnalyticsService {
       `SELECT COALESCE(SUM(soi.qty * (soi.actual_unit_price - COALESCE(b.unit_cost,0))),0)::text AS v
          FROM sal_order_items soi
          JOIN sal_sales_orders so ON so.id = soi.so_id
-         LEFT JOIN inv_batches b ON b.batch_no = soi.batch_no
+         LEFT JOIN inv_batches b ON b.batch_no = soi.batch_no AND ${officialInventoryPredicate('b')}
          WHERE 1=1 ${q.companyCode ? `AND so.company_code = '${q.companyCode.replace(/'/g, "''")}'` : ''}`,
     );
     const grossProfit = parseFloat(grossProfitRows[0]?.v ?? '0');
@@ -68,7 +69,7 @@ export class GroupAnalyticsService {
 
     const invRows = await this.safe<{ v: string }>(
       `SELECT COALESCE(SUM(qty * COALESCE(unit_cost,0)),0)::text AS v
-         FROM inv_batches WHERE COALESCE(status,'AVAILABLE') IN ('AVAILABLE','RESERVED','QUARANTINE')`,
+         FROM inv_batches WHERE ${officialInventoryPredicate('inv_batches')} AND COALESCE(status,'AVAILABLE') IN ('AVAILABLE','RESERVED','QUARANTINE')`,
     );
     const inventoryValue = parseFloat(invRows[0]?.v ?? '0');
 

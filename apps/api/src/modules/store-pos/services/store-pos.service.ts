@@ -1,3 +1,5 @@
+import { officialInventoryPredicate } from '../../wms/official-inventory';
+import { qualifyDerivedInventory } from '../../wms/derived-inventory-qualification';
 import { resolveQuantity, savedQuantity, sharedBatches, lockQuantityPools, QuantityBasis, baseQuantity } from '../../product-master/services/quantity-contract';
 import { SkuPolicy } from '../../product-master/services/sku-policy';
 /**
@@ -944,7 +946,7 @@ export class StorePosService {
                AND COALESCE(inventory_class, 'STANDARD') = 'STANDARD'
                AND qty_available > 0
                AND (expire_date IS NULL OR expire_date >= CURRENT_DATE)
-               AND legacy_source IS NULL
+               AND legacy_source IS NULL AND ${officialInventoryPredicate('inv_batches')}
              AND EXISTS (
                SELECT 1 FROM product_grades sale_grade
                 WHERE sale_grade.grade_code = COALESCE(inv_batches.quality_grade, inv_batches.grade_code_std)
@@ -968,7 +970,7 @@ export class StorePosService {
                AND COALESCE(inventory_class, 'STANDARD') = 'STANDARD'
                AND qty_available > 0
                AND (expire_date IS NULL OR expire_date >= CURRENT_DATE)
-               AND legacy_source IS NULL
+               AND legacy_source IS NULL AND ${officialInventoryPredicate('inv_batches')}
                AND EXISTS (
                  SELECT 1 FROM product_grades sale_grade
                   WHERE sale_grade.grade_code = COALESCE(inv_batches.quality_grade, inv_batches.grade_code_std)
@@ -1207,6 +1209,9 @@ export class StorePosService {
       const qty = Number(allocation.allocated_qty) - Number(allocation.returned_qty);
       if (qty <= 0) throw new ConflictException(`allocation ${allocation.id} 已无可退数量`);
       const batchNo = `RET-${sale.sale_no}-${allocation.id}`;
+      await qualifyDerivedInventory(mgr,[{batch_no:allocation.batch_no}],{batchNo,companyCode:sale.company_code,
+        productCode:allocation.product_code,skuCode:allocation.sku_code,sourceType:'STORE_RETURN',sourceNo:sale.sale_no,
+        actor:this.currentUser?.username??'pos'});
       await mgr.query(
         `INSERT INTO inv_batches
            (batch_no, product_code, company_code, qty, qty_available, quality_grade, inventory_class,

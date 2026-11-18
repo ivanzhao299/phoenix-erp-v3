@@ -1,3 +1,4 @@
+import { officialInventoryPredicate, officialLedgerPredicate } from '../../wms/official-inventory';
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
@@ -123,7 +124,7 @@ export class SalesAnalyticsService {
          COALESCE(SUM(qty_available) FILTER (WHERE status = 'AVAILABLE'), 0) AS inventory_balance,
          COUNT(*)                    FILTER (WHERE status = 'AVAILABLE' AND expire_date IS NOT NULL AND expire_date <= CURRENT_DATE + INTERVAL '7 days' AND expire_date >= CURRENT_DATE) AS inventory_expiring
        FROM inv_batches ib
-       WHERE 1=1 ${ic}`,
+       WHERE ${officialInventoryPredicate('ib')} AND 1=1 ${ic}`,
       ip,
     );
 
@@ -132,7 +133,7 @@ export class SalesAnalyticsService {
     const [lossStats] = await this.ds.query(
       `SELECT COALESCE(SUM(ABS(qty_change)) FILTER (WHERE change_type IN ('EXPIRE_WRITEOFF','DAMAGE_WRITEOFF','WRITE_OFF')), 0) AS total_loss
        FROM inv_ledger il
-       WHERE 1=1 ${lc}`,
+       WHERE ${officialLedgerPredicate('il')} AND 1=1 ${lc}`,
       lp,
     );
 
@@ -337,7 +338,7 @@ export class SalesAnalyticsService {
          SPLIT_PART(il.batch_no, '-', 1) AS product_hint,
          COALESCE(SUM(ABS(il.qty_change)), 0) AS loss_qty
        FROM inv_ledger il
-       WHERE il.change_type IN ('EXPIRE_WRITEOFF','DAMAGE_WRITEOFF','WRITE_OFF') ${lc}
+       WHERE ${officialLedgerPredicate('il')} AND il.change_type IN ('EXPIRE_WRITEOFF','DAMAGE_WRITEOFF','WRITE_OFF') ${lc}
        GROUP BY product_hint`,
       lp,
     );
@@ -665,7 +666,7 @@ export class SalesAnalyticsService {
          COALESCE(SUM(ABS(qty_change)) FILTER (WHERE change_type IN
            ('EXPIRE_WRITEOFF','DAMAGE_WRITEOFF','WRITE_OFF')), 0)                          AS total_loss
        FROM inv_ledger il
-       WHERE 1=1 ${lc}`,
+       WHERE ${officialLedgerPredicate('il')} AND 1=1 ${lc}`,
       lp,
     );
 
@@ -676,7 +677,7 @@ export class SalesAnalyticsService {
          COALESCE(SUM(ABS(il2.qty_change)) FILTER (WHERE il2.change_type = 'EXPIRE_WRITEOFF'), 0)  AS expire_loss,
          COALESCE(SUM(ABS(il2.qty_change)) FILTER (WHERE il2.change_type IN ('DAMAGE_WRITEOFF','WRITE_OFF')), 0) AS damage_loss
        FROM inv_ledger il2
-       WHERE il2.change_type IN ('EXPIRE_WRITEOFF','DAMAGE_WRITEOFF','WRITE_OFF')
+       WHERE ${officialLedgerPredicate('il2')} AND il2.change_type IN ('EXPIRE_WRITEOFF','DAMAGE_WRITEOFF','WRITE_OFF')
          AND il2.created_at >= CURRENT_DATE - INTERVAL '30 days'
          ${lc2}
        GROUP BY 1
@@ -687,7 +688,7 @@ export class SalesAnalyticsService {
     // 总库存周转损耗率
     const { clause: ibc, params: ibp } = this.buildScope('ib', [], companyCode);
     const [invTotal] = await this.ds.query(
-      `SELECT COALESCE(SUM(qty), 1) AS total_in FROM inv_batches ib WHERE 1=1 ${ibc}`,
+      `SELECT COALESCE(SUM(qty), 1) AS total_in FROM inv_batches ib WHERE ${officialInventoryPredicate('ib')} AND 1=1 ${ibc}`,
       ibp,
     );
 
@@ -729,7 +730,7 @@ export class SalesAnalyticsService {
                 THEN expire_date - egg_date ELSE NULL END
          )::numeric, 1)                                                AS avg_shelf_days
        FROM inv_batches ib
-       WHERE 1=1 ${ibc}`,
+       WHERE ${officialInventoryPredicate('ib')} AND 1=1 ${ibc}`,
       ibp,
     );
 
@@ -740,7 +741,7 @@ export class SalesAnalyticsService {
          COALESCE(SUM(ABS(qty_change)) FILTER (WHERE change_type = 'FIFO_OUT'), 0) AS total_outbound_30d,
          COALESCE(SUM(ABS(qty_change)) FILTER (WHERE change_type = 'RESERVED'),  0) AS total_reserved_30d
        FROM inv_ledger il
-       WHERE il.created_at >= CURRENT_DATE - INTERVAL '30 days'
+       WHERE ${officialLedgerPredicate('il')} AND il.created_at >= CURRENT_DATE - INTERVAL '30 days'
          ${lc}`,
       lp,
     );
@@ -753,7 +754,7 @@ export class SalesAnalyticsService {
          COUNT(*)                                AS batch_count,
          COALESCE(SUM(ib2.qty_available), 0)    AS qty_available
        FROM inv_batches ib2
-       WHERE ib2.status = 'AVAILABLE' ${ibc2}
+       WHERE ${officialInventoryPredicate('ib2')} AND ib2.status = 'AVAILABLE' ${ibc2}
        GROUP BY ib2.quality_grade
        ORDER BY qty_available DESC`,
       ibp2,
@@ -767,7 +768,7 @@ export class SalesAnalyticsService {
          COUNT(*) FILTER (WHERE ib3.status = 'AVAILABLE') AS active_batches,
          COALESCE(SUM(ib3.qty_available) FILTER (WHERE ib3.status = 'AVAILABLE'), 0) AS qty_available
        FROM inv_batches ib3
-       WHERE 1=1 ${ibc3}
+       WHERE ${officialInventoryPredicate('ib3')} AND 1=1 ${ibc3}
        GROUP BY ib3.company_code
        ORDER BY qty_available DESC`,
       ibp3,

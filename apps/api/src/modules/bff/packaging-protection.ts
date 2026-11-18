@@ -1,3 +1,4 @@
+import { assertOfficialInventoryBatches } from '../wms/official-inventory';
 import { BadRequestException, ConflictException, ForbiddenException } from '@nestjs/common';
 import { EntityManager } from 'typeorm';
 import { lockTempProductionCaseRows, assertTempProductionReferenceAllowed, readTempProductionReversalState, TEMP_PRODUCTION_REVERSAL_CASE } from '../wms/temp-production-reversal';
@@ -26,7 +27,7 @@ async function caseBatchReferences(manager: Pick<EntityManager, 'query'>, source
       WHERE h.task_no=ANY($1::text[]) AND i.batch_no IS NOT NULL`,[headers.map((row:{task_no:string})=>row.task_no)]) : [];
   const linked = details.filter(row => known.includes(row.batch_no as typeof known[number]));
   const mixedHeader = linked.some(row => details.some(detail => detail.task_no === row.task_no && !known.includes(detail.batch_no as typeof known[number])));
-  const result = [...new Set([...direct, ...linked.map((row: { batch_no: string }) => row.batch_no)])];
+  const result = [...new Set([...refs, ...details.map(row => row.batch_no)])];
   const hasCaseReference = (source: SourceReference) => [source.batch_code, source.source_inbound_no].some(value => {
     const ref=typeof value==='string'?value.trim():value;
     return direct.includes(String(ref)) || linked.some(row => ref===row.task_no || ref===row.inbound_no);
@@ -46,6 +47,7 @@ async function assertPackagingReferences(manager: EntityManager, references: Cas
   if ((references.wholeDaily || references.mixedHeader) && await readTempProductionReversalState(manager) === 'REVERSED') {
     throw new ConflictException('该日报或混合入库来源包含多个批次，缺少逐批权威关联，请核验包装来源');
   }
+  await assertOfficialInventoryBatches(manager, references.batchNos);
   await assertTempProductionReferenceAllowed(manager, references.batchNos);
 }
 

@@ -1,5 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import { EntityManager } from 'typeorm';
+import { effectiveExactProductionByGrade, effectiveProductionReceiptQuantity } from './effective-production-source';
 
 /** Called under the shared house/flock locks. Legacy flocks retain P0 safeguards until approved activation. */
 export async function lifecycleDailyBalance(m: EntityManager, flock: any, prior: any, next: any, input: any) {
@@ -12,8 +13,16 @@ export async function lifecycleDailyBalance(m: EntityManager, flock: any, prior:
   if (next.log_date<b.baseline_on || next.log_date===b.baseline_on && (await m.query("SELECT 1 FROM brd_flock_events WHERE flock_no=$1 AND kind='BASELINE' LIMIT 1",[flock.flock_no])).length) {
     throw new BadRequestException('历史基线当天及之前日报只读，请走历史差异回执');
   }
-  if (next.shift!=='DAILY') throw new BadRequestException('已激活群只接受舍日汇总DAILY，不能与班次重复记账');
-  const other=await m.query("SELECT 1 FROM brd_daily_logs WHERE house_code=$1 AND log_date=$2 AND shift<>'DAILY' LIMIT 1",[next.house_code,next.log_date]);
+  if (next.shift!=='DAILY') {
+    const [cutoverSchema]=await m.query("SELECT to_regclass('production_cutover_scopes') AS scopes");
+    const active=cutoverSchema?.scopes ? await m.query(`SELECT 1 FROM production_cutover_scopes s
+      JOIN sys_dict shift ON shift.dict_type='PRODUCTION_REPORT_SHIFT' AND shift.dict_code=$4 AND shift.status='ACTIVE'
+      WHERE s.company_code=$1 AND s.house_code=$2 AND s.first_production_date<=$3 AND s.state='ACTIVE'`,
+    [next.company_code,next.house_code,next.log_date,next.shift]) : [];
+    if (!active.length) throw new BadRequestException('正式多班须先启用切换范围并选择已确认的班次');
+  }
+  const other=await m.query(`SELECT 1 FROM brd_daily_logs WHERE house_code=$1 AND log_date=$2
+    AND ${next.shift==='DAILY' ? "shift<>'DAILY'" : "shift='DAILY'"} LIMIT 1`,[next.house_code,next.log_date]);
   if (other.length) throw new BadRequestException('该舍日已有历史班次，请先核对');
   const [o]=await m.query(`SELECT id FROM brd_flock_occupancies WHERE flock_no=$1 AND house_code=$2
     AND began_on<=$3 AND (ended_on IS NULL OR ended_on>$3)`,[flock.flock_no,next.house_code,next.log_date]);
@@ -25,7 +34,7 @@ export async function lifecycleDailyBalance(m: EntityManager, flock: any, prior:
     FROM brd_flock_events WHERE flock_no=$1 AND business_date<=$2`,[flock.flock_no,next.log_date]);
   const [loss]=await m.query(`SELECT COALESCE(mortality_qty,0) AS deaths,COALESCE(elimination_qty,0) AS culls
     FROM brd_flock_daily_balances WHERE flock_no=$1 AND balance_date=$2`,[flock.flock_no,next.log_date]);
-  for (const [key,value] of [['mortality_qty',Number(loss?.deaths??0)],['elimination_qty',Number(loss?.culls??0)]] as const) {
+  for (const [key,value] of [['mortality_qty',next.shift==='DAILY'?Number(loss?.deaths??0):0],['elimination_qty',next.shift==='DAILY'?Number(loss?.culls??0):0]] as const) {
     if (input[key]!==undefined && Number(input[key])!==value) throw new BadRequestException('已激活群死淘由生命周期单据汇总，日报不可重复扣减');
     next[key]=value;
   }
@@ -40,12 +49,14 @@ export async function lifecycleDailyBalance(m: EntityManager, flock: any, prior:
   if (next.eggs_produced>0 && !next.eggs_by_grade) throw new BadRequestException('已激活群产蛋必须分级后走受控入库/包装');
   const [sourceSchema]=await m.query("SELECT to_regclass('brd_egg_source_receipts') AS sources");
   if(sourceSchema?.sources && prior) {
-    const [used]=await m.query('SELECT COALESCE(SUM(quantity),0)::integer AS n FROM brd_egg_source_receipts WHERE daily_log_id=$1',[prior.id]);
+    const used=await effectiveProductionReceiptQuantity(m,prior.id);
     const grades=typeof next.eggs_by_grade==='string'?JSON.parse(next.eggs_by_grade):next.eggs_by_grade;
     const original=typeof prior.eggs_by_grade==='string'?JSON.parse(prior.eggs_by_grade):prior.eggs_by_grade;
     const normalized=(map:any)=>JSON.stringify(Object.entries(map??{}).sort(([a],[b])=>a.localeCompare(b)));
     if(normalized(grades)!==normalized(original) && (await m.query("SELECT 1 FROM inv_flock_source_links WHERE daily_log_id=$1 AND precision<>'EXACT' LIMIT 1",[prior.id])).length) throw new BadRequestException('产蛋已进入包装多来源/继承库存，分级更正须先处理下游库存单据');
-    if(Number(used.n)>Object.values(grades??{}).reduce((sum:number,n)=>sum+Number(n),0)) throw new BadRequestException('产蛋来源已接收/入库，日报不能减少到来源数量以下');
+    if(used<0||used>Object.values(grades??{}).reduce((sum:number,n)=>sum+Number(n),0)) throw new BadRequestException('产蛋来源已接收/入库，日报不能减少到来源数量以下');
+    const byGrade=await effectiveExactProductionByGrade(m,prior.id);
+    if([...byGrade].some(([grade,n])=>n<0||n>Number(grades?.[grade]??0))) throw new BadRequestException('日报分级不能少于有效已入来源');
   }
   next.occupancy_id=o.id;
   return {quantity:Number(b.quantity),opening:Number(totals.opening),closing:Number(totals.closing),following:[]};

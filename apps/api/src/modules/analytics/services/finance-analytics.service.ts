@@ -1,3 +1,4 @@
+import { officialInventoryPredicate } from '../../wms/official-inventory';
 import { Injectable } from '@nestjs/common';
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
@@ -69,7 +70,7 @@ export class FinanceAnalyticsService {
       `SELECT COALESCE(SUM(balance_amount_original),0)::text AS v FROM fin_ar_invoices ${cFilter ? 'WHERE 1=1 '+cFilter : ''}`,
     );
     const invRows = await this.safe<{ v: string }>(
-      `SELECT COALESCE(SUM(qty*COALESCE(unit_cost,0)),0)::text AS v FROM inv_batches`,
+      `SELECT COALESCE(SUM(qty*COALESCE(unit_cost,0)),0)::text AS v FROM inv_batches WHERE ${officialInventoryPredicate('inv_batches')}`,
     );
     const receivable = parseFloat(recRows[0]?.v ?? '0');
     const inventoryV = parseFloat(invRows[0]?.v ?? '0');

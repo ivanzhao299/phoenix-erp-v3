@@ -1,3 +1,4 @@
+import { assertOfficialInventoryBatches } from '../wms/official-inventory';
 import { Injectable } from '@nestjs/common';
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
@@ -19,6 +20,7 @@ export class LabelsService {
     try {
       const row = await this.em.transaction(async manager => {
         await lockTempProductionReferences(manager, [body.batch_no]);
+        await assertOfficialInventoryBatches(manager, [body.batch_no]);
         return manager.query(
         `INSERT INTO lbl_records (
            code, label_type, grade_code, grade_name, pack_name, batch_no,

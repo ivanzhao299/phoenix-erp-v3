@@ -1,4 +1,5 @@
 import { FileAccessService } from '../file/file-access.service';
+import { effectiveExactProductionByGrade, effectiveProductionReceiptQuantity, refreshDailyFlockLayRate } from './effective-production-source';
 import { hydrateMenuRegistry } from '../../common/guards/menu-registry.service';
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { InjectEntityManager } from '@nestjs/typeorm';
@@ -153,7 +154,7 @@ export class FlockLifecycleService {
       if(p.kind==='REPORT_CORRECTION'){
         await m.query("SELECT pg_advisory_xact_lock(hashtext('phoenix:daily-house'),hashtext($1))",[p.houseCode]);
         const row=p.dailyLogId?await this.reportSnapshot(m,p.dailyLogId):null;
-        if(p.dailyLogId){this.assertReportIdentity(row,p);if(this.reportHash(row)!==p.expectedReportHash)throw new ConflictException('原日报已变化，请刷新后重新制单');}
+        if(p.dailyLogId){await this.assertReportIdentity(row,{...p,companyCode:h.company_code},m);if(this.reportHash(row)!==p.expectedReportHash)throw new ConflictException('原日报已变化，请刷新后重新制单');}
         else if((await m.query('SELECT 1 FROM brd_daily_logs WHERE house_code=$1 AND log_date=$2 LIMIT 1',[p.houseCode,p.businessDate])).length)throw new ConflictException('该舍日已有日报，请选择原日报更正');
         const [o]=await m.query('SELECT id FROM brd_flock_occupancies WHERE house_code=$1 AND flock_no=$2 AND began_on<=$3 AND (ended_on IS NULL OR ended_on>$3)',[p.houseCode,p.flockNo,p.businessDate]);
         if(!o)throw new BadRequestException('无法证明该业务日真实占栏，不得补造旧日报来源');
@@ -176,8 +177,17 @@ export class FlockLifecycleService {
       FROM brd_daily_logs WHERE id=$1 FOR UPDATE`,[id]);return r;
   }
   private reportHash(row:any){return createHash('sha256').update(canonical(row)).digest('hex');}
-  private assertReportIdentity(row:any,p:any){
-    if(!row||!row.occupancy_id||row.flock_no!==p.flockNo||row.house_code!==p.houseCode||row.log_date!==p.businessDate||row.shift!=='DAILY')throw new BadRequestException('仅可更正已接续且占栏身份明确的原DAILY日报；未知历史须专项核对');
+  private async assertReportIdentity(row:any,p:any,m:EntityManager){
+    if(!row||!row.occupancy_id||row.flock_no!==p.flockNo||row.house_code!==p.houseCode||row.log_date!==p.businessDate)throw new BadRequestException('仅可更正已接续且占栏身份明确的原日报；未知历史须专项核对');
+    if(row.shift!=='DAILY') {
+      const [schema]=await m.query("SELECT to_regclass('production_cutover_scopes') AS scopes");
+      const active=schema?.scopes?await m.query(`SELECT 1 FROM production_cutover_scopes s JOIN sys_dict shift
+        ON shift.dict_type='PRODUCTION_REPORT_SHIFT' AND shift.dict_code=$4 AND shift.status='ACTIVE'
+        WHERE s.company_code=$1 AND s.house_code=$2 AND s.first_production_date<=$3 AND s.state='ACTIVE'`,
+      [p.companyCode??row.company_code,p.houseCode,p.businessDate,row.shift]):[];
+      if(!active.length)throw new BadRequestException('原班次不属于已启用的正式多班范围');
+    }
+    if((await m.query(`SELECT 1 FROM brd_daily_logs WHERE house_code=$1 AND log_date=$2 AND ${row.shift==='DAILY'?"shift<>'DAILY'":"shift='DAILY'"} LIMIT 1`,[p.houseCode,p.businessDate])).length)throw new BadRequestException('舍日汇总与班次记录重复覆盖，请先核对');
   }
   async occupancies(scope:OrgScope){const params:any[]=[];const where=scopeWhere(scope,params,'o.');return this.db.query(`SELECT o.id AS occupancy_id,o.flock_no,o.house_code,o.began_on::text AS began_on,o.ended_on::text AS ended_on FROM brd_flock_occupancies o ${where?'WHERE '+where:''} ORDER BY o.began_on DESC LIMIT 1000`,params);}
   async reports(scope:OrgScope){
@@ -191,7 +201,7 @@ export class FlockLifecycleService {
   }
   private async correctReport(m:EntityManager,d:any,h:any,b:any,occ:any,actor:FlockActor){
     const p=d.payload;const stored=p.dailyLogId?await this.reportSnapshot(m,p.dailyLogId):null;
-    if(stored)this.assertReportIdentity(stored,p);
+    if(stored)await this.assertReportIdentity(stored,{...p,companyCode:d.company_code},m);
     if(p.dailyLogId&&(!stored||this.reportHash(stored)!==p.expectedReportHash||canonical(stored)!==canonical(p.originalReport)))throw new ConflictException('原日报已变化，请重新核对制单，不能覆盖他人更正');
     if(!p.dailyLogId&&(await m.query('SELECT 1 FROM brd_daily_logs WHERE house_code=$1 AND log_date=$2 FOR UPDATE',[p.houseCode,p.businessDate])).length)throw new ConflictException('补录期间已有日报，不能覆盖');
     if(!occ||occ.id!==p.originalOccupancyId||stored&&occ.id!==stored.occupancy_id||occ.house_code!==h.house_code)throw new BadRequestException('原日报占栏身份与业务日不一致');
@@ -206,10 +216,10 @@ export class FlockLifecycleService {
     const unchanged=canonical(grades)===canonical(r.eggs_by_grade??{});
     if(!unchanged&&Object.keys(grades).some(k=>!active.some((x:any)=>x.grade_code===k)))throw new BadRequestException('更正包含未启用等级');
     if(!unchanged&&(await m.query("SELECT 1 FROM inv_flock_source_links WHERE daily_log_id=$1 AND precision<>'EXACT' LIMIT 1",[r.id])).length)throw new BadRequestException('原产蛋已进入包装多来源或继承批次，先处理下游库存并核对来源，不可直接改分级');
-    const used=await m.query("SELECT b.quality_grade AS grade_code,SUM(l.source_input_qty) AS n FROM inv_flock_source_links l LEFT JOIN inv_batches b ON b.batch_no=l.origin_batch_no WHERE l.daily_log_id=$1 AND l.precision='EXACT' GROUP BY b.quality_grade",[r.id]);
-    if(used.some((x:any)=>Number(x.n)>Number(grades[x.grade_code]??0)))throw new BadRequestException('更正分级少于已接收/入库来源，请先处理下游库存');
-    const [receipt]=await m.query('SELECT COALESCE(SUM(quantity),0) AS n FROM brd_egg_source_receipts WHERE daily_log_id=$1',[r.id]);
-    if(Number(receipt.n)>Object.values(grades).reduce((sum:number,n)=>sum+Number(n),0))throw new BadRequestException('更正总产蛋少于已交接来源');
+    const used=await effectiveExactProductionByGrade(m,r.id);
+    if([...used].some(([grade,n])=>n<0||n>Number(grades[grade]??0)))throw new BadRequestException('更正分级少于已接收/入库来源，请先处理下游库存');
+    const receipt=await effectiveProductionReceiptQuantity(m,r.id);
+    if(receipt<0||receipt>Object.values(grades).reduce((sum:number,n)=>sum+Number(n),0))throw new BadRequestException('更正总产蛋少于已交接来源');
     const eggs=unchanged?Number(r.eggs_produced??0):active.filter((x:any)=>x.is_saleable).reduce((sum:number,x:any)=>sum+Number(grades[x.grade_code]??0),0);
     if(!stored){
       const [snapshot]=await m.query(`SELECT (SELECT closing_qty FROM brd_flock_daily_balances WHERE flock_no=$1 AND balance_date<=$2 ORDER BY balance_date DESC LIMIT 1) AS closing,
@@ -226,7 +236,7 @@ export class FlockLifecycleService {
       feed_consumed=$6,water_consumed=$7,note=$8,lay_rate=CASE WHEN closing_qty>0 THEN round($3::numeric*100/closing_qty,2) ELSE NULL END WHERE id=$1`,
       [r.id,JSON.stringify(grades),eggs,grades.DIRTY??0,grades.BROKEN??0,c.feedConsumed,c.waterConsumed,c.notes]);
     await m.query('UPDATE brd_flock_balances SET version=version+1 WHERE flock_no=$1',[d.flock_no]);
-    await m.query(`UPDATE brd_flocks SET current_lay_rate=COALESCE((SELECT lay_rate FROM brd_daily_logs WHERE flock_no=$1 ORDER BY log_date DESC,id DESC LIMIT 1),0) WHERE flock_no=$1`,[d.flock_no]);
+    await refreshDailyFlockLayRate(m,d.flock_no);
     await this.event(m,d,actor,{kind:'REPORT_CORRECTION',occupancy:occ.id});
   }
 
@@ -506,10 +516,28 @@ export class FlockLifecycleService {
       await this.assertNoHealthPending(m,doc.flock_no,day);
       if (balance.quantity!==0) throw new BadRequestException('存栏未归零，不能关闭');
       const lastReports=await m.query('SELECT flock_no,shift,occupancy_id,eggs_by_grade,eggs_produced,dirty_eggs,broken_eggs FROM brd_daily_logs WHERE house_code=$1 AND log_date=$2 FOR UPDATE',[h.house_code,day]);
-      if(lastReports.length>1||lastReports.some((r:any)=>r.flock_no!==doc.flock_no||r.shift!=='DAILY'||r.occupancy_id!==occ.id))throw new BadRequestException('关闭日存在身份不符、旧班次或重复日报，请先核对粒度与来源');
+      if(lastReports.some((r:any)=>r.flock_no!==doc.flock_no||r.occupancy_id!==occ.id)
+        ||lastReports.length>1&&lastReports.some((r:any)=>r.shift==='DAILY'))throw new BadRequestException('关闭日存在身份不符或重复覆盖的汇总/班次日报');
+      if(lastReports.some((r:any)=>r.shift!=='DAILY')) {
+        const [schema]=await m.query("SELECT to_regclass('production_cutover_scopes') AS scopes");
+        const active=schema?.scopes?await m.query(`SELECT 1 FROM production_cutover_scopes WHERE company_code=$1
+          AND house_code=$2 AND first_production_date<=$3 AND state='ACTIVE'`,[h.company_code,h.house_code,day]):[];
+        const shifts=await m.query("SELECT dict_code FROM sys_dict WHERE dict_type='PRODUCTION_REPORT_SHIFT' AND status='ACTIVE' AND dict_code<>'DAILY'");
+        if(!active.length||!shifts.length||shifts.some((s:any)=>!lastReports.some((r:any)=>r.shift===s.dict_code))
+          ||lastReports.some((r:any)=>!shifts.some((s:any)=>s.dict_code===r.shift)))throw new BadRequestException('关闭日正式班次未全部确认，请补齐含零产蛋班次的实际日报');
+      }
       const lastReport=lastReports[0];
       if(!lastReport&&p.finalProductionStatus!=='CONFIRMED_ZERO')throw new BadRequestException('请先确认关闭当天DAILY日报，或上传真实零产蛋签认后再关闭');
-      if(lastReport&&p.finalProductionStatus==='CONFIRMED_ZERO'&&(Object.values(lastReport.eggs_by_grade??{}).some(n=>Number(n)>0)||['eggs_produced','dirty_eggs','broken_eggs'].some(k=>Number(lastReport[k]??0)>0)))throw new BadRequestException('关闭日已有实际产蛋，不得签认为零');
+      if(p.finalProductionStatus==='CONFIRMED_ZERO'&&lastReports.some((r:any)=>Object.values(r.eggs_by_grade??{}).some(n=>Number(n)>0)||['eggs_produced','dirty_eggs','broken_eggs'].some(k=>Number(r[k]??0)>0)))throw new BadRequestException('关闭日已有实际产蛋，不得签认为零');
+      const [productionSchema]=await m.query("SELECT to_regclass('production_physical_handovers') AS handovers");
+      if(productionSchema?.handovers) {
+        if((await m.query(`SELECT 1 FROM production_physical_handovers h WHERE h.company_code=$1 AND h.house_code=$2
+          AND h.production_date<=$3 AND h.state='CONFIRMED' AND NOT EXISTS(SELECT 1 FROM production_inbound_documents d
+            WHERE d.company_code=h.company_code AND d.handover_ref=h.handover_ref AND d.kind='INBOUND' AND d.state='POSTED') LIMIT 1`,
+        [h.company_code,h.house_code,day])).length)throw new BadRequestException('仍有已确认实物交接未完成正式入库');
+        if((await m.query(`SELECT 1 FROM production_inbound_documents WHERE company_code=$1 AND house_code=$2
+          AND production_date<=$3 AND state IN ('DRAFT','READY','APPROVED') LIMIT 1`,[h.company_code,h.house_code,day])).length)throw new BadRequestException('仍有未完正式入库或冲销单据');
+      }
       const pending=await m.query("SELECT 1 FROM brd_flock_documents WHERE flock_no=$1 AND id<>$2 AND status IN ('DRAFT','SUBMITTED','APPROVED') LIMIT 1",[doc.flock_no,doc.id]);
       if (pending.length) throw new BadRequestException('还有未完生命周期单据');
       // End exclusive on following day: today's eggs keep old provenance; next flock starts later.

@@ -1,3 +1,4 @@
+import { FileModule } from '../file/file.module';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ProductMasterModule } from '../product-master/product-master.module';
@@ -32,6 +33,8 @@ import { EggInventorySchedulerService }      from './services/egg-inventory-sche
 import { PackagingInventoryIntegrationService } from './services/packaging-inventory-integration.service'; // 生产链路收口 Phase 1
 import { InventorySourceModeService }        from './services/inventory-source-mode.service';        // 库存来源模式 P1A
 import { ProductionInboundService }          from './services/production-inbound.service';           // 库存来源模式 P1A
+import { ProductionInboundDocumentsService } from './services/production-inbound-documents.service';
+import { ProductionInboundDocumentsController } from './controllers/production-inbound-documents.controller';
 import { SalesAnalyticsService }             from './services/sales-analytics.service';            // Phase 8
 import { FinanceArAdapter }                  from './adapters/finance-ar.adapter';
 import { FinanceCreditNoteAdapter }          from './adapters/finance-credit-note.adapter';       // Phase 6
@@ -80,7 +83,7 @@ import {
  *   · FinanceCreditNoteAdapter 同上（Credit Note 负数 AR）
  */
 @Module({
-  imports: [
+  imports: [FileModule,
     TypeOrmModule.forFeature([
       SalCustomerEntity,
       SalChannelEntity,
@@ -114,6 +117,7 @@ import {
     SalesReturnsController,      // Phase 6
     EggInventoryController,      // Phase 7
     InventorySourceController,   // 库存来源模式 P1A
+    ProductionInboundDocumentsController,
     SalesAnalyticsController,    // Phase 8
     MobileDeliveryController,    // Mobile
   ],
@@ -136,6 +140,7 @@ import {
     PackagingInventoryIntegrationService, // 生产链路收口 Phase 1
     InventorySourceModeService,           // 库存来源模式 P1A
     ProductionInboundService,             // 库存来源模式 P1A
+    ProductionInboundDocumentsService,
     SalesAnalyticsService,                // Phase 8
     FinanceArAdapter,
     FinanceCreditNoteAdapter,             // Phase 6

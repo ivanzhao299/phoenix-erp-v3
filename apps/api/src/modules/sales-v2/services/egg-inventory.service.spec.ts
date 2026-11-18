@@ -970,7 +970,7 @@ describe('EggInventoryService processReturnInventory damage ledger batch (INV-20
     const query = makeQuery([
       { id: 'ri-1', product_code: 'EGG', grade_code: 'A', sku_code: 'SKU-1', accepted_qty: '2', damaged_qty: '1', restock_status: 'PENDING', quantity_snapshot: null, packaging_spec: null },
     ]);
-    const service = new EggInventoryService({ query } as never, { get: jest.fn() } as never);
+    const service = new EggInventoryService({ query, transaction: (run: (tx: unknown) => Promise<unknown>) => run({ query }) } as never, { get: jest.fn() } as never);
 
     await service.processReturnInventory('ret-1', 'RET-2026-0001', 'COMP-A', 'WH-A', 'ZONE-A', 'LOC-A', '2026-11-17');
 
@@ -993,7 +993,7 @@ describe('EggInventoryService processReturnInventory damage ledger batch (INV-20
     const query = makeQuery([
       { id: 'ri-2', product_code: 'EGG', grade_code: 'A', sku_code: null, accepted_qty: '0', damaged_qty: '3', restock_status: 'PENDING', quantity_snapshot: null, packaging_spec: null },
     ]);
-    const service = new EggInventoryService({ query } as never, { get: jest.fn() } as never);
+    const service = new EggInventoryService({ query, transaction: (run: (tx: unknown) => Promise<unknown>) => run({ query }) } as never, { get: jest.fn() } as never);
 
     await service.processReturnInventory('ret-2', 'RET-2026-0002', 'COMP-A', 'WH-A', 'ZONE-A', 'LOC-A', '2026-11-17');
 
@@ -1012,7 +1012,7 @@ describe('EggInventoryService processReturnInventory damage ledger batch (INV-20
     const query = makeQuery([
       { id: 'ri-3', product_code: 'EGG', grade_code: 'A', sku_code: 'SKU-1', accepted_qty: '2', damaged_qty: '1', restock_status: 'PENDING', quantity_snapshot: null, packaging_spec: null },
     ]);
-    const service = new EggInventoryService({ query } as never, { get: jest.fn() } as never);
+    const service = new EggInventoryService({ query, transaction: (run: (tx: unknown) => Promise<unknown>) => run({ query }) } as never, { get: jest.fn() } as never);
 
     await service.processReturnInventory('ret-3', 'RET-2026-0003', 'COMP-A', 'WH-A', 'ZONE-A', 'LOC-A', '2026-11-17');
 

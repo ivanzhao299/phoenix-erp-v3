@@ -21,6 +21,7 @@ interface DailyReport {
   remark?: unknown;
 }
 import PageHeader from '@/components/PageHeader';
+import request from '@/lib/api-client';
 import { useCrud } from '@/hooks/useCrud';
 import { usePermission } from '@/hooks/usePermission';
 import { useToast } from '@/contexts/ToastContext';
@@ -135,7 +136,7 @@ export default function DailyPage() {
   const [farmCodeByHouse, setFarmCodeByHouse] = useState<Record<string, string>>({});
   const [formDate, setFormDate] = useState(today);
   const { codeMap: cullingReasonCodeMap } = useDictOptions('BRD_CULLING_REASON');
-  // Issue #498: the management page has one daily entry; DAILY is an internal compatibility value.
+  // Unactivated houses retain daily entry; official houses may select approved report shifts.
   const [rows, setRows] = useState([mkRow(1, 'DAILY')]);
   const [submitted, setSubmitted] = useState(false);
   const [approved, setApproved] = useState(false);
@@ -152,6 +153,15 @@ export default function DailyPage() {
   // 鸡舍来源档案：东鹏 VARIANT 舍（红/粉壳）在录入区明示品种，孟赛 STANDARD 走普通分级。
   const { profile: sourceProfile, loading: sourceProfileLoading } = useEggSourceProfile(selectedHouse, formDate);
   const varietyShort = varietyShortLabel(sourceProfile);
+  const [formalContext,setFormalContext]=useState<{house:string;state:string;firstProductionDate:string|null}|null>(null);
+  const officialReport=formalContext?.house===selectedHouse&&formalContext.state==='ACTIVE'
+    &&formDate>=(formalContext.firstProductionDate??'');
+  useEffect(()=>{let alive=true;if(!sourceProfile)return;
+    request<{state:string;firstProductionDate:string|null}>(`/v2/inventory/production-inbound-documents/context?${new URLSearchParams({companyCode:sourceProfile.companyCode,houseCode:selectedHouse})}`)
+      .then(c=>{if(alive)setFormalContext({house:selectedHouse,...c});}).catch(()=>{if(alive)setFormalContext(null);});
+    return()=>{alive=false;};
+  },[sourceProfile,selectedHouse]);
+
   const historyRequest = useRef(0);
   const loadData = useCallback(async () => {
     const generation = ++historyRequest.current;
@@ -285,7 +295,7 @@ export default function DailyPage() {
     const user = JSON.parse(typeof window !== 'undefined' ? sessionStorage.getItem('phoenix_user') || '{}' : '{}');
     const eggsByGrade = Object.fromEntries(Object.entries(row.gradeQty).filter(([, value]) => Number(value) > 0).map(([code, value]) => [code, Number(value)]));
     const payload: Record<string, unknown> = {
-      house_code: selectedHouse, flock_no: flockByHouse[selectedHouse] || selectedHouse,
+      shift:officialReport?row.shift:'DAILY',house_code: selectedHouse, flock_no: flockByHouse[selectedHouse] || selectedHouse,
       farm_code: farmCodeByHouse[selectedHouse] || '', log_date: formDate,
       feed_consumed: row.feedKg===''||row.feedKg==null?null:Number(row.feedKg), water_consumed:row.waterL===''||row.waterL==null?null:Number(row.waterL),
       mortality_qty: Number(row.deaths) || 0, mortality_reason: row.mortalityReason || null,
@@ -297,7 +307,7 @@ export default function DailyPage() {
     try {
       const res = await fetch(`${API_BASE}/api/v3/farm/daily-logs`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify(payload) });
       if (!res.ok) { const result = await res.json().catch(() => ({ message: res.statusText })); throw new Error(result?.message || result?.msg || `HTTP ${res.status}`); }
-      setHistoryHouse(selectedHouse); setHistoryDate(formDate); await loadData(); setRows([mkRow(1, 'DAILY')]);
+      setHistoryHouse(selectedHouse); setHistoryDate(formDate); await loadData(); setRows([mkRow(1, officialReport?row.shift:'DAILY')]);
       setSubmitted(true); setTimeout(() => setSubmitted(false), 3000);
     } catch (error: unknown) {
       toast.error(`${t('ui.日报提交失败：', '日报提交失败：')}${error instanceof Error ? error.message : t('ui.未知错误', '未知错误')}`);
@@ -553,7 +563,8 @@ export default function DailyPage() {
                 border: '1px solid var(--border)', borderRadius: 10, padding: 14, background: 'var(--bg-page)',
                 display: 'flex', flexDirection: 'column', gap: 12,
               }}>
-                {/* 单日数据：不展示班次，分级直接在产蛋区录入 */}
+                {officialReport&&<label>{t('productionInstallments.shift','日报班次')}<DictSelect dictType="PRODUCTION_REPORT_SHIFT" value={row.shift} onChange={v=>updateRow(row.id,'shift',v)} allowEmpty={false}/></label>}
+                {officialReport&&<a href="/breeding/production-inbound">{t('productionInstallments.title','正式分次生产入库')}</a>}
                 {/* G19-A 三组分块 — 产蛋区 / 死淘区 / 环境区 — 用色块区分业务语义 */}
                 {/* 产蛋区（绿） */}
                 <div style={{

@@ -1,3 +1,4 @@
+import { officialInventoryPredicate, officialLedgerPredicate, assertOfficialInventoryBatches } from '../wms/official-inventory';
 import { writeHenhouse } from './henhouse-write-policy';
 import { DAILY_EXPORT_SNAPSHOT, DAILY_EXPORT_MAX_ROWS } from './daily-export-policy';
 import { Injectable, BadRequestException, ConflictException, ForbiddenException, InternalServerErrorException, Logger } from '@nestjs/common';
@@ -236,7 +237,9 @@ export class GenericCrudService {
   }
 
   async findAllInventoryScoped(table: 'inv_batches' | 'inv_ledger', query: any, allowedWarehouseCodes: string[] | null) {
-    const extraWhere: string[] = [];
+    const extraWhere: string[] = [table === 'inv_batches'
+      ? officialInventoryPredicate('inv_batches')
+      : officialLedgerPredicate()];
     const extraValues: unknown[] = [];
 
     if (allowedWarehouseCodes !== null) {
@@ -539,7 +542,7 @@ export class GenericCrudService {
   }
 
   async create(table: string, body: any) {
-    if (['brd_flock_','brd_egg_','inv_flock_'].some(prefix=>table.startsWith(prefix))) throw new ForbiddenException('生命周期事件账禁止通用写入');
+    if (['brd_flock_','brd_egg_','inv_flock_','production_'].some(prefix=>table.startsWith(prefix))) throw new ForbiddenException('生命周期事件账禁止通用写入');
     if (table === 'brd_daily_logs') throw new ForbiddenException('日报必须使用专用日报接口，禁止通用写入');
     if (['wms_inbound_items','wms_outbound_items','inv_batches','inv_ledger'].includes(table)) throw new ForbiddenException('WMS 明细及快照必须使用专用单据接口，禁止通用修改/删除');
     GenericCrudService.assertNoDerivedQuantityFields(body);
@@ -562,6 +565,7 @@ export class GenericCrudService {
       const references = GenericCrudService.BATCH_REFERENCE_FIELDS[table];
       if (references) await this.entityManager.transaction(async manager => {
         await lockTempProductionReferences(manager, references.map(field => body[field]));
+        await assertOfficialInventoryBatches(manager, references.map(field => body[field]).filter((value): value is string => typeof value === 'string'));
         await manager.query(sql, values);
       });
       else await this.entityManager.query(sql, values);
@@ -595,7 +599,7 @@ export class GenericCrudService {
   }
 
   async update(table: string, pkName: string, id: any, body: any) {
-    if (['brd_flock_','brd_egg_','inv_flock_'].some(prefix=>table.startsWith(prefix))) throw new ForbiddenException('生命周期事件账禁止通用写入');
+    if (['brd_flock_','brd_egg_','inv_flock_','production_'].some(prefix=>table.startsWith(prefix))) throw new ForbiddenException('生命周期事件账禁止通用写入');
     if (table === 'brd_daily_logs') throw new ForbiddenException('日报必须使用专用日报接口，禁止通用写入');
     if (['wms_inbound_items','wms_outbound_items','inv_batches','inv_ledger'].includes(table)) throw new ForbiddenException('WMS 明细及快照必须使用专用单据接口，禁止通用修改/删除');
     GenericCrudService.assertNoDerivedQuantityFields(body);
@@ -643,6 +647,7 @@ export class GenericCrudService {
           const [current] = await manager.query(`SELECT * FROM "${table}" WHERE "${pkName}"=$1 FOR UPDATE`, [id]);
           if (!current) throw new BadRequestException('Record not found');
           await lockTempProductionReferences(manager, references.flatMap(field => [current[field], body[field]]));
+        await assertOfficialInventoryBatches(manager, references.flatMap(field => [current[field], body[field]]).filter((value): value is string => typeof value === 'string'));
         }
         return manager.query(finalSql, values);
       };
@@ -658,7 +663,7 @@ export class GenericCrudService {
   }
 
   async remove(table: string, pkName: string, id: any) {
-    if (['brd_flock_','brd_egg_','inv_flock_'].some(prefix=>table.startsWith(prefix))) throw new ForbiddenException('生命周期事件账禁止通用写入');
+    if (['brd_flock_','brd_egg_','inv_flock_','production_'].some(prefix=>table.startsWith(prefix))) throw new ForbiddenException('生命周期事件账禁止通用写入');
     if (['brd_flocks','brd_houses'].includes(table)) throw new ForbiddenException('鸡群与鸡舍须保留追溯档案，禁止物理删除');
     if (table === 'brd_daily_logs') throw new ForbiddenException('日报必须使用专用日报接口，禁止通用写入');
     if (['wms_inbound_items','wms_outbound_items','inv_batches','inv_ledger'].includes(table)) throw new ForbiddenException('WMS 明细及快照必须使用专用单据接口，禁止通用修改/删除');
@@ -681,6 +686,7 @@ export class GenericCrudService {
           const [current] = await manager.query(`SELECT * FROM "${table}" WHERE "${pkName}"=$1 FOR UPDATE`, [id]);
           if (!current) throw new BadRequestException('Record not found');
           await lockTempProductionReferences(manager, references.map(field => current[field]));
+        await assertOfficialInventoryBatches(manager, references.map(field => current[field]).filter((value): value is string => typeof value === 'string'));
         }
         return manager.query(sql, [id]);
       };

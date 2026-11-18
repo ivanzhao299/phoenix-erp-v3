@@ -1,5 +1,6 @@
 import { BadRequestException, ConflictException } from '@nestjs/common';
 import { EntityManager } from 'typeorm';
+import { officialInventoryPredicate } from '../../wms/official-inventory';
 
 export type QuantityBasis = 'BASE' | 'PACKAGE';
 export interface QuantitySnapshot {
@@ -91,6 +92,7 @@ export function assertBatchPool(batch: any, s: QuantitySnapshot): void {
 export async function sharedBatches(db: Queryable, company: string, warehouses: string[], s: QuantitySnapshot) {
   await lockQuantityPools(db, [{ company, warehouses, snapshot: s }]);
   return db.query(`SELECT * FROM inv_batches WHERE company_code=$1 AND product_code=$2 AND grade_code_std=$3 AND unit=$4
+    AND ${officialInventoryPredicate('inv_batches')}
     AND material_code IS NULL AND legacy_source IS NULL AND base_quantity_version=1 AND status='AVAILABLE' AND qty_available>0
     AND (expire_date IS NULL OR expire_date>=CURRENT_DATE)
     AND (cardinality($5::varchar[])=0 OR warehouse_code=ANY($5::varchar[]))

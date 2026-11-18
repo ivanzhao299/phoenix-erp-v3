@@ -1,3 +1,4 @@
+import { officialInventoryPredicate, officialLedgerPredicate } from '../../wms/official-inventory';
 import { Injectable } from '@nestjs/common';
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
@@ -24,7 +25,7 @@ export class InventoryAnalyticsService {
       `SELECT COALESCE(status,'UNKNOWN') AS status,
               COUNT(*)::text AS cnt,
               COALESCE(SUM(qty * COALESCE(unit_cost,0)),0)::text AS value
-         FROM inv_batches WHERE 1=1 ${wFilter}
+         FROM inv_batches WHERE ${officialInventoryPredicate('inv_batches')} AND 1=1 ${wFilter}
          GROUP BY COALESCE(status,'UNKNOWN')`,
     );
     const byStatus: Record<string, { count: number; value: number }> = {};
@@ -35,11 +36,11 @@ export class InventoryAnalyticsService {
     // 库存周转 = 30 天出库量 / 当前库存
     const outRows = await this.safe<{ v: string }>(
       `SELECT COALESCE(SUM(ABS(qty_change)),0)::text AS v FROM inv_ledger
-         WHERE change_type IN ('OUTBOUND','SALES','TRANSFER')
+         WHERE ${officialLedgerPredicate()} AND change_type IN ('OUTBOUND','SALES','TRANSFER')
            AND created_at > NOW() - INTERVAL '30 days'`,
     );
     const onHandRows = await this.safe<{ v: string }>(
-      `SELECT COALESCE(SUM(qty),0)::text AS v FROM inv_batches WHERE status='AVAILABLE' ${wFilter}`,
+      `SELECT COALESCE(SUM(qty),0)::text AS v FROM inv_batches WHERE ${officialInventoryPredicate('inv_batches')} AND status='AVAILABLE' ${wFilter}`,
     );
     const out30 = parseFloat(outRows[0]?.v ?? '0');
     const onHand = parseFloat(onHandRows[0]?.v ?? '0');
@@ -56,7 +57,7 @@ export class InventoryAnalyticsService {
               END AS bucket,
               COUNT(*)::text AS cnt,
               COALESCE(SUM(qty * COALESCE(unit_cost,0)),0)::text AS value
-         FROM inv_batches WHERE status IN ('AVAILABLE','QUARANTINE','RESERVED') ${wFilter}
+         FROM inv_batches WHERE ${officialInventoryPredicate('inv_batches')} AND status IN ('AVAILABLE','QUARANTINE','RESERVED') ${wFilter}
          GROUP BY 1
          ORDER BY 1`,
     );
@@ -64,7 +65,7 @@ export class InventoryAnalyticsService {
     // 滞销：库存 ≥90 天且最近 30 天无出库
     const slow = await this.safe<{ c: string }>(
       `SELECT COUNT(*)::text AS c FROM inv_batches b
-         WHERE b.status='AVAILABLE' AND b.created_at < NOW() - INTERVAL '90 days' ${wFilter}
+         WHERE ${officialInventoryPredicate('b')} AND b.status='AVAILABLE' AND b.created_at < NOW() - INTERVAL '90 days' ${wFilter}
            AND NOT EXISTS (
              SELECT 1 FROM inv_ledger l
                WHERE l.batch_no = b.batch_no

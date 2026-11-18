@@ -73,6 +73,11 @@ export class AllExceptionsFilter implements ExceptionFilter {
     // PostgreSQL 数据库错误 — 映射友好消息，隐藏内部细节
     const err = exception as any;
     const pgCode: string | undefined = err?.code;
+    if ((pgCode ?? err?.driverError?.code) === '23514'
+      && String(err?.message ?? '').includes('OFFICIAL_INVENTORY_')) {
+      return res.status(409).json({ code: 'OFFICIAL_INVENTORY_SOURCE_REJECTED',
+        msg: '测试期、暂停范围或来源待核实的批次不能参与正式业务，请查询原单或联系交接负责人' });
+    }
     if (pgCode && PG_ERROR_MAP[pgCode]) {
       const msg = PG_ERROR_MAP[pgCode];
       this.logger.warn(`[DB] PG${pgCode} on ${req.method} ${req.url} — ${err?.message} col:${err?.column}`);
