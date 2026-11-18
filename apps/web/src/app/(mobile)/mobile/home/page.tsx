@@ -164,6 +164,11 @@ const NAV_CARDS: NavCard[] = [{
   soon: false,
   pageKey: 'egglog'
 }, {
+  icon: <Egg size={28} />,
+  titleZh: '正式分级产蛋日报',titleEn: 'Graded production reports',titleLo: 'ລາຍງານຜະລິດໄຂ່ແຍກເກຣດ',
+  desc: '按真实班次确认完整分级',descKey: 'productionReports.instructions',
+  color: 'var(--status-warning)',href: '/mobile/production-reports',soon: false,pageKey: 'production_reports'
+}, {
   icon: <Package size={28} />,
   titleZh: '正式分次生产入库',titleEn: 'Production installments',titleLo: 'ຮັບໄຂ່ເຂົ້າສາງເປັນງວດ',
   desc: '实物交接、分次入库与原单回执',descKey: 'productionInstallments.subtitle',

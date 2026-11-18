@@ -21,6 +21,15 @@ export async function lifecycleDailyBalance(m: EntityManager, flock: any, prior:
     [next.company_code,next.house_code,next.log_date,next.shift]) : [];
     if (!active.length) throw new BadRequestException('正式多班须先启用切换范围并选择已确认的班次');
   }
+  const [cutover]=await m.query("SELECT to_regclass('production_cutover_scopes') AS scopes");
+  if(!prior&&cutover?.scopes&&(await m.query(`SELECT 1 FROM production_cutover_scopes WHERE company_code=$1 AND house_code=$2
+    AND state='ACTIVE' AND first_production_date<=$3`,[next.company_code,next.house_code,next.log_date])).length) {
+    const grades=typeof next.eggs_by_grade==='string'?JSON.parse(next.eggs_by_grade):next.eggs_by_grade;
+    const required=await m.query(`SELECT grade_code FROM product_grades p WHERE status='ACTIVE'
+      AND COALESCE((to_jsonb(p)->>'stock_managed')::boolean,(to_jsonb(p)->>'is_storable')::boolean,true)`);
+    if(!required.length||!grades||required.some((g:any)=>!Object.prototype.hasOwnProperty.call(grades,g.grade_code)))
+      throw new BadRequestException('正式日报须明确填写全部库存分级；未产档位请明确填0，不得把未记录当成0');
+  }
   const other=await m.query(`SELECT 1 FROM brd_daily_logs WHERE house_code=$1 AND log_date=$2
     AND ${next.shift==='DAILY' ? "shift<>'DAILY'" : "shift='DAILY'"} LIMIT 1`,[next.house_code,next.log_date]);
   if (other.length) throw new BadRequestException('该舍日已有历史班次，请先核对');

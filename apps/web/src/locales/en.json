@@ -14905,5 +14905,15 @@
   "ui.正式分次生产入库": "Formal production installments",
   "productionInstallments.resumeDraft": "Resume saved handover",
   "productionInstallments.recoverHandover": "Recover by physical handover reference (any device)",
-  "productionInstallments.financeProof": "View this finance verification evidence"
+  "productionInstallments.financeProof": "View this finance verification evidence",
+  "productionReports.title": "Graded production reports",
+  "productionReports.instructions": "Enter every grade for the actual shift. Enter 0 explicitly when none were produced. Reports do not post inventory; mortality and culling come from approved flock documents.",
+  "productionReports.flock": "Flock occupying this house",
+  "productionReports.closed": "This scope is not active or has been suspended. Check the cutover status.",
+  "productionReports.existing": "An original report exists for this shift. Its recorded quantities appear below. Corrections require an approved document.",
+  "productionReports.feed": "Shift feed kg (leave blank if unrecorded)",
+  "productionReports.water": "Shift water L (leave blank if unrecorded)",
+  "productionReports.save": "Confirm shift report",
+  "productionReports.recover": "Find original report / refresh",
+  "productionReports.saved": "Report saved. Select its actual handover segments when posting inventory."
 }

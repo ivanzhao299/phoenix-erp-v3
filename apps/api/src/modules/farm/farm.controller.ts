@@ -54,6 +54,12 @@ export class FarmController {
     return await this.farmService.getEggsBreakdown(date, houseCode, this.getScope(req));
   }
 
+  @Get('daily-logs/production-sources')
+  @RequireMenu('MENU_FARM_DAILY','V')
+  productionReports(@Query('date') date:string,@Query('houseCode') house:string,@Req() req:any) {
+    return this.farmService.getProductionReports(date,house,this.getScope(req));
+  }
+
   @Get('daily-hen-report')
   @RequireMenu('MENU_FARM_DAILY','V',['MENU_FARM_DATA'])
   async getDailyHenReport(@Query('date') date: string, @Req() req: any) {

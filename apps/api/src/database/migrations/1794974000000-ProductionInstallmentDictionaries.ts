@@ -27,6 +27,7 @@ export class ProductionInstallmentDictionaries1794974000000 implements Migration
     INBOUND:'ຮັບໄຂ່ເຂົ້າສາງ',REVERSAL:'ກັບລາຍການເດີມ',CONFIRMED:'ຢືນຢັນແລ້ວ',UNKNOWN:'ລໍກວດຕົ້ນທຶນ',OPEN:'ເປີດ',CLOSED:'ປິດແລ້ວ',
   };
   async up(q: QueryRunner): Promise<void> {
+    if((await q.query('SHOW transaction_isolation'))[0].transaction_isolation!=='read committed')throw new Error('OFFICIAL_MIGRATION_ISOLATION_HOLD: READ COMMITTED required');
     for(const [index,[type,code,zh,en]] of this.entries.entries()) {
       const inserted=await q.query(`INSERT INTO sys_dict(dict_type,dict_code,dict_value,dict_label_zh,dict_label_en,dict_label_lo,sort_no,status)
         VALUES($1,$2,$2,$3,$4,$5,$6,'ACTIVE') ON CONFLICT(dict_type,dict_code) DO NOTHING RETURNING dict_code`,[type,code,zh,en,this.lao[code],180+index]);
@@ -36,6 +37,7 @@ export class ProductionInstallmentDictionaries1794974000000 implements Migration
     }
   }
   async down(q: QueryRunner): Promise<void> {
+    if((await q.query('SHOW transaction_isolation'))[0].transaction_isolation!=='read committed')throw new Error('OFFICIAL_MIGRATION_ISOLATION_HOLD: READ COMMITTED required');
     const own=!q.isTransactionActive;if(own)await q.startTransaction();
     try {
       const facts=['production_inbound_documents','production_inbound_days','production_physical_handovers',

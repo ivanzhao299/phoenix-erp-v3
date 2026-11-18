@@ -4,6 +4,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * Expand only. No scope, archive decision, opening stock or qualification is seeded. */
 export class OfficialInventoryCutover1794971000000 implements MigrationInterface {
   public async up(q: QueryRunner): Promise<void> {
+    if((await q.query('SHOW transaction_isolation'))[0].transaction_isolation!=='read committed')throw new Error('OFFICIAL_MIGRATION_ISOLATION_HOLD: READ COMMITTED required');
     await q.query(`
       CREATE TABLE IF NOT EXISTS production_cutover_scopes (
         id uuid PRIMARY KEY, company_code text NOT NULL, house_code text NOT NULL,
@@ -115,6 +116,9 @@ export class OfficialInventoryCutover1794971000000 implements MigrationInterface
         LANGUAGE plpgsql AS $body$
         DECLARE sid uuid; current_state text; target_batch text;
         BEGIN
+          IF current_setting('transaction_isolation')<>'read committed' THEN
+            RAISE EXCEPTION 'OFFICIAL_INVENTORY_ISOLATION_HOLD: inventory writes require READ COMMITTED' USING ERRCODE='23514';
+          END IF;
           IF TG_TABLE_NAME='production_cutover_scopes' THEN
             IF OLD.state<>'DRAFT' AND (TG_OP='DELETE' OR
                 (to_jsonb(OLD)-'state'-'activated_at') IS DISTINCT FROM (to_jsonb(NEW)-'state'-'activated_at')
@@ -124,6 +128,11 @@ export class OfficialInventoryCutover1794971000000 implements MigrationInterface
               RAISE EXCEPTION 'CUTOVER_MANIFEST_FROZEN' USING ERRCODE='23514';
             END IF;
           ELSE
+            IF TG_TABLE_NAME='production_inventory_domains' THEN
+              IF TG_OP='UPDATE' AND NEW.scope_id IS DISTINCT FROM OLD.scope_id THEN
+                RAISE EXCEPTION 'CUTOVER_DOMAIN_SCOPE_IMMUTABLE: replace DRAFT membership using delete and insert under scope locks' USING ERRCODE='23514';
+              END IF;
+            END IF;
             IF TG_OP='DELETE' THEN sid:=(to_jsonb(OLD)->>'scope_id')::uuid;
             ELSE sid:=(to_jsonb(NEW)->>'scope_id')::uuid; END IF;
             IF TG_TABLE_NAME='production_batch_roots' THEN
@@ -162,6 +171,9 @@ export class OfficialInventoryCutover1794971000000 implements MigrationInterface
         LANGUAGE plpgsql AS $body$
         DECLARE b record;
         BEGIN
+          IF current_setting('transaction_isolation')<>'read committed' THEN
+            RAISE EXCEPTION 'OFFICIAL_INVENTORY_ISOLATION_HOLD: inventory writes require READ COMMITTED' USING ERRCODE='23514';
+          END IF;
           -- Lock DRAFT scopes too: FENCE waits for an earlier writer to finish, and
           -- a later writer rechecks using the VOLATILE admission function's fresh snapshot.
           IF TG_OP='DELETE' THEN b:=OLD; ELSE b:=NEW; END IF;
@@ -210,6 +222,9 @@ export class OfficialInventoryCutover1794971000000 implements MigrationInterface
         LANGUAGE plpgsql AS $body$
         DECLARE b record;
         BEGIN
+          IF current_setting('transaction_isolation')<>'read committed' THEN
+            RAISE EXCEPTION 'OFFICIAL_INVENTORY_ISOLATION_HOLD: inventory writes require READ COMMITTED' USING ERRCODE='23514';
+          END IF;
           SELECT * INTO b FROM inv_batches WHERE batch_no=NEW.batch_no;
           IF FOUND THEN
             PERFORM 1 FROM production_cutover_scopes s
@@ -239,6 +254,7 @@ export class OfficialInventoryCutover1794971000000 implements MigrationInterface
   }
 
   public async down(q: QueryRunner): Promise<void> {
+    if((await q.query('SHOW transaction_isolation'))[0].transaction_isolation!=='read committed')throw new Error('OFFICIAL_MIGRATION_ISOLATION_HOLD: READ COMMITTED required');
     const ownTransaction = !q.isTransactionActive;
     if (ownTransaction) await q.startTransaction();
     try {

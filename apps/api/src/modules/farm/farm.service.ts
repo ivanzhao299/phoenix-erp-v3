@@ -636,6 +636,19 @@ export class FarmService {
     };
   }
 
+  /** Persisted source reports, including zero quantities; callers never infer per-shift facts from a day total. */
+  async getProductionReports(date:string,house:string,scope:OrgScope) {
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!Number.isFinite(Date.parse(date))||new Date(date).toISOString().slice(0,10)!==date)
+      throw new BadRequestException('日报日期必须为真实YYYY-MM-DD');
+    if(!house?.trim())throw new BadRequestException(MISSING_HOUSE_MESSAGE);
+    const params:any[]=[date,house];const allowed=dailyLogScopeWhere(scope,params);
+    return this.entityManager.query(`SELECT dl.id,dl.house_code,dl.flock_no,dl.log_date::text AS log_date,dl.shift,dl.occupancy_id,
+      dl.eggs_by_grade,dl.eggs_produced,dl.feed_consumed,dl.water_consumed,dl.note,dl.opening_qty,dl.closing_qty
+      FROM brd_daily_logs dl LEFT JOIN brd_houses h ON h.house_code=dl.house_code
+      LEFT JOIN brd_farms hf ON hf.farm_code=h.farm_code AND hf.status='ACTIVE'
+      WHERE dl.log_date=$1 AND dl.house_code=$2 ${allowed?'AND '+allowed:''} ORDER BY dl.id`,params);
+  }
+
   async getDailyHenReport(date: string, scope: OrgScope = { isGlobal: false, farmCode: null, siteCode: null }) {
     if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!Number.isFinite(Date.parse(date))||new Date(date).toISOString().slice(0,10)!==date)throw new BadRequestException('日报日期必须为真实YYYY-MM-DD');
     const businessToday=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Singapore'}).format(new Date());
@@ -703,8 +716,8 @@ export class FarmService {
     const rows = await this.entityManager.query(`WITH reports AS (
       SELECT dl.* FROM brd_daily_logs dl LEFT JOIN brd_houses h ON h.house_code=dl.house_code
       LEFT JOIN brd_farms hf ON hf.farm_code=h.farm_code AND hf.status='ACTIVE' ${trendWhere}
-    ), house_days AS (SELECT house_code,flock_no,log_date,SUM(COALESCE(eggs_produced,0)) AS eggs,SUM(COALESCE(mortality_qty,0)) AS mortality,
-      SUM(COALESCE(elimination_qty,0)) AS elimination,SUM(COALESCE(feed_consumed,0)) AS feed,
+    ), house_days AS (SELECT house_code,flock_no,log_date,SUM(COALESCE(eggs_produced,0)) AS eggs,SUM(CASE WHEN occupancy_id IS NULL THEN COALESCE(mortality_qty,0) ELSE 0 END) AS mortality,
+      SUM(CASE WHEN occupancy_id IS NULL THEN COALESCE(elimination_qty,0) ELSE 0 END) AS elimination,SUM(COALESCE(feed_consumed,0)) AS feed,
       (ARRAY_AGG(closing_qty ORDER BY id DESC))[1] AS closing_qty FROM reports GROUP BY house_code,flock_no,log_date)
       SELECT log_date::text AS date,SUM(eggs)::int AS eggs,SUM(mortality)::int AS mortality,SUM(elimination)::int AS elimination,
         SUM(feed)::numeric AS feed,SUM(closing_qty)::numeric AS reported_qty,BOOL_AND(closing_qty IS NOT NULL) AS quantity_complete,COUNT(*)::int AS report_count
@@ -714,7 +727,7 @@ export class FarmService {
       const eventParams:any[]=[safeDays];const eventScope=scopeWhere(scope,eventParams,'o.');
       const eventDays=await this.entityManager.query(`SELECT b.balance_date::text AS date,SUM(b.mortality_qty)::int AS mortality,SUM(b.elimination_qty)::int AS elimination
         FROM brd_flock_daily_balances b JOIN brd_flock_occupancies o ON o.flock_no=b.flock_no AND o.began_on<=b.balance_date AND (o.ended_on IS NULL OR o.ended_on>b.balance_date)
-        WHERE b.balance_date>=(CURRENT_DATE-($1*2-1)*INTERVAL '1 day') AND NOT EXISTS(SELECT 1 FROM brd_daily_logs d WHERE d.flock_no=b.flock_no AND d.log_date=b.balance_date)
+        WHERE b.balance_date>=(CURRENT_DATE-($1*2-1)*INTERVAL '1 day') AND NOT EXISTS(SELECT 1 FROM brd_daily_logs d WHERE d.flock_no=b.flock_no AND d.log_date=b.balance_date AND d.occupancy_id IS NULL)
           AND (b.mortality_qty>0 OR b.elimination_qty>0) ${eventScope?'AND '+eventScope:''} GROUP BY b.balance_date`,eventParams);
       for(const e of eventDays){const r=rows.find((x:any)=>x.date===e.date);if(r){r.mortality=Number(r.mortality)+Number(e.mortality);r.elimination=Number(r.elimination)+Number(e.elimination);}else rows.push({...e,eggs:0,feed:0,reported_qty:0,quantity_complete:true,report_count:0});}
       rows.sort((x:any,y:any)=>x.date.localeCompare(y.date));

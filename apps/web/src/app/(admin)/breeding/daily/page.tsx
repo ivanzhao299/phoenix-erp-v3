@@ -280,8 +280,11 @@ export default function DailyPage() {
       return;
     }
     const row = rows[0];
+    if(officialReport&&(!productGrades.length||productGrades.some(g=>(g.stock_managed??g.is_storable)!==false&&(row.gradeQty[g.grade_code]===undefined||row.gradeQty[g.grade_code]==='')))){
+      toast.error(t('productionReports.instructions','请明确填写全部分级，未产档位请填0'));return;
+    }
     const hasData = hasDailyReportInput({ ...row, eggs: String(gradeSumOf(row.gradeQty)) });
-    if (!hasData) {
+    if (!hasData&&!officialReport) {
       toast.error(t('ui.请至少录入一项数据（产蛋数、死淘或饲料用量）后再提交', '请至少录入一项数据（产蛋数、死淘或饲料用量）后再提交'));
       return;
     }
@@ -293,14 +296,14 @@ export default function DailyPage() {
     }
     const token = typeof window !== 'undefined' ? sessionStorage.getItem('phoenix_token') : '';
     const user = JSON.parse(typeof window !== 'undefined' ? sessionStorage.getItem('phoenix_user') || '{}' : '{}');
-    const eggsByGrade = Object.fromEntries(Object.entries(row.gradeQty).filter(([, value]) => Number(value) > 0).map(([code, value]) => [code, Number(value)]));
+    const eggsByGrade = Object.fromEntries(Object.entries(row.gradeQty).filter(([, value]) => officialReport?value!=='':Number(value)>0).map(([code, value]) => [code, Number(value)]));
     const payload: Record<string, unknown> = {
       shift:officialReport?row.shift:'DAILY',house_code: selectedHouse, flock_no: flockByHouse[selectedHouse] || selectedHouse,
       farm_code: farmCodeByHouse[selectedHouse] || '', log_date: formDate,
       feed_consumed: row.feedKg===''||row.feedKg==null?null:Number(row.feedKg), water_consumed:row.waterL===''||row.waterL==null?null:Number(row.waterL),
       mortality_qty: Number(row.deaths) || 0, mortality_reason: row.mortalityReason || null,
       elimination_qty: Number(row.elimination) || 0, culling_reason: row.elimReason || null,
-      temp: Number(row.temp) || 25, humidity: Number(row.humidity) || 60, note: row.remark,
+      temp: officialReport?(row.temp===''?null:Number(row.temp)):Number(row.temp)||25, humidity:officialReport?(row.humidity===''?null:Number(row.humidity)):Number(row.humidity)||60, note: row.remark,
       operator: user.realNameZh || user.username || t('ui.未知操作人', '未知操作人'), eggs_by_grade: eggsByGrade,
     };
     if(managedHouse)for(const k of ['mortality_qty','elimination_qty','mortality_reason','culling_reason'])delete payload[k];

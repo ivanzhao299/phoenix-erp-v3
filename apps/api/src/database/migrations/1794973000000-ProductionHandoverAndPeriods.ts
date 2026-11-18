@@ -3,6 +3,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
 /** @allow-data-dml: DDL-only UPDATE OR DELETE trigger events; no business DML is executed. */
 export class ProductionHandoverAndPeriods1794973000000 implements MigrationInterface {
   async up(q: QueryRunner): Promise<void> {
+    if((await q.query('SHOW transaction_isolation'))[0].transaction_isolation!=='read committed')throw new Error('OFFICIAL_MIGRATION_ISOLATION_HOLD: READ COMMITTED required');
     await q.query(`CREATE TABLE IF NOT EXISTS production_physical_handovers(
       id uuid PRIMARY KEY,company_code text NOT NULL,house_code text NOT NULL,production_date date NOT NULL,
       scope_id uuid NOT NULL REFERENCES production_cutover_scopes(id),handover_ref text NOT NULL,
@@ -68,6 +69,7 @@ export class ProductionHandoverAndPeriods1794973000000 implements MigrationInter
       FOR EACH ROW EXECUTE FUNCTION production_inbound_fact_immutable()`);
   }
   async down(q: QueryRunner): Promise<void> {
+    if((await q.query('SHOW transaction_isolation'))[0].transaction_isolation!=='read committed')throw new Error('OFFICIAL_MIGRATION_ISOLATION_HOLD: READ COMMITTED required');
     const own=!q.isTransactionActive; if (own) await q.startTransaction();
     try {
       await q.query('LOCK TABLE production_physical_handovers,production_handover_cancellations,production_posting_periods,production_posting_period_events,production_financial_clearances IN ACCESS EXCLUSIVE MODE');

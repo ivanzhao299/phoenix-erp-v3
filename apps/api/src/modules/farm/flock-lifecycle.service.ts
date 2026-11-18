@@ -637,15 +637,19 @@ export class FlockLifecycleService {
         VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(flock_no,balance_date) DO UPDATE SET opening_qty=EXCLUDED.opening_qty,
         closing_qty=EXCLUDED.closing_qty,mortality_qty=EXCLUDED.mortality_qty,elimination_qty=EXCLUDED.elimination_qty`,[flock,r.day,opening,running,r.mortality,r.culls]);
     }
-    // Activated reports have one DAILY row; event totals are a read projection, never another stock deduction.
+    const [cutover]=await m.query("SELECT to_regclass('production_cutover_scopes') AS scopes");
+    const officialPeriod=cutover?.scopes?`AND NOT EXISTS(SELECT 1 FROM production_cutover_scopes s
+      WHERE s.house_code=d.house_code AND s.state<>'DRAFT' AND d.log_date<s.first_production_date)`:'';
+    // DAILY projects the day totals; shift reports do not duplicate mortality. Archived reports retain their original cache.
     await m.query(`UPDATE brd_daily_logs d SET
-      mortality_qty=COALESCE((SELECT mortality_qty FROM brd_flock_daily_balances WHERE flock_no=d.flock_no AND balance_date=d.log_date),0),
-      elimination_qty=COALESCE((SELECT elimination_qty FROM brd_flock_daily_balances WHERE flock_no=d.flock_no AND balance_date=d.log_date),0),
+      mortality_qty=CASE WHEN d.shift='DAILY' THEN COALESCE((SELECT mortality_qty FROM brd_flock_daily_balances WHERE flock_no=d.flock_no AND balance_date=d.log_date),0) ELSE 0 END,
+      elimination_qty=CASE WHEN d.shift='DAILY' THEN COALESCE((SELECT elimination_qty FROM brd_flock_daily_balances WHERE flock_no=d.flock_no AND balance_date=d.log_date),0) ELSE 0 END,
       opening_qty=COALESCE((SELECT opening_qty FROM brd_flock_daily_balances WHERE flock_no=d.flock_no AND balance_date=d.log_date),
         (SELECT closing_qty FROM brd_flock_daily_balances WHERE flock_no=d.flock_no AND balance_date<d.log_date ORDER BY balance_date DESC LIMIT 1)),
       closing_qty=(SELECT closing_qty FROM brd_flock_daily_balances WHERE flock_no=d.flock_no AND balance_date<=d.log_date ORDER BY balance_date DESC LIMIT 1)
-      WHERE d.flock_no=$1 AND d.occupancy_id IS NOT NULL`,[flock]);
-    await m.query(`UPDATE brd_daily_logs SET lay_rate=CASE WHEN closing_qty>0 THEN round(eggs_produced*100.0/closing_qty,2) ELSE 0 END
-      WHERE flock_no=$1 AND occupancy_id IS NOT NULL`,[flock]);
+      WHERE d.flock_no=$1 AND d.occupancy_id IS NOT NULL ${officialPeriod}`,[flock]);
+    await m.query(`UPDATE brd_daily_logs d SET lay_rate=CASE WHEN closing_qty>0 THEN round(eggs_produced*100.0/closing_qty,2) ELSE 0 END
+      WHERE flock_no=$1 AND occupancy_id IS NOT NULL ${officialPeriod}`,[flock]);
+    await refreshDailyFlockLayRate(m,flock);
   }
 }

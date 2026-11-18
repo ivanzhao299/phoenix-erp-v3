@@ -1,4 +1,7 @@
 import { DataSource } from 'typeorm';
+import { FlockReportCorrection1794903000000 } from '../../../database/migrations/1794903000000-FlockReportCorrection';
+import { FlockBaseSchema1794899000000 } from '../../../database/migrations/1794899000000-FlockBaseSchema';
+import { OfficialProductionReportGrain1794975000000 } from '../../../database/migrations/1794975000000-OfficialProductionReportGrain';
 import { EggSourceProfiles1794400001000 } from '../../../database/migrations/1794400001000-EggSourceProfiles';
 import { FlockLifecycleLedger1794900000000 } from '../../../database/migrations/1794900000000-FlockLifecycleLedger';
 import { FlockProductionProvenance1794901000000 } from '../../../database/migrations/1794901000000-FlockProductionProvenance';
@@ -9,7 +12,7 @@ import { ProductionHandoverAndPeriods1794973000000 } from '../../../database/mig
 import { ProductionInstallmentDictionaries1794974000000 } from '../../../database/migrations/1794974000000-ProductionInstallmentDictionaries';
 
 /** Synthetic fixture only. Caller must verify ownership and establish its own isolated schema. */
-export async function installProductionInboundFixture(db: DataSource, grades: string[]) {
+export async function installProductionInboundFixture(db: DataSource, grades: string[], options:{reportGrain?:boolean}={}) {
     await db.query(`
       CREATE TABLE IF NOT EXISTS mst_products (product_code text PRIMARY KEY, status text, unit text, unit_zh text);
       ALTER TABLE mst_products ADD COLUMN IF NOT EXISTS variety_code text;
@@ -108,7 +111,7 @@ export async function installProductionInboundFixture(db: DataSource, grades: st
       CREATE TABLE IF NOT EXISTS pkg_packing_records(code text PRIMARY KEY,grading_code text,grading_codes_json jsonb,is_test boolean);
       INSERT INTO file_metadata VALUES('FILE-count','ACTIVE',NULL,'PROTECTED','application/pdf','FLOCK_LIFECYCLE','HOUSE','HOUSE-A','COMP-A','SITE-A','fixture-system') ON CONFLICT DO NOTHING;`);
     const flockRunner=db.createQueryRunner();await new FlockLifecycleLedger1794900000000().up(flockRunner);
-    await new FlockProductionProvenance1794901000000().up(flockRunner);await new FlockActivitySources1794902000000().up(flockRunner);await flockRunner.release();
+    await new FlockProductionProvenance1794901000000().up(flockRunner);await new FlockActivitySources1794902000000().up(flockRunner);await new FlockReportCorrection1794903000000().up(flockRunner);await flockRunner.release();
     const officialRunner = db.createQueryRunner();
     try {
       await officialRunner.connect();
@@ -118,6 +121,8 @@ export async function installProductionInboundFixture(db: DataSource, grades: st
       await db.query(`ALTER TABLE sys_dict ADD COLUMN IF NOT EXISTS dict_value text;
         CREATE TABLE IF NOT EXISTS typeorm_metadata("type" text,"table" text,"name" text,"value" text)`);
       await new ProductionInstallmentDictionaries1794974000000().up(officialRunner);
+      await new FlockBaseSchema1794899000000().up(officialRunner);
+      if(options.reportGrain!==false)await new OfficialProductionReportGrain1794975000000().up(officialRunner);
       await db.query('ALTER TABLE inv_ledger ADD COLUMN IF NOT EXISTS unit text,ADD COLUMN IF NOT EXISTS business_type text');
     } finally { await officialRunner.release(); }
 }

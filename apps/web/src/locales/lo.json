@@ -14905,5 +14905,15 @@
   "ui.正式分次生产入库": "ຮັບໄຂ່ເຂົ້າສາງເປັນງວດ",
   "productionInstallments.resumeDraft": "ກັບໄປຫາການສົ່ງມອບທີ່ບັນທຶກໄວ້",
   "productionInstallments.recoverHandover": "ຄົ້ນຫາດ້ວຍເລກທີສົ່ງມອບຈາກອຸປະກອນອື່ນ",
-  "productionInstallments.financeProof": "ເບິ່ງຫຼັກຖານກວດສອບການເງິນນີ້"
+  "productionInstallments.financeProof": "ເບິ່ງຫຼັກຖານກວດສອບການເງິນນີ້",
+  "productionReports.title": "ລາຍງານຜະລິດໄຂ່ແຍກເກຣດ",
+  "productionReports.instructions": "ປ້ອນຈຳນວນທຸກເກຣດຕາມກະຈິງ. ຖ້າບໍ່ມີໃຫ້ປ້ອນ 0. ລາຍງານບໍ່ຮັບເຂົ້າສາງອັດຕະໂນມັດ; ຈຳນວນຕາຍແລະຄັດອອກມາຈາກເອກະສານທີ່ອະນຸມັດ.",
+  "productionReports.flock": "ຝູງໄກ່ທີ່ຢູ່ໃນໂຮງເຮືອນ",
+  "productionReports.closed": "ຂອບເຂດນີ້ຍັງບໍ່ເປີດໃຊ້ ຫຼືຖືກຢຸດ. ກວດສະຖານະການປ່ຽນລະບົບ.",
+  "productionReports.existing": "ມີລາຍງານຕົ້ນສະບັບສຳລັບກະນີ້ແລ້ວ. ການແກ້ໄຂຕ້ອງໃຊ້ເອກະສານອະນຸມັດ.",
+  "productionReports.feed": "ອາຫານໃນກະ kg (ຖ້າບໍ່ໄດ້ບັນທຶກໃຫ້ປະວ່າງ)",
+  "productionReports.water": "ນ້ຳໃນກະ L (ຖ້າບໍ່ໄດ້ບັນທຶກໃຫ້ປະວ່າງ)",
+  "productionReports.save": "ຢືນຢັນລາຍງານກະນີ້",
+  "productionReports.recover": "ຄົ້ນຫາລາຍງານຕົ້ນສະບັບ / ໂຫຼດໃໝ່",
+  "productionReports.saved": "ບັນທຶກແລ້ວ. ເລືອກສ່ວນສົ່ງມອບຈິງຂອງກະນີ້ເມື່ອຮັບເຂົ້າສາງ."
 }

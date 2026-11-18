@@ -14905,5 +14905,15 @@
   "ui.正式分次生产入库": "正式分次生产入库",
   "productionInstallments.resumeDraft": "返回暂存交接",
   "productionInstallments.recoverHandover": "按实物交接号找回（跨设备）",
-  "productionInstallments.financeProof": "查看此财务签认原据"
+  "productionInstallments.financeProof": "查看此财务签认原据",
+  "productionReports.title": "正式分级产蛋日报",
+  "productionReports.instructions": "按真实班次填写全部分级数量；没有产量的档位请明确填0。日报不自动入库，死淘由生命周期单据汇总。",
+  "productionReports.flock": "有效占栏鸡群",
+  "productionReports.closed": "该范围尚未启用或已暂停，请先核对切换状态。",
+  "productionReports.existing": "该班次已有原日报，以下为原始记录；更正请走审核单。",
+  "productionReports.feed": "本班饲料 kg（未记录留空）",
+  "productionReports.water": "本班饮水 L（未记录留空）",
+  "productionReports.save": "确认本班次日报",
+  "productionReports.recover": "查找原日报 / 刷新",
+  "productionReports.saved": "日报已保存。入库时选择本班次的实际交接分段。"
 }

@@ -69,6 +69,12 @@ fixture('official inventory cutover — owned PostgreSQL 18', () => {
     if (db?.isInitialized) { await db.query(`DROP SCHEMA "${schema}" CASCADE`); await db.destroy(); }
   });
 
+  it('rejects stale-snapshot inventory and ledger mutations instead of treating an unseen scope as OFF',async()=>{
+    for(const sql of ["UPDATE inv_batches SET qty=qty-1 WHERE batch_no='OLD-TEST'",
+      "INSERT INTO inv_ledger(batch_no,qty_change) VALUES('OLD-TEST',-1)"]){
+      await expect(db.transaction('REPEATABLE READ',async m=>{await m.query('SELECT count(*) FROM inv_batches');await m.query(sql);})).rejects.toThrow('ISOLATION_HOLD');
+    }
+  });
   it('never puts the archived same-company / warehouse / SKU test batch in the shared FIFO pool', async () => {
     const rows = await db.transaction(manager => sharedBatches(manager, 'CO-A', ['WH-SHARED'], snapshot));
     expect(rows.map((row: { batch_no: string }) => row.batch_no)).not.toContain('OLD-TEST');
@@ -191,6 +197,15 @@ fixture('official inventory cutover — owned PostgreSQL 18', () => {
     throw new Error('No real PostgreSQL scope-lock wait observed');
   }
 
+  it('does not move a domain away from its original scope while another scope is still DRAFT',async()=>{
+    await prepareDraft();await db.query(`INSERT INTO production_cutover_scopes
+      SELECT (jsonb_populate_record(NULL::production_cutover_scopes,to_jsonb(s)||'{"id":"10000000-0000-0000-0000-000000000002","house_code":"HOUSE-SECOND"}'::jsonb)).*
+      FROM production_cutover_scopes s`);
+    await expect(db.query("UPDATE production_inventory_domains SET scope_id='10000000-0000-0000-0000-000000000002'"))
+      .rejects.toThrow('CUTOVER_DOMAIN_SCOPE_IMMUTABLE');
+    await db.query("UPDATE production_cutover_scopes SET state='FENCED' WHERE id='10000000-0000-0000-0000-000000000001'");
+    expect((await db.query('SELECT scope_id FROM production_inventory_domains'))[0].scope_id).toBe('10000000-0000-0000-0000-000000000001');
+  });
   it('waits for an already-writing old client before fencing; its stock cannot become formal', async () => {
     await prepareDraft(); const writer = db.createQueryRunner(); const fence = db.createQueryRunner();
     try {

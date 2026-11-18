@@ -3,6 +3,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
 /** @allow-data-dml: DDL-only immutable trigger event UPDATE OR DELETE; up contains no business DML. */
 export class ProductionInboundDocuments1794972000000 implements MigrationInterface {
   public async up(q: QueryRunner): Promise<void> {
+    if((await q.query('SHOW transaction_isolation'))[0].transaction_isolation!=='read committed')throw new Error('OFFICIAL_MIGRATION_ISOLATION_HOLD: READ COMMITTED required');
     await q.query(`
       CREATE TABLE IF NOT EXISTS production_inbound_days (
         company_code text NOT NULL,house_code text NOT NULL,production_date date NOT NULL,
@@ -119,6 +120,7 @@ export class ProductionInboundDocuments1794972000000 implements MigrationInterfa
   }
 
   public async down(q: QueryRunner): Promise<void> {
+    if((await q.query('SHOW transaction_isolation'))[0].transaction_isolation!=='read committed')throw new Error('OFFICIAL_MIGRATION_ISOLATION_HOLD: READ COMMITTED required');
     const ownTransaction = !q.isTransactionActive;
     if (ownTransaction) await q.startTransaction();
     try {

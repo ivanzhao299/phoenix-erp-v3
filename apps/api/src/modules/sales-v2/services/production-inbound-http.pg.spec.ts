@@ -1,4 +1,6 @@
 import 'reflect-metadata';
+import { FarmController } from '../../farm/farm.controller';
+import { FarmService } from '../../farm/farm.service';
 import { Body, Controller, Get, INestApplication, Post, Query, UseGuards, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
@@ -61,13 +63,14 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
       CREATE TABLE sys_user(user_id int PRIMARY KEY,username text,status int DEFAULT 1,role_code text);
       CREATE TABLE fixture_permissions(role_code text,permission text);
       INSERT INTO sys_user VALUES(1,'maker',1,'MAKER'),(2,'reviewer',1,'REVIEWER'),(3,'receiver',1,'RECEIVER'),
-        (4,'view_only',1,'VIEWER'),(5,'unbound_all',1,'MAKER'),(6,'foreign',1,'MAKER'),(7,'wrong_warehouse',1,'MAKER'),(8,'create_only',1,'CREATOR');
+        (4,'view_only',1,'VIEWER'),(5,'unbound_all',1,'MAKER'),(6,'foreign',1,'MAKER'),(7,'wrong_warehouse',1,'MAKER'),(8,'create_only',1,'CREATOR'),(9,'farm_reporter',1,'FARM_REPORTER'),(10,'farm_only',1,'FARM_REPORTER');
       INSERT INTO sys_role SELECT DISTINCT role_code,'ACTIVE' FROM sys_user;
       INSERT INTO fixture_permissions VALUES('MAKER','MENU_PROD_INBOUND:V,C,E'),('REVIEWER','MENU_PROD_INBOUND:V,E,A'),
-        ('REVIEWER','MENU_FIN2_AR_LEDGER:V,E,A'),('RECEIVER','MENU_PROD_INBOUND:V,E'),('VIEWER','MENU_PROD_INBOUND:V'),('CREATOR','MENU_PROD_INBOUND:V,C');
+        ('REVIEWER','MENU_FIN2_AR_LEDGER:V,E,A'),('RECEIVER','MENU_PROD_INBOUND:V,E'),('VIEWER','MENU_PROD_INBOUND:V'),('CREATOR','MENU_PROD_INBOUND:V,C'),('FARM_REPORTER','MENU_FARM_DAILY:V,E');
       INSERT INTO sys_menu VALUES('MENU_PROD_INBOUND'),('MENU_PRC2_ORDER'),('MENU_FIN2_AR_LEDGER'),('MENU_FARM_DAILY');
       INSERT INTO sys_user_orgs(user_id,org_id,data_scope_level) SELECT u.user_id,o.id,'COMPANY' FROM sys_user u JOIN sys_organizations o
-        ON o.org_code=CASE WHEN u.user_id=6 THEN 'COMP-B' ELSE 'COMP-A' END WHERE u.user_id IN (1,2,3,4,6,8);
+        ON o.org_code=CASE WHEN u.user_id=6 THEN 'COMP-B' ELSE 'COMP-A' END WHERE u.user_id IN (1,2,3,4,6,8,9);
+      INSERT INTO sys_user_farm_scopes(user_id,farm_code) VALUES(10,'FARM-A');
       INSERT INTO sys_organizations(org_code,org_name,org_type,company_code,status,warehouse_code,parent_id)
         SELECT 'SITE-A','Restricted site','SITE','COMP-A','ACTIVE',NULL,id FROM sys_organizations WHERE org_code='COMP-A';
       INSERT INTO sys_user_orgs(user_id,org_id,data_scope_level) SELECT 7,id,'SELF' FROM sys_organizations WHERE org_code='SITE-A';
@@ -95,14 +98,14 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
       @Get('houses')async houses(){return (await db.query('SELECT * FROM brd_houses WHERE status=\'ACTIVE\'')).map((h:any)=>({houseCode:h.house_code,houseName:h.house_code,companyCode:'COMP-A',siteCode:'SITE-A',ownershipResolved:true}));}
       @Get('warehouses')async warehouses(@Query('companyCode') company:string){return (await db.query('SELECT * FROM wms_warehouses WHERE company_code=$1',[company||'COMP-A'])).map((w:any)=>({warehouseCode:w.warehouse_code,warehouseName:w.warehouse_code}));}
       @Get('packaging-specs')specs(){return db.query("SELECT *,spec_code AS spec_name FROM packaging_specs WHERE status='ACTIVE'");}
-      @Get('product-grades')grades(){return db.query("SELECT * FROM product_grades WHERE status='ACTIVE' ORDER BY sort_order");}
+      @Get('product-grades')async grades(){return {code:200,data:await db.query("SELECT * FROM product_grades WHERE status='ACTIVE' ORDER BY sort_order")};}
     }
     @Controller('api/crud') @UseGuards(AuthGuard('jwt')) class FixtureDictionary {
       @Get('sys_dict')async dict(@Query('dict_type') type:string){return db.query("SELECT * FROM sys_dict WHERE dict_type=$1 AND status='ACTIVE'",[type]);}
     }
     const module=await Test.createTestingModule({imports:[PassportModule,ClsModule.forRoot({global:true,middleware:{mount:true}})],
-      controllers:[ProductionInboundDocumentsController,UploadController,FixtureLogin,FixtureLookups,FixtureDictionary],providers:[FixtureJwt,
-        ProductionInboundDocumentsService,ProductionInboundService,EggInventoryService,SkuAvailabilityService,InventorySourceModeService,FileAccessService,OrgOwnershipService,
+      controllers:[FarmController,ProductionInboundDocumentsController,UploadController,FixtureLogin,FixtureLookups,FixtureDictionary],providers:[FixtureJwt,
+        FarmService,ProductionInboundDocumentsService,ProductionInboundService,EggInventoryService,SkuAvailabilityService,InventorySourceModeService,FileAccessService,OrgOwnershipService,
         {provide:EntityManager,useValue:db.manager},{provide:DataSource,useValue:db},
         {provide:getRepositoryToken(FileMetadataEntity),useValue:db.getRepository(FileMetadataEntity)},
         {provide:DataScopeService,inject:[ClsService,OrgOwnershipService],useFactory:(cls:ClsService,own:OrgOwnershipService)=>new DataScopeService(
@@ -112,27 +115,34 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
     app.useGlobalFilters(new AllExceptionsFilter({spawn:()=>undefined} as any));await app.init();await hydrateMenuRegistry(db.manager);scopes=app.get(DataScopeService);
     if(process.env.INSTALLMENT_HTTP_PORT)await app.listen(Number(process.env.INSTALLMENT_HTTP_PORT),'127.0.0.1');
   },30000);
-  async function resetState(){
+  async function resetState(emptyReports=false){
     await db.query(`TRUNCATE production_handover_cancellations,production_physical_handovers,production_financial_clearances,production_posting_periods,
       production_posting_period_events,production_inbound_allocations,production_inbound_lines,production_inbound_documents,production_opening_receipts,
       production_inbound_days,production_batch_roots,production_batch_qualifications,production_inventory_domains,production_cutover_scopes,inv_batches,
-      inv_ledger,brd_daily_logs,inv_flock_source_links,brd_egg_source_receipts,brd_egg_day_routes,brd_flock_occupancies,brd_flock_documents RESTART IDENTITY CASCADE;
+      inv_ledger,brd_flock_events,brd_flock_balances,brd_flock_daily_balances,brd_flock_house_states,brd_daily_logs,inv_flock_source_links,brd_egg_source_receipts,brd_egg_day_routes,brd_flock_occupancies,brd_flock_documents RESTART IDENTITY CASCADE;
       INSERT INTO brd_flock_documents(id,source_key,content_hash,kind,company_code,farm_code,house_code,business_date,payload,status,created_by)
         VALUES('HTTP-BASELINE','HTTP-SYNTHETIC-COUNT',repeat('b',64),'BASELINE','COMP-A','FARM-A','HOUSE-A','2026-11-17','{}','POSTED','fixture');
       INSERT INTO brd_flock_occupancies(id,flock_no,house_code,company_code,farm_code,site_code,began_on,capacity_snapshot,opened_document_id)
         VALUES('HTTP-OCC','FLOCK-A','HOUSE-A','COMP-A','FARM-A','SITE-A','2026-11-17',5000,'HTTP-BASELINE');
-      INSERT INTO brd_daily_logs(house_code,flock_no,log_date,shift,eggs_by_grade,occupancy_id)
-        VALUES('HOUSE-A','FLOCK-A','2026-11-18','DAILY','{"GRADE_1":1000,"GRADE_2":100}','HTTP-OCC');
+      INSERT INTO brd_flock_events(id,document_id,line_no,flock_no,occupancy_id,company_code,farm_code,site_code,house_code,business_date,kind,quantity_delta,actor,approved_by)
+        VALUES('HTTP-BASELINE-EVENT','HTTP-BASELINE',1,'FLOCK-A','HTTP-OCC','COMP-A','FARM-A','SITE-A','HOUSE-A','2026-11-17','BASELINE',1000,'fixture','fixture-reviewer');
+      INSERT INTO brd_flock_balances(flock_no,company_code,farm_code,site_code,house_code,quantity,baseline_on,last_business_date)
+        VALUES('FLOCK-A','COMP-A','FARM-A','SITE-A','HOUSE-A',1000,'2026-11-17','2026-11-17');
+      INSERT INTO brd_flock_daily_balances VALUES('FLOCK-A','2026-11-17',0,1000,0,0);
+      INSERT INTO brd_flock_house_states(house_code,state,document_id,last_occupied_on) VALUES('HOUSE-A','OCCUPIED','HTTP-BASELINE','2026-11-17');
       INSERT INTO production_cutover_scopes(id,company_code,house_code,version,first_production_date,state,warehouse_code,flock_id,source_profile_code,manifest_sha256,evidence,confirmed_by)
         VALUES('30000000-0000-0000-0000-000000000001','COMP-A','HOUSE-A',1,'2026-11-17','DRAFT','WH-A','FLOCK-A','PROFILE-A',repeat('c',64),'{"synthetic":true}','fixture');
       INSERT INTO production_inventory_domains VALUES('30000000-0000-0000-0000-000000000001','COMP-A','WH-A','PRD-EGG-RAW');
       UPDATE production_cutover_scopes SET state='FENCED';UPDATE production_cutover_scopes SET state='ACTIVE',activated_at=now();
+      ${emptyReports?'':`INSERT INTO brd_daily_logs(house_code,flock_no,log_date,shift,eggs_by_grade,occupancy_id,company_code,farm_code,site_code)
+        VALUES('HOUSE-A','FLOCK-A','2026-11-18','DAILY','{"GRADE_1":1000,"GRADE_2":100}','HTTP-OCC','COMP-A','FARM-A','SITE-A');`}
+
       UPDATE product_skus SET status='ACTIVE';UPDATE file_metadata SET status='ACTIVE';UPDATE sys_user SET status=1;`);
-    for(let id=1;id<=8;id++)scopes.invalidate(String(id));
+    for(let id=1;id<=10;id++)scopes.invalidate(String(id));
   }
-  beforeEach(resetState);
+  beforeEach(()=>resetState());
   afterAll(async()=>{
-    if(process.env.INSTALLMENT_HTTP_HOLD==='1'){await resetState();console.log('Owned installment HTTP fixture ready');await new Promise<void>(done=>{releaseBrowser=done;});}
+    if(process.env.INSTALLMENT_HTTP_HOLD==='1'){await resetState(process.env.INSTALLMENT_HTTP_GRAIN==='1');console.log('Owned installment HTTP fixture ready');await new Promise<void>(done=>{releaseBrowser=done;});}
     await app?.close();if(db?.isInitialized){await db.query(`DROP SCHEMA "${schema}" CASCADE`);await db.destroy();}
   },process.env.INSTALLMENT_HTTP_HOLD==='1'?21600000:30000);
   async function signedDraft(quantity=100){const p=draft(quantity);const file=(await upload(1).expect(201)).body.fileId;p.evidenceFileIds=[file];
@@ -167,6 +177,22 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
     await api(6,'get',`/handovers/${handover.id}/evidence/${file}`).expect(403);
     await api(4,'get',`/${ready.id}/evidence/FILE-forged`).expect(404);
     expect((await db.query('SELECT count(*)::int AS n FROM inv_ledger'))[0].n).toBe(1);
+  });
+  it('uses actual Farm HTTP routes for AM/PM and limits farm-only scope without granting inbound access',async()=>{
+    await resetState(true);
+    const farm=(id:number,method:'get'|'post',path:string)=>request(app.getHttpServer())[method]('/api/v3/farm'+path).auth(token(id),{type:'bearer'});
+    await api(10,'get','/context?companyCode=COMP-A&houseCode=HOUSE-A').expect(200);
+    await api(10,'get','/context?companyCode=COMP-B&houseCode=HOUSE-B').expect(403);
+    await api(10,'get','').expect(403);
+    const p={house_code:'HOUSE-A',flock_no:'FLOCK-A',log_date:day,shift:'AM',eggs_by_grade:{GRADE_0:0,GRADE_1:100,GRADE_2:0,GRADE_3:0,GRADE_4:0,GRADE_5:0,DIRTY:0,BROKEN:0}};
+    await farm(10,'post','/daily-logs').send(p).expect(201);
+    await farm(10,'post','/daily-logs').send({...p,shift:'PM',eggs_by_grade:{...p.eggs_by_grade,GRADE_1:200}}).expect(201);
+    await farm(10,'post','/daily-logs').send(p).expect(201);
+    await farm(10,'post','/daily-logs').send({...p,shift:'DAILY'}).expect(400);
+    const sources=(await farm(10,'get',`/daily-logs/production-sources?date=${day}&houseCode=HOUSE-A`).expect(200)).body;
+    expect(sources.map((r:any)=>[r.shift,r.eggs_by_grade.GRADE_1,r.occupancy_id])).toEqual([['AM',100,'HTTP-OCC'],['PM',200,'HTTP-OCC']]);
+    expect((await farm(10,'get',`/daily-logs/production-sources?date=${day}&houseCode=HOUSE-B`).expect(200)).body).toEqual([]);
+    expect((await db.query('SELECT count(*)::int AS n FROM inv_ledger'))[0].n).toBe(0);
   });
   it('requires independent finance and business signatures and serves their bound protected evidence',async()=>{
     const {ready}=await signedDraft();await api(1,'post',`/${ready.id}/post`).send({submitKey:ready.submit_key,contentHash:ready.content_hash}).expect(201);

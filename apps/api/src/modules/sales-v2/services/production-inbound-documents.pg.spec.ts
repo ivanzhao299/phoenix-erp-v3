@@ -62,7 +62,7 @@ fixture('formal installment documents — actual PostgreSQL 18 inventory and pro
       VALUES('FILE-FINANCE','ACTIVE','PROTECTED','application/pdf','PRODUCTION_INBOUND','HOUSE','HOUSE-A','COMP-A','SITE-A','approver',repeat('f',64));`);
   });
   afterAll(async () => { if (db?.isInitialized) { await db.query(`DROP SCHEMA "${schema}" CASCADE`); await db.destroy(); } });
-  beforeEach(async () => {
+  async function resetFixture(mode:"DAILY"|"AMPM"="DAILY",reportDay:"2026-11-17"|"2026-11-18"=day) {
     await db.query(`TRUNCATE prc2_receipt_items,prc2_receipts,wms_transfer_discrepancies,wms_transfer_items,wms_transfer,wms_stocktake,wms_defect_dispositions,production_physical_handovers,production_posting_periods,production_posting_period_events,production_inbound_allocations,production_inbound_lines,production_inbound_documents,
       production_opening_receipts,production_inbound_days,production_batch_roots,production_batch_qualifications,
       production_inventory_domains,production_cutover_scopes,inv_ledger,inv_batches,brd_daily_logs,inv_flock_source_links,
@@ -71,8 +71,6 @@ fixture('formal installment documents — actual PostgreSQL 18 inventory and pro
       VALUES('SYNTHETIC-BASELINE','SYNTHETIC-COUNT',repeat('b',64),'BASELINE','COMP-A','FARM-A','HOUSE-A','2026-11-17','{}','POSTED','fixture');
       INSERT INTO brd_flock_occupancies(id,flock_no,house_code,company_code,farm_code,site_code,began_on,capacity_snapshot,opened_document_id)
       VALUES('SYNTHETIC-OCC','FLOCK-A','HOUSE-A','COMP-A','FARM-A','SITE-A','2026-11-17',5000,'SYNTHETIC-BASELINE');
-      INSERT INTO brd_daily_logs(house_code,flock_no,log_date,shift,eggs_by_grade,occupancy_id)
-      VALUES('HOUSE-A','FLOCK-A','2026-11-18','DAILY','{"GRADE_1":1000,"GRADE_2":100}', 'SYNTHETIC-OCC');
       INSERT INTO production_cutover_scopes(id,company_code,house_code,version,first_production_date,state,
         warehouse_code,flock_id,source_profile_code,manifest_sha256,evidence,confirmed_by)
       VALUES('20000000-0000-0000-0000-000000000001','COMP-A','HOUSE-A',1,'2026-11-17','DRAFT','WH-A',
@@ -80,6 +78,9 @@ fixture('formal installment documents — actual PostgreSQL 18 inventory and pro
       INSERT INTO production_inventory_domains VALUES('20000000-0000-0000-0000-000000000001','COMP-A','WH-A','PRD-EGG-RAW');
       UPDATE production_cutover_scopes SET state='FENCED';
       UPDATE production_cutover_scopes SET state='ACTIVE',activated_at=now();
+      INSERT INTO brd_daily_logs(house_code,flock_no,log_date,shift,eggs_by_grade,occupancy_id,company_code,farm_code,site_code)
+      ${mode==='DAILY'?`VALUES('HOUSE-A','FLOCK-A','${reportDay}','DAILY','{"GRADE_1":1000,"GRADE_2":100}','SYNTHETIC-OCC','COMP-A','FARM-A','SITE-A')`:
+        `VALUES('HOUSE-A','FLOCK-A','${reportDay}','AM','{"GRADE_1":100}','SYNTHETIC-OCC','COMP-A','FARM-A','SITE-A'),('HOUSE-A','FLOCK-A','${reportDay}','PM','{"GRADE_1":200}','SYNTHETIC-OCC','COMP-A','FARM-A','SITE-A')`};
       UPDATE product_skus SET status='ACTIVE'; UPDATE file_metadata SET status='ACTIVE';
       UPDATE sys_user SET status=1;`);
     scope = { isGlobal:false,allowedCompanyCodes:['COMP-A'],allowedWarehouseCodes:['WH-A'] };
@@ -91,7 +92,8 @@ fixture('formal installment documents — actual PostgreSQL 18 inventory and pro
     const maker=actor;actor={userId:2,username:'approver',permissions:['MENU_FIN2_AR_LEDGER:E']};
     await service.setPostingPeriod({companyCode:'COMP-A',houseCode:'HOUSE-A',periodMonth:new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Singapore'}).format(new Date()).slice(0,7),
       state:'OPEN',expectedVersion:0,evidenceFileId:'FILE-FINANCE',reason:'Synthetic isolated fixture period opening'});actor=maker;
-  });
+  }
+  beforeEach(()=>resetFixture());
   async function physical(p:InboundDraftInput) {
     const reports=await db.query('SELECT id,shift FROM brd_daily_logs WHERE house_code=$1 AND log_date=$2 ORDER BY id',[p.houseCode,p.eggDate]);
     const segments:Array<{dailyLogId:number;gradeCode:string;quantity:number;evidenceFileId:string}>=[];
@@ -169,9 +171,7 @@ fixture('formal installment documents — actual PostgreSQL 18 inventory and pro
   });
 
   it('does not turn unsupported multi-shift quota sharing into EXACT provenance', async () => {
-    await db.query(`DELETE FROM brd_daily_logs; INSERT INTO brd_daily_logs(house_code,flock_no,log_date,shift,eggs_by_grade,occupancy_id)
-      VALUES('HOUSE-A','FLOCK-A','2026-11-18','AM','{"GRADE_1":100}','SYNTHETIC-OCC'),
-        ('HOUSE-A','FLOCK-A','2026-11-18','PM','{"GRADE_1":200}','SYNTHETIC-OCC')`);
+    await resetFixture('AMPM');
     const d=await service.create(input(150)); await expect(service.ready(d.id,d.version,'NO-PHYSICAL')).rejects.toThrow('收发双方确认');
     expect(await totals()).toEqual({ batches:0,ledgers:0,lines:0,receipts:0,links:0 });
   });
@@ -190,9 +190,7 @@ fixture('formal installment documents — actual PostgreSQL 18 inventory and pro
   }
 
   it('AM100 / PM200 → 150(100/50) → reverse PM30 → PM180; sources and quota count compensation once', async () => {
-    await db.query(`DELETE FROM brd_daily_logs; INSERT INTO brd_daily_logs(house_code,flock_no,log_date,shift,eggs_by_grade,occupancy_id)
-      VALUES('HOUSE-A','FLOCK-A','2026-11-18','AM','{"GRADE_1":100}','SYNTHETIC-OCC'),
-        ('HOUSE-A','FLOCK-A','2026-11-18','PM','{"GRADE_1":200}','SYNTHETIC-OCC')`);
+    await resetFixture('AMPM');
     const reports=await db.query('SELECT id,shift FROM brd_daily_logs ORDER BY id'); const am=reports[0].id,pm=reports[1].id;
     const p=input(150); p.items[0].allocations=[{dailyLogId:am,quantity:100,evidenceFileId:'FILE-HANDOVER'},
       {dailyLogId:pm,quantity:50,evidenceFileId:'FILE-HANDOVER'}];
@@ -275,7 +273,7 @@ fixture('formal installment documents — actual PostgreSQL 18 inventory and pro
   });
 
   it('keeps production date separate from frozen booking date and denies fresh posts to a V-only user', async () => {
-    await db.query("UPDATE brd_daily_logs SET log_date='2026-11-17'");
+    await resetFixture('DAILY','2026-11-17');
     const p=input();p.eggDate='2026-11-17';const d=await ready(p);const receipt=await post(d);
     const [b]=await db.query('SELECT egg_date::text,inbound_date::text FROM inv_batches');
     const [l]=await db.query('SELECT log_date::text FROM inv_ledger');

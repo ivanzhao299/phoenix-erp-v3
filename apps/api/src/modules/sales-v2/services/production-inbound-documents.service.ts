@@ -6,6 +6,7 @@ import { createHash, randomUUID } from 'crypto';
 import { EggInventoryService, assertEggDate } from './egg-inventory.service';
 import { ProductionInboundService } from './production-inbound.service';
 import { SkuAvailabilityService } from '../../product-master/services/sku-availability.service';
+import { deriveOrgScope } from '../../farm/farm.service';
 import { withFormalProductionLine, FormalSourceAllocation } from '../../wms/formal-production-context';
 import { singaporeBusinessDate } from '../../wms/temp-production-reversal';
 import { DataScopeContext } from '../../org/services/data-scope.service';
@@ -69,9 +70,14 @@ export class ProductionInboundDocumentsService {
       || warehouse && !scope.allowedWarehouseCodes?.includes(warehouse))) throw new ForbiddenException('无权操作该公司或仓库的生产交库单');
   }
   async context(company: string,house: string) {
-    this.authorize(company);text(house,'鸡舍');
+    text(company,'公司');text(house,'鸡舍');
     const owner=await new OrgOwnershipService(this.db.manager).resolveHouseIdentity(house);
     if(owner.companyCode!==company)throw new ForbiddenException('鸡舍公司归属不匹配');
+    const dataScope=this.cls.get('dataScope') as DataScopeContext|undefined;
+    if(!dataScope||typeof dataScope.isGlobal!=='boolean')throw new ForbiddenException('缺少有效数据范围');
+    const allowed=deriveOrgScope({dataScope});
+    if(!allowed.isGlobal&&!allowed.companyCodes?.includes(company)&&!allowed.farmCodes?.includes(owner.farmCode)
+      &&!allowed.siteCodes?.includes(owner.siteCode??''))throw new ForbiddenException('无权查看该鸡舍的正式日报范围');
     const [scope]=await this.db.query(`SELECT id,state,first_production_date::text AS first_production_date
       FROM production_cutover_scopes WHERE company_code=$1 AND house_code=$2 AND state<>'DRAFT'`,[company,house]);
     return {state:scope?.state??'OFF',firstProductionDate:scope?.first_production_date??null};
