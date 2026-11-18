@@ -1,4 +1,4 @@
-import { BadRequestException,ConflictException,ForbiddenException,Injectable,NotFoundException } from '@nestjs/common';
+import { BadRequestException,ConflictException,ForbiddenException,Injectable,NotFoundException,Optional } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource,EntityManager } from 'typeorm';
 import { ClsService } from 'nestjs-cls';
@@ -13,6 +13,7 @@ import { INV_LEDGER_CHANGE_TYPE } from '../../wms/inv-ledger-change-types';
 import { singaporeBusinessDate } from '../../wms/temp-production-reversal';
 import { productionContentHash } from './production-source-facts';
 import { assertEggDate } from './egg-inventory.service';
+import { FileAccessService } from '../../file/file-access.service';
 
 type Fact=Record<string,any>;
 export interface ConversionInput {rawSegmentId?:string;parentBatchNo?:string;quantity:number}
@@ -35,7 +36,8 @@ const uuid=(v:unknown):string=>{const s=text(v);if(!/^[a-f\d]{8}-[a-f\d]{4}-[a-f
 /** One signed physical mixing group. No inferred yield, parent allocation, financial allocation or production re-credit. */
 @Injectable()
 export class OfficialInventoryConversionService {
-  constructor(@InjectDataSource() private readonly db:DataSource,private readonly cls:ClsService,private readonly wms:WmsService){}
+  constructor(@InjectDataSource() private readonly db:DataSource,private readonly cls:ClsService,private readonly wms:WmsService,
+    @Optional() private readonly files?:FileAccessService){}
 
   private authorize(company:string,warehouse:string,operation:PermCode='V'){
     const actor=this.cls.get<Fact>('user'),scope=this.cls.get<DataScopeContext>('dataScope');
@@ -146,7 +148,8 @@ export class OfficialInventoryConversionService {
     const eggDate=inputs.map(i=>i.productionDate).sort()[0],expireDate=inputs.map(i=>i.expireDate).sort()[0],outputs:Fact[]=[];
     for(const line of request.outputs){
       const [file]=await m.query(`SELECT checksum FROM file_metadata WHERE file_id=$1 AND company_code=$2 AND owner_type='WAREHOUSE' AND owner_id=$3
-        AND module_code='PRODUCTION_CONVERSION' AND status='ACTIVE' AND deleted_at IS NULL AND visibility IN('PROTECTED','PRIVATE') FOR SHARE`,
+        AND module_code='PRODUCTION_CONVERSION' AND status='ACTIVE' AND deleted_at IS NULL AND visibility IN('PROTECTED','PRIVATE')
+        AND mime_type IN('application/pdf','image/jpeg','image/png','image/webp') FOR SHARE`,
         [line.evidenceFileId,d.company_code,d.warehouse_code]);
       if(!file?.checksum||!/^[a-f\d]{64}$/.test(file.checksum))throw new ConflictException('产出或损耗缺少本公司本仓实际保护附件及校验摘要');
       const [grade]=await m.query("SELECT * FROM product_grades WHERE grade_code=$1 AND status='ACTIVE' FOR SHARE",[line.gradeCode]);
@@ -187,6 +190,80 @@ export class OfficialInventoryConversionService {
   }
   async get(id:string){const d=await this.document(id);return {...d,actualInputs:await this.db.query('SELECT * FROM production_conversion_inputs WHERE document_id=$1 ORDER BY line_no',[id]),
     actualOutputs:await this.db.query('SELECT * FROM production_conversion_outputs WHERE document_id=$1 ORDER BY line_no',[id])};}
+  async list(company:string,warehouse:string,product:string,date?:string){
+    this.authorize(text(company),text(warehouse));text(product);if(date)assertEggDate(date);
+    return this.db.query(`SELECT id,document_no,company_code,warehouse_code,product_code,operation_kind,physical_group_ref,operation_date::text,
+      state,version,created_by,content_hash,receipt,created_at FROM production_conversion_documents WHERE company_code=$1 AND warehouse_code=$2
+        AND product_code=$3 AND($4::date IS NULL OR operation_date=$4) ORDER BY created_at DESC,id LIMIT 200`,[company,warehouse,product,date??null]);
+  }
+  async recover(company:string,warehouse:string,intent?:string,group?:string){
+    this.authorize(text(company),text(warehouse));if(!intent&&!group)throw new BadRequestException('须提供原创建意图或实际作业组号');
+    if(intent)text(intent);if(group)text(group);
+    const rows=await this.db.query(`SELECT id FROM production_conversion_documents WHERE company_code=$1 AND warehouse_code=$2
+      AND($3::text IS NOT NULL AND intent_key=$3 OR $4::text IS NOT NULL AND physical_group_ref=$4) ORDER BY created_at DESC,id LIMIT 20`,[company,warehouse,intent??null,group??null]);
+    return Promise.all(rows.map((r:Fact)=>this.get(r.id)));
+  }
+  async edit(id:string,version:number,input:InventoryConversionDraft){
+    const request=this.normalize(input),identity=await this.document(id),actor=this.authorize(identity.company_code,identity.warehouse_code,'E');
+    return this.db.transaction(async m=>{
+      await this.lockBoundary(m,identity);const d=await this.document(id,m,true);
+      if(actor!==d.created_by)throw new ForbiddenException('仅原制单人可修改实测草稿，独立审核人不能改写待审实测数据');
+      if(d.state!=='DRAFT'||d.version!==version)throw new ConflictException('实际转换已冻结或版本已变化，请查询原单');
+      const identities=[['companyCode','company_code'],['warehouseCode','warehouse_code'],['productCode','product_code'],['operationKind','operation_kind'],
+        ['physicalGroupRef','physical_group_ref'],['operationDate','operation_date'],['intentKey','intent_key']] as const;
+      if(identities.some(([key,column])=>request[key]!==d[column]))throw new ConflictException('原单作业身份不能换配；须保留原单并显式建立新意图');
+      await this.facts(m,d,request,singaporeBusinessDate());
+      const [changed]=await m.query(`WITH changed AS(UPDATE production_conversion_documents SET version=version+1,payload=$2 WHERE id=$1 RETURNING *) SELECT * FROM changed`,
+        [id,JSON.stringify({request,productCode:d.product_code})]);return changed;
+    });
+  }
+  async sources(company:string,warehouse:string,product:string){
+    this.authorize(text(company),text(warehouse));text(product);
+    return this.db.transaction(async m=>{
+      const d={company_code:company,warehouse_code:warehouse,product_code:product};
+      const [master]=await m.query("SELECT variety_code FROM mst_products WHERE product_code=$1 AND status='ACTIVE' FOR SHARE",[product]);
+      if(!master)throw new NotFoundException('实际品目未启用');
+      const [domain]=await m.query(`SELECT 1 FROM production_inventory_domains domain JOIN production_cutover_scopes scope ON scope.id=domain.scope_id
+        LEFT JOIN production_inventory_domain_states state ON state.company_code=domain.company_code AND state.warehouse_code=domain.warehouse_code AND state.product_code=domain.product_code
+        WHERE domain.company_code=$1 AND domain.warehouse_code=$2 AND domain.product_code=$3 AND scope.state IN('ACTIVE','SUSPENDED')
+          AND(scope.state='ACTIVE' AND state.id IS NULL OR state.state='ACTIVE') LIMIT 1`,[company,warehouse,product]);
+      if(!domain)return {available:false,raw:[],inventory:[]};
+      await this.lockBoundary(m,d);const day=singaporeBusinessDate();
+      const raw=await m.query(`SELECT segment.id AS raw_segment_id,receipt.id AS raw_receipt_id,receipt.document_no,receipt.house_code,
+        receipt.production_date::text AS production_date,segment.grade_code,segment.quantity::text AS received_quantity,
+        (segment.quantity-COALESCE(used.quantity,0))::text AS remaining_quantity
+        FROM production_raw_receipt_segments segment JOIN production_raw_receipts receipt ON receipt.id=segment.receipt_id
+        JOIN production_cutover_scopes scope ON scope.id=receipt.scope_id
+        JOIN product_grades grade ON grade.grade_code=segment.grade_code AND grade.status='ACTIVE'
+        LEFT JOIN LATERAL(SELECT SUM(input.quantity) AS quantity FROM production_conversion_inputs input
+          JOIN production_conversion_documents document ON document.id=input.document_id AND document.state='POSTED' WHERE input.raw_segment_id=segment.id) used ON true
+        WHERE receipt.company_code=$1 AND receipt.warehouse_code=$2 AND receipt.state='POSTED' AND scope.state='ACTIVE'
+          AND(receipt.payload->'profile'->>'varietyCode') IS NOT DISTINCT FROM $3::text AND receipt.production_date+30>=$4::date
+          AND segment.quantity>COALESCE(used.quantity,0) ORDER BY receipt.production_date,receipt.document_no,segment.grade_code,segment.id LIMIT 500`,[company,warehouse,master.variety_code,day]);
+      const inventory=await m.query(`SELECT b.batch_no,b.sku_code,COALESCE(b.grade_code_std,b.quality_grade) AS grade_code,b.inventory_class,
+        b.qty_available::text AS remaining_quantity,b.egg_date::text AS production_date,b.expire_date::text AS expire_date,
+        CASE WHEN official_inventory_cost_known(b.batch_no) AND official_inventory_proven_currency(b.batch_no) IS NOT NULL THEN 'CONFIRMED' ELSE 'UNKNOWN' END AS cost_status
+        FROM inv_batches b JOIN production_batch_qualifications qualification ON qualification.batch_no=b.batch_no AND qualification.disposition='QUALIFIED'
+        WHERE b.company_code=$1 AND b.warehouse_code=$2 AND b.product_code=$3 AND b.unit='枚' AND b.status='AVAILABLE' AND b.qty_available>0
+          AND b.egg_date IS NOT NULL AND b.expire_date>=$4::date AND official_conversion_parent_available_on(b.batch_no)<=$4::date
+          AND official_inventory_writable(b.batch_no,b.company_code,b.warehouse_code,b.product_code,b.sku_code,b.material_code)
+        ORDER BY b.expire_date,b.inbound_date,b.batch_no LIMIT 500`,[company,warehouse,product,day]);
+      return {available:true,raw,inventory};
+    });
+  }
+  async evidence(id:string,fileId:string){
+    const d=await this.document(id);text(fileId);if(!this.files)throw new NotFoundException('保护附件不可访问');
+    const outputs=d.payload.outputs??d.payload.request?.outputs??[];
+    const bound=outputs.filter((o:Fact)=>o.evidenceFileId===fileId);
+    if(!bound.length)throw new NotFoundException('附件不属于实际转换原单');
+    const [file]=await this.db.query(`SELECT checksum FROM file_metadata WHERE file_id=$1 AND module_code='PRODUCTION_CONVERSION'
+      AND owner_type='WAREHOUSE' AND owner_id=$2 AND company_code=$3 AND status='ACTIVE' AND deleted_at IS NULL`,[fileId,d.warehouse_code,d.company_code]);
+    if(!file||bound.some((o:Fact)=>o.evidenceChecksum&&o.evidenceChecksum!==file.checksum))throw new ConflictException('原单签认证据已变化，请保留原单核验');
+    const permissions=this.cls.get<Fact>('user')?.permissions;
+    const requiredOperation=(['V','C','E','A'] as PermCode[]).find(operation=>hasPerm(permissions,'MENU_PROD_INBOUND',operation))!;
+    return this.files.openProtectedFile(fileId,{moduleCode:'PRODUCTION_CONVERSION',ownerType:'WAREHOUSE',ownerId:d.warehouse_code,
+      companyCode:d.company_code,requiredMenu:'MENU_PROD_INBOUND',requiredOperation},'preview');
+  }
   async ready(id:string,version:number,submitKey:string){
     text(submitKey);const identity=await this.document(id),actor=this.authorize(identity.company_code,identity.warehouse_code,'E');
     return this.db.transaction(async m=>{

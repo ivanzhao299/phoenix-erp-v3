@@ -1,3 +1,4 @@
+import { StrictBodyGuard } from '../../../common/guards/strict-body.guard';
 import { Body,Controller,Get,Param,Post,Query,UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { IsInt,IsString,IsUUID,Matches,MaxLength,Min } from 'class-validator';
@@ -31,13 +32,18 @@ export class OfficialRawCollectionController {
   @Get(':id') @RequireAnyMenu(readers)
   get(@Param() p:RawIdentityDto){return this.receipts.get(p.id);}
   @Post() @RequireMenu('MENU_PROD_INBOUND','C')
+  @UseGuards(new StrictBodyGuard(RawCreateDto))
   create(@Body() body:RawCreateDto){return this.receipts.create(body);}
   @Post(':id/ready') @RequireMenu('MENU_PROD_INBOUND','E')
+  @UseGuards(new StrictBodyGuard(RawReadyDto))
   ready(@Param() p:RawIdentityDto,@Body() body:RawReadyDto){return this.receipts.ready(p.id,body.version,body.submitKey);}
   @Post(':id/approve') @RequireMenu('MENU_PROD_INBOUND','A')
+  @UseGuards(new StrictBodyGuard(RawApproveDto))
   approve(@Param() p:RawIdentityDto,@Body() body:RawApproveDto){return this.receipts.approve(p.id,body.version,body.contentHash);}
   @Post(':id/post') @RequireAnyMenu(readers)
+  @UseGuards(new StrictBodyGuard(RawPostDto))
   post(@Param() p:RawIdentityDto,@Body() body:RawPostDto){return this.receipts.post(p.id,body.submitKey,body.contentHash);}
   @Post(':id/cancel') @RequireMenu('MENU_PROD_INBOUND','E')
+  @UseGuards(new StrictBodyGuard(RawVersionDto))
   cancel(@Param() p:RawIdentityDto,@Body() body:RawVersionDto){return this.receipts.cancel(p.id,body.version);}
 }

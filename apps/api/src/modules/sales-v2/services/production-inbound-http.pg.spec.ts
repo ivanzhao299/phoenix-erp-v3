@@ -1,7 +1,14 @@
 import { OfficialRawCollectionReceipts1795005390930 } from '../../../database/migrations/1795005390930-OfficialRawCollectionReceipts';
 import { OfficialRawCollectionController } from '../controllers/official-raw-collection.controller';
 import { OfficialRawCollectionService } from './official-raw-collection.service';
+import { OfficialInventoryConversions1795011331222 } from '../../../database/migrations/1795011331222-OfficialInventoryConversions';
+import { AddWmsDefectDisposition1794405000000 } from '../../../database/migrations/1794405000000-AddWmsDefectDisposition';
+import { OfficialInventoryConversionController } from '../controllers/official-inventory-conversion.controller';
+import { OfficialInventoryConversionService } from './official-inventory-conversion.service';
+import { singaporeBusinessDate } from '../../wms/temp-production-reversal';
 import { installManagedSalesFixture, resetManagedSalesFixture } from './production-managed-sales.pg-fixture';
+import { ProductMasterService } from '../../product-master/services/product-master.service';
+import { SkuPolicy } from '../../product-master/services/sku-policy';
 import { resolveQuantity } from '../../product-master/services/quantity-contract';
 import { StorePosService } from '../../store-pos/services/store-pos.service';
 import { StoreScopePolicy } from '../../store-pos/services/store-scope-policy.service';
@@ -34,6 +41,10 @@ import { AuthGuard, PassportModule, PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { sign } from 'jsonwebtoken';
 import { randomUUID } from 'crypto';
+import { existsSync,readdirSync } from 'fs';
+import { join } from 'path';
+import { PDFDocument } from 'pdf-lib';
+import sharp = require('sharp');
 import { ClsModule, ClsService } from 'nestjs-cls';
 import { DataSource, EntityManager } from 'typeorm';
 import request = require('supertest');
@@ -71,6 +82,7 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
   const draft=(quantity=100)=>({companyCode:'COMP-A',houseCode:'HOUSE-A',eggDate:day,warehouseCode:'WH-A',locationCode:'LOC-A',
     intentKey:randomUUID(),handoverRef:`HTTP-${randomUUID()}`,items:[{gradeCode:'GRADE_1',specCode:'LOOSE',quantity}],evidenceFileIds:[] as string[]});
   beforeAll(async()=>{
+    const sample=await PDFDocument.create();sample.addPage([300,200]).drawText('Owned synthetic conversion evidence');conversionPdf=Buffer.from(await sample.save());
     const u=new URL(url!);if(u.hostname!=='127.0.0.1'||!['/phoenix_temp_reversal_fixture','/installments_fixture'].includes(u.pathname))throw Error('Owned loopback fixture required');
     db=await new DataSource({type:'postgres',url,synchronize:false,migrationsRun:false,installExtensions:false,
       entities:[SysDataScopeEntity,SysOrganizationEntity,SysUserOrgEntity,SysUserProjectScopeEntity,SysUserWarehouseScopeEntity,SysUserFarmScopeEntity,FileMetadataEntity],
@@ -134,6 +146,10 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
       CREATE TABLE prc2_receipts(id bigint PRIMARY KEY,receipt_no text,company_code text,warehouse_code text,status text,po_id bigint);
       CREATE TABLE prc2_receipt_items(id bigint PRIMARY KEY,receipt_id bigint,item_code text,actual_qty numeric,unit text,po_item_id bigint);`);
     await installManagedSalesFixture(db);
+    await db.query('DROP TABLE wms_defect_dispositions');
+    const conversionMigration=db.createQueryRunner();await conversionMigration.connect();
+    try{await new AddWmsDefectDisposition1794405000000().up(conversionMigration);await new OfficialInventoryConversions1795011331222().up(conversionMigration);}
+    finally{await conversionMigration.release();}
     async function userInfo(id:number){const [u]=await db.query('SELECT * FROM sys_user WHERE user_id=$1 AND status=1',[id]);if(!u)return null;
       return {userId:String(u.user_id),username:u.username,roles:[u.role_code],role:u.role_code,storeCode:'ALL',
         permissions:(await db.query('SELECT permission FROM fixture_permissions WHERE role_code=$1',[u.role_code])).map((r:any)=>r.permission)};}
@@ -153,27 +169,32 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
       @Get('packaging-specs')specs(){return db.query("SELECT *,spec_code AS spec_name FROM packaging_specs WHERE status='ACTIVE'");}
       @Get('product-grades')async grades(){return {code:200,data:await db.query("SELECT * FROM product_grades WHERE status='ACTIVE' ORDER BY sort_order")};}
     }
-    @Controller('api/product-master') @UseGuards(AuthGuard('jwt')) class FixtureSkus {@Get('skus')skus(){return db.query("SELECT * FROM product_skus WHERE status='ACTIVE'");}}
+    @Controller('api/product-master') @UseGuards(AuthGuard('jwt')) class FixtureSkus {@Get('skus')skus(@Query('product_code') product_code:string,@Query('company_code') company_code:string,@Query('usage') usage:string){return new ProductMasterService(db.manager,{} as never).listSkus({product_code,company_code,usage:SkuPolicy.usage(usage)});}}
     @Controller('api/crud') @UseGuards(AuthGuard('jwt')) class FixtureDictionary {
       @Get('sys_dict')async dict(@Query('dict_type') type:string){return db.query("SELECT * FROM sys_dict WHERE dict_type=$1 AND status='ACTIVE'",[type]);}
     }
     const module=await Test.createTestingModule({imports:[PassportModule,ClsModule.forRoot({global:true,middleware:{mount:true}})],
-      controllers:[OfficialRawCollectionController,AnalyticsController,ProductionCutoverController,FarmController,ProductionInboundDocumentsController,UploadController,FixtureLogin,FixtureLookups,FixtureDictionary,FixtureSkus],providers:[OfficialRawCollectionService,FixtureJwt,
+      controllers:[OfficialInventoryConversionController,OfficialRawCollectionController,AnalyticsController,ProductionCutoverController,FarmController,ProductionInboundDocumentsController,UploadController,FixtureLogin,FixtureLookups,FixtureDictionary,FixtureSkus],providers:[OfficialInventoryConversionService,OfficialRawCollectionService,FixtureJwt,
         GroupAnalyticsService,...[FinanceAnalyticsService,SalesAnalyticsAggregatorService,InventoryAnalyticsService,ProductionAnalyticsService,ShareholderAnalyticsService,ExceptionAnalyticsService,ForecastAnalyticsService].map(provide=>({provide,useValue:{}})),ProductionCutoverService,FarmService,ProductionInboundDocumentsService,ProductionInboundService,EggInventoryService,SkuAvailabilityService,InventorySourceModeService,FileAccessService,OrgOwnershipService,
         {provide:CUTOVER_PROVENANCE_SIGNER,useValue:{key:'SYNTHETIC-OWNED-CUTOVER-TRANSFER-PROOF-KEY',keyId:'owned-test-v1'}},
         {provide:EntityManager,useValue:db.manager},{provide:DataSource,useValue:db},
+        {provide:WmsService,inject:[ClsService],useFactory:(cls:ClsService)=>new WmsService(db.manager,cls)},
         {provide:getRepositoryToken(FileMetadataEntity),useValue:db.getRepository(FileMetadataEntity)},
         {provide:DataScopeService,inject:[ClsService,OrgOwnershipService],useFactory:(cls:ClsService,own:OrgOwnershipService)=>new DataScopeService(
           db.getRepository(SysDataScopeEntity),db.getRepository(SysUserOrgEntity),db.getRepository(SysUserProjectScopeEntity),db.getRepository(SysUserWarehouseScopeEntity),
           db.getRepository(SysUserFarmScopeEntity),db.getRepository(SysOrganizationEntity),cls,own)}]}).compile();
-    app=module.createNestApplication();app.useGlobalPipes(new ValidationPipe({transform:true,whitelist:true,forbidNonWhitelisted:true}));
+    app=module.createNestApplication();app.useGlobalPipes(new ValidationPipe({transform:true,whitelist:true,
+      forbidNonWhitelisted:process.env.INSTALLMENT_HTTP_PRODUCTION_VALIDATION!=='1',
+      ...(process.env.INSTALLMENT_HTTP_PRODUCTION_VALIDATION==='1'?{transformOptions:{enableImplicitConversion:true}}:{})}));
     app.useGlobalFilters(new AllExceptionsFilter({spawn:()=>undefined} as any));await app.init();await hydrateMenuRegistry(db.manager);scopes=app.get(DataScopeService);
     if(process.env.INSTALLMENT_HTTP_PORT)await app.listen(Number(process.env.INSTALLMENT_HTTP_PORT),'127.0.0.1');
   },30000);
   async function resetState(emptyReports=false){
     await resetManagedSalesFixture(db);
     await db.query("UPDATE inv_source_mode SET mode='TEMP_PRODUCTION_INBOUND';UPDATE md_egg_source_profiles SET status='ACTIVE'");
-    await db.query(`TRUNCATE production_raw_receipt_segments,production_raw_receipts,pkg_source_batches,pkg_work_shifts,wms_transfer_discrepancies,wms_transfer_items,wms_transfer,prc2_receipt_items,prc2_receipts,prc2_order_items,prc2_purchase_orders,fin_cash_accounts,fin_ar_invoices,fin_ap_invoices,fin_shareholder_contributions,fin_expense_requests,qa_inspections,qa_non_conformance,chanjet_writeback_outbox,chanjet_voucher_drafts,sal_order_items,sal_sales_orders,sal_order_item_batch_allocations,production_cutover_manifests,production_inventory_domain_states,production_handover_cancellations,production_physical_handovers,production_financial_clearances,production_posting_periods,
+    await db.query(`TRUNCATE production_conversion_documents,production_conversion_inputs,production_conversion_outputs,production_conversion_inventory_debits,
+      production_batch_raw_roots,production_batch_derivation_parents,wms_defect_dispositions,
+      production_raw_receipt_segments,production_raw_receipts,pkg_source_batches,pkg_work_shifts,wms_transfer_discrepancies,wms_transfer_items,wms_transfer,prc2_receipt_items,prc2_receipts,prc2_order_items,prc2_purchase_orders,fin_cash_accounts,fin_ar_invoices,fin_ap_invoices,fin_shareholder_contributions,fin_expense_requests,qa_inspections,qa_non_conformance,chanjet_writeback_outbox,chanjet_voucher_drafts,sal_order_items,sal_sales_orders,sal_order_item_batch_allocations,production_cutover_manifests,production_inventory_domain_states,production_handover_cancellations,production_physical_handovers,production_financial_clearances,production_posting_periods,
       production_posting_period_events,production_inbound_allocations,production_inbound_lines,production_inbound_documents,production_opening_receipts,
       production_inbound_days,production_batch_roots,production_batch_qualifications,production_inventory_domains,production_cutover_scopes,inv_batches,
       inv_ledger,brd_flock_events,brd_flock_balances,brd_flock_daily_balances,brd_flock_house_states,brd_daily_logs,inv_flock_source_links,brd_egg_source_receipts,brd_egg_day_routes,brd_flock_occupancies,brd_flock_documents RESTART IDENTITY CASCADE;
@@ -206,6 +227,7 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
         await cutoverApi(6,`/${d.id}/freeze`).send({version:0}).expect(201);
       }
       if(process.env.INSTALLMENT_HTTP_RAW==='1')await seedRaw();
+      if(process.env.INSTALLMENT_HTTP_CONVERSION==='1')await conversionDraft();
       console.log('Owned installment HTTP fixture ready');await new Promise<void>(done=>{releaseBrowser=done;});
     }
     await app?.close();if(db?.isInitialized){await db.query(`DROP SCHEMA "${schema}" CASCADE`);await db.destroy();}
@@ -262,9 +284,106 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
     await api(3,'post',`/handovers/${h.id}/confirm`).send({version:h.version,contentHash:h.content_hash}).expect(201);
     return {companyCode:'COMP-A',houseCode:'HOUSE-A',productionDate:day,warehouseCode:'WH-A',sourceBatchId:'1',handoverId:h.id,intentKey:randomUUID()};
   }
+  let conversionPdf:Buffer;
+  const conversionEndpoint='/api/v2/inventory/conversions';
+  const conversionApi=(id:number,path='',method:'get'|'post'='post')=>request(app.getHttpServer())[method](conversionEndpoint+path).auth(token(id),{type:'bearer'});
+  const conversionUpload=(id:number,warehouse='WH-A',company='COMP-A')=>request(app.getHttpServer()).post('/api/upload/contract').auth(token(id),{type:'bearer'})
+    .field('moduleCode','PRODUCTION_CONVERSION').field('ownerType','WAREHOUSE').field('ownerId',warehouse).field('companyCode',company)
+    .attach('file',conversionPdf,{filename:'synthetic-conversion.pdf',contentType:'application/pdf'});
+  async function conversionDraft(){
+    const input=await signedRaw(),raw=(await rawApi(1).send(input).expect(201)).body;
+    const frozen=(await rawApi(1,`/${raw.id}/ready`).send({version:0,submitKey:randomUUID()}).expect(201)).body;
+    await rawApi(2,`/${raw.id}/approve`).send({version:frozen.version,contentHash:frozen.content_hash}).expect(201);
+    await rawApi(1,`/${raw.id}/post`).send({submitKey:frozen.submit_key,contentHash:frozen.content_hash}).expect(201);
+    const [segment]=await db.query('SELECT id FROM production_raw_receipt_segments WHERE receipt_id=$1',[raw.id]);
+    const proof=(await conversionUpload(1).expect(201)).body.fileId,financeFile=(await upload(2).expect(201)).body.fileId;
+    await api(2,'post','/posting-period').send({companyCode:'COMP-A',houseCode:'HOUSE-A',periodMonth:singaporeBusinessDate().slice(0,7),state:'OPEN',
+      expectedVersion:0,evidenceFileId:financeFile,reason:'Owned actual conversion posting period'}).expect(201);
+    return {companyCode:'COMP-A',warehouseCode:'WH-A',productCode:'PRD-EGG-RAW',operationKind:'GRADING',operationDate:singaporeBusinessDate(),
+      physicalGroupRef:randomUUID(),intentKey:randomUUID(),inputs:[{rawSegmentId:segment.id,quantity:100}],
+      outputs:[{outputKind:'WIP',gradeCode:'GRADE_1',quantity:100,skuCode:'SKU-GRADE_1',locationCode:'LOC-A',evidenceFileId:proof}]};
+  }
+  it('conversion actual HTTP binds uploaded warehouse proof, scoped source selection, independent approval and original receipt recovery',async()=>{
+    const input=await conversionDraft(),query='?companyCode=COMP-A&warehouseCode=WH-A&productCode=PRD-EGG-RAW';
+    const sources=(await conversionApi(1,'/sources'+query,'get').expect(200)).body;expect(sources.available).toBe(true);expect(sources.raw).toHaveLength(1);expect(sources.inventory).toEqual([]);
+    await conversionApi(7,'/sources'+query,'get').expect(403);await conversionApi(6,'/sources'+query,'get').expect(403);
+    await conversionApi(1).send({...input,capability:true}).expect(400);await conversionApi(1).send({...input,inputs:[{...input.inputs[0],quantity:1.5}]}).expect(400);
+    for(const quantity of [true,'100'])await conversionApi(1).send({...input,inputs:[{...input.inputs[0],quantity}]}).expect(400);
+    const skuChoices=()=>request(app.getHttpServer()).get('/api/product-master/skus?status=ACTIVE&usage=stock&company_code=COMP-A&product_code=PRD-EGG-RAW').auth(token(1),{type:'bearer'}).expect(200);
+    expect((await skuChoices()).body.some((s:any)=>s.sku_code==='SKU-GRADE_1')).toBe(true);
+    await db.query("UPDATE md_sku_org_scope SET stock_enabled=false WHERE sku_code='SKU-GRADE_1' AND scope_code='COMP-A'");
+    expect((await skuChoices()).body.some((s:any)=>s.sku_code==='SKU-GRADE_1')).toBe(false);
+    await db.query("UPDATE md_sku_org_scope SET stock_enabled=true WHERE sku_code='SKU-GRADE_1' AND scope_code='COMP-A'");
+    const d=(await conversionApi(1).send(input).expect(201)).body;
+    await conversionApi(4).send({...input,intentKey:randomUUID()}).expect(403);
+    expect((await conversionApi(4,'/recover?companyCode=COMP-A&warehouseCode=WH-A&intentKey='+input.intentKey,'get').expect(200)).body.map((r:any)=>r.id)).toEqual([d.id]);
+    await conversionApi(4,`/${d.id}/evidence/${input.outputs[0].evidenceFileId}`,'get').expect(200).expect('Content-Type',/application\/pdf/);
+    await conversionApi(6,`/${d.id}`,'get').expect(403);await conversionApi(7,`/${d.id}`,'get').expect(403);
+    await conversionApi(2,`/${d.id}/edit`).send({...input,version:0}).expect(403);
+    await conversionApi(7,`/${d.id}/edit`).send({...input,version:0}).expect(403);
+    await conversionApi(1,`/${d.id}/edit`).send({...input,physicalGroupRef:randomUUID(),version:0}).expect(409);
+    const edited=(await conversionApi(1,`/${d.id}/edit`).send({...input,version:0}).expect(201)).body;
+    expect(edited.version).toBe(1);await conversionApi(1,`/${d.id}/edit`).send({...input,version:0}).expect(409);
+    const frozen=(await conversionApi(3,`/${d.id}/ready`).send({version:edited.version,submitKey:randomUUID()}).expect(201)).body;
+    await conversionApi(1,`/${d.id}/edit`).send({...input,version:frozen.version}).expect(409);
+    await conversionApi(1,`/${d.id}/approve`).send({version:frozen.version,contentHash:frozen.content_hash}).expect(403);
+    await db.query("UPDATE fixture_permissions SET permission='MENU_PROD_INBOUND:V,C,E,A' WHERE role_code='MAKER' AND permission LIKE 'MENU_PROD_INBOUND:%'");
+    await conversionApi(1,`/${d.id}/approve`).send({version:frozen.version,contentHash:frozen.content_hash}).expect(409);
+    await db.query("UPDATE fixture_permissions SET permission='MENU_PROD_INBOUND:V,C,E' WHERE role_code='MAKER' AND permission LIKE 'MENU_PROD_INBOUND:%'");
+    await conversionApi(2,`/${d.id}/approve`).send({version:frozen.version,contentHash:frozen.content_hash}).expect(201);
+    await conversionApi(4,`/${d.id}/post`).send({submitKey:frozen.submit_key,contentHash:frozen.content_hash}).expect(403);
+    const receipt=(await conversionApi(1,`/${d.id}/post`).send({submitKey:frozen.submit_key,contentHash:frozen.content_hash}).expect(201)).body;
+    expect(receipt).toMatchObject({inputQuantity:100,outputQuantity:100,lossQuantity:0,costStatus:'PENDING_ALLOCATION'});
+    const remaining=(await conversionApi(1,'/sources'+query,'get').expect(200)).body;expect(remaining.raw).toEqual([]);expect(remaining.inventory).toHaveLength(1);
+    await db.query("UPDATE production_cutover_scopes SET state='SUSPENDED';UPDATE product_skus SET status='INACTIVE'");
+    expect((await conversionApi(4,`/${d.id}/post`).send({submitKey:frozen.submit_key,contentHash:frozen.content_hash}).expect(201)).body).toEqual(receipt);
+    expect((await conversionApi(4,query,'get').expect(200)).body.map((r:any)=>r.id)).toEqual([d.id]);
+  });
+  it('conversion uploads reject warehouse/company confusion and unrelated finance permissions',async()=>{
+    const uploadFiles=()=>existsSync(join(process.cwd(),'uploads','contracts'))?readdirSync(join(process.cwd(),'uploads','contracts')).sort():[];
+    const filesBefore=uploadFiles(),parse=jest.spyOn(PDFDocument,'load');
+    try{
+      await conversionUpload(1,'WH-B','COMP-A').expect(400);await conversionUpload(7).expect(400);await conversionUpload(11).expect(400);
+      expect(parse).not.toHaveBeenCalled();expect(uploadFiles()).toEqual(filesBefore);
+    }finally{parse.mockRestore();}
+    expect((await conversionUpload(1).expect(201)).body.fileId).toBeTruthy();
+    const repo=db.getRepository(FileMetadataEntity),save=repo.save.bind(repo),before=new Set((await db.query('SELECT file_id FROM file_metadata')).map((r:any)=>r.file_id));
+    const lost=jest.spyOn(repo,'save').mockImplementationOnce(async(entity:any)=>{await save(entity);throw new Error('Owned save acknowledgement lost after commit');});
+    try{await conversionUpload(1).expect(500);}finally{lost.mockRestore();}
+    const committed=(await db.query("SELECT file_id,storage_path FROM file_metadata WHERE module_code='PRODUCTION_CONVERSION'")).filter((r:any)=>!before.has(r.file_id));
+    expect(committed).toHaveLength(1);expect(existsSync(committed[0].storage_path)).toBe(true);
+    const unresolvedBefore=uploadFiles(),metadataCount=Number((await db.query('SELECT count(*) AS n FROM file_metadata'))[0].n);
+    const pending=jest.spyOn(repo,'save').mockRejectedValueOnce(new Error('Owned unresolved persistence outcome'));
+    try{await conversionUpload(1).expect(500);}finally{pending.mockRestore();}
+    expect(uploadFiles().filter(file=>!unresolvedBefore.includes(file))).toHaveLength(1);
+    expect(Number((await db.query('SELECT count(*) AS n FROM file_metadata'))[0].n)).toBe(metadataCount);
+  });
+  it('conversion evidence uses detected PDF type even when multipart supplies an opaque MIME',async()=>{
+    for(const bytes of [Buffer.from('%PDF-1.7'),Buffer.from('89504e470d0a1a0a','hex'),Buffer.from('ffd8ff','hex')]){
+      await request(app.getHttpServer()).post('/api/upload/contract').auth(token(1),{type:'bearer'})
+        .field('moduleCode','PRODUCTION_CONVERSION').field('ownerType','WAREHOUSE').field('ownerId','WH-A').field('companyCode','COMP-A')
+        .attach('file',bytes,{filename:'damaged.pdf',contentType:'application/octet-stream'}).expect(400);
+    }
+    const image=await sharp({create:{width:12,height:12,channels:3,background:'white'}}).png().toBuffer();
+    const png=(await request(app.getHttpServer()).post('/api/upload/contract').auth(token(1),{type:'bearer'})
+      .field('moduleCode','PRODUCTION_CONVERSION').field('ownerType','WAREHOUSE').field('ownerId','WH-A').field('companyCode','COMP-A')
+      .attach('file',image,{filename:'measurement.png',contentType:'application/octet-stream'}).expect(201)).body;
+    expect((await db.query('SELECT mime_type FROM file_metadata WHERE file_id=$1',[png.fileId]))[0].mime_type).toBe('image/png');
+    const result=await request(app.getHttpServer()).post('/api/upload/contract').auth(token(1),{type:'bearer'})
+      .field('moduleCode','PRODUCTION_CONVERSION').field('ownerType','WAREHOUSE').field('ownerId','WH-A').field('companyCode','COMP-A')
+      .attach('file',conversionPdf,{filename:'opaque.pdf',contentType:'application/octet-stream'}).expect(201);
+    expect(result.body.mimeType).toBe('application/pdf');
+    const input=await conversionDraft();input.outputs[0].evidenceFileId=result.body.fileId;
+    const doc=(await conversionApi(1).send(input).expect(201)).body;
+    await conversionApi(4,`/${doc.id}/evidence/${result.body.fileId}`,'get').expect(200).expect('Content-Type',/application\/pdf/);
+    await request(app.getHttpServer()).post('/api/upload/contract').auth(token(1),{type:'bearer'})
+      .field('moduleCode','PRODUCTION_CONVERSION').field('ownerType','WAREHOUSE').field('ownerId','WH-A').field('companyCode','COMP-A')
+      .attach('file',Buffer.from('<html>not a PDF</html>'),{filename:'fake.pdf',contentType:'application/pdf'}).expect(400);
+  });
   it('RAW actual HTTP validates DTO, separates maker/approval, enforces company/warehouse scope and replays the original receipt with view permission',async()=>{
     const input=await signedRaw();await rawApi(1).send({...input,sourceBatchId:'0'}).expect(400);
     await rawApi(1).send({...input,sourceType:'PACKAGING'}).expect(400);
+    for(const sourceBatchId of [1,true])await rawApi(1).send({...input,sourceBatchId}).expect(400);
     const d=(await rawApi(1).send(input).expect(201)).body;
     await rawApi(6,`/${d.id}`,'get').expect(403);await rawApi(7,`/${d.id}`,'get').expect(403);
     await rawApi(8,`/${d.id}/ready`).send({version:0,submitKey:randomUUID()}).expect(403);
@@ -295,9 +414,10 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
     await cutoverApi(16,`/${d.id}/sign`).send(signature).expect(201);
     await db.query("UPDATE production_cutover_scopes SET state='SUSPENDED'");
     await cutoverApi(16,`/${d.id}/sign`).send({...signature,role:'FINANCE'}).expect(409);
-    await db.query("UPDATE production_cutover_scopes SET state='ACTIVE';UPDATE wms_transfer_items SET received_qty=19 WHERE transfer_no='SYNTHETIC-B-RECEIPT'");
-    await cutoverApi(16,`/${d.id}/sign`).send({...signature,role:'FINANCE'}).expect(409);
-    await db.query("UPDATE wms_transfer_items SET received_qty=20 WHERE transfer_no='SYNTHETIC-B-RECEIPT'");
+    await db.query("UPDATE production_cutover_scopes SET state='ACTIVE'");
+    await expect(db.query("UPDATE wms_transfer_items SET received_qty=19 WHERE transfer_no='SYNTHETIC-B-RECEIPT'"))
+      .rejects.toThrow('OFFICIAL_CONVERSION_BUSINESS_BINDING_IMMUTABLE');
+    expect((await db.query("SELECT received_qty FROM wms_transfer_items WHERE transfer_no='SYNTHETIC-B-RECEIPT'"))[0].received_qty).toBe('20.000');
     const order=async(id:number,qty:number)=>{
       const quantity=await db.transaction(m=>resolveQuantity(m,{qty,skuCode:'SKU-GRADE_1',quantityBasis:'BASE'}));
       await db.query(`INSERT INTO sal_sales_orders(id,order_no,status,company_code,fulfillment_warehouse_code)
@@ -430,6 +550,7 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
     await cutoverUpload(4).expect(403);await cutoverUpload(5).expect(400);await cutoverUpload(6).expect(400);await cutoverUpload(7).expect(400);
     const file=(await cutoverUpload(1).expect(201)).body.fileId,p=emptyCount(file);
     await cutoverApi(1,'').send({...p,state:'ACTIVE',official:true}).expect(400);
+    for(const quantity of [true,'0'])await cutoverApi(1,'').send({...p,physicalTotals:[{productCode:'PRD-EGG-RAW',quantity}]}).expect(400);
     await cutoverApi(1,'').send({...p,physicalTotals:[{productCode:'PRD-EGG-RAW',quantity:0.5}]}).expect(400);
     await cutoverApi(5,'').send(p).expect(403);await cutoverApi(6,'').send(p).expect(403);await cutoverApi(7,'').send(p).expect(403);
     const d=(await cutoverApi(1,'').send(p).expect(201)).body;
@@ -738,6 +859,7 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
     await request(app.getHttpServer()).get(endpoint).expect(401);
     await api(4,'post','').send(draft()).expect(403);await api(5,'post','').send(draft()).expect(403);await api(6,'post','').send(draft()).expect(403);
     await api(1,'post','').send({...draft(),sourceType:'TEMP_PRODUCTION',official:true}).expect(400);
+    for(const quantity of [true,'100'])await api(1,'post','').send({...draft(),items:[{gradeCode:'GRADE_1',quantity}]}).expect(400);
     await api(1,'post','').send({...draft(),items:[{gradeCode:'GRADE_1',quantity:1.5}]}).expect(400);
     await api(7,'get',`/balance?companyCode=COMP-A&houseCode=HOUSE-A&eggDate=${day}&warehouseCode=WH-A`).expect(403);
     await api(7,'get',`/balance?companyCode=COMP-A&houseCode=HOUSE-A&eggDate=${day}&warehouseCode=WH-A2`).expect(409);

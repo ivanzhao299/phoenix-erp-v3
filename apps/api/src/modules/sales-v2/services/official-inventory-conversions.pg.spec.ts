@@ -256,6 +256,8 @@ const url=process.env.OFFICIAL_INVENTORY_PG_URL;
   it.each(['USD',null])('preserves actual numeric input amounts and obtains currency only from the real purchase order (%s)',async currency=>{
     const s=await source(),parent=await purchase(currency),request=plan(s.segments[0].id,19,'WIP');
     request.warehouseCode='WH-P';request.inputs=[{parentBatchNo:parent,quantity:19}];request.outputs[0].locationCode='LOC-P';request.outputs[0].evidenceFileId='CONVERSION-P-EVIDENCE';
+    const lookup=await service.sources('COMP-A','WH-P','PRD-EGG-RAW');
+    expect(lookup.inventory.find((row:any)=>row.batch_no===parent)?.cost_status).toBe(currency?'CONFIRMED':'UNKNOWN');
     const a=await approved(request),r=await service.post(a.id,a.submit_key,a.content_hash);
     const [input]=await db.query('SELECT * FROM production_conversion_inputs WHERE document_id=$1 AND parent_batch_no=$2',[a.id,parent]);
     expect(input).toMatchObject({recorded_unit_cost:'2.123456',recorded_amount:'40.345664',cost_status:currency?'CONFIRMED':'UNKNOWN',currency_code:currency,

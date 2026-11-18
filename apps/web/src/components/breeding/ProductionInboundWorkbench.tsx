@@ -14,6 +14,7 @@ import request from '@/lib/api-client';
 import { localizedMasterName } from '@/lib/localized-master-data';
 import s from './ProductionInboundWorkbench.module.css';
 import RawCollectionReceipts,{RawCollectionSourcePicker,type RawSource} from './RawCollectionReceipts';
+import InventoryConversions from './InventoryConversions';
 
 const endpoint='/v2/inventory/production-inbound-documents';
 const businessDay=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Singapore'}).format(new Date());
@@ -179,6 +180,7 @@ export default function ProductionInboundWorkbench({mobile=false}:{mobile?:boole
       {h.state!=='CANCELLED'&&<button disabled={busy||!p.canEdit&&!p.canApprove&&!p.canCreate} onClick={()=>run(async()=>{await send(`/handovers/${h.id}/cancel`,{version:h.version,reason,evidenceFileIds:proof});})}>{label('cancelPhysical','按差异依据废止未过账交接')}</button>}
       {h.state==='CANCELLED'&&<button disabled={busy||!canWrite||!p.canCreate} onClick={()=>{newIntent();patch({handoverRef:h.handover_ref,replacesId:h.id});}}>{label('resign','据原交接重新签认')}</button>}</div></article>)}</section>
     {scope&&scope!=='OFF'&&<RawCollectionReceipts company={form.companyCode} house={form.houseCode} date={form.eggDate} warehouse={form.warehouseCode} active={canWrite} busy={busy} handovers={handovers} run={run}/>}
+    {form.companyCode&&form.warehouseCode&&<InventoryConversions key={`${actor}:${form.companyCode}`} company={form.companyCode} initialWarehouse={form.warehouseCode}/>}
     <section className={s.card}><h2>{label('history','分次入库及冲销历史')}</h2><div className={s.actions}>
       <button disabled={busy||!form.companyCode} onClick={()=>run(async()=>{const docs=await request<Document[]>(`${endpoint}/recover?${new URLSearchParams({companyCode:form.companyCode,intentKey:form.intentKey})}`);if(docs[0])await load(docs[0].id);else setNotice(label('notFound','尚未找到该意图的单据，可保留原意图重试。'));})}>{label('recover','找回原意图结果')}</button>
       <button disabled={busy||!form.companyCode||!form.handoverRef} onClick={()=>run(async()=>{const found=await request<Document[]>(`${endpoint}/recover?${new URLSearchParams({companyCode:form.companyCode,handoverRef:form.handoverRef})}`);

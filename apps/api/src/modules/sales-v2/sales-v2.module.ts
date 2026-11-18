@@ -1,4 +1,5 @@
 import { FileModule } from '../file/file.module';
+import { WmsModule } from '../wms/wms.module';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ProductMasterModule } from '../product-master/product-master.module';
@@ -37,6 +38,8 @@ import { ProductionInboundDocumentsService } from './services/production-inbound
 import { ProductionInboundDocumentsController } from './controllers/production-inbound-documents.controller';
 import { OfficialRawCollectionController } from './controllers/official-raw-collection.controller';
 import { OfficialRawCollectionService } from './services/official-raw-collection.service';
+import { OfficialInventoryConversionService } from './services/official-inventory-conversion.service';
+import { OfficialInventoryConversionController } from './controllers/official-inventory-conversion.controller';
 import { SalesAnalyticsService }             from './services/sales-analytics.service';            // Phase 8
 import { FinanceArAdapter }                  from './adapters/finance-ar.adapter';
 import { FinanceCreditNoteAdapter }          from './adapters/finance-credit-note.adapter';       // Phase 6
@@ -85,7 +88,7 @@ import {
  *   · FinanceCreditNoteAdapter 同上（Credit Note 负数 AR）
  */
 @Module({
-  imports: [FileModule,
+  imports: [FileModule,WmsModule,
     TypeOrmModule.forFeature([
       SalCustomerEntity,
       SalChannelEntity,
@@ -121,6 +124,7 @@ import {
     InventorySourceController,   // 库存来源模式 P1A
     ProductionInboundDocumentsController,
     OfficialRawCollectionController,
+    OfficialInventoryConversionController,
     SalesAnalyticsController,    // Phase 8
     MobileDeliveryController,    // Mobile
   ],
@@ -145,6 +149,7 @@ import {
     ProductionInboundService,             // 库存来源模式 P1A
     ProductionInboundDocumentsService,
     OfficialRawCollectionService,
+    OfficialInventoryConversionService,
     SalesAnalyticsService,                // Phase 8
     FinanceArAdapter,
     FinanceCreditNoteAdapter,             // Phase 6

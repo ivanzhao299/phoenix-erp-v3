@@ -24,6 +24,20 @@ export class SkuPolicy {
       AND EXISTS (SELECT 1 FROM packaging_specs sp WHERE sp.spec_code=${alias}.spec_code AND sp.status='ACTIVE')`;
   }
 
+  /** Same explicit company applicability as requireUsable; no inference from product names. */
+  static companyUsableSql(alias:string,companyParameter:string,usage:SkuUsage='any'):string {
+    const sale=usage==='sale'||usage==='sale-stock',stock=usage==='stock'||usage==='sale-stock';
+    return `(${alias}.variety_code IS NULL AND COALESCE(${alias}.org_context_required,false)=false OR(
+      EXISTS(SELECT 1 FROM sys_organizations company WHERE company.org_type='COMPANY' AND company.status='ACTIVE'
+        AND COALESCE(company.company_code,company.org_code)=${companyParameter})
+      AND(SELECT count(*) FROM md_sku_org_scope scope WHERE scope.sku_code=${alias}.sku_code AND scope.scope_type='COMPANY'
+        AND scope.scope_code=${companyParameter})=1
+      AND EXISTS(SELECT 1 FROM md_sku_org_scope scope WHERE scope.sku_code=${alias}.sku_code AND scope.scope_type='COMPANY'
+        AND scope.scope_code=${companyParameter} AND scope.status='ACTIVE'
+        AND(scope.effective_date IS NULL OR scope.effective_date<=CURRENT_DATE) AND(scope.expire_date IS NULL OR scope.expire_date>=CURRENT_DATE)
+        ${sale?'AND scope.sale_enabled=true':''} ${stock?'AND scope.stock_enabled=true':''})))`;
+  }
+
   static usage(value?: string): SkuUsage {
     if (value === undefined || value === 'any') return 'any';
     if (value === 'sale' || value === 'stock' || value === 'sale-stock') return value;

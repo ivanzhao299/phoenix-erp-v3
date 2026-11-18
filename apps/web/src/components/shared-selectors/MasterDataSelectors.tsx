@@ -527,11 +527,11 @@ export function ProductSelector(p: BaseProps) {
 }
 
 export function GradeSelector(p: BaseProps) {
-  const { t } = useLanguage();
-  return <ScopedSelect {...p} preserveValue placeholder={p.placeholder ?? t('ui.请选择等级','请选择等级')}
+  const { t, lang } = useLanguage();
+  return <ScopedSelect {...p} preserveValue reloadDeps={[lang]} placeholder={p.placeholder ?? t('ui.请选择等级','请选择等级')}
     emptyMessage={t('ui.暂无启用等级', '暂无启用等级')}
     errorMessage={t('ui.等级加载失败，请重试', '等级加载失败，请重试')}
-    loader={async () => (await requestLookup('/lookup/product-grades')).map(r => ({ value: r.grade_code, label: `${r.grade_name || r.grade_code}（${r.grade_code}）`, raw: r }))} />;
+    loader={async () => (await requestLookup('/lookup/product-grades')).map(r => ({ value: r.grade_code, label: `${localizedMasterName(r, 'grade_name', lang) || r.grade_code}（${r.grade_code}）`, raw: r }))} />;
 }
 
 export function SpecSelector(p: BaseProps) {
@@ -574,16 +574,17 @@ export function ShiftSelector(p: BaseProps) {
 
 // ── SKU（物料主数据，仅 ACTIVE）──────────────────────────────────────────────
 /** value = sku_code；onPick 回传 raw（包含 product_code/product_name/grade_code/spec_code/sku_name） */
-export function SkuSelector(p: BaseProps & { productCode?: string; gradeCode?: string; usage?: 'any' | 'sale' | 'stock' | 'sale-stock' }) {
+export function SkuSelector(p: BaseProps & { productCode?: string; gradeCode?: string; companyCode?: string; usage?: 'any' | 'sale' | 'stock' | 'sale-stock' }) {
   const { t, lang } = useLanguage();
-  const { productCode, gradeCode, usage = 'any', ...rest } = p;
-  return <ScopedSelect {...rest} preserveValue reloadDeps={[productCode, gradeCode, usage, lang]} placeholder={p.placeholder ?? t('ui.请选择物料','请选择物料')}
+  const { productCode, gradeCode, companyCode, usage = 'any', ...rest } = p;
+  return <ScopedSelect {...rest} preserveValue reloadDeps={[productCode, gradeCode, companyCode, usage, lang]} placeholder={p.placeholder ?? t('ui.请选择物料','请选择物料')}
     emptyMessage={t('ui.暂无可用SKU', '暂无可用 SKU')}
     errorMessage={t('ui.SKU加载失败，请重试', 'SKU 加载失败，请重试')}
     loader={async () => {
       const params = new URLSearchParams({ status: 'ACTIVE', usage });
       if (productCode) params.set('product_code', productCode);
       if (gradeCode) params.set('grade_code', gradeCode);
+      if (companyCode) params.set('company_code', companyCode);
       const r = await request<any>(`/product-master/skus?${params}`);
       const list: any[] = Array.isArray(r) ? r : (r?.data ?? []);
       return list

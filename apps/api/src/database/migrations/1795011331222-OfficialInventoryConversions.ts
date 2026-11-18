@@ -183,8 +183,12 @@ export class OfficialInventoryConversions1795011331222 implements MigrationInter
     $body$;`);
     const allowed=definitions.get(signatures[1])!;
     await q.query(`CREATE OR REPLACE FUNCTION official_inventory_cost_known(p_batch text) RETURNS boolean LANGUAGE sql STABLE AS $body$
-      SELECT COALESCE((SELECT b.unit_cost IS NOT NULL AND NOT EXISTS(SELECT 1 FROM production_batch_qualifications q
-        WHERE q.batch_no=b.batch_no AND q.disposition='QUALIFIED' AND q.cost_status='UNKNOWN' AND official_inventory_qualification_controlled(q.batch_no))
+      SELECT COALESCE((SELECT b.unit_cost IS NOT NULL AND NOT EXISTS(SELECT 1 FROM production_batch_qualifications q JOIN production_cutover_scopes scope ON scope.id=q.scope_id
+        WHERE q.batch_no=b.batch_no AND q.disposition='QUALIFIED' AND q.cost_status='UNKNOWN'
+          AND(official_inventory_qualification_controlled(q.batch_no) OR scope.state<>'DRAFT' OR to_jsonb(q)->>'receipt_item_id' IS NOT NULL OR to_jsonb(q)->>'opening_manifest_id' IS NOT NULL
+            OR EXISTS(SELECT 1 FROM production_batch_roots roots JOIN production_batch_qualifications root ON root.batch_no=roots.root_batch_no
+              JOIN production_cutover_scopes root_scope ON root_scope.id=root.scope_id WHERE roots.batch_no=q.batch_no
+                AND(root_scope.state<>'DRAFT' OR to_jsonb(root)->>'receipt_item_id' IS NOT NULL OR to_jsonb(root)->>'opening_manifest_id' IS NOT NULL))))
         FROM inv_batches b WHERE b.batch_no=p_batch),false)
       $body$;`);
     const needle="IF NOT EXISTS(SELECT 1 FROM production_batch_roots WHERE batch_no=p_batch) OR EXISTS(";
@@ -566,6 +570,7 @@ export class OfficialInventoryConversions1795011331222 implements MigrationInter
         ) roots;
         FOR o IN SELECT * FROM production_conversion_outputs WHERE document_id=d.id LOOP
           IF NOT EXISTS(SELECT 1 FROM file_metadata file WHERE file.file_id=o.evidence_file_id AND file.status='ACTIVE' AND file.deleted_at IS NULL
+            AND file.mime_type IN('application/pdf','image/jpeg','image/png','image/webp')
             AND file.visibility IN('PROTECTED','PRIVATE') AND file.module_code='PRODUCTION_CONVERSION' AND file.owner_type='WAREHOUSE'
             AND file.owner_id=d.warehouse_code AND file.company_code=d.company_code AND file.checksum=o.source_snapshot->>'evidenceChecksum') THEN
             RAISE EXCEPTION 'OFFICIAL_CONVERSION_OUTPUT_EVIDENCE_HOLD' USING ERRCODE='23514';END IF;
