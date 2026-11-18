@@ -1,3 +1,4 @@
+import { readCutoverProcessingEvidence } from './production-cutover-processing-evidence';
 import { BadRequestException, ConflictException } from '@nestjs/common';
 import { createHash } from 'crypto';
 import { DataSource, EntityManager } from 'typeorm';
@@ -9,7 +10,7 @@ export interface CutoverEvidenceBoundary {
 }
 const references:Record<string,string[]>={
   wms_inbound_items:['batch_no'],wms_outbound:['batch_no'],wms_outbound_items:['batch_no'],
-  wms_transfer:['batch_no'],wms_transfer_items:['source_batch_no','target_batch_no'],
+  wms_transfer:['batch_no'],wms_transfer_items:['source_batch_no','target_batch_no','damaged_batch_no'],
   wms_stocktake:['batch_no','item'],wms_defect_dispositions:['batch_no','target_batch_no'],
   sal_order_item_batch_allocations:['batch_no'],store_sale_allocations:['batch_no'],
   sal_store_sale_items:['batch_no'],pos_sale_items:['batch_no'],qa_non_conformance:['batch_no'],
@@ -55,9 +56,11 @@ export async function readProductionCutoverEvidence(m:EntityManager,input:Cutove
   if(owners.length!==houses.length||owners.some((h:{company_code:string})=>h.company_code!==scope.companyCode))warnings.push('HOUSE_COMPANY_IDENTITY_UNRESOLVED');
   const masters={products:await rows('mst_products','f.product_code=ANY($1::text[])',[scope.productCodes]),
     skus:await rows('product_skus','f.product_code=ANY($1::text[])',[scope.productCodes]),
-    profiles:await rows('md_egg_source_profiles','f.house_code=ANY($1::text[])',[houses]),
+    profiles:await rows('md_egg_source_profiles','f.house_code=ANY($1::text[]) AND f.company_code=$2',[houses,scope.companyCode]),
     occupancies:await rows('brd_flock_occupancies','f.house_code=ANY($1::text[])',[houses]),
     balances:await rows('brd_flock_balances','f.house_code=ANY($1::text[])',[houses])};
+  // Disabled historical products still need a physical count; a missing product has no authoritative boundary.
+  if(masters.products.length!==scope.productCodes.length)warnings.push('PRODUCT_MASTER_IDENTITY_UNRESOLVED');
   const reports=await rows('brd_daily_logs','f.house_code=ANY($1::text[])',[houses]);
   const flocks=await rows('brd_flocks','f.house_code=ANY($1::text[])',[houses]);
   const flockNos=[...new Set([...flocks,...reports,...masters.occupancies].map(f=>String(f.flock_no??'')).filter(Boolean))];
@@ -78,7 +81,9 @@ export async function readProductionCutoverEvidence(m:EntityManager,input:Cutove
   };
   // Cross a company boundary only inside private handover validation; never expand its remaining stock into this count.
   const edges=[['production_batch_roots','root_batch_no','batch_no'],['inv_flock_source_links','origin_batch_no','batch_no'],
-    ['wms_transfer_items','source_batch_no','target_batch_no'],['wms_defect_dispositions','batch_no','target_batch_no']] as const;
+    ['wms_transfer_items','source_batch_no','target_batch_no'],['wms_defect_dispositions','batch_no','target_batch_no'],
+    ...(tables.has('production_batch_derivation_parents')?[['production_batch_derivation_parents','parent_batch_no','batch_no'] as const]:[]),
+    ...(columns.get('wms_transfer_items')?.has('damaged_batch_no')?[['wms_transfer_items','source_batch_no','damaged_batch_no'] as const]:[])] as const;
   const lineage:Record<string,Record<string,unknown>[]>={};
   async function packagingFor(tokens:string[]) {
     const sources=await rows('pkg_source_batches',`to_jsonb(f)->>'batch_code'=ANY($1::text[]) OR to_jsonb(f)->>'source_inbound_no'=ANY($1::text[])
@@ -90,10 +95,11 @@ export async function readProductionCutoverEvidence(m:EntityManager,input:Cutove
     return {sources,gradingLinks,grading,packing};
   }
   let packaging=await packagingFor([...byBatch.keys()]);
+  let processing=await readCutoverProcessingEvidence(m,scope,[...byBatch.keys()],tables,columns);
   let expanded=true;
   while(expanded){expanded=false;const tokens=[...byBatch.keys()].sort();
     for(const [table,parent,child] of edges){
-      const facts=await rows(table,`to_jsonb(f)->>'${parent}'=ANY($1::text[]) OR to_jsonb(f)->>'${child}'=ANY($1::text[])`,[tokens]);lineage[table]=facts;
+      const facts=await rows(table,`to_jsonb(f)->>'${parent}'=ANY($1::text[]) OR to_jsonb(f)->>'${child}'=ANY($1::text[])`,[tokens]);lineage[table]=sortFacts([...new Map([...(lineage[table]??[]),...facts].map(f=>[canonical(f),f])).values()]);
       const children=[...new Set(facts.flatMap(f=>[String(f[parent]??''),String(f[child]??'')]).filter(c=>c&&!byBatch.has(c)&&!foreignByBatch.has(c)))];
       if(children.length&&exists('inv_batches')){
         const actual=await rows('inv_batches','f.batch_no=ANY($1::text[])',[children]);
@@ -106,8 +112,16 @@ export async function readProductionCutoverEvidence(m:EntityManager,input:Cutove
       const outputs=await rows('inv_batches',"to_jsonb(f)->>'packaging_batch_ref'=ANY($1::text[])",[packaging.packing.map(f=>String(f.code))]);
       for(const output of outputs)if(addBatch(output))expanded=true;
     }
+    processing=await readCutoverProcessingEvidence(m,scope,[...byBatch.keys()],tables,columns);
+    const processingBatches=processing.stockBatchNos.filter(no=>!byBatch.has(no)&&!foreignByBatch.has(no));
+    if(processingBatches.length){
+      const actual=await rows('inv_batches','f.batch_no=ANY($1::text[])',[processingBatches]);
+      for(const fact of actual)if(addBatch(fact))expanded=true;
+      if(actual.length!==processingBatches.length)warnings.push('MISSING_PROCESSING_BATCH');
+    }
     if(byBatch.size>50000)throw new ConflictException('CUTOVER_EVIDENCE_SCOPE_TOO_LARGE');
   }
+  missing.push(...processing.missing);warnings.push(...processing.warnings);
   // Missing physical ancestors cannot be assigned an owner safely. Never return their raw lineage to a scoped caller.
   if(warnings.some(w=>w.startsWith('MISSING_LINEAGE_BATCH:')))throw new ConflictException('CUTOVER_LINEAGE_OWNERSHIP_UNRESOLVED');
   const crossCompanyProofs:CrossCompanyCutoverProof[]=[],provenForeign=new Set<string>();
@@ -140,6 +154,7 @@ export async function readProductionCutoverEvidence(m:EntityManager,input:Cutove
   for(const [table,parent,child] of edges){
     lineage[table]=(lineage[table]??[]).filter(f=>!foreignByBatch.has(String(f[parent]??''))&&!foreignByBatch.has(String(f[child]??'')));
   }
+  processing.evidence.derivationParents=processing.evidence.derivationParents.filter(row=>!foreignByBatch.has(String(row.parent_batch_no))&&!foreignByBatch.has(String(row.batch_no)));
   const selected=sortFacts([...byBatch.values()].map(b=>crossLocalBatches.has(String(b.batch_no))?{...b,
     collection_batch_ref:null,source_profile_code:null,source_profile_snapshot:null}:b)),batchNos=[...byBatch.keys()].sort();
   if(selected.some(b=>!b.company_code||b.company_code==='ALL'))warnings.push('UNCONFIRMED_LEGACY_STOCK_OWNERSHIP');
@@ -171,6 +186,14 @@ export async function readProductionCutoverEvidence(m:EntityManager,input:Cutove
     const headers=await rows(header,`to_jsonb(f)->>'${field}'=ANY($1::text[])`,[(obligations[item]??[]).map(r=>String(r[field]??''))]);
     obligations[header]=sortFacts([...new Map([...(obligations[header]??[]),...headers].map(r=>[canonical(r),r])).values()]);
   }
+  const discrepancyRows=await rows('wms_transfer_discrepancies',"to_jsonb(f)->>'transfer_item_id'=ANY($1::text[])",
+    [(obligations.wms_transfer_items??[]).map(r=>String(r.id))],false);
+  if(!tables.has('wms_transfer_discrepancies')&&(obligations.wms_transfer_items??[]).some(r=>Number(r.difference_qty)>0||Number(r.damaged_qty)>0))missing.push('wms_transfer_discrepancies');
+  obligations.wms_transfer_discrepancies=discrepancyRows.filter(row=>{
+    if(proofByTransferLine.has(String(row.transfer_item_id))){warnings.push('CROSS_COMPANY_SOURCE_PROOF_REQUIRED');return false;}return true;
+  });
+  obligations.production_raw_receipts=processing.evidence.rawReceipts;
+  obligations.production_conversion_documents=processing.evidence.documents;
   obligations.qa_inspections=[];
   if(exists('qa_inspections'))for(const field of ['items_json','fail_items_json']){
     if(!columns.get('qa_inspections')?.has(field))missing.push(`qa_inspections.${field}`);
@@ -204,11 +227,12 @@ export async function readProductionCutoverEvidence(m:EntityManager,input:Cutove
       proof_sha256:proofByBatch.get(String(q.batch_no))?.proofSha256}:q);
   const sourceEvents=await rows('production_source_state_events','f.root_batch_no=ANY($1::text[])',[batchNos]);
   const sourceCompanies=[...new Set([scope.companyCode,...selected.map(b=>String(b.company_code??''))])];
-  const sourceWarehouses=[...new Set([scope.warehouseCode,...selected.map(b=>String(b.warehouse_code??'')),...qualification.map(q=>String(q.source_warehouse_code??''))])];
+  const sourceWarehouses=[...new Set([scope.warehouseCode,...selected.map(b=>String(b.warehouse_code??'')),...qualification.map(q=>String(q.source_warehouse_code??'')),...processing.evidence.rawReceipts.map(r=>String(r.warehouse_code??''))])];
   const inventoryDomains=await rows('production_inventory_domain_states',"f.company_code=ANY($1::text[]) AND f.warehouse_code=ANY($2::text[]) AND f.product_code=ANY($3::text[])",[sourceCompanies,sourceWarehouses,scope.productCodes]);
   const openingClaims=await rows('production_opening_domain_claims',"f.domain_id::text=ANY($1::text[])",[inventoryDomains.map(d=>String(d.id))]);
-  const cutovers=await rows('production_cutover_scopes',"f.company_code=$1 AND (f.house_code=ANY($2::text[]) OR f.id::text=ANY($3::text[]))",[scope.companyCode,houses,qualification.map(q=>String(q.scope_id))]);
-  const domains=await rows('production_inventory_domains','f.company_code=$1 AND f.warehouse_code=$2',[scope.companyCode,scope.warehouseCode]);
+  const cutovers=await rows('production_cutover_scopes',"f.company_code=$1 AND (f.house_code=ANY($2::text[]) OR f.id::text=ANY($3::text[]))",[scope.companyCode,houses,[...qualification.map(q=>String(q.scope_id)),...processing.evidence.rawReceipts.map(r=>String(r.scope_id))]]);
+  const domains=await rows('production_inventory_domains','f.company_code=$1 AND f.warehouse_code=$2 AND f.product_code=ANY($3::text[])',[scope.companyCode,scope.warehouseCode,scope.productCodes]);
+  masters.profiles=await rows('md_egg_source_profiles','f.house_code=ANY($1::text[]) AND f.company_code=$2',[[...new Set([...houses,...processing.evidence.rawReceipts.map(r=>String(r.house_code))])],scope.companyCode]);
   const receiptByNo=new Map(crossCompanyProofs.map(p=>[p.transferNo,p]));
   obligations.wms_transfer_items=(obligations.wms_transfer_items??[]).map(row=>{
     const proof=proofByTransferLine.get(String(row.id));if(!proof)return row;
@@ -236,9 +260,9 @@ export async function readProductionCutoverEvidence(m:EntityManager,input:Cutove
     for(const row of await m.query('SELECT store_code FROM store_master WHERE company_code=$1 AND store_code=ANY($2::text[])',[scope.companyCode,codes]))stores.add(row.store_code);
   }
   const storeProjection=(f:Record<string,unknown>)=>crossLocalBatches.has(String(f.batch_no))&&f.store_code&&f.store_code!=='ALL'&&!stores.has(String(f.store_code))?{...f,store_code:null}:f;
-  const snapshot={version:1,boundary:scope,warehouse,owners,masters,flocks,reports,batches:selected.map(storeProjection),ledger:ledger.map(storeProjection),lineage,obligations,
+  const snapshot={version:2,boundary:scope,warehouse,owners,masters,flocks,reports,batches:selected.map(storeProjection),ledger:ledger.map(storeProjection),lineage,obligations,
     packaging,finance,qualification,sourceEvents,inventoryDomains,openingClaims,cutovers,domains,crossCompanyProofs,
-    missingTables:[...new Set(missing)].sort(),warnings:[...new Set(warnings)].sort()};
+    processing:processing.evidence,missingTables:[...new Set(missing)].sort(),warnings:[...new Set(warnings)].sort()};
   return {snapshot,snapshotSha256:cutoverEvidenceHash(snapshot),releaseAdmission:false,activationAuthorized:false,
     assessment:'EVIDENCE_ONLY' as const};
 }

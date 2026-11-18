@@ -14934,7 +14934,7 @@
   "productionCutover.houseCompany": "This house does not belong to the selected company.",
   "productionCutover.totals": "Counted product totals (eggs)",
   "productionCutover.product": "Product",
-  "productionCutover.counted": "Actual physical total",
+  "productionCutover.counted": "Physical inventory count (excluding raw collection)",
   "productionCutover.addProduct": "Add a counted product",
   "productionCutover.inspect": "Read actual stock and related facts",
   "productionCutover.recover": "Find existing counts",
@@ -15036,5 +15036,10 @@
   "productionConversion.proofUnavailable": "Original evidence is unavailable or no longer valid.",
   "productionConversion.groupRequired": "Enter the actual processing group to recover its original document.",
   "productionConversion.notFound": "No original processing document was found. Check the warehouse and actual work order.",
-  "productionConversion.allowPreview": "Allow the preview window and try again."
+  "productionConversion.allowPreview": "Allow the preview window and try again.",
+  "productionCutover.rawCounts": "Separate count of raw eggs in this warehouse",
+  "productionCutover.rawCountHelp": "Count signed, unstocked raw eggs by actual source segment, separately from inventory totals and opening stock. Expired or paused sources still have physical custody.",
+  "productionCutover.rawBookBalance": "Recorded raw balance",
+  "productionCutover.rawMeasured": "Actual raw count (eggs)",
+  "productionCutover.rawBasis": "Raw count evidence basis"
 }

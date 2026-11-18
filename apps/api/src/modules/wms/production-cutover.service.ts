@@ -19,6 +19,7 @@ export interface CutoverCountLine {
 export interface CutoverPreparation {
   boundary:CutoverEvidenceBoundary;intentKey:string;postingDate:string;evidenceFileIds:string[];
   physicalTotals:Array<{productCode:string;quantity:number}>;openingLines:CutoverCountLine[];
+  rawCounts?:Array<{rawSegmentId:string;quantity:number;evidenceFileId:string;reason:string}>;
   decisions:Array<{batchNo:string;disposition:'ARCHIVED_TEST'|'CARRY_FORWARD';evidenceFileId:string;reason:string}>;
   referenceDecisions:Array<{table:string;rowSha256:string;classification:'TEST'|'RESOLVED';evidenceFileId:string;reason:string}>;
 }
@@ -52,23 +53,54 @@ export class ProductionCutoverService {
   private evidenceAuthority(snapshot:any,override?:DataScopeContext){
     const scope=override??this.cls.get('dataScope') as DataScopeContext|undefined;
     if(!scope)throw new ForbiddenException('缺少有效盘点授权范围');
-    if(snapshot.owners?.some((o:any)=>o.company_code!==snapshot.boundary.companyCode))throw new ForbiddenException('盘点鸡舍公司权威归属不一致');
-    const facts=[...(snapshot.batches??[]),...(snapshot.sourceEvents??[]),...(snapshot.inventoryDomains??[]),...(snapshot.cutovers??[]),...(snapshot.domains??[])];
+    if(snapshot.owners?.some((o:any)=>o.company_code!==snapshot.boundary.companyCode)||(snapshot.masters?.profiles??[]).some((p:any)=>p.company_code!==snapshot.boundary.companyCode))throw new ForbiddenException('盘点鸡舍公司权威归属不一致');
+    const facts=[...(snapshot.batches??[]),...(snapshot.sourceEvents??[]),...(snapshot.inventoryDomains??[]),...(snapshot.cutovers??[]),...(snapshot.domains??[]),...(snapshot.processing?.rawReceipts??[]),...(snapshot.processing?.documents??[])];
     if(!scope.isGlobal&&facts.some((f:any)=>!scope.allowedCompanyCodes.includes(f.company_code)
       ||!scope.allowedWarehouseCodes.includes(f.source_warehouse_code??f.warehouse_code)))
       throw new ConflictException('相关来源涉及尚未授权的公司或仓库，须先取得独立核验权限');
   }
-  private async verifyCurrentCrossCompanyProofs(m:EntityManager,boundary:CutoverEvidenceBoundary,expected:unknown[]){
-    // Includes an empty receiving boundary: inventory INSERT/UPDATE/DELETE triggers take the matching shared lock.
-    // Hold it through the signature/READY commit so a first receipt cannot arrive after this sample.
+  private async verifyCurrentEvidence(m:EntityManager,boundary:CutoverEvidenceBoundary,expected:any,expectedSha:string,override?:DataScopeContext){
+    this.evidenceAuthority(expected,override);
+    const busy=()=>new ConflictException('盘点边界仍有实物业务处理中，请待完成后重新核验');
+    // Legacy packaging and RAW take these before their house locks. Never wait while holding another business resource.
+    for(const test of ['false','true']){
+      const [row]=await m.query("SELECT pg_try_advisory_xact_lock(hashtextextended($1,0)) AS locked",[`packaging-chain:${test}`]);
+      if(row?.locked!==true)throw busy();
+    }
+    const scopeHouses=await m.query(`SELECT DISTINCT scope.house_code FROM production_cutover_scopes scope
+      WHERE scope.company_code=$1 AND(scope.warehouse_code=$2 OR EXISTS(SELECT 1 FROM production_inventory_domains domain
+        WHERE domain.scope_id=scope.id AND domain.warehouse_code=$2))`,[boundary.companyCode,boundary.warehouseCode]);
+    const houses=[...new Set<string>([...boundary.houses.map(h=>h.houseCode),...scopeHouses.map((r:any)=>r.house_code),
+      ...(expected.processing?.rawReceipts??[]).map((r:any)=>r.house_code)])].sort();
+    for(const house of houses){const [row]=await m.query("SELECT pg_try_advisory_xact_lock(hashtext('phoenix:daily-house'),hashtext($1)) AS locked",[house]);if(row?.locked!==true)throw busy();}
     for(const product of [...new Set(boundary.productCodes)].sort()){
       const [row]=await m.query("SELECT pg_try_advisory_xact_lock(hashtext('phoenix:inventory-product'),hashtext($1)) AS locked",[`${boundary.companyCode}:${product}`]);
-      if(row?.locked!==true)throw new ConflictException('盘点产品仍有实物业务处理中，请待完成后重新核验');
+      if(row?.locked!==true)throw busy();
+      // SKU membership belongs to the global product, even when the physical domain is company scoped.
+      const [sku]=await m.query("SELECT pg_try_advisory_xact_lock(hashtext('phoenix:product-sku-membership'),hashtext($1)) AS locked",[product]);
+      if(sku?.locked!==true)throw busy();
     }
+    for(const domain of [...new Set<string>((expected.inventoryDomains??[]).map((r:any)=>String(r.id)))].sort()){
+      const [row]=await m.query("SELECT pg_try_advisory_xact_lock_shared(hashtext('phoenix:inventory-domain-state'),hashtext($1)) AS locked",[domain]);if(row?.locked!==true)throw busy();
+    }
+    for(const root of [...new Set<string>((expected.qualification??[]).filter((r:any)=>r.origin_kind!=='DERIVED'&&r.disposition==='QUALIFIED').map((r:any)=>String(r.batch_no)))].sort()){
+      const [row]=await m.query("SELECT pg_try_advisory_xact_lock_shared(hashtext('phoenix:inventory-root-state'),hashtext($1)) AS locked",[root]);if(row?.locked!==true)throw busy();
+    }
+    try{
+      await m.query('SELECT id FROM production_cutover_scopes WHERE id=ANY($1::uuid[]) ORDER BY id FOR SHARE NOWAIT',[(expected.cutovers??[]).map((r:any)=>r.id)]);
+      await m.query('SELECT id FROM production_inventory_domain_states WHERE id=ANY($1::uuid[]) ORDER BY id FOR SHARE NOWAIT',[(expected.inventoryDomains??[]).map((r:any)=>r.id)]);
+      await m.query('SELECT profile_code FROM md_egg_source_profiles WHERE profile_code=ANY($1::text[]) ORDER BY profile_code FOR SHARE NOWAIT',[(expected.masters?.profiles??[]).map((r:any)=>r.profile_code)]);
+      await m.query('SELECT product_code FROM mst_products WHERE product_code=ANY($1::text[]) ORDER BY product_code FOR SHARE NOWAIT',[boundary.productCodes]);
+      await m.query('SELECT sku_code FROM product_skus WHERE sku_code=ANY($1::text[]) ORDER BY sku_code FOR SHARE NOWAIT',[(expected.masters?.skus??[]).map((r:any)=>r.sku_code)]);
+    }catch(e){if((e as {code?:string}).code==='55P03')throw busy();throw e;}
+    const segmentIds=(expected.processing?.rawSegments??[]).map((r:any)=>r.id);
+    if(segmentIds.length)try{await m.query('SELECT id FROM production_raw_receipt_segments WHERE id=ANY($1::uuid[]) ORDER BY id FOR SHARE NOWAIT',[segmentIds]);}
+      catch(e){if((e as {code?:string}).code==='55P03')throw busy();throw e;}
     const current=await readProductionCutoverEvidence(m,boundary,{signer:this.provenanceSigner,lockCrossCompanyRoots:true});
-    if(current.snapshot.missingTables.length||current.snapshot.warnings.some(w=>w.startsWith('CROSS_COMPANY_'))
-      ||cutoverEvidenceHash(current.snapshot.crossCompanyProofs)!==cutoverEvidenceHash(expected))
-      throw new ConflictException('跨公司接收来源或边界已变化/待核，须重新核验盘点后再冻结或签认');
+    this.evidenceAuthority(current.snapshot,override);
+    if(current.snapshot.missingTables.length||current.snapshot.warnings.length||current.snapshotSha256!==expectedSha)
+      throw new ConflictException('盘点库存、RAW剩余、转换、主档或关联事实已变化/待核，须重新核验盘点后再冻结或签认');
+    return current;
   }
   private normalize(input:CutoverPreparation):CutoverPreparation{
     if(!input||typeof input!=='object'||!input.boundary)throw new BadRequestException('缺少盘点范围');
@@ -96,6 +128,12 @@ export class ProductionCutoverService {
       return {batchNo:text(d.batchNo,'批次'),disposition:d.disposition,evidenceFileId:text(d.evidenceFileId,'批次处置证据'),reason:text(d.reason,'处置依据',1000)};
     });
     if(new Set(decisions.map(d=>d.batchNo)).size!==decisions.length)throw new BadRequestException('批次处置重复');
+    if(input.rawCounts!==undefined&&(!Array.isArray(input.rawCounts)||input.rawCounts.length>5000))throw new BadRequestException('原始收蛋实盘清单无效');
+    const rawCounts=(input.rawCounts??[]).map(r=>{
+      const id=text(r.rawSegmentId,'原始来源段');if(!/^[a-f\d]{8}-(?:[a-f\d]{4}-){3}[a-f\d]{12}$/i.test(id))throw new BadRequestException('原始来源段无效');
+      return {rawSegmentId:id.toLowerCase(),quantity:quantity(r.quantity,true),evidenceFileId:text(r.evidenceFileId,'原料实盘证据'),reason:text(r.reason,'原料实盘依据',1000)};
+    }).sort((a,b)=>a.rawSegmentId.localeCompare(b.rawSegmentId));
+    if(new Set(rawCounts.map(r=>r.rawSegmentId)).size!==rawCounts.length)throw new BadRequestException('原始来源段实盘重复');
     const refs=input.referenceDecisions.map(r=>{
       if(!['TEST','RESOLVED'].includes(r.classification)||!/^[a-f0-9]{64}$/.test(r.rowSha256))throw new BadRequestException('关联事实处置无效');
       return {table:text(r.table,'关联事实类型'),rowSha256:r.rowSha256,classification:r.classification,
@@ -103,7 +141,7 @@ export class ProductionCutoverService {
     });
     if(new Set(refs.map(r=>`${r.table}:${r.rowSha256}`)).size!==refs.length)throw new BadRequestException('关联事实处置重复');
     return {boundary:input.boundary,intentKey:input.intentKey,postingDate:input.postingDate,physicalTotals:totals,openingLines:lines,
-      decisions,referenceDecisions:refs,evidenceFileIds:[...new Set(input.evidenceFileIds.map(f=>text(f,'盘点附件')))].sort()};
+      decisions,rawCounts,referenceDecisions:refs,evidenceFileIds:[...new Set(input.evidenceFileIds.map(f=>text(f,'盘点附件')))].sort()};
   }
   private async proofs(m:EntityManager,d:any,ids:string[],uploader?:string){
     if(!ids.length)throw new BadRequestException('缺少实际盘点证据');
@@ -142,7 +180,7 @@ export class ProductionCutoverService {
   async evidence(id:string,fileId:string){
     const d=await this.get(id);if(!this.files)throw new NotFoundException('附件不可访问');
     const ids=new Set([...d.payload.evidenceFileIds,...d.payload.decisions.map((r:any)=>r.evidenceFileId),
-      ...d.payload.referenceDecisions.map((r:any)=>r.evidenceFileId),...d.signatures.map((r:any)=>r.evidence_file_id)]);
+      ...d.payload.referenceDecisions.map((r:any)=>r.evidenceFileId),...(d.payload.rawCounts??[]).map((r:any)=>r.evidenceFileId),...d.signatures.map((r:any)=>r.evidence_file_id)]);
     if(!ids.has(fileId))throw new NotFoundException('附件不属于该盘点原单');
     const user=this.cls.get('user') as any;
     const menu=hasPerm(user?.permissions,'MENU_PROD_INBOUND','V')?'MENU_PROD_INBOUND':hasPerm(user?.permissions,'MENU_PROD_INBOUND','A')?'MENU_PROD_INBOUND':'MENU_FIN2_AR_LEDGER';
@@ -156,7 +194,7 @@ export class ProductionCutoverService {
     return this.db.transaction(async m=>{
       await m.query("SELECT pg_advisory_xact_lock(hashtext('phoenix:cutover-intent'),hashtext($1))",[`${input.boundary.companyCode}:${input.intentKey}`]);
       const [prior]=await m.query('SELECT * FROM production_cutover_manifests WHERE company_code=$1 AND intent_key=$2',[input.boundary.companyCode,input.intentKey]);
-      if(prior){if(prior.creation_hash!==creationHash)throw new ConflictException('相同创建意图已用于不同盘点内容');return prior;}
+      if(prior){if(prior.creation_hash!==creationHash)throw new ConflictException('相同创建意图已用于不同盘点内容');if(prior.snapshot)this.evidenceAuthority(prior.snapshot);return prior;}
       const evidence=await readProductionCutoverEvidence(m,input.boundary,{signer:this.provenanceSigner});
       if(evidence.snapshot.warnings.some(w=>['CROSS_COMPANY_DESCENDANTS_REQUIRE_SEPARATE_AUTHORITY','HOUSE_COMPANY_IDENTITY_UNRESOLVED','WAREHOUSE_COMPANY_IDENTITY_UNRESOLVED'].includes(w)||w.startsWith('CROSS_COMPANY_')))
         throw new ConflictException('盘点边界归属未确认或涉及他公司后代，请先分别核验');
@@ -169,11 +207,12 @@ export class ProductionCutoverService {
     });
   }
   async edit(id:string,version:number,raw:CutoverPreparation){
-    const input=this.normalize(raw),identity=await this.identity(id);this.authorize(identity.company_code,identity.warehouse_code,'E');
+    const input=this.normalize(raw),identity=await this.identity(id),actor=this.authorize(identity.company_code,identity.warehouse_code,'E');
     if(input.boundary.companyCode!==identity.company_code||input.boundary.warehouseCode!==identity.warehouse_code||input.intentKey!==identity.intent_key)
       throw new ConflictException('公司、仓库和原创建意图不可改动，请另建盘点单');
     return this.db.transaction(async m=>{
       const [d]=await m.query('SELECT * FROM production_cutover_manifests WHERE id=$1 FOR UPDATE',[id]);
+      if(d.created_by!==actor.actor)throw new ForbiddenException('仅原盘点制单人可修改实盘草稿，签认人不能改写待审实测数据');
       if(d.state!=='DRAFT'||d.version!==version)throw new ConflictException('盘点版本或状态已变化');
       const e=await readProductionCutoverEvidence(m,input.boundary,{signer:this.provenanceSigner});this.evidenceAuthority(e.snapshot);
       if(e.snapshot.warnings.some(w=>w.startsWith('CROSS_COMPANY_')||w.includes('IDENTITY_UNRESOLVED')))throw new ConflictException('盘点归属或他公司关联须先独立核验');
@@ -188,11 +227,10 @@ export class ProductionCutoverService {
     return this.db.transaction(async m=>{
       const [d]=await m.query('SELECT * FROM production_cutover_manifests WHERE id=$1 FOR UPDATE',[id]);
       if(d.version!==version||d.state!=='DRAFT')throw new ConflictException('盘点版本或状态已变化');
-      const e=captured;this.evidenceAuthority(e.snapshot);
+      const e=await this.verifyCurrentEvidence(m,d.boundary,captured.snapshot,captured.snapshotSha256);this.evidenceAuthority(e.snapshot);
       if(e.snapshot.missingTables.length)throw new ConflictException('必查资料尚未齐备，禁止冻结或签认空盘点');
       if(e.snapshot.warnings.length)throw new ConflictException({code:'CUTOVER_BOUNDARY_HOLD',warnings:e.snapshot.warnings});
-      await this.verifyCurrentCrossCompanyProofs(m,d.boundary,e.snapshot.crossCompanyProofs);
-      const ids=[...new Set<string>([...d.payload.evidenceFileIds,...d.payload.decisions.map((r:any)=>r.evidenceFileId),...d.payload.referenceDecisions.map((r:any)=>r.evidenceFileId)])];
+      const ids=[...new Set<string>([...d.payload.evidenceFileIds,...d.payload.decisions.map((r:any)=>r.evidenceFileId),...d.payload.referenceDecisions.map((r:any)=>r.evidenceFileId),...(d.payload.rawCounts??[]).map((r:any)=>r.evidenceFileId)])];
       const proofs=await this.proofs(m,d,ids);
       const batches=e.snapshot.batches,decisions=d.payload.decisions as CutoverPreparation['decisions'];
       if(batches.length!==decisions.length||batches.some(b=>!decisions.some(r=>r.batchNo===b.batch_no)))throw new ConflictException('须逐一确认范围内原批及全部后代的测试归档或合法接续');
@@ -206,12 +244,19 @@ export class ProductionCutoverService {
         if(b.status==='RESERVED'||b.status==='AVAILABLE'&&Number(b.qty)!==Number(b.qty_available))throw new ConflictException('尚有真实预占或受限数量，须先核对和处理该实物边界');
       }
       await assertOfficialInventoryBatches(m,decisions.filter(r=>r.disposition==='CARRY_FORWARD').map(r=>r.batchNo),false);
+      const hasRawRoots=e.snapshot.processing.capabilities.conversion;
       const unproven=await m.query(`SELECT q.batch_no FROM production_batch_qualifications q WHERE q.batch_no=ANY($1::text[]) AND (
         q.origin_kind<>'DERIVED' AND NOT official_inventory_source_allowed(q.batch_no,false)
-        OR q.origin_kind='DERIVED' AND (NOT EXISTS(SELECT 1 FROM production_batch_roots r WHERE r.batch_no=q.batch_no)
+        OR q.origin_kind='DERIVED' AND ((NOT EXISTS(SELECT 1 FROM production_batch_roots r WHERE r.batch_no=q.batch_no)${hasRawRoots?' AND NOT EXISTS(SELECT 1 FROM production_batch_raw_roots raw WHERE raw.batch_no=q.batch_no)':''})
+          ${hasRawRoots?' OR NOT official_inventory_raw_roots_allowed(q.batch_no,false)':''}
           OR EXISTS(SELECT 1 FROM production_batch_roots r WHERE r.batch_no=q.batch_no AND NOT official_inventory_source_allowed(r.root_batch_no,false)))) LIMIT 1`,
         [decisions.filter(r=>r.disposition==='CARRY_FORWARD').map(r=>r.batchNo)]);
       if(unproven.length)throw new ConflictException('待启用或来源尚未获准的资格不能作为合法实物接续');
+      const localRaw=e.snapshot.processing.rawBalances.filter(r=>r.companyCode===d.company_code&&r.warehouseCode===d.warehouse_code);
+      const rawCounts=d.payload.rawCounts??[];
+      if(rawCounts.some((r:any)=>!localRaw.some(balance=>balance.rawSegmentId===r.rawSegmentId&&Number(balance.remainingQuantity)===r.quantity))
+        ||localRaw.some(balance=>Number(balance.remainingQuantity)>0&&!rawCounts.some((r:any)=>r.rawSegmentId===balance.rawSegmentId)))
+        throw new ConflictException('须按本仓实际RAW来源段逐一实盘剩余枚数；原料不重复计入库存实盘或期初');
       for(const product of d.boundary.productCodes){
         const totals=d.payload.physicalTotals.filter((t:any)=>t.productCode===product);
         const carry=batches.filter(b=>b.warehouse_code===d.warehouse_code&&b.product_code===product&&decisions.find(r=>r.batchNo===b.batch_no)?.disposition==='CARRY_FORWARD')
@@ -240,6 +285,14 @@ export class ProductionCutoverService {
       for(const [table,rows] of Object.entries(facts))for(const row of rows){
         const hash=cutoverEvidenceHash(row),decision=d.payload.referenceDecisions.find((r:any)=>r.table===table&&r.rowSha256===hash);
         if(!decision)throw new ConflictException(`关联事实 ${table} 尚未有据分类与处置`);
+        const carryNos=new Set(decisions.filter(r=>r.disposition==='CARRY_FORWARD').map(r=>r.batchNo));
+        const formalTransfers=(facts.wms_transfer_items??[]).filter(item=>[item.source_batch_no,item.target_batch_no,item.damaged_batch_no].some(no=>carryNos.has(String(no))));
+        const formalTransfer=table==='wms_transfer_items'&&formalTransfers.some(item=>String(item.id)===String(row.id))
+          ||table==='wms_transfer'&&formalTransfers.some(item=>item.transfer_no===row.transfer_no)
+          ||table==='wms_transfer_discrepancies'&&formalTransfers.some(item=>String(item.id)===String(row.transfer_item_id));
+        if(formalTransfer&&decision.classification!=='RESOLVED')throw new ConflictException('正式接续批的真实调拨及差异不能标成测试跳过，须实际结清');
+        if(['production_raw_receipts','production_conversion_documents'].includes(table)&&decision.classification!=='RESOLVED')
+          throw new ConflictException('正式RAW及转换原单不得标成测试绕过，须按真实已过账或取消端态复核');
         if(decision.classification==='RESOLVED'&&!this.resolvedReference(table,row,e.snapshot.obligations))
           throw new ConflictException(`关联事实 ${table} 仍未实际终结，不能仅声明已处理`);
       }
@@ -249,13 +302,35 @@ export class ProductionCutoverService {
     });
   }
   private resolvedReference(table:string,row:Record<string,unknown>,facts:Record<string,Record<string,unknown>[]>):boolean{
+    if(['production_raw_receipts','production_conversion_documents'].includes(table))return ['POSTED','CANCELLED'].includes(String(row.state));
     if(table==='sal_order_item_batch_allocations')return Number(row.reserved_qty)>0&&Number(row.outbound_qty)===0&&Number(row.released_qty)===Number(row.reserved_qty);
     if(table==='sal_order_items')return (facts.sal_sales_orders??[]).some(h=>String(h.id)===String(row.sales_order_id)&&['CANCELLED','CANCELED','CLOSED'].includes(String(h.status)))
       &&(facts.sal_order_item_batch_allocations??[]).filter(a=>String(a.sales_order_item_id)===String(row.id)).every(a=>Number(a.outbound_qty)===0&&Number(a.reserved_qty)===Number(a.released_qty));
     if(table==='store_sale_allocations')return Number(row.allocated_qty)>0&&Number(row.returned_qty)===Number(row.allocated_qty)
       &&(facts.sal_store_sales??[]).some(s=>String(s.id)===String(row.sale_id)&&['CANCELLED','REFUNDED','VOIDED'].includes(String(s.status)));
-    if(table==='wms_transfer_items')return Number(row.in_transit_qty??0)===0&&(facts.wms_transfer??[]).some(t=>t.transfer_no===row.transfer_no
-      &&['CANCELLED','RECEIVED','COMPLETED'].includes(String(t.status)));
+    if(table==='wms_transfer_discrepancies'){
+      // A DAMAGE has real retained custody. SHORTAGE still needs a verifiable disposal document; a text reference cannot substitute.
+      const item=(facts.wms_transfer_items??[]).find(i=>String(i.id)===String(row.transfer_item_id));
+      return row.discrepancy_type==='DAMAGE'&&!!row.resolved_at&&['LOSS','ADJUSTMENT'].includes(String(row.resolution_type))
+        &&typeof row.resolution_ref==='string'&&!!row.resolution_ref.trim()&&!!item?.damaged_batch_no
+        &&Number(item.damaged_qty)===Number(row.qty)&&Number(row.qty)>0;
+    }
+    if(table==='wms_transfer_items'){
+      const header=(facts.wms_transfer??[]).find(t=>t.transfer_no===row.transfer_no);
+      if(header?.status==='CANCELLED')return Number(row.received_qty)===0&&Number(row.damaged_qty)===0;
+      if(header?.status!=='COMPLETED')return false;
+      if(row.proof_kind==='CROSS_COMPANY_VERIFIED')return Number(row.expected_qty)>0&&Number(row.expected_qty)===Number(row.received_qty)&&Number(row.damaged_qty)===0;
+      const expected=Number(row.expected_qty),received=Number(row.received_qty),damaged=Number(row.damaged_qty??0);
+      if(!Number.isFinite(expected)||expected<=0||received<0||damaged<0||received+damaged!==expected
+        ||(received>0)!==!!row.target_batch_no||(damaged>0)!==!!row.damaged_batch_no)return false;
+      const differences=(facts.wms_transfer_discrepancies??[]).filter(r=>String(r.transfer_item_id)===String(row.id));
+      return(damaged===0||differences.some(r=>r.discrepancy_type==='DAMAGE'&&Number(r.qty)===damaged))
+        &&differences.every(r=>this.resolvedReference('wms_transfer_discrepancies',r,facts));
+    }
+    if(table==='wms_transfer'){
+      const items=(facts.wms_transfer_items??[]).filter(r=>r.transfer_no===row.transfer_no);
+      return items.length>0&&items.every(r=>this.resolvedReference('wms_transfer_items',r,facts));
+    }
     return ['CANCELLED','CANCELED','COMPLETED','CLOSED','VOIDED'].includes(String(row.status??''));
   }
   async sign(id:string,input:{role:'BUSINESS'|'FINANCE';contentHash:string;snapshotSha256:string;evidenceFileId:string;reason:string}){
@@ -272,7 +347,7 @@ export class ProductionCutoverService {
       if(prior){if(prior.signed_by!==actor.actor||prior.evidence_file_id!==input.evidenceFileId||prior.reason!==input.reason)throw new ConflictException('该角色已由不同实名依据签认');return prior;}
       this.evidenceAuthority(d.snapshot,roleScope);
       if(d.state!=='READY'||d.created_by===actor.actor)throw new ConflictException('须由盘点制单人以外的业务及财务负责人签认');
-      await this.verifyCurrentCrossCompanyProofs(m,d.boundary,d.snapshot?.crossCompanyProofs??[]);
+      await this.verifyCurrentEvidence(m,d.boundary,d.snapshot,d.snapshot_sha256,roleScope);
       const originals=await this.proofs(m,d,d.payload.proofs.map((f:any)=>f.file_id));
       if(cutoverEvidenceHash(originals)!==cutoverEvidenceHash(d.payload.proofs))throw new ConflictException('冻结盘点的原始附件身份或摘要已改变');
       const [file]=await this.proofs(m,d,[input.evidenceFileId],actor.username);

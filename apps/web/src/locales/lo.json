@@ -14934,7 +14934,7 @@
   "productionCutover.houseCompany": "ໂຮງໄກ່ນີ້ບໍ່ກົງກັບບໍລິສັດທີ່ເລືອກ.",
   "productionCutover.totals": "ລວມສິນຄ້າທີ່ກວດນັບ (ໜ່ວຍ)",
   "productionCutover.product": "ສິນຄ້າ",
-  "productionCutover.counted": "ຈຳນວນກວດນັບຈິງ",
+  "productionCutover.counted": "ສະຕັອກນັບຈິງ (ບໍ່ລວມໄຂ່ດິບ)",
   "productionCutover.addProduct": "ເພີ່ມສິນຄ້າກວດນັບ",
   "productionCutover.inspect": "ອ່ານສິນຄ້າຈິງແລະລາຍການກ່ຽວຂ້ອງ",
   "productionCutover.recover": "ຄົ້ນຫາລາຍການກວດນັບເດີມ",
@@ -15036,5 +15036,10 @@
   "productionConversion.proofUnavailable": "ຫຼັກຖານໃບເດີມບໍ່ມີ ຫຼື ໝົດຜົນແລ້ວ.",
   "productionConversion.groupRequired": "ປ້ອນກຸ່ມວຽກຈິງເພື່ອຄົ້ນໃບເດີມ.",
   "productionConversion.notFound": "ບໍ່ພົບໃບວຽກເດີມ. ກວດສາງ ແລະ ເລກກຸ່ມວຽກຈິງ.",
-  "productionConversion.allowPreview": "ອະນຸຍາດໜ້າຕ່າງເບິ່ງເອກະສານ ແລ້ວລອງໃໝ່."
+  "productionConversion.allowPreview": "ອະນຸຍາດໜ້າຕ່າງເບິ່ງເອກະສານ ແລ້ວລອງໃໝ່.",
+  "productionCutover.rawCounts": "ນັບໄຂ່ດິບໃນສາງນີ້ແຍກຕ່າງຫາກ",
+  "productionCutover.rawCountHelp": "ນັບໄຂ່ດິບທີ່ເຊັນຮັບແລ້ວແຕ່ຍັງບໍ່ເຂົ້າສະຕັອກຕາມແຫຼ່ງຈິງ. ບໍ່ລວມໃນຍອດສະຕັອກ ຫຼື ຍອດເປີດ; ໄຂ່ໝົດອາຍຸ ຫຼື ແຫຼ່ງທີ່ພັກກໍຍັງຕ້ອງນັບ.",
+  "productionCutover.rawBookBalance": "ຍອດໄຂ່ດິບຕາມບັນຊີ",
+  "productionCutover.rawMeasured": "ຈຳນວນໄຂ່ດິບນັບຈິງ (ໜ່ວຍ)",
+  "productionCutover.rawBasis": "ຫຼັກຖານການນັບໄຂ່ດິບ"
 }

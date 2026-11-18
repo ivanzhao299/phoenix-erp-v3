@@ -14934,7 +14934,7 @@
   "productionCutover.houseCompany": "鸡舍与所选公司不匹配。",
   "productionCutover.totals": "实盘产品总数（枚）",
   "productionCutover.product": "产品",
-  "productionCutover.counted": "现场实盘总数",
+  "productionCutover.counted": "现场库存实盘（不含原始收蛋）",
   "productionCutover.addProduct": "添加实盘产品",
   "productionCutover.inspect": "读取实际库存及关联清单",
   "productionCutover.recover": "查找已有盘点",
@@ -15036,5 +15036,10 @@
   "productionConversion.pendingCost": "产出成本待分配",
   "productionConversion.document": "实际作业单",
   "productionConversion.notFound": "未找到该实际作业原单，请核对仓库和作业组号",
-  "productionConversion.allowPreview": "请允许预览窗口后重试"
+  "productionConversion.allowPreview": "请允许预览窗口后重试",
+  "productionCutover.rawCounts": "本仓原始收蛋单独实盘",
+  "productionCutover.rawCountHelp": "已签认但未入库的原蛋逐来源段实盘，不计入库存总数或期初；过期或暂停也不能忽略实物。",
+  "productionCutover.rawBookBalance": "原料账面剩余",
+  "productionCutover.rawMeasured": "本次原料实盘（枚）",
+  "productionCutover.rawBasis": "原料实盘依据"
 }

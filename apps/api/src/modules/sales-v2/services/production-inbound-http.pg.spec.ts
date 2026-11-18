@@ -1,3 +1,4 @@
+import { ProductionCutoverEvidenceBarriers1795025712607 } from '../../../database/migrations/1795025712607-ProductionCutoverEvidenceBarriers';
 import { OfficialRawCollectionReceipts1795005390930 } from '../../../database/migrations/1795005390930-OfficialRawCollectionReceipts';
 import { OfficialRawCollectionController } from '../controllers/official-raw-collection.controller';
 import { OfficialRawCollectionService } from './official-raw-collection.service';
@@ -41,6 +42,7 @@ import { AuthGuard, PassportModule, PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { sign } from 'jsonwebtoken';
 import { randomUUID } from 'crypto';
+import crypto = require('crypto');
 import { existsSync,readdirSync } from 'fs';
 import { join } from 'path';
 import { PDFDocument } from 'pdf-lib';
@@ -148,7 +150,7 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
     await installManagedSalesFixture(db);
     await db.query('DROP TABLE wms_defect_dispositions');
     const conversionMigration=db.createQueryRunner();await conversionMigration.connect();
-    try{await new AddWmsDefectDisposition1794405000000().up(conversionMigration);await new OfficialInventoryConversions1795011331222().up(conversionMigration);}
+    try{await new AddWmsDefectDisposition1794405000000().up(conversionMigration);await new OfficialInventoryConversions1795011331222().up(conversionMigration);await new ProductionCutoverEvidenceBarriers1795025712607().up(conversionMigration);}
     finally{await conversionMigration.release();}
     async function userInfo(id:number){const [u]=await db.query('SELECT * FROM sys_user WHERE user_id=$1 AND status=1',[id]);if(!u)return null;
       return {userId:String(u.user_id),username:u.username,roles:[u.role_code],role:u.role_code,storeCode:'ALL',
@@ -216,6 +218,8 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
         VALUES('HOUSE-A','FLOCK-A','2026-11-18','DAILY','{"GRADE_1":1000,"GRADE_2":100}','HTTP-OCC','COMP-A','FARM-A','SITE-A');`}
 
       UPDATE product_skus SET status='ACTIVE';UPDATE file_metadata SET status='ACTIVE';UPDATE sys_user SET status=1;`);
+    await db.query(`UPDATE md_egg_source_profiles SET product_mode='VARIANT',variety_code='EGG_RED' WHERE profile_code='PROFILE-A';
+      UPDATE md_egg_source_profiles SET product_mode='STANDARD',variety_code=NULL WHERE profile_code='PROFILE-A2'`);
     for(let id=1;id<=16;id++)scopes.invalidate(String(id));
   }
   beforeEach(()=>resetState());
@@ -243,7 +247,7 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
     return {p,ready,file,handover};
   }
   const cutoverEndpoint='/api/v2/inventory/production-cutovers';
-  const cutoverApi=(id:number,path:string,method:'get'|'post'='post')=>request(app.getHttpServer())[method](cutoverEndpoint+path).auth(token(id),{type:'bearer'});
+  const cutoverApi=(id:number,path='',method:'get'|'post'|'patch'='post')=>request(app.getHttpServer())[method](cutoverEndpoint+path).auth(token(id),{type:'bearer'});
   const cutoverUpload=(id:number,warehouse='WH-A',company='COMP-A')=>request(app.getHttpServer()).post('/api/upload/contract').auth(token(id),{type:'bearer'})
     .field('moduleCode','PRODUCTION_CUTOVER').field('ownerType','WAREHOUSE').field('ownerId',warehouse).field('companyCode',company)
     .attach('file',Buffer.from('%PDF-1.4\nSynthetic isolated counted inventory evidence\n%%EOF'),{filename:'synthetic-count.pdf',contentType:'application/pdf'});
@@ -290,11 +294,12 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
   const conversionUpload=(id:number,warehouse='WH-A',company='COMP-A')=>request(app.getHttpServer()).post('/api/upload/contract').auth(token(id),{type:'bearer'})
     .field('moduleCode','PRODUCTION_CONVERSION').field('ownerType','WAREHOUSE').field('ownerId',warehouse).field('companyCode',company)
     .attach('file',conversionPdf,{filename:'synthetic-conversion.pdf',contentType:'application/pdf'});
-  async function conversionDraft(){
+  async function conversionDraft(segmentId?:string){
     const input=await signedRaw(),raw=(await rawApi(1).send(input).expect(201)).body;
     const frozen=(await rawApi(1,`/${raw.id}/ready`).send({version:0,submitKey:randomUUID()}).expect(201)).body;
     await rawApi(2,`/${raw.id}/approve`).send({version:frozen.version,contentHash:frozen.content_hash}).expect(201);
-    await rawApi(1,`/${raw.id}/post`).send({submitKey:frozen.submit_key,contentHash:frozen.content_hash}).expect(201);
+    const uuid=segmentId?jest.spyOn(crypto,'randomUUID').mockReturnValueOnce(segmentId as ReturnType<typeof randomUUID>):undefined;
+    try{await rawApi(1,`/${raw.id}/post`).send({submitKey:frozen.submit_key,contentHash:frozen.content_hash}).expect(201);}finally{uuid?.mockRestore();}
     const [segment]=await db.query('SELECT id FROM production_raw_receipt_segments WHERE receipt_id=$1',[raw.id]);
     const proof=(await conversionUpload(1).expect(201)).body.fileId,financeFile=(await upload(2).expect(201)).body.fileId;
     await api(2,'post','/posting-period').send({companyCode:'COMP-A',houseCode:'HOUSE-A',periodMonth:singaporeBusinessDate().slice(0,7),state:'OPEN',
@@ -303,6 +308,238 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
       physicalGroupRef:randomUUID(),intentKey:randomUUID(),inputs:[{rawSegmentId:segment.id,quantity:100}],
       outputs:[{outputKind:'WIP',gradeCode:'GRADE_1',quantity:100,skuCode:'SKU-GRADE_1',locationCode:'LOC-A',evidenceFileId:proof}]};
   }
+  async function processingCount(warehouse='WH-A',house='HOUSE-A'){
+    const file=(await cutoverUpload(1,warehouse).expect(201)).body.fileId,boundary={...cutoverBoundary(),warehouseCode:warehouse,houses:[{houseCode:house,firstProductionDate:day}]};
+    const inspected=(await cutoverApi(1,'/inspect').send(boundary).expect(201)).body;
+    return {inspected,payload:{...emptyCount(file),boundary,
+      physicalTotals:[{productCode:'PRD-EGG-RAW',quantity:inspected.snapshot.batches.filter((b:any)=>b.warehouse_code===warehouse).reduce((n:number,b:any)=>n+Number(b.qty),0)}],
+      decisions:inspected.snapshot.batches.map((b:any)=>({batchNo:b.batch_no,disposition:'CARRY_FORWARD',evidenceFileId:file,reason:'Synthetic actual existing custody'})),
+      referenceDecisions:inspected.references.map((r:any)=>({table:r.table,rowSha256:r.rowSha256,classification:'RESOLVED',evidenceFileId:file,reason:'Synthetic original terminal fact'})),
+      rawCounts:inspected.snapshot.processing.rawBalances.filter((r:any)=>r.warehouseCode===warehouse&&Number(r.remainingQuantity)>0)
+        .map((r:any)=>({rawSegmentId:r.rawSegmentId,quantity:Number(r.remainingQuantity),evidenceFileId:file,reason:'Synthetic separate physical raw count'}))}};
+  }
+  async function postConversion(input:any){
+    const response=await conversionApi(1).send(input);if(response.status!==201)throw new Error('Owned conversion create failed: '+JSON.stringify(response.body));const d=response.body;
+    const frozen=(await conversionApi(1,`/${d.id}/ready`).send({version:0,submitKey:randomUUID()}).expect(201)).body;
+    await conversionApi(2,`/${d.id}/approve`).send({version:frozen.version,contentHash:frozen.content_hash}).expect(201);
+    return (await conversionApi(1,`/${d.id}/post`).send({submitKey:frozen.submit_key,contentHash:frozen.content_hash}).expect(201)).body;
+  }
+  async function processingDomain(product='PRD-EGG-RAW',warehouse='WH-A2'){
+    const id=randomUUID();await db.query(`INSERT INTO production_cutover_scopes(id,company_code,house_code,version,first_production_date,state,warehouse_code,
+      flock_id,source_profile_code,manifest_sha256,evidence,confirmed_by) VALUES($1,'COMP-A','HOUSE-A2',1,'2026-11-18','DRAFT',$2,'FLOCK-A2','PROFILE-A2',repeat('b',64),'{}','fixture')`,[id,warehouse]);
+    await db.query("INSERT INTO production_inventory_domains VALUES($1,'COMP-A',$2,$3)",[id,warehouse,product]);
+    await db.query("UPDATE production_cutover_scopes SET state='ACTIVE',activated_at=now() WHERE id=$1",[id]);return id;
+  }
+  async function alternateProcessing(){
+    await db.query(`INSERT INTO packaging_specs(spec_code,status,base_unit,display_unit,qty_per_unit) VALUES('ALT-LOOSE','ACTIVE','枚','枚',1) ON CONFLICT DO NOTHING;
+      INSERT INTO mst_products(product_code,status,unit,unit_zh,variety_code) VALUES('PRD-EGG-ALT','ACTIVE','枚','枚','EGG_RED') ON CONFLICT DO NOTHING;
+      INSERT INTO product_skus(sku_code,product_code,grade_code,spec_code,status,variety_code) VALUES('SKU-ALT','PRD-EGG-ALT','GRADE_1','ALT-LOOSE','ACTIVE','EGG_RED') ON CONFLICT DO NOTHING;
+      INSERT INTO md_sku_org_scope(sku_code,scope_type,scope_code,sale_enabled,stock_enabled) SELECT 'SKU-ALT','COMPANY','COMP-A',true,true
+        WHERE NOT EXISTS(SELECT 1 FROM md_sku_org_scope WHERE sku_code='SKU-ALT' AND scope_type='COMPANY' AND scope_code='COMP-A');`);
+    await processingDomain('PRD-EGG-ALT','WH-A');
+  }
+  async function secondRaw(product='PRD-STD'){
+    const scopeId=await processingDomain(product,'WH-A');
+    await db.query(`INSERT INTO brd_flocks(flock_no,house_code,farm_code,breed_code,status,placement_date,start_date,company_code,site_code)
+        VALUES('FLOCK-A2','HOUSE-A2','FARM-A','TEST_RED','LAYING','2026-01-01','2026-01-01','COMP-A','SITE-A') ON CONFLICT DO NOTHING;
+      INSERT INTO brd_flock_documents(id,source_key,content_hash,kind,company_code,farm_code,house_code,business_date,payload,status,created_by)
+        VALUES('HTTP-BASELINE-A2','HTTP-SYNTHETIC-A2',repeat('b',64),'BASELINE','COMP-A','FARM-A','HOUSE-A2','2026-11-17','{}','POSTED','fixture');
+      INSERT INTO brd_flock_occupancies(id,flock_no,house_code,company_code,farm_code,site_code,began_on,capacity_snapshot,opened_document_id)
+        VALUES('HTTP-OCC-A2','FLOCK-A2','HOUSE-A2','COMP-A','FARM-A','SITE-A','2026-11-17',5000,'HTTP-BASELINE-A2');
+      INSERT INTO brd_flock_events(id,document_id,line_no,flock_no,occupancy_id,company_code,farm_code,site_code,house_code,business_date,kind,quantity_delta,actor,approved_by)
+        VALUES('HTTP-BASELINE-EVENT-A2','HTTP-BASELINE-A2',1,'FLOCK-A2','HTTP-OCC-A2','COMP-A','FARM-A','SITE-A','HOUSE-A2','2026-11-17','BASELINE',1000,'fixture','fixture-reviewer');
+      INSERT INTO brd_flock_balances(flock_no,company_code,farm_code,site_code,house_code,quantity,baseline_on,last_business_date)
+        VALUES('FLOCK-A2','COMP-A','FARM-A','SITE-A','HOUSE-A2',1000,'2026-11-17','2026-11-17');
+      INSERT INTO brd_flock_daily_balances VALUES('FLOCK-A2','2026-11-17',0,1000,0,0);
+      INSERT INTO brd_flock_house_states(house_code,state,document_id,last_occupied_on) VALUES('HOUSE-A2','OCCUPIED','HTTP-BASELINE-A2','2026-11-17');
+      INSERT INTO brd_daily_logs(house_code,flock_no,log_date,shift,eggs_by_grade,occupancy_id,company_code,farm_code,site_code)
+        VALUES('HOUSE-A2','FLOCK-A2','2026-11-18','DAILY','{"GRADE_0":0,"GRADE_1":50,"GRADE_2":0,"GRADE_3":0,"GRADE_4":0,"GRADE_5":0,"DIRTY":0,"BROKEN":0}','HTTP-OCC-A2','COMP-A','FARM-A','SITE-A');
+      INSERT INTO pkg_work_shifts VALUES(2,'FARM-A','2026-11-18',false);
+      INSERT INTO pkg_source_batches(id,house_code,flock_code,received_qty,production_date,lay_date,is_test,batch_code,source_inbound_no,shift_id,total_qty,batch_status)
+        VALUES(2,'HOUSE-A2','FLOCK-A2',50,'2026-11-18','2026-11-18',false,'SYNTHETIC-HTTP-RAW-A2','SYNTHETIC-HTTP-RAW-A2',2,50,'RECEIVED');`);
+    const file=(await upload(1,'HOUSE-A2').expect(201)).body.fileId,[report]=await db.query("SELECT id FROM brd_daily_logs WHERE house_code='HOUSE-A2'");
+    const handover=(await api(1,'post','/handovers').send({companyCode:'COMP-A',houseCode:'HOUSE-A2',eggDate:day,warehouseCode:'WH-A',handoverRef:randomUUID(),rawCollectionSourceId:'2',
+      segments:[{dailyLogId:report.id,gradeCode:'GRADE_1',quantity:50,evidenceFileId:file}]}).expect(201)).body;
+    await api(3,'post',`/handovers/${handover.id}/confirm`).send({version:handover.version,contentHash:handover.content_hash}).expect(201);
+    const raw=(await rawApi(1).send({companyCode:'COMP-A',houseCode:'HOUSE-A2',productionDate:day,warehouseCode:'WH-A',sourceBatchId:'2',handoverId:handover.id,intentKey:randomUUID()}).expect(201)).body;
+    const frozen=(await rawApi(1,`/${raw.id}/ready`).send({version:0,submitKey:randomUUID()}).expect(201)).body;
+    await rawApi(2,`/${raw.id}/approve`).send({version:frozen.version,contentHash:frozen.content_hash}).expect(201);
+    await rawApi(1,`/${raw.id}/post`).send({submitKey:frozen.submit_key,contentHash:frozen.content_hash}).expect(201);
+    return {scopeId,rawId:raw.id,segmentId:(await db.query('SELECT id FROM production_raw_receipt_segments WHERE receipt_id=$1',[raw.id]))[0].id};
+  }
+  it('cutover excludes actual unrelated STANDARD RAW and its WIP in the same warehouse',async()=>{
+    const base=await conversionDraft(),other=await secondRaw();
+    const converted=await postConversion({...base,intentKey:randomUUID(),physicalGroupRef:randomUUID(),productCode:'PRD-STD',
+      inputs:[{rawSegmentId:other.segmentId,quantity:20}],outputs:[{...base.outputs[0],skuCode:'SKU-STD',quantity:20}]});
+    const {inspected,payload}=await processingCount();expect(inspected.snapshot.warnings).toEqual([]);
+    expect(inspected.snapshot.processing.rawBalances.map((r:any)=>r.rawSegmentId)).toEqual([base.inputs[0].rawSegmentId]);
+    expect(inspected.snapshot.batches.map((b:any)=>b.batch_no)).not.toContain(converted.batches[0].batchNo);
+    const d=(await cutoverApi(1).send(payload).expect(201)).body;await cutoverApi(1,`/${d.id}/freeze`).send({version:0}).expect(201);
+  });
+  it('cutover includes another same-variety house RAW and stops new signatures after that source scope pauses',async()=>{
+    await conversionDraft();await db.query("UPDATE md_egg_source_profiles SET product_mode='VARIANT',variety_code='EGG_RED' WHERE profile_code='PROFILE-A2'");
+    const other=await secondRaw('PRD-EGG-RAW'),{inspected,payload}=await processingCount();
+    expect(inspected.snapshot.processing.rawBalances).toHaveLength(2);expect(inspected.snapshot.cutovers.map((r:any)=>r.id)).toContain(other.scopeId);
+    const d=(await cutoverApi(1).send(payload).expect(201)).body,frozen=(await cutoverApi(1,`/${d.id}/freeze`).send({version:0}).expect(201)).body;
+    await db.query("UPDATE production_cutover_scopes SET state='SUSPENDED' WHERE id=$1",[other.scopeId]);
+    const file=(await cutoverUpload(2).expect(201)).body.fileId;
+    await cutoverApi(2,`/${d.id}/sign`).send({role:'BUSINESS',contentHash:frozen.content_hash,snapshotSha256:frozen.snapshot_sha256,evidenceFileId:file,reason:'Synthetic paused related source must stop'}).expect(409);
+    expect(await db.query('SELECT 1 FROM production_cutover_signatures WHERE manifest_id=$1',[d.id])).toHaveLength(0);
+  });
+  it('cutover finds another same-variety product pending conversion through its persisted raw request before actual inputs exist',async()=>{
+    const base=await conversionDraft('abcdef00-0000-4000-a000-000000000001');await alternateProcessing();
+    const pending=(await conversionApi(1).send({...base,productCode:'PRD-EGG-ALT',inputs:[{...base.inputs[0],quantity:10}],
+      outputs:[{...base.outputs[0],skuCode:'SKU-ALT',quantity:10}]}).expect(201)).body;
+    const original=base.inputs[0].rawSegmentId.toUpperCase();
+    await db.query(`UPDATE production_conversion_documents SET payload=jsonb_set(payload,'{request,inputs,0,rawSegmentId}',to_jsonb($2::text)),version=version+1 WHERE id=$1`,[pending.id,original]);
+    expect((await processingCount()).inspected.snapshot.processing.documents.map((r:any)=>r.id)).toContain(pending.id);
+    const ready=(await conversionApi(1,`/${pending.id}/ready`).send({version:1,submitKey:randomUUID()}).expect(201)).body;
+    await conversionApi(2,`/${pending.id}/approve`).send({version:ready.version,contentHash:ready.content_hash}).expect(201);
+    const {inspected,payload}=await processingCount();expect(inspected.snapshot.processing.documents.map((r:any)=>r.id)).toContain(pending.id);
+    const d=(await cutoverApi(1).send(payload).expect(201)).body;await cutoverApi(1,`/${d.id}/freeze`).send({version:0}).expect(409);
+  });
+  it('cutover refuses a second signature after another same-variety product consumes the counted RAW',async()=>{
+    const base=await conversionDraft();await alternateProcessing();const {payload}=await processingCount(),d=(await cutoverApi(1).send(payload).expect(201)).body;
+    const frozen=(await cutoverApi(1,`/${d.id}/freeze`).send({version:0}).expect(201)).body;
+    const businessFile=(await cutoverUpload(2).expect(201)).body.fileId;
+    await cutoverApi(2,`/${d.id}/sign`).send({role:'BUSINESS',contentHash:frozen.content_hash,snapshotSha256:frozen.snapshot_sha256,evidenceFileId:businessFile,reason:'Synthetic first source count'}).expect(201);
+    await postConversion({...base,intentKey:randomUUID(),physicalGroupRef:randomUUID(),productCode:'PRD-EGG-ALT',inputs:[{...base.inputs[0],quantity:10}],
+      outputs:[{...base.outputs[0],skuCode:'SKU-ALT',quantity:10}]});
+    const financeFile=(await cutoverUpload(11).expect(201)).body.fileId;
+    await cutoverApi(11,`/${d.id}/sign`).send({role:'FINANCE',contentHash:frozen.content_hash,snapshotSha256:frozen.snapshot_sha256,evidenceFileId:financeFile,reason:'Synthetic stale count must stop'}).expect(409);
+    expect((await db.query('SELECT count(*)::int AS n FROM production_cutover_signatures WHERE manifest_id=$1',[d.id]))[0].n).toBe(1);
+  });
+  it('cutover blocks a new empty domain member while a signature holds the product evidence boundary',async()=>{
+    const proof=(await cutoverUpload(1).expect(201)).body.fileId,d=(await cutoverApi(1).send(emptyCount(proof)).expect(201)).body;
+    const frozen=(await cutoverApi(1,`/${d.id}/freeze`).send({version:0}).expect(201)).body,file=(await cutoverUpload(2).expect(201)).body.fileId;
+    const service=app.get(ProductionCutoverService) as any,original=service.proofs.bind(service);let attempted=false;
+    service.proofs=async(...args:any[])=>{if(!attempted){attempted=true;await expect(db.query(`INSERT INTO production_inventory_domain_states(id,company_code,warehouse_code,product_code,state,version,created_by)
+      VALUES($1,'COMP-A','WH-A','PRD-EGG-RAW','DRAFT',0,'fixture')`,[randomUUID()])).rejects.toThrow('OFFICIAL_INVENTORY_CUTOVER_EVIDENCE_BUSY');}return original(...args);};
+    try{await cutoverApi(2,`/${d.id}/sign`).send({role:'BUSINESS',contentHash:frozen.content_hash,snapshotSha256:frozen.snapshot_sha256,evidenceFileId:file,reason:'Synthetic empty domain concurrency'}).expect(201);}finally{service.proofs=original;}
+    expect(attempted).toBe(true);expect((await db.query('SELECT count(*)::int AS n FROM production_inventory_domain_states'))[0].n).toBe(0);
+  });
+  it('cutover keeps unrelated product domain membership outside its frozen signature boundary',async()=>{
+    const other=randomUUID();await db.query(`INSERT INTO production_cutover_scopes(id,company_code,house_code,version,first_production_date,state,warehouse_code,
+      flock_id,source_profile_code,manifest_sha256,evidence,confirmed_by) VALUES($1,'COMP-A','HOUSE-A2',1,'2026-11-18','DRAFT','WH-A','FLOCK-A2','PROFILE-A2',repeat('b',64),'{}','fixture')`,[other]);
+    const proof=(await cutoverUpload(1).expect(201)).body.fileId,d=(await cutoverApi(1).send(emptyCount(proof)).expect(201)).body;
+    const frozen=(await cutoverApi(1,`/${d.id}/freeze`).send({version:0}).expect(201)).body,file=(await cutoverUpload(2).expect(201)).body.fileId;
+    const service=app.get(ProductionCutoverService) as any,original=service.proofs.bind(service);let attempted=false;
+    service.proofs=async(...args:any[])=>{if(!attempted){attempted=true;await db.query(`INSERT INTO production_inventory_domains(scope_id,company_code,warehouse_code,product_code)
+      VALUES($1,'COMP-A','WH-A','PRD-STD')`,[other]);}return original(...args);};
+    try{await cutoverApi(2,`/${d.id}/sign`).send({role:'BUSINESS',contentHash:frozen.content_hash,snapshotSha256:frozen.snapshot_sha256,evidenceFileId:file,reason:'Synthetic independent product remains open'}).expect(201);}finally{service.proofs=original;}
+    expect(attempted).toBe(true);expect((await cutoverApi(1,`/${d.id}`,'get').expect(200)).body.snapshot.domains.every((r:any)=>r.product_code==='PRD-EGG-RAW')).toBe(true);
+  });
+  it('cutover prevents a new SKU member after the signature reread and retains the original measured snapshot',async()=>{
+    const proof=(await cutoverUpload(1).expect(201)).body.fileId,d=(await cutoverApi(1).send(emptyCount(proof)).expect(201)).body;
+    const frozen=(await cutoverApi(1,`/${d.id}/freeze`).send({version:0}).expect(201)).body,file=(await cutoverUpload(2).expect(201)).body.fileId;
+    const service=app.get(ProductionCutoverService) as any,original=service.proofs.bind(service);let attempted=false;
+    service.proofs=async(...args:any[])=>{if(!attempted){attempted=true;await expect(db.query(`INSERT INTO product_skus(sku_code,product_code,grade_code,spec_code,status,variety_code)
+      VALUES('SYNTHETIC-CONCURRENT-SKU','PRD-EGG-RAW','GRADE_1','LOOSE','ACTIVE','EGG_RED')`)).rejects.toThrow('OFFICIAL_INVENTORY_CUTOVER_EVIDENCE_BUSY');}return original(...args);};
+    try{await cutoverApi(2,`/${d.id}/sign`).send({role:'BUSINESS',contentHash:frozen.content_hash,snapshotSha256:frozen.snapshot_sha256,evidenceFileId:file,reason:'Synthetic product membership remains frozen'}).expect(201);}finally{service.proofs=original;}
+    expect(attempted).toBe(true);expect(await db.query("SELECT 1 FROM product_skus WHERE sku_code='SYNTHETIC-CONCURRENT-SKU'")).toHaveLength(0);
+  });
+  it('evidence barriers reverse empty OFF state but refuse old isolation snapshots and any frozen v2 manifest',async()=>{
+    const q=db.createQueryRunner();await q.connect();const migration=new ProductionCutoverEvidenceBarriers1795025712607();
+    try{
+      await migration.down(q);await migration.up(q);
+      await q.startTransaction('REPEATABLE READ');await q.query('SELECT count(*) FROM production_cutover_manifests');
+      await expect(migration.down(q)).rejects.toThrow('OFFICIAL_MIGRATION_ISOLATION_HOLD');await q.rollbackTransaction();
+      const file=(await cutoverUpload(1).expect(201)).body.fileId,d=(await cutoverApi(1).send(emptyCount(file)).expect(201)).body;
+      await cutoverApi(1,`/${d.id}/freeze`).send({version:0}).expect(201);
+      await expect(migration.down(q)).rejects.toThrow('CUTOVER_V2_SNAPSHOT_FACTS_HOLD');
+      expect((await db.query("SELECT count(*)::int AS n FROM pg_trigger WHERE tgname='trg_cutover_evidence_barrier' AND tgrelid IN(SELECT c.oid FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname=current_schema())"))[0].n).toBe(7);
+    }finally{if(q.isTransactionActive)await q.rollbackTransaction();await q.release();}
+  });
+  it('conversion canonicalizes UUID case before source deduplication',async()=>{
+    const base=await conversionDraft('abcdef00-0000-4000-a000-000000000001');
+    await conversionApi(1).send({...base,inputs:[{...base.inputs[0],quantity:50},{rawSegmentId:base.inputs[0].rawSegmentId.toUpperCase(),quantity:50}]}).expect(400);
+    expect(await db.query('SELECT 1 FROM production_conversion_documents')).toHaveLength(0);
+  });
+  it('cutover refuses a zero count whose declared product has no actual master record',async()=>{
+    const file=(await cutoverUpload(1).expect(201)).body.fileId,p={...emptyCount(file),boundary:{...cutoverBoundary(),productCodes:['MISSING-PRODUCT']},
+      physicalTotals:[{productCode:'MISSING-PRODUCT',quantity:0}]};
+    expect((await cutoverApi(1,'/inspect').send(p.boundary).expect(201)).body.snapshot.warnings).toContain('PRODUCT_MASTER_IDENTITY_UNRESOLVED');
+    const d=(await cutoverApi(1).send(p).expect(201)).body;await cutoverApi(1,`/${d.id}/freeze`).send({version:0}).expect(409);
+  });
+  it('cutover exposes real damaged WIP children and requires the actual discrepancy to finish instead of accepting TEST',async()=>{
+    const base=await conversionDraft(),posted=await postConversion(base);await processingDomain();let transfer='';
+    await asInventoryActor(1,async cls=>{
+      const wms=new WmsService(db.manager,cls),created=await wms.createTransfer({from_warehouse:'WH-A',to_warehouse:'WH-A2',items:[{batch_no:posted.batches[0].batchNo,qty:20}]},{username:'maker'});
+      transfer=created.transfer_no;await wms.dispatchTransfer(transfer,{username:'maker'});
+      await wms.receiveTransfer(transfer,{items:[{batch_no:posted.batches[0].batchNo,received_qty:15,damaged_qty:5}]},{username:'maker'});
+    });
+    const {inspected,payload}=await processingCount('WH-A2','HOUSE-A2'),[line]=await db.query('SELECT * FROM wms_transfer_items WHERE transfer_no=$1',[transfer]);
+    expect(line.damaged_batch_no).toBeTruthy();expect(inspected.snapshot.batches.map((b:any)=>b.batch_no)).toContain(line.damaged_batch_no);
+    const masked={...payload,referenceDecisions:payload.referenceDecisions.map((r:any)=>r.table.startsWith('wms_transfer')?{...r,classification:'TEST'}:r)};
+    const fake=(await cutoverApi(1).send(masked).expect(201)).body;await cutoverApi(1,`/${fake.id}/freeze`).send({version:0}).expect(409);
+    const pending=(await cutoverApi(1).send({...payload,intentKey:randomUUID()}).expect(201)).body;await cutoverApi(1,`/${pending.id}/freeze`).send({version:0}).expect(409);
+    const [difference]=await db.query('SELECT id FROM wms_transfer_discrepancies WHERE transfer_no=$1',[transfer]);
+    await asInventoryActor(1,cls=>new WmsService(db.manager,cls).completeTransfer(transfer,{resolutions:[{id:difference.id,resolution_type:'ADJUSTMENT',resolution_ref:'SYNTHETIC-RETAINED-DAMAGE-CUSTODY'}]},{username:'maker'}));
+    const final=await processingCount('WH-A2','HOUSE-A2'),valid=(await cutoverApi(1).send(final.payload).expect(201)).body;
+    await cutoverApi(1,`/${valid.id}/freeze`).send({version:0}).expect(201);
+    await cutoverApi(7,`/${valid.id}`,'get').expect(409);await cutoverApi(7).send(final.payload).expect(409);
+  });
+  it('cutover supports real STANDARD RAW with explicitly null variety and keeps its physical count outside stock',async()=>{
+    await db.query("UPDATE md_egg_source_profiles SET product_mode='STANDARD',variety_code=NULL WHERE profile_code='PROFILE-A'");
+    await conversionDraft();const file=(await cutoverUpload(1).expect(201)).body.fileId,boundary={...cutoverBoundary(),productCodes:['PRD-STD']};
+    const e=(await cutoverApi(1,'/inspect').send(boundary).expect(201)).body;expect(e.snapshot.warnings).toEqual([]);
+    expect(e.snapshot.processing.rawBalances).toHaveLength(1);const balance=e.snapshot.processing.rawBalances[0];
+    const payload={...emptyCount(file),boundary,physicalTotals:[{productCode:'PRD-STD',quantity:0}],
+      rawCounts:[{rawSegmentId:balance.rawSegmentId,quantity:100,evidenceFileId:file,reason:'Synthetic explicit STANDARD raw count'}],
+      referenceDecisions:e.references.map((r:any)=>({table:r.table,rowSha256:r.rowSha256,classification:'RESOLVED',evidenceFileId:file,reason:'Synthetic original completed STANDARD receipt'}))};
+    const d=(await cutoverApi(1).send(payload).expect(201)).body;await cutoverApi(1,`/${d.id}/freeze`).send({version:0}).expect(201);
+    expect((await db.query('SELECT count(*)::int AS n FROM inv_batches'))[0].n).toBe(0);
+    await db.query("UPDATE md_egg_source_profiles SET product_mode='VARIANT',variety_code='EGG_RED' WHERE profile_code='PROFILE-A'");
+  });
+  it('cutover never returns another company profile attached to the same soft-linked house key',async()=>{
+    await conversionDraft();await db.query(`INSERT INTO md_egg_source_profiles(profile_code,company_code,farm_code,site_code,house_code,product_mode,variety_code,effective_date)
+      VALUES('SYNTHETIC-FOREIGN-PROFILE','COMP-B','FARM-B','SITE-B','HOUSE-A','VARIANT','EGG_RED','2026-01-01')`);
+    const {inspected,payload}=await processingCount();expect(JSON.stringify(inspected)).not.toContain('SYNTHETIC-FOREIGN-PROFILE');
+    const d=(await cutoverApi(1).send(payload).expect(201)).body;await cutoverApi(1,`/${d.id}/freeze`).send({version:0}).expect(201);
+    expect(JSON.stringify((await cutoverApi(1,`/${d.id}`,'get').expect(200)).body)).not.toContain('SYNTHETIC-FOREIGN-PROFILE');
+  });
+  it('cutover original maker alone edits measured counts while another editor can freeze the saved original',async()=>{
+    const file=(await cutoverUpload(1).expect(201)).body.fileId,p=emptyCount(file),d=(await cutoverApi(1).send(p).expect(201)).body;
+    await cutoverApi(2,`/${d.id}`,'patch').send({...p,version:0}).expect(403);
+    const edited=(await cutoverApi(1,`/${d.id}`,'patch').send({...p,version:0}).expect(200)).body;
+    await cutoverApi(1,`/${d.id}`,'patch').send({...p,version:0}).expect(409);
+    await cutoverApi(3,`/${d.id}/freeze`).send({version:edited.version}).expect(201);
+  });
+  it('cutover RAW count stays independent of zero stock opening and cannot be silently omitted or marked TEST',async()=>{
+    await conversionDraft();const {inspected,payload}=await processingCount();expect(inspected.snapshot.processing.rawBalances).toHaveLength(1);
+    expect(payload.rawCounts[0].quantity).toBe(100);expect(payload.physicalTotals[0].quantity).toBe(0);
+    for(const rawCounts of [[],[{...payload.rawCounts[0],quantity:99}]]){
+      const d=(await cutoverApi(1).send({...payload,intentKey:randomUUID(),rawCounts}).expect(201)).body;
+      await cutoverApi(1,`/${d.id}/freeze`).send({version:0}).expect(409);
+    }
+    const forged=(await cutoverApi(1).send({...payload,intentKey:randomUUID(),referenceDecisions:payload.referenceDecisions.map((r:any)=>({...r,classification:'TEST'}))}).expect(201)).body;
+    await cutoverApi(1,`/${forged.id}/freeze`).send({version:0}).expect(409);
+    const valid=(await cutoverApi(1).send({...payload,intentKey:randomUUID()}).expect(201)).body;
+    await cutoverApi(1,`/${valid.id}/freeze`).send({version:0}).expect(201);
+    expect((await db.query('SELECT count(*)::int AS n FROM inv_batches'))[0].n).toBe(0);
+  });
+  it('cutover keeps RAW 60 after actual 40 WIP and its 40-unit reprocessing and admits both real RAW-only descendants',async()=>{
+    const base=await conversionDraft(),first=await postConversion({...base,inputs:[{...base.inputs[0],quantity:40}],outputs:[{...base.outputs[0],quantity:40}]});
+    await postConversion({...base,intentKey:randomUUID(),physicalGroupRef:randomUUID(),operationKind:'REPACKING',
+      inputs:[{parentBatchNo:first.batches[0].batchNo,quantity:40}],outputs:[{...base.outputs[0],quantity:40,outputKind:'STOCK'}]});
+    const {inspected,payload}=await processingCount();expect(inspected.snapshot.processing.documents).toHaveLength(2);
+    expect(payload.rawCounts[0].quantity).toBe(60);expect(payload.physicalTotals[0].quantity).toBe(40);
+    expect(inspected.snapshot.processing.rawBalances[0]).toMatchObject({receivedQuantity:'100',consumedQuantity:'40',remainingQuantity:'60'});
+    const d=(await cutoverApi(1).send(payload).expect(201)).body;await cutoverApi(1,`/${d.id}/freeze`).send({version:0}).expect(201);
+  });
+  it('cutover discovers unposted physical conversions and refuses to classify their uncompleted custody as resolved',async()=>{
+    const base=await conversionDraft(),d=(await conversionApi(1).send(base).expect(201)).body;
+    const {inspected,payload}=await processingCount();expect(inspected.snapshot.processing.documents.map((r:any)=>r.id)).toContain(d.id);
+    const count=(await cutoverApi(1).send(payload).expect(201)).body;await cutoverApi(1,`/${count.id}/freeze`).send({version:0}).expect(409);
+  });
+  it('cutover rechecks all local facts before READY after a source changes following the read-only capture',async()=>{
+    await conversionDraft();const {payload}=await processingCount(),d=(await cutoverApi(1).send(payload).expect(201)).body;
+    const original=db.transaction.bind(db);let armed=true;
+    (db as any).transaction=async(...args:any[])=>{const result=await (original as any)(...args);
+      if(armed&&args[0]==='REPEATABLE READ'){armed=false;await db.query("UPDATE product_skus SET status='INACTIVE' WHERE sku_code='SKU-GRADE_1'");}return result;};
+    try{await cutoverApi(1,`/${d.id}/freeze`).send({version:0}).expect(409);}finally{db.transaction=original;}
+    expect(armed).toBe(false);expect((await db.query('SELECT state FROM production_cutover_manifests WHERE id=$1',[d.id]))[0].state).toBe('DRAFT');
+  });
   it('conversion actual HTTP binds uploaded warehouse proof, scoped source selection, independent approval and original receipt recovery',async()=>{
     const input=await conversionDraft(),query='?companyCode=COMP-A&warehouseCode=WH-A&productCode=PRD-EGG-RAW';
     const sources=(await conversionApi(1,'/sources'+query,'get').expect(200)).body;expect(sources.available).toBe(true);expect(sources.raw).toHaveLength(1);expect(sources.inventory).toEqual([]);
@@ -636,7 +873,7 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
     const frozen=(await cutoverApi(1,`/${d.id}/freeze`).send({version:0}).expect(201)).body;
     expect(frozen.state).toBe('READY');expect(frozen.payload.referenceDecisions.every((r:any)=>r.classification==='RESOLVED')).toBe(true);
   });
-  it('freezes one actual read-only inventory snapshot when a sale commits between stock and ledger reads',async()=>{
+  it('rejects stale inventory after a consistent read-only capture if a sale commits before locked freeze',async()=>{
     const file=(await cutoverUpload(1,'WH-A2').expect(201)).body.fileId,p=await legacyCountStock(file,100);
     await db.query("INSERT INTO inv_ledger(batch_no,qty_change,change_type,ref_no) VALUES('SYNTHETIC-LEGACY-COUNT',100,'PURCHASE_INBOUND','SYNTHETIC-OLD-COUNT')");
     const d=(await cutoverApi(1,'').send(p).expect(201)).body;
@@ -652,9 +889,8 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
         }return result;}) as any;return q;
     });
     try{
-      const frozen=(await cutoverApi(1,`/${d.id}/freeze`).send({version:0}).expect(201)).body;
-      expect(committed).toBe(true);expect(frozen.snapshot.batches[0].qty).toBe(100);
-      expect(frozen.snapshot.ledger.reduce((n:number,l:any)=>n+Number(l.qty_change),0)).toBe(100);
+      await cutoverApi(1,`/${d.id}/freeze`).send({version:0}).expect(409);
+      expect(committed).toBe(true);expect((await db.query('SELECT state,version FROM production_cutover_manifests WHERE id=$1',[d.id]))[0]).toEqual({state:'DRAFT',version:0});
       expect((await db.query("SELECT qty FROM inv_batches WHERE batch_no='SYNTHETIC-LEGACY-COUNT'"))[0].qty).toBe('60');
     }finally{spy.mockRestore();}
   });

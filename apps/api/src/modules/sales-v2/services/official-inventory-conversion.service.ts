@@ -31,7 +31,7 @@ const text=(v:unknown):string=>{
 const count=(v:unknown):number=>{
   if(typeof v!=='number'||!Number.isSafeInteger(v)||v<=0||v>2147483647)throw new BadRequestException('投入和产出须为实际正整数枚');return v;
 };
-const uuid=(v:unknown):string=>{const s=text(v);if(!/^[a-f\d]{8}-[a-f\d]{4}-[a-f\d]{4}-[a-f\d]{4}-[a-f\d]{12}$/i.test(s))throw new BadRequestException('实际来源ID无效');return s;};
+const uuid=(v:unknown):string=>{const s=text(v);if(!/^[a-f\d]{8}-[a-f\d]{4}-[a-f\d]{4}-[a-f\d]{4}-[a-f\d]{12}$/i.test(s))throw new BadRequestException('实际来源ID无效');return s.toLowerCase();};
 
 /** One signed physical mixing group. No inferred yield, parent allocation, financial allocation or production re-credit. */
 @Injectable()

@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { ArrayMaxSize, ArrayMinSize, IsArray, IsBoolean, IsIn, IsInt, IsNumber, IsString, IsUUID, Matches, Max, MaxLength, Min, ValidateIf, ValidateNested } from 'class-validator';
+import { ArrayMaxSize, ArrayMinSize, IsArray, IsBoolean, IsIn, IsInt, IsNumber, IsOptional, IsString, IsUUID, Matches, Max, MaxLength, Min, ValidateIf, ValidateNested } from 'class-validator';
 
 class CutoverHouseDto {
   @IsString() @MaxLength(128) houseCode!:string;
@@ -42,7 +42,14 @@ class ReferenceDecisionDto {
   @IsString() @MaxLength(128) evidenceFileId!:string;
   @IsString() @MaxLength(1000) reason!:string;
 }
+class RawPhysicalCountDto {
+  @IsUUID() rawSegmentId!:string;
+  @IsInt() @Min(0) @Max(2147483647) quantity!:number;
+  @IsString() @MaxLength(128) evidenceFileId!:string;
+  @IsString() @MaxLength(1000) reason!:string;
+}
 export class CreateCutoverDto {
+  @IsOptional() @IsArray() @ArrayMaxSize(5000) @ValidateNested({each:true}) @Type(()=>RawPhysicalCountDto) rawCounts?:RawPhysicalCountDto[];
   @ValidateNested() @Type(()=>CutoverBoundaryDto) boundary!:CutoverBoundaryDto;
   @IsString() @MaxLength(128) intentKey!:string;
   @Matches(/^\d{4}-\d{2}-\d{2}$/) postingDate!:string;
