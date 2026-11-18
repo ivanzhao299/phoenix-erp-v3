@@ -1,9 +1,9 @@
-import { officialInventoryPredicate, officialInventoryCostKnownPredicate } from '../../wms/official-inventory';
+import { officialInventoryPredicate, officialInventoryWritablePredicate, officialInventoryCostKnownPredicate } from '../../wms/official-inventory';
 import { qualifyFormalProductionBatch, recordFormalProductionSources } from '../../wms/formal-production-context';
 import { qualifyDerivedInventory } from '../../wms/derived-inventory-qualification';
 import { deriveOrgScope } from '../../farm/farm.service';
 import { inheritFlockProductionSources, recordFlockProductionSources } from '../../farm/flock-production-source';
-import { savedQuantity, QuantitySnapshot, positiveQuantity, baseQuantity, sharedBatches, lockQuantityPools, assertBatchPool, resolveQuantity } from '../../product-master/services/quantity-contract';
+import { savedQuantity, QuantitySnapshot, positiveQuantity, baseQuantity, sharedBatches, lockQuantityPools, assertBatchPool, resolveQuantity, isGovernedSalesPool } from '../../product-master/services/quantity-contract';
 import { SkuPolicy } from '../../product-master/services/sku-policy';
 import { EggSourceProfile, SkuAvailabilityService } from '../../product-master/services/sku-availability.service';
 import {
@@ -20,6 +20,7 @@ import { assertStatusTransition } from '../../wms/inventory-status-machine';
 import { fifoLockKey, fifoItemKey } from '../../wms/inventory-lock.util';
 import { NotificationService } from '../../notification/notification.service';
 import { ScopedNotificationRecipientService } from '../../notification/scoped-notification-recipient.service';
+import { DataScopeContext } from '../../org/services/data-scope.service';
 
 /**
  * EggInventoryService — Sales V2 Phase 7 + Phase H4
@@ -113,6 +114,8 @@ export interface FifoAllocation {
 
 export type GradeStockStatus = 'AVAILABLE' | 'RESERVED' | 'QUARANTINE' | 'DAMAGED' | 'FROZEN';
 
+type VerifiedSalesStock = {companyCode:string;warehouseCode:string;orderNo:string};
+
 export interface GradeInventoryPolicy {
   gradeCode: string;
   stockManaged: boolean;
@@ -139,6 +142,7 @@ export function assertEggDate(value: string): void {
 @Injectable()
 export class EggInventoryService {
   private readonly logger = new Logger(EggInventoryService.name);
+  private readonly managedAllocations=new WeakMap<EntityManager,{authority:VerifiedSalesStock;snapshot:QuantitySnapshot}>();
 
   /** 等级缓存：5 分钟 TTL，运维改 product_grades 后 ≤5min 生效 */
   private _gradeCache: { codes: string[]; expireAt: number } = { codes: [], expireAt: 0 };
@@ -835,6 +839,25 @@ export class EggInventoryService {
     return !!sku && sku.variety_code == null && sku.org_context_required !== true;
   }
 
+  /** The persisted approved order and canonical warehouse supply authority, never a DTO flag. */
+  private async verifiedSalesStock(mgr:EntityManager,orderId:string,orderNo:string,companyCode:string,warehouseCode?:string):Promise<VerifiedSalesStock|undefined>{
+    if(!mgr.queryRunner?.isTransactionActive)return undefined;
+    const [order]=await mgr.query('SELECT * FROM sal_sales_orders WHERE id=$1 FOR SHARE',[orderId]);
+    const warehouse=order?.fulfillment_warehouse_code;
+    if(!order||order.order_no!==orderNo||order.company_code!==companyCode||!['APPROVED','ALLOCATED'].includes(order.status)
+      ||!warehouse||warehouseCode&&warehouseCode!==warehouse)return undefined;
+    const scope=this.cls.get('dataScope') as DataScopeContext|undefined;
+    if(!scope||!scope.isGlobal&&(!scope.allowedCompanyCodes.includes(companyCode)||!scope.allowedWarehouseCodes.includes(warehouse)))return undefined;
+    const [canonical]=await mgr.query("SELECT 1 FROM wms_warehouses WHERE warehouse_code=$1 AND company_code=$2 AND status='ACTIVE' AND domain='OPERATIONAL' FOR SHARE",[warehouse,companyCode]);
+    return canonical?{companyCode,warehouseCode:warehouse,orderNo}:undefined;
+  }
+
+  private async saleStockAllowed(skuCode:string|null|undefined,mgr:EntityManager,authority?:VerifiedSalesStock):Promise<boolean>{
+    if(await this.isLegacySaleStock(skuCode,mgr))return true;
+    if(!authority||!skuCode)return false;
+    await SkuPolicy.requireUsable(mgr,skuCode,'sale-stock',authority.companyCode);return true;
+  }
+
   /**
    * Phase H4 升级：支持 skuCode 优先路径
    *
@@ -870,8 +893,11 @@ export class EggInventoryService {
     if (!mgr) return this.ds.transaction(manager => this.allocateByFIFO(params, manager));
     const q = mgr.query.bind(mgr);
     const salesContext = await this.resolveSalesContext(mgr, params.salesContext, params.fulfillmentWarehouseCode);
-    if (params.skuCode !== undefined) await SkuPolicy.requireUsable(mgr, params.skuCode, 'sale-stock');
-    else if (params.quantitySnapshot) await SkuPolicy.requireUsable(mgr, params.quantitySnapshot.skuCode, 'sale-stock');
+    const capability=this.managedAllocations?.get(mgr);
+    const authority=capability&&capability.snapshot===params.quantitySnapshot&&capability.authority.companyCode===params.companyCode
+      &&capability.authority.warehouseCode===params.fulfillmentWarehouseCode&&capability.authority.orderNo===params.refNo?capability.authority:undefined;
+    if (params.skuCode !== undefined) await SkuPolicy.requireUsable(mgr, params.skuCode, 'sale-stock',authority?.companyCode);
+    else if (params.quantitySnapshot) await SkuPolicy.requireUsable(mgr, params.quantitySnapshot.skuCode, 'sale-stock',authority?.companyCode);
 
     positiveQuantity(params.qty, '分配数量');
 
@@ -895,7 +921,7 @@ export class EggInventoryService {
       `qty_available > 0`,
       `(expire_date IS NULL OR expire_date >= CURRENT_DATE)`,
       `legacy_source IS NULL`,
-      officialInventoryPredicate('inv_batches'),
+      officialInventoryWritablePredicate('inv_batches'),
       `(sku_code IS NULL OR EXISTS (
         SELECT 1 FROM "product_skus" legacy_sku
          WHERE legacy_sku.sku_code=inv_batches.sku_code
@@ -946,11 +972,11 @@ export class EggInventoryService {
         ? inventoryClass === 'STANDARD'
         : inventoryClass === 'STANDARD' || inventoryClass === 'DEFECT_SALE';
     });
-    const legacyBatches: any[] = [];
+    const eligibleBatches: any[] = [];
     for (const batch of scopedBatches) {
-      if (await this.isLegacySaleStock(batch.sku_code, mgr)) legacyBatches.push(batch);
+      if (await this.saleStockAllowed(batch.sku_code, mgr,authority)) eligibleBatches.push(batch);
     }
-    const allocatableQty = legacyBatches.reduce((sum, batch) => sum + Number(batch.qty_available), 0);
+    const allocatableQty = eligibleBatches.reduce((sum, batch) => sum + Number(batch.qty_available), 0);
     if (allocatableQty < params.qty) {
       const target = params.skuCode ? `sku=${params.skuCode}` : `product=${params.productCode} grade=${params.gradeCode ?? 'ALL'}`;
       throw new ConflictException(
@@ -962,7 +988,7 @@ export class EggInventoryService {
     let remaining = params.qty;
     const allocations: FifoAllocation[] = [];
 
-    for (const batch of legacyBatches) {
+    for (const batch of eligibleBatches) {
       if (remaining <= 0) break;
 
       // Saved physical identity is authoritative, including a return's downgraded grade.
@@ -1039,10 +1065,10 @@ export class EggInventoryService {
     if (!mgr) return this.ds.transaction(manager => this.reserveInventory(orderId, orderNo, companyCode, manager, fulfillmentWarehouseCode, salesContext));
     const q = mgr.query.bind(mgr);
     let createdAny = false;
+    const authority=await this.verifiedSalesStock(mgr,orderId,orderNo,companyCode,fulfillmentWarehouseCode);
     await q(`SELECT pg_advisory_xact_lock(hashtext($1))`, [`sales-order-reservation:${orderId}`]);
-
     const items = await q(
-      `SELECT * FROM sal_order_items WHERE sales_order_id = $1`, [orderId],
+      `SELECT * FROM sal_order_items WHERE sales_order_id = $1 ORDER BY id FOR UPDATE`, [orderId],
     );
 
     await lockQuantityPools(mgr, items.map((item: any) => ({ company: companyCode, warehouses: fulfillmentWarehouseCode ? [fulfillmentWarehouseCode] : [], snapshot: item.quantity_snapshot })));
@@ -1050,12 +1076,15 @@ export class EggInventoryService {
       const qty = savedQuantity(item);
       if (qty <= 0) continue;
       // Idempotent reservation must not bypass the explicit-SKU sales policy.
-      if (item.sku_code != null) await SkuPolicy.requireUsable(mgr, item.sku_code, 'sale-stock');
-      else if (item.quantity_snapshot) await SkuPolicy.requireUsable(mgr, item.quantity_snapshot.skuCode, 'sale-stock');
+      const itemAuthority=item.quantity_snapshot&&authority&&await isGovernedSalesPool(mgr,authority.companyCode,[authority.warehouseCode],item.quantity_snapshot)?authority:undefined;
+      if(itemAuthority&&(item.quantity_snapshot.productCode!==item.product_code||item.sku_code!=null&&item.quantity_snapshot.skuCode!==item.sku_code
+        ||item.grade_code!=null&&item.quantity_snapshot.gradeCode!==item.grade_code))throw new ConflictException('批准订单原明细与计量快照身份不一致');
+      if (item.sku_code != null) await SkuPolicy.requireUsable(mgr, item.sku_code, 'sale-stock',itemAuthority?.companyCode);
+      else if (item.quantity_snapshot) await SkuPolicy.requireUsable(mgr, item.quantity_snapshot.skuCode, 'sale-stock',itemAuthority?.companyCode);
 
       const existing = await q(
         `SELECT a.id,a.batch_no,a.reserved_qty,a.outbound_qty,a.released_qty,
-                b.sku_code,b.status,b.grade_code_std,b.quality_grade
+                b.sku_code,b.status,b.grade_code_std,b.quality_grade,b.company_code,b.warehouse_code,b.product_code,b.unit,b.material_code,b.legacy_source,b.base_quantity_version
            FROM sal_order_item_batch_allocations a
            JOIN inv_batches b ON b.batch_no=a.batch_no
           WHERE a.sales_order_item_id=$1
@@ -1068,7 +1097,11 @@ export class EggInventoryService {
             throw new ConflictException(`订单明细 ${item.id} 已分配批次不可销售`);
           }
           await this.assertSaleGrade(mgr, allocation.grade_code_std ?? allocation.quality_grade);
-          if (!await this.isLegacySaleStock(allocation.sku_code, mgr)) {
+          if(itemAuthority){
+            assertBatchPool(allocation,item.quantity_snapshot);
+            if(allocation.company_code!==itemAuthority.companyCode||allocation.warehouse_code!==itemAuthority.warehouseCode)throw new ConflictException('已保存分配不属于原批准订单的履约公司/仓库');
+          }
+          if (!await this.saleStockAllowed(allocation.sku_code, mgr,itemAuthority)) {
             throw new ConflictException('旧销售预留禁止使用公司范围管理或未映射 SKU 库存');
           }
         }
@@ -1079,7 +1112,10 @@ export class EggInventoryService {
         continue;
       }
 
-      const allocations = await this.allocateByFIFO({
+      let allocations:FifoAllocation[];
+      const previous=this.managedAllocations?.get(mgr);
+      if(itemAuthority)this.managedAllocations.set(mgr,{authority:itemAuthority,snapshot:item.quantity_snapshot});
+      try{allocations = await this.allocateByFIFO({
           productCode: item.product_code,
           gradeCode:   item.grade_code ?? undefined,
           companyCode,
@@ -1090,7 +1126,7 @@ export class EggInventoryService {
           fulfillmentWarehouseCode,
           salesContext,
           quantitySnapshot: item.quantity_snapshot,
-      }, mgr);
+      }, mgr);}finally{if(previous)this.managedAllocations.set(mgr,previous);else this.managedAllocations?.delete(mgr);}
 
         // 记录分配的批次（取首批次作为主批次，多批次逗号分隔）
         const batchNos     = allocations.map(a => a.batchNo).join(',');
@@ -1202,6 +1238,7 @@ export class EggInventoryService {
     if (!mgr) return this.ds.transaction(manager => this.confirmOutbound(orderId, orderNo, companyCode, deliveryNo, deliveryId, requestedQty, manager));
     const q = mgr.query.bind(mgr);
     positiveQuantity(requestedQty,'出库基础数量');
+    const orderAuthority=await this.verifiedSalesStock(mgr,orderId,orderNo,companyCode);
 
     const allocations = await q(
       `SELECT a.*,oi.quantity_snapshot,oi.sku_code AS sale_sku_code,b.product_code,b.grade_code_std,b.unit,b.material_code,b.legacy_source,b.base_quantity_version,b.qty,b.expire_date,b.quality_grade,b.sku_code,b.warehouse_code,b.location_code,b.status,b.unit_cost
@@ -1215,12 +1252,21 @@ export class EggInventoryService {
 
     // Existing/manual allocation rows are not authorization to consume managed
     // physical stock. Validate before the first inventory/ledger write.
+    let authority=allocations.some((a:any)=>a.quantity_snapshot)?orderAuthority:undefined;
+    if(authority){const [delivery]=await q(`SELECT 1 FROM sal_delivery_orders d JOIN sal_delivery_order_items i ON i.delivery_order_id=d.id
+      WHERE d.id=$1 AND d.delivery_no=$2 AND d.status='LOADED' AND i.sales_order_id=$3 AND i.planned_qty>=$4
+        AND d.company_code=$5 AND d.fulfillment_warehouse_code=$6 AND i.sales_order_no=$7 AND i.status='LOADED' FOR SHARE OF d,i`,
+      [deliveryId,deliveryNo,orderId,requestedQty,companyCode,authority.warehouseCode,orderNo]);if(!delivery)authority=undefined;}
     let outboundAvailable = 0;
+    const allocationAuthorities=new Map<unknown,VerifiedSalesStock>();
     for (const allocation of allocations) {
       const available = Number(allocation.reserved_qty) - Number(allocation.outbound_qty) - Number(allocation.released_qty);
       if (available <= 0) continue;
-      if (!await this.isLegacySaleStock(allocation.sku_code, mgr)
-          || !await this.isLegacySaleStock(allocation.sale_sku_code, mgr)) {
+      const allocationAuthority=allocation.quantity_snapshot&&authority&&allocation.warehouse_code===authority.warehouseCode
+        &&await isGovernedSalesPool(mgr,authority.companyCode,[authority.warehouseCode],allocation.quantity_snapshot)?authority:undefined;
+      if(allocationAuthority)allocationAuthorities.set(allocation.id,allocationAuthority);
+      if (!await this.saleStockAllowed(allocation.sku_code, mgr,allocationAuthority)
+          || !await this.saleStockAllowed(allocation.sale_sku_code, mgr,allocationAuthority)) {
         throw new ConflictException('旧销售出库禁止使用公司范围管理或未映射 SKU 库存');
       }
       outboundAvailable += available;
@@ -1234,7 +1280,7 @@ export class EggInventoryService {
       const outQty = Math.min(available, remaining);
       if (outQty <= 0) continue;
       if (allocation.quantity_snapshot) {
-        await SkuPolicy.requireUsable(mgr, allocation.sale_sku_code, 'sale-stock');
+        await SkuPolicy.requireUsable(mgr, allocation.sale_sku_code??allocation.quantity_snapshot.skuCode, 'sale-stock',allocationAuthorities.get(allocation.id)?.companyCode);
         assertBatchPool(allocation, allocation.quantity_snapshot);
         baseQuantity(outQty,1,allocation.quantity_snapshot.baseUnit);
       } else if (allocation.sku_code != null) await SkuPolicy.requireUsable(mgr, allocation.sku_code, 'sale-stock');

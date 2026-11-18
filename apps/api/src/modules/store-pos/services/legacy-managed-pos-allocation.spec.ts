@@ -42,7 +42,10 @@ class PosSqlFixture {
 
   private async execute(sql: string, args: unknown[]): Promise<any[]> {
     const s = sql.replace(/\s+/g, ' ').trim();
+    if(s.startsWith('SELECT EXISTS(')&&s.includes('FROM production_inventory_domains'))return [{enabled:(args[1] as string[]).includes('W')}];
     if (s.includes('pg_advisory_xact_lock')) return [];
+    if(s.includes('SELECT org_code FROM sys_organizations'))return [{org_code:'C'}];
+    if(s.includes('FROM md_sku_org_scope'))return [{scope_type:'COMPANY',scope_code:'C',status:'ACTIVE',sale_enabled:true,stock_enabled:true,today:'2026-11-11'}];
     if (/^SELECT .* FROM product_skus WHERE sku_code=\$1 FOR SHARE$/.test(s)) {
       if (this.failSkuRead) throw this.failSkuRead;
       const sku = this.skus.get(String(args[0]));
@@ -108,6 +111,17 @@ class PosSqlFixture {
 }
 
 describe('legacy POS managed-stock gate (behavioral SQL fixture)', () => {
+  it('does not borrow a governed warehouse to consume an OFF managed physical candidate for a legacy sale SKU',async()=>{
+    const f=new PosSqlFixture();
+    f.batches=[stock('01-OFF-MANAGED','STD0',{warehouse_code:'OFF'}),stock('02-LEGACY','OLD')];
+    const sale={id:1,sale_no:'POS',store_code:'STORE',company_code:'C',warehouseCodes:['W','OFF'],
+      items:[{id:1,product_code:'PRD-EGG-X',sku_code:'OLD',qty:5,quantity_snapshot:snapshot}]};
+    (f.manager as any).queryRunner={isTransactionActive:true};
+    f.service.managedSales=new WeakMap([[sale,f.manager]]);
+    const result=await f.service.fifoDeductItems(sale,f.manager);
+    expect(result.map((a:any)=>a.batchNo)).toEqual(['02-LEGACY']);
+    expect(f.batches[0]).toMatchObject({qty:10,qty_available:10});
+  });
   it.each(['EGG', 'PRD-EGG-X'])('does not consume managed or unknown SKU stock through product %s', async productCode => {
     const f = new PosSqlFixture();
     f.batches = [stock('01-VAR', 'VAR', { product_code: productCode }), stock('02-STD0', 'STD0', { product_code: productCode }),

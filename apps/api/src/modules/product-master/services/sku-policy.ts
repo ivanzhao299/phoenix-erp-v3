@@ -61,8 +61,8 @@ export class SkuPolicy {
     if (!sku || sku.status !== 'ACTIVE'
         || (sku.effective_date && sku.effective_date > sku.today)
         || (sku.expire_date && sku.expire_date < sku.today)) throw new BadRequestException(`SKU ${skuCode} 不存在、未启用或不在生效期内`);
-    // Phase-4 sales/POS/procurement callers have no organization-aware resolver
-    // yet. Fail closed for new variant SKUs instead of granting global use.
+    // Managed SKUs require the caller's verified company context.
+    // Legacy callers without it remain fail-closed.
     const organizationRequired = sku.variety_code != null || sku.org_context_required === true;
     if (organizationRequired) {
       if (typeof companyCode !== 'string' || !companyCode.trim() || companyCode !== companyCode.trim()) {

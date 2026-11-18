@@ -621,6 +621,16 @@ fixture('formal installment documents — actual PostgreSQL 18 inventory and pro
     expect(pool.map((b:{batch_no:string})=>b.batch_no)).toEqual([child.batch_no]);
     expect((await service.balance('COMP-A','HOUSE-A',day,'WH-A')).grades.GRADE_1.posted).toBe(0);
   });
+  it('keeps suspended production readable but skips it in an operational pool that still accepts an independent purchase child',async()=>{
+    const posted=await post(await ready()),{wms,batch}=await purchase();
+    await wms.confirmTransfer({transfer_no:'SYNTHETIC-PURCHASE-BESIDE-SUSPENDED',from_warehouse:'WH-A2',to_warehouse:'WH-A',items:[{batch_no:batch,qty:20}]},{username:'maker'});
+    await db.query("UPDATE production_cutover_scopes SET state='SUSPENDED'");
+    await expect(assertOfficialInventoryBatches(db,[posted.batches[0].batchNo],false)).resolves.toBeUndefined();
+    const pool=await db.transaction(m=>sharedBatches(m,'COMP-A',['WH-A'],{version:1,basis:'BASE',productCode:'PRD-EGG-RAW',gradeCode:'GRADE_1',
+      skuCode:'SKU-GRADE_1',specCode:'LOOSE',baseUnit:'枚',tradeUnit:'枚',factor:1,baseQty:20}));
+    expect(pool).toHaveLength(1);expect(pool[0].source_no).toBe('SYNTHETIC-PURCHASE-BESIDE-SUSPENDED');expect(pool[0].qty_available).toBe('20');
+    await expect(assertOfficialInventoryBatches(db,[pool[0].batch_no])).resolves.toBeUndefined();
+  });
   it('rejects a legacy unknown batch that merely copies a receipt label, preserving admission for the real original',async()=>{
     const {wms,batch}=await purchase();await db.query(`INSERT INTO inv_batches(batch_no,company_code,warehouse_code,product_code,sku_code,
       grade_code_std,spec_code,unit,base_quantity_version,status,qty,qty_available,source_type,source_no)
