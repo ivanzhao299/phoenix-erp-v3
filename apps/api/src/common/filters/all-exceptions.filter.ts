@@ -87,6 +87,9 @@ export class AllExceptionsFilter implements ExceptionFilter {
     if((pgCode??err?.driverError?.code)==='23514'&&String(err?.message??'').includes('OFFICIAL_CONVERSION_')) {
       return res.status(409).json({code:'OFFICIAL_INVENTORY_CONVERSION_HOLD',msg:'实际加工来源、实物交接或记账期间需核验，请保留原单并查询原回执后重试'});
     }
+    if((pgCode??err?.driverError?.code)==='23514'&&/^CUTOVER_/.test(String(err?.message??''))) {
+      return res.status(409).json({code:'OFFICIAL_CUTOVER_HOLD',msg:'切换依据、执行准入或当前状态需核验，请保留原单并联系交接负责人'});
+    }
     if (pgCode && PG_ERROR_MAP[pgCode]) {
       const msg = PG_ERROR_MAP[pgCode];
       this.logger.warn(`[DB] PG${pgCode} on ${req.method} ${req.url} — ${err?.message} col:${err?.column}`);

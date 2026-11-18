@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { ArrayMaxSize, ArrayMinSize, IsArray, IsBoolean, IsIn, IsInt, IsNumber, IsOptional, IsString, IsUUID, Matches, Max, MaxLength, Min, ValidateIf, ValidateNested } from 'class-validator';
+import { ArrayMaxSize, ArrayMinSize, IsArray, IsBoolean, IsIn, IsInt, IsOptional, IsString, IsUUID, Matches, Max, MaxLength, Min, ValidateBy, ValidateIf, ValidateNested } from 'class-validator';
 
 class CutoverHouseDto {
   @IsString() @MaxLength(128) houseCode!:string;
@@ -26,7 +26,9 @@ class CountLineDto {
   @ValidateIf((_o,v)=>v!==null) @Matches(/^\d{4}-\d{2}-\d{2}$/) productionDate!:string|null;
   @ValidateIf((_o,v)=>v!==null) @Matches(/^\d{4}-\d{2}-\d{2}$/) expireDate!:string|null;
   @IsIn(['UNKNOWN','CONFIRMED']) costStatus!:'UNKNOWN'|'CONFIRMED';
-  @ValidateIf((_o,v)=>v!==null) @IsNumber({allowInfinity:false,allowNaN:false}) @Min(0) unitCost!:number|null;
+  @ValidateBy({name:'cutoverUnitCost',validator:{validate:(value:unknown)=>value===null
+    ||typeof value==='number'&&Number.isFinite(value)&&value>=0
+    ||typeof value==='string'&&/^(?:\d{1,12}(?:\.\d{0,6})?|\.\d{1,6})$/.test(value)}}) unitCost!:number|string|null;
   @IsBoolean() qualityConfirmed!:boolean;
 }
 class CountDecisionDto {

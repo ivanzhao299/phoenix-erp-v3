@@ -254,6 +254,20 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
   const cutoverBoundary=()=>({companyCode:'COMP-A',warehouseCode:'WH-A',productCodes:['PRD-EGG-RAW'],houses:[{houseCode:'HOUSE-A',firstProductionDate:'2026-11-19'}]});
   const emptyCount=(fileId:string)=>({boundary:cutoverBoundary(),intentKey:randomUUID(),postingDate:new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Singapore'}).format(new Date()),
     evidenceFileIds:[fileId],physicalTotals:[{productCode:'PRD-EGG-RAW',quantity:0}],openingLines:[],decisions:[],referenceDecisions:[]});
+  it('preserves exact decimal opening prices through real HTTP and rejects implicit, rounded or overflowing money',async()=>{
+    const file=(await cutoverUpload(1).expect(201)).body.fileId;
+    const requestFor=(unitCost:unknown,quantity=4)=>({...emptyCount(file),physicalTotals:[{productCode:'PRD-EGG-RAW',quantity}],openingLines:[{
+      skuCode:'SKU-GRADE_1',productCode:'PRD-EGG-RAW',gradeCode:'GRADE_1',specCode:'LOOSE',locationCode:'LOC-A',quantity,
+      stockStatus:'QUARANTINE',productionDate:null,expireDate:null,costStatus:'CONFIRMED',unitCost,qualityConfirmed:false}]});
+    for(const price of [true,{},'2.1234567','1e3',100000000000.00002,'1000000000000','999999999999.999999'])
+      await cutoverApi(1).send(requestFor(price)).expect(400);
+    const exact=(await cutoverApi(1).send(requestFor('100000000000.000020')).expect(201)).body;
+    expect(exact.payload.openingLines[0].unitCost).toBe('100000000000.000020');
+    const recovered=(await cutoverApi(1,'/'+exact.id,'get').expect(200)).body;
+    expect(recovered.payload.openingLines[0].unitCost).toBe('100000000000.000020');
+    const compatible=(await cutoverApi(1).send(requestFor(2.5)).expect(201)).body;
+    expect(compatible.payload.openingLines[0].unitCost).toBe(2.5);
+  });
   const companyBBoundary=()=>({...cutoverBoundary(),companyCode:'COMP-B',warehouseCode:'WH-B',houses:[{houseCode:'HOUSE-B',firstProductionDate:'2026-11-19'}]});
   async function crossCompanyReceipt(){
     const {ready}=await signedDraft(),posted=(await api(1,'post',`/${ready.id}/post`).send({submitKey:ready.submit_key,contentHash:ready.content_hash}).expect(201)).body;
@@ -881,7 +895,7 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
     const spy=jest.spyOn(db,'createQueryRunner').mockImplementation((...args:any[])=>{
       const q=original(...args as []),query=q.query.bind(q);
       q.query=(async(sql:string,...parameters:any[])=>{const result=await (query as any)(sql,...parameters);
-        if(!committed&&q.isTransactionActive&&sql.includes('SELECT to_jsonb(b) AS fact FROM inv_batches b')){
+        if(!committed&&q.isTransactionActive&&sql.includes(' AS fact FROM inv_batches b')){
           committed=true;await db.transaction(async m=>{
             await m.query("UPDATE inv_batches SET qty=60,qty_available=60 WHERE batch_no='SYNTHETIC-LEGACY-COUNT'");
             await m.query("INSERT INTO inv_ledger(batch_no,qty_change,change_type,ref_no) VALUES('SYNTHETIC-LEGACY-COUNT',-40,'FIFO_OUT','SYNTHETIC-CONCURRENT-SALE')");

@@ -1,4 +1,5 @@
 import { readCutoverProcessingEvidence } from './production-cutover-processing-evidence';
+import { cutoverFactSql } from './cutover-evidence-row';
 import { BadRequestException, ConflictException } from '@nestjs/common';
 import { createHash } from 'crypto';
 import { DataSource, EntityManager } from 'typeorm';
@@ -38,6 +39,8 @@ function boundary(input:CutoverEvidenceBoundary):CutoverEvidenceBoundary {
 /** Read-only evidence, never an activation decision. All callers must keep these facts internal until scoped/redacted for their actor. */
 export async function readProductionCutoverEvidence(m:EntityManager,input:CutoverEvidenceBoundary,options:{signer?:CutoverProvenanceSigner;lockCrossCompanyRoots?:boolean}={}) {
   if(!m.queryRunner?.isTransactionActive)throw new ConflictException('CUTOVER_EVIDENCE_TRANSACTION_REQUIRED');
+  // Evidence timestamps must serialize identically for API and executor roles with different login timezones.
+  await m.query("SELECT set_config('TimeZone','UTC',true)");
   const scope=boundary(input),houses=scope.houses.map(h=>h.houseCode),missing:string[]=[],warnings:string[]=[];
   const catalog=await m.query(`SELECT c.relname,array_agg(a.attname::text) FILTER(WHERE a.attnum>0 AND NOT a.attisdropped) AS columns FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
     LEFT JOIN pg_attribute a ON a.attrelid=c.oid WHERE n.nspname=current_schema() AND c.relkind IN ('r','p') GROUP BY c.relname`);
@@ -46,7 +49,7 @@ export async function readProductionCutoverEvidence(m:EntityManager,input:Cutove
   const exists=(table:string,required=true)=>{if(tables.has(table))return true;if(required)missing.push(table);return false;};
   const rows=async(table:string,where:string,parameters:unknown[]=[],required=true):Promise<Record<string,unknown>[]>=>{
     if(!exists(table,required))return [];
-    return sortFacts((await m.query(`SELECT to_jsonb(f) AS fact FROM ${table} f WHERE ${where}`,parameters)).map((r:{fact:Record<string,unknown>})=>r.fact));
+    return sortFacts((await m.query(`SELECT ${cutoverFactSql(columns.get(table))} AS fact FROM ${table} f WHERE ${where}`,parameters)).map((r:{fact:Record<string,unknown>})=>r.fact));
   };
   const warehouse=await rows('wms_warehouses',"f.warehouse_code=$1 AND f.company_code=$2",[scope.warehouseCode,scope.companyCode]);
   if(warehouse.length!==1)warnings.push('WAREHOUSE_COMPANY_IDENTITY_UNRESOLVED');
@@ -64,7 +67,7 @@ export async function readProductionCutoverEvidence(m:EntityManager,input:Cutove
   const reports=await rows('brd_daily_logs','f.house_code=ANY($1::text[])',[houses]);
   const flocks=await rows('brd_flocks','f.house_code=ANY($1::text[])',[houses]);
   const flockNos=[...new Set([...flocks,...reports,...masters.occupancies].map(f=>String(f.flock_no??'')).filter(Boolean))];
-  const batches=exists('inv_batches')&&exists('product_skus')&&exists('inv_ledger')&&exists('wms_warehouses')?await m.query(`SELECT to_jsonb(b) AS fact FROM inv_batches b
+  const batches=exists('inv_batches')&&exists('product_skus')&&exists('inv_ledger')&&exists('wms_warehouses')?await m.query(`SELECT ${cutoverFactSql(columns.get('inv_batches'),'b')} AS fact FROM inv_batches b
     LEFT JOIN product_skus sku ON sku.sku_code=b.sku_code
     WHERE (b.company_code=$1 OR (b.company_code IS NULL OR b.company_code='ALL') AND EXISTS(
       SELECT 1 FROM wms_warehouses w WHERE w.warehouse_code=b.warehouse_code AND w.company_code=$1)) AND (b.material_code IS NULL OR b.sku_code IS NOT NULL) AND ((b.warehouse_code=$2 AND (sku.product_code=ANY($3::text[]) OR b.material_code IS NULL AND b.product_code=ANY($3::text[])))
@@ -260,7 +263,7 @@ export async function readProductionCutoverEvidence(m:EntityManager,input:Cutove
     for(const row of await m.query('SELECT store_code FROM store_master WHERE company_code=$1 AND store_code=ANY($2::text[])',[scope.companyCode,codes]))stores.add(row.store_code);
   }
   const storeProjection=(f:Record<string,unknown>)=>crossLocalBatches.has(String(f.batch_no))&&f.store_code&&f.store_code!=='ALL'&&!stores.has(String(f.store_code))?{...f,store_code:null}:f;
-  const snapshot={version:2,boundary:scope,warehouse,owners,masters,flocks,reports,batches:selected.map(storeProjection),ledger:ledger.map(storeProjection),lineage,obligations,
+  const snapshot={version:2,serializationTimeZone:'UTC',boundary:scope,warehouse,owners,masters,flocks,reports,batches:selected.map(storeProjection),ledger:ledger.map(storeProjection),lineage,obligations,
     packaging,finance,qualification,sourceEvents,inventoryDomains,openingClaims,cutovers,domains,crossCompanyProofs,
     processing:processing.evidence,missingTables:[...new Set(missing)].sort(),warnings:[...new Set(warnings)].sort()};
   return {snapshot,snapshotSha256:cutoverEvidenceHash(snapshot),releaseAdmission:false,activationAuthorized:false,

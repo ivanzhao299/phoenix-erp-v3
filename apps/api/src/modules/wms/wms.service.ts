@@ -1,4 +1,5 @@
 import { beginApprovedConversionOutput,completeApprovedConversionOutput } from './official-conversion-context';
+import { openingCostDecimal } from './opening-cost-decimal';
 import { bindTransferDamageBatch } from './inventory-derivation-proof';
 import { qualifyDerivedInventory } from './derived-inventory-qualification';
 import { qualifyPurchaseInventory,purchaseReceiptBatchNo } from './purchase-inventory-qualification';
@@ -98,12 +99,14 @@ export class WmsService {
         ||identity.productCode!==line.productCode||identity.gradeCode!==line.gradeCode||identity.specCode!==line.specCode)
         throw new ConflictException('期初 SKU、品类、分级、规格或基本数量已变化');
       const claim=claims.find((c:any)=>c.product_code===identity.productCode);if(!claim)throw new ConflictException('期初明细超出已认领实物域');
-      const [location]=await manager.query("SELECT 1 FROM wms_locations WHERE location_code=$1 AND warehouse_code=$2 AND status='ACTIVE' FOR SHARE",[line.locationCode,manifest.warehouse_code]);
+      const [location]=await manager.query("SELECT 1 FROM wms_locations WHERE location_code=$1 AND warehouse_code=$2 AND status IN('ACTIVE','NORMAL') FOR SHARE",[line.locationCode,manifest.warehouse_code]);
       const [status]=await manager.query("SELECT 1 FROM sys_dict WHERE dict_type='INV_STOCK_STATUS' AND dict_code=$1 AND status='ACTIVE'",[line.stockStatus]);
       if(!location||!status||line.stockStatus==='RESERVED')throw new ConflictException('期初仓位或状态无效，真实预占须先核对处理');
       const known=line.costStatus==='CONFIRMED';
-      if(!['CONFIRMED','UNKNOWN'].includes(line.costStatus)||known&&(typeof line.unitCost!=='number'||!Number.isFinite(line.unitCost)||line.unitCost<0)
+      if(!['CONFIRMED','UNKNOWN'].includes(line.costStatus)||known&&line.unitCost===null
         ||!known&&line.unitCost!==null)throw new ConflictException('期初成本须区分财务核定值与未知');
+      const costDecimal=known?openingCostDecimal(line.unitCost,quantity):null;
+      const amount=known?(await manager.query('SELECT ($1::numeric*$2::numeric)::numeric(18,6)::text AS amount',[costDecimal,quantity]))[0].amount as string:null;
       const realDate=(d:unknown)=>typeof d==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(d)&&Number.isFinite(Date.parse(d))&&new Date(d).toISOString().slice(0,10)===d;
       if(line.productionDate!==null&&(!realDate(line.productionDate)||line.productionDate>postingDate)
         ||line.expireDate!==null&&(!realDate(line.expireDate)||line.productionDate&&line.expireDate<line.productionDate))throw new ConflictException('期初生产日或效期无效');
@@ -123,15 +126,15 @@ export class WmsService {
         VALUES($1,$2,$3,$4,$5,$6,'SKU','枚',$7,$8,$9,$10,$11,$11,$12,$12,1,$13,'OPENING',$14,$15,$16,$17,$18,now(),now())`,
         [batchNo,manifest.company_code,manifest.warehouse_code,line.locationCode,identity.productCode,identity.skuCode,quantity,
           line.stockStatus==='AVAILABLE'?quantity:0,line.stockStatus,resolveInventoryClass(identity.gradeCode),identity.gradeCode,identity.specCode,
-          identity.varietyCode,manifest.document_no,line.productionDate,postingDate,line.expireDate,known?line.unitCost:0]);
+          identity.varietyCode,manifest.document_no,line.productionDate,postingDate,line.expireDate,costDecimal??'0.000000']);
       const ledgerId=await writeInvLedger(manager,{batchNo,changeType:INV_LEDGER_CHANGE_TYPE.OPENING_INBOUND,qtyChange:quantity,
         refNo:manifest.document_no,operator:String(user.username??actor),companyCode:manifest.company_code,warehouseCode:manifest.warehouse_code,
         locationCode:line.locationCode,skuCode:identity.skuCode,qualityGrade:identity.gradeCode,unit:'枚',businessType:'OPENING',logDate:postingDate,
-        costChange:known?quantity*line.unitCost:null,note:`Approved counted opening ${manifest.document_no} line ${index+1}`});
+        costChange:amount,note:`Approved counted opening ${manifest.document_no} line ${index+1}`});
       if(!ledgerId)throw new ConflictException('期初原流水缺少真实身份');
       output.push({batchNo,quantity,inventoryLedgerId:ledgerId,costStatus:line.costStatus,unitCost:line.unitCost,stockStatus:line.stockStatus});
     }
-    return {manifestId:manifest.id,documentNo:manifest.document_no,contentHash:manifest.content_hash,postingDate,
+    return {manifestId:manifest.id,documentNo:manifest.document_no,contentHash:manifest.content_hash,postingDate,mode:'INIT',
       totalOpening:output.reduce((n,l)=>n+Number(l.quantity),0),batches:output,domains:claims.map((c:any)=>({domainId:c.domain_id,productCode:c.product_code,openingReceiptId:c.opening_receipt_id}))};
   }
 

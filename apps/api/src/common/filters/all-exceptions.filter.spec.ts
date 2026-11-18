@@ -190,5 +190,12 @@ describe('exception side effects use actual background admission and settlement'
     expect(JSON.stringify(f.response.json.mock.calls)).not.toContain('private parent');expect(f.log.writeLog).not.toHaveBeenCalled();expect(fetchMock).not.toHaveBeenCalled();
     await f.tasks.shutdown(1000);
   });
+  it.each(['CUTOVER_ADMISSION_CONTEXT_REQUIRED','CUTOVER_SCOPE_EXTRA_MEMBERSHIP_HOLD'])('returns a private cutover conflict for %s without exposing control identities',async message=>{
+    const f=fixture();f.filter.catch({message:`${message}: private issuer/backend detail`,driverError:{code:'23514'}},f.host);
+    expect(f.response.status).toHaveBeenCalledWith(409);expect(f.response.json).toHaveBeenCalledWith({code:'OFFICIAL_CUTOVER_HOLD',
+      msg:'切换依据、执行准入或当前状态需核验，请保留原单并联系交接负责人'});
+    expect(JSON.stringify(f.response.json.mock.calls)).not.toContain('private issuer');expect(f.log.writeLog).not.toHaveBeenCalled();expect(fetchMock).not.toHaveBeenCalled();
+    await f.tasks.shutdown(1000);
+  });
 
 });

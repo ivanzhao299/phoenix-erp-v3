@@ -26,7 +26,7 @@ interface Form {companyCode:string;warehouseCode:string;intentKey:string;posting
 interface TransferProof {direction:'RECEIVED'|'DISPATCHED';batchNo:string;transferNo:string;transferLineId:string;skuCode:string;unit:string;quantity:number}
 interface Evidence {snapshotSha256:string;references:Array<{table:string;rowSha256:string;fact:Fact}>;snapshot:{batches:Fact[];missingTables:string[];warnings:string[];crossCompanyProofs?:TransferProof[];processing?:{rawBalances:RawBalance[]}}}
 interface Document {id:string;document_no:string;company_code:string;warehouse_code:string;intent_key:string;state:string;version:number;created_by:string;content_hash:string;snapshot_sha256:string;
-  boundary:{houses:Form['houses'];productCodes:string[]};payload:{postingDate:string;physicalTotals:Array<{productCode:string;quantity:number}>;openingLines:Array<Omit<Line,'quantity'|'unitCost'|'productionDate'|'expireDate'>&{quantity:number;unitCost:number|null;productionDate:string|null;expireDate:string|null}>;decisions:Decision[];referenceDecisions:ReferenceDecision[];rawCounts:RawCount[];evidenceFileIds:string[]};
+  boundary:{houses:Form['houses'];productCodes:string[]};payload:{postingDate:string;physicalTotals:Array<{productCode:string;quantity:number}>;openingLines:Array<Omit<Line,'quantity'|'unitCost'|'productionDate'|'expireDate'>&{quantity:number;unitCost:number|string|null;productionDate:string|null;expireDate:string|null}>;decisions:Decision[];referenceDecisions:ReferenceDecision[];rawCounts:RawCount[];evidenceFileIds:string[]};
   references?:Evidence['references'];signatures:Array<{signature_role:string;signed_by:string;evidence_file_id:string;signed_at:string}>;snapshot:Evidence['snapshot']|null}
 const blank=():Form=>({companyCode:'',warehouseCode:'',intentKey:'',postingDate:today(),houses:[],products:[],openingLines:[],decisions:[],referenceDecisions:[],rawCounts:[],evidenceFileIds:[]});
 const emptyLine=():Line=>({skuCode:'',productCode:'',gradeCode:'',specCode:'',locationCode:'',quantity:'',stockStatus:'',productionDate:'',expireDate:'',costStatus:'',unitCost:'',qualityConfirmed:false});
@@ -76,7 +76,7 @@ function ActorCutoverWorkbench(){
     return {boundary:boundary(),intentKey:form.intentKey,postingDate:form.postingDate,evidenceFileIds:form.evidenceFileIds,
       physicalTotals:form.products.map(p=>({productCode:p.productCode,quantity:number(p.quantity,true)})),decisions:form.decisions,referenceDecisions:form.referenceDecisions,rawCounts:(form.rawCounts??[]).map(r=>({...r,quantity:number(r.quantity,true)})),
       openingLines:form.openingLines.map(l=>({...l,quantity:number(l.quantity),productionDate:l.productionDate||null,expireDate:l.expireDate||null,
-        unitCost:l.costStatus==='UNKNOWN'?null:l.unitCost.trim()!==''&&Number.isFinite(Number(l.unitCost))?Number(l.unitCost):null}))};}
+        unitCost:l.costStatus==='UNKNOWN'?null:l.unitCost.trim()||null}))};}
   const updateLine=(index:number,next:Partial<Line>)=>patch({openingLines:form.openingLines.map((l,i)=>i===index?{...l,...next}:l)});
   const changeDecision=(batchNo:string,next:Partial<Decision>)=>patch({decisions:[...form.decisions.filter(d=>d.batchNo!==batchNo),
     {...form.decisions.find(d=>d.batchNo===batchNo)??{batchNo,disposition:'',evidenceFileId:'',reason:''},...next}]});

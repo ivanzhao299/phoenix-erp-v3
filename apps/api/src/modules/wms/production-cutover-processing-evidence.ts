@@ -1,5 +1,6 @@
 import { ConflictException } from '@nestjs/common';
 import { EntityManager } from 'typeorm';
+import { cutoverFactSql } from './cutover-evidence-row';
 
 /** Existing RAW is physical custody, never another opening stock line. */
 export interface CutoverRawBalance {
@@ -32,7 +33,7 @@ export async function readCutoverProcessingEvidence(m:EntityManager,boundary:{co
     if(!columns.get(table)?.has(field))missing.push(`${table}.${field}`);
   if(missing.length||!raw)return {evidence,missing,warnings,stockBatchNos:[] as string[]};
   const read=async(table:string,where:string,args:unknown[]):Promise<Fact[]>=>
-    (await m.query(`SELECT to_jsonb(f) AS fact FROM ${table} f WHERE ${where} ORDER BY to_jsonb(f)::text`,args)).map((row:{fact:Fact})=>row.fact);
+    (await m.query(`SELECT ${cutoverFactSql(columns.get(table))} AS fact FROM ${table} f WHERE ${where} ORDER BY to_jsonb(f)::text`,args)).map((row:{fact:Fact})=>row.fact);
   const local=(facts:Fact[])=>facts.filter(f=>{
     if(f.company_code!==boundary.companyCode){warnings.push('CROSS_COMPANY_PROCESSING_REQUIRES_SEPARATE_AUTHORITY');return false;}return true;
   });

@@ -10,11 +10,12 @@ import { OrgOwnershipService } from '../org/services/org-ownership.service';
 import { assertOfficialInventoryBatches } from './official-inventory';
 import { cutoverEvidenceHash, CutoverEvidenceBoundary, inspectProductionCutoverEvidence, readProductionCutoverEvidence } from './production-cutover-evidence';
 import { CUTOVER_PROVENANCE_SIGNER, CutoverProvenanceSigner } from './cutover-cross-company-proof';
+import { openingCostDecimal } from './opening-cost-decimal';
 
 export interface CutoverCountLine {
   skuCode:string;productCode:string;gradeCode:string;specCode:string;locationCode:string;quantity:number;
   stockStatus:string;productionDate:string|null;expireDate:string|null;costStatus:'UNKNOWN'|'CONFIRMED';
-  unitCost:number|null;qualityConfirmed:boolean;
+  unitCost:number|string|null;qualityConfirmed:boolean;
 }
 export interface CutoverPreparation {
   boundary:CutoverEvidenceBoundary;intentKey:string;postingDate:string;evidenceFileIds:string[];
@@ -80,6 +81,10 @@ export class ProductionCutoverService {
       const [sku]=await m.query("SELECT pg_try_advisory_xact_lock(hashtext('phoenix:product-sku-membership'),hashtext($1)) AS locked",[product]);
       if(sku?.locked!==true)throw busy();
     }
+    const batchNos=(expected.batches??[]).map((batch:Record<string,unknown>)=>String(batch.batch_no));
+    const [history]=await m.query(`SELECT COALESCE(bool_and(pg_try_advisory_xact_lock(hashtext('phoenix:cutover-history-batch'),hashtext(batch_no))),true) AS locked
+      FROM(SELECT DISTINCT batch_no FROM unnest($1::text[]) batch_no ORDER BY batch_no) batches`,[batchNos]);
+    if(history?.locked!==true)throw busy();
     for(const domain of [...new Set<string>((expected.inventoryDomains??[]).map((r:any)=>String(r.id)))].sort()){
       const [row]=await m.query("SELECT pg_try_advisory_xact_lock_shared(hashtext('phoenix:inventory-domain-state'),hashtext($1)) AS locked",[domain]);if(row?.locked!==true)throw busy();
     }
@@ -87,6 +92,8 @@ export class ProductionCutoverService {
       const [row]=await m.query("SELECT pg_try_advisory_xact_lock_shared(hashtext('phoenix:inventory-root-state'),hashtext($1)) AS locked",[root]);if(row?.locked!==true)throw busy();
     }
     try{
+      await m.query('SELECT batch_no FROM inv_batches WHERE batch_no=ANY($1::text[]) ORDER BY batch_no FOR SHARE NOWAIT',[batchNos]);
+      await m.query('SELECT id FROM inv_ledger WHERE batch_no=ANY($1::text[]) ORDER BY id FOR SHARE NOWAIT',[batchNos]);
       await m.query('SELECT id FROM production_cutover_scopes WHERE id=ANY($1::uuid[]) ORDER BY id FOR SHARE NOWAIT',[(expected.cutovers??[]).map((r:any)=>r.id)]);
       await m.query('SELECT id FROM production_inventory_domain_states WHERE id=ANY($1::uuid[]) ORDER BY id FOR SHARE NOWAIT',[(expected.inventoryDomains??[]).map((r:any)=>r.id)]);
       await m.query('SELECT profile_code FROM md_egg_source_profiles WHERE profile_code=ANY($1::text[]) ORDER BY profile_code FOR SHARE NOWAIT',[(expected.masters?.profiles??[]).map((r:any)=>r.profile_code)]);
@@ -115,13 +122,14 @@ export class ProductionCutoverService {
     if(new Set(totals.map(t=>t.productCode)).size!==totals.length)throw new BadRequestException('盘点产品总数重复');
     const lines=input.openingLines.map(l=>{
       if(!['UNKNOWN','CONFIRMED'].includes(l.costStatus)||typeof l.qualityConfirmed!=='boolean'
-        ||l.costStatus==='UNKNOWN'&&l.unitCost!==null||l.costStatus==='CONFIRMED'&&(typeof l.unitCost!=='number'||!Number.isFinite(l.unitCost)||l.unitCost<0))
+        ||l.costStatus==='UNKNOWN'&&l.unitCost!==null||l.costStatus==='CONFIRMED'&&l.unitCost===null)
         throw new BadRequestException('期初须明确未知成本或财务核定成本，零成本也须核定');
+      const count=quantity(l.quantity),cost=l.costStatus==='CONFIRMED'?openingCostDecimal(l.unitCost,count):null;
       for(const date of [l.productionDate,l.expireDate])if(date!==null&&(typeof date!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(date)
         ||!Number.isFinite(Date.parse(date))||new Date(date).toISOString().slice(0,10)!==date))throw new BadRequestException('实物日期须为真实日期或明确未知');
       return {skuCode:text(l.skuCode,'SKU'),productCode:text(l.productCode,'产品'),gradeCode:text(l.gradeCode,'等级'),specCode:text(l.specCode,'规格'),
-        locationCode:text(l.locationCode,'仓位'),quantity:quantity(l.quantity),stockStatus:text(l.stockStatus,'库存状态'),productionDate:l.productionDate,
-        expireDate:l.expireDate,costStatus:l.costStatus,unitCost:l.unitCost,qualityConfirmed:l.qualityConfirmed};
+        locationCode:text(l.locationCode,'仓位'),quantity:count,stockStatus:text(l.stockStatus,'库存状态'),productionDate:l.productionDate,
+        expireDate:l.expireDate,costStatus:l.costStatus,unitCost:typeof l.unitCost==='string'?cost:l.unitCost,qualityConfirmed:l.qualityConfirmed};
     });
     const decisions=input.decisions.map(d=>{
       if(!['ARCHIVED_TEST','CARRY_FORWARD'].includes(d.disposition))throw new BadRequestException('批次处置无效');
