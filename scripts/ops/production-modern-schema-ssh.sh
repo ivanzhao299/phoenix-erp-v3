@@ -37,6 +37,7 @@ fi
 stage="$STATE_DIR/modern-schema-stage-$DEPLOY_RUN_ID"
 manifest=scripts/ops/modern-schema-stage-files.txt
 entry=scripts/ops/production-modern-schema-release.mjs
+vocabulary=scripts/ops/production-modern-schema-public-preparation.mjs
 files=$(repo_git show "$TARGET_SHA:$manifest")
 if [ "$operation" = prepare ]; then
   mkdir -m 700 "$stage"
@@ -65,11 +66,15 @@ while IFS= read -r file; do
   cmp -s "$staged_file" <(repo_git show "$TARGET_SHA:$file")
 done <<< "$files"
 test -n "${staged[$entry]+seen}"
+if [ "$operation" = prepare ]; then
+  test -n "${staged[$vocabulary]+seen}"
+fi
 
 public_receipt() {
-  node -e '
-    const fs = require("node:fs");
-    const [operation, owner, targetSha, status] = process.argv.slice(1);
+  node --input-type=module -e '
+    import fs from "node:fs";
+    import { pathToFileURL } from "node:url";
+    const [operation, owner, targetSha, status, vocabulary] = process.argv.slice(1);
     const buffer = Buffer.alloc(8193);
     let used = 0;
     while (used < buffer.length) {
@@ -87,14 +92,13 @@ public_receipt() {
         if (keys !== "owner,preparationSha256,prepared,schema,targetSha" || value.schema !== "phoenix.modern-schema-public-preparation/v1" ||
             value.prepared !== true || typeof value.preparationSha256 !== "string" || !/^[a-f0-9]{64}$/.test(value.preparationSha256)) process.exit(2);
       } else {
-        const failures = new Set("BOOTSTRAP FLOOR HOST_SURFACE PLAN BACKUP REHEARSAL HISTORICAL_AUDIT UNSPECIFIED".split(" "));
-        if (keys !== "failure,owner,prepared,schema,targetSha" || value.schema !== "phoenix.modern-schema-public-preparation-hold/v1" ||
-            value.prepared !== false || !failures.has(value.failure)) process.exit(2);
+        const { isFailedModernSchemaPreparation } = await import(pathToFileURL(vocabulary));
+        if (!isFailedModernSchemaPreparation(value, {owner, targetSha})) process.exit(2);
       }
     } else if (keys !== "defaultOff,outcome,owner,schema,targetSha" || value.schema !== "phoenix.modern-schema-public-result/v1" ||
         value.defaultOff !== true || !["SUCCESS","HOLD"].includes(value.outcome)) process.exit(2);
     console.log(JSON.stringify(value));
-  ' "$operation" "$DEPLOY_RUN_ID" "$TARGET_SHA" "$1"
+  ' "$operation" "$DEPLOY_RUN_ID" "$TARGET_SHA" "$1" "$stage/scripts/ops/production-modern-schema-public-preparation.mjs"
 }
 
 if [ "$operation" = prepare ]; then

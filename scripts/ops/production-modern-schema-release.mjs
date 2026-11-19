@@ -10,9 +10,9 @@ import {finalizeCommittedModernSchemaOpen} from './production-modern-schema-term
 import {finalizeCommittedModernSchemaRecoveredOriginal, observeCommittedModernSchemaRecoveryOpen} from './production-modern-schema-recover-original.mjs';
 import {readPublicManifest} from './background-control-manifest.mjs';
 import {canonicalDigest,same} from './production-maintenance-receipts.mjs';
+import {publicModernSchemaPreparationFailure} from './production-modern-schema-public-preparation.mjs';
 
 const fail = () => { throw Error('MODERN_SCHEMA_ENTRY_HOLD'); };
-const failures = new Set(['BOOTSTRAP','FLOOR','HOST_SURFACE','PLAN','BACKUP','REHEARSAL','HISTORICAL_AUDIT','UNSPECIFIED']);
 
 export async function readModernSchemaRunRequest(stream) {
   const chunks = [];
@@ -80,14 +80,15 @@ export async function runModernSchemaEntry(args, env, stdin, dependencies = {}) 
     let phase = 'BOOTSTRAP';
     try {
       const result = await (dependencies.prepare ?? prepareModernSchemaRelease)(env, {
-        onStage(stage) { phase = failures.has(stage) ? stage : 'UNSPECIFIED'; },
+        onStage(stage) { phase = stage; },
       });
       if (result?.schema !== 'phoenix.modern-schema-public-preparation/v1' || result.owner !== owner || result.targetSha !== targetSha ||
           result.prepared !== true || typeof result.preparationSha256 !== 'string' || !/^[a-f0-9]{64}$/.test(result.preparationSha256) ||
           Object.keys(result).sort().join(',') !== 'owner,preparationSha256,prepared,schema,targetSha') fail();
       return {result, exitCode: 0};
-    } catch {
-      return {result: {schema:'phoenix.modern-schema-public-preparation-hold/v1', ...binding, prepared:false, failure:phase}, exitCode: 1};
+    } catch (error) {
+      return {result: {schema:'phoenix.modern-schema-public-preparation-hold/v1', ...binding, prepared:false,
+        failure:publicModernSchemaPreparationFailure(phase,error)}, exitCode: 1};
     }
   }
 

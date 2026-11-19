@@ -7,6 +7,7 @@ import {canonicalDigest,same} from './production-maintenance-receipts.mjs';
 import {compileOwnedIngressRules} from './maintenance-ingress-policy.mjs';
 import {captureMaintenanceSchedulers,observeMaintenanceProcessIdentity,observeMaintenanceContainerIdentity,captureModernSchemaProcessIdentities} from './production-maintenance-root-readers.mjs';
 import {verifyModernSchemaChild} from './production-modern-schema-processes.mjs';
+import {collectRetainedModernSchemaInventory} from './production-modern-schema-inventory.mjs';
 const fail=code=>{throw Error('MODERN_SCHEMA_EXECUTORS_HOLD='+code);};
 const ID=/^[a-f0-9]{64}$/;
 const ipv4=value=>typeof value==='string'&&value.split('.').length===4&&value.split('.').every(part=>/^(?:0|[1-9][0-9]{0,2})$/.test(part)&&Number(part)<=255);
@@ -88,7 +89,7 @@ export function collectModernSchemaHostSurface(preSnapshot,dependencies={}){
   registry??=(dependencies.readOwnership??(()=>secureJson(path.join(CONTRACT.stateDirectory,'maintenance-host-ownership-registry.json'))))();
   if(registry?.schema!=='phoenix.maintenance-reviewed-host-ownership/v1'||!/^[a-f0-9]{64}$/.test(registry.evidenceSha256??'')||!Array.isArray(registry.containers)||!Array.isArray(registry.hostProcesses))fail('REVIEWED_HOST_OWNERSHIP_UNAVAILABLE');return registry;
  };
- const all=command('/usr/bin/docker',['ps','-a','--no-trunc','-q']).split('\n').filter(Boolean),known=new Set(Object.values(pre).map(pin=>pin.id)),namespaces=new Set(),inertArtifacts=[],foreignContainerPins=[];
+ const all=command('/usr/bin/docker',['ps','-a','--no-trunc','-q']).split('\n').filter(Boolean),known=new Set(Object.values(pre).map(pin=>pin.id)),namespaces=new Set(),inertArtifacts=[],retainedOwners=new Set(),foreignContainerPins=[];
  for(const id of all){const candidate=Object.values(actual).find(value=>value.id===id)??inspectModernSchemaContainer(id,command);
   if(candidate.privileged!==false||candidate.pidMode==='host'||candidate.pidMode?.startsWith('container:')||candidate.networkMode==='host'||candidate.name.toLowerCase().includes('watchtower'))fail('SHARED_OR_UNMANAGED_CONTAINER_EXECUTOR');
   if(candidate.state.Running){try{namespaces.add(fs.readlinkSync(`/proc/${candidate.state.Pid}/ns/pid`));}catch{fail('CONTAINER_PID_NAMESPACE_UNOBSERVABLE');}}
@@ -108,6 +109,15 @@ export function collectModernSchemaHostSurface(preSnapshot,dependencies={}){
   const own=(dependencies.ownedResources??[]).find(record=>record.containerId===id);
   if(own&&own.owner===preSnapshot.deployRunId&&own.imageId===candidate.imageId&&candidate.labels?.['phoenix.schema.owner']===own.owner&&candidate.labels?.['phoenix.schema.role']==='readonly-inventory'
     &&candidate.state.Running===false&&candidate.state.ExitCode===0&&candidate.networkMode==='none'&&candidate.readonly===true&&candidate.user==='phoenix'&&same(candidate.mounts,[])&&same(candidate.capDrop,['ALL']))continue;
+  if(candidate.labels?.['phoenix.schema.role']==='readonly-inventory'&&candidate.labels?.['phoenix.schema.owner']!==preSnapshot.deployRunId){
+   let artifact;
+   try{artifact=collectRetainedModernSchemaInventory(candidate,{owner:preSnapshot.deployRunId,targetSha:preSnapshot.targetSha},
+    {...dependencies.retainedInventory,docker:args=>command('/usr/bin/docker',args)});}
+   catch{fail('RETAINED_INVENTORY_UNVERIFIED');}
+   if(retainedOwners.has(artifact.formerOwner))fail('RETAINED_INVENTORY_OWNER_REUSED');
+   retainedOwners.add(artifact.formerOwner);inertArtifacts.push(artifact);
+   continue;
+  }
   if(own&&own.owner===preSnapshot.deployRunId&&own.imageId===candidate.imageId&&candidate.labels?.['phoenix.schema.owner']===own.owner&&candidate.labels?.['phoenix.schema.role']===own.role
     &&['rehearsal-database','rehearsal-original-api','rehearsal-candidate-api','rehearsal-migration-run','rehearsal-migration-show'].includes(own.role)
     &&candidate.state.Running===false&&candidate.state.ExitCode===0&&candidate.state.OOMKilled===false&&candidate.state.Pid===0&&candidate.restarts===0
@@ -149,6 +159,7 @@ export function collectModernSchemaHostSurface(preSnapshot,dependencies={}){
   if(pins.length!==1)fail('HOST_EXECUTOR_OWNERSHIP_UNVERIFIED');
   processes.push({pid:processId,identitySha256:canonicalDigest(observation),erpControlReference:observation.erpControlReference===true});
  }
+ inertArtifacts.sort((a,b)=>a.id.localeCompare(b.id));
  guard();return {schema:'phoenix.modern-schema-host-surface/v1',model:'TRUSTED_ROOT_FD9_EXCLUSIVE_WRITER',ingressScope,
   runtimeAddress:endpoints[0].IPAddress,databasePublishedHostPort:Number(actual.db.ports['5432/tcp'][0].HostPort),runtimePinsSha256:canonicalDigest(pre),
   schedulerSha256:canonicalDigest(scheduler),processesSha256:canonicalDigest(processes),inertArtifactCount:inertArtifacts.length,inertArtifactsSha256:canonicalDigest(inertArtifacts),

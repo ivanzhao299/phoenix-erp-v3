@@ -1,15 +1,32 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {spawn} from 'node:child_process';
+import {spawn,spawnSync} from 'node:child_process';
 import {canonicalDigest} from './production-maintenance-receipts.mjs';
 import {classifyModernSchemaDatabaseExecutors} from './production-modern-schema-executors.mjs';
 import {ModernSchemaExecutorWatch} from './production-modern-schema-watch.mjs';
 import {pinModernSchemaChild,isOriginalModernSchemaChildTerminal} from './production-modern-schema-processes.mjs';
 import {STABLE_MODERN_CENSUS_PARENT} from './production-maintenance-root-readers.mjs';
 import {readLinuxProcessIdentity} from './production-modern-schema-session-lease.mjs';
+
+test('the native host fixture loads with only its deployed scripts directories', t => {
+  const deployment=fs.mkdtempSync(path.join(os.tmpdir(),'phoenix-native-host-closure-'));
+  t.after(()=>fs.rmSync(deployment,{recursive:true,force:true}));
+  for(const component of ['ops','ci']){
+    fs.cpSync(fileURLToPath(new URL('../'+component,import.meta.url)),path.join(deployment,'scripts',component),{recursive:true});
+  }
+  // No fixture admission environment. Linking must succeed before its own
+  // preflight stops execution at the deliberate fixture-only guard.
+  const result=spawnSync(process.execPath,['scripts/ci/modern-schema-native-host.fixture.mjs'],{
+    cwd:deployment,env:{},encoding:'utf8',timeout:10000,
+  });
+  assert.equal(result.error,undefined);
+  assert.equal(result.status,1);
+  assert.equal(result.stderr.trim(),'MODERN_NATIVE_HOST_FIXTURE_HOLD');
+});
 
 const id = digit => digit.repeat(64);
 const image = digit => 'sha256:' + id(digit);

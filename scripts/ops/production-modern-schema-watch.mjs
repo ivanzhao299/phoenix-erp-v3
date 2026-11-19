@@ -7,6 +7,7 @@ import {captureMaintenanceSchedulers,captureModernSchemaProcessIdentities,observ
 import {inspectModernSchemaContainer,MODERN_SCHEMA_EXECUTOR_SQL,classifyModernSchemaDatabaseExecutors} from './production-modern-schema-executors.mjs';
 import {verifyModernSchemaChild,pinModernSchemaChild,isOriginalModernSchemaChildTerminal} from './production-modern-schema-processes.mjs';import {assertOriginalModernSchemaProcess} from './production-modern-schema-session-lease.mjs';
 import {readPinnedFile} from './production-trusted-paths.mjs';
+import {RETAINED_INVENTORY_CLASSIFICATION,verifyRetainedModernSchemaInventoryPin} from './production-modern-schema-inventory.mjs';
 const fail=code=>{throw Error('MODERN_SCHEMA_WATCH_HOLD='+code);};
 const native=(binary,args)=>{try{return execFileSync(binary,args,{env:executionEnv(),encoding:'utf8',timeout:5000,maxBuffer:2*1024*1024,stdio:['ignore','pipe','pipe']}).trim();}catch{fail('NATIVE_CONTINUITY_OBSERVATION_UNAVAILABLE');}};
 const identity=value=>({id:value.id,imageId:value.imageId,name:value.name,startedAt:value.state.StartedAt,running:value.state.Running,pid:value.state.Pid,restarts:value.restarts,
@@ -87,7 +88,16 @@ export class ModernSchemaExecutorWatch {
    if(actual.state.Running!==false||actual.state.ExitCode!==0||actual.state.Pid!==0||actual.networkMode!=='none'||actual.readonly!==true||actual.user!=='phoenix'||!same(actual.mounts,[])||!same(actual.capDrop,['ALL']))fail('READONLY_INVENTORY_PROBE_CHANGED');
   }else fail('UNREVIEWED_CREATED_ACTOR_ROLE');
  }
+ #verifyRetainedInventory(values){
+  for(const pin of this.preparation.hostSurface.inertArtifacts??[]){
+   if(pin.classification!==RETAINED_INVENTORY_CLASSIFICATION)continue;
+   const actual=values.find(candidate=>candidate.id===pin.id);
+   if(!actual)fail('RETAINED_ARTIFACT_CHANGED');
+   verifyRetainedModernSchemaInventoryPin(actual,pin,{docker:args=>this.run('/usr/bin/docker',args)});
+  }
+ }
  verifyContainers(values){
+  this.#verifyRetainedInventory(values);
   const pre=this.preparation.originalSnapshot.containers,byId=new Map(values.map(value=>[value.id,value]));let runtimeAddress=this.preparation.hostSurface.runtimeAddress;
   for(const service of ['web','db']){const actual=byId.get(pre[service].id);
    if(!actual||actual.imageId!==pre[service].image||actual.state.StartedAt!==pre[service].startedAt||actual.restarts!==pre[service].restartCount||actual.state.Running!==true||actual.state.Health?.Status!=='healthy')fail('UNCHANGED_WEB_DATABASE_REQUIRED');}
@@ -373,6 +383,7 @@ export class ModernSchemaExecutorWatch {
   this.runtime.guard();const pending=this.state.read();
   if(this.running||!['R_STOPPED','FRESH_RECHECKED','BACKUP_VERIFIED'].includes(pending.phase)||pending.status!=='HOLD'||this.state.ddlIntentExists()||typeof admit!=='function'||await admit()!==true)fail('SAME_LEASE_PRE_DDL_RECOVERY_HOST_REQUIRED');
   const values=this.containers(),pre=this.preparation.originalSnapshot.containers,known=new Set([pre.api.id,pre.web.id,pre.db.id,...this.resources.keys()]);
+  this.#verifyRetainedInventory(values);
   for(const value of values){
    if(value.privileged||value.pidMode==='host'||value.pidMode?.startsWith('container:')||value.networkMode==='host'||value.name.toLowerCase().includes('watchtower'))fail('RECOVERY_UNKNOWN_SHARED_EXECUTOR');
    const own=this.resources.get(value.id);if(own){this.verifyResource(value,own);continue;}
