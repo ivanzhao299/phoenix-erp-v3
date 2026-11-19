@@ -4,7 +4,7 @@
 import fs from 'node:fs';import path from 'node:path';import {randomBytes} from 'node:crypto';
 import {canonicalDigest,same} from './production-maintenance-receipts.mjs';
 import {ModernSchemaReadClient} from './production-modern-schema-read-client.mjs';
-import {captureModernSchemaFacts,assertModernSchemaBusinessUnchanged,defaultOffEvidenceFromFacts} from './production-modern-schema-facts.mjs';
+import {captureModernSchemaFacts,captureModernSchemaFactsPair,assertModernSchemaBusinessUnchanged,defaultOffEvidenceFromFacts} from './production-modern-schema-facts.mjs';
 import {LEDGER_SQL,digest} from './chanjet-admission-schema-receipt.mjs';
 import {API_READINESS_PROGRAM} from './production-maintenance-candidate-health.mjs';
 import {classifySql,capturedDatabaseStatements,parseBootControlIdentity,assertDefaultBackgroundHold} from '../ci/api-bootstrap-mutations.mjs';
@@ -158,7 +158,10 @@ class Capsule {
   }
   let factsFailure='CAPTURE';
   try{
-   this.after=await captureModernSchemaFacts(this.client,{projection:this.before});
+   const since=new Date(Date.now()-2000).toISOString(),start=await this.marker('migration','after-facts-start');
+   const {projected,full}=await captureModernSchemaFactsPair(this.client,{projection:this.before});
+   this.after=projected;
+   this.migrationAfter={facts:full,start,since};
    factsFailure='BUSINESS_MISMATCH';
    assertModernSchemaBusinessUnchanged(this.before,this.after);
   }catch(error){
@@ -176,7 +179,27 @@ class Capsule {
  async marker(role,kind){const sql=`SELECT 'schema-${this.owner}-${role}-${kind}' AS boundary`;await this.client.query(sql);return `SELECT row_to_json(phoenix_read_row)::text FROM (${sql}\n) AS phoenix_read_row`;}
  async probe(id,program){return JSON.parse(await this.text(['exec',id,'/usr/bin/env','-i','PATH=/usr/local/bin:/usr/bin:/bin','/usr/local/bin/node','-e',program],'probe'));}
  async runtime(role,imageId,revision){
-  const before=await captureModernSchemaFacts(this.client),begin=await this.marker(role,'begin');
+  const prior=role==='candidate-api'?this.originalRuntimeAfter:this.migrationAfter;
+  if(!prior)fail('REHEARSAL_RUNTIME_BASELINE_REQUIRED');
+  if(prior.containerId){
+   const previous=await this.inspect(prior.containerId);
+   if(previous.state.Running||previous.state.Status!=='exited'||previous.state.ExitCode!==0||previous.state.Pid!==0)fail('UNOWNED_REHEARSAL_RUNTIME_GAP');
+  }
+  const [network]=JSON.parse(await this.text(['network','inspect',this.networkId],'runtime-gap-network'));
+  if(network.Id!==this.networkId||network.Internal!==true||network.EnableIPv6!==false
+   ||!same(Object.keys(network.Containers??{}),[this.db]))fail('UNOWNED_REHEARSAL_RUNTIME_GAP');
+  const idleDeadline=Date.now()+1500;
+  for(;;){
+   const {rows:[idle]}=await this.client.query(`SELECT count(*)::integer AS clients,
+    count(*) FILTER (WHERE pid=pg_backend_pid() AND application_name='phoenix-modern-schema-read')::integer AS observer,
+    (SELECT count(*)::integer FROM pg_prepared_xacts) AS prepared
+    FROM pg_stat_activity WHERE backend_type='client backend'`);
+   if(idle?.observer!==1||idle.prepared!==0)fail('UNOWNED_REHEARSAL_RUNTIME_GAP');
+   if(idle.clients===1)break;
+   if(Date.now()>=idleDeadline)fail('UNOWNED_REHEARSAL_RUNTIME_GAP');
+   await pause(50);
+  }
+  const before=prior.facts,begin=await this.marker(role,'begin');
   const control=path.join(this.directory,'control-'+role);fs.mkdirSync(control,{mode:0o755});fs.chmodSync(control,0o755);
   if(typeof this.dependencies.preparePublicDirectory==='function')await this.dependencies.preparePublicDirectory(control);
   const controlStat=fs.lstatSync(control);if(controlStat.uid!==0||(controlStat.mode&0o022)!==0||!controlStat.isDirectory()||controlStat.isSymbolicLink())fail('ROOT_OWNED_PUBLIC_CONTROL_REQUIRED');
@@ -212,17 +235,27 @@ class Capsule {
   if(!same(core,assertDefaultBackgroundHold(lastStatus,status))||lastStatus.phase!==status.phase||lastStatus.owner!==status.owner||lastStatus.generation!==status.generation||lastPin.state.StartedAt!==readyPin.state.StartedAt||lastPin.state.Health?.Status!=='healthy')fail('BACKGROUND_WINDOW_CHANGED');
   await this.stop(id);
   const {rows:[{remaining}]}=await this.client.query("SELECT count(*)::integer AS remaining FROM pg_stat_activity WHERE application_name=$1",[boot.controlSession.applicationName]);if(remaining!==0)fail('OWNED_API_BACKEND_NOT_GONE');
-  const end=await this.marker(role,'end'),dbLogs=await this.command(['logs',this.db],role+'-database-log'),log=readSmall(dbLogs.stdout)+'\n'+readSmall(dbLogs.stderr);
+  const endSince=new Date(Date.now()-2000).toISOString(),end=await this.marker(role,'end');
+  const dbLogs=await this.command(['logs','--since',prior.since,this.db],role+'-database-log'),log=readSmall(dbLogs.stdout)+'\n'+readSmall(dbLogs.stderr);
   const {rows:[observer]}=await this.client.query("SELECT pg_backend_pid() AS pid,current_database() AS database,current_setting('application_name') AS app,(EXTRACT(epoch FROM backend_start)*1000000)::text AS started FROM pg_stat_activity WHERE pid=pg_backend_pid()");
   if(!same(observer,this.observer))fail('ORIGINAL_NATIVE_OBSERVER_CHANGED');
+  if(modernSchemaRuntimeStatements(log,{observer,begin:prior.start,end:begin}).length)fail('UNOWNED_REHEARSAL_RUNTIME_GAP');
   const runtimeStatements=modernSchemaRuntimeStatements(log,{observer,begin,end});
   const classifications=runtimeStatements.map(record=>({kind:classifySql(record.sql,record.controlParameters),sqlSha256:canonicalDigest(record.sql)}));
   if(!runtimeStatements.length||classifications.some(row=>!['READ','SESSION','CONTROL_SESSION'].includes(row.kind)))fail('ACTUAL_API_ATTEMPTED_BACKGROUND_OR_SCHEMA_WRITE');
-  const after=await captureModernSchemaFacts(this.client);if(before.allDataSha256!==after.allDataSha256)fail('API_STARTUP_CHANGED_CLONE_FACTS');
+  const after=await captureModernSchemaFacts(this.client);
+  if(before.allDataSha256!==after.allDataSha256||before.businessDataSha256!==after.businessDataSha256)fail('API_STARTUP_CHANGED_CLONE_FACTS');
+  if(role==='candidate-api'){
+   const verified=await this.marker(role,'facts-verified');
+   const tail=await this.command(['logs','--since',endSince,this.db],role+'-after-facts-log');
+   if(modernSchemaRuntimeStatements(readSmall(tail.stdout)+'\n'+readSmall(tail.stderr),{observer,begin:end,end:verified}).length)fail('UNOWNED_REHEARSAL_RUNTIME_GAP');
+  }
   const receipt={role,imageId,revision,containerId:id,startedAt:readyPin.state.StartedAt,readiness,boot,cleanTerm:true,
    observedThrough:new Date().toISOString(),crossedCronMinute:true,nativeStatementCount:runtimeStatements.length,statementClasses:classifications,
    statementsSha256:canonicalDigest(runtimeStatements),beforeFactsSha256:before.allDataSha256,afterFactsSha256:after.allDataSha256,backgroundWrites:0};
-  this.privateRuntime.publishJson(path.join(this.directory,role+'-runtime-proof.json'),receipt);return receipt;
+  this.privateRuntime.publishJson(path.join(this.directory,role+'-runtime-proof.json'),receipt);
+  if(role==='original-api')this.originalRuntimeAfter={facts:after,start:end,since:endSince,containerId:id};
+  return receipt;
  }
  async close(){
   // No force-kill, removal, production restart or retry. Retained native pins
@@ -244,7 +277,11 @@ export async function rehearseModernSchemaRelease(input,dependencies={}){
  try{
   await capsule.setup();await capsule.migrate();
   const original=await capsule.runtime('original-api',runtimeImageId,plan.runtimeSha),candidate=await capsule.runtime('candidate-api',plan.candidateImageId,plan.targetSha);
-  const final=await captureModernSchemaFacts(capsule.client,{projection:capsule.before});assertModernSchemaBusinessUnchanged(capsule.before,final);
+  const fullDigest=capsule.migrationAfter.facts.allDataSha256;
+  if([original.beforeFactsSha256,original.afterFactsSha256,candidate.beforeFactsSha256,candidate.afterFactsSha256].some(digest=>digest!==fullDigest))fail('REHEARSAL_RUNTIME_FACTS_CHAIN_CHANGED');
+  // The two baselines came from one snapshot. The verified full-data chain
+  // proves every original column unchanged through the final capture.
+  const final=capsule.after;assertModernSchemaBusinessUnchanged(capsule.before,final);
   evidence={schema:'phoenix.modern-schema-isolated-rehearsal/v1',owner,runtimeSha:plan.runtimeSha,targetSha:plan.targetSha,candidateImageId:plan.candidateImageId,
    beforeLedgerSha256:plan.beforeLedgerSha256,pendingPlanSha256:canonicalDigest(plan.pendingMigrations),outcome:'PASS',originalRuntimeReady:true,candidateReady:true,
    businessFactsUnchanged:true,backgroundWrites:0,isolatedRestore:true,productionMutation:false,backupSha256:backup.receipt.backup.sha256,

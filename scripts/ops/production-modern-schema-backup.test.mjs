@@ -45,7 +45,7 @@ function fixture(t,breakAt=new Set()){
   remoteProcesses(){inject('remote-native-check');return '';},
   onDumpStopped(){inject('remote-notify');},
  };
- return {log,records,client,database,run:()=>createModernSchemaBackup({owner:'9001-1',stage:'prepare',client,databasePin,privateRuntime},dependencies)};
+ return {log,records,client,database,run:(stage='prepare',overrides={})=>createModernSchemaBackup({owner:'9001-1',stage,client,databasePin,privateRuntime},{...dependencies,...overrides})};
 }
 
 test('preparation backup classifies source, tool, disk, facts, ledger, snapshot, execution and verification failure without raw content',async t=>{
@@ -107,4 +107,21 @@ test('cleanup alone remains HOLD, successful cleanup preserves the original rece
  assert.equal(brokenDbProof.log.includes('remote-notify'),false);
  const unwritable=fixture(t,new Set(['facts','backup-hold.json']));
  await assert.rejects(unwritable.run(),{message:hold+'FACTS'});
+});
+
+test('fenced evidence and pg_dump share the exported snapshot, and a rejected consumer prevents the dump',async t=>{
+ const f=fixture(t);let observed;
+ const backup=await f.run('fenced',{assertFenced:async()=>{},onSnapshotReady:async source=>{
+  f.log.push('snapshot-consumer');observed=source;
+ }});
+ assert.equal(observed,backup.source);
+ assert.ok(f.log.indexOf('snapshot')<f.log.indexOf('snapshot-consumer'));
+ assert.ok(f.log.indexOf('snapshot-consumer')<f.log.indexOf('database-dump'));
+ assert.ok(f.log.indexOf('database-dump')<f.log.indexOf('rollback'));
+ const refuse=fixture(t);
+ await assert.rejects(refuse.run('fenced',{assertFenced:async()=>{},onSnapshotReady:async()=>{throw privateFailure();}}),
+  {message:hold+'SOURCE_GUARD'});
+ assert.ok(refuse.log.includes('rollback'));
+ assert.equal(refuse.log.includes('database-dump'),false);
+ assert.equal(refuse.log.includes('remote-native-check'),false);
 });

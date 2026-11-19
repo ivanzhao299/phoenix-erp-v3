@@ -91,11 +91,18 @@ export async function createModernSchemaBackup({owner,stage,client,databasePin,p
   const {rows:[{snapshot}]}=await client.query('SELECT pg_export_snapshot() AS snapshot');
   if(!/^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{8}-[0-9A-Fa-f]{1,8}$/.test(snapshot??''))fail('EXPORTED_NATIVE_SNAPSHOT_REQUIRED');
   source={database:{...database,backupToolMajor:profile.major},facts,ledger,ledgerSha256:digest(JSON.stringify(ledger)),snapshotSha256:createHash('sha256').update(snapshot).digest('hex')};
-  reason='EXECUTION';
   keepalive=setInterval(()=>{keepaliveWork=keepaliveWork.then(async()=>{try{await verify();await client.query('SELECT 1 AS snapshot_keepalive');}catch{keepaliveError=true;}});},5000);
+  if(dependencies.onSnapshotReady!==undefined){
+   reason='SOURCE_GUARD';
+   if(stage!=='fenced'||typeof dependencies.onSnapshotReady!=='function')fail('FENCED_SNAPSHOT_CONSUMER_REQUIRED');
+   await dependencies.onSnapshotReady(source);
+   await verify();
+   if(keepaliveError)fail('EXPORTED_SNAPSHOT_LOST');
+  }
+  reason='EXECUTION';
   dumpAttempted=true;
   result=await privateRuntime.run({binary:'/usr/bin/docker',args:['exec','-e','PGOPTIONS=-c default_transaction_read_only=on -c statement_timeout=120000 -c lock_timeout=3000',
-   '-e',`PGAPPNAME=${applicationName}`,databasePin.id,'sh','-c','exec env -i PATH=/usr/local/bin:/usr/bin:/bin PGHOST=/var/run/postgresql PGPORT=5432 PGOPTIONS="$PGOPTIONS" PGAPPNAME="$PGAPPNAME" pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" --format=custom --no-owner --no-acl --snapshot="$1"','--',snapshot],directory,stem:'database-dump',timeoutMs:600000,
+   '-e',`PGAPPNAME=${applicationName}`,databasePin.id,'sh','-c','exec env -i PATH=/usr/local/bin:/usr/bin:/bin PGHOST=/var/run/postgresql PGPORT=5432 PGOPTIONS="$PGOPTIONS" PGAPPNAME="$PGAPPNAME" pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" --format=custom --compress=1 --no-owner --no-acl --snapshot="$1"','--',snapshot],directory,stem:'database-dump',timeoutMs:600000,
    onSpawn:dependencies.onDumpStarted?entry=>dependencies.onDumpStarted(entry,applicationName):null});
   reason='SNAPSHOT_CONTINUITY';
   clearInterval(keepalive);keepalive=null;await keepaliveWork;if(keepaliveError)fail('EXPORTED_SNAPSHOT_LOST');

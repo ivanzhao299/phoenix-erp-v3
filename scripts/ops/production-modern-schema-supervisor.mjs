@@ -142,14 +142,20 @@ export async function superviseModernSchemaRelease(env,input){
   if(!stopped.oldDatabaseSessionsGone)fail('ORIGINAL_DATABASE_SESSIONS_NOT_GONE');
   await advance('R_STOP_INTENT','R_STOPPED',{runtimeStopReceipt:stopped,nativeExecutors:stoppedObservation.executors});
   const fresh=await audit(),ledger=await captureModernSchemaLedger(client);if(ledger.sha256!==context.beforeLedgerSha256)fail('FENCED_LEDGER_CHANGED');beforeLedger=ledger.ledger;
-  beforeFacts=await captureModernSchemaFacts(client);
-  runtime.publishJson(path.join(directory,`schema-release-before-facts-${context.owner}.json`),beforeFacts);runtime.publishJson(path.join(directory,`schema-release-before-audit-${context.owner}.json`),fresh.fresh);
   const readCommand={onDumpStarted:(entry,app)=>watch.allowReadonlyBackup(entry,app),onDumpStopped:()=>watch.clearReadonlyBackup()};
   beforeCatalog=await captureModernSchemaCatalog({owner:context.owner,stage:'before',databasePin:pre.containers.db,privateRuntime:runtime,directory:sessionDirectory,admit:()=>native()},readCommand);
-  await advance('R_STOPPED','FRESH_RECHECKED',{beforeLedgerSha256:ledger.sha256,factsFile:path.join(directory,`schema-release-before-facts-${context.owner}.json`),factsSha256:canonicalDigest(beforeFacts),
-   schemaFile:beforeCatalog.file,schemaSha256:canonicalDigest(beforeCatalog.receipt),auditRecheckSha256:canonicalDigest(fresh.comparison),executorsSha256:canonicalDigest((await watch.observe()).executors)});
   await disk();
-  const fencedBackup=await createModernSchemaBackup({owner:context.owner,stage:'fenced',client,databasePin:pre.containers.db,privateRuntime:runtime},{...readCommand,assertFenced:async()=>{await native();await ingress.observe();}});
+  const fencedBackup=await createModernSchemaBackup({owner:context.owner,stage:'fenced',client,databasePin:pre.containers.db,privateRuntime:runtime},{
+   ...readCommand,assertFenced:async()=>{await native();await ingress.observe();},
+   onSnapshotReady:async source=>{
+    if(source.ledgerSha256!==ledger.sha256||!same(source.ledger,beforeLedger))fail('FROZEN_BACKUP_SNAPSHOT_LEDGER_CHANGED');
+    beforeFacts=source.facts;
+    const factsFile=path.join(directory,`schema-release-before-facts-${context.owner}.json`);
+    runtime.publishJson(factsFile,beforeFacts);runtime.publishJson(path.join(directory,`schema-release-before-audit-${context.owner}.json`),fresh.fresh);
+    await advance('R_STOPPED','FRESH_RECHECKED',{beforeLedgerSha256:ledger.sha256,factsFile,factsSha256:canonicalDigest(beforeFacts),
+     schemaFile:beforeCatalog.file,schemaSha256:canonicalDigest(beforeCatalog.receipt),auditRecheckSha256:canonicalDigest(fresh.comparison),executorsSha256:canonicalDigest((await watch.observe()).executors)});
+   },
+  });
   if(fencedBackup.receipt.sourceLedgerSha256!==context.beforeLedgerSha256)fail('FENCED_BACKUP_LEDGER_CHANGED');
   const rehearsal=await rehearseModernSchemaRelease({owner:context.owner,stage:'fenced',backup:fencedBackup,plan:preparation.plan,runtimeImageId:pre.containers.api.image,privateRuntime:runtime},{
    assertFenced:async()=>{await native();await ingress.observe();},onCreated:record=>watch.registerResource(record),withNativeCreate:work=>watch.withNativeCreate(work),
