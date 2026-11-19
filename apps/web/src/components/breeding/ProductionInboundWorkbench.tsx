@@ -12,6 +12,7 @@ import { useProductGrades } from '@/hooks/useProductGrades';
 import { useDictOptions } from '@/hooks/useDictOptions';
 import request from '@/lib/api-client';
 import { localizedMasterName } from '@/lib/localized-master-data';
+import { previewProtectedAttachment } from '@/lib/attachments';
 import s from './ProductionInboundWorkbench.module.css';
 import RawCollectionReceipts,{RawCollectionSourcePicker,type RawSource} from './RawCollectionReceipts';
 import InventoryConversions from './InventoryConversions';
@@ -54,7 +55,6 @@ export default function ProductionInboundWorkbench({mobile=false}:{mobile?:boole
   const [periodState,setPeriodState]=useState('');const storageKey=`production-installments:v1:${String(p.user.userId??p.user.id??p.user.username??'')}`;
   const restored=restoredKey===storageKey;
   const generation=useRef(0);const submitKeys=useRef<Record<string,string>>({});
-  const label=(name:string,fallback:string)=>t(`productionInstallments.${name}`,fallback);
   const actor=String(p.user.userId??p.user.id??p.user.username??'');
   const patch=(next:Partial<Form>)=>setForm(old=>({...old,...next}));
   const ownership={moduleCode:'PRODUCTION_INBOUND',ownerType:'HOUSE',ownerId:form.houseCode,companyCode:form.companyCode,storeCode:form.siteCode};
@@ -98,7 +98,7 @@ export default function ProductionInboundWorkbench({mobile=false}:{mobile?:boole
     catch(e){if(alive)setError(e instanceof Error?e.message:String(e));}
   });return()=>{alive=false;};},[finance.canEdit,form.companyCode,periodMonth]);
   const run=async(fn:()=>Promise<void>)=>{if(busy)return;setBusy(true);setError('');setNotice('');try{await fn();await refresh();}
-    catch(e){setError(`${e instanceof Error?e.message:String(e)}\n${label('recoverHint','结果不明时先找回原单，保留原提交键重试。')}`);}finally{setBusy(false);}};
+    catch(e){setError(`${e instanceof Error?e.message:String(e)}\n${t('productionInstallments.recoverHint','结果不明时先找回原单，保留原提交键重试。')}`);}finally{setBusy(false);}};
   const send=<T,>(path:string,body:unknown,method='POST')=>request<T>(`${endpoint}${path}`,{method,body:JSON.stringify(body)});
   async function load(id:string) {
     if(restored&&form.intentKey&&form.items.length){sessionStorage.setItem(`${storageKey}:draft:${form.intentKey}`,JSON.stringify(form));
@@ -107,7 +107,7 @@ export default function ProductionInboundWorkbench({mobile=false}:{mobile?:boole
   }
   const items=()=>{
     const grouped=new Map<string,{gradeCode:string;specCode:string;quantity:number;allocations:Array<{dailyLogId:number;quantity:number}>}>();
-    for(const i of form.items){const quantity=Number(i.quantity);if(!i.gradeCode||!i.specCode||!Number.isSafeInteger(quantity)||quantity<=0||!Number(i.dailyLogId))throw new Error(label('positive','请填写实际来源、档位、规格和正整数枚数。'));
+    for(const i of form.items){const quantity=Number(i.quantity);if(!i.gradeCode||!i.specCode||!Number.isSafeInteger(quantity)||quantity<=0||!Number(i.dailyLogId))throw new Error(t('productionInstallments.positive','请填写实际来源、档位、规格和正整数枚数。'));
       const id=`${i.gradeCode}:${i.specCode}`;const item=grouped.get(id)??{gradeCode:i.gradeCode,specCode:i.specCode,quantity:0,allocations:[]};
       const prior=item.allocations.find(a=>a.dailyLogId===Number(i.dailyLogId));if(prior)prior.quantity+=quantity;else item.allocations.push({dailyLogId:Number(i.dailyLogId),quantity});
       item.quantity+=quantity;grouped.set(id,item);
@@ -119,90 +119,93 @@ export default function ProductionInboundWorkbench({mobile=false}:{mobile?:boole
     sessionStorage.setItem(storageKey,JSON.stringify({form,submitKeys:submitKeys.current}));await send(`/${d.id}/ready`,{version:d.version,submitKey:submit});await load(d.id);};
   const updateItem=(id:string,next:Partial<Item>)=>patch({items:form.items.map(i=>i.id===id?{...i,...next}:i)});
   const preview=async(kind:'handovers'|'documents',id:string,fileId:string)=>{
-    const token=sessionStorage.getItem('phoenix_token')||localStorage.getItem('phoenix_token')||'';
     const path=kind==='handovers'?`${endpoint}/handovers/${id}`:`${endpoint}/${id}`;
-    const response=await fetch(`/api${path}/evidence/${encodeURIComponent(fileId)}`,{headers:{Authorization:`Bearer ${token}`}});
-    if(!response.ok)throw new Error(label('proofUnavailable','无权访问该附件或原证据已失效。'));
-    const blob=URL.createObjectURL(await response.blob());window.open(blob,'_blank','noopener,noreferrer');setTimeout(()=>URL.revokeObjectURL(blob),60000);
+    const messages={blocked:t('productionConversion.allowPreview'),unavailable:t('productionInstallments.proofUnavailable')};
+    await previewProtectedAttachment(async()=>{
+      const token=sessionStorage.getItem('phoenix_token')||localStorage.getItem('phoenix_token')||'';
+      const response=await fetch(`/api${path}/evidence/${encodeURIComponent(fileId)}`,{headers:{Authorization:`Bearer ${token}`}});
+      if(!response.ok)throw new Error(messages.unavailable);
+      return response.blob();
+    },messages);
   };
-  if(!p.canView)return <p>{label('noPermission','无权查看生产交库。')}</p>;
+  if(!p.canView)return <p>{t('productionInstallments.noPermission','无权查看生产交库。')}</p>;
   if(!restored)return <p>{t('common.loading','加载中…')}</p>;
   return <main className={s.page}>
     {mobile&&<Link href="/mobile/home">{t('common.back','返回')}</Link>}
-    <PageHeader title={label('title','正式分次生产入库')} subtitle={label('subtitle','按实际交接逐次入库，保留原单及不可改写的过账回执。')} />
-    <div className={s.actions}><Link href={mobile?"/mobile/production-cutovers":"/breeding/production-cutovers"}>{t('productionCutover.title','正式库存切换盘点')}</Link><Link href={mobile?"/mobile/production-reports":"/breeding/daily"}>{label('daily','产蛋日报')}</Link>{!mobile&&<Link href="/breeding/daily-inbound-ledger">{label('legacy','历史入库资料')}</Link>}
-      <button disabled={busy} onClick={()=>run(refresh)}>{t('common.refresh','刷新')}</button><button disabled={busy} onClick={newIntent}>{label('new','新交接意图')}</button></div>
+    <PageHeader title={t('productionInstallments.title','正式分次生产入库')} subtitle={t('productionInstallments.subtitle','按实际交接逐次入库，保留原单及不可改写的过账回执。')} />
+    <div className={s.actions}><Link href={mobile?"/mobile/production-cutovers":"/breeding/production-cutovers"}>{t('productionCutover.title','正式库存切换盘点')}</Link><Link href={mobile?"/mobile/production-reports":"/breeding/daily"}>{t('productionInstallments.daily','产蛋日报')}</Link>{!mobile&&<Link href="/breeding/daily-inbound-ledger">{t('productionInstallments.legacy','历史入库资料')}</Link>}
+      <button disabled={busy} onClick={()=>run(refresh)}>{t('common.refresh','刷新')}</button><button disabled={busy} onClick={newIntent}>{t('productionInstallments.new','新交接意图')}</button></div>
     {error&&<p role="alert" className={`${s.notice} ${s.error}`}>{error}</p>}{notice&&<p role="status" className={s.notice}>{notice}</p>}
-    {!!savedIntents.length&&<div className={s.actions}>{savedIntents.map(d=><button key={d.intentKey} disabled={busy} onClick={()=>{setForm(d);setSelected(null);setReverseQty({});}}>{label('resumeDraft','返回暂存交接')} · {d.handoverRef||d.houseCode}</button>)}</div>}
-    <section className={s.card} aria-label={label('context','交库范围')}><div className={s.grid}>
-      <label className={s.field}>{label('house','鸡舍')}<HouseSelector ariaLabel={label('house','鸡舍')} value={form.houseCode} onChange={v=>patch({houseCode:v,companyCode:'',siteCode:'',warehouseCode:'',locationCode:'',rawCollectionSourceId:undefined})}
+    {!!savedIntents.length&&<div className={s.actions}>{savedIntents.map(d=><button key={d.intentKey} disabled={busy} onClick={()=>{setForm(d);setSelected(null);setReverseQty({});}}>{t('productionInstallments.resumeDraft','返回暂存交接')} · {d.handoverRef||d.houseCode}</button>)}</div>}
+    <section className={s.card} aria-label={t('productionInstallments.context','交库范围')}><div className={s.grid}>
+      <label className={s.field}>{t('productionInstallments.house','鸡舍')}<HouseSelector ariaLabel={t('productionInstallments.house','鸡舍')} value={form.houseCode} onChange={v=>patch({houseCode:v,companyCode:'',siteCode:'',warehouseCode:'',locationCode:'',rawCollectionSourceId:undefined})}
         onPick={opt=>patch({companyCode:String(opt?.raw?.companyCode??''),siteCode:String(opt?.raw?.siteCode??'')})} /></label>
-      <label className={s.field}>{label('company','归属公司')}<input readOnly value={form.companyCode} style={{background:'var(--bg-muted)',cursor:'not-allowed'}} /></label>
-      <label className={s.field}>{label('productionDate','生产日期')}<input type="date" value={form.eggDate} onChange={e=>patch({eggDate:e.target.value,rawCollectionSourceId:undefined})}/></label>
-      <label className={s.field}>{label('warehouse','交库仓库')}<WarehouseSelector ariaLabel={label('warehouse','交库仓库')} value={form.warehouseCode} companyCode={form.companyCode} siteCode={form.siteCode} type="EGG_FARM" disabled={!form.companyCode} onChange={v=>patch({warehouseCode:v,locationCode:'',rawCollectionSourceId:undefined})}/></label>
-      <label className={s.field}>{label('location','库位')}<LocationSelector ariaLabel={label('location','库位')} value={form.locationCode} lookupEndpoint={`${endpoint}/locations?${new URLSearchParams({companyCode:form.companyCode,houseCode:form.houseCode,warehouseCode:form.warehouseCode})}`} warehouseCode={form.warehouseCode} disabled={!form.warehouseCode} onChange={v=>patch({locationCode:v})}/></label>
-    </div>{scope==='OFF'&&<p role="status" className={s.notice}>{label('off','该鸡舍尚未启用正式入库。现场盘点及切换确认后才能办理。')}</p>}
-    {scope&&scope!=='OFF'&&scope!=='ACTIVE'&&<p className={s.notice}>{label('suspended','该范围暂停新写入，历史回执仍可查看。')}</p>}</section>
-    {balance&&<section className={s.card}><h2>{label('balance','当日产蛋、正式净入与当前库存')}</h2><p className={s.muted}>{label('stockHint','当前库存为该生产日在所选仓的正式批次及其派生批次实存；销售不会返还可入额度。')}</p>
-      <div className={s.scroll}><table className={s.table}><thead><tr>{['grade','reported','received','remaining','current'].map((n,i)=><th key={n}>{label(n,['档位','日报量','已确认净量','剩余额度','当前实存'][i])}</th>)}</tr></thead>
+      <label className={s.field}>{t('productionInstallments.company','归属公司')}<input readOnly value={form.companyCode} style={{background:'var(--bg-muted)',cursor:'not-allowed'}} /></label>
+      <label className={s.field}>{t('productionInstallments.productionDate','生产日期')}<input type="date" value={form.eggDate} onChange={e=>patch({eggDate:e.target.value,rawCollectionSourceId:undefined})}/></label>
+      <label className={s.field}>{t('productionInstallments.warehouse','交库仓库')}<WarehouseSelector ariaLabel={t('productionInstallments.warehouse','交库仓库')} value={form.warehouseCode} companyCode={form.companyCode} siteCode={form.siteCode} type="EGG_FARM" disabled={!form.companyCode} onChange={v=>patch({warehouseCode:v,locationCode:'',rawCollectionSourceId:undefined})}/></label>
+      <label className={s.field}>{t('productionInstallments.location','库位')}<LocationSelector ariaLabel={t('productionInstallments.location','库位')} value={form.locationCode} lookupEndpoint={`${endpoint}/locations?${new URLSearchParams({companyCode:form.companyCode,houseCode:form.houseCode,warehouseCode:form.warehouseCode})}`} warehouseCode={form.warehouseCode} disabled={!form.warehouseCode} onChange={v=>patch({locationCode:v})}/></label>
+    </div>{scope==='OFF'&&<p role="status" className={s.notice}>{t('productionInstallments.off','该鸡舍尚未启用正式入库。现场盘点及切换确认后才能办理。')}</p>}
+    {scope&&scope!=='OFF'&&scope!=='ACTIVE'&&<p className={s.notice}>{t('productionInstallments.suspended','该范围暂停新写入，历史回执仍可查看。')}</p>}</section>
+    {balance&&<section className={s.card}><h2>{t('productionInstallments.balance','当日产蛋、正式净入与当前库存')}</h2><p className={s.muted}>{t('productionInstallments.stockHint','当前库存为该生产日在所选仓的正式批次及其派生批次实存；销售不会返还可入额度。')}</p>
+      <div className={s.scroll}><table className={s.table}><thead><tr>{['grade','reported','received','remaining','current'].map(n=><th key={n}>{t(`productionInstallments.${n}`)}</th>)}</tr></thead>
       <tbody>{Object.entries(balance.grades).map(([grade,n])=><tr key={grade}><td>{gradeName(grade)}</td><td>{n.reported}</td><td>{n.posted}</td><td>{n.remaining}</td><td>{balance.currentStock[grade]??0}</td></tr>)}</tbody></table></div></section>}
-    <section className={s.card}><h2>{label('thisDelivery','本次实际交接')}</h2><div className={s.grid}>
-      <label className={s.field}>{label('handoverRef','实物交接编号')}<input value={form.handoverRef} maxLength={100} onChange={e=>patch({handoverRef:e.target.value})}/></label>
+    <section className={s.card}><h2>{t('productionInstallments.thisDelivery','本次实际交接')}</h2><div className={s.grid}>
+      <label className={s.field}>{t('productionInstallments.handoverRef','实物交接编号')}<input value={form.handoverRef} maxLength={100} onChange={e=>patch({handoverRef:e.target.value})}/></label>
       <RawCollectionSourcePicker sources={rawSources} value={form.rawCollectionSourceId??''} disabled={busy||!canWrite||!p.canCreate} onChange={v=>patch({rawCollectionSourceId:v||undefined})}/>
       <label className={s.field}>{t('common.remark','备注')}<input value={form.remark} maxLength={1000} onChange={e=>patch({remark:e.target.value})}/></label></div>
-      {form.replacesId&&<p>{label('replaces','重新签认的原交接')}：{form.replacesId}</p>}
+      {form.replacesId&&<p>{t('productionInstallments.replaces','重新签认的原交接')}：{form.replacesId}</p>}
       {form.items.map(i=><div key={i.id} className={s.line}>
-        <label className={s.field}>{label('grade','档位')}<select aria-label={label('grade','档位')} value={i.gradeCode} onChange={e=>updateItem(i.id,{gradeCode:e.target.value})}><option value="">{t('common.select','请选择')}</option>{grades.map(g=><option key={g.grade_code} value={g.grade_code}>{gradeName(g.grade_code)}</option>)}</select></label>
-        <label className={s.field}>{label('spec','规格')}<SpecSelector ariaLabel={label('spec','规格')} value={i.specCode} onChange={v=>updateItem(i.id,{specCode:v})}/></label>
-        <label className={s.field}>{label('source','实际日报来源')}<select aria-label={label('source','实际日报来源')} value={i.dailyLogId} onChange={e=>updateItem(i.id,{dailyLogId:e.target.value})}><option value="">{t('common.select','请选择')}</option>{balance?.reports.map(r=><option key={r.id} value={r.id}>{shifts[r.shift]??r.shift} · #{r.id} · {r.grades[i.gradeCode]??0}</option>)}</select></label>
-        <label className={s.field}>{label('quantity','本次枚数')}<input type="number" min="1" step="1" value={i.quantity} onChange={e=>updateItem(i.id,{quantity:e.target.value})}/></label>
-        <button onClick={()=>patch({items:form.items.filter(row=>row.id!==i.id)})} disabled={busy}>{t('common.remove','移除')}</button>
+        <label className={s.field}>{t('productionInstallments.grade','档位')}<select aria-label={t('productionInstallments.grade','档位')} value={i.gradeCode} onChange={e=>updateItem(i.id,{gradeCode:e.target.value})}><option value="">{t('common.select','请选择')}</option>{grades.map(g=><option key={g.grade_code} value={g.grade_code}>{gradeName(g.grade_code)}</option>)}</select></label>
+        <label className={s.field}>{t('productionInstallments.spec','规格')}<SpecSelector ariaLabel={t('productionInstallments.spec','规格')} value={i.specCode} onChange={v=>updateItem(i.id,{specCode:v})}/></label>
+        <label className={s.field}>{t('productionInstallments.source','实际日报来源')}<select aria-label={t('productionInstallments.source','实际日报来源')} value={i.dailyLogId} onChange={e=>updateItem(i.id,{dailyLogId:e.target.value})}><option value="">{t('common.select','请选择')}</option>{balance?.reports.map(r=><option key={r.id} value={r.id}>{shifts[r.shift]??r.shift} · #{r.id} · {r.grades[i.gradeCode]??0}</option>)}</select></label>
+        <label className={s.field}>{t('productionInstallments.quantity','本次枚数')}<input type="number" min="1" step="1" value={i.quantity} onChange={e=>updateItem(i.id,{quantity:e.target.value})}/></label>
+        <button onClick={()=>patch({items:form.items.filter(row=>row.id!==i.id)})} disabled={busy}>{t('productionCutover.remove','移除')}</button>
       </div>)}
-      <div className={s.actions}><button disabled={busy||!canWrite||!p.canCreate||!balance} onClick={()=>patch({items:[...form.items,{id:key(),gradeCode:'',specCode:'LOOSE',quantity:'',dailyLogId:balance?.reports.length===1?String(balance.reports[0].id):''}]})}>{label('addLine','增加档位或规格')}</button></div>
-      {form.houseCode&&<AttachmentUploader value={form.evidenceFileIds} onChange={v=>patch({evidenceFileIds:v})} ownership={ownership} readOnly={busy||!canWrite||!p.canCreate} label={label('physicalProof','实物交接原证据（班次、档位、数量）')}/>}
+      <div className={s.actions}><button disabled={busy||!canWrite||!p.canCreate||!balance} onClick={()=>patch({items:[...form.items,{id:key(),gradeCode:'',specCode:'LOOSE',quantity:'',dailyLogId:balance?.reports.length===1?String(balance.reports[0].id):''}]})}>{t('productionInstallments.addLine','增加档位或规格')}</button></div>
+      {form.houseCode&&<AttachmentUploader value={form.evidenceFileIds} onChange={v=>patch({evidenceFileIds:v})} ownership={ownership} readOnly={busy||!canWrite||!p.canCreate} label={t('productionInstallments.physicalProof','实物交接原证据（班次、档位、数量）')}/>}
       <div className={s.actions}>
         <button disabled={busy||!canWrite||!p.canCreate} onClick={()=>run(async()=>{
-          if(!form.evidenceFileIds.length)throw new Error(label('proofRequired','请上传实际交接依据。'));
+          if(!form.evidenceFileIds.length)throw new Error(t('productionInstallments.proofRequired','请上传实际交接依据。'));
           const segments:Record<string,{dailyLogId:number;gradeCode:string;quantity:number;evidenceFileId:string}>={};for(const i of items()){
             for(const a of i.allocations){const id=`${a.dailyLogId}:${i.gradeCode}`;const row=segments[id]??={dailyLogId:a.dailyLogId,gradeCode:i.gradeCode,quantity:0,evidenceFileId:form.evidenceFileIds[0]};row.quantity+=a.quantity;}}
           await send('/handovers',{companyCode:form.companyCode,houseCode:form.houseCode,eggDate:form.eggDate,warehouseCode:form.warehouseCode,handoverRef:form.handoverRef,replacesId:form.replacesId,rawCollectionSourceId:form.rawCollectionSourceId,segments:Object.values(segments)});
-          setNotice(label('receiverNeeded','交接已登记，请由另一名实际接收人核对分段并签认。'));})}>{label('registerPhysical','登记实物交接')}</button>
-        <button disabled={busy||!canWrite||!p.canCreate||!!form.rawCollectionSourceId} onClick={()=>run(async()=>{const d=await send<Document>('',payload());await load(d.id);})}>{label('saveDraft','保存或找回本意图草稿')}</button>
+          setNotice(t('productionInstallments.receiverNeeded','交接已登记，请由另一名实际接收人核对分段并签认。'));})}>{t('productionInstallments.registerPhysical','登记实物交接')}</button>
+        <button disabled={busy||!canWrite||!p.canCreate||!!form.rawCollectionSourceId} onClick={()=>run(async()=>{const d=await send<Document>('',payload());await load(d.id);})}>{t('productionInstallments.saveDraft','保存或找回本意图草稿')}</button>
         {selected?.state==='DRAFT'&&selected.kind==='INBOUND'&&<button disabled={busy||!canWrite||!p.canEdit} onClick={()=>run(async()=>{
-          if(form.intentKey!==selected.intent_key)throw new Error(label('loadDraftFirst','请先载入此草稿。'));await send(`/${selected.id}`,{...payload(),version:selected.version},'PATCH');await load(selected.id);})}>{label('saveChanges','保存草稿修改')}</button>}
-      </div><p className={s.muted}>{label('intentHint','刷新后保留原意图。改变交接身份请新建意图；未确认结果前先找回原单。')}</p>
+          if(form.intentKey!==selected.intent_key)throw new Error(t('productionInstallments.loadDraftFirst','请先载入此草稿。'));await send(`/${selected.id}`,{...payload(),version:selected.version},'PATCH');await load(selected.id);})}>{t('productionInstallments.saveChanges','保存草稿修改')}</button>}
+      </div><p className={s.muted}>{t('productionInstallments.intentHint','刷新后保留原意图。改变交接身份请新建意图；未确认结果前先找回原单。')}</p>
     </section>
-    <section className={s.card}><h2>{label('physicalHistory','实物交接签认')}</h2>{handovers.map(h=><article key={h.id} className={s.card}>
+    <section className={s.card}><h2>{t('productionInstallments.physicalHistory','实物交接签认')}</h2>{handovers.map(h=><article key={h.id} className={s.card}>
       {h.payload.rawCollection&&<p>{t('productionRaw.source','原始采集原行（包装路径）')}：{h.payload.rawCollection.batchCode} · #{h.payload.rawCollection.shiftId} · {h.payload.rawCollection.sourceSnapshot.received_qty}</p>}
-      <strong>{h.handover_ref} · {handoverStates[h.state]??h.state}</strong><p>{label('parties','登记人 / 接收人')}：{h.created_by} / {h.confirmed_by??'—'}</p>
-      {h.payload.sources.map(a=><p key={a.id}>{shifts[a.shift]??a.shift} #{a.dailyLogId} · {gradeName(a.gradeCode)} · {a.quantity} <button onClick={()=>run(()=>preview('handovers',h.id,a.evidenceFileId))}>{label('proof','查看原证据')}</button></p>)}
-      <div className={s.actions}>{h.state==='DRAFT'&&h.created_by!==actor&&<button disabled={busy||!canWrite||!p.canEdit} onClick={()=>run(async()=>{await send(`/handovers/${h.id}/confirm`,{version:h.version,contentHash:h.content_hash});})}>{label('receive','核对并实名签收')}</button>}
-      {h.state!=='CANCELLED'&&<button disabled={busy||!p.canEdit&&!p.canApprove&&!p.canCreate} onClick={()=>run(async()=>{await send(`/handovers/${h.id}/cancel`,{version:h.version,reason,evidenceFileIds:proof});})}>{label('cancelPhysical','按差异依据废止未过账交接')}</button>}
-      {h.state==='CANCELLED'&&<button disabled={busy||!canWrite||!p.canCreate} onClick={()=>{newIntent();patch({handoverRef:h.handover_ref,replacesId:h.id});}}>{label('resign','据原交接重新签认')}</button>}</div></article>)}</section>
+      <strong>{h.handover_ref} · {handoverStates[h.state]??h.state}</strong><p>{t('productionInstallments.parties','登记人 / 接收人')}：{h.created_by} / {h.confirmed_by??'—'}</p>
+      {h.payload.sources.map(a=><p key={a.id}>{shifts[a.shift]??a.shift} #{a.dailyLogId} · {gradeName(a.gradeCode)} · {a.quantity} <button onClick={()=>run(()=>preview('handovers',h.id,a.evidenceFileId))}>{t('productionInstallments.proof','查看原证据')}</button></p>)}
+      <div className={s.actions}>{h.state==='DRAFT'&&h.created_by!==actor&&<button disabled={busy||!canWrite||!p.canEdit} onClick={()=>run(async()=>{await send(`/handovers/${h.id}/confirm`,{version:h.version,contentHash:h.content_hash});})}>{t('productionInstallments.receive','核对并实名签收')}</button>}
+      {h.state!=='CANCELLED'&&<button disabled={busy||!p.canEdit&&!p.canApprove&&!p.canCreate} onClick={()=>run(async()=>{await send(`/handovers/${h.id}/cancel`,{version:h.version,reason,evidenceFileIds:proof});})}>{t('productionInstallments.cancelPhysical','按差异依据废止未过账交接')}</button>}
+      {h.state==='CANCELLED'&&<button disabled={busy||!canWrite||!p.canCreate} onClick={()=>{newIntent();patch({handoverRef:h.handover_ref,replacesId:h.id});}}>{t('productionInstallments.resign','据原交接重新签认')}</button>}</div></article>)}</section>
     {scope&&scope!=='OFF'&&<RawCollectionReceipts company={form.companyCode} house={form.houseCode} date={form.eggDate} warehouse={form.warehouseCode} active={canWrite} busy={busy} handovers={handovers} run={run}/>}
     {form.companyCode&&form.warehouseCode&&<InventoryConversions key={`${actor}:${form.companyCode}`} company={form.companyCode} initialWarehouse={form.warehouseCode}/>}
-    <section className={s.card}><h2>{label('history','分次入库及冲销历史')}</h2><div className={s.actions}>
-      <button disabled={busy||!form.companyCode} onClick={()=>run(async()=>{const docs=await request<Document[]>(`${endpoint}/recover?${new URLSearchParams({companyCode:form.companyCode,intentKey:form.intentKey})}`);if(docs[0])await load(docs[0].id);else setNotice(label('notFound','尚未找到该意图的单据，可保留原意图重试。'));})}>{label('recover','找回原意图结果')}</button>
+    <section className={s.card}><h2>{t('productionInstallments.history','分次入库及冲销历史')}</h2><div className={s.actions}>
+      <button disabled={busy||!form.companyCode} onClick={()=>run(async()=>{const docs=await request<Document[]>(`${endpoint}/recover?${new URLSearchParams({companyCode:form.companyCode,intentKey:form.intentKey})}`);if(docs[0])await load(docs[0].id);else setNotice(t('productionInstallments.notFound','尚未找到该意图的单据，可保留原意图重试。'));})}>{t('productionInstallments.recover','找回原意图结果')}</button>
       <button disabled={busy||!form.companyCode||!form.handoverRef} onClick={()=>run(async()=>{const found=await request<Document[]>(`${endpoint}/recover?${new URLSearchParams({companyCode:form.companyCode,handoverRef:form.handoverRef})}`);
-        if(found.length)setDocuments(found);else setNotice(label('notFound','尚未找到该意图的单据，可保留原意图重试。'));})}>{label('recoverHandover','按实物交接号找回（跨设备）')}</button></div>
-      <div className={s.scroll}><table className={s.table}><thead><tr><th>{label('document','单据')}</th><th>{t('common.status','状态')}</th><th>{label('handoverRef','实物交接编号')}</th><th>{t('common.operation','操作')}</th></tr></thead>
-        <tbody>{documents.map(d=><tr key={d.id}><td className={s.wide}>{d.document_no}<br/>{kinds[d.kind]??d.kind}</td><td>{states[d.state]??d.state}</td><td>{d.handover_ref??'—'}</td><td><button disabled={busy} onClick={()=>run(async()=>{await load(d.id);})}>{label('view','查看原单')}</button></td></tr>)}</tbody></table></div>
+        if(found.length)setDocuments(found);else setNotice(t('productionInstallments.notFound','尚未找到该意图的单据，可保留原意图重试。'));})}>{t('productionInstallments.recoverHandover','按实物交接号找回（跨设备）')}</button></div>
+      <div className={s.scroll}><table className={s.table}><thead><tr><th>{t('productionInstallments.document','单据')}</th><th>{t('common.status','状态')}</th><th>{t('productionInstallments.handoverRef','实物交接编号')}</th><th>{t('common.operation','操作')}</th></tr></thead>
+        <tbody>{documents.map(d=><tr key={d.id}><td className={s.wide}>{d.document_no}<br/>{kinds[d.kind]??d.kind}</td><td>{states[d.state]??d.state}</td><td>{d.handover_ref??'—'}</td><td><button disabled={busy} onClick={()=>run(async()=>{await load(d.id);})}>{t('productionInstallments.view','查看原单')}</button></td></tr>)}</tbody></table></div>
     </section>
     {selected&&<section className={`${s.card} ${s.selected}`}><h2 className={s.wide}>{selected.document_no}</h2><p>{kinds[selected.kind]??selected.kind} · {states[selected.state]??selected.state} · v{selected.version}</p>
-      <p>{label('productionDate','生产日期')}：{selected.production_date} · {label('postingDate','记账日期')}：{selected.expected_posting_date??'—'}</p>
-      <p>{selected.payload.remark??''}</p>{selected.kind==='REVERSAL'&&<p>{label('reason','实物差异或期间变更依据')}：{String((selected.payload as unknown as {reason?:string}).reason??'')}</p>}
-      <div className={s.scroll}><table className={s.table}><thead><tr><th>{label('grade','档位')}</th><th>{label('spec','规格')}</th><th>{label('quantity','本次枚数')}</th><th>{label('source','实际日报来源')}</th></tr></thead>
+      <p>{t('productionInstallments.productionDate','生产日期')}：{selected.production_date} · {t('productionInstallments.postingDate','记账日期')}：{selected.expected_posting_date??'—'}</p>
+      <p>{selected.payload.remark??''}</p>{selected.kind==='REVERSAL'&&<p>{t('productionInstallments.reason','实物差异或期间变更依据')}：{String((selected.payload as unknown as {reason?:string}).reason??'')}</p>}
+      <div className={s.scroll}><table className={s.table}><thead><tr><th>{t('productionInstallments.grade','档位')}</th><th>{t('productionInstallments.spec','规格')}</th><th>{t('productionInstallments.quantity','本次枚数')}</th><th>{t('productionInstallments.source','实际日报来源')}</th></tr></thead>
         <tbody>{selected.payload.items.map((i,n)=><tr key={n}><td>{gradeName(i.gradeCode)}</td><td>{i.specCode}</td><td>{i.quantity}</td><td>{(i.sources??i.allocations??[]).map(a=>`#${a.dailyLogId}: ${a.quantity}`).join(' / ')}</td></tr>)}</tbody></table></div>
-      <div className={s.actions}>{selected.payload.evidenceFileIds?.map(file=><button key={file} disabled={busy} onClick={()=>run(()=>preview('documents',selected.id,file))}>{label('proof','查看原证据')}</button>)}</div>
+      <div className={s.actions}>{selected.payload.evidenceFileIds?.map(file=><button key={file} disabled={busy} onClick={()=>run(()=>preview('documents',selected.id,file))}>{t('productionInstallments.proof','查看原证据')}</button>)}</div>
       <div className={s.actions}>
-        {selected.state==='DRAFT'&&selected.kind==='INBOUND'&&<button disabled={busy||!p.canEdit} onClick={()=>patch({companyCode:selected.company_code,houseCode:selected.house_code,eggDate:selected.production_date,warehouseCode:selected.payload.warehouseCode,locationCode:selected.payload.locationCode,intentKey:selected.intent_key,handoverRef:selected.handover_ref,remark:selected.payload.remark??'',evidenceFileIds:selected.payload.evidenceFileIds??[],items:selected.payload.items.flatMap(i=>(i.allocations??[{dailyLogId:0,quantity:i.quantity}]).map(a=>({id:key(),gradeCode:i.gradeCode,specCode:i.specCode,quantity:String(a.quantity),dailyLogId:a.dailyLogId?String(a.dailyLogId):''})))})}>{label('loadDraft','载入草稿编辑')}</button>}
-        {selected.state==='DRAFT'&&<button disabled={busy||!canWrite||!p.canEdit} onClick={()=>run(()=>freeze(selected))}>{label('ready','核对并冻结本单')}</button>}
-        {(selected.state==='READY'&&selected.kind==='INBOUND'||selected.state==='APPROVED'||selected.state==='POSTED')&&<button disabled={busy||selected.state!=='POSTED'&&(!canWrite||!p.canEdit)} onClick={()=>run(async()=>{await send(`/${selected.id}/post`,{submitKey:selected.submit_key,contentHash:selected.content_hash});await load(selected.id);})}>{selected.state==='POSTED'?label('receipt','找回原过账回执'):label('post','过账本单')}</button>}
-        {['DRAFT','READY','APPROVED'].includes(selected.state)&&<button disabled={busy||!p.canEdit} onClick={()=>run(async()=>{await send(`/${selected.id}/cancel`,{version:selected.version});await load(selected.id);})}>{label('cancelDocument','取消未过账单')}</button>}
+        {selected.state==='DRAFT'&&selected.kind==='INBOUND'&&<button disabled={busy||!p.canEdit} onClick={()=>patch({companyCode:selected.company_code,houseCode:selected.house_code,eggDate:selected.production_date,warehouseCode:selected.payload.warehouseCode,locationCode:selected.payload.locationCode,intentKey:selected.intent_key,handoverRef:selected.handover_ref,remark:selected.payload.remark??'',evidenceFileIds:selected.payload.evidenceFileIds??[],items:selected.payload.items.flatMap(i=>(i.allocations??[{dailyLogId:0,quantity:i.quantity}]).map(a=>({id:key(),gradeCode:i.gradeCode,specCode:i.specCode,quantity:String(a.quantity),dailyLogId:a.dailyLogId?String(a.dailyLogId):''})))})}>{t('productionInstallments.loadDraft','载入草稿编辑')}</button>}
+        {selected.state==='DRAFT'&&<button disabled={busy||!canWrite||!p.canEdit} onClick={()=>run(()=>freeze(selected))}>{t('productionInstallments.ready','核对并冻结本单')}</button>}
+        {(selected.state==='READY'&&selected.kind==='INBOUND'||selected.state==='APPROVED'||selected.state==='POSTED')&&<button disabled={busy||selected.state!=='POSTED'&&(!canWrite||!p.canEdit)} onClick={()=>run(async()=>{await send(`/${selected.id}/post`,{submitKey:selected.submit_key,contentHash:selected.content_hash});await load(selected.id);})}>{selected.state==='POSTED'?t('productionInstallments.receipt','找回原过账回执'):t('productionInstallments.post','过账本单')}</button>}
+        {['DRAFT','READY','APPROVED'].includes(selected.state)&&<button disabled={busy||!p.canEdit} onClick={()=>run(async()=>{await send(`/${selected.id}/cancel`,{version:selected.version});await load(selected.id);})}>{t('productionInstallments.cancelDocument','取消未过账单')}</button>}
       </div>
-      {selected.receipt&&<div className={s.notice} role="status">{label('postedReceipt','原过账回执')} · {label('quantity','本次枚数')} {String(selected.receipt.totalInbound??selected.receipt.totalReversed??'—')} · {label('postingDate','记账日期')} {String(selected.receipt.postingDate??'—')}</div>}
-      {selected.lines?.map(l=><div key={l.line_no} className={s.notice}><strong>{gradeName(l.grade_code)} · {l.batch_no}</strong><p>{label('original','原单数量')} {l.quantity} · {label('current','当前实存')} {l.current_quantity} · {label('available','当前可用')} {l.current_available}</p>
-        {selected.kind==='INBOUND'&&selected.state==='POSTED'&&l.allocations.map(a=><label key={a.id} className={s.field}>{label('reverseSegment','原来源分段冲销')} #{a.daily_log_id} · {label('reversible','原分段尚未冲销')} {a.quantity-a.reversed_quantity}
+      {selected.receipt&&<div className={s.notice} role="status">{t('productionInstallments.postedReceipt','原过账回执')} · {t('productionInstallments.quantity','本次枚数')} {String(selected.receipt.totalInbound??selected.receipt.totalReversed??'—')} · {t('productionInstallments.postingDate','记账日期')} {String(selected.receipt.postingDate??'—')}</div>}
+      {selected.lines?.map(l=><div key={l.line_no} className={s.notice}><strong>{gradeName(l.grade_code)} · {l.batch_no}</strong><p>{t('productionInstallments.original','原单数量')} {l.quantity} · {t('productionInstallments.current','当前实存')} {l.current_quantity} · {t('productionInstallments.available','当前可用')} {l.current_available}</p>
+        {selected.kind==='INBOUND'&&selected.state==='POSTED'&&l.allocations.map(a=><label key={a.id} className={s.field}>{t('productionInstallments.reverseSegment','原来源分段冲销')} #{a.daily_log_id} · {t('productionInstallments.reversible','原分段尚未冲销')} {a.quantity-a.reversed_quantity}
           <input type="number" min="0" max={a.quantity-a.reversed_quantity} step="1" disabled={!canWrite||!p.canCreate} value={reverseQty[a.id]??''} onChange={e=>setReverseQty(old=>({...old,[a.id]:e.target.value}))}/></label>)}</div>)}
       {selected.kind==='INBOUND'&&selected.state==='POSTED'&&<div className={s.actions}><button disabled={busy||!canWrite||!p.canCreate} onClick={()=>run(async()=>{
         const storage=`${storageKey}:reversal:${selected.id}`;const prior=sessionStorage.getItem(storage);
@@ -211,20 +214,20 @@ export default function ProductionInboundWorkbench({mobile=false}:{mobile?:boole
           if(existing[0])intent=key();}
         sessionStorage.setItem(storage,intent);
         const segments=Object.entries(reverseQty).filter(([,n])=>Number(n)>0).map(([allocationId,n])=>({allocationId,quantity:Number(n)}));
-        const d=await send<Document>(`/${selected.id}/reversals`,{intentKey:intent,reason,segments,evidenceFileIds:proof});await load(d.id);})}>{label('createReversal','依原来源建立冲销草稿')}</button></div>}
-      {selected.kind==='REVERSAL'&&finance.canEdit&&selected.state==='READY'&&<div className={s.card}><h3>{label('finance','独立财务核对')}</h3>
+        const d=await send<Document>(`/${selected.id}/reversals`,{intentKey:intent,reason,segments,evidenceFileIds:proof});await load(d.id);})}>{t('productionInstallments.createReversal','依原来源建立冲销草稿')}</button></div>}
+      {selected.kind==='REVERSAL'&&finance.canEdit&&selected.state==='READY'&&<div className={s.card}><h3>{t('productionInstallments.finance','独立财务核对')}</h3>
         {costs.map((c,i)=><div key={c.batchNo} className={s.grid}><span className={s.wide}>{c.batchNo}</span><DictSelect dictType="PRODUCTION_COST_STATUS" value={c.costStatus} onChange={v=>setCosts(old=>old.map((row,n)=>n===i?{...row,costStatus:v}:row))} allowEmpty={false}/>
-          <label className={s.field}>{label('unitCost','账载单位成本（空值表示未知）')}<input type="number" min="0" step="any" value={c.unitCost} onChange={e=>setCosts(old=>old.map((row,n)=>n===i?{...row,unitCost:e.target.value}:row))}/></label></div>)}
-        <button disabled={busy||!canWrite||selected.created_by===actor} onClick={()=>run(async()=>{await send(`/${selected.id}/financial-clearance`,{contentHash:selected.content_hash,financialEvidenceFileId:proof[0],periodStatus:'OPEN',costs:costs.map(c=>({...c,unitCost:c.unitCost===''?null:Number(c.unitCost)}))});await load(selected.id);})}>{label('financeSign','提交财务核对回执')}</button></div>}
-      {selected.kind==='REVERSAL'&&selected.state==='READY'&&p.canApprove&&<div className={s.actions}>{selected.clearances?.map(c=><div key={c.id}><button disabled={busy} onClick={()=>run(()=>preview('documents',selected.id,c.evidence_file_id))}>{label('financeProof','查看此财务签认原据')}</button><button disabled={busy||!canWrite||selected.created_by===actor} onClick={()=>run(async()=>{await send(`/${selected.id}/approve`,{version:selected.version,contentHash:selected.content_hash,financialClearanceId:c.id});await load(selected.id);})}>{label('approve','审核此摘要及财务回执')} · {c.signed_by}</button></div>)}</div>}
+          <label className={s.field}>{t('productionInstallments.unitCost','账载单位成本（空值表示未知）')}<input type="number" min="0" step="any" value={c.unitCost} onChange={e=>setCosts(old=>old.map((row,n)=>n===i?{...row,unitCost:e.target.value}:row))}/></label></div>)}
+        <button disabled={busy||!canWrite||selected.created_by===actor} onClick={()=>run(async()=>{await send(`/${selected.id}/financial-clearance`,{contentHash:selected.content_hash,financialEvidenceFileId:proof[0],periodStatus:'OPEN',costs:costs.map(c=>({...c,unitCost:c.unitCost===''?null:Number(c.unitCost)}))});await load(selected.id);})}>{t('productionInstallments.financeSign','提交财务核对回执')}</button></div>}
+      {selected.kind==='REVERSAL'&&selected.state==='READY'&&p.canApprove&&<div className={s.actions}>{selected.clearances?.map(c=><div key={c.id}><button disabled={busy} onClick={()=>run(()=>preview('documents',selected.id,c.evidence_file_id))}>{t('productionInstallments.financeProof','查看此财务签认原据')}</button><button disabled={busy||!canWrite||selected.created_by===actor} onClick={()=>run(async()=>{await send(`/${selected.id}/approve`,{version:selected.version,contentHash:selected.content_hash,financialClearanceId:c.id});await load(selected.id);})}>{t('productionInstallments.approve','审核此摘要及财务回执')} · {c.signed_by}</button></div>)}</div>}
     </section>}
-    <section className={s.card}><h2>{label('difference','差异、冲销与期间证据')}</h2><label className={s.field}>{label('reason','实物差异或期间变更依据')}<textarea maxLength={1000} value={reason} onChange={e=>setReason(e.target.value)}/></label>
-      {form.houseCode&&<AttachmentUploader ownership={ownership} value={proof} onChange={setProof} readOnly={busy||!p.canCreate&&!p.canEdit&&!finance.canEdit} label={label('differenceProof','上传本人取得的差异 / 财务依据')}/>}
-      {finance.canEdit&&<div className={s.card}><h3>{label('period','财务记账期间')}</h3><div className={s.grid}>
-        <label className={s.field}>{label('month','期间月份')}<input type="month" value={periodMonth} onChange={e=>setPeriodMonth(e.target.value)}/></label>
-        <label className={s.field}>{label('periodState','设置期间状态')}<DictSelect dictType="PRODUCTION_POSTING_PERIOD_STATE" value={periodState} onChange={setPeriodState}/></label>
-        <p>{label('periodVersion','当前期间版本')}：{period?.version??'—'}</p></div><p className={s.muted}>{label('periodHint','冲销须核对原记账月和本次记账月。期间重新开放需要财务审批权，原审批后期间版本变化须重新核对。')}</p>
-        <button disabled={busy||!period||!form.houseCode||!periodState||!proof.length} onClick={()=>run(async()=>{await send('/posting-period',{companyCode:form.companyCode,houseCode:form.houseCode,periodMonth,state:periodState,expectedVersion:period?.version,evidenceFileId:proof[0],reason});setPeriod(await request<Period>(`${endpoint}/posting-period?${new URLSearchParams({companyCode:form.companyCode,periodMonth})}`));})}>{label('signPeriod','实名确认期间状态')}</button></div>}
+    <section className={s.card}><h2>{t('productionInstallments.difference','差异、冲销与期间证据')}</h2><label className={s.field}>{t('productionInstallments.reason','实物差异或期间变更依据')}<textarea maxLength={1000} value={reason} onChange={e=>setReason(e.target.value)}/></label>
+      {form.houseCode&&<AttachmentUploader ownership={ownership} value={proof} onChange={setProof} readOnly={busy||!p.canCreate&&!p.canEdit&&!finance.canEdit} label={t('productionInstallments.differenceProof','上传本人取得的差异 / 财务依据')}/>}
+      {finance.canEdit&&<div className={s.card}><h3>{t('productionInstallments.period','财务记账期间')}</h3><div className={s.grid}>
+        <label className={s.field}>{t('productionInstallments.month','期间月份')}<input type="month" value={periodMonth} onChange={e=>setPeriodMonth(e.target.value)}/></label>
+        <label className={s.field}>{t('productionInstallments.periodState','设置期间状态')}<DictSelect dictType="PRODUCTION_POSTING_PERIOD_STATE" value={periodState} onChange={setPeriodState}/></label>
+        <p>{t('productionInstallments.periodVersion','当前期间版本')}：{period?.version??'—'}</p></div><p className={s.muted}>{t('productionInstallments.periodHint','冲销须核对原记账月和本次记账月。期间重新开放需要财务审批权，原审批后期间版本变化须重新核对。')}</p>
+        <button disabled={busy||!period||!form.houseCode||!periodState||!proof.length} onClick={()=>run(async()=>{await send('/posting-period',{companyCode:form.companyCode,houseCode:form.houseCode,periodMonth,state:periodState,expectedVersion:period?.version,evidenceFileId:proof[0],reason});setPeriod(await request<Period>(`${endpoint}/posting-period?${new URLSearchParams({companyCode:form.companyCode,periodMonth})}`));})}>{t('productionInstallments.signPeriod','实名确认期间状态')}</button></div>}
     </section>
   </main>;
 }

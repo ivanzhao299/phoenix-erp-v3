@@ -1,4 +1,5 @@
 import { OfficialInventoryLedgerCost1794977000000 } from '../../../database/migrations/1794977000000-OfficialInventoryLedgerCost';
+import { OrgOwnershipService } from '../../org/services/org-ownership.service';
 import { DataSource } from 'typeorm';
 import { ProductionCutoverManifests1794976000000 } from '../../../database/migrations/1794976000000-ProductionCutoverManifests';
 import { FlockReportCorrection1794903000000 } from '../../../database/migrations/1794903000000-FlockReportCorrection';
@@ -23,7 +24,7 @@ export async function installProductionInboundFixture(db: DataSource, grades: st
       CREATE TABLE IF NOT EXISTS product_skus (sku_code text PRIMARY KEY, product_code text, grade_code text, spec_code text, status text, effective_date date, expire_date date);
       ALTER TABLE product_skus ADD COLUMN IF NOT EXISTS variety_code text;
       CREATE TABLE IF NOT EXISTS sys_organizations (org_code text PRIMARY KEY, company_code text, org_type text, status text);
-      CREATE TABLE IF NOT EXISTS brd_farms (farm_code text PRIMARY KEY, company_code text, mapped_site_code text, status text);
+      CREATE TABLE IF NOT EXISTS ${OrgOwnershipService.FARM_TABLE} (farm_code text PRIMARY KEY, company_code text, mapped_site_code text, status text);
       CREATE TABLE IF NOT EXISTS brd_houses (house_code text PRIMARY KEY, farm_code text, status text);
       CREATE TABLE IF NOT EXISTS brd_flocks (flock_no text PRIMARY KEY, house_code text, breed_code text, strain text, status text);
       ALTER TABLE brd_flocks ADD COLUMN IF NOT EXISTS breed_code text;
@@ -59,7 +60,7 @@ export async function installProductionInboundFixture(db: DataSource, grades: st
           COALESCE(sku_code, ''), COALESCE(grade_code_std, quality_grade, ''), COALESCE(spec_code, packaging_spec, ''))
         WHERE source_type = 'TEMP_PRODUCTION' AND source_no IS NOT NULL;
       TRUNCATE inv_ledger, inv_batches, product_skus, product_grades, mst_products, packaging_specs, sys_organizations,
-        brd_farms, brd_houses, brd_flocks, md_variety_breeds, md_sku_org_scope, brd_daily_logs, wms_warehouses, wms_locations RESTART IDENTITY;
+        ${OrgOwnershipService.FARM_TABLE}, brd_houses, brd_flocks, md_variety_breeds, md_sku_org_scope, brd_daily_logs, wms_warehouses, wms_locations RESTART IDENTITY;
     `);
     const profileRunner = db.createQueryRunner();
     try { await new EggSourceProfiles1794400001000().up(profileRunner); }
@@ -85,7 +86,7 @@ export async function installProductionInboundFixture(db: DataSource, grades: st
       await db.query(`INSERT INTO md_egg_source_profiles(profile_code,company_code,farm_code,site_code,house_code,product_mode,variety_code,effective_date)
         VALUES ($1,$2,$3,$4,$5,'VARIANT','EGG_RED','2026-01-01')`, [`PROFILE-${company}`, `COMP-${company}`, `FARM-${company}`, `SITE-${company}`, `HOUSE-${company}`]);
       await db.query("INSERT INTO sys_organizations VALUES ($1,$1,'COMPANY','ACTIVE')", [`COMP-${company}`]);
-      await db.query("INSERT INTO brd_farms VALUES ($1,$2,$3,'ACTIVE')", [`FARM-${company}`, `COMP-${company}`, `SITE-${company}`]);
+      await db.query(`INSERT INTO ${OrgOwnershipService.FARM_TABLE} VALUES ($1,$2,$3,'ACTIVE')`, [`FARM-${company}`, `COMP-${company}`, `SITE-${company}`]);
       await db.query("INSERT INTO brd_houses VALUES ($1,$2,'ACTIVE')", [`HOUSE-${company}`, `FARM-${company}`]);
       await db.query("INSERT INTO wms_warehouses VALUES ($1,$2,$3,'ACTIVE','EGG_FARM','OPERATIONAL')", [`WH-${company}`, `COMP-${company}`, `SITE-${company}`]);
       await db.query("INSERT INTO wms_locations VALUES ($1,$2,'ACTIVE')", [`LOC-${company}`, `WH-${company}`]);

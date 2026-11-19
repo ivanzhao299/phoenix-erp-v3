@@ -100,7 +100,7 @@ export const git = migrationScope; export const rollbackEligibility = () => ({al
   fs.copyFileSync(path.join(ops, 'production-trusted-paths.mjs'), path.join(dir, 'real-trusted.mjs'));
   fs.writeFileSync(path.join(dir, 'production-trusted-paths.mjs'), `
 import fs from 'node:fs';
-export { assertSameDirectory, assertContained } from './real-trusted.mjs';
+export * from './real-trusted.mjs';
 import { assertRegularFile as regular, readPinnedFile as read } from './real-trusted.mjs';
 export const inspectTrustedDirectory = directory => { const s=fs.lstatSync(directory); return {dev:s.dev,ino:s.ino,mode:s.mode}; };
 export const assertRegularFile = s => regular(s,{uid:process.getuid()});

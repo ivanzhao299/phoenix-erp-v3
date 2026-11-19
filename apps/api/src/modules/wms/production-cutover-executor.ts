@@ -44,7 +44,7 @@ export async function applyApprovedProductionCutover(q:QueryRunner,request:{admi
     if(!business)throw new ConflictException('CUTOVER_EXECUTOR_BUSINESS_SIGNATURE_REQUIRED');
     const flockNos=document.snapshot.flocks.map((flock:{flock_no:string})=>flock.flock_no);
     await q.query('SELECT flock_no FROM brd_flocks WHERE flock_no=ANY($1::text[]) ORDER BY flock_no FOR UPDATE NOWAIT',[flockNos]);
-    await q.query(`SELECT house.house_code FROM brd_houses house JOIN brd_farms farm ON farm.farm_code=house.farm_code
+    await q.query(`SELECT house.house_code FROM brd_houses house JOIN ${OrgOwnershipService.FARM_TABLE} farm ON farm.farm_code=house.farm_code
       WHERE house.house_code=ANY($1::text[]) ORDER BY house.house_code FOR SHARE OF house,farm NOWAIT`,[houses.map(house=>house.houseCode)]);
     await q.query(`SELECT org_code FROM sys_organizations WHERE org_type='COMPANY' AND COALESCE(company_code,org_code)=$1 ORDER BY org_code FOR SHARE NOWAIT`,[document.company_code]);
     const masterSkus=document.snapshot.masters.skus as Array<{sku_code:string;product_code:string;grade_code:string;spec_code:string;variety_code:string|null;status:string}>;

@@ -1,4 +1,5 @@
 import { ConflictException } from '@nestjs/common';
+import { OrgOwnershipService } from '../../org/services/org-ownership.service';
 import { createHash } from 'crypto';
 import { EntityManager } from 'typeorm';
 
@@ -27,7 +28,7 @@ export async function lockRawCollectionReference(m:EntityManager,id:string,d:{co
     to_jsonb(s)-ARRAY['created_at','updated_at'] AS original_record,f.farm_code,f.company_code,
     shift.production_date::text AS shift_date,shift.is_test AS shift_is_test,shift.site_id AS shift_site_id
     FROM pkg_source_batches s JOIN pkg_work_shifts shift ON shift.id=s.shift_id JOIN brd_houses house ON house.house_code=s.house_code
-    JOIN brd_farms f ON f.farm_code=house.farm_code WHERE s.id=$1::bigint FOR SHARE OF s,shift,house,f`,[id]);
+    JOIN ${OrgOwnershipService.FARM_TABLE} f ON f.farm_code=house.farm_code WHERE s.id=$1::bigint FOR SHARE OF s,shift,house,f`,[id]);
   if(!source||source.company_code!==d.companyCode||source.house_code!==d.houseCode||source.production_date!==d.productionDate
     ||source.lay_date&&source.lay_date!==d.productionDate||source.batch_status!=='RECEIVED'||source.is_test!==false
     ||source.shift_site_id!==source.farm_code||source.shift_date!==d.productionDate||source.shift_is_test!==false)

@@ -19,7 +19,6 @@ const empty=():Draft=>({quantities:{},feed:'',water:'',note:''});
 const day=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Singapore'}).format(new Date());
 export default function ProductionReports(){
   useMobilePermission('production_reports');const permission=usePermission('MENU_FARM_DAILY');const {t,lang}=useLanguage();
-  const label=(key:string,fallback:string)=>t(`productionReports.${key}`,fallback);
   const [house,setHouse]=useState<House|null>(null),[date,setDate]=useState(day),[shift,setShift]=useState('');
   const [state,setState]=useState(''),[basis,setBasis]=useState<Basis|null>(null),[grades,setGrades]=useState<ProductGrade[]>([]);
   const [reports,setReports]=useState<Report[]>([]),[draft,setDraft]=useState<Draft>(empty),[loadedKey,setLoadedKey]=useState('');
@@ -47,28 +46,28 @@ export default function ProductionReports(){
     try{await request('/v3/farm/daily-logs',{method:'POST',body:JSON.stringify({house_code:house!.houseCode,flock_no:basis.flock_no,log_date:date,shift,
       eggs_by_grade:Object.fromEntries(grades.map(g=>[g.grade_code,Number(draft.quantities[g.grade_code])])),
       ...(draft.feed!==''?{feed_consumed:Number(draft.feed)}:{}),...(draft.water!==''?{water_consumed:Number(draft.water)}:{}),note:draft.note})});
-      setRevision(n=>n+1);setNotice(label('saved','日报已保存。入库时选择本班次的实际交接分段。'));
+      setRevision(n=>n+1);setNotice(t('productionReports.saved','日报已保存。入库时选择本班次的实际交接分段。'));
     }catch(e){setError(e instanceof Error?e.message:String(e));}finally{setBusy(false);}};
-  return <main className={s.page}><h1>{label('title','正式分级产蛋日报')}</h1><div className={s.actions}>
+  return <main className={s.page}><h1>{t('productionReports.title','正式分级产蛋日报')}</h1><div className={s.actions}>
     <Link href="/mobile/home">{t('common.back','返回')}</Link><Link href="/mobile/production-inbound">{t('productionInstallments.title','分次生产入库')}</Link></div>
-    <p className={s.notice}>{label('instructions','按真实班次填写全部分级数量；没有产量的档位请明确填0。日报不自动入库，死淘由生命周期单据汇总。')}</p>
+    <p className={s.notice}>{t('productionReports.instructions','按真实班次填写全部分级数量；没有产量的档位请明确填0。日报不自动入库，死淘由生命周期单据汇总。')}</p>
     {error&&<p role="alert" className={`${s.notice} ${s.error}`}>{error}</p>}{notice&&<p role="status" className={s.notice}>{notice}</p>}
     <section className={s.card}><div className={s.grid}>
-      <label className={s.field}>{t('common.house','鸡舍')}<HouseSelector ariaLabel={t('common.house','鸡舍')} value={house?.houseCode??''} onChange={code=>{if(!code)setHouse(null);}} onPick={opt=>setHouse(opt?{houseCode:opt.value,companyCode:String(opt.raw?.companyCode??''),siteCode:String(opt.raw?.siteCode??'')}:null)}/></label>
+      <label className={s.field}>{t('productionInstallments.house','鸡舍')}<HouseSelector ariaLabel={t('productionInstallments.house','鸡舍')} value={house?.houseCode??''} onChange={code=>{if(!code)setHouse(null);}} onPick={opt=>setHouse(opt?{houseCode:opt.value,companyCode:String(opt.raw?.companyCode??''),siteCode:String(opt.raw?.siteCode??'')}:null)}/></label>
       <label className={s.field}>{t('productionInstallments.productionDate','生产日期')}<input type="date" value={date} max={day()} onChange={e=>setDate(e.target.value)}/></label>
       <label className={s.field}>{t('productionInstallments.shift','来源班次')}<DictSelect dictType="PRODUCTION_REPORT_SHIFT" ariaLabel={t('productionInstallments.shift','来源班次')} value={shift} onChange={setShift}/></label>
-      <label className={s.field}>{label('flock','有效占栏鸡群')}<input readOnly value={basis?.flock_no??''}/></label></div>
-      {house&&state!=='ACTIVE'&&<p>{label('closed','该范围尚未启用或已暂停，请先核对切换状态。')}</p>}
-      {prior?<div className={s.notice}><p>{label('existing','该班次已有原日报，以下为原始记录；更正请走审核单。')}</p>
+      <label className={s.field}>{t('productionReports.flock','有效占栏鸡群')}<input readOnly value={basis?.flock_no??''}/></label></div>
+      {house&&state!=='ACTIVE'&&<p>{t('productionReports.closed','该范围尚未启用或已暂停，请先核对切换状态。')}</p>}
+      {prior?<div className={s.notice}><p>{t('productionReports.existing','该班次已有原日报，以下为原始记录；更正请走审核单。')}</p>
         {grades.map(g=><p key={g.grade_code}>{localizedMasterName(g as unknown as Record<string,unknown>,'grade_name',lang)||g.grade_code}: {prior.eggs_by_grade?.[g.grade_code]??'—'}</p>)}</div>:
       <><div className={s.grid}>{grades.map(g=><label className={s.field} key={g.grade_code}>
         {localizedMasterName(g as unknown as Record<string,unknown>,'grade_name',lang)||g.grade_code}
         <input aria-label={g.grade_code} type="number" inputMode="numeric" step="1" min="0" disabled={!ready||busy||!permission.canEdit} value={draft.quantities[g.grade_code]??''}
           onChange={e=>setDraft(d=>({...d,quantities:{...d.quantities,[g.grade_code]:e.target.value}}))}/></label>)}</div>
-      <div className={s.grid}><label className={s.field}>{label('feed','本班饲料 kg（未记录留空）')}<input type="number" min="0" step="any" value={draft.feed} onChange={e=>setDraft(d=>({...d,feed:e.target.value}))}/></label>
-        <label className={s.field}>{label('water','本班饮水 L（未记录留空）')}<input type="number" min="0" step="any" value={draft.water} onChange={e=>setDraft(d=>({...d,water:e.target.value}))}/></label>
+      <div className={s.grid}><label className={s.field}>{t('productionReports.feed','本班饲料 kg（未记录留空）')}<input type="number" min="0" step="any" value={draft.feed} onChange={e=>setDraft(d=>({...d,feed:e.target.value}))}/></label>
+        <label className={s.field}>{t('productionReports.water','本班饮水 L（未记录留空）')}<input type="number" min="0" step="any" value={draft.water} onChange={e=>setDraft(d=>({...d,water:e.target.value}))}/></label>
         <label className={s.field}>{t('common.remark','备注')}<textarea value={draft.note} onChange={e=>setDraft(d=>({...d,note:e.target.value}))}/></label></div>
-      <div className={s.actions}><button disabled={!valid||busy||!permission.canEdit} onClick={submit}>{label('save','确认本班次日报')}</button></div></>}
-      <div className={s.actions}><button disabled={busy} onClick={()=>setRevision(n=>n+1)}>{label('recover','查找原日报 / 刷新')}</button></div>
+      <div className={s.actions}><button disabled={!valid||busy||!permission.canEdit} onClick={submit}>{t('productionReports.save','确认本班次日报')}</button></div></>}
+      <div className={s.actions}><button disabled={busy} onClick={()=>setRevision(n=>n+1)}>{t('productionReports.recover','查找原日报 / 刷新')}</button></div>
     </section></main>;
 }

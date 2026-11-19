@@ -6,6 +6,7 @@ import {
   isUnsafeAttachmentRef,
   isProtectedFileRef,
   downloadProtectedPdf,
+  previewProtectedAttachment,
 } from '@/lib/attachments';
 
 /**
@@ -34,6 +35,49 @@ describe('parseAttachmentRefs', () => {
 
   it('edge: malformed JSON array does not throw, returns empty', () => {
     expect(parseAttachmentRefs('["FILE-a", ')).toEqual([]);
+  });
+});
+
+describe('previewProtectedAttachment', () => {
+  const messages = { blocked: 'Preview blocked', unavailable: 'Evidence unavailable' };
+
+  it('reserves an isolated window before fetching and revokes the typed blob URL', async () => {
+    vi.useFakeTimers();
+    const tab = { opener: window, closed: false, location: { href: '' }, close: vi.fn() };
+    const open = vi.spyOn(window, 'open').mockReturnValue(tab as unknown as Window);
+    const create = vi.fn(() => 'blob:owned-preview');
+    const revoke = vi.fn();
+    vi.stubGlobal('URL', { createObjectURL: create, revokeObjectURL: revoke });
+    try {
+      const proof = new Blob(['%PDF-1.4'], { type: 'application/pdf' });
+      await previewProtectedAttachment(async () => {
+        expect(open).toHaveBeenCalledWith('about:blank', '_blank');
+        expect(tab.opener).toBeNull();
+        return proof;
+      }, messages);
+      expect(create).toHaveBeenCalledWith(proof);
+      expect(tab.location.href).toBe('blob:owned-preview');
+      vi.advanceTimersByTime(60_000);
+      expect(revoke).toHaveBeenCalledWith('blob:owned-preview');
+    } finally {
+      open.mockRestore();
+      vi.unstubAllGlobals();
+      vi.useRealTimers();
+    }
+  });
+
+  it('closes an unused preview without navigating on a stale or unsupported response', async () => {
+    const tab = { opener: window, closed: false, location: { href: '' }, close: vi.fn() };
+    const open = vi.spyOn(window, 'open').mockReturnValue(tab as unknown as Window);
+    try {
+      await previewProtectedAttachment(async () => null, messages);
+      await expect(previewProtectedAttachment(async () => new Blob(['test'], { type: 'text/html' }), messages))
+        .rejects.toThrow(messages.unavailable);
+      expect(tab.close).toHaveBeenCalledTimes(2);
+      expect(tab.location.href).toBe('');
+    } finally {
+      open.mockRestore();
+    }
   });
 });
 

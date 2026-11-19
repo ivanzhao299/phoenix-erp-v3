@@ -298,7 +298,8 @@ export default function DailyPage() {
     const user = JSON.parse(typeof window !== 'undefined' ? sessionStorage.getItem('phoenix_user') || '{}' : '{}');
     const eggsByGrade = Object.fromEntries(Object.entries(row.gradeQty).filter(([, value]) => officialReport?value!=='':Number(value)>0).map(([code, value]) => [code, Number(value)]));
     const payload: Record<string, unknown> = {
-      shift:officialReport?row.shift:'DAILY',house_code: selectedHouse, flock_no: flockByHouse[selectedHouse] || selectedHouse,
+      ...(officialReport ? { shift: row.shift } : {}),
+      house_code: selectedHouse, flock_no: flockByHouse[selectedHouse] || selectedHouse,
       farm_code: farmCodeByHouse[selectedHouse] || '', log_date: formDate,
       feed_consumed: row.feedKg===''||row.feedKg==null?null:Number(row.feedKg), water_consumed:row.waterL===''||row.waterL==null?null:Number(row.waterL),
       mortality_qty: Number(row.deaths) || 0, mortality_reason: row.mortalityReason || null,

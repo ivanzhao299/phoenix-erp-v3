@@ -1,4 +1,5 @@
 import { readCutoverProcessingEvidence } from './production-cutover-processing-evidence';
+import { OrgOwnershipService } from '../org/services/org-ownership.service';
 import { cutoverFactSql } from './cutover-evidence-row';
 import { BadRequestException, ConflictException } from '@nestjs/common';
 import { createHash } from 'crypto';
@@ -51,8 +52,8 @@ async function readProductionCutoverEvidenceUtc(m:EntityManager,input:CutoverEvi
   };
   const warehouse=await rows('wms_warehouses',"f.warehouse_code=$1 AND f.company_code=$2",[scope.warehouseCode,scope.companyCode]);
   if(warehouse.length!==1)warnings.push('WAREHOUSE_COMPANY_IDENTITY_UNRESOLVED');
-  const owners=exists('brd_houses')&&exists('brd_farms')?await m.query(`SELECT h.house_code,h.farm_code,h.status,
-    f.company_code,f.mapped_site_code AS site_code,f.status AS farm_status FROM brd_houses h JOIN brd_farms f ON f.farm_code=h.farm_code
+  const owners=exists('brd_houses')&&exists(OrgOwnershipService.FARM_TABLE)?await m.query(`SELECT h.house_code,h.farm_code,h.status,
+    f.company_code,f.mapped_site_code AS site_code,f.status AS farm_status FROM brd_houses h JOIN ${OrgOwnershipService.FARM_TABLE} f ON f.farm_code=h.farm_code
     WHERE h.house_code=ANY($1::text[]) ORDER BY h.house_code`,[houses]):[];
   if(owners.length!==houses.length||owners.some((h:{company_code:string})=>h.company_code!==scope.companyCode))warnings.push('HOUSE_COMPANY_IDENTITY_UNRESOLVED');
   const masters={products:await rows('mst_products','f.product_code=ANY($1::text[])',[scope.productCodes]),
