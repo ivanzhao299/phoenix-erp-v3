@@ -1,0 +1,45 @@
+name: GitHub OIDC runner contract probe
+on:
+  push:
+    branches: [codex/production-oidc-runner-probe]
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  observe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v5
+      - name: Observe safe OIDC protocol fields
+        run: |
+          set -Eeuo pipefail
+          node --input-type=module <<'JS'
+          import {requestModernSchemaIdentityToken,modernSchemaIdentityAudience} from './scripts/ops/production-modern-schema-identity.mjs';
+          const expected={owner:process.env.GITHUB_RUN_ID+'-'+process.env.GITHUB_RUN_ATTEMPT,targetSha:process.env.GITHUB_SHA,preparationSha256:'0'.repeat(64)};
+          const original=process.env.ACTIONS_ID_TOKEN_REQUEST_URL;
+          const url=original&&new URL(original);
+          const trusted=url&&url.protocol==='https:'&&url.hostname.endsWith('.actions.githubusercontent.com')&&!url.username&&!url.password&&!url.hash&&!url.port;
+          const contract={available:!!url,credentialPresent:!!process.env.ACTIONS_ID_TOKEN_REQUEST_TOKEN,trustedHost:!!trusted,idtokenPath:!!url?.pathname.endsWith('/idtoken'),idtokenSlash:!!url?.pathname.endsWith('/idtoken/'),knownHostSuffix:url?.hostname.endsWith('.githubusercontent.com')===true,queryHasApiVersion:url?.searchParams.has('api-version')===true};
+          console.log('RUNNER_CONTRACT='+JSON.stringify(contract));
+          const fixedCode=error=>/^MODERN_SCHEMA_IDENTITY_HOLD=[A-Z0-9_]+$/.test(error?.message??'')?error.message:'IDENTITY_REQUEST_FAILED';
+          let token;
+          try{token=await requestModernSchemaIdentityToken(expected);console.log('EXISTING_REQUEST=PASS');}
+          catch(error){console.log('EXISTING_REQUEST='+fixedCode(error));}
+          if(!token&&trusted&&contract.credentialPresent){
+            try{
+              const response=await fetch(original+(url.search?'&':'?')+'audience='+encodeURIComponent(modernSchemaIdentityAudience(expected)),{method:'GET',headers:{Authorization:'Bearer '+process.env.ACTIONS_ID_TOKEN_REQUEST_TOKEN,Accept:'application/json'},redirect:'manual',signal:AbortSignal.timeout(12000)});
+              console.log('APPEND_REQUEST_HTTP='+response.status);
+              if(response.ok){const payload=await response.json();token=payload?.value;}
+            }catch{console.log('APPEND_REQUEST=UNAVAILABLE');}
+          }
+          if(typeof token==='string'&&token.length<16384&&token.split('.').length===3){
+            try{
+              const [h,c]=token.split('.').slice(0,2).map(x=>JSON.parse(Buffer.from(x,'base64url').toString()));
+              const keyResult=await fetch('https://token.actions.githubusercontent.com/.well-known/jwks',{redirect:'error',signal:AbortSignal.timeout(10000)});
+              const keys=(await keyResult.json()).keys??[];
+              const key=keys.find(row=>row.kid===h.kid);
+              console.log('SIGNED_SHAPE='+JSON.stringify({headerRS256:h.alg==='RS256',headerTypeJwt:h.typ==='JWT',headerExactKeys:Object.keys(h).every(k=>['alg','typ','kid','x5t'].includes(k)),keyUseSig:key?.use==='sig',keyAlgRS256:key?.alg==='RS256',fixedIssuer:c.iss==='https://token.actions.githubusercontent.com',matchAudience:c.aud===modernSchemaIdentityAudience(expected),repositoryIdExpected:c.repository_id==='1239767008',ownerIdExpected:c.repository_owner_id==='154717306',expectedCheckId:/^[1-9][0-9]{0,19}$/.test(c.check_run_id||''),checkRunIdString:typeof c.check_run_id==='string',matchingWorkflowClaims:c.job_workflow_ref===c.workflow_ref&&c.job_workflow_sha===c.workflow_sha}));
+            }catch{console.log('SIGNED_SHAPE=UNAVAILABLE');}
+          }
+          JS
