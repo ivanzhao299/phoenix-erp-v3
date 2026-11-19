@@ -53,5 +53,32 @@ test('actual modern sealed psql adapter refuses early unlock and same-backend re
   await assert.rejects(session.query('SELECT pg_advisory_unlock_all();'),/MUTATION_FORBIDDEN/);
   await assert.rejects(session.query('BEGIN READ ONLY;'),/FIXED_CONTROL_READ_REQUIRED/);
   assert.equal(assertModernSchemaLeaseStillOriginal(pinned,{read}),true);
+  // Keep the real default five-second S budget. No query is pending while
+  // host observation deliberately blocks beyond it, and both lock pins stay.
+  assert.equal(session.commandTimeoutMs,5000);
+  const first=session.query(originalModernSchemaSessionPredicate(pinned));
+  const observation=session.withSynchronousObservation(()=>{
+   assert.equal(session.pending,null);assert.deepEqual(parseModernSchemaLease(read(MODERN_SCHEMA_LEASE_SQL)),pinned);
+   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)),0,0,5200);
+   assert.deepEqual(parseModernSchemaLease(read(MODERN_SCHEMA_LEASE_SQL)),pinned);return 'NATIVE_OBSERVATION_COMPLETE';
+  });
+  const after=session.query(originalModernSchemaSessionPredicate(pinned));
+  assert.deepEqual(await Promise.all([first,observation,after]),[true,'NATIVE_OBSERVATION_COMPLETE',true]);
+  assert.equal(assertModernSchemaLeaseStillOriginal(pinned,{read}),true);
  }finally{closing=true;if(session.connected()){await session.unlock(2).catch(()=>{});await session.unlock(1).catch(()=>{});}await session.close();}
+});
+test('real delayed PostgreSQL answer still loses the original S and never runs its queued host observation',{skip:process.env.MODERN_SCHEMA_LEASE_PG!=='1'},async()=>{
+ const container='phoenix-temp-reversal-20261118',database='modern_schema_fixed_scope_20261119';
+ const labels=JSON.parse(execFileSync('/usr/bin/docker',['inspect',container,'--format','{{json .Config.Labels}}'],{encoding:'utf8'}));assert.equal(labels['phoenix.fixture'],'temp-reversal');
+ const session=new ModernSchemaControlSession({}, {spawn:(binary,args,options)=>{
+  const actual=[...args];actual[actual.indexOf('phoenix-v3-db')]=container;actual[actual.length-1]=actual.at(-1).replace('"$POSTGRES_USER"','postgres').replace('"$POSTGRES_DB"',database);return spawn(binary,actual,options);
+ }});
+ try{
+  await session.start();session.commandTimeoutMs=200;let ran=false;
+  const query=session.query('SELECT NOT pg_is_in_recovery() FROM pg_sleep(0.7);');
+  const observation=session.withSynchronousObservation(()=>{ran=true;});
+  const results=await Promise.allSettled([query,observation]);
+  assert.match(results[0].reason.message,/CONTROL_SESSION_TIMEOUT/);assert.match(results[1].reason.message,/ORIGINAL_CONTROL_CHANNEL_NOT_IDLE/);
+  assert.equal(session.connected(),false);assert.equal(ran,false);
+ }finally{await session.close();}
 });

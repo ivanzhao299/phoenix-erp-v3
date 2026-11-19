@@ -143,9 +143,14 @@ export class ModernSchemaExecutorWatch {
  withNativeCreate(work){return this.serially(async()=>{await this.check();const result=await work();await this.check();return result;});}
  observe(initialize=false){return this.serially(()=>this.observeNative(initialize));}
  async observeNative(initialize=false){
-  await this.check();const values=this.containers();
-  const runtime=this.verifyContainers(values);this.verifyProcesses(values,initialize);
-  const schedulers=captureMaintenanceSchedulers({includeDatabaseEntrypoints:true});if(canonicalDigest(schedulers)!==this.preparation.hostSurface.schedulerSha256||schedulers.some(value=>value.erpControlReference))fail('SCHEDULER_DEFINITION_CHANGED_OR_UNACCOUNTED');
+  await this.check();
+  const {values,runtime,schedulers}=await this.session.withSynchronousObservation(()=>{
+   this.runtime.guard();this.assertHealthy();
+   if(this.state.read().status!=='RUNNING')fail('RUNNING_ORIGINAL_OBSERVATION_REQUIRED');
+   const values=this.containers(),runtime=this.verifyContainers(values);this.verifyProcesses(values,initialize);
+   const schedulers=captureMaintenanceSchedulers({includeDatabaseEntrypoints:true});if(canonicalDigest(schedulers)!==this.preparation.hostSurface.schedulerSha256||schedulers.some(value=>value.erpControlReference))fail('SCHEDULER_DEFINITION_CHANGED_OR_UNACCOUNTED');
+   return {values,runtime,schedulers};
+  });
   for(const reader of this.readers){if(reader.client.broken)fail('OWNED_READ_TRANSPORT_LOST');verifyModernSchemaChild(reader.entry,this.inspectProcess(reader.entry.pin.pid));}
   const {rows:[{observation}]}=await this.client.query(MODERN_SCHEMA_EXECUTOR_SQL),database=JSON.parse(observation),ownedReadSessions=this.readers.map(reader=>reader.pin);
   if(this.readCommand){

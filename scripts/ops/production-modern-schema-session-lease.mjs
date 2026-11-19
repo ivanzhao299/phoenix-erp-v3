@@ -1,6 +1,7 @@
 /** Exact original modern PostgreSQL session and supervisor identity. A new
  * process holding FD9 or newly acquired advisory locks cannot impersonate it. */
 import fs from 'node:fs';import {execFileSync} from 'node:child_process';
+import {AsyncLocalStorage} from 'node:async_hooks';
 import {executionEnv} from './capture-production-runtime.mjs';
 import {canonicalDigest,same} from './production-maintenance-receipts.mjs';
 import {DockerPostgresControlSession} from './background-control-coordinator.mjs';
@@ -51,16 +52,49 @@ export async function pinOriginalModernSchemaSession(session,context,dependencie
  * on the same backend; release is confined to coordinator.close(). Legacy
  * control sessions keep their existing interface and behavior. */
 export class ModernSchemaControlSession extends DockerPostgresControlSession {
- #sealed=false;#keys=new Set();#isClosing;
+ #sealed=false;#keys=new Set();#isClosing;#observations=new AsyncLocalStorage();
  constructor(options={},dependencies={}){super(options,dependencies);this.#isClosing=dependencies.isClosing??(()=>false);}
- sealForModernSchema(){if(this.#sealed||!this.connected()||this.#keys.size!==2||![1,2].every(key=>this.#keys.has(key)))fail('ORIGINAL_DUAL_OWNER_REQUIRED');this.#sealed=true;}
- async tryLock(key){if(this.#sealed)fail('SEALED_LEASE_REACQUIRE_FORBIDDEN');const held=await super.tryLock(key);if(held)this.#keys.add(key);return held;}
- async unlock(key){if(this.#sealed&&!this.#isClosing())fail('SEALED_LEASE_EARLY_UNLOCK_FORBIDDEN');const released=await super.unlock(key);if(released)this.#keys.delete(key);return released;}
- async query(sql){
+ #rejectObservationReentry(){
+  const scope=this.#observations.getStore();if(!scope)return null;scope.violated=true;
+  const rejection=Promise.reject(Error('MODERN_SCHEMA_LEASE_HOLD=OBSERVATION_CONTROL_REENTRY_FORBIDDEN'));
+  rejection.catch(()=>{});return rejection;
+ }
+ start(){return this.#rejectObservationReentry()??super.start();}
+ close(){return this.#rejectObservationReentry()??super.close();}
+ ping(){return this.#rejectObservationReentry()??super.ping();}
+ verifyParticipants(participants){return this.#rejectObservationReentry()??super.verifyParticipants(participants);}
+ sealForModernSchema(){
+  const scope=this.#observations.getStore();if(scope){scope.violated=true;fail('OBSERVATION_CONTROL_REENTRY_FORBIDDEN');}
+  if(this.#sealed||!this.connected()||this.#keys.size!==2||![1,2].every(key=>this.#keys.has(key)))fail('ORIGINAL_DUAL_OWNER_REQUIRED');this.#sealed=true;
+ }
+ tryLock(key){return this.#rejectObservationReentry()??this.#tryLock(key);}
+ async #tryLock(key){if(this.#sealed)fail('SEALED_LEASE_REACQUIRE_FORBIDDEN');const held=await super.tryLock(key);if(held)this.#keys.add(key);return held;}
+ unlock(key){return this.#rejectObservationReentry()??this.#unlock(key);}
+ async #unlock(key){if(this.#sealed&&!this.#isClosing())fail('SEALED_LEASE_EARLY_UNLOCK_FORBIDDEN');const released=await super.unlock(key);if(released)this.#keys.delete(key);return released;}
+ query(sql){return this.#rejectObservationReentry()??this.#query(sql);}
+ async #query(sql){
   if(this.#sealed&&/pg_(?:(?:try_)?advisory_(?:lock|unlock)(?:_all)?)/i.test(sql)&&!this.#isClosing())fail('SEALED_LEASE_MUTATION_FORBIDDEN');
   if(!/^\s*SELECT\b/i.test(sql)||/;\s*\S/.test(sql))fail('FIXED_CONTROL_READ_REQUIRED');
   if(this.#sealed&&!this.#isClosing()&&!/^\s*SELECT\s+(?:true\s*;|count\(\*\)=1\b|NOT pg_is_in_recovery\(\))/i.test(sql))fail('FIXED_SEALED_CONTROL_READ_REQUIRED');
   return super.query(sql);
+ }
+ /** Same queue as real S queries: drain the actual response before beginning
+  * long synchronous host reads. This slot never changes the query timeout. */
+ withSynchronousObservation(work){
+  const denied=this.#rejectObservationReentry();if(denied)return denied;
+  const operation=this.queue.then(()=>{
+   if(this.#isClosing()||!this.connected()||this.pending)fail('ORIGINAL_CONTROL_CHANNEL_NOT_IDLE');
+   if(typeof work!=='function'||work.constructor?.name==='AsyncFunction')fail('SYNCHRONOUS_OBSERVATION_REQUIRED');
+   const scope={violated:false};
+   return this.#observations.run(scope,()=>{
+    const value=work();
+    if(value&&typeof value.then==='function'){Promise.resolve(value).catch(()=>{});fail('SYNCHRONOUS_OBSERVATION_REQUIRED');}
+    if(scope.violated)fail('OBSERVATION_CONTROL_REENTRY_FORBIDDEN');
+    if(this.#isClosing()||!this.connected()||this.pending)fail('ORIGINAL_CONTROL_CHANNEL_NOT_IDLE');
+    return value;
+   });
+  });
+  this.queue=operation.catch(()=>undefined);return operation;
  }
 }
 export function readLinuxProcessIdentity(pid,dependencies={}){
@@ -84,4 +118,12 @@ export function assertOriginalModernSchemaProcess(supervisor,dependencies={}){
 }
 export function assertModernSchemaLeaseStillOriginal(expected,dependencies={}){
  const actual=observeModernSchemaLease(dependencies);if(!same(expected,actual))fail('ORIGINAL_SESSION_LOST_OR_REPLACED');return true;
+}
+export async function verifyOriginalModernSchemaAdmission({session,lease,observeHost}){
+ await session.withSynchronousObservation(observeHost);
+ if(await session.query(originalModernSchemaSessionPredicate(lease))!==true)fail('ORIGINAL_NATIVE_SESSION_LOST');
+ // Queued host reads may cross an approval window. A live S alone cannot
+ // carry the earlier authority/phase check through that wait.
+ await session.withSynchronousObservation(observeHost);
+ return true;
 }

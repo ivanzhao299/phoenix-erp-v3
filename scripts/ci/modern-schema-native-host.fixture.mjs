@@ -114,7 +114,7 @@ async function main(){
     const admit=async()=>{guard();return session.query(originalModernSchemaSessionPredicate(lease));};
     await watchClient.start();
     const watch=new ModernSchemaExecutorWatch({context,preparation:{originalSnapshot,hostSurface:surface,floor:{project:'phoenix-erp'},ownedResources:[]},
-      state:{read:()=>({phase})},rootLease:lease,session,client:watchClient,privateRuntime,admit});
+      state:{read:()=>({phase,status:'RUNNING'})},rootLease:lease,session,client:watchClient,privateRuntime,admit});
     await watch.registerReadTransport(client);await watch.registerReadTransport(watchClient);
     setPhase('DRAINED');
     const initial=await watch.initialize();assert.ok(initial.executors.runtimeSessionPids.length>=1);

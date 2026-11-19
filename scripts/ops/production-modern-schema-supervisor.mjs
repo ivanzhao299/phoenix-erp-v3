@@ -13,7 +13,7 @@ import {assertInitialModernSchemaProfile,captureModernSchemaFacts,assertModernSc
 import {collectConfirmedLegacyScope} from './production-modern-schema-confirmed-scope.mjs';import {collectLegacyEggAuditEvidence} from './production-legacy-egg-audit-evidence.mjs';
 import {modernSchemaMigrationEvidenceDigest,compareStableLegacyAudit} from './production-modern-schema-audit-recheck.mjs';
 import {ModernSchemaReleaseState,modernSchemaStepEvidence,classifyModernSchemaRecovery} from './production-modern-schema-state.mjs';
-import {ModernSchemaControlSession,pinOriginalModernSchemaSession,originalModernSchemaSessionPredicate,assertModernSchemaLeaseStillOriginal,assertOriginalModernSchemaProcess} from './production-modern-schema-session-lease.mjs';
+import {ModernSchemaControlSession,pinOriginalModernSchemaSession,originalModernSchemaSessionPredicate,assertModernSchemaLeaseStillOriginal,assertOriginalModernSchemaProcess,verifyOriginalModernSchemaAdmission} from './production-modern-schema-session-lease.mjs';
 import {pinModernSchemaChild} from './production-modern-schema-processes.mjs';
 import {BackgroundManifestPublisher,assertSameBinding,readPublicManifest,HOLD_KINDS} from './background-control-manifest.mjs';
 import {BackgroundFenceCoordinator,inspectApiParticipant,verifyCompletedDeployment} from './background-control-coordinator.mjs';
@@ -47,15 +47,22 @@ export async function superviseModernSchemaRelease(env,input){
  const denialAdmission=()=>{runtime.guard();if(!originalProcess||originalProcess.pid!==process.pid||assertOriginalModernSchemaProcess(originalProcess)!==true)fail('ORIGINAL_DENIAL_SUPERVISOR_LOST');
   if(state)assertSameBinding(state.read(),state.binding);return true;};
  const native=async({allowHeld=false}={})=>{
-  runtime.guard();if(fatal&&!allowHeld)throw fatal;watch?.assertHealthy();
-  if(env.TARGET_SHA!==context.targetSha||env.DEPLOY_RUN_ID!==context.owner)fail('ORIGINAL_HOST_ENVIRONMENT_CHANGED');
-  const record=store.read(`schema-release-preparation-${context.owner}.json`);if(!same(record,preparation)||record.preparationSha256!==input.preparationSha256)fail('PROTECTED_PREPARATION_CHANGED');
-  readRegisteredModernSchemaApproval(context);
-  if(originalProcess&&(originalProcess.pid!==process.pid||assertOriginalModernSchemaProcess(originalProcess)!==true))fail('ORIGINAL_SUPERVISOR_CHANGED');
-  if(state){const pending=state.read();assertSameBinding(pending,state.binding);if(!allowHeld&&pending.status!=='RUNNING')fail('PENDING_NOT_RUNNING');}
-  if(rootLease){if(!coordinator.session.connected()||assertModernSchemaLeaseStillOriginal(rootLease)!==true||await coordinator.session.query(originalModernSchemaSessionPredicate(rootLease))!==true)fail('ORIGINAL_NATIVE_SESSION_LOST');}
-  const floor=secureJson(path.join(directory,'floor.json'));if(floor.chanjetPolicy!=='HOLD'||floor.readonlyApproval!==null)fail('CHANJET_HOLD_CHANGED');
-  runtime.guard();return true;
+  const observeHost=()=>{
+   runtime.guard();if(fatal&&!allowHeld)throw fatal;watch?.assertHealthy();
+   if(env.TARGET_SHA!==context.targetSha||env.DEPLOY_RUN_ID!==context.owner)fail('ORIGINAL_HOST_ENVIRONMENT_CHANGED');
+   const record=store.read(`schema-release-preparation-${context.owner}.json`);if(!same(record,preparation)||record.preparationSha256!==input.preparationSha256)fail('PROTECTED_PREPARATION_CHANGED');
+   if(originalProcess&&(originalProcess.pid!==process.pid||assertOriginalModernSchemaProcess(originalProcess)!==true))fail('ORIGINAL_SUPERVISOR_CHANGED');
+   if(state){const pending=state.read();assertSameBinding(pending,state.binding);if(!allowHeld&&pending.status!=='RUNNING')fail('PENDING_NOT_RUNNING');}
+   if(rootLease&&(!coordinator.session.connected()||assertModernSchemaLeaseStillOriginal(rootLease)!==true))fail('ORIGINAL_NATIVE_SESSION_LOST');
+   const floor=secureJson(path.join(directory,'floor.json'));if(floor.chanjetPolicy!=='HOLD'||floor.readonlyApproval!==null)fail('CHANJET_HOLD_CHANGED');
+   runtime.guard();
+   // Last: the native observation above may itself cross the approval window.
+   readRegisteredModernSchemaApproval(context);
+  };
+  if(rootLease){
+   await verifyOriginalModernSchemaAdmission({session:coordinator.session,lease:rootLease,observeHost});
+  }else observeHost();
+  return true;
  };
  const stopHeartbeat=async()=>{clearInterval(heartbeat);heartbeat=null;await heartbeatWork;if(fatal)throw fatal;};
  const beginHeartbeat=()=>{if(heartbeat)fail('SECOND_LEASE_HEARTBEAT');heartbeat=setInterval(()=>{
