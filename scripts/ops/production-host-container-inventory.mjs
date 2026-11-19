@@ -42,7 +42,7 @@ const coreName=service=>'/phoenix-v3-'+service;
 const coreMatch=CORE.map(service=>`(eq .Name "${coreName(service)}")`).join(' ');
 const coreHealth=`{{if or ${coreMatch}}}{{with index .State "Health"}}{{json (index . "Status")}}{{else}}null{{end}}{{else}}null{{end}}`;
 const inspectFormat=[...LEGACY_CONTAINER_FIELDS.slice(0,-1),label('com.docker.compose.project'),
-  label('com.docker.compose.service'),'{{json .State.Status}}',coreHealth,'{{json .HostConfig.RestartPolicy.Name}}',
+  '{{json .State.Status}}',coreHealth,'{{json .HostConfig.RestartPolicy.Name}}',
   '{{json .Mounts}}','{{json .Config.Entrypoint}}','{{json .Config.Cmd}}',
   label('phoenix.schema.role'),'{{json .Config.User}}','{{json .State.Restarting}}','{{json .State.Paused}}',
 ].join('\t');
@@ -89,16 +89,16 @@ function rows(text,expected,width){
 }
 function inspectAll(docker,ids){
   if(!ids.length)return {containers:[],images:[]};
-  const containers=rows(docker(['inspect','--type','container','--format',inspectFormat,...ids]),ids,23);
+  const containers=rows(docker(['inspect','--type','container','--format',inspectFormat,...ids]),ids,22);
   if(containers.some(row=>!match(IMAGE,row[1])||typeof row[2]!=='string'||typeof row[3]!=='string'||
     !integer(row[4])||!integer(row[5])||typeof row[6]!=='boolean'||typeof row[7]!=='boolean'||
     typeof row[8]!=='string'||typeof row[9]!=='string'||!(row[10]===null||Array.isArray(row[10])&&row[10].every(v=>typeof v==='string'))||
-    !STATES.has(row[13])||!Array.isArray(row[16])||
-    typeof row[21]!=='boolean'||typeof row[22]!=='boolean'))fail('HOLD_OBSERVATION_UNAVAILABLE');
+    !STATES.has(row[12])||!Array.isArray(row[15])||
+    typeof row[20]!=='boolean'||typeof row[21]!=='boolean'))fail('HOLD_OBSERVATION_UNAVAILABLE');
   // Docker enumerates MountPoints in map order. Keep every mount object and
   // duplicate while stabilizing only this array for the two-sample comparison.
   for(const row of containers){
-    row[16]=row[16].map(mount=>({mount,digest:canonicalDigest(mount)}))
+    row[15]=row[15].map(mount=>({mount,digest:canonicalDigest(mount)}))
       .sort((a,b)=>a.digest.localeCompare(b.digest)).map(({mount})=>mount);
   }
   const imageIds=[...new Set(containers.filter(row=>ACTIVE_SERVICES.some(service=>row[2]===coreName(service)))
@@ -107,15 +107,18 @@ function inspectAll(docker,ids){
   return {containers,images};
 }
 function corroborateCore(first,active){
-  if(active?.version!==CONTRACT.version||active.outcome!=='SUCCESS')fail('HOLD_CORE_IDENTITY');
+  const pins=active?.active;
+  if(active?.version!==CONTRACT.version||active.outcome!=='SUCCESS'||
+    ACTIVE_SERVICES.some(service=>!match(IMAGE,pins?.[service]?.imageId)||!match(SHA,pins?.[service]?.revision)))fail('HOLD_CORE_RECORD');
+  // The deployment snapshot's metadataFor resolves the fixed runtime names.
   for(const service of CORE){
-    const candidates=first.containers.filter(row=>row[2]===coreName(service)||(row[11]===PROJECT&&row[12]===service));
-    if(candidates.length!==1)fail('HOLD_CORE_IDENTITY');
-    const row=candidates[0],image=first.images.find(item=>item[0]===row[1]);
-    if(row[2]!==coreName(service)||row[11]!==PROJECT||row[12]!==service||row[6]!==true||row[5]===0||
-      row[13]!=='running'||row[14]!=='healthy')fail('HOLD_CORE_IDENTITY');
-    if(service!=='db'&&(!match(SHA,image?.[1])||active.active?.[service]?.revision!==image[1]||
-      active.active[service].imageId!==row[1]))fail('HOLD_CORE_IDENTITY');
+    const candidates=first.containers.filter(row=>row[2]===coreName(service));
+    if(candidates.length!==1)fail('HOLD_CORE_ROSTER');
+    const row=candidates[0];
+    if(row[6]!==true||row[5]===0||row[12]!=='running')fail('HOLD_CORE_RUNTIME_STATE');
+    if(row[13]!=='healthy')fail('HOLD_CORE_HEALTH');
+    if(service!=='db'&&(pins[service].imageId!==row[1]||
+      pins[service].revision!==first.images.find(item=>item[0]===row[1])?.[1]))fail('HOLD_CORE_IMAGE_IDENTITY');
   }
 }
 function validateRegistry(record){
@@ -140,12 +143,12 @@ function reachesGenericFallback(row,active){
   if(row[7]||row[8]==='host'||row[8].startsWith('container:')||row[9]==='host'||name.toLowerCase().includes('watchtower'))return false;
   // These shapes enter other release branches. Their provenance, ancestry
   // and admission remain the responsibility of those branches.
-  if(row[13]==='exited'&&row[5]===0&&!row[6]&&!row[21]&&!row[22]&&row[15]==='no'&&row[16].length===0&&row[20]==='phoenix'&&
-    /^\/phoenix-migrate-schema-first-[a-z0-9]{8}(?:-show)?$/.test(name)&&same(row[17],['./node_modules/.bin/typeorm'])&&
-    ['run','show'].some(verb=>same(row[18],['-d','dist/database/data-source.js','migration:'+verb,...(verb==='run'?['--transaction','all']:[])])))return false;
-  if(row[19]==='readonly-inventory')return false;
+  if(row[12]==='exited'&&row[5]===0&&!row[6]&&!row[20]&&!row[21]&&row[14]==='no'&&row[15].length===0&&row[19]==='phoenix'&&
+    /^\/phoenix-migrate-schema-first-[a-z0-9]{8}(?:-show)?$/.test(name)&&same(row[16],['./node_modules/.bin/typeorm'])&&
+    ['run','show'].some(verb=>same(row[17],['-d','dist/database/data-source.js','migration:'+verb,...(verb==='run'?['--transaction','all']:[])])))return false;
+  if(row[18]==='readonly-inventory')return false;
   // A rehearsal label alone does not establish current-release ownership.
-  return row[11]!==PROJECT&&!sameActiveImage&&!row[16].some(mount=>mount.Type==='bind'&&[CONTRACT.repository,CONTRACT.controlRoot]
+  return row[11]!==PROJECT&&!sameActiveImage&&!row[15].some(mount=>mount.Type==='bind'&&[CONTRACT.repository,CONTRACT.controlRoot]
     .some(root=>mount.Source===root||mount.Source?.startsWith(root+'/')));
 }
 
@@ -171,7 +174,8 @@ export function diagnoseProductionHostContainerOwnership(expectedMainSha,{docker
 
 const publicFailures=new Set([
   'HOLD_EXPECTED_MAIN_SHA','HOLD_OBSERVATION_UNAVAILABLE','HOLD_PROTECTED_RECORD','HOLD_CONTAINER_ROSTER_INVALID',
-  'HOLD_CORE_IDENTITY','HOLD_REGISTRY_UNVERIFIED','HOLD_CONTAINER_ROSTER_CHANGED','HOLD_CONTAINER_OBSERVATION_CHANGED',
+  'HOLD_CORE_RECORD','HOLD_CORE_ROSTER','HOLD_CORE_RUNTIME_STATE','HOLD_CORE_HEALTH','HOLD_CORE_IMAGE_IDENTITY',
+  'HOLD_REGISTRY_UNVERIFIED','HOLD_CONTAINER_ROSTER_CHANGED','HOLD_CONTAINER_OBSERVATION_CHANGED',
   'HOLD_PROTECTED_RECORD_CHANGED','HOLD_EXECUTION_UID','HOLD_STATE_PATH',
 ].map(code=>PREFIX+code));
 if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
