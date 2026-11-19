@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import {execFileSync, spawn} from 'node:child_process';
+import {execFileSync} from 'node:child_process';
 import {randomUUID} from 'node:crypto';
 import {CONTRACT, verifyContext} from '../ops/production-config-guard.mjs';
 import {executionEnv} from '../ops/capture-production-runtime.mjs';
@@ -140,17 +140,11 @@ async function main(){
     progress('REAL_TERM_REMOVES_OLD_NATIVE_PG_BACKEND_UNDER_ORIGINAL_S');
     setPhase('API_BODY');
     const candidateArgs=fixApiArgs(sourceImage,network,NEW);
-    const create=spawn('/bin/sh',['-c','read signal; test "$signal" = go && /usr/bin/docker rm "$1" >/dev/null && shift && exec /usr/bin/docker run -d "$@"','owned-fixture',old,...candidateArgs],
-      {env:executionEnv(),stdio:['pipe','pipe','pipe']});
-    const newIdPromise=new Promise((resolve,reject)=>{
-      let output='';
-      create.stdout.setEncoding('utf8');create.stdout.on('data',chunk=>output+=chunk);
-      create.stderr.resume();
-      create.once('error',reject);create.once('close',code=>code===0?resolve(output.trim()):reject(Error('OWNED_COMPOSE_FIXTURE_FAILED')));
-    });
-    watch.allowCompose(pinModernSchemaChild(create));
-    create.stdin.end('go\n');
-    const newId=await newIdPromise;
+    const composeInput=path.join(dir,'fixture-compose-input'),composeFd=privateRuntime.openOutput(composeInput);
+    try{fs.writeFileSync(composeFd,'go\n');fs.fsyncSync(composeFd);}finally{fs.closeSync(composeFd);}
+    const created=await privateRuntime.run({binary:'/bin/sh',args:['-c','read signal; test "$signal" = go && /usr/bin/docker rm "$1" >/dev/null && shift && exec /usr/bin/docker run -d "$@"','owned-fixture',old,...candidateArgs],
+      directory:dir,stem:'fixture-compose',inputFile:composeInput,deferInput:true,onSpawn:entry=>watch.allowCompose(entry)});
+    const newId=fs.readFileSync(created.stdout,'utf8').trim();
     await waitForHealth(newId);
     const observation=await watch.observe();
     assert.equal(observation.candidate.id,newId);

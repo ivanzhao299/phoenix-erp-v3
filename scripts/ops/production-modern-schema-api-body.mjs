@@ -9,6 +9,13 @@ import {createModernSchemaFormalBodyAdapters} from './production-modern-schema-f
 import {strictSshCommand} from './production-trusted-paths.mjs';
 const fail=code=>{throw Error('MODERN_SCHEMA_API_BODY_HOLD='+code);};
 const quote=value=>"'"+value.replaceAll("'","'\"'\"'")+"'";
+export async function closeModernSchemaBodyResources({diagnostic,channel,watch,expectedGraceful,primaryError},io=fs){
+ let cleanupError;
+ try{io.fsyncSync(diagnostic);}catch(error){cleanupError??=error;}
+ try{io.closeSync(diagnostic);}catch(error){cleanupError??=error;}
+ try{if(channel?.entry)await watch.closeBodyChannel(channel,{expectedGraceful});}catch(error){cleanupError??=error;}
+ if(primaryError)throw primaryError;if(cleanupError)throw cleanupError;
+}
 export async function runModernSchemaFormalApiBody({context,preparation,preparationSha256,rootLease,originalProcess,state,watch,privateRuntime,schemaReceipt,admit}){
  const root=CONTRACT.repository,directory=privateRuntime.createDirectory(context.owner,'body');
  const source=readCommittedModernSchemaDeploymentBody(root,context.targetSha);
@@ -44,12 +51,12 @@ export async function runModernSchemaFormalApiBody({context,preparation,preparat
   APPROVED_CONFIG_FLOOR_SHA:context.targetSha,APPROVED_PREVIOUS_FLOOR_SHA:context.floorSha,DEPLOY_MODE:'api',BUILD_API:'true',BUILD_WEB:'false',RUN_MIG:'false',
   API_IMAGE:context.candidateImageId,WEB_IMAGE:preparation.originalSnapshot.containers.web.image,APPROVE_PRODUCTION:'true',PRESERVE_ARTIFACTS:'true',ROTATE_CHANJET_CREDENTIALS:'false',ONE_TIME_CONFIG_FLOOR_TRANSITION:'false',
   BACKGROUND_DEPLOYMENT_SUPERVISED:'true',MODERN_SCHEMA_BODY_SUPERVISED:'true',SKU_SOURCE_EFFECTIVE_DATE:'',SKU_SOURCE_PLAN_SHA256:''};
- const diagnostic=privateRuntime.openOutput(path.join(directory,'typed-adapters.stdout')),oldLog=console.log,oldError=console.error;
- console.log=(...values)=>fs.writeSync(diagnostic,format(...values)+'\n');console.error=(...values)=>fs.writeSync(diagnostic,format(...values)+'\n');let result;
+ const diagnostic=privateRuntime.openOutput(path.join(directory,'typed-adapters.stdout')),oldLog=console.log,oldError=console.error;let bodyComplete=false;
+ console.log=(...values)=>fs.writeSync(diagnostic,format(...values)+'\n');console.error=(...values)=>fs.writeSync(diagnostic,format(...values)+'\n');let result,primaryError;
  try{
   result=await privateRuntime.run({binary:'/bin/bash',args:['--noprofile','--norc','-Eeuo','pipefail'],directory,stem:'formal-api-body',inputFile:file,deferInput:true,inheritFd9:true,env,timeoutMs:300000,
    onSpawn:async entry=>{
-    if(await admit()!==true)fail('ORIGINAL_NATIVE_LEASE_REQUIRED');watch.allowDescendants(entry);await channel.start(entry);
+    if(await admit()!==true)fail('ORIGINAL_NATIVE_LEASE_REQUIRED');watch.allowDescendants(entry,'FORMAL_API_BODY');await channel.start(entry);
     const pidFd=privateRuntime.openOutput(pidFile);try{fs.writeFileSync(pidFd,String(channel.entry.child.pid));fs.fsyncSync(pidFd);}finally{fs.closeSync(pidFd);}
     state.advance('SCHEMA_RECEIPTED','API_BODY',modernSchemaStepEvidence(context,'API_BODY',{bodyChild:entry.pin,bodySourceSha256:source.bodySha256,workflowSourceSha256:source.workflowSha256,schemaReceiptSha256:schemaSha256}));
     adapters=createModernSchemaFormalBodyAdapters({context,preparationSha256,rootLease,originalProcess,originalChild:entry,admit:nativeAdmit},{
@@ -60,8 +67,11 @@ export async function runModernSchemaFormalApiBody({context,preparation,preparat
     });
    }});
   if(!adapters?.completed()||composeCount!==1)fail('FORMAL_BODY_INCOMPLETE');if(await admit()!==true)fail('ORIGINAL_NATIVE_LEASE_REQUIRED');
+  bodyComplete=true;
+ }catch(error){primaryError=error;
  }finally{
-  console.log=oldLog;console.error=oldError;fs.fsyncSync(diagnostic);fs.closeSync(diagnostic);if(channel.entry)await channel.close();
+  console.log=oldLog;console.error=oldError;
+  await closeModernSchemaBodyResources({diagnostic,channel,watch,expectedGraceful:bodyComplete,primaryError});
  }
  const receipt={schema:'phoenix.modern-schema-formal-api-body-result/v1',owner:context.owner,contextDigest:canonicalDigest(context),schemaReceiptSha256:schemaSha256,
   bodySourceSha256:source.bodySha256,workflowSourceSha256:source.workflowSha256,stdout:await privateRuntime.digest(result.stdout),stderr:await privateRuntime.digest(result.stderr),outcome:'BODY_COMPLETE',automaticRollback:false};

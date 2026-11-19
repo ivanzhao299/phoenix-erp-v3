@@ -381,6 +381,15 @@
 - 实际 owned PG18 套件 **4/4、0 skipped**：同原 PID/微秒身份及两把锁贯穿真实 5,200ms 同步观察，生产默认 5 秒预算不改，前后真实原 S 查询均成功；真实 pg_sleep 延迟配短测试等效预算仍超时、通道标记失败且排队观察不执行。定向 authority/slot/workflow **54/54、0 skipped**，覆盖共享原队列、关闭、原失败、跨 await、活 S 但过窗/撤销/HOLD/fatal，以及后置原生读取自身跨窗；最终 Node20 增广 109 份文件、4 并发 **1470 passed / 53 opt-in skipped / 0 failed**（`modern-schema-cp31-regression-v2.log`）。独立只读复核确认剩余 P1 已关闭，无提交阻塞；不冒称完整 KVM 已验收。原生日志为 `modern-schema-cp31-native-s-v1.log`，没有生产连接或业务写入。
 - 原生宿主夹具只补明确 RUNNING 状态以匹配真实 pending，未改生产分类器。协调任务另实测真实同形 Unix `pg_isready` 也可能产生尚未绑定库的短暂 client 行，仍保持未知执行者 HOLD，不凭 Unix、空 application_name 或工具名字放行；后续精确全链夹具按实际 Compose 的 Unix/10 秒健康检查采样取证。该既有边界及全部正式 body/最终 OPEN/进程中断收尾验收仍须真实结果。无 API/Web TS 或业务迁移变化，不重复无变化的类型/UI/业务 UAT；冻结方案及 125 TS 不变，没有生产 DDL、部署、业务启用或 GO。
 
+## 第三十二开发检查点：受控父进程真实退出与失败请求排空（2026-11-19，保持 OFF）
+
+- 精确 `c743fff8` 源和官方 OCI、真实 Unix/10 秒健康配置的独立 Linux KVM 演练，反复出现 5.4–8.3 秒同步观察仍未使 S 超时；实际 RUN/SHOW 两个迁移 CLI 均完成 AFTER_EXIT 及原生 SUCCESS/exit0 回执。第四次 typed 回应之后、原 driver 完整性收尾前，又观察到已登记父进程单线程 Z、Node 未收到退出事件而 HOLD；没有聚合 driver 回执，不据此宣称完整迁移链或正式发布成功。
+- 不放宽 active verifier。仅显式登记的本 runtime 一次性 SCHEMA_DRIVER（DDL_STARTED）、FORMAL_API_BODY/COMPOSE（API_BODY），或原 IPC 已严格核验并计划关闭的实例，可在同 native PID/PPID/startTicks/boot/namespace、单线程终止态时触发私有“等待原退出”标记。先检查完已采集的宿主进程，未知执行者仍优先 HOLD；再退出同步 S 槽，在 watch.serial 内只等待实际 ChildProcess exit0/signalnull，随后重新准入并从头做完整宿主及后续 PG 观察。每个精确退出事件最多等 3 秒、最多 4 个不同 child，不把原本 5–8 秒 census/重准入计入回收等待。S、持久 readers、默认回执 writer、活跃身份不符或仍有工作线程均保持严格拒绝。
+- 真实 exit 只触发重扫，不生成成功凭证。原 driver 的四步/两份 CLI、正式 body 七步/唯一 Compose、实际候选和收据检查仍决定完成；即使 Bash 退出 0、协议不完整也不能完成发布。原 IPC 只有这些完成条件及实际 run0 齐备、无 activePeer/failed，才登记预期正常关闭。关闭拒绝新帧，必须真实 exit0、输出流完全关闭且无迟到帧后才删除 socket；不能把原本已退出的 Python 重新标成正常关闭。EOF→exit/stdio 共用原 3 秒预算，之前的原生身份/目录核验不消耗该预算。
+- 失败收尾先停止新 frame/新 admit，跟踪并等待实际 handler Promise 收敛；这段等待在 watch.serial 和 S queue 外，底层 CLI/Compose 沿用原有有界时限，随后才在 watch.serial 中关闭固定 Python。原 Bash 异常退出而 handler 仍等待 watch.observe 的真实回归确认：关闭不会提前结束，watch 队列仍可前进，handler 收敛后才关闭。handler settled 不等于所有远端命令已停止；底层超时或原生结果未明继续保留既有 HOLD/拒绝/观察，不据此恢复、重跑 DDL 或宣称远端退场。
+- 独立复核还发现诊断 fsync/close 的 EIO 会跳过 drain，已改为即使日志 IO 失败也无条件收尾、关闭 fd 并保留原首错。相关真实子进程/IPC/slot **40/40、0 skipped**，含正常退出重扫与 S 队列可用、非零/信号/通知丢失、错阶段、未知宿主优先、Python 早退0、真实迟到帧、在途请求及诊断 EIO。早期一版测试因主循环阻塞前 EOF 尚未实际送出而未见 Z，原失败日志保留；后改真实信号令 fixture Python 退出0，未改变产品退出规则。最终 Node20 增广 109 文件、4 并发 **1482 passed / 53 opt-in skipped / 0 failed**（`modern-schema-cp32-regression-v2.log`），语法/diff 检查通过；独立只读复核确认最后 P2 已关闭，无提交阻塞。
+- 原生 CI 组件的候选替换改用真正 privateRuntime.run/deferInput/onSpawn，满足同一实际 command 登记，不给手工对象增加例外。健康检查分类器、未知/跨库客户端门禁、原 S 查询时限、API/Web TS、125 TS 迁移和冻结方案均不变。后续须以本检查点精确源码及官方 OCI 完成全 driver/schema/正式 body/OPEN/强杀收尾；上述仍是隔离开发证据，无生产 DDL、部署、业务启用或 GO。
+
 ## 未完成的发布阻塞
 
 1. 独立 RAW 集蛋凭证、库存父批与内部实际转换事实已区分；RAW→分级/包装/重包装业务 API/页面已形成第十二 OFF 检查点；已过账 RAW/转换的受控更正补偿、成本分摊、其余合法退货/跨公司加工交接及质检处置尚未完成；仅第二十一检查点的同公司原仓LAK完好成品客户退货已接续。旧包装入口仍需接入明确实际投入与实耗，不能只挂 DERIVED 资格造成双计。包装、在途/退货/POS、跨公司和混源的全链成对回归，以及合法盘盈新来源仍需完成；受控 managed SKU 销售/配送/POS 正向及 UNKNOWN 持久化已有第五、六检查点证据，仍须与包装、退货和最终切换全链合并验收。不能用“全部拦住”代替合法链路验收。

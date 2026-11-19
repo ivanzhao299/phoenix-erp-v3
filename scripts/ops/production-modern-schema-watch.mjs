@@ -14,7 +14,11 @@ const identity=value=>({id:value.id,imageId:value.imageId,name:value.name,starte
  capDrop:value.capDrop,user:value.user,restartPolicy:value.restartPolicy,entrypointSha256:canonicalDigest(value.entrypoint),cmdSha256:canonicalDigest(value.cmd)});
 const potential=value=>/\/(?:node|nodejs|python[0-9.]*|java|pm2|supervisord|nomad|kubelet|psql|pg_restore|pgbench)$/.test(value.exe)||value.erpControlReference;
 const linuxOnly=({pid,parentPid,startTicks,bootId})=>({pid,parentPid,startTicks,bootId});
+class PendingOriginalChildExit extends Error{
+ constructor(entry,cause){super(cause.message);this.entry=entry;}
+}
 export class ModernSchemaExecutorWatch {
+ #reapRoles=new WeakMap();
  constructor({context,preparation,state,rootLease,session,client,privateRuntime,admit},dependencies={}){
   if(typeof admit!=='function'||canonicalDigest(preparation.originalSnapshot.containers)!==context.runtimeSnapshotSha256)fail('ORIGINAL_PREPARATION_REQUIRED');
   Object.assign(this,{context,preparation,state,rootLease,session,client,runtime:privateRuntime,admit});this.run=dependencies.run??native;
@@ -32,8 +36,16 @@ export class ModernSchemaExecutorWatch {
   const pin={pid:backend.pid,databaseOid:backend.databaseOid,backendStartMicros:backend.backendStartMicros,nativeProofSha256:canonicalDigest({backend,child:entry.pin})};
   this.readers.push({client,entry,pin});return pin;
  }
- allowDescendants(entry){verifyModernSchemaChild(entry,this.inspectProcess(entry.pin.pid));this.descendants.push(entry);}
- allowCompose(entry){this.allowDescendants(entry);this.composeChild=entry;}
+ allowDescendants(entry,role='CONTROLLED_DESCENDANT'){
+  verifyModernSchemaChild(entry,this.inspectProcess(entry.pin.pid));
+  const phases={SCHEMA_DRIVER:['DDL_STARTED'],FORMAL_API_BODY:['SCHEMA_RECEIPTED'],FORMAL_COMPOSE:['API_BODY']};
+  if(role!=='CONTROLLED_DESCENDANT'){
+   if(!phases[role]?.includes(this.state.read().phase)||this.runtime.isCommand(entry)!==true)fail('EXACT_ONESHOT_BODY_PHASE_REQUIRED');
+   this.#reapRoles.set(entry,role);
+  }
+  this.descendants.push(entry);
+ }
+ allowCompose(entry){this.allowDescendants(entry,'FORMAL_COMPOSE');this.composeChild=entry;}
  registerResource(record){
   if(!/^[a-f0-9]{64}$/.test(record?.containerId??'')||record.owner!==this.context.owner||!/^sha256:[a-f0-9]{64}$/.test(record.imageId??''))fail('ROOT_NATIVE_CREATED_RESOURCE_REQUIRED');
   if(this.resources.has(record.containerId))fail('CREATION_RECEIPT_REPLAY');this.resources.set(record.containerId,structuredClone(record));
@@ -116,17 +128,23 @@ export class ModernSchemaExecutorWatch {
  }
  verifyProcesses(containers,initialize=false){
   const namespaces=new Set();for(const value of containers)if(value.state.Running){try{namespaces.add(fs.readlinkSync(`/proc/${value.state.Pid}/ns/pid`));}catch{fail('NATIVE_CONTAINER_NAMESPACE_UNOBSERVABLE');}}
-  const owned=this.runtime.registeredChildren();
+  const owned=this.runtime.registeredChildren();let pendingExit=null;
   for(const row of this.captureProcesses()){
    if(row.pid===process.pid||row.pid===process.ppid||namespaces.has(row.pidNamespace))continue;
    const entry=owned.find(item=>item.pin.pid===row.pid);if(entry){
     try{verifyModernSchemaChild(entry,row);}catch(error){
      // Only this runtime's bounded commands may finish between the /proc
-     // sweep and Node's exit callback. Persistent channels and body parents
-     // still need their exact live identity. Remote DB/process checks remain.
-     const protectedChild=this.session?.child===entry.child||this.readers.some(reader=>reader.entry.child===entry.child)
-      ||this.descendants.some(parent=>parent.child===entry.child);
-     if(protectedChild||this.runtime.isCommand?.(entry)!==true||!isOriginalModernSchemaChildTerminal(entry))throw error;
+     // sweep and Node's exit callback. Persistent channels remain strict;
+     // explicitly registered body stages must await the real event and rescan.
+     const persistent=this.session?.child===entry.child||this.readers.some(reader=>reader.entry.child===entry.child);
+     if(persistent||!isOriginalModernSchemaChildTerminal(entry))throw error;
+     const role=this.#reapRoles.get(entry),phase=this.state.read().phase;
+     const bodyPhase=role==='SCHEMA_DRIVER'?phase==='DDL_STARTED':phase==='API_BODY'&&['FORMAL_API_BODY','FORMAL_COMPOSE'].includes(role);
+     if((bodyPhase&&this.runtime.isCommand?.(entry)===true)
+      ||(['DDL_STARTED','API_BODY'].includes(phase)&&this.runtime.isClosingChannel?.(entry)===true)){
+      pendingExit??=new PendingOriginalChildExit(entry,error);continue;
+     }
+     if(this.descendants.some(parent=>parent.child===entry.child)||this.runtime.isCommand?.(entry)!==true)throw error;
     }
     continue;
    }
@@ -138,13 +156,34 @@ export class ModernSchemaExecutorWatch {
    if(initialize){if(!this.preparation.hostSurface.foreignProcessPins?.some(pin=>pin.pid===row.pid&&pin.identitySha256===digest))fail('UNREGISTERED_HOST_EXECUTOR');this.foreignProcesses.set(row.pid,digest);}
    else if(this.foreignProcesses.get(row.pid)!==digest)fail('NEW_OR_CHANGED_HOST_EXECUTOR');
   }
+  if(pendingExit)throw pendingExit;
  }
  serially(work){const result=this.serial.then(work);this.serial=result.catch(()=>{});return result;}
  withNativeCreate(work){return this.serially(async()=>{await this.check();const result=await work();await this.check();return result;});}
+ async observeHostAfterOriginalExit(work){
+  const reaped=new Set();
+  for(;;){
+   try{return await this.session.withSynchronousObservation(work);}catch(error){
+    if(!(error instanceof PendingOriginalChildExit))throw error;
+    const {entry}=error,child=entry.child;
+    const deadline=performance.now()+3000;
+    if(reaped.has(child)||reaped.size>=4)fail('ORIGINAL_CHILD_EXIT_UNRESOLVED');reaped.add(child);
+    if(child.exitCode===null&&child.signalCode===null)await new Promise((resolve,reject)=>{
+     const finish=()=>{clearTimeout(timer);resolve();},timer=setTimeout(()=>{child.removeListener('exit',finish);reject(Error('MODERN_SCHEMA_WATCH_HOLD=ORIGINAL_CHILD_EXIT_UNRESOLVED'));},Math.max(1,deadline-performance.now()));
+     child.once('exit',finish);
+    });
+    if(child.exitCode!==0||child.signalCode!==null)fail('ORIGINAL_CHILD_EXIT_FAILED');
+    await this.check(); // New original-S/authority check, then a whole new census.
+   }
+  }
+ }
+ async closeBodyChannel(channel,options){
+  await channel.drainForClose();return this.serially(()=>channel.close(options));
+ }
  observe(initialize=false){return this.serially(()=>this.observeNative(initialize));}
  async observeNative(initialize=false){
   await this.check();
-  const {values,runtime,schedulers}=await this.session.withSynchronousObservation(()=>{
+  const {values,runtime,schedulers}=await this.observeHostAfterOriginalExit(()=>{
    this.runtime.guard();this.assertHealthy();
    if(this.state.read().status!=='RUNNING')fail('RUNNING_ORIGINAL_OBSERVATION_REQUIRED');
    const values=this.containers(),runtime=this.verifyContainers(values);this.verifyProcesses(values,initialize);

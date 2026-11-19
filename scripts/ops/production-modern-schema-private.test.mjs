@@ -1,9 +1,9 @@
 import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import path from 'node:path';import {fileURLToPath} from 'node:url';import {createHash} from 'node:crypto';
 import {ModernSchemaPrivateRuntime} from './production-modern-schema-private.mjs';
-import {verifyModernSchemaChild,isOriginalModernSchemaChildTerminal} from './production-modern-schema-processes.mjs';
+import {verifyModernSchemaChild,isOriginalModernSchemaChildTerminal,pinModernSchemaChild} from './production-modern-schema-processes.mjs';
 import {ModernSchemaExecutorWatch} from './production-modern-schema-watch.mjs';
 import {canonicalDigest} from './production-maintenance-receipts.mjs';
-import {spawnSync} from 'node:child_process';
+import {spawn,spawnSync} from 'node:child_process';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../..');
 function fixture(){
  const directory=fs.mkdtempSync(path.join(root,'artifacts/modern-schema-private-'));
@@ -55,13 +55,13 @@ const nativeRow=entry=>{
 };
 function commandWatch(runtime,entry){
  return new ModernSchemaExecutorWatch({context:{runtimeSnapshotSha256:canonicalDigest({})},
-  preparation:{originalSnapshot:{containers:{}},ownedResources:[]},privateRuntime:runtime,admit:()=>true},
-  {captureProcesses:()=>[nativeRow(entry)]});
+  preparation:{originalSnapshot:{containers:{}},ownedResources:[]},state:{read:()=>({phase:'DDL_STARTED',status:'RUNNING'})},privateRuntime:runtime,admit:()=>true},
+  {captureProcesses:()=>entry.child.exitCode===null&&entry.child.signalCode===null?[nativeRow(entry)]:[],processIdentity:()=>nativeRow(entry)});
 }
-const finishFileCommand=(f,onSpawn)=>{
+const finishFileCommand=(f,onSpawn,{exitCode=0}={})=>{
  const finished=path.join(f.work,'finish');
  return f.runtime.run({binary:'/bin/bash',args:['--noprofile','--norc','-c',
-  'while [ ! -f "$1" ]; do read -r -t 0.01 ignored || :; done; exit 0','--',finished],
+  'while [ ! -f "$1" ]; do read -r -t 0.01 ignored || :; done; exit "$2"','--',finished,String(exitCode)],
   directory:f.work,stem:'terminal-census',timeoutMs:5000,onSpawn:entry=>onSpawn(entry,()=>fs.writeFileSync(finished,''))});
 };
 test('real kernel zombie before the exit event is retired only by the bounded-command census',async()=>{
@@ -90,6 +90,62 @@ test('real kernel zombie before the exit event is retired only by the bounded-co
   assert.throws(()=>unregistered.verifyProcesses([]),/ORIGINAL_CONTROL_CHILD_UNPROVED/);
  });
  assert.equal(f.runtime.registeredChildren().length,0);
+});
+const waitKernelTerminal=entry=>{
+ const deadline=performance.now()+2000;let fields;
+ do{
+  const raw=fs.readFileSync('/proc/'+entry.pin.pid+'/stat','utf8');fields=raw.slice(raw.lastIndexOf(')')+2).trim().split(/\s+/);
+  if(['Z','X','x'].includes(fields[0]))break;
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)),0,0,10);
+ }while(performance.now()<deadline);
+ assert.ok(['Z','X','x'].includes(fields[0]));assert.equal(Number(fields[17]),1);assert.equal(entry.child.exitCode,null);
+};
+async function startReapFixture(options){
+ const f=fixture();let release;const ready=new Promise(resolve=>{release=resolve;});
+ const execution=finishFileCommand(f,(entry,finish)=>{
+  const watch=commandWatch(f.runtime,entry);let inSlot=false,queue=Promise.resolve();
+  watch.session={withSynchronousObservation(work){const operation=queue.then(()=>{inSlot=true;try{return work();}finally{inSlot=false;}});queue=operation.catch(()=>{});return operation;}};
+  watch.allowDescendants(entry,'SCHEMA_DRIVER');release({entry,finish,watch,inSlot:()=>inSlot});
+ },options);execution.catch(()=>{});
+ const result=await ready;await new Promise(resolve=>setImmediate(resolve));return {...f,...result,execution};
+}
+test('expected Bash retirement waits for its real exit outside the S slot and then rescans from the beginning',async()=>{
+ const f=await startReapFixture();f.finish();waitKernelTerminal(f.entry);let scans=0,checked=false;
+ f.watch.admit=()=>{checked=true;return true;};
+ f.entry.child.once('exit',()=>assert.equal(f.inSlot(),false));
+ const observation=f.watch.observeHostAfterOriginalExit(()=>{scans++;f.watch.verifyProcesses([]);return 'FULL_FRESH_HOST_OBSERVATION';});
+ const responsive=f.watch.session.withSynchronousObservation(()=>{assert.equal(f.entry.child.exitCode,null);return 'S_QUEUE_STILL_USABLE';});
+ const [run,observed,reply]=await Promise.all([f.execution,observation,responsive]);
+ assert.equal(run.exitCode,0);assert.equal(observed,'FULL_FRESH_HOST_OBSERVATION');assert.equal(reply,'S_QUEUE_STILL_USABLE');assert.equal(scans,2);assert.equal(checked,true);
+});
+for(const mode of ['NONZERO','SIGNAL'])test('expected retirement cannot accept a real '+mode+' exit',async()=>{
+ const f=await startReapFixture({exitCode:mode==='NONZERO'?7:0});
+ if(mode==='SIGNAL')f.entry.child.kill('SIGTERM');else f.finish();waitKernelTerminal(f.entry);
+ const outcomes=await Promise.allSettled([f.execution,f.watch.observeHostAfterOriginalExit(()=>f.watch.verifyProcesses([]))]);
+ assert.match(outcomes[0].reason.message,/CHILD_RESULT_UNVERIFIED/);assert.match(outcomes[1].reason.message,/ORIGINAL_CHILD_EXIT_FAILED/);
+});
+test('a missing original exit notification remains bounded HOLD even if the kernel task is terminal',async()=>{
+ const f=await startReapFixture();f.finish();waitKernelTerminal(f.entry);
+ const originalOnce=f.entry.child.once;
+ f.entry.child.once=function(event,listener){return event==='exit'?this:originalOnce.call(this,event,listener);};
+ try{
+  const outcomes=await Promise.allSettled([f.execution,f.watch.observeHostAfterOriginalExit(()=>f.watch.verifyProcesses([]))]);
+  assert.equal(outcomes[0].status,'fulfilled');assert.match(outcomes[1].reason.message,/ORIGINAL_CHILD_EXIT_UNRESOLVED/);
+ }finally{f.entry.child.once=originalOnce;}
+});
+test('registered Bash terminal state outside its exact phase has no retirement path',async()=>{
+ const f=await startReapFixture();f.watch.state.read=()=>({phase:'API_VERIFIED',status:'RUNNING'});f.finish();waitKernelTerminal(f.entry);
+ const outcomes=await Promise.allSettled([f.execution,f.watch.observeHostAfterOriginalExit(()=>f.watch.verifyProcesses([]))]);
+ assert.equal(outcomes[0].status,'fulfilled');assert.match(outcomes[1].reason.message,/ORIGINAL_CONTROL_CHILD_UNPROVED/);
+});
+test('an unknown live executor in the same captured census cannot be discarded while waiting for an owned exit',async()=>{
+ const f=await startReapFixture(),unknown=spawn(process.execPath,['-e','setInterval(()=>{},1000)'],{cwd:root,stdio:'ignore'});
+ const native=pinModernSchemaChild(unknown);f.finish();waitKernelTerminal(f.entry);
+ f.watch.captureProcesses=()=>[nativeRow(f.entry),nativeRow(native)];
+ try{
+  const outcomes=await Promise.allSettled([f.execution,f.watch.observeHostAfterOriginalExit(()=>f.watch.verifyProcesses([]))]);
+  assert.equal(outcomes[0].status,'fulfilled');assert.match(outcomes[1].reason.message,/NEW_OR_CHANGED_HOST_EXECUTOR/);
+ }finally{const exited=new Promise(resolve=>unknown.once('exit',resolve));unknown.kill('SIGTERM');await exited;}
 });
 test('an active original command never gets the terminal exception for changed identity',async()=>{
  const f=fixture();

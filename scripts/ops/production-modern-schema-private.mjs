@@ -6,7 +6,7 @@ import {inspectTrustedDirectory,assertRegularFile,assertSameDirectory} from './p
 import {pinModernSchemaChild} from './production-modern-schema-processes.mjs';
 const fail=code=>{throw Error('MODERN_SCHEMA_PRIVATE_HOLD='+code);};
 export class ModernSchemaPrivateRuntime {
- #commands=new WeakSet();
+ #commands=new WeakSet();#closingChannels=new WeakSet();
  constructor(dependencies={}){
   this.directory=dependencies.directory??CONTRACT.stateDirectory;this.guard=dependencies.guard??(()=>verifyContext(CONTRACT.repository,this.directory));
   this.root=dependencies.root??CONTRACT.repository;
@@ -33,6 +33,11 @@ export class ModernSchemaPrivateRuntime {
  }
  registeredChildren(){return [...this.children].filter(entry=>entry.pin&&entry.child.exitCode===null&&entry.child.signalCode===null);}
  isCommand(entry){return this.#commands.has(entry);}
+ registerClosingChannel(entry){
+  this.guard();if(!this.children.has(entry)||!entry?.pin||JSON.stringify(pinModernSchemaChild(entry.child).pin)!==JSON.stringify(entry.pin))fail('ORIGINAL_ACTIVE_CHANNEL_REQUIRED');
+  this.#closingChannels.add(entry);
+ }
+ isClosingChannel(entry){return this.#closingChannels.has(entry);}
  async run({binary,args,directory,stem,inputFile=null,privateInput=null,deferInput=false,timeoutMs=300000,env=executionEnv(),inheritFd9=false,onSpawn=null}){
   if(!path.isAbsolute(binary)||!Array.isArray(args)||!args.every(arg=>typeof arg==='string'&&!arg.includes('\0'))||!/^[a-z][a-z0-9-]{0,50}$/.test(stem??'')||!Number.isSafeInteger(timeoutMs)||timeoutMs<1||timeoutMs>600000)fail('BOUNDED_COMMAND_REQUIRED');
   if(path.dirname(directory)!==this.directory||!/^schema-release-(?:session|preparation|prepare-backup|fenced-backup|prepare-rehearsal|fenced-rehearsal|migration|body|recovery)-[1-9][0-9]*-[1-9][0-9]*$/.test(path.basename(directory)))fail('OWNED_PRIVATE_DIRECTORY_REQUIRED');

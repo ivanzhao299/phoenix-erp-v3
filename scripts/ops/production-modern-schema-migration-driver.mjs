@@ -67,7 +67,7 @@ export async function runModernSchemaMigrationDriver({context:input,originalSnap
   `docker() { builtin printf '%s\\0' "$@" | /usr/bin/python3 -I -S ${quote(channel.script)} request-docker "/proc/$server_pid/fd/10/${channel.socketName}" "$server_pid"; }\n`+
   `. ${quote(script)} ${quote(directory)} ${quote(context.candidateImageId)}\n`;
  const fd=privateRuntime.openOutput(body);try{fs.writeFileSync(fd,bootstrap);fs.fsyncSync(fd);}finally{fs.closeSync(fd);}
- let result;
+ let result,driverComplete=false;
  try{
   result=await privateRuntime.run({binary:'/bin/bash',args:['--noprofile','--norc','-Eeuo','pipefail'],directory,stem:'original-schema-script',inputFile:body,deferInput:true,inheritFd9:true,
    env:{...executionEnv(),PRESERVE_ARTIFACTS:'true'},timeoutMs:600000,onSpawn:async entry=>{
@@ -75,7 +75,11 @@ export async function runModernSchemaMigrationDriver({context:input,originalSnap
    }});
   if(index!==4||poisoned||cli.length!==2)fail('EXACT_SCHEMA_SCRIPT_INCOMPLETE');await check('ORIGINAL_DRIVER_COMPLETED');
   if(!fs.readFileSync(script).equals(source))fail('COMMITTED_SCHEMA_SCRIPT_CHANGED');
- }finally{if(channel.entry)await channel.close();}
+  driverComplete=true;
+ }finally{if(channel.entry){
+  const options={expectedGraceful:driverComplete};
+  if(dependencies.closeChannel)await dependencies.closeChannel(channel,options);else await channel.close(options);
+ }}
  const receipt={schema:'phoenix.modern-schema-original-schema-driver/v1',owner:context.owner,contextDigest:canonicalDigest(context),script:schemaScript,scriptSourceBlob:git(root,['rev-parse',context.targetSha+':'+schemaScript]),
   imageId:context.candidateImageId,networkId,backupSha256:backup.backup.sha256,outcome:'SUCCESS',run:cli[0],show:cli[1],stdout:await privateRuntime.digest(result.stdout),stderr:await privateRuntime.digest(result.stderr),automaticRetry:false};
  privateRuntime.publishJson(path.join(directory,'schema-driver-receipt.json'),receipt);return receipt;
