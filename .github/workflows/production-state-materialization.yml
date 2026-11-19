@@ -107,6 +107,90 @@ jobs:
                 *) redacted_json "$STATE_DIR/$name" ;;
               esac
             done
+            # Presence is meaningful even if registration crashed before FENCE.
+            # Project metadata only; never archive preparation/audit/token files.
+            if [ -e "$STATE_DIR/schema-release-pending.json" ] || [ -L "$STATE_DIR/schema-release-pending.json" ]; then
+              node --input-type=module -e '
+                import fs from "node:fs";import {createHash} from "node:crypto";
+                let fd;
+                try {
+                  const file=process.argv[1],before=fs.lstatSync(file);
+                  const regular=s=>s.isFile()&&!s.isSymbolicLink()&&s.uid===0&&(s.mode&0o7777)===0o600&&s.nlink===1&&s.size<=65536;
+                  const pin=s=>JSON.stringify([s.dev,s.ino,s.uid,s.mode,s.nlink,s.size,s.mtimeMs,s.ctimeMs]);
+                  if(!regular(before))throw Error();fd=fs.openSync(file,fs.constants.O_RDONLY|fs.constants.O_NOFOLLOW);
+                  const opened=fs.fstatSync(fd);if(!regular(opened)||pin(opened)!==pin(before))throw Error();
+                  const bytes=fs.readFileSync(fd),after=fs.fstatSync(fd),named=fs.lstatSync(file);
+                  if(!regular(after)||!regular(named)||pin(opened)!==pin(after)||pin(after)!==pin(named))throw Error();
+                  const value=JSON.parse(bytes),phases=["REGISTERED","DRAINED","INGRESS_FENCED","R_STOP_INTENT","R_STOPPED","FRESH_RECHECKED","BACKUP_VERIFIED","DDL_STARTED","SCHEMA_RECEIPTED","API_BODY","API_VERIFIED","OPEN_INTENT","OPEN_PUBLISHED","INGRESS_RELEASED","COMPLETED_OPEN"];
+                  if(value.schema!=="phoenix.modern-schema-release-pending/v1"||value.purpose!=="MODERN_SCHEMA_RELEASE"||!phases.includes(value.phase)||!["RUNNING","HOLD"].includes(value.status)||!/^\d+-\d+$/.test(value.owner))throw Error();
+                  console.log(JSON.stringify({schemaReleasePending:true,metadataReadable:true,phase:value.phase,status:value.status,owner:value.owner,recordSha256:createHash("sha256").update(bytes).digest("hex"),projectionOnly:true,releaseAuthorized:false}));
+                }catch{console.log("SCHEMA_RELEASE_PENDING=PRESENT_HOLD_METADATA");}finally{if(fd!==undefined)fs.closeSync(fd);}
+              ' "$STATE_DIR/schema-release-pending.json"
+            else
+              echo 'SCHEMA_RELEASE_PENDING=ABSENT'
+            fi
+            # Only counts and digests leave the production host. Shape never grants release.
+            node --input-type=module - "$STATE_DIR/maintenance-host-ownership-registry.json" <<'OWNERSHIP_PROJECTION'
+            import fs from 'node:fs';
+            import { createHash } from 'node:crypto';
+
+            const file = process.argv[2];
+            const digest = /^[a-f0-9]{64}$/;
+            const valid = stat => stat.isFile() && stat.uid === 0n && (stat.mode & 0o7777n) === 0o600n &&
+              stat.nlink === 1n && stat.size > 0n && stat.size <= 1024n * 1024n;
+            const pin = stat => [stat.dev, stat.ino, stat.uid, stat.mode, stat.nlink, stat.size, stat.mtimeNs, stat.ctimeNs];
+            const same = (one, two) => one.every((value, index) => value === two[index]);
+            const stat = filename => fs.lstatSync(filename, { bigint: true });
+            const fstat = fd => fs.fstatSync(fd, { bigint: true });
+            let fd;
+            try {
+              let before;
+              try {
+                before = stat(file);
+              } catch (error) {
+                if (error.code !== 'ENOENT') throw error;
+                console.log('MAINTENANCE_HOST_OWNERSHIP_REGISTRY=ABSENT');
+                process.exit(0);
+              }
+
+              if (!valid(before)) throw Error();
+              fd = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK);
+              const opened = fstat(fd);
+              if (!valid(opened) || !same(pin(before), pin(opened))) throw Error();
+
+              const bytes = Buffer.alloc(Number(opened.size) + 1);
+              let read = 0;
+              while (read < bytes.length) {
+                const size = fs.readSync(fd, bytes, read, bytes.length - read, read);
+                if (size === 0) break;
+                read += size;
+              }
+              const after = fstat(fd);
+              const named = stat(file);
+              if (read !== Number(opened.size) || !valid(after) || !valid(named) ||
+                  !same(pin(opened), pin(after)) || !same(pin(after), pin(named))) throw Error();
+
+              const content = bytes.subarray(0, read);
+              const value = JSON.parse(content.toString('utf8'));
+              if (value?.schema !== 'phoenix.maintenance-reviewed-host-ownership/v1' ||
+                  typeof value.evidenceSha256 !== 'string' || !digest.test(value.evidenceSha256) ||
+                  !Array.isArray(value.hostProcesses) || !Array.isArray(value.containers)) throw Error();
+
+              console.log(JSON.stringify({
+                maintenanceHostOwnershipRegistry: 'PRESENT_REVIEWED_SHAPE',
+                hostProcessPins: value.hostProcesses.length,
+                containerPins: value.containers.length,
+                evidenceSha256: value.evidenceSha256,
+                recordSha256: createHash('sha256').update(content).digest('hex'),
+                projectionOnly: true,
+                releaseAuthorized: false,
+              }));
+            } catch {
+              console.log('MAINTENANCE_HOST_OWNERSHIP_REGISTRY=HOLD_UNVERIFIED');
+            } finally {
+              if (fd !== undefined) fs.closeSync(fd);
+            }
+            OWNERSHIP_PROJECTION
             find "$STATE_DIR" -maxdepth 1 -type f \( -name 'deploy-*.json' -o -name 'recovery-*.json' \) -print0 | sort -z | while IFS= read -r -d '' file; do
               printf 'STATE_RECORD=%s size=%s sha256=%s\n' "${file##*/}" "$(stat -c '%s' "$file")" "$(sha256sum "$file" | cut -d' ' -f1)"
             done

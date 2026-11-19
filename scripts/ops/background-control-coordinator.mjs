@@ -261,7 +261,7 @@ export class BackgroundFenceCoordinator {
     await this.session.ping();
     return this.inspectParticipants(participants, this.manifest, true);
   }
-  async openAfterSuccess(participants) {
+  async publishOpenAfterSuccess(participants) {
     if (!this.ready || this.opened) fail('DRAIN_PROOF_REQUIRED');
     validateParticipants(participants, { targetSha: this.binding.targetSha });
     await this.verifyQuiescent(participants);
@@ -269,7 +269,13 @@ export class BackgroundFenceCoordinator {
       if (!this.session.connected() || await this.verifySuccess(b) !== true) return false;
       await this.verifyQuiescent(participants); return true;
     });
-    this.opened = true; await this.close(); return manifest;
+    // Modern schema releases retain this exact session through the ingress
+    // release and terminal archive. Public OPEN alone never releases SQL locks.
+    this.opened = true; return manifest;
+  }
+  async openAfterSuccess(participants) {
+    const manifest=await this.publishOpenAfterSuccess(participants);
+    await this.close();return manifest;
   }
   async close() {
     if (this.closed) return; this.closed = true; this.ready = false;

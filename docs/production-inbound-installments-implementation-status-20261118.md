@@ -306,6 +306,16 @@
 - 独立只读审查发现并修复：原始组遗漏、GO非空组、最后守卫撤销/过期、数字精度、日报同量改档、已知身份/记账日、冻结文件跨run碰撞、普通迁移及旧public bridge漏查pending，以及残缺/混合purpose降级。协调方报告第四轮远端 Legacy七项（含PG16/18 full-first-switch）成功；第五轮含0eca缓冲修复仍由协调方跟踪，不记作本地新跑。
 - **本检查点尚未接入实际 host preparation/rehearsal 生产者、同一现代原生会话的入口围栏/TERM停R/复采/备份/DDL/正式API body、无DDL恢复R及未知提交专用恢复、工作流与最终终态归档。登记消费者不会凭调用方JSON或测试注入补足这些事实；普通发布继续HOLD。** 未运行生产DDL、部署、push、tag或业务启用；未增加迁移，仍125 TS，冻结方案SHA不变。无业务源码变化，不重复无变化的API/Web类型与UI scope-audit；最终执行链变更后仍需针对性验证与独立完整演练。
 
+## 第二十四开发检查点：原现代会话、持久意图与受保护只读通道（2026-11-19，保持 OFF）
+
+- 新原会话观察读取主库 system identifier、DB OID、postmaster/backend 微秒和实际两把 exclusive advisory keys。原通道自身同一 SQL 再核主库、PID、启动身份及双锁，await 后重新外部观察；modern-only 控制 adapter 一旦封存，禁止同后端提前解锁/重取及事务降级，仅原 coordinator 的关闭过程可释放。现有 legacy/control session 行为不改，观察摘要不冒称能抵抗任意 root。
+- 持久步骤写入器先在实际 root/FD9 下独占创建 schema-release-pending，再允许后续维护副作用。每步先留下 create-only 意图再原子推进 marker；只有原 supervisor 本进程可推进，后代进程仅能提供观测。DRAINED 新 lease 在 receipt 后、marker 后和成功返回前均复核；实际DDL意图即使因 marker 写入失败成为 orphan，也仍按未知结果保持围栏，不能借账本暂未变化重跑。恢复分类目前只给观察结论，不是重启、回滚、清围栏或发布许可。
+- 持久 psql 只读通道在固定 DB 容器内使用本地凭据，宿主无需 pg 依赖，不输出凭据、SQL错误、业务结果或原日志。参数按十六进制文本传入，命令限固定只读查询/事务设置；原始 JSON 文本保留精度。输出按 chunk/frame 限16MiB，数组及展开SQL有界；超限保留原child用于有界关闭。修复末尾行注释吞包装括号的问题，超大单行也不能先无界堆入 readline。
+- 新 publishOpenAfterSuccess 只发布经过原正式 SUCCESS 核验的 OPEN，保留原会话/双锁；原 openAfterSuccess 仍沿用“发布后关闭”的既有行为。专用阶段明确区分 API_VERIFIED、OPEN_INTENT、OPEN_PUBLISHED、INGRESS_RELEASED 和 COMPLETED_OPEN，供后续同会话 ingress/终态编排接线，不把 schema-only 或单独 OPEN 当整条发布完成。
+- materialization 增加 pending 的只读存在性、固定阶段与原文件摘要投影；坏JSON、链接、权限或不稳定身份只给固定HOLD，不输出私有内容。集成协调方单文件补丁 `e6192bd19a623ab0d88163290aa3f8204e50fea50625a5a96de395151396b364`，仅以条数/摘要投影现有宿主归属登记；协调方在自有无网容器验证正常、缺失、链接/硬链接、权限、坏JSON及超限，本工作树验证YAML和bash语法。**实际宿主该登记是否存在仍 UNKNOWN**，不能凭投影形状认定归属或批准发布。
+- 本工作树 Node20 合同与既有协调器/准入/恢复回归 **262 passed / 4 opt-in PG skipped / 0 failed**。另外真实 owned PG18 原会话及 sealed adapter **2/2**、真实 Docker/psql 采集和16MiB单行拒绝 **1/1**；固定原HOLD与41类引用在该通道上实际读取，尾注释、参数语法字符串无执行注入。协调任务另独立验证两处持锁竞态及新连接不能接管，不记作本代理额外执行数。没有生产连接或DDL。
+- 仍未接入真实受保护 preparation/rehearsal producer、现代入口持续证明与TERM停R、原会话schema执行→既有formal API typed connector、已停止R的compose接续、无DDL受控恢复R、未知DDL只读判定及终态归档/可信普通OPEN收尾和workflow。这些实际producer与执行入口继续实现；本检查点不启用任何部署路径，不新增迁移/业务种子，不把测试注入当生产权源。首发将收敛到已审125/105源码及当前真实新增20项；非此形态HOLD，不为通用化改默认migration receipt信任边界。
+
 ## 未完成的发布阻塞
 
 1. 独立 RAW 集蛋凭证、库存父批与内部实际转换事实已区分；RAW→分级/包装/重包装业务 API/页面已形成第十二 OFF 检查点；已过账 RAW/转换的受控更正补偿、成本分摊、其余合法退货/跨公司加工交接及质检处置尚未完成；仅第二十一检查点的同公司原仓LAK完好成品客户退货已接续。旧包装入口仍需接入明确实际投入与实耗，不能只挂 DERIVED 资格造成双计。包装、在途/退货/POS、跨公司和混源的全链成对回归，以及合法盘盈新来源仍需完成；受控 managed SKU 销售/配送/POS 正向及 UNKNOWN 持久化已有第五、六检查点证据，仍须与包装、退货和最终切换全链合并验收。不能用“全部拦住”代替合法链路验收。
