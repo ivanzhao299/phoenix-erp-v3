@@ -1,6 +1,8 @@
 import 'reflect-metadata';
-import { execFileSync } from 'child_process';
+import { execFileSync,spawn,spawnSync } from 'child_process';
 import { randomUUID } from 'crypto';
+import { resolve } from 'path';
+import { pathToFileURL } from 'url';
 import { DataSource,EntityManager,QueryRunner } from 'typeorm';
 import { ProductionCutoverExecutionAdmissions1795029621917 } from '../../database/migrations/1795029621917-ProductionCutoverExecutionAdmissions';
 import { ProductionCutoverEvidenceBarriers1795025712607 } from '../../database/migrations/1795025712607-ProductionCutoverEvidenceBarriers';
@@ -554,6 +556,58 @@ const url=process.env.OFFICIAL_INVENTORY_PG_URL;
     }finally{await releaseExecutor(q);}
   });
 
+  it('keeps actual SKU activation and the consumed cutover authority barrier mutually exclusive in both directions',async()=>{
+    const script=pathToFileURL(resolve(__dirname,'../../../../../scripts/ops/sku-source-activation.mjs')).href;
+    const pgPackage=resolve(__dirname,'../../../package.json');
+    const childProgram=`import {createRequire} from 'node:module';
+      import {runActivation,readManifest} from ${JSON.stringify(script)};
+      const {Client}=createRequire(${JSON.stringify(pgPackage)})('pg');
+      const [url,schema,order]=process.argv.slice(1);
+      if(!/^cutover_admission_[0-9]+$/.test(schema))process.exit(2);
+      const client=new Client({connectionString:url,options:'-c search_path='+schema});await client.connect();
+      const query=client.query.bind(client);let begin='';
+      client.query=async(...args)=>{
+        const sql=args[0];if(typeof sql==='string'&&sql.startsWith('BEGIN'))begin=sql;
+        const result=await query(...args);
+        if(order==='sku-first'&&typeof sql==='string'&&sql.startsWith('LOCK TABLE')){
+          process.stdout.write('OWNED_SKU_TABLES_LOCKED\\n');
+          await new Promise(resolve=>process.stdin.once('data',resolve));throw Error('OWNED_STOP_BEFORE_STATE');
+        }return result;
+      };
+      try{await runActivation(client,{mode:'dry-run',effectiveDate:readManifest().source_effective_date});process.exitCode=3;}
+      catch(error){const code=error.code==='55P03'?'55P03':error.message==='OWNED_STOP_BEFORE_STATE'?'STOP_BEFORE_STATE':'UNEXPECTED';
+        process.stdout.write(JSON.stringify({code,begin})+'\\n');if(code==='UNEXPECTED')process.exitCode=4;}
+      finally{await client.end();}`;
+    const parsed=new URL(url!);parsed.username=roles.api;parsed.password='';
+    const {document}=await approvedCount(),q=await holdExecutor();
+    try{
+      const first=await issue(q,document);await q.startTransaction('READ COMMITTED');
+      await q.query('SELECT consume_production_cutover_admission($1,$2)',[first.id,first.admission_digest]);
+      await withCutoverOperator(q.manager,first.id,async()=>{
+        const child=spawnSync(process.execPath,['--input-type=module','-e',childProgram,parsed.toString(),schema,'cutover-first'],
+          {encoding:'utf8',env:{PATH:process.env.PATH},timeout:10000,maxBuffer:65536});
+        expect(child.status).toBe(0);expect(child.stderr).toBe('');
+        expect(JSON.parse(child.stdout.trim())).toEqual({code:'55P03',begin:'BEGIN ISOLATION LEVEL READ COMMITTED'});
+      });await q.rollbackTransaction();
+      const second=await issue(q,document);
+      const child=spawn(process.execPath,['--input-type=module','-e',childProgram,parsed.toString(),schema,'sku-first'],{env:{PATH:process.env.PATH},stdio:['pipe','pipe','pipe']});
+      let output='',errors='';child.stdout.on('data',bytes=>{output+=bytes.toString();});child.stderr.on('data',bytes=>{errors+=bytes.toString();});
+      const finished=new Promise<number|null>(resolve=>child.once('close',resolve));
+      try{
+        await new Promise<void>((resolve,reject)=>{
+          const timer=setTimeout(()=>reject(Error('OWNED_SKU_LOCK_NOT_OBSERVED')),5000);
+          child.once('error',error=>{clearTimeout(timer);reject(error);});
+          child.once('close',()=>{clearTimeout(timer);reject(Error('OWNED_SKU_EXITED_BEFORE_LOCK'));});
+          child.stdout.on('data',()=>{if(output.includes('OWNED_SKU_TABLES_LOCKED\n')){clearTimeout(timer);resolve();}});
+        });
+        await q.startTransaction('READ COMMITTED');await q.query('SELECT consume_production_cutover_admission($1,$2)',[second.id,second.admission_digest]);
+        await expect(withCutoverOperator(q.manager,second.id,async()=>true)).rejects.toThrow('CUTOVER_OPERATOR_AUTHORITY_BUSY');
+        await q.rollbackTransaction();child.stdin.end('release\n');expect(await finished).toBe(0);expect(errors).toBe('');
+        expect(JSON.parse(output.trim().split('\n').at(-1)!)).toEqual({code:'STOP_BEFORE_STATE',begin:'BEGIN ISOLATION LEVEL READ COMMITTED'});
+      }finally{if(q.isTransactionActive)await q.rollbackTransaction();if(child.exitCode===null){child.kill('SIGTERM');await finished;}}
+      for(const admission of [first,second])expect((await issuerDb.query('SELECT consumed_xid FROM production_cutover_apply_admissions WHERE id=$1',[admission.id]))[0].consumed_xid).toBeNull();
+    }finally{await releaseExecutor(q);}
+  });
   it('executes the real compiled INIT body with actual receiver permissions and rolls back a failed opening before retrying the same admission',async()=>{
     await apiDb.query(`INSERT INTO brd_houses VALUES('HOUSE-A3','FARM-A','ACTIVE');
       INSERT INTO brd_flocks(flock_no,house_code,farm_code,breed_code,status,placement_date,start_date,company_code,site_code)

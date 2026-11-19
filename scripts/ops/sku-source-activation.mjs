@@ -12,6 +12,8 @@ export const SPECS = ['LOOSE', 'TRAY30', 'TRAY36', 'BOX360', 'BOX720', 'GIFT12',
 const COMPANIES = ['COMP-LAO-AGRI', 'COMP-LAO-XINGCHI'];
 const GRADES = Array.from({ length: 6 }, (_, n) => `GRADE_${n}`);
 const LEGACY_GRADES = GRADES.slice(1);
+const CATALOG_TABLES = ['sys_organizations', 'brd_farms', 'brd_houses', 'product_grades', 'packaging_specs',
+  'md_product_varieties', 'mst_products', 'product_skus', 'md_sku_org_scope', 'md_egg_source_profiles'];
 export const LEGACY_SELECTION_POLICY = {
   version: 'EXISTING_ACTIVE_STANDARD_MATRIX_V1', grade_codes: LEGACY_GRADES, spec_codes: SPECS,
   sku_variety_code: null, parent_variety_code: null, org_context_required: false,
@@ -179,8 +181,7 @@ async function loadState(client, desired, lock = false) {
   const share = lock ? ' FOR SHARE' : '';
   const update = lock ? ' FOR UPDATE' : '';
   const rows = async (sql, values = []) => (await client.query(sql, values)).rows;
-  const tables = ['sys_organizations','brd_farms','brd_houses','product_grades','packaging_specs',
-    'md_product_varieties','mst_products','product_skus','md_sku_org_scope','md_egg_source_profiles'];
+  const tables = CATALOG_TABLES;
   const schemaColumns = await rows(`SELECT table_name,column_name,udt_name,is_nullable,column_default
     FROM information_schema.columns WHERE table_schema=current_schema() AND table_name=ANY($1)
     ORDER BY table_name,ordinal_position`, [tables]);
@@ -189,7 +190,7 @@ async function loadState(client, desired, lock = false) {
     WHERE ns.nspname=current_schema() AND rel.relname=ANY($1) ORDER BY rel.relname,con.conname`, [tables]);
   const schemaIndexes = await rows(`SELECT tablename,indexname,indexdef FROM pg_indexes
     WHERE schemaname=current_schema() AND tablename=ANY($1) ORDER BY tablename,indexname`, [tables]);
-  const schemaTriggers = await rows(`SELECT rel.relname AS table_name, tr.tgname AS name,
+  const schemaTriggers = await rows(`SELECT rel.relname AS table_name, tr.tgname AS name, tr.tgenabled AS enabled_mode,
     pg_get_triggerdef(tr.oid) AS definition, pg_get_functiondef(tr.tgfoid) AS function_definition
     FROM pg_trigger tr JOIN pg_class rel ON rel.oid=tr.tgrelid JOIN pg_namespace ns ON ns.oid=rel.relnamespace
     WHERE ns.nspname=current_schema() AND rel.relname=ANY($1) AND NOT tr.tgisinternal ORDER BY rel.relname,tr.tgname`, [tables]);
@@ -400,13 +401,13 @@ export async function runActivation(client, { mode, effectiveDate, manifest = re
   let inspectedState;
   let inTransaction = false;
   try {
-    await client.query(mode === 'inspect' ? 'BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY' : 'BEGIN ISOLATION LEVEL SERIALIZABLE');
+    await client.query(mode === 'inspect' ? 'BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY' : 'BEGIN ISOLATION LEVEL READ COMMITTED');
     inTransaction = true;
     if (mode !== 'inspect') {
       await client.query("SET LOCAL lock_timeout='5s'");
       await client.query("SET LOCAL statement_timeout='30s'");
-      // Before any SELECT establishes the SERIALIZABLE snapshot: block non-cooperating inserts and parent/scope edits.
-      await client.query('LOCK TABLE mst_products, product_skus, md_sku_org_scope IN SHARE ROW EXCLUSIVE MODE');
+      // Keep every catalog dependency stable through the final read, including rows that do not exist yet.
+      await client.query(`LOCK TABLE ${CATALOG_TABLES.join(', ')} IN SHARE ROW EXCLUSIVE MODE`);
       await client.query("SELECT pg_advisory_xact_lock(hashtext('phoenix:sku-source-activation'))");
       for (const profile of intent.profiles) await client.query(
         "SELECT pg_advisory_xact_lock(hashtext('phoenix:egg-source-profile'),hashtext($1))", [`${profile.company_code}:${profile.house_code}`]);
@@ -431,6 +432,9 @@ export async function runActivation(client, { mode, effectiveDate, manifest = re
     if (mode !== 'inspect') {
       result.rows = await applyPlan(client,plan);
       const after = await loadState(client,intent,true);
+      for (const key of ['schemaColumns', 'schemaConstraints', 'schemaIndexes', 'schemaTriggers']) {
+        if (!same(state[key], after[key])) fail('PLAN_OR_DATABASE_STATE_MOVED');
+      }
       validateState(after,plan.desired);
       for (const restoration of plan.desired.restorations) {
         const actual=exactlyOne(by(after.products,'product_code',restoration.product_code),restoration.product_code);
