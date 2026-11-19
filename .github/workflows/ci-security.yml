@@ -37,7 +37,7 @@ jobs:
         run: node --test scripts/ops/record-migration-apply-receipt.test.mjs scripts/ops/migration-apply-receipt.test.mjs scripts/ops/chanjet-admission-schema-receipt.test.mjs scripts/ops/sku-source-activation.test.mjs scripts/ops/sku-source-activation-transport.test.mjs
 
       - name: Exercise actual read-only audit staging and payload boundaries
-        run: node --test scripts/ops/readonly-audit-transport.test.mjs
+        run: node --test scripts/ops/readonly-audit-transport.test.mjs scripts/ops/production-host-container-inventory.test.mjs
 
       - name: Install pinned YAML parser for transport gate
         run: npm install --no-save --ignore-scripts js-yaml@4.1.1

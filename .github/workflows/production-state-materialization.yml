@@ -16,6 +16,11 @@ on:
         required: false
         default: ''
         type: string
+      include_container_inventory:
+        description: 'Include a read-only redacted Docker container ownership inventory'
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -42,6 +47,24 @@ jobs:
           test "$CONFIRM" = COLLECT_PRODUCTION_STATE_READONLY
           test "$EXPECTED_MAIN_SHA" = "$GITHUB_SHA"
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+      - name: Stage exact read-only container inventory source
+        if: inputs.include_container_inventory
+        id: inventory_source
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote --exit-code origin refs/heads/main | cut -f1)" = "$GITHUB_SHA"
+          bundle="$(git archive --format=tar.gz "$GITHUB_SHA" \
+            scripts/ops/production-host-container-inventory.mjs \
+            scripts/ops/capture-production-runtime.mjs \
+            scripts/ops/production-maintenance-receipts.mjs \
+            scripts/ops/production-config-guard.mjs \
+            scripts/ops/production-config-contract.json \
+            scripts/ops/production-trusted-paths.mjs \
+            scripts/ops/chanjet-readonly-policy.mjs \
+            scripts/ops/update-managed-chanjet-env.mjs | base64 -w0)"
+          test -n "$bundle" && test "${#bundle}" -le 65536
+          printf 'bundle=%s\n' "$bundle" >> "$GITHUB_OUTPUT"
+          printf 'sha256=%s\n' "$(printf '%s' "$bundle" | sha256sum | cut -d ' ' -f1)" >> "$GITHUB_OUTPUT"
       - name: Collect production state over read-only SSH
         id: collect_state
         uses: appleboy/ssh-action@v1
@@ -49,6 +72,10 @@ jobs:
           DEPLOY_PATH: /data/phoenix-erp
           STATE_DIR: /var/lib/phoenix-erp/production-deployment-state
           RECORD_NAME: ${{ inputs.record_name }}
+          INCLUDE_CONTAINER_INVENTORY: ${{ inputs.include_container_inventory }}
+          EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha }}
+          HOST_INVENTORY_BUNDLE: ${{ steps.inventory_source.outputs.bundle }}
+          HOST_INVENTORY_BUNDLE_SHA: ${{ steps.inventory_source.outputs.sha256 }}
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
@@ -58,7 +85,7 @@ jobs:
           proxy_username: ${{ secrets.DEPLOY_PROXY_USER || secrets.DEPLOY_USER }}
           proxy_key: ${{ secrets.DEPLOY_PROXY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
           proxy_port: 22
-          envs: DEPLOY_PATH,STATE_DIR,RECORD_NAME
+          envs: DEPLOY_PATH,STATE_DIR,RECORD_NAME,INCLUDE_CONTAINER_INVENTORY,EXPECTED_MAIN_SHA,HOST_INVENTORY_BUNDLE,HOST_INVENTORY_BUNDLE_SHA
           capture_stdout: true
           command_timeout: 5m
           script: |
@@ -191,6 +218,20 @@ jobs:
               if (fd !== undefined) fs.closeSync(fd);
             }
             OWNERSHIP_PROJECTION
+            if [ "${INCLUDE_CONTAINER_INVENTORY:-false}" = true ]; then
+              inventory_dir="$tmp/host-inventory"
+              mkdir -m 700 "$inventory_dir"
+              if [[ "${EXPECTED_MAIN_SHA:-}" =~ ^[a-f0-9]{40}$ && "${HOST_INVENTORY_BUNDLE_SHA:-}" =~ ^[a-f0-9]{64}$ ]] &&
+                [ -n "${HOST_INVENTORY_BUNDLE:-}" ] && [ "${#HOST_INVENTORY_BUNDLE}" -le 65536 ] &&
+                [ "$(printf '%s' "$HOST_INVENTORY_BUNDLE" | sha256sum | cut -d ' ' -f1)" = "$HOST_INVENTORY_BUNDLE_SHA" ] &&
+                (printf '%s' "$HOST_INVENTORY_BUNDLE" | base64 -d | tar -xz -C "$inventory_dir") 2>/dev/null; then
+                if ! node "$inventory_dir/scripts/ops/production-host-container-inventory.mjs" "$EXPECTED_MAIN_SHA" 2>/dev/null; then
+                  printf '%s\n' 'HOST_CONTAINER_INVENTORY=HOLD_SOURCE_UNAVAILABLE'
+                fi
+              else
+                printf '%s\n' 'HOST_CONTAINER_INVENTORY=HOLD_SOURCE_UNAVAILABLE'
+              fi
+            fi
             find "$STATE_DIR" -maxdepth 1 -type f \( -name 'deploy-*.json' -o -name 'recovery-*.json' \) -print0 | sort -z | while IFS= read -r -d '' file; do
               printf 'STATE_RECORD=%s size=%s sha256=%s\n' "${file##*/}" "$(stat -c '%s' "$file")" "$(sha256sum "$file" | cut -d' ' -f1)"
             done
