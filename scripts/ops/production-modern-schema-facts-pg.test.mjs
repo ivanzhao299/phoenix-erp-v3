@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
-import {execFileSync} from 'node:child_process';
+import {execFileSync,spawn} from 'node:child_process';
 import {randomUUID} from 'node:crypto';
+import {once} from 'node:events';
+import {createInterface} from 'node:readline';
 import {setTimeout as delay} from 'node:timers/promises';
 import test from 'node:test';
 import {executionEnv} from './capture-production-runtime.mjs';
@@ -25,6 +27,9 @@ const seed=`
  INSERT INTO generic_integer SELECT i FROM generate_series(-512,512) i;
  CREATE TABLE smallint_threshold (id smallint PRIMARY KEY);
  INSERT INTO smallint_threshold SELECT i FROM generate_series(-512,511) i;
+ CREATE TABLE empty_keyed (id integer PRIMARY KEY, value text);
+ CREATE TABLE single_keyed (id uuid PRIMARY KEY, value jsonb);
+ INSERT INTO single_keyed VALUES ('00000000-0000-0000-0000-000000000001','{"letters":"值","misc":[42,null]}');
  CREATE TABLE generic_text (id text PRIMARY KEY);
  INSERT INTO generic_text SELECT i::text FROM generate_series(1,1030) i;
 
@@ -36,6 +41,43 @@ const seed=`
  CREATE TABLE partitioned_p PARTITION OF partitioned FOR VALUES FROM (0) TO (2000);
  INSERT INTO partitioned SELECT i FROM generate_series(1,1030) i;
 `;
+
+async function verifyLockedKeyRead(container,client,sql,statement,parameters){
+ const blocker=spawn('/usr/bin/docker',['exec','-i',container,'psql','-h','127.0.0.1','-XqAt','-v','ON_ERROR_STOP=1','-U','postgres'],
+  {env:executionEnv(),stdio:['pipe','pipe','ignore']});
+ const exit=once(blocker,'exit');
+ const lines=createInterface({input:blocker.stdout});
+ const relationLocks=`FROM pg_locks l JOIN pg_stat_activity s ON s.pid=l.pid
+  WHERE l.relation='public.chanjet_read_snapshots'::regclass AND l.mode='AccessShareLock'
+  AND s.application_name='phoenix-modern-schema-read'`;
+ let reading;
+ try{
+  const ready=once(lines,'line',{signal:AbortSignal.timeout(2000)});
+  blocker.stdin.write("BEGIN; LOCK TABLE public.chanjet_read_snapshots IN ACCESS EXCLUSIVE MODE; SELECT 'locked';\n");
+  assert.equal((await ready)[0],'locked');
+  reading=client.query(statement,parameters);
+  let resolved=false;
+  void reading.then(()=>{resolved=true;},()=>{resolved=true;});
+  let waiting=false;
+  for(let attempt=0;attempt<40&&!waiting&&!resolved;attempt++){
+   waiting=sql('SELECT count(*) '+relationLocks+
+    " AND NOT l.granted AND s.wait_event_type='Lock' AND s.query LIKE '%WITH locked_relation AS MATERIALIZED%'")==='1';
+   if(!waiting)await delay(15);
+  }
+  assert.ok(waiting&&!resolved,'the combined catalog SELECT must wait for the target table lock');
+  blocker.stdin.end('ROLLBACK;\n');
+  const result=await reading;
+  assert.equal(sql('SELECT count(*) '+relationLocks+' AND l.granted'),'1');
+  assert.throws(()=>sql("SET lock_timeout='100ms'; ALTER TABLE public.chanjet_read_snapshots ADD COLUMN never_visible integer"),
+   /canceling statement due to lock timeout/);
+  return result;
+ }finally{
+  blocker.stdin.end();
+  await exit;
+  lines.close();
+  await reading?.catch(()=>{});
+ }
+}
 
 async function verifyLegacyDictionarySequence(client,sql){
  sql(`
@@ -163,9 +205,8 @@ for(const version of ['16.14-alpine','18-alpine']){
    let lockChecked=false;
    const observedClient={async query(statement,parameters){
     if(statement.includes('JOIN pg_index')&&parameters[0]==='"public"."chanjet_read_snapshots"'&&!lockChecked){
-     const lock=sql("SELECT count(*) FROM pg_locks l JOIN pg_stat_activity s ON s.pid=l.pid WHERE l.relation='chanjet_read_snapshots'::regclass AND l.mode='AccessShareLock' AND l.granted AND s.application_name='phoenix-modern-schema-read'");
-     assert.equal(lock,'1');
      lockChecked=true;
+     return verifyLockedKeyRead(container,client,sql,statement,parameters);
     }
     const table=statement.match(/FROM (?:ONLY )?"public"\."([^"]+)"/)?.[1];
     if(table&&statement.includes(' AS "blockIndex"'))completeScans.add(table);
@@ -176,10 +217,23 @@ for(const version of ['16.14-alpine','18-alpine']){
    const facts=await captureModernSchemaFacts(observedClient);
    assert.ok(lockChecked);
    const rowCounts=Object.fromEntries(facts.tables.map(table=>[table.table,table.rows]));
-   assert.deepEqual(rowCounts,{chanjet_read_snapshots:257,generic_integer:1025,generic_text:1030,
-    inherited:1031,inherited_child:1,mon_device_property_history:65539,partitioned:1030,partitioned_p:1030,smallint_threshold:1024});
-   assert.deepEqual(Object.fromEntries(segmentCounts),{chanjet_read_snapshots:3,generic_integer:2,mon_device_property_history:3});
-   assert.deepEqual([...completeScans].sort(),['generic_text','inherited','inherited_child','partitioned','partitioned_p','smallint_threshold']);
+   assert.deepEqual(rowCounts,{chanjet_read_snapshots:257,empty_keyed:0,generic_integer:1025,generic_text:1030,
+    inherited:1031,inherited_child:1,mon_device_property_history:65539,partitioned:1030,partitioned_p:1030,
+    single_keyed:1,smallint_threshold:1024});
+   assert.deepEqual(Object.fromEntries(segmentCounts),{chanjet_read_snapshots:3,generic_integer:2,mon_device_property_history:3,
+    single_keyed:1,smallint_threshold:1});
+   assert.deepEqual([...completeScans].sort(),['generic_text','inherited','inherited_child','partitioned','partitioned_p']);
+
+   const legacyTables=new Set(['"public"."empty_keyed"','"public"."single_keyed"','"public"."smallint_threshold"']);
+   const legacySmall=await captureModernSchemaFacts({async query(statement,parameters){
+    const result=await client.query(statement,parameters);
+    if(statement.includes('JOIN pg_index')&&legacyTables.has(parameters[0])){
+     assert.equal(result.rows.length,1);
+     return {rows:[]};
+    }
+    return result;
+   }});
+   assert.deepEqual(facts,legacySmall);
 
    sql('CLUSTER mon_device_property_history USING mon_device_property_history_pkey');
    assert.deepEqual(await captureModernSchemaFacts(client,{projection:facts}),facts);
@@ -198,9 +252,11 @@ for(const version of ['16.14-alpine','18-alpine']){
    const later=await captureModernSchemaFacts(observedClient);
    assert.equal(later.tables.find(table=>table.table==='chanjet_read_snapshots').rows,258);
    assert.equal(later.tables.find(table=>table.table==='smallint_threshold').rows,1025);
-   assert.equal(segmentCounts.get('smallint_threshold'),2);
+   assert.equal(segmentCounts.get('smallint_threshold'),3);
    assert.notEqual(later.businessDataSha256,facts.businessDataSha256);
    sql('TRUNCATE mon_device_property_history');
+   await captureModernSchemaFacts(observedClient);
+   assert.ok(completeScans.has('mon_device_property_history'));
    await verifyFactsPair(client,sql);
    await verifyLegacyDictionarySequence(client,sql);
   }finally{

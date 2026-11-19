@@ -87,15 +87,12 @@ function snapshotClient(data,{table=snapshotTable,verifiedKey=true,keyType='int8
    sequenceOffset+=batch.length;
    return {rows:sequenceResult(batch.map((sequence,index)=>({sequenceIndex:index,lastValue:String(sequenceOffset+index),isCalled:true})))};
   }
-  if(sql.startsWith('SELECT 1 FROM ONLY')){
-   assert.equal(sql,'SELECT 1 FROM ONLY "public"."chanjet_read_snapshots" LIMIT 0');
-   calls.push('lock');
-   if(lockError)throw lockError;
-   return {rows:[]};
-  }
   if(sql.includes('JOIN pg_index')){
-   calls.push('key');
+   calls.push('locked key');
+   assert.match(sql,/^WITH locked_relation AS MATERIALIZED \(\s*SELECT 1 FROM ONLY "public"\."chanjet_read_snapshots" LIMIT 0/);
+   assert.match(sql,/AND NOT EXISTS \(SELECT 1 FROM locked_relation\)/);
    assert.deepEqual(parameters,['"public"."chanjet_read_snapshots"']);
+   if(lockError)throw lockError;
    assert.match(sql,/c.relkind='r' AND NOT c.relispartition/);
    assert.match(sql,/FROM pg_inherits WHERE inhrelid=c.oid OR inhparent=c.oid/);
    assert.match(sql,/a.attnotnull[\s\S]*t.typname IN \('int2','int4','int8','uuid'\)/);
@@ -139,7 +136,7 @@ test('Chanjet facts are deterministic across row order and cover exact, partial 
   const facts=await captureModernSchemaFacts(client);
   assert.equal(facts.tables[0].rows,count);
   assert.equal(client.calls.filter(call=>call==='segment').length,Math.max(1,Math.ceil(count/128)));
-  assert.deepEqual(client.calls.slice(0,5),['BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY','limits','lock','key','segment']);
+  assert.deepEqual(client.calls.slice(0,4),['BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY','limits','locked key','segment']);
   assert.equal(client.calls.at(-1),'ROLLBACK');
   assert.deepEqual(facts,await captureModernSchemaFacts(snapshotClient(data.reverse()),{projection:facts}));
   assert.deepEqual(Object.keys(facts.tables[0]).sort(),['columns','kind','rows','schema','sha256','table']);
@@ -182,17 +179,17 @@ test('unverified keys and unsupported relations fall back to the complete scan',
   assert.equal(facts.tables[0].rows,1);
   assert.equal(client.calls[0],'BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
   assert.equal(client.calls.at(-1),'ROLLBACK');
-  assert.deepEqual(client.calls.slice(2,-1),options.table?.kind==='p'?['complete scan']:['lock','key','complete scan']);
+  assert.deepEqual(client.calls.slice(2,-1),options.table?.kind==='p'?['complete scan']:['locked key','complete scan']);
  }
 });
 
 test('an unverified relation lock fails and standalone capture rolls back',async()=>{
  const standalone=snapshotClient(mirrorRows(1),{lockError:Error('fixture lock timeout')});
  await assert.rejects(captureModernSchemaFacts(standalone),/fixture lock timeout/);
- assert.deepEqual(standalone.calls,['BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY','limits','lock','ROLLBACK']);
+ assert.deepEqual(standalone.calls,['BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY','limits','locked key','ROLLBACK']);
  const client=snapshotClient(mirrorRows(1),{lockError:Error('fixture lock timeout')});
  await assert.rejects(captureModernSchemaFacts(client,{withinSnapshot:true}),/fixture lock timeout/);
- assert.deepEqual(client.calls,['limits','lock']);
+ assert.deepEqual(client.calls,['limits','locked key']);
 });
 
 test('sequence facts batch exact names without persisting the transport ordinals',async()=>{

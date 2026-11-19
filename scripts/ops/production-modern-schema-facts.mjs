@@ -86,13 +86,18 @@ export function foldModernSchemaTableFacts(columns,observed){
  return {rows,sha256:canonicalDigest({algorithm:'native-row-sha256-block-v1',columns,rows,blockRows:BLOCK_ROWS,blocks})};
 }
 
-const segmentKeySql=`SELECT a.attname::text AS "keyColumn",t.typname::text AS "keyType"
+// PostgreSQL locks the ONLY relation during query analysis, even at LIMIT 0.
+const segmentKeySql=relation=>`WITH locked_relation AS MATERIALIZED (
+ SELECT 1 FROM ONLY ${relation} LIMIT 0
+)
+ SELECT a.attname::text AS "keyColumn",t.typname::text AS "keyType"
  FROM pg_class c JOIN pg_attribute a ON a.attrelid=c.oid
  JOIN pg_type t ON t.oid=a.atttypid
  JOIN pg_index i ON i.indrelid=c.oid
  JOIN pg_opclass o ON o.oid=i.indclass[0]
  JOIN pg_am m ON m.oid=o.opcmethod
  WHERE c.oid=to_regclass($1) AND c.relkind='r' AND NOT c.relispartition
+ AND NOT EXISTS (SELECT 1 FROM locked_relation)
  AND NOT EXISTS (SELECT 1 FROM pg_inherits WHERE inhrelid=c.oid OR inhparent=c.oid)
  AND a.attnum>0 AND NOT a.attisdropped AND a.attnotnull
  AND t.typnamespace='pg_catalog'::regnamespace AND t.typname IN ('int2','int4','int8','uuid')
@@ -155,10 +160,7 @@ async function readSegment(client,{relation,key,keyType,segmentRows,columns,incl
 async function captureSegmentedTableFacts(client,table){
  const {schema,table:name,columns}=table;
  const relation=`${quote(schema)}.${quote(name)}`;
- // Referencing ONLY the relation acquires AccessShareLock until the snapshot ends.
- // LIMIT 0 keeps the lock acquisition separate from validation and payload reads.
- await client.query(`SELECT 1 FROM ONLY ${relation} LIMIT 0`);
- const {rows:keys}=await client.query(segmentKeySql,[relation]);
+ const {rows:keys}=await client.query(segmentKeySql(relation),[relation]);
  if(!keys.length)return null;
  const {keyColumn,keyType}=keys[0];
  if(keys.length!==1||typeof keyColumn!=='string'||(keyType!=='uuid'&&!integerKeyLimits.has(keyType))){
@@ -169,13 +171,18 @@ async function captureSegmentedTableFacts(client,table){
  const chanjet=schema==='public'&&name==='chanjet_read_snapshots';
  const monHistory=schema==='public'&&name==='mon_device_property_history';
  const segmentRows=chanjet?CHANJET_SEGMENT_ROWS:monHistory?MON_HISTORY_SEGMENT_ROWS:BLOCK_ROWS;
- const plan={relation,key:quote(keyColumn),keyType,segmentRows,columns,includeSmall:chanjet};
+ const singleBlock=segmentRows===BLOCK_ROWS;
+ const plan={relation,key:quote(keyColumn),keyType,segmentRows,columns,includeSmall:chanjet||singleBlock};
  let lower=null,rows=0;
  const segments=createHash('sha256');
  for(;;){
   const segment=await readSegment(client,plan,lower),upper=segment.upperKey;
-  // Small tables keep their whole-table fingerprint, even after a logical restore.
-  if(lower===null&&upper===null&&!chanjet)return null;
+  // A complete first interval of at most BLOCK_ROWS is exactly one legacy block.
+  if(lower===null&&upper===null&&!chanjet){
+   if(!singleBlock)return null;
+   return foldModernSchemaTableFacts(columns,[{blockIndex:segment.rows?0:null,blockRows:segment.rows||null,
+    sha256:segment.sha256,totalRows:segment.rows}]);
+  }
   rows+=segment.rows;
   if(rows>2147483647)fail('NATIVE_TABLE_SEGMENT_REQUIRED');
   // Bind each half-open interval to its row count and digest without retaining its keys.
