@@ -80,7 +80,7 @@ async function main(){
  const load=name=>import(pathToFileURL(path.join(stage,'scripts/ops',name)).href);
  const {canonicalDigest,bindingDigest,MAINTENANCE_AUTHORITY_SCHEMA}=await load('production-maintenance-receipts.mjs');
  const {captureRuntime}=await load('capture-production-runtime.mjs');
- const {observeMaintenanceProcessIdentity,verifyInstalledMaintenanceGuard}=await load('production-maintenance-root-readers.mjs');
+ const {observeMaintenanceProcessIdentity,observeMaintenanceContainerIdentity,verifyInstalledMaintenanceGuard}=await load('production-maintenance-root-readers.mjs');
  const {prepareMaintenanceRuntimeMaterials}=await load('production-maintenance-bootstrap.mjs');
  const {RELEASE_SCOPE}=await load('production-maintenance-deployment-session.mjs');
  const {runProductionMaintenanceSession}=await load('production-maintenance-production-entry.mjs');
@@ -183,9 +183,26 @@ CREATE ROLE erp_candidate_writer LOGIN;GRANT CONNECT ON DATABASE api_bootstrap_f
   try{const v=observeMaintenanceProcessIdentity(pid);processPins.push({pid,identitySha256:canonicalDigest(v),owner:'EXCLUSIVE_DISPOSABLE_VM_RUNNER_OR_OWNED_CONTAINER'});}
   catch(error){if(!['ENOENT','ESRCH','EACCES','EPERM'].includes(error?.code))throw error;}
  }
+ // Exact stopped archive builder identities remain visible to the ordinary
+ // all-container reader. Explicit fixture-only pins cover these four owned
+ // helpers; no unknown container or runtime executor gets an exemption.
+ const buildHelperPins=[];
+ for(const built of [exactLegacy,legacy])for(const proof of [built.archivedDependencyLock.installer,built.archivedCompilation]){
+  assert.match(proof.containerId,/^[a-f0-9]{64}$/);assert.ok(['maintenance-archive-dependencies','maintenance-archive-compiler'].includes(proof.kind));
+  const meta=JSON.parse(docker(['inspect',proof.containerId,'--format','{{json .}}']));
+  assert.equal(meta.Config.Labels['phoenix.test.owner'],proof.owner);assert.equal(meta.Config.Labels['phoenix.test.kind'],proof.kind);
+  assert.equal(meta.Image,proof.imageId);assert.equal(meta.State.Running,false);assert.equal(meta.State.ExitCode,0);assert.equal(meta.State.OOMKilled,false);
+  assert.equal(meta.Config.User,proof.user);assert.notEqual(proof.user.split(':')[0],'0');assert.equal(meta.HostConfig.Privileged,false);
+  const first=observeMaintenanceContainerIdentity(proof.containerId),second=observeMaintenanceContainerIdentity(proof.containerId);
+  assert.equal(first.running,false);assert.equal(first.pid,0);assert.equal(first.imageId,meta.Image);
+  assert.equal(first.startedAt,meta.State.StartedAt);assert.equal(first.restartCount,meta.RestartCount);
+  assert.equal(first.erpBind,false);assert.equal(canonicalDigest(first),canonicalDigest(second));
+  buildHelperPins.push({id:proof.containerId,identitySha256:canonicalDigest(first),owner:'EXCLUSIVE_DISPOSABLE_VM_STOPPED_ARCHIVE_BUILD_ONLY'});
+ }
+ assert.equal(buildHelperPins.length,4);result.archiveBuildHelperPins=buildHelperPins;save();
  // Active container namespaces are excluded by the real registry reader. This
  // file is explicit fixture ownership material, never production classification.
- write(path.join(state,'maintenance-host-ownership-registry.json'),{schema:'phoenix.maintenance-reviewed-host-ownership/v1',evidenceSha256:hash(JSON.stringify({fixtureOnly:true,processPins,network})),hostProcesses:processPins,containers:[]});
+ write(path.join(state,'maintenance-host-ownership-registry.json'),{schema:'phoenix.maintenance-reviewed-host-ownership/v1',evidenceSha256:hash(JSON.stringify({fixtureOnly:true,processPins,network,buildHelperPins})),hostProcesses:processPins,containers:buildHelperPins});
  const window={start:new Date(Date.now()-1000).toISOString(),end:new Date(Date.now()+29*60000).toISOString()};
  write(path.join(state,`owner-scoped-auth-unknown-${target}.json`),{schema:'phoenix.owner-scoped-auth-unknown-decision/v1',origin:'TRUSTED_INTERACTIVE_USER',authorizationRef:'OWNER_SCOPED_AUTH_UNKNOWN_NO_REPLAY',authorizationDigest:hash('SYNTHETIC_FIXTURE_NOT_A_USER_DECISION'),previousFloorSha:old,targetSha:target,oldApiContainerId:apiId,domain:'CHANJET_AUTH_REQUESTS',objects:[`api/${apiId}/chanjet-auth-lineage`],noReplay:true,businessMutation:false,window});
  const oldBoundary=(Math.floor(Date.now()/60000)+1)*60000+1500;result.stage='LEGACY_NEXT_REAL_SCHEDULER_BOUNDARY';save();
@@ -206,7 +223,7 @@ CREATE ROLE erp_candidate_writer LOGIN;GRANT CONNECT ON DATABASE api_bootstrap_f
   latePins.push({pid,identitySha256:canonicalDigest(first),owner:'EXCLUSIVE_DISPOSABLE_VM_RUNNER_STABLE_IDENTITY'});
  }
  if(latePins.length!==ownership.hostProcesses.length){
-  const updated={...ownership,hostProcesses:latePins};updated.evidenceSha256=hash(JSON.stringify({fixtureOnly:true,processPins:latePins,network}));
+  const updated={...ownership,hostProcesses:latePins};updated.evidenceSha256=hash(JSON.stringify({fixtureOnly:true,processPins:latePins,network,buildHelperPins}));
   fs.writeFileSync(ownershipFile,JSON.stringify(updated)+'\n',{mode:0o600});
  }
  result.stage='ACTUAL_SOURCE_PRE_RECOVERY_AND_FIVE_DOMAIN_BASELINE';save();

@@ -11,7 +11,7 @@ import { API_READINESS_PROGRAM } from '../ops/production-maintenance-candidate-h
 import { exerciseActualErpPhaseCorrelation } from './maintenance-erp-phase-correlation.fixture.mjs';
 import { selectOwnedComposeSubnet } from './owned-compose-ipam.mjs';
 import { CONTRACT, secureJson, verifyContext } from '../ops/production-config-guard.mjs';
-import {verifyArchivedApiDependencyLock} from './maintenance-api-dependency-lock.fixture.mjs';
+import {installArchivedApiDependencies,compileArchivedApi} from './maintenance-api-dependency-lock.fixture.mjs';
 import {validateSyntheticLegacySource,LEGACY_APPLICATION_BASE} from './maintenance-full-legacy-source.fixture.mjs';
 import {assertUnreplacedArchiveStore,readUnreplacedGit,verifyExtractedGitTree} from './maintenance-archived-source.fixture.mjs';
 
@@ -37,6 +37,15 @@ export function permittedDependencyFile(relative) {
   return !relative.split(path.sep).some(part => /^(?:node_modules|\.git|\.env(?:\..*)?|\.npmrc|\.yarnrc(?:\.yml)?|\.ssh|test|tests|__tests__|examples|coverage)$/i.test(part))
     && !/(?:\.(?:pem|key|p12|pfx)|id_rsa|id_ed25519)$/i.test(relative);
 }
+/** Fixed classifications only: no arbitrary log text, exception or environment. */
+export function redactedStartupDiagnostic(runtime, logs) {
+  assert.equal(typeof logs,'string');
+  const signals=Object.fromEntries(['EACCES','PUBLIC_FILE_UNTRUSTED','PUBLIC_MANIFEST','BACKGROUND_STARTUP_HOLD','OWNED_ERP_CAPSULE_REQUIRED','MODULE_NOT_FOUND','SCHEMA'].map(code=>[code,logs.includes(code)]));
+  signals.SHARP_NATIVE_LOAD=/Could not load the ["']sharp["'] module|sharp-linux.*\.node/.test(logs);
+  signals.LIBVIPS_SHARED_OBJECT_MISSING=/libvips[^\s:]*[^\n]*cannot open shared object file/.test(logs);
+  signals.ERR_DLOPEN_FAILED=logs.includes('ERR_DLOPEN_FAILED');
+  return {running:runtime.State.Running,status:runtime.State.Status,exitCode:runtime.State.ExitCode,oomKilled:runtime.State.OOMKilled,logSha256:hash(logs),signals};
+}
 export function requireOwnedResource(resource, owner, kind = KIND) {
   if (!/^[a-f0-9]{64}$/.test(resource?.Id || '') || resource?.Config?.Labels?.['phoenix.test.owner'] !== owner
     || resource?.Config?.Labels?.['phoenix.test.kind'] !== kind) hold('UNOWNED_RESOURCE');
@@ -53,22 +62,45 @@ export function verifyLiveControlRow(status, rows, databaseOid) {
     || new Date(rows[0].backend_start).toISOString() !== p.backendStartedAt) hold('CONTROL_SESSION_BINDING');
   return { unique: true, bootId: status.bootId, ...p };
 }
-function resolvePackage(name, from) {
+function requirePackageName(name) {
+  assert.ok(typeof name === 'string' && /^(?:@[a-z0-9][a-z0-9._-]*\/)?[a-z0-9][a-z0-9._-]*$/i.test(name), 'CANONICAL_DEPENDENCY_NAME_REQUIRED');
+  return name;
+}
+function resolvePackage(name, from, boundary) {
+  requirePackageName(name);
   let cursor = from;
   while (true) {
     const candidate = path.join(cursor, 'node_modules', name);
-    if (fs.existsSync(path.join(candidate, 'package.json'))) return fs.realpathSync(candidate);
+    if (fs.existsSync(path.join(candidate, 'package.json'))) {
+      const resolved=fs.realpathSync(candidate);
+      if(boundary)assert.ok(resolved.startsWith(boundary+path.sep),'DEPENDENCY_RESOLUTION_ESCAPED');
+      return resolved;
+    }
+    if(cursor===boundary)return null;
     const parent = path.dirname(cursor); if (parent === cursor) return null; cursor = parent;
   }
 }
-export function copyProductionDependencies(apiRoot, destination) {
+function dependencyMetadata(directory,{boundary}={}) {
+  const file=path.join(directory,'package.json'),stat=fs.lstatSync(file);
+  assert.ok(stat.isFile()&&!stat.isSymbolicLink()&&(!boundary||stat.nlink===1)&&stat.size<=1024*1024,'DEPENDENCY_METADATA_REGULAR_FILE_REQUIRED');
+  assert.equal(fs.realpathSync(file),file,'DEPENDENCY_METADATA_SYMLINK');
+  const pin=s=>[s.dev,s.ino,s.mode,s.nlink,s.size,s.mtimeMs,s.ctimeMs],fd=fs.openSync(file,fs.constants.O_RDONLY|fs.constants.O_NOFOLLOW);let bytes;
+  try{assert.deepEqual(pin(fs.fstatSync(fd)),pin(stat));bytes=fs.readFileSync(fd);assert.deepEqual(pin(fs.fstatSync(fd)),pin(stat));}finally{fs.closeSync(fd);}
+  assert.deepEqual(pin(fs.lstatSync(file)),pin(stat));return JSON.parse(bytes.toString());
+}
+export function copyProductionDependencies(apiRoot, destination, {boundary}={}) {
+  if(boundary){assert.equal(fs.realpathSync(boundary),boundary);assert.ok(apiRoot===boundary||apiRoot.startsWith(boundary+path.sep));}
   const manifest = JSON.parse(fs.readFileSync(path.join(apiRoot, 'package.json'), 'utf8'));
   const records = new Map();
   const copy = source => {
     if (records.has(source)) return records.get(source);
-    const metadata = JSON.parse(fs.readFileSync(path.join(source, 'package.json'), 'utf8'));
+    const metadata = dependencyMetadata(source,{boundary});
+    requirePackageName(metadata.name);
     const id = `${metadata.name.replaceAll('/', '_').replaceAll('@', '')}-${hash(source).slice(0, 12)}`;
-    const target = path.join(destination, '.capsule', id);
+    // Per-resolution canonical package locations preserve both Node's nested
+    // versions and ELF $ORIGIN sibling paths used by @img/sharp/libvips.
+    const siblings = path.join(destination, '.capsule', id, 'node_modules');
+    const target = path.join(siblings, metadata.name);
     const result = { name: metadata.name, version: metadata.version, directory: target, dependencies: {} }; records.set(source, result);
     fs.cpSync(source, target, { recursive: true, dereference: true, filter: candidate => {
       const relative = path.relative(source, candidate);
@@ -81,22 +113,28 @@ export function copyProductionDependencies(apiRoot, destination) {
       return true;
     } });
     for (const name of Object.keys({ ...metadata.dependencies, ...metadata.optionalDependencies, ...metadata.peerDependencies })) {
-      const dependency = resolvePackage(name, source); if (!dependency) {
+      const dependency = resolvePackage(name, source, boundary); if (!dependency) {
         if (metadata.dependencies?.[name] && !metadata.optionalDependencies?.[name]) hold('RUNTIME_DEPENDENCY_MISSING');
         continue;
       }
-      const child = copy(dependency); const link = path.join(target, 'node_modules', name);
-      fs.mkdirSync(path.dirname(link), { recursive: true }); fs.symlinkSync(path.relative(path.dirname(link), child.directory), link);
+      const child = copy(dependency);
+      for (const link of [path.join(target, 'node_modules', name), path.join(siblings, name)]) {
+        if (link === target) { assert.equal(child.directory, target, 'DEPENDENCY_SELF_NAME_COLLISION'); continue; }
+        fs.mkdirSync(path.dirname(link), { recursive: true }); fs.symlinkSync(path.relative(path.dirname(link), child.directory), link);
+      }
       result.dependencies[name] = child.version;
     }
     return result;
   };
   fs.mkdirSync(destination, { recursive: true });
   for (const name of Object.keys(manifest.dependencies)) {
-    const source = resolvePackage(name, apiRoot); if (!source) hold('DIRECT_RUNTIME_DEPENDENCY_MISSING');
+    const source = resolvePackage(name, apiRoot, boundary); if (!source) hold('DIRECT_RUNTIME_DEPENDENCY_MISSING');
     const child = copy(source); const link = path.join(destination, name);
     fs.mkdirSync(path.dirname(link), { recursive: true }); fs.symlinkSync(path.relative(path.dirname(link), child.directory), link);
   }
+  // Host stores may be private (0600 under umask077). COPY creates root-owned
+  // image files, so normalize only the filtered capsule for its UID1000 reader.
+  const readable=directory=>{for(const name of fs.readdirSync(directory)){const file=path.join(directory,name),stat=fs.lstatSync(file);if(stat.isSymbolicLink())continue;if(stat.isDirectory()){readable(file);fs.chmodSync(file,0o755);}else{assert.ok(stat.isFile());fs.chmodSync(file,stat.mode&0o111?0o755:0o644);}}fs.chmodSync(directory,0o755);};readable(destination);
   return [...records.values()].map(({ name, version, dependencies }) => ({ name, version, dependencies }));
 }
 
@@ -164,9 +202,7 @@ export class OwnedErpCandidateCapsule {
       }else{
         this.syntheticLegacyProvenance=validateSyntheticLegacySource({root:REPO,sourceRevision:this.sourceSha,targetRevision:syntheticLegacyTarget});
       }
-      this.archivedDependencyLock=verifyArchivedApiDependencyLock({
-        previousLock:git(['show',`${this.sourceSha}:pnpm-lock.yaml`]),currentLock:git(['show',`${instrumentationSha}:pnpm-lock.yaml`]),
-        previousManifest:git(['show',`${this.sourceSha}:apps/api/package.json`]),currentManifest:git(['show',`${instrumentationSha}:apps/api/package.json`])});
+
     }
     git(['diff','--quiet','HEAD','--','apps/api/src','apps/api/tsconfig.json','apps/api/tsconfig.build.json','apps/api/package.json','pnpm-lock.yaml']);
     for(const file of ['pnpm-lock.yaml','apps/api/package.json'])
@@ -181,12 +217,22 @@ export class OwnedErpCandidateCapsule {
     const archive = readUnreplacedGit(REPO,['archive','--format=tar',this.sourceSha,...selected],{binary:true});
     run('tar', ['-x', '-C', source], { input: archive });
     const archiveIdentity=verifyExtractedGitTree(REPO,this.sourceSha,selected,source);
-    const api = path.join(source, 'apps/api'); fs.symlinkSync(fs.realpathSync(path.join(REPO, 'apps/api/node_modules')), path.join(api, 'node_modules'));
-    const compiler = path.join(REPO, 'apps/api/node_modules/typescript/bin/tsc');
-    run(ROOT_NODE, [compiler, '-p', path.join(api, 'tsconfig.build.json'), '--outDir', path.join(context, 'dist'), '--rootDir', path.join(api, 'src'), '--incremental', 'false'], { timeout: 120000 });
-    fs.unlinkSync(path.join(api, 'node_modules'));
+    let dependencyApi = path.join(REPO, 'apps/api');
+    if (this.sourceSha !== instrumentationSha) {
+      const archived = installArchivedApiDependencies({root:REPO, revision:this.sourceSha, directory:path.join(this.root,'archived-dependencies')});
+      dependencyApi = archived.apiRoot; this.archivedDependencyLock = archived.receipt;
+    }
+    const api = path.join(source, 'apps/api');
+    if(this.archivedDependencyLock){
+      this.archivedCompilation=compileArchivedApi({source,dependencyApi,destination:path.join(context,'dist'),receipt:this.archivedDependencyLock});
+    }else{
+      fs.symlinkSync(fs.realpathSync(path.join(dependencyApi,'node_modules')),path.join(api,'node_modules'));
+      const compiler=path.join(dependencyApi,'node_modules/typescript/bin/tsc');
+      try{run(ROOT_NODE,[compiler,'-p',path.join(api,'tsconfig.build.json'),'--outDir',path.join(context,'dist'),'--rootDir',path.join(api,'src'),'--incremental','false'],{timeout:120000});}
+      finally{fs.unlinkSync(path.join(api,'node_modules'));}
+    }
     assert.deepEqual(verifyExtractedGitTree(REPO,this.sourceSha,selected,source),archiveIdentity);
-    const dependencies = copyProductionDependencies(path.join(REPO, 'apps/api'), path.join(context, 'node_modules'));
+    const dependencies = copyProductionDependencies(dependencyApi, path.join(context, 'node_modules'),{boundary:this.archivedDependencyLock?path.join(this.root,'archived-dependencies'):undefined});
     // Use the exact archived source and its tracked mode. A private root-owned
     // checkout can legitimately materialize package.json0600 under umask077;
     // copying that physical mode would make the UID1000 runtime unreadable.
@@ -194,7 +240,7 @@ export class OwnedErpCandidateCapsule {
     fs.writeFileSync(path.join(context, 'fixture-preload.cjs'), ownedNetworkPreload(this.owner));
     fs.writeFileSync(path.join(context, '.dockerignore'), '*\n!dist\n!dist/**\n!node_modules\n!node_modules/**\n!package.json\n!fixture-preload.cjs\n');
     fs.writeFileSync(path.join(this.root, 'capsule-build.json'), JSON.stringify({ sourceSha: this.sourceSha, sourceTreeHash: this.sourceTreeHash,
-      fixtureScriptSha256: this.fixtureScriptSha256,instrumentationSha,archiveIdentity,syntheticLegacyProvenance:this.syntheticLegacyProvenance??null,archivedDependencyLock:this.archivedDependencyLock??null, pnpmLockSha256: hash(fs.readFileSync(path.join(REPO, 'pnpm-lock.yaml'))),
+      fixtureScriptSha256: this.fixtureScriptSha256,instrumentationSha,archiveIdentity,syntheticLegacyProvenance:this.syntheticLegacyProvenance??null,archivedDependencyLock:this.archivedDependencyLock??null,archivedCompilation:this.archivedCompilation??null, pnpmLockSha256: this.archivedDependencyLock?.lockSha256 ?? hash(fs.readFileSync(path.join(REPO, 'pnpm-lock.yaml'))),
       dependencies, excluded: ['.env', 'keys', 'private directories', 'tests', 'full repository mount'], nodeBaseline: 20 }, null, 2));
     const base = this.docker(['image', 'inspect', 'node:20-bookworm-slim', '--format', '{{.Id}}']);
     const tag = `phoenix-${this.owner}:candidate`;
@@ -404,7 +450,13 @@ export class OwnedErpCandidateCapsule {
         const readiness = this.request(candidate, '/api/readiness');
         if (readiness.status === 200) { assert.equal(readiness.body.status, 'READY'); assert.equal(readiness.body.db, 'connected'); candidate.readiness = readiness; break; }
       } catch { /* Startup is bounded, never replaced. */ }
-      if (Date.now() > deadline || this.inspectContainer(candidate.id).State.Running !== true) { fs.writeFileSync(path.join(this.root, `pg${pg.major}-${mode}-failed-start.log`), this.logs(candidate.id)); hold('ACTUAL_ERP_START_FAILED'); }
+      if (Date.now() > deadline || this.inspectContainer(candidate.id).State.Running !== true) {
+        const stopped=this.inspectContainer(candidate.id), logs=this.logs(candidate.id);
+        fs.writeFileSync(path.join(this.root, `pg${pg.major}-${mode}-failed-start.log`), logs, {mode:0o600});
+        const startupDiagnostic=redactedStartupDiagnostic(stopped,logs);
+        fs.writeFileSync(path.join(this.root, `pg${pg.major}-${mode}-startup-diagnostic.json`),JSON.stringify(startupDiagnostic,null,2),{mode:0o600});
+        this.record({startupDiagnostic}); hold('ACTUAL_ERP_START_FAILED');
+      }
       await sleep(200);
     }
     const runtime = this.inspectContainer(candidate.id);

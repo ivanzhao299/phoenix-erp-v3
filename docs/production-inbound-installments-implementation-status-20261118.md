@@ -266,6 +266,17 @@
 - 原有合同和实际 PostgreSQL 16.14 历史演练套件 **38/38、0 skipped**。使用新建独占 owned 容器、专用 `phoenix_ledger_rehearsal`、显式空 dotenv 和项目内临时目录；实际 TypeORM CLI 的 clean 演练通过，故意删除一条 legacy tracking 行后，原 runner 按预期 BLOCK/非零退出，证明门禁未被改成恒通过。此次执行的是原历史 96 演练；新增 11 条只进入明确清单及严格排除分区，没有在历史 fixture 或生产中补记为已应用。
 - 此提交只固定可由主协调送往现有 draft PR 测试门禁的精确 OFF 检查点，不表示宿主、业务闭包或生产发布就绪。未改 schema、迁移源码、固定历史元组、门禁规则或工作流，未重复无改动的 API/Web 类型、全量、浏览器和正式 PG 套件，不把第十八结果计作本轮新通过。冻结方案 SHA 不变；远端 CI、合并、生产迁移、部署和现场验收仍需各自真实回执。
 
+## 第二十开发检查点：维护 CI 的归档依赖与实际原生启动（2026-11-19，保持 OFF）
+
+- 处理远端维护 CI `44429513221` 的真实失败：PG16/18 首次切换夹具在构建 exact226 时把归档依赖误要求等于当前依赖；native collector 和实际 ERP 启动失败的旧诊断未识别 sharp/libvips。未删启动、恢复、围栏或迁移 HOLD 断言，未更改生产 reader 或迁移准入。
+- 旧 `verifyArchivedApiDependencyLock` 严格复用校验保留。exact226 与有明确来源证明的 synthetic226 分别读取自身提交的根 package、workspace、lock、API/Web package 五个普通 Git blob；用独立 Node20 Bookworm、固定 pnpm9.15.9 frozen install，安装前后核对冻结字节，禁止当前依赖替换及祖先目录回退。归档 lock SHA256 为 `3a40a580553f96ea7489ac8a67e81e9645d8ce0a5601f9725c2d3484e1ec12e3`；安装回执仍不声称已安装字节或生产 ABI 全部核验。
+- 安装生命周期脚本保留，但仅在非 root、无 capabilities、无宿主 FD9/控制路径/Docker socket、只挂新安装目录的独立容器执行。归档 tsc 也仅在非 root、无网络容器执行，源码和依赖只读、单独 dist 可写；宿主核对编译文件闭包、普通输出文件和归档原始字节，不执行归档安装产生的 JavaScript。宿主收据放在可写挂载之外，冻结输入及依赖 metadata 在读取前拒绝符号链接/特殊文件，metadata 以 O_NOFOLLOW 和文件身份复核读取。
+- 每个实际解析版本在独立 capsule 中保留 canonical `node_modules/@scope/name`，同时保留 JS 内部依赖链接与原生 sibling 链接。真实 readelf 的 sharp RPATH 指向相邻 libvips，旧扁平路径因此不能加载。仅将已过滤镜像副本规范为运行用户可读，原宿主文件与既有排除秘密/测试文件规则不改；不同依赖版本继续隔离。
+- 本地实际复现旧布局 `sharp` 加载失败及 libvips 缺失；修复镜像以 UID1000 成功生成 PNG。exact226 使用自己的 frozen install 与无网络容器编译后，UID1000 的 bcrypt 实际调用通过，镜像 `sha256:0edbd53e677096eef17bcebffa05040e844dce34f7fd16e019ffe7d13d0a04fb`；安装/编译的基础镜像锁定为 `sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0`。这是本地夹具的实际原生证据，不是生产镜像或完整生产 ABI 准入。
+- 新增固定脱敏启动诊断，含日志摘要及 SHARP_NATIVE_LOAD、LIBVIPS_SHARED_OBJECT_MISSING 等固定布尔信号，不导出原始日志。首次切换夹具仅为两个归档构建留下的四个已停止 helper，核对真实标签、非 root、退出、image/start/restart/PID 和两次相同观察后登记精确 fixture-only ownership；其他容器仍走原未知资源拒绝门禁，生产 reader 不增例外。
+- 本地维护合同 **1006 passed / 35 skipped / 0 failed**。实际 current ERP 已在 PG16 完成 missing/FENCED 启动、真实 Cron 分钟零 mutation、readiness、同进程 FENCED→OPEN→FENCED；exact226 在 PG16 已真实 READY、现代状态接口 404、跨分钟和 owned stop（退出137，backend归零，modern drain仍 UNSUPPORTED）。**两条完整 PG16/18 真实套件本提交时仍在运行，不能计作全套通过；exclusive hosted VM 的 full-first-switch/native collector 和远端重跑尚待结果。** 独立只读审查发现的安装/编译权限、收据路径和 metadata 读取问题已修补并复核；主代理负责全部修改和实际执行。
+- 本批仅维护夹具、相关测试、固定诊断产物清单及本报告，未改 API/Web 业务源码或 schema；未重复本无变化的类型、UI scope-audit 或全量业务测试。冻结方案 SHA 不变。第6.3节只读审计归因由协调任务独立推进，原全局审计 HOLD 不改；默认关闭部署、专用可信宿主、实际角色/issuer/COMMIT恢复和现场事实仍未准入，无生产连接、推送、部署、启用或 GO。
+
 ## 未完成的发布阻塞
 
 1. 独立 RAW 集蛋凭证、库存父批与内部实际转换事实已区分；RAW→分级/包装/重包装业务 API/页面已形成第十二 OFF 检查点；已过账 RAW/转换的受控更正补偿、成本分摊、合法退货/跨公司加工交接及质检处置尚未完成。旧包装入口仍需接入明确实际投入与实耗，不能只挂 DERIVED 资格造成双计。包装、在途/退货/POS、跨公司和混源的全链成对回归，以及合法盘盈新来源仍需完成；受控 managed SKU 销售/配送/POS 正向及 UNKNOWN 持久化已有第五、六检查点证据，仍须与包装、退货和最终切换全链合并验收。不能用“全部拦住”代替合法链路验收。
