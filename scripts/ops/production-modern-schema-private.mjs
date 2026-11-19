@@ -6,6 +6,7 @@ import {inspectTrustedDirectory,assertRegularFile,assertSameDirectory} from './p
 import {pinModernSchemaChild} from './production-modern-schema-processes.mjs';
 const fail=code=>{throw Error('MODERN_SCHEMA_PRIVATE_HOLD='+code);};
 export class ModernSchemaPrivateRuntime {
+ #commands=new WeakSet();
  constructor(dependencies={}){
   this.directory=dependencies.directory??CONTRACT.stateDirectory;this.guard=dependencies.guard??(()=>verifyContext(CONTRACT.repository,this.directory));
   this.root=dependencies.root??CONTRACT.repository;
@@ -31,6 +32,7 @@ export class ModernSchemaPrivateRuntime {
   const stat=fs.lstatSync(file);assertRegularFile(stat,{uid:this.uid});this.guard();return file;
  }
  registeredChildren(){return [...this.children].filter(entry=>entry.pin&&entry.child.exitCode===null&&entry.child.signalCode===null);}
+ isCommand(entry){return this.#commands.has(entry);}
  async run({binary,args,directory,stem,inputFile=null,privateInput=null,deferInput=false,timeoutMs=300000,env=executionEnv(),inheritFd9=false,onSpawn=null}){
   if(!path.isAbsolute(binary)||!Array.isArray(args)||!args.every(arg=>typeof arg==='string'&&!arg.includes('\0'))||!/^[a-z][a-z0-9-]{0,50}$/.test(stem??'')||!Number.isSafeInteger(timeoutMs)||timeoutMs<1||timeoutMs>600000)fail('BOUNDED_COMMAND_REQUIRED');
   if(path.dirname(directory)!==this.directory||!/^schema-release-(?:session|preparation|prepare-backup|fenced-backup|prepare-rehearsal|fenced-rehearsal|migration|body|recovery)-[1-9][0-9]*-[1-9][0-9]*$/.test(path.basename(directory)))fail('OWNED_PRIVATE_DIRECTORY_REQUIRED');
@@ -45,7 +47,7 @@ export class ModernSchemaPrivateRuntime {
    // A supervised reader may close stdin between admission and delivery. EPIPE
    // must remain a controlled child failure, never an uncaught process error.
    child.stdin?.on('error',()=>{inputFailed=true;});
-   const controller=new AbortController(),entry={child,pin:null,controller,outcome:'ACTIVE'};this.children.add(entry);
+   const controller=new AbortController(),entry={child,pin:null,controller,outcome:'ACTIVE'};this.children.add(entry);this.#commands.add(entry);
    let timer,deadline=false;
    const completion=new Promise((resolve,reject)=>{
     child.once('error',()=>{clearTimeout(timer);reject(Error('MODERN_SCHEMA_PRIVATE_HOLD=CHILD_START_FAILED'));});

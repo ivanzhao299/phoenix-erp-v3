@@ -357,6 +357,21 @@
 - 默认部署检查现在运行全部 modern-schema 定向测试，而非仅 workflow 路由，覆盖实际 drain、终态、恢复和关闭边界。本片没有 API/Web 业务源码或迁移改动。另从精确 `e10ce798` 源码真实构建了本地官方 API 镜像，用于后续完整正式 body 的隔离闭包；未来检查点须按其自身提交重新构建并核对，不能把旧 c811 镜像重标作新目标。
 - 尚需把实际备份/门控迁移/原逐项回执与原正式 promotion、状态事务、Compose、健康及启动证据在隔离环境贯通，并验证中断续完；现有组件证明及发布审查分别记录。生产 OIDC 未实跑本身不增设人工签名或新批准门槛，真实发布仍使用既有已批准的受控身份与权限路径。没有生产 DDL、部署、主分支推送、业务启用或 GO，最终发布验收及第 2 节现场事实仍未完成。
 
+## 第二十九开发检查点：CI 历史来源与精确候选兼容演练（2026-11-19，保持 OFF）
+
+- `81801819` 的现代宿主组件在远端实际通过：[run 44486129812 / job 135429930769](https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/44486129812/job/135429930769)。脱敏回执 [modern-schema-ci-linux-native-cp28-20261119.json](../artifacts/flock-lifecycle-supervision-20261117/installments/modern-schema-ci-linux-native-cp28-20261119.json) 保留 11 个真实 root/FD9、PG18、Docker、nft 阶段，明确 API 状态为合成、正式 body/OIDC 未执行，不能视为完整发布通过。
+- 同提交扩展回归因 checkout 的浅历史读不到固定 R/c811 Git blob 而失败。`ea15cf496c62e6855fda0e533e847d9cca44f648` 只给 deploy `test` job 增加 `fetch-depth: 0`，保留原断言、detect 的 depth=2 和所有门禁。本工作树实际重跑相关五文件 **46/46、0 skipped**，YAML 与精确任务配置通过；协调任务报告后续 CI/CD `44487113653` 类型与部署回归成功。该 CI 修补不改变实际 common body 字节。
+- 从精确 ea15 Git archive 使用官方 Dockerfile 真实构建候选，实际本地镜像 ID `sha256:d8a1ba4b916df63aa85dce6b5266dbc22546d73c869c87ce55febef90e1f815c`，OCI revision 精确 ea15。默认原镜像观察器以 UID100/Node20、无网络、只读 rootfs、无挂载、drop ALL 实际读取并逐项匹配 125 条编译迁移与 Git 源，source inventory SHA 仍为 `c061666c12adc75ae20fbc68d76af9c69be81ce107fa9c728b7acf0e0824ce91`。
+- 同精确 ea15 在本代理 owned PG18 源库只读导出快照，经全新 internal 网络/volume/cluster 真实恢复，执行门控 20 项 `--transaction all` 和只读 show，账本 274→294；原表、列、序列业务投影不变。官方 R/ea15 T 均真实 READY/FENCED、跨 Cron 分钟零写入，并正常停止、exit0/OOMfalse。实际 **1/1、0 skipped，117 秒**；使用原已提交演练逻辑的项目内临时副本，仅替换精确候选 tag/SHA 与固定导入路径，没有改门禁。固定摘要见 [modern-schema-exact-candidate-rehearsal-ea15-20261119.json](../artifacts/flock-lifecycle-supervision-20261117/installments/modern-schema-exact-candidate-rehearsal-ea15-20261119.json)。这是独立 prepare 恢复兼容演练，不冒称生产原 S 或完整 supervisor/正式 body。
+
+## 第三十开发检查点：实际备份子进程退出与持续监控竞态（2026-11-19，保持 OFF）
+
+- 协调任务在真实 Linux KVM、官方 R/`81801819` T 和原 S/持续监控下，实际完成原 R READY、完整 20 项计划、FENCED/TERM/旧 PG 后端消失及 FRESH_RECHECKED；备份已写出 1,172,268 字节、PGDMP magic、stderr=0，却在通用宿主 census 按活进程严格身份核验时 HOLD。精确只读诊断为同 PID、kernel `Z`、Node exit 事件尚未处理、exe/argv/cwd 三项变空。该失败不作完整流程成功。
+- 保留严格 active verifier，另用原 `ChildProcess`、实际 PID/PPID/startTicks/boot/PID namespace 的两次 native 终止观察，仅在单线程 `Z/X/x` 时判定已无执行能力。只有该 runtime 私有 WeakSet 登记的 bounded command 可在通用 census 使用此例外，原 S、持久 readers 和已登记正式 body/driver 父进程均排除；不按程序名、同名后端或外部 JSON 放行。严格批量读取在 stat→exe/cwd 之间退出时，再核同一 task 的单线程终止态；活跃权限不可见仍 HOLD，state/thread 数不加入原身份指纹。
+- 本地实际复现未消费 exit 的单线程 zombie，原 active verifier 仍拒、通用 command census 可判终止；活跃 exe/argv/cwd/PPID/start/ns 改变、未登记 copy、持久 reader/S/父进程继续拒。独立审查另发现 leader `pthread_exit` 仍有 worker 的风险，已增加 `num_threads=1`；真实 C/pthread leader Z、worker 存活的反例实际被拒。定向 **17/17、0 skipped**。独立只读复核确认该风险已关闭，没有新增阻塞。
+- Node20 增广 108 份文件，最终在 `--test-concurrency=4` 下 **1461 passed / 52 opt-in skipped / 0 failed**（`modern-schema-cp30-regression-v2.log`）。第一次高并发运行保留原失败：既有 candidate-binding 的 10ms 绝对预算在首次 IO 前已耗尽，安全拒绝造成 `0 !== 1`；未修改其断言/期限或生产预算。语法及 diff 检查通过。API/Web TS、业务字段和迁移无变化，不重复第二十六/二十九检查点的类型、实际镜像兼容或 UI/业务 UAT。
+- **本轮只修已实证的通用 census 竞态。** 本地 terminal 不作为命令成功、备份可用或远端进程结束证明；原 PostgreSQL 会话和容器内 pg_dump 最终清退检查完整保留。专用 readCommand 采样与退出事件的其余时序未作无实证放宽，完整正式 body 及强杀续完仍待真实结果。协调任务正在以同真实 R/T 叠加候选运维文件复跑；这不等于未来精确提交已完成 E2E。冻结方案 SHA 与 125 TS 不变，没有生产 DDL、部署、业务启用或 GO。
+
 ## 未完成的发布阻塞
 
 1. 独立 RAW 集蛋凭证、库存父批与内部实际转换事实已区分；RAW→分级/包装/重包装业务 API/页面已形成第十二 OFF 检查点；已过账 RAW/转换的受控更正补偿、成本分摊、其余合法退货/跨公司加工交接及质检处置尚未完成；仅第二十一检查点的同公司原仓LAK完好成品客户退货已接续。旧包装入口仍需接入明确实际投入与实耗，不能只挂 DERIVED 资格造成双计。包装、在途/退货/POS、跨公司和混源的全链成对回归，以及合法盘盈新来源仍需完成；受控 managed SKU 销售/配送/POS 正向及 UNKNOWN 持久化已有第五、六检查点证据，仍须与包装、退货和最终切换全链合并验收。不能用“全部拦住”代替合法链路验收。

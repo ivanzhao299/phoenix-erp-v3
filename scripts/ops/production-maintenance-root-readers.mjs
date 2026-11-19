@@ -41,7 +41,7 @@ export async function hashMaintenanceRecoveryFile(file,expected,{signal,timeoutM
 }
 const procStat=pid=>{
   const text=fs.readFileSync(`/proc/${pid}/stat`,'utf8'),fields=text.slice(text.lastIndexOf(')')+2).split(' ');
-  return {pid,ppid:Number(fields[1]),startTicks:fields[19],state:fields[0]};
+  return {pid,ppid:Number(fields[1]),startTicks:fields[19],state:fields[0],threads:Number(fields[17])};
 };
 function processIdentity(pid,{strictVisibility=false}={}){
   const before=procStat(pid),base=`/proc/${pid}`;
@@ -49,7 +49,10 @@ function processIdentity(pid,{strictVisibility=false}={}){
   let exe='',cwd='';
   try{exe=fs.readlinkSync(`${base}/exe`);cwd=fs.readlinkSync(`${base}/cwd`);}catch(error){
     if(strictVisibility){
-      const inactive=['Z','X','x'].includes(before.state),kernel=argv.length===0&&/^Kthread:\s+1$/m.test(fs.readFileSync(`${base}/status`,'utf8'));
+      // A task can exit after the first stat but before exe/cwd is read.
+      // Only the same native task's terminal state gets the existing exception.
+      const current=procStat(pid),sameTask=current.ppid===before.ppid&&current.startTicks===before.startTicks;
+      const inactive=sameTask&&current.threads===1&&['Z','X','x'].includes(current.state),kernel=argv.length===0&&/^Kthread:\s+1$/m.test(fs.readFileSync(`${base}/status`,'utf8'));
       if(!inactive&&!kernel)throw error;
     }else if(!['ENOENT','ESRCH','EACCES','EPERM'].includes(error.code))throw error;
   }
@@ -57,6 +60,7 @@ function processIdentity(pid,{strictVisibility=false}={}){
     pidNamespace:fs.readlinkSync(`${base}/ns/pid`),erpControlReference:argv.includes(Buffer.from(CONTRACT.repository))||cwd===CONTRACT.repository||cwd.startsWith(CONTRACT.repository+'/')};
   if(procStat(pid).startTicks!==before.startTicks)hold('ROOT_READER_PROCESS_REUSED');
   delete value.state; // R/S are scheduler observations, never process identity.
+  delete value.threads; // A live thread count is not an immutable identity pin.
   return {value,cgroup,argv,cwd};
 }
 const containerFormat=['{{json .Id}}','{{json .Image}}','{{json .Name}}','{{json .State.StartedAt}}','{{json .RestartCount}}',

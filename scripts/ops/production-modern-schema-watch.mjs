@@ -5,7 +5,7 @@ import {CONTRACT} from './production-config-guard.mjs';import {executionEnv} fro
 import {canonicalDigest,same} from './production-maintenance-receipts.mjs';
 import {captureMaintenanceSchedulers,captureModernSchemaProcessIdentities,observeMaintenanceProcessIdentity,observeMaintenanceContainerIdentity} from './production-maintenance-root-readers.mjs';
 import {inspectModernSchemaContainer,MODERN_SCHEMA_EXECUTOR_SQL,classifyModernSchemaDatabaseExecutors} from './production-modern-schema-executors.mjs';
-import {verifyModernSchemaChild,pinModernSchemaChild} from './production-modern-schema-processes.mjs';import {assertOriginalModernSchemaProcess} from './production-modern-schema-session-lease.mjs';
+import {verifyModernSchemaChild,pinModernSchemaChild,isOriginalModernSchemaChildTerminal} from './production-modern-schema-processes.mjs';import {assertOriginalModernSchemaProcess} from './production-modern-schema-session-lease.mjs';
 import {readPinnedFile} from './production-trusted-paths.mjs';
 const fail=code=>{throw Error('MODERN_SCHEMA_WATCH_HOLD='+code);};
 const native=(binary,args)=>{try{return execFileSync(binary,args,{env:executionEnv(),encoding:'utf8',timeout:5000,maxBuffer:2*1024*1024,stdio:['ignore','pipe','pipe']}).trim();}catch{fail('NATIVE_CONTINUITY_OBSERVATION_UNAVAILABLE');}};
@@ -119,7 +119,17 @@ export class ModernSchemaExecutorWatch {
   const owned=this.runtime.registeredChildren();
   for(const row of this.captureProcesses()){
    if(row.pid===process.pid||row.pid===process.ppid||namespaces.has(row.pidNamespace))continue;
-   const entry=owned.find(item=>item.pin.pid===row.pid);if(entry){verifyModernSchemaChild(entry,row);continue;}
+   const entry=owned.find(item=>item.pin.pid===row.pid);if(entry){
+    try{verifyModernSchemaChild(entry,row);}catch(error){
+     // Only this runtime's bounded commands may finish between the /proc
+     // sweep and Node's exit callback. Persistent channels and body parents
+     // still need their exact live identity. Remote DB/process checks remain.
+     const protectedChild=this.session?.child===entry.child||this.readers.some(reader=>reader.entry.child===entry.child)
+      ||this.descendants.some(parent=>parent.child===entry.child);
+     if(protectedChild||this.runtime.isCommand?.(entry)!==true||!isOriginalModernSchemaChildTerminal(entry))throw error;
+    }
+    continue;
+   }
    let descendant=false;for(const root of this.descendants){
     if(root.child.exitCode!==null||root.child.signalCode!==null)continue;
     try{verifyModernSchemaChild(root,this.inspectProcess(root.pin.pid));assertOriginalModernSchemaProcess(linuxOnly(root.pin),{pid:row.pid});descendant=true;break;}catch{}
