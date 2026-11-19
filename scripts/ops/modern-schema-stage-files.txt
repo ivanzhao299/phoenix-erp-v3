@@ -73,6 +73,7 @@ scripts/ops/production-modern-schema-formal-body.mjs
 scripts/ops/production-modern-schema-gated-cli.mjs
 scripts/ops/production-modern-schema-identity.mjs
 scripts/ops/production-modern-schema-ingress.mjs
+scripts/ops/production-modern-schema-inventory.mjs
 scripts/ops/production-modern-schema-migration-driver.mjs
 scripts/ops/production-modern-schema-migration-gate.cjs
 scripts/ops/production-modern-schema-migration-launch.cjs

@@ -7,7 +7,7 @@ import {canonicalDigest,same} from './production-maintenance-receipts.mjs';
 import {compileOwnedIngressRules} from './maintenance-ingress-policy.mjs';
 import {captureMaintenanceSchedulers,observeMaintenanceProcessIdentity,observeMaintenanceContainerIdentity,captureModernSchemaProcessIdentities} from './production-maintenance-root-readers.mjs';
 import {verifyModernSchemaChild} from './production-modern-schema-processes.mjs';
-import {collectRetainedModernSchemaInventory} from './production-modern-schema-plan.mjs';
+import {collectRetainedModernSchemaInventory} from './production-modern-schema-inventory.mjs';
 const fail=code=>{throw Error('MODERN_SCHEMA_EXECUTORS_HOLD='+code);};
 const ID=/^[a-f0-9]{64}$/;
 const ipv4=value=>typeof value==='string'&&value.split('.').length===4&&value.split('.').every(part=>/^(?:0|[1-9][0-9]{0,2})$/.test(part)&&Number(part)<=255);

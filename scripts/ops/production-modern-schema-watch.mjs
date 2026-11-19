@@ -7,7 +7,7 @@ import {captureMaintenanceSchedulers,captureModernSchemaProcessIdentities,observ
 import {inspectModernSchemaContainer,MODERN_SCHEMA_EXECUTOR_SQL,classifyModernSchemaDatabaseExecutors} from './production-modern-schema-executors.mjs';
 import {verifyModernSchemaChild,pinModernSchemaChild,isOriginalModernSchemaChildTerminal} from './production-modern-schema-processes.mjs';import {assertOriginalModernSchemaProcess} from './production-modern-schema-session-lease.mjs';
 import {readPinnedFile} from './production-trusted-paths.mjs';
-import {RETAINED_INVENTORY_CLASSIFICATION,verifyRetainedModernSchemaInventoryPin} from './production-modern-schema-plan.mjs';
+import {RETAINED_INVENTORY_CLASSIFICATION,verifyRetainedModernSchemaInventoryPin} from './production-modern-schema-inventory.mjs';
 const fail=code=>{throw Error('MODERN_SCHEMA_WATCH_HOLD='+code);};
 const native=(binary,args)=>{try{return execFileSync(binary,args,{env:executionEnv(),encoding:'utf8',timeout:5000,maxBuffer:2*1024*1024,stdio:['ignore','pipe','pipe']}).trim();}catch{fail('NATIVE_CONTINUITY_OBSERVATION_UNAVAILABLE');}};
 const identity=value=>({id:value.id,imageId:value.imageId,name:value.name,startedAt:value.state.StartedAt,running:value.state.Running,pid:value.state.Pid,restarts:value.restarts,
