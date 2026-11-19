@@ -2,6 +2,7 @@
 import test from 'node:test';import assert from 'node:assert/strict';import {createRequire} from 'node:module';import {execFileSync,spawn} from 'node:child_process';import path from 'node:path';import {fileURLToPath} from 'node:url';
 import {canonicalDigest} from './production-maintenance-receipts.mjs';
 import {MODERN_SCHEMA_LEASE_SQL,parseModernSchemaLease,originalModernSchemaSessionPredicate,assertModernSchemaLeaseStillOriginal,ModernSchemaControlSession,pinOriginalModernSchemaSession} from './production-modern-schema-session-lease.mjs';
+import {closeModernSchemaOriginalSession} from './production-modern-schema-completion.mjs';
 test('new PostgreSQL session or missing original key cannot inherit a real dual-lock release lease',{skip:process.env.MODERN_SCHEMA_LEASE_PG!=='1'},async()=>{
  const labels=JSON.parse(execFileSync('/usr/bin/docker',['inspect','phoenix-temp-reversal-20261118','--format','{{json .Config.Labels}}'],{encoding:'utf8'}));assert.equal(labels['phoenix.fixture'],'temp-reversal');
  const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../..'),{Client}=createRequire(path.join(root,'apps/api/package.json'))('pg');
@@ -20,6 +21,22 @@ test('new PostgreSQL session or missing original key cannot inherit a real dual-
   assert.throws(()=>assertModernSchemaLeaseStillOriginal(first,{read:()=>replacement}),/ORIGINAL_SESSION_LOST_OR_REPLACED/);
   assert.equal(await check(successor,originalModernSchemaSessionPredicate(first)),false);
  }finally{await original.end().catch(()=>{});if(successor)await successor.end();await observer.end();}
+});
+test('native original backend disappearance is required after cleanup, even when local close reports success',{skip:process.env.MODERN_SCHEMA_LEASE_PG!=='1'},async()=>{
+ const labels=JSON.parse(execFileSync('/usr/bin/docker',['inspect','phoenix-temp-reversal-20261118','--format','{{json .Config.Labels}}'],{encoding:'utf8'}));assert.equal(labels['phoenix.fixture'],'temp-reversal');
+ const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../..'),{Client}=createRequire(path.join(root,'apps/api/package.json'))('pg');
+ const open=async()=>{const c=new Client({host:'127.0.0.1',port:44889,user:'postgres',database:'modern_schema_fixed_scope_20261119'});await c.connect();return c;};
+ const original=await open(),observer=await open();let ended=false;
+ const client={async query(sql){const value=await observer.query(`SELECT row_to_json(actual) AS observed FROM (${sql}) actual`);return {rows:value.rows.map(row=>row.observed)};}};
+ try{
+  await original.query('SELECT pg_advisory_lock(17455,1),pg_advisory_lock(17455,2)');
+  const lease=parseModernSchemaLease(JSON.parse((await observer.query(MODERN_SCHEMA_LEASE_SQL)).rows[0].jsonb_build_object));
+  let time=0;
+  await assert.rejects(closeModernSchemaOriginalSession({lease,client,guard(){},coordinator:{async close(){}}},{now:()=>time,pause:async()=>{time+=10001;}}),/ORIGINAL_SERVER_SESSION_REMAINS/);
+  const receipt=await closeModernSchemaOriginalSession({lease,client,guard(){},coordinator:{async close(){await original.end();ended=true;throw Error('lost local response');}}});
+  assert.equal(receipt.outcome,'ORIGINAL_SESSION_ABSENT');assert.equal(receipt.nativeObservation.originalSessionPresent,false);
+  assert.equal(receipt.transportClosed,false);
+ }finally{if(!ended)await original.end();await observer.end();}
 });
 test('actual modern sealed psql adapter refuses early unlock and same-backend reacquisition',{skip:process.env.MODERN_SCHEMA_LEASE_PG!=='1'},async()=>{
  const container='phoenix-temp-reversal-20261118',database='modern_schema_fixed_scope_20261119';

@@ -36,10 +36,10 @@ test('normal publishers and arbitrary typed flags cannot bypass pending admissio
  assert.throws(()=>publisher.fence(binding,[participant]),/SCHEMA_RELEASE_AUTHORITY_REQUIRED/);assert.deepEqual(state.effects,[]);
  state.authority=true;publisher.fence(binding,[participant]);let calls=0;
  await assert.rejects(publisher.open(binding,[{...participant,revision:base.targetSha}],async()=>{calls++;return true;}),/FORMAL_COMPLETION_REQUIRED/);assert.equal(calls,0);assert.equal(state.manifest.phase,'FENCED');
- state.pending.phase='OPEN_INTENT';state.authority=false;
+ state.pending.phase='INGRESS_RELEASED';state.authority=false;
  await assert.rejects(publisher.open(binding,[{...participant,revision:base.targetSha}],async()=>{calls++;return true;}),/FORMAL_COMPLETION_REQUIRED/);assert.equal(calls,0);
 });
 test('typed OPEN requires fixed completion authority both before and after awaited formal verification',async()=>{
- const {state,publisher}=fixture();state.pending={...binding,schema:'phoenix.modern-schema-release-pending/v1',phase:'REGISTERED'};state.authority=true;publisher.fence(binding,[participant]);state.pending.phase='OPEN_INTENT';
+ const {state,publisher}=fixture();state.pending={...binding,schema:'phoenix.modern-schema-release-pending/v1',phase:'REGISTERED'};state.authority=true;publisher.fence(binding,[participant]);state.pending.phase='INGRESS_RELEASED';
  await assert.rejects(publisher.open(binding,[{...participant,revision:base.targetSha}],async()=>{state.authority=false;return true;}),/FORMAL_COMPLETION_REQUIRED/);assert.equal(state.manifest.phase,'FENCED');
 });

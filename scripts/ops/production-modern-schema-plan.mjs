@@ -112,7 +112,7 @@ export function inspectModernSchemaImage(imageId,owner,dependencies={}){
  if(actual!==id||image!==imageId||state.Running!==false||state.ExitCode!==0||state.OOMKilled!==false||state.Pid!==0
   ||labels?.['phoenix.schema.owner']!==owner||labels?.['phoenix.schema.role']!=='readonly-inventory'||network!=='none'||readonly!==true
   ||!same(caps,['ALL'])||!same(mounts,[])||parsed.major!==20||!Number.isSafeInteger(parsed.uid)||parsed.uid<=0||!Array.isArray(parsed.records))hold('IMAGE_PROBE_PROTECTIONS_OR_EXIT');
- return {records:parsed.records,proof:{containerId:id,imageId,owner,revision:labels['org.opencontainers.image.revision'],nodeMajor:20,uid:parsed.uid,
+ return {records:parsed.records,proof:{containerId:id,imageId,owner,role:'readonly-inventory',revision:labels['org.opencontainers.image.revision'],nodeMajor:20,uid:parsed.uid,
   network:'none',readonly:true,capabilities:[],mounts:[],running:false,exitCode:0,inventorySha256:canonicalDigest(parsed.records),productionAuthority:false}};
 }
 

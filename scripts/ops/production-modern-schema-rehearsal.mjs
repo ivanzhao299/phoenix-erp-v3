@@ -8,6 +8,8 @@ import {captureModernSchemaFacts,assertModernSchemaBusinessUnchanged,defaultOffE
 import {LEDGER_SQL,digest} from './chanjet-admission-schema-receipt.mjs';
 import {API_READINESS_PROGRAM} from './production-maintenance-candidate-health.mjs';
 import {classifySql,capturedDatabaseStatements,parseBootControlIdentity,assertDefaultBackgroundHold} from '../ci/api-bootstrap-mutations.mjs';
+import {runModernSchemaGatedCli,observeModernSchemaCliBackend} from './production-modern-schema-gated-cli.mjs';
+import {MODERN_SCHEMA_LEASE_SQL,parseModernSchemaLease} from './production-modern-schema-session-lease.mjs';
 const ID=/^[a-f0-9]{64}$/,IMAGE=/^sha256:[a-f0-9]{64}$/,SHA=/^[a-f0-9]{40}$/;
 const fail=code=>{throw Error('MODERN_SCHEMA_REHEARSAL_HOLD='+code);};
 const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
@@ -53,12 +55,16 @@ class Capsule {
   return {id,image,state,restarts,labels,host,networks,mounts};
  }
  async create(role,image,args,command=[]){
+  const work=()=>this.createNative(role,image,args,command);return this.dependencies.withNativeCreate?this.dependencies.withNativeCreate(work):work();
+ }
+ async createNative(role,image,args,command=[]){
   if(!IMAGE.test(image))fail('IMMUTABLE_IMAGE_REQUIRED');
   const id=await this.text(['create','--pull=never','--label',`phoenix.schema.owner=${this.owner}`,'--label',`phoenix.schema.role=${role}`,
    '--restart=no','--network',this.networkId,...args,image,...(role.includes('migration')?['-d','dist/database/data-source.js',role==='rehearsal-migration-run'?'migration:run':'migration:show',...(role==='rehearsal-migration-run'?['--transaction','all']:[])]:command)],'create');
   if(!ID.test(id)||id===this.backup.receipt.databasePin.id)fail('NEW_ISOLATED_CONTAINER_REQUIRED');
-  const record={schema:'phoenix.modern-schema-owned-rehearsal-container/v1',owner:this.owner,role,containerId:id,imageId:image,networkId:this.networkId,volume:this.volume,createdAt:new Date().toISOString()};
-  this.resources.push(record);this.privateRuntime.publishJson(path.join(this.directory,'created-'+id+'.json'),record);await this.inspect(id);return id;
+  const record={schema:'phoenix.modern-schema-owned-rehearsal-container/v1',owner:this.owner,stage:this.stage,role,containerId:id,imageId:image,networkId:this.networkId,volume:this.volume,createdAt:new Date().toISOString()};
+  this.resources.push(record);this.privateRuntime.publishJson(path.join(this.directory,'created-'+id+'.json'),record);await this.inspect(id);
+  if(this.dependencies.onCreated)await this.dependencies.onCreated(record);return id;
  }
  async waitHealthy(id,timeout=60000){
   const deadline=Date.now()+timeout;for(;;){const actual=await this.inspect(id);if(actual.state.Running&&actual.state.Health?.Status==='healthy')return actual;
@@ -117,10 +123,24 @@ class Capsule {
  migrationEnvironment(){const d=this.backup.source.database;return ['--read-only','--user','phoenix','--cap-drop=ALL','--security-opt=no-new-privileges','--tmpfs','/tmp:rw,nosuid,nodev,size=16777216,mode=1777',
   '-e','NODE_ENV=production','-e','DB_HOST=schema-db','-e','DB_PORT=5432','-e',`DB_USER=${d.username}`,'-e',`DB_NAME=${d.name}`,'-e','DB_PASSWORD=','-e','PGOPTIONS=-c lock_timeout=5s -c statement_timeout=120s','--entrypoint','./node_modules/.bin/typeorm'];}
  async migrate(){
+  if(this.dependencies.gatedCli===true){
+   const {rows:[locks]}=await this.client.query('SELECT pg_try_advisory_lock(17455,1) AS admission,pg_try_advisory_lock(17455,2) AS execution');
+   if(locks.admission!==true||locks.execution!==true)fail('OWNED_CLONE_ORIGINAL_LEASE_REQUIRED');
+   const {rows:[leaseRow]}=await this.client.query(MODERN_SCHEMA_LEASE_SQL),originalLease=parseModernSchemaLease(JSON.parse(leaseRow.jsonb_build_object));
+   for(const mode of ['run','show']){
+    const d=this.backup.source.database;
+    const receipt=await runModernSchemaGatedCli({owner:this.owner,contextDigest:canonicalDigest(this.plan),mode,imageId:this.plan.candidateImageId,networkId:this.networkId,
+     environment:{DB_HOST:'schema-db',DB_PORT:'5432',DB_USER:d.username,DB_PASSWORD:'',DB_NAME:d.name},privateRuntime:this.privateRuntime,directory:this.directory,originalLease,
+     admit:async()=>{await this.check();await this.inspect(this.db);return true;},verifyNativeBackend:(proof,resource)=>observeModernSchemaCliBackend(this.client,proof,resource)},
+     {prepareGateFiles:this.dependencies.prepareMigrationGate,publishPermit:this.dependencies.publishMigrationPermit,onCreated:resource=>{this.resources.push(resource);}});
+    if(mode==='show'&&/^\s*\[ \]/m.test(readSmall(receipt.stdout.path)))fail('CLONE_PENDING_MIGRATIONS_REMAIN');
+   }
+  }else{
   for(const role of ['rehearsal-migration-run','rehearsal-migration-show']){
    const id=await this.create(role,this.plan.candidateImageId,this.migrationEnvironment()),result=await this.command(['start','-a',id],role,{timeoutMs:600000}),actual=await this.inspect(id);
    if(actual.state.Running||actual.state.ExitCode!==0||actual.state.Pid!==0)fail('ATOMIC_CLONE_MIGRATION_UNVERIFIED');
    if(role.endsWith('show')){const output=readSmall(result.stdout);if(/^\s*\[ \]/m.test(output))fail('CLONE_PENDING_MIGRATIONS_REMAIN');}
+  }
   }
   this.after=await captureModernSchemaFacts(this.client,{projection:this.before});assertModernSchemaBusinessUnchanged(this.before,this.after);
   const {rows:[{jsonb_build_object:raw}]}=await this.client.query(LEDGER_SQL),ledger=JSON.parse(raw);
@@ -134,14 +154,14 @@ class Capsule {
  async probe(id,program){return JSON.parse(await this.text(['exec',id,'/usr/bin/env','-i','PATH=/usr/local/bin:/usr/bin:/bin','/usr/local/bin/node','-e',program],'probe'));}
  async runtime(role,imageId,revision){
   const before=await captureModernSchemaFacts(this.client),begin=await this.marker(role,'begin');
-  const control=path.join(this.directory,'control-'+role);fs.mkdirSync(control,{mode:0o755});
+  const control=path.join(this.directory,'control-'+role);fs.mkdirSync(control,{mode:0o755});fs.chmodSync(control,0o755);
   if(typeof this.dependencies.preparePublicDirectory==='function')await this.dependencies.preparePublicDirectory(control);
   const controlStat=fs.lstatSync(control);if(controlStat.uid!==0||(controlStat.mode&0o022)!==0||!controlStat.isDirectory()||controlStat.isSymbolicLink())fail('ROOT_OWNED_PUBLIC_CONTROL_REQUIRED');
   const manifest={protocolVersion:1,phase:'FENCED',owner:this.owner,generation:1,targetSha:revision,participants:[]},manifestFile=path.join(control,'manifest.json');
   // Fixture-only UID accommodation must still produce an actually root-owned
   // manifest; the production default never calls an injected helper.
   if(typeof this.dependencies.publishPublicManifest==='function')await this.dependencies.publishPublicManifest(manifestFile,manifest);
-  else {const fd=fs.openSync(manifestFile,fs.constants.O_WRONLY|fs.constants.O_CREAT|fs.constants.O_EXCL|fs.constants.O_NOFOLLOW,0o444);try{fs.writeFileSync(fd,JSON.stringify(manifest)+'\n');fs.fsyncSync(fd);}finally{fs.closeSync(fd);}this.privateRuntime.syncDirectory(control);}
+  else {const fd=fs.openSync(manifestFile,fs.constants.O_WRONLY|fs.constants.O_CREAT|fs.constants.O_EXCL|fs.constants.O_NOFOLLOW,0o444);try{fs.writeFileSync(fd,JSON.stringify(manifest)+'\n');fs.fchmodSync(fd,0o444);fs.fsyncSync(fd);}finally{fs.closeSync(fd);}this.privateRuntime.syncDirectory(control);}
   const ms=fs.lstatSync(manifestFile);if(ms.uid!==0||!ms.isFile()||ms.isSymbolicLink()||ms.nlink!==1||(ms.mode&0o022)!==0)fail('ROOT_OWNED_PUBLIC_MANIFEST_REQUIRED');
   const d=this.backup.source.database;
   const revisionObserved=await this.text(['image','inspect',imageId,'--format','{{index .Config.Labels "org.opencontainers.image.revision"}}'],'image-revision');if(revisionObserved!==revision)fail('IMMUTABLE_RUNTIME_SOURCE_REVISION_REQUIRED');

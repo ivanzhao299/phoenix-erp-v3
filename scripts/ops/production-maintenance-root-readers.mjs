@@ -43,11 +43,16 @@ const procStat=pid=>{
   const text=fs.readFileSync(`/proc/${pid}/stat`,'utf8'),fields=text.slice(text.lastIndexOf(')')+2).split(' ');
   return {pid,ppid:Number(fields[1]),startTicks:fields[19],state:fields[0]};
 };
-function processIdentity(pid){
+function processIdentity(pid,{strictVisibility=false}={}){
   const before=procStat(pid),base=`/proc/${pid}`;
   const argv=fs.readFileSync(`${base}/cmdline`),cgroup=fs.readFileSync(`${base}/cgroup`,'utf8');
   let exe='',cwd='';
-  try{exe=fs.readlinkSync(`${base}/exe`);cwd=fs.readlinkSync(`${base}/cwd`);}catch(error){if(!['ENOENT','ESRCH','EACCES','EPERM'].includes(error.code))throw error;}
+  try{exe=fs.readlinkSync(`${base}/exe`);cwd=fs.readlinkSync(`${base}/cwd`);}catch(error){
+    if(strictVisibility){
+      const inactive=['Z','X','x'].includes(before.state),kernel=argv.length===0&&/^Kthread:\s+1$/m.test(fs.readFileSync(`${base}/status`,'utf8'));
+      if(!inactive&&!kernel)throw error;
+    }else if(!['ENOENT','ESRCH','EACCES','EPERM'].includes(error.code))throw error;
+  }
   const value={...before,exe,cwdSha256:hash(cwd),argvSha256:hash(argv),cgroupSha256:hash(cgroup),
     pidNamespace:fs.readlinkSync(`${base}/ns/pid`),erpControlReference:argv.includes(Buffer.from(CONTRACT.repository))||cwd===CONTRACT.repository||cwd.startsWith(CONTRACT.repository+'/')};
   if(procStat(pid).startTicks!==before.startTicks)hold('ROOT_READER_PROCESS_REUSED');
@@ -69,6 +74,18 @@ function containerIdentity(id){
  * observations only and never classify, approve or register an executor. */
 export function observeMaintenanceProcessIdentity(pid){guard();return processIdentity(pid).value;}
 export function observeMaintenanceContainerIdentity(id){guard();if(!ID.test(id))hold('ROOT_READER_CONTAINER_ID');return containerIdentity(id);}
+/** One guarded native /proc sweep. Modern callers do not hide EACCES or a
+ * process that remains present but cannot be identified. */
+export function captureModernSchemaProcessIdentities(){
+ guard();const result=[];
+ for(const name of fs.readdirSync('/proc').filter(name=>/^[1-9][0-9]*$/.test(name))){
+  const pid=Number(name);try{result.push(processIdentity(pid,{strictVisibility:true}).value);}catch(error){
+   try{fs.lstatSync(`/proc/${pid}`);}catch(gone){if(['ENOENT','ESRCH'].includes(gone.code))continue;}
+   hold('ROOT_READER_MODERN_PROCESS_VISIBILITY_REQUIRED');
+  }
+ }
+ guard();return result;
+}
 
 /** Templates have definitions but no instance properties. Querying an
  * uninstantiated @.service with systemctl show aborts the entire batch. Keep
@@ -227,9 +244,10 @@ export function readMaintenanceVendorFragment({name,source,loaded,unitId},depend
 /** Fixed scheduler discovery. Definitions are hashed in memory; command lines
  * and crontab bytes are never emitted. All listed files must remain readable,
  * regular and stable for this capture; absence of a service tool is explicit. */
-export function captureMaintenanceSchedulers(){
+export function captureMaintenanceSchedulers({includeDatabaseEntrypoints=false}={}){
   guard();const rows=[];
-  const add=(id,bytes,pin=bytes)=>rows.push({id,classification:'SYSTEM_PINNED',erpControlReference:bytes.includes(Buffer.from(CONTRACT.repository))||bytes.includes(Buffer.from('phoenix-v3-api')),identitySha256:hash(pin)});
+  const add=(id,bytes,pin=bytes)=>rows.push({id,classification:'SYSTEM_PINNED',erpControlReference:bytes.includes(Buffer.from(CONTRACT.repository))||bytes.includes(Buffer.from('phoenix-v3-api'))
+    ||includeDatabaseEntrypoints&&['phoenix-v3-db','psql','pg_restore','pg_dump','DB_PASSWORD'].some(token=>bytes.includes(Buffer.from(token))),identitySha256:hash(pin)});
   const file=(name,source,loaded=false,unitId)=>{
     // An exact vendor path cannot downgrade to the generic regular-file
     // reader or disappear if its package-installed symlink is replaced/lost.

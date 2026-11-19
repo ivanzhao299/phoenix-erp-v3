@@ -71,3 +71,12 @@ test('a new owner may register unchanged historical facts without colliding with
  for(const f of [first,second])assert.equal(first.store.exists(`schema-release-frozen-test-${f.context.owner}-${f.context.testManifestSha256}.json`),true);
 });
 test('the preparation validator never repairs or discards the original HOLD',()=>{const f=fixture();assert.equal(validateModernSchemaPreparation(f.record,now).fixed.businessEvidence.originalConclusion,'HOLD');});
+test('an interrupted immutable write cannot publish a partial final JSON or replace an existing receipt',()=>{
+ const f=fixture(),name='schema-release-interrupted-intent.json',value={schema:'owned-test-only',complete:true};
+ f.store.io=Object.assign(Object.create(fs),{writeFileSync(fd,bytes){fs.writeFileSync(fd,bytes.slice(0,8));throw Error('interrupted write');}});
+ assert.throws(()=>f.store.immutable(name,value),/CREATE_ONLY/);assert.equal(f.store.exists(name),false);
+ const retained=fs.readdirSync(f.directory).filter(file=>file.startsWith('.registration-'));assert.equal(retained.length,1);
+ assert.equal(fs.lstatSync(path.join(f.directory,retained[0])).mode&0o777,0o600);
+ f.store.io=fs;f.store.immutable(name,value);assert.deepEqual(f.store.read(name),value);
+ assert.throws(()=>f.store.immutable(name,{...value,complete:false}),/CREATE_ONLY/);assert.deepEqual(f.store.read(name),value);
+});

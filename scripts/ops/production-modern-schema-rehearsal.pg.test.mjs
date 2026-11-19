@@ -9,6 +9,7 @@ import {rehearseModernSchemaRelease} from './production-modern-schema-rehearsal.
 import {executionEnv} from './capture-production-runtime.mjs';
 test('actual PG18 exported snapshot restores only into a new isolated DB, applies exact pending set and both official images stay read-only across Cron minute',{
  skip:process.env.MODERN_SCHEMA_REHEARSAL_PG!=='1',timeout:300000},async()=>{
+ const previousUmask=process.umask(0o077);
  const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../..'),directory=fs.mkdtempSync(path.join(root,'artifacts/modern-schema-native-rehearsal-'));
  const docker=(args,input)=>execFileSync('/usr/bin/docker',args,{input,env:executionEnv(),encoding:'utf8',timeout:20000,maxBuffer:65536,stdio:['pipe','pipe','pipe']}).trim();
  const source=docker(['inspect','phoenix-modern-schema-native-20261119','--format','{{.Id}}\t{{.Image}}\t{{.State.StartedAt}}\t{{.RestartCount}}\t{{index .Config.Labels "phoenix.fixture"}}']).split('\t');assert.equal(source[4],'modern-schema-source');
@@ -25,12 +26,14 @@ test('actual PG18 exported snapshot restores only into a new isolated DB, applie
     '--mount',`type=bind,source=${control},target=/control`,'node:20-bookworm-slim','node','-e',script]);assert.match(id,/^[a-f0-9]{64}$/);docker(['start','-a','-i',id],input);
    assert.equal(docker(['inspect',id,'--format','{{.State.ExitCode}}']),'0');
   };
-  const result=await rehearseModernSchemaRelease({owner,stage:'prepare',backup,plan,runtimeImageId,privateRuntime},{
+  const result=await rehearseModernSchemaRelease({owner,stage:'prepare',backup,plan,runtimeImageId,privateRuntime},{gatedCli:process.env.MODERN_SCHEMA_GATED_REHEARSAL_PG==='1',
+   prepareMigrationGate:control=>helper(control,"const fs=require('fs');fs.chownSync('/control',0,0);fs.chmodSync('/control',0o755);for(const name of ['preload.cjs','launch.cjs']){fs.chownSync('/control/'+name,0,0);fs.chmodSync('/control/'+name,0o444)}"),
+   publishMigrationPermit:(control,permit)=>helper(control,"const fs=require('fs');let data='';process.stdin.on('data',c=>data+=c);process.stdin.on('end',()=>{const fd=fs.openSync('/control/permit.json','wx',0o444);fs.writeFileSync(fd,data);fs.fchmodSync(fd,0o444);fs.fsyncSync(fd);fs.closeSync(fd)})",JSON.stringify(permit)+'\n'),
    preparePublicDirectory:control=>helper(control,"const fs=require('fs');fs.chownSync('/control',0,0);fs.chmodSync('/control',0o755)"),
    publishPublicManifest:(file,manifest)=>helper(path.dirname(file),"const fs=require('fs');let data='';process.stdin.on('data',c=>data+=c);process.stdin.on('end',()=>{const fd=fs.openSync('/control/manifest.json','wx',0o444);fs.writeFileSync(fd,data);fs.fsyncSync(fd);fs.closeSync(fd)})",JSON.stringify(manifest)+'\n')
   });
   assert.equal(result.evidence.outcome,'PASS');assert.equal(result.evidence.backgroundWrites,0);assert.equal(result.evidence.defaultOffEvidence.featureRollout,'OFF');
   for(const resource of result.resources)assert.equal(docker(['inspect',resource.containerId,'--format','{{.State.Running}}\t{{.State.ExitCode}}\t{{.State.OOMKilled}}']),'false\t0\tfalse');
   privateRuntime.publishJson(path.join(directory,'native-proof.json'),{fixtureOnly:true,productionMutation:false,outcome:'PASS',directory,receipt:result.evidence});
- }finally{await client.close();}
+ }finally{await client.close();process.umask(previousUmask);}
 });

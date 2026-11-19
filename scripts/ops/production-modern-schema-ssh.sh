@@ -60,7 +60,7 @@ test -n "${staged[$entry]+seen}"
 public_receipt() {
   node -e '
     const fs = require("node:fs");
-    const [operation, owner, targetSha] = process.argv.slice(1);
+    const [operation, owner, targetSha, status] = process.argv.slice(1);
     const buffer = Buffer.alloc(8193);
     let used = 0;
     while (used < buffer.length) {
@@ -74,12 +74,18 @@ public_receipt() {
     if (value?.owner !== owner || value.targetSha !== targetSha || Object.getPrototypeOf(value) !== Object.prototype) process.exit(2);
     const keys = Object.keys(value).sort().join(",");
     if (operation === "prepare") {
-      if (keys !== "owner,preparationSha256,prepared,schema,targetSha" || value.schema !== "phoenix.modern-schema-public-preparation/v1" ||
-          value.prepared !== true || typeof value.preparationSha256 !== "string" || !/^[a-f0-9]{64}$/.test(value.preparationSha256)) process.exit(2);
+      if (status === "0") {
+        if (keys !== "owner,preparationSha256,prepared,schema,targetSha" || value.schema !== "phoenix.modern-schema-public-preparation/v1" ||
+            value.prepared !== true || typeof value.preparationSha256 !== "string" || !/^[a-f0-9]{64}$/.test(value.preparationSha256)) process.exit(2);
+      } else {
+        const failures = new Set("BOOTSTRAP FLOOR HOST_SURFACE PLAN BACKUP REHEARSAL HISTORICAL_AUDIT UNSPECIFIED".split(" "));
+        if (keys !== "failure,owner,prepared,schema,targetSha" || value.schema !== "phoenix.modern-schema-public-preparation-hold/v1" ||
+            value.prepared !== false || !failures.has(value.failure)) process.exit(2);
+      }
     } else if (keys !== "defaultOff,outcome,owner,schema,targetSha" || value.schema !== "phoenix.modern-schema-public-result/v1" ||
         value.defaultOff !== true || !["SUCCESS","HOLD"].includes(value.outcome)) process.exit(2);
     console.log(JSON.stringify(value));
-  ' "$operation" "$DEPLOY_RUN_ID" "$TARGET_SHA"
+  ' "$operation" "$DEPLOY_RUN_ID" "$TARGET_SHA" "$1"
 }
 
 if [ "$operation" = prepare ]; then
@@ -95,16 +101,20 @@ if [ "$operation" = prepare ]; then
   unset registry_token
 fi
 
-# Even a misbehaving helper cannot put diagnostics on the SSH output.
-set +e
+# Run as the only child of the original FD9 holder while the CLI inventories
+# the host. The receipt filter runs only after the CLI exits.
+raw_receipt="$STATE_DIR/.transport-$DEPLOY_RUN_ID-$operation.receipt"
+status=0
+set -o noclobber
+exec {receipt_fd}>"$raw_receipt"
+set +o noclobber
 if [ "$operation" = prepare ]; then
-  node "$stage/$entry" prepare </dev/null 2>/dev/null | public_receipt
-  status=("${PIPESTATUS[@]}")
+  node "$stage/$entry" prepare </dev/null >&"$receipt_fd" 2>/dev/null || status=$?
 else
-  node "$stage/$entry" run 2>/dev/null | public_receipt
-  status=("${PIPESTATUS[@]}")
+  node "$stage/$entry" run >&"$receipt_fd" 2>/dev/null || status=$?
 fi
-set -e
-test "${status[1]}" -eq 0
-# Keep FD9 live in the CLI parent for the production context verifier.
-exit "${status[0]}"
+exec {receipt_fd}>&-
+test -f "$raw_receipt" && test ! -L "$raw_receipt"
+test "$(stat -c '%u:%a:%h' "$raw_receipt")" = "$(id -u):600:1"
+public_receipt "$status" < "$raw_receipt"
+exit "$status"

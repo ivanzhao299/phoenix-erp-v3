@@ -112,6 +112,23 @@ test('failed, mismatched or non-canonical public preparation never requests iden
   }
 });
 
+test('only exact public preparation failure classes can diagnose a nonzero command, with no OIDC request', async () => {
+  const hold = {schema: 'phoenix.modern-schema-public-preparation-hold/v1', owner, targetSha: sha, prepared: false, failure: 'HOST_SURFACE'};
+  for (const [prepareStatus, prepareOutput, expected] of [
+    [2, JSON.stringify(hold), 'PREPARATION_HOST_SURFACE'],
+    [2, JSON.stringify({...hold, owner: '9001-2'}), 'PREPARATION_COMMAND_FAILED'],
+    [2, JSON.stringify({...hold, failure: 'FIXTURE_PRIVATE_DIAGNOSTIC'}), 'PREPARATION_COMMAND_FAILED'],
+    [2, JSON.stringify({...hold, private: 'fixture'}), 'PREPARATION_COMMAND_FAILED'],
+    [2, JSON.stringify({...hold, prepared: true}), 'PREPARATION_COMMAND_FAILED'],
+    [0, JSON.stringify(hold), 'PREPARATION_RECEIPT'],
+    [24, '', 'PREPARATION_FD9_BUSY'],
+  ]) {
+    const f = fixture({prepareStatus, prepareOutput});
+    await assert.rejects(runModernSchemaWorkflow(env, f.dependencies), {message: 'MODERN_SCHEMA_WORKFLOW_HOLD=' + expected});
+    assert.deepEqual(f.events, ['connect', 'prepare', 'close']);
+  }
+});
+
 test('ambiguous execution cannot become success and raw remote diagnostics are excluded', async () => {
   const f = fixture({ runOutput: 'unverified accidentally returned value' });
   await assert.rejects(runModernSchemaWorkflow(env, f.dependencies), { message: 'MODERN_SCHEMA_WORKFLOW_HOLD=RELEASE_RECEIPT' });
@@ -128,7 +145,8 @@ test('the reviewed host shell retains parent FD9 and uses only the two staged en
   assert.match(source, /test "\$\(repo_git rev-parse refs\/remotes\/origin\/main\)" = "\$TARGET_SHA"/);
   assert.match(source, /cmp -s "\$staged_file" <\(repo_git show "\$TARGET_SHA:\$file"\)/);
   assert.match(source, /node "\$stage\/\$entry" prepare <\/dev\/null/);
-  assert.match(source, /\n  node "\$stage\/\$entry" run 2>\/dev\/null \| public_receipt\n/);
+  assert.match(source, /\n  node "\$stage\/\$entry" run >&"\$receipt_fd" 2>\/dev\/null \|\| status=\$\?/);
+  assert.match(source, /\npublic_receipt "\$status" < "\$raw_receipt"\nexit "\$status"/);
   assert.doesNotMatch(source, /exec node "\$stage\/\$entry"/);
 });
 
@@ -170,8 +188,10 @@ test('host filter suppresses raw output, proves real CLI parent FD9 and propagat
   fs.writeFileSync(lock, '');
   fs.writeFileSync(path.join(directory, 'helper.mjs'), `
     import fs from 'node:fs';
-    const lock=fs.fstatSync(9), parent=fs.statSync('/proc/'+process.ppid+'/fd/9');
-    if (parent.ino!==lock.ino||parent.dev!==lock.dev||process.argv[2]!=='run') process.exit(9);
+    const lock=fs.fstatSync(9), pp=process.ppid, parent=fs.statSync('/proc/'+pp+'/fd/9');
+    const children=fs.readFileSync('/proc/'+pp+'/task/'+pp+'/children','utf8').trim().split(/\\s+/);
+    if(children.length!==1||children[0]!==String(process.pid)) process.exit(11);
+    if (parent.ino!==lock.ino||parent.dev!==lock.dev||process.argv[2]!==process.env.FIXTURE_OPERATION) process.exit(9);
     if (fs.readFileSync(0,'utf8')!==process.env.FIXTURE_STDIN) process.exit(10);
     process.stderr.write('fixture error text that must stay private\\n');
     console.log(process.env.FIXTURE_RESULT);
@@ -180,34 +200,57 @@ test('host filter suppresses raw output, proves real CLI parent FD9 and propagat
   const source = fs.readFileSync(new URL('./production-modern-schema-ssh.sh', import.meta.url), 'utf8');
   const start = source.indexOf('public_receipt() {');
   const end = source.indexOf('if [ "$operation" = prepare ]; then\n  # The registry credential', start);
-  const final = source.indexOf('# Even a misbehaving helper');
+  const final = source.indexOf('# Run as the only child');
   assert.ok(start > 0 && end > start && final > end);
   const script = `
     set -Eeuo pipefail
+    umask 077
     trap 'echo FIXED_HOLD >&2' ERR
     exec 9<>"$FIXTURE_LOCK"
     flock -n 9
-    operation=run
+    operation="$FIXTURE_OPERATION"
     DEPLOY_RUN_ID="$FIXTURE_OWNER"
     TARGET_SHA="$FIXTURE_SHA"
     stage="$FIXTURE_STAGE"
+    STATE_DIR="$FIXTURE_STATE"
     entry=helper.mjs
   ` + source.slice(start, end) + source.slice(final);
-  const invoke = (result, code) => spawnSync('/bin/bash', ['-c', script], {
-    input: 'fixture stdin only',
-    env: { PATH: process.env.PATH, FIXTURE_LOCK: lock, FIXTURE_OWNER: owner, FIXTURE_SHA: sha, FIXTURE_STAGE: directory,
-      FIXTURE_STDIN: 'fixture stdin only', FIXTURE_RESULT: result, FIXTURE_CODE: String(code) },
-    encoding: 'utf8', timeout: 6000,
-  });
-  const pass = invoke(JSON.stringify(success), 0);
+  const invoke = (result, code, stage = fs.mkdtempSync(path.join(directory, 'run-')), operation = 'run') => {
+    fs.copyFileSync(path.join(directory, 'helper.mjs'), path.join(stage, 'helper.mjs'));
+    const privateState = stage + '-private';
+    fs.mkdirSync(privateState, {recursive: true, mode: 0o700});
+    return spawnSync('/bin/bash', ['-c', script], {
+      input: 'fixture stdin only',
+      env: { PATH: process.env.PATH, FIXTURE_LOCK: lock, FIXTURE_OWNER: owner, FIXTURE_SHA: sha, FIXTURE_STAGE: stage, FIXTURE_STATE: privateState,
+        FIXTURE_OPERATION: operation, FIXTURE_STDIN: operation === 'run' ? 'fixture stdin only' : '', FIXTURE_RESULT: result, FIXTURE_CODE: String(code) },
+      encoding: 'utf8', timeout: 6000,
+    });
+  };
+  const firstStage = fs.mkdtempSync(path.join(directory, 'first-'));
+  const pass = invoke(JSON.stringify(success), 0, firstStage);
   assert.equal(pass.status, 0);
   assert.deepEqual(JSON.parse(pass.stdout), success);
   assert.equal(pass.stderr, '');
+  const captured = path.join(firstStage + '-private', '.transport-' + owner + '-run.receipt');
+  assert.deepEqual(fs.readdirSync(firstStage), ['helper.mjs']);
+  assert.equal(fs.lstatSync(captured).mode & 0o777, 0o600);
+  const saved = fs.readFileSync(captured, 'utf8');
+  const repeated = invoke('unexpected duplicate', 0, firstStage);
+  assert.notEqual(repeated.status, 0);
+  assert.equal(repeated.stdout, '');
+  assert.equal(fs.readFileSync(captured, 'utf8'), saved);
   const holdReceipt = { ...success, outcome: 'HOLD' };
   const hold = invoke(JSON.stringify(holdReceipt), 37);
   assert.equal(hold.status, 37);
   assert.deepEqual(JSON.parse(hold.stdout), holdReceipt);
   assert.doesNotMatch(hold.stderr, /fixture error text/);
+  const preparationHold = {schema: 'phoenix.modern-schema-public-preparation-hold/v1', owner, targetSha: sha, prepared: false, failure: 'BACKUP'};
+  const blocked = invoke(JSON.stringify(preparationHold), 36, undefined, 'prepare');
+  assert.equal(blocked.status, 36);
+  assert.deepEqual(JSON.parse(blocked.stdout), preparationHold);
+  const unapproved = invoke(JSON.stringify({...preparationHold, failure: 'FIXTURE_PRIVATE_DIAGNOSTIC'}), 36, undefined, 'prepare');
+  assert.equal(unapproved.stdout, '');
+  assert.doesNotMatch(unapproved.stderr, /FIXTURE_PRIVATE_DIAGNOSTIC/);
   const raw = invoke('private raw detail that cannot leave the host', 0);
   assert.notEqual(raw.status, 0);
   assert.equal(raw.stdout, '');

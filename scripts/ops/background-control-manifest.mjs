@@ -277,7 +277,7 @@ export class BackgroundManifestPublisher {
     const releaseAdmission=()=>{
       const pending=this.readSchemaReleasePending();
       if(binding.purpose===SCHEMA_RELEASE_PURPOSE){
-        if(this.readCutoverPending()!==null||pending?.schema!=='phoenix.modern-schema-release-pending/v1'||pending.phase!=='OPEN_INTENT'
+        if(this.readCutoverPending()!==null||pending?.schema!=='phoenix.modern-schema-release-pending/v1'||pending.phase!=='INGRESS_RELEASED'
           ||this.verifySchemaReleaseAuthority(binding,'OPEN')!==true)fail('SCHEMA_RELEASE_FORMAL_COMPLETION_REQUIRED');
         assertSameBinding(pending,binding);
       }else{if(pending!==null)fail('SCHEMA_RELEASE_DEDICATED_RECOVERY_REQUIRED');assertNoCutoverControlState(record,this.readCutoverPending());}
@@ -296,7 +296,11 @@ export class BackgroundManifestPublisher {
     // next public projection digest to the private authority BEFORE publishing
     // OPEN. A crash may leave private OPEN/public FENCED (manual reconciliation),
     // never public OPEN ahead of its committed authority record.
-    this.writePrivate(next); this.writePublic(manifest); this.writeHighWater(generation);
+    // Modern OPEN is the release commit point. Its immutable full-evidence
+    // intent and high-water mark must already be durable before publication;
+    // there is no fallible write after the public projection is committed.
+    if(binding.purpose===SCHEMA_RELEASE_PURPOSE){this.writeHighWater(generation);this.writePrivate(next);this.writePublic(manifest);}
+    else{this.writePrivate(next);this.writePublic(manifest);this.writeHighWater(generation);}
     return manifest;
   }
 }

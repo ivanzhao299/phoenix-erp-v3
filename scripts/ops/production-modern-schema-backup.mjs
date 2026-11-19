@@ -42,7 +42,8 @@ export async function createModernSchemaBackup({owner,stage,client,databasePin,p
   source={database,facts,ledger,ledgerSha256:digest(JSON.stringify(ledger)),snapshotSha256:createHash('sha256').update(snapshot).digest('hex')};
   keepalive=setInterval(()=>{keepaliveWork=keepaliveWork.then(async()=>{try{await verify();await client.query('SELECT 1 AS snapshot_keepalive');}catch{keepaliveError=true;}});},5000);
   result=await privateRuntime.run({binary:'/usr/bin/docker',args:['exec','-e','PGOPTIONS=-c default_transaction_read_only=on -c statement_timeout=120000 -c lock_timeout=3000',
-   '-e',`PGAPPNAME=${applicationName}`,databasePin.id,'sh','-c','exec env -i PATH=/usr/local/bin:/usr/bin:/bin PGHOST=/var/run/postgresql PGPORT=5432 PGOPTIONS="$PGOPTIONS" PGAPPNAME="$PGAPPNAME" pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" --format=custom --no-owner --no-acl --snapshot="$1"','--',snapshot],directory,stem:'database-dump',timeoutMs:600000});
+   '-e',`PGAPPNAME=${applicationName}`,databasePin.id,'sh','-c','exec env -i PATH=/usr/local/bin:/usr/bin:/bin PGHOST=/var/run/postgresql PGPORT=5432 PGOPTIONS="$PGOPTIONS" PGAPPNAME="$PGAPPNAME" pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" --format=custom --no-owner --no-acl --snapshot="$1"','--',snapshot],directory,stem:'database-dump',timeoutMs:600000,
+   onSpawn:dependencies.onDumpStarted?entry=>dependencies.onDumpStarted(entry,applicationName):null});
   clearInterval(keepalive);keepalive=null;await keepaliveWork;if(keepaliveError)fail('EXPORTED_SNAPSHOT_LOST');
   await client.query('ROLLBACK');snapshotOpen=false;
  }finally{
@@ -51,6 +52,7 @@ export async function createModernSchemaBackup({owner,stage,client,databasePin,p
   // SIGTERM of the host Docker CLI does not prove its remote exec exited.
   // Failure here retains HOLD; it never terminates a backend or authorizes R.
   await remoteStopped();
+  if(dependencies.onDumpStopped)await dependencies.onDumpStopped();
  }
  await verify();const backup=await privateRuntime.digest(result.stdout);if(backup.bytes<64)fail('NONEMPTY_CUSTOM_BACKUP_REQUIRED');
  const toc=await privateRuntime.run({binary:'/usr/bin/docker',args:['exec','-i',databasePin.id,'pg_restore','--list'],directory,stem:'backup-toc',inputFile:backup.path,timeoutMs:300000});

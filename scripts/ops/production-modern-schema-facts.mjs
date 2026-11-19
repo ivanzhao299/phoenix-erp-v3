@@ -74,3 +74,13 @@ export function defaultOffEvidenceFromFacts(targetSha,facts,{stage='AFTER_SCHEMA
  return {schema:'phoenix.modern-schema-default-off-evidence/v1',targetSha,featureRollout:'OFF',scopeRows:0,qualificationRows:0,admissionRows:0,cutoverResultRows:0,
   chanjetPolicy:'HOLD',verified:true,stage,observedTables:counts,factsSha256:facts.businessDataSha256};
 }
+/** Recheck only the rollout authorities after ingress release. Exempt GETs may
+ * initialize unrelated schema; they cannot be mistaken for rollout evidence. */
+export async function captureModernSchemaDefaultOff(client,targetSha,{floor}={}){
+ if(!/^[a-f0-9]{40}$/.test(targetSha??''))fail('EXACT_OFF_EVIDENCE_SCOPE_REQUIRED');
+ const policy=floor??secureJson(path.join(CONTRACT.stateDirectory,'floor.json'));
+ if(policy.chanjetPolicy!=='HOLD'||policy.readonlyApproval!==null)fail('CHANJET_HOLD_REQUIRED');
+ const {rows}=await client.query(defaults.map(table=>`SELECT '${table}'::text AS table,count(*)::text AS rows FROM public.${quote(table)}`).join(' UNION ALL ')+' ORDER BY 1');
+ if(rows.length!==defaults.length||!rows.every(row=>defaults.includes(row.table)&&row.rows==='0')||new Set(rows.map(row=>row.table)).size!==defaults.length)fail('BUSINESS_ACTIVATION_ALREADY_PRESENT');
+ return {schema:'phoenix.modern-schema-live-default-off/v1',targetSha,observedTables:rows,featureRollout:'OFF',chanjetPolicy:'HOLD',verified:true,readOnly:true};
+}

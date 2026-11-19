@@ -34,3 +34,17 @@ test('a sibling process with the same UID cannot impersonate a descendant by sen
   assert.equal(calls,0);assert.ok(channel.failed);
  }finally{await assert.rejects(channel.close());}
 });
+test('migration proxy arguments use private stdin, never client argv, and results stream from a protected file',async()=>{
+ const f=fixture(),secret='synthetic-private-credential-never-an-argv',pidFile=path.join(f.work,'server-pid'),input=path.join(f.work,'migration.sh'),out=path.join(f.work,'result.stdout');
+ fs.writeFileSync(out,'synthetic-private-cli-output\n',{mode:0o600});let peerArgv;
+ const channel=new ModernSchemaBodyChannel({owner:'1234-1',privateRuntime:f.runtime,directory:f.work,onRequest:request=>{
+  assert.deepEqual(request,{operation:'docker',args:['run','DB_PASSWORD='+secret]});peerArgv=fs.readFileSync(`/proc/${channel.activePeer.peer.pid}/cmdline`,'utf8');return {stdoutFile:out};
+ }},{...f.dependencies,operationProfile:'CONTROLLED_MIGRATION'});
+ fs.writeFileSync(input,`server_pid="$(cat ${quoted(pidFile)})"\nprintf '%s\\0' run ${quoted('DB_PASSWORD='+secret)} | /usr/bin/python3 -I -S ${quoted(script)} request-docker "/proc/$server_pid/fd/10/${channel.socketName}" "$server_pid"\n`,{mode:0o600});
+ try{
+  const result=await f.runtime.run({binary:'/bin/bash',args:['-Eeuo','pipefail'],directory:f.work,stem:'private-migration',inputFile:input,deferInput:true,onSpawn:async entry=>{
+   await channel.start(entry);const fd=f.runtime.openOutput(pidFile);try{fs.writeFileSync(fd,String(channel.entry.child.pid));fs.fsyncSync(fd);}finally{fs.closeSync(fd);}
+  }});
+  assert.equal(peerArgv.includes(secret),false);assert.equal(fs.readFileSync(result.stdout,'utf8'),'synthetic-private-cli-output\n');
+ }finally{await channel.close();}
+});

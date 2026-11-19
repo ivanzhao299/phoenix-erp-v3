@@ -33,6 +33,7 @@ const execEnv = { PATH: '/usr/bin:/bin', LANG: 'C' };
 const fail = phase => Error('MODERN_SCHEMA_WORKFLOW_HOLD=' + phase);
 const match = (pattern, input) => typeof input === 'string' && pattern.test(input);
 const quote = value => "'" + value.replaceAll("'", "'\"'\"'") + "'";
+const preparationFailures = new Set('BOOTSTRAP FLOOR HOST_SURFACE PLAN BACKUP REHEARSAL HISTORICAL_AUDIT UNSPECIFIED'.split(' '));
 const staticKeys = ['schema', 'owner', 'targetSha'];
 
 function fromEnv(env) {
@@ -88,7 +89,13 @@ export async function runModernSchemaWorkflow(env, dependencies) {
   const ssh = dependencies.createSsh(env, binding.hostEnv);
   try {
     const hostPreparation = ssh.exchange('prepare', env.MODERN_SCHEMA_GITHUB_READ_TOKEN + '\n');
-    if (hostPreparation.status !== 0) throw fail('PREPARATION_COMMAND_FAILED');
+    if (hostPreparation.status !== 0) {
+      if (hostPreparation.status === 24) throw fail('PREPARATION_FD9_BUSY');
+      const hold = parsePublic(hostPreparation.stdout, ['prepared', 'failure'],
+        'phoenix.modern-schema-public-preparation-hold/v1', binding, 'PREPARATION_COMMAND_FAILED');
+      if (hold.prepared !== false || !preparationFailures.has(hold.failure)) throw fail('PREPARATION_COMMAND_FAILED');
+      throw fail('PREPARATION_' + hold.failure);
+    }
     const preparation = parsePublic(hostPreparation.stdout, ['preparationSha256', 'prepared'],
       'phoenix.modern-schema-public-preparation/v1', binding, 'PREPARATION_RECEIPT');
     if (preparation.prepared !== true || !match(digest, preparation.preparationSha256)) {

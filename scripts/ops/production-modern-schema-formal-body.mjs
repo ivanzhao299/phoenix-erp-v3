@@ -2,7 +2,7 @@
  * child after schema receipts. This module has no CLI or authority environment. */
 import path from 'node:path';
 import {execFileSync} from 'node:child_process';
-import {CONTRACT, verifyContext} from './production-config-guard.mjs';
+import {CONTRACT, verifyContext,git} from './production-config-guard.mjs';
 import {REVISION, IMAGE_ID, executionEnv} from './capture-production-runtime.mjs';
 import {validateModernSchemaContext} from './production-modern-schema-authority.mjs';
 import {modernSchemaReleaseBinding} from './production-modern-schema-state.mjs';
@@ -90,6 +90,7 @@ export function createModernSchemaFormalBodyAdapters({
   const inspect = dependencies.metadata ?? metadataFor;
   const read = dependencies.dockerRead ?? boundedDockerRead;
   const executeCompose = dependencies.executeCompose;
+  const sourceGit=dependencies.git??((repository,args)=>git(repository,args,{timeoutMs:10000}));
   if (!rootLease || originalProcess?.pid !== process.pid || !originalChild?.pin ||
       typeof admit !== 'function' || typeof executeCompose !== 'function') fail('ORIGINAL_SUPERVISOR_CHANNEL_REQUIRED');
 
@@ -169,12 +170,12 @@ export function createModernSchemaFormalBodyAdapters({
       return act(label, () => (dependencies.runState ?? runModernSchemaDeploymentState)({
         operation, input: args[0], value: args[1], schemaRelease: context, env,
         admit: () => authorize(label, 'WRITE'),
-      }, {root, directory}));
+      }, {root, directory,git:sourceGit}));
     },
     promote(stagedPath) {
       if (stagedPath !== floorStage) fail('FORMAL_STAGE_SCOPE');
       return act('PROMOTE', () => (dependencies.promote ?? promoteFloor)(root, {
-        directory, environment: env, stagingDirectory: floorStage,
+        directory, environment: env, stagingDirectory: floorStage,git:sourceGit,
         maintenanceAdmission: () => authorize('PROMOTE', 'WRITE'),
       }));
     },

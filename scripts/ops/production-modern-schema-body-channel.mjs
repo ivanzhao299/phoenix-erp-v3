@@ -14,6 +14,7 @@ export class ModernSchemaBodyChannel {
   this.script=dependencies.script??new URL('./production-modern-schema-body-ipc.py',import.meta.url).pathname;
   this.socketName='m-'+canonicalDigest({owner,directory}).slice(0,20)+'.sock';this.socketFile=path.join(this.runtime.directory,this.socketName);this.socket=null;
   this.inspectProcess=dependencies.processIdentity??observeMaintenanceProcessIdentity;this.uid=dependencies.expectedUid??0;this.inheritFd9=dependencies.inheritFd9??true;
+  this.profile=dependencies.operationProfile??'FORMAL_API';if(!['FORMAL_API','CONTROLLED_MIGRATION'].includes(this.profile))fail('FIXED_OPERATION_PROFILE_REQUIRED');
   this.originalBody=null;this.entry=null;this.activePeer=null;this.failed=null;this.sequence=0;this.closing=false;
  }
  async start(originalBody){
@@ -46,7 +47,7 @@ export class ModernSchemaBodyChannel {
   const identity=readLinuxProcessIdentity(peer.pid),{pid,parentPid,startTicks,bootId}=this.originalBody.pin;
   assertOriginalModernSchemaProcess({pid,parentPid,startTicks,bootId},{pid:peer.pid});
   const argv=fs.readFileSync(`/proc/${peer.pid}/cmdline`).toString().split('\0');
-  if(argv[0]!=='/usr/bin/python3'||argv[1]!=='-I'||argv[2]!=='-S'||argv[3]!==this.script||argv[4]!=='request'||argv[5]!==this.socket||argv[6]!==String(this.entry.child.pid))fail('FIXED_ORIGINAL_BODY_CLIENT_REQUIRED');
+  if(argv[0]!=='/usr/bin/python3'||argv[1]!=='-I'||argv[2]!=='-S'||argv[3]!==this.script||argv[4]!== (this.profile==='CONTROLLED_MIGRATION'?'request-docker':'request')||argv[5]!==this.socket||argv[6]!==String(this.entry.child.pid))fail('FIXED_ORIGINAL_BODY_CLIENT_REQUIRED');
   return identity;
  }
  assertActivePeer(){
@@ -57,10 +58,12 @@ export class ModernSchemaBodyChannel {
  }
  async handle(frame){
   if(this.failed||this.activePeer||frame?.kind!=='REQUEST'||frame.sequence!==this.sequence+1||!frame.request||!same(Object.keys(frame.request).sort(),['args','operation'])
-   ||!['state','promote','compose','readiness'].includes(frame.request.operation)||!Array.isArray(frame.request.args)||frame.request.args.length>8
-   ||!frame.request.args.every(arg=>typeof arg==='string'&&arg.length<=512&&!arg.includes('\0')))fail('SINGLE_FIXED_REQUEST_REQUIRED');
+   ||!(this.profile==='CONTROLLED_MIGRATION'?['docker']:['state','promote','compose','readiness']).includes(frame.request.operation)||!Array.isArray(frame.request.args)||frame.request.args.length>(this.profile==='CONTROLLED_MIGRATION'?64:8)
+   ||!frame.request.args.every(arg=>typeof arg==='string'&&arg.length<=(this.profile==='CONTROLLED_MIGRATION'?2048:512)&&!arg.includes('\0')))fail('SINGLE_FIXED_REQUEST_REQUIRED');
   this.sequence=frame.sequence;this.activePeer={peer:frame.peer,identity:this.verifyPeer(frame.peer)};
-  try{this.assertActivePeer();await this.onRequest(frame.request);this.assertActivePeer();this.entry.child.stdin.write(JSON.stringify({sequence:frame.sequence,ok:true})+'\n');}
+  try{this.assertActivePeer();const result=await this.onRequest(frame.request);this.assertActivePeer();
+   if(result!==undefined&&(this.profile!=='CONTROLLED_MIGRATION'||!same(Object.keys(result),['stdoutFile'])||typeof result.stdoutFile!=='string'||!path.isAbsolute(result.stdoutFile)))fail('FIXED_PRIVATE_RESULT_REQUIRED');
+   this.entry.child.stdin.write(JSON.stringify({sequence:frame.sequence,ok:true,...result})+'\n');}
   finally{this.activePeer=null;}
  }
  async close(){

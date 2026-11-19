@@ -10,7 +10,11 @@ import {ModernSchemaRegistry} from './production-modern-schema-registration.mjs'
 import {assertModernReleaseAdmission} from './production-maintenance-admission.mjs';
 import {readLinuxProcessIdentity,assertOriginalModernSchemaProcess,assertModernSchemaLeaseStillOriginal} from './production-modern-schema-session-lease.mjs';
 const fail=code=>{throw Error('MODERN_SCHEMA_STATE_HOLD='+code);};
-export const MODERN_SCHEMA_PHASES=Object.freeze(['REGISTERED','DRAINED','INGRESS_FENCED','R_STOP_INTENT','R_STOPPED','FRESH_RECHECKED','BACKUP_VERIFIED','DDL_STARTED','SCHEMA_RECEIPTED','API_BODY','API_VERIFIED','OPEN_INTENT','OPEN_PUBLISHED','INGRESS_RELEASED','COMPLETED_OPEN']);
+export const MODERN_SCHEMA_PHASES=Object.freeze(['REGISTERED','DRAINED','INGRESS_FENCED','R_STOP_INTENT','R_STOPPED','FRESH_RECHECKED','BACKUP_VERIFIED','DDL_STARTED','SCHEMA_RECEIPTED','API_BODY','API_VERIFIED','OPEN_INTENT','INGRESS_RELEASED','OPEN_PUBLISHED','COMPLETED_OPEN']);
+export function modernSchemaStepEvidence(context,kind,evidence){
+ const approved=validateModernSchemaContext(context);if(MODERN_SCHEMA_PHASES.indexOf(kind)<1||!evidence||Object.getPrototypeOf(evidence)!==Object.prototype)fail('FIXED_STEP_EVIDENCE_REQUIRED');
+ return {schema:'phoenix.modern-schema-step-evidence/v1',kind,contextDigest:canonicalDigest(approved),evidence:structuredClone(evidence),evidenceSha256:canonicalDigest(evidence)};
+}
 export function modernSchemaReleaseBinding(input,preparationSha256){
  const context=validateModernSchemaContext(input);if(!/^[a-f0-9]{64}$/.test(preparationSha256??''))fail('PREPARATION_REQUIRED');
  return validateBinding({owner:context.owner,previousFloorSha:context.runtimeSha,targetSha:context.targetSha,deployMode:'api',

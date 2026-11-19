@@ -2,6 +2,7 @@
  * dispatch-supplied grant, reviewer signature, environment-reviewer claim or
  * stock activation. OIDC authenticates only the bounded publishing job. */
 import fs from 'node:fs';import path from 'node:path';
+import {randomBytes} from 'node:crypto';
 import {CONTRACT,verifyContext} from './production-config-guard.mjs';
 import {inspectTrustedDirectory,assertSameDirectory,readPinnedFile,assertRegularFile} from './production-trusted-paths.mjs';
 import {canonicalDigest,same} from './production-maintenance-receipts.mjs';
@@ -48,11 +49,15 @@ export class ModernSchemaRegistry {
  exists(name){try{this.io.lstatSync(this.file(name));return true;}catch(error){if(error.code==='ENOENT')return false;fail('REGISTRY_UNREADABLE');}}
  read(name){this.guard();return JSON.parse(readPinnedFile(this.file(name),{contract:CONTRACT,uid:this.uid},{fs:this.io,inspectDirectory:this.inspect}));}
  immutable(name,value){
-  this.guard();const before=this.inspect(this.directory),file=this.file(name);let fd;
+  this.guard();const before=this.inspect(this.directory),file=this.file(name),temporary=path.join(this.directory,'.registration-'+randomBytes(16).toString('hex'));let fd;
   try{
-   fd=this.io.openSync(file,fs.constants.O_WRONLY|fs.constants.O_CREAT|fs.constants.O_EXCL|fs.constants.O_NOFOLLOW,0o600);
+   fd=this.io.openSync(temporary,fs.constants.O_WRONLY|fs.constants.O_CREAT|fs.constants.O_EXCL|fs.constants.O_NOFOLLOW,0o600);
    assertRegularFile(this.io.fstatSync(fd),{uid:this.uid});this.io.writeFileSync(fd,JSON.stringify(value)+'\n');this.io.fsyncSync(fd);
   }catch{fail('CREATE_ONLY_REGISTRATION_FAILED');}finally{if(fd!==undefined)this.io.closeSync(fd);}
+  // No final pathname contains partially written JSON. link is create-only;
+  // a crash before removing our temporary leaves nlink=2 and remains HOLD.
+  this.guard();assertSameDirectory(before,this.inspect(this.directory));
+  try{this.io.linkSync(temporary,file);this.io.unlinkSync(temporary);}catch{fail('CREATE_ONLY_REGISTRATION_FAILED');}
   const parent=this.io.openSync(this.directory,fs.constants.O_RDONLY|fs.constants.O_DIRECTORY|fs.constants.O_NOFOLLOW);
   try{this.io.fsyncSync(parent);}finally{this.io.closeSync(parent);}
   assertSameDirectory(before,this.inspect(this.directory));this.guard();if(!same(this.read(name),value))fail('REGISTRATION_CHANGED');

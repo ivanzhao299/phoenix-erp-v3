@@ -110,7 +110,7 @@ test('pin changes for link identity and target identity even when content stays 
 });
 test('capture applies the exact vendor capability before generic ENOENT and regular-file paths',()=>{
  const source=fs.readFileSync(new URL('./production-maintenance-root-readers.mjs',import.meta.url),'utf8');
- const capture=source.slice(source.indexOf('export function captureMaintenanceSchedulers()'));
+ const capture=source.slice(source.indexOf('export function captureMaintenanceSchedulers('));
  const file=capture.slice(capture.indexOf('const file='),capture.indexOf("file('/etc/crontab'"));
  assert.ok(file.indexOf('readMaintenanceVendorFragment({name,source,loaded,unitId})')<file.indexOf('fs.lstatSync(name)'));
  assert.ok(file.indexOf('readMaintenanceVendorFragment({name,source,loaded,unitId})')<file.indexOf('if(!stat.isFile()'));
@@ -120,7 +120,7 @@ test('actual capture body rejects missing/replaced/context-mismatched protected 
  // a second implementation. This proves wiring; the real root/systemd host
  // acceptance remains the separate PG16/18 first-switch jobs.
  const source=fs.readFileSync(new URL('./production-maintenance-root-readers.mjs',import.meta.url),'utf8');
- const body=source.slice(source.indexOf('export function captureMaintenanceSchedulers()'),source.indexOf('/** Mutable executor/control rows')).trim().replace(/^export /,'');
+ const body=source.slice(source.indexOf('export function captureMaintenanceSchedulers('),source.indexOf('/** Mutable executor/control rows')).trim().replace(/^export /,'');
  assert.ok(body.endsWith('}'));
  const hold=reason=>{throw Error('MAINTENANCE_HOLD='+reason);};
  for(const change of ['valid','missing','regular','unloaded','wrongId','dropin','masked']){

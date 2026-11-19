@@ -326,6 +326,19 @@
 - workflow 两段 prepare/run 传输、OIDC 私密 stdin 与固定 public JSON 已集成，但**本检查点尚无完整 host release 入口与 stage manifest，专用路径仍不可执行发布**；显式请求该路径也会在源文件/manifest 检查时 HOLD，不会执行生产迁移或停止 R。原默认路径和业务 OFF 保持。宿主 actor/待备份/prepare 与 ingress/TERM producer 的源码仍在接线，尚无宿主全链效果证明；终态可信普通 OPEN/归档、无DDL受控恢复与未知DDL判定仍需完成。
 - 本工作树 Node20 针对新基础、原协调器、正式状态/floor、旧版/普通发布及 workflow 回归 **313 passed / 14 opt-in skipped / 0 failed**；另实际 owned PG18 固定范围/无损只读通道/原 sealed 双锁会话 **4/4 passed**，隔离备份与 R/T 实际演练上述 **1/1 passed**。两份 workflow YAML、41个 shell step 与专用 SSH 源 bash 语法检查通过，`git diff --check` 通过。此切片不改 API/Web TS 或业务迁移，未重复全量 TS/构建/业务UAT，不声明完整发布验收；最新精确提交 CI 由协调任务独立跟进。
 
+## 第二十六开发检查点：现代维护入口、同会话迁移接续与公开提交边界（2026-11-19，保持 OFF）
+
+- 已接入实际 prepare/run 入口及 Git T 的 99 项传递源码清单；仅接受固定发布范围和有界私密 stdin。prepare 实际核查 F/R/最新 T、原 OPEN/READY、完整 125/105/20 清单、宿主/数据库执行者、备份空间、真实导出恢复及冻结差异。run 在任何围栏/停机前登记持久 pending；精确区分自身只读后端和外部连接，不按同名 application_name 认领写入者。不支持的宿主、源清单、旧回执组合均 HOLD。
+- 原现代 PostgreSQL 双锁会话 S 贯穿 FENCE/DRAIN、持久 IPv4 API 3100 入口规则、禁原 R 自动重启、精确 CID 的 TERM、旧数据库连接消失、原始审计复采、新受保护备份和隔离兼容演练。执行中持续核对原 PID/backend 微秒、DB OID/system identifier/postmaster、实际容器/网络/宿主进程及调度定义。不能把停止本地客户端、零任务数、同网段或调用方 JSON 当完整停写证明；未知执行者保持 HOLD。
+- 实际提交的 `deploy-schema-first.sh` 在原 Bash/FD9 下通过 SO_PEERCRED 通道调用真实 TypeORM：仅一个原生核验后端、完整 20 项 `--transaction all` 和随后只读 show。每个真实 SQL（含 COMMIT）前复核原 S，原 S 消失则仅允许回滚；在途 SQL 的结果仍按未知处理。密码仅私密 stdin 进入 CLI 子进程，不进入 Docker Config.Env、argv、回执或公开输出。成功后使用原逐项回执 writer/validator，未改其格式、增加 backup 字段或扩大默认信任范围；实际备份摘要独立绑定在专用 driver/effect 凭证。
+- 专用 connector 接续真实七步正式 API body，原 R 停止事实替代旧普通发布的运行健康前提；目标是不可变 T 镜像，保留原 Web。原始审计继续 HOLD，只接受已确认 G4/G5 各 30 的测试/误入账隔离事实；新增成本列造成的原始审计差异作无损显式核对，不删行、不改历史清单、不制造 GO。
+- **公开 OPEN 现在是最后的后台准入提交点。** 末段顺序改为 OPEN_INTENT → INGRESS_RELEASED → OPEN_PUBLISHED → COMPLETED_OPEN，取代第二十四检查点尚未接线的旧顺序。公开侧保持 FENCED；先完成真实正式 SUCCESS/READY、原数据全量复核及真实备份重算，再释放本次物理规则，随后专门复核迁移账本和四张启用权威表均为零，持久保存完整 OPEN commit intent，最后才发布 OPEN。GET 的旧版 schema 初始化豁免不冒充只读证明，也不把释放后的无关变化当作业务激活。
+- 公开 rename 的可见结果与目录 fsync 成功分别处理：应答丢失必须重新同步并精确回读。未提交失败先确认持久后台拒绝和实际原入口拒绝，才可关闭 S；拒绝未决时保留 FD9/S，不在 finally 自动解围。初始 PUBLISHING_FENCE、尚未产生规则文件、复建规则后观察暂时失败及私有先写的拒绝中断都有专门收口。登记 JSON 先写完同步临时文件再只创建发布；截断内容不会成为正式凭证，硬链接中断产生的 nlink=2 仍拒绝并保留现场。
+- 已提交 OPEN 不回滚、不复封成“未提交”，不重跑迁移或恢复 R。原 S 必须由另一只读后端实际确认消失，之后按此前完整不可变 intent 和当前 T/正式回执/账本/OFF/入口状态幂等归档、归一普通 OPEN，并对原 inode 删除 pending、同步目录。批准窗口到期和清理应答丢失不要求新业务批准。无 DDL 的原 R 恢复也采用同一公开提交边界；只在同原 S、原账本/schema/数据、真实新 boot/READY 证据齐备后恢复精确原 CID，待 S 实际消失才由前向收尾清 pending，始终 `formalTargetSuccess:false`。未知 DDL 保留实际账本、schema 及执行者只读观察，不由“仍为旧账本”推断从未执行。
+- 本工作树 API/Web 类型检查均 exit 0；Node20 相关广回归 **1198 passed / 51 opt-in skipped / 0 failed**（`modern-schema-cp26-final-regression-v2.log`），跳过项不作已验证通过。另实际执行真实原 S/关闭 **3/3**、真实四表 OFF/单行激活反例 **1/1**；最新隔离恢复与门控 CLI、官方 R/T 跨 Cron 分钟及 TERM **1/1（143 秒）**。该镜像演练使用已保留的本地不可变 c811 候选，不能替代未来精确 T 镜像的生产准备验收。协调任务另独立完成同一 S 的 R TERM → 20 项 CLI → T READY/FENCED → OPEN → S 消失接线证明，仍不是完整现代宿主入口 E2E。新代码仅运维程序/测试/本报告，无 API/Web 业务源码和迁移变化，未重跑无变化的 UI 字段 scope-audit、全量业务 UAT 或构建；125 TS 及冻结方案 SHA 保持不变。
+- 增加独占 GitHub Ubuntu 的现代宿主组件检查：真实 root/FD9、Docker/PG18 S、watch、nft 对发布端口/容器直连/同桥流量的丢包、TERM 旧后端消失、候选网络和公开 OPEN/原 S 消失。该用例明确使用合成 API 和阶段，不含 OIDC/正式 body，不生成生产权源。本地 WSL 的 bridge nft 内核能力不足，未将本地部分运行记为通过；新增 CI job 尚待本检查点精确提交后的实际结果。
+- **仍是未完成的开发检查点。** 专用 Linux 宿主真实 root/FD9、nft 内核、原 Git 工作树和 GitHub OIDC 的整条默认执行链及所有关键强杀断点尚未验收；现有导出的前向收尾只在同次监督调用中接续，进程中止后独立受控恢复入口仍未交付。无法读取/损坏的保护凭证及 nlink=2 残留不自动修复。这些缺口继续阻断发布结论，不能拿 native 组件、legacy 宿主夹具或测试依赖注入代替。未运行生产 DDL、部署、push、tag、INIT/ATTACH/GO 或现场业务启用。
+
 ## 未完成的发布阻塞
 
 1. 独立 RAW 集蛋凭证、库存父批与内部实际转换事实已区分；RAW→分级/包装/重包装业务 API/页面已形成第十二 OFF 检查点；已过账 RAW/转换的受控更正补偿、成本分摊、其余合法退货/跨公司加工交接及质检处置尚未完成；仅第二十一检查点的同公司原仓LAK完好成品客户退货已接续。旧包装入口仍需接入明确实际投入与实耗，不能只挂 DERIVED 资格造成双计。包装、在途/退货/POS、跨公司和混源的全链成对回归，以及合法盘盈新来源仍需完成；受控 managed SKU 销售/配送/POS 正向及 UNKNOWN 持久化已有第五、六检查点证据，仍须与包装、退货和最终切换全链合并验收。不能用“全部拦住”代替合法链路验收。

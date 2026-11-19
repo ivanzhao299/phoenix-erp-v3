@@ -10,7 +10,6 @@ import socket
 import stat
 import struct
 import sys
-import time
 
 LIMIT = 16384
 
@@ -73,28 +72,58 @@ def serve(location, parent_pid, uid):
                 response = json.loads(raw)
                 if response.get("sequence") != sequence or type(response.get("ok")) is not bool:
                     raise ValueError("PARENT_BINDING")
-                connection.sendall(json.dumps({"ok": response["ok"]}).encode() + b"\n")
+                outgoing = {"ok": response["ok"]}
+                if response["ok"] and isinstance(response.get("stdoutFile"), str):
+                    outgoing["stdoutFile"] = response["stdoutFile"]
+                connection.sendall(json.dumps(outgoing).encode() + b"\n")
             except (OSError, ValueError, json.JSONDecodeError):
                 # A disconnected caller does not permit replay or another effect.
                 raise ValueError("REQUEST_RESULT_UNRESOLVED") from None
     server.close()
 
 
-def request(location, expected_pid, operation, args):
+def request(location, expected_pid, operation, args, docker_input=False):
     connection = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     connection.settimeout(300)
     connection.connect(location)
     identity = peer(connection)
     if identity["pid"] != expected_pid or identity["uid"] != os.getuid():
         raise ValueError("ORIGINAL_SERVER_REQUIRED")
+    if docker_input:
+        raw = sys.stdin.buffer.read(LIMIT + 1)
+        if len(raw) > LIMIT or not raw.endswith(b"\0"):
+            raise ValueError("PRIVATE_DOCKER_ARGUMENT_FRAME")
+        args = [item.decode("utf8") for item in raw[:-1].split(b"\0")]
     message = json.dumps({"operation": operation, "args": args}).encode() + b"\n"
     if len(message) > LIMIT:
         raise ValueError("REQUEST_SIZE")
     connection.sendall(message)
     response = frame(connection)
     connection.close()
-    if response != {"ok": True}:
+    if response.get("ok") is not True or set(response) - {"ok", "stdoutFile"}:
         raise ValueError("SUPERVISOR_DENIED")
+    if "stdoutFile" in response:
+        # Only the original private supervisor may return an output path. No
+        # arbitrary caller path is read, and output goes to the script's own
+        # protected redirect, never normal CI diagnostics.
+        if not docker_input:
+            raise ValueError("UNEXPECTED_BODY_OUTPUT")
+        fd = os.open(response["stdoutFile"], os.O_RDONLY | os.O_NOFOLLOW)
+        try:
+            before = os.fstat(fd)
+            if not stat.S_ISREG(before.st_mode) or before.st_uid != os.getuid() or stat.S_IMODE(before.st_mode) != 0o600 or before.st_nlink != 1 or before.st_size > 8 * 1024 * 1024:
+                raise ValueError("PRIVATE_OUTPUT_REQUIRED")
+            while True:
+                chunk = os.read(fd, 65536)
+                if not chunk:
+                    break
+                sys.stdout.buffer.write(chunk)
+            sys.stdout.buffer.flush()
+            after = os.fstat(fd)
+            if (before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns) != (after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns):
+                raise ValueError("PRIVATE_OUTPUT_CHANGED")
+        finally:
+            os.close(fd)
 
 
 try:
@@ -103,6 +132,8 @@ try:
         serve(location, int(identity), int(rest[0]))
     elif mode == "request" and rest:
         request(location, int(identity), rest[0], rest[1:])
+    elif mode == "request-docker" and not rest:
+        request(location, int(identity), "docker", [], docker_input=True)
     else:
         raise ValueError("FIXED_MODE_REQUIRED")
 except Exception:
