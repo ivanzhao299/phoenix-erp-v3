@@ -110,11 +110,14 @@ function actionsIdentityChannel(env){
  if(url.protocol!=='https:'||!url.hostname.endsWith('.actions.githubusercontent.com')||url.username||url.password||authority?.includes('@')
   ||raw.includes('#')||url.port)failRunner('CHANNEL_AUTHORITY_UNAPPROVED');
  // Match the raw, unambiguous path as well as the parsed URL. The hosted
- // job endpoint carries one idtoken component in a four-component route.
- const segments=rawPath?.slice(1).split('/')??[];
+ // job endpoint allows a single trailing slash. Match its shape without
+ // that slash, then send the original URL unchanged.
+ const route=rawPath?.endsWith('/')?rawPath.slice(0,-1):rawPath;
+ const segments=route?.slice(1).split('/')??[];
  const last=segments.at(-1),hostedJob=segments.length===4&&last!=='idtoken';
  if(rawPath!==url.pathname||!segments.every(segment=>/^[A-Za-z0-9._~-]{1,256}$/.test(segment)&&segment!=='.'&&segment!=='..')
-  ||segments.filter(segment=>segment==='idtoken').length!==1||!(hostedJob||(segments.length<=2&&last==='idtoken')))failRunner('CHANNEL_ROUTE_UNAPPROVED');
+  ||segments.filter(segment=>segment==='idtoken').length!==1
+  ||!(hostedJob||(route===rawPath&&segments.length<=2&&last==='idtoken')))failRunner('CHANNEL_ROUTE_UNAPPROVED');
  const versions=url.searchParams.getAll('api-version');
  if([...url.searchParams.keys()].some(key=>key.toLowerCase()==='audience')
   ||(hostedJob&&(versions.length!==1||!versions[0].trim())))failRunner('CHANNEL_QUERY_UNAPPROVED');
