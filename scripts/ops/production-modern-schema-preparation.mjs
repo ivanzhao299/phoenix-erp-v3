@@ -17,7 +17,7 @@ import {collectConfirmedLegacyScope,CONFIRMED_MODERN_SCHEMA_DIRECTIVE} from './p
 import {collectLegacyEggAuditEvidence} from './production-legacy-egg-audit-evidence.mjs';
 import {modernSchemaMigrationEvidenceDigest,compareStableLegacyAudit} from './production-modern-schema-audit-recheck.mjs';
 import {collectModernSchemaHostSurface,MODERN_SCHEMA_EXECUTOR_SQL,classifyModernSchemaDatabaseExecutors} from './production-modern-schema-executors.mjs';
-import {createModernSchemaBackup} from './production-modern-schema-backup.mjs';
+import {closeModernSchemaPreparationReadClient,createModernSchemaBackup} from './production-modern-schema-backup.mjs';
 import {rehearseModernSchemaRelease} from './production-modern-schema-rehearsal.mjs';
 import {readCommittedModernSchemaDeploymentBody} from './production-modern-schema-body-source.mjs';
 import {pinModernSchemaChild} from './production-modern-schema-processes.mjs';
@@ -52,7 +52,8 @@ function assertLatest(root,dispatch){
  git(root,['merge-base','--is-ancestor',git(root,['rev-parse','HEAD']),dispatch.targetSha]);
 }
 export async function prepareModernSchemaRelease(env,dependencies={}){
- const stage=name=>dependencies.onStage?.(name);stage('BOOTSTRAP');
+ let currentStage,primary;
+ const stage=name=>{currentStage=name;dependencies.onStage?.(name);};stage('BOOTSTRAP');
  const dispatch=modernSchemaDispatchFromEnvironment(env),root=dependencies.root??CONTRACT.repository,directory=dependencies.directory??CONTRACT.stateDirectory;
  const stagedSource=verifyModernSchemaStage(dispatch);
  const guard=dependencies.guard??(()=>verifyContext(root,directory)),runtime=dependencies.privateRuntime??new ModernSchemaPrivateRuntime(),store=dependencies.store??new ModernSchemaRegistry();
@@ -112,5 +113,9 @@ export async function prepareModernSchemaRelease(env,dependencies={}){
   const record={...content,preparationSha256:canonicalDigest(content)};validateModernSchemaPreparation(record);
   guard();assertLatest(root,dispatch);store.immutable(`schema-release-preparation-${dispatch.owner}.json`,record);
   return {schema:'phoenix.modern-schema-public-preparation/v1',owner:dispatch.owner,targetSha:dispatch.targetSha,preparationSha256:record.preparationSha256,prepared:true};
- }finally{if(started)await client.close();}
+ }catch(error){primary=error;throw error;}
+ finally{
+  if(started)await closeModernSchemaPreparationReadClient(client,currentStage,primary,
+   hold=>runtime.publishJson(path.join(privateDirectory,'backup-read-close-hold.json'),hold));
+ }
 }

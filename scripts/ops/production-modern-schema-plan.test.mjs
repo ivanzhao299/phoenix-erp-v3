@@ -101,11 +101,19 @@ test('a prior failed prepare can retain its exact inert inventory and continuous
  assert.throws(()=>verifyRetainedModernSchemaInventoryPin(native,pin,dependencies),/RETAINED_INVENTORY_PIN_CHANGED/);
  receipt.value.failure='HOST_SURFACE_SINGLE_IPV4_RUNTIME_NETWORK_REQUIRED';
  assert.equal(collectRetainedModernSchemaInventory(native,binding,dependencies).id,native.id);
+ for(const failure of ['BACKUP','BACKUP_FACTS','BACKUP_CLEANUP_UNRESOLVED']){
+  receipt.value.failure=failure;
+  assert.equal(collectRetainedModernSchemaInventory(native,binding,dependencies).id,native.id);
+ }
+ const backupPin=collectRetainedModernSchemaInventory(native,binding,dependencies);
+ receipt.value.owner='9000-2';
+ assert.throws(()=>verifyRetainedModernSchemaInventoryPin(native,backupPin,dependencies),/RETAINED_FAILED_PREPARATION_REQUIRED/);
 });
 test('labels cannot replace protected prior failure, ancestry, output or exact isolation',()=>{
  for(const mutate of [
   f=>{f.receipt.value.owner='8888-1';},f=>{f.receipt.value.targetSha=sha('b');},
   f=>{f.receipt.value.prepared=true;},f=>{f.receipt.value.failure='HOST_SURFACE_OTHER_PRIVATE';},
+  f=>{f.receipt.value.failure='BACKUP_OTHER_PRIVATE';},
   f=>{f.receipt.value.extra='not a public receipt';},f=>{f.receipt.completedAtMs=Date.parse(f.native.state.FinishedAt)-1;},
   f=>{f.dependencies.readReceipt=()=>{throw Error('missing or untrusted');};},
   f=>{f.dependencies.readPull=()=>{throw Error('missing or untrusted');};},

@@ -21,10 +21,16 @@ for (const [prefix, reasons] of [
 ]) {
   for (const reason of reasons.split(/\s+/)) hostReasons.set(prefix + '=' + reason, 'HOST_SURFACE_' + reason);
 }
-const publicFailures = new Set([...stages, ...hostReasons.values(), 'HOST_SURFACE_UNCLASSIFIED']);
+const backupReasons = new Map(
+  'SOURCE_GUARD VERSION DISK FACTS LEDGER EXPORT_SNAPSHOT EXECUTION SNAPSHOT_CONTINUITY VERIFICATION CLEANUP_UNRESOLVED UNCLASSIFIED'
+    .split(' ').map(reason=>['MODERN_SCHEMA_BACKUP_HOLD='+reason,'BACKUP_'+reason]),
+);
+backupReasons.set('MODERN_SCHEMA_PREPARATION_HOLD=LEDGER_CHANGED_BEFORE_BACKUP','BACKUP_LEDGER_CHANGED');
+const publicFailures = new Set([...stages, ...hostReasons.values(), ...backupReasons.values(), 'HOST_SURFACE_UNCLASSIFIED']);
 
 export function publicModernSchemaPreparationFailure(stage, error) {
   if (stage === 'HOST_SURFACE') return hostReasons.get(error?.message) ?? 'HOST_SURFACE_UNCLASSIFIED';
+  if (stage === 'BACKUP') return backupReasons.get(error?.message) ?? 'BACKUP_UNCLASSIFIED';
   return stages.has(stage) ? stage : 'UNSPECIFIED';
 }
 

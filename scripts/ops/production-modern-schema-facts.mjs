@@ -4,6 +4,8 @@ import {CONTRACT,secureJson} from './production-config-guard.mjs';import path fr
 import {canonicalDigest,same} from './production-maintenance-receipts.mjs';
 const fail=code=>{throw Error('MODERN_SCHEMA_FACTS_HOLD='+code);};
 const quote=value=>'"'+value.replaceAll('"','""')+'"';
+const BLOCK_ROWS=1024;
+const HASH=/^[a-f0-9]{64}$/;
 const tools=new Set(['migrations','schema_migrations','typeorm_metadata','sys_dict']);
 const defaults=['production_cutover_scopes','production_batch_qualifications','production_cutover_apply_admissions','production_cutover_apply_results'];
 export const INITIAL_MODERN_SCHEMA_PROFILE=Object.freeze({floorSha:'101916efbcd60956c9f8321d4859931049f966c3',runtimeSha:'cb42966edfa717b0984936951143d84973c1a263',
@@ -25,10 +27,41 @@ const sequencesSql=`SELECT n.nspname AS schema,c.relname AS name,onsp.nspname AS
  FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace LEFT JOIN pg_depend d ON d.classid='pg_class'::regclass AND d.objid=c.oid AND d.deptype IN('a','i')
  LEFT JOIN pg_class owner ON owner.oid=d.refobjid LEFT JOIN pg_namespace onsp ON onsp.oid=owner.relnamespace
  WHERE c.relkind='S' AND n.nspname !~ '^pg_' AND n.nspname<>'information_schema' ORDER BY n.nspname,c.relname`;
+export function modernSchemaTableFactsSql(table){
+ // Both the count and the ordered blocks reuse one hash per source row.
+ return `WITH hashed AS MATERIALIZED (
+   SELECT encode(sha256(convert_to(to_jsonb(phoenix_original_row)::text,'UTF8')),'hex') COLLATE "C" AS row_hash
+   FROM (SELECT ${table.columns.map(quote).join(',')} FROM ${quote(table.schema)}.${quote(table.table)}) AS phoenix_original_row
+ ), numbered AS (
+   SELECT row_hash,(row_number() OVER (ORDER BY row_hash COLLATE "C")-1)/${BLOCK_ROWS} AS block_index FROM hashed
+ ), blocks AS (
+   SELECT block_index,count(*)::integer AS block_rows,
+    encode(sha256(convert_to(string_agg(row_hash,'' ORDER BY row_hash COLLATE "C"),'UTF8')),'hex') AS sha256
+   FROM numbered GROUP BY block_index
+ ), totals AS (
+   SELECT count(*)::integer AS total_rows FROM hashed
+ )
+ SELECT block_index::integer AS "blockIndex",block_rows AS "blockRows",sha256,total_rows AS "totalRows"
+ FROM totals LEFT JOIN blocks ON true ORDER BY block_index`;
+}
+export function foldModernSchemaTableFacts(columns,observed){
+ const shape=row=>row&&Object.getPrototypeOf(row)===Object.prototype&&Object.keys(row).sort().join(',')==='blockIndex,blockRows,sha256,totalRows';
+ const first=observed?.[0],rows=first?.totalRows;
+ if(!Array.isArray(observed)||!shape(first)||!Number.isSafeInteger(rows)||rows<0||rows>2147483647)fail('NATIVE_TABLE_HASH_REQUIRED');
+ const blockCount=Math.ceil(rows/BLOCK_ROWS);
+ if(observed.length!==Math.max(1,blockCount))fail('NATIVE_TABLE_HASH_REQUIRED');
+ if(!rows&&(first.blockIndex!==null||first.blockRows!==null||first.sha256!==null))fail('NATIVE_TABLE_HASH_REQUIRED');
+ const blocks=rows?observed.map((block,index)=>{
+  if(!shape(block)||block.totalRows!==rows||block.blockIndex!==index||block.blockRows!==Math.min(BLOCK_ROWS,rows-index*BLOCK_ROWS)||
+    typeof block.sha256!=='string'||!HASH.test(block.sha256))fail('NATIVE_TABLE_HASH_REQUIRED');
+  return block.sha256;
+ }):[];
+ return {rows,sha256:canonicalDigest({algorithm:'native-row-sha256-block-v1',columns,rows,blockRows:BLOCK_ROWS,blocks})};
+}
 export async function captureModernSchemaFacts(client,{projection=null,withinSnapshot=false}={}){
  if(!withinSnapshot)await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
  try{
-  await client.query("SET LOCAL search_path=pg_catalog; SET LOCAL statement_timeout='20s'; SET LOCAL lock_timeout='3s'; SET LOCAL row_security=off; SET LOCAL max_parallel_workers_per_gather=0; SET LOCAL TimeZone='UTC'; SET LOCAL DateStyle='ISO,YMD'; SET LOCAL IntervalStyle='iso_8601'; SET LOCAL bytea_output='hex'; SET LOCAL extra_float_digits=3");
+  await client.query("SET LOCAL search_path=pg_catalog; SET LOCAL statement_timeout='20s'; SET LOCAL lock_timeout='3s'; SET LOCAL row_security=off; SET LOCAL max_parallel_workers_per_gather=0; SET LOCAL work_mem='4MB'; SET LOCAL TimeZone='UTC'; SET LOCAL DateStyle='ISO,YMD'; SET LOCAL IntervalStyle='iso_8601'; SET LOCAL bytea_output='hex'; SET LOCAL extra_float_digits=3");
   const {rows:[identity]}=await client.query(`SELECT current_database() AS name,(SELECT system_identifier::text FROM pg_control_system()) AS "systemIdentifier",NOT pg_is_in_recovery() AS primary,current_setting('transaction_read_only') AS readonly,current_setting('transaction_isolation') AS isolation`);
   if(identity.primary!==true||identity.readonly!=='on'||identity.isolation!=='repeatable read')fail('PRIMARY_READONLY_REQUIRED');
   const {rows:actual}=await client.query(catalogSql);if(actual.some(table=>table.kind==='f'))fail('FOREIGN_TABLE_OUTSIDE_SUPPORTED_SCOPE');
@@ -37,10 +70,8 @@ export async function captureModernSchemaFacts(client,{projection=null,withinSna
   for(const table of before){
    const current=actual.find(row=>row.schema===table.schema&&row.table===table.table);
    if(!current||!Array.isArray(table.columns)||!table.columns.length||table.columns.some(column=>!current.columns.includes(column)))fail('ORIGINAL_BUSINESS_COLUMNS_REMOVED');
-   const sql=`SELECT count(*)::integer AS rows,encode(sha256(convert_to(COALESCE(jsonb_agg(to_jsonb(phoenix_original_row) ORDER BY (to_jsonb(phoenix_original_row)::text) COLLATE "C")::text,'[]'),'UTF8')),'hex') AS sha256
-    FROM (SELECT ${table.columns.map(quote).join(',')} FROM ${quote(table.schema)}.${quote(table.table)}) AS phoenix_original_row`;
-   const {rows:[hash]}=await client.query(sql);
-   if(!Number.isSafeInteger(hash.rows)||hash.rows<0||!/^[a-f0-9]{64}$/.test(hash.sha256??''))fail('NATIVE_TABLE_HASH_REQUIRED');
+   const {rows:observed}=await client.query(modernSchemaTableFactsSql(table));
+   const hash=foldModernSchemaTableFacts(table.columns,observed);
    tables.push({schema:table.schema,table:table.table,kind:table.kind,columns:[...table.columns],rows:hash.rows,sha256:hash.sha256});
   }
   const {rows:currentSequences}=await client.query(sequencesSql),sequences=[];

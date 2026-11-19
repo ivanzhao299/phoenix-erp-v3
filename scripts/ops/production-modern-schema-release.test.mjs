@@ -58,10 +58,25 @@ test('HOST_SURFACE publishes only exact static subclass codes',async()=>{
   ['HOST_SURFACE','MODERN_SCHEMA_EXECUTORS_HOLD=EXACT_BRIDGE_REQUIRED /private fixture-token','HOST_SURFACE_UNCLASSIFIED'],
   ['HOST_SURFACE','MAINTENANCE_HOLD=EXACT_BRIDGE_REQUIRED','HOST_SURFACE_UNCLASSIFIED'],
   ['HOST_SURFACE','MODERN_SCHEMA_EXECUTORS_HOLD=NOT_REVIEWED','HOST_SURFACE_UNCLASSIFIED'],
-  ['BACKUP','MODERN_SCHEMA_EXECUTORS_HOLD=EXACT_BRIDGE_REQUIRED','BACKUP'],
+  ['BACKUP','MODERN_SCHEMA_EXECUTORS_HOLD=EXACT_BRIDGE_REQUIRED','BACKUP_UNCLASSIFIED'],
  ]){
   const response=await runModernSchemaEntry(['prepare'],env,stream(''),{
    async prepare(_,{onStage}){onStage(stage);throw Object.assign(Error(detail),{cause:Error('private argv')});},
+  });
+  assert.deepEqual(response,{exitCode:1,result:{schema:'phoenix.modern-schema-public-preparation-hold/v1',owner,targetSha,prepared:false,failure}});
+ }
+});
+
+test('BACKUP publishes only exact fixed stages and never serializes a private or nested failure',async()=>{
+ for(const [message,failure] of [
+  ...'SOURCE_GUARD VERSION DISK FACTS LEDGER EXPORT_SNAPSHOT EXECUTION SNAPSHOT_CONTINUITY VERIFICATION CLEANUP_UNRESOLVED'.split(' ')
+   .map(code=>['MODERN_SCHEMA_BACKUP_HOLD='+code,'BACKUP_'+code]),
+  ['MODERN_SCHEMA_PREPARATION_HOLD=LEDGER_CHANGED_BEFORE_BACKUP','BACKUP_LEDGER_CHANGED'],
+  ['MODERN_SCHEMA_BACKUP_HOLD=FACTS /private fixture-sql','BACKUP_UNCLASSIFIED'],
+  ['MODERN_SCHEMA_BACKUP_HOLD=FIXTURE_PRIVATE','BACKUP_UNCLASSIFIED'],
+ ]){
+  const response=await runModernSchemaEntry(['prepare'],env,stream(''),{
+   async prepare(_,{onStage}){onStage('BACKUP');throw Error(message,{cause:Error('fixture private cause')});},
   });
   assert.deepEqual(response,{exitCode:1,result:{schema:'phoenix.modern-schema-public-preparation-hold/v1',owner,targetSha,prepared:false,failure}});
  }
