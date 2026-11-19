@@ -51,6 +51,22 @@ test('prepare failures report only enumerated stages, and cannot echo diagnostic
   }
 });
 
+test('HOST_SURFACE publishes only exact static subclass codes',async()=>{
+ for(const [stage,detail,failure] of [
+  ['HOST_SURFACE','MODERN_SCHEMA_EXECUTORS_HOLD=EXACT_BRIDGE_REQUIRED','HOST_SURFACE_EXACT_BRIDGE_REQUIRED'],
+  ['HOST_SURFACE','MAINTENANCE_HOLD=ROOT_READER_MODERN_PROCESS_VISIBILITY_REQUIRED','HOST_SURFACE_ROOT_READER_MODERN_PROCESS_VISIBILITY_REQUIRED'],
+  ['HOST_SURFACE','MODERN_SCHEMA_EXECUTORS_HOLD=EXACT_BRIDGE_REQUIRED /private fixture-token','HOST_SURFACE_UNCLASSIFIED'],
+  ['HOST_SURFACE','MAINTENANCE_HOLD=EXACT_BRIDGE_REQUIRED','HOST_SURFACE_UNCLASSIFIED'],
+  ['HOST_SURFACE','MODERN_SCHEMA_EXECUTORS_HOLD=NOT_REVIEWED','HOST_SURFACE_UNCLASSIFIED'],
+  ['BACKUP','MODERN_SCHEMA_EXECUTORS_HOLD=EXACT_BRIDGE_REQUIRED','BACKUP'],
+ ]){
+  const response=await runModernSchemaEntry(['prepare'],env,stream(''),{
+   async prepare(_,{onStage}){onStage(stage);throw Object.assign(Error(detail),{cause:Error('private argv')});},
+  });
+  assert.deepEqual(response,{exitCode:1,result:{schema:'phoenix.modern-schema-public-preparation-hold/v1',owner,targetSha,prepared:false,failure}});
+ }
+});
+
 test('unexpected preparation statements and private fields do not become public receipts',async()=>{
   for(const result of [{...prepared,owner:'9001-2'},{...prepared,privateMessage:'fixture-secret'},null]){
     const response=await runModernSchemaEntry(['prepare'],env,stream(''),{prepare:async()=>result});

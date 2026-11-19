@@ -116,6 +116,9 @@ test('only exact public preparation failure classes can diagnose a nonzero comma
   const hold = {schema: 'phoenix.modern-schema-public-preparation-hold/v1', owner, targetSha: sha, prepared: false, failure: 'HOST_SURFACE'};
   for (const [prepareStatus, prepareOutput, expected] of [
     [2, JSON.stringify(hold), 'PREPARATION_HOST_SURFACE'],
+    [2, JSON.stringify({...hold, failure:'HOST_SURFACE_EXACT_BRIDGE_REQUIRED'}), 'PREPARATION_HOST_SURFACE_EXACT_BRIDGE_REQUIRED'],
+    [2, JSON.stringify({...hold, failure:'HOST_SURFACE_UNCLASSIFIED'}), 'PREPARATION_HOST_SURFACE_UNCLASSIFIED'],
+    [2, JSON.stringify({...hold, failure:'HOST_SURFACE_EXACT_BRIDGE_REQUIRED /private'}), 'PREPARATION_COMMAND_FAILED'],
     [2, JSON.stringify({...hold, owner: '9001-2'}), 'PREPARATION_COMMAND_FAILED'],
     [2, JSON.stringify({...hold, failure: 'FIXTURE_PRIVATE_DIAGNOSTIC'}), 'PREPARATION_COMMAND_FAILED'],
     [2, JSON.stringify({...hold, private: 'fixture'}), 'PREPARATION_COMMAND_FAILED'],
@@ -148,6 +151,45 @@ test('the reviewed host shell retains parent FD9 and uses only fixed staged entr
   assert.match(source, /\n  node "\$stage\/\$entry" run >&"\$receipt_fd" 2>\/dev\/null \|\| status=\$\?/);
   assert.match(source, /\npublic_receipt "\$status" < "\$raw_receipt"\nexit "\$status"/);
   assert.doesNotMatch(source, /exec node "\$stage\/\$entry"/);
+});
+
+test('a newer host wrapper validates the prior target stage for finalize without the new prepare vocabulary', t => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'phoenix-schema-prior-stage-'));
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const script = fs.readFileSync(new URL('./production-modern-schema-ssh.sh', import.meta.url), 'utf8');
+  const start = script.indexOf('stage="$STATE_DIR/modern-schema-stage-$DEPLOY_RUN_ID"');
+  const end = script.indexOf('public_receipt() {');
+  assert.ok(start > 0 && end > start);
+  const entry = 'scripts/ops/production-modern-schema-release.mjs';
+  const stage = path.join(directory, 'modern-schema-stage-' + owner);
+  fs.mkdirSync(path.join(stage, 'scripts/ops'), { recursive: true, mode: 0o700 });
+  fs.writeFileSync(path.join(stage, entry), 'reviewed prior entry\n', { mode: 0o600 });
+  const setup = `
+    set -Eeuo pipefail
+    operation=$1
+    repo_git() {
+      case "$1:$2" in
+        "show:$TARGET_SHA:scripts/ops/modern-schema-stage-files.txt")
+          printf '%s\\n' scripts/ops/production-modern-schema-release.mjs ;;
+        "show:$TARGET_SHA:scripts/ops/production-modern-schema-release.mjs")
+          printf 'reviewed prior entry\\n' ;;
+        "ls-tree:$TARGET_SHA")
+          printf '100644 blob %s\\t%s\\n' "$TARGET_SHA" "$4" ;;
+        *) return 92 ;;
+      esac
+    }
+    stat() {
+      command stat "$@" | sed 's/^[0-9]*:/0:/'
+    }
+  `;
+  const invoke = operation => spawnSync('/bin/bash', ['-c', setup + script.slice(start, end), 'fixture', operation], {
+    env: { PATH: process.env.PATH, STATE_DIR: directory, DEPLOY_RUN_ID: owner, TARGET_SHA: sha },
+    encoding: 'utf8',
+  });
+  assert.equal(invoke('finalize').status, 0);
+  assert.equal(invoke('run').status, 0);
+  fs.writeFileSync(path.join(stage, entry), 'changed prior entry\n');
+  assert.equal(invoke('finalize').status, 1);
 });
 
 test('workflow selects one production transport and rejects incompatible dispatches in Bash', () => {
@@ -217,6 +259,11 @@ test('host filter suppresses raw output, proves real CLI parent FD9 and propagat
   ` + source.slice(start, end) + source.slice(final);
   const invoke = (result, code, stage = fs.mkdtempSync(path.join(directory, 'run-')), operation = 'run') => {
     fs.copyFileSync(path.join(directory, 'helper.mjs'), path.join(stage, 'helper.mjs'));
+    if(operation==='prepare'){
+      fs.mkdirSync(path.join(stage,'scripts/ops'),{recursive:true});
+      fs.copyFileSync(new URL('./production-modern-schema-public-preparation.mjs',import.meta.url),
+        path.join(stage,'scripts/ops/production-modern-schema-public-preparation.mjs'));
+    }
     const privateState = stage + '-private';
     fs.mkdirSync(privateState, {recursive: true, mode: 0o700});
     return spawnSync('/bin/bash', ['-c', script], {
@@ -248,6 +295,13 @@ test('host filter suppresses raw output, proves real CLI parent FD9 and propagat
   const blocked = invoke(JSON.stringify(preparationHold), 36, undefined, 'prepare');
   assert.equal(blocked.status, 36);
   assert.deepEqual(JSON.parse(blocked.stdout), preparationHold);
+  const classified={...preparationHold,failure:'HOST_SURFACE_ROOT_READER_UNIT_INVENTORY'};
+  const safe=invoke(JSON.stringify(classified),36,undefined,'prepare');
+  assert.equal(safe.status,36);
+  assert.deepEqual(JSON.parse(safe.stdout),classified);
+  const privateCode=invoke(JSON.stringify({...classified,failure:classified.failure+' /private fixture-token'}),36,undefined,'prepare');
+  assert.equal(privateCode.stdout,'');
+  assert.doesNotMatch(privateCode.stderr,/private|fixture-token/);
   const finishStage=fs.mkdtempSync(path.join(directory,'finish-'));
   assert.equal(invoke(JSON.stringify(success),0,finishStage,'finalize').status,0);
   assert.equal(invoke(JSON.stringify(success),0,finishStage,'finalize').status,0);

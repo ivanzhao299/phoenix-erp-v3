@@ -80,6 +80,7 @@ scripts/ops/production-modern-schema-plan.mjs
 scripts/ops/production-modern-schema-post-audit.mjs
 scripts/ops/production-modern-schema-preparation.mjs
 scripts/ops/production-modern-schema-private.mjs
+scripts/ops/production-modern-schema-public-preparation.mjs
 scripts/ops/production-modern-schema-processes.mjs
 scripts/ops/production-modern-schema-read-client.mjs
 scripts/ops/production-modern-schema-recover-original.mjs

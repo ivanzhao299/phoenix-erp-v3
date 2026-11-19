@@ -88,7 +88,7 @@ export async function prepareModernSchemaRelease(env,dependencies={}){
   const after=captureSnapshot({phase:'PRE_SNAPSHOT',runId:dispatch.owner,runAttempt:dispatch.owner.split('-')[1],targetSha:dispatch.targetSha,floorSha:dispatch.targetSha,deployMode:'api'});
   if(!same(initial.containers,after.containers)||git(root,['rev-parse','HEAD'])!==rootHeadSha||!same(secureJson(path.join(directory,'floor.json')),floor)
    ||!same(secureJson(path.join(directory,'active.json')),active)||!same(observeModernSchemaOriginalBackground(after,floor).record,background.record))fail('PREPARATION_RUNTIME_OR_FLOOR_MOVED');
-  const freshSurface=collectModernSchemaHostSurface(after,{guard,ownedResources,getOwnedChildren:()=>runtime.registeredChildren()});
+  stage('HOST_SURFACE');const freshSurface=collectModernSchemaHostSurface(after,{guard,ownedResources,getOwnedChildren:()=>runtime.registeredChildren()});
   if(!same(surface,freshSurface))fail('PREPARATION_HOST_SURFACE_MOVED');
   const {rows:[latestExecutors]}=await client.query(MODERN_SCHEMA_EXECUTOR_SQL);classifyModernSchemaDatabaseExecutors(JSON.parse(latestExecutors.observation),{runtimeAddress:surface.runtimeAddress});
   const body=readCommittedModernSchemaDeploymentBody(root,dispatch.targetSha),start=Date.now(),window={start:new Date(start).toISOString(),end:new Date(start+1800000).toISOString()};
