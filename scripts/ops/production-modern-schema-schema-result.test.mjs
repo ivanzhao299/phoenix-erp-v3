@@ -7,6 +7,8 @@ import {assertExactModernSchemaAfterLedger,captureModernSchemaLedger} from './pr
 test('the modern effect keeps one after-schema facts scan and rechecks live evidence after protected receipts',()=>{
  const source=fs.readFileSync(new URL('./production-modern-schema-schema-result.mjs',import.meta.url),'utf8');
  const effect=source.slice(source.indexOf('export async function verifyModernSchemaEffect'));
+ assert.match(source,/from '\.\/production-modern-schema-unit-receipts\.mjs'/);
+ assert.match(effect,/context\.targetSha\+':scripts\/ops\/production-modern-schema-unit-receipts\.mjs'/);
  assert.equal([...effect.matchAll(/\bcaptureModernSchemaFacts\s*\(/g)].length,1);
  assert.equal([...effect.matchAll(/\bcaptureModernSchemaLedger\s*\(/g)].length,2);
  assert.doesNotMatch(effect,/privateRuntime\.run\b|withKnownReadonlyWriter|onReceiptWriter|assertScopeMigrationsReceipted|readProductionLedger/);

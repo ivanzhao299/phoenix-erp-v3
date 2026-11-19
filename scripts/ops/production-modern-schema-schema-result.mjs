@@ -3,8 +3,8 @@
 import fs from 'node:fs';import path from 'node:path';
 import {CONTRACT,git} from './production-config-guard.mjs';
 import {canonicalDigest,same} from './production-maintenance-receipts.mjs';
-import {LEDGER_SQL,digest,validateRegistryReceipt,verifyScopeRegistryReceiptsFromLedger} from './chanjet-admission-schema-receipt.mjs';
-import {publishVerifiedMigrationApplyReceipts} from './record-migration-apply-receipt.mjs';
+import {LEDGER_SQL,digest,validateRegistryReceipt} from './chanjet-admission-schema-receipt.mjs';
+import {publishVerifiedMigrationApplyReceipts,verifyScopeRegistryReceiptsFromLedger} from './production-modern-schema-unit-receipts.mjs';
 import {captureModernSchemaFacts,assertModernSchemaBusinessUnchanged,captureModernSchemaDefaultOff,defaultOffEvidenceFromFacts} from './production-modern-schema-facts.mjs';
 import {collectLegacyEggAuditEvidence} from './production-legacy-egg-audit-evidence.mjs';import {modernSchemaMigrationEvidenceDigest} from './production-modern-schema-audit-recheck.mjs';
 import {verifyModernSchemaAuditAfterSchema} from './production-modern-schema-post-audit.mjs';
@@ -30,8 +30,8 @@ export async function verifyModernSchemaEffect({context,preparationSha256,rootLe
  const contract=JSON.parse(git(root,['show',context.targetSha+':apps/api/src/common/database/api-bootstrap-schema-contract.json']));
  const {rows:[schemaRow]}=await client.query(bootstrapSchemaSql(contract)),schemaEvidence=typeof schemaRow.json_build_object==='string'?JSON.parse(schemaRow.json_build_object):schemaRow.json_build_object;
  const schemaResult=assertBootstrapSchemaEvidence(contract,schemaEvidence);await check();
- const receiptScript=new URL('./record-migration-apply-receipt.mjs',import.meta.url).pathname;
- if(!fs.readFileSync(receiptScript).equals(Buffer.from(git(root,['show',context.targetSha+':scripts/ops/record-migration-apply-receipt.mjs'])+'\n')))fail('EXACT_RECEIPT_WRITER_SOURCE_REQUIRED');
+ const receiptScript=new URL('./production-modern-schema-unit-receipts.mjs',import.meta.url).pathname;
+ if(!fs.readFileSync(receiptScript).equals(Buffer.from(git(root,['show',context.targetSha+':scripts/ops/production-modern-schema-unit-receipts.mjs'])+'\n')))fail('EXACT_RECEIPT_WRITER_SOURCE_REQUIRED');
  await publishVerifiedMigrationApplyReceipts({root,directory,targetSha:context.targetSha,runId:context.owner,
   beforeLedgerSha256:context.beforeLedgerSha256,verifiedLedger,pendingMigrations:context.pendingMigrations,
   publish:(file,receipt)=>privateRuntime.publishJson(file,receipt)});
