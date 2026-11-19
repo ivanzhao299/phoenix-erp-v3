@@ -118,8 +118,9 @@ export default function DailyPage() {
     label: string;
   }[]>([]);
   const [selectedHouse, setSelectedHouse] = useState('');
-  const [managedHouse,setManagedHouse]=useState<boolean|null>(null);
-  const [confirmedDaily,setConfirmedDaily]=useState(false);
+  const [occupancy, setOccupancy] = useState<{
+    context: { house: string; date: string }; managed: boolean; confirmed: boolean; currentQty: number;
+  } | null>(null);
   // Entry defaults must not silently hide authorized historical records.
   const [historyHouse, setHistoryHouse] = useState(() => sp.get('historyHouse') || '');
   const [historyDate, setHistoryDate] = useState(() => sp.get('historyDate') || '');
@@ -135,9 +136,17 @@ export default function DailyPage() {
   const [flockByHouse, setFlockByHouse] = useState<Record<string, string>>({});
   const [farmCodeByHouse, setFarmCodeByHouse] = useState<Record<string, string>>({});
   const [formDate, setFormDate] = useState(today);
+  // A result belongs to one selection, including when returning to an earlier house/day.
+  const occupancyContext = useMemo(() => ({ house: selectedHouse, date: formDate }), [selectedHouse, formDate]);
+  const verifiedOccupancy = occupancy?.context === occupancyContext ? occupancy : null;
+  const managedHouse = verifiedOccupancy?.managed ?? null;
+  const confirmedDaily = verifiedOccupancy?.confirmed ?? false;
+  const currentQty = verifiedOccupancy?.currentQty ?? 0;
   const { codeMap: cullingReasonCodeMap } = useDictOptions('BRD_CULLING_REASON');
   // Unactivated houses retain daily entry; official houses may select approved report shifts.
   const [rows, setRows] = useState([mkRow(1, 'DAILY')]);
+  const deathsInput = useRef<HTMLInputElement>(null);
+  const eliminationInput = useRef<HTMLInputElement>(null);
   const [submitted, setSubmitted] = useState(false);
   const [approved, setApproved] = useState(false);
   const [reports, setReports] = useState<DailyReport[]>([]);
@@ -148,7 +157,6 @@ export default function DailyPage() {
   const [showGenModal, setShowGenModal] = useState(false);
   const [genHour, setGenHour] = useState<number | ''>(17);
   // G14：当前舍存栏（拉自 brd_flocks.current_qty）+ 分级 modal
-  const [currentQty, setCurrentQty] = useState<number>(0);
   const { grades: productGrades } = useProductGrades();
   // 鸡舍来源档案：东鹏 VARIANT 舍（红/粉壳）在录入区明示品种，孟赛 STANDARD 走普通分级。
   const { profile: sourceProfile, loading: sourceProfileLoading } = useEggSourceProfile(selectedHouse, formDate);
@@ -232,11 +240,16 @@ export default function DailyPage() {
   // Business-day occupancy and event balance remain valid across transfers/closure.
   useEffect(()=>{
     let alive=true;
-    Promise.resolve().then(()=>{if(!alive)return;if(!selectedHouse){setManagedHouse(false);setCurrentQty(0);return;}setManagedHouse(null);const token=sessionStorage.getItem('phoenix_token');
-    return fetch(`${API_BASE}/api/v3/farm/daily-hen-report?date=${encodeURIComponent(formDate)}`,{headers:token?{Authorization:`Bearer ${token}`}:{}})
-      .then(async r=>{if(!r.ok)throw new Error('日报占栏无法核实');return r.json();}).then(data=>{if(!alive)return;const r=(data.rows??[]).find((r:{house_code:string})=>r.house_code===selectedHouse);setManagedHouse(!!r?.occupancy_id);setConfirmedDaily(!!r?.has_daily_log);setCurrentQty(Number(r?.current_qty??0));}).catch(()=>{if(alive){setManagedHouse(null);setCurrentQty(0);}});});
+    if (!occupancyContext.house) return;
+    const token=sessionStorage.getItem('phoenix_token');
+    fetch(`${API_BASE}/api/v3/farm/daily-hen-report?date=${encodeURIComponent(occupancyContext.date)}`,{headers:token?{Authorization:`Bearer ${token}`}:{}})
+      .then(async r=>{if(!r.ok)throw new Error('日报占栏无法核实');return r.json();}).then(data=>{
+        if(!alive)return;
+        const r=(data.rows??[]).find((r:{house_code:string})=>r.house_code===occupancyContext.house);
+        setOccupancy({context:occupancyContext,managed:!!r?.occupancy_id,confirmed:!!r?.has_daily_log,currentQty:Number(r?.current_qty??0)});
+      }).catch(()=>{if(alive)setOccupancy(null);});
     return()=>{alive=false;};
-  },[selectedHouse,formDate,API_BASE]);
+  },[occupancyContext,API_BASE]);
   useEffect(() => {
     if (!selectedHouse) return;
     const token = typeof window !== 'undefined' ? sessionStorage.getItem('phoenix_token') : '';
@@ -267,7 +280,7 @@ export default function DailyPage() {
       }
     }).catch(() => setDeviceHint(null));
   }, [selectedHouse]);
-  const updateRow = (id: number, field: string, val: string) => setRows(rows.map(r => r.id === id ? {
+  const updateRow = (id: number, field: string, val: string) => setRows(previous => previous.map(r => r.id === id ? {
     ...r,
     [field]: val
   } : r));
@@ -279,16 +292,23 @@ export default function DailyPage() {
       toast.error(t('ui.请先选择鸡舍后再提交', '请先选择鸡舍后再提交'));
       return;
     }
-    const row = rows[0];
+    if(managedHouse===null){toast.error('占栏来源尚未核实，请刷新后再提交');return;}
+    // Read the visible controls at the submit boundary, even before a pending render commits.
+    const row = { ...rows[0],
+      deaths: managedHouse ? '' : deathsInput.current?.value ?? rows[0].deaths,
+      elimination: managedHouse ? '' : eliminationInput.current?.value ?? rows[0].elimination,
+    };
+    if ([row.deaths, row.elimination].some(value => value !== '' && (!Number.isFinite(Number(value)) || Number(value) < 0))) {
+      toast.error(t('breeding.daily.mortalityNonNegative', '死淘数量必须为非负数'));return;
+    }
     if(officialReport&&(!productGrades.length||productGrades.some(g=>(g.stock_managed??g.is_storable)!==false&&(row.gradeQty[g.grade_code]===undefined||row.gradeQty[g.grade_code]==='')))){
       toast.error(t('productionReports.instructions','请明确填写全部分级，未产档位请填0'));return;
     }
-    const hasData = hasDailyReportInput({ ...row, eggs: String(gradeSumOf(row.gradeQty)) });
+    const hasData = hasDailyReportInput({ ...row, eggs: gradeSumOf(row.gradeQty) });
     if (!hasData&&!officialReport) {
       toast.error(t('ui.请至少录入一项数据（产蛋数、死淘或饲料用量）后再提交', '请至少录入一项数据（产蛋数、死淘或饲料用量）后再提交'));
       return;
     }
-    if(managedHouse===null){toast.error('占栏来源尚未核实，请刷新后再提交');return;}
     const invalidGrade = Object.values(row.gradeQty || {}).some(value => value !== '' && (!Number.isSafeInteger(Number(value)) || Number(value) < 0));
     if (invalidGrade) {
       toast.error(t('breeding.daily.gradeIntegerRequired', '分级数量必须为非负整数'));
@@ -537,6 +557,7 @@ export default function DailyPage() {
             const numInput = (field: keyof typeof row, w = 100) => (
               <input
                 type="number" min={0} step={1}
+                ref={field === 'deaths' ? deathsInput : field === 'elimination' ? eliminationInput : undefined}
                 onFocus={e => e.currentTarget.select()}
                 value={(row as any)[field]}
                 onChange={e => {
@@ -600,14 +621,14 @@ export default function DailyPage() {
                     ⚠️ {t('ui.死淘区', '死淘登记区')}
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 10 }}>
-                    <div style={cellStyle}><span style={labelStyle}>{t('ui.死亡(羽)', '死亡(羽)')}</span>{managedHouse!==false?<span>事件账汇总</span>:numInput('deaths',130)}</div>
+                    <div style={cellStyle}><span style={labelStyle}>{t('ui.死亡(羽)', '死亡(羽)')}</span>{managedHouse!==false?<span>{managedHouse===null?t('breeding.daily.occupancyVerifying','占栏核实中'):'事件账汇总'}</span>:numInput('deaths',130)}</div>
                     <div style={cellStyle}><span style={labelStyle}>{t('ui.死亡原因', '死亡原因')}</span>
                       <DictSelect dictType="BRD_MORTALITY_REASON"
                         value={String(row.mortalityReason ?? '')}
                         onChange={v => updateRow(row.id, 'mortalityReason', v)}
                         placeholder={t('ui.请选择', '请选择')} />
                     </div>
-                    <div style={cellStyle}><span style={labelStyle}>{t('ui.淘汰(羽)', '淘汰(羽)')}</span>{managedHouse!==false?<span>事件账汇总</span>:numInput('elimination',130)}</div>
+                    <div style={cellStyle}><span style={labelStyle}>{t('ui.淘汰(羽)', '淘汰(羽)')}</span>{managedHouse!==false?<span>{managedHouse===null?t('breeding.daily.occupancyVerifying','占栏核实中'):'事件账汇总'}</span>:numInput('elimination',130)}</div>
                     <div style={cellStyle}><span style={labelStyle}>{t('ui.淘汰原因', '淘汰原因')}</span>
                       <DictSelect dictType="BRD_CULLING_REASON"
                         value={String(row.elimReason ?? '')}

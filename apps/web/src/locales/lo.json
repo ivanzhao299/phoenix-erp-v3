@@ -15041,5 +15041,7 @@
   "productionCutover.rawCountHelp": "ນັບໄຂ່ດິບທີ່ເຊັນຮັບແລ້ວແຕ່ຍັງບໍ່ເຂົ້າສະຕັອກຕາມແຫຼ່ງຈິງ. ບໍ່ລວມໃນຍອດສະຕັອກ ຫຼື ຍອດເປີດ; ໄຂ່ໝົດອາຍຸ ຫຼື ແຫຼ່ງທີ່ພັກກໍຍັງຕ້ອງນັບ.",
   "productionCutover.rawBookBalance": "ຍອດໄຂ່ດິບຕາມບັນຊີ",
   "productionCutover.rawMeasured": "ຈຳນວນໄຂ່ດິບນັບຈິງ (ໜ່ວຍ)",
-  "productionCutover.rawBasis": "ຫຼັກຖານການນັບໄຂ່ດິບ"
+  "productionCutover.rawBasis": "ຫຼັກຖານການນັບໄຂ່ດິບ",
+  "breeding.daily.occupancyVerifying": "ກຳລັງກວດສອບການເຂົ້າຢູ່ໃນໂຮງເຮືອນ",
+  "breeding.daily.mortalityNonNegative": "ຈຳນວນໄກ່ຕາຍ ແລະ ຄັດອອກຕ້ອງບໍ່ຕິດລົບ"
 }

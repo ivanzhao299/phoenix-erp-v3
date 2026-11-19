@@ -15041,5 +15041,7 @@
   "productionCutover.rawCountHelp": "Count signed, unstocked raw eggs by actual source segment, separately from inventory totals and opening stock. Expired or paused sources still have physical custody.",
   "productionCutover.rawBookBalance": "Recorded raw balance",
   "productionCutover.rawMeasured": "Actual raw count (eggs)",
-  "productionCutover.rawBasis": "Raw count evidence basis"
+  "productionCutover.rawBasis": "Raw count evidence basis",
+  "breeding.daily.occupancyVerifying": "Verifying house occupancy",
+  "breeding.daily.mortalityNonNegative": "Mortality and culling quantities must be non-negative"
 }

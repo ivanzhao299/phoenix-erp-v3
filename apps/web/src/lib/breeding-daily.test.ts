@@ -17,6 +17,12 @@ describe('daily report submission input', () => {
   it('does not treat an all-zero grade breakdown as input', () => {
     expect(gradeQuantityTotal({ GRADE_1: '', GRADE_2: '0' })).toBe(0);
     expect(hasDailyReportInput({ gradeQty: { GRADE_1: '', GRADE_2: '0' } })).toBe(false);
+    expect(hasDailyReportInput({ eggs: '0', deaths: '0', elimination: '0', feedKg: '0', waterL: '0' })).toBe(false);
+  });
+
+  it('accepts mortality-only and culling-only reports', () => {
+    expect(hasDailyReportInput({ deaths: '2' })).toBe(true);
+    expect(hasDailyReportInput({ elimination: '3' })).toBe(true);
   });
 
   it('omits a blank scalar total so the API can derive it from grades', () => {

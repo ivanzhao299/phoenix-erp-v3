@@ -15041,5 +15041,7 @@
   "productionCutover.rawCountHelp": "已签认但未入库的原蛋逐来源段实盘，不计入库存总数或期初；过期或暂停也不能忽略实物。",
   "productionCutover.rawBookBalance": "原料账面剩余",
   "productionCutover.rawMeasured": "本次原料实盘（枚）",
-  "productionCutover.rawBasis": "原料实盘依据"
+  "productionCutover.rawBasis": "原料实盘依据",
+  "breeding.daily.occupancyVerifying": "占栏核实中",
+  "breeding.daily.mortalityNonNegative": "死淘数量必须为非负数"
 }
