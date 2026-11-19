@@ -245,6 +245,7 @@
 - 最终实际导出使用主协调从第十六提交原源码、锁文件和原 Dockerfile 构建的本地测试镜像 `sha256:37e4d17dc03ae542c899137fcc595ed77ca551e369840f7a0d5b5458fcc4dab0`，revision 为 `a5d5d8f25d0bbc5601412ce8e2f07d7db706720a`。原归档合计 192,118,784 字节；投影后完整树 26,228 项、23,150 个普通文件、769 个链接、172,256,379 文件字节，树摘要 `c7474e9643b4f5dd31eb4a830fcc2617e0b05b90857e37d3318a0d17475998bb`。首次原 Dockerfile 离线构建因 APK 未缓存失败，中间 cp15＋dist 派生镜像只作 owned 夹具；未冒充最终原 Dockerfile 或远端 CI/registry 产物。
 - 从最终导出树实际加载编译入口，先禁止 socket connect，再以模块解析守卫拒绝树外 NODE_PATH 回退；Node 20.20.2/Linux x64/glibc 2.43 下共加载 1,160 个 CJS 文件，均来自封装目录，当前加载路径中 `.node` addon 为 0。随后同一树的真实 TypeORM/pg 对带 owned label 的独立 PG18 冷装 v9 库建立只读连接，六个现有权限实体执行空投影通过，无 schema/业务写入。此为当前本地平台的模块及只读驱动证据，不是完整 bundle INIT/ATTACH、生产 Node 二进制/ABI、入口排空或提交恢复验收。
 - API/Web 类型检查及四工作台实际窄字段审计通过：3 个只读主数据 input、0 裸输入、15 个 Selector、10 个 DictSelect、5 个上传器、65 个盘点键三语齐全；Node 语法通过，冻结方案 SHA 未变。本检查点未改 API/Web 源码、依赖、Dockerfile、迁移、CI 清单或规则，未重复 API/Web 全量、构建、PG245或浏览器，不累计其旧通过数。独立只读复核闭合链接、类型、资源、源码固定、API 实例、投影及事实链发现。
+- 第十七后续修补：主协调独立复跑发现 preflight/tarfile.open 抛错时，新打开的归档 stream 尚未进入统一关闭列表。已在同一小作用域显式关闭失败 stream；新增保留八次异常 traceback 的真实 /proc/self/fd 对照，失败后 FD 数始终等于初值。Python 以 ResourceWarning 升错误真实跑 **25/25**，无资源告警；未改正常物化投影或执行授权边界。此修补不重计前述 Docker/模块加载通过数。
 - **仍未实现专用可信宿主业务编排、生产 source artifact/Node/ABI 准入、独立 issuer/真实分离角色、原连接 COMMIT/结果不明恢复或切换 OPEN。** 不能凭封装回执执行生产；后续还须把受核验 bundle、实际权限和原 backend/xid 串成完整受控会话。SKU 运维 RC 兼容补丁已由主协调在隔离副本准备，尚未在本分支集成，不自动恢复旧历史修复/UAT 写路径。全部其他业务闭包、最终候选、CI/镜像和现场事实阻塞保留；无生产连接、推送、部署、启用或 GO。
 
 ## 未完成的发布阻塞

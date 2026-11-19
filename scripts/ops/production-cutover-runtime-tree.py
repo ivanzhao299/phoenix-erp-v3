@@ -269,11 +269,16 @@ def materialize(archives, root, uid=0, workspace_observation=None):
             no_acl(archive)
             # Keep the opened inode, not a later path lookup, as the archive reader.
             stream = os.fdopen(os.open(archive, os.O_RDONLY | os.O_NOFOLLOW), 'rb')
-            if identity(os.fstat(stream.fileno())) != identity(s):
+            try:
+                if identity(os.fstat(stream.fileno())) != identity(s):
+                    hold('ARCHIVE_CHANGED')
+                preflight_tar(stream, s.st_size)
+                reader = tarfile.open(fileobj=stream, mode='r:')
+            except BaseException:
+                # The outer list owns successful readers only. Preflight and
+                # tarfile.open failures must close this newly opened inode too.
                 stream.close()
-                hold('ARCHIVE_CHANGED')
-            preflight_tar(stream, s.st_size)
-            reader = tarfile.open(fileobj=stream, mode='r:')
+                raise
             opened.append((reader, stream, archive, s))
             for member in reader:
                 member_name = name(member.name, member.isdir())

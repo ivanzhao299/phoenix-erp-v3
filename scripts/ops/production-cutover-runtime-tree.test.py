@@ -156,6 +156,24 @@ class RuntimeTreeTests(unittest.TestCase):
             TREE.materialize(archives, self.output, self.uid)
         self.assertEqual(list(self.output.iterdir()), [])
 
+    def test_failed_preflight_closes_the_original_inode_even_when_error_tracebacks_are_retained(self):
+        failures = []
+        before = len(os.listdir('/proc/self/fd'))
+        for _ in range(8):
+            archives = {part: self.archive(part) for part in TREE.ROOTS}
+            header = tarfile.TarInfo('OwnedPax')
+            header.type = tarfile.XHDTYPE
+            header.size = TREE.MAX_EXTENSION_BYTES + 1
+            archives['dist'].write_bytes(header.tobuf() + bytes(1024))
+            try:
+                TREE.materialize(archives, self.output, self.uid)
+            except ValueError as failure:
+                failures.append(failure)
+            else:
+                self.fail('Oversized extension must fail')
+            self.assertEqual(len(os.listdir('/proc/self/fd')), before)
+        self.assertEqual(len(failures), 8)
+
     def test_pax_cannot_change_prechecked_block_boundaries_or_invoke_sparse_parsers(self):
         for key in ['size', 'GNU.sparse.map', 'GNU.sparse.major']:
             with self.subTest(key=key):
