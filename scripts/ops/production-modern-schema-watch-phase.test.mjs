@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import fs from 'node:fs';
 import {spawn} from 'node:child_process';
 import {canonicalDigest} from './production-maintenance-receipts.mjs';
 import {classifyModernSchemaDatabaseExecutors} from './production-modern-schema-executors.mjs';
 import {ModernSchemaExecutorWatch} from './production-modern-schema-watch.mjs';
-import {pinModernSchemaChild} from './production-modern-schema-processes.mjs';
+import {pinModernSchemaChild,isOriginalModernSchemaChildTerminal} from './production-modern-schema-processes.mjs';
 
 const id = digit => digit.repeat(64);
 const image = digit => 'sha256:' + id(digit);
@@ -150,6 +151,129 @@ test('late Compose proof retains strangers and fails on stale, ambiguous or unau
   assert.throws(()=>exitedCompose.watch.observeHostContainers(),/NEW_OR_CHANGED_HOST_EXECUTOR/);
   assert.equal(exitedCompose.counts.snapshots,1);
  }finally{child.kill('SIGTERM');await exited;}
+});
+
+function terminalComposeFixture(t,{code=0,includeOriginalRow=false}={}){
+ const child=spawn('/bin/bash',['--noprofile','--norc','-c','read -r ignored; exit "$1"','--',String(code)],{stdio:['pipe','ignore','ignore']});
+ const exited=new Promise(resolve=>child.once('exit',resolve));
+ const entry=pinModernSchemaChild(child),f=lateComposeFixture(entry),{watch,setup,counts}=f;
+ f.db.state.Pid=91004;
+ f.web.state.Pid=91005;
+ const namespaces=new Map([[f.init.pid,f.init.pidNamespace],[f.db.state.Pid,'pid:[90212]'],[f.web.state.Pid,'pid:[90213]']]);
+ const readlink=fs.readlinkSync;
+ const namespaceRead=t.mock.method(fs,'readlinkSync',(...args)=>{
+  const pid=Number(/^\/proc\/(\d+)\/ns\/pid$/.exec(args[0])?.[1]);
+  return namespaces.get(pid)??readlink(...args);
+ });
+ const identity=watch.inspectProcess;
+ const terminalRow={...entry.pin,ppid:entry.pin.parentPid,exe:'',argvSha256:'',cwdSha256:''};
+ watch.inspectProcess=pid=>pid===entry.pin.pid&&child.exitCode===null&&isOriginalModernSchemaChildTerminal(entry)?terminalRow:identity(pid);
+ watch.captureProcesses=()=>{
+  counts.censuses++;
+  return includeOriginalRow&&child.exitCode===null?[terminalRow,...setup.rows]:setup.rows;
+ };
+ let inSlot=false,slots=0;
+ watch.runtime.guard=()=>{};
+ watch.session={withSynchronousObservation(work){
+  slots++;
+  inSlot=true;
+  try{return Promise.resolve(work());}catch(error){return Promise.reject(error);}finally{inSlot=false;}
+ }};
+ child.once('exit',()=>assert.equal(inSlot,false));
+ const stop=signal=>{
+  if(signal)child.kill(signal);
+  else child.stdin.end('\n');
+  const deadline=performance.now()+2000,wait=new Int32Array(new SharedArrayBuffer(4));
+  while(!isOriginalModernSchemaChildTerminal(entry)&&performance.now()<deadline)Atomics.wait(wait,0,0,10);
+  assert.equal(isOriginalModernSchemaChildTerminal(entry),true);
+  assert.equal(child.exitCode,null);
+ };
+ return {...f,entry,child,exited,stop,slots:()=>slots,restore:()=>namespaceRead.mock.restore()};
+}
+
+test('a true late candidate with just-terminated Compose revalidates only after the actual exit zero', {timeout:10000}, async t=>{
+ for(const includeOriginalRow of [false,true]){
+  const f=terminalComposeFixture(t,{includeOriginalRow});
+  let admissions=0;
+  f.watch.admit=()=>{
+   admissions++;
+   assert.equal(f.child.exitCode,0);
+   assert.equal(f.watch.candidate,null);
+   return true;
+  };
+  try{
+   f.stop();
+   const observed=await f.watch.observeHostAfterOriginalExit(()=>f.watch.observeHostContainers());
+   assert.equal(observed.values,f.setup.refreshed);
+   assert.equal(observed.runtime.candidate.containerId,f.candidate.id);
+   assert.deepEqual(f.counts,{snapshots:3,censuses:2,confirm:1,initReads:2});
+   assert.equal(f.slots(),2);
+   assert.equal(admissions,1);
+  }finally{f.restore();f.child.kill('SIGKILL');await f.exited;}
+ }
+});
+
+test('a late candidate and pending Compose do not discard unknown original rows or skip the final pin', {timeout:10000}, async t=>{
+ for(const [mutate,expected,confirmations] of [
+  [f=>{f.setup.rows=[f.row,f.foreign];},/NEW_OR_CHANGED_HOST_EXECUTOR/,0],
+  [f=>{f.setup.rows=[f.foreign,f.row];},/NEW_OR_CHANGED_HOST_EXECUTOR/,0],
+  [f=>{f.setup.pinCheck=()=>({...f.candidate,state:{...f.candidate.state,Pid:f.init.pid+1}});},/LATE_COMPOSE_CANDIDATE_CHANGED/,1],
+  [f=>{f.entry.pin.bootId='wrong boot';},/ORIGINAL_CONTROL_CHILD_UNPROVED/,0],
+ ]){
+  const f=terminalComposeFixture(t,{includeOriginalRow:true});
+  try{
+   f.stop();
+   mutate(f);
+   await assert.rejects(f.watch.observeHostAfterOriginalExit(()=>f.watch.observeHostContainers()),expected);
+   assert.equal(f.slots(),1);
+   assert.equal(f.counts.confirm,confirmations);
+   assert.equal(f.watch.candidate,null);
+  }finally{f.restore();f.child.kill('SIGKILL');await f.exited;}
+ }
+});
+
+test('a proven late candidate cannot turn a failed or signalled Compose exit into success', {timeout:5000}, async t=>{
+ for(const signal of [null,'SIGTERM']){
+  const f=terminalComposeFixture(t,{code:7});
+  try{
+   f.stop(signal);
+   await assert.rejects(f.watch.observeHostAfterOriginalExit(()=>f.watch.observeHostContainers()),/ORIGINAL_CHILD_EXIT_FAILED/);
+   assert.equal(f.child.exitCode,signal?null:7);
+   assert.equal(f.child.signalCode,signal);
+   assert.equal(f.counts.confirm,1);
+   assert.equal(f.slots(),1);
+   assert.equal(f.watch.candidate,null);
+  }finally{f.restore();f.child.kill('SIGKILL');await f.exited;}
+ }
+});
+
+test('waiting for the original body exit cannot hide a second, nonzero Compose result', {timeout:5000}, async t=>{
+ const f=terminalComposeFixture(t,{code:7});
+ const body=spawn('/bin/bash',['--noprofile','--norc','-c','read -r ignored'],{stdio:['pipe','ignore','ignore']});
+ const bodyExited=new Promise(resolve=>body.once('exit',resolve));
+ try{
+  const entry=pinModernSchemaChild(body);
+  const inspect=f.watch.inspectProcess;
+  f.watch.inspectProcess=pid=>pid===entry.pin.pid?{...entry.pin,ppid:entry.pin.parentPid}:inspect(pid);
+  f.watch.runtime.isCommand=record=>record===entry||record===f.entry;
+  f.watch.runtime.registeredChildren=()=>[entry,f.entry];
+  f.setup.pending.phase='SCHEMA_RECEIPTED';
+  f.watch.allowDescendants(entry,'FORMAL_API_BODY');
+  f.setup.pending.phase='API_BODY';
+  f.setup.rows=[{...entry.pin,ppid:entry.pin.parentPid,exe:'',argvSha256:'',cwdSha256:''},f.row];
+  body.stdin.end('\n');
+  f.stop();
+  const deadline=performance.now()+2000,wait=new Int32Array(new SharedArrayBuffer(4));
+  while(!isOriginalModernSchemaChildTerminal(entry)&&performance.now()<deadline)Atomics.wait(wait,0,0,10);
+  assert.equal(isOriginalModernSchemaChildTerminal(entry),true);
+  assert.equal(body.exitCode,null);
+  await assert.rejects(f.watch.observeHostAfterOriginalExit(()=>f.watch.observeHostContainers()),/ORIGINAL_CHILD_EXIT_FAILED/);
+  assert.equal(body.exitCode,0);
+  assert.equal(f.child.exitCode,7);
+  assert.equal(f.counts.confirm,1);
+  assert.equal(f.slots(),1);
+  assert.equal(f.watch.candidate,null);
+ }finally{f.restore();body.kill('SIGKILL');f.child.kill('SIGKILL');await Promise.all([bodyExited,f.exited]);}
 });
 
 test('lease heartbeat shares the watch queue and keeps at most one outstanding check', async t => {

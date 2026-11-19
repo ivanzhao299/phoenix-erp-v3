@@ -16,7 +16,7 @@ const potential=value=>/\/(?:node|nodejs|python[0-9.]*|java|pm2|supervisord|noma
 const linuxOnly=({pid,parentPid,startTicks,bootId})=>({pid,parentPid,startTicks,bootId});
 const nativeTicks=value=>typeof value==='string'&&/^[1-9][0-9]*$/.test(value);
 class PendingOriginalChildExit extends Error{
- constructor(entry,cause){super(cause.message);this.entry=entry;}
+ constructor(entry,cause){super(cause.message);this.entries=new Set([entry]);}
 }
 export class ModernSchemaExecutorWatch {
  #reapRoles=new WeakMap();
@@ -163,7 +163,9 @@ export class ModernSchemaExecutorWatch {
      const bodyPhase=role==='SCHEMA_DRIVER'?phase==='DDL_STARTED':phase==='API_BODY'&&['FORMAL_API_BODY','FORMAL_COMPOSE'].includes(role);
      if((bodyPhase&&this.runtime.isCommand?.(entry)===true)
       ||(['DDL_STARTED','API_BODY'].includes(phase)&&this.runtime.isClosingChannel?.(entry)===true)){
-      pendingExit??=new PendingOriginalChildExit(entry,error);continue;
+      if(pendingExit)pendingExit.entries.add(entry);
+      else pendingExit=new PendingOriginalChildExit(entry,error);
+      continue;
      }
      if(this.descendants.some(parent=>parent.child===entry.child)||this.runtime.isCommand?.(entry)!==true)throw error;
     }
@@ -184,19 +186,29 @@ export class ModernSchemaExecutorWatch {
   }
   if(pendingExit)throw pendingExit;
  }
- #verifyLiveOriginalCompose(entry){
+ #verifyOriginalComposeForLateCandidate(entry){
   const pending=this.state.read();
   if(pending.owner!==this.context.owner||pending.phase!=='API_BODY'||pending.status!=='RUNNING'||
    !entry||entry!==this.composeChild||this.#reapRoles.get(entry)!=='FORMAL_COMPOSE'||this.runtime.isCommand(entry)!==true||
-   entry.child.exitCode!==null||entry.child.signalCode!==null)return false;
-  verifyModernSchemaChild(entry,this.inspectProcess(entry.pin.pid));
-  assertOriginalModernSchemaProcess(linuxOnly(entry.pin),{pid:entry.pin.pid});
-  return true;
+   entry.child.exitCode!==null||entry.child.signalCode!==null||
+   this.session?.child===entry.child||this.readers.some(reader=>reader.entry.child===entry.child))return null;
+  try{
+   verifyModernSchemaChild(entry,this.inspectProcess(entry.pin.pid));
+   assertOriginalModernSchemaProcess(linuxOnly(entry.pin),{pid:entry.pin.pid});
+   return {pendingExit:null};
+  }catch(error){
+   if(!isOriginalModernSchemaChildTerminal(entry))throw error;
+   // Preserve the exact original identity long enough to classify this
+   // census. Kernel termination is not a successful Compose result.
+   return {pendingExit:new PendingOriginalChildExit(entry,error)};
+  }
  }
  #refreshLateComposeCandidate(previous,row){
   const compose=this.composeChild,prior=this.candidate;
   if(!compose||this.#reapRoles.get(compose)!=='FORMAL_COMPOSE'||row.pidNamespace===compose.pin.pidNamespace||
-   previous.some(container=>container.id===prior?.id&&container.state.Running)||!this.#verifyLiveOriginalCompose(compose))return null;
+   previous.some(container=>container.id===prior?.id&&container.state.Running))return null;
+  const original=this.#verifyOriginalComposeForLateCandidate(compose);
+  if(!original)return null;
   const values=this.containers();
   let runtime,pin;
   try{runtime=this.verifyContainers(values);pin=this.candidate;}finally{this.candidate=prior;}
@@ -219,21 +231,31 @@ export class ModernSchemaExecutorWatch {
    confirm:()=>{
     const fresh=inspectModernSchemaContainer(candidate.id,this.run);
     if(!same(identity(fresh),identity(candidate))||fresh.state.OOMKilled!==false||fresh.state.Restarting!==false||fresh.state.Paused!==false||
-     !same(init,this.inspectProcess(pid))||!this.#verifyLiveOriginalCompose(compose))fail('LATE_COMPOSE_CANDIDATE_CHANGED_DURING_CENSUS');
+     !same(init,this.inspectProcess(pid)))fail('LATE_COMPOSE_CANDIDATE_CHANGED_DURING_CENSUS');
+    const current=this.#verifyOriginalComposeForLateCandidate(compose);
+    if(!current||(original.pendingExit&&!current.pendingExit))fail('LATE_COMPOSE_CANDIDATE_CHANGED_DURING_CENSUS');
+    return current.pendingExit;
    },
   };
  }
  observeHostContainers(initialize=false){
   const values=this.containers(),runtime=this.verifyContainers(values);
-  let attempted=false,late=null;
-  this.verifyProcesses(values,initialize,row=>{
-   // Retain this entire /proc census; only the independently verified late
-   // candidate may account for rows missing from the first Docker snapshot.
-   if(!attempted){attempted=true;late=this.#refreshLateComposeCandidate(values,row);}
-   return late?.proves(row)===true;
-  });
+  let attempted=false,late=null,pendingExit=null;
+  try{
+   this.verifyProcesses(values,initialize,row=>{
+    // Retain this entire /proc census; only the independently verified late
+    // candidate may account for rows missing from the first Docker snapshot.
+    if(!attempted){attempted=true;late=this.#refreshLateComposeCandidate(values,row);}
+    return late?.proves(row)===true;
+   });
+  }catch(error){
+   if(!(error instanceof PendingOriginalChildExit))throw error;
+   pendingExit=error;
+  }
+  const lateExit=late?.confirm();
+  if(pendingExit&&lateExit)for(const entry of lateExit.entries)pendingExit.entries.add(entry);
+  if(pendingExit||lateExit)throw pendingExit??lateExit;
   if(!late)return {values,runtime};
-  late.confirm();
   this.candidate=late.pin;
   return {values:late.values,runtime:late.runtime};
  }
@@ -254,14 +276,15 @@ export class ModernSchemaExecutorWatch {
   for(;;){
    try{return await this.session.withSynchronousObservation(work);}catch(error){
     if(!(error instanceof PendingOriginalChildExit))throw error;
-    const {entry}=error,child=entry.child;
     const deadline=performance.now()+3000;
-    if(reaped.has(child)||reaped.size>=4)fail('ORIGINAL_CHILD_EXIT_UNRESOLVED');reaped.add(child);
-    if(child.exitCode===null&&child.signalCode===null)await new Promise((resolve,reject)=>{
-     const finish=()=>{clearTimeout(timer);resolve();},timer=setTimeout(()=>{child.removeListener('exit',finish);reject(Error('MODERN_SCHEMA_WATCH_HOLD=ORIGINAL_CHILD_EXIT_UNRESOLVED'));},Math.max(1,deadline-performance.now()));
-     child.once('exit',finish);
-    });
-    if(child.exitCode!==0||child.signalCode!==null)fail('ORIGINAL_CHILD_EXIT_FAILED');
+    for(const {child} of error.entries){
+     if(reaped.has(child)||reaped.size>=4)fail('ORIGINAL_CHILD_EXIT_UNRESOLVED');reaped.add(child);
+     if(child.exitCode===null&&child.signalCode===null)await new Promise((resolve,reject)=>{
+      const finish=()=>{clearTimeout(timer);resolve();},timer=setTimeout(()=>{child.removeListener('exit',finish);reject(Error('MODERN_SCHEMA_WATCH_HOLD=ORIGINAL_CHILD_EXIT_UNRESOLVED'));},Math.max(1,deadline-performance.now()));
+      child.once('exit',finish);
+     });
+     if(child.exitCode!==0||child.signalCode!==null)fail('ORIGINAL_CHILD_EXIT_FAILED');
+    }
     await this.check(); // New original-S/authority check, then a whole new census.
    }
   }
