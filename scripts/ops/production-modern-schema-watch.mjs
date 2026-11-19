@@ -127,29 +127,39 @@ export class ModernSchemaExecutorWatch {
   const candidate=next?.state.Running&&address?{address,containerId:next.id,imageId:next.imageId,phase,nativePinSha256:canonicalDigest(identity(next))}:null;
   return {runtimeAddress,oldRuntimeStopped:!old?.state.Running,oldPresent:!!old,candidate};
  }
- #isGoneDirectFormalBodyChild(row,root){
-  const pin=root.pin;
-  if(this.#reapRoles.get(root)!=='FORMAL_API_BODY'||this.runtime.isCommand(root)!==true||
+ #observeGoneDirectFormalChild(row,root){
+  const pin=root.pin,role=this.#reapRoles.get(root);
+  if(!['FORMAL_API_BODY','FORMAL_COMPOSE'].includes(role)||this.runtime.isCommand(root)!==true||
    row[STABLE_MODERN_CENSUS_PARENT]!==true||row.ppid!==pin.pid||
    pin.parentPid!==process.pid||!Number.isSafeInteger(row.pid)||row.pid<=1||row.pid===pin.pid||
    row.pidNamespace!==pin.pidNamespace||!nativeTicks(row.startTicks)||
-   BigInt(row.startTicks)<BigInt(pin.startTicks))return false;
+   BigInt(row.startTicks)<BigInt(pin.startTicks))return null;
   const pending=this.state.read();
-  if(pending.owner!==this.context.owner||pending.phase!=='API_BODY'||pending.status!=='RUNNING')return false;
+  if(pending.owner!==this.context.owner||pending.phase!=='API_BODY'||pending.status!=='RUNNING')return null;
   const absent=()=>{
    try{fs.lstatSync(`/proc/${row.pid}`);return false;}
    catch(error){return ['ENOENT','ESRCH'].includes(error.code);}
   };
-  if(!absent())return false;
+  if(!absent())return null;
+  let original;
   try{
-   verifyModernSchemaChild(root,this.inspectProcess(pin.pid));
-   assertOriginalModernSchemaProcess(linuxOnly(pin),{pid:pin.pid});
-  }catch{return false;}
-  return absent();
+   if(role==='FORMAL_COMPOSE')original=this.#verifyOriginalCompose(root);
+   else{
+    verifyModernSchemaChild(root,this.inspectProcess(pin.pid));
+    assertOriginalModernSchemaProcess(linuxOnly(pin),{pid:pin.pid});
+    original={pendingExit:null};
+   }
+  }catch{return null;}
+  return original&&absent()?original:null;
  }
  verifyProcesses(containers,initialize=false,proveLateCandidate){
   const namespaces=new Set();for(const value of containers)if(value.state.Running){try{namespaces.add(fs.readlinkSync(`/proc/${value.state.Pid}/ns/pid`));}catch{fail('NATIVE_CONTAINER_NAMESPACE_UNOBSERVABLE');}}
   const owned=this.runtime.registeredChildren();let pendingExit=null;
+  const recordExit=exit=>{
+   if(!exit)return;
+   if(!pendingExit)pendingExit=exit;
+   else for(const entry of exit.entries)pendingExit.entries.add(entry);
+  };
   for(const row of this.captureProcesses()){
    if(row.pid===process.pid||row.pid===process.ppid||namespaces.has(row.pidNamespace))continue;
    const entry=owned.find(item=>item.pin.pid===row.pid);if(entry){
@@ -163,8 +173,7 @@ export class ModernSchemaExecutorWatch {
      const bodyPhase=role==='SCHEMA_DRIVER'?phase==='DDL_STARTED':phase==='API_BODY'&&['FORMAL_API_BODY','FORMAL_COMPOSE'].includes(role);
      if((bodyPhase&&this.runtime.isCommand?.(entry)===true)
       ||(['DDL_STARTED','API_BODY'].includes(phase)&&this.runtime.isClosingChannel?.(entry)===true)){
-      if(pendingExit)pendingExit.entries.add(entry);
-      else pendingExit=new PendingOriginalChildExit(entry,error);
+      recordExit(new PendingOriginalChildExit(entry,error));
       continue;
      }
      if(this.descendants.some(parent=>parent.child===entry.child)||this.runtime.isCommand?.(entry)!==true)throw error;
@@ -173,11 +182,17 @@ export class ModernSchemaExecutorWatch {
    }
    let descendant=false;for(const root of this.descendants){
     if(root.child.exitCode!==null||root.child.signalCode!==null)continue;
-    try{verifyModernSchemaChild(root,this.inspectProcess(root.pin.pid));}catch{continue;}
-    try{assertOriginalModernSchemaProcess(linuxOnly(root.pin),{pid:row.pid});descendant=true;break;}catch{
-     // The native census can see a direct child that the formal Bash has
-     // already reaped by the time we walk its live ancestry.
-     if(!initialize&&this.#isGoneDirectFormalBodyChild(row,root)){descendant=true;break;}
+    let pinnedLive=false;
+    try{
+     verifyModernSchemaChild(root,this.inspectProcess(root.pin.pid));pinnedLive=true;
+     assertOriginalModernSchemaProcess(linuxOnly(root.pin),{pid:row.pid});descendant=true;break;
+    }catch{}
+    // A sampled direct child may be gone before we walk its live ancestry.
+    // The formal Bash still needs live proof. Only original Compose may use
+    // the same strict native terminal proof as late candidate observation.
+    if(!initialize&&(pinnedLive||root===this.composeChild)){
+     const original=this.#observeGoneDirectFormalChild(row,root);
+     if(original){recordExit(original.pendingExit);descendant=true;break;}
     }
    }
    if(descendant||!potential(row))continue;const digest=canonicalDigest(row);
@@ -186,7 +201,7 @@ export class ModernSchemaExecutorWatch {
   }
   if(pendingExit)throw pendingExit;
  }
- #verifyOriginalComposeForLateCandidate(entry){
+ #verifyOriginalCompose(entry){
   const pending=this.state.read();
   if(pending.owner!==this.context.owner||pending.phase!=='API_BODY'||pending.status!=='RUNNING'||
    !entry||entry!==this.composeChild||this.#reapRoles.get(entry)!=='FORMAL_COMPOSE'||this.runtime.isCommand(entry)!==true||
@@ -207,7 +222,7 @@ export class ModernSchemaExecutorWatch {
   const compose=this.composeChild,prior=this.candidate;
   if(!compose||this.#reapRoles.get(compose)!=='FORMAL_COMPOSE'||row.pidNamespace===compose.pin.pidNamespace||
    previous.some(container=>container.id===prior?.id&&container.state.Running))return null;
-  const original=this.#verifyOriginalComposeForLateCandidate(compose);
+  const original=this.#verifyOriginalCompose(compose);
   if(!original)return null;
   const values=this.containers();
   let runtime,pin;
@@ -232,7 +247,7 @@ export class ModernSchemaExecutorWatch {
     const fresh=inspectModernSchemaContainer(candidate.id,this.run);
     if(!same(identity(fresh),identity(candidate))||fresh.state.OOMKilled!==false||fresh.state.Restarting!==false||fresh.state.Paused!==false||
      !same(init,this.inspectProcess(pid)))fail('LATE_COMPOSE_CANDIDATE_CHANGED_DURING_CENSUS');
-    const current=this.#verifyOriginalComposeForLateCandidate(compose);
+    const current=this.#verifyOriginalCompose(compose);
     if(!current||(original.pendingExit&&!current.pendingExit))fail('LATE_COMPOSE_CANDIDATE_CHANGED_DURING_CENSUS');
     return current.pendingExit;
    },

@@ -1,11 +1,15 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import fs from 'node:fs';
+import path from 'node:path';
+import {fileURLToPath} from 'node:url';
 import {spawn} from 'node:child_process';
 import {canonicalDigest} from './production-maintenance-receipts.mjs';
 import {classifyModernSchemaDatabaseExecutors} from './production-modern-schema-executors.mjs';
 import {ModernSchemaExecutorWatch} from './production-modern-schema-watch.mjs';
 import {pinModernSchemaChild,isOriginalModernSchemaChildTerminal} from './production-modern-schema-processes.mjs';
+import {STABLE_MODERN_CENSUS_PARENT} from './production-maintenance-root-readers.mjs';
+import {readLinuxProcessIdentity} from './production-modern-schema-session-lease.mjs';
 
 const id = digit => digit.repeat(64);
 const image = digit => 'sha256:' + id(digit);
@@ -153,8 +157,8 @@ test('late Compose proof retains strangers and fails on stale, ambiguous or unau
  }finally{child.kill('SIGTERM');await exited;}
 });
 
-function terminalComposeFixture(t,{code=0,includeOriginalRow=false}={}){
- const child=spawn('/bin/bash',['--noprofile','--norc','-c','read -r ignored; exit "$1"','--',String(code)],{stdio:['pipe','ignore','ignore']});
+function terminalComposeFixture(t,{code=0,includeOriginalRow=false,body='read -r ignored; exit "$1"',args=[]}={}){
+ const child=spawn('/bin/bash',['--noprofile','--norc','-c',body,'--',String(code),...args],{stdio:['pipe','ignore','ignore']});
  const exited=new Promise(resolve=>child.once('exit',resolve));
  const entry=pinModernSchemaChild(child),f=lateComposeFixture(entry),{watch,setup,counts}=f;
  f.db.state.Pid=91004;
@@ -274,6 +278,104 @@ test('waiting for the original body exit cannot hide a second, nonzero Compose r
   assert.equal(f.slots(),1);
   assert.equal(f.watch.candidate,null);
  }finally{f.restore();body.kill('SIGKILL');f.child.kill('SIGKILL');await Promise.all([bodyExited,f.exited]);}
+});
+
+async function goneComposePluginFixture(t,{code=0,late=false}={}){
+ const artifacts=fileURLToPath(new URL('../../artifacts/',import.meta.url));
+ const directory=fs.mkdtempSync(path.join(artifacts,'modern-schema-cp40-plugin-'));
+ const [started,stop,reaped]=['pid','stop','reaped'].map(name=>path.join(directory,name));
+ const worker="const fs=require('fs');fs.writeFileSync(process.argv[1],String(process.pid));setInterval(()=>{if(fs.existsSync(process.argv[2]))process.exit(0)},10)";
+ const f=terminalComposeFixture(t,{code,body:'"$2" -e "$3" "$4" "$5" & worker=$!; wait "$worker"; : > "$6"; read -r ignored; exit "$1"',
+  args:[process.execPath,worker,started,stop,reaped]});
+ const cleanup=async()=>{
+  fs.writeFileSync(stop,'');
+  if(f.child.exitCode===null&&f.child.signalCode===null&&!f.child.stdin.writableEnded)f.child.stdin.end('\n');
+  f.restore();
+  await f.exited;
+ };
+ const waitFor=async file=>{
+  const deadline=performance.now()+3000;
+  while(!fs.existsSync(file)&&performance.now()<deadline)await new Promise(resolve=>setTimeout(resolve,10));
+  assert.ok(fs.existsSync(file));
+ };
+ try{
+  await waitFor(started);
+  const pid=Number(fs.readFileSync(started,'utf8')),identity=readLinuxProcessIdentity(pid);
+  const row={pid,ppid:identity.parentPid,startTicks:identity.startTicks,
+   exe:fs.readlinkSync(`/proc/${pid}/exe`),pidNamespace:fs.readlinkSync(`/proc/${pid}/ns/pid`)};
+  assert.deepEqual(readLinuxProcessIdentity(pid),identity);
+  assert.equal(row.ppid,f.entry.pin.pid);
+  Object.defineProperty(row,STABLE_MODERN_CENSUS_PARENT,{value:true});
+  fs.writeFileSync(stop,'');await waitFor(reaped);
+  assert.throws(()=>fs.lstatSync(`/proc/${pid}`),{code:'ENOENT'});
+  assert.equal(f.child.exitCode,null);
+  if(!late)f.setup.first=f.setup.refreshed;
+  f.setup.rows=[row];
+  return {...f,plugin:row,cleanup};
+ }catch(error){await cleanup();throw error;}
+}
+
+test('a reaped direct plugin belongs to the exact live or just-terminated original Compose', {timeout:10000}, async t=>{
+ for(const terminal of [false,true]){
+  const f=await goneComposePluginFixture(t);
+  let admissions=0;
+  f.watch.admit=()=>{admissions++;assert.equal(f.child.exitCode,0);return true;};
+  try{
+   if(terminal)f.stop();
+   const census=f.watch.captureProcesses;
+   f.watch.captureProcesses=()=>f.child.exitCode===0?[]:census();
+   const observed=await f.watch.observeHostAfterOriginalExit(()=>f.watch.observeHostContainers());
+   assert.equal(observed.runtime.candidate.containerId,f.candidate.id);
+   assert.equal(f.slots(),terminal?2:1);
+   assert.equal(admissions,terminal?1:0);
+   assert.equal(f.child.exitCode,terminal?0:null);
+  }finally{await f.cleanup();}
+ }
+});
+
+test('a reaped plugin does not hide an incomplete census, bad original pin or failed exit', {timeout:15000}, async t=>{
+ for(const [change,error,confirmed] of [
+  [f=>{f.setup.rows=[f.plugin,f.foreign];},/NEW_OR_CHANGED_HOST_EXECUTOR/,0],
+  [f=>{f.setup.rows=[f.foreign,f.plugin];},/NEW_OR_CHANGED_HOST_EXECUTOR/,0],
+  [f=>{f.setup.pending.owner='7001-1';},/NEW_OR_CHANGED_HOST_EXECUTOR/,0],
+  [f=>{f.setup.pending.phase='API_VERIFIED';},/NEW_OR_CHANGED_HOST_EXECUTOR/,0],
+  [f=>{f.entry.pin.bootId='bad boot pin';},/NEW_OR_CHANGED_HOST_EXECUTOR/,0],
+  [f=>{f.composeChild={...f.entry};f.watch.composeChild=f.composeChild;},/NEW_OR_CHANGED_HOST_EXECUTOR/,0],
+  [f=>{f.setup.rows=[{...f.plugin}];},/NEW_OR_CHANGED_HOST_EXECUTOR/,0],
+  [f=>{f.setup.rows=[f.plugin,f.row];f.setup.pinCheck=()=>({...f.candidate,state:{...f.candidate.state,Pid:f.init.pid+1}});},/LATE_COMPOSE_CANDIDATE_CHANGED/,1],
+  [()=>{},/ORIGINAL_CHILD_EXIT_FAILED/,0],
+ ]){
+  const f=await goneComposePluginFixture(t,{code:7,late:confirmed>0});
+  try{
+   f.stop();change(f);
+   await assert.rejects(f.watch.observeHostAfterOriginalExit(()=>f.watch.observeHostContainers()),error);
+   assert.equal(f.slots(),1);
+   assert.equal(f.counts.confirm,confirmed);
+   if(confirmed)assert.equal(f.watch.candidate,null);
+  }finally{await f.cleanup();}
+ }
+});
+
+test('Compose plugin retirement requires both fresh absence reads', {timeout:5000}, async t=>{
+ const f=await goneComposePluginFixture(t),lstat=fs.lstatSync,pluginPath=`/proc/${f.plugin.pid}`;
+ try{
+  for(const code of ['EACCES','EPERM']){
+   const mocked=t.mock.method(fs,'lstatSync',(...args)=>{
+    if(args[0]===pluginPath)throw Object.assign(Error(code),{code});
+    return lstat(...args);
+   });
+   try{assert.throws(()=>f.watch.observeHostContainers(),/NEW_OR_CHANGED_HOST_EXECUTOR/);}finally{mocked.mock.restore();}
+  }
+  let reads=0;
+  const mocked=t.mock.method(fs,'lstatSync',(...args)=>{
+   if(args[0]===pluginPath&&++reads===2)return lstat(`/proc/${process.pid}`);
+   return lstat(...args);
+  });
+  try{
+   assert.throws(()=>f.watch.observeHostContainers(),/NEW_OR_CHANGED_HOST_EXECUTOR/);
+   assert.equal(reads,2);
+  }finally{mocked.mock.restore();}
+ }finally{await f.cleanup();}
 });
 
 test('lease heartbeat shares the watch queue and keeps at most one outstanding check', async t => {
