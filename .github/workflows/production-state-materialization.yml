@@ -76,6 +76,11 @@ jobs:
                 const scrub=value=>{
                   if(Array.isArray(value))return value.map(scrub);
                   if(!value||typeof value!=="object")return value;
+                  if(Object.hasOwn(value,"schemaRelease")||value.purpose==="MODERN_SCHEMA_RELEASE"||String(value.schema||"").startsWith("phoenix.modern-schema-")){
+                    const projected={schemaReleaseRedacted:true};
+                    for(const key of keys)if(value[key]===null||["string","number","boolean"].includes(typeof value[key]))projected[key]=value[key];
+                    return projected;
+                  }
                   if(Object.hasOwn(value,"cutover")||value.purpose==="PRODUCTION_CUTOVER"||value.schema==="phoenix.production-cutover-pending/1"){
                     const projected={cutoverRedacted:true};
                     for(const key of keys)if(value[key]===null||["string","number","boolean"].includes(typeof value[key]))projected[key]=value[key];

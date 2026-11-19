@@ -29,6 +29,7 @@ const quote = name => '"' + name.replaceAll('"','""') + '"';
 const compare = (a,b) => a === b ? 0 : a < b ? -1 : 1;
 
 export const LEGACY_EGG_TEST_MANIFEST = 'phoenix.legacy-egg-test-manifest/v1';
+export const LEGACY_EGG_SCOPE_CLASSIFICATIONS = Object.freeze(['HISTORICAL_TEST','USER_CONFIRMED_TEST_OR_MISENTRY']);
 
 function observedGroups(audit) {
   if (!Number.isSafeInteger(audit.overposted_grade_groups) || audit.overposted_grade_groups < 1
@@ -192,7 +193,7 @@ export async function collectLegacyEggAuditEvidence(client, {
     const references = await referencesFor(client,batches,databaseIdentity.schema);
     evidence.referenceCoverage = references;
     if (references.missing.length || references.matches.length || references.uninspectedSources.length) return done('LEGACY_BUSINESS_REFERENCES_UNRESOLVED');
-    if (!manifest || manifest.schema !== LEGACY_EGG_TEST_MANIFEST || manifest.classification !== 'HISTORICAL_TEST'
+    if (!manifest || manifest.schema !== LEGACY_EGG_TEST_MANIFEST || !LEGACY_EGG_SCOPE_CLASSIFICATIONS.includes(manifest.classification)
         || typeof manifest.businessEvidenceSha256 !== 'string' || !HASH.test(manifest.businessEvidenceSha256)
         || !Array.isArray(manifest.groups) || canonicalDigest(manifest.groups) !== canonicalDigest(groups)) {
       return done('MATCHING_FROZEN_TEST_MANIFEST_REQUIRED');
@@ -203,3 +204,6 @@ export async function collectLegacyEggAuditEvidence(client, {
     await client.query('ROLLBACK');
   }
 }
+
+// Shared pure extraction for independent release evidence cross-checks.
+export { observedGroups as observedLegacyEggGroups };

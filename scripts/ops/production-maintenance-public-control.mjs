@@ -81,6 +81,7 @@ export class LegacyMaintenancePublicControl {
     this.expectedUid = dependencies.expectedUid ?? 0;
   }
   state(phase, operation, expectedDigest) {
+    if (exists(path.join(this.store.directory,'schema-release-pending.json'))) hold('SCHEMA_RELEASE_DEDICATED_RECOVERY_REQUIRED');
     this.guard(); if (exists(path.join(this.store.directory,'cutover-pending.json'))) hold('CUTOVER_DEDICATED_RECOVERY_REQUIRED'); this.protocol.checkWindow(); this.store.assertCurrent();
     const state = this.store.readState();
     if (!state || state.contextDigest !== this.contextDigest || !same(state.context, this.context) || state.phase !== phase
@@ -88,7 +89,7 @@ export class LegacyMaintenancePublicControl {
     this.store.assertOwnedIntent(operation, phase, state.stateDigest);
     return state;
   }
-  absentModern() { if (exists(path.join(this.store.directory,'cutover-pending.json'))) hold('CUTOVER_DEDICATED_RECOVERY_REQUIRED'); if (exists(this.modernPrivate)) hold('EXISTING_MODERN_BACKGROUND_OWNER'); }
+  absentModern() { if (exists(path.join(this.store.directory,'schema-release-pending.json'))) hold('SCHEMA_RELEASE_DEDICATED_RECOVERY_REQUIRED'); if (exists(path.join(this.store.directory,'cutover-pending.json'))) hold('CUTOVER_DEDICATED_RECOVERY_REQUIRED'); if (exists(this.modernPrivate)) hold('EXISTING_MODERN_BACKGROUND_OWNER'); }
   async bootstrap() {
     const state = this.state('LEGACY_RECONCILED', 'PREPARE_PROMOTION');
     await this.protocol.authorityStillValid(state);

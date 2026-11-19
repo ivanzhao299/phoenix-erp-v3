@@ -294,6 +294,18 @@
 - 协调方在隔离真实 PG 验证同日报多等级、原报告不动、账本/库身份错误、数字JSON引用、跨schema/子批及并发快照边界。本工作树实际核对补丁摘要、原SQL字节、导入合同和语法；真实PG用例未重复执行，未连接生产。协调方只读主预检 `44437222796` 仍反馈原HOLD，不据此生成GO。
 - 优先完成默认OFF代码发布联接，业务 INIT/ATTACH 的 readonly outcome 草稿另行保留，尚未接入或提交。现有普通迁移只接受 OPEN＋原审计GO，modern发布晋级又要求先有真实迁移回执；尚需实现同一modern围栏/排空后、普通晋级前的受审schema阶段，不能把两个现有流程顺序运行假称同会话，也不放宽旧版first-switch API-only/no-migration边界。未执行生产迁移、发布或业务启用。
 
+## 第二十三开发检查点：默认 OFF schema 发布的证据与一次性登记基础（2026-11-19，保持 OFF）
+
+- 固定原有用户发布指示及其已确认的两项“测试或误录”范围，明确不是恢复出的既有签名文件、现场盘点或人工签批。批准计划与既有只读取证 SQL 分别按原 SHA256 校验；GRADE_4/5 各30、批413/415、流水649/651、日报106、来源/日期/公司/鸡舍、仓/位及SKU/产品逐项锁定。原日报六档向量逐键逐量不变，G4/5只可缺省或0，同总量挪档、替换键、变更流水日或已知身份均拒绝。原始审计保留 HOLD；只读证据的 releaseAuthorized、physicalInventoryVerified 均 false。
+- 原审计及日报 JSON 以原始文本读取，去掉原审计顶层 checked_at 后，用无损数字词法比较完整稳定事实，拒绝重复 JSON 键。独立只读审查发现的 NUMERIC(18,6) 与日报极小值精度漏洞已修；不会经 JavaScript Number 把实际变化舍入成“相同”。原始报告字节和 SHA 单独保留，稳定业务清单摘要不包含采样时间。
+- 完整实际 T 编译镜像清单与 T/R Git 源逐项核对，按真实账本计算全部 pending，禁止采用截断诊断列表；桥接/已应用身份不明、R源码更改/移除、非加法迁移及新源码已在账本但无可信旧回执均 HOLD。实际本地 c811 API 镜像离线、只读、无挂载、UID100观察到125编译项与源码一致，R为105；这不是生产待执行数声明。
+- 发布身份只使用固定 GitHub 签发源的真实 RS256 token，并绑定 preparation/owner/target；再读取真实 latest run、指定 attempt、完整 jobs 与具体 check ID，核对原触发与本次重跑账号、目标SHA、API作业及持续运行状态。token不进入日志/产物。当前环境没有 required reviewer，身份材料继续标明 productionAuthorized=false、ownerIdentityAsserted=false，不冒称仓库所有者或独立审批。
+- root/FD9 登记生产者只读取受保护的主机 preparation，复核固定来源、技术检查和发布身份后 create-only 登记。一次 preparation+owner+target 先持久消费，换新 JWT 也不能重放；中断证据保留。冻结材料按 owner+清单摘要隔离，后续独立运行不与旧材料碰撞。人的授权来自已有用户指示；机器结果持久标识 technicalReview/kind=TECHNICAL_CHECK/humanApproval=false，与发布身份分别存储。
+- 增加专用私有绑定和 schema-release-pending 全局拒绝：普通 API/full/web、普通 controlled migration、旧版 first-switch/public bridge 和通用恢复均不能绕过 pending-only、残缺字段、混合purpose或悬空标记；专用 publisher 默认为拒绝，OPEN须在异步正式完成核验前后检查受保护阶段与权源。诊断导出对嵌套 schema preparation/私有材料只给固定投影，不泄露原始库存/审计/token。原普通迁移的 OPEN及原始审计GO门禁保留，旧first-switch仍API-only/no-migration。
+- 本工作树实际 Node20 合同与相关回归 **222 passed / 1 opt-in PG skipped / 0 failed**。另在本代理拥有的 PG18 克隆 `modern_schema_fixed_scope_20261119` 真实只读执行新采集器：274账本、两项固定身份的合成案例、41类引用完整，原始 HOLD/释放false；真实 PostgreSQL decimal微差及日报细微变化均被无损核对拒绝，采集测试0业务写入。源自协调方备份的克隆仅用于隔离夹具，未改其两份基线；这些不代表实际生产身份核验通过。
+- 独立只读审查发现并修复：原始组遗漏、GO非空组、最后守卫撤销/过期、数字精度、日报同量改档、已知身份/记账日、冻结文件跨run碰撞、普通迁移及旧public bridge漏查pending，以及残缺/混合purpose降级。协调方报告第四轮远端 Legacy七项（含PG16/18 full-first-switch）成功；第五轮含0eca缓冲修复仍由协调方跟踪，不记作本地新跑。
+- **本检查点尚未接入实际 host preparation/rehearsal 生产者、同一现代原生会话的入口围栏/TERM停R/复采/备份/DDL/正式API body、无DDL恢复R及未知提交专用恢复、工作流与最终终态归档。登记消费者不会凭调用方JSON或测试注入补足这些事实；普通发布继续HOLD。** 未运行生产DDL、部署、push、tag或业务启用；未增加迁移，仍125 TS，冻结方案SHA不变。无业务源码变化，不重复无变化的API/Web类型与UI scope-audit；最终执行链变更后仍需针对性验证与独立完整演练。
+
 ## 未完成的发布阻塞
 
 1. 独立 RAW 集蛋凭证、库存父批与内部实际转换事实已区分；RAW→分级/包装/重包装业务 API/页面已形成第十二 OFF 检查点；已过账 RAW/转换的受控更正补偿、成本分摊、其余合法退货/跨公司加工交接及质检处置尚未完成；仅第二十一检查点的同公司原仓LAK完好成品客户退货已接续。旧包装入口仍需接入明确实际投入与实耗，不能只挂 DERIVED 资格造成双计。包装、在途/退货/POS、跨公司和混源的全链成对回归，以及合法盘盈新来源仍需完成；受控 managed SKU 销售/配送/POS 正向及 UNKNOWN 持久化已有第五、六检查点证据，仍须与包装、退货和最终切换全链合并验收。不能用“全部拦住”代替合法链路验收。

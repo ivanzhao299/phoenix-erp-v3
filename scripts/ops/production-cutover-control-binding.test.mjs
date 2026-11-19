@@ -106,3 +106,12 @@ test('actual diagnostic export code removes cutover bindings from live and neste
   assert.equal(corrupt.status,1);assert.equal(corrupt.stdout,'');assert.equal(corrupt.stderr,'STATE_EXPORT=HOLD_INVALID_JSON\n');
   assert.equal((corrupt.stdout+corrupt.stderr).includes(sentinel),false);
 });
+test('actual export redacts schema preparations, tokens and business details inside recovery archives',()=>{
+  const workflow=fs.readFileSync(new URL('../../.github/workflows/production-state-materialization.yml',import.meta.url),'utf8');
+  const program=workflow.match(/redacted_json\(\) \{\s*node --input-type=module -e '([\s\S]*?)' "\$1"/)[1];
+  const directory=fs.mkdtempSync(path.resolve('artifacts/modern-schema-export-')),file=path.join(directory,'owned.json'),sentinel='OWNED_RAW_PRIVATE_SCOPE_OR_TOKEN';
+  fs.writeFileSync(file,JSON.stringify({nested:[{schema:'phoenix.modern-schema-preparation/v1',context:{owner:base.owner},originalAudit:sentinel}],
+    control:{...base,purpose:'MODERN_SCHEMA_RELEASE',schemaRelease:{contextDigest:hash},private:sentinel}}),{mode:0o600});
+  const result=spawnSync(process.execPath,['--input-type=module','-e',program,file],{encoding:'utf8'});assert.equal(result.status,0,result.stderr);assert.equal(result.stdout.includes(sentinel),false);
+  const output=JSON.parse(result.stdout);assert.equal(output.nested[0].schemaReleaseRedacted,true);assert.equal(output.control.schemaReleaseRedacted,true);assert.equal(output.control.owner,base.owner);
+});
