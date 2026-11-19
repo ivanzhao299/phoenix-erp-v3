@@ -78,6 +78,7 @@ scripts/ops/production-modern-schema-migration-driver.mjs
 scripts/ops/production-modern-schema-migration-gate.cjs
 scripts/ops/production-modern-schema-migration-launch.cjs
 scripts/ops/production-modern-schema-plan.mjs
+scripts/ops/production-modern-schema-postgres.mjs
 scripts/ops/production-modern-schema-post-audit.mjs
 scripts/ops/production-modern-schema-preparation.mjs
 scripts/ops/production-modern-schema-private.mjs

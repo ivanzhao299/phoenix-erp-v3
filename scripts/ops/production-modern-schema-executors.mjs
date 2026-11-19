@@ -8,6 +8,7 @@ import {compileOwnedIngressRules} from './maintenance-ingress-policy.mjs';
 import {captureMaintenanceSchedulers,observeMaintenanceProcessIdentity,observeMaintenanceContainerIdentity,captureModernSchemaProcessIdentities} from './production-maintenance-root-readers.mjs';
 import {verifyModernSchemaChild} from './production-modern-schema-processes.mjs';
 import {collectRetainedModernSchemaInventory} from './production-modern-schema-inventory.mjs';
+import {matchesModernSchemaRehearsalVolume} from './production-modern-schema-postgres.mjs';
 const fail=code=>{throw Error('MODERN_SCHEMA_EXECUTORS_HOLD='+code);};
 const ID=/^[a-f0-9]{64}$/;
 const ipv4=value=>typeof value==='string'&&value.split('.').length===4&&value.split('.').every(part=>/^(?:0|[1-9][0-9]{0,2})$/.test(part)&&Number(part)<=255);
@@ -125,7 +126,7 @@ export function collectModernSchemaHostSurface(preSnapshot,dependencies={}){
    const [isolation]=JSON.parse(command('/usr/bin/docker',['network','inspect',own.networkId]));
    if(isolation?.Internal!==true||isolation.EnableIPv6!==false||isolation.Labels?.['phoenix.schema.owner']!==own.owner||isolation.Labels?.['phoenix.schema.role']!=='rehearsal-network')fail('OWNED_REHEARSAL_ISOLATION_CHANGED');
    if(own.role==='rehearsal-database'){
-    if(candidate.mounts.length!==1||candidate.mounts[0].Type!=='volume'||candidate.mounts[0].Name!==own.volume||candidate.mounts[0].Destination!=='/var/lib/postgresql')fail('OWNED_REHEARSAL_STORAGE_CHANGED');
+    if(!matchesModernSchemaRehearsalVolume(candidate.mounts,own))fail('OWNED_REHEARSAL_STORAGE_CHANGED');
    }else{
     if(candidate.readonly!==true||candidate.user!=='phoenix'||!same(candidate.capDrop,['ALL']))fail('OWNED_REHEARSAL_RUNTIME_CHANGED');
     const expected=own.role.endsWith('-api')?[{source:path.join(CONTRACT.stateDirectory,`schema-release-prepare-rehearsal-${own.owner}`,'control-'+own.role.slice('rehearsal-'.length)),destination:'/run/phoenix-background-control'}]:[];

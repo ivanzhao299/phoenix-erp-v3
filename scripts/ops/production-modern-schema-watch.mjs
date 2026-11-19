@@ -8,6 +8,7 @@ import {inspectModernSchemaContainer,MODERN_SCHEMA_EXECUTOR_SQL,classifyModernSc
 import {verifyModernSchemaChild,pinModernSchemaChild,isOriginalModernSchemaChildTerminal} from './production-modern-schema-processes.mjs';import {assertOriginalModernSchemaProcess} from './production-modern-schema-session-lease.mjs';
 import {readPinnedFile} from './production-trusted-paths.mjs';
 import {RETAINED_INVENTORY_CLASSIFICATION,verifyRetainedModernSchemaInventoryPin} from './production-modern-schema-inventory.mjs';
+import {matchesModernSchemaRehearsalVolume} from './production-modern-schema-postgres.mjs';
 const fail=code=>{throw Error('MODERN_SCHEMA_WATCH_HOLD='+code);};
 const native=(binary,args)=>{try{return execFileSync(binary,args,{env:executionEnv(),encoding:'utf8',timeout:5000,maxBuffer:2*1024*1024,stdio:['ignore','pipe','pipe']}).trim();}catch{fail('NATIVE_CONTINUITY_OBSERVATION_UNAVAILABLE');}};
 const identity=value=>({id:value.id,imageId:value.imageId,name:value.name,startedAt:value.state.StartedAt,running:value.state.Running,pid:value.state.Pid,restarts:value.restarts,
@@ -76,7 +77,7 @@ export class ModernSchemaExecutorWatch {
    if(network.Internal!==true||record.networkId===this.preparation.hostSurface.ingressScope.networkId||network.Labels?.['phoenix.schema.owner']!==this.context.owner
     ||actual.networkMode!==record.networkId||Object.values(actual.networks??{}).length!==1||Object.keys(actual.ports??{}).length)fail('OWNED_REHEARSAL_NETWORK_CHANGED');
    if(record.role==='rehearsal-database'){
-    if(actual.mounts.length!==1||actual.mounts[0].Type!=='volume'||actual.mounts[0].Name!==record.volume||actual.mounts[0].Destination!=='/var/lib/postgresql')fail('OWNED_REHEARSAL_VOLUME_CHANGED');
+    if(!matchesModernSchemaRehearsalVolume(actual.mounts,record))fail('OWNED_REHEARSAL_VOLUME_CHANGED');
    }else{
     if(actual.readonly!==true||actual.user!=='phoenix'||!same(actual.capDrop,['ALL']))fail('OWNED_REHEARSAL_EXECUTOR_CHANGED');
     if(record.role.endsWith('-api')){

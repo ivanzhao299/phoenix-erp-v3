@@ -22,6 +22,7 @@ import {closeModernSchemaOriginalSession, confirmModernSchemaPublicDurability} f
 import {readMaintenanceSchedulerDiagnostic} from '../ops/production-maintenance-root-readers.mjs';
 import {pinModernSchemaChild} from '../ops/production-modern-schema-processes.mjs';
 import {modernSchemaFixture} from './modern-schema-release.fixture.mjs';
+import {modernSchemaPostgresProfile} from '../ops/production-modern-schema-postgres.mjs';
 import {ownedHttpProbeProgram} from './maintenance-kernel-ingress-probes.mjs';
 
 const guard=()=>verifyContext(CONTRACT.repository,CONTRACT.stateDirectory);
@@ -62,8 +63,11 @@ async function main(){
   const stateFile=path.join(CONTRACT.stateDirectory,'schema-release-pending.json');
   const receiptName=process.env.MODERN_HOST_FIXTURE_RESULT;
   assert.ok(receiptName==='/tmp/phoenix-modern-native-host-result.json');
+  const pgMajor=process.env.MODERN_HOST_FIXTURE_PG_MAJOR??'18';
+  assert.ok(['16','18'].includes(pgMajor));
+  const pgProfile=modernSchemaPostgresProfile(Number(pgMajor)*10000);
   const receipt={schema:'phoenix.modern-native-host-fixture/v1',fixtureOnly:true,productionReceipt:false,productionAuthority:false,
-    runtimeKind:'SYNTHETIC_API_REAL_KERNEL_DOCKER_FD9_PG18',stages:[],outcome:'PENDING'};
+    runtimeKind:`SYNTHETIC_API_REAL_KERNEL_DOCKER_FD9_PG${pgMajor}`,stages:[],outcome:'PENDING'};
   const save=()=>fs.writeFileSync(receiptName,JSON.stringify(receipt,null,2)+'\n',{mode:0o600});
   const progress=label=>{receipt.stages.push(label);save();};
   save();
@@ -72,15 +76,16 @@ async function main(){
   const network=docker('network','create','--label','com.docker.compose.project=phoenix-erp','phoenix-owned-modern-native');
   progress('NATIVE_DOCKER_NETWORK_CREATED');
   const sourceImage=docker('image','inspect','node:20-alpine','--format','{{.Id}}');
-  const pgImage=docker('image','inspect','postgres:18-alpine','--format','{{.Id}}');
+  const pgImage=docker('image','inspect',`postgres:${pgMajor}-alpine`,'--format','{{.Id}}');
   const db=docker('run','-d','--name','phoenix-v3-db','--label','com.docker.compose.project=phoenix-erp','--label','com.docker.compose.service=db',
     '--network',network,'--restart=no','--publish','127.0.0.1:15432:5432','--env','POSTGRES_USER=postgres','--env','POSTGRES_DB=postgres',
-    '--env','POSTGRES_HOST_AUTH_METHOD=trust','--tmpfs','/var/lib/postgresql:rw,nosuid,nodev,size=268435456,mode=1777',
+    '--env','POSTGRES_HOST_AUTH_METHOD=trust','--tmpfs',`${pgProfile.volumeDestination}:rw,nosuid,nodev,size=268435456,mode=1777`,
     '--health-cmd','pg_isready -h 127.0.0.1 -U postgres -d postgres','--health-interval','1s','--health-timeout','1s',pgImage);
   progress('NATIVE_POSTGRES_STARTED');
   const web=docker('run','-d','--name','phoenix-v3-web','--label','com.docker.compose.project=phoenix-erp','--label','com.docker.compose.service=web',
     '--network',network,'--restart=no','--health-cmd','true','--health-interval','1s',sourceImage,'node','-e','setInterval(()=>{},1000)');
   await waitForHealth(db);progress('NATIVE_POSTGRES_READY');
+  assert.match(docker('exec',db,'postgres','--version'),new RegExp(`^postgres \\(PostgreSQL\\) ${pgMajor}\\.`));
   await waitForHealth(web);progress('NATIVE_WEB_PEER_READY');
   const old=docker('run','-d',...fixApiArgs(sourceImage,network,OLD));
   await waitForHealth(old);progress('NATIVE_ORIGINAL_API_READY');

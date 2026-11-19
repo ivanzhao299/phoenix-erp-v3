@@ -8,6 +8,8 @@ fixture="phoenix-modern-native-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
 image="$fixture:owned"
 root=/phoenix-fixture-root
 out="$GITHUB_WORKSPACE/artifacts/modern-schema-native-host"
+pg_major=${MODERN_HOST_FIXTURE_PG_MAJOR:-18}
+[[ "$pg_major" = 16 || "$pg_major" = 18 ]]
 test ! -e "$out/result.json"
 mkdir -p "$out"
 
@@ -33,7 +35,7 @@ for ((attempt=0; attempt<40; attempt++)); do
   sleep 1
 done
 docker exec "$fixture" docker info --format '{{.Driver}}'
-docker save postgres:18-alpine node:20-alpine | docker exec -i "$fixture" docker load >/dev/null
+docker save "postgres:$pg_major-alpine" node:20-alpine | docker exec -i "$fixture" docker load >/dev/null
 
 docker exec "$fixture" sh -ecs '
   root=$1
@@ -57,7 +59,8 @@ docker exec "$fixture" sh -ecs '
 tar -C "$GITHUB_WORKSPACE" -cf - scripts/ops scripts/ci | docker exec -i "$fixture" tar -xf - -C "$root/data/phoenix-erp"
 
 docker exec "$fixture" chroot "$root" /usr/bin/env -i PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
-  MODERN_HOST_FIXTURE_ONLY=DISPOSABLE_GITHUB_VM MODERN_HOST_FIXTURE_RESULT=/tmp/phoenix-modern-native-host-result.json /bin/bash -c '
+  MODERN_HOST_FIXTURE_ONLY=DISPOSABLE_GITHUB_VM MODERN_HOST_FIXTURE_RESULT=/tmp/phoenix-modern-native-host-result.json \
+  MODERN_HOST_FIXTURE_PG_MAJOR="$pg_major" /bin/bash -c '
     set -euo pipefail
     cd /data/phoenix-erp
     exec 9<>/var/lib/phoenix-erp/production-deployment-state/mutation.lock

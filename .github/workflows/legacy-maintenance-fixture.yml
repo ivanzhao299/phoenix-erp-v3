@@ -379,9 +379,15 @@ jobs:
             artifacts/maintenance-erp-candidate/*/pg*-actual-readiness-probe.json
             artifacts/maintenance-erp-candidate/*/pg*-phase-chain/*.json
   modern-native-host:
-    name: Modern Schema Native Host Control PG18
+    name: Modern Schema Native Host Control PG${{ matrix.pg }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        pg: [16, 18]
+    env:
+      MODERN_HOST_FIXTURE_PG_MAJOR: ${{ matrix.pg }}
     # Exclusive experiment with no production environment, secrets or deploy.
     steps:
       - uses: actions/checkout@v5
@@ -394,13 +400,13 @@ jobs:
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
           test -x /usr/sbin/nft
           docker pull node:20-alpine
-          docker pull postgres:18-alpine
+          docker pull "postgres:${MODERN_HOST_FIXTURE_PG_MAJOR}-alpine"
       - name: Real host lock, kernel packets and native PostgreSQL continuity
         run: bash scripts/ci/modern-schema-native-host.sh
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: modern-schema-native-host-proof
+          name: modern-schema-native-host-proof-pg${{ matrix.pg }}
           if-no-files-found: warn
           retention-days: 14
           path: artifacts/modern-schema-native-host/result.json

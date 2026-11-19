@@ -10,6 +10,7 @@ import {API_READINESS_PROGRAM} from './production-maintenance-candidate-health.m
 import {classifySql,capturedDatabaseStatements,parseBootControlIdentity,assertDefaultBackgroundHold} from '../ci/api-bootstrap-mutations.mjs';
 import {runModernSchemaGatedCli,observeModernSchemaCliBackend} from './production-modern-schema-gated-cli.mjs';
 import {MODERN_SCHEMA_LEASE_SQL,parseModernSchemaLease} from './production-modern-schema-session-lease.mjs';
+import {modernSchemaPostgresProfile,nativePostgresToolMajor,matchesModernSchemaRehearsalVolume} from './production-modern-schema-postgres.mjs';
 const ID=/^[a-f0-9]{64}$/,IMAGE=/^sha256:[a-f0-9]{64}$/,SHA=/^[a-f0-9]{40}$/;
 const fail=code=>{throw Error('MODERN_SCHEMA_REHEARSAL_HOLD='+code);};
 const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
@@ -52,6 +53,7 @@ class Capsule {
   if(!original||actual!==id||image!==original.imageId||labels?.['phoenix.schema.owner']!==this.owner||labels?.['phoenix.schema.role']!==original.role
    ||host.Privileged!==false||host.RestartPolicy?.Name!=='no'||host.NetworkMode!==this.networkId||host.PortBindings&&Object.keys(host.PortBindings).length
    ||Object.keys(networks??{}).length!==1||(Object.values(networks)[0].NetworkID!==this.networkId&&(state.Running||Object.values(networks)[0].NetworkID!==''))||restarts!==0||state.OOMKilled!==false)fail('ISOLATED_CONTAINER_IDENTITY_CHANGED');
+  if(original.role==='rehearsal-database'&&!matchesModernSchemaRehearsalVolume(mounts,original))fail('ONLY_NEW_CLONE_VOLUME_ALLOWED');
   return {id,image,state,restarts,labels,host,networks,mounts};
  }
  async create(role,image,args,command=[]){
@@ -63,6 +65,7 @@ class Capsule {
    '--restart=no','--network',this.networkId,...args,image,...(role.includes('migration')?['-d','dist/database/data-source.js',role==='rehearsal-migration-run'?'migration:run':'migration:show',...(role==='rehearsal-migration-run'?['--transaction','all']:[])]:command)],'create');
   if(!ID.test(id)||id===this.backup.receipt.databasePin.id)fail('NEW_ISOLATED_CONTAINER_REQUIRED');
   const record={schema:'phoenix.modern-schema-owned-rehearsal-container/v1',owner:this.owner,stage:this.stage,role,containerId:id,imageId:image,networkId:this.networkId,volume:this.volume,createdAt:new Date().toISOString()};
+  if(role==='rehearsal-database')record.databaseMajor=this.databaseProfile.major;
   this.resources.push(record);this.privateRuntime.publishJson(path.join(this.directory,'created-'+id+'.json'),record);await this.inspect(id);
   if(this.dependencies.onCreated)await this.dependencies.onCreated(record);return id;
  }
@@ -80,7 +83,9 @@ class Capsule {
  }
  async setup(){
   const source=this.backup.source.database;
-  if(source.provider!=='c'||!['name','username','collate','ctype'].every(key=>typeof source[key]==='string'&&/^[A-Za-z0-9_.@-]{1,63}$/.test(source[key])))fail('SUPPORTED_RESTORE_LOCALE_AND_IDENTIFIERS_REQUIRED');
+  this.databaseProfile=modernSchemaPostgresProfile(source.serverVersionNum);
+  if(!this.databaseProfile||source.backupToolMajor!==this.databaseProfile.major||source.provider!=='c'||
+   !['name','username','collate','ctype'].every(key=>typeof source[key]==='string'&&/^[A-Za-z0-9_.@-]{1,63}$/.test(source[key])))fail('SUPPORTED_RESTORE_LOCALE_AND_IDENTIFIERS_REQUIRED');
   const prefix=`phoenix-schema-${this.owner}-${this.stage}-${randomBytes(8).toString('hex')}`;
   this.networkId=await this.text(['network','create','--internal','--driver=bridge','--label',`phoenix.schema.owner=${this.owner}`,'--label','phoenix.schema.role=rehearsal-network',prefix],'network');
   const [network]=JSON.parse(await this.text(['network','inspect',this.networkId],'network-pin'));
@@ -89,7 +94,8 @@ class Capsule {
   const [volume]=JSON.parse(await this.text(['volume','inspect',this.volume],'volume-pin'));
   if(!ID.test(this.volume)||volume.Name!==this.volume||volume.Driver!=='local'||volume.Labels?.['phoenix.schema.owner']!==this.owner||Object.keys(volume.Options??{}).length)fail('NEW_LOCAL_VOLUME_REQUIRED');
   this.privateRuntime.publishJson(path.join(this.directory,'network-volume.json'),{schema:'phoenix.modern-schema-isolated-resources/v1',owner:this.owner,network,volume});
-  this.db=await this.create('rehearsal-database',this.backup.receipt.databasePin.image,['--network-alias','schema-db','--mount',`type=volume,source=${this.volume},target=/var/lib/postgresql`,
+  this.db=await this.create('rehearsal-database',this.backup.receipt.databasePin.image,['--network-alias','schema-db','--mount',`type=volume,source=${this.volume},target=${this.databaseProfile.volumeDestination}`,
+   '-e',`PGDATA=${this.databaseProfile.dataDirectory}`,
    '-e',`POSTGRES_USER=${source.username}`,'-e',`POSTGRES_DB=${source.name}`,'-e','POSTGRES_HOST_AUTH_METHOD=trust',
    '-e',`POSTGRES_INITDB_ARGS=--encoding=UTF8 --locale-provider=libc --lc-collate=${source.collate} --lc-ctype=${source.ctype}`,
    '--health-cmd','pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"','--health-interval=1s','--health-timeout=2s','--health-retries=30']);
@@ -101,10 +107,18 @@ class Capsule {
    catch{if(Date.now()>=finalServerDeadline)fail('FINAL_POSTGRES_PID1_REQUIRED');await pause(200);}
   }
   await this.waitHealthy(this.db);
-  const pinned=await this.inspect(this.db);if(pinned.mounts.length!==1||pinned.mounts[0].Type!=='volume'||pinned.mounts[0].Name!==this.volume||pinned.mounts[0].Destination!=='/var/lib/postgresql')fail('ONLY_NEW_CLONE_VOLUME_ALLOWED');
+  await this.inspect(this.db);
   const identity=JSON.parse(await this.text(['exec',this.db,...LOCAL_PSQL,'psql','-X','-qAt','-v','ON_ERROR_STOP=1','-U',source.username,'-d',source.name,'-c',
-   "SELECT json_build_object('systemIdentifier',system_identifier::text,'name',current_database(),'address',inet_server_addr(),'port',inet_server_port())::text FROM pg_control_system()"],'clone-native-identity'));
+   `SELECT json_build_object('systemIdentifier',system_identifier::text,'name',current_database(),'address',inet_server_addr(),'port',inet_server_port(),
+    'serverVersionNum',current_setting('server_version_num')::integer,'dataDirectory',current_setting('data_directory'),
+    'encoding',pg_encoding_to_char(d.encoding),'collate',d.datcollate,'ctype',d.datctype,'provider',d.datlocprovider,
+    'collationVersion',d.datcollversion,'actualCollationVersion',pg_database_collation_actual_version(d.oid))::text
+    FROM pg_control_system() CROSS JOIN pg_database d WHERE d.datname=current_database()`],'clone-native-identity'));
   if(!/^[1-9][0-9]{0,19}$/.test(identity.systemIdentifier??'')||identity.systemIdentifier===source.systemIdentifier||identity.name!==source.name||identity.address!==null||identity.port!==null)fail('DIFFERENT_NATIVE_LOCAL_CLONE_REQUIRED');
+  if(identity.dataDirectory!==this.databaseProfile.dataDirectory||
+   !['serverVersionNum','encoding','collate','ctype','provider','collationVersion','actualCollationVersion'].every(key=>identity[key]===source[key])||
+   nativePostgresToolMajor('pg_restore',await this.text(['exec',this.db,'pg_restore','--version'],'clone-restore-tool-version'))!==this.databaseProfile.major)fail('CLONE_POSTGRES_LAYOUT_OR_VERSION_CHANGED');
+  this.cloneDatabase=identity;
   await this.command(['exec',this.db,...LOCAL_PSQL,'psql','-X','-q','-v','ON_ERROR_STOP=1','-U',source.username,'-d',source.name,'-c',
    "ALTER SYSTEM SET log_statement='all'"],'db-logging');
   await this.command(['exec',this.db,...LOCAL_PSQL,'psql','-X','-q','-v','ON_ERROR_STOP=1','-U',source.username,'-d',source.name,'-c',
@@ -215,6 +229,7 @@ export async function rehearseModernSchemaRelease(input,dependencies={}){
  const {owner,stage,backup,plan,runtimeImageId,privateRuntime}=input;
  if(!/^[1-9][0-9]*-[1-9][0-9]*$/.test(owner??'')||!['prepare','fenced'].includes(stage)||!SHA.test(plan?.targetSha??'')||!SHA.test(plan?.runtimeSha??'')
   ||!IMAGE.test(plan?.candidateImageId??'')||!IMAGE.test(runtimeImageId??'')||backup?.receipt?.owner!==owner||backup.receipt.stage!==stage||backup.receipt.sourceLedgerSha256!==plan.beforeLedgerSha256
+  ||!backup.source?.database||!backup.receipt.sourceDatabase||!same(backup.source.database,backup.receipt.sourceDatabase)
   ||(stage==='fenced'&&typeof dependencies.assertFenced!=='function'))fail('EXACT_PROTECTED_REHEARSAL_REQUIRED');
  const directory=privateRuntime.createDirectory(owner,stage+'-rehearsal'),capsule=new Capsule({...input,directory},dependencies);let evidence;
  try{
@@ -225,7 +240,8 @@ export async function rehearseModernSchemaRelease(input,dependencies={}){
    beforeLedgerSha256:plan.beforeLedgerSha256,pendingPlanSha256:canonicalDigest(plan.pendingMigrations),outcome:'PASS',originalRuntimeReady:true,candidateReady:true,
    businessFactsUnchanged:true,backgroundWrites:0,isolatedRestore:true,productionMutation:false,backupSha256:backup.receipt.backup.sha256,
    afterLedgerSha256:capsule.afterLedgerSha256,originalRuntimeProofSha256:canonicalDigest(original),candidateRuntimeProofSha256:canonicalDigest(candidate),
-   cloneBusinessFactsSha256:final.businessDataSha256,defaultOffEvidence:capsule.defaultOff,resources:capsule.resources};
+   cloneBusinessFactsSha256:final.businessDataSha256,defaultOffEvidence:capsule.defaultOff,resources:capsule.resources,
+   cloneDatabaseMajor:capsule.databaseProfile.major,cloneDatabaseIdentitySha256:canonicalDigest(capsule.cloneDatabase)};
  }finally{await capsule.close();}
  privateRuntime.publishJson(path.join(directory,'rehearsal-receipt.json'),evidence);return {evidence,directory,resources:capsule.resources};
 }
