@@ -7,7 +7,7 @@ import {captureMaintenanceSchedulers,captureModernSchemaProcessIdentities,observ
 import {inspectModernSchemaContainer,MODERN_SCHEMA_EXECUTOR_SQL,classifyModernSchemaDatabaseExecutors} from './production-modern-schema-executors.mjs';
 import {verifyModernSchemaChild,pinModernSchemaChild,isOriginalModernSchemaChildTerminal} from './production-modern-schema-processes.mjs';import {assertOriginalModernSchemaProcess} from './production-modern-schema-session-lease.mjs';
 import {readPinnedFile} from './production-trusted-paths.mjs';
-import {RETAINED_INVENTORY_CLASSIFICATION,verifyRetainedModernSchemaInventoryPin} from './production-modern-schema-inventory.mjs';
+import {isRetainedModernSchemaInventoryPin,verifyRetainedModernSchemaInventoryPin} from './production-modern-schema-inventory.mjs';
 import {matchesModernSchemaRehearsalVolume} from './production-modern-schema-postgres.mjs';
 import {verifyHistoricalComposeSchemaArtifacts} from './production-modern-schema-historical-compose.mjs';
 const fail=code=>{throw Error('MODERN_SCHEMA_WATCH_HOLD='+code);};
@@ -93,7 +93,7 @@ export class ModernSchemaExecutorWatch {
  }
  #verifyRetainedInventory(values){
   for(const pin of this.preparation.hostSurface.inertArtifacts??[]){
-   if(pin.classification!==RETAINED_INVENTORY_CLASSIFICATION)continue;
+   if(!isRetainedModernSchemaInventoryPin(pin))continue;
    const actual=values.find(candidate=>candidate.id===pin.id);
    if(!actual)fail('RETAINED_ARTIFACT_CHANGED');
    verifyRetainedModernSchemaInventoryPin(actual,pin,{docker:args=>this.run('/usr/bin/docker',args)});

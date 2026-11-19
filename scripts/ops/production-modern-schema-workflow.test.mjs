@@ -3,7 +3,9 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import test from 'node:test';
+import { requestModernSchemaIdentityToken } from './production-modern-schema-identity.mjs';
 import { runModernSchemaWorkflow } from './production-modern-schema-workflow.mjs';
 
 const sha = 'a'.repeat(40);
@@ -37,6 +39,8 @@ const env = Object.freeze({
   ROTATE_CHANJET_CREDENTIALS: 'false',
   ONE_TIME_CONFIG_FLOOR_TRANSITION: 'false',
   MODERN_SCHEMA_GITHUB_READ_TOKEN: githubReadToken,
+  ACTIONS_ID_TOKEN_REQUEST_URL: 'https://pipelines.actions.githubusercontent.com/fixture//idtoken/dispatch/job?api-version=2.0',
+  ACTIONS_ID_TOKEN_REQUEST_TOKEN: 'fixture-oidc-channel-credential',
 });
 const prepared = { schema: 'phoenix.modern-schema-public-preparation/v1', owner, targetSha: sha, preparationSha256, prepared: true };
 const success = { schema: 'phoenix.modern-schema-public-result/v1', owner, targetSha: sha, outcome: 'SUCCESS', defaultOff: true };
@@ -96,6 +100,54 @@ test('only the dedicated exact main API job may open the production transport', 
     await assert.rejects(runModernSchemaWorkflow({ ...env, ...override }, f.dependencies), /EXACT_DISPATCH_REQUIRED/);
     assert.deepEqual(f.events, []);
   }
+});
+
+test('OIDC channel preflight stops before SSH connection or host preparation', async () => {
+  for (const [override, code] of [
+    [{ ACTIONS_ID_TOKEN_REQUEST_URL: '' }, 'CHANNEL_URL_REQUIRED'],
+    [{ ACTIONS_ID_TOKEN_REQUEST_URL: 'unparseable-test-value' }, 'CHANNEL_URL_INVALID'],
+    [{ ACTIONS_ID_TOKEN_REQUEST_URL: 'https://untrusted.invalid/a/b/idtoken/job?api-version=2.0' }, 'CHANNEL_AUTHORITY_UNAPPROVED'],
+    [{ ACTIONS_ID_TOKEN_REQUEST_URL: 'https://pipelines.actions.githubusercontent.com/a/b/other/job?api-version=2.0' }, 'CHANNEL_ROUTE_UNAPPROVED'],
+    [{ ACTIONS_ID_TOKEN_REQUEST_URL: env.ACTIONS_ID_TOKEN_REQUEST_URL+'&audience=old' }, 'CHANNEL_QUERY_UNAPPROVED'],
+    [{ ACTIONS_ID_TOKEN_REQUEST_TOKEN: undefined }, 'CHANNEL_CREDENTIAL_REQUIRED'],
+    [{ ACTIONS_ID_TOKEN_REQUEST_TOKEN: 'fixture credential' }, 'CHANNEL_CREDENTIAL_INVALID'],
+  ]) {
+    const f = fixture();
+    await assert.rejects(runModernSchemaWorkflow({...env, ...override},f.dependencies),
+      {message:'MODERN_SCHEMA_WORKFLOW_HOLD=IDENTITY_PREFLIGHT_'+code});
+    assert.deepEqual(f.events, []);
+  }
+});
+
+test('OIDC request after preparation reports only allowlisted codes and closes without run', async () => {
+  for (const [fetch, code] of [
+    [async()=>new Response('fixture private payload',{status:403}),'HTTP_AUTHORIZATION'],
+    [async()=>new Response('fixture private payload'),'RESPONSE_JSON'],
+    [async()=>new Response(JSON.stringify({value:'fixture credential'})),'TOKEN_FORMAT'],
+    [async()=>{throw Error('fixture private endpoint details');},'TRANSPORT_FAILED'],
+  ]) {
+    const f = fixture();
+    f.dependencies.requestToken = (binding, request) => {
+      f.events.push('identity');
+      assert.equal(request.env,env);
+      return requestModernSchemaIdentityToken(binding,{env:request.env,fetch});
+    };
+    await assert.rejects(runModernSchemaWorkflow(env,f.dependencies), {message:'MODERN_SCHEMA_WORKFLOW_HOLD=IDENTITY_REQUEST_'+code});
+    assert.deepEqual(f.events,['connect','prepare','identity','close']);
+  }
+  const f = fixture();
+  f.dependencies.requestToken = () => { throw Error('MODERN_SCHEMA_RUNNER_IDENTITY_HOLD=FIXTURE_PRIVATE_VALUE'); };
+  await assert.rejects(runModernSchemaWorkflow(env,f.dependencies),{message:'MODERN_SCHEMA_WORKFLOW_HOLD=IDENTITY_REQUEST_UNVERIFIED'});
+  assert.deepEqual(f.events,['connect','prepare','close']);
+});
+
+test('runner CLI prints one fixed OIDC preflight line without URL or credential details', () => {
+  const result = spawnSync(process.execPath,[fileURLToPath(new URL('./production-modern-schema-workflow.mjs',import.meta.url))],{
+    env:{...env,ACTIONS_ID_TOKEN_REQUEST_URL:'https://untrusted.invalid/private-test-url'},encoding:'utf8',
+  });
+  assert.equal(result.status,1);
+  assert.equal(result.stdout,'');
+  assert.equal(result.stderr,'MODERN_SCHEMA_WORKFLOW_HOLD=IDENTITY_PREFLIGHT_CHANNEL_AUTHORITY_UNAPPROVED\n');
 });
 
 test('failed, mismatched or non-canonical public preparation never requests identity', async () => {
@@ -341,7 +393,8 @@ test('a protected continuation uses the exact original run without preparation, 
       close(){events.push('close');}};
     },
   };
-  const result=await runModernSchemaWorkflow({...env,MODERN_SCHEMA_GITHUB_READ_TOKEN:undefined,MODERN_SCHEMA_RESUME_OWNER:original},dependencies);
+  const result=await runModernSchemaWorkflow({...env,MODERN_SCHEMA_GITHUB_READ_TOKEN:undefined,MODERN_SCHEMA_RESUME_OWNER:original,
+    ACTIONS_ID_TOKEN_REQUEST_URL:undefined,ACTIONS_ID_TOKEN_REQUEST_TOKEN:undefined},dependencies);
   assert.equal(result.owner,original);
   assert.deepEqual(events,['finalize','close']);
   for(const invalid of ['undefined','000-1','9000','8900-03','8900-3; bad']){
