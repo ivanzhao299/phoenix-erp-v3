@@ -607,7 +607,7 @@ const url=process.env.OFFICIAL_INVENTORY_PG_URL;
       }finally{if(q.isTransactionActive)await q.rollbackTransaction();if(child.exitCode===null){child.kill('SIGTERM');await finished;}}
       for(const admission of [first,second])expect((await issuerDb.query('SELECT consumed_xid FROM production_cutover_apply_admissions WHERE id=$1',[admission.id]))[0].consumed_xid).toBeNull();
     }finally{await releaseExecutor(q);}
-  });
+  },20000);
   it('executes the real compiled INIT body with actual receiver permissions and rolls back a failed opening before retrying the same admission',async()=>{
     await apiDb.query(`INSERT INTO brd_houses VALUES('HOUSE-A3','FARM-A','ACTIVE');
       INSERT INTO brd_flocks(flock_no,house_code,farm_code,breed_code,status,placement_date,start_date,company_code,site_code)

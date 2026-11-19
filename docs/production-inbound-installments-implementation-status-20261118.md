@@ -256,6 +256,7 @@
 - 正式切换独立角色套件实际 **22/22**。新增同一 owned 数据库中两个真实入口的双向并发：先消费切换许可并用实际 operator/31 表权限屏障持锁，子 Node 以隔离 API 登录执行真实 `runActivation`，在十表锁因 55P03 超时并回滚；反向由真实 SKU 脚本取得十表锁并明确停在首读前，切换原 backend 消费许可后，在 authority SHARE/NOWAIT 返回 `CUTOVER_OPERATOR_AUTHORITY_BUSY`。两边原许可消费均回滚，子进程有界结束，不遗留激活事实。这是互斥/失败路径验收，不能当作这两个业务操作已经同时成功或完成生产 SKU 激活。
 - 从保留不动的最终 `cold_v9` 克隆独立 `phoenix_temp_reversal_cutover_sku_compat_v1`（195 SQL＋125 TS 末态、ledger 294），用新增的非 super、无建库/建角色/复制/bypass 能力测试登录，实际复现原 SERIALIZABLE grade no-op 被 `23514 / CUTOVER_CONTROL_WRITE_ISOLATION_HOLD` 拒绝；同登录的 READ COMMITTED＋十表锁 no-op 返回原值并 ROLLBACK。前后 ledger/scope/environment/admission/result/inv_batches/inv_ledger 计数相同（294/0/0/0/0/45/0），原基线和模板不改，临时登录已撤权删除。这验证扩展 schema 的隔离门槛及本地锁权，不证明生产真实账号 ACL 或完整真实目录激活。
 - API/Web 类型检查、API lint **0 errors / 3458 warnings**、Node 语法、实际四工作台窄字段审计通过；3 个只读主数据 input、0 裸输入、15 个 Selector、10 个 DictSelect、5 个上传器，65 个盘点键三语齐全。未改 API/Web 业务源码、依赖、迁移、CI 清单、冻结 SQL 或历史 96 元组，冻结方案 SHA 不变。未重复普通 API/Web 全量、构建、浏览器或其余七套 PG，不把旧通过数累计为本轮新验证；最终候选仍须完整必要回归。
+- 第十八后续测试修补：主协调普通 Jest 命令复跑发现，真实 5 秒数据库锁等待已超过 Jest 默认 5 秒的单用例期限。只给新增双向竞争用例显式 20 秒期限，数据库 5 秒与子进程边界不变；主代理以不带 --testTimeout 的普通命令完整复跑准入 **22/22**，避免只在 CLI 放宽期限时通过。
 - 两次独立只读复核确认十表读写覆盖、两入口互斥和触发器状态摘要修补；主代理实施并执行上述实际测试。**本切片只修发布链中仍在使用的 SKU 来源激活工具，不自动放行一次性历史修复或 UAT reset/cleanup 的高隔离写入。** 这些旧路径继续 HOLD，需逐项受控整改或退役。真实宿主/issuer/角色/COMMIT 恢复、完整业务闭包、最终镜像/CI及现场事实仍未完成；无生产连接、生产 SKU 激活、推送、部署、启用或 GO。
 
 ## 未完成的发布阻塞
