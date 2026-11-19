@@ -17,7 +17,7 @@ on:
         default: ''
         type: string
       include_container_inventory:
-        description: 'Include a read-only redacted Docker container ownership inventory'
+        description: 'Return only a fixed, aggregate Docker ownership diagnosis'
         required: false
         default: false
         type: boolean
@@ -42,17 +42,24 @@ jobs:
         env:
           CONFIRM: ${{ inputs.confirm_readonly }}
           EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha }}
+          INCLUDE_CONTAINER_INVENTORY: ${{ inputs.include_container_inventory }}
+          RECORD_NAME: ${{ inputs.record_name }}
         run: |
           set -euo pipefail
           test "$CONFIRM" = COLLECT_PRODUCTION_STATE_READONLY
           test "$EXPECTED_MAIN_SHA" = "$GITHUB_SHA"
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          if [ "${INCLUDE_CONTAINER_INVENTORY:-false}" = true ] && [ -n "${RECORD_NAME:-}" ]; then
+            printf '%s\n' 'HOST_CONTAINER_OWNERSHIP_DIAGNOSIS=HOLD_INCOMPATIBLE_INPUT'
+            exit 1
+          fi
       - name: Stage exact read-only container inventory source
         if: inputs.include_container_inventory
         id: inventory_source
         run: |
           set -euo pipefail
-          test "$(git ls-remote --exit-code origin refs/heads/main | cut -f1)" = "$GITHUB_SHA"
+          exec 2>/dev/null
+          test "$(git ls-remote --exit-code origin refs/heads/main | cut -f1)" = "$GITHUB_SHA" || exit 0
           bundle="$(git archive --format=tar.gz "$GITHUB_SHA" \
             scripts/ops/production-host-container-inventory.mjs \
             scripts/ops/capture-production-runtime.mjs \
@@ -61,8 +68,8 @@ jobs:
             scripts/ops/production-config-contract.json \
             scripts/ops/production-trusted-paths.mjs \
             scripts/ops/chanjet-readonly-policy.mjs \
-            scripts/ops/update-managed-chanjet-env.mjs | base64 -w0)"
-          test -n "$bundle" && test "${#bundle}" -le 65536
+            scripts/ops/update-managed-chanjet-env.mjs | base64 -w0)" || exit 0
+          (test -n "$bundle" && test "${#bundle}" -le 65536) || exit 0
           printf 'bundle=%s\n' "$bundle" >> "$GITHUB_OUTPUT"
           printf 'sha256=%s\n' "$(printf '%s' "$bundle" | sha256sum | cut -d ' ' -f1)" >> "$GITHUB_OUTPUT"
       - name: Collect production state over read-only SSH
@@ -90,7 +97,51 @@ jobs:
           command_timeout: 5m
           script: |
             set -Eeuo pipefail
+            set +x
             umask 077
+            if [ "${INCLUDE_CONTAINER_INVENTORY:-false}" = true ]; then
+              if [ -n "${RECORD_NAME:-}" ]; then
+                printf '%s\n' 'HOST_CONTAINER_OWNERSHIP_DIAGNOSIS=HOLD_INCOMPATIBLE_INPUT'
+                exit 0
+              fi
+              if ! (
+                checkout_branch="$(git -C "$DEPLOY_PATH" branch --show-current)" &&
+                test "$checkout_branch" = main &&
+                checkout_status="$(git -C "$DEPLOY_PATH" status --porcelain --untracked-files=all)" &&
+                test -z "$checkout_status" &&
+                [[ "${EXPECTED_MAIN_SHA:-}" =~ ^[a-f0-9]{40}$ && "${HOST_INVENTORY_BUNDLE_SHA:-}" =~ ^[a-f0-9]{64}$ ]] &&
+                [ -n "${HOST_INVENTORY_BUNDLE:-}" ] && [ "${#HOST_INVENTORY_BUNDLE}" -le 65536 ] &&
+                [ "$(printf '%s' "$HOST_INVENTORY_BUNDLE" | sha256sum | cut -d ' ' -f1)" = "$HOST_INVENTORY_BUNDLE_SHA" ] &&
+                inventory_dir="$(mktemp -d)" || exit 1
+                trap 'rm -rf "$inventory_dir" >/dev/null 2>&1 || true' EXIT
+                printf '%s' "$HOST_INVENTORY_BUNDLE" | base64 -d | tar -xz -C "$inventory_dir" || exit 1
+                node --input-type=module - "$inventory_dir/scripts/ops/production-host-container-inventory.mjs" "$EXPECTED_MAIN_SHA" <<'HOST_DIAGNOSIS_FILTER'
+                import {spawnSync} from 'node:child_process';
+                const prefix='HOST_CONTAINER_OWNERSHIP_DIAGNOSIS=';
+                const codes=new Set([
+                  'NO_PIN','IDENTITY_CHANGED','AMBIGUOUS_PINS','OWNER_UNUSABLE','MIXED','NO_GENERIC_MISMATCH',
+                  'HOLD_EXPECTED_MAIN_SHA','HOLD_OBSERVATION_UNAVAILABLE','HOLD_PROTECTED_RECORD','HOLD_CONTAINER_ROSTER_INVALID',
+                  'HOLD_CORE_IDENTITY','HOLD_REGISTRY_UNVERIFIED','HOLD_CONTAINER_ROSTER_CHANGED','HOLD_CONTAINER_OBSERVATION_CHANGED',
+                  'HOLD_PROTECTED_RECORD_CHANGED','HOLD_EXECUTION_UID','HOLD_STATE_PATH','HOLD_UNVERIFIED',
+                ].map(code=>prefix+code+'\n'));
+                let safe=prefix+'HOLD_INVALID_DIAGNOSIS\n';
+                try {
+                  const result=spawnSync(process.execPath,process.argv.slice(2),{
+                    env:{PATH:'/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'},
+                    stdio:['ignore','pipe','pipe'],timeout:120000,maxBuffer:4096,
+                  });
+                  if(!result.error&&result.status===0&&result.stderr.length===0){
+                    const line=result.stdout.toString('utf8');
+                    if(codes.has(line))safe=line;
+                  }
+                } catch {}
+                process.stdout.write(safe);
+            HOST_DIAGNOSIS_FILTER
+              ) 2>/dev/null; then
+                printf '%s\n' 'HOST_CONTAINER_OWNERSHIP_DIAGNOSIS=HOLD_SOURCE_UNAVAILABLE'
+              fi
+              exit 0
+            fi
             test "$(git -C "$DEPLOY_PATH" branch --show-current)" = main
             test "$(git -C "$DEPLOY_PATH" status --porcelain --untracked-files=all)" = ''
             tmp="$(mktemp -d)"
@@ -218,20 +269,6 @@ jobs:
               if (fd !== undefined) fs.closeSync(fd);
             }
             OWNERSHIP_PROJECTION
-            if [ "${INCLUDE_CONTAINER_INVENTORY:-false}" = true ]; then
-              inventory_dir="$tmp/host-inventory"
-              mkdir -m 700 "$inventory_dir"
-              if [[ "${EXPECTED_MAIN_SHA:-}" =~ ^[a-f0-9]{40}$ && "${HOST_INVENTORY_BUNDLE_SHA:-}" =~ ^[a-f0-9]{64}$ ]] &&
-                [ -n "${HOST_INVENTORY_BUNDLE:-}" ] && [ "${#HOST_INVENTORY_BUNDLE}" -le 65536 ] &&
-                [ "$(printf '%s' "$HOST_INVENTORY_BUNDLE" | sha256sum | cut -d ' ' -f1)" = "$HOST_INVENTORY_BUNDLE_SHA" ] &&
-                (printf '%s' "$HOST_INVENTORY_BUNDLE" | base64 -d | tar -xz -C "$inventory_dir") 2>/dev/null; then
-                if ! node "$inventory_dir/scripts/ops/production-host-container-inventory.mjs" "$EXPECTED_MAIN_SHA" 2>/dev/null; then
-                  printf '%s\n' 'HOST_CONTAINER_INVENTORY=HOLD_SOURCE_UNAVAILABLE'
-                fi
-              else
-                printf '%s\n' 'HOST_CONTAINER_INVENTORY=HOLD_SOURCE_UNAVAILABLE'
-              fi
-            fi
             find "$STATE_DIR" -maxdepth 1 -type f \( -name 'deploy-*.json' -o -name 'recovery-*.json' \) -print0 | sort -z | while IFS= read -r -d '' file; do
               printf 'STATE_RECORD=%s size=%s sha256=%s\n' "${file##*/}" "$(stat -c '%s' "$file")" "$(sha256sum "$file" | cut -d' ' -f1)"
             done
@@ -247,8 +284,28 @@ jobs:
       - name: Write state materialization
         env:
           STATE_DUMP: ${{ steps.collect_state.outputs.stdout }}
+          INCLUDE_CONTAINER_INVENTORY: ${{ inputs.include_container_inventory }}
         run: |
           set -euo pipefail
+          if [ "${INCLUDE_CONTAINER_INVENTORY:-false}" = true ]; then
+            if ! node --input-type=module - > production-state-materialization.txt 2>/dev/null <<'PUBLIC_DIAGNOSIS_FILTER'
+            const prefix='HOST_CONTAINER_OWNERSHIP_DIAGNOSIS=';
+            const codes=new Set([
+              'NO_PIN','IDENTITY_CHANGED','AMBIGUOUS_PINS','OWNER_UNUSABLE','MIXED','NO_GENERIC_MISMATCH',
+              'HOLD_EXPECTED_MAIN_SHA','HOLD_OBSERVATION_UNAVAILABLE','HOLD_PROTECTED_RECORD','HOLD_CONTAINER_ROSTER_INVALID',
+              'HOLD_CORE_IDENTITY','HOLD_REGISTRY_UNVERIFIED','HOLD_CONTAINER_ROSTER_CHANGED','HOLD_CONTAINER_OBSERVATION_CHANGED',
+              'HOLD_PROTECTED_RECORD_CHANGED','HOLD_EXECUTION_UID','HOLD_STATE_PATH','HOLD_UNVERIFIED',
+              'HOLD_INCOMPATIBLE_INPUT','HOLD_INVALID_DIAGNOSIS','HOLD_SOURCE_UNAVAILABLE',
+            ].map(code=>prefix+code));
+            const input=process.env.STATE_DUMP??'';
+            const line=input.endsWith('\n')?input.slice(0,-1):input;
+            process.stdout.write((codes.has(line)?line:prefix+'HOLD_INVALID_DIAGNOSIS')+'\n');
+          PUBLIC_DIAGNOSIS_FILTER
+            then
+              printf '%s\n' 'HOST_CONTAINER_OWNERSHIP_DIAGNOSIS=HOLD_INVALID_DIAGNOSIS' > production-state-materialization.txt
+            fi
+            exit 0
+          fi
           test -n "$STATE_DUMP"
           printf '%s\n' "$STATE_DUMP" > production-state-materialization.txt
           grep -q 'STATE_FILE=' production-state-materialization.txt

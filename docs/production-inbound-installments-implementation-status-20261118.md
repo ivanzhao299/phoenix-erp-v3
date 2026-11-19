@@ -477,11 +477,16 @@
 ## 第四十四开发检查点 · 生产宿主容器盘点证据（2026-11-19）
 
 - 主线 `995cd0edb08dc25c324605d4fb06bb9e913f4fa3` 的第二次 API 发布 44544235891 在准备阶段返回 `PREPARATION_HOST_SURFACE_FOREIGN_CONTAINER_OWNERSHIP_UNVERIFIED`。后续只读检查确认运行状态无变化，未执行围栏或迁移。
-- 通过 `Production State Materialization` 在主线手动派发。确认字为 `COLLECT_PRODUCTION_STATE_READONLY`，`expected_main_sha` 填精确主线提交，并显式将 `include_container_inventory` 打开。默认关闭时仍产出原状态工件。启用时，`production-readonly` 用当前 Actions 提交的固定八文件归档，在 SSH 临时目录运行只读采集器。
-- 工件中 `HOST_CONTAINER_INVENTORY` 只提供当前 CID、现有执行器算法的观察摘要、旧 pin 的数量和匹配状态、有限运行形态及标签比对。API/Web 经受保护的 `active.json` 绑定，DB 经固定 Compose 身份及原生运行状态核对。两轮容器与镜像元数据、前后 CID 集合、受保护状态及 registry 必须稳定。无 registry 时标为 `ABSENT`，已消失旧 CID 只计总数。采样间变化、无法观察、UID 或状态路径异常均给固定 HOLD。
-- `EXACT_PIN` 表示当次观察有一个满足旧筛选条件的归属记录。OCI 项目字段是固定标签比对，`HISTORICAL_SCHEMA_TOOL_SHAPE` 是盘点形态。正式归属、Git 祖先关系和发布准入仍由原受保护流程验证，工件中的 `releaseAuthorized` 始终为 `false`。盘点只读取 Docker 元数据与受保护记录。
+- CP44 曾实现逐容器投影。由于仓库公开，自动审批拒绝运行，未派发。CP45 已移除该输出路径。
 - 本地真实 Docker 验证覆盖精确 pin、无标签镜像、无健康检查外部容器、跨轮改名与移除。测试使用独立标记的夹具容器和本地状态记录。固定八文件归档逐字节核对，实测默认关闭跳过和 `HOLD_EXECUTION_UID` / `HOLD_STATE_PATH`。独立复核无未解决问题。生产盘点仍待受保护工作流实际回执。
 - Node 20 定向 **15 项通过**，CI 只读传输命令 **8 项通过**，110 文件发布回归 **1520 项通过、53 项 opt-in 跳过、0 失败**。新增盘点测试已纳入 `ci-security.yml` 的只读传输步骤。
+
+## 第四十五开发检查点 · 公开工件仅保留固定归属诊断（2026-11-19）
+
+- 公开日志与工件只允许一行 `HOST_CONTAINER_OWNERSHIP_DIAGNOSIS=<固定枚举>`。容器、镜像、归属 pin 及原始观察只在宿主内存中计算。SSH 先隔离并校验助手输出，Actions 写工件前再独立核验。额外行、未知内容、超限、stderr 或非零退出均转换成固定 HOLD。
+- 经审核后，可从主线派发 `Production State Materialization`，使用 `production-readonly` 环境、确认字 `COLLECT_PRODUCTION_STATE_READONLY`、精确 `expected_main_sha`，并显式设置 `include_container_inventory=true`。诊断模式要求 `record_name` 留空，产物只有诊断行。默认关闭时走原状态流程。源码通过原固定八文件归档传输。
+- 诊断只分析会进入通用外部容器归属检查的形态。匹配结果包括 `NO_PIN`、`IDENTITY_CHANGED`、`AMBIGUOUS_PINS`、`OWNER_UNUSABLE` 和 `MIXED`。其中 `MIXED` 表示多个不同原因。存在通用候选且缺少归属 registry 时返回固定 HOLD。`NO_GENERIC_MISMATCH` 只表示该范围未观察到归属缺口，角色、历史工具形态、Git 祖先关系与发布准入仍由原正式流程独立验证。
+- 本地验证覆盖实际八文件归档、默认关闭与原流程输出一致、诊断工件只有一行，以及真实 Docker 的匹配、缺失、已变化归属和采样间变更。CI 只读步骤 **10 项通过**，定向 **20 项通过**，110 文件发布回归 **1522 项通过、53 项 opt-in 跳过、0 失败**。本次未派发或访问生产。
 
 ## 未完成的发布阻塞
 
