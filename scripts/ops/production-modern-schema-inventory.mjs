@@ -102,7 +102,7 @@ function failedInventoryPreparation(owner,revision,{directory=CONTRACT.stateDire
  const {value:receipt,completedAtMs}=observed;
  if(!isFailedModernSchemaPreparation(receipt,{owner,targetSha:revision})||
   !Number.isFinite(completedAtMs)||completedAtMs<=0||
-  !/^(?:PLAN|HOST_SURFACE(?:_[A-Z0-9_]+)?|BACKUP|REHEARSAL|HISTORICAL_AUDIT)$/.test(receipt.failure)||
+  !/^(?:PLAN|HOST_SURFACE(?:_[A-Z0-9_]+)?|BACKUP(?:_[A-Z_]+)?|REHEARSAL|HISTORICAL_AUDIT)$/.test(receipt.failure)||
   ![ `.transport-${owner}-run.receipt`, `schema-release-preparation-${owner}.json`, `schema-release-consumed-${owner}.json` ]
    .every(name=>absent(path.join(directory,name))))hold('RETAINED_FAILED_PREPARATION_REQUIRED');
  return observed;

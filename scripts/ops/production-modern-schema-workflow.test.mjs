@@ -118,6 +118,10 @@ test('only exact public preparation failure classes can diagnose a nonzero comma
     [2, JSON.stringify(hold), 'PREPARATION_HOST_SURFACE'],
     [2, JSON.stringify({...hold, failure:'HOST_SURFACE_EXACT_BRIDGE_REQUIRED'}), 'PREPARATION_HOST_SURFACE_EXACT_BRIDGE_REQUIRED'],
     [2, JSON.stringify({...hold, failure:'HOST_SURFACE_UNCLASSIFIED'}), 'PREPARATION_HOST_SURFACE_UNCLASSIFIED'],
+    [2, JSON.stringify({...hold, failure:'BACKUP'}), 'PREPARATION_BACKUP'],
+    [2, JSON.stringify({...hold, failure:'BACKUP_FACTS'}), 'PREPARATION_BACKUP_FACTS'],
+    [2, JSON.stringify({...hold, failure:'BACKUP_CLEANUP_UNRESOLVED'}), 'PREPARATION_BACKUP_CLEANUP_UNRESOLVED'],
+    [2, JSON.stringify({...hold, failure:'BACKUP_FACTS /private'}), 'PREPARATION_COMMAND_FAILED'],
     [2, JSON.stringify({...hold, failure:'HOST_SURFACE_EXACT_BRIDGE_REQUIRED /private'}), 'PREPARATION_COMMAND_FAILED'],
     [2, JSON.stringify({...hold, owner: '9001-2'}), 'PREPARATION_COMMAND_FAILED'],
     [2, JSON.stringify({...hold, failure: 'FIXTURE_PRIVATE_DIAGNOSTIC'}), 'PREPARATION_COMMAND_FAILED'],
@@ -299,6 +303,13 @@ test('host filter suppresses raw output, proves real CLI parent FD9 and propagat
   const safe=invoke(JSON.stringify(classified),36,undefined,'prepare');
   assert.equal(safe.status,36);
   assert.deepEqual(JSON.parse(safe.stdout),classified);
+  const backupClassified={...preparationHold,failure:'BACKUP_CLEANUP_UNRESOLVED'};
+  const backupSafe=invoke(JSON.stringify(backupClassified),36,undefined,'prepare');
+  assert.equal(backupSafe.status,36);
+  assert.deepEqual(JSON.parse(backupSafe.stdout),backupClassified);
+  const unsafeBackup=invoke(JSON.stringify({...backupClassified,failure:'BACKUP_PRIVATE_FIXTURE'}),36,undefined,'prepare');
+  assert.equal(unsafeBackup.stdout,'');
+  assert.doesNotMatch(unsafeBackup.stderr,/PRIVATE_FIXTURE/);
   const privateCode=invoke(JSON.stringify({...classified,failure:classified.failure+' /private fixture-token'}),36,undefined,'prepare');
   assert.equal(privateCode.stdout,'');
   assert.doesNotMatch(privateCode.stderr,/private|fixture-token/);
