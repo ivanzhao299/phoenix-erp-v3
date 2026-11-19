@@ -5,6 +5,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {createHash} from 'node:crypto';
+import {execFileSync} from 'node:child_process';
 import {CONTRACT} from './production-config-guard.mjs';
 import {canonicalDigest} from './production-maintenance-receipts.mjs';
 import {losslessJsonFacts} from './production-lossless-json.mjs';
@@ -23,11 +24,21 @@ export const CONFIRMED_MODERN_SCHEMA_DIRECTIVE=Object.freeze({
  classification:'USER_CONFIRMED_TEST_OR_MISENTRY',schemaOnlyException:true,
  featureRollout:'OFF',businessActivation:false,physicalInventoryVerified:false,
 });
-export function verifyConfirmedModernSchemaSources(root=CONTRACT.repository,io=fs){
+export function verifyConfirmedModernSchemaSources(root=CONTRACT.repository,io=fs,revision=null){
+ if(revision!==null&&!/^[a-f0-9]{40}$/.test(revision??''))fail('EXACT_SOURCE_REVISION_REQUIRED');
  for(const [file,hash]of [[CONFIRMED_MODERN_SCHEMA_DIRECTIVE.approvedPlan,CONFIRMED_MODERN_SCHEMA_DIRECTIVE.approvedPlanSha256],
   [CONFIRMED_MODERN_SCHEMA_DIRECTIVE.sourceEvidence,CONFIRMED_MODERN_SCHEMA_DIRECTIVE.sourceEvidenceSha256]]){
-  const absolute=path.join(root,file),stat=io.lstatSync(absolute);
-  if(!stat.isFile()||stat.isSymbolicLink()||sha(io.readFileSync(absolute))!==hash)fail('REVIEWED_FIXED_SOURCE_CHANGED');
+  if(revision){
+   try{
+    const options={cwd:root,env:{PATH:'/usr/bin:/bin',GIT_CONFIG_NOSYSTEM:'1',GIT_CONFIG_GLOBAL:'/dev/null',GIT_NO_LAZY_FETCH:'1'},timeout:10000,maxBuffer:1024*1024,stdio:['ignore','pipe','pipe']};
+    const args=['--no-replace-objects','-c',`safe.directory=${root}`,'-c','core.hooksPath=/dev/null'];
+    const row=execFileSync('/usr/bin/git',[...args,'ls-tree',revision,'--',file],{...options,encoding:'utf8'});
+    if(!/^100(?:644|755) blob [a-f0-9]{40}\t/.test(row)||sha(execFileSync('/usr/bin/git',[...args,'show',`${revision}:${file}`],options))!==hash)fail('REVIEWED_FIXED_SOURCE_CHANGED');
+   }catch{fail('REVIEWED_FIXED_SOURCE_CHANGED');}
+  }else{
+   const absolute=path.join(root,file),stat=io.lstatSync(absolute);
+   if(!stat.isFile()||stat.isSymbolicLink()||sha(io.readFileSync(absolute))!==hash)fail('REVIEWED_FIXED_SOURCE_CHANGED');
+  }
  }
  return canonicalDigest(CONFIRMED_MODERN_SCHEMA_DIRECTIVE);
 }
@@ -77,13 +88,15 @@ export function reviewConfirmedLegacyScope({originalAudit,dailyRowsRaw,sourceDir
  return {manifest,businessEvidence,originalAudit};
 }
 export async function collectConfirmedLegacyScope(client,dependencies={}){
- const sourceDirectiveSha256=(dependencies.verifySources??verifyConfirmedModernSchemaSources)();
+ if(!dependencies.verifySources&&!/^[a-f0-9]{40}$/.test(dependencies.targetSha??''))fail('EXACT_SOURCE_REVISION_REQUIRED');
+ const sourceDirectiveSha256=(dependencies.verifySources??(()=>verifyConfirmedModernSchemaSources(CONTRACT.repository,fs,dependencies.targetSha)))();
  await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
  try{
   await client.query("SET LOCAL search_path=public");await client.query("SET LOCAL statement_timeout='20s'");await client.query("SET LOCAL lock_timeout='3s'");await client.query('SET LOCAL row_security=off');
   const {rows:[{jsonb_build_object:originalAudit}]}=await client.query(auditSql);
   const {rows:[{daily}]}=await client.query(`SELECT COALESCE(jsonb_agg(to_jsonb(d) ORDER BY d.id),'[]'::jsonb)::text AS daily
    FROM brd_daily_logs d WHERE d.id=106 OR (d.log_date=DATE '2026-11-17' AND d.house_code='HOUSE_MS_01')`);
-  return reviewConfirmedLegacyScope({originalAudit,dailyRowsRaw:daily,sourceDirectiveSha256});
+  const confirmedScopeInput={originalAudit,dailyRowsRaw:daily,sourceDirectiveSha256};
+  return {...reviewConfirmedLegacyScope(confirmedScopeInput),confirmedScopeInput};
  }finally{await client.query('ROLLBACK');}
 }

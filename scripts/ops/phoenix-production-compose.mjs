@@ -38,6 +38,10 @@ export function assertBackgroundFence(directory = CONTRACT.stateDirectory, depen
     || !Number.isFinite(Date.parse(p.startedAt)) || !Number.isInteger(p.restartCount)) fail();
   // The proof applies to one concrete old executor. It cannot authorize a
   // second recreation, a replaced/restarted process, or a legacy stop receipt.
+  if (dependencies.verifyOldExecutor) {
+    if (dependencies.verifyOldExecutor(p) !== true) fail('mismatch=old_executor');
+    return proof;
+  }
   const actual = (dependencies.metadata || metadataFor)('api');
   if (actual.id !== p.containerId || actual.ociRevision !== p.revision || actual.startedAt !== p.startedAt
     || actual.restartCount !== p.restartCount || actual.running !== true || actual.health !== 'healthy') fail();
@@ -67,7 +71,8 @@ export function composeArguments(root, args, project) {
 }
 export function runCompose(args, dependencies = {}) {
   const root = dependencies.root || fs.realpathSync(process.cwd()); const directory = dependencies.directory || CONTRACT.stateDirectory;
-  const file = process.env.DEPLOY_RUN_ID ? transactionFile(directory) : path.join(directory, 'active.json');
+  const env = dependencies.env || process.env;
+  const file = env.DEPLOY_RUN_ID ? transactionFile(directory, env.DEPLOY_RUN_ID) : path.join(directory, 'active.json');
   const state = assertStateVersion((dependencies.readState || secureJson)(file)); const images = state.active;
   const floor = (dependencies.guard || guardProduction)(root, directory, images);
   const command = composeArguments(root, args, floor.project);
@@ -95,7 +100,7 @@ export function runCompose(args, dependencies = {}) {
   }
   let apiImage = images.api.imageId; let webImage = images.web.imageId;
   if (args[0] === 'pull') {
-    if (!process.env.DEPLOY_RUN_ID || !['api', 'web'].includes(service)) throw new Error('COMPOSE_HOLD=PULL_SCOPE');
+    if (!env.DEPLOY_RUN_ID || !['api', 'web'].includes(service)) throw new Error('COMPOSE_HOLD=PULL_SCOPE');
     const ref = `ghcr.io/ivanzhao299/phoenix-erp-v3/${service}:sha-${state.target}`;
     if (service === 'api') apiImage = ref; else webImage = ref;
   }

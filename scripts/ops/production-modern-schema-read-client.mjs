@@ -42,18 +42,20 @@ function controlStatement(sql){
  const text=sql.trim().replace(/;$/,'').trim();
  if(/^(?:BEGIN(?: ISOLATION LEVEL REPEATABLE READ)? READ ONLY|ROLLBACK)$/i.test(text))return text+';';
  const pieces=text.split(';').map(x=>x.trim());
- if(pieces.length&&pieces.every(piece=>/^SET LOCAL (?:search_path\s*=\s*(?:public|pg_catalog)|row_security\s*=\s*off|(?:statement_timeout|lock_timeout)\s*=\s*'[1-9][0-9]*(?:ms|s)')$/i.test(piece)))return pieces.join('; ')+';';
+ if(pieces.length&&pieces.every(piece=>/^SET LOCAL (?:search_path\s*=\s*(?:public|pg_catalog)|row_security\s*=\s*off|max_parallel_workers_per_gather\s*=\s*0|TimeZone\s*=\s*'UTC'|DateStyle\s*=\s*'ISO,YMD'|IntervalStyle\s*=\s*'iso_8601'|bytea_output\s*=\s*'hex'|extra_float_digits\s*=\s*3|(?:statement_timeout|lock_timeout)\s*=\s*'[1-9][0-9]*(?:ms|s)')$/i.test(piece)))return pieces.join('; ')+';';
  return null;
 }
 export class ModernSchemaReadClient {
  constructor(dependencies={}){
   this.guard=dependencies.guard??(()=>verifyContext(CONTRACT.repository,CONTRACT.stateDirectory));this.launch=dependencies.spawn??spawn;
+  this.databaseContainer=dependencies.databaseContainer??'phoenix-v3-db';
+  if(this.databaseContainer!=='phoenix-v3-db'&&!/^[a-f0-9]{64}$/.test(this.databaseContainer))throw fail('EXACT_DATABASE_CONTAINER_REQUIRED');
   this.child=null;this.pending=null;this.queue=Promise.resolve();this.broken=false;this.sequence=0;this.nonce=randomBytes(16).toString('hex');
  }
  async start(){
   this.guard();if(this.child||this.broken)throw fail('CLIENT_REUSE');
-  this.child=this.launch('/usr/bin/docker',['exec','-i','-e','PGOPTIONS=-c default_transaction_read_only=on -c idle_in_transaction_session_timeout=25000 -c statement_timeout=20000',
-   'phoenix-v3-db','sh','-c','exec psql -X -qAt -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"'],{env:executionEnv(),stdio:['pipe','pipe','pipe']});
+  this.child=this.launch('/usr/bin/docker',['exec','-i','-e','PGOPTIONS=-c default_transaction_read_only=on -c idle_in_transaction_session_timeout=25000 -c statement_timeout=20000 -c TimeZone=UTC -c DateStyle=ISO,YMD -c IntervalStyle=iso_8601 -c bytea_output=hex -c extra_float_digits=3',
+   '-e','PGAPPNAME=phoenix-modern-schema-read',this.databaseContainer,'sh','-c','exec env -i PATH=/usr/local/bin:/usr/bin:/bin PGHOST=/var/run/postgresql PGPORT=5432 PGOPTIONS="$PGOPTIONS" PGAPPNAME="$PGAPPNAME" psql -X -qAt -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"'],{env:executionEnv(),stdio:['pipe','pipe','pipe']});
   const lose=()=>{this.broken=true;this.pending?.reject(fail('DATABASE_CHANNEL_LOST'));try{this.child?.stdin.end();}catch{}};this.child.on('error',lose);this.child.on('exit',lose);this.child.stdin.on('error',lose);
   this.child.stderr.on('data',()=>{});let streamBytes=0;
   this.child.stdout.on('data',chunk=>{streamBytes+=chunk.length;if(streamBytes>16*1024*1024){this.broken=true;this.pending?.reject(fail('FRAME_SIZE'));this.child.stdout.destroy();try{this.child.stdin.end();}catch{}}});

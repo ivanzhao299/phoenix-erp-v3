@@ -103,7 +103,7 @@ jobs:
               if [ ! -f "$STATE_DIR/$name" ]; then printf 'MISSING\n'; continue; fi
               case "$name" in
                 floor.json) jq -c '{version,phase,floorSha,chanjetPolicy,readonlyApproval}' "$STATE_DIR/$name" ;;
-                active.json) jq -c '{version,floorSha,outcome,active:{api:{revision,imageId},web:{revision,imageId}}}' "$STATE_DIR/$name" ;;
+                active.json) jq -c '{version,floorSha,outcome,active:{api:(.active.api|{revision,imageId}),web:(.active.web|{revision,imageId})}}' "$STATE_DIR/$name" ;;
                 *) redacted_json "$STATE_DIR/$name" ;;
               esac
             done

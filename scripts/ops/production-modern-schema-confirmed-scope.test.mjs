@@ -5,6 +5,7 @@ import {fixedScopeFixture} from '../ci/modern-schema-release.fixture.mjs';
 const changeDaily=(f,action)=>{const rows=JSON.parse(f.dailyRowsRaw);action(rows);f.dailyRowsRaw=JSON.stringify(rows);};
 test('fixed source validates the unchanged approved plan and exact readonly evidence SQL',()=>{
  const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../..');assert.equal(verifyConfirmedModernSchemaSources(root),canonicalDigest(CONFIRMED_MODERN_SCHEMA_DIRECTIVE));
+ assert.equal(verifyConfirmedModernSchemaSources(root,undefined,'c811330e4182660e299d8bf44a35794ba0846470'),canonicalDigest(CONFIRMED_MODERN_SCHEMA_DIRECTIVE));
 });
 test('actual user statement is a narrow scope claim, with original HOLD and no stock-count or release claim',()=>{
  const f=fixedScopeFixture(),before=structuredClone(f),result=reviewConfirmedLegacyScope(f);

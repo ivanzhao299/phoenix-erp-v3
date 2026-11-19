@@ -40,6 +40,7 @@ function hasSqlBatch(sql) {
 }
 export function classifySql(sql, controlParameters) {
   const clean = sql.replace(/--[^\n]*/g, '').replace(/\/\*[\s\S]*?\*\//g, '').trim();
+  if (/^SELECT\b/i.test(clean) && /\bINTO\b/i.test(clean)) return 'SCHEMA_MUTATION';
   if (/\b(?:CREATE|ALTER|DROP|TRUNCATE|COMMENT|REINDEX|GRANT|REVOKE)\b/i.test(clean)) return 'SCHEMA_MUTATION';
   if (/\b(?:setval|nextval)\s*\(/i.test(clean)) return 'SEQUENCE_MUTATION';
   if (/\b(?:INSERT|UPDATE|DELETE|MERGE|COPY|CALL|DO)\b/i.test(clean)) return 'BUSINESS_DATA_MUTATION';

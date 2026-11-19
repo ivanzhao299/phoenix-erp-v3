@@ -253,9 +253,9 @@ test('workflow binds read-only inspect and activation strictly after API switch 
   const deploy = fs.readFileSync(new URL('../../.github/workflows/deploy.yml', import.meta.url), 'utf8');
   const inspect = fs.readFileSync(new URL('../../.github/workflows/sku-source-activation-inspect.yml', import.meta.url), 'utf8');
   const body = deploy.slice(deploy.indexOf('            perform_deployment() {'));
-  assert.ok(body.indexOf('SKU_ACTIVATION_MODE=preflight') > body.indexOf('production-deployment-state.mjs begin'));
-  assert.ok(body.indexOf('SKU_ACTIVATION_MODE=preflight') > body.indexOf('production-deployment-state.mjs candidate api'));
-  assert.ok(body.indexOf('SKU_ACTIVATION_MODE=preflight') < body.indexOf('production-deployment-state.mjs switch api'));
+  assert.ok(body.indexOf('SKU_ACTIVATION_MODE=preflight') > body.indexOf('production_state begin'));
+  assert.ok(body.indexOf('SKU_ACTIVATION_MODE=preflight') > body.indexOf('production_state candidate api'));
+  assert.ok(body.indexOf('SKU_ACTIVATION_MODE=preflight') < body.indexOf('production_state switch api'));
   assert.ok(body.indexOf('SKU_ACTIVATION_MODE=apply') > body.indexOf('API_IMAGE="$CANDIDATE_API_IMAGE" docker compose up'));
   assert.ok(body.indexOf('SKU_ACTIVATION_MODE=apply') < body.indexOf('# ── Smoke test'));
   assert.match(inspect, /SKU_ACTIVATION_MODE: inspect/);

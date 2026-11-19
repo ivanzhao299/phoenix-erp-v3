@@ -83,7 +83,7 @@ async function promoteFloorCore(root, env, dependencies, admit, legacy) {
   if (getGit(root, ['rev-parse', 'origin/main']) !== target || getGit(root, ['ls-remote', 'origin', 'refs/heads/main']).split(/\s/)[0] !== target) throw new Error('CONFIG_HOLD=LATEST_MAIN_CHANGED');
   getGit(root, ['merge-base', '--is-ancestor', getGit(root, ['rev-parse', 'HEAD']), target]);
   // Every executed staged helper must be identical to the exact approved merged tree.
-  const base = path.dirname(new URL(import.meta.url).pathname);
+  const base = dependencies.stagingDirectory || path.dirname(new URL(import.meta.url).pathname);
   for (const file of ['production-config-contract.json', 'production-config-guard.mjs', 'production-deployment-state.mjs', 'production-atomic-state.mjs', 'production-deployment-evidence.mjs', 'production-trusted-paths.mjs', 'capture-production-runtime.mjs', 'update-managed-chanjet-env.mjs', 'chanjet-readonly-policy.mjs', 'api-bootstrap-schema-preflight.mjs', 'api-bootstrap-schema-contract.json', 'promote-production-config-floor.mjs', 'chanjet-admission-schema-receipt.mjs', 'production-maintenance-admission.mjs', 'production-maintenance-receipts.mjs', 'production-maintenance-transition.mjs', 'production-maintenance-owner-unknown.mjs', 'production-maintenance-reconciliation.mjs', 'production-maintenance-owner-authority.mjs', 'production-maintenance-github-authority.mjs', 'production-maintenance-owner-source-provenance.mjs', 'background-control-legacy-transition.mjs', 'background-control-manifest.mjs']) {
     const source = file === 'api-bootstrap-schema-contract.json' ? `apps/api/src/common/database/${file}` : `scripts/ops/${file}`;
     if (!readFile(path.join(base, file)).equals(Buffer.from(getGit(root, ['show', `${target}:${source}`]) + '\n'))) throw new Error('CONFIG_HOLD=STAGED_HELPER_MISMATCH');
@@ -129,7 +129,7 @@ async function promoteFloorCore(root, env, dependencies, admit, legacy) {
 export async function promoteFloor(root, dependencies = {}) {
   const admission = dependencies.maintenanceAdmission || assertModernReleaseAdmission;
   const admit = () => admission({ directory: CONTRACT.stateDirectory }, { guard: () => verifyContext(root, CONTRACT.stateDirectory) });
-  const result = await promoteFloorCore(root, process.env, dependencies, admit);
+  const result = await promoteFloorCore(root, dependencies.environment || process.env, dependencies, admit);
   console.log('CONFIG_FLOOR_PROMOTION=PREPARED_HOLD'); return result;
 }
 export async function promoteLegacyMaintenanceFloor(request, dependencies = {}) {

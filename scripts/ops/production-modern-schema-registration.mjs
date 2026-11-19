@@ -66,7 +66,7 @@ export async function registerModernSchemaRelease({owner,preparationSha256,ident
   const record=store.read(`schema-release-preparation-${owner}.json`),validated=validateModernSchemaPreparation(record,now());
   if(record.context.owner!==owner||validated.preparationSha256!==preparationSha256)fail('PREPARATION_BINDING_MISMATCH');return {record,...validated};
  };
- const before=check();(dependencies.verifySources??verifyConfirmedModernSchemaSources)();
+ const before=check();(dependencies.verifySources??(()=>verifyConfirmedModernSchemaSources(CONTRACT.repository,fs,before.context.targetSha)))();
  const expected={owner,targetSha:before.context.targetSha,preparationSha256};
  // The production default always verifies the actual JWT against fixed issuer
  // keys then reads the actual attempt/jobs. An identity JSON is never an input.

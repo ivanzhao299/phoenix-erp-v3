@@ -275,7 +275,7 @@ test('workflow staged helper closure imports without access to checkout neighbou
 });
 test('API-only body checks main before each mutation boundary and does not initialize shared Web content', () => {
   const workflow = fs.readFileSync(new URL('../../.github/workflows/deploy.yml', import.meta.url), 'utf8');
-  for (const operation of ['node "$FLOOR_STAGE/promote-production-config-floor.mjs"', 'git merge --ff-only origin/main', 'node scripts/ops/production-deployment-state.mjs switch api', 'node scripts/ops/production-deployment-state.mjs complete']) {
+  for (const operation of ['production_promote_floor "$FLOOR_STAGE"', 'git merge --ff-only origin/main', 'production_state switch api', 'production_state complete']) {
     const index = workflow.indexOf(operation); assert.ok(index > 0);
     assert.match(workflow.slice(index - 80, index), /assert_target_main\s*$/);
   }

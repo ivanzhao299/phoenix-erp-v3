@@ -316,6 +316,16 @@
 - 本工作树 Node20 合同与既有协调器/准入/恢复回归 **262 passed / 4 opt-in PG skipped / 0 failed**。另外真实 owned PG18 原会话及 sealed adapter **2/2**、真实 Docker/psql 采集和16MiB单行拒绝 **1/1**；固定原HOLD与41类引用在该通道上实际读取，尾注释、参数语法字符串无执行注入。协调任务另独立验证两处持锁竞态及新连接不能接管，不记作本代理额外执行数。没有生产连接或DDL。
 - 仍未接入真实受保护 preparation/rehearsal producer、现代入口持续证明与TERM停R、原会话schema执行→既有formal API typed connector、已停止R的compose接续、无DDL受控恢复R、未知DDL只读判定及终态归档/可信普通OPEN收尾和workflow。这些实际producer与执行入口继续实现；本检查点不启用任何部署路径，不新增迁移/业务种子，不把测试注入当生产权源。首发将收敛到已审125/105源码及当前真实新增20项；非此形态HOLD，不为通用化改默认migration receipt信任边界。
 
+## 第二十五开发检查点：真实受保护备份、隔离恢复与正式调用通道基础（2026-11-19，保持 OFF）
+
+- 新备份 producer 在实际 PostgreSQL RR READ ONLY 原连接导出快照，由同一原库容器内的 `pg_dump --snapshot` 读取；原连接保持存活直到归档完成。二进制、TOC、全归档解析、命令诊断全部只保存在私有目录，流式摘要检查 inode/权限/链接数/大小与时间戳；最终回执完整 fsync 后才以 create-only 方式发布。超时后另查实际 PostgreSQL 会话及容器内 `pg_dump`，不把宿主 Docker CLI 退出当成远端已停，不自动重试或恢复。fenced 阶段额外强制原监督进程提供实际围栏准入。
+- 独立恢复演练只创建新 internal Docker 网络、新 volume 和原生新 CID；首写前核验实际挂载、固定 Unix socket 与干净 libpq 环境，以及不同于源库的 cluster system identifier。`pg_isready` 可能观察到 initdb 临时服务，已增加最终 PostgreSQL PID 1 确认。完整原表、原列和全部序列采用服务器端确定性摘要；活动期导出快照只要求原表一致，因为序列不受 MVCC 约束；实际 fenced 恢复另要求序列相同。恢复库随后才执行不可变候选镜像的真实 `migration:run --transaction all` / `migration:show`，核对完整旧账本与精确新增20项，不调用 AppModule 执行迁移。
+- owned PG18 + 两个正式 Dockerfile 镜像实际演练最终 v6 **1/1 passed**（约103秒）：恢复274条账本→294，260张原表/225条序列原业务投影不变，新46张业务表零行，原日报47,930及两项各30保留；原 R 与候选 T 均实际 READY/healthy，在真实 FENCED 投影下各跨过 Cron 分钟，无数据库写入尝试，原生 TERM 后 exit0/OOMfalse/restart0，原连接消失。所有资源均为本地 owned 隔离副本，无生产恢复或生产DDL。
+- 独立审查的同名 observer / `SELECT INTO TEMP` 盲点已修：观测窗口固定原 observer 的 PID、数据库和 backend 微秒身份，边界唯一；同名第二连接仍须分类，临时建表也记为 schema 写入。协调任务在另一新建 PG18 对该组合执行真实 rollback 反例，确认被捕获且没有残留对象；该结果是独立核验，不混入本工作树执行数。后台 SQL 分类器仅新增更严格的拒绝语义。
+- 正式 API adapter 精确集成协调任务补丁 `72b11e2936d29cd81324dded601b7ae763853501a5ea21d9cecac1ff7887025a` 与 awaited WRITE 后原 R 复活复核补丁 `969f23d1e9c01a7613f15b3afc86b48c3ee3bc2efd661df2008356780513bb14`，复用既有 F→R→T floor、正式状态/证据、原迁移回执及 no-build/pull-never/no-deps Compose 规则；仅允许固定七步，不给普通 CLI 增加环境授权。新本地调用通道使用真实 Unix SO_PEERCRED、原 Bash 子进程后代关系与原 ChildProcess pin；同 UID 的旁系进程不能靠 JSON 身份代替。精确 T Git workflow 的唯一 common body 摘要单独绑定，CI 不传任意 body。
+- workflow 两段 prepare/run 传输、OIDC 私密 stdin 与固定 public JSON 已集成，但**本检查点尚无完整 host release 入口与 stage manifest，专用路径仍不可执行发布**；显式请求该路径也会在源文件/manifest 检查时 HOLD，不会执行生产迁移或停止 R。原默认路径和业务 OFF 保持。宿主 actor/待备份/prepare 与 ingress/TERM producer 的源码仍在接线，尚无宿主全链效果证明；终态可信普通 OPEN/归档、无DDL受控恢复与未知DDL判定仍需完成。
+- 本工作树 Node20 针对新基础、原协调器、正式状态/floor、旧版/普通发布及 workflow 回归 **313 passed / 14 opt-in skipped / 0 failed**；另实际 owned PG18 固定范围/无损只读通道/原 sealed 双锁会话 **4/4 passed**，隔离备份与 R/T 实际演练上述 **1/1 passed**。两份 workflow YAML、41个 shell step 与专用 SSH 源 bash 语法检查通过，`git diff --check` 通过。此切片不改 API/Web TS 或业务迁移，未重复全量 TS/构建/业务UAT，不声明完整发布验收；最新精确提交 CI 由协调任务独立跟进。
+
 ## 未完成的发布阻塞
 
 1. 独立 RAW 集蛋凭证、库存父批与内部实际转换事实已区分；RAW→分级/包装/重包装业务 API/页面已形成第十二 OFF 检查点；已过账 RAW/转换的受控更正补偿、成本分摊、其余合法退货/跨公司加工交接及质检处置尚未完成；仅第二十一检查点的同公司原仓LAK完好成品客户退货已接续。旧包装入口仍需接入明确实际投入与实耗，不能只挂 DERIVED 资格造成双计。包装、在途/退货/POS、跨公司和混源的全链成对回归，以及合法盘盈新来源仍需完成；受控 managed SKU 销售/配送/POS 正向及 UNKNOWN 持久化已有第五、六检查点证据，仍须与包装、退货和最终切换全链合并验收。不能用“全部拦住”代替合法链路验收。
