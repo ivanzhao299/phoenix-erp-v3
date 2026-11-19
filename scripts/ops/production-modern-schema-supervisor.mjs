@@ -30,6 +30,17 @@ import {denyModernSchemaBackground} from './production-modern-schema-deny.mjs';i
 const fail=code=>{throw Error('MODERN_SCHEMA_SUPERVISOR_HOLD='+code);};
 const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const participantOf=actual=>({containerId:actual.containerId,revision:actual.revision,bootId:actual.status.bootId,allowedKinds:[...HOLD_KINDS]});
+export function assertModernSchemaWindowBudget({end,factsElapsedMs,operation,inFlightMs=0},now=Date.now()){
+ // Both paths need two further original-database scans. The fixed margin
+ // covers their separate migration/switch or original-recovery operations.
+ const remainingMs=Date.parse(end)-now;
+ const fixedMargin=operation==='ddl'?240000:150000;
+ const requiredMs=Math.ceil(factsElapsedMs*2*1.15)+fixedMargin+inFlightMs;
+ if(!['ddl','recoverOriginal'].includes(operation)||!Number.isSafeInteger(factsElapsedMs)||factsElapsedMs<=0||
+  !Number.isSafeInteger(inFlightMs)||inFlightMs<0||!Number.isSafeInteger(remainingMs)||remainingMs<requiredMs){
+  fail(operation==='ddl'?'INSUFFICIENT_WINDOW_BEFORE_DDL':'INSUFFICIENT_WINDOW_TO_RECOVER_ORIGINAL');
+ }
+}
 function latest(dispatch){requireCleanMain(CONTRACT.repository);if(git(CONTRACT.repository,['rev-parse','origin/main'],{timeoutMs:10000})!==dispatch.targetSha
  ||git(CONTRACT.repository,['ls-remote','origin','refs/heads/main'],{timeoutMs:10000}).split(/\s/)[0]!==dispatch.targetSha)fail('LATEST_APPROVED_MAIN_CHANGED');}
 export async function superviseModernSchemaRelease(env,input){
@@ -42,7 +53,7 @@ export async function superviseModernSchemaRelease(env,input){
  await registerModernSchemaRelease({owner:context.owner,preparationSha256:input.preparationSha256,identityToken:input.identityToken},{identityDependencies:{credential:input.githubReadToken}});
  input.identityToken=null;input.githubReadToken=null;
  const client=new ModernSchemaReadClient(),watchClient=new ModernSchemaReadClient();let clientsStarted=false,state=null,coordinator=null,publisher=null,ingress=null,watch=null,rootLease=null;
- let originalProcess=null,beforeFacts=null,beforeLedger=null,beforeCatalog=null,originalRestartPolicy=null,committed=false,recovering=false,closeHeartbeat=null,fatal=null;
+ let originalProcess=null,beforeFacts=null,beforeFactsElapsedMs=null,beforeLedger=null,beforeCatalog=null,originalRestartPolicy=null,committed=false,recovering=false,closeHeartbeat=null,fatal=null;
  const ownedResources=[...preparation.ownedResources];let recoveryResult=null,openCommitIntent=null,terminalComplete=false;
  const denialAdmission=()=>{runtime.guard();if(!originalProcess||originalProcess.pid!==process.pid||assertOriginalModernSchemaProcess(originalProcess)!==true)fail('ORIGINAL_DENIAL_SUPERVISOR_LOST');
   if(state)assertSameBinding(state.read(),state.binding);return true;};
@@ -65,7 +76,12 @@ export async function superviseModernSchemaRelease(env,input){
   return true;
  };
  const stopHeartbeat=async()=>{await closeHeartbeat?.();closeHeartbeat=null;if(fatal)throw fatal;};
- const advance=async(from,to,evidence,options)=>{await native();state.advance(from,to,modernSchemaStepEvidence(context,to,evidence),options);await native();};
+ const windowBudget=(operation,inFlightMs)=>assertModernSchemaWindowBudget({end:context.window.end,factsElapsedMs:beforeFactsElapsedMs,operation,inFlightMs});
+ const advance=async(from,to,evidence,options)=>{
+  await native();
+  if(to==='DDL_STARTED')windowBudget('ddl');
+  state.advance(from,to,modernSchemaStepEvidence(context,to,evidence),options);await native();
+ };
  const disk=async()=>{const {rows:[size]}=await client.query('SELECT pg_database_size(current_database())::text AS bytes');return observeModernSchemaDiskSpace({databaseBytes:size.bytes});};
  const audit=async()=>{
   const startedAt=new Date().toISOString(),fixed=await collectConfirmedLegacyScope(client,{targetSha:context.targetSha});
@@ -146,10 +162,11 @@ export async function superviseModernSchemaRelease(env,input){
   beforeCatalog=await captureModernSchemaCatalog({owner:context.owner,stage:'before',databasePin:pre.containers.db,privateRuntime:runtime,directory:sessionDirectory,admit:()=>native()},readCommand);
   await disk();
   const fencedBackup=await createModernSchemaBackup({owner:context.owner,stage:'fenced',client,databasePin:pre.containers.db,privateRuntime:runtime},{
-   ...readCommand,assertFenced:async()=>{await native();await ingress.observe();},
-   onSnapshotReady:async source=>{
+   ...readCommand,assertFenced:async()=>{await native();await ingress.observe();},assertRecoveryWindow:ms=>windowBudget('recoverOriginal',ms),
+   onSnapshotReady:async(source,{factsElapsedMs})=>{
     if(source.ledgerSha256!==ledger.sha256||!same(source.ledger,beforeLedger))fail('FROZEN_BACKUP_SNAPSHOT_LEDGER_CHANGED');
     beforeFacts=source.facts;
+    beforeFactsElapsedMs=factsElapsedMs;
     const factsFile=path.join(directory,`schema-release-before-facts-${context.owner}.json`);
     runtime.publishJson(factsFile,beforeFacts);runtime.publishJson(path.join(directory,`schema-release-before-audit-${context.owner}.json`),fresh.fresh);
     await advance('R_STOPPED','FRESH_RECHECKED',{beforeLedgerSha256:ledger.sha256,factsFile,factsSha256:canonicalDigest(beforeFacts),
@@ -158,7 +175,8 @@ export async function superviseModernSchemaRelease(env,input){
   });
   if(fencedBackup.receipt.sourceLedgerSha256!==context.beforeLedgerSha256)fail('FENCED_BACKUP_LEDGER_CHANGED');
   const rehearsal=await rehearseModernSchemaRelease({owner:context.owner,stage:'fenced',backup:fencedBackup,plan:preparation.plan,runtimeImageId:pre.containers.api.image,privateRuntime:runtime},{
-   assertFenced:async()=>{await native();await ingress.observe();},onCreated:record=>watch.registerResource(record),withNativeCreate:work=>watch.withNativeCreate(work),
+   assertFenced:async()=>{await native();await ingress.observe();},assertRecoveryWindow:ms=>windowBudget('recoverOriginal',ms),
+   onCreated:record=>watch.registerResource(record),withNativeCreate:work=>watch.withNativeCreate(work),
   });
   await advance('FRESH_RECHECKED','BACKUP_VERIFIED',{backupReceiptFile:fencedBackup.receiptPath,backupReceiptSha256:canonicalDigest(fencedBackup.receipt),
    rehearsalFile:path.join(rehearsal.directory,'rehearsal-receipt.json'),rehearsalSha256:canonicalDigest(rehearsal.evidence)});
@@ -174,9 +192,7 @@ export async function superviseModernSchemaRelease(env,input){
   },{expectedNetworkId:preparation.ingressScope.networkId,withNativeCreate:work=>watch.withNativeCreate(work),serializeAdmission:work=>watch.serially(work),
    onOriginalDriver:entry=>watch.allowDescendants(entry,'SCHEMA_DRIVER'),
    closeChannel:(channel,options)=>watch.closeBodyChannel(channel,options),startChannel:(channel,entry)=>watch.startBodyChannel(channel,entry)});
-  const effect=await verifyModernSchemaEffect({context,preparationSha256:input.preparationSha256,rootLease,preparation,beforeFacts,beforeAudit:fresh.fresh,beforeLedger,driverReceipt:driver,fencedBackup,privateRuntime:runtime,migrationDirectory,admit:()=>native()},{client,
-   onReceiptWriter:entry=>watch.allowDescendants(entry),withKnownReadonlyWriter:async work=>{await watch.stop();await watch.observe();try{return await work();}finally{await native();await watch.observe();watch.start();}},
-  });
+  const effect=await verifyModernSchemaEffect({context,preparationSha256:input.preparationSha256,rootLease,preparation,beforeFacts,beforeAudit:fresh.fresh,beforeLedger,driverReceipt:driver,fencedBackup,privateRuntime:runtime,migrationDirectory,admit:()=>native()},{client});
   await advance('DDL_STARTED','SCHEMA_RECEIPTED',{schemaReceiptFile:effect.file,schemaReceiptSha256:canonicalDigest(effect.bundle)});
   const body=await runModernSchemaFormalApiBody({context,preparation,preparationSha256:input.preparationSha256,rootLease,originalProcess,state,watch,privateRuntime:runtime,schemaReceipt:effect.bundle,admit:()=>native()});
   const candidateId=watch.candidate?.id;if(!candidateId)fail('ACTUAL_CANDIDATE_REQUIRED');

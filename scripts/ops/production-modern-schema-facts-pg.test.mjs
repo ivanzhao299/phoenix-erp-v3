@@ -61,7 +61,7 @@ async function verifyLockedKeyRead(container,client,sql,statement,parameters){
   let waiting=false;
   for(let attempt=0;attempt<40&&!waiting&&!resolved;attempt++){
    waiting=sql('SELECT count(*) '+relationLocks+
-    " AND NOT l.granted AND s.wait_event_type='Lock' AND s.query LIKE '%WITH locked_relation AS MATERIALIZED%'")==='1';
+    " AND NOT l.granted AND s.wait_event_type='Lock' AND s.query LIKE '%WITH locked_relations AS MATERIALIZED%'")==='1';
    if(!waiting)await delay(15);
   }
   assert.ok(waiting&&!resolved,'the combined catalog SELECT must wait for the target table lock');
@@ -129,6 +129,31 @@ async function verifyLegacyDictionarySequence(client,sql){
   const businessAfter=await captureModernSchemaFacts(client,{projection:businessBefore});
   assert.throws(()=>assertModernSchemaBusinessUnchanged(businessBefore,businessAfter),/ORIGINAL_BUSINESS_FACTS_CHANGED/);
  }
+}
+
+async function verifySegmentKeyBatches(client,sql){
+ sql(`CREATE SCHEMA segment_batches;
+  DO $$ BEGIN FOR slot IN 1..20 LOOP
+   EXECUTE format('CREATE TABLE segment_batches.%I (%I %s PRIMARY KEY)',
+    'probe_'||slot,'key_'||slot,CASE WHEN slot%2=0 THEN 'uuid' ELSE 'text' END);
+  END LOOP; END $$;`);
+ const keyBatches=[];
+ const facts=await captureModernSchemaFacts({async query(statement,parameters){
+  const result=await client.query(statement,parameters);
+  if(statement.includes('JOIN pg_index')){
+   const [relations]=parameters;
+   assert.ok(relations.length<=16);
+   for(const row of result.rows){
+    const slot=relations[row.relationIndex-1]?.match(/^"segment_batches"\."probe_(\d+)"$/)?.[1];
+    if(slot)assert.deepEqual([row.keyColumn,row.keyType],[`key_${slot}`,'uuid']);
+   }
+   keyBatches.push(relations.filter(relation=>relation.startsWith('"segment_batches".')).length);
+  }
+  return result;
+ }});
+ assert.equal(keyBatches.reduce((total,count)=>total+count,0),20);
+ assert.ok(keyBatches.filter(Boolean).length>=2);
+ assert.equal(facts.tables.filter(table=>table.schema==='segment_batches'&&table.rows===0).length,20);
 }
 
 async function verifyFactsPair(client,sql){
@@ -204,7 +229,7 @@ for(const version of ['16.14-alpine','18-alpine']){
    const completeScans=new Set(),segmentCounts=new Map();
    let lockChecked=false;
    const observedClient={async query(statement,parameters){
-    if(statement.includes('JOIN pg_index')&&parameters[0]==='"public"."chanjet_read_snapshots"'&&!lockChecked){
+    if(statement.includes('JOIN pg_index')&&parameters[0].includes('"public"."chanjet_read_snapshots"')&&!lockChecked){
      lockChecked=true;
      return verifyLockedKeyRead(container,client,sql,statement,parameters);
     }
@@ -227,9 +252,8 @@ for(const version of ['16.14-alpine','18-alpine']){
    const legacyTables=new Set(['"public"."empty_keyed"','"public"."single_keyed"','"public"."smallint_threshold"']);
    const legacySmall=await captureModernSchemaFacts({async query(statement,parameters){
     const result=await client.query(statement,parameters);
-    if(statement.includes('JOIN pg_index')&&legacyTables.has(parameters[0])){
-     assert.equal(result.rows.length,1);
-     return {rows:[]};
+    if(statement.includes('JOIN pg_index')){
+     return {rows:result.rows.filter(row=>!legacyTables.has(parameters[0][row.relationIndex-1]))};
     }
     return result;
    }});
@@ -259,6 +283,7 @@ for(const version of ['16.14-alpine','18-alpine']){
    assert.ok(completeScans.has('mon_device_property_history'));
    await verifyFactsPair(client,sql);
    await verifyLegacyDictionarySequence(client,sql);
+   await verifySegmentKeyBatches(client,sql);
   }finally{
    try{await client?.close();}finally{docker(['stop',container]);}
   }

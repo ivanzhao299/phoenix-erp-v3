@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
+import { setImmediate } from 'node:timers/promises';
 import { CONTRACT, git, secureJson } from './production-config-guard.mjs';
 import { executionEnv } from './capture-production-runtime.mjs';
 export const ADMISSION_PATH = 'apps/api/src/database/migrations/1791878400000-CreateChanjetExecutionAdmissions.ts';
@@ -69,30 +70,43 @@ export function assertScopeMigrationsReceipted(root, scope) {
   if (scope.changed.length === 1 && scope.changed[0] === ADMISSION_PATH) return assertAdmissionSchemaApplied(root, scope);
   const receiptPaths = scope.changed.filter(migrationPath => !MIGRATION_TOOLING_PATHS.has(migrationPath));
   if (!receiptPaths.length) return true;
-  const ledger = readProductionLedger();
+  return Array.from(verifiedScopeRegistryRecords(root, scope, readProductionLedger())).length > 0;
+}
+
+/** Registry-only verification against the caller's already verified full ledger.
+ * The dedicated admission-only path still requires its live trigger evidence. */
+export async function verifyScopeRegistryReceiptsFromLedger(root, scope, ledger, dependencies = {}) {
+  const records = [];
+  for (const record of verifiedScopeRegistryRecords(root, scope, ledger, dependencies)) {
+    records.push(record);
+    await setImmediate();
+  }
+  return records;
+}
+
+function* verifiedScopeRegistryRecords(root, scope, ledger, dependencies = {}) {
+  if (scope.changed.length === 1 && scope.changed[0] === ADMISSION_PATH) throw Error('MIGRATION_SCOPE=HOLD:ADMISSION_SCHEMA_RECEIPT_REQUIRED');
+  const receiptPaths = scope.changed.filter(migrationPath => !MIGRATION_TOOLING_PATHS.has(migrationPath));
+  if (!receiptPaths.length) return;
+  if (!Array.isArray(ledger?.legacy) || !Array.isArray(ledger?.typeorm)) throw Error('MIGRATION_SCOPE=HOLD:LEDGER_UNREADABLE');
+  const read = dependencies.readJson ?? secureJson, sourceGit = dependencies.git ?? git;
+  const directory = dependencies.directory ?? CONTRACT.stateDirectory;
   const isApplied = (timestamp, fileClassName) => ledger.typeorm.some(
-    row => String(row.timestamp) === String(timestamp) && (row.name === fileClassName || row.name === `${fileClassName}${timestamp}`));
+    row => String(row?.timestamp) === String(timestamp) && (row.name === fileClassName || row.name === `${fileClassName}${timestamp}`));
+  let freshest = null;
   for (const migrationPath of receiptPaths) {
     const name = path.basename(migrationPath, '.ts');
     const match = /^(\d+)-([A-Za-z0-9]+)$/.exec(name);
     if (!match) throw Error(`MIGRATION_SCOPE=HOLD:MIGRATION_NAME_UNPARSEABLE:${name}`);
-    const sourceBlob = git(root, ['rev-parse', `${scope.target}:${migrationPath}`]);
-    const receipt = secureJson(path.join(CONTRACT.stateDirectory, RECEIPT_DIRECTORY, `${name}.json`));
+    const sourceBlob = sourceGit(root, ['rev-parse', `${scope.target}:${migrationPath}`]);
+    const file = path.join(directory, RECEIPT_DIRECTORY, `${name}.json`);
+    const receipt = read(file);
     validateRegistryReceipt(receipt, { migrationPath, sourceBlob });
-    git(root, ['merge-base', '--is-ancestor', receipt.sourceSha, scope.target]);
-    if (git(root, ['rev-parse', `${receipt.sourceSha}:${migrationPath}`]) !== receipt.sourceBlob) throw Error('MIGRATION_SCOPE=HOLD:MIGRATION_SOURCE_BLOB_DRIFT');
+    sourceGit(root, ['merge-base', '--is-ancestor', receipt.sourceSha, scope.target]);
+    if (sourceGit(root, ['rev-parse', `${receipt.sourceSha}:${migrationPath}`]) !== receipt.sourceBlob) throw Error('MIGRATION_SCOPE=HOLD:MIGRATION_SOURCE_BLOB_DRIFT');
     if (!isApplied(match[1], match[2])) throw Error(`MIGRATION_SCOPE=HOLD:MIGRATION_NOT_APPLIED:${name}`);
-  }
-  if (digest(JSON.stringify(ledger)) !== receiptLedgerDigest(receiptPaths, root)) throw Error('MIGRATION_SCOPE=HOLD:APPLIED_LEDGER_DRIFT');
-  return true;
-}
-function receiptLedgerDigest(receiptPaths, root) {
-  // The freshest receipt pins the ledger digest the promotion must observe.
-  let freshest = null;
-  for (const migrationPath of receiptPaths) {
-    const name = path.basename(migrationPath, '.ts');
-    const receipt = secureJson(path.join(CONTRACT.stateDirectory, RECEIPT_DIRECTORY, `${name}.json`));
     if (!freshest || String(receipt.appliedAt) > String(freshest.appliedAt)) freshest = receipt;
+    yield { migrationPath, file, receipt };
   }
-  return freshest.afterLedgerSha256;
+  if (digest(JSON.stringify(ledger)) !== freshest.afterLedgerSha256) throw Error('MIGRATION_SCOPE=HOLD:APPLIED_LEDGER_DRIFT');
 }

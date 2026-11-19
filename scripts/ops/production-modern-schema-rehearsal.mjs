@@ -40,6 +40,7 @@ function readSmall(file,max=16*1024*1024){const stat=fs.lstatSync(file);if(!stat
 class Capsule {
  constructor(input,dependencies){Object.assign(this,input);this.dependencies=dependencies;this.resources=[];this.counter=0;this.client=null;this.apps=[];}
  async check(){this.privateRuntime.guard();if(this.stage==='fenced')await this.dependencies.assertFenced();this.privateRuntime.guard();}
+ checkRecoveryWindow(inFlightMs){if(this.stage==='fenced')this.dependencies.assertRecoveryWindow?.(inFlightMs);}
  async command(args,stem='observe',options={}){
   await this.check();const value=await this.privateRuntime.run({binary:'/usr/bin/docker',args,directory:this.directory,stem:stem+'-'+(++this.counter),...options});
   await this.check();return value;
@@ -125,8 +126,10 @@ class Capsule {
    "ALTER SYSTEM SET log_line_prefix='bootstrap-db=%d user=%u app=%a pid=%p '"],'db-log-prefix');
   await this.command(['exec',this.db,...LOCAL_PSQL,'psql','-X','-q','-v','ON_ERROR_STOP=1','-U',source.username,'-d',source.name,'-c','SELECT pg_reload_conf()'],'db-reload');
   const backup=await this.privateRuntime.digest(this.backup.receipt.backup.path);if(!same(backup,this.backup.receipt.backup))fail('PROTECTED_BACKUP_CHANGED');
-  await this.command(['exec','-i',this.db,...LOCAL_PSQL,'pg_restore','--exit-on-error','--no-owner','--no-acl','-U',source.username,'-d',source.name],'isolated-restore',{inputFile:backup.path,timeoutMs:600000});
-  this.client=new ModernSchemaReadClient({guard:()=>this.privateRuntime.guard(),databaseContainer:this.db});await this.client.start();
+  const restoreTimeout=this.stage==='fenced'&&this.dependencies.assertRecoveryWindow?180000:600000;
+  this.checkRecoveryWindow(restoreTimeout);
+  await this.command(['exec','-i',this.db,...LOCAL_PSQL,'pg_restore','--exit-on-error','--no-owner','--no-acl','-U',source.username,'-d',source.name],'isolated-restore',{inputFile:backup.path,timeoutMs:restoreTimeout});
+  this.client=new ModernSchemaReadClient({guard:()=>{this.privateRuntime.guard();this.checkRecoveryWindow();},databaseContainer:this.db});await this.client.start();
   const {rows:[config]}=await this.client.query("SELECT current_setting('log_statement') AS statement,current_setting('log_line_prefix') AS prefix");
   if(config.statement!=='all'||config.prefix!=='bootstrap-db=%d user=%u app=%a pid=%p ')fail('CLONE_NATIVE_STATEMENT_CAPTURE_REQUIRED');
   this.before=await captureModernSchemaFacts(this.client);compareRestoredModernSchemaTables(this.backup.source.facts,this.before,{fenced:this.stage==='fenced'});
@@ -142,6 +145,7 @@ class Capsule {
    if(locks.admission!==true||locks.execution!==true)fail('OWNED_CLONE_ORIGINAL_LEASE_REQUIRED');
    const {rows:[leaseRow]}=await this.client.query(MODERN_SCHEMA_LEASE_SQL),originalLease=parseModernSchemaLease(JSON.parse(leaseRow.jsonb_build_object));
    for(const mode of ['run','show']){
+    this.checkRecoveryWindow(600000);
     const d=this.backup.source.database;
     const receipt=await runModernSchemaGatedCli({owner:this.owner,contextDigest:canonicalDigest(this.plan),mode,imageId:this.plan.candidateImageId,networkId:this.networkId,
      environment:{DB_HOST:'schema-db',DB_PORT:'5432',DB_USER:d.username,DB_PASSWORD:'',DB_NAME:d.name},privateRuntime:this.privateRuntime,directory:this.directory,originalLease,
@@ -151,7 +155,10 @@ class Capsule {
    }
   }else{
   for(const role of ['rehearsal-migration-run','rehearsal-migration-show']){
-   const id=await this.create(role,this.plan.candidateImageId,this.migrationEnvironment()),result=await this.command(['start','-a',id],role,{timeoutMs:600000}),actual=await this.inspect(id);
+   const timeoutMs=this.stage==='fenced'&&this.dependencies.assertRecoveryWindow?180000:600000;
+   this.checkRecoveryWindow(timeoutMs);
+   const id=await this.create(role,this.plan.candidateImageId,this.migrationEnvironment());this.apps.push(id);
+   const result=await this.command(['start','-a',id],role,{timeoutMs}),actual=await this.inspect(id);
    if(actual.state.Running||actual.state.ExitCode!==0||actual.state.Pid!==0)fail('ATOMIC_CLONE_MIGRATION_UNVERIFIED');
    if(role.endsWith('show')){const output=readSmall(result.stdout);if(/^\s*\[ \]/m.test(output))fail('CLONE_PENDING_MIGRATIONS_REMAIN');}
   }
@@ -275,8 +282,10 @@ export async function rehearseModernSchemaRelease(input,dependencies={}){
   ||(stage==='fenced'&&typeof dependencies.assertFenced!=='function'))fail('EXACT_PROTECTED_REHEARSAL_REQUIRED');
  const directory=privateRuntime.createDirectory(owner,stage+'-rehearsal'),capsule=new Capsule({...input,directory},dependencies);let evidence;
  try{
-  await capsule.setup();await capsule.migrate();
-  const original=await capsule.runtime('original-api',runtimeImageId,plan.runtimeSha),candidate=await capsule.runtime('candidate-api',plan.candidateImageId,plan.targetSha);
+  capsule.checkRecoveryWindow();await capsule.setup();
+  capsule.checkRecoveryWindow();await capsule.migrate();
+  capsule.checkRecoveryWindow();const original=await capsule.runtime('original-api',runtimeImageId,plan.runtimeSha);
+  capsule.checkRecoveryWindow();const candidate=await capsule.runtime('candidate-api',plan.candidateImageId,plan.targetSha);
   const fullDigest=capsule.migrationAfter.facts.allDataSha256;
   if([original.beforeFactsSha256,original.afterFactsSha256,candidate.beforeFactsSha256,candidate.afterFactsSha256].some(digest=>digest!==fullDigest))fail('REHEARSAL_RUNTIME_FACTS_CHAIN_CHANGED');
   // The two baselines came from one snapshot. The verified full-data chain

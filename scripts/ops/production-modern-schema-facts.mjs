@@ -9,6 +9,7 @@ const BLOCK_ROWS=1024;
 const CHANJET_SEGMENT_ROWS=128;
 const MON_HISTORY_SEGMENT_ROWS=32768;
 const SEQUENCE_READ_BATCH=32;
+const SEGMENT_KEY_BATCH=16;
 const integerKeyLimits=new Map([
  ['int2',[-32768n,32767n]],
  ['int4',[-2147483648n,2147483647n]],
@@ -86,18 +87,19 @@ export function foldModernSchemaTableFacts(columns,observed){
  return {rows,sha256:canonicalDigest({algorithm:'native-row-sha256-block-v1',columns,rows,blockRows:BLOCK_ROWS,blocks})};
 }
 
-// PostgreSQL locks the ONLY relation during query analysis, even at LIMIT 0.
-const segmentKeySql=relation=>`WITH locked_relation AS MATERIALIZED (
- SELECT 1 FROM ONLY ${relation} LIMIT 0
+// PostgreSQL locks each ONLY relation during query analysis, even at LIMIT 0.
+const segmentKeySql=relations=>`WITH locked_relations AS MATERIALIZED (
+ ${relations.map(relation=>`(SELECT 1 FROM ONLY ${relation} LIMIT 0)`).join(' UNION ALL ')}
 )
- SELECT a.attname::text AS "keyColumn",t.typname::text AS "keyType"
- FROM pg_class c JOIN pg_attribute a ON a.attrelid=c.oid
+ SELECT submitted.ordinality::integer AS "relationIndex",a.attname::text AS "keyColumn",t.typname::text AS "keyType"
+ FROM unnest($1::text[]) WITH ORDINALITY AS submitted(relation,ordinality)
+ JOIN pg_class c ON c.oid=to_regclass(submitted.relation) JOIN pg_attribute a ON a.attrelid=c.oid
  JOIN pg_type t ON t.oid=a.atttypid
  JOIN pg_index i ON i.indrelid=c.oid
  JOIN pg_opclass o ON o.oid=i.indclass[0]
  JOIN pg_am m ON m.oid=o.opcmethod
- WHERE c.oid=to_regclass($1) AND c.relkind='r' AND NOT c.relispartition
- AND NOT EXISTS (SELECT 1 FROM locked_relation)
+ WHERE c.relkind='r' AND NOT c.relispartition
+ AND NOT EXISTS (SELECT 1 FROM locked_relations)
  AND NOT EXISTS (SELECT 1 FROM pg_inherits WHERE inhrelid=c.oid OR inhparent=c.oid)
  AND a.attnum>0 AND NOT a.attisdropped AND a.attnotnull
  AND t.typnamespace='pg_catalog'::regnamespace AND t.typname IN ('int2','int4','int8','uuid')
@@ -105,6 +107,21 @@ const segmentKeySql=relation=>`WITH locked_relation AS MATERIALIZED (
  AND i.indisprimary AND i.indisvalid AND i.indisready AND i.indislive AND i.indimmediate
  AND i.indnkeyatts=1 AND i.indnatts=1 AND i.indkey[0]=a.attnum AND i.indpred IS NULL AND i.indexprs IS NULL
  `;
+
+async function captureSegmentKeys(client,relations){
+ const keys=new Map();
+ for(let offset=0;offset<relations.length;offset+=SEGMENT_KEY_BATCH){
+  const batch=relations.slice(offset,offset+SEGMENT_KEY_BATCH);
+  const {rows}=await client.query(segmentKeySql(batch),[batch]);
+  for(const {relationIndex,keyColumn,keyType} of rows){
+   const relation=batch[relationIndex-1];
+   if(!Number.isSafeInteger(relationIndex)||!relation||keys.has(relation)||typeof keyColumn!=='string'||
+    (keyType!=='uuid'&&!integerKeyLimits.has(keyType)))fail('NATIVE_TABLE_KEY_REQUIRED');
+   keys.set(relation,{keyColumn,keyType});
+  }
+ }
+ return keys;
+}
 
 function parseSegmentKey(value,type){
  if(typeof value!=='string')fail('NATIVE_TABLE_SEGMENT_REQUIRED');
@@ -157,16 +174,12 @@ async function readSegment(client,{relation,key,keyType,segmentRows,columns,incl
  return segment;
 }
 
-async function captureSegmentedTableFacts(client,table){
+async function captureSegmentedTableFacts(client,table,segmentKeys){
  const {schema,table:name,columns}=table;
  const relation=`${quote(schema)}.${quote(name)}`;
- const {rows:keys}=await client.query(segmentKeySql(relation),[relation]);
- if(!keys.length)return null;
- const {keyColumn,keyType}=keys[0];
- if(keys.length!==1||typeof keyColumn!=='string'||(keyType!=='uuid'&&!integerKeyLimits.has(keyType))){
-  fail('NATIVE_TABLE_KEY_REQUIRED');
- }
- if(!columns.includes(keyColumn))return null;
+ const key=segmentKeys.get(relation);
+ if(!key||!columns.includes(key.keyColumn))return null;
+ const {keyColumn,keyType}=key;
 
  const chanjet=schema==='public'&&name==='chanjet_read_snapshots';
  const monHistory=schema==='public'&&name==='mon_device_property_history';
@@ -228,8 +241,8 @@ function sequenceFacts(selected,live,values){
  return {sequences,businessSequences};
 }
 
-async function captureTableFacts(client,table,current){
- let hash=table.kind==='r'&&current.kind==='r'?await captureSegmentedTableFacts(client,table):null;
+async function captureTableFacts(client,table,current,segmentKeys){
+ let hash=table.kind==='r'&&current.kind==='r'?await captureSegmentedTableFacts(client,table,segmentKeys):null;
  if(hash===null){
   const {rows:observed}=await client.query(modernSchemaTableFactsSql(table));
   hash=foldModernSchemaTableFacts(table.columns,observed);
@@ -258,9 +271,12 @@ async function collectModernSchemaFacts(client,{projection,withinSnapshot,includ
    if(!current||!Array.isArray(table.columns)||!table.columns.length||table.columns.some(column=>!current.columns.includes(column)))fail('ORIGINAL_BUSINESS_COLUMNS_REMOVED');
    return {table,current,key};
   });
+  const keyTables=includeFull?actual:requested.filter(({table})=>table.kind==='r').map(({current})=>current);
+  const segmentKeys=await captureSegmentKeys(client,keyTables.filter(table=>table.kind==='r')
+   .map(table=>`${quote(table.schema)}.${quote(table.table)}`));
   const fullTables=new Map();
   if(includeFull){
-   for(const [key,table] of byTable)fullTables.set(key,await captureTableFacts(client,table,table));
+   for(const [key,table] of byTable)fullTables.set(key,await captureTableFacts(client,table,table,segmentKeys));
   }
   const tables=[];
   for(const {table,current,key} of requested){
@@ -268,7 +284,7 @@ async function collectModernSchemaFacts(client,{projection,withinSnapshot,includ
    if(includeFull&&table.kind===current.kind&&same(table.columns,current.columns)){
     tables.push({...fullTables.get(key),columns:[...table.columns]});
    }else{
-    tables.push(await captureTableFacts(client,table,current));
+    tables.push(await captureTableFacts(client,table,current,segmentKeys));
    }
   }
   const {rows:currentSequences}=await client.query(sequencesSql);

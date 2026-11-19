@@ -1,10 +1,11 @@
 /** Verify the actual atomic CLI result before the ordinary API body. Original
  * per-unit receipt format and its default trust boundary remain unchanged. */
 import fs from 'node:fs';import path from 'node:path';
-import {CONTRACT,git,secureJson} from './production-config-guard.mjs';import {executionEnv} from './capture-production-runtime.mjs';
+import {CONTRACT,git} from './production-config-guard.mjs';
 import {canonicalDigest,same} from './production-maintenance-receipts.mjs';
-import {LEDGER_SQL,digest,RECEIPT_DIRECTORY,validateRegistryReceipt,assertScopeMigrationsReceipted} from './chanjet-admission-schema-receipt.mjs';
-import {captureModernSchemaFacts,assertModernSchemaBusinessUnchanged,defaultOffEvidenceFromFacts} from './production-modern-schema-facts.mjs';
+import {LEDGER_SQL,digest,validateRegistryReceipt,verifyScopeRegistryReceiptsFromLedger} from './chanjet-admission-schema-receipt.mjs';
+import {publishVerifiedMigrationApplyReceipts} from './record-migration-apply-receipt.mjs';
+import {captureModernSchemaFacts,assertModernSchemaBusinessUnchanged,captureModernSchemaDefaultOff,defaultOffEvidenceFromFacts} from './production-modern-schema-facts.mjs';
 import {collectLegacyEggAuditEvidence} from './production-legacy-egg-audit-evidence.mjs';import {modernSchemaMigrationEvidenceDigest} from './production-modern-schema-audit-recheck.mjs';
 import {verifyModernSchemaAuditAfterSchema} from './production-modern-schema-post-audit.mjs';
 import {assertBootstrapSchemaEvidence,bootstrapSchemaSql} from './api-bootstrap-schema-preflight.mjs';
@@ -19,33 +20,35 @@ export async function verifyModernSchemaEffect({context,preparationSha256,rootLe
  if(!client||typeof admit!=='function'||driverReceipt?.outcome!=='SUCCESS'||driverReceipt.contextDigest!==canonicalDigest(context)||fencedBackup.receipt.stage!=='fenced'
   ||driverReceipt.backupSha256!==fencedBackup.receipt.backup.sha256)fail('ACTUAL_ORIGINAL_DRIVER_AND_BACKUP_REQUIRED');
  const check=async()=>{privateRuntime.guard();if(await admit()!==true)fail('ORIGINAL_NATIVE_LEASE_REQUIRED');privateRuntime.guard();};await check();
- const {ledger:afterLedger,sha256:afterLedgerSha256}=await captureModernSchemaLedger(client);assertExactModernSchemaAfterLedger(beforeLedger,afterLedger,context);
- let afterFacts=await captureModernSchemaFacts(client,{projection:beforeFacts});assertModernSchemaBusinessUnchanged(beforeFacts,afterFacts);await check();
+ const verifiedLedger=await captureModernSchemaLedger(client),{ledger:afterLedger,sha256:afterLedgerSha256}=verifiedLedger;
+ assertExactModernSchemaAfterLedger(beforeLedger,afterLedger,context);
+ const afterFacts=await captureModernSchemaFacts(client,{projection:beforeFacts});assertModernSchemaBusinessUnchanged(beforeFacts,afterFacts);await check();
  const databaseIdentity={name:rootLease.database.name,schema:rootLease.database.schema,systemIdentifier:rootLease.database.systemIdentifier};
- let afterAudit=await collectLegacyEggAuditEvidence(client,{targetSha:context.targetSha,floorSha:context.floorSha,runningApiSha:context.runtimeSha,ledgerSha256:afterLedgerSha256,
+ const audit=()=>collectLegacyEggAuditEvidence(client,{targetSha:context.targetSha,floorSha:context.floorSha,runningApiSha:context.runtimeSha,ledgerSha256:afterLedgerSha256,
   migrationEvidenceSha256:modernSchemaMigrationEvidenceDigest(context),databaseIdentity,manifest:preparation.manifest});
- let auditComparison=verifyModernSchemaAuditAfterSchema({context,before:beforeAudit,after:afterAudit,afterLedgerSha256});
+ verifyModernSchemaAuditAfterSchema({context,before:beforeAudit,after:await audit(),afterLedgerSha256});
  const contract=JSON.parse(git(root,['show',context.targetSha+':apps/api/src/common/database/api-bootstrap-schema-contract.json']));
  const {rows:[schemaRow]}=await client.query(bootstrapSchemaSql(contract)),schemaEvidence=typeof schemaRow.json_build_object==='string'?JSON.parse(schemaRow.json_build_object):schemaRow.json_build_object;
  const schemaResult=assertBootstrapSchemaEvidence(contract,schemaEvidence);await check();
  const receiptScript=new URL('./record-migration-apply-receipt.mjs',import.meta.url).pathname;
  if(!fs.readFileSync(receiptScript).equals(Buffer.from(git(root,['show',context.targetSha+':scripts/ops/record-migration-apply-receipt.mjs'])+'\n')))fail('EXACT_RECEIPT_WRITER_SOURCE_REQUIRED');
- const writeReceipts=()=>privateRuntime.run({binary:process.execPath,args:[receiptScript,...context.pendingMigrations.map(unit=>unit.path)],directory:migrationDirectory,stem:'original-per-unit-receipts',inheritFd9:true,
-  env:{...executionEnv(),TARGET_SHA:context.targetSha,MIGRATION_RUN_ID:context.owner,BEFORE_LEDGER_SHA256:context.beforeLedgerSha256},timeoutMs:120000,onSpawn:dependencies.onReceiptWriter});
- if(typeof dependencies.withKnownReadonlyWriter!=='function')fail('SERIAL_ORIGINAL_RECEIPT_WRITER_SUPERVISION_REQUIRED');
- await dependencies.withKnownReadonlyWriter(writeReceipts);await check();
- assertScopeMigrationsReceipted(root,{baseline:context.runtimeSha,target:context.targetSha,changed:context.changedMigrationPaths});
+ await publishVerifiedMigrationApplyReceipts({root,directory,targetSha:context.targetSha,runId:context.owner,
+  beforeLedgerSha256:context.beforeLedgerSha256,verifiedLedger,pendingMigrations:context.pendingMigrations,
+  publish:(file,receipt)=>privateRuntime.publishJson(file,receipt)});
+ await check();
+ const registry=await verifyScopeRegistryReceiptsFromLedger(root,{baseline:context.runtimeSha,target:context.targetSha,changed:context.changedMigrationPaths},afterLedger,{directory});
  const units=context.pendingMigrations.map(unit=>{
-  const receiptFile=path.join(directory,RECEIPT_DIRECTORY,path.basename(unit.path,'.ts')+'.json'),receipt=secureJson(receiptFile);validateRegistryReceipt(receipt,{migrationPath:unit.path,sourceBlob:unit.sourceBlob});
+  const record=registry.find(row=>row.migrationPath===unit.path);
+  if(!record)fail('ORIGINAL_PER_UNIT_RECEIPT_MISMATCH');
+  const {file:receiptFile,receipt}=record;validateRegistryReceipt(receipt,{migrationPath:unit.path,sourceBlob:unit.sourceBlob});
   if(receipt.runId!==context.owner||receipt.sourceSha!==context.targetSha||receipt.beforeLedgerSha256!==context.beforeLedgerSha256||receipt.afterLedgerSha256!==afterLedgerSha256)fail('ORIGINAL_PER_UNIT_RECEIPT_MISMATCH');
   return {path:unit.path,receiptFile,receiptSha256:canonicalDigest(receipt)};
  });
  if((await captureModernSchemaLedger(client)).sha256!==afterLedgerSha256)fail('AFTER_LEDGER_CHANGED_DURING_RECEIPTS');await check();
- afterFacts=await captureModernSchemaFacts(client,{projection:beforeFacts});assertModernSchemaBusinessUnchanged(beforeFacts,afterFacts);
- afterAudit=await collectLegacyEggAuditEvidence(client,{targetSha:context.targetSha,floorSha:context.floorSha,runningApiSha:context.runtimeSha,ledgerSha256:afterLedgerSha256,
-  migrationEvidenceSha256:modernSchemaMigrationEvidenceDigest(context),databaseIdentity,manifest:preparation.manifest});
- auditComparison=verifyModernSchemaAuditAfterSchema({context,before:beforeAudit,after:afterAudit,afterLedgerSha256});
- const off=defaultOffEvidenceFromFacts(context.targetSha,afterFacts);await check();
+ const afterAudit=await audit();
+ const auditComparison=verifyModernSchemaAuditAfterSchema({context,before:beforeAudit,after:afterAudit,afterLedgerSha256});
+ const off=defaultOffEvidenceFromFacts(context.targetSha,afterFacts);
+ await captureModernSchemaDefaultOff(client,context.targetSha);await check();
  const beforeFactsFile=path.join(directory,`schema-release-before-facts-${context.owner}.json`),afterFactsFile=path.join(directory,`schema-release-after-facts-${context.owner}.json`);
  const beforeRawAuditFile=path.join(directory,`schema-release-before-audit-${context.owner}.json`),afterRawAuditFile=path.join(directory,`schema-release-after-audit-${context.owner}.json`);
  privateRuntime.publishJson(afterFactsFile,afterFacts);privateRuntime.publishJson(afterRawAuditFile,afterAudit);

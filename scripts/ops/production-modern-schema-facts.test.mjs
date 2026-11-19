@@ -89,16 +89,16 @@ function snapshotClient(data,{table=snapshotTable,verifiedKey=true,keyType='int8
   }
   if(sql.includes('JOIN pg_index')){
    calls.push('locked key');
-   assert.match(sql,/^WITH locked_relation AS MATERIALIZED \(\s*SELECT 1 FROM ONLY "public"\."chanjet_read_snapshots" LIMIT 0/);
-   assert.match(sql,/AND NOT EXISTS \(SELECT 1 FROM locked_relation\)/);
-   assert.deepEqual(parameters,['"public"."chanjet_read_snapshots"']);
+   assert.match(sql,/^WITH locked_relations AS MATERIALIZED \(\s*\(SELECT 1 FROM ONLY "public"\."chanjet_read_snapshots" LIMIT 0/);
+   assert.match(sql,/AND NOT EXISTS \(SELECT 1 FROM locked_relations\)/);
+   assert.deepEqual(parameters,[['"public"."chanjet_read_snapshots"']]);
    if(lockError)throw lockError;
    assert.match(sql,/c.relkind='r' AND NOT c.relispartition/);
    assert.match(sql,/FROM pg_inherits WHERE inhrelid=c.oid OR inhparent=c.oid/);
    assert.match(sql,/a.attnotnull[\s\S]*t.typname IN \('int2','int4','int8','uuid'\)/);
    assert.match(sql,/m.amname='btree'[\s\S]*o.opcdefault/);
    assert.match(sql,/i.indisprimary AND i.indisvalid[\s\S]*i.indnkeyatts=1 AND i.indnatts=1 AND i.indkey\[0\]=a.attnum/);
-   return {rows:verifiedKey?[{keyColumn:'id',keyType}]:[]};
+   return {rows:verifiedKey?[{relationIndex:1,keyColumn:'id',keyType}]:[]};
   }
   if(sql.includes('AS "upperKey"')){
    calls.push('segment');
