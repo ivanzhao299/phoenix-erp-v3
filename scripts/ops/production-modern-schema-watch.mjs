@@ -127,20 +127,31 @@ export class ModernSchemaExecutorWatch {
   const candidate=next?.state.Running&&address?{address,containerId:next.id,imageId:next.imageId,phase,nativePinSha256:canonicalDigest(identity(next))}:null;
   return {runtimeAddress,oldRuntimeStopped:!old?.state.Running,oldPresent:!!old,candidate};
  }
- #observeGoneDirectFormalChild(row,root){
+ #observeGoneFormalChild(row,root,census){
   const pin=root.pin,role=this.#reapRoles.get(root);
-  if(!['FORMAL_API_BODY','FORMAL_COMPOSE'].includes(role)||this.runtime.isCommand(root)!==true||
-   row[STABLE_MODERN_CENSUS_PARENT]!==true||row.ppid!==pin.pid||
-   pin.parentPid!==process.pid||!Number.isSafeInteger(row.pid)||row.pid<=1||row.pid===pin.pid||
-   row.pidNamespace!==pin.pidNamespace||!nativeTicks(row.startTicks)||
-   BigInt(row.startTicks)<BigInt(pin.startTicks))return null;
+  if(!['FORMAL_API_BODY','FORMAL_COMPOSE'].includes(role)||this.runtime.isCommand(root)!==true||pin.parentPid!==process.pid)return null;
+  const captured=entry=>entry&&Number.isSafeInteger(entry.pid)&&entry.pid>1&&
+   ![pin.pid,process.pid,process.ppid,this.session?.child?.pid].includes(entry.pid)&&
+   !this.readers.some(reader=>reader.entry.child.pid===entry.pid)&&census.get(entry.pid)===entry&&
+   entry[STABLE_MODERN_CENSUS_PARENT]===true&&entry.pidNamespace===pin.pidNamespace&&
+   nativeTicks(entry.startTicks)&&BigInt(entry.startTicks)>=BigInt(pin.startTicks);
+  if(!captured(row))return null;
+  const chain=[row];
+  if(row.ppid!==pin.pid){
+   // The formal Bash can run a short-lived helper with one child of its own.
+   // Both must come from this census and the helper must be directly rooted.
+   if(role!=='FORMAL_API_BODY')return null;
+   const parent=census.get(row.ppid);
+   if(!captured(parent)||parent.pid===row.pid||parent.ppid!==pin.pid||BigInt(parent.startTicks)>BigInt(row.startTicks))return null;
+   chain.push(parent);
+  }
   const pending=this.state.read();
   if(pending.owner!==this.context.owner||pending.phase!=='API_BODY'||pending.status!=='RUNNING')return null;
-  const absent=()=>{
-   try{fs.lstatSync(`/proc/${row.pid}`);return false;}
+  const absent=entry=>{
+   try{fs.lstatSync(`/proc/${entry.pid}`);return false;}
    catch(error){return ['ENOENT','ESRCH'].includes(error.code);}
   };
-  if(!absent())return null;
+  if(!chain.every(absent))return null;
   let original;
   try{
    if(role==='FORMAL_COMPOSE')original=this.#verifyOriginalCompose(root);
@@ -150,7 +161,7 @@ export class ModernSchemaExecutorWatch {
     original={pendingExit:null};
    }
   }catch{return null;}
-  return original&&absent()?original:null;
+  return original&&chain.every(absent)?original:null;
  }
  verifyProcesses(containers,initialize=false,proveLateCandidate){
   const namespaces=new Set();for(const value of containers)if(value.state.Running){try{namespaces.add(fs.readlinkSync(`/proc/${value.state.Pid}/ns/pid`));}catch{fail('NATIVE_CONTAINER_NAMESPACE_UNOBSERVABLE');}}
@@ -160,7 +171,9 @@ export class ModernSchemaExecutorWatch {
    if(!pendingExit)pendingExit=exit;
    else for(const entry of exit.entries)pendingExit.entries.add(entry);
   };
-  for(const row of this.captureProcesses()){
+  const rows=this.captureProcesses(),census=new Map();
+  for(const row of rows)census.set(row.pid,census.has(row.pid)?null:row);
+  for(const row of rows){
    if(row.pid===process.pid||row.pid===process.ppid||namespaces.has(row.pidNamespace))continue;
    const entry=owned.find(item=>item.pin.pid===row.pid);if(entry){
     try{verifyModernSchemaChild(entry,row);}catch(error){
@@ -187,11 +200,11 @@ export class ModernSchemaExecutorWatch {
      verifyModernSchemaChild(root,this.inspectProcess(root.pin.pid));pinnedLive=true;
      assertOriginalModernSchemaProcess(linuxOnly(root.pin),{pid:row.pid});descendant=true;break;
     }catch{}
-    // A sampled direct child may be gone before we walk its live ancestry.
+    // A sampled descendant may be gone before we walk its live ancestry.
     // The formal Bash still needs live proof. Only original Compose may use
     // the same strict native terminal proof as late candidate observation.
     if(!initialize&&(pinnedLive||root===this.composeChild)){
-     const original=this.#observeGoneDirectFormalChild(row,root);
+     const original=this.#observeGoneFormalChild(row,root,census);
      if(original){recordExit(original.pendingExit);descendant=true;break;}
     }
    }

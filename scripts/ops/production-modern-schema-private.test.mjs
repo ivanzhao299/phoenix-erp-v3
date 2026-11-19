@@ -236,6 +236,110 @@ test('the census accepts only an already reaped direct child of the exact live f
  watch.inspectProcess=()=>nativeRow(entry);
  assert.throws(()=>watch.verifyProcesses([]),/NEW_OR_CHANGED_HOST_EXECUTOR/);
 });
+
+test('a reaped Bash → Node → Python sample is bounded to that exact live Bash and the same census', {timeout:15000}, async t=>{
+ const f=fixture(),files=['node-pid','python-pid','stop-chain','chain-reaped','finish-bash'].map(name=>path.join(f.work,name));
+ const python=[
+  'import os, sys, time',
+  'from pathlib import Path',
+  'Path(sys.argv[1]).write_text(str(os.getpid()))',
+  'while not Path(sys.argv[2]).exists(): time.sleep(.01)',
+ ].join('\n');
+ const worker="const fs=require('fs'),{spawn}=require('child_process');const p=spawn('/usr/bin/python3',['-c',process.argv[1],process.argv[3],process.argv[4]],{stdio:'ignore'});fs.writeFileSync(process.argv[2],String(process.pid));p.on('exit',c=>{process.exitCode=c??1;});";
+ const script='"$1" -e "$2" "$3" "$4" "$5" "$6" & worker=$!; wait "$worker"; : > "$7"; while [ ! -e "$8" ]; do /usr/bin/sleep 0.02; done';
+ let registered;
+ const started=new Promise(resolve=>{registered=resolve;});
+ const execution=f.runtime.run({binary:'/bin/bash',args:['--noprofile','--norc','-Eeuo','pipefail','-c',script,'--',process.execPath,worker,python,...files],
+  directory:f.work,stem:'formal-helper-chain',timeoutMs:12000,onSpawn:registered});
+ const entry=await Promise.race([started,execution.then(()=>assert.fail('Bash exited before registration'))]);
+ const pending={owner:'1234-1',phase:'SCHEMA_RECEIPTED',status:'RUNNING'};
+ let rows=[],sample=pending,scans=0;
+ const watch=new ModernSchemaExecutorWatch({
+  context:{owner:pending.owner,runtimeSnapshotSha256:canonicalDigest({})},
+  preparation:{originalSnapshot:{containers:{}},ownedResources:[]},
+  state:{read:()=>sample},privateRuntime:f.runtime,admit:()=>true,
+ },{captureProcesses:()=>{scans++;return rows;},processIdentity:()=>nativeRow(entry)});
+ const waitFor=async file=>{
+  const deadline=performance.now()+3000;
+  while(!fs.existsSync(file)&&performance.now()<deadline)await new Promise(resolve=>setTimeout(resolve,10));
+  assert.ok(fs.existsSync(file));
+ };
+ const marked=row=>Object.defineProperty(row,STABLE_MODERN_CENSUS_PARENT,{value:true});
+ const capture=pid=>{
+  const pin=readLinuxProcessIdentity(pid),row=nativeRow({pin});
+  assert.deepEqual(readLinuxProcessIdentity(pid),pin);
+  return marked(row);
+ };
+ const reject=observations=>{
+  rows=observations;const previous=scans;
+  assert.throws(()=>watch.verifyProcesses([]),/NEW_OR_CHANGED_HOST_EXECUTOR/);
+  assert.equal(scans,previous+1);
+ };
+ let node,leaf;
+ try{
+  watch.allowDescendants(entry,'FORMAL_API_BODY');
+  sample={...pending,phase:'API_BODY'};
+  await waitFor(files[0]);await waitFor(files[1]);
+  node=capture(Number(fs.readFileSync(files[0],'utf8')));
+  leaf=capture(Number(fs.readFileSync(files[1],'utf8')));
+  assert.equal(leaf.ppid,node.pid);
+  assert.equal(node.ppid,entry.pin.pid);
+  fs.writeFileSync(files[2],'');await waitFor(files[3]);
+  for(const row of [node,leaf])assert.throws(()=>fs.lstatSync(`/proc/${row.pid}`),{code:'ENOENT'});
+  assert.equal(entry.child.exitCode,null);
+  for(const order of [[leaf,node],[node,leaf]]){
+   rows=order;
+   assert.doesNotThrow(()=>watch.verifyProcesses([]));
+  }
+  for(const changed of [{owner:'5678-1'},{phase:'API_VERIFIED'},{status:'HOLD'}]){
+   sample={...pending,phase:'API_BODY',...changed};reject([leaf,node]);
+  }
+  sample={...pending,phase:'API_BODY'};
+  reject([leaf]);
+  reject([leaf,{...node}]);
+  reject([leaf,node,node]);
+  reject([marked({...leaf,ppid:leaf.pid}),node]);
+  reject([marked({...leaf,ppid:1}),node]);
+  reject([leaf,marked({...node,ppid:leaf.pid})]);
+  reject([leaf,marked({...node,pidNamespace:'pid:[1]'})]);
+  reject([leaf,marked({...node,startTicks:String(BigInt(leaf.startTicks)+1n)})]);
+
+  const stranger=spawn(process.execPath,['-e','setInterval(()=>{},1000)'],{stdio:'ignore'});
+  const strangerExited=new Promise(resolve=>stranger.once('exit',resolve));
+  let other;
+  try{other=capture(stranger.pid);}finally{stranger.kill('SIGTERM');await strangerExited;}
+  reject([leaf,node,other]);
+  reject([other,leaf,node]);
+  const third=marked({...other,ppid:entry.pin.pid,startTicks:node.startTicks});
+  reject([leaf,marked({...node,ppid:third.pid}),third]);
+
+  const lstat=fs.lstatSync,midPath=`/proc/${node.pid}`;
+  for(const code of ['EACCES','EPERM']){
+   const mocked=t.mock.method(fs,'lstatSync',(...args)=>{
+    if(args[0]===midPath)throw Object.assign(Error(code),{code});
+    return lstat(...args);
+   });
+   try{reject([leaf,node]);}finally{mocked.mock.restore();}
+  }
+  let midReads=0;
+  const reused=t.mock.method(fs,'lstatSync',(...args)=>{
+   if(args[0]===midPath&&++midReads===2)return lstat(`/proc/${process.pid}`);
+   return lstat(...args);
+  });
+  try{reject([leaf,node]);assert.equal(midReads,2);}finally{reused.mock.restore();}
+  watch.session={child:{pid:node.pid}};
+  reject([leaf,node]);
+  watch.session=null;
+  watch.inspectProcess=()=>({...nativeRow(entry),argvSha256:'changed'});
+  reject([leaf,node]);
+ }finally{
+  fs.writeFileSync(files[2],'');fs.writeFileSync(files[4],'');
+  await execution;
+ }
+ watch.inspectProcess=()=>nativeRow(entry);
+ reject([leaf,node]);
+});
+
 test('an active original command never gets the terminal exception for changed identity',async()=>{
  const f=fixture();
  await finishFileCommand(f,(entry,finish)=>{
