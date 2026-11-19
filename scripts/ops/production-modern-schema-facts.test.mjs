@@ -59,10 +59,10 @@ const mirrorRows=count=>Array.from({length:count},(_,index)=>({
  raw_payload:{body:'value '+index},
 }));
 
-function snapshotClient(data,{table=snapshotTable,verifiedKey=true,keyType='int8',lockError,override=()=>{}}={}){
+function snapshotClient(data,{table=snapshotTable,verifiedKey=true,keyType='int8',lockError,override=()=>{},sequences=[],sequenceResult=rows=>rows}={}){
  const keys=[...data].sort((a,b)=>BigInt(a.id)<BigInt(b.id)?-1:1);
  const calls=[];
- let lower=null,upper=null;
+ let sequenceOffset=0;
  return {calls,async query(sql,parameters=[]){
   if(sql==='BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY'||sql==='ROLLBACK'){
    calls.push(sql);
@@ -78,7 +78,15 @@ function snapshotClient(data,{table=snapshotTable,verifiedKey=true,keyType='int8
    return {rows:[{name:'fixture',systemIdentifier:'1',primary:true,readonly:'on',isolation:'repeatable read'}]};
   }
   if(sql.includes('array_agg(a.attname'))return {rows:[table]};
-  if(sql.includes('LEFT JOIN pg_depend'))return {rows:[]};
+  if(sql.includes('LEFT JOIN pg_depend'))return {rows:sequences};
+  if(sql.includes(' AS "sequenceIndex"')){
+   calls.push('sequence batch');
+   const batch=sequences.slice(sequenceOffset,sequenceOffset+32);
+   const clauses=batch.map(({schema,name},index)=>`SELECT ${index} AS "sequenceIndex",last_value::text AS "lastValue",is_called AS "isCalled" FROM "${schema}"."${name}"`);
+   assert.equal(sql,clauses.join(' UNION ALL ')+' ORDER BY "sequenceIndex"');
+   sequenceOffset+=batch.length;
+   return {rows:sequenceResult(batch.map((sequence,index)=>({sequenceIndex:index,lastValue:String(sequenceOffset+index),isCalled:true})))};
+  }
   if(sql.startsWith('SELECT 1 FROM ONLY')){
    assert.equal(sql,'SELECT 1 FROM ONLY "public"."chanjet_read_snapshots" LIMIT 0');
    calls.push('lock');
@@ -96,22 +104,21 @@ function snapshotClient(data,{table=snapshotTable,verifiedKey=true,keyType='int8
    return {rows:verifiedKey?[{keyColumn:'id',keyType}]:[]};
   }
   if(sql.includes('AS "upperKey"')){
-   calls.push('boundary');
-   assert.match(sql,/SELECT "id" FROM ONLY "public"."chanjet_read_snapshots"[\s\S]*ORDER BY "id" OFFSET 128 LIMIT 1\s*\)::text AS "upperKey"/);
-   lower=parameters[0]??null;
+   calls.push('segment');
+   assert.match(sql,/SELECT "id" FROM ONLY "public"."chanjet_read_snapshots"[\s\S]*ORDER BY "id" OFFSET 128 LIMIT 1\) AS upper_key/);
+   assert.match(sql,/boundary\.upper_key::text AS "upperKey"/);
+   assert.match(sql,/WHERE boundary\.upper_key IS NOT NULL AND "id"<boundary\.upper_key/);
+   assert.match(sql,/UNION ALL \(SELECT [\s\S]*WHERE boundary\.upper_key IS NULL/);
+   const lower=parameters[0]??null;
    const tail=keys.filter(row=>lower===null||BigInt(row.id)>=BigInt(lower));
    const actual=tail[128]?.id??null,replacement=override('boundary',actual,lower);
-   upper=replacement===undefined?actual:replacement;
-   return {rows:[{upperKey:upper}]};
-  }
-  if(sql.includes('AS "startsAtLower"')){
-   calls.push('digest');
+   const upper=replacement===undefined?actual:replacement;
    assert.match(sql,/SELECT "id","payload_hash","raw_payload" FROM ONLY "public"."chanjet_read_snapshots"/);
    assert.match(sql,/ORDER BY "id" LIMIT 129/);
    assert.match(sql,/sha256\(convert_to\(to_jsonb\(phoenix_original_row\)::text,'UTF8'\)\)/);
-   assert.deepEqual(parameters,[lower,upper].filter(key=>key!==null));
-   const range=keys.filter(row=>(lower===null||BigInt(row.id)>=BigInt(lower))&&(upper===null||BigInt(row.id)<BigInt(upper))).slice(0,129);
-   const segment={rows:range.length,startsAtLower:lower===null||range[0]?.id===lower,
+   assert.deepEqual(parameters,lower===null?[]:[lower]);
+   const range=tail.filter(row=>upper===null||BigInt(row.id)<BigInt(upper)).slice(0,129);
+   const segment={upperKey:upper,hasUpper:upper!==null,rows:range.length,startsAtLower:lower===null||range[0]?.id===lower,
     sha256:range.length?digest(range.map(row=>digest(JSON.stringify(row))).sort().join('')):null};
    return {rows:override('digest',segment,lower)??[segment]};
   }
@@ -131,8 +138,8 @@ test('Chanjet facts are deterministic across row order and cover exact, partial 
   const client=snapshotClient(data);
   const facts=await captureModernSchemaFacts(client);
   assert.equal(facts.tables[0].rows,count);
-  assert.equal(client.calls.filter(call=>call==='digest').length,Math.max(1,Math.ceil(count/128)));
-  assert.deepEqual(client.calls.slice(0,5),['BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY','limits','lock','key','boundary']);
+  assert.equal(client.calls.filter(call=>call==='segment').length,Math.max(1,Math.ceil(count/128)));
+  assert.deepEqual(client.calls.slice(0,5),['BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY','limits','lock','key','segment']);
   assert.equal(client.calls.at(-1),'ROLLBACK');
   assert.deepEqual(facts,await captureModernSchemaFacts(snapshotClient(data.reverse()),{projection:facts}));
   assert.deepEqual(Object.keys(facts.tables[0]).sort(),['columns','kind','rows','schema','sha256','table']);
@@ -155,6 +162,7 @@ test('Chanjet facts reject malformed, skipped and repeated ranges and roll back'
   (step,value,lower)=>step==='boundary'&&lower!==null?String(BigInt(lower)-1n):undefined,
   (step)=>step==='boundary'?'9223372036854775808':undefined,
   (step)=>step==='boundary'?'-0':undefined,
+  (step,value)=>step==='digest'?[{...value,upperKey:null}]:undefined,
   (step,value)=>step==='digest'?[value,value]:undefined,
   (step,value,lower)=>step==='digest'&&lower!==null?[{...value,startsAtLower:false}]:undefined,
   (step,value,lower)=>step==='digest'&&lower!==null?[{...value,rows:0,sha256:null}]:undefined,
@@ -185,4 +193,19 @@ test('an unverified relation lock fails and standalone capture rolls back',async
  const client=snapshotClient(mirrorRows(1),{lockError:Error('fixture lock timeout')});
  await assert.rejects(captureModernSchemaFacts(client,{withinSnapshot:true}),/fixture lock timeout/);
  assert.deepEqual(client.calls,['limits','lock']);
+});
+
+test('sequence facts batch exact names without persisting the transport ordinals',async()=>{
+ const sequences=Array.from({length:65},(_,index)=>({schema:'public',name:'test_seq_'+index,ownerSchema:null,ownerTable:null}));
+ const client=snapshotClient([],{sequences});
+ const facts=await captureModernSchemaFacts(client);
+ assert.equal(client.calls.filter(call=>call==='sequence batch').length,3);
+ assert.deepEqual(facts.sequences.map(({name})=>name),sequences.map(({name})=>name));
+ assert.ok(facts.sequences.every(sequence=>!Object.hasOwn(sequence,'sequenceIndex')));
+ for(const sequenceResult of [rows=>rows.slice(1),rows=>rows.reverse(),rows=>[rows[0],...rows.slice(0,-1)],
+  rows=>[{...rows[0],lastValue:42},...rows.slice(1)],rows=>[{...rows[0],isCalled:'true'},...rows.slice(1)]]){
+  await assert.rejects(captureModernSchemaFacts(snapshotClient([],{sequences,sequenceResult})),/EXACT_SEQUENCE_STATE_REQUIRED/);
+ }
+ const absent={...facts,sequences:[{schema:'other',name:'missing'}]};
+ await assert.rejects(captureModernSchemaFacts(snapshotClient([],{sequences}),{projection:absent}),/ORIGINAL_SEQUENCE_REMOVED/);
 });

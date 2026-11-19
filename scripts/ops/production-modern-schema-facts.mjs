@@ -7,7 +7,8 @@ const fail=code=>{throw Error('MODERN_SCHEMA_FACTS_HOLD='+code);};
 const quote=value=>'"'+value.replaceAll('"','""')+'"';
 const BLOCK_ROWS=1024;
 const CHANJET_SEGMENT_ROWS=128;
-const MON_HISTORY_SEGMENT_ROWS=4096;
+const MON_HISTORY_SEGMENT_ROWS=32768;
+const SEQUENCE_READ_BATCH=32;
 const integerKeyLimits=new Map([
  ['int2',[-32768n,32767n]],
  ['int4',[-2147483648n,2147483647n]],
@@ -110,40 +111,41 @@ function parseSegmentKey(value,type){
  return integer;
 }
 
-async function readUpperKey(client,{relation,key,keyType,segmentRows},lower){
- // Cast after the inner ordering. PostgreSQL otherwise can order by the text alias.
- const {rows}=await client.query(`SELECT (
-  SELECT ${key} FROM ONLY ${relation}
-  ${lower===null?'':`WHERE ${key}>=$1::${keyType}`} ORDER BY ${key} OFFSET ${segmentRows} LIMIT 1
- )::text AS "upperKey"`,lower===null?[]:[lower]);
- if(rows.length!==1)fail('NATIVE_TABLE_SEGMENT_REQUIRED');
- const upper=rows[0]?.upperKey;
+async function readSegment(client,{relation,key,keyType,segmentRows,columns,includeSmall},lower){
+ const lowerBound=lower===null?'':`${key}>=$1::${keyType}`;
+ const probeOnly=lower===null&&!includeSmall;
+ const page=condition=>`(SELECT ${columns.map(quote).join(',')} FROM ONLY ${relation}
+  WHERE ${condition} ${lowerBound?'AND '+lowerBound:''} ORDER BY ${key} LIMIT ${segmentRows+1})`;
+ // Keep a native upper index bound on full segments. An OR with the tail case
+ // can turn it into a filter and scan the remainder when checking for an extra row.
+ const bounded=page(`boundary.upper_key IS NOT NULL AND ${key}<boundary.upper_key`);
+ const source=probeOnly?bounded:`${bounded} UNION ALL ${page('boundary.upper_key IS NULL')}`;
+ // The lookahead is key-only. Hash only the bounded half-open interval in the same statement.
+ const {rows}=await client.query(`WITH boundary AS MATERIALIZED (
+  SELECT (SELECT ${key} FROM ONLY ${relation} ${lowerBound?'WHERE '+lowerBound:''}
+   ORDER BY ${key} OFFSET ${segmentRows} LIMIT 1) AS upper_key
+ )
+ SELECT boundary.upper_key::text AS "upperKey", boundary.upper_key IS NOT NULL AS "hasUpper", segment.*
+ FROM boundary CROSS JOIN LATERAL (
+  WITH hashed AS MATERIALIZED (
+   SELECT ${key} AS segment_key,${nativeRowHashSql} COLLATE "C" AS row_hash
+   FROM (${source}) AS phoenix_original_row
+  )
+  SELECT count(*)::integer AS rows,
+   ${lower===null?'true':`coalesce(bool_or(segment_key=$1::${keyType}),false)`} AS "startsAtLower",
+   encode(sha256(convert_to(string_agg(row_hash,'' ORDER BY row_hash COLLATE "C"),'UTF8')),'hex') AS sha256
+  FROM hashed
+ ) AS segment`,lower===null?[]:[lower]);
+ const [segment]=rows;
+ const upper=segment?.upperKey;
  if(upper!==null){
   const parsed=parseSegmentKey(upper,keyType);
   if(lower!==null&&parsed<=parseSegmentKey(lower,keyType))fail('NATIVE_TABLE_SEGMENT_REQUIRED');
  }
- return upper;
-}
-
-async function readSegment(client,{relation,key,keyType,segmentRows,columns},lower,upper){
- const parameters=[],conditions=[];
- if(lower!==null){parameters.push(lower);conditions.push(`${key}>=$1::${keyType}`);}
- if(upper!==null){parameters.push(upper);conditions.push(`${key}<$${parameters.length}::${keyType}`);}
- const range=conditions.length?`WHERE ${conditions.join(' AND ')}`:'';
- // The extra row proves an invalid boundary cannot truncate or hash an unbounded tail.
- const {rows}=await client.query(`WITH hashed AS MATERIALIZED (
-  SELECT ${key} AS segment_key,${nativeRowHashSql} COLLATE "C" AS row_hash
-  FROM (SELECT ${columns.map(quote).join(',')} FROM ONLY ${relation} ${range}
-        ORDER BY ${key} LIMIT ${segmentRows+1}) AS phoenix_original_row
- )
- SELECT count(*)::integer AS rows,
-  ${lower===null?'true':`coalesce(bool_or(segment_key=$1::${keyType}),false)`} AS "startsAtLower",
-  encode(sha256(convert_to(string_agg(row_hash,'' ORDER BY row_hash COLLATE "C"),'UTF8')),'hex') AS sha256
- FROM hashed`,parameters);
- const [segment]=rows;
- if(rows.length!==1||segment?.startsAtLower!==true||!Number.isSafeInteger(segment.rows)||
+ if(rows.length!==1||segment?.hasUpper!==(upper!==null)||segment.startsAtLower!==true||!Number.isSafeInteger(segment.rows)||
   segment.rows<0||segment.rows>segmentRows||
   (upper!==null&&segment.rows!==segmentRows)||(lower!==null&&segment.rows===0)||
+  (probeOnly&&upper===null&&segment.rows!==0)||
   (segment.rows?(typeof segment.sha256!=='string'||!HASH.test(segment.sha256)):segment.sha256!==null)){
   fail('NATIVE_TABLE_SEGMENT_REQUIRED');
  }
@@ -167,25 +169,47 @@ async function captureSegmentedTableFacts(client,table){
  const chanjet=schema==='public'&&name==='chanjet_read_snapshots';
  const monHistory=schema==='public'&&name==='mon_device_property_history';
  const segmentRows=chanjet?CHANJET_SEGMENT_ROWS:monHistory?MON_HISTORY_SEGMENT_ROWS:BLOCK_ROWS;
- const plan={relation,key:quote(keyColumn),keyType,segmentRows,columns};
- let lower=null,upper=await readUpperKey(client,plan,null),rows=0;
- // The choice depends on exact visible rows and schema, including after logical restore.
- // Preserve the CP52 path for Chanjet even when the table fits in a single segment.
- if(upper===null&&!chanjet)return null;
+ const plan={relation,key:quote(keyColumn),keyType,segmentRows,columns,includeSmall:chanjet};
+ let lower=null,rows=0;
  const segments=createHash('sha256');
  for(;;){
-  const segment=await readSegment(client,plan,lower,upper);
+  const segment=await readSegment(client,plan,lower),upper=segment.upperKey;
+  // Small tables keep their whole-table fingerprint, even after a logical restore.
+  if(lower===null&&upper===null&&!chanjet)return null;
   rows+=segment.rows;
   if(rows>2147483647)fail('NATIVE_TABLE_SEGMENT_REQUIRED');
   // Bind each half-open interval to its row count and digest without retaining its keys.
   if(segment.rows)segments.update(canonicalDigest({lower,upper,rows:segment.rows,sha256:segment.sha256}));
   if(upper===null)break;
   lower=upper;
-  upper=await readUpperKey(client,plan,lower);
  }
  const domain=chanjet&&keyColumn==='id'&&keyType==='int8'?{algorithm:'native-row-sha256-bigint-segment-v1'}:
   {algorithm:'native-row-sha256-key-segment-v1',keyColumn,keyType};
  return {rows,sha256:canonicalDigest({...domain,columns,rows,segmentRows,segmentsSha256:segments.digest('hex')})};
+}
+
+async function captureSequenceFacts(client,currentSequences,projection){
+ const selected=projection??currentSequences,sequences=[],businessSequences=[];
+ for(let offset=0;offset<selected.length;offset+=SEQUENCE_READ_BATCH){
+  const batch=selected.slice(offset,offset+SEQUENCE_READ_BATCH);
+  const live=batch.map(sequence=>currentSequences.find(row=>row.schema===sequence.schema&&row.name===sequence.name));
+  if(live.some(row=>!row))fail('ORIGINAL_SEQUENCE_REMOVED');
+  const sql=batch.map(({schema,name},index)=>`SELECT ${index} AS "sequenceIndex",last_value::text AS "lastValue",is_called AS "isCalled" FROM ${quote(schema)}.${quote(name)}`);
+  const {rows}=await client.query(sql.join(' UNION ALL ')+' ORDER BY "sequenceIndex"');
+  if(rows.length!==batch.length)fail('EXACT_SEQUENCE_STATE_REQUIRED');
+  for(const [index,{schema,name,ownerSchema,ownerTable}] of batch.entries()){
+   const value=rows[index];
+   if(value?.sequenceIndex!==index||typeof value.lastValue!=='string'||!/^-?[0-9]+$/.test(value.lastValue)||typeof value.isCalled!=='boolean'){
+    fail('EXACT_SEQUENCE_STATE_REQUIRED');
+   }
+   const fact={schema,name,ownerSchema,ownerTable,lastValue:value.lastValue,isCalled:value.isCalled};
+   sequences.push(fact);
+   const ownedTool=ownerSchema==='public'&&tools.has(ownerTable);
+   const legacyTool=ownerSchema===null&&ownerTable===null&&live[index].legacyDictionaryTool===true;
+   if(!ownedTool&&!legacyTool)businessSequences.push(fact);
+  }
+ }
+ return {sequences,businessSequences};
 }
 
 export async function captureModernSchemaFacts(client,{projection=null,withinSnapshot=false}={}){
@@ -207,18 +231,8 @@ export async function captureModernSchemaFacts(client,{projection=null,withinSna
    }
    tables.push({schema:table.schema,table:table.table,kind:table.kind,columns:[...table.columns],rows:hash.rows,sha256:hash.sha256});
   }
-  const {rows:currentSequences}=await client.query(sequencesSql),sequences=[],businessSequences=[];
-  for(const sequence of projection?.sequences??currentSequences){
-   const current=currentSequences.find(s=>s.schema===sequence.schema&&s.name===sequence.name);
-   if(!current)fail('ORIGINAL_SEQUENCE_REMOVED');
-   const {rows:[value]}=await client.query(`SELECT last_value::text AS "lastValue",is_called AS "isCalled" FROM ${quote(sequence.schema)}.${quote(sequence.name)}`);
-   if(!/^-?[0-9]+$/.test(value.lastValue??'')||typeof value.isCalled!=='boolean')fail('EXACT_SEQUENCE_STATE_REQUIRED');
-   const fact={schema:sequence.schema,name:sequence.name,ownerSchema:sequence.ownerSchema,ownerTable:sequence.ownerTable,...value};
-   sequences.push(fact);
-   const ownedTool=sequence.ownerSchema==='public'&&tools.has(sequence.ownerTable);
-   const legacyTool=sequence.ownerSchema===null&&sequence.ownerTable===null&&current.legacyDictionaryTool===true;
-   if(!ownedTool&&!legacyTool)businessSequences.push(fact);
-  }
+  const {rows:currentSequences}=await client.query(sequencesSql);
+  const {sequences,businessSequences}=await captureSequenceFacts(client,currentSequences,projection?.sequences);
   const newTables=projection?actual.filter(table=>!before.some(prior=>table.schema===prior.schema&&table.table===prior.table)):[];
   for(const table of newTables){
    const {rows:[{count}]}=await client.query(`SELECT count(*)::integer AS count FROM ${quote(table.schema)}.${quote(table.table)}`);

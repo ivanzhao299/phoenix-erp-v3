@@ -16,9 +16,11 @@ const seed=`
  FROM generate_series(0,255) i ORDER BY i DESC;
  INSERT INTO chanjet_read_snapshots VALUES (9223372036854775807,'same','{}');
 
- CREATE TABLE mon_device_property_history (id uuid PRIMARY KEY, value text);
+ CREATE TABLE mon_device_property_history (id uuid PRIMARY KEY, erp_house_code varchar(50), property_code varchar(50),
+  value decimal(18,2), collect_time bigint, log_date date, created_at timestamp);
  INSERT INTO mon_device_property_history
- SELECT md5(i::text)::uuid,'value' FROM generate_series(1,8500) i;
+ SELECT md5(i::text)::uuid,'house','property',i/100.0,i,'2026-11-01'::date,'2026-11-01'::timestamp
+ FROM generate_series(1,65539) i;
  CREATE TABLE generic_integer ("unusual key" integer PRIMARY KEY);
  INSERT INTO generic_integer SELECT i FROM generate_series(-512,512) i;
  CREATE TABLE smallint_threshold (id smallint PRIMARY KEY);
@@ -112,15 +114,16 @@ for(const version of ['16.14-alpine','18-alpine']){
      lockChecked=true;
     }
     const table=statement.match(/FROM (?:ONLY )?"public"\."([^"]+)"/)?.[1];
-    if(table&&statement.includes('AS "startsAtLower"'))segmentCounts.set(table,(segmentCounts.get(table)??0)+1);
     if(table&&statement.includes(' AS "blockIndex"'))completeScans.add(table);
-    return client.query(statement,parameters);
+    const result=await client.query(statement,parameters);
+    if(table&&statement.includes('AS "upperKey"')&&result.rows[0].rows)segmentCounts.set(table,(segmentCounts.get(table)??0)+1);
+    return result;
    }};
    const facts=await captureModernSchemaFacts(observedClient);
    assert.ok(lockChecked);
    const rowCounts=Object.fromEntries(facts.tables.map(table=>[table.table,table.rows]));
    assert.deepEqual(rowCounts,{chanjet_read_snapshots:257,generic_integer:1025,generic_text:1030,
-    inherited:1031,inherited_child:1,mon_device_property_history:8500,partitioned:1030,partitioned_p:1030,smallint_threshold:1024});
+    inherited:1031,inherited_child:1,mon_device_property_history:65539,partitioned:1030,partitioned_p:1030,smallint_threshold:1024});
    assert.deepEqual(Object.fromEntries(segmentCounts),{chanjet_read_snapshots:3,generic_integer:2,mon_device_property_history:3});
    assert.deepEqual([...completeScans].sort(),['generic_text','inherited','inherited_child','partitioned','partitioned_p','smallint_threshold']);
 
@@ -143,6 +146,7 @@ for(const version of ['16.14-alpine','18-alpine']){
    assert.equal(later.tables.find(table=>table.table==='smallint_threshold').rows,1025);
    assert.equal(segmentCounts.get('smallint_threshold'),2);
    assert.notEqual(later.businessDataSha256,facts.businessDataSha256);
+   sql('TRUNCATE mon_device_property_history');
    await verifyLegacyDictionarySequence(client,sql);
   }finally{
    try{await client?.close();}finally{docker(['stop',container]);}
