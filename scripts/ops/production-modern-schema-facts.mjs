@@ -188,61 +188,114 @@ async function captureSegmentedTableFacts(client,table){
  return {rows,sha256:canonicalDigest({...domain,columns,rows,segmentRows,segmentsSha256:segments.digest('hex')})};
 }
 
-async function captureSequenceFacts(client,currentSequences,projection){
- const selected=projection??currentSequences,sequences=[],businessSequences=[];
+const relationKey=(schema,name)=>JSON.stringify([schema,name]);
+
+async function captureSequenceValues(client,selected){
+ const values=new Map();
  for(let offset=0;offset<selected.length;offset+=SEQUENCE_READ_BATCH){
   const batch=selected.slice(offset,offset+SEQUENCE_READ_BATCH);
-  const live=batch.map(sequence=>currentSequences.find(row=>row.schema===sequence.schema&&row.name===sequence.name));
-  if(live.some(row=>!row))fail('ORIGINAL_SEQUENCE_REMOVED');
   const sql=batch.map(({schema,name},index)=>`SELECT ${index} AS "sequenceIndex",last_value::text AS "lastValue",is_called AS "isCalled" FROM ${quote(schema)}.${quote(name)}`);
   const {rows}=await client.query(sql.join(' UNION ALL ')+' ORDER BY "sequenceIndex"');
   if(rows.length!==batch.length)fail('EXACT_SEQUENCE_STATE_REQUIRED');
-  for(const [index,{schema,name,ownerSchema,ownerTable}] of batch.entries()){
+  for(const [index,{schema,name}] of batch.entries()){
    const value=rows[index];
    if(value?.sequenceIndex!==index||typeof value.lastValue!=='string'||!/^-?[0-9]+$/.test(value.lastValue)||typeof value.isCalled!=='boolean'){
     fail('EXACT_SEQUENCE_STATE_REQUIRED');
    }
-   const fact={schema,name,ownerSchema,ownerTable,lastValue:value.lastValue,isCalled:value.isCalled};
-   sequences.push(fact);
-   const ownedTool=ownerSchema==='public'&&tools.has(ownerTable);
-   const legacyTool=ownerSchema===null&&ownerTable===null&&live[index].legacyDictionaryTool===true;
-   if(!ownedTool&&!legacyTool)businessSequences.push(fact);
+   values.set(relationKey(schema,name),{lastValue:value.lastValue,isCalled:value.isCalled});
   }
+ }
+ return values;
+}
+
+function sequenceFacts(selected,live,values){
+ const sequences=[],businessSequences=[];
+ for(const {schema,name,ownerSchema,ownerTable} of selected){
+  const key=relationKey(schema,name);
+  const fact={schema,name,ownerSchema,ownerTable,...values.get(key)};
+  sequences.push(fact);
+  const ownedTool=ownerSchema==='public'&&tools.has(ownerTable);
+  const legacyTool=ownerSchema===null&&ownerTable===null&&live.get(key).legacyDictionaryTool===true;
+  if(!ownedTool&&!legacyTool)businessSequences.push(fact);
  }
  return {sequences,businessSequences};
 }
 
-export async function captureModernSchemaFacts(client,{projection=null,withinSnapshot=false}={}){
+async function captureTableFacts(client,table,current){
+ let hash=table.kind==='r'&&current.kind==='r'?await captureSegmentedTableFacts(client,table):null;
+ if(hash===null){
+  const {rows:observed}=await client.query(modernSchemaTableFactsSql(table));
+  hash=foldModernSchemaTableFacts(table.columns,observed);
+ }
+ return {schema:table.schema,table:table.table,kind:table.kind,columns:[...table.columns],rows:hash.rows,sha256:hash.sha256};
+}
+
+function factsReceipt(identity,tables,{sequences,businessSequences},newTables){
+ const businessTables=tables.filter(table=>!(table.schema==='public'&&tools.has(table.table)));
+ const content={schema:'phoenix.modern-schema-database-facts/v1',database:{name:identity.name,systemIdentifier:identity.systemIdentifier},tables,sequences,newTables};
+ return {...content,allDataSha256:canonicalDigest({tables,sequences}),businessDataSha256:canonicalDigest({tables:businessTables,sequences:businessSequences}),readOnly:true,releaseAuthorized:false};
+}
+
+async function collectModernSchemaFacts(client,{projection,withinSnapshot,includeFull}){
  if(!withinSnapshot)await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
  try{
   await client.query("SET LOCAL search_path=pg_catalog; SET LOCAL statement_timeout='20s'; SET LOCAL lock_timeout='3s'; SET LOCAL row_security=off; SET LOCAL max_parallel_workers_per_gather=0; SET LOCAL work_mem='4MB'; SET LOCAL TimeZone='UTC'; SET LOCAL DateStyle='ISO,YMD'; SET LOCAL IntervalStyle='iso_8601'; SET LOCAL bytea_output='hex'; SET LOCAL extra_float_digits=3");
   const {rows:[identity]}=await client.query(`SELECT current_database() AS name,(SELECT system_identifier::text FROM pg_control_system()) AS "systemIdentifier",NOT pg_is_in_recovery() AS primary,current_setting('transaction_read_only') AS readonly,current_setting('transaction_isolation') AS isolation`);
   if(identity.primary!==true||identity.readonly!=='on'||identity.isolation!=='repeatable read')fail('PRIMARY_READONLY_REQUIRED');
   const {rows:actual}=await client.query(catalogSql);if(actual.some(table=>table.kind==='f'))fail('FOREIGN_TABLE_OUTSIDE_SUPPORTED_SCOPE');
-  const before=projection?.tables??actual,tables=[];
-  if(!Array.isArray(before)||before.length>2048)fail('BOUNDED_TABLE_PROJECTION_REQUIRED');
-  for(const table of before){
-   const current=actual.find(row=>row.schema===table.schema&&row.table===table.table);
+  const originals=projection?.tables??actual;
+  if(!Array.isArray(originals)||originals.length>2048||(includeFull&&actual.length>2048))fail('BOUNDED_TABLE_PROJECTION_REQUIRED');
+  const byTable=new Map(actual.map(table=>[relationKey(table.schema,table.table),table]));
+  const requested=originals.map(table=>{
+   const key=relationKey(table.schema,table.table),current=byTable.get(key);
    if(!current||!Array.isArray(table.columns)||!table.columns.length||table.columns.some(column=>!current.columns.includes(column)))fail('ORIGINAL_BUSINESS_COLUMNS_REMOVED');
-   let hash=table.kind==='r'&&current.kind==='r'?await captureSegmentedTableFacts(client,table):null;
-   if(hash===null){
-    const {rows:observed}=await client.query(modernSchemaTableFactsSql(table));
-    hash=foldModernSchemaTableFacts(table.columns,observed);
+   return {table,current,key};
+  });
+  const fullTables=new Map();
+  if(includeFull){
+   for(const [key,table] of byTable)fullTables.set(key,await captureTableFacts(client,table,table));
+  }
+  const tables=[];
+  for(const {table,current,key} of requested){
+   // The segmentation policy also depends on relkind and exact column order.
+   if(includeFull&&table.kind===current.kind&&same(table.columns,current.columns)){
+    tables.push({...fullTables.get(key),columns:[...table.columns]});
+   }else{
+    tables.push(await captureTableFacts(client,table,current));
    }
-   tables.push({schema:table.schema,table:table.table,kind:table.kind,columns:[...table.columns],rows:hash.rows,sha256:hash.sha256});
   }
   const {rows:currentSequences}=await client.query(sequencesSql);
-  const {sequences,businessSequences}=await captureSequenceFacts(client,currentSequences,projection?.sequences);
-  const newTables=projection?actual.filter(table=>!before.some(prior=>table.schema===prior.schema&&table.table===prior.table)):[];
-  for(const table of newTables){
-   const {rows:[{count}]}=await client.query(`SELECT count(*)::integer AS count FROM ${quote(table.schema)}.${quote(table.table)}`);
+  const liveSequences=new Map(currentSequences.map(sequence=>[relationKey(sequence.schema,sequence.name),sequence]));
+  const originalSequences=projection?.sequences??currentSequences;
+  if(originalSequences.some(sequence=>!liveSequences.has(relationKey(sequence.schema,sequence.name))))fail('ORIGINAL_SEQUENCE_REMOVED');
+  const values=await captureSequenceValues(client,includeFull?currentSequences:originalSequences);
+
+  const originalKeys=new Set(requested.map(row=>row.key)),newTables=[];
+  for(const [key,table] of byTable){
+   if(!projection||originalKeys.has(key))continue;
+   let count=fullTables.get(key)?.rows;
+   if(!includeFull){
+    const {rows:[observed]}=await client.query(`SELECT count(*)::integer AS count FROM ${quote(table.schema)}.${quote(table.table)}`);
+    count=observed.count;
+   }
    if(!(table.schema==='public'&&tools.has(table.table))&&count!==0)fail('NEW_BUSINESS_TABLE_NOT_EMPTY');
-   table.rows=count;
+   newTables.push({...table,columns:[...table.columns],rows:count});
   }
-  const businessTables=tables.filter(table=>!(table.schema==='public'&&tools.has(table.table)));
-  const content={schema:'phoenix.modern-schema-database-facts/v1',database:{name:identity.name,systemIdentifier:identity.systemIdentifier},tables,sequences,newTables};
-  return {...content,allDataSha256:canonicalDigest({tables,sequences}),businessDataSha256:canonicalDigest({tables:businessTables,sequences:businessSequences}),readOnly:true,releaseAuthorized:false};
+  const projected=factsReceipt(identity,tables,sequenceFacts(originalSequences,liveSequences,values),newTables);
+  if(!includeFull)return projected;
+  const full=factsReceipt(identity,[...fullTables.values()],sequenceFacts(currentSequences,liveSequences,values),[]);
+  return {projected,full};
  }finally{if(!withinSnapshot)await client.query('ROLLBACK');}
+}
+
+export async function captureModernSchemaFacts(client,{projection=null,withinSnapshot=false}={}){
+ return collectModernSchemaFacts(client,{projection,withinSnapshot,includeFull:false});
+}
+
+/** Collect original-column proof and current full facts on one read-only snapshot. */
+export async function captureModernSchemaFactsPair(client,{projection,withinSnapshot=false}={}){
+ if(!Array.isArray(projection?.tables)||!Array.isArray(projection.sequences))fail('BOUNDED_TABLE_PROJECTION_REQUIRED');
+ return collectModernSchemaFacts(client,{projection,withinSnapshot,includeFull:true});
 }
 export function assertModernSchemaBusinessUnchanged(before,after){
  if(!same(before.database,after.database)||before.businessDataSha256!==after.businessDataSha256)fail('ORIGINAL_BUSINESS_FACTS_CHANGED');return true;

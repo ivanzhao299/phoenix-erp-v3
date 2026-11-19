@@ -4,7 +4,7 @@ import {randomUUID} from 'node:crypto';
 import {setTimeout as delay} from 'node:timers/promises';
 import test from 'node:test';
 import {executionEnv} from './capture-production-runtime.mjs';
-import {assertModernSchemaBusinessUnchanged,captureModernSchemaFacts} from './production-modern-schema-facts.mjs';
+import {assertModernSchemaBusinessUnchanged,captureModernSchemaFacts,captureModernSchemaFactsPair} from './production-modern-schema-facts.mjs';
 import {ModernSchemaReadClient} from './production-modern-schema-read-client.mjs';
 
 const enabled=process.env.PHOENIX_FACTS_PG_FIXTURE==='1';
@@ -89,8 +89,62 @@ async function verifyLegacyDictionarySequence(client,sql){
  }
 }
 
+async function verifyFactsPair(client,sql){
+ sql('CREATE SEQUENCE public.pair_a START WITH 11; CREATE SEQUENCE public.pair_z START WITH 99');
+ const original=await captureModernSchemaFacts(client);
+ sql(`ALTER TABLE public.generic_integer ADD COLUMN extra text DEFAULT 'first';
+  CREATE TABLE public.pair_new (id integer PRIMARY KEY);
+  CREATE SEQUENCE public.pair_mid START WITH 55`);
+ const independentFull=await captureModernSchemaFacts(client);
+ const independentProjection=await captureModernSchemaFacts(client,{projection:original});
+ const scans=new Map();
+ let sequenceBatches=0,sequenceAdvanced=false;
+ const pair=await captureModernSchemaFactsPair({async query(statement,parameters){
+  const result=await client.query(statement,parameters);
+  if(statement.includes('AS "upperKey"')){
+   const table=statement.match(/FROM ONLY "public"\."([^"]+)"/)?.[1];
+   scans.set(table,(scans.get(table)??0)+1);
+  }
+  assert.doesNotMatch(statement,/^SELECT count\(\*\)::integer AS count FROM/);
+  if(statement.includes(' AS "sequenceIndex"')){
+   sequenceBatches++;
+   if(!sequenceAdvanced){
+    sql("SELECT setval('public.pair_a'::regclass,42); UPDATE public.generic_integer SET extra='second' WHERE \"unusual key\"=0");
+    sequenceAdvanced=true;
+   }
+  }
+  return result;
+ }},{projection:original});
+ assert.deepEqual(pair.full,independentFull);
+ assert.deepEqual(pair.projected,independentProjection);
+ assertModernSchemaBusinessUnchanged(original,pair.projected);
+ assert.equal(scans.get('chanjet_read_snapshots'),3);
+ assert.equal(scans.get('generic_integer'),4);
+ assert.equal(sequenceBatches,1);
+ assert.equal(pair.full.sequences.find(sequence=>sequence.name==='pair_a').lastValue,'11');
+ assert.equal(pair.projected.sequences.find(sequence=>sequence.name==='pair_a').lastValue,'11');
+ assert.deepEqual(pair.projected.newTables,[{schema:'public',table:'pair_new',kind:'r',columns:['id'],rows:0}]);
+ assert.notStrictEqual(pair.projected.tables[0].columns,pair.full.tables[0].columns);
+ assert.notStrictEqual(pair.projected.sequences[0],pair.full.sequences[0]);
+
+ const reordered={...original,sequences:[...original.sequences].reverse()};
+ const later=await captureModernSchemaFactsPair(client,{projection:reordered});
+ assert.notEqual(later.full.allDataSha256,pair.full.allDataSha256);
+ assert.deepEqual(later.projected.sequences.map(({name})=>name),['pair_z','pair_a']);
+ assert.deepEqual(later.full.sequences.map(({name})=>name),['pair_a','pair_mid','pair_z']);
+ assert.deepEqual(later.projected,await captureModernSchemaFacts(client,{projection:reordered}));
+ sql('INSERT INTO public.pair_new VALUES (1)');
+ await assert.rejects(captureModernSchemaFactsPair(client,{projection:original}),/NEW_BUSINESS_TABLE_NOT_EMPTY/);
+ sql('TRUNCATE public.pair_new; ALTER TABLE public.generic_integer RENAME TO hidden_original');
+ await assert.rejects(captureModernSchemaFactsPair(client,{projection:original}),/ORIGINAL_BUSINESS_COLUMNS_REMOVED/);
+ sql('ALTER TABLE public.hidden_original RENAME TO generic_integer; ALTER TABLE public.generic_integer DROP COLUMN "unusual key"');
+ await assert.rejects(captureModernSchemaFactsPair(client,{projection:original}),/ORIGINAL_BUSINESS_COLUMNS_REMOVED/);
+ sql('ALTER TABLE public.generic_integer ADD COLUMN "unusual key" integer; DROP SEQUENCE public.pair_z');
+ await assert.rejects(captureModernSchemaFactsPair(client,{projection:original}),/ORIGINAL_SEQUENCE_REMOVED/);
+}
+
 for(const version of ['16.14-alpine','18-alpine']){
- test(`PostgreSQL ${version} facts cover keyed scans and exact legacy dictionary sequence classification`,{skip:!enabled,timeout:45000},async()=>{
+ test(`PostgreSQL ${version} facts cover keyed scans, sequence classification and paired projections`,{skip:!enabled,timeout:45000},async()=>{
   const container=docker(['run','-d','--pull=never','--rm','--network','none','--memory','256m',
    '--name','phoenix-facts-test-'+randomUUID(),'--label','phoenix.test=modern-schema-facts',
    '-e','POSTGRES_USER=postgres','-e','POSTGRES_DB=postgres','-e','POSTGRES_HOST_AUTH_METHOD=trust','postgres:'+version]);
@@ -147,6 +201,7 @@ for(const version of ['16.14-alpine','18-alpine']){
    assert.equal(segmentCounts.get('smallint_threshold'),2);
    assert.notEqual(later.businessDataSha256,facts.businessDataSha256);
    sql('TRUNCATE mon_device_property_history');
+   await verifyFactsPair(client,sql);
    await verifyLegacyDictionarySequence(client,sql);
   }finally{
    try{await client?.close();}finally{docker(['stop',container]);}
