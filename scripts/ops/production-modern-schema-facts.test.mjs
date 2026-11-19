@@ -59,7 +59,7 @@ const mirrorRows=count=>Array.from({length:count},(_,index)=>({
  raw_payload:{body:'value '+index},
 }));
 
-function snapshotClient(data,{table=snapshotTable,verifiedKey=true,lockError,override=()=>{}}={}){
+function snapshotClient(data,{table=snapshotTable,verifiedKey=true,keyType='int8',lockError,override=()=>{}}={}){
  const keys=[...data].sort((a,b)=>BigInt(a.id)<BigInt(b.id)?-1:1);
  const calls=[];
  let lower=null,upper=null;
@@ -79,19 +79,21 @@ function snapshotClient(data,{table=snapshotTable,verifiedKey=true,lockError,ove
   }
   if(sql.includes('array_agg(a.attname'))return {rows:[table]};
   if(sql.includes('LEFT JOIN pg_depend'))return {rows:[]};
-  if(sql.startsWith('SELECT "id" FROM ONLY')){
-   assert.equal(sql,'SELECT "id" FROM ONLY "public"."chanjet_read_snapshots" LIMIT 0');
+  if(sql.startsWith('SELECT 1 FROM ONLY')){
+   assert.equal(sql,'SELECT 1 FROM ONLY "public"."chanjet_read_snapshots" LIMIT 0');
    calls.push('lock');
    if(lockError)throw lockError;
    return {rows:[]};
   }
   if(sql.includes('JOIN pg_index')){
    calls.push('key');
+   assert.deepEqual(parameters,['"public"."chanjet_read_snapshots"']);
    assert.match(sql,/c.relkind='r' AND NOT c.relispartition/);
    assert.match(sql,/FROM pg_inherits WHERE inhrelid=c.oid OR inhparent=c.oid/);
-   assert.match(sql,/a.attnotnull[\s\S]*'pg_catalog.int8'::regtype/);
+   assert.match(sql,/a.attnotnull[\s\S]*t.typname IN \('int2','int4','int8','uuid'\)/);
+   assert.match(sql,/m.amname='btree'[\s\S]*o.opcdefault/);
    assert.match(sql,/i.indisprimary AND i.indisvalid[\s\S]*i.indnkeyatts=1 AND i.indnatts=1 AND i.indkey\[0\]=a.attnum/);
-   return {rows:[{valid:verifiedKey}]};
+   return {rows:verifiedKey?[{keyColumn:'id',keyType}]:[]};
   }
   if(sql.includes('AS "upperKey"')){
    calls.push('boundary');
@@ -112,6 +114,11 @@ function snapshotClient(data,{table=snapshotTable,verifiedKey=true,lockError,ove
    const segment={rows:range.length,startsAtLower:lower===null||range[0]?.id===lower,
     sha256:range.length?digest(range.map(row=>digest(JSON.stringify(row))).sort().join('')):null};
    return {rows:override('digest',segment,lower)??[segment]};
+  }
+  if(sql===modernSchemaTableFactsSql(table)){
+   calls.push('complete scan');
+   assert.doesNotMatch(sql,/FROM ONLY/);
+   return {rows:[data.length?block(0,data.length,sha('a'),data.length):block(null,null,null,0)]};
   }
   assert.fail('Unexpected facts query');
  }};
@@ -139,7 +146,7 @@ test('Chanjet facts are deterministic across row order and cover exact, partial 
 });
 
 test('Chanjet facts reject malformed, skipped and repeated ranges and roll back',async()=>{
- const data=mirrorRows(257),badRange=/MODERN_SCHEMA_FACTS_HOLD=CHANJET_SNAPSHOT_SEGMENT_REQUIRED/;
+ const data=mirrorRows(257),badRange=/MODERN_SCHEMA_FACTS_HOLD=NATIVE_TABLE_SEGMENT_REQUIRED/;
  for(const override of [
   (step,value,lower)=>step==='boundary'&&lower===null?data[129].id:undefined,
   (step,value,lower)=>step==='boundary'&&lower===null?data[127].id:undefined,
@@ -159,16 +166,22 @@ test('Chanjet facts reject malformed, skipped and repeated ranges and roll back'
  }
 });
 
-test('Chanjet facts verify the relation under the snapshot lock before requesting any boundaries',async()=>{
- for(const options of [{verifiedKey:false},{lockError:Error('fixture lock timeout')},{table:{...snapshotTable,kind:'p'}},
+test('unverified keys and unsupported relations fall back to the complete scan',async()=>{
+ for(const options of [{verifiedKey:false},{table:{...snapshotTable,kind:'p'}},
   {table:{...snapshotTable,columns:['raw_payload']}}]){
   const client=snapshotClient(mirrorRows(1),options);
-  await assert.rejects(captureModernSchemaFacts(client),/CHANJET_SNAPSHOT_KEY_REQUIRED|fixture lock timeout/);
+  const facts=await captureModernSchemaFacts(client);
+  assert.equal(facts.tables[0].rows,1);
   assert.equal(client.calls[0],'BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
   assert.equal(client.calls.at(-1),'ROLLBACK');
-  assert.ok(!client.calls.includes('boundary'));
-  if(options.verifiedKey===false)assert.deepEqual(client.calls.slice(2,-1),['lock','key']);
+  assert.deepEqual(client.calls.slice(2,-1),options.table?.kind==='p'?['complete scan']:['lock','key','complete scan']);
  }
+});
+
+test('an unverified relation lock fails and standalone capture rolls back',async()=>{
+ const standalone=snapshotClient(mirrorRows(1),{lockError:Error('fixture lock timeout')});
+ await assert.rejects(captureModernSchemaFacts(standalone),/fixture lock timeout/);
+ assert.deepEqual(standalone.calls,['BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY','limits','lock','ROLLBACK']);
  const client=snapshotClient(mirrorRows(1),{lockError:Error('fixture lock timeout')});
  await assert.rejects(captureModernSchemaFacts(client,{withinSnapshot:true}),/fixture lock timeout/);
  assert.deepEqual(client.calls,['limits','lock']);

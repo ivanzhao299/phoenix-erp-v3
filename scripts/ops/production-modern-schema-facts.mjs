@@ -7,7 +7,13 @@ const fail=code=>{throw Error('MODERN_SCHEMA_FACTS_HOLD='+code);};
 const quote=value=>'"'+value.replaceAll('"','""')+'"';
 const BLOCK_ROWS=1024;
 const CHANJET_SEGMENT_ROWS=128;
-const chanjetSnapshots='"public"."chanjet_read_snapshots"';
+const MON_HISTORY_SEGMENT_ROWS=4096;
+const integerKeyLimits=new Map([
+ ['int2',[-32768n,32767n]],
+ ['int4',[-2147483648n,2147483647n]],
+ ['int8',[-9223372036854775808n,9223372036854775807n]],
+]);
+const UUID_KEY=/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/;
 const HASH=/^[a-f0-9]{64}$/;
 const nativeRowHashSql="encode(sha256(convert_to(to_jsonb(phoenix_original_row)::text,'UTF8')),'hex')";
 const tools=new Set(['migrations','schema_migrations','typeorm_metadata','sys_dict']);
@@ -63,76 +69,107 @@ export function foldModernSchemaTableFacts(columns,observed){
  return {rows,sha256:canonicalDigest({algorithm:'native-row-sha256-block-v1',columns,rows,blockRows:BLOCK_ROWS,blocks})};
 }
 
-const chanjetSnapshotKeySql=`SELECT EXISTS (
- SELECT 1 FROM pg_class c JOIN pg_attribute a ON a.attrelid=c.oid
+const segmentKeySql=`SELECT a.attname::text AS "keyColumn",t.typname::text AS "keyType"
+ FROM pg_class c JOIN pg_attribute a ON a.attrelid=c.oid
+ JOIN pg_type t ON t.oid=a.atttypid
  JOIN pg_index i ON i.indrelid=c.oid
- WHERE c.oid='public.chanjet_read_snapshots'::regclass AND c.relkind='r' AND NOT c.relispartition
+ JOIN pg_opclass o ON o.oid=i.indclass[0]
+ JOIN pg_am m ON m.oid=o.opcmethod
+ WHERE c.oid=to_regclass($1) AND c.relkind='r' AND NOT c.relispartition
  AND NOT EXISTS (SELECT 1 FROM pg_inherits WHERE inhrelid=c.oid OR inhparent=c.oid)
- AND a.attname='id' AND a.attnum>0 AND NOT a.attisdropped AND a.attnotnull
- AND a.atttypid='pg_catalog.int8'::regtype
- AND i.indisprimary AND i.indisvalid AND i.indisready AND i.indislive
+ AND a.attnum>0 AND NOT a.attisdropped AND a.attnotnull
+ AND t.typnamespace='pg_catalog'::regnamespace AND t.typname IN ('int2','int4','int8','uuid')
+ AND m.amname='btree' AND o.opcnamespace='pg_catalog'::regnamespace AND o.opcdefault AND o.opcintype=t.oid
+ AND i.indisprimary AND i.indisvalid AND i.indisready AND i.indislive AND i.indimmediate
  AND i.indnkeyatts=1 AND i.indnatts=1 AND i.indkey[0]=a.attnum AND i.indpred IS NULL AND i.indexprs IS NULL
-) AS valid`;
+ `;
 
-function bigintKey(value){
- return typeof value==='string'&&/^(?:0|-?[1-9][0-9]{0,18})$/.test(value)&&
-  BigInt(value)>=-9223372036854775808n&&BigInt(value)<=9223372036854775807n;
+function parseSegmentKey(value,type){
+ if(typeof value!=='string')fail('NATIVE_TABLE_SEGMENT_REQUIRED');
+ if(type==='uuid'&&UUID_KEY.test(value))return value;
+ const limits=integerKeyLimits.get(type);
+ if(!limits||!/^(?:0|-?[1-9][0-9]{0,18})$/.test(value))fail('NATIVE_TABLE_SEGMENT_REQUIRED');
+ const integer=BigInt(value);
+ if(integer<limits[0]||integer>limits[1])fail('NATIVE_TABLE_SEGMENT_REQUIRED');
+ return integer;
 }
 
-async function readChanjetSnapshotSegment(client,columns,lower,upper){
+async function readUpperKey(client,{relation,key,keyType,segmentRows},lower){
+ // Cast after the inner ordering. PostgreSQL otherwise can order by the text alias.
+ const {rows}=await client.query(`SELECT (
+  SELECT ${key} FROM ONLY ${relation}
+  ${lower===null?'':`WHERE ${key}>=$1::${keyType}`} ORDER BY ${key} OFFSET ${segmentRows} LIMIT 1
+ )::text AS "upperKey"`,lower===null?[]:[lower]);
+ if(rows.length!==1)fail('NATIVE_TABLE_SEGMENT_REQUIRED');
+ const upper=rows[0]?.upperKey;
+ if(upper!==null){
+  const parsed=parseSegmentKey(upper,keyType);
+  if(lower!==null&&parsed<=parseSegmentKey(lower,keyType))fail('NATIVE_TABLE_SEGMENT_REQUIRED');
+ }
+ return upper;
+}
+
+async function readSegment(client,{relation,key,keyType,segmentRows,columns},lower,upper){
  const parameters=[],conditions=[];
- if(lower!==null){parameters.push(lower);conditions.push('"id">=$1::bigint');}
- if(upper!==null){parameters.push(upper);conditions.push(`"id"<$${parameters.length}::bigint`);}
+ if(lower!==null){parameters.push(lower);conditions.push(`${key}>=$1::${keyType}`);}
+ if(upper!==null){parameters.push(upper);conditions.push(`${key}<$${parameters.length}::${keyType}`);}
  const range=conditions.length?`WHERE ${conditions.join(' AND ')}`:'';
  // The extra row proves an invalid boundary cannot truncate or hash an unbounded tail.
  const {rows}=await client.query(`WITH hashed AS MATERIALIZED (
-  SELECT "id",${nativeRowHashSql} COLLATE "C" AS row_hash
-  FROM (SELECT ${columns.map(quote).join(',')} FROM ONLY ${chanjetSnapshots} ${range}
-        ORDER BY "id" LIMIT ${CHANJET_SEGMENT_ROWS+1}) AS phoenix_original_row
+  SELECT ${key} AS segment_key,${nativeRowHashSql} COLLATE "C" AS row_hash
+  FROM (SELECT ${columns.map(quote).join(',')} FROM ONLY ${relation} ${range}
+        ORDER BY ${key} LIMIT ${segmentRows+1}) AS phoenix_original_row
  )
  SELECT count(*)::integer AS rows,
-  ${lower===null?'true':'coalesce(min("id")=$1::bigint,false)'} AS "startsAtLower",
+  ${lower===null?'true':`coalesce(bool_or(segment_key=$1::${keyType}),false)`} AS "startsAtLower",
   encode(sha256(convert_to(string_agg(row_hash,'' ORDER BY row_hash COLLATE "C"),'UTF8')),'hex') AS sha256
  FROM hashed`,parameters);
  const [segment]=rows;
  if(rows.length!==1||segment?.startsAtLower!==true||!Number.isSafeInteger(segment.rows)||
-  segment.rows<0||segment.rows>CHANJET_SEGMENT_ROWS||
-  (upper!==null&&segment.rows!==CHANJET_SEGMENT_ROWS)||(lower!==null&&segment.rows===0)||
+  segment.rows<0||segment.rows>segmentRows||
+  (upper!==null&&segment.rows!==segmentRows)||(lower!==null&&segment.rows===0)||
   (segment.rows?(typeof segment.sha256!=='string'||!HASH.test(segment.sha256)):segment.sha256!==null)){
-  fail('CHANJET_SNAPSHOT_SEGMENT_REQUIRED');
+  fail('NATIVE_TABLE_SEGMENT_REQUIRED');
  }
  return segment;
 }
 
-async function captureChanjetSnapshotTableFacts(client,table){
- if(table.kind!=='r'||!table.columns.includes('id'))fail('CHANJET_SNAPSHOT_KEY_REQUIRED');
+async function captureSegmentedTableFacts(client,table){
+ const {schema,table:name,columns}=table;
+ const relation=`${quote(schema)}.${quote(name)}`;
  // Referencing ONLY the relation acquires AccessShareLock until the snapshot ends.
  // LIMIT 0 keeps the lock acquisition separate from validation and payload reads.
- await client.query(`SELECT "id" FROM ONLY ${chanjetSnapshots} LIMIT 0`);
- const {rows:key}=await client.query(chanjetSnapshotKeySql);
- if(key.length!==1||key[0]?.valid!==true)fail('CHANJET_SNAPSHOT_KEY_REQUIRED');
+ await client.query(`SELECT 1 FROM ONLY ${relation} LIMIT 0`);
+ const {rows:keys}=await client.query(segmentKeySql,[relation]);
+ if(!keys.length)return null;
+ const {keyColumn,keyType}=keys[0];
+ if(keys.length!==1||typeof keyColumn!=='string'||(keyType!=='uuid'&&!integerKeyLimits.has(keyType))){
+  fail('NATIVE_TABLE_KEY_REQUIRED');
+ }
+ if(!columns.includes(keyColumn))return null;
 
- let lower=null,rows=0;
+ const chanjet=schema==='public'&&name==='chanjet_read_snapshots';
+ const monHistory=schema==='public'&&name==='mon_device_property_history';
+ const segmentRows=chanjet?CHANJET_SEGMENT_ROWS:monHistory?MON_HISTORY_SEGMENT_ROWS:BLOCK_ROWS;
+ const plan={relation,key:quote(keyColumn),keyType,segmentRows,columns};
+ let lower=null,upper=await readUpperKey(client,plan,null),rows=0;
+ // The choice depends on exact visible rows and schema, including after logical restore.
+ // Preserve the CP52 path for Chanjet even when the table fits in a single segment.
+ if(upper===null&&!chanjet)return null;
  const segments=createHash('sha256');
  for(;;){
-  const {rows:boundary}=await client.query(`SELECT (
-   SELECT "id" FROM ONLY ${chanjetSnapshots}
-   ${lower===null?'':'WHERE "id">=$1::bigint'} ORDER BY "id" OFFSET ${CHANJET_SEGMENT_ROWS} LIMIT 1
-  )::text AS "upperKey"`,lower===null?[]:[lower]);
-  const upper=boundary[0]?.upperKey;
-  if(boundary.length!==1||(upper!==null&&(!bigintKey(upper)||(lower!==null&&BigInt(upper)<=BigInt(lower))))){
-   fail('CHANJET_SNAPSHOT_SEGMENT_REQUIRED');
-  }
-  const segment=await readChanjetSnapshotSegment(client,table.columns,lower,upper);
+  const segment=await readSegment(client,plan,lower,upper);
   rows+=segment.rows;
-  if(rows>2147483647)fail('CHANJET_SNAPSHOT_SEGMENT_REQUIRED');
+  if(rows>2147483647)fail('NATIVE_TABLE_SEGMENT_REQUIRED');
   // Bind each half-open interval to its row count and digest without retaining its keys.
   if(segment.rows)segments.update(canonicalDigest({lower,upper,rows:segment.rows,sha256:segment.sha256}));
   if(upper===null)break;
   lower=upper;
+  upper=await readUpperKey(client,plan,lower);
  }
- return {rows,sha256:canonicalDigest({algorithm:'native-row-sha256-bigint-segment-v1',columns:table.columns,rows,
-  segmentRows:CHANJET_SEGMENT_ROWS,segmentsSha256:segments.digest('hex')})};
+ const domain=chanjet&&keyColumn==='id'&&keyType==='int8'?{algorithm:'native-row-sha256-bigint-segment-v1'}:
+  {algorithm:'native-row-sha256-key-segment-v1',keyColumn,keyType};
+ return {rows,sha256:canonicalDigest({...domain,columns,rows,segmentRows,segmentsSha256:segments.digest('hex')})};
 }
 
 export async function captureModernSchemaFacts(client,{projection=null,withinSnapshot=false}={}){
@@ -147,10 +184,8 @@ export async function captureModernSchemaFacts(client,{projection=null,withinSna
   for(const table of before){
    const current=actual.find(row=>row.schema===table.schema&&row.table===table.table);
    if(!current||!Array.isArray(table.columns)||!table.columns.length||table.columns.some(column=>!current.columns.includes(column)))fail('ORIGINAL_BUSINESS_COLUMNS_REMOVED');
-   let hash;
-   if(table.schema==='public'&&table.table==='chanjet_read_snapshots'){
-    hash=await captureChanjetSnapshotTableFacts(client,table);
-   }else{
+   let hash=table.kind==='r'&&current.kind==='r'?await captureSegmentedTableFacts(client,table):null;
+   if(hash===null){
     const {rows:observed}=await client.query(modernSchemaTableFactsSql(table));
     hash=foldModernSchemaTableFacts(table.columns,observed);
    }
