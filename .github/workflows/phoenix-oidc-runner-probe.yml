@@ -27,8 +27,9 @@ jobs:
           const routeWords=words.map(word=>allowed.includes(word.toLowerCase())?word.toLowerCase():'OTHER');
           const leaf=words.at(-1);
           console.log('RUNNER_ROUTE='+JSON.stringify({routeWords,leafIdToken:leaf?.toLowerCase()==='idtoken',leafOidcToken:leaf?.toLowerCase()==='oidctoken',leafIsLast:leaf===parts.at(-1),partCount:parts.length}));
+          console.log('RUNNER_PATH_SHAPE='+JSON.stringify(parts.map(x=>({idtoken:x==='idtoken',idtokenCaseFold:x.toLowerCase()==='idtoken',asciiUnreserved:/^[A-Za-z0-9._~-]+$/.test(x),percentEncoded:/%[0-9a-f]{2}/i.test(x),onlyAllowedEscapes:/^(?:[A-Za-z0-9._~-]|%[0-9a-f]{2})+$/i.test(x),over256:x.length>256,over2048:x.length>2048}))));
           console.log('RUNNER_CONTRACT='+JSON.stringify(contract));
-          const fixedCode=error=>/^MODERN_SCHEMA_IDENTITY_HOLD=[A-Z0-9_]+$/.test(error?.message??'')?error.message:'IDENTITY_REQUEST_FAILED';
+          const fixedCode=error=>/^MODERN_SCHEMA_(?:RUNNER_)?IDENTITY_HOLD=[A-Z0-9_]+$/.test(error?.message??'')?error.message:'IDENTITY_REQUEST_FAILED';
           let token;
           try{token=await requestModernSchemaIdentityToken(expected);console.log('EXISTING_REQUEST=PASS');}
           catch(error){console.log('EXISTING_REQUEST='+fixedCode(error));}
