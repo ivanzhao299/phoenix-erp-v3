@@ -348,6 +348,15 @@
 - Node20 相关 103 份测试文件 **1323 passed / 51 opt-in skipped / 0 failed**（`modern-schema-cp27-regression-v2.log`），其中入口/路由 21 项通过，包括真实 Bash 原父 FD9、重复 finalize 和本地 Git main 从 T 前进到 U 的正反例。增广第一次运行另发现：好业财真实 first-sync 合同需要未配置的专用 `CHANJET_ADMISSION_FIXTURE_URL`，本片未执行它，未修改其门禁；旧 ledger-preflight 测试硬匹配早已删除的英文注释，已改为核对实际 candidate inventory 命令使用 `$API_IMAGE`，保留原 inventory → preflight → migration → switch 顺序断言。原失败日志保留，不记作通过。
 - API/Web TS、业务字段和迁移均未改，不重复第二十六检查点已通过的类型检查、原生 S/OFF/镜像恢复及 UI/业务 UAT；新增入口的路由和源码审查不能替代完整 root/FD9/nft/Git/OIDC/正式 body 的宿主 E2E 与强杀后实际续完。该项继续阻断发布验收；没有生产 DDL、部署、主分支推送或业务 INIT/ATTACH/GO。冻结方案和 125 TS 清单保持不变。
 
+## 第二十八开发检查点：原排空凭证正式接线与隔离宿主预检（2026-11-19，保持 OFF）
+
+- 按已批准方案 6.2–6.4 逐边检查实际 producer/consumer，发现并修复确定的正式发布阻断：监督器原来只将 DRAINED 返回值存入专用 step，却未产生原正式 promotion/Compose 默认读取的 `background-drain-<owner>.json`。新增 producer 在同原 S 的外部及原通道双重核验、原 coordinator ready、实际 FENCED/无 holdReason、原 API snapshot 与新 quiescent 结果一致后，只创建发布原格式凭证，再复验 S 和 API，随后才推进 DRAINED；没有改默认消费者或放松旧运行者核验。100 项 stage 清单新增该 producer。
+- 新组件反例先证明缺文件时默认 `assertBackgroundFence` 拒绝且正式 PROMOTE 不发生，再由实际 producer 写文件，默认文件消费者和正式 adapter 首个 PROMOTE 边界通过；原 S 丢失或实际参与者变化不能发布。定向生产者/正式 adapter/body-source **11/11**，相关增广回归 **1325 passed / 51 opt-in skipped / 0 failed**（`modern-schema-cp28-regression-v1.log`），专用好业财 first-sync 环境仍未配置且未冒算通过。
+- 协调任务在独立 Linux KVM 中使用真实 `BackgroundFenceCoordinator.fenceAndDrain`、PG18 原 S/双锁、真实旧容器后台连接，直接调用上述 producer；实际 TERM 后由默认文件/公开状态读取与真实 Docker 的 `verifyOriginalExecutorStopped` 消费，再完成真实 nft 发布端口/直连/同桥阻断、候选替换、持续 S、持久 OPEN 及原 S 消失。独立回执为 [modern-schema-independent-linux-native-formal-drain-20261119.json](../artifacts/flock-lifecycle-supervision-20261117/installments/modern-schema-independent-linux-native-formal-drain-20261119.json)，明确是合成 API 状态的宿主组件链，不伪称整个 promotion/正式 body 或生产身份已执行。
+- `e10ce798` 的 GitHub 宿主诊断明确失败于 Ubuntu 通用 runner 的 `LOCAL_DATABASE_OR_ERP_SCHEDULER_UNACCOUNTED`，Docker、PG18、Web 及原 API 健康已过。不能将其通用任务默认认作生产可信或降低 scheduler guard。预检改在独占 runner 的 Dind 独立 PID/网络空间与真实 ext4 根内执行同一生产读取器、root/FD9 与原 nft 检查，保留 Ubuntu 的真实 bridge 内核；控制程序 Node 从官方 Node20 镜像复制，不用 apk 的其他主版本。该精确 CI 修复仍待远端实跑。
+- 默认部署检查现在运行全部 modern-schema 定向测试，而非仅 workflow 路由，覆盖实际 drain、终态、恢复和关闭边界。本片没有 API/Web 业务源码或迁移改动。另从精确 `e10ce798` 源码真实构建了本地官方 API 镜像，用于后续完整正式 body 的隔离闭包；未来检查点须按其自身提交重新构建并核对，不能把旧 c811 镜像重标作新目标。
+- 尚需把实际备份/门控迁移/原逐项回执与原正式 promotion、状态事务、Compose、健康及启动证据在隔离环境贯通，并验证中断续完；现有组件证明及发布审查分别记录。生产 OIDC 未实跑本身不增设人工签名或新批准门槛，真实发布仍使用既有已批准的受控身份与权限路径。没有生产 DDL、部署、主分支推送、业务启用或 GO，最终发布验收及第 2 节现场事实仍未完成。
+
 ## 未完成的发布阻塞
 
 1. 独立 RAW 集蛋凭证、库存父批与内部实际转换事实已区分；RAW→分级/包装/重包装业务 API/页面已形成第十二 OFF 检查点；已过账 RAW/转换的受控更正补偿、成本分摊、其余合法退货/跨公司加工交接及质检处置尚未完成；仅第二十一检查点的同公司原仓LAK完好成品客户退货已接续。旧包装入口仍需接入明确实际投入与实耗，不能只挂 DERIVED 资格造成双计。包装、在途/退货/POS、跨公司和混源的全链成对回归，以及合法盘盈新来源仍需完成；受控 managed SKU 销售/配送/POS 正向及 UNKNOWN 持久化已有第五、六检查点证据，仍须与包装、退货和最终切换全链合并验收。不能用“全部拦住”代替合法链路验收。

@@ -66,6 +66,7 @@ scripts/ops/production-modern-schema-completion.mjs
 scripts/ops/production-modern-schema-confirmed-scope.mjs
 scripts/ops/production-modern-schema-deny.mjs
 scripts/ops/production-modern-schema-disk.mjs
+scripts/ops/production-modern-schema-drain.mjs
 scripts/ops/production-modern-schema-executors.mjs
 scripts/ops/production-modern-schema-facts.mjs
 scripts/ops/production-modern-schema-formal-body.mjs

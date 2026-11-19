@@ -19,6 +19,7 @@ import {BackgroundManifestPublisher,assertSameBinding,readPublicManifest,HOLD_KI
 import {BackgroundFenceCoordinator,inspectApiParticipant,verifyCompletedDeployment} from './background-control-coordinator.mjs';
 import {collectModernSchemaHostSurface,MODERN_SCHEMA_EXECUTOR_SQL,classifyModernSchemaDatabaseExecutors} from './production-modern-schema-executors.mjs';
 import {ModernSchemaExecutorWatch} from './production-modern-schema-watch.mjs';import {ModernSchemaIngress} from './production-modern-schema-ingress.mjs';
+import {persistModernSchemaOriginalDrain} from './production-modern-schema-drain.mjs';
 import {stopOriginalModernSchemaRuntime} from './production-modern-schema-stop.mjs';import {observeModernSchemaDiskSpace} from './production-modern-schema-disk.mjs';
 import {createModernSchemaBackup} from './production-modern-schema-backup.mjs';import {rehearseModernSchemaRelease} from './production-modern-schema-rehearsal.mjs';
 import {captureModernSchemaCatalog} from './production-modern-schema-catalog.mjs';import {captureModernSchemaLedger,verifyModernSchemaEffect} from './production-modern-schema-schema-result.mjs';
@@ -111,7 +112,8 @@ export async function superviseModernSchemaRelease(env,input){
   const session=new ModernSchemaControlSession({}, {isClosing:()=>coordinator?.closed===true});
   coordinator=new BackgroundFenceCoordinator({binding:state.binding,participants:background.manifest.participants,project:preparation.floor.project,timeoutMs:60000},{session,publisher});
   const drain=await coordinator.fenceAndDrain();runtime.children.add(pinModernSchemaChild(session.child));rootLease=await pinOriginalModernSchemaSession(session,context);
-  await advance('REGISTERED','DRAINED',{drain,originalLease:rootLease},{lease:rootLease});
+  const drainReceipt=await persistModernSchemaOriginalDrain({context,preparationSha256:input.preparationSha256,rootLease,coordinator,privateRuntime:runtime,drain,admit:()=>native()});
+  await advance('REGISTERED','DRAINED',{drain,drainReceipt,originalLease:rootLease},{lease:rootLease});
   watch=new ModernSchemaExecutorWatch({context,preparation:{...preparation,ownedResources},state,rootLease,session,client:watchClient,privateRuntime:runtime,admit:()=>native()});
   await watch.registerReadTransport(client);await watch.registerReadTransport(watchClient);await watch.initialize();beginHeartbeat();
   ingress=new ModernSchemaIngress({context,scope:preparation.ingressScope,privateRuntime:runtime,admit:async operation=>{
