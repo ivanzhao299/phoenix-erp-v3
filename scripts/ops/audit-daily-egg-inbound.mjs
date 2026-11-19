@@ -2,6 +2,7 @@
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const args = process.argv.slice(2);
 const outputDir = valueOf('--output-dir') || 'docs/ops/runs';
@@ -30,7 +31,7 @@ function runPsql(sql) {
 }
 
 // Read-only by construction: the SQL contains only SELECT/CTE statements.
-const auditSql = `
+export const auditSql = `
 WITH report_grade AS (
   SELECT dl.log_date::text AS log_date, dl.house_code,
          grade.key AS grade,
@@ -163,22 +164,24 @@ SELECT jsonb_build_object(
 )::text;
 `;
 
-const result = JSON.parse(runPsql(auditSql));
-fs.mkdirSync(outputDir, { recursive: true });
-const jsonPath = path.join(outputDir, 'daily-egg-inbound-audit-latest.json');
-fs.writeFileSync(jsonPath, `${JSON.stringify(result, null, 2)}\n`);
-fs.writeFileSync(reportPath, renderMarkdown(result, jsonPath));
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  const result = JSON.parse(runPsql(auditSql));
+  fs.mkdirSync(outputDir, { recursive: true });
+  const jsonPath = path.join(outputDir, 'daily-egg-inbound-audit-latest.json');
+  fs.writeFileSync(jsonPath, `${JSON.stringify(result, null, 2)}\n`);
+  fs.writeFileSync(reportPath, renderMarkdown(result, jsonPath));
 
-console.log(`daily egg inbound audit: ${result.conclusion}`);
-console.log(`daily_duplicate_groups=${result.daily_duplicate_groups}`);
-console.log(`daily_unknown_identity_rows=${result.daily_unknown_identity_rows}`);
-console.log(`daily_mixed_summary_groups=${result.daily_mixed_summary_groups}`);
-console.log(`duplicate_source_groups=${result.duplicate_source_groups}`);
-console.log(`overposted_grade_groups=${result.overposted_grade_groups}`);
-console.log(`legacy_daily_farm_in_rows=${result.legacy_daily_farm_in_rows}`);
-console.log(`retired_duplicate_batches=${result.retired_duplicate_batches}`);
-console.log(`unbalanced_production_batches=${result.unbalanced_production_batches}`);
-process.exitCode = result.conclusion === 'GO' ? 0 : 2;
+  console.log(`daily egg inbound audit: ${result.conclusion}`);
+  console.log(`daily_duplicate_groups=${result.daily_duplicate_groups}`);
+  console.log(`daily_unknown_identity_rows=${result.daily_unknown_identity_rows}`);
+  console.log(`daily_mixed_summary_groups=${result.daily_mixed_summary_groups}`);
+  console.log(`duplicate_source_groups=${result.duplicate_source_groups}`);
+  console.log(`overposted_grade_groups=${result.overposted_grade_groups}`);
+  console.log(`legacy_daily_farm_in_rows=${result.legacy_daily_farm_in_rows}`);
+  console.log(`retired_duplicate_batches=${result.retired_duplicate_batches}`);
+  console.log(`unbalanced_production_batches=${result.unbalanced_production_batches}`);
+  process.exitCode = result.conclusion === 'GO' ? 0 : 2;
+}
 
 function renderMarkdown(value, jsonPath) {
   return [

@@ -286,6 +286,14 @@
 - 本工作树核对补丁摘要及精确五文件后应用，API/Web 类型均实际退出0；约束漂移、nullable unique、125条 down 和数据DML门禁通过。重新执行四工作台窄字段审计：3个主数据input均只读、0裸输入、15个Selector、10个DictSelect和5个上传器。未改前端，无新增本地浏览器或全量构建通过声明。
 - 第二十检查点的 exact226 实际组件此后完成 PG16/18：两库均真实 READY、现代状态接口404、跨真实分钟及 owned stop；停止后各自backend归零，均退出137，modern drain仍UNSUPPORTED，不声称业务对账/连续围栏/旧版成功维护。镜像为 `sha256:ba4004c35849da98aadc3a9a653a436fc099c2acb4ef9f8777b34ccf658cc9d4`。current完整原root绑定/PG18及远端exclusive VM/CI仍待结果。
 
+## 第二十二开发检查点：保留原 HOLD 的只读旧业务归因（2026-11-19，保持 OFF）
+
+- 集成协调任务的独立三文件补丁，SHA256 `460632ede1bc9861026767f8efcc65f562c7ecf9cd712ebb570e9fbd3d3d4b0a`。原 `audit-daily-egg-inbound.mjs` 审计 SQL 逐字节不变，只导出查询并将原 CLI 执行放入直接入口；现有 CLI 的报告、原结论及退出行为保持。
+- 新 `collectLegacyEggAuditEvidence` 只在独立 leased connection 的同一 REPEATABLE READ READ ONLY 快照中读取原审计、实际迁移账本、数据库/cluster/schema身份、精确超报批/流水及下游引用。绑定 target/floor/running SHA、预期与实测ledger摘要、迁移证据摘要；错库/账本移动/结构问题/未知或跨界引用继续 HOLD。原审计字节和指纹保留，不删行、不改生产数据或现有报告。
+- 调用方即使提交完全匹配的清单，也不能证明其有可信冻结来源；原 HOLD 始终保持 HOLD，最多标记 `MATCHED_CLAIM_PENDING_INDEPENDENT_REVIEW`。`verifiedTestScope` 与 `releaseAuthorized` 恒 false。宿主仍需独立核验已冻结签发来源、相应批准、真围栏后同会话重采和结构准备；不得用该 helper 或字符串作为迁移/发布批准。
+- 协调方在隔离真实 PG 验证同日报多等级、原报告不动、账本/库身份错误、数字JSON引用、跨schema/子批及并发快照边界。本工作树实际核对补丁摘要、原SQL字节、导入合同和语法；真实PG用例未重复执行，未连接生产。协调方只读主预检 `44437222796` 仍反馈原HOLD，不据此生成GO。
+- 优先完成默认OFF代码发布联接，业务 INIT/ATTACH 的 readonly outcome 草稿另行保留，尚未接入或提交。现有普通迁移只接受 OPEN＋原审计GO，modern发布晋级又要求先有真实迁移回执；尚需实现同一modern围栏/排空后、普通晋级前的受审schema阶段，不能把两个现有流程顺序运行假称同会话，也不放宽旧版first-switch API-only/no-migration边界。未执行生产迁移、发布或业务启用。
+
 ## 未完成的发布阻塞
 
 1. 独立 RAW 集蛋凭证、库存父批与内部实际转换事实已区分；RAW→分级/包装/重包装业务 API/页面已形成第十二 OFF 检查点；已过账 RAW/转换的受控更正补偿、成本分摊、其余合法退货/跨公司加工交接及质检处置尚未完成；仅第二十一检查点的同公司原仓LAK完好成品客户退货已接续。旧包装入口仍需接入明确实际投入与实耗，不能只挂 DERIVED 资格造成双计。包装、在途/退货/POS、跨公司和混源的全链成对回归，以及合法盘盈新来源仍需完成；受控 managed SKU 销售/配送/POS 正向及 UNKNOWN 持久化已有第五、六检查点证据，仍须与包装、退货和最终切换全链合并验收。不能用“全部拦住”代替合法链路验收。
