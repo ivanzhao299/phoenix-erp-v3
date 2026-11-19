@@ -110,6 +110,72 @@ export const featureMigrations = Object.freeze([
     effective_name: 'TempProductionReversalDictSeed1794904000000',
     timestamp: 1794904000000,
   }),
+  Object.freeze({
+    source_file: 'apps/api/dist/database/migrations/1794971000000-OfficialInventoryCutover.js',
+    class_name: 'OfficialInventoryCutover1794971000000',
+    effective_name: 'OfficialInventoryCutover1794971000000',
+    timestamp: 1794971000000,
+  }),
+  Object.freeze({
+    source_file: 'apps/api/dist/database/migrations/1794972000000-ProductionInboundDocuments.js',
+    class_name: 'ProductionInboundDocuments1794972000000',
+    effective_name: 'ProductionInboundDocuments1794972000000',
+    timestamp: 1794972000000,
+  }),
+  Object.freeze({
+    source_file: 'apps/api/dist/database/migrations/1794973000000-ProductionHandoverAndPeriods.js',
+    class_name: 'ProductionHandoverAndPeriods1794973000000',
+    effective_name: 'ProductionHandoverAndPeriods1794973000000',
+    timestamp: 1794973000000,
+  }),
+  Object.freeze({
+    source_file: 'apps/api/dist/database/migrations/1794974000000-ProductionInstallmentDictionaries.js',
+    class_name: 'ProductionInstallmentDictionaries1794974000000',
+    effective_name: 'ProductionInstallmentDictionaries1794974000000',
+    timestamp: 1794974000000,
+  }),
+  Object.freeze({
+    source_file: 'apps/api/dist/database/migrations/1794975000000-OfficialProductionReportGrain.js',
+    class_name: 'OfficialProductionReportGrain1794975000000',
+    effective_name: 'OfficialProductionReportGrain1794975000000',
+    timestamp: 1794975000000,
+  }),
+  Object.freeze({
+    source_file: 'apps/api/dist/database/migrations/1794976000000-ProductionCutoverManifests.js',
+    class_name: 'ProductionCutoverManifests1794976000000',
+    effective_name: 'ProductionCutoverManifests1794976000000',
+    timestamp: 1794976000000,
+  }),
+  Object.freeze({
+    source_file: 'apps/api/dist/database/migrations/1794977000000-OfficialInventoryLedgerCost.js',
+    class_name: 'OfficialInventoryLedgerCost1794977000000',
+    effective_name: 'OfficialInventoryLedgerCost1794977000000',
+    timestamp: 1794977000000,
+  }),
+  Object.freeze({
+    source_file: 'apps/api/dist/database/migrations/1795005390930-OfficialRawCollectionReceipts.js',
+    class_name: 'OfficialRawCollectionReceipts1795005390930',
+    effective_name: 'OfficialRawCollectionReceipts1795005390930',
+    timestamp: 1795005390930,
+  }),
+  Object.freeze({
+    source_file: 'apps/api/dist/database/migrations/1795011331222-OfficialInventoryConversions.js',
+    class_name: 'OfficialInventoryConversions1795011331222',
+    effective_name: 'OfficialInventoryConversions1795011331222',
+    timestamp: 1795011331222,
+  }),
+  Object.freeze({
+    source_file: 'apps/api/dist/database/migrations/1795025712607-ProductionCutoverEvidenceBarriers.js',
+    class_name: 'ProductionCutoverEvidenceBarriers1795025712607',
+    effective_name: 'ProductionCutoverEvidenceBarriers1795025712607',
+    timestamp: 1795025712607,
+  }),
+  Object.freeze({
+    source_file: 'apps/api/dist/database/migrations/1795029621917-ProductionCutoverExecutionAdmissions.js',
+    class_name: 'ProductionCutoverExecutionAdmissions1795029621917',
+    effective_name: 'ProductionCutoverExecutionAdmissions1795029621917',
+    timestamp: 1795029621917,
+  }),
 ]);
 const pinned = JSON.parse(fs.readFileSync(new URL('./typeorm-ledger-rehearsal-historical-inventory.json', import.meta.url), 'utf8'));
 const sorted = entries => [...entries].sort((a,b) => a.timestamp-b.timestamp);
