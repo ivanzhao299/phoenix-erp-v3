@@ -1,4 +1,5 @@
-/** Read-only production state projection. It never admits a release. */
+/** Read-only diagnosis of the generic ownership fallback. Only its fixed
+ * verdict crosses the production boundary. */
 import fs from 'node:fs';
 import path from 'node:path';
 import {execFileSync} from 'node:child_process';
@@ -15,12 +16,10 @@ const IMAGE=/^sha256:[a-f0-9]{64}$/;
 const REGISTRY='maintenance-host-ownership-registry.json';
 const CORE=['api','web','db'];
 const PROJECT='phoenix-erp';
-const PROJECT_REPOSITORIES=new Set([
-  'https://github.com/ivanzhao299/phoenix-erp','https://github.com/ivanzhao299/phoenix-erp-v3',
-]);
 const STATES=new Set(['created','running','paused','restarting','removing','exited','dead']);
 const MAX_CONTAINERS=128;
-const fail=code=>{throw Error('HOST_CONTAINER_INVENTORY='+code);};
+const PREFIX='HOST_CONTAINER_OWNERSHIP_DIAGNOSIS=';
+const fail=code=>{throw Error(PREFIX+code);};
 const match=(pattern,value)=>typeof value==='string'&&pattern.test(value);
 const integer=value=>Number.isSafeInteger(value)&&value>=0;
 
@@ -43,7 +42,7 @@ const inspectFormat=[...LEGACY_CONTAINER_FIELDS.slice(0,-1),label('com.docker.co
   '{{with index .State "Health"}}{{json (index . "Status")}}{{else}}null{{end}}','{{json .HostConfig.RestartPolicy.Name}}',
   '{{json .HostConfig.ReadonlyRootfs}}','{{json .Mounts}}','{{json .HostConfig.PortBindings}}',
   '{{json .NetworkSettings.Networks}}','{{json .Config.Entrypoint}}','{{json .Config.Cmd}}',
-  label('phoenix.schema.role'),'{{json .Config.User}}',
+  label('phoenix.schema.role'),'{{json .Config.User}}','{{json .State.Restarting}}','{{json .State.Paused}}',
 ].join('\t');
 const imageFormat=[
   '{{json .Id}}',label('org.opencontainers.image.revision'),label('org.opencontainers.image.source'),
@@ -88,11 +87,12 @@ function rows(text,expected,width){
 }
 function inspectAll(docker,ids){
   if(!ids.length)return {containers:[],images:[]};
-  const containers=rows(docker(['inspect','--type','container','--format',inspectFormat,...ids]),ids,24);
+  const containers=rows(docker(['inspect','--type','container','--format',inspectFormat,...ids]),ids,26);
   if(containers.some(row=>!match(IMAGE,row[1])||typeof row[2]!=='string'||typeof row[3]!=='string'||
     !integer(row[4])||!integer(row[5])||typeof row[6]!=='boolean'||typeof row[7]!=='boolean'||
     typeof row[8]!=='string'||typeof row[9]!=='string'||!(row[10]===null||Array.isArray(row[10])&&row[10].every(v=>typeof v==='string'))||
-    !STATES.has(row[13])||typeof row[16]!=='boolean'||!Array.isArray(row[17])))fail('HOLD_OBSERVATION_UNAVAILABLE');
+    !STATES.has(row[13])||typeof row[16]!=='boolean'||!Array.isArray(row[17])||
+    typeof row[24]!=='boolean'||typeof row[25]!=='boolean'))fail('HOLD_OBSERVATION_UNAVAILABLE');
   const imageIds=[...new Set(containers.map(row=>row[1]))].sort();
   const images=rows(docker(['image','inspect','--format',imageFormat,...imageIds]),imageIds,3);
   return {containers,images};
@@ -117,43 +117,30 @@ function validateRegistry(record){
     value.containers.some(pin=>!match(CID,pin?.id)||!match(CID,pin.identitySha256)))fail('HOLD_REGISTRY_UNVERIFIED');
   return value.containers;
 }
-function pinEvidence(pins,id,digest){
-  const registered=pins.filter(pin=>pin.id===id);
+function genericMismatch(pins,row){
+  const digest=canonicalDigest(legacyContainerIdentity(row));
+  const registered=pins.filter(pin=>pin.id===row[0]);
   const matching=registered.filter(pin=>pin.identitySha256===digest);
   const qualified=matching.filter(pin=>typeof pin.owner==='string'&&pin.owner.length>0);
-  const status=qualified.length===1?'EXACT_PIN':qualified.length>1?'AMBIGUOUS_PINS':
+  return qualified.length===1?null:qualified.length>1?'AMBIGUOUS_PINS':
     matching.length?'OWNER_UNUSABLE':registered.length?'IDENTITY_CHANGED':'NO_PIN';
-  return {status,registered:registered.length,identityMatches:matching.length,qualifiedMatches:qualified.length};
 }
-function classify(row,knownProject,revisionShape,active){
+function reachesGenericFallback(row,active){
   const name=row[2],sameActiveImage=['api','web'].some(service=>active.active[service].imageId===row[1]);
-  if(CORE.some(service=>name==='/phoenix-v3-'+service))return 'CORE_'+row[12].toUpperCase();
-  if(row[7]||row[8]==='host'||row[8].startsWith('container:')||row[9]==='host'||name.toLowerCase().includes('watchtower'))return 'SHARED_OR_UNMANAGED_SHAPE';
-  if(knownProject&&revisionShape&&row[13]==='exited'&&row[5]===0&&!row[6]&&row[15]==='no'&&
-    !row[10]?.length&&row[17].length===0&&row[23]==='phoenix'&&
+  if(CORE.some(service=>name==='/phoenix-v3-'+service))return false;
+  if(row[7]||row[8]==='host'||row[8].startsWith('container:')||row[9]==='host'||name.toLowerCase().includes('watchtower'))return false;
+  // These shapes enter other release branches. Their provenance, ancestry
+  // and admission remain the responsibility of those branches.
+  if(row[13]==='exited'&&row[5]===0&&!row[6]&&!row[24]&&!row[25]&&row[15]==='no'&&row[17].length===0&&row[23]==='phoenix'&&
     /^\/phoenix-migrate-schema-first-[a-z0-9]{8}(?:-show)?$/.test(name)&&same(row[20],['./node_modules/.bin/typeorm'])&&
-    ['run','show'].some(verb=>same(row[21],['-d','dist/database/data-source.js','migration:'+verb,...(verb==='run'?['--transaction','all']:[])])))return 'HISTORICAL_SCHEMA_TOOL_SHAPE';
-  if(row[22]==='readonly-inventory')return 'SCHEMA_INVENTORY_ROLE_LABEL';
-  if(row[11]===PROJECT||sameActiveImage||row[17].some(mount=>mount.Type==='bind'&&[CONTRACT.repository,CONTRACT.controlRoot]
-    .some(root=>mount.Source===root||mount.Source?.startsWith(root+'/'))))return 'AUXILIARY_PHOENIX_SHAPE';
-  return 'OTHER_CONTAINER';
-}
-function project(row,image,active,pins){
-  const identitySha256=canonicalDigest(legacyContainerIdentity(row));
-  const knownProject=PROJECT_REPOSITORIES.has(image[2]),revisionShape=match(SHA,image[1]);
-  return {id:row[0],identitySha256,classification:classify(row,knownProject,revisionShape,active),
-    ownership:pinEvidence(pins,row[0],identitySha256),
-    oci:{knownProjectSource:knownProject,revisionPresent:revisionShape,
-      matchesActiveApi:revisionShape&&active.active.api.revision===image[1],
-      matchesActiveWeb:revisionShape&&active.active.web.revision===image[1]},
-    runtime:{state:row[13],running:row[6],pidZero:row[5]===0,restartCount:row[4],
-      restartDisabled:row[15]==='no',network:row[9]==='none'?'NONE':row[9]==='host'?'HOST':row[9].startsWith('container:')?'SHARED':'OTHER',
-      networkCount:Object.keys(row[19]??{}).length,privileged:row[7],sharedPid:row[8]==='host'||row[8].startsWith('container:'),
-      readonlyRootfs:row[16],mountCount:row[17].length,bindMountCount:row[17].filter(mount=>mount.Type==='bind').length,
-      hasPublishedPorts:Object.keys(row[18]??{}).length>0}};
+    ['run','show'].some(verb=>same(row[21],['-d','dist/database/data-source.js','migration:'+verb,...(verb==='run'?['--transaction','all']:[])])))return false;
+  if(row[22]==='readonly-inventory')return false;
+  // A rehearsal label alone does not establish current-release ownership.
+  return row[11]!==PROJECT&&!sameActiveImage&&!row[17].some(mount=>mount.Type==='bind'&&[CONTRACT.repository,CONTRACT.controlRoot]
+    .some(root=>mount.Source===root||mount.Source?.startsWith(root+'/')));
 }
 
-export function collectProductionHostContainerInventory(expectedMainSha,{docker=readDocker,readRecord=readProtectedRecord,
+export function diagnoseProductionHostContainerOwnership(expectedMainSha,{docker=readDocker,readRecord=readProtectedRecord,
   guard=requireRootIdentity}={}){
   if(!match(SHA,expectedMainSha))fail('HOLD_EXPECTED_MAIN_SHA');
   guard();
@@ -166,19 +153,19 @@ export function collectProductionHostContainerInventory(expectedMainSha,{docker=
   const activeAfter=readRecord('active.json'),registryAfter=readRecord(REGISTRY);
   if(!same(activeBefore,activeAfter)||!same(registryBefore,registryAfter))fail('HOLD_PROTECTED_RECORD_CHANGED');
   corroborateCore(first,activeBefore?.value);
-  const pins=validateRegistry(registryBefore),visible=new Set(ids),active=activeBefore.value;
-  return {schema:'phoenix.production-host-container-inventory/v1',expectedMainSha,projectionOnly:true,releaseAuthorized:false,
-    registry:registryBefore?'REVIEWED_SHAPE':'ABSENT',
-    containers:first.containers.map(row=>project(row,first.images.find(image=>image[0]===row[1]),active,pins)),
-    registryOnlyCidCount:new Set(pins.map(pin=>pin.id).filter(id=>!visible.has(id))).size};
+  const pins=validateRegistry(registryBefore);
+  const generic=first.containers.filter(row=>reachesGenericFallback(row,activeBefore.value));
+  if(generic.length&&!registryBefore)fail('HOLD_REGISTRY_UNVERIFIED');
+  const mismatches=[...new Set(generic.map(row=>genericMismatch(pins,row)).filter(Boolean))];
+  return mismatches.length>1?'MIXED':mismatches[0]??'NO_GENERIC_MISMATCH';
 }
 
 const publicFailures=new Set([
   'HOLD_EXPECTED_MAIN_SHA','HOLD_OBSERVATION_UNAVAILABLE','HOLD_PROTECTED_RECORD','HOLD_CONTAINER_ROSTER_INVALID',
   'HOLD_CORE_IDENTITY','HOLD_REGISTRY_UNVERIFIED','HOLD_CONTAINER_ROSTER_CHANGED','HOLD_CONTAINER_OBSERVATION_CHANGED',
   'HOLD_PROTECTED_RECORD_CHANGED','HOLD_EXECUTION_UID','HOLD_STATE_PATH',
-].map(code=>'HOST_CONTAINER_INVENTORY='+code));
+].map(code=>PREFIX+code));
 if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
-  try {console.log('HOST_CONTAINER_INVENTORY='+JSON.stringify(collectProductionHostContainerInventory(process.argv[2])));}
-  catch(error){console.log(publicFailures.has(error?.message)?error.message:'HOST_CONTAINER_INVENTORY=HOLD_UNVERIFIED');}
+  try {console.log(PREFIX+diagnoseProductionHostContainerOwnership(process.argv[2]));}
+  catch(error){console.log(publicFailures.has(error?.message)?error.message:PREFIX+'HOLD_UNVERIFIED');}
 }

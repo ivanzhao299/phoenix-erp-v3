@@ -1,25 +1,27 @@
 import assert from 'node:assert/strict';
 import {spawnSync} from 'node:child_process';
+import {createHash} from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import {CONTRACT} from './production-config-guard.mjs';
 import {canonicalDigest} from './production-maintenance-receipts.mjs';
-import {collectProductionHostContainerInventory,legacyContainerIdentity,LEGACY_CONTAINER_FIELDS} from './production-host-container-inventory.mjs';
+import {diagnoseProductionHostContainerOwnership,legacyContainerIdentity,LEGACY_CONTAINER_FIELDS} from './production-host-container-inventory.mjs';
 
 const cid=char=>char.repeat(64),rev=char=>char.repeat(40),image=char=>'sha256:'+cid(char);
 const target=rev('a'),privateValue='PRIVATE_FIXTURE_SENTINEL';
 const schema='phoenix.maintenance-reviewed-host-ownership/v1';
+const prefix='HOST_CONTAINER_OWNERSHIP_DIAGNOSIS=';
 const quoted=rows=>rows.map(row=>row.map(value=>JSON.stringify(value)).join('\t')).join('\n');
 function fixture(){
   const apiRev=rev('b'),webRev=rev('c'),foreign=cid('4'),gone=cid('5');
   const services=['api','web','db'];
   const rows=services.map((service,i)=>[cid(String(i+1)),image(String(i+6)),'/phoenix-v3-'+service,'2026-11-19T12:00:00Z',0,21,true,false,'','fixture-net',null,
-    'phoenix-erp',service,'running','healthy','always',false,[],{}, {fixture:{}},null,null,'','']);
-  rows.push([foreign,image('9'),'/'+privateValue,'2026-11-19T12:00:00Z',2,0,false,false,'','none',[CONTRACT.repository+'/'+privateValue+':/bind:ro'],
-    '', '', 'exited',null,'no',true,[{Type:'bind',Source:CONTRACT.repository+'/'+privateValue,Destination:'/bind'}],{}, {none:{}},
-    [privateValue],[privateValue],'',privateValue]);
+    'phoenix-erp',service,'running','healthy','always',false,[],{}, {fixture:{}},null,null,'','',false,false]);
+  rows.push([foreign,image('9'),'/'+privateValue,'2026-11-19T12:00:00Z',2,0,false,false,'','none',['/private-fixture/'+privateValue+':/bind:ro'],
+    '', '', 'exited',null,'no',true,[{Type:'bind',Source:'/private-fixture/'+privateValue,Destination:'/bind'}],{}, {none:{}},
+    [privateValue],[privateValue],'',privateValue,false,false]);
   const images=[[image('6'),apiRev,'https://github.com/ivanzhao299/phoenix-erp'],
     [image('7'),webRev,'https://github.com/ivanzhao299/phoenix-erp-v3'],[image('8'),'',''],[image('9'),rev('d'),privateValue]];
   const pin={id:foreign,identitySha256:canonicalDigest(legacyContainerIdentity(rows[3])),owner:privateValue};
@@ -38,7 +40,7 @@ function fixture(){
     assert.deepEqual(args.slice(0,3),['image','inspect','--format']);
     return quoted(args.slice(4).map(id=>images.find(row=>row[0]===id)));
   };
-  return {run:overrides=>collectProductionHostContainerInventory(target,{docker,readRecord,guard(){},...overrides}),
+  return {run:overrides=>diagnoseProductionHostContainerOwnership(target,{docker,readRecord,guard(){},...overrides}),
     docker,readRecord,rows,images,pin,registry,active,foreign};
 }
 
@@ -57,31 +59,39 @@ test('container identity format and mapping match the actual legacy observer',()
   }
 });
 
-test('stable roster corroborates core, exact pins and removed registry IDs without private names or values',()=>{
-  const f=fixture(),result=f.run();
-  assert.deepEqual(result.containers.map(row=>row.classification),['CORE_API','CORE_WEB','CORE_DB','AUXILIARY_PHOENIX_SHAPE']);
-  assert.equal(result.containers[0].oci.knownProjectSource,true);
-  assert.equal(result.containers[0].oci.matchesActiveApi,true);
-  assert.equal(result.containers[0].oci.matchesActiveWeb,false);
-  assert.equal(result.registryOnlyCidCount,1);
-  assert.equal(result.releaseAuthorized,false);
-  const observed=result.containers[3];
-  assert.deepEqual(observed.ownership,{status:'EXACT_PIN',registered:1,identityMatches:1,qualifiedMatches:1});
-  assert.equal(observed.oci.knownProjectSource,false);
-  assert.equal(observed.runtime.pidZero,true);
-  assert.equal(observed.runtime.bindMountCount,1);
-  assert.equal(observed.runtime.network,'NONE');
-  const output=JSON.stringify(result);
-  for(const forbidden of [privateValue,CONTRACT.repository,'/phoenix-v3-api',image('9'),rev('d'),'/bind'])assert.equal(output.includes(forbidden),false);
-  f.rows[3][2]='/phoenix-migrate-schema-first-1234abcd';
-  assert.equal(f.run().containers[3].classification,'AUXILIARY_PHOENIX_SHAPE');
-  f.images[3][2]='https://github.com/ivanzhao299/phoenix-erp';
-  f.rows[3][10]=null;
-  f.rows[3][17]=[];
-  f.rows[3][20]=['./node_modules/.bin/typeorm'];
-  f.rows[3][21]=['-d','dist/database/data-source.js','migration:show'];
-  f.rows[3][23]='phoenix';
-  assert.equal(f.run().containers[3].classification,'HISTORICAL_SCHEMA_TOOL_SHAPE');
+test('exact generic pin yields only a fixed aggregate result, never release authority',()=>{
+  const f=fixture();
+  assert.equal(f.run(),'NO_GENERIC_MISMATCH');
+  f.rows[3][2]='/renamed-'+privateValue;
+  assert.equal(f.run(),'IDENTITY_CHANGED');
+  f.rows.pop();
+  assert.equal(f.run(),'NO_GENERIC_MISMATCH');
+});
+
+test('the generic diagnosis excludes other release branches without granting admission',()=>{
+  for(const alter of [
+    row=>{row[7]=true;},
+    row=>{row[9]='host';},
+    row=>{row[2]='/watchtower-fixture';},
+    row=>{row[11]='phoenix-erp';},
+    row=>{row[1]=image('6');},
+    row=>{row[17]=[{Type:'bind',Source:CONTRACT.controlRoot+'/'+privateValue}];},
+    row=>{row[22]='readonly-inventory';},
+    row=>{row[2]='/phoenix-migrate-schema-first-1234abcd';row[17]=[];row[23]='phoenix';
+      row[20]=['./node_modules/.bin/typeorm'];row[21]=['-d','dist/database/data-source.js','migration:show'];},
+  ]){
+    const f=fixture();
+    f.registry.value.containers=[];
+    assert.equal(f.run(),'NO_PIN');
+    alter(f.rows[3]);
+    assert.equal(f.run(),'NO_GENERIC_MISMATCH');
+  }
+  const unproven=fixture();
+  unproven.registry.value.containers=[];
+  unproven.rows[3][22]='rehearsal-candidate-api';
+  assert.equal(unproven.run(),'NO_PIN');
+  unproven.rows[3][2]='/phoenix-migrate-schema-first-1234abcd';
+  assert.equal(unproven.run(),'NO_PIN');
 });
 
 test('registry reports missing, stale, ambiguous and unusable pins without admitting release',()=>{
@@ -90,15 +100,13 @@ test('registry reports missing, stale, ambiguous and unusable pins without admit
     [f=>{f.pin.identitySha256=cid('0');},'IDENTITY_CHANGED'],
     [f=>{f.pin.owner='';},'OWNER_UNUSABLE'],
     [f=>f.registry.value.containers.push({...f.pin}),'AMBIGUOUS_PINS'],
+    [f=>{f.pin.owner='';f.rows.push([cid('5'),...f.rows[3].slice(1)]);},'MIXED'],
   ]){
     const f=fixture();change(f);
-    const observation=f.run();
-    assert.equal(observation.containers[3].ownership.status,status);
-    assert.equal(observation.releaseAuthorized,false);
+    assert.equal(f.run(),status);
   }
-  const f=fixture(),missing=f.run({readRecord:name=>name==='active.json'?f.active:null});
-  assert.equal(missing.registry,'ABSENT');
-  assert.equal(missing.containers[3].ownership.status,'NO_PIN');
+  const f=fixture();
+  assert.throws(()=>f.run({readRecord:name=>name==='active.json'?f.active:null}),/HOLD_REGISTRY_UNVERIFIED/);
   f.registry.value.evidenceSha256=privateValue;
   assert.throws(()=>f.run(),/HOLD_REGISTRY_UNVERIFIED/);
 });
@@ -123,26 +131,89 @@ test('core drift, disappearance, movement and record changes withhold the entire
   assert.throws(()=>f.run({readRecord:name=>name==='active.json'?f.active:{...f.registry,filePin:[String(++registryReads)]}}),/HOLD_PROTECTED_RECORD_CHANGED/);
 });
 
-test('the actual workflow keeps inventory disabled by default and rejects a bad transport digest',t=>{
-  const workflow=fs.readFileSync(new URL('../../.github/workflows/production-state-materialization.yml',import.meta.url),'utf8');
-  assert.match(workflow,/include_container_inventory:\n\s+description: [^\n]+\n\s+required: false\n\s+default: false\n\s+type: boolean/);
+const workflow=fs.readFileSync(new URL('../../.github/workflows/production-state-materialization.yml',import.meta.url),'utf8');
+function actualWorkflowBlocks(){
   const start=workflow.indexOf('            if [ "${INCLUDE_CONTAINER_INVENTORY:-false}" = true ]; then');
-  const end=workflow.indexOf('\n            find "$STATE_DIR"',start);
+  const end=workflow.indexOf('\n            test "$(git -C "$DEPLOY_PATH" branch',start);
   assert.ok(start>0&&end>start);
+  const writer=workflow.indexOf('      - name: Write state materialization');
+  const writerStart=workflow.indexOf('          set -euo pipefail',writer);
+  const writerEnd=workflow.indexOf('\n      - name: Upload state materialization',writer);
+  return {
+    remote:workflow.slice(start,end).split('\n').map(line=>line.slice(12)).join('\n'),
+    writer:workflow.slice(writerStart,writerEnd).split('\n').map(line=>line.slice(10)).join('\n'),
+  };
+}
+test('the actual workflow default bypasses diagnosis and opt-in exits before other state output',t=>{
+  assert.match(workflow,/include_container_inventory:\n\s+description: [^\n]+\n\s+required: false\n\s+default: false\n\s+type: boolean/);
   const directory=fs.mkdtempSync(path.join(os.tmpdir(),'phoenix-host-inventory-transport-'));
   t.after(()=>fs.rmSync(directory,{recursive:true,force:true}));
-  const invoke=extra=>spawnSync('/bin/bash',['-Eeuo','pipefail','-c',workflow.slice(start,end)],{
-    env:{PATH:process.env.PATH,tmp:directory,EXPECTED_MAIN_SHA:target,HOST_INVENTORY_BUNDLE_SHA:cid('a'),
-      HOST_INVENTORY_BUNDLE:privateValue,...extra},encoding:'utf8',
+  const script=actualWorkflowBlocks().remote;
+  const invoke=extra=>spawnSync('/bin/bash',['-Eeuo','pipefail','-c',`
+    git() {
+      if [ "$FAIL_CHECKOUT" = "$3" ]; then printf '%s\\n' "$PRIVATE" >&2; return 1; fi
+      [ "$3" != branch ] || printf '%s\\n' main
+    }
+  `+script+'\nprintf "%s\\n" OLD_STATE_PATH'],{
+    env:{PATH:process.env.PATH,TMPDIR:directory,DEPLOY_PATH:'/fixture',PRIVATE:privateValue,FAIL_CHECKOUT:'',EXPECTED_MAIN_SHA:target,
+      HOST_INVENTORY_BUNDLE_SHA:cid('a'),HOST_INVENTORY_BUNDLE:privateValue,...extra},encoding:'utf8',
   });
   for(const selection of [{},{INCLUDE_CONTAINER_INVENTORY:'false'}]){
     const disabled=invoke(selection);
     assert.equal(disabled.status,0);
-    assert.equal(disabled.stdout+disabled.stderr,'');
+    assert.equal(disabled.stdout+disabled.stderr,'OLD_STATE_PATH\n');
     assert.deepEqual(fs.readdirSync(directory),[]);
   }
-  const corrupt=invoke({INCLUDE_CONTAINER_INVENTORY:'true'});
-  assert.equal(corrupt.status,0);
-  assert.equal(corrupt.stdout,'HOST_CONTAINER_INVENTORY=HOLD_SOURCE_UNAVAILABLE\n');
-  assert.equal(corrupt.stderr,'');
+  for(const [extra,expected] of [[{},'HOLD_SOURCE_UNAVAILABLE'],[{FAIL_CHECKOUT:'branch'},'HOLD_SOURCE_UNAVAILABLE'],
+    [{FAIL_CHECKOUT:'status'},'HOLD_SOURCE_UNAVAILABLE'],
+    [{RECORD_NAME:privateValue},'HOLD_INCOMPATIBLE_INPUT']]){
+    const result=invoke({INCLUDE_CONTAINER_INVENTORY:'true',...extra});
+    assert.equal(result.status,0);
+    assert.equal(result.stdout,prefix+expected+'\n');
+    assert.equal(result.stderr,'');
+  }
+});
+
+test('both actual workflow filters publish only a fixed verdict, including with hostile helper output',t=>{
+  const directory=fs.mkdtempSync(path.join(os.tmpdir(),'phoenix-host-diagnosis-filter-'));
+  t.after(()=>fs.rmSync(directory,{recursive:true,force:true}));
+  const helper='scripts/ops/production-host-container-inventory.mjs';
+  fs.mkdirSync(path.dirname(path.join(directory,helper)),{recursive:true});
+  const blocks=actualWorkflowBlocks();
+  const environment={PATH:process.env.PATH,TMPDIR:directory,DEPLOY_PATH:'/fixture',EXPECTED_MAIN_SHA:target,INCLUDE_CONTAINER_INVENTORY:'true'};
+  const valid=prefix+'NO_GENERIC_MISMATCH\n',invalid=prefix+'HOLD_INVALID_DIAGNOSIS\n';
+  for(const [stdout,stderr,exit,result] of [
+    [valid,'',0,valid],
+    [valid+privateValue+'\n','',0,invalid],
+    [privateValue+'\n'+valid,'',0,invalid],
+    [valid+'\n','',0,invalid],
+    [valid.trimEnd()+'\0','',0,invalid],
+    [prefix+privateValue+'\n','',0,invalid],
+    [valid,privateValue,0,invalid],
+    [valid,'',1,invalid],
+    [privateValue.repeat(500),'',0,invalid],
+    [valid,privateValue.repeat(500),0,invalid],
+  ]){
+    fs.writeFileSync(path.join(directory,helper),`process.stdout.write(${JSON.stringify(stdout)});
+      process.stderr.write(${JSON.stringify(stderr)});process.exitCode=${exit};`);
+    const archive=spawnSync('tar',['-czf','-','-C',directory,helper]);
+    assert.equal(archive.status,0);
+    const bundle=archive.stdout.toString('base64');
+    const transport=spawnSync('/bin/bash',['-Eeuo','pipefail','-c',
+      'git() { if [ "$3" = branch ]; then printf "main\\n"; fi; }\n'+blocks.remote+'\nprintf "%s\\n" OLD_STATE_PATH'],{
+      cwd:directory,env:{...environment,HOST_INVENTORY_BUNDLE:bundle,
+        HOST_INVENTORY_BUNDLE_SHA:createHash('sha256').update(bundle).digest('hex')},encoding:'utf8',
+    });
+    assert.equal(transport.status,0);
+    assert.equal(transport.stdout,result);
+    assert.equal(transport.stderr,'');
+  }
+  for(const [dump,expected] of [[valid,valid],[valid.trimEnd(),valid],[privateValue,invalid],
+    [valid+privateValue,invalid],[valid+'\n',invalid],[prefix+'HOLD_EXECUTION_UID\n',prefix+'HOLD_EXECUTION_UID\n']]){
+    const artifact=spawnSync('/bin/bash',['-c',blocks.writer],{
+      cwd:directory,env:{...environment,STATE_DUMP:dump},encoding:'utf8',
+    });
+    assert.deepEqual([artifact.status,artifact.stdout,artifact.stderr],[0,'','']);
+    assert.equal(fs.readFileSync(path.join(directory,'production-state-materialization.txt'),'utf8'),expected);
+  }
 });
