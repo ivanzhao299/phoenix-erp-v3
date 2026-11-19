@@ -109,15 +109,14 @@ function actionsIdentityChannel(env){
  const [,authority,rawPath]=/^https:\/\/([^/?#\\]+)(\/[^?#\\]*)?(?:\?|$)/i.exec(raw)??[];
  if(url.protocol!=='https:'||!url.hostname.endsWith('.actions.githubusercontent.com')||url.username||url.password||authority?.includes('@')
   ||raw.includes('#')||url.port)failRunner('CHANNEL_AUTHORITY_UNAPPROVED');
- // Match the raw, unambiguous path as well as the parsed URL. The hosted
- // job endpoint allows a single trailing slash. Match its shape without
- // that slash, then send the original URL unchanged.
- const route=rawPath?.endsWith('/')?rawPath.slice(0,-1):rawPath;
- const segments=route?.slice(1).split('/')??[];
- const last=segments.at(-1),hostedJob=segments.length===4&&last!=='idtoken';
- if(rawPath!==url.pathname||!segments.every(segment=>/^[A-Za-z0-9._~-]{1,256}$/.test(segment)&&segment!=='.'&&segment!=='..')
-  ||segments.filter(segment=>segment==='idtoken').length!==1
-  ||!(hostedJob||(route===rawPath&&segments.length<=2&&last==='idtoken')))failRunner('CHANNEL_ROUTE_UNAPPROVED');
+ // The hosted route has a fixed empty component immediately before idtoken.
+ // Check the exact layout without normalizing the path sent to the provider.
+ const segments=rawPath?.split('/')??[];
+ const hostedJob=segments.length===6&&segments[2]===''&&segments[3]==='idtoken';
+ const shortRoute=(segments.length===2||segments.length===3)&&segments.at(-1)==='idtoken';
+ const names=hostedJob?[segments[1],segments[4],segments[5]]:segments.slice(1,-1);
+ if(rawPath!==url.pathname||!(hostedJob||shortRoute)
+  ||!names.every(segment=>/^[A-Za-z0-9._~-]{1,256}$/.test(segment)&&!['.','..','idtoken'].includes(segment)))failRunner('CHANNEL_ROUTE_UNAPPROVED');
  const versions=url.searchParams.getAll('api-version');
  if([...url.searchParams.keys()].some(key=>key.toLowerCase()==='audience')
   ||(hostedJob&&(versions.length!==1||!versions[0].trim())))failRunner('CHANNEL_QUERY_UNAPPROVED');

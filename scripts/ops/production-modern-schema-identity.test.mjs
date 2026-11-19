@@ -58,15 +58,14 @@ test('the production key collector only reads the fixed GitHub issuer endpoint',
  const result=await collectModernSchemaIdentity(jwt,expected,{fetch,now:()=>now});assert.equal(result.kind,'IDENTITY_ONLY');assert.equal(calls[0].url,'https://token.actions.githubusercontent.com/.well-known/jwks');assert.equal(calls[0].options.redirect,'error');
 });
 const runnerBase='https://pipelines.actions.githubusercontent.com';
-const runnerRoute='/runner.job/dispatch-123/idtoken/token_456';
+const runnerRoute='/runner.job//idtoken/dispatch-123/token_456';
 const runnerUrl=runnerBase+runnerRoute+'?api-version=2.0&opaque=%2f%20+%7E%2B';
 const runnerEnv={ACTIONS_ID_TOKEN_REQUEST_URL:runnerUrl,ACTIONS_ID_TOKEN_REQUEST_TOKEN:'synthetic-not-a-real-credential'};
 const reason=code=>({message:'MODERN_SCHEMA_RUNNER_IDENTITY_HOLD='+code});
 
 test('hosted and legacy token requests preserve the original query and bind the audience',async()=>{
  const jwt=token(),audience=modernSchemaIdentityAudience(expected);
- const hostedTrailing=runnerBase+'/runner.job/idtoken/dispatch-123/token_456/?api-version=2.0&opaque=%2f%20+%7E%2B';
- for(const raw of [runnerUrl,hostedTrailing,runnerBase+'/owned/idtoken?api-version=2.0',runnerBase+'/idtoken']){
+ for(const raw of [runnerUrl,runnerBase+'/owned/idtoken?api-version=2.0',runnerBase+'/idtoken']){
   const env={...runnerEnv,ACTIONS_ID_TOKEN_REQUEST_URL:raw};
   verifyModernSchemaRunnerIdentityChannel(env);
   const fetch=async(url,options)=>{
@@ -96,9 +95,16 @@ test('channel preflight fails closed before the credential can be sent',async()=
   [{ACTIONS_ID_TOKEN_REQUEST_URL:runnerBase+'/unrelated/a/b/c?api-version=2.0'},'CHANNEL_ROUTE_UNAPPROVED'],
   [{ACTIONS_ID_TOKEN_REQUEST_URL:runnerBase+'/a/idtoken/idtoken/c?api-version=2.0'},'CHANNEL_ROUTE_UNAPPROVED'],
   [{ACTIONS_ID_TOKEN_REQUEST_URL:runnerBase+'/a/%2e%2e'+runnerRoute+'?api-version=2.0'},'CHANNEL_ROUTE_UNAPPROVED'],
-  [{ACTIONS_ID_TOKEN_REQUEST_URL:runnerBase+'/a/b/idtoken/a%2fb?api-version=2.0'},'CHANNEL_ROUTE_UNAPPROVED'],
+  [{ACTIONS_ID_TOKEN_REQUEST_URL:runnerBase+'/a//idtoken/b/a%2fb?api-version=2.0'},'CHANNEL_ROUTE_UNAPPROVED'],
+  [{ACTIONS_ID_TOKEN_REQUEST_URL:runnerBase+'/a//IDTOKEN/b/c?api-version=2.0'},'CHANNEL_ROUTE_UNAPPROVED'],
+  [{ACTIONS_ID_TOKEN_REQUEST_URL:runnerBase+'/a//idtoken/idtoken/c?api-version=2.0'},'CHANNEL_ROUTE_UNAPPROVED'],
+  [{ACTIONS_ID_TOKEN_REQUEST_URL:runnerBase+'/a//idtoken/b/'+ 'c'.repeat(257)+'?api-version=2.0'},'CHANNEL_ROUTE_UNAPPROVED'],
+  [{ACTIONS_ID_TOKEN_REQUEST_URL:runnerBase+'/runner.job/idtoken/dispatch-123/token_456?api-version=2.0'},'CHANNEL_ROUTE_UNAPPROVED'],
+  [{ACTIONS_ID_TOKEN_REQUEST_URL:runnerBase+runnerRoute+'/?api-version=2.0'},'CHANNEL_ROUTE_UNAPPROVED'],
   [{ACTIONS_ID_TOKEN_REQUEST_URL:runnerBase+runnerRoute+'//?api-version=2.0'},'CHANNEL_ROUTE_UNAPPROVED'],
+  [{ACTIONS_ID_TOKEN_REQUEST_URL:runnerBase+'/runner.job///idtoken/dispatch-123/token_456?api-version=2.0'},'CHANNEL_ROUTE_UNAPPROVED'],
   [{ACTIONS_ID_TOKEN_REQUEST_URL:runnerBase+'/runner.job/idtoken//dispatch-123/token_456?api-version=2.0'},'CHANNEL_ROUTE_UNAPPROVED'],
+  [{ACTIONS_ID_TOKEN_REQUEST_URL:runnerBase+'/runner.job/idtoken/dispatch-123//token_456?api-version=2.0'},'CHANNEL_ROUTE_UNAPPROVED'],
   [{ACTIONS_ID_TOKEN_REQUEST_URL:runnerBase+'//runner.job/idtoken/dispatch-123/token_456?api-version=2.0'},'CHANNEL_ROUTE_UNAPPROVED'],
   [{ACTIONS_ID_TOKEN_REQUEST_URL:runnerBase+'/owned/idtoken/?api-version=2.0'},'CHANNEL_ROUTE_UNAPPROVED'],
   [{ACTIONS_ID_TOKEN_REQUEST_URL:runnerBase+runnerRoute},'CHANNEL_QUERY_UNAPPROVED'],
