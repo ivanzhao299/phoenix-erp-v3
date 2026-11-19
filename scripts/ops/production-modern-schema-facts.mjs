@@ -33,7 +33,23 @@ const catalogSql=`SELECT n.nspname AS schema,c.relname AS table,c.relkind AS kin
  FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace JOIN pg_attribute a ON a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped
  WHERE n.nspname !~ '^pg_' AND n.nspname<>'information_schema' AND c.relkind IN('r','p','m','f')
  GROUP BY n.nspname,c.relname,c.relkind ORDER BY n.nspname,c.relname`;
-const sequencesSql=`SELECT n.nspname AS schema,c.relname AS name,onsp.nspname AS "ownerSchema",owner.relname AS "ownerTable"
+// One historical dict default uses an unowned sequence, distinct from the sequence it owns.
+// Only a sole, direct catalog dependency qualifies that exact sequence as a tool.
+const sequencesSql=`SELECT n.nspname AS schema,c.relname AS name,onsp.nspname AS "ownerSchema",owner.relname AS "ownerTable",
+ CASE WHEN n.nspname='public' AND c.relname='sys_dict_id_seq' AND d.objid IS NULL THEN (
+  SELECT count(*)=1 AND coalesce(bool_and(
+   dep.classid='pg_attrdef'::regclass AND dep.deptype='n' AND dep.objsubid=0 AND dep.refobjsubid=0
+   AND dict_schema.nspname='public' AND dict.relname='sys_dict' AND dict.relkind='r'
+   AND col.attname='id' AND col.attnum>0 AND NOT col.attisdropped
+   AND pg_get_expr(def.adbin,def.adrelid)='nextval(''public.sys_dict_id_seq''::regclass)'
+  ),false)
+  FROM pg_depend dep
+  LEFT JOIN pg_attrdef def ON dep.classid='pg_attrdef'::regclass AND def.oid=dep.objid
+  LEFT JOIN pg_class dict ON dict.oid=def.adrelid
+  LEFT JOIN pg_namespace dict_schema ON dict_schema.oid=dict.relnamespace
+  LEFT JOIN pg_attribute col ON col.attrelid=def.adrelid AND col.attnum=def.adnum
+  WHERE dep.refclassid='pg_class'::regclass AND dep.refobjid=c.oid
+ ) ELSE false END AS "legacyDictionaryTool"
  FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace LEFT JOIN pg_depend d ON d.classid='pg_class'::regclass AND d.objid=c.oid AND d.deptype IN('a','i')
  LEFT JOIN pg_class owner ON owner.oid=d.refobjid LEFT JOIN pg_namespace onsp ON onsp.oid=owner.relnamespace
  WHERE c.relkind='S' AND n.nspname !~ '^pg_' AND n.nspname<>'information_schema' ORDER BY n.nspname,c.relname`;
@@ -191,12 +207,17 @@ export async function captureModernSchemaFacts(client,{projection=null,withinSna
    }
    tables.push({schema:table.schema,table:table.table,kind:table.kind,columns:[...table.columns],rows:hash.rows,sha256:hash.sha256});
   }
-  const {rows:currentSequences}=await client.query(sequencesSql),sequences=[];
+  const {rows:currentSequences}=await client.query(sequencesSql),sequences=[],businessSequences=[];
   for(const sequence of projection?.sequences??currentSequences){
-   if(!currentSequences.some(s=>s.schema===sequence.schema&&s.name===sequence.name))fail('ORIGINAL_SEQUENCE_REMOVED');
+   const current=currentSequences.find(s=>s.schema===sequence.schema&&s.name===sequence.name);
+   if(!current)fail('ORIGINAL_SEQUENCE_REMOVED');
    const {rows:[value]}=await client.query(`SELECT last_value::text AS "lastValue",is_called AS "isCalled" FROM ${quote(sequence.schema)}.${quote(sequence.name)}`);
    if(!/^-?[0-9]+$/.test(value.lastValue??'')||typeof value.isCalled!=='boolean')fail('EXACT_SEQUENCE_STATE_REQUIRED');
-   sequences.push({schema:sequence.schema,name:sequence.name,ownerSchema:sequence.ownerSchema,ownerTable:sequence.ownerTable,...value});
+   const fact={schema:sequence.schema,name:sequence.name,ownerSchema:sequence.ownerSchema,ownerTable:sequence.ownerTable,...value};
+   sequences.push(fact);
+   const ownedTool=sequence.ownerSchema==='public'&&tools.has(sequence.ownerTable);
+   const legacyTool=sequence.ownerSchema===null&&sequence.ownerTable===null&&current.legacyDictionaryTool===true;
+   if(!ownedTool&&!legacyTool)businessSequences.push(fact);
   }
   const newTables=projection?actual.filter(table=>!before.some(prior=>table.schema===prior.schema&&table.table===prior.table)):[];
   for(const table of newTables){
@@ -204,7 +225,7 @@ export async function captureModernSchemaFacts(client,{projection=null,withinSna
    if(!(table.schema==='public'&&tools.has(table.table))&&count!==0)fail('NEW_BUSINESS_TABLE_NOT_EMPTY');
    table.rows=count;
   }
-  const businessTables=tables.filter(table=>!(table.schema==='public'&&tools.has(table.table))),businessSequences=sequences.filter(sequence=>!(sequence.ownerSchema==='public'&&tools.has(sequence.ownerTable)));
+  const businessTables=tables.filter(table=>!(table.schema==='public'&&tools.has(table.table)));
   const content={schema:'phoenix.modern-schema-database-facts/v1',database:{name:identity.name,systemIdentifier:identity.systemIdentifier},tables,sequences,newTables};
   return {...content,allDataSha256:canonicalDigest({tables,sequences}),businessDataSha256:canonicalDigest({tables:businessTables,sequences:businessSequences}),readOnly:true,releaseAuthorized:false};
  }finally{if(!withinSnapshot)await client.query('ROLLBACK');}

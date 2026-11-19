@@ -156,7 +156,16 @@ class Capsule {
    if(role.endsWith('show')){const output=readSmall(result.stdout);if(/^\s*\[ \]/m.test(output))fail('CLONE_PENDING_MIGRATIONS_REMAIN');}
   }
   }
-  this.after=await captureModernSchemaFacts(this.client,{projection:this.before});assertModernSchemaBusinessUnchanged(this.before,this.after);
+  let factsFailure='CAPTURE';
+  try{
+   this.after=await captureModernSchemaFacts(this.client,{projection:this.before});
+   factsFailure='BUSINESS_MISMATCH';
+   assertModernSchemaBusinessUnchanged(this.before,this.after);
+  }catch(error){
+   try{this.privateRuntime.publishJson(path.join(this.directory,'rehearsal-hold.json'),
+    {schema:'phoenix.modern-schema-private-rehearsal-hold/v1',stage:'AFTER_FACTS',failure:factsFailure});}catch{}
+   throw error;
+  }
   const {rows:[{jsonb_build_object:raw}]}=await this.client.query(LEDGER_SQL),ledger=JSON.parse(raw);
   const old=this.backup.source.ledger;
   if(!same(ledger.legacy,old.legacy)||ledger.typeorm.length!==old.typeorm.length+this.plan.pendingMigrations.length

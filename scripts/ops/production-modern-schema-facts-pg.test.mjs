@@ -4,7 +4,7 @@ import {randomUUID} from 'node:crypto';
 import {setTimeout as delay} from 'node:timers/promises';
 import test from 'node:test';
 import {executionEnv} from './capture-production-runtime.mjs';
-import {captureModernSchemaFacts} from './production-modern-schema-facts.mjs';
+import {assertModernSchemaBusinessUnchanged,captureModernSchemaFacts} from './production-modern-schema-facts.mjs';
 import {ModernSchemaReadClient} from './production-modern-schema-read-client.mjs';
 
 const enabled=process.env.PHOENIX_FACTS_PG_FIXTURE==='1';
@@ -35,8 +35,60 @@ const seed=`
  INSERT INTO partitioned SELECT i FROM generate_series(1,1030) i;
 `;
 
+async function verifyLegacyDictionarySequence(client,sql){
+ sql(`
+  CREATE SEQUENCE public.sys_dict_id_seq;
+  CREATE TABLE public.sys_dict (id integer PRIMARY KEY DEFAULT nextval('public.sys_dict_id_seq'::regclass), label text);
+  CREATE SEQUENCE public.sys_dict_id_seq1 OWNED BY public.sys_dict.id;
+  CREATE SEQUENCE public.business_seq;
+  CREATE TABLE public.business (id bigint PRIMARY KEY DEFAULT nextval('public.business_seq'::regclass));
+  CREATE SCHEMA other;
+  CREATE SEQUENCE other.sys_dict_id_seq;
+ `);
+ const before=await captureModernSchemaFacts(client);
+ sql("INSERT INTO public.sys_dict(label) VALUES ('dictionary migration')");
+ const after=await captureModernSchemaFacts(client,{projection:before});
+ assertModernSchemaBusinessUnchanged(before,after);
+ assert.notEqual(before.allDataSha256,after.allDataSha256);
+ const facts=after.sequences.filter(sequence=>sequence.schema==='public'&&sequence.name.startsWith('sys_dict_id_seq'));
+ assert.deepEqual(facts.map(({name,ownerSchema,ownerTable,isCalled})=>({name,ownerSchema,ownerTable,isCalled})),[
+  {name:'sys_dict_id_seq',ownerSchema:null,ownerTable:null,isCalled:true},
+  {name:'sys_dict_id_seq1',ownerSchema:'public',ownerTable:'sys_dict',isCalled:false},
+ ]);
+ assert.deepEqual(Object.keys(facts[0]).sort(),['isCalled','lastValue','name','ownerSchema','ownerTable','schema']);
+
+ const normalDefault="ALTER TABLE public.sys_dict ALTER COLUMN id SET DEFAULT nextval('public.sys_dict_id_seq'::regclass)";
+ for(const [change,reset] of [
+  ['ALTER SEQUENCE public.sys_dict_id_seq OWNED BY public.business.id','ALTER SEQUENCE public.sys_dict_id_seq OWNED BY NONE'],
+  ["ALTER TABLE public.business ALTER COLUMN id SET DEFAULT nextval('public.sys_dict_id_seq'::regclass)",
+   "ALTER TABLE public.business ALTER COLUMN id SET DEFAULT nextval('public.business_seq'::regclass)"],
+  [normalDefault+' + 0',normalDefault],
+  ['ALTER TABLE public.sys_dict ALTER COLUMN id DROP DEFAULT',normalDefault],
+  ["CREATE FUNCTION public.dict_next() RETURNS bigint LANGUAGE SQL BEGIN ATOMIC SELECT nextval('public.sys_dict_id_seq'::regclass); END; ALTER TABLE public.sys_dict ALTER COLUMN id SET DEFAULT public.dict_next()",
+   normalDefault+'; DROP FUNCTION public.dict_next()'],
+  ["CREATE VIEW public.business_sequence_use AS SELECT nextval('public.sys_dict_id_seq'::regclass)",
+   'DROP VIEW public.business_sequence_use'],
+ ]){
+  const prior=await captureModernSchemaFacts(client);
+  sql(change);
+  const altered=await captureModernSchemaFacts(client,{projection:prior});
+  assert.throws(()=>assertModernSchemaBusinessUnchanged(prior,altered),/ORIGINAL_BUSINESS_FACTS_CHANGED/);
+  sql("SELECT nextval('public.sys_dict_id_seq'::regclass)");
+  const advanced=await captureModernSchemaFacts(client,{projection:altered});
+  assert.throws(()=>assertModernSchemaBusinessUnchanged(altered,advanced),/ORIGINAL_BUSINESS_FACTS_CHANGED/);
+  sql(reset);
+ }
+ for(const advance of ["SELECT nextval('public.business_seq'::regclass)","SELECT nextval('other.sys_dict_id_seq'::regclass)",
+  'INSERT INTO public.business(id) VALUES (100)']){
+  const businessBefore=await captureModernSchemaFacts(client);
+  sql(advance);
+  const businessAfter=await captureModernSchemaFacts(client,{projection:businessBefore});
+  assert.throws(()=>assertModernSchemaBusinessUnchanged(businessBefore,businessAfter),/ORIGINAL_BUSINESS_FACTS_CHANGED/);
+ }
+}
+
 for(const version of ['16.14-alpine','18-alpine']){
- test(`PostgreSQL ${version} facts cover keyed segments, complete fallback and a stable snapshot`,{skip:!enabled,timeout:45000},async()=>{
+ test(`PostgreSQL ${version} facts cover keyed scans and exact legacy dictionary sequence classification`,{skip:!enabled,timeout:45000},async()=>{
   const container=docker(['run','-d','--pull=never','--rm','--network','none','--memory','256m',
    '--name','phoenix-facts-test-'+randomUUID(),'--label','phoenix.test=modern-schema-facts',
    '-e','POSTGRES_USER=postgres','-e','POSTGRES_DB=postgres','-e','POSTGRES_HOST_AUTH_METHOD=trust','postgres:'+version]);
@@ -91,6 +143,7 @@ for(const version of ['16.14-alpine','18-alpine']){
    assert.equal(later.tables.find(table=>table.table==='smallint_threshold').rows,1025);
    assert.equal(segmentCounts.get('smallint_threshold'),2);
    assert.notEqual(later.businessDataSha256,facts.businessDataSha256);
+   await verifyLegacyDictionarySequence(client,sql);
   }finally{
    try{await client?.close();}finally{docker(['stop',container]);}
   }
