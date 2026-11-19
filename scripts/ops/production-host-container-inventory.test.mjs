@@ -18,12 +18,11 @@ function fixture(){
   const apiRev=rev('b'),webRev=rev('c'),foreign=cid('4'),gone=cid('5');
   const services=['api','web','db'];
   const rows=services.map((service,i)=>[cid(String(i+1)),image(String(i+6)),'/phoenix-v3-'+service,'2026-11-19T12:00:00Z',0,21,true,false,'','fixture-net',null,
-    'phoenix-erp',service,'running','healthy','always',false,[],{}, {fixture:{}},null,null,'','',false,false]);
+    'phoenix-erp',service,'running','healthy','always',[],null,null,'','',false,false]);
   rows.push([foreign,image('9'),'/'+privateValue,'2026-11-19T12:00:00Z',2,0,false,false,'','none',['/private-fixture/'+privateValue+':/bind:ro'],
-    '', '', 'exited',null,'no',true,[{Type:'bind',Source:'/private-fixture/'+privateValue,Destination:'/bind'}],{}, {none:{}},
+    '', '', 'exited',null,'no',[{Type:'bind',Source:'/private-fixture/'+privateValue,Destination:'/bind'}],
     [privateValue],[privateValue],'',privateValue,false,false]);
-  const images=[[image('6'),apiRev,'https://github.com/ivanzhao299/phoenix-erp'],
-    [image('7'),webRev,'https://github.com/ivanzhao299/phoenix-erp-v3'],[image('8'),'',''],[image('9'),rev('d'),privateValue]];
+  const images=[[image('6'),apiRev],[image('7'),webRev]];
   const pin={id:foreign,identitySha256:canonicalDigest(legacyContainerIdentity(rows[3])),owner:privateValue};
   const active={value:{version:CONTRACT.version,outcome:'SUCCESS',active:{api:{revision:apiRev,imageId:image('6')},web:{revision:webRev,imageId:image('7')}}},digest:cid('b')};
   const registry={value:{schema,evidenceSha256:cid('e'),hostProcesses:[],containers:[pin,{...pin,id:gone}]},digest:cid('f')};
@@ -34,10 +33,15 @@ function fixture(){
       assert.deepEqual(args.slice(0,4),['inspect','--type','container','--format']);
       assert.deepEqual(args[4].split('\t').slice(0,11),LEGACY_CONTAINER_FIELDS.slice(0,11));
       assert.match(args[4].split('\t')[11],/with index \.Config "Labels".*"com\.docker\.compose\.project"/);
-      assert.doesNotMatch(args[4],/\.Config\.Env/);
+      assert.doesNotMatch(args[4],/\.Config\.Env|\.NetworkSettings|\.HostConfig\.(?:PortBindings|ReadonlyRootfs)/);
+      assert.match(args[4],/\{\{json \.Mounts\}\}/);
+      assert.match(args[4].split('\t')[14],/if or \(eq \.Name "\/phoenix-v3-api"\) \(eq \.Name "\/phoenix-v3-web"\) \(eq \.Name "\/phoenix-v3-db"\)/);
       return quoted(args.slice(5).map(id=>rows.find(row=>row[0]===id)));
     }
     assert.deepEqual(args.slice(0,3),['image','inspect','--format']);
+    assert.deepEqual(args.slice(4),images.map(row=>row[0]));
+    assert.match(args[3],/org\.opencontainers\.image\.revision/);
+    assert.doesNotMatch(args[3],/org\.opencontainers\.image\.source/);
     return quoted(args.slice(4).map(id=>images.find(row=>row[0]===id)));
   };
   return {run:overrides=>diagnoseProductionHostContainerOwnership(target,{docker,readRecord,guard(){},...overrides}),
@@ -75,10 +79,10 @@ test('the generic diagnosis excludes other release branches without granting adm
     row=>{row[2]='/watchtower-fixture';},
     row=>{row[11]='phoenix-erp';},
     row=>{row[1]=image('6');},
-    row=>{row[17]=[{Type:'bind',Source:CONTRACT.controlRoot+'/'+privateValue}];},
-    row=>{row[22]='readonly-inventory';},
-    row=>{row[2]='/phoenix-migrate-schema-first-1234abcd';row[17]=[];row[23]='phoenix';
-      row[20]=['./node_modules/.bin/typeorm'];row[21]=['-d','dist/database/data-source.js','migration:show'];},
+    row=>{row[16]=[{Type:'bind',Source:CONTRACT.controlRoot+'/'+privateValue}];},
+    row=>{row[19]='readonly-inventory';},
+    row=>{row[2]='/phoenix-migrate-schema-first-1234abcd';row[16]=[];row[20]='phoenix';
+      row[17]=['./node_modules/.bin/typeorm'];row[18]=['-d','dist/database/data-source.js','migration:show'];},
   ]){
     const f=fixture();
     f.registry.value.containers=[];
@@ -88,7 +92,7 @@ test('the generic diagnosis excludes other release branches without granting adm
   }
   const unproven=fixture();
   unproven.registry.value.containers=[];
-  unproven.rows[3][22]='rehearsal-candidate-api';
+  unproven.rows[3][19]='rehearsal-candidate-api';
   assert.equal(unproven.run(),'NO_PIN');
   unproven.rows[3][2]='/phoenix-migrate-schema-first-1234abcd';
   assert.equal(unproven.run(),'NO_PIN');
@@ -126,9 +130,45 @@ test('core drift, disappearance, movement and record changes withhold the entire
     if(args[0]==='inspect'&&++inspections===2)f.rows[3][4]++;
     return f.docker(args);
   }}),/HOLD_CONTAINER_OBSERVATION_CHANGED/);
+  inspections=0;
+  assert.throws(()=>f.run({docker:args=>{
+    if(args[0]==='inspect'&&++inspections===2)f.rows[3][16]=[];
+    return f.docker(args);
+  }}),/HOLD_CONTAINER_OBSERVATION_CHANGED/);
+  let imageReads=0;
+  assert.throws(()=>f.run({docker:args=>{
+    if(args[0]==='image'&&++imageReads===2)f.images[0][1]=rev('f');
+    return f.docker(args);
+  }}),/HOLD_CONTAINER_OBSERVATION_CHANGED/);
   assert.throws(()=>f.run({docker:args=>args[0]==='inspect'?'':f.docker(args)}),/HOLD_OBSERVATION_UNAVAILABLE/);
   let registryReads=0;
   assert.throws(()=>f.run({readRecord:name=>name==='active.json'?f.active:{...f.registry,filePin:[String(++registryReads)]}}),/HOLD_PROTECTED_RECORD_CHANGED/);
+});
+
+test('mount order is immaterial while all mount values and the legacy bind order still matter',()=>{
+  const mount=(source,destination)=>({Type:'bind',Source:source,Destination:destination,RW:false});
+  const first=mount('/fixture/one','/one'),second=mount('/fixture/two','/two');
+  const run=mutate=>{
+    const f=fixture(),row=f.rows[3];
+    row[10]=['/fixture/two:/two:ro','/fixture/one:/one:ro'];
+    row[16]=[first,second,{...first}];
+    f.pin.identitySha256=canonicalDigest(legacyContainerIdentity(row));
+    let inspections=0;
+    return f.run({docker:args=>{
+      if(args[0]==='inspect'&&++inspections===2)mutate(row);
+      return f.docker(args);
+    }});
+  };
+  assert.equal(run(row=>{row[16]=[second,{...first},first];}),'NO_GENERIC_MISMATCH');
+  for(const change of [
+    row=>{row[16]=[second,first];},
+    row=>{row[16]=[second,first,{...first},mount('/fixture/three','/three')];},
+    row=>{row[16]=[second,first,{...first,Source:'/fixture/new'}];},
+    row=>{row[16]=[second,first,{...first,RW:true}];},
+    row=>{row[10].reverse();},
+  ]){
+    assert.throws(()=>run(change),/HOLD_CONTAINER_OBSERVATION_CHANGED/);
+  }
 });
 
 const workflow=fs.readFileSync(new URL('../../.github/workflows/production-state-materialization.yml',import.meta.url),'utf8');
@@ -182,11 +222,14 @@ test('both actual workflow filters publish only a fixed verdict, including with 
   const blocks=actualWorkflowBlocks();
   const environment={PATH:process.env.PATH,TMPDIR:directory,DEPLOY_PATH:'/fixture',EXPECTED_MAIN_SHA:target,INCLUDE_CONTAINER_INVENTORY:'true'};
   const valid=prefix+'NO_GENERIC_MISMATCH\n',invalid=prefix+'HOLD_INVALID_DIAGNOSIS\n';
+  const separator='===============================================';
+  const banner=[separator,'✅ Successfully executed commands to all hosts.',separator].join('\n');
   for(const [stdout,stderr,exit,result] of [
     [valid,'',0,valid],
     [valid+privateValue+'\n','',0,invalid],
     [privateValue+'\n'+valid,'',0,invalid],
     [valid+'\n','',0,invalid],
+    [valid+banner+'\n','',0,invalid],
     [valid.trimEnd()+'\0','',0,invalid],
     [prefix+privateValue+'\n','',0,invalid],
     [valid,privateValue,0,invalid],
@@ -208,8 +251,15 @@ test('both actual workflow filters publish only a fixed verdict, including with 
     assert.equal(transport.stdout,result);
     assert.equal(transport.stderr,'');
   }
+  const observed=prefix+'HOLD_CONTAINER_OBSERVATION_CHANGED\n';
   for(const [dump,expected] of [[valid,valid],[valid.trimEnd(),valid],[privateValue,invalid],
-    [valid+privateValue,invalid],[valid+'\n',invalid],[prefix+'HOLD_EXECUTION_UID\n',prefix+'HOLD_EXECUTION_UID\n']]){
+    [valid+privateValue,invalid],[valid+'\n',invalid],[prefix+'HOLD_EXECUTION_UID\n',prefix+'HOLD_EXECUTION_UID\n'],
+    [observed+banner,observed],[observed+banner+'\n',observed],
+    [valid+'\n'+banner,invalid],[valid+banner+'\n\n',invalid],
+    [valid+banner+'\n'+privateValue,invalid],[privateValue+'\n'+valid+banner,invalid],
+    [valid+banner.slice(1),invalid],[valid+banner.slice(0,-1),invalid],
+    [valid+banner.replace('all hosts.','all hosts!'),invalid],[valid+banner+'\u001b[0m',invalid],
+    [valid+banner.replaceAll('\n','\r\n'),invalid],[prefix+privateValue+'\n'+banner,invalid]]){
     const artifact=spawnSync('/bin/bash',['-c',blocks.writer],{
       cwd:directory,env:{...environment,STATE_DUMP:dump},encoding:'utf8',
     });

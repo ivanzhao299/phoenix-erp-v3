@@ -298,7 +298,10 @@ jobs:
               'HOLD_INCOMPATIBLE_INPUT','HOLD_INVALID_DIAGNOSIS','HOLD_SOURCE_UNAVAILABLE',
             ].map(code=>prefix+code));
             const input=process.env.STATE_DUMP??'';
-            const line=input.endsWith('\n')?input.slice(0,-1):input;
+            const separator='='.repeat(47);
+            const banner='\n'+separator+'\n✅ Successfully executed commands to all hosts.\n'+separator;
+            const envelope=input.endsWith('\n')?input.slice(0,-1):input;
+            const line=envelope.endsWith(banner)?envelope.slice(0,-banner.length):envelope;
             process.stdout.write((codes.has(line)?line:prefix+'HOLD_INVALID_DIAGNOSIS')+'\n');
           PUBLIC_DIAGNOSIS_FILTER
             then
