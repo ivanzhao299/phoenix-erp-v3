@@ -15,9 +15,10 @@ export class ModernSchemaBodyChannel {
   this.socketName='m-'+canonicalDigest({owner,directory}).slice(0,20)+'.sock';this.socketFile=path.join(this.runtime.directory,this.socketName);this.socket=null;
   this.inspectProcess=dependencies.processIdentity??observeMaintenanceProcessIdentity;this.uid=dependencies.expectedUid??0;this.inheritFd9=dependencies.inheritFd9??true;
   this.profile=dependencies.operationProfile??'FORMAL_API';if(!['FORMAL_API','CONTROLLED_MIGRATION'].includes(this.profile))fail('FIXED_OPERATION_PROFILE_REQUIRED');
-  this.originalBody=null;this.entry=null;this.activePeer=null;this.failed=null;this.sequence=0;this.closing=false;this.stopping=false;this.expectedClosing=false;this.handlers=new Set();
+  this.originalBody=null;this.entry=null;this.activePeer=null;this.failed=null;this.sequence=0;this.closing=false;this.stopping=false;this.expectedClosing=false;this.handlers=new Set();this.started=false;this.ready=false;
  }
  async start(originalBody){
+  if(this.started||this.originalBody||this.entry||this.failed||this.stopping||this.closing)fail('CHANNEL_START_REPLAY_FORBIDDEN');this.started=true;
   this.runtime.guard();this.originalBody=originalBody;
   if(!originalBody?.pin||!path.isAbsolute(this.script)||fs.lstatSync(this.script).isSymbolicLink())fail('ORIGINAL_BODY_AND_FIXED_SCRIPT_REQUIRED');
   const err=this.runtime.openOutput(path.join(this.directory,'body-channel.stderr'));
@@ -32,7 +33,7 @@ export class ModernSchemaBodyChannel {
   const ready=new Promise((resolve,reject)=>{
    const timer=setTimeout(()=>reject(Error('MODERN_SCHEMA_BODY_CHANNEL_HOLD=START_DEADLINE')),5000);
    child.once('error',()=>{clearTimeout(timer);reject(Error('MODERN_SCHEMA_BODY_CHANNEL_HOLD=START_FAILED'));});
-   child.once('exit',()=>{clearTimeout(timer);entry.outcome='EXITED';if(!this.expectedClosing)this.failed??=Error('MODERN_SCHEMA_BODY_CHANNEL_HOLD=CHANNEL_EXITED');reject(this.failed??Error('MODERN_SCHEMA_BODY_CHANNEL_HOLD=CHANNEL_CLOSED'));});
+   child.once('exit',()=>{clearTimeout(timer);this.ready=false;entry.outcome='EXITED';if(!this.expectedClosing)this.failed??=Error('MODERN_SCHEMA_BODY_CHANNEL_HOLD=CHANNEL_EXITED');reject(this.failed??Error('MODERN_SCHEMA_BODY_CHANNEL_HOLD=CHANNEL_CLOSED'));});
    const lines=createInterface({input:child.stdout});let bytes=0,waiting=true;
    child.stdout.on('data',data=>{bytes+=data.length;if(bytes>16384){this.failed??=Error('MODERN_SCHEMA_BODY_CHANNEL_HOLD=FRAME_LIMIT');child.stdin.end();}});
    lines.on('line',line=>{
@@ -42,7 +43,14 @@ export class ModernSchemaBodyChannel {
      try{const stat=fs.lstatSync(this.socketFile);if(!stat.isSocket()||stat.uid!==this.uid||(stat.mode&0o777)!==0o600)fail('PRIVATE_KERNEL_SOCKET_REQUIRED');this.socketPin={dev:stat.dev,ino:stat.ino};resolve();}catch(error){reject(error);}return;}
     bytes=0;this.handle(frame).catch(error=>{this.failed??=error;try{child.stdin.write(JSON.stringify({sequence:frame.sequence,ok:false})+'\n');}catch{}});
    });
-  });await ready;this.runtime.guard();return this;
+  });try{await ready;this.ready=true;this.assertReadyOriginalBody(originalBody);return this;}catch(error){this.ready=false;this.failed??=error;throw error;}
+ }
+ assertReadyOriginalBody(originalBody){
+  if(!this.ready||this.failed||this.stopping||this.closing||!this.entry||this.originalBody!==originalBody)fail('ORIGINAL_READY_CHANNEL_REQUIRED');
+  this.runtime.guard();verifyModernSchemaChild(originalBody,this.inspectProcess(originalBody.pin.pid));verifyModernSchemaChild(this.entry,this.inspectProcess(this.entry.pin.pid));
+  const stat=fs.lstatSync(this.socketFile);
+  if(stat.dev!==this.socketPin?.dev||stat.ino!==this.socketPin?.ino||!stat.isSocket()||stat.uid!==this.uid||(stat.mode&0o777)!==0o600)fail('SOCKET_CHANGED');
+  return true;
  }
  verifyPeer(peer){
   if(!Number.isSafeInteger(peer?.pid)||peer.uid!==this.uid)fail('NATIVE_ROOT_PEER_REQUIRED');

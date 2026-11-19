@@ -391,6 +391,13 @@
 - 原生 CI 组件的候选替换改用真正 privateRuntime.run/deferInput/onSpawn，满足同一实际 command 登记，不给手工对象增加例外。健康检查分类器、未知/跨库客户端门禁、原 S 查询时限、API/Web TS、125 TS 迁移和冻结方案均不变。后续须以本检查点精确源码及官方 OCI 完成全 driver/schema/正式 body/OPEN/强杀收尾；上述仍是隔离开发证据，无生产 DDL、部署、业务启用或 GO。
 - 第三十二后续小修：独立只读复核确认 PROMOTE 动态导入恢复后、下一次 admit 前仍可能打印固定预检行。若提前恢复 console，该行会污染 SSH 严格 JSON 回执；未发现该路径打印凭据。收尾现先保持私有 console/FD 完成 handler drain 和 IPC shutdown，再同步关闭诊断 FD，最外 finally 才恢复 console；原错误优先及 EIO 清理保证不变。相关 **41/41、0 skipped**，用真实私有 FD/实际 Python 关闭配迟到日志反例核对不越界和 FD 释放，独立复核确认无新阻塞。不将此前 1482 项增广重复记作本小修新跑；后续精确 CI 仍须返回实际结果。
 
+## 第三十三开发检查点：两处原生 IPC 握手与监控排队（2026-11-19，保持 OFF）
+
+- 精确 `b300c1de`、无叠层的独立 KVM 演练实际通过原 Bash 退出回收、聚合 driver SUCCESS、生产 `assertExactModernSchemaAfterLedger`、294 条 TypeORM/169 条 SQL 账本及 20 份原逐项回执，同一 S 进入正式 API body。随后 Python 已创建保护 socket、stderr=0，却因 5–8 秒同步 census 先于 Node 消费 READY，触发原 5 秒 START_DEADLINE；deferred Bash 尚未收到脚本。另一只改正式 body 握手的诊断叠层也在原 driver 握手重现相同阻断，不能只修一处。该结果不冒称正式 API 切换、effect bundle 或最终 OPEN 成功。
+- 新 `watch.startBodyChannel` 复用现有 watch.serial 等待真实 READY，不持 S 同步槽；排队等待不先启动 Python 的 5 秒计时。原 Bash 必须先严格登记，实际开始及 READY 后均重新准入，并核对同 owner/runtime、固定角色/阶段/profile、原 Bash 与原 IPC 活体和保护 socket；5 秒及 start 失败拒绝不变。正式 API 与生产 supervisor 中原 driver 两处均复用，原 driver 保存初始握手错误，后续关闭中的迟到 READY 仍拒但不替换首错。
+- 独立复核指出的一次性与退出边界已补齐：`start` 在修改原 Bash 绑定或打开文件前拒绝重放，握手失败锁存 failed；READY 后真实 IPC 已退出也不会向原 Bash 喂入脚本。真实 Python 在前置 5,200ms census 排队后正常握手、driver 同 helper、坏 READY、无 READY 原 5 秒超时、后置批准失效、IPC 在后置准入中死亡及旧 channel 复用等正反例，与既有退出/排空套件合计 **48/48、0 skipped**。独立只读复核确认两项 P2 已关闭，无提交阻塞。
+- 最终 Node20 增广 109 文件、4 并发 **1490 passed / 53 opt-in skipped / 0 failed**（`modern-schema-cp33-regression-v1.log`），语法/diff 检查通过。没有改已通过的迁移、正式 typed 七步、逐项回执格式、未知执行者/健康检查分类、S 的 5 秒时限或业务 OFF。API/Web TS 和 UI 未变，不重复无变化的类型/字段/UAT。精确新提交及官方 OCI 的完整复跑仍待协调任务执行，之前叠层只作诊断；无生产 DDL、部署、业务启用或 GO，冻结方案与 125 TS 不变。
+
 ## 未完成的发布阻塞
 
 1. 独立 RAW 集蛋凭证、库存父批与内部实际转换事实已区分；RAW→分级/包装/重包装业务 API/页面已形成第十二 OFF 检查点；已过账 RAW/转换的受控更正补偿、成本分摊、其余合法退货/跨公司加工交接及质检处置尚未完成；仅第二十一检查点的同公司原仓LAK完好成品客户退货已接续。旧包装入口仍需接入明确实际投入与实耗，不能只挂 DERIVED 资格造成双计。包装、在途/退货/POS、跨公司和混源的全链成对回归，以及合法盘盈新来源仍需完成；受控 managed SKU 销售/配送/POS 正向及 UNKNOWN 持久化已有第五、六检查点证据，仍须与包装、退货和最终切换全链合并验收。不能用“全部拦住”代替合法链路验收。

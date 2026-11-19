@@ -180,6 +180,15 @@ export class ModernSchemaExecutorWatch {
  async closeBodyChannel(channel,options){
   await channel.drainForClose();return this.serially(()=>channel.close(options));
  }
+ startBodyChannel(channel,entry){return this.serially(async()=>{
+  const verify=()=>{
+   const role=this.#reapRoles.get(entry),phase=this.state.read().phase;
+   if(channel.runtime!==this.runtime||channel.owner!==this.context.owner||!((role==='SCHEMA_DRIVER'&&phase==='DDL_STARTED'&&channel.profile==='CONTROLLED_MIGRATION')
+    ||(role==='FORMAL_API_BODY'&&phase==='SCHEMA_RECEIPTED'&&channel.profile==='FORMAL_API')))fail('EXACT_ORIGINAL_CHANNEL_STAGE_REQUIRED');
+   verifyModernSchemaChild(entry,this.inspectProcess(entry.pin.pid));
+  };
+  await this.check();verify();await channel.start(entry);await this.check();verify();channel.assertReadyOriginalBody(entry);
+ });}
  observe(initialize=false){return this.serially(()=>this.observeNative(initialize));}
  async observeNative(initialize=false){
   await this.check();

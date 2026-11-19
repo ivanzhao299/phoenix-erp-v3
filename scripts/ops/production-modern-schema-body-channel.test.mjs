@@ -141,3 +141,65 @@ test('late handler diagnostics remain in the open private FD until IPC drain and
  assert.equal(fs.readFileSync(file,'utf8'),'FLOOR_REANCHOR_PRECHECK=version:3;critical:false\n');assert.equal(f.channel.entry.streamsClosed,true);
  assert.throws(()=>fs.fstatSync(fd),{code:'EBADF'});
 });
+function handshakeWatch(f,phase,admit=()=>true){
+ return new ModernSchemaExecutorWatch({context:{owner:'1234-1',runtimeSnapshotSha256:canonicalDigest({})},
+  preparation:{originalSnapshot:{containers:{}},ownedResources:[]},state:{read:()=>({phase,status:'RUNNING'})},privateRuntime:f.runtime,admit},
+  {processIdentity:f.dependencies.processIdentity});
+}
+for(const role of ['SCHEMA_DRIVER','FORMAL_API_BODY'])test('real '+role+' IPC handshake starts after queued host census with its original five-second budget',async()=>{
+ const f=fixture(),phase=role==='SCHEMA_DRIVER'?'DDL_STARTED':'SCHEMA_RECEIPTED',profile=role==='SCHEMA_DRIVER'?'CONTROLLED_MIGRATION':'FORMAL_API';let checks=0,scanned=false;
+ const watch=handshakeWatch(f,phase,()=>{checks++;return true;}),input=path.join(f.work,'handshake.sh');fs.writeFileSync(input,'true\n',{mode:0o600});
+ const channel=new ModernSchemaBodyChannel({owner:'1234-1',privateRuntime:f.runtime,directory:f.work,onRequest:()=>assert.fail('No request expected')},{...f.dependencies,operationProfile:profile});
+ const begin=performance.now();let spawnedAt;
+ try{
+  await f.runtime.run({binary:'/bin/bash',args:['-Eeuo','pipefail'],directory:f.work,stem:'queued-handshake',inputFile:input,deferInput:true,onSpawn:async entry=>{
+   watch.allowDescendants(entry,role);
+   const census=watch.serially(()=>{assert.equal(channel.entry,null);if(role==='FORMAL_API_BODY')Atomics.wait(new Int32Array(new SharedArrayBuffer(4)),0,0,5200);scanned=true;});
+   const start=channel.start.bind(channel);channel.start=body=>{assert.equal(scanned,true);spawnedAt=performance.now();return start(body);};
+   await watch.startBodyChannel(channel,entry);await census;
+  }});
+  assert.equal(checks,2);assert.ok(channel.socketPin);assert.equal(channel.failed,null);
+  if(role==='FORMAL_API_BODY')assert.ok(spawnedAt-begin>=5200);
+ }finally{await watch.closeBodyChannel(channel,{expectedGraceful:false});}
+});
+for(const mode of ['BAD_READY','NO_READY'])test('real Python '+mode+' still rejects the guarded handshake',async()=>{
+ const f=fixture(),altered=path.join(f.work,'handshake-'+mode+'.py'),needle='print(json.dumps({"kind": "READY", "pid": os.getpid()}), flush=True)',source=fs.readFileSync(script,'utf8');
+ assert.equal(source.split(needle).length,2);fs.writeFileSync(altered,source.replace(needle,mode==='BAD_READY'?'print(json.dumps({"kind":"READY","pid":0}), flush=True)':'pass'),{mode:0o600});
+ const watch=handshakeWatch(f,'SCHEMA_RECEIPTED'),input=path.join(f.work,'bad-handshake.sh');fs.writeFileSync(input,'true\n',{mode:0o600});
+ const channel=new ModernSchemaBodyChannel({owner:'1234-1',privateRuntime:f.runtime,directory:f.work,onRequest:()=>assert.fail('No request expected')},{...f.dependencies,script:altered});
+ try{
+  await assert.rejects(f.runtime.run({binary:'/bin/bash',args:['-Eeuo','pipefail'],directory:f.work,stem:'bad-handshake',inputFile:input,deferInput:true,onSpawn:async entry=>{
+   watch.allowDescendants(entry,'FORMAL_API_BODY');await watch.startBodyChannel(channel,entry);
+  }}),mode==='BAD_READY'?/SERVER_IDENTITY/:/START_DEADLINE/);assert.ok(channel.failed);
+ }finally{await assert.rejects(watch.closeBodyChannel(channel,{expectedGraceful:false}));}
+});
+test('post-READY admission failure never feeds the suspended original Bash',async()=>{
+ const f=fixture(),input=path.join(f.work,'never-fed.sh'),executed=path.join(f.work,'executed');let checks=0;
+ fs.writeFileSync(input,`touch ${quoted(executed)}\n`,{mode:0o600});
+ const watch=handshakeWatch(f,'SCHEMA_RECEIPTED',()=>++checks===1),channel=new ModernSchemaBodyChannel({owner:'1234-1',privateRuntime:f.runtime,directory:f.work,onRequest:()=>assert.fail('No request expected')},f.dependencies);
+ try{
+  await assert.rejects(f.runtime.run({binary:'/bin/bash',args:['-Eeuo','pipefail'],directory:f.work,stem:'revoked-handshake',inputFile:input,deferInput:true,onSpawn:async entry=>{
+   watch.allowDescendants(entry,'FORMAL_API_BODY');await watch.startBodyChannel(channel,entry);
+  }}),/ORIGINAL_NATIVE_LEASE_REQUIRED/);assert.equal(checks,2);assert.equal(fs.existsSync(executed),false);
+ }finally{await watch.closeBodyChannel(channel,{expectedGraceful:false});}
+});
+test('a reused IPC instance cannot replace its original Bash binding before failing',async()=>{
+ const f=await idleChannelFixture(),original=f.channel.originalBody;
+ try{
+  await assert.rejects(f.channel.start({pin:{pid:123}}),/CHANNEL_START_REPLAY_FORBIDDEN/);
+  assert.equal(f.channel.originalBody,original);assert.equal(f.channel.entry.child.exitCode,null);
+ }finally{await f.channel.close();}
+});
+test('native IPC exit during post-READY admission cannot feed the original Bash',async()=>{
+ const f=fixture(),input=path.join(f.work,'server-died.sh'),executed=path.join(f.work,'executed');let checks=0,channel;
+ fs.writeFileSync(input,`touch ${quoted(executed)}\n`,{mode:0o600});
+ const watch=handshakeWatch(f,'SCHEMA_RECEIPTED',()=>{
+  if(++checks===2){channel.entry.child.kill('SIGTERM');Atomics.wait(new Int32Array(new SharedArrayBuffer(4)),0,0,80);}return true;
+ });
+ channel=new ModernSchemaBodyChannel({owner:'1234-1',privateRuntime:f.runtime,directory:f.work,onRequest:()=>assert.fail('No request expected')},f.dependencies);
+ try{
+  await assert.rejects(f.runtime.run({binary:'/bin/bash',args:['-Eeuo','pipefail'],directory:f.work,stem:'ipc-died',inputFile:input,deferInput:true,onSpawn:async entry=>{
+   watch.allowDescendants(entry,'FORMAL_API_BODY');await watch.startBodyChannel(channel,entry);
+  }}));assert.equal(checks,2);assert.equal(fs.existsSync(executed),false);
+ }finally{await assert.rejects(watch.closeBodyChannel(channel,{expectedGraceful:false}));}
+});

@@ -56,7 +56,7 @@ export async function runModernSchemaFormalApiBody({context,preparation,preparat
  try{
   result=await privateRuntime.run({binary:'/bin/bash',args:['--noprofile','--norc','-Eeuo','pipefail'],directory,stem:'formal-api-body',inputFile:file,deferInput:true,inheritFd9:true,env,timeoutMs:300000,
    onSpawn:async entry=>{
-    if(await admit()!==true)fail('ORIGINAL_NATIVE_LEASE_REQUIRED');watch.allowDescendants(entry,'FORMAL_API_BODY');await channel.start(entry);
+    if(await admit()!==true)fail('ORIGINAL_NATIVE_LEASE_REQUIRED');watch.allowDescendants(entry,'FORMAL_API_BODY');await watch.startBodyChannel(channel,entry);
     const pidFd=privateRuntime.openOutput(pidFile);try{fs.writeFileSync(pidFd,String(channel.entry.child.pid));fs.fsyncSync(pidFd);}finally{fs.closeSync(pidFd);}
     state.advance('SCHEMA_RECEIPTED','API_BODY',modernSchemaStepEvidence(context,'API_BODY',{bodyChild:entry.pin,bodySourceSha256:source.bodySha256,workflowSourceSha256:source.workflowSha256,schemaReceiptSha256:schemaSha256}));
     adapters=createModernSchemaFormalBodyAdapters({context,preparationSha256,rootLease,originalProcess,originalChild:entry,admit:nativeAdmit},{
