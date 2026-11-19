@@ -39,7 +39,7 @@ const env = Object.freeze({
   ROTATE_CHANJET_CREDENTIALS: 'false',
   ONE_TIME_CONFIG_FLOOR_TRANSITION: 'false',
   MODERN_SCHEMA_GITHUB_READ_TOKEN: githubReadToken,
-  ACTIONS_ID_TOKEN_REQUEST_URL: 'https://pipelines.actions.githubusercontent.com/fixture/dispatch/idtoken/job?api-version=2.0',
+  ACTIONS_ID_TOKEN_REQUEST_URL: 'https://pipelines.actions.githubusercontent.com/fixture//idtoken/dispatch/job?api-version=2.0',
   ACTIONS_ID_TOKEN_REQUEST_TOKEN: 'fixture-oidc-channel-credential',
 });
 const prepared = { schema: 'phoenix.modern-schema-public-preparation/v1', owner, targetSha: sha, preparationSha256, prepared: true };
