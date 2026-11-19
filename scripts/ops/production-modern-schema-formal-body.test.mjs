@@ -5,6 +5,7 @@ import {modernSchemaReleaseBinding} from './production-modern-schema-state.mjs';
 import {createModernSchemaFormalBodyAdapters, verifyOriginalExecutorStopped} from './production-modern-schema-formal-body.mjs';
 import {runModernSchemaDeploymentState} from './production-deployment-state.mjs';
 import {runCompose} from './phoenix-production-compose.mjs';
+import {ModernSchemaExecutorWatch} from './production-modern-schema-watch.mjs';
 
 const preparationSha256 = 'f'.repeat(64);
 const directory = '/tmp/owned-formal-request-fixture';
@@ -17,7 +18,7 @@ const startedAt = '2026-11-19T00:04:00.000Z';
 const composeCommand = ['up', '-d', '--no-deps', '--wait', 'api'];
 const tabJSON = cells => cells.map(cell => JSON.stringify(cell)).join('\\t');
 
-function fixture() {
+function fixture({serialize, admitRequest} = {}) {
   const {context} = modernSchemaFixture();
   const old = {containerId: oldId, revision: context.runtimeSha, startedAt, restartCount: 1};
   const persisted = {version: 3, target: context.targetSha,
@@ -34,6 +35,7 @@ function fixture() {
     },
   };
   const dependencies = {
+    serialize, admitRequest,
     directory, root, guard() {},
     checkProcess() { return true; },
     checkLease() { return status.lease; },
@@ -92,9 +94,12 @@ function fixture() {
         backgroundMount() { status.events.push('BACKGROUND_READONLY_MOUNT'); },
       });
     },
-    async executeCompose(observed) {
+    async executeCompose(observed, registered) {
       status.argv = observed;
       status.events.push('COMPOSE_EXECUTES');
+      await status.beforeRegistration?.();
+      registered();
+      await status.waitForCompose?.();
       status.candidate = {id: newId, image: context.candidateImageId, ociRevision: context.targetSha,
         startedAt, restartCount: 0, running: true, health: 'healthy'};
     },
@@ -109,6 +114,66 @@ function fixture() {
   }
   return {adapters, stage, throughSwitch, status, context, old, read: dependencies.dockerRead};
 }
+
+test('typed admission and effects serialize with watch while Compose exit stays outside the queue', {timeout: 5000}, async () => {
+  const watch = Object.create(ModernSchemaExecutorWatch.prototype);
+  watch.serial = Promise.resolve();
+  let releaseCompose;
+  const composeCompletion = new Promise(resolve => { releaseCompose = resolve; });
+  let registerCompose;
+  const composeRegistration = new Promise(resolve => { registerCompose = resolve; });
+  let signalCompose;
+  const launched = new Promise(resolve => { signalCompose = resolve; });
+  let insideQueue = false;
+  const f = fixture({
+    serialize: work => watch.serially(async () => {
+      insideQueue = true;
+      try { return await work(); }
+      finally { insideQueue = false; }
+    }),
+    admitRequest: () => assert.equal(insideQueue, true),
+  });
+  f.status.onAdmission = () => assert.equal(insideQueue, true);
+  f.status.beforeRegistration = () => {
+    assert.equal(insideQueue, true);
+    signalCompose();
+    return composeRegistration;
+  };
+  f.status.waitForCompose = () => composeCompletion;
+  const earlierWatch = watch.serially(() => assert.deepEqual(f.status.events, []));
+  await f.throughSwitch();
+  await earlierWatch;
+  const compose = f.adapters.compose(composeCommand);
+  await launched;
+  let observed = false;
+  try {
+    const watchDuringCompose = watch.serially(() => {
+      observed = true;
+      assert.equal(insideQueue, false);
+      assert.equal(f.status.candidate, null);
+      assert.ok(!f.status.events.includes('COMPOSE:AFTER'));
+    });
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(observed, false);
+    registerCompose();
+    await watchDuringCompose;
+  } finally { registerCompose(); releaseCompose(); }
+  assert.equal(await compose, true);
+  await f.adapters.readiness();
+  await f.adapters.state('complete');
+  assert.equal(f.adapters.completed(), true);
+});
+
+test('Compose launch failure releases the watch queue without finish or replay', async () => {
+  const watch = Object.create(ModernSchemaExecutorWatch.prototype);
+  watch.serial = Promise.resolve();
+  const f = fixture({serialize: work => watch.serially(work)});
+  await f.throughSwitch();
+  f.status.beforeRegistration = () => { throw Error('fixture launch failure'); };
+  await assert.rejects(f.adapters.compose(composeCommand), /COMPOSE_UNVERIFIED/);
+  await watch.serially(() => assert.ok(!f.status.events.includes('COMPOSE:AFTER')));
+  await assert.rejects(f.adapters.compose(composeCommand), /FORMAL_OPERATIONS_OUT_OF_ORDER/);
+});
 
 test('typed parent reuses the guarded API-only formal sequence and keeps both locks around effects', async () => {
   const f = fixture();

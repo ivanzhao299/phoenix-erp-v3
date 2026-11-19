@@ -46,6 +46,29 @@ const databaseObservation = sessions => ({primary:true,statsComplete:true,databa
   sessions:[{pid:501,databaseOid:1234,backendStartMicros:'672332',clientAddress:null,applicationName:'lease'},...sessions]});
 const session = (pid,ip) => ({pid,databaseOid:1234,backendStartMicros:'672395',clientAddress:ip,applicationName:'fixture_api'});
 
+test('lease heartbeat shares the watch queue and keeps at most one outstanding check', async t => {
+  t.mock.timers.enable({apis:['setInterval']});
+  const {watch} = fixture();
+  let checks = 0, release;
+  const block = new Promise(resolve => { release = resolve; });
+  const errors = [];
+  watch.check = async () => { checks++; await block; };
+  const occupied = watch.serially(() => block);
+  const stop = watch.startLeaseHeartbeat(error => errors.push(error));
+  t.mock.timers.tick(1000);
+  const first = watch.serial;
+  t.mock.timers.tick(10000);
+  assert.equal(watch.serial, first);
+  assert.equal(checks, 0);
+  release();
+  await occupied;
+  await first;
+  await stop();
+  t.mock.timers.tick(10000);
+  assert.equal(checks, 1);
+  assert.deepEqual(errors, []);
+});
+
 test('original CID can disappear only at controlled Compose; replacement sessions cover all release phases', () => {
   const f=fixture();
   assert.throws(()=>f.check(f.web,f.db,f.candidate),/ORIGINAL_R_DISAPPEARED_WITHOUT_CONTROLLED_COMPOSE/);

@@ -42,7 +42,7 @@ export async function superviseModernSchemaRelease(env,input){
  await registerModernSchemaRelease({owner:context.owner,preparationSha256:input.preparationSha256,identityToken:input.identityToken},{identityDependencies:{credential:input.githubReadToken}});
  input.identityToken=null;input.githubReadToken=null;
  const client=new ModernSchemaReadClient(),watchClient=new ModernSchemaReadClient();let clientsStarted=false,state=null,coordinator=null,publisher=null,ingress=null,watch=null,rootLease=null;
- let originalProcess=null,beforeFacts=null,beforeLedger=null,beforeCatalog=null,originalRestartPolicy=null,committed=false,recovering=false,heartbeat=null,heartbeatWork=Promise.resolve(),fatal=null;
+ let originalProcess=null,beforeFacts=null,beforeLedger=null,beforeCatalog=null,originalRestartPolicy=null,committed=false,recovering=false,closeHeartbeat=null,fatal=null;
  const ownedResources=[...preparation.ownedResources];let recoveryResult=null,openCommitIntent=null,terminalComplete=false;
  const denialAdmission=()=>{runtime.guard();if(!originalProcess||originalProcess.pid!==process.pid||assertOriginalModernSchemaProcess(originalProcess)!==true)fail('ORIGINAL_DENIAL_SUPERVISOR_LOST');
   if(state)assertSameBinding(state.read(),state.binding);return true;};
@@ -64,10 +64,7 @@ export async function superviseModernSchemaRelease(env,input){
   }else observeHost();
   return true;
  };
- const stopHeartbeat=async()=>{clearInterval(heartbeat);heartbeat=null;await heartbeatWork;if(fatal)throw fatal;};
- const beginHeartbeat=()=>{if(heartbeat)fail('SECOND_LEASE_HEARTBEAT');heartbeat=setInterval(()=>{
-  heartbeatWork=heartbeatWork.then(()=>native()).catch(error=>{fatal??=error;});
- },1000);};
+ const stopHeartbeat=async()=>{await closeHeartbeat?.();closeHeartbeat=null;if(fatal)throw fatal;};
  const advance=async(from,to,evidence,options)=>{await native();state.advance(from,to,modernSchemaStepEvidence(context,to,evidence),options);await native();};
  const disk=async()=>{const {rows:[size]}=await client.query('SELECT pg_database_size(current_database())::text AS bytes');return observeModernSchemaDiskSpace({databaseBytes:size.bytes});};
  const audit=async()=>{
@@ -122,7 +119,8 @@ export async function superviseModernSchemaRelease(env,input){
   const drainReceipt=await persistModernSchemaOriginalDrain({context,preparationSha256:input.preparationSha256,rootLease,coordinator,privateRuntime:runtime,drain,admit:()=>native()});
   await advance('REGISTERED','DRAINED',{drain,drainReceipt,originalLease:rootLease},{lease:rootLease});
   watch=new ModernSchemaExecutorWatch({context,preparation:{...preparation,ownedResources},state,rootLease,session,client:watchClient,privateRuntime:runtime,admit:()=>native()});
-  await watch.registerReadTransport(client);await watch.registerReadTransport(watchClient);await watch.initialize();beginHeartbeat();
+  await watch.registerReadTransport(client);await watch.registerReadTransport(watchClient);await watch.initialize();
+  closeHeartbeat=watch.startLeaseHeartbeat(error=>{fatal??=error;});
   ingress=new ModernSchemaIngress({context,scope:preparation.ingressScope,privateRuntime:runtime,admit:async operation=>{
    await native({allowHeld:recovering});watch.assertHealthy();
    if(recovering)await watch.observeRecoveryHost(()=>native({allowHeld:true}));
@@ -264,5 +262,5 @@ export async function superviseModernSchemaRelease(env,input){
   }
   if(recoveryCommitted&&originalGone){try{await finalizeCommittedModernSchemaRecoveredOriginal({context,preparationSha256:input.preparationSha256,client});}catch{}}
   return {schema:'phoenix.modern-schema-public-result/v1',owner:context.owner,targetSha:context.targetSha,outcome:'HOLD',defaultOff:true};
- }finally{clearInterval(heartbeat);await Promise.allSettled([client.close(),watchClient.close()]);}
+ }finally{await closeHeartbeat?.();await Promise.allSettled([client.close(),watchClient.close()]);}
 }

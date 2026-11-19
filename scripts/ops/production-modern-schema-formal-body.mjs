@@ -90,6 +90,8 @@ export function createModernSchemaFormalBodyAdapters({
   const inspect = dependencies.metadata ?? metadataFor;
   const read = dependencies.dockerRead ?? boundedDockerRead;
   const executeCompose = dependencies.executeCompose;
+  const serialize = dependencies.serialize ?? (async work => work());
+  const admitRequest = dependencies.admitRequest;
   const sourceGit=dependencies.git??((repository,args)=>git(repository,args,{timeoutMs:10000}));
   if (!rootLease || originalProcess?.pid !== process.pid || !originalChild?.pin ||
       typeof admit !== 'function' || typeof executeCompose !== 'function') fail('ORIGINAL_SUPERVISOR_CHANNEL_REQUIRED');
@@ -139,15 +141,28 @@ export function createModernSchemaFormalBodyAdapters({
     if (candidate && !same(candidate, found)) fail('CANDIDATE_RUNTIME_CHANGED');
     return found;
   };
-  const act = async (operation, effect) => {
+  const act = async (operation, effect, finishCompose) => {
     if (executing || poisoned || order[index] !== operation) fail('FORMAL_OPERATIONS_OUT_OF_ORDER');
     executing = true;
     try {
-      await authorize(operation, 'BEFORE');
-      const result = await effect();
-      await authorize(operation, 'AFTER');
+      const result = await serialize(async () => {
+        if (admitRequest) await admitRequest();
+        await authorize(operation, 'BEFORE');
+        const value = await effect();
+        if (!finishCompose) await authorize(operation, 'AFTER');
+        return value;
+      });
+      if (finishCompose) {
+        // The child runs outside the observation queue. Only its preparation
+        // and the verification after it exits need to exclude a pending probe.
+        await result.completion;
+        await serialize(async () => {
+          finishCompose();
+          await authorize(operation, 'AFTER');
+        });
+      }
       index++;
-      return result;
+      return finishCompose ? true : result;
     } catch (error) {
       poisoned = true;
       if (/^MODERN_SCHEMA_FORMAL_HOLD=[A-Z_]+$/.test(error?.message ?? '')) throw error;
@@ -181,17 +196,21 @@ export function createModernSchemaFormalBodyAdapters({
     },
     compose(args) {
       if (!same(args, composeUp)) fail('FORMAL_COMPOSE_SCOPE');
-      return act('COMPOSE', async () => {
-        await (dependencies.compose ?? runCompose)(composeUp, {
-          root, directory, env, maintenanceAdmission: verifyOwner,
-          backgroundFence: originalDrained,
-          execute: async (_program, argv, {cwd, env: composeEnv}) => {
-            await authorize('COMPOSE', 'WRITE');
-            return executeCompose({binary: '/usr/bin/docker', args: argv, cwd, env: composeEnv});
-          },
-        });
+      return act('COMPOSE', () => (dependencies.compose ?? runCompose)(composeUp, {
+        root, directory, env, maintenanceAdmission: verifyOwner,
+        backgroundFence: originalDrained,
+        execute: async (_program, argv, {cwd, env: composeEnv}) => {
+          await authorize('COMPOSE', 'WRITE');
+          let registered;
+          const registration = new Promise(resolve => { registered = resolve; });
+          const completion = executeCompose({binary: '/usr/bin/docker', args: argv, cwd, env: composeEnv}, registered);
+          // The queue may move on once the exact child has been registered.
+          // Rejection before registration must release the queue as a failure.
+          await Promise.race([registration, completion.then(() => fail('COMPOSE_CHILD_NOT_REGISTERED'))]);
+          return {completion};
+        },
+      }), () => {
         candidate = verifyCandidate();
-        return true;
       });
     },
     readiness(...args) {

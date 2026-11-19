@@ -159,6 +159,16 @@ export class ModernSchemaExecutorWatch {
   if(pendingExit)throw pendingExit;
  }
  serially(work){const result=this.serial.then(work);this.serial=result.catch(()=>{});return result;}
+ startLeaseHeartbeat(onError){
+  let pending=null,active=true;
+  const timer=setInterval(()=>{
+   if(!active||pending)return;
+   pending=this.serially(async()=>{if(active)await this.check();})
+    .catch(error=>{active=false;clearInterval(timer);onError(error);})
+    .finally(()=>{pending=null;});
+  },1000);
+  return async()=>{active=false;clearInterval(timer);await pending;};
+ }
  withNativeCreate(work){return this.serially(async()=>{await this.check();const result=await work();await this.check();return result;});}
  async observeHostAfterOriginalExit(work){
   const reaped=new Set();

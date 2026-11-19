@@ -28,7 +28,7 @@ export async function runModernSchemaFormalApiBody({context,preparation,preparat
   channel.assertActivePeer();return true;
  };
  channel=new ModernSchemaBodyChannel({owner:context.owner,privateRuntime,directory,onRequest:async({operation,args})=>{
-  if(!adapters)fail('ORIGINAL_SUSPENDED_BODY_REQUIRED');await nativeAdmit();
+  if(!adapters)fail('ORIGINAL_SUSPENDED_BODY_REQUIRED');
   if(operation==='state')await adapters.state(...args);
   else if(operation==='promote')await adapters.promote(...args);
   else if(operation==='compose')await adapters.compose(args);
@@ -60,9 +60,11 @@ export async function runModernSchemaFormalApiBody({context,preparation,preparat
     const pidFd=privateRuntime.openOutput(pidFile);try{fs.writeFileSync(pidFd,String(channel.entry.child.pid));fs.fsyncSync(pidFd);}finally{fs.closeSync(pidFd);}
     state.advance('SCHEMA_RECEIPTED','API_BODY',modernSchemaStepEvidence(context,'API_BODY',{bodyChild:entry.pin,bodySourceSha256:source.bodySha256,workflowSourceSha256:source.workflowSha256,schemaReceiptSha256:schemaSha256}));
     adapters=createModernSchemaFormalBodyAdapters({context,preparationSha256,rootLease,originalProcess,originalChild:entry,admit:nativeAdmit},{
-     executeCompose:async command=>{
+     serialize:work=>watch.serially(work),admitRequest:nativeAdmit,
+     executeCompose:async (command,started)=>{
       if(++composeCount!==1||command.binary!=='/usr/bin/docker'||command.cwd!==root)fail('EXACT_SINGLE_API_COMPOSE_REQUIRED');
-      return privateRuntime.run({binary:command.binary,args:command.args,directory,stem:'formal-api-compose',env:command.env,timeoutMs:180000,inheritFd9:true,onSpawn:compose=>watch.allowCompose(compose)});
+      return privateRuntime.run({binary:command.binary,args:command.args,directory,stem:'formal-api-compose',env:command.env,timeoutMs:180000,inheritFd9:true,
+       onSpawn:compose=>{watch.allowCompose(compose);started();}});
      },
     });
    }});

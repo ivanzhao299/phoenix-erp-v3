@@ -3,6 +3,7 @@ import test from 'node:test';import assert from 'node:assert/strict';import {cre
 import {canonicalDigest} from './production-maintenance-receipts.mjs';
 import {MODERN_SCHEMA_LEASE_SQL,parseModernSchemaLease,originalModernSchemaSessionPredicate,assertModernSchemaLeaseStillOriginal,ModernSchemaControlSession,pinOriginalModernSchemaSession} from './production-modern-schema-session-lease.mjs';
 import {closeModernSchemaOriginalSession} from './production-modern-schema-completion.mjs';
+import {ModernSchemaExecutorWatch} from './production-modern-schema-watch.mjs';
 test('new PostgreSQL session or missing original key cannot inherit a real dual-lock release lease',{skip:process.env.MODERN_SCHEMA_LEASE_PG!=='1'},async()=>{
  const labels=JSON.parse(execFileSync('/usr/bin/docker',['inspect','phoenix-temp-reversal-20261118','--format','{{json .Config.Labels}}'],{encoding:'utf8'}));assert.equal(labels['phoenix.fixture'],'temp-reversal');
  const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../..'),{Client}=createRequire(path.join(root,'apps/api/package.json'))('pg');
@@ -64,6 +65,20 @@ test('actual modern sealed psql adapter refuses early unlock and same-backend re
   });
   const after=session.query(originalModernSchemaSessionPredicate(pinned));
   assert.deepEqual(await Promise.all([first,observation,after]),[true,'NATIVE_OBSERVATION_COMPLETE',true]);
+  // Formal operations use the watch queue, rather than the synchronous S
+  // slot, because their guards must also issue real queries on S.
+  const watch=Object.create(ModernSchemaExecutorWatch.prototype);
+  watch.serial=Promise.resolve();
+  watch.check=async()=>assert.equal(await session.query(originalModernSchemaSessionPredicate(pinned)),true);
+  const queuedProbe=watch.serially(()=>watch.check());
+  const formal=watch.serially(async()=>{
+   assert.equal(session.pending,null);
+   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)),0,0,5200);
+   await watch.check();
+  });
+  const subsequentProbe=watch.serially(()=>watch.check());
+  await Promise.all([queuedProbe,formal,subsequentProbe]);
+  assert.equal(session.commandTimeoutMs,5000);
   assert.equal(assertModernSchemaLeaseStillOriginal(pinned,{read}),true);
  }finally{closing=true;if(session.connected()){await session.unlock(2).catch(()=>{});await session.unlock(1).catch(()=>{});}await session.close();}
 });
