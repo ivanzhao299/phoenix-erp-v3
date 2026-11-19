@@ -1,0 +1,9 @@
+{
+  "files": 5,
+  "nativeInputs": 28,
+  "runtimeDropdowns": 10,
+  "sharedSelectors": 15,
+  "manualMasterDataTextInputs": 0,
+  "manual": [],
+  "scope": "Reusable lifecycle form + PC/mobile wrappers + archive form + warehouse daily-close; dropdown selection is separate from manual text entry"
+}

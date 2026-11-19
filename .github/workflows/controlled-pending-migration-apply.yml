@@ -86,17 +86,28 @@ jobs:
             test -z "$(git_safe status --porcelain --untracked-files=all)"
             git_safe fetch --no-tags origin main
             test "$(git_safe rev-parse FETCH_HEAD)" = "$TARGET_SHA"
-            for marker in transaction.json policy-transition.json; do
-              test ! -e "$STATE_DIR/$marker" || { echo "MIGRATION_APPLY=HOLD_IN_FLIGHT_$marker"; exit 1; }
+            for marker in transaction.json policy-transition.json cutover-pending.json schema-release-pending.json; do
+              test ! -e "$STATE_DIR/$marker" && test ! -L "$STATE_DIR/$marker" || { echo "MIGRATION_APPLY=HOLD_IN_FLIGHT_$marker"; exit 1; }
             done
             # OPEN is the normal post-release admission state, not an
             # in-flight deployment. Continue rejecting fenced/publishing or
             # malformed records before schema-first migration.
-            if [ -e "$STATE_DIR/background-control.json" ]; then
+            if [ -e "$STATE_DIR/background-control.json" ] || [ -L "$STATE_DIR/background-control.json" ]; then
               node --input-type=module -e '
                 import fs from "node:fs";
-                const record = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
-                if (record?.phase !== "OPEN") process.exit(1);
+                try {
+                const file=process.argv[1],expected=fs.lstatSync(file);
+                const regular=s=>s.isFile()&&!s.isSymbolicLink()&&s.uid===0&&(s.mode&0o7777)===0o600&&s.nlink===1&&s.size<=65536;
+                if(!regular(expected))process.exit(1);
+                const fd=fs.openSync(file,fs.constants.O_RDONLY|fs.constants.O_NOFOLLOW);
+                const opened=fs.fstatSync(fd);
+                const identity=s=>JSON.stringify([s.dev,s.ino,s.size,s.mtimeMs,s.ctimeMs]);
+                if(!regular(opened)||identity(expected)!==identity(opened))process.exit(1);
+                const record=JSON.parse(fs.readFileSync(fd,"utf8"));
+                const after=fs.fstatSync(fd),named=fs.lstatSync(file);fs.closeSync(fd);
+                if(!regular(after)||!regular(named)||identity(opened)!==identity(after)||identity(after)!==identity(named))process.exit(1);
+                if (record?.phase !== "OPEN" || Object.hasOwn(record,"purpose") || Object.hasOwn(record,"cutover") || Object.hasOwn(record,"schemaRelease")) process.exit(1);
+                } catch { process.stderr.write("MIGRATION_APPLY=HOLD_CONTROL_METADATA\n");process.exitCode=1; }
               ' "$STATE_DIR/background-control.json" \
                 || { echo 'MIGRATION_APPLY=HOLD_IN_FLIGHT_background-control.json'; exit 1; }
             fi
@@ -104,7 +115,7 @@ jobs:
             test ! -e "$STAGE"
             mkdir -m 700 "$STAGE"
             trap 'rm -rf "$STAGE"' EXIT
-            for helper in chanjet-admission-schema-receipt.mjs record-migration-apply-receipt.mjs production-config-guard.mjs production-config-contract.json production-atomic-state.mjs production-trusted-paths.mjs capture-production-runtime.mjs chanjet-readonly-policy.mjs update-managed-chanjet-env.mjs audit-daily-egg-inbound.mjs; do
+            for helper in chanjet-admission-schema-receipt.mjs record-migration-apply-receipt.mjs production-config-guard.mjs production-config-contract.json production-atomic-state.mjs production-trusted-paths.mjs capture-production-runtime.mjs chanjet-readonly-policy.mjs update-managed-chanjet-env.mjs audit-daily-egg-inbound.mjs pending-migration-backup-paths.mjs; do
               git_safe show "$TARGET_SHA:scripts/ops/$helper" > "$STAGE/$helper"
               chmod 600 "$STAGE/$helper"
             done
@@ -156,6 +167,40 @@ jobs:
               docker login ghcr.io -u "$GHCR_LOGIN_USER" --password-stdin <<< "$GHCR_LOGIN_TOKEN"
               docker pull -q "$API_IMAGE" >/dev/null
               test "$(docker image inspect "$API_IMAGE" --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}')" = "$TARGET_SHA"
+              # BEGIN pending-migration backup: archive parsing does not restore a database.
+              [[ "$MIGRATION_RUN_ID" =~ ^[0-9]+-[0-9]+$ && "$TARGET_SHA" =~ ^[a-f0-9]{40}$ ]]
+              BACKUP_PARENT=/opt/phoenix-erp-backups
+              BACKUP_DIR="$BACKUP_PARENT/pending-migration-${MIGRATION_RUN_ID}"
+              node "$STAGE/pending-migration-backup-paths.mjs" prepare "$MIGRATION_RUN_ID"
+              AVAILABLE_KB="$(df -Pk "$BACKUP_PARENT" | awk 'NR == 2 { print $4 }')"
+              [[ "$AVAILABLE_KB" =~ ^[0-9]+$ && "$AVAILABLE_KB" -ge 2097152 ]] || { echo 'MIGRATION_BACKUP=HOLD_INSUFFICIENT_SPACE'; exit 28; }
+              BACKUP_FILE="$BACKUP_DIR/phoenix_erp_pre_${TARGET_SHA:0:12}.dump"
+              node "$STAGE/pending-migration-backup-paths.mjs" verify "$MIGRATION_RUN_ID"
+              docker exec -i phoenix-v3-db sh -c \
+                'exec pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" --format=custom --compress=6 --no-owner --no-privileges' \
+                > "$BACKUP_FILE"
+              node "$STAGE/pending-migration-backup-paths.mjs" verify "$MIGRATION_RUN_ID"
+              chmod 600 "$BACKUP_FILE"
+              test -s "$BACKUP_FILE"
+              docker exec -i phoenix-v3-db pg_restore --list < "$BACKUP_FILE" > "$BACKUP_DIR/archive-toc.txt"
+              chmod 600 "$BACKUP_DIR/archive-toc.txt"
+              TOC_ENTRIES="$(awk '!/^;/ && NF { n++ } END { print n+0 }' "$BACKUP_DIR/archive-toc.txt")"
+              test "$TOC_ENTRIES" -gt 0
+              # No -d/--dbname: parse/decompress the full archive into /dev/null, never execute its SQL.
+              docker exec -i phoenix-v3-db pg_restore --exit-on-error --no-owner --no-privileges --file=/dev/null \
+                < "$BACKUP_FILE" 2> "$BACKUP_DIR/archive-parse.log"
+              chmod 600 "$BACKUP_DIR/archive-parse.log"
+              (cd "$BACKUP_DIR" && sha256sum "$(basename "$BACKUP_FILE")" > "$(basename "$BACKUP_FILE").sha256" \
+                && sha256sum --check --status "$(basename "$BACKUP_FILE").sha256")
+              chmod 600 "${BACKUP_FILE}.sha256"
+              read -r BACKUP_SHA256 _ < "${BACKUP_FILE}.sha256"
+              [[ "$BACKUP_SHA256" =~ ^[a-f0-9]{64}$ ]]
+              echo "MIGRATION_BACKUP_FILE=$BACKUP_FILE"
+              echo "MIGRATION_BACKUP_SHA256=$BACKUP_SHA256"
+              echo "MIGRATION_BACKUP_TOC_ENTRIES=$TOC_ENTRIES"
+              echo 'MIGRATION_BACKUP=VERIFIED_CUSTOM_ARCHIVE_FULL_PARSE'
+              # END pending-migration backup.
+              node "$STAGE/pending-migration-backup-paths.mjs" verify "$MIGRATION_RUN_ID"
               PRESERVE_ARTIFACTS=true bash scripts/deploy-schema-first.sh /opt/phoenix/backups/migration-evidence "$API_IMAGE"
               LEDGER_JSON_LINE_AFTER="$(node --input-type=module -e "import {readProductionLedger} from '$STAGE/chanjet-admission-schema-receipt.mjs'; console.log(JSON.stringify(readProductionLedger()))")"
               # Re-derive pending from the fresh ledger.

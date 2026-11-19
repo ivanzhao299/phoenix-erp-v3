@@ -1,0 +1,36 @@
+{
+  "image": {
+    "id": "sha256:8435950b52ad33826ddc55258b2117237eae6adff744078806c84b2863b7780e",
+    "revision": "owned-uncommitted-reversal-v3-review"
+  },
+  "network": "none",
+  "readOnly": true,
+  "onlyWritableMount": "ephemeral /app/uploads",
+  "runs": [
+    {
+      "mode": "--self-check",
+      "exitCode": 0,
+      "expectedExitCode": 0,
+      "marker": {
+        "mode": "--self-check",
+        "databaseInitialized": false,
+        "appModuleLoaded": false,
+        "user": "phoenix"
+      },
+      "logSha256": "62a71e8f7b019935d7dd2452570b9b354095b19ff7fd534d30d67e95d3eee5bb"
+    },
+    {
+      "mode": "apply",
+      "exitCode": 2,
+      "expectedExitCode": 2,
+      "marker": {
+        "mode": "apply",
+        "databaseInitialized": false,
+        "appModuleLoaded": false,
+        "user": "phoenix"
+      },
+      "logSha256": "dd4caf89ca88bbe8ec0e3800568187550f3fbc30988bbdcff966d67af48d0a78"
+    }
+  ],
+  "productionReceipt": false
+}

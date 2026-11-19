@@ -17,8 +17,8 @@ export class ScopedNotificationRecipientService {
     private readonly dataScope: DataScopeService,
   ) {}
 
-  async resolve(companyCode: string, menuCodes: string[]): Promise<string[]> {
-    if (!companyCode || menuCodes.length === 0) return [];
+  async resolve(companyCode: string, menuCodes: string[],warehouseCode?:string): Promise<string[]> {
+    if (!companyCode || menuCodes.length === 0 || warehouseCode!==undefined&&!warehouseCode) return [];
     const rows: Array<{ user_id: string; menu_code: string; role_codes: string[] | null }> = await this.ds.query(
       `WITH grants AS (
          SELECT ur.user_id, m.menu_code, rmp.perm_codes
@@ -79,7 +79,8 @@ export class ScopedNotificationRecipientService {
     const recipients = new Set<string>();
     for (const row of rows) {
       const scope = await this.dataScope.resolve(row.user_id, row.role_codes ?? [], row.menu_code);
-      if (scope.isGlobal || scope.allowedCompanyCodes.includes(companyCode)) recipients.add(row.user_id);
+      if (scope.isGlobal || scope.allowedCompanyCodes.includes(companyCode)
+        &&(warehouseCode===undefined||scope.allowedWarehouseCodes.includes(warehouseCode))) recipients.add(row.user_id);
     }
     if (recipients.size === 0) {
       this.logger.warn(`预警跳过：公司 ${companyCode} 在菜单 [${menuCodes.join(',')}] 下无可见收件人`);

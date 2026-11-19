@@ -63,6 +63,7 @@ export type MenuItem = {
   superPerm?: string;
   // 过渡期兼容码：优先使用原子菜单码；老角色仍可通过旧粗粒度码看见同一入口。
   altPerms?: string[];
+  altPermissions?: Array<{ menu: string; perm: string }>;
   children?: MenuItem[];
 };
 
@@ -88,6 +89,7 @@ export const MENU: MenuItem[] = [
     { id: "brd-overview",   path: "/breeding",                Icon: Home,           label: "养殖总览",     perm: "MENU_FARM_DATA" },
     { id: "brd-house",      path: "/breeding/henhouse",       Icon: Building2,      label: "鸡舍管理",     perm: "MENU_FARM_MASTER" },  // G56-C 鸡舍主档=FARM_MASTER(对齐后端 brd_houses)
     { id: "brd-flock",      path: "/breeding/flock",          Icon: Feather,        label: "鸡群档案",     perm: "MENU_FARM_DATA" },
+    { id: "brd-lifecycle", path: "/breeding/flock-lifecycle", Icon: Feather, label: "鸡群生命周期", perm: "MENU_FARM_DATA" },
     { id: "brd-daily",      path: "/breeding/daily",          Icon: ClipboardList,  label: "日生产日报",   perm: "MENU_FARM_DAILY" },   // G56-C 日报写入=FARM_DAILY(对齐 POST /api/v3/farm/daily-logs)
     { id: "brd-immune",     path: "/breeding/immune",         Icon: Syringe,        label: "免疫计划",     perm: "MENU_FARM_VET"  },
     { id: "brd-medicine",   path: "/breeding/medicine",       Icon: Pill,           label: "用药记录",     perm: "MENU_FARM_VET"  },
@@ -97,6 +99,8 @@ export const MENU: MenuItem[] = [
     // G15：集蛋记录已废弃 — 蛋品统计合并到「日生产日报」（含 9 档 JSONB）
     // 日产蛋入库（库存来源模式 P1A：临时生产入库模式下直接形成销售库存）
     { id: "prod-inbound",   path: "/breeding/daily-inbound",  Icon: PackagePlus,    label: "日产蛋入库",   perm: "MENU_PROD_INBOUND" },
+    { id: "production-cutovers", path: "/breeding/production-cutovers", Icon: PackagePlus, label: "正式库存切换盘点", perm: "MENU_PROD_INBOUND", altPermissions: [{ menu: "MENU_PROD_INBOUND", perm: "A" }, { menu: "MENU_FIN2_AR_LEDGER", perm: "E" }] },
+    { id: "production-installments", path: "/breeding/production-inbound", Icon: PackagePlus, label: "正式分次生产入库", perm: "MENU_PROD_INBOUND" },
     { id: "prod-inbound-ledger", path: "/breeding/daily-inbound-ledger", Icon: ScrollText, label: "日产蛋入库台账", perm: "MENU_PROD_INBOUND" },
     // 分级包装（包装作业中心：包装完成 = 唯一库存入口）
     { id: "pkg-op",         path: "/packaging",               Icon: Egg,            label: "包装作业",     perm: "MENU_PKG_OP"  },
@@ -312,7 +316,8 @@ export function canAccessMenuItem(item: MenuItem, hasPermission: PermissionCheck
   const requiredPerm = item.requiredPerm ?? "V";
   if (hasPermission(item.perm, requiredPerm)) return true;
   if (item.superPerm && hasPermission(item.superPerm, requiredPerm)) return true;
-  return item.altPerms?.some(code => hasPermission(code, requiredPerm)) ?? false;
+  return (item.altPerms?.some(code => hasPermission(code, requiredPerm)) ?? false)
+    || (item.altPermissions?.some(r => hasPermission(r.menu, r.perm)) ?? false);
 }
 
 export function getVisibleMenu(hasPermission: PermissionChecker): MenuItem[] {

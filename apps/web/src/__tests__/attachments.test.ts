@@ -1,9 +1,12 @@
-import { describe, it, expect } from 'vitest';
+// @vitest-environment jsdom
+import { describe, it, expect, vi } from 'vitest';
 import {
   parseAttachmentRefs,
   serializeAttachmentRefs,
   isUnsafeAttachmentRef,
   isProtectedFileRef,
+  downloadProtectedPdf,
+  previewProtectedAttachment,
 } from '@/lib/attachments';
 
 /**
@@ -32,6 +35,49 @@ describe('parseAttachmentRefs', () => {
 
   it('edge: malformed JSON array does not throw, returns empty', () => {
     expect(parseAttachmentRefs('["FILE-a", ')).toEqual([]);
+  });
+});
+
+describe('previewProtectedAttachment', () => {
+  const messages = { blocked: 'Preview blocked', unavailable: 'Evidence unavailable' };
+
+  it('reserves an isolated window before fetching and revokes the typed blob URL', async () => {
+    vi.useFakeTimers();
+    const tab = { opener: window, closed: false, location: { href: '' }, close: vi.fn() };
+    const open = vi.spyOn(window, 'open').mockReturnValue(tab as unknown as Window);
+    const create = vi.fn(() => 'blob:owned-preview');
+    const revoke = vi.fn();
+    vi.stubGlobal('URL', { createObjectURL: create, revokeObjectURL: revoke });
+    try {
+      const proof = new Blob(['%PDF-1.4'], { type: 'application/pdf' });
+      await previewProtectedAttachment(async () => {
+        expect(open).toHaveBeenCalledWith('about:blank', '_blank');
+        expect(tab.opener).toBeNull();
+        return proof;
+      }, messages);
+      expect(create).toHaveBeenCalledWith(proof);
+      expect(tab.location.href).toBe('blob:owned-preview');
+      vi.advanceTimersByTime(60_000);
+      expect(revoke).toHaveBeenCalledWith('blob:owned-preview');
+    } finally {
+      open.mockRestore();
+      vi.unstubAllGlobals();
+      vi.useRealTimers();
+    }
+  });
+
+  it('closes an unused preview without navigating on a stale or unsupported response', async () => {
+    const tab = { opener: window, closed: false, location: { href: '' }, close: vi.fn() };
+    const open = vi.spyOn(window, 'open').mockReturnValue(tab as unknown as Window);
+    try {
+      await previewProtectedAttachment(async () => null, messages);
+      await expect(previewProtectedAttachment(async () => new Blob(['test'], { type: 'text/html' }), messages))
+        .rejects.toThrow(messages.unavailable);
+      expect(tab.close).toHaveBeenCalledTimes(2);
+      expect(tab.location.href).toBe('');
+    } finally {
+      open.mockRestore();
+    }
   });
 });
 
@@ -83,5 +129,31 @@ describe('isProtectedFileRef', () => {
     expect(isProtectedFileRef('https://cdn/x')).toBe(false);
     expect(isProtectedFileRef('not-a-file-ref')).toBe(false);
     expect(isProtectedFileRef('')).toBe(false);
+  });
+});
+
+
+describe('downloadProtectedPdf', () => {
+  it('downloads the authorized bytes using a safe name and revokes its blob URL', () => {
+    vi.useFakeTimers();
+    const create = vi.fn(() => 'blob:owned-pdf'), revoke = vi.fn();
+    vi.stubGlobal('URL', { createObjectURL: create, revokeObjectURL: revoke });
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
+      expect(this.href).toBe('blob:owned-pdf');
+      expect(this.download).toBe('flock-evidence-1.pdf');
+    });
+    try {
+      const blob = new Blob(['%PDF-1.4'], { type: 'application/pdf' });
+      downloadProtectedPdf(blob, 'flock-evidence-1.pdf');
+      expect(create).toHaveBeenCalledWith(blob);
+      expect(click).toHaveBeenCalledOnce();
+      expect(document.querySelector('a')).toBeNull();
+      vi.advanceTimersByTime(60_000);
+      expect(revoke).toHaveBeenCalledWith('blob:owned-pdf');
+      for (const [bytes,name] of [[new Blob(['<script/>'],{type:'text/html'}),'evidence.pdf'],[blob,'../unsafe.pdf'],[blob,'https://evil/file.pdf']] as const) {
+        expect(() => downloadProtectedPdf(bytes,name)).toThrow('Unsupported PDF attachment');
+      }
+      expect(create).toHaveBeenCalledTimes(1);
+    } finally { click.mockRestore();vi.unstubAllGlobals();vi.useRealTimers(); }
   });
 });

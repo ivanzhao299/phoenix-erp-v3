@@ -1,0 +1,58 @@
+{
+  "asOf": "2026-11-17T20:00:28.094979+00:00",
+  "sourceCommit": "e27ebf651caa1e6b51eb506a5210d6f9c92205c9",
+  "sourceParent": "a6e27b53b78ec0b8387d7014179456350462be34",
+  "state": "LOCAL_SOURCE_COMMITTED_METADATA_SUPPLEMENT_PREPARED",
+  "pushed": false,
+  "merged": false,
+  "deployed": false,
+  "productionQueryInThisSupplement": false,
+  "productionWrite": false,
+  "schemaAdmissionExceptionChanged": false,
+  "applyAuthority": "HOLD_SEALED_APPROVAL_ADAPTER_NOT_INTEGRATED",
+  "sourceEvidence": {
+    "api1204Matches": true,
+    "apiSourceManifestSha256": "001e7583bee20d50bb987c4b050e3085d9f4bd91fc55c99f0c578f829f8f5921",
+    "validationV5Sha256": "f6cbeb75335fe8a267109c540f128f44db8fdc2fde9e8665d2ef2019ef4e5fbb",
+    "selectedSourceCommitAudit": "artifacts/flock-lifecycle-20261117/reversal-final-stage-paths-v5.json",
+    "selectedSourceCommitAuditSha256": "34df767ce48f9ee29803b9fdc81cc1e8cba30482a3cf4612fa45daffef1bde19",
+    "selectedSourceCommitPaths": 59,
+    "codeDiffToSBeforeMetadataCommit": {
+      "paths": [
+        "apps",
+        "scripts",
+        ".github"
+      ],
+      "outputEmpty": true
+    }
+  },
+  "independentWeb": {
+    "path": "artifacts/flock-lifecycle-20261117/reversal-independent-web-v5-receipt.json",
+    "sha256": "7bfd31b1cd1143cdb4fc06bbaed7b85f20e9d727a8ddba1428a5f3f97dd0f3cc",
+    "domPassed": 8,
+    "domSkipped": 0,
+    "domExitCode": 0,
+    "webTypecheckExitCode": 0,
+    "scope": "Owned local real LedgerPage/DataTable DOM and Web typecheck; not production/controller/finance acceptance"
+  },
+  "metadataDocs": [
+    {
+      "path": "docs/flock-test-inbound-reversal-review-20261117.md",
+      "sha256": "f8408d6ef396507fd7fb4f89207aa620da339524821147e8996eed9ab1562daf"
+    },
+    {
+      "path": "docs/flock-test-inbound-reversal-implementation-20261118.md",
+      "sha256": "0dd6ec7ad872d9fb0c53bf64c7b2c6bc423f58047f2cf547135a8fe4c86815a5"
+    }
+  ],
+  "historicalStateClarification": "Frozen manifests/validation v5 retain their original asOf uncommitted flags; this receipt records later local source commit S",
+  "rawReviewBoundary": "Four raw logs not in Git. Commit readers can verify normalized review copies. Raw SHA is an external digest requiring preserved raw bytes; coordinator independently checked raw hashes and normalization equivalence.",
+  "stillPending": [
+    "User route/actual apply approval",
+    "Trusted authority adapter and actual runtime verification",
+    "Fresh production preflight/controlled backup/deployment",
+    "Production correction acceptance",
+    "Full controller/medicine cancellation coverage",
+    "Existing daily-close client/UTC/SG default and confirmation consistency"
+  ]
+}

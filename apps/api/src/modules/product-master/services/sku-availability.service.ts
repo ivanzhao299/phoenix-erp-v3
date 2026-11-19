@@ -209,7 +209,11 @@ export class SkuAvailabilityService {
     const eggDate = this.date(input.eggDate, 'eggDate');
     // Do not filter breed/status in SQL: doing so silently discards uncertain
     // overlapping flocks and can turn a mixed/unknown house into a single variety.
-    const flocks = await db.query(
+    const [schema]=await db.query("SELECT to_regclass('brd_flock_occupancies') AS ledger");
+    const managed=schema?.ledger && (await db.query('SELECT 1 FROM brd_flock_house_states WHERE house_code=$1',[input.houseCode])).length;
+    const flocks = managed ? await db.query(`SELECT f.flock_no,o.farm_code,f.breed_code,true AS lifecycle_trusted
+      FROM brd_flock_occupancies o JOIN brd_flocks f ON f.flock_no=o.flock_no
+      WHERE o.house_code=$1 AND o.began_on<=$2 AND (o.ended_on IS NULL OR o.ended_on>$2)`,[input.houseCode,eggDate]) : await db.query(
       `SELECT f.flock_no, f.farm_code, f.breed_code, f.status,
               f.placement_date::text AS placement_date, f.start_date::text AS start_date,
               f.elimination_date::text AS elimination_date
@@ -217,17 +221,20 @@ export class SkuAvailabilityService {
     );
     const breeds = new Set<string>();
     for (const flock of flocks) {
+      if (flock.lifecycle_trusted) {
+        if(flock.farm_code!==input.farmCode || !flock.breed_code) throw new BadRequestException('历史占栏归属/品种不确定');
+        breeds.add(flock.breed_code);continue;
+      }
       const placement = flock.placement_date == null ? null : this.date(flock.placement_date, '鸡群入栏日期');
       // The flock UI explicitly persists its entry date as start_date. Accept
       // that established field only when it does not contradict placement_date.
       const start = flock.start_date == null ? null : this.date(flock.start_date, '鸡群开始日期');
       if (placement && start && placement !== start) throw new BadRequestException('鸡群入栏日期 placement_date/start_date 不一致，无法确定来源');
       const placed = placement ?? start;
-      const ended = flock.elimination_date == null ? null : this.date(flock.elimination_date, '鸡群退群日期');
-      if (placed && ended && ended < placed) throw new BadRequestException('鸡群入栏/退群日期矛盾，无法确定来源');
-      if ((placed && placed > eggDate) || (ended && ended < eggDate)) continue;
+      if (flock.elimination_date != null) throw new BadRequestException('旧elimination_date计划/实际含义未签认，无法确定生物来源');
+      if (placed && placed > eggDate) continue;
       // Date-only exit cannot establish whether this day's eggs precede exit.
-      if (!placed || ended === eggDate || flock.farm_code !== input.farmCode
+      if (!placed || flock.farm_code !== input.farmCode
           || !['ACTIVE', 'LAYING', 'PEAK', 'DECLINING'].includes(flock.status)
           || typeof flock.breed_code !== 'string' || !flock.breed_code.trim()
           || flock.breed_code !== flock.breed_code.trim()) {
@@ -272,8 +279,9 @@ export class SkuAvailabilityService {
   }
 
   /** Grade/spec + validated provenance -> exactly one SKU. */
-  async resolve(input: SkuResolveInput, mgr?: Db): Promise<SkuResolveResult> {
+  async resolve(input: SkuResolveInput, mgr?: Db, eligibilityDate?:string): Promise<SkuResolveResult> {
     const db = mgr ?? this.ds;
+    if(eligibilityDate!==undefined)this.date(eligibilityDate,'库存授权日期');
     const usage = SkuPolicy.usage(input.usage ?? 'stock');
     const profile = await this.source(input, db);
     const context = { ...input, farmCode: profile.farmCode, siteCode: profile.siteCode };
@@ -296,11 +304,11 @@ export class SkuAvailabilityService {
     const resolved: SkuResolveResult[] = [];
     for (const sku of candidates) {
       this.validateSourceVariety(sku, profile);
-      const scope = await this.matchScope(db, sku.sku_code, context, usage);
+      const scope = await this.matchScope(db, sku.sku_code, context, usage,eligibilityDate);
       // Another company's same-color SKU is not a grant (or an error) for this
       // company. Only run the transition gate after exact scope authorization.
       if (scope) {
-        await this.validateSku(sku, profile, usage, db);
+        await this.validateSku(sku, profile, usage, db,eligibilityDate);
         resolved.push(this.result(sku, scope));
       }
     }
@@ -310,8 +318,9 @@ export class SkuAvailabilityService {
   }
 
   /** Explicit SKU selections obey the same provenance, parent and usage gates. */
-  async assertUsable(skuCode: string, input: Context, mgr?: Db): Promise<SkuResolveResult> {
+  async assertUsable(skuCode: string, input: Context, mgr?: Db, eligibilityDate?:string): Promise<SkuResolveResult> {
     const db = mgr ?? this.ds;
+    if(eligibilityDate!==undefined)this.date(eligibilityDate,'库存授权日期');
     skuCode = SkuPolicy.code(skuCode);
     const usage = SkuPolicy.usage(input.usage ?? 'stock');
     const profile = await this.source(input, db);
@@ -323,8 +332,8 @@ export class SkuAvailabilityService {
         WHERE s.sku_code = $1 FOR SHARE OF s, p`, [skuCode],
     );
     if (!sku) throw new BadRequestException(`SKU ${skuCode} 不存在、未启用或不在生效期内`);
-    await this.validateSku(sku, profile, usage, db);
-    const scope = await this.matchScope(db, skuCode, context, usage);
+    await this.validateSku(sku, profile, usage, db,eligibilityDate);
+    const scope = await this.matchScope(db, skuCode, context, usage,eligibilityDate);
     if (!scope) throw new BadRequestException(`SKU ${skuCode} 不适用于公司 ${input.companyCode}（组织范围或用途被禁用）`);
     return this.result(sku, scope);
   }
@@ -335,10 +344,10 @@ export class SkuAvailabilityService {
     }
   }
 
-  private async validateSku(sku: SkuRow, profile: EggSourceProfile, usage: SkuUsage, db: Db): Promise<void> {
+  private async validateSku(sku: SkuRow, profile: EggSourceProfile, usage: SkuUsage, db: Db, eligibilityDate?:string): Promise<void> {
     this.validateSourceVariety(sku, profile);
     // Also locks SKU, product, grade and spec; no unlocked EXISTS-only decisions.
-    await SkuPolicy.requireUsable(db, sku.sku_code, usage, profile.companyCode);
+    await SkuPolicy.requireUsable(db, sku.sku_code, usage, profile.companyCode,eligibilityDate);
   }
 
   private result(sku: SkuRow, scope: Scope): SkuResolveResult {
@@ -350,18 +359,18 @@ export class SkuAvailabilityService {
     };
   }
 
-  private async matchScope(db: Db, skuCode: string, input: Context, usage: SkuUsage): Promise<Scope | null> {
+  private async matchScope(db: Db, skuCode: string, input: Context, usage: SkuUsage, eligibilityDate?:string): Promise<Scope | null> {
     // Read inactive/expired rows too: a more specific veto must not disappear.
     const rows: ScopeRow[] = await db.query(
       `SELECT scope_type, scope_code, sale_enabled, stock_enabled, status,
               effective_date::text AS effective_date, expire_date::text AS expire_date,
-              CURRENT_DATE::text AS today
+              ${eligibilityDate===undefined?'CURRENT_DATE':'$5::date'}::text AS today
          FROM md_sku_org_scope WHERE sku_code = $1
           AND ((scope_type = 'COMPANY' AND scope_code = $2)
             OR (scope_type = 'FARM' AND scope_code = $3 AND $3 <> '')
             OR (scope_type = 'SITE' AND scope_code = $4 AND $4 <> ''))
          ORDER BY scope_type, scope_code FOR SHARE`,
-      [skuCode, input.companyCode, input.farmCode ?? '', input.siteCode ?? ''],
+      [skuCode,input.companyCode,input.farmCode??'',input.siteCode??'',...(eligibilityDate===undefined?[]:[eligibilityDate])],
     );
     const applicable = rows.filter(r => (r.scope_type === 'COMPANY' && r.scope_code === input.companyCode)
       || (r.scope_type === 'FARM' && !!input.farmCode && r.scope_code === input.farmCode)

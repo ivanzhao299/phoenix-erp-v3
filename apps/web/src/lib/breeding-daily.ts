@@ -5,6 +5,7 @@ export function isDailyReportHouseMissing(houseCode: string | null | undefined):
 export interface DailyReportSubmissionRow {
   eggs?: unknown;
   deaths?: unknown;
+  elimination?: unknown;
   feedKg?: unknown;
   dirtyEggs?: unknown;
   brokenEggs?: unknown;
@@ -22,10 +23,8 @@ export function gradeQuantityTotal(gradeQty: Record<string, unknown> | null | un
 
 /** A row is submittable when it has a regular daily value or a positive grade breakdown. */
 export function hasDailyReportInput(row: DailyReportSubmissionRow): boolean {
-  return Boolean(
-    row.eggs || row.deaths || row.feedKg || row.dirtyEggs || row.brokenEggs || row.waterL
-      || gradeQuantityTotal(row.gradeQty) > 0,
-  );
+  return [row.eggs, row.deaths, row.elimination, row.feedKg, row.dirtyEggs, row.brokenEggs, row.waterL]
+    .some(value => Number(value) > 0) || gradeQuantityTotal(row.gradeQty) > 0;
 }
 
 /** Preserve an explicit total, but let the API derive it from grades when blank. */

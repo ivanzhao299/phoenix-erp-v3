@@ -1,5 +1,6 @@
 import { BadRequestException, ConflictException } from '@nestjs/common';
 import { EntityManager } from 'typeorm';
+import { officialInventoryWritablePredicate } from '../../wms/official-inventory';
 
 export type QuantityBasis = 'BASE' | 'PACKAGE';
 export interface QuantitySnapshot {
@@ -69,10 +70,11 @@ export function savedQuantity(row: { qty?: unknown; quantity_snapshot?: Quantity
   return Number(s.baseQty);
 }
 
-export function poolKey(company: string, warehouse: string, s: QuantitySnapshot): string {
+export type QuantityPoolIdentity = Pick<QuantitySnapshot, 'productCode' | 'gradeCode' | 'baseUnit'>;
+export function poolKey(company: string, warehouse: string, s: QuantityPoolIdentity): string {
   return JSON.stringify(['physical-stock-v1', company, warehouse, s.productCode, s.gradeCode, s.baseUnit]);
 }
-export async function lockQuantityPools(db: Queryable, requests: Array<{ company: string; warehouses: string[]; snapshot: QuantitySnapshot | null }>): Promise<void> {
+export async function lockQuantityPools(db: Queryable, requests: Array<{ company: string; warehouses: string[]; snapshot: QuantityPoolIdentity | null }>): Promise<void> {
   const keys: string[] = [];
   for (const r of requests) {
     if (!r.snapshot) continue;
@@ -87,9 +89,20 @@ export function assertBatchPool(batch: any, s: QuantitySnapshot): void {
     throw new ConflictException('批次实物身份或基本单位与交易快照不符；缺失身份的历史批次须先治理');
   }
 }
+
+/** This rollout adds managed sales only inside a previously activated physical boundary. OFF companies retain their old gate. */
+export async function isGovernedSalesPool(db:Queryable,company:string,warehouses:string[],s:QuantitySnapshot):Promise<boolean>{
+  const [row]=await db.query(`SELECT EXISTS(
+    SELECT 1 FROM production_inventory_domains d JOIN production_cutover_scopes scope ON scope.id=d.scope_id
+      WHERE d.company_code=$1 AND d.warehouse_code=ANY($2::text[]) AND d.product_code=$3 AND scope.state IN ('ACTIVE','SUSPENDED')
+    UNION ALL SELECT 1 FROM production_inventory_domain_states d WHERE d.company_code=$1 AND d.warehouse_code=ANY($2::text[])
+      AND d.product_code=$3 AND d.state IN ('ACTIVE','SUSPENDED')) AS enabled`,[company,warehouses,s.productCode]);
+  return row?.enabled===true;
+}
 export async function sharedBatches(db: Queryable, company: string, warehouses: string[], s: QuantitySnapshot) {
   await lockQuantityPools(db, [{ company, warehouses, snapshot: s }]);
   return db.query(`SELECT * FROM inv_batches WHERE company_code=$1 AND product_code=$2 AND grade_code_std=$3 AND unit=$4
+    AND ${officialInventoryWritablePredicate('inv_batches')}
     AND material_code IS NULL AND legacy_source IS NULL AND base_quantity_version=1 AND status='AVAILABLE' AND qty_available>0
     AND (expire_date IS NULL OR expire_date>=CURRENT_DATE)
     AND (cardinality($5::varchar[])=0 OR warehouse_code=ANY($5::varchar[]))

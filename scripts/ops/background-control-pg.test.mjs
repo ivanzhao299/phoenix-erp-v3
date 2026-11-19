@@ -17,7 +17,7 @@ const old = 'a'.repeat(40), target = 'b'.repeat(40);
 const binding = { owner: '12345-1', previousFloorSha: old, targetSha: target };
 const participant = { bootId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', containerId: '1'.repeat(64), revision: old, allowedKinds: ['LOCAL'] };
 const options = port => ({ host: '127.0.0.1', port, user: 'fence_fixture', database: 'fence_coordinator_test', connectionTimeoutMillis: 3000 });
-async function fixture(port) {
+async function fixture(port, releaseBinding = binding) {
   const admin = new Client({ ...options(port), database: 'fence_test' }); await admin.connect();
   try { const exists = await admin.query("SELECT 1 FROM pg_database WHERE datname='fence_coordinator_test'"); if (!exists.rowCount) await admin.query('CREATE DATABASE fence_coordinator_test'); }
   finally { await admin.end(); }
@@ -36,14 +36,14 @@ async function fixture(port) {
   let record = null, manifest = null, active = 1, missing = false;
   let controlIdentity = (await client.query('SELECT pg_backend_pid() AS pid, (SELECT oid::int FROM pg_database WHERE datname=current_database()) AS oid, backend_start FROM pg_stat_activity WHERE pid=pg_backend_pid()')).rows[0];
   const publisher = new BackgroundManifestPublisher({}, { guard: () => {}, inspect: () => ({}), readPrivate: () => record, readPublic: () => manifest,
-    writePrivate: value => { record = value; }, writePublic: value => { manifest = value; }, readHighWater: () => 0, writeHighWater: () => {} });
-  const coordinator = new BackgroundFenceCoordinator({ binding, participants: [participant], project: 'phoenix', timeoutMs: 2000, pollMs: 10 }, {
+    writePrivate: value => { record = JSON.parse(JSON.stringify(value)); }, writePublic: value => { manifest = JSON.parse(JSON.stringify(value)); }, readHighWater: () => 0, writeHighWater: () => {} });
+  const coordinator = new BackgroundFenceCoordinator({ binding: releaseBinding, participants: [participant], project: 'phoenix', timeoutMs: 2000, pollMs: 10 }, {
     publisher, session, inventory: () => missing ? [] : [participant.containerId], verifySuccess: async () => true,
     inspectParticipant: async () => ({ containerId: participant.containerId, revision: old, startedAt: new Date().toISOString(), restartCount: 0,
       status: { protocolVersion: 1, bootId: participant.bootId, phase: manifest?.phase || 'HOLD', owner: manifest?.owner || null, generation: manifest?.generation || null,
         inFlight: active, pendingChildren: 0, taskGraphs: active, poisoned: false, stopping: false, controlSession: { connected: true, broken: false, sessionPid: controlIdentity.pid, databaseOid: controlIdentity.oid, backendStartedAt: controlIdentity.backend_start.toISOString() } } }),
   });
-  return { coordinator, session, publisher, get manifest() { return manifest; }, identity: value => { controlIdentity = value; }, zero: () => { active = 0; }, missing: () => { missing = true; } };
+  return { coordinator, session, publisher, get manifest() { return manifest; }, get record() { return record; }, identity: value => { controlIdentity = value; }, zero: () => { active = 0; }, missing: () => { missing = true; } };
 }
 async function worker(port) {
   const source = `const{Client}=require(${JSON.stringify(pgPath)});(async()=>{const c=new Client(${JSON.stringify({...options(port), application_name: 'phoenix-fence:'+participant.bootId})});await c.connect();await c.query('SELECT pg_advisory_lock_shared(17455,2)');const identity=(await c.query('SELECT pg_backend_pid() AS pid, (SELECT oid::int FROM pg_database WHERE datname=current_database()) AS oid, backend_start FROM pg_stat_activity WHERE pid=pg_backend_pid()')).rows[0];process.send({event:'locked',identity});process.on('message',async m=>{if(m==='release'){await c.query('SELECT pg_advisory_unlock_shared(17455,2)');process.send({event:'released'})}})})().catch(()=>process.exit(2));`;
@@ -52,6 +52,21 @@ async function worker(port) {
 }
 const until = async predicate => { const deadline = Date.now() + 1500; while (!predicate()) { if (Date.now() > deadline) throw new Error('fixture wait timeout'); await new Promise(resolve => setTimeout(resolve, 5)); } };
 for (const [label, port] of [['PG16', 56416], ['PG18', 56418]]) {
+  test(`${label}: descendant API drain keeps config authorization separate from the real execution session`, { skip: !enabled || Boolean(fixtureMajor && label !== 'PG'+fixtureMajor) }, async () => {
+    const configFloorSha = 'e'.repeat(40), extended = { ...binding, deployMode: 'api', previousConfigFloorSha: configFloorSha };
+    const f = await fixture(port, extended), child = await worker(port); f.identity(child.backgroundIdentity);
+    const drain = f.coordinator.fenceAndDrain();
+    try {
+      await until(() => f.manifest?.phase === 'FENCED'); f.zero();
+      const released = once(child, 'message'); child.send('release'); await released;
+      const proof = JSON.parse(JSON.stringify(await drain));
+      assert.equal(proof.previousFloorSha, old); assert.equal(proof.previousConfigFloorSha, configFloorSha); assert.equal(proof.outcome, 'DRAINED');
+      assert.equal(f.record.previousConfigFloorSha, configFloorSha); f.publisher.assertOwned(extended);
+      assert.equal(f.manifest.participants[0].revision, old); assert.equal(JSON.stringify(f.manifest).includes(configFloorSha), false);
+      const legacy = { ...extended }; delete legacy.previousConfigFloorSha;
+      assert.throws(() => f.publisher.assertOwned(legacy), /OWNER_OR_TRANSACTION_MISMATCH/);
+    } finally { child.kill(); await f.coordinator.close(); }
+  });
   test(`${label}: real multi-process execution session must drain while coordinator admission gate blocks new work`, { skip: !enabled || Boolean(fixtureMajor && label !== 'PG'+fixtureMajor) }, async () => {
     const f = await fixture(port); const child = await worker(port); f.identity(child.backgroundIdentity); let settled = false;
     const result = f.coordinator.fenceAndDrain().then(value => { settled = true; return value; });

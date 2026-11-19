@@ -326,7 +326,7 @@ test('real PG18 inspect, CAS, dry-run, activation, idempotence and refusal contr
         assert.equal(await count('md_egg_source_profiles'),0);
       } finally {await other.end();}
     });
-    await t.test('write fence precedes every snapshot and blocks noncooperating SKU/parent/scope writers',async()=>{
+    await t.test('READ COMMITTED takes the complete catalog fence before any reads and blocks independent writers',async()=>{
       await reset();const plan=await inspect();
       const other=new Client({connectionString:url});await other.connect();
       const prior=c.query;let probed=false;
@@ -336,16 +336,25 @@ test('real PG18 inspect, CAS, dry-run, activation, idempotence and refusal contr
           if (!probed && sql.startsWith('SELECT table_name,column_name')) {
             probed=true;
             for (const statement of [
+              'UPDATE sys_organizations SET status=status WHERE false',
+              'UPDATE brd_farms SET status=status WHERE false',
+              'UPDATE brd_houses SET status=status WHERE false',
+              'UPDATE product_grades SET status=status WHERE false',
+              'UPDATE packaging_specs SET status=status WHERE false',
+              "INSERT INTO md_product_varieties(variety_code,status) VALUES ('CONCURRENT-VARIETY','ACTIVE')",
               "INSERT INTO product_skus(sku_code,product_code,grade_code,spec_code,variety_code,status) VALUES ('CONCURRENT-SKU','PRD-EGG-GRADE_1','GRADE_2','LOOSE',NULL,'ACTIVE')",
               "UPDATE mst_products SET product_name='concurrent' WHERE product_code='PRD-EGG-GRADE_1'",
               "INSERT INTO md_sku_org_scope VALUES ('LEGACY-ACTUAL-1-LOOSE','COMPANY','COMP-LAO-AGRI',true,true,'ACTIVE',NULL,NULL)",
+              'UPDATE md_egg_source_profiles SET status=status WHERE false',
             ]) await assert.rejects(other.query(statement),e=>e.code==='55P03');
           }
           return prior(sql,...args);
         };
         sqlCalls.length=0;await apply(plan);assert.equal(probed,true);
-        const fence=sqlCalls.findIndex(s=>s.startsWith('LOCK TABLE mst_products, product_skus, md_sku_org_scope'));
+        const fence=sqlCalls.findIndex(s=>s.startsWith('LOCK TABLE'));
         const firstSelect=sqlCalls.findIndex(s=>s.startsWith('SELECT'));
+        assert.equal(sqlCalls[0],'BEGIN ISOLATION LEVEL READ COMMITTED');
+        assert.equal(sqlCalls[fence],'LOCK TABLE sys_organizations, brd_farms, brd_houses, product_grades, packaging_specs, md_product_varieties, mst_products, product_skus, md_sku_org_scope, md_egg_source_profiles IN SHARE ROW EXCLUSIVE MODE');
         assert.ok(fence>0 && fence<firstSelect);assert.ok(sqlCalls.includes("SET LOCAL lock_timeout='5s'"));
         assert.equal((await c.query("SELECT count(*)::int AS n FROM product_skus WHERE sku_code='CONCURRENT-SKU'")).rows[0].n,0);
       } finally {c.query=prior;await other.end();}
@@ -466,6 +475,18 @@ test('real PG18 inspect, CAS, dry-run, activation, idempotence and refusal contr
         await assert.rejects(apply(plan),/PLAN_OR_DATABASE_STATE_MOVED/);
         assert.equal(await count('md_egg_source_profiles'),0);
       } finally { await c.query('ALTER TABLE product_skus DROP COLUMN fixture_schema_drift'); }
+    });
+    await t.test('disabling a trigger after inspect invalidates the original schema CAS before writes',async()=>{
+      await reset();
+      await c.query(`CREATE FUNCTION fixture_cas_guard() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NEW; END $$;
+        CREATE TRIGGER fixture_cas_guard BEFORE INSERT ON product_skus FOR EACH ROW EXECUTE FUNCTION fixture_cas_guard()`);
+      try{
+        const original=await inspect();
+        await c.query('ALTER TABLE product_skus DISABLE TRIGGER fixture_cas_guard');
+        await assert.rejects(apply(original),/PLAN_OR_DATABASE_STATE_MOVED/);
+        assert.equal(await count('md_egg_source_profiles'),0);assert.equal(await count('md_sku_org_scope'),0);
+        assert.notEqual((await inspect()).plan_sha256,original.plan_sha256);
+      }finally{await c.query('DROP TRIGGER fixture_cas_guard ON product_skus; DROP FUNCTION fixture_cas_guard()');}
     });
     await t.test('a late profile insertion failure rolls back grades, catalog and company scopes together',async()=>{
       await reset();

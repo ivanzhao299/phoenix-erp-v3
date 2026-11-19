@@ -13,10 +13,6 @@ import { BarChart2, Package, ShieldCheck, Warehouse, CheckSquare, LogOut, Monito
 import u from "@/styles/uix-utils.module.css";
 type NavCard = {
   icon: React.ReactNode;
-  titleZh: string;
-  titleEn: string;
-  titleLo: string;
-  desc: string;
   descKey: string;
   href?: string;
   soon?: boolean;
@@ -25,7 +21,10 @@ type NavCard = {
   pageKey?: string;
   /** 动态角标数量 key，由首页 useEffect 填充 */
   badgeKey?: 'todoCount' | 'notifCount';
-};
+} & (
+  | { titleKey: string; titleZh?: never; titleEn?: never; titleLo?: never; desc?: never }
+  | { titleKey?: never; titleZh: string; titleEn: string; titleLo: string; desc: string }
+);
 const NAV_CARDS: NavCard[] = [{
   icon: <BarChart2 size={28} />,
   titleZh: '每日看板',
@@ -163,6 +162,14 @@ const NAV_CARDS: NavCard[] = [{
   href: '/mobile/egglog',
   soon: false,
   pageKey: 'egglog'
+}, {
+  icon: <Egg size={28} />,
+  titleKey: 'productionReports.title', descKey: 'productionReports.instructions',
+  color: 'var(--status-warning)',href: '/mobile/production-reports',soon: false,pageKey: 'production_reports'
+}, {
+  icon: <Package size={28} />,
+  titleKey: 'productionInstallments.title', descKey: 'productionInstallments.subtitle',
+  color: 'var(--status-success)',href: '/mobile/production-inbound',soon: false,pageKey: 'production_inbound'
 }, {
   icon: <LineChart size={28} />,
   titleZh: '生产趋势',
@@ -319,7 +326,10 @@ export default function MobileHomePage() {
       }
     } catch {/* 用户拒绝或浏览器不支持 */}
   }, []);
-  const getTitle = (card: NavCard) => lang === 'en' ? card.titleEn : lang === 'lo' ? card.titleLo : card.titleZh;
+  const getTitle = (card: NavCard) => {
+    if (card.titleKey !== undefined) return tt(card.titleKey);
+    return lang === 'en' ? card.titleEn : lang === 'lo' ? card.titleLo : card.titleZh;
+  };
   const handleCardClick = (card: NavCard) => {
     if (card.href) router.push(card.href);
   };

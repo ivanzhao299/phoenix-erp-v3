@@ -41,6 +41,13 @@ describe("menu entry and target route permission alignment", () => {
     expect(canAccessPath("/warehouse/transfer", checker(["MENU_WMS_INOUT:V"]))).toBe(false);
   });
 
+  it("allows each actual count reader operation while keeping unrelated finance viewers out", () => {
+    for (const permission of ["MENU_PROD_INBOUND:V", "MENU_PROD_INBOUND:A", "MENU_FIN2_AR_LEDGER:E"])
+      expect(canAccessPath("/breeding/production-cutovers", checker([permission]))).toBe(true);
+    expect(canAccessPath("/breeding/production-cutovers", checker(["MENU_FIN2_AR_LEDGER:V"]))).toBe(false);
+    expect(canAccessPath("/breeding/production-cutovers", checker(["MENU_FARM_DAILY:E"]))).toBe(false);
+  });
+
   it("uses the backend write permissions for henhouse and manual inbound actions", () => {
     expect(source("src/app/(admin)/breeding/henhouse/page.tsx"))
       .toContain("usePermission('MENU_FARM_MASTER')");

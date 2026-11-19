@@ -7,7 +7,7 @@ import {ChildProcess,execFileSync,spawn} from 'node:child_process';
 import {createHash} from 'node:crypto';
 import {finished} from 'node:stream/promises';
 import {CONTRACT,verifyContext,secureJson,git} from './production-config-guard.mjs';
-import {readPinnedFile} from './production-trusted-paths.mjs';
+import {readPinnedFile,ancestors,readACLs} from './production-trusted-paths.mjs';
 import {executionEnv} from './capture-production-runtime.mjs';
 import {canonicalDigest,bindingDigest,same,HASH,hold} from './production-maintenance-receipts.mjs';
 import {collectMaintenanceDomainObservation} from './production-maintenance-domain-observer.mjs';
@@ -41,17 +41,31 @@ export async function hashMaintenanceRecoveryFile(file,expected,{signal,timeoutM
 }
 const procStat=pid=>{
   const text=fs.readFileSync(`/proc/${pid}/stat`,'utf8'),fields=text.slice(text.lastIndexOf(')')+2).split(' ');
-  return {pid,ppid:Number(fields[1]),startTicks:fields[19],state:fields[0]};
+  return {pid,ppid:Number(fields[1]),startTicks:fields[19],state:fields[0],threads:Number(fields[17])};
 };
-function processIdentity(pid){
+// Native corroboration for the in-memory modern census only. This does not
+// enter the serialized process identity, evidence or baseline digest.
+export const STABLE_MODERN_CENSUS_PARENT=Symbol('stable modern census parent');
+function processIdentity(pid,{strictVisibility=false}={}){
   const before=procStat(pid),base=`/proc/${pid}`;
   const argv=fs.readFileSync(`${base}/cmdline`),cgroup=fs.readFileSync(`${base}/cgroup`,'utf8');
   let exe='',cwd='';
-  try{exe=fs.readlinkSync(`${base}/exe`);cwd=fs.readlinkSync(`${base}/cwd`);}catch(error){if(!['ENOENT','ESRCH','EACCES','EPERM'].includes(error.code))throw error;}
+  try{exe=fs.readlinkSync(`${base}/exe`);cwd=fs.readlinkSync(`${base}/cwd`);}catch(error){
+    if(strictVisibility){
+      // A task can exit after the first stat but before exe/cwd is read.
+      // Only the same native task's terminal state gets the existing exception.
+      const current=procStat(pid),sameTask=current.ppid===before.ppid&&current.startTicks===before.startTicks;
+      const inactive=sameTask&&current.threads===1&&['Z','X','x'].includes(current.state),kernel=argv.length===0&&/^Kthread:\s+1$/m.test(fs.readFileSync(`${base}/status`,'utf8'));
+      if(!inactive&&!kernel)throw error;
+    }else if(!['ENOENT','ESRCH','EACCES','EPERM'].includes(error.code))throw error;
+  }
   const value={...before,exe,cwdSha256:hash(cwd),argvSha256:hash(argv),cgroupSha256:hash(cgroup),
     pidNamespace:fs.readlinkSync(`${base}/ns/pid`),erpControlReference:argv.includes(Buffer.from(CONTRACT.repository))||cwd===CONTRACT.repository||cwd.startsWith(CONTRACT.repository+'/')};
-  if(procStat(pid).startTicks!==before.startTicks)hold('ROOT_READER_PROCESS_REUSED');
+  const after=procStat(pid);
+  if(after.startTicks!==before.startTicks)hold('ROOT_READER_PROCESS_REUSED');
+  if(strictVisibility&&after.ppid===before.ppid)Object.defineProperty(value,STABLE_MODERN_CENSUS_PARENT,{value:true});
   delete value.state; // R/S are scheduler observations, never process identity.
+  delete value.threads; // A live thread count is not an immutable identity pin.
   return {value,cgroup,argv,cwd};
 }
 const containerFormat=['{{json .Id}}','{{json .Image}}','{{json .Name}}','{{json .State.StartedAt}}','{{json .RestartCount}}',
@@ -69,6 +83,18 @@ function containerIdentity(id){
  * observations only and never classify, approve or register an executor. */
 export function observeMaintenanceProcessIdentity(pid){guard();return processIdentity(pid).value;}
 export function observeMaintenanceContainerIdentity(id){guard();if(!ID.test(id))hold('ROOT_READER_CONTAINER_ID');return containerIdentity(id);}
+/** One guarded native /proc sweep. Modern callers do not hide EACCES or a
+ * process that remains present but cannot be identified. */
+export function captureModernSchemaProcessIdentities(){
+ guard();const result=[];
+ for(const name of fs.readdirSync('/proc').filter(name=>/^[1-9][0-9]*$/.test(name))){
+  const pid=Number(name);try{result.push(processIdentity(pid,{strictVisibility:true}).value);}catch(error){
+   try{fs.lstatSync(`/proc/${pid}`);}catch(gone){if(['ENOENT','ESRCH'].includes(gone.code))continue;}
+   hold('ROOT_READER_MODERN_PROCESS_VISIBILITY_REQUIRED');
+  }
+ }
+ guard();return result;
+}
 
 /** Templates have definitions but no instance properties. Querying an
  * uninstantiated @.service with systemctl show aborts the entire batch. Keep
@@ -117,25 +143,144 @@ export function normalizeMaintenanceSystemdDefinition(block,typed){
  }).join('\n');
 }
 
+const SCHEDULER_SOURCES=new Set(['CRONTAB','CRON_D','USER_CRONTABS','CRON_SPOOL','SYSTEMD_FRAGMENT','SYSTEMD_DROPIN']);
+const SCHEDULER_REASONS=new Set(['SYMLINK','DIRECTORY','OTHER_SPECIAL','OVERSIZE']);
+/** Diagnostic enums only: never serialize a path, stat object or error details. */
+export function maintenanceSchedulerRejectionDiagnostic(stat,source){
+  if(!SCHEDULER_SOURCES.has(source))return null;
+  const reason=stat.isSymbolicLink()?'SYMLINK':stat.isDirectory()?'DIRECTORY':!stat.isFile()?'OTHER_SPECIAL':stat.size>1024*1024?'OVERSIZE':null;
+  return reason?{source,reason}:null;
+}
+const SCHEDULER_LINK_ENUMS={loadStateClass:new Set(['LOADED','OTHER']),targetClass:new Set(['SYSTEM_UNIT_DIR','RUNTIME_UNIT_DIR','OTHER','UNRESOLVED']),targetType:new Set(['REGULAR','SYMLINK','DIRECTORY','OTHER','MISSING','UNREADABLE']),linkShape:new Set(['SINGLE','CHAIN','UNRESOLVED']),stability:new Set(['STABLE','CHANGED','UNVERIFIED'])};
+export function classifyMaintenanceSchedulerTarget(target){
+ const normalized=path.resolve(target);
+ const within=root=>normalized.startsWith(root+'/');
+ if(['/usr/lib/systemd/system','/lib/systemd/system','/etc/systemd/system'].some(within))return 'SYSTEM_UNIT_DIR';
+ return within('/run/systemd/system')?'RUNTIME_UNIT_DIR':'OTHER';
+}
+/** Observe only direct link/stat metadata for a rejected fragment. Never accepts
+ * the link, follows a chain, reads target content or emits a filesystem name. */
+export function observeMaintenanceSchedulerLinkDiagnostic(name,initial,loaded){
+ const result={loadStateClass:loaded?'LOADED':'OTHER',targetClass:'UNRESOLVED',targetType:'UNREADABLE',linkShape:'UNRESOLVED',stability:'UNVERIFIED'};
+ const pin=stat=>[stat.dev,stat.ino,stat.mode,stat.nlink,stat.size,stat.mtimeMs,stat.ctimeMs];
+ try{
+  const link=fs.readlinkSync(name);if(link.includes('\0'))return result;
+  const target=path.resolve(path.dirname(name),link);result.targetClass=classifyMaintenanceSchedulerTarget(target);
+  let before;try{before=fs.lstatSync(target);}catch(error){result.targetType=error.code==='ENOENT'?'MISSING':'UNREADABLE';return result;}
+  result.targetType=before.isSymbolicLink()?'SYMLINK':before.isDirectory()?'DIRECTORY':before.isFile()?'REGULAR':'OTHER';
+  result.linkShape=before.isSymbolicLink()?'CHAIN':'SINGLE';
+  const afterLink=fs.readlinkSync(name),afterSource=fs.lstatSync(name),afterTarget=fs.lstatSync(target);
+  result.stability=link===afterLink&&JSON.stringify(pin(initial))===JSON.stringify(pin(afterSource))&&JSON.stringify(pin(before))===JSON.stringify(pin(afterTarget))?'STABLE':'CHANGED';
+ }catch{/* Diagnostic failure never replaces the original rejection. */}
+ return result;
+}
+export function readMaintenanceSchedulerDiagnostic(error){
+ const value=error?.schedulerFileDiagnostic;
+ if(!SCHEDULER_SOURCES.has(value?.source)||!SCHEDULER_REASONS.has(value?.reason))return null;
+ const result={source:value.source,reason:value.reason};
+ for(const [key,values]of Object.entries(SCHEDULER_LINK_ENUMS))if(values.has(value[key]))result[key]=value[key];
+ return result;
+}
+
+// Exact package-installed links observed independently on both first-switch
+// runners. No prefix, inferred module path, alias, drop-in or cron exception.
+const VENDOR_FRAGMENTS=new Map([
+ ['dracut-cmdline.service','/usr/lib/dracut/modules.d/77dracut-systemd/dracut-cmdline.service'],
+ ['dracut-initqueue.service','/usr/lib/dracut/modules.d/77initqueue/dracut-initqueue.service'],
+ ['dracut-mount.service','/usr/lib/dracut/modules.d/77dracut-systemd/dracut-mount.service'],
+ ['dracut-pre-mount.service','/usr/lib/dracut/modules.d/77dracut-systemd/dracut-pre-mount.service'],
+ ['dracut-pre-pivot.service','/usr/lib/dracut/modules.d/77dracut-systemd/dracut-pre-pivot.service'],
+ ['dracut-pre-trigger.service','/usr/lib/dracut/modules.d/77dracut-systemd/dracut-pre-trigger.service'],
+ ['dracut-pre-udev.service','/usr/lib/dracut/modules.d/77dracut-systemd/dracut-pre-udev.service'],
+ ['dracut-shutdown-onfailure.service','/usr/lib/dracut/modules.d/77dracut-systemd/dracut-shutdown-onfailure.service'],
+ ['dracut-shutdown.service','/usr/lib/dracut/modules.d/77dracut-systemd/dracut-shutdown.service'],
+].map(([unit,target])=>[unit,{fragment:`/usr/lib/systemd/system/${unit}`,target}]));
+const vendorPin=s=>[s.dev,s.ino,s.uid,s.gid,s.mode,s.nlink,s.size,s.mtimeMs,s.ctimeMs];
+/** A narrow loaded vendor fragment capability, not general symlink support.
+ * Test dependencies never originate in a release packet. Reads are descriptor
+ * bounded; the pin binds link text/identity, every parent and actual content. */
+export function readMaintenanceVendorFragment({name,source,loaded,unitId},dependencies={}){
+ const entry=[...VENDOR_FRAGMENTS].find(([,mapping])=>mapping.fragment===name);
+ if(!entry)return null;
+ const [expectedId,mapping]=entry;
+ if(source!=='SYSTEMD_FRAGMENT'||loaded!==true||unitId!==expectedId)hold('ROOT_READER_VENDOR_CONTEXT');
+ const io=dependencies.fs||fs,acls=dependencies.acls||readACLs;
+ let fd;
+ try{
+  const link=io.lstatSync(name),linkText=io.readlinkSync(name);
+  if(!link.isSymbolicLink()||link.uid!==0||link.nlink!==1||(link.mode&0o7000)
+   ||typeof linkText!=='string'||linkText.length<1||Buffer.byteLength(linkText)>4096||/[\x00-\x1f\x7f]/.test(linkText)||linkText.endsWith('/')
+   ||path.resolve(path.dirname(name),linkText)!==mapping.target)hold('ROOT_READER_VENDOR_LINK');
+  // Preserve and validate raw relative/absolute spelling. Checking each
+  // traversed directory also rejects a symlink hidden before a '..' segment.
+  const rawParents=[];let current=path.isAbsolute(linkText)?'/':path.dirname(name);
+  rawParents.push(...ancestors(current));
+  for(const segment of linkText.split('/').slice(0,-1).filter(Boolean)){
+   current=segment==='..'?path.dirname(current):segment==='.'?current:path.join(current,segment);
+   rawParents.push(...ancestors(current));
+  }
+  const names=[...new Set([...rawParents,...ancestors(path.dirname(name)),...ancestors(path.dirname(mapping.target))])].sort();
+  const parents=()=>{
+   const snapshot=()=>names.map(p=>{const s=io.lstatSync(p);if(!s.isDirectory()||s.isSymbolicLink()||s.uid!==0||(s.mode&0o7022))hold('ROOT_READER_VENDOR_PARENT');return {path:p,pin:vendorPin(s)};});
+   const pins=snapshot();
+   // Linux symlinks have no POSIX ACL and querying one returns EOPNOTSUPP.
+   // Check all actual directories and the regular target; pin symlink UID and
+   // identity separately. Never reinterpret unavailable target ACL metadata.
+   const acl=acls([...names,mapping.target]);
+   if(!Array.isArray(acl)||acl.length!==names.length+1||acl.some(a=>!Array.isArray(a)||a.length!==2||a.some(v=>v!==false)))hold('ROOT_READER_VENDOR_ACL');
+   if(!same(pins,snapshot()))hold('ROOT_READER_VENDOR_CHANGED');
+   return {pins,acl};
+  };
+  const beforeParents=parents();
+  const validTarget=s=>{if(!s.isFile()||s.isSymbolicLink()||s.uid!==0||s.nlink!==1||(s.mode&0o7022)||!Number.isSafeInteger(s.size)||s.size<0||s.size>1024*1024)hold('ROOT_READER_VENDOR_TARGET');};
+  const target=io.lstatSync(mapping.target);validTarget(target);
+  fd=io.openSync(mapping.target,fs.constants.O_RDONLY|fs.constants.O_NOFOLLOW|fs.constants.O_NONBLOCK);
+  const opened=io.fstatSync(fd);validTarget(opened);
+  if(!same(vendorPin(target),vendorPin(opened)))hold('ROOT_READER_VENDOR_CHANGED');
+  const buffer=Buffer.alloc(target.size+1);let size=0;
+  while(size<buffer.length){const count=io.readSync(fd,buffer,size,buffer.length-size,null);if(count===0)break;size+=count;}
+  if(size!==target.size)hold('ROOT_READER_VENDOR_CHANGED');
+  const after=io.fstatSync(fd),named=io.lstatSync(mapping.target);validTarget(after);validTarget(named);
+  if(!same(vendorPin(target),vendorPin(after))||!same(vendorPin(after),vendorPin(named))
+   ||!same(vendorPin(link),vendorPin(io.lstatSync(name)))||io.readlinkSync(name)!==linkText
+   ||!same(beforeParents,parents()))hold('ROOT_READER_VENDOR_CHANGED');
+  const bytes=buffer.subarray(0,size);
+  return {bytes,identity:{schema:'phoenix.maintenance-vendor-fragment/v1',unitId,...mapping,linkText,link:vendorPin(link),targetIdentity:vendorPin(target),parents:beforeParents,contentSha256:hash(bytes)}};
+ }catch(error){if(error.message?.startsWith('MAINTENANCE_HOLD='))throw error;hold('ROOT_READER_VENDOR_UNVERIFIED');}
+ finally{if(fd!==undefined)io.closeSync(fd);}
+}
+
 /** Fixed scheduler discovery. Definitions are hashed in memory; command lines
  * and crontab bytes are never emitted. All listed files must remain readable,
  * regular and stable for this capture; absence of a service tool is explicit. */
-export function captureMaintenanceSchedulers(){
+export function captureMaintenanceSchedulers({includeDatabaseEntrypoints=false}={}){
   guard();const rows=[];
-  const add=(id,bytes)=>rows.push({id,classification:'SYSTEM_PINNED',erpControlReference:bytes.includes(Buffer.from(CONTRACT.repository))||bytes.includes(Buffer.from('phoenix-v3-api')),identitySha256:hash(bytes)});
-  const file=name=>{
+  const add=(id,bytes,pin=bytes)=>rows.push({id,classification:'SYSTEM_PINNED',erpControlReference:bytes.includes(Buffer.from(CONTRACT.repository))||bytes.includes(Buffer.from('phoenix-v3-api'))
+    ||includeDatabaseEntrypoints&&['phoenix-v3-db','psql','pg_restore','pg_dump','DB_PASSWORD'].some(token=>bytes.includes(Buffer.from(token))),identitySha256:hash(pin)});
+  const file=(name,source,loaded=false,unitId)=>{
+    // An exact vendor path cannot downgrade to the generic regular-file
+    // reader or disappear if its package-installed symlink is replaced/lost.
+    const vendor=readMaintenanceVendorFragment({name,source,loaded,unitId});
+    if(vendor){add(name,vendor.bytes,Buffer.from(JSON.stringify(vendor.identity)));return;}
     let stat;try{stat=fs.lstatSync(name);}catch(error){if(error.code==='ENOENT')return;throw error;}
-    if(!stat.isFile()||stat.isSymbolicLink()||stat.size>1024*1024)hold('ROOT_READER_SCHEDULER_FILE_UNVERIFIED');
+    if(!stat.isFile()||stat.isSymbolicLink()||stat.size>1024*1024){
+      try{hold('ROOT_READER_SCHEDULER_FILE_UNVERIFIED');}
+      catch(error){
+        error.schedulerFileDiagnostic=maintenanceSchedulerRejectionDiagnostic(stat,source);
+        if(source==='SYSTEMD_FRAGMENT'&&stat.isSymbolicLink())try{Object.assign(error.schedulerFileDiagnostic,observeMaintenanceSchedulerLinkDiagnostic(name,stat,loaded));}catch{}
+        throw error;
+      }
+    }
     const bytes=fs.readFileSync(name),after=fs.lstatSync(name);
     if(stat.ino!==after.ino||stat.mtimeMs!==after.mtimeMs||stat.size!==after.size)hold('ROOT_READER_SCHEDULER_CHANGED');add(name,bytes);
   };
-  file('/etc/crontab');
+  file('/etc/crontab','CRONTAB');
   for(const directory of ['/etc/cron.d','/var/spool/cron/crontabs','/var/spool/cron']){
     let names;try{names=fs.readdirSync(directory);}catch(error){if(error.code==='ENOENT')continue;throw error;}
     for(const name of names.sort()){
       const full=path.join(directory,name),stat=fs.lstatSync(full);
       if(stat.isDirectory()&&directory==='/var/spool/cron')continue;
-      file(full);
+      file(full,directory==='/etc/cron.d'?'CRON_D':directory==='/var/spool/cron/crontabs'?'USER_CRONTABS':'CRON_SPOOL');
     }
   }
   const systemctl='/usr/bin/systemctl';
@@ -163,8 +308,8 @@ export function captureMaintenanceSchedulers(){
         add('systemd:'+id,Buffer.from(definition));
         for(const line of lines.filter(line=>line.startsWith('FragmentPath=')||line.startsWith('DropInPaths=')))
           for(const full of line.slice(line.indexOf('=')+1).split(' ').filter(Boolean)){
-            if(isMaintenanceSystemdMask(full,lines))continue;
-            file(full);
+            if(![...VENDOR_FRAGMENTS.values()].some(mapping=>mapping.fragment===full)&&isMaintenanceSystemdMask(full,lines))continue;
+            file(full,line.startsWith('FragmentPath=')?'SYSTEMD_FRAGMENT':'SYSTEMD_DROPIN',lines.includes('LoadState=loaded'),id);
           }
       }
     }

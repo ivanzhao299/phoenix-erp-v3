@@ -93,7 +93,7 @@ class AllocationSqlFixture {
       if (this.reclassifyAfterSelection) this.skus.get(this.reclassifyAfterSelection)!.org_context_required = true;
       return rows.map(b => ({ ...b }));
     }
-    if (s === 'SELECT * FROM sal_order_items WHERE sales_order_id = $1') return this.items.map(i => ({ ...i }));
+    if (s === 'SELECT * FROM sal_order_items WHERE sales_order_id = $1 ORDER BY id FOR UPDATE') return this.items.map(i => ({ ...i }));
     if (s.includes('FROM sal_order_item_batch_allocations a')) {
       const forItem = s.includes('WHERE a.sales_order_item_id=$1');
       return this.allocations.filter(a => forItem ? a.sales_order_item_id === args[0]

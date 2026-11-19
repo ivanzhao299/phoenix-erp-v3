@@ -1,0 +1,7 @@
+[Nest] 3054868  - 11/18/2026, 3:23:27 AM     LOG [ProductionInboundService] [ProdInbound] 临时生产入库 company=COMP-LAO-AGRI date=2026-11-17 批次=1 入库=30
+
+Test Suites: 4 passed, 4 total
+Tests:       70 passed, 70 total
+Snapshots:   0 total
+Time:        12.376 s, estimated 13 s
+Ran all test suites matching src/modules/wms/temp-production-reversal-case.pg.spec.ts|src/modules/wms/temp-production-reversal.pg.spec.ts|src/modules/wms/temp-production-reversal.spec.ts|src/modules/wms/inventory-ledger.writer.spec.ts.

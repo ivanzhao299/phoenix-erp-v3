@@ -58,6 +58,9 @@ export class DataScopeGuard implements CanActivate {
     for (const alt of requirement.altMenus ?? []) {
       if (hasPerm(permissions, alt, requirement.perm)) return alt;
     }
+    for(const alt of requirement.altPermissions??[]) {
+      if(hasPerm(permissions,alt.menu,alt.perm))return alt.menu;
+    }
     return requirement.menu;
   }
 }

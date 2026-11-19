@@ -1,0 +1,133 @@
+#0 building with "default" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 3.56kB done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/node:20-alpine
+#2 DONE 0.0s
+
+#3 [internal] load .dockerignore
+#3 transferring context: 154B done
+#3 DONE 0.0s
+
+#4 [builder  1/12] FROM docker.io/library/node:20-alpine@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293
+#4 resolve docker.io/library/node:20-alpine@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293 0.0s done
+#4 CACHED
+
+#5 [internal] load build context
+#5 transferring context: 10.47MB 0.1s done
+#5 DONE 0.2s
+
+#6 [builder  3/12] WORKDIR /workspace
+#6 CACHED
+
+#7 [builder  4/12] COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+#7 CACHED
+
+#8 [builder  6/12] COPY apps/web/package.json apps/web/
+#8 CACHED
+
+#9 [builder  2/12] RUN corepack enable && corepack prepare pnpm@9 --activate
+#9 CACHED
+
+#10 [builder  5/12] COPY apps/api/package.json apps/api/
+#10 CACHED
+
+#11 [builder  7/12] RUN pnpm install --frozen-lockfile --filter phoenix-erp-v3-nest...
+#11 CACHED
+
+#12 [builder  8/12] COPY apps/api ./apps/api
+#12 DONE 0.1s
+
+#13 [runtime 2/7] RUN apk add --no-cache curl tini su-exec
+#13 ...
+
+#14 [builder  9/12] WORKDIR /workspace/apps/api
+#14 DONE 0.1s
+
+#15 [builder 10/12] RUN pnpm build
+#15 0.456
+#15 0.456 > phoenix-erp-v3-nest@1.0.0 build /workspace/apps/api
+#15 0.456 > nest build
+#15 0.456
+#15 ...
+
+#13 [runtime 2/7] RUN apk add --no-cache curl tini su-exec
+#13 3.102 ( 1/11) Installing brotli-libs (1.2.1-r0)
+#13 3.557 ( 2/11) Installing c-ares (1.34.9-r0)
+#13 4.212 ( 3/11) Installing libunistring (1.4.1-r0)
+#13 4.876 ( 4/11) Installing libidn2 (2.3.8-r0)
+#13 5.131 ( 5/11) Installing nghttp2-libs (1.69.0-r0)
+#13 5.370 ( 6/11) Installing libpsl (0.21.5-r3)
+#13 5.605 ( 7/11) Installing zstd-libs (1.5.7-r2)
+#13 6.023 ( 8/11) Installing libcurl (8.23.0-r0)
+#13 6.441 ( 9/11) Installing curl (8.23.0-r0)
+#13 6.833 (10/11) Installing su-exec (0.3-r0)
+#13 7.057 (11/11) Installing tini (0.19.0-r3)
+#13 7.294 Executing busybox-1.37.0-r30.trigger
+#13 7.299 OK: 16.0 MiB in 29 packages
+#13 DONE 7.4s
+
+#16 [runtime 3/7] WORKDIR /app
+#16 DONE 0.1s
+
+#15 [builder 10/12] RUN pnpm build
+#15 DONE 15.0s
+
+#17 [builder 11/12] WORKDIR /workspace
+#17 DONE 0.0s
+
+#18 [builder 12/12] RUN pnpm deploy --filter phoenix-erp-v3-nest --prod /app-deploy
+#18 1.165 Packages are copied from the content-addressable store to the virtual store.
+#18 1.165   Content-addressable store is at: /root/.local/share/pnpm/store/v3
+#18 1.165   Virtual store is at:             ../app-deploy/node_modules/.pnpm
+#18 1.428 Progress: resolved 0, reused 1, downloaded 0, added 0
+#18 1.534 apps/api                                 |  WARN  deprecated eslint@9.39.4
+#18 2.432 Progress: resolved 765, reused 765, downloaded 0, added 0
+#18 3.432 Progress: resolved 815, reused 795, downloaded 0, added 0
+#18 4.432 Progress: resolved 819, reused 795, downloaded 5, added 0
+#18 4.877  WARN  11 deprecated subdependencies found: are-we-there-yet@2.0.0, gauge@3.0.2, glob@10.4.5, glob@10.5.0, glob@7.2.3, inflight@1.0.6, npmlog@5.0.1, rimraf@3.0.2, tar@6.2.1, uuid@9.0.1, whatwg-encoding@3.1.1
+#18 4.892 .                                        | +292 +++++++++++++++++++++++++++++
+#18 5.433 Progress: resolved 820, reused 796, downloaded 6, added 95
+#18 6.434 Progress: resolved 820, reused 796, downloaded 6, added 268
+#18 7.434 Progress: resolved 820, reused 796, downloaded 6, added 285
+#18 8.469 Progress: resolved 820, reused 796, downloaded 6, added 286
+#18 9.636 Progress: resolved 820, reused 796, downloaded 6, added 287
+#18 10.64 Progress: resolved 820, reused 796, downloaded 6, added 289
+#18 13.71 Progress: resolved 820, reused 796, downloaded 6, added 290
+#18 14.71 Progress: resolved 820, reused 796, downloaded 6, added 291
+#18 15.91 Progress: resolved 820, reused 796, downloaded 6, added 292
+#18 15.91 Progress: resolved 820, reused 796, downloaded 6, added 292, done
+#18 16.14  WARN  Failed to create bin at /workspace/apps/app-deploy/node_modules/.bin/browserslist. ENOENT: no such file or directory, open '/app-deploy/node_modules/.pnpm/browserslist@4.28.2/node_modules/browserslist/cli.js'
+#18 16.14  WARN  Failed to create bin at /workspace/apps/app-deploy/node_modules/.bin/webpack. ENOENT: no such file or directory, open '/app-deploy/node_modules/.pnpm/webpack@5.97.1/node_modules/webpack/bin/webpack.js'
+#18 16.14  WARN  Failed to create bin at /workspace/apps/app-deploy/node_modules/.bin/acorn. ENOENT: no such file or directory, open '/app-deploy/node_modules/.pnpm/acorn@8.16.0/node_modules/acorn/bin/acorn'
+#18 16.14  WARN  Failed to create bin at /workspace/apps/app-deploy/node_modules/.bin/jiti. ENOENT: no such file or directory, open '/app-deploy/node_modules/.pnpm/jiti@2.7.0/node_modules/jiti/lib/jiti-cli.mjs'
+#18 DONE 16.3s
+
+#19 [runtime 4/7] COPY --from=builder /app-deploy/node_modules  ./node_modules
+#19 DONE 1.0s
+
+#20 [runtime 5/7] COPY --from=builder /workspace/apps/api/dist  ./dist
+#20 DONE 0.2s
+
+#21 [runtime 6/7] COPY --from=builder /app-deploy/package.json  ./package.json
+#21 DONE 0.0s
+
+#22 [runtime 7/7] RUN addgroup -S phoenix && adduser -S phoenix -G phoenix     && mkdir -p /app/uploads/contracts     && chown -R phoenix:phoenix /app
+#22 DONE 27.3s
+
+#23 exporting to image
+#23 exporting layers
+#23 exporting layers 3.1s done
+#23 exporting manifest sha256:a8e7bbeb7e5fcab4bdc0ce7ca9a84146ba309766ebfad3ed3ad16028ef84b267 0.1s done
+#23 exporting config sha256:21f140009a25034c34c576a9eb81ee5740a9acb990d153080d5348dcfc188520
+#23 exporting config sha256:21f140009a25034c34c576a9eb81ee5740a9acb990d153080d5348dcfc188520 0.1s done
+#23 exporting attestation manifest sha256:f630e6239aaca183bfc80369e7f97d2dc3a39f72d423580106837b060e04708d
+#23 exporting attestation manifest sha256:f630e6239aaca183bfc80369e7f97d2dc3a39f72d423580106837b060e04708d 0.1s done
+#23 exporting manifest list sha256:8435950b52ad33826ddc55258b2117237eae6adff744078806c84b2863b7780e 0.1s done
+#23 naming to docker.io/library/phoenix-temp-reversal-cli:owned-v3-20261118
+#23 naming to docker.io/library/phoenix-temp-reversal-cli:owned-v3-20261118 0.0s done
+#23 unpacking to docker.io/library/phoenix-temp-reversal-cli:owned-v3-20261118
+#23 unpacking to docker.io/library/phoenix-temp-reversal-cli:owned-v3-20261118 4.0s done
+#23 DONE 7.5s

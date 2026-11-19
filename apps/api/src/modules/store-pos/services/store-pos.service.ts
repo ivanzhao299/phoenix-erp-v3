@@ -1,4 +1,6 @@
-import { resolveQuantity, savedQuantity, sharedBatches, lockQuantityPools, QuantityBasis, baseQuantity } from '../../product-master/services/quantity-contract';
+import { officialInventoryWritablePredicate } from '../../wms/official-inventory';
+import { qualifyDerivedInventory } from '../../wms/derived-inventory-qualification';
+import { resolveQuantity, savedQuantity, sharedBatches, lockQuantityPools, QuantityBasis, baseQuantity, isGovernedSalesPool } from '../../product-master/services/quantity-contract';
 import { SkuPolicy } from '../../product-master/services/sku-policy';
 /**
  * Phoenix ERP V3 — Store POS Service
@@ -22,10 +24,10 @@ import {
   ConflictException, Logger,
 } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
-import { DataSource } from 'typeorm';
+import { DataSource, EntityManager } from 'typeorm';
 import { ClsService } from 'nestjs-cls';
 import { hasPerm } from '../../../auth/permissions.util';
-import { StoreScopePolicy, StoreWarehousePurpose } from './store-scope-policy.service';
+import { StoreContext, StoreScopePolicy, StoreWarehousePurpose } from './store-scope-policy.service';
 import { INV_LEDGER_CHANGE_TYPE } from '../../wms/inv-ledger-change-types';
 import { writeInvLedger } from '../../wms/inventory-ledger.writer';
 import { guardedBatchUpdate } from '../../wms/inventory-guarded-update.util';
@@ -86,6 +88,7 @@ export function collectedTenderType(paymentMethod?: string): 'CASH' | 'QR' | 'TR
 @Injectable()
 export class StorePosService {
   private readonly logger = new Logger(StorePosService.name);
+  private readonly managedSales=new WeakMap<object,EntityManager>();
 
   constructor(
     @InjectDataSource() private readonly ds: DataSource,
@@ -352,6 +355,7 @@ export class StorePosService {
     id: number,
     idempotencyKey: string,
     warehouseCodes: string[],
+    context?:StoreContext,
   ): Promise<any> {
     const key = idempotencyKey?.trim();
     if (!key || key.length > 128) {
@@ -377,6 +381,7 @@ export class StorePosService {
       [id],
     );
     if (!sale) throw new NotFoundException(`销售单 ${id} 不存在`);
+    if(context?.storeCode&&(sale.store_code!==context.storeCode||sale.company_code!==context.companyCode))throw new ConflictException('门店或销售单公司已变化，请重新核验');
     this.guardStatus(sale, 'OPEN');
 
     const items = await mgr.query(
@@ -393,7 +398,25 @@ export class StorePosService {
     );
     if (!shift) throw new BadRequestException(`门店 ${sale.store_code} 当前无开放班次，请先开班`);
 
-    return { ...sale, items, shift_id: shift.id, warehouseCodes, idempotentReplay: false };
+    const result={ ...sale, items, shift_id: shift.id, warehouseCodes, idempotentReplay: false };
+    if(context?.storeCode&&context.companyCode&&mgr.queryRunner?.isTransactionActive&&items.some((i:any)=>i.quantity_snapshot)){
+      const userId=this.currentUser?.userId??this.currentUser?.id;
+      const scope=this.cls.get('dataScope') as any;
+      if(!userId||!scope||!scope.isGlobal&&(!scope.allowedCompanyCodes?.includes(sale.company_code)||warehouseCodes.some(w=>!scope.allowedWarehouseCodes?.includes(w))))
+        throw new ConflictException('缺少门店销售的实际公司/仓库授权');
+      const bindings=await mgr.query(`SELECT w.warehouse_code FROM store_master s
+        JOIN store_memberships member ON member.store_id=s.id AND member.user_id=$4 AND member.status='ACTIVE'
+          AND (member.effective_from IS NULL OR member.effective_from<=NOW()) AND (member.effective_to IS NULL OR member.effective_to>=NOW())
+        JOIN store_warehouse_bindings binding ON binding.store_id=s.id AND binding.purpose='SALES' AND binding.status='ACTIVE'
+          AND (binding.effective_from IS NULL OR binding.effective_from<=NOW()) AND (binding.effective_to IS NULL OR binding.effective_to>=NOW())
+        JOIN wms_warehouses w ON w.warehouse_code=binding.warehouse_code AND w.company_code=s.company_code
+          AND w.status='ACTIVE' AND w.domain='OPERATIONAL'
+        WHERE s.id=$1 AND s.store_code=$2 AND s.company_code=$3 AND s.status='ACTIVE' AND w.warehouse_code=ANY($5::text[]) FOR SHARE OF s,member,binding,w`,
+        [context.storeId,sale.store_code,sale.company_code,userId,warehouseCodes]);
+      if(warehouseCodes.some(w=>!bindings.some((b:any)=>b.warehouse_code===w)))throw new ConflictException('门店 membership 或实际销售仓绑定已失效');
+      this.managedSales.set(result,mgr);
+    }
+    return result;
   }
 
   private async auditPriceDrift(mgr: any, sale: any): Promise<void> {
@@ -442,13 +465,13 @@ export class StorePosService {
   async completeCashSale(id: number, dto: CompleteCashSaleDto) {
     const { context } = await this.storeScope.assertSaleScoped(id, 'SALES');
     await this.ds.transaction(async mgr => {
-      const sale = await this.lockSaleForPayment(mgr, id, dto.idempotencyKey, context.warehouseCodes);
+      const sale = await this.lockSaleForPayment(mgr, id, dto.idempotencyKey, context.warehouseCodes,context);
       if (sale.idempotentReplay) return;
       await this.auditPriceDrift(mgr, sale);
       const paidAmount = dto.paidAmount ?? Number(sale.total_amount);
       if (paidAmount !== Number(sale.total_amount)) throw new BadRequestException('首期 POS 不开放找零，实收必须等于应收');
       // A. FIFO 扣减库存
-      const allocs = await this.fifoDeductItems(sale, mgr);
+      const allocs = await this.consumeSaleStock(sale, mgr);
 
       // B. 写 fin_cash_transactions（币种统一取销售单币种）
       await this.writeCashTransaction(mgr, {
@@ -494,14 +517,14 @@ export class StorePosService {
   async completeCreditSale(id: number, dto: { idempotencyKey: string }) {
     const { context } = await this.storeScope.assertSaleScoped(id, 'SALES');
     await this.ds.transaction(async mgr => {
-      const sale = await this.lockSaleForPayment(mgr, id, dto.idempotencyKey, context.warehouseCodes);
+      const sale = await this.lockSaleForPayment(mgr, id, dto.idempotencyKey, context.warehouseCodes,context);
       if (sale.idempotentReplay) return;
       await this.auditPriceDrift(mgr, sale);
       if (!sale.customer_code && !sale.customer_name) {
         throw new BadRequestException('赊销必须填写客户信息');
       }
       // A. FIFO 扣减库存
-      const allocs = await this.fifoDeductItems(sale, mgr);
+      const allocs = await this.consumeSaleStock(sale, mgr);
 
       // B. 生成 AR 发票（币种统一取销售单币种）
       const arId = await this.createArInvoice(mgr, {
@@ -541,7 +564,7 @@ export class StorePosService {
   async completeMixedSale(id: number, dto: CompleteMixedSaleDto) {
     const { context } = await this.storeScope.assertSaleScoped(id, 'SALES');
     await this.ds.transaction(async mgr => {
-      const sale = await this.lockSaleForPayment(mgr, id, dto.idempotencyKey, context.warehouseCodes);
+      const sale = await this.lockSaleForPayment(mgr, id, dto.idempotencyKey, context.warehouseCodes,context);
       if (sale.idempotentReplay) return;
       await this.auditPriceDrift(mgr, sale);
       const total = Number(sale.total_amount);
@@ -551,7 +574,7 @@ export class StorePosService {
       if (paid >= total) throw new BadRequestException('实收等于或超过总金额，请使用现金收款');
       const custName = dto.customerName ?? sale.customer_name ?? '散客';
       // A. FIFO 扣减
-      const allocs = await this.fifoDeductItems(sale, mgr);
+      const allocs = await this.consumeSaleStock(sale, mgr);
 
       // B. 实收部分写 Cash（与 AR 腿同币种=销售单币种,杜绝同单漂移）
       await this.writeCashTransaction(mgr, {
@@ -894,6 +917,10 @@ export class StorePosService {
 
   // ── 私有：FIFO 扣减 ───────────────────────────────────────────────────────
 
+  private async consumeSaleStock(sale:any,mgr:EntityManager){
+    try{return await this.fifoDeductItems(sale,mgr);}finally{this.managedSales?.delete(sale);}
+  }
+
   private async fifoDeductItems(
     sale: any,
     mgr: any,
@@ -908,10 +935,15 @@ export class StorePosService {
     for (const item of items.sort((a, b) => String(a.product_code).localeCompare(String(b.product_code)) || String(a.id).localeCompare(String(b.id)))) {
       if (!item || !item.product_code) continue;
       const qty = savedQuantity(item);
+      const companyContext=item.quantity_snapshot&&this.managedSales?.get(sale)===mgr&&mgr.queryRunner?.isTransactionActive
+        &&await isGovernedSalesPool(mgr,sale.company_code,sale.warehouseCodes,item.quantity_snapshot)?sale.company_code:undefined;
+      if(companyContext&&(item.quantity_snapshot.productCode!==item.product_code||item.sku_code!=null&&item.quantity_snapshot.skuCode!==item.sku_code
+        ||item.grade_code!=null&&item.quantity_snapshot.gradeCode!==item.grade_code))throw new ConflictException('门店原明细与计量快照身份不一致');
 
       // Phase H5: PATH A（sku_code）优先，PATH B（product+grade）回退。
-      if (item.sku_code != null) await SkuPolicy.requireUsable(mgr, item.sku_code, 'sale-stock');
-      else if (item.quantity_snapshot) await SkuPolicy.requireUsable(mgr, item.quantity_snapshot.skuCode, 'sale-stock');
+      const selectedSku=item.sku_code!=null||item.quantity_snapshot
+        ?await SkuPolicy.requireUsable(mgr,item.sku_code??item.quantity_snapshot.skuCode,'sale-stock',companyContext):undefined;
+      const managedRequested=selectedSku?.variety_code!=null||selectedSku?.org_context_required===true;
       const useSkuPath = !!item.sku_code;
       // INV-204：egg 与 POS 两路 FIFO 共用 inv:fifo:{company}:{warehouse}:{itemKey}
       // 命名空间（见 wms/inventory-lock.util.ts）；快照池锁（physical-stock-v1，
@@ -944,7 +976,7 @@ export class StorePosService {
                AND COALESCE(inventory_class, 'STANDARD') = 'STANDARD'
                AND qty_available > 0
                AND (expire_date IS NULL OR expire_date >= CURRENT_DATE)
-               AND legacy_source IS NULL
+               AND legacy_source IS NULL AND ${officialInventoryWritablePredicate('inv_batches')}
              AND EXISTS (
                SELECT 1 FROM product_grades sale_grade
                 WHERE sale_grade.grade_code = COALESCE(inv_batches.quality_grade, inv_batches.grade_code_std)
@@ -968,7 +1000,7 @@ export class StorePosService {
                AND COALESCE(inventory_class, 'STANDARD') = 'STANDARD'
                AND qty_available > 0
                AND (expire_date IS NULL OR expire_date >= CURRENT_DATE)
-               AND legacy_source IS NULL
+               AND legacy_source IS NULL AND ${officialInventoryWritablePredicate('inv_batches')}
                AND EXISTS (
                  SELECT 1 FROM product_grades sale_grade
                   WHERE sale_grade.grade_code = COALESCE(inv_batches.quality_grade, inv_batches.grade_code_std)
@@ -984,19 +1016,22 @@ export class StorePosService {
           );
       }
 
-      // This is still the legacy sales path, not an organization-aware SKU
-      // resolver. Check physical identities for every source (including shared
-      // quantity pools), under the same manager's batch and SKU locks. A missing
-      // mapping is not legacy stock; SQL/permission errors must propagate.
-      const legacyBatches: any[] = [];
+      // Check each physical identity under the batch/SKU locks. Managed stock
+      // additionally needs verified company authority and its own governed warehouse.
+      const eligibleBatches: any[] = [];
       for (const batch of batches) {
+        if(managedRequested&&(!companyContext||!await isGovernedSalesPool(mgr,companyContext,[batch.warehouse_code],item.quantity_snapshot)))continue;
         if (batch.sku_code != null) {
           const [sku] = await mgr.query(`SELECT * FROM product_skus WHERE sku_code=$1 FOR SHARE`, [batch.sku_code]);
-          if (!sku || sku.variety_code != null || sku.org_context_required === true) continue;
+          if (!sku)continue;
+          if(sku.variety_code!=null||sku.org_context_required===true){
+            if(!companyContext||!await isGovernedSalesPool(mgr,companyContext,[batch.warehouse_code],item.quantity_snapshot))continue;
+            await SkuPolicy.requireUsable(mgr,batch.sku_code,'sale-stock',companyContext);
+          }
         }
-        legacyBatches.push(batch);
+        eligibleBatches.push(batch);
       }
-      const allocatableQty = legacyBatches.reduce((sum, batch) => sum + Number(batch.qty_available), 0);
+      const allocatableQty = eligibleBatches.reduce((sum, batch) => sum + Number(batch.qty_available), 0);
       if (allocatableQty < qty) {
         throw new ConflictException(
           `门店仓库存不足：${useSkuPath ? 'sku=' + item.sku_code : 'product=' + item.product_code} 缺 ${qty - allocatableQty}`,
@@ -1004,7 +1039,7 @@ export class StorePosService {
       }
       let remaining = qty;
 
-      for (const batch of legacyBatches) {
+      for (const batch of eligibleBatches) {
           if (remaining <= 0) break;
           const canTake = Math.min(remaining, Number(batch.qty_available));
           remaining -= canTake;
@@ -1207,6 +1242,9 @@ export class StorePosService {
       const qty = Number(allocation.allocated_qty) - Number(allocation.returned_qty);
       if (qty <= 0) throw new ConflictException(`allocation ${allocation.id} 已无可退数量`);
       const batchNo = `RET-${sale.sale_no}-${allocation.id}`;
+      await qualifyDerivedInventory(mgr,[{batch_no:allocation.batch_no}],{batchNo,companyCode:sale.company_code,warehouseCode:quarantine.warehouse_code,
+        productCode:allocation.product_code,skuCode:allocation.sku_code,sourceType:'STORE_RETURN',sourceNo:sale.sale_no,
+        actor:this.currentUser?.username??'pos'});
       await mgr.query(
         `INSERT INTO inv_batches
            (batch_no, product_code, company_code, qty, qty_available, quality_grade, inventory_class,

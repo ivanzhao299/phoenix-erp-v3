@@ -1,0 +1,27 @@
+TAP version 13
+# Subtest: rehearsal preflight gate (real runner, real fixture)
+    # Subtest: clean fixture: the rehearsal passes and asserts the preflight PASS verdict
+    ok 1 - clean fixture: the rehearsal passes and asserts the preflight PASS verdict
+      ---
+      duration_ms: 2612.960638
+      ...
+    # Subtest: injected fault: one dropped legacy row makes the gate FAIL the rehearsal
+    ok 2 - injected fault: one dropped legacy row makes the gate FAIL the rehearsal
+      ---
+      duration_ms: 1506.43897
+      ...
+    1..2
+ok 1 - rehearsal preflight gate (real runner, real fixture)
+  ---
+  duration_ms: 4120.501198
+  type: 'suite'
+  ...
+1..1
+# tests 2
+# suites 1
+# pass 2
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 4158.285816

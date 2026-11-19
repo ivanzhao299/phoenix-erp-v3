@@ -253,7 +253,7 @@ export class ProductMasterService {
 
   // ── product_skus ────────────────────────────────────────────────
 
-  async listSkus(filters?: { product_code?: string; grade_code?: string; spec_code?: string; status?: string; usage?: SkuUsage }): Promise<ProductSku[]> {
+  async listSkus(filters?: { product_code?: string; grade_code?: string; spec_code?: string; status?: string; company_code?: string; usage?: SkuUsage }): Promise<ProductSku[]> {
     const conds: string[] = [];
     const args: unknown[] = [];
     let i = 1;
@@ -267,6 +267,9 @@ export class ProductMasterService {
     if (!filters?.status) conds.push(`status = 'ACTIVE'`);
     if (activeReference) {
       conds.push(SkuPolicy.usableSql('product_skus', filters?.usage));
+      if(filters?.company_code){
+        SkuPolicy.code(filters.company_code);conds.push(SkuPolicy.companyUsableSql('product_skus',`$${i++}`,filters.usage));args.push(filters.company_code);
+      }
     }
     const where = `WHERE ${conds.join(' AND ')}`;
     return this.em.query(

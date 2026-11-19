@@ -35,8 +35,8 @@ export class FarmController {
 
   @Put('daily-logs/:id')
   @RequireMenu('MENU_FARM_DAILY', 'E')
-  async updateBreedingDailyLog(@Param('id') id: number, @Body() body: any) {
-    return await this.farmService.updateBreedingDailyLog(id, body);
+  async updateBreedingDailyLog(@Param('id') id: number, @Body() body: any, @Req() req: any) {
+    return await this.farmService.updateBreedingDailyLog(id, body, this.getScope(req));
   }
 
   /**
@@ -54,9 +54,16 @@ export class FarmController {
     return await this.farmService.getEggsBreakdown(date, houseCode, this.getScope(req));
   }
 
+  @Get('daily-logs/production-sources')
+  @RequireMenu('MENU_FARM_DAILY','V')
+  productionReports(@Query('date') date:string,@Query('houseCode') house:string,@Req() req:any) {
+    return this.farmService.getProductionReports(date,house,this.getScope(req));
+  }
+
   @Get('daily-hen-report')
+  @RequireMenu('MENU_FARM_DAILY','V',['MENU_FARM_DATA'])
   async getDailyHenReport(@Query('date') date: string, @Req() req: any) {
-    const d = date || new Date().toISOString().slice(0, 10);
+    const d = date || new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Singapore'}).format(new Date());
     return await this.farmService.getDailyHenReport(d, this.getScope(req));
   }
 

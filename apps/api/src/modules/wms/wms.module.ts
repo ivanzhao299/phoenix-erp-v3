@@ -1,3 +1,6 @@
+import { ProductionCutoverController } from './production-cutover.controller';
+import { ProductionCutoverService } from './production-cutover.service';
+import { FileModule } from '../file/file.module';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { InboundController } from './inbound.controller';
@@ -15,15 +18,15 @@ import { WmsStockLedgerEntity } from './entities/wms-stock-ledger.entity';
 // imports WmsModule (one-way) to call WmsService.advanceOutboundOrder().
 
 @Module({
-  imports: [
+  imports: [FileModule,
     TypeOrmModule.forFeature([
       WmsLocationEntity,
       WmsStockBalanceEntity,
       WmsStockLedgerEntity,
     ]),
   ],
-  controllers: [InboundController, OutboundController, InventoryController, StocktakeController],
-  providers: [InventoryService, WmsService],
+  controllers: [ProductionCutoverController, InboundController, OutboundController, InventoryController, StocktakeController],
+  providers: [ProductionCutoverService, InventoryService, WmsService],
   exports: [InventoryService, WmsService],
 })
 export class WmsModule {}

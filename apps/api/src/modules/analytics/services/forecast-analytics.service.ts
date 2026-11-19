@@ -1,3 +1,4 @@
+import { officialInventoryPredicate } from '../../wms/official-inventory';
 import { Injectable } from '@nestjs/common';
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
@@ -96,7 +97,7 @@ export class ForecastAnalyticsService {
     const inv = await this.safe<{ day: string; v: string }>(
       `SELECT generate_series.day::text AS day,
               (SELECT COALESCE(SUM(qty),0) FROM inv_batches
-                 WHERE created_at <= generate_series.day AND status='AVAILABLE')::text AS v
+                 WHERE ${officialInventoryPredicate('inv_batches')} AND created_at <= generate_series.day AND status='AVAILABLE')::text AS v
          FROM generate_series(CURRENT_DATE - 29, CURRENT_DATE, INTERVAL '1 day') AS generate_series(day)
          ORDER BY day`,
     );

@@ -174,70 +174,30 @@ export class MonDeviceService {
   ) {
     try {
       if (!houseCode || !logDate) return { ok: false, error: 'missing parameters' };
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(logDate) || !Number.isFinite(Date.parse(logDate)) || new Date(logDate).toISOString().slice(0,10)!==logDate) return {ok:false,error:'业务日期无效'};
       const snapshotHour = opts?.snapshotHour;
-      const hourFilter = snapshotHour != null
-        ? ` AND EXTRACT(HOUR FROM log_ts) <= ${Number(snapshotHour)}`
-        : '';
+      if(snapshotHour!=null&&(!Number.isInteger(snapshotHour)||snapshotHour<0||snapshotHour>23))return {ok:false,error:'时点必须为0到23的整数'};
       const yest = new Date(`${logDate}T00:00:00Z`);
       yest.setUTCDate(yest.getUTCDate() - 1);
       const yestStr = yest.toISOString().slice(0, 10);
-      const today = new Date().toISOString().slice(0, 10);
-
       const P = { temp: '2001', hum: '2083', feed: '2488', water: '2484' };
-
-      // —— 累计读数取值：优先 daily_agg（无 hour 限制时），其次 history（可加 hour 限制），最后快照（仅今日且无 hour 限制）
-      const fetchMaxCum = async (date: string, prop: string): Promise<number | null> => {
-        if (snapshotHour == null) {
-          const aggs = await this.entityManager.query(
-            `SELECT max_val FROM mon_device_property_daily_agg
-              WHERE erp_house_code=$1 AND agg_date=$2 AND property_code=$3`,
-            [houseCode, date, prop]
-          );
-          if (aggs[0]?.max_val != null) return Number(aggs[0].max_val);
-        }
-        const hists = await this.entityManager.query(
-          `SELECT MAX(value) AS max_v FROM mon_device_property_history
-            WHERE erp_house_code=$1 AND log_date=$2 AND property_code=$3${hourFilter}`,
-          [houseCode, date, prop]
-        );
-        if (hists[0]?.max_v != null) return Number(hists[0].max_v);
-        if (date === today && snapshotHour == null) {
-          const snaps = await this.entityManager.query(
-            `SELECT value FROM mon_device_realtime_snapshot
-              WHERE erp_house_code=$1 AND property_code=$2`,
-            [houseCode, prop]
-          );
-          if (snaps[0]?.value != null) return Number(snaps[0].value);
-        }
-        return null;
+      // Legacy log_date/daily_agg were UTC. Preserve them, but derive flock advice
+      // only from the actual millisecond collection instant in the business zone.
+      const read = async(date:string,prop:string,aggregate:'MAX'|'AVG'):Promise<number|null>=>{
+        const begin=Date.parse(`${date}T00:00:00+08:00`);
+        const end=begin+(snapshotHour==null?24:snapshotHour+1)*3600000;
+        const [row]=await this.entityManager.query(`SELECT ${aggregate}(value) AS value FROM mon_device_property_history
+          WHERE erp_house_code=$1 AND property_code=$2 AND collect_time >= $3 AND collect_time < $4`,[houseCode,prop,begin,end]);
+        if(row?.value!=null)return Number(row.value);
+        // A snapshot is useful only if its own collection instant belongs to the
+        // requested day; updated_at cannot establish when a measurement happened.
+        const [snapshot]=await this.entityManager.query(`SELECT value FROM mon_device_realtime_snapshot
+          WHERE erp_house_code=$1 AND property_code=$2 AND collect_time >= $3 AND collect_time < $4
+          ORDER BY collect_time DESC LIMIT 1`,[houseCode,prop,begin,end]);
+        return snapshot?.value==null?null:Number(snapshot.value);
       };
-
-      // —— 瞬时读数均值
-      const fetchAvg = async (prop: string): Promise<number | null> => {
-        if (snapshotHour == null) {
-          const aggs = await this.entityManager.query(
-            `SELECT avg_val FROM mon_device_property_daily_agg
-              WHERE erp_house_code=$1 AND agg_date=$2 AND property_code=$3`,
-            [houseCode, logDate, prop]
-          );
-          if (aggs[0]?.avg_val != null) return Number(aggs[0].avg_val);
-        }
-        const hists = await this.entityManager.query(
-          `SELECT AVG(value) AS avg_v FROM mon_device_property_history
-            WHERE erp_house_code=$1 AND log_date=$2 AND property_code=$3${hourFilter}`,
-          [houseCode, logDate, prop]
-        );
-        if (hists[0]?.avg_v != null) return Number(hists[0].avg_v);
-        if (logDate === today && snapshotHour == null) {
-          const snaps = await this.entityManager.query(
-            `SELECT value FROM mon_device_realtime_snapshot
-              WHERE erp_house_code=$1 AND property_code=$2`,
-            [houseCode, prop]
-          );
-          if (snaps[0]?.value != null) return Number(snaps[0].value);
-        }
-        return null;
-      };
+      const fetchMaxCum=(date:string,prop:string)=>read(date,prop,'MAX');
+      const fetchAvg=(prop:string)=>read(logDate,prop,'AVG');
 
       const [todayFeed, yestFeed, todayWater, yestWater, avgTemp, avgHum] = await Promise.all([
         fetchMaxCum(logDate, P.feed),
@@ -249,12 +209,15 @@ export class MonDeviceService {
       ]);
 
       const feedDiff  = todayFeed != null && yestFeed != null
-        ? Math.max(0, todayFeed - yestFeed) : todayFeed;
+        && todayFeed>=yestFeed ? todayFeed - yestFeed : null;
       const waterDiff = todayWater != null && yestWater != null
-        ? Math.max(0, todayWater - yestWater) : todayWater;
+        && todayWater>=yestWater ? todayWater - yestWater : null;
 
       return {
         ok: true,
+        businessTimeZone:'Asia/Singapore',
+        attributionStatus:'COLLECTION_INSTANT_VERIFIED',
+        usageStatus:feedDiff==null||waterDiff==null?'INCOMPLETE_OR_COUNTER_RESET':'COUNTER_DIFFERENCE',
         avgTemp: avgTemp != null ? Number(avgTemp).toFixed(2) : null,
         avgHum:  avgHum  != null ? Number(avgHum).toFixed(2)  : null,
         feedKg:  feedDiff  != null ? Number(feedDiff).toFixed(2)  : null,
@@ -266,9 +229,9 @@ export class MonDeviceService {
           yestWaterCum:  yestWater,
           snapshotHour:  snapshotHour ?? null,
         },
-        message: snapshotHour != null
+        message: feedDiff==null||waterDiff==null?'采集读数不完整或计数器回零，实际耗料/用水待核对，不自动填零':snapshotHour != null
           ? `已按 ${String(snapshotHour).padStart(2,'0')}:00 时点取累计差为当日用量`
-          : '已按当日累计 − 昨日累计计当日用量',
+          : '按新加坡业务日采集时点计算；缺前日读数或计数器回零时用量待核对',
       };
     } catch (e: any) {
       return { ok: false, error: e.message };

@@ -1,3 +1,6 @@
+import { deriveOrgScope,scopeWhere } from './farm.service';
+import { lockManagedActivity,recordFlockActivity } from './flock-activity-source';
+import { lockTempProductionReferences } from '../wms/temp-production-reversal';
 import {
   BadRequestException,
   ConflictException,
@@ -125,17 +128,16 @@ export class MedicationRecordService {
   }
 
   private assertWriteScope(input: Pick<MedicationRecordCreateInput, 'site_code' | 'farm_code' | 'company_code'>): void {
-    const scope = this.scope();
-    if (!scope || scope.isGlobal) return;
-    if (scope.allowedCompanyCodes.length === 0 || !scope.allowedCompanyCodes.includes(input.company_code)) {
-      throw new ForbiddenException('无权写入该用药记录（公司范围不匹配）');
+    const context=this.scope();
+    if(!context)throw new ForbiddenException('缺少养殖数据范围');
+    if(!['allowedBreedingCompanyCodes','allowedBreedingSiteCodes','allowedBreedingFarmCodes'].some(key=>Object.prototype.hasOwnProperty.call(context,key))) {
+      if(context.isGlobal)return;
+      if(!context.allowedCompanyCodes.includes(input.company_code) || context.allowedSiteCodes.length>0&&!context.allowedSiteCodes.includes(input.site_code) || context.allowedFarmCodes.length>0&&!context.allowedFarmCodes.includes(input.farm_code)) throw new ForbiddenException('无权写入该公司/场区/农场养殖记录');
+      return;
     }
-    if (scope.allowedSiteCodes.length > 0 && !scope.allowedSiteCodes.includes(input.site_code)) {
-      throw new ForbiddenException('无权写入该用药记录（场站范围不匹配）');
-    }
-    if (scope.allowedFarmCodes.length > 0 && !scope.allowedFarmCodes.includes(input.farm_code)) {
-      throw new ForbiddenException('无权写入该用药记录（农场范围不匹配）');
-    }
+    const scope=deriveOrgScope({dataScope:context});
+    if(scope.isGlobal || scope.companyCodes?.includes(input.company_code) || scope.farmCodes?.includes(input.farm_code) || scope.siteCodes?.includes(input.site_code))return;
+    throw new ForbiddenException('无权写入该公司/场区/农场养殖记录');
   }
 
   private async assertFlock(
@@ -155,7 +157,7 @@ export class MedicationRecordService {
     const flock = rows[0];
     if (!flock) throw new BadRequestException(`鸡群 ${input.flock_no} 不存在`);
     const status = String(flock.status ?? 'ACTIVE').toUpperCase();
-    if (['INACTIVE', 'CANCELLED', 'CLOSED', 'DELETED'].includes(status)) {
+    if (['INACTIVE', 'CANCELLED', 'CLOSED', 'DELETED', 'RETIRED'].includes(status)) {
       throw new BadRequestException(`鸡群 ${input.flock_no} 不可用于用药`);
     }
     if (flock.farm_code && String(flock.farm_code) !== input.farm_code) {
@@ -173,17 +175,7 @@ export class MedicationRecordService {
   }
 
   private assertReadScope(row: { site_code?: string | null; farm_code?: string | null; company_code?: string | null }): void {
-    const scope = this.scope();
-    if (!scope || scope.isGlobal) return;
-    if (scope.allowedCompanyCodes.length === 0 || !row.company_code || !scope.allowedCompanyCodes.includes(row.company_code)) {
-      throw new ForbiddenException('无权访问该用药记录（公司范围不匹配）');
-    }
-    if (scope.allowedSiteCodes.length > 0 && row.site_code && !scope.allowedSiteCodes.includes(row.site_code)) {
-      throw new ForbiddenException('无权访问该用药记录（场站范围不匹配）');
-    }
-    if (scope.allowedFarmCodes.length > 0 && row.farm_code && !scope.allowedFarmCodes.includes(row.farm_code)) {
-      throw new ForbiddenException('无权访问该用药记录（农场范围不匹配）');
-    }
+    this.assertWriteScope({company_code:row.company_code??'',farm_code:row.farm_code??'',site_code:row.site_code??''});
   }
 
   private assertSiteCompanyScope(siteCode: string, companyCode: string): void {
@@ -238,29 +230,16 @@ export class MedicationRecordService {
   }
 
   private buildScope(alias: string, params: unknown[]): string {
-    const scope = this.scope();
-    if (!scope || scope.isGlobal) return '1=1';
-    const clauses: string[] = [];
-    if (scope.allowedCompanyCodes.length === 0) return '1=0';
-    params.push(scope.allowedCompanyCodes);
-    clauses.push(`${alias}.company_code = ANY($${params.length})`);
-    if (scope.allowedSiteCodes.length > 0) {
-      params.push(scope.allowedSiteCodes);
-      clauses.push(`${alias}.site_code = ANY($${params.length})`);
+    const context=this.scope();if(!context)return '1=0';
+    if(!['allowedBreedingCompanyCodes','allowedBreedingSiteCodes','allowedBreedingFarmCodes'].some(key=>Object.prototype.hasOwnProperty.call(context,key))) {
+      if(context.isGlobal)return '1=1';if(!context.allowedCompanyCodes.length)return '1=0';
+      const filters=[];for(const [key,codes] of [['company_code',context.allowedCompanyCodes],['site_code',context.allowedSiteCodes],['farm_code',context.allowedFarmCodes]] as const) if(codes.length){params.push(codes);filters.push(`${alias}.${key}=ANY($${params.length})`);}
+      return filters.join(' AND ');
     }
-    if (scope.allowedFarmCodes.length > 0) {
-      params.push(scope.allowedFarmCodes);
-      clauses.push(`${alias}.farm_code = ANY($${params.length})`);
-    }
-    return clauses.join(' AND ');
+    const scope=deriveOrgScope({dataScope:context});
+    return scopeWhere(scope,params,`${alias}.`) || '1=1';
   }
 
-  /**
-   * 写用药流水（INV-301a：改调共享写入器，替换 information_schema 动态列
-   * 拼接写法；列集合 = 旧动态写法的全量列，store_code 沿用场站码约定）。
-   * house_code 不在任何迁移链内、部分环境可能缺列，writer 仅在有值时写入
-   * （旧动态门控下无值/缺列时同样不产生该列，DB 结果同为 NULL）。
-   */
   private async insertLedger(
     queryable: Queryable,
     input: {
@@ -478,6 +457,7 @@ export class MedicationRecordService {
       throw new BadRequestException('场站、公司、农场、鸡群和药品编码不能为空');
     }
     const startDate = normalizeDate(normalized.start_date, 'start_date') as string;
+    if(startDate>todayString())throw new BadRequestException('实际用药开始日期不能在未来；计划不提前扣药');
     const endDate = normalizeDate(normalized.end_date, 'end_date', false);
     if (endDate && endDate < startDate) throw new BadRequestException('end_date不能早于start_date');
     const quantity = positiveNumber(normalized.actual_qty, 'actual_qty');
@@ -487,6 +467,7 @@ export class MedicationRecordService {
     const courseNo = String(normalized.course_no ?? '').trim() || generatedKey('COURSE');
 
     return this.ds.transaction(async manager => {
+      const occupancy=await lockManagedActivity(manager,normalized.flock_no);
       await this.assertFlock(manager, normalized);
       const medicationRows = await manager.query(
         `SELECT medication_code, medication_name, unit_code, default_withdraw_days
@@ -542,6 +523,7 @@ export class MedicationRecordService {
       );
       const record = recordRows[0];
       if (!record) throw new BadRequestException('用药记录创建失败');
+      await recordFlockActivity(manager,'MEDICATION',record.id,occupancy,startDate);
       for (const allocation of allocations) {
         const updated = await manager.query(
           `UPDATE inv_batches
@@ -637,6 +619,9 @@ export class MedicationRecordService {
     if (!Number.isInteger(numericId) || numericId <= 0) throw new BadRequestException('用药记录 id 无效');
     const safeOperator = String(operator ?? '').trim() || 'unknown';
     return this.ds.transaction(async manager => {
+      const [identity]=await manager.query('SELECT flock_no FROM brd_medication_records WHERE id=$1',[numericId]);
+      const occupancy=identity?await lockManagedActivity(manager,identity.flock_no):null;
+      if(occupancy)this.assertReadScope(occupancy); // Current caretaker must authorize withdrawal changes after transfer.
       const rows = await manager.query(`SELECT * FROM brd_medication_records WHERE id = $1 FOR UPDATE`, [numericId]);
       const record = rows[0];
       if (!record) throw new NotFoundException('用药记录不存在');
@@ -652,6 +637,7 @@ export class MedicationRecordService {
         [numericId],
       );
       const reverseRef = generatedKey('MED-CANCEL');
+      await lockTempProductionReferences(manager, lines.map((line: any) => line.inventory_batch_no));
       for (const line of lines) {
         const quantity = positiveNumber(line.qty, 'issue line qty');
         if ((line.store_code && line.store_code !== 'ALL' && line.store_code !== record.site_code)

@@ -16,7 +16,7 @@ describe('inventory status machine (INV-301c)', () => {
       'AVAILABLE', 'RESERVED', 'QUARANTINE', 'DAMAGED', 'FROZEN', 'EXPIRED',
     ]);
     expect(INV_BATCH_STATUS_TRANSITIONS).toEqual({
-      AVAILABLE: ['AVAILABLE', 'EXPIRED'], // egg markExpired（INV-101）+ farm 用药撤销/入库自环
+      AVAILABLE: ['AVAILABLE', 'EXPIRED', 'FROZEN'], // Legacy expiry, qualified physical expiry hold, and medication/inbound self-loop.
       RESERVED: [],
       QUARANTINE: [],
       DAMAGED: [],
@@ -35,6 +35,7 @@ describe('inventory status machine (INV-301c)', () => {
 
   it.each([
     ['AVAILABLE', 'EXPIRED', 'egg-inventory markExpiredBatches 守卫 UPDATE（INV-101 过期任务）'],
+    ['AVAILABLE', 'FROZEN', 'qualified physical expiry retains inventory pending actual disposition'],
     ['AVAILABLE', 'AVAILABLE', 'farm medication-record cancel 还入重申 / farm-medicine 入库 upsert 冲突腿'],
   ])('allows the whitelisted transition %s → %s (%s)', (from, to) => {
     expect(() => assertStatusTransition(from, to, 'test')).not.toThrow();
@@ -58,8 +59,8 @@ describe('inventory status machine (INV-301c)', () => {
         }
       }
     }
-    // 36 pairs total, 2 whitelisted → 34 rejected
-    expect(rejected).toBe(INV_BATCH_STATUSES.length ** 2 - 2);
+    // 36 pairs total, 3 whitelisted → 33 rejected
+    expect(rejected).toBe(INV_BATCH_STATUSES.length ** 2 - 3);
   });
 
   it('rejects unknown states and the read-side legacy values with a provenance hint', () => {
@@ -76,9 +77,7 @@ describe('inventory status machine (INV-301c)', () => {
     expect(() => assertStatusTransition('EXPIRED', 'AVAILABLE')).toThrow(/EXPIRED 仅允许 →（无出边）|不在白名单/);
   });
 
-  it('documents RESERVED/FROZEN as dict states without any code write path', () => {
-    // 预占建模 = qty_available 减量 + allocations 台账；冻结是批次 4 INV-402 能力缺口。
-    // 两者在白名单中必须保持无出边，直到真实写入路径落地并登记来源。
+  it('keeps RESERVED and FROZEN without a release transition until a real authorized disposition exists', () => {
     expect(INV_BATCH_STATUS_TRANSITIONS.RESERVED).toHaveLength(0);
     expect(INV_BATCH_STATUS_TRANSITIONS.FROZEN).toHaveLength(0);
   });

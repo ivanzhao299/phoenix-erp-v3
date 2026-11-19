@@ -1,4 +1,9 @@
-import { savedQuantity, QuantitySnapshot, positiveQuantity, baseQuantity, sharedBatches, lockQuantityPools, assertBatchPool, resolveQuantity } from '../../product-master/services/quantity-contract';
+import { officialInventoryPredicate, officialInventoryWritablePredicate, officialInventoryCostKnownPredicate } from '../../wms/official-inventory';
+import { qualifyFormalProductionBatch, recordFormalProductionSources } from '../../wms/formal-production-context';
+import { qualifyDerivedInventory } from '../../wms/derived-inventory-qualification';
+import { deriveOrgScope } from '../../farm/farm.service';
+import { inheritFlockProductionSources, recordFlockProductionSources } from '../../farm/flock-production-source';
+import { savedQuantity, QuantitySnapshot, positiveQuantity, baseQuantity, sharedBatches, lockQuantityPools, assertBatchPool, resolveQuantity, isGovernedSalesPool } from '../../product-master/services/quantity-contract';
 import { SkuPolicy } from '../../product-master/services/sku-policy';
 import { EggSourceProfile, SkuAvailabilityService } from '../../product-master/services/sku-availability.service';
 import {
@@ -15,6 +20,7 @@ import { assertStatusTransition } from '../../wms/inventory-status-machine';
 import { fifoLockKey, fifoItemKey } from '../../wms/inventory-lock.util';
 import { NotificationService } from '../../notification/notification.service';
 import { ScopedNotificationRecipientService } from '../../notification/scoped-notification-recipient.service';
+import { DataScopeContext } from '../../org/services/data-scope.service';
 
 /**
  * EggInventoryService — Sales V2 Phase 7 + Phase H4
@@ -108,6 +114,8 @@ export interface FifoAllocation {
 
 export type GradeStockStatus = 'AVAILABLE' | 'RESERVED' | 'QUARANTINE' | 'DAMAGED' | 'FROZEN';
 
+type VerifiedSalesStock = {companyCode:string;warehouseCode:string;orderNo:string};
+
 export interface GradeInventoryPolicy {
   gradeCode: string;
   stockManaged: boolean;
@@ -134,6 +142,7 @@ export function assertEggDate(value: string): void {
 @Injectable()
 export class EggInventoryService {
   private readonly logger = new Logger(EggInventoryService.name);
+  private readonly managedAllocations=new WeakMap<EntityManager,{authority:VerifiedSalesStock;snapshot:QuantitySnapshot}>();
 
   /** 等级缓存：5 分钟 TTL，运维改 product_grades 后 ≤5min 生效 */
   private _gradeCache: { codes: string[]; expireAt: number } = { codes: [], expireAt: 0 };
@@ -427,6 +436,8 @@ export class EggInventoryService {
     warehouseCode?: string;
     locationCode?: string;
     eggDate:        string;
+    /** Internal formal orchestration freezes the Singapore booking date separately. */
+    postingDate?: string;
     qualityGrade?:  string;
     packagingSpec?: string;
     productCode:    string;
@@ -464,6 +475,7 @@ export class EggInventoryService {
     unitCost?: number;
   }, mgr?: EntityManager): Promise<EggBatch> {
     assertEggDate(params.eggDate);
+    if (params.postingDate !== undefined) assertEggDate(params.postingDate);
     positiveQuantity(params.qty, '入库数量');
     // INV-401：批次成本法——unit_cost 必须为有限非负数（0 = 挂账，F1/F2 决策记录）
     const unitCost = params.unitCost ?? 0;
@@ -537,6 +549,8 @@ export class EggInventoryService {
           && (refs.length !== 1 || refs[0].profileCode !== params.sourceProfileCode || refs[0].houseCode !== params.houseCode)) {
         throw new BadRequestException('来源档案 refs 与单一来源参数不一致');
       }
+      // All house domains precede master/number/batch locks on every entry path.
+      for(const code of [...refs].map(x=>x.houseCode).sort()) await mgr.query("SELECT pg_advisory_xact_lock(hashtext('phoenix:daily-house'),hashtext($1))",[code]);
       // Stable lock ordering for multi-house packaging, with no first-source shortcut.
       for (const ref of [...refs].sort((a, b) => a.houseCode.localeCompare(b.houseCode))) {
         profiles.push(await this.skuAvailability.resolveSourceProfile({
@@ -588,6 +602,7 @@ export class EggInventoryService {
       throw new BadRequestException(`等级 ${grade} 的库存状态必须为 ${gradePolicy.defaultStockStatus}`);
     }
 
+    for(const houseCode of [...new Set(profiles.map(x=>x.houseCode))].sort()) await mgr.query("SELECT pg_advisory_xact_lock(hashtext('phoenix:daily-house'),hashtext($1))",[houseCode]);
     const batchNo    = await this.genBatchNo(params.eggDate, mgr);
     const expireDate = this.calcExpireDate(params.eggDate, params.shelfDays ?? DEFAULT_SHELF_DAYS);
     const [product] = await mgr.query('SELECT unit,unit_zh,status,variety_code FROM mst_products WHERE product_code=$1 FOR SHARE', [productCode]);
@@ -646,6 +661,7 @@ export class EggInventoryService {
     // 生产链路收口 Phase 1: source_type 参数化 + 追溯引用列
     const sourceType = params.sourceType ?? 'PRODUCTION';
     const inventoryClass = resolveInventoryClass(grade);
+    await qualifyFormalProductionBatch(mgr, batchNo, { ...params, productCode, skuCode, grade });
     const [batch] = await (mgr ?? this.ds).query(
       `INSERT INTO inv_batches (
          batch_no, product_code, company_code, warehouse_code, location_code,
@@ -656,7 +672,7 @@ export class EggInventoryService {
          packaging_batch_ref, collection_batch_ref, unit, base_quantity_version, unit_cost,
          created_at, updated_at
        ) VALUES (
-         $1,$2,$3,$4,$5,$6,$6,$7,$8,$9,$10,$11,$12::numeric,
+         $1,$2,$3,$4,$5,$6,$25::date,$7,$8,$9,$10,$11,$12::numeric,
          CASE WHEN $22 = 'AVAILABLE' THEN $12::numeric ELSE 0::numeric END,$22,
          $13,$14,$15,$19,$20,$21::jsonb,$23,
          $16,$17,$18,1,$24::numeric,
@@ -685,9 +701,13 @@ export class EggInventoryService {
         inventoryStatus,
         inventoryClass,
         unitCost,
+        params.postingDate ?? params.eggDate,
       ],
     );
 
+    if (!(await recordFormalProductionSources(mgr, batchNo, profiles))) {
+      await recordFlockProductionSources(mgr,params,batchNo,profiles,deriveOrgScope({dataScope:this.cls.get('dataScope')}));
+    }
     await this.writeLedger({
       batchNo,
       changeType:  params.ledgerChangeType ?? INV_LEDGER_CHANGE_TYPE.INBOUND,
@@ -699,7 +719,7 @@ export class EggInventoryService {
       batchExpireDate: expireDate,
       qualityGrade:    grade,
       skuCode,
-      logDate:         params.eggDate,
+      logDate:         params.postingDate ?? params.eggDate,
       warehouseCode:   params.warehouseCode ?? 'WMS-VTE-MAIN',
       locationCode:    params.locationCode ?? 'INBOUND-DOCK',
     }, mgr);
@@ -735,6 +755,7 @@ export class EggInventoryService {
       // INV-203：与 allocateByFIFO 分配口径对齐——展示只认 Sales V2 可售批次，
       // 排除 legacy_source 旧库存（展示数字会下降，属口径修正而非丢库存）。
       `b.legacy_source IS NULL`,
+      officialInventoryPredicate('b'),
       this.saleGradeCondition('b'),
       this.inventoryClassCondition(salesContext),
     ];
@@ -818,6 +839,25 @@ export class EggInventoryService {
     return !!sku && sku.variety_code == null && sku.org_context_required !== true;
   }
 
+  /** The persisted approved order and canonical warehouse supply authority, never a DTO flag. */
+  private async verifiedSalesStock(mgr:EntityManager,orderId:string,orderNo:string,companyCode:string,warehouseCode?:string):Promise<VerifiedSalesStock|undefined>{
+    if(!mgr.queryRunner?.isTransactionActive)return undefined;
+    const [order]=await mgr.query('SELECT * FROM sal_sales_orders WHERE id=$1 FOR SHARE',[orderId]);
+    const warehouse=order?.fulfillment_warehouse_code;
+    if(!order||order.order_no!==orderNo||order.company_code!==companyCode||!['APPROVED','ALLOCATED'].includes(order.status)
+      ||!warehouse||warehouseCode&&warehouseCode!==warehouse)return undefined;
+    const scope=this.cls.get('dataScope') as DataScopeContext|undefined;
+    if(!scope||!scope.isGlobal&&(!scope.allowedCompanyCodes.includes(companyCode)||!scope.allowedWarehouseCodes.includes(warehouse)))return undefined;
+    const [canonical]=await mgr.query("SELECT 1 FROM wms_warehouses WHERE warehouse_code=$1 AND company_code=$2 AND status='ACTIVE' AND domain='OPERATIONAL' FOR SHARE",[warehouse,companyCode]);
+    return canonical?{companyCode,warehouseCode:warehouse,orderNo}:undefined;
+  }
+
+  private async saleStockAllowed(skuCode:string|null|undefined,mgr:EntityManager,authority?:VerifiedSalesStock):Promise<boolean>{
+    if(await this.isLegacySaleStock(skuCode,mgr))return true;
+    if(!authority||!skuCode)return false;
+    await SkuPolicy.requireUsable(mgr,skuCode,'sale-stock',authority.companyCode);return true;
+  }
+
   /**
    * Phase H4 升级：支持 skuCode 优先路径
    *
@@ -853,8 +893,11 @@ export class EggInventoryService {
     if (!mgr) return this.ds.transaction(manager => this.allocateByFIFO(params, manager));
     const q = mgr.query.bind(mgr);
     const salesContext = await this.resolveSalesContext(mgr, params.salesContext, params.fulfillmentWarehouseCode);
-    if (params.skuCode !== undefined) await SkuPolicy.requireUsable(mgr, params.skuCode, 'sale-stock');
-    else if (params.quantitySnapshot) await SkuPolicy.requireUsable(mgr, params.quantitySnapshot.skuCode, 'sale-stock');
+    const capability=this.managedAllocations?.get(mgr);
+    const authority=capability&&capability.snapshot===params.quantitySnapshot&&capability.authority.companyCode===params.companyCode
+      &&capability.authority.warehouseCode===params.fulfillmentWarehouseCode&&capability.authority.orderNo===params.refNo?capability.authority:undefined;
+    if (params.skuCode !== undefined) await SkuPolicy.requireUsable(mgr, params.skuCode, 'sale-stock',authority?.companyCode);
+    else if (params.quantitySnapshot) await SkuPolicy.requireUsable(mgr, params.quantitySnapshot.skuCode, 'sale-stock',authority?.companyCode);
 
     positiveQuantity(params.qty, '分配数量');
 
@@ -878,6 +921,7 @@ export class EggInventoryService {
       `qty_available > 0`,
       `(expire_date IS NULL OR expire_date >= CURRENT_DATE)`,
       `legacy_source IS NULL`,
+      officialInventoryWritablePredicate('inv_batches'),
       `(sku_code IS NULL OR EXISTS (
         SELECT 1 FROM "product_skus" legacy_sku
          WHERE legacy_sku.sku_code=inv_batches.sku_code
@@ -928,11 +972,11 @@ export class EggInventoryService {
         ? inventoryClass === 'STANDARD'
         : inventoryClass === 'STANDARD' || inventoryClass === 'DEFECT_SALE';
     });
-    const legacyBatches: any[] = [];
+    const eligibleBatches: any[] = [];
     for (const batch of scopedBatches) {
-      if (await this.isLegacySaleStock(batch.sku_code, mgr)) legacyBatches.push(batch);
+      if (await this.saleStockAllowed(batch.sku_code, mgr,authority)) eligibleBatches.push(batch);
     }
-    const allocatableQty = legacyBatches.reduce((sum, batch) => sum + Number(batch.qty_available), 0);
+    const allocatableQty = eligibleBatches.reduce((sum, batch) => sum + Number(batch.qty_available), 0);
     if (allocatableQty < params.qty) {
       const target = params.skuCode ? `sku=${params.skuCode}` : `product=${params.productCode} grade=${params.gradeCode ?? 'ALL'}`;
       throw new ConflictException(
@@ -944,7 +988,7 @@ export class EggInventoryService {
     let remaining = params.qty;
     const allocations: FifoAllocation[] = [];
 
-    for (const batch of legacyBatches) {
+    for (const batch of eligibleBatches) {
       if (remaining <= 0) break;
 
       // Saved physical identity is authoritative, including a return's downgraded grade.
@@ -1021,10 +1065,10 @@ export class EggInventoryService {
     if (!mgr) return this.ds.transaction(manager => this.reserveInventory(orderId, orderNo, companyCode, manager, fulfillmentWarehouseCode, salesContext));
     const q = mgr.query.bind(mgr);
     let createdAny = false;
+    const authority=await this.verifiedSalesStock(mgr,orderId,orderNo,companyCode,fulfillmentWarehouseCode);
     await q(`SELECT pg_advisory_xact_lock(hashtext($1))`, [`sales-order-reservation:${orderId}`]);
-
     const items = await q(
-      `SELECT * FROM sal_order_items WHERE sales_order_id = $1`, [orderId],
+      `SELECT * FROM sal_order_items WHERE sales_order_id = $1 ORDER BY id FOR UPDATE`, [orderId],
     );
 
     await lockQuantityPools(mgr, items.map((item: any) => ({ company: companyCode, warehouses: fulfillmentWarehouseCode ? [fulfillmentWarehouseCode] : [], snapshot: item.quantity_snapshot })));
@@ -1032,12 +1076,15 @@ export class EggInventoryService {
       const qty = savedQuantity(item);
       if (qty <= 0) continue;
       // Idempotent reservation must not bypass the explicit-SKU sales policy.
-      if (item.sku_code != null) await SkuPolicy.requireUsable(mgr, item.sku_code, 'sale-stock');
-      else if (item.quantity_snapshot) await SkuPolicy.requireUsable(mgr, item.quantity_snapshot.skuCode, 'sale-stock');
+      const itemAuthority=item.quantity_snapshot&&authority&&await isGovernedSalesPool(mgr,authority.companyCode,[authority.warehouseCode],item.quantity_snapshot)?authority:undefined;
+      if(itemAuthority&&(item.quantity_snapshot.productCode!==item.product_code||item.sku_code!=null&&item.quantity_snapshot.skuCode!==item.sku_code
+        ||item.grade_code!=null&&item.quantity_snapshot.gradeCode!==item.grade_code))throw new ConflictException('批准订单原明细与计量快照身份不一致');
+      if (item.sku_code != null) await SkuPolicy.requireUsable(mgr, item.sku_code, 'sale-stock',itemAuthority?.companyCode);
+      else if (item.quantity_snapshot) await SkuPolicy.requireUsable(mgr, item.quantity_snapshot.skuCode, 'sale-stock',itemAuthority?.companyCode);
 
       const existing = await q(
         `SELECT a.id,a.batch_no,a.reserved_qty,a.outbound_qty,a.released_qty,
-                b.sku_code,b.status,b.grade_code_std,b.quality_grade
+                b.sku_code,b.status,b.grade_code_std,b.quality_grade,b.company_code,b.warehouse_code,b.product_code,b.unit,b.material_code,b.legacy_source,b.base_quantity_version
            FROM sal_order_item_batch_allocations a
            JOIN inv_batches b ON b.batch_no=a.batch_no
           WHERE a.sales_order_item_id=$1
@@ -1050,7 +1097,11 @@ export class EggInventoryService {
             throw new ConflictException(`订单明细 ${item.id} 已分配批次不可销售`);
           }
           await this.assertSaleGrade(mgr, allocation.grade_code_std ?? allocation.quality_grade);
-          if (!await this.isLegacySaleStock(allocation.sku_code, mgr)) {
+          if(itemAuthority){
+            assertBatchPool(allocation,item.quantity_snapshot);
+            if(allocation.company_code!==itemAuthority.companyCode||allocation.warehouse_code!==itemAuthority.warehouseCode)throw new ConflictException('已保存分配不属于原批准订单的履约公司/仓库');
+          }
+          if (!await this.saleStockAllowed(allocation.sku_code, mgr,itemAuthority)) {
             throw new ConflictException('旧销售预留禁止使用公司范围管理或未映射 SKU 库存');
           }
         }
@@ -1061,7 +1112,10 @@ export class EggInventoryService {
         continue;
       }
 
-      const allocations = await this.allocateByFIFO({
+      let allocations:FifoAllocation[];
+      const previous=this.managedAllocations?.get(mgr);
+      if(itemAuthority)this.managedAllocations.set(mgr,{authority:itemAuthority,snapshot:item.quantity_snapshot});
+      try{allocations = await this.allocateByFIFO({
           productCode: item.product_code,
           gradeCode:   item.grade_code ?? undefined,
           companyCode,
@@ -1072,7 +1126,7 @@ export class EggInventoryService {
           fulfillmentWarehouseCode,
           salesContext,
           quantitySnapshot: item.quantity_snapshot,
-      }, mgr);
+      }, mgr);}finally{if(previous)this.managedAllocations.set(mgr,previous);else this.managedAllocations?.delete(mgr);}
 
         // 记录分配的批次（取首批次作为主批次，多批次逗号分隔）
         const batchNos     = allocations.map(a => a.batchNo).join(',');
@@ -1184,6 +1238,7 @@ export class EggInventoryService {
     if (!mgr) return this.ds.transaction(manager => this.confirmOutbound(orderId, orderNo, companyCode, deliveryNo, deliveryId, requestedQty, manager));
     const q = mgr.query.bind(mgr);
     positiveQuantity(requestedQty,'出库基础数量');
+    const orderAuthority=await this.verifiedSalesStock(mgr,orderId,orderNo,companyCode);
 
     const allocations = await q(
       `SELECT a.*,oi.quantity_snapshot,oi.sku_code AS sale_sku_code,b.product_code,b.grade_code_std,b.unit,b.material_code,b.legacy_source,b.base_quantity_version,b.qty,b.expire_date,b.quality_grade,b.sku_code,b.warehouse_code,b.location_code,b.status,b.unit_cost
@@ -1197,12 +1252,21 @@ export class EggInventoryService {
 
     // Existing/manual allocation rows are not authorization to consume managed
     // physical stock. Validate before the first inventory/ledger write.
+    let authority=allocations.some((a:any)=>a.quantity_snapshot)?orderAuthority:undefined;
+    if(authority){const [delivery]=await q(`SELECT 1 FROM sal_delivery_orders d JOIN sal_delivery_order_items i ON i.delivery_order_id=d.id
+      WHERE d.id=$1 AND d.delivery_no=$2 AND d.status='LOADED' AND i.sales_order_id=$3 AND i.planned_qty>=$4
+        AND d.company_code=$5 AND d.fulfillment_warehouse_code=$6 AND i.sales_order_no=$7 AND i.status='LOADED' FOR SHARE OF d,i`,
+      [deliveryId,deliveryNo,orderId,requestedQty,companyCode,authority.warehouseCode,orderNo]);if(!delivery)authority=undefined;}
     let outboundAvailable = 0;
+    const allocationAuthorities=new Map<unknown,VerifiedSalesStock>();
     for (const allocation of allocations) {
       const available = Number(allocation.reserved_qty) - Number(allocation.outbound_qty) - Number(allocation.released_qty);
       if (available <= 0) continue;
-      if (!await this.isLegacySaleStock(allocation.sku_code, mgr)
-          || !await this.isLegacySaleStock(allocation.sale_sku_code, mgr)) {
+      const allocationAuthority=allocation.quantity_snapshot&&authority&&allocation.warehouse_code===authority.warehouseCode
+        &&await isGovernedSalesPool(mgr,authority.companyCode,[authority.warehouseCode],allocation.quantity_snapshot)?authority:undefined;
+      if(allocationAuthority)allocationAuthorities.set(allocation.id,allocationAuthority);
+      if (!await this.saleStockAllowed(allocation.sku_code, mgr,allocationAuthority)
+          || !await this.saleStockAllowed(allocation.sale_sku_code, mgr,allocationAuthority)) {
         throw new ConflictException('旧销售出库禁止使用公司范围管理或未映射 SKU 库存');
       }
       outboundAvailable += available;
@@ -1216,7 +1280,7 @@ export class EggInventoryService {
       const outQty = Math.min(available, remaining);
       if (outQty <= 0) continue;
       if (allocation.quantity_snapshot) {
-        await SkuPolicy.requireUsable(mgr, allocation.sale_sku_code, 'sale-stock');
+        await SkuPolicy.requireUsable(mgr, allocation.sale_sku_code??allocation.quantity_snapshot.skuCode, 'sale-stock',allocationAuthorities.get(allocation.id)?.companyCode);
         assertBatchPool(allocation, allocation.quantity_snapshot);
         baseQuantity(outQty,1,allocation.quantity_snapshot.baseUnit);
       } else if (allocation.sku_code != null) await SkuPolicy.requireUsable(mgr, allocation.sku_code, 'sale-stock');
@@ -1286,6 +1350,7 @@ export class EggInventoryService {
     inboundDate: string,
     mgr?:        EntityManager,
   ): Promise<void> {
+    if (!mgr) return this.ds.transaction(tx => this.processReturnInventory(returnId,returnNo,companyCode,targetWarehouseCode,targetZoneCode,targetLocationCode,inboundDate,tx));
     const q = mgr ? mgr.query.bind(mgr) : this.ds.query.bind(this.ds);
 
     const items = await q(
@@ -1300,10 +1365,23 @@ export class EggInventoryService {
       const damaged  = Number(item.damaged_qty);
       const batchNo  = `RET-${returnNo}-${item.id}`;
       const originalGrade = item.grade_code ?? 'A';
-      const returnGrade   = this.degradeGrade(originalGrade);
 
       // Phase H5: sal_return_items 已有 sku_code（从原销售明细继承）
       const returnSkuCode: string | null = item.sku_code ?? null;
+      const origins=item.sales_order_item_id ? await q(`SELECT DISTINCT batch_no FROM sal_order_item_batch_allocations
+        WHERE sales_order_item_id=$1 AND outbound_qty>0 ORDER BY batch_no`,[item.sales_order_item_id]):[];
+      let custody: { allocationId: string; sourceBatchNo: string; gradeCode: string; varietyCode: string | null; eggDate: string | null; expireDate: string | null } | null = null;
+      if (accepted > 0 && origins.length) {
+        const [schema] = await q("SELECT to_regprocedure('official_conversion_return_source(bigint)') AS return_source");
+        if (schema?.return_source) {
+          const [row] = await q('SELECT official_conversion_return_source($1) AS custody', [item.id]);
+          custody = row?.custody ?? null;
+        }
+      }
+      // Keep the source's actual grade, SKU and shelf life while a governed return is quarantined.
+      const returnGrade = custody?.gradeCode ?? this.degradeGrade(originalGrade);
+      await qualifyDerivedInventory(mgr,origins,{batchNo,companyCode,warehouseCode:targetWarehouseCode,productCode:item.product_code,skuCode:returnSkuCode,
+        sourceType:'RETURN',sourceNo:returnNo,actor:this.operator});
 
       // ── accepted_qty：回库（RETURNED 状态，需重新质检） ──────────────────────
       let returnBatchCreated = false;
@@ -1314,8 +1392,8 @@ export class EggInventoryService {
              (batch_no, product_code, company_code, qty, qty_available,
               quality_grade, source_type, source_no, status, inventory_class, unit, base_quantity_version,
               sku_code, grade_code_std, spec_code, warehouse_code, location_code, inbound_date,
-              created_at, updated_at)
-           VALUES ($1,$2,$3,$4,0,$5,'RETURN',$6,'QUARANTINE',$15,$13,$14,$7,$8,$9,$10,$11,$12::date,NOW(),NOW())`,
+              created_at, updated_at${custody ? ', egg_date, expire_date, variety_code' : ''})
+           VALUES ($1,$2,$3,$4,0,$5,'RETURN',$6,'QUARANTINE',$15,$13,$14,$7,$8,$9,$10,$11,$12::date,NOW(),NOW()${custody ? ',$16::date,$17::date,$18' : ''})`,
           [
             batchNo, item.product_code, companyCode, accepted, returnGrade, returnNo,
             returnSkuCode,
@@ -1324,10 +1402,11 @@ export class EggInventoryService {
             item.quantity_snapshot?.specCode ?? item.packaging_spec ?? null,
             targetWarehouseCode, targetLocationCode, inboundDate, item.quantity_snapshot?.baseUnit ?? null, item.quantity_snapshot ? 1 : null,
             resolveInventoryClass(returnGrade),
+            ...(custody ? [custody.eggDate, custody.expireDate, custody.varietyCode] : []),
           ],
         );
 
-        await this.writeLedger({
+        const ledgerId = await this.writeLedger({
           batchNo,
           changeType:  INV_LEDGER_CHANGE_TYPE.SALE_RETURN,
           qtyChange:   accepted,
@@ -1339,9 +1418,17 @@ export class EggInventoryService {
           warehouseCode: targetWarehouseCode,
           locationCode: targetLocationCode,
           note:        `退货回库 return=${returnNo} product=${item.product_code} accepted=${accepted} grade=${returnGrade} zone=${targetZoneCode}`,
-          // INV-401：退货暂按 0 结转（显式 0 留痕），退货成本冲减留待 F3
-          costChange:  0,
+          // Governed conversion returns retain unknown cost until substantiated.
+          costChange:  custody ? null : 0,
         }, mgr);
+
+        if (custody) {
+          if (!ledgerId) throw new ConflictException('正式加工成品退货缺少实际回库流水');
+          await q(`INSERT INTO production_conversion_return_receipts
+            (return_item_id,allocation_id,source_batch_no,batch_no,ledger_id,quantity,received_by)
+            VALUES($1,$2,$3,$4,$5,$6,$7)`,
+          [item.id,custody.allocationId,custody.sourceBatchNo,batchNo,ledgerId,accepted,this.operator]);
+        }
 
         if (damaged === 0) {
           await q(`UPDATE sal_return_items SET restock_status='RESTOCKED' WHERE id=$1`, [item.id]);
@@ -1391,6 +1478,15 @@ export class EggInventoryService {
       }
     }
 
+    const [sourceSchema]=await q("SELECT to_regclass('inv_flock_source_links') AS links");
+    if(sourceSchema?.links) for(const item of items) {
+      const returnBatch=`RET-${returnNo}-${item.id}`;
+      const [batch]=await q('SELECT qty FROM inv_batches WHERE batch_no=$1',[returnBatch]);
+      if(batch && item.sales_order_item_id) {
+        const origins=await q('SELECT DISTINCT batch_no FROM sal_order_item_batch_allocations WHERE sales_order_item_id=$1 AND outbound_qty>0',[item.sales_order_item_id]);
+        for(const origin of origins) await inheritFlockProductionSources({query:q},origin.batch_no,returnBatch,Number(batch.qty));
+      }
+    }
     this.logger.log(`[EggInv] 退货回库处理完成: return=${returnNo}`);
   }
 
@@ -1411,7 +1507,9 @@ export class EggInventoryService {
   async markExpiredBatches(companyCode?: string, mgr?: EntityManager): Promise<{
     expired: number;
     written: number;
-    skippedInUse: Array<{ batchNo: string; companyCode: string | null; openAllocations: number }>;
+    skippedInUse: Array<{ batchNo: string; companyCode: string | null; openAllocations: number;warehouseCode?:string }>;
+    frozenForReview?: Array<{ batchNo: string; companyCode: string | null;warehouseCode:string }>;
+    skippedBusy?:Array<{batchNo:string;companyCode:string|null}>;
   }> {
     // INV-101 ①（同时修 INV-103 的 /mark-expired 面）：写路径公司授权，fail-closed；
     // 无 CLS dataScope 的调度/系统流与 isGlobal 放行，scopedCompany=null 表示全公司扫描。
@@ -1422,47 +1520,99 @@ export class EggInventoryService {
       // 下方守卫 UPDATE 的 requireStatus('AVAILABLE') 与 SET status='EXPIRED'
       // 必须是白名单迁移对；白名单若收紧，这里先于任何写入 fail-closed。
       assertStatusTransition('AVAILABLE', 'EXPIRED', 'egg-inventory markExpiredBatches 过期任务（INV-101）');
+      const [schema]=await em.query("SELECT to_regprocedure('official_inventory_qualification_controlled(text)') AS control");
+      if(schema?.control&&!em.queryRunner?.isTransactionActive)throw new ConflictException('正式库存过期处理必须处于实际事务内');
+      const controlled=schema?.control?'official_inventory_qualification_controlled(b.batch_no)':'false';
+      const allowed=schema?.control?officialInventoryPredicate('b'):'true';
+      const expiryDay=schema?.control?`CASE WHEN ${controlled} THEN (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Singapore')::date ELSE CURRENT_DATE END`:'CURRENT_DATE';
+      const initialExpiryDay=schema?.control?"GREATEST(CURRENT_DATE,(CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Singapore')::date)":'CURRENT_DATE';
+      const scope=this.cls.get('dataScope') as {isGlobal?:boolean;allowedWarehouseCodes?:string[]}|undefined;
+      const restrictWarehouses=!!schema?.control&&!!scope&&!scope.isGlobal;
+      const warehouseFilter=restrictWarehouses?'AND b.warehouse_code=ANY($2::text[])':'';
+      const bindings=restrictWarehouses?[scopedCompany,Array.isArray(scope?.allowedWarehouseCodes)?scope.allowedWarehouseCodes:[]]:[scopedCompany];
 
       // ② 候选查询：参数化 + 排除在途预占 + SKIP LOCKED
       const candidates = await em.query(
-        `SELECT b.batch_no, b.qty, b.company_code, b.expire_date, b.quality_grade, b.sku_code, b.unit_cost
+        `SELECT b.batch_no, b.qty, b.company_code, b.expire_date, b.quality_grade, b.sku_code, b.unit_cost,b.warehouse_code
            FROM inv_batches b
-          WHERE b.expire_date < CURRENT_DATE
+          WHERE b.expire_date < ${initialExpiryDay}
             AND b.status = 'AVAILABLE'
             AND b.qty > 0
             AND ($1::text IS NULL OR b.company_code = $1)
+            ${warehouseFilter}
+            AND ${allowed}
             AND NOT EXISTS (
                   SELECT 1 FROM sal_order_item_batch_allocations a
                    WHERE a.batch_no = b.batch_no
                      AND a.reserved_qty > a.outbound_qty + a.released_qty)
           ORDER BY b.batch_no
           FOR UPDATE OF b SKIP LOCKED`,
-        [scopedCompany],
+        bindings,
       );
 
-      // 在途预占的过期批次：跳过核销，输出清单供人工复核（用户裁决：不自动强退）
+      // Read-only review includes visible suspended sources with open allocations; it grants no write/disposal permission.
       const skippedRows = await em.query(
-        `SELECT b.batch_no, b.company_code,
+        `SELECT b.batch_no, b.company_code${schema?.control?',b.warehouse_code':''},
                 COALESCE(SUM(a.reserved_qty - a.outbound_qty - a.released_qty), 0) AS open_allocations
            FROM inv_batches b
            JOIN sal_order_item_batch_allocations a ON a.batch_no = b.batch_no
-          WHERE b.expire_date < CURRENT_DATE
+          WHERE b.expire_date < ${expiryDay}
             AND b.status = 'AVAILABLE'
             AND b.qty > 0
             AND ($1::text IS NULL OR b.company_code = $1)
+            ${warehouseFilter}
+            AND ${allowed}
             AND a.reserved_qty > a.outbound_qty + a.released_qty
-          GROUP BY b.batch_no, b.company_code
+          GROUP BY b.batch_no, b.company_code${schema?.control?',b.warehouse_code':''}
           ORDER BY b.batch_no`,
-        [scopedCompany],
+        bindings,
       );
-      const skippedInUse = skippedRows.map((row: any) => ({
+      const skippedInUse:Array<{batchNo:string;companyCode:string|null;openAllocations:number;warehouseCode?:string}> = skippedRows.map((row: any) => ({
         batchNo: String(row.batch_no),
         companyCode: row.company_code ?? null,
         openAllocations: Number(row.open_allocations ?? 0),
+        ...(schema?.control?{warehouseCode:String(row.warehouse_code??'')}:{}),
       }));
 
       let written = 0;
-      for (const batch of candidates) {
+      const frozenForReview:Array<{batchNo:string;companyCode:string|null;warehouseCode:string}>=[];
+      const skippedBusy:Array<{batchNo:string;companyCode:string|null}>=[];let eligible=0;
+      for (let batch of candidates) {
+        if(schema?.control){
+          await em.query('SAVEPOINT inventory_expiry_candidate');
+          try{
+            await em.query(`SELECT official_inventory_lock_operation(batch_no,company_code,warehouse_code,product_code,sku_code,material_code,to_jsonb(b))
+              FROM inv_batches b WHERE batch_no=$1`,[batch.batch_no]);
+            // New READ COMMITTED statement after the root/product locks: never classify a fresh qualification from the candidate query's old snapshot.
+            const [fresh]=await em.query(`SELECT b.*,${controlled} AS controlled,${officialInventoryWritablePredicate('b')} AS writable,
+                b.expire_date<${expiryDay} AS expired,
+                (SELECT COALESCE(SUM(a.reserved_qty-a.outbound_qty-a.released_qty),0) FROM sal_order_item_batch_allocations a
+                  WHERE a.batch_no=b.batch_no AND a.reserved_qty>a.outbound_qty+a.released_qty) AS open_allocations
+              FROM inv_batches b WHERE b.batch_no=$1`,[batch.batch_no]);
+            await em.query('RELEASE SAVEPOINT inventory_expiry_candidate');
+            if(!fresh||fresh.writable!==true||fresh.expired!==true||fresh.status!=='AVAILABLE'||Number(fresh.qty)<=0)continue;
+            if(Number(fresh.open_allocations)>0){
+              if(!skippedInUse.some(b=>b.batchNo===fresh.batch_no))skippedInUse.push({batchNo:fresh.batch_no,companyCode:fresh.company_code,warehouseCode:fresh.warehouse_code,openAllocations:Number(fresh.open_allocations)});
+              continue;
+            }
+            batch=fresh;
+          }catch(error){
+            await em.query('ROLLBACK TO SAVEPOINT inventory_expiry_candidate');await em.query('RELEASE SAVEPOINT inventory_expiry_candidate');
+            if(/OFFICIAL_INVENTORY_(PRODUCT|DOMAIN|ROOT)_BUSY/.test(error instanceof Error?error.message:'')){
+              skippedBusy.push({batchNo:String(batch.batch_no),companyCode:batch.company_code??null});continue;
+            }
+            throw error;
+          }
+        }
+        eligible++;
+        if(batch.controlled===true){
+          assertStatusTransition('AVAILABLE','FROZEN','正式来源过期，实物待核验处置');
+          const frozen=await em.query(`WITH changed AS(UPDATE inv_batches SET status='FROZEN',qty_available=0,updated_at=now()
+            WHERE batch_no=$1 AND status='AVAILABLE' RETURNING batch_no) SELECT batch_no FROM changed`,[batch.batch_no]);
+          if(frozen.length===1)frozenForReview.push({batchNo:String(batch.batch_no),companyCode:batch.company_code??null,warehouseCode:String(batch.warehouse_code)});
+          // Expiry is not a physical disposal. Preserve quantity and the complete original ledger until a real disposition posts.
+          continue;
+        }
         // ③ 守卫化 UPDATE：changed!==1 说明并发已改状态，跳过（幂等容错）
         const changed = await em.query(
           `WITH c AS (
@@ -1493,16 +1643,18 @@ export class EggInventoryService {
         }, em);
         written++;
       }
-      return { expired: candidates.length, written, skippedInUse };
+      return { expired: schema?.control?eligible:candidates.length, written, skippedInUse,...(frozenForReview.length?{frozenForReview}:{}),...(skippedBusy.length?{skippedBusy}:{}) };
     };
 
     const result = mgr ? await run(mgr) : await this.ds.transaction(run);
 
     // 在途预占批次 → MENU_SALES2_INVENTORY:V 用户人工复核通知（事务提交后发送）
-    if (result.skippedInUse.length) await this.notifyExpireReview(result.skippedInUse);
+    if (!mgr&&result.skippedInUse.length) await this.notifyExpireReview(result.skippedInUse);
+    // An outer transaction owns its commit; return the review facts without notifying before that commit.
+    if(!mgr&&result.frozenForReview?.length)await this.notifyExpireReview(result.frozenForReview.map(b=>({...b,openAllocations:0})),'CONTROLLED_EXPIRY');
 
     this.logger.log(
-      `[EggInv] 过期处理: 候选=${result.expired} 核销=${result.written} 在途预占跳过=${result.skippedInUse.length}`,
+      `[EggInv] 过期处理: 候选=${result.expired} 核销=${result.written} 正式实物冻结=${result.frozenForReview?.length??0} 在途预占跳过=${result.skippedInUse.length}`,
     );
     return result;
   }
@@ -1533,31 +1685,37 @@ export class EggInventoryService {
    * 通知模式；通知失败只记日志，不影响过期处理主流程）。
    */
   private async notifyExpireReview(
-    skipped: Array<{ batchNo: string; companyCode: string | null; openAllocations: number }>,
+    skipped: Array<{ batchNo: string; companyCode: string | null; openAllocations: number;warehouseCode?:string }>,
+    kind:'ALLOCATION'|'CONTROLLED_EXPIRY'='ALLOCATION',
   ): Promise<void> {
     if (!this.notifyRecipients || !this.notify) {
       this.logger.warn(
-        `[EggInv] ${skipped.length} 个过期批次存在在途预占待人工复核: ${skipped.map(row => row.batchNo).join(',')}`,
+        `[EggInv] ${skipped.length} 个过期批次待人工复核 (${kind}): ${skipped.map(row => row.batchNo).join(',')}`,
       );
       return;
     }
     const byCompany = new Map<string, typeof skipped>();
     for (const row of skipped) {
-      const key = row.companyCode ?? '';
+      const key = JSON.stringify([row.companyCode??'',row.warehouseCode??null]);
       if (!byCompany.has(key)) byCompany.set(key, []);
       byCompany.get(key)!.push(row);
     }
-    for (const [companyCode, rows] of byCompany) {
+    for (const rows of byCompany.values()) {
+      const companyCode=rows[0].companyCode??'';
       try {
-        const userIds = await this.notifyRecipients.resolve(companyCode, ['MENU_SALES2_INVENTORY']);
+        const userIds = kind==='CONTROLLED_EXPIRY'||rows[0].warehouseCode!==undefined
+          ?await this.notifyRecipients.resolve(companyCode,['MENU_SALES2_INVENTORY'],rows[0].warehouseCode??'')
+          :await this.notifyRecipients.resolve(companyCode, ['MENU_SALES2_INVENTORY']);
         for (const userId of userIds) {
           try {
             await this.notify.create({
               userId,
               notificationType: 'INVENTORY_EXPIRE_REVIEW',
-              title: `过期批次待人工复核：${rows.length} 批存在在途预占`,
-              content: '以下过期批次存在未出库/未释放的订单预占，已跳过自动核销；请人工复核处理订单预占后再执行过期报废：\n'
-                + rows.map(row => `  • ${row.batchNo}（在途预占 ${row.openAllocations}）`).join('\n'),
+              title: kind==='CONTROLLED_EXPIRY'?`正式过期库存已冻结：${rows.length} 批待处置`:`过期批次待人工复核：${rows.length} 批存在在途预占`,
+              content: kind==='CONTROLLED_EXPIRY'?'以下正式库存已冻结，实物数量和原始流水保留；请按实际质检、损耗及财务证据完成处置：\n'+rows.map(row=>`  • ${row.batchNo}`).join('\n')
+                :(rows[0].warehouseCode!==undefined?'以下过期批次存在订单预占，保持实物与原流水，未自动处置。请按授权核验预占和来源状态，再凭真实质检、损耗及财务依据处置；本通知不授予暂停来源写入权限：\n'
+                  :'以下过期批次存在未出库/未释放的订单预占，已跳过自动核销；请人工复核处理订单预占后再执行过期报废：\n')
+                  + rows.map(row => `  • ${row.batchNo}（在途预占 ${row.openAllocations}）`).join('\n'),
               linkType: 'PAGE',
               linkId: '/sales2/inventory',
               bizType: 'INV_EXPIRE_REVIEW',
@@ -1596,21 +1754,23 @@ export class EggInventoryService {
       companyCode: string | null;
       warehouseCode: string | null;
       itemCode: string | null;
-      bucket: 'VALUABLE' | 'FROZEN_LIKE';
+      bucket: 'VALUABLE' | 'FROZEN_LIKE' | 'COST_PENDING';
       qty: number;
-      totalCost: number;
+      totalCost: number | null;
       batchCount: number;
     }>;
     summary: {
       valuable: { qty: number; totalCost: number; batchCount: number };
       frozenLike: { qty: number; totalCost: number; batchCount: number };
+      costPending: { qty: number; batchCount: number };
     };
   }> {
     const empty = {
-      rows: [] as Array<{ companyCode: string | null; warehouseCode: string | null; itemCode: string | null; bucket: 'VALUABLE' | 'FROZEN_LIKE'; qty: number; totalCost: number; batchCount: number }>,
+      rows: [] as Array<{ companyCode: string | null; warehouseCode: string | null; itemCode: string | null; bucket: 'VALUABLE' | 'FROZEN_LIKE' | 'COST_PENDING'; qty: number; totalCost: number | null; batchCount: number }>,
       summary: {
         valuable: { qty: 0, totalCost: 0, batchCount: 0 },
         frozenLike: { qty: 0, totalCost: 0, batchCount: 0 },
+        costPending: { qty: 0, batchCount: 0 },
       },
     };
     const companyCodes = this.companyScope(params.companyCode);
@@ -1621,17 +1781,19 @@ export class EggInventoryService {
       `SELECT b.company_code,
               b.warehouse_code,
               COALESCE(b.sku_code, b.product_code) AS item_code,
-              CASE WHEN b.status IN ('AVAILABLE','RESERVED','QUARANTINE')
+              CASE WHEN NOT ${officialInventoryCostKnownPredicate('b')} THEN 'COST_PENDING'
+                   WHEN b.status IN ('AVAILABLE','RESERVED','QUARANTINE')
                    THEN 'VALUABLE' ELSE 'FROZEN_LIKE' END AS bucket,
               SUM(b.qty)::float8 AS qty,
-              SUM(b.qty * b.unit_cost)::float8 AS total_cost,
+              CASE WHEN ${officialInventoryCostKnownPredicate('b')} THEN SUM(b.qty * b.unit_cost)::float8 ELSE NULL END AS total_cost,
               COUNT(*)::int AS batch_count
          FROM inv_batches b
-        WHERE b.legacy_source IS NULL
+        WHERE b.legacy_source IS NULL AND ${officialInventoryPredicate('b')}
           AND ($1::text[] IS NULL OR b.company_code = ANY($1))
           AND ($2::text IS NULL OR b.warehouse_code = $2)
-        GROUP BY b.company_code, b.warehouse_code, COALESCE(b.sku_code, b.product_code),
-                 CASE WHEN b.status IN ('AVAILABLE','RESERVED','QUARANTINE')
+        GROUP BY b.company_code, b.warehouse_code, COALESCE(b.sku_code, b.product_code),${officialInventoryCostKnownPredicate('b')},
+                 CASE WHEN NOT ${officialInventoryCostKnownPredicate('b')} THEN 'COST_PENDING'
+                   WHEN b.status IN ('AVAILABLE','RESERVED','QUARANTINE')
                       THEN 'VALUABLE' ELSE 'FROZEN_LIKE' END
         ORDER BY b.company_code, b.warehouse_code, item_code, bucket`,
       [companyCodes ?? null, params.warehouseCode ?? null],
@@ -1640,20 +1802,22 @@ export class EggInventoryService {
     const summary = {
       valuable: { qty: 0, totalCost: 0, batchCount: 0 },
       frozenLike: { qty: 0, totalCost: 0, batchCount: 0 },
+      costPending: { qty: 0, batchCount: 0 },
     };
     const mapped = (rows as any[]).map(row => {
       const entry = {
         companyCode: row.company_code ?? null,
         warehouseCode: row.warehouse_code ?? null,
         itemCode: row.item_code ?? null,
-        bucket: String(row.bucket) === 'FROZEN_LIKE' ? 'FROZEN_LIKE' as const : 'VALUABLE' as const,
+        bucket: String(row.bucket)==='COST_PENDING' ? 'COST_PENDING' as const : String(row.bucket) === 'FROZEN_LIKE' ? 'FROZEN_LIKE' as const : 'VALUABLE' as const,
         qty: Number(row.qty) || 0,
-        totalCost: Number(row.total_cost) || 0,
+        totalCost: String(row.bucket)==='COST_PENDING' ? null : Number(row.total_cost) || 0,
         batchCount: Number(row.batch_count) || 0,
       };
+      if (entry.bucket==='COST_PENDING') { summary.costPending.qty+=entry.qty; summary.costPending.batchCount+=entry.batchCount; return entry; }
       const target = entry.bucket === 'VALUABLE' ? summary.valuable : summary.frozenLike;
       target.qty += entry.qty;
-      target.totalCost += entry.totalCost;
+      target.totalCost += entry.totalCost ?? 0;
       target.batchCount += entry.batchCount;
       return entry;
     });
@@ -1695,7 +1859,7 @@ export class EggInventoryService {
           WHERE o.org_type = 'COMPANY' AND COALESCE(o.company_code, o.org_code) = b.company_code
           ORDER BY o.org_code LIMIT 1
        ) company ON TRUE
-       WHERE b.status = 'AVAILABLE'
+       WHERE b.status = 'AVAILABLE' AND ${officialInventoryPredicate('b')}
          AND b.qty_available > 0
          AND ${this.eggFamilyCondition()}
          AND b.expire_date IS NOT NULL
@@ -1749,7 +1913,7 @@ export class EggInventoryService {
           AND b.qty_available > 0
           AND (b.expire_date IS NULL OR b.expire_date >= CURRENT_DATE))          AS sku_linked_batches
       FROM inv_batches b
-      WHERE ${this.eggFamilyCondition()} ${batchCompanyCond}
+      WHERE ${this.eggFamilyCondition()} AND ${officialInventoryPredicate('b')} ${batchCompanyCond}
     `, batchArgs);
 
     const ledgerArgs: unknown[] = [];

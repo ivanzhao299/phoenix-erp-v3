@@ -8,6 +8,7 @@ import {execFileSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
 import {pathToFileURL} from 'node:url';
 import {CONTRACT,verifyContext,secureJson,git,migrationScope} from './production-config-guard.mjs';
+import {assertNoCutoverControlFiles} from './background-control-manifest.mjs';
 import {executionEnv} from './capture-production-runtime.mjs';
 import {canonicalDigest,bindingDigest,hold,same,HASH,SHA,MAINTENANCE_CONTEXT_SCHEMA,MAINTENANCE_AUTHORITY_SCHEMA} from './production-maintenance-receipts.mjs';
 import {RELEASE_SCOPE,validateReleasePlan} from './production-maintenance-deployment-session.mjs';
@@ -178,7 +179,7 @@ export async function prepareMaintenanceRuntimeMaterials({owner,targetSha,previo
 }
 
 export async function bootstrapLegacyFirstSwitch(){
- guard();const pins=validateLegacyDispatchScope(),{owner,targetSha,previousFloorSha}=pins,root=CONTRACT.repository,state=CONTRACT.stateDirectory;
+ guard();assertNoCutoverControlFiles(CONTRACT.stateDirectory);const pins=validateLegacyDispatchScope(),{owner,targetSha,previousFloorSha}=pins,root=CONTRACT.repository,state=CONTRACT.stateDirectory;
  if(git(root,['rev-parse','HEAD'])!==previousFloorSha||git(root,['status','--porcelain','--untracked-files=all'])
   ||git(root,['ls-remote','origin','refs/heads/main'])!==`${targetSha}\trefs/heads/main`)hold('BOOTSTRAP_MAIN_OR_OLD_CHECKOUT_CHANGED');
  for(const file of ['transaction.json','policy-transition.json','maintenance-current.json','maintenance-transaction.json'])if(fs.existsSync(path.join(state,file)))hold('BOOTSTRAP_UNFINISHED_TRANSACTION');

@@ -40,6 +40,7 @@ function hasSqlBatch(sql) {
 }
 export function classifySql(sql, controlParameters) {
   const clean = sql.replace(/--[^\n]*/g, '').replace(/\/\*[\s\S]*?\*\//g, '').trim();
+  if (/^SELECT\b/i.test(clean) && /\bINTO\b/i.test(clean)) return 'SCHEMA_MUTATION';
   if (/\b(?:CREATE|ALTER|DROP|TRUNCATE|COMMENT|REINDEX|GRANT|REVOKE)\b/i.test(clean)) return 'SCHEMA_MUTATION';
   if (/\b(?:setval|nextval)\s*\(/i.test(clean)) return 'SEQUENCE_MUTATION';
   if (/\b(?:INSERT|UPDATE|DELETE|MERGE|COPY|CALL|DO)\b/i.test(clean)) return 'BUSINESS_DATA_MUTATION';
@@ -207,7 +208,9 @@ export async function verifyBootstrap() {
     const sequences = sql("SELECT sequencename FROM pg_sequences WHERE schemaname='public' ORDER BY sequencename;").trim().split('\n').filter(Boolean);
     const sequenceSql = sequences.map(name => `SELECT ${literal(name)} AS sequence_name,last_value,is_called FROM public.${quote(name)}`).join(' UNION ALL ');
     const sequenceState = sequences.length ? sql(`BEGIN READ ONLY; ${sequenceSql} ORDER BY sequence_name; ROLLBACK;`) : '';
-    const schema = run('docker', ['exec', container, 'pg_dump', '-U', admin, '-d', fixtureDatabase, '--schema-only', '--no-owner', '--no-privileges']).replace(/^\\(?:un)?restrict .*$/gm, '');
+    // Capture the entire expanded schema, which exceeds Node's default 1 MiB buffer.
+    const schema = run('docker', ['exec', container, 'pg_dump', '-U', admin, '-d', fixtureDatabase, '--schema-only', '--no-owner', '--no-privileges'],
+      { maxBuffer: 8 * 1024 * 1024 }).replace(/^\\(?:un)?restrict .*$/gm, '');
     return { schema: hash(schema), data: hash(JSON.stringify(data)), sequences: hash(JSON.stringify(sequenceState)), tables: tables.length, sequenceCount: sequences.length };
   };
   const profiles = [{ name: 'writer-restored-auth', readonly: false, missingTicket: false }, { name: 'readonly-restored-auth', readonly: true, missingTicket: false }, { name: 'writer-auth-maintenance', readonly: false, missingTicket: true }, { name: 'missing-schema-hold', readonly: false, missingTicket: false, missingSchema: true }, { name: 'retired-iot-fk-hold', readonly: false, missingTicket: false, retiredConstraint: true }];

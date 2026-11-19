@@ -235,7 +235,9 @@ jobs:
 
       - name: Module regression — breeding
         working-directory: apps/api
-        run: pnpm test:regr:breeding
+        run: |
+          psql -X -v ON_ERROR_STOP=1 -c "COMMENT ON DATABASE phoenix_erp IS 'phoenix-ci-breeding-regression'"
+          pnpm test:regr:breeding
 
       - name: Module regression — packaging
         working-directory: apps/api

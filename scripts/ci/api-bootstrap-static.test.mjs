@@ -10,7 +10,7 @@ const { auditBootstrap }=createRequire(import.meta.url)('./check-api-bootstrap-s
 const ts=createRequire(import.meta.url)('../../apps/api/node_modules/typescript');
 
 test('SQL detector rejects attempted DDL, business writes and sequence changes even when idempotent',()=>{
- for(const sql of ['CREATE TABLE IF NOT EXISTS t(id int)','ALTER TABLE t ADD COLUMN IF NOT EXISTS x text','DROP CONSTRAINT IF EXISTS f','CREATE EXTENSION IF NOT EXISTS "uuid-ossp"'])assert.equal(classifySql(sql),'SCHEMA_MUTATION');
+ for(const sql of ['CREATE TABLE IF NOT EXISTS t(id int)','ALTER TABLE t ADD COLUMN IF NOT EXISTS x text','DROP CONSTRAINT IF EXISTS f','CREATE EXTENSION IF NOT EXISTS "uuid-ossp"','SELECT 1 INTO TEMP TABLE hidden_startup_write'])assert.equal(classifySql(sql),'SCHEMA_MUTATION');
  for(const sql of ['UPDATE t SET x=1 WHERE false','INSERT INTO t VALUES(1) ON CONFLICT DO NOTHING','WITH old AS (SELECT 1) DELETE FROM t'])assert.equal(classifySql(sql),'BUSINESS_DATA_MUTATION');
  for(const sql of ["SELECT setval('t_seq',1)","SELECT nextval('t_seq')"])assert.equal(classifySql(sql),'SEQUENCE_MUTATION');
  assert.equal(classifySql('SELECT unreviewed_custom_function()'),'UNKNOWN_EXECUTABLE_SQL');

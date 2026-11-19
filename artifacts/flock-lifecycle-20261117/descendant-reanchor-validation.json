@@ -1,0 +1,56 @@
+{
+  "asOf": "2026-11-17T15:05:53.850691+00:00",
+  "sourceCommit": "060c90a239c1e21b7d0b46c3bdd2799b495bdde6",
+  "fixtureOnly": true,
+  "productionReceipt": false,
+  "productionDeployed": false,
+  "scope": "REAL_BACKGROUND_COMPONENTS_PG_COMPOSE_WEB_HEALTH_PEER",
+  "formalProductionRootAndEvidence": "OWNED_ADAPTERS_ONLY",
+  "scenarioOutcomes": [
+    {
+      "name": "API_BODY_FAILURE_NO_WEB_SWITCH",
+      "outcome": "PASS",
+      "publicPhase": "FENCED",
+      "restoreAuthorizationVerified": true
+    },
+    {
+      "name": "WEB_IMAGE_FAILURE_STAYS_INCOMPLETE_API_UNCHANGED",
+      "outcome": "PASS",
+      "finalReleaseComplete": false
+    },
+    {
+      "name": "DESCENDANT_DRAIN_PROMOTION_API_OPEN_THEN_WEB",
+      "outcome": "PASS"
+    }
+  ],
+  "actualSnapshotComparisons": "API stage preserves Web/DB; Web stage preserves API/DB; final owned active pins equal actual runtime",
+  "webScope": "Owned HTTP health peer; not Next/ERP UAT",
+  "formalAbortExecuted": false,
+  "restoreAuthorizationVerified": true,
+  "syntheticRevisions": true,
+  "coordinatorObservedExitCode": 0,
+  "coordinatorObservedCleanup": "Complete for owned containers, network and public volume",
+  "reportSha256": "6f90958cf10866fd922c800b55dc1245f56427b7e2dd571ae7bf4849580083c4",
+  "fixtureLogSha256": "52a3ff6d2aead4ea47fe4acf73927d3df9eea6e1ddc31b0cb70439effa30350a",
+  "fixtureSourceSha256": {
+    "scripts/test/flock-reanchor-compose.mjs": "2e82d9f140c60a7d9b85397e3b21d78092f00897dae3145fde3d81d17efc2b7c",
+    "scripts/test/flock-reanchor-compose-body.mjs": "4603212718799e1d08445540e120a356303ebef76157d9a6923a445a0d6f1976",
+    "scripts/test/flock-reanchor-api.cjs": "f96eeaa1e1fa21403b8f79cd11bac651090f0af687958c675e675f88f04b000a"
+  },
+  "postSourceExtendedTests": {
+    "sourceCommit": "060c90a239c1e21b7d0b46c3bdd2799b495bdde6",
+    "total": 246,
+    "passed": 237,
+    "skippedOptIn": 9,
+    "failed": 0,
+    "exitCode": 0
+  },
+  "postSourceRealPgTests": {
+    "passed": 9,
+    "skipped": 0,
+    "failed": 0,
+    "exitCode": 0
+  },
+  "candidateSourceCommit": "d947bf0b4591e830dd46c021a9a9800ad5c4b11f",
+  "componentBytesUnchangedAtCandidate": true
+}

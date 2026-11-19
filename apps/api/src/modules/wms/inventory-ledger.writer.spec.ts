@@ -6,6 +6,12 @@ import { writeInvLedger, WriteInvLedgerParams } from './inventory-ledger.writer'
  * 可选列按固定顺序追加，undefined 省列 / null 显式写 NULL。
  */
 describe('writeInvLedger (INV-301a shared writer)', () => {
+  it('rejects a dedicated correction without the validated WMS transaction capability', async () => {
+    const em={query:jest.fn()};
+    await expect(writeInvLedger(em,{batchNo:'EGG-20261117-00005',changeType:'TEMP_PRODUCTION_REVERSAL',qtyChange:-30,
+      operator:'untrusted-body',refNo:'TEMP-PROD-REV-649',note:'approved=true'})).rejects.toThrow('validated WMS transaction');
+    expect(em.query).not.toHaveBeenCalled();
+  });
   function makeEm(result: unknown[] = [{ id: 42 }]) {
     const query = jest.fn().mockResolvedValue(result);
     return { em: { query }, query };

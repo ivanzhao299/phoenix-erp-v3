@@ -1,5 +1,7 @@
+import { officialInventoryPredicate, officialLedgerPredicate, assertOfficialInventoryBatches } from '../wms/official-inventory';
+import { writeHenhouse } from './henhouse-write-policy';
 import { DAILY_EXPORT_SNAPSHOT, DAILY_EXPORT_MAX_ROWS } from './daily-export-policy';
-import { Injectable, BadRequestException, ForbiddenException, InternalServerErrorException, Logger } from '@nestjs/common';
+import { Injectable, BadRequestException, ConflictException, ForbiddenException, InternalServerErrorException, Logger } from '@nestjs/common';
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
 import { BREEDING_FARMS_TABLE, BreedingScopedTable } from './crud.constants';
@@ -7,9 +9,16 @@ import { OrgOwnershipService } from '../org/services/org-ownership.service';
 import { schemaMismatch } from '../../common/database/schema-compatibility';
 import { redactSensitive } from '../../common/logging/redact-sensitive';
 import { writeFlock } from './flock-write-policy';
+import { lockTempProductionReferences } from '../wms/temp-production-reversal';
 
 @Injectable()
 export class GenericCrudService {
+  /** New operational obligations/references. Historical QA inspection reads are unchanged. */
+  private static readonly BATCH_REFERENCE_FIELDS: Readonly<Record<string, readonly string[]>> = {
+    wms_outbound: ['batch_no'], wms_stocktake: ['item', 'batch_no'],
+    store_receiving_items: ['batch_no'], qa_non_conformance: ['batch_no'], qa_product_inspections: ['batch_no'],
+    ord_order_items: ['batch_no'],
+  };
   private static readonly RETIRED_COLUMNS: Readonly<Record<string, ReadonlySet<string>>> = {
     brd_houses: new Set(['company_code', 'site_code', 'store_code']),
   };
@@ -228,7 +237,9 @@ export class GenericCrudService {
   }
 
   async findAllInventoryScoped(table: 'inv_batches' | 'inv_ledger', query: any, allowedWarehouseCodes: string[] | null) {
-    const extraWhere: string[] = [];
+    const extraWhere: string[] = [table === 'inv_batches'
+      ? officialInventoryPredicate('inv_batches')
+      : officialLedgerPredicate()];
     const extraValues: unknown[] = [];
 
     if (allowedWarehouseCodes !== null) {
@@ -531,11 +542,15 @@ export class GenericCrudService {
   }
 
   async create(table: string, body: any) {
+    if (['brd_flock_','brd_egg_','inv_flock_','production_'].some(prefix=>table.startsWith(prefix))) throw new ForbiddenException('生命周期事件账禁止通用写入');
+    if (table === 'brd_daily_logs') throw new ForbiddenException('日报必须使用专用日报接口，禁止通用写入');
+    if(table.startsWith('production_'))throw new ForbiddenException('正式库存及切换事实必须使用专用受控接口');
     if (['wms_inbound_items','wms_outbound_items','inv_batches','inv_ledger'].includes(table)) throw new ForbiddenException('WMS 明细及快照必须使用专用单据接口，禁止通用修改/删除');
     GenericCrudService.assertNoDerivedQuantityFields(body);
     if (['mst_products', 'product_skus'].includes(table)) throw new ForbiddenException('产品/SKU 必须使用主数据领域接口，禁止通用 CRUD 写入');
     if (['pkg_work_shifts','pkg_source_batches','pkg_grading_records','pkg_packing_records','pkg_handover_records','pkg_packing_boxes','pkg_packing_code_registry','pkg_packing_code_claims','pkg_packing_events','pkg_packing_operations'].includes(table)) throw new ForbiddenException('包装链必须使用专用作业接口，禁止通用修改/删除');
     if (table === 'brd_flocks') return writeFlock(this.entityManager, body);
+    if (table === 'brd_houses') {this.assertColumnsAllowed(table,Object.keys(body));return writeHenhouse(this.entityManager,body);}
     if (table === BREEDING_FARMS_TABLE) await this.validateFarmSiteMapping(body);
     const fields = Object.keys(body);
     const values = Object.values(body);
@@ -548,9 +563,16 @@ export class GenericCrudService {
     const sql = `INSERT INTO "${table}" (${quotedFields}) VALUES (${placeholders})`;
 
     try {
-      await this.entityManager.query(sql, values);
+      const references = GenericCrudService.BATCH_REFERENCE_FIELDS[table];
+      if (references) await this.entityManager.transaction(async manager => {
+        await lockTempProductionReferences(manager, references.map(field => body[field]));
+        await assertOfficialInventoryBatches(manager, references.map(field => body[field]).filter((value): value is string => typeof value === 'string'));
+        await manager.query(sql, values);
+      });
+      else await this.entityManager.query(sql, values);
       return { msg: 'Created successfully' };
     } catch (e) {
+      if (e instanceof ConflictException) throw e;
       this.rejectSchemaMismatch(e, table);
       this.handleConstraintError(e, table);
       throw new InternalServerErrorException((e as Error).message);
@@ -578,15 +600,20 @@ export class GenericCrudService {
   }
 
   async update(table: string, pkName: string, id: any, body: any) {
+    if (['brd_flock_','brd_egg_','inv_flock_','production_'].some(prefix=>table.startsWith(prefix))) throw new ForbiddenException('生命周期事件账禁止通用写入');
+    if (table === 'brd_daily_logs') throw new ForbiddenException('日报必须使用专用日报接口，禁止通用写入');
+    if(table.startsWith('production_'))throw new ForbiddenException('正式库存及切换事实必须使用专用受控接口');
     if (['wms_inbound_items','wms_outbound_items','inv_batches','inv_ledger'].includes(table)) throw new ForbiddenException('WMS 明细及快照必须使用专用单据接口，禁止通用修改/删除');
     GenericCrudService.assertNoDerivedQuantityFields(body);
     if (['mst_products', 'product_skus'].includes(table)) throw new ForbiddenException('产品/SKU 必须使用主数据领域接口，禁止通用 CRUD 写入');
     if (['pkg_work_shifts','pkg_source_batches','pkg_grading_records','pkg_packing_records','pkg_handover_records','pkg_packing_boxes','pkg_packing_code_registry','pkg_packing_code_claims','pkg_packing_events','pkg_packing_operations'].includes(table)) throw new ForbiddenException('包装链必须使用专用作业接口，禁止通用修改/删除');
     if (table === 'brd_flocks') return writeFlock(this.entityManager, body, { pkName, id });
+    if (table === 'brd_houses') {this.assertColumnsAllowed(table,[pkName,...Object.keys(body)]);return writeHenhouse(this.entityManager,body,{pkName,id});}
     console.log(`[SVC Update START] table=${table} pk=${pkName} id=${id} body=${JSON.stringify(redactSensitive(body))}`);
     if (table === BREEDING_FARMS_TABLE) {
       const current = await this.findOneByColumn(table, pkName, id);
       if (!current) throw new BadRequestException('Record not found');
+      for(const key of ['farm_code','company_code','mapped_site_code'])if(body[key]!==undefined&&String(body[key]??'')!==String(current[key]??'')&&(await this.entityManager.query('SELECT 1 FROM brd_houses WHERE farm_code=$1 LIMIT 1',[current.farm_code])).length)throw new BadRequestException('农场已有关联鸡舍，不能直接变更编码、公司或场区，须先核对历史占栏与追溯归属');
       const merged = { ...current, ...body };
       await this.validateFarmSiteMapping(merged);
       if (Object.prototype.hasOwnProperty.call(body, 'mapped_site_code')) {
@@ -616,11 +643,21 @@ export class GenericCrudService {
     console.log(`[CRUD Update] ${table} WHERE ${pkName}=${id} | fields: ${fields.join(',')}`);
 
     try {
-      const raw = await this.entityManager.query(finalSql, values);
+      const references = GenericCrudService.BATCH_REFERENCE_FIELDS[table];
+      const execute = async (manager: EntityManager) => {
+        if (references) {
+          const [current] = await manager.query(`SELECT * FROM "${table}" WHERE "${pkName}"=$1 FOR UPDATE`, [id]);
+          if (!current) throw new BadRequestException('Record not found');
+          await lockTempProductionReferences(manager, references.flatMap(field => [current[field], body[field]]));
+        await assertOfficialInventoryBatches(manager, references.flatMap(field => [current[field], body[field]]).filter((value): value is string => typeof value === 'string'));
+        }
+        return manager.query(finalSql, values);
+      };
+      const raw = references ? await this.entityManager.transaction(execute) : await execute(this.entityManager);
       if (this.extractRows(raw).length === 0) throw new BadRequestException('Record not found');
       return { msg: 'Updated successfully' };
     } catch (e) {
-      if (e instanceof BadRequestException) throw e;
+      if (e instanceof BadRequestException || e instanceof ConflictException) throw e;
       this.rejectSchemaMismatch(e, table);
       this.handleConstraintError(e, table);
       throw new InternalServerErrorException((e as Error).message);
@@ -628,6 +665,10 @@ export class GenericCrudService {
   }
 
   async remove(table: string, pkName: string, id: any) {
+    if (['brd_flock_','brd_egg_','inv_flock_','production_'].some(prefix=>table.startsWith(prefix))) throw new ForbiddenException('生命周期事件账禁止通用写入');
+    if (['brd_flocks','brd_houses'].includes(table)) throw new ForbiddenException('鸡群与鸡舍须保留追溯档案，禁止物理删除');
+    if (table === 'brd_daily_logs') throw new ForbiddenException('日报必须使用专用日报接口，禁止通用写入');
+    if(table.startsWith('production_'))throw new ForbiddenException('正式库存及切换事实必须使用专用受控接口');
     if (['wms_inbound_items','wms_outbound_items','inv_batches','inv_ledger'].includes(table)) throw new ForbiddenException('WMS 明细及快照必须使用专用单据接口，禁止通用修改/删除');
     if (['mst_products', 'product_skus'].includes(table)) throw new ForbiddenException('产品/SKU 必须使用主数据领域接口，禁止通用 CRUD 写入');
     if (['pkg_work_shifts','pkg_source_batches','pkg_grading_records','pkg_packing_records','pkg_handover_records','pkg_packing_boxes','pkg_packing_code_registry','pkg_packing_code_claims','pkg_packing_events','pkg_packing_operations'].includes(table)) throw new ForbiddenException('包装链必须使用专用作业接口，禁止通用修改/删除');
@@ -642,14 +683,24 @@ export class GenericCrudService {
     const sql = `DELETE FROM "${table}" WHERE "${pkName}" = $1 RETURNING "${pkName}"`;
     console.log(`[CRUD Delete] ${table} WHERE ${pkName}=${id}`);
     try {
-      const raw = await this.entityManager.query(sql, [id]);
+      const references = GenericCrudService.BATCH_REFERENCE_FIELDS[table];
+      const execute = async (manager: EntityManager) => {
+        if (references) {
+          const [current] = await manager.query(`SELECT * FROM "${table}" WHERE "${pkName}"=$1 FOR UPDATE`, [id]);
+          if (!current) throw new BadRequestException('Record not found');
+          await lockTempProductionReferences(manager, references.map(field => current[field]));
+        await assertOfficialInventoryBatches(manager, references.map(field => current[field]).filter((value): value is string => typeof value === 'string'));
+        }
+        return manager.query(sql, [id]);
+      };
+      const raw = references ? await this.entityManager.transaction(execute) : await execute(this.entityManager);
       if (this.extractRows(raw).length === 0) {
         throw new BadRequestException('Record not found');
       }
       console.log(`[CRUD Delete] ✅ success`);
       return { msg: 'Deleted successfully' };
     } catch (e) {
-      if (e instanceof BadRequestException) throw e;
+      if (e instanceof BadRequestException || e instanceof ConflictException) throw e;
       this.rejectSchemaMismatch(e, table);
       this.handleConstraintError(e, table);
       throw new InternalServerErrorException((e as Error).message);

@@ -35,6 +35,7 @@ export interface MenuRequirement {
   menu: string;
   perm: PermCode;
   altMenus?: string[];  // G20-1: 备选 menu code 数组（OR 关系），用于跨域兼容（如 sales2/inventory ↔ wms_view）
+  altPermissions?: Array<{ menu:string;perm:PermCode }>;
   denialMessage?: string;
 }
 
@@ -43,6 +44,13 @@ export interface MenuRequirement {
  */
 export const RequireMenu = (menu: string, perm: PermCode, altMenus?: string[], denialMessage?: string) =>
   SetMetadata(REQUIRE_MENU_KEY, { menu, perm, altMenus, denialMessage });
+
+/** Explicit OR alternatives with potentially different operation codes; DataScope uses the actual matched menu. */
+export const RequireAnyMenu = (requirements:Array<{menu:string;perm:PermCode}>) => {
+  if(!requirements.length)throw new Error('At least one menu permission is required');
+  const [primary,...alternatives]=requirements;
+  return SetMetadata(REQUIRE_MENU_KEY,{...primary,altPermissions:alternatives});
+};
 
 /** @Public() — 无需 Token 的公开接口 */
 export const Public = () => SetMetadata(IS_PUBLIC_KEY, true);
@@ -101,6 +109,10 @@ export class MenuGuard extends AuthGuard('jwt') implements CanActivate {
       for (const alt of requirement.altMenus) {
         if (isMenuRegistered(alt) && hasPerm(user.permissions, alt, requirement.perm)) return true;
       }
+    }
+
+    for (const alt of requirement.altPermissions??[]) {
+      if(isMenuRegistered(alt.menu)&&hasPerm(user.permissions,alt.menu,alt.perm))return true;
     }
 
     throw new ForbiddenException(requirement.denialMessage ?? 'MENU_PERMISSION_DENIED');

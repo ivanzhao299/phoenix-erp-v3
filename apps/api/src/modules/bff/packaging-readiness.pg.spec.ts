@@ -29,7 +29,8 @@ const url = process.env.PACKAGING_TEST_DATABASE_URL;
       CREATE TABLE wms_warehouses(warehouse_code text PRIMARY KEY,company_code text,status text);
       CREATE TABLE wms_locations(location_code text PRIMARY KEY,warehouse_code text,status text);
       CREATE TABLE pkg_work_shifts(id serial PRIMARY KEY,shift_code text,site_id text,production_date date,status text,is_test boolean);
-      CREATE TABLE pkg_source_batches(id serial PRIMARY KEY,house_code text,shift_id integer,production_date date,batch_status text,is_test boolean,received_qty integer,received_weight numeric);
+      CREATE TABLE pkg_source_batches(id serial PRIMARY KEY,house_code text,shift_id integer,production_date date,batch_status text,is_test boolean,received_qty integer,received_weight numeric,
+        batch_code varchar(80) NOT NULL,source_inbound_no varchar(80));
       CREATE TABLE pkg_grading_records(id serial PRIMARY KEY,code text,shift_id integer,production_date date,status text,is_test boolean,outputs_json jsonb);
       CREATE TABLE pkg_grading_source_links(grading_id integer,source_batch_id integer);
       CREATE TABLE pkg_tasks(id serial PRIMARY KEY,task_no text,grade_results jsonb,house_code text,pack_spec text,packed_qty integer,output_qty integer,created_at timestamp,shift_id integer);
@@ -53,7 +54,7 @@ const url = process.env.PACKAGING_TEST_DATABASE_URL;
       INSERT INTO brd_farms VALUES ('FARM','COMP','ACTIVE'); INSERT INTO brd_houses VALUES ('HOUSE','FARM','ACTIVE');
       INSERT INTO wms_warehouses VALUES ('WH','COMP','ACTIVE');INSERT INTO wms_locations VALUES ('LOC','WH','NORMAL');
       INSERT INTO pkg_work_shifts VALUES (1,'SHIFT','FARM','2026-09-09','OPEN',false);
-      INSERT INTO pkg_source_batches VALUES (1,'HOUSE',1,'2026-09-09','RECEIVED',false,120,5);
+      INSERT INTO pkg_source_batches VALUES (1,'HOUSE',1,'2026-09-09','RECEIVED',false,120,5,'SRC-LOCAL-1',NULL);
       INSERT INTO pkg_grading_records VALUES (1,'GR',1,'2026-09-09','ACTIVE',false,'{"GRADE_5":60,"GRADE_1":60}');
       INSERT INTO pkg_grading_source_links VALUES(1,1);
       ALTER TABLE mst_products ADD COLUMN variety_code text DEFAULT 'VAR';
@@ -98,6 +99,42 @@ const url = process.env.PACKAGING_TEST_DATABASE_URL;
     expect(batch).toMatchObject({product_code:'REGISTERED-PRODUCT',sku_code:'SKU5',qty:'30',day:'2026-09-09',company_code:'COMP',variety_code:'VAR',warehouse_code:'WH',location_code:'LOC'});
     await ds.query('UPDATE inv_batches SET qty_available=7');
     expect((await controller.confirmHandover(body,req)).data.code).toBe(a.data.code);expect(await counts()).toEqual({batches:1,ledgers:1,handovers:1});
+  });
+  it.each([10,30])('replays the original thirty after a balanced physical outbound of %s without creating a remainder receipt',async(outbound)=>{
+    await controller.confirmHandover(body,req);
+    await ds.transaction(async m=>{
+      const [batch]=await m.query('WITH changed AS(UPDATE inv_batches SET qty=qty-$1,qty_available=qty_available-$1 RETURNING batch_no) SELECT batch_no FROM changed',[outbound]);
+      await m.query(`INSERT INTO inv_ledger(batch_no,change_type,qty_change,operator,ref_no,company_code,warehouse_code,sku_code)
+        VALUES($1,'FIFO_OUT',$2,'owned-physical-outbound','SYNTHETIC-PACKAGING-SALE','COMP','WH','SKU5')`,[batch.batch_no,-outbound]);
+    });
+    const before=await counts();
+    const [a,b]=await Promise.all([service.completeTerminalPacking('PKG-LOCAL',{warehouseCode:'WH',locationCode:'LOC'}),
+      service.completeTerminalPacking('PKG-LOCAL',{warehouseCode:'WH',locationCode:'LOC'})]);
+    for(const receipt of [a,b])expect(receipt).toMatchObject({idempotent:true,totalInbound:30,batches:[{qty:30,productCode:'REGISTERED-PRODUCT',grade:'GRADE_5'}]});
+    expect(await counts()).toEqual(before);expect(Number((await ds.query('SELECT qty FROM inv_batches'))[0].qty)).toBe(30-outbound);
+    await expect(controller.confirmHandover(body,req)).resolves.toMatchObject({code:200});expect(await counts()).toEqual(before);
+  });
+  it('holds stock stable during receipt replay and allows a later balanced movement after the reading transaction commits',async()=>{
+    await controller.confirmHandover(body,req);
+    const reader=ds.createQueryRunner(),writer=ds.createQueryRunner();await reader.connect();await writer.connect();await reader.startTransaction();
+    try{
+      const receipt=await service.completeTerminalPacking('PKG-LOCAL',{warehouseCode:'WH',locationCode:'LOC',manager:reader.manager});
+      expect(receipt.totalInbound).toBe(30);const batchNo=receipt.batches[0].batchNo;
+      await writer.startTransaction();await writer.query("SET LOCAL lock_timeout='100ms'");
+      await expect(writer.query('UPDATE inv_batches SET qty=qty-5,qty_available=qty_available-5 WHERE batch_no=$1',[batchNo])).rejects.toThrow('lock timeout');
+      await writer.rollbackTransaction();await reader.commitTransaction();await writer.startTransaction();
+      await writer.query('UPDATE inv_batches SET qty=qty-5,qty_available=qty_available-5 WHERE batch_no=$1',[batchNo]);
+      await writer.query("INSERT INTO inv_ledger(batch_no,change_type,qty_change,ref_no) VALUES($1,'FIFO_OUT',-5,'SYNTHETIC-AFTER-REPLAY')",[batchNo]);
+      await writer.commitTransaction();
+      expect((await service.completeTerminalPacking('PKG-LOCAL',{warehouseCode:'WH',locationCode:'LOC'})).totalInbound).toBe(30);
+      expect(Number((await ds.query('SELECT qty FROM inv_batches'))[0].qty)).toBe(25);
+    }finally{if(reader.isTransactionActive)await reader.rollbackTransaction();if(writer.isTransactionActive)await writer.rollbackTransaction();await reader.release();await writer.release();}
+  });
+  it.each(['company','warehouse'])('does not return an original packaging receipt outside the current %s scope',async(kind)=>{
+    await controller.confirmHandover(body,req);const before=await counts();
+    if(kind==='company')scope.allowedCompanyCodes=['OTHER'];else scope.allowedWarehouseCodes=['OTHER'];
+    await expect(service.completeTerminalPacking('PKG-LOCAL',{warehouseCode:'WH',locationCode:'LOC'})).rejects.toMatchObject({status:403});
+    expect(await counts()).toEqual(before);
   });
   it.each(['missing','inactive','ambiguous','orphan','spec','product'])('blocks %s master data before any write',async(kind)=>{
     if(kind==='missing')await ds.query("UPDATE product_skus SET spec_code='OTHER' WHERE sku_code='SKU5'");
@@ -165,7 +202,7 @@ const url = process.env.PACKAGING_TEST_DATABASE_URL;
     if(kind==='selected-foreign-source')await ds.query(`INSERT INTO brd_farms VALUES('FOREIGN','OTHER','ACTIVE','OTHER');
       INSERT INTO brd_houses VALUES('FOREIGN-HOUSE','FOREIGN','ACTIVE');
       INSERT INTO pkg_work_shifts VALUES(2,'FOREIGN-SHIFT','FOREIGN','2026-09-09','OPEN',false);
-      INSERT INTO pkg_source_batches VALUES(2,'FOREIGN-HOUSE',2,'2026-09-09','RECEIVED',false,30,1);
+      INSERT INTO pkg_source_batches VALUES(2,'FOREIGN-HOUSE',2,'2026-09-09','RECEIVED',false,30,1,'SRC-LOCAL-2',NULL);
       INSERT INTO pkg_grading_records VALUES(2,'GR2',2,'2026-09-09','ACTIVE',false,'{"GRADE_5":30}');
       INSERT INTO pkg_grading_source_links VALUES(2,2)`);
     if(kind==='selected-test')await ds.query(`INSERT INTO pkg_grading_records VALUES(2,'GR2',1,'2026-09-09','ACTIVE',true,'{"GRADE_5":30}');
@@ -227,7 +264,7 @@ const url = process.env.PACKAGING_TEST_DATABASE_URL;
       INSERT INTO sys_dict(dict_code,dict_type) VALUES('BREED2','BRD_BREED');
       INSERT INTO md_variety_breeds VALUES('BREED2','OTHER','ACTIVE');
       INSERT INTO md_egg_source_profiles(profile_code,company_code,farm_code,site_code,house_code,product_mode,variety_code,effective_date) VALUES('PROFILE2','COMP','FARM','SITE','HOUSE2','VARIANT','OTHER','2026-01-01');
-      INSERT INTO pkg_source_batches VALUES(2,'HOUSE2',1,'2026-09-09','RECEIVED',false,30,1);
+      INSERT INTO pkg_source_batches VALUES(2,'HOUSE2',1,'2026-09-09','RECEIVED',false,30,1,'SRC-LOCAL-2',NULL);
       INSERT INTO pkg_grading_source_links VALUES(1,2)`);
     if(kind==='scope-missing')await ds.query('DELETE FROM md_sku_org_scope');
     if(kind==='ALL-only')await ds.query("UPDATE md_sku_org_scope SET scope_type='ALL',scope_code='ALL'");
@@ -312,7 +349,7 @@ const url = process.env.PACKAGING_TEST_DATABASE_URL;
   it.each(['VARIANT','STANDARD','mixed-mode','mixed-color'])('validates every house and snapshots all profiles for %s multi-house sources',async(mode)=>{
     await ds.query(`INSERT INTO brd_houses VALUES('HOUSE2','FARM','ACTIVE');
       INSERT INTO md_egg_source_profiles(profile_code,company_code,farm_code,site_code,house_code,product_mode,variety_code,effective_date) VALUES('PROFILE2','COMP','FARM','SITE','HOUSE2','VARIANT','VAR','2026-01-01');
-      INSERT INTO pkg_source_batches VALUES(2,'HOUSE2',1,'2026-09-09','RECEIVED',false,30,1);
+      INSERT INTO pkg_source_batches VALUES(2,'HOUSE2',1,'2026-09-09','RECEIVED',false,30,1,'SRC-LOCAL-2',NULL);
       INSERT INTO pkg_grading_source_links VALUES(1,2);`);
     if(mode==='STANDARD')await ds.query("UPDATE md_egg_source_profiles SET product_mode='STANDARD',variety_code=NULL; UPDATE mst_products SET variety_code=NULL; UPDATE product_skus SET variety_code=NULL");
     if(mode==='mixed-mode')await ds.query("UPDATE md_egg_source_profiles SET product_mode='STANDARD',variety_code=NULL WHERE house_code='HOUSE2'");
@@ -363,8 +400,7 @@ const url = process.env.PACKAGING_TEST_DATABASE_URL;
   });
 
   it('summary uses the exact scoped date/mode and propagates SQL failures instead of zero fallback',async()=>{
-    await ds.query(`ALTER TABLE pkg_source_batches ADD COLUMN batch_code text;
-      ALTER TABLE pkg_work_shifts ADD COLUMN opened_at timestamp DEFAULT now();
+    await ds.query(`ALTER TABLE pkg_work_shifts ADD COLUMN opened_at timestamp DEFAULT now();
       CREATE TABLE pkg_exceptions(status text,created_at timestamp,related_batch_id text,batch_no text);
       CREATE TABLE pkg_label_print_logs(printed_at timestamp,packaging_batch_id text);`);
     const result=await controller.getShiftSummary('2026-09-09','1',req);

@@ -37,6 +37,7 @@ describe('SkuAvailabilityService', () => {
     };
     const query = jest.fn(async (sql: string, params: unknown[] = []) => {
       if (sql.includes('pg_advisory_xact_lock_shared')) return [];
+      if(sql.includes("to_regclass('brd_flock_occupancies')"))return [{ledger:null}];
       if (sql.includes('FROM md_egg_source_profiles')) return state.profiles;
       if (sql.includes('FROM sys_organizations')) return state.company;
       if (sql.includes('FROM brd_houses') || sql.includes('FROM brd_farms')) return state.ownership;
@@ -229,22 +230,18 @@ describe('SkuAvailabilityService', () => {
   it.each([
     { breed_code: null }, { breed_code: '' }, { breed_code: ' ' }, { placement_date: null },
     { farm_code: 'OTHER' }, { status: 'GROWING' }, { status: 'ELIMINATED' },
-    { elimination_date: '2026-11-01' },
+
   ])('does not discard an uncertain overlapping flock: %p', async bad => {
     const { svc, state } = setup();
     state.flocks.push(flockRow({ flock_no: 'UNKNOWN', ...bad }));
     await expect(svc.resolveVarietiesByHouse(house)).rejects.toThrow('不确定');
   });
 
-  it('excludes only provably non-overlapping flocks, not historical/current guesses', async () => {
-    const { svc, state } = setup();
-    state.flocks.push(
-      flockRow({ status: 'ELIMINATED', breed_code: null, elimination_date: '2026-10-31' }),
-      flockRow({ breed_code: null, placement_date: '2026-11-02' }),
-    );
+  it('excludes provably future entry, but never guesses the meaning of an old elimination date', async () => {
+    const {svc,state}=setup();state.flocks.push(flockRow({breed_code:null,placement_date:'2026-11-02'}));
     await expect(svc.resolveVarietiesByHouse(house)).resolves.toEqual(['EGG_RED']);
-    state.flocks = state.flocks.slice(1);
-    await expect(svc.resolveVarietiesByHouse(house)).rejects.toThrow('没有可确认');
+    state.flocks.push(flockRow({status:'ELIMINATED',breed_code:null,elimination_date:'2026-10-31'}));
+    await expect(svc.resolveVarietiesByHouse(house)).rejects.toThrow('未签认');
   });
 
   it('accepts the flock UI entry date start_date only when placement_date is absent or agrees', async () => {
@@ -274,7 +271,7 @@ describe('SkuAvailabilityService', () => {
   it('rejects contradictory flock interval dates', async () => {
     const { svc, state } = setup();
     state.flocks = [flockRow({ placement_date: '2026-12-01', elimination_date: '2026-10-01' })];
-    await expect(svc.resolveVarietiesByHouse(house)).rejects.toThrow('日期矛盾');
+    await expect(svc.resolveVarietiesByHouse(house)).rejects.toThrow('未签认');
   });
 
   it('rejects empty house rather than falling back to global legacy SKU', async () => {

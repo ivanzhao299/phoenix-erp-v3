@@ -1,0 +1,66 @@
+{
+  "schema": "phoenix.local-exact-schema-rehearsal-summary/v1",
+  "fixtureOnly": true,
+  "productionReceipt": false,
+  "productionAuthority": false,
+  "formalDeploymentBodyExercised": false,
+  "originalProductionSessionExercised": false,
+  "sourceProofSha256": "f2cbf9d6c9d92f641b230c536291ddeda77c6586f2b4b22fb2bfea6fd53a1521",
+  "testDurationMs": 117101.300916,
+  "receipt": {
+    "schema": "phoenix.modern-schema-isolated-rehearsal/v1",
+    "owner": "1795076947734-1",
+    "runtimeSha": "cb42966edfa717b0984936951143d84973c1a263",
+    "targetSha": "ea15cf496c62e6855fda0e533e847d9cca44f648",
+    "candidateImageId": "sha256:d8a1ba4b916df63aa85dce6b5266dbc22546d73c869c87ce55febef90e1f815c",
+    "beforeLedgerSha256": "689b584217ef47af7003636ea8c9c073fac53fad67f716cd3086860da986fb95",
+    "pendingPlanSha256": "0a745e39498aa04c4b79e980ae9bbd3b5cdc72871924c0a4cffabab2e2294c87",
+    "outcome": "PASS",
+    "originalRuntimeReady": true,
+    "candidateReady": true,
+    "businessFactsUnchanged": true,
+    "backgroundWrites": 0,
+    "isolatedRestore": true,
+    "productionMutation": false,
+    "backupSha256": "5f260627e25f78e871fc492ccb24794e684108f16677559fe938608139339750",
+    "afterLedgerSha256": "eb5afe35388ba7aea9a5352e100a076bf87e7aadfe9990719539927833670e3b",
+    "originalRuntimeProofSha256": "6dcdcf89831b178fdb59e8612a55963864506325a004b96a52fe16e49f82f613",
+    "candidateRuntimeProofSha256": "c4e2e8fb522aec369468c5566a117e26dae63e08e9e351a92efa94035a44b542",
+    "cloneBusinessFactsSha256": "59ac33e526c9969aad154d06de9162eb070f7b8849fc1572327c8593afe88008",
+    "defaultOffEvidence": {
+      "schema": "phoenix.modern-schema-default-off-evidence/v1",
+      "targetSha": "ea15cf496c62e6855fda0e533e847d9cca44f648",
+      "featureRollout": "OFF",
+      "scopeRows": 0,
+      "qualificationRows": 0,
+      "admissionRows": 0,
+      "cutoverResultRows": 0,
+      "chanjetPolicy": "HOLD",
+      "verified": true,
+      "stage": "AFTER_SCHEMA",
+      "observedTables": [
+        {
+          "table": "production_cutover_scopes",
+          "presence": "PRESENT_ZERO",
+          "rows": 0
+        },
+        {
+          "table": "production_batch_qualifications",
+          "presence": "PRESENT_ZERO",
+          "rows": 0
+        },
+        {
+          "table": "production_cutover_apply_admissions",
+          "presence": "PRESENT_ZERO",
+          "rows": 0
+        },
+        {
+          "table": "production_cutover_apply_results",
+          "presence": "PRESENT_ZERO",
+          "rows": 0
+        }
+      ],
+      "factsSha256": "59ac33e526c9969aad154d06de9162eb070f7b8849fc1572327c8593afe88008"
+    }
+  }
+}

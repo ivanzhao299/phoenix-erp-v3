@@ -318,7 +318,7 @@ describe('ProductionInboundService master-data resolution', () => {
     expect(second.batches).toEqual(first.batches);
     expect(createProductionBatch).toHaveBeenCalledTimes(1);
     // The serialization lock covers the daily report dimension, not the key.
-    const lock = managerQuery.mock.calls.find(([sql]) => String(sql).includes('pg_advisory_xact_lock'));
+    const lock = managerQuery.mock.calls.find(([sql,args]) => String(sql).includes('pg_advisory_xact_lock') && String(args?.[0]).includes('TEMP_PRODUCTION_DAILY'));
     expect(lock![1][0]).toContain('TEMP_PRODUCTION_DAILY');
     expect(lock![1][0]).toContain('2026-08-25');
   });

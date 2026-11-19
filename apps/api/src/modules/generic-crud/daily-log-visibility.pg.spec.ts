@@ -83,7 +83,7 @@ pgDescribe('MANUAL-122 real PostgreSQL, HTTP, roles and organization scope', () 
       CREATE TABLE IF NOT EXISTS product_skus (sku_code text PRIMARY KEY, product_code text, grade_code text, spec_code text, status text);
       CREATE TABLE IF NOT EXISTS brd_farms (farm_code text PRIMARY KEY, company_code text, mapped_site_code text, status text);
       CREATE TABLE IF NOT EXISTS brd_houses (house_code text PRIMARY KEY, house_name text, farm_code text, status text);
-      CREATE TABLE IF NOT EXISTS brd_flocks (flock_no text PRIMARY KEY, house_code text, current_qty int, initial_qty int, current_lay_rate numeric);
+      CREATE TABLE IF NOT EXISTS brd_flocks (flock_no text PRIMARY KEY, house_code text, current_qty int, initial_qty int, current_lay_rate numeric, farm_code text, status text, start_date date, updated_at timestamptz);
       CREATE TABLE IF NOT EXISTS brd_daily_logs (id serial PRIMARY KEY, house_code text, farm_code text,
         site_code text, company_code text, flock_no text, log_date date, business_date date,
         shift text, eggs_produced int, eggs_by_grade jsonb, dirty_eggs int, broken_eggs int, mortality_qty int, elimination_qty int, feed_consumed numeric,
@@ -118,7 +118,7 @@ pgDescribe('MANUAL-122 real PostgreSQL, HTTP, roles and organization scope', () 
       INSERT INTO wms_locations VALUES ('LOC-A','WH-A','ACTIVE') ON CONFLICT DO NOTHING;
       INSERT INTO brd_farms VALUES ('LPH_FARM_A','COMP-A','SITE-A','ACTIVE'),('LPH_FARM_B','COMP-B','SITE-B','ACTIVE'),('LPH_FARM_A2','COMP-A','SITE-A2','ACTIVE') ON CONFLICT DO NOTHING;
       INSERT INTO brd_houses VALUES ('HOUSE-A','Fixture House A','LPH_FARM_A','ACTIVE'),('HOUSE-B','Fixture House B','LPH_FARM_B','ACTIVE'),('HOUSE-A2','Fixture House A2','LPH_FARM_A2','ACTIVE') ON CONFLICT DO NOTHING;
-      INSERT INTO brd_flocks VALUES ('FLOCK-A','HOUSE-A',100,100,0) ON CONFLICT DO NOTHING;
+      INSERT INTO brd_flocks (flock_no,house_code,current_qty,initial_qty,current_lay_rate,farm_code,status,start_date) VALUES ('FLOCK-A','HOUSE-A',100,100,0,'LPH_FARM_A','LAYING','2026-01-01') ON CONFLICT DO NOTHING;
       INSERT INTO fixture_role_permissions VALUES ('ROLE_FARM_REPORTER','MENU_FARM_DATA:V'),('ROLE_FARM_REPORTER','MENU_FARM_DAILY:E'),('ROLE_FARM_REPORTER','MENU_PROD_INBOUND:C'),('ROLE_ADMIN','*') ON CONFLICT DO NOTHING;
     `);
     // SkuAvailabilityService（2026-11-11 起 ProductionInboundService 依赖）需要 source profile 表：
@@ -257,7 +257,7 @@ pgDescribe('MANUAL-122 real PostgreSQL, HTTP, roles and organization scope', () 
     expect((await read(40104).expect(200)).body.data).toEqual([]);
     expect((await read(40105).expect(200)).body.data).toHaveLength(2);
     await request(app.getHttpServer()).post('/api/v3/farm/daily-logs').auth(token(40101), { type: 'bearer' })
-      .send({ house_code: 'HOUSE-B', log_date: '2026-10-17', shift: '晚班', feed_consumed: 7 }).expect(400);
+      .send({ house_code: 'HOUSE-B', log_date: '2026-10-17', shift: '晚班', feed_consumed: 7 }).expect(403);
   });
 
   it('does not expand a SITE user to other farms in its parent company', async () => {

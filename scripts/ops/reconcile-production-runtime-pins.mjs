@@ -9,6 +9,7 @@ import {
   guardProduction,
   rollbackEligibility,
 } from './production-config-guard.mjs';
+import { assertNoCutoverControlFiles } from './background-control-manifest.mjs';
 import { atomicState } from './production-atomic-state.mjs';
 import { captureRuntime, executionEnv } from './capture-production-runtime.mjs';
 
@@ -31,6 +32,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     }
     mark('VERIFY_CONTEXT');
     verifyContext(root, stateDirectory);
+    assertNoCutoverControlFiles(stateDirectory);
     mark('INPUT');
     if (!/^[a-f0-9]{40}$/.test(targetSha) || !/^\d+$/.test(runId)) hold('INPUT');
     mark('CHECKOUT');

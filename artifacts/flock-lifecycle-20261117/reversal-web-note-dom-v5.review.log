@@ -1,0 +1,9 @@
+
+ RUN  v3.2.6 /home/jinhuit/PhenixCodebase/phoenix-erp-v3/.worktrees/flock-lifecycle-review-20261117/apps/web
+
+ ✓ src/__tests__/warehouse-reversal-summary.dom.test.tsx (8 tests) 158ms
+
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+   Start at  03:40:14
+   Duration  1.21s (transform 302ms, setup 0ms, collect 466ms, tests 158ms, environment 221ms, prepare 56ms)

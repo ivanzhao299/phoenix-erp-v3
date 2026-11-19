@@ -72,7 +72,7 @@ export const git=(r,a)=>a[0]==='rev-parse'?${JSON.stringify(bundle.checkout.head
 `);
     fs.copyFileSync(path.join(ops,'production-trusted-paths.mjs'),path.join(root,'real-trusted.mjs'));
     fs.writeFileSync(path.join(root,'production-trusted-paths.mjs'), `import fs from 'node:fs';
-export {assertSameDirectory,assertContained} from './real-trusted.mjs';
+export * from './real-trusted.mjs';
 import {assertRegularFile as regular,readPinnedFile as read} from './real-trusted.mjs';
 export const inspectTrustedDirectory=d=>{const s=fs.lstatSync(d);return {dev:s.dev,ino:s.ino,mode:s.mode};};
 export const assertRegularFile=s=>regular(s,{uid:process.getuid()});

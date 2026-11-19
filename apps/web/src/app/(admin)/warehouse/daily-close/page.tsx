@@ -27,6 +27,7 @@ const todayStr = `${today0.getFullYear()}-${pad(today0.getMonth() + 1)}-${pad(to
 interface DailyData {
   inbound_qty: number;
   outbound_qty: number;
+  correction_net_qty: number;
   current_stock: number;
   closed_today: null | {
     stocktake_no?: string;
@@ -114,8 +115,9 @@ export default function DailyClosePage() {
   };
   const inQty = data ? Number(data.inbound_qty ?? 0) : 0;
   const outQty = data ? Number(data.outbound_qty ?? 0) : 0;
+  const correctionQty = data ? Number(data.correction_net_qty ?? 0) : 0;
   const curQty = data ? Number(data.current_stock ?? 0) : 0;
-  const balance = inQty - outQty;
+  const balance = inQty - outQty + correctionQty;
   const isClosed = !!data?.closed_today;
   const KPIs: { label: string; val: string; tone: Tone; Icon: typeof PackageCheck }[] = [
     { label: t("ui.今日入库枚", "今日入库（枚）"), val: loading ? "…" : inQty.toLocaleString(),                                      tone: "success", Icon: PackageCheck },
@@ -226,6 +228,7 @@ export default function DailyClosePage() {
                 {[
                   { label: t("ui.今日入库", "今日入库"), value: `+${inQty.toLocaleString()}`,                                color: "var(--status-success)" },
                   { label: t("ui.今日出库", "今日出库"), value: `-${outQty.toLocaleString()}`,                               color: "var(--status-danger)"  },
+                  { label: t("warehouse.change_type.temp_production_reversal", "误入库冲销"), value: (correctionQty >= 0 ? "+" : "") + correctionQty.toLocaleString(), color: "var(--status-warning)" },
                   { label: t("ui.净变化",   "净变化"),   value: (balance >= 0 ? "+" : "") + balance.toLocaleString(),       color: balance >= 0 ? "var(--status-info)" : "var(--status-warning)" },
                   { label: t("ui.当前库存", "当前库存"), value: `${curQty.toLocaleString()} ${t("ui.枚", "枚")}`,           color: "var(--text-primary)"    },
                 ].map((row, i) => (
@@ -240,10 +243,8 @@ export default function DailyClosePage() {
                 ))}
               </div>
               <div style={{ ...inlineAlert(balance >= 0 ? "success" : "warning"), fontWeight: 600 }}>
-                {balance >= 0
-                  ? <><Check size={14} /> {t("ui.今日入大于等于出库存净增", "今日入大于等于出，库存净增")} {balance.toLocaleString()} {t("ui.枚", "枚")}</>
-                  : <><AlertTriangle size={14} /> {t("ui.今日出大于入库存净减", "今日出大于入，库存净减")} {Math.abs(balance).toLocaleString()} {t("ui.枚", "枚")}</>
-                }
+                {balance >= 0 ? <Check size={14} /> : <AlertTriangle size={14} />}
+                {t("ui.净变化", "净变化")} {(balance >= 0 ? "+" : "") + balance.toLocaleString()} {t("ui.枚", "枚")}
               </div>
             </>
           )}

@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { OwnedErpCandidateCapsule } from './maintenance-erp-candidate.fixture.mjs';
+import { OwnedErpCandidateCapsule, redactedStartupDiagnostic } from './maintenance-erp-candidate.fixture.mjs';
 import { actualPhaseMaterials, stablePhaseStatus } from './maintenance-erp-phase-correlation.fixture.mjs';
 import { toStopped } from './maintenance-transition-fixture.mjs';
 import { CONTRACT, verifyContext, secureJson } from '../ops/production-config-guard.mjs';
@@ -156,8 +156,7 @@ async function startNativeApi(capsule,pg,manifest,creation) {
     }
   }catch{
     const stopped=capsule.inspectContainer(id),logs=capsule.logs(id);
-    creation.startupDiagnostic={running:stopped.State.Running,status:stopped.State.Status,exitCode:stopped.State.ExitCode,oomKilled:stopped.State.OOMKilled,
-      logSha256:hash(logs),signals:Object.fromEntries(['EACCES','PUBLIC_FILE_UNTRUSTED','PUBLIC_MANIFEST','BACKGROUND_STARTUP_HOLD','OWNED_ERP_CAPSULE_REQUIRED','MODULE_NOT_FOUND','SCHEMA'].map(code=>[code,logs.includes(code)]))};
+    creation.startupDiagnostic=redactedStartupDiagnostic(stopped,logs);
     throw Error('NATIVE_FIXTURE_HOLD=API_STARTUP_CONTRACT_FAILED');
   }
   const status=await stablePhaseStatus(()=>capsule.status(candidate)); capsule.verifySession(candidate,status);

@@ -6,6 +6,7 @@ import { DataScopeHelper } from '../org/helpers/data-scope.helper';
 import { DataScopeContext } from '../org/services/data-scope.service';
 import { INV_LEDGER_CHANGE_TYPE } from '../wms/inv-ledger-change-types';
 import { writeInvLedger } from '../wms/inventory-ledger.writer';
+import { lockTempProductionReferences } from '../wms/temp-production-reversal';
 
 const SOURCE_TYPE = 'FARM_MEDICINE';
 
@@ -365,6 +366,8 @@ export class FarmMedicineService {
     const safeItems = normalizeItems(items);
 
     await this.ds.transaction(async manager => {
+      // No quantity-pool acquisition follows this medicine-only path.
+      await lockTempProductionReferences(manager, safeItems.map(item => item.batch_no));
       for (const item of safeItems) {
         const qty = item.qty;
         const expireDate = item.expire_date ? normalizeDate(item.expire_date, 'expire_date') : null;

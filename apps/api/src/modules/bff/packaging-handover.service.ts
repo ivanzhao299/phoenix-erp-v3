@@ -9,7 +9,7 @@ import { PackagingWorkflowPolicy } from './packaging-workflow-policy';
 import { completePackingSources, originalOutputs, packingEvidence, packingHash } from './packaging-evidence.service';
 import { PackagingInventoryIntegrationService } from '../sales-v2/services/packaging-inventory-integration.service';
 import { resolvePackagingIdentity, resolvePackagingSourceContext } from './packaging-readiness';
-import { lockPacking } from './packaging-protection';
+import { lockPacking, guardPackingSourceReferences } from './packaging-protection';
 
 export function uuid(value:unknown):string {
   if(typeof value!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value))throw new BadRequestException('INVALID_ID');return value;
@@ -86,6 +86,8 @@ export class PackagingHandoverService {
         if(d.handover.quality!=='VERIFIED')throw new ConflictException('EVIDENCE_PARTIAL');
       }
       if(action==='PRINT_RESULT')validatePackingCommand(action,body);
+      if(action==='PRINT')await guardPackingSourceReferences(db,code,'PRINT');
+      if(action==='CONFIRM'||action==='REGISTER')await guardPackingSourceReferences(db,code,'INVENTORY');
       const op=randomUUID();await db.query(`INSERT INTO pkg_packing_operations(id,actor_id,action,idempotency_key,packing_id,payload_hash,state)
         VALUES($1,$2,$3,$4,$5,$6,'PENDING')`,[op,actor,action,key,r.id,payloadHash]);
       const emit=async(type:string,payload:any,boxId:string|null=null,sessionId:string|null=null)=>{

@@ -142,6 +142,8 @@ export const PAGE_PERMS: Record<string, PagePermission> = {
   },
 
   /** 产蛋录入：现场/农场/兽医录入；管理层/成本会计/股东查看（产量数据是成本核算基础） */
+  production_inbound: {write:[],read:[]},
+  production_reports: {write:[],read:[]},
   egglog: {
     write: [R.ADMIN, R.FARM_MGR, R.VET, R.BREEDER],
     read:  [R.CEO, R.WMS_MGR, R.QA_MGR, R.FIN_CFO, R.FIN_ACCT, R.FIN_COST, R.AUDITOR, R.SHAREHOLDER_VIEW],
@@ -300,6 +302,8 @@ export const PAGE_MENU_PERMS: Record<string, MobileMenuPermission> = {
     write: ['MENU_FARM_DAILY', 'MENU_FARM_DATA', 'MENU_FARM_VET'],
     read: ['MENU_FARM_DAILY', 'MENU_FARM_DATA', 'MENU_FARM_VET', 'MENU_QA_OP', 'MENU_QA_MGR'],
   },
+  production_inbound: {write:['MENU_PROD_INBOUND'],read:['MENU_PROD_INBOUND']},
+  production_reports: {write:['MENU_FARM_DAILY'],read:['MENU_FARM_DAILY']},
   egglog: {
     write: ['MENU_FARM_DAILY', 'MENU_FARM_DATA'],
     read: ['MENU_FARM_DAILY', 'MENU_FARM_DATA', 'MENU_WMS_VIEW', 'MENU_QA_OP', 'MENU_QA_MGR'],

@@ -26,6 +26,7 @@ const TITLE_KEY_MAP: Record<string, string> = {
   "/breeding":                     "menu.brd-overview",
   "/breeding/henhouse":            "menu.brd-house",
   "/breeding/flock":               "menu.brd-flock",
+  "/breeding/flock-lifecycle":      "menu.brd-lifecycle",
   "/breeding/daily":               "menu.brd-daily",
   "/breeding/immune":              "menu.brd-immune",
   "/breeding/medicine":            "menu.brd-medicine",

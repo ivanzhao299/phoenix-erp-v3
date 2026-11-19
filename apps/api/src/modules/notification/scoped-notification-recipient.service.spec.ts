@@ -25,4 +25,13 @@ describe('ScopedNotificationRecipientService', () => {
     const service = new ScopedNotificationRecipientService(ds as never, dataScope as never);
     await expect(service.resolve('COMP-A', ['M'])).resolves.toEqual([]);
   });
+  it('requires the actual warehouse in each permission menu scope for a physical inventory notification',async()=>{
+    const ds={query:jest.fn().mockResolvedValue(['1','2','3','4'].map(user_id=>({user_id,menu_code:'M',role_codes:[]})))};
+    const dataScope={resolve:jest.fn(async(id:string)=>({isGlobal:id==='1',allowedCompanyCodes:id==='4'?['COMP-B']:['COMP-A'],
+      allowedWarehouseCodes:id==='2'?['WH-A']:['WH-B']}))};
+    const service=new ScopedNotificationRecipientService(ds as never,dataScope as never);
+    await expect(service.resolve('COMP-A',['M'],'WH-A')).resolves.toEqual(['1','2']);
+    await expect(service.resolve('COMP-A',['M'],'WH-B')).resolves.toEqual(['1','3']);
+    await expect(service.resolve('COMP-A',['M'],'')).resolves.toEqual([]);
+  });
 });

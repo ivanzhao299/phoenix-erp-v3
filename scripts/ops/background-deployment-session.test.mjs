@@ -7,7 +7,11 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { createHash } from 'node:crypto';
-import { discoverParticipants, executeFencedDeployment, exactReanchorBinding, fullDeploymentBinding, spawnDeploymentBody, assertLatestMain } from './background-deployment-session.mjs';
+import { discoverParticipants, executeFencedDeployment, exactReanchorBinding, fullDeploymentBinding, spawnDeploymentBody, assertLatestMain, assertReanchorLineage } from './background-deployment-session.mjs';
+import { validateBinding, assertSameBinding, bindingFromPrivateRecord, BackgroundManifestPublisher } from './background-control-manifest.mjs';
+import { assertReanchorPromotion } from './background-control-coordinator.mjs';
+import { assertReanchorAbortRuntime, assertReanchorStrandedRuntime } from './reconcile-background-control.mjs';
+import { assessLegacyTransition } from './background-control-legacy-transition.mjs';
 import { assertBackgroundMount, assertBackgroundFence, runCompose } from './phoenix-production-compose.mjs';
 import { validateEffectiveConfig, CONTRACT } from './production-config-guard.mjs';
 import { assertModernReleaseAdmission } from './production-maintenance-admission.mjs';
@@ -19,6 +23,104 @@ const oldSha = 'a'.repeat(40); const targetSha = 'b'.repeat(40);
 const binding = { owner: '1234-1', previousFloorSha: oldSha, targetSha };
 const participant = { containerId: 'c'.repeat(64), revision: oldSha, bootId: '00000000-0000-4000-8000-000000000001', allowedKinds: ['LOCAL'] };
 const next = { ...participant, containerId: 'd'.repeat(64), revision: targetSha, bootId: '00000000-0000-4000-8000-000000000002' };
+const configFloorSha = 'e'.repeat(40);
+const descendantBinding = { ...binding, deployMode: 'api', previousConfigFloorSha: configFloorSha };
+const copy = value => JSON.parse(JSON.stringify(value));
+function promotionFixture() {
+  const images = { api: { revision: oldSha, imageId: 'sha256:' + '1'.repeat(64) }, web: { revision: oldSha, imageId: 'sha256:' + '2'.repeat(64) } };
+  return { version: 3, approvedSha: targetSha, previousFloor: { floorSha: configFloorSha },
+    previousActive: { floorSha: configFloorSha, active: images }, scope: { baseline: oldSha, target: targetSha, changed: [] },
+    marker: { runId: binding.owner, target: targetSha, previousFloorSha: configFloorSha, previous: copy(images) } };
+}
+test('descendant API authorization keeps old config floor and old runtime independently bound', () => {
+  const env = { DEPLOY_MODE: 'api', BUILD_API: 'true', BUILD_WEB: 'false', RUN_MIG: 'false', APPROVED_CONFIG_FLOOR_SHA: targetSha,
+    APPROVED_PREVIOUS_FLOOR_SHA: configFloorSha, TARGET_SHA: targetSha, DEPLOY_RUN_ID: binding.owner };
+  const floor = { version: 3, phase: 'READY', chanjetPolicy: 'HOLD', readonlyApproval: null, floorSha: configFloorSha };
+  const active = { version: 3, outcome: 'SUCCESS', floorSha: configFloorSha, active: { api: { revision: oldSha }, web: { revision: oldSha } } };
+  assert.deepEqual(exactReanchorBinding(env, floor, active), descendantBinding);
+  assert.throws(() => exactReanchorBinding({ ...env, APPROVED_PREVIOUS_FLOOR_SHA: oldSha }, floor, active), /OLD_FLOOR_RUNTIME_BINDING/);
+  assert.throws(() => exactReanchorBinding(env, floor, { ...active, active: { api: { revision: oldSha }, web: { revision: configFloorSha } } }), /REANCHOR_RUNTIME_PAIR_REQUIRED/);
+  assert.throws(() => exactReanchorBinding(env, floor, { ...active, active: { api: { revision: targetSha }, web: { revision: targetSha } } }), /OLD_FLOOR_RUNTIME_BINDING/);
+});
+test('new private binding rejects malformed fields, missing transport fields and mode changes', () => {
+  assert.deepEqual(bindingFromPrivateRecord(copy({ ...descendantBinding, phase: 'FENCED' })), descendantBinding);
+  for (const update of [{ previousConfigFloorSha: undefined }, { previousConfigFloorSha: null }, { previousConfigFloorSha: '' },
+    { previousConfigFloorSha: oldSha }, { deployMode: undefined }, { deployMode: 'full' }, { configFloorSha }]) {
+    assert.throws(() => validateBinding({ ...descendantBinding, ...update }), /API_REANCHOR_CONFIG_FLOOR_BINDING/);
+  }
+  for (const key of ['previousConfigFloorSha', 'deployMode']) {
+    const incomplete = copy(descendantBinding); delete incomplete[key];
+    assert.throws(() => assertSameBinding(incomplete, descendantBinding), /OWNER_OR_TRANSACTION/);
+    assert.throws(() => assertSameBinding(descendantBinding, incomplete), /OWNER_OR_TRANSACTION|API_REANCHOR/);
+  }
+  assert.throws(() => assertSameBinding({ ...descendantBinding, previousConfigFloorSha: 'f'.repeat(40) }, descendantBinding), /OWNER_OR_TRANSACTION/);
+});
+test('F to R to T ancestry and migration receipts are checked before descendant fencing', () => {
+  const calls = [], scope = { baseline: oldSha, target: targetSha, changed: ['reviewed.ts'] };
+  const dependencies = { root: '/isolated', probe: (_root, args) => calls.push(args), readScope: (_root, baseline, target) => {
+    assert.equal(baseline, oldSha); assert.equal(target, targetSha); return scope;
+  }, verifyReceipts: (_root, actual) => { assert.equal(actual, scope); calls.push('receipt'); return true; } };
+  assertReanchorLineage(descendantBinding, dependencies);
+  assert.deepEqual(calls, [['merge-base', '--is-ancestor', configFloorSha, oldSha], ['merge-base', '--is-ancestor', oldSha, targetSha], 'receipt']);
+  for (const rejectedEdge of [0, 1]) {
+    let edge = 0, read = false;
+    assert.throws(() => assertReanchorLineage(descendantBinding, { ...dependencies, probe: () => { if (edge++ === rejectedEdge) throw Error('private git details'); }, readScope: () => { read = true; } }), /REANCHOR_LINEAGE_UNVERIFIED/);
+    assert.equal(read, false);
+  }
+  assert.throws(() => assertReanchorLineage(descendantBinding, { ...dependencies, verifyReceipts: () => { throw Error('absent'); } }), /REANCHOR_MIGRATION_RECEIPT_REQUIRED/);
+  assert.throws(() => assertReanchorLineage(descendantBinding, { ...dependencies, verifyReceipts: () => false }), /REANCHOR_MIGRATION_RECEIPT_REQUIRED/);
+  const source = fs.readFileSync(new URL('./background-deployment-session.mjs', import.meta.url), 'utf8');
+  assert.ok(source.indexOf('    assertReanchorLineage(binding);') < source.indexOf('    const participants = discoverParticipants'));
+});
+test('real isolated git history proves both lineage edges and refuses a foreign target', t => {
+  const directory = fs.mkdtempSync(path.resolve('artifacts/reanchor-lineage-'));
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const run = args => { const result = spawnSync('git', args, { cwd: directory, encoding: 'utf8' }); if (result.status !== 0) throw Error('isolated git command failed'); return result.stdout.trim(); };
+  run(['init', '--quiet']);
+  const commit = label => { run(['-c', 'user.name=Isolated Test', '-c', 'user.email=test@example.invalid', 'commit', '--allow-empty', '--no-gpg-sign', '-qm', label]); return run(['rev-parse', 'HEAD']); };
+  const F = commit('floor'), R = commit('runtime'), T = commit('target');
+  const actual = { ...descendantBinding, previousConfigFloorSha: F, previousFloorSha: R, targetSha: T };
+  assertReanchorLineage(actual, { root: directory, probe: (_root, args) => run(args), readScope: () => ({ changed: [] }) });
+  run(['checkout', '--orphan', 'foreign']); const foreign = commit('unrelated');
+  assert.throws(() => assertReanchorLineage({ ...actual, targetSha: foreign }, { root: directory, probe: (_root, args) => run(args), readScope: () => ({ changed: [] }) }), /REANCHOR_LINEAGE_UNVERIFIED/);
+});
+test('promotion archive ties F, R, T and owner together before final success or abort', () => {
+  const promotion = promotionFixture(); assertReanchorPromotion(descendantBinding, promotion);
+  assertReanchorAbortRuntime(descendantBinding, promotion, copy(promotion.previousActive.active));
+  for (const change of [p => { p.previousFloor.floorSha = oldSha; }, p => { p.previousActive.floorSha = oldSha; },
+    p => { p.previousActive.active.api.revision = configFloorSha; }, p => { p.previousActive.active.web.revision = targetSha; },
+    p => { p.approvedSha = oldSha; }, p => { p.marker.runId = '999-1'; }, p => { p.marker.previousFloorSha = oldSha; },
+    p => { p.marker.previous.api.revision = configFloorSha; }, p => { p.scope.baseline = configFloorSha; }]) {
+    const wrong = copy(promotion); change(wrong); assert.throws(() => assertReanchorPromotion(descendantBinding, wrong), /REANCHOR_PROMOTION_AUTHORITY/);
+  }
+  const moved = copy(promotion.previousActive.active); moved.api.imageId = 'sha256:' + '9'.repeat(64);
+  assert.throws(() => assertReanchorAbortRuntime(descendantBinding, promotion, moved), /RUNTIME_DRIFT/);
+});
+test('serialized private authority retains F while public projection only exposes R participant and T', async () => {
+  let record = null, manifest = null;
+  const publisher = new BackgroundManifestPublisher({}, { guard: () => {}, inspect: () => ({}), readPrivate: () => copy(record),
+    readPublic: () => copy(manifest), writePrivate: value => { record = copy(value); }, writePublic: value => { manifest = copy(value); }, readHighWater: () => 0, writeHighWater: () => {} });
+  publisher.fence(descendantBinding, [participant]); assert.equal(record.previousConfigFloorSha, configFloorSha);
+  assert.equal(manifest.participants[0].revision, oldSha); assert.equal(manifest.targetSha, targetSha);
+  assert.equal(Object.hasOwn(manifest, 'previousConfigFloorSha'), false); assert.equal(JSON.stringify(manifest).includes(configFloorSha), false);
+  publisher.assertOwned(copy(descendantBinding));
+  const intact = copy(record); delete record.previousConfigFloorSha;
+  let verified = false;
+  await assert.rejects(publisher.open(descendantBinding, [next], async () => { verified = true; return true; }), /OWNER_OR_TRANSACTION/);
+  assert.equal(verified, false); assert.equal(manifest.phase, 'FENCED'); record = intact;
+  await publisher.open(descendantBinding, [next], async () => true); assert.equal(manifest.phase, 'OPEN');
+});
+test('stranded descendant cleanup requires original F and unchanged full runtime pins', () => {
+  const promotion = promotionFixture(), floor = { floorSha: configFloorSha }, active = promotion.previousActive, actual = copy(active.active);
+  assert.equal(assertReanchorStrandedRuntime(descendantBinding, floor, active, actual), true);
+  assert.throws(() => assertReanchorStrandedRuntime(descendantBinding, { floorSha: oldSha }, active, actual), /DESCENDANT_REANCHOR_RUNTIME_BINDING/);
+  const moved = copy(actual); moved.web.imageId = 'sha256:' + '3'.repeat(64);
+  assert.throws(() => assertReanchorStrandedRuntime(descendantBinding, floor, active, moved), /DESCENDANT_REANCHOR_RUNTIME_BINDING/);
+});
+test('modern descendant binding cannot authorize a legacy stop-and-reconcile operation', async () => {
+  const result = await assessLegacyTransition({ binding: descendantBinding });
+  assert.equal(result.eligible, false); assert.ok(result.reasons.includes('MODERN_REANCHOR_BINDING_NOT_LEGACY'));
+});
 function fixture(overrides = {}) {
   const events = []; let connected = true;
   const coordinator = {
@@ -173,7 +275,7 @@ test('workflow staged helper closure imports without access to checkout neighbou
 });
 test('API-only body checks main before each mutation boundary and does not initialize shared Web content', () => {
   const workflow = fs.readFileSync(new URL('../../.github/workflows/deploy.yml', import.meta.url), 'utf8');
-  for (const operation of ['node "$FLOOR_STAGE/promote-production-config-floor.mjs"', 'git merge --ff-only origin/main', 'node scripts/ops/production-deployment-state.mjs switch api', 'node scripts/ops/production-deployment-state.mjs complete']) {
+  for (const operation of ['production_promote_floor "$FLOOR_STAGE"', 'git merge --ff-only origin/main', 'production_state switch api', 'production_state complete']) {
     const index = workflow.indexOf(operation); assert.ok(index > 0);
     assert.match(workflow.slice(index - 80, index), /assert_target_main\s*$/);
   }
@@ -272,6 +374,19 @@ function drainFixture() {
   const deps = { env: { DEPLOY_RUN_ID: binding.owner, TARGET_SHA: targetSha }, readState: file => file.endsWith('background-control.json') ? record : proof, readManifest: () => manifest, metadata: () => actual };
   return { record, manifest, proof, actual, deps };
 }
+test('Compose requires the new F authorization on both serialized DRAINED and private records', () => {
+  const fixture = () => {
+    const f = drainFixture();
+    for (const row of [f.record, f.proof]) Object.assign(row, { deployMode: 'api', previousConfigFloorSha: configFloorSha });
+    f.deps.readState = file => copy(file.endsWith('background-control.json') ? f.record : f.proof);
+    return f;
+  };
+  assert.equal(assertBackgroundFence('/fixture', fixture().deps).previousConfigFloorSha, configFloorSha);
+  for (const modify of [f => { delete f.proof.previousConfigFloorSha; }, f => { delete f.record.previousConfigFloorSha; },
+    f => { f.proof.previousConfigFloorSha = 'f'.repeat(40); }, f => { delete f.proof.deployMode; }, f => { f.record.deployMode = 'full'; }]) {
+    const f = fixture(); modify(f); assert.throws(() => assertBackgroundFence('/fixture', f.deps), /BACKGROUND_DRAIN_PROOF_REQUIRED/);
+  }
+});
 test('protected API mutation requires a private exact-run modern DRAINED proof, not an OPEN manifest or legacy eligibility', () => {
   { const f = drainFixture(); assert.equal(assertBackgroundFence('/fixture', f.deps), f.proof); }
   for (const modify of [

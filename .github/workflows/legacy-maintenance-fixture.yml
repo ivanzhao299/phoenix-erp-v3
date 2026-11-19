@@ -201,7 +201,9 @@ jobs:
           mkdir -m 0700 -p "$native_export"
           native_node="$(command -v node)"
           set +e
-          /usr/bin/timeout --signal=TERM --kill-after=45s 30m \
+          # This bounds the disposable setup and both scheduler observations
+          # in addition to the real, independently enforced maintenance window.
+          /usr/bin/timeout --signal=TERM --kill-after=45s 45m \
           sudo /usr/bin/env -i PATH="$(dirname "$native_node"):/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
             NATIVE_FIXTURE_FLOW=legacy-first-switch NATIVE_FIXTURE_HOSTED=github-hosted-exclusive-vm NATIVE_FIXTURE_MAJOR="$NATIVE_PG_MAJOR" \
             NATIVE_FIXTURE_SHA="$GITHUB_SHA" NATIVE_FIXTURE_NODE="$native_node" \
@@ -226,6 +228,17 @@ jobs:
                 sudo cat "$native_root/$native_name" | tail -n 40 || true
               fi
             done
+          fi
+          # Observe ordinary host link metadata only after this disposable fixture failed.
+          # The original failure code below remains authoritative; no production reader changes.
+          if [ "$native_result" -ne 0 ]; then
+            /usr/bin/timeout --signal=TERM --kill-after=5s 30s \
+            sudo /usr/bin/env -i PATH="$(dirname "$native_node"):/usr/bin:/bin" \
+              CI="$CI" GITHUB_ACTIONS="$GITHUB_ACTIONS" RUNNER_ENVIRONMENT="$RUNNER_ENVIRONMENT" \
+              GITHUB_REPOSITORY="$GITHUB_REPOSITORY" GITHUB_JOB="$GITHUB_JOB" GITHUB_SHA="$GITHUB_SHA" GITHUB_RUN_ID="$GITHUB_RUN_ID" \
+              RUNNER_TEMP="$RUNNER_TEMP" NATIVE_FIXTURE_MAJOR="$NATIVE_PG_MAJOR" \
+              NATIVE_FIXTURE_SOURCE="$GITHUB_WORKSPACE" NATIVE_FIXTURE_OUTPUT="$native_root" NATIVE_SCHEDULER_FAILURE_EXIT="$native_result" \
+              "$native_node" "$GITHUB_WORKSPACE/scripts/ci/maintenance-scheduler-link-observation.mjs" || true
           fi
           exit "$native_result"
       - name: Retain native allowlisted evidence
@@ -266,6 +279,7 @@ jobs:
           scripts/ci/maintenance-fixture-authority.test.mjs
           scripts/ci/maintenance-isolated-authority-participant.test.mjs
           scripts/ci/maintenance-isolated-business-recorder.test.mjs
+          scripts/ci/maintenance-scheduler-link-observation.test.mjs
       - name: Actual registered Git and inherited FD9 in an owned isolated image
         run: |
           set -euo pipefail
@@ -358,8 +372,35 @@ jobs:
             artifacts/maintenance-erp-candidate/*/resources.json
             artifacts/maintenance-erp-candidate/*/capsule-build.json
             artifacts/maintenance-erp-candidate/*/legacy-source-protocol.json
+            artifacts/maintenance-erp-candidate/*/pg*-startup-diagnostic.json
             artifacts/maintenance-erp-candidate/*/pg*-detector-canary.json
             artifacts/maintenance-erp-candidate/*/pg*-actual-erp-root-binding.json
             artifacts/maintenance-erp-candidate/*/pg*-actual-erp-phase-correlation.json
             artifacts/maintenance-erp-candidate/*/pg*-actual-readiness-probe.json
             artifacts/maintenance-erp-candidate/*/pg*-phase-chain/*.json
+  modern-native-host:
+    name: Modern Schema Native Host Control PG18
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Exclusive experiment with no production environment, secrets or deploy.
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Preload isolated fixture images
+        run: |
+          set -euo pipefail
+          test "$RUNNER_ENVIRONMENT" = github-hosted
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test -x /usr/sbin/nft
+          docker pull node:20-alpine
+          docker pull postgres:18-alpine
+      - name: Real host lock, kernel packets and native PostgreSQL continuity
+        run: bash scripts/ci/modern-schema-native-host.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: modern-schema-native-host-proof
+          if-no-files-found: warn
+          retention-days: 14
+          path: artifacts/modern-schema-native-host/result.json

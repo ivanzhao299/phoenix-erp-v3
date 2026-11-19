@@ -171,7 +171,7 @@ function assertLegacyPre(pre, context) {
       || actual.running !== true || actual.health !== 'healthy' || (service !== 'db' && actual.ociRevision !== pin.revision)) hold('LEGACY_FORMAL_PRE_RUNTIME');
   }
 }
-async function deploymentOperationCore({ root, directory, operation, input, value, env, legacy }, dependencies, admit) {
+async function deploymentOperationCore({ root, directory, operation, input, value, env, legacy, schemaRelease }, dependencies, admit) {
   const read = dependencies.readState || secureJson, write = dependencies.atomicState || atomicState;
   const capture = dependencies.captureRuntime || captureRuntime, guard = dependencies.guardProduction || guardProduction;
   const getGit = dependencies.git || git, getScope = dependencies.migrationScope || migrationScope;
@@ -186,11 +186,14 @@ async function deploymentOperationCore({ root, directory, operation, input, valu
     if (JSON.stringify(active.active) !== JSON.stringify(actual)) throw new Error('STATE_HOLD=ACTIVE_PINS_DRIFT');
     const floor = guard(root, directory, previous);
     if (legacy) { assertLegacyFloor(floor, legacy.context); assertLegacyPre(read(legacy.files.pre), legacy.context); }
+    if (schemaRelease && (floor.floorSha !== schemaRelease.targetSha || previous.api.revision !== schemaRelease.runtimeSha
+      || previous.web.revision !== schemaRelease.runtimeSha)) throw new Error('STATE_HOLD=SCHEMA_API_BASELINE');
     const target = env.TARGET_SHA;
     const legacyApi = !eligibility(root, floor, previous.api).allowed;
     const policyPath = path.join(directory, 'policy-transition.json');
     const promotion = present(policyPath) ? read(policyPath) : undefined;
     if (legacy && (!promotion || promotion.previousFloorSha !== legacy.context.previousFloorSha)) hold('LEGACY_PROMOTION_REQUIRED');
+    if (schemaRelease && promotion?.previousFloorSha !== schemaRelease.floorSha) throw new Error('STATE_HOLD=SCHEMA_PROMOTION_REQUIRED');
     if (promotion) {
       validatePolicyTransition(promotion, { runId: env.DEPLOY_RUN_ID, target, actual, now: (dependencies.now || Date.now)() });
       if (promotion.operation !== 'CODE_HOLD' || env.DEPLOY_MODE !== 'api' || env.BUILD_API !== 'true' || env.BUILD_WEB !== 'false' || env.ROTATE_CHANJET_CREDENTIALS === 'true') throw new Error('STATE_HOLD=PROMOTION_SCOPE');
@@ -207,6 +210,9 @@ async function deploymentOperationCore({ root, directory, operation, input, valu
     const discoveredScope = getScope(root, previous.api.revision, target);
     if (legacy && discoveredScope.changed.length !== 0) hold('LEGACY_MIGRATION_PATH_CHANGED');
     const scope = deploymentMigrationScope(discoveredScope, mode);
+    if (schemaRelease && (!scope.changed.length || !same([...scope.changed].sort(), schemaRelease.changedMigrationPaths))) {
+      throw new Error('STATE_HOLD=SCHEMA_SCOPE_MISMATCH');
+    }
     const evidence = env.DEPLOYMENT_EVIDENCE_PRE && env.DEPLOYMENT_EVIDENCE_POST && env.DEPLOYMENT_EVIDENCE_LOG
       ? { pre: env.DEPLOYMENT_EVIDENCE_PRE, post: env.DEPLOYMENT_EVIDENCE_POST, log: env.DEPLOYMENT_EVIDENCE_LOG } : undefined;
     if (!evidence) throw new Error('STATE_HOLD=DEPLOYMENT_EVIDENCE_BINDING');
@@ -225,6 +231,13 @@ async function deploymentOperationCore({ root, directory, operation, input, valu
     // Historical transactions predate mode binding and remain API-only.
     const mode = state.deployMode ?? 'api';
     if (!['api', 'web', 'full'].includes(mode) || (env.DEPLOY_MODE && env.DEPLOY_MODE !== mode)) throw new Error('STATE_HOLD=DEPLOY_MODE');
+    if (schemaRelease && (state.target !== schemaRelease.targetSha || state.floorSha !== schemaRelease.targetSha
+      || state.configSha !== schemaRelease.targetSha || mode !== 'api' || !state.switched || state.switched.web !== false
+      || state.previous?.api?.revision !== schemaRelease.runtimeSha || state.previous?.web?.revision !== schemaRelease.runtimeSha
+      || !same(state.active?.web, state.previous.web) || !Array.isArray(state.migrationPaths)
+      || !same([...state.migrationPaths].sort(), schemaRelease.changedMigrationPaths))) {
+      throw new Error('STATE_HOLD=SCHEMA_DEPLOYMENT_RECORD');
+    }
     if (legacy) {
       assertLegacyDeploymentRecord(state, legacy.context, legacy.files);
       const transaction = read(path.join(directory, 'transaction.json'));
@@ -239,10 +252,13 @@ async function deploymentOperationCore({ root, directory, operation, input, valu
         || promotion.previousFloorSha !== legacy.context.previousFloorSha) hold('LEGACY_PROMOTION_REQUIRED');
     }
     if (operation === 'candidate') {
-      if (!(mode === 'full' ? ['api', 'web'] : [mode]).includes(input) || value !== (legacy ? legacy.context.candidate.imageId : `ghcr.io/ivanzhao299/phoenix-erp-v3/${input}:sha-${state.target}`)) throw new Error('STATE_HOLD=CANDIDATE_REF');
+      const expected = legacy?.context.candidate.imageId || schemaRelease?.candidateImageId ||
+        `ghcr.io/ivanzhao299/phoenix-erp-v3/${input}:sha-${state.target}`;
+      if (!(mode === 'full' ? ['api', 'web'] : [mode]).includes(input) || value !== expected) throw new Error('STATE_HOLD=CANDIDATE_REF');
       if (legacy && (input !== 'api' || state.candidates.api)) hold('LEGACY_CANDIDATE_ALREADY_RECORDED');
       state.candidates[input] = candidateInspector(value, state.target);
       if (legacy && !same(state.candidates.api, legacy.context.candidate)) hold('LEGACY_CANDIDATE_PIN_MISMATCH');
+      if (schemaRelease && state.candidates.api.imageId !== schemaRelease.candidateImageId) throw new Error('STATE_HOLD=SCHEMA_CANDIDATE_PIN');
       await admit();
       const promotionPath = path.join(directory, 'policy-transition.json');
       if (present(promotionPath)) {
@@ -277,6 +293,8 @@ async function deploymentOperationCore({ root, directory, operation, input, valu
         verifyLiveSnapshot(post, binding, dependencies.dockerRead);
       }
       if (legacy && (!state.switched.api || state.switched.web || !same(state.active.api, legacy.context.candidate))) hold('LEGACY_COMPLETE_API_SCOPE');
+      if (schemaRelease && (state.switched.api !== true || state.active.api.revision !== schemaRelease.targetSha
+        || state.active.api.imageId !== schemaRelease.candidateImageId)) throw new Error('STATE_HOLD=SCHEMA_COMPLETE_API_SCOPE');
       state.outcome = operation === 'complete' ? 'SUCCESS' : 'ROLLED_BACK';
       completedActive = { version: CONTRACT.version, configSha: state.configSha, floorSha: state.floorSha, active: state.active, protectedImages: state.protectedImages, outcome: state.outcome, migrationBaseline: state.active.api.revision };
     } else throw new Error('STATE_HOLD=OPERATION');
@@ -284,8 +302,11 @@ async function deploymentOperationCore({ root, directory, operation, input, valu
     // Admission can await an independent authority transport. Reinspect after
     // that wait; no asynchronous boundary may separate final live proof from
     // the SUCCESS records and closure of this deployment's own markers.
-    if (legacy && completedActive) {
-      if (!same(capture(), state.active)) hold('LEGACY_POST_SWITCH_IDENTITY');
+    if ((legacy || schemaRelease) && completedActive) {
+      if (!same(capture(), state.active)) {
+        if (legacy) hold('LEGACY_POST_SWITCH_IDENTITY');
+        throw new Error('STATE_HOLD=SCHEMA_POST_SWITCH_IDENTITY');
+      }
       const binding = { runId: env.DEPLOY_RUN_ID, runAttempt: env.DEPLOY_RUN_ATTEMPT, targetSha: state.target, configFloorSha: state.floorSha, deployMode: mode, evidenceSchema: state.deployMode ? MODE_EVIDENCE_SCHEMA : EVIDENCE_SCHEMA };
       verifyLiveSnapshot(read(state.evidence.post), binding, dependencies.dockerRead);
     }
@@ -314,6 +335,24 @@ export const beginLegacyMaintenanceDeployment = (request, dependencies = {}) => 
 export const recordLegacyMaintenanceCandidate = (request, dependencies = {}) => legacyStateOperation('candidate', request, dependencies);
 export const switchLegacyMaintenanceDeployment = (request, dependencies = {}) => legacyStateOperation('switch', request, dependencies);
 export const completeLegacyMaintenanceDeployment = (request, dependencies = {}) => legacyStateOperation('complete', request, dependencies);
+
+/** Private typed entry for the supervising process. The ordinary CLI cannot
+ * reach this entry, and every write still needs the supervisor's admission. */
+export async function runModernSchemaDeploymentState({ operation, input, value, schemaRelease, env, admit }, dependencies = {}) {
+  const directory = dependencies.directory || CONTRACT.stateDirectory;
+  const root = dependencies.root || CONTRACT.repository;
+  if (!['begin', 'candidate', 'switch', 'complete'].includes(operation) || typeof admit !== 'function'
+    || !schemaRelease || !REVISION.test(schemaRelease.targetSha) || !REVISION.test(schemaRelease.runtimeSha)
+    || !IMAGE_ID.test(schemaRelease.candidateImageId) || !Array.isArray(schemaRelease.changedMigrationPaths)
+    || env.DEPLOY_RUN_ID !== schemaRelease.owner || env.TARGET_SHA !== schemaRelease.targetSha
+    || env.DEPLOY_MODE !== 'api' || env.BUILD_API !== 'true' || env.BUILD_WEB !== 'false' || env.RUN_MIG !== 'false'
+    || (['candidate', 'switch'].includes(operation) && input !== 'api')) throw new Error('STATE_HOLD=SCHEMA_FORMAL_SCOPE');
+  const admitted = async () => {
+    if (await admit() !== true) throw new Error('STATE_HOLD=SCHEMA_FORMAL_AUTHORITY');
+  };
+  await admitted();
+  return deploymentOperationCore({ root, directory, operation, input, value, env, schemaRelease }, dependencies, admitted);
+}
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   try {

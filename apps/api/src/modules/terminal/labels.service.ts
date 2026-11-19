@@ -1,6 +1,8 @@
+import { assertOfficialInventoryBatches } from '../wms/official-inventory';
 import { Injectable } from '@nestjs/common';
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
+import { lockTempProductionReferences } from '../wms/temp-production-reversal';
 
 /**
  * LabelsService — V3 标签模块业务服务
@@ -16,7 +18,10 @@ export class LabelsService {
   // ─── 写入打印审计 ───────────────────────────────────────────
   async recordPrint(body: any, userId: number) {
     try {
-      const row = await this.em.query(
+      const row = await this.em.transaction(async manager => {
+        await lockTempProductionReferences(manager, [body.batch_no]);
+        await assertOfficialInventoryBatches(manager, [body.batch_no]);
+        return manager.query(
         `INSERT INTO lbl_records (
            code, label_type, grade_code, grade_name, pack_name, batch_no,
            produce_date, expiry_date, price,
@@ -44,6 +49,7 @@ export class LabelsService {
           userId || null,
         ],
       );
+      });
       return { code: 200, data: row[0], msg: 'label record saved' };
     } catch (e: any) {
       return { code: 500, msg: e?.message || 'record failed' };

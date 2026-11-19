@@ -77,6 +77,7 @@ export async function resolvePackagingSourceContext(db: Db, input: {
     || new Date(`${eggDate}T00:00:00Z`).toISOString().slice(0, 10) !== eggDate) fail('SOURCE_DATE_MISSING', '包装权威生产日期缺失或无效');
   if (!houses.length || houses.some(h => !h.house_code)) fail('SOURCE_MISSING', '包装缺来源鸡舍');
   const houseCodes = [...new Set<string>(houses.map(h => h.house_code))].sort();
+  for(const code of houseCodes) await db.query("SELECT pg_advisory_xact_lock(hashtext('phoenix:daily-house'),hashtext($1))",[code]);
   let context: PackagingSourceContext | undefined;
   const houseProfiles: NonNullable<PackagingSourceContext['houseProfiles']> = {};
   const profileCodes = new Set<string>();

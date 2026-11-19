@@ -1,0 +1,204 @@
+Changed-file lint base: a7c0045b9f6d1a475b5a10710184e66d9c494aa0; files: 26
+apps/web/src/app/(admin)/breeding/daily/page.tsx:3:52 warning @typescript-eslint/no-unused-vars 'Fragment' is defined but never used.
+apps/web/src/app/(admin)/breeding/daily/page.tsx:3:62 warning @typescript-eslint/no-unused-vars 'useMemo' is defined but never used.
+apps/web/src/app/(admin)/breeding/daily/page.tsx:29:21 warning @typescript-eslint/no-unused-vars 'CheckCircle' is defined but never used.
+apps/web/src/app/(admin)/breeding/daily/page.tsx:29:39 warning @typescript-eslint/no-unused-vars 'XIcon' is defined but never used.
+apps/web/src/app/(admin)/breeding/daily/page.tsx:43:3 warning @typescript-eslint/no-unused-vars 'dailyReportEggTotal' is defined but never used.
+apps/web/src/app/(admin)/breeding/daily/page.tsx:44:3 warning @typescript-eslint/no-unused-vars 'dailyReportInboundIdempotencyKey' is defined but never used.
+apps/web/src/app/(admin)/breeding/daily/page.tsx:49:10 warning @typescript-eslint/no-unused-vars 'readProductionInboundResult' is defined but never used.
+apps/web/src/app/(admin)/breeding/daily/page.tsx:53:7 warning @typescript-eslint/no-unused-vars 'FIELDS_A' is assigned a value but never used.
+apps/web/src/app/(admin)/breeding/daily/page.tsx:54:7 warning @typescript-eslint/no-unused-vars 'FIELDS_B' is assigned a value but never used.
+apps/web/src/app/(admin)/breeding/daily/page.tsx:79:5 warning @typescript-eslint/no-unused-vars 'showConfirm' is assigned a value but never used.
+apps/web/src/app/(admin)/breeding/daily/page.tsx:83:5 warning @typescript-eslint/no-unused-vars 'can' is assigned a value but never used.
+apps/web/src/app/(admin)/breeding/daily/page.tsx:83:10 warning @typescript-eslint/no-unused-vars 'canCreate' is assigned a value but never used.
+apps/web/src/app/(admin)/breeding/daily/page.tsx:106:9 warning @typescript-eslint/no-unused-vars 'HEADS_ROW1' is assigned a value but never used.
+apps/web/src/app/(admin)/breeding/daily/page.tsx:107:9 warning @typescript-eslint/no-unused-vars 'HEADS_ROW2' is assigned a value but never used.
+apps/web/src/app/(admin)/breeding/daily/page.tsx:145:46 error @typescript-eslint/no-explicit-any Unexpected any. Specify a different type.
+apps/web/src/app/(admin)/breeding/daily/page.tsx:190:6 warning react-hooks/exhaustive-deps React Hook useCallback has a missing dependency: 't'. Either include it or remove the dependency array.
+apps/web/src/app/(admin)/breeding/daily/page.tsx:218:6 warning react-hooks/exhaustive-deps React Hook useEffect has missing dependencies: 'fetchFlocks' and 'fetchHouses'. Either include them or remove the dependency array.
+apps/web/src/app/(admin)/breeding/daily/page.tsx:259:6 warning react-hooks/exhaustive-deps React Hook useEffect has a missing dependency: 'API_BASE'. Either include it or remove the dependency array.
+apps/web/src/app/(admin)/breeding/daily/page.tsx:306:9 warning @typescript-eslint/no-unused-vars 'handleApprove' is assigned a value but never used.
+apps/web/src/app/(admin)/breeding/daily/page.tsx:354:17 error @typescript-eslint/no-explicit-any Unexpected any. Specify a different type.
+apps/web/src/app/(admin)/breeding/daily/page.tsx:527:32 error @typescript-eslint/no-explicit-any Unexpected any. Specify a different type.
+apps/web/src/app/(admin)/breeding/daily/page.tsx:542:32 error @typescript-eslint/no-explicit-any Unexpected any. Specify a different type.
+apps/web/src/app/(admin)/breeding/device/[houseCode]/page.tsx:412:5 error react-hooks/set-state-in-effect Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/home/jinhuit/PhenixCodebase/phoenix-erp-v3/.worktrees/flock-lifecycle-review-20261117/apps/web/src/app/(admin)/breeding/device/[houseCode]/page.tsx:412:5
+  410 |   }, [houseCode, trendRange]);
+  411 |   useEffect(() => {
+> 412 |     loadRealtime();
+      |     ^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  413 |   }, [loadRealtime]);
+  414 |   useEffect(() => {
+  415 |     loadTrends();
+apps/web/src/app/(admin)/breeding/device/[houseCode]/page.tsx:415:5 error react-hooks/set-state-in-effect Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/home/jinhuit/PhenixCodebase/phoenix-erp-v3/.worktrees/flock-lifecycle-review-20261117/apps/web/src/app/(admin)/breeding/device/[houseCode]/page.tsx:415:5
+  413 |   }, [loadRealtime]);
+  414 |   useEffect(() => {
+> 415 |     loadTrends();
+      |     ^^^^^^^^^^ Avoid calling setState() directly within an effect
+  416 |   }, [loadTrends]);
+  417 |   useEffect(() => {
+  418 |     if (autoRef) timerRef.current = setInterval(loadRealtime, 60_000);else if (timerRef.current) clearInterval(timerRef.current);
+apps/web/src/app/(admin)/breeding/flock/page.tsx:61:5 warning @typescript-eslint/no-unused-vars 'can' is assigned a value but never used.
+apps/web/src/app/(admin)/breeding/flock/page.tsx:162:5 error react-hooks/set-state-in-effect Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/home/jinhuit/PhenixCodebase/phoenix-erp-v3/.worktrees/flock-lifecycle-review-20261117/apps/web/src/app/(admin)/breeding/flock/page.tsx:162:5
+  160 |     })), [flockFacts, flockLoadedAt, farms, houses, lang, breedOptions]);
+  161 |   useEffect(() => {
+> 162 |     load();
+      |     ^^^^ Avoid calling setState() directly within an effect
+  163 |   }, [load]);
+  164 |   const handleEdit = (row: FlockCard) => {
+  165 |     const r = (row._raw || {}) as Record<string, string | number | null>;
+apps/web/src/app/(admin)/breeding/henhouse/page.tsx:84:40 error @typescript-eslint/no-explicit-any Unexpected any. Specify a different type.
+apps/web/src/app/(admin)/breeding/henhouse/page.tsx:139:5 error react-hooks/set-state-in-effect Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/home/jinhuit/PhenixCodebase/phoenix-erp-v3/.worktrees/flock-lifecycle-review-20261117/apps/web/src/app/(admin)/breeding/henhouse/page.tsx:139:5
+  137 |   }, [fetchRecords, fetchFlocks]);
+  138 |   useEffect(() => {
+> 139 |     loadData();
+      |     ^^^^^^^^ Avoid calling setState() directly within an effect
+  140 |     fetchFarms().then(res => {
+  141 |       const farms = res || [];
+  142 |       setFarmsList(farms);
+apps/web/src/app/(admin)/breeding/henhouse/page.tsx:154:6 warning react-hooks/exhaustive-deps React Hook useEffect has a missing dependency: 'fetchFarms'. Either include it or remove the dependency array.
+apps/web/src/app/(admin)/layout.tsx:136:9 warning @typescript-eslint/no-unused-vars 'expanded' is assigned a value but never used.
+apps/web/src/app/(admin)/traceability/page.tsx:84:6 error @typescript-eslint/no-explicit-any Unexpected any. Specify a different type.
+apps/web/src/app/(admin)/traceability/page.tsx:105:9 error @typescript-eslint/no-explicit-any Unexpected any. Specify a different type.
+apps/web/src/app/(admin)/traceability/page.tsx:145:36 error @typescript-eslint/no-explicit-any Unexpected any. Specify a different type.
+apps/web/src/app/(admin)/traceability/page.tsx:152:31 error @typescript-eslint/no-explicit-any Unexpected any. Specify a different type.
+apps/web/src/app/(admin)/traceability/page.tsx:164:26 error @typescript-eslint/no-explicit-any Unexpected any. Specify a different type.
+apps/web/src/app/(admin)/traceability/page.tsx:436:44 error @typescript-eslint/no-explicit-any Unexpected any. Specify a different type.
+apps/web/src/app/(admin)/warehouse/daily-close/page.tsx:9:8 warning @typescript-eslint/no-unused-vars 's' is defined but never used.
+apps/web/src/app/(admin)/warehouse/daily-close/page.tsx:23:8 warning @typescript-eslint/no-unused-vars 'u' is defined but never used.
+apps/web/src/app/(admin)/warehouse/daily-close/page.tsx:80:6 warning react-hooks/exhaustive-deps React Hook useCallback has a missing dependency: 'authH'. Either include it or remove the dependency array.
+apps/web/src/app/(admin)/warehouse/daily-close/page.tsx:82:5 error react-hooks/set-state-in-effect Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/home/jinhuit/PhenixCodebase/phoenix-erp-v3/.worktrees/flock-lifecycle-review-20261117/apps/web/src/app/(admin)/warehouse/daily-close/page.tsx:82:5
+  80 |   }, [date]);
+  81 |   useEffect(() => {
+> 82 |     load();
+     |     ^^^^ Avoid calling setState() directly within an effect
+  83 |   }, [load]);
+  84 |   const handleClose = async () => {
+  85 |     if (closing) return;
+apps/web/src/app/(admin)/warehouse/daily-close/page.tsx:265:69 error @typescript-eslint/no-explicit-any Unexpected any. Specify a different type.
+apps/web/src/app/(admin)/warehouse/daily-close/page.tsx:265:114 error @typescript-eslint/no-explicit-any Unexpected any. Specify a different type.
+apps/web/src/app/(mobile)/mobile/mortality/page.tsx:42:37 error @typescript-eslint/no-explicit-any Unexpected any. Specify a different type.
+apps/web/src/app/(mobile)/mobile/mortality/page.tsx:43:15 error @typescript-eslint/no-explicit-any Unexpected any. Specify a different type.
+apps/web/src/app/(mobile)/mobile/mortality/page.tsx:43:55 error @typescript-eslint/no-explicit-any Unexpected any. Specify a different type.
+apps/web/src/app/(mobile)/mobile/mortality/page.tsx:114:5 warning @typescript-eslint/no-unused-vars 'readonly' is assigned a value but never used.
+apps/web/src/app/(mobile)/mobile/mortality/page.tsx:140:65 error @typescript-eslint/no-explicit-any Unexpected any. Specify a different type.
+apps/web/src/app/(mobile)/mobile/mortality/page.tsx:153:17 error @typescript-eslint/no-explicit-any Unexpected any. Specify a different type.
+apps/web/src/app/(mobile)/mobile/mortality/page.tsx:158:6 warning react-hooks/exhaustive-deps React Hook useCallback has a missing dependency: 'tr'. Either include it or remove the dependency array.
+apps/web/src/app/(mobile)/mobile/mortality/page.tsx:160:5 error react-hooks/set-state-in-effect Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/home/jinhuit/PhenixCodebase/phoenix-erp-v3/.worktrees/flock-lifecycle-review-20261117/apps/web/src/app/(mobile)/mobile/mortality/page.tsx:160:5
+  158 |   }, []);
+  159 |   useEffect(() => {
+> 160 |     loadData(date);
+      |     ^^^^^^^^ Avoid calling setState() directly within an effect
+  161 |   }, [date, loadData]);
+  162 |   useEffect(() => {
+  163 |     mobileApi.getFeedHousesDetail()
+apps/web/src/app/(mobile)/mobile/mortality/page.tsx:164:20 error @typescript-eslint/no-explicit-any Unexpected any. Specify a different type.
+apps/web/src/app/(mobile)/mobile/mortality/page.tsx:223:17 error @typescript-eslint/no-explicit-any Unexpected any. Specify a different type.
+apps/web/src/app/layout.tsx:42:9 warning @next/next/no-css-tags Do not include stylesheets manually. See: https://nextjs.org/docs/messages/no-css-tags
+apps/web/src/components/layout/Sidebar.tsx:14:3 warning @typescript-eslint/no-unused-vars 'Megaphone' is defined but never used.
+apps/web/src/components/layout/Sidebar.tsx:16:33 warning @typescript-eslint/no-unused-vars 'BarChart' is defined but never used.
+apps/web/src/components/layout/Sidebar.tsx:17:3 warning @typescript-eslint/no-unused-vars 'Wheat' is defined but never used.
+apps/web/src/components/layout/Sidebar.tsx:425:13 warning @next/next/no-img-element Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element
+apps/web/src/components/shared-selectors/MasterDataSelectors.tsx:27:53 error @typescript-eslint/no-explicit-any Unexpected any. Specify a different type.
+apps/web/src/components/shared-selectors/MasterDataSelectors.tsx:30:30 error @typescript-eslint/no-explicit-any Unexpected any. Specify a different type.
+apps/web/src/components/shared-selectors/MasterDataSelectors.tsx:33:14 error @typescript-eslint/no-explicit-any Unexpected any. Specify a different type.
+apps/web/src/components/shared-selectors/MasterDataSelectors.tsx:33:34 error @typescript-eslint/no-explicit-any Unexpected any. Specify a different type.
+apps/web/src/components/shared-selectors/MasterDataSelectors.tsx:66:16 error @typescript-eslint/no-explicit-any Unexpected any. Specify a different type.
+apps/web/src/components/shared-selectors/MasterDataSelectors.tsx:81:5 error react-hooks/set-state-in-effect Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/home/jinhuit/PhenixCodebase/phoenix-erp-v3/.worktrees/flock-lifecycle-review-20261117/apps/web/src/components/shared-selectors/MasterDataSelectors.tsx:81:5
+  79 |   useEffect(() => {
+  80 |     let alive = true;
+> 81 |     setLoading(true);
+     |     ^^^^^^^^^^ Avoid calling setState() directly within an effect
+  82 |     setFailed(false);
+  83 |     loader().then(list => { if (alive) setOpts(list); }).catch((error) => {
+  84 |       // 只记录受控错误对象，不记录 token/响应体等敏感数据。
+apps/web/src/components/shared-selectors/MasterDataSelectors.tsx:112:72 error @typescript-eslint/no-explicit-any Unexpected any. Specify a different type.
+apps/web/src/components/shared-selectors/MasterDataSelectors.tsx:119:72 error @typescript-eslint/no-explicit-any Unexpected any. Specify a different type.
+apps/web/src/components/shared-selectors/MasterDataSelectors.tsx:139:38 error @typescript-eslint/no-explicit-any Unexpected any. Specify a different type.
+apps/web/src/components/shared-selectors/MasterDataSelectors.tsx:161:36 error @typescript-eslint/no-explicit-any Unexpected any. Specify a different type.
+apps/web/src/components/shared-selectors/MasterDataSelectors.tsx:188:36 error @typescript-eslint/no-explicit-any Unexpected any. Specify a different type.
+apps/web/src/components/shared-selectors/MasterDataSelectors.tsx:197:48 error @typescript-eslint/no-explicit-any Unexpected any. Specify a different type.
+apps/web/src/components/shared-selectors/MasterDataSelectors.tsx:218:45 error @typescript-eslint/no-explicit-any Unexpected any. Specify a different type.
+apps/web/src/components/shared-selectors/MasterDataSelectors.tsx:258:36 error @typescript-eslint/no-explicit-any Unexpected any. Specify a different type.
+apps/web/src/components/shared-selectors/MasterDataSelectors.tsx:288:36 error @typescript-eslint/no-explicit-any Unexpected any. Specify a different type.
+apps/web/src/components/shared-selectors/MasterDataSelectors.tsx:306:31 error @typescript-eslint/no-explicit-any Unexpected any. Specify a different type.
+apps/web/src/components/shared-selectors/MasterDataSelectors.tsx:307:19 error @typescript-eslint/no-explicit-any Unexpected any. Specify a different type.
+apps/web/src/components/shared-selectors/MasterDataSelectors.tsx:326:31 error @typescript-eslint/no-explicit-any Unexpected any. Specify a different type.
+apps/web/src/components/shared-selectors/MasterDataSelectors.tsx:327:19 error @typescript-eslint/no-explicit-any Unexpected any. Specify a different type.
+apps/web/src/components/shared-selectors/MasterDataSelectors.tsx:345:31 error @typescript-eslint/no-explicit-any Unexpected any. Specify a different type.
+apps/web/src/components/shared-selectors/MasterDataSelectors.tsx:346:19 error @typescript-eslint/no-explicit-any Unexpected any. Specify a different type.
+apps/web/src/components/shared-selectors/MasterDataSelectors.tsx:366:36 error @typescript-eslint/no-explicit-any Unexpected any. Specify a different type.
+apps/web/src/components/shared-selectors/MasterDataSelectors.tsx:387:64 error @typescript-eslint/no-explicit-any Unexpected any. Specify a different type.
+apps/web/src/components/shared-selectors/MasterDataSelectors.tsx:404:31 error @typescript-eslint/no-explicit-any Unexpected any. Specify a different type.
+apps/web/src/components/shared-selectors/MasterDataSelectors.tsx:405:19 error @typescript-eslint/no-explicit-any Unexpected any. Specify a different type.
+apps/web/src/components/shared-selectors/MasterDataSelectors.tsx:423:31 error @typescript-eslint/no-explicit-any Unexpected any. Specify a different type.
+apps/web/src/components/shared-selectors/MasterDataSelectors.tsx:424:19 error @typescript-eslint/no-explicit-any Unexpected any. Specify a different type.
+apps/web/src/components/shared-selectors/MasterDataSelectors.tsx:441:36 error @typescript-eslint/no-explicit-any Unexpected any. Specify a different type.
+apps/web/src/components/shared-selectors/MasterDataSelectors.tsx:456:36 error @typescript-eslint/no-explicit-any Unexpected any. Specify a different type.
+apps/web/src/components/shared-selectors/MasterDataSelectors.tsx:482:19 error @typescript-eslint/no-explicit-any Unexpected any. Specify a different type.
+apps/web/src/components/shared-selectors/MasterDataSelectors.tsx:509:36 error @typescript-eslint/no-explicit-any Unexpected any. Specify a different type.
+apps/web/src/components/shared-selectors/MasterDataSelectors.tsx:561:31 error @typescript-eslint/no-explicit-any Unexpected any. Specify a different type.
+apps/web/src/components/shared-selectors/MasterDataSelectors.tsx:562:19 error @typescript-eslint/no-explicit-any Unexpected any. Specify a different type.
+apps/web/src/components/shared-selectors/MasterDataSelectors.tsx:586:31 error @typescript-eslint/no-explicit-any Unexpected any. Specify a different type.
+apps/web/src/components/shared-selectors/MasterDataSelectors.tsx:587:19 error @typescript-eslint/no-explicit-any Unexpected any. Specify a different type.
+apps/web/src/components/shared-selectors/MasterDataSelectors.tsx:607:72 error @typescript-eslint/no-explicit-any Unexpected any. Specify a different type.
+apps/web/src/components/shared-selectors/MasterDataSelectors.tsx:630:27 error @typescript-eslint/no-explicit-any Unexpected any. Specify a different type.
+apps/web/src/components/shared-selectors/MasterDataSelectors.tsx:646:56 error @typescript-eslint/no-explicit-any Unexpected any. Specify a different type.
+apps/web/src/lib/mobile-api.ts:58:25 error @typescript-eslint/no-explicit-any Unexpected any. Specify a different type.
+65 errors / 31 warnings
+PASS: changed files did not increase lint debt

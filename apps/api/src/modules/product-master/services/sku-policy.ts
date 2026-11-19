@@ -24,6 +24,20 @@ export class SkuPolicy {
       AND EXISTS (SELECT 1 FROM packaging_specs sp WHERE sp.spec_code=${alias}.spec_code AND sp.status='ACTIVE')`;
   }
 
+  /** Same explicit company applicability as requireUsable; no inference from product names. */
+  static companyUsableSql(alias:string,companyParameter:string,usage:SkuUsage='any'):string {
+    const sale=usage==='sale'||usage==='sale-stock',stock=usage==='stock'||usage==='sale-stock';
+    return `(${alias}.variety_code IS NULL AND COALESCE(${alias}.org_context_required,false)=false OR(
+      EXISTS(SELECT 1 FROM sys_organizations company WHERE company.org_type='COMPANY' AND company.status='ACTIVE'
+        AND COALESCE(company.company_code,company.org_code)=${companyParameter})
+      AND(SELECT count(*) FROM md_sku_org_scope scope WHERE scope.sku_code=${alias}.sku_code AND scope.scope_type='COMPANY'
+        AND scope.scope_code=${companyParameter})=1
+      AND EXISTS(SELECT 1 FROM md_sku_org_scope scope WHERE scope.sku_code=${alias}.sku_code AND scope.scope_type='COMPANY'
+        AND scope.scope_code=${companyParameter} AND scope.status='ACTIVE'
+        AND(scope.effective_date IS NULL OR scope.effective_date<=CURRENT_DATE) AND(scope.expire_date IS NULL OR scope.expire_date>=CURRENT_DATE)
+        ${sale?'AND scope.sale_enabled=true':''} ${stock?'AND scope.stock_enabled=true':''})))`;
+  }
+
   static usage(value?: string): SkuUsage {
     if (value === undefined || value === 'any') return 'any';
     if (value === 'sale' || value === 'stock' || value === 'sale-stock') return value;
@@ -49,20 +63,22 @@ export class SkuPolicy {
     return this.code(skuCode);
   }
 
-  static async requireUsable(manager: Pick<EntityManager, 'query'>, skuCode: unknown, usage: SkuUsage = 'any', companyCode?: string) {
+  static async requireUsable(manager: Pick<EntityManager, 'query'>, skuCode: unknown, usage: SkuUsage = 'any', companyCode?: string, businessDate?: string) {
+    if(businessDate!==undefined&&(typeof businessDate!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(businessDate)||businessDate.startsWith('0000-')
+      ||!Number.isFinite(Date.parse(businessDate))||new Date(businessDate).toISOString().slice(0,10)!==businessDate))throw new BadRequestException('库存授权日期无效');
     skuCode = this.code(skuCode);
     usage = this.usage(usage);
     // Lock the SKU before reading its identity, then only its three parent rows.
     // Locks live until the caller's business transaction commits or rolls back.
     const [sku] = await manager.query(
-      `SELECT *, effective_date::text AS effective_date, expire_date::text AS expire_date, CURRENT_DATE::text AS today
-         FROM product_skus WHERE sku_code=$1 FOR SHARE`, [skuCode],
+      `SELECT *, effective_date::text AS effective_date, expire_date::text AS expire_date, ${businessDate===undefined?'CURRENT_DATE':'$2::date'}::text AS today
+         FROM product_skus WHERE sku_code=$1 FOR SHARE`, businessDate===undefined?[skuCode]:[skuCode,businessDate],
     );
     if (!sku || sku.status !== 'ACTIVE'
         || (sku.effective_date && sku.effective_date > sku.today)
         || (sku.expire_date && sku.expire_date < sku.today)) throw new BadRequestException(`SKU ${skuCode} 不存在、未启用或不在生效期内`);
-    // Phase-4 sales/POS/procurement callers have no organization-aware resolver
-    // yet. Fail closed for new variant SKUs instead of granting global use.
+    // Managed SKUs require the caller's verified company context.
+    // Legacy callers without it remain fail-closed.
     const organizationRequired = sku.variety_code != null || sku.org_context_required === true;
     if (organizationRequired) {
       if (typeof companyCode !== 'string' || !companyCode.trim() || companyCode !== companyCode.trim()) {
@@ -76,9 +92,9 @@ export class SkuPolicy {
       const scopes: CompanyScopeDecision[] = await manager.query(
         `SELECT scope_type, scope_code, status, sale_enabled, stock_enabled,
                 effective_date::text AS effective_date, expire_date::text AS expire_date,
-                CURRENT_DATE::text AS today
+                ${businessDate===undefined?'CURRENT_DATE':'$3::date'}::text AS today
            FROM md_sku_org_scope WHERE sku_code = $1 AND scope_type = 'COMPANY' AND scope_code = $2
-           FOR SHARE`, [skuCode, companyCode],
+           FOR SHARE`, businessDate===undefined?[skuCode,companyCode]:[skuCode,companyCode,businessDate],
       );
       const companyScopes = scopes.filter(row => row.scope_type === 'COMPANY' && row.scope_code === companyCode);
       if (companyScopes.length !== 1 || companyScopes.some(row => row.status !== 'ACTIVE' || !row.today

@@ -1,0 +1,163 @@
+[Nest] 3018056  - 11/18/2026, 3:20:56 AM     LOG [ProductionInboundService] [ProdInbound] 临时生产入库 company=COMP-LAO-AGRI date=2026-11-17 批次=1 入库=30
+[Nest] 3018056  - 11/18/2026, 3:21:00 AM     LOG [ChanjetAuth] 从 PG 恢复鉴权状态 hasTicket=true hasCert=true tokens=0
+[Nest] 3018056  - 11/18/2026, 3:21:00 AM     LOG [ChanjetAuth] CHANJET_AUTH_CONFIGURED appKeyPresent=true orgIdPresent=true
+[Nest] 3018056  - 11/18/2026, 3:21:00 AM     LOG [ChanjetAuth] certificate 已更新: [REDACTED] tokenCacheInvalidated=true
+[Nest] 3018056  - 11/18/2026, 3:21:00 AM     LOG [ChanjetAuth] certificate 已更新: [REDACTED] tokenCacheInvalidated=false
+[Nest] 3018056  - 11/18/2026, 3:21:00 AM     LOG [ChanjetAuth] 从 PG 恢复鉴权状态 hasTicket=true hasCert=true tokens=1
+[Nest] 3018056  - 11/18/2026, 3:21:00 AM     LOG [ChanjetAuth] CHANJET_AUTH_CONFIGURED appKeyPresent=true orgIdPresent=true
+[Nest] 3018056  - 11/18/2026, 3:21:01 AM   DEBUG [ChanjetAuth] GET https://openapi.chanjet.com/accounting/openapi/cc/book/findByEnterpriseId
+[Nest] 3018056  - 11/18/2026, 3:21:01 AM     LOG [ChanjetAuth] CHANJET_AUTH_CONFIGURED appKeyPresent=true orgIdPresent=true
+[Nest] 3018056  - 11/18/2026, 3:21:01 AM     LOG [ChanjetAuth] 从 PG 恢复鉴权状态 hasTicket=true hasCert=false tokens=0
+[Nest] 3018056  - 11/18/2026, 3:21:01 AM     LOG [ChanjetAuth] CHANJET_AUTH_CONFIGURED appKeyPresent=true orgIdPresent=true
+[Nest] 3018056  - 11/18/2026, 3:21:01 AM     LOG [ChanjetAuth] appTicket 已更新: [REDACTED]
+[Nest] 3018056  - 11/18/2026, 3:21:03 AM   ERROR [ExceptionsHandler] test unavailable
+Error: test unavailable
+    at Object.<anonymous> (/home/jinhuit/PhenixCodebase/phoenix-erp-v3/.worktrees/flock-lifecycle-review-20261117/apps/api/src/modules/master-data/sku-management.spec.ts:62:29)
+    at Promise.finally.completed (/home/jinhuit/PhenixCodebase/phoenix-erp-v3/node_modules/.pnpm/jest-circus@30.4.2/node_modules/jest-circus/build/jestAdapterInit.js:1561:28)
+    at new Promise (<anonymous>)
+    at callAsyncCircusFn (/home/jinhuit/PhenixCodebase/phoenix-erp-v3/node_modules/.pnpm/jest-circus@30.4.2/node_modules/jest-circus/build/jestAdapterInit.js:1501:10)
+    at _callCircusTest (/home/jinhuit/PhenixCodebase/phoenix-erp-v3/node_modules/.pnpm/jest-circus@30.4.2/node_modules/jest-circus/build/jestAdapterInit.js:1011:40)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at _runTest (/home/jinhuit/PhenixCodebase/phoenix-erp-v3/node_modules/.pnpm/jest-circus@30.4.2/node_modules/jest-circus/build/jestAdapterInit.js:951:3)
+    at /home/jinhuit/PhenixCodebase/phoenix-erp-v3/node_modules/.pnpm/jest-circus@30.4.2/node_modules/jest-circus/build/jestAdapterInit.js:853:7
+    at _runTestsForDescribeBlock (/home/jinhuit/PhenixCodebase/phoenix-erp-v3/node_modules/.pnpm/jest-circus@30.4.2/node_modules/jest-circus/build/jestAdapterInit.js:866:11)
+    at _runTestsForDescribeBlock (/home/jinhuit/PhenixCodebase/phoenix-erp-v3/node_modules/.pnpm/jest-circus@30.4.2/node_modules/jest-circus/build/jestAdapterInit.js:861:11)
+    at run (/home/jinhuit/PhenixCodebase/phoenix-erp-v3/node_modules/.pnpm/jest-circus@30.4.2/node_modules/jest-circus/build/jestAdapterInit.js:765:3)
+    at runAndTransformResultsToJestFormat (/home/jinhuit/PhenixCodebase/phoenix-erp-v3/node_modules/.pnpm/jest-circus@30.4.2/node_modules/jest-circus/build/jestAdapterInit.js:1993:21)
+    at jestAdapter (/home/jinhuit/PhenixCodebase/phoenix-erp-v3/node_modules/.pnpm/jest-circus@30.4.2/node_modules/jest-circus/build/runner.js:111:19)
+    at runTestInternal (/home/jinhuit/PhenixCodebase/phoenix-erp-v3/node_modules/.pnpm/jest-runner@30.4.2/node_modules/jest-runner/build/index.js:276:16)
+    at runTest (/home/jinhuit/PhenixCodebase/phoenix-erp-v3/node_modules/.pnpm/jest-runner@30.4.2/node_modules/jest-runner/build/index.js:344:7)
+[Nest] 3018056  - 11/18/2026, 3:21:07 AM     LOG [ProductionInboundService] [ProdInbound] 临时生产入库 company=COMP-A date=2026-08-25 批次=1 入库=1
+[Nest] 3018056  - 11/18/2026, 3:21:07 AM     LOG [ProductionInboundService] [ProdInbound] 临时生产入库 company=COMP-F date=2026-08-25 批次=1 入库=1
+[Nest] 3018056  - 11/18/2026, 3:21:07 AM     LOG [ProductionInboundService] [ProdInbound] 临时生产入库 company=COMP-A date=2026-08-25 批次=1 入库=3
+[Nest] 3018056  - 11/18/2026, 3:21:07 AM     LOG [ProductionInboundService] [ProdInbound] 临时生产入库 company=COMP-A date=2026-08-25 批次=1 入库=3
+[Nest] 3018056  - 11/18/2026, 3:21:07 AM     LOG [ProductionInboundService] [ProdInbound] 临时生产入库 company=COMP-A date=2026-08-25 批次=1 入库=33
+[Nest] 3018056  - 11/18/2026, 3:21:07 AM     LOG [ProductionInboundService] [ProdInbound] 临时生产入库 company=COMP-A date=2026-08-25 批次=1 入库=33
+[Nest] 3018056  - 11/18/2026, 3:21:07 AM     LOG [ProductionInboundService] [ProdInbound] 临时生产入库 company=COMP-A date=2026-08-25 批次=1 入库=5
+[Nest] 3018056  - 11/18/2026, 3:21:07 AM     LOG [ProductionInboundService] [ProdInbound] 临时生产入库 company=COMP-A date=2026-08-25 批次=1 入库=5
+[Nest] 3018056  - 11/18/2026, 3:21:07 AM     LOG [ProductionInboundService] [ProdInbound] 临时生产入库 company=COMP-A date=2026-08-25 批次=1 入库=5
+[Nest] 3018056  - 11/18/2026, 3:21:08 AM     LOG [PackagingInventoryIntegrationService] [PkgInv] 包装批次 PKG-1 入库完成 company=COMP 可售批次=1 入库=30 隔离等级=0
+[Nest] 3018056  - 11/18/2026, 3:21:08 AM     LOG [PackagingInventoryIntegrationService] [PkgInv] 包装批次 PKG-1 当前为 TEMP_PRODUCTION_INBOUND 模式，跳过包装可售入库（互斥，防双写）
+[Nest] 3018056  - 11/18/2026, 3:21:13 AM     LOG [EggInventoryService] [EggInv] 生产入库: EGG-20260825-00001 qty=1 expire=2026-09-24
+[Nest] 3018056  - 11/18/2026, 3:21:13 AM     LOG [EggInventoryService] [EggInv] 生产入库: EGG-20261101-00001 qty=2 expire=2026-12-01 sku=SKU-R
+[Nest] 3018056  - 11/18/2026, 3:21:13 AM     LOG [EggInventoryService] [EggInv] 生产入库: EGG-20261101-00001 qty=2 expire=2026-12-01
+[Nest] 3018056  - 11/18/2026, 3:21:13 AM     LOG [EggInventoryService] [EggInv] 生产入库: EGG-20261101-00001 qty=2 expire=2026-12-01 sku=SKU-R
+[Nest] 3018056  - 11/18/2026, 3:21:13 AM     LOG [EggInventoryService] [EggInv] 生产入库: EGG-20261101-00001 qty=2 expire=2026-12-01 sku=SKU-R
+[Nest] 3018056  - 11/18/2026, 3:21:13 AM     LOG [EggInventoryService] [EggInv] 生产入库: EGG-20261101-00001 qty=2 expire=2026-12-01 sku=SKU-R
+[Nest] 3018056  - 11/18/2026, 3:21:13 AM     LOG [EggInventoryService] [EggInv] 生产入库: EGG-20261101-00001 qty=2 expire=2026-12-01 sku=SKU-R
+[Nest] 3018056  - 11/18/2026, 3:21:13 AM     LOG [EggInventoryService] [EggInv] 生产入库: EGG-20261101-00001 qty=2 expire=2026-12-01 sku=SKU-R
+[Nest] 3018056  - 11/18/2026, 3:21:13 AM     LOG [EggInventoryService] [EggInv] 生产入库: EGG-20261101-00001 qty=2 expire=2026-12-01 sku=SKU-R
+[Nest] 3018056  - 11/18/2026, 3:21:13 AM     LOG [EggInventoryService] [EggInv] 过期处理: 候选=0 核销=0 在途预占跳过=0
+[Nest] 3018056  - 11/18/2026, 3:21:13 AM     LOG [EggInventoryService] [EggInv] 过期处理: 候选=1 核销=1 在途预占跳过=1
+[Nest] 3018056  - 11/18/2026, 3:21:13 AM     LOG [EggInventoryService] [EggInv] 过期处理: 候选=2 核销=1 在途预占跳过=0
+[Nest] 3018056  - 11/18/2026, 3:21:13 AM     LOG [EggInventoryService] [EggInv] 过期处理: 候选=1 核销=1 在途预占跳过=0
+[Nest] 3018056  - 11/18/2026, 3:21:13 AM     LOG [EggInventoryService] [EggInv] 退货回库处理完成: return=RET-2026-0001
+[Nest] 3018056  - 11/18/2026, 3:21:13 AM     LOG [EggInventoryService] [EggInv] 退货回库处理完成: return=RET-2026-0002
+[Nest] 3018056  - 11/18/2026, 3:21:13 AM     LOG [EggInventoryService] [EggInv] 退货回库处理完成: return=RET-2026-0003
+[Nest] 3018056  - 11/18/2026, 3:21:13 AM     LOG [SalesOrdersService] [SalesOrder] 审批通过: orderId=201 → APPROVED
+[Nest] 3018056  - 11/18/2026, 3:21:13 AM     LOG [SalesOrdersService] [SalesOrder] 审批通过: orderId=201 → APPROVED
+[Nest] 3018056  - 11/18/2026, 3:21:14 AM     LOG [WorkflowNotificationService] [NOTIFY] task_created | instance=1 biz=PR#2 → user:3
+[Nest] 3018056  - 11/18/2026, 3:21:14 AM     LOG [WorkflowNotificationService] [NOTIFY] instance_completed | instance=1 result=APPROVED biz=PR#2
+[Nest] 3018056  - 11/18/2026, 3:21:14 AM     LOG [WorkflowNotificationService] [NOTIFY] instance_rejected | instance=1 biz=PR#2
+[Nest] 3018056  - 11/18/2026, 3:21:14 AM     LOG [WorkflowNotificationService] [NOTIFY] task_created | instance=1 biz=PR#2 → role:ROLE_APPROVER
+[Nest] 3018056  - 11/18/2026, 3:21:14 AM   ERROR [WorkflowNotificationService] [NOTIFY] onTaskCreated failed: station unavailable
+[Nest] 3018056  - 11/18/2026, 3:21:14 AM     LOG [PushNotificationService] [Push] subscription 1 expired (410), disabled
+[Nest] 3018056  - 11/18/2026, 3:21:14 AM    WARN [ChanjetReadonlySyncScheduler] chanjet-full-readonly-sync READONLY_SCHEDULE_HOLD
+[Nest] 3018056  - 11/18/2026, 3:21:14 AM    WARN [ChanjetReadonlySyncScheduler] chanjet-full-readonly-sync READONLY_SCHEDULE_HOLD
+[Nest] 3018056  - 11/18/2026, 3:21:14 AM    WARN [ChanjetReadonlySyncScheduler] chanjet-full-readonly-sync READONLY_SCHEDULE_HOLD
+[Nest] 3018056  - 11/18/2026, 3:21:14 AM    WARN [ChanjetReadonlySyncScheduler] chanjet-full-readonly-sync READONLY_SCHEDULE_HOLD
+[Nest] 3018056  - 11/18/2026, 3:21:14 AM    WARN [ChanjetReadonlySyncScheduler] chanjet-full-readonly-sync READONLY_SCHEDULE_HOLD
+[Nest] 3018056  - 11/18/2026, 3:21:14 AM     LOG [ChanjetReadonlySyncScheduler] chanjet-full-readonly-sync completed decision=GO targets=1 attempts=1 exactApproved=0
+[Nest] 3018056  - 11/18/2026, 3:21:14 AM    WARN [ChanjetReadonlySyncScheduler] chanjet-full-readonly-sync READONLY_SCHEDULE_HOLD
+[Nest] 3018056  - 11/18/2026, 3:21:14 AM    WARN [ChanjetReadonlySyncScheduler] chanjet-full-readonly-sync scheduled run skipped: SYNC_DURABLE_HOLD
+[Nest] 3018056  - 11/18/2026, 3:21:14 AM    WARN [ChanjetReadonlySyncScheduler] chanjet-full-readonly-sync scheduled run skipped: SYNC_ALREADY_ACTIVE
+[Nest] 3018056  - 11/18/2026, 3:21:14 AM    WARN [ChanjetReadonlySyncScheduler] READONLY_HOLD_INTERRUPTED_RUN_REVIEW_REQUIRED
+[Nest] 3018056  - 11/18/2026, 3:21:14 AM   ERROR [ChanjetReadonlySyncScheduler] READONLY_HOLD_EXECUTION
+[Nest] 3018056  - 11/18/2026, 3:21:14 AM   ERROR [ChanjetReadonlySyncScheduler] READONLY_HOLD_EXECUTION
+[Nest] 3018056  - 11/18/2026, 3:21:14 AM     LOG [ChanjetReadonlySyncScheduler] chanjet-full-readonly-sync completed decision=GO targets=1 attempts=1 exactApproved=0
+[Nest] 3018056  - 11/18/2026, 3:21:14 AM   ERROR [ChanjetReadonlySyncScheduler] READONLY_HOLD_DISPATCH
+[Nest] 3018056  - 11/18/2026, 3:21:14 AM     LOG [EggInventoryService] [EggInv] 库存预占完成: order=SO
+[Nest] 3018056  - 11/18/2026, 3:21:14 AM     LOG [EggInventoryService] [EggInv] 出库确认: delivery=D order=SO
+[Nest] 3018056  - 11/18/2026, 3:21:14 AM     LOG [EggInventoryService] [EggInv] 库存预占完成: order=SO
+[Nest] 3018056  - 11/18/2026, 3:21:14 AM     LOG [EggInventoryService] [EggInv] 出库确认: delivery=D order=SO
+[Nest] 3018056  - 11/18/2026, 3:21:15 AM     LOG [CustomerCreditSchedulerService] [BackgroundScheduler] another instance holds the task lock; skipped
+[Nest] 3018056  - 11/18/2026, 3:21:15 AM     LOG [EggInventorySchedulerService] [EggScheduler] 手动触发库存维护...
+[Nest] 3018056  - 11/18/2026, 3:21:15 AM     LOG [EggInventorySchedulerService] [BackgroundScheduler] another instance holds the task lock; skipped
+[Nest] 3018056  - 11/18/2026, 3:21:15 AM     LOG [EggInventorySchedulerService] [EggScheduler] 手动触发库存维护...
+[Nest] 3018056  - 11/18/2026, 3:21:15 AM    WARN [ApInvoicesService] [AP] fin_ap_payment_allocations missing; falling back to legacy fin_ap_payments for invoice detail
+[Nest] 3018056  - 11/18/2026, 3:21:15 AM    WARN [ApInvoicesService] [AP] fin_ap_payment_allocations missing; falling back to legacy fin_ap_payments for invoice detail
+[Nest] 3018056  - 11/18/2026, 3:21:15 AM    WARN [ApInvoicesService] [AP] no AP payment history table is available; returning invoice detail without allocations
+[Nest] 3018056  - 11/18/2026, 3:21:15 AM     LOG [ApInvoicesService] [AP] 付款核销 AP Invoice #9 (AP-202607-00009) amount=25 by user u1
+[Nest] 3018056  - 11/18/2026, 3:21:15 AM   ERROR [ApInvoicesService] [AP] payInvoice 事务回滚: AP AP-202607-00009 余额 10，本次付款 11 超额
+[Nest] 3018056  - 11/18/2026, 3:21:16 AM     LOG [DeliveryOrdersService] 配送单 DV-20261117-0001 已创建，关联 1 张销售订单
+[Nest] 3018056  - 11/18/2026, 3:21:16 AM     LOG [IotSyncService] IoT existing schema checked; no startup repair or vendor probe.
+[Nest] 3018056  - 11/18/2026, 3:21:17 AM    WARN [StoreScopePolicy] {"event":"store_scope_legacy_mismatch","requestedStoreCode":"STORE-B","membershipCount":2}
+[Nest] 3018056  - 11/18/2026, 3:21:17 AM    WARN [StoreScopePolicy] {"event":"store_scope_legacy_mismatch","requestedStoreCode":"STORE-A","membershipCount":1}
+[Nest] 3018056  - 11/18/2026, 3:21:17 AM     LOG [ArReceiptsService] [AR] 确认收款 #10 (RCP-202607-00001) 核销 1 条 AR
+[Nest] 3018056  - 11/18/2026, 3:21:17 AM     LOG [ArReceiptsService] [AR] 确认收款 #11 (RCP-202607-00002) 核销 0 条 AR
+[Nest] 3018056  - 11/12/2026, 1:00:00 AM     LOG [FarmCronService] Starting daily medication status update cron job...
+[Nest] 3018056  - 11/12/2026, 1:00:00 AM     LOG [FarmCronService] Updated to inWithdrawal: undefined records
+[Nest] 3018056  - 11/12/2026, 1:00:00 AM     LOG [FarmCronService] Updated to cleared: undefined records
+[Nest] 3018056  - 11/12/2026, 1:00:00 AM     LOG [FarmCronService] Starting daily medication status update cron job...
+[Nest] 3018056  - 11/12/2026, 1:00:00 AM   ERROR [FarmCronService] Failed to update medication status
+Error: fixture database failure
+    at Object.<anonymous> (/home/jinhuit/PhenixCodebase/phoenix-erp-v3/.worktrees/flock-lifecycle-review-20261117/apps/api/src/modules/farm/farm.cron.spec.ts:51:35)
+    at Promise.finally.completed (/home/jinhuit/PhenixCodebase/phoenix-erp-v3/node_modules/.pnpm/jest-circus@30.4.2/node_modules/jest-circus/build/jestAdapterInit.js:1561:28)
+    at new Promise (<anonymous>)
+    at callAsyncCircusFn (/home/jinhuit/PhenixCodebase/phoenix-erp-v3/node_modules/.pnpm/jest-circus@30.4.2/node_modules/jest-circus/build/jestAdapterInit.js:1501:10)
+    at _callCircusTest (/home/jinhuit/PhenixCodebase/phoenix-erp-v3/node_modules/.pnpm/jest-circus@30.4.2/node_modules/jest-circus/build/jestAdapterInit.js:1011:40)
+    at _runTest (/home/jinhuit/PhenixCodebase/phoenix-erp-v3/node_modules/.pnpm/jest-circus@30.4.2/node_modules/jest-circus/build/jestAdapterInit.js:951:3)
+    at /home/jinhuit/PhenixCodebase/phoenix-erp-v3/node_modules/.pnpm/jest-circus@30.4.2/node_modules/jest-circus/build/jestAdapterInit.js:853:7
+    at _runTestsForDescribeBlock (/home/jinhuit/PhenixCodebase/phoenix-erp-v3/node_modules/.pnpm/jest-circus@30.4.2/node_modules/jest-circus/build/jestAdapterInit.js:866:11)
+    at _runTestsForDescribeBlock (/home/jinhuit/PhenixCodebase/phoenix-erp-v3/node_modules/.pnpm/jest-circus@30.4.2/node_modules/jest-circus/build/jestAdapterInit.js:861:11)
+    at run (/home/jinhuit/PhenixCodebase/phoenix-erp-v3/node_modules/.pnpm/jest-circus@30.4.2/node_modules/jest-circus/build/jestAdapterInit.js:765:3)
+    at runAndTransformResultsToJestFormat (/home/jinhuit/PhenixCodebase/phoenix-erp-v3/node_modules/.pnpm/jest-circus@30.4.2/node_modules/jest-circus/build/jestAdapterInit.js:1993:21)
+    at jestAdapter (/home/jinhuit/PhenixCodebase/phoenix-erp-v3/node_modules/.pnpm/jest-circus@30.4.2/node_modules/jest-circus/build/runner.js:111:19)
+    at runTestInternal (/home/jinhuit/PhenixCodebase/phoenix-erp-v3/node_modules/.pnpm/jest-runner@30.4.2/node_modules/jest-runner/build/index.js:276:16)
+    at runTest (/home/jinhuit/PhenixCodebase/phoenix-erp-v3/node_modules/.pnpm/jest-runner@30.4.2/node_modules/jest-runner/build/index.js:344:7)
+[Nest] 3018056  - 11/18/2026, 3:21:18 AM    WARN [FileAccessService] Object:
+{
+  "event": "PROTECTED_FILE_ACCESS_DENIED",
+  "reason": "FILE_STORAGE_PATH_OUTSIDE_UPLOAD_ROOT",
+  "mode": "download",
+  "fileId": "FILE-PATH",
+  "moduleCode": "STORE_PAYMENT",
+  "ownerType": "STORE_PAYMENT_RECORD",
+  "ownerId": "42",
+  "policyModuleCode": "STORE_PAYMENT",
+  "policyOwnerType": "STORE_PAYMENT_RECORD",
+  "policyOwnerId": "42",
+  "companyCode": "C1",
+  "storeCode": "S1",
+  "username": "system",
+  "userId": "",
+  "rawUrl": null
+}
+
+[Nest] 3018056  - 11/18/2026, 3:21:18 AM    WARN [FileAccessService] Object:
+{
+  "event": "PROTECTED_FILE_ACCESS_DENIED",
+  "reason": "FILE_STORAGE_PATH_OUTSIDE_UPLOAD_ROOT",
+  "mode": "download",
+  "fileId": "FILE-PATH",
+  "moduleCode": "STORE_PAYMENT",
+  "ownerType": "STORE_PAYMENT_RECORD",
+  "ownerId": "42",
+  "policyModuleCode": "STORE_PAYMENT",
+  "policyOwnerType": "STORE_PAYMENT_RECORD",
+  "policyOwnerId": "42",
+  "companyCode": "C1",
+  "storeCode": "S1",
+  "username": "system",
+  "userId": "",
+  "rawUrl": null
+}
+
+[Nest] 3018056  - 11/18/2026, 3:21:18 AM     LOG [EggInventorySchedulerService] [EggScheduler] 手动触发库存维护...
+[Nest] 3018056  - 11/18/2026, 3:21:19 AM    WARN [ScopedNotificationRecipientService] 预警跳过：公司 COMP-A 在菜单 [M] 下无可见收件人
+
+Test Suites: 27 skipped, 166 passed, 166 of 193 total
+Tests:       517 skipped, 2108 passed, 2625 total
+Snapshots:   0 total
+Time:        39.857 s
+Ran all test suites.

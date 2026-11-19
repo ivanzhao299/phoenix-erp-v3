@@ -1,0 +1,1416 @@
+{
+  "asOf": "2026-11-17T16:06:27.192802+00:00",
+  "baseMain": "a7c0045b9f6d1a475b5a10710184e66d9c494aa0",
+  "candidateParent": "4cf46971cc1a1a2dba5be30838eaf75369cabf9c",
+  "sourceFingerprintSha256": "56040bba700f44ba13361554624ece580243c58b3ee9999608d9c345c5851dae",
+  "sourceFileCount": 129,
+  "checks": {
+    "api": {
+      "suitesPassed": 168,
+      "testsPassed": 2129,
+      "suitesSkipped": 22,
+      "testsSkipped": 433
+    },
+    "web": {
+      "filesPassed": 139,
+      "testsPassed": 835,
+      "filesSkipped": 1,
+      "testsSkipped": 4
+    },
+    "typesAndBuilds": "API and Web exit 0",
+    "lint": "API 0 errors; Web changed and full ratchet no growth; existing global debt disclosed",
+    "migrations": {
+      "frozenSql": 195,
+      "typeormTs": 113,
+      "freshRealWriteAndCorrection": true,
+      "idempotentUpgrade": true,
+      "safeUnusedDown": true
+    },
+    "authorizationHttp": {
+      "UTC": 5,
+      "Asia/Singapore": 5
+    },
+    "browser": {
+      "cases": [
+        {
+          "case": "PC real protected evidence -> baseline draft -> submit",
+          "result": "passed"
+        },
+        {
+          "case": "Protected PNG renders readable evidence and closing revokes the blob URL",
+          "result": "passed"
+        },
+        {
+          "case": "Independent reviewer reads structured business fields/evidence and approves",
+          "result": "passed"
+        },
+        {
+          "case": "Mobile independent poster -> atomic posting -> live quantity 100 without horizontal overflow",
+          "result": "passed"
+        },
+        {
+          "case": "Browser reload preserves posted stock projection",
+          "result": "passed"
+        },
+        {
+          "case": "Other farm cannot see HA lifecycle documents",
+          "result": "passed"
+        },
+        {
+          "case": "Protected valid PDF downloads with safe filename and exact readable source bytes",
+          "result": "passed"
+        },
+        {
+          "case": "Independent approved report supplement preserves original occupancy, business day and unknown feed/water",
+          "result": "passed"
+        },
+        {
+          "case": "Flock planned date edit and reload retains exact YYYY-MM-DD in Singapore browser",
+          "result": "passed"
+        }
+      ],
+      "complete": false
+    },
+    "appearanceVariants": 4,
+    "scopeAudit": {
+      "nativeInputsInspected": 19,
+      "manualMasterDataInputs": 0,
+      "inputs": [
+        {
+          "line": 115,
+          "value": "{form.businessDate}",
+          "type": "\"date\"",
+          "readOnly": "{form.kind==='REPORT_CORRECTION'&&form.dailyLogId!=='0'}"
+        },
+        {
+          "line": 116,
+          "value": "{form.quantity}",
+          "type": "\"number\"",
+          "readOnly": false
+        },
+        {
+          "line": 117,
+          "value": "{balance?String(balance.quantity):'未接续，须实盘签认'}",
+          "type": "text",
+          "readOnly": true
+        },
+        {
+          "line": 118,
+          "value": "{form.sourceReceipt}",
+          "type": "text",
+          "readOnly": false
+        },
+        {
+          "line": 118,
+          "value": "{form.placementAge}",
+          "type": "\"number\"",
+          "readOnly": false
+        },
+        {
+          "line": 118,
+          "value": "{form.plannedEliminationDate}",
+          "type": "\"date\"",
+          "readOnly": false
+        },
+        {
+          "line": 119,
+          "value": "{form.disposalMethod}",
+          "type": "text",
+          "readOnly": false
+        },
+        {
+          "line": 119,
+          "value": "{form.receiver}",
+          "type": "text",
+          "readOnly": false
+        },
+        {
+          "line": 120,
+          "value": "{form.positionCode}",
+          "type": "text",
+          "readOnly": false
+        },
+        {
+          "line": 123,
+          "value": "{form.unitPrice}",
+          "type": "\"number\"",
+          "readOnly": false
+        },
+        {
+          "line": 123,
+          "value": "{form.salesRef}",
+          "type": "text",
+          "readOnly": false
+        },
+        {
+          "line": 123,
+          "value": "{form.receiver}",
+          "type": "text",
+          "readOnly": false
+        },
+        {
+          "line": 125,
+          "value": "{form.replacementQuantity}",
+          "type": "\"number\"",
+          "readOnly": false
+        },
+        {
+          "line": 129,
+          "value": "{value}",
+          "type": "\"number\"",
+          "readOnly": false
+        },
+        {
+          "line": 131,
+          "value": "{form.reportFeed}",
+          "type": "\"number\"",
+          "readOnly": false
+        },
+        {
+          "line": 131,
+          "value": "{form.reportWater}",
+          "type": "\"number\"",
+          "readOnly": false
+        },
+        {
+          "line": 132,
+          "value": "{form.periodFrom}",
+          "type": "\"date\"",
+          "readOnly": false
+        },
+        {
+          "line": 132,
+          "value": "{form.periodTo}",
+          "type": "\"date\"",
+          "readOnly": false
+        },
+        {
+          "line": 152,
+          "value": "{actualHeads[String(p.id)]??''}",
+          "type": "\"number\"",
+          "readOnly": false
+        }
+      ],
+      "controllerMenuAndDataScopeGuards": true,
+      "actualAuthorizationEvidence": [
+        "ci-fix-http-utc.log and ci-fix-http-sg.log: 5 each, actual JWT/roles/DataScope; inactive house and inactive farm current company authority checked",
+        "ci-fix-api-tests.log: actual downstream 4 passed; source/current caretaker scope",
+        "ci-fix-browser.log: 9 cases including PNG decode/revoke and valid PDF exact download"
+      ],
+      "scopeAudit": "PASS"
+    },
+    "ciRecovery": {
+      "W5": "Existing boundary rules unchanged; new source awaiting exact-head independent review before relying on labels",
+      "i18n": {
+        "keysEachLanguage": 14823,
+        "referencedKeys": 7814,
+        "literals": 3915,
+        "uncovered": 0,
+        "qualityErrors": 0
+      },
+      "historicalRehearsal": "real PG18 PASS; pinned 96 preserved; 9 exact reviewed feature entries added",
+      "fifoTransportPg": 41,
+      "legacyRegressionLive": 24,
+      "legacySetupOffline": 8,
+      "schedulerDiagnosticTests": 15,
+      "maintenanceRelatedTests": 30,
+      "pdfReadable": "strict PDF parsing; one page; exact evidence text; browser exact bytes and safe filename",
+      "remoteFinalCi": "New source d947 pending remote CI. Prior exact e238 had21 SUCCESS +3 PR-event build/deploy SKIPPED; not a result for the new protocol/backup head.",
+      "packagingSetupOffline": 6,
+      "packagingRegressionLive": 45,
+      "genericCrudController": 24,
+      "e2eSqlSeed": "actual full fixture seed exit 0 after fresh chain",
+      "businessRecorderRealPg16Pg18": 13,
+      "fonts": {
+        "localAssets": 7,
+        "originalFontFacesPreserved": 42,
+        "unmodifiedAssetSha256": "apps/web/public/fonts/inter/source.json",
+        "build": "exit 0 with HTTP/HTTPS proxies pointed to loopback refused port",
+        "browser": "4 actual viewport/theme combinations; Inter loaded; local resources; no font 404 or Google font requests"
+      },
+      "hydratorBrowserActual": 18,
+      "ciOnlyLocatorContracts": 9,
+      "remotePriorHead": "6393: all app/build/browser77/77 and other workflows passed; two PG16/18 first-switch jobs HOLD on observed dracut vendor symlinks",
+      "vendorFragmentLocal": {
+        "nodeMajor": 20,
+        "passed": 73,
+        "failed": 0,
+        "newVendorTests": 20,
+        "actualHostAccepted": true,
+        "scope": "exact nine protected fragment paths; descriptor, ownership, ACL, raw link/ancestor and capture wiring checks",
+        "actualHostEvidence": {
+          "prHead": "e23809a5b96260a673499b7f16a1f56bcfd931b0",
+          "checkoutMerge": "6d328cde6d207db8e47354fd46f5c8fbdce5c1f8",
+          "run": 44104051532,
+          "PG16": 134111476455,
+          "PG18": 134111476133,
+          "fullFactory": "PASS on both",
+          "productionAuthority": false,
+          "exactLegacySuccess": false
+        }
+      },
+      "dailyEggReadonlySql": {
+        "inputValidationExit": 0,
+        "ownedPg18ReadOnlyExit": 0,
+        "ownedPositiveFixtureExit": 0,
+        "actualProductionRawDailyJson": "Observed current id106 JSON via existing controlled readonly workflow44104170804; no GRADE4/5; total matches47930",
+        "beforeHistory": "not proven",
+        "executionScope": "Not SQL-only: blank HTTP input defaulted; readonly app context/token preparation ran; both default checks NO_SAMPLE; zero actual HTTP requests"
+      }
+    },
+    "appearance": [
+      {
+        "name": "pc-dark",
+        "colors": [
+          {
+            "tag": "BUTTON",
+            "color": "rgb(250, 250, 250)",
+            "background": "rgb(44, 44, 44)",
+            "contrast": 13.379643174818774
+          },
+          {
+            "tag": "BUTTON",
+            "color": "rgb(250, 250, 250)",
+            "background": "rgb(44, 44, 44)",
+            "contrast": 13.379643174818774
+          },
+          {
+            "tag": "SELECT",
+            "color": "rgb(250, 250, 250)",
+            "background": "rgb(30, 30, 30)",
+            "contrast": 15.972132744959842
+          },
+          {
+            "tag": "SELECT",
+            "color": "rgb(250, 250, 250)",
+            "background": "rgb(30, 30, 30)",
+            "contrast": 15.972132744959842
+          },
+          {
+            "tag": "SELECT",
+            "color": "rgb(250, 250, 250)",
+            "background": "rgb(30, 30, 30)",
+            "contrast": 15.972132744959842
+          },
+          {
+            "tag": "INPUT",
+            "color": "rgb(250, 250, 250)",
+            "background": "rgb(30, 30, 30)",
+            "contrast": 15.972132744959842
+          },
+          {
+            "tag": "INPUT",
+            "color": "rgb(250, 250, 250)",
+            "background": "rgb(30, 30, 30)",
+            "contrast": 15.972132744959842
+          },
+          {
+            "tag": "INPUT",
+            "color": "rgb(250, 250, 250)",
+            "background": "rgb(44, 44, 44)",
+            "contrast": 13.379643174818774
+          },
+          {
+            "tag": "INPUT",
+            "color": "rgb(250, 250, 250)",
+            "background": "rgb(30, 30, 30)",
+            "contrast": 15.972132744959842
+          },
+          {
+            "tag": "INPUT",
+            "color": "rgb(250, 250, 250)",
+            "background": "rgb(30, 30, 30)",
+            "contrast": 15.972132744959842
+          },
+          {
+            "tag": "SELECT",
+            "color": "rgb(250, 250, 250)",
+            "background": "rgb(30, 30, 30)",
+            "contrast": 15.972132744959842
+          },
+          {
+            "tag": "SELECT",
+            "color": "rgb(250, 250, 250)",
+            "background": "rgb(30, 30, 30)",
+            "contrast": 15.972132744959842
+          },
+          {
+            "tag": "TEXTAREA",
+            "color": "rgb(250, 250, 250)",
+            "background": "rgb(30, 30, 30)",
+            "contrast": 15.972132744959842
+          },
+          {
+            "tag": "BUTTON",
+            "color": "rgb(189, 189, 189)",
+            "background": "rgba(0, 0, 0, 0)",
+            "contrast": 11.177626417098676
+          },
+          {
+            "tag": "BUTTON",
+            "color": "rgb(189, 189, 189)",
+            "background": "rgb(30, 30, 30)",
+            "contrast": 8.873521964116527
+          },
+          {
+            "tag": "BUTTON",
+            "color": "rgb(189, 189, 189)",
+            "background": "rgb(30, 30, 30)",
+            "contrast": 8.873521964116527
+          }
+        ],
+        "overflow": false,
+        "errors": [],
+        "fonts": {
+          "family": "Inter, system-ui, -apple-system, sans-serif",
+          "loaded": [
+            "400",
+            "600",
+            "700",
+            "800"
+          ],
+          "resources": [
+            "e4af272ccee01ff0-s.p.woff2"
+          ]
+        }
+      },
+      {
+        "name": "mobile-dark",
+        "colors": [
+          {
+            "tag": "BUTTON",
+            "color": "rgb(250, 250, 250)",
+            "background": "rgb(44, 44, 44)",
+            "contrast": 13.379643174818774
+          },
+          {
+            "tag": "BUTTON",
+            "color": "rgb(250, 250, 250)",
+            "background": "rgb(44, 44, 44)",
+            "contrast": 13.379643174818774
+          },
+          {
+            "tag": "SELECT",
+            "color": "rgb(250, 250, 250)",
+            "background": "rgb(30, 30, 30)",
+            "contrast": 15.972132744959842
+          },
+          {
+            "tag": "SELECT",
+            "color": "rgb(250, 250, 250)",
+            "background": "rgb(30, 30, 30)",
+            "contrast": 15.972132744959842
+          },
+          {
+            "tag": "SELECT",
+            "color": "rgb(250, 250, 250)",
+            "background": "rgb(30, 30, 30)",
+            "contrast": 15.972132744959842
+          },
+          {
+            "tag": "INPUT",
+            "color": "rgb(250, 250, 250)",
+            "background": "rgb(30, 30, 30)",
+            "contrast": 15.972132744959842
+          },
+          {
+            "tag": "INPUT",
+            "color": "rgb(250, 250, 250)",
+            "background": "rgb(30, 30, 30)",
+            "contrast": 15.972132744959842
+          },
+          {
+            "tag": "INPUT",
+            "color": "rgb(250, 250, 250)",
+            "background": "rgb(44, 44, 44)",
+            "contrast": 13.379643174818774
+          },
+          {
+            "tag": "INPUT",
+            "color": "rgb(250, 250, 250)",
+            "background": "rgb(30, 30, 30)",
+            "contrast": 15.972132744959842
+          },
+          {
+            "tag": "INPUT",
+            "color": "rgb(250, 250, 250)",
+            "background": "rgb(30, 30, 30)",
+            "contrast": 15.972132744959842
+          },
+          {
+            "tag": "SELECT",
+            "color": "rgb(250, 250, 250)",
+            "background": "rgb(30, 30, 30)",
+            "contrast": 15.972132744959842
+          },
+          {
+            "tag": "SELECT",
+            "color": "rgb(250, 250, 250)",
+            "background": "rgb(30, 30, 30)",
+            "contrast": 15.972132744959842
+          },
+          {
+            "tag": "TEXTAREA",
+            "color": "rgb(250, 250, 250)",
+            "background": "rgb(30, 30, 30)",
+            "contrast": 15.972132744959842
+          },
+          {
+            "tag": "BUTTON",
+            "color": "rgb(189, 189, 189)",
+            "background": "rgba(0, 0, 0, 0)",
+            "contrast": 11.177626417098676
+          },
+          {
+            "tag": "BUTTON",
+            "color": "rgb(189, 189, 189)",
+            "background": "rgb(30, 30, 30)",
+            "contrast": 8.873521964116527
+          },
+          {
+            "tag": "BUTTON",
+            "color": "rgb(189, 189, 189)",
+            "background": "rgb(30, 30, 30)",
+            "contrast": 8.873521964116527
+          }
+        ],
+        "overflow": false,
+        "errors": [],
+        "fonts": {
+          "family": "Inter, system-ui, -apple-system, sans-serif",
+          "loaded": [
+            "400",
+            "700",
+            "800"
+          ],
+          "resources": [
+            "e4af272ccee01ff0-s.p.woff2"
+          ]
+        }
+      },
+      {
+        "name": "pc-light",
+        "colors": [
+          {
+            "tag": "BUTTON",
+            "color": "rgb(33, 33, 33)",
+            "background": "rgb(245, 245, 245)",
+            "contrast": 14.769522972831433
+          },
+          {
+            "tag": "BUTTON",
+            "color": "rgb(33, 33, 33)",
+            "background": "rgb(245, 245, 245)",
+            "contrast": 14.769522972831433
+          },
+          {
+            "tag": "SELECT",
+            "color": "rgb(33, 33, 33)",
+            "background": "rgb(255, 255, 255)",
+            "contrast": 16.102191704447957
+          },
+          {
+            "tag": "SELECT",
+            "color": "rgb(33, 33, 33)",
+            "background": "rgb(255, 255, 255)",
+            "contrast": 16.102191704447957
+          },
+          {
+            "tag": "SELECT",
+            "color": "rgb(33, 33, 33)",
+            "background": "rgb(255, 255, 255)",
+            "contrast": 16.102191704447957
+          },
+          {
+            "tag": "INPUT",
+            "color": "rgb(33, 33, 33)",
+            "background": "rgb(255, 255, 255)",
+            "contrast": 16.102191704447957
+          },
+          {
+            "tag": "INPUT",
+            "color": "rgb(33, 33, 33)",
+            "background": "rgb(255, 255, 255)",
+            "contrast": 16.102191704447957
+          },
+          {
+            "tag": "INPUT",
+            "color": "rgb(33, 33, 33)",
+            "background": "rgb(245, 245, 245)",
+            "contrast": 14.769522972831433
+          },
+          {
+            "tag": "INPUT",
+            "color": "rgb(33, 33, 33)",
+            "background": "rgb(255, 255, 255)",
+            "contrast": 16.102191704447957
+          },
+          {
+            "tag": "INPUT",
+            "color": "rgb(33, 33, 33)",
+            "background": "rgb(255, 255, 255)",
+            "contrast": 16.102191704447957
+          },
+          {
+            "tag": "SELECT",
+            "color": "rgb(33, 33, 33)",
+            "background": "rgb(255, 255, 255)",
+            "contrast": 16.102191704447957
+          },
+          {
+            "tag": "SELECT",
+            "color": "rgb(33, 33, 33)",
+            "background": "rgb(255, 255, 255)",
+            "contrast": 16.102191704447957
+          },
+          {
+            "tag": "TEXTAREA",
+            "color": "rgb(33, 33, 33)",
+            "background": "rgb(255, 255, 255)",
+            "contrast": 16.102191704447957
+          },
+          {
+            "tag": "BUTTON",
+            "color": "rgb(117, 117, 117)",
+            "background": "rgba(0, 0, 0, 0)",
+            "contrast": 4.557768319672582
+          },
+          {
+            "tag": "BUTTON",
+            "color": "rgb(117, 117, 117)",
+            "background": "rgb(255, 255, 255)",
+            "contrast": 4.607518093747377
+          },
+          {
+            "tag": "BUTTON",
+            "color": "rgb(117, 117, 117)",
+            "background": "rgb(255, 255, 255)",
+            "contrast": 4.607518093747377
+          }
+        ],
+        "overflow": false,
+        "errors": [],
+        "fonts": {
+          "family": "Inter, system-ui, -apple-system, sans-serif",
+          "loaded": [
+            "400",
+            "600",
+            "700",
+            "800"
+          ],
+          "resources": [
+            "e4af272ccee01ff0-s.p.woff2"
+          ]
+        }
+      },
+      {
+        "name": "mobile-light",
+        "colors": [
+          {
+            "tag": "BUTTON",
+            "color": "rgb(33, 33, 33)",
+            "background": "rgb(245, 245, 245)",
+            "contrast": 14.769522972831433
+          },
+          {
+            "tag": "BUTTON",
+            "color": "rgb(33, 33, 33)",
+            "background": "rgb(245, 245, 245)",
+            "contrast": 14.769522972831433
+          },
+          {
+            "tag": "SELECT",
+            "color": "rgb(33, 33, 33)",
+            "background": "rgb(255, 255, 255)",
+            "contrast": 16.102191704447957
+          },
+          {
+            "tag": "SELECT",
+            "color": "rgb(33, 33, 33)",
+            "background": "rgb(255, 255, 255)",
+            "contrast": 16.102191704447957
+          },
+          {
+            "tag": "SELECT",
+            "color": "rgb(33, 33, 33)",
+            "background": "rgb(255, 255, 255)",
+            "contrast": 16.102191704447957
+          },
+          {
+            "tag": "INPUT",
+            "color": "rgb(33, 33, 33)",
+            "background": "rgb(255, 255, 255)",
+            "contrast": 16.102191704447957
+          },
+          {
+            "tag": "INPUT",
+            "color": "rgb(33, 33, 33)",
+            "background": "rgb(255, 255, 255)",
+            "contrast": 16.102191704447957
+          },
+          {
+            "tag": "INPUT",
+            "color": "rgb(33, 33, 33)",
+            "background": "rgb(245, 245, 245)",
+            "contrast": 14.769522972831433
+          },
+          {
+            "tag": "INPUT",
+            "color": "rgb(33, 33, 33)",
+            "background": "rgb(255, 255, 255)",
+            "contrast": 16.102191704447957
+          },
+          {
+            "tag": "INPUT",
+            "color": "rgb(33, 33, 33)",
+            "background": "rgb(255, 255, 255)",
+            "contrast": 16.102191704447957
+          },
+          {
+            "tag": "SELECT",
+            "color": "rgb(33, 33, 33)",
+            "background": "rgb(255, 255, 255)",
+            "contrast": 16.102191704447957
+          },
+          {
+            "tag": "SELECT",
+            "color": "rgb(33, 33, 33)",
+            "background": "rgb(255, 255, 255)",
+            "contrast": 16.102191704447957
+          },
+          {
+            "tag": "TEXTAREA",
+            "color": "rgb(33, 33, 33)",
+            "background": "rgb(255, 255, 255)",
+            "contrast": 16.102191704447957
+          },
+          {
+            "tag": "BUTTON",
+            "color": "rgb(117, 117, 117)",
+            "background": "rgba(0, 0, 0, 0)",
+            "contrast": 4.557768319672582
+          },
+          {
+            "tag": "BUTTON",
+            "color": "rgb(117, 117, 117)",
+            "background": "rgb(255, 255, 255)",
+            "contrast": 4.607518093747377
+          },
+          {
+            "tag": "BUTTON",
+            "color": "rgb(117, 117, 117)",
+            "background": "rgb(255, 255, 255)",
+            "contrast": 4.607518093747377
+          }
+        ],
+        "overflow": false,
+        "errors": [],
+        "fonts": {
+          "family": "Inter, system-ui, -apple-system, sans-serif",
+          "loaded": [
+            "400",
+            "700",
+            "800"
+          ],
+          "resources": [
+            "e4af272ccee01ff0-s.p.woff2"
+          ]
+        }
+      }
+    ],
+    "productionReadonlyObservation": {
+      "runId": 44104170804,
+      "jobId": 134112002841,
+      "workflow": "production-readonly-audit.yml",
+      "workflowConclusion": "success",
+      "sourceCommit": "e23809a5b96260a673499b7f16a1f56bcfd931b0",
+      "productionCheckout": "cb42966edfa717b0984936951143d84973c1a263",
+      "readonlySessionAndTransaction": true,
+      "matchingDailyRows": 1,
+      "currentDaily": {
+        "id": 106,
+        "shift": "DAILY",
+        "flock_no": "FK-MUXSEJUAGOI",
+        "log_date": "2026-11-17",
+        "farm_code": "LPH_MENGSAI",
+        "created_at": "2026-11-17T01:02:51.503976",
+        "house_code": "HOUSE_MS_01",
+        "updated_at": null,
+        "company_code": "COMP-LAO-AGRI",
+        "eggs_by_grade": {
+          "DIRTY": 540,
+          "BROKEN": 230,
+          "GRADE_0": 540,
+          "GRADE_1": 11880,
+          "GRADE_2": 32760,
+          "GRADE_3": 1980
+        },
+        "eggs_produced": 47930,
+        "grade_json_bytes": 98
+      },
+      "gradeJsonSum": 47930,
+      "grade4And5Present": false,
+      "beforeHistoryObserved": false,
+      "httpInputDeviation": {
+        "requested": "",
+        "effective": "scripts/ops/readonly-audits/sales-order-lifecycle.http.json",
+        "reason": "GitHub replaced blank input with workflow default",
+        "actualPreparation": "Readonly Nest application context and in-memory short-lived token generation ran before no-sample decisions",
+        "actualHttpRequestsSent": 0,
+        "results": {
+          "process-log-real-order-envelope": "NO_SAMPLE no-data-sample",
+          "process-log-cross-company-denied": "NO_SAMPLE no-data-sample"
+        },
+        "helperBusinessWritesMarker": "PASS PRODUCTION_BUSINESS_WRITES=0",
+        "markerLimitation": "A helper marker is not an independent complete database write trace",
+        "scopeClaim": "This run must not be described as SQL-only"
+      },
+      "repairApproved": false,
+      "repairPerformed": false
+    },
+    "remoteCandidateCi": {
+      "asOf": "2026-11-17T14:55:48.945915+00:00",
+      "pullRequest": 574,
+      "prHead": "e23809a5b96260a673499b7f16a1f56bcfd931b0",
+      "workflowCheckoutMerge": "6d328cde6d207db8e47354fd46f5c8fbdce5c1f8",
+      "verifiedEqualTree": "11c850e0e0ab59aeca5ba9b2aed98522d8f3264f",
+      "passedChecks": 21,
+      "expectedSkippedDeployChecks": 3,
+      "failedChecks": 0,
+      "pendingChecks": 0,
+      "firstSwitchRunId": 44104051532,
+      "firstSwitch": [
+        {
+          "major": 16,
+          "jobId": 134111476455,
+          "outcome": "PASS",
+          "stage": "FULL_FACTORY_COMPLETED",
+          "sourceHead": "6d328cde6d207db8e47354fd46f5c8fbdce5c1f8",
+          "syntheticTargetSha": "316dd5ba5384da96972e4fa55e8620113b75b6da",
+          "sessionOutcome": "SUCCESS",
+          "leaseRelease": "VERIFIED_RELEASED",
+          "participantRelease": "VERIFIED_ORIGINAL_CLOSES",
+          "actual226Outcome": "EXPECTED_HOLD",
+          "protectedStateUnchanged": true,
+          "actual226FormalSuccess": false,
+          "fixtureOnly": true,
+          "productionReceipt": false,
+          "productionAuthority": false,
+          "exactLegacySuccess": false,
+          "webImplementation": "OWNED_HTTP_PROTOCOL_PEER_NOT_NEXT_UAT",
+          "receiptHashes": {
+            "result.json": "42e75da86758522768415d472ead7a01043080b0decdaa5801b7a979672080cb",
+            "host-intent.json": "4a649770efa83201a581d537ce83275e6783bba7d066f1a8a9ce1af5f7c2b5ae",
+            "actual226-migration-rejection.json": "5d675e5b25f433f312dc42b973a2d5614b6c0fb812ae79f005f1fb4af3260daa"
+          }
+        },
+        {
+          "major": 18,
+          "jobId": 134111476133,
+          "outcome": "PASS",
+          "stage": "FULL_FACTORY_COMPLETED",
+          "sourceHead": "6d328cde6d207db8e47354fd46f5c8fbdce5c1f8",
+          "syntheticTargetSha": "8fe88f523b372ed28d53c67afde5cb5fcd7ca025",
+          "sessionOutcome": "SUCCESS",
+          "leaseRelease": "VERIFIED_RELEASED",
+          "participantRelease": "VERIFIED_ORIGINAL_CLOSES",
+          "actual226Outcome": "EXPECTED_HOLD",
+          "protectedStateUnchanged": true,
+          "actual226FormalSuccess": false,
+          "fixtureOnly": true,
+          "productionReceipt": false,
+          "productionAuthority": false,
+          "exactLegacySuccess": false,
+          "webImplementation": "OWNED_HTTP_PROTOCOL_PEER_NOT_NEXT_UAT",
+          "receiptHashes": {
+            "result.json": "fe74c24ffef69dfe55117c7e598318a8f874c2b70a2589edee2073a4f181d6d2",
+            "host-intent.json": "38be4a9fce44d3c84af54751fdb7683e7d39923fa53d0c68a57f3ec4a67794c3",
+            "actual226-migration-rejection.json": "51e705ebf6db7a45271fd3a5d98e8dc921456898668d1ea6c6834229800d4263"
+          }
+        }
+      ],
+      "checks": [
+        {
+          "name": "Typecheck, Build, Basic Tests",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/44104051598/job/134111475919"
+        },
+        {
+          "name": "Static Security And Freeze Gates",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/44104051551/job/134111475243"
+        },
+        {
+          "name": "Runtime Smoke",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/44104051615/job/134111476847"
+        },
+        {
+          "name": "PG16 PG18 Fence And Drain",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/44104051750/job/134111476793"
+        },
+        {
+          "name": "Playwright Chromium (isolated PG16)",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/44104051994/job/134111477231"
+        },
+        {
+          "name": "Vitest (apps/web)",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/44104051708/job/134111476524"
+        },
+        {
+          "name": "Detect change scope",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/44104051942/job/134111477600"
+        },
+        {
+          "name": "Owned Kernel Ingress PG16",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/44104051532/job/134111476473"
+        },
+        {
+          "name": "fixture",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/44104051977/job/134111476691"
+        },
+        {
+          "name": "fixture",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/44104051978/job/134111475799"
+        },
+        {
+          "name": "rehearsal",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/44104051607/job/134111476068"
+        },
+        {
+          "name": "regression",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/44104051863/job/134111475494"
+        },
+        {
+          "name": "Actual Next Compose Web-only Evidence",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/44104051944/job/134111476605"
+        },
+        {
+          "name": "Owned Kernel Ingress PG18",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/44104051532/job/134111476272"
+        },
+        {
+          "name": "Type-check & Regression",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/44104051942/job/134111595793"
+        },
+        {
+          "name": "Native Default Candidate Collector PG16",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/44104051532/job/134111476118"
+        },
+        {
+          "name": "Real PostgreSQL18 Admission Invariants",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/44104051607/job/134111476616"
+        },
+        {
+          "name": "Native Default Candidate Collector PG18",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/44104051532/job/134111476493"
+        },
+        {
+          "name": "Deploy · fast-css (CSS hot patch)",
+          "conclusion": "SKIPPED",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/44104051942/job/134111599125"
+        },
+        {
+          "name": "Synthetic Migration-Aligned Legacy First Switch PG16",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/44104051532/job/134111476455"
+        },
+        {
+          "name": "Synthetic Migration-Aligned Legacy First Switch PG18",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/44104051532/job/134111476133"
+        },
+        {
+          "name": "Build & Push ${{ matrix.target }}",
+          "conclusion": "SKIPPED",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/44104051942/job/134115130202"
+        },
+        {
+          "name": "Legacy Maintenance PG16 PG18 And Real ERP",
+          "conclusion": "SUCCESS",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/44104051532/job/134111475777"
+        },
+        {
+          "name": "Deploy · ${{ needs.detect-changes.outputs.mode }}",
+          "conclusion": "SKIPPED",
+          "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/44104051942/job/134115131381"
+        }
+      ],
+      "merged": false,
+      "deployed": false,
+      "newerUncommittedProtocolIncluded": false
+    },
+    "descendantReanchor": {
+      "asOf": "2026-11-17T15:05:53.850691+00:00",
+      "sourceCommit": "060c90a239c1e21b7d0b46c3bdd2799b495bdde6",
+      "fixtureOnly": true,
+      "productionReceipt": false,
+      "productionDeployed": false,
+      "scope": "REAL_BACKGROUND_COMPONENTS_PG_COMPOSE_WEB_HEALTH_PEER",
+      "formalProductionRootAndEvidence": "OWNED_ADAPTERS_ONLY",
+      "scenarioOutcomes": [
+        {
+          "name": "API_BODY_FAILURE_NO_WEB_SWITCH",
+          "outcome": "PASS",
+          "publicPhase": "FENCED",
+          "restoreAuthorizationVerified": true
+        },
+        {
+          "name": "WEB_IMAGE_FAILURE_STAYS_INCOMPLETE_API_UNCHANGED",
+          "outcome": "PASS",
+          "finalReleaseComplete": false
+        },
+        {
+          "name": "DESCENDANT_DRAIN_PROMOTION_API_OPEN_THEN_WEB",
+          "outcome": "PASS"
+        }
+      ],
+      "actualSnapshotComparisons": "API stage preserves Web/DB; Web stage preserves API/DB; final owned active pins equal actual runtime",
+      "webScope": "Owned HTTP health peer; not Next/ERP UAT",
+      "formalAbortExecuted": false,
+      "restoreAuthorizationVerified": true,
+      "syntheticRevisions": true,
+      "coordinatorObservedExitCode": 0,
+      "coordinatorObservedCleanup": "Complete for owned containers, network and public volume",
+      "reportSha256": "6f90958cf10866fd922c800b55dc1245f56427b7e2dd571ae7bf4849580083c4",
+      "fixtureLogSha256": "52a3ff6d2aead4ea47fe4acf73927d3df9eea6e1ddc31b0cb70439effa30350a",
+      "fixtureSourceSha256": {
+        "scripts/test/flock-reanchor-compose.mjs": "2e82d9f140c60a7d9b85397e3b21d78092f00897dae3145fde3d81d17efc2b7c",
+        "scripts/test/flock-reanchor-compose-body.mjs": "4603212718799e1d08445540e120a356303ebef76157d9a6923a445a0d6f1976",
+        "scripts/test/flock-reanchor-api.cjs": "f96eeaa1e1fa21403b8f79cd11bac651090f0af687958c675e675f88f04b000a"
+      },
+      "postSourceExtendedTests": {
+        "sourceCommit": "060c90a239c1e21b7d0b46c3bdd2799b495bdde6",
+        "total": 246,
+        "passed": 237,
+        "skippedOptIn": 9,
+        "failed": 0,
+        "exitCode": 0
+      },
+      "postSourceRealPgTests": {
+        "passed": 9,
+        "skipped": 0,
+        "failed": 0,
+        "exitCode": 0
+      },
+      "candidateSourceCommit": "d947bf0b4591e830dd46c021a9a9800ad5c4b11f",
+      "componentBytesUnchangedAtCandidate": true
+    },
+    "backupAndNullAudit": {
+      "sourceCommit": "d947bf0b4591e830dd46c021a9a9800ad5c4b11f",
+      "combinedPassed": 13,
+      "skipped": 0,
+      "failed": 0,
+      "actualExitCode": 0,
+      "independentCombinedPassed": 13,
+      "independentSkipped": 0,
+      "independentAuditPassed": 4,
+      "realArchivePgMajors": [
+        16,
+        18
+      ],
+      "pathScope": "Actual trusted validator with owned metadata models; actual nonroot CLI rejection; archive PG tests use explicit owned path adapters",
+      "productionRootExt4Accepted": false,
+      "productionBackupPerformed": false,
+      "fullArchiveParseIsDatabaseRestore": false,
+      "diskThreshold": "2GiB minimum only; not a total backup size guarantee",
+      "defaultGuard": "verifyContext/FD9 and trusted STAGE before any backup namespace or pin mutation",
+      "failureHistory": "Initial fixture lacked explicit DB user/name; independent PG16 temporary Unix-server readiness failure; both withdrawn as PASS and fixed using explicit env and final-server TCP readiness; final actual 13/13 exit0"
+    },
+    "schedulerAndReadonlyInputsAtCandidate": {
+      "passed": 76,
+      "failed": 0,
+      "skipped": 0,
+      "exitCode": 0,
+      "sourceCommit": "d947bf0b4591e830dd46c021a9a9800ad5c4b11f"
+    },
+    "expandedReadonlySql": {
+      "inputValidation": "NONE actual exit0",
+      "ownedPg18ReadOnly": "actual exit0; query/schema validation only",
+      "productionRun": "Not yet dispatched for new dictionary/dimension/column/check evidence",
+      "scope": "two dict codes; batch413/415; ledger649/651; exact original source grade summary; inv_ledger.change_type metadata",
+      "actualDictionaryState": "unknown pending controlled readonly evidence"
+    },
+    "priorAppValidationScope": "API/Web apps blobs unchanged from b27; existing actual type/build/test logs retained. New 129-source head remote CI still required."
+  },
+  "release": {
+    "candidateOnly": true,
+    "merged": false,
+    "deployed": false,
+    "tagDeferredUntilSuccessfulMainDeployment": true,
+    "historicalFlocksActivated": false,
+    "actualTwoCompanyPilot": "Pending real physical counts and signed evidence",
+    "candidateCommit": "d947bf0b4591e830dd46c021a9a9800ad5c4b11f",
+    "pullRequest": "https://github.com/ivanzhao299/phoenix-erp-v3/pull/574",
+    "reviewStatus": "Source reviewed for local/CI candidate only; exact metadata head awaiting independent rehash",
+    "pushStatus": "At receipt creation d947 local; ordinary branch push and remote head must be confirmed separately",
+    "businessReversalAuthorized": false,
+    "businessReversalPerformed": false,
+    "releaseSequence": [
+      "exact main T after normal merge",
+      "fresh controlled inspect and corrected audit GO",
+      "trusted verified backup",
+      "actual pending migrations and receipts",
+      "API-only config F/runtime R/target T reanchor",
+      "same-T Web-only after complete API success",
+      "actual runtime/health/business/evidence verification then deployed-T tag"
+    ]
+  },
+  "localLogSha256": {
+    "ci-final-api-tests.log": "cf568aaad97f7f887b956acb5ab094027b2c96eba290625919e2afe2d7e2a79c",
+    "ci-final-web-tests.log": "37df203e39ea4d929a8d769d18f1fd1c1846c116f533dc079804fb6a74fbe903",
+    "ci-final-api-types.log": "6ebe93a83eb82a9a554ba4bbc56a7042f70d71391261c6209eca269921da72f5",
+    "ci-final-web-types.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "ci-final-api-build.log": "5b1549b60bee4e750040adfb6abec0fc90883af4fd742416eb44b5e3c8cbe21b",
+    "ci-final-web-build.log": "a94e2e4de49c5cc2fc23b394ced7c012611bbb8d156ef41b7988d63123695b52",
+    "ci-final-api-lint.log": "95d9f3834964d9d67b245068390b512eebfae8e42b0d3c11effd2b153af02ccb",
+    "ci-final-web-lint.log": "5c3934e7c9f47cde11a2751ad12b7ef01a2855f1aea93cb294b12d055e6a2ed6",
+    "ci-final-web-ratchet.log": "4287d4554bfa357508d8a260789ba1525468f63e1f255cfb6cd4e9718e328e26",
+    "ci-fix-http-utc.log": "587aec2109447ffd9b87d21429c1dfadb94205111cfc0ecc386c4ccb9155688d",
+    "ci-fix-http-sg.log": "7d0c81685414de8049abd1d38e3650e949cdf5729b70f6aede1e17857dda409d",
+    "ci-final-http-browser-host.log": "9a83846066991291db23dd9c9f288f9864544848da2c72de0dff41c3d24a06f7",
+    "ci-final-migration-compat.log": "7b2b7e29fbc946d7e18e31b62923542423bc5cb9f896de76e6fb3647385fe7be",
+    "ci-fix-ledger-rehearsal.log": "7853a2e187124d234f5dab499968a18bc30a0994ecd9c073ca554d72dd35d146",
+    "ci-fifo-pg.log": "d7b6fe1334b8899fae48d5ae7230c05bfee84d5b27e822f6b1aced7a24d9d18a",
+    "ci-final-constraint.log": "c8f206e0d5e6a2adfb4f1ef2cc23a28382cdc98cfee046294fb0cc03ed3c66dd",
+    "ci-final-nullable.log": "4b95d58d9a67a8a178ee64e48dc6050ae865d08f8ff86c8ab5491ad17d79eb65",
+    "ci-final-migration-dml.log": "fcd5d053f3a80cbf190e3947816e3794cfca5a7973ff3ca4d881039400f2d83e",
+    "ci-final-migration-down.log": "603e5915366804c4aeaf18ae8aec1ead0440ee048ec7fd100594438ef53246c6",
+    "ci-final-w5.log": "9e98208c4a47f496938eb0b39edf107d59dc65c70087a68ee0303d43149957a5",
+    "ci-final-i18n-keys.log": "94778b72aa74c88428f178f00a7631adc0cea537e608bdce5a58b2ae9ec0a88b",
+    "ci-final-i18n-literals.log": "9e3dcad0682987bf3305545268de5ed2e91fbd5d3969871d7425216cf9e7e6e2",
+    "ci-final-browser.log": "fc8e06f189998eacb145d537cefe0507d81dc21a00af6e493910bcb6bcea07ec",
+    "ci-final-appearance.log": "da1599c81a57e641a1b381ca3b1c3bf47d143a1f34e07bc2b200690b0b16a091",
+    "ci-fix-pdf-readable.log": "da3346a55a1ee6b75eba35b392418c845b80a31e83b2983867fe74f3865f306b",
+    "ci-fix-breeding-live.log": "4b45fb7a4d8b2a5c686798ffe0a2d8934a6426c6f5da1870a14fbfa3089f5721",
+    "ci-final-regression-setup.log": "a2774bf800f938cf1f3bfd43fb690e47758a1903db7701988864c178316aa4a3",
+    "ci-final-packaging-live.log": "ce396d90f39d3395a62f61b548b0bc3bd6c0f4a9901c818b1ebf45af8e66acda",
+    "ci-final-e2e-seed.log": "2562941c5dc1c1e99575d3c1a3b881592d6f314d6ee85ff43b731885c456f754",
+    "ci-final-crud-house-identity.log": "e7bcedcd74cbae18c56536298c8374ca4567c3ede2e22ba1ddaa4a32092c320f",
+    "ci-final-scheduler-diagnostic.log": "f5b75c624203a7548b96f0f0d7db1d872945b8978368b92865e3595b21beeeee",
+    "ci-final-maintenance-tests.log": "2cd3f53e36270ef5e3ac326e41aba6e4ab04b2d951c83e1d5660ae2f57e1149b",
+    "ci-final-business-recorder-pg.log": "c20008f06ae9c3800b22741779ac5525f5f901c892ac2780e9df04706ab53798",
+    "ci-fix-ci-contracts.log": "c9397a87152837871c19c58fa72b3c9c289f65862808f0386a102e6578ead795",
+    "ci-fix-ssh-tests.log": "28402e1365a422f0dde08423e75b158d553a899825d2363f38f139d5229c797d",
+    "ci-fix-ssh-gate.log": "187c4ba05773c1260cdc4081260d349fdba7f553668a3337d4884a0b7d60d288",
+    "ci-i18n-browser.log": "65be4d80e74a7e545ffe043bfb7a15447a7d3c5e24df7c921ac9f0ea7d63a960",
+    "ci-i18n-web-types.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "ci-locator-contracts.log": "9cc875af8327ab21d43d3d3965e736dcfd2cd294256d3a40281995b810a3233a",
+    "ci-locator-ssh-gate.log": "187c4ba05773c1260cdc4081260d349fdba7f553668a3337d4884a0b7d60d288",
+    "vendor-fragment-final.log": "575558f53b2ad3989748d031cfaae3527362e36a849927da7cc3fe4a5e5fb3e8",
+    "egg-evidence-input-validation.log": "a7fb3c00bec44bf3c2abb0ee82a7b205b315714eb39b7c709284fddb9549130d",
+    "egg-evidence-owned-validation.log": "3e497241e02712f95ad625d4586a849fc61af92f666ab7b4227858b7012eee08",
+    "egg-evidence-owned-positive.log": "708b22f106375cf770c18eea29255b34d0060f9aafb1acff69d72f9911971de3",
+    "production-daily-grade-allowlisted.log.txt": "1505f6d076c7a3f0b45c1f22587e5fb79de7841d627405b39d82948248e57295",
+    "readonly-none-inputs.log": "47d9c75106018339f120be4cf6445f24d3a61152f48efc9efb5c45ff7e7f752f",
+    "post-reanchor-scheduler-readonly.log": "491a30649b065b12ab44778924047d042ab7ffadcba1c45ab0147046b3ee028f",
+    "backup-paths-null-final.log": "2d08314756a76ecee0dc9f16563e6b3f79027e89a1000cd9d24c3dcaa2f44663",
+    "pending-backup-workflow-syntax.log": "ae1c9db2421d424180e4884e615604c2d34c354e53215603d6edadc0394e9876",
+    "pending-backup-ssh-gate.log": "187c4ba05773c1260cdc4081260d349fdba7f553668a3337d4884a0b7d60d288",
+    "reversal-evidence-sql-inputs.log": "a7fb3c00bec44bf3c2abb0ee82a7b205b315714eb39b7c709284fddb9549130d",
+    "reversal-evidence-owned.log": "e3105a850412b461c58b3694e80b19a85021068145f30e27056fb08bb5f8ee5b",
+    "final-reanchor-targeted.log": "14b52c19c392d0c5b9bdb78a693122c5e94da10dd2a4df88b796418a835cc730",
+    "final-reanchor-pg.log": "4c9a4abf8fa5c55f04007db8a161216a623d88f766b2b4ac08066e88c9017ae4",
+    "final-reanchor-compose.log": "52a3ff6d2aead4ea47fe4acf73927d3df9eea6e1ddc31b0cb70439effa30350a",
+    "independent-backup-null.log": "918d108158647159027e06575f466ac6eef9fb12e0044175233d3fb741e97c2a",
+    "independent-audit-null.log": "d7ede813435d1a7e302a399c74b897c85035b218a3541a1c7fe6cf73eb7e784a"
+  },
+  "apiLintCounts": {
+    "errors": 0,
+    "warnings": 3176
+  },
+  "sourceFingerprintAlgorithm": {
+    "baseCommit": "4cf46971cc1a1a2dba5be30838eaf75369cabf9c",
+    "sourceCommit": "d947bf0b4591e830dd46c021a9a9800ad5c4b11f",
+    "paths": [
+      ".github/workflows/controlled-pending-migration-apply.yml",
+      ".github/workflows/deploy.yml",
+      ".github/workflows/legacy-maintenance-fixture.yml",
+      ".github/workflows/production-readonly-audit.yml",
+      ".github/workflows/regression.yml",
+      "apps/api/scripts/breeding-regression.sh",
+      "apps/api/scripts/packaging-regression.sh",
+      "apps/api/scripts/test_breeding_regression.py",
+      "apps/api/scripts/test_packaging_regression.py",
+      "apps/api/src/database/migrations/1794899000000-FlockBaseSchema.ts",
+      "apps/api/src/database/migrations/1794900000000-FlockLifecycleLedger.ts",
+      "apps/api/src/database/migrations/1794901000000-FlockProductionProvenance.ts",
+      "apps/api/src/database/migrations/1794902000000-FlockActivitySources.ts",
+      "apps/api/src/database/migrations/1794903000000-FlockReportCorrection.ts",
+      "apps/api/src/modules/analytics/services/production-analytics.service.ts",
+      "apps/api/src/modules/analytics/services/production-localized-names.contract.spec.ts",
+      "apps/api/src/modules/bff/bff.controller.spec.ts",
+      "apps/api/src/modules/bff/bff.controller.ts",
+      "apps/api/src/modules/bff/bff.module.ts",
+      "apps/api/src/modules/bff/packaging-readiness.ts",
+      "apps/api/src/modules/chanjet/chanjet-execution-transport.spec.ts",
+      "apps/api/src/modules/farm/daily-stock-policy.ts",
+      "apps/api/src/modules/farm/farm-pending-notification.pg.spec.ts",
+      "apps/api/src/modules/farm/farm.controller.ts",
+      "apps/api/src/modules/farm/farm.module.ts",
+      "apps/api/src/modules/farm/farm.service.spec.ts",
+      "apps/api/src/modules/farm/farm.service.ts",
+      "apps/api/src/modules/farm/flock-activity-source.ts",
+      "apps/api/src/modules/farm/flock-downstream.pg.spec.ts",
+      "apps/api/src/modules/farm/flock-ledger.pg.spec.ts",
+      "apps/api/src/modules/farm/flock-lifecycle-daily.ts",
+      "apps/api/src/modules/farm/flock-lifecycle-http.pg.spec.ts",
+      "apps/api/src/modules/farm/flock-lifecycle.controller.ts",
+      "apps/api/src/modules/farm/flock-lifecycle.pg.spec.ts",
+      "apps/api/src/modules/farm/flock-lifecycle.service.ts",
+      "apps/api/src/modules/farm/flock-production-source.ts",
+      "apps/api/src/modules/farm/immune.service.spec.ts",
+      "apps/api/src/modules/farm/immune.service.ts",
+      "apps/api/src/modules/farm/medication-record.service.ts",
+      "apps/api/src/modules/file/file-access.service.ts",
+      "apps/api/src/modules/generic-crud/flock-safety.spec.ts",
+      "apps/api/src/modules/generic-crud/flock-write-policy.spec.ts",
+      "apps/api/src/modules/generic-crud/flock-write-policy.ts",
+      "apps/api/src/modules/generic-crud/generic-crud.controller.spec.ts",
+      "apps/api/src/modules/generic-crud/generic-crud.controller.ts",
+      "apps/api/src/modules/generic-crud/generic-crud.service.ts",
+      "apps/api/src/modules/generic-crud/henhouse-write-policy.ts",
+      "apps/api/src/modules/iot/mon-device.service.ts",
+      "apps/api/src/modules/product-master/services/sku-availability.service.spec.ts",
+      "apps/api/src/modules/product-master/services/sku-availability.service.ts",
+      "apps/api/src/modules/sales-v2/services/egg-inventory.service.spec.ts",
+      "apps/api/src/modules/sales-v2/services/egg-inventory.service.ts",
+      "apps/api/src/modules/sales-v2/services/production-inbound.pg.spec.ts",
+      "apps/api/src/modules/sales-v2/services/production-inbound.service.spec.ts",
+      "apps/api/src/modules/sales-v2/services/production-inbound.service.ts",
+      "apps/api/src/modules/terminal/packaging.service.ts",
+      "apps/api/src/modules/traceability/traceability.controller.ts",
+      "apps/api/src/modules/traceability/traceability.service.ts",
+      "apps/api/src/modules/upload/upload.controller.ts",
+      "apps/api/src/modules/wms/wms-company-context.spec.ts",
+      "apps/api/src/modules/wms/wms.service.ts",
+      "apps/api/src/test-fixtures/flock-business-clock.ts",
+      "apps/web/e2e/sitewide-i18n-hydrator.spec.ts",
+      "apps/web/public/fonts/inter/19cfc7226ec3afaa-s.woff2",
+      "apps/web/public/fonts/inter/21350d82a1f187e9-s.woff2",
+      "apps/web/public/fonts/inter/8e9860b6e62d6359-s.woff2",
+      "apps/web/public/fonts/inter/OFL.txt",
+      "apps/web/public/fonts/inter/ba9851c3c22cd980-s.woff2",
+      "apps/web/public/fonts/inter/c5fe6dc8356a8c31-s.woff2",
+      "apps/web/public/fonts/inter/df0a9ae256c0569c-s.woff2",
+      "apps/web/public/fonts/inter/e4af272ccee01ff0-s.p.woff2",
+      "apps/web/public/fonts/inter/source.json",
+      "apps/web/src/__tests__/attachments.test.ts",
+      "apps/web/src/app/(admin)/breeding/daily/page.tsx",
+      "apps/web/src/app/(admin)/breeding/device/[houseCode]/page.tsx",
+      "apps/web/src/app/(admin)/breeding/flock-lifecycle/page.tsx",
+      "apps/web/src/app/(admin)/breeding/flock/page.tsx",
+      "apps/web/src/app/(admin)/breeding/henhouse/page.tsx",
+      "apps/web/src/app/(admin)/layout.tsx",
+      "apps/web/src/app/(admin)/traceability/page.tsx",
+      "apps/web/src/app/(mobile)/mobile/flock-lifecycle/page.tsx",
+      "apps/web/src/app/(mobile)/mobile/mortality/page.tsx",
+      "apps/web/src/app/inter.css",
+      "apps/web/src/app/layout.tsx",
+      "apps/web/src/components/FlockLifecycle.module.css",
+      "apps/web/src/components/FlockLifecycle.tsx",
+      "apps/web/src/components/design-system/forms/AttachmentUploader.tsx",
+      "apps/web/src/components/layout/Sidebar.tsx",
+      "apps/web/src/components/shared-selectors/DictSelect.tsx",
+      "apps/web/src/components/shared-selectors/MasterDataSelectors.tsx",
+      "apps/web/src/lib/attachments.ts",
+      "apps/web/src/lib/mobile-api.ts",
+      "apps/web/src/locales/en.json",
+      "apps/web/src/locales/lo.json",
+      "apps/web/src/locales/zh.json",
+      "scripts/ci/maintenance-full-first-switch.fixture.mjs",
+      "scripts/ci/maintenance-isolated-business-recorder.test.mjs",
+      "scripts/ci/maintenance-scheduler-link-observation.mjs",
+      "scripts/ci/maintenance-scheduler-link-observation.test.mjs",
+      "scripts/ci/typeorm-ledger-rehearsal-inventory.mjs",
+      "scripts/ops/audit-daily-egg-inbound.mjs",
+      "scripts/ops/audit-daily-egg-inbound.test.mjs",
+      "scripts/ops/background-control-coordinator.mjs",
+      "scripts/ops/background-control-legacy-transition.mjs",
+      "scripts/ops/background-control-manifest.mjs",
+      "scripts/ops/background-control-pg.test.mjs",
+      "scripts/ops/background-deployment-session.mjs",
+      "scripts/ops/background-deployment-session.test.mjs",
+      "scripts/ops/flock-lifecycle-diagnostic.cjs",
+      "scripts/ops/pending-migration-backup-paths.mjs",
+      "scripts/ops/phoenix-production-compose.mjs",
+      "scripts/ops/production-maintenance-backup-paths.test.mjs",
+      "scripts/ops/production-maintenance-pending-backup.test.mjs",
+      "scripts/ops/production-maintenance-readonly-inputs.test.mjs",
+      "scripts/ops/production-maintenance-root-readers.mjs",
+      "scripts/ops/production-maintenance-scheduler-inventory.test.mjs",
+      "scripts/ops/production-maintenance-vendor-fragment.test.mjs",
+      "scripts/ops/production-trusted-paths.mjs",
+      "scripts/ops/promote-production-config-floor.contract.test.mjs",
+      "scripts/ops/readonly-audits/daily-egg-grade-evidence-20261117.sql",
+      "scripts/ops/reconcile-background-control.contract.test.mjs",
+      "scripts/ops/reconcile-background-control.mjs",
+      "scripts/ops/run-production-readonly-audit.sh",
+      "scripts/test/flock-browser-appearance.cjs",
+      "scripts/test/flock-browser.cjs",
+      "scripts/test/flock-migration-compatibility.cjs",
+      "scripts/test/flock-reanchor-api.cjs",
+      "scripts/test/flock-reanchor-compose-body.mjs",
+      "scripts/test/flock-reanchor-compose.mjs"
+    ],
+    "order": "lexicographic path order",
+    "entry": "UTF-8(path) + NUL + lowercase hex SHA256(git blob bytes) + LF",
+    "digest": "lowercase hex SHA256(concatenated entries)",
+    "scope": "git diff --name-only BASE SOURCE -- apps scripts .github"
+  },
+  "previousValidation": {
+    "sourceCommit": "9d1a5186d1069ed01dd869841aaa3893a8aa7348",
+    "sourceFingerprintSha256": "67c70c7e4c4fd03ca5333b73f9ef739540f6e6b402292a17e5e7dbb85e089ae2",
+    "localLogSha256": {
+      "ci-final-api-tests.log": "cf568aaad97f7f887b956acb5ab094027b2c96eba290625919e2afe2d7e2a79c",
+      "ci-final-web-tests.log": "37df203e39ea4d929a8d769d18f1fd1c1846c116f533dc079804fb6a74fbe903",
+      "ci-final-api-types.log": "6ebe93a83eb82a9a554ba4bbc56a7042f70d71391261c6209eca269921da72f5",
+      "ci-final-web-types.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ci-final-api-build.log": "5b1549b60bee4e750040adfb6abec0fc90883af4fd742416eb44b5e3c8cbe21b",
+      "ci-final-web-build.log": "a94e2e4de49c5cc2fc23b394ced7c012611bbb8d156ef41b7988d63123695b52",
+      "ci-final-api-lint.log": "95d9f3834964d9d67b245068390b512eebfae8e42b0d3c11effd2b153af02ccb",
+      "ci-final-web-lint.log": "5c3934e7c9f47cde11a2751ad12b7ef01a2855f1aea93cb294b12d055e6a2ed6",
+      "ci-final-web-ratchet.log": "4287d4554bfa357508d8a260789ba1525468f63e1f255cfb6cd4e9718e328e26",
+      "ci-fix-http-utc.log": "587aec2109447ffd9b87d21429c1dfadb94205111cfc0ecc386c4ccb9155688d",
+      "ci-fix-http-sg.log": "7d0c81685414de8049abd1d38e3650e949cdf5729b70f6aede1e17857dda409d",
+      "ci-final-http-browser-host.log": "9a83846066991291db23dd9c9f288f9864544848da2c72de0dff41c3d24a06f7",
+      "ci-final-migration-compat.log": "7b2b7e29fbc946d7e18e31b62923542423bc5cb9f896de76e6fb3647385fe7be",
+      "ci-fix-ledger-rehearsal.log": "7853a2e187124d234f5dab499968a18bc30a0994ecd9c073ca554d72dd35d146",
+      "ci-fifo-pg.log": "d7b6fe1334b8899fae48d5ae7230c05bfee84d5b27e822f6b1aced7a24d9d18a",
+      "ci-final-constraint.log": "c8f206e0d5e6a2adfb4f1ef2cc23a28382cdc98cfee046294fb0cc03ed3c66dd",
+      "ci-final-nullable.log": "4b95d58d9a67a8a178ee64e48dc6050ae865d08f8ff86c8ab5491ad17d79eb65",
+      "ci-final-migration-dml.log": "fcd5d053f3a80cbf190e3947816e3794cfca5a7973ff3ca4d881039400f2d83e",
+      "ci-final-migration-down.log": "603e5915366804c4aeaf18ae8aec1ead0440ee048ec7fd100594438ef53246c6",
+      "ci-final-w5.log": "9e98208c4a47f496938eb0b39edf107d59dc65c70087a68ee0303d43149957a5",
+      "ci-final-i18n-keys.log": "94778b72aa74c88428f178f00a7631adc0cea537e608bdce5a58b2ae9ec0a88b",
+      "ci-final-i18n-literals.log": "9e3dcad0682987bf3305545268de5ed2e91fbd5d3969871d7425216cf9e7e6e2",
+      "ci-final-browser.log": "fc8e06f189998eacb145d537cefe0507d81dc21a00af6e493910bcb6bcea07ec",
+      "ci-final-appearance.log": "da1599c81a57e641a1b381ca3b1c3bf47d143a1f34e07bc2b200690b0b16a091",
+      "ci-fix-pdf-readable.log": "da3346a55a1ee6b75eba35b392418c845b80a31e83b2983867fe74f3865f306b",
+      "ci-fix-breeding-live.log": "4b45fb7a4d8b2a5c686798ffe0a2d8934a6426c6f5da1870a14fbfa3089f5721",
+      "ci-final-regression-setup.log": "a2774bf800f938cf1f3bfd43fb690e47758a1903db7701988864c178316aa4a3",
+      "ci-final-packaging-live.log": "ce396d90f39d3395a62f61b548b0bc3bd6c0f4a9901c818b1ebf45af8e66acda",
+      "ci-final-e2e-seed.log": "2562941c5dc1c1e99575d3c1a3b881592d6f314d6ee85ff43b731885c456f754",
+      "ci-final-crud-house-identity.log": "e7bcedcd74cbae18c56536298c8374ca4567c3ede2e22ba1ddaa4a32092c320f",
+      "ci-final-scheduler-diagnostic.log": "f5b75c624203a7548b96f0f0d7db1d872945b8978368b92865e3595b21beeeee",
+      "ci-final-maintenance-tests.log": "2cd3f53e36270ef5e3ac326e41aba6e4ab04b2d951c83e1d5660ae2f57e1149b",
+      "ci-final-business-recorder-pg.log": "c20008f06ae9c3800b22741779ac5525f5f901c892ac2780e9df04706ab53798",
+      "ci-fix-ci-contracts.log": "c9397a87152837871c19c58fa72b3c9c289f65862808f0386a102e6578ead795",
+      "ci-fix-ssh-tests.log": "28402e1365a422f0dde08423e75b158d553a899825d2363f38f139d5229c797d",
+      "ci-fix-ssh-gate.log": "187c4ba05773c1260cdc4081260d349fdba7f553668a3337d4884a0b7d60d288",
+      "ci-i18n-browser.log": "65be4d80e74a7e545ffe043bfb7a15447a7d3c5e24df7c921ac9f0ea7d63a960",
+      "ci-i18n-web-types.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ci-locator-contracts.log": "9cc875af8327ab21d43d3d3965e736dcfd2cd294256d3a40281995b810a3233a",
+      "ci-locator-ssh-gate.log": "187c4ba05773c1260cdc4081260d349fdba7f553668a3337d4884a0b7d60d288",
+      "vendor-fragment-final.log": "575558f53b2ad3989748d031cfaae3527362e36a849927da7cc3fe4a5e5fb3e8",
+      "egg-evidence-input-validation.log": "a7fb3c00bec44bf3c2abb0ee82a7b205b315714eb39b7c709284fddb9549130d",
+      "egg-evidence-owned-validation.log": "3e497241e02712f95ad625d4586a849fc61af92f666ab7b4227858b7012eee08",
+      "egg-evidence-owned-positive.log": "708b22f106375cf770c18eea29255b34d0060f9aafb1acff69d72f9911971de3",
+      "production-daily-grade-allowlisted.log.txt": "1505f6d076c7a3f0b45c1f22587e5fb79de7841d627405b39d82948248e57295"
+    }
+  },
+  "correctedValidation": {
+    "supersedesHead": "a383c76eaa67e9880616fbc82e4f9e9c9152e57b",
+    "withdrawnClaim": "Web typecheck PASS: the prior local process had not completed when its partial output was inspected; completed log and remote CI both showed TS2683",
+    "fix": "Explicit HTMLAnchorElement this type in download mock; no runtime/permission change",
+    "verifiedCommands": {
+      "webTypes": "tsc --noEmit --incremental false; completed exit 0",
+      "webFullTests": "139 files, 835 tests passed; completed exit 0"
+    },
+    "sourceCommit": "96bc792069461ecf5c351aa416af2c871f5e5b8a"
+  },
+  "verifiedExitCodes": {
+    "apiFullTests": 0,
+    "webFullTests": 0,
+    "apiTypes": 0,
+    "webTypesNoIncremental": 0,
+    "apiBuild": 0,
+    "webBuild": 0,
+    "apiLint": 0,
+    "webChangedLint": 0,
+    "webRatchet": 0,
+    "httpUtc": 0,
+    "httpSingapore": 0,
+    "freshMigrationCompatibility": 0,
+    "historicalLedgerRehearsal": 0,
+    "fifoPg41": 0,
+    "breedingLegacy24": 0,
+    "breedingSetup8": 0,
+    "schedulerDiagnostic12": 0,
+    "relatedMaintenance30": 0,
+    "browser9": 0,
+    "appearance4": 0,
+    "W5": 0,
+    "packaging45": 0,
+    "packagingSetup6": 0,
+    "e2eSqlSeed": 0,
+    "genericCrudController24": 0,
+    "schedulerDiagnostic15": 0,
+    "businessRecorderRealPg16Pg18": 0,
+    "hydratorBrowser18": 0,
+    "webTypesAfterE2eEdit": 0,
+    "ciLocatorContracts9": 0,
+    "ciLocatorSshGate": 0,
+    "vendorFragmentTargeted": 0,
+    "dailyEggReadonlyInputs": 0,
+    "dailyEggReadonlyOwnedPg18": 0,
+    "dailyEggReadonlyOwnedPositive": 0,
+    "combinedSchedulerReadonlyAtCandidate": 0,
+    "trustedBackupNullActualPg": 0,
+    "independentTrustedBackupNull": 0,
+    "independentNullAudit": 0,
+    "expandedReadonlySqlOwned": 0,
+    "backupWorkflowSyntax": 0,
+    "protocolExtendedAt060": 0,
+    "protocolRealPgAt060": 0,
+    "protocolEquivalentCompose": 0
+  },
+  "verbatimVendorLicenseNote": "OFL.txt copied unmodified from upstream, including its existing trailing whitespace",
+  "serviceLifecycle": {
+    "ci-final-http-browser-host.log": {
+      "purpose": "Readiness of a held local browser fixture, not a completed validation command",
+      "stoppedWith": "SIGUSR2",
+      "processExitCode": 140,
+      "countedAsPassingValidation": false
+    },
+    "independentHttpValidation": "ci-fix-http-utc.log and ci-fix-http-sg.log each completed 5 assertions with exit 0"
+  },
+  "priorRemoteCiSummary": {
+    "head": "e23809a5b96260a673499b7f16a1f56bcfd931b0",
+    "checkoutMerge": "6d328cde6d207db8e47354fd46f5c8fbdce5c1f8",
+    "tree": "11c850e0e0ab59aeca5ba9b2aed98522d8f3264f",
+    "passed": 21,
+    "skippedBuildDeploy": 3,
+    "failed": 0,
+    "pending": 0,
+    "legacyFirstSwitchRun": 44104051532,
+    "productionDeployed": false
+  },
+  "workspaceExclusion": {
+    "sourceBasis": "Committed Git blobs only; apps/scripts/.github tracked bytes equal sourceCommit at receipt creation",
+    "coordinatorProtocolIncluded": true,
+    "excluded": "Local raw artifacts and uncommitted reversal review draft; WMS reversal execution package not implemented/included"
+  },
+  "evidenceArtifactsSha256": {
+    "production-preflight-observation.json": "382c0f5c77617c3fccc20f095d9cd0d1b0501219cc4e5cb30dfbba8cc5907f46",
+    "production-daily-grade-allowlisted.log.txt": "1505f6d076c7a3f0b45c1f22587e5fb79de7841d627405b39d82948248e57295",
+    "e238-ci-observation.json": "f50961f96660c8f325e217973cc11c8d0892437f037ce55c9346c3677003c56a",
+    "e238-check-snapshot.json": "3dd5f3df2d5000bbaef0478ac47462bd4243496986fcc9d57e7e3b372487c0c1",
+    "descendant-reanchor-validation.json": "6b561ba6d36418b9184426f5d833c0226f01e515571b078d63bdf52c494cb574"
+  }
+}

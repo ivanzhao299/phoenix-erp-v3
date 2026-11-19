@@ -1,0 +1,218 @@
+Source commit: d947bf0b4591e830dd46c021a9a9800ad5c4b11f
+Source fingerprint: 56040bba700f44ba13361554624ece580243c58b3ee9999608d9c345c5851dae (129 paths, apps/scripts/.github)
+Validation command exit codes are bound in validation-receipt.json. The held browser host is readiness evidence only; it stopped on SIGUSR2 (exit 140) and is not counted as a passing validation.
+New protocol/backup source: remote CI pending. Prior e23821 SUCCESS +3 skipped deploy/build. Production reversal/apply/deploy not authorized/performed by this receipt.
+
+ci-final-api-tests.log sha256=cf568aaad97f7f887b956acb5ab094027b2c96eba290625919e2afe2d7e2a79c
+Test Suites: 22 skipped, 168 passed, 168 of 190 total
+Tests:       433 skipped, 2129 passed, 2562 total
+
+ci-final-web-tests.log sha256=37df203e39ea4d929a8d769d18f1fd1c1846c116f533dc079804fb6a74fbe903
+ ↓ src/__tests__/daily-inbound-ledger.live.dom.test.tsx (4 tests | 4 skipped)
+ Test Files  139 passed | 1 skipped (140)
+      Tests  835 passed | 4 skipped (839)
+   Duration  7.66s (transform 13.58s, setup 0ms, collect 38.51s, tests 16.46s, environment 15.17s, prepare 17.35s)
+
+ci-final-api-types.log sha256=6ebe93a83eb82a9a554ba4bbc56a7042f70d71391261c6209eca269921da72f5
+
+ci-final-web-types.log sha256=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+
+ci-final-api-build.log sha256=5b1549b60bee4e750040adfb6abec0fc90883af4fd742416eb44b5e3c8cbe21b
+
+ci-final-web-build.log sha256=a94e2e4de49c5cc2fc23b394ced7c012611bbb8d156ef41b7988d63123695b52
+✓ Compiled successfully in 31.7s
+
+ci-final-api-lint.log sha256=95d9f3834964d9d67b245068390b512eebfae8e42b0d3c11effd2b153af02ccb
+✖ 3176 problems (0 errors, 3176 warnings)
+  0 errors and 5 warnings potentially fixable with the `--fix` option.
+
+ci-final-web-lint.log sha256=5c3934e7c9f47cde11a2751ad12b7ef01a2855f1aea93cb294b12d055e6a2ed6
+62 errors / 28 warnings
+PASS: changed files did not increase lint debt
+
+ci-final-web-ratchet.log sha256=4287d4554bfa357508d8a260789ba1525468f63e1f255cfb6cd4e9718e328e26
+815 errors / 467 warnings / 195 error files; inventory: cache/lint/web-current.json
+PASS: no file/rule error count increased
+
+ci-fix-http-utc.log sha256=587aec2109447ffd9b87d21429c1dfadb94205111cfc0ecc386c4ccb9155688d
+Test Suites: 1 passed, 1 total
+Tests:       5 passed, 5 total
+
+ci-fix-http-sg.log sha256=7d0c81685414de8049abd1d38e3650e949cdf5729b70f6aede1e17857dda409d
+Test Suites: 1 passed, 1 total
+Tests:       5 passed, 5 total
+
+ci-final-http-browser-host.log sha256=9a83846066991291db23dd9c9f288f9864544848da2c72de0dff41c3d24a06f7
+
+ci-final-migration-compat.log sha256=7b2b7e29fbc946d7e18e31b62923542423bc5cb9f896de76e6fb3647385fe7be
+
+ci-fix-ledger-rehearsal.log sha256=7853a2e187124d234f5dab499968a18bc30a0994ecd9c073ca554d72dd35d146
+INITIAL_LEDGER=PASS
+MIGRATION_SHOW_BEFORE=PASS
+PREEXISTING_PENDING_NEGATIVE_CONTROL=PASS
+CURRENT_LEDGER_PREFLIGHT_RESULT=PASS
+ADMISSION_NOT_MARKED_APPLIED_OR_EXECUTED=PASS;REAL_ADMISSION_DDL_PROOF=SEPARATE_PG_JOB
+MIGRATION_RUN_EXACTLY_FOUR=PASS
+RETIRED_ROW_PRESERVED=PASS
+LEGACY_BRIDGE_REMAINS_ABSENT=PASS
+MIGRATION_SHOW_AFTER=PASS
+SCHEMA_INVARIANTS=PASS
+DATA_INVARIANTS=PASS
+LEDGER_RUNTIME_COMPATIBILITY=PASS
+
+ci-fifo-pg.log sha256=d7b6fe1334b8899fae48d5ae7230c05bfee84d5b27e822f6b1aced7a24d9d18a
+Test Suites: 1 passed, 1 total
+Tests:       41 passed, 41 total
+
+ci-final-constraint.log sha256=c8f206e0d5e6a2adfb4f1ef2cc23a28382cdc98cfee046294fb0cc03ed3c66dd
+✅ check-constraint-drift: 0 new drift(s); 0 allowlisted; 0 warning(s)
+
+ci-final-nullable.log sha256=4b95d58d9a67a8a178ee64e48dc6050ae865d08f8ff86c8ab5491ad17d79eb65
+
+ci-final-migration-dml.log sha256=fcd5d053f3a80cbf190e3947816e3794cfca5a7973ff3ca4d881039400f2d83e
+🟡 1788408000000-AddSalesOrderBatchAllocations.ts: 豁免 DML 检查 — rebuild open sales-order batch allocations from the original per-batch RESERVED ledger; fail closed on ambiguous outboun
+
+ci-final-migration-down.log sha256=603e5915366804c4aeaf18ae8aec1ead0440ee048ec7fd100594438ef53246c6
+
+ci-final-w5.log sha256=9e98208c4a47f496938eb0b39edf107d59dc65c70087a68ee0303d43149957a5
+PASS: Phase 0 operating docs exist
+PASS: PR template exists
+PASS: migration down() gate script exists
+PASS: migration data-DML gate script exists
+PASS: nullable unique gate script exists
+PASS: RBAC audit script exists
+PASS: smoke test script exists
+PASS: freeze boundary static gate passes
+PASS: security regression static gate passes
+PASS: unsafe attachment reference gate passes
+PASS: menu permission atomicity gate passes
+PASS: user role assignment atomicity gate passes
+PASS: sensitive menu guard gate passes
+PASS: frontend menu gate alignment passes
+PASS: PG parameter cast consistency gate passes
+PASS: procurement DataScope write gate passes
+PASS: WMS DataScope write gate passes
+PASS: house ownership write gate passes
+PASS: master-data legacy reference growth gate passes
+PASS: sys_alert source coverage gate passes
+PASS: product page quality contracts pass
+Result: PASS. W5 closeout static gates passed.
+
+ci-final-i18n-keys.log sha256=94778b72aa74c88428f178f00a7631adc0cea537e608bdce5a58b2ae9ec0a88b
+
+ci-final-i18n-literals.log sha256=9e3dcad0682987bf3305545268de5ed2e91fbd5d3969871d7425216cf9e7e6e2
+i18n-hardcoded-literals: scanned=3915 covered=3915 uncovered=0 locale_quality=0 files=211
+
+ci-final-browser.log sha256=fc8e06f189998eacb145d537cefe0507d81dc21a00af6e493910bcb6bcea07ec
+
+ci-final-appearance.log sha256=da1599c81a57e641a1b381ca3b1c3bf47d143a1f34e07bc2b200690b0b16a091
+
+ci-fix-pdf-readable.log sha256=da3346a55a1ee6b75eba35b392418c845b80a31e83b2983867fe74f3865f306b
+Protected PDF download: valid PDF, 1 page, expected evidence text extracted
+
+ci-fix-breeding-live.log sha256=4b45fb7a4d8b2a5c686798ffe0a2d8934a6426c6f5da1870a14fbfa3089f5721
+✅ 全部 24 项 PASS
+
+ci-final-regression-setup.log sha256=a2774bf800f938cf1f3bfd43fb690e47758a1903db7701988864c178316aa4a3
+Ran 14 tests in 3.355s
+OK
+
+ci-final-packaging-live.log sha256=ce396d90f39d3395a62f61b548b0bc3bd6c0f4a9901c818b1ebf45af8e66acda
+✅ 全部 45 项 PASS
+
+ci-final-e2e-seed.log sha256=2562941c5dc1c1e99575d3c1a3b881592d6f314d6ee85ff43b731885c456f754
+
+ci-final-crud-house-identity.log sha256=e7bcedcd74cbae18c56536298c8374ca4567c3ede2e22ba1ddaa4a32092c320f
+Test Suites: 1 passed, 1 total
+Tests:       24 passed, 24 total
+
+ci-final-scheduler-diagnostic.log sha256=f5b75c624203a7548b96f0f0d7db1d872945b8978368b92865e3595b21beeeee
+✔ unknown states, ambiguous duplicates and malformed identifiers fail closed (0.330616ms)
+ℹ tests 15
+ℹ pass 15
+ℹ fail 0
+ℹ skipped 0
+
+ci-final-maintenance-tests.log sha256=2cd3f53e36270ef5e3ac326e41aba6e4ab04b2d951c83e1d5660ae2f57e1149b
+ℹ tests 41
+ℹ pass 40
+ℹ fail 0
+ℹ skipped 1
+
+ci-final-business-recorder-pg.log sha256=c20008f06ae9c3800b22741779ac5525f5f901c892ac2780e9df04706ab53798
+# tests 13
+# pass 13
+# fail 0
+# skipped 0
+
+ci-fix-ci-contracts.log sha256=c9397a87152837871c19c58fa72b3c9c289f65862808f0386a102e6578ead795
+✔ malformed source and duplicate pins fail closed without exposing source text (0.60776ms)
+ℹ tests 13
+ℹ pass 13
+ℹ fail 0
+ℹ skipped 0
+
+ci-fix-ssh-tests.log sha256=28402e1365a422f0dde08423e75b158d553a899825d2363f38f139d5229c797d
+✔ YAML merge keys, cycles, multiple documents and custom tags fail closed without exposing parser values (4.172756ms)
+ℹ tests 29
+ℹ pass 29
+ℹ fail 0
+ℹ skipped 0
+
+ci-fix-ssh-gate.log sha256=187c4ba05773c1260cdc4081260d349fdba7f553668a3337d4884a0b7d60d288
+PRODUCTION_SSH_ENTRY=PASS deploy=3 restoration=1
+
+ci-i18n-browser.log sha256=65be4d80e74a7e545ffe043bfb7a15447a7d3c5e24df7c921ac9f0ea7d63a960
+  18 passed (44.5s)
+
+ci-i18n-web-types.log sha256=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+
+
+ci-locator-contracts.log sha256=9cc875af8327ab21d43d3d3965e736dcfd2cd294256d3a40281995b810a3233a
+ℹ pass 9
+ℹ fail 0
+
+ci-locator-ssh-gate.log sha256=187c4ba05773c1260cdc4081260d349fdba7f553668a3337d4884a0b7d60d288
+PRODUCTION_SSH_ENTRY=PASS deploy=3 restoration=1
+
+vendor-fragment-final.log sha256=575558f53b2ad3989748d031cfaae3527362e36a849927da7cc3fe4a5e5fb3e8
+tests 73; pass 73; fail 0; skipped 0; actual Node20 exit 0
+
+egg-evidence-input-validation.log sha256=a7fb3c00bec44bf3c2abb0ee82a7b205b315714eb39b7c709284fddb9549130d
+Actual command exit 0; owned/readonly fixture evidence only, not production row proof
+
+egg-evidence-owned-validation.log sha256=3e497241e02712f95ad625d4586a849fc61af92f666ab7b4227858b7012eee08
+Actual command exit 0; owned/readonly fixture evidence only, not production row proof
+
+egg-evidence-owned-positive.log sha256=708b22f106375cf770c18eea29255b34d0060f9aafb1acff69d72f9911971de3
+Actual command exit 0; owned/readonly fixture evidence only, not production row proof
+
+Production current raw grades observed via44104170804; HTTP blank defaulted, both default checks NO_SAMPLE, zero actual HTTP requests; do not describe this run as SQL-only. Before-history unproven.
+
+readonly-none-inputs.log sha256=47d9c75106018339f120be4cf6445f24d3a61152f48efc9efb5c45ff7e7f752f
+
+post-reanchor-scheduler-readonly.log sha256=491a30649b065b12ab44778924047d042ab7ffadcba1c45ab0147046b3ee028f
+
+backup-paths-null-final.log sha256=2d08314756a76ecee0dc9f16563e6b3f79027e89a1000cd9d24c3dcaa2f44663
+
+pending-backup-workflow-syntax.log sha256=ae1c9db2421d424180e4884e615604c2d34c354e53215603d6edadc0394e9876
+
+pending-backup-ssh-gate.log sha256=187c4ba05773c1260cdc4081260d349fdba7f553668a3337d4884a0b7d60d288
+
+reversal-evidence-sql-inputs.log sha256=a7fb3c00bec44bf3c2abb0ee82a7b205b315714eb39b7c709284fddb9549130d
+
+reversal-evidence-owned.log sha256=e3105a850412b461c58b3694e80b19a85021068145f30e27056fb08bb5f8ee5b
+
+final-reanchor-targeted.log sha256=14b52c19c392d0c5b9bdb78a693122c5e94da10dd2a4df88b796418a835cc730
+
+final-reanchor-pg.log sha256=4c9a4abf8fa5c55f04007db8a161216a623d88f766b2b4ac08066e88c9017ae4
+
+final-reanchor-compose.log sha256=52a3ff6d2aead4ea47fe4acf73927d3df9eea6e1ddc31b0cb70439effa30350a
+
+independent-backup-null.log sha256=918d108158647159027e06575f466ac6eef9fb12e0044175233d3fb741e97c2a
+
+independent-audit-null.log sha256=d7ede813435d1a7e302a399c74b897c85035b218a3541a1c7fe6cf73eb7e784a
+
+Trusted backup/path/NULL: own13/13 exit0, independent13/13 exit0; real PG16/18 archives; modeled root paths; full parse is not actual restore.
+Protocol060: total246 pass237 skip9 fail0 exit0; realPG9/9; equivalentCompose3/3 with Webhealth peer and owned formal adapters; formal abort not executed.
+Candidate d947 scheduler/readonly76/76 exit0; expanded SQL local readonly0 only; production dictionary/dimension facts still pending.

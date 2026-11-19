@@ -27,7 +27,7 @@ on:
         default: scripts/ops/readonly-audits/sales-order-lifecycle.sql
         type: string
       http_assertions_path:
-        description: HTTP assertion JSON under scripts/ops/readonly-audits (blank to skip)
+        description: HTTP assertion JSON under scripts/ops/readonly-audits (type NONE to skip; blank may restore the default)
         required: false
         default: scripts/ops/readonly-audits/sales-order-lifecycle.http.json
         type: string

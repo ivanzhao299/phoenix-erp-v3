@@ -73,6 +73,23 @@ export class AllExceptionsFilter implements ExceptionFilter {
     // PostgreSQL 数据库错误 — 映射友好消息，隐藏内部细节
     const err = exception as any;
     const pgCode: string | undefined = err?.code;
+    if ((pgCode ?? err?.driverError?.code) === '23514'
+      && String(err?.message ?? '').includes('OFFICIAL_INVENTORY_')) {
+      return res.status(409).json({ code: 'OFFICIAL_INVENTORY_SOURCE_REJECTED',
+        msg: '测试期、暂停范围或来源待核实的批次不能参与正式业务，请查询原单或联系交接负责人' });
+    }
+    if((pgCode??err?.driverError?.code)==='23514'&&String(err?.message??'').includes('OFFICIAL_REPORT_')) {
+      return res.status(409).json({code:'OFFICIAL_PRODUCTION_REPORT_HOLD',msg:'日报期间已归档、来源冲突或范围正在切换，请保留原单核对后重试'});
+    }
+    if((pgCode??err?.driverError?.code)==='23514'&&/^RAW_(RECEIPT|ORIGIN)_/.test(String(err?.message??''))) {
+      return res.status(409).json({code:'OFFICIAL_RAW_COLLECTION_HOLD',msg:'原始收蛋来源已变化、已被占用或正在核验，请保留原意图并先查询原单'});
+    }
+    if((pgCode??err?.driverError?.code)==='23514'&&String(err?.message??'').includes('OFFICIAL_CONVERSION_')) {
+      return res.status(409).json({code:'OFFICIAL_INVENTORY_CONVERSION_HOLD',msg:'实际加工来源、实物交接或记账期间需核验，请保留原单并查询原回执后重试'});
+    }
+    if((pgCode??err?.driverError?.code)==='23514'&&/^CUTOVER_/.test(String(err?.message??''))) {
+      return res.status(409).json({code:'OFFICIAL_CUTOVER_HOLD',msg:'切换依据、执行准入或当前状态需核验，请保留原单并联系交接负责人'});
+    }
     if (pgCode && PG_ERROR_MAP[pgCode]) {
       const msg = PG_ERROR_MAP[pgCode];
       this.logger.warn(`[DB] PG${pgCode} on ${req.method} ${req.url} — ${err?.message} col:${err?.column}`);

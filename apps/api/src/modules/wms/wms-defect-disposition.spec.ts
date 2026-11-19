@@ -13,6 +13,8 @@ describe('WmsService defect inventory disposition', () => {
     const manager = {
       query: jest.fn(async (sql: string, params: unknown[] = []) => {
         calls.push([sql, params]);
+        if(sql.includes('FROM product_skus'))return [{sku_code:'SKU-DIRTY',product_code:'EGG',grade_code:'DIRTY',spec_code:'LOOSE',status:'ACTIVE',variety_code:null}];
+        if(/FROM (mst_products|product_grades|packaging_specs)/.test(sql))return [{status:'ACTIVE',variety_code:null,is_storable:true}];
         if (sql.includes('FROM wms_defect_dispositions') && sql.includes('FOR UPDATE')) return [];
         if (sql.includes('FROM inv_batches WHERE batch_no')) return [batch];
         if (sql.includes('FROM wms_warehouses') && sql.includes('company_code')) return [{ company_code: 'COMP-A' }];

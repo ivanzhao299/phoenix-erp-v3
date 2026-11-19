@@ -606,7 +606,7 @@ export class ReturnOrdersService {
       `SELECT * FROM sal_return_items WHERE return_order_id=$1 ORDER BY id`, [id],
     );
     const resultIds = new Set(inspectionResults.map((x) => String(x.itemId)));
-    if (allItems.length === 0 || resultIds.size !== allItems.length
+    if (allItems.length === 0 || resultIds.size !== allItems.length || resultIds.size !== inspectionResults.length
       || allItems.some((item: any) => !resultIds.has(String(item.id)))) {
       throw new BadRequestException('质检结果必须且只能覆盖退货单全部明细');
     }

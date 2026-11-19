@@ -3,6 +3,7 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { CONTRACT, secureJson, verifyContext, migrationScope, git } from './production-config-guard.mjs';
+import { assertNoCutoverControlFiles } from './background-control-manifest.mjs';
 import { atomicState } from './production-atomic-state.mjs';
 import { captureRuntime, executionEnv } from './capture-production-runtime.mjs';
 import { assertScopeMigrationsReceipted } from './chanjet-admission-schema-receipt.mjs';
@@ -32,6 +33,7 @@ if (process.argv[1] && import.meta.url === new URL(`file://${process.argv[1]}`).
     if (process.env.RECOVERY_EXECUTE !== 'true' || expectedMode !== 'prepared-no-switch') hold('EXECUTION_NOT_AUTHORIZED');
     if (!/^\d+-\d+$/.test(targetRunId) || !/^[a-f0-9]{40}$/.test(approvedSha) || !/^[a-f0-9]{40}$/.test(previousFloorSha) || !/^\d+-\d+$/.test(recoveryRunId)) hold('INPUT');
     verifyContext(CONTRACT.repository, stateDir);
+    assertNoCutoverControlFiles(stateDir);
     const floor = secureJson(path.join(stateDir, 'floor.json'));
     const active = secureJson(path.join(stateDir, 'active.json'));
     const transaction = secureJson(path.join(stateDir, 'transaction.json'));

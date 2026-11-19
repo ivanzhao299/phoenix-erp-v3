@@ -1,9 +1,10 @@
 import { OrgOwnershipService } from '../org/services/org-ownership.service';
-import { ConflictException, Injectable } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable } from '@nestjs/common';
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
 import { PackagingInventoryIntegrationService } from '../sales-v2/services/packaging-inventory-integration.service'; // 生产链路收口 Phase 1
 import { resolveInventoryClass } from '../wms/inventory-class-policy';
+import { lockTempProductionReferences } from '../wms/temp-production-reversal';
 
 /**
  * PackagingService — V3 包装模块业务服务
@@ -272,6 +273,9 @@ export class PackagingService {
     try {
       // ── 事务：5 步原子提交 ──────────────────────────────────────
       await this.em.transaction(async (mgr) => {
+        await mgr.query("SELECT pg_advisory_xact_lock(hashtext('phoenix:daily-house'),hashtext($1))",[houseCode]);
+        const [schema]=await mgr.query("SELECT to_regclass('brd_flock_house_states') AS ledger");
+        if(schema?.ledger && (await mgr.query('SELECT 1 FROM brd_flock_house_states WHERE house_code=$1',[houseCode])).length) throw new BadRequestException('已接续鸡舍请使用舍日分级日报和包装作业中心，旧班次入口不能重复生成日报');
         // ① pkg_shifts → DONE
         // 显式 ::int 类型 cast，避免 V2 老列(TEXT) + V3 新列(INT) 让 pg 类型推断失败
         // completed_time 是 V2 历史 TEXT 列，用 to_char 而非 NOW() 防类型不匹配
@@ -689,12 +693,14 @@ export class PackagingService {
   // 任务上次打印 >= 2 次时触发；写一条 lbl_records 条目 label_type='reprint_reason'
   async reprintLog(taskId: string, body: any, userId: number) {
     try {
-      const task = await this.em.query(
-        `SELECT task_no, batch_no FROM pkg_tasks WHERE task_no = $1 OR id::text = $1 LIMIT 1`,
+      await this.em.transaction(async manager => {
+      const task = await manager.query(
+        `SELECT task_no, batch_no FROM pkg_tasks WHERE task_no = $1 OR id::text = $1 LIMIT 1 FOR SHARE`,
         [taskId],
       );
       const batchNo = task[0]?.batch_no || task[0]?.task_no || taskId;
-      await this.em.query(
+      await lockTempProductionReferences(manager, [batchNo]);
+      await manager.query(
         `INSERT INTO lbl_records (
            code, label_type, batch_no, qty_printed, desc_text, printed_by
          ) VALUES ($1, 'reprint_reason', $2, $3, $4, $5)`,
@@ -706,6 +712,7 @@ export class PackagingService {
           userId || null,
         ],
       );
+      });
       return { code: 200, msg: '补打记录已保存' };
     } catch (e: any) {
       return { code: 500, msg: e?.message || '保存失败' };

@@ -1,0 +1,136 @@
+{
+  "schema": "phoenix.temp-production-reversal-observation/v1",
+  "productionApplyPerformedByThisChat": false,
+  "sourceMetadata": {
+    "runId": 44123784906,
+    "jobId": 134182015290,
+    "head": "a6e27b53b78ec0b8387d7014179456350462be34",
+    "status": "success",
+    "http": "NONE, SQL-only",
+    "dicts": {
+      "TEMP_PRODUCTION_REVERSAL": "ABSENT",
+      "STOCKTAKE_DOWN": "ABSENT"
+    },
+    "changeType": {
+      "dataType": "varchar(64)",
+      "nullable": true,
+      "relatedChecks": 0
+    },
+    "batchCostColumnExists": false,
+    "ledgerCostColumnsExist": false,
+    "store": {
+      "batch": null,
+      "originalLedger": "COMP-LAO-AGRI"
+    },
+    "unit": {
+      "batch": "枚",
+      "ledger": null
+    },
+    "quantityVersion": 1,
+    "warehouse": "LPH_MS_EGG_FARM",
+    "location": "MSCSKW001",
+    "gradeSummary": [
+      {
+        "grade": "BROKEN",
+        "batchCount": 1,
+        "qty": 0,
+        "available": 0
+      },
+      {
+        "grade": "DIRTY",
+        "batchCount": 1,
+        "qty": 30,
+        "available": 30
+      },
+      {
+        "grade": "GRADE_0",
+        "batchCount": 1,
+        "qty": 30,
+        "available": 30
+      },
+      {
+        "grade": "GRADE_1",
+        "batchCount": 1,
+        "qty": 30,
+        "available": 30
+      },
+      {
+        "grade": "GRADE_2",
+        "batchCount": 1,
+        "qty": 30,
+        "available": 30
+      },
+      {
+        "grade": "GRADE_3",
+        "batchCount": 1,
+        "qty": 30,
+        "available": 30
+      },
+      {
+        "grade": "GRADE_4",
+        "batchCount": 1,
+        "qty": 30,
+        "available": 30
+      },
+      {
+        "grade": "GRADE_5",
+        "batchCount": 1,
+        "qty": 30,
+        "available": 30
+      }
+    ]
+  },
+  "legacyFields": {
+    "runId": 44100859989,
+    "jobId": 134100177993,
+    "scope": "Existing complete exact-batch/ledger JSON; no new production query",
+    "batches": [
+      {
+        "batchNo": "EGG-20261117-00005",
+        "material_code": null,
+        "legacy_source": null,
+        "material_code_present": true,
+        "legacy_source_present": true,
+        "unit_cost_present": false,
+        "batch_no": "EGG-20261117-00005",
+        "packaging_batch_ref": null,
+        "packaging_batch_ref_present": true,
+        "collection_batch_ref": "HOUSE-HOUSE_MS_01"
+      },
+      {
+        "batchNo": "EGG-20261117-00007",
+        "material_code": null,
+        "legacy_source": null,
+        "material_code_present": true,
+        "legacy_source_present": true,
+        "unit_cost_present": false,
+        "batch_no": "EGG-20261117-00007",
+        "packaging_batch_ref": null,
+        "packaging_batch_ref_present": true,
+        "collection_batch_ref": "HOUSE-HOUSE_MS_01"
+      }
+    ],
+    "ledgers": [
+      {
+        "ledger_id": 649,
+        "hasBusinessType": true,
+        "business_type": null,
+        "unit": null,
+        "log_date": "2026-11-17"
+      },
+      {
+        "ledger_id": 651,
+        "hasBusinessType": true,
+        "business_type": null,
+        "unit": null,
+        "log_date": "2026-11-17"
+      }
+    ]
+  },
+  "limitations": [
+    "Observations are from different read-only runs, not one fresh execution snapshot",
+    "Latest formal quantities were 30/30 each; no claim that business activity has stopped or quantities remain unchanged",
+    "Missing pre-schema cost columns are not measured zero",
+    "No current external-voucher or inventory-close authority has been established"
+  ]
+}

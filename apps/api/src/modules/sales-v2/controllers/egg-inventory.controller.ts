@@ -124,7 +124,13 @@ export class EggInventoryController {
     gradeCodeStd?:  string;
     specCode?:      string;
   }) {
-    return this.eggInv.createProductionBatch(body);
+    return this.eggInv.createProductionBatch({
+      companyCode: body.companyCode, warehouseCode: body.warehouseCode, eggDate: body.eggDate,
+      qualityGrade: body.qualityGrade, packagingSpec: body.packagingSpec, productCode: body.productCode,
+      qty: body.qty, shelfDays: body.shelfDays, sourceNo: body.sourceNo,
+      skuCode: body.skuCode, gradeCodeStd: body.gradeCodeStd, specCode: body.specCode,
+      sourceType: 'PRODUCTION',
+    });
   }
 
   // ── FIFO 手动分配端点已下线（INV-102，用户裁决） ──────────────────────────

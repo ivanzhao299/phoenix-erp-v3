@@ -2,9 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import { createRequire } from 'node:module';
 import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { permittedDependencyFile, copyProductionDependencies, requireOwnedResource, verifyLiveControlRow } from './maintenance-erp-candidate.fixture.mjs';
+import { permittedDependencyFile, copyProductionDependencies, requireOwnedResource, verifyLiveControlRow, redactedStartupDiagnostic } from './maintenance-erp-candidate.fixture.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 test('dependency capsule excludes env, keys, test trees and nested host node_modules', () => {
@@ -52,12 +53,53 @@ test('production dependency closure preserves nested versions and never includes
   fs.writeFileSync(path.join(modules, 'one/private.key'), 'synthetic-should-never-be-copied');
   fs.writeFileSync(path.join(modules, 'two/package.json'), JSON.stringify({ name: 'two', version: '1.0.0' }));
   fs.writeFileSync(path.join(modules, 'two/index.js'), 'module.exports=2');
+  fs.chmodSync(path.join(modules,'one/package.json'),0o600);
   const out = path.join(dir, 'capsule'); const records = copyProductionDependencies(api, out);
   assert.deepEqual(records.map(r => r.name).sort(), ['one', 'two']);
+  assert.equal(fs.statSync(path.join(out,'one/package.json')).mode&0o777,0o644);
+  assert.equal(fs.statSync(path.join(modules,'one/package.json')).mode&0o777,0o600);
+  assert.equal(createRequire(import.meta.url)(path.join(out,'one')),2);
   assert.equal(fs.readFileSync(path.join(out, 'one/index.js'), 'utf8'), "module.exports=require('two')");
   assert.equal(fs.existsSync(path.join(out, 'one/.env')), false); assert.equal(fs.existsSync(path.join(out, 'one/private.key')), false);
   assert.equal(fs.existsSync(path.join(out, 'one/innocent-alias')), false);
-  assert.equal(fs.realpathSync(path.join(out, 'one/node_modules/two')), fs.realpathSync(path.join(out, '.capsule', fs.readdirSync(path.join(out, '.capsule')).find(n => n.startsWith('two-')))));
+  assert.equal(fs.realpathSync(path.join(out, 'one/node_modules/two')), fs.realpathSync(path.join(out, '.capsule', fs.readdirSync(path.join(out, '.capsule')).find(n => n.startsWith('two-')), 'node_modules/two')));
+});
+
+test('canonical native sibling paths and distinct dependency versions survive relocation',()=>{
+  const dir=path.join(root,'artifacts/maintenance-erp-candidate',`native-unit-${randomUUID()}`),api=path.join(dir,'api'),modules=path.join(api,'node_modules');
+  const write=(name,metadata,files)=>{const target=path.join(modules,name);fs.mkdirSync(target,{recursive:true});fs.writeFileSync(path.join(target,'package.json'),JSON.stringify(metadata));for(const [file,body]of Object.entries(files)){fs.mkdirSync(path.dirname(path.join(target,file)),{recursive:true});fs.writeFileSync(path.join(target,file),body);}};
+  fs.mkdirSync(api,{recursive:true});fs.writeFileSync(path.join(api,'package.json'),JSON.stringify({dependencies:{one:'1',two:'2','@img/sharp-linux-x64':'1'}}));
+  write('one',{name:'one',version:'1',dependencies:{two:'1'}},{'index.js':"module.exports=require('two')"});
+  write('one/node_modules/two',{name:'two',version:'1'},{'index.js':'module.exports=1'});
+  write('two',{name:'two',version:'2'},{'index.js':'module.exports=2'});
+  write('@img/sharp-linux-x64',{name:'@img/sharp-linux-x64',version:'1',optionalDependencies:{'@img/sharp-libvips-linux-x64':'1'}},{'lib/native.node':'fixture geometry, not a native ABI claim'});
+  write('@img/sharp-libvips-linux-x64',{name:'@img/sharp-libvips-linux-x64',version:'1'},{'lib/libvips-cpp.so':'fixture sibling'});
+  const out=path.join(dir,'capsule');copyProductionDependencies(api,out,{boundary:api});
+  const req=createRequire(import.meta.url);assert.equal(req(path.join(out,'one')),1);assert.equal(req(path.join(out,'two')),2);
+  const native=fs.realpathSync(path.join(out,'@img/sharp-linux-x64/lib/native.node'));
+  assert.equal(fs.readFileSync(path.resolve(path.dirname(native),'../../sharp-libvips-linux-x64/lib/libvips-cpp.so'),'utf8'),'fixture sibling');
+  // The repository's actual node_modules is outside this owned install boundary.
+  fs.writeFileSync(path.join(api,'package.json'),JSON.stringify({dependencies:{'js-yaml':'4'}}));
+  assert.throws(()=>copyProductionDependencies(api,path.join(dir,'escaped'),{boundary:api}),/DIRECT_RUNTIME_DEPENDENCY_MISSING/);
+});
+test('malformed package names cannot create paths outside the capsule',()=>{
+  const dir=path.join(root,'artifacts/maintenance-erp-candidate',`bad-name-${randomUUID()}`),api=path.join(dir,'api');fs.mkdirSync(path.join(api,'node_modules/one'),{recursive:true});
+  fs.writeFileSync(path.join(api,'package.json'),JSON.stringify({dependencies:{one:'1'}}));fs.writeFileSync(path.join(api,'node_modules/one/package.json'),JSON.stringify({name:'../../escape',version:'1'}));
+  assert.throws(()=>copyProductionDependencies(api,path.join(dir,'out')),/CANONICAL_DEPENDENCY_NAME/);
+});
+test('dependency metadata symlinks are refused before any host target is read',()=>{
+  const dir=path.join(root,'artifacts/maintenance-erp-candidate',`metadata-${randomUUID()}`),api=path.join(dir,'api');
+  fs.mkdirSync(path.join(api,'node_modules/one'),{recursive:true});
+  fs.writeFileSync(path.join(api,'package.json'),JSON.stringify({dependencies:{one:'1'}}));
+  const sentinel=path.join(dir,'private-synthetic-metadata');fs.writeFileSync(sentinel,'SYNTHETIC_PRIVATE_SENTINEL',{mode:0o600});
+  fs.symlinkSync(sentinel,path.join(api,'node_modules/one/package.json'));
+  assert.throws(()=>copyProductionDependencies(api,path.join(dir,'capsule'),{boundary:api}),error=>error.message.includes('DEPENDENCY_METADATA_REGULAR_FILE_REQUIRED')&&!error.message.includes('SYNTHETIC_PRIVATE_SENTINEL'));
+});
+test('startup diagnostic exports fixed native failure classifications without raw log values',()=>{
+  const log='Could not load the "sharp" module; libvips-cpp.so.8.17.3: cannot open shared object file; PRIVATE_SENTINEL';
+  const result=redactedStartupDiagnostic({State:{Running:false,Status:'exited',ExitCode:1,OOMKilled:false}},log);
+  assert.equal(result.signals.SHARP_NATIVE_LOAD,true);assert.equal(result.signals.LIBVIPS_SHARED_OBJECT_MISSING,true);
+  assert.equal(result.signals.MODULE_NOT_FOUND,false);assert.equal(JSON.stringify(result).includes('PRIVATE_SENTINEL'),false);
 });
 
 import { actualPhaseMaterials, stablePhaseStatus, archiveOwnedPhaseStore } from './maintenance-erp-phase-correlation.fixture.mjs';

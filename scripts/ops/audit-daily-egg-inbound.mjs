@@ -2,6 +2,7 @@
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const args = process.argv.slice(2);
 const outputDir = valueOf('--output-dir') || 'docs/ops/runs';
@@ -30,7 +31,7 @@ function runPsql(sql) {
 }
 
 // Read-only by construction: the SQL contains only SELECT/CTE statements.
-const auditSql = `
+export const auditSql = `
 WITH report_grade AS (
   SELECT dl.log_date::text AS log_date, dl.house_code,
          grade.key AS grade,
@@ -73,12 +74,25 @@ WITH report_grade AS (
     FULL JOIN inbound_grade i USING (log_date, house_code, grade)
    WHERE COALESCE(i.qty, 0) > COALESCE(r.qty, 0)
 ), daily_duplicate_groups AS (
-   SELECT log_date::text AS log_date, house_code,
+   SELECT log_date::text AS log_date, house_code, shift,
           COUNT(*)::int AS row_count,
           jsonb_agg(to_jsonb(d) ORDER BY id) AS rows
      FROM brd_daily_logs d
-    GROUP BY log_date, house_code
+    WHERE log_date IS NOT NULL AND NULLIF(BTRIM(house_code), '') IS NOT NULL
+      AND NULLIF(BTRIM(shift), '') IS NOT NULL
+    GROUP BY log_date, house_code, shift
    HAVING COUNT(*) > 1
+), daily_unknown_identities AS (
+  SELECT id, log_date::text AS log_date, house_code, shift
+    FROM brd_daily_logs
+   WHERE log_date IS NULL OR NULLIF(BTRIM(house_code), '') IS NULL OR NULLIF(BTRIM(shift), '') IS NULL
+      OR house_code <> BTRIM(house_code) OR shift <> BTRIM(shift)
+), daily_mixed_summaries AS (
+  SELECT log_date::text AS log_date, house_code, array_agg(DISTINCT shift ORDER BY shift) AS shifts
+    FROM brd_daily_logs
+   WHERE log_date IS NOT NULL AND NULLIF(BTRIM(house_code), '') IS NOT NULL AND NULLIF(BTRIM(shift), '') IS NOT NULL
+   GROUP BY log_date, house_code
+  HAVING BOOL_OR(shift IN ('DAILY', 'ALL')) AND COUNT(DISTINCT shift) > 1
 ), duplicate_sources AS (
   SELECT company_code, source_no,
          COALESCE(sku_code, '') AS sku_code,
@@ -107,7 +121,7 @@ WITH report_grade AS (
       ON l.batch_no = b.batch_no
      AND l.change_type IN ('TEMP_PRODUCTION_INBOUND', 'TEMP_PRODUCTION_REVERSAL')
    WHERE b.source_type = 'TEMP_PRODUCTION'
-     AND b.legacy_source NOT LIKE '%DAILY_EGG_DUPLICATE_RETIRED%'
+     AND COALESCE(b.legacy_source, '') NOT LIKE '%DAILY_EGG_DUPLICATE_RETIRED%'
      -- Outbound/adjustment flows rewrite batch qty; only untouched batches
      -- must still match the original production ledger exactly.
      AND NOT EXISTS (
@@ -125,7 +139,11 @@ SELECT jsonb_build_object(
   'database', current_database(),
   'checked_at', NOW(),
   'daily_duplicate_groups', COALESCE((SELECT COUNT(*) FROM daily_duplicate_groups), 0),
-   'daily_duplicates', COALESCE((SELECT jsonb_agg(to_jsonb(x) ORDER BY x.log_date, x.house_code) FROM (SELECT * FROM daily_duplicate_groups LIMIT 100) x), '[]'::jsonb),
+   'daily_duplicates', COALESCE((SELECT jsonb_agg(to_jsonb(x) ORDER BY x.log_date, x.house_code, x.shift) FROM (SELECT * FROM daily_duplicate_groups LIMIT 100) x), '[]'::jsonb),
+  'daily_unknown_identity_rows', (SELECT COUNT(*) FROM daily_unknown_identities),
+  'daily_unknown_identities', COALESCE((SELECT jsonb_agg(to_jsonb(x) ORDER BY x.id) FROM (SELECT * FROM daily_unknown_identities LIMIT 100) x), '[]'::jsonb),
+  'daily_mixed_summary_groups', (SELECT COUNT(*) FROM daily_mixed_summaries),
+  'daily_mixed_summaries', COALESCE((SELECT jsonb_agg(to_jsonb(x) ORDER BY x.log_date, x.house_code) FROM (SELECT * FROM daily_mixed_summaries LIMIT 100) x), '[]'::jsonb),
    'duplicate_source_groups', COALESCE((SELECT COUNT(*) FROM duplicate_sources), 0),
   'duplicate_sources', COALESCE((SELECT jsonb_agg(to_jsonb(x) ORDER BY x.batch_count DESC, x.source_no) FROM (SELECT * FROM duplicate_sources LIMIT 100) x), '[]'::jsonb),
   'overposted_grade_groups', COALESCE((SELECT COUNT(*) FROM overposted), 0),
@@ -137,26 +155,33 @@ SELECT jsonb_build_object(
   'unbalanced_production_batches', (SELECT unbalanced_batches FROM unbalanced),
   'conclusion', CASE
     WHEN (SELECT COUNT(*) FROM duplicate_sources) = 0
+     AND (SELECT COUNT(*) FROM daily_duplicate_groups) = 0
+     AND (SELECT COUNT(*) FROM daily_unknown_identities) = 0
+     AND (SELECT COUNT(*) FROM daily_mixed_summaries) = 0
      AND (SELECT COUNT(*) FROM overposted) = 0
      AND (SELECT unbalanced_batches FROM unbalanced) = 0
     THEN 'GO' ELSE 'HOLD' END
 )::text;
 `;
 
-const result = JSON.parse(runPsql(auditSql));
-fs.mkdirSync(outputDir, { recursive: true });
-const jsonPath = path.join(outputDir, 'daily-egg-inbound-audit-latest.json');
-fs.writeFileSync(jsonPath, `${JSON.stringify(result, null, 2)}\n`);
-fs.writeFileSync(reportPath, renderMarkdown(result, jsonPath));
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  const result = JSON.parse(runPsql(auditSql));
+  fs.mkdirSync(outputDir, { recursive: true });
+  const jsonPath = path.join(outputDir, 'daily-egg-inbound-audit-latest.json');
+  fs.writeFileSync(jsonPath, `${JSON.stringify(result, null, 2)}\n`);
+  fs.writeFileSync(reportPath, renderMarkdown(result, jsonPath));
 
-console.log(`daily egg inbound audit: ${result.conclusion}`);
-console.log(`daily_duplicate_groups=${result.daily_duplicate_groups}`);
-console.log(`duplicate_source_groups=${result.duplicate_source_groups}`);
-console.log(`overposted_grade_groups=${result.overposted_grade_groups}`);
-console.log(`legacy_daily_farm_in_rows=${result.legacy_daily_farm_in_rows}`);
-console.log(`retired_duplicate_batches=${result.retired_duplicate_batches}`);
-console.log(`unbalanced_production_batches=${result.unbalanced_production_batches}`);
-process.exitCode = result.conclusion === 'GO' ? 0 : 2;
+  console.log(`daily egg inbound audit: ${result.conclusion}`);
+  console.log(`daily_duplicate_groups=${result.daily_duplicate_groups}`);
+  console.log(`daily_unknown_identity_rows=${result.daily_unknown_identity_rows}`);
+  console.log(`daily_mixed_summary_groups=${result.daily_mixed_summary_groups}`);
+  console.log(`duplicate_source_groups=${result.duplicate_source_groups}`);
+  console.log(`overposted_grade_groups=${result.overposted_grade_groups}`);
+  console.log(`legacy_daily_farm_in_rows=${result.legacy_daily_farm_in_rows}`);
+  console.log(`retired_duplicate_batches=${result.retired_duplicate_batches}`);
+  console.log(`unbalanced_production_batches=${result.unbalanced_production_batches}`);
+  process.exitCode = result.conclusion === 'GO' ? 0 : 2;
+}
 
 function renderMarkdown(value, jsonPath) {
   return [
@@ -166,6 +191,9 @@ function renderMarkdown(value, jsonPath) {
     `- 数据库：\`${value.database}\``,
     `- 检查时间：${value.checked_at}`,
     `- 临时生产入库重复来源组：${value.duplicate_source_groups}`,
+    `- 完整身份重复日报（日期/鸡舍/班次）：${value.daily_duplicate_groups}`,
+    `- 日报身份缺失、空白或含外侧空格行：${value.daily_unknown_identity_rows}`,
+    `- DAILY/ALL日汇总与其它班次或汇总标识混用组：${value.daily_mixed_summary_groups}`,
     `- 超过日报分级额度的组：${value.overposted_grade_groups}`,
     `- 历史日报 FARM_IN 行数：${value.legacy_daily_farm_in_rows}`,
     `- 历史日报 FARM_IN 数量：${value.legacy_daily_farm_in_qty}`,

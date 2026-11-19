@@ -1,3 +1,4 @@
+import { officialInventoryPredicate } from '../../wms/official-inventory';
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
@@ -38,6 +39,7 @@ export class StoreInventoryQueryService {
     const where = [
       `b.warehouse_code=ANY($1::varchar[])`,
       `COALESCE(b.qty,0)>0`,
+      officialInventoryPredicate('b'),
       `COALESCE(b.inventory_class,'STANDARD')='STANDARD'`,
     ];
     const [summary] = await this.ds.query<any[]>(`
@@ -47,7 +49,7 @@ export class StoreInventoryQueryService {
              COALESCE(SUM(CASE WHEN b.status='RESERVED' THEN b.qty ELSE 0 END),0)::numeric AS reserved
         FROM inv_batches b
        WHERE b.warehouse_code=ANY($1::varchar[])
-         AND COALESCE(b.qty,0)>0
+         AND COALESCE(b.qty,0)>0 AND ${officialInventoryPredicate('b')}
          AND COALESCE(b.inventory_class,'STANDARD')='STANDARD'`, [context.warehouseCodes]);
     const add = (sql: string, value: unknown) => { params.push(value); where.push(sql.replace('?', `$${params.length}`)); };
     if (input.status) add('b.status=?', input.status);

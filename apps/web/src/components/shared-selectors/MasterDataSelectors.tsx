@@ -38,6 +38,7 @@ async function lookupArr<T = any>(path: string): Promise<T[]> {
 }
 
 interface BaseProps {
+  ariaLabel?: string;
   value: string;
   onChange: (value: string) => void;
   onPick?: (opt: Opt | null) => void;
@@ -58,7 +59,7 @@ const selStyle: React.CSSProperties = {
 
 /** 通用：从端点加载 {value,label} 选项的下拉 */
 function ScopedSelect({
-  value, onChange, onPick, placeholder, disabled, className, style,
+  value, onChange, onPick, placeholder, disabled, className, style, ariaLabel,
   loader, reloadDeps, emptyMessage, errorMessage, refreshKey, preserveValue,
 }: BaseProps & {
   loader: () => Promise<Opt[]>;
@@ -92,7 +93,7 @@ function ScopedSelect({
 
   const statusMessage = !loading && (failed ? errorMessage : (!opts.length ? emptyMessage : undefined));
   return <>
-    <select data-i18n-skip="true" className={mergedClassName} style={{ ...selStyle, ...style }} value={value} disabled={disabled || loading}
+    <select aria-label={ariaLabel} data-i18n-skip="true" className={mergedClassName} style={{ ...selStyle, ...style }} value={value} disabled={disabled || loading}
       onChange={e => { onChange(e.target.value); onPick?.(opts.find(o => o.value === e.target.value) ?? null); }}>
       <option value="">{loading ? t('ui.加载中…','加载中…') : resolvedPlaceholder}</option>
       {preserveValue && value && !opts.some(o => o.value === value) && <option value={value} disabled>{value}（{t('ui.历史值或当前不可用', '历史值或当前不可用')}）</option>}
@@ -316,13 +317,14 @@ export function ZoneSelector(p: BaseProps & { warehouseCode?: string }) {
 }
 
 // ── 货位（wms_locations）─────────────────────────────────────────────────────
-export function LocationSelector(p: BaseProps & { warehouseCode?: string; zoneCode?: string }) {
+export function LocationSelector(p: BaseProps & { warehouseCode?: string; zoneCode?: string; lookupEndpoint?: string }) {
   const { t } = useLanguage();
-  const { warehouseCode, zoneCode, ...rest } = p;
-  return <ScopedSelect {...rest} reloadDeps={[warehouseCode, zoneCode]} placeholder={p.placeholder ?? t('ui.请选择货位','请选择货位')}
+  const { warehouseCode, zoneCode, lookupEndpoint, ...rest } = p;
+  return <ScopedSelect {...rest} reloadDeps={[warehouseCode, zoneCode, lookupEndpoint]} placeholder={p.placeholder ?? t('ui.请选择货位','请选择货位')}
     loader={async () => {
+      if(lookupEndpoint&&!warehouseCode)return [];
       // Generic CRUD 的 status=ACTIVE 是精确等值，会在客户端过滤前滤光 NORMAL 库位。
-      const r = await request<any>('/crud/wms_locations?pageSize=500');
+      const r = await request<any>(lookupEndpoint || '/crud/wms_locations?pageSize=500');
       const list: any[] = Array.isArray(r) ? r : (r?.data?.items ?? r?.data ?? r?.items ?? []);
       return list
         .filter(l => ['ACTIVE', 'NORMAL'].includes(l.status ?? 'ACTIVE'))
@@ -525,11 +527,11 @@ export function ProductSelector(p: BaseProps) {
 }
 
 export function GradeSelector(p: BaseProps) {
-  const { t } = useLanguage();
-  return <ScopedSelect {...p} preserveValue placeholder={p.placeholder ?? t('ui.请选择等级','请选择等级')}
+  const { t, lang } = useLanguage();
+  return <ScopedSelect {...p} preserveValue reloadDeps={[lang]} placeholder={p.placeholder ?? t('ui.请选择等级','请选择等级')}
     emptyMessage={t('ui.暂无启用等级', '暂无启用等级')}
     errorMessage={t('ui.等级加载失败，请重试', '等级加载失败，请重试')}
-    loader={async () => (await requestLookup('/lookup/product-grades')).map(r => ({ value: r.grade_code, label: `${r.grade_name || r.grade_code}（${r.grade_code}）`, raw: r }))} />;
+    loader={async () => (await requestLookup('/lookup/product-grades')).map(r => ({ value: r.grade_code, label: `${localizedMasterName(r, 'grade_name', lang) || r.grade_code}（${r.grade_code}）`, raw: r }))} />;
 }
 
 export function SpecSelector(p: BaseProps) {
@@ -572,16 +574,17 @@ export function ShiftSelector(p: BaseProps) {
 
 // ── SKU（物料主数据，仅 ACTIVE）──────────────────────────────────────────────
 /** value = sku_code；onPick 回传 raw（包含 product_code/product_name/grade_code/spec_code/sku_name） */
-export function SkuSelector(p: BaseProps & { productCode?: string; gradeCode?: string; usage?: 'any' | 'sale' | 'stock' | 'sale-stock' }) {
+export function SkuSelector(p: BaseProps & { productCode?: string; gradeCode?: string; companyCode?: string; usage?: 'any' | 'sale' | 'stock' | 'sale-stock' }) {
   const { t, lang } = useLanguage();
-  const { productCode, gradeCode, usage = 'any', ...rest } = p;
-  return <ScopedSelect {...rest} preserveValue reloadDeps={[productCode, gradeCode, usage, lang]} placeholder={p.placeholder ?? t('ui.请选择物料','请选择物料')}
+  const { productCode, gradeCode, companyCode, usage = 'any', ...rest } = p;
+  return <ScopedSelect {...rest} preserveValue reloadDeps={[productCode, gradeCode, companyCode, usage, lang]} placeholder={p.placeholder ?? t('ui.请选择物料','请选择物料')}
     emptyMessage={t('ui.暂无可用SKU', '暂无可用 SKU')}
     errorMessage={t('ui.SKU加载失败，请重试', 'SKU 加载失败，请重试')}
     loader={async () => {
       const params = new URLSearchParams({ status: 'ACTIVE', usage });
       if (productCode) params.set('product_code', productCode);
       if (gradeCode) params.set('grade_code', gradeCode);
+      if (companyCode) params.set('company_code', companyCode);
       const r = await request<any>(`/product-master/skus?${params}`);
       const list: any[] = Array.isArray(r) ? r : (r?.data ?? []);
       return list

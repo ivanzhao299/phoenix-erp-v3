@@ -1,0 +1,2 @@
+✅ check-constraint-drift: 0 new drift(s); 0 allowlisted; 0 warning(s)
+scanned 195 baseline SQL + 114 TS migrations; 241 tables; 904 literal/null writes; 60 DTO enums; 1505 entity columns; 15 dynamic migration SQL skipped

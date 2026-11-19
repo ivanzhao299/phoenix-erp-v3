@@ -1,3 +1,6 @@
+import { FileModule } from '../file/file.module';
+import { FlockLifecycleController } from './flock-lifecycle.controller';
+import { FlockLifecycleService } from './flock-lifecycle.service';
 import { Module } from '@nestjs/common';
 import { FarmController } from './farm.controller';
 import { FarmService } from './farm.service';
@@ -17,8 +20,9 @@ import { ImmuneService } from './immune.service';
 import { RolesGuard } from '../../common/guards/roles.guard';
 
 @Module({
-  controllers: [FarmController, FarmFeedController, FarmEggController, FarmSalesController, FarmMedicineController, MedicationRecordController, ImmuneController],
-  providers: [FarmService, FarmCronService, FarmFeedService, FarmEggService, FarmSalesService, FarmMedicineService, MedicationRecordService, ImmuneService, RolesGuard],
+  imports: [FileModule],
+  controllers: [FlockLifecycleController, FarmController, FarmFeedController, FarmEggController, FarmSalesController, FarmMedicineController, MedicationRecordController, ImmuneController],
+  providers: [FlockLifecycleService, FarmService, FarmCronService, FarmFeedService, FarmEggService, FarmSalesService, FarmMedicineService, MedicationRecordService, ImmuneService, RolesGuard],
   exports: [FarmService, FarmFeedService, FarmEggService, FarmSalesService, FarmMedicineService, MedicationRecordService, ImmuneService],
 })
 export class FarmModule {}

@@ -85,7 +85,7 @@ test('deploy orders candidate inventory and preflight before migrations and API 
   assert.ok(inventory >= 0 && preflightIndex > inventory);
   assert.ok(legacyIndex > preflightIndex);
   assert.ok(switchIndex > legacyIndex);
-  assert.match(deploy, /candidate image that will execute/);
+  assert.match(deploy, /candidate-typeorm-inventory\.sh "\$API_IMAGE"/);
 });
 
 test('preflight has no mutation execution path', () => {

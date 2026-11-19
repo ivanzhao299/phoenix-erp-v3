@@ -1,0 +1,187 @@
+{
+  "asOf": "2026-11-17T14:55:48.945915+00:00",
+  "pullRequest": 574,
+  "prHead": "e23809a5b96260a673499b7f16a1f56bcfd931b0",
+  "workflowCheckoutMerge": "6d328cde6d207db8e47354fd46f5c8fbdce5c1f8",
+  "verifiedEqualTree": "11c850e0e0ab59aeca5ba9b2aed98522d8f3264f",
+  "passedChecks": 21,
+  "expectedSkippedDeployChecks": 3,
+  "failedChecks": 0,
+  "pendingChecks": 0,
+  "firstSwitchRunId": 44104051532,
+  "firstSwitch": [
+    {
+      "major": 16,
+      "jobId": 134111476455,
+      "outcome": "PASS",
+      "stage": "FULL_FACTORY_COMPLETED",
+      "sourceHead": "6d328cde6d207db8e47354fd46f5c8fbdce5c1f8",
+      "syntheticTargetSha": "316dd5ba5384da96972e4fa55e8620113b75b6da",
+      "sessionOutcome": "SUCCESS",
+      "leaseRelease": "VERIFIED_RELEASED",
+      "participantRelease": "VERIFIED_ORIGINAL_CLOSES",
+      "actual226Outcome": "EXPECTED_HOLD",
+      "protectedStateUnchanged": true,
+      "actual226FormalSuccess": false,
+      "fixtureOnly": true,
+      "productionReceipt": false,
+      "productionAuthority": false,
+      "exactLegacySuccess": false,
+      "webImplementation": "OWNED_HTTP_PROTOCOL_PEER_NOT_NEXT_UAT",
+      "receiptHashes": {
+        "result.json": "42e75da86758522768415d472ead7a01043080b0decdaa5801b7a979672080cb",
+        "host-intent.json": "4a649770efa83201a581d537ce83275e6783bba7d066f1a8a9ce1af5f7c2b5ae",
+        "actual226-migration-rejection.json": "5d675e5b25f433f312dc42b973a2d5614b6c0fb812ae79f005f1fb4af3260daa"
+      }
+    },
+    {
+      "major": 18,
+      "jobId": 134111476133,
+      "outcome": "PASS",
+      "stage": "FULL_FACTORY_COMPLETED",
+      "sourceHead": "6d328cde6d207db8e47354fd46f5c8fbdce5c1f8",
+      "syntheticTargetSha": "8fe88f523b372ed28d53c67afde5cb5fcd7ca025",
+      "sessionOutcome": "SUCCESS",
+      "leaseRelease": "VERIFIED_RELEASED",
+      "participantRelease": "VERIFIED_ORIGINAL_CLOSES",
+      "actual226Outcome": "EXPECTED_HOLD",
+      "protectedStateUnchanged": true,
+      "actual226FormalSuccess": false,
+      "fixtureOnly": true,
+      "productionReceipt": false,
+      "productionAuthority": false,
+      "exactLegacySuccess": false,
+      "webImplementation": "OWNED_HTTP_PROTOCOL_PEER_NOT_NEXT_UAT",
+      "receiptHashes": {
+        "result.json": "fe74c24ffef69dfe55117c7e598318a8f874c2b70a2589edee2073a4f181d6d2",
+        "host-intent.json": "38be4a9fce44d3c84af54751fdb7683e7d39923fa53d0c68a57f3ec4a67794c3",
+        "actual226-migration-rejection.json": "51e705ebf6db7a45271fd3a5d98e8dc921456898668d1ea6c6834229800d4263"
+      }
+    }
+  ],
+  "checks": [
+    {
+      "name": "Typecheck, Build, Basic Tests",
+      "conclusion": "SUCCESS",
+      "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/44104051598/job/134111475919"
+    },
+    {
+      "name": "Static Security And Freeze Gates",
+      "conclusion": "SUCCESS",
+      "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/44104051551/job/134111475243"
+    },
+    {
+      "name": "Runtime Smoke",
+      "conclusion": "SUCCESS",
+      "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/44104051615/job/134111476847"
+    },
+    {
+      "name": "PG16 PG18 Fence And Drain",
+      "conclusion": "SUCCESS",
+      "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/44104051750/job/134111476793"
+    },
+    {
+      "name": "Playwright Chromium (isolated PG16)",
+      "conclusion": "SUCCESS",
+      "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/44104051994/job/134111477231"
+    },
+    {
+      "name": "Vitest (apps/web)",
+      "conclusion": "SUCCESS",
+      "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/44104051708/job/134111476524"
+    },
+    {
+      "name": "Detect change scope",
+      "conclusion": "SUCCESS",
+      "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/44104051942/job/134111477600"
+    },
+    {
+      "name": "Owned Kernel Ingress PG16",
+      "conclusion": "SUCCESS",
+      "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/44104051532/job/134111476473"
+    },
+    {
+      "name": "fixture",
+      "conclusion": "SUCCESS",
+      "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/44104051977/job/134111476691"
+    },
+    {
+      "name": "fixture",
+      "conclusion": "SUCCESS",
+      "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/44104051978/job/134111475799"
+    },
+    {
+      "name": "rehearsal",
+      "conclusion": "SUCCESS",
+      "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/44104051607/job/134111476068"
+    },
+    {
+      "name": "regression",
+      "conclusion": "SUCCESS",
+      "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/44104051863/job/134111475494"
+    },
+    {
+      "name": "Actual Next Compose Web-only Evidence",
+      "conclusion": "SUCCESS",
+      "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/44104051944/job/134111476605"
+    },
+    {
+      "name": "Owned Kernel Ingress PG18",
+      "conclusion": "SUCCESS",
+      "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/44104051532/job/134111476272"
+    },
+    {
+      "name": "Type-check & Regression",
+      "conclusion": "SUCCESS",
+      "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/44104051942/job/134111595793"
+    },
+    {
+      "name": "Native Default Candidate Collector PG16",
+      "conclusion": "SUCCESS",
+      "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/44104051532/job/134111476118"
+    },
+    {
+      "name": "Real PostgreSQL18 Admission Invariants",
+      "conclusion": "SUCCESS",
+      "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/44104051607/job/134111476616"
+    },
+    {
+      "name": "Native Default Candidate Collector PG18",
+      "conclusion": "SUCCESS",
+      "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/44104051532/job/134111476493"
+    },
+    {
+      "name": "Deploy · fast-css (CSS hot patch)",
+      "conclusion": "SKIPPED",
+      "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/44104051942/job/134111599125"
+    },
+    {
+      "name": "Synthetic Migration-Aligned Legacy First Switch PG16",
+      "conclusion": "SUCCESS",
+      "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/44104051532/job/134111476455"
+    },
+    {
+      "name": "Synthetic Migration-Aligned Legacy First Switch PG18",
+      "conclusion": "SUCCESS",
+      "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/44104051532/job/134111476133"
+    },
+    {
+      "name": "Build & Push ${{ matrix.target }}",
+      "conclusion": "SKIPPED",
+      "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/44104051942/job/134115130202"
+    },
+    {
+      "name": "Legacy Maintenance PG16 PG18 And Real ERP",
+      "conclusion": "SUCCESS",
+      "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/44104051532/job/134111475777"
+    },
+    {
+      "name": "Deploy · ${{ needs.detect-changes.outputs.mode }}",
+      "conclusion": "SKIPPED",
+      "url": "https://github.com/ivanzhao299/phoenix-erp-v3/actions/runs/44104051942/job/134115131381"
+    }
+  ],
+  "merged": false,
+  "deployed": false,
+  "newerUncommittedProtocolIncluded": false
+}

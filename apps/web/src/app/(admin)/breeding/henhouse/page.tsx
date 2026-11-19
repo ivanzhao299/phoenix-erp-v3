@@ -29,9 +29,8 @@ import { useCrud } from '@/hooks/useCrud';
 import { useDictOptions } from '@/hooks/useDictOptions';
 import { usePermission } from '@/hooks/usePermission';
 import { useToast } from '@/contexts/ToastContext';
-import { useDialog } from '@/contexts/DialogContext';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { Plus, Edit2, Trash2, Activity, Building2, Users, CheckCircle, AlertTriangle } from 'lucide-react';
+import { Plus, Edit2, Activity, Building2, Users, CheckCircle, AlertTriangle } from 'lucide-react';
 import s from '@/components/ui/admin-ui.module.css';
 import {
   primaryActionButton, secondaryActionButton, toolbarFilterPill,
@@ -49,9 +48,6 @@ const emptyForm = () => ({
 export default function HenHousePage() {
   const router = useRouter();
   const toast = useToast();
-  const {
-    showConfirm
-  } = useDialog();
   const {
     hasPerm
   } = usePermission();
@@ -71,8 +67,7 @@ export default function HenHousePage() {
   const {
     fetchRecords,
     createRecord,
-    updateRecord,
-    deleteRecord
+    updateRecord
   } = useCrud('brd_houses');
   const {
     fetchRecords: fetchFarms
@@ -169,23 +164,6 @@ export default function HenHousePage() {
     });
     setShowDrawer(true);
   };
-  const handleDelete = async (row: HouseCard) => {
-    if (Number(row.current || 0) > 0) {
-      toast.error(`${t('ui.该鸡舍仍有', '该鸡舍仍有')} ${Number(row.current).toLocaleString()} ${t('ui.羽在栏鸡群，无法删除。请先办理鸡群出栏。', '羽在栏鸡群，无法删除。请先办理鸡群出栏。')}`);
-      return;
-    }
-    const ok = await showConfirm({
-      icon: '🗑️',
-      type: 'danger',
-      title: t('ui.确认解散', '确认解散'),
-      message: `${t('ui.确认拆除鸡舍', '确认拆除鸡舍')}: ${row.name}（${row.code}）`,
-      confirmLabel: t('ui.确认解散', '确认解散')
-    });
-    if (ok) {
-      const ok2 = await deleteRecord(row.id, 'house_code', t('ui.鸡舍删除成功', '鸡舍删除成功'));
-      if (ok2) loadData();
-    }
-  };
   const handleSave = async () => {
     if (!form.farmName) {
       toast.error(t('ui.请选择农场', '请选择农场'));
@@ -195,12 +173,8 @@ export default function HenHousePage() {
       toast.error(t('ui.请填写鸡舍名称', '请填写鸡舍名称'));
       return;
     }
-    if (!editId && !form.code.trim()) {
-      toast.error(t('ui.请填写鸡舍编码', '请填写鸡舍编码'));
-      return;
-    }
-    const cap = parseInt(form.capacity);
-    if (form.capacity !== '' && (isNaN(cap) || cap < 0)) {
+    const cap = Number(form.capacity);
+    if (!Number.isSafeInteger(cap) || cap<1) {
       toast.error(t('ui.容量不能为负', '容量不能为负'));
       return;
     }
@@ -210,12 +184,12 @@ export default function HenHousePage() {
       farm_name: farmInfo?.farm_name || form.farmName,
       house_name: form.name.trim(),
       house_type: form.type,
-      capacity: isNaN(cap) ? 0 : cap,
+      max_capacity:cap,capacity:cap,
       status: 'ACTIVE'
     };
     const ok = editId ? await updateRecord(editId, payload, 'house_code', t('ui.鸡舍信息已更新', '鸡舍信息已更新')) : await createRecord({
       ...payload,
-      house_code: form.code.trim(),
+
       current_birds: 0
     }, t('ui.鸡舍注册成功', '鸡舍注册成功'));
     if (ok) {
@@ -334,7 +308,6 @@ export default function HenHousePage() {
           </button>}
         {canEditHouse && <>
           <button type="button" className={s.btnIcon} onClick={() => handleEdit(row)}><Edit2 size={12} /></button>
-          <button type="button" className={s.btnIconDanger} onClick={() => handleDelete(row)}><Trash2 size={12} /></button>
         </>}
       </div>
   }];
@@ -409,14 +382,7 @@ export default function HenHousePage() {
                 fontWeight: 400
               }}>（{t('ui.编辑时不可修改', '编辑时不可修改')}）</span>}
               </label>
-              <input value={form.code} readOnly={!!editId} onChange={e => setForm({
-              ...form,
-              code: e.target.value
-            })} placeholder={t('ui.例 A001', '例 A001')} className={s.inp} style={{
-              backgroundColor: editId ? 'var(--bg-muted)' : '',
-              color: editId ? 'var(--text-secondary)' : '',
-              cursor: editId ? 'not-allowed' : ''
-            }} />
+              <input value={editId?form.code:'保存时自动生成'} readOnly className={s.inp} style={{backgroundColor:'var(--bg-muted)',cursor:'not-allowed'}} />
             </div>
             <div>
               <label className={s.lbl}>{t('ui.鸡舍名称', '鸡舍名称')} <span style={{

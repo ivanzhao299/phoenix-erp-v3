@@ -135,6 +135,22 @@ export function completedDeploymentEvidenceBinding(deployment, binding) {
     configFloorSha: binding.configFloorSha || (deployMode === 'full' ? binding.previousFloorSha : binding.targetSha), deployMode,
     evidenceSchema: modeBound ? MODE_EVIDENCE_SCHEMA : EVIDENCE_SCHEMA };
 }
+/** A descendant API re-anchor must prove both the authorized old floor F and
+ * the replaced runtime R using the existing immutable promotion archive. */
+export function assertReanchorPromotion(binding, promotion) {
+  validateBinding(binding);
+  if (!Object.hasOwn(binding, 'previousConfigFloorSha')) return true;
+  if (promotion?.version !== CONTRACT.version || promotion.approvedSha !== binding.targetSha
+    || promotion.previousFloor?.floorSha !== binding.previousConfigFloorSha
+    || promotion.previousActive?.floorSha !== binding.previousConfigFloorSha
+    || promotion.previousActive?.active?.api?.revision !== binding.previousFloorSha
+    || promotion.previousActive?.active?.web?.revision !== binding.previousFloorSha
+    || promotion.scope?.baseline !== binding.previousFloorSha || promotion.scope?.target !== binding.targetSha
+    || promotion.marker?.runId !== binding.owner || promotion.marker?.target !== binding.targetSha
+    || promotion.marker?.previousFloorSha !== binding.previousConfigFloorSha
+    || promotion.marker?.previous?.api?.revision !== binding.previousFloorSha) fail('REANCHOR_PROMOTION_AUTHORITY');
+  return true;
+}
 export function verifyCompletedDeployment(binding, participants) {
   validateBinding(binding); validateParticipants(participants, { targetSha: binding.targetSha });
   verifyContext(CONTRACT.repository, CONTRACT.stateDirectory);
@@ -142,6 +158,9 @@ export function verifyCompletedDeployment(binding, participants) {
   const deployment = secureJson(path.join(CONTRACT.stateDirectory, `deploy-${binding.owner}.json`));
   const active = secureJson(path.join(CONTRACT.stateDirectory, 'active.json'));
   const floor = secureJson(path.join(CONTRACT.stateDirectory, 'floor.json'));
+  if (Object.hasOwn(binding, 'previousConfigFloorSha')) {
+    assertReanchorPromotion(binding, secureJson(path.join(CONTRACT.stateDirectory, `floor-promotion-${binding.owner}.json`)));
+  }
   const mode = deployment.deployMode || 'api';
   if (binding.deployMode && binding.deployMode !== mode) fail('DEPLOY_SUCCESS_MODE_BINDING');
   const floorSha = mode === 'full' ? (binding.configFloorSha || floor.floorSha) : binding.targetSha;
@@ -242,7 +261,7 @@ export class BackgroundFenceCoordinator {
     await this.session.ping();
     return this.inspectParticipants(participants, this.manifest, true);
   }
-  async openAfterSuccess(participants) {
+  async publishOpenAfterSuccess(participants) {
     if (!this.ready || this.opened) fail('DRAIN_PROOF_REQUIRED');
     validateParticipants(participants, { targetSha: this.binding.targetSha });
     await this.verifyQuiescent(participants);
@@ -250,7 +269,13 @@ export class BackgroundFenceCoordinator {
       if (!this.session.connected() || await this.verifySuccess(b) !== true) return false;
       await this.verifyQuiescent(participants); return true;
     });
-    this.opened = true; await this.close(); return manifest;
+    // Modern schema releases retain this exact session through the ingress
+    // release and terminal archive. Public OPEN alone never releases SQL locks.
+    this.opened = true; return manifest;
+  }
+  async openAfterSuccess(participants) {
+    const manifest=await this.publishOpenAfterSuccess(participants);
+    await this.close();return manifest;
   }
   async close() {
     if (this.closed) return; this.closed = true; this.ready = false;

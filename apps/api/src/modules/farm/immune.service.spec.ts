@@ -76,6 +76,13 @@ describe('ImmuneService', () => {
     expect(String(ds.query.mock.calls[0][0])).toContain('m.store_code = $1');
   });
 
+  it('honors explicit breeding farm grants without escalating projected company codes',async()=>{
+    const context={isGlobal:false,allowedCompanyCodes:['COMP-A'],allowedSiteCodes:['SITE-A'],allowedFarmCodes:['FARM-A'],allowedWarehouseCodes:[],
+      allowedBreedingCompanyCodes:[],allowedBreedingSiteCodes:[],allowedBreedingFarmCodes:['FARM-B']};
+    const denied=build(context);await expect(denied.service.create(input,'keeper')).rejects.toBeInstanceOf(ForbiddenException);expect(denied.ds.transaction).not.toHaveBeenCalled();
+    const allowed=build({...context,allowedBreedingFarmCodes:['FARM-A']});wireCreate(allowed.manager);await expect(allowed.service.create(input,'keeper')).resolves.toMatchObject({id:7});
+  });
+
   it('rejects a plan outside the caller data scope before opening a transaction', async () => {
     const { service, ds } = build({
       isGlobal: false,

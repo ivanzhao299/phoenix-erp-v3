@@ -16,7 +16,9 @@ async function prepareInbound(page: Page) {
   await page.goto('/breeding/daily-inbound');
   await expect(page.getByRole('button', { name: confirmation, exact: true })).toBeEnabled();
   await page.locator('input[type=date]').fill('2026-10-16');
+  const scope = page.waitForResponse(response => new URL(response.url()).pathname === '/api/v2/inventory/production-inbound-documents/context');
   await selectorFor(page, 'FIXTURE-H1').selectOption('FIXTURE-H1');
+  await scope;
   await expect(page.getByText('归属预览：公司 FIXTURE-COMPANY · 场站 FIXTURE-SITE', { exact: true })).toBeVisible();
   await selectorFor(page, 'FIXTURE-W1').selectOption('FIXTURE-W1');
   await selectorFor(page, 'FIXTURE-L1').selectOption('FIXTURE-L1');
@@ -33,6 +35,12 @@ test.beforeEach(async ({ page }, testInfo) => {
     if (route.request().method() !== 'GET') throw new Error(`Unexpected mutation: ${path}`);
     let json: unknown = [];
     if (path === '/api/v2/inventory/source/mode') json = { mode: 'TEMP_PRODUCTION_INBOUND' };
+    if (path === '/api/lookup/egg-source-profile') json = {
+      profileCode: 'FIXTURE-PROFILE', companyCode: 'FIXTURE-COMPANY', farmCode: 'FIXTURE-FARM',
+      siteCode: 'FIXTURE-SITE', houseCode: 'FIXTURE-H1', productMode: 'STANDARD',
+      varietyCode: null, varietyName: null, shellColor: null,
+    };
+    if (path === '/api/v2/inventory/production-inbound-documents/context') json = { state: 'OFF', firstProductionDate: null };
     if (path === '/api/lookup/houses') json = [{ houseCode: 'FIXTURE-H1', houseName: '测试鸡舍', houseNameLo: 'ເຮືອນທົດສອບ', companyCode: 'FIXTURE-COMPANY', siteCode: 'FIXTURE-SITE', ownershipResolved: true }];
     if (path === '/api/lookup/warehouses') json = [{ warehouseCode: 'FIXTURE-W1', warehouseName: '测试蛋库' }];
     if (path === '/api/crud/wms_locations') json = [

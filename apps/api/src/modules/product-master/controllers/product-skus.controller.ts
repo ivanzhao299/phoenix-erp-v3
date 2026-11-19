@@ -22,8 +22,9 @@ export class ProductSkusController {
     @Query('spec_code')    spec_code?: string,
     @Query('status')       status?: string,
     @Query('usage') usage?: string,
+    @Query('company_code') company_code?: string,
   ) {
-    const rows = await this.svc.listSkus({ product_code, grade_code, spec_code, status, usage: SkuPolicy.usage(usage) });
+    const rows = await this.svc.listSkus({ product_code, grade_code, spec_code, status, company_code, usage: SkuPolicy.usage(usage) });
     return { code: 200, data: rows };
   }
 

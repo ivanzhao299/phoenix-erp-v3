@@ -7,6 +7,8 @@ import { createHash, randomUUID } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { OwnedErpCandidateCapsule, copyProductionDependencies, requireOwnedResource } from './maintenance-erp-candidate.fixture.mjs';
+import {installArchivedApiDependencies,compileArchivedApi} from './maintenance-api-dependency-lock.fixture.mjs';
+import {assertUnreplacedArchiveStore,readUnreplacedGit,verifyExtractedGitTree} from './maintenance-archived-source.fixture.mjs';
 import { classifySql, sliceCapturedWindow } from './api-bootstrap-mutations.mjs';
 
 export const LEGACY_SHA = '226878864f184d26f41a890e666ebed52547db14';
@@ -170,19 +172,25 @@ export class OwnedLegacyErpCapsule extends OwnedErpCandidateCapsule {
     if (!this.resources.some(resource => resource.id === id)) this.resources.push({ id, role, type }); this.record(); return id;
   }
   async build() {
-    this.sourceIdentity = sourceBuiltLegacyIdentity(this.sourceSha, git(['rev-parse', `${LEGACY_SHA}:apps/api/package.json`]), git(['rev-parse', 'HEAD:apps/api/package.json']), git(['rev-parse', `${LEGACY_SHA}:pnpm-lock.yaml`]), git(['rev-parse', 'HEAD:pnpm-lock.yaml']));
+    assertUnreplacedArchiveStore(ROOT);
+    const archived=installArchivedApiDependencies({root:ROOT,revision:this.sourceSha,directory:path.join(this.root,'archived-dependencies')});
+    const sourceBlob=file=>createHash('sha1').update(`blob ${file.length}\0`).update(file).digest('hex');
+    this.sourceIdentity = sourceBuiltLegacyIdentity(this.sourceSha,
+      sourceBlob(readUnreplacedGit(ROOT,['show',`${LEGACY_SHA}:apps/api/package.json`],{binary:true})),archived.receipt.packageBlob,
+      sourceBlob(readUnreplacedGit(ROOT,['show',`${LEGACY_SHA}:pnpm-lock.yaml`],{binary:true})),archived.receipt.lockBlob);
+    this.archivedDependencyLock=archived.receipt;
     const selected = ['apps/api/src', 'apps/api/tsconfig.json', 'apps/api/tsconfig.build.json', 'apps/api/package.json', 'apps/api/ddl', 'apps/api/migrations'];
     const context = path.join(this.root, 'image-context'), source = path.join(context, 'tracked-source'); fs.mkdirSync(source, { recursive: true, mode: 0o700 });
-    const tree = git(['ls-tree', '-r', LEGACY_SHA, '--', ...selected]);
+    const tree = readUnreplacedGit(ROOT,['ls-tree', '-r', LEGACY_SHA, '--', ...selected]).trim();
     assert.equal(tree.split('\n').some(line => /^120000\s/.test(line) || /\t.*(?:\/\.env(?:\.|$)|\.(?:pem|key|p12|pfx)$)/i.test(line)), false);
     this.sourceTreeHash = sha(tree); this.fixtureScriptSha256 = sha(fs.readFileSync(fileURLToPath(import.meta.url)));
-    const archive = execFileSync('git', ['archive', LEGACY_SHA, ...selected], { cwd: ROOT, env: safeEnv(), maxBuffer: 64 * 1024 * 1024 });
+    const archive = readUnreplacedGit(ROOT,['archive','--format=tar',LEGACY_SHA,...selected],{binary:true});
     execFileSync('tar', ['-x', '-C', source], { input: archive, env: safeEnv() });
+    const archiveIdentity=verifyExtractedGitTree(ROOT,LEGACY_SHA,selected,source);
     const api = path.join(source, 'apps/api'); this.archivedApi = api;
-    fs.symlinkSync(fs.realpathSync(path.join(ROOT, 'apps/api/node_modules')), path.join(api, 'node_modules'));
-    execFileSync(process.execPath, [path.join(ROOT, 'apps/api/node_modules/typescript/bin/tsc'), '-p', path.join(api, 'tsconfig.build.json'), '--outDir', path.join(context, 'dist'), '--rootDir', path.join(api, 'src'), '--incremental', 'false'], { env: safeEnv(), timeout: 120000, stdio: ['ignore', 'pipe', 'pipe'] });
-    fs.unlinkSync(path.join(api, 'node_modules'));
-    const dependencies = copyProductionDependencies(path.join(ROOT, 'apps/api'), path.join(context, 'node_modules'));
+    const archivedCompilation=this.archivedCompilation=compileArchivedApi({source,dependencyApi:archived.apiRoot,destination:path.join(context,'dist'),receipt:archived.receipt});
+    assert.deepEqual(verifyExtractedGitTree(ROOT,LEGACY_SHA,selected,source),archiveIdentity);
+    const dependencies = copyProductionDependencies(archived.apiRoot, path.join(context, 'node_modules'),{boundary:path.join(this.root,'archived-dependencies')});
     fs.copyFileSync(path.join(api, 'package.json'), path.join(context, 'package.json')); fs.writeFileSync(path.join(context, 'fixture-preload.cjs'), legacyTransportPreload(this.owner));
     execFileSync(process.execPath, ['--check', path.join(context, 'fixture-preload.cjs')], { env: safeEnv(), stdio: ['ignore', 'pipe', 'pipe'] });
     fs.writeFileSync(path.join(context, '.dockerignore'), '*\n!dist\n!dist/**\n!node_modules\n!node_modules/**\n!package.json\n!fixture-preload.cjs\n');
@@ -191,7 +199,7 @@ export class OwnedLegacyErpCapsule extends OwnedErpCandidateCapsule {
     const tag = `phoenix-${this.owner}:legacy-source`;
     this.docker(['build', '--pull=false', '--network=none', '-f', dockerfile, '-t', tag, context], { timeout: 180000 });
     this.imageId = this.own(this.docker(['image', 'inspect', tag, '--format', '{{.Id}}']), 'source-built-legacy', 'image');
-    fs.writeFileSync(path.join(this.root, 'capsule-build.json'), JSON.stringify({ ...this.sourceIdentity, sourceTreeHash: this.sourceTreeHash, fixtureScriptSha256: this.fixtureScriptSha256, dependencies, imageId: this.imageId }, null, 2), { mode: 0o600 });
+    fs.writeFileSync(path.join(this.root, 'capsule-build.json'), JSON.stringify({ ...this.sourceIdentity, archivedDependencyLock:archived.receipt,archivedCompilation,archiveIdentity, sourceTreeHash: this.sourceTreeHash, fixtureScriptSha256: this.fixtureScriptSha256, dependencies, imageId: this.imageId }, null, 2), { mode: 0o600 });
     return this;
   }
   captureDaemonNetwork(stage, subnet, newNetworkId = null) {

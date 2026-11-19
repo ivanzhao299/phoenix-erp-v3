@@ -17,6 +17,9 @@ audit_root='scripts/ops/readonly-audits'
 bundle_dir="${AUDIT_BUNDLE_DIR:-.}"
 sql_path="${ASSERTION_SQL_PATH:-}"
 http_path="${HTTP_ASSERTIONS_PATH:-}"
+# workflow_dispatch may replace an explicit empty input with its default.
+# Only this exact sentinel disables HTTP; every other value retains validation.
+if [ "$http_path" = NONE ]; then http_path=''; fi
 
 validate_path() {
   local value="$1" suffix="$2"

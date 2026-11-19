@@ -99,6 +99,144 @@ test('mortality-only day saves without inventing egg quantities or opening inven
   await expect(page.getByRole('dialog')).toHaveCount(0);
 });
 
+test('initial house and occupancy loading never exposes editable mortality fields', async ({ page }) => {
+  let releaseHouses!: () => void;
+  let releaseOccupancy!: () => void;
+  const housesGate = new Promise<void>(resolve => { releaseHouses = resolve; });
+  const occupancyGate = new Promise<void>(resolve => { releaseOccupancy = resolve; });
+  let sawHouses!: () => void;
+  let sawOccupancy!: () => void;
+  const housesRequested = new Promise<void>(resolve => { sawHouses = resolve; });
+  const occupancyRequested = new Promise<void>(resolve => { sawOccupancy = resolve; });
+  await page.route('**/api/crud/brd_houses*', async route => {
+    sawHouses();
+    await housesGate;
+    await route.fallback();
+  });
+  await page.route('**/api/v3/farm/daily-hen-report?*', async route => {
+    sawOccupancy();
+    await occupancyGate;
+    await route.fulfill({ json: { rows: [] } });
+  });
+  const deaths = page.getByText('死亡(羽)', { exact: true }).locator('..').locator('input');
+  try {
+    await page.goto('/breeding/daily');
+    await housesRequested;
+    await expect(page.getByText('死亡(羽)', { exact: true })).toBeVisible();
+    await expect(deaths).toHaveCount(0);
+    releaseHouses();
+    await occupancyRequested;
+    await expect(deaths).toHaveCount(0);
+    releaseOccupancy();
+    await expect(deaths).toBeVisible();
+    await deaths.fill('2');
+    await page.getByText('淘汰(羽)', { exact: true }).locator('..').locator('input').fill('3');
+    await expect(deaths).toHaveValue('2');
+  } finally {
+    releaseHouses();
+    releaseOccupancy();
+  }
+});
+
+test('changed date requires its own occupancy result and keeps managed mortality in the event ledger', async ({ page }) => {
+  const payloads: DailyPayload[] = [];
+  let releaseChangedDate!: () => void;
+  const changedDateGate = new Promise<void>(resolve => { releaseChangedDate = resolve; });
+  let sawChangedDate!: () => void;
+  const changedDateRequested = new Promise<void>(resolve => { sawChangedDate = resolve; });
+  await page.route('**/api/v3/farm/daily-hen-report?*', async route => {
+    const changed = new URL(route.request().url()).searchParams.get('date') === '2026-10-16';
+    if (changed) { sawChangedDate(); await changedDateGate; }
+    await route.fulfill({ json: { rows: changed ? [{ house_code: 'FIXTURE-H1', occupancy_id: 7, current_qty: 1000 }] : [] } });
+  });
+  await page.route('**/api/v3/farm/daily-logs', async route => {
+    payloads.push(route.request().postDataJSON());
+    await route.fulfill({ status: 201, json: { code: 200 } });
+  });
+  try {
+    await page.goto('/breeding/daily');
+    const deaths = page.getByText('死亡(羽)', { exact: true }).locator('..').locator('input');
+    await deaths.fill('2');
+    await page.getByRole('spinbutton', { name: 'GRADE_0 · 数量(枚)', exact: true }).fill('1');
+    await page.locator('input[type=date]').first().fill('2026-10-16');
+    await changedDateRequested;
+    await expect(deaths).toHaveCount(0);
+    await page.getByRole('button', { name: '提交日报', exact: true }).first().click();
+    await expect(page.getByText('占栏来源尚未核实，请刷新后再提交', { exact: true })).toBeVisible();
+    expect(payloads).toHaveLength(0);
+    releaseChangedDate();
+    await expect(page.getByText('已接续事件账：死淘请使用生命周期单据；', { exact: false })).toBeVisible();
+    await page.getByRole('spinbutton', { name: 'GRADE_0 · 数量(枚)', exact: true }).fill('');
+    await page.getByRole('button', { name: '提交日报', exact: true }).first().click();
+    await expect(page.getByText('请至少录入一项数据（产蛋数、死淘或饲料用量）后再提交', { exact: true })).toBeVisible();
+    expect(payloads).toHaveLength(0);
+    await page.getByRole('spinbutton', { name: 'GRADE_0 · 数量(枚)', exact: true }).fill('1');
+    await page.getByRole('button', { name: '提交日报', exact: true }).first().click();
+    await expect(page.getByText('日报已成功提交！', { exact: false })).toBeVisible();
+    expect(payloads).toHaveLength(1);
+    expect(payloads[0]).not.toHaveProperty('mortality_qty');
+    expect(payloads[0]).not.toHaveProperty('elimination_qty');
+    expect(payloads[0]).not.toHaveProperty('mortality_reason');
+    expect(payloads[0]).not.toHaveProperty('culling_reason');
+  } finally {
+    releaseChangedDate();
+  }
+});
+
+test('immediate mortality submit reads the visible controls and rejects negative quantities', async ({ page }) => {
+  const payloads: DailyPayload[] = [];
+  await page.route('**/api/v3/farm/daily-logs', async route => {
+    payloads.push(route.request().postDataJSON());
+    await route.fulfill({ status: 201, json: { code: 200 } });
+  });
+  await page.goto('/breeding/daily');
+  const deaths = page.getByText('死亡(羽)', { exact: true }).locator('..').locator('input');
+  await expect(deaths).toBeVisible();
+  // A native control can change before React commits its corresponding state.
+  // Keep the control changes and click in one browser task: no artificial settle delay.
+  const submitVisible = async (mortality: string, elimination: string) => {
+    await page.evaluate(({ mortality, elimination }) => {
+      const field = (label: string) => Array.from(document.querySelectorAll('span'))
+        .find(node => node.textContent === label)?.parentElement?.querySelector('input');
+      const setValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!;
+      setValue.call(field('死亡(羽)'), mortality);
+      setValue.call(field('淘汰(羽)'), elimination);
+      const button = Array.from(document.querySelectorAll('button')).find(node => node.textContent?.trim() === '提交日报');
+      button!.click();
+    }, { mortality, elimination });
+  };
+  await submitVisible('-2', '3');
+  await expect(page.getByText('死淘数量必须为非负数', { exact: true })).toBeVisible();
+  expect(payloads).toHaveLength(0);
+  await submitVisible('2', '3');
+  await expect(page.getByText('日报已成功提交！', { exact: false })).toBeVisible();
+  expect(payloads).toHaveLength(1);
+  expect(payloads[0]).toMatchObject({ mortality_qty: 2, elimination_qty: 3, eggs_by_grade: {} });
+});
+
+test('blank and zero-only days are rejected while culling-only day saves', async ({ page }) => {
+  const payloads: DailyPayload[] = [];
+  await page.route('**/api/v3/farm/daily-logs', async route => {
+    payloads.push(route.request().postDataJSON());
+    await route.fulfill({ status: 201, json: { code: 200 } });
+  });
+  await page.goto('/breeding/daily');
+  const culling = page.getByText('淘汰(羽)', { exact: true }).locator('..').locator('input');
+  await expect(culling).toBeVisible();
+  await page.getByRole('button', { name: '提交日报', exact: true }).first().click();
+  await expect(page.getByText('请至少录入一项数据（产蛋数、死淘或饲料用量）后再提交', { exact: true })).toBeVisible();
+  expect(payloads).toHaveLength(0);
+  await culling.fill('0');
+  await page.getByRole('spinbutton', { name: 'GRADE_0 · 数量(枚)', exact: true }).fill('0');
+  await page.getByRole('button', { name: '提交日报', exact: true }).first().click();
+  expect(payloads).toHaveLength(0);
+  await culling.fill('3');
+  await page.getByRole('button', { name: '提交日报', exact: true }).first().click();
+  await expect(page.getByText('日报已成功提交！', { exact: false })).toBeVisible();
+  expect(payloads).toHaveLength(1);
+  expect(payloads[0]).toMatchObject({ mortality_qty: 0, elimination_qty: 3, eggs_by_grade: {} });
+});
+
 test('fractional inline grade is rejected before any report or inventory mutation', async ({ page }) => {
   const mutations: string[] = [];
   await page.route('**/api/**', async route => {

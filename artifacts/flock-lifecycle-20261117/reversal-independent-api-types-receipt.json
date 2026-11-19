@@ -1,0 +1,9 @@
+{
+  "apiTypecheckExitCode": 0,
+  "declaredMutableTest": "apps/api/src/modules/wms/temp-production-reversal-case.pg.spec.ts",
+  "stableManifestFiles": 1203,
+  "stableFilesFingerprintSha256": "0fc58ddfd4ecebd655e15ea53dbbf4c4d5a7c7e72b82af5c31145f5039350a9f",
+  "stableSourceChangesAfter": [],
+  "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "scope": "API noEmit typecheck, spec excluded by tsconfig; not PG70 validation"
+}

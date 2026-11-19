@@ -155,3 +155,32 @@ test('OPEN admission accepts only the real store exact private commit projection
   const changed = f.store.writeState({ ...content, phase: 'COMPLETED_OPEN', status: 'OPEN_COMMIT_PENDING', receipts: [ref], updatedAt: new Date(now - 1).toISOString() });
   await assert.rejects(assertLegacyMaintenanceAdmission({ ...options, expectedStateDigest: changed.stateDigest }, allowed(f)), /INVALID_OPEN_EFFECT_PROJECTION/);
 });
+
+test('modern and legacy admission both refuse pending-only including corrupt JSON and dangling markers before effects',async()=>{
+  for(const contents of ['null','{broken','{}']){
+    const modern=fixture({active:false});fs.writeFileSync(path.join(modern.directory,'cutover-pending.json'),contents,{mode:0o600});
+    assert.throws(()=>assertModernReleaseAdmission({directory:modern.directory},modern.deps),/CUTOVER_DEDICATED_RECOVERY/);
+    const legacy=fixture();fs.writeFileSync(path.join(legacy.directory,'cutover-pending.json'),contents,{mode:0o600});let verified=false;
+    await assert.rejects(assertLegacyMaintenanceAdmission(legacy.options(),{...legacy.deps,verifyAuthority:async()=>{verified=true;return true;}}),/CUTOVER_DEDICATED_RECOVERY/);
+    assert.equal(verified,false);
+  }
+  const f=fixture({active:false});fs.symlinkSync(path.join(f.directory,'absent'),path.join(f.directory,'cutover-pending.json'));
+  assert.throws(()=>assertModernReleaseAdmission({directory:f.directory},f.deps),/CUTOVER_DEDICATED_RECOVERY/);
+});
+test('schema pending alone denies ordinary API/full/web and old first-switch admission before effects',async()=>{
+ for(const mode of ['null','{broken','{}','dangling']){
+  for(const legacy of [false,true]){
+   const f=fixture({active:legacy}),file=path.join(f.directory,'schema-release-pending.json');let verified=false;
+   if(mode==='dangling')fs.symlinkSync(path.join(f.directory,'absent'),file);else fs.writeFileSync(file,mode,{mode:0o600});
+   if(legacy)await assert.rejects(assertLegacyMaintenanceAdmission(f.options(),{...f.deps,verifyAuthority:async()=>{verified=true;return true;}}),/SCHEMA_RELEASE_DEDICATED_RECOVERY/);
+   else assert.throws(()=>assertModernReleaseAdmission({directory:f.directory},f.deps),/SCHEMA_RELEASE_DEDICATED_RECOVERY/);
+   assert.equal(verified,false);
+  }
+ }
+});
+test('a cutover marker appearing while legacy authority is awaited still refuses the original operation',async()=>{
+  const f=fixture();
+  await assert.rejects(assertLegacyMaintenanceAdmission(f.options(),{...f.deps,verifyAuthority:async()=>{
+    fs.writeFileSync(path.join(f.directory,'cutover-pending.json'),'null',{mode:0o600});return true;
+  }}),/CUTOVER_DEDICATED_RECOVERY/);
+});

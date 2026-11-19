@@ -8,7 +8,7 @@ import { CONTRACT, guardProduction, secureJson, assertStateVersion, rollbackElig
 import { assertModernReleaseAdmission } from './production-maintenance-admission.mjs';
 import { executionEnv, IMAGE_ID, captureRuntime } from './capture-production-runtime.mjs';
 import { transactionFile, inspectCandidate } from './production-deployment-state.mjs';
-import { inspectPublicDirectory, readPublicManifest, PUBLIC_DIRECTORY } from './background-control-manifest.mjs';
+import { inspectPublicDirectory, readPublicManifest, PUBLIC_DIRECTORY, assertSameBinding } from './background-control-manifest.mjs';
 import { metadataFor } from './production-deployment-evidence.mjs';
 export function assertBackgroundFence(directory = CONTRACT.stateDirectory, dependencies = {}) {
   const env = dependencies.env || process.env;
@@ -22,6 +22,7 @@ export function assertBackgroundFence(directory = CONTRACT.stateDirectory, depen
   catch (error) { fail(`missing=background-drain-${env.DEPLOY_RUN_ID}.json;cause=${String(error?.message || 'read-failed').replace(/\s+/g, '_')}`); }
   try { manifest = (dependencies.readManifest || readPublicManifest)(); }
   catch (error) { fail(`missing=manifest.json;cause=${String(error?.message || 'read-failed').replace(/\s+/g, '_')}`); }
+  try { assertSameBinding(record, proof); } catch { fail('mismatch=private_binding'); }
   if (!record || !proof || !manifest || record.protocolVersion !== 1 || proof.protocolVersion !== 1 || manifest.protocolVersion !== 1
     || !['FENCED', 'CODE_HOLD'].includes(record.phase) || record.holdReason || manifest.phase !== record.phase
     || record.owner !== env.DEPLOY_RUN_ID || proof.owner !== record.owner || manifest.owner !== record.owner
@@ -37,6 +38,10 @@ export function assertBackgroundFence(directory = CONTRACT.stateDirectory, depen
     || !Number.isFinite(Date.parse(p.startedAt)) || !Number.isInteger(p.restartCount)) fail();
   // The proof applies to one concrete old executor. It cannot authorize a
   // second recreation, a replaced/restarted process, or a legacy stop receipt.
+  if (dependencies.verifyOldExecutor) {
+    if (dependencies.verifyOldExecutor(p) !== true) fail('mismatch=old_executor');
+    return proof;
+  }
   const actual = (dependencies.metadata || metadataFor)('api');
   if (actual.id !== p.containerId || actual.ociRevision !== p.revision || actual.startedAt !== p.startedAt
     || actual.restartCount !== p.restartCount || actual.running !== true || actual.health !== 'healthy') fail();
@@ -66,7 +71,8 @@ export function composeArguments(root, args, project) {
 }
 export function runCompose(args, dependencies = {}) {
   const root = dependencies.root || fs.realpathSync(process.cwd()); const directory = dependencies.directory || CONTRACT.stateDirectory;
-  const file = process.env.DEPLOY_RUN_ID ? transactionFile(directory) : path.join(directory, 'active.json');
+  const env = dependencies.env || process.env;
+  const file = env.DEPLOY_RUN_ID ? transactionFile(directory, env.DEPLOY_RUN_ID) : path.join(directory, 'active.json');
   const state = assertStateVersion((dependencies.readState || secureJson)(file)); const images = state.active;
   const floor = (dependencies.guard || guardProduction)(root, directory, images);
   const command = composeArguments(root, args, floor.project);
@@ -94,7 +100,7 @@ export function runCompose(args, dependencies = {}) {
   }
   let apiImage = images.api.imageId; let webImage = images.web.imageId;
   if (args[0] === 'pull') {
-    if (!process.env.DEPLOY_RUN_ID || !['api', 'web'].includes(service)) throw new Error('COMPOSE_HOLD=PULL_SCOPE');
+    if (!env.DEPLOY_RUN_ID || !['api', 'web'].includes(service)) throw new Error('COMPOSE_HOLD=PULL_SCOPE');
     const ref = `ghcr.io/ivanzhao299/phoenix-erp-v3/${service}:sha-${state.target}`;
     if (service === 'api') apiImage = ref; else webImage = ref;
   }

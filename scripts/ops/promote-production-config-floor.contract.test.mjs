@@ -18,7 +18,7 @@ test('floor promotion imports every production guard helper it calls', () => {
 });
 
 test('v3 re-anchor branch validates with the candidate guard before promotion', () => {
-  assert.match(script, /guardProduction\(root, directory, actual, undefined, \{/);
+  assert.match(script, /\(dependencies\.guardProduction \|\| guardProduction\)\(root, directory, actual, undefined, \{/);
   assert.match(script, /allowFloorReanchor: true/);
   assert.match(script, /installed\.guardProduction\(root, directory, actual\)/);
   // A hold code must always be classified, never swallowed.

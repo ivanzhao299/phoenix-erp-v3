@@ -4,7 +4,8 @@ import { Repository } from 'typeorm';
 import * as crypto from 'crypto';
 import * as jwt from 'jsonwebtoken';
 import { SysUserEntity } from './entities/sys-user.entity';
-import { resolvePermissions, PermSource } from './permissions-resolver';
+import { resolvePermissions } from './permissions-resolver';
+import { loadPermissionSources } from './permission-sources';
 import { isDevLoginAllowedEnvironment } from './dev-login-policy';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'DEV_ONLY_INSECURE_FALLBACK_KEY_DO_NOT_USE_IN_PROD';
@@ -195,52 +196,7 @@ export class AuthService {
       permissions = ['*']; // 超管通配
     } else {
       try {
-        const permRows: PermSource[] = await this.userRepo.query(
-          `
-          -- ① 角色直绑权限
-          SELECT
-            m.menu_code,
-            rmp.perm_codes, rmp.deny_codes, rmp.scope_type, rmp.scope_value,
-            COALESCE(r.approval_level, 0) AS approval_level,
-            'role'::text AS source
-          FROM sys_user_role ur
-          JOIN sys_role r                  ON r.role_id = ur.role_id
-          JOIN sys_role_menu_permission rmp ON rmp.role_id = r.role_id
-          JOIN sys_menu m                  ON m.menu_id = rmp.menu_id
-          WHERE ur.user_id = $1
-            AND COALESCE(ur.is_visible, true) = true
-
-          UNION ALL
-
-          -- ② 角色 → 权限集 → 权限集 item
-          SELECT
-            m.menu_code,
-            psi.perm_codes, psi.deny_codes, psi.scope_type, psi.scope_value,
-            COALESCE(r.approval_level, 0) AS approval_level,
-            'role_set'::text AS source
-          FROM sys_user_role ur
-          JOIN sys_role r                       ON r.role_id = ur.role_id
-          JOIN sys_role_permission_set rps      ON rps.role_id = r.role_id
-          JOIN sys_permission_set_item psi      ON psi.set_id = rps.set_id
-          JOIN sys_menu m                       ON m.menu_id = psi.menu_id
-          WHERE ur.user_id = $1
-            AND COALESCE(ur.is_visible, true) = true
-
-          UNION ALL
-
-          -- ③ 用户直绑权限集（绕开角色路径）
-          SELECT
-            m.menu_code,
-            psi.perm_codes, psi.deny_codes, psi.scope_type, psi.scope_value,
-            0 AS approval_level,  -- 直绑无角色优先级，默认最低；DENY 仍然生效
-            'user_set'::text AS source
-          FROM sys_user_permission_set ups
-          JOIN sys_permission_set_item psi ON psi.set_id = ups.set_id
-          JOIN sys_menu m                  ON m.menu_id = psi.menu_id
-          WHERE ups.user_id = $1
-          `,
-          [user.id],
-        );
+        const permRows = await loadPermissionSources(this.userRepo,user.id);
         permissions = resolvePermissions(permRows);
       } catch (e: any) {
         // 降级：表/列缺失时静默回退（兼容未升级的库）

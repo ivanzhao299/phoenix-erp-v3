@@ -73,19 +73,23 @@ test('notification text and title attributes keep the latest unread state', asyn
   await expect(page.getByText('已全部标为已读', { exact: true })).toBeVisible();
 });
 
-test('Lao mode uses a new flock quantity and Chinese restore keeps that latest source', async ({ page }) => {
+test('Lao mode preserves readonly flock stock and Chinese restore keeps the latest planning edit', async ({ page }) => {
   await authenticate(page, 'lo');
-  let quantity = 150;
+  const quantity = 150;
+  let targetWeeks = 80;
   const flock = () => ({
     flock_no: 'PW-FLOCK-I18N', farm_code: 'PW-FARM', farm_name: '测试养殖场',
     house_code: 'PW-HOUSE', breed_code: BREED_CODE, breed_type: '海兰褐', source_farm: '', start_date: '2026-01-01',
-    current_qty: quantity, placement_age: 1, cost: 1, target_weeks: 80, status: 'LAYING',
+    current_qty: quantity, placement_age: 1, cost: 1, target_weeks: targetWeeks, status: 'LAYING',
   });
   await page.route('**/api/crud/brd_flocks**', async route => {
     if (route.request().method() === 'PUT') {
       const payload = route.request().postDataJSON();
       expect(payload).toMatchObject({ breed_code: BREED_CODE, breed_type: '海兰褐', strain: '海兰褐' });
-      quantity = Number(payload.current_qty);
+      expect(payload).not.toHaveProperty('current_qty');
+      expect(payload).not.toHaveProperty('initial_qty');
+      targetWeeks = Number(payload.target_weeks);
+      expect(targetWeeks).toBe(90);
       await route.fulfill({ json: { ok: true } });
     } else await route.fulfill({ json: [flock()] });
   });
@@ -103,15 +107,22 @@ test('Lao mode uses a new flock quantity and Chinese restore keeps that latest s
   const breedSelect = page.getByRole('dialog').locator('select').nth(2);
   await expect(breedSelect).toBeEnabled();
   await expect(breedSelect).toHaveValue(BREED_CODE);
-  const inputs = page.locator('input[type="number"]');
-  const index = await inputs.evaluateAll(nodes => nodes.findIndex(node => (node as HTMLInputElement).value === '150'));
+  const dialog = page.getByRole('dialog');
+  const stock = dialog.locator('input[type="number"][readonly][value="150"]');
+  await expect(stock).toHaveValue('150');
+  await expect(stock).not.toBeEditable();
+  // Planning metadata remains editable; actual stock belongs to lifecycle documents.
+  const inputs = dialog.locator('input[type="number"]');
+  const index = await inputs.evaluateAll(nodes => nodes.findIndex(node => (node as HTMLInputElement).value === '80'));
   expect(index).toBeGreaterThanOrEqual(0);
-  await inputs.nth(index).fill('300');
+  await inputs.nth(index).fill('90');
   await page.getByRole('dialog').getByRole('button', { name: /保存|ບັນທຶກ/ }).click();
-  await expect(row).toContainText('300ຂົນ');
+  await expect(row).toContainText('150ຂົນ');
+  await expect(row).toContainText('90ອາທິດ');
 
   await page.locator('header select').selectOption('zh');
-  await expect(row).toContainText('300羽');
+  await expect(row).toContainText('150羽');
+  await expect(row).toContainText('90周');
 });
 
 for (const scenario of [
