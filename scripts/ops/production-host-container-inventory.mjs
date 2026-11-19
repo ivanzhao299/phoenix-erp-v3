@@ -95,6 +95,12 @@ function inspectAll(docker,ids){
     typeof row[8]!=='string'||typeof row[9]!=='string'||!(row[10]===null||Array.isArray(row[10])&&row[10].every(v=>typeof v==='string'))||
     !STATES.has(row[13])||!Array.isArray(row[16])||
     typeof row[21]!=='boolean'||typeof row[22]!=='boolean'))fail('HOLD_OBSERVATION_UNAVAILABLE');
+  // Docker enumerates MountPoints in map order. Keep every mount object and
+  // duplicate while stabilizing only this array for the two-sample comparison.
+  for(const row of containers){
+    row[16]=row[16].map(mount=>({mount,digest:canonicalDigest(mount)}))
+      .sort((a,b)=>a.digest.localeCompare(b.digest)).map(({mount})=>mount);
+  }
   const imageIds=[...new Set(containers.filter(row=>ACTIVE_SERVICES.some(service=>row[2]===coreName(service)))
     .map(row=>row[1]))].sort();
   const images=imageIds.length?rows(docker(['image','inspect','--format',imageFormat,...imageIds]),imageIds,2):[];

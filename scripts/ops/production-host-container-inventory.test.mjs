@@ -145,6 +145,32 @@ test('core drift, disappearance, movement and record changes withhold the entire
   assert.throws(()=>f.run({readRecord:name=>name==='active.json'?f.active:{...f.registry,filePin:[String(++registryReads)]}}),/HOLD_PROTECTED_RECORD_CHANGED/);
 });
 
+test('mount order is immaterial while all mount values and the legacy bind order still matter',()=>{
+  const mount=(source,destination)=>({Type:'bind',Source:source,Destination:destination,RW:false});
+  const first=mount('/fixture/one','/one'),second=mount('/fixture/two','/two');
+  const run=mutate=>{
+    const f=fixture(),row=f.rows[3];
+    row[10]=['/fixture/two:/two:ro','/fixture/one:/one:ro'];
+    row[16]=[first,second,{...first}];
+    f.pin.identitySha256=canonicalDigest(legacyContainerIdentity(row));
+    let inspections=0;
+    return f.run({docker:args=>{
+      if(args[0]==='inspect'&&++inspections===2)mutate(row);
+      return f.docker(args);
+    }});
+  };
+  assert.equal(run(row=>{row[16]=[second,{...first},first];}),'NO_GENERIC_MISMATCH');
+  for(const change of [
+    row=>{row[16]=[second,first];},
+    row=>{row[16]=[second,first,{...first},mount('/fixture/three','/three')];},
+    row=>{row[16]=[second,first,{...first,Source:'/fixture/new'}];},
+    row=>{row[16]=[second,first,{...first,RW:true}];},
+    row=>{row[10].reverse();},
+  ]){
+    assert.throws(()=>run(change),/HOLD_CONTAINER_OBSERVATION_CHANGED/);
+  }
+});
+
 const workflow=fs.readFileSync(new URL('../../.github/workflows/production-state-materialization.yml',import.meta.url),'utf8');
 function actualWorkflowBlocks(){
   const start=workflow.indexOf('            if [ "${INCLUDE_CONTAINER_INVENTORY:-false}" = true ]; then');
