@@ -8,6 +8,8 @@ import {inspectModernSchemaContainer,MODERN_SCHEMA_EXECUTOR_SQL,classifyModernSc
 import {verifyModernSchemaChild,pinModernSchemaChild,isOriginalModernSchemaChildTerminal} from './production-modern-schema-processes.mjs';import {assertOriginalModernSchemaProcess} from './production-modern-schema-session-lease.mjs';
 import {readPinnedFile} from './production-trusted-paths.mjs';
 import {RETAINED_INVENTORY_CLASSIFICATION,verifyRetainedModernSchemaInventoryPin} from './production-modern-schema-inventory.mjs';
+import {matchesModernSchemaRehearsalVolume} from './production-modern-schema-postgres.mjs';
+import {verifyHistoricalComposeSchemaArtifacts} from './production-modern-schema-historical-compose.mjs';
 const fail=code=>{throw Error('MODERN_SCHEMA_WATCH_HOLD='+code);};
 const native=(binary,args)=>{try{return execFileSync(binary,args,{env:executionEnv(),encoding:'utf8',timeout:5000,maxBuffer:2*1024*1024,stdio:['ignore','pipe','pipe']}).trim();}catch{fail('NATIVE_CONTINUITY_OBSERVATION_UNAVAILABLE');}};
 const identity=value=>({id:value.id,imageId:value.imageId,name:value.name,startedAt:value.state.StartedAt,running:value.state.Running,pid:value.state.Pid,restarts:value.restarts,
@@ -25,6 +27,7 @@ export class ModernSchemaExecutorWatch {
   if(typeof admit!=='function'||canonicalDigest(preparation.originalSnapshot.containers)!==context.runtimeSnapshotSha256)fail('ORIGINAL_PREPARATION_REQUIRED');
   Object.assign(this,{context,preparation,state,rootLease,session,client,runtime:privateRuntime,admit});this.run=dependencies.run??native;
   this.captureProcesses=dependencies.captureProcesses??captureModernSchemaProcessIdentities;this.inspectProcess=dependencies.processIdentity??observeMaintenanceProcessIdentity;
+  this.historicalCompose=dependencies.historicalCompose;
   this.resources=new Map(preparation.ownedResources.map(record=>[record.containerId,record]));this.baseline=null;this.foreignProcesses=new Map();this.readers=[];this.readCommand=null;
   this.migration=null;this.waitingMigration=null;this.composeChild=null;this.descendants=[];this.candidate=null;this.last=null;this.failed=null;this.timer=null;this.pending=Promise.resolve();this.serial=Promise.resolve();this.running=false;
  }
@@ -76,7 +79,7 @@ export class ModernSchemaExecutorWatch {
    if(network.Internal!==true||record.networkId===this.preparation.hostSurface.ingressScope.networkId||network.Labels?.['phoenix.schema.owner']!==this.context.owner
     ||actual.networkMode!==record.networkId||Object.values(actual.networks??{}).length!==1||Object.keys(actual.ports??{}).length)fail('OWNED_REHEARSAL_NETWORK_CHANGED');
    if(record.role==='rehearsal-database'){
-    if(actual.mounts.length!==1||actual.mounts[0].Type!=='volume'||actual.mounts[0].Name!==record.volume||actual.mounts[0].Destination!=='/var/lib/postgresql')fail('OWNED_REHEARSAL_VOLUME_CHANGED');
+    if(!matchesModernSchemaRehearsalVolume(actual.mounts,record))fail('OWNED_REHEARSAL_VOLUME_CHANGED');
    }else{
     if(actual.readonly!==true||actual.user!=='phoenix'||!same(actual.capDrop,['ALL']))fail('OWNED_REHEARSAL_EXECUTOR_CHANGED');
     if(record.role.endsWith('-api')){
@@ -96,8 +99,15 @@ export class ModernSchemaExecutorWatch {
    verifyRetainedModernSchemaInventoryPin(actual,pin,{docker:args=>this.run('/usr/bin/docker',args)});
   }
  }
+ #verifyHistoricalCompose(values){
+  try{
+   return verifyHistoricalComposeSchemaArtifacts(values,this.preparation.hostSurface.inertArtifacts??[],
+    {networkId:this.preparation.hostSurface.ingressScope.networkId,docker:args=>this.run('/usr/bin/docker',args)},this.historicalCompose);
+  }catch{fail('HISTORICAL_COMPOSE_ARTIFACT_CHANGED');}
+ }
  verifyContainers(values){
   this.#verifyRetainedInventory(values);
+  const historical=this.#verifyHistoricalCompose(values);
   const pre=this.preparation.originalSnapshot.containers,byId=new Map(values.map(value=>[value.id,value]));let runtimeAddress=this.preparation.hostSurface.runtimeAddress;
   for(const service of ['web','db']){const actual=byId.get(pre[service].id);
    if(!actual||actual.imageId!==pre[service].image||actual.state.StartedAt!==pre[service].startedAt||actual.restarts!==pre[service].restartCount||actual.state.Running!==true||actual.state.Health?.Status!=='healthy')fail('UNCHANGED_WEB_DATABASE_REQUIRED');}
@@ -107,7 +117,7 @@ export class ModernSchemaExecutorWatch {
     ||(!stopIntent&&(old.state.Running!==true||old.state.Health?.Status!=='healthy')))fail('ORIGINAL_R_CHANGED');
    if(!old.state.Running&&(old.state.ExitCode!==0||old.state.Pid!==0||old.restartPolicy.Name!=='no'))fail('ORIGINAL_R_NOT_CLEANLY_STOPPED');
   }else if(!this.composeChild||!['API_BODY','API_VERIFIED','OPEN_INTENT','OPEN_PUBLISHED','INGRESS_RELEASED','COMPLETED_OPEN'].includes(phase))fail('ORIGINAL_R_DISAPPEARED_WITHOUT_CONTROLLED_COMPOSE');
-  const newApis=values.filter(value=>value.labels?.['com.docker.compose.project']===this.preparation.floor.project&&value.labels?.['com.docker.compose.service']==='api'&&value.id!==pre.api.id);
+  const newApis=values.filter(value=>value.labels?.['com.docker.compose.project']===this.preparation.floor.project&&value.labels?.['com.docker.compose.service']==='api'&&value.id!==pre.api.id&&!historical.has(value.id));
   if(newApis.length){
    if(!this.composeChild||newApis.length!==1)fail('UNREGISTERED_API_REPLACEMENT');const next=newApis[0];
    if(next.name!=='/phoenix-v3-api'||next.imageId!==this.context.candidateImageId||next.restarts!==0||next.state.OOMKilled!==false||next.state.Restarting||next.privileged!==false||next.pidMode==='host'||Object.values(next.networks??{}).length!==1
@@ -384,6 +394,7 @@ export class ModernSchemaExecutorWatch {
   if(this.running||!['R_STOPPED','FRESH_RECHECKED','BACKUP_VERIFIED'].includes(pending.phase)||pending.status!=='HOLD'||this.state.ddlIntentExists()||typeof admit!=='function'||await admit()!==true)fail('SAME_LEASE_PRE_DDL_RECOVERY_HOST_REQUIRED');
   const values=this.containers(),pre=this.preparation.originalSnapshot.containers,known=new Set([pre.api.id,pre.web.id,pre.db.id,...this.resources.keys()]);
   this.#verifyRetainedInventory(values);
+  this.#verifyHistoricalCompose(values);
   for(const value of values){
    if(value.privileged||value.pidMode==='host'||value.pidMode?.startsWith('container:')||value.networkMode==='host'||value.name.toLowerCase().includes('watchtower'))fail('RECOVERY_UNKNOWN_SHARED_EXECUTOR');
    const own=this.resources.get(value.id);if(own){this.verifyResource(value,own);continue;}

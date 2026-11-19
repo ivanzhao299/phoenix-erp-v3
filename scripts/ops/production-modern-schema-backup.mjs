@@ -3,6 +3,7 @@
 import fs from 'node:fs';import path from 'node:path';import {execFileSync} from 'node:child_process';import {createHash} from 'node:crypto';
 import {executionEnv} from './capture-production-runtime.mjs';import {canonicalDigest,same} from './production-maintenance-receipts.mjs';
 import {LEDGER_SQL,digest} from './chanjet-admission-schema-receipt.mjs';import {captureModernSchemaFacts} from './production-modern-schema-facts.mjs';
+import {modernSchemaPostgresProfile,nativePostgresToolMajor} from './production-modern-schema-postgres.mjs';
 const fail=code=>{throw Error('MODERN_SCHEMA_BACKUP_HOLD='+code);};
 function inspectDatabase(pin,dependencies={}){
  const run=dependencies.inspect??((id)=>execFileSync('/usr/bin/docker',['inspect',id,'--format','{{json .Id}}\t{{json .Image}}\t{{json .State.StartedAt}}\t{{json .State.Running}}\t{{json .State.Health.Status}}\t{{json .RestartCount}}'],{env:executionEnv(),encoding:'utf8',timeout:10000,maxBuffer:65536,stdio:['ignore','pipe','pipe']}).trim());
@@ -30,16 +31,26 @@ export async function createModernSchemaBackup({owner,stage,client,databasePin,p
    (SELECT system_identifier::text FROM pg_control_system()) AS "systemIdentifier",NOT pg_is_in_recovery() AS primary,
    current_setting('server_version_num')::integer AS "serverVersionNum",current_setting('TimeZone') AS timezone,
    pg_encoding_to_char(d.encoding) AS encoding,d.datcollate AS collate,d.datctype AS ctype,d.datlocprovider AS provider,
-   to_jsonb(d)->>'datlocale' AS locale,pg_database_size(current_database())::text AS bytes FROM pg_database d WHERE d.datname=current_database()`);
-  if(database.primary!==true||database.serverVersionNum<180000||database.serverVersionNum>=190000||database.encoding!=='UTF8'
-    ||!['c','i','b'].includes(database.provider)||!/^[1-9][0-9]*$/.test(database.bytes??''))fail('SUPPORTED_PRIMARY_DATABASE_REQUIRED');
+   d.datcollversion AS "collationVersion",pg_database_collation_actual_version(d.oid) AS "actualCollationVersion",
+   pg_database_size(current_database())::text AS bytes FROM pg_database d WHERE d.datname=current_database()`);
+  const profile=modernSchemaPostgresProfile(database?.serverVersionNum);
+  if(database?.primary!==true||!profile||database.encoding!=='UTF8'||database.provider!=='c'
+    ||database.collationVersion!==database.actualCollationVersion||!/^[1-9][0-9]*$/.test(database.bytes??''))fail('SUPPORTED_PRIMARY_DATABASE_REQUIRED');
+  const tools=await privateRuntime.run({binary:'/usr/bin/docker',args:['exec',databasePin.id,'sh','-c','pg_dump --version && exec pg_restore --version'],
+   directory,stem:'backup-tool-versions',timeoutMs:10000});
+  const toolStat=fs.lstatSync(tools.stdout);
+  if(!toolStat.isFile()||toolStat.isSymbolicLink()||toolStat.nlink!==1||toolStat.size>1024)fail('POSTGRES_BACKUP_TOOL_VERSION_REQUIRED');
+  const versions=fs.readFileSync(tools.stdout,'utf8').trim().split('\n');
+  if(versions.length!==2||nativePostgresToolMajor('pg_dump',versions[0])!==profile.major||
+   nativePostgresToolMajor('pg_restore',versions[1])!==profile.major)fail('POSTGRES_BACKUP_TOOL_VERSION_REQUIRED');
+  await verify();
   const disk=fs.statfsSync(directory,{bigint:true});if(disk.bavail*disk.bsize<BigInt(database.bytes)*4n+2147483648n)fail('SPACE_FOR_PROTECTED_BACKUP_AND_REHEARSAL_REQUIRED');
   const facts=await captureModernSchemaFacts(client,{withinSnapshot:true});
   await client.query('SET LOCAL search_path=public');
   const {rows:[{jsonb_build_object:ledgerRaw}]}=await client.query(LEDGER_SQL),ledger=JSON.parse(ledgerRaw);
   const {rows:[{snapshot}]}=await client.query('SELECT pg_export_snapshot() AS snapshot');
   if(!/^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{8}-[0-9A-Fa-f]{1,8}$/.test(snapshot??''))fail('EXPORTED_NATIVE_SNAPSHOT_REQUIRED');
-  source={database,facts,ledger,ledgerSha256:digest(JSON.stringify(ledger)),snapshotSha256:createHash('sha256').update(snapshot).digest('hex')};
+  source={database:{...database,backupToolMajor:profile.major},facts,ledger,ledgerSha256:digest(JSON.stringify(ledger)),snapshotSha256:createHash('sha256').update(snapshot).digest('hex')};
   keepalive=setInterval(()=>{keepaliveWork=keepaliveWork.then(async()=>{try{await verify();await client.query('SELECT 1 AS snapshot_keepalive');}catch{keepaliveError=true;}});},5000);
   result=await privateRuntime.run({binary:'/usr/bin/docker',args:['exec','-e','PGOPTIONS=-c default_transaction_read_only=on -c statement_timeout=120000 -c lock_timeout=3000',
    '-e',`PGAPPNAME=${applicationName}`,databasePin.id,'sh','-c','exec env -i PATH=/usr/local/bin:/usr/bin:/bin PGHOST=/var/run/postgresql PGPORT=5432 PGOPTIONS="$PGOPTIONS" PGAPPNAME="$PGAPPNAME" pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" --format=custom --no-owner --no-acl --snapshot="$1"','--',snapshot],directory,stem:'database-dump',timeoutMs:600000,
