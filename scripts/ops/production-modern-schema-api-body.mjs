@@ -11,9 +11,9 @@ const fail=code=>{throw Error('MODERN_SCHEMA_API_BODY_HOLD='+code);};
 const quote=value=>"'"+value.replaceAll("'","'\"'\"'")+"'";
 export async function closeModernSchemaBodyResources({diagnostic,channel,watch,expectedGraceful,primaryError},io=fs){
  let cleanupError;
+ try{if(channel?.entry)await watch.closeBodyChannel(channel,{expectedGraceful});}catch(error){cleanupError??=error;}
  try{io.fsyncSync(diagnostic);}catch(error){cleanupError??=error;}
  try{io.closeSync(diagnostic);}catch(error){cleanupError??=error;}
- try{if(channel?.entry)await watch.closeBodyChannel(channel,{expectedGraceful});}catch(error){cleanupError??=error;}
  if(primaryError)throw primaryError;if(cleanupError)throw cleanupError;
 }
 export async function runModernSchemaFormalApiBody({context,preparation,preparationSha256,rootLease,originalProcess,state,watch,privateRuntime,schemaReceipt,admit}){
@@ -70,8 +70,8 @@ export async function runModernSchemaFormalApiBody({context,preparation,preparat
   bodyComplete=true;
  }catch(error){primaryError=error;
  }finally{
-  console.log=oldLog;console.error=oldError;
-  await closeModernSchemaBodyResources({diagnostic,channel,watch,expectedGraceful:bodyComplete,primaryError});
+  try{await closeModernSchemaBodyResources({diagnostic,channel,watch,expectedGraceful:bodyComplete,primaryError});}
+  finally{console.log=oldLog;console.error=oldError;}
  }
  const receipt={schema:'phoenix.modern-schema-formal-api-body-result/v1',owner:context.owner,contextDigest:canonicalDigest(context),schemaReceiptSha256:schemaSha256,
   bodySourceSha256:source.bodySha256,workflowSourceSha256:source.workflowSha256,stdout:await privateRuntime.digest(result.stdout),stderr:await privateRuntime.digest(result.stderr),outcome:'BODY_COMPLETE',automaticRollback:false};

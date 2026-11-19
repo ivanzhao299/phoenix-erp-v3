@@ -389,6 +389,7 @@
 - 失败收尾先停止新 frame/新 admit，跟踪并等待实际 handler Promise 收敛；这段等待在 watch.serial 和 S queue 外，底层 CLI/Compose 沿用原有有界时限，随后才在 watch.serial 中关闭固定 Python。原 Bash 异常退出而 handler 仍等待 watch.observe 的真实回归确认：关闭不会提前结束，watch 队列仍可前进，handler 收敛后才关闭。handler settled 不等于所有远端命令已停止；底层超时或原生结果未明继续保留既有 HOLD/拒绝/观察，不据此恢复、重跑 DDL 或宣称远端退场。
 - 独立复核还发现诊断 fsync/close 的 EIO 会跳过 drain，已改为即使日志 IO 失败也无条件收尾、关闭 fd 并保留原首错。相关真实子进程/IPC/slot **40/40、0 skipped**，含正常退出重扫与 S 队列可用、非零/信号/通知丢失、错阶段、未知宿主优先、Python 早退0、真实迟到帧、在途请求及诊断 EIO。早期一版测试因主循环阻塞前 EOF 尚未实际送出而未见 Z，原失败日志保留；后改真实信号令 fixture Python 退出0，未改变产品退出规则。最终 Node20 增广 109 文件、4 并发 **1482 passed / 53 opt-in skipped / 0 failed**（`modern-schema-cp32-regression-v2.log`），语法/diff 检查通过；独立只读复核确认最后 P2 已关闭，无提交阻塞。
 - 原生 CI 组件的候选替换改用真正 privateRuntime.run/deferInput/onSpawn，满足同一实际 command 登记，不给手工对象增加例外。健康检查分类器、未知/跨库客户端门禁、原 S 查询时限、API/Web TS、125 TS 迁移和冻结方案均不变。后续须以本检查点精确源码及官方 OCI 完成全 driver/schema/正式 body/OPEN/强杀收尾；上述仍是隔离开发证据，无生产 DDL、部署、业务启用或 GO。
+- 第三十二后续小修：独立只读复核确认 PROMOTE 动态导入恢复后、下一次 admit 前仍可能打印固定预检行。若提前恢复 console，该行会污染 SSH 严格 JSON 回执；未发现该路径打印凭据。收尾现先保持私有 console/FD 完成 handler drain 和 IPC shutdown，再同步关闭诊断 FD，最外 finally 才恢复 console；原错误优先及 EIO 清理保证不变。相关 **41/41、0 skipped**，用真实私有 FD/实际 Python 关闭配迟到日志反例核对不越界和 FD 释放，独立复核确认无新阻塞。不将此前 1482 项增广重复记作本小修新跑；后续精确 CI 仍须返回实际结果。
 
 ## 未完成的发布阻塞
 

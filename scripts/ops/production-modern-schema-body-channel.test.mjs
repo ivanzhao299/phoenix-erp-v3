@@ -130,3 +130,14 @@ test('diagnostic IO failure cannot skip the actual IPC drain and shutdown or rep
   assert.equal(fdClosed,true);assert.equal(drained,true);assert.equal(f.channel.entry.child.exitCode,0);assert.equal(f.channel.entry.streamsClosed,true);
  }
 });
+test('late handler diagnostics remain in the open private FD until IPC drain and shutdown finish',async()=>{
+ const f=await idleChannelFixture(),file=path.join(f.work,'private-adapters.log'),fd=f.runtime.openOutput(file),oldLog=console.log;
+ const primaryError=Error('original body failed');
+ console.log=value=>fs.writeSync(fd,String(value)+'\n');
+ try{
+  await assert.rejects(closeModernSchemaBodyResources({diagnostic:fd,channel:f.channel,expectedGraceful:true,primaryError,
+   watch:{async closeBodyChannel(channel,options){await Promise.resolve();console.log('FLOOR_REANCHOR_PRECHECK=version:3;critical:false');await channel.close(options);}}}),error=>error===primaryError);
+ }finally{console.log=oldLog;}
+ assert.equal(fs.readFileSync(file,'utf8'),'FLOOR_REANCHOR_PRECHECK=version:3;critical:false\n');assert.equal(f.channel.entry.streamsClosed,true);
+ assert.throws(()=>fs.fstatSync(fd),{code:'EBADF'});
+});
