@@ -9,12 +9,43 @@ export async function installManagedSalesFixture(db:DataSource){
     ALTER TABLE sal_order_items ADD COLUMN product_code text,ADD COLUMN grade_code text,ADD COLUMN sku_code text;
     ALTER TABLE sal_return_items ADD COLUMN product_code text,ADD COLUMN grade_code text,ADD COLUMN sku_code text,
       ADD COLUMN accepted_qty numeric,ADD COLUMN damaged_qty numeric,ADD COLUMN quantity_snapshot jsonb,ADD COLUMN packaging_spec text;
+    CREATE SEQUENCE fixture_return_order_id;
+    CREATE SEQUENCE fixture_return_item_id;
+    ALTER TABLE sal_sales_orders ADD COLUMN customer_name text,ADD COLUMN company_name text;
+    ALTER TABLE sal_order_items ADD COLUMN unit_price numeric,ADD COLUMN product_name text,ADD COLUMN packaging_spec text;
+    ALTER TABLE sal_return_orders ALTER COLUMN id SET DEFAULT nextval('fixture_return_order_id'),
+      ADD COLUMN sales_order_id bigint,ADD COLUMN sales_order_no text,ADD COLUMN delivery_order_id bigint,
+      ADD COLUMN customer_code text,ADD COLUMN customer_name text,ADD COLUMN company_code text,ADD COLUMN company_name text,
+      ADD COLUMN return_type text,ADD COLUMN reason_code text,ADD COLUMN currency_code text,ADD COLUMN subtotal numeric,
+      ADD COLUMN target_warehouse_code text,ADD COLUMN target_zone_code text,ADD COLUMN target_location_code text,
+      ADD COLUMN need_approval boolean,ADD COLUMN remark text,ADD COLUMN created_by text,
+      ADD COLUMN created_at timestamptz,ADD COLUMN updated_at timestamptz,ADD COLUMN requested_at timestamptz,
+      ADD COLUMN inspected_at timestamptz,ADD COLUMN restocked_at timestamptz,ADD COLUMN completed_at timestamptz,ADD COLUMN credit_note_id bigint;
+    ALTER TABLE sal_return_items ALTER COLUMN id SET DEFAULT nextval('fixture_return_item_id'),
+      ADD COLUMN product_name text,ADD COLUMN returned_qty numeric,ADD COLUMN unit_price numeric,ADD COLUMN amount numeric,
+      ADD COLUMN inspection_result text,ADD COLUMN remark text,ADD COLUMN valuation_snapshot jsonb,ADD COLUMN created_at timestamptz;
+    CREATE TABLE sal_customers(id bigserial PRIMARY KEY,customer_no text,customer_name text,customer_name_en text,customer_name_lo text);
+    ALTER TABLE mst_products ADD COLUMN IF NOT EXISTS product_name_zh text,ADD COLUMN IF NOT EXISTS product_name_en text,ADD COLUMN IF NOT EXISTS product_name_lo text;
+    ALTER TABLE product_skus ADD COLUMN IF NOT EXISTS sku_name text,ADD COLUMN IF NOT EXISTS sku_name_en text,ADD COLUMN IF NOT EXISTS sku_name_lo text;
+    CREATE TABLE wms_zones(zone_code text PRIMARY KEY,warehouse_code text,status text);
+    ALTER TABLE wms_locations ADD COLUMN zone_code text;
+    INSERT INTO wms_zones SELECT 'ZONE-'||substring(warehouse_code FROM 4),warehouse_code,'ACTIVE' FROM wms_warehouses;
+    UPDATE wms_locations SET zone_code='ZONE-'||substring(warehouse_code FROM 4);
+    ALTER TABLE fin_ar_invoices ADD COLUMN id bigserial PRIMARY KEY,ADD COLUMN ar_no text UNIQUE,ADD COLUMN source_type text,
+      ADD COLUMN source_id bigint,ADD COLUMN source_no text,ADD COLUMN company_name text,ADD COLUMN customer_id bigint,
+      ADD COLUMN customer_code text,ADD COLUMN customer_name text,ADD COLUMN invoice_date date,ADD COLUMN due_date date,
+      ADD COLUMN currency_code text,ADD COLUMN amount_original numeric,ADD COLUMN exchange_rate numeric,ADD COLUMN amount_base numeric,
+      ADD COLUMN base_currency text,ADD COLUMN received_amount_original numeric,ADD COLUMN received_amount_base numeric,
+      ADD COLUMN balance_amount_base numeric,ADD COLUMN status text,ADD COLUMN remark text,ADD COLUMN created_by text,
+      ADD COLUMN updated_by text,ADD COLUMN created_at timestamptz,ADD COLUMN updated_at timestamptz;
     CREATE SEQUENCE fixture_sales_allocation_id;
     ALTER TABLE sal_order_item_batch_allocations ALTER COLUMN id SET DEFAULT nextval('fixture_sales_allocation_id'),
       ALTER COLUMN outbound_qty SET DEFAULT 0,ALTER COLUMN released_qty SET DEFAULT 0,
       ADD COLUMN reservation_ledger_id bigint,ADD COLUMN created_by text,ADD COLUMN updated_at timestamptz DEFAULT now();
-    CREATE TABLE sal_order_item_batch_allocation_actions(id bigserial PRIMARY KEY,allocation_id bigint,sales_order_id bigint,
-      delivery_order_id bigint,action_type text,action_key text,qty numeric,ledger_id bigint,created_by text,
+    CREATE TABLE sal_order_item_batch_allocation_actions(id bigserial PRIMARY KEY,
+      allocation_id bigint NOT NULL REFERENCES sal_order_item_batch_allocations(id),sales_order_id bigint NOT NULL REFERENCES sal_sales_orders(id),
+      delivery_order_id bigint,action_type text NOT NULL CHECK(action_type IN('OUTBOUND','RELEASED')),action_key text NOT NULL,
+      qty numeric(18,2) NOT NULL CHECK(qty>0),ledger_id int NOT NULL UNIQUE REFERENCES inv_ledger(id),created_by text NOT NULL,
       UNIQUE(allocation_id,action_type,action_key));
     CREATE TABLE sal_delivery_orders(id bigint PRIMARY KEY,delivery_no text,status text,company_code text,fulfillment_warehouse_code text);
     CREATE TABLE sal_delivery_order_items(id bigint PRIMARY KEY,delivery_order_id bigint,sales_order_id bigint,planned_qty numeric,sales_order_no text,status text);

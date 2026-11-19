@@ -85,6 +85,18 @@ export class OfficialInventoryConversions1795011331222 implements MigrationInter
         batch_no text NOT NULL REFERENCES production_batch_qualifications(batch_no),parent_batch_no text NOT NULL REFERENCES inv_batches(batch_no),
         PRIMARY KEY(batch_no,parent_batch_no),CHECK(batch_no<>parent_batch_no)
       );
+      CREATE TABLE production_conversion_return_receipts(
+        return_item_id bigint PRIMARY KEY REFERENCES sal_return_items(id),
+        allocation_id bigint NOT NULL REFERENCES sal_order_item_batch_allocations(id),
+        source_batch_no text NOT NULL REFERENCES inv_batches(batch_no),
+        batch_no text NOT NULL UNIQUE REFERENCES inv_batches(batch_no),
+        ledger_id integer NOT NULL UNIQUE REFERENCES inv_ledger(id),
+        quantity integer NOT NULL CHECK(quantity>0),
+        received_by text NOT NULL CHECK(length(btrim(received_by))>0),
+        received_at timestamptz NOT NULL DEFAULT now(),
+        CHECK(source_batch_no<>batch_no)
+      );
+      CREATE INDEX ix_conversion_return_receipt_allocation ON production_conversion_return_receipts(allocation_id);
       CREATE INDEX ix_production_batch_raw_ancestor ON production_batch_raw_roots(raw_segment_id);
       ALTER TABLE inv_batches DROP CONSTRAINT IF EXISTS inv_batches_inventory_class_check;
       ALTER TABLE inv_batches ADD CONSTRAINT inv_batches_inventory_class_check CHECK(inventory_class IN('STANDARD','DEFECT_SALE','WIP'));
@@ -97,6 +109,7 @@ export class OfficialInventoryConversions1795011331222 implements MigrationInter
       if(await queryRunner.hasTable('wms_defect_dispositions'))await queryRunner.query('CREATE INDEX ix_conversion_defect_target ON wms_defect_dispositions(target_batch_no) WHERE target_batch_no IS NOT NULL');
       await this.installEligibility(queryRunner);
       await this.installGuards(queryRunner);
+      await this.installCustomerReturnReceipts(queryRunner);
       await this.installPostingChecks(queryRunner);
       for(const [index,[type,code,zh,en,lo]] of this.dictionaries.entries()){
         const inserted=await queryRunner.query(`INSERT INTO sys_dict(dict_type,dict_code,dict_value,dict_label_zh,dict_label_en,dict_label_lo,sort_no,status)
@@ -671,6 +684,8 @@ export class OfficialInventoryConversions1795011331222 implements MigrationInter
               AND target.qty=disposition.qty AND(SELECT SUM(qty_change) FROM inv_ledger WHERE batch_no=parent.parent_batch_no AND ref_no=disposition.disposition_no AND change_type='DEFECT_TRANSFER_OUT')=-disposition.qty
               AND(SELECT SUM(qty_change) FROM inv_ledger WHERE batch_no=target.batch_no AND ref_no=disposition.disposition_no AND change_type='DEFECT_TRANSFER_IN')=disposition.qty) THEN
               RAISE EXCEPTION 'OFFICIAL_CONVERSION_DEFECT_TRANSFER_PROOF_HOLD' USING ERRCODE='23514';END IF;
+          ELSIF qualifier.source_type='RETURN' THEN
+            PERFORM assert_conversion_customer_return_receipt(target.batch_no,parent.parent_batch_no);
           ELSE
             RAISE EXCEPTION 'OFFICIAL_CONVERSION_DERIVATION_PROOF_HOLD' USING ERRCODE='23514';
           END IF;
@@ -817,7 +832,7 @@ export class OfficialInventoryConversions1795011331222 implements MigrationInter
     await this.installReturnHolds(q);
   }
 
-  /** Until actual return custody is implemented, later business relations must not borrow an ordinary qualification. */
+  /** Enforce return custody when a business relation exposes a controlled parent. */
   private async installReturnHolds(q:QueryRunner):Promise<void>{
     await q.query(`CREATE FUNCTION assert_conversion_customer_return(p_item bigint) RETURNS void LANGUAGE plpgsql AS $body$
       DECLARE item record;header record;target text;restricted boolean;
@@ -832,7 +847,7 @@ export class OfficialInventoryConversions1795011331222 implements MigrationInter
             AND(official_inventory_conversion_related(q.batch_no) OR q.processing_stage='WIP' OR EXISTS(SELECT 1 FROM production_batch_raw_roots WHERE batch_no=q.batch_no)));
         IF restricted AND(EXISTS(SELECT 1 FROM inv_batches WHERE batch_no=target) OR item.restock_status='RESTOCKED'
           OR header.status='COMPLETED' AND COALESCE(item.accepted_qty,0)+COALESCE(item.damaged_qty,0)>0) THEN
-          RAISE EXCEPTION 'OFFICIAL_CONVERSION_RETURN_CUSTODY_REQUIRED' USING ERRCODE='23514';END IF;
+          PERFORM assert_conversion_customer_return_receipt(target);END IF;
       END $body$;
       CREATE FUNCTION assert_conversion_pos_return(p_allocation bigint) RETURNS void LANGUAGE plpgsql AS $body$
       DECLARE allocation record;sale record;target text;restricted boolean;
@@ -907,14 +922,146 @@ export class OfficialInventoryConversions1795011331222 implements MigrationInter
         DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION check_conversion_return_relation()`);
   }
 
+  private async installCustomerReturnReceipts(q:QueryRunner):Promise<void>{
+    await q.query(`
+      CREATE FUNCTION official_conversion_return_source(p_item bigint) RETURNS jsonb LANGUAGE plpgsql AS $body$
+      DECLARE candidates integer; controlled integer; fact record; shipment record; received numeric;
+      BEGIN
+        SELECT count(*),count(*) FILTER (WHERE official_inventory_conversion_related(a.batch_no)
+          OR qualification.processing_stage='WIP' OR EXISTS(SELECT 1 FROM production_batch_raw_roots r WHERE r.batch_no=a.batch_no))
+        INTO candidates,controlled FROM sal_return_items item JOIN sal_order_item_batch_allocations a ON a.sales_order_item_id=item.sales_order_item_id
+        LEFT JOIN production_batch_qualifications qualification ON qualification.batch_no=a.batch_no
+        WHERE item.id=p_item AND a.outbound_qty>0;
+        IF controlled=0 THEN RETURN NULL;END IF;
+        IF current_setting('transaction_isolation')<>'read committed' OR candidates<>1
+          OR to_regclass('sal_order_item_batch_allocation_actions') IS NULL THEN
+          RAISE EXCEPTION 'OFFICIAL_CONVERSION_RETURN_CUSTODY_REQUIRED' USING ERRCODE='23514';END IF;
+        SELECT a.id AS allocation_id,a.outbound_qty,origin.batch_no,origin.company_code,origin.warehouse_code,origin.product_code,
+          origin.sku_code,origin.grade_code_std,origin.spec_code,origin.unit,origin.variety_code,origin.egg_date,origin.expire_date,
+          original.id AS original_id,sale_line.id AS sale_line_id,header.return_no,header.delivery_order_id,header.target_location_code,header.status,header.restocked_at,header.completed_at,
+          item.accepted_qty INTO fact
+        FROM sal_return_items item JOIN sal_return_orders header ON header.id=item.return_order_id
+        JOIN sal_order_items sale_line ON sale_line.id=item.sales_order_item_id
+        JOIN sal_sales_orders original ON original.id=sale_line.sales_order_id AND original.id=header.sales_order_id
+        JOIN sal_order_item_batch_allocations a ON a.sales_order_item_id=sale_line.id AND a.outbound_qty>0
+        JOIN inv_batches origin ON origin.batch_no=a.batch_no
+        JOIN production_batch_qualifications qualification ON qualification.batch_no=origin.batch_no
+        WHERE item.id=p_item AND header.status IN('RESTOCKING','COMPLETED') AND header.return_type='CUSTOMER_RETURN' AND header.inspected_at IS NOT NULL
+          AND item.inspection_result='ACCEPTED' AND item.accepted_qty=item.returned_qty AND item.damaged_qty=0
+          AND item.accepted_qty BETWEEN 1 AND 2147483647 AND item.accepted_qty=trunc(item.accepted_qty)
+          AND item.accepted_qty<=a.outbound_qty AND item.quantity_snapshot->>'baseUnit'='枚'
+          AND item.product_code=origin.product_code AND sale_line.product_code=origin.product_code
+          AND item.sku_code=origin.sku_code AND item.grade_code=origin.grade_code_std
+          AND item.quantity_snapshot->>'specCode'=origin.spec_code AND origin.unit='枚'
+          AND origin.company_code=header.company_code AND origin.company_code=original.company_code
+          -- The existing Credit Note adapter can only represent a base-currency LAK refund.
+          AND header.currency_code='LAK' AND original.currency_code='LAK'
+          AND origin.warehouse_code=header.target_warehouse_code AND origin.warehouse_code=original.fulfillment_warehouse_code
+          AND origin.inventory_class='STANDARD'
+          AND qualification.disposition='QUALIFIED' AND qualification.processing_stage='FINISHED'
+          AND official_inventory_writable(origin.batch_no,origin.company_code,origin.warehouse_code,origin.product_code,origin.sku_code,origin.material_code)
+          AND official_inventory_conversion_related(origin.batch_no)
+        FOR SHARE OF a,origin,qualification,original,sale_line;
+        IF NOT FOUND THEN RAISE EXCEPTION 'OFFICIAL_CONVERSION_RETURN_CUSTODY_REQUIRED' USING ERRCODE='23514';END IF;
+        IF NOT pg_try_advisory_xact_lock(hashtext('phoenix:conversion-return-custody'),hashtext('sale-item:'||fact.sale_line_id::text)) THEN
+          RAISE EXCEPTION 'OFFICIAL_CONVERSION_RETURN_BUSY' USING ERRCODE='23514';END IF;
+
+        PERFORM 1 FROM sal_order_item_batch_allocation_actions action
+          WHERE action.allocation_id=fact.allocation_id AND action.action_type='OUTBOUND' ORDER BY action.id FOR SHARE;
+        SELECT coalesce(sum(a.qty),0) AS dispatched,
+          count(*) FILTER (WHERE (a.sale_order_matches AND a.delivery_matches AND a.ledger_matches AND a.qty>0 AND a.qty=trunc(a.qty)) IS NOT TRUE) AS invalid
+        INTO shipment FROM (
+          SELECT action.qty,action.sales_order_id=fact.original_id AS sale_order_matches,
+            delivery.company_code=fact.company_code AND delivery.fulfillment_warehouse_code=fact.warehouse_code
+              AND delivery.loading_end_at IS NOT NULL AND action.action_key='delivery:'||delivery.id::text
+              AND(fact.delivery_order_id IS NULL OR delivery.id=fact.delivery_order_id)
+              AND EXISTS(SELECT 1 FROM sal_delivery_order_items member WHERE member.delivery_order_id=delivery.id
+                AND member.sales_order_id=fact.original_id AND member.loaded_qty>=action.qty AND member.outbound_qty>=action.qty) AS delivery_matches,
+            ledger.batch_no=fact.batch_no AND ledger.change_type='FIFO_OUT' AND ledger.qty_change=-action.qty
+              AND ledger.company_code=fact.company_code AND ledger.warehouse_code=fact.warehouse_code
+              AND ledger.sku_code=fact.sku_code AND ledger.ref_no=delivery.delivery_no AS ledger_matches
+          FROM sal_order_item_batch_allocation_actions action LEFT JOIN sal_delivery_orders delivery ON delivery.id=action.delivery_order_id
+          LEFT JOIN inv_ledger ledger ON ledger.id=action.ledger_id
+          WHERE action.allocation_id=fact.allocation_id AND action.action_type='OUTBOUND'
+        ) a;
+        SELECT coalesce(sum(quantity),0) INTO received FROM production_conversion_return_receipts
+          WHERE allocation_id=fact.allocation_id AND return_item_id<>p_item;
+        IF shipment.invalid<>0 OR shipment.dispatched<>fact.outbound_qty OR received+fact.accepted_qty>shipment.dispatched THEN
+          RAISE EXCEPTION 'OFFICIAL_CONVERSION_RETURN_CUSTODY_REQUIRED' USING ERRCODE='23514';END IF;
+        RETURN jsonb_build_object('allocationId',fact.allocation_id::text,'sourceBatchNo',fact.batch_no,'companyCode',fact.company_code,
+          'warehouseCode',fact.warehouse_code,'productCode',fact.product_code,'skuCode',fact.sku_code,'gradeCode',fact.grade_code_std,
+          'specCode',fact.spec_code,'varietyCode',fact.variety_code,'eggDate',fact.egg_date,'expireDate',fact.expire_date,'quantity',fact.accepted_qty::int,
+          'returnNo',fact.return_no,'locationCode',fact.target_location_code,'status',fact.status,'restockedAt',fact.restocked_at,'completedAt',fact.completed_at);
+      END $body$;
+
+      CREATE FUNCTION assert_conversion_customer_return_receipt(p_batch text,p_parent text DEFAULT NULL) RETURNS void LANGUAGE plpgsql AS $body$
+      DECLARE receipt production_conversion_return_receipts; source jsonb; batch inv_batches; credit inv_ledger;
+      BEGIN
+        SELECT * INTO receipt FROM production_conversion_return_receipts WHERE batch_no=p_batch;
+        IF NOT FOUND THEN RAISE EXCEPTION 'OFFICIAL_CONVERSION_RETURN_CUSTODY_REQUIRED' USING ERRCODE='23514';END IF;
+        source:=official_conversion_return_source(receipt.return_item_id);
+        SELECT * INTO batch FROM inv_batches WHERE batch_no=receipt.batch_no;
+        SELECT * INTO credit FROM inv_ledger WHERE id=receipt.ledger_id;
+        IF (source->>'allocationId'=receipt.allocation_id::text AND source->>'sourceBatchNo'=receipt.source_batch_no
+          AND (p_parent IS NULL OR p_parent=receipt.source_batch_no)
+          AND source->>'status'='COMPLETED' AND source->>'restockedAt' IS NOT NULL AND source->>'completedAt' IS NOT NULL
+          AND EXISTS(SELECT 1 FROM sal_return_items WHERE id=receipt.return_item_id AND restock_status='RESTOCKED')
+          AND receipt.quantity=(source->>'quantity')::int AND p_batch='RET-'||(source->>'returnNo')||'-'||receipt.return_item_id::text
+          AND batch.source_type='RETURN' AND batch.source_no=source->>'returnNo' AND batch.product_code=source->>'productCode'
+          AND batch.company_code=source->>'companyCode' AND batch.warehouse_code=source->>'warehouseCode'
+          AND batch.sku_code=source->>'skuCode' AND batch.grade_code_std=source->>'gradeCode' AND batch.spec_code=source->>'specCode'
+          AND batch.inventory_class='STANDARD' AND batch.unit='枚' AND batch.variety_code IS NOT DISTINCT FROM (source->>'varietyCode')
+          AND batch.egg_date IS NOT DISTINCT FROM (source->>'eggDate')::date AND batch.expire_date IS NOT DISTINCT FROM (source->>'expireDate')::date
+          AND credit.batch_no=p_batch AND credit.change_type='SALE_RETURN' AND credit.ref_no=source->>'returnNo'
+          AND credit.qty_change=receipt.quantity AND credit.company_code=source->>'companyCode'
+          AND credit.warehouse_code=source->>'warehouseCode' AND credit.location_code=source->>'locationCode'
+          AND credit.sku_code=source->>'skuCode' AND credit.operator=receipt.received_by AND credit.cost_change IS NULL) IS NOT TRUE THEN
+          RAISE EXCEPTION 'OFFICIAL_CONVERSION_RETURN_CUSTODY_REQUIRED' USING ERRCODE='23514';END IF;
+      END $body$;
+
+      CREATE FUNCTION check_conversion_customer_return_receipt() RETURNS trigger LANGUAGE plpgsql AS $body$
+      BEGIN
+        PERFORM assert_conversion_customer_return_receipt(NEW.batch_no,NEW.source_batch_no);
+        IF NOT EXISTS(SELECT 1 FROM inv_batches batch JOIN production_batch_qualifications q ON q.batch_no=batch.batch_no
+          JOIN sal_return_items item ON item.id=NEW.return_item_id JOIN sal_return_orders header ON header.id=item.return_order_id
+          WHERE batch.batch_no=NEW.batch_no AND batch.status='QUARANTINE' AND batch.qty=NEW.quantity AND batch.qty_available=0
+            AND batch.location_code=header.target_location_code AND batch.unit_cost=0 AND q.cost_status='UNKNOWN'
+            AND EXISTS(SELECT 1 FROM wms_warehouses w
+              JOIN wms_zones z ON z.warehouse_code=w.warehouse_code AND z.zone_code=header.target_zone_code
+              JOIN wms_locations l ON l.warehouse_code=w.warehouse_code AND l.zone_code=z.zone_code AND l.location_code=header.target_location_code
+              WHERE w.warehouse_code=header.target_warehouse_code AND w.company_code=header.company_code
+                AND w.status='ACTIVE' AND w.domain='OPERATIONAL' AND w.owner_store_id IS NULL
+                AND z.status IN('ACTIVE','NORMAL') AND l.status IN('ACTIVE','NORMAL'))) THEN
+          RAISE EXCEPTION 'OFFICIAL_CONVERSION_RETURN_CUSTODY_REQUIRED' USING ERRCODE='23514';END IF;
+        RETURN NULL;
+      END $body$;
+      CREATE CONSTRAINT TRIGGER trg_conversion_return_receipt_complete AFTER INSERT ON production_conversion_return_receipts
+        DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION check_conversion_customer_return_receipt();
+      CREATE TRIGGER trg_conversion_return_receipt_immutable BEFORE UPDATE OR DELETE ON production_conversion_return_receipts
+        FOR EACH ROW EXECUTE FUNCTION guard_conversion_fact_immutable();
+    `);
+    if(await q.hasTable('sal_order_item_batch_allocation_actions'))await q.query(`
+      CREATE FUNCTION guard_conversion_return_dispatch_history() RETURNS trigger LANGUAGE plpgsql AS $body$
+      BEGIN
+        IF OLD.action_type='OUTBOUND' AND EXISTS(SELECT 1 FROM production_conversion_return_receipts WHERE allocation_id=OLD.allocation_id) THEN
+          RAISE EXCEPTION 'OFFICIAL_CONVERSION_RETURN_DISPATCH_IMMUTABLE' USING ERRCODE='23514';END IF;
+        IF TG_OP='DELETE' THEN RETURN OLD;END IF;RETURN NEW;
+      END $body$;
+      CREATE TRIGGER trg_conversion_return_dispatch_history BEFORE UPDATE OR DELETE ON sal_order_item_batch_allocation_actions
+        FOR EACH ROW EXECUTE FUNCTION guard_conversion_return_dispatch_history();
+    `);
+  }
+
   async down(q:QueryRunner):Promise<void>{
     if((await q.query('SHOW transaction_isolation'))[0].transaction_isolation!=='read committed')throw new Error('OFFICIAL_MIGRATION_ISOLATION_HOLD');
     const own=!q.isTransactionActive;if(own)await q.startTransaction();
     try{
       await q.query(`LOCK TABLE production_conversion_documents,production_conversion_inputs,production_conversion_inventory_debits,production_conversion_outputs,
-        production_batch_raw_roots,production_batch_derivation_parents,production_batch_qualifications,inv_batches,inv_ledger IN ACCESS EXCLUSIVE MODE NOWAIT`);
+        production_batch_raw_roots,production_batch_derivation_parents,production_conversion_return_receipts,
+        production_batch_qualifications,inv_batches,inv_ledger IN ACCESS EXCLUSIVE MODE NOWAIT`);
       if((await q.query(`SELECT 1 FROM production_conversion_documents UNION ALL SELECT 1 FROM production_batch_raw_roots
-        UNION ALL SELECT 1 FROM production_batch_derivation_parents UNION ALL SELECT 1 FROM production_batch_qualifications WHERE processing_stage='WIP' OR conversion_document_id IS NOT NULL
+        UNION ALL SELECT 1 FROM production_batch_derivation_parents UNION ALL SELECT 1 FROM production_conversion_return_receipts
+        UNION ALL SELECT 1 FROM production_batch_qualifications WHERE processing_stage='WIP' OR conversion_document_id IS NOT NULL
         UNION ALL SELECT 1 FROM inv_batches WHERE inventory_class='WIP' LIMIT 1`)).length)
         throw new Error('OFFICIAL_CONVERSION_DOWN_HOLD: conversion or work-in-progress facts exist');
       for(const [table,column] of [['wms_transfer_items','damaged_batch_no']]){
@@ -932,7 +1079,12 @@ export class OfficialInventoryConversions1795011331222 implements MigrationInter
         DROP FUNCTION check_conversion_transfer_projection();DROP FUNCTION assert_conversion_transfer_item(bigint);DROP FUNCTION assert_conversion_business_target(text,text,text)`);
       for(const table of ['sal_return_items','sal_order_item_batch_allocations','sal_return_orders','store_sale_allocations','sal_store_sales'])if(await q.hasTable(table))
         await q.query(`DROP TRIGGER trg_conversion_return_relation ON ${table};DROP TRIGGER trg_conversion_return_lock ON ${table}`);
-      await q.query('DROP FUNCTION check_conversion_return_relation();DROP FUNCTION lock_conversion_return_relation();DROP FUNCTION assert_conversion_pos_return(bigint);DROP FUNCTION assert_conversion_customer_return(bigint)');
+      if(await q.hasTable('sal_order_item_batch_allocation_actions'))await q.query(`
+        DROP TRIGGER trg_conversion_return_dispatch_history ON sal_order_item_batch_allocation_actions;
+        DROP FUNCTION guard_conversion_return_dispatch_history()`);
+      await q.query(`DROP FUNCTION check_conversion_return_relation();DROP FUNCTION lock_conversion_return_relation();DROP FUNCTION assert_conversion_pos_return(bigint);DROP FUNCTION assert_conversion_customer_return(bigint);
+        DROP TABLE production_conversion_return_receipts; DROP FUNCTION check_conversion_customer_return_receipt();
+        DROP FUNCTION assert_conversion_customer_return_receipt(text,text);DROP FUNCTION official_conversion_return_source(bigint)`);
       for(const signature of ['official_inventory_qualification_controlled(text)','official_inventory_allows(text,text,text,text,text,text)',
         'official_inventory_writable(text,text,text,text,text,text)','official_inventory_lock_operation(text,text,text,text,text,text,jsonb)','official_inventory_cost_known(text)']){
         const [saved]=await q.query(`SELECT "value" AS definition FROM typeorm_metadata WHERE "type"='OFFICIAL_CONVERSION_FUNCTION' AND "name"=$1`,[signature]);

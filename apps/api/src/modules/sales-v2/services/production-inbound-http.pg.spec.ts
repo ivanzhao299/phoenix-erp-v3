@@ -15,6 +15,9 @@ import { StorePosService } from '../../store-pos/services/store-pos.service';
 import { StoreScopePolicy } from '../../store-pos/services/store-scope-policy.service';
 import { PriceRuntimeService } from './price-runtime.service';
 import { DeliveryOrdersService } from './delivery-orders.service';
+import { ReturnOrdersService } from './return-orders.service';
+import { SalesReturnsController } from '../controllers/sales-returns.controller';
+import { FinanceCreditNoteAdapter } from '../adapters/finance-credit-note.adapter';
 import { SalesOrderLifecycleService } from './sales-order-lifecycle.service';
 import { AlignWmsTransactionForms1787731200000 } from '../../../database/migrations/1787731200000-AlignWmsTransactionForms';
 import { UpgradeWmsTransferLifecycle1787965200000 } from '../../../database/migrations/1787965200000-UpgradeWmsTransferLifecycle';
@@ -107,7 +110,8 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
       INSERT INTO sys_role SELECT DISTINCT role_code,'ACTIVE' FROM sys_user;
       INSERT INTO fixture_permissions VALUES('MAKER','MENU_PROD_INBOUND:V,C,E'),('REVIEWER','MENU_PROD_INBOUND:V,E,A'),
         ('REVIEWER','MENU_FIN2_AR_LEDGER:V,E,A'),('RECEIVER','MENU_PROD_INBOUND:V,E'),('VIEWER','MENU_PROD_INBOUND:V'),('CREATOR','MENU_PROD_INBOUND:V,C'),('FARM_REPORTER','MENU_FARM_DAILY:V,E'),('FINANCE_ONLY','MENU_FIN2_AR_LEDGER:E'),('ANALYST','MENU_ANALYTICS:V');
-      INSERT INTO sys_menu VALUES('MENU_PROD_INBOUND'),('MENU_PRC2_ORDER'),('MENU_FIN2_AR_LEDGER'),('MENU_FARM_DAILY'),('MENU_DASHBOARD'),('MENU_ANALYTICS');
+      INSERT INTO fixture_permissions VALUES('MAKER','MENU_SALES2_RETURN:V,C,E'),('RECEIVER','MENU_SALES2_RETURN:V,E'),('VIEWER','MENU_SALES2_RETURN:V');
+      INSERT INTO sys_menu VALUES('MENU_SALES2_RETURN'),('MENU_PROD_INBOUND'),('MENU_PRC2_ORDER'),('MENU_FIN2_AR_LEDGER'),('MENU_FARM_DAILY'),('MENU_DASHBOARD'),('MENU_ANALYTICS');
       INSERT INTO sys_user_orgs(user_id,org_id,data_scope_level) SELECT u.user_id,o.id,'COMPANY' FROM sys_user u JOIN sys_organizations o
         ON o.org_code=CASE WHEN u.user_id IN (6,13,16) THEN 'COMP-B' ELSE 'COMP-A' END WHERE u.user_id IN (1,2,3,4,6,8,9,11,12,13,15,16);
       INSERT INTO sys_user_orgs(user_id,org_id,data_scope_level) SELECT 15,id,'COMPANY' FROM sys_organizations WHERE org_code='COMP-B';
@@ -176,7 +180,11 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
       @Get('sys_dict')async dict(@Query('dict_type') type:string){return db.query("SELECT * FROM sys_dict WHERE dict_type=$1 AND status='ACTIVE'",[type]);}
     }
     const module=await Test.createTestingModule({imports:[PassportModule,ClsModule.forRoot({global:true,middleware:{mount:true}})],
-      controllers:[OfficialInventoryConversionController,OfficialRawCollectionController,AnalyticsController,ProductionCutoverController,FarmController,ProductionInboundDocumentsController,UploadController,FixtureLogin,FixtureLookups,FixtureDictionary,FixtureSkus],providers:[OfficialInventoryConversionService,OfficialRawCollectionService,FixtureJwt,
+      controllers:[SalesReturnsController,OfficialInventoryConversionController,OfficialRawCollectionController,AnalyticsController,ProductionCutoverController,FarmController,ProductionInboundDocumentsController,UploadController,FixtureLogin,FixtureLookups,FixtureDictionary,FixtureSkus],providers:[OfficialInventoryConversionService,OfficialRawCollectionService,FixtureJwt,
+        FinanceCreditNoteAdapter,SalesOrderLifecycleService,
+        {provide:ReturnOrdersService,inject:[ClsService,FinanceCreditNoteAdapter,EggInventoryService,SalesOrderLifecycleService],
+          useFactory:(cls:ClsService,finance:FinanceCreditNoteAdapter,inventory:EggInventoryService,lifecycle:SalesOrderLifecycleService)=>
+            new ReturnOrdersService(db,cls,{} as never,finance,inventory,lifecycle)},
         GroupAnalyticsService,...[FinanceAnalyticsService,SalesAnalyticsAggregatorService,InventoryAnalyticsService,ProductionAnalyticsService,ShareholderAnalyticsService,ExceptionAnalyticsService,ForecastAnalyticsService].map(provide=>({provide,useValue:{}})),ProductionCutoverService,FarmService,ProductionInboundDocumentsService,ProductionInboundService,EggInventoryService,SkuAvailabilityService,InventorySourceModeService,FileAccessService,OrgOwnershipService,
         {provide:CUTOVER_PROVENANCE_SIGNER,useValue:{key:'SYNTHETIC-OWNED-CUTOVER-TRANSFER-PROOF-KEY',keyId:'owned-test-v1'}},
         {provide:EntityManager,useValue:db.manager},{provide:DataSource,useValue:db},
@@ -927,6 +935,82 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
       VALUES(1,1,'PRD-EGG-RAW','GRADE_1','SKU-GRADE_1',40,80,$1)`,[JSON.stringify(quantity)]);
     return {ready,posted,quantity,inventory:app.get(EggInventoryService)};
   }
+  it('quarantines an actual converted sale return against original dispatch, without reopening production or duplicating credit',async()=>{
+    const draft=await conversionDraft();
+    const converted=await postConversion({...draft,outputs:[{...draft.outputs[0],outputKind:'STOCK'}]});
+    const parent=converted.batches[0].batchNo;
+    const snapshot=await db.transaction(m=>resolveQuantity(m,{qty:40,skuCode:'SKU-GRADE_1',quantityBasis:'BASE'}));
+    await db.query(`INSERT INTO sal_sales_orders(id,order_no,status,company_code,currency_code,fulfillment_warehouse_code)
+      VALUES(1,'SYNTHETIC-CONVERTED-SALE','APPROVED','COMP-A','LAK','WH-A')`);
+    await db.query(`INSERT INTO sal_order_items(id,sales_order_id,product_code,grade_code,sku_code,qty,amount,quantity_snapshot,unit_price)
+      VALUES(1,1,'PRD-EGG-RAW','GRADE_1','SKU-GRADE_1',40,80,$1,2)`,[JSON.stringify(snapshot)]);
+    await asInventoryActor(1,async cls=>{
+      const inventory=app.get(EggInventoryService),lifecycle=new SalesOrderLifecycleService(db);
+      expect(await inventory.reserveInventory('1','SYNTHETIC-CONVERTED-SALE','COMP-A',undefined,'WH-A')).toBe(true);
+      await db.query(`INSERT INTO sal_delivery_orders(id,delivery_no,status,company_code,fulfillment_warehouse_code)
+          VALUES(1,'SYNTHETIC-CONVERTED-DELIVERY','PLANNED','COMP-A','WH-A');
+        INSERT INTO sal_delivery_order_items(id,delivery_order_id,sales_order_id,planned_qty,sales_order_no,status)
+          VALUES(1,1,1,40,'SYNTHETIC-CONVERTED-SALE','PENDING');
+        UPDATE sal_sales_orders SET status='ALLOCATED' WHERE id=1`);
+      const deliveries=new DeliveryOrdersService(db,cls,inventory,lifecycle);
+      await deliveries.startLoading('1',{});
+      expect((await deliveries.finishLoading('1',{})).status).toBe('LOADED');
+      const returnApi=(actor:number,path='')=>request(app.getHttpServer()).post('/api/v2/sales/returns'+path).auth(token(actor),{type:'bearer'});
+      const original={salesOrderId:'1',deliveryOrderId:'1',companyCode:'COMP-A',returnType:'CUSTOMER_RETURN',
+        items:[{salesOrderItemId:'1',productCode:'PRD-EGG-RAW',returnedQty:15,unitPrice:2}]};
+      const created=(await returnApi(1).send(original).expect(201)).body;
+      const id=String(created.id),item=String(created.items[0].id),batchNo=`RET-${created.return_no}-${item}`;
+      const local={targetWarehouseCode:'WH-A',targetZoneCode:'ZONE-A',targetLocationCode:'LOC-A'};
+      expect((await returnApi(1,`/${id}/submit`).expect(201)).body.status).toBe('INSPECTING');
+      const inspection={itemId:item,acceptedQty:15,damagedQty:0};
+      await returnApi(1,`/${id}/complete-inspection`).send({results:[inspection,inspection]}).expect(400);
+      expect((await db.query('SELECT status,inspected_at FROM sal_return_orders WHERE id=$1',[id]))[0]).toEqual({status:'INSPECTING',inspected_at:null});
+      expect((await returnApi(3,`/${id}/complete-inspection`).send({results:[inspection]}).expect(201)).body.status).toBe('RESTOCKING');
+      const restock=(actor=3)=>returnApi(actor,`/${id}/complete-restock`);
+      await restock(4).send(local).expect(403);
+      await restock(6).send(local).expect(404);
+      await restock().send({targetWarehouseCode:'WH-A2',targetZoneCode:'ZONE-A2',targetLocationCode:'LOC-A2'}).expect(409);
+      await db.query("UPDATE sal_sales_orders SET currency_code='CNY' WHERE id=1");
+      await restock().send(local).expect(409);
+      await db.query("UPDATE sal_sales_orders SET currency_code='LAK' WHERE id=1");
+      await db.query("UPDATE sal_order_item_batch_allocation_actions SET qty=39 WHERE action_type='OUTBOUND'");
+      await restock().send(local).expect(409);
+      await db.query("UPDATE sal_order_item_batch_allocation_actions SET qty=40 WHERE action_type='OUTBOUND'");
+      const failure=jest.spyOn(app.get(FinanceCreditNoteAdapter),'createCreditNote').mockRejectedValueOnce(new Error('Owned credit posting failure'));
+      try{await restock().send(local).expect(500);}finally{failure.mockRestore();}
+      expect((await db.query('SELECT qty FROM inv_batches WHERE batch_no=$1',[batchNo]))).toEqual([]);
+      expect((await db.query('SELECT status,restocked_at FROM sal_return_orders WHERE id=$1',[id]))[0]).toEqual({status:'RESTOCKING',restocked_at:null});
+      const concurrent=await Promise.all([restock().send(local),restock().send(local)]);
+      expect(concurrent.map(response=>response.status).sort()).toEqual([201,409]);
+      expect(concurrent.find(response=>response.status===201)?.body.status).toBe('COMPLETED');
+      const [receipt]=await db.query(`SELECT r.source_batch_no,r.quantity,b.status,b.qty::text,b.qty_available::text,b.sku_code,b.grade_code_std,
+        b.egg_date::text,b.expire_date::text,b.variety_code,q.cost_status,l.change_type,l.qty_change::text,l.cost_change
+        FROM production_conversion_return_receipts r JOIN inv_batches b ON b.batch_no=r.batch_no
+        JOIN inv_ledger l ON l.id=r.ledger_id JOIN production_batch_qualifications q ON q.batch_no=r.batch_no WHERE r.batch_no=$1`,[batchNo]);
+      expect(receipt).toMatchObject({source_batch_no:parent,quantity:15,status:'QUARANTINE',qty:'15',qty_available:'0',
+        sku_code:'SKU-GRADE_1',grade_code_std:'GRADE_1',variety_code:'EGG_RED',cost_status:'UNKNOWN',change_type:'SALE_RETURN',qty_change:'15',cost_change:null});
+      expect((await db.query('SELECT egg_date::text,expire_date::text,qty::text FROM inv_batches WHERE batch_no=$1',[parent]))[0])
+        .toEqual({egg_date:receipt.egg_date,expire_date:receipt.expire_date,qty:'60'});
+      expect((await db.query('SELECT (amount_original)::text AS amount FROM fin_ar_invoices WHERE source_id=$1 AND source_type=$2',[id,'SALES_RETURN'])))
+        .toEqual([{amount:'-30'}]);
+      expect((await db.query('SELECT r.raw_segment_id,p.parent_batch_no FROM production_batch_raw_roots r JOIN production_batch_derivation_parents p USING(batch_no) WHERE r.batch_no=$1',[batchNo]))[0])
+        .toEqual({raw_segment_id:draft.inputs[0].rawSegmentId,parent_batch_no:parent});
+      expect((await db.query('SELECT count(*)::int AS n FROM production_inbound_allocations'))[0].n).toBe(0);
+      await expect(db.query('UPDATE production_conversion_return_receipts SET quantity=16 WHERE return_item_id=$1',[item]))
+        .rejects.toThrow('IMMUTABLE');
+      await expect(db.query("DELETE FROM sal_order_item_batch_allocation_actions WHERE action_type='OUTBOUND'"))
+        .rejects.toThrow('OFFICIAL_CONVERSION_RETURN_DISPATCH_IMMUTABLE');
+      await returnApi(1).send({...original,items:[{...original.items[0],returnedQty:26}]}).expect(409);
+      const partial=(await returnApi(1).send({...original,items:[{...original.items[0],returnedQty:6}]}).expect(201)).body;
+      await returnApi(1,`/${partial.id}/submit`).expect(201);
+      await returnApi(3,`/${partial.id}/complete-inspection`).send({results:[
+        {itemId:String(partial.items[0].id),acceptedQty:5,damagedQty:1},
+      ]}).expect(201);
+      await returnApi(3,`/${partial.id}/complete-restock`).send(local).expect(409);
+      expect((await db.query('SELECT count(*)::int AS n FROM production_conversion_return_receipts'))[0].n).toBe(1);
+
+    });
+  });
   it('reserves and actually dispatches approved managed stock while retaining original production receipts and unknown cost',async()=>{
     const {ready,posted,quantity,inventory}=await managedSalesOrder();
     await asInventoryActor(1,async cls=>{
@@ -1033,7 +1117,7 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
       INSERT INTO sal_order_item_batch_allocations(id,sales_order_item_id,batch_no,reserved_qty,outbound_qty,released_qty)
         VALUES(1,1,'SYNTHETIC-GROUP-COST-1',10,0,0);
       INSERT INTO fin_cash_accounts(company_code,current_balance,status) VALUES('COMP-A',31,'ACTIVE'),('COMP-B',901,'ACTIVE');
-      INSERT INTO fin_ar_invoices VALUES('COMP-A',7,'UNPAID'),('COMP-B',700,'UNPAID');
+      INSERT INTO fin_ar_invoices(company_code,balance_amount_original,collection_status) VALUES('COMP-A',7,'UNPAID'),('COMP-B',700,'UNPAID');
       INSERT INTO fin_ap_invoices VALUES('COMP-A',3,'UNPAID'),('COMP-B',300,'UNPAID');
       INSERT INTO fin_shareholder_contributions VALUES('COMP-A',2,'CONFIRMED'),('COMP-B',200,'CONFIRMED');
       INSERT INTO fin_expense_requests(company_code,amount_original,status,currency_code,expense_date)

@@ -1365,12 +1365,21 @@ export class EggInventoryService {
       const damaged  = Number(item.damaged_qty);
       const batchNo  = `RET-${returnNo}-${item.id}`;
       const originalGrade = item.grade_code ?? 'A';
-      const returnGrade   = this.degradeGrade(originalGrade);
 
       // Phase H5: sal_return_items 已有 sku_code（从原销售明细继承）
       const returnSkuCode: string | null = item.sku_code ?? null;
       const origins=item.sales_order_item_id ? await q(`SELECT DISTINCT batch_no FROM sal_order_item_batch_allocations
         WHERE sales_order_item_id=$1 AND outbound_qty>0 ORDER BY batch_no`,[item.sales_order_item_id]):[];
+      let custody: { allocationId: string; sourceBatchNo: string; gradeCode: string; varietyCode: string | null; eggDate: string | null; expireDate: string | null } | null = null;
+      if (accepted > 0 && origins.length) {
+        const [schema] = await q("SELECT to_regprocedure('official_conversion_return_source(bigint)') AS return_source");
+        if (schema?.return_source) {
+          const [row] = await q('SELECT official_conversion_return_source($1) AS custody', [item.id]);
+          custody = row?.custody ?? null;
+        }
+      }
+      // Keep the source's actual grade, SKU and shelf life while a governed return is quarantined.
+      const returnGrade = custody?.gradeCode ?? this.degradeGrade(originalGrade);
       await qualifyDerivedInventory(mgr,origins,{batchNo,companyCode,warehouseCode:targetWarehouseCode,productCode:item.product_code,skuCode:returnSkuCode,
         sourceType:'RETURN',sourceNo:returnNo,actor:this.operator});
 
@@ -1383,8 +1392,8 @@ export class EggInventoryService {
              (batch_no, product_code, company_code, qty, qty_available,
               quality_grade, source_type, source_no, status, inventory_class, unit, base_quantity_version,
               sku_code, grade_code_std, spec_code, warehouse_code, location_code, inbound_date,
-              created_at, updated_at)
-           VALUES ($1,$2,$3,$4,0,$5,'RETURN',$6,'QUARANTINE',$15,$13,$14,$7,$8,$9,$10,$11,$12::date,NOW(),NOW())`,
+              created_at, updated_at${custody ? ', egg_date, expire_date, variety_code' : ''})
+           VALUES ($1,$2,$3,$4,0,$5,'RETURN',$6,'QUARANTINE',$15,$13,$14,$7,$8,$9,$10,$11,$12::date,NOW(),NOW()${custody ? ',$16::date,$17::date,$18' : ''})`,
           [
             batchNo, item.product_code, companyCode, accepted, returnGrade, returnNo,
             returnSkuCode,
@@ -1393,10 +1402,11 @@ export class EggInventoryService {
             item.quantity_snapshot?.specCode ?? item.packaging_spec ?? null,
             targetWarehouseCode, targetLocationCode, inboundDate, item.quantity_snapshot?.baseUnit ?? null, item.quantity_snapshot ? 1 : null,
             resolveInventoryClass(returnGrade),
+            ...(custody ? [custody.eggDate, custody.expireDate, custody.varietyCode] : []),
           ],
         );
 
-        await this.writeLedger({
+        const ledgerId = await this.writeLedger({
           batchNo,
           changeType:  INV_LEDGER_CHANGE_TYPE.SALE_RETURN,
           qtyChange:   accepted,
@@ -1408,9 +1418,17 @@ export class EggInventoryService {
           warehouseCode: targetWarehouseCode,
           locationCode: targetLocationCode,
           note:        `退货回库 return=${returnNo} product=${item.product_code} accepted=${accepted} grade=${returnGrade} zone=${targetZoneCode}`,
-          // INV-401：退货暂按 0 结转（显式 0 留痕），退货成本冲减留待 F3
-          costChange:  0,
+          // Governed conversion returns retain unknown cost until substantiated.
+          costChange:  custody ? null : 0,
         }, mgr);
+
+        if (custody) {
+          if (!ledgerId) throw new ConflictException('正式加工成品退货缺少实际回库流水');
+          await q(`INSERT INTO production_conversion_return_receipts
+            (return_item_id,allocation_id,source_batch_no,batch_no,ledger_id,quantity,received_by)
+            VALUES($1,$2,$3,$4,$5,$6,$7)`,
+          [item.id,custody.allocationId,custody.sourceBatchNo,batchNo,ledgerId,accepted,this.operator]);
+        }
 
         if (damaged === 0) {
           await q(`UPDATE sal_return_items SET restock_status='RESTOCKED' WHERE id=$1`, [item.id]);
