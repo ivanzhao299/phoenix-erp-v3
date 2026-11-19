@@ -26,6 +26,26 @@ const result={schema:'phoenix.full-legacy-first-switch-fixture/v1',fixtureOnly:t
  authority:'SYNTHETIC_ROOT_FIXTURE_ONLY',legacyProvenance:SYNTHETIC_LEGACY_PROVENANCE,exactLegacySuccess:false,applicationBase:LEGACY_APPLICATION_BASE,
  webImplementation:'OWNED_HTTP_PROTOCOL_PEER_NOT_NEXT_UAT',outcome:'PENDING',fullFactory:true,productionMutation:false};
 const save=()=>{fs.mkdirSync(output,{recursive:true,mode:0o700});fs.writeFileSync(path.join(output,'result.json'),JSON.stringify(result,null,2)+'\n',{mode:0o600});};
+function observeFactoryProgress(owner) {
+  const startedAt=Date.now(), destination=path.join(process.env.NATIVE_FIXTURE_OUTPUT,'progress.json');
+  const temporary=destination+'.'+process.pid+'.tmp', sessionFile=path.join(state,`maintenance-${owner}.json`);
+  const stageCode=value=>typeof value==='string'&&/^[A-Z][A-Z_]{0,63}$/.test(value) ? value : null;
+  const update=()=>{
+    let session;
+    try { session=JSON.parse(fs.readFileSync(sessionFile,'utf8')); } catch { /* Not created yet. */ }
+    const observation={schema:'phoenix.fixture-progress/v1',stage:result.stage,at:new Date().toISOString(),
+      elapsedMs:Date.now()-startedAt,phase:stageCode(session?.phase),status:stageCode(session?.status),
+      receiptCount:Array.isArray(session?.receipts)?session.receipts.length:0};
+    try {
+      fs.writeFileSync(temporary,JSON.stringify(observation)+'\n',{mode:0o600});
+      fs.renameSync(temporary,destination);
+    } catch { /* Progress evidence cannot replace the fixture result. */ }
+  };
+  update();
+  const timer=setInterval(update,15000);
+  timer.unref();
+  return ()=>{clearInterval(timer);update();};
+}
 let watchdog;
 const armWatchdog=()=>{watchdog=setTimeout(()=>{result.outcome='HOLD';result.failureClass='FIXTURE_TIMEOUT';result.failureAt=new Date().toISOString();save();console.error(result.failureClass);process.exit(124);},120*60*1000);};
 async function healthy(id){const until=Date.now()+60000;while(Date.now()<until){const row=JSON.parse(docker(['inspect',id,'--format','{{json .State}}']));if(!row.Running)throw Error('FULL_FIXTURE_RUNTIME_EXITED');if(row.Health?.Status==='healthy')return;await wait(200);}throw Error('FULL_FIXTURE_HEALTH_TIMEOUT');}
@@ -239,7 +259,10 @@ CREATE ROLE erp_candidate_writer LOGIN;GRANT CONNECT ON DATABASE api_bootstrap_f
  write(path.join(state,`maintenance-release-plan-${owner}.json`),{schema:'phoenix.legacy-maintenance-release-plan/v1',context,scope:RELEASE_SCOPE,approvedPreviousFloorSha:old,approvedFloorSha:target,approval,recoveryPlan});
  Object.assign(process.env,{DEPLOY_RUN_ID:owner,DEPLOY_RUN_ATTEMPT:owner.split('-')[1],TARGET_SHA:target,APPROVED_CONFIG_FLOOR_SHA:target,APPROVED_PREVIOUS_FLOOR_SHA:old,DEPLOY_MODE:'api',BUILD_API:'true',BUILD_WEB:'false',RUN_MIG:'false',PRESERVE_ARTIFACTS:'true',ROTATE_CHANJET_CREDENTIALS:'false',ONE_TIME_CONFIG_FLOOR_TRANSITION:'false'});
  result.stage='ONE_DEFAULT_FACTORY_OLD_TO_NEW';save();
- const final=await runProductionMaintenanceSession();assert.equal(final.formalDeploymentOutcome,'SUCCESS');
+ const stopProgress=observeFactoryProgress(owner);
+ let final;
+ try { final=await runProductionMaintenanceSession(); } finally { stopProgress(); }
+ assert.equal(final.formalDeploymentOutcome,'SUCCESS');
  const currentFloor=JSON.parse(fs.readFileSync(path.join(state,'floor.json'))),formal=JSON.parse(fs.readFileSync(path.join(state,`deploy-${owner}.json`))),manifest=JSON.parse(fs.readFileSync('/var/lib/phoenix-background-control/manifest.json'));
  assert.equal(currentFloor.floorSha,target);assert.equal(currentFloor.phase,'READY');assert.equal(formal.outcome,'SUCCESS');assert.equal(formal.switched.web,false);assert.equal(manifest.phase,'OPEN');
  assert.equal(docker(['inspect','phoenix-v3-web','--format','{{.Id}}']),webId);assert.equal(docker(['inspect','phoenix-v3-db','--format','{{.Id}}']),pgId);
