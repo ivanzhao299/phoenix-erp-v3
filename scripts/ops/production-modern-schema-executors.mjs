@@ -9,6 +9,7 @@ import {captureMaintenanceSchedulers,observeMaintenanceProcessIdentity,observeMa
 import {verifyModernSchemaChild} from './production-modern-schema-processes.mjs';
 import {collectRetainedModernSchemaInventory} from './production-modern-schema-inventory.mjs';
 import {matchesModernSchemaRehearsalVolume} from './production-modern-schema-postgres.mjs';
+import {collectHistoricalComposeSchemaArtifacts,isHistoricalComposeSchemaCandidate} from './production-modern-schema-historical-compose.mjs';
 const fail=code=>{throw Error('MODERN_SCHEMA_EXECUTORS_HOLD='+code);};
 const ID=/^[a-f0-9]{64}$/;
 const ipv4=value=>typeof value==='string'&&value.split('.').length===4&&value.split('.').every(part=>/^(?:0|[1-9][0-9]{0,2})$/.test(part)&&Number(part)<=255);
@@ -63,7 +64,9 @@ export function inspectModernSchemaContainer(id,command=run){
  const fields=command('/usr/bin/docker',['inspect',id,'--format','{{json .Id}}\t{{json .Image}}\t{{json .Name}}\t{{json .State}}\t{{json .RestartCount}}\t{{json .HostConfig.NetworkMode}}\t{{json .HostConfig.PortBindings}}\t{{json .NetworkSettings.Networks}}\t{{json .Config.Labels}}\t{{json .Mounts}}\t{{json .HostConfig.Privileged}}\t{{json .HostConfig.PidMode}}\t{{json .HostConfig.ReadonlyRootfs}}\t{{json .HostConfig.CapDrop}}\t{{json .Config.User}}\t{{json .HostConfig.RestartPolicy}}\t{{json .Config.Entrypoint}}\t{{json .Config.Cmd}}']).split('\t').map(JSON.parse);
  const [actual,imageId,name,state,restarts,networkMode,ports,networks,labels,mounts,privileged,pidMode,readonly,capDrop,user,restartPolicy,entrypoint,cmd]=fields;
  if(actual!==id||!ID.test(id)||!/^sha256:[a-f0-9]{64}$/.test(imageId)||!state||!Array.isArray(mounts))fail('CONTAINER_IDENTITY_REQUIRED');
- return {id,imageId,name,state,restarts,networkMode,ports,networks,labels,mounts,privileged,pidMode,readonly,capDrop,user,restartPolicy,entrypoint,cmd};
+ const orderedMounts=mounts.map(mount=>({mount,digest:canonicalDigest(mount)}))
+  .sort((a,b)=>a.digest.localeCompare(b.digest)).map(({mount})=>mount);
+ return {id,imageId,name,state,restarts,networkMode,ports,networks,labels,mounts:orderedMounts,privileged,pidMode,readonly,capDrop,user,restartPolicy,entrypoint,cmd};
 }
 export function collectModernSchemaHostSurface(preSnapshot,dependencies={}){
  const guard=dependencies.guard??(()=>verifyContext(CONTRACT.repository,CONTRACT.stateDirectory)),command=dependencies.run??run;
@@ -90,11 +93,12 @@ export function collectModernSchemaHostSurface(preSnapshot,dependencies={}){
   registry??=(dependencies.readOwnership??(()=>secureJson(path.join(CONTRACT.stateDirectory,'maintenance-host-ownership-registry.json'))))();
   if(registry?.schema!=='phoenix.maintenance-reviewed-host-ownership/v1'||!/^[a-f0-9]{64}$/.test(registry.evidenceSha256??'')||!Array.isArray(registry.containers)||!Array.isArray(registry.hostProcesses))fail('REVIEWED_HOST_OWNERSHIP_UNAVAILABLE');return registry;
  };
- const all=command('/usr/bin/docker',['ps','-a','--no-trunc','-q']).split('\n').filter(Boolean),known=new Set(Object.values(pre).map(pin=>pin.id)),namespaces=new Set(),inertArtifacts=[],retainedOwners=new Set(),foreignContainerPins=[];
+ const all=command('/usr/bin/docker',['ps','-a','--no-trunc','-q']).split('\n').filter(Boolean),known=new Set(Object.values(pre).map(pin=>pin.id)),namespaces=new Set(),inertArtifacts=[],retainedOwners=new Set(),foreignContainerPins=[],historicalCompose=[];
  for(const id of all){const candidate=Object.values(actual).find(value=>value.id===id)??inspectModernSchemaContainer(id,command);
   if(candidate.privileged!==false||candidate.pidMode==='host'||candidate.pidMode?.startsWith('container:')||candidate.networkMode==='host'||candidate.name.toLowerCase().includes('watchtower'))fail('SHARED_OR_UNMANAGED_CONTAINER_EXECUTOR');
   if(candidate.state.Running){try{namespaces.add(fs.readlinkSync(`/proc/${candidate.state.Pid}/ns/pid`));}catch{fail('CONTAINER_PID_NAMESPACE_UNOBSERVABLE');}}
   if(known.has(id))continue;
+  if(isHistoricalComposeSchemaCandidate(candidate)){historicalCompose.push(candidate);continue;}
   // Retained old schema-first containers are inert artifacts, not adopted
   // writers. Exact reviewed argv, no restart/namespace sharing/mounts, native
   // stopped PID and a source ancestor are all required; scheduler checks below
@@ -143,6 +147,10 @@ export function collectModernSchemaHostSurface(preSnapshot,dependencies={}){
   if(pins.length!==1)fail('FOREIGN_CONTAINER_OWNERSHIP_UNVERIFIED');
   foreignContainerPins.push({id,identitySha256:canonicalDigest(legacyIdentity)});
  }
+ try{
+  inertArtifacts.push(...collectHistoricalComposeSchemaArtifacts(historicalCompose,{api:actual.api,network,apiRevision:pre.api.ociRevision,
+   docker:args=>command('/usr/bin/docker',args)},dependencies.historicalCompose));
+ }catch{fail('HISTORICAL_COMPOSE_ARTIFACT_UNVERIFIED');}
  const scheduler=(dependencies.captureSchedulers??captureMaintenanceSchedulers)({includeDatabaseEntrypoints:true});
  if(scheduler.some(row=>row.erpControlReference===true))fail('LOCAL_DATABASE_OR_ERP_SCHEDULER_UNACCOUNTED');
  const controls=new Set([process.pid,process.ppid]),children=dependencies.getOwnedChildren?.()??[];
