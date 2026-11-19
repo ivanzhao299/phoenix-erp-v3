@@ -97,6 +97,7 @@ scripts/ops/production-modern-schema-state.mjs
 scripts/ops/production-modern-schema-stop.mjs
 scripts/ops/production-modern-schema-supervisor.mjs
 scripts/ops/production-modern-schema-terminal.mjs
+scripts/ops/production-modern-schema-unit-receipts.mjs
 scripts/ops/production-modern-schema-watch.mjs
 scripts/ops/production-trusted-paths.mjs
 scripts/ops/promote-production-config-floor.mjs

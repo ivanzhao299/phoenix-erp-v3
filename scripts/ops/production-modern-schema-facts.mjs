@@ -7,7 +7,9 @@ const fail=code=>{throw Error('MODERN_SCHEMA_FACTS_HOLD='+code);};
 const quote=value=>'"'+value.replaceAll('"','""')+'"';
 const BLOCK_ROWS=1024;
 const CHANJET_SEGMENT_ROWS=128;
-const MON_HISTORY_SEGMENT_ROWS=4096;
+const MON_HISTORY_SEGMENT_ROWS=32768;
+const SEQUENCE_READ_BATCH=32;
+const SEGMENT_KEY_BATCH=16;
 const integerKeyLimits=new Map([
  ['int2',[-32768n,32767n]],
  ['int4',[-2147483648n,2147483647n]],
@@ -33,7 +35,23 @@ const catalogSql=`SELECT n.nspname AS schema,c.relname AS table,c.relkind AS kin
  FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace JOIN pg_attribute a ON a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped
  WHERE n.nspname !~ '^pg_' AND n.nspname<>'information_schema' AND c.relkind IN('r','p','m','f')
  GROUP BY n.nspname,c.relname,c.relkind ORDER BY n.nspname,c.relname`;
-const sequencesSql=`SELECT n.nspname AS schema,c.relname AS name,onsp.nspname AS "ownerSchema",owner.relname AS "ownerTable"
+// One historical dict default uses an unowned sequence, distinct from the sequence it owns.
+// Only a sole, direct catalog dependency qualifies that exact sequence as a tool.
+const sequencesSql=`SELECT n.nspname AS schema,c.relname AS name,onsp.nspname AS "ownerSchema",owner.relname AS "ownerTable",
+ CASE WHEN n.nspname='public' AND c.relname='sys_dict_id_seq' AND d.objid IS NULL THEN (
+  SELECT count(*)=1 AND coalesce(bool_and(
+   dep.classid='pg_attrdef'::regclass AND dep.deptype='n' AND dep.objsubid=0 AND dep.refobjsubid=0
+   AND dict_schema.nspname='public' AND dict.relname='sys_dict' AND dict.relkind='r'
+   AND col.attname='id' AND col.attnum>0 AND NOT col.attisdropped
+   AND pg_get_expr(def.adbin,def.adrelid)='nextval(''public.sys_dict_id_seq''::regclass)'
+  ),false)
+  FROM pg_depend dep
+  LEFT JOIN pg_attrdef def ON dep.classid='pg_attrdef'::regclass AND def.oid=dep.objid
+  LEFT JOIN pg_class dict ON dict.oid=def.adrelid
+  LEFT JOIN pg_namespace dict_schema ON dict_schema.oid=dict.relnamespace
+  LEFT JOIN pg_attribute col ON col.attrelid=def.adrelid AND col.attnum=def.adnum
+  WHERE dep.refclassid='pg_class'::regclass AND dep.refobjid=c.oid
+ ) ELSE false END AS "legacyDictionaryTool"
  FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace LEFT JOIN pg_depend d ON d.classid='pg_class'::regclass AND d.objid=c.oid AND d.deptype IN('a','i')
  LEFT JOIN pg_class owner ON owner.oid=d.refobjid LEFT JOIN pg_namespace onsp ON onsp.oid=owner.relnamespace
  WHERE c.relkind='S' AND n.nspname !~ '^pg_' AND n.nspname<>'information_schema' ORDER BY n.nspname,c.relname`;
@@ -69,13 +87,19 @@ export function foldModernSchemaTableFacts(columns,observed){
  return {rows,sha256:canonicalDigest({algorithm:'native-row-sha256-block-v1',columns,rows,blockRows:BLOCK_ROWS,blocks})};
 }
 
-const segmentKeySql=`SELECT a.attname::text AS "keyColumn",t.typname::text AS "keyType"
- FROM pg_class c JOIN pg_attribute a ON a.attrelid=c.oid
+// PostgreSQL locks each ONLY relation during query analysis, even at LIMIT 0.
+const segmentKeySql=relations=>`WITH locked_relations AS MATERIALIZED (
+ ${relations.map(relation=>`(SELECT 1 FROM ONLY ${relation} LIMIT 0)`).join(' UNION ALL ')}
+)
+ SELECT submitted.ordinality::integer AS "relationIndex",a.attname::text AS "keyColumn",t.typname::text AS "keyType"
+ FROM unnest($1::text[]) WITH ORDINALITY AS submitted(relation,ordinality)
+ JOIN pg_class c ON c.oid=to_regclass(submitted.relation) JOIN pg_attribute a ON a.attrelid=c.oid
  JOIN pg_type t ON t.oid=a.atttypid
  JOIN pg_index i ON i.indrelid=c.oid
  JOIN pg_opclass o ON o.oid=i.indclass[0]
  JOIN pg_am m ON m.oid=o.opcmethod
- WHERE c.oid=to_regclass($1) AND c.relkind='r' AND NOT c.relispartition
+ WHERE c.relkind='r' AND NOT c.relispartition
+ AND NOT EXISTS (SELECT 1 FROM locked_relations)
  AND NOT EXISTS (SELECT 1 FROM pg_inherits WHERE inhrelid=c.oid OR inhparent=c.oid)
  AND a.attnum>0 AND NOT a.attisdropped AND a.attnotnull
  AND t.typnamespace='pg_catalog'::regnamespace AND t.typname IN ('int2','int4','int8','uuid')
@@ -83,6 +107,21 @@ const segmentKeySql=`SELECT a.attname::text AS "keyColumn",t.typname::text AS "k
  AND i.indisprimary AND i.indisvalid AND i.indisready AND i.indislive AND i.indimmediate
  AND i.indnkeyatts=1 AND i.indnatts=1 AND i.indkey[0]=a.attnum AND i.indpred IS NULL AND i.indexprs IS NULL
  `;
+
+async function captureSegmentKeys(client,relations){
+ const keys=new Map();
+ for(let offset=0;offset<relations.length;offset+=SEGMENT_KEY_BATCH){
+  const batch=relations.slice(offset,offset+SEGMENT_KEY_BATCH);
+  const {rows}=await client.query(segmentKeySql(batch),[batch]);
+  for(const {relationIndex,keyColumn,keyType} of rows){
+   const relation=batch[relationIndex-1];
+   if(!Number.isSafeInteger(relationIndex)||!relation||keys.has(relation)||typeof keyColumn!=='string'||
+    (keyType!=='uuid'&&!integerKeyLimits.has(keyType)))fail('NATIVE_TABLE_KEY_REQUIRED');
+   keys.set(relation,{keyColumn,keyType});
+  }
+ }
+ return keys;
+}
 
 function parseSegmentKey(value,type){
  if(typeof value!=='string')fail('NATIVE_TABLE_SEGMENT_REQUIRED');
@@ -94,120 +133,192 @@ function parseSegmentKey(value,type){
  return integer;
 }
 
-async function readUpperKey(client,{relation,key,keyType,segmentRows},lower){
- // Cast after the inner ordering. PostgreSQL otherwise can order by the text alias.
- const {rows}=await client.query(`SELECT (
-  SELECT ${key} FROM ONLY ${relation}
-  ${lower===null?'':`WHERE ${key}>=$1::${keyType}`} ORDER BY ${key} OFFSET ${segmentRows} LIMIT 1
- )::text AS "upperKey"`,lower===null?[]:[lower]);
- if(rows.length!==1)fail('NATIVE_TABLE_SEGMENT_REQUIRED');
- const upper=rows[0]?.upperKey;
+async function readSegment(client,{relation,key,keyType,segmentRows,columns,includeSmall},lower){
+ const lowerBound=lower===null?'':`${key}>=$1::${keyType}`;
+ const probeOnly=lower===null&&!includeSmall;
+ const page=condition=>`(SELECT ${columns.map(quote).join(',')} FROM ONLY ${relation}
+  WHERE ${condition} ${lowerBound?'AND '+lowerBound:''} ORDER BY ${key} LIMIT ${segmentRows+1})`;
+ // Keep a native upper index bound on full segments. An OR with the tail case
+ // can turn it into a filter and scan the remainder when checking for an extra row.
+ const bounded=page(`boundary.upper_key IS NOT NULL AND ${key}<boundary.upper_key`);
+ const source=probeOnly?bounded:`${bounded} UNION ALL ${page('boundary.upper_key IS NULL')}`;
+ // The lookahead is key-only. Hash only the bounded half-open interval in the same statement.
+ const {rows}=await client.query(`WITH boundary AS MATERIALIZED (
+  SELECT (SELECT ${key} FROM ONLY ${relation} ${lowerBound?'WHERE '+lowerBound:''}
+   ORDER BY ${key} OFFSET ${segmentRows} LIMIT 1) AS upper_key
+ )
+ SELECT boundary.upper_key::text AS "upperKey", boundary.upper_key IS NOT NULL AS "hasUpper", segment.*
+ FROM boundary CROSS JOIN LATERAL (
+  WITH hashed AS MATERIALIZED (
+   SELECT ${key} AS segment_key,${nativeRowHashSql} COLLATE "C" AS row_hash
+   FROM (${source}) AS phoenix_original_row
+  )
+  SELECT count(*)::integer AS rows,
+   ${lower===null?'true':`coalesce(bool_or(segment_key=$1::${keyType}),false)`} AS "startsAtLower",
+   encode(sha256(convert_to(string_agg(row_hash,'' ORDER BY row_hash COLLATE "C"),'UTF8')),'hex') AS sha256
+  FROM hashed
+ ) AS segment`,lower===null?[]:[lower]);
+ const [segment]=rows;
+ const upper=segment?.upperKey;
  if(upper!==null){
   const parsed=parseSegmentKey(upper,keyType);
   if(lower!==null&&parsed<=parseSegmentKey(lower,keyType))fail('NATIVE_TABLE_SEGMENT_REQUIRED');
  }
- return upper;
-}
-
-async function readSegment(client,{relation,key,keyType,segmentRows,columns},lower,upper){
- const parameters=[],conditions=[];
- if(lower!==null){parameters.push(lower);conditions.push(`${key}>=$1::${keyType}`);}
- if(upper!==null){parameters.push(upper);conditions.push(`${key}<$${parameters.length}::${keyType}`);}
- const range=conditions.length?`WHERE ${conditions.join(' AND ')}`:'';
- // The extra row proves an invalid boundary cannot truncate or hash an unbounded tail.
- const {rows}=await client.query(`WITH hashed AS MATERIALIZED (
-  SELECT ${key} AS segment_key,${nativeRowHashSql} COLLATE "C" AS row_hash
-  FROM (SELECT ${columns.map(quote).join(',')} FROM ONLY ${relation} ${range}
-        ORDER BY ${key} LIMIT ${segmentRows+1}) AS phoenix_original_row
- )
- SELECT count(*)::integer AS rows,
-  ${lower===null?'true':`coalesce(bool_or(segment_key=$1::${keyType}),false)`} AS "startsAtLower",
-  encode(sha256(convert_to(string_agg(row_hash,'' ORDER BY row_hash COLLATE "C"),'UTF8')),'hex') AS sha256
- FROM hashed`,parameters);
- const [segment]=rows;
- if(rows.length!==1||segment?.startsAtLower!==true||!Number.isSafeInteger(segment.rows)||
+ if(rows.length!==1||segment?.hasUpper!==(upper!==null)||segment.startsAtLower!==true||!Number.isSafeInteger(segment.rows)||
   segment.rows<0||segment.rows>segmentRows||
   (upper!==null&&segment.rows!==segmentRows)||(lower!==null&&segment.rows===0)||
+  (probeOnly&&upper===null&&segment.rows!==0)||
   (segment.rows?(typeof segment.sha256!=='string'||!HASH.test(segment.sha256)):segment.sha256!==null)){
   fail('NATIVE_TABLE_SEGMENT_REQUIRED');
  }
  return segment;
 }
 
-async function captureSegmentedTableFacts(client,table){
+async function captureSegmentedTableFacts(client,table,segmentKeys){
  const {schema,table:name,columns}=table;
  const relation=`${quote(schema)}.${quote(name)}`;
- // Referencing ONLY the relation acquires AccessShareLock until the snapshot ends.
- // LIMIT 0 keeps the lock acquisition separate from validation and payload reads.
- await client.query(`SELECT 1 FROM ONLY ${relation} LIMIT 0`);
- const {rows:keys}=await client.query(segmentKeySql,[relation]);
- if(!keys.length)return null;
- const {keyColumn,keyType}=keys[0];
- if(keys.length!==1||typeof keyColumn!=='string'||(keyType!=='uuid'&&!integerKeyLimits.has(keyType))){
-  fail('NATIVE_TABLE_KEY_REQUIRED');
- }
- if(!columns.includes(keyColumn))return null;
+ const key=segmentKeys.get(relation);
+ if(!key||!columns.includes(key.keyColumn))return null;
+ const {keyColumn,keyType}=key;
 
  const chanjet=schema==='public'&&name==='chanjet_read_snapshots';
  const monHistory=schema==='public'&&name==='mon_device_property_history';
  const segmentRows=chanjet?CHANJET_SEGMENT_ROWS:monHistory?MON_HISTORY_SEGMENT_ROWS:BLOCK_ROWS;
- const plan={relation,key:quote(keyColumn),keyType,segmentRows,columns};
- let lower=null,upper=await readUpperKey(client,plan,null),rows=0;
- // The choice depends on exact visible rows and schema, including after logical restore.
- // Preserve the CP52 path for Chanjet even when the table fits in a single segment.
- if(upper===null&&!chanjet)return null;
+ const singleBlock=segmentRows===BLOCK_ROWS;
+ const plan={relation,key:quote(keyColumn),keyType,segmentRows,columns,includeSmall:chanjet||singleBlock};
+ let lower=null,rows=0;
  const segments=createHash('sha256');
  for(;;){
-  const segment=await readSegment(client,plan,lower,upper);
+  const segment=await readSegment(client,plan,lower),upper=segment.upperKey;
+  // A complete first interval of at most BLOCK_ROWS is exactly one legacy block.
+  if(lower===null&&upper===null&&!chanjet){
+   if(!singleBlock)return null;
+   return foldModernSchemaTableFacts(columns,[{blockIndex:segment.rows?0:null,blockRows:segment.rows||null,
+    sha256:segment.sha256,totalRows:segment.rows}]);
+  }
   rows+=segment.rows;
   if(rows>2147483647)fail('NATIVE_TABLE_SEGMENT_REQUIRED');
   // Bind each half-open interval to its row count and digest without retaining its keys.
   if(segment.rows)segments.update(canonicalDigest({lower,upper,rows:segment.rows,sha256:segment.sha256}));
   if(upper===null)break;
   lower=upper;
-  upper=await readUpperKey(client,plan,lower);
  }
  const domain=chanjet&&keyColumn==='id'&&keyType==='int8'?{algorithm:'native-row-sha256-bigint-segment-v1'}:
   {algorithm:'native-row-sha256-key-segment-v1',keyColumn,keyType};
  return {rows,sha256:canonicalDigest({...domain,columns,rows,segmentRows,segmentsSha256:segments.digest('hex')})};
 }
 
-export async function captureModernSchemaFacts(client,{projection=null,withinSnapshot=false}={}){
+const relationKey=(schema,name)=>JSON.stringify([schema,name]);
+
+async function captureSequenceValues(client,selected){
+ const values=new Map();
+ for(let offset=0;offset<selected.length;offset+=SEQUENCE_READ_BATCH){
+  const batch=selected.slice(offset,offset+SEQUENCE_READ_BATCH);
+  const sql=batch.map(({schema,name},index)=>`SELECT ${index} AS "sequenceIndex",last_value::text AS "lastValue",is_called AS "isCalled" FROM ${quote(schema)}.${quote(name)}`);
+  const {rows}=await client.query(sql.join(' UNION ALL ')+' ORDER BY "sequenceIndex"');
+  if(rows.length!==batch.length)fail('EXACT_SEQUENCE_STATE_REQUIRED');
+  for(const [index,{schema,name}] of batch.entries()){
+   const value=rows[index];
+   if(value?.sequenceIndex!==index||typeof value.lastValue!=='string'||!/^-?[0-9]+$/.test(value.lastValue)||typeof value.isCalled!=='boolean'){
+    fail('EXACT_SEQUENCE_STATE_REQUIRED');
+   }
+   values.set(relationKey(schema,name),{lastValue:value.lastValue,isCalled:value.isCalled});
+  }
+ }
+ return values;
+}
+
+function sequenceFacts(selected,live,values){
+ const sequences=[],businessSequences=[];
+ for(const {schema,name,ownerSchema,ownerTable} of selected){
+  const key=relationKey(schema,name);
+  const fact={schema,name,ownerSchema,ownerTable,...values.get(key)};
+  sequences.push(fact);
+  const ownedTool=ownerSchema==='public'&&tools.has(ownerTable);
+  const legacyTool=ownerSchema===null&&ownerTable===null&&live.get(key).legacyDictionaryTool===true;
+  if(!ownedTool&&!legacyTool)businessSequences.push(fact);
+ }
+ return {sequences,businessSequences};
+}
+
+async function captureTableFacts(client,table,current,segmentKeys){
+ let hash=table.kind==='r'&&current.kind==='r'?await captureSegmentedTableFacts(client,table,segmentKeys):null;
+ if(hash===null){
+  const {rows:observed}=await client.query(modernSchemaTableFactsSql(table));
+  hash=foldModernSchemaTableFacts(table.columns,observed);
+ }
+ return {schema:table.schema,table:table.table,kind:table.kind,columns:[...table.columns],rows:hash.rows,sha256:hash.sha256};
+}
+
+function factsReceipt(identity,tables,{sequences,businessSequences},newTables){
+ const businessTables=tables.filter(table=>!(table.schema==='public'&&tools.has(table.table)));
+ const content={schema:'phoenix.modern-schema-database-facts/v1',database:{name:identity.name,systemIdentifier:identity.systemIdentifier},tables,sequences,newTables};
+ return {...content,allDataSha256:canonicalDigest({tables,sequences}),businessDataSha256:canonicalDigest({tables:businessTables,sequences:businessSequences}),readOnly:true,releaseAuthorized:false};
+}
+
+async function collectModernSchemaFacts(client,{projection,withinSnapshot,includeFull}){
  if(!withinSnapshot)await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
  try{
   await client.query("SET LOCAL search_path=pg_catalog; SET LOCAL statement_timeout='20s'; SET LOCAL lock_timeout='3s'; SET LOCAL row_security=off; SET LOCAL max_parallel_workers_per_gather=0; SET LOCAL work_mem='4MB'; SET LOCAL TimeZone='UTC'; SET LOCAL DateStyle='ISO,YMD'; SET LOCAL IntervalStyle='iso_8601'; SET LOCAL bytea_output='hex'; SET LOCAL extra_float_digits=3");
   const {rows:[identity]}=await client.query(`SELECT current_database() AS name,(SELECT system_identifier::text FROM pg_control_system()) AS "systemIdentifier",NOT pg_is_in_recovery() AS primary,current_setting('transaction_read_only') AS readonly,current_setting('transaction_isolation') AS isolation`);
   if(identity.primary!==true||identity.readonly!=='on'||identity.isolation!=='repeatable read')fail('PRIMARY_READONLY_REQUIRED');
   const {rows:actual}=await client.query(catalogSql);if(actual.some(table=>table.kind==='f'))fail('FOREIGN_TABLE_OUTSIDE_SUPPORTED_SCOPE');
-  const before=projection?.tables??actual,tables=[];
-  if(!Array.isArray(before)||before.length>2048)fail('BOUNDED_TABLE_PROJECTION_REQUIRED');
-  for(const table of before){
-   const current=actual.find(row=>row.schema===table.schema&&row.table===table.table);
+  const originals=projection?.tables??actual;
+  if(!Array.isArray(originals)||originals.length>2048||(includeFull&&actual.length>2048))fail('BOUNDED_TABLE_PROJECTION_REQUIRED');
+  const byTable=new Map(actual.map(table=>[relationKey(table.schema,table.table),table]));
+  const requested=originals.map(table=>{
+   const key=relationKey(table.schema,table.table),current=byTable.get(key);
    if(!current||!Array.isArray(table.columns)||!table.columns.length||table.columns.some(column=>!current.columns.includes(column)))fail('ORIGINAL_BUSINESS_COLUMNS_REMOVED');
-   let hash=table.kind==='r'&&current.kind==='r'?await captureSegmentedTableFacts(client,table):null;
-   if(hash===null){
-    const {rows:observed}=await client.query(modernSchemaTableFactsSql(table));
-    hash=foldModernSchemaTableFacts(table.columns,observed);
+   return {table,current,key};
+  });
+  const keyTables=includeFull?actual:requested.filter(({table})=>table.kind==='r').map(({current})=>current);
+  const segmentKeys=await captureSegmentKeys(client,keyTables.filter(table=>table.kind==='r')
+   .map(table=>`${quote(table.schema)}.${quote(table.table)}`));
+  const fullTables=new Map();
+  if(includeFull){
+   for(const [key,table] of byTable)fullTables.set(key,await captureTableFacts(client,table,table,segmentKeys));
+  }
+  const tables=[];
+  for(const {table,current,key} of requested){
+   // The segmentation policy also depends on relkind and exact column order.
+   if(includeFull&&table.kind===current.kind&&same(table.columns,current.columns)){
+    tables.push({...fullTables.get(key),columns:[...table.columns]});
+   }else{
+    tables.push(await captureTableFacts(client,table,current,segmentKeys));
    }
-   tables.push({schema:table.schema,table:table.table,kind:table.kind,columns:[...table.columns],rows:hash.rows,sha256:hash.sha256});
   }
-  const {rows:currentSequences}=await client.query(sequencesSql),sequences=[];
-  for(const sequence of projection?.sequences??currentSequences){
-   if(!currentSequences.some(s=>s.schema===sequence.schema&&s.name===sequence.name))fail('ORIGINAL_SEQUENCE_REMOVED');
-   const {rows:[value]}=await client.query(`SELECT last_value::text AS "lastValue",is_called AS "isCalled" FROM ${quote(sequence.schema)}.${quote(sequence.name)}`);
-   if(!/^-?[0-9]+$/.test(value.lastValue??'')||typeof value.isCalled!=='boolean')fail('EXACT_SEQUENCE_STATE_REQUIRED');
-   sequences.push({schema:sequence.schema,name:sequence.name,ownerSchema:sequence.ownerSchema,ownerTable:sequence.ownerTable,...value});
-  }
-  const newTables=projection?actual.filter(table=>!before.some(prior=>table.schema===prior.schema&&table.table===prior.table)):[];
-  for(const table of newTables){
-   const {rows:[{count}]}=await client.query(`SELECT count(*)::integer AS count FROM ${quote(table.schema)}.${quote(table.table)}`);
+  const {rows:currentSequences}=await client.query(sequencesSql);
+  const liveSequences=new Map(currentSequences.map(sequence=>[relationKey(sequence.schema,sequence.name),sequence]));
+  const originalSequences=projection?.sequences??currentSequences;
+  if(originalSequences.some(sequence=>!liveSequences.has(relationKey(sequence.schema,sequence.name))))fail('ORIGINAL_SEQUENCE_REMOVED');
+  const values=await captureSequenceValues(client,includeFull?currentSequences:originalSequences);
+
+  const originalKeys=new Set(requested.map(row=>row.key)),newTables=[];
+  for(const [key,table] of byTable){
+   if(!projection||originalKeys.has(key))continue;
+   let count=fullTables.get(key)?.rows;
+   if(!includeFull){
+    const {rows:[observed]}=await client.query(`SELECT count(*)::integer AS count FROM ${quote(table.schema)}.${quote(table.table)}`);
+    count=observed.count;
+   }
    if(!(table.schema==='public'&&tools.has(table.table))&&count!==0)fail('NEW_BUSINESS_TABLE_NOT_EMPTY');
-   table.rows=count;
+   newTables.push({...table,columns:[...table.columns],rows:count});
   }
-  const businessTables=tables.filter(table=>!(table.schema==='public'&&tools.has(table.table))),businessSequences=sequences.filter(sequence=>!(sequence.ownerSchema==='public'&&tools.has(sequence.ownerTable)));
-  const content={schema:'phoenix.modern-schema-database-facts/v1',database:{name:identity.name,systemIdentifier:identity.systemIdentifier},tables,sequences,newTables};
-  return {...content,allDataSha256:canonicalDigest({tables,sequences}),businessDataSha256:canonicalDigest({tables:businessTables,sequences:businessSequences}),readOnly:true,releaseAuthorized:false};
+  const projected=factsReceipt(identity,tables,sequenceFacts(originalSequences,liveSequences,values),newTables);
+  if(!includeFull)return projected;
+  const full=factsReceipt(identity,[...fullTables.values()],sequenceFacts(currentSequences,liveSequences,values),[]);
+  return {projected,full};
  }finally{if(!withinSnapshot)await client.query('ROLLBACK');}
+}
+
+export async function captureModernSchemaFacts(client,{projection=null,withinSnapshot=false}={}){
+ return collectModernSchemaFacts(client,{projection,withinSnapshot,includeFull:false});
+}
+
+/** Collect original-column proof and current full facts on one read-only snapshot. */
+export async function captureModernSchemaFactsPair(client,{projection,withinSnapshot=false}={}){
+ if(!Array.isArray(projection?.tables)||!Array.isArray(projection.sequences))fail('BOUNDED_TABLE_PROJECTION_REQUIRED');
+ return collectModernSchemaFacts(client,{projection,withinSnapshot,includeFull:true});
 }
 export function assertModernSchemaBusinessUnchanged(before,after){
  if(!same(before.database,after.database)||before.businessDataSha256!==after.businessDataSha256)fail('ORIGINAL_BUSINESS_FACTS_CHANGED');return true;

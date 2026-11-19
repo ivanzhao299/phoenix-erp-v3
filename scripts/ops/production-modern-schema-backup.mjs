@@ -34,6 +34,10 @@ function inspectDatabase(pin,dependencies={}){
 }
 export async function createModernSchemaBackup({owner,stage,client,databasePin,privateRuntime},dependencies={}){
  const verify=async()=>{privateRuntime.guard();inspectDatabase(databasePin,dependencies);if(stage==='fenced')await dependencies.assertFenced();privateRuntime.guard();};
+ const boundedTimeout=(normal,fenced)=>{
+  if(stage!=='fenced'||!dependencies.assertRecoveryWindow)return normal;
+  dependencies.assertRecoveryWindow(fenced);return fenced;
+ };
  const applicationName=`phoenix-schema-${owner}-${stage}-backup`;
  const remoteStopped=async()=>{
   const read=dependencies.remoteProcesses??(()=>execFileSync('/usr/bin/docker',['exec',databasePin.id,'sh','-c',
@@ -83,7 +87,9 @@ export async function createModernSchemaBackup({owner,stage,client,databasePin,p
   reason='DISK';
   const disk=fs.statfsSync(directory,{bigint:true});if(disk.bavail*disk.bsize<BigInt(database.bytes)*4n+2147483648n)fail('SPACE_FOR_PROTECTED_BACKUP_AND_REHEARSAL_REQUIRED');
   reason='FACTS';
+  const factsStartedAt=performance.now();
   const facts=await captureModernSchemaFacts(client,{withinSnapshot:true});
+  const factsElapsedMs=Math.ceil(performance.now()-factsStartedAt);
   reason='LEDGER';
   await client.query('SET LOCAL search_path=public');
   const {rows:[{jsonb_build_object:ledgerRaw}]}=await client.query(LEDGER_SQL),ledger=JSON.parse(ledgerRaw);
@@ -91,11 +97,18 @@ export async function createModernSchemaBackup({owner,stage,client,databasePin,p
   const {rows:[{snapshot}]}=await client.query('SELECT pg_export_snapshot() AS snapshot');
   if(!/^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{8}-[0-9A-Fa-f]{1,8}$/.test(snapshot??''))fail('EXPORTED_NATIVE_SNAPSHOT_REQUIRED');
   source={database:{...database,backupToolMajor:profile.major},facts,ledger,ledgerSha256:digest(JSON.stringify(ledger)),snapshotSha256:createHash('sha256').update(snapshot).digest('hex')};
-  reason='EXECUTION';
   keepalive=setInterval(()=>{keepaliveWork=keepaliveWork.then(async()=>{try{await verify();await client.query('SELECT 1 AS snapshot_keepalive');}catch{keepaliveError=true;}});},5000);
+  if(dependencies.onSnapshotReady!==undefined){
+   reason='SOURCE_GUARD';
+   if(stage!=='fenced'||typeof dependencies.onSnapshotReady!=='function')fail('FENCED_SNAPSHOT_CONSUMER_REQUIRED');
+   await dependencies.onSnapshotReady(source,{factsElapsedMs});
+   await verify();
+   if(keepaliveError)fail('EXPORTED_SNAPSHOT_LOST');
+  }
+  reason='EXECUTION';
   dumpAttempted=true;
   result=await privateRuntime.run({binary:'/usr/bin/docker',args:['exec','-e','PGOPTIONS=-c default_transaction_read_only=on -c statement_timeout=120000 -c lock_timeout=3000',
-   '-e',`PGAPPNAME=${applicationName}`,databasePin.id,'sh','-c','exec env -i PATH=/usr/local/bin:/usr/bin:/bin PGHOST=/var/run/postgresql PGPORT=5432 PGOPTIONS="$PGOPTIONS" PGAPPNAME="$PGAPPNAME" pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" --format=custom --no-owner --no-acl --snapshot="$1"','--',snapshot],directory,stem:'database-dump',timeoutMs:600000,
+   '-e',`PGAPPNAME=${applicationName}`,databasePin.id,'sh','-c','exec env -i PATH=/usr/local/bin:/usr/bin:/bin PGHOST=/var/run/postgresql PGPORT=5432 PGOPTIONS="$PGOPTIONS" PGAPPNAME="$PGAPPNAME" pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" --format=custom --compress=1 --no-owner --no-acl --snapshot="$1"','--',snapshot],directory,stem:'database-dump',timeoutMs:boundedTimeout(600000,180000),
    onSpawn:dependencies.onDumpStarted?entry=>dependencies.onDumpStarted(entry,applicationName):null});
   reason='SNAPSHOT_CONTINUITY';
   clearInterval(keepalive);keepalive=null;await keepaliveWork;if(keepaliveError)fail('EXPORTED_SNAPSHOT_LOST');
@@ -117,8 +130,8 @@ export async function createModernSchemaBackup({owner,stage,client,databasePin,p
   reason='SOURCE_GUARD';await verify();
   reason='VERIFICATION';
   const backup=await privateRuntime.digest(result.stdout);if(backup.bytes<64)fail('NONEMPTY_CUSTOM_BACKUP_REQUIRED');
-  const toc=await privateRuntime.run({binary:'/usr/bin/docker',args:['exec','-i',databasePin.id,'pg_restore','--list'],directory,stem:'backup-toc',inputFile:backup.path,timeoutMs:300000});
-  const full=await privateRuntime.run({binary:'/usr/bin/docker',args:['exec','-i',databasePin.id,'pg_restore','--no-owner','--no-acl','--file=/dev/null'],directory,stem:'backup-full-parse',inputFile:backup.path,timeoutMs:600000});
+  const toc=await privateRuntime.run({binary:'/usr/bin/docker',args:['exec','-i',databasePin.id,'pg_restore','--list'],directory,stem:'backup-toc',inputFile:backup.path,timeoutMs:boundedTimeout(300000,30000)});
+  const full=await privateRuntime.run({binary:'/usr/bin/docker',args:['exec','-i',databasePin.id,'pg_restore','--no-owner','--no-acl','--file=/dev/null'],directory,stem:'backup-full-parse',inputFile:backup.path,timeoutMs:boundedTimeout(600000,90000)});
   const after=await privateRuntime.digest(backup.path);if(!same(backup,after))fail('BACKUP_CHANGED_DURING_VERIFICATION');
   reason='SOURCE_GUARD';await verify();
   reason='VERIFICATION';

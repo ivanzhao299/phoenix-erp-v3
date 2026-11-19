@@ -92,9 +92,12 @@ export async function prepareModernSchemaRelease(env,dependencies={}){
   stage('HOST_SURFACE');const freshSurface=collectModernSchemaHostSurface(after,{guard,ownedResources,getOwnedChildren:()=>runtime.registeredChildren()});
   if(!same(surface,freshSurface))fail('PREPARATION_HOST_SURFACE_MOVED');
   const {rows:[latestExecutors]}=await client.query(MODERN_SCHEMA_EXECUTOR_SQL);classifyModernSchemaDatabaseExecutors(JSON.parse(latestExecutors.observation),{runtimeAddress:surface.runtimeAddress});
-  const body=readCommittedModernSchemaDeploymentBody(root,dispatch.targetSha),start=Date.now(),window={start:new Date(start).toISOString(),end:new Date(start+1800000).toISOString()};
+  const body=readCommittedModernSchemaDeploymentBody(root,dispatch.targetSha);
   stage('HISTORICAL_AUDIT');const source=await collectConfirmedLegacyScope(client,{targetSha:dispatch.targetSha}),facts=await captureModernSchemaFacts(client),off=defaultOffEvidenceFromFacts(dispatch.targetSha,facts,{stage:'BEFORE_SCHEMA',floor});
-  const databaseIdentity={name:database.name,schema:database.schema,systemIdentifier:database.systemIdentifier};
+  // The formal window begins after the expensive read-only preparation
+ // facts. The protected audit and every effect still fall inside it.
+ const start=Date.now(),window={start:new Date(start).toISOString(),end:new Date(start+1800000).toISOString()};
+ const databaseIdentity={name:database.name,schema:database.schema,systemIdentifier:database.systemIdentifier};
   const context={schema:'phoenix.modern-schema-release-context/v1',owner:dispatch.owner,floorSha:dispatch.floorSha,runtimeSha:plan.runtimeSha,targetSha:dispatch.targetSha,window,
    databaseIdentitySha256:canonicalDigest(databaseIdentity),runtimeSnapshotSha256:canonicalDigest(initial.containers),candidateImageId,
    candidateInventorySha256:plan.candidateInventorySha256,sourceInventorySha256:plan.sourceInventorySha256,runtimeInventorySha256:plan.runtimeInventorySha256,

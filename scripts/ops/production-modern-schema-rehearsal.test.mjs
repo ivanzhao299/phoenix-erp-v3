@@ -19,3 +19,12 @@ test('no rehearsal may run with a caller-declared fenced stage and no native fen
  await assert.rejects(rehearseModernSchemaRelease({owner:'1234-1',stage:'fenced',backup:{receipt:{owner:'1234-1',stage:'fenced',sourceLedgerSha256:'c'.repeat(64)}},
   plan:{targetSha:'a'.repeat(40),runtimeSha:'b'.repeat(40),candidateImageId:'sha256:'+'a'.repeat(64),beforeLedgerSha256:'c'.repeat(64)},runtimeImageId:'sha256:'+'b'.repeat(64),privateRuntime:{createDirectory(){assert.fail('Must not create');}}}),/EXACT_PROTECTED_REHEARSAL_REQUIRED/);
 });
+test('an exhausted recovery budget stops fenced rehearsal before any Docker operation',async()=>{
+ const database={name:'clone_source'},owner='1234-1';
+ const candidateImageId='sha256:'+'a'.repeat(64),beforeLedgerSha256='c'.repeat(64);
+ await assert.rejects(rehearseModernSchemaRelease({owner,stage:'fenced',
+  backup:{source:{database},receipt:{owner,stage:'fenced',sourceDatabase:database,sourceLedgerSha256:beforeLedgerSha256}},
+  plan:{targetSha:'a'.repeat(40),runtimeSha:'b'.repeat(40),candidateImageId,beforeLedgerSha256},runtimeImageId:'sha256:'+'b'.repeat(64),
+  privateRuntime:{createDirectory:()=>'/unused',run(){assert.fail('Must not create any resource');}}},
+ {assertFenced:async()=>{},assertRecoveryWindow(){throw Error('OUTSIDE_RECOVERY_BUDGET');}}),/OUTSIDE_RECOVERY_BUDGET/);
+});
