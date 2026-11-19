@@ -379,6 +379,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v5
+        with:
+          # Modern schema regressions verify exact historical R/T Git blobs.
+          fetch-depth: 0
 
       - name: Lock top-level migrations/ allowlist (F5-1)
         run: |
