@@ -3,7 +3,7 @@
 import fs from 'node:fs';import path from 'node:path';import {createHash} from 'node:crypto';import {ChildProcess,execFileSync} from 'node:child_process';
 import {CONTRACT} from './production-config-guard.mjs';import {executionEnv} from './capture-production-runtime.mjs';
 import {canonicalDigest,same} from './production-maintenance-receipts.mjs';
-import {captureMaintenanceSchedulers,captureModernSchemaProcessIdentities,observeMaintenanceProcessIdentity,observeMaintenanceContainerIdentity} from './production-maintenance-root-readers.mjs';
+import {captureMaintenanceSchedulers,captureModernSchemaProcessIdentities,observeMaintenanceProcessIdentity,observeMaintenanceContainerIdentity,STABLE_MODERN_CENSUS_PARENT} from './production-maintenance-root-readers.mjs';
 import {inspectModernSchemaContainer,MODERN_SCHEMA_EXECUTOR_SQL,classifyModernSchemaDatabaseExecutors} from './production-modern-schema-executors.mjs';
 import {verifyModernSchemaChild,pinModernSchemaChild,isOriginalModernSchemaChildTerminal} from './production-modern-schema-processes.mjs';import {assertOriginalModernSchemaProcess} from './production-modern-schema-session-lease.mjs';
 import {readPinnedFile} from './production-trusted-paths.mjs';
@@ -126,6 +126,26 @@ export class ModernSchemaExecutorWatch {
   const candidate=next?.state.Running&&address?{address,containerId:next.id,imageId:next.imageId,phase,nativePinSha256:canonicalDigest(identity(next))}:null;
   return {runtimeAddress,oldRuntimeStopped:!old?.state.Running,oldPresent:!!old,candidate};
  }
+ #isGoneDirectFormalBodyChild(row,root){
+  const pin=root.pin;
+  if(this.#reapRoles.get(root)!=='FORMAL_API_BODY'||this.runtime.isCommand(root)!==true||
+   row[STABLE_MODERN_CENSUS_PARENT]!==true||row.ppid!==pin.pid||
+   pin.parentPid!==process.pid||!Number.isSafeInteger(row.pid)||row.pid<=1||row.pid===pin.pid||
+   row.pidNamespace!==pin.pidNamespace||typeof row.startTicks!=='string'||!/^[1-9][0-9]*$/.test(row.startTicks)||
+   BigInt(row.startTicks)<BigInt(pin.startTicks))return false;
+  const pending=this.state.read();
+  if(pending.owner!==this.context.owner||pending.phase!=='API_BODY'||pending.status!=='RUNNING')return false;
+  const absent=()=>{
+   try{fs.lstatSync(`/proc/${row.pid}`);return false;}
+   catch(error){return ['ENOENT','ESRCH'].includes(error.code);}
+  };
+  if(!absent())return false;
+  try{
+   verifyModernSchemaChild(root,this.inspectProcess(pin.pid));
+   assertOriginalModernSchemaProcess(linuxOnly(pin),{pid:pin.pid});
+  }catch{return false;}
+  return absent();
+ }
  verifyProcesses(containers,initialize=false){
   const namespaces=new Set();for(const value of containers)if(value.state.Running){try{namespaces.add(fs.readlinkSync(`/proc/${value.state.Pid}/ns/pid`));}catch{fail('NATIVE_CONTAINER_NAMESPACE_UNOBSERVABLE');}}
   const owned=this.runtime.registeredChildren();let pendingExit=null;
@@ -150,7 +170,12 @@ export class ModernSchemaExecutorWatch {
    }
    let descendant=false;for(const root of this.descendants){
     if(root.child.exitCode!==null||root.child.signalCode!==null)continue;
-    try{verifyModernSchemaChild(root,this.inspectProcess(root.pin.pid));assertOriginalModernSchemaProcess(linuxOnly(root.pin),{pid:row.pid});descendant=true;break;}catch{}
+    try{verifyModernSchemaChild(root,this.inspectProcess(root.pin.pid));}catch{continue;}
+    try{assertOriginalModernSchemaProcess(linuxOnly(root.pin),{pid:row.pid});descendant=true;break;}catch{
+     // The native census can see a direct child that the formal Bash has
+     // already reaped by the time we walk its live ancestry.
+     if(!initialize&&this.#isGoneDirectFormalBodyChild(row,root)){descendant=true;break;}
+    }
    }
    if(descendant||!potential(row))continue;const digest=canonicalDigest(row);
    if(initialize){if(!this.preparation.hostSurface.foreignProcessPins?.some(pin=>pin.pid===row.pid&&pin.identitySha256===digest))fail('UNREGISTERED_HOST_EXECUTOR');this.foreignProcesses.set(row.pid,digest);}

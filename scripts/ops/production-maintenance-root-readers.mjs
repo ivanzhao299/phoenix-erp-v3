@@ -43,6 +43,9 @@ const procStat=pid=>{
   const text=fs.readFileSync(`/proc/${pid}/stat`,'utf8'),fields=text.slice(text.lastIndexOf(')')+2).split(' ');
   return {pid,ppid:Number(fields[1]),startTicks:fields[19],state:fields[0],threads:Number(fields[17])};
 };
+// Native corroboration for the in-memory modern census only. This does not
+// enter the serialized process identity, evidence or baseline digest.
+export const STABLE_MODERN_CENSUS_PARENT=Symbol('stable modern census parent');
 function processIdentity(pid,{strictVisibility=false}={}){
   const before=procStat(pid),base=`/proc/${pid}`;
   const argv=fs.readFileSync(`${base}/cmdline`),cgroup=fs.readFileSync(`${base}/cgroup`,'utf8');
@@ -58,7 +61,9 @@ function processIdentity(pid,{strictVisibility=false}={}){
   }
   const value={...before,exe,cwdSha256:hash(cwd),argvSha256:hash(argv),cgroupSha256:hash(cgroup),
     pidNamespace:fs.readlinkSync(`${base}/ns/pid`),erpControlReference:argv.includes(Buffer.from(CONTRACT.repository))||cwd===CONTRACT.repository||cwd.startsWith(CONTRACT.repository+'/')};
-  if(procStat(pid).startTicks!==before.startTicks)hold('ROOT_READER_PROCESS_REUSED');
+  const after=procStat(pid);
+  if(after.startTicks!==before.startTicks)hold('ROOT_READER_PROCESS_REUSED');
+  if(strictVisibility&&after.ppid===before.ppid)Object.defineProperty(value,STABLE_MODERN_CENSUS_PARENT,{value:true});
   delete value.state; // R/S are scheduler observations, never process identity.
   delete value.threads; // A live thread count is not an immutable identity pin.
   return {value,cgroup,argv,cwd};

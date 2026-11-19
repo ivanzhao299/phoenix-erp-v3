@@ -3,6 +3,8 @@ import {ModernSchemaPrivateRuntime} from './production-modern-schema-private.mjs
 import {verifyModernSchemaChild,isOriginalModernSchemaChildTerminal,pinModernSchemaChild} from './production-modern-schema-processes.mjs';
 import {ModernSchemaExecutorWatch} from './production-modern-schema-watch.mjs';
 import {canonicalDigest} from './production-maintenance-receipts.mjs';
+import {STABLE_MODERN_CENSUS_PARENT} from './production-maintenance-root-readers.mjs';
+import {readLinuxProcessIdentity} from './production-modern-schema-session-lease.mjs';
 import {spawn,spawnSync} from 'node:child_process';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../..');
 function fixture(){
@@ -146,6 +148,93 @@ test('an unknown live executor in the same captured census cannot be discarded w
   const outcomes=await Promise.allSettled([f.execution,f.watch.observeHostAfterOriginalExit(()=>f.watch.verifyProcesses([]))]);
   assert.equal(outcomes[0].status,'fulfilled');assert.match(outcomes[1].reason.message,/NEW_OR_CHANGED_HOST_EXECUTOR/);
  }finally{const exited=new Promise(resolve=>unknown.once('exit',resolve));unknown.kill('SIGTERM');await exited;}
+});
+
+test('the census accepts only an already reaped direct child of the exact live formal Bash', {timeout:10000}, async t=>{
+ const f=fixture(),files=['node-pid','node-exit','node-reaped','finish-bash'].map(name=>path.join(f.work,name));
+ const worker="const fs=require('fs');fs.writeFileSync(process.argv[1],String(process.pid));setInterval(()=>{if(fs.existsSync(process.argv[2]))process.exit(0)},10)";
+ const script='"$1" -e "$2" "$3" "$4" & worker=$!; wait "$worker"; : > "$5"; while [ ! -e "$6" ]; do /usr/bin/sleep 0.02; done';
+ let registered;
+ const started=new Promise(resolve=>{registered=resolve;});
+ const execution=f.runtime.run({binary:'/bin/bash',args:['--noprofile','--norc','-c',script,'--',process.execPath,worker,...files],
+  directory:f.work,stem:'formal-direct-child',timeoutMs:8000,onSpawn:registered});
+ const entry=await Promise.race([started,execution.then(()=>assert.fail('Bash exited before registration'))]);
+ const pending={owner:'1234-1',phase:'SCHEMA_RECEIPTED',status:'RUNNING'};
+ let rows=[],phase=pending;
+ const watch=new ModernSchemaExecutorWatch({
+  context:{owner:pending.owner,runtimeSnapshotSha256:canonicalDigest({})},
+  preparation:{originalSnapshot:{containers:{}},ownedResources:[]},
+  state:{read:()=>phase},privateRuntime:f.runtime,admit:()=>true,
+ },{captureProcesses:()=>rows,processIdentity:()=>nativeRow(entry)});
+ const waitFor=async file=>{
+  const deadline=performance.now()+3000;
+  while(!fs.existsSync(file)&&performance.now()<deadline)await new Promise(resolve=>setTimeout(resolve,10));
+  assert.ok(fs.existsSync(file));
+ };
+ const capture=pid=>{
+  const pin=readLinuxProcessIdentity(pid),row=nativeRow({pin});
+  assert.deepEqual(readLinuxProcessIdentity(pid),pin);
+  Object.defineProperty(row,STABLE_MODERN_CENSUS_PARENT,{value:true});
+  return row;
+ };
+ try{
+  watch.allowDescendants(entry,'FORMAL_API_BODY');
+  phase={...pending,phase:'API_BODY'};
+  await waitFor(files[0]);
+  const pid=Number(fs.readFileSync(files[0],'utf8')),observed=capture(pid);
+  assert.equal(observed.ppid,entry.pin.pid);
+  assert.equal(observed.pidNamespace,entry.pin.pidNamespace);
+  assert.equal(canonicalDigest(observed),canonicalDigest({...observed}));
+  rows=[observed];assert.doesNotThrow(()=>watch.verifyProcesses([]));
+  fs.writeFileSync(files[1],'');await waitFor(files[2]);
+  assert.throws(()=>fs.lstatSync('/proc/'+pid),{code:'ENOENT'});
+  assert.equal(entry.child.exitCode,null);
+  assert.doesNotThrow(()=>watch.verifyProcesses([]));
+  for(const changed of [{owner:'5678-1'},{phase:'API_VERIFIED'},{status:'HOLD'}]){
+   phase={...pending,phase:'API_BODY',...changed};
+   assert.throws(()=>watch.verifyProcesses([]),/NEW_OR_CHANGED_HOST_EXECUTOR/);
+  }
+  phase={...pending,phase:'API_BODY'};
+  // Raw copied data cannot stand in for the corroborated census sample.
+  rows=[{...observed}];assert.throws(()=>watch.verifyProcesses([]),/NEW_OR_CHANGED_HOST_EXECUTOR/);
+  for(const changed of [{ppid:process.pid},{pidNamespace:'pid:[1]'},{startTicks:'1'}]){
+   const bad={...observed,...changed};
+   Object.defineProperty(bad,STABLE_MODERN_CENSUS_PARENT,{value:true});
+   rows=[bad];assert.throws(()=>watch.verifyProcesses([]),/NEW_OR_CHANGED_HOST_EXECUTOR/);
+  }
+  const stranger=spawn(process.execPath,['-e','setInterval(()=>{},1000)'],{stdio:'ignore'});
+  const strangerExited=new Promise(resolve=>stranger.once('exit',resolve));
+  let other;
+  try{
+   other=capture(stranger.pid);
+   const reused={...observed,pid:stranger.pid};
+   Object.defineProperty(reused,STABLE_MODERN_CENSUS_PARENT,{value:true});
+   rows=[reused];assert.throws(()=>watch.verifyProcesses([]),/NEW_OR_CHANGED_HOST_EXECUTOR/);
+  }finally{stranger.kill('SIGTERM');await strangerExited;}
+  rows=[observed,other];assert.throws(()=>watch.verifyProcesses([]),/NEW_OR_CHANGED_HOST_EXECUTOR/);
+  rows=[observed];
+  const original=fs.lstatSync;
+  for(const code of ['EACCES','EPERM']){
+   const lstat=t.mock.method(fs,'lstatSync',(...args)=>{
+    if(args[0]==='/proc/'+pid)throw Object.assign(Error(code),{code});
+    return original(...args);
+   });
+   try{assert.throws(()=>watch.verifyProcesses([]),/NEW_OR_CHANGED_HOST_EXECUTOR/);}finally{lstat.mock.restore();}
+  }
+  let samples=0;
+  const lstat=t.mock.method(fs,'lstatSync',(...args)=>{
+   if(args[0]==='/proc/'+pid&&++samples===2)return original('/proc/'+process.pid);
+   return original(...args);
+  });
+  try{assert.throws(()=>watch.verifyProcesses([]),/NEW_OR_CHANGED_HOST_EXECUTOR/);}finally{lstat.mock.restore();}
+  watch.inspectProcess=()=>({...nativeRow(entry),argvSha256:'changed'});
+  assert.throws(()=>watch.verifyProcesses([]),/NEW_OR_CHANGED_HOST_EXECUTOR/);
+ }finally{
+  fs.writeFileSync(files[1],'');fs.writeFileSync(files[3],'');
+  await execution;
+ }
+ watch.inspectProcess=()=>nativeRow(entry);
+ assert.throws(()=>watch.verifyProcesses([]),/NEW_OR_CHANGED_HOST_EXECUTOR/);
 });
 test('an active original command never gets the terminal exception for changed identity',async()=>{
  const f=fixture();
