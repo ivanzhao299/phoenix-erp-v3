@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
-import { requestModernSchemaIdentityToken } from './production-modern-schema-identity.mjs';
+import { publicModernSchemaRunnerIdentityFailure, requestModernSchemaIdentityToken, verifyModernSchemaRunnerIdentityChannel } from './production-modern-schema-identity.mjs';
 import { isFailedModernSchemaPreparation } from './production-modern-schema-public-preparation.mjs';
 
 const repo = 'ivanzhao299/phoenix-erp-v3';
@@ -31,7 +31,12 @@ const required = {
   MODERN_SCHEMA_RELEASE: 'true',
 };
 const execEnv = { PATH: '/usr/bin:/bin', LANG: 'C' };
-const fail = phase => Error('MODERN_SCHEMA_WORKFLOW_HOLD=' + phase);
+const workflowFailures = new WeakMap();
+const fail = phase => {
+  const error = Error('MODERN_SCHEMA_WORKFLOW_HOLD=' + phase);
+  workflowFailures.set(error, phase);
+  return error;
+};
 const match = (pattern, input) => typeof input === 'string' && pattern.test(input);
 const quote = value => "'" + value.replaceAll("'", "'\"'\"'") + "'";
 const staticKeys = ['schema', 'owner', 'targetSha'];
@@ -89,7 +94,14 @@ function parsePublic(value, keys, schema, binding, phase) {
 
 export async function runModernSchemaWorkflow(env, dependencies) {
   const binding = fromEnv(env);
-  if (!binding.resuming && !match(validToken, env.MODERN_SCHEMA_GITHUB_READ_TOKEN)) throw fail('GITHUB_READ_CHANNEL_REQUIRED');
+  if (!binding.resuming) {
+    if (!match(validToken, env.MODERN_SCHEMA_GITHUB_READ_TOKEN)) throw fail('GITHUB_READ_CHANNEL_REQUIRED');
+    try {
+      verifyModernSchemaRunnerIdentityChannel(env);
+    } catch (error) {
+      throw fail('IDENTITY_PREFLIGHT_' + publicModernSchemaRunnerIdentityFailure(error));
+    }
+  }
   const ssh = dependencies.createSsh(env, binding.hostEnv);
   try {
     if (binding.resuming) return readReleaseCommand(ssh.exchange('finalize', ''), binding);
@@ -108,7 +120,12 @@ export async function runModernSchemaWorkflow(env, dependencies) {
     }
 
     const identityBinding = { owner: binding.owner, targetSha: binding.targetSha, preparationSha256: preparation.preparationSha256 };
-    const identityToken = await dependencies.requestToken(identityBinding);
+    let identityToken;
+    try {
+      identityToken = await dependencies.requestToken(identityBinding, {env});
+    } catch (error) {
+      throw fail('IDENTITY_REQUEST_' + publicModernSchemaRunnerIdentityFailure(error));
+    }
     if (!match(/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/, identityToken) || identityToken.length > 16384) {
       throw fail('IDENTITY_TOKEN_REQUIRED');
     }
@@ -218,9 +235,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     console.log(JSON.stringify(result));
     if (result.outcome !== 'SUCCESS') process.exitCode = 1;
   } catch (error) {
-    const message = error?.message;
-    console.error(typeof message === 'string' && /^MODERN_SCHEMA_WORKFLOW_HOLD=[A-Z0-9_]{1,100}$/.test(message) ?
-      message : 'MODERN_SCHEMA_WORKFLOW_HOLD=TRANSPORT_OR_IDENTITY_UNVERIFIED');
+    console.error('MODERN_SCHEMA_WORKFLOW_HOLD=' + (workflowFailures.get(error) ?? 'TRANSPORT_OR_IDENTITY_UNVERIFIED'));
     process.exitCode = 1;
   }
 }

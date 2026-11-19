@@ -454,6 +454,25 @@ test('a restarted or substituted candidate cannot inherit the original watch',()
   assert.throws(()=>f.check(f.web,f.db,f.candidate),/SECOND_CANDIDATE_OR_RESTART/);
 });
 
+test('reviewed retained rehearsal remains inert only with its exact closed container fingerprint',()=>{
+  const f=fixture();
+  const retained=container('api','5','172.31.0.2');
+  retained.labels={'phoenix.schema.owner':'8999-1','phoenix.schema.role':'rehearsal-original-api'};
+  retained.networkMode=id('b');
+  retained.networks={isolated:{NetworkID:retained.networkMode}};
+  retained.ports={};
+  retained.mounts=[{Type:'bind',Source:'/isolated/prepare/control-original-api',Destination:'/run/phoenix-background-control',RW:false}];
+  Object.assign(retained.state,{Running:false,Pid:0,Status:'exited'});
+  f.watch.preparation.hostSurface.inertArtifacts=[{id:retained.id,classification:'RETAINED_REVIEWED_REHEARSAL_API',identitySha256:canonicalDigest(retained)}];
+  f.status.members=[f.old,f.web,f.db];
+  const verify=artifact=>f.watch.verifyContainers([...f.status.members,artifact]);
+  assert.equal(verify(retained).candidate,null);
+  const restarted=structuredClone(retained);Object.assign(restarted.state,{Running:true,Pid:122,StartedAt:'2026-11-19T05:01:00Z'});
+  assert.throws(()=>verify(restarted),/RETAINED_ARTIFACT_CHANGED/);
+  const modified=structuredClone(retained);modified.mounts[0].RW=true;
+  assert.throws(()=>verify(modified),/RETAINED_ARTIFACT_CHANGED/);
+});
+
 
 test('lost, stopped or unhealthy verified candidate prevents terminal watch even without a DB session', () => {
   const f=fixture();

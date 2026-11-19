@@ -8,6 +8,13 @@ const ISSUER='https://token.actions.githubusercontent.com',JWKS=ISSUER+'/.well-k
 const sha=value=>createHash('sha256').update(value).digest('hex');
 const fail=code=>{throw Error('MODERN_SCHEMA_IDENTITY_HOLD='+code);};
 const match=(re,value)=>typeof value==='string'&&re.test(value);
+const runnerFailures=new WeakMap();
+const failRunner=code=>{
+ const error=Error('MODERN_SCHEMA_RUNNER_IDENTITY_HOLD='+code);
+ runnerFailures.set(error,code);
+ throw error;
+};
+export const publicModernSchemaRunnerIdentityFailure=error=>runnerFailures.get(error)??'UNVERIFIED';
 function expectedBinding(value){
  if(!value||Object.getPrototypeOf(value)!==Object.prototype||Object.keys(value).sort().join(',')!=='owner,preparationSha256,targetSha'
   ||!match(/^[1-9][0-9]{0,19}-[1-9][0-9]{0,9}$/,value.owner)||!match(/^[a-f0-9]{40}$/,value.targetSha)||!match(/^[a-f0-9]{64}$/,value.preparationSha256))fail('EXACT_PREPARATION_BINDING_REQUIRED');
@@ -93,15 +100,71 @@ export async function collectModernSchemaLiveJob(identity,dependencies={}){
   ||!Number.isFinite(Date.parse(identity.expiresAt))||now()>=Date.parse(identity.expiresAt))fail('LIVE_IDENTITY_EXPIRED_OR_MOVED');
  return {...structuredClone(identity),triggeringActorVerified:true,jobId:String(job.id),jobName:job.name,serverFactsSha256:canonicalDigest({latest,attempt,list,final,finalJob}),observedAt:new Date(now()).toISOString()};
 }
+function actionsIdentityChannel(env){
+ const raw=env.ACTIONS_ID_TOKEN_REQUEST_URL,credential=env.ACTIONS_ID_TOKEN_REQUEST_TOKEN;
+ if(typeof raw!=='string'||!raw)failRunner('CHANNEL_URL_REQUIRED');
+ let url;
+ try{url=new URL(raw);}catch{failRunner('CHANNEL_URL_INVALID');}
+ if(/[\x00-\x20\x7f]/.test(raw))failRunner('CHANNEL_URL_INVALID');
+ const [,authority,rawPath]=/^https:\/\/([^/?#\\]+)(\/[^?#\\]*)?(?:\?|$)/i.exec(raw)??[];
+ if(url.protocol!=='https:'||!url.hostname.endsWith('.actions.githubusercontent.com')||url.username||url.password||authority?.includes('@')
+  ||raw.includes('#')||url.port)failRunner('CHANNEL_AUTHORITY_UNAPPROVED');
+ // Match the raw, unambiguous path as well as the parsed URL. The hosted
+ // job endpoint allows a single trailing slash. Match its shape without
+ // that slash, then send the original URL unchanged.
+ const route=rawPath?.endsWith('/')?rawPath.slice(0,-1):rawPath;
+ const segments=route?.slice(1).split('/')??[];
+ const last=segments.at(-1),hostedJob=segments.length===4&&last!=='idtoken';
+ if(rawPath!==url.pathname||!segments.every(segment=>/^[A-Za-z0-9._~-]{1,256}$/.test(segment)&&segment!=='.'&&segment!=='..')
+  ||segments.filter(segment=>segment==='idtoken').length!==1
+  ||!(hostedJob||(route===rawPath&&segments.length<=2&&last==='idtoken')))failRunner('CHANNEL_ROUTE_UNAPPROVED');
+ const versions=url.searchParams.getAll('api-version');
+ if([...url.searchParams.keys()].some(key=>key.toLowerCase()==='audience')
+  ||(hostedJob&&(versions.length!==1||!versions[0].trim())))failRunner('CHANNEL_QUERY_UNAPPROVED');
+ if(typeof credential!=='string'||!credential)failRunner('CHANNEL_CREDENTIAL_REQUIRED');
+ if(/[\x00-\x20\x7f]/.test(credential))failRunner('CHANNEL_CREDENTIAL_INVALID');
+ return {raw,credential};
+}
+
+/** Local preflight only. The preparation-bound token is requested later. */
+export function verifyModernSchemaRunnerIdentityChannel(env){
+ actionsIdentityChannel(env);
+}
+
+async function readRunnerIdentity(url,credential,fetcher){
+ const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),15000);
+ try{
+  let response;
+  try{
+   response=await fetcher(url,{method:'GET',headers:{Authorization:'Bearer '+credential,Accept:'application/json'},signal:controller.signal,redirect:'error'});
+  }catch{failRunner(controller.signal.aborted?'TIMEOUT':'TRANSPORT_FAILED');}
+  if(controller.signal.aborted)failRunner('TIMEOUT');
+  if(!response?.ok)failRunner([401,403].includes(response?.status)?'HTTP_AUTHORIZATION':'HTTP_STATUS');
+  const chunks=[];let size=0;
+  try{
+   for await(const part of response.body){
+    if(!(part instanceof Uint8Array))failRunner('RESPONSE_BODY');
+    size+=part.byteLength;
+    if(size>1024*1024)failRunner('RESPONSE_SIZE');
+    chunks.push(part);
+   }
+  }catch(error){
+   if(runnerFailures.has(error))throw error;
+   failRunner(controller.signal.aborted?'TIMEOUT':'RESPONSE_BODY');
+  }
+  if(controller.signal.aborted)failRunner('TIMEOUT');
+  try{return JSON.parse(Buffer.concat(chunks).toString());}catch{failRunner('RESPONSE_JSON');}
+ }finally{clearTimeout(timer);}
+}
+
 /** Runs only in the real Actions job. The caller delivers the returned value
- * through private SSH input; it must never print it or put it in an artifact. */
+ * through private SSH input. */
 export async function requestModernSchemaIdentityToken(expected,dependencies={}){
- const binding=expectedBinding(expected),env=dependencies.env??process.env;let url;
- try{url=new URL(env.ACTIONS_ID_TOKEN_REQUEST_URL);}catch{fail('ACTIONS_ISSUER_CHANNEL_REQUIRED');}
- if(url.protocol!=='https:'||!url.hostname.endsWith('.actions.githubusercontent.com')||url.username||url.password||url.hash||url.port
-  ||!url.pathname.endsWith('/idtoken')||typeof env.ACTIONS_ID_TOKEN_REQUEST_TOKEN!=='string'||!env.ACTIONS_ID_TOKEN_REQUEST_TOKEN)fail('ACTIONS_ISSUER_CHANNEL_REQUIRED');
- url.searchParams.set('audience',modernSchemaIdentityAudience(binding));
- const data=await boundedJson(url.toString(),{method:'GET',headers:{Authorization:'Bearer '+env.ACTIONS_ID_TOKEN_REQUEST_TOKEN,Accept:'application/json'}},dependencies.fetch??fetch);
- if(typeof data?.value!=='string'||data.value.length>16384||data.value.split('.').length!==3)fail('ACTIONS_IDENTITY_TOKEN_REQUIRED');
+ const binding=expectedBinding(expected);
+ const {raw,credential}=actionsIdentityChannel(dependencies.env??process.env);
+ const separator=raw.includes('?')?(raw.endsWith('?')||raw.endsWith('&')?'':'&'):'?';
+ const url=raw+separator+'audience='+encodeURIComponent(modernSchemaIdentityAudience(binding));
+ const data=await readRunnerIdentity(url,credential,dependencies.fetch??fetch);
+ if(!match(/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/,data?.value)||data.value.length>16384)failRunner('TOKEN_FORMAT');
  return data.value;
 }

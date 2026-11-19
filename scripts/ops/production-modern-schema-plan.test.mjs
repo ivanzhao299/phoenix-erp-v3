@@ -1,5 +1,6 @@
 import test from 'node:test';import assert from 'node:assert/strict';import path from 'node:path';import {fileURLToPath} from 'node:url';import {createHash} from 'node:crypto';
 import {collectModernSchemaHostSurface} from './production-modern-schema-executors.mjs';
+import {canonicalDigest} from './production-maintenance-receipts.mjs';
 import {deriveModernSchemaPlan,bindCompiledSchemaInventory,readCommittedSchemaInventory,collectModernSchemaPlan,
  collectRetainedModernSchemaInventory,verifyRetainedModernSchemaInventoryPin,MODERN_SCHEMA_IMAGE_INVENTORY_PROGRAM} from './production-modern-schema-plan.mjs';
 const hash=c=>c.repeat(64),sha=c=>c.repeat(40);
@@ -109,6 +110,33 @@ test('a prior failed prepare can retain its exact inert inventory and continuous
  receipt.value.owner='9000-2';
  assert.throws(()=>verifyRetainedModernSchemaInventoryPin(native,backupPin,dependencies),/RETAINED_FAILED_PREPARATION_REQUIRED/);
 });
+
+test('a completed, unconsumed preparation binds its exact inert inventory and cannot be reused as authorization',()=>{
+ const f=retainedFixture(),{native,binding,dependencies,receipt,log}=f;
+ const owner=native.labels['phoenix.schema.owner'],targetSha=native.labels['org.opencontainers.image.revision'];
+ const prepared={schema:'phoenix.modern-schema-preparation/v1',context:{owner,targetSha,candidateImageId:native.imageId},
+  ownedResources:[{containerId:native.id,imageId:native.imageId,owner,role:'readonly-inventory',revision:targetSha,network:'none',readonly:true,
+   running:false,exitCode:0,productionAuthority:false,inventorySha256:canonicalDigest(log.records)}]};
+ const seal=()=>({...prepared,preparationSha256:canonicalDigest(prepared)});
+ const stamp=receipt.completedAtMs-500;
+ dependencies.readPrepared=file=>{
+  assert.equal(file,`/owned-state/schema-release-preparation-${owner}.json`);
+  return {value:seal(),completedAtMs:stamp};
+ };
+ const publicReceipt=()=>({schema:'phoenix.modern-schema-public-preparation/v1',owner,targetSha,prepared:true,preparationSha256:seal().preparationSha256});
+ receipt.value=publicReceipt();
+ const pin=collectRetainedModernSchemaInventory(native,binding,dependencies);
+ assert.equal(pin.classification,'RETAINED_UNCONSUMED_PREPARATION_READONLY_INVENTORY');
+ verifyRetainedModernSchemaInventoryPin(native,pin,dependencies);
+ dependencies.absent=file=>!file.endsWith('-run.receipt');
+ assert.throws(()=>verifyRetainedModernSchemaInventoryPin(native,pin,dependencies),/RETAINED_FAILED_PREPARATION_REQUIRED/);
+ dependencies.absent=()=>true;
+ prepared.ownedResources[0].containerId=hash('c');receipt.value=publicReceipt();
+ assert.throws(()=>collectRetainedModernSchemaInventory(native,binding,dependencies),/RETAINED_UNCONSUMED_PREPARATION_REQUIRED/);
+ prepared.ownedResources[0].containerId=native.id;prepared.ownedResources[0].inventorySha256=hash('f');receipt.value=publicReceipt();
+ assert.throws(()=>collectRetainedModernSchemaInventory(native,binding,dependencies),/RETAINED_UNCONSUMED_PREPARATION_INVENTORY_CHANGED/);
+});
+
 test('labels cannot replace protected prior failure, ancestry, output or exact isolation',()=>{
  for(const mutate of [
   f=>{f.receipt.value.owner='8888-1';},f=>{f.receipt.value.targetSha=sha('b');},

@@ -78,6 +78,8 @@ export function inspectModernSchemaImage(imageId,owner,dependencies={}){
 }
 
 export const RETAINED_INVENTORY_CLASSIFICATION='RETAINED_FAILED_PREPARATION_READONLY_INVENTORY';
+export const RETAINED_UNCONSUMED_INVENTORY_CLASSIFICATION='RETAINED_UNCONSUMED_PREPARATION_READONLY_INVENTORY';
+export const isRetainedModernSchemaInventoryPin=pin=>[RETAINED_INVENTORY_CLASSIFICATION,RETAINED_UNCONSUMED_INVENTORY_CLASSIFICATION].includes(pin?.classification);
 const candidateRepository='ghcr.io/ivanzhao299/phoenix-erp-v3/api';
 const protectedAbsent=file=>{
  try{fs.lstatSync(file);return false;}catch(error){if(error.code==='ENOENT')return true;throw error;}
@@ -90,22 +92,39 @@ function readProtectedPreparationFile(file,maxBytes){
  if(!same(identity(before),identity(fs.lstatSync(file))))hold('RETAINED_PREPARATION_FILE_CHANGED');
  return {bytes,completedAtMs:before.mtimeMs};
 }
-function readProtectedFailedPrepareReceipt(file){
- const {bytes,completedAtMs}=readProtectedPreparationFile(file,8192);
+function readProtectedPrepareReceipt(file,maxBytes=8192){
+ const {bytes,completedAtMs}=readProtectedPreparationFile(file,maxBytes);
  return {value:JSON.parse(bytes.toString('utf8')),completedAtMs};
 }
 function readProtectedCandidatePull(file){
  return readProtectedPreparationFile(file,256*1024);
 }
-function failedInventoryPreparation(owner,revision,{directory=CONTRACT.stateDirectory,readReceipt=readProtectedFailedPrepareReceipt,absent=protectedAbsent}={}){
+function retainedInventoryPreparation(container,owner,revision,{directory=CONTRACT.stateDirectory,readReceipt=readProtectedPrepareReceipt,readPrepared=readProtectedPrepareReceipt,absent=protectedAbsent}={}){
  const observed=readReceipt(path.join(directory,`.transport-${owner}-prepare.receipt`));
  const {value:receipt,completedAtMs}=observed;
- if(!isFailedModernSchemaPreparation(receipt,{owner,targetSha:revision})||
-  !Number.isFinite(completedAtMs)||completedAtMs<=0||
-  !/^(?:PLAN|HOST_SURFACE(?:_[A-Z0-9_]+)?|BACKUP(?:_[A-Z_]+)?|REHEARSAL|HISTORICAL_AUDIT)$/.test(receipt.failure)||
-  ![ `.transport-${owner}-run.receipt`, `schema-release-preparation-${owner}.json`, `schema-release-consumed-${owner}.json` ]
+ const preparedPath=path.join(directory,`schema-release-preparation-${owner}.json`);
+ if(!Number.isFinite(completedAtMs)||completedAtMs<=0||
+  ![`.transport-${owner}-run.receipt`,`schema-release-consumed-${owner}.json`,`schema-release-approval-${owner}.json`]
    .every(name=>absent(path.join(directory,name))))hold('RETAINED_FAILED_PREPARATION_REQUIRED');
- return observed;
+ if(isFailedModernSchemaPreparation(receipt,{owner,targetSha:revision})){
+  if(!/^(?:PLAN|HOST_SURFACE(?:_[A-Z0-9_]+)?|BACKUP(?:_[A-Z_]+)?|REHEARSAL|HISTORICAL_AUDIT)$/.test(receipt.failure)||
+   !absent(preparedPath))hold('RETAINED_FAILED_PREPARATION_REQUIRED');
+  return {completedAtMs,pin:{classification:RETAINED_INVENTORY_CLASSIFICATION,failedPreparationSha256:canonicalDigest(observed)}};
+ }
+ if(!receipt||Object.keys(receipt).sort().join(',')!=='owner,preparationSha256,prepared,schema,targetSha'||
+  receipt.schema!=='phoenix.modern-schema-public-preparation/v1'||receipt.owner!==owner||receipt.targetSha!==revision||
+  receipt.prepared!==true||!match(HASH,receipt.preparationSha256))hold('RETAINED_FAILED_PREPARATION_REQUIRED');
+ const sealed=readPrepared(preparedPath,8*1024*1024),{preparationSha256,...prepared}=sealed.value;
+ const resources=Array.isArray(prepared.ownedResources)?prepared.ownedResources.filter(resource=>resource?.role==='readonly-inventory'):[];
+ const inventory=resources?.[0];
+ if(prepared.schema!=='phoenix.modern-schema-preparation/v1'||prepared.context?.owner!==owner||prepared.context.targetSha!==revision||
+  prepared.context.candidateImageId!==container.imageId||preparationSha256!==receipt.preparationSha256||preparationSha256!==canonicalDigest(prepared)||
+  !Number.isFinite(sealed.completedAtMs)||sealed.completedAtMs<=0||sealed.completedAtMs>completedAtMs||resources?.length!==1||
+  inventory.containerId!==container.id||inventory.imageId!==container.imageId||inventory.owner!==owner||inventory.revision!==revision||
+  inventory.network!=='none'||inventory.readonly!==true||inventory.running!==false||inventory.exitCode!==0||inventory.productionAuthority!==false||
+  !match(HASH,inventory.inventorySha256))hold('RETAINED_UNCONSUMED_PREPARATION_REQUIRED');
+ return {completedAtMs,expectedInventorySha256:inventory.inventorySha256,pin:{classification:RETAINED_UNCONSUMED_INVENTORY_CLASSIFICATION,
+  unconsumedPreparationSha256:canonicalDigest({observed,preparationSha256,completedAtMs:sealed.completedAtMs})}};
 }
 function previousInventoryImage(owner,revision,{directory=CONTRACT.stateDirectory,readPull=readProtectedCandidatePull}={}){
  const {bytes,completedAtMs}=readPull(path.join(directory,`schema-release-preparation-${owner}`,'candidate-pull.stdout'));
@@ -145,14 +164,13 @@ function readRetainedInventoryNativePin(container,docker){
  return {sha256:canonicalDigest(settings),createdAtMs:Date.parse(created),env,workdir};
 }
 
-/** Recognize a stopped, isolated probe of the image pulled by a prior failed
- * prepare. The old failure receipt identifies the owner and target. This
- * observation pins the currently retained CID. */
+/** Recognize a stopped, isolated probe of an earlier failed or unconsumed
+ * preparation. The sealed records bind the owner, target, and native CID. */
 export function collectRetainedModernSchemaInventory(container,{owner,targetSha},dependencies={}){
  const formerOwner=container.labels?.['phoenix.schema.owner'],revision=container.labels?.['org.opencontainers.image.revision'];
  if(container.labels?.['phoenix.schema.role']!=='readonly-inventory'||formerOwner===owner||
   !match(/^[1-9][0-9]{0,19}-[1-9][0-9]{0,9}$/,formerOwner)||!match(SHA,revision)||!match(SHA,targetSha))hold('RETAINED_INVENTORY_BINDING_REQUIRED');
- const receipt=failedInventoryPreparation(formerOwner,revision,dependencies);
+ const receipt=retainedInventoryPreparation(container,formerOwner,revision,dependencies);
  if(Date.parse(container.state?.FinishedAt)>receipt.completedAtMs)hold('RETAINED_INVENTORY_POSTDATES_PREPARATION');
  const pull=previousInventoryImage(formerOwner,revision,dependencies);
  const docker=dependencies.docker??defaultDocker,root=dependencies.root??CONTRACT.repository;
@@ -168,18 +186,21 @@ export function collectRetainedModernSchemaInventory(container,{owner,targetSha}
   !Array.isArray(log.records)||log.records.some(record=>!record||Object.keys(record).sort().join(',')!=='className,compiledSha256,effectiveName,file,timestamp'))hold('RETAINED_INVENTORY_LOG_REQUIRED');
  const source=(dependencies.readSource??readCommittedSchemaInventory)(root,revision);
  bindCompiledSchemaInventory(source,log.records);
- return {id:container.id,classification:RETAINED_INVENTORY_CLASSIFICATION,revision,formerOwner,
-  identitySha256:canonicalDigest(container),nativePinSha256:native.sha256,failedPreparationSha256:canonicalDigest(receipt),
-  candidatePullSha256:canonicalDigest(pull),inventorySha256:canonicalDigest(log.records)};
+ const inventorySha256=canonicalDigest(log.records);
+ if(receipt.expectedInventorySha256&&receipt.expectedInventorySha256!==inventorySha256)hold('RETAINED_UNCONSUMED_PREPARATION_INVENTORY_CHANGED');
+ return {id:container.id,...receipt.pin,revision,formerOwner,identitySha256:canonicalDigest(container),nativePinSha256:native.sha256,
+  candidatePullSha256:canonicalDigest(pull),inventorySha256};
 }
 
 export function verifyRetainedModernSchemaInventoryPin(container,pin,dependencies={}){
- if(pin.classification!==RETAINED_INVENTORY_CLASSIFICATION||pin.id!==container.id||pin.identitySha256!==canonicalDigest(container)||
+ if(!isRetainedModernSchemaInventoryPin(pin)||pin.id!==container.id||pin.identitySha256!==canonicalDigest(container)||
   !match(/^[1-9][0-9]{0,19}-[1-9][0-9]{0,9}$/,pin.formerOwner)||!match(SHA,pin.revision)||
   pin.formerOwner!==container.labels?.['phoenix.schema.owner']||pin.revision!==container.labels?.['org.opencontainers.image.revision']||
   pin.nativePinSha256!==readRetainedInventoryNativePin(container,dependencies.docker??defaultDocker).sha256||
-  pin.failedPreparationSha256!==canonicalDigest(failedInventoryPreparation(pin.formerOwner,pin.revision,dependencies))||
   pin.candidatePullSha256!==canonicalDigest(previousInventoryImage(pin.formerOwner,pin.revision,dependencies)))hold('RETAINED_INVENTORY_PIN_CHANGED');
+ const receipt=retainedInventoryPreparation(container,pin.formerOwner,pin.revision,dependencies);
+ if(Object.entries(receipt.pin).some(([key,value])=>pin[key]!==value)||
+  (receipt.expectedInventorySha256&&receipt.expectedInventorySha256!==pin.inventorySha256))hold('RETAINED_INVENTORY_PIN_CHANGED');
 }
 
 export {git as readModernSchemaSourceGit,SOURCE as MODERN_SCHEMA_SOURCE_DIRECTORY};
