@@ -14,6 +14,7 @@ const identity=value=>({id:value.id,imageId:value.imageId,name:value.name,starte
  capDrop:value.capDrop,user:value.user,restartPolicy:value.restartPolicy,entrypointSha256:canonicalDigest(value.entrypoint),cmdSha256:canonicalDigest(value.cmd)});
 const potential=value=>/\/(?:node|nodejs|python[0-9.]*|java|pm2|supervisord|nomad|kubelet|psql|pg_restore|pgbench)$/.test(value.exe)||value.erpControlReference;
 const linuxOnly=({pid,parentPid,startTicks,bootId})=>({pid,parentPid,startTicks,bootId});
+const nativeTicks=value=>typeof value==='string'&&/^[1-9][0-9]*$/.test(value);
 class PendingOriginalChildExit extends Error{
  constructor(entry,cause){super(cause.message);this.entry=entry;}
 }
@@ -131,7 +132,7 @@ export class ModernSchemaExecutorWatch {
   if(this.#reapRoles.get(root)!=='FORMAL_API_BODY'||this.runtime.isCommand(root)!==true||
    row[STABLE_MODERN_CENSUS_PARENT]!==true||row.ppid!==pin.pid||
    pin.parentPid!==process.pid||!Number.isSafeInteger(row.pid)||row.pid<=1||row.pid===pin.pid||
-   row.pidNamespace!==pin.pidNamespace||typeof row.startTicks!=='string'||!/^[1-9][0-9]*$/.test(row.startTicks)||
+   row.pidNamespace!==pin.pidNamespace||!nativeTicks(row.startTicks)||
    BigInt(row.startTicks)<BigInt(pin.startTicks))return false;
   const pending=this.state.read();
   if(pending.owner!==this.context.owner||pending.phase!=='API_BODY'||pending.status!=='RUNNING')return false;
@@ -146,7 +147,7 @@ export class ModernSchemaExecutorWatch {
   }catch{return false;}
   return absent();
  }
- verifyProcesses(containers,initialize=false){
+ verifyProcesses(containers,initialize=false,proveLateCandidate){
   const namespaces=new Set();for(const value of containers)if(value.state.Running){try{namespaces.add(fs.readlinkSync(`/proc/${value.state.Pid}/ns/pid`));}catch{fail('NATIVE_CONTAINER_NAMESPACE_UNOBSERVABLE');}}
   const owned=this.runtime.registeredChildren();let pendingExit=null;
   for(const row of this.captureProcesses()){
@@ -179,9 +180,62 @@ export class ModernSchemaExecutorWatch {
    }
    if(descendant||!potential(row))continue;const digest=canonicalDigest(row);
    if(initialize){if(!this.preparation.hostSurface.foreignProcessPins?.some(pin=>pin.pid===row.pid&&pin.identitySha256===digest))fail('UNREGISTERED_HOST_EXECUTOR');this.foreignProcesses.set(row.pid,digest);}
-   else if(this.foreignProcesses.get(row.pid)!==digest)fail('NEW_OR_CHANGED_HOST_EXECUTOR');
+   else if(this.foreignProcesses.get(row.pid)!==digest&&proveLateCandidate?.(row)!==true)fail('NEW_OR_CHANGED_HOST_EXECUTOR');
   }
   if(pendingExit)throw pendingExit;
+ }
+ #verifyLiveOriginalCompose(entry){
+  const pending=this.state.read();
+  if(pending.owner!==this.context.owner||pending.phase!=='API_BODY'||pending.status!=='RUNNING'||
+   !entry||entry!==this.composeChild||this.#reapRoles.get(entry)!=='FORMAL_COMPOSE'||this.runtime.isCommand(entry)!==true||
+   entry.child.exitCode!==null||entry.child.signalCode!==null)return false;
+  verifyModernSchemaChild(entry,this.inspectProcess(entry.pin.pid));
+  assertOriginalModernSchemaProcess(linuxOnly(entry.pin),{pid:entry.pin.pid});
+  return true;
+ }
+ #refreshLateComposeCandidate(previous,row){
+  const compose=this.composeChild,prior=this.candidate;
+  if(!compose||this.#reapRoles.get(compose)!=='FORMAL_COMPOSE'||row.pidNamespace===compose.pin.pidNamespace||
+   previous.some(container=>container.id===prior?.id&&container.state.Running)||!this.#verifyLiveOriginalCompose(compose))return null;
+  const values=this.containers();
+  let runtime,pin;
+  try{runtime=this.verifyContainers(values);pin=this.candidate;}finally{this.candidate=prior;}
+  if(!runtime.oldRuntimeStopped||!runtime.candidate||!pin)return null;
+  const candidate=values.find(value=>value.id===pin.id);
+  if(candidate.state.Paused!==false||!Number.isSafeInteger(candidate.state.Pid)||candidate.state.Pid<=1)return null;
+  const originalId=this.preparation.originalSnapshot.containers.api.id;
+  const others=list=>list.filter(value=>value.id!==originalId&&value.id!==candidate.id).map(identity);
+  if(!same(others(previous),others(values)))fail('UNRELATED_CONTAINER_CHANGED_DURING_COMPOSE');
+  const pid=candidate.state.Pid,init=this.inspectProcess(pid);
+  if(init.pid!==pid||!init.exe||!nativeTicks(init.startTicks)||!/^[a-f0-9]{64}$/.test(init.cgroupSha256)||
+   BigInt(init.startTicks)<BigInt(compose.pin.startTicks)||
+   init.pidNamespace!==row.pidNamespace||init.pidNamespace===compose.pin.pidNamespace)return null;
+  return {
+   values,runtime,pin,
+   proves:observation=>Number.isSafeInteger(observation.pid)&&observation.pid>1&&
+    observation.pidNamespace===init.pidNamespace&&observation.cgroupSha256===init.cgroupSha256&&
+    nativeTicks(observation.startTicks)&&BigInt(observation.startTicks)>=BigInt(init.startTicks)&&
+    same(observation,this.inspectProcess(observation.pid)),
+   confirm:()=>{
+    const fresh=inspectModernSchemaContainer(candidate.id,this.run);
+    if(!same(identity(fresh),identity(candidate))||fresh.state.OOMKilled!==false||fresh.state.Restarting!==false||fresh.state.Paused!==false||
+     !same(init,this.inspectProcess(pid))||!this.#verifyLiveOriginalCompose(compose))fail('LATE_COMPOSE_CANDIDATE_CHANGED_DURING_CENSUS');
+   },
+  };
+ }
+ observeHostContainers(initialize=false){
+  const values=this.containers(),runtime=this.verifyContainers(values);
+  let attempted=false,late=null;
+  this.verifyProcesses(values,initialize,row=>{
+   // Retain this entire /proc census; only the independently verified late
+   // candidate may account for rows missing from the first Docker snapshot.
+   if(!attempted){attempted=true;late=this.#refreshLateComposeCandidate(values,row);}
+   return late?.proves(row)===true;
+  });
+  if(!late)return {values,runtime};
+  late.confirm();
+  this.candidate=late.pin;
+  return {values:late.values,runtime:late.runtime};
  }
  serially(work){const result=this.serial.then(work);this.serial=result.catch(()=>{});return result;}
  startLeaseHeartbeat(onError){
@@ -230,7 +284,7 @@ export class ModernSchemaExecutorWatch {
   const {values,runtime,schedulers}=await this.observeHostAfterOriginalExit(()=>{
    this.runtime.guard();this.assertHealthy();
    if(this.state.read().status!=='RUNNING')fail('RUNNING_ORIGINAL_OBSERVATION_REQUIRED');
-   const values=this.containers(),runtime=this.verifyContainers(values);this.verifyProcesses(values,initialize);
+   const {values,runtime}=this.observeHostContainers(initialize);
    const schedulers=captureMaintenanceSchedulers({includeDatabaseEntrypoints:true});if(canonicalDigest(schedulers)!==this.preparation.hostSurface.schedulerSha256||schedulers.some(value=>value.erpControlReference))fail('SCHEDULER_DEFINITION_CHANGED_OR_UNACCOUNTED');
    return {values,runtime,schedulers};
   });
