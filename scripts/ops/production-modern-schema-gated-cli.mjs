@@ -2,6 +2,7 @@
  * native pg connection. All output, credentials and creation pins are private. */
 import fs from 'node:fs';import path from 'node:path';import {randomBytes,createHash} from 'node:crypto';
 import {executionEnv} from './capture-production-runtime.mjs';import {same,canonicalDigest} from './production-maintenance-receipts.mjs';
+import {pinModernSchemaChild} from './production-modern-schema-processes.mjs';
 const fail=code=>{throw Error('MODERN_SCHEMA_GATED_CLI_HOLD='+code);};
 const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));const digest=bytes=>createHash('sha256').update(bytes).digest('hex');
 const MARKER='MODERN_SCHEMA_MIGRATION_BACKEND=';
@@ -31,6 +32,44 @@ function readProof(file,binding,uid){
  try{const opened=fs.fstatSync(fd);if(opened.dev!==before.dev||opened.ino!==before.ino)fail('PRIVATE_GATE_OUTPUT_CHANGED');const bytes=Buffer.alloc(65536);text=bytes.subarray(0,fs.readSync(fd,bytes,0,bytes.length,0)).toString('utf8');}finally{fs.closeSync(fd);}
  const lines=text.split('\n').slice(0,-1).filter(line=>line.startsWith(MARKER));if(!lines.length)return null;if(lines.length!==1)fail('SINGLE_ORIGINAL_BACKEND_REQUIRED');
  let value;try{value=JSON.parse(lines[0].slice(MARKER.length));}catch{fail('NATIVE_BACKEND_JSON_REQUIRED');}return validateModernSchemaCliBackend(value,binding);
+}
+export async function runModernSchemaGatedAdmission({serialize, start, admit, afterAdmission}){
+ const {completion}=await serialize(async()=>{
+  let release,admission;
+  const admitted=new Promise(resolve=>{release=resolve;});
+  const completion=start((entry,{signal})=>{
+   admission=(async()=>{
+    const deadline=performance.now()+30000;
+    const assertWaiting=()=>{
+     if(signal.aborted||entry.child.exitCode!==null||entry.child.signalCode!==null||performance.now()>=deadline)fail('FIRST_BACKEND_GATE_UNRESOLVED');
+    };
+    const assertOriginalAttach=()=>{
+     assertWaiting();
+     let current;
+     try{current=pinModernSchemaChild(entry.child).pin;}catch{fail('ORIGINAL_GATED_ATTACH_CHANGED');}
+     if(!entry.pin||!same(current,entry.pin))fail('ORIGINAL_GATED_ATTACH_CHANGED');
+     assertWaiting();
+    };
+    assertWaiting();
+    await admit(assertWaiting,assertOriginalAttach);
+    release();
+   })();
+   return admission;
+  });
+  try{
+   await Promise.race([admitted,completion.then(()=>fail('FIRST_BACKEND_GATE_UNRESOLVED'))]);
+   // The durable permit ends onSpawn. A fast, successful CLI exit can now
+   // be consumed normally while the mandatory post-check is still running.
+   await afterAdmission?.();
+  }
+  catch(error){
+   // An attach can exit before the in-flight admission callback returns.
+   // Keep that callback in its original queue until it has stopped.
+   await admission?.catch(()=>{});throw error;
+  }
+  return {completion};
+ });
+ return completion;
 }
 export async function runModernSchemaGatedCli({owner,contextDigest,mode,imageId,networkId,environment,privateRuntime,directory,originalLease,admit,verifyNativeBackend},dependencies={}){
  if(!/^[1-9][0-9]*-[1-9][0-9]*$/.test(owner??'')||!/^[a-f0-9]{64}$/.test(contextDigest??'')||!['run','show'].includes(mode)||!/^sha256:[a-f0-9]{64}$/.test(imageId??'')
@@ -75,23 +114,48 @@ export async function runModernSchemaGatedCli({owner,contextDigest,mode,imageId,
  if(fs.readFileSync(keys.stdout,'utf8').split('\n').includes('DB_PASSWORD'))fail('CREDENTIAL_IN_CONTAINER_CREATION_CONFIGURATION');
  const stdout=path.join(directory,'cli-'+mode+'-execute.stdout');let backendProof,nativeBackend,permit;
  const privateInput=Buffer.from(JSON.stringify({schema:'phoenix.modern-schema-cli-private-input/v1',owner,nonce:binding.nonce,password})+'\n');
- let execution;try{execution=await command(['start','-a','-i',containerId],'execute',{timeoutMs:300000,privateInput,onSpawn:async entry=>{
-  const deadline=performance.now()+30000;
-  while(!backendProof){
-   await check('WAIT_NATIVE_BACKEND');if(entry.child.exitCode!==null||entry.child.signalCode!==null||performance.now()>=deadline)fail('FIRST_BACKEND_GATE_UNRESOLVED');
-   backendProof=readProof(stdout,binding,privateRuntime.uid);if(!backendProof)await pause(50);
-  }
-  const actual=await inspect('gated-pin');if(actual.state.Running!==true)fail('ORIGINAL_GATED_CLI_NOT_RUNNING');
-  nativeBackend=await verifyNativeBackend(backendProof,{...resource,runtime:actual});
-  if(!nativeBackend||!same(nativeBackend.backend,backendProof.backend)||nativeBackend.containerId!==containerId||nativeBackend.networkId!==networkId||!/^(?:\d{1,3}\.){3}\d{1,3}$/.test(nativeBackend.clientAddress??''))fail('NATIVE_CATALOG_AND_CID_BINDING_REQUIRED');
-  await check('PERMIT_ORIGINAL_BACKEND');
-  permit={schema:'phoenix.modern-schema-migration-permit/v1',...binding,backendSha256:digest(JSON.stringify(backendProof)),originalLease};
-  privateRuntime.publishJson(path.join(directory,'cli-'+mode+'-permit.json'),permit);
-  if(dependencies.publishPermit)await dependencies.publishPermit(gateDirectory,permit);
-  else {const temporary=path.join(gateDirectory,'.permit-'+randomBytes(8).toString('hex')),fd=fs.openSync(temporary,fs.constants.O_WRONLY|fs.constants.O_CREAT|fs.constants.O_EXCL|fs.constants.O_NOFOLLOW,0o444);
-   try{fs.writeFileSync(fd,JSON.stringify(permit)+'\n');fs.fchmodSync(fd,0o444);fs.fsyncSync(fd);}finally{fs.closeSync(fd);}fs.linkSync(temporary,path.join(gateDirectory,'permit.json'));fs.unlinkSync(temporary);privateRuntime.syncDirectory(gateDirectory);}
-  await check('PERMIT_PUBLISHED');
- }});}finally{privateInput.fill(0);}
+ const serialize=dependencies.serializeAdmission??(async work=>work());
+ let execution;
+ try {
+  execution=await runModernSchemaGatedAdmission({
+   serialize,
+   start:async onSpawn=>{
+    await check('COMMAND');
+    return privateRuntime.run({binary:'/usr/bin/docker',args:['start','-a','-i',containerId],directory,stem:'cli-'+mode+'-execute',
+     env:executionEnv(),timeoutMs:300000,privateInput,onSpawn});
+   },
+   admit:async (assertWaiting,assertOriginalAttach)=>{
+    while(!backendProof){
+     await check('WAIT_NATIVE_BACKEND');assertWaiting();
+     backendProof=readProof(stdout,binding,privateRuntime.uid);if(!backendProof)await pause(50);
+    }
+    const actual=await inspect('gated-pin');
+    if(actual.state.Running!==true)fail('ORIGINAL_GATED_CLI_NOT_RUNNING');
+    assertWaiting();
+    nativeBackend=await verifyNativeBackend(backendProof,{...resource,runtime:actual});
+    if(!nativeBackend||!same(nativeBackend.backend,backendProof.backend)||nativeBackend.containerId!==containerId||nativeBackend.networkId!==networkId||!/^(?:\d{1,3}\.){3}\d{1,3}$/.test(nativeBackend.clientAddress??''))fail('NATIVE_CATALOG_AND_CID_BINDING_REQUIRED');
+    await check('PERMIT_ORIGINAL_BACKEND');
+    assertWaiting();
+    permit={schema:'phoenix.modern-schema-migration-permit/v1',...binding,backendSha256:digest(JSON.stringify(backendProof)),originalLease};
+    privateRuntime.publishJson(path.join(directory,'cli-'+mode+'-permit.json'),permit);
+    if(dependencies.publishPermit){
+     assertOriginalAttach();
+     await dependencies.publishPermit(gateDirectory,permit);
+    }
+    else {
+     const temporary=path.join(gateDirectory,'.permit-'+randomBytes(8).toString('hex'));
+     const fd=fs.openSync(temporary,fs.constants.O_WRONLY|fs.constants.O_CREAT|fs.constants.O_EXCL|fs.constants.O_NOFOLLOW,0o444);
+     try{
+      try{fs.writeFileSync(fd,JSON.stringify(permit)+'\n');fs.fchmodSync(fd,0o444);fs.fsyncSync(fd);}finally{fs.closeSync(fd);}
+      assertOriginalAttach();fs.linkSync(temporary,path.join(gateDirectory,'permit.json'));
+     }finally{fs.unlinkSync(temporary);}
+     privateRuntime.syncDirectory(gateDirectory);
+    }
+   },
+   afterAdmission:()=>check('PERMIT_PUBLISHED'),
+  });
+  await check('COMMAND_COMPLETE');
+ }finally{privateInput.fill(0);}
  const after=await inspect('exit-pin');if(after.state.Running!==false||after.state.Pid!==0||after.state.ExitCode!==0)fail('ACTUAL_CLI_EXIT_UNVERIFIED');
  await check('AFTER_EXIT');
  const receipt={schema:'phoenix.modern-schema-gated-cli-result/v1',...resource,outcome:'SUCCESS',backendProof,nativeBackend,originalLease,

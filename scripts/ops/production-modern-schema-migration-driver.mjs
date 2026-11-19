@@ -57,7 +57,7 @@ export async function runModernSchemaMigrationDriver({context:input,originalSnap
    name??=parsed.name;
    const receipt=await runModernSchemaGatedCli({owner:context.owner,contextDigest:canonicalDigest(context),mode,imageId:context.candidateImageId,networkId,
     environment:parsed.environment,privateRuntime,directory,originalLease,admit:async request=>{channel.assertActivePeer();await check(request.stage);channel.assertActivePeer();return true;},
-    verifyNativeBackend}, {onCreated,withNativeCreate:dependencies.withNativeCreate});
+    verifyNativeBackend}, {onCreated,withNativeCreate:dependencies.withNativeCreate,serializeAdmission:dependencies.serializeAdmission});
    channel.assertActivePeer();await check('CLI_PROOF_COMPLETE');cli.push(receipt);index++;return {stdoutFile:receipt.stdout.path};
   }catch(error){poisoned=true;throw error;}
  };

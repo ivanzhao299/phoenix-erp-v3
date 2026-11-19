@@ -160,8 +160,13 @@ export async function superviseModernSchemaRelease(env,input){
   const migrationDirectory=runtime.createDirectory(context.owner,'migration');
   const driver=await runModernSchemaMigrationDriver({context,originalSnapshot:pre,privateRuntime:runtime,directory:migrationDirectory,originalLease:rootLease,
    admit:async request=>{await native();if(request.stage==='AFTER_EXIT')watch.clearMigration();return true;},onCreated:record=>watch.registerResource(record),
-   verifyNativeBackend:async(proof,resource)=>{await native();const observed=await observeModernSchemaCliBackend(watchClient,proof,resource);watch.allowNativeMigration(observed,{...resource,backendProof:proof});await watch.observe();return observed;},
-  },{expectedNetworkId:preparation.ingressScope.networkId,withNativeCreate:work=>watch.withNativeCreate(work),onOriginalDriver:entry=>watch.allowDescendants(entry,'SCHEMA_DRIVER'),
+   verifyNativeBackend:async(proof,resource)=>{
+    // The attach and permit already own the watch queue.
+    await native();const observed=await observeModernSchemaCliBackend(watchClient,proof,resource);
+    watch.allowNativeMigration(observed,{...resource,backendProof:proof});await watch.observeNative();return observed;
+   },
+  },{expectedNetworkId:preparation.ingressScope.networkId,withNativeCreate:work=>watch.withNativeCreate(work),serializeAdmission:work=>watch.serially(work),
+   onOriginalDriver:entry=>watch.allowDescendants(entry,'SCHEMA_DRIVER'),
    closeChannel:(channel,options)=>watch.closeBodyChannel(channel,options),startChannel:(channel,entry)=>watch.startBodyChannel(channel,entry)});
   const effect=await verifyModernSchemaEffect({context,preparationSha256:input.preparationSha256,rootLease,preparation,beforeFacts,beforeAudit:fresh.fresh,beforeLedger,driverReceipt:driver,fencedBackup,privateRuntime:runtime,migrationDirectory,admit:()=>native()},{client,
    onReceiptWriter:entry=>watch.allowDescendants(entry),withKnownReadonlyWriter:async work=>{await watch.stop();await watch.observe();try{return await work();}finally{await native();await watch.observe();watch.start();}},
