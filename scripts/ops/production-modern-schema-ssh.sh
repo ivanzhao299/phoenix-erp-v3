@@ -5,7 +5,7 @@ umask 077
 trap 'echo MODERN_SCHEMA_HOST_TRANSPORT_HOLD >&2' ERR
 
 operation=$1
-case "$operation" in prepare|run) ;; *) exit 2 ;; esac
+case "$operation" in prepare|run|finalize) ;; *) exit 2 ;; esac
 [[ "$TARGET_SHA" =~ ^[a-f0-9]{40}$ ]]
 [[ "$APPROVED_PREVIOUS_FLOOR_SHA" =~ ^[a-f0-9]{40}$ && "$APPROVED_PREVIOUS_FLOOR_SHA" != "$TARGET_SHA" ]]
 [[ "$DEPLOY_RUN_ID" =~ ^[1-9][0-9]{0,19}-[1-9][0-9]{0,9}$ && "$DEPLOY_RUN_ID" = *-"$DEPLOY_RUN_ATTEMPT" ]]
@@ -21,9 +21,18 @@ repo_git() { command git -c "safe.directory=$DEPLOY_REPO_ROOT" "$@"; }
 test "$(repo_git symbolic-ref -q --short HEAD)" = main
 test -z "$(repo_git status --porcelain --untracked-files=all)"
 repo_git fetch origin main >/dev/null 2>&1
-test "$(repo_git rev-parse refs/remotes/origin/main)" = "$TARGET_SHA"
-test "$(repo_git ls-remote --exit-code origin refs/heads/main)" = "$(printf '%s\trefs/heads/main' "$TARGET_SHA")"
-repo_git merge-base --is-ancestor HEAD "$TARGET_SHA"
+if [ "$operation" = finalize ]; then
+  [[ "${MODERN_SCHEMA_EXECUTION_SHA:-}" =~ ^[a-f0-9]{40}$ ]]
+  test "$(repo_git rev-parse refs/remotes/origin/main)" = "$MODERN_SCHEMA_EXECUTION_SHA"
+  test "$(repo_git ls-remote --exit-code origin refs/heads/main)" = "$(printf '%s\trefs/heads/main' "$MODERN_SCHEMA_EXECUTION_SHA")"
+  repo_git merge-base --is-ancestor "$TARGET_SHA" "$MODERN_SCHEMA_EXECUTION_SHA"
+  repo_git merge-base --is-ancestor HEAD "$MODERN_SCHEMA_EXECUTION_SHA"
+else
+  test -z "${MODERN_SCHEMA_EXECUTION_SHA:-}"
+  test "$(repo_git rev-parse refs/remotes/origin/main)" = "$TARGET_SHA"
+  test "$(repo_git ls-remote --exit-code origin refs/heads/main)" = "$(printf '%s\trefs/heads/main' "$TARGET_SHA")"
+  repo_git merge-base --is-ancestor HEAD "$TARGET_SHA"
+fi
 
 stage="$STATE_DIR/modern-schema-stage-$DEPLOY_RUN_ID"
 manifest=scripts/ops/modern-schema-stage-files.txt
@@ -103,13 +112,23 @@ fi
 
 # Run as the only child of the original FD9 holder while the CLI inventories
 # the host. The receipt filter runs only after the CLI exits.
-raw_receipt="$STATE_DIR/.transport-$DEPLOY_RUN_ID-$operation.receipt"
+if [ "$operation" = finalize ]; then
+  raw_receipt="$(/usr/bin/mktemp "$STATE_DIR/.transport-$DEPLOY_RUN_ID-finalize.XXXXXXXX")"
+else
+  raw_receipt="$STATE_DIR/.transport-$DEPLOY_RUN_ID-$operation.receipt"
+fi
 status=0
-set -o noclobber
-exec {receipt_fd}>"$raw_receipt"
-set +o noclobber
+if [ "$operation" = finalize ]; then
+  exec {receipt_fd}<>"$raw_receipt"
+else
+  set -o noclobber
+  exec {receipt_fd}>"$raw_receipt"
+  set +o noclobber
+fi
 if [ "$operation" = prepare ]; then
   node "$stage/$entry" prepare </dev/null >&"$receipt_fd" 2>/dev/null || status=$?
+elif [ "$operation" = finalize ]; then
+  node "$stage/$entry" finalize </dev/null >&"$receipt_fd" 2>/dev/null || status=$?
 else
   node "$stage/$entry" run >&"$receipt_fd" 2>/dev/null || status=$?
 fi

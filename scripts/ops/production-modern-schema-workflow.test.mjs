@@ -139,7 +139,7 @@ test('ambiguous execution cannot become success and raw remote diagnostics are e
   assert.equal((await runModernSchemaWorkflow(env, h.dependencies)).outcome, 'HOLD');
 });
 
-test('the reviewed host shell retains parent FD9 and uses only the two staged entrypoints', () => {
+test('the reviewed host shell retains parent FD9 and uses only fixed staged entrypoints', () => {
   const source = fs.readFileSync(new URL('./production-modern-schema-ssh.sh', import.meta.url), 'utf8');
   assert.equal(spawnSync('/bin/bash', ['-n'], { input: source }).status, 0);
   assert.match(source, /test "\$\(repo_git rev-parse refs\/remotes\/origin\/main\)" = "\$TARGET_SHA"/);
@@ -248,6 +248,12 @@ test('host filter suppresses raw output, proves real CLI parent FD9 and propagat
   const blocked = invoke(JSON.stringify(preparationHold), 36, undefined, 'prepare');
   assert.equal(blocked.status, 36);
   assert.deepEqual(JSON.parse(blocked.stdout), preparationHold);
+  const finishStage=fs.mkdtempSync(path.join(directory,'finish-'));
+  assert.equal(invoke(JSON.stringify(success),0,finishStage,'finalize').status,0);
+  assert.equal(invoke(JSON.stringify(success),0,finishStage,'finalize').status,0);
+  const finishReceipts=fs.readdirSync(finishStage+'-private');
+  assert.equal(finishReceipts.length,2);
+  assert.ok(finishReceipts.every(file=>file.startsWith('.transport-'+owner+'-finalize.')));
   const unapproved = invoke(JSON.stringify({...preparationHold, failure: 'FIXTURE_PRIVATE_DIAGNOSTIC'}), 36, undefined, 'prepare');
   assert.equal(unapproved.stdout, '');
   assert.doesNotMatch(unapproved.stderr, /FIXTURE_PRIVATE_DIAGNOSTIC/);
@@ -255,4 +261,103 @@ test('host filter suppresses raw output, proves real CLI parent FD9 and propagat
   assert.notEqual(raw.status, 0);
   assert.equal(raw.stdout, '');
   assert.doesNotMatch(raw.stderr, /private raw detail|fixture error text/);
+});
+
+test('a protected continuation uses the exact original run without preparation, identity, or migration',async()=>{
+  const events=[],original='8900-3';
+  const dependencies={
+    requestToken(){assert.fail('continuation requested a new authorization token');},
+    createSsh(_request,host){
+      assert.equal(host.DEPLOY_RUN_ID,original);
+      assert.equal(host.DEPLOY_RUN_ATTEMPT,'3');
+      assert.equal(host.RUN_MIG,'false');
+      return {exchange(operation,stdin){events.push(operation);assert.equal(stdin,'');
+        assert.equal(operation,'finalize');return {status:0,stdout:JSON.stringify({...success,owner:original})};},
+      close(){events.push('close');}};
+    },
+  };
+  const result=await runModernSchemaWorkflow({...env,MODERN_SCHEMA_GITHUB_READ_TOKEN:undefined,MODERN_SCHEMA_RESUME_OWNER:original},dependencies);
+  assert.equal(result.owner,original);
+  assert.deepEqual(events,['finalize','close']);
+  for(const invalid of ['undefined','000-1','9000','8900-03','8900-3; bad']){
+    await assert.rejects(runModernSchemaWorkflow({...env,MODERN_SCHEMA_RESUME_OWNER:invalid},{
+      createSsh(){assert.fail('bad continuation identity reached SSH');},
+    }),/EXACT_RESUME_OWNER_REQUIRED/);
+  }
+});
+
+test('the resume input is limited to the protected modern deployment path',()=>{
+  const yaml=fs.readFileSync(new URL('../../.github/workflows/deploy.yml',import.meta.url),'utf8');
+  const shell=fs.readFileSync(new URL('./production-modern-schema-ssh.sh',import.meta.url),'utf8');
+  assert.match(yaml,/if \[ -n "\$MODERN_SCHEMA_RESUME_OWNER" \]; then\s+test "\$MODERN_SCHEMA_RELEASE" = true/);
+  assert.match(shell,/node "\$stage\/\$entry" finalize <\/dev\/null/);
+  assert.match(shell,/repo_git merge-base --is-ancestor "\$TARGET_SHA" "\$MODERN_SCHEMA_EXECUTION_SHA"/);
+  assert.match(shell,/repo_git show "\$TARGET_SHA:\$manifest"/);
+  assert.match(shell,/raw_receipt="\$\(\/usr\/bin\/mktemp "\$STATE_DIR\/.transport-\$DEPLOY_RUN_ID-finalize\./);
+});
+
+test('continuation uses the current protected main source and the past committed target independently',async()=>{
+  const executionSha='e'.repeat(40),original='8900-3';
+  const result=await runModernSchemaWorkflow({...env,GITHUB_SHA:executionSha,GITHUB_WORKFLOW_SHA:executionSha,MODERN_SCHEMA_RESUME_OWNER:original},{
+    requestToken(){assert.fail('continuation requested new authority');},
+    createSsh(_request,host){
+      assert.equal(host.TARGET_SHA,sha);
+      assert.equal(host.APPROVED_CONFIG_FLOOR_SHA,sha);
+      assert.equal(host.MODERN_SCHEMA_EXECUTION_SHA,executionSha);
+      return {exchange(operation,stdin){
+        assert.equal(operation,'finalize');assert.equal(stdin,'');
+        return {status:0,stdout:JSON.stringify({...success,owner:original})};
+      },close(){}};
+    },
+  });
+  assert.equal(result.targetSha,sha);
+});
+
+test('the real upstream-main gate allows only finalize against an exact ancestor', t=>{
+  const directory=fs.mkdtempSync(path.join(os.tmpdir(),'phoenix-modern-main-advances-'));
+  t.after(()=>fs.rmSync(directory,{recursive:true,force:true}));
+  const local=path.join(directory,'local'),origin=path.join(directory,'origin');
+  const gitEnv={...process.env,GIT_CONFIG_NOSYSTEM:'1',GIT_CONFIG_GLOBAL:'/dev/null',GIT_AUTHOR_NAME:'Fixture',
+    GIT_AUTHOR_EMAIL:'fixture@localhost',GIT_COMMITTER_NAME:'Fixture',GIT_COMMITTER_EMAIL:'fixture@localhost'};
+  const git=(...args)=>{
+    const result=spawnSync('/usr/bin/git',args,{env:gitEnv,encoding:'utf8'});
+    assert.equal(result.status,0,result.stderr);
+    return result.stdout.trim();
+  };
+  git('init','--quiet','--initial-branch=main',local);
+  git('init','--quiet','--bare',origin);
+  git('-C',local,'commit','--quiet','--allow-empty','-m','prior exact release');
+  const original=git('-C',local,'rev-parse','HEAD');
+  git('-C',local,'commit','--quiet','--allow-empty','-m','current main');
+  const current=git('-C',local,'rev-parse','HEAD');
+  git('-C',local,'remote','add','origin',origin);
+  git('-C',local,'push','--quiet','origin','main');
+  const ssh=fs.readFileSync(new URL('./production-modern-schema-ssh.sh',import.meta.url),'utf8');
+  const start=ssh.indexOf('repo_git fetch origin main'),end=ssh.indexOf('\nstage=',start);
+  assert.ok(start>=0&&end>start);
+  const gate=ssh.slice(start,end);
+  const check=(operation,target,execution='')=>spawnSync('/bin/bash',['-euo','pipefail','-c',`
+    repo_git(){ /usr/bin/git -C "$FIXTURE_GIT_DIRECTORY" "$@"; }
+    ${gate}
+    echo REACHED_EXACT_STAGE
+  `],{env:{...gitEnv,operation,TARGET_SHA:target,MODERN_SCHEMA_EXECUTION_SHA:execution,FIXTURE_GIT_DIRECTORY:local},encoding:'utf8'});
+  assert.equal(check('finalize',original,current).stdout.trim(),'REACHED_EXACT_STAGE');
+  assert.notEqual(check('finalize','f'.repeat(40),current).status,0);
+  assert.notEqual(check('finalize',original,original).status,0);
+  assert.notEqual(check('run',original).status,0);
+  assert.notEqual(check('prepare',current,current).status,0);
+  assert.equal(check('run',current).stdout.trim(),'REACHED_EXACT_STAGE');
+});
+
+test('resume cannot enter application builds, push image tags, or use ordinary deploy',()=>{
+  const yaml=fs.readFileSync(new URL('../../.github/workflows/deploy.yml',import.meta.url),'utf8');
+  const build=yaml.slice(yaml.indexOf('\n  build-push:'),yaml.indexOf('\n    runs-on:',yaml.indexOf('\n  build-push:')));
+  const deploy=yaml.slice(yaml.indexOf('\n  deploy:'),yaml.indexOf('\n    steps:',yaml.indexOf('\n  deploy:')));
+  assert.match(build,/success\(\) &&\s+!inputs\.modern_schema_resume_owner &&/);
+  assert.match(deploy,/needs\.detect-changes\.result == 'success'/);
+  assert.match(deploy,/!inputs\.modern_schema_resume_owner && needs\.build-push\.result == 'success'/);
+  assert.match(deploy,/inputs\.modern_schema_release == true && inputs\.modern_schema_resume_owner && needs\.build-push\.result == 'skipped'/);
+  assert.match(deploy,/environment: production/);
+  assert.match(yaml,/name: Deploy via SSH\n\s+if: inputs\.modern_schema_release != true/);
+  assert.match(yaml,/name: Send deploy notification\n\s+if: always\(\) && !inputs\.modern_schema_resume_owner/);
 });

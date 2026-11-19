@@ -85,3 +85,19 @@ test('run rejects malformed requests, mismatched results, and supervisor diagnos
     assert.doesNotMatch(JSON.stringify(response),/fixture/);
   }
 });
+
+
+test('protected finalize consumes no authorization or executable request',async()=>{
+  const response=await runModernSchemaEntry(['finalize'],env,stream(''),{
+    async finalize(received){assert.equal(received,env);return completed;},
+    supervise(){assert.fail('completion must never start a release');},
+    prepare(){assert.fail('completion must never start preparation');},
+  });
+  assert.deepEqual(response,{result:completed,exitCode:0});
+  for(const input of ['\n','{}',JSON.stringify(request)]){
+    const next=await runModernSchemaEntry(['finalize'],env,stream(input),{
+      finalize(){assert.fail('completion accepted supplied payload');},
+    });
+    assert.deepEqual(next,{result:{...completed,outcome:'HOLD'},exitCode:1});
+  }
+});

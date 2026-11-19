@@ -339,6 +339,15 @@
 - 增加独占 GitHub Ubuntu 的现代宿主组件检查：真实 root/FD9、Docker/PG18 S、watch、nft 对发布端口/容器直连/同桥流量的丢包、TERM 旧后端消失、候选网络和公开 OPEN/原 S 消失。该用例明确使用合成 API 和阶段，不含 OIDC/正式 body，不生成生产权源。本地 WSL 的 bridge nft 内核能力不足，未将本地部分运行记为通过；新增 CI job 尚待本检查点精确提交后的实际结果。
 - **仍是未完成的开发检查点。** 专用 Linux 宿主真实 root/FD9、nft 内核、原 Git 工作树和 GitHub OIDC 的整条默认执行链及所有关键强杀断点尚未验收；现有导出的前向收尾只在同次监督调用中接续，进程中止后独立受控恢复入口仍未交付。无法读取/损坏的保护凭证及 nlink=2 残留不自动修复。这些缺口继续阻断发布结论，不能拿 native 组件、legacy 宿主夹具或测试依赖注入代替。未运行生产 DDL、部署、push、tag、INIT/ATTACH/GO 或现场业务启用。
 
+## 第二十七开发检查点：受控跨进程收尾入口与宿主失败诊断（2026-11-19，保持 OFF）
+
+- 增加固定 `finalize` 入口与原运行号输入。仅从 root 保存的原 preparation、stage、完整 commit intent 和实际 OPEN 核验后，调用既有 T/R 前向收尾；入口重算 preparation 内容摘要，只接受空 stdin，不重新登记、不申请新 OIDC 权源、不迁移、不启动容器、不再发布 OPEN。原 S 必须实际消失，当前镜像/boot、正式结果、账本、OFF 和入口状态仍需一致。R 收尾继续返回原版本恢复的 HOLD，不能冒称 T 成功；未提交的 DDL 断点不走本入口。
+- 当前受保护工作流源码 U 与原目标 T 分开：U 必须是当前 actual main，T 必须是其祖先且与原 owner/stage/准备记录一致。正常 prepare/run 仍要求目标就是最新 main，并拒绝续完专用执行 SHA。早于本入口的旧 stage 保持拒绝，不用 U 的新模块冒充原 T。重复续完的公开输出各自写入 root 私有唯一文件，不覆盖前次回执。
+- 续完跳过应用测试、镜像构建/推送和普通部署通知，只经 detect 成功、固定现代模式、原运行号及被跳过的 build-push 进入原 production 保护任务；普通发布仍必须构建成功。这样既不重指原 SHA/latest 镜像标签，也不让已提交的收尾依赖新构建或镜像仓库。
+- `ac6d07d` 新现代宿主组件 CI 在早期预检失败，原回执只有 PENDING/空阶段，不能记作通过。同批 legacy PG16/18 内核组件通过不代替它。本检查点将网络/DB/同伴/旧 API/宿主执行者固定阶段纳入 try 和安全诊断，并把健康等待上限提高至 15 秒；不输出原日志或凭据，不降低生产宿主门禁。此修复仍待新精确提交的 Ubuntu 实跑结果。
+- Node20 相关 103 份测试文件 **1323 passed / 51 opt-in skipped / 0 failed**（`modern-schema-cp27-regression-v2.log`），其中入口/路由 21 项通过，包括真实 Bash 原父 FD9、重复 finalize 和本地 Git main 从 T 前进到 U 的正反例。增广第一次运行另发现：好业财真实 first-sync 合同需要未配置的专用 `CHANJET_ADMISSION_FIXTURE_URL`，本片未执行它，未修改其门禁；旧 ledger-preflight 测试硬匹配早已删除的英文注释，已改为核对实际 candidate inventory 命令使用 `$API_IMAGE`，保留原 inventory → preflight → migration → switch 顺序断言。原失败日志保留，不记作通过。
+- API/Web TS、业务字段和迁移均未改，不重复第二十六检查点已通过的类型检查、原生 S/OFF/镜像恢复及 UI/业务 UAT；新增入口的路由和源码审查不能替代完整 root/FD9/nft/Git/OIDC/正式 body 的宿主 E2E 与强杀后实际续完。该项继续阻断发布验收；没有生产 DDL、部署、主分支推送或业务 INIT/ATTACH/GO。冻结方案和 125 TS 清单保持不变。
+
 ## 未完成的发布阻塞
 
 1. 独立 RAW 集蛋凭证、库存父批与内部实际转换事实已区分；RAW→分级/包装/重包装业务 API/页面已形成第十二 OFF 检查点；已过账 RAW/转换的受控更正补偿、成本分摊、其余合法退货/跨公司加工交接及质检处置尚未完成；仅第二十一检查点的同公司原仓LAK完好成品客户退货已接续。旧包装入口仍需接入明确实际投入与实耗，不能只挂 DERIVED 资格造成双计。包装、在途/退货/POS、跨公司和混源的全链成对回归，以及合法盘盈新来源仍需完成；受控 managed SKU 销售/配送/POS 正向及 UNKNOWN 持久化已有第五、六检查点证据，仍须与包装、退货和最终切换全链合并验收。不能用“全部拦住”代替合法链路验收。

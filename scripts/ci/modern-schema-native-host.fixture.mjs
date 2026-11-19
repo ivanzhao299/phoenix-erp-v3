@@ -19,6 +19,7 @@ import {stopOriginalModernSchemaRuntime} from '../ops/production-modern-schema-s
 import {modernSchemaReleaseBinding} from '../ops/production-modern-schema-state.mjs';
 import {BackgroundManifestPublisher, HOLD_KINDS} from '../ops/background-control-manifest.mjs';
 import {closeModernSchemaOriginalSession, confirmModernSchemaPublicDurability} from '../ops/production-modern-schema-completion.mjs';
+import {readMaintenanceSchedulerDiagnostic} from '../ops/production-maintenance-root-readers.mjs';
 import {pinModernSchemaChild} from '../ops/production-modern-schema-processes.mjs';
 import {modernSchemaFixture} from './modern-schema-release.fixture.mjs';
 import {ownedHttpProbeProgram} from './maintenance-kernel-ingress-probes.mjs';
@@ -44,7 +45,7 @@ const fixApiArgs=(image,network,variant)=>['--name','phoenix-v3-api','--label','
   '--health-timeout','1s','--health-retries','5',image,'node','-e',source];
 
 async function waitForHealth(id){
-  for(let i=0;i<40;i++){
+  for(let i=0;i<100;i++){
     const value=inspectModernSchemaContainer(id);
     if(value.state.Health?.Status==='healthy')return value;
     await pause(150);
@@ -66,26 +67,32 @@ async function main(){
   const save=()=>fs.writeFileSync(receiptName,JSON.stringify(receipt,null,2)+'\n',{mode:0o600});
   const progress=label=>{receipt.stages.push(label);save();};
   save();
+  let client,watchClient,session,closing=false;
+  try{
   const network=docker('network','create','--label','com.docker.compose.project=phoenix-erp','phoenix-owned-modern-native');
+  progress('NATIVE_DOCKER_NETWORK_CREATED');
   const sourceImage=docker('image','inspect','node:20-alpine','--format','{{.Id}}');
   const pgImage=docker('image','inspect','postgres:18-alpine','--format','{{.Id}}');
   const db=docker('run','-d','--name','phoenix-v3-db','--label','com.docker.compose.project=phoenix-erp','--label','com.docker.compose.service=db',
     '--network',network,'--restart=no','--publish','127.0.0.1:15432:5432','--env','POSTGRES_USER=postgres','--env','POSTGRES_DB=postgres',
     '--env','POSTGRES_HOST_AUTH_METHOD=trust','--tmpfs','/var/lib/postgresql:rw,nosuid,nodev,size=268435456,mode=1777',
     '--health-cmd','pg_isready -h 127.0.0.1 -U postgres -d postgres','--health-interval','1s','--health-timeout','1s',pgImage);
+  progress('NATIVE_POSTGRES_STARTED');
   const web=docker('run','-d','--name','phoenix-v3-web','--label','com.docker.compose.project=phoenix-erp','--label','com.docker.compose.service=web',
     '--network',network,'--restart=no','--health-cmd','true','--health-interval','1s',sourceImage,'node','-e','setInterval(()=>{},1000)');
-  await waitForHealth(db);await waitForHealth(web);
+  await waitForHealth(db);progress('NATIVE_POSTGRES_READY');
+  await waitForHealth(web);progress('NATIVE_WEB_PEER_READY');
   const old=docker('run','-d',...fixApiArgs(sourceImage,network,OLD));
-  await waitForHealth(old);
+  await waitForHealth(old);progress('NATIVE_ORIGINAL_API_READY');
   const pin=value=>({id:value.id,image:value.imageId,startedAt:value.state.StartedAt,restartCount:value.restarts});
   const originalSnapshot={deployRunId:'98765-1',containers:Object.fromEntries(Object.entries({api:old,web,db}).map(([k,id])=>[k,pin(inspectModernSchemaContainer(id))]))};
   const privateRuntime=new ModernSchemaPrivateRuntime();
   const surface=collectModernSchemaHostSurface(originalSnapshot);
-  const client=new ModernSchemaReadClient();
-  const watchClient=new ModernSchemaReadClient();
-  const session=new ModernSchemaControlSession({}, {isClosing:()=>closing});
-  let closing=false,phase='REGISTERED';
+  progress('NATIVE_HOST_SURFACE_PINNED');
+  client=new ModernSchemaReadClient();
+  watchClient=new ModernSchemaReadClient();
+  session=new ModernSchemaControlSession({}, {isClosing:()=>closing});
+  let phase='REGISTERED';
   const setPhase=value=>{phase=value;fs.writeFileSync(stateFile,JSON.stringify({...pending,phase})+'\n',{mode:0o600});};
   const selected=modernSchemaFixture().context;
   const {rows:[identity]}=await (async()=>{await client.start();return client.query('SELECT current_database() AS name,\'public\' AS schema,(SELECT system_identifier::text FROM pg_control_system()) AS "systemIdentifier"');})();
@@ -100,7 +107,6 @@ async function main(){
   }});
   const oldParticipant={containerId:old,revision:context.runtimeSha,bootId:randomUUID(),allowedKinds:[...HOLD_KINDS]};
   let ingress;
-  try{
     const fenced=publisher.fence(binding,[oldParticipant]);assert.equal(fenced.phase,'FENCED');
     assert.equal(await session.tryLock(1),true);assert.equal(await session.tryLock(2),true);
     privateRuntime.children.add(pinModernSchemaChild(session.child));
@@ -176,12 +182,14 @@ async function main(){
     const message=String(error.message);
     receipt.failure=/^[A-Z_]+=[A-Z0-9_]+$/.test(message)?message:
       error.code==='ERR_ASSERTION'?'FIXTURE_ASSERTION':'FIXTURE_COMMAND_OR_TRANSPORT';
+    const diagnostic=readMaintenanceSchedulerDiagnostic(error);
+    if(diagnostic)receipt.schedulerDiagnostic=diagnostic;
     const at=/modern-schema-native-host[.]fixture[.]mjs:(\d+):/.exec(error.stack??'');
     if(at)receipt.failedLine=Number(at[1]);
     save();throw error;
   }finally{
     closing=true;
-    await Promise.allSettled([client.close(),watchClient.close(),session.close()]);
+    await Promise.allSettled([client?.close(),watchClient?.close(),session?.close()]);
   }
 }
 await main().catch(()=>{console.error('MODERN_NATIVE_HOST_FIXTURE_HOLD');process.exitCode=1;});

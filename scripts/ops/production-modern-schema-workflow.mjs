@@ -37,22 +37,25 @@ const preparationFailures = new Set('BOOTSTRAP FLOOR HOST_SURFACE PLAN BACKUP RE
 const staticKeys = ['schema', 'owner', 'targetSha'];
 
 function fromEnv(env) {
+  const ownerInput = env.MODERN_SCHEMA_RESUME_OWNER ?? '';
+  if (ownerInput && !match(/^[1-9][0-9]{0,19}-[1-9][0-9]{0,9}$/, ownerInput)) throw fail('EXACT_RESUME_OWNER_REQUIRED');
+  const resuming = ownerInput !== '';
+  const targetSha = resuming ? env.APPROVED_CONFIG_FLOOR_SHA : env.GITHUB_SHA;
   if (Object.entries(required).some(([key, value]) => env[key] !== value) ||
       !match(sha, env.GITHUB_SHA) || env.GITHUB_WORKFLOW_SHA !== env.GITHUB_SHA ||
-      env.APPROVED_CONFIG_FLOOR_SHA !== env.GITHUB_SHA ||
-      !match(sha, env.APPROVED_PREVIOUS_FLOOR_SHA) || env.APPROVED_PREVIOUS_FLOOR_SHA === env.GITHUB_SHA ||
+      !match(sha, targetSha) || env.APPROVED_CONFIG_FLOOR_SHA !== targetSha ||
+      !match(sha, env.APPROVED_PREVIOUS_FLOOR_SHA) || env.APPROVED_PREVIOUS_FLOOR_SHA === targetSha ||
       !match(/^[1-9][0-9]{0,19}$/, env.GITHUB_RUN_ID) ||
       !match(/^[1-9][0-9]{0,9}$/, env.GITHUB_RUN_ATTEMPT) ||
       env.MAINTENANCE_RELEASE_INPUT || env.SKU_SOURCE_EFFECTIVE_DATE || env.SKU_SOURCE_PLAN_SHA256 ||
       env.ROTATE_CHANJET_CREDENTIALS !== 'false' || env.ONE_TIME_CONFIG_FLOOR_TRANSITION !== 'false') {
     throw fail('EXACT_DISPATCH_REQUIRED');
   }
-  const targetSha = env.GITHUB_SHA;
-  const owner = env.GITHUB_RUN_ID + '-' + env.GITHUB_RUN_ATTEMPT;
+  const owner = resuming ? ownerInput : env.GITHUB_RUN_ID + '-' + env.GITHUB_RUN_ATTEMPT;
   const hostEnv = {
     TARGET_SHA: targetSha,
     DEPLOY_RUN_ID: owner,
-    DEPLOY_RUN_ATTEMPT: env.GITHUB_RUN_ATTEMPT,
+    DEPLOY_RUN_ATTEMPT: owner.split('-')[1],
     APPROVED_CONFIG_FLOOR_SHA: targetSha,
     APPROVED_PREVIOUS_FLOOR_SHA: env.APPROVED_PREVIOUS_FLOOR_SHA,
     API_IMAGE: 'ghcr.io/' + repo + '/api:sha-' + targetSha,
@@ -65,7 +68,8 @@ function fromEnv(env) {
     ROTATE_CHANJET_CREDENTIALS: 'false',
     ONE_TIME_CONFIG_FLOOR_TRANSITION: 'false',
   };
-  return { targetSha, owner, hostEnv };
+  if (resuming) hostEnv.MODERN_SCHEMA_EXECUTION_SHA = env.GITHUB_SHA;
+  return { targetSha, owner, hostEnv, resuming };
 }
 
 function parsePublic(value, keys, schema, binding, phase) {
@@ -85,9 +89,10 @@ function parsePublic(value, keys, schema, binding, phase) {
 
 export async function runModernSchemaWorkflow(env, dependencies) {
   const binding = fromEnv(env);
-  if (!match(validToken, env.MODERN_SCHEMA_GITHUB_READ_TOKEN)) throw fail('GITHUB_READ_CHANNEL_REQUIRED');
+  if (!binding.resuming && !match(validToken, env.MODERN_SCHEMA_GITHUB_READ_TOKEN)) throw fail('GITHUB_READ_CHANNEL_REQUIRED');
   const ssh = dependencies.createSsh(env, binding.hostEnv);
   try {
+    if (binding.resuming) return readReleaseCommand(ssh.exchange('finalize', ''), binding);
     const hostPreparation = ssh.exchange('prepare', env.MODERN_SCHEMA_GITHUB_READ_TOKEN + '\n');
     if (hostPreparation.status !== 0) {
       if (hostPreparation.status === 24) throw fail('PREPARATION_FD9_BUSY');
@@ -114,15 +119,19 @@ export async function runModernSchemaWorkflow(env, dependencies) {
       identityToken,
       githubReadToken: env.MODERN_SCHEMA_GITHUB_READ_TOKEN,
     }) + '\n';
-    const hostRelease = ssh.exchange('run', input);
-    const result = parsePublic(hostRelease.stdout, ['outcome', 'defaultOff'],
-      'phoenix.modern-schema-public-result/v1', binding, 'RELEASE_RECEIPT');
-    if (!['SUCCESS', 'HOLD'].includes(result.outcome) || result.defaultOff !== true) throw fail('RELEASE_RECEIPT');
-    if ((hostRelease.status === 0) !== (result.outcome === 'SUCCESS')) throw fail('RELEASE_COMMAND_STATUS');
-    return { schema: result.schema, owner: result.owner, targetSha: result.targetSha, outcome: result.outcome, defaultOff: true };
+    return readReleaseCommand(ssh.exchange('run', input), binding);
   } finally {
     ssh.close();
   }
+}
+
+function readReleaseCommand(observed, binding) {
+  if (observed.status === 24) throw fail('RELEASE_FD9_BUSY');
+  const result = parsePublic(observed.stdout, ['outcome', 'defaultOff'],
+    'phoenix.modern-schema-public-result/v1', binding, 'RELEASE_RECEIPT');
+  if (!['SUCCESS','HOLD'].includes(result.outcome) || result.defaultOff !== true) throw fail('RELEASE_RECEIPT');
+  if ((observed.status === 0) !== (result.outcome === 'SUCCESS')) throw fail('RELEASE_COMMAND_STATUS');
+  return result;
 }
 
 function command(program, argv, input, timeout = 12000) {
@@ -166,10 +175,11 @@ function createProductionSsh(env, hostEnv) {
       PRODUCTION_PATH_HELPER_B64: 'scripts/ops/production-trusted-paths.mjs',
       PRODUCTION_CONTROL_BOOTSTRAP_B64: 'scripts/ops/production-control-bootstrap.sh',
     };
+    const executionSha = hostEnv.MODERN_SCHEMA_EXECUTION_SHA ?? hostEnv.TARGET_SHA;
     for (const [key, filename] of Object.entries(payloads)) {
-      hostEnv[key] = Buffer.from(reviewedSource(hostEnv.TARGET_SHA, filename)).toString('base64');
+      hostEnv[key] = Buffer.from(reviewedSource(executionSha, filename)).toString('base64');
     }
-    const source = reviewedSource(hostEnv.TARGET_SHA, 'scripts/ops/production-modern-schema-ssh.sh');
+    const source = reviewedSource(executionSha, 'scripts/ops/production-modern-schema-ssh.sh');
     const exportArgs = Object.entries(hostEnv).map(([key, value]) => key + '=' + quote(value));
     const baseCmd = ['/usr/bin/env -u BASH_ENV -u ENV', ...exportArgs, '/bin/bash --noprofile --norc -c', quote(source), '--'].join(' ');
     const flags = ['-F', '/dev/null', '-T', '-i', keyFile,
@@ -180,7 +190,7 @@ function createProductionSsh(env, hostEnv) {
       '-l', env.MODERN_SCHEMA_SSH_USER, host];
     return {
       exchange(operation, stdin) {
-        if (!['prepare', 'run'].includes(operation)) throw fail('SSH_OPERATION_REQUIRED');
+        if (!['prepare', 'run', 'finalize'].includes(operation)) throw fail('SSH_OPERATION_REQUIRED');
         try {
           return { status: 0, stdout: command('/usr/bin/ssh', [...flags, baseCmd + ' ' + operation], stdin, 34 * 60 * 1000) };
         } catch (error) {
@@ -188,7 +198,7 @@ function createProductionSsh(env, hostEnv) {
           if (Number.isInteger(error.status) && typeof error.stdout === 'string' && error.stdout.length <= 65536) {
             return { status: error.status, stdout: error.stdout.trim() };
           }
-          throw fail(operation === 'run' ? 'RELEASE_TRANSPORT_OUTCOME_UNKNOWN' : 'PREPARATION_TRANSPORT_FAILED');
+          throw fail(operation === 'prepare' ? 'PREPARATION_TRANSPORT_FAILED' : 'RELEASE_TRANSPORT_OUTCOME_UNKNOWN');
         }
       },
       close: dispose,

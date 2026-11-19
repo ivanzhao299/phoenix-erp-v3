@@ -76,6 +76,10 @@ on:
         description: "执行正式分次入库的受控 API 结构发布，业务默认关闭"
         type: boolean
         default: false
+      modern_schema_resume_owner:
+        description: "仅续完已开放的结构发布收尾，填写原始运行 ID 和尝试号（例如 123456-1）"
+        type: string
+        default: ''
       approve_production:
         description: "批准部署到生产环境（必选）"
         type: boolean
@@ -200,6 +204,7 @@ jobs:
           APPROVED_CONFIG_FLOOR_SHA: ${{ inputs.approved_config_floor_sha || '' }}
           APPROVED_PREVIOUS_FLOOR_SHA: ${{ inputs.approved_previous_floor_sha || '' }}
           MODERN_SCHEMA_RELEASE: ${{ inputs.modern_schema_release }}
+          MODERN_SCHEMA_RESUME_OWNER: ${{ inputs.modern_schema_resume_owner || '' }}
           MAINTENANCE_RELEASE_INPUT: ${{ inputs.maintenance_release_input }}
           ROTATE_CHANJET_CREDENTIALS: ${{ inputs.rotate_chanjet_credentials }}
           ONE_TIME_CONFIG_FLOOR_TRANSITION: ${{ inputs.one_time_config_floor_transition }}
@@ -257,6 +262,10 @@ jobs:
             exit 23
           fi
 
+          if [ -n "$MODERN_SCHEMA_RESUME_OWNER" ]; then
+            test "$MODERN_SCHEMA_RELEASE" = true
+            [[ "$MODERN_SCHEMA_RESUME_OWNER" =~ ^[1-9][0-9]{0,19}-[1-9][0-9]{0,9}$ ]]
+          fi
           if [ "$MODERN_SCHEMA_RELEASE" = true ]; then
             test "$IS_DISPATCH" = true
             test "$GITHUB_REF" = refs/heads/main
@@ -264,8 +273,12 @@ jobs:
             test "$MANUAL_RUN_MIG" = false
             test "$APPROVE_PRODUCTION" = true
             test "$SKIP_DEPLOY" = false
-            test "$APPROVED_CONFIG_FLOOR_SHA" = "$GITHUB_SHA"
-            [[ "$APPROVED_PREVIOUS_FLOOR_SHA" =~ ^[a-f0-9]{40}$ && "$APPROVED_PREVIOUS_FLOOR_SHA" != "$GITHUB_SHA" ]]
+            if [ -n "${MODERN_SCHEMA_RESUME_OWNER:-}" ]; then
+              [[ "$APPROVED_CONFIG_FLOOR_SHA" =~ ^[a-f0-9]{40}$ ]]
+            else
+              test "$APPROVED_CONFIG_FLOOR_SHA" = "$GITHUB_SHA"
+            fi
+            [[ "$APPROVED_PREVIOUS_FLOOR_SHA" =~ ^[a-f0-9]{40}$ && "$APPROVED_PREVIOUS_FLOOR_SHA" != "$APPROVED_CONFIG_FLOOR_SHA" ]]
             test -z "$MAINTENANCE_RELEASE_INPUT$SKU_SOURCE_EFFECTIVE_DATE$SKU_SOURCE_PLAN_SHA256"
             test "$ROTATE_CHANJET_CREDENTIALS" = false
             test "$ONE_TIME_CONFIG_FLOOR_TRANSITION" = false
@@ -326,7 +339,7 @@ jobs:
   test:
     name: Type-check & Regression
     needs: detect-changes
-    if: needs.detect-changes.outputs.run_test == 'true'
+    if: needs.detect-changes.outputs.run_test == 'true' && !inputs.modern_schema_resume_owner
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -583,6 +596,7 @@ jobs:
     needs: [detect-changes, test]
     if: |
       success() &&
+      !inputs.modern_schema_resume_owner &&
       (github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')) &&
       github.ref == 'refs/heads/main' &&
       (needs.test.result == 'success' || needs.test.result == 'skipped') &&
@@ -751,12 +765,14 @@ jobs:
     name: Deploy · ${{ needs.detect-changes.outputs.mode }}
     needs: [detect-changes, build-push]
     if: |
-      success() &&
+      !cancelled() &&
+      needs.detect-changes.result == 'success' &&
       github.event_name == 'workflow_dispatch' &&
       github.ref == 'refs/heads/main' &&
       inputs.approve_production == true &&
       (needs.detect-changes.outputs.mode == 'web' || needs.detect-changes.outputs.mode == 'api' || needs.detect-changes.outputs.mode == 'full') &&
-      needs.build-push.result == 'success' &&
+      ((!inputs.modern_schema_resume_owner && needs.build-push.result == 'success') ||
+       (inputs.modern_schema_release == true && inputs.modern_schema_resume_owner && needs.build-push.result == 'skipped')) &&
       inputs.skip_deploy != true
     runs-on: ubuntu-latest
     timeout-minutes: ${{ inputs.modern_schema_release && 75 || 40 }}
@@ -812,6 +828,7 @@ jobs:
           BUILD_WEB: ${{ needs.detect-changes.outputs.build_web }}
           RUN_MIG: ${{ needs.detect-changes.outputs.run_mig }}
           MODERN_SCHEMA_RELEASE: ${{ inputs.modern_schema_release }}
+          MODERN_SCHEMA_RESUME_OWNER: ${{ inputs.modern_schema_resume_owner || '' }}
           APPROVE_PRODUCTION: ${{ inputs.approve_production }}
           PRESERVE_ARTIFACTS: 'true'
           APPROVED_CONFIG_FLOOR_SHA: ${{ inputs.approved_config_floor_sha }}
@@ -1273,7 +1290,7 @@ jobs:
             echo "✅ Deploy ($DEPLOY_MODE) complete — $(date '+%Y-%m-%d %H:%M:%S')"
 
       - name: Send deploy notification
-        if: always()
+        if: always() && !inputs.modern_schema_resume_owner
         env:
           WEBHOOK_URL: ${{ secrets.ALERT_WEBHOOK_URL }}
           WEBHOOK_TYPE: ${{ secrets.ALERT_WEBHOOK_TYPE || 'slack' }}
