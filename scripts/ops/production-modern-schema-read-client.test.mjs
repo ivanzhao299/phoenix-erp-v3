@@ -41,8 +41,13 @@ test('readers require native serial planning in addition to protected read-only 
  try{
   await f.client.start();
   assert.match(f.launch().find(value=>value.startsWith('PGOPTIONS=')),/-c max_parallel_workers_per_gather=0(?: |$)/);
+  assert.match(f.launch().find(value=>value.startsWith('PGOPTIONS=')),/-c idle_in_transaction_session_timeout=25000(?: |$)/);
   assert.match(f.query(),/current_setting\('max_parallel_workers_per_gather'\)='0' AS serial/);
   assert.throws(()=>f.client.query('SET LOCAL max_parallel_workers_per_gather=2'),/READ_STATEMENT_REQUIRED/);
+  assert.throws(()=>f.client.query("SET idle_in_transaction_session_timeout='90s'"),/READ_STATEMENT_REQUIRED/);
+  assert.throws(()=>f.client.query("SET LOCAL idle_in_transaction_session_timeout='0s'"),/READ_STATEMENT_REQUIRED/);
+  await f.client.query("SET LOCAL idle_in_transaction_session_timeout='90s'");
+  assert.match(f.query(),/\nSET LOCAL idle_in_transaction_session_timeout='90s';\n/);
  }finally{await f.client.close();}
 });
 

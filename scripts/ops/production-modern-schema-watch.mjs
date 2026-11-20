@@ -460,9 +460,10 @@ export class ModernSchemaExecutorWatch {
   const pending=this.state.read();
   if(typeof read!=='function'||!this.running||this.fencedFactRead||pending.status!=='RUNNING'||pending.phase!=='R_STOPPED'||this.state.ddlIntentExists())
    fail('ORIGINAL_FENCED_FACT_READ_REQUIRED');
+  this.assertHealthy();
   this.fencedFactRead=true;
   try{
-   await this.observe();
+   // The supervisor observes the full host before opening the snapshot.
    // The backup publishes the complete read-only baseline before its next
    // full observation so a later hold can still use the recovery baseline.
    return await read();

@@ -539,7 +539,7 @@ test('only the read-only backup fact capture spreads the recurring native census
  const facts={readOnly:true};
  const got=await watch.duringFencedBackupFacts(async()=>{
   assert.equal(watch.fencedFactRead,true);
-  assert.equal(observations,1);
+  assert.equal(observations,0);
   await assert.rejects(watch.duringFencedBackupFacts(async()=>assert.fail('Nested capture reached reader')),/ORIGINAL_FENCED_FACT_READ_REQUIRED/);
   return facts;
  });
@@ -562,6 +562,7 @@ for(const inFlight of [false,true]){
   const observation=new Promise(resolve=>{finishObservation=resolve;});
   watch.observe=async()=>{if(++count===2&&inFlight)await observation;};
   watch.start();
+  await watch.observe();
   const capture=watch.duringFencedBackupFacts(()=>facts);
   await Promise.resolve();
   t.mock.timers.tick(500);

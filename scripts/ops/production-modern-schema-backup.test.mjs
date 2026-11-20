@@ -24,6 +24,7 @@ function fixture(t,breakAt=new Set()){
    if(sql==='ROLLBACK'){inject('rollback');return rows();}
    if(sql.includes('pg_stat_activity')){inject('remote-db-check');return rows({count:0});}
    if(sql.startsWith('BEGIN')){inject('begin');return rows();}
+   if(sql==="SET LOCAL idle_in_transaction_session_timeout='90s'"){inject('fenced-idle-budget');return rows();}
    if(sql.startsWith('SET LOCAL'))return rows();
    if(sql.includes('pg_database_collation_actual_version'))return rows(database);
    if(sql.includes("current_setting('transaction_isolation')"))return rows({...database,readonly:'on',isolation:'repeatable read'});
@@ -100,6 +101,7 @@ test('cleanup alone remains HOLD, successful cleanup preserves the original rece
  assert.equal(backup.receipt.fullParseVerified,true);
  assert.equal(backup.receipt.productionRestore,false);
  assert.equal(f.records.length,1);
+ assert.equal(f.log.includes('fenced-idle-budget'),false);
  assert.ok(f.log.indexOf('remote-notify')<f.log.indexOf('backup-toc'));
  const brokenDbProof=fixture(t,new Set(['remote-db-check']));
  await assert.rejects(brokenDbProof.run(),{message:hold+'CLEANUP_UNRESOLVED'});
@@ -115,6 +117,8 @@ test('fenced evidence and pg_dump share the exported snapshot, and a rejected co
   f.log.push('snapshot-consumer');observed=source;
  }});
  assert.equal(observed,backup.source);
+ assert.ok(f.log.indexOf('begin')<f.log.indexOf('fenced-idle-budget'));
+ assert.ok(f.log.indexOf('fenced-idle-budget')<f.log.indexOf('backup-tool-versions'));
  assert.ok(f.log.indexOf('snapshot')<f.log.indexOf('snapshot-consumer'));
  assert.ok(f.log.indexOf('snapshot-consumer')<f.log.indexOf('database-dump'));
  assert.ok(f.log.indexOf('database-dump')<f.log.indexOf('rollback'));
@@ -124,4 +128,5 @@ test('fenced evidence and pg_dump share the exported snapshot, and a rejected co
  assert.ok(refuse.log.includes('rollback'));
  assert.equal(refuse.log.includes('database-dump'),false);
  assert.equal(refuse.log.includes('remote-native-check'),false);
+ assert.deepEqual(refuse.records,[{schema:'phoenix.modern-schema-private-backup-hold/v1',failure:'SOURCE_GUARD',cleanup:[]}]);
 });
