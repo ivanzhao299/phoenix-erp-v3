@@ -103,36 +103,77 @@ function readProtectedPrepareReceipt(file,maxBytes=8192){
 function readProtectedCandidatePull(file){
  return readProtectedPreparationFile(file,256*1024);
 }
+function readOriginalLeaseRecoveryInventoryArchive(file,read,owner,revision,prep,preparationSha256){
+ const anchor=read(file(`schema-release-original-recovery-forward-archive-${owner}.json`),65536);
+ const {value:archive}=anchor,{pending,committed}=archive;
+ const intent=read(file(`schema-release-original-recovery-open-commit-intent-${owner}.json`),16384).value;
+ const proof=read(file(`schema-release-original-recovery-verified-${owner}.json`),16384).value;
+ const closed=read(file(`schema-release-session-closed-${owner}.json`),8192).value;
+ const contextDigest=canonicalDigest(prep.context),leaseSha256=canonicalDigest(pending?.lease??null);
+ if(archive.schema!=='phoenix.modern-schema-recovered-forward-archive/v1'||archive.owner!==owner||archive.contextDigest!==contextDigest||
+  archive.preparationSha256!==preparationSha256||archive.originalLedgerSha256!==prep.context.beforeLedgerSha256||
+  archive.recoveredSha!==prep.context.runtimeSha||archive.attemptedTargetSha!==revision||archive.defaultOff!==true||
+  archive.formalTargetSuccess!==false||archive.automaticRetry!==false||archive.originalSessionSha256!==leaseSha256||
+  committed?.schema!=='phoenix.modern-schema-recovery-open-committed/v1'||committed.owner!==owner||
+  committed.contextDigest!==contextDigest||committed.backgroundAdmissionCommitted!==true||committed.formalTargetSuccess!==false||
+  committed.recoveredSha!==archive.recoveredSha||committed.attemptedTargetSha!==revision||committed.releaseAuthorized!==false||
+  committed.commitIntentSha256!==canonicalDigest(intent)||committed.publicManifestSha256!==canonicalDigest(intent.publicManifest)||
+  intent.schema!=='phoenix.modern-schema-recovery-open-commit-intent/v1'||intent.owner!==owner||
+  intent.contextDigest!==contextDigest||intent.pendingStateDigest!==pending?.stateDigest||
+  intent.leaseSha256!==leaseSha256||intent.recoveryProofSha256!==canonicalDigest(proof)||
+  intent.publicManifest?.phase!=='OPEN'||intent.publicManifest.owner!==owner||intent.publicManifest.targetSha!==archive.recoveredSha||
+  proof.schema!=='phoenix.modern-schema-original-recovery-proof/v1'||proof.owner!==owner||
+  proof.contextDigest!==contextDigest||!same(intent.publicManifest.participants,[proof.originalRuntime])||proof.outcome!=='ABORTED_BEFORE_DDL_ORIGINAL_R_RECOVERED'||
+  !same(proof.originalLease,pending?.lease)||proof.targetSha!==archive.recoveredSha||proof.attemptedTargetSha!==revision||
+  proof.formalTargetSuccess!==false||proof.schemaChanged!==false||proof.businessActivation!==false||
+  closed.schema!=='phoenix.modern-schema-original-session-closed/v1'||closed.outcome!=='ORIGINAL_SESSION_ABSENT'||
+  closed.originalLeaseSha256!==leaseSha256||closed.nativeObservation?.originalSessionPresent!==false||
+  closed.nativeObservation?.primary!==true||closed.nativeObservation.databaseOid!==pending.lease?.database?.databaseOid||
+  closed.nativeObservation.systemIdentifier!==pending.lease?.database?.systemIdentifier||
+  closed.nativeObservation.postmasterStartMicros!==pending.lease?.database?.postmasterStartMicros)
+  hold('RECOVERED_INVENTORY_ARCHIVE_REQUIRED');
+ return anchor;
+}
 /** A consumed release may retain its two specifically registered isolated probes
  * only after the original API has been reopened without schema changes. */
 function recoveredInventoryPreparation(container,owner,revision,{directory,readRecovered}){
  const file=name=>path.join(directory,name);
  const evidence=readRecovered(file(`schema-release-operator-retained-inventory-${owner}.json`),8192).value;
- const {recoveryOwner,probes}=evidence;
+ const {recoveryOwner,probes,proofKind='operatorLease'}=evidence;
  if(evidence.schema!=='phoenix.modern-operator-retained-inventory/v1'||evidence.owner!==owner||evidence.targetSha!==revision||
-  !match(/^[1-9][0-9]{0,19}-[1-9][0-9]{0,9}$/,recoveryOwner)||recoveryOwner===owner||
+  !match(/^[1-9][0-9]{0,19}-[1-9][0-9]{0,9}$/,recoveryOwner)||!['operatorLease','originalLease'].includes(proofKind)||
+  (proofKind==='originalLease'?recoveryOwner!==owner:recoveryOwner===owner)||
   evidence.migrationAuthorized!==false||!Array.isArray(probes)||probes.length!==2||
   !same(probes.map(pin=>pin.stage),['prepare','supervise'])||!probes.every(pin=>match(HASH,pin.id)&&match(HASH,pin.identitySha256))||
   probes[0].id===probes[1].id)hold('RECOVERED_INVENTORY_REGISTRY_REQUIRED');
- const anchor=readRecovered(file(`schema-release-operator-archive-${recoveryOwner}.json`),65536);
- const archive=anchor.value;
- const {stateDigest,...pending}=archive.pending??{};
- const open=readRecovered(file(`schema-release-operator-public-open-verified-${recoveryOwner}.json`),8192).value;
  const {value:{preparationSha256,...prep}}=readRecovered(file(`schema-release-preparation-${owner}.json`),8*1024*1024);
+ if(prep.schema!=='phoenix.modern-schema-preparation/v1'||prep.context?.owner!==owner||prep.context.targetSha!==revision||
+  prep.context.candidateImageId!==container.imageId||preparationSha256!==canonicalDigest(prep)||
+  evidence.preparationSha256!==preparationSha256)hold('RECOVERED_INVENTORY_ARCHIVE_REQUIRED');
+ let anchor;
+ if(proofKind==='originalLease'){
+  anchor=readOriginalLeaseRecoveryInventoryArchive(file,readRecovered,owner,revision,prep,preparationSha256);
+ }else{
+  anchor=readRecovered(file(`schema-release-operator-archive-${recoveryOwner}.json`),65536);
+  const archive=anchor.value;
+  const open=readRecovered(file(`schema-release-operator-public-open-verified-${recoveryOwner}.json`),8192).value;
+  if(archive.schema!=='phoenix.modern-operator-pre-ddl-recovery-archive/v1'||archive.owner!==owner||archive.recoveryOwner!==recoveryOwner||
+   archive.requestedTargetSha!==revision||archive.originalRuntimeSha!==prep.context.runtimeSha||archive.formalTargetSuccess!==false||
+   archive.schemaChanged!==false||archive.markerArchived!==true||archive.publicOpenSha256!==canonicalDigest(open)||
+   open?.schema!=='phoenix.modern-operator-original-open/v1'||open.owner!==owner||open.recoveryOwner!==recoveryOwner||
+   open.formalTargetSuccess!==false||open.manifest?.phase!=='OPEN'||open.manifest.targetSha!==archive.originalRuntimeSha)
+   hold('RECOVERED_INVENTORY_ARCHIVE_REQUIRED');
+ }
+ const archive=anchor.value,{stateDigest,...pending}=archive.pending??{};
+ const recoverable=proofKind==='originalLease'?['R_STOPPED','FRESH_RECHECKED','BACKUP_VERIFIED']:['R_STOPPED'];
+ const preDdlPhase=recoverable.indexOf(pending.phase);
  const former=prep.ownedResources?.filter(pin=>pin.role==='readonly-inventory');
  const planned=former?.[0];
- if(archive.schema!=='phoenix.modern-operator-pre-ddl-recovery-archive/v1'||archive.owner!==owner||archive.recoveryOwner!==recoveryOwner||
-  archive.requestedTargetSha!==revision||archive.originalRuntimeSha!==prep.context?.runtimeSha||archive.formalTargetSuccess!==false||
-  archive.schemaChanged!==false||archive.markerArchived!==true||archive.pending?.owner!==owner||archive.pending.status!=='HOLD'||
-  archive.pending.schema!=='phoenix.modern-schema-release-pending/v1'||archive.pending.phase!=='R_STOPPED'||archive.pending.sequence!==4||
-  archive.pending.targetSha!==revision||archive.pending.schemaRelease?.preparationSha256!==preparationSha256||
-  archive.pending.schemaRelease?.contextDigest!==canonicalDigest(prep.context)||stateDigest!==canonicalDigest(pending)||
-  !Number.isFinite(anchor.completedAtMs)||anchor.completedAtMs<=0||
-  archive.publicOpenSha256!==canonicalDigest(open)||evidence.archiveSha256!==canonicalDigest(archive)||
-  open?.schema!=='phoenix.modern-operator-original-open/v1'||open.owner!==owner||open.recoveryOwner!==recoveryOwner||
-  open.formalTargetSuccess!==false||open.manifest?.phase!=='OPEN'||open.manifest.targetSha!==archive.originalRuntimeSha||
-  prep.context?.owner!==owner||prep.context.targetSha!==revision||prep.context.candidateImageId!==container.imageId||
-  preparationSha256!==canonicalDigest(prep)||evidence.preparationSha256!==preparationSha256||
+ if(pending.owner!==owner||pending.status!=='HOLD'||pending.schema!=='phoenix.modern-schema-release-pending/v1'||
+  preDdlPhase<0||pending.sequence!==4+preDdlPhase||pending.targetSha!==revision||
+  pending.schemaRelease?.preparationSha256!==preparationSha256||pending.schemaRelease?.contextDigest!==canonicalDigest(prep.context)||
+  stateDigest!==canonicalDigest(pending)||!Number.isFinite(anchor.completedAtMs)||anchor.completedAtMs<=0||
+  evidence.archiveSha256!==canonicalDigest(archive)||
   former?.length!==1||planned.containerId!==probes[0].id||planned.imageId!==container.imageId||planned.owner!==owner||
   planned.network!=='none'||planned.readonly!==true||planned.running!==false||planned.exitCode!==0||
   planned.productionAuthority!==false||!match(HASH,planned.inventorySha256))hold('RECOVERED_INVENTORY_ARCHIVE_REQUIRED');
