@@ -105,7 +105,10 @@ function fixture(){
     validatePreparation:(_record,when)=>{assert.equal(when,Date.parse(at(6)));return {context,preparationSha256};},
     readApproval:(_context,{now})=>{assert.equal(now(),Date.parse(at(6)));return {contextDigest,approvalSha256};},
     privateRuntime:{
-      digest:async file=>{assert.equal(file,rawCatalog.path);return {...rawCatalog,sha256:flags.rawSha256};},
+      digest:async file=>{
+        assert.ok([rawCatalog.path,rawCatalog.path.replace('hold-observation','before')].includes(file));
+        return {...rawCatalog,path:file,sha256:flags.rawSha256};
+      },
       createDirectory:(id,role)=>{assert.equal(id,recoveryOwner);assert.equal(role,'recovery');return '/protected/recovery';},
     },
     client:{async start(){events.push('reader-start');},async close(){events.push('reader-close');},async query(sql){
@@ -178,8 +181,18 @@ function fixture(){
   };
   const terminateFirst=()=>Object.assign(flags,{running:false,previousStartedAt:at(8),finishedAt:at(9)});
   const resumeOriginal=()=>Object.assign(flags,{running:true,startedAt:at(10),newBoot});
+  const failReadChannel=()=>{
+    registry.delete(key('session-closed'));
+    Object.assign(registry.get(`recovery-modern-schema-${owner}.json`),{
+      nativeLedger:{status:'UNAVAILABLE'},nativeExecutors:{status:'UNAVAILABLE'},
+    });
+    registry.set(key('fenced-audit-boundary'),{});
+    registry.set(key('supervisor-first-hold'),{schema:'phoenix.modern-schema-supervisor-first-hold/v1',owner,contextDigest,
+      pendingPhase:'R_STOPPED',failure:{source:'SUPERVISOR',stage:'FENCED_BACKUP',code:'MODERN_SCHEMA_BACKUP_HOLD=CLEANUP_UNRESOLVED'}});
+    registry.set(key('before-schema'),{...holdCatalog,stage:'before',raw:{...rawCatalog,path:rawCatalog.path.replace('hold-observation','before')}});
+  };
   return {context,flags,parameters,dependencies,registry,directories,events,key,keyStep,oldLease,manifest,pins,installed,stop,
-    firstStartKey,firstStart,terminateFirst,resumeOriginal,
+    firstStartKey,firstStart,terminateFirst,resumeOriginal,failReadChannel,
     verifier:()=>createModernSchemaOperatorRecoveryVerifier(parameters,dependencies)};
 }
 
@@ -259,7 +272,7 @@ test('old-session reuse, missing closure, orphan later intents and driver direct
   const f=fixture();
   await assert.rejects(createModernSchemaOperatorRecoveryVerifier({...f.parameters,recoveryLease:f.oldLease},f.dependencies),/DISTINCT_NEW_SESSION/);
   const close=f.registry.get(f.key('session-closed'));f.registry.delete(f.key('session-closed'));
-  await assert.rejects(f.verifier(),/session-closed/);
+  await assert.rejects(f.verifier(),/supervisor-first-hold/);
   f.registry.set(f.key('session-closed'),close);
   f.registry.set(f.keyStep('DDL_STARTED',7),{});
   await assert.rejects(f.verifier(),/LATER_EFFECT_OR_INTENT_PRESENT/);
@@ -268,6 +281,44 @@ test('old-session reuse, missing closure, orphan later intents and driver direct
   await assert.rejects(f.verifier(),/LATER_EXECUTION_DIRECTORY_PRESENT/);
   assert.deepEqual(f.events,[]);
 });
+
+test('a failed historical read connection uses a new stopped baseline and preserves all unavailable records',async()=>{
+  const f=fixture();f.failReadChannel();
+  const recovery=await f.verifier();
+  const stopped=await recovery.captureStopped();
+  f.resumeOriginal();
+  const resumed=await recovery.verifyStarted();
+  assert.equal(resumed.stoppedCheckpointSha256,canonicalDigest(stopped));
+  assert.equal(resumed.formalTargetSuccess,false);
+  assert.equal(f.registry.has(f.key('session-closed')),false);
+  assert.equal(f.registry.get(`recovery-modern-schema-${f.context.owner}.json`).nativeLedger.status,'UNAVAILABLE');
+  await recovery.close();
+});
+
+test('read connection loss cannot replace a missing audit or divergent pre-DDL and hold catalogs',async()=>{
+  const f=fixture();f.failReadChannel();
+  f.registry.delete(f.key('fenced-audit-boundary'));
+  await assert.rejects(f.verifier(),/ORIGINAL_READ_CHANNEL_LOSS_EVIDENCE_REQUIRED/);
+  f.registry.set(f.key('fenced-audit-boundary'),{});
+  f.registry.get(f.key('before-schema')).schemaSha256=hash('9');
+  await assert.rejects(f.verifier(),/ORIGINAL_READ_CHANNEL_LOSS_EVIDENCE_REQUIRED/);
+});
+
+for(const [flag,value,error] of [
+  ['oldPresent',true,/ORIGINAL_SESSION_REAPPEARED/],
+  ['leaseOk',false,/NEW_RECOVERY_LEASE_NOT_OBSERVED/],
+  ['foreign',true,/UNKNOWN_OR_NEW_DATABASE_EXECUTOR/],
+  ['ledgerSha256',hash('f'),/NATIVE_LEDGER_CHANGED/],
+  ['catalogSha256',hash('9'),/NATIVE_SCHEMA_CHANGED/],
+]){
+  test(`read connection loss still refuses a new baseline when ${flag} differs`,async()=>{
+    const f=fixture();f.failReadChannel();
+    const recovery=await f.verifier();
+    f.flags[flag]=value;
+    await assert.rejects(recovery.captureStopped(),error);
+    await recovery.close();
+  });
+}
 
 test('the historical hold catalog is tied to its protected native raw bytes',async()=>{
   const f=fixture();
