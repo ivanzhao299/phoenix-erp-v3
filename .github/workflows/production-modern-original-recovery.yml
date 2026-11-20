@@ -1,0 +1,53 @@
+name: Production stopped original API recovery
+
+on:
+  workflow_dispatch:
+    inputs:
+      original_release_owner:
+        description: 'Original API release run and attempt'
+        required: true
+        type: string
+      original_attempted_sha:
+        description: 'Exact failed API release revision'
+        required: true
+        type: string
+      committed_recovery_owner:
+        description: 'Recovery run and attempt with a verified original OPEN intent'
+        required: false
+        type: string
+      approve_stopped_original:
+        description: 'Approve recovery of the verified original API before DDL'
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-modern-original-recovery
+  cancel-in-progress: false
+
+jobs:
+  recover:
+    name: Verify and recover original API before DDL
+    if: github.ref == 'refs/heads/main' && inputs.approve_stopped_original == true
+    runs-on: ubuntu-latest
+    timeout-minutes: 36
+    environment: production
+    steps:
+      - uses: actions/checkout@v5
+      - name: Execute owned original recovery
+        env:
+          ORIGINAL_RELEASE_OWNER: ${{ inputs.original_release_owner }}
+          ORIGINAL_ATTEMPTED_SHA: ${{ inputs.original_attempted_sha }}
+          OPERATOR_COMMITTED_OWNER: ${{ inputs.committed_recovery_owner }}
+          APPROVE_STOPPED_ORIGINAL: ${{ inputs.approve_stopped_original }}
+          MODERN_SCHEMA_SSH_USER: ${{ secrets.DEPLOY_USER }}
+          MODERN_SCHEMA_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -Eeuo pipefail
+          set +x
+          umask 077
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          node scripts/ops/production-modern-schema-operator-workflow.mjs
