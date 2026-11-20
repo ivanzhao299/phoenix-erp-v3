@@ -82,3 +82,35 @@ test('lossless facts omit only a top-level timestamp and reject duplicate or mal
  assert.notDeepEqual(losslessJsonFacts(a,{omitTopLevel:['checked_at']}),losslessJsonFacts(b.replace('must stay','changed'),{omitTopLevel:['checked_at']}));
  for(const raw of ['{"x":1,"x":2}','[1,]','{"x":01}','{"x":NaN}','true trailing','{"x":"bad\\q"}'])assert.throws(()=>losslessJsonFacts(raw));
 });
+
+function fencedFixture(elapsed) {
+ const f=fixture();
+ const proof={schema:'phoenix.modern-schema-fenced-audit-observation/v1',owner:f.context.owner,contextDigest:canonicalDigest(f.context),
+  phase:'R_STOPPED',generation:84,leaseSha256:'a'.repeat(64),ingressIdentitySha256:'b'.repeat(64),
+  backgroundSha256:'c'.repeat(64),checkedAt:f.sampleStartedAt};
+ f.sampleFinishedAt=new Date(Date.parse(f.sampleStartedAt)+elapsed).toISOString();
+ f.fences={before:proof,after:{...proof,checkedAt:f.sampleFinishedAt}};
+ return f;
+}
+
+test('the extended audit time applies only to two matching protected fenced observations',()=>{
+ const f=fencedFixture(120000);
+ const result=compareStableLegacyAudit(f);
+ assert.deepEqual(result.fenceEvidence,{beforeSha256:canonicalDigest(f.fences.before),afterSha256:canonicalDigest(f.fences.after)});
+ assert.equal(result.releaseAuthorized,false);
+ delete f.fences;
+ assert.throws(()=>compareStableLegacyAudit(f),/TIME_UNVERIFIED/);
+ assert.throws(()=>compareStableLegacyAudit(fencedFixture(120001)),/TIME_UNVERIFIED/);
+});
+
+test('changed lease, generation or ingress and incomplete time evidence never extend the audit window',()=>{
+ for(const mutate of [
+  fences=>{delete fences.after;},fences=>{fences.after.leaseSha256='d'.repeat(64);},fences=>{fences.after.generation++;},
+  fences=>{fences.after.ingressIdentitySha256='d'.repeat(64);},fences=>{fences.after.backgroundSha256='d'.repeat(64);},
+  fences=>{fences.after.phase='DDL_STARTED';},fences=>{fences.before.checkedAt=time(6);},
+  fences=>{fences.after.checkedAt=time(4);},fences=>{fences.after.checkedAt=time(12);},
+ ]){
+  const f=fencedFixture(98000);mutate(f.fences);
+  assert.throws(()=>compareStableLegacyAudit(f),/FENCED_AUDIT_BOUNDARY_UNVERIFIED/);
+ }
+});
