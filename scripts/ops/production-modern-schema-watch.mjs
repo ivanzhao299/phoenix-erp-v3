@@ -56,11 +56,38 @@ export class ModernSchemaExecutorWatch {
   if(this.resources.has(record.containerId))fail('CREATION_RECEIPT_REPLAY');this.resources.set(record.containerId,structuredClone(record));
  }
  allowReadonlyBackup(entry,applicationName){
-  if(!(entry?.child instanceof ChildProcess)||!['fenced-backup','schema-before','schema-after'].some(suffix=>applicationName===`phoenix-schema-${this.context.owner}-${suffix}`)
+  if(this.readCommand||!(entry?.child instanceof ChildProcess)||this.runtime.isCommand(entry)!==true||!['fenced-backup','schema-before','schema-after'].some(suffix=>applicationName===`phoenix-schema-${this.context.owner}-${suffix}`)
    ||!entry.child.spawnargs.includes(this.preparation.originalSnapshot.containers.db.id)||!entry.child.spawnargs.some(arg=>arg.includes('exec env -i ')&&arg.includes(' pg_dump ')))fail('ORIGINAL_READONLY_BACKUP_PROCESS_REQUIRED');
   verifyModernSchemaChild(entry,this.inspectProcess(entry.pin.pid));this.readCommand={entry,applicationName,native:null};
  }
- clearReadonlyBackup(){this.readCommand=null;}
+ clearReadonlyBackup(){
+  const command=this.readCommand;
+  return this.serially(async()=>{
+   if(!command||command!==this.readCommand||command.entry.child.exitCode!==0||command.entry.child.signalCode!==null)
+    fail('REMOTE_READONLY_BACKUP_RESULT_UNRESOLVED');
+   // Retire only after all earlier observations and a fresh native sample.
+   await this.observeNative();
+   this.readCommand=null;
+  });
+ }
+ observeReadonlyBackupBackend(database){
+  const command=this.readCommand;
+  if(!command)return {pin:null,closing:false};
+  const matches=database.sessions.filter(row=>row.applicationName===command.applicationName&&row.clientAddress===null);
+  if(matches.length>1)fail('SECOND_READONLY_BACKUP_EXECUTOR');
+  const {entry}=command,child=entry.child;
+  const finished=child.exitCode!==null||child.signalCode!==null;
+  if(finished){
+   if(child.exitCode!==0||child.signalCode!==null)fail('REMOTE_READONLY_BACKUP_RESULT_UNRESOLVED');
+  }else verifyModernSchemaChild(entry,this.inspectProcess(entry.pin.pid));
+  if(!matches.length)return {pin:null,closing:false};
+  const {pid,databaseOid,backendStartMicros,applicationName,clientAddress}=matches[0];
+  const pin={pid,databaseOid,backendStartMicros,
+   nativeProofSha256:canonicalDigest({pid,databaseOid,backendStartMicros,applicationName,clientAddress,child:entry.pin})};
+  if(command.native&&!same(command.native,pin))fail('READONLY_BACKUP_BACKEND_CHANGED');
+  command.native??=pin;
+  return {pin,closing:finished};
+ }
  allowNativeMigration(backend,resource){
   if(!resource.backendProof||!same(backend.backend,resource.backendProof.backend)||backend.containerId!==resource.containerId||backend.networkId!==this.preparation.hostSurface.ingressScope.networkId)fail('NATIVE_MIGRATION_BINDING_REQUIRED');
   if(this.migration&&this.migration.containerId!==backend.containerId)fail('PRIOR_MIGRATION_STILL_REGISTERED');
@@ -360,16 +387,11 @@ export class ModernSchemaExecutorWatch {
    return {values,runtime,schedulers};
   });
   for(const reader of this.readers){if(reader.client.broken)fail('OWNED_READ_TRANSPORT_LOST');verifyModernSchemaChild(reader.entry,this.inspectProcess(reader.entry.pin.pid));}
-  const {rows:[{observation}]}=await this.client.query(MODERN_SCHEMA_EXECUTOR_SQL),database=JSON.parse(observation),ownedReadSessions=this.readers.map(reader=>reader.pin);
-  if(this.readCommand){
-   const matches=database.sessions.filter(row=>row.applicationName===this.readCommand.applicationName&&row.clientAddress===null);
-   const child=this.readCommand.entry.child,finished=child.exitCode!==null||child.signalCode!==null;
-   if(finished){if(child.exitCode!==0||child.signalCode||matches.length)fail('REMOTE_READONLY_BACKUP_RESULT_UNRESOLVED');}
-   else verifyModernSchemaChild(this.readCommand.entry,this.inspectProcess(this.readCommand.entry.pin.pid));
-   if(matches.length>1)fail('SECOND_READONLY_BACKUP_EXECUTOR');
-   if(matches.length){const actual=matches[0],pin={pid:actual.pid,databaseOid:actual.databaseOid,backendStartMicros:actual.backendStartMicros,nativeProofSha256:canonicalDigest({pid:actual.pid,databaseOid:actual.databaseOid,backendStartMicros:actual.backendStartMicros,applicationName:actual.applicationName,clientAddress:actual.clientAddress,child:this.readCommand.entry.pin})};
-    if(this.readCommand.native&&!same(this.readCommand.native,pin))fail('READONLY_BACKUP_BACKEND_CHANGED');this.readCommand.native??=pin;ownedReadSessions.push(pin);}
-  }
+  const readDatabase=async()=>{
+   const {rows:[{observation}]}=await this.client.query(MODERN_SCHEMA_EXECUTOR_SQL);
+   return JSON.parse(observation);
+  };
+  let database=await readDatabase();
   let migration=this.migration;
   if(!migration){
    for(const resource of this.resources.values()){
@@ -383,7 +405,21 @@ export class ModernSchemaExecutorWatch {
     if(this.waitingMigration&&!same(this.waitingMigration,migration))fail('WAITING_MIGRATION_BACKEND_CHANGED');this.waitingMigration??=migration;
    }
   }
-  const executors=classifyModernSchemaDatabaseExecutors(database,{...runtime,originalLease:this.rootLease,migration,ownedReadSessions});
+  const classify=(value,pin)=>{
+   const ownedReadSessions=this.readers.map(reader=>reader.pin);
+   if(pin)ownedReadSessions.push(pin);
+   return classifyModernSchemaDatabaseExecutors(value,{...runtime,originalLease:this.rootLease,migration,ownedReadSessions});
+  };
+  const command=this.observeReadonlyBackupBackend(database);
+  let executors=classify(database,command.pin);
+  if(command.closing){
+   // The snapshot can have been taken before the verified local exit. Such
+   // a sample cannot prove the backend persisted or that it has stopped.
+   await this.check();
+   database=await readDatabase();
+   if(this.observeReadonlyBackupBackend(database).pin)fail('REMOTE_READONLY_BACKUP_RESULT_UNRESOLVED');
+   executors=classify(database,null);
+  }
   await this.check();if(initialize)this.baseline=new Map(values.map(value=>[value.id,identity(value)]));this.last={schema:'phoenix.modern-schema-original-session-observation/v1',owner:this.context.owner,contextDigest:canonicalDigest(this.context),phase:this.state.read().phase,
    executors,containersSha256:canonicalDigest(values.map(identity)),schedulerSha256:canonicalDigest(schedulers),oldRuntimeStopped:runtime.oldRuntimeStopped,
    candidate:this.candidate,checkedAt:new Date().toISOString(),model:'TRUSTED_ROOT_FD9_EXCLUSIVE_WRITER'};return this.last;

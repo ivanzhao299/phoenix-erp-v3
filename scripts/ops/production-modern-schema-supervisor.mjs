@@ -283,8 +283,8 @@ export async function superviseModernSchemaRelease(env,input){
    onDumpStarted(entry,app){
     enter('BEFORE_CATALOG_CHILD_ADMISSION');readCommand.onDumpStarted(entry,app);enter('BEFORE_CATALOG_DUMP');
    },
-   onDumpStopped(){
-    readCommand.onDumpStopped();enter('BEFORE_CATALOG_RECEIPT');
+   async onDumpStopped(){
+    await readCommand.onDumpStopped();enter('BEFORE_CATALOG_RECEIPT');
    },
   });
   enter('FENCED_DISK');
