@@ -213,3 +213,45 @@ test('the formal host surface sorts retained pins and holds on two exact probes 
  assert.equal(forward.inertArtifactsSha256,backward.inertArtifactsSha256);
  assert.throws(()=>collect([first,duplicate]),/MODERN_SCHEMA_EXECUTORS_HOLD=RETAINED_INVENTORY_OWNER_REUSED/);
 });
+
+test('only the two exact isolated probes of an archived pre-DDL recovery are retained',()=>{
+ const first=retainedFixture(),second=retainedFixture({id:hash('c')});
+ const {native,log,receipt}=first,owner=native.labels['phoenix.schema.owner'],targetSha=native.labels['org.opencontainers.image.revision'];
+ const recoveryOwner='9100-2',runtimeSha=sha('e');
+ const preparation={schema:'phoenix.modern-schema-preparation/v1',context:{owner,targetSha,runtimeSha,candidateImageId:native.imageId},
+  ownedResources:[{containerId:native.id,imageId:native.imageId,owner,role:'readonly-inventory',revision:targetSha,network:'none',readonly:true,
+   running:false,exitCode:0,productionAuthority:false,inventorySha256:canonicalDigest(log.records)}]};
+ const preparationSha256=canonicalDigest(preparation);
+ const pending={schema:'phoenix.modern-schema-release-pending/v1',owner,targetSha,status:'HOLD',phase:'R_STOPPED',sequence:4,
+  schemaRelease:{preparationSha256,contextDigest:canonicalDigest(preparation.context)}};
+ const open={schema:'phoenix.modern-operator-original-open/v1',owner,recoveryOwner,formalTargetSuccess:false,manifest:{phase:'OPEN',targetSha:runtimeSha}};
+ const archive={schema:'phoenix.modern-operator-pre-ddl-recovery-archive/v1',owner,recoveryOwner,requestedTargetSha:targetSha,originalRuntimeSha:runtimeSha,
+  pending:{...pending,stateDigest:canonicalDigest(pending)},formalTargetSuccess:false,schemaChanged:false,markerArchived:true,publicOpenSha256:canonicalDigest(open)};
+ const evidence={schema:'phoenix.modern-operator-retained-inventory/v1',owner,recoveryOwner,targetSha,preparationSha256,archiveSha256:canonicalDigest(archive),
+  migrationAuthorized:false,probes:[{id:native.id,stage:'prepare',identitySha256:canonicalDigest(native)},
+   {id:second.native.id,stage:'supervise',identitySha256:canonicalDigest(second.native)}]};
+ for(const f of [first,second]){
+  const files=new Map([
+   [`schema-release-operator-retained-inventory-${owner}.json`,evidence],
+   [`schema-release-operator-archive-${recoveryOwner}.json`,archive],
+   [`schema-release-operator-public-open-verified-${recoveryOwner}.json`,open],
+   [`schema-release-preparation-${owner}.json`,{...preparation,preparationSha256}],
+  ]);
+  f.dependencies.absent=file=>!files.has(path.basename(file));
+  f.dependencies.readRecovered=file=>({value:files.get(path.basename(file)),completedAtMs:receipt.completedAtMs});
+  f.dependencies.readReceipt=()=>assert.fail('Archived inventory cannot be mistaken for unused preparation');
+ }
+ const pins=[first,second].map(f=>collectRetainedModernSchemaInventory(f.native,f.binding,f.dependencies));
+ assert.deepEqual(pins.map(pin=>pin.probeStage),['prepare','supervise']);
+ for(const [i,f] of [first,second].entries()){
+  assert.equal(pins[i].classification,'RETAINED_PRE_DDL_RECOVERED_READONLY_INVENTORY');
+  verifyRetainedModernSchemaInventoryPin(f.native,pins[i],f.dependencies);
+ }
+ const other=retainedFixture({id:hash('f')});
+ assert.throws(()=>collectRetainedModernSchemaInventory(other.native,first.binding,first.dependencies),/RECOVERED_INVENTORY_EXACT_NATIVE_PIN_REQUIRED/);
+ second.native.restartPolicy.Name='always';
+ assert.throws(()=>verifyRetainedModernSchemaInventoryPin(second.native,pins[1],second.dependencies),/RETAINED_INVENTORY_PIN_CHANGED/);
+ archive.schemaChanged=true;
+ evidence.archiveSha256=canonicalDigest(archive);
+ assert.throws(()=>collectRetainedModernSchemaInventory(first.native,first.binding,first.dependencies),/RECOVERED_INVENTORY_ARCHIVE_REQUIRED/);
+});
