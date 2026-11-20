@@ -176,7 +176,7 @@ function reviewedSource(sha, filename) {
   return command('/usr/bin/git', ['show', sha + ':' + filename]);
 }
 
-function createProductionSsh(env, hostEnv) {
+export function createProductionSsh(env, hostEnv, {operatorRecovery=false} = {}) {
   if (!match(/^[A-Za-z_][A-Za-z0-9_.-]{0,30}$/, env.MODERN_SCHEMA_SSH_USER) ||
       typeof env.MODERN_SCHEMA_SSH_KEY !== 'string' || env.MODERN_SCHEMA_SSH_KEY.length > 16384 ||
       !/^-----BEGIN (?:OPENSSH |RSA |EC )?PRIVATE KEY-----\r?\n/.test(env.MODERN_SCHEMA_SSH_KEY) ||
@@ -196,7 +196,8 @@ function createProductionSsh(env, hostEnv) {
     for (const [key, filename] of Object.entries(payloads)) {
       hostEnv[key] = Buffer.from(reviewedSource(executionSha, filename)).toString('base64');
     }
-    const source = reviewedSource(executionSha, 'scripts/ops/production-modern-schema-ssh.sh');
+    const source = reviewedSource(executionSha, operatorRecovery
+      ? 'scripts/ops/production-modern-schema-operator-ssh.sh' : 'scripts/ops/production-modern-schema-ssh.sh');
     const exportArgs = Object.entries(hostEnv).map(([key, value]) => key + '=' + quote(value));
     const baseCmd = ['/usr/bin/env -u BASH_ENV -u ENV', ...exportArgs, '/bin/bash --noprofile --norc -c', quote(source), '--'].join(' ');
     const flags = ['-F', '/dev/null', '-T', '-i', keyFile,
@@ -207,7 +208,8 @@ function createProductionSsh(env, hostEnv) {
       '-l', env.MODERN_SCHEMA_SSH_USER, host];
     return {
       exchange(operation, stdin) {
-        if (!['prepare', 'run', 'finalize'].includes(operation)) throw fail('SSH_OPERATION_REQUIRED');
+        const allowed = operatorRecovery ? ['recover-original'] : ['prepare', 'run', 'finalize'];
+        if (!allowed.includes(operation)) throw fail('SSH_OPERATION_REQUIRED');
         try {
           return { status: 0, stdout: command('/usr/bin/ssh', [...flags, baseCmd + ' ' + operation], stdin, 34 * 60 * 1000) };
         } catch (error) {
