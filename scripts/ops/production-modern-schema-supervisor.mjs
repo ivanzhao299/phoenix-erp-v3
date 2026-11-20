@@ -241,6 +241,7 @@ export async function superviseModernSchemaRelease(env,input){
    sampleStartedAt:startedAt,sampleFinishedAt:finishedAt,fences});
   return {fresh,comparison,fences};
  };
+ const auditFenced=trackFencedStages=>watch.observeFencedFacts(state.read().phase,()=>audit({fenced:true,trackFencedStages}));
  try{
   await client.start();await watchClient.start();clientsStarted=true;
   runtime.children.add(pinModernSchemaChild(client.child));runtime.children.add(pinModernSchemaChild(watchClient.child));
@@ -311,7 +312,7 @@ export async function superviseModernSchemaRelease(env,input){
   if(!stopped.oldDatabaseSessionsGone)fail('ORIGINAL_DATABASE_SESSIONS_NOT_GONE');
   enter('R_STOPPED_STEP');
   await advance('R_STOP_INTENT','R_STOPPED',{runtimeStopReceipt:stopped,nativeExecutors:stoppedObservation.executors});
-  const fresh=await audit({fenced:true,trackFencedStages:true});
+  const fresh=await auditFenced(true);
   store.immutable(`schema-release-fenced-audit-boundary-${context.owner}.json`,{fences:fresh.fences,comparison:fresh.comparison});
   enter('FRESH_LEDGER');
   const ledger=await captureModernSchemaLedger(client);if(ledger.sha256!==context.beforeLedgerSha256)fail('FENCED_LEDGER_CHANGED');beforeLedger=ledger.ledger;
@@ -357,7 +358,7 @@ export async function superviseModernSchemaRelease(env,input){
   await advance('FRESH_RECHECKED','BACKUP_VERIFIED',{backupReceiptFile:fencedBackup.receiptPath,backupReceiptSha256:canonicalDigest(fencedBackup.receipt),
    rehearsalFile:path.join(rehearsal.directory,'rehearsal-receipt.json'),rehearsalSha256:canonicalDigest(rehearsal.evidence)});
   enter('FINAL_PRE_DDL_RECHECK');
-  const finalAudit=await audit({fenced:true});
+  const finalAudit=await auditFenced(false);
   store.immutable(`schema-release-final-audit-boundary-${context.owner}.json`,{fences:finalAudit.fences,comparison:finalAudit.comparison});
   await watch.observe();await ingress.observe();await advance('BACKUP_VERIFIED','DDL_STARTED',{beforeLedgerSha256:context.beforeLedgerSha256,backupReceiptSha256:canonicalDigest(fencedBackup.receipt),originalLeaseSha256:canonicalDigest(rootLease),pendingPlanSha256:canonicalDigest(context.pendingMigrations)});
   enter('DDL_AND_AFTER');

@@ -469,11 +469,15 @@ export class ModernSchemaExecutorWatch {
  });}
  async duringFencedFacts(phase,read){
   const pending=this.state.read();
-  if(!['R_STOPPED','FRESH_RECHECKED','DDL_STARTED'].includes(phase)||typeof read!=='function'||!this.running||this.fencedFactRead||
+  if(!['R_STOPPED','FRESH_RECHECKED','BACKUP_VERIFIED','DDL_STARTED'].includes(phase)||typeof read!=='function'||!this.running||this.fencedFactRead||
    pending.status!=='RUNNING'||pending.phase!==phase||this.state.ddlIntentExists()!==(phase==='DDL_STARTED')||
    this.migration||this.waitingMigration||this.readCommand||this.composeChild)fail('ORIGINAL_FENCED_FACT_READ_REQUIRED');
   this.assertHealthy();
   this.fencedFactRead=true;
+  if(this.timer!==null){
+   clearTimeout(this.timer);this.timer=null;
+   this.scheduleObservation();
+  }
   try{
    // Only fixed collectors run here. The native lease heartbeat still runs
    // on its own cadence, and the supervisor observes each effect boundary.

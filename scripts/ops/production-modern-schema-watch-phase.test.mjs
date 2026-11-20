@@ -577,6 +577,10 @@ test('only the read-only backup fact capture spreads the recurring native census
  assert.equal(await watch.duringFencedFacts('DDL_STARTED',async()=>facts),facts);
  state.phase='FRESH_RECHECKED';watch.state.ddlIntentExists=()=>false;
  assert.equal(await watch.duringFencedFacts('FRESH_RECHECKED',async()=>facts),facts);
+ state.phase='BACKUP_VERIFIED';
+ assert.equal(await watch.duringFencedFacts('BACKUP_VERIFIED',async()=>facts),facts);
+ state.status='HOLD';
+ await assert.rejects(watch.duringFencedFacts('BACKUP_VERIFIED',async()=>assert.fail('Held release reached audit')),/ORIGINAL_FENCED_FACT_READ_REQUIRED/);
 });
 
 test('rehearsal or post-DDL facts cannot be returned before their second full observation',async()=>{
@@ -608,7 +612,9 @@ for(const inFlight of [false,true]){
   await watch.observe();
   const capture=watch.duringFencedFacts('R_STOPPED',()=>facts);
   await Promise.resolve();
-  t.mock.timers.tick(500);
+  t.mock.timers.tick(29999);
+  assert.equal(count,1);
+  t.mock.timers.tick(1);
   assert.equal(count,2);
   if(!inFlight)await watch.pending;
 
