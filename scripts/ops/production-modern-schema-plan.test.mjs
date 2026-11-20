@@ -255,3 +255,61 @@ test('only the two exact isolated probes of an archived pre-DDL recovery are ret
  evidence.archiveSha256=canonicalDigest(archive);
  assert.throws(()=>collectRetainedModernSchemaInventory(first.native,first.binding,first.dependencies),/RECOVERED_INVENTORY_ARCHIVE_REQUIRED/);
 });
+
+test('original-lease recovery retains probes only with a sealed OPEN and native original session exit',()=>{
+ const f=retainedFixture(),{native,log,dependencies}=f,owner=native.labels['phoenix.schema.owner'],
+  targetSha=native.labels['org.opencontainers.image.revision'],runtimeSha=sha('e');
+ const lhs={schema:'phoenix.modern-schema-preparation/v1',context:{owner,targetSha,runtimeSha,candidateImageId:native.imageId,beforeLedgerSha256:hash('f')},
+  ownedResources:[{containerId:native.id,imageId:native.imageId,owner,role:'readonly-inventory',network:'none',readonly:true,
+   running:false,exitCode:0,productionAuthority:false,inventorySha256:canonicalDigest(log.records)}]};
+ const contextDigest=canonicalDigest(lhs.context),preparationSha256=canonicalDigest(lhs);
+ const database={databaseOid:43,systemIdentifier:'421',postmasterStartMicros:'17329'};
+ const lease={sessionPid:37,database},leaseSha256=canonicalDigest(lease);
+ const pending={schema:'phoenix.modern-schema-release-pending/v1',owner,targetSha,status:'HOLD',phase:'R_STOPPED',sequence:4,lease,
+  schemaRelease:{contextDigest,preparationSha256}};
+ const stateDigest=canonicalDigest(pending),originalRuntime={containerId:hash('4'),revision:runtimeSha};
+ const proof={schema:'phoenix.modern-schema-original-recovery-proof/v1',owner,contextDigest,outcome:'ABORTED_BEFORE_DDL_ORIGINAL_R_RECOVERED',
+  targetSha:runtimeSha,attemptedTargetSha:targetSha,formalTargetSuccess:false,schemaChanged:false,businessActivation:false,originalLease:lease,originalRuntime};
+ const publicManifest={phase:'OPEN',owner,targetSha:runtimeSha,participants:[originalRuntime]};
+ const intent={schema:'phoenix.modern-schema-recovery-open-commit-intent/v1',owner,contextDigest,pendingStateDigest:stateDigest,publicManifest,
+  leaseSha256,recoveryProofSha256:canonicalDigest(proof)};
+ const committed={schema:'phoenix.modern-schema-recovery-open-committed/v1',owner,contextDigest,recoveredSha:runtimeSha,attemptedTargetSha:targetSha,
+  commitIntentSha256:canonicalDigest(intent),publicManifestSha256:canonicalDigest(publicManifest),formalTargetSuccess:false,
+  backgroundAdmissionCommitted:true,releaseAuthorized:false};
+ const archive={schema:'phoenix.modern-schema-recovered-forward-archive/v1',owner,contextDigest,preparationSha256,originalLedgerSha256:lhs.context.beforeLedgerSha256,
+  recoveredSha:runtimeSha,attemptedTargetSha:targetSha,defaultOff:true,formalTargetSuccess:false,automaticRetry:false,originalSessionSha256:leaseSha256,
+  pending:{...pending,stateDigest},committed};
+ const closed={schema:'phoenix.modern-schema-original-session-closed/v1',outcome:'ORIGINAL_SESSION_ABSENT',
+  originalLeaseSha256:leaseSha256,nativeObservation:{...database,primary:true,originalSessionPresent:false}};
+ const registry={schema:'phoenix.modern-operator-retained-inventory/v1',owner,recoveryOwner:owner,targetSha,preparationSha256,
+  archiveSha256:canonicalDigest(archive),proofKind:'originalLease',migrationAuthorized:false,
+  probes:[{id:native.id,stage:'prepare',identitySha256:canonicalDigest(native)},{id:hash('c'),stage:'supervise',identitySha256:hash('f')}]};
+ const named={
+  'operator-retained-inventory':registry,'original-recovery-forward-archive':archive,'original-recovery-open-commit-intent':intent,
+  'original-recovery-verified':proof,'session-closed':closed,'preparation':{...lhs,preparationSha256},
+ };
+ const get=file=>named[path.basename(file).slice('schema-release-'.length,-(`-${owner}.json`.length))];
+ dependencies.absent=file=>!get(file);
+ dependencies.readRecovered=file=>({value:get(file),completedAtMs:f.receipt.completedAtMs});
+ const pin=collectRetainedModernSchemaInventory(native,f.binding,dependencies);
+ assert.equal(pin.classification,'RETAINED_PRE_DDL_RECOVERED_READONLY_INVENTORY');
+ verifyRetainedModernSchemaInventoryPin(native,pin,dependencies);
+ const rebind = (phase,sequence) => {
+  archive.pending={...pending,phase,sequence};
+  archive.pending.stateDigest=canonicalDigest(archive.pending);
+  intent.pendingStateDigest=archive.pending.stateDigest;
+  committed.commitIntentSha256=canonicalDigest(intent);
+  registry.archiveSha256=canonicalDigest(archive);
+ };
+ for(const [phase,sequence] of [['FRESH_RECHECKED',5],['BACKUP_VERIFIED',6]]){
+  rebind(phase,sequence);
+  assert.equal(collectRetainedModernSchemaInventory(native,f.binding,dependencies).probeStage,'prepare');
+ }
+ for(const [phase,sequence] of [['FRESH_RECHECKED',4],['DDL_STARTED',7]]){
+  rebind(phase,sequence);
+  assert.throws(()=>collectRetainedModernSchemaInventory(native,f.binding,dependencies),/RECOVERED_INVENTORY_ARCHIVE_REQUIRED/);
+ }
+ rebind('R_STOPPED',4);
+ closed.nativeObservation.originalSessionPresent=true;
+ assert.throws(()=>collectRetainedModernSchemaInventory(native,f.binding,dependencies),/RECOVERED_INVENTORY_ARCHIVE_REQUIRED/);
+});

@@ -106,16 +106,19 @@ export function createModernSchemaFirstHoldEvidence(now=()=>performance.now()){
   record(error,source){
    if(first)return first;
    if(!['SUPERVISOR','EXECUTOR_WATCH','LEASE_HEARTBEAT'].includes(source))fail('INVALID_PRIVATE_HOLD_SOURCE');
-   let code='UNCLASSIFIED';
+   let code='UNCLASSIFIED',nativeProcessReason=null;
    try{
     const message=error?.message;
     if(HOLD_CODES.has(message))code=message;
-    else if(['BEFORE_CATALOG_OUTPUT','BEFORE_CATALOG_RECEIPT'].includes(stage)){
+    const reason=error?.nativeProcessCensusReason;
+    if(message==='MAINTENANCE_HOLD=ROOT_READER_MODERN_PROCESS_VISIBILITY_REQUIRED'&&
+     ['PERMISSION_DENIED','IDENTITY_UNVERIFIED','EXISTENCE_UNVERIFIED','PROC_ENTRY_CHURN_PERSISTS'].includes(reason))nativeProcessReason=reason;
+    if(code==='UNCLASSIFIED'&&['BEFORE_CATALOG_OUTPUT','BEFORE_CATALOG_RECEIPT'].includes(stage)){
      const errno=error?.code;
      if(['EACCES','EEXIST','EIO','EMFILE','ENFILE','ENOENT','ENOSPC','EPERM','EROFS'].includes(errno))code='CATALOG_FILE_'+errno;
     }
    }catch{/* Even an error without readable fields receives a bounded code. */}
-   first=Object.freeze({source,code,
+   first=Object.freeze({source,code,...(nativeProcessReason?{nativeProcessReason}:{}),
     ...current(),priorStages:Object.freeze(elapsed.map(item=>Object.freeze(item)))});
    return first;
   },

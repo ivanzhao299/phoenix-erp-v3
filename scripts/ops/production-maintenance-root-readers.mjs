@@ -83,16 +83,57 @@ function containerIdentity(id){
  * observations only and never classify, approve or register an executor. */
 export function observeMaintenanceProcessIdentity(pid){guard();return processIdentity(pid).value;}
 export function observeMaintenanceContainerIdentity(id){guard();if(!ID.test(id))hold('ROOT_READER_CONTAINER_ID');return containerIdentity(id);}
-/** One guarded native /proc sweep. Modern callers do not hide EACCES or a
- * process that remains present but cannot be identified. */
-export function captureModernSchemaProcessIdentities(){
- guard();const result=[];
- for(const name of fs.readdirSync('/proc').filter(name=>/^[1-9][0-9]*$/.test(name))){
-  const pid=Number(name);try{result.push(processIdentity(pid,{strictVisibility:true}).value);}catch(error){
-   try{fs.lstatSync(`/proc/${pid}`);}catch(gone){if(['ENOENT','ESRCH'].includes(gone.code))continue;}
-   hold('ROOT_READER_MODERN_PROCESS_VISIBILITY_REQUIRED');
+const nativeTaskMissing=error=>['ENOENT','ESRCH'].includes(error?.code);
+function rejectNativeProcessCensus(reason){
+ const error=Error('MAINTENANCE_HOLD=ROOT_READER_MODERN_PROCESS_VISIBILITY_REQUIRED');
+ error.nativeProcessCensusReason=reason;
+ throw error;
+}
+/** Retry only an interrupted procfs read. Discard every incomplete census,
+ * require a complete replacement, and keep unreadable live tasks as HOLD. */
+export function collectStableModernProcessCensus({list,observe,present}){
+ const unresolved=new Set();
+ for(let attempt=0;attempt<3;attempt++){
+  const pids=list(),result=[];
+  let incomplete=false;
+  for(const pid of unresolved){
+   if(!pids.includes(pid)&&!present(pid))unresolved.delete(pid);
   }
+  for(const pid of pids){
+   try{
+    result.push(observe(pid));
+    unresolved.delete(pid);
+   }catch(error){
+    if(!nativeTaskMissing(error))rejectNativeProcessCensus(['EACCES','EPERM'].includes(error?.code)?'PERMISSION_DENIED':'IDENTITY_UNVERIFIED');
+    if(!present(pid)){
+     unresolved.delete(pid);
+     continue;
+    }
+    incomplete=true;
+    unresolved.add(pid);
+    break;
+   }
+  }
+  if(!incomplete&&unresolved.size===0)return result;
  }
+ rejectNativeProcessCensus('PROC_ENTRY_CHURN_PERSISTS');
+}
+
+/** A guarded native /proc census. Permission or identity failures cannot
+ * become admission, even if a later read would omit the process. */
+export function captureModernSchemaProcessIdentities(){
+ guard();
+ const result=collectStableModernProcessCensus({
+  list:()=>fs.readdirSync('/proc').filter(name=>/^[1-9][0-9]*$/.test(name)).map(Number),
+  observe:pid=>processIdentity(pid,{strictVisibility:true}).value,
+  present:pid=>{
+   try{fs.lstatSync(`/proc/${pid}`);return true;}
+   catch(error){
+    if(nativeTaskMissing(error))return false;
+    rejectNativeProcessCensus(['EACCES','EPERM'].includes(error?.code)?'PERMISSION_DENIED':'EXISTENCE_UNVERIFIED');
+   }
+  },
+ });
  guard();return result;
 }
 
