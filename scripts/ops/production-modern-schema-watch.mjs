@@ -29,7 +29,7 @@ export class ModernSchemaExecutorWatch {
   this.captureProcesses=dependencies.captureProcesses??captureModernSchemaProcessIdentities;this.inspectProcess=dependencies.processIdentity??observeMaintenanceProcessIdentity;
   this.historicalCompose=dependencies.historicalCompose;
   this.resources=new Map(preparation.ownedResources.map(record=>[record.containerId,record]));this.baseline=null;this.foreignProcesses=new Map();this.readers=[];this.readCommand=null;
-  this.migration=null;this.waitingMigration=null;this.composeChild=null;this.descendants=[];this.candidate=null;this.last=null;this.failed=null;this.timer=null;this.pending=Promise.resolve();this.serial=Promise.resolve();this.running=false;
+  this.migration=null;this.waitingMigration=null;this.composeChild=null;this.descendants=[];this.candidate=null;this.last=null;this.failed=null;this.timer=null;this.pending=Promise.resolve();this.serial=Promise.resolve();this.running=false;this.fencedFactRead=false;
  }
  async check(){if(this.failed)throw this.failed;this.runtime.guard();if(await this.admit()!==true)fail('ORIGINAL_NATIVE_LEASE_REQUIRED');this.runtime.guard();}
  async registerReadTransport(client){
@@ -456,12 +456,34 @@ export class ModernSchemaExecutorWatch {
   const schedulers=captureMaintenanceSchedulers({includeDatabaseEntrypoints:true});if(canonicalDigest(schedulers)!==this.preparation.hostSurface.schedulerSha256)fail('RECOVERY_SCHEDULER_CHANGED');
   if(await admit()!==true)fail('SAME_LEASE_PRE_DDL_RECOVERY_HOST_REQUIRED');this.runtime.guard();return true;
  });}
- start(){
-  if(this.running||!this.baseline)fail('SINGLE_INITIALIZED_WATCH_REQUIRED');this.running=true;
-  const next=()=>{if(!this.running)return;this.timer=setTimeout(()=>{
-   this.pending=this.observe().catch(error=>{this.failed??=error;this.running=false;}).finally(next);
-  },500);};next();
+ async duringFencedBackupFacts(read){
+  const pending=this.state.read();
+  if(typeof read!=='function'||!this.running||this.fencedFactRead||pending.status!=='RUNNING'||pending.phase!=='R_STOPPED'||this.state.ddlIntentExists())
+   fail('ORIGINAL_FENCED_FACT_READ_REQUIRED');
+  this.fencedFactRead=true;
+  try{
+   await this.observe();
+   // The backup publishes the complete read-only baseline before its next
+   // full observation so a later hold can still use the recovery baseline.
+   return await read();
+  }finally{
+   this.fencedFactRead=false;
+   if(this.timer!==null){
+    clearTimeout(this.timer);this.timer=null;
+    this.scheduleObservation();
+   }
+  }
  }
- async stop(){this.running=false;clearTimeout(this.timer);await this.pending;if(this.failed)throw this.failed;}
+ scheduleObservation(){
+  if(!this.running||this.timer!==null)return;
+  this.timer=setTimeout(()=>{
+   this.timer=null;
+   this.pending=this.observe().catch(error=>{this.failed??=error;this.running=false;}).finally(()=>this.scheduleObservation());
+  },this.fencedFactRead?4000:500);
+ }
+ start(){
+  if(this.running||!this.baseline)fail('SINGLE_INITIALIZED_WATCH_REQUIRED');this.running=true;this.scheduleObservation();
+ }
+ async stop(){this.running=false;clearTimeout(this.timer);this.timer=null;await this.pending;if(this.failed)throw this.failed;}
  assertHealthy(){if(this.failed)throw this.failed;return true;}
 }

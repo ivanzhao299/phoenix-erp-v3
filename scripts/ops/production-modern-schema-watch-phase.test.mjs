@@ -528,3 +528,59 @@ test('pg_dump retirement waits for the active sample and verifies native absence
  await retiring;
  assert.equal(watch.readCommand,null);
 });
+
+test('only the read-only backup fact capture spreads the recurring native census',async()=>{
+ const {watch}=fixture();
+ const state={phase:'R_STOPPED',status:'RUNNING'};
+ watch.state={read:()=>state,ddlIntentExists:()=>false};
+ watch.running=true;
+ let observations=0;
+ watch.observe=async()=>{observations++;};
+ const facts={readOnly:true};
+ const got=await watch.duringFencedBackupFacts(async()=>{
+  assert.equal(watch.fencedFactRead,true);
+  assert.equal(observations,1);
+  await assert.rejects(watch.duringFencedBackupFacts(async()=>assert.fail('Nested capture reached reader')),/ORIGINAL_FENCED_FACT_READ_REQUIRED/);
+  return facts;
+ });
+ assert.equal(got,facts);
+ assert.equal(watch.fencedFactRead,false);
+ await assert.rejects(watch.duringFencedBackupFacts(async()=>{throw Error('fact read failed');}),/fact read failed/);
+ assert.equal(watch.fencedFactRead,false);
+ state.phase='DDL_STARTED';
+ await assert.rejects(watch.duringFencedBackupFacts(async()=>assert.fail('DDL reached reader')),/ORIGINAL_FENCED_FACT_READ_REQUIRED/);
+});
+
+for(const inFlight of [false,true]){
+ test('fenced fact capture restores one ordinary census timer with '+(inFlight?'an active observation':'a queued observation'),async t=>{
+  t.mock.timers.enable({apis:['setTimeout']});
+  const {watch}=fixture();
+  watch.state={read:()=>({phase:'R_STOPPED',status:'RUNNING'}),ddlIntentExists:()=>false};
+  watch.baseline=new Map();
+  let finishFacts,finishObservation,count=0;
+  const facts=new Promise(resolve=>{finishFacts=resolve;});
+  const observation=new Promise(resolve=>{finishObservation=resolve;});
+  watch.observe=async()=>{if(++count===2&&inFlight)await observation;};
+  watch.start();
+  const capture=watch.duringFencedBackupFacts(()=>facts);
+  await Promise.resolve();
+  t.mock.timers.tick(500);
+  assert.equal(count,2);
+  if(!inFlight)await watch.pending;
+
+  finishFacts();await capture;
+  if(inFlight){
+   t.mock.timers.tick(4000);
+   assert.equal(count,2);
+   finishObservation();await watch.pending;
+  }
+  t.mock.timers.tick(499);
+  assert.equal(count,2);
+  t.mock.timers.tick(1);
+  await watch.pending;
+  assert.equal(count,3);
+  await watch.stop();
+  t.mock.timers.tick(4000);
+  assert.equal(count,3);
+ });
+}
