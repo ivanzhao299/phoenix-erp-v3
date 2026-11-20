@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';import test from 'node:test';
 import path from 'node:path';
 import {canonicalDigest} from './production-maintenance-receipts.mjs';
-import {classifyModernSchemaDatabaseExecutors,collectReviewedRetainedRehearsalApi} from './production-modern-schema-executors.mjs';
+import {classifyModernSchemaDatabaseExecutors,collectReviewedRetainedRehearsalApi,inspectModernSchemaContainer,inspectModernSchemaContainers} from './production-modern-schema-executors.mjs';
 const originalLease={database:{databaseOid:16400,systemIdentifier:'5839',postmasterStartMicros:'10000'},sessionPid:321,backendStartMicros:'11000'};
 const session=(pid,address,app='ordinary')=>({pid,databaseOid:16400,backendStartMicros:String(11000+pid),clientAddress:address,openTransaction:false,applicationName:app});
 const original={...session(321,null),backendStartMicros:'11000'};
@@ -135,5 +135,23 @@ test('a stopped rehearsal can be retained after a failed final prepare check wit
   const f=completedRehearsalWithFailedPreparation();
   change(f);
   assert.throws(()=>collectReviewedRetainedRehearsalApi(f.container,f.request,f.deps),/RETAINED_REHEARSAL_API_/);
+ }
+});
+
+test('the native batch inventory preserves every exact result and refuses missing or reordered IDs',()=>{
+ const ids=Array.from({length:19},(_value,index)=>(index+1).toString(16).padStart(64,'0'));
+ const line=id=>[id,'sha256:'+'a'.repeat(64),'/owned-of-'+id.slice(-2),{Running:false},0,'none',{}, {}, {},[],false,'',true,['ALL'],'phoenix',
+  {Name:'no'},['node'],['version']].map(JSON.stringify).join('\t');
+ const calls=[];
+ const inspectBatch=(binary,args)=>{
+  assert.deepEqual([binary,...args.slice(0,4)],['/usr/bin/docker','inspect','--type','container','--format']);
+  calls.push(args.length-5);
+  return args.slice(5).map(line).join('\n');
+ };
+ assert.deepEqual(inspectModernSchemaContainers(ids,inspectBatch),ids.map(id=>inspectModernSchemaContainer(id,()=>line(id))));
+ assert.deepEqual(calls,[16,3]);
+ assert.throws(()=>inspectModernSchemaContainers([ids[0],ids[0]],()=>assert.fail('Duplicate input reached Docker')),/CONTAINER_IDENTITY_REQUIRED/);
+ for(const rows of [[line(ids[0])],[line(ids[1]),line(ids[0])],[line(ids[0]),line(ids[0])]]){
+  assert.throws(()=>inspectModernSchemaContainers(ids.slice(0,2),()=>rows.join('\n')),/CONTAINER_IDENTITY_REQUIRED/);
  }
 });

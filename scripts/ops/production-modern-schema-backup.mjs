@@ -88,7 +88,10 @@ export async function createModernSchemaBackup({owner,stage,client,databasePin,p
   const disk=fs.statfsSync(directory,{bigint:true});if(disk.bavail*disk.bsize<BigInt(database.bytes)*4n+2147483648n)fail('SPACE_FOR_PROTECTED_BACKUP_AND_REHEARSAL_REQUIRED');
   reason='FACTS';
   const factsStartedAt=performance.now();
-  const facts=await captureModernSchemaFacts(client,{withinSnapshot:true});
+  const readFacts=()=>captureModernSchemaFacts(client,{withinSnapshot:true});
+  // Keep the original lease heartbeat and full boundary checks. The watch
+  // spreads its repeated host census while this native read-only snapshot is read.
+  const facts=await (stage==='fenced'&&dependencies.duringFencedFacts?dependencies.duringFencedFacts(readFacts):readFacts());
   const factsElapsedMs=Math.ceil(performance.now()-factsStartedAt);
   reason='LEDGER';
   await client.query('SET LOCAL search_path=public');
