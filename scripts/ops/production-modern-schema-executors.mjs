@@ -8,6 +8,7 @@ import {compileOwnedIngressRules} from './maintenance-ingress-policy.mjs';
 import {captureMaintenanceSchedulers,observeMaintenanceProcessIdentity,observeMaintenanceContainerIdentity,captureModernSchemaProcessIdentities} from './production-maintenance-root-readers.mjs';
 import {verifyModernSchemaChild} from './production-modern-schema-processes.mjs';
 import {collectRetainedModernSchemaInventory,retainedModernSchemaInventorySlot} from './production-modern-schema-inventory.mjs';
+import {isFailedModernSchemaPreparation} from './production-modern-schema-public-preparation.mjs';
 import {matchesModernSchemaRehearsalVolume} from './production-modern-schema-postgres.mjs';
 import {collectHistoricalComposeSchemaArtifacts,isHistoricalComposeSchemaCandidate} from './production-modern-schema-historical-compose.mjs';
 const fail=code=>{throw Error('MODERN_SCHEMA_EXECUTORS_HOLD='+code);};
@@ -70,6 +71,46 @@ export function inspectModernSchemaContainer(id,command=run){
  return {id,imageId,name,state,restarts,networkMode,ports,networks,labels,mounts:orderedMounts,privileged,pidMode,readonly,capDrop,user,restartPolicy,entrypoint,cmd};
 }
 
+function retainFailedPreparationRehearsal({owner,directory,rehearsal,receipt,record,container},read,lstat){
+ const file=name=>path.join(directory,name);
+ const transport=file(`.transport-${owner}-prepare.receipt`);
+ const exists=name=>Boolean(lstat(file(name),{throwIfNoEntry:false}));
+ const failed=read(transport);
+ const backup=read(file(`schema-release-prepare-backup-${owner}/backup-receipt.json`));
+ const records=['rehearsal-database','rehearsal-migration-show','rehearsal-migration-run','rehearsal-original-api','rehearsal-candidate-api'];
+ const expected=receipt.resources;
+ const ended=Date.parse(container.state?.FinishedAt),sealed=lstat(transport).mtimeMs;
+ if(!isFailedModernSchemaPreparation(failed,{owner,targetSha:receipt.targetSha})||
+  failed.failure!=='HOST_SURFACE_FOREIGN_CONTAINER_OWNERSHIP_UNVERIFIED'||
+  [`schema-release-preparation-${owner}.json`,`.transport-${owner}-run.receipt`,`schema-release-consumed-${owner}.json`,
+   `schema-release-identity-${owner}.json`,`schema-release-approval-${owner}.json`].some(exists)||
+  backup.schema!=='phoenix.modern-schema-protected-backup/v1'||backup.owner!==owner||backup.stage!=='prepare'||
+  backup.format!=='POSTGRES_CUSTOM'||backup.productionRestore!==false||backup.tocVerified!==true||backup.fullParseVerified!==true||
+  !ID.test(backup.backup?.sha256??'')||backup.backup.sha256!==receipt.backupSha256||
+  !ID.test(backup.sourceLedgerSha256??'')||backup.sourceLedgerSha256!==receipt.beforeLedgerSha256||
+  receipt.businessFactsUnchanged!==true||receipt.originalRuntimeReady!==true||receipt.candidateReady!==true||
+  !Array.isArray(expected)||expected.length!==records.length||!same(expected.map(pin=>pin.role).sort(),records.sort())||
+  new Set(expected.map(pin=>pin.containerId)).size!==records.length||
+  !expected.every(pin=>{
+   if(!ID.test(pin.containerId??'')||pin.owner!==owner||pin.stage!=='prepare'||pin.networkId!==record.networkId||pin.volume!==record.volume)return false;
+   const created=path.join(rehearsal,`created-${pin.containerId}.json`);
+   return Boolean(lstat(created,{throwIfNoEntry:false}))&&same(read(created),pin);
+  })||
+  expected.find(pin=>pin.role==='rehearsal-candidate-api').imageId!==receipt.candidateImageId||
+  !Number.isFinite(ended)||!Number.isFinite(sealed)||ended>sealed||lstat(path.join(rehearsal,'rehearsal-receipt.json')).mtimeMs>sealed)
+  fail('RETAINED_REHEARSAL_API_FAILED_PREPARATION_UNVERIFIED');
+ for(const [role,revision,imageKey] of [['original-api',receipt.runtimeSha,'originalRuntimeProofSha256'],
+  ['candidate-api',receipt.targetSha,'candidateRuntimeProofSha256']]){
+  const owned=expected.find(pin=>pin.role==='rehearsal-'+role);
+  const proof=read(path.join(rehearsal,role+'-runtime-proof.json'));
+  if(proof?.role!==role||proof.revision!==revision||proof.containerId!==owned.containerId||proof.imageId!==owned.imageId||
+   proof.cleanTerm!==true||proof.crossedCronMinute!==true||proof.backgroundWrites!==0||
+   !Number.isFinite(Date.parse(proof.startedAt))||Date.parse(proof.startedAt)>sealed||canonicalDigest(proof)!==receipt[imageKey])
+   fail('RETAINED_REHEARSAL_API_FAILED_PREPARATION_UNVERIFIED');
+ }
+ return {failedPreparationRehearsalSha256:canonicalDigest({receipt:failed,backupSha256:canonicalDigest(backup),rehearsalSha256:canonicalDigest(receipt)})};
+}
+
 export function collectReviewedRetainedRehearsalApi(container,{owner,networkId,targetSha,registration},dependencies={}){
  const formerOwner=container.labels?.['phoenix.schema.owner'],role=container.labels?.['phoenix.schema.role'];
  const runtimeRole=role?.slice('rehearsal-'.length),state=container.state;
@@ -85,14 +126,13 @@ export function collectReviewedRetainedRehearsalApi(container,{owner,networkId,t
  const rehearsal=path.join(directory,`schema-release-prepare-rehearsal-${formerOwner}`),mount=container.mounts[0];
  if(container.mounts.length!==1||mount.Type!=='bind'||mount.Source!==path.join(rehearsal,'control-'+runtimeRole)||
   mount.Destination!=='/run/phoenix-background-control'||mount.RW!==false)fail('RETAINED_REHEARSAL_API_MOUNT_CHANGED');
- const prepared=read(path.join(directory,`schema-release-preparation-${formerOwner}.json`));
- const {preparationSha256,...preparation}=prepared;
+ const preparedPath=path.join(directory,`schema-release-preparation-${formerOwner}.json`);
+ const lstat=dependencies.lstat??fs.lstatSync;
  const receipt=read(path.join(rehearsal,'rehearsal-receipt.json'));
  const record=read(path.join(rehearsal,`created-${container.id}.json`));
  const proof=read(path.join(rehearsal,`${runtimeRole}-runtime-proof.json`));
  const original=role==='rehearsal-original-api',revision=original?receipt.runtimeSha:receipt.targetSha;
- if(preparationSha256!==canonicalDigest(preparation)||prepared.context?.owner!==formerOwner||prepared.context.targetSha!==receipt.targetSha||
-  prepared.rehearsalDirectory!==rehearsal||!same(prepared.oldRuntimeCompatibility,receipt)||receipt.schema!=='phoenix.modern-schema-isolated-rehearsal/v1'||
+ if(receipt.schema!=='phoenix.modern-schema-isolated-rehearsal/v1'||
   receipt.owner!==formerOwner||receipt.outcome!=='PASS'||receipt.isolatedRestore!==true||receipt.productionMutation!==false||receipt.backgroundWrites!==0||
   !Array.isArray(receipt.resources)||receipt.resources.filter(item=>item.containerId===container.id).length!==1||
   !same(receipt.resources.find(item=>item.containerId===container.id),record)||record.role!==role||record.owner!==formerOwner||record.stage!=='prepare'||
@@ -101,13 +141,23 @@ export function collectReviewedRetainedRehearsalApi(container,{owner,networkId,t
   canonicalDigest(proof)!==(original?receipt.originalRuntimeProofSha256:receipt.candidateRuntimeProofSha256)||proof.role!==runtimeRole||
   proof.containerId!==container.id||proof.imageId!==container.imageId||proof.revision!==revision||proof.startedAt!==state.StartedAt||
   proof.cleanTerm!==true||proof.crossedCronMinute!==true||proof.backgroundWrites!==0)fail('RETAINED_REHEARSAL_API_RECEIPT_CHANGED');
+ let provenance;
+ if(lstat(preparedPath,{throwIfNoEntry:false})){
+  const prepared=read(preparedPath),{preparationSha256,...preparation}=prepared;
+  if(preparationSha256!==canonicalDigest(preparation)||prepared.context?.owner!==formerOwner||
+   prepared.context.targetSha!==receipt.targetSha||prepared.rehearsalDirectory!==rehearsal||!same(prepared.oldRuntimeCompatibility,receipt))
+   fail('RETAINED_REHEARSAL_API_RECEIPT_CHANGED');
+  provenance={preparationSha256};
+ }else{
+  provenance=retainFailedPreparationRehearsal({owner:formerOwner,directory,rehearsal,receipt,record,container},read,lstat);
+ }
  const [network]=JSON.parse(command('/usr/bin/docker',['network','inspect',record.networkId]));
  if(network?.Id!==record.networkId||network.Internal!==true||network.EnableIPv6!==false||network.Driver!=='bridge'||
   network.Labels?.['phoenix.schema.owner']!==formerOwner||network.Labels?.['phoenix.schema.role']!=='rehearsal-network'||
   Object.keys(network.Containers??{}).length)fail('RETAINED_REHEARSAL_API_NETWORK_CHANGED');
  if(command('/usr/bin/docker',['image','inspect',container.imageId,'--format','{{index .Config.Labels "org.opencontainers.image.revision"}}'])!==revision)fail('RETAINED_REHEARSAL_API_SOURCE_CHANGED');
  command('/usr/bin/git',['-c',`safe.directory=${CONTRACT.repository}`,'-C',CONTRACT.repository,'merge-base','--is-ancestor',receipt.targetSha,targetSha]);
- return {id:container.id,identitySha256:canonicalDigest(container),classification:'RETAINED_REVIEWED_REHEARSAL_API',formerOwner,revision,preparationSha256};
+ return {id:container.id,identitySha256:canonicalDigest(container),classification:'RETAINED_REVIEWED_REHEARSAL_API',formerOwner,revision,...provenance};
 }
 export function collectModernSchemaHostSurface(preSnapshot,dependencies={}){
  const guard=dependencies.guard??(()=>verifyContext(CONTRACT.repository,CONTRACT.stateDirectory)),command=dependencies.run??run;
