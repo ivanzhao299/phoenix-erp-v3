@@ -157,7 +157,7 @@ function bindHistoricalStop({store,owner,recoveryLease,readApproval,validatePrep
     const audit=store.read(key('fenced-audit-boundary')),evidence=steps[5].payload.evidence;
     if(first.schema!=='phoenix.modern-schema-supervisor-first-hold/v1'||first.owner!==owner||first.contextDigest!==contextDigest||
         first.pendingPhase!==pending.phase||first.failure?.source!=='SUPERVISOR'||first.failure.stage!=='FENCED_BACKUP'||
-        first.failure.code!=='MODERN_SCHEMA_BACKUP_HOLD=CLEANUP_UNRESOLVED'||
+        !['MODERN_SCHEMA_BACKUP_HOLD=CLEANUP_UNRESOLVED','MODERN_SCHEMA_BACKUP_HOLD=WINDOW'].includes(first.failure.code)||
         beforeCatalog.schema!==catalog.schema||beforeCatalog.owner!==owner||beforeCatalog.stage!=='before'||
         beforeCatalog.readOnly!==true||beforeCatalog.releaseAuthorized!==false||!same(beforeCatalog.databasePin,db)||
         beforeCatalog.schemaSha256!==catalog.schemaSha256||evidence.schemaFile!==store.file(key('before-schema'))||

@@ -338,11 +338,22 @@ export class ModernSchemaExecutorWatch {
   return {values:late.values,runtime:late.runtime};
  }
  serially(work){const result=this.serial.then(work);this.serial=result.catch(()=>{});return result;}
+ async observeFencedFactExecutors(){
+  const {rows:[{observation}]}=await this.client.query(MODERN_SCHEMA_EXECUTOR_SQL);
+  return classifyModernSchemaDatabaseExecutors(JSON.parse(observation),{
+   runtimeAddress:this.preparation.hostSurface.runtimeAddress,originalLease:this.rootLease,oldRuntimeStopped:true,
+   ownedReadSessions:this.readers.map(reader=>reader.pin),
+  });
+ }
  startLeaseHeartbeat(onError){
   let pending=null,active=true;
   const timer=setInterval(()=>{
    if(!active||pending)return;
-   pending=this.serially(async()=>{if(active)await this.check();})
+   pending=this.serially(async()=>{
+    if(!active)return;
+    await this.check();
+    if(this.fencedFactRead)await this.observeFencedFactExecutors();
+   })
     .catch(error=>{active=false;clearInterval(timer);onError(error);})
     .finally(()=>{pending=null;});
   },1000);
@@ -456,16 +467,16 @@ export class ModernSchemaExecutorWatch {
   const schedulers=captureMaintenanceSchedulers({includeDatabaseEntrypoints:true});if(canonicalDigest(schedulers)!==this.preparation.hostSurface.schedulerSha256)fail('RECOVERY_SCHEDULER_CHANGED');
   if(await admit()!==true)fail('SAME_LEASE_PRE_DDL_RECOVERY_HOST_REQUIRED');this.runtime.guard();return true;
  });}
- async duringFencedBackupFacts(read){
+ async duringFencedFacts(phase,read){
   const pending=this.state.read();
-  if(typeof read!=='function'||!this.running||this.fencedFactRead||pending.status!=='RUNNING'||pending.phase!=='R_STOPPED'||this.state.ddlIntentExists())
-   fail('ORIGINAL_FENCED_FACT_READ_REQUIRED');
+  if(!['R_STOPPED','FRESH_RECHECKED','DDL_STARTED'].includes(phase)||typeof read!=='function'||!this.running||this.fencedFactRead||
+   pending.status!=='RUNNING'||pending.phase!==phase||this.state.ddlIntentExists()!==(phase==='DDL_STARTED')||
+   this.migration||this.waitingMigration||this.readCommand||this.composeChild)fail('ORIGINAL_FENCED_FACT_READ_REQUIRED');
   this.assertHealthy();
   this.fencedFactRead=true;
   try{
-   // The supervisor observes the full host before opening the snapshot.
-   // The backup publishes the complete read-only baseline before its next
-   // full observation so a later hold can still use the recovery baseline.
+   // Only fixed collectors run here. The native lease heartbeat still runs
+   // on its own cadence, and the supervisor observes each effect boundary.
    return await read();
   }finally{
    this.fencedFactRead=false;
@@ -475,12 +486,18 @@ export class ModernSchemaExecutorWatch {
    }
   }
  }
+ async observeFencedFacts(phase,read){
+  await this.observe();
+  const facts=await this.duringFencedFacts(phase,read);
+  await this.observe();
+  return facts;
+ }
  scheduleObservation(){
   if(!this.running||this.timer!==null)return;
   this.timer=setTimeout(()=>{
    this.timer=null;
    this.pending=this.observe().catch(error=>{this.failed??=error;this.running=false;}).finally(()=>this.scheduleObservation());
-  },this.fencedFactRead?4000:500);
+  },this.fencedFactRead?30000:500);
  }
  start(){
   if(this.running||!this.baseline)fail('SINGLE_INITIALIZED_WATCH_REQUIRED');this.running=true;this.scheduleObservation();

@@ -7,6 +7,7 @@ import {CONTRACT,verifyContext} from './production-config-guard.mjs';
 import {inspectTrustedDirectory,assertSameDirectory,readPinnedFile} from './production-trusted-paths.mjs';
 import {canonicalDigest,same} from './production-maintenance-receipts.mjs';
 import {LEGACY_EGG_SCOPE_CLASSIFICATIONS} from './production-legacy-egg-audit-evidence.mjs';
+import {INITIAL_MODERN_SCHEMA_PROFILE} from './production-modern-schema-facts.mjs';
 const SHA=/^[a-f0-9]{40}$/,HASH=/^[a-f0-9]{64}$/,OWNER=/^[1-9][0-9]{0,19}-[1-9][0-9]{0,9}$/;
 const token=value=>typeof value==='string'&&/^[A-Za-z0-9][A-Za-z0-9_.:@/-]{0,199}$/.test(value);
 const record=value=>value&&Object.getPrototypeOf(value)===Object.prototype&&Object.values(Object.getOwnPropertyDescriptors(value)).every(d=>Object.hasOwn(d,'value'));
@@ -18,6 +19,7 @@ const pathPattern=/^apps\/api\/src\/database\/migrations\/(\d{13})-([A-Za-z][A-Z
 export const MODERN_SCHEMA_SCOPE=Object.freeze({schemaMigration:true,deployMode:'api',buildApi:true,buildWeb:false,runDeployMigration:false,
   featureRollout:'OFF',chanjetPolicy:'HOLD',legacyFirstSwitch:false,automaticRollback:false,businessCutover:false});
 export const MODERN_SCHEMA_CONTEXT='phoenix.modern-schema-release-context/v1';
+export const INITIAL_MODERN_SCHEMA_WINDOW_MS=55*60*1000;
 const contextFields=['schema','owner','floorSha','runtimeSha','targetSha','window','databaseIdentitySha256','runtimeSnapshotSha256',
   'candidateImageId','candidateInventorySha256','sourceInventorySha256','runtimeInventorySha256','beforeLedgerSha256','pendingMigrations','changedMigrationPaths',
   'originalAuditSha256','originalConclusion','auditEvidenceSha256','testManifestSha256','oldRuntimeCompatibilitySha256','defaultOffEvidenceSha256','ingressScopeSha256'];
@@ -25,13 +27,18 @@ export function validateModernSchemaContext(value){
  if(!exact(value,contextFields)||value.schema!==MODERN_SCHEMA_CONTEXT||!match(OWNER,value.owner)
   ||![value.floorSha,value.runtimeSha,value.targetSha].every(sha=>match(SHA,sha))||value.runtimeSha===value.targetSha||value.floorSha===value.targetSha
   ||!exact(value.window,['start','end'])||![value.window.start,value.window.end].every(iso)
-  ||Date.parse(value.window.end)<=Date.parse(value.window.start)||Date.parse(value.window.end)-Date.parse(value.window.start)>1800000
+  ||Date.parse(value.window.end)<=Date.parse(value.window.start)
   ||!match(/^sha256:[a-f0-9]{64}$/,value.candidateImageId))fail('EXACT_CONTEXT_REQUIRED');
  const hashes=['databaseIdentitySha256','runtimeSnapshotSha256','candidateInventorySha256','sourceInventorySha256','runtimeInventorySha256','beforeLedgerSha256',
   'originalAuditSha256','auditEvidenceSha256','oldRuntimeCompatibilitySha256','defaultOffEvidenceSha256','ingressScopeSha256'];
  if(!hashes.every(key=>match(HASH,value[key]))||!['GO','HOLD'].includes(value.originalConclusion)
   ||(value.originalConclusion==='HOLD'?!match(HASH,value.testManifestSha256):value.testManifestSha256!==null))fail('EXACT_REVIEW_EVIDENCE_REQUIRED');
  validateModernSchemaMigrationPlan(Object.fromEntries(modernSchemaMigrationPlanFields.map(key=>[key,value[key]])));
+ const duration=Date.parse(value.window.end)-Date.parse(value.window.start),profile=INITIAL_MODERN_SCHEMA_PROFILE;
+ if(duration>30*60*1000&&(duration!==INITIAL_MODERN_SCHEMA_WINDOW_MS||value.originalConclusion!=='HOLD'||
+  value.floorSha!==profile.floorSha||value.runtimeSha!==profile.runtimeSha||value.pendingMigrations.length!==profile.pendingCount||
+  value.sourceInventorySha256!==profile.sourceInventorySha256||value.runtimeInventorySha256!==profile.runtimeInventorySha256||
+  !same(value.pendingMigrations.map(unit=>unit.path).sort(),value.changedMigrationPaths)))fail('EXACT_CONTEXT_REQUIRED');
  return structuredClone(value);
 }
 export const modernSchemaMigrationPlanFields=Object.freeze(['targetSha','runtimeSha','beforeLedgerSha256','candidateImageId','candidateInventorySha256','sourceInventorySha256','runtimeInventorySha256','pendingMigrations','changedMigrationPaths']);

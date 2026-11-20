@@ -22,7 +22,9 @@ export async function verifyModernSchemaEffect({context,preparationSha256,rootLe
  const check=async()=>{privateRuntime.guard();if(await admit()!==true)fail('ORIGINAL_NATIVE_LEASE_REQUIRED');privateRuntime.guard();};await check();
  const verifiedLedger=await captureModernSchemaLedger(client),{ledger:afterLedger,sha256:afterLedgerSha256}=verifiedLedger;
  assertExactModernSchemaAfterLedger(beforeLedger,afterLedger,context);
- const afterFacts=await captureModernSchemaFacts(client,{projection:beforeFacts});assertModernSchemaBusinessUnchanged(beforeFacts,afterFacts);await check();
+ const readFacts=()=>captureModernSchemaFacts(client,{projection:beforeFacts});
+ const afterFacts=await (dependencies.duringFencedFacts?dependencies.duringFencedFacts(readFacts):readFacts());
+ assertModernSchemaBusinessUnchanged(beforeFacts,afterFacts);await check();
  const databaseIdentity={name:rootLease.database.name,schema:rootLease.database.schema,systemIdentifier:rootLease.database.systemIdentifier};
  const audit=()=>collectLegacyEggAuditEvidence(client,{targetSha:context.targetSha,floorSha:context.floorSha,runningApiSha:context.runtimeSha,ledgerSha256:afterLedgerSha256,
   migrationEvidenceSha256:modernSchemaMigrationEvidenceDigest(context),databaseIdentity,manifest:preparation.manifest});

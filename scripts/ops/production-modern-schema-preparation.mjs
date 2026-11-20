@@ -9,6 +9,7 @@ import {readBackgroundPrivate,readPublicManifest,validateParticipants} from './b
 import {inspectApiParticipant,verifyParticipantStatus} from './background-control-coordinator.mjs';
 import {canonicalDigest,same} from './production-maintenance-receipts.mjs';
 import {ModernSchemaRegistry,validateModernSchemaPreparation} from './production-modern-schema-registration.mjs';
+import {INITIAL_MODERN_SCHEMA_WINDOW_MS} from './production-modern-schema-authority.mjs';
 import {ModernSchemaPrivateRuntime} from './production-modern-schema-private.mjs';
 import {ModernSchemaReadClient} from './production-modern-schema-read-client.mjs';
 import {collectModernSchemaPlan} from './production-modern-schema-plan.mjs';
@@ -96,7 +97,7 @@ export async function prepareModernSchemaRelease(env,dependencies={}){
   stage('HISTORICAL_AUDIT');const source=await collectConfirmedLegacyScope(client,{targetSha:dispatch.targetSha}),facts=await captureModernSchemaFacts(client),off=defaultOffEvidenceFromFacts(dispatch.targetSha,facts,{stage:'BEFORE_SCHEMA',floor});
   // The formal window begins after the expensive read-only preparation
  // facts. The protected audit and every effect still fall inside it.
- const start=Date.now(),window={start:new Date(start).toISOString(),end:new Date(start+1800000).toISOString()};
+ const start=Date.now(),window={start:new Date(start).toISOString(),end:new Date(start+INITIAL_MODERN_SCHEMA_WINDOW_MS).toISOString()};
  const databaseIdentity={name:database.name,schema:database.schema,systemIdentifier:database.systemIdentifier};
   const context={schema:'phoenix.modern-schema-release-context/v1',owner:dispatch.owner,floorSha:dispatch.floorSha,runtimeSha:plan.runtimeSha,targetSha:dispatch.targetSha,window,
    databaseIdentitySha256:canonicalDigest(databaseIdentity),runtimeSnapshotSha256:canonicalDigest(initial.containers),candidateImageId,

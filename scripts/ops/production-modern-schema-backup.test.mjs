@@ -130,3 +130,14 @@ test('fenced evidence and pg_dump share the exported snapshot, and a rejected co
  assert.equal(refuse.log.includes('remote-native-check'),false);
  assert.deepEqual(refuse.records,[{schema:'phoenix.modern-schema-private-backup-hold/v1',failure:'SOURCE_GUARD',cleanup:[]}]);
 });
+
+test('an insufficient recovery window stops before pg_dump startup or cleanup',async t=>{
+ const f=fixture(t);
+ await assert.rejects(f.run('fenced',{assertFenced:async()=>{},assertRecoveryWindow:()=>{throw privateFailure();}}),
+  {message:hold+'WINDOW'});
+ assert.ok(f.log.includes('rollback'));
+ assert.equal(f.log.includes('database-dump'),false);
+ assert.equal(f.log.includes('remote-native-check'),false);
+ assert.equal(f.log.includes('remote-notify'),false);
+ assert.deepEqual(f.records,[{schema:'phoenix.modern-schema-private-backup-hold/v1',failure:'WINDOW',cleanup:[]}]);
+});
