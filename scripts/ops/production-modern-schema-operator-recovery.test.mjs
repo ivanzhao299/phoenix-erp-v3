@@ -191,8 +191,29 @@ function fixture(){
       pendingPhase:'R_STOPPED',failure:{source:'SUPERVISOR',stage:'FENCED_BACKUP',code:'MODERN_SCHEMA_BACKUP_HOLD=CLEANUP_UNRESOLVED'}});
     registry.set(key('before-schema'),{...holdCatalog,stage:'before',raw:{...rawCatalog,path:rawCatalog.path.replace('hold-observation','before')}});
   };
+  const failAfterFreshCheck=async()=>{
+    const ownerHold=registry.get(`recovery-modern-schema-${owner}.json`);
+    ownerHold.phase='FRESH_RECHECKED';
+    const facts=await dependencies.captureFacts();
+    const catalog={...holdCatalog,stage:'before',raw:{...rawCatalog,path:rawCatalog.path.replace('hold-observation','before')}};
+    const audit={comparison:{fenced:true}};
+    registry.set(key('before-facts'),facts);
+    registry.set(key('before-schema'),catalog);
+    registry.set(key('fenced-audit-boundary'),audit);
+    registry.set(key('supervisor-first-hold'),{schema:'phoenix.modern-schema-supervisor-first-hold/v1',owner,contextDigest,
+      pendingPhase:ownerHold.phase,failure:{source:'SUPERVISOR',stage:'FENCED_BACKUP',code:'MODERN_SCHEMA_BACKUP_HOLD=CLEANUP_UNRESOLVED'}});
+    const step={...binding,schema:'phoenix.modern-schema-release-step/v1',sequence:5,to:ownerHold.phase,from:'R_STOPPED',
+      previousDigest:pending.receiptSha256,recordedAt:at(7),payload:modernSchemaStepEvidence(context,ownerHold.phase,{
+        beforeLedgerSha256:context.beforeLedgerSha256,schemaFile:store.file(key('before-schema')),schemaSha256:canonicalDigest(catalog),
+        factsFile:store.file(key('before-facts')),factsSha256:canonicalDigest(facts),auditRecheckSha256:canonicalDigest(audit.comparison),
+        executorsSha256:hash('a'),
+      })};
+    registry.set(keyStep(ownerHold.phase,5),step);
+    const advanced={...pending,phase:ownerHold.phase,sequence:5,receiptSha256:canonicalDigest(step),updatedAt:at(8)};
+    registry.set('schema-release-pending.json',{...advanced,stateDigest:canonicalDigest(advanced)});
+  };
   return {context,flags,parameters,dependencies,registry,directories,events,key,keyStep,oldLease,manifest,pins,installed,stop,
-    firstStartKey,firstStart,terminateFirst,resumeOriginal,failReadChannel,
+    firstStartKey,firstStart,terminateFirst,resumeOriginal,failReadChannel,failAfterFreshCheck,
     verifier:()=>createModernSchemaOperatorRecoveryVerifier(parameters,dependencies)};
 }
 
@@ -293,6 +314,29 @@ test('a failed historical read connection uses a new stopped baseline and preser
   assert.equal(f.registry.has(f.key('session-closed')),false);
   assert.equal(f.registry.get(`recovery-modern-schema-${f.context.owner}.json`).nativeLedger.status,'UNAVAILABLE');
   await recovery.close();
+});
+
+test('a held fresh snapshot binds live stopped and restarted checkpoints to the original frozen facts',async()=>{
+  const f=fixture();await f.failAfterFreshCheck();
+  const operator=await f.verifier(),stopped=await operator.captureStopped();
+  assert.equal(stopped.factsSha256,canonicalDigest(f.registry.get(f.key('before-facts'))));
+  f.resumeOriginal();
+  assert.equal((await operator.verifyStarted()).outcome,'ORIGINAL_R_READY_UNDER_BOTH_FENCES');
+  await operator.close();
+});
+
+test('a fresh-snapshot hold rejects any later step, altered audit, or live facts drift before starting R',async()=>{
+  const f=fixture();await f.failAfterFreshCheck();
+  f.registry.set(f.keyStep('BACKUP_VERIFIED',6),{});
+  await assert.rejects(f.verifier(),/LATER_EFFECT_OR_INTENT_PRESENT/);
+  f.registry.delete(f.keyStep('BACKUP_VERIFIED',6));
+  f.registry.get(f.key('fenced-audit-boundary')).comparison.fenced=false;
+  await assert.rejects(f.verifier(),/EXACT_FROZEN_BACKUP_FACTS_REQUIRED/);
+  f.registry.get(f.key('fenced-audit-boundary')).comparison.fenced=true;
+  const operator=await f.verifier();
+  f.flags.factsSha256=hash('d');
+  await assert.rejects(operator.captureStopped(),/ORIGINAL_FROZEN_BACKUP_FACTS_CHANGED/);
+  await operator.close();
 });
 
 test('read connection loss cannot replace a missing audit or divergent pre-DDL and hold catalogs',async()=>{
