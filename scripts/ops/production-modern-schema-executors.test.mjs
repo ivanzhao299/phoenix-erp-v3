@@ -51,12 +51,12 @@ function rehearsalFixture(runtimeRole='original-api'){
   Labels:{'phoenix.schema.owner':owner,'phoenix.schema.role':'rehearsal-network'},Containers:{}};
  const request={owner:'12002-1',targetSha:'2'.repeat(40),networkId:'d'.repeat(64),
   registration:{id,owner:'REVIEWED_STOPPED_ISOLATED_REHEARSAL',identitySha256:'f'.repeat(64)}};
- const deps={directory,readJson:file=>files.get(file),run(binary,args){
+ const deps={directory,readJson:file=>files.get(file),lstat:file=>files.has(file)?{mtimeMs:Date.parse('2026-11-19T23:59:00Z')}:undefined,run(binary,args){
   if(args[0]==='network')return JSON.stringify([network]);
   if(args[0]==='image')return revision;
   assert.equal(binary,'/usr/bin/git');assert.deepEqual(args.slice(-4),['merge-base','--is-ancestor',targetSha,request.targetSha]);return '';
  }};
- return {container,request,deps,proof,network,revision};
+ return {container,request,deps,proof,network,revision,files,receipt,record,rehearsal,targetSha};
 }
 
 test('only pinned, stopped earlier rehearsal APIs with sealed native role proof remain inert',()=>{
@@ -81,5 +81,59 @@ test('changes to runtime identity, the mounted control, custody or isolated netw
  for(const mutate of mutations){
   const fixture=rehearsalFixture();mutate(fixture);
   assert.throws(()=>collectReviewedRetainedRehearsalApi(fixture.container,fixture.request,fixture.deps),/RETAINED_REHEARSAL_API_/);
+ }
+});
+
+function completedRehearsalWithFailedPreparation(){
+ const f=rehearsalFixture('candidate-api'),{files,receipt,record,rehearsal,targetSha}=f,owner=receipt.owner;
+ const earlier=rehearsalFixture('original-api');
+ earlier.record.containerId='4'.repeat(64);
+ earlier.proof.containerId=earlier.record.containerId;
+ const stamp=new Date(f.deps.lstat(path.join(rehearsal,'rehearsal-receipt.json')).mtimeMs-1000).toISOString();
+ f.container.state.FinishedAt=stamp;
+ const prepared=path.join(f.deps.directory,`schema-release-preparation-${owner}.json`);
+ files.delete(prepared);
+ const transport=path.join(f.deps.directory,`.transport-${owner}-prepare.receipt`);
+ files.set(transport,{schema:'phoenix.modern-schema-public-preparation-hold/v1',owner,targetSha,prepared:false,
+  failure:'HOST_SURFACE_FOREIGN_CONTAINER_OWNERSHIP_UNVERIFIED'});
+ const backup={schema:'phoenix.modern-schema-protected-backup/v1',owner,stage:'prepare',format:'POSTGRES_CUSTOM',
+  productionRestore:false,tocVerified:true,fullParseVerified:true,backup:{sha256:'c'.repeat(64)},sourceLedgerSha256:'d'.repeat(64)};
+ files.set(path.join(f.deps.directory,`schema-release-prepare-backup-${owner}/backup-receipt.json`),backup);
+ const resources=[record,earlier.record,...['database','migration-show','migration-run'].map((role,index)=>({
+  ...record,role:'rehearsal-'+role,containerId:String(index+5).repeat(64),
+ }))];
+ for(const resource of resources)files.set(path.join(rehearsal,`created-${resource.containerId}.json`),resource);
+ files.set(path.join(rehearsal,'original-api-runtime-proof.json'),earlier.proof);
+ Object.assign(receipt,{resources,backupSha256:backup.backup.sha256,beforeLedgerSha256:backup.sourceLedgerSha256,
+  businessFactsUnchanged:true,candidateReady:true,originalRuntimeReady:true,candidateImageId:record.imageId,
+  originalRuntimeProofSha256:canonicalDigest(earlier.proof)});
+ return {...f,earlier,transport,prepared,backup,owner};
+}
+
+test('a stopped rehearsal can be retained after a failed final prepare check without inventing preparation authority',()=>{
+ const f=completedRehearsalWithFailedPreparation();
+ const pin=collectReviewedRetainedRehearsalApi(f.container,f.request,f.deps);
+ assert.match(pin.failedPreparationRehearsalSha256,/^[a-f0-9]{64}$/);
+ assert.equal('preparationSha256' in pin,false);
+
+ const changes=[
+  u=>u.files.get(u.transport).failure='REHEARSAL',
+  u=>u.files.set(u.prepared,{preparationSha256:'9'.repeat(64),context:{}}),
+  u=>u.files.set(path.join(u.deps.directory,`schema-release-consumed-${u.owner}.json`),{}),
+  u=>u.files.set(path.join(u.deps.directory,`.transport-${u.owner}-run.receipt`),{}),
+  u=>u.files.set(path.join(u.deps.directory,`schema-release-approval-${u.owner}.json`),{}),
+  u=>u.files.set(path.join(u.deps.directory,`schema-release-identity-${u.owner}.json`),{}),
+  u=>u.files.delete(path.join(u.rehearsal,`created-${u.earlier.record.containerId}.json`)),
+  u=>{u.backup.backup.sha256='7'.repeat(64);},
+  u=>{u.receipt.candidateReady=false;},
+  u=>{u.backup.sourceLedgerSha256='e'.repeat(64);},
+  u=>{u.earlier.proof.backgroundWrites=1;},
+  u=>{u.receipt.resources.push(u.record);},
+  u=>{u.container.state.FinishedAt='2026-11-21T00:00:00Z';},
+ ];
+ for(const change of changes){
+  const f=completedRehearsalWithFailedPreparation();
+  change(f);
+  assert.throws(()=>collectReviewedRetainedRehearsalApi(f.container,f.request,f.deps),/RETAINED_REHEARSAL_API_/);
  }
 });
