@@ -165,7 +165,7 @@ function recoveredInventoryPreparation(container,owner,revision,{directory,readR
    hold('RECOVERED_INVENTORY_ARCHIVE_REQUIRED');
  }
  const archive=anchor.value,{stateDigest,...pending}=archive.pending??{};
- const recoverable=proofKind==='originalLease'?['R_STOPPED','FRESH_RECHECKED','BACKUP_VERIFIED']:['R_STOPPED'];
+ const recoverable=proofKind==='originalLease'?['R_STOPPED','FRESH_RECHECKED','BACKUP_VERIFIED']:['R_STOPPED','FRESH_RECHECKED'];
  const preDdlPhase=recoverable.indexOf(pending.phase);
  const former=prep.ownedResources?.filter(pin=>pin.role==='readonly-inventory');
  const planned=former?.[0];

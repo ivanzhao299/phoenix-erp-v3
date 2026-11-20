@@ -195,7 +195,8 @@ async function recover(env){
  const startKey=`schema-release-operator-fenced-start-verified-${owner}.json`,closeKey=`schema-release-session-closed-${owner}.json`;
  const started=store.exists(startKey)?store.read(startKey):null;
  const held=store.read(`recovery-modern-schema-${owner}.json`),closed=store.exists(closeKey)?store.read(closeKey):null;
- const recoverStoppedAfterReadLoss=!started&&!closed;
+ const fresh=pending.phase==='FRESH_RECHECKED';
+ const recoverAlreadyStopped=!started&&(!closed||fresh);
  const priorParticipant=prep.originalBackground.participant;
  const originalStep=store.read(`schema-release-step-${owner}-4-r-stopped.json`);
  const originalPolicy=originalStep.payload.evidence.runtimeStopReceipt.originalRestartPolicy;
@@ -206,13 +207,14 @@ async function recover(env){
  if(initialStat)assertRegularFile(initialStat);
  const pinnedStat=stat=>[stat.dev,stat.ino,stat.mtimeMs,stat.ctimeMs,stat.size];
  const sourceSteps=fs.readdirSync(directory).filter(name=>name.startsWith(`schema-release-step-${owner}-`)).sort();
- requireThat(pending.phase==='R_STOPPED'&&pending.status==='HOLD'&&pending.sequence===4&&sourceSteps.length===5&&
+ requireThat((fresh||pending.phase==='R_STOPPED')&&pending.status==='HOLD'&&pending.sequence===(fresh?5:4)&&
+  sourceSteps.length===pending.sequence+1&&(!fresh||closed&&!started)&&
   held.disposition==='PRE_DDL_FACTS_UNPROVED_KEEP_FENCED'&&
-  (recoverStoppedAfterReadLoss||held.nativeLedger?.sha256===context.beforeLedgerSha256&&
+  (recoverAlreadyStopped&&!closed||held.nativeLedger?.sha256===context.beforeLedgerSha256&&
     closed?.outcome==='ORIGINAL_SESSION_ABSENT'&&closed.originalLeaseSha256===canonicalDigest(pending.lease))&&
   typed.phase==='FENCED'&&fenced.phase==='FENCED'&&typed.owner===owner&&fenced.owner===owner&&fenced.targetSha===target&&
   typed.manifestDigest===orderedDigest(fenced)&&(generationBefore.generation===fenced.generation||(prior&&generationBefore.generation===fenced.generation+1))&&
-  (recoverStoppedAfterReadLoss||started?.outcome==='EXACT_ORIGINAL_HEALTHY_FENCED'&&
+  (recoverAlreadyStopped||started?.outcome==='EXACT_ORIGINAL_HEALTHY_FENCED'&&
     started.participant.containerId===api.id&&started.participant.revision===context.runtimeSha&&
     started.pendingSha256===canonicalDigest(pending)&&started.fencedSha256===canonicalDigest(fenced))&&
   ['no','always','unless-stopped'].includes(originalPolicy.Name)&&originalPolicy.MaximumRetryCount===0,'EXACT_HELD_ORIGINAL_REQUIRED');
@@ -277,7 +279,7 @@ async function recover(env){
    await waitContainer(api.id,admission,data=>data.imageId===api.image&&data.state.Status==='exited'&&data.state.Pid===0&&data.state.ExitCode===0);
   }
   const stopped=await verifier.captureStopped();
-  if(recoverStoppedAfterReadLoss){
+  if(recoverAlreadyStopped){
    store.immutable(newKey('stopped-native'),{schema:'phoenix.modern-operator-stopped-native/v1',owner,recoveryOwner,
     previousLeaseSha256:canonicalDigest(pending.lease),newLeaseSha256:canonicalDigest(recoveryLease),
     observedAt:new Date().toISOString(),originalBackendAbsent:true,stopped,releaseAuthorized:false});
