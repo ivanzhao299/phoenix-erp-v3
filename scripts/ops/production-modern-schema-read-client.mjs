@@ -41,6 +41,7 @@ export function bindModernSchemaReadSql(sql,parameters=[]){
 function controlStatement(sql){
  const text=sql.trim().replace(/;$/,'').trim();
  if(/^(?:BEGIN(?: ISOLATION LEVEL REPEATABLE READ)? READ ONLY|ROLLBACK)$/i.test(text))return text+';';
+ if(text==="SET LOCAL idle_in_transaction_session_timeout='90s'")return text+';';
  const pieces=text.split(';').map(x=>x.trim());
  if(pieces.length&&pieces.every(piece=>/^SET LOCAL (?:search_path\s*=\s*(?:public|pg_catalog)|row_security\s*=\s*off|max_parallel_workers_per_gather\s*=\s*0|work_mem\s*=\s*'4MB'|TimeZone\s*=\s*'UTC'|DateStyle\s*=\s*'ISO,YMD'|IntervalStyle\s*=\s*'iso_8601'|bytea_output\s*=\s*'hex'|extra_float_digits\s*=\s*3|(?:statement_timeout|lock_timeout)\s*=\s*'[1-9][0-9]*(?:ms|s)')$/i.test(piece)))return pieces.join('; ')+';';
  return null;

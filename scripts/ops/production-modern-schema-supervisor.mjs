@@ -330,6 +330,7 @@ export async function superviseModernSchemaRelease(env,input){
   enter('FENCED_DISK');
   await disk();
   enter('FENCED_BACKUP');
+  await watch.observe();
   const fencedBackup=await createModernSchemaBackup({owner:context.owner,stage:'fenced',client,databasePin:pre.containers.db,privateRuntime:runtime},{
    ...readCommand,assertFenced:async()=>{await native();await ingress.observe();},assertRecoveryWindow:ms=>windowBudget('recoverOriginal',ms),
    duringFencedFacts:read=>watch.duringFencedBackupFacts(read),

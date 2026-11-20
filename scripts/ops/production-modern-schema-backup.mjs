@@ -52,7 +52,7 @@ export async function createModernSchemaBackup({owner,stage,client,databasePin,p
  let keepalive=null,keepaliveWork=Promise.resolve(),keepaliveError=null,snapshotOpen=false,dumpAttempted=false,result,source;
  const cleanup=[];
  const recordHold=()=>{
-  if(stage==='prepare'&&directory){
+  if(directory){
    try{privateRuntime.publishJson(path.join(directory,'backup-hold.json'),{
     schema:'phoenix.modern-schema-private-backup-hold/v1',failure:primary,cleanup,
    });}catch{/* The protected write has its own guard; its failure cannot replace the backup reason. */}
@@ -64,6 +64,9 @@ export async function createModernSchemaBackup({owner,stage,client,databasePin,p
   if(stage==='fenced'&&typeof dependencies.assertFenced!=='function')fail('NATIVE_FENCED_ADMISSION_REQUIRED');
   await verify();directory=privateRuntime.createDirectory(owner,stage+'-backup');
   await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');snapshotOpen=true;
+  // Native host checks share the event loop. Bound their idle allowance on
+  // this one fenced read-only transaction without changing the SQL deadline.
+  if(stage==='fenced')await client.query("SET LOCAL idle_in_transaction_session_timeout='90s'");
   await client.query('SET LOCAL search_path=pg_catalog');
   const {rows:[database]}=await client.query(`SELECT current_database() AS name,current_user AS username,
    (SELECT system_identifier::text FROM pg_control_system()) AS "systemIdentifier",NOT pg_is_in_recovery() AS primary,
