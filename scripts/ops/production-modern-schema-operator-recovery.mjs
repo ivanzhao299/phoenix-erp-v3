@@ -109,31 +109,46 @@ function bindHistoricalStop({store,owner,recoveryLease,readApproval,validatePrep
       !['no','always','unless-stopped'].includes(policy?.Name)||policy.MaximumRetryCount!==0||
       !same(steps[3].payload.evidence.originalRestartPolicy,policy))fail('EXACT_ORIGINAL_STOP_RECEIPT_REQUIRED');
 
-  const closed = store.read(key('session-closed'));
+  const closed = store.exists(key('session-closed'))?store.read(key('session-closed')):null;
   const {database} = pending.lease;
   const provesOldAbsent = value => value?.primary===true&&value.originalSessionPresent===false&&
     value.databaseOid===database.databaseOid&&value.systemIdentifier===database.systemIdentifier&&
     value.postmasterStartMicros===database.postmasterStartMicros;
-  if(closed.schema!=='phoenix.modern-schema-original-session-closed/v1'||closed.outcome!=='ORIGINAL_SESSION_ABSENT'||
-      closed.originalLeaseSha256!==canonicalDigest(pending.lease)||!provesOldAbsent(closed.nativeObservation))fail('ORIGINAL_SESSION_CLOSE_RECEIPT_REQUIRED');
+  if(closed&&(closed.schema!=='phoenix.modern-schema-original-session-closed/v1'||closed.outcome!=='ORIGINAL_SESSION_ABSENT'||
+      closed.originalLeaseSha256!==canonicalDigest(pending.lease)||!provesOldAbsent(closed.nativeObservation)))fail('ORIGINAL_SESSION_CLOSE_RECEIPT_REQUIRED');
 
   const hold = store.read(`recovery-modern-schema-${owner}.json`);
   const catalogKey = key('hold-observation-schema');
   const catalog = store.read(catalogKey);
   if(hold.schema!=='phoenix.modern-schema-release-hold-observation/v1'||hold.owner!==owner||hold.targetSha!==context.targetSha||
       hold.phase!=='R_STOPPED'||hold.backgroundAdmissionCommitted!==false||hold.originalRecoveryCommitted!==false||
-      hold.terminalComplete!==false||hold.defaultOff!==true||hold.nativeLedger?.status!=='OBSERVED'||
-      hold.nativeLedger.sha256!==context.beforeLedgerSha256||digest(JSON.stringify(hold.nativeLedger.ledger))!==context.beforeLedgerSha256||
-      hold.nativeExecutors?.status!=='OBSERVED'||hold.nativeExecutors.value?.primary!==true||
-      hold.nativeExecutors.value.databaseOid!==database.databaseOid||
-      hold.nativeExecutors.value.systemIdentifier!==database.systemIdentifier||
-      hold.nativeExecutors.value.postmasterStartMicros!==database.postmasterStartMicros||
+      hold.terminalComplete!==false||hold.defaultOff!==true||
       hold.nativeSchema?.status!=='OBSERVED'||hold.nativeSchema.file!==store.file(catalogKey)||
       hold.nativeSchema.sha256!==canonicalDigest(catalog)||catalog.schema!=='phoenix.modern-schema-catalog-facts/v1'||
       catalog.owner!==owner||catalog.stage!=='hold-observation'||catalog.readOnly!==true||catalog.releaseAuthorized!==false||
       !same(catalog.databasePin,db)||!isHash(catalog.schemaSha256))fail('ORIGINAL_HOLD_LEDGER_AND_CATALOG_REQUIRED');
+  let beforeCatalog=null;
+  if(closed){
+    const observed=hold.nativeExecutors?.value;
+    if(hold.nativeLedger?.status!=='OBSERVED'||hold.nativeLedger.sha256!==context.beforeLedgerSha256||
+        digest(JSON.stringify(hold.nativeLedger.ledger))!==context.beforeLedgerSha256||
+        hold.nativeExecutors?.status!=='OBSERVED'||observed?.primary!==true||observed.databaseOid!==database.databaseOid||
+        observed.systemIdentifier!==database.systemIdentifier||observed.postmasterStartMicros!==database.postmasterStartMicros)
+      fail('ORIGINAL_HOLD_LEDGER_AND_CATALOG_REQUIRED');
+  }else{
+    const first=store.read(key('supervisor-first-hold'));
+    beforeCatalog=store.read(key('before-schema'));
+    if(first.schema!=='phoenix.modern-schema-supervisor-first-hold/v1'||first.owner!==owner||first.contextDigest!==contextDigest||
+        first.pendingPhase!=='R_STOPPED'||first.failure?.stage!=='FENCED_BACKUP'||first.failure.source!=='SUPERVISOR'||
+        first.failure.code!=='MODERN_SCHEMA_BACKUP_HOLD=CLEANUP_UNRESOLVED'||
+        !same(hold.nativeLedger,{status:'UNAVAILABLE'})||!same(hold.nativeExecutors,{status:'UNAVAILABLE'})||
+        !store.exists(key('fenced-audit-boundary'))||beforeCatalog.schema!==catalog.schema||beforeCatalog.owner!==owner||
+        beforeCatalog.stage!=='before'||beforeCatalog.readOnly!==true||beforeCatalog.releaseAuthorized!==false||
+        !same(beforeCatalog.databasePin,db)||beforeCatalog.schemaSha256!==catalog.schemaSha256)
+      fail('ORIGINAL_READ_CHANNEL_LOSS_EVIDENCE_REQUIRED');
+  }
   return {key,context,contextDigest,binding,pending,preparation,steps,stop,api,web,db,catalog,hold,closed,
-    checkNoLaterEffects,provesOldAbsent};
+    beforeCatalog,checkNoLaterEffects,provesOldAbsent};
 }
 
 function bindFencedStart({started,owner,context,contextDigest,pending,hold,closed,installed,manifest,prior,api}){
@@ -182,10 +197,12 @@ export async function createModernSchemaOperatorRecoveryVerifier({
     readApproval:dependencies.readApproval??((context,options)=>readHistoricalApproval(store,context,options)),
     validatePreparation:dependencies.validatePreparation??validateModernSchemaPreparation});
   const {key,context,contextDigest,binding,pending,preparation,stop,api,web,db,hold,catalog,provesOldAbsent} = source;
-  const originalCatalogFile = path.join(store.directory,`schema-release-session-${owner}`,'catalog-hold-observation.stdout');
-  if(catalog.raw?.path!==originalCatalogFile||!isHash(catalog.raw.sha256)||
-      !Number.isSafeInteger(catalog.raw.bytes)||catalog.raw.bytes<1||catalog.raw.bytes>16*1024*1024||
-      !same(await runtime.digest(originalCatalogFile),catalog.raw))fail('ORIGINAL_NATIVE_CATALOG_BYTES_CHANGED');
+  for(const original of [catalog,...(source.beforeCatalog?[source.beforeCatalog]:[])]){
+    const originalCatalogFile = path.join(store.directory,`schema-release-session-${owner}`,`catalog-${original.stage}.stdout`);
+    if(original.raw?.path!==originalCatalogFile||!isHash(original.raw.sha256)||
+        !Number.isSafeInteger(original.raw.bytes)||original.raw.bytes<1||original.raw.bytes>16*1024*1024||
+        !same(await runtime.digest(originalCatalogFile),original.raw))fail('ORIGINAL_NATIVE_CATALOG_BYTES_CHANGED');
+  }
   const stoppedPin = {containerId:api.id,imageId:api.image,restartPolicy:stop.originalRestartPolicy};
   const manifest = validateManifest(readPublic());
   const control = store.read(controlName);
@@ -204,6 +221,7 @@ export async function createModernSchemaOperatorRecoveryVerifier({
       !same(installed,source.steps[2].payload.evidence.ingressObservation))fail('ORIGINAL_INGRESS_RECEIPT_REQUIRED');
   const fencedStartKey = key('operator-fenced-start-verified');
   const started = store.exists(fencedStartKey)?store.read(fencedStartKey):null;
+  if(started&&!source.closed)fail('ORIGINAL_READ_CHANNEL_RECOVERY_REQUIRES_STOPPED_RUNTIME');
   const fencedStart = started?bindFencedStart({started,owner,context,contextDigest,pending,hold,closed:source.closed,
     installed,manifest,prior,api}):null;
   if(!observeFences){
@@ -319,7 +337,8 @@ export async function createModernSchemaOperatorRecoveryVerifier({
     const first = running?verifyRuntime(startedAt):null;
     await observeNative(running,first);
     const ledger = await (dependencies.captureLedger??captureModernSchemaLedger)(client);
-    if(ledger.sha256!==context.beforeLedgerSha256||!same(ledger.ledger,hold.nativeLedger.ledger))fail('NATIVE_LEDGER_CHANGED');
+    if(ledger.sha256!==context.beforeLedgerSha256||digest(JSON.stringify(ledger.ledger))!==context.beforeLedgerSha256||
+        (source.closed&&!same(ledger.ledger,hold.nativeLedger.ledger)))fail('NATIVE_LEDGER_CHANGED');
     const facts = await (dependencies.captureFacts??captureModernSchemaFacts)(client);
     const off = (dependencies.verifyDefaultOff??defaultOffEvidenceFromFacts)(context.runtimeSha,facts,{stage:'BEFORE_SCHEMA',floor:preparation.floor});
     if(off.verified!==true||facts.schema!=='phoenix.modern-schema-database-facts/v1'||facts.readOnly!==true||

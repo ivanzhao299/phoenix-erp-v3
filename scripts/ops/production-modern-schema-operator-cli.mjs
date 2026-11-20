@@ -76,6 +76,13 @@ async function finishPublished({store,runtime,ingress,admission,session,lease,gu
   same(validateManifest(manifest),{protocolVersion:1,phase:'OPEN',owner:prepared.originalBackground.record.owner,
    targetSha:context.runtimeSha,generation,participants:[participant]})&&same(validateBinding(ordinary),{...prepared.originalBackground.record,
    generation,phase:'OPEN',manifestDigest:orderedDigest(manifest),updatedAt:ordinary.updatedAt}),'PROTECTED_OPERATOR_OPEN_INTENT_REQUIRED');
+ if(record.originalFencedBootSha256===null){
+  const evidence=store.read(key('stopped-native'));
+  requireThat(evidence.schema==='phoenix.modern-operator-stopped-native/v1'&&evidence.owner===owner&&evidence.recoveryOwner===prior&&
+   evidence.previousLeaseSha256===record.previousLeaseSha256&&evidence.newLeaseSha256===verified.newLeaseSha256&&
+   evidence.originalBackendAbsent===true&&evidence.releaseAuthorized===false&&
+   canonicalDigest(evidence.stopped)===verified.verification.stoppedCheckpointSha256,'NEW_STOPPED_NATIVE_PROOF_REQUIRED');
+ }
  if(same(readPublicManifest(),previousFenced)){
   // A previous process may have stopped between writing the private and public
   // projections. Adopt only its fully verified boot under the still intact denial.
@@ -185,8 +192,11 @@ async function recover(env){
  const generationBefore=store.read('background-generation.json');
  assertSameBinding(typed,modernSchemaReleaseBinding(context,preparationSha256));
  const {api,web,db}=prep.originalSnapshot.containers;
- const started=store.read(`schema-release-operator-fenced-start-verified-${owner}.json`);
- const held=store.read(`recovery-modern-schema-${owner}.json`),closed=store.read(`schema-release-session-closed-${owner}.json`);
+ const startKey=`schema-release-operator-fenced-start-verified-${owner}.json`,closeKey=`schema-release-session-closed-${owner}.json`;
+ const started=store.exists(startKey)?store.read(startKey):null;
+ const held=store.read(`recovery-modern-schema-${owner}.json`),closed=store.exists(closeKey)?store.read(closeKey):null;
+ const recoverStoppedAfterReadLoss=!started&&!closed;
+ const priorParticipant=prep.originalBackground.participant;
  const originalStep=store.read(`schema-release-step-${owner}-4-r-stopped.json`);
  const originalPolicy=originalStep.payload.evidence.runtimeStopReceipt.originalRestartPolicy;
  const originalProof=store.read(`schema-release-ingress-installed-${owner}.json`);
@@ -197,12 +207,14 @@ async function recover(env){
  const pinnedStat=stat=>[stat.dev,stat.ino,stat.mtimeMs,stat.ctimeMs,stat.size];
  const sourceSteps=fs.readdirSync(directory).filter(name=>name.startsWith(`schema-release-step-${owner}-`)).sort();
  requireThat(pending.phase==='R_STOPPED'&&pending.status==='HOLD'&&pending.sequence===4&&sourceSteps.length===5&&
-  held.disposition==='PRE_DDL_FACTS_UNPROVED_KEEP_FENCED'&&held.nativeLedger?.sha256===context.beforeLedgerSha256&&
-  closed.outcome==='ORIGINAL_SESSION_ABSENT'&&closed.originalLeaseSha256===canonicalDigest(pending.lease)&&
+  held.disposition==='PRE_DDL_FACTS_UNPROVED_KEEP_FENCED'&&
+  (recoverStoppedAfterReadLoss||held.nativeLedger?.sha256===context.beforeLedgerSha256&&
+    closed?.outcome==='ORIGINAL_SESSION_ABSENT'&&closed.originalLeaseSha256===canonicalDigest(pending.lease))&&
   typed.phase==='FENCED'&&fenced.phase==='FENCED'&&typed.owner===owner&&fenced.owner===owner&&fenced.targetSha===target&&
   typed.manifestDigest===orderedDigest(fenced)&&(generationBefore.generation===fenced.generation||(prior&&generationBefore.generation===fenced.generation+1))&&
-  started.outcome==='EXACT_ORIGINAL_HEALTHY_FENCED'&&started.participant.containerId===api.id&&started.participant.revision===context.runtimeSha&&
-  started.pendingSha256===canonicalDigest(pending)&&started.fencedSha256===canonicalDigest(fenced)&&
+  (recoverStoppedAfterReadLoss||started?.outcome==='EXACT_ORIGINAL_HEALTHY_FENCED'&&
+    started.participant.containerId===api.id&&started.participant.revision===context.runtimeSha&&
+    started.pendingSha256===canonicalDigest(pending)&&started.fencedSha256===canonicalDigest(fenced))&&
   ['no','always','unless-stopped'].includes(originalPolicy.Name)&&originalPolicy.MaximumRetryCount===0,'EXACT_HELD_ORIGINAL_REQUIRED');
  const unchanged=()=>{
   verifyContext(root,directory);
@@ -248,29 +260,38 @@ async function recover(env){
   }
   await observeFence();
   verifier=await createModernSchemaOperatorRecoveryVerifier({owner,recoveryOwner,recoveryLease,requireAdmission:admission,observeFences:observeFence});
-  await verifier.verifyFencedBoot();
-  const incumbent=inspectModernSchemaContainer(api.id),fencedApi=inspectApiParticipant(started.participant,prep.floor.project);
-  verifyParticipantStatus(fencedApi,started.participant,fenced);
-  requireThat(incumbent.imageId===api.image&&incumbent.state.Running===true&&incumbent.state.Health?.Status==='healthy'&&
-   incumbent.state.StartedAt===started.startedAt&&fencedApi.status.phase==='FENCED'&&
-   fencedApi.status.inFlight===0&&fencedApi.status.taskGraphs===0&&fencedApi.status.pendingChildren===0&&incumbent.restartPolicy.Name==='no','EXACT_FENCED_INCUMBENT_REQUIRED');
+  if(started){
+   await verifier.verifyFencedBoot();
+   const incumbent=inspectModernSchemaContainer(api.id),fencedApi=inspectApiParticipant(started.participant,prep.floor.project);
+   verifyParticipantStatus(fencedApi,started.participant,fenced);
+   requireThat(incumbent.imageId===api.image&&incumbent.state.Running===true&&incumbent.state.Health?.Status==='healthy'&&
+    incumbent.state.StartedAt===started.startedAt&&fencedApi.status.phase==='FENCED'&&
+    fencedApi.status.inFlight===0&&fencedApi.status.taskGraphs===0&&fencedApi.status.pendingChildren===0&&incumbent.restartPolicy.Name==='no','EXACT_FENCED_INCUMBENT_REQUIRED');
+  }
   store.immutable(newKey('recovery-intent'),{schema:'phoenix.modern-operator-recovery-intent/v1',owner,recoveryOwner,target,executionSha,
    newSupervisor:supervisor,newLease:recoveryLease,previousLeaseSha256:canonicalDigest(pending.lease),pendingSha256:canonicalDigest(pending),
-   reviewedSourceSha256:established.sha256,originalFencedBootSha256:canonicalDigest(started),migrationAuthorized:false});
+   reviewedSourceSha256:established.sha256,originalFencedBootSha256:started?canonicalDigest(started):null,migrationAuthorized:false});
   await admission();await observeFence();
-  docker(['kill','--signal=TERM',api.id]);stoppedByRecovery=true;
-  await waitContainer(api.id,admission,data=>data.imageId===api.image&&data.state.Status==='exited'&&data.state.Pid===0&&data.state.ExitCode===0);
-  await verifier.captureStopped();
+  if(started){
+   docker(['kill','--signal=TERM',api.id]);stoppedByRecovery=true;
+   await waitContainer(api.id,admission,data=>data.imageId===api.image&&data.state.Status==='exited'&&data.state.Pid===0&&data.state.ExitCode===0);
+  }
+  const stopped=await verifier.captureStopped();
+  if(recoverStoppedAfterReadLoss){
+   store.immutable(newKey('stopped-native'),{schema:'phoenix.modern-operator-stopped-native/v1',owner,recoveryOwner,
+    previousLeaseSha256:canonicalDigest(pending.lease),newLeaseSha256:canonicalDigest(recoveryLease),
+    observedAt:new Date().toISOString(),originalBackendAbsent:true,stopped,releaseAuthorized:false});
+  }
   await admission();await observeFence();
   docker(['start',api.id],25000);
   await waitContainer(api.id,admission,data=>data.imageId===api.image&&data.state.Running===true&&data.state.Health?.Status==='healthy');
   const verification=await verifier.verifyStarted();
   await observeFence();
-  const next=inspectApiParticipant(started.participant,prep.floor.project);
-  const participant={...started.participant,bootId:next.status.bootId};
+  const next=inspectApiParticipant(priorParticipant,prep.floor.project);
+  const participant={...priorParticipant,bootId:next.status.bootId};
   const status=verifyParticipantStatus(next,participant,fenced);
   requireThat(same(verification.participant,participant)&&verification.startedAt===next.startedAt&&sameOperatorControlSession(verification.controlSession,status.controlSession)&&
-   participant.bootId!==started.participant.bootId&&next.imageId===api.image&&status.phase==='FENCED'&&status.inFlight===0&&
+   participant.bootId!==(started?.participant.bootId??priorParticipant.bootId)&&next.imageId===api.image&&status.phase==='FENCED'&&status.inFlight===0&&
    status.taskGraphs===0&&status.pendingChildren===0&&await session.verifyParticipants([{...status.controlSession,bootId:participant.bootId}])===true,'DATA_VERIFIED_ORIGINAL_NOT_QUIESCENT');
   store.immutable(newKey('original-verified'),{schema:'phoenix.modern-operator-original-verified/v1',owner,recoveryOwner,verification,
    runtimeSha:context.runtimeSha,participant,startedAt:next.startedAt,newLeaseSha256:canonicalDigest(recoveryLease),formalTargetSuccess:false});
