@@ -26,6 +26,13 @@ import {MODERN_SCHEMA_PHASES,modernSchemaReleaseBinding,validateModernSchemaPend
 import {validateRegisteredFrozenLegacyScope,validateRegisteredModernSchemaApproval} from './production-modern-schema-authority.mjs';
 import {digest} from './chanjet-admission-schema-receipt.mjs';
 
+
+export function sameOperatorControlSession(actual,expected){
+  const keys=['sessionPid','databaseOid','backendStartedAt','backendStartedAtUs','applicationName'];
+  return actual?.connected===true&&expected?.connected===true&&actual.broken===false&&expected.broken===false&&
+    keys.every(key=>actual[key]===expected[key]);
+}
+
 const fail = code => { throw Error('MODERN_SCHEMA_OPERATOR_RECOVERY_HOLD=' + code); };
 const ownerPattern = /^[1-9][0-9]{0,19}-[1-9][0-9]{0,9}$/;
 const noRestart = {Name:'no',MaximumRetryCount:0};
@@ -265,7 +272,7 @@ export async function createModernSchemaOperatorRecoveryVerifier({
     validateParticipants([participant],{targetSha:context.runtimeSha});
     const status = verifyParticipantStatus(actual,participant,manifest);
     const matchesExpectedBoot = expectedFencedBoot
-      ? same(participant,fencedStart.participant)&&same(status.controlSession,fencedStart.controlSession)
+      ? same(participant,fencedStart.participant)&&sameOperatorControlSession(status.controlSession,fencedStart.controlSession)
       : participant.bootId!==fencedStart?.participant.bootId;
     if(!matchesExpectedBoot||participant.bootId===prior.bootId||actual.imageId!==api.image||actual.startedAt!==startedAt||
         actual.restartCount!==api.restartCount||status.inFlight!==0||status.taskGraphs!==0||status.pendingChildren!==0){
@@ -333,7 +340,7 @@ export async function createModernSchemaOperatorRecoveryVerifier({
     await check();
     if(inspectHost(running)!==startedAt)fail('ORIGINAL_API_START_TIME_CHANGED');
     const last = running?verifyRuntime(startedAt):null;
-    if(first&&(!same(first.participant,last.participant)||!same(first.controlSession,last.controlSession))){
+    if(first&&(!same(first.participant,last.participant)||!sameOperatorControlSession(first.controlSession,last.controlSession))){
       fail('RECOVERED_API_BOOT_CHANGED_DURING_CHECKPOINT');
     }
     return {startedAt,ledgerSha256:ledger.sha256,catalogSha256:schema.receipt.schemaSha256,

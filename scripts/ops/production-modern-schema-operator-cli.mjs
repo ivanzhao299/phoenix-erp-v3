@@ -21,7 +21,7 @@ import {ModernSchemaPrivateRuntime} from './production-modern-schema-private.mjs
 import {ModernSchemaControlSession,pinOriginalModernSchemaSession,readLinuxProcessIdentity,verifyOriginalModernSchemaAdmission} from './production-modern-schema-session-lease.mjs';
 import {ModernSchemaReadClient} from './production-modern-schema-read-client.mjs';
 import {closeModernSchemaOriginalSession,confirmModernSchemaPublicDurability} from './production-modern-schema-completion.mjs';
-import {createModernSchemaOperatorRecoveryVerifier} from './production-modern-schema-operator-recovery.mjs';
+import {createModernSchemaOperatorRecoveryVerifier,sameOperatorControlSession} from './production-modern-schema-operator-recovery.mjs';
 
 const ownerShape=/^[1-9][0-9]{0,19}-[1-9][0-9]{0,9}$/;
 const shaShape=/^[a-f0-9]{40}$/;
@@ -90,7 +90,7 @@ async function finishPublished({store,runtime,ingress,admission,session,lease,gu
   const status=verifyParticipantStatus(actual,participant,previousFenced);
   requireThat(active.imageId===api.image&&active.state.StartedAt===startedAt&&same(active.restartPolicy,policy)&&
    actual.startedAt===startedAt&&status.inFlight===0&&status.taskGraphs===0&&status.pendingChildren===0&&
-   same(status.controlSession,verified.verification.controlSession)&&
+   sameOperatorControlSession(status.controlSession,verified.verification.controlSession)&&
    await session.verifyParticipants([{...status.controlSession,bootId:participant.bootId}])===true,'VERIFIED_FENCED_BOOT_CHANGED');
   const oldObserver=new ModernSchemaReadClient();
   try{
@@ -118,7 +118,7 @@ async function finishPublished({store,runtime,ingress,admission,session,lease,gu
   });
   const actual=inspectApiParticipant(participant,prepared.floor.project);
   const status=verifyParticipantStatus(actual,participant,manifest);
-  requireThat(actual.startedAt===startedAt&&same(status.controlSession,verified.verification.controlSession)&&
+  requireThat(actual.startedAt===startedAt&&sameOperatorControlSession(status.controlSession,verified.verification.controlSession)&&
    await session.verifyParticipants([{...status.controlSession,bootId:participant.bootId}])===true&&publicMatches(),'ACTUAL_ORIGINAL_OPEN_UNVERIFIED');
   };
  await verifyOpen();
@@ -268,7 +268,7 @@ async function recover(env){
   const next=inspectApiParticipant(started.participant,prep.floor.project);
   const participant={...started.participant,bootId:next.status.bootId};
   const status=verifyParticipantStatus(next,participant,fenced);
-  requireThat(same(verification.participant,participant)&&verification.startedAt===next.startedAt&&same(verification.controlSession,status.controlSession)&&
+  requireThat(same(verification.participant,participant)&&verification.startedAt===next.startedAt&&sameOperatorControlSession(verification.controlSession,status.controlSession)&&
    participant.bootId!==started.participant.bootId&&next.imageId===api.image&&status.phase==='FENCED'&&status.inFlight===0&&
    status.taskGraphs===0&&status.pendingChildren===0&&await session.verifyParticipants([{...status.controlSession,bootId:participant.bootId}])===true,'DATA_VERIFIED_ORIGINAL_NOT_QUIESCENT');
   store.immutable(newKey('original-verified'),{schema:'phoenix.modern-operator-original-verified/v1',owner,recoveryOwner,verification,

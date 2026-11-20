@@ -7,7 +7,7 @@ import {canonicalDigest} from './production-maintenance-receipts.mjs';
 import {MODERN_SCHEMA_PHASES,modernSchemaReleaseBinding,modernSchemaStepEvidence} from './production-modern-schema-state.mjs';
 import {MODERN_SCHEMA_LEASE_SQL} from './production-modern-schema-session-lease.mjs';
 import {MODERN_SCHEMA_EXECUTOR_SQL} from './production-modern-schema-executors.mjs';
-import {createModernSchemaOperatorRecoveryVerifier} from './production-modern-schema-operator-recovery.mjs';
+import {createModernSchemaOperatorRecoveryVerifier,sameOperatorControlSession} from './production-modern-schema-operator-recovery.mjs';
 
 const hash = char => char.repeat(64);
 const at = minutes => new Date(Date.UTC(2026,10,19,0,minutes)).toISOString();
@@ -311,3 +311,13 @@ for(const [flag,value,error] of [
     await verifier.close();
   });
 }
+
+test('the verified control backend identity is stable while the heartbeat query count changes', () => {
+  const observed={connected:true,broken:false,sessionPid:17,databaseOid:42,backendStartedAt:'2026-11-20T00:50:00.999Z',
+    backendStartedAtUs:'2026-11-20T00:50:00.999321Z',applicationName:'phoenix-fence:verified',cleanup:{queriesPending:0}};
+  assert.equal(sameOperatorControlSession(observed,{...observed,cleanup:{queriesPending:1}}),true);
+  for(const change of [{connected:false},{broken:true},{sessionPid:18},{databaseOid:43},
+    {backendStartedAtUs:'2026-11-20T00:50:00.999824Z'},{applicationName:'phoenix-fence:replaced'}]){
+    assert.equal(sameOperatorControlSession(observed,{...observed,...change}),false);
+  }
+});
