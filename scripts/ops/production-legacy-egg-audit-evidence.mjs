@@ -97,6 +97,7 @@ async function referencesFor(client, batches, localSchema) {
   const fkTables = new Map(links.map(row => [JSON.stringify([row.namespace,row.relation]), row.columns]));
   const { rows: current } = await client.query('SELECT id::text, batch_no FROM inv_batches WHERE batch_no=ANY($1::text[]) ORDER BY batch_no', [numbers]);
   const ids = current.map(row => row.id);
+  const inspections = [];
   for (const { namespace, relname: table, relkind, columns } of catalog) {
     if (namespace === localSchema && neverReferences.has(table) && table !== 'inv_batches') continue;
     const isRoot = namespace === localSchema && table === 'inv_batches';
@@ -123,12 +124,24 @@ async function referencesFor(client, batches, localSchema) {
           OR f.packaging_batch_ref=ANY($1::text[])`,
       ] : []),
     ];
-    const result = await client.query(`SELECT EXISTS(SELECT 1 FROM ${quote(namespace)}.${quote(table)} f
-      WHERE ($1::text[] IS NOT NULL AND $2::text[] IS NOT NULL AND $3::text[] IS NOT NULL)
-        AND (${condition.join(' OR ')}) ${isRoot ? 'AND NOT(f.batch_no=ANY($3::text[]))' : ''}) AS present`, [tokens,ids,numbers]);
     const recorded = isRoot ? 'inv_batches.descendants' : label;
-    coverage.inspected.push(recorded);
-    if (result.rows[0].present) coverage.matches.push(recorded);
+    inspections.push({ recorded, sql: `SELECT ${inspections.length} AS ordinal, EXISTS(SELECT 1 FROM ${quote(namespace)}.${quote(table)} f
+      WHERE ($1::text[] IS NOT NULL AND $2::text[] IS NOT NULL AND $3::text[] IS NOT NULL)
+        AND (${condition.join(' OR ')}) ${isRoot ? 'AND NOT(f.batch_no=ANY($3::text[]))' : ''}) AS present` });
+  }
+  // Each branch still checks the same source and predicates. Bound the batch
+  // so the native statement timeout continues to apply to small groups.
+  const batchSize = 6;
+  for (let first = 0; first < inspections.length; first += batchSize) {
+    const group = inspections.slice(first, first + batchSize);
+    const { rows } = await client.query(group.map(({sql}) => sql).join(' UNION ALL ') + ' ORDER BY ordinal', [tokens,ids,numbers]);
+    if (rows.length !== group.length || rows.some((row, index) => row.ordinal !== first + index || typeof row.present !== 'boolean')) {
+      throw new Error('LEGACY_EGG_AUDIT_REFERENCE_RESULT_REQUIRED');
+    }
+    for (const [index, {recorded}] of group.entries()) {
+      coverage.inspected.push(recorded);
+      if (rows[index].present) coverage.matches.push(recorded);
+    }
   }
   return coverage;
 }
@@ -140,7 +153,7 @@ async function referencesFor(client, batches, localSchema) {
  */
 export async function collectLegacyEggAuditEvidence(client, {
   targetSha, floorSha, runningApiSha, ledgerSha256, migrationEvidenceSha256, databaseIdentity, manifest = null,
-}) {
+}, {confirmScopeInSnapshot} = {}) {
   if (![targetSha,floorSha,runningApiSha].every(value => typeof value === 'string' && SHA.test(value))
     || ![ledgerSha256,migrationEvidenceSha256].every(value => typeof value === 'string' && HASH.test(value))) throw new Error('LEGACY_EGG_AUDIT_BINDING_REQUIRED');
   if (![databaseIdentity?.name,databaseIdentity?.schema].every(isToken)
@@ -157,6 +170,9 @@ export async function collectLegacyEggAuditEvidence(client, {
     const { rows: [{ jsonb_build_object: originalLedger }] } = await client.query(LEDGER_SQL);
     const observedLedgerSha256 = sha256(JSON.stringify(JSON.parse(originalLedger)));
     const { rows: [{ jsonb_build_object: originalAudit }] } = await client.query(auditSql);
+    // The caller can verify its frozen daily rows against the same actual
+    // audit bytes while this native read-only snapshot is still open.
+    if (confirmScopeInSnapshot) await confirmScopeInSnapshot(originalAudit);
     const audit = JSON.parse(originalAudit);
     const evidence = { schema: 'phoenix.legacy-egg-audit-evidence/v1',
       targetSha, floorSha, runningApiSha, ledgerSha256, observedLedgerSha256, migrationEvidenceSha256,

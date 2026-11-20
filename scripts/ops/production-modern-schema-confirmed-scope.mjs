@@ -87,6 +87,12 @@ export function reviewConfirmedLegacyScope({originalAudit,dailyRowsRaw,sourceDir
  const manifest={schema:LEGACY_EGG_TEST_MANIFEST,classification:CONFIRMED_MODERN_SCHEMA_DIRECTIVE.classification,businessEvidenceSha256:canonicalDigest(businessEvidence),groups};
  return {manifest,businessEvidence,originalAudit};
 }
+export async function readConfirmedScopeInAuditSnapshot(client,originalAudit,sourceDirectiveSha256){
+ const {rows:[{daily}]}=await client.query(`SELECT COALESCE(jsonb_agg(to_jsonb(d) ORDER BY d.id),'[]'::jsonb)::text AS daily
+   FROM brd_daily_logs d WHERE d.id=106 OR (d.log_date=DATE '2026-11-17' AND d.house_code='HOUSE_MS_01')`);
+ const confirmedScopeInput={originalAudit,dailyRowsRaw:daily,sourceDirectiveSha256};
+ return {...reviewConfirmedLegacyScope(confirmedScopeInput),confirmedScopeInput};
+}
 export async function collectConfirmedLegacyScope(client,dependencies={}){
  if(!dependencies.verifySources&&!/^[a-f0-9]{40}$/.test(dependencies.targetSha??''))fail('EXACT_SOURCE_REVISION_REQUIRED');
  const sourceDirectiveSha256=(dependencies.verifySources??(()=>verifyConfirmedModernSchemaSources(CONTRACT.repository,fs,dependencies.targetSha)))();
@@ -94,9 +100,6 @@ export async function collectConfirmedLegacyScope(client,dependencies={}){
  try{
   await client.query("SET LOCAL search_path=public");await client.query("SET LOCAL statement_timeout='20s'");await client.query("SET LOCAL lock_timeout='3s'");await client.query('SET LOCAL row_security=off');
   const {rows:[{jsonb_build_object:originalAudit}]}=await client.query(auditSql);
-  const {rows:[{daily}]}=await client.query(`SELECT COALESCE(jsonb_agg(to_jsonb(d) ORDER BY d.id),'[]'::jsonb)::text AS daily
-   FROM brd_daily_logs d WHERE d.id=106 OR (d.log_date=DATE '2026-11-17' AND d.house_code='HOUSE_MS_01')`);
-  const confirmedScopeInput={originalAudit,dailyRowsRaw:daily,sourceDirectiveSha256};
-  return {...reviewConfirmedLegacyScope(confirmedScopeInput),confirmedScopeInput};
+  return await readConfirmedScopeInAuditSnapshot(client,originalAudit,sourceDirectiveSha256);
  }finally{await client.query('ROLLBACK');}
 }
