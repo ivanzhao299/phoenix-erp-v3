@@ -7,7 +7,7 @@ import {canonicalDigest,same} from './production-maintenance-receipts.mjs';
 import {compileOwnedIngressRules} from './maintenance-ingress-policy.mjs';
 import {captureMaintenanceSchedulers,observeMaintenanceProcessIdentity,observeMaintenanceContainerIdentity,captureModernSchemaProcessIdentities} from './production-maintenance-root-readers.mjs';
 import {verifyModernSchemaChild} from './production-modern-schema-processes.mjs';
-import {collectRetainedModernSchemaInventory} from './production-modern-schema-inventory.mjs';
+import {collectRetainedModernSchemaInventory,retainedModernSchemaInventorySlot} from './production-modern-schema-inventory.mjs';
 import {matchesModernSchemaRehearsalVolume} from './production-modern-schema-postgres.mjs';
 import {collectHistoricalComposeSchemaArtifacts,isHistoricalComposeSchemaCandidate} from './production-modern-schema-historical-compose.mjs';
 const fail=code=>{throw Error('MODERN_SCHEMA_EXECUTORS_HOLD='+code);};
@@ -160,8 +160,9 @@ export function collectModernSchemaHostSurface(preSnapshot,dependencies={}){
    try{artifact=collectRetainedModernSchemaInventory(candidate,{owner:preSnapshot.deployRunId,targetSha:preSnapshot.targetSha},
     {...dependencies.retainedInventory,docker:args=>command('/usr/bin/docker',args)});}
    catch{fail('RETAINED_INVENTORY_UNVERIFIED');}
-   if(retainedOwners.has(artifact.formerOwner))fail('RETAINED_INVENTORY_OWNER_REUSED');
-   retainedOwners.add(artifact.formerOwner);inertArtifacts.push(artifact);
+   const slot=retainedModernSchemaInventorySlot(artifact);
+   if(retainedOwners.has(slot))fail('RETAINED_INVENTORY_OWNER_REUSED');
+   retainedOwners.add(slot);inertArtifacts.push(artifact);
    continue;
   }
   if(own&&own.owner===preSnapshot.deployRunId&&own.imageId===candidate.imageId&&candidate.labels?.['phoenix.schema.owner']===own.owner&&candidate.labels?.['phoenix.schema.role']===own.role

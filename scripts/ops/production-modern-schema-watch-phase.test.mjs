@@ -486,3 +486,45 @@ test('lost, stopped or unhealthy verified candidate prevents terminal watch even
   f.candidate.state.Health.Status='unhealthy';
   assert.throws(()=>f.check(f.web,f.db,f.candidate),/VERIFIED_CANDIDATE_RUNTIME_LOST/);
 });
+
+test('clean local pg_dump completion still needs a newer native backend sample', async () => {
+ const {watch}=fixture();
+ const app='phoenix-schema-9001-1-schema-before';
+ const exact={...session(502,null),applicationName:app};
+ const other={...exact,pid:503};
+ const command={entry:{child:{exitCode:0,signalCode:null},pin:{pid:777}},applicationName:app,native:null};
+ watch.readCommand=command;
+ const prior=watch.observeReadonlyBackupBackend(databaseObservation([exact]));
+ assert.equal(prior.closing,true);
+ assert.equal(prior.pin.pid,502);
+ assert.deepEqual(watch.observeReadonlyBackupBackend(databaseObservation([])),{pin:null,closing:false});
+ assert.throws(()=>watch.observeReadonlyBackupBackend(databaseObservation([other])),/READONLY_BACKUP_BACKEND_CHANGED/);
+ assert.throws(()=>watch.observeReadonlyBackupBackend(databaseObservation([exact,other])),/SECOND_READONLY_BACKUP_EXECUTOR/);
+ command.entry.child.exitCode=1;
+ assert.throws(()=>watch.observeReadonlyBackupBackend(databaseObservation([])),/REMOTE_READONLY_BACKUP_RESULT_UNRESOLVED/);
+});
+
+test('pg_dump retirement waits for the active sample and verifies native absence before forgetting its pin', async () => {
+ const {watch}=fixture();
+ const command={entry:{child:{exitCode:0,signalCode:null}}};
+ watch.readCommand=command;
+ let releaseOld,releaseNew,enteredNew;
+ const old=new Promise(resolve=>{releaseOld=resolve;});
+ const fresh=new Promise(resolve=>{releaseNew=resolve;});
+ const started=new Promise(resolve=>{enteredNew=resolve;});
+ watch.observeNative=async()=>{
+  assert.equal(watch.readCommand,command);
+  enteredNew();
+  await fresh;
+ };
+ const observing=watch.serially(()=>old);
+ const retiring=watch.clearReadonlyBackup();
+ assert.equal(watch.readCommand,command);
+ releaseOld();
+ await observing;
+ await started;
+ assert.equal(watch.readCommand,command);
+ releaseNew();
+ await retiring;
+ assert.equal(watch.readCommand,null);
+});

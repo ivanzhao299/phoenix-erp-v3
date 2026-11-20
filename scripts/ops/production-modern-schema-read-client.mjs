@@ -54,7 +54,9 @@ export class ModernSchemaReadClient {
  }
  async start(){
   this.guard();if(this.child||this.broken)throw fail('CLIENT_REUSE');
-  this.child=this.launch('/usr/bin/docker',['exec','-i','-e','PGOPTIONS=-c default_transaction_read_only=on -c idle_in_transaction_session_timeout=25000 -c statement_timeout=20000 -c TimeZone=UTC -c DateStyle=ISO,YMD -c IntervalStyle=iso_8601 -c bytea_output=hex -c extra_float_digits=3',
+  // The executor watch admits these exact readers, not PostgreSQL workers
+  // that a planner could otherwise launch for their audited SELECTs.
+  this.child=this.launch('/usr/bin/docker',['exec','-i','-e','PGOPTIONS=-c default_transaction_read_only=on -c max_parallel_workers_per_gather=0 -c idle_in_transaction_session_timeout=25000 -c statement_timeout=20000 -c TimeZone=UTC -c DateStyle=ISO,YMD -c IntervalStyle=iso_8601 -c bytea_output=hex -c extra_float_digits=3',
    '-e','PGAPPNAME=phoenix-modern-schema-read',this.databaseContainer,'sh','-c','exec env -i PATH=/usr/local/bin:/usr/bin:/bin PGHOST=/var/run/postgresql PGPORT=5432 PGOPTIONS="$PGOPTIONS" PGAPPNAME="$PGAPPNAME" psql -X -qAt -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"'],{env:executionEnv(),stdio:['pipe','pipe','pipe']});
   const lose=()=>{this.broken=true;this.pending?.reject(fail('DATABASE_CHANNEL_LOST'));try{this.child?.stdin.end();}catch{}};this.child.on('error',lose);this.child.on('exit',lose);this.child.stdin.on('error',lose);
   this.child.stderr.on('data',()=>{});let streamBytes=0;
@@ -65,8 +67,14 @@ export class ModernSchemaReadClient {
    if(line===p.tag+':END'&&p.started){this.pending=null;p.resolve({rows:p.rows});return;}
    if(!p.started){lose();return;}try{const row=JSON.parse(line);if(!row||Object.getPrototypeOf(row)!==Object.prototype)throw Error();p.rows.push(row);}catch{lose();}
   });
-  const {rows:[handshake]}=await this.query("SELECT current_setting('default_transaction_read_only')='on' AS readonly,NOT pg_is_in_recovery() AS primary");
-  if(handshake.readonly!==true||handshake.primary!==true){await this.close();throw fail('PRIMARY_READONLY_CHANNEL_REQUIRED');}return this;
+  const {rows:[handshake]}=await this.query(`SELECT current_setting('default_transaction_read_only')='on' AS readonly,
+   NOT pg_is_in_recovery() AS primary,current_setting('max_parallel_workers_per_gather')='0' AS serial`);
+  if(handshake?.readonly!==true||handshake.primary!==true||handshake.serial!==true){
+   const code=handshake?.readonly===true&&handshake.primary===true?'SERIAL_READ_CHANNEL_REQUIRED':'PRIMARY_READONLY_CHANNEL_REQUIRED';
+   try{await this.close();}catch{}
+   throw fail(code);
+  }
+  return this;
  }
  query(sql,parameters=[]){
   const control=controlStatement(sql),statement=control??`SELECT row_to_json(phoenix_read_row)::text FROM (${bindModernSchemaReadSql(sql,parameters)}\n) AS phoenix_read_row;`;

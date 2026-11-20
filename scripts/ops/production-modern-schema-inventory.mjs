@@ -79,7 +79,11 @@ export function inspectModernSchemaImage(imageId,owner,dependencies={}){
 
 export const RETAINED_INVENTORY_CLASSIFICATION='RETAINED_FAILED_PREPARATION_READONLY_INVENTORY';
 export const RETAINED_UNCONSUMED_INVENTORY_CLASSIFICATION='RETAINED_UNCONSUMED_PREPARATION_READONLY_INVENTORY';
-export const isRetainedModernSchemaInventoryPin=pin=>[RETAINED_INVENTORY_CLASSIFICATION,RETAINED_UNCONSUMED_INVENTORY_CLASSIFICATION].includes(pin?.classification);
+export const RETAINED_RECOVERED_INVENTORY_CLASSIFICATION='RETAINED_PRE_DDL_RECOVERED_READONLY_INVENTORY';
+export const isRetainedModernSchemaInventoryPin=pin=>[RETAINED_INVENTORY_CLASSIFICATION,RETAINED_UNCONSUMED_INVENTORY_CLASSIFICATION,
+ RETAINED_RECOVERED_INVENTORY_CLASSIFICATION].includes(pin?.classification);
+export const retainedModernSchemaInventorySlot=pin=>pin.classification===RETAINED_RECOVERED_INVENTORY_CLASSIFICATION
+ ? pin.formerOwner+':'+pin.probeStage : pin.formerOwner;
 const candidateRepository='ghcr.io/ivanzhao299/phoenix-erp-v3/api';
 const protectedAbsent=file=>{
  try{fs.lstatSync(file);return false;}catch(error){if(error.code==='ENOENT')return true;throw error;}
@@ -99,7 +103,47 @@ function readProtectedPrepareReceipt(file,maxBytes=8192){
 function readProtectedCandidatePull(file){
  return readProtectedPreparationFile(file,256*1024);
 }
-function retainedInventoryPreparation(container,owner,revision,{directory=CONTRACT.stateDirectory,readReceipt=readProtectedPrepareReceipt,readPrepared=readProtectedPrepareReceipt,absent=protectedAbsent}={}){
+/** A consumed release may retain its two specifically registered isolated probes
+ * only after the original API has been reopened without schema changes. */
+function recoveredInventoryPreparation(container,owner,revision,{directory,readRecovered}){
+ const file=name=>path.join(directory,name);
+ const evidence=readRecovered(file(`schema-release-operator-retained-inventory-${owner}.json`),8192).value;
+ const {recoveryOwner,probes}=evidence;
+ if(evidence.schema!=='phoenix.modern-operator-retained-inventory/v1'||evidence.owner!==owner||evidence.targetSha!==revision||
+  !match(/^[1-9][0-9]{0,19}-[1-9][0-9]{0,9}$/,recoveryOwner)||recoveryOwner===owner||
+  evidence.migrationAuthorized!==false||!Array.isArray(probes)||probes.length!==2||
+  !same(probes.map(pin=>pin.stage),['prepare','supervise'])||!probes.every(pin=>match(HASH,pin.id)&&match(HASH,pin.identitySha256))||
+  probes[0].id===probes[1].id)hold('RECOVERED_INVENTORY_REGISTRY_REQUIRED');
+ const anchor=readRecovered(file(`schema-release-operator-archive-${recoveryOwner}.json`),65536);
+ const archive=anchor.value;
+ const {stateDigest,...pending}=archive.pending??{};
+ const open=readRecovered(file(`schema-release-operator-public-open-verified-${recoveryOwner}.json`),8192).value;
+ const {value:{preparationSha256,...prep}}=readRecovered(file(`schema-release-preparation-${owner}.json`),8*1024*1024);
+ const former=prep.ownedResources?.filter(pin=>pin.role==='readonly-inventory');
+ const planned=former?.[0];
+ if(archive.schema!=='phoenix.modern-operator-pre-ddl-recovery-archive/v1'||archive.owner!==owner||archive.recoveryOwner!==recoveryOwner||
+  archive.requestedTargetSha!==revision||archive.originalRuntimeSha!==prep.context?.runtimeSha||archive.formalTargetSuccess!==false||
+  archive.schemaChanged!==false||archive.markerArchived!==true||archive.pending?.owner!==owner||archive.pending.status!=='HOLD'||
+  archive.pending.schema!=='phoenix.modern-schema-release-pending/v1'||archive.pending.phase!=='R_STOPPED'||archive.pending.sequence!==4||
+  archive.pending.targetSha!==revision||archive.pending.schemaRelease?.preparationSha256!==preparationSha256||
+  archive.pending.schemaRelease?.contextDigest!==canonicalDigest(prep.context)||stateDigest!==canonicalDigest(pending)||
+  !Number.isFinite(anchor.completedAtMs)||anchor.completedAtMs<=0||
+  archive.publicOpenSha256!==canonicalDigest(open)||evidence.archiveSha256!==canonicalDigest(archive)||
+  open?.schema!=='phoenix.modern-operator-original-open/v1'||open.owner!==owner||open.recoveryOwner!==recoveryOwner||
+  open.formalTargetSuccess!==false||open.manifest?.phase!=='OPEN'||open.manifest.targetSha!==archive.originalRuntimeSha||
+  prep.context?.owner!==owner||prep.context.targetSha!==revision||prep.context.candidateImageId!==container.imageId||
+  preparationSha256!==canonicalDigest(prep)||evidence.preparationSha256!==preparationSha256||
+  former?.length!==1||planned.containerId!==probes[0].id||planned.imageId!==container.imageId||planned.owner!==owner||
+  planned.network!=='none'||planned.readonly!==true||planned.running!==false||planned.exitCode!==0||
+  planned.productionAuthority!==false||!match(HASH,planned.inventorySha256))hold('RECOVERED_INVENTORY_ARCHIVE_REQUIRED');
+ const pin=probes.find(item=>item.id===container.id);
+ if(!pin||pin.identitySha256!==canonicalDigest(container))hold('RECOVERED_INVENTORY_EXACT_NATIVE_PIN_REQUIRED');
+ return {completedAtMs:anchor.completedAtMs,expectedInventorySha256:planned.inventorySha256,
+  pin:{classification:RETAINED_RECOVERED_INVENTORY_CLASSIFICATION,probeStage:pin.stage,recoveryEvidenceSha256:canonicalDigest(evidence)}};
+}
+function retainedInventoryPreparation(container,owner,revision,{directory=CONTRACT.stateDirectory,readReceipt=readProtectedPrepareReceipt,readPrepared=readProtectedPrepareReceipt,readRecovered=readProtectedPrepareReceipt,absent=protectedAbsent}={}){
+ if(!absent(path.join(directory,`schema-release-operator-retained-inventory-${owner}.json`)))
+  return recoveredInventoryPreparation(container,owner,revision,{directory,readRecovered});
  const observed=readReceipt(path.join(directory,`.transport-${owner}-prepare.receipt`));
  const {value:receipt,completedAtMs}=observed;
  const preparedPath=path.join(directory,`schema-release-preparation-${owner}.json`);
