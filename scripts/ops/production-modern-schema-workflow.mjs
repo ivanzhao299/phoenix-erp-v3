@@ -211,7 +211,8 @@ export function createProductionSsh(env, hostEnv, {operatorRecovery=false} = {})
         const allowed = operatorRecovery ? ['recover-original'] : ['prepare', 'run', 'finalize'];
         if (!allowed.includes(operation)) throw fail('SSH_OPERATION_REQUIRED');
         try {
-          return { status: 0, stdout: command('/usr/bin/ssh', [...flags, baseCmd + ' ' + operation], stdin, 34 * 60 * 1000) };
+          const timeoutMinutes = operation === 'run' ? 59 : 34;
+          return { status: 0, stdout: command('/usr/bin/ssh', [...flags, baseCmd + ' ' + operation], stdin, timeoutMinutes * 60 * 1000) };
         } catch (error) {
           // Discard stderr and never include child command lines or exception data.
           if (Number.isInteger(error.status) && typeof error.stdout === 'string' && error.stdout.length <= 65536) {

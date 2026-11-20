@@ -1,8 +1,29 @@
 import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import path from 'node:path';import {fileURLToPath} from 'node:url';
 import {canonicalDigest} from './production-maintenance-receipts.mjs';
 import {MODERN_SCHEMA_SCOPE,MODERN_SCHEMA_CONTEXT,validateModernSchemaContext,validateRegisteredModernSchemaApproval,validateRegisteredFrozenLegacyScope,readRegisteredModernSchemaApproval} from './production-modern-schema-authority.mjs';
+import {INITIAL_MODERN_SCHEMA_PROFILE} from './production-modern-schema-facts.mjs';
 const hash=c=>c.repeat(64),sha=c=>c.repeat(40),time=n=>new Date(Date.UTC(2026,10,19,0,n)).toISOString(),now=Date.parse(time(5));
 import {modernSchemaFixture as fixture} from '../ci/modern-schema-release.fixture.mjs';
+
+test('only the exact first release profile has a single bounded 55-minute window',()=>{
+ const {context}=fixture(),profile=INITIAL_MODERN_SCHEMA_PROFILE;
+ for(const key of ['floorSha','runtimeSha','sourceInventorySha256','runtimeInventorySha256'])context[key]=profile[key];
+ context.pendingMigrations=Array.from({length:profile.pendingCount},(_,index)=>{
+  const timestamp=1790000000000+index,path=`apps/api/src/database/migrations/${timestamp}-Scoped.ts`;
+  return {path,timestamp,effectiveName:`Scoped${timestamp}`,sourceBlob:sha('1'),compiledSha256:hash('3')};
+ });
+ context.changedMigrationPaths=context.pendingMigrations.map(unit=>unit.path);
+ context.window={start:time(0),end:time(55)};
+ assert.deepEqual(validateModernSchemaContext(context),context);
+ for(const change of [
+  {window:{...context.window,end:time(56)}},
+  {window:{...context.window,end:time(31)}},
+  {sourceInventorySha256:hash('a')},{runtimeInventorySha256:hash('b')},{floorSha:sha('d')},
+  {runtimeSha:sha('e')},{changedMigrationPaths:[...context.changedMigrationPaths,'scripts/db-migrate.sh']},
+ ]){
+  assert.throws(()=>validateModernSchemaContext({...context,...change}),/MODERN_SCHEMA_HOLD=/);
+ }
+});
 
 function registration(){
  const f=fixture(),root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../..'),directory=fs.mkdtempSync(path.join(root,'artifacts/modern-schema-authority-'));

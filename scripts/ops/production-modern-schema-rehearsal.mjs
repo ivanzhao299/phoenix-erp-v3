@@ -41,6 +41,9 @@ class Capsule {
  constructor(input,dependencies){Object.assign(this,input);this.dependencies=dependencies;this.resources=[];this.counter=0;this.client=null;this.apps=[];}
  async check(){this.privateRuntime.guard();if(this.stage==='fenced')await this.dependencies.assertFenced();this.privateRuntime.guard();}
  checkRecoveryWindow(inFlightMs){if(this.stage==='fenced')this.dependencies.assertRecoveryWindow?.(inFlightMs);}
+ async readFacts(read){
+  return this.stage==='fenced'&&this.dependencies.duringFencedFacts?this.dependencies.duringFencedFacts(read):read();
+ }
  async command(args,stem='observe',options={}){
   await this.check();const value=await this.privateRuntime.run({binary:'/usr/bin/docker',args,directory:this.directory,stem:stem+'-'+(++this.counter),...options});
   await this.check();return value;
@@ -132,7 +135,7 @@ class Capsule {
   this.client=new ModernSchemaReadClient({guard:()=>{this.privateRuntime.guard();this.checkRecoveryWindow();},databaseContainer:this.db});await this.client.start();
   const {rows:[config]}=await this.client.query("SELECT current_setting('log_statement') AS statement,current_setting('log_line_prefix') AS prefix");
   if(config.statement!=='all'||config.prefix!=='bootstrap-db=%d user=%u app=%a pid=%p ')fail('CLONE_NATIVE_STATEMENT_CAPTURE_REQUIRED');
-  this.before=await captureModernSchemaFacts(this.client);compareRestoredModernSchemaTables(this.backup.source.facts,this.before,{fenced:this.stage==='fenced'});
+  this.before=await this.readFacts(()=>captureModernSchemaFacts(this.client));compareRestoredModernSchemaTables(this.backup.source.facts,this.before,{fenced:this.stage==='fenced'});
   const {rows:[observer]}=await this.client.query("SELECT pg_backend_pid() AS pid,current_database() AS database,current_setting('application_name') AS app,(EXTRACT(epoch FROM backend_start)*1000000)::text AS started FROM pg_stat_activity WHERE pid=pg_backend_pid()");this.observer=observer;
   const {rows:[{jsonb_build_object:raw}]}=await this.client.query(LEDGER_SQL);
   if(digest(JSON.stringify(JSON.parse(raw)))!==this.plan.beforeLedgerSha256)fail('RESTORED_COMPLETE_LEDGER_MISMATCH');
@@ -166,7 +169,7 @@ class Capsule {
   let factsFailure='CAPTURE';
   try{
    const since=new Date(Date.now()-2000).toISOString(),start=await this.marker('migration','after-facts-start');
-   const {projected,full}=await captureModernSchemaFactsPair(this.client,{projection:this.before});
+   const {projected,full}=await this.readFacts(()=>captureModernSchemaFactsPair(this.client,{projection:this.before}));
    this.after=projected;
    this.migrationAfter={facts:full,start,since};
    factsFailure='BUSINESS_MISMATCH';
@@ -250,7 +253,7 @@ class Capsule {
   const runtimeStatements=modernSchemaRuntimeStatements(log,{observer,begin,end});
   const classifications=runtimeStatements.map(record=>({kind:classifySql(record.sql,record.controlParameters),sqlSha256:canonicalDigest(record.sql)}));
   if(!runtimeStatements.length||classifications.some(row=>!['READ','SESSION','CONTROL_SESSION'].includes(row.kind)))fail('ACTUAL_API_ATTEMPTED_BACKGROUND_OR_SCHEMA_WRITE');
-  const after=await captureModernSchemaFacts(this.client);
+  const after=await this.readFacts(()=>captureModernSchemaFacts(this.client));
   if(before.allDataSha256!==after.allDataSha256||before.businessDataSha256!==after.businessDataSha256)fail('API_STARTUP_CHANGED_CLONE_FACTS');
   if(role==='candidate-api'){
    const verified=await this.marker(role,'facts-verified');

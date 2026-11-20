@@ -778,7 +778,7 @@ jobs:
        (inputs.modern_schema_release == true && inputs.modern_schema_resume_owner && needs.build-push.result == 'skipped')) &&
       inputs.skip_deploy != true
     runs-on: ubuntu-latest
-    timeout-minutes: ${{ inputs.modern_schema_release && 75 || 40 }}
+    timeout-minutes: ${{ inputs.modern_schema_release && 105 || 40 }}
     environment: production
 
     permissions:

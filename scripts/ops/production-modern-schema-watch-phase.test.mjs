@@ -418,6 +418,27 @@ test('lease heartbeat shares the watch queue and keeps at most one outstanding c
   assert.deepEqual(errors, []);
 });
 
+test('during long read-only observations the heartbeat independently refuses an unknown primary executor',async t=>{
+ t.mock.timers.enable({apis:['setInterval']});
+ const {watch}=fixture(),errors=[];
+ const stop=watch.startLeaseHeartbeat(error=>errors.push(error));
+ try{
+  watch.check=async()=>{};
+  watch.fencedFactRead=true;
+  let observed=[];
+  watch.client={query:async()=>({rows:[{observation:JSON.stringify(databaseObservation(observed))}]})};
+  t.mock.timers.tick(1000);
+  await watch.serial;
+  await Promise.resolve();
+  assert.deepEqual(errors,[]);
+  observed=[session(711,'172.19.0.20')];
+  t.mock.timers.tick(1000);
+  await watch.serial;
+  await Promise.resolve();
+  assert.match(errors[0]?.message??'',/UNKNOWN_OR_NEW_DATABASE_EXECUTOR/);
+ }finally{await stop();}
+});
+
 test('original CID can disappear only at controlled Compose; replacement sessions cover all release phases', () => {
   const f=fixture();
   assert.throws(()=>f.check(f.web,f.db,f.candidate),/ORIGINAL_R_DISAPPEARED_WITHOUT_CONTROLLED_COMPOSE/);
@@ -537,18 +558,40 @@ test('only the read-only backup fact capture spreads the recurring native census
  let observations=0;
  watch.observe=async()=>{observations++;};
  const facts={readOnly:true};
- const got=await watch.duringFencedBackupFacts(async()=>{
+ const got=await watch.duringFencedFacts('R_STOPPED',async()=>{
   assert.equal(watch.fencedFactRead,true);
   assert.equal(observations,0);
-  await assert.rejects(watch.duringFencedBackupFacts(async()=>assert.fail('Nested capture reached reader')),/ORIGINAL_FENCED_FACT_READ_REQUIRED/);
+  await assert.rejects(watch.duringFencedFacts('R_STOPPED',async()=>assert.fail('Nested capture reached reader')),/ORIGINAL_FENCED_FACT_READ_REQUIRED/);
   return facts;
  });
  assert.equal(got,facts);
  assert.equal(watch.fencedFactRead,false);
- await assert.rejects(watch.duringFencedBackupFacts(async()=>{throw Error('fact read failed');}),/fact read failed/);
+ await assert.rejects(watch.duringFencedFacts('R_STOPPED',async()=>{throw Error('fact read failed');}),/fact read failed/);
  assert.equal(watch.fencedFactRead,false);
  state.phase='DDL_STARTED';
- await assert.rejects(watch.duringFencedBackupFacts(async()=>assert.fail('DDL reached reader')),/ORIGINAL_FENCED_FACT_READ_REQUIRED/);
+ await assert.rejects(watch.duringFencedFacts('DDL_STARTED',async()=>assert.fail('Unrecorded DDL reached reader')),/ORIGINAL_FENCED_FACT_READ_REQUIRED/);
+ watch.state.ddlIntentExists=()=>true;
+ watch.migration={};
+ await assert.rejects(watch.duringFencedFacts('DDL_STARTED',async()=>assert.fail('Active migration reached reader')),/ORIGINAL_FENCED_FACT_READ_REQUIRED/);
+ watch.migration=null;
+ assert.equal(await watch.duringFencedFacts('DDL_STARTED',async()=>facts),facts);
+ state.phase='FRESH_RECHECKED';watch.state.ddlIntentExists=()=>false;
+ assert.equal(await watch.duringFencedFacts('FRESH_RECHECKED',async()=>facts),facts);
+});
+
+test('rehearsal or post-DDL facts cannot be returned before their second full observation',async()=>{
+ const {watch}=fixture(),steps=[];
+ watch.state={read:()=>({phase:'FRESH_RECHECKED',status:'RUNNING'}),ddlIntentExists:()=>false};
+ watch.running=true;
+ watch.observe=async()=>{
+  steps.push('full observation');
+  if(steps.length===3)throw Error('new unaccounted actor');
+ };
+ await assert.rejects(watch.observeFencedFacts('FRESH_RECHECKED',async()=>{
+  steps.push('readonly facts');return {};
+ }),/new unaccounted actor/);
+ assert.deepEqual(steps,['full observation','readonly facts','full observation']);
+ assert.equal(watch.fencedFactRead,false);
 });
 
 for(const inFlight of [false,true]){
@@ -563,7 +606,7 @@ for(const inFlight of [false,true]){
   watch.observe=async()=>{if(++count===2&&inFlight)await observation;};
   watch.start();
   await watch.observe();
-  const capture=watch.duringFencedBackupFacts(()=>facts);
+  const capture=watch.duringFencedFacts('R_STOPPED',()=>facts);
   await Promise.resolve();
   t.mock.timers.tick(500);
   assert.equal(count,2);
@@ -571,7 +614,7 @@ for(const inFlight of [false,true]){
 
   finishFacts();await capture;
   if(inFlight){
-   t.mock.timers.tick(4000);
+   t.mock.timers.tick(30000);
    assert.equal(count,2);
    finishObservation();await watch.pending;
   }
@@ -581,7 +624,7 @@ for(const inFlight of [false,true]){
   await watch.pending;
   assert.equal(count,3);
   await watch.stop();
-  t.mock.timers.tick(4000);
+  t.mock.timers.tick(30000);
   assert.equal(count,3);
  });
 }

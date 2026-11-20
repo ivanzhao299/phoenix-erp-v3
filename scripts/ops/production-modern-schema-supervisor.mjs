@@ -94,9 +94,12 @@ const HOLD_CODES=new Set([
  'MODERN_SCHEMA_BACKUP_HOLD=LEDGER',
  'MODERN_SCHEMA_BACKUP_HOLD=EXPORT_SNAPSHOT',
  'MODERN_SCHEMA_BACKUP_HOLD=EXECUTION',
+ 'MODERN_SCHEMA_BACKUP_HOLD=WINDOW',
  'MODERN_SCHEMA_BACKUP_HOLD=SNAPSHOT_CONTINUITY',
  'MODERN_SCHEMA_BACKUP_HOLD=VERIFICATION',
  'MODERN_SCHEMA_BACKUP_HOLD=CLEANUP_UNRESOLVED',
+ 'MODERN_SCHEMA_SUPERVISOR_HOLD=INSUFFICIENT_WINDOW_TO_RECOVER_ORIGINAL',
+ 'MODERN_SCHEMA_SUPERVISOR_HOLD=INSUFFICIENT_WINDOW_BEFORE_DDL',
 ]);
 
 /** First observed failure and elapsed time only. Error text, stacks, causes,
@@ -333,7 +336,7 @@ export async function superviseModernSchemaRelease(env,input){
   await watch.observe();
   const fencedBackup=await createModernSchemaBackup({owner:context.owner,stage:'fenced',client,databasePin:pre.containers.db,privateRuntime:runtime},{
    ...readCommand,assertFenced:async()=>{await native();await ingress.observe();},assertRecoveryWindow:ms=>windowBudget('recoverOriginal',ms),
-   duringFencedFacts:read=>watch.duringFencedBackupFacts(read),
+   duringFencedFacts:read=>watch.duringFencedFacts('R_STOPPED',read),
    onSnapshotReady:async(source,{factsElapsedMs})=>{
     if(source.ledgerSha256!==ledger.sha256||!same(source.ledger,beforeLedger))fail('FROZEN_BACKUP_SNAPSHOT_LEDGER_CHANGED');
     beforeFacts=source.facts;
@@ -348,6 +351,7 @@ export async function superviseModernSchemaRelease(env,input){
   enter('FENCED_REHEARSAL');
   const rehearsal=await rehearseModernSchemaRelease({owner:context.owner,stage:'fenced',backup:fencedBackup,plan:preparation.plan,runtimeImageId:pre.containers.api.image,privateRuntime:runtime},{
    assertFenced:async()=>{await native();await ingress.observe();},assertRecoveryWindow:ms=>windowBudget('recoverOriginal',ms),
+   duringFencedFacts:read=>watch.observeFencedFacts('FRESH_RECHECKED',read),
    onCreated:record=>watch.registerResource(record),withNativeCreate:work=>watch.withNativeCreate(work),
   });
   await advance('FRESH_RECHECKED','BACKUP_VERIFIED',{backupReceiptFile:fencedBackup.receiptPath,backupReceiptSha256:canonicalDigest(fencedBackup.receipt),
@@ -368,7 +372,9 @@ export async function superviseModernSchemaRelease(env,input){
   },{expectedNetworkId:preparation.ingressScope.networkId,withNativeCreate:work=>watch.withNativeCreate(work),serializeAdmission:work=>watch.serially(work),
    onOriginalDriver:entry=>watch.allowDescendants(entry,'SCHEMA_DRIVER'),
    closeChannel:(channel,options)=>watch.closeBodyChannel(channel,options),startChannel:(channel,entry)=>watch.startBodyChannel(channel,entry)});
-  const effect=await verifyModernSchemaEffect({context,preparationSha256:input.preparationSha256,rootLease,preparation,beforeFacts,beforeAudit:fresh.fresh,beforeLedger,driverReceipt:driver,fencedBackup,privateRuntime:runtime,migrationDirectory,admit:()=>native()},{client});
+  const effect=await verifyModernSchemaEffect({context,preparationSha256:input.preparationSha256,rootLease,preparation,beforeFacts,beforeAudit:fresh.fresh,beforeLedger,driverReceipt:driver,fencedBackup,privateRuntime:runtime,migrationDirectory,admit:()=>native()},{
+   client,duringFencedFacts:read=>watch.observeFencedFacts('DDL_STARTED',read),
+  });
   await advance('DDL_STARTED','SCHEMA_RECEIPTED',{schemaReceiptFile:effect.file,schemaReceiptSha256:canonicalDigest(effect.bundle)});
   const body=await runModernSchemaFormalApiBody({context,preparation,preparationSha256:input.preparationSha256,rootLease,originalProcess,state,watch,privateRuntime:runtime,schemaReceipt:effect.bundle,admit:()=>native()});
   const candidateId=watch.candidate?.id;if(!candidateId)fail('ACTUAL_CANDIDATE_REQUIRED');
