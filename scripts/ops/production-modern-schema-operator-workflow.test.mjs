@@ -42,3 +42,15 @@ test('forward completion is pinned to a distinct previously published recovery o
   }});
   assert.deepEqual(result,success);
 });
+
+test('distinct protected attempts can run at the same exact Git revision',()=>{
+  const sameRevision={...env,ORIGINAL_ATTEMPTED_SHA:execution};
+  const result=runModernOriginalRecoveryWorkflow(sameRevision,{createSsh:(_env,host)=>{
+    assert.equal(host.TARGET_SHA,host.MODERN_SCHEMA_EXECUTION_SHA);
+    assert.notEqual(host.ORIGINAL_RELEASE_OWNER,host.OPERATOR_RECOVERY_OWNER);
+    return {exchange:()=>({status:0,stdout:JSON.stringify(success)}),close(){}};
+  }});
+  assert.deepEqual(result,success);
+  assert.throws(()=>runModernOriginalRecoveryWorkflow({...sameRevision,ORIGINAL_RELEASE_OWNER:recoveryOwner},
+    {createSsh:()=>assert.fail('One attempt cannot recover itself')}),/EXACT_GITHUB_RECOVERY_REQUIRED/);
+});

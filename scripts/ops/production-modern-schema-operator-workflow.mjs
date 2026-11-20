@@ -15,7 +15,7 @@ export function runModernOriginalRecoveryWorkflow(env,deps={}){
  const attempt=env.ORIGINAL_RELEASE_OWNER,recovery=env.GITHUB_RUN_ID+'-'+env.GITHUB_RUN_ATTEMPT;
  const target=env.ORIGINAL_ATTEMPTED_SHA,execution=env.GITHUB_SHA,prior=env.OPERATOR_COMMITTED_OWNER??'';
  if(Object.entries(fixed).some(([key,value])=>env[key]!==value)||!owner.test(attempt??'')||!owner.test(recovery)||attempt===recovery||
-  !sha.test(target??'')||!sha.test(execution??'')||execution!==env.GITHUB_WORKFLOW_SHA||execution===target||(prior!==''&&(!owner.test(prior)||[attempt,recovery].includes(prior))))fail('EXACT_GITHUB_RECOVERY_REQUIRED');
+  !sha.test(target??'')||!sha.test(execution??'')||execution!==env.GITHUB_WORKFLOW_SHA||(prior!==''&&(!owner.test(prior)||[attempt,recovery].includes(prior))))fail('EXACT_GITHUB_RECOVERY_REQUIRED');
  const ssh=(deps.createSsh??createProductionSsh)(env,{TARGET_SHA:target,MODERN_SCHEMA_EXECUTION_SHA:execution,
   ORIGINAL_RELEASE_OWNER:attempt,OPERATOR_RECOVERY_OWNER:recovery,OPERATOR_COMMITTED_OWNER:prior},{operatorRecovery:true});
  try{
