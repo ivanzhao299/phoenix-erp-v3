@@ -173,7 +173,8 @@ async function recover(env){
  const root=CONTRACT.repository,directory=CONTRACT.stateDirectory,store=new ModernSchemaRegistry(),runtime=new ModernSchemaPrivateRuntime();
  const established=verifyModernSchemaStage({owner:recoveryOwner,targetSha:executionSha});
  const prep=store.read(`schema-release-preparation-${owner}.json`),{context,preparationSha256}=prep;
- requireThat(context.owner===owner&&context.targetSha===target&&same(verifyModernSchemaStage({owner,targetSha:target}),prep.stagedSource),'EXACT_ORIGINAL_REVIEWED_SOURCE_REQUIRED');
+ requireThat(context.owner===owner&&context.targetSha===target&&same(verifyModernSchemaStage({owner,targetSha:target},
+  {stageDirectory:path.join(directory,`modern-schema-stage-${owner}`)}),prep.stagedSource),'EXACT_ORIGINAL_REVIEWED_SOURCE_REQUIRED');
  const prior=env.OPERATOR_COMMITTED_OWNER??'';
  requireThat(prior===''||(ownerShape.test(prior)&&prior!==owner&&prior!==recoveryOwner),'FIXED_COMMITTED_OWNER_REQUIRED');
  const priorArchive=prior&&`schema-release-operator-archive-${prior}.json`;
@@ -328,7 +329,14 @@ async function recover(env){
 
 if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
  let outcome='HOLD';
- try{outcome=await recover(process.env);}catch{}
+ try{outcome=await recover(process.env);}catch(error){
+  const owner=process.env.ORIGINAL_RELEASE_OWNER,recoveryOwner=process.env.OPERATOR_RECOVERY_OWNER;
+  const code=typeof error?.message==='string'&&/^[A-Z_]+_HOLD=[A-Z0-9_]+$/.test(error.message)?error.message:'UNCLASSIFIED';
+  if(ownerShape.test(owner??'')&&ownerShape.test(recoveryOwner??'')&&owner!==recoveryOwner){
+   try{new ModernSchemaRegistry().immutable(`schema-release-operator-preflight-hold-${recoveryOwner}.json`,
+    {schema:'phoenix.modern-operator-recovery-preflight-hold/v1',owner,recoveryOwner,code});}catch{}
+  }
+ }
  console.log(JSON.stringify({schema:'phoenix.modern-original-recovery-public/v1',originalOwner:process.env.ORIGINAL_RELEASE_OWNER,
   recoveryOwner:process.env.OPERATOR_RECOVERY_OWNER,formalTargetSuccess:false,outcome}));
  if(outcome!=='ORIGINAL_OPEN')process.exitCode=1;
