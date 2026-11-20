@@ -62,13 +62,33 @@ export function classifyModernSchemaDatabaseExecutors(value,{runtimeAddress,orig
  return {complete:true,databaseOid:value.databaseOid,observerPid:value.observerPid,runtimeSessionPids:runtime,originalControlSessionPids:controls,migrationSessionPids:migrators,
   preparedTransactions:0,unknownExecutors:0,observationSha256:canonicalDigest(value)};
 }
-export function inspectModernSchemaContainer(id,command=run){
- const fields=command('/usr/bin/docker',['inspect',id,'--format','{{json .Id}}\t{{json .Image}}\t{{json .Name}}\t{{json .State}}\t{{json .RestartCount}}\t{{json .HostConfig.NetworkMode}}\t{{json .HostConfig.PortBindings}}\t{{json .NetworkSettings.Networks}}\t{{json .Config.Labels}}\t{{json .Mounts}}\t{{json .HostConfig.Privileged}}\t{{json .HostConfig.PidMode}}\t{{json .HostConfig.ReadonlyRootfs}}\t{{json .HostConfig.CapDrop}}\t{{json .Config.User}}\t{{json .HostConfig.RestartPolicy}}\t{{json .Config.Entrypoint}}\t{{json .Config.Cmd}}']).split('\t').map(JSON.parse);
+const containerInspectFormat='{{json .Id}}\t{{json .Image}}\t{{json .Name}}\t{{json .State}}\t{{json .RestartCount}}\t{{json .HostConfig.NetworkMode}}\t{{json .HostConfig.PortBindings}}\t{{json .NetworkSettings.Networks}}\t{{json .Config.Labels}}\t{{json .Mounts}}\t{{json .HostConfig.Privileged}}\t{{json .HostConfig.PidMode}}\t{{json .HostConfig.ReadonlyRootfs}}\t{{json .HostConfig.CapDrop}}\t{{json .Config.User}}\t{{json .HostConfig.RestartPolicy}}\t{{json .Config.Entrypoint}}\t{{json .Config.Cmd}}';
+function decodeModernSchemaContainer(id,row){
+ const fields=row.split('\t').map(JSON.parse);
  const [actual,imageId,name,state,restarts,networkMode,ports,networks,labels,mounts,privileged,pidMode,readonly,capDrop,user,restartPolicy,entrypoint,cmd]=fields;
  if(actual!==id||!ID.test(id)||!/^sha256:[a-f0-9]{64}$/.test(imageId)||!state||!Array.isArray(mounts))fail('CONTAINER_IDENTITY_REQUIRED');
  const orderedMounts=mounts.map(mount=>({mount,digest:canonicalDigest(mount)}))
   .sort((a,b)=>a.digest.localeCompare(b.digest)).map(({mount})=>mount);
  return {id,imageId,name,state,restarts,networkMode,ports,networks,labels,mounts:orderedMounts,privileged,pidMode,readonly,capDrop,user,restartPolicy,entrypoint,cmd};
+}
+
+export function inspectModernSchemaContainer(id,command=run){
+ return decodeModernSchemaContainer(id,command('/usr/bin/docker',['inspect',id,'--format',containerInspectFormat]));
+}
+
+/** Keep each native inventory result exact while sharing one Docker client
+ * across a small group of IDs. The same per-container decoder is used. */
+export function inspectModernSchemaContainers(ids,command=run){
+ if(!Array.isArray(ids)||new Set(ids).size!==ids.length||ids.some(id=>!ID.test(id??'')))fail('CONTAINER_IDENTITY_REQUIRED');
+ const containers=[];
+ const batchSize=16;
+ for(let first=0;first<ids.length;first+=batchSize){
+  const group=ids.slice(first,first+batchSize);
+  const rows=command('/usr/bin/docker',['inspect','--type','container','--format',containerInspectFormat,...group]).split('\n');
+  if(rows.length!==group.length)fail('CONTAINER_IDENTITY_REQUIRED');
+  for(const [index,id] of group.entries())containers.push(decodeModernSchemaContainer(id,rows[index]));
+ }
+ return containers;
 }
 
 function retainFailedPreparationRehearsal({owner,directory,rehearsal,receipt,record,container},read,lstat){

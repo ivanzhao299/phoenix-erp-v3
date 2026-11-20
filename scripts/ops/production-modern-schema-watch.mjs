@@ -4,7 +4,7 @@ import fs from 'node:fs';import path from 'node:path';import {createHash} from '
 import {CONTRACT} from './production-config-guard.mjs';import {executionEnv} from './capture-production-runtime.mjs';
 import {canonicalDigest,same} from './production-maintenance-receipts.mjs';
 import {captureMaintenanceSchedulers,captureModernSchemaProcessIdentities,observeMaintenanceProcessIdentity,observeMaintenanceContainerIdentity,STABLE_MODERN_CENSUS_PARENT} from './production-maintenance-root-readers.mjs';
-import {inspectModernSchemaContainer,MODERN_SCHEMA_EXECUTOR_SQL,classifyModernSchemaDatabaseExecutors} from './production-modern-schema-executors.mjs';
+import {inspectModernSchemaContainer,inspectModernSchemaContainers,MODERN_SCHEMA_EXECUTOR_SQL,classifyModernSchemaDatabaseExecutors} from './production-modern-schema-executors.mjs';
 import {verifyModernSchemaChild,pinModernSchemaChild,isOriginalModernSchemaChildTerminal} from './production-modern-schema-processes.mjs';import {assertOriginalModernSchemaProcess} from './production-modern-schema-session-lease.mjs';
 import {readPinnedFile} from './production-trusted-paths.mjs';
 import {isRetainedModernSchemaInventoryPin,verifyRetainedModernSchemaInventoryPin} from './production-modern-schema-inventory.mjs';
@@ -94,7 +94,10 @@ export class ModernSchemaExecutorWatch {
   this.migration={address:backend.clientAddress,sessionPid:backend.backend.pid,backendStartMicros:backend.backend.backendStartMicros,applicationName:backend.backend.applicationName,containerIdentityVerified:true,containerId:backend.containerId};
  }
  clearMigration(){this.migration=null;this.waitingMigration=null;}
- containers(){return this.run('/usr/bin/docker',['ps','-a','--no-trunc','-q']).split('\n').filter(Boolean).sort().map(id=>inspectModernSchemaContainer(id,this.run));}
+ containers(){
+  const ids=this.run('/usr/bin/docker',['ps','-a','--no-trunc','-q']).split('\n').filter(Boolean).sort();
+  return inspectModernSchemaContainers(ids,this.run);
+ }
  verifyResource(actual,record){
   if(actual.imageId!==record.imageId||actual.labels?.['phoenix.schema.owner']!==this.context.owner||actual.labels?.['phoenix.schema.role']!==record.role||actual.privileged!==false||actual.pidMode==='host'||actual.pidMode?.startsWith('container:')
    ||actual.networkMode==='host'||actual.restarts!==0||actual.state.OOMKilled!==false||actual.restartPolicy?.Name!=='no')fail('OWNED_RESOURCE_CHANGED');
