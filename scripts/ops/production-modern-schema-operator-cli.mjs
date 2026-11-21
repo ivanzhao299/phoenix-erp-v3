@@ -22,7 +22,7 @@ import {ModernSchemaControlSession,pinOriginalModernSchemaSession,readLinuxProce
 import {ModernSchemaReadClient} from './production-modern-schema-read-client.mjs';
 import {pinModernSchemaChild} from './production-modern-schema-processes.mjs';
 import {closeModernSchemaOriginalSession,confirmModernSchemaPublicDurability} from './production-modern-schema-completion.mjs';
-import {createModernSchemaOperatorRecoveryVerifier,sameOperatorControlSession,verifyRecoveryHostProcesses} from './production-modern-schema-operator-recovery.mjs';
+import {createModernSchemaOperatorRecoveryVerifier,isResidualStopIntent,sameOperatorControlSession,verifyRecoveryHostProcesses} from './production-modern-schema-operator-recovery.mjs';
 
 const ownerShape=/^[1-9][0-9]{0,19}-[1-9][0-9]{0,9}$/;
 const shaShape=/^[a-f0-9]{40}$/;
@@ -197,11 +197,12 @@ async function recover(env){
  const startKey=`schema-release-operator-fenced-start-verified-${owner}.json`,closeKey=`schema-release-session-closed-${owner}.json`;
  const started=store.exists(startKey)?store.read(startKey):null;
  const held=store.read(`recovery-modern-schema-${owner}.json`),closed=store.exists(closeKey)?store.read(closeKey):null;
+ const residual=isResidualStopIntent(pending);
  const fresh=pending.phase==='FRESH_RECHECKED';
- const recoverAlreadyStopped=!started&&(!closed||fresh);
+ const recoverAlreadyStopped=!started&&(!closed||fresh||residual);
  const priorParticipant=prep.originalBackground.participant;
- const originalStep=store.read(`schema-release-step-${owner}-4-r-stopped.json`);
- const originalPolicy=originalStep.payload.evidence.runtimeStopReceipt.originalRestartPolicy;
+ const originalStep=store.read(`schema-release-step-${owner}-${residual?'3-r-stop-intent':'4-r-stopped'}.json`);
+ const originalPolicy=residual?originalStep.payload.evidence.originalRestartPolicy:originalStep.payload.evidence.runtimeStopReceipt.originalRestartPolicy;
  const originalProof=store.read(`schema-release-ingress-installed-${owner}.json`);
  const supervisor=readLinuxProcessIdentity(process.pid),deadline=Date.now()+25*60*1000;
  const newKey=kind=>`schema-release-operator-${kind}-${recoveryOwner}.json`;
@@ -209,8 +210,9 @@ async function recover(env){
  if(initialStat)assertRegularFile(initialStat);
  const pinnedStat=stat=>[stat.dev,stat.ino,stat.mtimeMs,stat.ctimeMs,stat.size];
  const sourceSteps=fs.readdirSync(directory).filter(name=>name.startsWith(`schema-release-step-${owner}-`)).sort();
- requireThat((fresh||pending.phase==='R_STOPPED')&&pending.status==='HOLD'&&pending.sequence===(fresh?5:4)&&
+ requireThat((residual||fresh||pending.phase==='R_STOPPED')&&pending.status==='HOLD'&&pending.sequence===(residual?3:fresh?5:4)&&
   sourceSteps.length===pending.sequence+1&&(!fresh||closed&&!started)&&
+  (!residual||closed&&!started)&&
   held.disposition==='PRE_DDL_FACTS_UNPROVED_KEEP_FENCED'&&
   (recoverAlreadyStopped&&!closed||held.nativeLedger?.sha256===context.beforeLedgerSha256&&
     closed?.outcome==='ORIGINAL_SESSION_ABSENT'&&closed.originalLeaseSha256===canonicalDigest(pending.lease))&&
@@ -277,6 +279,17 @@ async function recover(env){
    newSupervisor:supervisor,newLease:recoveryLease,previousLeaseSha256:canonicalDigest(pending.lease),pendingSha256:canonicalDigest(pending),
    reviewedSourceSha256:established.sha256,originalFencedBootSha256:started?canonicalDigest(started):null,migrationAuthorized:false});
   await admission();await observeFence();
+  if(residual&&inspectModernSchemaContainer(api.id).state.Running===true){
+   const term=await verifier.verifyResidualOriginal();
+   store.immutable(term.key,term.record);
+   await admission();await observeFence();
+   const live=inspectModernSchemaContainer(api.id);
+   requireThat(live.id===api.id&&live.imageId===api.image&&live.state.Pid===term.record.pid&&
+    live.state.StartedAt===term.record.startedAt&&live.state.Running===true&&live.restartPolicy.Name==='no','RESIDUAL_ORIGINAL_IDENTITY_MOVED');
+   requireThat(docker(['kill','--signal=TERM',api.id])===api.id,'EXACT_RESIDUAL_TERM_NOT_ACKNOWLEDGED');
+   await waitContainer(api.id,admission,data=>data.imageId===api.image&&data.state.Status==='exited'&&
+    data.state.Pid===0&&[0,143].includes(data.state.ExitCode));
+  }
   if(started){
    docker(['kill','--signal=TERM',api.id]);stoppedByRecovery=true;
    await waitContainer(api.id,admission,data=>data.imageId===api.image&&data.state.Status==='exited'&&data.state.Pid===0&&data.state.ExitCode===0);
