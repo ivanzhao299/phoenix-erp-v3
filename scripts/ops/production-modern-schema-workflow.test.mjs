@@ -484,7 +484,7 @@ test('the hosted and SSH duration allowances apply only to the exact modern rele
   const yaml=fs.readFileSync(new URL('../../.github/workflows/deploy.yml',import.meta.url),'utf8');
   const deploy=yaml.slice(yaml.indexOf('\n  deploy:'),yaml.indexOf('\n    steps:',yaml.indexOf('\n  deploy:')));
   const transport=fs.readFileSync(new URL('./production-modern-schema-workflow.mjs',import.meta.url),'utf8');
-  assert.match(deploy,/timeout-minutes: \$\{\{ inputs\.modern_schema_release && 105 \|\| 40 \}\}/);
-  assert.match(transport,/const timeoutMinutes = operation === 'run' \? 59 : 34;/);
+  assert.match(deploy,/timeout-minutes: \$\{\{ inputs\.modern_schema_release && 130 \|\| 40 \}\}/);
+  assert.match(transport,/const timeoutMinutes = operation === 'run' \? 84 : 34;/);
   assert.match(transport,/operatorRecovery \? \['recover-original'\] : \['prepare', 'run', 'finalize'\]/);
 });

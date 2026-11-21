@@ -1,11 +1,11 @@
 import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import path from 'node:path';import {fileURLToPath} from 'node:url';
 import {canonicalDigest} from './production-maintenance-receipts.mjs';
-import {MODERN_SCHEMA_SCOPE,MODERN_SCHEMA_CONTEXT,validateModernSchemaContext,validateRegisteredModernSchemaApproval,validateRegisteredFrozenLegacyScope,readRegisteredModernSchemaApproval} from './production-modern-schema-authority.mjs';
+import {INITIAL_MODERN_SCHEMA_WINDOW_MS,MODERN_SCHEMA_SCOPE,MODERN_SCHEMA_CONTEXT,validateModernSchemaContext,validateRegisteredModernSchemaApproval,validateRegisteredFrozenLegacyScope,readRegisteredModernSchemaApproval} from './production-modern-schema-authority.mjs';
 import {INITIAL_MODERN_SCHEMA_PROFILE} from './production-modern-schema-facts.mjs';
 const hash=c=>c.repeat(64),sha=c=>c.repeat(40),time=n=>new Date(Date.UTC(2026,10,19,0,n)).toISOString(),now=Date.parse(time(5));
 import {modernSchemaFixture as fixture} from '../ci/modern-schema-release.fixture.mjs';
 
-test('only the exact first release profile has a single bounded 55-minute window',()=>{
+test('only the exact first release profile accepts the current window and the sealed historical window',()=>{
  const {context}=fixture(),profile=INITIAL_MODERN_SCHEMA_PROFILE;
  for(const key of ['floorSha','runtimeSha','sourceInventorySha256','runtimeInventorySha256'])context[key]=profile[key];
  context.pendingMigrations=Array.from({length:profile.pendingCount},(_,index)=>{
@@ -13,11 +13,16 @@ test('only the exact first release profile has a single bounded 55-minute window
   return {path,timestamp,effectiveName:`Scoped${timestamp}`,sourceBlob:sha('1'),compiledSha256:hash('3')};
  });
  context.changedMigrationPaths=context.pendingMigrations.map(unit=>unit.path);
- context.window={start:time(0),end:time(55)};
- assert.deepEqual(validateModernSchemaContext(context),context);
+ assert.equal(INITIAL_MODERN_SCHEMA_WINDOW_MS,80*60*1000);
+ for(const minutes of [55,80]){
+  context.window={start:time(0),end:time(minutes)};
+  assert.deepEqual(validateModernSchemaContext(context),context);
+ }
  for(const change of [
   {window:{...context.window,end:time(56)}},
   {window:{...context.window,end:time(31)}},
+  {window:{...context.window,end:time(79)}},
+  {window:{...context.window,end:time(81)}},
   {sourceInventorySha256:hash('a')},{runtimeInventorySha256:hash('b')},{floorSha:sha('d')},
   {runtimeSha:sha('e')},{changedMigrationPaths:[...context.changedMigrationPaths,'scripts/db-migrate.sh']},
  ]){

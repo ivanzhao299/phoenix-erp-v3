@@ -132,7 +132,9 @@ class Capsule {
   const restoreTimeout=this.stage==='fenced'&&this.dependencies.assertRecoveryWindow?180000:600000;
   this.checkRecoveryWindow(restoreTimeout);
   await this.command(['exec','-i',this.db,...LOCAL_PSQL,'pg_restore','--exit-on-error','--no-owner','--no-acl','-U',source.username,'-d',source.name],'isolated-restore',{inputFile:backup.path,timeoutMs:restoreTimeout});
-  this.client=new ModernSchemaReadClient({guard:()=>{this.privateRuntime.guard();this.checkRecoveryWindow();},databaseContainer:this.db});await this.client.start();
+  this.client=new ModernSchemaReadClient({guard:()=>{this.privateRuntime.guard();this.checkRecoveryWindow();},databaseContainer:this.db});
+  if(this.dependencies.startFencedReader)await this.dependencies.startFencedReader(this.client,this.db,identity.systemIdentifier);
+  else await this.client.start();
   const {rows:[config]}=await this.client.query("SELECT current_setting('log_statement') AS statement,current_setting('log_line_prefix') AS prefix");
   if(config.statement!=='all'||config.prefix!=='bootstrap-db=%d user=%u app=%a pid=%p ')fail('CLONE_NATIVE_STATEMENT_CAPTURE_REQUIRED');
   this.before=await this.readFacts(()=>captureModernSchemaFacts(this.client));compareRestoredModernSchemaTables(this.backup.source.facts,this.before,{fenced:this.stage==='fenced'});
@@ -272,7 +274,12 @@ class Capsule {
   // distinguish an unresolved owned process from a cleanly stopped capsule.
   let failure;
   for(const id of [...this.apps].reverse())try{if((await this.inspect(id)).state.Running)await this.stop(id);}catch(error){failure??=error;}
-  try{await this.client?.close();}catch(error){failure??=error;}
+  try{
+   if(this.client){
+    if(this.dependencies.closeFencedReader)await this.dependencies.closeFencedReader(this.client);
+    else await this.client.close();
+   }
+  }catch(error){failure??=error;}
   if(this.db)try{if((await this.inspect(this.db)).state.Running)await this.stop(this.db);}catch(error){failure??=error;}
   if(failure)throw failure;
  }
@@ -282,7 +289,10 @@ export async function rehearseModernSchemaRelease(input,dependencies={}){
  if(!/^[1-9][0-9]*-[1-9][0-9]*$/.test(owner??'')||!['prepare','fenced'].includes(stage)||!SHA.test(plan?.targetSha??'')||!SHA.test(plan?.runtimeSha??'')
   ||!IMAGE.test(plan?.candidateImageId??'')||!IMAGE.test(runtimeImageId??'')||backup?.receipt?.owner!==owner||backup.receipt.stage!==stage||backup.receipt.sourceLedgerSha256!==plan.beforeLedgerSha256
   ||!backup.source?.database||!backup.receipt.sourceDatabase||!same(backup.source.database,backup.receipt.sourceDatabase)
-  ||(stage==='fenced'&&typeof dependencies.assertFenced!=='function'))fail('EXACT_PROTECTED_REHEARSAL_REQUIRED');
+  ||(stage==='fenced'&&typeof dependencies.assertFenced!=='function')||
+   (dependencies.startFencedReader!==undefined||dependencies.closeFencedReader!==undefined)&&
+   (stage!=='fenced'||typeof dependencies.startFencedReader!=='function'||typeof dependencies.closeFencedReader!=='function'))
+  fail('EXACT_PROTECTED_REHEARSAL_REQUIRED');
  const directory=privateRuntime.createDirectory(owner,stage+'-rehearsal'),capsule=new Capsule({...input,directory},dependencies);let evidence;
  try{
   capsule.checkRecoveryWindow();await capsule.setup();

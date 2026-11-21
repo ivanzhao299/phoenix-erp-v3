@@ -67,6 +67,11 @@ const HOLD_CODES=new Set([
  'MODERN_SCHEMA_WATCH_HOLD=NEW_OR_CHANGED_HOST_EXECUTOR',
  'MODERN_SCHEMA_WATCH_HOLD=EXACT_STALLED_ORIGINAL_STOP_STAGE_REQUIRED',
  'MODERN_SCHEMA_WATCH_HOLD=NATIVE_STALLED_ORIGINAL_STOP_PROOF_REQUIRED',
+ 'MODERN_SCHEMA_WATCH_HOLD=EXACT_FENCED_REHEARSAL_READER_REQUIRED',
+ 'MODERN_SCHEMA_WATCH_HOLD=EXACT_FENCED_REHEARSAL_CHILD_REQUIRED',
+ 'MODERN_SCHEMA_WATCH_HOLD=EXACT_FENCED_REHEARSAL_DATABASE_REQUIRED',
+ 'MODERN_SCHEMA_WATCH_HOLD=FENCED_REHEARSAL_READER_LOST',
+ 'MODERN_SCHEMA_WATCH_HOLD=FENCED_REHEARSAL_READER_CLOSE_UNVERIFIED',
  'MODERN_SCHEMA_WATCH_HOLD=OWNED_READ_TRANSPORT_LOST',
  'MODERN_SCHEMA_WATCH_HOLD=ORIGINAL_READONLY_BACKUP_PROCESS_REQUIRED',
  'MODERN_SCHEMA_WATCH_HOLD=REMOTE_READONLY_BACKUP_RESULT_UNRESOLVED',
@@ -391,6 +396,7 @@ export async function superviseModernSchemaRelease(env,input){
    assertFenced:async()=>{await native();await ingress.observe();},assertRecoveryWindow:ms=>windowBudget('recoverOriginal',ms),
    duringFencedFacts:read=>watch.observeFencedFacts('FRESH_RECHECKED',read),
    onCreated:record=>watch.registerResource(record),withNativeCreate:work=>watch.withNativeCreate(work),
+   startFencedReader:(...args)=>watch.startFencedRehearsalReader(...args),closeFencedReader:client=>watch.closeFencedRehearsalReader(client),
   });
   await advance('FRESH_RECHECKED','BACKUP_VERIFIED',{backupReceiptFile:fencedBackup.receiptPath,backupReceiptSha256:canonicalDigest(fencedBackup.receipt),
    rehearsalFile:path.join(rehearsal.directory,'rehearsal-receipt.json'),rehearsalSha256:canonicalDigest(rehearsal.evidence)});
