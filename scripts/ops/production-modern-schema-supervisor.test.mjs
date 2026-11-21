@@ -103,3 +103,16 @@ test('catalog output reports only fixed filesystem codes and never error or SQL 
   assert.doesNotMatch(JSON.stringify(reason),/private |SELECT|NOT_AN_APPROVED_CODE/);
  }
 });
+
+test('a host executor hold records only numeric identity, fixed families and digests',()=>{
+ const error=Object.assign(Error('MODERN_SCHEMA_WATCH_HOLD=NEW_OR_CHANGED_HOST_EXECUTOR'),{
+  nativeHostProcess:{pid:200,ppid:1,kind:'PYTHON',parentKind:'OTHER',identitySha256:'a'.repeat(64),argvSha256:'b'.repeat(64),
+   groupSha256:'c'.repeat(64),erpControlReference:false,registeredParent:false,ownedDumpParent:true,argv:'private command'},
+ });
+ const hold=createModernSchemaFirstHoldEvidence(()=>0).record(error,'EXECUTOR_WATCH');
+ assert.equal(hold.nativeHostProcess.ownedDumpParent,true);
+ assert.equal(hold.nativeHostProcess.parentKind,'OTHER');
+ assert.doesNotMatch(JSON.stringify(hold),/private command/);
+ error.nativeHostProcess.kind='private unexpected kind';
+ assert.equal(createModernSchemaFirstHoldEvidence(()=>0).record(error,'EXECUTOR_WATCH').nativeHostProcess,undefined);
+});
