@@ -21,7 +21,7 @@ const oldBoot = '18e1af09-55ec-4d57-8e9c-aea4165ad5b5';
 const newBoot = 'b19847d5-2fb3-48f0-93e4-ae54ef5c4337';
 const firstBoot = 'e464eb48-78b8-4eb4-a25d-1c86e785b159';
 
-function fixture({residual=false,formal=false}={}){
+function fixture({residual=false,formal=false,expired=false}={}){
   const {context} = modernSchemaFixture();
   if(formal){
     residual=true;
@@ -33,7 +33,8 @@ function fixture({residual=false,formal=false}={}){
     Object.assign(context,{floorSha:INITIAL_MODERN_SCHEMA_PROFILE.floorSha,runtimeSha:INITIAL_MODERN_SCHEMA_PROFILE.runtimeSha,
       sourceInventorySha256:INITIAL_MODERN_SCHEMA_PROFILE.sourceInventorySha256,runtimeInventorySha256:INITIAL_MODERN_SCHEMA_PROFILE.runtimeInventorySha256,
       pendingMigrations,changedMigrationPaths:pendingMigrations.map(unit=>unit.path)});
-  }else if(residual)Object.assign(context,{owner:'44855835842-1',targetSha:'cb843973bdff0ebabc6d4fc68d39d16a1be10522'});
+  }else if(expired)Object.assign(context,{owner:'44883169227-1',targetSha:'45fe9bf6ded83740965de1b81143a08b3ac07369'});
+  else if(residual)Object.assign(context,{owner:'44855835842-1',targetSha:'cb843973bdff0ebabc6d4fc68d39d16a1be10522'});
   const {owner} = context, recoveryOwner = '98765-1';
   const key = suffix => `schema-release-${suffix}-${owner}.json`;
   const keyStep = (phase,sequence) => `schema-release-step-${owner}-${sequence}-${phase.toLowerCase().replaceAll('_','-')}.json`;
@@ -137,7 +138,7 @@ function fixture({residual=false,formal=false}={}){
     readProtectedTerm:file=>nativeFiles.get(file)??Buffer.from(file.endsWith('.stdout')&&flags.firstTermAccepted?pins.api.id+'\n':''),
     privateRuntime:{
       digest:async file=>{
-        assert.ok([rawCatalog.path,rawCatalog.path.replace('hold-observation','before')].includes(file));
+        assert.ok(['hold-observation','before','recovery-before','recovery-after'].some(stage=>rawCatalog.path.replace('hold-observation',stage)===file));
         return {...rawCatalog,path:file,sha256:flags.rawSha256};
       },
       createDirectory:(id,role)=>{assert.equal(id,recoveryOwner);assert.equal(role,'recovery');return '/protected/recovery';},
@@ -180,7 +181,7 @@ function fixture({residual=false,formal=false}={}){
     inspectContainer(id){
       const [name,pin]=Object.entries(pins).find(([,pin])=>id===pin.id);
       const api=name==='api',running=!api||flags.running;
-      return {id,imageId:pin.image,name:'/phoenix-v3-'+name,restarts:0,restartPolicy:noRestart,
+      return {id,imageId:pin.image,name:'/phoenix-v3-'+name,restarts:0,restartPolicy:api&&flags.adoptedPolicy?originalPolicy:noRestart,
         state:{Running:running,Status:running?'running':'exited',StartedAt:api?(running?flags.startedAt:flags.previousStartedAt):pin.startedAt,
           FinishedAt:flags.finishedAt,Health:{Status:name==='db'&&!flags.originalDb||api&&flags.residualRunning?'unhealthy':'healthy'},Pid:running?100:0,
           ExitCode:api?flags.exitCode:0,OOMKilled:false,Dead:false,Restarting:false,Paused:false},
@@ -251,8 +252,29 @@ function fixture({residual=false,formal=false}={}){
     const advanced={...pending,phase:ownerHold.phase,sequence:5,receiptSha256:canonicalDigest(step),updatedAt:at(8)};
     registry.set('schema-release-pending.json',{...advanced,stateDigest:canonicalDigest(advanced)});
   };
+  const interruptedOriginalReopen=async()=>{
+    await failAfterFreshCheck({source:'SUPERVISOR',stage:'FENCED_REHEARSAL',code:'MODERN_SCHEMA_SUPERVISOR_HOLD=INSUFFICIENT_WINDOW_TO_RECOVER_ORIGINAL'});
+    const beforeFactsSha256=canonicalDigest(registry.get(key('before-facts')));
+    const catalogs=['recovery-before','recovery-after'].map(stage=>({...holdCatalog,stage,
+      raw:{...rawCatalog,path:rawCatalog.path.replace('hold-observation',stage)}}));
+    for(const catalog of catalogs)registry.set(key(catalog.stage+'-schema'),catalog);
+    const intent={schema:'phoenix.modern-schema-original-recovery-intent/v1',owner,contextDigest,preparationSha256,
+      originalLease:oldLease,originalContainerId:pins.api.id,originalImageId:pins.api.image,originalRestartPolicy:originalPolicy,
+      pendingSha256:canonicalDigest(registry.get('schema-release-pending.json')),originalLedgerSha256:context.beforeLedgerSha256,
+      beforeFactsSha256,beforeCatalogSha256:canonicalDigest(catalogs[0]),automaticRetry:false};
+    const proof={schema:'phoenix.modern-schema-original-recovery-proof/v1',owner,contextDigest,targetSha:context.runtimeSha,
+      attemptedTargetSha:context.targetSha,originalLease:oldLease,originalRestartPolicy:originalPolicy,approvalSha256,
+      intentSha256:canonicalDigest(intent),beforeCatalogSha256:canonicalDigest(catalogs[0]),afterCatalogSha256:canonicalDigest(catalogs[1]),
+      databaseFactsSha256:beforeFactsSha256,originalRuntime:{...prior,bootId:newBoot},startedAt:at(10),
+      outcome:'ABORTED_BEFORE_DDL_ORIGINAL_R_RECOVERED',formalTargetSuccess:false,schemaChanged:false,businessActivation:false,automaticRetry:false};
+    registry.set(key('original-recovery-intent'),intent);
+    registry.set(key('original-recovery-verified'),proof);
+    resumeOriginal();
+    flags.adoptedPolicy=true;
+    return proof;
+  };
   return {context,flags,parameters,dependencies,registry,directories,events,key,keyStep,oldLease,manifest,pins,installed,stop,
-    firstStartKey,firstStart,terminateFirst,resumeOriginal,failReadChannel,failAfterFreshCheck,
+    firstStartKey,firstStart,terminateFirst,resumeOriginal,failReadChannel,failAfterFreshCheck,interruptedOriginalReopen,
     recordHistoricalIdle:()=>registry.get(`recovery-modern-schema-${owner}.json`).nativeExecutors.value.sessions.push(historicalIdle),
     verifier:()=>createModernSchemaOperatorRecoveryVerifier(parameters,dependencies)};
 }
@@ -360,6 +382,31 @@ test('a formal stalled TERM followed by a pre-step hold can recover observed exi
     assert.equal((await verifier.verifyStarted()).stoppedCheckpointSha256,canonicalDigest(before));
     assert.equal(f.registry.has(f.keyStep('R_STOPPED',4)),false);
   }finally{await verifier.close();}
+});
+
+test('a verified original boot can be adopted after its former supervisor expires without another stop or start',async()=>{
+  const f=fixture({expired:true}),proof=await f.interruptedOriginalReopen();
+  const verifier=await f.verifier();
+  try{
+    await assert.rejects(verifier.captureStopped(),/SINGLE_STOPPED_CHECKPOINT_REQUIRED/);
+    const observed=await verifier.verifyAdoptedOriginal();
+    assert.equal(observed.adoptedRecoveryProofSha256,canonicalDigest(proof));
+    assert.equal(observed.startedAt,proof.startedAt);
+    assert.equal(observed.formalTargetSuccess,false);
+    await verifier.verifyHostBeforeOpen();
+  }finally{await verifier.close();}
+});
+
+test('an alternate boot and a changed recovery artifact cannot be adopted',async()=>{
+  const f=fixture({expired:true});
+  await f.interruptedOriginalReopen();
+  f.registry.get(f.key('original-recovery-verified')).intentSha256=hash('9');
+  await assert.rejects(f.verifier(),/PROTECTED_VERIFIED_ORIGINAL_RECOVERY_REQUIRED/);
+  await f.interruptedOriginalReopen();
+  f.flags.newBoot=firstBoot;
+  const verifier=await f.verifier();
+  try{await assert.rejects(verifier.verifyAdoptedOriginal(),/ORIGINAL_API_QUIESCENT_NEW_BOOT_REQUIRED/);}
+  finally{await verifier.close();}
 });
 
 test('a protected fenced-start can continue only through its observed boot, TERM and a distinct resumed boot',async()=>{
