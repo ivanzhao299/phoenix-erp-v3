@@ -6,6 +6,7 @@ import path from 'node:path';
 import {execFileSync} from 'node:child_process';
 import {setTimeout as pause} from 'node:timers/promises';
 import {CONTRACT,git} from './production-config-guard.mjs';
+import {readPinnedFile} from './production-trusted-paths.mjs';
 import {captureRuntime,executionEnv} from './capture-production-runtime.mjs';
 import {assertSameBinding,readPublicManifest,validateManifest,validateParticipants} from './background-control-manifest.mjs';
 import {inspectApiParticipant,verifyParticipantStatus} from './background-control-coordinator.mjs';
@@ -41,6 +42,22 @@ const noRestart = {Name:'no',MaximumRetryCount:0};
 const marker = 'schema-release-pending.json';
 const controlName = 'background-control.json';
 const isHash = value => typeof value === 'string' && HASH.test(value);
+export const isResidualStopIntent = ({owner,targetSha,phase}) => owner==='44855835842-1'
+  && targetSha==='cb843973bdff0ebabc6d4fc68d39d16a1be10522' && phase==='R_STOP_INTENT';
+const refusedProgram = "const net=require('node:net');const socket=net.connect({host:'127.0.0.1',port:3100});socket.setTimeout(2000);socket.once('connect',()=>{socket.destroy();process.exit(1)});socket.once('timeout',()=>process.exit(2));socket.once('error',error=>{if(error.code!=='ECONNREFUSED')process.exit(3);console.log('LISTENER_CLOSED')});";
+const termEventFormat='{{.Action}}\t{{.Actor.ID}}\t{{index .Actor.Attributes "signal"}}\t{{index .Actor.Attributes "exitCode"}}\t{{.TimeNano}}';
+const residualExecutorSql=`WITH original AS (${MODERN_SCHEMA_EXECUTOR_SQL.trim().slice(0,-1)})
+SELECT observation,COALESCE((SELECT jsonb_agg(pid) FROM pg_stat_activity
+ WHERE backend_type='client backend' AND state='idle' AND xact_start IS NULL),'[]'::jsonb)::text AS idle_pids
+ FROM original;`;
+export function confirmsResidualTermEvents(raw,containerId,recordedAt){
+  const rows=raw.trim().split('\n').map(line=>line.split('\t'));
+  if(rows.length!==2||rows.some(row=>row.length!==5||row[1]!==containerId||!/^[0-9]{19}$/.test(row[4])))return false;
+  const [signal,exit]=rows;
+  const started=Date.parse(recordedAt);
+  return Number.isFinite(started)&&signal[0]==='kill'&&signal[2]==='15'&&exit[0]==='die'&&exit[3]==='143'&&
+    BigInt(signal[4])>=BigInt(started)*1000000n&&BigInt(exit[4])>BigInt(signal[4]);
+}
 const nativeDocker = args => {
   try {
     return execFileSync('/usr/bin/docker',args,{env:executionEnv(),encoding:'utf8',timeout:5000,
@@ -101,10 +118,11 @@ function bindHistoricalStop({store,owner,recoveryLease,readApproval,validatePrep
   const preparation = store.read(key('preparation'));
   const stepName = (phase,sequence) => `schema-release-step-${owner}-${sequence}-${phase.toLowerCase().replaceAll('_','-')}.json`;
   const recordedPending=store.read(marker);
+  const residual=isResidualStopIntent(recordedPending);
   const fresh=recordedPending.phase==='FRESH_RECHECKED';
-  const requiredSteps=fresh?6:5;
+  const requiredSteps=residual?4:fresh?6:5;
   const steps = MODERN_SCHEMA_PHASES.slice(0,requiredSteps).map((phase,sequence) => store.read(stepName(phase,sequence)));
-  const stopAt = Date.parse(steps[4].recordedAt);
+  const stopAt = Date.parse(steps[residual?3:4].recordedAt);
   if(!Number.isFinite(stopAt))fail('ORIGINAL_STOP_TIME_REQUIRED');
   const {context,preparationSha256} = validatePreparation(preparation,stopAt);
   const contextDigest = canonicalDigest(context);
@@ -144,15 +162,17 @@ function bindHistoricalStop({store,owner,recoveryLease,readApproval,validatePrep
     }
   }
   const {api,web,db} = preparation.originalSnapshot.containers;
-  const stop = steps[4].payload.evidence.runtimeStopReceipt;
-  const policy = stop?.originalRestartPolicy;
+  const intent = steps[3].payload.evidence;
+  const stop = residual?null:steps[4].payload.evidence.runtimeStopReceipt;
+  const policy = residual?intent.originalRestartPolicy:stop?.originalRestartPolicy;
   if(canonicalDigest(preparation.originalSnapshot.containers)!==context.runtimeSnapshotSha256||
-      stop?.schema!=='phoenix.modern-schema-original-runtime-stopped/v1'||stop.containerId!==api.id||
+      !['no','always','unless-stopped'].includes(policy?.Name)||policy.MaximumRetryCount!==0||
+      !same(intent.originalRestartPolicy,policy))fail('EXACT_ORIGINAL_STOP_RECEIPT_REQUIRED');
+  if(residual&&intent.originalSnapshotSha256!==context.runtimeSnapshotSha256)fail('EXACT_ORIGINAL_STOP_INTENT_REQUIRED');
+  if(!residual&&(stop?.schema!=='phoenix.modern-schema-original-runtime-stopped/v1'||stop.containerId!==api.id||
       stop.imageId!==api.image||stop.startedAt!==api.startedAt||stop.restartCount!==api.restartCount||
       stop.signal!=='TERM'||stop.exitCode!==0||stop.pid!==0||stop.oomKilled!==false||stop.automaticKill!==false||
-      stop.oldDatabaseSessionsGone!==true||!same(stop.currentRestartPolicy,noRestart)||
-      !['no','always','unless-stopped'].includes(policy?.Name)||policy.MaximumRetryCount!==0||
-      !same(steps[3].payload.evidence.originalRestartPolicy,policy))fail('EXACT_ORIGINAL_STOP_RECEIPT_REQUIRED');
+      stop.oldDatabaseSessionsGone!==true||!same(stop.currentRestartPolicy,noRestart)))fail('EXACT_ORIGINAL_STOP_RECEIPT_REQUIRED');
 
   const closed = store.exists(key('session-closed'))?store.read(key('session-closed')):null;
   const {database} = pending.lease;
@@ -172,7 +192,14 @@ function bindHistoricalStop({store,owner,recoveryLease,readApproval,validatePrep
       hold.nativeSchema.sha256!==canonicalDigest(catalog)||catalog.schema!=='phoenix.modern-schema-catalog-facts/v1'||
       catalog.owner!==owner||catalog.stage!=='hold-observation'||catalog.readOnly!==true||catalog.releaseAuthorized!==false||
       !same(catalog.databasePin,db)||!isHash(catalog.schemaSha256))fail('ORIGINAL_HOLD_LEDGER_AND_CATALOG_REQUIRED');
-  let beforeCatalog=null, beforeFactsSha256=null, requireHostCensus=false;
+  let beforeCatalog=null, beforeFactsSha256=null, requireHostCensus=residual;
+  if(residual){
+    const first=store.read(key('supervisor-first-hold'));
+    if(!closed||first.schema!=='phoenix.modern-schema-supervisor-first-hold/v1'||first.owner!==owner||
+        first.contextDigest!==contextDigest||first.pendingPhase!=='R_STOP_INTENT'||
+        first.failure?.source!=='SUPERVISOR'||first.failure.code!=='UNCLASSIFIED'||first.failure.stage!=='BEFORE_STOPPED_PROOF')
+      fail('EXACT_RESIDUAL_ORIGINAL_STOP_INTENT_REQUIRED');
+  }
   if(closed){
     const observed=hold.nativeExecutors?.value;
     if(hold.nativeLedger?.status!=='OBSERVED'||hold.nativeLedger.sha256!==context.beforeLedgerSha256||
@@ -214,7 +241,7 @@ function bindHistoricalStop({store,owner,recoveryLease,readApproval,validatePrep
     beforeFactsSha256=evidence.factsSha256;
     requireHostCensus=failure.code==='MODERN_SCHEMA_WATCH_HOLD=NEW_OR_CHANGED_HOST_EXECUTOR';
   }
-  return {key,context,contextDigest,binding,pending,preparation,steps,stop,api,web,db,catalog,hold,closed,
+  return {key,context,contextDigest,binding,pending,preparation,steps,policy,residual,api,web,db,catalog,hold,closed,
     beforeCatalog,beforeFactsSha256,requireHostCensus,checkNoLaterEffects,provesOldAbsent};
 }
 
@@ -263,19 +290,28 @@ export async function createModernSchemaOperatorRecoveryVerifier({
   const source = bindHistoricalStop({store,owner,recoveryLease,
     readApproval:dependencies.readApproval??((context,options)=>readHistoricalApproval(store,context,options)),
     validatePreparation:dependencies.validatePreparation??validateModernSchemaPreparation});
-  const {key,context,contextDigest,binding,pending,preparation,stop,api,web,db,hold,catalog,provesOldAbsent} = source;
+  const {key,context,contextDigest,binding,pending,preparation,policy,residual,api,web,db,hold,catalog,provesOldAbsent} = source;
+  if(residual){
+    const term=path.join(store.directory,`schema-release-session-${owner}`,'original-r-term');
+    const read=dependencies.readProtectedTerm??(file=>readPinnedFile(file,{contract:CONTRACT}));
+    if(!read(term+'.stdout').equals(Buffer.from(api.id+'\n'))||read(term+'.stderr').length!==0)
+      fail('EXACT_FIRST_TERM_ACCEPTANCE_REQUIRED');
+  }
   for(const original of [catalog,...(source.beforeCatalog?[source.beforeCatalog]:[])]){
     const originalCatalogFile = path.join(store.directory,`schema-release-session-${owner}`,`catalog-${original.stage}.stdout`);
     if(original.raw?.path!==originalCatalogFile||!isHash(original.raw.sha256)||
         !Number.isSafeInteger(original.raw.bytes)||original.raw.bytes<1||original.raw.bytes>16*1024*1024||
         !same(await runtime.digest(originalCatalogFile),original.raw))fail('ORIGINAL_NATIVE_CATALOG_BYTES_CHANGED');
   }
-  const stoppedPin = {containerId:api.id,imageId:api.image,restartPolicy:stop.originalRestartPolicy};
+  const stoppedPin = {containerId:api.id,imageId:api.image,restartPolicy:policy};
   const manifest = validateManifest(readPublic());
   const control = store.read(controlName);
   const generation = store.read('background-generation.json');
   const prior = preparation.originalBackground.participant;
   const {hostSurface,ingressScope} = preparation;
+  const historicalApiSessions=residual?hold.nativeExecutors.value.sessions?.filter(row=>row.clientAddress===hostSurface.runtimeAddress):[];
+  if(residual&&(!Array.isArray(historicalApiSessions)||historicalApiSessions.length>1||
+      historicalApiSessions.some(row=>row.openTransaction!==false||row.applicationName!=='')))fail('ORIGINAL_RESIDUAL_BACKEND_NOT_PROVED');
   assertSameBinding(control,binding);
   if(manifest.phase!=='FENCED'||manifest.owner!==owner||manifest.targetSha!==context.targetSha||
       !same(manifest.participants,[prior])||prior.containerId!==api.id||prior.revision!==context.runtimeSha||
@@ -288,7 +324,7 @@ export async function createModernSchemaOperatorRecoveryVerifier({
       !same(installed,source.steps[2].payload.evidence.ingressObservation))fail('ORIGINAL_INGRESS_RECEIPT_REQUIRED');
   const fencedStartKey = key('operator-fenced-start-verified');
   const started = store.exists(fencedStartKey)?store.read(fencedStartKey):null;
-  if(started&&(!source.closed||source.beforeFactsSha256))fail('DIRECT_RECOVERY_REQUIRES_STOPPED_RUNTIME');
+  if(started&&(residual||!source.closed||source.beforeFactsSha256))fail('DIRECT_RECOVERY_REQUIRES_STOPPED_RUNTIME');
   const fencedStart = started?bindFencedStart({started,owner,context,contextDigest,pending,hold,closed:source.closed,
     installed,manifest,prior,api}):null;
   if(!observeFences){
@@ -311,7 +347,26 @@ export async function createModernSchemaOperatorRecoveryVerifier({
     if(await observeFences({owner,recoveryOwner,context,preparation,installed,manifest})!==installed.identitySha256)fail('NATIVE_INGRESS_IDENTITY_CHANGED');
     return admit();
   };
-  const inspectHost = (running,requireOriginalFencedBoot=false) => {
+  const residualTermKey=key('operator-residual-term-intent');
+  const hasResidualTermIntent=()=>{
+    if(!residual||!store.exists(residualTermKey))return false;
+    const term=store.read(residualTermKey);
+    if(!(term.schema==='phoenix.modern-operator-residual-term-intent/v1'&&term.owner===owner&&term.targetSha===context.targetSha&&
+      ownerPattern.test(term.recoveryOwner??'')&&term.recoveryOwner!==owner&&term.containerId===api.id&&term.imageId===api.image&&
+      term.startedAt===api.startedAt&&Number.isSafeInteger(term.pid)&&term.pid>1&&term.signal==='TERM'&&
+      term.pendingSha256===canonicalDigest(pending)&&term.migrationAuthorized===false&&
+      Date.parse(term.recordedAt)>Date.parse(pending.updatedAt)))return false;
+    const originalRecovery=store.read(`schema-release-operator-recovery-intent-${term.recoveryOwner}.json`);
+    if(originalRecovery.schema!=='phoenix.modern-operator-recovery-intent/v1'||originalRecovery.owner!==owner||
+        originalRecovery.recoveryOwner!==term.recoveryOwner||originalRecovery.pendingSha256!==term.pendingSha256||
+        originalRecovery.target!==context.targetSha||originalRecovery.migrationAuthorized!==false||
+        term.recoveryLeaseSha256!==canonicalDigest(originalRecovery.newLease))return false;
+    const raw=docker(['events','--since',term.recordedAt,'--until',new Date().toISOString(),
+      '--filter','type=container','--filter','container='+api.id,'--filter','event=kill','--filter','event=die',
+      '--format',termEventFormat]);
+    return confirmsResidualTermEvents(raw,api.id,term.recordedAt);
+  };
+  const inspectHost = (running,requireOriginalFencedBoot=false,residualRunning=false) => {
     if(!same(captureRuntime(docker),preparation.active.active))fail('ORIGINAL_RUNTIME_IMAGES_CHANGED');
     for(const pin of [web,db]){
       const current = inspect(pin.id);
@@ -329,11 +384,14 @@ export async function createModernSchemaOperatorRecoveryVerifier({
     if(running){
       const startedAt = Date.parse(current.state.StartedAt);
       const anchor = fencedStart?.startedAt??api.startedAt;
-      if(current.state.Status!=='running'||current.state.Health?.Status!=='healthy'||current.state.Pid<2||
-          (requireOriginalFencedBoot?current.state.StartedAt!==anchor:!(startedAt>Date.parse(anchor)))||
+      const healthy=residualRunning?'unhealthy':'healthy';
+      const expectedStart=residualRunning?api.startedAt:anchor;
+      if(current.state.Status!=='running'||current.state.Health?.Status!==healthy||current.state.Pid<2||
+          (requireOriginalFencedBoot||residualRunning?current.state.StartedAt!==expectedStart:!(startedAt>Date.parse(anchor)))||
           endpoint.NetworkID!==ingressScope.networkId||
           endpoint.IPAddress!==hostSurface.runtimeAddress||endpoint.GlobalIPv6Address!=='')fail('RECOVERED_API_RUNTIME_NOT_READY');
-    } else if(current.state.Status!=='exited'||current.state.StartedAt!==(fencedStart?.startedAt??api.startedAt)||current.state.ExitCode!==0||
+    } else if(current.state.Status!=='exited'||current.state.StartedAt!==(fencedStart?.startedAt??api.startedAt)||
+        !(current.state.ExitCode===0||residual&&current.state.ExitCode===143&&hasResidualTermIntent())||
         current.state.Pid!==0||![ingressScope.networkId,''].includes(endpoint.NetworkID)||
         (fencedStart&&!(Date.parse(current.state.FinishedAt)>Date.parse(fencedStart.startedAt)))){
       fail('EXACT_ORIGINAL_API_STOP_REQUIRED');
@@ -344,7 +402,7 @@ export async function createModernSchemaOperatorRecoveryVerifier({
     const ids = docker(['ps','--no-trunc','-q','--filter',`label=com.docker.compose.project=${preparation.floor.project}`,
       '--filter','label=com.docker.compose.service=api']).split('\n').filter(Boolean);
     if(!same(ids,running?[api.id]:[]))fail('UNEXPECTED_RUNNING_API');
-    return current.state.StartedAt;
+    return residualRunning?{startedAt:current.state.StartedAt,pid:current.state.Pid}:current.state.StartedAt;
   };
 
   await check();
@@ -367,7 +425,7 @@ export async function createModernSchemaOperatorRecoveryVerifier({
     if(probe.status!==200||probe.ready!==true||probe.dbConnected!==true||!isHash(probe.bodySha256))fail('ORIGINAL_API_READY_PROBE_REQUIRED');
     return {participant,controlSession:status.controlSession,readiness:probe};
   };
-  const observeNative = async (running,verifiedApi) => {
+  const observeNative = async (running,verifiedApi,residualIdle=false) => {
     const {rows:[old]} = await client.query(modernSchemaOriginalSessionExitSql(pending.lease));
     if(!provesOldAbsent(old))fail('ORIGINAL_SESSION_REAPPEARED_OR_PRIMARY_CHANGED');
     const {rows:[{jsonb_build_object:holders}]} = await client.query(MODERN_SCHEMA_LEASE_SQL);
@@ -375,12 +433,18 @@ export async function createModernSchemaOperatorRecoveryVerifier({
     const controlSession = verifiedApi?.controlSession;
     const applicationName = verifiedApi?`phoenix-fence:${verifiedApi.participant.bootId}`:null;
     for(let attempt=0;attempt<3;attempt++){
-      const {rows:[{observation:raw}]} = await client.query(MODERN_SCHEMA_EXECUTOR_SQL);
+      const {rows:[{observation:raw,idle_pids:idlePids}]} = await client.query(residualIdle?residualExecutorSql:MODERN_SCHEMA_EXECUTOR_SQL);
       const observed = JSON.parse(raw);
       // This classifier slot names the current lock owner. The original lease
       // is bound separately to the failed release and checked for absence.
       const executors = classifyModernSchemaDatabaseExecutors(observed,{runtimeAddress:hostSurface.runtimeAddress,
-        originalLease:recoveryLease,oldRuntimeStopped:!running});
+        originalLease:recoveryLease,oldRuntimeStopped:!running&&!residualIdle});
+      if(residualIdle){
+        const idle=JSON.parse(idlePids);
+        const incumbent=observed.sessions.filter(row=>row.clientAddress===hostSurface.runtimeAddress);
+        if(!Array.isArray(idle)||observed.workers.length!==0||incumbent.length>historicalApiSessions.length||
+            incumbent.some(row=>!same(row,historicalApiSessions[0])||!idle.includes(row.pid)))fail('ORIGINAL_RESIDUAL_BACKEND_NOT_PROVED');
+      }
       const applicationSessions = observed.sessions.filter(row=>row.applicationName===applicationName);
       const apiControl = controlSession&&applicationSessions[0];
       if(controlSession&&(controlSession.applicationName!==applicationName||applicationSessions.length!==1||
@@ -462,6 +526,23 @@ export async function createModernSchemaOperatorRecoveryVerifier({
   return {
     stoppedPin:structuredClone(stoppedPin),
     manifest:structuredClone(manifest),
+    async verifyResidualOriginal(){
+      if(!residual||stage!=='READY'||store.exists(residualTermKey))fail('SINGLE_RESIDUAL_ORIGINAL_TERM_REQUIRED');
+      await check();
+      const actual=inspectHost(true,false,true);
+      const noListener=()=>docker(['exec',api.id,'/usr/bin/env','-i','/usr/local/bin/node','-e',refusedProgram])==='LISTENER_CLOSED';
+      if(!noListener())fail('ORIGINAL_RESIDUAL_LISTENER_NOT_CLOSED');
+      await observeNative(false,undefined,true);
+      const ledger=await (dependencies.captureLedger??captureModernSchemaLedger)(client);
+      if(ledger.sha256!==context.beforeLedgerSha256||!same(ledger.ledger,hold.nativeLedger.ledger))fail('NATIVE_LEDGER_CHANGED');
+      observeCurrentHost();
+      await check();
+      if(!same(actual,inspectHost(true,false,true))||!noListener())fail('RESIDUAL_ORIGINAL_IDENTITY_MOVED');
+      await observeNative(false,undefined,true);
+      return {key:residualTermKey,record:{schema:'phoenix.modern-operator-residual-term-intent/v1',owner,recoveryOwner,
+        targetSha:context.targetSha,containerId:api.id,imageId:api.image,...actual,signal:'TERM',pendingSha256:canonicalDigest(pending),
+        recordedAt:new Date().toISOString(),recoveryLeaseSha256:canonicalDigest(recoveryLease),migrationAuthorized:false}};
+    },
     async verifyFencedBoot(){
       if(!fencedStart||stage!=='READY')fail('SINGLE_PROTECTED_FENCED_BOOT_CHECK_REQUIRED');
       return checkpoint('CAPTURING_FENCED_BOOT','FENCED_BOOT_VERIFIED',async()=>{
