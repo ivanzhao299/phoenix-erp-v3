@@ -13,8 +13,8 @@ test('only the exact first release profile accepts the current window and the se
   return {path,timestamp,effectiveName:`Scoped${timestamp}`,sourceBlob:sha('1'),compiledSha256:hash('3')};
  });
  context.changedMigrationPaths=context.pendingMigrations.map(unit=>unit.path);
- assert.equal(INITIAL_MODERN_SCHEMA_WINDOW_MS,80*60*1000);
- for(const minutes of [55,80]){
+ assert.equal(INITIAL_MODERN_SCHEMA_WINDOW_MS,180*60*1000);
+ for(const minutes of [55,80,180]){
   context.window={start:time(0),end:time(minutes)};
   assert.deepEqual(validateModernSchemaContext(context),context);
  }
@@ -23,6 +23,9 @@ test('only the exact first release profile accepts the current window and the se
   {window:{...context.window,end:time(31)}},
   {window:{...context.window,end:time(79)}},
   {window:{...context.window,end:time(81)}},
+  {window:{...context.window,end:time(120)}},
+  {window:{...context.window,end:time(179)}},
+  {window:{...context.window,end:time(181)}},
   {sourceInventorySha256:hash('a')},{runtimeInventorySha256:hash('b')},{floorSha:sha('d')},
   {runtimeSha:sha('e')},{changedMigrationPaths:[...context.changedMigrationPaths,'scripts/db-migrate.sh']},
  ]){
