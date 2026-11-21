@@ -89,7 +89,7 @@ function fixture({residual=false}={}){
     owner,targetSha:context.targetSha,phase,backgroundAdmissionCommitted:false,originalRecoveryCommitted:false,terminalComplete:false,defaultOff:true,
     nativeLedger:{status:'OBSERVED',ledger,sha256:context.beforeLedgerSha256},
     nativeSchema:{status:'OBSERVED',file:store.file(catalogKey),sha256:canonicalDigest(holdCatalog)},
-    nativeExecutors:{status:'OBSERVED',value:{...oldGone,preparedTransactions:0}},
+    nativeExecutors:{status:'OBSERVED',value:{...oldGone,preparedTransactions:0,sessions:[]}},
   });
   registry.set(key('preparation'),preparation);
   registry.set(key('ingress-installed'),installed);
@@ -105,6 +105,7 @@ function fixture({residual=false}={}){
   const pid = 756, controlSession = {sessionPid:pid,databaseOid:database.databaseOid,backendStartedAt:at(9),connected:true,broken:false};
   const session = (sessionPid,backendStartMicros,clientAddress) => ({pid:sessionPid,backendStartMicros,clientAddress,databaseOid:database.databaseOid,openTransaction:false});
   const parseSessionStart = atTime => String(Date.parse(atTime)*1000);
+  const historicalIdle={...session(pid,parseSessionStart(at(0)),runtimeAddress),applicationName:''};
   const parameters = {owner,recoveryOwner,recoveryLease,requireAdmission:async()=>flags.admitted,
     observeFences:async()=>flags.fenced?installed.identitySha256:hash('a')};
   const dependencies = {store,readPublic:()=>structuredClone(manifest),readHead:()=>preparation.rootHeadSha,
@@ -125,15 +126,16 @@ function fixture({residual=false}={}){
         const holder={...recoveryLease,databaseOid:database.databaseOid,sessionPid:flags.leaseOk?recoveryLease.sessionPid:888};
         return {rows:[{jsonb_build_object:JSON.stringify({...database,primary:true,holders:[holder]})}]};
       }
-      if(sql===MODERN_SCHEMA_EXECUTOR_SQL){
+      if(sql===MODERN_SCHEMA_EXECUTOR_SQL||sql.includes('AS idle_pids')){
         const sessions=[session(recoveryLease.sessionPid,recoveryLease.backendStartMicros,null)];
-        if(flags.running&&(!flags.residualRunning||flags.residualBackend))sessions.push({...session(pid,parseSessionStart(flags.startedAt),runtimeAddress),
+        if(flags.running&&!flags.residualRunning)sessions.push({...session(pid,parseSessionStart(flags.startedAt),runtimeAddress),
           applicationName:flags.wrongControlName?'wrong':`phoenix-fence:${flags.newBoot}`,
           openTransaction:flags.heartbeatSamples>0&&flags.heartbeatSamples-- > 0});
+        if(flags.residualRunning&&flags.residualBackend)sessions.push({...historicalIdle,openTransaction:flags.residualActive===true});
         if(flags.foreign)sessions.push(session(899,'700233','172.20.0.250'));
         const observation={...database,primary:true,statsComplete:true,preparedTransactions:0,
           enabledSubscriptions:0,sessions,workers:[],observerPid:984};
-        return {rows:[{observation:JSON.stringify(observation)}]};
+        return {rows:[{observation:JSON.stringify(observation),idle_pids:JSON.stringify(flags.residualActive?[]:[pid])}]};
       }
       assert.match(sql,/originalSessionPresent/);
       return {rows:[{...oldGone,originalSessionPresent:flags.oldPresent}]};
@@ -230,6 +232,7 @@ function fixture({residual=false}={}){
   };
   return {context,flags,parameters,dependencies,registry,directories,events,key,keyStep,oldLease,manifest,pins,installed,stop,
     firstStartKey,firstStart,terminateFirst,resumeOriginal,failReadChannel,failAfterFreshCheck,
+    recordHistoricalIdle:()=>registry.get(`recovery-modern-schema-${owner}.json`).nativeExecutors.value.sessions.push(historicalIdle),
     verifier:()=>createModernSchemaOperatorRecoveryVerifier(parameters,dependencies)};
 }
 
@@ -300,14 +303,26 @@ test('stopped-intent recovery rejects unproved first TERM and unbound terminal c
   finally{await verifier.close();}
 });
 
-test('stopped-intent recovery will not authorize TERM with a listening API or any residual API backend',async()=>{
+test('stopped-intent recovery excludes a listener and unknown or active backends',async()=>{
   const f=fixture({residual:true});
   Object.assign(f.flags,{running:true,residualRunning:true,startedAt:f.pins.api.startedAt,listenerClosed:false});
   const verifier=await f.verifier();
   try{
     await assert.rejects(verifier.verifyResidualOriginal(),/ORIGINAL_RESIDUAL_LISTENER_NOT_CLOSED/);
     Object.assign(f.flags,{listenerClosed:true,residualBackend:true});
-    await assert.rejects(verifier.verifyResidualOriginal(),/UNKNOWN_OR_NEW_DATABASE_EXECUTOR/);
+    await assert.rejects(verifier.verifyResidualOriginal(),/ORIGINAL_RESIDUAL_BACKEND_NOT_PROVED/);
+  }finally{await verifier.close();}
+});
+
+test('only the previously observed idle residual backend may remain before TERM',async()=>{
+  const f=fixture({residual:true});
+  f.recordHistoricalIdle();
+  Object.assign(f.flags,{running:true,residualRunning:true,startedAt:f.pins.api.startedAt,residualBackend:true,residualActive:true});
+  const verifier=await f.verifier();
+  try{
+    await assert.rejects(verifier.verifyResidualOriginal(),/ORIGINAL_RESIDUAL_BACKEND_NOT_PROVED/);
+    f.flags.residualActive=false;
+    assert.equal((await verifier.verifyResidualOriginal()).record.containerId,f.pins.api.id);
   }finally{await verifier.close();}
 });
 

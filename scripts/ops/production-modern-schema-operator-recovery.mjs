@@ -46,6 +46,10 @@ export const isResidualStopIntent = ({owner,targetSha,phase}) => owner==='448558
   && targetSha==='cb843973bdff0ebabc6d4fc68d39d16a1be10522' && phase==='R_STOP_INTENT';
 const refusedProgram = "const net=require('node:net');const socket=net.connect({host:'127.0.0.1',port:3100});socket.setTimeout(2000);socket.once('connect',()=>{socket.destroy();process.exit(1)});socket.once('timeout',()=>process.exit(2));socket.once('error',error=>{if(error.code!=='ECONNREFUSED')process.exit(3);console.log('LISTENER_CLOSED')});";
 const termEventFormat='{{.Action}}\t{{.Actor.ID}}\t{{index .Actor.Attributes "signal"}}\t{{index .Actor.Attributes "exitCode"}}\t{{.TimeNano}}';
+const residualExecutorSql=`WITH original AS (${MODERN_SCHEMA_EXECUTOR_SQL.trim().slice(0,-1)})
+SELECT observation,COALESCE((SELECT jsonb_agg(pid) FROM pg_stat_activity
+ WHERE backend_type='client backend' AND state='idle' AND xact_start IS NULL),'[]'::jsonb)::text AS idle_pids
+ FROM original;`;
 export function confirmsResidualTermEvents(raw,containerId,recordedAt){
   const rows=raw.trim().split('\n').map(line=>line.split('\t'));
   if(rows.length!==2||rows.some(row=>row.length!==5||row[1]!==containerId||!/^[0-9]{19}$/.test(row[4])))return false;
@@ -305,6 +309,9 @@ export async function createModernSchemaOperatorRecoveryVerifier({
   const generation = store.read('background-generation.json');
   const prior = preparation.originalBackground.participant;
   const {hostSurface,ingressScope} = preparation;
+  const historicalApiSessions=residual?hold.nativeExecutors.value.sessions?.filter(row=>row.clientAddress===hostSurface.runtimeAddress):[];
+  if(residual&&(!Array.isArray(historicalApiSessions)||historicalApiSessions.length>1||
+      historicalApiSessions.some(row=>row.openTransaction!==false||row.applicationName!=='')))fail('ORIGINAL_RESIDUAL_BACKEND_NOT_PROVED');
   assertSameBinding(control,binding);
   if(manifest.phase!=='FENCED'||manifest.owner!==owner||manifest.targetSha!==context.targetSha||
       !same(manifest.participants,[prior])||prior.containerId!==api.id||prior.revision!==context.runtimeSha||
@@ -418,7 +425,7 @@ export async function createModernSchemaOperatorRecoveryVerifier({
     if(probe.status!==200||probe.ready!==true||probe.dbConnected!==true||!isHash(probe.bodySha256))fail('ORIGINAL_API_READY_PROBE_REQUIRED');
     return {participant,controlSession:status.controlSession,readiness:probe};
   };
-  const observeNative = async (running,verifiedApi) => {
+  const observeNative = async (running,verifiedApi,residualIdle=false) => {
     const {rows:[old]} = await client.query(modernSchemaOriginalSessionExitSql(pending.lease));
     if(!provesOldAbsent(old))fail('ORIGINAL_SESSION_REAPPEARED_OR_PRIMARY_CHANGED');
     const {rows:[{jsonb_build_object:holders}]} = await client.query(MODERN_SCHEMA_LEASE_SQL);
@@ -426,12 +433,18 @@ export async function createModernSchemaOperatorRecoveryVerifier({
     const controlSession = verifiedApi?.controlSession;
     const applicationName = verifiedApi?`phoenix-fence:${verifiedApi.participant.bootId}`:null;
     for(let attempt=0;attempt<3;attempt++){
-      const {rows:[{observation:raw}]} = await client.query(MODERN_SCHEMA_EXECUTOR_SQL);
+      const {rows:[{observation:raw,idle_pids:idlePids}]} = await client.query(residualIdle?residualExecutorSql:MODERN_SCHEMA_EXECUTOR_SQL);
       const observed = JSON.parse(raw);
       // This classifier slot names the current lock owner. The original lease
       // is bound separately to the failed release and checked for absence.
       const executors = classifyModernSchemaDatabaseExecutors(observed,{runtimeAddress:hostSurface.runtimeAddress,
-        originalLease:recoveryLease,oldRuntimeStopped:!running});
+        originalLease:recoveryLease,oldRuntimeStopped:!running&&!residualIdle});
+      if(residualIdle){
+        const idle=JSON.parse(idlePids);
+        const incumbent=observed.sessions.filter(row=>row.clientAddress===hostSurface.runtimeAddress);
+        if(!Array.isArray(idle)||observed.workers.length!==0||incumbent.length>historicalApiSessions.length||
+            incumbent.some(row=>!same(row,historicalApiSessions[0])||!idle.includes(row.pid)))fail('ORIGINAL_RESIDUAL_BACKEND_NOT_PROVED');
+      }
       const applicationSessions = observed.sessions.filter(row=>row.applicationName===applicationName);
       const apiControl = controlSession&&applicationSessions[0];
       if(controlSession&&(controlSession.applicationName!==applicationName||applicationSessions.length!==1||
@@ -519,13 +532,13 @@ export async function createModernSchemaOperatorRecoveryVerifier({
       const actual=inspectHost(true,false,true);
       const noListener=()=>docker(['exec',api.id,'/usr/bin/env','-i','/usr/local/bin/node','-e',refusedProgram])==='LISTENER_CLOSED';
       if(!noListener())fail('ORIGINAL_RESIDUAL_LISTENER_NOT_CLOSED');
-      await observeNative(false);
+      await observeNative(false,undefined,true);
       const ledger=await (dependencies.captureLedger??captureModernSchemaLedger)(client);
       if(ledger.sha256!==context.beforeLedgerSha256||!same(ledger.ledger,hold.nativeLedger.ledger))fail('NATIVE_LEDGER_CHANGED');
       observeCurrentHost();
       await check();
       if(!same(actual,inspectHost(true,false,true))||!noListener())fail('RESIDUAL_ORIGINAL_IDENTITY_MOVED');
-      await observeNative(false);
+      await observeNative(false,undefined,true);
       return {key:residualTermKey,record:{schema:'phoenix.modern-operator-residual-term-intent/v1',owner,recoveryOwner,
         targetSha:context.targetSha,containerId:api.id,imageId:api.image,...actual,signal:'TERM',pendingSha256:canonicalDigest(pending),
         recordedAt:new Date().toISOString(),recoveryLeaseSha256:canonicalDigest(recoveryLease),migrationAuthorized:false}};
