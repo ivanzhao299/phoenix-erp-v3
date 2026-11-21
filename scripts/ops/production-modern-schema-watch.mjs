@@ -11,6 +11,7 @@ import {isRetainedModernSchemaInventoryPin,verifyRetainedModernSchemaInventoryPi
 import {matchesModernSchemaRehearsalVolume} from './production-modern-schema-postgres.mjs';
 import {verifyHistoricalComposeSchemaArtifacts} from './production-modern-schema-historical-compose.mjs';
 import {protectedStalledShutdownMatches} from './production-modern-schema-stop.mjs';
+import {ModernSchemaReadClient} from './production-modern-schema-read-client.mjs';
 const fail=code=>{throw Error('MODERN_SCHEMA_WATCH_HOLD='+code);};
 const native=(binary,args)=>{try{return execFileSync(binary,args,{env:executionEnv(),encoding:'utf8',timeout:5000,maxBuffer:2*1024*1024,stdio:['ignore','pipe','pipe']}).trim();}catch{fail('NATIVE_CONTINUITY_OBSERVATION_UNAVAILABLE');}};
 const identity=value=>({id:value.id,imageId:value.imageId,name:value.name,startedAt:value.state.StartedAt,running:value.state.Running,pid:value.state.Pid,restarts:value.restarts,
@@ -40,6 +41,7 @@ class PendingOriginalChildExit extends Error{
 export class ModernSchemaExecutorWatch {
  #reapRoles=new WeakMap();
  #provedStalledOriginalStop=null;
+ #rehearsalReader=null;
  constructor({context,preparation,state,rootLease,session,client,privateRuntime,admit},dependencies={}){
   if(typeof admit!=='function'||canonicalDigest(preparation.originalSnapshot.containers)!==context.runtimeSnapshotSha256)fail('ORIGINAL_PREPARATION_REQUIRED');
   Object.assign(this,{context,preparation,state,rootLease,session,client,runtime:privateRuntime,admit});this.run=dependencies.run??native;
@@ -59,6 +61,57 @@ export class ModernSchemaExecutorWatch {
   const pin={pid:backend.pid,databaseOid:backend.databaseOid,backendStartMicros:backend.backendStartMicros,nativeProofSha256:canonicalDigest({backend,child:entry.pin})};
   this.readers.push({client,entry,pin});return pin;
  }
+ startFencedRehearsalReader(client,containerId,cloneSystemIdentifier){return this.serially(async()=>{
+  await this.check();
+  const pending=this.state.read(),resource=this.resources.get(containerId);
+  if(!this.running||pending.owner!==this.context.owner||pending.phase!=='FRESH_RECHECKED'||pending.status!=='RUNNING'||
+   this.#rehearsalReader||!(client instanceof ModernSchemaReadClient)||client.child||
+   client.databaseContainer!==containerId||containerId===this.preparation.originalSnapshot.containers.db.id||
+   resource?.role!=='rehearsal-database'||resource.stage!=='fenced'||resource.owner!==this.context.owner||
+   !/^[1-9][0-9]{0,19}$/.test(cloneSystemIdentifier??'')||cloneSystemIdentifier===this.rootLease.database.systemIdentifier)
+   fail('EXACT_FENCED_REHEARSAL_READER_REQUIRED');
+  const actual=inspectModernSchemaContainer(containerId,this.run);
+  this.verifyResource(actual,resource);
+  const [network]=JSON.parse(this.run('/usr/bin/docker',['network','inspect',resource.networkId]));
+  if(actual.state.Running!==true||actual.state.Health?.Status!=='healthy'||
+    Object.values(actual.networks??{})[0]?.NetworkID!==resource.networkId||network.Id!==resource.networkId||
+    network.EnableIPv6!==false||network.Labels?.['phoenix.schema.role']!=='rehearsal-network'||
+    !same(Object.keys(network.Containers??{}),[containerId]))fail('EXACT_FENCED_REHEARSAL_READER_REQUIRED');
+  try{
+   await client.start();
+   const entry=pinModernSchemaChild(client.child);
+   if(entry.pin.parentPid!==process.pid||entry.child.spawnargs[0]!=='/usr/bin/docker'||entry.child.spawnargs[1]!=='exec'||
+     entry.child.spawnargs[7]!==containerId)fail('EXACT_FENCED_REHEARSAL_CHILD_REQUIRED');
+   const {rows:[database]}=await client.query(`SELECT system_identifier::text AS identity,inet_server_addr() IS NULL AS socket,
+     inet_server_port() IS NULL AS local,current_setting('default_transaction_read_only')='on' AS readonly FROM pg_control_system()`);
+   if(database?.identity!==cloneSystemIdentifier||database.socket!==true||database.local!==true||database.readonly!==true)
+    fail('EXACT_FENCED_REHEARSAL_DATABASE_REQUIRED');
+   verifyModernSchemaChild(entry,this.inspectProcess(entry.pin.pid));
+   this.runtime.children.add(entry);
+   this.#rehearsalReader={client,entry};
+   await this.check();
+  }catch(error){
+   try{await this.#closeRehearsalReader(client);}catch{}
+   throw error;
+  }
+ });}
+ async #closeRehearsalReader(client){
+  const reader=this.#rehearsalReader;
+  const child=reader?.entry.child??client.child;
+  await client.close();
+  if(child&&(child.exitCode!==0||child.signalCode!==null||!nativePidAbsent(child.pid)))
+   fail('FENCED_REHEARSAL_READER_CLOSE_UNVERIFIED');
+  if(reader){this.runtime.children.delete(reader.entry);this.#rehearsalReader=null;}
+ }
+ closeFencedRehearsalReader(client){return this.serially(async()=>{
+  this.runtime.guard();
+  if(this.#rehearsalReader?.client!==client){
+   if(!this.#rehearsalReader&&!client.child)return;
+   fail('EXACT_FENCED_REHEARSAL_CHILD_REQUIRED');
+  }
+  await this.#closeRehearsalReader(client);
+  this.runtime.guard();
+ });}
  allowDescendants(entry,role='CONTROLLED_DESCENDANT'){
   verifyModernSchemaChild(entry,this.inspectProcess(entry.pin.pid));
   const phases={SCHEMA_DRIVER:['DDL_STARTED'],FORMAL_API_BODY:['SCHEMA_RECEIPTED'],FORMAL_COMPOSE:['API_BODY']};
@@ -476,6 +529,12 @@ export class ModernSchemaExecutorWatch {
    return {values,runtime,schedulers};
   });
   for(const reader of this.readers){if(reader.client.broken)fail('OWNED_READ_TRANSPORT_LOST');verifyModernSchemaChild(reader.entry,this.inspectProcess(reader.entry.pin.pid));}
+  const clone=this.#rehearsalReader;
+  if(clone){
+   if(clone.client.broken)fail('FENCED_REHEARSAL_READER_LOST');
+   try{verifyModernSchemaChild(clone.entry,this.inspectProcess(clone.entry.pin.pid));}
+   catch{fail('FENCED_REHEARSAL_READER_LOST');}
+  }
   const readDatabase=async()=>{
    const {rows:[{observation}]}=await this.client.query(MODERN_SCHEMA_EXECUTOR_SQL);
    return JSON.parse(observation);
