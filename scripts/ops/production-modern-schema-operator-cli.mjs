@@ -23,6 +23,7 @@ import {ModernSchemaReadClient} from './production-modern-schema-read-client.mjs
 import {pinModernSchemaChild} from './production-modern-schema-processes.mjs';
 import {closeModernSchemaOriginalSession,confirmModernSchemaPublicDurability} from './production-modern-schema-completion.mjs';
 import {createModernSchemaOperatorRecoveryVerifier,isResidualStopIntent,sameOperatorControlSession,verifyRecoveryHostProcesses} from './production-modern-schema-operator-recovery.mjs';
+import {originalStopExitIsProved} from './production-modern-schema-stop.mjs';
 
 const ownerShape=/^[1-9][0-9]{0,19}-[1-9][0-9]{0,9}$/;
 const shaShape=/^[a-f0-9]{40}$/;
@@ -197,12 +198,14 @@ async function recover(env){
  const startKey=`schema-release-operator-fenced-start-verified-${owner}.json`,closeKey=`schema-release-session-closed-${owner}.json`;
  const started=store.exists(startKey)?store.read(startKey):null;
  const held=store.read(`recovery-modern-schema-${owner}.json`),closed=store.exists(closeKey)?store.read(closeKey):null;
- const residual=isResidualStopIntent(pending);
+ const residual=isResidualStopIntent(pending,store);
  const fresh=pending.phase==='FRESH_RECHECKED';
- const recoverAlreadyStopped=!started&&(!closed||fresh||residual);
  const priorParticipant=prep.originalBackground.participant;
  const originalStep=store.read(`schema-release-step-${owner}-${residual?'3-r-stop-intent':'4-r-stopped'}.json`);
- const originalPolicy=residual?originalStep.payload.evidence.originalRestartPolicy:originalStep.payload.evidence.runtimeStopReceipt.originalRestartPolicy;
+ const stop=originalStep.payload.evidence.runtimeStopReceipt;
+ const provedStalledStop=stop?.stalledShutdown&&originalStopExitIsProved(stop,context);
+ const recoverAlreadyStopped=!started&&(!closed||fresh||residual||provedStalledStop);
+ const originalPolicy=residual?originalStep.payload.evidence.originalRestartPolicy:stop.originalRestartPolicy;
  const originalProof=store.read(`schema-release-ingress-installed-${owner}.json`);
  const supervisor=readLinuxProcessIdentity(process.pid),deadline=Date.now()+25*60*1000;
  const newKey=kind=>`schema-release-operator-${kind}-${recoveryOwner}.json`;

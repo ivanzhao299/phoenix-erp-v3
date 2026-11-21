@@ -227,6 +227,10 @@ test('only the two exact isolated probes of an archived pre-DDL recovery are ret
  const open={schema:'phoenix.modern-operator-original-open/v1',owner,recoveryOwner,formalTargetSuccess:false,manifest:{phase:'OPEN',targetSha:runtimeSha}};
  const archive={schema:'phoenix.modern-operator-pre-ddl-recovery-archive/v1',owner,recoveryOwner,requestedTargetSha:targetSha,originalRuntimeSha:runtimeSha,
   pending:{...pending,stateDigest:canonicalDigest(pending)},formalTargetSuccess:false,schemaChanged:false,markerArchived:true,publicOpenSha256:canonicalDigest(open)};
+ const stopped={schema:'phoenix.modern-operator-stopped-native/v1',owner,recoveryOwner,originalBackendAbsent:true,releaseAuthorized:false,
+  previousLeaseSha256:canonicalDigest({sessionPid:84}),newLeaseSha256:hash('d'),stopped:{ledgerSha256:hash('e')}};
+ const verified={schema:'phoenix.modern-operator-original-verified/v1',owner,recoveryOwner,runtimeSha,formalTargetSuccess:false,
+  newLeaseSha256:stopped.newLeaseSha256,verification:{stoppedCheckpointSha256:canonicalDigest(stopped.stopped)}};
  const evidence={schema:'phoenix.modern-operator-retained-inventory/v1',owner,recoveryOwner,targetSha,preparationSha256,archiveSha256:canonicalDigest(archive),
   migrationAuthorized:false,probes:[{id:native.id,stage:'prepare',identitySha256:canonicalDigest(native)},
    {id:second.native.id,stage:'supervise',identitySha256:canonicalDigest(second.native)}]};
@@ -235,6 +239,8 @@ test('only the two exact isolated probes of an archived pre-DDL recovery are ret
    [`schema-release-operator-retained-inventory-${owner}.json`,evidence],
    [`schema-release-operator-archive-${recoveryOwner}.json`,archive],
    [`schema-release-operator-public-open-verified-${recoveryOwner}.json`,open],
+   [`schema-release-operator-stopped-native-${recoveryOwner}.json`,stopped],
+   [`schema-release-operator-original-verified-${recoveryOwner}.json`,verified],
    [`schema-release-preparation-${owner}.json`,{...preparation,preparationSha256}],
   ]);
   f.dependencies.absent=file=>!files.has(path.basename(file));
@@ -249,6 +255,15 @@ test('only the two exact isolated probes of an archived pre-DDL recovery are ret
  }
  const other=retainedFixture({id:hash('f')});
  assert.throws(()=>collectRetainedModernSchemaInventory(other.native,first.binding,first.dependencies),/RECOVERED_INVENTORY_EXACT_NATIVE_PIN_REQUIRED/);
+ const intent={...pending,phase:'R_STOP_INTENT',sequence:3,lease:{sessionPid:84}};
+ archive.pending={...intent,stateDigest:canonicalDigest(intent)};
+ evidence.archiveSha256=canonicalDigest(archive);
+ verified.verification.pendingSha256=canonicalDigest(archive.pending);
+ assert.equal(collectRetainedModernSchemaInventory(first.native,first.binding,first.dependencies).probeStage,'prepare');
+ verified.verification.stoppedCheckpointSha256=hash('a');
+ assert.throws(()=>collectRetainedModernSchemaInventory(first.native,first.binding,first.dependencies),/RECOVERED_INVENTORY_ARCHIVE_REQUIRED/);
+ archive.pending={...pending,stateDigest:canonicalDigest(pending)};
+ evidence.archiveSha256=canonicalDigest(archive);
  second.native.restartPolicy.Name='always';
  assert.throws(()=>verifyRetainedModernSchemaInventoryPin(second.native,pins[1],second.dependencies),/RETAINED_INVENTORY_PIN_CHANGED/);
  archive.schemaChanged=true;

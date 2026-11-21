@@ -17,7 +17,7 @@ import {ModernSchemaRegistry,validateModernSchemaPreparation} from './production
 import {readRegisteredModernSchemaApproval,validateModernSchemaContext} from './production-modern-schema-authority.mjs';
 import {modernSchemaReleaseBinding,validateModernSchemaPending} from './production-modern-schema-state.mjs';
 import {assertModernSchemaLeaseStillOriginal,assertOriginalModernSchemaProcess} from './production-modern-schema-session-lease.mjs';
-import {observeOriginalModernSchemaRuntime} from './production-modern-schema-stop.mjs';
+import {observeOriginalModernSchemaRuntime,originalStopExitIsProved,protectedStalledShutdownMatches} from './production-modern-schema-stop.mjs';
 import {classifyModernSchemaDatabaseExecutors,inspectModernSchemaContainer,MODERN_SCHEMA_EXECUTOR_SQL} from './production-modern-schema-executors.mjs';
 import {captureModernSchemaFacts,defaultOffEvidenceFromFacts} from './production-modern-schema-facts.mjs';
 import {captureModernSchemaCatalog} from './production-modern-schema-catalog.mjs';
@@ -140,8 +140,8 @@ export async function recoverModernSchemaBeforeDdl({
   if(stopStep.sequence!==4||stopStep.to!=='R_STOPPED'||stopStep.payload?.schema!=='phoenix.modern-schema-step-evidence/v1'||
       stopStep.payload.kind!=='R_STOPPED'||stopStep.payload.contextDigest!==contextDigest||
       !stop||canonicalDigest(stopProof)!==stopStep.payload.evidenceSha256||!same(stop.originalRestartPolicy,originalRestartPolicy)||
-      stop.schema!=='phoenix.modern-schema-original-runtime-stopped/v1'||stop.signal!=='TERM'||stop.exitCode!==0||stop.pid!==0||
-      stop.oomKilled!==false||stop.automaticKill!==false||stop.oldDatabaseSessionsGone!==true||
+      stop.schema!=='phoenix.modern-schema-original-runtime-stopped/v1'||stop.signal!=='TERM'||!originalStopExitIsProved(stop,context)||stop.pid!==0||
+      stop.oomKilled!==false||stop.automaticKill!==false||stop.oldDatabaseSessionsGone!==true||!protectedStalledShutdownMatches(stop,context,rootLease)||
       stop.containerId!==api.id||stop.imageId!==api.image||stop.startedAt!==api.startedAt||stop.restartCount!==api.restartCount)fail('ORIGINAL_STOP_RECEIPT_REQUIRED');
   const protectedFacts=store.read(key('before-facts')),protectedSchema=store.read(key('before-schema')),protectedAudit=store.read(key('before-audit'));
   if(!same(beforeFacts,protectedFacts)||!same(beforeCatalog?.receipt??beforeCatalog,protectedSchema)||
@@ -165,7 +165,7 @@ export async function recoverModernSchemaBeforeDdl({
   };
   unchangedDeployment();
   const current=(deps.observeStopped??observeOriginalModernSchemaRuntime)(originalSnapshot,{run:readDocker});
-  if(current.state.Running!==false||current.state.Status!=='exited'||current.state.ExitCode!==0||current.state.Pid!==0||
+  if(current.state.Running!==false||current.state.Status!=='exited'||current.state.ExitCode!==stop.exitCode||current.state.Pid!==0||
       current.restartPolicy?.Name!=='no'||readDocker(['image','inspect',api.image,'--format','{{ index .Config.Labels "org.opencontainers.image.revision" }}'])!==context.runtimeSha||
       inventoryApi(preparation.floor.project).length!==0)fail('EXACT_STOPPED_ORIGINAL_EXECUTOR_REQUIRED');
   const typed=store.read(controlName),fenced=validateManifest(readPublic());

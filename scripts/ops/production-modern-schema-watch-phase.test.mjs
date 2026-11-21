@@ -11,6 +11,7 @@ import {ModernSchemaExecutorWatch} from './production-modern-schema-watch.mjs';
 import {pinModernSchemaChild,isOriginalModernSchemaChildTerminal} from './production-modern-schema-processes.mjs';
 import {STABLE_MODERN_CENSUS_PARENT} from './production-maintenance-root-readers.mjs';
 import {readLinuxProcessIdentity} from './production-modern-schema-session-lease.mjs';
+import {INITIAL_MODERN_SCHEMA_PROFILE} from './production-modern-schema-facts.mjs';
 
 test('the native host fixture loads with only its deployed scripts directories', t => {
   const deployment=fs.mkdtempSync(path.join(os.tmpdir(),'phoenix-native-host-closure-'));
@@ -65,6 +66,35 @@ function fixture() {
   const check = (...members) => {status.members=members;return watch.verifyContainers(members);};
   return {watch,old,web,db,candidate,status,check};
 }
+
+test('only a serialized original TERM with protected native events admits exit 143 to the watcher',async()=>{
+ const f=fixture(),{old,web,db,watch}=f;
+ Object.assign(watch.context,INITIAL_MODERN_SCHEMA_PROFILE,{
+  targetSha:'c'.repeat(40),pendingMigrations:Array(20).fill({}),
+  window:{start:'2026-11-19T06:00:00.000Z',end:'2026-11-19T07:00:00.000Z'},
+ });
+ watch.state.read=()=>({phase:'R_STOP_INTENT',owner:watch.context.owner,status:'RUNNING'});
+ watch.runtime={guard(){}};
+ watch.running=true;
+ watch.baseline=new Map();
+ const stopped={...old,state:{...old.state,Status:'exited',Running:false,Pid:0,ExitCode:143}};
+ assert.throws(()=>f.check(stopped,web,db),/ORIGINAL_R_NOT_CLEANLY_STOPPED/);
+ const recordedAt='2026-11-19T06:01:00.000Z',ns=BigInt(Date.parse(recordedAt))*1000000n;
+ const initialAcknowledgementSha256=canonicalDigest({stdout:old.id,stderr:''});
+ const intent={schema:'phoenix.modern-schema-stalled-original-term-intent/v1',owner:watch.context.owner,targetSha:watch.context.targetSha,
+  containerId:old.id,startedAt:old.state.StartedAt,pid:old.state.Pid,recordedAt,originalLeaseSha256:canonicalDigest(rootLease),
+  initialAcknowledgementSha256,idleObservationsSha256:canonicalDigest([])};
+ const events=[`kill\t${old.id}\t15\t\t${ns+1n}`,`die\t${old.id}\t\t143\t${ns+2n}`].join('\n');
+ const proof={...intent,schema:'phoenix.modern-schema-stalled-original-shutdown/v1',
+  commandAckSha256:initialAcknowledgementSha256,nativeEventsSha256:canonicalDigest(events)};
+ const work=async()=>({stopped:{...stopped,image:stopped.imageId},proof});
+ watch.readStalledStopProof=()=>JSON.stringify({intent,events:'',exitCode:143});
+ await assert.rejects(watch.withVerifiedOriginalStop(work),/NATIVE_STALLED_ORIGINAL_STOP_PROOF_REQUIRED/);
+ watch.readStalledStopProof=()=>JSON.stringify({intent,events,exitCode:143});
+ await watch.withVerifiedOriginalStop(work);
+ assert.equal(f.check(stopped,web,db).oldRuntimeStopped,true);
+ await assert.rejects(watch.withVerifiedOriginalStop(work),/EXACT_STALLED_ORIGINAL_STOP_STAGE_REQUIRED/);
+});
 const databaseObservation = sessions => ({primary:true,statsComplete:true,databaseOid:1234,
   systemIdentifier:'913442',postmasterStartMicros:'672310',preparedTransactions:0,enabledSubscriptions:0,workers:[],observerPid:899,
   sessions:[{pid:501,databaseOid:1234,backendStartMicros:'672332',clientAddress:null,applicationName:'lease'},...sessions]});

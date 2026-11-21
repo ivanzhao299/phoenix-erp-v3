@@ -8,8 +8,10 @@ import {canonicalDigest} from './production-maintenance-receipts.mjs';
 import {MODERN_SCHEMA_PHASES,modernSchemaReleaseBinding,modernSchemaStepEvidence} from './production-modern-schema-state.mjs';
 import {MODERN_SCHEMA_LEASE_SQL} from './production-modern-schema-session-lease.mjs';
 import {MODERN_SCHEMA_EXECUTOR_SQL} from './production-modern-schema-executors.mjs';
-import {confirmsResidualTermEvents,createModernSchemaOperatorRecoveryVerifier,sameOperatorControlSession,verifyRecoveryHostProcessCensus} from './production-modern-schema-operator-recovery.mjs';
+import {createModernSchemaOperatorRecoveryVerifier,sameOperatorControlSession,verifyRecoveryHostProcessCensus} from './production-modern-schema-operator-recovery.mjs';
+import {confirmsResidualTermEvents} from './production-modern-schema-stop.mjs';
 import {pinModernSchemaChild} from './production-modern-schema-processes.mjs';
+import {INITIAL_MODERN_SCHEMA_PROFILE} from './production-modern-schema-facts.mjs';
 
 const hash = char => char.repeat(64);
 const at = minutes => new Date(Date.UTC(2026,10,19,0,minutes)).toISOString();
@@ -19,9 +21,19 @@ const oldBoot = '18e1af09-55ec-4d57-8e9c-aea4165ad5b5';
 const newBoot = 'b19847d5-2fb3-48f0-93e4-ae54ef5c4337';
 const firstBoot = 'e464eb48-78b8-4eb4-a25d-1c86e785b159';
 
-function fixture({residual=false}={}){
+function fixture({residual=false,formal=false}={}){
   const {context} = modernSchemaFixture();
-  if(residual)Object.assign(context,{owner:'44855835842-1',targetSha:'cb843973bdff0ebabc6d4fc68d39d16a1be10522'});
+  if(formal){
+    residual=true;
+    const pendingMigrations=Array.from({length:20},(_,i)=>{
+      const timestamp=1795029621917+i;
+      return {path:`apps/api/src/database/migrations/${timestamp}-Owned.ts`,timestamp,effectiveName:`Owned${timestamp}`,
+        sourceBlob:'d'.repeat(40),compiledSha256:hash('3')};
+    });
+    Object.assign(context,{floorSha:INITIAL_MODERN_SCHEMA_PROFILE.floorSha,runtimeSha:INITIAL_MODERN_SCHEMA_PROFILE.runtimeSha,
+      sourceInventorySha256:INITIAL_MODERN_SCHEMA_PROFILE.sourceInventorySha256,runtimeInventorySha256:INITIAL_MODERN_SCHEMA_PROFILE.runtimeInventorySha256,
+      pendingMigrations,changedMigrationPaths:pendingMigrations.map(unit=>unit.path)});
+  }else if(residual)Object.assign(context,{owner:'44855835842-1',targetSha:'cb843973bdff0ebabc6d4fc68d39d16a1be10522'});
   const {owner} = context, recoveryOwner = '98765-1';
   const key = suffix => `schema-release-${suffix}-${owner}.json`;
   const keyStep = (phase,sequence) => `schema-release-step-${owner}-${sequence}-${phase.toLowerCase().replaceAll('_','-')}.json`;
@@ -55,7 +67,7 @@ function fixture({residual=false}={}){
   const stop = {schema:'phoenix.modern-schema-original-runtime-stopped/v1',containerId:pins.api.id,imageId:pins.api.image,startedAt:pins.api.startedAt,
     restartCount:0,signal:'TERM',exitCode:0,pid:0,oomKilled:false,automaticKill:false,oldDatabaseSessionsGone:true,
     currentRestartPolicy:noRestart,originalRestartPolicy:originalPolicy};
-  const registry = new Map(), directories = new Set();
+  const registry = new Map(), directories = new Set(), nativeFiles=new Map();
   const store = {directory:'/protected',io:{lstatSync:file=>directories.has(file)?{}:undefined},guard(){},
     file:name=>path.join('/protected',name),exists:name=>registry.has(name),read:name=>{
       assert.ok(registry.has(name),name);return structuredClone(registry.get(name));
@@ -73,6 +85,15 @@ function fixture({residual=false}={}){
   const pending = {schema:'phoenix.modern-schema-release-pending/v1',...binding,supervisor,phase,status:'HOLD',sequence:terminalSequence,
     lease:oldLease,receiptSha256,updatedAt:at(7)};
   registry.set('schema-release-pending.json',{...pending,stateDigest:canonicalDigest(pending)});
+  if(formal){
+    const file=path.join('/protected',`schema-release-session-${owner}`,'stalled-original-term-intent.json');
+    const recordedAt=at(6);
+    const intent={schema:'phoenix.modern-schema-stalled-original-term-intent/v1',owner,targetSha:context.targetSha,recordedAt,
+      pid:100,containerId:pins.api.id,startedAt:pins.api.startedAt,originalLeaseSha256:canonicalDigest(oldLease),
+      initialAcknowledgementSha256:canonicalDigest({stdout:pins.api.id,stderr:''}),idleObservationsSha256:canonicalDigest([])};
+    directories.add(file);
+    nativeFiles.set(file,Buffer.from(JSON.stringify(intent)));
+  }
   const oldGone = {primary:true,databaseOid:database.databaseOid,systemIdentifier:database.systemIdentifier,
     postmasterStartMicros:database.postmasterStartMicros,originalSessionPresent:false};
   registry.set(key('session-closed'),{schema:'phoenix.modern-schema-original-session-closed/v1',
@@ -113,7 +134,7 @@ function fixture({residual=false}={}){
     // through their adapter boundary without recreating unrelated audit data.
     validatePreparation:(_record,when)=>{assert.equal(when,Date.parse(at(residual?5:6)));return {context,preparationSha256};},
     readApproval:(_context,{now})=>{assert.equal(now(),Date.parse(at(residual?5:6)));return {contextDigest,approvalSha256};},
-    readProtectedTerm:file=>Buffer.from(file.endsWith('.stdout')&&flags.firstTermAccepted?pins.api.id+'\n':''),
+    readProtectedTerm:file=>nativeFiles.get(file)??Buffer.from(file.endsWith('.stdout')&&flags.firstTermAccepted?pins.api.id+'\n':''),
     privateRuntime:{
       digest:async file=>{
         assert.ok([rawCatalog.path,rawCatalog.path.replace('hold-observation','before')].includes(file));
@@ -323,6 +344,21 @@ test('only the previously observed idle residual backend may remain before TERM'
     await assert.rejects(verifier.verifyResidualOriginal(),/ORIGINAL_RESIDUAL_BACKEND_NOT_PROVED/);
     f.flags.residualActive=false;
     assert.equal((await verifier.verifyResidualOriginal()).record.containerId,f.pins.api.id);
+  }finally{await verifier.close();}
+});
+
+test('a formal stalled TERM followed by a pre-step hold can recover observed exit without another signal',async()=>{
+  const f=fixture({formal:true});
+  f.flags.exitCode=143;
+  const stamp=BigInt(Date.parse(at(6)))*1000000n;
+  f.flags.termEvents=['kill\t'+f.pins.api.id+'\t15\t\t'+(stamp+1n),'die\t'+f.pins.api.id+'\t\t143\t'+(stamp+2n)].join('\n');
+  const verifier=await f.verifier();
+  try{
+    await assert.rejects(verifier.verifyResidualOriginal(),/SINGLE_RESIDUAL_ORIGINAL_TERM_REQUIRED/);
+    const before=await verifier.captureStopped();
+    f.resumeOriginal();
+    assert.equal((await verifier.verifyStarted()).stoppedCheckpointSha256,canonicalDigest(before));
+    assert.equal(f.registry.has(f.keyStep('R_STOPPED',4)),false);
   }finally{await verifier.close();}
 });
 

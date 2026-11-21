@@ -163,14 +163,26 @@ function recoveredInventoryPreparation(container,owner,revision,{directory,readR
    open?.schema!=='phoenix.modern-operator-original-open/v1'||open.owner!==owner||open.recoveryOwner!==recoveryOwner||
    open.formalTargetSuccess!==false||open.manifest?.phase!=='OPEN'||open.manifest.targetSha!==archive.originalRuntimeSha)
    hold('RECOVERED_INVENTORY_ARCHIVE_REQUIRED');
+  if(archive.pending?.phase==='R_STOP_INTENT'){
+   const stopped=readRecovered(file(`schema-release-operator-stopped-native-${recoveryOwner}.json`),65536).value;
+   const verified=readRecovered(file(`schema-release-operator-original-verified-${recoveryOwner}.json`),65536).value;
+   if(stopped?.schema!=='phoenix.modern-operator-stopped-native/v1'||stopped.owner!==owner||stopped.recoveryOwner!==recoveryOwner||
+    stopped.originalBackendAbsent!==true||stopped.releaseAuthorized!==false||
+    stopped.previousLeaseSha256!==canonicalDigest(archive.pending.lease)||!match(HASH,stopped.newLeaseSha256)||
+    verified?.schema!=='phoenix.modern-operator-original-verified/v1'||verified.owner!==owner||verified.recoveryOwner!==recoveryOwner||
+    verified.formalTargetSuccess!==false||verified.runtimeSha!==archive.originalRuntimeSha||verified.newLeaseSha256!==stopped.newLeaseSha256||
+    verified.verification?.pendingSha256!==canonicalDigest(archive.pending)||
+    verified.verification?.stoppedCheckpointSha256!==canonicalDigest(stopped.stopped))
+    hold('RECOVERED_INVENTORY_ARCHIVE_REQUIRED');
+  }
  }
  const archive=anchor.value,{stateDigest,...pending}=archive.pending??{};
- const recoverable=proofKind==='originalLease'?['R_STOPPED','FRESH_RECHECKED','BACKUP_VERIFIED']:['R_STOPPED','FRESH_RECHECKED'];
- const preDdlPhase=recoverable.indexOf(pending.phase);
+ const recoveryPhases=proofKind==='originalLease'?{R_STOPPED:4,FRESH_RECHECKED:5,BACKUP_VERIFIED:6}:
+  {R_STOP_INTENT:3,R_STOPPED:4,FRESH_RECHECKED:5};
  const former=prep.ownedResources?.filter(pin=>pin.role==='readonly-inventory');
  const planned=former?.[0];
  if(pending.owner!==owner||pending.status!=='HOLD'||pending.schema!=='phoenix.modern-schema-release-pending/v1'||
-  preDdlPhase<0||pending.sequence!==4+preDdlPhase||pending.targetSha!==revision||
+  !Object.hasOwn(recoveryPhases,pending.phase)||pending.sequence!==recoveryPhases[pending.phase]||pending.targetSha!==revision||
   pending.schemaRelease?.preparationSha256!==preparationSha256||pending.schemaRelease?.contextDigest!==canonicalDigest(prep.context)||
   stateDigest!==canonicalDigest(pending)||!Number.isFinite(anchor.completedAtMs)||anchor.completedAtMs<=0||
   evidence.archiveSha256!==canonicalDigest(archive)||
