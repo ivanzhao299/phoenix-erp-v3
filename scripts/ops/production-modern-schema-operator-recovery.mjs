@@ -13,7 +13,9 @@ import {canonicalDigest,HASH,same} from './production-maintenance-receipts.mjs';
 import {API_READINESS_PROGRAM} from './production-maintenance-candidate-health.mjs';
 import {captureModernSchemaCatalog} from './production-modern-schema-catalog.mjs';
 import {modernSchemaOriginalSessionExitSql} from './production-modern-schema-completion.mjs';
-import {classifyModernSchemaDatabaseExecutors,inspectModernSchemaContainer,MODERN_SCHEMA_EXECUTOR_SQL} from './production-modern-schema-executors.mjs';
+import {classifyModernSchemaDatabaseExecutors,inspectModernSchemaContainer,inspectModernSchemaContainers,MODERN_SCHEMA_EXECUTOR_SQL} from './production-modern-schema-executors.mjs';
+import {captureMaintenanceSchedulers,captureModernSchemaProcessIdentities,observeMaintenanceContainerIdentity} from './production-maintenance-root-readers.mjs';
+import {pinModernSchemaChild,verifyModernSchemaChild} from './production-modern-schema-processes.mjs';
 import {captureModernSchemaFacts,defaultOffEvidenceFromFacts} from './production-modern-schema-facts.mjs';
 import {ModernSchemaIngress} from './production-modern-schema-ingress.mjs';
 import {ingressIdentity} from './maintenance-ingress-policy.mjs';
@@ -45,6 +47,46 @@ const nativeDocker = args => {
       maxBuffer:2*1024*1024,stdio:['ignore','pipe','pipe']}).trim();
   } catch { fail('DOCKER_OBSERVATION_UNAVAILABLE'); }
 };
+
+export function verifyRecoveryHostProcesses(preparation,docker=nativeDocker,ownedChildren=[]){
+  const {api,web,db}=preparation.originalSnapshot.containers;
+  const known=new Set([api.id,web.id,db.id]);
+  const {foreignContainerPins,foreignProcessPins}=preparation.hostSurface;
+  const ids=docker(['ps','--no-trunc','-q']).split('\n').filter(Boolean).sort();
+  if(!ids.includes(web.id)||!ids.includes(db.id))fail('RECOVERY_HOST_CONTAINER_UNACCOUNTED');
+  const containers=inspectModernSchemaContainers(ids,(_binary,args)=>docker(args));
+  const namespaces=new Set();
+  for(const container of containers){
+    if(container.state.Running!==true||container.privileged!==false||container.pidMode==='host'||
+        container.pidMode?.startsWith('container:')||container.networkMode==='host')fail('RECOVERY_HOST_CONTAINER_UNACCOUNTED');
+    if(!known.has(container.id)){
+      const identity=observeMaintenanceContainerIdentity(container.id);
+      if(!foreignContainerPins.some(pin=>pin.id===container.id&&pin.identitySha256===canonicalDigest(identity))||
+          identity.pid!==container.state.Pid||identity.imageId!==container.imageId)fail('RECOVERY_HOST_CONTAINER_UNACCOUNTED');
+    }
+    namespaces.add(fs.readlinkSync(`/proc/${container.state.Pid}/ns/pid`));
+  }
+  const processProof=verifyRecoveryHostProcessCensus(captureModernSchemaProcessIdentities(),foreignProcessPins,namespaces,ownedChildren);
+  const schedulers=captureMaintenanceSchedulers({includeDatabaseEntrypoints:true});
+  if(schedulers.some(row=>row.erpControlReference)||canonicalDigest(schedulers)!==preparation.hostSurface.schedulerSha256)
+    fail('RECOVERY_HOST_SCHEDULER_CHANGED');
+  if(!same(ids,docker(['ps','--no-trunc','-q']).split('\n').filter(Boolean).sort()))fail('RECOVERY_HOST_CONTAINER_SET_CHANGED');
+  return processProof;
+}
+export function verifyRecoveryHostProcessCensus(census,foreignProcessPins,namespaces,ownedChildren){
+  const ownedPids=new Set();
+  for(const entry of ownedChildren){
+    const rows=census.filter(row=>row.pid===entry.pin.pid);
+    if(rows.length!==1||ownedPids.has(entry.pin.pid))fail('RECOVERY_OWNED_HOST_CHILD_UNACCOUNTED');
+    verifyModernSchemaChild(entry,rows[0]);
+    ownedPids.add(entry.pin.pid);
+  }
+  const processes=census.filter(row=>row.pid!==process.pid&&row.pid!==process.ppid&&!ownedPids.has(row.pid)&&
+    !namespaces.has(row.pidNamespace)&&(/\/(?:node|nodejs|python[0-9.]*|java|pm2|supervisord|nomad|kubelet|psql|pg_restore|pgbench)$/.test(row.exe)||row.erpControlReference));
+  const observed=processes.map(row=>({pid:row.pid,identitySha256:canonicalDigest(row),erpControlReference:row.erpControlReference===true}));
+  if(observed.some(row=>row.erpControlReference||!foreignProcessPins.some(pin=>same(row,pin))))fail('RECOVERY_HOST_PROCESS_UNACCOUNTED');
+  return canonicalDigest(observed);
+}
 
 function readHistoricalApproval(store,context,{now}){
   const grant = store.read(`schema-release-approval-${context.owner}.json`);
@@ -130,7 +172,7 @@ function bindHistoricalStop({store,owner,recoveryLease,readApproval,validatePrep
       hold.nativeSchema.sha256!==canonicalDigest(catalog)||catalog.schema!=='phoenix.modern-schema-catalog-facts/v1'||
       catalog.owner!==owner||catalog.stage!=='hold-observation'||catalog.readOnly!==true||catalog.releaseAuthorized!==false||
       !same(catalog.databasePin,db)||!isHash(catalog.schemaSha256))fail('ORIGINAL_HOLD_LEDGER_AND_CATALOG_REQUIRED');
-  let beforeCatalog=null, beforeFactsSha256=null;
+  let beforeCatalog=null, beforeFactsSha256=null, requireHostCensus=false;
   if(closed){
     const observed=hold.nativeExecutors?.value;
     if(hold.nativeLedger?.status!=='OBSERVED'||hold.nativeLedger.sha256!==context.beforeLedgerSha256||
@@ -157,7 +199,8 @@ function bindHistoricalStop({store,owner,recoveryLease,readApproval,validatePrep
     const audit=store.read(key('fenced-audit-boundary')),evidence=steps[5].payload.evidence;
     const failure=first.failure,backupHold=failure?.source==='SUPERVISOR'&&
       ['MODERN_SCHEMA_BACKUP_HOLD=CLEANUP_UNRESOLVED','MODERN_SCHEMA_BACKUP_HOLD=WINDOW'].includes(failure.code)||
-      failure?.source==='EXECUTOR_WATCH'&&failure.code==='MODERN_SCHEMA_EXECUTORS_HOLD=ORIGINAL_CONTROL_CHILD_UNPROVED';
+      failure?.source==='EXECUTOR_WATCH'&&
+        ['MODERN_SCHEMA_EXECUTORS_HOLD=ORIGINAL_CONTROL_CHILD_UNPROVED','MODERN_SCHEMA_WATCH_HOLD=NEW_OR_CHANGED_HOST_EXECUTOR'].includes(failure.code);
     if(first.schema!=='phoenix.modern-schema-supervisor-first-hold/v1'||first.owner!==owner||first.contextDigest!==contextDigest||
         first.pendingPhase!==pending.phase||!backupHold||failure.stage!=='FENCED_BACKUP'||
         beforeCatalog.schema!==catalog.schema||beforeCatalog.owner!==owner||beforeCatalog.stage!=='before'||
@@ -169,9 +212,10 @@ function bindHistoricalStop({store,owner,recoveryLease,readApproval,validatePrep
         evidence.auditRecheckSha256!==canonicalDigest(audit.comparison)||evidence.beforeLedgerSha256!==context.beforeLedgerSha256||
         !isHash(evidence.executorsSha256))fail('EXACT_FROZEN_BACKUP_FACTS_REQUIRED');
     beforeFactsSha256=evidence.factsSha256;
+    requireHostCensus=failure.code==='MODERN_SCHEMA_WATCH_HOLD=NEW_OR_CHANGED_HOST_EXECUTOR';
   }
   return {key,context,contextDigest,binding,pending,preparation,steps,stop,api,web,db,catalog,hold,closed,
-    beforeCatalog,beforeFactsSha256,checkNoLaterEffects,provesOldAbsent};
+    beforeCatalog,beforeFactsSha256,requireHostCensus,checkNoLaterEffects,provesOldAbsent};
 }
 
 function bindFencedStart({started,owner,context,contextDigest,pending,hold,closed,installed,manifest,prior,api}){
@@ -195,7 +239,7 @@ function bindFencedStart({started,owner,context,contextDigest,pending,hold,close
  * and sealed dual-lock session. An optional ingress observer returns the
  * current installed inet/bridge identity as a SHA-256 string. */
 export async function createModernSchemaOperatorRecoveryVerifier({
-  owner,recoveryOwner,recoveryLease:inputLease,requireAdmission,observeFences,
+  owner,recoveryOwner,recoveryLease:inputLease,requireAdmission,observeFences,controlChild,
 },dependencies={}){
   if(typeof owner!=='string'||typeof recoveryOwner!=='string'||!ownerPattern.test(owner)||!ownerPattern.test(recoveryOwner)||
       owner===recoveryOwner||typeof requireAdmission!=='function'||(observeFences!==undefined&&typeof observeFences!=='function')){
@@ -306,7 +350,7 @@ export async function createModernSchemaOperatorRecoveryVerifier({
   await check();
   const directory = runtime.createDirectory(recoveryOwner,'recovery');
   const client = dependencies.client??new ModernSchemaReadClient({databaseContainer:db.id});
-  let stage = 'READY', baseline = null;
+  let stage = 'READY', baseline = null, ownedChildren=[];
   const verifyRuntime = (startedAt, expectedFencedBoot=false) => {
     const actual = (dependencies.inspectParticipant??inspectApiParticipant)(prior,preparation.floor.project,docker);
     const participant = {...prior,bootId:actual.status?.bootId};
@@ -386,11 +430,24 @@ export async function createModernSchemaOperatorRecoveryVerifier({
     if(first&&(!same(first.participant,last.participant)||!sameOperatorControlSession(first.controlSession,last.controlSession))){
       fail('RECOVERED_API_BOOT_CHANGED_DURING_CHECKPOINT');
     }
+    const hostProcessesSha256=observeCurrentHost();
     return {startedAt,ledgerSha256:ledger.sha256,catalogSha256:schema.receipt.schemaSha256,
       catalogReceiptSha256:canonicalDigest(schema.receipt),factsSha256:canonicalDigest(facts),
-      allDataSha256:facts.allDataSha256,businessDataSha256:facts.businessDataSha256,executors,...last};
+      allDataSha256:facts.allDataSha256,businessDataSha256:facts.businessDataSha256,executors,
+      ...(hostProcessesSha256?{hostProcessesSha256}:{}),...last};
   };
-  try{await client.start();}catch(error){try{await client.close();}catch{}throw error;}
+  const observeCurrentHost=()=>{
+    if(!source.requireHostCensus)return null;
+    const proof=(dependencies.verifyHostProcesses??verifyRecoveryHostProcesses)(preparation,docker,ownedChildren);
+    if(!isHash(proof))fail('RECOVERY_HOST_PROOF_REQUIRED');
+    return proof;
+  };
+  try{
+    await client.start();
+    if(source.requireHostCensus&&!dependencies.verifyHostProcesses){
+      ownedChildren=[pinModernSchemaChild(controlChild),pinModernSchemaChild(client.child)];
+    }
+  }catch(error){try{await client.close();}catch{}throw error;}
   const checkpoint = async (next,done,work) => {
     stage = next;
     try{
@@ -436,6 +493,13 @@ export async function createModernSchemaOperatorRecoveryVerifier({
           stoppedCheckpointSha256:canonicalDigest(baseline),ingressIdentitySha256:installed.identitySha256,
           outcome:'ORIGINAL_R_READY_UNDER_BOTH_FENCES',formalTargetSuccess:false,releaseAuthorized:false};
       });
+    },
+    async verifyHostBeforeOpen(){
+      if(stage!=='STARTED_VERIFIED')fail('ORIGINAL_API_NOT_VERIFIED');
+      await check();
+      const proof=observeCurrentHost();
+      await check();
+      return proof;
     },
     async close(){
       if(stage.startsWith('CAPTURING_'))fail('CHECKPOINT_IN_PROGRESS');

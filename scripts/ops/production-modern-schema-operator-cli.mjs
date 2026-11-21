@@ -20,8 +20,9 @@ import {ingressIdentity} from './maintenance-ingress-policy.mjs';
 import {ModernSchemaPrivateRuntime} from './production-modern-schema-private.mjs';
 import {ModernSchemaControlSession,pinOriginalModernSchemaSession,readLinuxProcessIdentity,verifyOriginalModernSchemaAdmission} from './production-modern-schema-session-lease.mjs';
 import {ModernSchemaReadClient} from './production-modern-schema-read-client.mjs';
+import {pinModernSchemaChild} from './production-modern-schema-processes.mjs';
 import {closeModernSchemaOriginalSession,confirmModernSchemaPublicDurability} from './production-modern-schema-completion.mjs';
-import {createModernSchemaOperatorRecoveryVerifier,sameOperatorControlSession} from './production-modern-schema-operator-recovery.mjs';
+import {createModernSchemaOperatorRecoveryVerifier,sameOperatorControlSession,verifyRecoveryHostProcesses} from './production-modern-schema-operator-recovery.mjs';
 
 const ownerShape=/^[1-9][0-9]{0,19}-[1-9][0-9]{0,9}$/;
 const shaShape=/^[a-f0-9]{40}$/;
@@ -106,6 +107,7 @@ async function finishPublished({store,runtime,ingress,admission,session,lease,gu
    requireThat(closed.outcome==='ORIGINAL_SESSION_ABSENT','PRIOR_OPERATOR_SESSION_PRESENT');
   }finally{await oldObserver.close();}
   await admission();
+  if(verified.verification.hostProcessesSha256)verifyRecoveryHostProcesses(prepared,undefined,[pinModernSchemaChild(session.child)]);
   requireThat(same(readPublicManifest(),previousFenced)&&same(store.read('background-control.json'),previous)&&
    canonicalDigest(ingressIdentity(ingress.tables()))===installed.identitySha256,'UNPUBLISHED_INTENT_CHANGED');
   if(!same(previous,ordinary))atomicState(store.file('background-control.json'),ordinary);
@@ -261,7 +263,8 @@ async function recover(env){
    return await complete(prior);
   }
   await observeFence();
-  verifier=await createModernSchemaOperatorRecoveryVerifier({owner,recoveryOwner,recoveryLease,requireAdmission:admission,observeFences:observeFence});
+  verifier=await createModernSchemaOperatorRecoveryVerifier({owner,recoveryOwner,recoveryLease,requireAdmission:admission,observeFences:observeFence,
+   controlChild:session.child});
   if(started){
    await verifier.verifyFencedBoot();
    const incumbent=inspectModernSchemaContainer(api.id),fencedApi=inspectApiParticipant(started.participant,prep.floor.project);
@@ -312,6 +315,7 @@ async function recover(env){
   store.immutable(newKey('open-intent'),{schema:'phoenix.modern-operator-open-intent/v1',owner,recoveryOwner,previousControl:typed,previousProjection:fenced,
    pendingSha256:canonicalDigest(pending),ordinary,manifest,verifiedSha256:canonicalDigest(store.read(newKey('original-verified'))),nativeRemoveSha256:canonicalDigest(remove)});
   await observeFence();
+  await verifier.verifyHostBeforeOpen();
   await admission();readHeld();
   atomicState(store.file('background-control.json'),ordinary);
   await admission();

@@ -1,13 +1,15 @@
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import test from 'node:test';
+import {spawn} from 'node:child_process';
 import {modernSchemaFixture} from '../ci/modern-schema-release.fixture.mjs';
 import {digest} from './chanjet-admission-schema-receipt.mjs';
 import {canonicalDigest} from './production-maintenance-receipts.mjs';
 import {MODERN_SCHEMA_PHASES,modernSchemaReleaseBinding,modernSchemaStepEvidence} from './production-modern-schema-state.mjs';
 import {MODERN_SCHEMA_LEASE_SQL} from './production-modern-schema-session-lease.mjs';
 import {MODERN_SCHEMA_EXECUTOR_SQL} from './production-modern-schema-executors.mjs';
-import {createModernSchemaOperatorRecoveryVerifier,sameOperatorControlSession} from './production-modern-schema-operator-recovery.mjs';
+import {createModernSchemaOperatorRecoveryVerifier,sameOperatorControlSession,verifyRecoveryHostProcessCensus} from './production-modern-schema-operator-recovery.mjs';
+import {pinModernSchemaChild} from './production-modern-schema-processes.mjs';
 
 const hash = char => char.repeat(64);
 const at = minutes => new Date(Date.UTC(2026,10,19,0,minutes)).toISOString();
@@ -160,6 +162,11 @@ function fixture(){
     captureFacts:async()=>({schema:'phoenix.modern-schema-database-facts/v1',database:{name:database.name,systemIdentifier:database.systemIdentifier},
       allDataSha256:flags.factsSha256,businessDataSha256:flags.factsSha256,readOnly:true,releaseAuthorized:false}),
     verifyDefaultOff:()=>({verified:true}),
+    verifyHostProcesses:()=>{
+      events.push('host-process-check');
+      if(flags.foreignHost)throw Error('MODERN_SCHEMA_OPERATOR_RECOVERY_HOLD=RECOVERY_HOST_PROCESS_UNACCOUNTED');
+      return hash('3');
+    },
     captureCatalog:async({owner,stage,databasePin,admit})=>{
       await admit();
       return {receipt:{schema:'phoenix.modern-schema-catalog-facts/v1',owner,stage,databasePin,
@@ -325,14 +332,45 @@ test('a held fresh snapshot binds live stopped and restarted checkpoints to the 
   await operator.close();
 });
 
-test('only the backup child observation fault can use the frozen pre-DDL recovery evidence',async()=>{
-  const f=fixture(),failure={source:'EXECUTOR_WATCH',stage:'FENCED_BACKUP',code:'MODERN_SCHEMA_EXECUTORS_HOLD=ORIGINAL_CONTROL_CHILD_UNPROVED'};
+for(const code of ['MODERN_SCHEMA_EXECUTORS_HOLD=ORIGINAL_CONTROL_CHILD_UNPROVED','MODERN_SCHEMA_WATCH_HOLD=NEW_OR_CHANGED_HOST_EXECUTOR']){
+ test(`the fixed ${code} backup hold requires frozen pre-DDL recovery evidence`,async()=>{
+  const f=fixture(),failure={source:'EXECUTOR_WATCH',stage:'FENCED_BACKUP',code};
   await f.failAfterFreshCheck(failure);
   const operator=await f.verifier();
   assert.equal((await operator.captureStopped()).factsSha256,canonicalDigest(f.registry.get(f.key('before-facts'))));
   await operator.close();
   failure.stage='DDL_AND_AFTER';
   await assert.rejects(f.verifier(),/EXACT_FROZEN_BACKUP_FACTS_REQUIRED/);
+ });
+}
+
+test('a still-live unmatched host process blocks both original boot and publication',async()=>{
+  const source={source:'EXECUTOR_WATCH',stage:'FENCED_BACKUP',code:'MODERN_SCHEMA_WATCH_HOLD=NEW_OR_CHANGED_HOST_EXECUTOR'};
+  const f=fixture();await f.failAfterFreshCheck(source);
+  const stopped=await f.verifier();
+  f.flags.foreignHost=true;
+  await assert.rejects(stopped.captureStopped(),/RECOVERY_HOST_PROCESS_UNACCOUNTED/);
+  await stopped.close();
+  f.flags.foreignHost=false;
+  const resumed=await f.verifier();await resumed.captureStopped();
+  f.resumeOriginal();
+  assert.equal((await resumed.verifyStarted()).hostProcessesSha256,hash('3'));
+  f.flags.foreignHost=true;
+  await assert.rejects(resumed.verifyHostBeforeOpen(),/RECOVERY_HOST_PROCESS_UNACCOUNTED/);
+  await resumed.close();
+});
+
+test('host recovery census accepts only native pins for its live control process',{timeout:5000},async()=>{
+  const child=spawn('/usr/bin/sleep',['10'],{stdio:'ignore'});
+  const exited=new Promise(resolve=>child.once('exit',resolve));
+  try{
+    const entry=pinModernSchemaChild(child);
+    const row={...entry.pin,ppid:entry.pin.parentPid,erpControlReference:true};
+    assert.equal(verifyRecoveryHostProcessCensus([row],[],new Set(),[entry]),canonicalDigest([]));
+    assert.throws(()=>verifyRecoveryHostProcessCensus([row],[],new Set(),[]),/RECOVERY_HOST_PROCESS_UNACCOUNTED/);
+    assert.throws(()=>verifyRecoveryHostProcessCensus([{...row,exe:'/tmp/unrelated'}],[],new Set(),[entry]),/ORIGINAL_CONTROL_CHILD_UNPROVED/);
+    assert.throws(()=>verifyRecoveryHostProcessCensus([],[],new Set(),[entry]),/RECOVERY_OWNED_HOST_CHILD_UNACCOUNTED/);
+  }finally{child.kill('SIGTERM');await exited;}
 });
 
 test('a fresh-snapshot hold rejects any later step, altered audit, or live facts drift before starting R',async()=>{
