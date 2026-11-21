@@ -22,6 +22,17 @@ const nativePidAbsent=pid=>{
  try{fs.lstatSync(`/proc/${pid}`);return false;}
  catch(error){return ['ENOENT','ESRCH'].includes(error.code);}
 };
+const processKind=exe=>{
+ const name=typeof exe==='string'?path.basename(exe):'';
+ if(!name)return 'UNAVAILABLE';
+ if(/^python[0-9.]*$/.test(name))return 'PYTHON';
+ if(['sh','bash','dash'].includes(name))return 'SHELL';
+ if(['node','nodejs'].includes(name))return 'NODE';
+ if(['psql','pg_dump','pg_restore','pgbench'].includes(name))return 'POSTGRES_TOOL';
+ if(name==='java')return 'JAVA';
+ if(name==='docker')return 'DOCKER';
+ return 'OTHER';
+};
 class PendingOriginalChildExit extends Error{
  constructor(entry,cause){super(cause.message);this.entries=new Set([entry]);}
 }
@@ -282,7 +293,15 @@ export class ModernSchemaExecutorWatch {
    }
    if(descendant||!potential(row))continue;const digest=canonicalDigest(row);
    if(initialize){if(!this.preparation.hostSurface.foreignProcessPins?.some(pin=>pin.pid===row.pid&&pin.identitySha256===digest))fail('UNREGISTERED_HOST_EXECUTOR');this.foreignProcesses.set(row.pid,digest);}
-   else if(this.foreignProcesses.get(row.pid)!==digest&&proveLateCandidate?.(row)!==true)fail('NEW_OR_CHANGED_HOST_EXECUTOR');
+   else if(this.foreignProcesses.get(row.pid)!==digest&&proveLateCandidate?.(row)!==true){
+    const parent=census.get(row.ppid);
+    throw Object.assign(Error('MODERN_SCHEMA_WATCH_HOLD=NEW_OR_CHANGED_HOST_EXECUTOR'),{nativeHostProcess:{
+     pid:row.pid,ppid:row.ppid,kind:processKind(row.exe),parentKind:processKind(parent?.exe),
+     identitySha256:digest,argvSha256:row.argvSha256,groupSha256:row.cgroupSha256,
+     erpControlReference:row.erpControlReference===true,registeredParent:!!parent&&this.foreignProcesses.get(parent.pid)===canonicalDigest(parent),
+     ownedDumpParent:this.readCommand?.entry?.pin?.pid===row.ppid,
+    }});
+   }
   }
   if(pendingExit)throw pendingExit;
  }

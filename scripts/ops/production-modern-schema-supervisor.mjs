@@ -116,19 +116,29 @@ export function createModernSchemaFirstHoldEvidence(now=()=>performance.now()){
   record(error,source){
    if(first)return first;
    if(!['SUPERVISOR','EXECUTOR_WATCH','LEASE_HEARTBEAT'].includes(source))fail('INVALID_PRIVATE_HOLD_SOURCE');
-   let code='UNCLASSIFIED',nativeProcessReason=null;
+   let code='UNCLASSIFIED',nativeProcessReason=null,nativeHostProcess=null;
    try{
     const message=error?.message;
     if(HOLD_CODES.has(message))code=message;
     const reason=error?.nativeProcessCensusReason;
     if(message==='MAINTENANCE_HOLD=ROOT_READER_MODERN_PROCESS_VISIBILITY_REQUIRED'&&
      ['PERMISSION_DENIED','IDENTITY_UNVERIFIED','EXISTENCE_UNVERIFIED','PROC_ENTRY_CHURN_PERSISTS'].includes(reason))nativeProcessReason=reason;
+    if(message==='MODERN_SCHEMA_WATCH_HOLD=NEW_OR_CHANGED_HOST_EXECUTOR'){
+     const sample=error.nativeHostProcess,kinds=['UNAVAILABLE','PYTHON','SHELL','NODE','POSTGRES_TOOL','JAVA','DOCKER','OTHER'];
+     if(sample&&Number.isSafeInteger(sample.pid)&&sample.pid>1&&Number.isSafeInteger(sample.ppid)&&sample.ppid>=0&&
+      kinds.includes(sample.kind)&&kinds.includes(sample.parentKind)&&
+      [sample.identitySha256,sample.argvSha256,sample.groupSha256].every(value=>typeof value==='string'&&/^[a-f0-9]{64}$/.test(value))){
+      const {pid,ppid,kind,parentKind,identitySha256,argvSha256,groupSha256}=sample;
+      nativeHostProcess=Object.freeze({pid,ppid,kind,parentKind,identitySha256,argvSha256,groupSha256,
+       erpControlReference:sample.erpControlReference===true,registeredParent:sample.registeredParent===true,ownedDumpParent:sample.ownedDumpParent===true});
+     }
+    }
     if(code==='UNCLASSIFIED'&&['BEFORE_CATALOG_OUTPUT','BEFORE_CATALOG_RECEIPT'].includes(stage)){
      const errno=error?.code;
      if(['EACCES','EEXIST','EIO','EMFILE','ENFILE','ENOENT','ENOSPC','EPERM','EROFS'].includes(errno))code='CATALOG_FILE_'+errno;
     }
    }catch{/* Even an error without readable fields receives a bounded code. */}
-   first=Object.freeze({source,code,...(nativeProcessReason?{nativeProcessReason}:{}),
+   first=Object.freeze({source,code,...(nativeProcessReason?{nativeProcessReason}:{}),...(nativeHostProcess?{nativeHostProcess}:{}),
     ...current(),priorStages:Object.freeze(elapsed.map(item=>Object.freeze(item)))});
    return first;
   },
