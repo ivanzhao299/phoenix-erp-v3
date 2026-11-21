@@ -19,7 +19,10 @@ const pathPattern=/^apps\/api\/src\/database\/migrations\/(\d{13})-([A-Za-z][A-Z
 export const MODERN_SCHEMA_SCOPE=Object.freeze({schemaMigration:true,deployMode:'api',buildApi:true,buildWeb:false,runDeployMigration:false,
   featureRollout:'OFF',chanjetPolicy:'HOLD',legacyFirstSwitch:false,automaticRollback:false,businessCutover:false});
 export const MODERN_SCHEMA_CONTEXT='phoenix.modern-schema-release-context/v1';
-export const INITIAL_MODERN_SCHEMA_WINDOW_MS=55*60*1000;
+// The frozen initial profile needs the measured backup and rehearsal time,
+// plus the separate original-recovery or DDL completion reserve.
+export const INITIAL_MODERN_SCHEMA_WINDOW_MS=80*60*1000;
+const INITIAL_HISTORICAL_WINDOW_MS=55*60*1000;
 const contextFields=['schema','owner','floorSha','runtimeSha','targetSha','window','databaseIdentitySha256','runtimeSnapshotSha256',
   'candidateImageId','candidateInventorySha256','sourceInventorySha256','runtimeInventorySha256','beforeLedgerSha256','pendingMigrations','changedMigrationPaths',
   'originalAuditSha256','originalConclusion','auditEvidenceSha256','testManifestSha256','oldRuntimeCompatibilitySha256','defaultOffEvidenceSha256','ingressScopeSha256'];
@@ -35,7 +38,7 @@ export function validateModernSchemaContext(value){
   ||(value.originalConclusion==='HOLD'?!match(HASH,value.testManifestSha256):value.testManifestSha256!==null))fail('EXACT_REVIEW_EVIDENCE_REQUIRED');
  validateModernSchemaMigrationPlan(Object.fromEntries(modernSchemaMigrationPlanFields.map(key=>[key,value[key]])));
  const duration=Date.parse(value.window.end)-Date.parse(value.window.start),profile=INITIAL_MODERN_SCHEMA_PROFILE;
- if(duration>30*60*1000&&(duration!==INITIAL_MODERN_SCHEMA_WINDOW_MS||value.originalConclusion!=='HOLD'||
+ if(duration>30*60*1000&&(![INITIAL_MODERN_SCHEMA_WINDOW_MS,INITIAL_HISTORICAL_WINDOW_MS].includes(duration)||value.originalConclusion!=='HOLD'||
   value.floorSha!==profile.floorSha||value.runtimeSha!==profile.runtimeSha||value.pendingMigrations.length!==profile.pendingCount||
   value.sourceInventorySha256!==profile.sourceInventorySha256||value.runtimeInventorySha256!==profile.runtimeInventorySha256||
   !same(value.pendingMigrations.map(unit=>unit.path).sort(),value.changedMigrationPaths)))fail('EXACT_CONTEXT_REQUIRED');
