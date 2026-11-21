@@ -65,6 +65,8 @@ const HOLD_CODES=new Set([
  'MODERN_SCHEMA_WATCH_HOLD=RETAINED_ARTIFACT_CHANGED',
  'MODERN_SCHEMA_WATCH_HOLD=UNKNOWN_DATABASE_NETWORK_MEMBER',
  'MODERN_SCHEMA_WATCH_HOLD=NEW_OR_CHANGED_HOST_EXECUTOR',
+ 'MODERN_SCHEMA_WATCH_HOLD=EXACT_STALLED_ORIGINAL_STOP_STAGE_REQUIRED',
+ 'MODERN_SCHEMA_WATCH_HOLD=NATIVE_STALLED_ORIGINAL_STOP_PROOF_REQUIRED',
  'MODERN_SCHEMA_WATCH_HOLD=OWNED_READ_TRANSPORT_LOST',
  'MODERN_SCHEMA_WATCH_HOLD=ORIGINAL_READONLY_BACKUP_PROCESS_REQUIRED',
  'MODERN_SCHEMA_WATCH_HOLD=REMOTE_READONLY_BACKUP_RESULT_UNRESOLVED',
@@ -100,6 +102,16 @@ const HOLD_CODES=new Set([
  'MODERN_SCHEMA_BACKUP_HOLD=CLEANUP_UNRESOLVED',
  'MODERN_SCHEMA_SUPERVISOR_HOLD=INSUFFICIENT_WINDOW_TO_RECOVER_ORIGINAL',
  'MODERN_SCHEMA_SUPERVISOR_HOLD=INSUFFICIENT_WINDOW_BEFORE_DDL',
+ 'MODERN_SCHEMA_STOP_HOLD=ORIGINAL_TERM_TIMEOUT_KEEP_FENCED',
+ 'MODERN_SCHEMA_STOP_HOLD=ORIGINAL_TERM_RESULT_UNRESOLVED',
+ 'MODERN_SCHEMA_STOP_HOLD=STALLED_ORIGINAL_FIRST_TERM_NOT_ACKNOWLEDGED',
+ 'MODERN_SCHEMA_STOP_HOLD=STALLED_ORIGINAL_FENCES_UNVERIFIED',
+ 'MODERN_SCHEMA_STOP_HOLD=STALLED_ORIGINAL_IDENTITY_CHANGED',
+ 'MODERN_SCHEMA_STOP_HOLD=STALLED_ORIGINAL_LISTENER_NOT_CLOSED',
+ 'MODERN_SCHEMA_STOP_HOLD=STALLED_ORIGINAL_EXECUTOR_NOT_IDLE',
+ 'MODERN_SCHEMA_STOP_HOLD=STALLED_ORIGINAL_EXECUTOR_CHANGED',
+ 'MODERN_SCHEMA_STOP_HOLD=STALLED_ORIGINAL_TERM_NOT_ACKNOWLEDGED',
+ 'MODERN_SCHEMA_STOP_HOLD=STALLED_ORIGINAL_TERMINAL_EVENTS_REQUIRED',
 ]);
 
 /** First observed failure and elapsed time only. Error text, stacks, causes,
@@ -317,7 +329,22 @@ export async function superviseModernSchemaRelease(env,input){
   const original=pre.containers.api;
   originalRestartPolicy=JSON.parse((await import('node:child_process')).execFileSync('/usr/bin/docker',['inspect',original.id,'--format','{{json .HostConfig.RestartPolicy}}'],{env:executionEnv(),encoding:'utf8',timeout:5000,stdio:['ignore','pipe','pipe']}));
   await advance('INGRESS_FENCED','R_STOP_INTENT',{originalSnapshotSha256:context.runtimeSnapshotSha256,originalRestartPolicy});
-  const stopped=await stopOriginalModernSchemaRuntime({originalSnapshot:pre,privateRuntime:runtime,directory:sessionDirectory,admit:()=>native(),drainStillOriginal:()=>coordinator.verifyQuiescent()});
+  const verifyStopFences=async(watchLocked=false)=>{
+   await native();if(!watchLocked)await watch.observe();
+   const pending=state.read(),control=publisher.readPrivate(),projected=publisher.readPublic();
+   if(pending.phase!=='R_STOP_INTENT'||pending.status!=='RUNNING'||state.ddlIntentExists()||
+    control.phase!=='FENCED'||projected.phase!=='FENCED'||!same(projected,coordinator.manifest)||
+    control.owner!==context.owner||control.generation!==projected.generation||
+    store.read('background-generation.json').generation!==projected.generation)return false;
+   const proof=await ingress.observe();
+   await native();
+   return proof.identitySha256===installed.identitySha256&&same(state.read(),pending)&&
+    same(publisher.readPrivate(),control)&&same(publisher.readPublic(),projected);
+  };
+  const stopped=await stopOriginalModernSchemaRuntime({originalSnapshot:pre,privateRuntime:runtime,directory:sessionDirectory,
+   admit:()=>native(),drainStillOriginal:()=>coordinator.verifyQuiescent(),stalledShutdown:{context,snapshot:original,client,
+    lease:rootLease,runtimeAddress:surface.runtimeAddress,ownedReadSessions,verifyFences:verifyStopFences,
+    withVerifiedStop:work=>watch.withVerifiedOriginalStop(work)}});
   const stoppedObservation=await watch.observe();stopped.oldDatabaseSessionsGone=stoppedObservation.executors.runtimeSessionPids.length===0;
   if(!stopped.oldDatabaseSessionsGone)fail('ORIGINAL_DATABASE_SESSIONS_NOT_GONE');
   enter('R_STOPPED_STEP');

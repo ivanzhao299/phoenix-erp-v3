@@ -10,6 +10,7 @@ import {readPinnedFile} from './production-trusted-paths.mjs';
 import {isRetainedModernSchemaInventoryPin,verifyRetainedModernSchemaInventoryPin} from './production-modern-schema-inventory.mjs';
 import {matchesModernSchemaRehearsalVolume} from './production-modern-schema-postgres.mjs';
 import {verifyHistoricalComposeSchemaArtifacts} from './production-modern-schema-historical-compose.mjs';
+import {protectedStalledShutdownMatches} from './production-modern-schema-stop.mjs';
 const fail=code=>{throw Error('MODERN_SCHEMA_WATCH_HOLD='+code);};
 const native=(binary,args)=>{try{return execFileSync(binary,args,{env:executionEnv(),encoding:'utf8',timeout:5000,maxBuffer:2*1024*1024,stdio:['ignore','pipe','pipe']}).trim();}catch{fail('NATIVE_CONTINUITY_OBSERVATION_UNAVAILABLE');}};
 const identity=value=>({id:value.id,imageId:value.imageId,name:value.name,startedAt:value.state.StartedAt,running:value.state.Running,pid:value.state.Pid,restarts:value.restarts,
@@ -38,11 +39,13 @@ class PendingOriginalChildExit extends Error{
 }
 export class ModernSchemaExecutorWatch {
  #reapRoles=new WeakMap();
+ #provedStalledOriginalStop=null;
  constructor({context,preparation,state,rootLease,session,client,privateRuntime,admit},dependencies={}){
   if(typeof admit!=='function'||canonicalDigest(preparation.originalSnapshot.containers)!==context.runtimeSnapshotSha256)fail('ORIGINAL_PREPARATION_REQUIRED');
   Object.assign(this,{context,preparation,state,rootLease,session,client,runtime:privateRuntime,admit});this.run=dependencies.run??native;
   this.captureProcesses=dependencies.captureProcesses??captureModernSchemaProcessIdentities;this.inspectProcess=dependencies.processIdentity??observeMaintenanceProcessIdentity;
   this.historicalCompose=dependencies.historicalCompose;
+  this.readStalledStopProof=dependencies.readStalledStopProof;
   this.resources=new Map(preparation.ownedResources.map(record=>[record.containerId,record]));this.baseline=null;this.foreignProcesses=new Map();this.readers=[];this.readCommand=null;
   this.migration=null;this.waitingMigration=null;this.composeChild=null;this.descendants=[];this.candidate=null;this.last=null;this.failed=null;this.timer=null;this.pending=Promise.resolve();this.serial=Promise.resolve();this.running=false;this.fencedFactRead=false;
  }
@@ -178,7 +181,10 @@ export class ModernSchemaExecutorWatch {
   if(old){
    if(old.imageId!==pre.api.image||old.state.StartedAt!==pre.api.startedAt||old.restarts!==pre.api.restartCount||old.state.OOMKilled!==false||old.state.Restarting||old.state.Paused
     ||(!stopIntent&&(old.state.Running!==true||old.state.Health?.Status!=='healthy')))fail('ORIGINAL_R_CHANGED');
-   if(!old.state.Running&&(old.state.ExitCode!==0||old.state.Pid!==0||old.restartPolicy.Name!=='no'))fail('ORIGINAL_R_NOT_CLEANLY_STOPPED');
+   const verifiedExit=this.#provedStalledOriginalStop;
+   const admittedTerm=stopIntent&&old.state.ExitCode===143&&verifiedExit?.exitCode===143&&
+     verifiedExit.containerId===old.id&&verifiedExit.startedAt===old.state.StartedAt;
+   if(!old.state.Running&&((old.state.ExitCode!==0&&!admittedTerm)||old.state.Pid!==0||old.restartPolicy.Name!=='no'))fail('ORIGINAL_R_NOT_CLEANLY_STOPPED');
   }else if(!this.composeChild||!['API_BODY','API_VERIFIED','OPEN_INTENT','OPEN_PUBLISHED','INGRESS_RELEASED','COMPLETED_OPEN'].includes(phase))fail('ORIGINAL_R_DISAPPEARED_WITHOUT_CONTROLLED_COMPOSE');
   const newApis=values.filter(value=>value.labels?.['com.docker.compose.project']===this.preparation.floor.project&&value.labels?.['com.docker.compose.service']==='api'&&value.id!==pre.api.id&&!historical.has(value.id));
   if(newApis.length){
@@ -401,6 +407,23 @@ export class ModernSchemaExecutorWatch {
   return async()=>{active=false;clearInterval(timer);await pending;};
  }
  withNativeCreate(work){return this.serially(async()=>{await this.check();const result=await work();await this.check();return result;});}
+ withVerifiedOriginalStop(work){return this.serially(async()=>{
+  await this.check();
+  const pending=this.state.read(),api=this.preparation.originalSnapshot.containers.api;
+  if(!this.running||!this.baseline||this.#provedStalledOriginalStop||pending.owner!==this.context.owner||pending.phase!=='R_STOP_INTENT'||pending.status!=='RUNNING'||
+   this.fencedFactRead||this.readCommand||this.migration||this.composeChild)fail('EXACT_STALLED_ORIGINAL_STOP_STAGE_REQUIRED');
+  const result=await work();
+  const {stopped,proof}=result;
+  if(proof){
+   const receipt={stalledShutdown:proof,containerId:stopped.id,startedAt:stopped.state.StartedAt,exitCode:stopped.state.ExitCode};
+   if(stopped.id!==api.id||stopped.image!==api.image||stopped.state.StartedAt!==api.startedAt||
+    stopped.state.Running!==false||stopped.state.Pid!==0||stopped.state.Status!=='exited'||
+    !protectedStalledShutdownMatches(receipt,this.context,this.rootLease,this.readStalledStopProof))fail('NATIVE_STALLED_ORIGINAL_STOP_PROOF_REQUIRED');
+   this.#provedStalledOriginalStop={containerId:stopped.id,startedAt:stopped.state.StartedAt,exitCode:stopped.state.ExitCode};
+  }
+  await this.check();
+  return result;
+ });}
  async waitForOriginalChildExit(child,deadline){
   if(child.exitCode===null&&child.signalCode===null)await new Promise((resolve,reject)=>{
    const finish=()=>{clearTimeout(timer);resolve();},timer=setTimeout(()=>{child.removeListener('exit',finish);reject(Error('MODERN_SCHEMA_WATCH_HOLD=ORIGINAL_CHILD_EXIT_UNRESOLVED'));},Math.max(1,deadline-performance.now()));
