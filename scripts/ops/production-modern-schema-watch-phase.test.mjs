@@ -525,6 +525,51 @@ test('clean local pg_dump completion still needs a newer native backend sample',
  assert.throws(()=>watch.observeReadonlyBackupBackend(databaseObservation([])),/REMOTE_READONLY_BACKUP_RESULT_UNRESOLVED/);
 });
 
+for(const census of ['host','database']){
+ for(const code of [0,1])test(`the ${census} census waits for the actual owned backup exit: ${code}`,{timeout:8000},async()=>{
+  const {watch,db}=fixture();
+  const app='phoenix-schema-9001-1-fenced-backup';
+  const child=spawn('/bin/bash',['--noprofile','--norc','-c','read -r ignored; exit "$1"','--',String(code),db.id,'exec env -i pg_dump read-only probe'],{
+   stdio:['pipe','ignore','ignore'],
+  });
+  const exited=new Promise(resolve=>child.once('exit',resolve));
+  try{
+   const entry=pinModernSchemaChild(child);
+   watch.state={read:()=>({owner:watch.context.owner,status:'RUNNING',phase:'FRESH_RECHECKED'})};
+   watch.runtime={isCommand:value=>value===entry,registeredChildren:()=>child.exitCode===null?[entry]:[]};
+   watch.session={withSynchronousObservation:async read=>read()};
+   watch.check=async()=>{};
+   watch.inspectProcess=()=>({...entry.pin,ppid:entry.pin.parentPid});
+   watch.allowReadonlyBackup(entry,app);
+   child.stdin.end('\n');
+   const timeout=performance.now()+2000,wait=new Int32Array(new SharedArrayBuffer(4));
+   while(!isOriginalModernSchemaChildTerminal(entry)&&performance.now()<timeout)Atomics.wait(wait,0,0,10);
+   assert.equal(isOriginalModernSchemaChildTerminal(entry),true);
+   assert.equal(child.exitCode,null);
+   watch.inspectProcess=()=>({...entry.pin,exe:'',ppid:entry.pin.parentPid});
+   let samples=0;
+   const noBackend={pin:null,closing:false};
+   watch.captureProcesses=()=>child.exitCode===null?[watch.inspectProcess()]:[];
+   watch.observeNativeSample=async()=>{
+    const backend={...session(502,null),applicationName:app};
+    return watch.observeReadonlyBackupBackend(databaseObservation(++samples===1?[backend]:[]));
+   };
+   const observe=census==='database'?()=>watch.observeNative():()=>watch.observeHostAfterOriginalExit(()=>{
+    samples++;
+    watch.verifyProcesses([]);
+    return noBackend;
+   });
+   if(code===0){
+    assert.deepEqual(await observe(),noBackend);
+    assert.equal(samples,2);
+   }else{
+    await assert.rejects(observe(),/ORIGINAL_CHILD_EXIT_FAILED/);
+    assert.equal(samples,1);
+   }
+  }finally{child.kill('SIGTERM');await exited;}
+ });
+}
+
 test('pg_dump retirement waits for the active sample and verifies native absence before forgetting its pin', async () => {
  const {watch}=fixture();
  const command={entry:{child:{exitCode:0,signalCode:null}}};
