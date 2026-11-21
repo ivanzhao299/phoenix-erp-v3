@@ -347,7 +347,8 @@ export async function createModernSchemaOperatorRecoveryVerifier({
     }
   }
   for(const original of [catalog,...(source.beforeCatalog?[source.beforeCatalog]:[]),...(adopted?.recoveryCatalogs??[])]){
-    const originalCatalogFile = path.join(store.directory,`schema-release-session-${owner}`,`catalog-${original.stage}.stdout`);
+    const originalDirectory=adopted?.recoveryCatalogs.includes(original)?'recovery':'session';
+    const originalCatalogFile = path.join(store.directory,`schema-release-${originalDirectory}-${owner}`,`catalog-${original.stage}.stdout`);
     if(original.raw?.path!==originalCatalogFile||!isHash(original.raw.sha256)||
         !Number.isSafeInteger(original.raw.bytes)||original.raw.bytes<1||original.raw.bytes>16*1024*1024||
         !same(await runtime.digest(originalCatalogFile),original.raw))fail('ORIGINAL_NATIVE_CATALOG_BYTES_CHANGED');

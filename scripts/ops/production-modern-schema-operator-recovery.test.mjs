@@ -138,7 +138,10 @@ function fixture({residual=false,formal=false,expired=false}={}){
     readProtectedTerm:file=>nativeFiles.get(file)??Buffer.from(file.endsWith('.stdout')&&flags.firstTermAccepted?pins.api.id+'\n':''),
     privateRuntime:{
       digest:async file=>{
-        assert.ok(['hold-observation','before','recovery-before','recovery-after'].some(stage=>rawCatalog.path.replace('hold-observation',stage)===file));
+        assert.ok(['hold-observation','before','recovery-before','recovery-after'].some(stage=>{
+          const raw=rawCatalog.path.replace('hold-observation',stage);
+          return (stage.startsWith('recovery-')?raw.replace('schema-release-session-','schema-release-recovery-'):raw)===file;
+        }));
         return {...rawCatalog,path:file,sha256:flags.rawSha256};
       },
       createDirectory:(id,role)=>{assert.equal(id,recoveryOwner);assert.equal(role,'recovery');return '/protected/recovery';},
@@ -252,11 +255,13 @@ function fixture({residual=false,formal=false,expired=false}={}){
     const advanced={...pending,phase:ownerHold.phase,sequence:5,receiptSha256:canonicalDigest(step),updatedAt:at(8)};
     registry.set('schema-release-pending.json',{...advanced,stateDigest:canonicalDigest(advanced)});
   };
-  const interruptedOriginalReopen=async()=>{
+  const interruptedOriginalReopen=async(useSessionCatalogDirectory=false)=>{
     await failAfterFreshCheck({source:'SUPERVISOR',stage:'FENCED_REHEARSAL',code:'MODERN_SCHEMA_SUPERVISOR_HOLD=INSUFFICIENT_WINDOW_TO_RECOVER_ORIGINAL'});
     const beforeFactsSha256=canonicalDigest(registry.get(key('before-facts')));
-    const catalogs=['recovery-before','recovery-after'].map(stage=>({...holdCatalog,stage,
-      raw:{...rawCatalog,path:rawCatalog.path.replace('hold-observation',stage)}}));
+    const catalogs=['recovery-before','recovery-after'].map(stage=>{
+      const raw=rawCatalog.path.replace('hold-observation',stage);
+      return {...holdCatalog,stage,raw:{...rawCatalog,path:useSessionCatalogDirectory?raw:raw.replace('schema-release-session-','schema-release-recovery-')}};
+    });
     for(const catalog of catalogs)registry.set(key(catalog.stage+'-schema'),catalog);
     const intent={schema:'phoenix.modern-schema-original-recovery-intent/v1',owner,contextDigest,preparationSha256,
       originalLease:oldLease,originalContainerId:pins.api.id,originalImageId:pins.api.image,originalRestartPolicy:originalPolicy,
@@ -399,6 +404,8 @@ test('a verified original boot can be adopted after its former supervisor expire
 
 test('an alternate boot and a changed recovery artifact cannot be adopted',async()=>{
   const f=fixture({expired:true});
+  await f.interruptedOriginalReopen(true);
+  await assert.rejects(f.verifier(),/ORIGINAL_NATIVE_CATALOG_BYTES_CHANGED/);
   await f.interruptedOriginalReopen();
   f.registry.get(f.key('original-recovery-verified')).intentSha256=hash('9');
   await assert.rejects(f.verifier(),/PROTECTED_VERIFIED_ORIGINAL_RECOVERY_REQUIRED/);
