@@ -54,6 +54,22 @@ export function isResidualStopIntent(pending,store){
 export const isExpiredVerifiedOriginal = pending => pending.owner==='44883169227-1'&&
   pending.targetSha==='45fe9bf6ded83740965de1b81143a08b3ac07369'&&pending.phase==='FRESH_RECHECKED'&&
   pending.sequence===5&&pending.status==='HOLD';
+export function readVerifiedRecoveryOwnership(store,pending,proof){
+  if(!isExpiredVerifiedOriginal(pending))fail('EXACT_RECOVERY_OWNERSHIP_SCOPE_REQUIRED');
+  const certificate=store.read(`schema-release-operator-recovery-container-ownership-${pending.owner}.json`);
+  const registry=store.read('maintenance-host-ownership-registry.json');
+  const {pins}=certificate;
+  if(certificate.schema!=='phoenix.private-verified-recovery-container-ownership/v1'||certificate.owner!==pending.owner||
+      certificate.targetSha!==pending.targetSha||certificate.pendingSha256!==canonicalDigest(pending)||
+      certificate.originalRecoveryProofSha256!==canonicalDigest(proof)||certificate.productionMutation!==false||
+      registry.schema!=='phoenix.maintenance-reviewed-host-ownership/v1'||!isHash(certificate.registryEvidenceSha256)||
+      certificate.registryEvidenceSha256!==registry.evidenceSha256||!Array.isArray(registry.containers)||
+      !Array.isArray(pins)||pins.length!==2||new Set(pins.map(pin=>pin.id)).size!==2||
+      pins.some(pin=>!isHash(pin.id)||!isHash(pin.identitySha256)||registry.containers.filter(row=>
+        row.owner==='REVIEWED_FOREIGN_PRODUCTION_NEIGHBOUR'&&row.id===pin.id&&row.identitySha256===pin.identitySha256).length!==1))
+    fail('EXACT_RECOVERY_CONTAINER_OWNERSHIP_REQUIRED');
+  return {pins,sha256:canonicalDigest(certificate)};
+}
 const nativeDocker = args => {
   try {
     return execFileSync('/usr/bin/docker',args,{env:executionEnv(),encoding:'utf8',timeout:5000,
@@ -61,7 +77,7 @@ const nativeDocker = args => {
   } catch { fail('DOCKER_OBSERVATION_UNAVAILABLE'); }
 };
 
-export function verifyRecoveryHostProcesses(preparation,docker=nativeDocker,ownedChildren=[]){
+export function verifyRecoveryHostProcesses(preparation,docker=nativeDocker,ownedChildren=[],extraContainerPins=[]){
   const {api,web,db}=preparation.originalSnapshot.containers;
   const known=new Set([api.id,web.id,db.id]);
   const {foreignContainerPins,foreignProcessPins}=preparation.hostSurface;
@@ -74,7 +90,10 @@ export function verifyRecoveryHostProcesses(preparation,docker=nativeDocker,owne
         container.pidMode?.startsWith('container:')||container.networkMode==='host')fail('RECOVERY_HOST_CONTAINER_UNACCOUNTED');
     if(!known.has(container.id)){
       const identity=observeMaintenanceContainerIdentity(container.id);
-      if(!foreignContainerPins.some(pin=>pin.id===container.id&&pin.identitySha256===canonicalDigest(identity))||
+      const historical=foreignContainerPins.some(pin=>pin.id===container.id&&pin.identitySha256===canonicalDigest(identity));
+      const updated=!identity.erpBind&&identity.project!==preparation.floor.project&&
+        extraContainerPins.some(pin=>pin.id===container.id&&pin.identitySha256===canonicalDigest(identity));
+      if((!historical&&!updated)||
           identity.pid!==container.state.Pid||identity.imageId!==container.imageId)fail('RECOVERY_HOST_CONTAINER_UNACCOUNTED');
     }
     namespaces.add(fs.readlinkSync(`/proc/${container.state.Pid}/ns/pid`));
@@ -270,7 +289,8 @@ function bindHistoricalStop({store,owner,recoveryLease,readApproval,validatePrep
             receipt.schemaSha256!==catalog.schemaSha256||!same(receipt.databasePin,db)))
         fail('PROTECTED_VERIFIED_ORIGINAL_RECOVERY_REQUIRED');
       validateParticipants([proof.originalRuntime],{targetSha:context.runtimeSha});
-      adopted={intent,proof,recoveryCatalogs};
+      const ownership=readVerifiedRecoveryOwnership(store,pending,proof);
+      adopted={intent,proof,recoveryCatalogs,ownership};
     }
   }
   return {key,context,contextDigest,binding,pending,preparation,steps,policy,residual,incident,stop,api,web,db,catalog,hold,closed,adopted,
@@ -391,7 +411,8 @@ export async function createModernSchemaOperatorRecoveryVerifier({
     await admit();
     source.checkNoLaterEffects();
     if(adopted&&(!same(store.read(key('original-recovery-intent')),adopted.intent)||
-       !same(store.read(key('original-recovery-verified')),adopted.proof)))fail('VERIFIED_ORIGINAL_RECOVERY_MOVED');
+       !same(store.read(key('original-recovery-verified')),adopted.proof)||
+       !same(readVerifiedRecoveryOwnership(store,pending,adopted.proof),adopted.ownership)))fail('VERIFIED_ORIGINAL_RECOVERY_MOVED');
     if(!same(store.read(marker),pending)||!same(store.read(controlName),control)||!same(readPublic(),manifest)||
         !same(store.read('background-generation.json'),generation)||!same(store.read('floor.json'),preparation.floor)||
         !same(store.read('active.json'),preparation.active)||getHead()!==preparation.rootHeadSha||
@@ -558,7 +579,7 @@ export async function createModernSchemaOperatorRecoveryVerifier({
   };
   const observeCurrentHost=()=>{
     if(!source.requireHostCensus)return null;
-    const proof=(dependencies.verifyHostProcesses??verifyRecoveryHostProcesses)(preparation,docker,ownedChildren);
+    const proof=(dependencies.verifyHostProcesses??verifyRecoveryHostProcesses)(preparation,docker,ownedChildren,adopted?.ownership.pins);
     if(!isHash(proof))fail('RECOVERY_HOST_PROOF_REQUIRED');
     return proof;
   };
@@ -589,7 +610,8 @@ export async function createModernSchemaOperatorRecoveryVerifier({
         return {...observed,schema:'phoenix.modern-schema-operator-recovery-verified/v1',owner,recoveryOwner,
           contextDigest,recoveredSha:context.runtimeSha,attemptedTargetSha:context.targetSha,
           pendingSha256:canonicalDigest(pending),recoveryLeaseSha256:canonicalDigest(recoveryLease),
-          adoptedRecoveryProofSha256:canonicalDigest(adopted.proof),ingressIdentitySha256:installed.identitySha256,
+          adoptedRecoveryProofSha256:canonicalDigest(adopted.proof),adoptedOwnershipSha256:adopted.ownership.sha256,
+          ingressIdentitySha256:installed.identitySha256,
           outcome:'ORIGINAL_R_READY_UNDER_BOTH_FENCES',formalTargetSuccess:false,releaseAuthorized:false};
       });
     },

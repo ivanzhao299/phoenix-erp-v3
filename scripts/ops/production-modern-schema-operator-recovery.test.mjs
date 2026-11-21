@@ -274,6 +274,13 @@ function fixture({residual=false,formal=false,expired=false}={}){
       outcome:'ABORTED_BEFORE_DDL_ORIGINAL_R_RECOVERED',formalTargetSuccess:false,schemaChanged:false,businessActivation:false,automaticRetry:false};
     registry.set(key('original-recovery-intent'),intent);
     registry.set(key('original-recovery-verified'),proof);
+    const registryPins=[{id:hash('4'),identitySha256:hash('5')},{id:hash('6'),identitySha256:hash('7')}];
+    const ownershipEvidenceSha256=hash('8');
+    registry.set(key('operator-recovery-container-ownership'),{schema:'phoenix.private-verified-recovery-container-ownership/v1',
+      owner,targetSha:context.targetSha,pendingSha256:intent.pendingSha256,originalRecoveryProofSha256:canonicalDigest(proof),
+      registryEvidenceSha256:ownershipEvidenceSha256,productionMutation:false,pins:registryPins});
+    registry.set('maintenance-host-ownership-registry.json',{schema:'phoenix.maintenance-reviewed-host-ownership/v1',
+      evidenceSha256:ownershipEvidenceSha256,containers:registryPins.map(pin=>({...pin,owner:'REVIEWED_FOREIGN_PRODUCTION_NEIGHBOUR'}))});
     resumeOriginal();
     flags.adoptedPolicy=true;
     return proof;
@@ -396,6 +403,7 @@ test('a verified original boot can be adopted after its former supervisor expire
     await assert.rejects(verifier.captureStopped(),/SINGLE_STOPPED_CHECKPOINT_REQUIRED/);
     const observed=await verifier.verifyAdoptedOriginal();
     assert.equal(observed.adoptedRecoveryProofSha256,canonicalDigest(proof));
+    assert.equal(observed.adoptedOwnershipSha256,canonicalDigest(f.registry.get(f.key('operator-recovery-container-ownership'))));
     assert.equal(observed.startedAt,proof.startedAt);
     assert.equal(observed.formalTargetSuccess,false);
     await verifier.verifyHostBeforeOpen();
@@ -409,6 +417,9 @@ test('an alternate boot and a changed recovery artifact cannot be adopted',async
   await f.interruptedOriginalReopen();
   f.registry.get(f.key('original-recovery-verified')).intentSha256=hash('9');
   await assert.rejects(f.verifier(),/PROTECTED_VERIFIED_ORIGINAL_RECOVERY_REQUIRED/);
+  await f.interruptedOriginalReopen();
+  f.registry.get('maintenance-host-ownership-registry.json').containers[0].identitySha256=hash('9');
+  await assert.rejects(f.verifier(),/EXACT_RECOVERY_CONTAINER_OWNERSHIP_REQUIRED/);
   await f.interruptedOriginalReopen();
   f.flags.newBoot=firstBoot;
   const verifier=await f.verifier();

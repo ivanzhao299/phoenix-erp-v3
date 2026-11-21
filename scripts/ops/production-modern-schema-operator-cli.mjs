@@ -22,7 +22,8 @@ import {ModernSchemaControlSession,pinOriginalModernSchemaSession,readLinuxProce
 import {ModernSchemaReadClient} from './production-modern-schema-read-client.mjs';
 import {pinModernSchemaChild} from './production-modern-schema-processes.mjs';
 import {closeModernSchemaOriginalSession,confirmModernSchemaPublicDurability} from './production-modern-schema-completion.mjs';
-import {createModernSchemaOperatorRecoveryVerifier,isExpiredVerifiedOriginal,isResidualStopIntent,sameOperatorControlSession,verifyRecoveryHostProcesses} from './production-modern-schema-operator-recovery.mjs';
+import {createModernSchemaOperatorRecoveryVerifier,isExpiredVerifiedOriginal,isResidualStopIntent,readVerifiedRecoveryOwnership,
+ sameOperatorControlSession,verifyRecoveryHostProcesses} from './production-modern-schema-operator-recovery.mjs';
 import {originalStopExitIsProved} from './production-modern-schema-stop.mjs';
 
 const ownerShape=/^[1-9][0-9]{0,19}-[1-9][0-9]{0,9}$/;
@@ -78,10 +79,13 @@ async function finishPublished({store,runtime,ingress,admission,session,lease,gu
   same(validateManifest(manifest),{protocolVersion:1,phase:'OPEN',owner:prepared.originalBackground.record.owner,
    targetSha:context.runtimeSha,generation,participants:[participant]})&&same(validateBinding(ordinary),{...prepared.originalBackground.record,
    generation,phase:'OPEN',manifestDigest:orderedDigest(manifest),updatedAt:ordinary.updatedAt}),'PROTECTED_OPERATOR_OPEN_INTENT_REQUIRED');
+ let adoptedOwnership;
  if(isExpiredVerifiedOriginal(pending)){
   const priorProof=store.read(`schema-release-original-recovery-verified-${owner}.json`);
+  adoptedOwnership=readVerifiedRecoveryOwnership(store,pending,priorProof);
   requireThat(record.adoptedRecoveryProofSha256===canonicalDigest(priorProof)&&
    verified.verification.adoptedRecoveryProofSha256===record.adoptedRecoveryProofSha256&&
+   record.adoptedOwnershipSha256===adoptedOwnership.sha256&&verified.verification.adoptedOwnershipSha256===adoptedOwnership.sha256&&
    priorProof.owner===owner&&priorProof.formalTargetSuccess===false&&priorProof.startedAt===startedAt&&
    same(priorProof.originalRuntime,participant)&&priorProof.schemaChanged===false,'VERIFIED_ORIGINAL_ADOPTION_PROOF_REQUIRED');
  }else if(record.originalFencedBootSha256===null){
@@ -114,7 +118,7 @@ async function finishPublished({store,runtime,ingress,admission,session,lease,gu
    requireThat(closed.outcome==='ORIGINAL_SESSION_ABSENT','PRIOR_OPERATOR_SESSION_PRESENT');
   }finally{await oldObserver.close();}
   await admission();
-  if(verified.verification.hostProcessesSha256)verifyRecoveryHostProcesses(prepared,undefined,[pinModernSchemaChild(session.child)]);
+  if(verified.verification.hostProcessesSha256)verifyRecoveryHostProcesses(prepared,undefined,[pinModernSchemaChild(session.child)],adoptedOwnership?.pins);
   requireThat(same(readPublicManifest(),previousFenced)&&same(store.read('background-control.json'),previous)&&
    canonicalDigest(ingressIdentity(ingress.tables()))===installed.identitySha256,'UNPUBLISHED_INTENT_CHANGED');
   if(!same(previous,ordinary))atomicState(store.file('background-control.json'),ordinary);
@@ -285,10 +289,12 @@ async function recover(env){
     incumbent.state.StartedAt===started.startedAt&&fencedApi.status.phase==='FENCED'&&
     fencedApi.status.inFlight===0&&fencedApi.status.taskGraphs===0&&fencedApi.status.pendingChildren===0&&incumbent.restartPolicy.Name==='no','EXACT_FENCED_INCUMBENT_REQUIRED');
   }
+  const priorRecovery=adopting?store.read(`schema-release-original-recovery-verified-${owner}.json`):null;
   store.immutable(newKey('recovery-intent'),{schema:'phoenix.modern-operator-recovery-intent/v1',owner,recoveryOwner,target,executionSha,
    newSupervisor:supervisor,newLease:recoveryLease,previousLeaseSha256:canonicalDigest(pending.lease),pendingSha256:canonicalDigest(pending),
     reviewedSourceSha256:established.sha256,originalFencedBootSha256:started?canonicalDigest(started):null,migrationAuthorized:false,
-    ...(adopting?{adoptedRecoveryProofSha256:canonicalDigest(store.read(`schema-release-original-recovery-verified-${owner}.json`))}:{})});
+    ...(priorRecovery?{adoptedRecoveryProofSha256:canonicalDigest(priorRecovery),
+       adoptedOwnershipSha256:readVerifiedRecoveryOwnership(store,pending,priorRecovery).sha256}:{})});
   await admission();await observeFence();
   if(residual&&inspectModernSchemaContainer(api.id).state.Running===true){
    const term=await verifier.verifyResidualOriginal();
