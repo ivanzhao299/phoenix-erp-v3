@@ -191,7 +191,7 @@ function fixture(){
       pendingPhase:'R_STOPPED',failure:{source:'SUPERVISOR',stage:'FENCED_BACKUP',code:'MODERN_SCHEMA_BACKUP_HOLD=CLEANUP_UNRESOLVED'}});
     registry.set(key('before-schema'),{...holdCatalog,stage:'before',raw:{...rawCatalog,path:rawCatalog.path.replace('hold-observation','before')}});
   };
-  const failAfterFreshCheck=async()=>{
+  const failAfterFreshCheck=async(failure={source:'SUPERVISOR',stage:'FENCED_BACKUP',code:'MODERN_SCHEMA_BACKUP_HOLD=CLEANUP_UNRESOLVED'})=>{
     const ownerHold=registry.get(`recovery-modern-schema-${owner}.json`);
     ownerHold.phase='FRESH_RECHECKED';
     const facts=await dependencies.captureFacts();
@@ -201,7 +201,7 @@ function fixture(){
     registry.set(key('before-schema'),catalog);
     registry.set(key('fenced-audit-boundary'),audit);
     registry.set(key('supervisor-first-hold'),{schema:'phoenix.modern-schema-supervisor-first-hold/v1',owner,contextDigest,
-      pendingPhase:ownerHold.phase,failure:{source:'SUPERVISOR',stage:'FENCED_BACKUP',code:'MODERN_SCHEMA_BACKUP_HOLD=CLEANUP_UNRESOLVED'}});
+      pendingPhase:ownerHold.phase,failure});
     const step={...binding,schema:'phoenix.modern-schema-release-step/v1',sequence:5,to:ownerHold.phase,from:'R_STOPPED',
       previousDigest:pending.receiptSha256,recordedAt:at(7),payload:modernSchemaStepEvidence(context,ownerHold.phase,{
         beforeLedgerSha256:context.beforeLedgerSha256,schemaFile:store.file(key('before-schema')),schemaSha256:canonicalDigest(catalog),
@@ -323,6 +323,16 @@ test('a held fresh snapshot binds live stopped and restarted checkpoints to the 
   f.resumeOriginal();
   assert.equal((await operator.verifyStarted()).outcome,'ORIGINAL_R_READY_UNDER_BOTH_FENCES');
   await operator.close();
+});
+
+test('only the backup child observation fault can use the frozen pre-DDL recovery evidence',async()=>{
+  const f=fixture(),failure={source:'EXECUTOR_WATCH',stage:'FENCED_BACKUP',code:'MODERN_SCHEMA_EXECUTORS_HOLD=ORIGINAL_CONTROL_CHILD_UNPROVED'};
+  await f.failAfterFreshCheck(failure);
+  const operator=await f.verifier();
+  assert.equal((await operator.captureStopped()).factsSha256,canonicalDigest(f.registry.get(f.key('before-facts'))));
+  await operator.close();
+  failure.stage='DDL_AND_AFTER';
+  await assert.rejects(f.verifier(),/EXACT_FROZEN_BACKUP_FACTS_REQUIRED/);
 });
 
 test('a fresh-snapshot hold rejects any later step, altered audit, or live facts drift before starting R',async()=>{
