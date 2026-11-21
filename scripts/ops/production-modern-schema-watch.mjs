@@ -18,6 +18,10 @@ const identity=value=>({id:value.id,imageId:value.imageId,name:value.name,starte
 const potential=value=>/\/(?:node|nodejs|python[0-9.]*|java|pm2|supervisord|nomad|kubelet|psql|pg_restore|pgbench)$/.test(value.exe)||value.erpControlReference;
 const linuxOnly=({pid,parentPid,startTicks,bootId})=>({pid,parentPid,startTicks,bootId});
 const nativeTicks=value=>typeof value==='string'&&/^[1-9][0-9]*$/.test(value);
+const nativePidAbsent=pid=>{
+ try{fs.lstatSync(`/proc/${pid}`);return false;}
+ catch(error){return ['ENOENT','ESRCH'].includes(error.code);}
+};
 class PendingOriginalChildExit extends Error{
  constructor(entry,cause){super(cause.message);this.entries=new Set([entry]);}
 }
@@ -70,6 +74,21 @@ export class ModernSchemaExecutorWatch {
    this.readCommand=null;
   });
  }
+ #readonlyBackupExit(entry,cause){
+  const command=this.readCommand;
+  if(entry!==command?.entry)return null;
+  const pending=this.state.read();
+  const role={R_STOPPED:'schema-before',FRESH_RECHECKED:'fenced-backup',DDL_STARTED:'schema-after'}[pending.phase];
+  if(!role||pending.owner!==this.context.owner||pending.status!=='RUNNING'||
+   command.applicationName!==`phoenix-schema-${this.context.owner}-${role}`||
+   this.runtime.isCommand?.(entry)!==true||!(entry.child instanceof ChildProcess)||
+   entry.child.pid!==entry.pin?.pid||entry.pin.parentPid!==process.pid)return null;
+  // Host PID absence only lets us wait for the real process result. It
+  // cannot certify success or stand in for a fresh remote backend census.
+  if(!isOriginalModernSchemaChildTerminal(entry)&&
+   !(nativePidAbsent(entry.pin.pid)&&nativePidAbsent(entry.pin.pid)))return null;
+  return new PendingOriginalChildExit(entry,cause);
+ }
  observeReadonlyBackupBackend(database){
   const command=this.readCommand;
   if(!command)return {pin:null,closing:false};
@@ -79,7 +98,10 @@ export class ModernSchemaExecutorWatch {
   const finished=child.exitCode!==null||child.signalCode!==null;
   if(finished){
    if(child.exitCode!==0||child.signalCode!==null)fail('REMOTE_READONLY_BACKUP_RESULT_UNRESOLVED');
-  }else verifyModernSchemaChild(entry,this.inspectProcess(entry.pin.pid));
+  }else{
+   try{verifyModernSchemaChild(entry,this.inspectProcess(entry.pin.pid));}
+   catch(error){throw this.#readonlyBackupExit(entry,error)??error;}
+  }
   if(!matches.length)return {pin:null,closing:false};
   const {pid,databaseOid,backendStartMicros,applicationName,clientAddress}=matches[0];
   const pin={pid,databaseOid,backendStartMicros,
@@ -197,10 +219,7 @@ export class ModernSchemaExecutorWatch {
   }
   const pending=this.state.read();
   if(pending.owner!==this.context.owner||pending.phase!=='API_BODY'||pending.status!=='RUNNING')return null;
-  const absent=entry=>{
-   try{fs.lstatSync(`/proc/${entry.pid}`);return false;}
-   catch(error){return ['ENOENT','ESRCH'].includes(error.code);}
-  };
+  const absent=entry=>nativePidAbsent(entry.pid);
   if(!chain.every(absent))return null;
   let original;
   try{
@@ -231,7 +250,10 @@ export class ModernSchemaExecutorWatch {
      // sweep and Node's exit callback. Persistent channels remain strict;
      // explicitly registered body stages must await the real event and rescan.
      const persistent=this.session?.child===entry.child||this.readers.some(reader=>reader.entry.child===entry.child);
-     if(persistent||!isOriginalModernSchemaChildTerminal(entry))throw error;
+     if(persistent)throw error;
+     const readExit=this.#readonlyBackupExit(entry,error);
+     if(readExit){recordExit(readExit);continue;}
+     if(!isOriginalModernSchemaChildTerminal(entry))throw error;
      const role=this.#reapRoles.get(entry),phase=this.state.read().phase;
      const bodyPhase=role==='SCHEMA_DRIVER'?phase==='DDL_STARTED':phase==='API_BODY'&&['FORMAL_API_BODY','FORMAL_COMPOSE'].includes(role);
      if((bodyPhase&&this.runtime.isCommand?.(entry)===true)
@@ -360,6 +382,13 @@ export class ModernSchemaExecutorWatch {
   return async()=>{active=false;clearInterval(timer);await pending;};
  }
  withNativeCreate(work){return this.serially(async()=>{await this.check();const result=await work();await this.check();return result;});}
+ async waitForOriginalChildExit(child,deadline){
+  if(child.exitCode===null&&child.signalCode===null)await new Promise((resolve,reject)=>{
+   const finish=()=>{clearTimeout(timer);resolve();},timer=setTimeout(()=>{child.removeListener('exit',finish);reject(Error('MODERN_SCHEMA_WATCH_HOLD=ORIGINAL_CHILD_EXIT_UNRESOLVED'));},Math.max(1,deadline-performance.now()));
+   child.once('exit',finish);
+  });
+  if(child.exitCode!==0||child.signalCode!==null)fail('ORIGINAL_CHILD_EXIT_FAILED');
+ }
  async observeHostAfterOriginalExit(work){
   const reaped=new Set();
   for(;;){
@@ -368,11 +397,7 @@ export class ModernSchemaExecutorWatch {
     const deadline=performance.now()+3000;
     for(const {child} of error.entries){
      if(reaped.has(child)||reaped.size>=4)fail('ORIGINAL_CHILD_EXIT_UNRESOLVED');reaped.add(child);
-     if(child.exitCode===null&&child.signalCode===null)await new Promise((resolve,reject)=>{
-      const finish=()=>{clearTimeout(timer);resolve();},timer=setTimeout(()=>{child.removeListener('exit',finish);reject(Error('MODERN_SCHEMA_WATCH_HOLD=ORIGINAL_CHILD_EXIT_UNRESOLVED'));},Math.max(1,deadline-performance.now()));
-      child.once('exit',finish);
-     });
-     if(child.exitCode!==0||child.signalCode!==null)fail('ORIGINAL_CHILD_EXIT_FAILED');
+     await this.waitForOriginalChildExit(child,deadline);
     }
     await this.check(); // New original-S/authority check, then a whole new census.
    }
@@ -392,6 +417,14 @@ export class ModernSchemaExecutorWatch {
  });}
  observe(initialize=false){return this.serially(()=>this.observeNative(initialize));}
  async observeNative(initialize=false){
+  try{return await this.observeNativeSample(initialize);}catch(error){
+   const entry=this.readCommand?.entry;
+   if(!(error instanceof PendingOriginalChildExit)||error.entries.size!==1||!error.entries.has(entry))throw error;
+   await this.waitForOriginalChildExit(entry.child,performance.now()+3000);
+   return this.observeNativeSample(initialize);
+  }
+ }
+ async observeNativeSample(initialize){
   await this.check();
   const {values,runtime,schedulers}=await this.observeHostAfterOriginalExit(()=>{
    this.runtime.guard();this.assertHealthy();
