@@ -3,7 +3,12 @@ set -Eeuo pipefail
 set +x
 umask 077
 trap 'echo ORIGINAL_RECOVERY_HOST_TRANSPORT_HOLD >&2' ERR
-test "${1:-}" = recover-original
+case "${1:-}" in
+ recover-original) recovery_mode=original ;;
+ recover-target) recovery_mode=target ;;
+ *) exit 2 ;;
+esac
+export OPERATOR_RECOVERY_MODE="$recovery_mode"
 [[ "$ORIGINAL_RELEASE_OWNER" =~ ^[1-9][0-9]{0,19}-[1-9][0-9]{0,9}$ && "$OPERATOR_RECOVERY_OWNER" =~ ^[1-9][0-9]{0,19}-[1-9][0-9]{0,9}$ ]]
 [[ "$TARGET_SHA" =~ ^[a-f0-9]{40}$ && "$MODERN_SCHEMA_EXECUTION_SHA" =~ ^[a-f0-9]{40}$ ]]
 test "$OPERATOR_RECOVERY_OWNER" != "$ORIGINAL_RELEASE_OWNER"
@@ -54,7 +59,7 @@ while IFS= read -r file; do
 done <<< "$files"
 test -n "${staged[$entry]+seen}"
 
-raw="$STATE_DIR/.transport-$OPERATOR_RECOVERY_OWNER-recover-original.receipt"
+raw="$STATE_DIR/.transport-$OPERATOR_RECOVERY_OWNER-recover-$recovery_mode.receipt"
 set -o noclobber
 exec {receipt_fd}>"$raw"
 set +o noclobber

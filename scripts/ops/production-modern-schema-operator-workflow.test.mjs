@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {runModernOriginalRecoveryWorkflow} from './production-modern-schema-operator-workflow.mjs';
+import {assertForwardApiPublicationState} from './production-modern-schema-forward-api.mjs';
 
 const repository='ivanzhao299/phoenix-erp-v3';
 const owner='7911-2',recoveryOwner='7912-1',target='a'.repeat(40),execution='b'.repeat(40);
@@ -20,7 +21,7 @@ test('only the exact authorized recovery job can select the dedicated private co
   assert.deepEqual(runModernOriginalRecoveryWorkflow(env,{createSsh}),success);
   assert.equal(closed,1);
   for(const patch of [{GITHUB_REF:'refs/heads/other'},{GITHUB_ACTOR:'another'},{GITHUB_TRIGGERING_ACTOR:'another'},{APPROVE_STOPPED_ORIGINAL:'false'}]){
-    assert.throws(()=>runModernOriginalRecoveryWorkflow({...env,...patch},{createSsh:()=>assert.fail('Invalid request reached SSH')}),/EXACT_GITHUB_RECOVERY_REQUIRED/);
+    assert.throws(()=>runModernOriginalRecoveryWorkflow({...env,...patch},{createSsh:()=>assert.fail('Invalid request reached SSH')}),/EXACT_(GITHUB_RECOVERY|OPERATOR_RECOVERY_ACTION)_REQUIRED/);
   }
 });
 
@@ -53,4 +54,48 @@ test('distinct protected attempts can run at the same exact Git revision',()=>{
   assert.deepEqual(result,success);
   assert.throws(()=>runModernOriginalRecoveryWorkflow({...sameRevision,ORIGINAL_RELEASE_OWNER:recoveryOwner},
     {createSsh:()=>assert.fail('One attempt cannot recover itself')}),/EXACT_GITHUB_RECOVERY_REQUIRED/);
+});
+
+test('forward API handoff requires the exact original owner, revision and explicit action', () => {
+  const targetSha = 'eaeec067bbc5f0e9c70cefc50b665d988d55b153';
+  const originalOwner = '44917766283-1';
+  const forward = {...env, ORIGINAL_RELEASE_OWNER: originalOwner, ORIGINAL_ATTEMPTED_SHA: targetSha,
+    APPROVE_STOPPED_ORIGINAL: 'false', APPROVE_FORWARD_API: 'true'};
+  const receipt = {schema: 'phoenix.modern-forward-api-public/v1', originalOwner, recoveryOwner,
+    targetSha, defaultOff: true, outcome: 'TARGET_OPEN'};
+  const createSsh = () => ({
+    exchange(operation, input) {
+      assert.deepEqual([operation, input], ['recover-target', '']);
+      return {status: 0, stdout: JSON.stringify(receipt)};
+    },
+    close() {},
+  });
+  assert.deepEqual(runModernOriginalRecoveryWorkflow(forward, {createSsh}), receipt);
+  for (const patch of [{ORIGINAL_RELEASE_OWNER: owner}, {ORIGINAL_ATTEMPTED_SHA: target},
+    {APPROVE_STOPPED_ORIGINAL: 'true'}, {OPERATOR_COMMITTED_OWNER: '7913-1'}]) {
+    assert.throws(() => runModernOriginalRecoveryWorkflow({...forward, ...patch},
+      {createSsh: () => assert.fail('Unexpected SSH request')}), /EXACT_OPERATOR_RECOVERY_ACTION_REQUIRED/);
+  }
+  for (const patch of [{targetSha: target}, {outcome: 'ORIGINAL_OPEN'}, {defaultOff: false}, {private: true}]) {
+    assert.throws(() => runModernOriginalRecoveryWorkflow(forward, {
+      createSsh: () => ({exchange: () => ({status: 0, stdout: JSON.stringify({...receipt, ...patch})}), close() {}}),
+    }), /BOUND_FORWARD_RECOVERY_RECEIPT_REQUIRED/);
+  }
+});
+
+test('forward API resumes exact partial writes and never opens with partial native fencing', () => {
+  const typed = {phase: 'FENCED'}, fenced = {phase: 'FENCED', generation: 10};
+  const ordinary = {phase: 'OPEN'}, manifest = {phase: 'OPEN', generation: 11};
+  const base = {typed, fenced, ordinary, manifest, current: typed, projection: fenced,
+    high: {generation: 10}, ingressCount: 2};
+  assert.doesNotThrow(() => assertForwardApiPublicationState(base));
+  assert.doesNotThrow(() => assertForwardApiPublicationState({...base, high: {generation: 11}, current: ordinary}));
+  const committed = {...base, high: {generation: 11}, current: ordinary, projection: manifest};
+  assert.doesNotThrow(() => assertForwardApiPublicationState(committed));
+  assert.doesNotThrow(() => assertForwardApiPublicationState({...committed, ingressCount: 0}));
+  for (const drift of [{ingressCount: 1}, {current: typed}, {high: {generation: 10}},
+    {projection: {...manifest, targetSha: target}}]) {
+    assert.throws(() => assertForwardApiPublicationState({...committed, ...drift}), /COMMITTED_OPEN_CHANGED/);
+  }
+  assert.throws(() => assertForwardApiPublicationState({...base, ingressCount: 0}), /UNPUBLISHED_DENIAL_CHANGED/);
 });

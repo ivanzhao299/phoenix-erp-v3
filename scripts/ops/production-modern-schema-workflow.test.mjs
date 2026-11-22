@@ -486,5 +486,5 @@ test('the hosted and SSH duration allowances apply only to the exact modern rele
   const transport=fs.readFileSync(new URL('./production-modern-schema-workflow.mjs',import.meta.url),'utf8');
   assert.match(deploy,/timeout-minutes: \$\{\{ inputs\.modern_schema_release && 230 \|\| 40 \}\}/);
   assert.match(transport,/const timeoutMinutes = operation === 'run' \? 184 : 34;/);
-  assert.match(transport,/operatorRecovery \? \['recover-original'\] : \['prepare', 'run', 'finalize'\]/);
+  assert.match(transport,/operatorRecovery \? \['recover-original', 'recover-target'\] : \['prepare', 'run', 'finalize'\]/);
 });

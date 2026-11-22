@@ -70,6 +70,7 @@ scripts/ops/production-modern-schema-drain.mjs
 scripts/ops/production-modern-schema-executors.mjs
 scripts/ops/production-modern-schema-facts.mjs
 scripts/ops/production-modern-schema-formal-body.mjs
+scripts/ops/production-modern-schema-forward-api.mjs
 scripts/ops/production-modern-schema-gated-cli.mjs
 scripts/ops/production-modern-schema-historical-compose.mjs
 scripts/ops/production-modern-schema-identity.mjs
