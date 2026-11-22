@@ -3,7 +3,12 @@ set -Eeuo pipefail
 set +x
 umask 077
 trap 'echo ORIGINAL_RECOVERY_HOST_TRANSPORT_HOLD >&2' ERR
-test "${1:-}" = recover-original
+case "${1:-}" in
+ recover-original) recovery_mode=original ;;
+ recover-target) recovery_mode=target ;;
+ *) exit 2 ;;
+esac
+export OPERATOR_RECOVERY_MODE="$recovery_mode"
 [[ "$ORIGINAL_RELEASE_OWNER" =~ ^[1-9][0-9]{0,19}-[1-9][0-9]{0,9}$ && "$OPERATOR_RECOVERY_OWNER" =~ ^[1-9][0-9]{0,19}-[1-9][0-9]{0,9}$ ]]
 [[ "$TARGET_SHA" =~ ^[a-f0-9]{40}$ && "$MODERN_SCHEMA_EXECUTION_SHA" =~ ^[a-f0-9]{40}$ ]]
 test "$OPERATOR_RECOVERY_OWNER" != "$ORIGINAL_RELEASE_OWNER"
@@ -11,6 +16,12 @@ if [ -n "$OPERATOR_COMMITTED_OWNER" ]; then
  [[ "$OPERATOR_COMMITTED_OWNER" =~ ^[1-9][0-9]{0,19}-[1-9][0-9]{0,9}$ ]]
  test "$OPERATOR_COMMITTED_OWNER" != "$OPERATOR_RECOVERY_OWNER"
  test "$OPERATOR_COMMITTED_OWNER" != "$ORIGINAL_RELEASE_OWNER"
+fi
+if [ "$recovery_mode" = target ]; then
+ test "$ORIGINAL_RELEASE_OWNER" = 44917766283-1
+ test "$TARGET_SHA" = eaeec067bbc5f0e9c70cefc50b665d988d55b153
+ IFS= read -r registry_token
+ [[ "$registry_token" =~ ^[A-Za-z0-9_.-]{10,2048}$ ]]
 fi
 if IFS= read -r extra || [ -n "${extra:-}" ]; then exit 2; fi
 
@@ -54,7 +65,25 @@ while IFS= read -r file; do
 done <<< "$files"
 test -n "${staged[$entry]+seen}"
 
-raw="$STATE_DIR/.transport-$OPERATOR_RECOVERY_OWNER-recover-original.receipt"
+# Warm the already-built Web image without switching any running service.
+# Its independent Web transaction checks the immutable digest after API OPEN.
+if [ "$recovery_mode" = target ]; then
+ web_config="$(/usr/bin/mktemp -d /run/phoenix-forward-web.XXXXXXXX)"
+ web_ref="ghcr.io/ivanzhao299/phoenix-erp-v3/web:sha-$TARGET_SHA"
+ docker_web() {
+   /usr/bin/timeout "${1}s" /usr/bin/env -i PATH=/usr/local/bin:/usr/bin:/bin DOCKER_CONFIG="$web_config" \
+     DOCKER_HOST=unix:///var/run/docker.sock /usr/bin/docker "${@:2}"
+ }
+ if builtin printf '%s' "$registry_token" | docker_web 25 login ghcr.io -u ivanzhao299 --password-stdin >/dev/null 2>&1; then
+   docker_web 70 pull "$web_ref" >/dev/null 2>&1 || true
+ fi
+ unset registry_token
+ if [ -f "$web_config/config.json" ]; then /usr/bin/unlink "$web_config/config.json"; fi
+ /usr/bin/rmdir "$web_config"
+fi
+
+
+raw="$STATE_DIR/.transport-$OPERATOR_RECOVERY_OWNER-recover-$recovery_mode.receipt"
 set -o noclobber
 exec {receipt_fd}>"$raw"
 set +o noclobber

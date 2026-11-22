@@ -15,6 +15,11 @@ on:
         description: 'Recovery run and attempt with a verified original OPEN intent'
         required: false
         type: string
+      approve_forward_api:
+        description: 'Complete the exact verified API handoff after DDL'
+        required: false
+        type: boolean
+        default: false
       approve_stopped_original:
         description: 'Approve recovery of the verified original API before DDL'
         required: true
@@ -23,6 +28,7 @@ on:
 
 permissions:
   contents: read
+  packages: read
 
 concurrency:
   group: production-modern-original-recovery
@@ -30,8 +36,8 @@ concurrency:
 
 jobs:
   recover:
-    name: Verify and recover original API before DDL
-    if: github.ref == 'refs/heads/main' && inputs.approve_stopped_original == true
+    name: Verify and recover the approved API
+    if: github.ref == 'refs/heads/main' && inputs.approve_stopped_original != inputs.approve_forward_api
     runs-on: ubuntu-latest
     timeout-minutes: 36
     environment: production
@@ -43,6 +49,8 @@ jobs:
           ORIGINAL_ATTEMPTED_SHA: ${{ inputs.original_attempted_sha }}
           OPERATOR_COMMITTED_OWNER: ${{ inputs.committed_recovery_owner }}
           APPROVE_STOPPED_ORIGINAL: ${{ inputs.approve_stopped_original }}
+          APPROVE_FORWARD_API: ${{ inputs.approve_forward_api }}
+          MODERN_SCHEMA_WEB_READ_TOKEN: ${{ github.token }}
           MODERN_SCHEMA_SSH_USER: ${{ secrets.DEPLOY_USER }}
           MODERN_SCHEMA_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
         run: |

@@ -158,7 +158,7 @@ export async function runModernSchemaGatedCli({owner,contextDigest,mode,imageId,
  }finally{privateInput.fill(0);}
  const after=await inspect('exit-pin');if(after.state.Running!==false||after.state.Pid!==0||after.state.ExitCode!==0)fail('ACTUAL_CLI_EXIT_UNVERIFIED');
  await check('AFTER_EXIT');
- const receipt={schema:'phoenix.modern-schema-gated-cli-result/v1',...resource,outcome:'SUCCESS',backendProof,nativeBackend,originalLease,
+ const receipt={...resource,schema:'phoenix.modern-schema-gated-cli-result/v1',outcome:'SUCCESS',backendProof,nativeBackend,originalLease,
   permitReceiptFile:path.join(directory,'cli-'+mode+'-permit.json'),permitSha256:canonicalDigest(permit),
   stdout:await privateRuntime.digest(execution.stdout),stderr:await privateRuntime.digest(execution.stderr),exitCode:0,oomKilled:false,restartCount:0};
  privateRuntime.publishJson(path.join(directory,'cli-'+mode+'-receipt.json'),receipt);return receipt;

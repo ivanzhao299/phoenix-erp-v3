@@ -35,7 +35,7 @@ function withinWindow(value, context, now) {
     Date.parse(value) < Date.parse(context.window.end) && Date.parse(value) <= now;
 }
 
-function stepChain(store, pending, binding, approval, context, now) {
+function stepChain(store, pending, binding, approval, context, now, held = false) {
   const steps = [];
   let previous = null;
   let previousAt = Date.parse(context.window.start);
@@ -57,7 +57,11 @@ function stepChain(store, pending, binding, approval, context, now) {
     previous = canonicalDigest(step);
     previousAt = Date.parse(step.recordedAt);
   }
-  if (pending.sequence<0||pending.sequence>last||pending.receiptSha256 !== previous || pending.updatedAt !== steps[pending.sequence].recordedAt) {
+  const recordedAt = steps[pending.sequence]?.recordedAt;
+  const tipTimeMatches = held
+    ? withinWindow(pending.updatedAt, context, now) && Date.parse(pending.updatedAt) >= Date.parse(recordedAt)
+    : pending.updatedAt === recordedAt;
+  if (pending.sequence<0||pending.sequence>last||pending.receiptSha256 !== previous || !tipTimeMatches) {
     fail('TERMINAL_CHAIN_TIP_MISMATCH');
   }
   return steps;
@@ -84,7 +88,7 @@ function readArtifact(store, ref, hash, expected) {
   return value;
 }
 
-function validateSchemaEvidence({store, backupStep, schemaStep, context, contextDigest, preparationSha256, lease, now}) {
+function validateSchemaEvidence({store, backupStep, schemaStep, context, contextDigest, preparationSha256, lease, now, historicalCliLabel = false}) {
   const filename = 'schema-release-schema-receipt-' + context.owner + '.json';
   fixedArtifact(store, schemaStep.schemaReceiptFile, filename);
   const read = (file, hash, expected) => readArtifact(store, file, hash, expected);
@@ -119,12 +123,19 @@ function validateSchemaEvidence({store, backupStep, schemaStep, context, context
 
   const migrationDirectory = 'schema-release-migration-' + context.owner + '/';
   const driver = read(bundle.driverReceiptFile, bundle.driverReceiptSha256, migrationDirectory + 'schema-driver-receipt.json');
+  // The historical writer spread the creation record over the result tag.
+  // Accept those already-sealed results only on the held API evidence path.
+  const isCliResult = (cli, index) => cli.schema === 'phoenix.modern-schema-gated-cli-result/v1' ||
+    historicalCliLabel && cli.schema === 'phoenix.modern-schema-owned-cli/v1' &&
+    cli.role === 'controlled-migration-' + (index ? 'show' : 'run') &&
+    cli.nativeBackend?.containerId === cli.containerId && cli.nativeBackend.networkId === cli.networkId &&
+    same(cli.nativeBackend.backend, cli.backendProof?.backend) && same(cli.originalLease, lease);
   if (driver.schema !== 'phoenix.modern-schema-original-schema-driver/v1' || driver.owner !== context.owner ||
       driver.contextDigest !== contextDigest || driver.imageId !== context.candidateImageId || driver.outcome !== 'SUCCESS' ||
       driver.backupSha256 !== backup.backup.sha256 ||
       driver.automaticRetry !== false || !HASH.test(driver.run?.containerId ?? '') || !HASH.test(driver.show?.containerId ?? '') ||
       driver.run.containerId === driver.show.containerId ||
-      [driver.run, driver.show].some((cli, index) => cli.schema !== 'phoenix.modern-schema-gated-cli-result/v1' ||
+      [driver.run, driver.show].some((cli, index) => !isCliResult(cli, index) ||
         cli.mode !== (index ? 'show' : 'run') || cli.owner !== context.owner || cli.contextDigest !== contextDigest ||
         cli.imageId !== context.candidateImageId || cli.outcome !== 'SUCCESS' || cli.exitCode !== 0 || cli.oomKilled !== false ||
         cli.restartCount !== 0 || cli.backendProof?.backend?.readonly !== Boolean(index) ||
@@ -162,6 +173,47 @@ function validateSchemaEvidence({store, backupStep, schemaStep, context, context
         receipt.beforeLedgerSha256 !== context.beforeLedgerSha256 || receipt.afterLedgerSha256 !== bundle.afterLedgerSha256) fail('PER_MIGRATION_EFFECT_BINDING_CHANGED');
   }
   return bundle;
+}
+
+/** Read a completed schema/body handoff without changing the stopped owner's chain. */
+export function readHeldModernSchemaApiBody({store, context, preparationSha256, prepared, pending, now = Date.now()}) {
+  const binding = modernSchemaReleaseBinding(context, preparationSha256);
+  const contextDigest = binding.schemaRelease.contextDigest;
+  validateModernSchemaPending(pending, binding);
+  if (pending.status !== 'HOLD' || pending.phase !== 'API_BODY' || pending.sequence !== 9 ||
+      pending.holdReason !== 'SCHEMA_RELEASE_FAILED') fail('EXACT_HELD_API_BODY_REQUIRED');
+  const historicalTime = Math.min(now, Date.parse(context.window.end) - 1);
+  const approval = readRegisteredModernSchemaApproval(context, {now: () => historicalTime});
+  const registered = validateModernSchemaPreparation(prepared, historicalTime);
+  const consumed = store.read('schema-release-consumed-' + context.owner + '.json');
+  if (!same(registered.context, context) || registered.preparationSha256 !== preparationSha256 ||
+      consumed.schema !== 'phoenix.modern-schema-preparation-consumption/v1' || consumed.owner !== context.owner ||
+      consumed.targetSha !== context.targetSha || consumed.preparationSha256 !== preparationSha256) fail('REGISTERED_PREPARATION_CHANGED');
+  const steps = stepChain(store, pending, binding, approval, context, now, true);
+  const schemaStep = steps[8].payload.evidence, body = steps[9].payload.evidence;
+  const bundle = validateSchemaEvidence({store, backupStep: steps[6].payload.evidence, schemaStep, context,
+    contextDigest, preparationSha256, lease: pending.lease, now, historicalCliLabel: true});
+  const bodyDirectory = 'schema-release-body-' + context.owner;
+  const bodyFile = path.join(store.directory, bodyDirectory, 'formal-api-body-receipt.json');
+  const bodyReceipt = JSON.parse(readPinnedFile(bodyFile, {contract: CONTRACT}));
+  if (bodyReceipt.schema !== 'phoenix.modern-schema-formal-api-body-result/v1' ||
+      bodyReceipt.owner !== context.owner || bodyReceipt.contextDigest !== contextDigest ||
+      bodyReceipt.outcome !== 'BODY_COMPLETE' || bodyReceipt.automaticRollback !== false ||
+      bodyReceipt.schemaReceiptSha256 !== schemaStep.schemaReceiptSha256 || body.schemaReceiptSha256 !== schemaStep.schemaReceiptSha256 ||
+      body.bodySourceSha256 !== prepared.bodySource.bodySha256 || body.workflowSourceSha256 !== prepared.bodySource.workflowSha256 ||
+      bodyReceipt.bodySourceSha256 !== body.bodySourceSha256 || bodyReceipt.workflowSourceSha256 !== body.workflowSourceSha256) {
+    fail('EXACT_COMPLETED_BODY_RECEIPT_REQUIRED');
+  }
+  for (const stream of ['stdout', 'stderr']) {
+    fixedArtifact(store, bodyReceipt[stream].path, bodyDirectory + '/formal-api-body.' + stream);
+    if (!HASH.test(bodyReceipt[stream].sha256 ?? '')) fail('EXACT_COMPLETED_BODY_LOG_REQUIRED');
+  }
+  const before = readArtifact(store, bundle.beforeFactsFile, bundle.beforeFactsSha256,
+    'schema-release-before-facts-' + context.owner + '.json');
+  const backup = steps[6].payload.evidence;
+  const backupReceipt = readArtifact(store, backup.backupReceiptFile, backup.backupReceiptSha256,
+    'schema-release-fenced-backup-' + context.owner + '/backup-receipt.json');
+  return {binding, approval, bodyReceipt, before, bundle, backupReceipt, schemaReceiptSha256: schemaStep.schemaReceiptSha256};
 }
 
 export function observeIngressAbsent(context, proof) {

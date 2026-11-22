@@ -25,6 +25,7 @@ import {closeModernSchemaOriginalSession,confirmModernSchemaPublicDurability} fr
 import {createModernSchemaOperatorRecoveryVerifier,isExpiredVerifiedOriginal,isResidualStopIntent,readVerifiedRecoveryOwnership,
  sameOperatorControlSession,verifyRecoveryHostProcesses} from './production-modern-schema-operator-recovery.mjs';
 import {originalStopExitIsProved} from './production-modern-schema-stop.mjs';
+import {recoverModernSchemaForwardApi} from './production-modern-schema-forward-api.mjs';
 
 const ownerShape=/^[1-9][0-9]{0,19}-[1-9][0-9]{0,9}$/;
 const shaShape=/^[a-f0-9]{40}$/;
@@ -390,16 +391,19 @@ async function recover(env){
 }
 
 if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
+ const forward=process.env.OPERATOR_RECOVERY_MODE==='target';
  let outcome='HOLD';
- try{outcome=await recover(process.env);}catch(error){
+ try{outcome=forward?await recoverModernSchemaForwardApi(process.env):await recover(process.env);}catch(error){
   const owner=process.env.ORIGINAL_RELEASE_OWNER,recoveryOwner=process.env.OPERATOR_RECOVERY_OWNER;
   const code=typeof error?.message==='string'&&/^[A-Z_]+_HOLD=[A-Z0-9_]+$/.test(error.message)?error.message:'UNCLASSIFIED';
   if(ownerShape.test(owner??'')&&ownerShape.test(recoveryOwner??'')&&owner!==recoveryOwner){
-   try{new ModernSchemaRegistry().immutable(`schema-release-operator-preflight-hold-${recoveryOwner}.json`,
+   try{new ModernSchemaRegistry().immutable((forward?'schema-release-forward-api-hold-':'schema-release-operator-preflight-hold-')+recoveryOwner+'.json',
     {schema:'phoenix.modern-operator-recovery-preflight-hold/v1',owner,recoveryOwner,code});}catch{}
   }
  }
- console.log(JSON.stringify({schema:'phoenix.modern-original-recovery-public/v1',originalOwner:process.env.ORIGINAL_RELEASE_OWNER,
-  recoveryOwner:process.env.OPERATOR_RECOVERY_OWNER,formalTargetSuccess:false,outcome}));
- if(outcome!=='ORIGINAL_OPEN')process.exitCode=1;
+ const {ORIGINAL_RELEASE_OWNER:originalOwner,OPERATOR_RECOVERY_OWNER:recoveryOwner,TARGET_SHA:targetSha}=process.env;
+ const result=forward?{schema:'phoenix.modern-forward-api-public/v1',originalOwner,recoveryOwner,targetSha,defaultOff:true,outcome}:
+  {schema:'phoenix.modern-original-recovery-public/v1',originalOwner,recoveryOwner,formalTargetSuccess:false,outcome};
+ console.log(JSON.stringify(result));
+ if(outcome!==(forward?'TARGET_OPEN':'ORIGINAL_OPEN'))process.exitCode=1;
 }

@@ -208,7 +208,7 @@ export function createProductionSsh(env, hostEnv, {operatorRecovery=false} = {})
       '-l', env.MODERN_SCHEMA_SSH_USER, host];
     return {
       exchange(operation, stdin) {
-        const allowed = operatorRecovery ? ['recover-original'] : ['prepare', 'run', 'finalize'];
+        const allowed = operatorRecovery ? ['recover-original', 'recover-target'] : ['prepare', 'run', 'finalize'];
         if (!allowed.includes(operation)) throw fail('SSH_OPERATION_REQUIRED');
         try {
           const timeoutMinutes = operation === 'run' ? 184 : 34;
