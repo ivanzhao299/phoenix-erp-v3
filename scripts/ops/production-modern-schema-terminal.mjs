@@ -88,7 +88,7 @@ function readArtifact(store, ref, hash, expected) {
   return value;
 }
 
-function validateSchemaEvidence({store, backupStep, schemaStep, context, contextDigest, preparationSha256, lease, now}) {
+function validateSchemaEvidence({store, backupStep, schemaStep, context, contextDigest, preparationSha256, lease, now, historicalCliLabel = false}) {
   const filename = 'schema-release-schema-receipt-' + context.owner + '.json';
   fixedArtifact(store, schemaStep.schemaReceiptFile, filename);
   const read = (file, hash, expected) => readArtifact(store, file, hash, expected);
@@ -123,12 +123,19 @@ function validateSchemaEvidence({store, backupStep, schemaStep, context, context
 
   const migrationDirectory = 'schema-release-migration-' + context.owner + '/';
   const driver = read(bundle.driverReceiptFile, bundle.driverReceiptSha256, migrationDirectory + 'schema-driver-receipt.json');
+  // The historical writer spread the creation record over the result tag.
+  // Accept those already-sealed results only on the held API evidence path.
+  const isCliResult = (cli, index) => cli.schema === 'phoenix.modern-schema-gated-cli-result/v1' ||
+    historicalCliLabel && cli.schema === 'phoenix.modern-schema-owned-cli/v1' &&
+    cli.role === 'controlled-migration-' + (index ? 'show' : 'run') &&
+    cli.nativeBackend?.containerId === cli.containerId && cli.nativeBackend.networkId === cli.networkId &&
+    same(cli.nativeBackend.backend, cli.backendProof?.backend) && same(cli.originalLease, lease);
   if (driver.schema !== 'phoenix.modern-schema-original-schema-driver/v1' || driver.owner !== context.owner ||
       driver.contextDigest !== contextDigest || driver.imageId !== context.candidateImageId || driver.outcome !== 'SUCCESS' ||
       driver.backupSha256 !== backup.backup.sha256 ||
       driver.automaticRetry !== false || !HASH.test(driver.run?.containerId ?? '') || !HASH.test(driver.show?.containerId ?? '') ||
       driver.run.containerId === driver.show.containerId ||
-      [driver.run, driver.show].some((cli, index) => cli.schema !== 'phoenix.modern-schema-gated-cli-result/v1' ||
+      [driver.run, driver.show].some((cli, index) => !isCliResult(cli, index) ||
         cli.mode !== (index ? 'show' : 'run') || cli.owner !== context.owner || cli.contextDigest !== contextDigest ||
         cli.imageId !== context.candidateImageId || cli.outcome !== 'SUCCESS' || cli.exitCode !== 0 || cli.oomKilled !== false ||
         cli.restartCount !== 0 || cli.backendProof?.backend?.readonly !== Boolean(index) ||
@@ -185,7 +192,7 @@ export function readHeldModernSchemaApiBody({store, context, preparationSha256, 
   const steps = stepChain(store, pending, binding, approval, context, now, true);
   const schemaStep = steps[8].payload.evidence, body = steps[9].payload.evidence;
   const bundle = validateSchemaEvidence({store, backupStep: steps[6].payload.evidence, schemaStep, context,
-    contextDigest, preparationSha256, lease: pending.lease, now});
+    contextDigest, preparationSha256, lease: pending.lease, now, historicalCliLabel: true});
   const bodyDirectory = 'schema-release-body-' + context.owner;
   const bodyFile = path.join(store.directory, bodyDirectory, 'formal-api-body-receipt.json');
   const bodyReceipt = JSON.parse(readPinnedFile(bodyFile, {contract: CONTRACT}));
