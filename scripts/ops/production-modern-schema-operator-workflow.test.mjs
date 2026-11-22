@@ -60,12 +60,12 @@ test('forward API handoff requires the exact original owner, revision and explic
   const targetSha = 'eaeec067bbc5f0e9c70cefc50b665d988d55b153';
   const originalOwner = '44917766283-1';
   const forward = {...env, ORIGINAL_RELEASE_OWNER: originalOwner, ORIGINAL_ATTEMPTED_SHA: targetSha,
-    APPROVE_STOPPED_ORIGINAL: 'false', APPROVE_FORWARD_API: 'true'};
+    APPROVE_STOPPED_ORIGINAL: 'false', APPROVE_FORWARD_API: 'true', MODERN_SCHEMA_WEB_READ_TOKEN: 'fixture_container_registry_token'};
   const receipt = {schema: 'phoenix.modern-forward-api-public/v1', originalOwner, recoveryOwner,
     targetSha, defaultOff: true, outcome: 'TARGET_OPEN'};
   const createSsh = () => ({
     exchange(operation, input) {
-      assert.deepEqual([operation, input], ['recover-target', '']);
+      assert.deepEqual([operation, input], ['recover-target', 'fixture_container_registry_token\n']);
       return {status: 0, stdout: JSON.stringify(receipt)};
     },
     close() {},
@@ -76,6 +76,8 @@ test('forward API handoff requires the exact original owner, revision and explic
     assert.throws(() => runModernOriginalRecoveryWorkflow({...forward, ...patch},
       {createSsh: () => assert.fail('Unexpected SSH request')}), /EXACT_OPERATOR_RECOVERY_ACTION_REQUIRED/);
   }
+  assert.throws(() => runModernOriginalRecoveryWorkflow({...forward, MODERN_SCHEMA_WEB_READ_TOKEN: ''},
+    {createSsh: () => assert.fail('Missing scoped Web channel reached SSH')}), /SCOPED_WEB_READ_CHANNEL_REQUIRED/);
   for (const patch of [{targetSha: target}, {outcome: 'ORIGINAL_OPEN'}, {defaultOff: false}, {private: true}]) {
     assert.throws(() => runModernOriginalRecoveryWorkflow(forward, {
       createSsh: () => ({exchange: () => ({status: 0, stdout: JSON.stringify({...receipt, ...patch})}), close() {}}),

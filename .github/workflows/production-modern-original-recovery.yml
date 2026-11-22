@@ -28,6 +28,7 @@ on:
 
 permissions:
   contents: read
+  packages: read
 
 concurrency:
   group: production-modern-original-recovery
@@ -49,6 +50,7 @@ jobs:
           OPERATOR_COMMITTED_OWNER: ${{ inputs.committed_recovery_owner }}
           APPROVE_STOPPED_ORIGINAL: ${{ inputs.approve_stopped_original }}
           APPROVE_FORWARD_API: ${{ inputs.approve_forward_api }}
+          MODERN_SCHEMA_WEB_READ_TOKEN: ${{ github.token }}
           MODERN_SCHEMA_SSH_USER: ${{ secrets.DEPLOY_USER }}
           MODERN_SCHEMA_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
         run: |

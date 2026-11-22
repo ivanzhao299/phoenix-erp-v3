@@ -20,10 +20,12 @@ export function runModernOriginalRecoveryWorkflow(env,deps={}){
    : env.APPROVE_STOPPED_ORIGINAL!=='true')fail('EXACT_OPERATOR_RECOVERY_ACTION_REQUIRED');
  if(Object.entries(fixed).some(([key,value])=>env[key]!==value)||!owner.test(attempt??'')||!owner.test(recovery)||attempt===recovery||
   !sha.test(target??'')||!sha.test(execution??'')||execution!==env.GITHUB_WORKFLOW_SHA||(prior!==''&&(!owner.test(prior)||[attempt,recovery].includes(prior))))fail('EXACT_GITHUB_RECOVERY_REQUIRED');
+ const registryToken=env.MODERN_SCHEMA_WEB_READ_TOKEN;
+ if(forward&&(typeof registryToken!=='string'||!/^[A-Za-z0-9_.-]{10,2048}$/.test(registryToken)))fail('SCOPED_WEB_READ_CHANNEL_REQUIRED');
  const ssh=(deps.createSsh??createProductionSsh)(env,{TARGET_SHA:target,MODERN_SCHEMA_EXECUTION_SHA:execution,
   ORIGINAL_RELEASE_OWNER:attempt,OPERATOR_RECOVERY_OWNER:recovery,OPERATOR_COMMITTED_OWNER:prior},{operatorRecovery:true});
  try{
-  const result=ssh.exchange(forward?'recover-target':'recover-original','');
+  const result=ssh.exchange(forward?'recover-target':'recover-original',forward?registryToken+'\n':'');
   if(result.status===24)fail('RECOVERY_LOCK_BUSY');
   let content;try{content=JSON.parse(result.stdout);}catch{fail('BOUND_RECOVERY_RECEIPT_REQUIRED');}
   if(forward){
