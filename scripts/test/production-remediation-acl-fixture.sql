@@ -29,14 +29,9 @@ BEGIN
     IF has_table_privilege(current_user,line,'INSERT') OR has_table_privilege(current_user,line,'UPDATE')
       OR has_table_privilege(current_user,line,'DELETE') THEN RAISE EXCEPTION 'protected table writable: %',line; END IF;
   END LOOP;
-  BEGIN
-    PERFORM 1 FROM production_finance_review_files WHERE false FOR SHARE;
-    RAISE EXCEPTION 'unexpected row lock capability from SELECT,INSERT grants';
-  EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+  -- Finance locks the journal's original document. The binding itself is read-only after insert.
+  IF has_any_column_privilege(current_user,'production_finance_review_files','UPDATE') THEN
+    RAISE EXCEPTION 'unexpected binding UPDATE privilege';
+  END IF;
 END $scope$;
-RESET ROLE;
--- PostgreSQL needs UPDATE on at least one column for SELECT FOR SHARE.
-GRANT UPDATE (file_id) ON production_finance_review_files TO release_api;
-SET LOCAL ROLE release_api;
-SELECT file_id FROM production_finance_review_files WHERE false FOR SHARE;
 ROLLBACK;

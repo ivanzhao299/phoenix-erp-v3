@@ -1,16 +1,15 @@
 -- Single read-only query, run under the real API login (no SET ROLE impersonation).
 -- Recheck on the pinned database after expansion. ABSENT is never proof of access.
-WITH requirements(rel, need_insert, need_row_lock) AS (VALUES
-  ('production_inbound_reissues', true, false),
-  ('production_finance_review_files', true, true),
-  ('production_cutover_state_receipts', true, false),
-  ('production_cutover_state_origins', false, false)
+WITH requirements(rel, need_insert) AS (VALUES
+  ('production_inbound_reissues', true),
+  ('production_finance_review_files', true),
+  ('production_cutover_state_receipts', true),
+  ('production_cutover_state_origins', false)
 ), api_access AS (
   SELECT rel, CASE
     WHEN c.oid IS NULL THEN 'ABSENT'
     WHEN NOT has_table_privilege(current_user,c.oid,'SELECT') THEN 'MISSING_SELECT'
     WHEN need_insert AND NOT has_table_privilege(current_user,c.oid,'INSERT') THEN 'MISSING_INSERT'
-    WHEN need_row_lock AND NOT has_any_column_privilege(current_user,c.oid,'UPDATE') THEN 'MISSING_ROW_LOCK_PRIVILEGE'
     ELSE 'AVAILABLE' END AS status
   FROM requirements LEFT JOIN pg_class c ON c.oid=to_regclass('public.'||rel)
 ), reachable AS (
