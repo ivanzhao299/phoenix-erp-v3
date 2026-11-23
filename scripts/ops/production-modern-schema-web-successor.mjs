@@ -135,8 +135,8 @@ export async function runSuccessorWeb(phase,env){
  const seal=store.read(sealedName);
  const approvalEnd=Date.parse(store.read('schema-release-preparation-'+consumed.owner+'.json').context.window.end);
  const authorizeRemoval=()=>{
-  if(!Number.isFinite(approvalEnd)||Date.now()>=approvalEnd)fail();
   guardHeldContinuation(handoff,store.directory);
+  if(!Number.isFinite(approvalEnd)||Date.now()>=approvalEnd)fail();
  };
  const verify=async()=>{
   store.guard();assertHeldEdge(store.directory,{forceProbe:true});
