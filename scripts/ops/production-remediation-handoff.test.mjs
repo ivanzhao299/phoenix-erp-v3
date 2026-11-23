@@ -28,12 +28,13 @@ test('a generic or foreign release cannot invoke fenced takeover or reuse the di
  const env={GITHUB_REPOSITORY:repo,GITHUB_REF:'refs/heads/main',GITHUB_EVENT_NAME:'workflow_dispatch',GITHUB_JOB:'recover',RUNNER_ENVIRONMENT:'github-hosted',
   GITHUB_ACTOR:'emvia',GITHUB_ACTOR_ID:'7245339',GITHUB_TRIGGERING_ACTOR:'emvia',GITHUB_WORKFLOW_REF:repo+'/.github/workflows/production-modern-original-recovery.yml@refs/heads/main',
   GITHUB_WORKFLOW_SHA:sha,GITHUB_SHA:sha,GITHUB_RUN_ID:'773',GITHUB_RUN_ATTEMPT:'1',ORIGINAL_RELEASE_OWNER:owner,ORIGINAL_ATTEMPTED_SHA:target,
-  APPROVE_STOPPED_ORIGINAL:'false',APPROVE_FORWARD_API:'false',APPROVE_HELD_TAKEOVER:'true',OPERATOR_HELD_INSPECTION:'772-1'};
+  APPROVE_STOPPED_ORIGINAL:'false',APPROVE_FORWARD_API:'false',APPROVE_HELD_TAKEOVER:'true',OPERATOR_HELD_REHEARSAL:'770-1',OPERATOR_HELD_INSPECTION:'772-1'};
  const call=patch=>runModernOriginalRecoveryWorkflow({...env,...patch},{createSsh:(_env,binding)=>({
-  exchange(op){assert.equal(op,'handoff-held');assert.equal(binding.OPERATOR_HELD_INSPECTION,'772-1');return {status:0,stdout:JSON.stringify({schema:'phoenix.modern-original-recovery-public/v1',
-   originalOwner:owner,recoveryOwner:'773-1',formalTargetSuccess:false,outcome:'HANDOFF_EDGE_HELD'})};},close(){}})});
+  exchange(op){const dry=patch.REHEARSE_HELD_TAKEOVER==='true';assert.equal(op,dry?'rehearse-held':'handoff-held');assert.equal(binding.OPERATOR_HELD_INSPECTION,'772-1');return {status:0,stdout:JSON.stringify({schema:'phoenix.modern-original-recovery-public/v1',
+   originalOwner:owner,recoveryOwner:'773-1',formalTargetSuccess:false,outcome:dry?'HANDOFF_REHEARSED':'HANDOFF_EDGE_HELD'})};},close(){}})});
  assert.equal(call({}).outcome,'HANDOFF_EDGE_HELD');
- for(const patch of [{OPERATOR_HELD_INSPECTION:'773-1'},{OPERATOR_HELD_INSPECTION:owner},{APPROVE_STOPPED_ORIGINAL:'true'},{INSPECT_HELD_FACTS:'true'},
+ assert.equal(call({APPROVE_HELD_TAKEOVER:'false',REHEARSE_HELD_TAKEOVER:'true',OPERATOR_HELD_REHEARSAL:''}).outcome,'HANDOFF_REHEARSED');
+ for(const patch of [{OPERATOR_HELD_REHEARSAL:''},{OPERATOR_HELD_REHEARSAL:'772-1'},{REHEARSE_HELD_TAKEOVER:'true'},{OPERATOR_HELD_INSPECTION:'773-1'},{OPERATOR_HELD_INSPECTION:owner},{APPROVE_STOPPED_ORIGINAL:'true'},{INSPECT_HELD_FACTS:'true'},
   {APPROVE_HELD_TAKEOVER:'false'},{ORIGINAL_RELEASE_OWNER:'771-1'}])assert.throws(()=>call(patch),/EXACT_OPERATOR_RECOVERY_ACTION_REQUIRED/);
 });
 function retirement(){
@@ -44,13 +45,13 @@ function retirement(){
  const ingress={compiled:{table:'phoenix_fixture_owned'},host,names:()=>Array(counts.n).fill('table'),tables:()=>tables,
   assertProgram:(n,v)=>assert.deepEqual(files.get(n),v)};
  const args={ingress,store,runtime:{publishJson:(n,v)=>store.immutable(n,v)},owner:'773-1',binding:{web:'verified-fixture'},
-  proof:{host,identitySha256:canonicalDigest(ingressIdentity(tables))},verify:async()=>true,
+  authorizeRemoval:()=>{},proof:{host,identitySha256:canonicalDigest(ingressIdentity(tables))},verify:async()=>true,
   apply:async()=>{counts.calls++;counts.n=0;}};
  return {files,counts,args};
 }
 test('retirement denies a missing family, unknown absence, lost public hold and drifted intent',async()=>{
  for(const n of [0,1]){const {counts,args}=retirement();counts.n=n;await assert.rejects(retireVerifiedIngress(args),/INGRESS_CHANGED/);assert.equal(counts.calls,0);}
- const {args,counts,files}=retirement();await assert.rejects(retireVerifiedIngress({...args,verify:async()=>false}),/COMPLETED_WEB_AND_EDGE/);
+ const {args,counts,files}=retirement();await assert.rejects(retireVerifiedIngress({authorizeRemoval:()=>{},...args,verify:async()=>false}),/COMPLETED_WEB_AND_EDGE/);
  assert.equal(files.size,0);files.set('schema-release-handoff-remove-intent-773-1.json',{changed:true});
  await assert.rejects(retireVerifiedIngress(args),/INTENT_CHANGED/);assert.equal(counts.calls,0);
 });
@@ -59,7 +60,9 @@ test('already committed native deletion can seal after lost ACK, or after a proc
  const interrupted={...args,verify:async()=>{if(counts.n===0&&fail){fail=false;throw Error('interruption');}return true;},
   apply:async()=>{counts.calls++;counts.n=0;throw Error('lost nft acknowledge');}};
  await assert.rejects(retireVerifiedIngress(interrupted),/interruption/);
- await retireVerifiedIngress(interrupted);await retireVerifiedIngress(interrupted);assert.equal(counts.calls,1);
+ const expired={...interrupted,authorizeRemoval:()=>{throw Error('expired');}};
+ await retireVerifiedIngress(expired);await retireVerifiedIngress(expired);assert.equal(counts.calls,1);
+ const untouched=retirement();await assert.rejects(retireVerifiedIngress({...untouched.args,authorizeRemoval:expired.authorizeRemoval}),/expired/);assert.equal(untouched.counts.calls,0);
 });
 test('capsule network and actual local volume retain their isolated owner, empty membership and original mount',()=>{
  const pins=['a','b','c'].map((v,i)=>({classification:'RETAINED_1123_FENCED_ATTEMPT',formerOwner:i===2?'45141252692-1':owner,

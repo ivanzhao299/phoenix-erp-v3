@@ -39,7 +39,7 @@ export async function checkHeldNative({handoff,store,runtime,admit}){
 
 /** The old native guard is carried across both formal transactions. Final
  * retirement is replayable after committed Web SUCCESS. Public 503 remains. */
-export async function retireVerifiedIngress({ingress,proof,store,runtime,owner,binding,verify,apply}){
+export async function retireVerifiedIngress({ingress,proof,store,runtime,owner,binding,verify,authorizeRemoval,apply}){
  const program={nftables:['bridge','inet'].map(family=>({delete:{table:{family,name:ingress.compiled.table}}}))};
  const key=suffix=>'schema-release-handoff-'+suffix+'-'+owner+'.json';
  const file=store.file(key('remove-program'));
@@ -54,7 +54,7 @@ export async function retireVerifiedIngress({ingress,proof,store,runtime,owner,b
  }
  const prior=store.exists(key('remove-intent'));
  if(prior)check(same(store.read(key('remove-intent')),intent),'NATIVE_REMOVE_INTENT_CHANGED');
- if(!prior)requireNative(ingress,proof);
+ if(!prior){await authorizeRemoval();requireNative(ingress,proof);}
  if(!store.exists(key('remove-program')))runtime.publishJson(file,program);
  ingress.assertProgram(file,program);
  if(!prior)store.immutable(key('remove-intent'),intent);
@@ -63,6 +63,7 @@ export async function retireVerifiedIngress({ingress,proof,store,runtime,owner,b
  if(count!==0){
   requireNative(ingress,proof); // rejects a lone family or changed handles
   ingress.assertProgram(file,program);
+  await authorizeRemoval();
   try{
    if(apply)await apply(file);
    else execFileSync('/usr/sbin/nft',['--json','--file',file],{env:executionEnv(),stdio:'ignore',timeout:5000});

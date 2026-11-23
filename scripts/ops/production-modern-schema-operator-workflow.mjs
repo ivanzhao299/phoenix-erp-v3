@@ -16,8 +16,11 @@ export function runModernOriginalRecoveryWorkflow(env,deps={}){
  const attempt=env.ORIGINAL_RELEASE_OWNER,recovery=env.GITHUB_RUN_ID+'-'+env.GITHUB_RUN_ATTEMPT;
  const target=env.ORIGINAL_ATTEMPTED_SHA,execution=env.GITHUB_SHA,prior=env.OPERATOR_COMMITTED_OWNER??'';
  const inspecting=env.INSPECT_HELD_FACTS==='true',handoff=env.APPROVE_HELD_TAKEOVER==='true';
+ const rehearsal=env.REHEARSE_HELD_TAKEOVER==='true',witness=env.OPERATOR_HELD_REHEARSAL??'';
+ if(handoff?rehearsal||!owner.test(witness)||[attempt,recovery,env.OPERATOR_HELD_INSPECTION].includes(witness):witness!=='')fail('EXACT_OPERATOR_RECOVERY_ACTION_REQUIRED');
+ if(rehearsal&&prior!=='')fail('EXACT_OPERATOR_RECOVERY_ACTION_REQUIRED');
  const heldInspection=env.OPERATOR_HELD_INSPECTION??'';
- if(handoff){
+ if(handoff||rehearsal){
   if(inspecting||attempt!=='45144287071-1'||target!=='98dfab3411fbddb8c1646f2db20df2799291cd3d'||
      !owner.test(heldInspection)||[attempt,recovery,prior].includes(heldInspection)||
      env.APPROVE_STOPPED_ORIGINAL!=='false'||env.APPROVE_FORWARD_API!=='false')fail('EXACT_OPERATOR_RECOVERY_ACTION_REQUIRED');
@@ -26,15 +29,15 @@ export function runModernOriginalRecoveryWorkflow(env,deps={}){
  if(inspecting&&(attempt!=='45144287071-1'||target!=='98dfab3411fbddb8c1646f2db20df2799291cd3d'||prior!==''||
    env.APPROVE_STOPPED_ORIGINAL!=='false'||env.APPROVE_FORWARD_API!=='false'))fail('EXACT_OPERATOR_RECOVERY_ACTION_REQUIRED');
  if(forward ? env.APPROVE_STOPPED_ORIGINAL!=='false'||prior!==''||!forwardApiRecoveryAllowed(attempt,target,recovery,execution)
-   : !inspecting&&!handoff&&env.APPROVE_STOPPED_ORIGINAL!=='true')fail('EXACT_OPERATOR_RECOVERY_ACTION_REQUIRED');
+   : !inspecting&&!handoff&&!rehearsal&&env.APPROVE_STOPPED_ORIGINAL!=='true')fail('EXACT_OPERATOR_RECOVERY_ACTION_REQUIRED');
  if(Object.entries(fixed).some(([key,value])=>env[key]!==value)||!owner.test(attempt??'')||!owner.test(recovery)||attempt===recovery||
   !sha.test(target??'')||!sha.test(execution??'')||execution!==env.GITHUB_WORKFLOW_SHA||(prior!==''&&(!owner.test(prior)||[attempt,recovery].includes(prior))))fail('EXACT_GITHUB_RECOVERY_REQUIRED');
  const registryToken=env.MODERN_SCHEMA_WEB_READ_TOKEN;
  if(forward&&(typeof registryToken!=='string'||!/^[A-Za-z0-9_.-]{10,2048}$/.test(registryToken)))fail('SCOPED_WEB_READ_CHANNEL_REQUIRED');
  const ssh=(deps.createSsh??createProductionSsh)(env,{TARGET_SHA:target,MODERN_SCHEMA_EXECUTION_SHA:execution,
-  ORIGINAL_RELEASE_OWNER:attempt,OPERATOR_RECOVERY_OWNER:recovery,OPERATOR_COMMITTED_OWNER:prior,...(handoff?{OPERATOR_HELD_INSPECTION:heldInspection}:{})},{operatorRecovery:true});
+  ORIGINAL_RELEASE_OWNER:attempt,OPERATOR_RECOVERY_OWNER:recovery,OPERATOR_COMMITTED_OWNER:prior,...(handoff||rehearsal?{OPERATOR_HELD_INSPECTION:heldInspection,OPERATOR_HELD_REHEARSAL:witness}:{})},{operatorRecovery:true});
  try{
-  const result=ssh.exchange(inspecting?'check-held':handoff?'handoff-held':forward?'recover-target':'recover-original',forward?registryToken+'\n':'');
+  const result=ssh.exchange(inspecting?'check-held':rehearsal?'rehearse-held':handoff?'handoff-held':forward?'recover-target':'recover-original',forward?registryToken+'\n':'');
   if(result.status===24)fail('RECOVERY_LOCK_BUSY');
   let content;try{content=JSON.parse(result.stdout);}catch{fail('BOUND_RECOVERY_RECEIPT_REQUIRED');}
   if(inspecting){
@@ -59,13 +62,13 @@ export function runModernOriginalRecoveryWorkflow(env,deps={}){
   if(!content||Object.getPrototypeOf(content)!==Object.prototype||
    Object.keys(content).sort().join(',')!=='formalTargetSuccess,originalOwner,outcome,recoveryOwner,schema'||
    content.schema!=='phoenix.modern-original-recovery-public/v1'||content.originalOwner!==attempt||content.recoveryOwner!==recovery||
-   content.formalTargetSuccess!==false||![handoff?'HANDOFF_EDGE_HELD':'ORIGINAL_OPEN','HOLD'].includes(content.outcome)||
-   (result.status===0)!==(content.outcome===(handoff?'HANDOFF_EDGE_HELD':'ORIGINAL_OPEN')))fail('BOUND_RECOVERY_RECEIPT_REQUIRED');
+   content.formalTargetSuccess!==false||![rehearsal?'HANDOFF_REHEARSED':handoff?'HANDOFF_EDGE_HELD':'ORIGINAL_OPEN','HOLD'].includes(content.outcome)||
+   (result.status===0)!==(content.outcome===(rehearsal?'HANDOFF_REHEARSED':handoff?'HANDOFF_EDGE_HELD':'ORIGINAL_OPEN')))fail('BOUND_RECOVERY_RECEIPT_REQUIRED');
   return content;
  }finally{ssh.close();}
 }
 
 if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
- try{const value=runModernOriginalRecoveryWorkflow(process.env);console.log(JSON.stringify(value));if(!['ORIGINAL_OPEN','TARGET_OPEN','MATCH','HANDOFF_EDGE_HELD'].includes(value.outcome))process.exitCode=1;}
+ try{const value=runModernOriginalRecoveryWorkflow(process.env);console.log(JSON.stringify(value));if(!['ORIGINAL_OPEN','TARGET_OPEN','MATCH','HANDOFF_EDGE_HELD','HANDOFF_REHEARSED'].includes(value.outcome))process.exitCode=1;}
  catch(error){console.error(/^ORIGINAL_RECOVERY_WORKFLOW_HOLD=[A-Z0-9_]+$/.test(error.message)?error.message:'ORIGINAL_RECOVERY_WORKFLOW_HOLD=UNVERIFIED');process.exitCode=1;}
 }

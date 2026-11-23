@@ -486,5 +486,5 @@ test('the hosted and SSH duration allowances apply only to the exact modern rele
   const transport=fs.readFileSync(new URL('./production-modern-schema-workflow.mjs',import.meta.url),'utf8');
   assert.ok(deploy.includes("startsWith(inputs.modern_schema_resume_owner, 'approve1123-') && 360 || inputs.modern_schema_resume_owner == 'inspect1123' && 275 || inputs.modern_schema_release && 230 || 40"));
   assert.ok(transport.includes('Math.ceil(remainingMs / 60_000) + 4'));
-  assert.match(transport,/operatorRecovery \? \['recover-original', 'recover-target', 'check-held', 'handoff-held'\] : \['prepare', 'run', 'finalize'\]/);
+  assert.match(transport,/operatorRecovery \? \['recover-original', 'recover-target', 'check-held', 'handoff-held', 'rehearse-held'\] : \['prepare', 'run', 'finalize'\]/);
 });

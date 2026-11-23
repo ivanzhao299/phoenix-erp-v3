@@ -117,6 +117,6 @@ Web 首次切换验证原 API 成功凭证、当前双镜像、专属候选、�
 
 ### 围栏内接管与 Web 验收
 
-`45168560404-1` 取证成功，原租约与取证租约均已退出。主干上的 `production-modern-original-recovery.yml` 提供单独的 `approve_held_takeover`，其余三项选择均须为 false。填写原运行、原目标和 `held_inspection_owner`。新作业先核对原启动命令、容器启动纳秒时间、原 0–5 步、不存在后续 DDL 意图、停机时保护的数据库目录、业务事实和原生租约，再在新双锁下复测。内部后台清单只授予空任务列表。旧 API 同一次启动持续运行，外侧 503 和两道旧原生围栏持续有效。
+`45168560404-1` 取证成功，原租约与取证租约均已退出。主干上的 `production-modern-original-recovery.yml` 先选择 `rehearse_held_takeover=true`，其余操作均为 false。填写原运行、原目标和 `held_inspection_owner`。演练核验至状态变更前，保留原容器、围栏与后台清单，确认新租约已退出后产生 HANDOFF_REHEARSED。实际接管另开运行，选择 `approve_held_takeover=true` 并填写 `held_rehearsal_owner`。程序核对同一主干提交、原运行、取证和现场演练回执。新作业先核对原启动命令、容器启动纳秒时间、原 0–5 步、不存在后续 DDL 意图、停机时保护的数据库目录、业务事实和原生租约，再在新双锁下复测。内部后台清单只授予空任务列表。旧 API 同一次启动持续运行，外侧 503 和两道旧原生围栏持续有效。
 
 在新目标的独立核验和主干构建均通过后，按本手册已有次序执行 inspect、approve、web。旧 native 围栏覆盖整个 API 发布和 Web 切换。Web 在正式候选 API 容器内核验就绪。封存同版 API 与 Web 成功回执后，才可按原 nft 身份撤下旧原生围栏。确认丢失时以相同 `web1123-<api-owner>` 查回，必须有正确的删除意图及双族状态。外层 Nginx 维护页另行验收并恢复。本次绝对截止为 2026-11-23 23:07:52 新加坡时间。

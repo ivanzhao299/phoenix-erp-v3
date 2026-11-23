@@ -7,7 +7,7 @@ import {execFileSync} from 'node:child_process';
 import {pathToFileURL} from 'node:url';
 import {CONTRACT,git,verifyContext} from './production-config-guard.mjs';
 import {atomicState} from './production-atomic-state.mjs';
-import {assertRegularFile} from './production-trusted-paths.mjs';
+import {assertRegularFile,readPinnedFile} from './production-trusted-paths.mjs';
 import {canonicalDigest,same} from './production-maintenance-receipts.mjs';
 import {executionEnv} from './capture-production-runtime.mjs';
 import {assertSameBinding,atomicPublicManifest,PUBLIC_DIRECTORY,readPublicManifest,validateBinding,validateManifest} from './background-control-manifest.mjs';
@@ -247,10 +247,24 @@ async function recover(env){
  const residual=isResidualStopIntent(pending,store);
  const fresh=pending.phase==='FRESH_RECHECKED';
  const adopting=isExpiredVerifiedOriginal(pending);
- const heldInspection=env.OPERATOR_RECOVERY_MODE==='handoff-held'?env.OPERATOR_HELD_INSPECTION:'';
- if(env.OPERATOR_RECOVERY_MODE==='handoff-held'){
+ const rehearsing=env.OPERATOR_RECOVERY_MODE==='rehearse-held';
+ const handoff=env.OPERATOR_RECOVERY_MODE==='handoff-held';
+ const heldInspection=(rehearsing||handoff)?env.OPERATOR_HELD_INSPECTION:'';
+ if(rehearsing||handoff){
   requireThat(ownerShape.test(heldInspection??'')&&![owner,recoveryOwner,prior].includes(heldInspection)&&exactHeldAttempt(pending),'EXACT_INTERRUPTED_SCOPE');
   guardInterruptedEdge(store.directory);
+  if(rehearsing)requireThat(!prior&&!env.OPERATOR_HELD_REHEARSAL,'STANDALONE_REHEARSAL_REQUIRED');
+  if(handoff){
+   const witness=env.OPERATOR_HELD_REHEARSAL;
+   requireThat(ownerShape.test(witness??'')&&![owner,recoveryOwner,heldInspection].includes(witness),'EXACT_REHEARSAL_REQUIRED');
+   const proof=store.read('schema-release-held-rehearsal-'+witness+'.json');
+   const formal=JSON.parse(readPinnedFile(path.join(store.directory,'.transport-'+witness+'-recover-rehearse-held.receipt'),{contract:CONTRACT}));
+   requireThat(proof.schema==='phoenix.held-takeover-rehearsal/v1'&&proof.owner===owner&&proof.recoveryOwner===witness&&proof.executionSha===executionSha&&
+    proof.heldInspection===heldInspection&&proof.pendingSha256===canonicalDigest(pending)&&proof.verification.inspectionOwner===heldInspection&&
+    proof.verification.startedAt===interruptedBoot&&proof.leaseExit.outcome==='ORIGINAL_SESSION_ABSENT'&&proof.leaseExit.transportClosed===true&&
+    proof.leaseExit.originalLeaseSha256===proof.verification.recoveryLeaseSha256&&proof.publicHeld===true&&proof.migrationAuthorized===false&&
+    same(formal,{schema:'phoenix.modern-original-recovery-public/v1',originalOwner:owner,recoveryOwner:witness,formalTargetSuccess:false,outcome:'HANDOFF_REHEARSED'}),'SAME_REVISION_REHEARSAL_REQUIRED');
+  }
  }
  const priorParticipant=prep.originalBackground.participant;
  const originalStep=store.read(`schema-release-step-${owner}-${residual?'3-r-stop-intent':'4-r-stopped'}.json`);
@@ -323,6 +337,26 @@ async function recover(env){
   await observeFence();
   verifier=await createModernSchemaOperatorRecoveryVerifier({owner,recoveryOwner,recoveryLease,requireAdmission:admission,observeFences:observeFence,
    controlChild:session.child,heldInspection});
+  if(rehearsing){
+   const verification=await verifier.verifyInterruptedOriginal();
+   const next=inspectApiParticipant(priorParticipant,prep.floor.project);
+   const status=verifyParticipantStatus(next,verification.participant,fenced);
+   requireThat(verification.startedAt===next.startedAt&&next.imageId===api.image&&status.phase==='FENCED'&&
+    sameOperatorControlSession(verification.controlSession,status.controlSession)&&status.inFlight===0&&status.taskGraphs===0&&status.pendingChildren===0&&
+    await session.verifyParticipants([{...status.controlSession,bootId:verification.participant.bootId}])===true,'REHEARSAL_FENCED_PARTICIPANT');
+   await verifier.verifyHostBeforeOpen();await observeFence();await verifier.close();verifier=null;closing=true;
+   const observer=new ModernSchemaReadClient();let leaseExit;
+   try{
+    await observer.start();
+    leaseExit=await closeModernSchemaOriginalSession({coordinator:{close:()=>session.close()},lease:recoveryLease,client:observer,guard:unchanged});
+   }finally{await observer.close();}
+   requireThat(leaseExit.outcome==='ORIGINAL_SESSION_ABSENT'&&leaseExit.transportClosed===true,'REHEARSAL_NEW_LEASE_EXIT');
+   unchanged();readHeld();
+   requireThat(ingress.names().length===2&&canonicalDigest(ingressIdentity(ingress.tables()))===originalProof.identitySha256,'REHEARSAL_NATIVE');
+   store.immutable('schema-release-held-rehearsal-'+recoveryOwner+'.json',{schema:'phoenix.held-takeover-rehearsal/v1',owner,recoveryOwner,executionSha,
+    heldInspection,pendingSha256:canonicalDigest(pending),verification,leaseExit,publicHeld:true,migrationAuthorized:false});
+   return 'HANDOFF_REHEARSED';
+  }
   if(started){
    await verifier.verifyFencedBoot();
    const incumbent=inspectModernSchemaContainer(api.id),fencedApi=inspectApiParticipant(started.participant,prep.floor.project);
@@ -335,7 +369,7 @@ async function recover(env){
   store.immutable(newKey('recovery-intent'),{schema:'phoenix.modern-operator-recovery-intent/v1',owner,recoveryOwner,target,executionSha,
    newSupervisor:supervisor,newLease:recoveryLease,previousLeaseSha256:canonicalDigest(pending.lease),pendingSha256:canonicalDigest(pending),
     reviewedSourceSha256:established.sha256,originalFencedBootSha256:started?canonicalDigest(started):null,migrationAuthorized:false,
-    ...(heldInspection?{heldInspection}:{}),
+    ...(heldInspection?{heldInspection,heldRehearsal:env.OPERATOR_HELD_REHEARSAL}:{}),
     ...(priorRecovery?{adoptedRecoveryProofSha256:canonicalDigest(priorRecovery),
        adoptedOwnershipSha256:readVerifiedRecoveryOwnership(store,pending,priorRecovery).sha256}:{})});
   await admission();await observeFence();
@@ -456,5 +490,5 @@ if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
  const result=forward?{schema:'phoenix.modern-forward-api-public/v1',originalOwner,recoveryOwner,targetSha,defaultOff:true,outcome}:
   {schema:'phoenix.modern-original-recovery-public/v1',originalOwner,recoveryOwner,formalTargetSuccess:false,outcome};
  console.log(JSON.stringify(result));
- if(outcome!==(forward?'TARGET_OPEN':process.env.OPERATOR_RECOVERY_MODE==='handoff-held'?'HANDOFF_EDGE_HELD':'ORIGINAL_OPEN'))process.exitCode=1;
+ if(outcome!==(forward?'TARGET_OPEN':process.env.OPERATOR_RECOVERY_MODE==='rehearse-held'?'HANDOFF_REHEARSED':process.env.OPERATOR_RECOVERY_MODE==='handoff-held'?'HANDOFF_EDGE_HELD':'ORIGINAL_OPEN'))process.exitCode=1;
 }

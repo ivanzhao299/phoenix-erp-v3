@@ -987,15 +987,16 @@ jobs:
               fi
             }
 
+            # ── 干净工作树硬门禁:
             if [ -n "$(git status --porcelain --untracked-files=all)" ]; then
-              echo "::error::生产服务器工作树不干净,拒绝部署"
+              echo "::error::生产工作树有改动"
               git status --short
               exit 20
             fi
 
             git fetch origin main
             test "$(git rev-parse origin/main)" = "$TARGET_SHA"
-            held_handoff="$STATE_DIR/schema-release-1123-handoff-45144287071-1.json"
+            export held_handoff="$STATE_DIR/schema-release-1123-handoff-45144287071-1.json"
             if [ -e "$held_handoff" ] && [ ! -e "$STATE_DIR/schema-release-1123-origin-open.json" ]; then
               test "$DEPLOY_MODE" = web && test -n "${MODERN_SCHEMA_WEB_SELECTION:-}" || exit 25
             fi
@@ -1043,7 +1044,7 @@ jobs:
             }
             WEB_ADMISSION="$(check_candidate_web admit)"
             if [ "$WEB_ADMISSION" = RECEIPT_ONLY ]; then
-              echo "Candidate Web receipt verified."
+              echo "Web receipt verified."
               return 0
             fi
             PRE_EVIDENCE_FILE="$STATE_DIR/deploy-${DEPLOY_RUN_ID}-pre-evidence.json"
@@ -1286,16 +1287,17 @@ jobs:
             node "$EVIDENCE_HELPER" logs "$POST_EVIDENCE_FILE" "$LOG_EVIDENCE_FILE"
             node "$EVIDENCE_HELPER" verify "$PRE_EVIDENCE_FILE" "$POST_EVIDENCE_FILE" "$LOG_EVIDENCE_FILE"
 
-            echo "📦 Docker 镜像占用:"
+            # ── 磁盘用量报告
+            echo "Docker 镜像:"
             IMAGE_REPORT="$(docker images --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}")"
             IMAGE_PREVIEW_COUNT=0
             while IFS= read -r IMAGE_LINE && [ "$IMAGE_PREVIEW_COUNT" -lt 20 ]; do
               printf '%s\n' "$IMAGE_LINE"
               IMAGE_PREVIEW_COUNT=$((IMAGE_PREVIEW_COUNT + 1))
             done <<< "$IMAGE_REPORT"
-            echo "💾 磁盘总览:"
+            echo "磁盘空间"
             df -h /
-            echo "Docker 总占用"
+            echo "Docker usage"
             DOCKER_DISK_REPORT="$(docker system df 2>/dev/null || true)"
             printf '%s\n' "$DOCKER_DISK_REPORT"
 
@@ -1304,7 +1306,7 @@ jobs:
             production_state complete
             check_candidate_web seal
             trap - ERR
-            echo "✅ Application evidence complete"
+            echo "Evidence complete"
             }
 
             if { [ "$DEPLOY_MODE" = "api" ] && [ "$BUILD_API" = true ] && [ "$BUILD_WEB" = false ] && [ "$RUN_MIG" = false ]; } || \

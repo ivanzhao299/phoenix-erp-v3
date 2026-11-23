@@ -139,14 +139,13 @@ export async function runSuccessorWeb(phase,env){
   if(checkSuccessorWeb('admit',env,{store})!==receiptOnly||!same(store.read(sealedName),seal)||
    !same(store.read(marker),witness)||store.exists('transaction.json')||store.exists('policy-transition.json')||
    store.exists('schema-release-pending.json')||store.exists('schema-release-revoked-'+consumed.owner+'.json'))fail();
-  if(!store.exists(completed))guardInterruptedEdge(store.directory);
   return true;
  };
  const ingress=new ModernSchemaIngress({context:handoff.original.context,scope:handoff.original.ingressScope,privateRuntime:runtime,admit:verify});
  const proof=store.read('schema-release-ingress-installed-'+heldOwner+'.json');
  await ingress.check('COMPLETED_WEB_NATIVE_RETIRE');
  if(proof.identitySha256!==witness.ingressIdentitySha256)fail();
- await retireVerifiedIngress({ingress,proof,store,runtime,owner:witness.recoveryOwner,verify,
+ await retireVerifiedIngress({ingress,proof,store,runtime,owner:witness.recoveryOwner,verify,authorizeRemoval:()=>guardInterruptedEdge(store.directory),
   binding:{originalOwner:heldOwner,targetSha:target,webOwner:seal.webOwner,apiOwner:consumed.owner,
    archiveSha256:witness.archiveSha256,webSealSha256:canonicalDigest(seal)}});
  return result;

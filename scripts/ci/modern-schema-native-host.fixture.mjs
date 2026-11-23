@@ -218,14 +218,14 @@ async function main(){
      const newProof=await b.install();
      const args={ingress:a,proof:oldProof,store,runtime:privateRuntime,owner:second.owner,
       binding:{oldOwner:first.owner,newIdentity:newProof.identitySha256,verifiedSha256:canonicalDigest(before)},verify:async()=>{edgeUp();return checkLease();}};
-     await assert.rejects(retireVerifiedIngress({...args,verify:async()=>false}),/COMPLETED_WEB_AND_EDGE_REQUIRED/);
+     await assert.rejects(retireVerifiedIngress({authorizeRemoval:()=>{},...args,verify:async()=>false}),/COMPLETED_WEB_AND_EDGE_REQUIRED/);
      assert.equal(a.names().length,2);assert.equal(b.names().length,2);
      await b.releaseBeforeOpen();
      assert.equal(b.names().length,0);assert.equal(a.names().length,2);
      assert.deepEqual(probe('127.0.0.1',NEW),denied);assert.deepEqual(peerProbe(getIp(newId),NEW),denied);edgeUp();
-     await retireVerifiedIngress({...args,apply:async file=>{run('/usr/sbin/nft',['--json','--file',file]);throw Error('LOST_ACK');}});
+     await retireVerifiedIngress({authorizeRemoval:()=>{},...args,apply:async file=>{run('/usr/sbin/nft',['--json','--file',file]);throw Error('LOST_ACK');}});
      assert.equal(a.names().length,0);
-     await retireVerifiedIngress({...args,apply:()=>assert.fail('sealed replay repeated nft')});
+     await retireVerifiedIngress({authorizeRemoval:()=>{},...args,apply:()=>assert.fail('sealed replay repeated nft')});
      assert.equal(probe('127.0.0.1',NEW).status,200);edgeUp();
      const exitB=await closeModernSchemaOriginalSession({coordinator:{close:()=>two.close()},lease:leaseB,client,guard});
      assert.equal(exitB.outcome,'ORIGINAL_SESSION_ABSENT');
