@@ -114,7 +114,10 @@ class Capsule {
    '--restart=no','--network',this.networkId,...args,image,...(role.includes('migration')?['-d','dist/database/data-source.js',role==='rehearsal-migration-run'?'migration:run':'migration:show',...(role==='rehearsal-migration-run'?['--transaction','all']:[])]:command)],'create');
   if(!ID.test(id)||id===this.backup.receipt.databasePin.id)fail('NEW_ISOLATED_CONTAINER_REQUIRED');
   const record={schema:'phoenix.modern-schema-owned-rehearsal-container/v1',owner:this.owner,stage:this.stage,role,containerId:id,imageId:image,networkId:this.networkId,volume:this.volume,createdAt:new Date().toISOString()};
-  if(role==='rehearsal-database')record.databaseMajor=this.databaseProfile.major;
+  if(role==='rehearsal-database'){
+   record.databaseMajor=this.databaseProfile.major;
+   this.db=id;
+  }
   this.resources.push(record);this.privateRuntime.publishJson(path.join(this.directory,'created-'+id+'.json'),record);await this.inspect(id);
   if(this.dependencies.onCreated)await this.dependencies.onCreated(record);return id;
  }
@@ -144,11 +147,12 @@ class Capsule {
    subnet&&(network.Scope!=='local'||network.IPAM?.Driver!=='default'||network.IPAM.Config?.length!==1||network.IPAM.Config[0].Subnet!==subnet||
     network.Labels?.['phoenix.schema.owner']!==this.owner||network.Labels?.['phoenix.schema.role']!=='rehearsal-network'))
    fail('NEW_INTERNAL_NETWORK_REQUIRED');
-  this.volume=await this.text(['volume','create','--label',`phoenix.schema.owner=${this.owner}`,'--label','phoenix.schema.role=rehearsal-data'],'volume');
-  const [volume]=JSON.parse(await this.text(['volume','inspect',this.volume],'volume-pin'));
-  if(!ID.test(this.volume)||volume.Name!==this.volume||volume.Driver!=='local'||volume.Labels?.['phoenix.schema.owner']!==this.owner||Object.keys(volume.Options??{}).length)fail('NEW_LOCAL_VOLUME_REQUIRED');
+  this.volume=await this.text(['volume','create','--label',`phoenix.schema.owner=${this.owner}`,
+   '--label','phoenix.schema.role=rehearsal-data','--label',`phoenix.schema.stage=${this.stage}`,
+   '--label','phoenix.schema.lifecycle=temporary'],'volume');
+  const volume=this.volumePin=await this.inspectVolume();
   this.privateRuntime.publishJson(path.join(this.directory,'network-volume.json'),{schema:'phoenix.modern-schema-isolated-resources/v1',owner:this.owner,network,volume});
-  this.db=await this.create('rehearsal-database',this.backup.receipt.databasePin.image,['--network-alias','schema-db','--mount',`type=volume,source=${this.volume},target=${this.databaseProfile.volumeDestination}`,
+  await this.create('rehearsal-database',this.backup.receipt.databasePin.image,['--network-alias','schema-db','--mount',`type=volume,source=${this.volume},target=${this.databaseProfile.volumeDestination}`,
    '-e',`PGDATA=${this.databaseProfile.dataDirectory}`,
    '-e',`POSTGRES_USER=${source.username}`,'-e',`POSTGRES_DB=${source.name}`,'-e','POSTGRES_HOST_AUTH_METHOD=trust',
    '-e',`POSTGRES_INITDB_ARGS=--encoding=UTF8 --locale-provider=libc --lc-collate=${source.collate} --lc-ctype=${source.ctype}`,
@@ -181,6 +185,7 @@ class Capsule {
   const backup=await this.privateRuntime.digest(this.backup.receipt.backup.path);if(!same(backup,this.backup.receipt.backup))fail('PROTECTED_BACKUP_CHANGED');
   const restoreTimeout=this.stage==='fenced'&&this.dependencies.assertRecoveryWindow?180000:600000;
   this.checkRecoveryWindow(restoreTimeout);
+  this.restoreStarted=true;
   await this.command(['exec','-i',this.db,...LOCAL_PSQL,'pg_restore','--exit-on-error','--no-owner','--no-acl','-U',source.username,'-d',source.name],'isolated-restore',{inputFile:backup.path,timeoutMs:restoreTimeout});
   this.client=new ModernSchemaReadClient({guard:()=>{this.privateRuntime.guard();this.checkRecoveryWindow();},databaseContainer:this.db});
   if(this.dependencies.startFencedReader)await this.dependencies.startFencedReader(this.client,this.db,identity.systemIdentifier);
@@ -319,9 +324,26 @@ class Capsule {
   if(role==='original-api')this.originalRuntimeAfter={facts:after,start:end,since:endSince,containerId:id};
   return receipt;
  }
- async close(){
-  // No force-kill, removal, production restart or retry. Retained native pins
-  // distinguish an unresolved owned process from a cleanly stopped capsule.
+ async inspectVolume(){
+  if(!ID.test(this.volume))fail('NEW_LOCAL_VOLUME_REQUIRED');
+  const [volume]=JSON.parse(await this.text(['volume','inspect',this.volume],'volume-pin'));
+  if(volume?.Name!==this.volume||volume.Driver!=='local'||Object.keys(volume.Options??{}).length||
+   volume.Labels?.['phoenix.schema.owner']!==this.owner||volume.Labels?.['phoenix.schema.role']!=='rehearsal-data'||
+   volume.Labels?.['phoenix.schema.stage']!==this.stage||volume.Labels?.['phoenix.schema.lifecycle']!=='temporary'||
+   this.volumePin&&!same(volume,this.volumePin))fail('NEW_LOCAL_VOLUME_REQUIRED');
+  return volume;
+ }
+ async removeDatabase(){
+  await this.inspectVolume();
+  if(this.db){
+   const {state}=await this.inspect(this.db);
+   if(state.Running!==false||state.Pid!==0||!['created','exited'].includes(state.Status))fail('STOPPED_CLONE_REQUIRED_FOR_REMOVAL');
+   await this.command(['container','rm',this.db],'remove-clone');
+  }
+  await this.command(['volume','rm',this.volume],'remove-clone-volume');
+ }
+ async close(passed){
+  // Retain resource evidence and leave unresolved Docker identities for review.
   let failure;
   for(const id of [...this.apps].reverse())try{if((await this.inspect(id)).state.Running)await this.stop(id);}catch(error){failure??=error;}
   try{
@@ -331,6 +353,20 @@ class Capsule {
    }
   }catch(error){failure??=error;}
   if(this.db)try{if((await this.inspect(this.db)).state.Running)await this.stop(this.db);}catch(error){failure??=error;}
+  if(!this.volume){if(failure)throw failure;return;}
+  // A restore that started can leave data needed to diagnose the failure.
+  const retain=!passed&&this.restoreStarted===true;
+  if(!retain&&!failure)try{
+   // In the fenced rehearsal, serialize native removal with the supervisor's
+   // Docker census just as creation is serialized.
+   const remove=()=>this.removeDatabase();
+   if(this.dependencies.withNativeCreate)await this.dependencies.withNativeCreate(remove);
+   else await remove();
+  }catch(error){failure=error;}
+  this.privateRuntime.publishJson(path.join(this.directory,'rehearsal-volume-disposition.json'),{
+   owner:this.owner,stage:this.stage,containerId:this.db??null,volume:this.volume,
+   disposition:failure?'CLEANUP_UNVERIFIED':retain?'RETAINED_FOR_FAILED_RESTORE_OR_REHEARSAL':'REMOVED',
+  });
   if(failure)throw failure;
  }
 }
@@ -364,6 +400,8 @@ export async function rehearseModernSchemaRelease(input,dependencies={}){
    afterLedgerSha256:capsule.afterLedgerSha256,originalRuntimeProofSha256:canonicalDigest(original),candidateRuntimeProofSha256:canonicalDigest(candidate),
    cloneBusinessFactsSha256:final.businessDataSha256,defaultOffEvidence:capsule.defaultOff,resources:capsule.resources,
    cloneDatabaseMajor:capsule.databaseProfile.major,cloneDatabaseIdentitySha256:canonicalDigest(capsule.cloneDatabase)};
- }finally{await capsule.close();}
- privateRuntime.publishJson(path.join(directory,'rehearsal-receipt.json'),evidence);return {evidence,directory,resources:capsule.resources};
+ }finally{await capsule.close(Boolean(evidence));}
+ privateRuntime.publishJson(path.join(directory,'rehearsal-receipt.json'),evidence);
+ // Keep the original database pin in evidence, but exclude it from live census.
+ return {evidence,directory,resources:capsule.resources.filter(record=>record.containerId!==capsule.db)};
 }

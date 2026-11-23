@@ -36,7 +36,11 @@ test('the owned same-major PostgreSQL snapshot restores into a new isolated DB a
   });
   assert.equal(result.evidence.outcome,'PASS');assert.equal(result.evidence.backgroundWrites,0);assert.equal(result.evidence.defaultOffEvidence.featureRollout,'OFF');
   assert.equal(result.evidence.cloneDatabaseMajor,Math.trunc(backup.source.database.serverVersionNum/10000));
-  assert.equal(result.resources.find(resource=>resource.role==='rehearsal-database')?.databaseMajor,result.evidence.cloneDatabaseMajor);
+  const clone=result.evidence.resources.find(resource=>resource.role==='rehearsal-database');
+  assert.equal(clone.databaseMajor,result.evidence.cloneDatabaseMajor);
+  assert.ok(result.resources.every(resource=>resource.containerId!==clone.containerId));
+  assert.equal(docker(['ps','-aq','--no-trunc','--filter',`id=${clone.containerId}`]),'');
+  assert.ok(!docker(['volume','ls','-q','--filter',`name=${clone.volume}`]).split('\n').includes(clone.volume));
   for(const resource of result.resources)assert.equal(docker(['inspect',resource.containerId,'--format','{{.State.Running}}\t{{.State.ExitCode}}\t{{.State.OOMKilled}}']),'false\t0\tfalse');
   privateRuntime.publishJson(path.join(directory,'native-proof.json'),{fixtureOnly:true,productionMutation:false,outcome:'PASS',directory,receipt:result.evidence});
  }finally{await client.close();process.umask(previousUmask);}
