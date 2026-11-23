@@ -171,13 +171,16 @@ test('delegated window requires the authenticated run title, successful same-hea
   f.acceptance=add(800,'.github/workflows/production-remediation-acceptance.yml',['PostgreSQL 18 / transactions','PostgreSQL 18 / browser','Previous API and historical receipts on the expanded schema'],
     ['Run transaction, role and migration acceptance','Exercise desktop and mobile Chromium','Rehearse the deployed database and a cold installation']);
   f.acceptance.jobs[0].steps.push({name:'Verify pilot ingress in a disposable network namespace',conclusion:'success'});
+  f.acceptance.jobs[2].steps.push({name:'Verify the candidate API image and runtime role',conclusion:'success'});
   return f;
  }
  const success=fixture(),live=await collectModernSchemaLiveJob(success.identity,success.dependencies);
  assert.equal(live.delegatedSelection,success.dependencies.successor.selection);assert.match(live.candidateCiSha256,/^[a-f0-9]{64}$/);
  for(const mutate of [f=>f.run.display_title='inspect1123',f=>f.run.triggering_actor={id:91,login:'emvia',type:'User'},
   f=>f.ci.run.head_sha='f'.repeat(40),f=>f.ci.jobs[1].steps[0].conclusion='skipped',f=>f.acceptance.jobs[0].conclusion='failure',
-  f=>f.acceptance.jobs[1].steps[0].conclusion='skipped',f=>f.acceptance.jobs[0].steps[1].conclusion='skipped',f=>f.acceptance.jobs[2].steps[0].conclusion='skipped',f=>f.acceptance.run.path='.github/workflows/other.yml']){
+  f=>f.acceptance.jobs[1].steps[0].conclusion='skipped',f=>f.acceptance.jobs[0].steps[1].conclusion='skipped',f=>f.acceptance.jobs[2].steps[0].conclusion='skipped',f=>f.acceptance.jobs[2].steps[1].conclusion='skipped',
+  f=>f.acceptance.jobs[2].steps.pop(),f=>f.acceptance.jobs[2].steps.push({...f.acceptance.jobs[2].steps[1]}),
+  f=>f.acceptance.run.path='.github/workflows/other.yml']){
   const f=fixture();mutate(f);await assert.rejects(collectModernSchemaLiveJob(f.identity,f.dependencies),/IDENTITY_HOLD=/);
  }
 });

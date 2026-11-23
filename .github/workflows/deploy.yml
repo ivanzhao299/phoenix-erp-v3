@@ -1,5 +1,5 @@
 name: CI/CD — Build & Deploy
-run-name: ${{ startsWith(inputs.modern_schema_resume_owner, 'approve1123-') && inputs.modern_schema_resume_owner || github.event.head_commit.message || github.workflow }}
+run-name: ${{ (inputs.modern_schema_resume_owner == 'inspect1123' || startsWith(inputs.modern_schema_resume_owner, 'approve1123-') || startsWith(inputs.modern_schema_resume_owner, 'web1123-')) && inputs.modern_schema_resume_owner || '' }}
 
 # ════════════════════════════════════════════════════════════════════════════
 # 分层部署(2026-06-19 起):

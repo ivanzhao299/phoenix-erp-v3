@@ -127,12 +127,14 @@ export async function collectModernSchemaLiveJob(identity,dependencies={}){
    ['PostgreSQL 18 / transactions','Verify pilot ingress in a disposable network namespace'],
    ['PostgreSQL 18 / browser','Exercise desktop and mobile Chromium'],
    ['Previous API and historical receipts on the expanded schema','Rehearse the deployed database and a cold installation'],
+   ['Previous API and historical receipts on the expanded schema','Verify the candidate API image and runtime role'],
   ];
   const verified=acceptanceSteps.map(([name,step])=>{
    const matches=acceptanceJobs.jobs.filter(j=>j.name===name);
    if(matches.length!==1||String(matches[0].run_id)!==acceptanceId||matches[0].head_sha!==ci.head_sha||
      matches[0].status!=='completed'||matches[0].conclusion!=='success'||
-     !matches[0].steps?.some(s=>s.name===step&&s.conclusion==='success'))fail('CANDIDATE_ACCEPTANCE_REQUIRED');
+     !Array.isArray(matches[0].steps)||matches[0].steps.filter(s=>s.name===step).length!==1||
+     matches[0].steps.find(s=>s.name===step).conclusion!=='success')fail('CANDIDATE_ACCEPTANCE_REQUIRED');
    return {id:matches[0].id,name:matches[0].name,step};
   });
   candidateCiSha256=canonicalDigest({id:ciId,attempt:ci.run_attempt,targetSha:ci.head_sha,jobs:selected,acceptanceId,acceptanceAttempt:acceptance.run_attempt,verified});
