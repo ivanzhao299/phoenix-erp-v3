@@ -72,7 +72,8 @@ async function inspectHeld(env){
  const owner=env.OPERATOR_RECOVERY_OWNER,store=new ModernSchemaRegistry(),dir=store.directory;
  verifyModernSchemaStage({owner,targetSha:env.MODERN_SCHEMA_EXECUTION_SHA});
  const prep=store.read('schema-release-preparation-'+heldOwner+'.json'),{context}=prep;
- assert(canonicalDigest(context)===contextPin,'HISTORICAL_PREPARATION');
+ const {preparationSha256,...preparationContent}=prep;
+ assert(canonicalDigest(preparationContent)===preparationSha256&&canonicalDigest(prep.originalSnapshot.containers)===context.runtimeSnapshotSha256&&canonicalDigest(context)===contextPin,'HISTORICAL_PREPARATION');
  const source=label=>store.read('schema-release-'+label+'-'+heldOwner+'.json');
  const binding=modernSchemaReleaseBinding(context,prep.preparationSha256);
  const pending=validateModernSchemaPending(store.read('schema-release-pending.json'),binding);
