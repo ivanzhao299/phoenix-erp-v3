@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import CutoverExecutionReceipt from './CutoverExecutionReceipt';
 import PageHeader from '@/components/PageHeader';
 import { CompanySelector, HouseSelector, WarehouseSelector, ProductSelector, SkuSelector, LocationSelector } from '@/components/shared-selectors/MasterDataSelectors';
 import DictSelect from '@/components/shared-selectors/DictSelect';
@@ -186,7 +187,8 @@ function ActorCutoverWorkbench(){
         <button disabled={busy} onClick={()=>{setSelected(null);setEvidence(null);setForm({...blank(),intentKey:crypto.randomUUID()});const url=new URL(location.href);url.searchParams.delete('documentId');history.replaceState(null,'',url);}}>{t('productionCutover.new','另建盘点')}</button>
       </div>
     </section>
-    {selected&&<section className={s.card}><h2>{selected.document_no} · {states[selected.state]??selected.state}</h2>
+    {selected&&<section className={s.card}><h2>{selected.document_no} · {selected.state==='APPLIED'?t('productionJobs.executionRecord'):states[selected.state]??selected.state}</h2>
+      <CutoverExecutionReceipt key={selected.id+selected.version} document={selected} mobile={location.pathname.startsWith('/mobile/')}/>
       <p className={s.wide}>{t('productionCutover.hash','冻结内容摘要')}：{selected.content_hash||t('productionCutover.notFrozen','尚未冻结')}</p>
       {selected.signatures?.map(sign=><p key={sign.signature_role}>{sign.signature_role==='BUSINESS'?t('productionCutover.business','业务签认'):t('productionCutover.finance','财务签认')} · {sign.signed_by} · {sign.signed_at}</p>)}
       {selected.state==='READY'&&selected.created_by!==actor&&(p.canApprove||finance.canEdit)&&<>

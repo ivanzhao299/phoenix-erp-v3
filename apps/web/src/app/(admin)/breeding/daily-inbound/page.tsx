@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Egg, Save, RefreshCw, AlertTriangle, Package, FileDown } from "lucide-react";
 import Link from "next/link";
 import { usePermission } from "@/hooks/usePermission";
@@ -31,6 +31,10 @@ function today() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 export default function DailyInboundPage() {
+  const {user}=usePermission('MENU_PROD_INBOUND');
+  return <DailyInboundForm key={String(user.userId??user.id??user.username??'')} />;
+}
+function DailyInboundForm() {
   const { t } = useLanguage();
   const {
     canView,
@@ -55,13 +59,20 @@ export default function DailyInboundPage() {
   // 品种由服务端档案决定，前端只展示；提交时不传 variety，防伪造。
   const { profile: sourceProfile, loading: sourceProfileLoading } = useEggSourceProfile(houseCode, eggDate);
   const varietyShort = varietyShortLabel(sourceProfile);
-  const [officialScope,setOfficialScope]=useState<{house:string;state:string}|null>(null);
-  useEffect(()=>{let alive=true;if(!sourceProfile)return;
-    request<{state:string}>(`/v2/inventory/production-inbound-documents/context?${new URLSearchParams({companyCode:sourceProfile.companyCode,houseCode})}`)
-      .then(c=>{if(alive)setOfficialScope({house:houseCode,state:c.state});}).catch(()=>{if(alive)setOfficialScope(null);});
-    return()=>{alive=false;};
-  },[sourceProfile,houseCode]);
-  const requiresFormal=officialScope?.house===houseCode&&officialScope.state!=='OFF';
+  const rangeKey=JSON.stringify([companyCode,houseCode,eggDate]);
+  const [scopeRevision,setScopeRevision]=useState(0);
+  const [officialScope,setOfficialScope]=useState<{key:string;state:string}|null>(null);
+  const prefillGeneration=useRef(0);
+  useEffect(()=>{
+    if(!companyCode||!houseCode)return;
+    const controller=new AbortController();
+    request<{state:string}>(`/v2/inventory/production-inbound-documents/context?${new URLSearchParams({companyCode,houseCode})}`,{signal:controller.signal})
+      .then(c=>{if(!controller.signal.aborted)setOfficialScope({key:rangeKey,state:c.state});})
+      .catch(()=>{if(!controller.signal.aborted)setOfficialScope({key:rangeKey,state:'UNKNOWN'});});
+    return()=>controller.abort();
+  },[companyCode,houseCode,rangeKey,scopeRevision]);
+  const scopeState=officialScope?.key===rangeKey?officialScope.state:'';
+  const requiresFormal=['ACTIVE','SUSPENDED','FENCED'].includes(scopeState);
   const gradeCellLabel = (name: string) => (varietyShort ? `${name}(${varietyShort})` : name);
   const [qtyMap, setQtyMap] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
@@ -77,6 +88,7 @@ export default function DailyInboundPage() {
   } | null>(null);
   const prefillFromDaily = useCallback(async () => {
     setError("");
+    const generation=++prefillGeneration.current;
     setPrefilling(true);
     try {
       const qs = new URLSearchParams({ date: eggDate });
@@ -90,6 +102,7 @@ export default function DailyInboundPage() {
         reportedGradeTotal?: number;
         saleableTotal?: number;
       }>(`/v3/farm/daily-logs/eggs-breakdown?${qs.toString()}`);
+      if(generation!==prefillGeneration.current)return;
       if (r.missingBreakdownLogs > 0) {
         setError(
           `${eggDate}${houseCode ? ` · ${houseCode}` : ''} `
@@ -112,14 +125,14 @@ export default function DailyInboundPage() {
       }
       setQtyMap(next);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : t('breeding.fetchDailyFailed', '拉取日报数据失败'));
+      if(generation===prefillGeneration.current)setError(e instanceof Error ? e.message : t('breeding.fetchDailyFailed', '拉取日报数据失败'));
     } finally {
-      setPrefilling(false);
+      if(generation===prefillGeneration.current)setPrefilling(false);
     }
   }, [eggDate, houseCode, productGrades, qtyMap, t]);
 
   const loadMode = useCallback(async () => {
-    setLoadingMode(true);
+    setScopeRevision(n=>n+1);setOfficialScope(null);setLoadingMode(true);
     try {
       const r = await request<{
         mode: string;
@@ -132,15 +145,20 @@ export default function DailyInboundPage() {
     }
   }, []);
   useEffect(() => {
-    if (canView) loadMode();
+    let alive=true;Promise.resolve().then(()=>{if(canView&&alive)void loadMode();});return()=>{alive=false;};
   }, [canView, loadMode]);
   const totalQty = productGrades.reduce((s, g) => s + (Number(qtyMap[g.grade_code]) || 0), 0);
   const filledRows = productGrades.filter(g => Number(qtyMap[g.grade_code]) > 0).length;
   const isPackagingMode = mode === "PACKAGING_INBOUND";
+  const eligible=!loadingMode&&mode==='TEMP_PRODUCTION_INBOUND'&&scopeState==='OFF';
+  const clearSelection=()=>{
+    prefillGeneration.current++;setPrefilling(false);setQtyMap({});setResult(null);setError("");setOfficialScope(null);
+  };
   const submit = async () => {
     setError("");
     setResult(null);
     if(requiresFormal){setError(t('productionInstallments.useFormal','该鸡舍已切换正式期间，请从正式分次入库办理。'));return;}
+    if(!eligible){setError(t('productionJobs.unverified'));return;}
     const items = productGrades
       .filter(g => Number(qtyMap[g.grade_code]) > 0)
       .map(g => ({ grade: g.grade_code, qty: Number(qtyMap[g.grade_code]) }));
@@ -195,12 +213,11 @@ export default function DailyInboundPage() {
       <PageHeader title={t('breeding.inboundTitle', '日产蛋入库')} subtitle={t('breeding.inboundSubtitle', '临时生产入库模式 · 日产蛋直接形成销售库存（统一进入 FIFO 库存体系）')} breadcrumb={[t('breeding.prodMgmt', '生产管理'), t('breeding.inboundTitle', '日产蛋入库')]} />
 
       <p><Link href="/breeding/production-inbound">{t('productionInstallments.title','正式分次生产入库')}</Link></p>
-      {requiresFormal&&<p role="status">{t('productionInstallments.useFormal','该鸡舍已切换正式期间，请从正式分次入库办理。')}</p>}
       {/* 模式状态条 */}
       {loadingMode ? <div style={{
       padding: 14,
       color: "var(--text-secondary)"
-    }}>{t('breeding.loadingSourceMode', '加载库存来源模式...')}</div> : isPackagingMode ? <div style={{
+    }}>{t('breeding.loadingSourceMode', '加载库存来源模式...')}</div> : !isPackagingMode&&(mode!=='TEMP_PRODUCTION_INBOUND'||!eligible) ? <p role="status">{requiresFormal?t('productionInstallments.useFormal'):t('productionJobs.unverified')}</p> : isPackagingMode ? <div style={{
       display: "flex",
       alignItems: "center",
       gap: 12,
@@ -261,7 +278,7 @@ export default function DailyInboundPage() {
             color: "var(--text-secondary)",
             marginBottom: 6
           }}>{t('breeding.prodDate', '生产日期')}</label>
-              <input type="date" value={eggDate} onChange={e => setEggDate(e.target.value)} className="bg-bg-muted border border-border text-text" style={{
+              <input type="date" disabled={saving} value={eggDate} onChange={e => {clearSelection();setEggDate(e.target.value);}} className="bg-bg-muted border border-border text-text" style={{
             padding: "7px 10px",
             borderRadius: 7,
             fontSize: 13,
@@ -275,8 +292,8 @@ export default function DailyInboundPage() {
             color: "var(--text-secondary)",
             marginBottom: 6
           }}>{t('breeding.houseRequired', '鸡舍（必选）')}</label>
-              <HouseSelector value={houseCode} onChange={value => {
-                setHouseCode(value);
+              <HouseSelector disabled={saving} value={houseCode} onChange={value => {
+                clearSelection();setHouseCode(value);
                 if (!value) { setCompanyCode(''); setSiteCode(''); setOwnershipError(''); }
                 setWarehouseCode('');
                 setLocationCode('');
@@ -452,7 +469,7 @@ export default function DailyInboundPage() {
         gap: 8
       }}><AlertTriangle size={15} />{error}</div>}
 
-          <button onClick={submit} disabled={saving || !canCreate} style={{
+          <button onClick={submit} disabled={saving || !canCreate || !eligible} style={{
         display: "flex",
         alignItems: "center",
         gap: 8,

@@ -164,7 +164,7 @@ const NAV_CARDS: NavCard[] = [{
   pageKey: 'egglog'
 }, {
   icon: <Egg size={28} />,
-  titleKey: 'productionReports.title', descKey: 'productionReports.instructions',
+  titleKey: 'productionJobs.today', descKey: 'productionJobs.todayHint',
   color: 'var(--status-warning)',href: '/mobile/production-reports',soon: false,pageKey: 'production_reports'
 }, {
   icon: <Package size={28} />,

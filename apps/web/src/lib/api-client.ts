@@ -81,6 +81,8 @@ export interface ApiError extends Error {
   code?: 'AUTH_EXPIRED' | 'SERVER' | 'NETWORK';
   subcode?: AuthSubcode;
   errors?: string[];
+  businessCode?: string;
+  details?: Partial<Record<'gradeCode'|'dailyLogId'|'remaining'|'currentVersion'|'documentNo'|'blockingDocumentNo', string | number>>;
 }
 
 function makeError(message: string, status?: number, code?: ApiError['code'], subcode?: AuthSubcode, silent?: boolean, errors?: string[]): ApiError {
@@ -180,6 +182,8 @@ async function request<T = unknown>(
       message?: string | string[];
       msg?: string;
       errors?: unknown;
+      code?: unknown;
+      [key: string]: unknown;
     };
     const validationErrors = Array.isArray(err?.errors)
       ? err.errors.map(item => String(item).trim()).filter(Boolean)
@@ -190,7 +194,14 @@ async function request<T = unknown>(
     const message = validationErrors.length > 0
       ? `${baseMessage}：${validationErrors.join('；')}`
       : baseMessage;
-    throw makeError(message, res.status, res.status >= 500 ? 'SERVER' : undefined, undefined, silent, validationErrors);
+    const error = makeError(message, res.status, res.status >= 500 ? 'SERVER' : undefined, undefined, silent, validationErrors);
+    if (typeof err.code === 'string') error.businessCode = err.code;
+    error.details = {};
+    for (const field of ['gradeCode','dailyLogId','remaining','currentVersion','documentNo','blockingDocumentNo'] as const) {
+      const value = err[field];
+      if (typeof value === 'number' || typeof value === 'string') error.details[field] = value;
+    }
+    throw error;
   }
 
   const data = await res.json();

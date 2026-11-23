@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback, Fragment, useMemo } from 'rea
 import { useSearchParams } from 'next/navigation';
 import u from "@/styles/uix-utils.module.css";
 interface DailyReport {
+  id?:number;
   [key: string]: unknown;
   date?: unknown;
   house?: unknown;
@@ -74,6 +75,14 @@ const mkRow = (id: number, shift: string) => ({
   gradeQty: {} as Record<string, string>,
 });
 export default function DailyPage() {
+  const {user={}}=usePermission('MENU_FARM_DAILY');
+  return <DailyEntry key={String(user.userId??user.id??user.username??'')}/>;
+}
+function DailyEntry(){
+  const lifecycle=usePermission('MENU_FARM_DATA'),lifecycleCreate=usePermission('MENU_FLOCK_CREATE');
+  const canCorrect=lifecycle.canView&&lifecycleCreate.canCreate;
+  const writing=useRef(false),selection=useRef(0);
+  const [posting,setPosting]=useState(false);
   const API_BASE = process.env.NEXT_PUBLIC_API_BASE || '';
   const toast = useToast();
   const {
@@ -161,14 +170,33 @@ export default function DailyPage() {
   // 鸡舍来源档案：东鹏 VARIANT 舍（红/粉壳）在录入区明示品种，孟赛 STANDARD 走普通分级。
   const { profile: sourceProfile, loading: sourceProfileLoading } = useEggSourceProfile(selectedHouse, formDate);
   const varietyShort = varietyShortLabel(sourceProfile);
-  const [formalContext,setFormalContext]=useState<{house:string;state:string;firstProductionDate:string|null}|null>(null);
-  const officialReport=formalContext?.house===selectedHouse&&formalContext.state==='ACTIVE'
-    &&formDate>=(formalContext.firstProductionDate??'');
-  useEffect(()=>{let alive=true;if(!sourceProfile)return;
-    request<{state:string;firstProductionDate:string|null}>(`/v2/inventory/production-inbound-documents/context?${new URLSearchParams({companyCode:sourceProfile.companyCode,houseCode:selectedHouse})}`)
-      .then(c=>{if(alive)setFormalContext({house:selectedHouse,...c});}).catch(()=>{if(alive)setFormalContext(null);});
-    return()=>{alive=false;};
-  },[sourceProfile,selectedHouse]);
+  const [formalContext,setFormalContext]=useState<{context:typeof occupancyContext;state:string;firstProductionDate:string|null}|null>(null);
+  const [revision,setRevision]=useState(0);
+  const sourceCompany=sourceProfile?.companyCode;
+  useEffect(()=>{
+    const controller=new AbortController(),options={signal:controller.signal,silent:true};
+    if(!selectedHouse||sourceProfileLoading)return;
+    async function read(){
+      let companyCode=sourceCompany;
+      if(!companyCode){
+        type Owner={houseCode:string;companyCode:string};
+        const houses=await request<Owner[]|{data:Owner[]}>('/lookup/houses',options);
+        companyCode=(Array.isArray(houses)?houses:houses.data)?.find(h=>h.houseCode===selectedHouse)?.companyCode;
+      }
+      if(!companyCode)throw Error();
+      const data=await request<{state:string;firstProductionDate:string|null}>(`/v2/inventory/production-inbound-documents/context?${new URLSearchParams({companyCode,houseCode:selectedHouse})}`,options);
+      if(!controller.signal.aborted)setFormalContext({context:occupancyContext,...data});
+    }
+    read().catch(()=>{if(!controller.signal.aborted)setFormalContext({context:occupancyContext,state:'UNKNOWN',firstProductionDate:null});});
+    return()=>controller.abort();
+  },[sourceCompany,sourceProfileLoading,occupancyContext,selectedHouse,revision]);
+  const context=formalContext?.context===occupancyContext?formalContext:null;
+  const archived=!!context?.firstProductionDate&&formDate<context.firstProductionDate;
+  const officialReport=context?.state==='ACTIVE'&&!archived;
+  const allowReport=!archived&&(officialReport||context?.state==='OFF');
+  const reasonKey=archived?'productionJobs.archived':context?.state==='SUSPENDED'?'productionInstallments.suspended':context?.state==='FENCED'?'productionJobs.fenced':'productionJobs.unverified';
+  const lifecycleHref=(kind:string,id?:number,house=selectedHouse,date=formDate)=>`/breeding/flock-lifecycle?${new URLSearchParams({kind,houseCode:house,date,...(id?{dailyLogId:String(id)}:{})})}`;
+  function resetEntry(){selection.current++;setRows([mkRow(1,'DAILY')]);setDeviceHint(null);setGenResult(null);setSubmitted(false);}
 
   const historyRequest = useRef(0);
   const loadData = useCallback(async () => {
@@ -186,7 +214,7 @@ export default function DailyPage() {
       if (h.house_no) houseNameMap[h.house_no as string] = h.house_name as string || h.house_no as string;
     });
     setReports(((data || []) as Record<string, unknown>[]).map((d: Record<string, unknown>) => ({
-      date: d.log_date,
+      id:Number(d.id),date: d.log_date,
       house: d.house_code || d.flock_no || t('ui.未知', '未知'),
       houseName: houseNameMap[d.house_code as string] || houseNameMap[d.flock_no as string] || d.house_code || t('ui.未知', '未知'),
       eggs: d.eggs_produced || 0,
@@ -252,12 +280,14 @@ export default function DailyPage() {
   },[occupancyContext,API_BASE]);
   useEffect(() => {
     if (!selectedHouse) return;
+    const turn=selection.current;
     const token = typeof window !== 'undefined' ? sessionStorage.getItem('phoenix_token') : '';
     fetch(`${API_BASE}/api/v3/iot/devices/${selectedHouse}/overview`, {
       headers: token ? {
         Authorization: `Bearer ${token}`
       } : {}
     }).then(r => r.ok ? r.json() : null).then(res => {
+      if(turn!==selection.current)return;
       const snap = res?.data?.sensors;
       if (!Array.isArray(snap) || !snap.length) {
         setDeviceHint(null);
@@ -292,6 +322,8 @@ export default function DailyPage() {
       toast.error(t('ui.请先选择鸡舍后再提交', '请先选择鸡舍后再提交'));
       return;
     }
+    if(writing.current)return;
+    if(!allowReport){toast.error(t(reasonKey));return;}
     if(managedHouse===null){toast.error('占栏来源尚未核实，请刷新后再提交');return;}
     // Read the visible controls at the submit boundary, even before a pending render commits.
     const row = { ...rows[0],
@@ -328,6 +360,7 @@ export default function DailyPage() {
       operator: user.realNameZh || user.username || t('ui.未知操作人', '未知操作人'), eggs_by_grade: eggsByGrade,
     };
     if(managedHouse)for(const k of ['mortality_qty','elimination_qty','mortality_reason','culling_reason'])delete payload[k];
+    writing.current=true;setPosting(true);
     try {
       const res = await fetch(`${API_BASE}/api/v3/farm/daily-logs`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify(payload) });
       if (!res.ok) { const result = await res.json().catch(() => ({ message: res.statusText })); throw new Error(result?.message || result?.msg || `HTTP ${res.status}`); }
@@ -335,7 +368,7 @@ export default function DailyPage() {
       setSubmitted(true); setTimeout(() => setSubmitted(false), 3000);
     } catch (error: unknown) {
       toast.error(`${t('ui.日报提交失败：', '日报提交失败：')}${error instanceof Error ? error.message : t('ui.未知错误', '未知错误')}`);
-    }
+    }finally{writing.current=false;setPosting(false);}
   };
   const handleApprove = () => {
     setApproved(true);
@@ -353,6 +386,7 @@ export default function DailyPage() {
       return;
     }
     setShowGenModal(false);
+    const turn=selection.current;
     setGenerating(true);
     setGenResult(null);
     try {
@@ -370,6 +404,7 @@ export default function DailyPage() {
         })
       });
       const d = await res.json();
+      if(turn!==selection.current)return;
       if (d.ok) {
         setGenResult(d);
         loadData();
@@ -416,7 +451,7 @@ export default function DailyPage() {
       }}>
                 <Cpu size={15} />{generating ? t('ui.生成中...', '生成中...') : t('ui.⚡ 设备数据一键填入', '⚡ 设备数据一键填入')}
               </button>}
-            {canEdit && <button type="button" style={primaryActionButton} onClick={handleSubmit}>
+            {canEdit && <button type="button" style={primaryActionButton} disabled={posting||!allowReport} onClick={handleSubmit}>
                 <Save size={15} />{t('ui.提交日报', '提交日报')}
               </button>}
           </div>} />
@@ -461,7 +496,8 @@ export default function DailyPage() {
           {genResult.avgHum != null && ` · ${t('ui.湿度', '湿度')}: ${Number(genResult.avgHum).toFixed(1)}%`}
         </div>}
 
-      {managedHouse&&<p role="status">已接续事件账：死淘请使用生命周期单据；{confirmedDaily?'本日报已确认，修改须独立审核。':'首次提交即确认实际日报。'} <a href="/breeding/flock-lifecycle">办理业务或历史日报更正</a></p>}
+      {managedHouse&&<p role="status">已接续事件账：死淘请使用生命周期单据；{confirmedDaily?'本日报已确认，修改须独立审核。':'首次提交即确认实际日报。'} {canCorrect&&<a href={lifecycleHref('MORTALITY')}>{t('productionJobs.recordLoss')}</a>}</p>}
+      {selectedHouse&&!allowReport&&<p role="status">{t(context?reasonKey:'common.loading')} <button onClick={()=>setRevision(n=>n+1)}>{t('common.refresh')}</button></p>}
       {/* 表单头部 */}
       <div ref={formRef} className={`${s.card} ${u.mb16}`}>
         <div className={s.cardBody} style={{
@@ -472,7 +508,7 @@ export default function DailyPage() {
       }}>
           <div>
             <label className={s.lbl}>{t('common.date', '日期')}</label>
-            <input type="date" value={formDate} onChange={e => setFormDate(e.target.value)} className={s.inp} style={{
+            <input type="date" value={formDate} disabled={posting} onChange={e => {resetEntry();setFormDate(e.target.value);}} className={s.inp} style={{
             width: 160
           }} />
           </div>
@@ -481,7 +517,7 @@ export default function DailyPage() {
         }}>
             <label className={s.lbl}>{t('ui.鸡舍', '鸡舍')} <span style={{ color: 'var(--status-danger)' }}>*</span></label>
             {/* G4-E：从 brd_houses 主数据加载，仅 ACTIVE */}
-            <HouseSelector value={selectedHouse} onChange={setSelectedHouse} placeholder={t('ui.请选择鸡舍', '请选择鸡舍')} />
+            <HouseSelector value={selectedHouse} disabled={posting} onChange={value=>{resetEntry();setSelectedHouse(value);}} placeholder={t('ui.请选择鸡舍', '请选择鸡舍')} />
           </div>
           {/* 鸡舍来源档案横幅：东鹏红/粉壳 · 孟赛普通分级 · 无档案警示（整行） */}
           <SourceProfileBanner profile={sourceProfile} loading={sourceProfileLoading} houseCode={selectedHouse} style={{ flex: '1 1 100%' }} />
@@ -663,7 +699,7 @@ export default function DailyPage() {
         {/* G14：底部大型保存按钮（PageHeader 顶部按钮另保留） */}
         {canEdit && (
           <div style={{ display: 'flex', justifyContent: 'center', padding: '16px 0', borderTop: '1px solid var(--border)' }}>
-            <button type="button" onClick={handleSubmit} style={{ ...primaryActionButton, minWidth: 240, padding: '12px 32px', fontSize: 15, fontWeight: 700, justifyContent: 'center' }}>
+            <button type="button" disabled={posting||!allowReport} onClick={handleSubmit} style={{ ...primaryActionButton, minWidth: 240, padding: '12px 32px', fontSize: 15, fontWeight: 700, justifyContent: 'center' }}>
               <Save size={18} /> {t('ui.提交日报', '提交日报')}
             </button>
           </div>
@@ -712,7 +748,7 @@ export default function DailyPage() {
           </thead>
           <tbody>
             {visibleReports.map((r, i) => <tr key={i}>
-                <td>{String(r.date ?? '—')}</td>
+                <td>{String(r.date ?? '—')}{r.id&&canCorrect&&<p><a href={lifecycleHref('REPORT_CORRECTION',r.id,String(r.house),String(r.date).slice(0,10))}>#{r.id} · {t('productionJobs.correctReport')}</a></p>}</td>
                 <td>{String(r.houseName ?? r.house ?? '—')}</td>
                 <td className={u.fw600}>{Number(r.eggs ?? 0).toLocaleString()}</td>
                 <td><DailyGradeDetails value={r.eggsByGrade} grades={productGrades} /></td>
