@@ -194,9 +194,9 @@ export async function superviseModernSchemaRelease(env,input){
  const handoff=preparation.successorDecisions?readHeldHandoff(store,dispatch.targetSha):null;
  let retainedNative=null;
  if(Boolean(handoff)!==Boolean(preparation.handoffSha256))fail('HELD_PREPARATION_CHANGED');
+ if(preparation.successorDecisions)checkHeldWindow(handoff,context.window);
  if(handoff){
   if(canonicalDigest(handoff.entry)!==preparation.handoffSha256)fail('HELD_PREPARATION_CHANGED');
-  checkHeldWindow(handoff,context.window);
   retainedNative=await checkHeldNative({handoff,store,runtime,admit:async()=>{runtime.guard();return true;}});
  }
  const sessionDirectory=runtime.createDirectory(context.owner,'session');

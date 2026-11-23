@@ -7,7 +7,7 @@ import {ModernSchemaIngress} from './production-modern-schema-ingress.mjs';
 import {ingressIdentity} from './maintenance-ingress-policy.mjs';
 import {executionEnv} from './capture-production-runtime.mjs';
 import {CONTRACT,git} from './production-config-guard.mjs';
-import {successorIncidentDeadline} from './production-modern-schema-successor.mjs';
+import {ordinarySuccessorWindowMs,successorIncidentDeadline} from './production-modern-schema-successor.mjs';
 
 export const sealedHandoffRevision='ccfed8be2eaabb52f9da9770424ebb34bd0a8964';
 const extensionFiles=new Set([
@@ -56,7 +56,9 @@ export function readHeldHandoff(store,target,review=isReviewedContinuation){
 }
 const deadline=handoff=>handoff.extended?successorIncidentDeadline:cutoff;
 export function checkHeldWindow(handoff,window){
- if(handoff)check(Number.isFinite(Date.parse(window.end))&&Date.parse(window.end)<=deadline(handoff),'CUMULATIVE_CUTOFF');
+ const end=Date.parse(window.end);
+ if(handoff)check(Number.isFinite(end)&&end<=deadline(handoff),'CUMULATIVE_CUTOFF');
+ else check(!(end>cutoff&&end-Date.parse(window.start)>ordinarySuccessorWindowMs),'SEALED_HANDOFF_REQUIRED_FOR_EXTENSION');
 }
 export function guardHeldContinuation(handoff,directory){
  check(Date.now()<deadline(handoff),'CUMULATIVE_CUTOFF');

@@ -23,6 +23,8 @@ test('exact held marker and incident deadline apply even to a two-minute release
  checkHeldWindow({}, {end:new Date(cutoff).toISOString()});
  const extended='2026-11-23T21:07:52Z';
  checkHeldWindow({extended:true},{end:extended});
+ assert.throws(()=>checkHeldWindow(null,{start:'2026-11-23T17:00:00Z',end:extended}),/SEALED_HANDOFF_REQUIRED_FOR_EXTENSION/);
+ checkHeldWindow(null,{start:'2026-11-23T19:00:00Z',end:extended});
  assert.throws(()=>checkHeldWindow({extended:true},{end:'2026-11-23T21:07:53Z'}),/CUMULATIVE_CUTOFF/);
  assert.throws(()=>checkHeldWindow({extended:false},{end:extended}),/CUMULATIVE_CUTOFF/);
  assert.throws(()=>checkHeldWindow({}, {end:new Date(cutoff+1000).toISOString()}),/CUMULATIVE_CUTOFF/);

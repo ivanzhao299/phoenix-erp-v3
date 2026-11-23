@@ -84,8 +84,8 @@ export async function prepareModernSchemaRelease(env,dependencies={}){
  const initial=captureSnapshot({phase:'PRE_SNAPSHOT',runId:dispatch.owner,runAttempt:dispatch.owner.split('-')[1],targetSha:dispatch.targetSha,floorSha:dispatch.targetSha,deployMode:'api'});
  const handoff=action?readHeldHandoff(store,dispatch.targetSha):null;
  const verifyHandoff=async()=>{
+  if(action?.kind==='approve')checkHeldWindow(handoff,action.window);
   if(!handoff)return;
-  if(action.kind==='approve')checkHeldWindow(handoff,action.window);
   await checkHeldNative({handoff,store,runtime,admit:async()=>{guard();return true;}});
  };
  await verifyHandoff();

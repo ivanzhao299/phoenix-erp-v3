@@ -29,7 +29,7 @@ export function successorPlan(value) {
 // timeout), then room for the normal smoke and receipt checks.
 export const successorWebReserveMs=180_000;
 export const successorTransportCeilingMs = 360 * 60_000;
-const ordinarySuccessorWindowMs = 180 * 60_000;
+export const ordinarySuccessorWindowMs = 180 * 60_000;
 // The incident extension starts at the original grant, including time already spent fenced.
 const incidentStart = Date.parse('2026-11-23T09:07:52Z');
 const originalIncidentDeadline = incidentStart + successorTransportCeilingMs;
