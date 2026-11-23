@@ -3,21 +3,32 @@ import { test } from './support/browser-test';
 import { authenticateMockPage } from './support/auth';
 
 type DailyPayload = Record<string, unknown> & { eggs_by_grade: Record<string, number> };
+const contextPath = '/api/v2/inventory/production-inbound-documents/context';
 const codes = ['GRADE_0', 'GRADE_1', 'GRADE_2', 'GRADE_3', 'GRADE_4', 'GRADE_5', 'DIRTY', 'CRACKED', 'BROKEN', 'DAMAGED'];
 
-// The old two-shift/partial-save flow no longer exists. One day is one atomic report.
+// An OFF house saves one atomic daily report.
 test.beforeEach(async ({ page }) => {
   await authenticateMockPage(page, {
     username: 'daily-atomic-fixture', role: 'ROLE_FARM_MGR', roles: ['ROLE_FARM_MGR'],
     permissions: ['MENU_FARM_DAILY:V,C,E'], store_code: 'FIXTURE-COMPANY',
   });
   await page.route('**/api/**', async route => {
-    const path = new URL(route.request().url()).pathname;
+    const { pathname: path, searchParams } = new URL(route.request().url());
     if (route.request().method() !== 'GET') throw new Error(`Unexpected mutation: ${path}`);
     let json: unknown = [];
     if (path === '/api/crud/brd_houses') json = [{ house_code: 'FIXTURE-H1', house_name: '测试鸡舍', farm_code: 'FIXTURE-COMPANY' }];
     if (path === '/api/crud/brd_flocks') json = [{ flock_no: 'FIXTURE-F1', house_code: 'FIXTURE-H1', current_qty: 1000 }];
-    if (path === '/api/lookup/houses') json = [{ houseCode: 'FIXTURE-H1', houseName: '测试鸡舍', companyCode: 'FIXTURE-COMPANY' }];
+    if (path === '/api/lookup/houses') json = { code: 200, data: [{
+      houseCode: 'FIXTURE-H1', houseName: '测试鸡舍', companyCode: 'FIXTURE-COMPANY', ownershipResolved: true,
+    }] };
+    if (path === '/api/lookup/egg-source-profile') json = { code: 200, data: null };
+    if (path === contextPath) {
+      expect(Object.fromEntries(searchParams)).toEqual({ companyCode: 'FIXTURE-COMPANY', houseCode: 'FIXTURE-H1' });
+      json = { state: 'OFF', firstProductionDate: null };
+    }
+    if (path === '/api/v3/farm/daily-hen-report') {
+      json = { code: 200, rows: [{ house_code: 'FIXTURE-H1', occupancy_id: null, has_daily_log: false, current_qty: 1000 }] };
+    }
     if (path === '/api/lookup/product-grades') json = codes.map((grade_code, sort_order) => ({ grade_code, grade_name: grade_code, sort_order, status: 'ACTIVE' }));
     await route.fulfill({ json });
   });
@@ -37,7 +48,8 @@ for (const status of [201, 400]) {
     });
     await page.goto('/breeding/daily');
     await expect(page.locator('input[type=number][aria-label]')).toHaveCount(codes.length);
-    await page.locator('input[type=date]').first().fill('2026-10-16');
+    const businessDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Singapore' }).format(new Date());
+    await page.locator('input[type=date]').first().fill(businessDate);
     await page.getByRole('spinbutton', { name: 'GRADE_0 · 数量(枚)', exact: true }).fill('11');
     await page.getByRole('spinbutton', { name: 'GRADE_1 · 数量(枚)', exact: true }).fill('22');
     await page.getByRole('spinbutton', { name: 'GRADE_2 · 数量(枚)', exact: true }).fill('0');
@@ -45,7 +57,8 @@ for (const status of [201, 400]) {
     if (status === 201) {
       await expect(page.getByText('日报已成功提交！', { exact: false })).toBeVisible();
       for (const input of await page.locator('input[type=number][aria-label]').all()) await expect(input).toHaveValue('');
-      await expect(page).toHaveURL(/historyHouse=FIXTURE-H1.*historyDate=2026-10-16/);
+      await expect(page).toHaveURL(url =>
+        url.searchParams.get('historyHouse') === 'FIXTURE-H1' && url.searchParams.get('historyDate') === businessDate);
     } else {
       await expect(page.getByText('日报提交失败：fixture atomic report rejected', { exact: false })).toBeVisible();
       await expect(page.getByRole('spinbutton', { name: 'GRADE_0 · 数量(枚)', exact: true })).toHaveValue('11');
@@ -53,7 +66,7 @@ for (const status of [201, 400]) {
       await expect(page.getByText('日报已成功提交！', { exact: false })).toHaveCount(0);
     }
     expect(payloads).toHaveLength(1);
-    expect(payloads[0]).toMatchObject({ house_code: 'FIXTURE-H1', flock_no: 'FIXTURE-F1', farm_code: 'FIXTURE-COMPANY', log_date: '2026-10-16', eggs_by_grade: { GRADE_0: 11, GRADE_1: 22 } });
+    expect(payloads[0]).toMatchObject({ house_code: 'FIXTURE-H1', flock_no: 'FIXTURE-F1', farm_code: 'FIXTURE-COMPANY', log_date: businessDate, eggs_by_grade: { GRADE_0: 11, GRADE_1: 22 } });
     expect(payloads[0]).not.toHaveProperty('shift');
     expect(payloads[0]).not.toHaveProperty('eggs_produced');
     expect(mutations).toEqual(['/api/v3/farm/daily-logs']);
@@ -61,6 +74,31 @@ for (const status of [201, 400]) {
     await expect(page.getByRole('dialog')).toHaveCount(0);
   });
 }
+
+test('an unverified range cannot send a daily report', async ({ page }) => {
+  const writes: string[] = [];
+  await page.route('**/api/**', async route => {
+    const { pathname } = new URL(route.request().url());
+    if (route.request().method() !== 'GET') {
+      writes.push(pathname);
+      return route.fulfill({ status: 500 });
+    }
+    if (pathname === contextPath) {
+      return route.fulfill({ status: 403, json: { message: '无权查看该鸡舍的正式日报范围' } });
+    }
+    return route.fallback();
+  });
+  await page.goto('/breeding/daily');
+  await page.getByRole('spinbutton', { name: 'GRADE_1 · 数量(枚)', exact: true }).fill('22');
+  await expect(page.getByText('范围尚未核实，请刷新。', { exact: false })).toBeVisible();
+  const submit = page.getByRole('button', { name: '提交日报', exact: true });
+  await expect(submit).toHaveCount(2);
+  for (const button of await submit.all()) {
+    await expect(button).toBeDisabled();
+    await button.evaluate(element => (element as HTMLButtonElement).click());
+  }
+  expect(writes).toEqual([]);
+});
 
 test('rejected atomic report retries the complete unchanged day only after explicit submit', async ({ page }) => {
   const payloads: DailyPayload[] = [];
@@ -194,6 +232,7 @@ test('immediate mortality submit reads the visible controls and rejects negative
   await expect(deaths).toBeVisible();
   // A native control can change before React commits its corresponding state.
   // Keep the control changes and click in one browser task: no artificial settle delay.
+  await expect(page.getByRole('button', { name: '提交日报', exact: true }).first()).toBeEnabled();
   const submitVisible = async (mortality: string, elimination: string) => {
     await page.evaluate(({ mortality, elimination }) => {
       const field = (label: string) => Array.from(document.querySelectorAll('span'))
