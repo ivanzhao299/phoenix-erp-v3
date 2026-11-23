@@ -332,7 +332,15 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
   it('resolves temporary inbound availability for the scoped operator and enforces the cutover on both days', async () => {
     const stock = '/api/v2/inventory';
     const maker = request(app.getHttpServer());
-    const get = (path: string) => maker.get(stock + path).auth(token(1), { type: 'bearer' });
+    const get = (path: string) => maker.get(stock + path).auth(token(8), { type: 'bearer' });
+    await maker.get(stock+'/production-inbound/availability?houseCode=HOUSE-A').expect(401);
+    const missingScope = jest.spyOn(scopes, 'resolve').mockResolvedValue(undefined as never);
+    try {
+      await get('/production-inbound/availability?houseCode=HOUSE-A').expect(403);
+      await get('/production-inbound/locations?houseCode=HOUSE-A&warehouseCode=WH-A').expect(403);
+    } finally {
+      missingScope.mockRestore();
+    }
     await get('/source/mode').expect(403);
     await get('/production-inbound/availability').expect(400);
     await get('/production-inbound/availability?houseCode=HOUSE-B').expect(403);
@@ -347,7 +355,7 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
       state:'ACTIVE',firstProductionDate:'2026-11-17',
     });
     for (const eggDate of ['2026-11-16','2026-11-17']) {
-      await maker.post(stock+'/production-inbound').auth(token(1),{type:'bearer'}).send({
+      await maker.post(stock+'/production-inbound').auth(token(8),{type:'bearer'}).send({
         eggDate,houseCode:'HOUSE-A',companyCode:'COMP-A',siteCode:'SITE-A',warehouseCode:'WH-A',locationCode:'LOC-A',
         items:[{grade:'GRADE_1',qty:1}],
       }).expect(409);
@@ -367,6 +375,15 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
       companyCode:'COMP-A',siteCode:'SITE-A',houseCode:'HOUSE-A2',mode:'TEMP_PRODUCTION_INBOUND',
       state:'OFF',firstProductionDate:null,
     });
+    await db.query(`INSERT INTO sys_user VALUES(22,'global_inbound',1,'ROLE_ADMIN');
+      INSERT INTO fixture_permissions VALUES('ROLE_ADMIN','MENU_PROD_INBOUND:V');`);
+    try {
+      const global = await maker.get(stock+'/production-inbound/availability?houseCode=HOUSE-B')
+        .auth(token(22), {type:'bearer'}).expect(200);
+      expect(global.body).toMatchObject({companyCode:'COMP-B',houseCode:'HOUSE-B',state:'OFF'});
+    } finally {
+      await db.query("DELETE FROM fixture_permissions WHERE role_code='ROLE_ADMIN'; DELETE FROM sys_user WHERE user_id=22");
+    }
     expect(await db.query('SELECT batch_no FROM inv_batches')).toEqual([]);
   });
   it('preserves exact decimal opening prices through real HTTP and rejects implicit, rounded or overflowing money',async()=>{

@@ -194,6 +194,11 @@ export class ProductionInboundService {
   }
 
   private temporaryHouseContext(houseCode: string) {
+    const scope = this.cls.get('dataScope') as DataScopeContext | undefined;
+    if (!scope || typeof scope.isGlobal !== 'boolean' ||
+        (!scope.isGlobal && (!Array.isArray(scope.allowedCompanyCodes) || !Array.isArray(scope.allowedWarehouseCodes)))) {
+      throw new ForbiddenException('缺少有效数据范围');
+    }
     if (typeof houseCode !== 'string' || !houseCode.trim() || houseCode !== houseCode.trim() || houseCode.length > 100) {
       throw new BadRequestException('鸡舍编码无效');
     }
