@@ -10,6 +10,7 @@ async function check() {
   assert.match(process.env.FIXTURE_CONTAINER, /^[0-9a-f]{64}$/);
   const local = createRequire(path.join(process.argv[2], 'package.json'));
   const { AppDataSource: db } = local('./dist/database/data-source.js');
+  const { TraceabilityService } = local('./dist/modules/traceability/traceability.service.js');
   const registry = local('./dist/common/guards/menu-registry.service.js');
   const { ProductionInboundDocumentsService } = local('./dist/modules/sales-v2/services/production-inbound-documents.service.js');
   db.setOptions({installExtensions:false});
@@ -34,6 +35,17 @@ async function check() {
       FROM inv_batches WHERE batch_no IN ('ASSURANCE-GRADE_4','ASSURANCE-GRADE_5')
       GROUP BY grade_code_std ORDER BY grade_code_std`);
     assert.deepEqual(gradeTotals, [{grade:'GRADE_4',qty:30},{grade:'GRADE_5',qty:30}]);
+    const trace = new TraceabilityService(db);
+    for (const {grade,qty} of gradeTotals) {
+      const batch = 'ASSURANCE-'+grade;
+      const historical = await trace.traceByBatch(batch,['FIXTURE-C']);
+      assert.equal(historical.found,true);
+      assert.equal(historical.production.provenanceStatus,'UNVERIFIED_LEGACY');
+      assert.equal(historical.inventory.grade,grade);
+      assert.equal(Number(historical.inventory.qty),qty);
+      assert.deepEqual(historical.inventory.ledger.map(row=>[row.ref_no,Number(row.qty_change)]),[[batch,qty]]);
+      assert.equal((await trace.traceByBatch(batch,['OTHER-C'])).found,false);
+    }
     const [stock] = await db.query(`SELECT
       (SELECT count(*)::int FROM production_cutover_scopes WHERE state<>'DRAFT') AS scopes,
       (SELECT count(*)::int FROM production_inbound_allocations) AS allocations,
@@ -44,7 +56,7 @@ async function check() {
     const [history] = await db.query(`SELECT
       (SELECT jsonb_agg(to_jsonb(b) ORDER BY batch_no)::text FROM inv_batches b WHERE batch_no IN ('ASSURANCE-GRADE_4','ASSURANCE-GRADE_5')) AS batches,
       (SELECT jsonb_agg(to_jsonb(l) ORDER BY batch_no,id)::text FROM inv_ledger l WHERE batch_no IN ('ASSURANCE-GRADE_4','ASSURANCE-GRADE_5')) AS movements`);
-    console.log(JSON.stringify({gradeTotals, stock, historySha256:createHash('sha256').update(JSON.stringify(history)).digest('hex')}));
+    console.log(JSON.stringify({gradeTotals, stock, traceableLegacyBatches:gradeTotals.length, historySha256:createHash('sha256').update(JSON.stringify(history)).digest('hex')}));
   } finally {
     await db.destroy();
   }

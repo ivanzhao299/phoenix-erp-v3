@@ -144,7 +144,8 @@ exec docker exec -i "$FIXTURE_CONTAINER" psql -X -U postgres -d "$DB_NAME" "${ar
             # No future-object grants, ownership transfer or privileged executor membership.
             sql(database, """GRANT SELECT ON sys_menu, production_inbound_documents,
                 production_cutover_scopes, production_inbound_allocations, production_batch_qualifications,
-                inv_batches, inv_ledger TO release_api;""")
+                inv_batches, inv_ledger, inv_flock_source_links, brd_flock_occupancies,
+                lbl_records, sal_order_items, sal_sales_orders, sal_store_sale_items, sal_store_sales TO release_api;""")
 
         def ledger(database):
             return sql(database, "SELECT id || '|' || timestamp || '|' || name FROM migrations ORDER BY id;").splitlines()
