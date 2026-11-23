@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {drainedOwner,drainedProjections,drainedTarget,exactDrainedPending} from './production-remediation-drained-hold.mjs';
-import {checkHeldWindow,isReviewedDrainedContinuation} from './production-remediation-fence-transfer.mjs';
+import {checkHeldWindow,isReviewedDrainedContinuation,isReviewedNetworkContinuation} from './production-remediation-fence-transfer.mjs';
 import {runModernOriginalRecoveryWorkflow} from './production-modern-schema-operator-workflow.mjs';
 import {createHash} from 'node:crypto';
 
@@ -57,4 +57,15 @@ test('drained operations and their receipt never stand for an unrelated run or t
  assert.throws(()=>read({APPROVE_HELD_TAKEOVER:'true'}),/EXACT_OPERATOR_RECOVERY_ACTION/);
  assert.throws(()=>read({REHEARSE_HELD_TAKEOVER:'true',OPERATOR_HELD_INSPECTION:'100-1'}),/EXACT_OPERATOR_RECOVERY_ACTION/);
  assert.throws(()=>read({REHEARSE_HELD_TAKEOVER:'true'},true),/BOUND_DRAINED_RECEIPT/);
+});
+
+
+test('the network-only continuation preserves the exact original settlement execution SHA',()=>{
+ const settled='01bd5141428e76602ec15cd8e46d7baa159a7570',target='a'.repeat(40);
+ const scope='scripts/ops/production-modern-schema-rehearsal.mjs\nscripts/ops/production-modern-schema-preparation.mjs';
+ const read=(parent,paths)=>args=>args[0]==='show'?parent:paths;
+ assert.equal(isReviewedNetworkContinuation(settled,target,read(settled,scope)),true);
+ assert.equal(isReviewedNetworkContinuation(drainedTarget,target,read(settled,scope)),false);
+ assert.equal(isReviewedNetworkContinuation(settled,target,read(drainedTarget,scope)),false);
+ assert.equal(isReviewedNetworkContinuation(settled,target,read(settled,scope+'\napps/api/src/main.ts')),false);
 });

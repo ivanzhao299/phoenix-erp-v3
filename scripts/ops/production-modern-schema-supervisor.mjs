@@ -462,6 +462,7 @@ export async function superviseModernSchemaRelease(env,input){
   if(fencedBackup.receipt.sourceLedgerSha256!==context.beforeLedgerSha256)fail('FENCED_BACKUP_LEDGER_CHANGED');
   enter('FENCED_REHEARSAL');
   const rehearsal=await rehearseModernSchemaRelease({owner:context.owner,stage:'fenced',backup:fencedBackup,plan:preparation.plan,runtimeImageId:pre.containers.api.image,privateRuntime:runtime},{
+   explicitRehearsalNetwork:handoff?.explicitRehearsalNetwork===true,
    assertFenced:async()=>{await native();await ingress.observe();},assertRecoveryWindow:ms=>windowBudget('recoverOriginal',ms),
    duringFencedFacts:read=>watch.observeFencedFacts('FRESH_RECHECKED',read),
    onCreated:record=>watch.registerResource(record),withNativeCreate:work=>watch.withNativeCreate(work),

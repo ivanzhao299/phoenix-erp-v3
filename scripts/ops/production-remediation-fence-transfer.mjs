@@ -23,6 +23,25 @@ const extensionFiles=new Set([
  'scripts/ops/production-remediation-held-resources.mjs',
 ]);
 const drainedSource='3e2ea4ea4de5ccbc102f1e17ae4dbc48c0cfb8e2';
+const settledSource='01bd5141428e76602ec15cd8e46d7baa159a7570';
+const networkFiles=new Set([
+ 'docs/ops/production-remediation-1123-controlled-release.md',
+ 'scripts/ops/production-modern-schema-preparation.mjs',
+ 'scripts/ops/production-modern-schema-rehearsal.mjs',
+ 'scripts/ops/production-modern-schema-rehearsal.test.mjs',
+ 'scripts/ops/production-modern-schema-supervisor.mjs',
+ 'scripts/ops/production-remediation-fence-transfer.mjs',
+ 'scripts/ops/production-remediation-drained-hold.test.mjs',
+ 'scripts/ops/production-modern-schema-rehearsal-reader.docker.test.mjs',
+]);
+export function isReviewedNetworkContinuation(source,target,read=args=>git(CONTRACT.repository,args,{timeoutMs:5000})){
+ if(source!==settledSource||!/^[a-f0-9]{40}$/.test(target)||source===target)return false;
+ const parents=read(['show','-s','--format=%P',target]).split(' ');
+ if(![1,2].includes(parents.length)||parents[0]!==source)return false;
+ const files=read(['diff','--name-only','--no-renames',source,target,'--']).split('\n');
+ return files.includes('scripts/ops/production-modern-schema-rehearsal.mjs')&&files.every(file=>networkFiles.has(file));
+}
+
 const drainedFiles=new Set([...extensionFiles,
  'scripts/ops/modern-schema-stage-files.txt',
  'scripts/ops/production-modern-schema-operator-ssh.sh',
@@ -58,12 +77,14 @@ export function readHeldHandoff(store,target,review=isReviewedContinuation,revie
  if(!store.exists(key))return null;
  const entry=store.read(key),archive=store.read('schema-release-operator-archive-'+entry.recoveryOwner+'.json');
  const archivedDrain='schema-release-1123-drained-archive-45228188093-1.json';
- let settlement;
+ let settlement,explicitRehearsalNetwork=false;
  if(target!==entry.executionSha&&target!==drainedSource&&store.exists(archivedDrain)){
-  check(reviewDrained(target)&&review(entry.executionSha,drainedSource),'EXACT_DRAINED_SUCCESSOR');
   settlement=store.read(archivedDrain);
+  const archivedExecution=settlement.executionSha;
+  explicitRehearsalNetwork=archivedExecution!==target&&isReviewedNetworkContinuation(archivedExecution,target);
+  check((archivedExecution===target||explicitRehearsalNetwork)&&reviewDrained(archivedExecution)&&review(entry.executionSha,drainedSource),'EXACT_DRAINED_SUCCESSOR');
   const drainIntent=store.read('schema-release-1123-drained-intent-45228188093-1.json');
-  check(settlement.schema==='phoenix.1123-drained-settled/v1'&&settlement.executionSha===target&&
+  check(settlement.schema==='phoenix.1123-drained-settled/v1'&&drainIntent.executionSha===archivedExecution&&
    settlement.pending.owner==='45228188093-1'&&settlement.pending.targetSha===drainedSource&&settlement.pending.sequence===1&&settlement.pending.phase==='DRAINED'&&
    settlement.pending.status==='HOLD'&&settlement.pending.stateDigest==='c8f45239386e8f6f19de8937a55054047238d8a22910e24e1329b62d6bcc614f'&&
    settlement.proof.pendingSha256===canonicalDigest(settlement.pending)&&settlement.proof.oldIngressSha256===entry.ingressIdentitySha256&&
@@ -89,7 +110,7 @@ export function readHeldHandoff(store,target,review=isReviewedContinuation,revie
  const manifest=settlement?.expected.manifest??opened.manifest;
  if(settlement)check(manifest.generation===115&&manifest.phase==='OPEN'&&manifest.targetSha===opened.manifest.targetSha&&
   manifest.owner===opened.manifest.owner&&same(manifest.participants,opened.manifest.participants),'DRAINED_SUCCESSOR_MANIFEST');
- return {entry,original,extended,settlement,manifest,handoffSha256:canonicalDigest(settlement?{entry,settlement}:entry)};
+ return {entry,original,extended,settlement,explicitRehearsalNetwork,manifest,handoffSha256:canonicalDigest(settlement?{entry,settlement}:entry)};
 }
 const deadline=handoff=>handoff.settlement?drainedFreshGrantEnd:handoff.extended?successorIncidentDeadline:cutoff;
 export function checkHeldWindow(handoff,window){

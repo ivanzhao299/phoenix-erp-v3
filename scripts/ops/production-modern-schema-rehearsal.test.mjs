@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {compareRestoredModernSchemaTables,rehearseModernSchemaRelease,modernSchemaRuntimeStatements} from './production-modern-schema-rehearsal.mjs';
+import {compareRestoredModernSchemaTables,rehearseModernSchemaRelease,modernSchemaRuntimeStatements,selectRehearsalSubnet,readDockerRehearsalPrefixes} from './production-modern-schema-rehearsal.mjs';
 import {classifySql} from '../ci/api-bootstrap-mutations.mjs';
 test('another connection cannot use the observer application name or a rolled-back SELECT INTO to hide a write attempt',()=>{
  const prefix=pid=>`bootstrap-db=owned_clone user=postgres app=phoenix-modern-schema-read pid=${pid} LOG:  statement: `;
@@ -27,4 +27,21 @@ test('an exhausted recovery budget stops fenced rehearsal before any Docker oper
   plan:{targetSha:'a'.repeat(40),runtimeSha:'b'.repeat(40),candidateImageId,beforeLedgerSha256},runtimeImageId:'sha256:'+'b'.repeat(64),
   privateRuntime:{createDirectory:()=>'/unused',run(){assert.fail('Must not create any resource');}}},
  {assertFenced:async()=>{},assertRecoveryWindow(){throw Error('OUTSIDE_RECOVERY_BUDGET');}}),/OUTSIDE_RECOVERY_BUDGET/);
+});
+
+
+test('an explicit internal /28 avoids Docker pools, host route blocks and assigned host addresses',()=>{
+ assert.equal(selectRehearsalSubnet(['default','172.31.48.0/20'],['172.17.0.0/16','fd00::/64']),'10.254.113.0/28');
+ assert.equal(selectRehearsalSubnet(['default','10.254.113.7','10.254.113.32/28'],['10.254.113.16/28','172.17.0.0/16']),'10.254.113.48/28');
+ assert.throws(()=>selectRehearsalSubnet(['default','10.254.112.0/23'],['172.17.0.0/16']),/ADDRESS_RESERVE_EXHAUSTED/);
+ assert.throws(()=>selectRehearsalSubnet(['default','127.0.0.0/8'],[]),/COMPLETE_NETWORK_INVENTORY/);
+ assert.throws(()=>selectRehearsalSubnet(['default',null],['172.17.0.0/16']),/COMPLETE_NETWORK_INVENTORY/);
+});
+
+
+test('a missing IPv4 pool on any addressable Docker network makes selection fail closed',()=>{
+ const bridge={Driver:'bridge',EnableIPv4:true,IPAM:{Config:[{Subnet:'172.17.0.0/16'}]}};
+ assert.deepEqual(readDockerRehearsalPrefixes([bridge,{Driver:'host',IPAM:{}},{Driver:'null'}]),['172.17.0.0/16']);
+ assert.throws(()=>readDockerRehearsalPrefixes([bridge,{Driver:'bridge',EnableIPv4:true}]),/COMPLETE_NETWORK_INVENTORY/);
+ assert.throws(()=>readDockerRehearsalPrefixes([bridge,{Driver:'bridge',EnableIPv4:true,IPAM:{Config:[{Subnet:'fd00::/64'}]}}]),/COMPLETE_NETWORK_INVENTORY/);
 });

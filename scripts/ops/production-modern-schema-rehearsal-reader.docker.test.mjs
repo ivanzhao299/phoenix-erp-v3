@@ -6,6 +6,7 @@ import test from 'node:test';
 import {canonicalDigest} from './production-maintenance-receipts.mjs';
 import {ModernSchemaExecutorWatch} from './production-modern-schema-watch.mjs';
 import {ModernSchemaReadClient} from './production-modern-schema-read-client.mjs';
+import {readRehearsalSubnet} from './production-modern-schema-rehearsal.mjs';
 import {pinModernSchemaChild} from './production-modern-schema-processes.mjs';
 
 test('a real isolated PostgreSQL reader survives native host census and leaves no production backend admission', {
@@ -25,9 +26,12 @@ test('a real isolated PostgreSQL reader survives native host census and leaves n
     if(volume)run(['volume','rm',volume]);
     if(network)run(['network','rm',network]);
   });
-  const subnet=process.env.MODERN_SCHEMA_FENCED_READER_SUBNET;
-  const addressPool=subnet?['--subnet',subnet]:[];
-  network=run(['network','create','--internal',...labels,...addressPool,'--label','phoenix.schema.role=rehearsal-network',prefix]);
+  const subnet=process.env.MODERN_SCHEMA_FENCED_READER_SUBNET??readRehearsalSubnet();
+  network=run(['network','create','--internal',...labels,'--subnet',subnet,'--label','phoenix.schema.role=rehearsal-network',prefix]);
+  const [pinned]=JSON.parse(run(['network','inspect',network]));
+  assert.equal(pinned.Internal,true);
+  assert.equal(pinned.IPAM.Config[0].Subnet,subnet);
+  if(!process.env.MODERN_SCHEMA_FENCED_READER_SUBNET)assert.notEqual(readRehearsalSubnet(),subnet);
   volume=run(['volume','create',...labels,'--label','phoenix.schema.role=rehearsal-data']);
   const image=run(['image','inspect','postgres:16-alpine','--format','{{.Id}}']);
   cid=run(['create','--pull=never','--name',prefix,...labels,'--label','phoenix.schema.role=rehearsal-database',

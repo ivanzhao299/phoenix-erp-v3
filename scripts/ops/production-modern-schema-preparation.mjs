@@ -127,7 +127,7 @@ export async function prepareModernSchemaRelease(env,dependencies={}){
   const executors=classifyModernSchemaDatabaseExecutors(JSON.parse(observation),{runtimeAddress:surface.runtimeAddress});
   stage('BACKUP');const backup=await createModernSchemaBackup({owner:dispatch.owner,stage:'prepare',client,databasePin:initial.containers.db,privateRuntime:runtime});
   if(backup.receipt.sourceLedgerSha256!==plan.beforeLedgerSha256)fail('LEDGER_CHANGED_BEFORE_BACKUP');
-  stage('REHEARSAL');const rehearsal=await rehearseModernSchemaRelease({owner:dispatch.owner,stage:'prepare',backup,plan,runtimeImageId:runtimePins.api.imageId,privateRuntime:runtime});
+  stage('REHEARSAL');const rehearsal=await rehearseModernSchemaRelease({owner:dispatch.owner,stage:'prepare',backup,plan,runtimeImageId:runtimePins.api.imageId,privateRuntime:runtime},{explicitRehearsalNetwork:handoff?.explicitRehearsalNetwork===true});
   ownedResources.push(...rehearsal.resources);
   // No comparison of all live business facts against earlier preparation:
   // ordinary orders may legitimately continue while R remains OPEN.
