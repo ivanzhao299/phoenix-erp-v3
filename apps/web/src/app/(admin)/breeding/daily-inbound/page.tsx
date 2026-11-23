@@ -159,10 +159,10 @@ function DailyInboundForm() {
   const filledRows = productGrades.filter(g => Number(qtyMap[g.grade_code]) > 0).length;
   const invalidatePrefill=()=>{prefillGeneration.current++;setPrefilling(false);};
   const clearSelection=()=>{
-    invalidatePrefill();setQtyMap({});setResult(null);setError("");setCheckedScope(null);
+    invalidatePrefill();setLocationCode('');setQtyMap({});setResult(null);setError("");setCheckedScope(null);
   };
   const reloadAvailability=()=>{
-    invalidatePrefill();setError("");setScopeRevision(revision=>revision+1);
+    invalidatePrefill();setLocationCode('');setError("");setScopeRevision(revision=>revision+1);
   };
   const submit = async () => {
     if(submitting.current||!eligible||!canCreate)return;
@@ -327,9 +327,10 @@ function DailyInboundForm() {
               <label style={{ display: "block", fontSize: 12, color: "var(--text-secondary)", marginBottom: 6 }}>
                 {t('breeding.inboundLocation', '入库库位（ACTIVE）')}
               </label>
-              <LocationSelector value={locationCode} warehouseCode={eligible?warehouseCode:undefined}
+              <LocationSelector key={JSON.stringify([rangeKey, warehouseCode])} value={locationCode} warehouseCode={eligible?warehouseCode:undefined}
                 lookupEndpoint={`/v2/inventory/production-inbound/locations?${new URLSearchParams({houseCode,warehouseCode})}`}
-                disabled={saving||!eligible||!warehouseCode} onChange={setLocationCode} />
+                disabled={saving||!eligible||!warehouseCode} onChange={value => { if (!value) setLocationCode(''); }}
+                onPick={option => setLocationCode(option?.value ?? '')} />
             </div>
             <button onClick={reloadAvailability} disabled={saving||!houseCode} className="bg-bg-muted border border-border text-text-muted" style={{
           display: "flex",

@@ -218,3 +218,23 @@ for (const bad of ['failed', 'company', 'site', 'house'] as const) {
     await expect(page.getByRole('button', { name: '从日报预填', exact: true })).toBeDisabled();
   });
 }
+
+for (const change of ['refresh', 'date'] as const) {
+  test(`temporary inbound clears a selected location when ${change} loses warehouse access`, async ({ page }) => {
+    await prepareInbound(page);
+    const submit = page.getByRole('button', { name: confirmation, exact: true });
+    const writes: string[] = [];
+    page.on('request', req => { if (req.method() === 'POST') writes.push(req.url()); });
+    await page.route('**/api/v2/inventory/production-inbound/locations?**', route =>
+      route.fulfill({ status: 403, json: { message: 'Warehouse scope withdrawn' } }));
+    const denied = page.waitForResponse(response =>
+      new URL(response.url()).pathname.endsWith('/production-inbound/locations') && response.status() === 403);
+    if (change === 'refresh') await page.getByRole('button', { name: '刷新模式' }).click();
+    else await page.locator('input[type=date]').fill('2026-10-17');
+    await expect(submit).toBeDisabled();
+    await denied;
+    await expect(inputFor(page)).toBeEnabled();
+    await expect(submit).toBeDisabled();
+    expect(writes).toEqual([]);
+  });
+}

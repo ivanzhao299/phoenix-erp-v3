@@ -206,9 +206,9 @@ export class ProductionInboundService {
   }
 
   async temporaryAvailability(houseCode: string) {
-    const { companyCode, siteCode } = await this.temporaryHouseContext(houseCode);
+    const { companyCode, siteCode, farmCode } = await this.temporaryHouseContext(houseCode);
     const [mode, scopes] = await Promise.all([
-      this.modeSvc.resolveMode({ siteCode, companyCode }, undefined, { failClosed: true }),
+      this.modeSvc.resolveMode({ siteCode: farmCode ?? siteCode, companyCode }, undefined, { failClosed: true }),
       this.ds.query(`SELECT state,first_production_date::text AS "firstProductionDate"
         FROM production_cutover_scopes
         WHERE company_code=$1 AND house_code=$2 AND state<>'DRAFT'`, [companyCode, houseCode]),
@@ -348,14 +348,6 @@ export class ProductionInboundService {
     const context = await this.resolveMasterContext(dto);
     const { companyCode, farmCode, siteCode, warehouseCode, locationCode } = context;
 
-    // 互斥校验：仅 TEMP_PRODUCTION_INBOUND 模式允许
-    const mode = await this.modeSvc.resolveMode({ siteCode, companyCode }, undefined, { failClosed: true });
-    if (mode !== 'TEMP_PRODUCTION_INBOUND') {
-      throw new ForbiddenException(
-        '已启用包装入库模式（PACKAGING_INBOUND），不允许直接生成库存。请通过「包装作业中心」完成入库。',
-      );
-    }
-
     const collectionRef = dto.houseCode ? `HOUSE-${dto.houseCode}` : (siteCode ? `SITE-${siteCode}` : null);
     const batches: Array<{ batchNo: string; grade: string; qty: number; productCode: string; varietyCode: string | null; status: GradeStockStatus }> = [];
 
@@ -379,6 +371,11 @@ export class ProductionInboundService {
         }
       }
       await mgr.query('SELECT pg_advisory_xact_lock(hashtext($1))', [dailyScopeLock]);
+      // Mode SITE keys use the farm identity shared with the packaging shift.
+      const mode = await this.modeSvc.resolveMode({ siteCode: farmCode ?? siteCode, companyCode }, mgr, { failClosed: true });
+      if (mode !== 'TEMP_PRODUCTION_INBOUND') {
+        throw new ForbiddenException('已启用包装入库模式（PACKAGING_INBOUND），不允许直接生成库存。请通过「包装作业中心」完成入库。');
+      }
       let existing = await mgr.query(
         `SELECT batch_no, quality_grade, qty, product_code, sku_code, spec_code, variety_code, status,
                 egg_date::text AS egg_date, collection_batch_ref, warehouse_code, location_code
@@ -506,6 +503,6 @@ export class ProductionInboundService {
     this.logger.log(
       `[ProdInbound] 临时生产入库 company=${companyCode} date=${dto.eggDate} 批次=${batches.length} 入库=${totalInbound}`,
     );
-    return { mode, companyCode, siteCode, warehouseCode, locationCode, eggDate: dto.eggDate, batches, totalInbound, idempotent };
+    return { mode: 'TEMP_PRODUCTION_INBOUND', companyCode, siteCode, warehouseCode, locationCode, eggDate: dto.eggDate, batches, totalInbound, idempotent };
   }
 }

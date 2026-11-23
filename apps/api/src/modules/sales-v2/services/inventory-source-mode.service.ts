@@ -41,6 +41,9 @@ export class InventorySourceModeService {
     options?: { failClosed: boolean },
   ): Promise<InventorySourceMode> {
     try {
+      // A new SITE override can supersede an existing COMPANY or GROUP row.
+      // Hold the configuration stable until the strict posting transaction commits.
+      if (mgr && options?.failClosed) await mgr.query('LOCK TABLE inv_source_mode IN SHARE MODE');
       const rows = await (mgr ?? this.ds).query(
         `SELECT scope_level, scope_code, mode FROM inv_source_mode
           WHERE (scope_level = 'SITE'    AND scope_code = $1)

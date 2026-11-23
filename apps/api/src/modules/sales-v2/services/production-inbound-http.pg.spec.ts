@@ -346,6 +346,7 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
     await get('/production-inbound/availability?houseCode=HOUSE-B').expect(403);
     await get('/production-inbound/locations?houseCode=HOUSE-B&warehouseCode=WH-B').expect(403);
     await get('/production-inbound/locations?houseCode=HOUSE-A&warehouseCode=WH-B').expect(400);
+    await maker.get(stock+'/production-inbound/locations?houseCode=HOUSE-A&warehouseCode=WH-A').auth(token(7),{type:'bearer'}).expect(403);
     const locations = await get('/production-inbound/locations?houseCode=HOUSE-A&warehouseCode=WH-A').expect(200);
     expect(locations.body).toEqual(expect.arrayContaining([expect.objectContaining({
       location_code:'LOC-A',warehouse_code:'WH-A',status:'ACTIVE',
@@ -360,16 +361,16 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
         items:[{grade:'GRADE_1',qty:1}],
       }).expect(409);
     }
-    await db.query("INSERT INTO inv_source_mode VALUES('SITE','SITE-A','PACKAGING_INBOUND')");
+    await db.query("INSERT INTO inv_source_mode VALUES('SITE','FARM-A','PACKAGING_INBOUND')");
     try {
       await get('/production-inbound/availability?houseCode=HOUSE-A2').expect(200, {
         companyCode:'COMP-A',siteCode:'SITE-A',houseCode:'HOUSE-A2',mode:'PACKAGING_INBOUND',
         state:'OFF',firstProductionDate:null,
       });
-      await db.query("UPDATE inv_source_mode SET mode='invalid' WHERE scope_level='SITE' AND scope_code='SITE-A'");
+      await db.query("UPDATE inv_source_mode SET mode='invalid' WHERE scope_level='SITE' AND scope_code='FARM-A'");
       await get('/production-inbound/availability?houseCode=HOUSE-A2').expect(400);
     } finally {
-      await db.query("DELETE FROM inv_source_mode WHERE scope_level='SITE' AND scope_code='SITE-A'");
+      await db.query("DELETE FROM inv_source_mode WHERE scope_level='SITE' AND scope_code='FARM-A'");
     }
     await get('/production-inbound/availability?houseCode=HOUSE-A2').expect(200, {
       companyCode:'COMP-A',siteCode:'SITE-A',houseCode:'HOUSE-A2',mode:'TEMP_PRODUCTION_INBOUND',
@@ -385,6 +386,36 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
       await db.query("DELETE FROM fixture_permissions WHERE role_code='ROLE_ADMIN'; DELETE FROM sys_user WHERE user_id=22");
     }
     expect(await db.query('SELECT batch_no FROM inv_batches')).toEqual([]);
+  });
+  it('rechecks a concurrent farm mode override before committing temporary stock', async () => {
+    const switcher = db.createQueryRunner();
+    await switcher.connect();
+    await switcher.startTransaction();
+    let posting: Promise<request.Response> | undefined;
+    try {
+      await switcher.query("INSERT INTO inv_source_mode VALUES('SITE','FARM-A','PACKAGING_INBOUND')");
+      posting = request(app.getHttpServer()).post('/api/v2/inventory/production-inbound')
+        .auth(token(8), { type:'bearer' }).send({
+          eggDate: day, houseCode:'HOUSE-A2', warehouseCode:'WH-A', locationCode:'LOC-A',
+          items:[{grade:'GRADE_1',qty:1}],
+        }).then(response => response);
+      let waiting = false;
+      for (let attempt = 0; attempt < 100 && !waiting; attempt++) {
+        const [observed] = await db.query(`SELECT EXISTS(SELECT 1 FROM pg_locks
+          WHERE relation='inv_source_mode'::regclass AND mode='ShareLock' AND NOT granted) AS waiting`);
+        waiting = observed.waiting;
+        if (!waiting) await new Promise(resolve => setTimeout(resolve, 20));
+      }
+      expect(waiting).toBe(true);
+      await switcher.commitTransaction();
+      expect((await posting).status).toBe(403);
+      expect(await db.query('SELECT batch_no FROM inv_batches')).toEqual([]);
+    } finally {
+      if (switcher.isTransactionActive) await switcher.rollbackTransaction();
+      await posting;
+      await switcher.release();
+      await db.query("DELETE FROM inv_source_mode WHERE scope_level='SITE' AND scope_code='FARM-A'");
+    }
   });
   it('preserves exact decimal opening prices through real HTTP and rejects implicit, rounded or overflowing money',async()=>{
     const file=(await cutoverUpload(1).expect(201)).body.fileId;
