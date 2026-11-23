@@ -1,3 +1,4 @@
+import {readHeldHandoff,checkHeldNative,checkHeldWindow} from './production-remediation-fence-transfer.mjs';
 /** Preparation performs readonly primary observations, a protected backup and
  * isolated restores only. It never claims pending, fences ingress or stops R. */
 import fs from 'node:fs';import path from 'node:path';import {createHash} from 'node:crypto';import {execFileSync} from 'node:child_process';
@@ -81,7 +82,16 @@ export async function prepareModernSchemaRelease(env,dependencies={}){
  if(floor.floorSha!==dispatch.floorSha||floor.chanjetPolicy!=='HOLD'||floor.readonlyApproval!==null||active.outcome!=='SUCCESS'||active.floorSha!==dispatch.floorSha
   ||!same(active.active,runtimePins)||runtimePins.api.revision!==runtimePins.web.revision)fail('EXACT_FLOOR_AND_ORIGINAL_PINS_REQUIRED');
  const initial=captureSnapshot({phase:'PRE_SNAPSHOT',runId:dispatch.owner,runAttempt:dispatch.owner.split('-')[1],targetSha:dispatch.targetSha,floorSha:dispatch.targetSha,deployMode:'api'});
- const background=observeModernSchemaOriginalBackground(initial,floor),privateDirectory=runtime.createDirectory(dispatch.owner,'preparation');
+ const handoff=action?readHeldHandoff(store,dispatch.targetSha):null;
+ const verifyHandoff=async()=>{
+  if(!handoff)return;
+  if(action.kind==='approve')checkHeldWindow(handoff,action.window);
+  await checkHeldNative({handoff,store,runtime,admit:async()=>{guard();return true;}});
+ };
+ await verifyHandoff();
+ const background=observeModernSchemaOriginalBackground(initial,floor);
+ if(handoff&&(!same(background.participant.allowedKinds,[])||background.manifest.generation!==handoff.entry.generation))fail('HELD_ORIGINAL_BACKGROUND_CHANGED');
+ const privateDirectory=runtime.createDirectory(dispatch.owner,'preparation');
  // This is the only preparation image pull. All subsequent runs use the
  // verified immutable image ID, never a mutable registry tag.
  await runtime.run({binary:'/usr/bin/docker',args:['pull',dispatch.candidateRef],directory:privateDirectory,stem:'candidate-pull',timeoutMs:600000});
@@ -129,6 +139,7 @@ export async function prepareModernSchemaRelease(env,dependencies={}){
   if(!same(surface,freshSurface))fail('PREPARATION_HOST_SURFACE_MOVED');
   const {rows:[latestExecutors]}=await client.query(MODERN_SCHEMA_EXECUTOR_SQL);classifyModernSchemaDatabaseExecutors(JSON.parse(latestExecutors.observation),{runtimeAddress:surface.runtimeAddress});
   const body=readCommittedModernSchemaDeploymentBody(root,dispatch.targetSha);
+  await verifyHandoff();
   stage('HISTORICAL_AUDIT');const source=await collectConfirmedLegacyScope(client,{targetSha:dispatch.targetSha}),facts=await captureModernSchemaFacts(client),off=defaultOffEvidenceFromFacts(dispatch.targetSha,facts,{stage:'BEFORE_SCHEMA',floor,plan});
   // The formal window begins after the expensive read-only preparation
  // facts. The protected audit and every effect still fall inside it.
@@ -166,7 +177,7 @@ export async function prepareModernSchemaRelease(env,dependencies={}){
   compareStableLegacyAudit({context,reviewed:reviewedAudit,fresh:reviewedAudit,frozenManifest:source.manifest,sampleStartedAt:reviewedAudit.evidence.capturedAt,sampleFinishedAt:reviewedAudit.evidence.capturedAt});
   const content={schema:'phoenix.modern-schema-preparation/v1',context,confirmedScopeInput:source.confirmedScopeInput,manifest:source.manifest,reviewedAudit,
    sourceDirectiveSha256:canonicalDigest(CONFIRMED_MODERN_SCHEMA_DIRECTIVE),oldRuntimeCompatibility:rehearsal.evidence,defaultOffEvidence:off,ingressScope:surface.ingressScope,
-   ...(successor?{successorDecisions:successor,predecessor,apiAccess}:{}),hostSurface:surface,executors,disk,stagedSource,originalSnapshot:initial,originalBackground:background,rootHeadSha,floor,active,plan,ownedResources,
+   ...(successor?{successorDecisions:successor,predecessor,apiAccess}:{}),hostSurface:surface,executors,disk,stagedSource,originalSnapshot:initial,originalBackground:background,...(handoff?{handoffSha256:canonicalDigest(handoff.entry)}:{}),rootHeadSha,floor,active,plan,ownedResources,
    backupReceiptPath:backup.receiptPath,backupReceiptSha256:canonicalDigest(backup.receipt),rehearsalDirectory:rehearsal.directory,
    bodySource:{bodySha256:body.bodySha256,workflowSha256:body.workflowSha256}};
   const record={...content,preparationSha256:canonicalDigest(content)};validateModernSchemaPreparation(record);

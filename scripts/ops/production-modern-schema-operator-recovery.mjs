@@ -2,6 +2,7 @@
  * The failed release and its native observations stay in their original files.
  * Authority to start R or change either fence belongs to the caller. */
 import fs from 'node:fs';
+import {exactHeldAttempt,readInterruptedBoot,guardInterruptedEdge} from './production-remediation-interrupted-boot.mjs';
 import path from 'node:path';
 import {execFileSync} from 'node:child_process';
 import {setTimeout as pause} from 'node:timers/promises';
@@ -128,12 +129,13 @@ function readHistoricalApproval(store,context,{now}){
   return {approvalSha256:canonicalDigest(grant),contextDigest:canonicalDigest(context)};
 }
 
-function bindHistoricalStop({store,owner,recoveryLease,readApproval,validatePreparation}){
+function bindHistoricalStop({store,owner,recoveryLease,readApproval,validatePreparation,heldInspection}){
   const key = suffix => `schema-release-${suffix}-${owner}.json`;
   const preparation = store.read(key('preparation'));
   const stepName = (phase,sequence) => `schema-release-step-${owner}-${sequence}-${phase.toLowerCase().replaceAll('_','-')}.json`;
   const recordedPending=store.read(marker);
   const adopting=isExpiredVerifiedOriginal(recordedPending);
+  if(heldInspection&&!exactHeldAttempt(recordedPending))fail('EXACT_INTERRUPTED_RELEASE_REQUIRED');
   const incident=isWitnessedStopIncident(recordedPending);
   const residual=isResidualStopIntent(recordedPending,store);
   const fresh=recordedPending.phase==='FRESH_RECHECKED';
@@ -150,7 +152,8 @@ function bindHistoricalStop({store,owner,recoveryLease,readApproval,validatePrep
   const checkNoLaterEffects = () => {
     const excluded = ['transaction.json','policy-transition.json','cutover-pending.json',`deploy-${owner}.json`,
       ...['schema-receipt','open-commit-intent','original-recovery-open-commit-intent','ingress-released'].map(key),
-      ...(!adopting?[key('original-recovery-intent')]:[]),
+      ...(!adopting&&!heldInspection?[key('original-recovery-intent')]:[]),
+      ...(heldInspection?[key('original-recovery-verified'),key('operator-fenced-start-verified')]:[]),
       ...MODERN_SCHEMA_PHASES.slice(requiredSteps).map((phase,index)=>stepName(phase,index+requiredSteps))];
     if(excluded.some(file=>store.exists(file)))fail('LATER_EFFECT_OR_INTENT_PRESENT');
     // These create-only directories precede any migration driver or formal API process.
@@ -211,7 +214,7 @@ function bindHistoricalStop({store,owner,recoveryLease,readApproval,validatePrep
       hold.nativeSchema.sha256!==canonicalDigest(catalog)||catalog.schema!=='phoenix.modern-schema-catalog-facts/v1'||
       catalog.owner!==owner||catalog.stage!=='hold-observation'||catalog.readOnly!==true||catalog.releaseAuthorized!==false||
       !same(catalog.databasePin,db)||!isHash(catalog.schemaSha256))fail('ORIGINAL_HOLD_LEDGER_AND_CATALOG_REQUIRED');
-  let beforeCatalog=null, beforeFactsSha256=null, adopted=null, requireHostCensus=residual||adopting;
+  let beforeCatalog=null, beforeFactsSha256=null, adopted=null, interrupted=null, requireHostCensus=residual||adopting;
   if(residual){
     const first=store.read(key('supervisor-first-hold'));
     const failure=first.failure;
@@ -250,7 +253,7 @@ function bindHistoricalStop({store,owner,recoveryLease,readApproval,validatePrep
       ['MODERN_SCHEMA_BACKUP_HOLD=CLEANUP_UNRESOLVED','MODERN_SCHEMA_BACKUP_HOLD=WINDOW'].includes(failure.code)||
       failure?.source==='EXECUTOR_WATCH'&&
         ['MODERN_SCHEMA_EXECUTORS_HOLD=ORIGINAL_CONTROL_CHILD_UNPROVED','MODERN_SCHEMA_WATCH_HOLD=NEW_OR_CHANGED_HOST_EXECUTOR'].includes(failure.code);
-    const allowedFailure=adopting?failure?.source==='SUPERVISOR'&&failure.stage==='FENCED_REHEARSAL'&&
+    const allowedFailure=adopting||heldInspection?failure?.source==='SUPERVISOR'&&failure.stage==='FENCED_REHEARSAL'&&
       failure.code==='MODERN_SCHEMA_SUPERVISOR_HOLD=INSUFFICIENT_WINDOW_TO_RECOVER_ORIGINAL':
       backupHold&&failure.stage==='FENCED_BACKUP';
     if(first.schema!=='phoenix.modern-schema-supervisor-first-hold/v1'||first.owner!==owner||first.contextDigest!==contextDigest||
@@ -264,7 +267,11 @@ function bindHistoricalStop({store,owner,recoveryLease,readApproval,validatePrep
         evidence.auditRecheckSha256!==canonicalDigest(audit.comparison)||evidence.beforeLedgerSha256!==context.beforeLedgerSha256||
         !isHash(evidence.executorsSha256))fail('EXACT_FROZEN_BACKUP_FACTS_REQUIRED');
     beforeFactsSha256=evidence.factsSha256;
-    requireHostCensus=adopting||failure.code==='MODERN_SCHEMA_WATCH_HOLD=NEW_OR_CHANGED_HOST_EXECUTOR';
+    requireHostCensus=Boolean(heldInspection)||adopting||failure.code==='MODERN_SCHEMA_WATCH_HOLD=NEW_OR_CHANGED_HOST_EXECUTOR';
+    if(heldInspection){
+      if(!closed||closed.transportClosed!==true)fail('ORIGINAL_TRANSPORT_EXIT_REQUIRED');
+      interrupted=readInterruptedBoot(store,{pending,preparation,steps,beforeFactsSha256,catalog,policy},heldInspection);
+    }
     if(adopting){
       const intent=store.read(key('original-recovery-intent')),proof=store.read(key('original-recovery-verified'));
       const recoveryCatalogs=['recovery-before','recovery-after'].map(stage=>store.read(key(stage+'-schema')));
@@ -293,7 +300,7 @@ function bindHistoricalStop({store,owner,recoveryLease,readApproval,validatePrep
       adopted={intent,proof,recoveryCatalogs,ownership};
     }
   }
-  return {key,context,contextDigest,binding,pending,preparation,steps,policy,residual,incident,stop,api,web,db,catalog,hold,closed,adopted,
+  return {key,context,contextDigest,binding,pending,preparation,steps,policy,residual,incident,stop,api,web,db,catalog,hold,closed,adopted,interrupted,
     beforeCatalog,beforeFactsSha256,requireHostCensus,checkNoLaterEffects,provesOldAbsent};
 }
 
@@ -318,7 +325,7 @@ function bindFencedStart({started,owner,context,contextDigest,pending,hold,close
  * and sealed dual-lock session. An optional ingress observer returns the
  * current installed inet/bridge identity as a SHA-256 string. */
 export async function createModernSchemaOperatorRecoveryVerifier({
-  owner,recoveryOwner,recoveryLease:inputLease,requireAdmission,observeFences,controlChild,
+  owner,recoveryOwner,recoveryLease:inputLease,requireAdmission,observeFences,controlChild,heldInspection,
 },dependencies={}){
   if(typeof owner!=='string'||typeof recoveryOwner!=='string'||!ownerPattern.test(owner)||!ownerPattern.test(recoveryOwner)||
       owner===recoveryOwner||typeof requireAdmission!=='function'||(observeFences!==undefined&&typeof observeFences!=='function')){
@@ -339,10 +346,10 @@ export async function createModernSchemaOperatorRecoveryVerifier({
     return true;
   };
   await admit();
-  const source = bindHistoricalStop({store,owner,recoveryLease,
+  const source = bindHistoricalStop({store,owner,recoveryLease,heldInspection,
     readApproval:dependencies.readApproval??((context,options)=>readHistoricalApproval(store,context,options)),
     validatePreparation:dependencies.validatePreparation??validateModernSchemaPreparation});
-  const {key,context,contextDigest,binding,pending,preparation,policy,residual,api,web,db,hold,catalog,provesOldAbsent,adopted} = source;
+  const {key,context,contextDigest,binding,pending,preparation,policy,residual,api,web,db,hold,catalog,provesOldAbsent,adopted,interrupted} = source;
   let formalTerm=null,formalTerminalEvents=null;
   if(residual){
     const term=path.join(store.directory,`schema-release-session-${owner}`,'original-r-term');
@@ -366,8 +373,8 @@ export async function createModernSchemaOperatorRecoveryVerifier({
       }
     }
   }
-  for(const original of [catalog,...(source.beforeCatalog?[source.beforeCatalog]:[]),...(adopted?.recoveryCatalogs??[])]){
-    const originalDirectory=adopted?.recoveryCatalogs.includes(original)?'recovery':'session';
+  for(const original of [catalog,...(source.beforeCatalog?[source.beforeCatalog]:[]),...(adopted?.recoveryCatalogs??[]),...(interrupted?[interrupted.catalog]:[])]){
+    const originalDirectory=adopted?.recoveryCatalogs.includes(original)||interrupted?.catalog===original?'recovery':'session';
     const originalCatalogFile = path.join(store.directory,`schema-release-${originalDirectory}-${owner}`,`catalog-${original.stage}.stdout`);
     if(original.raw?.path!==originalCatalogFile||!isHash(original.raw.sha256)||
         !Number.isSafeInteger(original.raw.bytes)||original.raw.bytes<1||original.raw.bytes>16*1024*1024||
@@ -410,6 +417,7 @@ export async function createModernSchemaOperatorRecoveryVerifier({
   const check = async () => {
     await admit();
     source.checkNoLaterEffects();
+    if(interrupted)guardInterruptedEdge(store.directory);
     if(adopted&&(!same(store.read(key('original-recovery-intent')),adopted.intent)||
        !same(store.read(key('original-recovery-verified')),adopted.proof)||
        !same(readVerifiedRecoveryOwnership(store,pending,adopted.proof),adopted.ownership)))fail('VERIFIED_ORIGINAL_RECOVERY_MOVED');
@@ -462,7 +470,7 @@ export async function createModernSchemaOperatorRecoveryVerifier({
       const healthy=residualRunning?'unhealthy':'healthy';
       const expectedStart=residualRunning?api.startedAt:anchor;
       if(current.state.Status!=='running'||current.state.Health?.Status!==healthy||current.state.Pid<2||
-          (adopted&&current.state.StartedAt!==adopted.proof.startedAt)||
+          (adopted&&current.state.StartedAt!==adopted.proof.startedAt)||(interrupted&&current.state.StartedAt!==interrupted.bootAt)||
           (requireOriginalFencedBoot||residualRunning?current.state.StartedAt!==expectedStart:!(startedAt>Date.parse(anchor)))||
           endpoint.NetworkID!==ingressScope.networkId||
           endpoint.IPAddress!==hostSurface.runtimeAddress||endpoint.GlobalIPv6Address!=='')fail('RECOVERED_API_RUNTIME_NOT_READY');
@@ -603,6 +611,22 @@ export async function createModernSchemaOperatorRecoveryVerifier({
   return {
     stoppedPin:structuredClone(stoppedPin),
     manifest:structuredClone(manifest),
+    async verifyInterruptedOriginal(){
+      if(!interrupted||stage!=='READY')fail('EXACT_INTERRUPTED_RELEASE_REQUIRED');
+      return checkpoint('CAPTURING_INTERRUPTED','STARTED_VERIFIED',async()=>{
+        const observed=await collect(true,'recovery-after');
+        if(observed.startedAt!==interrupted.bootAt||!observed.hostProcessesSha256||observed.factsSha256!==source.beforeFactsSha256)
+          fail('INTERRUPTED_RECHECK_CHANGED');
+        const historical=readInterruptedBoot(store,source,heldInspection);
+        if(!same(historical,interrupted))fail('INTERRUPTED_EVIDENCE_CHANGED');
+        return {...observed,participant:{...observed.participant,allowedKinds:[]},originalFencedParticipant:observed.participant,
+          schema:'phoenix.modern-schema-operator-recovery-verified/v1',owner,recoveryOwner,contextDigest,
+          recoveredSha:context.runtimeSha,attemptedTargetSha:context.targetSha,pendingSha256:canonicalDigest(pending),
+          recoveryLeaseSha256:canonicalDigest(recoveryLease),ingressIdentitySha256:installed.identitySha256,
+          inspectionOwner:heldInspection,inspectionSha256:interrupted.inspectionSha256,originalIntentSha256:interrupted.intentSha256,
+          outcome:'ORIGINAL_R_READY_UNDER_BOTH_FENCES',formalTargetSuccess:false,releaseAuthorized:false};
+      });
+    },
     async verifyAdoptedOriginal(){
       if(!adopted||stage!=='READY')fail('EXACT_VERIFIED_ORIGINAL_ADOPTION_REQUIRED');
       return checkpoint('CAPTURING_ADOPTED','STARTED_VERIFIED',async()=>{
@@ -645,7 +669,7 @@ export async function createModernSchemaOperatorRecoveryVerifier({
       });
     },
     async captureStopped(){
-      if(adopted||stage!==(fencedStart?'FENCED_BOOT_VERIFIED':'READY'))fail('SINGLE_STOPPED_CHECKPOINT_REQUIRED');
+      if(adopted||interrupted||stage!==(fencedStart?'FENCED_BOOT_VERIFIED':'READY'))fail('SINGLE_STOPPED_CHECKPOINT_REQUIRED');
       return checkpoint('CAPTURING_STOPPED','STOPPED_VERIFIED',async()=>{
         baseline=await collect(false,'recovery-before');
         return structuredClone(baseline);

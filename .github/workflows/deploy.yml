@@ -987,7 +987,6 @@ jobs:
               fi
             }
 
-            # ── 干净工作树硬门禁:
             if [ -n "$(git status --porcelain --untracked-files=all)" ]; then
               echo "::error::生产服务器工作树不干净,拒绝部署"
               git status --short
@@ -996,6 +995,10 @@ jobs:
 
             git fetch origin main
             test "$(git rev-parse origin/main)" = "$TARGET_SHA"
+            held_handoff="$STATE_DIR/schema-release-1123-handoff-45144287071-1.json"
+            if [ -e "$held_handoff" ] && [ ! -e "$STATE_DIR/schema-release-1123-origin-open.json" ]; then
+              test "$DEPLOY_MODE" = web && test -n "${MODERN_SCHEMA_WEB_SELECTION:-}" || exit 25
+            fi
             git merge-base --is-ancestor "$PREV_GIT_SHA" "$TARGET_SHA"
             if [ -n "${MAINTENANCE_RELEASE_INPUT:-}" ]; then
               LEGACY_STAGE="$STATE_DIR/legacy-stage-${DEPLOY_RUN_ID}"
@@ -1024,16 +1027,23 @@ jobs:
             }
             production_state() { node scripts/ops/production-deployment-state.mjs "$@"; }
             production_promote_floor() { node "$1/promote-production-config-floor.mjs"; }
-            production_api_readiness() { curl -fsSL --max-time 20 http://127.0.0.1:3100/api/readiness -o /dev/null; }
+            production_api_readiness() {
+              if [ -n "${MODERN_SCHEMA_WEB_SELECTION:-}" ] && [ -e "$held_handoff" ]; then
+                check_candidate_web held-readiness
+              else
+                curl -fsSL --max-time 20 http://127.0.0.1:3100/api/readiness -o /dev/null
+              fi
+            }
             perform_deployment() {
             check_candidate_web() {
-              if [ "$BUILD_WEB" = true ] && { [ -e "$STATE_DIR/schema-release-1123-consumed-$TARGET_SHA.json" ] || [ -L "$STATE_DIR/schema-release-1123-consumed-$TARGET_SHA.json" ] || [ -n "${MODERN_SCHEMA_WEB_SELECTION:-}" ]; }; then
+              local marker="$STATE_DIR/schema-release-1123-consumed-$TARGET_SHA.json"
+              if [ "$BUILD_WEB" = true ] && { [ -e "$held_handoff" ] || [ -e "$marker" ] || [ -L "$marker" ] || [ -n "${MODERN_SCHEMA_WEB_SELECTION:-}" ]; }; then
                 node scripts/ops/production-modern-schema-web-successor.mjs "$1"
               fi
             }
             WEB_ADMISSION="$(check_candidate_web admit)"
             if [ "$WEB_ADMISSION" = RECEIPT_ONLY ]; then
-              echo "Candidate Web receipt verified. Prior successful switch retained."
+              echo "Candidate Web receipt verified."
               return 0
             fi
             PRE_EVIDENCE_FILE="$STATE_DIR/deploy-${DEPLOY_RUN_ID}-pre-evidence.json"
@@ -1276,7 +1286,6 @@ jobs:
             node "$EVIDENCE_HELPER" logs "$POST_EVIDENCE_FILE" "$LOG_EVIDENCE_FILE"
             node "$EVIDENCE_HELPER" verify "$PRE_EVIDENCE_FILE" "$POST_EVIDENCE_FILE" "$LOG_EVIDENCE_FILE"
 
-            # ── 磁盘用量报告
             echo "📦 Docker 镜像占用:"
             IMAGE_REPORT="$(docker images --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}")"
             IMAGE_PREVIEW_COUNT=0
@@ -1286,7 +1295,7 @@ jobs:
             done <<< "$IMAGE_REPORT"
             echo "💾 磁盘总览:"
             df -h /
-            echo "🐳 Docker 总占用(builder cache 保留 5GB/24h 加速冷构建):"
+            echo "Docker 总占用"
             DOCKER_DISK_REPORT="$(docker system df 2>/dev/null || true)"
             printf '%s\n' "$DOCKER_DISK_REPORT"
 
@@ -1295,7 +1304,7 @@ jobs:
             production_state complete
             check_candidate_web seal
             trap - ERR
-            echo "✅ Application evidence complete; background release still requires owner verification"
+            echo "✅ Application evidence complete"
             }
 
             if { [ "$DEPLOY_MODE" = "api" ] && [ "$BUILD_API" = true ] && [ "$BUILD_WEB" = false ] && [ "$RUN_MIG" = false ]; } || \

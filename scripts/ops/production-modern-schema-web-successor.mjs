@@ -1,3 +1,9 @@
+import {ModernSchemaPrivateRuntime} from './production-modern-schema-private.mjs';
+import {ModernSchemaIngress} from './production-modern-schema-ingress.mjs';
+import {checkHeldNative,readHeldHandoff,retireVerifiedIngress} from './production-remediation-fence-transfer.mjs';
+import {assertHeldEdge,heldOwner} from './production-remediation-held-facts.mjs';
+import {guardInterruptedEdge} from './production-remediation-interrupted-boot.mjs';
+import {API_READINESS_PROGRAM} from './production-maintenance-candidate-health.mjs';
 /** The ordinary Web transaction consumes the exact image inspected before the
  * API maintenance. All checks run on the root host under the same deploy FD9. */
 import {execFileSync} from 'node:child_process';
@@ -98,6 +104,53 @@ export function checkSuccessorWeb(phase,env,deps={}){
   verificationSha256:canonicalDigest(intent)});
  return receiptOnly;
 }
+export async function runSuccessorWeb(phase,env){
+ const store=new ModernSchemaRegistry(),target=env.TARGET_SHA,marker='schema-release-1123-handoff-'+heldOwner+'.json';
+ if(!store.exists(marker))return checkSuccessorWeb(phase,env,{store});
+ const witness=store.read(marker);
+ const completed='schema-release-handoff-removed-'+witness.recoveryOwner+'.json';
+ if(store.exists(completed)&&store.exists('schema-release-1123-origin-open.json')&&!env.MODERN_SCHEMA_WEB_SELECTION)return checkSuccessorWeb(phase,env,{store});
+ const handoff=readHeldHandoff(store,target),runtime=new ModernSchemaPrivateRuntime();
+ const consumed=store.read('schema-release-1123-consumed-'+target+'.json'),selection='web1123-'+consumed.owner;
+ if(env.DEPLOY_MODE!=='web'||env.MODERN_SCHEMA_WEB_SELECTION!==selection)fail();
+ const checkedPhase=phase==='held-readiness'?'before':phase;
+ const result=checkSuccessorWeb(checkedPhase,env,{store});
+ const sealedName='schema-release-1123-web-completed-'+target+'.json';
+ if(!store.exists(sealedName)){
+  guardInterruptedEdge(store.directory);
+  await checkHeldNative({handoff,store,runtime,admit:async()=>{store.guard();return true;}});
+  if(phase==='held-readiness'){
+   const current=captureRuntime(),formal=store.read('deploy-'+consumed.owner+'.json');
+   if(current.api.revision!==target||!same(current.api,formal.active.api))fail();
+   const cid=execFileSync('/usr/bin/docker',['inspect','--format','{{.Id}}','phoenix-v3-api'],{env:executionEnv(),encoding:'utf8',timeout:5000}).trim();
+   if(!/^[a-f0-9]{64}$/.test(cid))fail();
+   const live=JSON.parse(execFileSync('/usr/bin/docker',['exec',cid,'/usr/bin/env','-i','PATH=/usr/local/bin:/usr/bin:/bin','/usr/local/bin/node','-e',API_READINESS_PROGRAM],
+    {env:executionEnv(),encoding:'utf8',timeout:10000,stdio:['ignore','pipe','pipe']}));
+   if(live.status!==200||live.ready!==true||live.dbConnected!==true||!same(captureRuntime(),current))fail();
+  }
+  return result;
+ }
+ if(!['admit','seal'].includes(phase))fail();
+ // If formal SUCCESS and the protected seal exist, a fresh invocation can
+ // confirm an uncertain delete without repeating either deployment.
+ const seal=store.read(sealedName);
+ const verify=async()=>{
+  store.guard();assertHeldEdge(store.directory,{forceProbe:true});
+  if(checkSuccessorWeb('admit',env,{store})!==receiptOnly||!same(store.read(sealedName),seal)||
+   !same(store.read(marker),witness)||store.exists('transaction.json')||store.exists('policy-transition.json')||
+   store.exists('schema-release-pending.json')||store.exists('schema-release-revoked-'+consumed.owner+'.json'))fail();
+  if(!store.exists(completed))guardInterruptedEdge(store.directory);
+  return true;
+ };
+ const ingress=new ModernSchemaIngress({context:handoff.original.context,scope:handoff.original.ingressScope,privateRuntime:runtime,admit:verify});
+ const proof=store.read('schema-release-ingress-installed-'+heldOwner+'.json');
+ await ingress.check('COMPLETED_WEB_NATIVE_RETIRE');
+ if(proof.identitySha256!==witness.ingressIdentitySha256)fail();
+ await retireVerifiedIngress({ingress,proof,store,runtime,owner:witness.recoveryOwner,verify,
+  binding:{originalOwner:heldOwner,targetSha:target,webOwner:seal.webOwner,apiOwner:consumed.owner,
+   archiveSha256:witness.archiveSha256,webSealSha256:canonicalDigest(seal)}});
+ return result;
+}
 if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
- try{const result=checkSuccessorWeb(process.argv[2],process.env);if(result)console.log(result);}catch{console.error('MODERN_SCHEMA_WEB_HOLD');process.exitCode=1;}
+ try{const result=await runSuccessorWeb(process.argv[2],process.env);if(result)console.log(result);}catch{console.error('MODERN_SCHEMA_WEB_HOLD');process.exitCode=1;}
 }
