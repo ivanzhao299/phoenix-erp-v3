@@ -277,6 +277,15 @@ describe('GenericCrudService', () => {
       expect(canonical).toEqual(['consistent', 'sparse']);
     });
 
+    it('returns the same effective capacity used at posting while retaining both source values', async () => {
+      const house = { house_code: 'H-1', capacity: 5000, max_capacity: 4000 };
+      const { svc } = buildSvc(jest.fn().mockResolvedValueOnce([house]));
+
+      await expect(svc.findAllBreedingScoped('brd_houses', {}, null)).resolves.toEqual([
+        { ...house, effective_capacity: 4000 },
+      ]);
+    });
+
     it('returns no rows for a non-global user with no breeding dimension', async () => {
       const query = jest.fn().mockResolvedValueOnce([]);
       const { svc } = buildSvc(query);

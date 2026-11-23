@@ -18,6 +18,16 @@ describe('FarmFeedService mobile house ownership', () => {
     };
   }
 
+  it('returns the effective capacity of a house created by the legacy mobile path', async () => {
+    const { service, query } = buildService([
+      [{ house_code: 'H-OLD', house_name: '旧鸡舍', capacity: 5000, max_capacity: null }],
+    ]);
+    await expect(service.getHouses(['LPH-MS'])).resolves.toMatchObject({
+      data: [{ house_code: 'H-OLD', capacity: 5000 }],
+    });
+    expect(query.mock.calls[0][0]).toContain('brd_houses.capacity, brd_houses.max_capacity');
+  });
+
   it('creates a first house from the manager DataScope when legacy singular scope is empty', async () => {
     const { service, query } = buildService([
       [], // no duplicate code
@@ -49,6 +59,8 @@ describe('FarmFeedService mobile house ownership', () => {
       expect.stringContaining('INSERT INTO brd_houses'),
       ['H-NEW', '新鸡舍', 'LPH-MS', '孟赛养殖场', '蛋鸡舍', 12000],
     );
+    expect(query.mock.calls[1][0]).toContain('capacity, max_capacity');
+    expect(query.mock.calls[1][0]).toContain('NULLIF($6,0)');
     expect(query.mock.calls[1][0]).not.toContain('site_code');
     expect(query.mock.calls[1][0]).not.toContain('company_code');
   });

@@ -2,6 +2,7 @@ import {BadRequestException} from '@nestjs/common';
 import {EntityManager} from 'typeorm';
 import {randomUUID} from 'crypto';
 import {birdCount} from '../farm/daily-stock-policy';
+import {resolveHouseCapacity} from '../farm/house-capacity';
 
 export async function writeHenhouse(m:EntityManager,body:Record<string,unknown>,existing?:{pkName:string;id:unknown}){
  const valid=/^[a-zA-Z_][a-zA-Z0-9_]*$/;
@@ -22,7 +23,7 @@ export async function writeHenhouse(m:EntityManager,body:Record<string,unknown>,
   if(capacity!==undefined&&(birdCount(capacity,'设计容量')<1))throw new BadRequestException('设计容量必须为正整数');
   if(body.capacity!==undefined&&body.max_capacity!==undefined&&Number(body.capacity)!==Number(body.max_capacity))throw new BadRequestException('设计容量字段不一致');
   const active=current?await tx.query("SELECT 1 FROM brd_flocks WHERE house_code=$1 AND (status IS DISTINCT FROM 'RETIRED' OR COALESCE(current_qty,0)>0) LIMIT 1",[code]):[];
-  if(active.length&&capacity!==undefined&&Number(capacity)!==Number(current.max_capacity??current.capacity))throw new BadRequestException('在栏期间不能改设施容量，须先核对并关闭占栏');
+  if(active.length&&capacity!==undefined&&Number(capacity)!==resolveHouseCapacity(current))throw new BadRequestException('在栏期间不能改设施容量，须先核对并关闭占栏');
   if(current&&body.status!==undefined&&body.status!=='ACTIVE'){
    if(active.length)throw new BadRequestException('鸡舍仍有在栏或待核对群，不能停用；清舍请用独立验收流程');
    const [tables]=await tx.query("SELECT to_regclass('brd_flock_documents') AS docs,to_regclass('inv_batches') AS stock,to_regclass('mon_house_device_mapping') AS devices,to_regclass('brd_flock_held_balances') AS held");

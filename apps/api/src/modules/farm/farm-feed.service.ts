@@ -2,6 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
 import { OrgOwnershipService } from '../org/services/org-ownership.service';
+import { birdCount } from './daily-stock-policy';
+import { resolveHouseCapacity } from './house-capacity';
 
 // 默认饲料品种（来自实际台账），单位均为公斤
 const DEFAULT_MATERIALS = [
@@ -143,7 +145,7 @@ export class FarmFeedService {
     // G109：返回 house_code + 中文 house_name（手机端显示中文名、以 code 为数据键）。
     //   去掉 DEFAULT_HOUSES 硬编码兜底——无数据即返回空(提示去建鸡舍)，杜绝第三套漂移名。
     const rows = await this.em.query(
-      `SELECT brd_houses.house_code, brd_houses.house_name
+      `SELECT brd_houses.house_code, brd_houses.house_name, brd_houses.capacity, brd_houses.max_capacity
          FROM brd_houses
          LEFT JOIN brd_farms f ON f.farm_code = brd_houses.farm_code AND f.status = 'ACTIVE'
          ${where} ORDER BY brd_houses.house_code`,
@@ -152,7 +154,7 @@ export class FarmFeedService {
     const data = rows.map((r: any) => ({
       house_code:   r.house_code,
       house_name:   r.house_name || r.house_code,
-      capacity:     r.capacity ?? null,
+      capacity:     resolveHouseCapacity(r),
       house_type:   r.house_type ?? null,
       current_birds: r.current_birds ?? null,
     }));
@@ -210,6 +212,7 @@ export class FarmFeedService {
     const code = (body.house_code || '').trim();
     const name = (body.house_name || '').trim();
     if (!code || !name) throw new Error('鸡舍编码和名称必填');
+    const capacity = birdCount(body.capacity ?? 0, '设计容量');
 
     let farmCodes = [...new Set(
       (scope.farmCodes?.length ? scope.farmCodes : (scope.farmCode ? [scope.farmCode] : []))
@@ -253,10 +256,10 @@ export class FarmFeedService {
     await this.em.query(
       `INSERT INTO brd_houses
          (house_code, house_name, farm_code, farm_name,
-          house_type, capacity, current_birds, status, updated_at)
-       VALUES ($1,$2,$3,$4,$5,$6,0,'ACTIVE',NOW())`,
+          house_type, capacity, max_capacity, current_birds, status, updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,NULLIF($6,0),0,'ACTIVE',NOW())`,
       [code, name, farmCode, farmName,
-       body.house_type || '蛋鸡舍', Number(body.capacity) || 0],
+       body.house_type || '蛋鸡舍', capacity],
     );
     return { code: 200, data: { house_code: code, farm_code: farmCode, site_code: siteCode, company_code: companyCode } };
   }

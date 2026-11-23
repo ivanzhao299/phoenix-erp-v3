@@ -1,5 +1,6 @@
 import { officialInventoryPredicate, officialLedgerPredicate, assertOfficialInventoryBatches } from '../wms/official-inventory';
 import { writeHenhouse } from './henhouse-write-policy';
+import { resolveHouseCapacity } from '../farm/house-capacity';
 import { DAILY_EXPORT_SNAPSHOT, DAILY_EXPORT_MAX_ROWS } from './daily-export-policy';
 import { Injectable, BadRequestException, ConflictException, ForbiddenException, InternalServerErrorException, Logger } from '@nestjs/common';
 import { InjectEntityManager } from '@nestjs/typeorm';
@@ -323,6 +324,11 @@ export class GenericCrudService {
       const rows = table === 'brd_flocks'
         ? (await this.entityManager.query(`SELECT row_to_json(flock_rows) AS flock_fact FROM (${sql}) flock_rows`, queryValues)).map((row: { flock_fact: Record<string, unknown> }) => row.flock_fact)
         : await this.entityManager.query(sql, queryValues);
+      if (table === 'brd_houses') {
+        return rows.map((house: { capacity?: number | null; max_capacity?: number | null }) => ({
+          ...house, effective_capacity: resolveHouseCapacity(house),
+        }));
+      }
       return table === 'brd_daily_logs' ? await this.enrichDailyLogRows(rows) : rows;
     } catch (e) {
       this.rejectSchemaMismatch(e, table);
