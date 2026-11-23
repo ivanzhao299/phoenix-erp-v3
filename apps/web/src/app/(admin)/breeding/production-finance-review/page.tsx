@@ -9,6 +9,8 @@ import { previewProtectedAttachment } from '@/lib/attachments';
 import request from '@/lib/api-client';
 import s from '@/components/breeding/ProductionInboundWorkbench.module.css';
 
+const kindLabels={cutover:'financeReview.cutover',reversal:'financeReview.reversal'} as const;
+const lineLabels=['financeReview.reference','financeReview.grade','financeReview.quantity','financeReview.unitCost','financeReview.amount'] as const;
 const endpoint='/v2/inventory/production-finance-review';
 interface Task {id:string;kind:'cutover'|'reversal';document_no:string;state:string;company_code:string;warehouse_code:string;finance_signed:boolean}
 interface Detail extends Task {
@@ -52,12 +54,12 @@ function TaskDetail({task,canEdit,onSigned}:{task:Task;canEdit:boolean;onSigned:
   };
   return <section className={s.card} aria-labelledby="review-id"><h2 id="review-id">{data.document_no}</h2>
     <div className={s.actions}><button disabled={busy} onClick={()=>{setVersion(n=>n+1);setSuccess(false);}}>{t('common.refresh')}</button></div>
-    <p>{t('financeReview.'+task.kind)} · {data.company_code} / {data.warehouse_code} {data.house} · {data.postingDay} · {data.state}</p>
+    <p>{t(kindLabels[task.kind])} · {data.company_code} / {data.warehouse_code} {data.house} · {data.postingDay} · {data.state}</p>
     {data.original&&<p>{t('financeReview.original')} {data.original.number} · {data.original.date} · {data.original.quantity}</p>}
     {data.reason&&<p>{data.reason}</p>}
     {data.physicalTotals.map(p=><p key={p.productCode}>{t('financeReview.physical')} · {p.productCode} · {p.quantity}</p>)}
     {data.periods.map(p=><p key={p.period_month}>{t('financeReview.period')} {p.period_month} · {p.state} {p.version!==null&&'v'+p.version}</p>)}
-    {data.lines.length>0&&<div className={s.scroll}><table className={s.table}><thead><tr>{['reference','grade','quantity','unitCost','amount'].map(k=><th key={k}>{t('financeReview.'+k)}</th>)}</tr></thead><tbody>
+    {data.lines.length>0&&<div className={s.scroll}><table className={s.table}><thead><tr>{lineLabels.map(k=><th key={k}>{t(k)}</th>)}</tr></thead><tbody>
       {data.lines.map((l,i)=><tr key={i}><td>{l.reference}</td><td>{l.grade}</td><td>{l.quantity}</td><td>{l.cost_status==='CONFIRMED'?l.unit_cost:[t('financeReview.unknown'),l.unit_cost].filter(v=>v!==null).join(' · ')}</td><td>{l.amount??'—'}</td></tr>)}
     </tbody></table></div>}
     <details><summary>{t('financeReview.hash')}</summary><p className={s.wide}>{data.contentHash}</p>{data.snapshotHash&&<p className={s.wide}>{data.snapshotHash}</p>}</details>
@@ -84,8 +86,8 @@ export default function ProductionFinanceReview() {
       .then(p=>{if(!gate.signal.aborted){setPage(p);setError('');}}).catch(e=>{if(!gate.signal.aborted)setError(message(e));});return ()=>gate.abort();
   },[history,offset,version,canRead]);
   return <main className={s.page}><PageHeader title={t('menu.production-finance-review')}/>
-    {canRead?<><div className={s.actions}>{[false,true].map(h=><button aria-pressed={h===history} key={String(h)} onClick={()=>{setOffset(0);setHistory(h);setTask(undefined);}}>{t('financeReview.'+(h?'history':'pending'))}</button>)}</div>
-    {error&&<p role="alert">{error}</p>}{page?<><div className={s.actions}>{page.rows.map(row=><button aria-pressed={row.id===task?.id} key={row.id} onClick={()=>setTask(row)}>{t('financeReview.'+row.kind)} · {row.document_no} · {row.company_code} / {row.warehouse_code} · {row.finance_signed?t('financeReview.signed'):row.state}</button>)}</div>
+    {canRead?<><div className={s.actions}>{[false,true].map(h=><button aria-pressed={h===history} key={String(h)} onClick={()=>{setOffset(0);setHistory(h);setTask(undefined);}}>{t(h?'financeReview.history':'financeReview.pending')}</button>)}</div>
+    {error&&<p role="alert">{error}</p>}{page?<><div className={s.actions}>{page.rows.map(row=><button aria-pressed={row.id===task?.id} key={row.id} onClick={()=>setTask(row)}>{t(kindLabels[row.kind])} · {row.document_no} · {row.company_code} / {row.warehouse_code} · {row.finance_signed?t('financeReview.signed'):row.state}</button>)}</div>
     {!page.rows.length&&<p>{t('financeReview.empty')}</p>}<div className={s.actions}>{offset>0&&<button onClick={()=>setOffset(offset-50)}>{t('financeReview.previous')}</button>}{page.hasMore&&<button onClick={()=>setOffset(offset+50)}>{t('financeReview.next')}</button>}</div></>:<p>{t('common.loading')}</p>}
     {task&&<TaskDetail key={task.id} task={task} canEdit={canEdit} onSigned={()=>setVersion(n=>n+1)}/>}</>:<p>{t('productionInstallments.noPermission')}</p>}
   </main>;

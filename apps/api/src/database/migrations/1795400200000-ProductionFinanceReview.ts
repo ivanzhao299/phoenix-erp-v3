@@ -1,6 +1,9 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-/** Schema only. Menu installation is an explicit, separate administration operation. */
+/**
+ * @allow-data-dml: UPDATE, DELETE and TRUNCATE are trigger events only; no historical business rows are written.
+ * Menu installation is an explicit, separate administration operation.
+ */
 export class ProductionFinanceReview1795400200000 implements MigrationInterface {
   async up(q: QueryRunner): Promise<void> {
     await q.query(`CREATE TABLE production_finance_review_files (
