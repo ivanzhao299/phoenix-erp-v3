@@ -207,7 +207,9 @@ export function collectModernSchemaHostSurface(preSnapshot,dependencies={}){
   if(registry?.schema!=='phoenix.maintenance-reviewed-host-ownership/v1'||!/^[a-f0-9]{64}$/.test(registry.evidenceSha256??'')||!Array.isArray(registry.containers)||!Array.isArray(registry.hostProcesses))fail('REVIEWED_HOST_OWNERSHIP_UNAVAILABLE');return registry;
  };
  const holdStore=dependencies.successorStore;
- const held=holdStore?.exists('schema-release-1123-handoff-45144287071-1.json')?readHeldCapsules(holdStore,preSnapshot.targetSha):null;
+ const handoff=dependencies.handoff;
+ if(holdStore?.exists('schema-release-1123-handoff-45144287071-1.json')&&!handoff)fail('HELD_HANDOFF_REQUIRED');
+ const held=handoff?readHeldCapsules(holdStore,handoff):null;
  const all=command('/usr/bin/docker',['ps','-a','--no-trunc','-q']).split('\n').filter(Boolean),known=new Set(Object.values(pre).map(pin=>pin.id)),namespaces=new Set(),inertArtifacts=[],retainedOwners=new Set(),foreignContainerPins=[],historicalCompose=[];
  for(const id of all){const candidate=Object.values(actual).find(value=>value.id===id)??inspectModernSchemaContainer(id,command);
   if(candidate.privileged!==false||candidate.pidMode==='host'||candidate.pidMode?.startsWith('container:')||candidate.networkMode==='host'||candidate.name.toLowerCase().includes('watchtower'))fail('SHARED_OR_UNMANAGED_CONTAINER_EXECUTOR');
@@ -227,10 +229,10 @@ export function collectModernSchemaHostSurface(preSnapshot,dependencies={}){
    inertArtifacts.push({id,identitySha256:canonicalDigest(candidate),classification:'RETAINED_STOPPED_NO_RESTART_SCHEMA_ARTIFACT',revision});continue;
   }
   const formerOwner=candidate.labels?.['phoenix.schema.owner'],priorRole=candidate.labels?.['phoenix.schema.role'];
-  if(held&&oldResourceOwner(formerOwner)&&held.pins.has(id)){
+  if(held&&oldResourceOwner(formerOwner,held.extended)&&held.pins.has(id)){
    inertArtifacts.push(heldCapsulePin(candidate,held));continue;
   }
-  if(held&&oldResourceOwner(formerOwner)&&!(formerOwner==='45144287071-1'&&priorRole==='readonly-inventory'&&
+  if(held&&oldResourceOwner(formerOwner,held.extended)&&!(formerOwner==='45144287071-1'&&priorRole==='readonly-inventory'&&
     ['2934361c8930967bb06cc132f78ee0866e74c9f9b3a4e60bbe5f58349cbfece8','9c518200e4f495df408ac705ac1c692fd3f75914d75e330c765c06047c0fbb7c'].includes(id)))fail('EXTRA_HELD_RELEASE_RESOURCE');
   let prior;
   if(formerOwner==='44917766283-1'&&priorRole!=='readonly-inventory'){

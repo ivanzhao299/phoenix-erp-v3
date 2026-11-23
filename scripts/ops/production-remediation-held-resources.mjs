@@ -5,9 +5,11 @@ import path from 'node:path';
 import {canonicalDigest,same} from './production-maintenance-receipts.mjs';
 import {CONTRACT} from './production-config-guard.mjs';
 import {readPinnedFile} from './production-trusted-paths.mjs';
+import {successorBinding,validateSuccessorInspection} from './production-modern-schema-successor.mjs';
 const owner='45144287071-1',inspectionOwner='45141252692-1';
+const continuationPreviewOwner='45175249756-1';
+const continuationPreviewDigest='8458aab8137fd7d7b6acdd9737accd08ef8f9a5d471dfe46bec65086e6953374';
 const artifact='RETAINED_1123_FENCED_ATTEMPT';
-const archiveName='schema-release-1123-handoff-'+owner+'.json';
 const preparationDigest='9df223b69e845f63f3b517c77ff847d8d65269bd1ab5d207dcae0affbeb61b91';
 const previewDigest='79cff47bcf8818099117378d287d9490ff356236a6712819e04c25691c49f705';
 const networkPrep='666242a0d66c0894f77e70600b54f0960e44e47067ee924ee9ef06e51c5b4b64';
@@ -25,12 +27,12 @@ const checkedFile=file=>{
  const stat=fs.lstatSync(file);check(stat.size>0&&stat.size<=2*1024*1024,'CAPSULE_EVIDENCE_SIZE');
  return readPinnedFile(file,{contract:CONTRACT});
 };
-export function oldResourceOwner(value){return value===owner||value===inspectionOwner;}
+export function oldResourceOwner(value,extended=false){return value===owner||value===inspectionOwner||extended&&value===continuationPreviewOwner;}
 export function isHeldResource(value){return value?.classification===artifact;}
 
-export function readHeldCapsules(store,target,read=checkedFile){
- const anchor=store.read(archiveName),arch=store.read('schema-release-operator-archive-'+anchor.recoveryOwner+'.json');
- check(anchor.owner===owner&&anchor.executionSha===target&&anchor.archiveSha256===canonicalDigest(arch)&&
+export function readHeldCapsules(store,{entry:anchor,extended},read=checkedFile){
+ const arch=store.read('schema-release-operator-archive-'+anchor.recoveryOwner+'.json');
+ check(anchor.owner===owner&&anchor.archiveSha256===canonicalDigest(arch)&&
   arch.pending.stateDigest==='c8415dc078bcfa3546e47f567031adb5495632a76a17ab86a7abab3178d4c9dc'&&arch.schemaChanged===false&&
   arch.formalTargetSuccess===false&&anchor.outerIngressHeld===true&&same(anchor.backgroundGrants,[]),'SOURCE_ARCHIVE');
  const prep=store.read('schema-release-preparation-'+owner+'.json'),{preparationSha256,...content}=prep;
@@ -64,14 +66,26 @@ export function readHeldCapsules(store,target,read=checkedFile){
    result.set(record.containerId,{record,identity:stage==='fenced'?partialIdentity:prepareIdentity.get(record.containerId)});
   }
  }
- check(result.size===12,'EXACT_CAPSULE_SET');
- return {anchor:canonicalDigest(anchor),pins:result};
+ if(extended){
+  const preview=store.read('schema-release-1123-inspect-'+continuationPreviewOwner+'.json');
+  validateSuccessorInspection(preview,successorBinding(preview.binding.floorSha,preview.binding));
+  check(preview.owner===continuationPreviewOwner&&preview.binding.targetSha===anchor.executionSha&&
+   preview.inspectionSha256===continuationPreviewDigest&&preview.resourcePins.length===6&&
+   same(preview.resourcePins.map(pin=>pin.role).sort(),['readonly-inventory','rehearsal-candidate-api','rehearsal-database',
+    'rehearsal-migration-run','rehearsal-migration-show','rehearsal-original-api']),'EXACT_CONTINUATION_PREVIEW');
+  for(const record of preview.resourcePins){
+   check(record.owner===continuationPreviewOwner&&!result.has(record.containerId)&&/^[a-f0-9]{64}$/.test(record.identitySha256),'CONTINUATION_PREVIEW_PIN');
+   result.set(record.containerId,{record,identity:record.identitySha256});
+  }
+ }
+ check(result.size===(extended?18:12),'EXACT_CAPSULE_SET');
+ return {anchor:canonicalDigest(anchor),pins:result,extended};
 }
 
 export function heldCapsulePin(candidate,source){
  const prior=source.pins.get(candidate.id),record=prior?.record;
  const role=candidate.labels?.['phoenix.schema.role'],formerOwner=candidate.labels?.['phoenix.schema.owner'];
- check(prior&&record.containerId===candidate.id&&record.role===role&&record.owner===formerOwner&&oldResourceOwner(formerOwner)&&
+ check(prior&&record.containerId===candidate.id&&record.role===role&&record.owner===formerOwner&&oldResourceOwner(formerOwner,source.extended)&&
   candidate.imageId===record.imageId&&candidate.state.Status==='exited'&&candidate.state.Running===false&&candidate.state.Pid===0&&
   candidate.state.ExitCode===0&&!candidate.state.OOMKilled&&!candidate.state.Restarting&&!candidate.state.Paused&&candidate.restarts===0&&
   !candidate.privileged&&candidate.restartPolicy.Name==='no'&&['','private'].includes(candidate.pidMode)&&
@@ -97,7 +111,9 @@ export function heldCapsulePin(candidate,source){
 export function verifyHeldIsolation(pins,run){
  const db=pins.filter(pin=>isHeldResource(pin)&&pin.role==='rehearsal-database');
  if(!db.length)return;
- check(db.length===3&&new Set(db.map(pin=>pin.networkId)).size===3&&new Set(db.map(pin=>pin.volume)).size===3,'CLONE_ISOLATION_SET');
+ const extra=db.filter(pin=>pin.formerOwner===continuationPreviewOwner).length;
+ check(extra<=1&&db.length===3+extra&&new Set(db.map(pin=>pin.networkId)).size===db.length&&
+  new Set(db.map(pin=>pin.volume)).size===db.length,'CLONE_ISOLATION_SET');
  const networks=JSON.parse(run('/usr/bin/docker',['network','inspect',...db.map(pin=>pin.networkId)]));
  const volumes=JSON.parse(run('/usr/bin/docker',['volume','inspect',...db.map(pin=>pin.volume)]));
  for(const pin of db){
