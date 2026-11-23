@@ -107,3 +107,46 @@ jobs:
           path: |
             ${{ runner.temp }}/production-acceptance
             artifacts/production-inbound-installments-20261118/browser*/receipt.json
+
+  upgrade:
+    name: Previous API and historical receipts on the expanded schema
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Identify releases carrying the three production-management extensions
+        id: scope
+        env:
+          BEFORE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          before="${BEFORE:-HEAD^1}"
+          if git diff --quiet "$before" HEAD -- 'apps/api/src/database/migrations/1795400*.ts'; then
+            echo 'required=false' >> "$GITHUB_OUTPUT"
+          else
+            echo 'required=true' >> "$GITHUB_OUTPUT"
+          fi
+      - uses: pnpm/action-setup@v4
+        if: steps.scope.outputs.required == 'true'
+        with:
+          version: 9
+      - uses: actions/setup-node@v5
+        if: steps.scope.outputs.required == 'true'
+        with:
+          node-version: 20
+          cache: pnpm
+      - if: steps.scope.outputs.required == 'true'
+        run: pnpm install --frozen-lockfile
+      - name: Rehearse the deployed database and a cold installation
+        if: steps.scope.outputs.required == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/test/production-remediation-release-compat.py \
+            6bb88544275dfef591cb96c0078f73e88496433b HEAD | tee "$RUNNER_TEMP/production-upgrade.log"
+      - uses: actions/upload-artifact@v4
+        if: always() && steps.scope.outputs.required == 'true'
+        with:
+          name: production-upgrade-${{ github.sha }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/production-upgrade.log
