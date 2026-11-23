@@ -1,5 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
+/** @allow-data-dml: DDL-only UPDATE/DELETE/TRUNCATE trigger declarations. The migration creates no business, authority or activation records. */
 export class CutoverStateReceipts1795400300000 implements MigrationInterface {
   async up(q:QueryRunner):Promise<void>{
     const [{name}]=await q.query('SELECT current_schema() AS name');
