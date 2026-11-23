@@ -4,7 +4,7 @@ import {CONTRACT} from './production-config-guard.mjs';
 import {readPinnedFile} from './production-trusted-paths.mjs';
 import {executionEnv} from './capture-production-runtime.mjs';
 import {canonicalDigest,same} from './production-maintenance-receipts.mjs';
-import {isFailedModernSchemaPreparation} from './production-modern-schema-public-preparation.mjs';
+import {isFailedModernSchemaPreparation,isModernSchemaPlanFailure} from './production-modern-schema-public-preparation.mjs';
 const HASH=/^[a-f0-9]{64}$/,SHA=/^[a-f0-9]{40}$/;
 const SOURCE='apps/api/src/database/migrations/';
 const unitPath=/^apps\/api\/src\/database\/migrations\/(\d{13})-([A-Za-z][A-Za-z0-9]*)\.ts$/;
@@ -223,7 +223,7 @@ function retainedInventoryPreparation(container,owner,revision,{directory=CONTRA
   ![`.transport-${owner}-run.receipt`,`schema-release-consumed-${owner}.json`,`schema-release-approval-${owner}.json`]
    .every(name=>absent(path.join(directory,name))))hold('RETAINED_FAILED_PREPARATION_REQUIRED');
  if(isFailedModernSchemaPreparation(receipt,{owner,targetSha:revision})){
-  if(!/^(?:PLAN|HOST_SURFACE(?:_[A-Z0-9_]+)?|BACKUP(?:_[A-Z_]+)?|REHEARSAL|HISTORICAL_AUDIT)$/.test(receipt.failure)||
+  if(!(isModernSchemaPlanFailure(receipt.failure)||/^(?:HOST_SURFACE(?:_[A-Z0-9_]+)?|BACKUP(?:_[A-Z_]+)?|REHEARSAL|HISTORICAL_AUDIT)$/.test(receipt.failure))||
    !absent(preparedPath))hold('RETAINED_FAILED_PREPARATION_REQUIRED');
   return {completedAtMs,pin:{classification:RETAINED_INVENTORY_CLASSIFICATION,failedPreparationSha256:canonicalDigest(observed)}};
  }

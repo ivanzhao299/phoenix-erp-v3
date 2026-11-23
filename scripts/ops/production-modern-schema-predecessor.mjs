@@ -17,7 +17,8 @@ const fail=()=>{throw Error('MODERN_SCHEMA_SUCCESSOR_HOLD=PREDECESSOR_RECEIPTS_C
 
 /** Re-read the original native schema and sealed historical CLI-result labels
  * through the same reader that completed its separate forward-API recovery. */
-export function readCompletedModernSchemaPredecessor(store,plan,{readBody=readHeldModernSchemaApiBody,read=filename=>JSON.parse(readPinnedFile(filename,{contract:CONTRACT}))}={}){
+export function readCompletedModernSchemaPredecessor(store,plan,{onStage=()=>{},readBody=readHeldModernSchemaApiBody,read=filename=>JSON.parse(readPinnedFile(filename,{contract:CONTRACT}))}={}){
+ onStage('PLAN_PRIOR_TERMINAL');
  const prior=name=>store.read('schema-release-'+name+'-'+previousOwner+'.json');
  const prepared=prior('preparation'),intent=prior('forward-api-intent'),terminal=prior('forward-api-terminal');
  const deployment=store.read('deploy-'+previousOwner+'.json');
@@ -35,14 +36,17 @@ export function readCompletedModernSchemaPredecessor(store,plan,{readBody=readHe
     terminal.formalDeploymentSha256!==canonicalDigest(deployment)||intent.formalDeploymentSha256!==terminal.formalDeploymentSha256||
     deployment.target!==previousTarget||deployment.outcome!=='SUCCESS'||deployment.deployMode!=='api'||
     intent.afterLedgerSha256!==plan.beforeLedgerSha256||terminal.afterLedgerSha256!==plan.beforeLedgerSha256)fail();
+ onStage('PLAN_PRIOR_BODY');
  const held=readBody({store,context,preparationSha256,prepared,pending:intent.pending});
  if(held.schemaReceiptSha256!==terminal.schemaReceiptSha256||intent.schemaReceiptSha256!==held.schemaReceiptSha256||
     intent.bodyReceiptSha256!==canonicalDigest(held.bodyReceipt)||held.bundle.afterLedgerSha256!==plan.beforeLedgerSha256||
     !same(held.bundle.perMigrationReceipts.map(row=>row.path).sort(),context.changedMigrationPaths))fail();
+ onStage('PLAN_PRIOR_ARTIFACTS');
  const backupStep=store.read('schema-release-step-'+previousOwner+'-6-backup-verified.json').payload.evidence;
  const rehearsal=read(backupStep.rehearsalFile),driver=read(held.bundle.driverReceiptFile);
  if(canonicalDigest(rehearsal)!==backupStep.rehearsalSha256||canonicalDigest(driver)!==held.bundle.driverReceiptSha256)fail();
  const resources=[...prepared.ownedResources,...rehearsal.resources,driver.run,driver.show];
+ onStage('PLAN_PRIOR_AUDIT');
  const afterAudit=read(held.bundle.afterRawAuditFile);
  if(canonicalDigest(afterAudit)!==held.bundle.afterRawAuditSha256)fail();
  return {resources,afterFrozenGroupsSha256:frozenGroupsDigest(afterAudit.originalAudit),owner:previousOwner,targetSha:previousTarget,completionOwner:completedBy,terminalSha256:canonicalDigest(terminal),

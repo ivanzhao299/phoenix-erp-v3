@@ -67,6 +67,24 @@ test('HOST_SURFACE publishes only exact static subclass codes',async()=>{
  }
 });
 
+test('inspect PLAN identifies the rejected operation without forwarding private errors', async () => {
+ for (const [stage,reason,expected] of [
+  ['PLAN_WEB_IMAGE','docker refused a private image path','PLAN_WEB_IMAGE'],
+  ['PLAN_PRIOR_BODY','MODERN_SCHEMA_TERMINAL_HOLD=DEFAULT_OFF_RECEIPT_CHANGED','PLAN_DEFAULT_OFF_RECEIPT_CHANGED'],
+  ['PLAN_RUNTIME_ACCESS','MODERN_SCHEMA_SUCCESSOR_HOLD=ACTUAL_API_LOGIN_PROBE_FAILED','PLAN_ACTUAL_API_LOGIN_PROBE_FAILED'],
+  ['PLAN_DISK','MODERN_SCHEMA_DISK_HOLD=INSUFFICIENT_ROOT_STATE_OR_DOCKER_SPACE','PLAN_INSUFFICIENT_ROOT_STATE_OR_DOCKER_SPACE'],
+  ['PLAN_PRIOR_BODY','MODERN_SCHEMA_TERMINAL_HOLD=DEFAULT_OFF_RECEIPT_CHANGED /private','PLAN_PRIOR_BODY'],
+  ['PLAN_PRIVATE_STAGE','unexpected detail','UNSPECIFIED'],
+ ]) {
+  const {result,exitCode}=await runModernSchemaEntry(['prepare'],env,stream(''),{
+   async prepare(_,{onStage}) { onStage(stage); throw Error(reason,{cause:Error('private')}); },
+  });
+  assert.equal(exitCode,1);
+  assert.equal(result.failure,expected);
+  assert.doesNotMatch(JSON.stringify(result),/private/i);
+ }
+});
+
 test('BACKUP publishes only exact fixed stages and never serializes a private or nested failure',async()=>{
  for(const [message,failure] of [
   ...'SOURCE_GUARD VERSION DISK FACTS LEDGER EXPORT_SNAPSHOT EXECUTION SNAPSHOT_CONTINUITY VERIFICATION CLEANUP_UNRESOLVED'.split(' ')

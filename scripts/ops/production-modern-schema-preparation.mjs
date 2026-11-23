@@ -89,22 +89,27 @@ export async function prepareModernSchemaRelease(env,dependencies={}){
  const client=dependencies.client??new ModernSchemaReadClient();let started=false;
  try{
   if(!dependencies.client){await client.start();started=true;runtime.children.add({...pinModernSchemaChild(client.child),outcome:'ACTIVE_READ_CHANNEL'});}
-  stage('PLAN');const observed=await collectModernSchemaPlan(client,{...dispatch,runtimeSha:runtimePins.api.revision,candidateImageId},{root,guard});
+  stage(action ? 'PLAN_INVENTORY' : 'PLAN');const observed=await collectModernSchemaPlan(client,{...dispatch,runtimeSha:runtimePins.api.revision,candidateImageId},{root,guard});
   const {plan,database,imageProof}=observed;
+  if(action)stage('PLAN_BINDING');
   if(Boolean(action)!==(plan.runtimeSha===successorRuntime))fail('EXACT_DELEGATED_ACTION_REQUIRED');
   const binding=action?successorBinding(dispatch.floorSha,plan):null;
   let webImageId;
   if(action){
+   stage('PLAN_WEB_IMAGE');
    const webRef='ghcr.io/ivanzhao299/phoenix-erp-v3/web:sha-'+dispatch.targetSha;
    await runtime.run({binary:'/usr/bin/docker',args:['pull',webRef],directory:privateDirectory,stem:'candidate-web-pull',timeoutMs:600000});
    const [id,revision]=docker(['image','inspect',webRef,'--format','{{.Id}} {{index .Config.Labels "org.opencontainers.image.revision"}}']).split(' ');
    if(!/^sha256:[a-f0-9]{64}$/.test(id)||revision!==dispatch.targetSha)fail('EXACT_WEB_IMAGE_REQUIRED');
    webImageId=id;
   }
-  const predecessor=action?readCompletedModernSchemaPredecessor(store,plan):null;
+  const predecessor=action?readCompletedModernSchemaPredecessor(store,plan,{onStage:stage}):null;
+  if(action)stage('PLAN_BINDING');
   const successor=action?.kind==='approve'?successorDecisions(store,selection,dispatch.floorSha,plan):null;
+  if(action)stage('PLAN_RUNTIME_ACCESS');
   const apiAccess=action?await readRuntimeAccess(client,background.actual,dispatch.targetSha):null;
   if(!action)assertInitialModernSchemaProfile(dispatch.floorSha,plan);
+  if(action)stage('PLAN_DISK');
   const {rows:[size]}=await client.query('SELECT pg_database_size(current_database())::text AS bytes');
   const disk=observeModernSchemaDiskSpace({databaseBytes:size.bytes});
   stage('HOST_SURFACE');const ownedResources=[imageProof],surface=collectModernSchemaHostSurface(initial,{guard,ownedResources,predecessorResources:predecessor?.resources,successorStore:action?store:null,getOwnedChildren:()=>runtime.registeredChildren()});

@@ -183,6 +183,8 @@ jobs:
               - 'scripts/db-migrate.sh'
               - 'scripts/deploy-schema-first.sh'
             infra:
+              # The controlled release consumes both OCI images at this exact commit.
+              - 'scripts/ops/production-modern-schema-*.mjs'
               - 'docker-compose.yml'
               - 'apps/web/Dockerfile'
               - 'apps/api/Dockerfile'
