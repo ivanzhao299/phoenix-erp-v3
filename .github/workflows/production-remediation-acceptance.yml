@@ -168,7 +168,7 @@ jobs:
         run: |
           set -euo pipefail
           sha=$(git rev-parse HEAD)
-          docker build --file apps/api/Dockerfile --label "org.opencontainers.image.revision=$sha" \
+          docker build --file apps/api/Dockerfile --build-arg "GIT_SHA=$sha" \
             --iidfile "$RUNNER_TEMP/production-api-image.id" .
           image=$(cat "$RUNNER_TEMP/production-api-image.id")
           node scripts/test/production-remediation-image-compat.mjs "$sha" "$image"
