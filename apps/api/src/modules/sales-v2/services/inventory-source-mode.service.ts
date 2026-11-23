@@ -38,6 +38,7 @@ export class InventorySourceModeService {
   async resolveMode(
     scope: { siteCode?: string | null; companyCode?: string | null },
     mgr?: EntityManager,
+    options?: { failClosed: boolean },
   ): Promise<InventorySourceMode> {
     try {
       const rows = await (mgr ?? this.ds).query(
@@ -56,11 +57,15 @@ export class InventorySourceModeService {
           `回落 ${rows[0]?.scope_level ?? 'DEFAULT'}/${rows[0]?.scope_code ?? 'TEMP_PRODUCTION_INBOUND'}`,
         );
       }
+      if (rows.length && (!mode || !VALID_MODES.includes(mode)) && options?.failClosed) {
+        throw new BadRequestException('当前鸡舍库存来源模式无效');
+      }
       return mode && VALID_MODES.includes(mode) ? mode : DEFAULT_MODE;
     } catch (error) {
       this.logger.error(
         `[InvSourceMode][CONFIG_ERROR] 模式解析失败 site=${scope.siteCode ?? '-'} company=${scope.companyCode ?? '-'}，禁止静默：${(error as Error).message}`,
       );
+      if (options?.failClosed) throw error;
       return DEFAULT_MODE;
     }
   }

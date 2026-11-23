@@ -193,6 +193,39 @@ export class ProductionInboundService {
     return rows[0].location_code;
   }
 
+  private temporaryHouseContext(houseCode: string) {
+    if (typeof houseCode !== 'string' || !houseCode.trim() || houseCode !== houseCode.trim() || houseCode.length > 100) {
+      throw new BadRequestException('鸡舍编码无效');
+    }
+    return this.resolveCompanyAndSite({ houseCode });
+  }
+
+  async temporaryAvailability(houseCode: string) {
+    const { companyCode, siteCode } = await this.temporaryHouseContext(houseCode);
+    const [mode, scopes] = await Promise.all([
+      this.modeSvc.resolveMode({ siteCode, companyCode }, undefined, { failClosed: true }),
+      this.ds.query(`SELECT state,first_production_date::text AS "firstProductionDate"
+        FROM production_cutover_scopes
+        WHERE company_code=$1 AND house_code=$2 AND state<>'DRAFT'`, [companyCode, houseCode]),
+    ]);
+    return {
+      companyCode, siteCode: siteCode ?? null, houseCode, mode,
+      state: scopes[0]?.state ?? 'OFF',
+      firstProductionDate: scopes[0]?.firstProductionDate ?? null,
+    };
+  }
+
+  async temporaryLocations(houseCode: string, warehouseCode: string) {
+    if (typeof warehouseCode !== 'string' || !warehouseCode.trim() || warehouseCode !== warehouseCode.trim() || warehouseCode.length > 100) {
+      throw new BadRequestException('仓库编码无效');
+    }
+    const { companyCode, siteCode } = await this.temporaryHouseContext(houseCode);
+    const authorizedWarehouse = await this.resolveWarehouse(companyCode, siteCode, warehouseCode);
+    return this.ds.query(`SELECT location_code,warehouse_code,status,to_jsonb(l)->>'location_name' AS location_name
+      FROM wms_locations l WHERE warehouse_code=$1 AND status IN ('ACTIVE','NORMAL')
+      ORDER BY location_code LIMIT 500`, [authorizedWarehouse]);
+  }
+
   async resolveMasterContext(dto: {
     companyCode?: string; siteCode?: string; houseCode?: string; warehouseCode?: string; locationCode?: string;
   }, mgr?: EntityManager): Promise<MasterContext> {
@@ -311,7 +344,7 @@ export class ProductionInboundService {
     const { companyCode, farmCode, siteCode, warehouseCode, locationCode } = context;
 
     // 互斥校验：仅 TEMP_PRODUCTION_INBOUND 模式允许
-    const mode = await this.modeSvc.resolveMode({ siteCode, companyCode });
+    const mode = await this.modeSvc.resolveMode({ siteCode, companyCode }, undefined, { failClosed: true });
     if (mode !== 'TEMP_PRODUCTION_INBOUND') {
       throw new ForbiddenException(
         '已启用包装入库模式（PACKAGING_INBOUND），不允许直接生成库存。请通过「包装作业中心」完成入库。',

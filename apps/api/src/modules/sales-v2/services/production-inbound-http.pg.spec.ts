@@ -63,6 +63,7 @@ import { ClsModule, ClsService } from 'nestjs-cls';
 import { DataSource, EntityManager } from 'typeorm';
 import request = require('supertest');
 import { installProductionInboundFixture } from './production-inbound.pg-fixture';
+import { InventorySourceController } from '../controllers/inventory-source.controller';
 import { ProductionInboundDocumentsController } from '../controllers/production-inbound-documents.controller';
 import { ProductionInboundDocumentsService } from './production-inbound-documents.service';
 import { ProductionInboundService } from './production-inbound.service';
@@ -206,7 +207,7 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
       @Get('sys_dict')async dict(@Query('dict_type') type:string){return db.query("SELECT * FROM sys_dict WHERE dict_type=$1 AND status='ACTIVE'",[type]);}
     }
     const module=await Test.createTestingModule({imports:[PassportModule,ClsModule.forRoot({global:true,middleware:{mount:true}})],
-      controllers:[FlockLifecycleController,ChanjetCallbackController,MenuAdminController,ProductionFinanceReviewController,SalesReturnsController,OfficialInventoryConversionController,OfficialRawCollectionController,AnalyticsController,ProductionCutoverController,FarmController,ProductionInboundDocumentsController,UploadController,FixtureLogin,FixtureLookups,FixtureDictionary,FixtureSkus],providers:[FlockLifecycleService,...Reflect.getMetadata('design:paramtypes',ChanjetCallbackController).slice(0,8).map((provide:Function)=>({provide,useValue:{}})),OfficialInventoryConversionService,OfficialRawCollectionService,FixtureJwt,
+      controllers:[FlockLifecycleController,ChanjetCallbackController,MenuAdminController,ProductionFinanceReviewController,SalesReturnsController,OfficialInventoryConversionController,OfficialRawCollectionController,AnalyticsController,ProductionCutoverController,FarmController,InventorySourceController,ProductionInboundDocumentsController,UploadController,FixtureLogin,FixtureLookups,FixtureDictionary,FixtureSkus],providers:[FlockLifecycleService,...Reflect.getMetadata('design:paramtypes',ChanjetCallbackController).slice(0,8).map((provide:Function)=>({provide,useValue:{}})),OfficialInventoryConversionService,OfficialRawCollectionService,FixtureJwt,
         FinanceCreditNoteAdapter,SalesOrderLifecycleService,
         {provide:ReturnOrdersService,inject:[ClsService,FinanceCreditNoteAdapter,EggInventoryService,SalesOrderLifecycleService],
           useFactory:(cls:ClsService,finance:FinanceCreditNoteAdapter,inventory:EggInventoryService,lifecycle:SalesOrderLifecycleService)=>
@@ -328,6 +329,46 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
   const cutoverBoundary=()=>({companyCode:'COMP-A',warehouseCode:'WH-A',productCodes:['PRD-EGG-RAW'],houses:[{houseCode:'HOUSE-A',firstProductionDate:'2026-11-19'}]});
   const emptyCount=(fileId:string)=>({boundary:cutoverBoundary(),intentKey:randomUUID(),postingDate:new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Singapore'}).format(new Date()),
     evidenceFileIds:[fileId],physicalTotals:[{productCode:'PRD-EGG-RAW',quantity:0}],openingLines:[],decisions:[],referenceDecisions:[]});
+  it('resolves temporary inbound availability for the scoped operator and enforces the cutover on both days', async () => {
+    const stock = '/api/v2/inventory';
+    const maker = request(app.getHttpServer());
+    const get = (path: string) => maker.get(stock + path).auth(token(1), { type: 'bearer' });
+    await get('/source/mode').expect(403);
+    await get('/production-inbound/availability').expect(400);
+    await get('/production-inbound/availability?houseCode=HOUSE-B').expect(403);
+    await get('/production-inbound/locations?houseCode=HOUSE-B&warehouseCode=WH-B').expect(403);
+    await get('/production-inbound/locations?houseCode=HOUSE-A&warehouseCode=WH-B').expect(400);
+    const locations = await get('/production-inbound/locations?houseCode=HOUSE-A&warehouseCode=WH-A').expect(200);
+    expect(locations.body).toEqual(expect.arrayContaining([expect.objectContaining({
+      location_code:'LOC-A',warehouse_code:'WH-A',status:'ACTIVE',
+    })]));
+    await get('/production-inbound/availability?houseCode=HOUSE-A').expect(200, {
+      companyCode:'COMP-A',siteCode:'SITE-A',houseCode:'HOUSE-A',mode:'TEMP_PRODUCTION_INBOUND',
+      state:'ACTIVE',firstProductionDate:'2026-11-17',
+    });
+    for (const eggDate of ['2026-11-16','2026-11-17']) {
+      await maker.post(stock+'/production-inbound').auth(token(1),{type:'bearer'}).send({
+        eggDate,houseCode:'HOUSE-A',companyCode:'COMP-A',siteCode:'SITE-A',warehouseCode:'WH-A',locationCode:'LOC-A',
+        items:[{grade:'GRADE_1',qty:1}],
+      }).expect(409);
+    }
+    await db.query("INSERT INTO inv_source_mode VALUES('SITE','SITE-A','PACKAGING_INBOUND')");
+    try {
+      await get('/production-inbound/availability?houseCode=HOUSE-A2').expect(200, {
+        companyCode:'COMP-A',siteCode:'SITE-A',houseCode:'HOUSE-A2',mode:'PACKAGING_INBOUND',
+        state:'OFF',firstProductionDate:null,
+      });
+      await db.query("UPDATE inv_source_mode SET mode='invalid' WHERE scope_level='SITE' AND scope_code='SITE-A'");
+      await get('/production-inbound/availability?houseCode=HOUSE-A2').expect(400);
+    } finally {
+      await db.query("DELETE FROM inv_source_mode WHERE scope_level='SITE' AND scope_code='SITE-A'");
+    }
+    await get('/production-inbound/availability?houseCode=HOUSE-A2').expect(200, {
+      companyCode:'COMP-A',siteCode:'SITE-A',houseCode:'HOUSE-A2',mode:'TEMP_PRODUCTION_INBOUND',
+      state:'OFF',firstProductionDate:null,
+    });
+    expect(await db.query('SELECT batch_no FROM inv_batches')).toEqual([]);
+  });
   it('preserves exact decimal opening prices through real HTTP and rejects implicit, rounded or overflowing money',async()=>{
     const file=(await cutoverUpload(1).expect(201)).body.fileId;
     const requestFor=(unitCost:unknown,quantity=4)=>({...emptyCount(file),physicalTotals:[{productCode:'PRD-EGG-RAW',quantity}],openingLines:[{

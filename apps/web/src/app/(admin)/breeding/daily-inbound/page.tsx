@@ -26,6 +26,14 @@ import { dailyReportInboundIdempotencyKey } from '@/lib/breeding-daily';
 import u from "@/styles/uix-utils.module.css";
 import s from '@/components/ui/admin-ui.module.css'; // G29-B 全局表格
 
+interface Availability {
+  companyCode:string;
+  siteCode:string|null;
+  houseCode:string;
+  mode:'TEMP_PRODUCTION_INBOUND'|'PACKAGING_INBOUND';
+  state:'OFF'|'FENCED'|'ACTIVE'|'SUSPENDED';
+  firstProductionDate:string|null;
+}
 function today() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -46,8 +54,6 @@ function DailyInboundForm() {
     () => Object.fromEntries(productGrades.map(g => [g.grade_code, g.grade_name])),
     [productGrades]
   );
-  const [mode, setMode] = useState<string>("");
-  const [loadingMode, setLoadingMode] = useState(true);
   const [eggDate, setEggDate] = useState(today());
   const [houseCode, setHouseCode] = useState("");
   const [companyCode, setCompanyCode] = useState("");
@@ -59,20 +65,37 @@ function DailyInboundForm() {
   // 品种由服务端档案决定，前端只展示；提交时不传 variety，防伪造。
   const { profile: sourceProfile, loading: sourceProfileLoading } = useEggSourceProfile(houseCode, eggDate);
   const varietyShort = varietyShortLabel(sourceProfile);
-  const rangeKey=JSON.stringify([companyCode,houseCode,eggDate]);
   const [scopeRevision,setScopeRevision]=useState(0);
-  const [officialScope,setOfficialScope]=useState<{key:string;state:string}|null>(null);
-  const prefillGeneration=useRef(0);
+  const rangeKey=JSON.stringify([companyCode,siteCode,houseCode,eggDate,scopeRevision]);
+  const [checkedScope,setCheckedScope]=useState<{key:string;value:Availability|null}|null>(null);
+  const prefillGeneration=useRef(0), submitting=useRef(false);
   useEffect(()=>{
-    if(!companyCode||!houseCode)return;
+    if(!canView||!companyCode||!houseCode||!eggDate)return;
     const controller=new AbortController();
-    request<{state:string}>(`/v2/inventory/production-inbound-documents/context?${new URLSearchParams({companyCode,houseCode})}`,{signal:controller.signal})
-      .then(c=>{if(!controller.signal.aborted)setOfficialScope({key:rangeKey,state:c.state});})
-      .catch(()=>{if(!controller.signal.aborted)setOfficialScope({key:rangeKey,state:'UNKNOWN'});});
+    request<Availability>(`/v2/inventory/production-inbound/availability?${new URLSearchParams({houseCode})}`,{signal:controller.signal,silent:true})
+      .then(value=>{
+        if(controller.signal.aborted)return;
+        const matches=value.houseCode===houseCode&&value.companyCode===companyCode&&value.siteCode===(siteCode||null);
+        setCheckedScope({key:rangeKey,value:matches?value:null});
+      })
+      .catch(()=>{if(!controller.signal.aborted)setCheckedScope({key:rangeKey,value:null});});
     return()=>controller.abort();
-  },[companyCode,houseCode,rangeKey,scopeRevision]);
-  const scopeState=officialScope?.key===rangeKey?officialScope.state:'';
-  const requiresFormal=['ACTIVE','SUSPENDED','FENCED'].includes(scopeState);
+  },[canView,companyCode,siteCode,houseCode,eggDate,rangeKey]);
+  const scope=checkedScope?.key===rangeKey?checkedScope.value:null;
+  const loadingMode=!!companyCode&&!!houseCode&&!!eggDate&&checkedScope?.key!==rangeKey;
+  const requiresFormal=scope?.state==='ACTIVE'||scope?.state==='SUSPENDED'||scope?.state==='FENCED';
+  const isPackagingMode=scope?.state==='OFF'&&scope.mode==='PACKAGING_INBOUND';
+  const eligible=scope?.state==='OFF'&&scope.mode==='TEMP_PRODUCTION_INBOUND';
+  const archiveDate=requiresFormal&&scope.firstProductionDate&&eggDate<scope.firstProductionDate;
+  function blockedMessage(){
+    if(!houseCode)return t('ui.请先选择鸡舍','请先选择鸡舍');
+    if(loadingMode)return t('breeding.loadingSourceMode','加载库存来源模式...');
+    if(scope?.state==='FENCED')return t('productionJobs.fenced');
+    if(archiveDate)return t('productionJobs.archived');
+    if(scope?.state==='SUSPENDED')return t('productionInstallments.suspended');
+    if(requiresFormal)return t('productionInstallments.useFormal');
+    return t('productionJobs.unverified');
+  }
   const gradeCellLabel = (name: string) => (varietyShort ? `${name}(${varietyShort})` : name);
   const [qtyMap, setQtyMap] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
@@ -87,6 +110,7 @@ function DailyInboundForm() {
     totalInbound: number;
   } | null>(null);
   const prefillFromDaily = useCallback(async () => {
+    if(!eligible)return;
     setError("");
     const generation=++prefillGeneration.current;
     setPrefilling(true);
@@ -129,36 +153,21 @@ function DailyInboundForm() {
     } finally {
       if(generation===prefillGeneration.current)setPrefilling(false);
     }
-  }, [eggDate, houseCode, productGrades, qtyMap, t]);
+  }, [eligible, eggDate, houseCode, productGrades, qtyMap, t]);
 
-  const loadMode = useCallback(async () => {
-    setScopeRevision(n=>n+1);setOfficialScope(null);setLoadingMode(true);
-    try {
-      const r = await request<{
-        mode: string;
-      }>("/v2/inventory/source/mode");
-      setMode(r.mode);
-    } catch {
-      setMode("");
-    } finally {
-      setLoadingMode(false);
-    }
-  }, []);
-  useEffect(() => {
-    let alive=true;Promise.resolve().then(()=>{if(canView&&alive)void loadMode();});return()=>{alive=false;};
-  }, [canView, loadMode]);
   const totalQty = productGrades.reduce((s, g) => s + (Number(qtyMap[g.grade_code]) || 0), 0);
   const filledRows = productGrades.filter(g => Number(qtyMap[g.grade_code]) > 0).length;
-  const isPackagingMode = mode === "PACKAGING_INBOUND";
-  const eligible=!loadingMode&&mode==='TEMP_PRODUCTION_INBOUND'&&scopeState==='OFF';
+  const invalidatePrefill=()=>{prefillGeneration.current++;setPrefilling(false);};
   const clearSelection=()=>{
-    prefillGeneration.current++;setPrefilling(false);setQtyMap({});setResult(null);setError("");setOfficialScope(null);
+    invalidatePrefill();setQtyMap({});setResult(null);setError("");setCheckedScope(null);
+  };
+  const reloadAvailability=()=>{
+    invalidatePrefill();setError("");setScopeRevision(revision=>revision+1);
   };
   const submit = async () => {
+    if(submitting.current||!eligible||!canCreate)return;
     setError("");
     setResult(null);
-    if(requiresFormal){setError(t('productionInstallments.useFormal','该鸡舍已切换正式期间，请从正式分次入库办理。'));return;}
-    if(!eligible){setError(t('productionJobs.unverified'));return;}
     const items = productGrades
       .filter(g => Number(qtyMap[g.grade_code]) > 0)
       .map(g => ({ grade: g.grade_code, qty: Number(qtyMap[g.grade_code]) }));
@@ -171,7 +180,7 @@ function DailyInboundForm() {
       return;
     }
     if (ownershipError) { setError(ownershipError); return; }
-    setSaving(true);
+    submitting.current=true;setSaving(true);
     const unknownResultMessage = t('breeding.inboundResultUnknown', '结果未确认，请先核对入库台账，不要重复提交');
     // Snapshot the submitted selection; a returned company alone is not scope evidence.
     const expectedContext = { eggDate, companyCode, ...(siteCode ? { siteCode } : {}), warehouseCode, locationCode };
@@ -203,7 +212,7 @@ function DailyInboundForm() {
       const rejected = status !== undefined && [400, 401, 403, 404, 409, 422].includes(status);
       setError(rejected && e instanceof Error ? e.message : unknownResultMessage);
     } finally {
-      setSaving(false);
+      submitting.current=false;setSaving(false);
     }
   };
   if (!canView) return <div className={u.emptyPad40}>{t('breeding.noPermInbound', '无权限访问日产蛋入库')}</div>;
@@ -214,10 +223,7 @@ function DailyInboundForm() {
 
       <p><Link href="/breeding/production-inbound">{t('productionInstallments.title','正式分次生产入库')}</Link></p>
       {/* 模式状态条 */}
-      {loadingMode ? <div style={{
-      padding: 14,
-      color: "var(--text-secondary)"
-    }}>{t('breeding.loadingSourceMode', '加载库存来源模式...')}</div> : !isPackagingMode&&(mode!=='TEMP_PRODUCTION_INBOUND'||!eligible) ? <p role="status">{requiresFormal?t('productionInstallments.useFormal'):t('productionJobs.unverified')}</p> : isPackagingMode ? <div style={{
+      {!isPackagingMode&&!eligible ? <p role="status">{blockedMessage()}</p> : isPackagingMode ? <div style={{
       display: "flex",
       alignItems: "center",
       gap: 12,
@@ -262,7 +268,6 @@ function DailyInboundForm() {
           <Egg size={16} /> {t('breeding.currentMode', '当前为')} <strong>{t('breeding.tempProdMode', '临时生产入库模式')}</strong>{t('breeding.tempProdModeDesc', '，录入即直接形成可销售库存。')}
         </div>}
 
-      {!isPackagingMode && <>
           {/* 表单头部 */}
           <div style={{
         display: "flex",
@@ -315,17 +320,18 @@ function DailyInboundForm() {
               <label style={{ display: "block", fontSize: 12, color: "var(--text-secondary)", marginBottom: 6 }}>
                 {t('breeding.inboundWarehouse', '入库仓库（ACTIVE）')}
               </label>
-              <WarehouseSelector value={warehouseCode} companyCode={companyCode || undefined} siteCode={siteCode || undefined} type="EGG_FARM" disabled={!houseCode || !!ownershipError}
+              <WarehouseSelector value={warehouseCode} companyCode={companyCode || undefined} siteCode={siteCode || undefined} type="EGG_FARM" disabled={saving||!eligible||!!ownershipError}
                 onChange={value => { setWarehouseCode(value); setLocationCode(''); }} />
             </div>
             <div style={{ minWidth: 250 }}>
               <label style={{ display: "block", fontSize: 12, color: "var(--text-secondary)", marginBottom: 6 }}>
                 {t('breeding.inboundLocation', '入库库位（ACTIVE）')}
               </label>
-              <LocationSelector value={locationCode} warehouseCode={warehouseCode || undefined}
-                disabled={!warehouseCode} onChange={setLocationCode} />
+              <LocationSelector value={locationCode} warehouseCode={eligible?warehouseCode:undefined}
+                lookupEndpoint={`/v2/inventory/production-inbound/locations?${new URLSearchParams({houseCode,warehouseCode})}`}
+                disabled={saving||!eligible||!warehouseCode} onChange={setLocationCode} />
             </div>
-            <button onClick={loadMode} className="bg-bg-muted border border-border text-text-muted" style={{
+            <button onClick={reloadAvailability} disabled={saving||!houseCode} className="bg-bg-muted border border-border text-text-muted" style={{
           display: "flex",
           alignItems: "center",
           gap: 6,
@@ -336,7 +342,7 @@ function DailyInboundForm() {
         }}>
               <RefreshCw size={13} /> {t('breeding.refreshMode', '刷新模式')}
             </button>
-            <button onClick={prefillFromDaily} disabled={prefilling} className="bg-bg-muted border border-border text-text-muted" style={{
+            <button onClick={prefillFromDaily} disabled={prefilling||saving||!eligible||!canCreate} className="bg-bg-muted border border-border text-text-muted" style={{
           display: "flex",
           alignItems: "center",
           gap: 6,
@@ -350,6 +356,7 @@ function DailyInboundForm() {
             </button>
           </div>
 
+      {!isPackagingMode && <>
           {/* 鸡舍来源档案横幅：东鹏红/粉壳 · 孟赛普通分级 · 无档案警示 */}
           <SourceProfileBanner profile={sourceProfile} loading={sourceProfileLoading} houseCode={houseCode} style={{ marginBottom: 12 }} />
 
@@ -439,7 +446,7 @@ function DailyInboundForm() {
                         inputMode="numeric"
                         value={qtyMap[g.grade_code] ?? ""}
                         onChange={e => setQtyMap(m => ({ ...m, [g.grade_code]: e.target.value }))}
-                        placeholder="0"
+                        disabled={saving||!eligible||!canCreate} placeholder="0"
                         className="bg-bg-muted border border-border text-text"
                         style={{
                           padding: "6px 10px",
@@ -469,7 +476,7 @@ function DailyInboundForm() {
         gap: 8
       }}><AlertTriangle size={15} />{error}</div>}
 
-          <button onClick={submit} disabled={saving || !canCreate || !eligible} style={{
+          <button onClick={submit} disabled={saving || !canCreate || !eligible || !warehouseCode || !locationCode} style={{
         display: "flex",
         alignItems: "center",
         gap: 8,

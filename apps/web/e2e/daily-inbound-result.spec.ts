@@ -9,20 +9,26 @@ const user = {
 const codes = ['GRADE_0', 'GRADE_1', 'GRADE_2', 'GRADE_3', 'GRADE_4', 'GRADE_5', 'DIRTY'];
 const confirmation = '确认入库（形成销售库存）';
 const receiptContext = { eggDate: '2026-10-16', companyCode: 'FIXTURE-COMPANY', siteCode: 'FIXTURE-SITE', warehouseCode: 'FIXTURE-W1', locationCode: 'FIXTURE-L1' };
+const availabilityPath = '/api/v2/inventory/production-inbound/availability';
+const scopedAvailability = { mode: 'TEMP_PRODUCTION_INBOUND', state: 'OFF', firstProductionDate: null,
+  companyCode: receiptContext.companyCode, siteCode: receiptContext.siteCode, houseCode: 'FIXTURE-H1' };
 const inputFor = (page: Page, code = 'GRADE_0') => page.locator('table tbody tr').filter({ has: page.getByRole('cell', { name: code, exact: true }) }).locator('input');
 const selectorFor = (page: Page, value: string) => page.locator('select').filter({ has: page.locator(`option[value="${value}"]`) });
 
 async function prepareInbound(page: Page) {
   await page.goto('/breeding/daily-inbound');
-  await expect(page.getByRole('button', { name: confirmation, exact: true })).toBeEnabled();
+  await expect(page.getByRole('button', { name: confirmation, exact: true })).toBeDisabled();
   await page.locator('input[type=date]').fill('2026-10-16');
-  const scope = page.waitForResponse(response => new URL(response.url()).pathname === '/api/v2/inventory/production-inbound-documents/context');
+  const scope = page.waitForResponse(response => new URL(response.url()).pathname === availabilityPath);
   await selectorFor(page, 'FIXTURE-H1').selectOption('FIXTURE-H1');
-  await scope;
+  const response = await scope;
+  expect(response.ok()).toBe(true);
+  expect(new URL(response.url()).searchParams.get('houseCode')).toBe('FIXTURE-H1');
   await expect(page.getByText('归属预览：公司 FIXTURE-COMPANY · 场站 FIXTURE-SITE', { exact: true })).toBeVisible();
   await selectorFor(page, 'FIXTURE-W1').selectOption('FIXTURE-W1');
   await selectorFor(page, 'FIXTURE-L1').selectOption('FIXTURE-L1');
   await inputFor(page).fill('11');
+  await expect(page.getByRole('button', { name: confirmation, exact: true })).toBeEnabled();
 }
 
 // Only this independent page may issue production-inbound; all API data is intercepted.
@@ -34,20 +40,24 @@ test.beforeEach(async ({ page }, testInfo) => {
     const path = new URL(route.request().url()).pathname;
     if (route.request().method() !== 'GET') throw new Error(`Unexpected mutation: ${path}`);
     let json: unknown = [];
-    if (path === '/api/v2/inventory/source/mode') json = { mode: 'TEMP_PRODUCTION_INBOUND' };
+    if (path === '/api/v2/inventory/source/mode') return route.fulfill({ status: 403, json: { message: 'Source management permission required' } });
+    if (path === availabilityPath) json = scopedAvailability;
     if (path === '/api/lookup/egg-source-profile') json = {
       profileCode: 'FIXTURE-PROFILE', companyCode: 'FIXTURE-COMPANY', farmCode: 'FIXTURE-FARM',
       siteCode: 'FIXTURE-SITE', houseCode: 'FIXTURE-H1', productMode: 'STANDARD',
       varietyCode: null, varietyName: null, shellColor: null,
     };
-    if (path === '/api/v2/inventory/production-inbound-documents/context') json = { state: 'OFF', firstProductionDate: null };
     if (path === '/api/lookup/houses') json = [{ houseCode: 'FIXTURE-H1', houseName: '测试鸡舍', houseNameLo: 'ເຮືອນທົດສອບ', companyCode: 'FIXTURE-COMPANY', siteCode: 'FIXTURE-SITE', ownershipResolved: true }];
     if (path === '/api/lookup/warehouses') json = [{ warehouseCode: 'FIXTURE-W1', warehouseName: '测试蛋库' }];
-    if (path === '/api/crud/wms_locations') json = [
+    if (path === '/api/crud/wms_locations') return route.fulfill({ status: 403, json: { message: 'Warehouse management permission required' } });
+    if (path === '/api/v2/inventory/production-inbound/locations') {
+      expect(Object.fromEntries(new URL(route.request().url()).searchParams)).toEqual({houseCode:'FIXTURE-H1',warehouseCode:'FIXTURE-W1'});
+      json = [
       { location_code: 'FIXTURE-L1', location_name: '测试库位', warehouse_code: 'FIXTURE-W1', status: 'ACTIVE' },
       { location_code: 'OTHER-WAREHOUSE', location_name: '不可跨仓', warehouse_code: 'OTHER-W', status: 'ACTIVE' },
       { location_code: 'INACTIVE-LOCATION', warehouse_code: 'FIXTURE-W1', status: 'INACTIVE' },
-    ];
+      ];
+    }
     if (path === '/api/lookup/product-grades') json = codes.map((grade_code, sort_order) => ({ grade_code, grade_name: `测试-${grade_code}`, sort_order, status: 'ACTIVE', is_saleable: grade_code !== 'DIRTY', is_storable: true }));
     await route.fulfill({ json });
   });
@@ -118,13 +128,17 @@ test('explicit replay reuses the day/house idempotency key and displays the exis
 
 test('view-only inbound permission cannot confirm inventory', async ({ page }) => {
   await page.goto('/breeding/daily-inbound');
+  await selectorFor(page, 'FIXTURE-H1').selectOption('FIXTURE-H1');
+  await selectorFor(page, 'FIXTURE-W1').selectOption('FIXTURE-W1');
+  await selectorFor(page, 'FIXTURE-L1').selectOption('FIXTURE-L1');
   await expect(page.getByRole('button', { name: confirmation, exact: true })).toBeDisabled();
   await expect(page.getByText('当前账号无录入权限（需 MENU_PROD_INBOUND 的 C 权限）', { exact: true })).toBeVisible();
 });
 
 test('packaging source mode forbids the direct inbound entry', async ({ page }) => {
-  await page.route('**/api/v2/inventory/source/mode', route => route.fulfill({ json: { mode: 'PACKAGING_INBOUND' } }));
+  await page.route('**'+availabilityPath+'?**', route => route.fulfill({ json: { ...scopedAvailability, mode: 'PACKAGING_INBOUND' } }));
   await page.goto('/breeding/daily-inbound');
+  await selectorFor(page, 'FIXTURE-H1').selectOption('FIXTURE-H1');
   await expect(page.getByText('已启用包装入库模式（PACKAGING_INBOUND）', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: confirmation, exact: true })).toHaveCount(0);
   await expect(page.getByRole('link', { name: '前往包装作业', exact: true })).toHaveAttribute('href', '/packaging');
@@ -165,3 +179,42 @@ test('missing saved breakdown cannot silently replace manually entered inbound q
   await expect(inputFor(page)).toHaveValue('11');
   await expect(page.getByText(/入库成功 · 合计/)).toHaveCount(0);
 });
+
+
+for (const [state, message] of [
+  ['ACTIVE', '该鸡舍已切换正式期间'],
+  ['SUSPENDED', '该范围暂停新写入'],
+  ['FENCED', '切换核验中'],
+] as const) {
+  test(`temporary inbound stays closed before and after cutover in ${state}`, async ({ page }) => {
+    await page.route('**'+availabilityPath+'?**', route => route.fulfill({ json: {
+      ...scopedAvailability, state, firstProductionDate: '2026-10-17',
+    } }));
+    await page.goto('/breeding/daily-inbound');
+    const date = page.locator('input[type=date]');
+    const submit = page.getByRole('button', { name: confirmation, exact: true });
+    const prefill = page.getByRole('button', { name: '从日报预填', exact: true });
+    await date.fill('2026-10-16');
+    await selectorFor(page, 'FIXTURE-H1').selectOption('FIXTURE-H1');
+    await expect(page.getByRole('status')).toContainText(state === 'FENCED' ? message : '仅可查历史记录');
+    await expect(submit).toBeDisabled();
+    await expect(prefill).toBeDisabled();
+    await date.fill('2026-10-17');
+    await expect(page.getByRole('status')).toContainText(message);
+    await expect(submit).toBeDisabled();
+    await expect(prefill).toBeDisabled();
+  });
+}
+
+for (const bad of ['failed', 'company', 'site', 'house'] as const) {
+  test(`temporary inbound guards invalid availability ${bad}`, async ({ page }) => {
+    await page.route('**'+availabilityPath+'?**', route => route.fulfill(bad === 'failed'
+      ? { status: 403, json: { message: 'Fixture scope denied' } }
+      : { json: { ...scopedAvailability, [bad+'Code']: 'WRONG' } }));
+    await page.goto('/breeding/daily-inbound');
+    await selectorFor(page, 'FIXTURE-H1').selectOption('FIXTURE-H1');
+    await expect(page.getByRole('status')).toContainText('范围尚未核实，请刷新。');
+    await expect(page.getByRole('button', { name: confirmation, exact: true })).toBeDisabled();
+    await expect(page.getByRole('button', { name: '从日报预填', exact: true })).toBeDisabled();
+  });
+}
