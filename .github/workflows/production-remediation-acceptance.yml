@@ -94,6 +94,22 @@ jobs:
             src/modules/wms/official-inventory.pg.spec.ts src/modules/wms/production-cutover-admission.pg.spec.ts
           OFFICIAL_INVENTORY_PG_URL="$HTTP_FIXTURE_URL" ./node_modules/.bin/jest --runInBand --testTimeout=60000 \
             --json --outputFile="$evidence/http.json" --runTestsByPath src/modules/sales-v2/services/production-inbound-http.pg.spec.ts
+
+      - name: Verify pilot ingress in a disposable network namespace
+        if: matrix.suite == 'transactions'
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! -x /usr/sbin/nft || ! -x /sbin/ip ]]; then
+            sudo apt-get update -qq
+            sudo apt-get install -y nftables iproute2
+          fi
+          sudo unshare --net -- bash -c '
+            set -euo pipefail
+            /sbin/ip link set lo up
+            export PHOENIX_OWNED_CUTOVER_NATIVE=1
+            exec "$1" --test scripts/ops/production-cutover-lifecycle.test.mjs
+          ' bash "$(command -v node)" | tee "$RUNNER_TEMP/production-acceptance/kernel-ingress.log"
       - name: Exercise desktop and mobile Chromium
         if: matrix.suite == 'browser'
         shell: bash
