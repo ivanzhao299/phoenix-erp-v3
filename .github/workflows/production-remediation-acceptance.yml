@@ -162,6 +162,19 @@ jobs:
           set -euo pipefail
           python3 scripts/test/production-remediation-release-compat.py \
             6bb88544275dfef591cb96c0078f73e88496433b HEAD | tee "$RUNNER_TEMP/production-upgrade.log"
+      - name: Verify the candidate API image and runtime role
+        if: steps.scope.outputs.required == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha=$(git rev-parse HEAD)
+          docker build --file apps/api/Dockerfile --label "org.opencontainers.image.revision=$sha" \
+            --iidfile "$RUNNER_TEMP/production-api-image.id" .
+          image=$(cat "$RUNNER_TEMP/production-api-image.id")
+          node scripts/test/production-remediation-image-compat.mjs "$sha" "$image"
+          docker pull postgres:18-alpine
+          PHOENIX_SUCCESSOR_ACCESS_PG=1 PHOENIX_SUCCESSOR_TEST_SOURCE="$sha" PHOENIX_SUCCESSOR_TEST_API_IMAGE="$image" \
+            node --test scripts/ops/production-modern-schema-successor-access.pg.test.mjs
       - uses: actions/upload-artifact@v4
         if: always() && steps.scope.outputs.required == 'true'
         with:
