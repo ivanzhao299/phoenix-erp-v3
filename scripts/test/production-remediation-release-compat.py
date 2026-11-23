@@ -1,5 +1,6 @@
 """Rehearse a committed API pair using only a new, disposable PostgreSQL 18 container."""
 import argparse
+from collections import Counter
 import hashlib
 import json
 import os
@@ -44,6 +45,28 @@ def compile_revision(ref, tree, env):
     (tree / "node_modules").symlink_to((ROOT / "node_modules").resolve(), target_is_directory=True)
     run(["./node_modules/.bin/tsc", "-p", "tsconfig.build.json", "--incremental", "false"], cwd=api, env=env)
     return api
+
+
+def compare_cold_inventory(rows, frozen, expected_ts, database):
+    bridges = []
+    typeorm = []
+    frozen_names = set(frozen)
+    for row in rows:
+        _, timestamp, name = row.split("|", 2)
+        if name in frozen_names:
+            bridges.append(name)
+        else:
+            typeorm.append((int(timestamp), name))
+
+    for category, actual, expected in (("frozen SQL bridge", bridges, frozen), ("TypeORM", typeorm, expected_ts)):
+        missing = Counter(expected) - Counter(actual)
+        extra = Counter(actual) - Counter(expected)
+        if missing or extra:
+            raise ValueError(f"{database}: {category} inventory mismatch. Missing {dict(missing)}; extra {dict(extra)}")
+    # Frozen bridge IDs and wall-clock timestamps are installation-local. Native TypeORM installs in timestamp order.
+    if typeorm != expected_ts:
+        i = next(i for i, (actual, expected) in enumerate(zip(typeorm, expected_ts)) if actual != expected)
+        raise ValueError(f"{database}: TypeORM order at {i}: {typeorm[i]}, expected {expected_ts[i]}")
 
 
 def rehearsal(base, candidate, scratch):
@@ -172,9 +195,25 @@ exec docker exec -i "$FIXTURE_CONTAINER" psql -X -U postgres -d "$DB_NAME" "${ar
         print("Installing candidate cold and comparing ledger and API reads", flush=True)
         cold(target, "release_cold")
         install_previous_reader("release_cold")
-        names = lambda rows: [row.split("|", 2)[2] for row in rows]
-        if names(ledger("release_cold")) != names(after):
-            raise ValueError("Cold and upgraded migration inventories differ")
+        frozen = sorted(file.stem for file in (target / "migrations").glob("2026*.sql"))
+        inventory_program = """
+const ds = require('./dist/database/data-source.js').AppDataSource;
+ds.setOptions({installExtensions:false});
+(async () => {
+  await ds.initialize();
+  try {
+    const entries = ds.migrations.map(m => {
+      const name = m.name || m.constructor.name;
+      return [Number(name.match(/(\\d{13})$/)[1]), name];
+    });
+    console.log(JSON.stringify(entries));
+  } finally { await ds.destroy(); }
+})().catch(err => { console.error(err.message); process.exitCode=1; });
+"""
+        compiled = run(["node", "-e", inventory_program], cwd=target, env={**reader_env, "DB_NAME":"release_cold"})
+        expected_ts = sorted((stamp, name) for stamp, name in json.loads(compiled.splitlines()[-1]))
+        for database in ("release_cold", "release_upgrade"):
+            compare_cold_inventory(ledger(database), frozen, expected_ts, database)
         sql("release_cold", (ROOT / "scripts/test/production-remediation-history-fixture.sql").read_text())
         if facts("release_cold", target)["gradeTotals"] != original["gradeTotals"]:
             raise ValueError("Cold installation historical reads disagree")
