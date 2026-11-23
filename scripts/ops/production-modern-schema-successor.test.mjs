@@ -27,7 +27,7 @@ function preview(){
  return {...content,inspectionSha256:canonicalDigest(content)};
 }
 const selection=p=>'approve1123-'+owner+'-'+p.inspectionSha256+'-700-800-1795401000-1795404600';
-test('the incident grant covers six hours from original authorization and fits the actual hosted job',()=>{
+test('the cumulative extension preserves historical approval and single hosted job limits',()=>{
  const start=Date.parse('2026-11-23T09:07:52Z'), end=start+360*60_000;
  const command=(from,until)=>'approve1123-'+owner+'-'+h('a')+'-700-800-'+from/1000+'-'+until/1000;
  const {window}=parseSuccessorAction(command(start,end));
@@ -37,6 +37,11 @@ test('the incident grant covers six hours from original authorization and fits t
  assert.throws(()=>parseSuccessorAction(command(start,end+1000)),/WINDOW_OUTSIDE/);
  assert.throws(()=>parseSuccessorAction(command(start-1000,end-1000)),/WINDOW_OUTSIDE/);
  assert.throws(()=>parseSuccessorAction(command(start+1000,end+1000)),/WINDOW_OUTSIDE/);
+ const extendedEnd=Date.parse('2026-11-23T21:07:52Z'), renewedStart=Date.parse('2026-11-23T17:05:00Z');
+ const renewed=parseSuccessorAction(command(renewedStart,extendedEnd)).window;
+ assert.doesNotThrow(()=>checkSuccessorRunnerDeadline(renewed,new Date(renewedStart).toISOString()));
+ assert.throws(()=>parseSuccessorAction(command(renewedStart,extendedEnd+1000)),/WINDOW_OUTSIDE/);
+ assert.throws(()=>parseSuccessorAction(command(start,extendedEnd)),/WINDOW_OUTSIDE/);
 });
 
 test('reviewed predecessor, source blobs, compiled units and exact immutable inspection bind the control instruction',()=>{

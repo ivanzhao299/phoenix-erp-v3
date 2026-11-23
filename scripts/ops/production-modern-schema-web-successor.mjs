@@ -1,8 +1,7 @@
 import {ModernSchemaPrivateRuntime} from './production-modern-schema-private.mjs';
 import {ModernSchemaIngress} from './production-modern-schema-ingress.mjs';
-import {checkHeldNative,readHeldHandoff,retireVerifiedIngress} from './production-remediation-fence-transfer.mjs';
+import {checkHeldNative,readHeldHandoff,retireVerifiedIngress,guardHeldContinuation} from './production-remediation-fence-transfer.mjs';
 import {assertHeldEdge,heldOwner} from './production-remediation-held-facts.mjs';
-import {guardInterruptedEdge} from './production-remediation-interrupted-boot.mjs';
 import {API_READINESS_PROGRAM} from './production-maintenance-candidate-health.mjs';
 /** The ordinary Web transaction consumes the exact image inspected before the
  * API maintenance. All checks run on the root host under the same deploy FD9. */
@@ -117,7 +116,7 @@ export async function runSuccessorWeb(phase,env){
  const result=checkSuccessorWeb(checkedPhase,env,{store});
  const sealedName='schema-release-1123-web-completed-'+target+'.json';
  if(!store.exists(sealedName)){
-  guardInterruptedEdge(store.directory);
+  guardHeldContinuation(handoff,store.directory);
   await checkHeldNative({handoff,store,runtime,admit:async()=>{store.guard();return true;}});
   if(phase==='held-readiness'){
    const current=captureRuntime(),formal=store.read('deploy-'+consumed.owner+'.json');
@@ -145,7 +144,7 @@ export async function runSuccessorWeb(phase,env){
  const proof=store.read('schema-release-ingress-installed-'+heldOwner+'.json');
  await ingress.check('COMPLETED_WEB_NATIVE_RETIRE');
  if(proof.identitySha256!==witness.ingressIdentitySha256)fail();
- await retireVerifiedIngress({ingress,proof,store,runtime,owner:witness.recoveryOwner,verify,authorizeRemoval:()=>guardInterruptedEdge(store.directory),
+ await retireVerifiedIngress({ingress,proof,store,runtime,owner:witness.recoveryOwner,verify,authorizeRemoval:()=>guardHeldContinuation(handoff,store.directory),
   binding:{originalOwner:heldOwner,targetSha:target,webOwner:seal.webOwner,apiOwner:consumed.owner,
    archiveSha256:witness.archiveSha256,webSealSha256:canonicalDigest(seal)}});
  return result;

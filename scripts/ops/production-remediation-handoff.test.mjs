@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {verifyCommandBoot,exactHeldAttempt,interruptedBoot,cutoff} from './production-remediation-interrupted-boot.mjs';
-import {checkHeldWindow,retireVerifiedIngress} from './production-remediation-fence-transfer.mjs';
+import {checkHeldWindow,isReviewedContinuation,retireVerifiedIngress,sealedHandoffRevision} from './production-remediation-fence-transfer.mjs';
 import {isHeldResource,heldCapsulePin,verifyHeldIsolation} from './production-remediation-held-resources.mjs';
 import {canonicalDigest} from './production-maintenance-receipts.mjs';
 import {ingressIdentity} from './maintenance-ingress-policy.mjs';
@@ -21,7 +21,21 @@ test('exact held marker and incident deadline apply even to a two-minute release
  const p={owner,targetSha:target,phase:'FRESH_RECHECKED',sequence:5,status:'HOLD',stateDigest:'c8415dc078bcfa3546e47f567031adb5495632a76a17ab86a7abab3178d4c9dc'};
  assert.ok(exactHeldAttempt(p));for(const field of Object.keys(p))assert.equal(exactHeldAttempt({...p,[field]:null}),false);
  checkHeldWindow({}, {end:new Date(cutoff).toISOString()});
+ const extended='2026-11-23T21:07:52Z';
+ checkHeldWindow({extended:true},{end:extended});
+ assert.throws(()=>checkHeldWindow({extended:true},{end:'2026-11-23T21:07:53Z'}),/CUMULATIVE_CUTOFF/);
+ assert.throws(()=>checkHeldWindow({extended:false},{end:extended}),/CUMULATIVE_CUTOFF/);
  assert.throws(()=>checkHeldWindow({}, {end:new Date(cutoff+1000).toISOString()}),/CUMULATIVE_CUTOFF/);
+});
+test('only the reviewed direct continuation can bind the extended deadline to the existing handoff',()=>{
+ const source=sealedHandoffRevision,target='a'.repeat(40);
+ const paths='scripts/ops/production-modern-schema-successor.mjs\nscripts/ops/production-remediation-fence-transfer.mjs';
+ const sourceRead=(parents,changed=paths)=>args=>args[0]==='show'?parents:changed;
+ assert.equal(isReviewedContinuation(source,target,sourceRead(source)),true);
+ assert.equal(isReviewedContinuation(source,target,sourceRead(source+' '+'b'.repeat(40))),true);
+ assert.equal(isReviewedContinuation(source,target,sourceRead('b'.repeat(40))),false);
+ assert.equal(isReviewedContinuation(source,target,sourceRead(source,paths+'\napps/api/src/main.ts')),false);
+ assert.equal(isReviewedContinuation('c'.repeat(40),target,sourceRead(source)),false);
 });
 test('a generic or foreign release cannot invoke fenced takeover or reuse the diagnostic owner',()=>{
  const repo='ivanzhao299/phoenix-erp-v3',sha='c'.repeat(40);
@@ -72,6 +86,11 @@ test('capsule network and actual local volume retain their isolated owner, empty
  const run=(_bin,args)=>JSON.stringify(args[0]==='network'?network:volumes);
  assert.ok(isHeldResource(pins[0]));verifyHeldIsolation(pins,run);
  network[2].Containers.other={};assert.throws(()=>verifyHeldIsolation(pins,run),/ISOLATION_CHANGED/);delete network[2].Containers.other;
+ const additional={...pins[1],formerOwner:'45175249756-1',networkId:'d'.repeat(64),volume:'3'.repeat(64)};
+ network.push({...network[1],Id:additional.networkId,Labels:{...network[1].Labels,'phoenix.schema.owner':additional.formerOwner}});
+ volumes.push({...volumes[1],Name:additional.volume,Labels:{...volumes[1].Labels,'phoenix.schema.owner':additional.formerOwner}});
+ verifyHeldIsolation([...pins,additional],run);
+ assert.throws(()=>verifyHeldIsolation([pins[0],pins[2],additional],run),/CLONE_ISOLATION_SET/);
  volumes[1].Options.device='/unexpected';assert.throws(()=>verifyHeldIsolation(pins,run),/ISOLATION_CHANGED/);
  assert.throws(()=>heldCapsulePin({id:cid,labels:{}},{pins:new Map()}),/INERT_NATIVE_IDENTITY/);
 });

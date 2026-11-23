@@ -1,5 +1,4 @@
-import {readHeldHandoff,checkHeldNative,checkHeldWindow} from './production-remediation-fence-transfer.mjs';
-import {guardInterruptedEdge} from './production-remediation-interrupted-boot.mjs';
+import {readHeldHandoff,checkHeldNative,checkHeldWindow,guardHeldContinuation} from './production-remediation-fence-transfer.mjs';
 /** Concrete original modern session: schema prelude -> reviewed formal API
  * body -> real OPEN -> ingress release -> ordinary trusted terminal state. */
 import fs from 'node:fs';import path from 'node:path';
@@ -194,6 +193,7 @@ export async function superviseModernSchemaRelease(env,input){
  if(!same(preparation.stagedSource,verifyModernSchemaStage(dispatch)))fail('PREPARED_SOURCE_GRAPH_CHANGED');
  const handoff=preparation.successorDecisions?readHeldHandoff(store,dispatch.targetSha):null;
  let retainedNative=null;
+ if(Boolean(handoff)!==Boolean(preparation.handoffSha256))fail('HELD_PREPARATION_CHANGED');
  if(handoff){
   if(canonicalDigest(handoff.entry)!==preparation.handoffSha256)fail('HELD_PREPARATION_CHANGED');
   checkHeldWindow(handoff,context.window);
@@ -215,7 +215,7 @@ export async function superviseModernSchemaRelease(env,input){
   if(state)assertSameBinding(state.read(),state.binding);return true;};
  const native=async({allowHeld=false}={})=>{
   const observeHost=()=>{
-   if(handoff){guardInterruptedEdge(directory);retainedNative?.recheck();}
+   if(handoff){guardHeldContinuation(handoff,directory);retainedNative?.recheck();}
    runtime.guard();
    if(allowHeld){
     const pending=state?.read();
@@ -307,7 +307,7 @@ export async function superviseModernSchemaRelease(env,input){
    if(Date.parse(context.window.end)-Date.now()<decisions.recoveryReserveMs+decisions.rehearsalMs+successorWebReserveMs)fail('INSUFFICIENT_WINDOW_BEFORE_DRAIN');
   }else assertInitialModernSchemaProfile(context.floorSha,observed.plan);
   if(!same(observed.plan,preparation.plan))fail('COMPLETE_PLAN_OR_LEDGER_CHANGED');ownedResources.push(observed.imageProof);
-  const surface=collectModernSchemaHostSurface(pre,{ownedResources,predecessorResources:preparation.predecessor?.resources,successorStore:preparation.successorDecisions?store:null,getOwnedChildren:()=>runtime.registeredChildren()});
+  const surface=collectModernSchemaHostSurface(pre,{ownedResources,predecessorResources:preparation.predecessor?.resources,successorStore:preparation.successorDecisions?store:null,handoff,getOwnedChildren:()=>runtime.registeredChildren()});
   if(!same(surface,preparation.hostSurface))fail('PRE_EFFECT_HOST_SURFACE_CHANGED');
   const ownedReadSessions=[];
   for(const reader of [client,watchClient]){

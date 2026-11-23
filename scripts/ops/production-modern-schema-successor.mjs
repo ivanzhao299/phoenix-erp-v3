@@ -32,11 +32,15 @@ export const successorTransportCeilingMs = 360 * 60_000;
 const ordinarySuccessorWindowMs = 180 * 60_000;
 // The incident extension starts at the original grant, including time already spent fenced.
 const incidentStart = Date.parse('2026-11-23T09:07:52Z');
-const incidentEnd = incidentStart + successorTransportCeilingMs;
+const originalIncidentDeadline = incidentStart + successorTransportCeilingMs;
+export const successorIncidentDeadline = incidentStart + 720 * 60_000;
+// The cumulative incident deadline and a single hosted job have different limits.
 
 export function validSuccessorWindow(start, end) {
   if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || end <= start) return false;
-  return end - start <= ordinarySuccessorWindowMs || (start >= incidentStart && end <= incidentEnd);
+  if(end-start<=ordinarySuccessorWindowMs)return true;
+ if(start>=incidentStart&&end<=originalIncidentDeadline)return true;
+ return start>=originalIncidentDeadline&&end<=successorIncidentDeadline&&end-start<=successorTransportCeilingMs;
 }
 
 export function checkSuccessorRunnerDeadline(window, jobStartedAt) {

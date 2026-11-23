@@ -90,7 +90,7 @@ export async function prepareModernSchemaRelease(env,dependencies={}){
  };
  await verifyHandoff();
  const background=observeModernSchemaOriginalBackground(initial,floor);
- if(handoff&&(!same(background.participant.allowedKinds,[])||background.manifest.generation!==handoff.entry.generation))fail('HELD_ORIGINAL_BACKGROUND_CHANGED');
+ if(handoff&&!same(background.manifest,handoff.manifest))fail('HELD_ORIGINAL_BACKGROUND_CHANGED');
  const privateDirectory=runtime.createDirectory(dispatch.owner,'preparation');
  // This is the only preparation image pull. All subsequent runs use the
  // verified immutable image ID, never a mutable registry tag.
@@ -122,7 +122,7 @@ export async function prepareModernSchemaRelease(env,dependencies={}){
   if(action)stage('PLAN_DISK');
   const {rows:[size]}=await client.query('SELECT pg_database_size(current_database())::text AS bytes');
   const disk=observeModernSchemaDiskSpace({databaseBytes:size.bytes});
-  stage('HOST_SURFACE');const ownedResources=[imageProof],surface=collectModernSchemaHostSurface(initial,{guard,ownedResources,predecessorResources:predecessor?.resources,successorStore:action?store:null,getOwnedChildren:()=>runtime.registeredChildren()});
+  stage('HOST_SURFACE');const ownedResources=[imageProof],surface=collectModernSchemaHostSurface(initial,{guard,ownedResources,predecessorResources:predecessor?.resources,successorStore:action?store:null,handoff,getOwnedChildren:()=>runtime.registeredChildren()});
   const {rows:[{observation}]}=await client.query(MODERN_SCHEMA_EXECUTOR_SQL);
   const executors=classifyModernSchemaDatabaseExecutors(JSON.parse(observation),{runtimeAddress:surface.runtimeAddress});
   stage('BACKUP');const backup=await createModernSchemaBackup({owner:dispatch.owner,stage:'prepare',client,databasePin:initial.containers.db,privateRuntime:runtime});
@@ -135,7 +135,7 @@ export async function prepareModernSchemaRelease(env,dependencies={}){
   const after=captureSnapshot({phase:'PRE_SNAPSHOT',runId:dispatch.owner,runAttempt:dispatch.owner.split('-')[1],targetSha:dispatch.targetSha,floorSha:dispatch.targetSha,deployMode:'api'});
   if(!same(initial.containers,after.containers)||git(root,['rev-parse','HEAD'])!==rootHeadSha||!same(secureJson(path.join(directory,'floor.json')),floor)
    ||!same(secureJson(path.join(directory,'active.json')),active)||!same(observeModernSchemaOriginalBackground(after,floor).record,background.record))fail('PREPARATION_RUNTIME_OR_FLOOR_MOVED');
-  stage('HOST_SURFACE');const freshSurface=collectModernSchemaHostSurface(after,{guard,ownedResources,predecessorResources:predecessor?.resources,successorStore:action?store:null,getOwnedChildren:()=>runtime.registeredChildren()});
+  stage('HOST_SURFACE');const freshSurface=collectModernSchemaHostSurface(after,{guard,ownedResources,predecessorResources:predecessor?.resources,successorStore:action?store:null,handoff,getOwnedChildren:()=>runtime.registeredChildren()});
   if(!same(surface,freshSurface))fail('PREPARATION_HOST_SURFACE_MOVED');
   const {rows:[latestExecutors]}=await client.query(MODERN_SCHEMA_EXECUTOR_SQL);classifyModernSchemaDatabaseExecutors(JSON.parse(latestExecutors.observation),{runtimeAddress:surface.runtimeAddress});
   const body=readCommittedModernSchemaDeploymentBody(root,dispatch.targetSha);

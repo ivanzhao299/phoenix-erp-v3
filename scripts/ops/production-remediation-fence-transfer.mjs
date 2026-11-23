@@ -1,34 +1,72 @@
 import path from 'node:path';
 import {execFileSync} from 'node:child_process';
-import {heldOwner} from './production-remediation-held-facts.mjs';
-import {exactHeldAttempt,guardInterruptedEdge,cutoff} from './production-remediation-interrupted-boot.mjs';
+import {assertHeldEdge,heldOwner} from './production-remediation-held-facts.mjs';
+import {exactHeldAttempt,cutoff} from './production-remediation-interrupted-boot.mjs';
 import {canonicalDigest,same} from './production-maintenance-receipts.mjs';
 import {ModernSchemaIngress} from './production-modern-schema-ingress.mjs';
 import {ingressIdentity} from './maintenance-ingress-policy.mjs';
 import {executionEnv} from './capture-production-runtime.mjs';
+import {CONTRACT,git} from './production-config-guard.mjs';
+import {successorIncidentDeadline} from './production-modern-schema-successor.mjs';
+
+export const sealedHandoffRevision='ccfed8be2eaabb52f9da9770424ebb34bd0a8964';
+const extensionFiles=new Set([
+ 'docs/ops/production-remediation-1123-controlled-release.md',
+ 'scripts/ops/production-modern-schema-executors.mjs',
+ 'scripts/ops/production-modern-schema-preparation.mjs',
+ 'scripts/ops/production-modern-schema-successor.mjs',
+ 'scripts/ops/production-modern-schema-successor.test.mjs',
+ 'scripts/ops/production-modern-schema-supervisor.mjs',
+ 'scripts/ops/production-modern-schema-web-successor.mjs',
+ 'scripts/ops/production-remediation-fence-transfer.mjs',
+ 'scripts/ops/production-remediation-handoff.test.mjs',
+ 'scripts/ops/production-remediation-held-resources.mjs',
+]);
+export function isReviewedContinuation(source,target,read=args=>git(CONTRACT.repository,args,{timeoutMs:5000})){
+ if(source!==sealedHandoffRevision||!/^[a-f0-9]{40}$/.test(target)||target===source)return false;
+ const parents=read(['show','-s','--format=%P',target]).split(' ');
+ if(![1,2].includes(parents.length)||parents[0]!==source)return false;
+ const paths=read(['diff','--name-only','--no-renames',source,target,'--']).split('\n');
+ return paths.includes('scripts/ops/production-modern-schema-successor.mjs')&&
+  paths.includes('scripts/ops/production-remediation-fence-transfer.mjs')&&paths.every(file=>extensionFiles.has(file));
+}
+
 
 const key='schema-release-1123-handoff-'+heldOwner+'.json';
 const check=(ok,code)=>{if(!ok)throw Error('HANDOFF_TRANSFER_HOLD='+code);};
-export function readHeldHandoff(store,target){
+export function readHeldHandoff(store,target,review=isReviewedContinuation){
  if(!store.exists(key))return null;
  const entry=store.read(key),archive=store.read('schema-release-operator-archive-'+entry.recoveryOwner+'.json');
- check(entry.schema==='phoenix.1123-interrupted-handoff/v1'&&entry.owner===heldOwner&&entry.executionSha===target&&
+ const extended=entry.executionSha!==target&&review(entry.executionSha,target);
+ check(entry.schema==='phoenix.1123-interrupted-handoff/v1'&&entry.owner===heldOwner&&(entry.executionSha===target||extended)&&
+  (!extended||entry.recoveryOwner==='45173837813-1'&&entry.inspectionOwner==='45168560404-1'&&entry.generation===113)&&
   entry.archiveSha256===canonicalDigest(archive)&&exactHeldAttempt(archive.pending)&&entry.pendingSha256===canonicalDigest(archive.pending)&&
   entry.formalTargetSuccess===false&&entry.outerIngressHeld===true&&same(entry.backgroundGrants,[])&&
   archive.heldInspection===entry.inspectionOwner&&archive.outerIngressHeld===true&&archive.schemaChanged===false&&archive.markerArchived===true,'EXACT_HANDOFF_REQUIRED');
  const original=store.read('schema-release-preparation-'+heldOwner+'.json'),verified=store.read('schema-release-operator-original-verified-'+entry.recoveryOwner+'.json');
  check(entry.verifiedSha256===canonicalDigest(verified)&&entry.ingressIdentitySha256===verified.verification.ingressIdentitySha256&&
   verified.owner===heldOwner&&verified.recoveryOwner===entry.recoveryOwner&&same(verified.participant.allowedKinds,[]),'ARCHIVE_PROOF');
- return {entry,original};
+ const opened=store.read('schema-release-operator-public-open-verified-'+entry.recoveryOwner+'.json');
+ check(archive.publicOpenSha256===canonicalDigest(opened)&&opened.schema==='phoenix.modern-operator-original-open/v1'&&
+  opened.owner===heldOwner&&opened.recoveryOwner===entry.recoveryOwner&&opened.formalTargetSuccess===false&&
+  opened.originalRuntimeSha===original.context.runtimeSha&&opened.manifest.targetSha===original.context.runtimeSha&&
+  opened.manifest.phase==='OPEN'&&opened.manifest.generation===entry.generation&&same(opened.manifest.participants,[verified.participant]),
+  'ARCHIVED_OPEN_MANIFEST');
+ return {entry,original,extended,manifest:opened.manifest};
 }
+const deadline=handoff=>handoff.extended?successorIncidentDeadline:cutoff;
 export function checkHeldWindow(handoff,window){
- if(handoff)check(Number.isFinite(Date.parse(window.end))&&Date.parse(window.end)<=cutoff,'CUMULATIVE_CUTOFF');
+ if(handoff)check(Number.isFinite(Date.parse(window.end))&&Date.parse(window.end)<=deadline(handoff),'CUMULATIVE_CUTOFF');
+}
+export function guardHeldContinuation(handoff,directory){
+ check(Date.now()<deadline(handoff),'CUMULATIVE_CUTOFF');
+ assertHeldEdge(directory);
 }
 function requireNative(controller,proof){
  check(same(controller.host,proof.host)&&controller.names().length===2&&canonicalDigest(ingressIdentity(controller.tables()))===proof.identitySha256,'INGRESS_CHANGED');
 }
 export async function checkHeldNative({handoff,store,runtime,admit}){
- guardInterruptedEdge(store.directory);
+ guardHeldContinuation(handoff,store.directory);
  check(await admit()===true,'LEASE_REQUIRED');
  const original=handoff.original,proof=store.read('schema-release-ingress-installed-'+heldOwner+'.json');
  const ingress=new ModernSchemaIngress({context:original.context,scope:original.ingressScope,privateRuntime:runtime,admit});
