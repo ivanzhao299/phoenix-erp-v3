@@ -1,6 +1,9 @@
 /** Restore only to newly created, root-recorded, isolated Docker resources.
  * Readiness and zero-write evidence come from both actual immutable images,
  * native PostgreSQL statements and before/after original-column hashes. */
+import {execFileSync} from 'node:child_process';
+import {isIP} from 'node:net';
+import {executionEnv} from './capture-production-runtime.mjs';
 import fs from 'node:fs';import path from 'node:path';import {randomBytes} from 'node:crypto';
 import {canonicalDigest,same} from './production-maintenance-receipts.mjs';
 import {ModernSchemaReadClient} from './production-modern-schema-read-client.mjs';
@@ -35,6 +38,48 @@ export function modernSchemaRuntimeStatements(log,{observer,begin,end}){
  // application_name is not ownership. A second client with the same name
  // remains an executor whose attempted SQL must be classified.
  return records.slice(starts[0]+1,ends[0]).filter(record=>!own(record));
+}
+function ipv4Range(value){
+ const [ip,length='32',extra]=value.split('/');
+ if(extra!==undefined||isIP(ip)!==4||!/^(?:[0-9]|[12][0-9]|3[0-2])$/.test(length))fail('NATIVE_IPV4_PREFIX_REQUIRED');
+ const addr=ip.split('.').reduce((value,octet)=>value*256+Number(octet),0);
+ const size=2**(32-Number(length)),start=Math.floor(addr/size)*size;
+ return [start,start+size-1];
+}
+export function selectRehearsalSubnet(routes,dockerSubnets){
+ if(!Array.isArray(routes)||!Array.isArray(dockerSubnets)||!routes.length||!dockerSubnets.length)fail('COMPLETE_NETWORK_INVENTORY_REQUIRED');
+ const reserved=[...routes.filter(route=>route!=='default'),...dockerSubnets.filter(subnet=>{
+  const [ip,mask,extra]=String(subnet).split('/');
+  return !(isIP(ip)===6&&extra===undefined&&/^(?:[0-9]{1,2}|1[01][0-9]|12[0-8])$/.test(mask));
+ })].map(value=>{
+  if(typeof value!=='string')fail('COMPLETE_NETWORK_INVENTORY_REQUIRED');
+  return ipv4Range(value);
+ });
+ for(let offset=0;offset<256;offset+=16){
+  const cidr='10.254.113.'+offset+'/28',[start,end]=ipv4Range(cidr);
+  if(reserved.every(([first,last])=>end<first||start>last))return cidr;
+ }
+ fail('REHEARSAL_ADDRESS_RESERVE_EXHAUSTED');
+}
+export function readDockerRehearsalPrefixes(networks){
+ if(!Array.isArray(networks)||!networks.length)fail('COMPLETE_NETWORK_INVENTORY_REQUIRED');
+ return networks.flatMap(network=>{
+  const config=network?.IPAM?.Config;
+  if((network?.Driver==='host'||network?.Driver==='null')&&(config==null||Array.isArray(config)&&!config.length))return [];
+  if(!Array.isArray(config)||!config.length||config.some(pool=>typeof pool?.Subnet!=='string')||
+   network.EnableIPv4!==false&&!config.some(pool=>isIP(pool.Subnet.split('/')[0])===4))
+   fail('COMPLETE_NETWORK_INVENTORY_REQUIRED');
+  return config.map(pool=>pool.Subnet);
+ });
+}
+export function readRehearsalSubnet(){
+ const read=(binary,args)=>execFileSync(binary,args,{env:executionEnv(),encoding:'utf8',timeout:8000,maxBuffer:2*1024*1024,stdio:['ignore','pipe','pipe']}).trim();
+ const routes=JSON.parse(read('/usr/sbin/ip',['-4','-json','route','show','table','all']));
+ const ids=read('/usr/bin/docker',['network','ls','--quiet','--no-trunc']).split('\n');
+ if(!ids.length||ids.length>256||!ids.every(id=>ID.test(id)))fail('COMPLETE_NETWORK_INVENTORY_REQUIRED');
+ const networks=JSON.parse(read('/usr/bin/docker',['network','inspect',...ids]));
+ if(!Array.isArray(networks)||!same(networks.map(net=>net.Id).sort(),[...ids].sort())||!Array.isArray(routes))fail('COMPLETE_NETWORK_INVENTORY_REQUIRED');
+ return selectRehearsalSubnet(routes.map(route=>route.dst),readDockerRehearsalPrefixes(networks));
 }
 function readSmall(file,max=16*1024*1024){const stat=fs.lstatSync(file);if(!stat.isFile()||stat.isSymbolicLink()||stat.nlink!==1||stat.size>max)fail('BOUNDED_PRIVATE_OUTPUT_REQUIRED');return fs.readFileSync(file,'utf8').trim();}
 class Capsule {
@@ -91,9 +136,14 @@ class Capsule {
   if(!this.databaseProfile||source.backupToolMajor!==this.databaseProfile.major||source.provider!=='c'||
    !['name','username','collate','ctype'].every(key=>typeof source[key]==='string'&&/^[A-Za-z0-9_.@-]{1,63}$/.test(source[key])))fail('SUPPORTED_RESTORE_LOCALE_AND_IDENTIFIERS_REQUIRED');
   const prefix=`phoenix-schema-${this.owner}-${this.stage}-${randomBytes(8).toString('hex')}`;
-  this.networkId=await this.text(['network','create','--internal','--driver=bridge','--label',`phoenix.schema.owner=${this.owner}`,'--label','phoenix.schema.role=rehearsal-network',prefix],'network');
+  await this.check();
+  const subnet=this.dependencies.explicitRehearsalNetwork?readRehearsalSubnet():null;
+  this.networkId=await this.text(['network','create','--internal','--driver=bridge',...(subnet?['--subnet',subnet]:[]),'--label',`phoenix.schema.owner=${this.owner}`,'--label','phoenix.schema.role=rehearsal-network',prefix],'network');
   const [network]=JSON.parse(await this.text(['network','inspect',this.networkId],'network-pin'));
-  if(!ID.test(this.networkId)||network.Id!==this.networkId||network.Internal!==true||network.EnableIPv6!==false||network.Driver!=='bridge'||Object.keys(network.Containers??{}).length)fail('NEW_INTERNAL_NETWORK_REQUIRED');
+  if(!ID.test(this.networkId)||network.Id!==this.networkId||network.Internal!==true||network.EnableIPv6!==false||network.Driver!=='bridge'||Object.keys(network.Containers??{}).length||
+   subnet&&(network.Scope!=='local'||network.IPAM?.Driver!=='default'||network.IPAM.Config?.length!==1||network.IPAM.Config[0].Subnet!==subnet||
+    network.Labels?.['phoenix.schema.owner']!==this.owner||network.Labels?.['phoenix.schema.role']!=='rehearsal-network'))
+   fail('NEW_INTERNAL_NETWORK_REQUIRED');
   this.volume=await this.text(['volume','create','--label',`phoenix.schema.owner=${this.owner}`,'--label','phoenix.schema.role=rehearsal-data'],'volume');
   const [volume]=JSON.parse(await this.text(['volume','inspect',this.volume],'volume-pin'));
   if(!ID.test(this.volume)||volume.Name!==this.volume||volume.Driver!=='local'||volume.Labels?.['phoenix.schema.owner']!==this.owner||Object.keys(volume.Options??{}).length)fail('NEW_LOCAL_VOLUME_REQUIRED');
