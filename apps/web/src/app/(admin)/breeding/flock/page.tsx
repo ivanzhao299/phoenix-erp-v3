@@ -24,6 +24,7 @@ import PageHeader from '@/components/PageHeader';
 import DataTable from '@/components/DataTable';
 import { StatusBadge } from '@/components/design-system';
 import RightDrawer from '@/components/RightDrawer';
+import FlockBreedConfirmation from '@/components/breeding/FlockBreedConfirmation';
 import { useCrud } from '@/hooks/useCrud';
 import { usePermission } from '@/hooks/usePermission';
 import { useToast } from '@/contexts/ToastContext';
@@ -128,6 +129,9 @@ export default function FlockPage() {
   })), [houseMasters]);
   const { optionPairs: breedOptions, loading: breedsLoading } = useDictOptions('BRD_BREED');
   const [historicalBreed, setHistoricalBreed] = useState('');
+  const [originalBreed, setOriginalBreed] = useState('');
+  const [originalInDate, setOriginalInDate] = useState('');
+  const [confirmFlockNo, setConfirmFlockNo] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const {
     fetchRecords,
@@ -167,6 +171,9 @@ export default function FlockPage() {
     const s = (v: string | number | null, fb = '') => v != null ? String(v) : fb;
     // 不猜测历史中文名的标准码，也不默认首项；未知码由 DictSelect 原样展示。
     const breedCode = s(r.breed_code);
+    const inDate = s(r.start_date).slice(0, 10);
+    setOriginalBreed(breedCode);
+    setOriginalInDate(inDate);
     setHistoricalBreed([s(r.breed_code), s(r.strain), s(r.breed_type)].filter(Boolean).join(' / '));
     setForm({
       farmCode: s(r.farm_code),
@@ -175,7 +182,7 @@ export default function FlockPage() {
       source: s(r.source_farm),
       placementAge: s(r.placement_age, '1'),
       cost: s(r.cost, '0'),
-      inDate: s(r.start_date),
+      inDate,
       qty: s(r.current_qty),
       targetWeeks: s(r.target_weeks, '80'),
       eliminationDate: s(r.planned_elimination_date),
@@ -186,25 +193,26 @@ export default function FlockPage() {
     setShowDrawer(true);
   };
   const handleSubmit = async () => {
-    // 只提交 BRD_BREED ACTIVE 码；缓存不是服务端授权，保存时后端仍须复验。
-    if (breedsLoading || !form.breed || !breedOptions.some(o => o.value === form.breed)) {
-      toast.warning(t('ui.请选择有效鸡群品种', '请显式选择有效的 ACTIVE 鸡群品种；历史未知值不能直接提交'));
+    const breedChanged = form.breed !== originalBreed;
+    if (breedChanged && (breedsLoading || !breedOptions.some(o => o.value === form.breed))) {
+      toast.warning(t('ui.请选择有效鸡群品种', '请选择有效的鸡群品种标准码'));
+      return;
+    }
+    if (originalInDate && !form.inDate) {
+      toast.warning(t('ui.不能清空已登记入栏日期', '不能清空已登记的入栏日期'));
       return;
     }
     if (form.eliminationDate && form.inDate && form.eliminationDate <= form.inDate) {
       toast.warning(t('ui.淘汰日期必须晚于进雏日期', '预计淘汰日期必须晚于进雏入栏日期'));
       return;
     }
-    const breedLabel = breedOptions.find(o => o.value === form.breed)?.label || form.breed;
     const payload = {
       farm_code: form.farmCode,
       farm_name: farms.find(f => f.farm_code === form.farmCode)?.farm_name || form.farmCode,
       source_farm: form.source,
       house_code: form.house,
-      breed_code: form.breed,          // 阶段0：标准 BRD_BREED 码（生物品种追溯；商品按来源档案解析）
-      breed_type: breedLabel,          // 中文名冗余，兼容旧展示
-      strain: breedLabel,              // 旧字段兼容保留
-      start_date: form.inDate || new Date().toISOString().slice(0, 10),
+      ...(breedChanged ? { breed_code: form.breed } : {}),
+      ...(form.inDate && form.inDate !== originalInDate ? { start_date: form.inDate } : {}),
       placement_age: Number(form.placementAge) || 1,
       cost: Number(form.cost) || 0,
       target_weeks: Number(form.targetWeeks) || 80,
@@ -242,6 +250,7 @@ export default function FlockPage() {
     }
   };
   const breedLabelOf = useCallback((code: string) => breedOptions.find(o => o.value === code)?.label || code, [breedOptions]);
+  const needsBreedReview = (code?: string) => !code?.trim() || (!breedsLoading && !breedOptions.some(o => o.value === code));
   const data = statusFilter === 'all' ? flocks : flocks.filter(f => f.status === statusFilter);
   const columns = [{
     key: 'batchNo',
@@ -263,7 +272,8 @@ export default function FlockPage() {
     width: '80px',
     render: (_: unknown, row: FlockCard) => {
       const v = breedLabelOf(String(row.breed ?? ''));
-      return v && v !== '—' ? v : <span className={u.muted}>—</span>;
+      return <>{v && v !== '—' ? v : <span className={u.muted}>—</span>}{needsBreedReview(row.breedCode) &&
+        <div className={u.muted}>{t('ui.品种待核对', '标准码待核对')}</div>}</>;
     }
   }, {
     key: 'inDate',
@@ -327,12 +337,22 @@ export default function FlockPage() {
   }, {
     key: 'actions',
     title: t('common.operation', '操作'),
-    width: '100px',
-    render: (_: unknown, row: FlockCard) => canEditFlock ? <div className={s.tableActions}>
-        <button type="button" className={s.btnIcon} aria-label={`编辑鸡群 ${String(row.id)}`} onClick={() => handleEdit(row)}><Edit2 size={12} /></button>
-      </div> : null
+    width: '140px',
+    render: (_: unknown, row: FlockCard) => <div className={s.tableActions}>
+        {canEditFlock && <button type="button" className={s.btnIcon} aria-label={`编辑鸡群 ${String(row.id)}`} onClick={() => handleEdit(row)}><Edit2 size={12} /></button>}
+        {needsBreedReview(row.breedCode) && <button type="button" style={secondaryActionButton} onClick={() => setConfirmFlockNo(String(row.id))}>
+          {t('ui.核对品种', '核对品种')}
+        </button>}
+      </div>
   }];
   return <div className="animate-fade-in">
+      {confirmFlockNo && <FlockBreedConfirmation key={confirmFlockNo} flockNo={confirmFlockNo}
+        onClose={() => setConfirmFlockNo(null)} onConfirmed={({ receiptId }) => {
+          setConfirmFlockNo(null);
+          toast.success(receiptId ? `品种已确认，审计编号 ${receiptId}` : '品种已确认');
+          void load();
+        }} />}
+
       <PageHeader
         title={t('ui.鸡群档案', '鸡群档案')}
         subtitle={`${t('ui.当前共', '当前共')} ${flocks.length} ${t('ui.个鸡群批次', '个鸡群批次')}`}
@@ -393,8 +413,11 @@ export default function FlockPage() {
           <div className={s.fieldRow}>
             <div>
               <label className={s.lbl}>{t('ui.鸡群品种', '鸡群品种')}</label>
-              <DictSelect dictType="BRD_BREED" value={form.breed} onChange={breed => setForm(p => ({ ...p, breed }))}
-                allowEmpty placeholder={t('ui.选择鸡群品种', '请选择鸡群品种（必填）')} className={s.inp} disabled={submitting} />
+              {editId && needsBreedReview(originalBreed) ? <button type="button" style={secondaryActionButton} disabled={submitting} onClick={() => {
+                setShowDrawer(false);
+                setConfirmFlockNo(editId);
+              }}>{t('ui.核对品种', '核对品种')}</button> : <DictSelect dictType="BRD_BREED" value={form.breed} onChange={breed => setForm(p => ({ ...p, breed }))}
+                ariaLabel={t('ui.鸡群品种', '鸡群品种')} allowEmpty={false} className={s.inp} disabled={submitting || breedsLoading} />}
               {historicalBreed && <div className={u.muted}>
                 {t('ui.历史品种原值', '历史品种原值')}：{historicalBreed}
               </div>}

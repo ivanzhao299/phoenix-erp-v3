@@ -13,7 +13,13 @@ import { assertHouseTurnaround, HOUSE_TURNAROUND_EVIDENCE, turnaroundBoundary } 
 import { resolveHouseCapacity } from './house-capacity';
 import { OrgScope, scopeWhere } from './farm.service';
 
-export type FlockActor = { id: string; permissions?: string[]; admin?: boolean };
+export type FlockActor = { id: string; accountId?: string; permissions?: string[]; admin?: boolean; impersonatedBy?: { id: number | string; username: string } };
+type BreedFlock = {
+  flock_no: string; house_code: string; farm_code: string; company_code: string | null; site_code: string | null;
+  breed_code: string | null; strain: string | null; breed_type: string | null; status: string;
+};
+const flockBreedColumns = 'flock_no,house_code,farm_code,company_code,site_code,breed_code,strain,breed_type,status';
+const baselineBreedRequired = '历史鸡群缺少有效遗传品种标准码。请打开本单的品种核对，由有权限的审核人确认后重试。';
 export const FLOCK_ACTION_MENUS = {
   create: 'MENU_FLOCK_CREATE', submit: 'MENU_FLOCK_CREATE', approve: 'MENU_FLOCK_APPROVE', post: 'MENU_FLOCK_POST',
   cancel: 'MENU_FLOCK_CREATE', BASELINE: 'MENU_FLOCK_BASELINE', ADJUST: 'MENU_FLOCK_ADJUST', REVERSE: 'MENU_FLOCK_REVERSE',
@@ -62,6 +68,86 @@ export class FlockLifecycleService {
     if (!h.company_code) throw new BadRequestException('鸡舍缺少权威公司归属');
     return h;
   }
+  async breedConfirmation(flockNo: string, scope: OrgScope) {
+    const [flock] = await this.db.query(`SELECT ${flockBreedColumns} FROM brd_flocks WHERE flock_no=$1`, [flockNo]) as BreedFlock[];
+    if (!flock) throw new NotFoundException('鸡群不存在');
+    const h = await this.house(this.db, flock.house_code, scope);
+    this.assertBreedOwnership(flock, h);
+    const active = await this.activeBreed(this.db, flock.breed_code);
+    const [facts] = await this.db.query('SELECT EXISTS(SELECT 1 FROM brd_daily_logs WHERE flock_no=$1) AS has_reports', [flockNo]);
+    return {
+      flockNo, houseCode: flock.house_code, breedCode: flock.breed_code,
+      historicalNames: this.historicalBreedNames(flock), hasReports: facts.has_reports,
+      ...(active && flock.breed_code ? { receiptId: await this.breedReceipt(this.db, flockNo, flock.breed_code) } : {}),
+      status: active ? 'CONFIRMED' : flock.breed_code?.trim() ? 'CATALOG_REVIEW' : flock.status === 'RETIRED' ? 'RETIRED' : 'MISSING',
+    };
+  }
+
+  async confirmBreed(flockNo: string, input: Record<string, unknown>, scope: OrgScope, actor: FlockActor) {
+    this.permit(actor, 'approve', true);
+    this.permit(actor, 'BASELINE', true);
+    if (!actor.accountId || !/^[1-9][0-9]{0,18}$/.test(actor.accountId)) throw new ForbiddenException('缺少实名审核账户');
+    if (!input || Array.isArray(input) || Object.keys(input).some(k => !['houseCode','breedCode','basis'].includes(k))) {
+      throw new BadRequestException('品种确认仅接受鸡舍、遗传品种和核对依据');
+    }
+    const houseCode = text(input.houseCode, '鸡舍');
+    const breedCode = text(input.breedCode, '遗传品种');
+    const basis = text(input.basis, '核对依据');
+    if (breedCode.length > 64) throw new BadRequestException('遗传品种标准码过长');
+    return this.db.transaction(async m => {
+      await m.query("SELECT pg_advisory_xact_lock(hashtext('phoenix:daily-house'),hashtext($1))", [houseCode]);
+      await m.query('SELECT h.house_code FROM brd_houses h JOIN brd_farms f ON f.farm_code=h.farm_code WHERE h.house_code=$1 FOR SHARE OF h,f', [houseCode]);
+      const h = await this.house(m, houseCode, scope);
+      const [flock] = await m.query(`SELECT ${flockBreedColumns} FROM brd_flocks WHERE flock_no=$1 AND house_code=$2 FOR UPDATE`, [flockNo, houseCode]) as BreedFlock[];
+      if (!flock) throw new ConflictException('鸡群或鸡舍已变化，请刷新后核对');
+      this.assertBreedOwnership(flock, h);
+      if (h.status !== 'ACTIVE' || h.farm_status !== 'ACTIVE') throw new ConflictException('鸡舍或农场未启用，请先核对档案');
+      const breed = await this.activeBreed(m, breedCode);
+      if (!breed) throw new BadRequestException('请选择唯一有效的遗传品种标准码');
+      if (flock.breed_code === breedCode) {
+        return { flockNo, breedCode, changed: false, receiptId: await this.breedReceipt(m, flockNo, breedCode) };
+      }
+      if (flock.status === 'RETIRED') throw new ConflictException('已关闭鸡群须走历史追溯更正');
+      if (flock.breed_code?.trim()) throw new ConflictException('已有标准码，请核对品种字典或办理历史追溯更正');
+      const names = this.historicalBreedNames(flock);
+      if (names.some(name => name !== breedCode && name !== breed.dict_label_zh?.trim())) {
+        throw new ConflictException('所选品种与历史名称不一致，请先核对原始记录和品种字典，勿覆盖旧品种');
+      }
+      await m.query('UPDATE brd_flocks SET breed_code=$2,updated_at=clock_timestamp() WHERE flock_no=$1', [flockNo, breedCode]);
+      const [audit] = await m.query(`INSERT INTO sys_audit_log
+        (user_id,user_name,action,entity_type,entity_id,before_value,after_value)
+        VALUES ($1,$2,'CONFIRM_BREED','BRD_FLOCK',$3,$4::jsonb,$5::jsonb) RETURNING log_id::text`,
+        [actor.accountId, actor.id, flockNo, JSON.stringify({breedCode:flock.breed_code,strain:flock.strain,breedType:flock.breed_type}),
+          JSON.stringify({breedCode,breedLabel:breed.dict_label_zh,basis,houseCode,companyCode:h.company_code,farmCode:h.farm_code,siteCode:h.site_code,
+            ...(actor.impersonatedBy ? {impersonatedBy:actor.impersonatedBy} : {})})]);
+      return { flockNo, breedCode, changed: true, receiptId: audit.log_id as string };
+    });
+  }
+
+  private assertBreedOwnership(flock: BreedFlock, house: {farm_code: string; company_code: string; site_code: string}) {
+    if (flock.farm_code !== house.farm_code || (flock.company_code && flock.company_code !== house.company_code)
+      || (flock.site_code && flock.site_code !== house.site_code)) {
+      throw new ConflictException('鸡群归属与当前鸡舍不一致，请先核对档案');
+    }
+  }
+
+  private async breedReceipt(m: EntityManager, flockNo: string, code: string) {
+    const [audit] = await m.query(`SELECT log_id::text FROM sys_audit_log
+      WHERE entity_type='BRD_FLOCK' AND entity_id=$1 AND action='CONFIRM_BREED' AND after_value->>'breedCode'=$2
+      ORDER BY log_id DESC LIMIT 1`, [flockNo, code]);
+    return audit?.log_id as string | undefined;
+  }
+
+  private historicalBreedNames(flock: BreedFlock) {
+    return [...new Set([flock.strain,flock.breed_type].filter((v): v is string => typeof v === 'string').map(v => v.trim()).filter(Boolean))];
+  }
+
+  private async activeBreed(m: EntityManager, code: string | null) {
+    if (!code?.trim()) return null;
+    const breeds = await m.query("SELECT dict_label_zh FROM sys_dict WHERE dict_type='BRD_BREED' AND dict_code=$1 AND status='ACTIVE' FOR SHARE", [code]);
+    return breeds.length === 1 ? breeds[0] as {dict_label_zh: string | null} : null;
+  }
+
   private async audit(m: EntityManager, doc: any, action: string, actor: FlockActor, version: number) {
     await m.query('INSERT INTO brd_flock_document_audits(id,document_id,action,actor,version) VALUES($1,$2,$3,$4,$5)',
       [randomUUID(),doc.id,action,actor.id,version]);
@@ -281,7 +367,12 @@ export class FlockLifecycleService {
   }
   async list(scope: OrgScope) {
     const params: any[]=[]; const where=scopeWhere(scope,params,'d.');
-    return this.db.query(`SELECT d.*,d.business_date::text AS business_date FROM brd_flock_documents d ${where?'WHERE '+where:''} ORDER BY created_at DESC,id LIMIT 500`,params);
+    return this.db.query(`SELECT d.*,d.business_date::text AS business_date,
+      CASE WHEN d.kind='BASELINE' AND d.status IN ('DRAFT','SUBMITTED','APPROVED') THEN NOT EXISTS(
+        SELECT 1 FROM brd_flocks x JOIN sys_dict k ON k.dict_type='BRD_BREED' AND k.status='ACTIVE' AND k.dict_code=x.breed_code
+        WHERE x.flock_no=d.flock_no AND x.house_code=d.house_code AND x.farm_code=d.farm_code AND NULLIF(BTRIM(x.breed_code),'') IS NOT NULL)
+      ELSE false END AS breed_confirmation_required
+      FROM brd_flock_documents d ${where?'WHERE '+where:''} ORDER BY d.created_at DESC,d.id LIMIT 500`,params);
   }
   async overview(scope: OrgScope) {
     const params: any[]=[];const where=scopeWhere(scope,params,'f.');
@@ -399,6 +490,10 @@ export class FlockLifecycleService {
       if (doc.status!==allowed[action]) throw new ConflictException('单据状态不允许此动作');
       if (action==='cancel' && doc.status==='APPROVED') this.permit(actor,'approve',true);
       if (action==='approve' && actor.id===doc.created_by) throw new ForbiddenException('审核人必须与制单人不同');
+      if (doc.kind==='BASELINE' && (action==='submit' || action==='approve')) {
+        const [flock]=await m.query('SELECT breed_code FROM brd_flocks WHERE flock_no=$1 AND house_code=$2 AND farm_code=$3 FOR SHARE',[doc.flock_no,doc.house_code,h.farm_code]);
+        if (!flock || !await this.activeBreed(m,flock.breed_code)) throw new BadRequestException(baselineBreedRequired);
+      }
       if (action==='approve' || action==='post') await this.validateEvidence(m,doc.payload,h,doc.created_by);
       if (action==='post') await this.post(m,doc,h,scope,actor);
       const status={submit:'SUBMITTED',approve:'APPROVED',post:'POSTED',cancel:'CANCELLED'}[action];
@@ -459,8 +554,7 @@ export class FlockLifecycleService {
         if (!['ACTIVE','GROWING','LAYING','PEAK','DECLINING'].includes(active[0].status)
           || !active[0].start_date || active[0].start_date>day) throw new BadRequestException('历史鸡群状态/入栏日期须先核实');
         if (birdCount(active[0].current_qty,'旧档案余额')!==p.expectedLegacyQty) throw new ConflictException('旧档案余额已变，请重新实盘核对');
-        const [breed]=await m.query("SELECT 1 FROM sys_dict WHERE dict_type='BRD_BREED' AND dict_code=$1 AND status='ACTIVE'",[active[0].breed_code]);
-        if (!breed) throw new BadRequestException('历史遗传品种尚未确认标准码');
+        if (!await this.activeBreed(m,active[0].breed_code)) throw new BadRequestException(baselineBreedRequired);
         // Baseline is end of physical-count day. No reclassification of that day's legacy losses/eggs.
         const future=await m.query('SELECT 1 FROM brd_daily_logs WHERE flock_no=$1 AND log_date>$2 LIMIT 1',[doc.flock_no,day]);
         if (future.length) throw new BadRequestException('基线后已有旧日报，须先完成差异处理');

@@ -10,7 +10,7 @@ import { FlockActor, FlockLifecycleService } from './flock-lifecycle.service';
 export class FlockLifecycleController {
   constructor(private readonly service: FlockLifecycleService) {}
   private actor(req: any): FlockActor {
-    return {id:String(req.user?.username??req.user?.userId??req.user?.sub??''),permissions:req.user?.permissions,
+    return {id:String(req.user?.username??req.user?.userId??req.user?.sub??''),accountId:String(req.user?.userId??req.user?.sub??''),permissions:req.user?.permissions,impersonatedBy:req.user?.impersonatedBy,
       admin:req.user?.roles?.includes('ROLE_ADMIN') || req.user?.role==='ROLE_ADMIN' || req.user?.permissions?.includes('*')};
   }
   @Post('provision-actions') async provision(@Req() req: any) { return {code:200,data:await this.service.provisionActions(this.actor(req))}; }
@@ -25,6 +25,14 @@ export class FlockLifecycleController {
   @Get('attribution') async attribution(@Req() req: any) { return {code:200,data:await this.service.attribution(deriveOrgScope(req))}; }
   @Get('balances') async balances(@Req() req: any) { return {code:200,data:await this.service.balances(deriveOrgScope(req))}; }
   @Get('held') async held(@Req() req: any) { return {code:200,data:await this.service.held(deriveOrgScope(req))}; }
+  @Get('flocks/:flockNo/breed-confirmation')
+  async breedConfirmation(@Param('flockNo') flockNo: string,@Req() req: any) {
+    return {code:200,data:await this.service.breedConfirmation(flockNo,deriveOrgScope(req))};
+  }
+  @Post('flocks/:flockNo/breed-confirmation')
+  async confirmBreed(@Param('flockNo') flockNo: string,@Body() body: Record<string, unknown>,@Req() req: any) {
+    return {code:200,data:await this.service.confirmBreed(flockNo,body,deriveOrgScope(req),this.actor(req))};
+  }
   @Get('documents') async list(@Req() req: any) { return {code:200,data:await this.service.list(deriveOrgScope(req))}; }
   @Get('documents/:id') async detail(@Param('id') id: string,@Req() req: any) {
     return {code:200,data:await this.service.detail(id,deriveOrgScope(req))};

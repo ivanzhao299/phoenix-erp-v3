@@ -147,6 +147,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       roles: payload.roles || (payload.role ? [payload.role] : []),
       permissions: payload.permissions || [],
       perms_version: payload.perms_version,
+      ...(payload.impersonatedBy ? { impersonatedBy: payload.impersonatedBy } : {}),
     };
   }
 }

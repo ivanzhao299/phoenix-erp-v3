@@ -69,6 +69,7 @@ export class GenericCrudController {
     'store_inventory',
   ]);
   private static readonly DEDICATED_CORE_WRITE_TABLES = new Set([
+    'sys_audit_log',
     'brd_daily_logs',
     'brd_vaccinations',
     'brd_medications',

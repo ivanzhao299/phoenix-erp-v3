@@ -38,6 +38,14 @@ describe('JwtStrategy account-state enforcement', () => {
     });
   });
 
+  it('preserves the signed initiating administrator without changing effective account or grants', async () => {
+    const strategy = strategyWithQuery(jest.fn().mockResolvedValue([{ status: 1, perms_version: 3 }]));
+    const impersonatedBy = { id: 1, username: 'admin' };
+    await expect(strategy.validate({ ...payload, impersonatedBy })).resolves.toMatchObject({
+      userId: 42, username: 'operator', roles: ['ROLE_OPERATOR'], permissions: payload.permissions, impersonatedBy,
+    });
+  });
+
   it('preserves explicit authentication denials from the account lookup', async () => {
     const strategy = strategyWithQuery(jest.fn().mockResolvedValue([{ status: 0, perms_version: 3 }]));
 

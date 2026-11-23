@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Search, Egg, Package, Tag, ShoppingCart, Users, Warehouse, Banknote, RotateCcw, Factory } from "lucide-react";
 import { usePermission } from "@/hooks/usePermission";
+import { useDictOptions } from "@/hooks/useDictOptions";
 import PageHeader from "@/components/PageHeader";
 import request from "@/lib/api-client";
 
@@ -133,6 +134,7 @@ function Table({
     </table>;
 }
 export default function TraceabilityPage() {
+  const { codeMap: breedLabels } = useDictOptions("BRD_BREED");
   const { t } = useLanguage();
   const tFn = t;
   const {
@@ -188,11 +190,13 @@ export default function TraceabilityPage() {
           }]} /></div>
           <div style={{
           marginTop: 6
-        }}><Table rows={p.flocks} cols={[{
+        }}><Table rows={Array.isArray(p.flocks) ? p.flocks.map(row => ({
+          ...row, breedDisplay: breedLabels[row.breed_code] || row.breed_type || row.breed_code,
+        })) : []} cols={[{
             k: "flock_no",
             label: "鸡群"
           }, {
-            k: "breed_type",
+            k: "breedDisplay",
             label: "品种"
           }]} /></div>
           <div style={{

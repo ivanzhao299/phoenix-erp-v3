@@ -37,7 +37,7 @@ const secret='owned-flock-http-fixture-jwt';
 suite('flock lifecycle real JWT, persisted roles, DataScope, uploads and PostgreSQL',()=>{
  let releaseBusinessClock:(()=>void)|undefined;
  let db:DataSource,app:INestApplication,scopeService:DataScopeService;let seq=0;
- const token=(id:number)=>sign({sub:id},secret,{expiresIn:'1h'});
+ const token=(id:number,impersonatedBy?:{id:number;username:string})=>sign({sub:id,impersonatedBy},secret,{expiresIn:'1h'});
  const api=(id:number,method:'get'|'post',path:string)=>request(app.getHttpServer())[method]('/api/v3/farm/flock-lifecycle'+path).auth(token(id),{type:'bearer'});
  const payload=(extra:Record<string,unknown>={})=>({kind:'BASELINE',sourceKey:`http-${++seq}`,houseCode:'HA',flockNo:'FA',businessDate:'2026-11-10',quantity:100,expectedLegacyQty:100,expectedVersion:0,reason:'actual fixture physical count',responsible:'keeper',differenceReceipt:'SIGNED-COUNT',...extra});
  const upload=(id=1,house='HA',company='CA',site='SA')=>request(app.getHttpServer()).post('/api/upload/contract').auth(token(id),{type:'bearer'})
@@ -58,6 +58,8 @@ suite('flock lifecycle real JWT, persisted roles, DataScope, uploads and Postgre
    CREATE TABLE IF NOT EXISTS sys_user_warehouse_scopes(id bigserial PRIMARY KEY,user_id bigint,warehouse_code text,created_at timestamptz);
    CREATE TABLE IF NOT EXISTS sys_user_farm_scopes(id bigserial PRIMARY KEY,user_id bigint,farm_code text,created_at timestamptz);
    CREATE TABLE IF NOT EXISTS sys_menu(menu_id bigserial PRIMARY KEY,menu_code text UNIQUE,menu_name_zh text,domain text,parent_code text,route text,sort_order int);
+   CREATE TABLE IF NOT EXISTS sys_audit_log(log_id bigserial PRIMARY KEY,user_id bigint NOT NULL,user_name varchar(64) NOT NULL,
+    action varchar(32) NOT NULL,entity_type varchar(64),entity_id varchar(128),before_value jsonb,after_value jsonb,created_at timestamp DEFAULT now());
    CREATE TABLE IF NOT EXISTS fixture_users(id int PRIMARY KEY,username text,role text);
    CREATE TABLE IF NOT EXISTS fixture_permissions(role text,permission text,PRIMARY KEY(role,permission));
    CREATE TABLE IF NOT EXISTS brd_farms(farm_code text PRIMARY KEY,farm_name text,company_code text,mapped_site_code text,status text);
@@ -84,13 +86,14 @@ suite('flock lifecycle real JWT, persisted roles, DataScope, uploads and Postgre
    INSERT INTO fixture_permissions VALUES('ROLE_KEEPER','MENU_FARM_DATA:V'),('ROLE_KEEPER','MENU_FLOCK_CREATE:E'),('ROLE_KEEPER','MENU_FLOCK_BASELINE:A'),
     ('ROLE_REVIEWER','MENU_FARM_DATA:V'),('ROLE_REVIEWER','MENU_FLOCK_APPROVE:A'),('ROLE_REVIEWER','MENU_FLOCK_BASELINE:A'),
     ('ROLE_POSTER','MENU_FARM_DATA:V'),('ROLE_POSTER','MENU_FLOCK_POST:E'),('ROLE_POSTER','MENU_FLOCK_BASELINE:A'),('ROLE_ADMIN','*'),('ROLE_KEEPER','MENU_FLOCK_REPORT:A'),('ROLE_REVIEWER','MENU_FLOCK_REPORT:A'),('ROLE_POSTER','MENU_FLOCK_REPORT:A') ON CONFLICT DO NOTHING;
-   INSERT INTO sys_dict(dict_type,dict_code,dict_label_zh,status) VALUES('BRD_BREED','BREED','approved breed','ACTIVE') ON CONFLICT DO NOTHING;
+   INSERT INTO sys_dict(dict_type,dict_code,dict_label_zh,status) VALUES
+    ('BRD_BREED','BREED','approved breed','ACTIVE'),('BRD_BREED','OTHER','another breed','ACTIVE'),('BRD_BREED','RETIRED_BREED','retired breed','INACTIVE') ON CONFLICT DO NOTHING;
    INSERT INTO sys_menu(menu_code,menu_name_zh,domain) VALUES('MENU_FARM_DATA','Flock data','FARM'),('MENU_PRC2_ORDER','Purchase order','PRC') ON CONFLICT DO NOTHING;`);
   const q=db.createQueryRunner();await new FlockLifecycleLedger1794900000000().up(q);await new FlockProductionProvenance1794901000000().up(q);await new FlockActivitySources1794902000000().up(q);await new FlockReportCorrection1794903000000().up(q);await q.release();
   class FixtureJwt extends PassportStrategy(Strategy){
    constructor(){super({jwtFromRequest:ExtractJwt.fromAuthHeaderAsBearerToken(),secretOrKey:secret});}
-   async validate(p:{sub:number}){const [u]=await db.query('SELECT * FROM fixture_users WHERE id=$1',[p.sub]);if(!u)return null;
-    return {userId:String(u.id),username:u.username,roles:[u.role],role:u.role,permissions:(await db.query('SELECT permission FROM fixture_permissions WHERE role=$1',[u.role])).map((r:any)=>r.permission)};}
+   async validate(p:{sub:number;impersonatedBy?:{id:number;username:string}}){const [u]=await db.query('SELECT * FROM fixture_users WHERE id=$1',[p.sub]);if(!u)return null;
+    return {userId:String(u.id),username:u.username,roles:[u.role],role:u.role,impersonatedBy:p.impersonatedBy,permissions:(await db.query('SELECT permission FROM fixture_permissions WHERE role=$1',[u.role])).map((r:any)=>r.permission)};}
   }
   @Controller('api/auth') class FixtureLogin{
    @Post('login')async login(@Body() b:{username:string;password:string}){if(b.password!=='owned-fixture')return {code:401};const [u]=await db.query('SELECT * FROM fixture_users WHERE username=$1',[b.username]);if(!u)return {code:401};const info={userId:String(u.id),username:u.username,realNameZh:u.username,roles:[u.role],role:u.role,permissions:(await db.query('SELECT permission FROM fixture_permissions WHERE role=$1',[u.role])).map((r:any)=>r.permission)};return {code:200,token:token(u.id),user_info:info,user:{userId:String(u.id),username:u.username,roles:[u.role],role:u.role,permissions:(await db.query('SELECT permission FROM fixture_permissions WHERE role=$1',[u.role])).map((r:any)=>r.permission)}};}
@@ -110,6 +113,7 @@ suite('flock lifecycle real JWT, persisted roles, DataScope, uploads and Postgre
  },30000);
  beforeEach(async()=>{
   await db.query(`TRUNCATE brd_flock_admission_receipts,brd_flock_activity_sources,brd_flock_sales_settlements,inv_flock_source_links,brd_egg_source_receipts,brd_egg_day_routes,brd_flock_events,brd_flock_document_audits,brd_flock_daily_balances,brd_flock_held_balances,brd_flock_house_states,brd_flock_balances,brd_flock_occupancies,brd_flock_documents,brd_daily_logs,brd_flocks CASCADE;
+    DELETE FROM sys_audit_log WHERE action='CONFIRM_BREED';
     INSERT INTO brd_flocks(flock_no,house_code,farm_code,company_code,site_code,breed_code,start_date,placement_date,initial_qty,current_qty,status) VALUES('FA','HA','A','CA','SA','BREED','2026-01-01','2026-01-01',100,100,'LAYING');`);
   for(let id=1;id<=7;id++)scopeService.invalidate(String(id));
  });
@@ -134,6 +138,90 @@ suite('flock lifecycle real JWT, persisted roles, DataScope, uploads and Postgre
   const detail=(await api(2,'get',`/documents/${d.id}`).expect(200)).body.data;expect(detail.business_date).toBe('2026-11-10');expect(detail.events[0].business_date).toBe('2026-11-10');
   const balances=(await api(1,'get','/balances').expect(200)).body.data;expect(balances[0].baseline_on).toBe('2026-11-10');expect((await db.query('SELECT quantity FROM brd_flock_balances'))[0].quantity).toBe(100);
   await api(2,'get',`/documents/${d.id}/evidence/${file.body.fileId}`).expect(200);
+ });
+ const confirmBody={houseCode:'HA',breedCode:'BREED',basis:'Original supplier statement F-881'};
+ const confirmRoute='/flocks/FA/breed-confirmation';
+ it('recovers an already approved baseline on the original version after confirming the legacy name',async()=>{
+  const evidence=(await upload().expect(201)).body.fileId;
+  const made=(await api(1,'post','/documents').send(payload({evidence:[evidence]})).expect(201)).body.data;
+  await api(1,'post',`/documents/${made.id}/submit`).send({version:0}).expect(201);
+  const approved=(await api(2,'post',`/documents/${made.id}/approve`).send({version:1}).expect(201)).body.data;
+  // Simulate the persisted older approval with the missing code and only the historic display text.
+  await db.query("UPDATE brd_flocks SET breed_code=NULL,strain='approved breed',breed_type=' approved breed ' WHERE flock_no='FA'");
+  const action=`/documents/${made.id}/post`;
+  expect((await api(3,'post',action).send({version:approved.version}).expect(400)).body.message).toContain('品种核对');
+  expect((await api(2,'get','/documents').expect(200)).body.data[0]).toMatchObject({status:'APPROVED',version:approved.version,breed_confirmation_required:true});
+  expect((await db.query("SELECT COUNT(*)::int AS n FROM brd_flock_events"))[0].n).toBe(0);
+  expect((await api(2,'get',confirmRoute).expect(200)).body.data).toMatchObject({status:'MISSING',historicalNames:['approved breed']});
+  await api(2,'post',confirmRoute).send({...confirmBody,breedCode:'OTHER'}).expect(409);
+  const confirmed=(await api(2,'post',confirmRoute).send(confirmBody).expect(201)).body.data;
+  expect(confirmed).toMatchObject({breedCode:'BREED',changed:true,receiptId:expect.any(String)});
+  expect((await api(2,'get','/documents').expect(200)).body.data[0].breed_confirmation_required).toBe(false);
+  expect((await api(3,'post',action).send({version:approved.version}).expect(201)).body.data.status).toBe('POSTED');
+  expect(await db.query("SELECT strain,breed_type FROM brd_flocks WHERE flock_no='FA'")).toEqual([{strain:'approved breed',breed_type:' approved breed '}]);
+  const [audit]=await db.query("SELECT user_name,before_value,after_value FROM sys_audit_log WHERE log_id=$1",[confirmed.receiptId]);
+  expect(audit).toMatchObject({user_name:'reviewer',before_value:{breedCode:null,breedType:' approved breed '},after_value:{breedCode:'BREED',basis:confirmBody.basis,houseCode:'HA'}});
+ });
+ it('flags a missing code on drafts before submission rather than after approval',async()=>{
+  await db.query("UPDATE brd_flocks SET breed_code=NULL WHERE flock_no='FA'");
+  const evidence=(await upload().expect(201)).body.fileId;
+  const made=(await api(1,'post','/documents').send(payload({evidence:[evidence]})).expect(201)).body.data;
+  expect((await api(1,'post',`/documents/${made.id}/submit`).send({version:0}).expect(400)).body.message).toContain('品种核对');
+  expect((await api(2,'get','/documents').expect(200)).body.data[0]).toMatchObject({status:'DRAFT',version:0,breed_confirmation_required:true});
+ });
+ it('confirms an empty breed with existing daily reports exactly once and preserves production facts',async()=>{
+  await db.query("UPDATE brd_flocks SET breed_code=' ',strain=NULL,breed_type=NULL WHERE flock_no='FA'");
+  await db.query("INSERT INTO brd_daily_logs(flock_no,house_code,log_date,shift,eggs_produced,note) VALUES('FA','HA','2026-11-09','DAILY',12,'historical')");
+  const day=await db.query("SELECT row_to_json(d) AS fact FROM brd_daily_logs d WHERE flock_no='FA'");
+  expect((await api(1,'get',confirmRoute).expect(200)).body.data).toMatchObject({status:'MISSING',historicalNames:[],hasReports:true});
+  await api(1,'post',confirmRoute).send(confirmBody).expect(403);
+  await api(4,'get',confirmRoute).expect(403);
+  await api(4,'post',confirmRoute).send(confirmBody).expect(403);
+  await api(2,'post',confirmRoute).send({...confirmBody,startDate:'2026-01-02'}).expect(400);
+  await api(2,'post',confirmRoute).send({...confirmBody,breedCode:'RETIRED_BREED'}).expect(400);
+  await api(2,'post',confirmRoute).send({...confirmBody,basis:' '}).expect(400);
+  const concurrent=await Promise.all([api(2,'post',confirmRoute).send(confirmBody),api(6,'post',confirmRoute).send({...confirmBody,breedCode:'OTHER'})]);
+  expect(concurrent.map(r=>r.status).sort()).toEqual([201,409]);
+  const {breedCode:active,receiptId}=concurrent.find(r=>r.status===201)!.body.data;
+  expect((await api(2,'post',confirmRoute).send({...confirmBody,breedCode:active}).expect(201)).body.data).toMatchObject({changed:false,breedCode:active,receiptId});
+  expect((await api(2,'get',confirmRoute).expect(200)).body.data).toMatchObject({status:'CONFIRMED',breedCode:active,receiptId});
+  expect(await db.query("SELECT row_to_json(d) AS fact FROM brd_daily_logs d WHERE flock_no='FA'")).toEqual(day);
+  expect(await db.query("SELECT breed_code,strain,breed_type,current_qty,start_date::text FROM brd_flocks WHERE flock_no='FA'"))
+   .toEqual([{breed_code:active,strain:null,breed_type:null,current_qty:100,start_date:'2026-01-01'}]);
+  expect(await db.query("SELECT entity_id FROM sys_audit_log WHERE action='CONFIRM_BREED'")).toEqual([{entity_id:'FA'}]);
+ });
+ it('keeps shadow initiation attributable and rejects generic tampering with the audit receipt',async()=>{
+  await db.query("UPDATE brd_flocks SET breed_code=NULL WHERE flock_no='FA'");
+  const result=(await request(app.getHttpServer()).post('/api/v3/farm/flock-lifecycle'+confirmRoute)
+   .auth(token(2,{id:6,username:'admin'}),{type:'bearer'}).send(confirmBody).expect(201)).body.data;
+  const [audit]=await db.query("SELECT user_name,after_value FROM sys_audit_log WHERE log_id=$1",[result.receiptId]);
+  expect(audit).toMatchObject({user_name:'reviewer',after_value:{impersonatedBy:{id:6,username:'admin'}}});
+  await request(app.getHttpServer()).put(`/api/crud/sys_audit_log/log_id/${result.receiptId}`).auth(token(6),{type:'bearer'}).send({action:'EDITED'}).expect(403);
+  await request(app.getHttpServer()).delete(`/api/crud/sys_audit_log/log_id/${result.receiptId}`).auth(token(6),{type:'bearer'}).expect(403);
+ });
+ it('denies inconsistent legacy ownership even for the house’s authorized user',async()=>{
+  await db.query("UPDATE brd_flocks SET breed_code=NULL,farm_code='B',company_code='CB',site_code='SB' WHERE flock_no='FA'");
+  await api(2,'get',confirmRoute).expect(409);
+  await api(2,'post',confirmRoute).send(confirmBody).expect(409);
+  expect(await db.query("SELECT breed_code FROM brd_flocks WHERE flock_no='FA'")).toEqual([{breed_code:null}]);
+ });
+ it('rolls back the code assignment if the same transaction cannot persist an audit receipt',async()=>{
+  await db.query("UPDATE brd_flocks SET breed_code=NULL WHERE flock_no='FA'");
+  await db.query("ALTER TABLE sys_audit_log ADD CONSTRAINT fixture_reject_confirmation CHECK (action <> 'CONFIRM_BREED')");
+  try {
+   await api(2,'post',confirmRoute).send(confirmBody).expect(500);
+   expect(await db.query("SELECT breed_code FROM brd_flocks WHERE flock_no='FA'")).toEqual([{breed_code:null}]);
+  } finally {
+   await db.query('ALTER TABLE sys_audit_log DROP CONSTRAINT fixture_reject_confirmation');
+  }
+ });
+ it('keeps conflicting aliases and preexisting unavailable codes out of the one-time fill path',async()=>{
+  await db.query("UPDATE brd_flocks SET breed_code=NULL,strain='approved breed',breed_type='another breed' WHERE flock_no='FA'");
+  await api(2,'post',confirmRoute).send(confirmBody).expect(409);
+  await db.query("UPDATE brd_flocks SET breed_code='RETIRED_BREED' WHERE flock_no='FA'");
+  expect((await api(2,'get',confirmRoute).expect(200)).body.data.status).toBe('CATALOG_REVIEW');
+  await api(2,'post',confirmRoute).send(confirmBody).expect(409);
+  expect(await db.query("SELECT entity_id FROM sys_audit_log WHERE action='CONFIRM_BREED'")).toEqual([]);
  });
  it('rejects spoofed house/company/site, same-company foreign farm and unbound users at upload/create',async()=>{
   await upload(1,'HB','CB','SB').expect(400);await upload(1,'HA','CB','SA').expect(400);await upload(1,'HX','CA','SA2').expect(400);await upload(5).expect(400);

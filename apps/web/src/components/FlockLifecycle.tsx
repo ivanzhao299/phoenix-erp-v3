@@ -5,12 +5,14 @@ import request,{farmProductionApi} from '@/lib/api-client';
 import {useLanguage} from '@/contexts/LanguageContext';
 import {usePermission} from '@/hooks/usePermission';
 import {DictSelect} from '@/components/shared-selectors/DictSelect';
+import {useDictOptions} from '@/hooks/useDictOptions';
+import FlockBreedConfirmation from '@/components/breeding/FlockBreedConfirmation';
 import {SupplierSelector,CustomerSelector,UserSelector,FarmSelector,GradeSelector} from '@/components/shared-selectors/MasterDataSelectors';
 import {AttachmentUploader} from '@/components/design-system/forms/AttachmentUploader';
 import css from './FlockLifecycle.module.css';
 
 type Row=Record<string,unknown>;
-type Doc=Row&{id:string;kind:string;status:string;version:number;house_code:string;flock_no:string;created_by:string;payload:Row};
+type Doc=Row&{id:string;kind:string;status:string;version:number;house_code:string;flock_no:string;created_by:string;payload:Row;breed_confirmation_required?:boolean};
 const endpoint='/v3/farm/flock-lifecycle';
 const today=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Singapore'}).format(new Date());
 const kindNames:Record<string,string>={REPORT_CORRECTION:'历史日报更正与补录',TRANSFER_IN:'整群转入',TRANSFER_OUT:'整群转出',REVERSE_MORTALITY:'冲销死亡',REVERSE_CULL:'冲销淘汰',REVERSE_ADJUST:'冲销盘点',BASELINE:'历史实盘接续',ADMIT:'入栏',MORTALITY:'死亡处置',CULL:'淘汰移出待售',SELL_HELD:'待售鸡交付结算',TRANSFER:'整群转舍',ADJUST:'盘点调整',REVERSE:'冲销更正',CLOSE:'关闭鸡群',CLEAN_START:'开始清舍',CLEAN_ACCEPT:'清舍验收',HISTORY_AUTH:'历史期间更正授权'};
@@ -43,6 +45,8 @@ export default function FlockLifecycle(){
 function ActorLifecycle(){
   const {t}=useLanguage();
   const access=usePermission('MENU_FARM_DATA');
+  const [confirmFlockNo,setConfirmFlockNo]=useState('');
+  const {optionPairs:breedOptions,loading:breedsLoading}=useDictOptions('BRD_BREED');
   const [review,setReview]=useState<{house:string;date:string}|null>(null);
   const vetAccess=usePermission('MENU_FARM_VET');
   const createAccess=usePermission('MENU_FLOCK_CREATE');const approveAccess=usePermission('MENU_FLOCK_APPROVE');const postAccess=usePermission('MENU_FLOCK_POST');
@@ -82,6 +86,7 @@ function ActorLifecycle(){
   const house=houses.find(h=>h.house_code===form.houseCode);
   const balance=balances.find(b=>b.flock_no===form.flockNo);
   const oldFlock=legacy.find(b=>b.flock_no===form.flockNo);
+  const selectedBaselineBreedNeedsReview=form.kind==='BASELINE'&&Boolean(oldFlock)&&(!String(oldFlock?.breed_code??'').trim()||(!breedsLoading&&!breedOptions.some(o=>o.value===oldFlock?.breed_code)));
   const heldRow=held.find(b=>b.id===form.heldId);
   const flockOptions=useMemo(()=>[...new Map([...balances,...legacy,...occupancies].filter(f=>f.house_code===form.houseCode).map(b=>[String(b.flock_no),b])).values()], [balances,legacy,occupancies,form.houseCode]);
   const field=(name:keyof ReturnType<typeof blank>,value:string)=>{setForm(p=>({...p,[name]:value}));setSourceKey(crypto.randomUUID());};
@@ -119,6 +124,13 @@ function ActorLifecycle(){
   if(!access.canView)return <p role="alert">当前账号没有鸡群管理查看权限。</p>;
   return <main className={css.root}>
     <h1>鸡群生命周期</h1>
+    {confirmFlockNo&&<FlockBreedConfirmation key={confirmFlockNo} flockNo={confirmFlockNo} onClose={()=>setConfirmFlockNo('')}
+      onConfirmed={({receiptId})=>{
+        setConfirmFlockNo('');
+        void refresh().then(() => setMessage(receiptId ? `品种已确认，审计编号 ${receiptId}。可继续处理原单。` : '品种已确认。可继续处理原单。'))
+          .catch(() => setMessage('品种已确认，请刷新单据与审核时间线。'));
+      }}/>}
+
     <p>存栏以审核过账的事件账为准。历史群须完成实盘签认后接续；清舍验收后才能换群。</p>
     <nav className={css.actions}><a href="/breeding/flock">鸡群档案</a><a href="/mobile/mortality">移动死淘汇总</a><button disabled={busy} onClick={()=>run(refresh,'已刷新。')}>刷新</button>
       {access.isSuper&&<button disabled={busy} onClick={()=>run(()=>request(`${endpoint}/provision-actions`,{method:'POST',body:'{}'}),'权限项已注册，请在角色管理分别授权并重新登录。')}>注册角色动作权限</button>}</nav>
@@ -157,6 +169,9 @@ function ActorLifecycle(){
         <label>责任人<UserSelector ariaLabel="责任人" value={form.responsible} onChange={v=>field('responsible',v)}/></label>
         <label>业务原因及交接说明<textarea value={form.reason} onChange={e=>field('reason',e.target.value)}/></label>
       </div>
+      {selectedBaselineBreedNeedsReview&&<p role="status">该鸡群的遗传品种标准码待核对。可以先保存草稿，确认品种后再提交。
+        <button type="button" disabled={busy} onClick={()=>setConfirmFlockNo(form.flockNo)}>核对品种</button>
+      </p>}
       {house&&<AttachmentUploader value={evidence} onChange={v=>{setEvidence(v);setSourceKey(crypto.randomUUID());}} ownership={{moduleCode:'FLOCK_LIFECYCLE',ownerType:'HOUSE',ownerId:form.houseCode,companyCode:String(house.company_code),storeCode:String(house.site_code??'')}}/>}
       <p>业务来源编号：{sourceKey}（自动生成，供历史授权绑定）</p>
       <button disabled={busy||!form.houseCode} onClick={submit}>保存草稿</button>
@@ -164,10 +179,12 @@ function ActorLifecycle(){
     <section id="flock-documents" className={css.panel}><h2>单据与审核时间线</h2><p>制单、审核、过账分开；已过账事实通过冲销保留原单。待售交付生成结算依据，财务另行审核入账。</p>
       {review&&<p>{t('productionJobs.flockReview')} · {review.house} {review.date} <button onClick={()=>setReview(null)}>{t('productionInstallments.history')}</button></p>}
       {docs.filter(d=>!review||['REPORT_CORRECTION','CLOSE'].includes(d.kind)&&['SUBMITTED','APPROVED'].includes(d.status)&&(!review.house||d.house_code===review.house)&&(!review.date||String(d.business_date).slice(0,10)===review.date)).map(d=><article className={css.document} key={d.id}><strong>{kindNames[d.kind]??d.kind} · {stateNames[d.status]}</strong><p>{d.flock_no||d.house_code} · {String(d.business_date).slice(0,10)} · {d.payload.quantity==null?'':`${String(d.payload.quantity)}羽`}</p><small>制单人 {d.created_by} · {String(d.payload.reason)}</small>
+        {d.breed_confirmation_required&&<p>品种标准码待核对。确认后可继续处理本单。</p>}
         <div className={css.actions}><button disabled={busy} onClick={()=>showDetail(d.id)}>原单与事件</button>
-          {d.status==='DRAFT'&&createAccess.canEdit&&<button disabled={busy} onClick={()=>run(()=>request(`${endpoint}/documents/${d.id}/submit`,{method:'POST',body:JSON.stringify({version:d.version})}),'已提交审核。')}>提交</button>}
-          {d.status==='SUBMITTED'&&approveAccess.canApprove&&d.created_by!==access.user.username&&<button disabled={busy} onClick={()=>run(()=>request(`${endpoint}/documents/${d.id}/approve`,{method:'POST',body:JSON.stringify({version:d.version})}),'已审核。')}>审核</button>}
-          {d.status==='APPROVED'&&postAccess.canEdit&&<button disabled={busy} onClick={()=>run(()=>request(`${endpoint}/documents/${d.id}/post`,{method:'POST',body:JSON.stringify({version:d.version})}),'已原子过账。')}>过账</button>}
+          {d.breed_confirmation_required&&<button type="button" disabled={busy} onClick={()=>setConfirmFlockNo(d.flock_no)}>核对品种</button>}
+          {d.status==='DRAFT'&&createAccess.canEdit&&<button disabled={busy||d.breed_confirmation_required} onClick={()=>run(()=>request(`${endpoint}/documents/${d.id}/submit`,{method:'POST',body:JSON.stringify({version:d.version})}),'已提交审核。')}>提交</button>}
+          {d.status==='SUBMITTED'&&approveAccess.canApprove&&d.created_by!==access.user.username&&<button disabled={busy||d.breed_confirmation_required} onClick={()=>run(()=>request(`${endpoint}/documents/${d.id}/approve`,{method:'POST',body:JSON.stringify({version:d.version})}),'已审核。')}>审核</button>}
+          {d.status==='APPROVED'&&postAccess.canEdit&&<button disabled={busy||d.breed_confirmation_required} onClick={()=>run(()=>request(`${endpoint}/documents/${d.id}/post`,{method:'POST',body:JSON.stringify({version:d.version})}),'已原子过账。')}>过账</button>}
           {d.status!=='POSTED'&&d.status!=='CANCELLED'&&createAccess.canEdit&&<button disabled={busy} onClick={()=>run(()=>request(`${endpoint}/documents/${d.id}/cancel`,{method:'POST',body:JSON.stringify({version:d.version})}),'已取消，原单保留。')}>取消</button>}
         </div></article>)}
     </section>
