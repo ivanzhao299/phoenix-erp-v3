@@ -11,7 +11,7 @@ import {modernSchemaReleaseBinding,validateModernSchemaPending} from './producti
 import {verifyModernSchemaStage} from './production-modern-schema-stage.mjs';
 import {ModernSchemaIngress} from './production-modern-schema-ingress.mjs';
 import {ingressIdentity} from './maintenance-ingress-policy.mjs';
-import {readPublicManifest} from './background-control-manifest.mjs';
+import {readPublicManifest,assertSameBinding} from './background-control-manifest.mjs';
 import {inspectApiParticipant,verifyParticipantStatus} from './background-control-coordinator.mjs';
 import {ModernSchemaControlSession,pinOriginalModernSchemaSession,verifyOriginalModernSchemaAdmission} from './production-modern-schema-session-lease.mjs';
 import {modernSchemaOriginalSessionExitSql,closeModernSchemaOriginalSession} from './production-modern-schema-completion.mjs';
@@ -83,10 +83,12 @@ async function inspectHeld(env){
   closed.originalLeaseSha256===canonicalDigest(pending.lease)&&closed.transportClosed===true&&closed.outcome==='ORIGINAL_SESSION_ABSENT','PROTECTED_HOLD_CHANGED');
  const {api,db,web}=prep.originalSnapshot.containers;
  const fenced=readPublicManifest(),control=store.read('background-control.json');
- assert(fenced.phase==='FENCED'&&fenced.owner===heldOwner&&control.generation===fenced.generation&&control.manifestDigest===sha(JSON.stringify(fenced)),'ORIGINAL_CONTROL');
+ assertSameBinding(control,binding);
+ assert(control.phase==='FENCED'&&fenced.targetSha===heldTarget&&fenced.phase==='FENCED'&&fenced.owner===heldOwner&&control.generation===fenced.generation&&control.manifestDigest===sha(JSON.stringify(fenced)),'ORIGINAL_CONTROL');
  const host=()=>{
   store.guard();assertHeldEdge(dir);
   assert(Date.now()<Date.parse('2026-11-23T15:07:52Z')&&!fs.existsSync('/proc/'+pending.supervisor.pid)&&
+   same(store.read('floor.json'),prep.floor)&&same(store.read('active.json'),prep.active)&&
    same(store.read('schema-release-pending.json'),pending)&&same(readPublicManifest(),fenced)&&same(store.read('background-control.json'),control)&&
    !['transaction.json','policy-transition.json','cutover-pending.json'].some(n=>store.exists(n))&&
    !fs.readdirSync(dir).some(n=>n.startsWith('schema-release-step-'+heldOwner+'-')&&!/^([0-5])-/.test(n.slice(('schema-release-step-'+heldOwner+'-').length))),'HELD_STATE_CHANGED');
