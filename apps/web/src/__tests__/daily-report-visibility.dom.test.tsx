@@ -6,6 +6,8 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 const fixtures = vi.hoisted(() => ({
   reports: [] as Record<string, unknown>[], fetchReports: vi.fn(), fetchHouses: vi.fn(), fetchFlocks: vi.fn(),
   toast: { error: vi.fn(), success: vi.fn() },
+  fetchContext: vi.fn(),
+  saveReport: vi.fn(),
 }));
 vi.mock('next/navigation', () => ({ useSearchParams: () => new URLSearchParams(window.location.search) }));
 vi.mock('@/contexts/LanguageContext', () => ({ useLanguage: () => ({ t: (_key: string, fallback: string) => fallback }) }));
@@ -42,12 +44,28 @@ beforeEach(() => {
   fixtures.fetchHouses.mockReset().mockResolvedValue([{house_code:'HOUSE-A',house_name:'House A',farm_code:'FARM-A'}, {house_code:'HOUSE-B',house_name:'House B',farm_code:'FARM-A'}]);
   fixtures.fetchFlocks.mockReset().mockResolvedValue([{house_code:'HOUSE-A',flock_no:'FLOCK-A',current_qty:100}]);
   fixtures.toast.error.mockReset();
-  vi.stubGlobal('fetch', vi.fn(async (_url: string, options?: RequestInit) => {
-    if (options?.method === 'POST') {
-      fixtures.reports.push(JSON.parse(String(options.body)));
-      return {ok:true,json:async()=>({code:200})};
+  const ok = (body: unknown) => ({ok:true,json:async()=>body});
+  fixtures.fetchContext.mockReset().mockResolvedValue(ok({state:'OFF',firstProductionDate:null}));
+  fixtures.saveReport.mockReset().mockImplementation(async (report: Record<string, unknown>) => {
+    fixtures.reports.push(report);
+    return ok({code:200});
+  });
+  vi.stubGlobal('fetch', vi.fn(async (url: string, options?: RequestInit) => {
+    const { pathname, searchParams } = new URL(url, window.location.origin);
+    if (pathname === '/api/v3/farm/daily-logs' && options?.method === 'POST') {
+      return fixtures.saveReport(JSON.parse(String(options.body)));
     }
-    return {ok:true,json:async()=>({data:{}})};
+    if (pathname === '/api/lookup/egg-source-profile') return ok({code:200,data:null});
+    if (pathname === '/api/lookup/houses') {
+      return ok({code:200,data:[{houseCode:'HOUSE-A',companyCode:'COMP-A',ownershipResolved:true}]});
+    }
+    if (pathname === '/api/v2/inventory/production-inbound-documents/context') {
+      return fixtures.fetchContext(searchParams.get('companyCode'), searchParams.get('houseCode'));
+    }
+    if (pathname === '/api/v3/farm/daily-hen-report') {
+      return ok({rows:[{house_code:'HOUSE-A',occupancy_id:null,has_daily_log:false,current_qty:100}]});
+    }
+    return ok({data:{}});
   }));
   host = document.createElement('div'); document.body.append(host); root = createRoot(host);
 });
@@ -78,7 +96,10 @@ it('shows the saved business date immediately and remains visible on refresh and
   const deaths = Array.from(host.querySelectorAll('span')).find(span => span.textContent === '死亡(羽)')!.parentElement!.querySelector('input')!;
   await setInput(deaths, '3');
   const submit = Array.from(host.querySelectorAll('button')).find(button => button.textContent?.includes('提交日报'))!;
+  expect(fixtures.fetchContext).toHaveBeenLastCalledWith('COMP-A', 'HOUSE-A');
+  expect(submit.disabled).toBe(false);
   await act(async () => submit.click());
+  expect(fixtures.saveReport).toHaveBeenCalledWith(expect.objectContaining({house_code:'HOUSE-A',log_date:'2026-10-17',mortality_qty:3}));
   expect(fixtures.toast.error).not.toHaveBeenCalled();
   expect(fixtures.fetchReports).toHaveBeenLastCalledWith({house_code:'HOUSE-A',log_date:'2026-10-17',limit:30});
   expect(historyRows().textContent).toContain('House A');
@@ -89,6 +110,17 @@ it('shows the saved business date immediately and remains visible on refresh and
   await act(async () => root.unmount()); root=createRoot(host);
   sessionStorage.clear(); sessionStorage.setItem('phoenix_user',JSON.stringify({username:'fixture_reporter',storeCode:'LPH_FARM_A'}));
   await mount(); expect(historyRows().textContent).toContain('House A');
+});
+
+it('requires verified context after a date change before enabling submission', async () => {
+  await mount();
+  const submit = Array.from(host.querySelectorAll('button')).find(button => button.textContent?.includes('提交日报'))!;
+  expect(submit.disabled).toBe(false);
+  fixtures.fetchContext.mockResolvedValue({ok:false,status:403,json:async()=>({message:'Unavailable scope'})});
+  await setInput(host.querySelector('input[type="date"]')!, '2026-10-17');
+  expect(submit.disabled).toBe(true);
+  await act(async () => submit.click());
+  expect(fixtures.saveReport).not.toHaveBeenCalled();
 });
 
 it('discards an older history response after the user selects a different house', async () => {
