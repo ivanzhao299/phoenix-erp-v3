@@ -13,6 +13,7 @@ import {TraceabilityService} from '../traceability/traceability.service';
 import {FlockBaseSchema1794899000000} from '../../database/migrations/1794899000000-FlockBaseSchema';
 import {FlockLifecycleLedger1794900000000} from '../../database/migrations/1794900000000-FlockLifecycleLedger';
 import {FlockProductionProvenance1794901000000} from '../../database/migrations/1794901000000-FlockProductionProvenance';
+import {OfficialInventoryCutover1794971000000} from '../../database/migrations/1794971000000-OfficialInventoryCutover';
 const url=process.env.FLOCK_DOWNSTREAM_PG_URL;const suite=url?describe:describe.skip;
 suite('actual WMS transfer and trace on owned PostgreSQL',()=>{
  let releaseBusinessClock:(()=>void)|undefined;
@@ -53,6 +54,9 @@ suite('actual WMS transfer and trace on owned PostgreSQL',()=>{
    ALTER TABLE inv_batches ADD COLUMN IF NOT EXISTS manufacturer_batch_no text;
    ALTER TABLE inv_ledger ADD COLUMN IF NOT EXISTS log_date date,ADD COLUMN IF NOT EXISTS house_code text;
    CREATE TABLE IF NOT EXISTS file_metadata(file_id text PRIMARY KEY,status text,deleted_at timestamptz,visibility text,mime_type text,module_code text,owner_type text,owner_id text,company_code text,store_code text,uploaded_by text);`);
+  const cutover=db.createQueryRunner();
+  try { await new OfficialInventoryCutover1794971000000().up(cutover); }
+  finally { await cutover.release(); }
   wms=new WmsService(db.manager,{get:()=>({isGlobal:true,allowedWarehouseCodes:[]})} as never);trace=new TraceabilityService(db,{} as never);
  });
  beforeEach(async()=>{
