@@ -7,7 +7,7 @@ import {execFileSync} from 'node:child_process';
 import {pathToFileURL} from 'node:url';
 import {CONTRACT,git} from './production-config-guard.mjs';
 import {atomicState} from './production-atomic-state.mjs';
-import {readPinnedFile} from './production-trusted-paths.mjs';
+import {assertRegularFile,readPinnedFile} from './production-trusted-paths.mjs';
 import {PUBLIC_DIRECTORY,assertSameBinding,atomicPublicManifest,readPublicManifest,validateBinding,validateManifest} from './background-control-manifest.mjs';
 import {inspectApiParticipant,verifyParticipantStatus} from './background-control-coordinator.mjs';
 import {canonicalDigest,same} from './production-maintenance-receipts.mjs';
@@ -77,7 +77,14 @@ async function execute(env){
  verifyModernSchemaStage({owner:recoveryOwner,targetSha:executionSha});
  check(isReviewedDrainedContinuation(executionSha)&&isReviewedContinuation(sealedHandoffRevision,drainedTarget),'EXACT_SUCCESSOR_SOURCE');
  const existing=store.exists(intentKey)?store.read(intentKey):null;
- const marker='schema-release-pending.json',markerPresent=store.exists(marker);
+ const marker='schema-release-pending.json',markerPresent=store.exists(marker),markerPath=store.file(marker);
+ const markerIdentity=()=>{
+  const stat=fs.lstatSync(markerPath,{bigint:true});
+  assertRegularFile(fs.lstatSync(markerPath));
+  return [stat.dev,stat.ino,stat.ctimeNs,stat.mtimeNs,stat.size];
+ };
+ const initialIdentity=markerPresent?markerIdentity():null;
+ const exactMarker=()=>markerIdentity().every((value,index)=>value===initialIdentity[index]);
  check(markerPresent||(!inspecting&&existing&&store.exists(drainedArchive)),'ORIGINAL_PENDING_REQUIRED');
  const preparation=store.read(fileKey('preparation')),registered=store.read(fileKey('step',drainedOwner+'-0-registered')),
   drained=store.read(fileKey('step',drainedOwner+'-1-drained'));
@@ -142,7 +149,7 @@ async function execute(env){
  const guard=()=>{
   store.guard();assertHeldEdge(dir);
   check(Date.now()<deadline&&!fs.existsSync('/proc/'+pending.supervisor.pid)&&
-   (markerPresent?same(store.read(marker),pending):!store.exists(marker)&&same(store.read(drainedArchive).pending,pending))&&
+   (markerPresent?exactMarker()&&same(store.read(marker),pending):!store.exists(marker)&&same(store.read(drainedArchive).pending,pending))&&
    same(store.read('floor.json'),preparation.floor)&&same(store.read('active.json'),preparation.active)&&
    git(CONTRACT.repository,['rev-parse','HEAD'])===preparation.rootHeadSha,'HOST_GUARD');
   noLater();projections();
@@ -252,10 +259,13 @@ async function execute(env){
   }else store.immutable(drainedArchive,archived);
   guard();
   const fd=fs.openSync(dir,fs.constants.O_RDONLY|fs.constants.O_DIRECTORY|fs.constants.O_NOFOLLOW);
-  try{if(markerPresent)fs.unlinkSync(store.file(marker));fs.fsyncSync(fd);}finally{fs.closeSync(fd);}
+  try{
+   if(markerPresent){check(exactMarker(),'PENDING_FILE_REPLACED');fs.unlinkSync(markerPath);}
+   fs.fsyncSync(fd);
+  }finally{fs.closeSync(fd);}
   check(!store.exists(marker)&&projectionOpen(),'SETTLEMENT_PENDING_REMAINS');
   return 'DRAINED_SETTLED';
- }finally{await reader.close();closing=true;await session.close();}
+ }finally{try{await reader.close();}finally{closing=true;await session.close();}}
 }
 
 if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
