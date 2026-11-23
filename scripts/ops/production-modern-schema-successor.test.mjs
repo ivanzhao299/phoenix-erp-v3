@@ -87,16 +87,35 @@ test('same-version Web cannot switch on an omitted or unrelated API owner, or on
  const env={TARGET_SHA:target,DEPLOY_MODE:'web',RUN_MIG:'false',BUILD_API:'false',BUILD_WEB:'true',APPROVE_PRODUCTION:'true',PRESERVE_ARTIFACTS:'true',
    MODERN_SCHEMA_WEB_SELECTION:'web1123-'+context.owner};
  const pins={api:{revision:target,imageId:context.candidateImageId},web:{revision:target,imageId:p.webImageId}};
+ const webOwner='7777-1';env.DEPLOY_RUN_ID=webOwner;
+ const web={target,configSha:target,floorSha:target,outcome:'SWITCHING',deployMode:'web',active:pins,
+  candidates:{web:pins.web},switched:{api:false,web:true},previous:{api:pins.api}};
+ objects.set('deploy-'+webOwner+'.json',web);
+ objects.set('schema-release-approval-'+context.owner+'.json',{authorizationDigest:consumed.authorizationDigest});
+ store.immutable=(key,value)=>{assert.equal(objects.has(key),false);objects.set(key,value);};
  const deps={store,now:()=>Date.parse(context.window.start),readApproval:()=>({grant:{authorizationDigest:consumed.authorizationDigest}}),captureRuntime:()=>pins,image:()=>p.webImageId+' '+target};
- checkSuccessorWeb('admit',env,deps);checkSuccessorWeb('before',env,deps);checkSuccessorWeb('after',env,deps);
+ checkSuccessorWeb('admit',env,deps);checkSuccessorWeb('before',env,deps);
  for(const phase of ['admit','before','after'])assert.throws(()=>checkSuccessorWeb(phase,{...env,DEPLOY_MODE:'full',BUILD_API:'true',MODERN_SCHEMA_WEB_SELECTION:''},deps));
  assert.throws(()=>checkSuccessorWeb('before',{...env,MODERN_SCHEMA_WEB_SELECTION:''},deps));
  assert.throws(()=>checkSuccessorWeb('before',env,{...deps,image:()=>img('0')+' '+target}));
  pins.web.imageId=img('2');assert.throws(()=>checkSuccessorWeb('after',env,deps));
- pins.web.imageId=p.webImageId;const webOwner='7777-1';
- objects.set('deploy-'+webOwner+'.json',{target,outcome:'SUCCESS',deployMode:'web',active:pins});
- store.immutable=(key,value)=>{assert.equal(objects.has(key),false);objects.set(key,value);};
- checkSuccessorWeb('seal',{...env,DEPLOY_RUN_ID:webOwner},deps);
+ pins.web.imageId=p.webImageId;
+ const expired={...deps,now:()=>Date.parse(context.window.end)+5000,readApproval:()=>{throw Error('expired grant cannot admit a switch');}};
+ assert.throws(()=>checkSuccessorWeb('before',env,expired));
+ assert.throws(()=>checkSuccessorWeb('after',env,expired));
+ checkSuccessorWeb('after',env,deps);
+ const retry={...env,DEPLOY_RUN_ID:'9999-2'};
+ objects.set('active.json',{configSha:target,floorSha:target,outcome:'SUCCESS',active:pins});
+ assert.throws(()=>checkSuccessorWeb('admit',retry,expired));
+ web.outcome='SUCCESS';
+ objects.set('transaction.json',{});assert.throws(()=>checkSuccessorWeb('admit',retry,expired));objects.delete('transaction.json');
+ assert.throws(()=>checkSuccessorWeb('admit',retry,{...expired,captureRuntime:()=>({...pins,api:{...pins.api,imageId:img('1')}})}));
+ objects.set('schema-release-revoked-'+context.owner+'.json',{});assert.throws(()=>checkSuccessorWeb('admit',retry,expired));objects.delete('schema-release-revoked-'+context.owner+'.json');
+ web.other='changed';assert.throws(()=>checkSuccessorWeb('admit',retry,expired));delete web.other;
+ assert.throws(()=>checkSuccessorWeb('seal',retry,expired));
+ assert.equal(checkSuccessorWeb('admit',retry,expired),'RECEIPT_ONLY');
+ assert.equal(objects.get('schema-release-1123-web-completed-'+target+'.json').webOwner,webOwner);
+ assert.equal(checkSuccessorWeb('admit',retry,expired),'RECEIPT_ONLY');
  checkSuccessorWeb('admit',{...env,DEPLOY_MODE:'full',BUILD_API:'true',MODERN_SCHEMA_WEB_SELECTION:''},deps);
 });
 

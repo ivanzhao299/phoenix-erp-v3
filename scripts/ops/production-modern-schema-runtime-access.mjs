@@ -37,11 +37,11 @@ const result=await c.query(input.sql);await c.query('ROLLBACK');
 if(result.rows.length!==1||!identity)throw Error();
 process.stdout.write(JSON.stringify({identity,acl:result.rows[0].jsonb_build_object}));
 }finally{await c.end();}})().catch(()=>process.exit(64));`;
-export async function readRuntimeAccess(client,participant,targetSha,previous=null){
+export async function readRuntimeAccess(client,participant,targetSha,previous=null,{root=CONTRACT.repository}={}){
  const control=participant?.status?.controlSession;
  if(!/^[a-f0-9]{64}$/.test(participant?.containerId??'')||!/^[a-f0-9]{40}$/.test(targetSha??'')||
     !Number.isSafeInteger(control?.sessionPid)||!control.applicationName||!control.backendStartedAt)fail('ACTUAL_API_CONTROL_SESSION_REQUIRED');
- const sql=git(CONTRACT.repository,['show',targetSha+':scripts/ops/readonly-audits/production-remediation-runtime-acl.sql']);
+ const sql=git(root,['show',targetSha+':scripts/ops/readonly-audits/production-remediation-runtime-acl.sql']);
  let response;
  try{
   const bytes=execFileSync('/usr/bin/docker',['exec','-i',participant.containerId,'/usr/local/bin/node','-e',runtimeAccessProgram],{

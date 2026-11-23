@@ -1030,7 +1030,11 @@ jobs:
                 node scripts/ops/production-modern-schema-web-successor.mjs "$1"
               fi
             }
-            check_candidate_web admit
+            WEB_ADMISSION="$(check_candidate_web admit)"
+            if [ "$WEB_ADMISSION" = RECEIPT_ONLY ]; then
+              echo "Candidate Web receipt verified. Prior successful switch retained."
+              return 0
+            fi
             PRE_EVIDENCE_FILE="$STATE_DIR/deploy-${DEPLOY_RUN_ID}-pre-evidence.json"
             POST_EVIDENCE_FILE="$STATE_DIR/deploy-${DEPLOY_RUN_ID}-post-evidence.json"
             LOG_EVIDENCE_FILE="$STATE_DIR/deploy-${DEPLOY_RUN_ID}-startup-evidence.json"
@@ -1287,8 +1291,8 @@ jobs:
             DOCKER_DISK_REPORT="$(docker system df 2>/dev/null || true)"
             printf '%s\n' "$DOCKER_DISK_REPORT"
 
-            assert_target_main
             check_candidate_web after
+            assert_target_main
             production_state complete
             check_candidate_web seal
             trap - ERR

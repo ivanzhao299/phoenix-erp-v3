@@ -326,6 +326,7 @@ export async function superviseModernSchemaRelease(env,input){
   }});
   const session=new ModernSchemaControlSession({}, {isClosing:()=>coordinator?.closed===true});
   coordinator=new BackgroundFenceCoordinator({binding:state.binding,participants:background.manifest.participants,project:preparation.floor.project,timeoutMs:60000},{session,publisher});
+  assertSuccessorFenceBudget(preparation);
   const drain=await coordinator.fenceAndDrain();runtime.children.add(pinModernSchemaChild(session.child));rootLease=await pinOriginalModernSchemaSession(session,context);
   const drainReceipt=await persistModernSchemaOriginalDrain({context,preparationSha256:input.preparationSha256,rootLease,coordinator,privateRuntime:runtime,drain,admit:()=>native()});
   await advance('REGISTERED','DRAINED',{drain,drainReceipt,originalLease:rootLease},{lease:rootLease});
