@@ -935,8 +935,8 @@ export class ProductionInboundDocumentsService {
     const scope = await this.stockScope(company,house,day,warehouse);
     return this.db.transaction('REPEATABLE READ',async m => {
       await this.readStockScope(m,scope);
-      const {sql,args} = await stockBatchQuery(m,scope,filter);
-      const rows: StockBatch[] = await m.query(sql+' LIMIT $12',[...args,limit+1]);
+      const {sql,args} = await stockBatchQuery(m,scope,filter,limit+1);
+      const rows: StockBatch[] = await m.query(sql,args);
       const items = rows.slice(0,limit);
       return {stockBasisVersion:2,items,nextCursor:rows.length>limit ? items[limit-1].batchNo : null};
     });

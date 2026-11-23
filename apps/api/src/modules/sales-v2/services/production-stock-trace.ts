@@ -86,7 +86,7 @@ function params(scope: StockTraceScope, filter: StockBatchFilter = {}) {
 
 // Reduce all production and external roots to one classification per physical batch before summing stock.
 // RELATED_INPUT and raw quantities are input facts, never quantity shares of a mixed output.
-async function stockQuery(manager: EntityManager, detail: boolean) {
+async function stockQuery(manager: EntityManager, detail: boolean, boundedWarehousePage = false) {
   const [schema] = await manager.query("SELECT to_regclass('production_batch_raw_roots') IS NOT NULL AS raw, to_regprocedure('official_inventory_qualification_controlled(text)') IS NOT NULL AS controlled");
   const rawFacts = schema.raw ? `
     UNION ALL
@@ -110,12 +110,13 @@ async function stockQuery(manager: EntityManager, detail: boolean) {
       COALESCE(b.unit='枚' AND b.qty=trunc(b.qty) AND b.qty>=0,false) AS measured
     FROM inv_batches b JOIN production_batch_qualifications q ON q.batch_no=b.batch_no AND q.disposition='QUALIFIED'
     WHERE b.company_code=$1 AND b.warehouse_code=$2 AND ${officialInventoryPredicate('b')}
-      AND (${schema.controlled ? 'official_inventory_qualification_controlled(b.batch_no) OR' : ''}
-        EXISTS (SELECT 1 FROM production_inventory_domains d JOIN production_cutover_scopes s ON s.id=d.scope_id
+      AND CASE WHEN EXISTS (SELECT 1 FROM production_inventory_domains d JOIN production_cutover_scopes s ON s.id=d.scope_id
         WHERE d.company_code=b.company_code AND d.warehouse_code=b.warehouse_code AND d.product_code=b.product_code
-          AND s.state IN ('ACTIVE','SUSPENDED')))
+          AND s.state IN ('ACTIVE','SUSPENDED')) THEN true
+        ELSE ${schema.controlled ? 'official_inventory_qualification_controlled(b.batch_no)' : 'false'} END
       AND ($9::text IS NULL OR b.grade_code_std=$9) AND ($10::text IS NULL OR b.batch_no=$10)
       AND ($11::text IS NULL OR b.batch_no COLLATE "C">$11::text COLLATE "C")
+    ${boundedWarehousePage ? 'ORDER BY b.batch_no COLLATE "C" LIMIT $12' : ''}
   ), inventory_roots AS (
     SELECT batch_no,batch_no AS root_batch FROM batches WHERE origin_kind<>'DERIVED'
     UNION
@@ -174,8 +175,10 @@ export async function stockByGrade(manager: EntityManager, scope: StockTraceScop
   return Object.fromEntries(rows.map(({grade,...stock}: {grade:string} & GradeStock) => [grade,stock]));
 }
 
-export async function stockBatchQuery(manager: EntityManager, scope: StockTraceScope, filter: StockBatchFilter) {
-  const cte = await stockQuery(manager, true);
+export async function stockBatchQuery(manager: EntityManager, scope: StockTraceScope, filter: StockBatchFilter, pageLimit?: number) {
+  // Warehouse membership is known before tracing roots. Source membership is known after tracing.
+  const cte = await stockQuery(manager, true, pageLimit !== undefined && filter.view !== 'source');
+  const args = params(scope,filter);
   return {sql:`${cte}
     SELECT batch_no AS "batchNo",grade AS "gradeCode",warehouse_code AS "warehouseCode",
       location_code AS "locationCode",sku_code AS "skuCode",unit,status,inventory_class AS "inventoryClass",
@@ -183,7 +186,8 @@ export async function stockBatchQuery(manager: EntityManager, scope: StockTraceS
       CASE WHEN attribution='EXACT' THEN qty::float8 WHEN attribution='OTHER' THEN 0 ELSE NULL END AS "attributableQty"
     FROM classified
     WHERE ${filter.view==='source' ? 'related' : 'true'}
-    ORDER BY batch_no COLLATE "C"`,args:params(scope,filter)};
+    ORDER BY batch_no COLLATE "C" ${pageLimit === undefined ? '' : 'LIMIT $12'}`,
+    args:pageLimit === undefined ? args : [...args,pageLimit]};
 }
 
 // Quote dynamic cells and neutralize spreadsheet formulas in identifier fields.
