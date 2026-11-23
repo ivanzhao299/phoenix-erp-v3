@@ -1,4 +1,5 @@
 name: CI/CD — Build & Deploy
+run-name: ${{ (inputs.modern_schema_resume_owner == 'inspect1123' || startsWith(inputs.modern_schema_resume_owner, 'approve1123-') || startsWith(inputs.modern_schema_resume_owner, 'web1123-')) && inputs.modern_schema_resume_owner || '' }}
 
 # ════════════════════════════════════════════════════════════════════════════
 # 分层部署(2026-06-19 起):
@@ -77,7 +78,7 @@ on:
         type: boolean
         default: false
       modern_schema_resume_owner:
-        description: "仅续完已开放的结构发布收尾，填写原始运行 ID 和尝试号（例如 123456-1）"
+        description: "已开放续发填原运行号；11月23日精确候选支持 inspect1123 或绑定取证、CI 和窗口的 approve1123 指令"
         type: string
         default: ''
       approve_production:
@@ -262,9 +263,19 @@ jobs:
             exit 23
           fi
 
-          if [ -n "$MODERN_SCHEMA_RESUME_OWNER" ]; then
+          if [[ "$MODERN_SCHEMA_RESUME_OWNER" = web1123-* ]]; then
+            [[ "$MODERN_SCHEMA_RESUME_OWNER" =~ ^web1123-[1-9][0-9]{0,19}-[1-9][0-9]{0,9}$ ]]
+            test "$MANUAL_MODE:$MANUAL_RUN_MIG:$MODERN_SCHEMA_RELEASE:$APPROVE_PRODUCTION" = web:false:false:true
+            test "$GITHUB_ACTOR:$GITHUB_ACTOR_ID:$GITHUB_TRIGGERING_ACTOR" = emvia:7245339:emvia
+            test -z "$APPROVED_CONFIG_FLOOR_SHA$APPROVED_PREVIOUS_FLOOR_SHA$MAINTENANCE_RELEASE_INPUT$SKU_SOURCE_EFFECTIVE_DATE$SKU_SOURCE_PLAN_SHA256"
+          elif [ -n "$MODERN_SCHEMA_RESUME_OWNER" ]; then
             test "$MODERN_SCHEMA_RELEASE" = true
-            [[ "$MODERN_SCHEMA_RESUME_OWNER" =~ ^[1-9][0-9]{0,19}-[1-9][0-9]{0,9}$ ]]
+            if [[ "$MODERN_SCHEMA_RESUME_OWNER" = inspect1123 || "$MODERN_SCHEMA_RESUME_OWNER" = approve1123-* ]]; then
+              node --input-type=module -e 'import {parseSuccessorAction as parse} from "./scripts/ops/production-modern-schema-successor.mjs"; if(!parse(process.env.MODERN_SCHEMA_RESUME_OWNER)) process.exit(23)'
+              test "$APPROVED_CONFIG_FLOOR_SHA" = "$GITHUB_SHA"
+            else
+              [[ "$MODERN_SCHEMA_RESUME_OWNER" =~ ^[1-9][0-9]{0,19}-[1-9][0-9]{0,9}$ ]]
+            fi
           fi
           if [ "$MODERN_SCHEMA_RELEASE" = true ]; then
             test "$IS_DISPATCH" = true
@@ -278,7 +289,9 @@ jobs:
             else
               test "$APPROVED_CONFIG_FLOOR_SHA" = "$GITHUB_SHA"
             fi
-            [[ "$APPROVED_PREVIOUS_FLOOR_SHA" =~ ^[a-f0-9]{40}$ && "$APPROVED_PREVIOUS_FLOOR_SHA" != "$APPROVED_CONFIG_FLOOR_SHA" ]]
+            if [[ "${MODERN_SCHEMA_RESUME_OWNER:-}" != inspect1123 || -n "$APPROVED_PREVIOUS_FLOOR_SHA" ]]; then
+              [[ "$APPROVED_PREVIOUS_FLOOR_SHA" =~ ^[a-f0-9]{40}$ && "$APPROVED_PREVIOUS_FLOOR_SHA" != "$APPROVED_CONFIG_FLOOR_SHA" ]]
+            fi
             test -z "$MAINTENANCE_RELEASE_INPUT$SKU_SOURCE_EFFECTIVE_DATE$SKU_SOURCE_PLAN_SHA256"
             test "$ROTATE_CHANJET_CREDENTIALS" = false
             test "$ONE_TIME_CONFIG_FLOOR_TRANSITION" = false
@@ -775,10 +788,11 @@ jobs:
       inputs.approve_production == true &&
       (needs.detect-changes.outputs.mode == 'web' || needs.detect-changes.outputs.mode == 'api' || needs.detect-changes.outputs.mode == 'full') &&
       ((!inputs.modern_schema_resume_owner && needs.build-push.result == 'success') ||
-       (inputs.modern_schema_release == true && inputs.modern_schema_resume_owner && needs.build-push.result == 'skipped')) &&
+       (inputs.modern_schema_release == true && inputs.modern_schema_resume_owner && needs.build-push.result == 'skipped') ||
+       (inputs.mode == 'web' && startsWith(inputs.modern_schema_resume_owner, 'web1123-') && needs.build-push.result == 'skipped')) &&
       inputs.skip_deploy != true
     runs-on: ubuntu-latest
-    timeout-minutes: ${{ inputs.modern_schema_release && 230 || 40 }}
+    timeout-minutes: ${{ (inputs.modern_schema_resume_owner == 'inspect1123' || startsWith(inputs.modern_schema_resume_owner, 'approve1123-')) && 275 || inputs.modern_schema_release && 230 || 40 }}
     environment: production
 
     permissions:
@@ -862,6 +876,7 @@ jobs:
           BUILD_WEB:   ${{ needs.detect-changes.outputs.build_web }}
           BUILD_API:   ${{ needs.detect-changes.outputs.build_api }}
           RUN_MIG:     ${{ needs.detect-changes.outputs.run_mig }}
+          MODERN_SCHEMA_WEB_SELECTION: ${{ startsWith(inputs.modern_schema_resume_owner, 'web1123-') && inputs.modern_schema_resume_owner || '' }}
           NGINX_CONF:  ${{ steps.nginx.outputs.conf }}
           DEPLOY_RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}
           DEPLOY_RUN_ATTEMPT: ${{ github.run_attempt }}
@@ -891,7 +906,7 @@ jobs:
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           port: 22
           command_timeout: 35m
-          envs: APPROVED_CONFIG_FLOOR_SHA,APPROVED_PREVIOUS_FLOOR_SHA,SKU_SOURCE_EFFECTIVE_DATE,SKU_SOURCE_PLAN_SHA256,APPROVE_PRODUCTION,MAINTENANCE_RELEASE_INPUT,MAINTENANCE_RELEASE_ARTIFACT_ID,MAINTENANCE_RELEASE_ARTIFACT_DIGEST,DEPLOY_MODE,BUILD_WEB,BUILD_API,RUN_MIG,NGINX_CONF,DEPLOY_RUN_ID,DEPLOY_RUN_ATTEMPT,TARGET_SHA,PRESERVE_ARTIFACTS,ROTATE_CHANJET_CREDENTIALS,ONE_TIME_CONFIG_FLOOR_TRANSITION,GHCR_LOGIN_TOKEN,GHCR_LOGIN_USER,CHANJET_APP_KEY,CHANJET_APP_SECRET,CHANJET_ORG_ID,CHANJET_CERT,CHANJET_MSG_SECRET,PRODUCTION_CONTRACT_B64,PRODUCTION_PATH_HELPER_B64,PRODUCTION_CONTROL_BOOTSTRAP_B64
+          envs: APPROVED_CONFIG_FLOOR_SHA,APPROVED_PREVIOUS_FLOOR_SHA,MODERN_SCHEMA_WEB_SELECTION,SKU_SOURCE_EFFECTIVE_DATE,SKU_SOURCE_PLAN_SHA256,APPROVE_PRODUCTION,MAINTENANCE_RELEASE_INPUT,MAINTENANCE_RELEASE_ARTIFACT_ID,MAINTENANCE_RELEASE_ARTIFACT_DIGEST,DEPLOY_MODE,BUILD_WEB,BUILD_API,RUN_MIG,NGINX_CONF,DEPLOY_RUN_ID,DEPLOY_RUN_ATTEMPT,TARGET_SHA,PRESERVE_ARTIFACTS,ROTATE_CHANJET_CREDENTIALS,ONE_TIME_CONFIG_FLOOR_TRANSITION,GHCR_LOGIN_TOKEN,GHCR_LOGIN_USER,CHANJET_APP_KEY,CHANJET_APP_SECRET,CHANJET_ORG_ID,CHANJET_CERT,CHANJET_MSG_SECRET,PRODUCTION_CONTRACT_B64,PRODUCTION_PATH_HELPER_B64,PRODUCTION_CONTROL_BOOTSTRAP_B64
           script: |
             set -Eeuo pipefail
             umask 077
@@ -970,7 +985,6 @@ jobs:
               fi
             }
 
-            # ── 干净工作树硬门禁:禁止静默 stash/覆盖服务器改动 ───────
             # ── 干净工作树硬门禁:
             if [ -n "$(git status --porcelain --untracked-files=all)" ]; then
               echo "::error::生产服务器工作树不干净,拒绝部署"
@@ -1010,6 +1024,16 @@ jobs:
             production_promote_floor() { node "$1/promote-production-config-floor.mjs"; }
             production_api_readiness() { curl -fsSL --max-time 20 http://127.0.0.1:3100/api/readiness -o /dev/null; }
             perform_deployment() {
+            check_candidate_web() {
+              if [ "$BUILD_WEB" = true ] && { [ -e "$STATE_DIR/schema-release-1123-consumed-$TARGET_SHA.json" ] || [ -L "$STATE_DIR/schema-release-1123-consumed-$TARGET_SHA.json" ] || [ -n "${MODERN_SCHEMA_WEB_SELECTION:-}" ]; }; then
+                node scripts/ops/production-modern-schema-web-successor.mjs "$1"
+              fi
+            }
+            WEB_ADMISSION="$(check_candidate_web admit)"
+            if [ "$WEB_ADMISSION" = RECEIPT_ONLY ]; then
+              echo "Candidate Web receipt verified. Prior successful switch retained."
+              return 0
+            fi
             PRE_EVIDENCE_FILE="$STATE_DIR/deploy-${DEPLOY_RUN_ID}-pre-evidence.json"
             POST_EVIDENCE_FILE="$STATE_DIR/deploy-${DEPLOY_RUN_ID}-post-evidence.json"
             LOG_EVIDENCE_FILE="$STATE_DIR/deploy-${DEPLOY_RUN_ID}-startup-evidence.json"
@@ -1077,13 +1101,11 @@ jobs:
             if [ "$BUILD_WEB" = true ]; then
             mkdir -p /opt/phoenix/static-overrides
             if [ ! -f /opt/phoenix/static-overrides/runtime-design-system.css ]; then
-              # 用仓库内默认占位版作种子(后续 fast-css 才能 scp 覆盖)
               if [ -f apps/web/public/runtime-design-system.css ]; then
                 cp apps/web/public/runtime-design-system.css /opt/phoenix/static-overrides/ \
                   && chmod 644 /opt/phoenix/static-overrides/runtime-design-system.css \
                   && echo "✅ runtime-design-system.css 占位文件已创建"
               else
-                # 仓库还没这文件(罕见,旧分支):写一个空占位防 nginx 404
                 : > /opt/phoenix/static-overrides/runtime-design-system.css
                 chmod 644 /opt/phoenix/static-overrides/runtime-design-system.css
                 echo "⚠ 仓库无 runtime-design-system.css 源文件,写空占位"
@@ -1233,13 +1255,14 @@ jobs:
             fi
 
             if [ "$BUILD_WEB" = "true" ]; then
+              check_candidate_web before
               production_state switch web
               WEB_SWITCH_STARTED=true
               docker compose up -d --no-deps --wait web
             fi
 
 
-            # ── Smoke test(所有 mode)───────────────────────────────
+            # ── Smoke test
             sleep 3
             production_api_readiness
             curl -fsSL --max-time 20 http://127.0.0.1:3000/ -o /dev/null
@@ -1265,8 +1288,10 @@ jobs:
             DOCKER_DISK_REPORT="$(docker system df 2>/dev/null || true)"
             printf '%s\n' "$DOCKER_DISK_REPORT"
 
+            check_candidate_web after
             assert_target_main
             production_state complete
+            check_candidate_web seal
             trap - ERR
             echo "✅ Application evidence complete; background release still requires owner verification"
             }

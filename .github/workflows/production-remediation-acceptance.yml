@@ -1,0 +1,182 @@
+name: Production management candidate acceptance
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'apps/api/**'
+      - 'apps/web/**'
+      - 'scripts/ops/**'
+      - 'scripts/test/**'
+      - '.github/workflows/production-remediation-acceptance.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'apps/api/**'
+      - 'apps/web/**'
+      - 'scripts/ops/**'
+      - 'scripts/test/**'
+      - '.github/workflows/production-remediation-acceptance.yml'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-management-acceptance-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: PostgreSQL 18 / ${{ matrix.suite }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [transactions, browser]
+    env:
+      NODE_ENV: test
+      NEXT_TELEMETRY_DISABLED: '1'
+      CUTOVER_FIXTURE_CONTAINER: phoenix-cutover-remediation-ci
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Start owned PostgreSQL 18 databases
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run -d --name "$CUTOVER_FIXTURE_CONTAINER" --label phoenix.fixture=temp-reversal \
+            -p 127.0.0.1::5432 -e POSTGRES_HOST_AUTH_METHOD=trust postgres:18.6 >/dev/null
+          for ((i=0; i<60; i++)); do
+            if docker exec "$CUTOVER_FIXTURE_CONTAINER" pg_isready -U postgres -h 127.0.0.1; then break; fi
+            sleep 1
+          done
+          for db in installments_fixture phoenix_temp_reversal_fixture phoenix_flock_review \
+            phoenix_flock_lifecycle phoenix_flock_http phoenix_flock_downstream; do
+            docker exec "$CUTOVER_FIXTURE_CONTAINER" createdb -U postgres "$db"
+          done
+          port=$(docker port "$CUTOVER_FIXTURE_CONTAINER" 5432/tcp)
+          prefix="postgresql://postgres@$port/"
+          {
+            echo "OFFICIAL_INVENTORY_PG_URL=${prefix}installments_fixture"
+            echo "HTTP_FIXTURE_URL=${prefix}phoenix_temp_reversal_fixture"
+            echo "FLOCK_REVIEW_PG_URL=${prefix}phoenix_flock_review"
+            echo "FLOCK_LEDGER_PG_URL=${prefix}phoenix_flock_lifecycle"
+            echo "FLOCK_HTTP_PG_URL=${prefix}phoenix_flock_http"
+            echo "FLOCK_DOWNSTREAM_PG_URL=${prefix}phoenix_flock_downstream"
+          } >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/production-acceptance"
+          git rev-parse HEAD > "$RUNNER_TEMP/production-acceptance/tested-commit.txt"
+      - name: Run transaction, role and migration acceptance
+        if: matrix.suite == 'transactions'
+        shell: bash
+        run: |
+          set -euo pipefail
+          evidence="$RUNNER_TEMP/production-acceptance"
+          node --test scripts/ops/flock-lifecycle-diagnostic.pg.test.cjs scripts/ops/audit-production-installments.pg.test.mjs
+          cd apps/api
+          ./node_modules/.bin/jest --runInBand --testTimeout=60000 --json --outputFile="$evidence/domains.json" --runTestsByPath \
+            src/modules/farm/flock-lifecycle.pg.spec.ts src/modules/farm/flock-ledger.pg.spec.ts \
+            src/modules/farm/flock-lifecycle-http.pg.spec.ts src/modules/farm/flock-downstream.pg.spec.ts \
+            src/modules/farm/official-production-report-grain.pg.spec.ts \
+            src/modules/sales-v2/services/official-inventory-conversions.pg.spec.ts \
+            src/modules/sales-v2/services/official-raw-collection.pg.spec.ts \
+            src/modules/sales-v2/services/production-inbound-documents.pg.spec.ts \
+            src/modules/sales-v2/services/production-inbound-migrations.pg.spec.ts \
+            src/modules/wms/official-inventory.pg.spec.ts src/modules/wms/production-cutover-admission.pg.spec.ts
+          OFFICIAL_INVENTORY_PG_URL="$HTTP_FIXTURE_URL" ./node_modules/.bin/jest --runInBand --testTimeout=60000 \
+            --json --outputFile="$evidence/http.json" --runTestsByPath src/modules/sales-v2/services/production-inbound-http.pg.spec.ts
+
+      - name: Verify pilot ingress in a disposable network namespace
+        if: matrix.suite == 'transactions'
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! -x /usr/sbin/nft || ! -x /sbin/ip ]]; then
+            sudo apt-get update -qq
+            sudo apt-get install -y nftables iproute2
+          fi
+          sudo unshare --net -- bash -c '
+            set -euo pipefail
+            /sbin/ip link set lo up
+            export PHOENIX_OWNED_CUTOVER_NATIVE=1
+            exec "$1" --test scripts/ops/production-cutover-lifecycle.test.mjs
+          ' bash "$(command -v node)" | tee "$RUNNER_TEMP/production-acceptance/kernel-ingress.log"
+      - name: Exercise desktop and mobile Chromium
+        if: matrix.suite == 'browser'
+        shell: bash
+        run: |
+          pnpm --filter web exec playwright install --with-deps chromium
+          OFFICIAL_INVENTORY_PG_URL="$HTTP_FIXTURE_URL" bash scripts/test/production-remediation-browser-fixture.sh "$RUNNER_TEMP/production-acceptance"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: production-acceptance-${{ matrix.suite }}-${{ github.sha }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/production-acceptance
+            artifacts/production-inbound-installments-20261118/browser*/receipt.json
+
+  upgrade:
+    name: Previous API and historical receipts on the expanded schema
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Identify releases carrying the three production-management extensions
+        id: scope
+        env:
+          BEFORE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          # A manual candidate rehearsal always starts from the deployed predecessor.
+          before="${BEFORE:-6bb88544275dfef591cb96c0078f73e88496433b}"
+          if git diff --quiet "$before" HEAD -- 'apps/api/src/database/migrations/1795400*.ts'; then
+            echo 'required=false' >> "$GITHUB_OUTPUT"
+          else
+            echo 'required=true' >> "$GITHUB_OUTPUT"
+          fi
+      - uses: pnpm/action-setup@v4
+        if: steps.scope.outputs.required == 'true'
+        with:
+          version: 9
+      - uses: actions/setup-node@v5
+        if: steps.scope.outputs.required == 'true'
+        with:
+          node-version: 20
+          cache: pnpm
+      - if: steps.scope.outputs.required == 'true'
+        run: pnpm install --frozen-lockfile
+      - name: Rehearse the deployed database and a cold installation
+        if: steps.scope.outputs.required == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/test/production-remediation-release-compat.py \
+            6bb88544275dfef591cb96c0078f73e88496433b HEAD | tee "$RUNNER_TEMP/production-upgrade.log"
+      - name: Verify the candidate API image and runtime role
+        if: steps.scope.outputs.required == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha=$(git rev-parse HEAD)
+          docker build --file apps/api/Dockerfile --build-arg "GIT_SHA=$sha" \
+            --iidfile "$RUNNER_TEMP/production-api-image.id" .
+          image=$(cat "$RUNNER_TEMP/production-api-image.id")
+          node scripts/test/production-remediation-image-compat.mjs "$sha" "$image"
+          docker pull postgres:18-alpine
+          PHOENIX_SUCCESSOR_ACCESS_PG=1 PHOENIX_SUCCESSOR_TEST_SOURCE="$sha" PHOENIX_SUCCESSOR_TEST_API_IMAGE="$image" \
+            node --test scripts/ops/production-modern-schema-successor-access.pg.test.mjs
+      - uses: actions/upload-artifact@v4
+        if: always() && steps.scope.outputs.required == 'true'
+        with:
+          name: production-upgrade-${{ github.sha }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/production-upgrade.log

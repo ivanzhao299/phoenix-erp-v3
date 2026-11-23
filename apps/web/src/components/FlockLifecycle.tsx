@@ -1,7 +1,8 @@
 'use client';
 import {downloadProtectedPdf} from '@/lib/attachments';
-import {useCallback,useEffect,useMemo,useState} from 'react';
+import {useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import request,{farmProductionApi} from '@/lib/api-client';
+import {useLanguage} from '@/contexts/LanguageContext';
 import {usePermission} from '@/hooks/usePermission';
 import {DictSelect} from '@/components/shared-selectors/DictSelect';
 import {SupplierSelector,CustomerSelector,UserSelector,FarmSelector,GradeSelector} from '@/components/shared-selectors/MasterDataSelectors';
@@ -36,7 +37,13 @@ function specificFields(detail:Row):Record<string,unknown>{
   return byType[type]??{};
 }
 export default function FlockLifecycle(){
+  const {user}=usePermission('MENU_FARM_DATA');
+  return <ActorLifecycle key={String(user.userId??user.id??user.username??'')}/>;
+}
+function ActorLifecycle(){
+  const {t}=useLanguage();
   const access=usePermission('MENU_FARM_DATA');
+  const [review,setReview]=useState<{house:string;date:string}|null>(null);
   const vetAccess=usePermission('MENU_FARM_VET');
   const createAccess=usePermission('MENU_FLOCK_CREATE');const approveAccess=usePermission('MENU_FLOCK_APPROVE');const postAccess=usePermission('MENU_FLOCK_POST');
   const [houses,setHouses]=useState<Row[]>([]),[balances,setBalances]=useState<Row[]>([]),[held,setHeld]=useState<Row[]>([]),[legacy,setLegacy]=useState<Row[]>([]);
@@ -50,9 +57,25 @@ export default function FlockLifecycle(){
   const loadData=useCallback(()=>Promise.all([
       request<{data:Row[]}>(`${endpoint}/houses`),request<{data:Row[]}>(`${endpoint}/balances`),request<{data:Row[]}>(`${endpoint}/held`),
       request<{data:Doc[]}>(`${endpoint}/documents`),request<{data:Row[]}>('/crud/brd_flocks?limit=1000'),request<{data:Row[]}>(`${endpoint}/reports`),request<{data:Row[]}>(`${endpoint}/occupancies`)]),[]);
+  const linked=useRef(false);
   const applyData=useCallback(([h,b,l,d,f,r,o]:Awaited<ReturnType<typeof loadData>>)=>{
     setHouses(h.data);setBalances(b.data);setHeld(l.data);setDocs(d.data);setLegacy(f.data??[]);setReports(r.data);setOccupancies(o.data);setSourceKey(p=>p||crypto.randomUUID());
-  },[]);
+    if(linked.current)return;
+    linked.current=true;
+    const query=new URLSearchParams(location.search), houseCode=query.get('houseCode'), date=query.get('date'),kind=query.get('kind');
+    if(query.get('review')==='pending')setReview({house:houseCode??'',date:date??''});
+    const house=h.data.find(row=>row.house_code===houseCode);
+    if(!house||!houseCode||!date||!/^\d{4}-\d{2}-\d{2}$/.test(date))return;
+    if(kind==='MORTALITY')setForm({...blank(),kind,houseCode,businessDate:date,flockNo:String(house.flock_no??'')});
+    if(kind==='REPORT_CORRECTION'){
+      const matches=r.data.filter(row=>row.house_code===houseCode&&String(row.log_date).slice(0,10)===date
+        &&(!query.has('dailyLogId')||String(row.id)===query.get('dailyLogId'))&&(!query.has('shift')||row.shift===query.get('shift')));
+      if(matches.length===1){const report=matches[0];setForm({...blank(),kind,houseCode,businessDate:date,flockNo:String(report.flock_no),dailyLogId:String(report.id),
+        expectedReportHash:String(report.report_hash),reportFeed:String(report.feed_consumed??''),reportWater:String(report.water_consumed??''),reportNotes:String(report.notes??'')});
+        setReportGrades(Object.fromEntries(Object.entries((report.eggs_by_grade??{}) as Row).map(([k,v])=>[k,String(v)])));
+      }else{setMessage(t('productionJobs.selectReport'));setForm({...blank(),kind,houseCode,businessDate:date,flockNo:String(house.flock_no??'')});}
+    }
+  },[t]);
   const refresh=useCallback(async()=>applyData(await loadData()),[loadData,applyData]);
   useEffect(()=>{let alive=true;loadData().then(data=>{if(alive)applyData(data);}).catch(e=>{if(alive)setMessage(e.message);});return()=>{alive=false;};},[loadData,applyData]);
   useEffect(()=>{if(!vetAccess.canView)return;let alive=true;request<{data:{plans:Row[];medications:Row[]}}>(`${endpoint}/care`).then(r=>{if(alive)setCare(r.data);}).catch(e=>{if(alive)setMessage(e.message);});return()=>{alive=false;};},[vetAccess.canView,docs]);
@@ -138,8 +161,9 @@ export default function FlockLifecycle(){
       <p>业务来源编号：{sourceKey}（自动生成，供历史授权绑定）</p>
       <button disabled={busy||!form.houseCode} onClick={submit}>保存草稿</button>
     </section>}
-    <section className={css.panel}><h2>单据与审核时间线</h2><p>制单、审核、过账分开；已过账事实通过冲销保留原单。待售交付生成结算依据，财务另行审核入账。</p>
-      {docs.map(d=><article className={css.document} key={d.id}><strong>{kindNames[d.kind]??d.kind} · {stateNames[d.status]}</strong><p>{d.flock_no||d.house_code} · {String(d.business_date).slice(0,10)} · {d.payload.quantity==null?'':`${String(d.payload.quantity)}羽`}</p><small>制单人 {d.created_by} · {String(d.payload.reason)}</small>
+    <section id="flock-documents" className={css.panel}><h2>单据与审核时间线</h2><p>制单、审核、过账分开；已过账事实通过冲销保留原单。待售交付生成结算依据，财务另行审核入账。</p>
+      {review&&<p>{t('productionJobs.flockReview')} · {review.house} {review.date} <button onClick={()=>setReview(null)}>{t('productionInstallments.history')}</button></p>}
+      {docs.filter(d=>!review||['REPORT_CORRECTION','CLOSE'].includes(d.kind)&&['SUBMITTED','APPROVED'].includes(d.status)&&(!review.house||d.house_code===review.house)&&(!review.date||String(d.business_date).slice(0,10)===review.date)).map(d=><article className={css.document} key={d.id}><strong>{kindNames[d.kind]??d.kind} · {stateNames[d.status]}</strong><p>{d.flock_no||d.house_code} · {String(d.business_date).slice(0,10)} · {d.payload.quantity==null?'':`${String(d.payload.quantity)}羽`}</p><small>制单人 {d.created_by} · {String(d.payload.reason)}</small>
         <div className={css.actions}><button disabled={busy} onClick={()=>showDetail(d.id)}>原单与事件</button>
           {d.status==='DRAFT'&&createAccess.canEdit&&<button disabled={busy} onClick={()=>run(()=>request(`${endpoint}/documents/${d.id}/submit`,{method:'POST',body:JSON.stringify({version:d.version})}),'已提交审核。')}>提交</button>}
           {d.status==='SUBMITTED'&&approveAccess.canApprove&&d.created_by!==access.user.username&&<button disabled={busy} onClick={()=>run(()=>request(`${endpoint}/documents/${d.id}/approve`,{method:'POST',body:JSON.stringify({version:d.version})}),'已审核。')}>审核</button>}

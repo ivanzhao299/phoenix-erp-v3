@@ -39,7 +39,7 @@ const fromDocument=(d:Conversion):Form=>{
     outputs:p.outputs.map(o=>({key:crypto.randomUUID(),kind:o.outputKind,grade:o.gradeCode,quantity:String(o.quantity),sku:o.skuCode??'',location:o.locationCode??'',reason:o.lossReason??'',files:[o.evidenceFileId]}))};
 };
 
-export default function InventoryConversions({company,initialWarehouse}:{company:string;initialWarehouse:string}){
+export default function InventoryConversions({company,initialWarehouse,active}:{company:string;initialWarehouse:string;active:boolean}){
   const {t,lang}=useLanguage(),permission=usePermission('MENU_PROD_INBOUND'),actor=String(permission.user.userId??permission.user.id??'');
   const {codeMap:states}=useDictOptions('PRODUCTION_INBOUND_DOCUMENT_STATE'),{codeMap:kinds}=useDictOptions('PRODUCTION_CONVERSION_KIND');
   const {codeMap:outputKinds}=useDictOptions('PRODUCTION_CONVERSION_OUTPUT_KIND'),{grades}=useProductGrades({onlyStorable:true});
@@ -117,7 +117,8 @@ export default function InventoryConversions({company,initialWarehouse}:{company
       return context.current===expected?blob:null;
     },messages);
   };
-  const editable=!busy&&(!selected&&permission.canCreate||selected?.state==='DRAFT'&&permission.canEdit&&selected.created_by===actor),headerEditable=editable&&!selected,boundaryEditable=!busy&&!selected;
+  const canMutate=active&&!busy;
+  const editable=canMutate&&(!selected&&permission.canCreate||selected?.state==='DRAFT'&&permission.canEdit&&selected.created_by===actor),headerEditable=editable&&!selected,boundaryEditable=!busy&&!selected;
   const patch=(next:Partial<Form>)=>setForm(old=>({...old,...next}));
   const patchInput=(key:string,next:Partial<InputLine>)=>setForm(old=>({...old,inputs:old.inputs.map(row=>row.key===key?{...row,...next}:row)}));
   const patchOutput=(key:string,next:Partial<OutputLine>)=>setForm(old=>({...old,outputs:old.outputs.map(row=>row.key===key?{...row,...next}:row)}));
@@ -137,7 +138,7 @@ export default function InventoryConversions({company,initialWarehouse}:{company
       <label className={s.field}>{t('productionConversion.date','实际作业日期')}<input aria-label={t('productionConversion.date','实际作业日期')} type="date" value={form.date} disabled={!headerEditable} onChange={e=>patch({date:e.target.value})}/></label>
       <label className={s.field}>{t('productionConversion.group','实际作业组 / 工单号')}<input aria-label={t('productionConversion.group','实际作业组 / 工单号')} value={form.group} disabled={!boundaryEditable} maxLength={128} onChange={e=>patch({group:e.target.value})}/></label>
     </div>
-    {form.warehouse&&form.product&&!currentSources.available&&<p className={s.notice}>{t('productionConversion.off','该仓与产品尚未正式启用或已暂停，仅可查看原单。')}</p>}
+    {form.warehouse&&form.product&&(!active||!currentSources.available)&&<p className={s.notice}>{t('productionConversion.off','该仓与产品尚未正式启用或已暂停，仅可查看原单。')}</p>}
     <h3>{t('productionConversion.inputs','实际投入')}</h3>
     {form.inputs.map((row,index)=><div key={row.key} className={s.card}><div className={s.grid}>
       <label className={s.field}>{t('productionConversion.source','实际来源')} {index+1}<select aria-label={`${t('productionConversion.source','实际来源')} ${index+1}`} value={row.source} disabled={!editable||!currentSources.available} onChange={e=>patchInput(row.key,{source:e.target.value,quantity:''})}>
@@ -169,14 +170,14 @@ export default function InventoryConversions({company,initialWarehouse}:{company
     <p className={s.muted}>{t('productionConversion.costHint','本单保留实际投入金额，产出成本待财务分配；未知成本不会显示为已确认零成本。')}</p>
     <div className={s.actions}>
       {(!selected||selected.state==='DRAFT')&&<><button disabled={!editable||!currentSources.available} onClick={()=>run(async()=>{await save();})}>{t('productionConversion.save','保存实际作业草稿')}</button>
-        <button disabled={busy||!selected||!permission.canEdit||!currentSources.available} onClick={()=>run(freeze)}>{t('productionConversion.freeze','核对并冻结实际作业')}</button></>}
-      {selected?.state==='READY'&&<button disabled={busy||!permission.canApprove||selected.created_by===actor||selected.ready_by===actor} onClick={()=>run(async()=>{
+        <button disabled={!canMutate||!selected||!permission.canEdit||!currentSources.available} onClick={()=>run(freeze)}>{t('productionConversion.freeze','核对并冻结实际作业')}</button></>}
+      {selected?.state==='READY'&&<button disabled={!canMutate||!permission.canApprove||selected.created_by===actor||selected.ready_by===actor} onClick={()=>run(async()=>{
         await send(`/${selected.id}/approve`,{version:selected.version,contentHash:selected.content_hash});await load(selected.id);
       })}>{t('productionConversion.approve','独立审核实际作业')}</button>}
-      {selected&&['APPROVED','POSTED'].includes(selected.state)&&<button disabled={busy||selected.state!=='POSTED'&&(!permission.canEdit||!currentSources.available)} onClick={()=>run(async()=>{
+      {selected&&['APPROVED','POSTED'].includes(selected.state)&&<button disabled={busy||selected.state!=='POSTED'&&(!canMutate||!permission.canEdit||!currentSources.available)} onClick={()=>run(async()=>{
         await send(`/${selected.id}/post`,{submitKey:selected.submit_key,contentHash:selected.content_hash});await load(selected.id);
       })}>{selected.state==='POSTED'?t('productionConversion.replay','找回原转换回执'):t('productionConversion.post','按原摘要确认实际转换')}</button>}
-      {selected&&['DRAFT','READY','APPROVED'].includes(selected.state)&&<button disabled={busy||!permission.canEdit} onClick={()=>run(async()=>{
+      {selected&&['DRAFT','READY','APPROVED'].includes(selected.state)&&<button disabled={!canMutate||!permission.canEdit} onClick={()=>run(async()=>{
         await send(`/${selected.id}/cancel`,{version:selected.version});await load(selected.id);
       })}>{t('productionConversion.cancel','取消未过账作业')}</button>}
     </div>

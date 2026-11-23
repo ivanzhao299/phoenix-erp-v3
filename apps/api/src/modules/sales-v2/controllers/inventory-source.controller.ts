@@ -16,6 +16,7 @@ import { ProductionInboundService } from '../services/production-inbound.service
  *   GET  source/audit       切换审计日志                                — MENU_INV_SOURCE_MODE:V
  *   POST source/assess-risk 切换前风险评估（只读，不切换）             — MENU_INV_SOURCE_MODE:V
  *   POST source/switch      执行切换（仅 ADMIN/CEO/FACTORY_MGR，'A' 权）— MENU_INV_SOURCE_MODE:A
+ *   GET  production-inbound/availability  按鸡舍核验临时入库入口  — MENU_PROD_INBOUND:V
  *   POST production-inbound  临时生产入库（日产蛋直接形成销售库存）     — MENU_PROD_INBOUND:C
  */
 @Controller('api/v2/inventory')
@@ -59,6 +60,18 @@ export class InventorySourceController {
     remark?: string; confirmRisk?: boolean;
   }) {
     return this.modeSvc.switchMode(body);
+  }
+
+  @Get('production-inbound/availability')
+  @RequireMenu('MENU_PROD_INBOUND', 'V')
+  productionInboundAvailability(@Query('houseCode') houseCode: string) {
+    return this.prodInbound.temporaryAvailability(houseCode);
+  }
+
+  @Get('production-inbound/locations')
+  @RequireMenu('MENU_PROD_INBOUND', 'V')
+  productionInboundLocations(@Query('houseCode') houseCode: string, @Query('warehouseCode') warehouseCode: string) {
+    return this.prodInbound.temporaryLocations(houseCode, warehouseCode);
   }
 
   @Post('production-inbound')

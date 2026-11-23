@@ -4,6 +4,7 @@ import {createHash} from 'node:crypto';
 import {canonicalDigest, HASH, same} from './production-maintenance-receipts.mjs';
 import {losslessJsonFacts} from './production-lossless-json.mjs';
 
+import {successorPlan} from './production-modern-schema-successor.mjs';
 const costMigration = 'apps/api/src/database/migrations/1794885912725-InvEggCostingColumns.ts';
 const fail = code => { throw Error('MODERN_SCHEMA_POST_AUDIT_HOLD=' + code); };
 const sha = raw => createHash('sha256').update(raw).digest('hex');
@@ -25,7 +26,7 @@ function unwrap(wrapper, context, ledger, before) {
       !['missing', 'matches', 'uninspectedSources'].every(name => Array.isArray(reference[name]) && reference[name].length === 0)) {
     fail('BOUND_ORIGINAL_HOLD_AND_REFERENCE_EVIDENCE_REQUIRED');
   }
-  if (before ? evidence.reason !== 'MATCHED_CLAIM_PENDING_INDEPENDENT_REVIEW' || evidence.manifestSha256 !== context.testManifestSha256 :
+  if ((before || successorPlan(context)) ? evidence.reason !== 'MATCHED_CLAIM_PENDING_INDEPENDENT_REVIEW' || evidence.manifestSha256 !== context.testManifestSha256 :
     evidence.reason !== 'MATCHING_FROZEN_TEST_MANIFEST_REQUIRED' || evidence.manifestSha256 !== null) fail('EXPECTED_COST_DDL_AUDIT_SHAPE_REQUIRED');
   return losslessJsonFacts(wrapper.originalAudit, {omitTopLevel: ['checked_at']});
 }
@@ -61,6 +62,13 @@ function withoutCostDdl(facts, before) {
 }
 
 export function verifyModernSchemaAuditAfterSchema({context, before, after, afterLedgerSha256}) {
+  if (successorPlan(context)) {
+    if (!HASH.test(afterLedgerSha256 ?? '') || afterLedgerSha256 === context.beforeLedgerSha256) fail('SUCCESSOR_LEDGER_REQUIRED');
+    const original = unwrap(before, context, context.beforeLedgerSha256, true);
+    const latest = unwrap(after, context, afterLedgerSha256, false);
+    if (!same(original,latest)) fail('ORIGINAL_AUDIT_CHANGED');
+    return {originalConclusion:'HOLD',auditedFactsSha256:canonicalDigest(original),originalAuditsPreserved:true};
+  }
   if (!HASH.test(afterLedgerSha256 ?? '') || afterLedgerSha256 === context.beforeLedgerSha256 ||
       !context.pendingMigrations.some(unit => unit.path === costMigration && unit.effectiveName === 'InvEggCostingColumns1794885912725')) {
     fail('REVIEWED_COST_SCHEMA_DELTA_REQUIRED');

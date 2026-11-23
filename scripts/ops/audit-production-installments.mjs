@@ -4,6 +4,31 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
 // This audit supplements the unchanged whole-database inventory audit. PASS here is never release admission.
+export function netGradeCapacityCheck(includeRaw) {
+  const rawSegments = includeRaw ? `
+    UNION ALL
+    SELECT r.company_code,r.house_code,r.production_date,s.daily_log_id,s.grade_code,0,s.quantity
+    FROM production_raw_receipts r JOIN production_raw_receipt_segments s ON s.receipt_id=r.id
+    WHERE r.state='POSTED'` : '';
+  return `WITH claims AS (
+    SELECT d.company_code,d.house_code,d.production_date,a.daily_log_id,l.grade_code,
+           a.quantity*a.direction AS ordinary_qty,0 AS raw_qty
+    FROM production_inbound_documents d JOIN production_inbound_allocations a ON a.document_id=d.id
+    JOIN production_inbound_lines l ON l.document_id=d.id AND l.line_no=a.line_no
+    WHERE d.state='POSTED' ${rawSegments}
+  ), net AS (
+    SELECT company_code,house_code,production_date,daily_log_id,grade_code,
+           SUM(ordinary_qty) AS ordinary_qty,SUM(raw_qty) AS raw_qty,
+           SUM(ordinary_qty::bigint+raw_qty) AS quantity
+    FROM claims GROUP BY company_code,house_code,production_date,daily_log_id,grade_code
+  )
+  SELECT n.*,r.eggs_by_grade->n.grade_code AS reported FROM net n LEFT JOIN brd_daily_logs r ON r.id=n.daily_log_id
+  WHERE n.ordinary_qty<0 OR r.id IS NULL OR r.house_code IS DISTINCT FROM n.house_code
+    OR r.log_date IS DISTINCT FROM n.production_date OR jsonb_typeof(r.eggs_by_grade) IS DISTINCT FROM 'object'
+    OR n.quantity>CASE WHEN jsonb_typeof(r.eggs_by_grade->n.grade_code)='number'
+                        THEN (r.eggs_by_grade->>n.grade_code)::numeric ELSE 0 END`;
+}
+
 export const formalInstallmentChecks={
   receipt:`SELECT d.id,d.document_no FROM production_inbound_documents d WHERE d.state='POSTED' AND (
     d.receipt IS NULL OR d.receipt->>'documentId' IS DISTINCT FROM d.id::text
@@ -36,13 +61,7 @@ export const formalInstallmentChecks={
       OR d.production_date<o.began_on OR o.ended_on IS NOT NULL AND d.production_date>=o.ended_on
       OR (d.kind='INBOUND' AND a.original_allocation_id IS NOT NULL)
       OR (d.kind='REVERSAL' AND a.original_allocation_id IS NULL))`,
-  netGradeCapacity:`WITH net AS(SELECT d.company_code,d.house_code,d.production_date,a.daily_log_id,l.grade_code,SUM(a.quantity*a.direction) AS quantity
-    FROM production_inbound_documents d JOIN production_inbound_allocations a ON a.document_id=d.id
-    JOIN production_inbound_lines l ON l.document_id=d.id AND l.line_no=a.line_no WHERE d.state='POSTED'
-    GROUP BY d.company_code,d.house_code,d.production_date,a.daily_log_id,l.grade_code)
-    SELECT n.*,r.eggs_by_grade->n.grade_code AS reported FROM net n LEFT JOIN brd_daily_logs r ON r.id=n.daily_log_id
-    WHERE quantity<0 OR r.id IS NULL OR jsonb_typeof(r.eggs_by_grade) IS DISTINCT FROM 'object'
-      OR quantity>CASE WHEN jsonb_typeof(r.eggs_by_grade->n.grade_code)='number' THEN (r.eggs_by_grade->>n.grade_code)::numeric ELSE 0 END`,
+  netGradeCapacity: netGradeCapacityCheck(false),
   reversalSegments:`SELECT d.id,d.document_no,a.id AS allocation_id FROM production_inbound_documents d
     JOIN production_inbound_allocations a ON a.document_id=d.id
     LEFT JOIN production_inbound_allocations original ON original.id=a.original_allocation_id
@@ -103,7 +122,15 @@ export async function auditProductionInstallments(client,{schema}={}) {
     if(installed!==3)throw new Error('Incomplete formal installment schema');
     const {rows:scopes}=await client.query(`SELECT id,company_code,house_code,state,version,first_production_date::text,manifest_sha256
       FROM production_cutover_scopes ORDER BY company_code,house_code,version`);
-    const checks=[];for(const [name,sql] of Object.entries(formalInstallmentChecks)) {
+    const {rows:[rawSchema]}=await client.query(`SELECT to_regclass('production_raw_receipts') AS receipts,
+      to_regclass('production_raw_receipt_segments') AS segments`);
+    if(Boolean(rawSchema.receipts)!==Boolean(rawSchema.segments))throw new Error('Incomplete raw receipt schema');
+    const definitions={...formalInstallmentChecks,netGradeCapacity:netGradeCapacityCheck(Boolean(rawSchema.receipts))};
+    if(rawSchema.receipts)definitions.dualHandoverClaim=`SELECT h.id AS handover_id,d.document_no AS inbound_no,r.document_no AS raw_no
+      FROM production_physical_handovers h JOIN production_raw_receipts r ON r.handover_id=h.id
+      JOIN production_inbound_documents d ON d.company_code=h.company_code AND d.handover_ref=h.handover_ref
+      WHERE d.kind='INBOUND' AND d.state<>'CANCELLED' AND r.state<>'CANCELLED'`;
+    const checks=[];for(const [name,sql] of Object.entries(definitions)) {
       const {rows:[result]}=await client.query(`WITH violations AS(${sql}) SELECT COUNT(*)::int AS count,
         COALESCE((SELECT jsonb_agg(sample) FROM (SELECT * FROM violations LIMIT 20) sample),'[]'::jsonb) AS samples FROM violations`);
       checks.push({name,status:result.count?'HOLD':'PASS',...result});

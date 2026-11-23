@@ -49,8 +49,8 @@ export async function verifyModernSchemaEffect({context,preparationSha256,rootLe
  if((await captureModernSchemaLedger(client)).sha256!==afterLedgerSha256)fail('AFTER_LEDGER_CHANGED_DURING_RECEIPTS');await check();
  const afterAudit=await audit();
  const auditComparison=verifyModernSchemaAuditAfterSchema({context,before:beforeAudit,after:afterAudit,afterLedgerSha256});
- const off=defaultOffEvidenceFromFacts(context.targetSha,afterFacts);
- await captureModernSchemaDefaultOff(client,context.targetSha);await check();
+ const off=defaultOffEvidenceFromFacts(context.targetSha,afterFacts,{plan:context});
+ await captureModernSchemaDefaultOff(client,context.targetSha,{plan:context});await check();
  const beforeFactsFile=path.join(directory,`schema-release-before-facts-${context.owner}.json`),afterFactsFile=path.join(directory,`schema-release-after-facts-${context.owner}.json`);
  const beforeRawAuditFile=path.join(directory,`schema-release-before-audit-${context.owner}.json`),afterRawAuditFile=path.join(directory,`schema-release-after-audit-${context.owner}.json`);
  privateRuntime.publishJson(afterFactsFile,afterFacts);privateRuntime.publishJson(afterRawAuditFile,afterAudit);

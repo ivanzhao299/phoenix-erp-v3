@@ -32,6 +32,9 @@ export class EditProductionInboundDto extends CreateProductionInboundDto {
 export class ProductionDocumentVersionDto {
   @IsInt() @Min(1) version!: number;
 }
+export class ReissueProductionDocumentDto extends ProductionDocumentVersionDto {
+  @IsString() @MaxLength(100) intentKey!: string;
+}
 export class ReadyProductionInboundDto extends ProductionDocumentVersionDto {
   @IsString() @MaxLength(100) submitKey!: string;
 }
@@ -60,9 +63,11 @@ export class ApproveProductionReversalDto extends ProductionDocumentVersionDto {
 export class ProductionCostClearanceDto {
   @IsString() @MaxLength(100) batchNo!: string;
   @IsIn(['UNKNOWN','CONFIRMED']) costStatus!: 'UNKNOWN'|'CONFIRMED';
-  @IsOptional() @IsNumber({ allowNaN:false,allowInfinity:false }) @Min(0) unitCost!: number|null;
+  @IsOptional() @IsNumber({ allowNaN:false,allowInfinity:false }) @Min(0) unitCost?: number|null;
+  @IsOptional() @Matches(/^\d{1,12}(?:\.\d{1,6})?$/) unitCostDecimal?:string|null;
 }
 export class RecordProductionFinancialClearanceDto {
+  @IsOptional() @Matches(/^[a-f0-9]{64}$/) reviewHash?:string;
   @Matches(/^[a-f0-9]{64}$/) contentHash!: string;
   @IsString() @MaxLength(100) financialEvidenceFileId!: string;
   @IsIn(['OPEN']) periodStatus!: 'OPEN';

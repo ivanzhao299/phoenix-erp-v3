@@ -22,7 +22,10 @@ try{
  await choose(maker.page);await fill(maker.page,handover,100);
  await maker.page.reload({waitUntil:'domcontentloaded'});assert.equal(await maker.page.getByLabel('实物交接编号',{exact:true}).inputValue(),handover);assert.equal(await maker.page.getByLabel('本次枚数',{exact:true}).inputValue(),'100');
  checks.push('PC draft identity, source quantity and uploaded evidence survive refresh');
- await maker.page.getByRole('button',{name:'登记实物交接',exact:true}).click();await maker.page.getByText('交接已登记，请由另一名实际接收人核对分段并签认。',{exact:true}).waitFor();
+ let registrations=0;maker.page.on('request',r=>{if(r.method()==='POST'&&new URL(r.url()).pathname.endsWith('/production-inbound-documents/handovers'))registrations++;});
+ await maker.page.getByRole('button',{name:'登记实物交接',exact:true}).click({trial:true});
+ await maker.page.getByRole('button',{name:'登记实物交接',exact:true}).evaluate(button=>{button.click();button.click();});await maker.page.getByText('交接已登记，请由另一名实际接收人核对分段并签认。',{exact:true}).waitFor();
+ assert.equal(registrations,1,'Double tap must register one physical handover');
  await choose(receiver.page);await receiver.page.getByRole('button',{name:'核对并实名签收',exact:true}).click();
  await receiver.page.getByText('已双方签认',{exact:false}).first().waitFor();
  assert.ok(await receiver.page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1&&document.querySelector('main').getBoundingClientRect().width>=window.innerWidth-32),'Mobile workbench is clipped or squeezed');

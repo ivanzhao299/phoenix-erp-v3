@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Get, Param, Post, Req, Res, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Param, Post, Query, Req, Res, UseGuards } from '@nestjs/common';
 import { MenuGuard, RequireMenu } from '../../common/guards/menu.guard';
 import { DataScopeGuard } from '../org/guards/data-scope.guard';
 import { deriveOrgScope } from './farm.service';
@@ -16,6 +16,10 @@ export class FlockLifecycleController {
   @Post('provision-actions') async provision(@Req() req: any) { return {code:200,data:await this.service.provisionActions(this.actor(req))}; }
   @Get('houses') async houses(@Req() req: any) { return {code:200,data:await this.service.overview(deriveOrgScope(req))}; }
   @Get('occupancies') async occupancies(@Req() req:any){return {code:200,data:await this.service.occupancies(deriveOrgScope(req))};}
+  @Get('occupancies/:id/close-blockers')
+  async closeBlockers(@Param('id') id: string,@Query('businessDate') day: string,@Req() req: any) {
+    return {code:200,data:await this.service.closeBlockers(id,day,deriveOrgScope(req))};
+  }
   @Get('reports') async reports(@Req() req:any){return {code:200,data:await this.service.reports(deriveOrgScope(req))};}
   @Get('care') @RequireMenu('MENU_FARM_VET','V') async care(@Req() req: any) { return {code:200,data:await this.service.care(deriveOrgScope(req))}; }
   @Get('attribution') async attribution(@Req() req: any) { return {code:200,data:await this.service.attribution(deriveOrgScope(req))}; }

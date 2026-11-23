@@ -2,12 +2,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, ChevronRight, RefreshCw, Sun, Moon } from 'lucide-react';
+import { reportMeasurement } from '@/lib/report-measurement';
 import { mobileApi, HenReportRow, DailyHenReport } from '@/lib/mobile-api';
 import { useMobileTheme } from '@/contexts/MobileThemeContext';
 import { useMobilePermission } from '@/hooks/useMobilePermission';
 import { useLanguage } from '@/contexts/LanguageContext';
 
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Singapore' }).format(new Date());
 
 const addDays = (d: string, n: number) => {
   const dt = new Date(d);
@@ -33,7 +34,7 @@ function HouseCard({ row }: { row: HenReportRow }) {
   const { t } = useMobileTheme();
   const { t: tr } = useLanguage();
   const [open, setOpen] = useState(false);
-  const layRateNum = parseFloat(row.lay_rate);
+  const layRateNum = parseFloat(row.lay_rate ?? '');
   const rateColor = layRateNum >= 85 ? 'var(--status-success)' : layRateNum >= 70 ? 'var(--status-warning)' : 'var(--status-danger)';
   const houseDisplayName = row.house_name?.trim() || row.house_code;
   const houseTrace = [row.house_code, row.flock_no].filter(Boolean).join(' · ');
@@ -81,8 +82,8 @@ function HouseCard({ row }: { row: HenReportRow }) {
           <div style={{ fontSize: 13, fontWeight: 600, color: t.text }}>{houseTrace}</div>
           <div style={{ fontSize: 11, color: t.textFaint }}>
             {row.age_days != null ? `${tr('mob.brd.age_days', '日龄')} ${row.age_days}${tr('mob.brd.day_unit', '天')}` : ''}
-            {row.age_days != null && row.current_qty > 0 ? ' · ' : ''}
-            {tr('mob.brd.in_stock_birds', '存栏')} {row.current_qty.toLocaleString()}{tr('mob.brd.bird_unit_only', '只')}
+            {row.age_days != null && Number(row.current_qty) > 0 ? ' · ' : ''}
+            {tr('mob.brd.in_stock_birds', '存栏')} {(row.current_qty?.toLocaleString() ?? '—')}{tr('mob.brd.bird_unit_only', '只')}
           </div>
         </div>
 
@@ -93,7 +94,7 @@ function HouseCard({ row }: { row: HenReportRow }) {
           border: `1px solid ${rateColor}40`,
           flexShrink: 0,
         }}>
-          <span style={{ fontSize: 14, fontWeight: 800, color: rateColor }}>{row.lay_rate}%</span>
+          <span style={{ fontSize: 14, fontWeight: 800, color: rateColor }}>{row.lay_rate == null ? '—' : row.lay_rate + '%'}</span>
         </div>
 
         <ChevronRight
@@ -106,11 +107,12 @@ function HouseCard({ row }: { row: HenReportRow }) {
       {/* Expanded detail */}
       {open && (
         <div style={{ padding: '0 14px 14px', display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-          <MetaChip label={tr('mob.brd.egg_produced', '产蛋')} value={row.eggs.toLocaleString()} color="var(--status-warning)" />
+          <MetaChip label={tr('mob.brd.egg_produced', '产蛋')} value={row.has_daily_log ? row.eggs.toLocaleString() : tr('breeding.daily.notReported', '未报')} color="var(--status-warning)" />
           <MetaChip label={tr('mob.brd.mortality', '死亡')} value={row.mortality} color="var(--status-danger)" />
           <MetaChip label={tr('mob.brd.elimination', '淘汰')} value={row.elimination} color="var(--status-warning)" />
           <MetaChip label={tr('mob.brd.total_loss', '合计损耗')} value={row.total_loss} color="var(--status-danger)" />
-          <MetaChip label={tr('mob.brd.feed_kg', '饲料(kg)')} value={row.feed > 0 ? row.feed.toFixed(1) : '—'} color="var(--status-success)" />
+          <MetaChip label={tr('mob.brd.feed_kg', '饲料(kg)')} value={reportMeasurement(row.feed, row.feed_missing, tr('breeding.daily.partialMeasure', '部分班次未记录'))} color="var(--status-success)" />
+          <MetaChip label={tr('ui.用水L', '用水L')} value={reportMeasurement(row.water, row.water_missing, tr('breeding.daily.partialMeasure', '部分班次未记录'))} color="var(--status-success)" />
           {row.mortality_reason && (
             <div style={{
               width: '100%', marginTop: 4,
@@ -151,8 +153,8 @@ function TotalsBar({ totals }: { totals: DailyHenReport['totals'] }) {
     }}>
       {[
         { label: tr('mob.brd.total_in_stock', '总存栏'), value: totals.current_qty.toLocaleString() + tr('mob.brd.bird_unit_only', '只'), color: 'var(--status-warning)' },
-        { label: tr('mob.brd.total_eggs', '总产蛋'), value: totals.eggs.toLocaleString() + tr('mob.brd.egg_unit', '枚'), color: 'var(--status-success)' },
-        { label: tr('mob.brd.overall_lay_rate', '综合产蛋率'), value: totals.lay_rate + '%', color: parseFloat(totals.lay_rate) >= 80 ? 'var(--status-success)' : 'var(--status-danger)' },
+        { label: tr('mob.brd.total_eggs', '总产蛋'), value: totals.logged_houses ? totals.eggs.toLocaleString() + tr('mob.brd.egg_unit', '枚') : '—', color: 'var(--status-success)' },
+        { label: tr('mob.brd.overall_lay_rate', '综合产蛋率'), value: totals.lay_rate == null ? '—' : totals.lay_rate + '%', color: parseFloat(totals.lay_rate ?? '') >= 80 ? 'var(--status-success)' : 'var(--status-danger)' },
         { label: tr('mob.brd.mortality', '死亡'), value: String(totals.mortality), color: 'var(--status-danger)' },
         { label: tr('mob.brd.elimination', '淘汰'), value: String(totals.elimination), color: 'var(--status-warning)' },
         { label: tr('mob.brd.today_loss', '今日损耗'), value: String(totals.total_loss), color: 'var(--status-danger)' },

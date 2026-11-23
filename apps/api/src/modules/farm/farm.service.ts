@@ -1,3 +1,5 @@
+import { productionReportFactsSql } from './production-report-facts';
+import { normalizeReportGrades, sameReportGrades, storedGradeStatus } from './daily-report-grades';
 import { refreshDailyFlockLayRate } from './effective-production-source';
 import { Injectable, NotFoundException, BadRequestException, Optional, Inject, ForbiddenException } from '@nestjs/common';
 import { InjectEntityManager } from '@nestjs/typeorm';
@@ -426,20 +428,27 @@ export class FarmService {
         body[field] = birdCount(input[field] === null ? null : body[field] ?? 0, field);
       }
       if (input.eggs_by_grade !== undefined) {
-        const grades = input.eggs_by_grade;
-        if (!grades || typeof grades !== 'object' || Array.isArray(grades)) throw new BadRequestException('分级明细必须为数量对象');
-        const active = await manager.query("SELECT grade_code, is_saleable FROM product_grades WHERE status='ACTIVE'");
-        for (const [code, value] of Object.entries(grades)) {
-          birdCount(value, code);
-          if (!active.some((row: any) => row.grade_code === code)) throw new BadRequestException('分级明细包含未启用等级');
+        const grades = normalizeReportGrades(input.eggs_by_grade);
+        const matchesConfirmed = prior?.occupancy_id && sameReportGrades(prior.eggs_by_grade, grades);
+        if (!matchesConfirmed) {
+          const active = await manager.query("SELECT grade_code, is_saleable FROM product_grades WHERE status='ACTIVE'");
+          if (Object.keys(grades).some(code => !active.some((row: any) => row.grade_code === code))) {
+            throw new BadRequestException('分级明细包含未启用等级');
+          }
+          body.eggs_produced = active.filter((row: any) => row.is_saleable).reduce((sum: number, row: any) => sum + (grades[row.grade_code] ?? 0), 0);
+          body.dirty_eggs = grades.DIRTY ?? 0;
+          body.broken_eggs = grades.BROKEN ?? 0;
         }
-        body.eggs_produced = active.filter((row: any) => row.is_saleable).reduce((sum: number, row: any) => sum + Number(grades[row.grade_code] ?? 0), 0);
-        body.dirty_eggs = Number(grades.DIRTY ?? 0);
-        body.broken_eggs = Number(grades.BROKEN ?? 0);
         body.eggs_by_grade = JSON.stringify(grades);
       } else if (hasPositiveGradeBreakdown(prior?.eggs_by_grade) && input.eggs_produced !== undefined
           && Number(input.eggs_produced) !== Number(prior.eggs_produced)) {
         throw new BadRequestException('有分级的日报请修改分级明细，不可单独修改产蛋合计');
+      }
+      const managedBalance = await lifecycleDailyBalance(manager, flock, prior, body, input);
+      if(managedBalance?.replayOnly)return {code:200,msg:'已确认原日报幂等回执，未改动历史事实',ledgerSkipped:false};
+      if (managedBalance && !prior) {
+        body.feed_consumed ??= null;
+        body.water_consumed ??= null;
       }
       const oldHasGrades = hasPositiveGradeBreakdown(prior?.eggs_by_grade);
       const hasGrades = hasPositiveGradeBreakdown(body.eggs_by_grade);
@@ -465,8 +474,6 @@ export class FarmService {
           (SELECT array_agg(a.attname::text ORDER BY a.attname) FROM unnest(i.indkey) WITH ORDINALITY k(n,pos) JOIN pg_attribute a ON a.attrelid=i.indrelid AND a.attnum=k.n WHERE k.pos<=i.indnkeyatts)=ARRAY['house_code','log_date']::text[] LIMIT 1`);
         if(oldKey.length)throw new BadRequestException('该历史日报表仍按舍日唯一，不能新增第二班次；请先核对历史粒度并由受控升级处理');
       }
-      const managedBalance = await lifecycleDailyBalance(manager, flock, prior, body, input);
-      if(managedBalance?.replayOnly)return {code:200,msg:'已关闭群原日报幂等回执，未改动历史事实',ledgerSkipped:false};
       const balance = managedBalance ?? await prepareDailyBalances(manager, flock, prior, body);
       body.opening_qty = balance.opening;
       body.closing_qty = balance.closing;
@@ -642,11 +649,12 @@ export class FarmService {
       throw new BadRequestException('日报日期必须为真实YYYY-MM-DD');
     if(!house?.trim())throw new BadRequestException(MISSING_HOUSE_MESSAGE);
     const params:any[]=[date,house];const allowed=dailyLogScopeWhere(scope,params);
-    return this.entityManager.query(`SELECT dl.id,dl.house_code,dl.flock_no,dl.log_date::text AS log_date,dl.shift,dl.occupancy_id,
+    const reports = await this.entityManager.query(`SELECT dl.id,dl.house_code,dl.flock_no,dl.log_date::text AS log_date,dl.shift,dl.occupancy_id,
       dl.eggs_by_grade,dl.eggs_produced,dl.feed_consumed,dl.water_consumed,dl.note,dl.opening_qty,dl.closing_qty
       FROM brd_daily_logs dl LEFT JOIN brd_houses h ON h.house_code=dl.house_code
       LEFT JOIN brd_farms hf ON hf.farm_code=h.farm_code AND hf.status='ACTIVE'
       WHERE dl.log_date=$1 AND dl.house_code=$2 ${allowed?'AND '+allowed:''} ORDER BY dl.id`,params);
+    return reports.map((report:any)=>({...report,grade_status:storedGradeStatus(report.eggs_by_grade)}));
   }
 
   async getDailyHenReport(date: string, scope: OrgScope = { isGlobal: false, farmCode: null, siteCode: null }) {
@@ -665,44 +673,47 @@ export class FarmService {
     const managedParams:any[]=[date];const managedScope=scopeWhere(scope,managedParams,'o.');
     const managed=schema?.ledger?await this.entityManager.query(`SELECT f.flock_no,o.house_code,h.house_name,f.initial_qty,
       COALESCE(f.placement_date,f.start_date)::text AS placement_date,f.status,o.id AS occupancy_id,
-      (SELECT closing_qty FROM brd_flock_daily_balances d WHERE d.flock_no=f.flock_no AND d.balance_date<=$1 ORDER BY d.balance_date DESC LIMIT 1) AS current_qty,
-      COALESCE((SELECT mortality_qty FROM brd_flock_daily_balances d WHERE d.flock_no=f.flock_no AND d.balance_date=$1),0) AS event_mortality,
-      COALESCE((SELECT elimination_qty FROM brd_flock_daily_balances d WHERE d.flock_no=f.flock_no AND d.balance_date=$1),0) AS event_elimination
+      (SELECT closing_qty FROM brd_flock_daily_balances d WHERE d.flock_no=f.flock_no AND d.balance_date<=$1 ORDER BY d.balance_date DESC LIMIT 1) AS current_qty
       FROM brd_flock_occupancies o JOIN brd_flocks f ON f.flock_no=o.flock_no JOIN brd_houses h ON h.house_code=o.house_code
       WHERE o.began_on<=$1 AND (o.ended_on IS NULL OR o.ended_on>$1) ${managedScope?'AND '+managedScope:''} ORDER BY o.house_code`,managedParams):[];
     const logParams:any[]=[date];const logScope=dailyLogScopeWhere(scope,logParams);
-    const logs=await this.entityManager.query(`SELECT COALESCE(dl.house_code,dl.flock_no) AS house_code,dl.flock_no,
-      SUM(COALESCE(dl.eggs_produced,0))::int AS eggs,SUM(COALESCE(dl.mortality_qty,0))::int AS mortality,
-      SUM(COALESCE(dl.elimination_qty,0))::int AS elimination,SUM(COALESCE(dl.dirty_eggs,0))::int AS dirty,SUM(COALESCE(dl.broken_eggs,0))::int AS broken,
-      SUM(COALESCE(dl.feed_consumed,0))::numeric AS feed,SUM(COALESCE(dl.water_consumed,0))::numeric AS water,COUNT(*)::int AS log_count,
-      (ARRAY_AGG(dl.closing_qty ORDER BY dl.id DESC))[1] AS closing_qty,
+    const logs=await this.entityManager.query(`SELECT COALESCE(dl.house_code,dl.flock_no) AS house_code,dl.flock_no,dl.occupancy_id,
+      SUM(dl.eggs_produced)::int AS eggs,SUM(dl.mortality_qty)::int AS mortality,SUM(dl.elimination_qty)::int AS elimination,
+      SUM(dl.dirty_eggs)::int AS dirty,SUM(dl.broken_eggs)::int AS broken,SUM(dl.feed_consumed)::numeric AS feed,
+      SUM(dl.water_consumed)::numeric AS water,COUNT(*) FILTER (WHERE dl.has_production_report)::int AS log_count,
+      COUNT(*) FILTER (WHERE dl.has_production_report AND dl.feed_consumed IS NULL)::int AS feed_missing,
+      COUNT(*) FILTER (WHERE dl.has_production_report AND dl.water_consumed IS NULL)::int AS water_missing,
+      (ARRAY_AGG(dl.closing_qty ORDER BY dl.id DESC) FILTER (WHERE dl.has_production_report))[1] AS closing_qty,
       STRING_AGG(DISTINCT dl.culling_reason,'；') AS culling_reason,STRING_AGG(DISTINCT dl.mortality_reason,'；') AS mortality_reason
-      FROM brd_daily_logs dl LEFT JOIN brd_houses h ON h.house_code=dl.house_code
+      FROM (${productionReportFactsSql(Boolean(schema?.ledger))}) dl LEFT JOIN brd_houses h ON h.house_code=dl.house_code
       LEFT JOIN brd_farms hf ON hf.farm_code=h.farm_code AND hf.status='ACTIVE'
-      WHERE dl.log_date=$1 ${logScope?'AND '+logScope:''} GROUP BY COALESCE(dl.house_code,dl.flock_no),dl.flock_no`,logParams);
+      WHERE dl.log_date=$1 ${logScope?'AND '+logScope:''} GROUP BY COALESCE(dl.house_code,dl.flock_no),dl.flock_no,dl.occupancy_id`,logParams);
     const used=new Set<any>();
     const frames=[...managed,...legacy];
     const rows=frames.map((f:any)=>{
-      const log=logs.find((r:any)=>r.flock_no===f.flock_no&&(f.occupancy_id?r.house_code===f.house_code:true));if(log)used.add(log);
+      const log=logs.find((r:any)=>r.flock_no===f.flock_no&&r.house_code===f.house_code&&(r.occupancy_id??null)===(f.occupancy_id??null));if(log)used.add(log);
       const raw=f.occupancy_id?f.current_qty:date===businessToday?f.current_qty:log?.closing_qty;
       const quantity=raw==null?null:Number(raw);const eggs=Number(log?.eggs??0);
-      const mortality=Number(f.occupancy_id?f.event_mortality:log?.mortality??0),elimination=Number(f.occupancy_id?f.event_elimination:log?.elimination??0);
+      const mortality=Number(log?.mortality??0),elimination=Number(log?.elimination??0);
       return {house_code:log?.house_code??f.house_code,house_name:f.house_name||f.house_code,flock_no:f.flock_no,occupancy_id:f.occupancy_id??null,
         current_qty:quantity,initial_qty:f.initial_qty==null?null:Number(f.initial_qty),age_days:f.placement_date?Math.max(0,Math.floor((Date.parse(date)-Date.parse(f.placement_date))/86400000)):null,
-        eggs,lay_rate:log&&quantity!=null&&quantity>0?(eggs*100/quantity).toFixed(2):null,mortality,elimination,total_loss:mortality+elimination,
+        eggs,lay_rate:log?.log_count>0&&quantity!=null&&quantity>0?(eggs*100/quantity).toFixed(2):null,mortality,elimination,total_loss:mortality+elimination,
         dirty:Number(log?.dirty??0),broken:Number(log?.broken??0),culling_reason:log?.culling_reason??null,mortality_reason:log?.mortality_reason??null,
-        feed:Number(log?.feed??0),water:Number(log?.water??0),has_daily_log:!!log,production_stage:f.occupancy_id?'HISTORICAL_STAGE_UNRECORDED':f.status,current_flock_status:f.status,
+        feed:log?.feed==null?null:Number(log.feed),water:log?.water==null?null:Number(log.water),
+        feed_missing:Number(log?.feed_missing??0),water_missing:Number(log?.water_missing??0),has_daily_log:Number(log?.log_count??0)>0,production_stage:f.occupancy_id?'HISTORICAL_STAGE_UNRECORDED':f.status,current_flock_status:f.status,
         balance_status:f.occupancy_id?'VERIFIED_EVENT_BALANCE':quantity==null?'UNKNOWN_HISTORICAL_BALANCE':'LEGACY_UNVERIFIED'};
     });
     // Keep explicit old report identities, never replace them with today's occupant after a changeover.
-    for(const log of logs.filter((r:any)=>!used.has(r)))rows.push({house_code:log.house_code,house_name:log.house_code,flock_no:log.flock_no,occupancy_id:null,
-      current_qty:log.closing_qty==null?null:Number(log.closing_qty),initial_qty:null,age_days:null,eggs:Number(log.eggs),lay_rate:null,
+    for(const log of logs.filter((r:any)=>!used.has(r)))rows.push({house_code:log.house_code,house_name:log.house_code,flock_no:log.flock_no,occupancy_id:log.occupancy_id,
+      current_qty:log.occupancy_id?0:log.closing_qty==null?null:Number(log.closing_qty),initial_qty:null,age_days:null,eggs:Number(log.eggs),lay_rate:null,
       mortality:Number(log.mortality),elimination:Number(log.elimination),total_loss:Number(log.mortality)+Number(log.elimination),dirty:Number(log.dirty),broken:Number(log.broken),
-      culling_reason:log.culling_reason,mortality_reason:log.mortality_reason,feed:Number(log.feed),water:Number(log.water),has_daily_log:true,production_stage:'HISTORICAL_UNVERIFIED',current_flock_status:null,balance_status:'LEGACY_UNVERIFIED'});
-    const totals=rows.reduce((acc:any,r:any)=>{for(const key of ['eggs','mortality','elimination','total_loss','feed','water'])acc[key]+=Number(r[key]??0);acc.current_qty+=Number(r.current_qty??0);if(r.current_qty==null)acc.balance_complete=false;if(r.has_daily_log)acc.logged_houses++;return acc;},
-      {current_qty:0,eggs:0,mortality:0,elimination:0,total_loss:0,feed:0,water:0,logged_houses:0,balance_complete:true});
-    totals.lay_rate=totals.balance_complete&&totals.current_qty>0&&totals.logged_houses===rows.length?(totals.eggs*100/totals.current_qty).toFixed(2):null;
-    totals.feed=Number(totals.feed.toFixed(2));totals.water=Number(totals.water.toFixed(2));
+      culling_reason:log.culling_reason,mortality_reason:log.mortality_reason,feed:log.feed==null?null:Number(log.feed),water:log.water==null?null:Number(log.water),
+      feed_missing:log.feed_missing,water_missing:log.water_missing,has_daily_log:log.log_count>0,production_stage:'HISTORICAL_UNVERIFIED',current_flock_status:null,balance_status:log.occupancy_id?'ENDED_OCCUPANCY':'LEGACY_UNVERIFIED'});
+    const totals=rows.reduce((acc:any,r:any)=>{for(const key of ['eggs','mortality','elimination','total_loss','feed','water','feed_missing','water_missing'])acc[key]+=Number(r[key]??0);acc.current_qty+=Number(r.current_qty??0);if(r.current_qty==null)acc.balance_complete=false;if(r.has_daily_log)acc.logged_houses++;return acc;},
+      {current_qty:0,eggs:0,mortality:0,elimination:0,total_loss:0,feed:0,water:0,feed_missing:0,water_missing:0,logged_houses:0,balance_complete:true});
+    totals.lay_rate=totals.balance_complete&&totals.current_qty>0&&rows.every(r=>r.balance_status==='ENDED_OCCUPANCY'||r.has_daily_log)?(totals.eggs*100/totals.current_qty).toFixed(2):null;
+    totals.feed=rows.some(r=>r.feed!=null)?Number(totals.feed.toFixed(2)):null;
+    totals.water=rows.some(r=>r.water!=null)?Number(totals.water.toFixed(2)):null;
     return {code:200,date,rows,totals,quantity_basis:'业务日有效占栏日末余额；未接续历史缺快照时未知，不用今天存栏回算',lay_rate_basis:'已报产蛋数量/同日末在栏羽数；缺报或未知余额不计算'};
   }
 
@@ -713,25 +724,22 @@ export class FarmService {
     let trendWhere = `WHERE dl.log_date >= (CURRENT_DATE - ($1 * 2 - 1) * INTERVAL '1 day')`;
     const trendScope = dailyLogScopeWhere(scope, trendParams);
     if (trendScope) trendWhere += ` AND ${trendScope}`;
+    const [ledger]=await this.entityManager.query("SELECT to_regclass('brd_flock_events') AS ledger");
     const rows = await this.entityManager.query(`WITH reports AS (
-      SELECT dl.* FROM brd_daily_logs dl LEFT JOIN brd_houses h ON h.house_code=dl.house_code
+      SELECT dl.* FROM (${productionReportFactsSql(Boolean(ledger?.ledger))}) dl LEFT JOIN brd_houses h ON h.house_code=dl.house_code
       LEFT JOIN brd_farms hf ON hf.farm_code=h.farm_code AND hf.status='ACTIVE' ${trendWhere}
-    ), house_days AS (SELECT house_code,flock_no,log_date,SUM(COALESCE(eggs_produced,0)) AS eggs,SUM(CASE WHEN occupancy_id IS NULL THEN COALESCE(mortality_qty,0) ELSE 0 END) AS mortality,
-      SUM(CASE WHEN occupancy_id IS NULL THEN COALESCE(elimination_qty,0) ELSE 0 END) AS elimination,SUM(COALESCE(feed_consumed,0)) AS feed,
-      (ARRAY_AGG(closing_qty ORDER BY id DESC))[1] AS closing_qty FROM reports GROUP BY house_code,flock_no,log_date)
+    ), house_days AS (
+      SELECT house_code,flock_no,log_date,SUM(eggs_produced) AS eggs,SUM(mortality_qty) AS mortality,
+        SUM(elimination_qty) AS elimination,SUM(feed_consumed) AS feed,SUM(water_consumed) AS water,
+        COUNT(*) FILTER (WHERE has_production_report AND feed_consumed IS NULL) AS feed_missing,
+        COUNT(*) FILTER (WHERE has_production_report AND water_consumed IS NULL) AS water_missing,
+        BOOL_OR(has_production_report) AS reported,
+        (ARRAY_AGG(closing_qty ORDER BY id DESC) FILTER (WHERE has_production_report))[1] AS closing_qty
+      FROM reports GROUP BY house_code,flock_no,log_date)
       SELECT log_date::text AS date,SUM(eggs)::int AS eggs,SUM(mortality)::int AS mortality,SUM(elimination)::int AS elimination,
-        SUM(feed)::numeric AS feed,SUM(closing_qty)::numeric AS reported_qty,BOOL_AND(closing_qty IS NOT NULL) AS quantity_complete,COUNT(*)::int AS report_count
-      FROM house_days GROUP BY log_date ORDER BY log_date`,trendParams);
-    const [ledger]=await this.entityManager.query("SELECT to_regclass('brd_flock_daily_balances') AS ledger");
-    if(ledger?.ledger){
-      const eventParams:any[]=[safeDays];const eventScope=scopeWhere(scope,eventParams,'o.');
-      const eventDays=await this.entityManager.query(`SELECT b.balance_date::text AS date,SUM(b.mortality_qty)::int AS mortality,SUM(b.elimination_qty)::int AS elimination
-        FROM brd_flock_daily_balances b JOIN brd_flock_occupancies o ON o.flock_no=b.flock_no AND o.began_on<=b.balance_date AND (o.ended_on IS NULL OR o.ended_on>b.balance_date)
-        WHERE b.balance_date>=(CURRENT_DATE-($1*2-1)*INTERVAL '1 day') AND NOT EXISTS(SELECT 1 FROM brd_daily_logs d WHERE d.flock_no=b.flock_no AND d.log_date=b.balance_date AND d.occupancy_id IS NULL)
-          AND (b.mortality_qty>0 OR b.elimination_qty>0) ${eventScope?'AND '+eventScope:''} GROUP BY b.balance_date`,eventParams);
-      for(const e of eventDays){const r=rows.find((x:any)=>x.date===e.date);if(r){r.mortality=Number(r.mortality)+Number(e.mortality);r.elimination=Number(r.elimination)+Number(e.elimination);}else rows.push({...e,eggs:0,feed:0,reported_qty:0,quantity_complete:true,report_count:0});}
-      rows.sort((x:any,y:any)=>x.date.localeCompare(y.date));
-    }
+        SUM(feed)::numeric AS feed,SUM(water)::numeric AS water,SUM(feed_missing)::int AS feed_missing,SUM(water_missing)::int AS water_missing,
+        SUM(closing_qty)::numeric AS reported_qty,BOOL_AND(closing_qty IS NOT NULL) FILTER(WHERE reported) AS quantity_complete,
+        COUNT(*) FILTER(WHERE reported)::int AS report_count FROM house_days GROUP BY log_date ORDER BY log_date`,trendParams);
 
     const today = new Date();
     const cutoff = new Date(today);
@@ -759,15 +767,19 @@ export class FarmService {
     );
     const totalQty = Number(flockSum[0]?.total ?? 0);
 
+    const measuredAverage = (series: typeof rows, key: 'eggs'|'feed') => {
+      const measured = series.filter((row: any) => row[key] != null && (key !== 'feed' || !row.feed_missing));
+      return measured.length ? avg(measured, key) : null;
+    };
     const weightedRate=(series:any[])=>{const reported=series.filter(r=>Number(r.report_count)>0);const denominator=reported.reduce((n,r)=>n+Number(r.reported_qty??0),0);return reported.length&&reported.every(r=>r.quantity_complete)&&denominator>0?(reported.reduce((n,r)=>n+Number(r.eggs),0)*100/denominator).toFixed(2):null;};
     const summary = {
       current_days:    current.length,
-      avg_eggs:        avg(current.filter((r:any)=>Number(r.report_count)>0), 'eggs'),
+      avg_eggs:        measuredAverage(current, 'eggs'),
       avg_mortality:   avg(current, 'mortality'),
       avg_elimination: avg(current, 'elimination'),
-      avg_feed:        avg(current.filter((r:any)=>Number(r.report_count)>0), 'feed'),
+      avg_feed:        measuredAverage(current, 'feed'),
       lay_rate:        weightedRate(current),
-      prev_avg_eggs:   avg(prev.filter((r:any)=>Number(r.report_count)>0), 'eggs'),
+      prev_avg_eggs:   measuredAverage(prev, 'eggs'),
       prev_lay_rate:   weightedRate(prev),
       total_qty:       totalQty,
     };

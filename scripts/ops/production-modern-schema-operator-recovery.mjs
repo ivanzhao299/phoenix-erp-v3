@@ -548,7 +548,7 @@ export async function createModernSchemaOperatorRecoveryVerifier({
     if(ledger.sha256!==context.beforeLedgerSha256||digest(JSON.stringify(ledger.ledger))!==context.beforeLedgerSha256||
         (source.closed&&!same(ledger.ledger,hold.nativeLedger.ledger)))fail('NATIVE_LEDGER_CHANGED');
     const facts = await (dependencies.captureFacts??captureModernSchemaFacts)(client);
-    const off = (dependencies.verifyDefaultOff??defaultOffEvidenceFromFacts)(context.runtimeSha,facts,{stage:'BEFORE_SCHEMA',floor:preparation.floor});
+    const off = (dependencies.verifyDefaultOff??defaultOffEvidenceFromFacts)(context.runtimeSha,facts,{stage:'BEFORE_SCHEMA',floor:preparation.floor,plan:context});
     if(off.verified!==true||facts.schema!=='phoenix.modern-schema-database-facts/v1'||facts.readOnly!==true||
         facts.releaseAuthorized!==false||!isHash(facts.allDataSha256)||!isHash(facts.businessDataSha256)||
         !same(facts.database,{name:recoveryLease.database.name,systemIdentifier:recoveryLease.database.systemIdentifier})){

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import u from "@/styles/uix-utils.module.css";
 import { formatMasterData } from '@/lib/business-display';
+import { reportMeasurement } from '@/lib/report-measurement';
 import PageHeader from '@/components/PageHeader';
 import { MasterLabel } from '@/components/MasterNameCode';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -24,35 +25,43 @@ async function apiFetch<T>(path: string): Promise<T> {
   return body.data ?? body;
 }
 interface HenReportRow {
+  has_daily_log: boolean;
   house_code: string;
   house_name?: string;
   flock_no: string;
-  current_qty: number;
+  current_qty: number | null;
   initial_qty: number;
   age_days: number | null;
   eggs: number;
-  lay_rate: string;
+  lay_rate: string | null;
   mortality: number;
   elimination: number;
   total_loss: number;
   culling_reason: string | null;
-  feed: number;
+  feed: number | null;
+  water: number | null;
+  water_missing: number;
+  feed_missing: number;
 }
 interface DailyHenReport {
   code: number;
   date: string;
   rows: HenReportRow[];
   totals: {
+    logged_houses: number;
     current_qty: number;
     eggs: number;
-    lay_rate: string;
+    lay_rate: string | null;
     mortality: number;
     elimination: number;
     total_loss: number;
-    feed: number;
+    feed: number | null;
+    water: number | null;
+    water_missing: number;
+    feed_missing: number;
   };
 }
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Singapore' }).format(new Date());
 const addDays = (d: string, n: number) => {
   const dt = new Date(d);
   dt.setDate(dt.getDate() + n);
@@ -85,7 +94,8 @@ export default function HenReportPage() {
   }, [date, loadData]);
   const rows = report?.rows ?? [];
   const totals = report?.totals;
-  const rateColor = (rate: string) => {
+  const rateColor = (rate: string | null) => {
+    if (rate == null) return 'var(--text-secondary)';
     const n = parseFloat(rate);
     return n >= 85 ? 'var(--status-success)' : n >= 70 ? 'var(--status-warning)' : 'var(--status-danger)';
   };
@@ -125,12 +135,12 @@ export default function HenReportPage() {
         color: 'var(--color-primary)'
       }, {
         label: t('ui.产蛋合计', '产蛋合计'),
-        value: totals.eggs.toLocaleString(),
+        value: (totals.logged_houses ? totals.eggs.toLocaleString() : '—'),
         unit: t('ui.枚', '枚'),
         color: 'var(--status-warning)'
       }, {
         label: t('ui.综合产蛋率', '综合产蛋率'),
-        value: totals.lay_rate,
+        value: totals.lay_rate ?? '—',
         unit: '',
         color: rateColor(totals.lay_rate)
       }, {
@@ -150,7 +160,7 @@ export default function HenReportPage() {
         color: 'var(--status-danger)'
       }, {
         label: t('ui.饲料消耗', '饲料消耗'),
-        value: totals.feed.toLocaleString(),
+        value: reportMeasurement(totals.feed, totals.feed_missing, t('breeding.daily.partialMeasure', '部分班次未记录')),
         unit: 'kg',
         color: 'var(--status-special)'
       }].map(c => <div key={c.label} style={{
@@ -201,19 +211,18 @@ export default function HenReportPage() {
         <table className={s.table}>
           <thead>
             <tr>
-              {[t('ui.栋舍', '栋舍'), t('ui.批次号', '批次号'), t('ui.存栏数(羽)', '存栏数(羽)'), t('ui.日龄(天)', '日龄(天)'), t('ui.产蛋(枚)', '产蛋(枚)'), t('ui.产蛋率', '产蛋率'), t('ui.死亡(羽)', '死亡(羽)'), t('ui.淘汰(羽)', '淘汰(羽)'), t('ui.损耗合计', '损耗合计'), t('ui.饲料(kg)', '饲料(kg)'), t('ui.淘汰原因', '淘汰原因')].map((h, hi) => <th key={hi} style={{
-              textAlign: hi === 0 || hi === 1 || hi === 10 ? 'left' : 'right',
+              {[t('ui.栋舍', '栋舍'), t('ui.批次号', '批次号'), t('ui.存栏数(羽)', '存栏数(羽)'), t('ui.日龄(天)', '日龄(天)'), t('ui.产蛋(枚)', '产蛋(枚)'), t('ui.产蛋率', '产蛋率'), t('ui.死亡(羽)', '死亡(羽)'), t('ui.淘汰(羽)', '淘汰(羽)'), t('ui.损耗合计', '损耗合计'), t('ui.饲料(kg)', '饲料(kg)'), t('ui.用水L', '用水L'), t('ui.淘汰原因', '淘汰原因')].map((h, hi) => <th key={hi} style={{
+              textAlign: hi === 0 || hi === 1 || hi === 11 ? 'left' : 'right',
               whiteSpace: 'nowrap'
             }}>{h}</th>)}
             </tr>
           </thead>
           <tbody>
-            {loading ? <tr><td colSpan={11} className={u.emptyCenter}>{t('ui.加载中…', '加载中…')}</td></tr> : rows.length === 0 ? <tr><td colSpan={11} className={u.emptyCenter}>{t('ui.暂无数据', '暂无数据')}</td></tr> : rows.map((row, i) => {
-            const rate = parseFloat(row.lay_rate);
+            {loading ? <tr><td colSpan={12} className={u.emptyCenter}>{t('ui.加载中…', '加载中…')}</td></tr> : rows.length === 0 ? <tr><td colSpan={12} className={u.emptyCenter}>{t('ui.暂无数据', '暂无数据')}</td></tr> : rows.map((row, i) => {
             return <tr key={i}>
                   <td><MasterLabel>{formatMasterData(row, 'house_name', row.house_code, lang)}</MasterLabel></td>
                   <td className={u.muted}>{row.flock_no}</td>
-                  <td className={u.tar}>{row.current_qty.toLocaleString()}</td>
+                  <td className={u.tar}>{(row.current_qty?.toLocaleString() ?? '—')}</td>
                   <td style={{
                 textAlign: 'right',
                 color: 'var(--text-secondary)'
@@ -221,12 +230,12 @@ export default function HenReportPage() {
                   <td style={{
                 textAlign: 'right',
                 color: 'var(--status-warning)'
-              }}>{row.eggs.toLocaleString()}</td>
+              }}>{(row.has_daily_log ? row.eggs.toLocaleString() : t('breeding.daily.notReported', '未报'))}</td>
                   <td style={{
                 textAlign: 'right',
                 fontWeight: 700,
                 color: rateColor(row.lay_rate)
-              }}>{row.lay_rate}</td>
+              }}>{row.lay_rate ?? '—'}</td>
                   <td style={{
                 textAlign: 'right',
                 color: row.mortality > 0 ? 'var(--status-danger)' : 'var(--text-secondary)'
@@ -243,7 +252,8 @@ export default function HenReportPage() {
                   <td style={{
                 textAlign: 'right',
                 color: 'var(--status-special)'
-              }}>{row.feed}</td>
+              }}>{reportMeasurement(row.feed, row.feed_missing, t('breeding.daily.partialMeasure', '部分班次未记录'))}</td>
+                  <td className={u.tar}>{reportMeasurement(row.water, row.water_missing, t('breeding.daily.partialMeasure', '部分班次未记录'))}</td>
                   <td className={u.muted12}>{row.culling_reason ?? '—'}</td>
                 </tr>;
           })}
@@ -270,12 +280,12 @@ export default function HenReportPage() {
               padding: '10px 12px',
               textAlign: 'right',
               color: 'var(--status-warning)'
-            }}>{totals.eggs.toLocaleString()}</td>
+            }}>{(totals.logged_houses ? totals.eggs.toLocaleString() : '—')}</td>
                 <td style={{
               padding: '10px 12px',
               textAlign: 'right',
               color: rateColor(totals.lay_rate)
-            }}>{totals.lay_rate}</td>
+            }}>{totals.lay_rate ?? '—'}</td>
                 <td style={{
               padding: '10px 12px',
               textAlign: 'right',
@@ -295,7 +305,8 @@ export default function HenReportPage() {
               padding: '10px 12px',
               textAlign: 'right',
               color: 'var(--status-special)'
-            }}>{totals.feed}</td>
+            }}>{reportMeasurement(totals.feed, totals.feed_missing, t('breeding.daily.partialMeasure', '部分班次未记录'))}</td>
+                <td className={u.tar}>{reportMeasurement(totals.water, totals.water_missing, t('breeding.daily.partialMeasure', '部分班次未记录'))}</td>
                 <td style={{
               padding: '10px 12px'
             }} />

@@ -11,6 +11,7 @@ import {collectRetainedModernSchemaInventory,retainedModernSchemaInventorySlot} 
 import {isFailedModernSchemaPreparation} from './production-modern-schema-public-preparation.mjs';
 import {matchesModernSchemaRehearsalVolume} from './production-modern-schema-postgres.mjs';
 import {collectHistoricalComposeSchemaArtifacts,isHistoricalComposeSchemaCandidate} from './production-modern-schema-historical-compose.mjs';
+import {successorBinding,validateSuccessorInspection} from './production-modern-schema-successor.mjs';
 const fail=code=>{throw Error('MODERN_SCHEMA_EXECUTORS_HOLD='+code);};
 const ID=/^[a-f0-9]{64}$/;
 const RETAINED_REHEARSAL_OWNER='REVIEWED_STOPPED_ISOLATED_REHEARSAL';
@@ -221,6 +222,30 @@ export function collectModernSchemaHostSurface(preSnapshot,dependencies={}){
    if(!/^[a-f0-9]{40}$/.test(revision))fail('HISTORICAL_MIGRATOR_SOURCE_UNVERIFIED');
    command('/usr/bin/git',['-c',`safe.directory=${CONTRACT.repository}`,'-C',CONTRACT.repository,'merge-base','--is-ancestor',revision,pre.api.ociRevision]);
    inertArtifacts.push({id,identitySha256:canonicalDigest(candidate),classification:'RETAINED_STOPPED_NO_RESTART_SCHEMA_ARTIFACT',revision});continue;
+  }
+  const formerOwner=candidate.labels?.['phoenix.schema.owner'],priorRole=candidate.labels?.['phoenix.schema.role'];
+  let prior;
+  if(formerOwner==='44917766283-1'&&priorRole!=='readonly-inventory'){
+   prior=dependencies.predecessorResources?.find(unit=>unit.containerId===id);
+  }else if(formerOwner&&formerOwner!==preSnapshot.deployRunId&&/^[1-9][0-9]{0,19}-[1-9][0-9]{0,9}$/.test(formerOwner)&&dependencies.successorStore){
+   const name='schema-release-1123-inspect-'+formerOwner+'.json';
+   if(dependencies.successorStore.exists(name)){
+    const inspected=dependencies.successorStore.read(name);
+    validateSuccessorInspection(inspected,successorBinding(inspected.binding.floorSha,inspected.binding));
+    prior=inspected.resourcePins.find(unit=>unit.containerId===id);
+    if(inspected.owner!==formerOwner||inspected.binding.targetSha!==preSnapshot.targetSha||prior?.identitySha256!==canonicalDigest(candidate))fail('RETAINED_INSPECTION_PIN_CHANGED');
+   }
+  }
+  if(prior){
+   if(prior.owner!==formerOwner||prior.role!==priorRole||prior.imageId!==candidate.imageId||
+      candidate.state.Status!=='exited'||candidate.state.Running!==false||candidate.state.Pid!==0||candidate.state.Paused!==false||
+      candidate.state.Restarting!==false||candidate.state.OOMKilled!==false||candidate.state.ExitCode!==0||candidate.restarts!==0||
+      candidate.restartPolicy?.Name!=='no'||candidate.privileged!==false||!['','private'].includes(candidate.pidMode)||
+      (priorRole==='readonly-inventory'?candidate.networkMode!=='none':candidate.networkMode!==prior.networkId)||
+      !Object.values(candidate.networks??{}).every(value=>!value.IPAddress&&!value.GlobalIPv6Address&&!value.EndpointID)||
+      !['readonly-inventory','rehearsal-database','rehearsal-original-api','rehearsal-candidate-api','rehearsal-migration-run','rehearsal-migration-show','controlled-migration-run','controlled-migration-show'].includes(priorRole)||
+      priorRole!=='rehearsal-database'&&(candidate.readonly!==true||candidate.user!=='phoenix'||!same(candidate.capDrop,['ALL'])))fail('RETAINED_RELEASE_RESOURCE_CHANGED');
+   inertArtifacts.push({id,identitySha256:canonicalDigest(candidate),classification:'SEALED_STOPPED_RELEASE_RESOURCE',formerOwner,role:priorRole});continue;
   }
   const own=(dependencies.ownedResources??[]).find(record=>record.containerId===id);
   if(own&&own.owner===preSnapshot.deployRunId&&own.imageId===candidate.imageId&&candidate.labels?.['phoenix.schema.owner']===own.owner&&candidate.labels?.['phoenix.schema.role']==='readonly-inventory'

@@ -16,7 +16,7 @@ try{
     const page=await context.newPage();active=page;page.setDefaultTimeout(30000);
     await page.goto(base+'/mobile/production-reports',{waitUntil:'domcontentloaded',timeout:90000});
     await page.getByRole('heading',{name:label('productionReports.title','正式分级产蛋日报'),exact:true}).waitFor();
-    async function choose(){await page.getByLabel(label('common.house','鸡舍'),{exact:true}).selectOption('HOUSE-A');await page.locator('input[type=date]').fill('2026-11-18');
+    async function choose(){await page.getByLabel(label('productionInstallments.house','鸡舍'),{exact:true}).selectOption('HOUSE-A');await page.locator('input[type=date]').fill('2026-11-18');
       await page.getByLabel(label('productionInstallments.shift','来源班次'),{exact:true}).selectOption(shift);}
     await choose();
     const save=page.getByRole('button',{name:label('productionReports.save','确认本班次日报'),exact:true});

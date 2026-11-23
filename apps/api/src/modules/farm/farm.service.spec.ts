@@ -96,8 +96,8 @@ describe('FarmService', () => {
 
     expect(entityManager.query.mock.calls[1][0]).toContain('LEFT JOIN brd_houses h');
     expect(entityManager.query.mock.calls[1][0]).toContain('COALESCE(dl.farm_code, h.farm_code)');
-    expect(entityManager.query.mock.calls[2][0]).toContain('LEFT JOIN brd_houses h');
-    expect(entityManager.query.mock.calls[2][0]).toContain('COALESCE(dl.farm_code, h.farm_code)');
+    expect(entityManager.query.mock.calls[3][0]).toContain('LEFT JOIN brd_houses h');
+    expect(entityManager.query.mock.calls[3][0]).toContain('COALESCE(dl.farm_code, h.farm_code)');
     expect(entityManager.query.mock.calls[4][0]).toContain("UPPER(f.status) IN ('ACTIVE','GROWING','LAYING','PEAK','DECLINING')");
   });
 

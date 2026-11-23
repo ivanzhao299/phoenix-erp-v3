@@ -1013,8 +1013,15 @@ export class AnalyticsBffController {
   async getProduction(@Req() req:any) {
     const now=new Date();const from=new Date(now);from.setUTCMonth(from.getUTCMonth()-6);
     const result=await new ProductionAnalyticsService(this.em).compute({dateFrom:from.toISOString().slice(0,10),dateTo:new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Singapore'}).format(now)},deriveOrgScope(req));
-    const months=new Map<string,any>();
-    for(const row of result.trend30Day){const month=String(row.day).slice(0,7);const value=months.get(month)??{month,eggs:0,feed_kg:0,water_l:0,deaths:0,elimination:0};for(const key of ['eggs','feed_kg','water_l','deaths','elimination'])value[key]+=Number(row[key]??0);months.set(month,value);}
+    const months = new Map<string, Record<string, any>>();
+    for (const row of result.trend30Day) {
+      const month = String(row.day).slice(0, 7);
+      const value = months.get(month) ?? {month, eggs:null, feed_kg:null, water_l:null, deaths:0, elimination:0, feed_missing:0, water_missing:0, report_count:0};
+      for (const key of ['eggs','feed_kg','water_l','deaths','elimination','feed_missing','water_missing','report_count']) {
+        if (row[key] != null) value[key] = (value[key] ?? 0) + Number(row[key]);
+      }
+      months.set(month, value);
+    }
     return {code:200,data:[...months.values()],denominatorBasis:result.denominatorBasis};
   }
 

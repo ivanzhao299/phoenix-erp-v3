@@ -1,3 +1,4 @@
+import { assertReportGradeCoverage, normalizeReportGrades, requiredReportGrades } from './daily-report-grades';
 import { FileAccessService } from '../file/file-access.service';
 import { effectiveExactProductionByGrade, effectiveProductionReceiptQuantity, refreshDailyFlockLayRate } from './effective-production-source';
 import { hydrateMenuRegistry } from '../../common/guards/menu-registry.service';
@@ -7,6 +8,8 @@ import { createHash, randomUUID } from 'crypto';
 import { EntityManager } from 'typeorm';
 import { hasPerm } from '../../auth/permissions.util';
 import { birdCount } from './daily-stock-policy';
+import { flockHandoverBlockers } from './flock-handover-blockers';
+import { assertHouseTurnaround, HOUSE_TURNAROUND_EVIDENCE, turnaroundBoundary } from './flock-house-turnaround';
 import { resolveHouseCapacity } from './house-capacity';
 import { OrgScope, scopeWhere } from './farm.service';
 
@@ -116,7 +119,7 @@ export class FlockLifecycleService {
       if(typeof p.expectedReportHash!=='string'||(p.dailyLogId===0?p.expectedReportHash!=='ABSENT':! /^[a-f0-9]{64}$/.test(p.expectedReportHash)))throw new BadRequestException('请选择完整原日报快照');
       const c=p.correction;if(!c||typeof c!=='object'||Array.isArray(c)||Object.keys(c).some(k=>!['eggsByGrade','feedConsumed','waterConsumed','notes'].includes(k)))throw new BadRequestException('日报更正字段无效');
       if(!c.eggsByGrade||typeof c.eggsByGrade!=='object'||Array.isArray(c.eggsByGrade)||!Object.keys(c.eggsByGrade).length)throw new BadRequestException('请输入真实分级数量');
-      for(const [grade,n] of Object.entries(c.eggsByGrade)){text(grade,'等级');birdCount(n,'分级数量');}
+      normalizeReportGrades(c.eggsByGrade);
       for(const k of ['feedConsumed','waterConsumed'])if(c[k]!==null&&(typeof c[k]!=='number'||!Number.isFinite(c[k])||c[k]<0||c[k]>1e9))throw new BadRequestException('实际料水用量须为有效非负数');
       if(typeof c.notes!=='string'||c.notes.length>4000)throw new BadRequestException('备注长度超过限制');
     }
@@ -212,16 +215,31 @@ export class FlockLifecycleService {
       const z=p.originalZeroConfirmation;const [zero]=await m.query("SELECT id FROM brd_flock_documents WHERE id=$1 AND content_hash=$2 AND kind='CLOSE' AND status='POSTED' AND flock_no=$3 AND house_code=$4 AND business_date=$5 AND payload->>'finalProductionStatus'='CONFIRMED_ZERO'",[z.documentId,z.contentHash,d.flock_no,h.house_code,p.businessDate]);
       if(!zero)throw new ConflictException('被更正的原零产蛋声明不匹配，请重新核对');
     }
-    const c=p.correction,grades=c.eggsByGrade;
+    const c=p.correction,grades=normalizeReportGrades(c.eggsByGrade);
     const active=await m.query("SELECT grade_code,is_saleable FROM product_grades WHERE status='ACTIVE'");
-    const unchanged=canonical(grades)===canonical(r.eggs_by_grade??{});
-    if(!unchanged&&Object.keys(grades).some(k=>!active.some((x:any)=>x.grade_code===k)))throw new BadRequestException('更正包含未启用等级');
+    const unchanged=stored && canonical(grades)===canonical(r.eggs_by_grade);
+    if (!unchanged && Object.entries(grades).some(([code,qty]) =>
+      !active.some((x:any)=>x.grade_code===code) && !(Object.prototype.hasOwnProperty.call(r.eggs_by_grade??{},code) && Number(r.eggs_by_grade[code])===qty))) {
+      throw new BadRequestException('更正包含未启用等级');
+    }
+    const [cutover] = await m.query("SELECT to_regclass('production_cutover_scopes') AS scopes");
+    if (cutover?.scopes && (await m.query(`SELECT 1 FROM production_cutover_scopes
+        WHERE company_code=$1 AND house_code=$2 AND state<>'DRAFT' AND first_production_date<=$3`,
+        [d.company_code,h.house_code,p.businessDate])).length) {
+      const originalKeys = Object.keys(stored?.eggs_by_grade ?? {});
+      // Older signed forms keep their explicit zero grades even if the catalog changes.
+      assertReportGradeCoverage(grades, unchanged ? originalKeys : [...new Set([...originalKeys, ...await requiredReportGrades(m)])]);
+    }
     if(!unchanged&&(await m.query("SELECT 1 FROM inv_flock_source_links WHERE daily_log_id=$1 AND precision<>'EXACT' LIMIT 1",[r.id])).length)throw new BadRequestException('原产蛋已进入包装多来源或继承批次，先处理下游库存并核对来源，不可直接改分级');
     const used=await effectiveExactProductionByGrade(m,r.id);
     if([...used].some(([grade,n])=>n<0||n>Number(grades[grade]??0)))throw new BadRequestException('更正分级少于已接收/入库来源，请先处理下游库存');
     const receipt=await effectiveProductionReceiptQuantity(m,r.id);
     if(receipt<0||receipt>Object.values(grades).reduce((sum:number,n)=>sum+Number(n),0))throw new BadRequestException('更正总产蛋少于已交接来源');
-    const eggs=unchanged?Number(r.eggs_produced??0):active.filter((x:any)=>x.is_saleable).reduce((sum:number,x:any)=>sum+Number(grades[x.grade_code]??0),0);
+    // Keep the unchanged retired-grade contribution in the original saleable count.
+    const saleable = active.filter((grade:any)=>grade.is_saleable);
+    const saleableSum = (map:Record<string, number>) => saleable.reduce((sum:number,grade:any)=>sum+Number(map[grade.grade_code]??0),0);
+    const eggs = unchanged ? Number(r.eggs_produced??0) : Number(r.eggs_produced??0) + saleableSum(grades) - saleableSum(r.eggs_by_grade??{});
+    if (eggs < 0 || eggs > Object.values(grades).reduce((sum,qty)=>sum+qty,0)) throw new BadRequestException('原日报产蛋合计与分级不符，须核对销售分级依据');
     if(!stored){
       const [snapshot]=await m.query(`SELECT (SELECT closing_qty FROM brd_flock_daily_balances WHERE flock_no=$1 AND balance_date<=$2 ORDER BY balance_date DESC LIMIT 1) AS closing,
         COALESCE((SELECT opening_qty FROM brd_flock_daily_balances WHERE flock_no=$1 AND balance_date=$2),(SELECT closing_qty FROM brd_flock_daily_balances WHERE flock_no=$1 AND balance_date<$2 ORDER BY balance_date DESC LIMIT 1),0) AS opening,
@@ -235,7 +253,7 @@ export class FlockLifecycleService {
     }
     await m.query(`UPDATE brd_daily_logs SET eggs_by_grade=$2::jsonb,eggs_produced=$3::integer,dirty_eggs=$4::integer,broken_eggs=$5::integer,
       feed_consumed=$6,water_consumed=$7,note=$8,lay_rate=CASE WHEN closing_qty>0 THEN round($3::numeric*100/closing_qty,2) ELSE NULL END WHERE id=$1`,
-      [r.id,JSON.stringify(grades),eggs,grades.DIRTY??0,grades.BROKEN??0,c.feedConsumed,c.waterConsumed,c.notes]);
+      [r.id,JSON.stringify(unchanged ? r.eggs_by_grade : grades),eggs,grades.DIRTY??0,grades.BROKEN??0,c.feedConsumed,c.waterConsumed,c.notes]);
     await m.query('UPDATE brd_flock_balances SET version=version+1 WHERE flock_no=$1',[d.flock_no]);
     await refreshDailyFlockLayRate(m,d.flock_no);
     await this.event(m,d,actor,{kind:'REPORT_CORRECTION',occupancy:occ.id});
@@ -268,17 +286,29 @@ export class FlockLifecycleService {
   async overview(scope: OrgScope) {
     const params: any[]=[];const where=scopeWhere(scope,params,'f.');
     const houses=await this.db.query(`SELECT h.house_code,h.house_name,h.farm_code,h.capacity,h.max_capacity,h.status,f.company_code,
-      COALESCE(f.mapped_site_code,'') AS site_code,s.state,s.version AS house_version,s.last_occupied_on::text AS last_occupied_on,
+      COALESCE(f.mapped_site_code,'') AS site_code,s.state,s.document_id,e.steps,e.previously_used,s.version AS house_version,s.last_occupied_on::text AS last_occupied_on,
       o.id AS occupancy_id,b.flock_no,b.quantity,b.version,b.closed_on::text AS closed_on,b.baseline_on::text AS baseline_on,
       (SELECT COUNT(*)::integer FROM brd_flocks x WHERE x.house_code=h.house_code AND
         (x.status IS DISTINCT FROM 'RETIRED' OR COALESCE(x.current_qty,0)>0)) AS legacy_flocks
       FROM brd_houses h JOIN (SELECT farm_code,company_code,mapped_site_code,mapped_site_code AS site_code FROM brd_farms) f ON f.farm_code=h.farm_code
       LEFT JOIN brd_flock_house_states s ON s.house_code=h.house_code
+      LEFT JOIN LATERAL (${HOUSE_TURNAROUND_EVIDENCE}) e ON s.state IS DISTINCT FROM 'OCCUPIED'
       LEFT JOIN brd_flock_occupancies o ON o.house_code=h.house_code AND o.ended_on IS NULL
       LEFT JOIN brd_flock_balances b ON b.flock_no=o.flock_no ${where?'WHERE '+where:''} ORDER BY h.house_code`,params);
-    return houses.map(({ capacity, max_capacity, ...house }: any) => ({
-      ...house, max_capacity: resolveHouseCapacity({ capacity, max_capacity }),
+    return houses.map(({ capacity,max_capacity,document_id,steps,previously_used,...house }: any) => ({
+      ...house, turnaround_history_review: house.state!=='OCCUPIED' && turnaroundBoundary(
+        house.state?{state:house.state,document_id,last_occupied_on:house.last_occupied_on}:undefined,{steps,previously_used})===undefined,
+      max_capacity: resolveHouseCapacity({ capacity, max_capacity }),
     }));
+  }
+  async closeBlockers(occupancyId: string, businessDate: string, scope: OrgScope) {
+    const day=flockBusinessDate(businessDate);
+    const params:unknown[]=[occupancyId];
+    const scoped=scopeWhere(scope,params,'o.');
+    const [occupancy]=await this.db.query(`SELECT o.house_code FROM brd_flock_occupancies o WHERE o.id=$1 ${scoped?'AND '+scoped:''}`,params);
+    if (!occupancy) throw new NotFoundException('占栏记录不存在或不可见');
+    await this.house(this.db,occupancy.house_code,scope);
+    return flockHandoverBlockers(this.db,occupancyId,day,scope);
   }
   async balances(scope: OrgScope) {
     const params: any[]=[];const where=scopeWhere(scope,params,'b.');
@@ -349,6 +379,11 @@ export class FlockLifecycleService {
       if (!identity) throw new NotFoundException('单据不存在');
       const [currentPosition]=await m.query('SELECT house_code FROM brd_flock_balances WHERE flock_no=$1',[identity.flock_no]);
       const houseCodes=[identity.house_code,identity.payload.targetHouseCode,currentPosition?.house_code].filter(Boolean) as string[];
+      // Closing settles the same flock's historical handovers, including houses it previously occupied.
+      if (identity.kind==='CLOSE' && action==='post') {
+        const previous=await m.query('SELECT DISTINCT house_code FROM brd_flock_occupancies WHERE flock_no=$1',[identity.flock_no]);
+        houseCodes.push(...previous.map((row:{house_code:string})=>row.house_code));
+      }
       for (const code of [...new Set(houseCodes)].sort()) await m.query("SELECT pg_advisory_xact_lock(hashtext('phoenix:daily-house'),hashtext($1))",[code]);
       const h=await this.house(m,identity.house_code,scope);
       if (identity.company_code!==h.company_code || identity.farm_code!==h.farm_code || identity.site_code!==h.site_code) throw new ConflictException('鸡舍归属已变，请重新审查单据');
@@ -411,6 +446,7 @@ export class FlockLifecycleService {
       const next=doc.kind==='CLEAN_START'?'CLEANING':'READY';
       if (next==='READY' && state?.state!=='CLEANING') throw new BadRequestException('请先办理清洗消毒，再验收');
       if (next==='CLEANING' && state && !['DIRTY','READY'].includes(state.state)) throw new BadRequestException('鸡舍当前状态不能开始清舍');
+      await assertHouseTurnaround(m,h.house_code,state,day);
       await this.setHouse(m,h.house_code,next,doc.id);
       await this.event(m,doc,actor,{kind:doc.kind});return;
     }
@@ -439,6 +475,7 @@ export class FlockLifecycleService {
         }
         await m.query('INSERT INTO brd_flock_admission_receipts(company_code,source_kind,receipt_reference,document_id,quantity) VALUES($1,$2,$3,$4,$5)',[h.company_code,p.sourceKind,p.sourceReceipt,doc.id,p.quantity]);
         if (active.length || state?.state!=='READY') throw new BadRequestException('请先关闭旧群并完成清舍验收');
+        await assertHouseTurnaround(m,h.house_code,state,day);
         if (state.version!==p.expectedHouseVersion) throw new ConflictException('鸡舍版本冲突');
         if (state.last_occupied_on && day<=String(state.last_occupied_on).slice(0,10)) throw new BadRequestException('一期禁止同舍同日换群');
         const [breed]=await m.query("SELECT dict_label_zh FROM sys_dict WHERE dict_type='BRD_BREED' AND dict_code=$1 AND status='ACTIVE' FOR SHARE",[p.breedCode]);
@@ -502,6 +539,7 @@ export class FlockLifecycleService {
       const [ts]=await m.query('SELECT *,last_occupied_on::text AS last_occupied_on FROM brd_flock_house_states WHERE house_code=$1 FOR UPDATE',[t.house_code]);
       const active=await m.query("SELECT 1 FROM brd_flocks WHERE house_code=$1 AND (status IS DISTINCT FROM 'RETIRED' OR COALESCE(current_qty,0)>0)",[t.house_code]);
       if (ts?.state!=='READY' || active.length || ts.last_occupied_on && day<=ts.last_occupied_on) throw new BadRequestException('目标舍须空舍且清舍验收完成');
+      await assertHouseTurnaround(m,t.house_code,ts,day);
       if (!balance.quantity) throw new BadRequestException('空群不能转舍');
       // Date-granularity source identity cannot split today's old-house production.
       const logs=await m.query('SELECT 1 FROM brd_daily_logs WHERE house_code=ANY($1) AND log_date>=$2 LIMIT 1',[[h.house_code,t.house_code],day]);
@@ -533,15 +571,9 @@ export class FlockLifecycleService {
       const lastReport=lastReports[0];
       if(!lastReport&&p.finalProductionStatus!=='CONFIRMED_ZERO')throw new BadRequestException('请先确认关闭当天DAILY日报，或上传真实零产蛋签认后再关闭');
       if(p.finalProductionStatus==='CONFIRMED_ZERO'&&lastReports.some((r:any)=>Object.values(r.eggs_by_grade??{}).some(n=>Number(n)>0)||['eggs_produced','dirty_eggs','broken_eggs'].some(k=>Number(r[k]??0)>0)))throw new BadRequestException('关闭日已有实际产蛋，不得签认为零');
-      const [productionSchema]=await m.query("SELECT to_regclass('production_physical_handovers') AS handovers");
-      if(productionSchema?.handovers) {
-        if((await m.query(`SELECT 1 FROM production_physical_handovers h WHERE h.company_code=$1 AND h.house_code=$2
-          AND h.production_date<=$3 AND h.state='CONFIRMED' AND NOT EXISTS(SELECT 1 FROM production_inbound_documents d
-            WHERE d.company_code=h.company_code AND d.handover_ref=h.handover_ref AND d.kind='INBOUND' AND d.state='POSTED') LIMIT 1`,
-        [h.company_code,h.house_code,day])).length)throw new BadRequestException('仍有已确认实物交接未完成正式入库');
-        if((await m.query(`SELECT 1 FROM production_inbound_documents WHERE company_code=$1 AND house_code=$2
-          AND production_date<=$3 AND state IN ('DRAFT','READY','APPROVED') LIMIT 1`,[h.company_code,h.house_code,day])).length)throw new BadRequestException('仍有未完正式入库或冲销单据');
-      }
+      const blockers=await flockHandoverBlockers(m,occ.id,day,scope);
+      if (blockers.length) throw new ConflictException({code:'FLOCK_HANDOVER_CLOSE_HOLD',blockers,
+        message:`该鸡群仍有交接或生产单据待核：${blockers[0].reference}，请查看关群待办`});
       const pending=await m.query("SELECT 1 FROM brd_flock_documents WHERE flock_no=$1 AND id<>$2 AND status IN ('DRAFT','SUBMITTED','APPROVED') LIMIT 1",[doc.flock_no,doc.id]);
       if (pending.length) throw new BadRequestException('还有未完生命周期单据');
       // End exclusive on following day: today's eggs keep old provenance; next flock starts later.
@@ -606,6 +638,16 @@ export class FlockLifecycleService {
     if (original.business_date< b.baseline_on) throw new BadRequestException('不能冲销基线前事实');
     let replacement=0;
     if (p.replacementKind) replacement=p.replacementKind==='ADJUST'?p.replacementQuantity:-p.replacementQuantity;
+    if (replacement!==Number(e.quantity_delta)) {
+      // A posted transfer records a witnessed count at the end of this exact occupancy.
+      // Reclassifying a loss at the same quantity can proceed without changing the transfer.
+      const [transfer]=await m.query(`SELECT d.id FROM brd_flock_occupancies o
+        JOIN brd_flock_documents d ON d.id=o.closed_document_id AND d.kind='TRANSFER' AND d.status='POSTED'
+        WHERE o.id=$1 AND o.flock_no=$2 AND o.house_code=$3`,[e.occupancy_id,d.flock_no,d.house_code]);
+      if (transfer) throw new ConflictException({code:'FLOCK_TRANSFER_CORRECTION_HOLD',
+        originalDocumentId:original.id,transferDocumentId:transfer.id,
+        message:'更正将改变后续已签转舍数量，请核对原单与转舍单，完成两舍实盘及差异审批'});
+    }
     let replacementHeldId=e.held_id;
     if (p.replacementKind==='MORTALITY') { text(p.disposalMethod,'更正死亡处置方式');text(p.receiver,'更正死亡接收人'); }
     if (p.replacementKind==='CULL' && !e.held_id) {
@@ -647,10 +689,12 @@ export class FlockLifecycleService {
     const [cutover]=await m.query("SELECT to_regclass('production_cutover_scopes') AS scopes");
     const officialPeriod=cutover?.scopes?`AND NOT EXISTS(SELECT 1 FROM production_cutover_scopes s
       WHERE s.house_code=d.house_code AND s.state<>'DRAFT' AND d.log_date<s.first_production_date)`:'';
-    // DAILY projects the day totals; shift reports do not duplicate mortality. Archived reports retain their original cache.
+    // DAILY projects losses at its own occupancy, including on transfer days; shift reports do not duplicate mortality. Archived reports retain their original cache.
     await m.query(`UPDATE brd_daily_logs d SET
-      mortality_qty=CASE WHEN d.shift='DAILY' THEN COALESCE((SELECT mortality_qty FROM brd_flock_daily_balances WHERE flock_no=d.flock_no AND balance_date=d.log_date),0) ELSE 0 END,
-      elimination_qty=CASE WHEN d.shift='DAILY' THEN COALESCE((SELECT elimination_qty FROM brd_flock_daily_balances WHERE flock_no=d.flock_no AND balance_date=d.log_date),0) ELSE 0 END,
+      mortality_qty=CASE WHEN d.shift='DAILY' THEN COALESCE((SELECT -SUM(e.quantity_delta) FROM brd_flock_events e WHERE e.flock_no=d.flock_no AND e.occupancy_id=d.occupancy_id
+        AND e.business_date=d.log_date AND e.kind IN ('MORTALITY','REVERSE_MORTALITY')),0) ELSE 0 END,
+      elimination_qty=CASE WHEN d.shift='DAILY' THEN COALESCE((SELECT -SUM(e.quantity_delta) FROM brd_flock_events e WHERE e.flock_no=d.flock_no AND e.occupancy_id=d.occupancy_id
+        AND e.business_date=d.log_date AND e.kind IN ('CULL','REVERSE_CULL')),0) ELSE 0 END,
       opening_qty=COALESCE((SELECT opening_qty FROM brd_flock_daily_balances WHERE flock_no=d.flock_no AND balance_date=d.log_date),
         (SELECT closing_qty FROM brd_flock_daily_balances WHERE flock_no=d.flock_no AND balance_date<d.log_date ORDER BY balance_date DESC LIMIT 1)),
       closing_qty=(SELECT closing_qty FROM brd_flock_daily_balances WHERE flock_no=d.flock_no AND balance_date<=d.log_date ORDER BY balance_date DESC LIMIT 1)

@@ -1,12 +1,17 @@
+import { financeReviewEditors } from '../../wms/production-finance-review';
 import { StrictBodyGuard } from '../../../common/guards/strict-body.guard';
 import { Body, Controller, Get, Param, Patch, Post, Query, Res, UseGuards } from '@nestjs/common';
+import { Readable } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
+import type { Response } from 'express';
+import type { StockBatchFilter } from '../services/production-stock-trace';
 import { AuthGuard } from '@nestjs/passport';
-import { MenuGuard, RequireMenu } from '../../../common/guards/menu.guard';
+import { MenuGuard, RequireAnyMenu, RequireMenu } from '../../../common/guards/menu.guard';
 import { DataScopeGuard } from '../../org/guards/data-scope.guard';
 import { ProductionInboundDocumentsService } from '../services/production-inbound-documents.service';
 import { CreateProductionInboundDto, EditProductionInboundDto, PostProductionInboundDto,
   ProductionDocumentIdDto, ProductionDocumentVersionDto, ReadyProductionInboundDto,
-  CreateProductionReversalDto, ApproveProductionReversalDto, RecordProductionFinancialClearanceDto,
+  CreateProductionReversalDto, ReissueProductionDocumentDto, ApproveProductionReversalDto, RecordProductionFinancialClearanceDto,
   CreatePhysicalHandoverDto, ConfirmPhysicalHandoverDto, CancelPhysicalHandoverDto, ProductionPostingPeriodDto } from '../dto/production-inbound-document.dto';
 
 @Controller('api/v2/inventory/production-inbound-documents')
@@ -35,6 +40,19 @@ export class ProductionInboundDocumentsController {
   balance(@Query('companyCode') company: string,@Query('houseCode') house: string,
     @Query('eggDate') day: string,@Query('warehouseCode') warehouse: string) {
     return this.documents.balance(company,house,day,warehouse);
+  }
+  @Get('stock-batches') @RequireMenu('MENU_PROD_INBOUND','V')
+  stockBatches(@Query() q:StockBatchFilter & {companyCode:string;houseCode:string;eggDate:string;warehouseCode:string}) {
+    return this.documents.stockBatches(q.companyCode,q.houseCode,q.eggDate,q.warehouseCode,q);
+  }
+  @Get('stock-batches/export') @RequireMenu('MENU_PROD_INBOUND','V')
+  async exportStockBatches(@Query() q:StockBatchFilter & {companyCode:string;houseCode:string;eggDate:string;warehouseCode:string},
+    @Res() response:Response) {
+    await this.documents.exportStockBatches(q.companyCode,q.houseCode,q.eggDate,q.warehouseCode,q,async lines=>{
+      response.setHeader('Content-Type','text/csv; charset=utf-8');
+      response.setHeader('Content-Disposition','attachment; filename="production-stock.csv"');
+      await pipeline(Readable.from(lines),response);
+    });
   }
   @Get('recover') @RequireMenu('MENU_PROD_INBOUND','V')
   recover(@Query('companyCode') company: string,@Query('intentKey') intent?: string,@Query('handoverRef') handover?: string) {
@@ -81,6 +99,11 @@ export class ProductionInboundDocumentsController {
   @Post(':id/cancel') @RequireMenu('MENU_PROD_INBOUND','E')
   @UseGuards(new StrictBodyGuard(ProductionDocumentVersionDto))
   cancel(@Param() p: ProductionDocumentIdDto,@Body() body: ProductionDocumentVersionDto) { return this.documents.cancel(p.id,body.version); }
+  @Post(':id/reissue') @RequireMenu('MENU_PROD_INBOUND','V')
+  @UseGuards(new StrictBodyGuard(ReissueProductionDocumentDto))
+  reissue(@Param() p:ProductionDocumentIdDto,@Body() body:ReissueProductionDocumentDto) {
+    return this.documents.reissue(p.id,body.version,body.intentKey);
+  }
   @Post(':id/reversals') @RequireMenu('MENU_PROD_INBOUND','C')
   @UseGuards(new StrictBodyGuard(CreateProductionReversalDto))
   createReversal(@Param() p: ProductionDocumentIdDto,@Body() body: CreateProductionReversalDto) { return this.documents.createReversal(p.id,body); }
@@ -89,7 +112,7 @@ export class ProductionInboundDocumentsController {
   approveReversal(@Param() p: ProductionDocumentIdDto,@Body() body: ApproveProductionReversalDto) {
     return this.documents.approveReversal(p.id,body.version,body.contentHash,body.financialClearanceId);
   }
-  @Post(':id/financial-clearance') @RequireMenu('MENU_FIN2_AR_LEDGER','E')
+  @Post(':id/financial-clearance') @RequireAnyMenu(financeReviewEditors)
   @UseGuards(new StrictBodyGuard(RecordProductionFinancialClearanceDto))
   recordFinancialClearance(@Param() p: ProductionDocumentIdDto,@Body() body: RecordProductionFinancialClearanceDto) {
     return this.documents.recordFinancialClearance(p.id,body);

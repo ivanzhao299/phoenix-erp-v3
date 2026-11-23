@@ -77,12 +77,14 @@ export function inspectModernSchemaImage(imageId,owner,dependencies={}){
   network:'none',readonly:true,capabilities:[],mounts:[],running:false,exitCode:0,inventorySha256:canonicalDigest(parsed.records),productionAuthority:false}};
 }
 
+const PREDECESSOR_OWNER='44917766283-1',PREDECESSOR_SHA='eaeec067bbc5f0e9c70cefc50b665d988d55b153';
+const ARCHIVED_INVENTORY='RETAINED_SEALED_1122_READONLY_INVENTORY';
 export const RETAINED_INVENTORY_CLASSIFICATION='RETAINED_FAILED_PREPARATION_READONLY_INVENTORY';
 export const RETAINED_UNCONSUMED_INVENTORY_CLASSIFICATION='RETAINED_UNCONSUMED_PREPARATION_READONLY_INVENTORY';
 export const RETAINED_RECOVERED_INVENTORY_CLASSIFICATION='RETAINED_PRE_DDL_RECOVERED_READONLY_INVENTORY';
-export const isRetainedModernSchemaInventoryPin=pin=>[RETAINED_INVENTORY_CLASSIFICATION,RETAINED_UNCONSUMED_INVENTORY_CLASSIFICATION,
+export const isRetainedModernSchemaInventoryPin=pin=>[ARCHIVED_INVENTORY,RETAINED_INVENTORY_CLASSIFICATION,RETAINED_UNCONSUMED_INVENTORY_CLASSIFICATION,
  RETAINED_RECOVERED_INVENTORY_CLASSIFICATION].includes(pin?.classification);
-export const retainedModernSchemaInventorySlot=pin=>pin.classification===RETAINED_RECOVERED_INVENTORY_CLASSIFICATION
+export const retainedModernSchemaInventorySlot=pin=>[ARCHIVED_INVENTORY,RETAINED_RECOVERED_INVENTORY_CLASSIFICATION].includes(pin.classification)
  ? pin.formerOwner+':'+pin.probeStage : pin.formerOwner;
 const candidateRepository='ghcr.io/ivanzhao299/phoenix-erp-v3/api';
 const protectedAbsent=file=>{
@@ -195,6 +197,23 @@ function recoveredInventoryPreparation(container,owner,revision,{directory,readR
   pin:{classification:RETAINED_RECOVERED_INVENTORY_CLASSIFICATION,probeStage:pin.stage,recoveryEvidenceSha256:canonicalDigest(evidence)}};
 }
 function retainedInventoryPreparation(container,owner,revision,{directory=CONTRACT.stateDirectory,readReceipt=readProtectedPrepareReceipt,readPrepared=readProtectedPrepareReceipt,readRecovered=readProtectedPrepareReceipt,absent=protectedAbsent}={}){
+ if(owner===PREDECESSOR_OWNER&&revision===PREDECESSOR_SHA&&!absent(path.join(directory,'schema-release-forward-api-terminal-'+owner+'.json'))){
+  const prior=name=>readRecovered(path.join(directory,'schema-release-'+name+'-'+owner+'.json'),8*1024*1024);
+  const {value:terminal}=prior('forward-api-terminal'),{value:intent}=prior('forward-api-intent');
+  const {value:record,completedAtMs}=prior('preparation'),{preparationSha256,...prepared}=record;
+  const pins=prepared.ownedResources.filter(pin=>pin.role==='readonly-inventory');
+  const started=Date.parse(container.state?.StartedAt),finished=Date.parse(container.state?.FinishedAt);
+  const stop=readRecovered(path.join(directory,'schema-release-step-'+owner+'-3-r-stop-intent.json'),65536).value;
+  const end=Date.parse(stop.recordedAt),early=pins.length===1&&container.id===pins[0].containerId;
+  if(terminal.schema!=='phoenix.modern-forward-api-terminal/v1'||terminal.owner!==owner||terminal.targetSha!==revision||
+   terminal.completionOwner!=='44974413964-1'||terminal.outcome!=='SUCCESS'||!terminal.defaultOff||terminal.intentSha256!==canonicalDigest(intent)||
+   intent.pendingSha256!==canonicalDigest(intent.pending)||intent.pending.schemaRelease.preparationSha256!==preparationSha256||
+   preparationSha256!==canonicalDigest(prepared)||record.context.candidateImageId!==container.imageId||
+   pins.length!==1||pins[0].inventorySha256!==record.context.candidateInventorySha256||
+   !(started>0&&finished>=started&&Number.isFinite(end))||(early?finished>completedAtMs:started<completedAtMs||finished>end))hold('RETAINED_ARCHIVED_INVENTORY_REQUIRED');
+  return {completedAtMs:end,expectedInventorySha256:pins[0].inventorySha256,pin:{classification:ARCHIVED_INVENTORY,probeStage:early?'prepare':'supervise',
+   terminalSha256:canonicalDigest(terminal)}};
+ }
  if(!absent(path.join(directory,`schema-release-operator-retained-inventory-${owner}.json`)))
   return recoveredInventoryPreparation(container,owner,revision,{directory,readRecovered});
  const observed=readReceipt(path.join(directory,`.transport-${owner}-prepare.receipt`));

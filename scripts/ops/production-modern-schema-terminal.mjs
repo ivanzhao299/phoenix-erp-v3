@@ -152,7 +152,7 @@ function validateSchemaEvidence({store, backupStep, schemaStep, context, context
       after.businessDataSha256 !== bundle.businessDataSha256 || before.database?.name !== lease.database.name ||
       before.database?.systemIdentifier !== lease.database.systemIdentifier) fail('EXACT_PRESERVED_BUSINESS_FACTS_REQUIRED');
   assertModernSchemaBusinessUnchanged(before, after);
-  const defaultOff = defaultOffEvidenceFromFacts(context.targetSha, after, {floor: store.read('floor.json')});
+  const defaultOff = defaultOffEvidenceFromFacts(context.targetSha, after, {floor: store.read('floor.json'),plan:context});
   if (!same(bundle.defaultOffEvidence, defaultOff)) fail('DEFAULT_OFF_RECEIPT_CHANGED');
   const beforeAudit = read(bundle.beforeRawAuditFile, bundle.beforeRawAuditSha256, ownerFile('before-audit'));
   const afterAudit = read(bundle.afterRawAuditFile, bundle.afterRawAuditSha256, ownerFile('after-audit'));
@@ -346,7 +346,7 @@ async function completeModernSchemaRelease({
     const fresh=readArtifact(store,ingress.preOpenFactsFile,ingress.preOpenFactsSha256,'schema-release-pre-open-facts-'+context.owner+'.json');
     const before=readArtifact(store,bundle.beforeFactsFile,bundle.beforeFactsSha256,'schema-release-before-facts-'+context.owner+'.json');
     assertModernSchemaBusinessUnchanged(before,fresh);
-    const off=defaultOffEvidenceFromFacts(context.targetSha,fresh,{floor:store.read('floor.json')});
+    const off=defaultOffEvidenceFromFacts(context.targetSha,fresh,{floor:store.read('floor.json'),plan:context});
     if(!same(off,bundle.defaultOffEvidence))fail('PRE_OPEN_DEFAULT_OFF_CHANGED');
     const liveOff=readArtifact(store,ingress.preOpenOffFile,ingress.preOpenOffSha256,'schema-release-pre-open-off-'+context.owner+'.json');
     const expectedTables=off.observedTables.map(row=>row.table).sort();
@@ -517,7 +517,7 @@ export async function finalizeCommittedModernSchemaOpen({context: input, prepara
       schema.contextDigest !== contextDigest || schema.preparationSha256 !== preparationSha256 || schema.targetSha !== context.targetSha ||
       schema.afterLedgerSha256 !== intent.afterLedgerSha256 || schema.outcome !== 'SUCCESS_SCHEMA_ONLY' || schema.businessActivation !== false ||
       !same(schema.originalLease, originalLease) || !same(schema.defaultOffEvidence, intent.defaultOffEvidence) ||
-      !same(defaultOffEvidenceFromFacts(context.targetSha, fullFacts, {floor: store.read('floor.json')}), intent.defaultOffEvidence) ||
+      !same(defaultOffEvidenceFromFacts(context.targetSha, fullFacts, {floor: store.read('floor.json'),plan:context}), intent.defaultOffEvidence) ||
       ingress.fencedPublicManifestSha256 !== intent.fencedPublicManifestSha256 ||
       ingress.preOpenFactsFile !== intent.preOpenFactsFile || ingress.preOpenFactsSha256 !== intent.preOpenFactsSha256 ||
       ingress.preOpenOffFile !== intent.liveDefaultOffFile || ingress.preOpenOffSha256 !== intent.liveDefaultOffSha256 ||
@@ -570,7 +570,7 @@ export async function finalizeCommittedModernSchemaOpen({context: input, prepara
         backend.systemIdentifier !== originalLease.database.systemIdentifier ||
         backend.postmasterStartMicros !== originalLease.database.postmasterStartMicros ||
         backend.originalSessionPresent !== false || (await captureLedger(client)).sha256 !== intent.afterLedgerSha256 ||
-        !same(await captureOff(client, context.targetSha, {floor:store.read('floor.json')}), off)) fail('FORWARD_NATIVE_FACTS_UNVERIFIED');
+        !same(await captureOff(client, context.targetSha, {floor:store.read('floor.json'),plan:context}), off)) fail('FORWARD_NATIVE_FACTS_UNVERIFIED');
     const durability = confirmDurability(() => {exactCurrent(expected); return manifest;}, guard);
     if (durability?.durabilityConfirmed !== true) fail('FORWARD_PUBLIC_DURABILITY_UNVERIFIED');
   };

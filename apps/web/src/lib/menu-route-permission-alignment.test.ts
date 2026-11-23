@@ -48,6 +48,16 @@ describe("menu entry and target route permission alignment", () => {
     expect(canAccessPath("/breeding/production-cutovers", checker(["MENU_FARM_DAILY:E"]))).toBe(false);
   });
 
+  it("admits the scoped finance reader or signer to only their dedicated work queue", () => {
+    const route="/breeding/production-finance-review";
+    for(const grant of ["MENU_PROD_FIN_REVIEW:E","MENU_PROD_FIN_REVIEW:V","MENU_FIN2_AR_LEDGER:E"]) {
+      expect(canAccessPath(route,checker([grant]))).toBe(true);
+      expect(getVisibleMenu(checker([grant])).flatMap(group=>group.children??[]).some(item=>item.path===route)).toBe(true);
+    }
+    expect(canAccessPath(route,checker(["MENU_PROD_INBOUND:A"]))).toBe(false);
+    expect(canAccessPath("/breeding/production-cutovers",checker(["MENU_PROD_FIN_REVIEW:E"]))).toBe(false);
+  });
+
   it("uses the backend write permissions for henhouse and manual inbound actions", () => {
     expect(source("src/app/(admin)/breeding/henhouse/page.tsx"))
       .toContain("usePermission('MENU_FARM_MASTER')");

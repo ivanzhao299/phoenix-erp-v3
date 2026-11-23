@@ -153,3 +153,34 @@ test('runner timeout is classified by its own deadline',async t=>{
  t.mock.timers.tick(15000);
  await rejected;
 });
+
+test('delegated window requires the authenticated run title, successful same-head builds, PG18 transactions and browser execution',async()=>{
+ function fixture(){
+  const f=liveFixture(),base='/repos/ivanzhao299/phoenix-erp-v3/actions/runs/';
+  const selection='approve1123-1234-1-'+ '8'.repeat(64)+'-700-800-1795401000-1795404600';
+  f.run.display_title=selection;
+  f.dependencies.successor={selection,approval:{ciRunId:'700',acceptanceRunId:'800'}};
+  const add=(id,path,names,steps)=>{
+   const run={...f.run,id,run_attempt:1,event:'push',path,status:'completed',conclusion:'success'};
+   const jobs=names.map((name,i)=>({id:1000+i,name,run_id:id,head_sha:f.run.head_sha,status:'completed',conclusion:'success',
+     steps:[{name:steps[i],conclusion:'success'}]}));
+   f.responses[base+id]=run;f.responses[base+id+'/attempts/1/jobs?per_page=100&page=1']={total_count:jobs.length,jobs};
+   return {run,jobs};
+  };
+  f.ci=add(700,f.run.path,['Type-check & Regression','Build & Push api','Build & Push web'],['Test','Build & push api image','Build & push web image']);
+  f.acceptance=add(800,'.github/workflows/production-remediation-acceptance.yml',['PostgreSQL 18 / transactions','PostgreSQL 18 / browser','Previous API and historical receipts on the expanded schema'],
+    ['Run transaction, role and migration acceptance','Exercise desktop and mobile Chromium','Rehearse the deployed database and a cold installation']);
+  f.acceptance.jobs[0].steps.push({name:'Verify pilot ingress in a disposable network namespace',conclusion:'success'});
+  f.acceptance.jobs[2].steps.push({name:'Verify the candidate API image and runtime role',conclusion:'success'});
+  return f;
+ }
+ const success=fixture(),live=await collectModernSchemaLiveJob(success.identity,success.dependencies);
+ assert.equal(live.delegatedSelection,success.dependencies.successor.selection);assert.match(live.candidateCiSha256,/^[a-f0-9]{64}$/);
+ for(const mutate of [f=>f.run.display_title='inspect1123',f=>f.run.triggering_actor={id:91,login:'emvia',type:'User'},
+  f=>f.ci.run.head_sha='f'.repeat(40),f=>f.ci.jobs[1].steps[0].conclusion='skipped',f=>f.acceptance.jobs[0].conclusion='failure',
+  f=>f.acceptance.jobs[1].steps[0].conclusion='skipped',f=>f.acceptance.jobs[0].steps[1].conclusion='skipped',f=>f.acceptance.jobs[2].steps[0].conclusion='skipped',f=>f.acceptance.jobs[2].steps[1].conclusion='skipped',
+  f=>f.acceptance.jobs[2].steps.pop(),f=>f.acceptance.jobs[2].steps.push({...f.acceptance.jobs[2].steps[1]}),
+  f=>f.acceptance.run.path='.github/workflows/other.yml']){
+  const f=fixture();mutate(f);await assert.rejects(collectModernSchemaLiveJob(f.identity,f.dependencies),/IDENTITY_HOLD=/);
+ }
+});

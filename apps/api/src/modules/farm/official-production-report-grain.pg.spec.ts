@@ -4,6 +4,10 @@ import { DataSource } from 'typeorm';
 import { installProductionInboundFixture } from '../sales-v2/services/production-inbound.pg-fixture';
 import { FlockBaseSchema1794899000000 } from '../../database/migrations/1794899000000-FlockBaseSchema';
 import { OfficialProductionReportGrain1794975000000 } from '../../database/migrations/1794975000000-OfficialProductionReportGrain';
+import { ProductionAnalyticsService } from '../analytics/services/production-analytics.service';
+import { GenericCrudService } from '../generic-crud/generic-crud.service';
+import { assertNewHandoverGrades } from './daily-report-grades';
+import { lockProductionSourceReports } from '../sales-v2/services/production-source-facts';
 import { FarmService, OrgScope } from './farm.service';
 import { FlockLifecycleService } from './flock-lifecycle.service';
 import { OrgOwnershipService } from '../org/services/org-ownership.service';
@@ -59,6 +63,75 @@ suite('official report grain — real Farm writes, cutover concurrency and rever
     expect((await farm.getFarmTrend(7,scope)).rows.find((r:any)=>r.date==='2026-11-18')).toMatchObject({mortality:1,eggs:300});
     await expect(db.query("UPDATE brd_daily_logs SET eggs_produced=71 WHERE log_date='2026-11-17'")).rejects.toThrow('ARCHIVED');
   });
+  it('normalizes at entry and replays a signed report without updating its tuple or hash after catalog changes', async () => {
+    await run('up'); await managed(); await activate();
+    const input = {...report(), eggs_by_grade:{...report().eggs_by_grade, GRADE_1:'100'}};
+    for (const value of ['', '1e2', '0.3', true, -1, 2147483648, '9007199254740993']) {
+      await expect(farm.submitBreedingDailyLog({...input, eggs_by_grade:{...input.eggs_by_grade, GRADE_1:value}},scope)).rejects.toThrow();
+    }
+    await expect(farm.submitBreedingDailyLog({...input, eggs_by_grade:{...input.eggs_by_grade, EXTRA:0}},scope)).rejects.toThrow();
+    await farm.submitBreedingDailyLog(input,scope);
+    const source = () => db.transaction(m => lockProductionSourceReports(m,{companyCode:'COMP-A',houseCode:'HOUSE-A',productionDate:input.log_date}));
+    const tuple = () => db.query('SELECT xmin::text,to_jsonb(d) AS fact FROM brd_daily_logs d');
+    const before = await tuple(), signed = await source();
+    await db.transaction(m => assertNewHandoverGrades(m,signed));
+    expect(signed[0].eggs_by_grade.GRADE_1).toBe(100);
+    const {GRADE_0, ...missingZero} = input.eggs_by_grade;
+    expect(GRADE_0).toBe(0);
+    await expect(farm.submitBreedingDailyLog({...input, eggs_by_grade:missingZero},scope)).rejects.toThrow('已确认');
+    await db.query("UPDATE product_grades SET status='INACTIVE' WHERE grade_code='GRADE_1'; INSERT INTO product_grades(grade_code,status) VALUES('NEW_GRADE','ACTIVE')");
+    await farm.submitBreedingDailyLog({...input, eggs_by_grade:{...input.eggs_by_grade,GRADE_1:100}},scope);
+    expect(await source()).toEqual(signed); expect(await tuple()).toEqual(before);
+    await expect(farm.submitBreedingDailyLog({...input,shift:'PM'},scope)).rejects.toThrow('未启用');
+    const {GRADE_1, ...newGrades} = input.eggs_by_grade;
+    expect(GRADE_1).toBe('100');
+    await expect(farm.submitBreedingDailyLog({...input,shift:'PM',eggs_by_grade:newGrades},scope)).rejects.toThrow('全部库存分级');
+    await farm.submitBreedingDailyLog({...input,shift:'PM',eggs_by_grade:{...newGrades,NEW_GRADE:0}},scope);
+  });
+
+  it('reconciles production, occupancy losses and partial measurements across daily, trend, BI and scoped export', async () => {
+    await run('up'); await managed(); await activate();
+    await db.query('ALTER TABLE sys_organizations ADD COLUMN IF NOT EXISTS org_name text');
+    const day = new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Singapore'}).format(new Date());
+    const previous = new Date(Date.parse(day)-86400000).toISOString().slice(0,10);
+    await farm.submitBreedingDailyLog({...report(),log_date:previous,feed_consumed:0,water_consumed:null},scope);
+    await farm.submitBreedingDailyLog({...report('PM',200),log_date:previous,feed_consumed:null,water_consumed:null},scope);
+    const loss = {kind:'MORTALITY',quantity:1,disposalMethod:'fixture',receiver:'receiver'};
+    await post({...loss,businessDate:previous}); await post({...loss,businessDate:day,expectedVersion:1});
+    const bi = new ProductionAnalyticsService(db.manager), crud = new GenericCrudService(db.manager);
+    const reportScope = {isGlobal:false,allowedBreedingCompanyCodes:['COMP-A']} as any;
+    const first = await farm.getDailyHenReport(previous,scope);
+    expect(first.totals).toMatchObject({eggs:300,mortality:1,feed:0,feed_missing:1,water:null,water_missing:2});
+    const trend = (await farm.getFarmTrend(7,scope)).rows;
+    expect(trend.find((r:any) => r.date === previous)).toMatchObject({eggs:300,mortality:1});
+    expect(trend.find((r:any) => r.date === day)).toMatchObject({eggs:null,mortality:1,report_count:0});
+    const daily = await bi.compute({dateFrom:previous,dateTo:day},scope);
+    expect(daily.trend30Day).toMatchObject([{eggs:300,deaths:1,feed_missing:1,water_l:null},{eggs:null,deaths:1,report_count:0}]);
+    const rows = await crud.exportDailyReports(previous,{},reportScope);
+    expect(rows.reduce((n,r)=>n+Number(r.eggs_produced??0),0)).toBe(300);
+    expect(rows.reduce((n,r)=>n+Number(r.mortality_qty),0)).toBe(1);
+    expect(rows.map(r=>r.row_kind).sort()).toEqual(['FLOCK_EVENT','REPORT','REPORT']);
+    expect(await crud.exportDailyReports(day,{},{...reportScope,allowedBreedingCompanyCodes:['COMP-B']})).toEqual([]);
+    const onlyLoss = await crud.exportDailyReports(day,{},reportScope);
+    expect(onlyLoss).toHaveLength(1); expect(onlyLoss[0]).toMatchObject({row_kind:'FLOCK_EVENT',mortality_qty:1});
+    expect((await farm.getDailyHenReport(day,scope)).rows.find(r=>r.house_code==='HOUSE-A')).toMatchObject({has_daily_log:false,mortality:1,water:null});
+  });
+
+  it('keeps pre-transfer mortality at its original house on an event-only transfer day', async () => {
+    await run('up'); await managed();
+    await db.query("INSERT INTO file_metadata(file_id,status,visibility,mime_type,module_code,owner_type,owner_id,company_code,store_code,uploaded_by) SELECT 'FILE-A2',status,visibility,mime_type,module_code,owner_type,'HOUSE-A2',company_code,store_code,uploaded_by FROM file_metadata WHERE file_id='FILE-count'");
+    for (const kind of ['CLEAN_START','CLEAN_ACCEPT']) {
+      await post({kind,houseCode:'HOUSE-A2',flockNo:undefined,expectedHouseVersion:0,evidence:['FILE-A2']});
+    }
+    const day = '2026-11-18';
+    await post({kind:'MORTALITY',businessDate:day,quantity:1,disposalMethod:'fixture',receiver:'receiver'});
+    await post({kind:'TRANSFER',businessDate:day,expectedVersion:1,targetHouseCode:'HOUSE-A2'});
+    const result = await farm.getDailyHenReport(day,scope);
+    expect(result.rows.find(r=>r.house_code==='HOUSE-A')).toMatchObject({mortality:1,current_qty:0,has_daily_log:false});
+    expect(result.rows.find(r=>r.house_code==='HOUSE-A2')).toMatchObject({mortality:0,current_qty:999,has_daily_log:false});
+    expect(result.totals).toMatchObject({mortality:1,current_qty:999,logged_houses:0,lay_rate:null});
+  });
+
   it('corrects an actual AM report through approval and closes only the zero-balance flock with both final shifts',async()=>{
     await run('up');await managed();await activate();await farm.submitBreedingDailyLog(report(),scope);await farm.submitBreedingDailyLog(report('PM',200),scope);
     const am=(await lifecycle.reports(scope)).find((r:any)=>r.shift==='AM');

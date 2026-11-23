@@ -35,6 +35,7 @@ import { PackagingInventoryIntegrationService } from './services/packaging-inven
 import { InventorySourceModeService }        from './services/inventory-source-mode.service';        // 库存来源模式 P1A
 import { ProductionInboundService }          from './services/production-inbound.service';           // 库存来源模式 P1A
 import { ProductionInboundDocumentsService } from './services/production-inbound-documents.service';
+import { ProductionFinanceReviewController } from './controllers/production-finance-review.controller';
 import { ProductionInboundDocumentsController } from './controllers/production-inbound-documents.controller';
 import { OfficialRawCollectionController } from './controllers/official-raw-collection.controller';
 import { OfficialRawCollectionService } from './services/official-raw-collection.service';
@@ -122,7 +123,7 @@ import {
     SalesReturnsController,      // Phase 6
     EggInventoryController,      // Phase 7
     InventorySourceController,   // 库存来源模式 P1A
-    ProductionInboundDocumentsController,
+    ProductionInboundDocumentsController, ProductionFinanceReviewController,
     OfficialRawCollectionController,
     OfficialInventoryConversionController,
     SalesAnalyticsController,    // Phase 8

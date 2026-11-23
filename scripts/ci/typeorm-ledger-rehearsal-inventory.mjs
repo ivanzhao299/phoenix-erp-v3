@@ -176,6 +176,24 @@ export const featureMigrations = Object.freeze([
     effective_name: 'ProductionCutoverExecutionAdmissions1795029621917',
     timestamp: 1795029621917,
   }),
+  Object.freeze({
+    source_file: 'apps/api/dist/database/migrations/1795400100000-ProductionDocumentContinuations.js',
+    class_name: 'ProductionDocumentContinuations1795400100000',
+    effective_name: 'ProductionDocumentContinuations1795400100000',
+    timestamp: 1795400100000,
+  }),
+  Object.freeze({
+    source_file: 'apps/api/dist/database/migrations/1795400200000-ProductionFinanceReview.js',
+    class_name: 'ProductionFinanceReview1795400200000',
+    effective_name: 'ProductionFinanceReview1795400200000',
+    timestamp: 1795400200000,
+  }),
+  Object.freeze({
+    source_file: 'apps/api/dist/database/migrations/1795400300000-CutoverStateReceipts.js',
+    class_name: 'CutoverStateReceipts1795400300000',
+    effective_name: 'CutoverStateReceipts1795400300000',
+    timestamp: 1795400300000,
+  }),
 ]);
 const pinned = JSON.parse(fs.readFileSync(new URL('./typeorm-ledger-rehearsal-historical-inventory.json', import.meta.url), 'utf8'));
 const sorted = entries => [...entries].sort((a,b) => a.timestamp-b.timestamp);

@@ -1,3 +1,6 @@
+import { assertFlockOpenForHandover } from '../../farm/flock-handover-blockers';
+import { assertNewHandoverGrades } from '../../farm/daily-report-grades';
+import { FINANCE_PROOF_PREFIX, FINANCE_REVIEW, financeSigningMenu, requireReviewFile, reviewSnapshotHash } from '../../wms/production-finance-review';
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
@@ -20,7 +23,8 @@ import { INV_LEDGER_CHANGE_TYPE } from '../../wms/inv-ledger-change-types';
 import { guardedBatchUpdate } from '../../wms/inventory-guarded-update.util';
 import { assertOfficialInventoryBatches } from '../../wms/official-inventory';
 import { FileAccessService } from '../../file/file-access.service';
-import { officialInventoryPredicate } from '../../wms/official-inventory';
+import { StockBatch, StockBatchFilter, StockTraceScope, stockBatchQuery, stockByGrade,
+  stockCsvCell, validateStockFilter } from './production-stock-trace';
 import { lockQuantityPools } from '../../product-master/services/quantity-contract';
 
 export interface InboundDraftItem {
@@ -34,6 +38,22 @@ export interface InboundDraftInput {
 type Document = Record<string, any>;
 type FrozenItem = InboundDraftItem & { skuCode: string; productCode: string; specCode: string;
   varietyCode: string | null; inventoryStatus: string; sources: FormalSourceAllocation[] };
+
+type SourceUsage = { ordinaryNet: number; rawUsedQty: number };
+type SourceUsageRow = { daily_log_id: string; grade_code: string; quantity: number };
+
+function sourceQuotaKey(dailyLogId: number | string, gradeCode: string) {
+  return `${dailyLogId}:${gradeCode}`;
+}
+
+function sourceQuota(confirmedQty: number, usage?: SourceUsage) {
+  const { ordinaryNet = 0, rawUsedQty = 0 } = usage ?? {};
+  const remaining = confirmedQty - ordinaryNet - rawUsedQty;
+  if (ordinaryNet < 0 || rawUsedQty < 0 || remaining < 0) {
+    throw new ConflictException({ code:'PRODUCTION_SOURCE_QUOTA_REVIEW_REQUIRED', message:'正式来源累计量异常，请核对原日报、入库、冲销和原始收蛋' });
+  }
+  return { confirmedQty, ordinaryNet, rawUsedQty, remaining };
+}
 
 const text = (value: unknown, name: string, max = 100): string => {
   if (typeof value !== 'string' || !value.trim() || value !== value.trim() || value.length > max) throw new BadRequestException(`${name}无效`);
@@ -158,20 +178,25 @@ export class ProductionInboundDocumentsService {
     return lockProductionSourceReports(m,{companyCode:d.company_code,houseCode:d.house_code,productionDate:d.production_date});
   }
   private async usage(m: Pick<DataSource,'query'>, d: Document) {
-    const rows=await m.query(`SELECT a.daily_log_id::text,l.grade_code,SUM(a.quantity*a.direction)::int AS quantity
+    const rows: SourceUsageRow[] = await m.query(`SELECT a.daily_log_id::text,l.grade_code,SUM(a.quantity*a.direction)::int AS quantity
       FROM production_inbound_allocations a JOIN production_inbound_lines l ON l.document_id=a.document_id AND l.line_no=a.line_no
       JOIN production_inbound_documents doc ON doc.id=a.document_id
       WHERE doc.company_code=$1 AND doc.house_code=$2 AND doc.production_date=$3 AND doc.state='POSTED'
       GROUP BY a.daily_log_id,l.grade_code`, [d.company_code,d.house_code,d.production_date]);
+    const usage = new Map<string,SourceUsage>(rows.map(row => [
+      sourceQuotaKey(row.daily_log_id,row.grade_code), {ordinaryNet:row.quantity,rawUsedQty:0},
+    ]));
     const [schema]=await m.query("SELECT to_regclass('production_raw_receipt_segments') AS raw");
-    if(schema?.raw){
-      const raw=await m.query(`SELECT s.daily_log_id::text,s.grade_code,SUM(s.quantity)::int AS quantity FROM production_raw_receipt_segments s
+    if (schema?.raw) {
+      const raw: SourceUsageRow[] = await m.query(`SELECT s.daily_log_id::text,s.grade_code,SUM(s.quantity)::int AS quantity FROM production_raw_receipt_segments s
         JOIN production_raw_receipts r ON r.id=s.receipt_id WHERE r.company_code=$1 AND r.house_code=$2 AND r.production_date=$3
           AND r.state='POSTED' GROUP BY s.daily_log_id,s.grade_code`,[d.company_code,d.house_code,d.production_date]);
-      for(const item of raw){const existing=rows.find((r:any)=>r.daily_log_id===item.daily_log_id&&r.grade_code===item.grade_code);
-        if(existing)existing.quantity+=item.quantity;else rows.push(item);}
+      for (const item of raw) {
+        const key = sourceQuotaKey(item.daily_log_id,item.grade_code);
+        usage.set(key,{ordinaryNet:usage.get(key)?.ordinaryNet ?? 0,rawUsedQty:item.quantity});
+      }
     }
-    return rows;
+    return usage;
   }
   private async currentDocument(m: EntityManager, id: string) {
     const [d] = await m.query('SELECT *,production_date::text AS production_date,expected_posting_date::text AS expected_posting_date FROM production_inbound_documents WHERE id=$1 FOR UPDATE',[id]);
@@ -205,7 +230,10 @@ export class ProductionInboundDocumentsService {
         if(!old||old.state!=='CANCELLED'||old.house_code!==input.houseCode||old.production_date!==input.eggDate)throw new ConflictException('重新签认须明确引用同舍同日已受控废止的原交接');
       }else if(input.replacesId)throw new ConflictException('被替换的原交接不存在');
       const identity={company_code:input.companyCode,house_code:input.houseCode,production_date:input.eggDate,payload:{warehouseCode:input.warehouseCode}};
-      const scope=await this.lockDay(m,identity);const reports=await this.reports(m,identity);
+      const scope=await this.lockDay(m,identity);
+      await assertFlockOpenForHandover(m,input.companyCode,input.houseCode,input.eggDate);
+      const reports=await this.reports(m,identity);
+      await assertNewHandoverGrades(m, reports.filter(report => input.segments.some(segment => Number(report.id) === segment.dailyLogId)));
       const sources=input.segments.map(a=>{
         count(a.quantity);count(a.dailyLogId);text(a.gradeCode,'等级');text(a.evidenceFileId,'原证据');
         const r=reports.find(r=>Number(r.id)===a.dailyLogId);
@@ -222,7 +250,7 @@ export class ProductionInboundDocumentsService {
         assertRawCollectionTotals(source,sources);
         rawCollection={sourceBatchId:source.id,batchCode:source.batch_code,shiftId:source.shift_id,sourceHash:productionContentHash(source),sourceSnapshot:source};
       }
-      const payload={warehouseCode:input.warehouseCode,sources,...(rawCollection?{rawCollection}:{})};const hash=productionContentHash({company:input.companyCode,
+      const payload={warehouseCode:input.warehouseCode,sources,gradeCoverageVerified:true,...(rawCollection?{rawCollection}:{})};const hash=productionContentHash({company:input.companyCode,
         house:input.houseCode,day:input.eggDate,handoverRef:input.handoverRef,payload});
       const [doc]=await m.query(`INSERT INTO production_physical_handovers(id,company_code,house_code,production_date,scope_id,
         handover_ref,content_hash,creation_hash,payload,created_by,replaces_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
@@ -258,10 +286,10 @@ export class ProductionInboundDocumentsService {
           JOIN production_inbound_documents rd ON rd.id=a.document_id AND rd.state='POSTED' AND rd.kind='REVERSAL'
           JOIN production_inbound_lines l ON l.document_id=a.document_id AND l.line_no=a.line_no
           WHERE a.daily_log_id=$1 AND l.grade_code=$2 AND a.direction=-1`,[a.dailyLogId,a.gradeCode]);
-        const net=received-Number(released.n);const posted=compensations.find((r:any)=>Number(r.daily_log_id)===a.dailyLogId&&r.grade_code===a.gradeCode);
+        const net=received-Number(released.n);const posted=compensations.get(sourceQuotaKey(a.dailyLogId,a.gradeCode));
         // A physical confirmation records an observed handover; it does not reserve production quota.
         // Conflicting receipts are held by the posting transaction's current report/grade limits.
-        if(net<0||net<Number(posted?.quantity??0)||a.quantity>Number(report.eggs_by_grade[a.gradeCode]??0))throw new ConflictException('实物交接来源与已过账净量或该班次日报不一致');
+        if(net<0||net<(posted?.ordinaryNet??0)+(posted?.rawUsedQty??0)||a.quantity>Number(report.eggs_by_grade[a.gradeCode]??0))throw new ConflictException('实物交接来源与已过账净量或该班次日报不一致');
       }
       const [result]=await m.query(`WITH changed AS (UPDATE production_physical_handovers SET state='CONFIRMED',version=version+1,
         confirmed_by=$2,confirmed_at=now() WHERE id=$1 RETURNING *) SELECT * FROM changed`,[id,actor]);return result;
@@ -363,6 +391,7 @@ export class ProductionInboundDocumentsService {
       const identity = { company_code:p.companyCode,house_code:p.houseCode,production_date:p.eggDate,payload:p.payload };
       const scope = await this.lockDay(m,identity);
       const existing = await findExisting(m); if (existing.length) return recover(existing);
+      await assertFlockOpenForHandover(m,p.companyCode,p.houseCode,p.eggDate);
       if(p.handoverRef)await assertHandoverNotClaimedByRaw(m,p.companyCode,p.handoverRef,true);
       const id = randomUUID();
       const [d] = await m.query(`INSERT INTO production_inbound_documents(id,document_no,company_code,house_code,
@@ -439,10 +468,13 @@ export class ProductionInboundDocumentsService {
     if(!handover||handover.house_code!==d.house_code||handover.production_date!==d.production_date||handover.scope_id!==d.scope_id
       ||handover.payload.warehouseCode!==d.payload.warehouseCode
       ||handover.created_by===handover.confirmed_by)throw new ConflictException('须先由收发双方确认绑定日报、占栏、班次、档位和数量的实物交接');
+    if (handover.payload.gradeCoverageVerified !== true) {
+      await assertNewHandoverGrades(m, reports.filter(report => handover.payload.sources.some((source: FormalSourceAllocation) => source.dailyLogId === Number(report.id))));
+    }
     await this.handoverEvidence(m,d,handover.payload.sources,handover.created_by);
     const physicalRemaining=new Map<string,number>(handover.payload.sources.map((a:any)=>[`${a.dailyLogId}:${a.gradeCode}`,Number(a.quantity)]));
     const usage = await this.usage(m,d);
-    const used = new Map<string,number>(usage.map((r: any) => [`${r.daily_log_id}:${r.grade_code}`,Number(r.quantity)]));
+    const planned = new Map<string,number>();
     const items: FrozenItem[] = [];
     for (const item of d.payload.items as InboundDraftItem[]) {
       if (reports.length>1 && !item.allocations?.length) throw new ConflictException('多班交接必须逐段指定实际日报和证据，不自动把额度分摊写为精确来源');
@@ -452,14 +484,15 @@ export class ProductionInboundDocumentsService {
         gradeCode:item.gradeCode,specCode:item.specCode ?? 'LOOSE',usage:'stock' },m);
       const sources: FormalSourceAllocation[] = []; let remaining = item.quantity;
       for (const r of reports) {
-        const key = `${r.id}:${item.gradeCode}`; const consumed = used.get(key) ?? 0;
-        const capacity = Number(r.eggs_by_grade[item.gradeCode] ?? 0)-consumed;
-        if (consumed<0 || capacity<0) throw new ConflictException('正式来源累计量异常，请核对原入库及冲销');
+        const key = sourceQuotaKey(r.id,item.gradeCode);
+        const plannedQty = planned.get(key) ?? 0;
+        const capacity = sourceQuota(r.eggs_by_grade[item.gradeCode] ?? 0,usage.get(key)).remaining-plannedQty;
         const selected = item.allocations?.find(a => a.dailyLogId === Number(r.id));
         const physical=handover.payload.sources.find((a:any)=>a.dailyLogId===Number(r.id)&&a.gradeCode===item.gradeCode);
         const physicalCapacity=physicalRemaining.get(key)??0;
         const n = item.allocations ? selected?.quantity ?? 0 : Math.min(remaining,capacity,physicalCapacity);
-        if(n>physicalCapacity)throw new ConflictException('拟入分段超过收发双方签认的实际交接数量');
+        if(n>physicalCapacity)throw new ConflictException({code:'PRODUCTION_HANDOVER_CAPACITY',gradeCode:item.gradeCode,
+          dailyLogId:r.id,remaining:physicalCapacity,message:'拟入分段超过收发双方签认的实际交接数量'});
         if (n>capacity) throw new ConflictException({ code:'PRODUCTION_GRADE_CAPACITY',gradeCode:item.gradeCode,
           dailyLogId:r.id,remaining:capacity,message:`${item.gradeCode} 来源可入余额不足` });
         if (n>0) {
@@ -470,7 +503,7 @@ export class ProductionInboundDocumentsService {
             snapshot:{ ...r,evidenceFileId:physical.evidenceFileId,evidenceChecksum:physical.evidenceChecksum,handoverRef:d.handover_ref,
               handoverId:handover.id,handoverContentHash:handover.content_hash,handoverLineId:physical.id,
               issuedBy:handover.created_by,receivedBy:handover.confirmed_by } });
-          used.set(key,consumed+n); remaining-=n;
+          planned.set(key,plannedQty+n); remaining-=n;
           physicalRemaining.set(key,physicalCapacity-n);
         }
       }
@@ -482,6 +515,16 @@ export class ProductionInboundDocumentsService {
     if([...physicalRemaining.values()].some(n=>n!==0))throw new ConflictException('本单必须完整承接该次实物交接；请核对遗漏档位或分段');
     return { items,profile };
   }
+  private async inboundPeriodVersion(m: EntityManager, company: string, postingDate: string): Promise<number> {
+    const month=postingDate.slice(0,7);
+    await m.query('SELECT pg_advisory_xact_lock(hashtext($1))',[`production-period:${company}:${month}`]);
+    const [period]=await m.query(`SELECT state,version FROM production_posting_periods
+      WHERE company_code=$1 AND period_month=$2 FOR SHARE`,[company,month]);
+    if (period?.state==='CLOSED') throw new ConflictException({code:'PRODUCTION_PERIOD_CLOSED',
+      message:'当前生产记账期间已经关账，停止新过账'});
+    // Ordinary inbound has always supported an implicit open period.
+    return period?.version ?? 0;
+  }
   async ready(id: string, version: number, submitKey: string) {
     text(submitKey,'提交键'); const before = await this.identity(id);
     return this.db.transaction(async m => {
@@ -489,9 +532,10 @@ export class ProductionInboundDocumentsService {
       const d = await this.currentDocument(m,id); this.version(d,version);
       if (d.state !== 'DRAFT') throw new ConflictException('仅草稿可冻结');
       if (d.kind === 'REVERSAL') return this.readyReversal(m,d,submitKey,scope);
-      const frozen = await this.freezeItems(m,d,reports);
-      const payload = { ...d.payload,...frozen,scopeVersion:scope.version };
       const postingDate = singaporeBusinessDate();
+      const periodVersion=await this.inboundPeriodVersion(m,d.company_code,postingDate);
+      const frozen = await this.freezeItems(m,d,reports);
+      const payload = { ...d.payload,...frozen,scopeVersion:scope.version,periodVersion };
       const digest = productionContentHash({ documentNo:d.document_no,company:d.company_code,house:d.house_code,
         productionDate:d.production_date,scopeId:scope.id,postingDate,payload });
       const [result] = await m.query(`WITH changed AS (UPDATE production_inbound_documents SET state='READY',version=version+1,
@@ -505,6 +549,78 @@ export class ProductionInboundDocumentsService {
       await this.lockDay(m,before,false); const d = await this.currentDocument(m,id); this.version(d,version);
       if (['POSTED','CANCELLED'].includes(d.state)) throw new ConflictException('单据已过账或已取消');
       const [result] = await m.query("WITH changed AS (UPDATE production_inbound_documents SET state='CANCELLED',version=version+1 WHERE id=$1 RETURNING *) SELECT * FROM changed", [id]); return result;
+    });
+  }
+  /** Stable request identity and the old document survive an unknown HTTP outcome. */
+  async reissue(id: string, version: number, intentKey: string) {
+    text(intentKey, '续制意图');
+    const before = await this.identity(id);
+    const posted = (doc: Document) => ({ outcome: 'POSTED' as const, documentId: doc.id, receipt: doc.receipt });
+    if (before.state === 'POSTED') return posted(before);
+    return this.db.transaction(async m => {
+      await this.lockCreation(m, before.company_code, intentKey, before.handover_ref);
+      const scope = await this.lockDay(m, before, false, false);
+      const old = await this.currentDocument(m, id);
+      if (old.state === 'POSTED') return posted(old);
+      const perms = (this.cls.get('user') as any)?.permissions;
+      if (!hasPerm(perms, 'MENU_PROD_INBOUND', 'C') || !hasPerm(perms, 'MENU_PROD_INBOUND', 'E')) {
+        throw new ForbiddenException('续制须具备创建与编辑权限');
+      }
+      const [link] = await m.query(`SELECT successor_id FROM production_inbound_reissues
+        WHERE predecessor_id=$1`, [id]);
+      const [usedIntent] = await m.query('SELECT id FROM production_inbound_documents WHERE company_code=$1 AND intent_key=$2',
+        [old.company_code, intentKey]);
+      if (usedIntent && usedIntent.id !== link?.successor_id) throw new ConflictException('续制须使用独立的新意图');
+      if (link) return { outcome: 'EXISTING' as const, documentId: link.successor_id };
+      this.version(old, version);
+      if (scope.state !== 'ACTIVE' || !['READY', 'APPROVED'].includes(old.state)) {
+        throw new ConflictException('仅启用范围内的未过账冻结单可续制');
+      }
+      const [clock] = await m.query("SELECT (clock_timestamp() AT TIME ZONE 'Asia/Singapore')::date::text AS today");
+      if (old.expected_posting_date >= clock.today) throw new ConflictException('仅可续制已跨记账日的冻结单');
+      let payload: Document;
+      let hash: string;
+      if (old.kind === 'INBOUND') {
+        const draft = this.normalize({ companyCode:old.company_code, houseCode:old.house_code, eggDate:old.production_date,
+          handoverRef:old.handover_ref, warehouseCode:old.payload.warehouseCode, locationCode:old.payload.locationCode,
+          intentKey, remark:old.payload.remark, evidenceFileIds:old.payload.evidenceFileIds,
+          items:this.sourceDraftItems(old.payload.items) });
+        payload = draft.payload;
+        hash = productionContentHash({company:draft.companyCode,house:draft.houseCode,day:draft.eggDate,
+          handoverRef:draft.handoverRef,payload});
+      } else {
+        const {warehouseCode,locationCode,reason,evidenceFileIds,evidenceChecksums,originalContentHash,items} = old.payload;
+        // The protected physical evidence is still bound to its original uploader. All approvals are acquired anew.
+        payload = {warehouseCode,locationCode,reason,evidenceFileIds,evidenceChecksums,originalContentHash,items,
+          evidenceOwnerId:old.payload.evidenceOwnerId ?? old.created_by};
+        const segments = items.flatMap((item:Document) => item.sources.map((a:Document) =>
+          ({allocationId:a.originalAllocationId,quantity:a.quantity})));
+        hash = productionContentHash({originalId:old.original_document_id,intentKey,reason,segments,evidenceFileIds});
+      }
+      const next = randomUUID();
+      const actor = this.actor();
+      await m.query("UPDATE production_inbound_documents SET state='CANCELLED',version=version+1 WHERE id=$1", [id]);
+      await m.query(`INSERT INTO production_inbound_documents
+        (id,document_no,company_code,house_code,production_date,scope_id,kind,original_document_id,intent_key,
+          handover_ref,creation_hash,payload,created_by)
+        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+        [next, `${old.kind==='INBOUND'?'PIN':'PIR'}-${next}`, old.company_code, old.house_code, old.production_date,
+          scope.id, old.kind, old.original_document_id, intentKey, old.handover_ref, hash, JSON.stringify(payload), actor]);
+      await m.query(`INSERT INTO production_inbound_reissues
+        (predecessor_id,successor_id,company_code,intent_key,predecessor_version,requested_by) VALUES($1,$2,$3,$4,$5,$6)`,
+        [id,next,old.company_code,intentKey,version,actor]);
+      return {outcome:'DRAFT' as const, documentId:next};
+    });
+  }
+
+  private sourceDraftItems(items: FrozenItem[]): InboundDraftItem[] {
+    return items.map(item => ({gradeCode:item.gradeCode,specCode:item.specCode,quantity:item.quantity,
+      allocations:item.sources.map(a => ({dailyLogId:a.dailyLogId,quantity:a.quantity,evidenceFileId:String(a.snapshot.evidenceFileId)}))}));
+  }
+
+  private requireCurrentPostingDate(d: Document): void {
+    if (d.expected_posting_date !== singaporeBusinessDate()) throw new ConflictException({
+      code:'PRODUCTION_POSTING_DAY_CHANGED', documentId:d.id, message:'已跨新加坡记账日，请按原单续制后重新核对'
     });
   }
   private checkSubmission(d: Document, key: string, hash: string) {
@@ -525,15 +641,13 @@ export class ProductionInboundDocumentsService {
       if (d.state === 'POSTED') return d.receipt;
       if (d.kind === 'REVERSAL') return this.postReversal(m,d,actor);
       if (d.state !== 'READY') throw new ConflictException('交库单尚未冻结或状态已变化');
-      if (d.expected_posting_date !== singaporeBusinessDate()) throw new ConflictException('已跨新加坡记账日，请重新编辑并确认冻结');
-      await m.query('SELECT pg_advisory_xact_lock(hashtext($1))',[`production-period:${d.company_code}:${d.expected_posting_date.slice(0,7)}`]);
-      const [period]=await m.query(`SELECT state FROM production_posting_periods WHERE company_code=$1 AND period_month=$2 FOR SHARE`,
-        [d.company_code,d.expected_posting_date.slice(0,7)]);
-      if(period?.state==='CLOSED')throw new ConflictException('当前生产记账期间已经关账，停止新过账');
-      const recheck = await this.freezeItems(m,{ ...d,payload:{ ...d.payload,items:d.payload.items.map((item: FrozenItem) => ({
-        gradeCode:item.gradeCode,specCode:item.specCode,quantity:item.quantity,
-        allocations:item.sources.map(a => ({dailyLogId:a.dailyLogId,quantity:a.quantity,evidenceFileId:String(a.snapshot.evidenceFileId)})),
-      })) } },reports);
+      this.requireCurrentPostingDate(d);
+      const periodVersion=await this.inboundPeriodVersion(m,d.company_code,d.expected_posting_date);
+      // Old frozen documents lack a period snapshot. Version 2+ proves an intervening close/reopen or change.
+      if (d.payload.periodVersion===undefined ? periodVersion>1 : d.payload.periodVersion!==periodVersion) {
+        throw new ConflictException({code:'PRODUCTION_PERIOD_CHANGED',message:'冻结后记账期间已变化，请重新核对单据'});
+      }
+      const recheck = await this.freezeItems(m,{ ...d,payload:{ ...d.payload,items:this.sourceDraftItems(d.payload.items) } },reports);
       const items = d.payload.items as FrozenItem[];
       if (recheck.items.some((item,i) => item.skuCode !== items[i].skuCode || item.productCode !== items[i].productCode
         || item.varietyCode !== items[i].varietyCode || item.inventoryStatus !== items[i].inventoryStatus
@@ -627,13 +741,13 @@ export class ProductionInboundDocumentsService {
   private async validateReversal(m: EntityManager,d: Document) {
     const original = await this.identity(d.original_document_id,m);
     if (original.state!=='POSTED' || original.kind!=='INBOUND' || original.content_hash!==d.payload.originalContentHash) throw new ConflictException('原单凭证或摘要不一致');
-    const [creator]=await m.query('SELECT username FROM sys_user WHERE user_id::text=$1',[d.created_by]);
+    const [creator]=await m.query('SELECT username FROM sys_user WHERE user_id::text=$1',[d.payload.evidenceOwnerId ?? d.created_by]);
     const evidence=await m.query(`SELECT file_id,checksum FROM file_metadata WHERE file_id=ANY($1::text[])
       AND status='ACTIVE' AND deleted_at IS NULL AND module_code='PRODUCTION_INBOUND' AND owner_type='HOUSE'
       AND owner_id=$2 AND company_code=$3 AND uploaded_by=$4 AND visibility IN ('PROTECTED','PRIVATE')
       AND checksum ~ '^[a-f0-9]{64}$' ORDER BY file_id FOR SHARE`,
     [d.payload.evidenceFileIds,d.house_code,d.company_code,creator?.username ?? '']);
-    if (evidence.length!==d.payload.evidenceFileIds.length||d.state!=='DRAFT'
+    if (evidence.length!==d.payload.evidenceFileIds.length||(d.state!=='DRAFT'||d.payload.evidenceChecksums!=null)
       && stableProductionJson(evidence)!==stableProductionJson(d.payload.evidenceChecksums)) throw new ConflictException('冲销实物交接及差异证据已失效或变化');
     if (d.state==='DRAFT') d.payload.evidenceChecksums=evidence;
     const batchNos=(d.payload.items as any[]).map(i => i.batchNo).sort();
@@ -650,7 +764,7 @@ export class ProductionInboundDocumentsService {
       const originalRemaining=Number(item.originalLineQuantity)-Number(reversed.quantity);
       if (!batch || batch.company_code!==d.company_code || batch.warehouse_code!==d.payload.warehouseCode
         || batch.location_code!==d.payload.locationCode || Number(batch.qty)!==originalRemaining || batch.status!==item.inventoryStatus
-        || Number(batch.qty_available)!==(item.inventoryStatus==='AVAILABLE'?originalRemaining:0) || item.quantity>originalRemaining) {
+        || Number(batch.qty_available)!==(item.inventoryStatus==='AVAILABLE'?originalRemaining:0) ) {
         throw new ConflictException('原批实物、状态或可用量已有下游变动/占用，先完成核对和解除');
       }
       for (const a of item.sources) {
@@ -660,8 +774,12 @@ export class ProductionInboundDocumentsService {
             WHERE r.original_allocation_id=original.id AND r.direction=-1),0)::int AS reversed
           FROM production_inbound_allocations original WHERE original.id=$1 AND original.document_id=$2
             AND original.line_no=$3 AND original.direction=1`, [a.originalAllocationId,original.id,item.originalLineNo]);
-        if (!row || Number(row.daily_log_id)!==a.dailyLogId || row.source_link_id!==a.sourceLinkId
-          || a.quantity>Number(row.quantity)-Number(row.reversed)) throw new ConflictException('冲销累计超过原来源分段或来源身份已变化');
+        if (!row || Number(row.daily_log_id)!==a.dailyLogId || row.source_link_id!==a.sourceLinkId) {
+          throw new ConflictException('原冲销分段身份已变化');
+        }
+        const remaining=Number(row.quantity)-Number(row.reversed);
+        if (a.quantity>remaining) throw new ConflictException({code:'PRODUCTION_REVERSAL_CAPACITY',
+          message:'冲销累计超过原来源分段',gradeCode:item.gradeCode,dailyLogId:a.dailyLogId,remaining});
       }
     }
     if ((await m.query('SELECT 1 FROM production_batch_roots WHERE root_batch_no=ANY($1::text[]) LIMIT 1',[batchNos])).length) {
@@ -671,18 +789,28 @@ export class ProductionInboundDocumentsService {
     const referenceFields: Record<string,string[]>={ wms_outbound:['batch_no'],wms_outbound_items:['batch_no'],
       wms_transfer:['batch_no'],wms_transfer_items:['source_batch_no','target_batch_no'],wms_stocktake:['batch_no','item'],
       wms_defect_dispositions:['batch_no','target_batch_no'],store_sale_allocations:['batch_no'],
-      sal_order_item_batch_allocations:['batch_no'],qa_product_inspections:['batch_no'],qa_non_conformance:['batch_no'],lbl_records:['batch_no'],
+      sal_order_item_batch_allocations:['batch_no'],qa_product_inspections:['batch_no'],qa_non_conformance:['batch_no'],qa_inspections:['batch_no'],lbl_records:['batch_no'],
       pkg_source_batches:['batch_code','source_inbound_no'] };
     for (const [table,fields] of Object.entries(referenceFields)) {
       const [exists]=await m.query('SELECT to_regclass($1) AS relation',[table]); if (!exists?.relation) continue;
+      const quality=table.startsWith('qa_');
+      if (quality) {
+        const [guard]=await m.query(`SELECT 1 FROM pg_trigger WHERE tgrelid=to_regclass($1)
+          AND tgname='trg_quality_production_refs' AND tgenabled IN ('O','A')`,[table]);
+        if (!guard) throw new ConflictException({code:'PRODUCTION_QUALITY_LOCK_UNAVAILABLE',
+          message:'质检引用尚未启用批次锁，请联系质检负责人'});
+      }
+      const jsonReferences=table==='qa_inspections'
+        ? " OR production_inspection_refs(to_jsonb(ref)->>'items_json',to_jsonb(ref)->>'fail_items_json') && $1::text[]"
+        : '';
       const rows=await m.query(`SELECT to_jsonb(ref) AS fact FROM ${table} ref
-        WHERE (${fields.map(field=>`btrim(to_jsonb(ref)->>'${field}')=ANY($1::text[])`).join(' OR ')}) FOR SHARE`,
+        WHERE (${fields.map(field=>`btrim(to_jsonb(ref)->>'${field}')=ANY($1::text[])`).join(' OR ')}${jsonReferences}) ${quality?'':'FOR SHARE'}`,
       [[...batchNos,original.document_no]]);
       for (const { fact } of rows) {
         if (table==='sal_order_item_batch_allocations' && Number(fact.outbound_qty ?? 0)===0
           && Number(fact.reserved_qty ?? 0)<=Number(fact.released_qty ?? 0)) continue;
-        if (!['CANCELLED','CANCELED','VOID'].includes(String(fact.status ?? fact.batch_status ?? '').toUpperCase())) {
-          throw new ConflictException({ code:'PRODUCTION_REVERSAL_DOWNSTREAM_HOLD',message:'原单仍有下游、质检或在途引用，请先核对解除',table });
+        if (!['CANCELLED','CANCELED','VOID'].includes(String(fact.status ?? fact.batch_status ?? '').trim().toUpperCase())) {
+          throw new ConflictException({ code:'PRODUCTION_REVERSAL_DOWNSTREAM_HOLD',message:quality?'原单仍有质检引用，请联系质检负责人核对解除':'原单仍有下游或在途引用，请先核对解除' });
         }
       }
     }
@@ -706,22 +834,35 @@ export class ProductionInboundDocumentsService {
     [d.id,hash,submitKey,day,JSON.stringify(payload)]); return result;
   }
   async recordFinancialClearance(id: string,input: { contentHash:string;financialEvidenceFileId:string;periodStatus:'OPEN';
-    costs:Array<{ batchNo:string;costStatus:'UNKNOWN'|'CONFIRMED';unitCost:number|null }> }) {
+    reviewHash?:string;costs:Array<{ batchNo:string;costStatus:'UNKNOWN'|'CONFIRMED';unitCost?:number|null;unitCostDecimal?:string|null }> }) {
     const before=await this.identity(id); const actor=this.actor(); const user=this.cls.get('user') as any;
-    if (!hasPerm(user?.permissions,'MENU_FIN2_AR_LEDGER','E')) throw new ForbiddenException('须由独立财务负责人核验成本和未关账期间');
+    const signingMenu=financeSigningMenu(user?.permissions);
+    if (!hasPerm(user?.permissions,signingMenu,'E')) throw new ForbiddenException('须由独立财务负责人核验成本和未关账期间');
     return this.db.transaction(async m => {
       await this.lockDay(m,before); await this.reports(m,before); const d=await this.currentDocument(m,id);
       if (d.kind!=='REVERSAL'||d.state!=='READY'||d.content_hash!==input.contentHash||actor===d.created_by
         || d.expected_posting_date!==singaporeBusinessDate()||input.periodStatus!=='OPEN') throw new ConflictException('财务核验须绑定原单、冻结摘要和当日未关账期间且不得自核');
+      const exact=signingMenu===FINANCE_REVIEW || input.reviewHash!==undefined || input.financialEvidenceFileId.startsWith(FINANCE_PROOF_PREFIX);
+      if(exact)await requireReviewFile(m,'reversal',id,input.financialEvidenceFileId);
       const { batches }=await this.validateReversal(m,d);
       const periods=await this.postingPeriods(m,d);
+      if(exact) {
+        const qualifications=await m.query('SELECT batch_no,cost_status FROM production_batch_qualifications WHERE batch_no=ANY($1::text[]) FOR SHARE',
+          [batches.map((b:any)=>b.batch_no)]);
+        const statuses=new Map(qualifications.map((q:any)=>[q.batch_no,q.cost_status]));
+        const quantities=new Map(d.payload.items.map((item:any)=>[item.batchNo,String(item.quantity)]));
+        const current=reviewSnapshotHash(d.content_hash,periods.map((p:any)=>({month:p.periodMonth,version:p.version,checksum:p.evidenceChecksum})),
+          batches.map((b:any)=>({batch:b.batch_no,quantity:String(quantities.get(b.batch_no)),decimal:b.unit_cost==null?null:String(b.unit_cost),status:statuses.get(b.batch_no)??'UNKNOWN'})));
+        if(input.reviewHash!==current || !Array.isArray(input.costs) || input.costs.some(c=>c.costStatus!==(statuses.get(c.batchNo)??'UNKNOWN')))
+          throw new ConflictException('成本或期间与所查看的核签摘要不一致，请重新核验');
+      }
       if (!Array.isArray(input.costs)||input.costs.length!==batches.length||new Set(input.costs.map(c=>c.batchNo)).size!==batches.length) throw new BadRequestException('须逐批确认实际已核价或成本待核定状态');
       const costs=batches.map((b:any) => {
         const c=input.costs.find(x=>x.batchNo===b.batch_no);
         const originalCost=recordedCost(b.unit_cost);
         if (!c||!['UNKNOWN','CONFIRMED'].includes(c.costStatus)
-          || c.unitCost!==originalCost||c.costStatus==='CONFIRMED'&&originalCost===null) throw new ConflictException('财务核验成本与原批记录不一致');
-        return { batchNo:b.batch_no,costStatus:c.costStatus,recordedUnitCost:c.unitCost,
+          || (exact?c.unitCostDecimal!==(b.unit_cost==null?null:String(b.unit_cost)):c.unitCost!==originalCost)||c.costStatus==='CONFIRMED'&&originalCost===null) throw new ConflictException('财务核验成本与原批记录不一致');
+        return { batchNo:b.batch_no,costStatus:c.costStatus,recordedUnitCost:originalCost,
           recordedUnitCostDecimal:b.unit_cost==null?null:String(b.unit_cost) };
       });
       const [reviewer]=await m.query('SELECT username FROM sys_user WHERE user_id::text=$1',[actor]);
@@ -770,9 +911,10 @@ export class ProductionInboundDocumentsService {
       await this.lockDay(m,before); await this.reports(m,before);
       const d=await this.currentDocument(m,id); this.version(d,version);
       if (d.kind!=='REVERSAL'||d.state!=='READY'||d.content_hash!==contentHash||d.created_by===actor) throw new ConflictException('原单冲销须绑定冻结摘要且不得自批');
-      if (d.expected_posting_date!==singaporeBusinessDate()) throw new ConflictException('冲销已跨记账日，请取消后重新确认');
+      this.requireCurrentPostingDate(d);
       await this.validateReversal(m,d);
       const clearance=await this.financialClearance(m,d,financialClearanceId);
+      if(clearance.signed_by===actor)throw new ConflictException('业务审批与财务核签必须由不同实名人员办理');
       const evidence={ clearanceId:clearance.id,financialReviewer:clearance.signed_by,
         reviewer:actor,contentHash,postingDate:d.expected_posting_date };
       const [result]=await m.query(`WITH changed AS (UPDATE production_inbound_documents SET state='APPROVED',version=version+1,
@@ -781,14 +923,15 @@ export class ProductionInboundDocumentsService {
     });
   }
   private async postReversal(m: EntityManager,d: Document,actor: string) {
+    this.requireCurrentPostingDate(d);
     if (d.state!=='APPROVED'||d.approved_by===d.created_by||d.approved_hash!==d.content_hash||!d.approval_evidence
-      ||d.approval_evidence.reviewer!==d.approved_by||d.approval_evidence.contentHash!==d.content_hash
-      || d.expected_posting_date!==singaporeBusinessDate()) throw new ConflictException('冲销须有同日、同摘要的独立业务及财务审核');
+      ||d.approval_evidence.reviewer!==d.approved_by||d.approval_evidence.contentHash!==d.content_hash) throw new ConflictException('冲销须有同日、同摘要的独立业务及财务审核');
     if (!(await m.query("SELECT 1 FROM sys_user WHERE user_id::text=$1 AND status::text IN ('1','ACTIVE') FOR SHARE",[d.approved_by])).length) {
       throw new ConflictException('独立审核人身份已失效，请重新核验');
     }
     const { batches }=await this.validateReversal(m,d); const lines:any[]=[];
     const clearance=await this.financialClearance(m,d,d.approval_evidence.clearanceId);
+    if(clearance.signed_by===d.approved_by)throw new ConflictException('须取得独立业务与财务核签');
     for (let i=0;i<d.payload.items.length;i++) {
       const item=d.payload.items[i]; const lineNo=i+1; const batch=batches.find((b:any)=>b.batch_no===item.batchNo);
       const n=await guardedBatchUpdate(m,{ batchNo:item.batchNo,companyCode:d.company_code,warehouseCode:d.payload.warehouseCode,
@@ -817,28 +960,87 @@ export class ProductionInboundDocumentsService {
     await m.query("UPDATE production_inbound_documents SET state='POSTED',version=version+1,receipt=$2,posted_at=now() WHERE id=$1",[d.id,JSON.stringify(receipt)]);
     return receipt;
   }
+  private async stockScope(company: string, house: string, day: string, warehouse: string): Promise<StockTraceScope> {
+    text(company,'公司'); text(house,'鸡舍'); text(warehouse,'仓库'); assertEggDate(day);
+    this.authorize(company,warehouse);
+    await this.context(company,house);
+    return {company,warehouse,house,day,authority:this.cls.get('dataScope') as DataScopeContext};
+  }
+
+  private async readStockScope(m: EntityManager, scope: StockTraceScope) {
+    const [active] = await m.query(`SELECT 1 FROM production_cutover_scopes s
+      JOIN wms_warehouses w ON w.company_code=s.company_code AND w.warehouse_code=$4
+      WHERE s.company_code=$1 AND s.house_code=$2 AND s.state IN ('ACTIVE','SUSPENDED')
+        AND s.first_production_date<=$3::date LIMIT 1`,
+      [scope.company,scope.house,scope.day,scope.warehouse]);
+    if (!active) throw new ConflictException('测试期记录已归档或该范围尚未启用');
+  }
+
+  async stockBatches(company:string,house:string,day:string,warehouse:string,filter:StockBatchFilter) {
+    const limit = validateStockFilter(filter);
+    const scope = await this.stockScope(company,house,day,warehouse);
+    return this.db.transaction('REPEATABLE READ',async m => {
+      await this.readStockScope(m,scope);
+      const {sql,args} = await stockBatchQuery(m,scope,filter,limit+1);
+      const rows: StockBatch[] = await m.query(sql,args);
+      const items = rows.slice(0,limit);
+      return {stockBasisVersion:2,items,nextCursor:rows.length>limit ? items[limit-1].batchNo : null};
+    });
+  }
+
+  async exportStockBatches(company:string,house:string,day:string,warehouse:string,filter:StockBatchFilter,
+    consume:(lines:AsyncIterable<string>)=>Promise<void>) {
+    validateStockFilter(filter);
+    const scope = await this.stockScope(company,house,day,warehouse);
+    await this.db.transaction('REPEATABLE READ', async m => {
+      await m.query('SET TRANSACTION READ ONLY');
+      await this.readStockScope(m,scope);
+      const {sql,args} = await stockBatchQuery(m,scope,{...filter,after:undefined});
+      await m.query('DECLARE stock_trace_export NO SCROLL CURSOR FOR '+sql,args);
+      async function* csv() {
+        yield '\uFEFF批次,档位,仓库,库位,SKU,单位,库存状态,库存分类,整批实存,可用量,本舍日归属量,归属状态,已授权来源\r\n';
+        for (;;) {
+          const rows: StockBatch[] = await m.query('FETCH FORWARD 200 FROM stock_trace_export');
+          if (!rows.length) return;
+          for (const row of rows) {
+            yield [row.batchNo,row.gradeCode,row.warehouseCode,row.locationCode,row.skuCode,row.unit,row.status,
+              row.inventoryClass,row.batchQty,row.availableQty,row.attributableQty,row.attribution,JSON.stringify(row.sources)]
+              .map(stockCsvCell).join(',')+'\r\n';
+          }
+        }
+      }
+      await consume(csv());
+    });
+  }
+
   async balance(company: string,house: string,day: string,warehouse: string) {
-    text(company,'公司');text(house,'鸡舍');text(warehouse,'仓库');this.authorize(company,warehouse); assertEggDate(day);
+    const stockScope = await this.stockScope(company,house,day,warehouse);
     return this.db.transaction(async m => {
       const identity = { company_code:company,house_code:house,production_date:day,payload:{ warehouseCode:warehouse } };
       const scope = await this.lockDay(m,identity,false,false); const reports = await this.reports(m,identity);
-      const usage = await this.usage(m,identity); const grades: Record<string,{ reported:number;posted:number;remaining:number }> = {};
-      for (const r of reports) for (const [grade,n] of Object.entries(r.eggs_by_grade)) {
-        const item = grades[grade] ??= { reported:0,posted:0,remaining:0 }; item.reported+=Number(n);
+      const usage = await this.usage(m,identity);
+      const grades: Record<string,{ reported:number;posted:number;remaining:number }> = {};
+      const sourceBalances = [];
+      for (const r of reports) for (const [gradeCode,confirmedQty] of Object.entries<number>(r.eggs_by_grade)) {
+        const key = sourceQuotaKey(r.id,gradeCode);
+        const quota = sourceQuota(confirmedQty,usage.get(key));
+        usage.delete(key);
+        sourceBalances.push({dailyLogId:Number(r.id),shift:r.shift,gradeCode,...quota});
+        const item = grades[gradeCode] ??= {reported:0,posted:0,remaining:0};
+        item.reported+=quota.confirmedQty;
+        item.posted+=quota.ordinaryNet+quota.rawUsedQty;
+        item.remaining+=quota.remaining;
       }
-      for (const row of usage) { const item = grades[row.grade_code] ??= { reported:0,posted:0,remaining:0 }; item.posted+=Number(row.quantity); }
-      for (const item of Object.values(grades)) {
-        item.remaining=item.reported-item.posted;
-        if (item.remaining<0 || item.posted<0) throw new ConflictException('正式额度异常，请核对原单及补偿');
+      if (usage.size) throw new ConflictException({code:'PRODUCTION_SOURCE_QUOTA_REVIEW_REQUIRED',
+        message:'存在无法核对日报或档位的已过账来源，请核对原单及补偿'});
+      const stock = await stockByGrade(m,stockScope);
+      for (const grade of Object.keys(grades)) {
+        stock[grade] ??= {attributableQty:0,knownAttributableQty:0,warehouseQty:0,mixedBatchCount:0,unmeasuredBatchCount:0};
       }
-      const current=await m.query(`SELECT b.grade_code_std AS grade,SUM(b.qty)::numeric AS quantity FROM inv_batches b
-        JOIN production_batch_qualifications q ON q.batch_no=b.batch_no WHERE b.company_code=$1 AND b.warehouse_code=$2
-        AND ${officialInventoryPredicate('b')} AND EXISTS(SELECT 1 FROM production_inbound_lines l JOIN production_inbound_documents d
-          ON d.id=l.document_id AND d.kind='INBOUND' AND d.state='POSTED' WHERE d.company_code=$1 AND d.house_code=$3
-          AND d.production_date=$4 AND (l.batch_no=b.batch_no OR EXISTS(SELECT 1 FROM production_batch_roots r
-            WHERE r.batch_no=b.batch_no AND r.root_batch_no=l.batch_no))) GROUP BY b.grade_code_std`,[company,warehouse,house,day]);
-      return { scopeId:scope.id,scopeState:scope.state,firstProductionDate:scope.first_production_date,grades,
-        currentStock:Object.fromEntries(current.map((r:any)=>[r.grade,Number(r.quantity)])),
+      return { scopeId:scope.id,scopeState:scope.state,firstProductionDate:scope.first_production_date,grades,sourceBalances,
+        stockBasisVersion:2,stockByGrade:stock,
+        currentStock:Object.fromEntries(Object.entries(stock).filter(([,v])=>v.attributableQty!==null)
+          .map(([grade,v])=>[grade,v.attributableQty])),
         reports:reports.map(r => ({ id:r.id,shift:r.shift,reportHash:r.report_hash,grades:r.eggs_by_grade })) };
     });
   }

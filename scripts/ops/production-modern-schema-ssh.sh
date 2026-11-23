@@ -7,7 +7,9 @@ trap 'echo MODERN_SCHEMA_HOST_TRANSPORT_HOLD >&2' ERR
 operation=$1
 case "$operation" in prepare|run|finalize) ;; *) exit 2 ;; esac
 [[ "$TARGET_SHA" =~ ^[a-f0-9]{40}$ ]]
-[[ "$APPROVED_PREVIOUS_FLOOR_SHA" =~ ^[a-f0-9]{40}$ && "$APPROVED_PREVIOUS_FLOOR_SHA" != "$TARGET_SHA" ]]
+if [[ "${MODERN_SCHEMA_1123_ACTION:-}" != inspect1123 || -n "$APPROVED_PREVIOUS_FLOOR_SHA" ]]; then
+  [[ "$APPROVED_PREVIOUS_FLOOR_SHA" =~ ^[a-f0-9]{40}$ && "$APPROVED_PREVIOUS_FLOOR_SHA" != "$TARGET_SHA" ]]
+fi
 [[ "$DEPLOY_RUN_ID" =~ ^[1-9][0-9]{0,19}-[1-9][0-9]{0,9}$ && "$DEPLOY_RUN_ID" = *-"$DEPLOY_RUN_ATTEMPT" ]]
 test "$APPROVED_CONFIG_FLOOR_SHA" = "$TARGET_SHA"
 
@@ -88,7 +90,10 @@ public_receipt() {
     if (value?.owner !== owner || value.targetSha !== targetSha || Object.getPrototypeOf(value) !== Object.prototype) process.exit(2);
     const keys = Object.keys(value).sort().join(",");
     if (operation === "prepare") {
-      if (status === "0") {
+      if(status==="0"&&process.env.MODERN_SCHEMA_1123_ACTION==="inspect1123"){
+        const {validPublicInspection}=await import(pathToFileURL(vocabulary.replace("production-modern-schema-public-preparation.mjs","production-modern-schema-successor.mjs")));
+        if(!validPublicInspection(value,{owner,targetSha}))process.exit(2);
+      }else if (status === "0") {
         if (keys !== "owner,preparationSha256,prepared,schema,targetSha" || value.schema !== "phoenix.modern-schema-public-preparation/v1" ||
             value.prepared !== true || typeof value.preparationSha256 !== "string" || !/^[a-f0-9]{64}$/.test(value.preparationSha256)) process.exit(2);
       } else {

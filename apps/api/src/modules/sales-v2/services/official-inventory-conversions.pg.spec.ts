@@ -68,22 +68,26 @@ const url=process.env.OFFICIAL_INVENTORY_PG_URL;
       INSERT INTO production_inventory_domains(scope_id,company_code,warehouse_code,product_code)
         VALUES('50000000-0000-0000-0000-000000000001','COMP-A','WH-A','PRD-EGG-RAW');
       UPDATE production_cutover_scopes SET state='FENCED';UPDATE production_cutover_scopes SET state='ACTIVE',activated_at=now();`);
-    await db.query("INSERT INTO pkg_work_shifts VALUES(1,'FARM-A',$1,false)",[sourceDay]);
+    const receipt = await issueRaw(amounts,sourceDay,1);
+    reviewer();actor.permissions.push('MENU_FIN2_AR_LEDGER:E');await documents.setPostingPeriod({companyCode:'COMP-A',houseCode:'HOUSE-A',periodMonth:day.slice(0,7),
+      state:'OPEN',expectedVersion:0,evidenceFileId:'PERIOD-EVIDENCE',reason:'Owned synthetic conversion period approval'});maker();
+    return receipt;
+  }
+  async function issueRaw(amounts:Record<string,number>,sourceDay:string,sourceId:number){
+    await db.query("INSERT INTO pkg_work_shifts VALUES($2,'FARM-A',$1,false)",[sourceDay,sourceId]);
     const total=Object.values(amounts).reduce((n,q)=>n+q,0);
     const [report]=await db.query(`INSERT INTO brd_daily_logs(house_code,flock_no,log_date,shift,eggs_by_grade,occupancy_id,company_code,farm_code,site_code)
       VALUES('HOUSE-A','FLOCK-A',$1,'DAILY',$2,'CVT-OCC','COMP-A','FARM-A','SITE-A') RETURNING id`,[sourceDay,JSON.stringify(Object.fromEntries(grades.map(g=>[g,amounts[g]??0])))]);
     await db.query(`INSERT INTO pkg_source_batches(id,house_code,flock_code,received_qty,production_date,lay_date,is_test,batch_code,source_inbound_no,
-      shift_id,total_qty,dirty_qty,cracked_qty,batch_status) VALUES(1,'HOUSE-A','FLOCK-A',$1,$2,$2,false,'SYNTHETIC-CVT-RAW','SYNTHETIC-CVT-RAW',1,$1,$3,$4,'RECEIVED')`,
-      [total,sourceDay,amounts.DIRTY??0,amounts.BROKEN??0]);
+      shift_id,total_qty,dirty_qty,cracked_qty,batch_status) VALUES($5,'HOUSE-A','FLOCK-A',$1,$2,$2,false,$6,$6,$5,$1,$3,$4,'RECEIVED')`,
+      [total,sourceDay,amounts.DIRTY??0,amounts.BROKEN??0,sourceId,sourceId===1?'SYNTHETIC-CVT-RAW':'SYNTHETIC-CVT-RAW-'+sourceId]);
     scope={isGlobal:false,allowedCompanyCodes:['COMP-A'],allowedWarehouseCodes:['WH-A']};maker();
-    const h=await documents.createPhysicalHandover({companyCode:'COMP-A',houseCode:'HOUSE-A',eggDate:sourceDay,warehouseCode:'WH-A',handoverRef:randomUUID(),rawCollectionSourceId:'1',
+    const h=await documents.createPhysicalHandover({companyCode:'COMP-A',houseCode:'HOUSE-A',eggDate:sourceDay,warehouseCode:'WH-A',handoverRef:randomUUID(),rawCollectionSourceId:String(sourceId),
       segments:Object.entries(amounts).map(([gradeCode,quantity])=>({dailyLogId:report.id,gradeCode,quantity,evidenceFileId:'RAW-EVIDENCE'}))});
     actor={userId:3,username:'receiver',permissions:['MENU_PROD_INBOUND:V,E']};await documents.confirmPhysicalHandover(h.id,h.version,h.content_hash);maker();
-    const d=await raw.create({companyCode:'COMP-A',houseCode:'HOUSE-A',productionDate:sourceDay,warehouseCode:'WH-A',sourceBatchId:'1',handoverId:h.id,intentKey:randomUUID()});
+    const d=await raw.create({companyCode:'COMP-A',houseCode:'HOUSE-A',productionDate:sourceDay,warehouseCode:'WH-A',sourceBatchId:String(sourceId),handoverId:h.id,intentKey:randomUUID()});
     const r=await raw.ready(d.id,0,randomUUID());reviewer();const a=await raw.approve(d.id,r.version,r.content_hash);maker();await raw.post(a.id,a.submit_key,a.content_hash);
-    reviewer();actor.permissions.push('MENU_FIN2_AR_LEDGER:E');await documents.setPostingPeriod({companyCode:'COMP-A',houseCode:'HOUSE-A',periodMonth:day.slice(0,7),
-      state:'OPEN',expectedVersion:0,evidenceFileId:'PERIOD-EVIDENCE',reason:'Owned synthetic conversion period approval'});maker();
-    return {reportId:report.id,segments:await db.query('SELECT * FROM production_raw_receipt_segments ORDER BY grade_code')};
+    return {reportId:report.id,segments:await db.query('SELECT * FROM production_raw_receipt_segments WHERE receipt_id=$1 ORDER BY grade_code',[a.id])};
   }
   const plan=(segmentId:string,quantity=100,outputKind:'STOCK'|'WIP'='STOCK'):InventoryConversionDraft=>({companyCode:'COMP-A',warehouseCode:'WH-A',productCode:'PRD-EGG-RAW',
     operationKind:'GRADING',operationDate:day,physicalGroupRef:randomUUID(),intentKey:randomUUID(),inputs:[{rawSegmentId:segmentId,quantity}],
@@ -121,13 +125,21 @@ const url=process.env.OFFICIAL_INVENTORY_PG_URL;
   }
   it('converts an actual signed RAW segment into stock once, preserves provenance and never credits production twice',async()=>{
     const s=await source(),a=await approved(plan(s.segments[0].id));
+    const rawQuota=async()=> (await documents.balance('COMP-A','HOUSE-A',day,'WH-A')).sourceBalances
+      .find(row=>row.dailyLogId===Number(s.reportId)&&row.gradeCode==='GRADE_1');
+    const rawOnly={dailyLogId:Number(s.reportId),shift:'DAILY',gradeCode:'GRADE_1',confirmedQty:100,ordinaryNet:0,rawUsedQty:100,remaining:0};
+    expect(await rawQuota()).toEqual(rawOnly);
     const result=await service.post(a.id,a.submit_key,a.content_hash);
     expect(result).toMatchObject({inputQuantity:100,outputQuantity:100,lossQuantity:0,costStatus:'PENDING_ALLOCATION'});
     expect(await counts()).toEqual({batches:1,ledger:1,inputs:1,outputs:1});
     const [b]=await db.query('SELECT *,official_inventory_allows(batch_no,company_code,warehouse_code,product_code,sku_code,material_code) AS visible FROM inv_batches');
     expect(b).toMatchObject({qty:'100',qty_available:'100',inventory_class:'STANDARD',status:'AVAILABLE',visible:true,unit_cost:'0.000000'});
     expect(await db.query('SELECT raw_segment_id FROM production_batch_raw_roots')).toEqual([{raw_segment_id:s.segments[0].id}]);
+    expect(await rawQuota()).toEqual(rawOnly);
     expect(await effectiveProductionReceiptQuantity(db.manager,s.reportId)).toBe(100);
+    expect((await documents.balance('COMP-A','HOUSE-A',day,'WH-A')).stockByGrade.GRADE_1).toMatchObject({
+      attributableQty:100,warehouseQty:100,mixedBatchCount:0});
+
     expect(await db.query('SELECT precision,allocated_output_qty FROM inv_flock_source_links')).toEqual([{precision:'RELATED_INPUT',allocated_output_qty:null}]);
     const rollback=db.createQueryRunner();await rollback.connect();
     try{await expect(new OfficialInventoryConversions1795011331222().down(rollback)).rejects.toThrow('OFFICIAL_CONVERSION_DOWN_HOLD');}
@@ -136,6 +148,43 @@ const url=process.env.OFFICIAL_INVENTORY_PG_URL;
     await db.query("UPDATE production_cutover_scopes SET state='SUSPENDED';UPDATE product_skus SET status='INACTIVE'");
     actor={userId:4,username:'viewer',permissions:['MENU_PROD_INBOUND:V']};expect(await service.post(a.id,a.submit_key,a.content_hash)).toEqual(result);
     expect(await counts()).toEqual({batches:1,ledger:1,inputs:1,outputs:1});await db.query("UPDATE product_skus SET status='ACTIVE'");
+  });
+  it.each([0,5])('counts a mixed 30/70 batch once with %i measured loss and exposes both days without inventing shares',async loss=>{
+    const earlier=(await db.query("SELECT ($1::date-1)::text AS day",[day]))[0].day;
+    const first=await source({GRADE_1:30},earlier),second=await issueRaw({GRADE_1:70},day,2);
+    const request=plan(first.segments[0].id,30);
+    request.inputs.push({rawSegmentId:second.segments[0].id,quantity:70});
+    request.outputs[0].quantity=100-loss;
+    if(loss)request.outputs.push({outputKind:'LOSS',gradeCode:'GRADE_1',quantity:loss,lossReason:'PROCESSING_LOSS',evidenceFileId:'CONVERSION-EVIDENCE'});
+    const d=await approved(request),receipt=await service.post(d.id,d.submit_key,d.content_hash);
+    for(const productionDay of [earlier,day]){
+      const balance=await documents.balance('COMP-A','HOUSE-A',productionDay,'WH-A');
+      expect(balance.stockByGrade.GRADE_1).toMatchObject({attributableQty:null,knownAttributableQty:0,
+        warehouseQty:100-loss,mixedBatchCount:1});
+      expect(balance.grades.GRADE_1.remaining).toBe(0);
+      const rows=await documents.stockBatches('COMP-A','HOUSE-A',productionDay,'WH-A',{view:'source',batchNo:receipt.batches[0].batchNo});
+      expect(rows.items).toHaveLength(1);
+      expect(rows.items[0]).toMatchObject({batchQty:100-loss,attributableQty:null,attribution:'MIXED'});
+      expect(rows.items[0].sources.map(s=>s.productionDate).sort()).toEqual([earlier,day]);
+      expect(rows.items[0].sources.every(s=>s.kind==='RAW'&&s.handoverRef&&s.dailyLogId&&s.occupancyId&&s.flockNo)).toBe(true);
+    }
+  });
+  it('recombines two actual splits of one RAW source without duplicating the source or stock',async()=>{
+    const rawSource=await source(),segment=rawSource.segments[0].id;
+    const parents=[];
+    for(const qty of [30,70]){
+      const d=await approved(plan(segment,qty,'WIP'));
+      const stock=await service.post(d.id,d.submit_key,d.content_hash);
+      parents.push({parentBatchNo:stock.batches[0].batchNo,quantity:qty});
+    }
+    const request=plan(segment,100);
+    request.operationKind='REPACKING';
+    request.inputs=parents;
+    const d=await approved(request),output=await service.post(d.id,d.submit_key,d.content_hash);
+    const trace=await documents.stockBatches('COMP-A','HOUSE-A',day,'WH-A',{batchNo:output.batches[0].batchNo,view:'source'});
+    expect(trace.items).toMatchObject([{batchQty:100,attributableQty:100,attribution:'EXACT',sources:[{rawSegmentId:segment}]}]);
+    expect(trace.items[0].sources).toHaveLength(1);
+    expect((await documents.balance('COMP-A','HOUSE-A',day,'WH-A')).stockByGrade.GRADE_1).toMatchObject({warehouseQty:100,attributableQty:100});
   });
   it('requires the approved actual transaction capability for the unified output writer',async()=>{
     const s=await source(),a=await approved(plan(s.segments[0].id));
@@ -230,6 +279,8 @@ const url=process.env.OFFICIAL_INVENTORY_PG_URL;
     await wms.confirmTransfer({transfer_no:'SYNTHETIC-CVT-WIP-MOVE',from_warehouse:'WH-A',to_warehouse:'WH-A2',items:[{batch_no:r.batches[0].batchNo,qty:20}]},actor);
     const [target]=await db.query("SELECT * FROM inv_batches WHERE source_type='TRANSFER'");
     expect(target).toMatchObject({warehouse_code:'WH-A2',inventory_class:'WIP',qty:'20',qty_available:'20'});
+    const trace=await documents.stockBatches('COMP-A','HOUSE-A',day,'WH-A2',{view:'source',batchNo:target.batch_no});
+    expect(trace.items).toMatchObject([{attributableQty:20,inventoryClass:'WIP',sources:[{rawSegmentId:s.segments[0].id}]}]);
     expect(await db.query('SELECT raw_segment_id FROM production_batch_raw_roots WHERE batch_no=$1',[target.batch_no])).toEqual([{raw_segment_id:s.segments[0].id}]);
     expect(await db.query('SELECT parent_batch_no FROM production_batch_derivation_parents WHERE batch_no=$1',[target.batch_no])).toEqual([{parent_batch_no:r.batches[0].batchNo}]);
     await expect(db.query("INSERT INTO inv_ledger(batch_no,change_type,qty_change,ref_no) VALUES($1,'SALE_OUTBOUND',-1,'SYNTHETIC-FORBIDDEN-WIP-SALE')",[target.batch_no]))
@@ -320,6 +371,14 @@ const url=process.env.OFFICIAL_INVENTORY_PG_URL;
     const mixed=await mixedParent();await wms.confirmTransfer({transfer_no:'SYNTHETIC-MIXED-WIP-MOVE',from_warehouse:'WH-P',to_warehouse:'WH-A2',items:[{batch_no:mixed.batchNo,qty:10}]},actor);
     const [target]=await db.query("SELECT batch_no,inventory_class FROM inv_batches WHERE source_no='SYNTHETIC-MIXED-WIP-MOVE'");
     expect(target.inventory_class).toBe('WIP');
+    const trace=await documents.stockBatches('COMP-A','HOUSE-A',day,'WH-A2',{view:'source',batchNo:target.batch_no});
+    expect(trace.items).toHaveLength(1);
+    expect(trace.items[0]).toMatchObject({batchQty:10,attributableQty:null,attribution:'MIXED'});
+    expect(trace.items[0].sources.map(s=>s.kind).sort()).toEqual(['PURCHASE','RAW']);
+    scope.allowedWarehouseCodes=['WH-A2'];
+    const restricted=await documents.stockBatches('COMP-A','HOUSE-A',day,'WH-A2',{batchNo:target.batch_no});
+    expect(restricted.items).toMatchObject([{batchQty:10,attributableQty:null,attribution:'UNRESOLVED',sources:[]}]);
+    expect(JSON.stringify(restricted)).not.toContain(mixed.purchaseRoot);
     expect(await db.query('SELECT root_batch_no FROM production_batch_roots WHERE batch_no=$1',[target.batch_no])).toEqual([{root_batch_no:mixed.purchaseRoot}]);
     expect(await db.query('SELECT raw_segment_id FROM production_batch_raw_roots WHERE batch_no=$1',[target.batch_no])).toEqual([{raw_segment_id:mixed.rawSegment}]);
   });
@@ -396,6 +455,10 @@ const url=process.env.OFFICIAL_INVENTORY_PG_URL;
     const a=await approved(request),r=await service.post(a.id,a.submit_key,a.content_hash);scope.allowedWarehouseCodes.push('WH-A2');actor.permissions.push('MENU_INV_BATCH:E');
     await wms.disposeDefectInventory({disposition_no:'CVT-D1',batch_no:r.batches[0].batchNo,action:'TRANSFER',qty:10,reason:'Owned actual defect custody',
       target_warehouse_code:'WH-A2',target_location_code:'LOC-A2'},actor);
+    const balance=await documents.balance('COMP-A','HOUSE-A',day,'WH-A');
+    expect(balance.stockByGrade.DIRTY).toMatchObject({attributableQty:10,warehouseQty:10});
+    const trace=await documents.stockBatches('COMP-A','HOUSE-A',day,'WH-A',{view:'source',gradeCode:'DIRTY'});
+    expect(trace.items[0]).toMatchObject({status:'QUARANTINE',inventoryClass:'WIP',batchQty:10,availableQty:0,attributableQty:10});
     const [target]=await db.query("SELECT * FROM inv_batches WHERE source_type='DEFECT_TRANSFER'");expect(target).toMatchObject({qty:'10',qty_available:'0',status:'QUARANTINE',inventory_class:'WIP'});
     await expect(db.query("UPDATE wms_defect_dispositions SET updated_at=updated_at-interval '1 day' WHERE disposition_no='CVT-D1'"))
       .rejects.toThrow('OFFICIAL_CONVERSION_BUSINESS_BINDING_IMMUTABLE');

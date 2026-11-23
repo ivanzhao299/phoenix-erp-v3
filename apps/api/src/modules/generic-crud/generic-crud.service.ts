@@ -1,6 +1,8 @@
 import { officialInventoryPredicate, officialLedgerPredicate, assertOfficialInventoryBatches } from '../wms/official-inventory';
 import { writeHenhouse } from './henhouse-write-policy';
-import { DAILY_EXPORT_SNAPSHOT, DAILY_EXPORT_MAX_ROWS } from './daily-export-policy';
+import { DataScopeContext } from '../org/services/data-scope.service';
+import { occupancyLossesSql } from '../farm/production-report-facts';
+import { DAILY_EXPORT_MAX_ROWS } from './daily-export-policy';
 import { Injectable, BadRequestException, ConflictException, ForbiddenException, InternalServerErrorException, Logger } from '@nestjs/common';
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
@@ -273,6 +275,38 @@ export class GenericCrudService {
     }
   }
 
+  async exportDailyReports(date: string, query: Record<string, unknown>, scope: DataScopeContext | null) {
+    const params: unknown[] = [date];
+    const filters: string[] = [];
+    for (const key of ['house_code', 'farm_code', 'site_code']) {
+      if (Object.keys(query).some(k => k.startsWith(key + '['))) throw new BadRequestException('无效范围编码');
+      const value = query[key];
+      if (value === undefined) continue;
+      if (typeof value !== 'string' || !value.trim()) throw new BadRequestException('无效范围编码');
+      params.push(value);
+      filters.push(`r->>'${key}' = $${params.length}`);
+    }
+    if (!scope?.isGlobal) {
+      params.push(scope?.allowedBreedingFarmCodes ?? [], scope?.allowedBreedingSiteCodes ?? [], scope?.allowedBreedingCompanyCodes ?? []);
+      const farm = params.length - 2, site = params.length - 1, company = params.length;
+      // Legacy reports may have stale ownership fields. Managed facts have immutable occupancy ownership.
+      filters.push(`(CASE WHEN r->>'occupancy_id' IS NOT NULL THEN
+          (r->>'farm_code' = ANY($${farm}::text[]) OR r->>'site_code' = ANY($${site}::text[]) OR r->>'company_code' = ANY($${company}::text[]))
+        ELSE EXISTS (SELECT 1 FROM brd_houses h JOIN brd_farms f ON f.farm_code=h.farm_code AND f.status='ACTIVE'
+          WHERE h.house_code=r->>'house_code' AND (f.farm_code=ANY($${farm}::text[]) OR f.mapped_site_code=ANY($${site}::text[]) OR f.company_code=ANY($${company}::text[]))) END)`);
+    }
+    const [schema] = await this.entityManager.query("SELECT to_regclass('brd_flock_events') AS ledger");
+    const reports = `SELECT to_jsonb(d) || jsonb_build_object('row_kind','REPORT') ${schema?.ledger
+      ? "|| CASE WHEN d.occupancy_id IS NOT NULL THEN jsonb_build_object('mortality_qty',0,'elimination_qty',0) ELSE '{}'::jsonb END" : ''} AS r
+      FROM brd_daily_logs d WHERE d.log_date=$1::date`;
+    const events = schema?.ledger ? ` UNION ALL SELECT to_jsonb(e) || jsonb_build_object('id','loss:' || e.occupancy_id || ':' || e.log_date,
+      'row_kind','FLOCK_EVENT') FROM (${occupancyLossesSql}) e WHERE e.log_date=$1::date` : '';
+    const result = await this.entityManager.query(`SELECT r FROM (${reports}${events}) facts
+      ${filters.length ? 'WHERE ' + filters.join(' AND ') : ''} ORDER BY r->>'house_code',r->>'id' LIMIT ${DAILY_EXPORT_MAX_ROWS + 1}`, params);
+    if (result.length > DAILY_EXPORT_MAX_ROWS) throw new BadRequestException('EXPORT_TOO_LARGE');
+    return this.enrichDailyLogRows(result.map((item: {r: Record<string, unknown>}) => item.r));
+  }
+
   async findAllBreedingScoped(
     table: BreedingScopedTable,
     query: any,
@@ -349,9 +383,8 @@ export class GenericCrudService {
   }
 
   private buildFindAllSql(table: string, query: any, extraWhere: string[] = [], extraValues: unknown[] = []) {
-    const exportSnapshot = table === 'brd_daily_logs' && query[DAILY_EXPORT_SNAPSHOT] === true;
-    const limit = exportSnapshot ? DAILY_EXPORT_MAX_ROWS + 1 : Math.min(Math.max(Number(query.limit) || 100, 1), 1000);
-    const offset = exportSnapshot ? 0 : Math.max(Number(query.offset) || 0, 0);
+    const limit = Math.min(Math.max(Number(query.limit) || 100, 1), 1000);
+    const offset = Math.max(Number(query.offset) || 0, 0);
 
     const whereClauses = [];
     if (['pkg_work_shifts','pkg_source_batches','pkg_grading_records','pkg_packing_records'].includes(table)) whereClauses.push('is_test = false');

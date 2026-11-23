@@ -14,7 +14,7 @@ export interface AttachmentUploaderProps {
   readOnly?: boolean;
   label?: string;
   apiBase?: string;
-  ownership?: {moduleCode: string;ownerType: string;ownerId: string;companyCode: string;storeCode?: string};
+  ownership?: {moduleCode: string;ownerType: string;ownerId: string;companyCode: string;storeCode?: string;financeReviewId?: string};
 }
 
 export function AttachmentUploader({ value, onChange, readOnly, label, apiBase, ownership }: AttachmentUploaderProps) {

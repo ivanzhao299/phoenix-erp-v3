@@ -8,6 +8,7 @@ import {readPinnedFile} from './production-trusted-paths.mjs';
 import {canonicalDigest,HASH,same} from './production-maintenance-receipts.mjs';
 import {INITIAL_MODERN_SCHEMA_PROFILE} from './production-modern-schema-facts.mjs';
 import {classifyModernSchemaDatabaseExecutors,MODERN_SCHEMA_EXECUTOR_SQL} from './production-modern-schema-executors.mjs';
+import {successorPlan} from './production-modern-schema-successor.mjs';
 const fail=code=>{throw Error('MODERN_SCHEMA_STOP_HOLD='+code);};
 const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const run=args=>{try{return execFileSync('/usr/bin/docker',args,{env:executionEnv(),encoding:'utf8',timeout:5000,maxBuffer:65536,stdio:['ignore','pipe','pipe']}).trim();}catch{fail('ORIGINAL_RUNTIME_OBSERVATION_UNRESOLVED');}};
@@ -36,7 +37,7 @@ const initialProfile=context=>context?.floorSha===INITIAL_MODERN_SCHEMA_PROFILE.
   context.pendingMigrations?.length===INITIAL_MODERN_SCHEMA_PROFILE.pendingCount;
 
 export function originalStalledTermBindingMatches(residual,context,containerId,startedAt){
-  return initialProfile(context)&&residual?.owner===context.owner&&residual.targetSha===context.targetSha&&
+  return (initialProfile(context)||successorPlan(context))&&residual?.owner===context.owner&&residual.targetSha===context.targetSha&&
     residual.containerId===containerId&&residual.startedAt===startedAt&&
     Number.isSafeInteger(residual.pid)&&residual.pid>1&&Date.parse(residual.recordedAt)>Date.parse(startedAt)&&
     Date.parse(residual.recordedAt)>=Date.parse(context.window?.start)&&Date.parse(residual.recordedAt)<Date.parse(context.window?.end)&&
@@ -145,7 +146,7 @@ export async function stopOriginalModernSchemaRuntime({originalSnapshot,privateR
   await check();const actual=observe();
   if(!actual.state.Running){stopped=actual;break;}
   if(now()>=deadline){
-   if(!stalledShutdown||!initialProfile(stalledShutdown.context))fail('ORIGINAL_TERM_TIMEOUT_KEEP_FENCED');
+   if(!stalledShutdown||!(initialProfile(stalledShutdown.context)||successorPlan(stalledShutdown.context)))fail('ORIGINAL_TERM_TIMEOUT_KEEP_FENCED');
    const read=stalledShutdown.readProtectedOutput??(file=>readPinnedFile(file,{contract:CONTRACT}));
    if(!read(first.stdout).equals(Buffer.from(before.id+'\n'))||read(first.stderr).length!==0||
        actual.state.Pid!==before.state.Pid||!same(stalledShutdown.snapshot,originalSnapshot.containers.api))
