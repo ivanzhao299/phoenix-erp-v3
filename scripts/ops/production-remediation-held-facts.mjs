@@ -141,6 +141,17 @@ async function inspectHeld(env){
   const result=compareHeldFacts(baseline,facts);
   const exit=await closeModernSchemaOriginalSession({coordinator:{close:()=>session.close()},lease,client:reader,guard:host});
   assert(exit.outcome==='ORIGINAL_SESSION_ABSENT'&&exit.transportClosed,'LEASE_EXIT');
+  const deltas=(items,observed,field)=>{
+   const key=r=>JSON.stringify([r.schema,r[field]]);
+   const index=new Map(observed.map(r=>[key(r),r]));
+   const previous=new Set(items.map(key));
+   return [...items.filter(r=>!index.has(key(r))||!same(r,index.get(key(r)))),
+    ...observed.filter(r=>!previous.has(key(r)))].map(r=>({schema:r.schema,name:r[field]}));
+  };
+  store.immutable('schema-release-held-facts-'+owner+'.json',{schema:'phoenix.held-facts-inspection/v1',
+   owner,originalOwner:heldOwner,executionSha:env.MODERN_SCHEMA_EXECUTION_SHA,pendingSha256:canonicalDigest(pending),
+   leaseExit:exit,originalBootAt:bootAt,checkedAt:new Date().toISOString(),result,
+   changedTables:deltas(baseline.tables,facts.tables,'table'),changedSequences:deltas(baseline.sequences,facts.sequences,'name')});
   return result;
  }finally{try{await reader.close();}finally{await session.close();}}
 }
