@@ -224,6 +224,7 @@ function ActorWorkbench({actor,mobile}:{actor:string;mobile:boolean}) {
   const drafts=savedIntents.filter(d=>d.companyCode===form.companyCode&&d.houseCode===form.houseCode&&d.eggDate===form.eggDate&&d.warehouseCode===form.warehouseCode);
   if(!p.canView)return <p>{t('productionInstallments.noPermission','无权查看生产交库。')}</p>;
   if(!restored)return <p>{t('common.loading','加载中…')}</p>;
+  const flockReviewPage = `/breeding/flock-lifecycle?${new URLSearchParams({review:'pending',houseCode:form.houseCode,date:form.eggDate})}#flock-documents`;
   return <main className={s.page}>
     {mobile&&<Link href="/mobile/home">{t('common.back','返回')}</Link>}
     <PageHeader title={t('productionInstallments.title','正式分次生产入库')} subtitle={t('productionInstallments.subtitle','按实际交接逐次入库，保留原单及不可改写的过账回执。')} />
@@ -234,7 +235,7 @@ function ActorWorkbench({actor,mobile}:{actor:string;mobile:boolean}) {
       {p.canEdit&&<a href="#handover" onClick={()=>setPendingOnly(true)}>{t('productionJobs.receive')}</a>}
       <a href="#history" onClick={()=>{setReviewOnly(false);setRecovered(null);}}>{t('productionInstallments.history')}</a>
       {p.canApprove&&<a href="#history" onClick={()=>setReviewOnly(true)}>{t('productionJobs.pendingReview')}</a>}
-      {!mobile&&flockAccess.canView&&flockApprove.canApprove&&<Link href={`/breeding/flock-lifecycle?${new URLSearchParams({review:'pending',houseCode:form.houseCode,date:form.eggDate})}#flock-documents`}>{t('productionJobs.flockReview')}</Link>}
+      {!mobile&&flockAccess.canView&&flockApprove.canApprove&&<Link href={flockReviewPage}>{t('productionJobs.flockReview')}</Link>}
       {!mobile&&(linkedFinance.canView||linkedFinance.canEdit||finance.canEdit)&&<Link href="/breeding/production-finance-review">{t('productionJobs.finance')}</Link>}
     </nav>
     {error&&<p role="alert" className={`${s.notice} ${s.error}`}>{error}</p>}{notice&&<p role="status" className={s.notice}><span>{notice}</span> {form.handoverRef&&<code>{form.handoverRef}</code>}</p>}
