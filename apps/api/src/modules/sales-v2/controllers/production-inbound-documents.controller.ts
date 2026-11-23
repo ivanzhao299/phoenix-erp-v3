@@ -1,5 +1,9 @@
 import { StrictBodyGuard } from '../../../common/guards/strict-body.guard';
 import { Body, Controller, Get, Param, Patch, Post, Query, Res, UseGuards } from '@nestjs/common';
+import { Readable } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
+import type { Response } from 'express';
+import type { StockBatchFilter } from '../services/production-stock-trace';
 import { AuthGuard } from '@nestjs/passport';
 import { MenuGuard, RequireMenu } from '../../../common/guards/menu.guard';
 import { DataScopeGuard } from '../../org/guards/data-scope.guard';
@@ -35,6 +39,19 @@ export class ProductionInboundDocumentsController {
   balance(@Query('companyCode') company: string,@Query('houseCode') house: string,
     @Query('eggDate') day: string,@Query('warehouseCode') warehouse: string) {
     return this.documents.balance(company,house,day,warehouse);
+  }
+  @Get('stock-batches') @RequireMenu('MENU_PROD_INBOUND','V')
+  stockBatches(@Query() q:StockBatchFilter & {companyCode:string;houseCode:string;eggDate:string;warehouseCode:string}) {
+    return this.documents.stockBatches(q.companyCode,q.houseCode,q.eggDate,q.warehouseCode,q);
+  }
+  @Get('stock-batches/export') @RequireMenu('MENU_PROD_INBOUND','V')
+  async exportStockBatches(@Query() q:StockBatchFilter & {companyCode:string;houseCode:string;eggDate:string;warehouseCode:string},
+    @Res() response:Response) {
+    await this.documents.exportStockBatches(q.companyCode,q.houseCode,q.eggDate,q.warehouseCode,q,async lines=>{
+      response.setHeader('Content-Type','text/csv; charset=utf-8');
+      response.setHeader('Content-Disposition','attachment; filename="production-stock.csv"');
+      await pipeline(Readable.from(lines),response);
+    });
   }
   @Get('recover') @RequireMenu('MENU_PROD_INBOUND','V')
   recover(@Query('companyCode') company: string,@Query('intentKey') intent?: string,@Query('handoverRef') handover?: string) {

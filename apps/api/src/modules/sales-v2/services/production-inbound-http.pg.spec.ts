@@ -989,6 +989,8 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
         JOIN inv_ledger l ON l.id=r.ledger_id JOIN production_batch_qualifications q ON q.batch_no=r.batch_no WHERE r.batch_no=$1`,[batchNo]);
       expect(receipt).toMatchObject({source_batch_no:parent,quantity:15,status:'QUARANTINE',qty:'15',qty_available:'0',
         sku_code:'SKU-GRADE_1',grade_code_std:'GRADE_1',variety_code:'EGG_RED',cost_status:'UNKNOWN',change_type:'SALE_RETURN',qty_change:'15',cost_change:null});
+      const trace=(await api(4,'get',`/stock-batches?companyCode=COMP-A&houseCode=HOUSE-A&eggDate=${day}&warehouseCode=WH-A&view=source&batchNo=${batchNo}`).expect(200)).body;
+      expect(trace.items).toMatchObject([{batchNo,attributableQty:15,batchQty:15,availableQty:0,status:'QUARANTINE',sources:[{kind:'RAW'}]}]);
       expect((await db.query('SELECT egg_date::text,expire_date::text,qty::text FROM inv_batches WHERE batch_no=$1',[parent]))[0])
         .toEqual({egg_date:receipt.egg_date,expire_date:receipt.expire_date,qty:'60'});
       expect((await db.query('SELECT (amount_original)::text AS amount FROM fin_ar_invoices WHERE source_id=$1 AND source_type=$2',[id,'SALES_RETURN'])))
@@ -1176,6 +1178,30 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
     expect((await groupApi(12).expect(200)).body.grossProfit).toBe(80);
     await db.query(`UPDATE sal_order_items SET quantity_snapshot='{"version":1,"basis":"BASE","baseQty":999,"factor":1}' WHERE id=1`);
     expect((await groupApi(12).expect(200)).body.grossProfit).toBeNull();
+  });
+  it('pages and exports the same authorized physical stock and signed origins over HTTP',async()=>{
+    const ids:string[]=[];
+    for(const qty of [30,70]){
+      const {ready}=await signedDraft(qty);
+      const receipt=(await api(1,'post',`/${ready.id}/post`).send({submitKey:ready.submit_key,contentHash:ready.content_hash}).expect(201)).body;
+      ids.push(receipt.batches[0].batchNo);
+    }
+    const query=`companyCode=COMP-A&houseCode=HOUSE-A&eggDate=${day}&warehouseCode=WH-A&view=source&gradeCode=GRADE_1`;
+    const page=(suffix='')=>api(4,'get','/stock-batches?'+query+suffix);
+    const first=(await page('&limit=1').expect(200)).body;
+    expect(first).toMatchObject({stockBasisVersion:2,nextCursor:ids[0],items:[{batchNo:ids[0],batchQty:30,attributableQty:30}]});
+    const last=(await page('&limit=1&after='+encodeURIComponent(first.nextCursor)).expect(200)).body;
+    expect(last).toMatchObject({nextCursor:null,items:[{batchNo:ids[1],attributableQty:70,sources:[{kind:'INBOUND',houseCode:'HOUSE-A'}]}]});
+    await page('&limit=201').expect(400);
+    const csv=await api(4,'get','/stock-batches/export?'+query+'&limit=1&after='+encodeURIComponent(first.nextCursor)).expect(200).expect('Content-Type',/text\/csv/);
+    const lines=csv.text.trimEnd().split('\r\n');
+    expect(lines).toHaveLength(3);
+    expect(lines[1]).toContain('"'+ids[0]+'"');
+    expect(lines[2]).toContain('"70","70","70","EXACT"');
+    for(const path of ['/stock-batches?','/stock-batches/export?']){
+      await api(6,'get',path+query).expect(403);
+      await api(7,'get',path+query).expect(403);
+    }
   });
   it('does not treat a qualified unknown production cost or failed cost query as a zero-margin result',async()=>{
     const {ready}=await signedDraft();const posted=(await api(1,'post',`/${ready.id}/post`).send({submitKey:ready.submit_key,contentHash:ready.content_hash}).expect(201)).body;

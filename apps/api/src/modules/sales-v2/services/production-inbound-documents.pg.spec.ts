@@ -315,13 +315,23 @@ fixture('formal installment documents — actual PostgreSQL 18 inventory and pro
     const p = input(100); const d = await ready(p); const first = await post(d);
     await db.query('UPDATE inv_batches SET qty=qty-40,qty_available=qty_available-40 WHERE batch_no=$1',[first.batches[0].batchNo]);
     await db.query(`INSERT INTO inv_ledger(batch_no,change_type,qty_change,ref_no) VALUES($1,'FIFO_OUT',-40,'SYNTHETIC-SALE')`,[first.batches[0].batchNo]);
-    const second = await post(await ready(input(900)));
+    const secondDocument = await ready(input(900));
+    const second = await post(secondDocument);
     expect(second.totalInbound).toBe(900); expect((await post(d)).totalInbound).toBe(100);
     expect((await service.create(p)).id).toBe(d.id);
     const balance = await service.balance('COMP-A','HOUSE-A',day,'WH-A');
     expect(balance.grades.GRADE_1).toEqual({ reported:1000,posted:1000,remaining:0 });
     expect((await db.query('SELECT sum(qty)::int AS quantity FROM inv_batches'))[0].quantity).toBe(960);
     expect((await service.get(d.id)).lines[0]).toMatchObject({ quantity:100,current_quantity:'60' });
+    expect(balance).toMatchObject({stockBasisVersion:2,currentStock:{GRADE_1:960},
+      stockByGrade:{GRADE_1:{attributableQty:960,warehouseQty:960,mixedBatchCount:0}}});
+    const [segment]=await db.query('SELECT id FROM production_inbound_allocations WHERE document_id=$1',[secondDocument.id]);
+    const {approved}=await reversal(secondDocument,[{allocationId:segment.id,quantity:30}]);
+    await post(approved);
+    expect(await service.balance('COMP-A','HOUSE-A',day,'WH-A')).toMatchObject({
+      stockByGrade:{GRADE_1:{attributableQty:930,warehouseQty:930}},grades:{GRADE_1:{reported:1000,posted:970,remaining:30}}});
+    expect((await post(d)).totalInbound).toBe(100);
+
   });
 
   it('two connections posting the same key yield one immutable receipt; changed hash has no effect', async () => {

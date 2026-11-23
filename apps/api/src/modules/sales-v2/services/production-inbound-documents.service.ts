@@ -20,7 +20,8 @@ import { INV_LEDGER_CHANGE_TYPE } from '../../wms/inv-ledger-change-types';
 import { guardedBatchUpdate } from '../../wms/inventory-guarded-update.util';
 import { assertOfficialInventoryBatches } from '../../wms/official-inventory';
 import { FileAccessService } from '../../file/file-access.service';
-import { officialInventoryPredicate } from '../../wms/official-inventory';
+import { StockBatch, StockBatchFilter, StockTraceScope, stockBatchQuery, stockByGrade,
+  stockCsvCell, validateStockFilter } from './production-stock-trace';
 import { lockQuantityPools } from '../../product-master/services/quantity-contract';
 
 export interface InboundDraftItem {
@@ -817,8 +818,61 @@ export class ProductionInboundDocumentsService {
     await m.query("UPDATE production_inbound_documents SET state='POSTED',version=version+1,receipt=$2,posted_at=now() WHERE id=$1",[d.id,JSON.stringify(receipt)]);
     return receipt;
   }
+  private async stockScope(company: string, house: string, day: string, warehouse: string): Promise<StockTraceScope> {
+    text(company,'公司'); text(house,'鸡舍'); text(warehouse,'仓库'); assertEggDate(day);
+    this.authorize(company,warehouse);
+    await this.context(company,house);
+    return {company,warehouse,house,day,authority:this.cls.get('dataScope') as DataScopeContext};
+  }
+
+  private async readStockScope(m: EntityManager, scope: StockTraceScope) {
+    const [active] = await m.query(`SELECT 1 FROM production_cutover_scopes s
+      JOIN wms_warehouses w ON w.company_code=s.company_code AND w.warehouse_code=$4
+      WHERE s.company_code=$1 AND s.house_code=$2 AND s.state IN ('ACTIVE','SUSPENDED')
+        AND s.first_production_date<=$3::date LIMIT 1`,
+      [scope.company,scope.house,scope.day,scope.warehouse]);
+    if (!active) throw new ConflictException('测试期记录已归档或该范围尚未启用');
+  }
+
+  async stockBatches(company:string,house:string,day:string,warehouse:string,filter:StockBatchFilter) {
+    const limit = validateStockFilter(filter);
+    const scope = await this.stockScope(company,house,day,warehouse);
+    return this.db.transaction('REPEATABLE READ',async m => {
+      await this.readStockScope(m,scope);
+      const {sql,args} = await stockBatchQuery(m,scope,filter);
+      const rows: StockBatch[] = await m.query(sql+' LIMIT $12',[...args,limit+1]);
+      const items = rows.slice(0,limit);
+      return {stockBasisVersion:2,items,nextCursor:rows.length>limit ? items[limit-1].batchNo : null};
+    });
+  }
+
+  async exportStockBatches(company:string,house:string,day:string,warehouse:string,filter:StockBatchFilter,
+    consume:(lines:AsyncIterable<string>)=>Promise<void>) {
+    validateStockFilter(filter);
+    const scope = await this.stockScope(company,house,day,warehouse);
+    await this.db.transaction('REPEATABLE READ', async m => {
+      await m.query('SET TRANSACTION READ ONLY');
+      await this.readStockScope(m,scope);
+      const {sql,args} = await stockBatchQuery(m,scope,{...filter,after:undefined});
+      await m.query('DECLARE stock_trace_export NO SCROLL CURSOR FOR '+sql,args);
+      async function* csv() {
+        yield '\uFEFF批次,档位,仓库,库位,SKU,单位,库存状态,库存分类,整批实存,可用量,本舍日归属量,归属状态,已授权来源\r\n';
+        for (;;) {
+          const rows: StockBatch[] = await m.query('FETCH FORWARD 200 FROM stock_trace_export');
+          if (!rows.length) return;
+          for (const row of rows) {
+            yield [row.batchNo,row.gradeCode,row.warehouseCode,row.locationCode,row.skuCode,row.unit,row.status,
+              row.inventoryClass,row.batchQty,row.availableQty,row.attributableQty,row.attribution,JSON.stringify(row.sources)]
+              .map(stockCsvCell).join(',')+'\r\n';
+          }
+        }
+      }
+      await consume(csv());
+    });
+  }
+
   async balance(company: string,house: string,day: string,warehouse: string) {
-    text(company,'公司');text(house,'鸡舍');text(warehouse,'仓库');this.authorize(company,warehouse); assertEggDate(day);
+    const stockScope = await this.stockScope(company,house,day,warehouse);
     return this.db.transaction(async m => {
       const identity = { company_code:company,house_code:house,production_date:day,payload:{ warehouseCode:warehouse } };
       const scope = await this.lockDay(m,identity,false,false); const reports = await this.reports(m,identity);
@@ -831,14 +885,14 @@ export class ProductionInboundDocumentsService {
         item.remaining=item.reported-item.posted;
         if (item.remaining<0 || item.posted<0) throw new ConflictException('正式额度异常，请核对原单及补偿');
       }
-      const current=await m.query(`SELECT b.grade_code_std AS grade,SUM(b.qty)::numeric AS quantity FROM inv_batches b
-        JOIN production_batch_qualifications q ON q.batch_no=b.batch_no WHERE b.company_code=$1 AND b.warehouse_code=$2
-        AND ${officialInventoryPredicate('b')} AND EXISTS(SELECT 1 FROM production_inbound_lines l JOIN production_inbound_documents d
-          ON d.id=l.document_id AND d.kind='INBOUND' AND d.state='POSTED' WHERE d.company_code=$1 AND d.house_code=$3
-          AND d.production_date=$4 AND (l.batch_no=b.batch_no OR EXISTS(SELECT 1 FROM production_batch_roots r
-            WHERE r.batch_no=b.batch_no AND r.root_batch_no=l.batch_no))) GROUP BY b.grade_code_std`,[company,warehouse,house,day]);
+      const stock = await stockByGrade(m,stockScope);
+      for (const grade of Object.keys(grades)) {
+        stock[grade] ??= {attributableQty:0,knownAttributableQty:0,warehouseQty:0,mixedBatchCount:0,unmeasuredBatchCount:0};
+      }
       return { scopeId:scope.id,scopeState:scope.state,firstProductionDate:scope.first_production_date,grades,
-        currentStock:Object.fromEntries(current.map((r:any)=>[r.grade,Number(r.quantity)])),
+        stockBasisVersion:2,stockByGrade:stock,
+        currentStock:Object.fromEntries(Object.entries(stock).filter(([,v])=>v.attributableQty!==null)
+          .map(([grade,v])=>[grade,v.attributableQty])),
         reports:reports.map(r => ({ id:r.id,shift:r.shift,reportHash:r.report_hash,grades:r.eggs_by_grade })) };
     });
   }
