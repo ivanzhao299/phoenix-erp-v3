@@ -127,8 +127,11 @@ function ActorLifecycle(){
     {confirmFlockNo&&<FlockBreedConfirmation key={confirmFlockNo} flockNo={confirmFlockNo} onClose={()=>setConfirmFlockNo('')}
       onConfirmed={({receiptId})=>{
         setConfirmFlockNo('');
-        void refresh().then(() => setMessage(receiptId ? `品种已确认，审计编号 ${receiptId}。可继续处理原单。` : '品种已确认。可继续处理原单。'))
-          .catch(() => setMessage('品种已确认，请刷新单据与审核时间线。'));
+        const confirmation = receiptId
+          ? t('breeding.breed.confirmedReceipt', '品种已确认，审计编号 {id}').replace('{id}', receiptId)
+          : t('breeding.breed.confirmed', '品种已确认');
+        void refresh().then(() => setMessage(`${confirmation} · ${t('breeding.breed.resumeDocument', '可继续处理原单。')}`))
+          .catch(() => setMessage(t('breeding.breed.refreshAfterConfirmation', '品种已确认，请刷新单据与审核时间线。')));
       }}/>}
 
     <p>存栏以审核过账的事件账为准。历史群须完成实盘签认后接续；清舍验收后才能换群。</p>
@@ -169,8 +172,8 @@ function ActorLifecycle(){
         <label>责任人<UserSelector ariaLabel="责任人" value={form.responsible} onChange={v=>field('responsible',v)}/></label>
         <label>业务原因及交接说明<textarea value={form.reason} onChange={e=>field('reason',e.target.value)}/></label>
       </div>
-      {selectedBaselineBreedNeedsReview&&<p role="status">该鸡群的遗传品种标准码待核对。可以先保存草稿，确认品种后再提交。
-        <button type="button" disabled={busy} onClick={()=>setConfirmFlockNo(form.flockNo)}>核对品种</button>
+      {selectedBaselineBreedNeedsReview&&<p role="status">{t('breeding.breed.draftNeedsConfirmation', '该鸡群的遗传品种标准码待核对。可以先保存草稿，确认品种后再提交。')}
+        <button type="button" disabled={busy} onClick={()=>setConfirmFlockNo(form.flockNo)}>{t('ui.核对品种', '核对品种')}</button>
       </p>}
       {house&&<AttachmentUploader value={evidence} onChange={v=>{setEvidence(v);setSourceKey(crypto.randomUUID());}} ownership={{moduleCode:'FLOCK_LIFECYCLE',ownerType:'HOUSE',ownerId:form.houseCode,companyCode:String(house.company_code),storeCode:String(house.site_code??'')}}/>}
       <p>业务来源编号：{sourceKey}（自动生成，供历史授权绑定）</p>
@@ -179,9 +182,9 @@ function ActorLifecycle(){
     <section id="flock-documents" className={css.panel}><h2>单据与审核时间线</h2><p>制单、审核、过账分开；已过账事实通过冲销保留原单。待售交付生成结算依据，财务另行审核入账。</p>
       {review&&<p>{t('productionJobs.flockReview')} · {review.house} {review.date} <button onClick={()=>setReview(null)}>{t('productionInstallments.history')}</button></p>}
       {docs.filter(d=>!review||['REPORT_CORRECTION','CLOSE'].includes(d.kind)&&['SUBMITTED','APPROVED'].includes(d.status)&&(!review.house||d.house_code===review.house)&&(!review.date||String(d.business_date).slice(0,10)===review.date)).map(d=><article className={css.document} key={d.id}><strong>{kindNames[d.kind]??d.kind} · {stateNames[d.status]}</strong><p>{d.flock_no||d.house_code} · {String(d.business_date).slice(0,10)} · {d.payload.quantity==null?'':`${String(d.payload.quantity)}羽`}</p><small>制单人 {d.created_by} · {String(d.payload.reason)}</small>
-        {d.breed_confirmation_required&&<p>品种标准码待核对。确认后可继续处理本单。</p>}
+        {d.breed_confirmation_required&&<p>{t('breeding.breed.documentNeedsConfirmation', '品种标准码待核对。确认后可继续处理本单。')}</p>}
         <div className={css.actions}><button disabled={busy} onClick={()=>showDetail(d.id)}>原单与事件</button>
-          {d.breed_confirmation_required&&<button type="button" disabled={busy} onClick={()=>setConfirmFlockNo(d.flock_no)}>核对品种</button>}
+          {d.breed_confirmation_required&&<button type="button" disabled={busy} onClick={()=>setConfirmFlockNo(d.flock_no)}>{t('ui.核对品种', '核对品种')}</button>}
           {d.status==='DRAFT'&&createAccess.canEdit&&<button disabled={busy||d.breed_confirmation_required} onClick={()=>run(()=>request(`${endpoint}/documents/${d.id}/submit`,{method:'POST',body:JSON.stringify({version:d.version})}),'已提交审核。')}>提交</button>}
           {d.status==='SUBMITTED'&&approveAccess.canApprove&&d.created_by!==access.user.username&&<button disabled={busy||d.breed_confirmation_required} onClick={()=>run(()=>request(`${endpoint}/documents/${d.id}/approve`,{method:'POST',body:JSON.stringify({version:d.version})}),'已审核。')}>审核</button>}
           {d.status==='APPROVED'&&postAccess.canEdit&&<button disabled={busy||d.breed_confirmation_required} onClick={()=>run(()=>request(`${endpoint}/documents/${d.id}/post`,{method:'POST',body:JSON.stringify({version:d.version})}),'已原子过账。')}>过账</button>}

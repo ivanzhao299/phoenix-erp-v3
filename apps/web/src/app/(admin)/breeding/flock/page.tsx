@@ -349,7 +349,9 @@ export default function FlockPage() {
       {confirmFlockNo && <FlockBreedConfirmation key={confirmFlockNo} flockNo={confirmFlockNo}
         onClose={() => setConfirmFlockNo(null)} onConfirmed={({ receiptId }) => {
           setConfirmFlockNo(null);
-          toast.success(receiptId ? `品种已确认，审计编号 ${receiptId}` : '品种已确认');
+          toast.success(receiptId
+            ? t('breeding.breed.confirmedReceipt', '品种已确认，审计编号 {id}').replace('{id}', receiptId)
+            : t('breeding.breed.confirmed', '品种已确认'));
           void load();
         }} />}
 
