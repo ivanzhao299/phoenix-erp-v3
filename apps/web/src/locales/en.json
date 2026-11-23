@@ -1,4 +1,8 @@
 {
+  "breeding.daily.partialMeasure": "some shifts unrecorded",
+  "breeding.daily.reviewGrades": "Reconcile the original grades before starting a new handover.",
+  "breeding.daily.notReported": "Not reported",
+  "breeding.daily.occupancy": "Occupancy ID",
   "dashboard.title": "Headquarters Portal Cockpit",
   "dashboard.eggs": "Total egg production today",
   "dashboard.stock": "total inventory",

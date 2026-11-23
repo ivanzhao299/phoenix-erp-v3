@@ -1,3 +1,4 @@
+import { assertReportGradeCoverage, normalizeReportGrades, requiredReportGrades } from './daily-report-grades';
 import { FileAccessService } from '../file/file-access.service';
 import { effectiveExactProductionByGrade, effectiveProductionReceiptQuantity, refreshDailyFlockLayRate } from './effective-production-source';
 import { hydrateMenuRegistry } from '../../common/guards/menu-registry.service';
@@ -118,7 +119,7 @@ export class FlockLifecycleService {
       if(typeof p.expectedReportHash!=='string'||(p.dailyLogId===0?p.expectedReportHash!=='ABSENT':! /^[a-f0-9]{64}$/.test(p.expectedReportHash)))throw new BadRequestException('请选择完整原日报快照');
       const c=p.correction;if(!c||typeof c!=='object'||Array.isArray(c)||Object.keys(c).some(k=>!['eggsByGrade','feedConsumed','waterConsumed','notes'].includes(k)))throw new BadRequestException('日报更正字段无效');
       if(!c.eggsByGrade||typeof c.eggsByGrade!=='object'||Array.isArray(c.eggsByGrade)||!Object.keys(c.eggsByGrade).length)throw new BadRequestException('请输入真实分级数量');
-      for(const [grade,n] of Object.entries(c.eggsByGrade)){text(grade,'等级');birdCount(n,'分级数量');}
+      normalizeReportGrades(c.eggsByGrade);
       for(const k of ['feedConsumed','waterConsumed'])if(c[k]!==null&&(typeof c[k]!=='number'||!Number.isFinite(c[k])||c[k]<0||c[k]>1e9))throw new BadRequestException('实际料水用量须为有效非负数');
       if(typeof c.notes!=='string'||c.notes.length>4000)throw new BadRequestException('备注长度超过限制');
     }
@@ -214,16 +215,31 @@ export class FlockLifecycleService {
       const z=p.originalZeroConfirmation;const [zero]=await m.query("SELECT id FROM brd_flock_documents WHERE id=$1 AND content_hash=$2 AND kind='CLOSE' AND status='POSTED' AND flock_no=$3 AND house_code=$4 AND business_date=$5 AND payload->>'finalProductionStatus'='CONFIRMED_ZERO'",[z.documentId,z.contentHash,d.flock_no,h.house_code,p.businessDate]);
       if(!zero)throw new ConflictException('被更正的原零产蛋声明不匹配，请重新核对');
     }
-    const c=p.correction,grades=c.eggsByGrade;
+    const c=p.correction,grades=normalizeReportGrades(c.eggsByGrade);
     const active=await m.query("SELECT grade_code,is_saleable FROM product_grades WHERE status='ACTIVE'");
-    const unchanged=canonical(grades)===canonical(r.eggs_by_grade??{});
-    if(!unchanged&&Object.keys(grades).some(k=>!active.some((x:any)=>x.grade_code===k)))throw new BadRequestException('更正包含未启用等级');
+    const unchanged=stored && canonical(grades)===canonical(r.eggs_by_grade);
+    if (!unchanged && Object.entries(grades).some(([code,qty]) =>
+      !active.some((x:any)=>x.grade_code===code) && !(Object.prototype.hasOwnProperty.call(r.eggs_by_grade??{},code) && Number(r.eggs_by_grade[code])===qty))) {
+      throw new BadRequestException('更正包含未启用等级');
+    }
+    const [cutover] = await m.query("SELECT to_regclass('production_cutover_scopes') AS scopes");
+    if (cutover?.scopes && (await m.query(`SELECT 1 FROM production_cutover_scopes
+        WHERE company_code=$1 AND house_code=$2 AND state<>'DRAFT' AND first_production_date<=$3`,
+        [d.company_code,h.house_code,p.businessDate])).length) {
+      const originalKeys = Object.keys(stored?.eggs_by_grade ?? {});
+      // Older signed forms keep their explicit zero grades even if the catalog changes.
+      assertReportGradeCoverage(grades, unchanged ? originalKeys : [...new Set([...originalKeys, ...await requiredReportGrades(m)])]);
+    }
     if(!unchanged&&(await m.query("SELECT 1 FROM inv_flock_source_links WHERE daily_log_id=$1 AND precision<>'EXACT' LIMIT 1",[r.id])).length)throw new BadRequestException('原产蛋已进入包装多来源或继承批次，先处理下游库存并核对来源，不可直接改分级');
     const used=await effectiveExactProductionByGrade(m,r.id);
     if([...used].some(([grade,n])=>n<0||n>Number(grades[grade]??0)))throw new BadRequestException('更正分级少于已接收/入库来源，请先处理下游库存');
     const receipt=await effectiveProductionReceiptQuantity(m,r.id);
     if(receipt<0||receipt>Object.values(grades).reduce((sum:number,n)=>sum+Number(n),0))throw new BadRequestException('更正总产蛋少于已交接来源');
-    const eggs=unchanged?Number(r.eggs_produced??0):active.filter((x:any)=>x.is_saleable).reduce((sum:number,x:any)=>sum+Number(grades[x.grade_code]??0),0);
+    // Keep the unchanged retired-grade contribution in the original saleable count.
+    const saleable = active.filter((grade:any)=>grade.is_saleable);
+    const saleableSum = (map:Record<string, number>) => saleable.reduce((sum:number,grade:any)=>sum+Number(map[grade.grade_code]??0),0);
+    const eggs = unchanged ? Number(r.eggs_produced??0) : Number(r.eggs_produced??0) + saleableSum(grades) - saleableSum(r.eggs_by_grade??{});
+    if (eggs < 0 || eggs > Object.values(grades).reduce((sum,qty)=>sum+qty,0)) throw new BadRequestException('原日报产蛋合计与分级不符，须核对销售分级依据');
     if(!stored){
       const [snapshot]=await m.query(`SELECT (SELECT closing_qty FROM brd_flock_daily_balances WHERE flock_no=$1 AND balance_date<=$2 ORDER BY balance_date DESC LIMIT 1) AS closing,
         COALESCE((SELECT opening_qty FROM brd_flock_daily_balances WHERE flock_no=$1 AND balance_date=$2),(SELECT closing_qty FROM brd_flock_daily_balances WHERE flock_no=$1 AND balance_date<$2 ORDER BY balance_date DESC LIMIT 1),0) AS opening,
@@ -237,7 +253,7 @@ export class FlockLifecycleService {
     }
     await m.query(`UPDATE brd_daily_logs SET eggs_by_grade=$2::jsonb,eggs_produced=$3::integer,dirty_eggs=$4::integer,broken_eggs=$5::integer,
       feed_consumed=$6,water_consumed=$7,note=$8,lay_rate=CASE WHEN closing_qty>0 THEN round($3::numeric*100/closing_qty,2) ELSE NULL END WHERE id=$1`,
-      [r.id,JSON.stringify(grades),eggs,grades.DIRTY??0,grades.BROKEN??0,c.feedConsumed,c.waterConsumed,c.notes]);
+      [r.id,JSON.stringify(unchanged ? r.eggs_by_grade : grades),eggs,grades.DIRTY??0,grades.BROKEN??0,c.feedConsumed,c.waterConsumed,c.notes]);
     await m.query('UPDATE brd_flock_balances SET version=version+1 WHERE flock_no=$1',[d.flock_no]);
     await refreshDailyFlockLayRate(m,d.flock_no);
     await this.event(m,d,actor,{kind:'REPORT_CORRECTION',occupancy:occ.id});

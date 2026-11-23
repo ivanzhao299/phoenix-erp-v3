@@ -9,7 +9,8 @@ import { useLanguage } from "@/contexts/LanguageContext";
 
 interface ProductionTrendRow {
   day: string;
-  eggs: number;
+  eggs: number | null;
+  report_count: number;
   dirty: number;
   broken: number;
   deaths: number;
@@ -49,7 +50,7 @@ function fmtDate(d: string | null | undefined) {
 }
 
 function fmtNum(n: number | null | undefined, dec = 0) {
-  if (n === null || n === undefined) return "0";
+  if (n === null || n === undefined) return "—";
   return Number(n).toLocaleString("zh-CN", { maximumFractionDigits: dec });
 }
 
@@ -102,10 +103,11 @@ export default function ProductionAnalyticsPage() {
   // 统计：仅在 reports 变化时重算（不再每次渲染全量 reduce/sort）
   const { totalEggs, avgDailyEggs, avgMortality, recent } = useMemo(() => {
     const total = Number(data?.totalEggs30Day ?? reports.reduce((s, r) => s + Number(r.eggs || 0), 0));
-    const avgDaily = reports.length > 0 ? total / reports.length : 0;
+    const reportedDays = reports.filter(row => row.report_count > 0);
+    const avgDaily = reportedDays.length ? total / reportedDays.length : null;
     const avgMort = reports.length > 0 ? reports.reduce((s, r) => s + Number(r.deaths || 0) + Number(r.elimination || 0), 0) / reports.length : 0;
     const recentList = [...reports].sort((a, b) => (b.day > a.day ? 1 : -1)).slice(0, 10);
-    return { totalEggs: total, avgDailyEggs: avgDaily, avgMortality: avgMort, recent: recentList };
+    return { totalEggs: reportedDays.length ? total : null, avgDailyEggs: avgDaily, avgMortality: avgMort, recent: recentList };
   }, [data?.totalEggs30Day, reports]);
 
   return (

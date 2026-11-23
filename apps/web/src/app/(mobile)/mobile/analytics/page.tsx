@@ -34,7 +34,7 @@ function BarChart({
       const barH = v / max * (height - 16);
       const x = i * w;
       return <g key={r.date}>
-            <rect x={`${x + w * 0.15}%`} y={height - barH - 16} width={`${w * 0.7}%`} height={barH} rx={2} fill={color} opacity={0.85} />
+            {r[valueKey] == null ? <text x={`${x + w / 2}%`} y={height - 18} textAnchor="middle" fill={t.textFaint}>—</text> : <rect x={`${x + w * 0.15}%`} y={height - barH - 16} width={`${w * 0.7}%`} height={barH} rx={2} fill={color} opacity={0.85} />}
             {/* Date label for first, last, and midpoint */}
             {(i === 0 || i === data.length - 1 || i === Math.floor(data.length / 2)) && <text x={`${x + w / 2}%`} y={height - 2} textAnchor="middle" fontSize={9} fill={t.textFaint}>
                 {r.date.slice(5)}
@@ -314,7 +314,7 @@ export default function AnalyticsPage() {
             </StatCard>
 
             {/* 日均产蛋 */}
-            <StatCard label={tr('mob.sys.daily_eggs', '日均产蛋')} value={s.avg_eggs.toLocaleString()} unit={tr('mob.sys.eggs_unit', '枚')} color="var(--status-warning)" prev={s.prev_avg_eggs}>
+            <StatCard label={tr('mob.sys.daily_eggs', '日均产蛋')} value={s.avg_eggs?.toLocaleString() ?? '—'} unit={tr('mob.sys.eggs_unit', '枚')} color="var(--status-warning)" prev={s.prev_avg_eggs ?? undefined}>
               {rows.length > 0 && <BarChart data={rows} valueKey="eggs" color="var(--status-warning)" height={60} />}
             </StatCard>
 
@@ -324,7 +324,7 @@ export default function AnalyticsPage() {
             </StatCard>
 
             {/* 饲料 */}
-            <StatCard label={tr('mob.sys.daily_feed', '日均饲料消耗')} value={s.avg_feed.toLocaleString()} unit="kg" color="var(--status-success)">
+            <StatCard label={tr('mob.sys.daily_feed', '日均饲料消耗')} value={s.avg_feed?.toLocaleString() ?? '—'} unit="kg" color="var(--status-success)">
               {rows.length > 0 && <BarChart data={rows} valueKey="feed" color="var(--status-success)" height={52} />}
             </StatCard>
 

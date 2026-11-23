@@ -94,8 +94,8 @@ fixture('formal installment documents — actual PostgreSQL 18 inventory and pro
       UPDATE production_cutover_scopes SET state='FENCED';
       UPDATE production_cutover_scopes SET state='ACTIVE',activated_at=now();
       INSERT INTO brd_daily_logs(house_code,flock_no,log_date,shift,eggs_by_grade,occupancy_id,company_code,farm_code,site_code)
-      ${mode==='DAILY'?`VALUES('HOUSE-A','FLOCK-A','${reportDay}','DAILY','{"GRADE_1":1000,"GRADE_2":100}','SYNTHETIC-OCC','COMP-A','FARM-A','SITE-A')`:
-        `VALUES('HOUSE-A','FLOCK-A','${reportDay}','AM','{"GRADE_1":100}','SYNTHETIC-OCC','COMP-A','FARM-A','SITE-A'),('HOUSE-A','FLOCK-A','${reportDay}','PM','{"GRADE_1":200}','SYNTHETIC-OCC','COMP-A','FARM-A','SITE-A')`};
+      ${mode==='DAILY'?`VALUES('HOUSE-A','FLOCK-A','${reportDay}','DAILY','{"GRADE_0":0,"GRADE_1":1000,"GRADE_2":100,"GRADE_3":0,"GRADE_4":0,"GRADE_5":0,"DIRTY":0,"BROKEN":0}','SYNTHETIC-OCC','COMP-A','FARM-A','SITE-A')`:
+        `VALUES('HOUSE-A','FLOCK-A','${reportDay}','AM','{"GRADE_0":0,"GRADE_1":100,"GRADE_2":0,"GRADE_3":0,"GRADE_4":0,"GRADE_5":0,"DIRTY":0,"BROKEN":0}','SYNTHETIC-OCC','COMP-A','FARM-A','SITE-A'),('HOUSE-A','FLOCK-A','${reportDay}','PM','{"GRADE_0":0,"GRADE_1":200,"GRADE_2":0,"GRADE_3":0,"GRADE_4":0,"GRADE_5":0,"DIRTY":0,"BROKEN":0}','SYNTHETIC-OCC','COMP-A','FARM-A','SITE-A')`};
       UPDATE product_skus SET status='ACTIVE'; UPDATE file_metadata SET status='ACTIVE';
       UPDATE sys_user SET status=1;`);
     scope = { isGlobal:false,allowedCompanyCodes:['COMP-A'],allowedWarehouseCodes:['WH-A'] };
@@ -1073,7 +1073,7 @@ fixture('formal installment documents — actual PostgreSQL 18 inventory and pro
   });
 
   it('moves genuine zero-available restricted stock without changing its state, grade, root or source profile', async () => {
-    await db.query(`UPDATE brd_daily_logs SET eggs_by_grade='{"DIRTY":100,"BROKEN":100}'`);
+    await db.query(`UPDATE brd_daily_logs SET eggs_by_grade='{"GRADE_0":0,"GRADE_1":0,"GRADE_2":0,"GRADE_3":0,"GRADE_4":0,"GRADE_5":0,"DIRTY":100,"BROKEN":100}'`);
     scope.allowedWarehouseCodes.push('WH-A2');const wms=new WmsService(db.manager,cls as any);
     for(const [grade,status] of [['DIRTY','QUARANTINE'],['BROKEN','DAMAGED']]) {
       const original=await post(await ready(input(100,grade)));const batch=original.batches[0].batchNo;

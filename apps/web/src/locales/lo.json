@@ -1,4 +1,8 @@
 {
+  "breeding.daily.partialMeasure": "ບາງກະຍັງບໍ່ໄດ້ບັນທຶກ",
+  "breeding.daily.reviewGrades": "ກວດສອບຊັ້ນໄຂ່ຕາມເອກະສານເດີມ ກ່ອນເລີ່ມສົ່ງມອບໃໝ່.",
+  "breeding.daily.notReported": "ຍັງບໍ່ລາຍງານ",
+  "breeding.daily.occupancy": "ລະຫັດການເຂົ້າໂຮງເຮືອນ",
   "dashboard.title": "ສໍານັກງານໃຫຍ່ Portal Cockpit",
   "dashboard.eggs": "ການຜະລິດໄຂ່ທັງຫມົດໃນມື້ນີ້",
   "dashboard.stock": "ສິນຄ້າຄົງຄັງທັງຫມົດ",

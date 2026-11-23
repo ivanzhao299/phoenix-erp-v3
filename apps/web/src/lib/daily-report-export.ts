@@ -62,5 +62,5 @@ export async function fetchDailyExport(
     ids.add(id);
   }
   onProgress(result.length);
-  return result.sort((a, b) => String(a.log_date).localeCompare(String(b.log_date)) || Number(a.id) - Number(b.id));
+  return result.sort((a, b) => String(a.log_date).localeCompare(String(b.log_date)) || String(a.id).localeCompare(String(b.id), 'en', { numeric: true }));
 }

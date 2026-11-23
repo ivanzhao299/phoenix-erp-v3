@@ -1,3 +1,4 @@
+import { assertNewHandoverGrades } from '../../farm/daily-report-grades';
 import { BadRequestException,ConflictException,ForbiddenException,Injectable,NotFoundException } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource,EntityManager } from 'typeorm';
@@ -66,9 +67,8 @@ export class OfficialRawCollectionService {
     if(schema?.header&&(await m.query(`SELECT 1 FROM wms_inbound h WHERE official_raw_reference_token(to_jsonb(h)->>'task_no')=ANY($1::text[])
       OR official_raw_reference_token(to_jsonb(h)->>'inbound_no')=ANY($1::text[]) LIMIT 1`,[tokens])).length)throw new ConflictException('已有仓库入库引用须逐实际原行领用，不能作为独立采集收据');
     const reports=await lockProductionSourceReports(m,{companyCode:d.company_code,houseCode:d.house_code,productionDate:d.production_date});
-    const grades=await m.query("SELECT grade_code FROM product_grades g WHERE status='ACTIVE' AND COALESCE((to_jsonb(g)->>'stock_managed')::boolean,true) FOR SHARE");
-    if(!grades.length||reports.some(r=>grades.some((g:Fact)=>!Object.prototype.hasOwnProperty.call(r.eggs_by_grade,g.grade_code))))
-      throw new ConflictException('原始收蛋须有完整分级日报，未填不能当作零');
+    // The signed handover freezes the approved report hash and its grade keys.
+    // Later catalog additions do not change the evidence a receiver signed.
     if(source.flock_code&&reports.some(r=>r.flock_no!==source.flock_code))throw new ConflictException('采集记录鸡群与原始日报占栏不一致');
     if((await m.query(`SELECT 1 FROM brd_medication_records WHERE flock_no=ANY($1::text[]) AND status<>'CANCELLED'
       AND start_date<=$2 AND(withdraw_until IS NULL OR withdraw_until>=$2) LIMIT 1`,[[...new Set(reports.map(r=>r.flock_no))],d.production_date])).length)
@@ -92,6 +92,9 @@ export class OfficialRawCollectionService {
     for(const s of sources){const r=reports.find(r=>Number(r.id)===s.dailyLogId);
       if(!r||r.report_hash!==s.reportHash||r.occupancy_id!==s.occupancyId||r.flock_no!==s.flockNo
         ||quantity(s.quantity)>Number(r.eggs_by_grade[s.gradeCode]??0))throw new ConflictException('原始收蛋分段与已签日报、占栏、等级或数量不一致');}
+    if (handover.payload.gradeCoverageVerified !== true) {
+      await assertNewHandoverGrades(m, reports.filter(report => sources.some(source => source.dailyLogId === Number(report.id))));
+    }
     const total=assertRawCollectionTotals(source,sources as Array<{gradeCode:string;quantity:number}>);
     const [route]=await m.query('SELECT entry_mode FROM brd_egg_day_routes WHERE company_code=$1 AND house_code=$2 AND production_date=$3',
       [d.company_code,d.house_code,d.production_date]);

@@ -13,7 +13,7 @@ import s from '@/components/breeding/ProductionInboundWorkbench.module.css';
 
 interface House {houseCode:string;companyCode:string;siteCode?:string}
 interface Basis {house_code:string;flock_no:string;occupancy_id:string|null;current_qty:number|null}
-interface Report {id:number;shift:string;flock_no:string;eggs_by_grade:Record<string,number>|null;feed_consumed:number|null;water_consumed:number|null;note:string|null}
+interface Report {grade_status?:'RECORDED'|'REVIEW_REQUIRED';id:number;shift:string;flock_no:string;eggs_by_grade:Record<string,number>|null;feed_consumed:number|null;water_consumed:number|null;note:string|null}
 interface Draft {quantities:Record<string,string>;feed:string;water:string;note:string}
 const empty=():Draft=>({quantities:{},feed:'',water:'',note:''});
 const day=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Singapore'}).format(new Date());
@@ -58,8 +58,13 @@ export default function ProductionReports(){
       <label className={s.field}>{t('productionInstallments.shift','来源班次')}<DictSelect dictType="PRODUCTION_REPORT_SHIFT" ariaLabel={t('productionInstallments.shift','来源班次')} value={shift} onChange={setShift}/></label>
       <label className={s.field}>{t('productionReports.flock','有效占栏鸡群')}<input readOnly value={basis?.flock_no??''}/></label></div>
       {house&&state!=='ACTIVE'&&<p>{t('productionReports.closed','该范围尚未启用或已暂停，请先核对切换状态。')}</p>}
+      {reports.length>0&&<div className={s.actions}>{reports.map(record=><button key={record.id} type="button" disabled={record.shift===shift} onClick={()=>setShift(record.shift)}>{record.shift} · #{record.id}</button>)}</div>}
       {prior?<div className={s.notice}><p>{t('productionReports.existing','该班次已有原日报，以下为原始记录；更正请走审核单。')}</p>
-        {grades.map(g=><p key={g.grade_code}>{localizedMasterName(g as unknown as Record<string,unknown>,'grade_name',lang)||g.grade_code}: {prior.eggs_by_grade?.[g.grade_code]??'—'}</p>)}</div>:
+        {prior.grade_status==='REVIEW_REQUIRED'&&<p role="status">{t('breeding.daily.reviewGrades','历史分级须核对原单后才能发起新的交接。')}</p>}
+        {Object.entries(prior.eggs_by_grade??{}).map(([code,qty])=>{
+          const grade=grades.find(g=>g.grade_code===code);
+          return <p key={code}>{grade?localizedMasterName(grade as unknown as Record<string,unknown>,'grade_name',lang)||code:code}: {typeof qty==='number'||typeof qty==='string'?qty:'—'}</p>;
+        })}</div>:
       <><div className={s.grid}>{grades.map(g=><label className={s.field} key={g.grade_code}>
         {localizedMasterName(g as unknown as Record<string,unknown>,'grade_name',lang)||g.grade_code}
         <input aria-label={g.grade_code} type="number" inputMode="numeric" step="1" min="0" disabled={!ready||busy||!permission.canEdit} value={draft.quantities[g.grade_code]??''}

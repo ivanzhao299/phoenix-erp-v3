@@ -243,7 +243,7 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
       INSERT INTO production_inventory_domains VALUES('30000000-0000-0000-0000-000000000001','COMP-A','WH-A','PRD-EGG-RAW');
       UPDATE production_cutover_scopes SET state='FENCED';UPDATE production_cutover_scopes SET state='ACTIVE',activated_at=now();
       ${emptyReports?'':`INSERT INTO brd_daily_logs(house_code,flock_no,log_date,shift,eggs_by_grade,occupancy_id,company_code,farm_code,site_code)
-        VALUES('HOUSE-A','FLOCK-A','2026-11-18','DAILY','{"GRADE_1":1000,"GRADE_2":100}','HTTP-OCC','COMP-A','FARM-A','SITE-A');`}
+        VALUES('HOUSE-A','FLOCK-A','2026-11-18','DAILY','{"GRADE_0":0,"GRADE_1":1000,"GRADE_2":100,"GRADE_3":0,"GRADE_4":0,"GRADE_5":0,"DIRTY":0,"BROKEN":0}','HTTP-OCC','COMP-A','FARM-A','SITE-A');`}
 
       UPDATE product_skus SET status='ACTIVE';UPDATE file_metadata SET status='ACTIVE';UPDATE sys_user SET status=1;`);
     await db.query(`UPDATE md_egg_source_profiles SET product_mode='VARIANT',variety_code='EGG_RED' WHERE profile_code='PROFILE-A';

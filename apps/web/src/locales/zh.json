@@ -1,4 +1,8 @@
 {
+  "breeding.daily.partialMeasure": "部分班次未记录",
+  "breeding.daily.reviewGrades": "历史分级须核对原单后才能发起新的交接。",
+  "breeding.daily.notReported": "未报",
+  "breeding.daily.occupancy": "占栏记录",
   "dashboard.title": "总部门户驾驶舱",
   "dashboard.eggs": "今日产蛋总量",
   "dashboard.stock": "总库存量",

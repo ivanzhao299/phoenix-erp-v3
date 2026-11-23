@@ -42,7 +42,7 @@ export function DailyReportExport({ grades }: { grades: ProductGrade[] }) {
       if (!rows.length) { setError(t('breeding.daily.exportEmpty', '所选日期没有可导出的日报')); return; }
       const fields = [
         ['log_date', 'common.date', '日期'], ['farm_code', 'ui.农场', '农场'], ['house_code', 'ui.鸡舍', '鸡舍'],
-        ['shift', 'ui.班次', '班次'], ['eggs_produced', 'ui.产蛋数', '产蛋数'],
+        ['row_kind', 'ui.类型', '类型'], ['occupancy_id', 'breeding.daily.occupancy', '占栏记录'], ['flock_no', 'ui.批次号', '批次号'], ['shift', 'ui.班次', '班次'], ['eggs_produced', 'ui.产蛋数', '产蛋数'],
         ['dirty_eggs', 'ui.脏蛋', '脏蛋'], ['broken_eggs', 'ui.破损蛋', '破损蛋'],
         ['mortality_qty', 'ui.死亡', '死亡'], ['mortality_reason', 'ui.死亡原因', '死亡原因'],
         ['elimination_qty', 'ui.淘汰数', '淘汰数'], ['culling_reason', 'ui.淘汰原因', '淘汰原因'],

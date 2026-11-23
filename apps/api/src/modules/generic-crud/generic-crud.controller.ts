@@ -459,6 +459,21 @@ export class GenericCrudController {
     return { task_no: taskNo, items: [item] };
   }
 
+  @Get('brd_daily_logs/export')
+  @Header('Cache-Control', 'no-store')
+  async exportDailyReports(@Query() query: Record<string, unknown>, @Req() req: any) {
+    this.checkTableAccess('brd_daily_logs', req, 'GET');
+    if (!hasPerm(req.user?.permissions, 'MENU_FARM_DAILY', 'X')) throw new ForbiddenException('缺少日报导出权限');
+    const date = query.log_date;
+    if (typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date)
+        || !Number.isFinite(Date.parse(date)) || new Date(date).toISOString().slice(0, 10) !== date) {
+      throw new BadRequestException('日报日期必须为真实 YYYY-MM-DD');
+    }
+    const scope = await this.resolveTableScope('brd_daily_logs', req, 'GET');
+    const data = await this.crudService.exportDailyReports(date, query, scope);
+    return { code: 200, data };
+  }
+
   @Get(':table')
   @Header('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate')
   async findAll(@Param('table') table: string, @Query() query: any, @Req() req: any) {

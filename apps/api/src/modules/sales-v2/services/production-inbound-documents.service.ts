@@ -1,4 +1,5 @@
 import { assertFlockOpenForHandover } from '../../farm/flock-handover-blockers';
+import { assertNewHandoverGrades } from '../../farm/daily-report-grades';
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
@@ -210,6 +211,7 @@ export class ProductionInboundDocumentsService {
       const scope=await this.lockDay(m,identity);
       await assertFlockOpenForHandover(m,input.companyCode,input.houseCode,input.eggDate);
       const reports=await this.reports(m,identity);
+      await assertNewHandoverGrades(m, reports.filter(report => input.segments.some(segment => Number(report.id) === segment.dailyLogId)));
       const sources=input.segments.map(a=>{
         count(a.quantity);count(a.dailyLogId);text(a.gradeCode,'等级');text(a.evidenceFileId,'原证据');
         const r=reports.find(r=>Number(r.id)===a.dailyLogId);
@@ -226,7 +228,7 @@ export class ProductionInboundDocumentsService {
         assertRawCollectionTotals(source,sources);
         rawCollection={sourceBatchId:source.id,batchCode:source.batch_code,shiftId:source.shift_id,sourceHash:productionContentHash(source),sourceSnapshot:source};
       }
-      const payload={warehouseCode:input.warehouseCode,sources,...(rawCollection?{rawCollection}:{})};const hash=productionContentHash({company:input.companyCode,
+      const payload={warehouseCode:input.warehouseCode,sources,gradeCoverageVerified:true,...(rawCollection?{rawCollection}:{})};const hash=productionContentHash({company:input.companyCode,
         house:input.houseCode,day:input.eggDate,handoverRef:input.handoverRef,payload});
       const [doc]=await m.query(`INSERT INTO production_physical_handovers(id,company_code,house_code,production_date,scope_id,
         handover_ref,content_hash,creation_hash,payload,created_by,replaces_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
@@ -444,6 +446,9 @@ export class ProductionInboundDocumentsService {
     if(!handover||handover.house_code!==d.house_code||handover.production_date!==d.production_date||handover.scope_id!==d.scope_id
       ||handover.payload.warehouseCode!==d.payload.warehouseCode
       ||handover.created_by===handover.confirmed_by)throw new ConflictException('须先由收发双方确认绑定日报、占栏、班次、档位和数量的实物交接');
+    if (handover.payload.gradeCoverageVerified !== true) {
+      await assertNewHandoverGrades(m, reports.filter(report => handover.payload.sources.some((source: FormalSourceAllocation) => source.dailyLogId === Number(report.id))));
+    }
     await this.handoverEvidence(m,d,handover.payload.sources,handover.created_by);
     const physicalRemaining=new Map<string,number>(handover.payload.sources.map((a:any)=>[`${a.dailyLogId}:${a.gradeCode}`,Number(a.quantity)]));
     const usage = await this.usage(m,d);

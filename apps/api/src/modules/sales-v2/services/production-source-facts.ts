@@ -1,3 +1,4 @@
+import { assertStoredReportGrades } from '../../farm/daily-report-grades';
 import { ConflictException } from '@nestjs/common';
 import { OrgOwnershipService } from '../../org/services/org-ownership.service';
 import { createHash } from 'crypto';
@@ -66,9 +67,7 @@ export async function lockProductionSourceReports(m:EntityManager,d:{companyCode
     WHERE d.house_code=$2 AND d.log_date=$3 ORDER BY d.id FOR UPDATE OF d`,[d.companyCode,d.houseCode,d.productionDate]);
   if(!reports.length||reports.some(r=>r.shift==='DAILY')&&reports.length>1)
     throw new ConflictException('缺少已确认且占栏明确的分级日报，或DAILY与班次日报重复覆盖');
-  if(reports.some(r=>!r.eggs_by_grade||typeof r.eggs_by_grade!=='object'||Array.isArray(r.eggs_by_grade)
-    ||Object.values(r.eggs_by_grade).some(v=>!Number.isSafeInteger(v)||Number(v)<0)))
-    throw new ConflictException('日报分级数量必须为非负整数，不能猜测来源');
+  for (const report of reports) assertStoredReportGrades(report.eggs_by_grade);
   return reports.map(r=>({...r,report_hash:productionContentHash(r)}));
 }
 

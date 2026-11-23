@@ -7,7 +7,7 @@ import { GenericCrudController } from './generic-crud.controller';
 import { GenericCrudService } from './generic-crud.service';
 import { DataScopeService } from '../org/services/data-scope.service';
 import { WmsService } from '../wms/wms.service';
-import { AuthSubcodeGuard } from '../../common/guards/auth-subcode.guard';
+import { AuthGuard } from '@nestjs/passport';
 
 const fixtureUrl = process.env.ISSUE403_FIXTURE_URL;
 const integration = fixtureUrl ? describe : describe.skip;
@@ -36,7 +36,7 @@ integration('Issue 403 daily export HTTP + PostgreSQL (isolated fixture)', () =>
         { provide: DataScopeService, useValue: { resolve: async (userId: string) => ({ isGlobal: userId === 'admin', allowedCompanyCodes: [userId === 'b' ? 'COMP-B' : 'COMP-A'], allowedSiteCodes: [userId === 'b' ? 'SITE-B' : 'SITE-A'], allowedFarmCodes: [userId === 'b' ? 'FARM-B' : 'FARM-A'], allowedBreedingCompanyCodes: [userId === 'b' ? 'COMP-B' : 'COMP-A'], allowedBreedingSiteCodes: [], allowedBreedingFarmCodes: [] }) } },
         { provide: WmsService, useValue: {} }, { provide: ClsService, useValue: { set: () => {} } },
       ],
-    }).overrideGuard(AuthSubcodeGuard).useValue({ canActivate(context: { switchToHttp: () => { getRequest: () => { headers: Record<string, string>; user?: unknown } } }) {
+    }).overrideGuard(AuthGuard('jwt')).useValue({ canActivate(context: { switchToHttp: () => { getRequest: () => { headers: Record<string, string>; user?: unknown } } }) {
       // Fixture identities replace JWT verification only. Actual controller RBAC/scope/SQL run below.
       const req = context.switchToHttp().getRequest(); const user = req.headers['x-fixture-user'] || 'a';
       req.user = { userId: user, username: user, roles: [user === 'admin' ? 'ROLE_ADMIN' : 'ROLE_FARM'], storeCode: user === 'b' ? 'SITE-B' : 'SITE-A', permissions: user === 'admin' ? ['*'] : user === 'no-export' ? ['MENU_FARM_DATA:V'] : user === 'no-view' ? ['MENU_FARM_DAILY:X'] : ['MENU_FARM_DATA:V', 'MENU_FARM_DAILY:X'] }; return true;

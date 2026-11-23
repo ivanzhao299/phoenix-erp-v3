@@ -623,7 +623,7 @@ export default function MobileDashboardPage() {
           gridTemplateColumns: 'repeat(2,1fr)',
           gap: 8
         }}>
-              <StatCard label={tt('mob.home.today_eggs', '今日产蛋')} value={fmt(todayEggs)} unit={tt('mob.home.unit_egg', '枚')} color="var(--status-warning)" />
+              <StatCard label={tt('mob.home.today_eggs', '今日产蛋')} value={showFarmFull && !farmReport?.totals?.logged_houses ? '—' : fmt(todayEggs)} unit={tt('mob.home.unit_egg', '枚')} color="var(--status-warning)" />
               <StatCard label={tt('mob.home.lay_rate', '产蛋率')} value={layRate != null ? `${layRate}%` : '—'} color="var(--status-success)" />
               <StatCard label={tt('mob.home.stock_count', '存栏数')} value={fmt(layingTotal)} unit={tt('mob.home.unit_bird', '只')} />
               <StatCard label={tt('mob.home.today_mortality', '今日死淘')} value={showFarmFull ? farmReport ? fmt(farmMortality) : '—' : '—'} unit={tt('mob.home.unit_bird', '只')} color={farmMortality > 0 ? 'var(--status-danger)' : undefined} />

@@ -253,11 +253,12 @@ export interface HenReportRow {
   house_code:     string;
   house_name?:    string | null;
   flock_no:       string;
-  current_qty:    number;
+  has_daily_log: boolean;
+  current_qty:    number | null;
   initial_qty:    number;
   age_days:       number | null;
   eggs:           number;
-  lay_rate:       string;
+  lay_rate:       string | null;
   mortality:      number;
   elimination:    number;
   total_loss:     number;
@@ -265,7 +266,10 @@ export interface HenReportRow {
   broken?:        number;
   culling_reason: string | null;
   mortality_reason: string | null;  // G27-D: 与 PC G19-A 同步
-  feed:           number;
+  feed:           number | null;
+  water: number | null;
+  feed_missing: number;
+  water_missing: number;
 }
 
 export interface DailyHenReport {
@@ -273,22 +277,23 @@ export interface DailyHenReport {
   date:    string;
   rows:    HenReportRow[];
   totals: {
+    logged_houses: number;
     current_qty: number;
     eggs:        number;
-    lay_rate:    string;
+    lay_rate:    string | null;
     mortality:   number;
     elimination: number;
     total_loss:  number;
-    feed:        number;
+    feed:        number | null;
   };
 }
 
 export interface TrendRow {
   date:        string;
-  eggs:        number;
+  eggs:        number | null;
   mortality:   number;
   elimination: number;
-  feed:        number;
+  feed:        number | null;
 }
 
 export interface FarmTrend {
@@ -297,12 +302,12 @@ export interface FarmTrend {
   rows:    TrendRow[];
   summary: {
     current_days:    number;
-    avg_eggs:        number;
+    avg_eggs:        number | null;
     avg_mortality:   number;
     avg_elimination: number;
-    avg_feed:        number;
+    avg_feed:        number | null;
     lay_rate:        string;
-    prev_avg_eggs:   number;
+    prev_avg_eggs:   number | null;
     prev_lay_rate:   string;
     total_qty:       number;
   };
