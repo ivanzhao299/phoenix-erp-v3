@@ -44,6 +44,9 @@ const EARLY_NATIVE_STAGES=new Set(HOLD_STAGES.slice(1,HOLD_STAGES.indexOf('R_STO
 const HOLD_CODES=new Set([
  'MODERN_SCHEMA_SUPERVISOR_HOLD=INSUFFICIENT_WINDOW_BEFORE_FENCE',
  'MODERN_SCHEMA_WATCH_HOLD=ORIGINAL_PREPARATION_REQUIRED',
+ 'MODERN_SCHEMA_EXECUTORS_HOLD=UNKNOWN_OR_CROSS_DATABASE_CLIENT',
+ 'BACKGROUND_HOLD=CONTROL_SESSION_TIMEOUT',
+ 'MAINTENANCE_HOLD=ROOT_READER_BOUNDED_READ_FAILED',
  'MODERN_SCHEMA_WATCH_HOLD=ORIGINAL_OWNED_READ_CHANNEL_REQUIRED',
  'MODERN_SCHEMA_WATCH_HOLD=UNREGISTERED_HOST_EXECUTOR',
  'MODERN_SCHEMA_WATCH_HOLD=UNREGISTERED_FOREIGN_CONTAINER',
@@ -220,7 +223,7 @@ export async function superviseModernSchemaRelease(env,input){
  if(Boolean(handoff)!==Boolean(preparation.handoffSha256))fail('HELD_PREPARATION_CHANGED');
  if(preparation.successorDecisions)checkHeldWindow(handoff,context.window);
  if(handoff){
-  if(canonicalDigest(handoff.entry)!==preparation.handoffSha256)fail('HELD_PREPARATION_CHANGED');
+  if(handoff.handoffSha256!==preparation.handoffSha256)fail('HELD_PREPARATION_CHANGED');
   retainedNative=await checkHeldNative({handoff,store,runtime,admit:async()=>{runtime.guard();return true;}});
  }
  const sessionDirectory=runtime.createDirectory(context.owner,'session');

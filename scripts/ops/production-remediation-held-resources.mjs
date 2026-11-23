@@ -8,6 +8,18 @@ import {readPinnedFile} from './production-trusted-paths.mjs';
 import {successorBinding,validateSuccessorInspection} from './production-modern-schema-successor.mjs';
 const owner='45144287071-1',inspectionOwner='45141252692-1';
 const continuationPreviewOwner='45175249756-1';
+const drainedPreviewOwner='45223920315-1',drainedOwner='45228188093-1';
+const drainedTarget='3e2ea4ea4de5ccbc102f1e17ae4dbc48c0cfb8e2';
+const drainedIdentities=new Map([
+ ['26706d7aff6912e1455ec371485ddf4751ff08686e6cf4ff83de77df964a5f37','397097291f6726acefbcf2ac368ae5ea3b18c9a5c6a97e2ded5393fb5ff51e17'],
+ ['3eae2d372fcca4ed678d192124e5b278619faa18b291dd7f47cf4090e37790ed','da0b9228037b500a2615c3861524c3e50421844fb827a251d8b25abb4d0e7df6'],
+ ['5ec90c8f4e1fdad1e8f82203c24b74517d234cac58fe09c76106f786c31788ec','e6977cac5410b64dfff4a60b2f1d0a9cb51f81ff7d02d047bdc8bc5c40dadc23'],
+ ['60bcd88687b40bc0415d3df4a54a17d2f318a174f0cd594811ae01f9ce3c5a06','1a9b6991c4e3492e0c4a142ad744ce888a72bb9264ce5d1e5ab0bc789f1d3d3c'],
+ ['7a45af371596a3d5b9f75c81235469a829c740d2190562da47f3e7cdc38f903f','f00dba98e6a34b8a79d06536e0996dcd3335667f73448ba96bd3982da2a5a9cf'],
+ ['d55fd3d1d5d99df05983d76e06a833d350575f48ac7aa22904da809021de1ed4','4ff27dfe5a99079eb747123e81680f41304e79873fa7771f3138ba94bbc0f417'],
+ ['fdd488dd1c356316543e162eca74eaf2b44d533692ad15f4ef8ceb27627a8a05','41d9b8f7a1cb36253382ad979feaa1072a73bcb840178ce4e65c98b1825f852a'],
+]);
+const superviseProbe='d55fd3d1d5d99df05983d76e06a833d350575f48ac7aa22904da809021de1ed4';
 const continuationPreviewDigest='8458aab8137fd7d7b6acdd9737accd08ef8f9a5d471dfe46bec65086e6953374';
 const artifact='RETAINED_1123_FENCED_ATTEMPT';
 const preparationDigest='9df223b69e845f63f3b517c77ff847d8d65269bd1ab5d207dcae0affbeb61b91';
@@ -27,10 +39,12 @@ const checkedFile=file=>{
  const stat=fs.lstatSync(file);check(stat.size>0&&stat.size<=2*1024*1024,'CAPSULE_EVIDENCE_SIZE');
  return readPinnedFile(file,{contract:CONTRACT});
 };
-export function oldResourceOwner(value,extended=false){return value===owner||value===inspectionOwner||extended&&value===continuationPreviewOwner;}
+export function oldResourceOwner(value,extended=false,settled=false){
+ return value===owner||value===inspectionOwner||extended&&value===continuationPreviewOwner||settled&&[drainedPreviewOwner,drainedOwner].includes(value);
+}
 export function isHeldResource(value){return value?.classification===artifact;}
 
-export function readHeldCapsules(store,{entry:anchor,extended},read=checkedFile){
+export function readHeldCapsules(store,{entry:anchor,extended,settlement,handoffSha256},read=checkedFile){
  const arch=store.read('schema-release-operator-archive-'+anchor.recoveryOwner+'.json');
  check(anchor.owner===owner&&anchor.archiveSha256===canonicalDigest(arch)&&
   arch.pending.stateDigest==='c8415dc078bcfa3546e47f567031adb5495632a76a17ab86a7abab3178d4c9dc'&&arch.schemaChanged===false&&
@@ -78,14 +92,42 @@ export function readHeldCapsules(store,{entry:anchor,extended},read=checkedFile)
    result.set(record.containerId,{record,identity:record.identitySha256});
   }
  }
- check(result.size===(extended?18:12),'EXACT_CAPSULE_SET');
- return {anchor:canonicalDigest(anchor),pins:result,extended};
+ if(settlement){
+  const preview=store.read('schema-release-1123-inspect-'+drainedPreviewOwner+'.json');
+  validateSuccessorInspection(preview,successorBinding(preview.binding.floorSha,preview.binding));
+  check(preview.owner===drainedPreviewOwner&&preview.binding.targetSha===drainedTarget&&preview.resourcePins.length===6&&
+   preview.inspectionSha256==='c692e807b37eb63fbbad521094bae9b61a9c316c9c999002184b87602b494d35','EXACT_DRAINED_PREVIEW');
+  for(const record of preview.resourcePins){
+   check(record.owner===drainedPreviewOwner&&!result.has(record.containerId)&&/^[a-f0-9]{64}$/.test(record.identitySha256),'DRAINED_PREVIEW_PIN');
+   result.set(record.containerId,{record,identity:record.identitySha256});
+  }
+  const prepared=store.read('schema-release-preparation-'+drainedOwner+'.json');
+  const {preparationSha256,...preparedContent}=prepared;
+  check(preparationSha256==='271443ca5ccae853a353033267ce0d8d7b92be6f87ff74c48a39f9f23ba3ce43'&&
+   canonicalDigest(preparedContent)===preparationSha256&&prepared.context.owner===drainedOwner&&prepared.context.targetSha===drainedTarget&&
+   prepared.ownedResources.length===6&&
+   prepared.oldRuntimeCompatibility.resources.length===5,'DRAINED_FAILED_PREPARATION');
+  const capsule=path.join(store.directory,'schema-release-prepare-rehearsal-'+drainedOwner);
+  check(same(JSON.parse(read(path.join(capsule,'rehearsal-receipt.json'))),prepared.oldRuntimeCompatibility),'DRAINED_ISOLATED_REHEARSAL');
+  const inventory=prepared.ownedResources.find(record=>record.role==='readonly-inventory');
+  check(inventory?.owner===drainedOwner&&inventory.imageId===prepared.context.candidateImageId&&inventory.revision===drainedTarget,'DRAINED_OWNED_INVENTORY');
+  for(const record of prepared.oldRuntimeCompatibility.resources){
+   check(record.owner===drainedOwner&&prepared.ownedResources.some(entry=>same(record,entry))&&
+    same(JSON.parse(read(path.join(capsule,'created-'+record.containerId+'.json'))),record),'DRAINED_CREATED_RESOURCE');
+  }
+  for(const record of [...prepared.ownedResources,{...inventory,containerId:superviseProbe}]){
+   check(drainedIdentities.has(record.containerId)&&!result.has(record.containerId),'DRAINED_PROTECTED_CID');
+   result.set(record.containerId,{record,identity:drainedIdentities.get(record.containerId)});
+  }
+ }
+ check(result.size===(settlement?31:extended?18:12),'EXACT_CAPSULE_SET');
+ return {anchor:handoffSha256??canonicalDigest(anchor),pins:result,extended,settled:Boolean(settlement)};
 }
 
 export function heldCapsulePin(candidate,source){
  const prior=source.pins.get(candidate.id),record=prior?.record;
  const role=candidate.labels?.['phoenix.schema.role'],formerOwner=candidate.labels?.['phoenix.schema.owner'];
- check(prior&&record.containerId===candidate.id&&record.role===role&&record.owner===formerOwner&&oldResourceOwner(formerOwner,source.extended)&&
+ check(prior&&record.containerId===candidate.id&&record.role===role&&record.owner===formerOwner&&oldResourceOwner(formerOwner,source.extended,source.settled)&&
   candidate.imageId===record.imageId&&candidate.state.Status==='exited'&&candidate.state.Running===false&&candidate.state.Pid===0&&
   candidate.state.ExitCode===0&&!candidate.state.OOMKilled&&!candidate.state.Restarting&&!candidate.state.Paused&&candidate.restarts===0&&
   !candidate.privileged&&candidate.restartPolicy.Name==='no'&&['','private'].includes(candidate.pidMode)&&
@@ -111,8 +153,9 @@ export function heldCapsulePin(candidate,source){
 export function verifyHeldIsolation(pins,run){
  const db=pins.filter(pin=>isHeldResource(pin)&&pin.role==='rehearsal-database');
  if(!db.length)return;
- const extra=db.filter(pin=>pin.formerOwner===continuationPreviewOwner).length;
- check(extra<=1&&db.length===3+extra&&new Set(db.map(pin=>pin.networkId)).size===db.length&&
+ const extraOwners=[continuationPreviewOwner,drainedPreviewOwner,drainedOwner];
+ const extra=extraOwners.map(value=>db.filter(pin=>pin.formerOwner===value).length);
+ check(extra.every(count=>count<=1)&&extra[1]===extra[2]&&db.length===3+extra.reduce((a,b)=>a+b,0)&&new Set(db.map(pin=>pin.networkId)).size===db.length&&
   new Set(db.map(pin=>pin.volume)).size===db.length,'CLONE_ISOLATION_SET');
  const networks=JSON.parse(run('/usr/bin/docker',['network','inspect',...db.map(pin=>pin.networkId)]));
  const volumes=JSON.parse(run('/usr/bin/docker',['volume','inspect',...db.map(pin=>pin.volume)]));

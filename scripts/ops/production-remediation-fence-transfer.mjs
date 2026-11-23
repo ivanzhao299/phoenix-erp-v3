@@ -7,7 +7,7 @@ import {ModernSchemaIngress} from './production-modern-schema-ingress.mjs';
 import {ingressIdentity} from './maintenance-ingress-policy.mjs';
 import {executionEnv} from './capture-production-runtime.mjs';
 import {CONTRACT,git} from './production-config-guard.mjs';
-import {ordinarySuccessorWindowMs,successorIncidentDeadline} from './production-modern-schema-successor.mjs';
+import {drainedFreshGrantStart,drainedFreshGrantEnd,ordinarySuccessorWindowMs,successorIncidentDeadline,successorTransportCeilingMs} from './production-modern-schema-successor.mjs';
 
 export const sealedHandoffRevision='ccfed8be2eaabb52f9da9770424ebb34bd0a8964';
 const extensionFiles=new Set([
@@ -22,6 +22,26 @@ const extensionFiles=new Set([
  'scripts/ops/production-remediation-handoff.test.mjs',
  'scripts/ops/production-remediation-held-resources.mjs',
 ]);
+const drainedSource='3e2ea4ea4de5ccbc102f1e17ae4dbc48c0cfb8e2';
+const drainedFiles=new Set([...extensionFiles,
+ 'scripts/ops/modern-schema-stage-files.txt',
+ 'scripts/ops/production-modern-schema-operator-ssh.sh',
+ 'scripts/ops/production-modern-schema-operator-workflow.mjs',
+ 'scripts/ops/production-modern-schema-supervisor.test.mjs',
+ 'scripts/ops/production-modern-schema-watch.mjs',
+ 'scripts/ops/production-modern-schema-workflow.mjs',
+ 'scripts/ops/production-modern-schema-workflow.test.mjs',
+ 'scripts/ops/production-remediation-drained-hold.mjs',
+ 'scripts/ops/production-remediation-drained-hold.test.mjs',
+ 'scripts/ci/modern-schema-native-host.fixture.mjs',
+]);
+export function isReviewedDrainedContinuation(target,read=args=>git(CONTRACT.repository,args,{timeoutMs:5000})){
+ if(!/^[a-f0-9]{40}$/.test(target)||target===drainedSource)return false;
+ const parents=read(['show','-s','--format=%P',target]).split(' ');
+ if(![1,2].includes(parents.length)||parents[0]!==drainedSource)return false;
+ const paths=read(['diff','--name-only','--no-renames',drainedSource,target,'--']).split('\n');
+ return paths.includes('scripts/ops/production-remediation-drained-hold.mjs')&&paths.every(file=>drainedFiles.has(file));
+}
 export function isReviewedContinuation(source,target,read=args=>git(CONTRACT.repository,args,{timeoutMs:5000})){
  if(source!==sealedHandoffRevision||!/^[a-f0-9]{40}$/.test(target)||target===source)return false;
  const parents=read(['show','-s','--format=%P',target]).split(' ');
@@ -34,10 +54,24 @@ export function isReviewedContinuation(source,target,read=args=>git(CONTRACT.rep
 
 const key='schema-release-1123-handoff-'+heldOwner+'.json';
 const check=(ok,code)=>{if(!ok)throw Error('HANDOFF_TRANSFER_HOLD='+code);};
-export function readHeldHandoff(store,target,review=isReviewedContinuation){
+export function readHeldHandoff(store,target,review=isReviewedContinuation,reviewDrained=isReviewedDrainedContinuation){
  if(!store.exists(key))return null;
  const entry=store.read(key),archive=store.read('schema-release-operator-archive-'+entry.recoveryOwner+'.json');
- const extended=entry.executionSha!==target&&review(entry.executionSha,target);
+ const archivedDrain='schema-release-1123-drained-archive-45228188093-1.json';
+ let settlement;
+ if(target!==entry.executionSha&&target!==drainedSource&&store.exists(archivedDrain)){
+  check(reviewDrained(target)&&review(entry.executionSha,drainedSource),'EXACT_DRAINED_SUCCESSOR');
+  settlement=store.read(archivedDrain);
+  const drainIntent=store.read('schema-release-1123-drained-intent-45228188093-1.json');
+  check(settlement.schema==='phoenix.1123-drained-settled/v1'&&settlement.executionSha===target&&
+   settlement.pending.owner==='45228188093-1'&&settlement.pending.targetSha===drainedSource&&settlement.pending.sequence===1&&settlement.pending.phase==='DRAINED'&&
+   settlement.pending.status==='HOLD'&&settlement.pending.stateDigest==='c8f45239386e8f6f19de8937a55054047238d8a22910e24e1329b62d6bcc614f'&&
+   settlement.proof.pendingSha256===canonicalDigest(settlement.pending)&&settlement.proof.oldIngressSha256===entry.ingressIdentitySha256&&
+   settlement.proof.publicHeld===true&&settlement.proof.schemaChanged===false&&settlement.formalTargetSuccess===false&&settlement.outerIngressHeld===true&&
+   settlement.intentSha256===canonicalDigest(drainIntent)&&same(settlement.proof,drainIntent.proof)&&same(settlement.expected,drainIntent.expected)&&
+   settlement.leaseExit.outcome==='ORIGINAL_SESSION_ABSENT'&&settlement.leaseExit.transportClosed===true,'SEALED_DRAINED_SETTLEMENT');
+ }
+ const extended=Boolean(settlement)||entry.executionSha!==target&&review(entry.executionSha,target);
  check(entry.schema==='phoenix.1123-interrupted-handoff/v1'&&entry.owner===heldOwner&&(entry.executionSha===target||extended)&&
   (!extended||entry.recoveryOwner==='45173837813-1'&&entry.inspectionOwner==='45168560404-1'&&entry.generation===113)&&
   entry.archiveSha256===canonicalDigest(archive)&&exactHeldAttempt(archive.pending)&&entry.pendingSha256===canonicalDigest(archive.pending)&&
@@ -52,12 +86,21 @@ export function readHeldHandoff(store,target,review=isReviewedContinuation){
   opened.originalRuntimeSha===original.context.runtimeSha&&opened.manifest.targetSha===original.context.runtimeSha&&
   opened.manifest.phase==='OPEN'&&opened.manifest.generation===entry.generation&&same(opened.manifest.participants,[verified.participant]),
   'ARCHIVED_OPEN_MANIFEST');
- return {entry,original,extended,manifest:opened.manifest};
+ const manifest=settlement?.expected.manifest??opened.manifest;
+ if(settlement)check(manifest.generation===115&&manifest.phase==='OPEN'&&manifest.targetSha===opened.manifest.targetSha&&
+  manifest.owner===opened.manifest.owner&&same(manifest.participants,opened.manifest.participants),'DRAINED_SUCCESSOR_MANIFEST');
+ return {entry,original,extended,settlement,manifest,handoffSha256:canonicalDigest(settlement?{entry,settlement}:entry)};
 }
-const deadline=handoff=>handoff.extended?successorIncidentDeadline:cutoff;
+const deadline=handoff=>handoff.settlement?drainedFreshGrantEnd:handoff.extended?successorIncidentDeadline:cutoff;
 export function checkHeldWindow(handoff,window){
  const end=Date.parse(window.end);
- if(handoff)check(Number.isFinite(end)&&end<=deadline(handoff),'CUMULATIVE_CUTOFF');
+ if(handoff){
+  check(Number.isFinite(end)&&end<=deadline(handoff),'CUMULATIVE_CUTOFF');
+  if(handoff.settlement){
+   const start=Date.parse(window.start);
+   check(start>=drainedFreshGrantStart&&end>start&&end-start<=successorTransportCeilingMs,'EXACT_FRESH_WINDOW');
+  }
+ }
  else check(!(end>cutoff&&end-Date.parse(window.start)>ordinarySuccessorWindowMs),'SEALED_HANDOFF_REQUIRED_FOR_EXTENSION');
 }
 export function guardHeldContinuation(handoff,directory){

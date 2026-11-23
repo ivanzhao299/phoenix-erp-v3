@@ -92,6 +92,14 @@ test('capsule network and actual local volume retain their isolated owner, empty
  network.push({...network[1],Id:additional.networkId,Labels:{...network[1].Labels,'phoenix.schema.owner':additional.formerOwner}});
  volumes.push({...volumes[1],Name:additional.volume,Labels:{...volumes[1].Labels,'phoenix.schema.owner':additional.formerOwner}});
  verifyHeldIsolation([...pins,additional],run);
+ const newOwners=['45223920315-1','45228188093-1'];
+ const reinherited=newOwners.map((formerOwner,i)=>({...additional,formerOwner,networkId:['e','f'][i].repeat(64),volume:String(4+i).repeat(64)}));
+ for(const pin of reinherited){
+  network.push({...network[1],Id:pin.networkId,Labels:{...network[1].Labels,'phoenix.schema.owner':pin.formerOwner}});
+  volumes.push({...volumes[1],Name:pin.volume,Labels:{...volumes[1].Labels,'phoenix.schema.owner':pin.formerOwner}});
+ }
+ verifyHeldIsolation([...pins,additional,...reinherited],run);
+ assert.throws(()=>verifyHeldIsolation([...pins,additional,reinherited[0]],run),/CLONE_ISOLATION_SET/);
  assert.throws(()=>verifyHeldIsolation([pins[0],pins[2],additional],run),/CLONE_ISOLATION_SET/);
  volumes[1].Options.device='/unexpected';assert.throws(()=>verifyHeldIsolation(pins,run),/ISOLATION_CHANGED/);
  assert.throws(()=>heldCapsulePin({id:cid,labels:{}},{pins:new Map()}),/INERT_NATIVE_IDENTITY/);

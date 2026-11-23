@@ -7,7 +7,7 @@ case "${1:-}" in
  recover-original) recovery_mode=original ;;
  recover-target) recovery_mode=target ;;
  check-held) recovery_mode=check-held ;;
- handoff-held|rehearse-held) recovery_mode="$1" ;;
+ handoff-held|rehearse-held|rehearse-drained|settle-drained) recovery_mode="$1" ;;
  *) exit 2 ;;
 esac
 export OPERATOR_RECOVERY_MODE="$recovery_mode"
@@ -49,6 +49,13 @@ if [[ "$recovery_mode" = handoff-held || "$recovery_mode" = rehearse-held ]]; th
  test "$ORIGINAL_RELEASE_OWNER" = 45144287071-1
  test "$TARGET_SHA" = 98dfab3411fbddb8c1646f2db20df2799291cd3d
  [[ "$OPERATOR_HELD_INSPECTION" =~ ^[1-9][0-9]{0,19}-[1-9][0-9]{0,9}$ ]]
+fi
+if [[ "$recovery_mode" = rehearse-drained || "$recovery_mode" = settle-drained ]]; then
+ test "$ORIGINAL_RELEASE_OWNER" = 45228188093-1
+ test "$TARGET_SHA" = 3e2ea4ea4de5ccbc102f1e17ae4dbc48c0cfb8e2
+ test "$OPERATOR_HELD_INSPECTION" = 45168560404-1
+ test -z "$OPERATOR_COMMITTED_OWNER"
+ entry=scripts/ops/production-remediation-drained-hold.mjs
 fi
 if [ "$recovery_mode" = check-held ]; then
  test "$ORIGINAL_RELEASE_OWNER" = 45144287071-1
