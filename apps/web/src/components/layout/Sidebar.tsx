@@ -99,6 +99,7 @@ export const MENU: MenuItem[] = [
     // G15：集蛋记录已废弃 — 蛋品统计合并到「日生产日报」（含 9 档 JSONB）
     // 日产蛋入库（库存来源模式 P1A：临时生产入库模式下直接形成销售库存）
     { id: "prod-inbound",   path: "/breeding/daily-inbound",  Icon: PackagePlus,    label: "日产蛋入库",   perm: "MENU_PROD_INBOUND" },
+    { id: "production-finance-review", path: "/breeding/production-finance-review", Icon: ClipboardList, label: "生产财务核签", perm: "MENU_PROD_FIN_REVIEW", altPermissions: [{ menu: "MENU_PROD_FIN_REVIEW", perm: "E" }, { menu: "MENU_FIN2_AR_LEDGER", perm: "E" }] },
     { id: "production-cutovers", path: "/breeding/production-cutovers", Icon: PackagePlus, label: "正式库存切换盘点", perm: "MENU_PROD_INBOUND", altPermissions: [{ menu: "MENU_PROD_INBOUND", perm: "A" }, { menu: "MENU_FIN2_AR_LEDGER", perm: "E" }] },
     { id: "production-installments", path: "/breeding/production-inbound", Icon: PackagePlus, label: "正式分次生产入库", perm: "MENU_PROD_INBOUND" },
     { id: "prod-inbound-ledger", path: "/breeding/daily-inbound-ledger", Icon: ScrollText, label: "日产蛋入库台账", perm: "MENU_PROD_INBOUND" },

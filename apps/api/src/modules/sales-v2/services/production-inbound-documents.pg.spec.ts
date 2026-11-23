@@ -396,6 +396,7 @@ fixture('formal installment documents — actual PostgreSQL 18 inventory and pro
       financialEvidenceFileId:'FILE-FINANCE',periodStatus:'OPEN',costs:lines.map((l:any)=>({batchNo:l.batch_no,costStatus:'UNKNOWN' as const,unitCost:0})) };
     const clearance=await service.recordFinancialClearance(frozen.id,{...financialInput,periodStatus:'OPEN'});
     expect((await service.recordFinancialClearance(frozen.id,{...financialInput,periodStatus:'OPEN'})).id).toBe(clearance.id);
+    actor={userId:3,username:'receiver',permissions:['MENU_PROD_INBOUND:V,E,A']};
     const approved=await service.approveReversal(frozen.id,frozen.version,frozen.content_hash,clearance.id);
     return { frozen,approved,clearance };
   }
@@ -655,6 +656,7 @@ fixture('formal installment documents — actual PostgreSQL 18 inventory and pro
     const d=await ready();await post(d);const [a]=await db.query('SELECT id FROM production_inbound_allocations WHERE document_id=$1',[d.id]);
     const { approved }=await reversal(d,[{allocationId:a.id,quantity:20}]);
     const periodMonth=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Singapore'}).format(new Date()).slice(0,7);
+    actor={userId:2,username:'approver',permissions:['MENU_PROD_INBOUND:V,E,A','MENU_FIN2_AR_LEDGER:E']};
     await service.setPostingPeriod({companyCode:'COMP-A',houseCode:'HOUSE-A',periodMonth,state:'CLOSED',expectedVersion:1,
       evidenceFileId:'FILE-FINANCE',reason:'Synthetic close after approval'});
     await expect(post(approved)).rejects.toThrow('已经关账');
@@ -679,6 +681,7 @@ fixture('formal installment documents — actual PostgreSQL 18 inventory and pro
       const c=await service.recordFinancialClearance(r.id,{contentHash:r.content_hash,financialEvidenceFileId:'FILE-FINANCE',periodStatus:'OPEN',
         costs:[{batchNo:line.batch_no,costStatus:'UNKNOWN',unitCost:null}]});
       expect(c.costs[0].recordedUnitCost).toBeNull();
+      actor={userId:3,username:'receiver',permissions:['MENU_PROD_INBOUND:V,E,A']};
       const approved=await service.approveReversal(r.id,r.version,r.content_hash,c.id);await post(approved);
       expect((await db.query("SELECT cost_change FROM inv_ledger WHERE change_type='PRODUCTION_INBOUND_REVERSAL'"))[0].cost_change).toBeNull();
       const inv=new EggInventoryService(db,cls as any,new SkuAvailabilityService(db));
@@ -698,6 +701,7 @@ fixture('formal installment documents — actual PostgreSQL 18 inventory and pro
     const [line]=await db.query('SELECT batch_no FROM production_inbound_lines WHERE document_id=$1',[d.id]);
     const c=await service.recordFinancialClearance(r.id,{contentHash:r.content_hash,financialEvidenceFileId:'FILE-FINANCE',periodStatus:'OPEN',
       costs:[{batchNo:line.batch_no,costStatus:'CONFIRMED',unitCost:0}]});
+    actor={userId:3,username:'receiver',permissions:['MENU_PROD_INBOUND:V,E,A']};
     await post(await service.approveReversal(r.id,r.version,r.content_hash,c.id));
     expect((await db.query("SELECT cost_change::numeric AS value FROM inv_ledger WHERE change_type='PRODUCTION_INBOUND_REVERSAL'"))[0].value).toBe('0.000000');
     await expect(db.query(`INSERT INTO inv_ledger(batch_no,company_code,warehouse_code,change_type,qty_change,cost_change,ref_no)
@@ -711,6 +715,7 @@ fixture('formal installment documents — actual PostgreSQL 18 inventory and pro
     const r=await service.ready(draft.id,draft.version,randomUUID());actor={userId:2,username:'approver',permissions:['MENU_PROD_INBOUND:V,C,E,A','MENU_FIN2_AR_LEDGER:E']};
     const c=await service.recordFinancialClearance(r.id,{contentHash:r.content_hash,financialEvidenceFileId:'FILE-FINANCE',periodStatus:'OPEN',
       costs:[{batchNo:line.batch_no,costStatus:'CONFIRMED',unitCost:100000000000.00002}]});
+    actor={userId:3,username:'receiver',permissions:['MENU_PROD_INBOUND:V,E,A']};
     const approved=await service.approveReversal(r.id,r.version,r.content_hash,c.id);
     const raw=(m:EntityManager)=>m.query(`INSERT INTO inv_ledger(batch_no,company_code,warehouse_code,change_type,qty_change,cost_change,ref_no)
       VALUES($1,'COMP-A','WH-A','PRODUCTION_INBOUND_REVERSAL',-4,'-400000000000.000080',$2)`,[line.batch_no,r.document_no]);

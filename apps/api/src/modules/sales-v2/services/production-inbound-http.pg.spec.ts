@@ -1,3 +1,8 @@
+import { requireReviewFile } from '../../wms/production-finance-review';
+import { ChanjetCallbackController } from '../../chanjet/chanjet-callback.controller';
+import { MenuAdminController } from '../../product-master/controllers/menu-admin.controller';
+import { ProductionFinanceReview1795400200000 } from '../../../database/migrations/1795400200000-ProductionFinanceReview';
+import { ProductionFinanceReviewController } from '../controllers/production-finance-review.controller';
 import { ProductionCutoverEvidenceBarriers1795025712607 } from '../../../database/migrations/1795025712607-ProductionCutoverEvidenceBarriers';
 import { OfficialRawCollectionReceipts1795005390930 } from '../../../database/migrations/1795005390930-OfficialRawCollectionReceipts';
 import { OfficialRawCollectionController } from '../controllers/official-raw-collection.controller';
@@ -106,24 +111,25 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
       CREATE TABLE sys_user_project_scopes(id bigserial PRIMARY KEY,user_id bigint,project_code text,created_at timestamptz);
       CREATE TABLE sys_user_warehouse_scopes(id bigserial PRIMARY KEY,user_id bigint,warehouse_code text,created_at timestamptz);
       CREATE TABLE sys_user_farm_scopes(id bigserial PRIMARY KEY,user_id bigint,farm_code text,created_at timestamptz);
-      CREATE TABLE sys_menu(menu_code text PRIMARY KEY);
+      CREATE TABLE sys_menu(menu_code text PRIMARY KEY,menu_name_zh text,menu_name_lo text,domain text,sort_order int,route text);
       CREATE TABLE sys_user(user_id int PRIMARY KEY,username text,status int DEFAULT 1,role_code text);
       CREATE TABLE fixture_permissions(role_code text,permission text);
       INSERT INTO sys_user VALUES(1,'maker',1,'MAKER'),(2,'reviewer',1,'REVIEWER'),(3,'receiver',1,'RECEIVER'),
-        (4,'view_only',1,'VIEWER'),(5,'unbound_all',1,'MAKER'),(6,'foreign',1,'MAKER'),(7,'wrong_warehouse',1,'MAKER'),(8,'create_only',1,'CREATOR'),(9,'farm_reporter',1,'FARM_REPORTER'),(10,'farm_only',1,'FARM_REPORTER'),(11,'finance_only',1,'FINANCE_ONLY'),(12,'analyst_a',1,'ANALYST'),(13,'analyst_b',1,'ANALYST'),(14,'analyst_warehouse',1,'ANALYST'),(15,'cross_company_operator',1,'MAKER'),(16,'company_b_reviewer',1,'REVIEWER');
+        (4,'view_only',1,'VIEWER'),(5,'unbound_all',1,'MAKER'),(6,'foreign',1,'MAKER'),(7,'wrong_warehouse',1,'MAKER'),(8,'create_only',1,'CREATOR'),(9,'farm_reporter',1,'FARM_REPORTER'),(10,'farm_only',1,'FARM_REPORTER'),(11,'finance_only',1,'FINANCE_ONLY'),(12,'analyst_a',1,'ANALYST'),(13,'analyst_b',1,'ANALYST'),(14,'analyst_warehouse',1,'ANALYST'),(15,'cross_company_operator',1,'MAKER'),(16,'company_b_reviewer',1,'REVIEWER'),(17,'finance_a',1,'FIN_SIGN'),(18,'finance_b',1,'FIN_SIGN'),(19,'finance_wh2',1,'FIN_SIGN'),(20,'finance_view',1,'FIN_VIEW'),(21,'menu_operator',1,'MENU_OPERATOR');
       INSERT INTO sys_role SELECT DISTINCT role_code,'ACTIVE' FROM sys_user;
       INSERT INTO fixture_permissions VALUES('MAKER','MENU_PROD_INBOUND:V,C,E'),('REVIEWER','MENU_PROD_INBOUND:V,E,A'),
         ('REVIEWER','MENU_FIN2_AR_LEDGER:V,E,A'),('RECEIVER','MENU_PROD_INBOUND:V,E'),('VIEWER','MENU_PROD_INBOUND:V'),('CREATOR','MENU_PROD_INBOUND:V,C'),('FARM_REPORTER','MENU_FARM_DAILY:V,E'),('FINANCE_ONLY','MENU_FIN2_AR_LEDGER:E'),('ANALYST','MENU_ANALYTICS:V');
-      INSERT INTO fixture_permissions VALUES('MAKER','MENU_SALES2_RETURN:V,C,E'),('RECEIVER','MENU_SALES2_RETURN:V,E'),('VIEWER','MENU_SALES2_RETURN:V');
-      INSERT INTO sys_menu VALUES('MENU_SALES2_RETURN'),('MENU_PROD_INBOUND'),('MENU_PRC2_ORDER'),('MENU_FIN2_AR_LEDGER'),('MENU_FARM_DAILY'),('MENU_DASHBOARD'),('MENU_ANALYTICS');
+      INSERT INTO fixture_permissions VALUES('MENU_OPERATOR','MENU_SETTINGS_MENU_REGISTRY:E'),('FIN_SIGN','MENU_PROD_FIN_REVIEW:E'),('FIN_VIEW','MENU_PROD_FIN_REVIEW:V'),('MAKER','MENU_SALES2_RETURN:V,C,E'),('RECEIVER','MENU_SALES2_RETURN:V,E'),('VIEWER','MENU_SALES2_RETURN:V');
+      INSERT INTO sys_menu VALUES('MENU_SETTINGS_MENU_REGISTRY'),('MENU_SALES2_RETURN'),('MENU_PROD_INBOUND'),('MENU_PRC2_ORDER'),('MENU_FIN2_AR_LEDGER'),('MENU_FARM_DAILY'),('MENU_DASHBOARD'),('MENU_ANALYTICS');
       INSERT INTO sys_user_orgs(user_id,org_id,data_scope_level) SELECT u.user_id,o.id,'COMPANY' FROM sys_user u JOIN sys_organizations o
-        ON o.org_code=CASE WHEN u.user_id IN (6,13,16) THEN 'COMP-B' ELSE 'COMP-A' END WHERE u.user_id IN (1,2,3,4,6,8,9,11,12,13,15,16);
+        ON o.org_code=CASE WHEN u.user_id IN (6,13,16,18) THEN 'COMP-B' ELSE 'COMP-A' END WHERE u.user_id IN (1,2,3,4,6,8,9,11,12,13,15,16,17,18,20);
       INSERT INTO sys_user_orgs(user_id,org_id,data_scope_level) SELECT 15,id,'COMPANY' FROM sys_organizations WHERE org_code='COMP-B';
       INSERT INTO sys_user_farm_scopes(user_id,farm_code) VALUES(10,'FARM-A');
       INSERT INTO sys_organizations(org_code,org_name,org_type,company_code,status,warehouse_code,parent_id)
         SELECT 'SITE-A','Restricted site','SITE','COMP-A','ACTIVE',NULL,id FROM sys_organizations WHERE org_code='COMP-A';
       INSERT INTO sys_user_orgs(user_id,org_id,data_scope_level) SELECT 7,id,'SELF' FROM sys_organizations WHERE org_code='SITE-A';
-      INSERT INTO sys_user_warehouse_scopes(user_id,warehouse_code) VALUES(7,'WH-A2'),(14,'WH-A2');
+      INSERT INTO sys_user_warehouse_scopes(user_id,warehouse_code) VALUES(7,'WH-A2'),(14,'WH-A2'),(19,'WH-A2');
+      INSERT INTO sys_user_orgs(user_id,org_id,data_scope_level) SELECT 19,id,'SELF' FROM sys_organizations WHERE org_code='SITE-A';
       INSERT INTO sys_user_orgs(user_id,org_id,data_scope_level) SELECT 14,id,'SELF' FROM sys_organizations WHERE org_code='SITE-A';
       ALTER TABLE file_metadata ADD COLUMN id bigserial UNIQUE,ADD COLUMN original_name text,ADD COLUMN stored_name text,ADD COLUMN storage_path text,
         ADD COLUMN size_bytes bigint,ADD COLUMN checksum text,ADD COLUMN created_at timestamptz DEFAULT now(),ADD COLUMN updated_at timestamptz DEFAULT now();
@@ -171,7 +177,10 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
     await installManagedSalesFixture(db);
     await db.query('DROP TABLE wms_defect_dispositions');
     const conversionMigration=db.createQueryRunner();await conversionMigration.connect();
-    try{await new AddWmsDefectDisposition1794405000000().up(conversionMigration);await new OfficialInventoryConversions1795011331222().up(conversionMigration);await new ProductionCutoverEvidenceBarriers1795025712607().up(conversionMigration);}
+    try{await new AddWmsDefectDisposition1794405000000().up(conversionMigration);await new OfficialInventoryConversions1795011331222().up(conversionMigration);await new ProductionCutoverEvidenceBarriers1795025712607().up(conversionMigration);await conversionMigration.startTransaction();
+      const financeMigration=new ProductionFinanceReview1795400200000();
+      await financeMigration.up(conversionMigration);await financeMigration.down(conversionMigration);await financeMigration.up(conversionMigration);
+      await conversionMigration.commitTransaction();}
     finally{await conversionMigration.release();}
     async function userInfo(id:number){const [u]=await db.query('SELECT * FROM sys_user WHERE user_id=$1 AND status=1',[id]);if(!u)return null;
       return {userId:String(u.user_id),username:u.username,roles:[u.role_code],role:u.role_code,storeCode:'ALL',
@@ -197,7 +206,7 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
       @Get('sys_dict')async dict(@Query('dict_type') type:string){return db.query("SELECT * FROM sys_dict WHERE dict_type=$1 AND status='ACTIVE'",[type]);}
     }
     const module=await Test.createTestingModule({imports:[PassportModule,ClsModule.forRoot({global:true,middleware:{mount:true}})],
-      controllers:[FlockLifecycleController,SalesReturnsController,OfficialInventoryConversionController,OfficialRawCollectionController,AnalyticsController,ProductionCutoverController,FarmController,ProductionInboundDocumentsController,UploadController,FixtureLogin,FixtureLookups,FixtureDictionary,FixtureSkus],providers:[FlockLifecycleService,OfficialInventoryConversionService,OfficialRawCollectionService,FixtureJwt,
+      controllers:[FlockLifecycleController,ChanjetCallbackController,MenuAdminController,ProductionFinanceReviewController,SalesReturnsController,OfficialInventoryConversionController,OfficialRawCollectionController,AnalyticsController,ProductionCutoverController,FarmController,ProductionInboundDocumentsController,UploadController,FixtureLogin,FixtureLookups,FixtureDictionary,FixtureSkus],providers:[FlockLifecycleService,...Reflect.getMetadata('design:paramtypes',ChanjetCallbackController).slice(0,8).map((provide:Function)=>({provide,useValue:{}})),OfficialInventoryConversionService,OfficialRawCollectionService,FixtureJwt,
         FinanceCreditNoteAdapter,SalesOrderLifecycleService,
         {provide:ReturnOrdersService,inject:[ClsService,FinanceCreditNoteAdapter,EggInventoryService,SalesOrderLifecycleService],
           useFactory:(cls:ClsService,finance:FinanceCreditNoteAdapter,inventory:EggInventoryService,lifecycle:SalesOrderLifecycleService)=>
@@ -214,6 +223,11 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
       forbidNonWhitelisted:process.env.INSTALLMENT_HTTP_PRODUCTION_VALIDATION!=='1',
       ...(process.env.INSTALLMENT_HTTP_PRODUCTION_VALIDATION==='1'?{transformOptions:{enableImplicitConversion:true}}:{})}));
     app.useGlobalFilters(new AllExceptionsFilter({spawn:()=>undefined} as any));await app.init();await hydrateMenuRegistry(db.manager);scopes=app.get(DataScopeService);
+    const installMenu=(id:number)=>request(app.getHttpServer()).post('/api/sys/menu-registry/install-production-finance-review').auth(token(id),{type:'bearer'});
+    expect(await db.query("SELECT menu_code FROM sys_menu WHERE menu_code='MENU_PROD_FIN_REVIEW'")).toEqual([]);
+    await installMenu(17).expect(403);
+    expect((await installMenu(21).expect(201)).body.installed).toBe(true);
+    expect((await installMenu(21).expect(201)).body.installed).toBe(false);
     if(process.env.INSTALLMENT_HTTP_PORT)await app.listen(Number(process.env.INSTALLMENT_HTTP_PORT),'127.0.0.1');
   },30000);
   async function resetState(emptyReports=false){
@@ -221,6 +235,7 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
     await db.query("UPDATE inv_source_mode SET mode='TEMP_PRODUCTION_INBOUND';UPDATE md_egg_source_profiles SET status='ACTIVE'");
     // Clear only this test-owned schema, including append-only continuation history.
     await db.query(`ALTER TABLE production_inbound_reissues DISABLE TRIGGER trg_reissue_truncate;
+      ALTER TABLE production_finance_review_files DISABLE TRIGGER USER;
       TRUNCATE production_conversion_documents,production_conversion_inputs,production_conversion_outputs,production_conversion_inventory_debits,
       production_batch_raw_roots,production_batch_derivation_parents,wms_defect_dispositions,
       production_raw_receipt_segments,production_raw_receipts,pkg_source_batches,pkg_work_shifts,wms_transfer_discrepancies,wms_transfer_items,wms_transfer,prc2_receipt_items,prc2_receipts,prc2_order_items,prc2_purchase_orders,fin_cash_accounts,fin_ar_invoices,fin_ap_invoices,fin_shareholder_contributions,fin_expense_requests,qa_inspections,qa_non_conformance,chanjet_writeback_outbox,chanjet_voucher_drafts,sal_order_items,sal_sales_orders,sal_order_item_batch_allocations,production_cutover_manifests,production_inventory_domain_states,production_handover_cancellations,production_physical_handovers,production_financial_clearances,production_posting_periods,
@@ -228,6 +243,7 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
       production_inbound_days,production_batch_roots,production_batch_qualifications,production_inventory_domains,production_cutover_scopes,inv_batches,
       inv_ledger,brd_flock_events,brd_flock_balances,brd_flock_daily_balances,brd_flock_house_states,brd_daily_logs,inv_flock_source_links,brd_egg_source_receipts,brd_egg_day_routes,brd_flock_occupancies,brd_flock_documents RESTART IDENTITY CASCADE;
       ALTER TABLE production_inbound_reissues ENABLE TRIGGER trg_reissue_truncate;
+      ALTER TABLE production_finance_review_files ENABLE TRIGGER USER;
       INSERT INTO brd_flock_documents(id,source_key,content_hash,kind,company_code,farm_code,house_code,business_date,payload,status,created_by)
         VALUES('HTTP-BASELINE','HTTP-SYNTHETIC-COUNT',repeat('b',64),'BASELINE','COMP-A','FARM-A','HOUSE-A','2026-11-17','{}','POSTED','fixture');
       INSERT INTO brd_flock_occupancies(id,flock_no,house_code,company_code,farm_code,site_code,began_on,capacity_snapshot,opened_document_id)
@@ -248,7 +264,7 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
       UPDATE product_skus SET status='ACTIVE';UPDATE file_metadata SET status='ACTIVE';UPDATE sys_user SET status=1;`);
     await db.query(`UPDATE md_egg_source_profiles SET product_mode='VARIANT',variety_code='EGG_RED' WHERE profile_code='PROFILE-A';
       UPDATE md_egg_source_profiles SET product_mode='STANDARD',variety_code=NULL WHERE profile_code='PROFILE-A2'`);
-    for(let id=1;id<=16;id++)scopes.invalidate(String(id));
+    for(let id=1;id<=21;id++)scopes.invalidate(String(id));
   }
   beforeEach(()=>resetState());
   afterAll(async()=>{
@@ -299,6 +315,11 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
     } finally {tomorrow.mockRestore();}
   });
 
+  const review=(user:number,path='')=>request(app.getHttpServer()).get('/api/v2/inventory/production-finance-review'+path).auth(token(user),{type:'bearer'});
+  const reviewUpload=(user:number,kind:string,id:string,company='COMP-A',wh='WH-A',bytes=conversionPdf,mime='application/pdf')=>request(app.getHttpServer()).post('/api/upload/contract')
+    .auth(token(user),{type:'bearer'}).field('financeReviewId',id).field('moduleCode',kind==='cutover'?'PRODUCTION_CUTOVER':'PRODUCTION_INBOUND')
+    .field('ownerType',kind==='cutover'?'WAREHOUSE':'HOUSE').field('ownerId',kind==='cutover'?wh:'HOUSE-A').field('companyCode',company)
+    .attach('file',bytes,{filename:'finance.pdf',contentType:mime});
   const cutoverEndpoint='/api/v2/inventory/production-cutovers';
   const cutoverApi=(id:number,path='',method:'get'|'post'|'patch'='post')=>request(app.getHttpServer())[method](cutoverEndpoint+path).auth(token(id),{type:'bearer'});
   const cutoverUpload=(id:number,warehouse='WH-A',company='COMP-A')=>request(app.getHttpServer()).post('/api/upload/contract').auth(token(id),{type:'bearer'})
@@ -570,6 +591,22 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
     try{await cutoverApi(2,`/${d.id}/sign`).send({role:'BUSINESS',contentHash:frozen.content_hash,snapshotSha256:frozen.snapshot_sha256,evidenceFileId:file,reason:'Synthetic empty domain concurrency'}).expect(201);}finally{service.proofs=original;}
     expect(attempted).toBe(true);expect((await db.query('SELECT count(*)::int AS n FROM production_inventory_domain_states'))[0].n).toBe(0);
   });
+  it('omits a receiving-warehouse task when its frozen house scope belongs to another warehouse in the same company',async()=>{
+    await db.query(`INSERT INTO production_cutover_scopes(id,company_code,house_code,version,first_production_date,state,warehouse_code,
+      flock_id,source_profile_code,manifest_sha256,evidence,confirmed_by) VALUES($1,'COMP-A','HOUSE-A2',1,'2026-11-18','DRAFT','WH-A2','FLOCK-A2','PROFILE-A2',repeat('b',64),'{}','fixture')`,[randomUUID()]);
+    const file=(await cutoverUpload(1).expect(201)).body.fileId;
+    const payload=emptyCount(file);payload.boundary.houses.push({houseCode:'HOUSE-A2',firstProductionDate:'2026-11-19'});
+    const d=(await cutoverApi(1).send(payload).expect(201)).body;
+    const frozen=(await cutoverApi(1,'/'+d.id+'/freeze').send({version:0}).expect(201)).body;
+    expect(frozen.snapshot.cutovers.some((x:any)=>x.warehouse_code==='WH-A2')).toBe(true);
+    await db.query("UPDATE sys_user_warehouse_scopes SET warehouse_code='WH-A' WHERE user_id=19");scopes.invalidate('19');
+    try {
+      const path='/cutover/'+d.id;
+      await review(17,path).expect(200);expect((await review(19).expect(200)).body.rows).toEqual([]);
+      await review(19,path).expect(409);await review(19,path+'/evidence/'+file).expect(409);
+      await reviewUpload(19,'cutover',d.id).expect(409);
+    }finally{await db.query("UPDATE sys_user_warehouse_scopes SET warehouse_code='WH-A2' WHERE user_id=19");scopes.invalidate('19');}
+  });
   it('cutover keeps unrelated product domain membership outside its frozen signature boundary',async()=>{
     const other=randomUUID();await db.query(`INSERT INTO production_cutover_scopes(id,company_code,house_code,version,first_production_date,state,warehouse_code,
       flock_id,source_profile_code,manifest_sha256,evidence,confirmed_by) VALUES($1,'COMP-A','HOUSE-A2',1,'2026-11-18','DRAFT','WH-A','FLOCK-A2','PROFILE-A2',repeat('b',64),'{}','fixture')`,[other]);
@@ -834,7 +871,7 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
     expect((await db.query('SELECT count(*)::int AS n FROM production_batch_roots WHERE batch_no=$1',['RET-SYNTHETIC-A-MIXED-RETURN-988']))[0].n).toBe(2);
     const after=(await cutoverApi(6,'/inspect').send(companyBBoundary()).expect(201)).body;
     expect(after.snapshotSha256).toBe(inspected.snapshotSha256);
-    await cutoverApi(16,`/${d.id}/sign`).send({...signature,role:'FINANCE'}).expect(201);
+    await cutoverApi(18,`/${d.id}/sign`).send({...signature,role:'FINANCE',evidenceFileId:(await reviewUpload(18,'cutover',d.id,'COMP-B','WH-B').expect(201)).body.fileId}).expect(201);
     const original=(await cutoverApi(6,`/${d.id}`,'get').expect(200)).body;
     expect(original.state).toBe('APPROVED');expect(original.activationAuthorized).toBe(false);expect(JSON.stringify(original)).not.toContain(root);
     expect((await db.query("SELECT count(*)::int AS n FROM production_cutover_scopes WHERE company_code='COMP-B'"))[0].n).toBe(0);
@@ -895,7 +932,7 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
         expect(Number((await db.query('SELECT qty FROM inv_batches WHERE batch_no=$1',[posted.batches[0].batchNo]))[0].qty)).toBe(100);}
       return facts;
     };
-    try{await cutoverApi(16,`/${d.id}/sign`).send({...signature,role:'FINANCE'}).expect(201);}
+    try{await cutoverApi(18,`/${d.id}/sign`).send({...signature,role:'FINANCE',evidenceFileId:(await reviewUpload(18,'cutover',d.id,'COMP-B','WH-B').expect(201)).body.fileId}).expect(201);}
     finally{service.proofs=original;}
     expect(attempted).toBe(true);expect((await cutoverApi(6,`/${d.id}`,'get').expect(200)).body.state).toBe('APPROVED');
     await transfer();expect(Number((await db.query("SELECT qty FROM inv_batches WHERE warehouse_code='WH-B'"))[0].qty)).toBe(20);
@@ -925,7 +962,14 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
     await cutoverApi(2,`/${d.id}/sign`).send({...signature,contentHash:'a'.repeat(64)}).expect(409);
     await cutoverApi(2,`/${d.id}/sign`).send({...signature,evidenceFileId:file}).expect(409);
     await cutoverApi(2,`/${d.id}/sign`).send(signature).expect(201);
-    await cutoverApi(2,`/${d.id}/sign`).send({...signature,role:'FINANCE',reason:'Synthetic isolated finance confirmation'}).expect(201);
+    await cutoverApi(2,`/${d.id}/sign`).send({...signature,role:'FINANCE'}).expect(409);
+    const path='/cutover/'+d.id;
+    expect((await review(20,path).expect(200)).body.physicalTotals).toEqual(p.physicalTotals);
+    await review(17,path+'/evidence/'+file).expect(200);
+    await review(18,path).expect(403);await review(19,path).expect(403);
+    await cutoverApi(17,'/'+d.id,'get').expect(403);
+    const proof=(await reviewUpload(17,'cutover',d.id).expect(201)).body.fileId;
+    await cutoverApi(17,'/'+d.id+'/sign').send({...signature,role:'FINANCE',evidenceFileId:proof}).expect(201);
     const approved=(await cutoverApi(4,`/${d.id}`,'get').expect(200)).body;
     expect(approved.state).toBe('APPROVED');expect(approved.signatures).toHaveLength(2);
     expect(approved.activationAuthorized).toBe(false);expect((await db.query('SELECT count(*)::int AS n FROM production_inventory_domain_states'))[0].n).toBe(0);
@@ -1395,10 +1439,77 @@ suite('formal production inbound — real HTTP/JWT/Menu/DataScope/DTO/upload and
       state:'OPEN',expectedVersion:0,evidenceFileId:financeFile,reason:'Synthetic independent open period'}).expect(201);
     const input={contentHash:frozen.content_hash,financialEvidenceFileId:financeFile,periodStatus:'OPEN',costs:[{batchNo:d.lines[0].batch_no,costStatus:'UNKNOWN',unitCost:0}]};
     await api(1,'post',`/${r.id}/financial-clearance`).send(input).expect(403);
-    const c=(await api(2,'post',`/${r.id}/financial-clearance`).send(input).expect(201)).body;
-    expect((await api(2,'post',`/${r.id}/financial-clearance`).send(input).expect(201)).body.id).toBe(c.id);
-    await api(4,'get',`/${r.id}/evidence/${financeFile}`).expect(404);
-    await api(2,'get',`/${r.id}/evidence/${financeFile}`).expect(200);
+    const path='/reversal/'+r.id;
+    expect((await review(17).expect(200)).body.rows.map((row:any)=>row.id)).toContain(r.id);
+    expect((await review(19).expect(200)).body.rows).toEqual([]);
+    expect((await review(20,path).expect(200)).body.periods[0].state).toBe('OPEN');
+    await review(17,path+'/evidence/'+evidence).expect(200);
+    const [source]=await db.query('SELECT source_snapshot AS s FROM production_inbound_allocations WHERE document_id=$1 LIMIT 1',[d.id]);
+    await review(17,path+'/evidence/'+source.s.evidenceFileId).expect(200);
+    await db.query("UPDATE file_metadata SET checksum=repeat('f',64) WHERE file_id=$1",[source.s.evidenceFileId]);
+    await review(17,path+'/evidence/'+source.s.evidenceFileId).expect(404);
+    await db.query('UPDATE file_metadata SET checksum=$1 WHERE file_id=$2',[source.s.evidenceChecksum,source.s.evidenceFileId]);
+await review(17,path+'/evidence/'+financeFile).expect(404);
+    await review(18,path).expect(403);await review(19,path).expect(403);await review(1,path).expect(403);
+    await api(17,'post','').send(draft()).expect(403);await api(17,'post','/posting-period').send({}).expect(403);
+    await api(17,'get','/'+r.id).expect(403);
+    await reviewUpload(20,'reversal',r.id).expect(403);await reviewUpload(19,'reversal',r.id).expect(403);
+    await api(17,'post','/'+r.id+'/financial-clearance').send(input).expect(409);
+    const proof=(await reviewUpload(17,'reversal',r.id).expect(201)).body.fileId;
+    const preview=await review(17,path+'/evidence/'+proof).expect(200).expect('Content-Type',/pdf/);
+    expect((await PDFDocument.load(preview.body)).getPageCount()).toBe(1);await review(20,path+'/evidence/'+proof).expect(404);
+    await request(app.getHttpServer()).post('/api/chanjet/ar-ledger-import').auth(token(17),{type:'bearer'}).send({companyCode:'COMP-A',period:'202611'}).expect(403);
+    const beforeBytes=readdirSync(join(process.cwd(),'uploads/contracts')).length;
+    await reviewUpload(17,'reversal',r.id,'COMP-A','WH-A',Buffer.from('%PDF-broken')).expect(400);
+    await reviewUpload(17,'reversal',r.id,'COMP-A','WH-A',conversionPdf,'image/png').expect(400);
+    await upload(17).expect(400);await reviewUpload(17,'reversal',randomUUID()).expect(404);
+    expect(readdirSync(join(process.cwd(),'uploads/contracts')).length).toBe(beforeBytes);
+    const observed=async()=>{
+      const detail=(await review(17,path).expect(200)).body;
+      return {...input,financialEvidenceFileId:proof,reviewHash:detail.reviewHash,costs:detail.lines.map((l:any)=>({
+        batchNo:l.reference,costStatus:l.cost_status,unitCostDecimal:l.unit_cost}))};
+    };
+    const setPrice=(v:string)=>db.query('UPDATE inv_batches SET unit_cost=$1 WHERE batch_no=$2',[v,d.lines[0].batch_no]);
+    await setPrice('100000000000.000001');const earlier=await observed();
+    await setPrice('100000000000.000002');
+    await api(17,'post','/'+r.id+'/financial-clearance').send(earlier).expect(409);
+    await setPrice('0');const oldPeriod=await observed();
+    const period={companyCode:'COMP-A',houseCode:'HOUSE-A',periodMonth:frozen.expected_posting_date.slice(0,7),evidenceFileId:financeFile,reason:'Synthetic close and reopen'};
+    await api(2,'post','/posting-period').send({...period,state:'CLOSED',expectedVersion:1}).expect(201);
+    await api(2,'post','/posting-period').send({...period,state:'OPEN',expectedVersion:2}).expect(201);
+    await api(17,'post','/'+r.id+'/financial-clearance').send(oldPeriod).expect(409);
+    await api(17,'post','/'+r.id+'/financial-clearance').send({...input,financialEvidenceFileId:proof}).expect(409);
+    const bound=await observed();
+    const otherProof=(await reviewUpload(11,'reversal',r.id).expect(201)).body.fileId;
+    await api(11,'post','/'+r.id+'/financial-clearance').send({...input,financialEvidenceFileId:otherProof}).expect(409);
+    await api(17,'post','/'+r.id+'/financial-clearance').send({...bound,financialEvidenceFileId:otherProof}).expect(409);
+    await db.query("UPDATE file_metadata SET status='PENDING' WHERE file_id=$1",[proof]);
+    await review(17,path+'/evidence/'+proof).expect(404);
+    await api(17,'post','/'+r.id+'/financial-clearance').send(bound).expect(409);
+    await db.query("UPDATE file_metadata SET status='ACTIVE' WHERE file_id=$1",[proof]);
+    const readOnly=db.createQueryRunner();await readOnly.connect();await readOnly.startTransaction();
+    try {
+      const role='finance_binding_reader_'+process.pid;
+      await readOnly.query('CREATE ROLE '+role+' NOLOGIN');
+      await readOnly.query('GRANT USAGE ON SCHEMA '+schema+' TO '+role);
+      await readOnly.query('GRANT SELECT ON production_finance_review_files TO '+role);
+      await readOnly.query('SET LOCAL ROLE '+role);
+      await requireReviewFile(readOnly.manager,'reversal',r.id,proof);
+    }finally{await readOnly.rollbackTransaction();await readOnly.release();}
+    const c=(await api(17,'post','/'+r.id+'/financial-clearance').send(bound).expect(201)).body;
+    for(const sql of ['DELETE FROM production_finance_review_files WHERE file_id=$1',
+      'UPDATE production_finance_review_files SET reversal_id=reversal_id WHERE file_id=$1']){
+      await expect(db.query(sql,[proof])).rejects.toThrow('SIGNED_FINANCE_REVIEW_BINDING_IMMUTABLE');
+    }
+    await expect(db.query('TRUNCATE production_finance_review_files')).rejects.toThrow('SIGNED_FINANCE_REVIEW_BINDING_IMMUTABLE');
+    const unused=(await reviewUpload(17,'reversal',r.id).expect(201)).body.fileId;
+    await db.query('DELETE FROM production_finance_review_files WHERE file_id=$1',[unused]);
+    expect((await api(17,'post','/'+r.id+'/financial-clearance').send(bound).expect(201)).body.id).toBe(c.id);
+    const own=(await api(2,'post','/'+r.id+'/financial-clearance').send(input).expect(201)).body;
+    await api(2,'post','/'+r.id+'/approve').send({version:frozen.version,contentHash:frozen.content_hash,financialClearanceId:own.id}).expect(409);
+    await api(17,'post','/'+r.id+'/approve').send({version:frozen.version,contentHash:frozen.content_hash,financialClearanceId:c.id}).expect(403);
+    await api(4,'get',`/${r.id}/evidence/${proof}`).expect(404);
+    await api(2,'get',`/${r.id}/evidence/${proof}`).expect(200);
     const approved=(await api(2,'post',`/${r.id}/approve`).send({version:frozen.version,contentHash:frozen.content_hash,financialClearanceId:c.id}).expect(201)).body;
     await api(1,'post',`/${r.id}/post`).send({submitKey:approved.submit_key,contentHash:approved.content_hash}).expect(201);
     expect((await db.query('SELECT qty FROM inv_batches'))[0].qty).toBe('80');

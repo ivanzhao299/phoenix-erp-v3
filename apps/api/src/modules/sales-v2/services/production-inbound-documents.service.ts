@@ -1,5 +1,6 @@
 import { assertFlockOpenForHandover } from '../../farm/flock-handover-blockers';
 import { assertNewHandoverGrades } from '../../farm/daily-report-grades';
+import { FINANCE_PROOF_PREFIX, FINANCE_REVIEW, financeSigningMenu, requireReviewFile, reviewSnapshotHash } from '../../wms/production-finance-review';
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
@@ -812,22 +813,35 @@ export class ProductionInboundDocumentsService {
     [d.id,hash,submitKey,day,JSON.stringify(payload)]); return result;
   }
   async recordFinancialClearance(id: string,input: { contentHash:string;financialEvidenceFileId:string;periodStatus:'OPEN';
-    costs:Array<{ batchNo:string;costStatus:'UNKNOWN'|'CONFIRMED';unitCost:number|null }> }) {
+    reviewHash?:string;costs:Array<{ batchNo:string;costStatus:'UNKNOWN'|'CONFIRMED';unitCost?:number|null;unitCostDecimal?:string|null }> }) {
     const before=await this.identity(id); const actor=this.actor(); const user=this.cls.get('user') as any;
-    if (!hasPerm(user?.permissions,'MENU_FIN2_AR_LEDGER','E')) throw new ForbiddenException('须由独立财务负责人核验成本和未关账期间');
+    const signingMenu=financeSigningMenu(user?.permissions);
+    if (!hasPerm(user?.permissions,signingMenu,'E')) throw new ForbiddenException('须由独立财务负责人核验成本和未关账期间');
     return this.db.transaction(async m => {
       await this.lockDay(m,before); await this.reports(m,before); const d=await this.currentDocument(m,id);
       if (d.kind!=='REVERSAL'||d.state!=='READY'||d.content_hash!==input.contentHash||actor===d.created_by
         || d.expected_posting_date!==singaporeBusinessDate()||input.periodStatus!=='OPEN') throw new ConflictException('财务核验须绑定原单、冻结摘要和当日未关账期间且不得自核');
+      const exact=signingMenu===FINANCE_REVIEW || input.reviewHash!==undefined || input.financialEvidenceFileId.startsWith(FINANCE_PROOF_PREFIX);
+      if(exact)await requireReviewFile(m,'reversal',id,input.financialEvidenceFileId);
       const { batches }=await this.validateReversal(m,d);
       const periods=await this.postingPeriods(m,d);
+      if(exact) {
+        const qualifications=await m.query('SELECT batch_no,cost_status FROM production_batch_qualifications WHERE batch_no=ANY($1::text[]) FOR SHARE',
+          [batches.map((b:any)=>b.batch_no)]);
+        const statuses=new Map(qualifications.map((q:any)=>[q.batch_no,q.cost_status]));
+        const quantities=new Map(d.payload.items.map((item:any)=>[item.batchNo,String(item.quantity)]));
+        const current=reviewSnapshotHash(d.content_hash,periods.map((p:any)=>({month:p.periodMonth,version:p.version,checksum:p.evidenceChecksum})),
+          batches.map((b:any)=>({batch:b.batch_no,quantity:String(quantities.get(b.batch_no)),decimal:b.unit_cost==null?null:String(b.unit_cost),status:statuses.get(b.batch_no)??'UNKNOWN'})));
+        if(input.reviewHash!==current || !Array.isArray(input.costs) || input.costs.some(c=>c.costStatus!==(statuses.get(c.batchNo)??'UNKNOWN')))
+          throw new ConflictException('成本或期间与所查看的核签摘要不一致，请重新核验');
+      }
       if (!Array.isArray(input.costs)||input.costs.length!==batches.length||new Set(input.costs.map(c=>c.batchNo)).size!==batches.length) throw new BadRequestException('须逐批确认实际已核价或成本待核定状态');
       const costs=batches.map((b:any) => {
         const c=input.costs.find(x=>x.batchNo===b.batch_no);
         const originalCost=recordedCost(b.unit_cost);
         if (!c||!['UNKNOWN','CONFIRMED'].includes(c.costStatus)
-          || c.unitCost!==originalCost||c.costStatus==='CONFIRMED'&&originalCost===null) throw new ConflictException('财务核验成本与原批记录不一致');
-        return { batchNo:b.batch_no,costStatus:c.costStatus,recordedUnitCost:c.unitCost,
+          || (exact?c.unitCostDecimal!==(b.unit_cost==null?null:String(b.unit_cost)):c.unitCost!==originalCost)||c.costStatus==='CONFIRMED'&&originalCost===null) throw new ConflictException('财务核验成本与原批记录不一致');
+        return { batchNo:b.batch_no,costStatus:c.costStatus,recordedUnitCost:originalCost,
           recordedUnitCostDecimal:b.unit_cost==null?null:String(b.unit_cost) };
       });
       const [reviewer]=await m.query('SELECT username FROM sys_user WHERE user_id::text=$1',[actor]);
@@ -879,6 +893,7 @@ export class ProductionInboundDocumentsService {
       this.requireCurrentPostingDate(d);
       await this.validateReversal(m,d);
       const clearance=await this.financialClearance(m,d,financialClearanceId);
+      if(clearance.signed_by===actor)throw new ConflictException('业务审批与财务核签必须由不同实名人员办理');
       const evidence={ clearanceId:clearance.id,financialReviewer:clearance.signed_by,
         reviewer:actor,contentHash,postingDate:d.expected_posting_date };
       const [result]=await m.query(`WITH changed AS (UPDATE production_inbound_documents SET state='APPROVED',version=version+1,
@@ -895,6 +910,7 @@ export class ProductionInboundDocumentsService {
     }
     const { batches }=await this.validateReversal(m,d); const lines:any[]=[];
     const clearance=await this.financialClearance(m,d,d.approval_evidence.clearanceId);
+    if(clearance.signed_by===d.approved_by)throw new ConflictException('须取得独立业务与财务核签');
     for (let i=0;i<d.payload.items.length;i++) {
       const item=d.payload.items[i]; const lineNo=i+1; const batch=batches.find((b:any)=>b.batch_no===item.batchNo);
       const n=await guardedBatchUpdate(m,{ batchNo:item.batchNo,companyCode:d.company_code,warehouseCode:d.payload.warehouseCode,

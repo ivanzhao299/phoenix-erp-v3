@@ -1,3 +1,4 @@
+import { financeReviewEditors } from '../../wms/production-finance-review';
 import { StrictBodyGuard } from '../../../common/guards/strict-body.guard';
 import { Body, Controller, Get, Param, Patch, Post, Query, Res, UseGuards } from '@nestjs/common';
 import { Readable } from 'node:stream';
@@ -5,7 +6,7 @@ import { pipeline } from 'node:stream/promises';
 import type { Response } from 'express';
 import type { StockBatchFilter } from '../services/production-stock-trace';
 import { AuthGuard } from '@nestjs/passport';
-import { MenuGuard, RequireMenu } from '../../../common/guards/menu.guard';
+import { MenuGuard, RequireAnyMenu, RequireMenu } from '../../../common/guards/menu.guard';
 import { DataScopeGuard } from '../../org/guards/data-scope.guard';
 import { ProductionInboundDocumentsService } from '../services/production-inbound-documents.service';
 import { CreateProductionInboundDto, EditProductionInboundDto, PostProductionInboundDto,
@@ -111,7 +112,7 @@ export class ProductionInboundDocumentsController {
   approveReversal(@Param() p: ProductionDocumentIdDto,@Body() body: ApproveProductionReversalDto) {
     return this.documents.approveReversal(p.id,body.version,body.contentHash,body.financialClearanceId);
   }
-  @Post(':id/financial-clearance') @RequireMenu('MENU_FIN2_AR_LEDGER','E')
+  @Post(':id/financial-clearance') @RequireAnyMenu(financeReviewEditors)
   @UseGuards(new StrictBodyGuard(RecordProductionFinancialClearanceDto))
   recordFinancialClearance(@Param() p: ProductionDocumentIdDto,@Body() body: RecordProductionFinancialClearanceDto) {
     return this.documents.recordFinancialClearance(p.id,body);

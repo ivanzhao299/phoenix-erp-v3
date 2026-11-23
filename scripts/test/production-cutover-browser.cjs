@@ -1,4 +1,5 @@
 const {createRequire}=require('node:module');const {resolve}=require('node:path');const {mkdirSync,readFileSync,writeFileSync}=require('node:fs');const assert=require('node:assert/strict');
+const {PDFDocument}=createRequire(resolve('apps/api/package.json'))('pdf-lib');
 const {chromium}=createRequire(resolve('apps/web/package.json'))('@playwright/test');
 const web=process.env.INSTALLMENT_WEB_URL||'http://127.0.0.1:3088',api=process.env.INSTALLMENT_HTTP_URL||'http://127.0.0.1:3188';
 const rawCount=process.env.INSTALLMENT_CUTOVER_RAW==='1';
@@ -6,13 +7,41 @@ if(![web,api].every(x=>new URL(x).hostname==='127.0.0.1'))throw Error('Owned loo
 const output=resolve('artifacts/production-inbound-installments-20261118/browser-cutover');mkdirSync(output,{recursive:true});
 (async()=>{const browser=await chromium.launch({headless:true});const checks=[];let page,documentId;
 try{
-  for(const [lang,user,mobile] of [['zh','maker',false],['en','reviewer',true],['lo','view_only',true],['en','finance_only',false]]){
+  const pdf=await PDFDocument.create();pdf.addPage([200,100]).drawText('Owned finance and count evidence');
+  const sample=Buffer.from(await pdf.save());
+  for(const [lang,user,mobile] of [['zh','maker',false],['en','reviewer',true],['en','finance_a',true],['lo','view_only',true],['en','finance_only',false]]){
     const dictionary=JSON.parse(readFileSync(resolve(`apps/web/src/locales/${lang}.json`),'utf8')),label=k=>dictionary['productionCutover.'+k];
     const auth=await(await fetch(api+'/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:user,password:'owned-fixture'})})).json();assert.ok(auth.token);
     const context=await browser.newContext({viewport:mobile?{width:390,height:844}:{width:1440,height:1000},isMobile:mobile,hasTouch:mobile});
     await context.addCookies([{name:'phoenix_access_token',value:auth.token,url:web}]);
     await context.addInitScript(({user,token,lang})=>{sessionStorage.setItem('phoenix_session_version','v6');for(const s of [sessionStorage,localStorage]){s.setItem('phoenix_token',token);s.setItem('phoenix_user',JSON.stringify(user));}localStorage.setItem('phoenix_lang',lang);},{user:auth.user_info,token:auth.token,lang});
     page=await context.newPage();page.setDefaultTimeout(30000);
+    if(user==='finance_a'){
+      const finance=k=>dictionary['financeReview.'+k];
+      await page.goto(web+'/breeding/production-finance-review',{waitUntil:'domcontentloaded',timeout:90000});
+      await page.getByRole('heading',{name:dictionary['menu.production-finance-review'],level:1}).waitFor();
+      await page.getByRole('button',{name:new RegExp(finance('cutover'))}).first().click();
+      const preview=page.waitForEvent('popup');
+      const proofResponse=page.waitForResponse(r=>r.url().includes('/evidence/')&&r.request().method()==='GET');
+      await page.getByRole('button',{name:/synthetic-count.pdf/}).first().click();const original=await proofResponse;assert.equal(original.status(),200);assert.match(original.headers()['content-type'],/application\/pdf/);
+      const shown=await page.evaluate(async ({url,token})=>{
+        const r=await fetch(url,{headers:{Authorization:'Bearer '+token}});
+        return Array.from(new Uint8Array(await r.arrayBuffer()));
+      },{url:original.url(),token:auth.token});
+      assert.deepEqual(Buffer.from(shown),sample,'Browser preview bytes must match the uploaded PDF');
+      assert.equal((await PDFDocument.load(Uint8Array.from(shown))).getPageCount(),1);await(await preview).close();
+      const uploaded=page.waitForResponse(r=>r.url().endsWith('/upload/contract')&&r.request().method()==='POST');
+      await page.locator('input[type=file]').first().setInputFiles({name:'finance-proof.pdf',mimeType:'application/pdf',buffer:sample});
+      assert.equal((await uploaded).status(),201);
+      await page.getByLabel(finance('reason')).fill('Owned independent finance confirmation');
+      const response=page.waitForResponse(r=>r.url().endsWith('/sign')&&r.request().method()==='POST');
+      await page.getByRole('button',{name:finance('sign'),exact:true}).click();assert.equal((await response).status(),201);
+      await page.getByRole('status').filter({hasText:finance('signed')}).waitFor();
+      assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1));
+      await page.screenshot({path:output+'/en-independent-finance.png',fullPage:true});
+      checks.push('Dedicated finance E-only reviewer reads original evidence and signs frozen count on mobile independently');
+      await context.close();continue;
+    }
     await page.goto(web+(mobile?'/mobile/production-cutovers':'/breeding/production-cutovers')+(documentId?'?documentId='+documentId:''),{waitUntil:'domcontentloaded',timeout:90000});
     await page.getByRole('heading',{name:label('title'),level:1,exact:true}).waitFor();
     if(user==='maker'){
@@ -27,7 +56,7 @@ try{
       assert.equal(await page.getByLabel(label('counted'),{exact:true}).inputValue(),'0');checks.push('Warehouse changes clear measured quantities; PC refresh retains the explicitly re-entered synthetic zero');
       await page.getByRole('button',{name:label('inspect'),exact:true}).click();await page.getByText(label('evidenceOnly'),{exact:false}).waitFor();
       const uploaded=page.waitForResponse(r=>r.url().endsWith('/upload/contract')&&r.request().method()==='POST');
-      await page.locator('input[type=file]').first().setInputFiles({name:'synthetic-count.pdf',mimeType:'application/pdf',buffer:Buffer.from('%PDF-1.4\nSynthetic owned fixture zero count\n%%EOF')});
+      await page.locator('input[type=file]').first().setInputFiles({name:'synthetic-count.pdf',mimeType:'application/pdf',buffer:sample});
       await page.getByText((await(await uploaded).json()).fileId,{exact:true}).waitFor();
       if(rawCount){
         assert.equal(await page.getByLabel(label('rawMeasured'),{exact:true}).inputValue(),'','RAW book balance must never become a measured count automatically');
@@ -55,16 +84,16 @@ try{
       const original=await(await fetch(api+'/api/v2/inventory/production-cutovers/'+documentId,{headers:{Authorization:'Bearer '+auth.token}})).json();assert.equal(original.state,'READY');
       checks.push('PC real uploaded evidence, persisted zero count and frozen content; no activation route');
     }else if(user==='reviewer'){
-      for(const role of ['BUSINESS','FINANCE']){
+      for(const role of ['BUSINESS']){
         await page.getByLabel(label('role'),{exact:true}).selectOption(role);
         const uploaded=page.waitForResponse(r=>r.url().endsWith('/upload/contract')&&r.request().method()==='POST');
-        await page.locator('input[type=file]').last().setInputFiles({name:'synthetic-signature.pdf',mimeType:'application/pdf',buffer:Buffer.from('%PDF-1.4\nSynthetic role signature\n%%EOF')});
+        await page.locator('input[type=file]').last().setInputFiles({name:'synthetic-signature.pdf',mimeType:'application/pdf',buffer:sample});
         await page.getByText((await(await uploaded).json()).fileId,{exact:true}).waitFor();await page.getByLabel(label('signReason'),{exact:true}).fill('Synthetic isolated '+role+' confirmation');
         const response=page.waitForResponse(r=>r.url().endsWith('/sign')&&r.request().method()==='POST');
         await page.getByRole('button',{name:label('sign'),exact:true}).click();assert.equal((await response).status(),201);
         await page.locator('p').filter({hasText:role==='BUSINESS'?label('business'):label('finance')}).last().waitFor();
       }
-      checks.push('Mobile English actual business and finance operation permissions sign the same immutable digest');
+      checks.push('Mobile English business reviewer signs the immutable digest');
     }else{
       assert.equal(await page.getByRole('button',{name:label('save'),exact:true}).isEnabled(),false);
       await page.getByRole('button',{name:label('preview'),exact:true}).first().waitFor();checks.push(user==='finance_only'?'PC finance E-only user reaches the count through the actual operation permission and reads original evidence':'Mobile Lao viewer recovers original signed count with editing disabled');
@@ -78,6 +107,6 @@ try{
     await page.screenshot({path:output+'/'+lang+(user==='finance_only'?'-finance':'')+'.png',fullPage:true});await context.close();
   }
 }catch(error){if(page&&!page.isClosed()){await page.screenshot({path:output+'/failure.png',fullPage:true});console.error((await page.locator('body').innerText()).slice(-3500));}throw error;
-}finally{writeFileSync(output+'/receipt.json',JSON.stringify({complete:checks.length===(rawCount?7:5),rawCount,documentId,cases:checks,productionAction:false},null,2));await browser.close();}
+}finally{writeFileSync(output+'/receipt.json',JSON.stringify({complete:checks.length===(rawCount?8:6),rawCount,documentId,cases:checks,productionAction:false},null,2));await browser.close();}
 console.log('Owned cutover preparation browser checks passed:',checks.length);
 })().catch(error=>{console.error(error.stack);process.exitCode=1;});

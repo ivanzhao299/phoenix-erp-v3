@@ -1,3 +1,4 @@
+import { FINANCE_PROOF_PREFIX, FINANCE_REVIEW, financeSigningMenu, loadReviewTask } from '../wms/production-finance-review';
 import { DataScopeService } from '../org/services/data-scope.service';
 import { OrgOwnershipService } from '../org/services/org-ownership.service';
 import { DataScopeGuard } from '../org/guards/data-scope.guard';
@@ -26,6 +27,7 @@ const LEGACY_MODULE_CODE = 'LEGACY_UPLOAD';
 const LEGACY_PENDING = 'LEGACY_PENDING';
 
 interface LegacyUploadBody {
+  financeReviewId?: string;
   moduleCode?: string;
   module_code?: string;
   ownerType?: string;
@@ -57,7 +59,7 @@ export class UploadController {
     ...['MENU_PRC2_ORDER','MENU_PRC2_REQUEST','MENU_PRC2_PAYMENT','MENU_FIN2_SHAREHOLDER','MENU_FIN2_EXPENSE',
       'MENU_FIN2_REIMBURSE','MENU_FIN2_AP','MENU_STORE_PAYMENT','MENU_WORKFLOW_FORM','MENU_FLOCK_CREATE',
       'MENU_FIN2_AR_LEDGER','MENU_PROD_INBOUND'].map(menu=>({menu,perm:'E' as const})),
-    {menu:'MENU_PROD_INBOUND',perm:'C'},{menu:'MENU_PROD_INBOUND',perm:'A'},{menu:'MENU_INV_BATCH',perm:'E'},
+    {menu:FINANCE_REVIEW,perm:'E'},{menu:'MENU_PROD_INBOUND',perm:'C'},{menu:'MENU_PROD_INBOUND',perm:'A'},{menu:'MENU_INV_BATCH',perm:'E'},
   ])
   @UseInterceptors(
     FileInterceptor('file', {
@@ -93,7 +95,7 @@ export class UploadController {
     @Req() req: any,
   ) {
     if (!file) throw new BadRequestException('文件上传失败');
-    const fileId = this.nextFileId();
+    const fileId = body.financeReviewId!==undefined ? FINANCE_PROOF_PREFIX+randomUUID() : this.nextFileId();
     const moduleCode = this.safeCode(body.moduleCode ?? body.module_code, LEGACY_MODULE_CODE, 64);
     let canonicalMime=file.mimetype||'application/octet-stream';
     let retained=false,metadataAttempted=false;
@@ -105,7 +107,29 @@ export class UploadController {
     const isAdmin=req.user?.roles?.includes('ROLE_ADMIN') || req.user?.role==='ROLE_ADMIN' || req.user?.permissions?.includes('*');
     const originalMenus=['MENU_PRC2_ORDER','MENU_PRC2_REQUEST','MENU_PRC2_PAYMENT','MENU_FIN2_SHAREHOLDER','MENU_FIN2_EXPENSE','MENU_FIN2_REIMBURSE','MENU_FIN2_AP','MENU_STORE_PAYMENT','MENU_WORKFLOW_FORM'];
     if(!['FLOCK_LIFECYCLE','PRODUCTION_INBOUND','PRODUCTION_CUTOVER','PRODUCTION_CONVERSION','INVENTORY_SOURCE_CONTROL'].includes(moduleCode) && !isAdmin && !originalMenus.some(menu=>hasPerm(req.user?.permissions,menu,'E'))) throw new BadRequestException('养殖或生产交库上传权限仅可用于对应业务附件');
-    if(['PRODUCTION_CUTOVER','PRODUCTION_CONVERSION','INVENTORY_SOURCE_CONTROL'].includes(moduleCode)) {
+    if (body.financeReviewId !== undefined) {
+      const kind = moduleCode === 'PRODUCTION_INBOUND' ? 'reversal' : 'cutover';
+      if (!this.dataScopes || !['PRODUCTION_INBOUND','PRODUCTION_CUTOVER'].includes(moduleCode)
+        || typeof body.financeReviewId !== 'string') throw new BadRequestException('核签附件必须绑定实际任务');
+      const user = req.user;
+      const menu = financeSigningMenu(user?.permissions);
+      if (!hasPerm(user?.permissions,menu,'E')) throw new BadRequestException('缺少财务核签权限');
+      const scope = await this.dataScopes.resolve(String(user.userId ?? user.id),user.roles ?? [user.role],menu,user.perms_version);
+      const task = await loadReviewTask(this.fileMetadataRepo.manager,kind,body.financeReviewId,scope);
+      if (task.state !== 'READY' || task.created_by === String(user.userId ?? user.id)
+        || companyCode !== task.company_code || ownerType !== (kind === 'reversal' ? 'HOUSE' : 'WAREHOUSE')
+        || ownerId !== (kind === 'reversal' ? task.house_code : task.warehouse_code)) {
+        throw new BadRequestException('核签任务状态、本人身份或附件归属不一致');
+      }
+      const [warehouse] = await this.fileMetadataRepo.manager.query(
+        'SELECT site_code FROM wms_warehouses WHERE company_code=$1 AND warehouse_code=$2',[companyCode,task.warehouse_code]);
+      if (!warehouse) throw new BadRequestException('核签仓库归属无效');
+      if (kind === 'reversal') {
+        const owner = await new OrgOwnershipService(this.fileMetadataRepo.manager).resolveHouseIdentity(task.house_code);
+        if (owner.companyCode !== companyCode) throw new BadRequestException('核签鸡舍归属无效');
+        storeCode = owner.siteCode ?? '';
+      } else storeCode = warehouse.site_code ?? '';
+    } else if(['PRODUCTION_CUTOVER','PRODUCTION_CONVERSION','INVENTORY_SOURCE_CONTROL'].includes(moduleCode)) {
       if(!this.dataScopes)throw new BadRequestException('缺少有效盘点或来源附件数据范围');
       const requirements=moduleCode==='INVENTORY_SOURCE_CONTROL'
         ? [{menu:'MENU_INV_BATCH',perm:'E' as const}]
@@ -136,7 +160,7 @@ export class UploadController {
         throw new BadRequestException('附件不在实际公司及仓库业务授权范围内');
       companyCode=canonicalCompany;storeCode=warehouse.site_code??'';
     }
-    if(['FLOCK_LIFECYCLE','PRODUCTION_INBOUND'].includes(moduleCode)) {
+    if(body.financeReviewId === undefined && ['FLOCK_LIFECYCLE','PRODUCTION_INBOUND'].includes(moduleCode)) {
       const allowed=moduleCode==='PRODUCTION_INBOUND'
         ? hasPerm(req.user?.permissions,'MENU_PROD_INBOUND','C')||hasPerm(req.user?.permissions,'MENU_PROD_INBOUND','E')||hasPerm(req.user?.permissions,'MENU_FIN2_AR_LEDGER','E')
         : hasPerm(req.user?.permissions,'MENU_FLOCK_CREATE','E');
@@ -159,12 +183,13 @@ export class UploadController {
         (scope.farmCodes??[]).includes(house.farm_code) || (scope.siteCodes??[]).includes(house.site_code) || (scope.companyCodes??[]).includes(house.company_code))) throw new BadRequestException('附件鸡舍权威归属或数据范围不匹配');
       companyCode=house.company_code;storeCode=house.site_code;
     }
-    if(moduleCode==='PRODUCTION_CONVERSION'){
+    if(moduleCode==='PRODUCTION_CONVERSION'||body.financeReviewId!==undefined){
       const bytes=readFileSync(file.path),hex=bytes.subarray(0,8).toString('hex');
       canonicalMime=bytes.subarray(0,5).toString()==='%PDF-'?'application/pdf'
         :hex==='89504e470d0a1a0a'?'image/png':bytes.subarray(0,3).toString('hex')==='ffd8ff'?'image/jpeg'
           :bytes.subarray(0,4).toString()==='RIFF'&&bytes.subarray(8,12).toString()==='WEBP'?'image/webp':'';
       try{
+        if(body.financeReviewId!==undefined && file.mimetype!=='application/octet-stream' && file.mimetype!==canonicalMime)throw new Error('Finance evidence MIME does not match bytes');
         if(!canonicalMime)throw new Error('Unsupported evidence content');
         if(canonicalMime==='application/pdf'){
           const pdf=await PDFDocument.load(bytes,{throwOnInvalidObject:true,updateMetadata:false});
@@ -172,12 +197,11 @@ export class UploadController {
             throw new Error('Evidence has no readable pages');
         }else await sharp(bytes,{failOn:'warning',limitInputPixels:40000000}).raw().toBuffer();
       }catch{
-        throw new BadRequestException('加工证据须为可解码的 PDF、JPEG、PNG 或 WebP；损坏、加密或过大图片请重新导出');
+        throw new BadRequestException('上传证据须为可解码的 PDF、JPEG、PNG 或 WebP；损坏、加密或过大图片请重新导出');
       }
     }
     const ownerAssigned = moduleCode !== LEGACY_MODULE_CODE && ownerType !== LEGACY_PENDING && ownerId !== LEGACY_PENDING;
-    metadataAttempted=true;
-    const metadata = await this.fileMetadataRepo.save(this.fileMetadataRepo.create({
+    const entity = this.fileMetadataRepo.create({
       fileId,
       originalName: this.safeText(file.originalname, 255),
       storedName: this.safeText(file.filename, 255),
@@ -193,7 +217,16 @@ export class UploadController {
       uploadedBy: this.safeCode(this.currentUsername(req), '', 128),
       status: ownerAssigned ? 'ACTIVE' : 'PENDING',
       visibility: 'PROTECTED',
-    }));
+    });
+    metadataAttempted=true;
+    const metadata = body.financeReviewId
+      ? await this.fileMetadataRepo.manager.transaction(async m => {
+          const row = await m.save(entity);
+          await m.query('INSERT INTO production_finance_review_files(file_id,reversal_id,manifest_id) VALUES($1,$2,$3)',
+            [fileId,moduleCode==='PRODUCTION_INBOUND'?body.financeReviewId:null,moduleCode==='PRODUCTION_CUTOVER'?body.financeReviewId:null]);
+          return row;
+        })
+      : await this.fileMetadataRepo.save(entity);
 
     retained=true;
     return {
@@ -222,7 +255,7 @@ export class UploadController {
     }catch(error){
       // Once save was attempted, a disconnected original transaction may still commit.
       // Even a fresh SELECT returning no row cannot prove it is safe to remove these bytes.
-      if(moduleCode==='PRODUCTION_CONVERSION'&&!retained&&!metadataAttempted)unlinkSync(file.path);
+      if(!retained&&!metadataAttempted)unlinkSync(file.path);
       throw error;
     }
   }

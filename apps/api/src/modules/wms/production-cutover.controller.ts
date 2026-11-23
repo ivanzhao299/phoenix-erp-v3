@@ -1,3 +1,4 @@
+import { financeReviewEditors } from './production-finance-review';
 import { StrictBodyGuard } from '../../common/guards/strict-body.guard';
 import { Body, Controller, Get, Param, Patch, Post, Query, Res, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
@@ -34,7 +35,7 @@ export class ProductionCutoverController {
   @Post(':id/freeze') @RequireMenu('MENU_PROD_INBOUND','E')
   @UseGuards(new StrictBodyGuard(CutoverVersionDto))
   freeze(@Param() p:CutoverIdDto,@Body() body:CutoverVersionDto){return this.cutovers.freeze(p.id,body.version);}
-  @Post(':id/sign') @RequireAnyMenu([{menu:'MENU_PROD_INBOUND',perm:'A'},{menu:'MENU_FIN2_AR_LEDGER',perm:'E'}])
+  @Post(':id/sign') @RequireAnyMenu([{menu:'MENU_PROD_INBOUND',perm:'A'},...financeReviewEditors])
   @UseGuards(new StrictBodyGuard(CutoverSignDto))
   sign(@Param() p:CutoverIdDto,@Body() body:CutoverSignDto){return this.cutovers.sign(p.id,body);}
   @Get(':id/state-boundary') @RequireAnyMenu(readers)

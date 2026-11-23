@@ -1,3 +1,4 @@
+import { assertCutoverEvidenceScope, FINANCE_PROOF_PREFIX, FINANCE_REVIEW, financeSigningMenu, requireReviewFile } from './production-finance-review';
 import { BadRequestException, ConflictException, ForbiddenException, Inject, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { ClsService } from 'nestjs-cls';
 import { DataSource, EntityManager } from 'typeorm';
@@ -38,7 +39,7 @@ export class ProductionCutoverService {
     @Optional() @Inject(CUTOVER_PROVENANCE_SIGNER) private readonly provenanceSigner?:CutoverProvenanceSigner){}
   private authorize(company:string,warehouse:string,operation:PermCode='V',finance=false,override?:DataScopeContext){
     const user=this.cls.get('user') as any,scope=override??this.cls.get('dataScope') as DataScopeContext|undefined;
-    if(!(operation==='V'?(hasPerm(user?.permissions,'MENU_PROD_INBOUND','V')||hasPerm(user?.permissions,'MENU_PROD_INBOUND','A')||hasPerm(user?.permissions,'MENU_FIN2_AR_LEDGER','E')):hasPerm(user?.permissions,finance?'MENU_FIN2_AR_LEDGER':'MENU_PROD_INBOUND',operation)))throw new ForbiddenException('缺少盘点交接操作权限');
+    if(!(operation==='V'?(hasPerm(user?.permissions,'MENU_PROD_INBOUND','V')||hasPerm(user?.permissions,'MENU_PROD_INBOUND','A')||hasPerm(user?.permissions,'MENU_FIN2_AR_LEDGER','E')):hasPerm(user?.permissions,finance?financeSigningMenu(user?.permissions):'MENU_PROD_INBOUND',operation)))throw new ForbiddenException('缺少盘点交接操作权限');
     if(!scope||!scope.isGlobal&&(!scope.allowedCompanyCodes?.includes(company)||!scope.allowedWarehouseCodes?.includes(warehouse)))
       throw new ForbiddenException('盘点交接不在实际公司及仓库授权范围内');
     const actor=String(user?.userId??user?.id??'');if(!actor||!user?.username)throw new ForbiddenException('缺少实名操作人');
@@ -55,13 +56,7 @@ export class ProductionCutoverService {
       if(owner.companyCode!==boundary.companyCode)throw new ForbiddenException('鸡舍与盘点公司权威归属不一致');}
   }
   private evidenceAuthority(snapshot:any,override?:DataScopeContext){
-    const scope=override??this.cls.get('dataScope') as DataScopeContext|undefined;
-    if(!scope)throw new ForbiddenException('缺少有效盘点授权范围');
-    if(snapshot.owners?.some((o:any)=>o.company_code!==snapshot.boundary.companyCode)||(snapshot.masters?.profiles??[]).some((p:any)=>p.company_code!==snapshot.boundary.companyCode))throw new ForbiddenException('盘点鸡舍公司权威归属不一致');
-    const facts=[...(snapshot.batches??[]),...(snapshot.sourceEvents??[]),...(snapshot.inventoryDomains??[]),...(snapshot.cutovers??[]),...(snapshot.domains??[]),...(snapshot.processing?.rawReceipts??[]),...(snapshot.processing?.documents??[])];
-    if(!scope.isGlobal&&facts.some((f:any)=>!scope.allowedCompanyCodes.includes(f.company_code)
-      ||!scope.allowedWarehouseCodes.includes(f.source_warehouse_code??f.warehouse_code)))
-      throw new ConflictException('相关来源涉及尚未授权的公司或仓库，须先取得独立核验权限');
+    assertCutoverEvidenceScope(snapshot,override??this.cls.get('dataScope'));
   }
   private async verifyCurrentEvidence(m:EntityManager,boundary:CutoverEvidenceBoundary,expected:any,expectedSha:string,override?:DataScopeContext){
     this.evidenceAuthority(expected,override);
@@ -123,6 +118,10 @@ export class ProductionCutoverService {
       ||document.content_hash!==permit.content_hash||document.snapshot_sha256!==permit.snapshot_sha256
       ||String(user?.userId??'')!==permit.operator_id)throw new ConflictException('CUTOVER_EXECUTOR_MANIFEST_HOLD');
     this.authorize(document.company_code,document.warehouse_code,'E');
+    const [signers]=await m.query(`SELECT count(DISTINCT signed_by)::int AS n FROM production_cutover_signatures
+      WHERE manifest_id=$1 AND content_hash=$2 AND snapshot_sha256=$3 AND signed_by<>$4 AND signature_role IN ('BUSINESS','FINANCE')`,
+      [manifestId,document.content_hash,document.snapshot_sha256,document.created_by]);
+    if(signers.n!==2)throw new ConflictException('须取得独立业务与财务核签');
     await this.verifyCurrentEvidence(m,document.boundary,document.snapshot,document.snapshot_sha256);
     return document;
   }
@@ -363,14 +362,17 @@ export class ProductionCutoverService {
     text(input.reason,'签认依据',1000);const identity=await this.identity(id);
     if(!this.dataScopes)throw new ForbiddenException('缺少签认角色的实际授权范围解析');
     const user=this.cls.get('user') as any,roles=user?.roles??(user?.role?[user.role]:[]);
-    const roleScope=await this.dataScopes.resolve(String(user?.userId??user?.id??''),roles,input.role==='FINANCE'?'MENU_FIN2_AR_LEDGER':'MENU_PROD_INBOUND',user?.perms_version);
+    const roleScope=await this.dataScopes.resolve(String(user?.userId??user?.id??''),roles,input.role==='FINANCE'?financeSigningMenu(user?.permissions):'MENU_PROD_INBOUND',user?.perms_version);
     const actor=this.authorize(identity.company_code,identity.warehouse_code,input.role==='FINANCE'?'E':'A',input.role==='FINANCE',roleScope);
     return this.db.transaction(async m=>{
       const [d]=await m.query('SELECT * FROM production_cutover_manifests WHERE id=$1 FOR UPDATE',[id]);
       if(d.content_hash!==input.contentHash||d.snapshot_sha256!==input.snapshotSha256)throw new ConflictException('签认摘要与冻结盘点不一致');
+      this.evidenceAuthority(d.snapshot,roleScope);
       const [prior]=await m.query('SELECT * FROM production_cutover_signatures WHERE manifest_id=$1 AND signature_role=$2 AND content_hash=$3',[id,input.role,input.contentHash]);
       if(prior){if(prior.signed_by!==actor.actor||prior.evidence_file_id!==input.evidenceFileId||prior.reason!==input.reason)throw new ConflictException('该角色已由不同实名依据签认');return prior;}
-      this.evidenceAuthority(d.snapshot,roleScope);
+      if((await m.query('SELECT 1 FROM production_cutover_signatures WHERE manifest_id=$1 AND content_hash=$2 AND signed_by=$3 AND signature_role<>$4',
+        [id,d.content_hash,actor.actor,input.role])).length)throw new ConflictException('业务签认与财务核签必须由不同实名人员办理');
+      if(input.role==='FINANCE' && (financeSigningMenu(user?.permissions)===FINANCE_REVIEW || input.evidenceFileId.startsWith(FINANCE_PROOF_PREFIX)))await requireReviewFile(m,'cutover',id,input.evidenceFileId);
       if(d.state!=='READY'||d.created_by===actor.actor)throw new ConflictException('须由盘点制单人以外的业务及财务负责人签认');
       await this.verifyCurrentEvidence(m,d.boundary,d.snapshot,d.snapshot_sha256,roleScope);
       const originals=await this.proofs(m,d,d.payload.proofs.map((f:any)=>f.file_id));
