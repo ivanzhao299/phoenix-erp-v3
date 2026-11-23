@@ -224,7 +224,10 @@ for (const change of ['refresh', 'date'] as const) {
     await prepareInbound(page);
     const submit = page.getByRole('button', { name: confirmation, exact: true });
     const writes: string[] = [];
-    page.on('request', req => { if (req.method() === 'POST') writes.push(req.url()); });
+    page.on('request', req => {
+      const path = new URL(req.url()).pathname;
+      if (req.method() === 'POST' && path.startsWith('/api/')) writes.push(path);
+    });
     await page.route('**/api/v2/inventory/production-inbound/locations?**', route =>
       route.fulfill({ status: 403, json: { message: 'Warehouse scope withdrawn' } }));
     const denied = page.waitForResponse(response =>
