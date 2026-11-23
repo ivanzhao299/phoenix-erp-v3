@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {canonicalDigest} from './production-maintenance-receipts.mjs';
-import {parseSuccessorAction,successorBinding,successorDecisions,successorPlan,successorRuntime,validPublicInspection} from './production-modern-schema-successor.mjs';
+import {checkSuccessorRunnerDeadline,parseSuccessorAction,successorBinding,successorDecisions,successorPlan,successorRuntime,validPublicInspection} from './production-modern-schema-successor.mjs';
 import {defaultOffEvidenceFromFacts,captureModernSchemaDefaultOff} from './production-modern-schema-facts.mjs';
 import {frozenGroupsDigest} from './production-modern-schema-predecessor.mjs';
 import {checkSuccessorWeb} from './production-modern-schema-web-successor.mjs';
@@ -27,6 +27,18 @@ function preview(){
  return {...content,inspectionSha256:canonicalDigest(content)};
 }
 const selection=p=>'approve1123-'+owner+'-'+p.inspectionSha256+'-700-800-1795401000-1795404600';
+test('the incident grant covers six hours from original authorization and fits the actual hosted job',()=>{
+ const start=Date.parse('2026-11-23T09:07:52Z'), end=start+360*60_000;
+ const command=(from,until)=>'approve1123-'+owner+'-'+h('a')+'-700-800-'+from/1000+'-'+until/1000;
+ const {window}=parseSuccessorAction(command(start,end));
+ assert.doesNotThrow(()=>checkSuccessorRunnerDeadline(window,new Date(start+4*60_000).toISOString()));
+ assert.throws(()=>checkSuccessorRunnerDeadline(window,new Date(start).toISOString()),/EXCEEDS_HOSTED_JOB/);
+ assert.throws(()=>checkSuccessorRunnerDeadline(window,undefined),/EXCEEDS_HOSTED_JOB/);
+ assert.throws(()=>parseSuccessorAction(command(start,end+1000)),/WINDOW_OUTSIDE/);
+ assert.throws(()=>parseSuccessorAction(command(start-1000,end-1000)),/WINDOW_OUTSIDE/);
+ assert.throws(()=>parseSuccessorAction(command(start+1000,end+1000)),/WINDOW_OUTSIDE/);
+});
+
 test('reviewed predecessor, source blobs, compiled units and exact immutable inspection bind the control instruction',()=>{
  const p=preview(),binding=p.binding;
  assert.equal(successorPlan(binding),true);

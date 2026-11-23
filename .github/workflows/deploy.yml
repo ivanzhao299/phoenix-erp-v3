@@ -794,7 +794,7 @@ jobs:
        (inputs.mode == 'web' && startsWith(inputs.modern_schema_resume_owner, 'web1123-') && needs.build-push.result == 'skipped')) &&
       inputs.skip_deploy != true
     runs-on: ubuntu-latest
-    timeout-minutes: ${{ (inputs.modern_schema_resume_owner == 'inspect1123' || startsWith(inputs.modern_schema_resume_owner, 'approve1123-')) && 275 || inputs.modern_schema_release && 230 || 40 }}
+    timeout-minutes: ${{ startsWith(inputs.modern_schema_resume_owner, 'approve1123-') && 360 || inputs.modern_schema_resume_owner == 'inspect1123' && 275 || inputs.modern_schema_release && 230 || 40 }}
     environment: production
 
     permissions:

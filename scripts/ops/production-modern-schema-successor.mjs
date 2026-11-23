@@ -25,12 +25,30 @@ export function successorPlan(value) {
     Array.isArray(value.pendingMigrations) && same(value.pendingMigrations.map(unit => unit?.path), paths);
 }
 
-// The 184-minute SSH run timeout and 230-minute Actions job are transports.
-// A shorter independently measured and authorized window always wins.
 // Compose Web readiness: 30s start period + 3 x (30s interval + 5s
 // timeout), then room for the normal smoke and receipt checks.
 export const successorWebReserveMs=180_000;
-export const successorTransportCeilingMs = 180 * 60_000;
+export const successorTransportCeilingMs = 360 * 60_000;
+const ordinarySuccessorWindowMs = 180 * 60_000;
+// The incident extension starts at the original grant, including time already spent fenced.
+const incidentStart = Date.parse('2026-11-23T09:07:52Z');
+const incidentEnd = incidentStart + successorTransportCeilingMs;
+
+export function validSuccessorWindow(start, end) {
+  if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || end <= start) return false;
+  return end - start <= ordinarySuccessorWindowMs || (start >= incidentStart && end <= incidentEnd);
+}
+
+export function checkSuccessorRunnerDeadline(window, jobStartedAt) {
+  const start = Date.parse(window.start), end = Date.parse(window.end);
+  if (!validSuccessorWindow(start, end)) fail('WINDOW_OUTSIDE_TRANSPORT_LIMIT');
+  if (end - start <= ordinarySuccessorWindowMs) return;
+  const jobStart = Date.parse(jobStartedAt);
+  // Allow the SSH result and job teardown to finish after the business deadline.
+  if (!Number.isFinite(jobStart) || end + 4 * 60_000 > jobStart + successorTransportCeilingMs) {
+    fail('WINDOW_EXCEEDS_HOSTED_JOB');
+  }
+}
 
 export function successorBinding(floorSha, plan) {
   if (!successorPlan(plan) || !/^[a-f0-9]{40}$/.test(floorSha) ||
@@ -56,7 +74,7 @@ export function parseSuccessorAction(text){
  if(!match)return null;
  const [,inspectionOwner,inspectionSha256,ciRunId,acceptanceRunId,startSeconds,endSeconds]=match;
  const start=Number(startSeconds)*1000,end=Number(endSeconds)*1000;
- if(end<=start||end-start>successorTransportCeilingMs)fail('WINDOW_OUTSIDE_TRANSPORT_LIMIT');
+ if(!validSuccessorWindow(start,end))fail('WINDOW_OUTSIDE_TRANSPORT_LIMIT');
  return {kind:'approve',inspectionOwner,inspectionSha256,ciRunId,acceptanceRunId,window:{start:new Date(start).toISOString(),end:new Date(end).toISOString()}};
 }
 export function validateSuccessorInspection(record,binding){

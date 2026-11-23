@@ -159,7 +159,7 @@ test('delegated window requires the authenticated run title, successful same-hea
   const f=liveFixture(),base='/repos/ivanzhao299/phoenix-erp-v3/actions/runs/';
   const selection='approve1123-1234-1-'+ '8'.repeat(64)+'-700-800-1795401000-1795404600';
   f.run.display_title=selection;
-  f.dependencies.successor={selection,approval:{ciRunId:'700',acceptanceRunId:'800'}};
+  f.dependencies.successor={selection,approval:{ciRunId:'700',acceptanceRunId:'800',window:{start:'2026-11-23T09:07:52Z',end:'2026-11-23T10:25:52Z'}}};
   const add=(id,path,names,steps)=>{
    const run={...f.run,id,run_attempt:1,event:'push',path,status:'completed',conclusion:'success'};
    const jobs=names.map((name,i)=>({id:1000+i,name,run_id:id,head_sha:f.run.head_sha,status:'completed',conclusion:'success',

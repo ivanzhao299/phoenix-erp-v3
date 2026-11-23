@@ -80,6 +80,7 @@ scripts/ops/production-modern-schema-migration-driver.mjs
 scripts/ops/production-modern-schema-migration-gate.cjs
 scripts/ops/production-modern-schema-migration-launch.cjs
 scripts/ops/production-modern-schema-operator-cli.mjs
+scripts/ops/production-remediation-held-facts.mjs
 scripts/ops/production-modern-schema-operator-recovery.mjs
 scripts/ops/production-modern-schema-plan.mjs
 scripts/ops/production-modern-schema-post-audit.mjs

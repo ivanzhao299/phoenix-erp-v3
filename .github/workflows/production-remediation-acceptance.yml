@@ -180,3 +180,22 @@ jobs:
         with:
           name: production-upgrade-${{ github.sha }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/production-upgrade.log
+
+  held-facts:
+    name: Fenced 1123 diagnostic and public ingress
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Verify held facts transport, PostgreSQL 16 and 18, and Nginx origin
+        env:
+          PHOENIX_FACTS_PG_FIXTURE: '1'
+        run: |
+          set -euo pipefail
+          node --test scripts/ops/production-remediation-held-facts.test.mjs scripts/ops/production-modern-schema-facts-pg.test.mjs scripts/ops/production-modern-schema-{operator-workflow,successor,authority,identity,workflow}.test.mjs
+          python3 scripts/ci/production-remediation-edge-hold.test.py
