@@ -7,6 +7,7 @@ from pathlib import Path
 import re
 import secrets
 import subprocess
+import sys
 import tempfile
 import time
 
@@ -17,10 +18,10 @@ ARCHIVE_PATHS = ["apps/api", "scripts/db-migrate.sh", "scripts/bridge-schema-mig
 
 def run(args, *, cwd=ROOT, env=None, stdin=None):
     result = subprocess.run(args, cwd=cwd, env=env, input=stdin, text=True,
-                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+                            capture_output=True)
     if result.returncode:
         # Logs contain synthetic data only. Never echo the command's environment.
-        raise RuntimeError(f"{args[0]} exited {result.returncode}\n{result.stdout[-4000:]}")
+        raise RuntimeError(f"{args[0]} exited {result.returncode}\n{result.stdout[-2000:]}\n{result.stderr[-2000:]}")
     return result.stdout.strip()
 
 
@@ -66,8 +67,12 @@ def rehearsal(base, candidate, scratch):
     env.update(DOCKER_HOST="unix:///var/run/docker.sock", NODE_ENV="test", DB_HOST="127.0.0.1", DB_PASSWORD=secrets.token_hex(24), DB_USER="postgres")
     released = compile_revision(base, scratch / "released", env)
     target = compile_revision(candidate, scratch / "candidate", env)
-    container = run(["docker", "run", "-d", "--rm", "-p", "127.0.0.1::5432",
+    cidfile = scratch / "postgres.cid"
+    run(["docker", "run", "-d", "--rm", "--cidfile", str(cidfile), "-p", "127.0.0.1::5432",
                      "-e", "POSTGRES_PASSWORD", "postgres:18-alpine"], env={**env, "POSTGRES_PASSWORD": env["DB_PASSWORD"]})
+    container = cidfile.read_text().strip()
+    if not re.fullmatch(r"[0-9a-f]{64}", container):
+        raise RuntimeError("Docker did not record the owned fixture container ID")
     try:
         endpoint = run(["docker", "port", container, "5432/tcp"], env=env)
         if not re.fullmatch(r"127\.0\.0\.1:\d+", endpoint):
@@ -179,7 +184,13 @@ exec docker exec -i "$FIXTURE_CONTAINER" psql -X -U postgres -d "$DB_NAME" "${ar
                           "legacy": original, "replayAdded": 0, "coldMatches": True,
                           "aclBeforeFixtureGrants": acl_report, "historicalReceiptFixtures": receipts, "releasedApiAfterUpgrade": True, "apiRole": "non-owner"}, ensure_ascii=False))
     finally:
-        run(["docker", "stop", "--time", "1", container], env=env)
+        failed = sys.exc_info()[0] is not None
+        try:
+            run(["docker", "stop", "--time", "1", container], env=env)
+        except RuntimeError as cleanup_error:
+            if not failed:
+                raise
+            print(f"Fixture cleanup also failed: {cleanup_error}", file=sys.stderr)
 
 
 if __name__ == "__main__":
