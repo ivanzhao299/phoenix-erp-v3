@@ -45,7 +45,9 @@ node --test scripts/ops/production-modern-schema-{authority,unit-receipts,operat
 
 Compose 的 API 与结构 CLI 读取同一组配置身份，见 `docker-compose.yml` 与 `scripts/deploy-schema-first.sh`。其实际角色成员关系、对象所有者和默认 ACL 取决于部署实例。原现代发布副本通过 `pg_restore --no-owner --no-acl` 恢复，并用初始化用户执行，不能据此判定生产普通 API 的权限。
 
-在受控只读连接上，以实际 API 登录执行 `scripts/ops/readonly-audits/production-remediation-runtime-acl.sql`。返回的 JSON 区分结构尚未安装、必要权限缺失、角色特权越界、会话身份不匹配和可用。在升级前保留原结果，验收时用同一实例、真实运行主体与刚执行的迁移逐项复查。SQL 不采集密码和连接串，不写现场数据。
+在受控只读连接上，以实际 API 登录执行 `scripts/ops/readonly-audits/production-remediation-runtime-acl.sql`。返回的 JSON 区分结构尚未安装、必要权限缺失、角色特权越界、会话身份不匹配和可用。在升级前保留原结果，验收时用同一实例、真实运行主体与刚执行的迁移逐项复查。SQL 不采集密码和连接串，不写现场数据。`businessAccess` 回答当前 API 能否使用新增业务对象，`pilotIsolation` 回答其与控制面的权限是否分离。完整 `result` 适用于两者均要求的场景。
+
+软件默认 OFF 时，由受保护读通道独立核实控制登记、舍域／实物域、有效准入、执行结果、期初回执／流水，以及升级前后原有业务数据摘要。未登记、无运营域、无期初、无准入、无执行结果且旧事实不变时，历史运行身份兼任表所有者记入试点阻断；软件验收仍看实际新旧读写及 OFF 围栏。出现现有可写试点、有效登记却越权、事实摘要或 60 枚保管证据变动时保持 HOLD。已登记环境应使用原生 `assert_cutover_control_environment` 核对当前代际及角色 OID，配合实际 API 登录检查新增表。首次实账启用须补齐专用 API、issuer、executor 和 NOLOGIN 控制所有者的隔离、许可及签认。
 
 - 普通 API 需要续制表、财务附件绑定表、暂停/恢复回执表的 SELECT 和 INSERT，以及准入来源投影的 SELECT。财务提交 8764cd22a 改为在原单锁下读取绑定，绑定表不需要 UPDATE。只读 SQL 同时检查实际有效权限及可切换成员角色的越界能力。
 - 原协议将签发权给独立 issuer，经受保护准入表的 INSERT 及数据库守卫签发。普通 API 不得直接修改准入、执行结果或控制环境，也不得消费准入、记录执行结果或获取执行器授权锁。后续新增的 broker 专用函数必须随同其签名进入该审查。

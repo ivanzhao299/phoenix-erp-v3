@@ -1,5 +1,8 @@
 -- Single read-only query, run under the real API login (no SET ROLE impersonation).
 -- Recheck on the pinned database after expansion. ABSENT is never proof of access.
+-- businessAccess is the software observation. pilotIsolation is mandatory for a registered
+-- control environment and first activation. An unregistered, proven-OFF release cannot
+-- infer either enrollment or permission to activate from these booleans.
 WITH requirements(rel, need_insert) AS (VALUES
   ('production_inbound_reissues', true),
   ('production_finance_review_files', true),
@@ -40,6 +43,12 @@ WITH requirements(rel, need_insert) AS (VALUES
     OR has_parameter_privilege(r.oid,'session_replication_role','SET')) AS elevated
 )
 SELECT jsonb_build_object('currentIsSessionUser',current_user=session_user,'elevated',identity.elevated,
+  'businessAccess',CASE WHEN current_user<>session_user THEN 'SESSION_IDENTITY_HOLD'
+    WHEN EXISTS(SELECT 1 FROM api_access WHERE status='ABSENT') THEN 'EXPANSION_NOT_INSTALLED'
+    WHEN EXISTS(SELECT 1 FROM api_access WHERE status<>'AVAILABLE') THEN 'MISSING_BUSINESS_ACCESS'
+    ELSE 'AVAILABLE' END,
+  'pilotIsolation',CASE WHEN identity.elevated OR EXISTS(SELECT 1 FROM protected_access WHERE status<>'PROTECTED')
+    OR EXISTS(SELECT 1 FROM function_access WHERE status<>'PROTECTED') THEN 'HOLD' ELSE 'PROTECTED' END,
   'business',(SELECT jsonb_object_agg(rel,status) FROM api_access),
   'controlTables',(SELECT jsonb_object_agg(rel,status) FROM protected_access),
   'executorFunctions',(SELECT jsonb_object_agg(fn,status) FROM function_access),
