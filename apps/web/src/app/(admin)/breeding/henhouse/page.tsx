@@ -12,6 +12,7 @@ interface HouseCard {
   name?: string;
   type?: string;
   capacity: number;
+  capacityConflict: boolean;
   current: number;
   currentBirds: number;
   ageWeeks: number;
@@ -110,7 +111,11 @@ export default function HenHousePage() {
       };
       const ageWeeks = agg.startDate ? Math.floor((today.getTime() - new Date(agg.startDate).getTime()) / (7 * 86400000)) : 0;
       const layingRate = agg.layRateWeight > 0 ? parseFloat((agg.layRateSum / agg.layRateWeight).toFixed(2)) : null;
-      const cap = Number(d.capacity) || 0;
+      const legacyCapacity = Number(d.capacity);
+      const maxCapacity = Number(d.max_capacity);
+      const limits = [legacyCapacity, maxCapacity].filter(value => Number.isSafeInteger(value) && value > 0);
+      const cap = limits.length ? Math.min(...limits) : 0;
+      const capacityConflict = limits.length === 2 && legacyCapacity !== maxCapacity;
       const current = agg.qty;
       const occupancyPct = cap > 0 ? Math.round(current / cap * 100) : 0;
       const isOverload = cap > 0 && occupancyPct > 120;
@@ -124,6 +129,7 @@ export default function HenHousePage() {
         name: d.house_name,
         type: d.house_type,
         capacity: cap,
+        capacityConflict,
         current,
         ageWeeks,
         layingRate,
@@ -160,7 +166,7 @@ export default function HenHousePage() {
       code: row.code || '',
       name: row.name || '',
       type: row.type || houseTypeOptions[0]?.value || '',
-      capacity: row.capacity != null ? String(row.capacity) : ''
+      capacity: row.capacity > 0 ? String(row.capacity) : ''
     });
     setShowDrawer(true);
   };
@@ -174,8 +180,9 @@ export default function HenHousePage() {
       return;
     }
     const cap = Number(form.capacity);
-    if (!Number.isSafeInteger(cap) || cap<1) {
-      toast.error(t('ui.容量不能为负', '容量不能为负'));
+    const capacityChanged = !editRow || cap !== editRow.capacity;
+    if ((capacityChanged || form.capacity !== '') && (!Number.isSafeInteger(cap) || cap < 1)) {
+      toast.error(t('ui.设计容量必须为正整数', '设计容量必须为正整数'));
       return;
     }
     const farmInfo = farmsList.find(f => f.farm_code === form.farmName);
@@ -184,7 +191,7 @@ export default function HenHousePage() {
       farm_name: farmInfo?.farm_name || form.farmName,
       house_name: form.name.trim(),
       house_type: form.type,
-      max_capacity:cap,capacity:cap,
+      ...(capacityChanged ? { max_capacity: cap, capacity: cap } : {}),
       status: 'ACTIVE'
     };
     const ok = editId ? await updateRecord(editId, payload, 'house_code', t('ui.鸡舍信息已更新', '鸡舍信息已更新')) : await createRecord({
@@ -237,8 +244,11 @@ export default function HenHousePage() {
   }, {
     key: 'capacity',
     title: t('ui.设计容量', '设计容量'),
-    width: '90px',
-    render: (v: unknown) => `${Number(v).toLocaleString()} ${t('ui.羽', '羽')}`
+    width: '120px',
+    render: (v: unknown, row: HouseCard) => Number(v) > 0 ? <span>
+      {Number(v).toLocaleString()} {t('ui.羽', '羽')}
+      {row.capacityConflict && <span className={u.muted}> · {t('ui.容量待核对', '待核对')}</span>}
+    </span> : <span className={u.muted}>{t('ui.容量待核实', '待核实')}</span>
   }, {
     key: 'current',
     title: t('ui.当前存栏', '当前存栏'),
@@ -414,7 +424,7 @@ export default function HenHousePage() {
           </div>
           <div className={s.field}>
             <label className={s.lbl}>{t('ui.设计容量（最大存栏羽）', '设计容量（最大存栏羽）')}</label>
-            <input type="number" min="0" step="1" value={form.capacity} placeholder="0" onChange={e => setForm({
+            <input type="number" min="1" step="1" value={form.capacity} onChange={e => setForm({
             ...form,
             capacity: String(Math.max(0, Math.floor(Number(e.target.value) || 0)))
           })} onFocus={e => e.currentTarget.select()} className={s.inp} />

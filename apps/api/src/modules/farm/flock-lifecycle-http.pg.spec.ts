@@ -62,6 +62,7 @@ suite('flock lifecycle real JWT, persisted roles, DataScope, uploads and Postgre
    CREATE TABLE IF NOT EXISTS fixture_permissions(role text,permission text,PRIMARY KEY(role,permission));
    CREATE TABLE IF NOT EXISTS brd_farms(farm_code text PRIMARY KEY,farm_name text,company_code text,mapped_site_code text,status text);
    CREATE TABLE IF NOT EXISTS brd_houses(house_code text PRIMARY KEY,house_name text,farm_code text,max_capacity int,status text);
+   ALTER TABLE brd_houses ADD COLUMN IF NOT EXISTS capacity int;
    CREATE TABLE IF NOT EXISTS brd_flocks(flock_no text PRIMARY KEY,house_code text,farm_code text,company_code text,site_code text,breed_code text,strain text,breed_type text,start_date date,placement_date date,placement_age int,initial_qty int,current_qty int,status text,elimination_date date,current_lay_rate numeric,updated_at timestamptz DEFAULT now());
    CREATE TABLE IF NOT EXISTS brd_daily_logs(id serial PRIMARY KEY,flock_no text,house_code text,log_date date,shift text);
    ALTER TABLE brd_daily_logs ADD COLUMN IF NOT EXISTS mortality_qty integer DEFAULT 0,ADD COLUMN IF NOT EXISTS elimination_qty integer DEFAULT 0,
@@ -72,7 +73,7 @@ suite('flock lifecycle real JWT, persisted roles, DataScope, uploads and Postgre
    CREATE TABLE IF NOT EXISTS inv_batches(batch_no text PRIMARY KEY,quality_grade text);
    CREATE TABLE IF NOT EXISTS file_metadata(id bigserial PRIMARY KEY,file_id text UNIQUE,original_name text,stored_name text,storage_path text,mime_type text,size_bytes bigint,checksum text,module_code text,owner_type text,owner_id text,company_code text,store_code text,uploaded_by text,status text,visibility text,created_at timestamptz DEFAULT now(),updated_at timestamptz DEFAULT now(),deleted_at timestamptz);
    INSERT INTO brd_farms VALUES('A','farm A','CA','SA','ACTIVE'),('A2','farm A2','CA','SA2','ACTIVE'),('B','farm B','CB','SB','ACTIVE') ON CONFLICT DO NOTHING;
-   INSERT INTO brd_houses VALUES('HA','house A','A',200,'ACTIVE'),('HX','house same company other farm','A2',200,'ACTIVE'),('HB','house B','B',200,'ACTIVE') ON CONFLICT DO NOTHING;
+   INSERT INTO brd_houses(house_code,house_name,farm_code,max_capacity,status) VALUES('HA','house A','A',200,'ACTIVE'),('HX','house same company other farm','A2',200,'ACTIVE'),('HB','house B','B',200,'ACTIVE') ON CONFLICT DO NOTHING;
    INSERT INTO sys_organizations(id,org_code,org_name,org_type,level,status,company_code,parent_id,sort_order) VALUES
     (1,'CA','Company A','COMPANY',2,'ACTIVE','CA',NULL,0),(2,'CB','Company B','COMPANY',2,'ACTIVE','CB',NULL,0),
     (3,'SA','Site A','SITE',3,'ACTIVE','CA',1,0),(4,'SA2','Site A2','SITE',3,'ACTIVE','CA',1,0),(5,'SB','Site B','SITE',3,'ACTIVE','CB',2,0) ON CONFLICT DO NOTHING;

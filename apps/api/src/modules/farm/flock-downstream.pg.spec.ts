@@ -13,6 +13,7 @@ import {TraceabilityService} from '../traceability/traceability.service';
 import {FlockBaseSchema1794899000000} from '../../database/migrations/1794899000000-FlockBaseSchema';
 import {FlockLifecycleLedger1794900000000} from '../../database/migrations/1794900000000-FlockLifecycleLedger';
 import {FlockProductionProvenance1794901000000} from '../../database/migrations/1794901000000-FlockProductionProvenance';
+import {OfficialInventoryCutover1794971000000} from '../../database/migrations/1794971000000-OfficialInventoryCutover';
 const url=process.env.FLOCK_DOWNSTREAM_PG_URL;const suite=url?describe:describe.skip;
 suite('actual WMS transfer and trace on owned PostgreSQL',()=>{
  let releaseBusinessClock:(()=>void)|undefined;
@@ -46,12 +47,16 @@ suite('actual WMS transfer and trace on owned PostgreSQL',()=>{
   const mvp=readFileSync(resolve(__dirname,'../../database/migrations/1789600400000-AddProductionManagementMvpSchema.ts'),'utf8');
   for(const table of ['brd_medications','brd_vaccinations','brd_medication_records','brd_medication_issue_lines']){const begin=mvp.indexOf('CREATE TABLE IF NOT EXISTS '+table+' (');const end=mvp.indexOf('`);',begin);await db.query(mvp.slice(begin,end));}
   const vaccineLines=readFileSync(resolve(__dirname,'../../database/migrations/1794402000000-AddImmuneIssueLines.ts'),'utf8');const begin=vaccineLines.indexOf('CREATE TABLE IF NOT EXISTS brd_vaccination_issue_lines (');await db.query(vaccineLines.slice(begin,vaccineLines.indexOf('`);',begin)));
-  await db.query(`ALTER TABLE brd_medications ADD COLUMN IF NOT EXISTS product_type text,ADD COLUMN IF NOT EXISTS unit_code text,ADD COLUMN IF NOT EXISTS default_withdraw_days int;
+  await db.query(`ALTER TABLE store_master ADD COLUMN IF NOT EXISTS company_code text;
+   ALTER TABLE brd_medications ADD COLUMN IF NOT EXISTS product_type text,ADD COLUMN IF NOT EXISTS unit_code text,ADD COLUMN IF NOT EXISTS default_withdraw_days int;
    ALTER TABLE brd_vaccinations ADD COLUMN IF NOT EXISTS next_due_date date,ADD COLUMN IF NOT EXISTS inventory_batch_no text;
    ALTER TABLE wms_warehouses ADD COLUMN IF NOT EXISTS status text,ADD COLUMN IF NOT EXISTS type text,ADD COLUMN IF NOT EXISTS site_code text;
    ALTER TABLE inv_batches ADD COLUMN IF NOT EXISTS manufacturer_batch_no text;
    ALTER TABLE inv_ledger ADD COLUMN IF NOT EXISTS log_date date,ADD COLUMN IF NOT EXISTS house_code text;
    CREATE TABLE IF NOT EXISTS file_metadata(file_id text PRIMARY KEY,status text,deleted_at timestamptz,visibility text,mime_type text,module_code text,owner_type text,owner_id text,company_code text,store_code text,uploaded_by text);`);
+  const cutover=db.createQueryRunner();
+  try { await new OfficialInventoryCutover1794971000000().up(cutover); }
+  finally { await cutover.release(); }
   wms=new WmsService(db.manager,{get:()=>({isGlobal:true,allowedWarehouseCodes:[]})} as never);trace=new TraceabilityService(db,{} as never);
  });
  beforeEach(async()=>{

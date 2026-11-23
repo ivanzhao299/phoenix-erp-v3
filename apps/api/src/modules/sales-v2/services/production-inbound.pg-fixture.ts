@@ -99,7 +99,7 @@ export async function installProductionInboundFixture(db: DataSource, grades: st
       VALUES ('PROFILE-A2','COMP-A','FARM-A','SITE-A','HOUSE-A2','STANDARD',NULL,'2026-01-01')`);
     await db.query("INSERT INTO wms_warehouses VALUES ('WH-A2','COMP-A','SITE-A','ACTIVE','EGG_FARM','OPERATIONAL')");
     await db.query("INSERT INTO wms_locations VALUES ('LOC-A2','WH-A2','ACTIVE'), ('LOC-A-OTHER','WH-A','ACTIVE')");
-    await db.query(`ALTER TABLE brd_houses ADD COLUMN IF NOT EXISTS max_capacity int DEFAULT 5000;
+    await db.query(`ALTER TABLE brd_houses ADD COLUMN IF NOT EXISTS max_capacity int DEFAULT 5000, ADD COLUMN IF NOT EXISTS capacity int;
       ALTER TABLE brd_flocks ADD COLUMN IF NOT EXISTS initial_qty int DEFAULT 1000,ADD COLUMN IF NOT EXISTS current_qty int DEFAULT 1000,
         ADD COLUMN IF NOT EXISTS company_code text,ADD COLUMN IF NOT EXISTS site_code text,ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT now();
       ALTER TABLE brd_daily_logs ADD COLUMN IF NOT EXISTS flock_no text,ADD COLUMN IF NOT EXISTS shift text DEFAULT 'DAILY',

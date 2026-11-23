@@ -7,6 +7,7 @@ import { createHash, randomUUID } from 'crypto';
 import { EntityManager } from 'typeorm';
 import { hasPerm } from '../../auth/permissions.util';
 import { birdCount } from './daily-stock-policy';
+import { resolveHouseCapacity } from './house-capacity';
 import { OrgScope, scopeWhere } from './farm.service';
 
 export type FlockActor = { id: string; permissions?: string[]; admin?: boolean };
@@ -48,7 +49,7 @@ export class FlockLifecycleService {
     if (kind in FLOCK_ACTION_MENUS) this.permit(actor,kind as keyof typeof FLOCK_ACTION_MENUS,true);
   }
   private async house(m: EntityManager, code: string, scope: OrgScope) {
-    const [h] = await m.query(`SELECT h.house_code,h.farm_code,h.max_capacity,h.status,f.company_code,
+    const [h] = await m.query(`SELECT h.house_code,h.farm_code,h.capacity,h.max_capacity,h.status,f.company_code,
       COALESCE(f.mapped_site_code,'') AS site_code,f.status AS farm_status
       FROM brd_houses h JOIN brd_farms f ON f.farm_code=h.farm_code WHERE h.house_code=$1`,[code]);
     if (!h) throw new NotFoundException('鸡舍不存在');
@@ -266,7 +267,7 @@ export class FlockLifecycleService {
   }
   async overview(scope: OrgScope) {
     const params: any[]=[];const where=scopeWhere(scope,params,'f.');
-    const houses=await this.db.query(`SELECT h.house_code,h.house_name,h.farm_code,h.max_capacity,h.status,f.company_code,
+    const houses=await this.db.query(`SELECT h.house_code,h.house_name,h.farm_code,h.capacity,h.max_capacity,h.status,f.company_code,
       COALESCE(f.mapped_site_code,'') AS site_code,s.state,s.version AS house_version,s.last_occupied_on::text AS last_occupied_on,
       o.id AS occupancy_id,b.flock_no,b.quantity,b.version,b.closed_on::text AS closed_on,b.baseline_on::text AS baseline_on,
       (SELECT COUNT(*)::integer FROM brd_flocks x WHERE x.house_code=h.house_code AND
@@ -275,7 +276,9 @@ export class FlockLifecycleService {
       LEFT JOIN brd_flock_house_states s ON s.house_code=h.house_code
       LEFT JOIN brd_flock_occupancies o ON o.house_code=h.house_code AND o.ended_on IS NULL
       LEFT JOIN brd_flock_balances b ON b.flock_no=o.flock_no ${where?'WHERE '+where:''} ORDER BY h.house_code`,params);
-    return houses;
+    return houses.map(({ capacity, max_capacity, ...house }: any) => ({
+      ...house, max_capacity: resolveHouseCapacity({ capacity, max_capacity }),
+    }));
   }
   async balances(scope: OrgScope) {
     const params: any[]=[];const where=scopeWhere(scope,params,'b.');
@@ -413,7 +416,7 @@ export class FlockLifecycleService {
     }
     if (['BASELINE','ADMIT'].includes(doc.kind)) {
       if (balance || p.expectedVersion!==0) throw new ConflictException('鸡群已接续事件账或版本不为0');
-      this.capacity(h,p.quantity);
+      const capacity=this.capacity(h,p.quantity);
       const active=await m.query("SELECT *,start_date::text AS start_date FROM brd_flocks WHERE house_code=$1 AND (status IS DISTINCT FROM 'RETIRED' OR COALESCE(current_qty,0)>0) ORDER BY flock_no FOR UPDATE",[h.house_code]);
       if (doc.kind==='BASELINE') {
         if (active.length!==1 || active[0].flock_no!==doc.flock_no || active[0].farm_code!==h.farm_code) throw new BadRequestException('基线须对应唯一且归属一致的在栏群');
@@ -448,7 +451,7 @@ export class FlockLifecycleService {
       }
       const occupancy=randomUUID();
       await m.query(`INSERT INTO brd_flock_occupancies(id,flock_no,house_code,company_code,farm_code,site_code,began_on,opened_document_id,capacity_snapshot)
-        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`,[occupancy,doc.flock_no,h.house_code,h.company_code,h.farm_code,h.site_code,day,doc.id,h.max_capacity]);
+        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`,[occupancy,doc.flock_no,h.house_code,h.company_code,h.farm_code,h.site_code,day,doc.id,capacity]);
       await m.query(`INSERT INTO brd_flock_balances(flock_no,company_code,farm_code,site_code,house_code,quantity,baseline_on,last_business_date)
         VALUES($1,$2,$3,$4,$5,$6,$7,$7)`,[doc.flock_no,h.company_code,h.farm_code,h.site_code,h.house_code,p.quantity,day]);
       await this.event(m,doc,actor,{occupancy,delta:p.quantity,kind:doc.kind});
@@ -493,7 +496,8 @@ export class FlockLifecycleService {
     } else if (doc.kind==='ADJUST') delta=p.quantity;
     else if (doc.kind==='TRANSFER') {
       if (day<=occ.began_on) throw new BadRequestException('一期禁止同日入栏后转舍');
-      const t=await this.house(m,p.targetHouseCode,scope);this.capacity(t,balance.quantity);
+      const t=await this.house(m,p.targetHouseCode,scope);
+      const capacity=this.capacity(t,balance.quantity);
       if (t.status!=='ACTIVE' || t.farm_status!=='ACTIVE' || t.company_code!==h.company_code) throw new BadRequestException('目标舍必须为同公司有效鸡舍');
       const [ts]=await m.query('SELECT *,last_occupied_on::text AS last_occupied_on FROM brd_flock_house_states WHERE house_code=$1 FOR UPDATE',[t.house_code]);
       const active=await m.query("SELECT 1 FROM brd_flocks WHERE house_code=$1 AND (status IS DISTINCT FROM 'RETIRED' OR COALESCE(current_qty,0)>0)",[t.house_code]);
@@ -505,7 +509,7 @@ export class FlockLifecycleService {
       await m.query('UPDATE brd_flock_occupancies SET ended_on=$2,closed_document_id=$3 WHERE id=$1',[occ.id,day,doc.id]);
       const next=randomUUID();
       await m.query(`INSERT INTO brd_flock_occupancies(id,flock_no,house_code,company_code,farm_code,site_code,began_on,opened_document_id,capacity_snapshot)
-        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`,[next,doc.flock_no,t.house_code,t.company_code,t.farm_code,t.site_code,day,doc.id,t.max_capacity]);
+        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`,[next,doc.flock_no,t.house_code,t.company_code,t.farm_code,t.site_code,day,doc.id,capacity]);
       await this.event(m,doc,actor,{line:1,kind:'TRANSFER_OUT',occupancy:occ.id,delta:-balance.quantity});
       await this.event(m,doc,actor,{line:2,kind:'TRANSFER_IN',occupancy:next,delta:balance.quantity,house:t});
       await this.setHouse(m,h.house_code,'DIRTY',doc.id,day);
@@ -571,7 +575,10 @@ export class FlockLifecycleService {
     }
   }
   private capacity(h: any, quantity: number) {
-    if (!Number.isSafeInteger(Number(h.max_capacity)) || Number(h.max_capacity)<=0 || quantity>Number(h.max_capacity)) throw new BadRequestException('超过有效鸡舍容量或容量未核实');
+    const capacity = resolveHouseCapacity(h);
+    if (capacity === null) throw new BadRequestException('鸡舍设计容量未核实，请核对鸡舍档案');
+    if (quantity > capacity) throw new BadRequestException(`超过有效鸡舍容量（上限 ${capacity} 羽）`);
+    return capacity;
   }
   private async setHouse(m: EntityManager, code: string, state: string, doc: string, day?: string) {
     await m.query(`INSERT INTO brd_flock_house_states(house_code,state,document_id,last_occupied_on) VALUES($1,$2,$3,$4)

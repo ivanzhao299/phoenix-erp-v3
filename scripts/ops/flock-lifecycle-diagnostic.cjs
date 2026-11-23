@@ -14,7 +14,15 @@ async function diagnose(db){
    f.status NOT IN ('ACTIVE','GROWING','LAYING','PEAK','DECLINING','RETIRED') OR f.status IS NULL OR COALESCE(f.start_date,f.placement_date) IS NULL
    OR f.placement_date IS NOT NULL AND f.start_date IS NOT NULL AND f.placement_date<>f.start_date OR f.elimination_date IS NOT NULL
    OR NOT EXISTS(SELECT 1 FROM sys_dict d WHERE d.dict_type='BRD_BREED' AND d.dict_code=f.breed_code AND d.status='ACTIVE')`);
- await run('ownership_or_capacity',`SELECT f.flock_no,f.house_code,f.farm_code,h.farm_code AS authoritative_farm,fa.company_code,h.max_capacity,f.current_qty FROM brd_flocks f LEFT JOIN brd_houses h ON h.house_code=f.house_code LEFT JOIN brd_farms fa ON fa.farm_code=h.farm_code WHERE h.house_code IS NULL OR fa.company_code IS NULL OR f.farm_code IS DISTINCT FROM h.farm_code OR NULLIF(to_jsonb(f)->>'company_code','') IS NOT NULL AND to_jsonb(f)->>'company_code' IS DISTINCT FROM fa.company_code OR h.max_capacity IS NULL OR h.max_capacity<=0 OR f.current_qty>h.max_capacity`);
+ await run('ownership_or_capacity',`SELECT f.flock_no,f.house_code,f.farm_code,h.farm_code AS authoritative_farm,fa.company_code,
+   limits.capacity,limits.max_capacity,effective.capacity AS effective_capacity,f.current_qty
+   FROM brd_flocks f LEFT JOIN brd_houses h ON h.house_code=f.house_code LEFT JOIN brd_farms fa ON fa.farm_code=h.farm_code
+   CROSS JOIN LATERAL (SELECT (to_jsonb(h)->>'capacity')::integer AS capacity,(to_jsonb(h)->>'max_capacity')::integer AS max_capacity) limits
+   CROSS JOIN LATERAL (SELECT LEAST(CASE WHEN limits.capacity>0 THEN limits.capacity END,CASE WHEN limits.max_capacity>0 THEN limits.max_capacity END) AS capacity) effective
+   WHERE h.house_code IS NULL OR fa.company_code IS NULL OR f.farm_code IS DISTINCT FROM h.farm_code
+     OR NULLIF(to_jsonb(f)->>'company_code','') IS NOT NULL AND to_jsonb(f)->>'company_code' IS DISTINCT FROM fa.company_code
+     OR effective.capacity IS NULL OR f.current_qty>effective.capacity
+     OR limits.capacity>0 AND limits.max_capacity>0 AND limits.capacity<>limits.max_capacity`);
  await run('legacy_daily_granularity',`SELECT house_code,log_date,array_agg(shift ORDER BY shift) AS shifts,array_agg(DISTINCT flock_no) AS flocks,COUNT(*) AS records FROM brd_daily_logs GROUP BY house_code,log_date HAVING COUNT(*)>1 OR COUNT(DISTINCT flock_no)>1 OR bool_or(shift IN ('ALL','DAILY')) AND COUNT(*)>1`);
  await run('discontinuous_snapshots',`SELECT flock_no,house_code,log_date,id,opening_qty,closing_qty,previous_closing FROM(SELECT *,lag(closing_qty) OVER(PARTITION BY flock_no ORDER BY log_date,id) AS previous_closing FROM brd_daily_logs)d WHERE opening_qty IS NULL OR closing_qty IS NULL OR closing_qty<>opening_qty-COALESCE(mortality_qty,0)-COALESCE(elimination_qty,0) OR previous_closing IS NOT NULL AND opening_qty<>previous_closing`);
  await run('commercial_source_overlap',`SELECT a.company_code,a.house_code,a.profile_code AS profile_a,b.profile_code AS profile_b FROM md_egg_source_profiles a JOIN md_egg_source_profiles b ON a.company_code=b.company_code AND a.house_code=b.house_code AND a.profile_code<b.profile_code WHERE a.status='ACTIVE' AND b.status='ACTIVE' AND daterange(a.effective_date,a.expire_date,'[]') && daterange(b.effective_date,b.expire_date,'[]')`);

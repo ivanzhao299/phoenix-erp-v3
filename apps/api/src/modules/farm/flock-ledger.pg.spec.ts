@@ -59,7 +59,8 @@ suite('approved flock ledger on isolated PostgreSQL',()=>{
         status text,elimination_date date,current_lay_rate numeric,updated_at timestamptz DEFAULT now());
       CREATE TABLE IF NOT EXISTS brd_daily_logs(id serial PRIMARY KEY,house_code text,flock_no text,log_date date,shift text,
         mortality_qty integer DEFAULT 0,elimination_qty integer DEFAULT 0,opening_qty int,closing_qty int,eggs_produced int DEFAULT 0,lay_rate numeric,eggs_by_grade jsonb);`);
-    await ds.query(`ALTER TABLE brd_farms ADD COLUMN IF NOT EXISTS farm_name text;ALTER TABLE brd_daily_logs ADD COLUMN IF NOT EXISTS eggs_by_grade jsonb,ADD COLUMN IF NOT EXISTS company_code text,ADD COLUMN IF NOT EXISTS farm_code text,ADD COLUMN IF NOT EXISTS site_code text,ADD COLUMN IF NOT EXISTS feed_consumed numeric,ADD COLUMN IF NOT EXISTS water_consumed numeric,ADD COLUMN IF NOT EXISTS note text,ADD COLUMN IF NOT EXISTS dirty_eggs integer,ADD COLUMN IF NOT EXISTS broken_eggs integer,ADD COLUMN IF NOT EXISTS business_date date,ADD COLUMN IF NOT EXISTS operator text;
+    await ds.query(`ALTER TABLE brd_houses ADD COLUMN IF NOT EXISTS capacity int,ADD COLUMN IF NOT EXISTS farm_name text,ADD COLUMN IF NOT EXISTS updated_at timestamptz;
+      ALTER TABLE brd_farms ADD COLUMN IF NOT EXISTS farm_name text;ALTER TABLE brd_daily_logs ADD COLUMN IF NOT EXISTS eggs_by_grade jsonb,ADD COLUMN IF NOT EXISTS company_code text,ADD COLUMN IF NOT EXISTS farm_code text,ADD COLUMN IF NOT EXISTS site_code text,ADD COLUMN IF NOT EXISTS feed_consumed numeric,ADD COLUMN IF NOT EXISTS water_consumed numeric,ADD COLUMN IF NOT EXISTS note text,ADD COLUMN IF NOT EXISTS dirty_eggs integer,ADD COLUMN IF NOT EXISTS broken_eggs integer,ADD COLUMN IF NOT EXISTS business_date date,ADD COLUMN IF NOT EXISTS operator text;
       CREATE TABLE IF NOT EXISTS inv_batches(batch_no text PRIMARY KEY,quality_grade text,qty numeric);
       CREATE TABLE IF NOT EXISTS product_grades(grade_code text PRIMARY KEY,is_saleable boolean,status text);
       CREATE TABLE IF NOT EXISTS mon_device_property_history(erp_house_code text,property_code text,value numeric,collect_time bigint,log_date date);
@@ -72,7 +73,7 @@ suite('approved flock ledger on isolated PostgreSQL',()=>{
     await ds.query(`TRUNCATE inv_batches,product_grades,mon_device_property_history,mon_device_realtime_snapshot,mon_device_property_daily_agg,brd_flock_admission_receipts,prc2_suppliers,brd_flock_activity_sources,brd_flock_sales_settlements,inv_flock_source_links,brd_egg_source_receipts,brd_egg_day_routes,file_metadata,sal_customers,brd_flock_document_audits,brd_flock_events,brd_flock_held_balances,brd_flock_house_states,
       brd_flock_daily_balances,brd_flock_balances,brd_flock_occupancies,brd_flock_documents,brd_daily_logs,brd_flocks,brd_houses,brd_farms CASCADE;
       INSERT INTO brd_farms(farm_code,company_code,mapped_site_code,status) VALUES('A','CA','SA','ACTIVE'),('B','CB','SB','ACTIVE'),('A2','CA','SA2','ACTIVE');
-      INSERT INTO brd_houses VALUES('HA','house A','A',200,'ACTIVE'),('HA2','house A2','A',200,'ACTIVE'),('HB','house B','B',200,'ACTIVE'),('HX','other site','A2',200,'ACTIVE');
+      INSERT INTO brd_houses(house_code,house_name,farm_code,max_capacity,status) VALUES('HA','house A','A',200,'ACTIVE'),('HA2','house A2','A',200,'ACTIVE'),('HB','house B','B',200,'ACTIVE'),('HX','other site','A2',200,'ACTIVE');
       INSERT INTO brd_flocks(flock_no,house_code,farm_code,company_code,site_code,breed_code,start_date,initial_qty,current_qty,status)
         VALUES('FA','HA','A','CA','SA','BREED','2026-01-01',120,100,'LAYING');
       INSERT INTO sys_dict(dict_type,dict_code,dict_label_zh,dict_label_en,sort_no,status) VALUES('BRD_BREED','BREED','Approved breed','Breed',1,'ACTIVE'),('SYS_CURRENCY','CNY','人民币','CNY',1,'ACTIVE') ON CONFLICT DO NOTHING;
@@ -83,6 +84,47 @@ suite('approved flock ledger on isolated PostgreSQL',()=>{
       ('FILE-fixture-HA2','ACTIVE',NULL,'PROTECTED','application/pdf','FLOCK_LIFECYCLE','HOUSE','HA2','CA','SA','keeper');`);
   });
   afterAll(async()=>{if(ds?.isInitialized)await ds.destroy();releaseBusinessClock?.();});
+  it.each([[5000, null], [5000, 0], [0, 5000], [5000, 5000], [5000, 50000]])(
+    'posts a 5000-bird baseline at the effective limit with capacity=%s and max_capacity=%s',
+    async (legacyCapacity, maxCapacity) => {
+      await ds.query("UPDATE brd_houses SET capacity=$1,max_capacity=$2 WHERE house_code='HA'", [legacyCapacity,maxCapacity]);
+      await ds.query("UPDATE brd_flocks SET current_qty=5000 WHERE flock_no='FA'");
+      const rows=await s.overview(scope);
+      expect(rows.find((h: any)=>h.house_code==='HA').max_capacity).toBe(5000);
+
+      const posted=await post(await create({kind:'BASELINE',flockNo:'FA',quantity:5000,expectedLegacyQty:5000}));
+      expect(posted.status).toBe('POSTED');
+      expect(await bal()).toMatchObject({quantity:5000});
+      expect(await ds.query('SELECT capacity_snapshot FROM brd_flock_occupancies')).toEqual([{capacity_snapshot:5000}]);
+      expect((await s.transition(posted.id,'post',posted.version,scope,admin)).id).toBe(posted.id);
+      expect(await count('brd_flock_events')).toBe(1);
+    },
+  );
+  it.each([
+    [5000, null, 5001, '超过有效鸡舍容量（上限 5000 羽）'],
+    [5000, 4000, 4500, '超过有效鸡舍容量（上限 4000 羽）'],
+    [0, null, 5000, '鸡舍设计容量未核实'],
+  ])(
+    'leaves an approved baseline retryable when capacity=%s, max_capacity=%s and the count is %s',
+    async (legacyCapacity, maxCapacity, quantity, message) => {
+      await ds.query("UPDATE brd_houses SET capacity=$1,max_capacity=$2 WHERE house_code='HA'", [legacyCapacity,maxCapacity]);
+      await ds.query("UPDATE brd_flocks SET current_qty=$1 WHERE flock_no='FA'", [quantity]);
+      const draft=await create({kind:'BASELINE',flockNo:'FA',quantity,expectedLegacyQty:quantity});
+
+      await expect(post(draft)).rejects.toThrow(message);
+      expect(await ds.query('SELECT status,version FROM brd_flock_documents WHERE id=$1',[draft.id])).toEqual([{status:'APPROVED',version:2}]);
+      expect(await count('brd_flock_events')).toBe(0);
+      expect(await count('brd_flock_occupancies')).toBe(0);
+      expect(await bal()).toBeUndefined();
+    },
+  );
+  it('allows normalizing an active house to the same limit while refusing a change in capacity',async()=>{
+    await ds.query("UPDATE brd_houses SET capacity=5000,max_capacity=0 WHERE house_code='HA'");
+    const house={pkName:'house_code',id:'HA'};
+    await expect(writeHenhouse(ds.manager,{capacity:5001},house)).rejects.toThrow('在栏期间不能改设施容量');
+    await writeHenhouse(ds.manager,{capacity:5000},house);
+    expect(await ds.query("SELECT capacity,max_capacity FROM brd_houses WHERE house_code='HA'")).toEqual([{capacity:5000,max_capacity:5000}]);
+  });
   it('uses collection instants across Singapore midnight and never UTC aggregates or an unproved counter delta',async()=>{
     await ds.query(`INSERT INTO mon_device_property_history VALUES
       ('HA','2488',100,$1,'2026-11-10'),('HA','2488',106,$2,'2026-11-10'),('HA','2488',120,$3,'2026-11-11'),
@@ -244,7 +286,7 @@ suite('approved flock ledger on isolated PostgreSQL',()=>{
     const result=await lifecycleDailyBalance(ds.manager,{flock_no:'FA'},undefined,next,{});
     expect(result).toMatchObject({quantity:90,opening:100,closing:90});expect(next.elimination_qty).toBe(10);
     await expect(lifecycleDailyBalance(ds.manager,{flock_no:'FA'},undefined,{...next},{elimination_qty:1})).rejects.toThrow('重复扣减');
-    await expect(lifecycleDailyBalance(ds.manager,{flock_no:'FA'},undefined,{...next,shift:'AM'},{})).rejects.toThrow('DAILY');
+    await expect(lifecycleDailyBalance(ds.manager,{flock_no:'FA'},undefined,{...next,shift:'AM'},{})).rejects.toThrow('正式多班须先启用切换范围');
     expect((await bal()).quantity).toBe(90);
   });
   it('rejects future facts and baseline-before/after ambiguous legacy reports',async()=>{
@@ -252,12 +294,13 @@ suite('approved flock ledger on isolated PostgreSQL',()=>{
     await ds.query("INSERT INTO brd_daily_logs(flock_no,house_code,log_date,shift) VALUES('FA','HA','2026-11-11','DAILY')");
     await expect(baseline()).rejects.toThrow('基线后');
   });
-  it('transfers entire flock atomically to cleaned empty house without changing total',async()=>{
+  it('transfers the flock at the legacy target capacity without changing total',async()=>{
+    await ds.query("UPDATE brd_houses SET capacity=100,max_capacity=NULL WHERE house_code='HA2'");
     await baseline();await clean('HA2');
     await post(await create({kind:'TRANSFER',flockNo:'FA',targetHouseCode:'HA2',businessDate:'2026-11-11'}));
     expect(await bal()).toMatchObject({house_code:'HA2',quantity:100,version:1});
-    const rows=await ds.query('SELECT house_code,began_on::text,ended_on::text FROM brd_flock_occupancies ORDER BY began_on');
-    expect(rows).toMatchObject([{house_code:'HA',ended_on:'2026-11-11'},{house_code:'HA2',began_on:'2026-11-11',ended_on:null}]);
+    const rows=await ds.query('SELECT house_code,began_on::text,ended_on::text,capacity_snapshot FROM brd_flock_occupancies ORDER BY began_on');
+    expect(rows).toMatchObject([{house_code:'HA',ended_on:'2026-11-11'},{house_code:'HA2',began_on:'2026-11-11',ended_on:null,capacity_snapshot:100}]);
     expect((await ds.query('SELECT SUM(quantity_delta)::integer AS n FROM brd_flock_events'))[0].n).toBe(100);
   });
   it('rejects occupied/unclean target, partial and same-day transfer, preserving source',async()=>{
@@ -276,10 +319,12 @@ suite('approved flock ledger on isolated PostgreSQL',()=>{
     await post(await create({kind:'CLOSE',flockNo:'FA',expectedVersion:1,businessDate:'2026-11-11'}));
     await post(await create({kind:'CLEAN_START',expectedHouseVersion:1,businessDate:'2026-11-12'}));
     await post(await create({kind:'CLEAN_ACCEPT',expectedHouseVersion:2,businessDate:'2026-11-12'}));
+    await ds.query("UPDATE brd_houses SET capacity=80,max_capacity=NULL WHERE house_code='HA'");
     const next=await post(await create({kind:'ADMIT',quantity:80,expectedHouseVersion:3,businessDate:'2026-11-12',sourceKind:'SUPPLIER',sourceCode:'SUPPLIER-1',sourceReceipt:'RECEIPT-1',breedCode:'BREED',placementAge:120}));
     expect(next.flock_no).not.toBe('FA');
     expect((await ds.query("SELECT current_qty,status FROM brd_flocks WHERE flock_no='FA'"))[0]).toEqual({current_qty:0,status:'RETIRED'});
     expect(await count('brd_flock_occupancies')).toBe(2);
+    expect(await ds.query('SELECT capacity_snapshot FROM brd_flock_occupancies WHERE flock_no=$1',[next.flock_no])).toEqual([{capacity_snapshot:80}]);
   });
   it('reverses once and replays historical daily balances; facts cannot be edited',async()=>{
     await baseline();
